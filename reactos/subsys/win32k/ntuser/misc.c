@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.95 2004/12/25 22:59:10 navaraf Exp $
+/* $Id: misc.c,v 1.58 2004/04/02 22:16:09 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -8,14 +8,29 @@
  * REVISION HISTORY:
  *       2003/05/22  Created
  */
-
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddmou.h>
+#include <win32k/win32k.h>
+#include <win32k/dc.h>
+#include <internal/safe.h>
+#include <include/error.h>
+#include <include/window.h>
+#include <include/menu.h>
+#include <include/painting.h>
+#include <include/dce.h>
+#include <include/mouse.h>
+#include <include/winsta.h>
+#include <include/caret.h>
+#include <include/object.h>
+#include <include/focus.h>
+#include <include/clipboard.h>
+#include <include/msgqueue.h>
+#include <include/desktop.h>
+#include <include/text.h>
+#include <include/tags.h>
 
 #define NDEBUG
 #include <debug.h>
-
-/* registered Logon process */
-PW32PROCESS LogonProcess = NULL;
 
 void W32kRegisterPrimitiveMessageQueue() {
   extern PUSER_MESSAGE_QUEUE pmPrimitiveMessageQueue;
@@ -36,61 +51,6 @@ PUSER_MESSAGE_QUEUE W32kGetPrimitiveMessageQueue() {
   return pmPrimitiveMessageQueue;
 }
 
-BOOL FASTCALL
-IntRegisterLogonProcess(DWORD ProcessId, BOOL Register)
-{
-  PEPROCESS Process;
-  NTSTATUS Status;
-  CSRSS_API_REQUEST Request;
-  CSRSS_API_REPLY Reply;
-
-  Status = PsLookupProcessByProcessId((PVOID)ProcessId,
-				      &Process);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastWin32Error(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  if (Register)
-  {
-    /* Register the logon process */
-    if (LogonProcess != NULL)
-    {
-      ObDereferenceObject(Process);
-      return FALSE;
-    }
-
-    LogonProcess = Process->Win32Process;
-  }
-  else
-  {
-    /* Deregister the logon process */
-    if (LogonProcess != Process->Win32Process)
-    {
-      ObDereferenceObject(Process);
-      return FALSE;
-    }
-
-    LogonProcess = NULL;
-  }
-
-  ObDereferenceObject(Process);
-
-  Request.Type = CSRSS_REGISTER_LOGON_PROCESS;
-  Request.Data.RegisterLogonProcessRequest.ProcessId = ProcessId;
-  Request.Data.RegisterLogonProcessRequest.Register = Register;
-
-  Status = CsrNotify(&Request, &Reply);
-  if (! NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to register logon process with CSRSS\n");
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
 /*
  * @unimplemented
  */
@@ -108,7 +68,7 @@ NtUserCallNoParam(DWORD Routine)
       break;
     
     case NOPARAM_ROUTINE_DESTROY_CARET:
-      Result = (DWORD)IntDestroyCaret(PsGetCurrentThread()->Tcb.Win32Thread);
+      Result = (DWORD)IntDestroyCaret(PsGetCurrentThread()->Win32Thread);
       break;
     
     case NOPARAM_ROUTINE_INIT_MESSAGE_PUMP:
@@ -122,24 +82,9 @@ NtUserCallNoParam(DWORD Routine)
     case NOPARAM_ROUTINE_GETMESSAGEEXTRAINFO:
       Result = (DWORD)MsqGetMessageExtraInfo();
       break;
-    
-    case NOPARAM_ROUTINE_ANYPOPUP:
-      Result = (DWORD)IntAnyPopup();
-      break;
-
-    case NOPARAM_ROUTINE_CSRSS_INITIALIZED:
-      Result = (DWORD)CsrInit();
-      break;
-    
-    case NOPARAM_ROUTINE_GDI_QUERY_TABLE:
-      Result = (DWORD)GDI_MapHandleTable(NtCurrentProcess());
-      break;
-    
-    case NOPARAM_ROUTINE_MSQCLEARWAKEMASK:
-      return (DWORD)IntMsqClearWakeMask();
 
     default:
-      DPRINT1("Calling invalid routine number 0x%x in NtUserCallNoParam\n", Routine);
+      DPRINT1("Calling invalid routine number 0x%x in NtUserCallTwoParam\n");
       SetLastWin32Error(ERROR_INVALID_PARAMETER);
       break;
   }
@@ -155,17 +100,18 @@ NtUserCallOneParam(
   DWORD Param,
   DWORD Routine)
 {
+  NTSTATUS Status;
+  DWORD Result = 0;
+  PWINSTATION_OBJECT WinStaObject;
+  PWINDOW_OBJECT WindowObject;
+  
   switch(Routine)
   {
     case ONEPARAM_ROUTINE_GETMENU:
-    {
-      PWINDOW_OBJECT WindowObject;
-      DWORD Result;
-      
       WindowObject = IntGetWindowObject((HWND)Param);
       if(!WindowObject)
       {
-        SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
+        SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
       }
       
@@ -173,36 +119,26 @@ NtUserCallOneParam(
       
       IntReleaseWindowObject(WindowObject);
       return Result;
-    }
       
     case ONEPARAM_ROUTINE_ISWINDOWUNICODE:
-    {
-      PWINDOW_OBJECT WindowObject;
-      DWORD Result;
-      
       WindowObject = IntGetWindowObject((HWND)Param);
       if(!WindowObject)
       {
-        SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
+        SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
       }
       Result = WindowObject->Unicode;
       IntReleaseWindowObject(WindowObject);
       return Result;
-    }
       
     case ONEPARAM_ROUTINE_WINDOWFROMDC:
       return (DWORD)IntWindowFromDC((HDC)Param);
       
     case ONEPARAM_ROUTINE_GETWNDCONTEXTHLPID:
-    {
-      PWINDOW_OBJECT WindowObject;
-      DWORD Result;
-      
       WindowObject = IntGetWindowObject((HWND)Param);
       if(!WindowObject)
       {
-        SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
+        SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
       }
       
@@ -210,28 +146,19 @@ NtUserCallOneParam(
       
       IntReleaseWindowObject(WindowObject);
       return Result;
-    }
     
     case ONEPARAM_ROUTINE_SWAPMOUSEBUTTON:
-    {
-      PWINSTATION_OBJECT WinStaObject;
-      NTSTATUS Status;
-      DWORD Result;
-      
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObject);
       if (!NT_SUCCESS(Status))
         return (DWORD)FALSE;
 
-      /* FIXME
-      Result = (DWORD)IntSwapMouseButton(WinStaObject, (BOOL)Param); */
-      Result = 0;
+      Result = (DWORD)IntSwapMouseButton(WinStaObject, (BOOL)Param);
 
       ObDereferenceObject(WinStaObject);
       return Result;
-    }
     
     case ONEPARAM_ROUTINE_SWITCHCARETSHOWING:
       return (DWORD)IntSwitchCaretShowing((PVOID)Param);
@@ -243,10 +170,6 @@ NtUserCallOneParam(
       return (DWORD)IntEnumClipboardFormats((UINT)Param);
     
     case ONEPARAM_ROUTINE_GETWINDOWINSTANCE:
-    {
-      PWINDOW_OBJECT WindowObject;
-      DWORD Result;
-      
       if(!(WindowObject = IntGetWindowObject((HWND)Param)))
       {
         SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
@@ -256,91 +179,11 @@ NtUserCallOneParam(
       Result = (DWORD)WindowObject->Instance;
       IntReleaseWindowObject(WindowObject);
       return Result;
-    }
     
     case ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO:
       return (DWORD)MsqSetMessageExtraInfo((LPARAM)Param);
-    
-    case ONEPARAM_ROUTINE_GETCURSORPOSITION:
-    {
-      PSYSTEM_CURSORINFO CurInfo;
-      PWINSTATION_OBJECT WinStaObject;
-      NTSTATUS Status;
-      POINT Pos;
-      
-      if(!Param)
-        return (DWORD)FALSE;
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
-                                              KernelMode,
-                                              0,
-                                              &WinStaObject);
-      if (!NT_SUCCESS(Status))
-        return (DWORD)FALSE;
-      
-      CurInfo = IntGetSysCursorInfo(WinStaObject);
-      /* FIXME - check if process has WINSTA_READATTRIBUTES */
-      Pos.x = CurInfo->x;
-      Pos.y = CurInfo->y;
-      
-      Status = MmCopyToCaller((PPOINT)Param, &Pos, sizeof(POINT));
-      if(!NT_SUCCESS(Status))
-      {
-        ObDereferenceObject(WinStaObject);
-        SetLastNtError(Status);
-        return FALSE;
-      }
-      
-      ObDereferenceObject(WinStaObject);
-      
-      return (DWORD)TRUE;
-    }
-    
-    case ONEPARAM_ROUTINE_ISWINDOWINDESTROY:
-    {
-      PWINDOW_OBJECT WindowObject;
-      DWORD Result;
-      
-      WindowObject = IntGetWindowObject((HWND)Param);
-      if(!WindowObject)
-      {
-        SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-        return FALSE;
-      }
-      
-      Result = (DWORD)IntIsWindowInDestroy(WindowObject);
-      
-      IntReleaseWindowObject(WindowObject);
-      return Result;
-    }
-    
-    case ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING:
-    {
-      BOOL Enable;
-      PW32PROCESS Process = PsGetWin32Process();
-      
-      if(Process != NULL)
-      {
-        Enable = (BOOL)(Param != 0);
-        
-        if(Enable)
-        {
-          Process->Flags &= ~W32PF_NOWINDOWGHOSTING;
-        }  
-        else
-        {
-          Process->Flags |= W32PF_NOWINDOWGHOSTING;
-        }
-        
-        return TRUE;
-      }
-      
-      return FALSE;
-    }
-
-    case ONEPARAM_ROUTINE_MSQSETWAKEMASK:
-      return (DWORD)IntMsqSetWakeMask(Param);
   }
-  DPRINT1("Calling invalid routine number 0x%x in NtUserCallOneParam(), Param=0x%x\n", 
+  DPRINT1("Calling invalid routine number 0x%x in NtUserCallOneParam()\n Param=0x%x\n", 
           Routine, Param);
   SetLastWin32Error(ERROR_INVALID_PARAMETER);
   return 0;
@@ -359,21 +202,12 @@ NtUserCallTwoParam(
 {
   NTSTATUS Status;
   PWINDOW_OBJECT WindowObject;
+  PSYSTEM_CURSORINFO CurInfo;
+  PWINSTATION_OBJECT WinStaObject;
+  POINT Pos;
   
   switch(Routine)
   {
-    case TWOPARAM_ROUTINE_SETDCPENCOLOR:
-    {
-      return (DWORD)IntSetDCColor((HDC)Param1, OBJ_PEN, (COLORREF)Param2);
-    }
-    case TWOPARAM_ROUTINE_SETDCBRUSHCOLOR:
-    {
-      return (DWORD)IntSetDCColor((HDC)Param1, OBJ_BRUSH, (COLORREF)Param2);
-    }
-    case TWOPARAM_ROUTINE_GETDCCOLOR:
-    {
-      return (DWORD)IntGetDCColor((HDC)Param1, (ULONG)Param2);
-    }
     case TWOPARAM_ROUTINE_GETWINDOWRGNBOX:
     {
       DWORD Ret;
@@ -430,10 +264,33 @@ NtUserCallTwoParam(
     
     case TWOPARAM_ROUTINE_SETGUITHRDHANDLE:
     {
-      PUSER_MESSAGE_QUEUE MsgQueue = PsGetCurrentThread()->Tcb.Win32Thread->MessageQueue;
-      
-      ASSERT(MsgQueue);
-      return (DWORD)MsqSetStateWindow(MsgQueue, (ULONG)Param1, (HWND)Param2);
+      HWND *hwnd;
+      PUSER_MESSAGE_QUEUE MsgQueue = PsGetCurrentThread()->Win32Thread->MessageQueue;
+
+      switch(Param1)
+      {
+        case TPR_SGTH_ACTIVE:
+          hwnd = &MsgQueue->ActiveWindow;
+          break;
+        case TPR_SGTH_FOCUS:
+          hwnd = &MsgQueue->FocusWindow;
+          break;
+        case TPR_SGTH_CAPTURE:
+          hwnd = &MsgQueue->CaptureWindow;
+          break;
+        case TPR_SGTH_MENUOWNER:
+          hwnd = &MsgQueue->MenuOwner;
+          break;
+        case TPR_SGTH_MOVESIZE:
+          hwnd = &MsgQueue->MoveSize;
+          break;
+        case TPR_SGTH_CARET:
+          hwnd = &MsgQueue->CaretInfo->hWnd;
+          break;
+        default:
+          return 0;
+      }
+      return (DWORD)(*hwnd = (HWND)Param2);
     }
     
     case TWOPARAM_ROUTINE_ENABLEWINDOW:
@@ -467,6 +324,59 @@ NtUserCallTwoParam(
       
       IntReleaseWindowObject(WindowObject);
       return (DWORD)TRUE;
+      
+    case TWOPARAM_ROUTINE_CURSORPOSITION:
+      if(!Param1)
+        return (DWORD)FALSE;
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+                                              KernelMode,
+                                              0,
+                                              &WinStaObject);
+      if (!NT_SUCCESS(Status))
+        return (DWORD)FALSE;
+      
+      if(Param2)
+      {
+        /* set cursor position */
+        
+        Status = MmCopyFromCaller(&Pos, (PPOINT)Param1, sizeof(POINT));
+        if(!NT_SUCCESS(Status))
+        {
+          ObDereferenceObject(WinStaObject);
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        
+        CurInfo = &WinStaObject->SystemCursor;
+        /* FIXME - check if process has WINSTA_WRITEATTRIBUTES */
+        
+        //CheckClipCursor(&Pos->x, &Pos->y, CurInfo);  
+        if((Pos.x != CurInfo->x) || (Pos.y != CurInfo->y))
+        {
+          MouseMoveCursor(Pos.x, Pos.y);
+        }
+
+      }
+      else
+      {
+        /* get cursor position */
+        /* FIXME - check if process has WINSTA_READATTRIBUTES */
+        Pos.x = WinStaObject->SystemCursor.x;
+        Pos.y = WinStaObject->SystemCursor.y;
+        
+        Status = MmCopyToCaller((PPOINT)Param1, &Pos, sizeof(POINT));
+        if(!NT_SUCCESS(Status))
+        {
+          ObDereferenceObject(WinStaObject);
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        
+      }
+      
+      ObDereferenceObject(WinStaObject);
+      
+      return (DWORD)TRUE;
     
     case TWOPARAM_ROUTINE_SETCARETPOS:
       return (DWORD)IntSetCaretPos((int)Param1, (int)Param2);
@@ -482,11 +392,6 @@ NtUserCallTwoParam(
         return FALSE;
       }
       
-#if 0
-      /*
-       * According to WINE, Windows' doesn't check the cbSize field
-       */
-      
       Status = MmCopyFromCaller(&wi.cbSize, (PVOID)Param2, sizeof(wi.cbSize));
       if(!NT_SUCCESS(Status))
       {
@@ -501,7 +406,6 @@ NtUserCallTwoParam(
         SetLastWin32Error(ERROR_INVALID_PARAMETER);
         return FALSE;
       }
-#endif
       
       if((Ret = (DWORD)IntGetWindowInfo(WindowObject, &wi)))
       {
@@ -517,106 +421,8 @@ NtUserCallTwoParam(
       IntReleaseWindowObject(WindowObject);
       return Ret;
     }
-    
-    case TWOPARAM_ROUTINE_REGISTERLOGONPROC:
-      return (DWORD)IntRegisterLogonProcess(Param1, (BOOL)Param2);
-
-    case TWOPARAM_ROUTINE_SETSYSCOLORS:
-    {
-      DWORD Ret = 0;
-      PVOID Buffer;
-      struct
-      {
-        INT *Elements;
-        COLORREF *Colors;
-      } ChangeSysColors;
-
-      /* FIXME - we should make use of SEH here... */
-      
-      Status = MmCopyFromCaller(&ChangeSysColors, (PVOID)Param1, sizeof(ChangeSysColors));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return 0;
-      }
-      
-      Buffer = ExAllocatePool(PagedPool, (Param2 * sizeof(INT)) + (Param2 * sizeof(COLORREF)));
-      if(Buffer != NULL)
-      {
-        INT *Elements = (INT*)Buffer;
-        COLORREF *Colors = (COLORREF*)Buffer + Param2;
-        
-        Status = MmCopyFromCaller(Elements, ChangeSysColors.Elements, Param2 * sizeof(INT));
-        if(NT_SUCCESS(Status))
-        {
-          Status = MmCopyFromCaller(Colors, ChangeSysColors.Colors, Param2 * sizeof(COLORREF));
-          if(NT_SUCCESS(Status))
-          {
-            Ret = (DWORD)IntSetSysColors((UINT)Param2, Elements, Colors);
-          }
-          else
-            SetLastNtError(Status);
-        }
-        else
-          SetLastNtError(Status);
-
-        ExFreePool(Buffer);
-      }
-      return Ret;
-    }
-
-    case TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES:
-    case TWOPARAM_ROUTINE_GETSYSCOLORPENS:
-    case TWOPARAM_ROUTINE_GETSYSCOLORS:
-    {
-      DWORD Ret = 0;
-      union
-      {
-        PVOID Pointer;
-        HBRUSH *Brushes;
-        HPEN *Pens;
-        COLORREF *Colors;
-      } Buffer;
-
-      /* FIXME - we should make use of SEH here... */
-      
-      Buffer.Pointer = ExAllocatePool(PagedPool, Param2 * sizeof(HANDLE));
-      if(Buffer.Pointer != NULL)
-      {
-        switch(Routine)
-        {
-          case TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES:
-            Ret = (DWORD)IntGetSysColorBrushes(Buffer.Brushes, (UINT)Param2);
-            break;
-          case TWOPARAM_ROUTINE_GETSYSCOLORPENS:
-            Ret = (DWORD)IntGetSysColorPens(Buffer.Pens, (UINT)Param2);
-            break;
-          case TWOPARAM_ROUTINE_GETSYSCOLORS:
-            Ret = (DWORD)IntGetSysColors(Buffer.Colors, (UINT)Param2);
-            break;
-          default:
-            Ret = 0;
-            break;
-        }
-        
-        if(Ret > 0)
-        {
-          Status = MmCopyToCaller((PVOID)Param1, Buffer.Pointer, Param2 * sizeof(HANDLE));
-          if(!NT_SUCCESS(Status))
-          {
-            SetLastNtError(Status);
-            Ret = 0;
-          }
-        }
-
-        ExFreePool(Buffer.Pointer);
-      }
-
-      return Ret;
-    }
-    
   }
-  DPRINT1("Calling invalid routine number 0x%x in NtUserCallTwoParam(), Param1=0x%x Parm2=0x%x\n",
+  DPRINT1("Calling invalid routine number 0x%x in NtUserCallTwoParam()\n Param1=0x%x Parm2=0x%x\n",
           Routine, Param1, Param2);
   SetLastWin32Error(ERROR_INVALID_PARAMETER);
   return 0;
@@ -656,7 +462,7 @@ NtUserCallHwndLock(
          /* FIXME */
          break;
 
-      case HWNDLOCK_ROUTINE_SETFOREGROUNDWINDOW:
+      case HWNDLOCK_ROUTINE_SETFOREGROUNDWINDOW:         
          Ret = IntSetForegroundWindow(Window);
          break;
 
@@ -735,22 +541,24 @@ IntGetFontMetricSetting(LPWSTR lpValueName, PLOGFONTW font)
    }
 }
 
-ULONG FASTCALL
-IntSystemParametersInfo(
+/*
+ * @implemented
+ */
+DWORD
+STDCALL
+NtUserSystemParametersInfo(
   UINT uiAction,
   UINT uiParam,
   PVOID pvParam,
   UINT fWinIni)
 {
-  PWINSTATION_OBJECT WinStaObject;
+  static BOOL GradientCaptions = TRUE;
   NTSTATUS Status;
+  PWINSTATION_OBJECT WinStaObject;
 
   static BOOL bInitialized = FALSE;
   static LOGFONTW IconFont;
   static NONCLIENTMETRICSW pMetrics;
-  static BOOL GradientCaptions = TRUE;
-  static UINT FocusBorderHeight = 1;
-  static UINT FocusBorderWidth = 1;
   
   if (!bInitialized)
   {
@@ -773,359 +581,165 @@ IntSystemParametersInfo(
     pMetrics.iSmCaptionHeight = NtUserGetSystemMetrics(SM_CYSMSIZE);
     pMetrics.iMenuWidth = NtUserGetSystemMetrics(SM_CXMENUSIZE);
     pMetrics.iMenuHeight = NtUserGetSystemMetrics(SM_CYMENUSIZE);
-    pMetrics.cbSize = sizeof(NONCLIENTMETRICSW);
+    pMetrics.cbSize = sizeof(LPNONCLIENTMETRICSW);
     
     bInitialized = TRUE;
   }
-  
+
   switch(uiAction)
   {
     case SPI_SETDOUBLECLKWIDTH:
     case SPI_SETDOUBLECLKHEIGHT:
     case SPI_SETDOUBLECLICKTIME:
-    case SPI_SETDESKWALLPAPER:
-    case SPI_GETDESKWALLPAPER:
-    {
-      PSYSTEM_CURSORINFO CurInfo;
-      
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
-                                              KernelMode,
-                                              0,
-                                              &WinStaObject);
-      if(!NT_SUCCESS(Status))
       {
-        SetLastNtError(Status);
-        return (DWORD)FALSE;
-      }
-      
-      switch(uiAction)
-      {
-        case SPI_SETDOUBLECLKWIDTH:
-          CurInfo = IntGetSysCursorInfo(WinStaObject);
-          /* FIXME limit the maximum value? */
-          CurInfo->DblClickWidth = uiParam;
-          break;
-        case SPI_SETDOUBLECLKHEIGHT:
-          CurInfo = IntGetSysCursorInfo(WinStaObject);
-          /* FIXME limit the maximum value? */
-          CurInfo->DblClickHeight = uiParam;
-          break;
-        case SPI_SETDOUBLECLICKTIME:
-          CurInfo = IntGetSysCursorInfo(WinStaObject);
-          /* FIXME limit the maximum time to 1000 ms? */
-          CurInfo->DblClickSpeed = uiParam;
-          break;
-        case SPI_SETDESKWALLPAPER:
-        {
-          /* This function expects different parameters than the user mode version!
-
-             We let the user mode code load the bitmap, it passed the handle to
-             the bitmap. We'll change it's ownership to system and replace it with
-             the current wallpaper bitmap */
-          HBITMAP hOldBitmap, hNewBitmap;
-          ASSERT(pvParam);
-
-          hNewBitmap = *(HBITMAP*)pvParam;
-          if(hNewBitmap != NULL)
-          {
-            BITMAPOBJ *bmp;
-            /* try to get the size of the wallpaper */
-            if(!(bmp = BITMAPOBJ_LockBitmap(hNewBitmap)))
-            {
-              ObDereferenceObject(WinStaObject);
-              return FALSE;
-            }
-            WinStaObject->cxWallpaper = bmp->SurfObj.sizlBitmap.cx;
-            WinStaObject->cyWallpaper = bmp->SurfObj.sizlBitmap.cy;
-
-            BITMAPOBJ_UnlockBitmap(hNewBitmap);
-            
-            /* change the bitmap's ownership */
-            GDIOBJ_SetOwnership(hNewBitmap, NULL);
-          }
-          hOldBitmap = (HBITMAP)InterlockedExchange((LONG*)&WinStaObject->hbmWallpaper, (LONG)hNewBitmap);
-          if(hOldBitmap != NULL)
-          {
-            /* delete the old wallpaper */
-            NtGdiDeleteObject(hOldBitmap);
-          }
-          break;
-        }
-        case SPI_GETDESKWALLPAPER:
-          /* This function expects different parameters than the user mode version!
-
-             We basically return the current wallpaper handle - if any. The user
-             mode version should load the string from the registry and return it
-             without calling this function */
-          ASSERT(pvParam);
-          *(HBITMAP*)pvParam = (HBITMAP)WinStaObject->hbmWallpaper;
-          break;
-      }
-      
-      /* FIXME save the value to the registry */
-      
-      ObDereferenceObject(WinStaObject);
-      return TRUE;
-    }
-    case SPI_SETWORKAREA:
-    {
-      RECT *rc;
-      PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
-      
-      if(!Desktop)
-      {
-        /* FIXME - Set last error */
-        return FALSE;
-      }
-      
-      ASSERT(pvParam);
-      rc = (RECT*)pvParam;
-      Desktop->WorkArea = *rc;
-      
-      return TRUE;
-    }
-    case SPI_GETWORKAREA:
-    {
-      PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
-      
-      if(!Desktop)
-      {
-        /* FIXME - Set last error */
-        return FALSE;
-      }
-      
-      ASSERT(pvParam);
-      IntGetDesktopWorkArea(Desktop, (PRECT)pvParam);
-      
-      return TRUE;
-    }
-    case SPI_SETGRADIENTCAPTIONS:
-    {
-      GradientCaptions = (pvParam != NULL);
-      /* FIXME - should be checked if the color depth is higher than 8bpp? */
-      return TRUE;
-    }
-    case SPI_GETGRADIENTCAPTIONS:
-    {
-      HDC hDC;
-      BOOL Ret = GradientCaptions;
-      
-      hDC = IntGetScreenDC();
-      if(hDC)
-      {
-        Ret = (NtGdiGetDeviceCaps(hDC, BITSPIXEL) > 8) && Ret;
+        Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+                                                KernelMode,
+                                                0,
+                                                &WinStaObject);
+        if (!NT_SUCCESS(Status))
+          return (DWORD)FALSE;
         
-        ASSERT(pvParam);
-        *((PBOOL)pvParam) = Ret;
+        switch(uiAction)
+        {
+          case SPI_SETDOUBLECLKWIDTH:
+            /* FIXME limit the maximum value? */
+            WinStaObject->SystemCursor.DblClickWidth = uiParam;
+            break;
+          case SPI_SETDOUBLECLKHEIGHT:
+            /* FIXME limit the maximum value? */
+            WinStaObject->SystemCursor.DblClickHeight = uiParam;
+            break;
+          case SPI_SETDOUBLECLICKTIME:
+            /* FIXME limit the maximum time to 1000 ms? */
+            WinStaObject->SystemCursor.DblClickSpeed = uiParam;
+            break;
+        }
+        
+        /* FIXME save the value to the registry */
+        
+        ObDereferenceObject(WinStaObject);
         return TRUE;
       }
-      return FALSE;
-    }
-    case SPI_SETFONTSMOOTHING:
-    {
-      IntEnableFontRendering(uiParam != 0);
-      return TRUE;
-    }
-    case SPI_GETFONTSMOOTHING:
-    {
-      ASSERT(pvParam);
-      *((BOOL*)pvParam) = IntIsFontRenderingEnabled();
-      return TRUE;
-    }
-    case SPI_GETICONTITLELOGFONT:
-    {
-      ASSERT(pvParam);
-      *((LOGFONTW*)pvParam) = IconFont;
-      return TRUE;
-    }
-    case SPI_GETNONCLIENTMETRICS:
-    {
-      ASSERT(pvParam);
-      *((NONCLIENTMETRICSW*)pvParam) = pMetrics;
-      return TRUE;
-    }
-    case SPI_GETFOCUSBORDERHEIGHT:
-    {
-      ASSERT(pvParam);
-      *((UINT*)pvParam) = FocusBorderHeight;
-      return TRUE;
-    }
-    case SPI_GETFOCUSBORDERWIDTH:
-    {
-      ASSERT(pvParam);
-      *((UINT*)pvParam) = FocusBorderWidth;
-      return TRUE;
-    }
-    case SPI_SETFOCUSBORDERHEIGHT:
-    {
-      FocusBorderHeight = (UINT)pvParam;
-      return TRUE;
-    }
-    case SPI_SETFOCUSBORDERWIDTH:
-    {
-      FocusBorderWidth = (UINT)pvParam;
-      return TRUE;
-    }
-    
-    default:
-    {
-      DPRINT1("SystemParametersInfo: Unsupported Action 0x%x (uiParam: 0x%x, pvParam: 0x%x, fWinIni: 0x%x)\n",
-              uiAction, uiParam, pvParam, fWinIni);
-      return FALSE;
-    }
-  }
-  return FALSE;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-NtUserSystemParametersInfo(
-  UINT uiAction,
-  UINT uiParam,
-  PVOID pvParam,
-  UINT fWinIni)
-{
-  NTSTATUS Status;
-
-  switch(uiAction)
-  {
-    case SPI_SETDOUBLECLKWIDTH:
-    case SPI_SETDOUBLECLKHEIGHT:
-    case SPI_SETDOUBLECLICKTIME:
-    case SPI_SETGRADIENTCAPTIONS:
-    case SPI_SETFONTSMOOTHING:
-    case SPI_SETFOCUSBORDERHEIGHT:
-    case SPI_SETFOCUSBORDERWIDTH:
-    {
-      return (DWORD)IntSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
-    }
     case SPI_SETWORKAREA:
-    {
-      RECT rc;
-      Status = MmCopyFromCaller(&rc, (PRECT)pvParam, sizeof(RECT));
-      if(!NT_SUCCESS(Status))
       {
-        SetLastNtError(Status);
-        return FALSE;
+        PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
+        
+        if(!Desktop)
+        {
+          /* FIXME - Set last error */
+          return FALSE;
+        }
+        
+        Status = MmCopyFromCaller(Desktop->WorkArea, (PRECT)pvParam, sizeof(RECT));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        
+        return TRUE;
       }
-      return (DWORD)IntSystemParametersInfo(uiAction, uiParam, &rc, fWinIni);
-    }
     case SPI_GETWORKAREA:
-    {
-      RECT rc;
-      
-      if(!IntSystemParametersInfo(uiAction, uiParam, &rc, fWinIni))
       {
-        return FALSE;
+        PRECT Rect;
+        PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
+        
+        if(!Desktop)
+        {
+          /* FIXME - Set last error */
+          return FALSE;
+        }
+        
+        Rect = IntGetDesktopWorkArea(Desktop);
+        
+        Status = MmCopyToCaller((PRECT)pvParam, Desktop->WorkArea, sizeof(RECT));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        
+        return TRUE;
       }
-      
-      Status = MmCopyToCaller((PRECT)pvParam, &rc, sizeof(RECT));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return FALSE;
-      }
-      return TRUE;
-    }
-    case SPI_GETFONTSMOOTHING:
     case SPI_GETGRADIENTCAPTIONS:
-    case SPI_GETFOCUSBORDERHEIGHT:
-    case SPI_GETFOCUSBORDERWIDTH:
-    {
-      BOOL Ret;
-      
-      if(!IntSystemParametersInfo(uiAction, uiParam, &Ret, fWinIni))
       {
-        return FALSE;
+        HDC hDC;
+        PDC dc;
+        PSURFOBJ SurfObj;
+        BOOL Ret = GradientCaptions;
+        
+        hDC = IntGetScreenDC();
+        if(hDC)
+        {
+          dc = DC_LockDc(hDC);
+          SurfObj = (PSURFOBJ)AccessUserObject((ULONG) dc->Surface);
+          if(SurfObj)
+            Ret = (SurfObj->iBitmapFormat > BMF_8BPP);
+          DC_UnlockDc(hDC);
+        }
+        
+        Status = MmCopyToCaller(pvParam, &Ret, sizeof(BOOL));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        return TRUE;
       }
-      
-      Status = MmCopyToCaller(pvParam, &Ret, sizeof(BOOL));
-      if(!NT_SUCCESS(Status))
+    case SPI_SETGRADIENTCAPTIONS:
       {
-        SetLastNtError(Status);
-        return FALSE;
+        Status = MmCopyFromCaller(&GradientCaptions, pvParam, sizeof(BOOL));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        return TRUE;
       }
-      return TRUE;
-    }
-    case SPI_SETDESKWALLPAPER:
-    {
-      /* !!! As opposed to the user mode version this version accepts a handle
-             to the bitmap! */
-      HBITMAP hbmWallpaper;
-      
-      Status = MmCopyFromCaller(&hbmWallpaper, pvParam, sizeof(HBITMAP));
-      if(!NT_SUCCESS(Status))
+    case SPI_SETFONTSMOOTHING:
       {
-        SetLastNtError(Status);
-        return FALSE;
+        BOOL Enable;
+        
+        Status = MmCopyFromCaller(&Enable, pvParam, sizeof(BOOL));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        
+        IntEnableFontRendering(Enable);
+        
+        return TRUE;
       }
-      return IntSystemParametersInfo(SPI_SETDESKWALLPAPER, 0, &hbmWallpaper, fWinIni);
-    }
-    case SPI_GETDESKWALLPAPER:
-    {
-      /* !!! As opposed to the user mode version this version returns a handle
-             to the bitmap! */
-      HBITMAP hbmWallpaper;
-      BOOL Ret;
-      
-      Ret = IntSystemParametersInfo(SPI_GETDESKWALLPAPER, 0, &hbmWallpaper, fWinIni);
-
-      Status = MmCopyToCaller(pvParam, &hbmWallpaper, sizeof(HBITMAP));
-      if(!NT_SUCCESS(Status))
+    case SPI_GETFONTSMOOTHING:
       {
-        SetLastNtError(Status);
-        return FALSE;
+        BOOL Enabled = IntIsFontRenderingEnabled();
+        
+        Status = MmCopyToCaller(pvParam, &Enabled, sizeof(BOOL));
+        if(!NT_SUCCESS(Status))
+        {
+          SetLastNtError(Status);
+          return FALSE;
+        }
+        return TRUE;
       }
-      return Ret;
-    }
     case SPI_GETICONTITLELOGFONT:
     {
-      LOGFONTW IconFont;
-      
-      if(!IntSystemParametersInfo(uiAction, uiParam, &IconFont, fWinIni))
-      {
-        return FALSE;
-      }
-      
-      Status = MmCopyToCaller(pvParam, &IconFont, sizeof(LOGFONTW));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return FALSE;
-      }
-      return TRUE;
-    }
+        MmCopyToCaller(pvParam, (PVOID)&IconFont, sizeof(LOGFONTW));
+        return TRUE;
+    } 
     case SPI_GETNONCLIENTMETRICS:
     {
-      NONCLIENTMETRICSW metrics;
-      
-      Status = MmCopyFromCaller(&metrics.cbSize, pvParam, sizeof(UINT));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return FALSE;
-      }
-      if(metrics.cbSize != sizeof(NONCLIENTMETRICSW))
-      {
-        SetLastWin32Error(ERROR_INVALID_PARAMETER);
-        return FALSE;
-      }
-      
-      if(!IntSystemParametersInfo(uiAction, uiParam, &metrics, fWinIni))
-      {
-        return FALSE;
-      }
-      
-      Status = MmCopyToCaller(pvParam, &metrics.cbSize, sizeof(NONCLIENTMETRICSW));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return FALSE;
-      }
-      return TRUE;
+        /* FIXME:  Is this windows default behavior? */
+        LPNONCLIENTMETRICSW lpMetrics = (LPNONCLIENTMETRICSW)pvParam;
+        if ( lpMetrics->cbSize != sizeof(NONCLIENTMETRICSW) || 
+             uiParam != sizeof(NONCLIENTMETRICSW ))
+        {
+            return FALSE;
+        }
+        DPRINT("FontName: %S, Size:  %i\n",pMetrics.lfMessageFont.lfFaceName, pMetrics.lfMessageFont.lfHeight);
+        MmCopyToCaller(pvParam, (PVOID)&pMetrics, sizeof(NONCLIENTMETRICSW));
+        return TRUE;
     }
   }
   return FALSE;
@@ -1138,17 +752,15 @@ NtUserGetDoubleClickTime(VOID)
   UINT Result;
   NTSTATUS Status;
   PWINSTATION_OBJECT WinStaObject;
-  PSYSTEM_CURSORINFO CurInfo;
   
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                           KernelMode,
                                           0,
                                           &WinStaObject);
   if (!NT_SUCCESS(Status))
     return (DWORD)FALSE;
 
-  CurInfo = IntGetSysCursorInfo(WinStaObject);
-  Result = CurInfo->DblClickSpeed;
+  Result = WinStaObject->SystemCursor.DblClickSpeed;
       
   ObDereferenceObject(WinStaObject);
   return Result;
@@ -1188,12 +800,12 @@ NtUserGetGUIThreadInfo(
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
     }
-    Desktop = Thread->Tcb.Win32Thread->Desktop;
+    Desktop = Thread->Win32Thread->Desktop;
   }
   else
   {
     /* get the foreground thread */
-    PW32THREAD W32Thread = PsGetCurrentThread()->Tcb.Win32Thread;
+    PW32THREAD W32Thread = PsGetCurrentThread()->Win32Thread;
     Desktop = W32Thread->Desktop;
     if(Desktop)
     {
@@ -1319,24 +931,17 @@ IntSafeCopyUnicodeString(PUNICODE_STRING Dest,
     return Status;
   }
   
-  if(Dest->Length > 0x4000)
+  if(Dest->MaximumLength > 0)
   {
-    return STATUS_UNSUCCESSFUL;
-  }
-  
-  Src = Dest->Buffer;
-  Dest->Buffer = NULL;
-  
-  if(Dest->Length > 0 && Src)
-  {
-    Dest->MaximumLength = Dest->Length;
-    Dest->Buffer = ExAllocatePoolWithTag(PagedPool, Dest->MaximumLength, TAG_STRING);
+    Src = Dest->Buffer;
+    
+    Dest->Buffer = ExAllocatePoolWithTag(NonPagedPool, Dest->MaximumLength, TAG_STRING);
     if(!Dest->Buffer)
     {
       return STATUS_NO_MEMORY;
     }
     
-    Status = MmCopyFromCaller(Dest->Buffer, Src, Dest->Length);
+    Status = MmCopyFromCaller(Dest->Buffer, Src, Dest->MaximumLength);
     if(!NT_SUCCESS(Status))
     {
       ExFreePool(Dest->Buffer);
@@ -1347,99 +952,6 @@ IntSafeCopyUnicodeString(PUNICODE_STRING Dest,
     
     return STATUS_SUCCESS;
   }
-  
-  /* string is empty */
-  return STATUS_SUCCESS;
+  return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS FASTCALL
-IntSafeCopyUnicodeStringTerminateNULL(PUNICODE_STRING Dest,
-                                      PUNICODE_STRING Source)
-{
-  NTSTATUS Status;
-  PWSTR Src;
-  
-  Status = MmCopyFromCaller(Dest, Source, sizeof(UNICODE_STRING));
-  if(!NT_SUCCESS(Status))
-  {
-    return Status;
-  }
-  
-  if(Dest->Length > 0x4000)
-  {
-    return STATUS_UNSUCCESSFUL;
-  }
-  
-  Src = Dest->Buffer;
-  Dest->Buffer = NULL;
-  
-  if(Dest->Length > 0 && Src)
-  {
-    Dest->MaximumLength = Dest->Length + sizeof(WCHAR);
-    Dest->Buffer = ExAllocatePoolWithTag(PagedPool, Dest->MaximumLength, TAG_STRING);
-    if(!Dest->Buffer)
-    {
-      return STATUS_NO_MEMORY;
-    }
-    
-    Status = MmCopyFromCaller(Dest->Buffer, Src, Dest->Length);
-    if(!NT_SUCCESS(Status))
-    {
-      ExFreePool(Dest->Buffer);
-      Dest->Buffer = NULL;
-      return Status;
-    }
-    
-    /* make sure the string is null-terminated */
-    Src = (PWSTR)((PBYTE)Dest->Buffer + Dest->Length);
-    *Src = L'\0';
-    
-    return STATUS_SUCCESS;
-  }
-  
-  /* string is empty */
-  return STATUS_SUCCESS;
-}
-
-NTSTATUS FASTCALL
-IntUnicodeStringToNULLTerminated(PWSTR *Dest, PUNICODE_STRING Src)
-{
-  if (Src->Length + sizeof(WCHAR) <= Src->MaximumLength
-      && L'\0' == Src->Buffer[Src->Length / sizeof(WCHAR)])
-    {
-      /* The unicode_string is already nul terminated. Just reuse it. */
-      *Dest = Src->Buffer;
-      return STATUS_SUCCESS;
-    }
-
-  *Dest = ExAllocatePoolWithTag(PagedPool, Src->Length + sizeof(WCHAR), TAG_STRING);
-  if (NULL == *Dest)
-    {
-      return STATUS_NO_MEMORY;
-    }
-  RtlCopyMemory(*Dest, Src->Buffer, Src->Length);
-  (*Dest)[Src->Length / 2] = L'\0';
-
-  return STATUS_SUCCESS;
-}
-
-void FASTCALL
-IntFreeNULLTerminatedFromUnicodeString(PWSTR NullTerminated, PUNICODE_STRING UnicodeString)
-{
-  if (NullTerminated != UnicodeString->Buffer)
-    {
-      ExFreePool(NullTerminated);
-    }
-}
-
-BOOL STDCALL
-NtUserUpdatePerUserSystemParameters(
-   DWORD dwReserved,
-   BOOL bEnable)
-{
-   BOOL Result = TRUE;
-   Result &= IntDesktopUpdatePerUserSettings(bEnable);
-   return Result;
-}
-
-/* EOF */

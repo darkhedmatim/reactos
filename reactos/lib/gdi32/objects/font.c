@@ -1,4 +1,4 @@
-/* $Id: font.c,v 1.11 2004/12/30 02:32:24 navaraf Exp $
+/* $Id: font.c,v 1.2 2004/03/23 07:59:47 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -8,7 +8,15 @@
  *
  */
 
-#include "precomp.h"
+#ifdef UNICODE
+#undef UNICODE
+#endif
+
+#include <windows.h>
+#include <rosrtl/logfont.h>
+#include <win32k/font.h>
+#include <win32k/text.h>
+#include <internal/font.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -16,7 +24,7 @@
 #define INITIAL_FAMILY_COUNT 64
 
 static BOOL FASTCALL
-MetricsCharConvert(WCHAR w, UCHAR *b)
+MetricsCharConvert(WCHAR w, CHAR *b)
   {
   UNICODE_STRING WString;
   WCHAR WBuf[2];
@@ -178,6 +186,16 @@ NewTextMetricExW2A(NEWTEXTMETRICEXA *tma, NEWTEXTMETRICEXW *tmw)
   return TRUE;
 }
 
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+TranslateCharsetInfo(DWORD *Src, LPCHARSETINFO Cs, DWORD Flags)
+{
+  return NtGdiTranslateCharsetInfo(Src, Cs, Flags);
+}
+
 static int FASTCALL
 IntEnumFontFamilies(HDC Dc, LPLOGFONTW LogFont, PVOID EnumProc, LPARAM lParam,
                     BOOL Unicode)
@@ -185,7 +203,7 @@ IntEnumFontFamilies(HDC Dc, LPLOGFONTW LogFont, PVOID EnumProc, LPARAM lParam,
   int FontFamilyCount;
   unsigned FontFamilySize;
   PFONTFAMILYINFO Info;
-  int Ret = 0;
+  int Ret;
   unsigned i;
   ENUMLOGFONTEXA EnumLogFontExA;
   NEWTEXTMETRICEXA NewTextMetricExA;
@@ -224,26 +242,22 @@ IntEnumFontFamilies(HDC Dc, LPLOGFONTW LogFont, PVOID EnumProc, LPARAM lParam,
     {
       if (Unicode)
         {
-          Ret = ((FONTENUMPROCW) EnumProc)(
-            (LPLOGFONTW)&Info[i].EnumLogFontEx,
-            (LPTEXTMETRICW)&Info[i].NewTextMetricEx,
-            Info[i].FontType, lParam);
+          Ret = ((FONTENUMEXPROCW) EnumProc)(&Info[i].EnumLogFontEx, &Info[i].NewTextMetricEx,
+                                             Info[i].FontType, lParam);
         }
       else
         {
           RosRtlLogFontW2A(&EnumLogFontExA.elfLogFont, &Info[i].EnumLogFontEx.elfLogFont);
           WideCharToMultiByte(CP_THREAD_ACP, 0, Info[i].EnumLogFontEx.elfFullName, -1,
-                              (LPSTR)EnumLogFontExA.elfFullName, LF_FULLFACESIZE, NULL, NULL);
+                              EnumLogFontExA.elfFullName, LF_FULLFACESIZE, NULL, NULL);
           WideCharToMultiByte(CP_THREAD_ACP, 0, Info[i].EnumLogFontEx.elfStyle, -1,
-                              (LPSTR)EnumLogFontExA.elfStyle, LF_FACESIZE, NULL, NULL);
+                              EnumLogFontExA.elfStyle, LF_FACESIZE, NULL, NULL);
           WideCharToMultiByte(CP_THREAD_ACP, 0, Info[i].EnumLogFontEx.elfScript, -1,
-                              (LPSTR)EnumLogFontExA.elfScript, LF_FACESIZE, NULL, NULL);
+                              EnumLogFontExA.elfScript, LF_FACESIZE, NULL, NULL);
           NewTextMetricExW2A(&NewTextMetricExA,
                              &Info[i].NewTextMetricEx);
-          Ret = ((FONTENUMPROCA) EnumProc)(
-            (LPLOGFONTA)&EnumLogFontExA,
-            (LPTEXTMETRICA)&NewTextMetricExA,
-            Info[i].FontType, lParam);
+          Ret = ((FONTENUMEXPROCA) EnumProc)(&EnumLogFontExA, &NewTextMetricExA,
+                                             Info[i].FontType, lParam);
         }
     }
 
@@ -256,10 +270,10 @@ IntEnumFontFamilies(HDC Dc, LPLOGFONTW LogFont, PVOID EnumProc, LPARAM lParam,
  * @implemented
  */
 int STDCALL
-EnumFontFamiliesExW(HDC hdc, LPLOGFONTW lpLogfont, FONTENUMPROCW lpEnumFontFamExProc,
-                    LPARAM lParam, DWORD dwFlags)
+EnumFontFamiliesExW(HDC Dc, LPLOGFONTW LogFont, FONTENUMEXPROCW EnumFontFamProc,
+                    LPARAM lParam, DWORD Flags)
 {
-  return IntEnumFontFamilies(hdc, lpLogfont, lpEnumFontFamExProc, lParam, TRUE);
+  return IntEnumFontFamilies(Dc, LogFont, EnumFontFamProc, lParam, TRUE);
 }
 
 
@@ -267,19 +281,19 @@ EnumFontFamiliesExW(HDC hdc, LPLOGFONTW lpLogfont, FONTENUMPROCW lpEnumFontFamEx
  * @implemented
  */
 int STDCALL
-EnumFontFamiliesW(HDC hdc, LPCWSTR lpszFamily, FONTENUMPROCW lpEnumFontFamProc,
+EnumFontFamiliesW(HDC Dc, LPCWSTR Family, FONTENUMPROCW EnumFontFamProc,
                   LPARAM lParam)
 {
   LOGFONTW LogFont;
 
   ZeroMemory(&LogFont, sizeof(LOGFONTW));
   LogFont.lfCharSet = DEFAULT_CHARSET;
-  if (NULL != lpszFamily)
+  if (NULL != Family)
     {
-      lstrcpynW(LogFont.lfFaceName, lpszFamily, LF_FACESIZE);
+      lstrcpynW(LogFont.lfFaceName, Family, LF_FACESIZE);
     }
 
-  return IntEnumFontFamilies(hdc, &LogFont, lpEnumFontFamProc, lParam, TRUE);
+  return IntEnumFontFamilies(Dc, &LogFont, EnumFontFamProc, lParam, TRUE);
 }
 
 
@@ -287,15 +301,15 @@ EnumFontFamiliesW(HDC hdc, LPCWSTR lpszFamily, FONTENUMPROCW lpEnumFontFamProc,
  * @implemented
  */
 int STDCALL
-EnumFontFamiliesExA (HDC hdc, LPLOGFONTA lpLogfont, FONTENUMPROCA lpEnumFontFamExProc,
+EnumFontFamiliesExA (HDC Dc, LPLOGFONTA LogFont, FONTENUMEXPROCA EnumFontFamProc,
                      LPARAM lParam, DWORD dwFlags)
 {
   LOGFONTW LogFontW;
 
-  RosRtlLogFontA2W(&LogFontW, lpLogfont);
+  RosRtlLogFontA2W(&LogFontW, LogFont);
 
   /* no need to convert LogFontW back to lpLogFont b/c it's an [in] parameter only */
-  return IntEnumFontFamilies(hdc, &LogFontW, lpEnumFontFamExProc, lParam, FALSE);
+  return IntEnumFontFamilies(Dc, &LogFontW, EnumFontFamProc, lParam, FALSE);
 }
 
 
@@ -303,19 +317,19 @@ EnumFontFamiliesExA (HDC hdc, LPLOGFONTA lpLogfont, FONTENUMPROCA lpEnumFontFamE
  * @implemented
  */
 int STDCALL
-EnumFontFamiliesA(HDC hdc, LPCSTR lpszFamily, FONTENUMPROCA lpEnumFontFamProc,
+EnumFontFamiliesA(HDC Dc, LPCSTR Family, FONTENUMPROCA EnumFontFamProc,
                   LPARAM lParam)
 {
   LOGFONTW LogFont;
 
   ZeroMemory(&LogFont, sizeof(LOGFONTW));
   LogFont.lfCharSet = DEFAULT_CHARSET;
-  if (NULL != lpszFamily)
+  if (NULL != Family)
     {
-      MultiByteToWideChar(CP_THREAD_ACP, 0, lpszFamily, -1, LogFont.lfFaceName, LF_FACESIZE);
+      MultiByteToWideChar(CP_THREAD_ACP, 0, Family, -1, LogFont.lfFaceName, LF_FACESIZE);
     }
 
-  return IntEnumFontFamilies(hdc, &LogFont, lpEnumFontFamProc, lParam, FALSE);
+  return IntEnumFontFamilies(Dc, &LogFont, EnumFontFamProc, lParam, FALSE);
 }
 
 
@@ -372,413 +386,14 @@ GetCharWidthW (
 /*
  * @implemented
  */
-DWORD
-STDCALL
-GetCharacterPlacementW(
-	HDC hdc,
-	LPCWSTR lpString,
-	INT uCount,
-	INT nMaxExtent,
-	GCP_RESULTSW *lpResults,
-	DWORD dwFlags
-	)
-{
-  DWORD ret=0;
-  SIZE size;
-  UINT i, nSet;
-
-  if(dwFlags&(~GCP_REORDER)) DPRINT("flags 0x%08lx ignored\n", dwFlags);
-  if(lpResults->lpClass) DPRINT("classes not implemented\n");
-  if (lpResults->lpCaretPos && (dwFlags & GCP_REORDER))
-    DPRINT("Caret positions for complex scripts not implemented\n");
-
-  nSet = (UINT)uCount;
-  if(nSet > lpResults->nGlyphs)
-    nSet = lpResults->nGlyphs;
-
-  /* return number of initialized fields */
-  lpResults->nGlyphs = nSet;
-
-/*if((dwFlags&GCP_REORDER)==0 || !BidiAvail)
-  {*/
-    /* Treat the case where no special handling was requested in a fastpath way */
-    /* copy will do if the GCP_REORDER flag is not set */
-    if(lpResults->lpOutString)
-      strncpyW( lpResults->lpOutString, lpString, nSet );
-
-    if(lpResults->lpGlyphs)
-      strncpyW( lpResults->lpGlyphs, lpString, nSet );
-
-    if(lpResults->lpOrder)
-    {
-      for(i = 0; i < nSet; i++)
-      lpResults->lpOrder[i] = i;
-    }
-/*} else
-  {
-      BIDI_Reorder( lpString, uCount, dwFlags, WINE_GCPW_FORCE_LTR, lpResults->lpOutString,
-                    nSet, lpResults->lpOrder );
-  }*/
-
-  /* FIXME: Will use the placement chars */
-  if (lpResults->lpDx)
-  {
-    int c;
-    for (i = 0; i < nSet; i++)
-    {
-      if (NtGdiGetCharWidth32(hdc, lpString[i], lpString[i], &c))
-        lpResults->lpDx[i]= c;
-    }
-  }
-
-  if (lpResults->lpCaretPos && !(dwFlags & GCP_REORDER))
-  {
-    int pos = 0;
-       
-    lpResults->lpCaretPos[0] = 0;
-    for (i = 1; i < nSet; i++)
-      if (GetTextExtentPoint32W(hdc, &(lpString[i - 1]), 1, &size))
-        lpResults->lpCaretPos[i] = (pos += size.cx);
-  }
-   
-  /*if(lpResults->lpGlyphs)
-    GetGlyphIndicesW(hdc, lpString, nSet, lpResults->lpGlyphs, 0);*/
-
-  if (GetTextExtentPoint32W(hdc, lpString, uCount, &size))
-    ret = MAKELONG(size.cx, size.cy);
-
-  return ret;
-}
-
-
-/*
- * @unimplemented
- */
 BOOL
-APIENTRY
-GetCharWidthFloatA(
+STDCALL
+GetCharWidth32W(
 	HDC	hdc,
 	UINT	iFirstChar,
 	UINT	iLastChar,
-	PFLOAT	pxBuffer
+	LPINT	lpBuffer
 	)
 {
-  /* FIXME what to do with iFirstChar and iLastChar ??? */
-  return NtGdiGetCharWidthFloat ( hdc, iFirstChar, iLastChar, pxBuffer );
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-APIENTRY
-GetCharABCWidthsA(
-	HDC	hdc,
-	UINT	uFirstChar,
-	UINT	uLastChar,
-	LPABC	lpabc
-	)
-{
-  /* FIXME what to do with uFirstChar and uLastChar ??? */
-  return NtGdiGetCharABCWidths ( hdc, uFirstChar, uLastChar, lpabc );
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-APIENTRY
-GetCharABCWidthsFloatA(
-	HDC		hdc,
-	UINT		iFirstChar,
-	UINT		iLastChar,
-	LPABCFLOAT	lpABCF
-	)
-{
-  /* FIXME what to do with iFirstChar and iLastChar ??? */
-  return NtGdiGetCharABCWidthsFloat ( hdc, iFirstChar, iLastChar, lpABCF );
-}
-
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetGlyphOutlineA(
-	HDC		hdc,
-	UINT		uChar,
-	UINT		uFormat,
-	LPGLYPHMETRICS	lpgm,
-	DWORD		cbBuffer,
-	LPVOID		lpvBuffer,
-	CONST MAT2	*lpmat2
-	)
-{
-  return NtGdiGetGlyphOutline ( hdc, uChar, uFormat, lpgm, cbBuffer, lpvBuffer, (CONST LPMAT2)lpmat2 );
-}
-
-
-/*
- * @implemented
- */
-HFONT
-STDCALL
-CreateFontIndirectA(
-	CONST LOGFONTA		*lplf
-	)
-{
-  LOGFONTW tlf;
-
-  RosRtlLogFontA2W(&tlf, lplf);
-
-  return NtGdiCreateFontIndirect(&tlf);
-}
-
-
-/*
- * @implemented
- */
-HFONT
-STDCALL
-CreateFontIndirectW(
-	CONST LOGFONTW		*lplf
-	)
-{
-	return NtGdiCreateFontIndirect((CONST LPLOGFONTW)lplf);
-}
-
-
-/*
- * @implemented
- */
-HFONT
-STDCALL
-CreateFontA(
-	int	nHeight,
-	int	nWidth,
-	int	nEscapement,
-	int	nOrientation,
-	int	fnWeight,
-	DWORD	fdwItalic,
-	DWORD	fdwUnderline,
-	DWORD	fdwStrikeOut,
-	DWORD	fdwCharSet,
-	DWORD	fdwOutputPrecision,
-	DWORD	fdwClipPrecision,
-	DWORD	fdwQuality,
-	DWORD	fdwPitchAndFamily,
-	LPCSTR	lpszFace
-	)
-{
-        ANSI_STRING StringA;
-        UNICODE_STRING StringU;
-	HFONT ret;
-
-	RtlInitAnsiString(&StringA, (LPSTR)lpszFace);
-	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
-
-        ret = CreateFontW(nHeight, nWidth, nEscapement, nOrientation, fnWeight, fdwItalic, fdwUnderline, fdwStrikeOut,
-                          fdwCharSet, fdwOutputPrecision, fdwClipPrecision, fdwQuality, fdwPitchAndFamily, StringU.Buffer);
-
-	RtlFreeUnicodeString(&StringU);
-
-	return ret;
-}
-
-
-/*
- * @implemented
- */
-HFONT
-STDCALL
-CreateFontW(
-	int	nHeight,
-	int	nWidth,
-	int	nEscapement,
-	int	nOrientation,
-	int	nWeight,
-	DWORD	fnItalic,
-	DWORD	fdwUnderline,
-	DWORD	fdwStrikeOut,
-	DWORD	fdwCharSet,
-	DWORD	fdwOutputPrecision,
-	DWORD	fdwClipPrecision,
-	DWORD	fdwQuality,
-	DWORD	fdwPitchAndFamily,
-	LPCWSTR	lpszFace
-	)
-{
-  return NtGdiCreateFont(nHeight, nWidth, nEscapement, nOrientation, nWeight, fnItalic, fdwUnderline, fdwStrikeOut,
-                         fdwCharSet, fdwOutputPrecision, fdwClipPrecision, fdwQuality, fdwPitchAndFamily, lpszFace);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CreateScalableFontResourceW(
-	DWORD		fdwHidden,
-	LPCWSTR		lpszFontRes,
-	LPCWSTR		lpszFontFile,
-	LPCWSTR		lpszCurrentPath
-	)
-{
-  return NtGdiCreateScalableFontResource ( fdwHidden,
-					  lpszFontRes,
-					  lpszFontFile,
-					  lpszCurrentPath );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CreateScalableFontResourceA(
-	DWORD		fdwHidden,
-	LPCSTR		lpszFontRes,
-	LPCSTR		lpszFontFile,
-	LPCSTR		lpszCurrentPath
-	)
-{
-  NTSTATUS Status;
-  LPWSTR lpszFontResW, lpszFontFileW, lpszCurrentPathW;
-  BOOL rc = FALSE;
-
-  Status = HEAP_strdupA2W ( &lpszFontResW, lpszFontRes );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-    {
-      Status = HEAP_strdupA2W ( &lpszFontFileW, lpszFontFile );
-      if (!NT_SUCCESS (Status))
-	SetLastError (RtlNtStatusToDosError(Status));
-      else
-	{
-	  Status = HEAP_strdupA2W ( &lpszCurrentPathW, lpszCurrentPath );
-	  if (!NT_SUCCESS (Status))
-	    SetLastError (RtlNtStatusToDosError(Status));
-	  else
-	    {
-	      rc = NtGdiCreateScalableFontResource ( fdwHidden,
-						    lpszFontResW,
-						    lpszFontFileW,
-						    lpszCurrentPathW );
-
-	      HEAP_free ( lpszCurrentPathW );
-	    }
-
-	  HEAP_free ( lpszFontFileW );
-	}
-
-      HEAP_free ( lpszFontResW );
-    }
-  return rc;
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-AddFontResourceExW ( LPCWSTR lpszFilename, DWORD fl, PVOID pvReserved )
-{
-  UNICODE_STRING Filename;
-
-  /* FIXME handle fl parameter */
-  RtlInitUnicodeString(&Filename, lpszFilename);
-  return NtGdiAddFontResource ( &Filename, fl );
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-AddFontResourceExA ( LPCSTR lpszFilename, DWORD fl, PVOID pvReserved )
-{
-  NTSTATUS Status;
-  PWSTR FilenameW;
-  int rc = 0;
-
-  Status = HEAP_strdupA2W ( &FilenameW, lpszFilename );
-  if ( !NT_SUCCESS (Status) )
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-    {
-      rc = AddFontResourceExW ( FilenameW, fl, pvReserved );
-
-      HEAP_free ( &FilenameW );
-    }
-  return rc;
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-AddFontResourceA ( LPCSTR lpszFilename )
-{
-  return AddFontResourceExA ( lpszFilename, 0, 0 );
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-AddFontResourceW ( LPCWSTR lpszFilename )
-{
-	return AddFontResourceExW ( lpszFilename, 0, 0 );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-RemoveFontResourceW(
-	LPCWSTR	lpFileName
-	)
-{
-  return NtGdiRemoveFontResource ( lpFileName );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-RemoveFontResourceA(
-	LPCSTR	lpFileName
-	)
-{
-  NTSTATUS Status;
-  LPWSTR lpFileNameW;
-  BOOL rc = 0;
-
-  Status = HEAP_strdupA2W ( &lpFileNameW, lpFileName );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-    {
-      rc = NtGdiRemoveFontResource ( lpFileNameW );
-
-      HEAP_free ( lpFileNameW );
-    }
-
-  return rc;
+  return NtGdiGetCharWidth32 ( hdc, iFirstChar, iLastChar, lpBuffer );
 }

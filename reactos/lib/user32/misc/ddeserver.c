@@ -994,8 +994,7 @@ static LRESULT CALLBACK WDML_ServerConvProc(HWND hwndServer, UINT iMsg, WPARAM w
     }
     if (iMsg < WM_DDE_FIRST || iMsg > WM_DDE_LAST)
     {
-	return IsWindowUnicode(hwndServer) ? DefWindowProcW(hwndServer, iMsg, wParam, lParam) :
-                                             DefWindowProcA(hwndServer, iMsg, wParam, lParam);
+	return DefWindowProcA(hwndServer, iMsg, wParam, lParam);
     }
 
     EnterCriticalSection(&WDML_CritSect);

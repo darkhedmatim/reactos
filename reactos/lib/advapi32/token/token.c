@@ -1,4 +1,4 @@
-/* $Id: token.c,v 1.17 2004/12/14 00:41:24 gdalsnes Exp $
+/* $Id: token.c,v 1.10 2004/03/25 11:30:07 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,8 +9,9 @@
  *                  Created 01/11/98
  */
 
-#include "advapi32.h"
-
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include <windows.h>
 
 /*
  * @implemented
@@ -60,18 +61,12 @@ AdjustTokenPrivileges (HANDLE TokenHandle,
 				    BufferLength,
 				    PreviousState,
 				    (PULONG)ReturnLength);
-  if (STATUS_NOT_ALL_ASSIGNED == Status)
+  if (!NT_SUCCESS (Status))
     {
-      SetLastError(ERROR_NOT_ALL_ASSIGNED);
-      return TRUE;
-    }
-  if (! NT_SUCCESS(Status))
-    {
-      SetLastError(RtlNtStatusToDosError(Status));
+      SetLastError (RtlNtStatusToDosError (Status));
       return FALSE;
     }
 
-  SetLastError(ERROR_SUCCESS); /* AdjustTokenPrivileges is documented to do this */
   return TRUE;
 }
 
@@ -142,7 +137,6 @@ AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
 	     LPBOOL AccessStatus)
 {
   NTSTATUS Status;
-  NTSTATUS AccessStat;
 
   Status = NtAccessCheck (pSecurityDescriptor,
 			  ClientToken,
@@ -150,22 +144,13 @@ AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
 			  GenericMapping,
 			  PrivilegeSet,
 			  (PULONG)PrivilegeSetLength,
-			  (PACCESS_MASK)GrantedAccess,
-			  &AccessStat);
+			  (PULONG)GrantedAccess,
+			  (PBOOLEAN)AccessStatus);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
       return FALSE;
     }
-
-  if (!NT_SUCCESS (AccessStat))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      *AccessStatus = FALSE;
-      return TRUE;
-    }
-
-  *AccessStatus = TRUE;
 
   return TRUE;
 }
@@ -235,7 +220,7 @@ SetThreadToken (PHANDLE ThreadHandle,
 
   Status = NtSetInformationThread (hThread,
 				   ThreadImpersonationToken,
-				   &TokenHandle,
+				   TokenHandle,
 				   sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
     {
@@ -261,27 +246,22 @@ DuplicateTokenEx (HANDLE ExistingTokenHandle,
   OBJECT_ATTRIBUTES ObjectAttributes;
   HANDLE NewToken;
   NTSTATUS Status;
-  SECURITY_QUALITY_OF_SERVICE Sqos;
-  
-  Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-  Sqos.ImpersonationLevel = ImpersonationLevel;
-  Sqos.ContextTrackingMode = 0;
-  Sqos.EffectiveOnly = FALSE;
 
-  InitializeObjectAttributes(
-      &ObjectAttributes,
-      NULL,
-      lpTokenAttributes->bInheritHandle ? OBJ_INHERIT : 0,
-      NULL,
-      lpTokenAttributes->lpSecurityDescriptor
-      );
- 
-  ObjectAttributes.SecurityQualityOfService = &Sqos;
+  ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+  ObjectAttributes.RootDirectory = NULL;
+  ObjectAttributes.ObjectName = NULL;
+  ObjectAttributes.Attributes = 0;
+  if (lpTokenAttributes->bInheritHandle)
+    {
+      ObjectAttributes.Attributes |= OBJ_INHERIT;
+    }
+  ObjectAttributes.SecurityDescriptor = lpTokenAttributes->lpSecurityDescriptor;
+  ObjectAttributes.SecurityQualityOfService = NULL;
 
   Status = NtDuplicateToken (ExistingTokenHandle,
 			     dwDesiredAccess,
 			     &ObjectAttributes,
-              Sqos.EffectiveOnly, /* why both here _and_ in Sqos? */
+			     ImpersonationLevel,
 			     TokenType,
 			     &NewToken);
   if (!NT_SUCCESS(Status))

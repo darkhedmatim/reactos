@@ -1,2 +1,9 @@
-Makefile
-msacm.drv.dbg.c
+*.a
+*.d
+*.o
+*.dll
+*.coff
+*.sym
+*.map
+*.tmp
+temp.exp

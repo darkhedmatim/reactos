@@ -1,4 +1,4 @@
-/* $Id: event.c,v 1.9 2004/10/24 15:26:14 weiden Exp $
+/* $Id: event.c,v 1.7 2003/07/10 15:47:00 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ntos.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -37,7 +39,7 @@ IoCreateNotificationEvent(PUNICODE_STRING EventName,
    Status = NtCreateEvent(&Handle,
 			  EVENT_ALL_ACCESS,
 			  &ObjectAttributes,
-			  NotificationEvent,
+			  FALSE,
 			  TRUE);
    if (!NT_SUCCESS(Status))
      {
@@ -78,7 +80,7 @@ IoCreateSynchronizationEvent(PUNICODE_STRING EventName,
    Status = NtCreateEvent(&Handle,
 			  EVENT_ALL_ACCESS,
 			  &ObjectAttributes,
-			  SynchronizationEvent,
+			  TRUE,
 			  TRUE);
    if (!NT_SUCCESS(Status))
      {

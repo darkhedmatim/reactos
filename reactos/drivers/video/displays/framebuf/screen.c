@@ -158,9 +158,11 @@ IntInitScreenInfo(
       ModeInfoPtr = ModeInfo;
       while (ModeCount-- > 0)
       {
-
-         if (ModeInfoPtr->Length > 0 &&
-	     pDevMode->dmPelsWidth == ModeInfoPtr->VisScreenWidth &&
+         if (ModeInfoPtr->Length == 0)
+         {
+            continue;
+         }
+         if (pDevMode->dmPelsWidth == ModeInfoPtr->VisScreenWidth &&
              pDevMode->dmPelsHeight == ModeInfoPtr->VisScreenHeight &&
              pDevMode->dmBitsPerPel == (ModeInfoPtr->BitsPerPlane *
                                         ModeInfoPtr->NumberOfPlanes) &&
@@ -169,8 +171,6 @@ IntInitScreenInfo(
             SelectedMode = ModeInfoPtr;
             break;
          }
-
-         ModeInfoPtr++;
       }
    }
 

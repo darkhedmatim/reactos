@@ -1,18 +1,11 @@
-/* $Id: stubs.c,v 1.101 2004/12/18 13:26:57 weiden Exp $
+/* $Id: stubs.c,v 1.70 2004/03/18 18:29:19 weiden Exp $
  *
- * KERNEL32.DLL stubs (STUB functions)
+ * KERNEL32.DLL stubs (unimplemented functions)
  * Remove from this file, if you implement them.
  */
-
 #include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
-
-
-#define STUB \
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED); \
-  DPRINT1("%s() is UNIMPLEMENTED!\n", __FUNCTION__)
+//#define _OLE2NLS_IN_BUILD_
 
 /*
  * @unimplemented
@@ -21,45 +14,10 @@ BOOL
 STDCALL
 BaseAttachCompleteThunk (VOID)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseDumpAppcompatCache(VOID)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseFlushAppcompatCache(VOID)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseCheckAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseUpdateAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
-{
-    STUB;
-}
 
 /*
  * @unimplemented
@@ -70,8 +28,46 @@ CmdBatNotification (
     DWORD   Unknown
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+CompareStringA (
+    LCID    Locale,
+    DWORD   dwCmpFlags,
+    LPCSTR  lpString1,
+    int cchCount1,
+    LPCSTR  lpString2,
+    int cchCount2
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+CompareStringW (
+    LCID    Locale,
+    DWORD   dwCmpFlags,
+    LPCWSTR lpString1,
+    int cchCount1,
+    LPCWSTR lpString2,
+    int cchCount2
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 
@@ -86,7 +82,7 @@ CreateVirtualBuffer (
     DWORD   Unknown2
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -101,7 +97,7 @@ ExitVDM (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -116,7 +112,7 @@ ExtendVirtualBuffer (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -134,7 +130,7 @@ FoldStringW (
     int cchDest
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -152,7 +148,7 @@ FoldStringA (
     int cchDest
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -166,9 +162,43 @@ FreeVirtualBuffer (
     HANDLE  hVirtualBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetBinaryTypeW (
+    LPCWSTR lpApplicationName,
+    LPDWORD lpBinaryType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetBinaryTypeA (
+    LPCSTR  lpApplicationName,
+    LPDWORD lpBinaryType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+
+
 
 
 /*
@@ -180,7 +210,7 @@ GetNextVDMCommand (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -190,11 +220,84 @@ GetNextVDMCommand (
  */
 BOOL
 STDCALL
-GetSystemPowerStatus (
-    LPSYSTEM_POWER_STATUS PowerStatus
+GetStringTypeExW (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetStringTypeExA (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetStringTypeW (
+    DWORD   dwInfoType,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetStringTypeA (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+#endif
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetSystemPowerStatus (
+    DWORD   Unknown0
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -209,7 +312,53 @@ GetVDMCurrentDirectories (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsDBCSLeadByte (
+    BYTE    TestChar
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsDBCSLeadByteEx (
+    UINT    CodePage,
+    BYTE    TestChar
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#endif
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+LoadModule (
+    LPCSTR  lpModuleName,
+    LPVOID  lpParameterBlock
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -233,7 +382,7 @@ RegisterConsoleVDM (
     DWORD   Unknown10
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -247,7 +396,7 @@ RegisterWowBaseHandlers (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -261,7 +410,7 @@ RegisterWowExec (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -275,7 +424,7 @@ SetSystemPowerState (
     BOOL fForce
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -290,7 +439,7 @@ SetVDMCurrentDirectories (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
@@ -304,7 +453,7 @@ TrimVirtualBuffer (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -319,7 +468,7 @@ VDMConsoleOperation (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -333,10 +482,12 @@ VDMOperationStarted (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
+
+#ifndef _OLE2NLS_IN_BUILD_
 
 /*
  * @unimplemented
@@ -349,7 +500,7 @@ VerLanguageNameA (
     DWORD   nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -365,10 +516,11 @@ VerLanguageNameW (
     DWORD   nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
+#endif
 
 /*
  * @unimplemented
@@ -381,7 +533,7 @@ VirtualBufferExceptionHandler (
     DWORD   Unknown2
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -395,7 +547,7 @@ ActivateActCtx(
     ULONG_PTR *lpCookie
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -408,7 +560,7 @@ AddRefActCtx(
     HANDLE hActCtx
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
@@ -419,10 +571,24 @@ STDCALL
 AllocateUserPhysicalPages(
     HANDLE hProcess,
     PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+    PULONG_PTR PageArray
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+AssignProcessToJobObject(
+    HANDLE hJob,
+    HANDLE hProcess
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -437,7 +603,7 @@ BindIoCompletionCallback (
     ULONG Flags
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -450,10 +616,39 @@ CancelDeviceWakeupRequest(
     HANDLE hDevice
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+CancelTimerQueueTimer(
+    HANDLE TimerQueue,
+    HANDLE Timer
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+/*
+ * @unimplemented
+ */
+
+BOOL
+STDCALL
+ChangeTimerQueueTimer(
+    HANDLE TimerQueue,
+    HANDLE Timer,
+    ULONG DueTime,
+    ULONG Period
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
 
 /*
  * @unimplemented
@@ -464,7 +659,7 @@ CreateActCtxA(
     PCACTCTXA pActCtx
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -477,7 +672,7 @@ CreateActCtxW(
     PCACTCTXW pActCtx
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -491,7 +686,52 @@ CreateJobSet (
     PJOB_SET_ARRAY UserJobSet,
     ULONG Flags)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+CreateMemoryResourceNotification(
+    MEMORY_RESOURCE_NOTIFICATION_TYPE NotificationType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+CreateTimerQueue(
+    VOID
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+CreateTimerQueueTimer(
+    PHANDLE phNewTimer,
+    HANDLE TimerQueue,
+    WAITORTIMERCALLBACK Callback,
+    PVOID Parameter,
+    DWORD DueTime,
+    DWORD Period,
+    ULONG Flags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -505,7 +745,49 @@ DeactivateActCtx(
     ULONG_PTR ulCookie
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+DeleteTimerQueue(
+    HANDLE TimerQueue
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+DeleteTimerQueueEx(
+    HANDLE TimerQueue,
+    HANDLE CompletionEvent
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+DeleteTimerQueueTimer(
+    HANDLE TimerQueue,
+    HANDLE Timer,
+    HANDLE CompletionEvent
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -522,7 +804,7 @@ FindActCtxSectionGuid(
     PACTCTX_SECTION_KEYED_DATA ReturnedData
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -535,7 +817,7 @@ FindVolumeClose(
     HANDLE hFindVolume
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -548,7 +830,7 @@ FindVolumeMountPointClose(
     HANDLE hFindVolumeMountPoint
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -563,7 +845,7 @@ FreeUserPhysicalPages(
     PULONG_PTR PageArray
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -575,7 +857,7 @@ STDCALL
 GetCurrentActCtx(
     HANDLE *lphActCtx)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -589,7 +871,7 @@ GetDevicePowerState(
     BOOL *pfOn
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -602,7 +884,7 @@ GetNativeSystemInfo(
     LPSYSTEM_INFO lpSystemInfo
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
@@ -614,7 +896,7 @@ GetNumaHighestNodeNumber(
     PULONG HighestNodeNumber
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -628,7 +910,7 @@ GetNumaNodeProcessorMask(
     PULONGLONG ProcessorMask
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -642,7 +924,78 @@ GetNumaProcessorNode(
     PUCHAR NodeNumber
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetProcessHandleCount(
+    HANDLE hProcess,
+    PDWORD pdwHandleCount
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetProcessPriorityBoost(
+    HANDLE hProcess,
+    PBOOL pDisablePriorityBoost
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetSystemRegistryQuota(
+    PDWORD pdwQuotaAllowed,
+    PDWORD pdwQuotaUsed
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetSystemTimes(
+    LPFILETIME lpIdleTime,
+    LPFILETIME lpKernelTime,
+    LPFILETIME lpUserTime
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetThreadIOPendingFlag(
+    HANDLE hThread,
+    PBOOL lpIOIsPending
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -660,7 +1013,20 @@ GetWriteWatch(
     PULONG lpdwGranularity
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GlobalMemoryStatusEx(
+    LPMEMORYSTATUSEX lpBuffer
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -677,7 +1043,7 @@ HeapQueryInformation (
     PSIZE_T ReturnLength OPTIONAL
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -693,7 +1059,22 @@ HeapSetInformation (
     SIZE_T HeapInformationLength OPTIONAL
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsProcessInJob (
+    HANDLE ProcessHandle,
+    HANDLE JobHandle,
+    PBOOL Result
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -706,7 +1087,7 @@ IsSystemResumeAutomatic(
     VOID
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -720,7 +1101,7 @@ IsWow64Process(
     PBOOL Wow64Process
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -732,10 +1113,10 @@ STDCALL
 MapUserPhysicalPages(
     PVOID VirtualAddress,
     ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
+    PULONG_PTR PageArray OPTIONAL
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -747,10 +1128,25 @@ STDCALL
 MapUserPhysicalPagesScatter(
     PVOID *VirtualAddresses,
     ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
+    PULONG_PTR PageArray OPTIONAL
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+OpenThread(
+    DWORD dwDesiredAccess,
+    BOOL bInheritHandle,
+    DWORD dwThreadId
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -769,7 +1165,53 @@ QueryActCtxW(
     SIZE_T *pcbWrittenOrRequired OPTIONAL
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+QueryInformationJobObject(
+    HANDLE hJob,
+    JOBOBJECTINFOCLASS JobObjectInformationClass,
+    LPVOID lpJobObjectInformation,
+    DWORD cbJobObjectInformationLength,
+    LPDWORD lpReturnLength
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+QueryMemoryResourceNotification(
+     HANDLE ResourceNotificationHandle,
+    PBOOL  ResourceState
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+QueueUserAPC(
+    PAPCFUNC pfnAPC,
+    HANDLE hThread,
+    ULONG_PTR dwData
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -784,7 +1226,7 @@ QueueUserWorkItem(
     ULONG Flags
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -804,7 +1246,7 @@ ReadDirectoryChangesW(
     LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -821,7 +1263,7 @@ ReadFileScatter(
     LPOVERLAPPED lpOverlapped
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -839,7 +1281,7 @@ RegisterWaitForSingleObject(
     ULONG dwFlags
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -856,7 +1298,7 @@ RegisterWaitForSingleObjectEx(
     ULONG dwFlags
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -869,7 +1311,7 @@ ReleaseActCtx(
     HANDLE hActCtx
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
@@ -881,7 +1323,7 @@ RemoveVectoredExceptionHandler(
     PVOID VectoredHandlerHandle
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -894,7 +1336,7 @@ RequestDeviceWakeup(
     HANDLE hDevice
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -907,7 +1349,7 @@ RequestWakeupLatency(
     LATENCY_TIME latency
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -921,7 +1363,7 @@ ResetWriteWatch(
     SIZE_T dwRegionSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -934,7 +1376,37 @@ RestoreLastError(
     DWORD dwErrCode
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+SetCriticalSectionSpinCount(
+    LPCRITICAL_SECTION lpCriticalSection,
+    DWORD dwSpinCount
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetInformationJobObject(
+    HANDLE hJob,
+    JOBOBJECTINFOCLASS JobObjectInformationClass,
+    LPVOID lpJobObjectInformation,
+    DWORD cbJobObjectInformationLength
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 /*
@@ -947,7 +1419,21 @@ SetMessageWaitingIndicator(
     ULONG ulMsgCount
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetProcessPriorityBoost(
+    HANDLE hProcess,
+    BOOL bDisablePriorityBoost
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -960,7 +1446,39 @@ SetThreadExecutionState(
     EXECUTION_STATE esFlags
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+SetTimerQueueTimer(
+    HANDLE TimerQueue,
+    WAITORTIMERCALLBACK Callback,
+    PVOID Parameter,
+    DWORD DueTime,
+    DWORD Period,
+    BOOL PreferIo
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+TerminateJobObject(
+    HANDLE hJob,
+    UINT uExitCode
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -975,7 +1493,7 @@ TzSpecificLocalTimeToSystemTime(
     LPSYSTEMTIME lpUniversalTime
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -988,7 +1506,7 @@ UnregisterWait(
     HANDLE WaitHandle
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1002,7 +1520,7 @@ UnregisterWaitEx(
     HANDLE CompletionEvent
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1019,7 +1537,18 @@ WriteFileGather(
     LPOVERLAPPED lpOverlapped
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+WTSGetActiveConsoleSessionId(VOID)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1032,7 +1561,38 @@ ZombifyActCtx(
     HANDLE hActCtx
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+CheckNameLegalDOS8Dot3W(
+    LPCWSTR lpName,
+    LPSTR lpOemName OPTIONAL,
+    DWORD OemNameSize OPTIONAL,
+    PBOOL pbNameContainsSpaces OPTIONAL,
+    PBOOL pbNameLegal
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+CreateJobObjectW(
+    LPSECURITY_ATTRIBUTES lpJobAttributes,
+    LPCWSTR lpName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1045,7 +1605,7 @@ DeleteVolumeMountPointW(
     LPCWSTR lpszVolumeMountPoint
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1060,7 +1620,7 @@ DnsHostnameToComputerNameW (
     LPDWORD nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1077,7 +1637,7 @@ FindActCtxSectionStringW(
     PACTCTX_SECTION_KEYED_DATA ReturnedData
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1087,11 +1647,11 @@ FindActCtxSectionStringW(
 HANDLE
 STDCALL
 FindFirstVolumeW(
-    LPCWSTR lpszVolumeName,
+    LPWSTR lpszVolumeName,
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1101,12 +1661,12 @@ FindFirstVolumeW(
 HANDLE
 STDCALL
 FindFirstVolumeMountPointW(
-    LPWSTR lpszRootPathName,
+    LPCWSTR lpszRootPathName,
     LPWSTR lpszVolumeMountPoint,
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1121,7 +1681,7 @@ FindNextVolumeW(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1136,7 +1696,21 @@ FindNextVolumeMountPointW(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetDllDirectoryW(
+    DWORD nBufferLength,
+    LPWSTR lpBuffer
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1152,7 +1726,7 @@ GetFirmwareEnvironmentVariableW(
     DWORD    nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1167,7 +1741,7 @@ GetLongPathNameW(
     DWORD    cchBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1182,7 +1756,7 @@ GetModuleHandleExW(
     HMODULE*    phModule
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1196,7 +1770,7 @@ GetSystemWow64DirectoryW(
     UINT uSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1211,7 +1785,7 @@ GetVolumeNameForVolumeMountPointW(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1226,7 +1800,7 @@ GetVolumePathNameW(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1242,7 +1816,22 @@ GetVolumePathNamesForVolumeNameW(
     PDWORD lpcchReturnLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+OpenJobObjectW(
+    DWORD dwDesiredAccess,
+    BOOL bInheritHandle,
+    LPCWSTR lpName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1260,7 +1849,7 @@ ReplaceFileW(
     LPVOID  lpReserved
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1274,7 +1863,20 @@ SetComputerNameExW (
     LPCWSTR lpBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetDllDirectoryW(
+    LPCWSTR lpPathName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1290,7 +1892,7 @@ SetFirmwareEnvironmentVariableW(
     DWORD    nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1304,7 +1906,7 @@ SetVolumeMountPointW(
     LPCWSTR lpszVolumeName
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1319,7 +1921,38 @@ VerifyVersionInfoW(
     DWORDLONG dwlConditionMask
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+CheckNameLegalDOS8Dot3A(
+    LPCSTR lpName,
+    LPSTR lpOemName OPTIONAL,
+    DWORD OemNameSize OPTIONAL,
+    PBOOL pbNameContainsSpaces OPTIONAL,
+    PBOOL pbNameLegal
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+CreateJobObjectA(
+    LPSECURITY_ATTRIBUTES lpJobAttributes,
+    LPCSTR lpName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1332,7 +1965,7 @@ DeleteVolumeMountPointA(
     LPCSTR lpszVolumeMountPoint
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1347,7 +1980,7 @@ DnsHostnameToComputerNameA (
     LPDWORD nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1364,7 +1997,7 @@ FindActCtxSectionStringA(
     PACTCTX_SECTION_KEYED_DATA ReturnedData
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1374,11 +2007,11 @@ FindActCtxSectionStringA(
 HANDLE
 STDCALL
 FindFirstVolumeA(
-    LPCSTR lpszVolumeName,
+    LPSTR lpszVolumeName,
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1388,12 +2021,12 @@ FindFirstVolumeA(
 HANDLE
 STDCALL
 FindFirstVolumeMountPointA(
-    LPSTR lpszRootPathName,
+    LPCSTR lpszRootPathName,
     LPSTR lpszVolumeMountPoint,
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1404,11 +2037,11 @@ BOOL
 STDCALL
 FindNextVolumeA(
     HANDLE hFindVolume,
-    LPCSTR lpszVolumeName,
+    LPSTR lpszVolumeName,
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1423,7 +2056,21 @@ FindNextVolumeMountPointA(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetDllDirectoryA(
+    DWORD nBufferLength,
+    LPSTR lpBuffer
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1439,7 +2086,7 @@ GetFirmwareEnvironmentVariableA(
     DWORD    nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1454,7 +2101,7 @@ GetLongPathNameA(
     DWORD    cchBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1469,7 +2116,7 @@ GetModuleHandleExA(
     HMODULE*    phModule
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1483,7 +2130,7 @@ GetSystemWow64DirectoryA(
     UINT uSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1498,7 +2145,7 @@ GetVolumeNameForVolumeMountPointA(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1513,7 +2160,7 @@ GetVolumePathNameA(
     DWORD cchBufferLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1529,7 +2176,22 @@ GetVolumePathNamesForVolumeNameA(
     PDWORD lpcchReturnLength
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+OpenJobObjectA(
+    DWORD dwDesiredAccess,
+    BOOL bInheritHandle,
+    LPCSTR lpName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1547,7 +2209,7 @@ ReplaceFileA(
     LPVOID  lpReserved
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1561,7 +2223,20 @@ SetComputerNameExA (
     LPCSTR lpBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetDllDirectoryA(
+    LPCSTR lpPathName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1577,7 +2252,7 @@ SetFirmwareEnvironmentVariableA(
     DWORD    nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1591,7 +2266,7 @@ SetVolumeMountPointA(
     LPCSTR lpszVolumeName
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1606,7 +2281,21 @@ VerifyVersionInfoA(
     DWORDLONG dwlConditionMask
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumSystemLanguageGroupsW(
+    LANGUAGEGROUP_ENUMPROCW lpLanguageGroupEnumProc,
+    DWORD                   dwFlags,
+    LONG_PTR                lParam)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1621,7 +2310,7 @@ VerSetConditionMask(
         BYTE    Condition
         )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1630,7 +2319,7 @@ VerSetConditionMask(
  */
 BOOL STDCALL GetConsoleKeyboardLayoutNameA(LPSTR name)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1639,7 +2328,7 @@ BOOL STDCALL GetConsoleKeyboardLayoutNameA(LPSTR name)
  */
 BOOL STDCALL GetConsoleKeyboardLayoutNameW(LPWSTR name)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1648,7 +2337,7 @@ BOOL STDCALL GetConsoleKeyboardLayoutNameW(LPWSTR name)
  */
 DWORD STDCALL GetHandleContext(HANDLE hnd)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1657,7 +2346,7 @@ DWORD STDCALL GetHandleContext(HANDLE hnd)
  */
 HANDLE STDCALL CreateSocketHandle(VOID)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1666,7 +2355,25 @@ HANDLE STDCALL CreateSocketHandle(VOID)
  */
 BOOL STDCALL SetHandleContext(HANDLE hnd,DWORD context)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL SetConsoleInputExeNameA(LPCSTR name)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL SetConsoleInputExeNameW(LPCWSTR name)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1678,7 +2385,7 @@ BOOL STDCALL UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
                         FARPROC *ppfn32Thunk, FARPROC pfnUT32CallBack,
                         LPVOID lpBuff )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1687,19 +2394,15 @@ BOOL STDCALL UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
  */
 VOID STDCALL UTUnRegister( HMODULE hModule )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
  * @unimplemented
  */
-#if 0
 FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PDelayLoadInfo pdli)
-#else
-FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PVOID pdli)
-#endif
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1708,7 +2411,25 @@ FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PVOID pdli)
  */
 NTSTATUS STDCALL CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,ULONG Size,ULONG AccessMask)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL GetConsoleInputExeNameA(ULONG length,LPCSTR name)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL GetConsoleInputExeNameW(ULONG length,LPCWSTR name)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1717,7 +2438,7 @@ NTSTATUS STDCALL CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescri
  */
 BOOL STDCALL IsValidUILanguage(LANGID langid)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1726,7 +2447,7 @@ BOOL STDCALL IsValidUILanguage(LANGID langid)
  */
 VOID STDCALL NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWSTR str, ULONG strsize2)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
@@ -1734,7 +2455,7 @@ VOID STDCALL NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPW
  */
 UINT STDCALL SetCPGlobal(UINT CodePage)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
@@ -1747,6 +2468,6 @@ SetClientTimeZoneInformation(
 		       CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation
 		       )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: hardware.c,v 1.3 2004/10/11 21:08:04 weiden Exp $
+/* $Id: hardware.c,v 1.1 2004/03/08 14:24:47 weiden Exp $
  *
  * PROJECT:         ReactOS System Control Panel
  * FILE:            lib/cpl/system/hardware.c
@@ -27,19 +27,17 @@
  */
 #include <windows.h>
 #include <stdlib.h>
-#include <tchar.h>
-
 #include "resource.h"
 #include "sysdm.h"
 
-typedef BOOL (STDCALL *PDEVMGREXEC)(HWND hWndParent, HINSTANCE hInst, PVOID Unknown, int nCmdShow);
+typedef WINBOOL (STDCALL *PDEVMGREXEC)(HWND hWndParent, HINSTANCE hInst, PVOID Unknown, int nCmdShow);
 BOOL LaunchDeviceManager(HWND hWndParent)
 {
   HMODULE hDll;
   PDEVMGREXEC DevMgrExec;
   BOOL Ret;
-
-  if(!(hDll = LoadLibrary(_TEXT("devmgr.dll"))))
+  
+  if(!(hDll = LoadLibrary(L"devmgr.dll")))
   {
     return FALSE;
   }
@@ -55,7 +53,7 @@ BOOL LaunchDeviceManager(HWND hWndParent)
 }
 
 /* Property page dialog callback */
-INT_PTR CALLBACK
+BOOL CALLBACK
 HardwarePageProc(
   HWND hwndDlg,
   UINT uMsg,
@@ -70,7 +68,7 @@ HardwarePageProc(
     case WM_COMMAND:
       switch(LOWORD(wParam))
       {
-        case IDC_HARDWARE_DEVICE_MANAGER:
+        case IDC_DEVMGR:
           if(!LaunchDeviceManager(hwndDlg))
           {
             /* FIXME */

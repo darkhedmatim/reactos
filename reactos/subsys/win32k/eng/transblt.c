@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: transblt.c,v 1.22 2004/12/14 04:40:16 royce Exp $
+/* $Id: transblt.c,v 1.16 2004/04/07 22:17:36 weiden Exp $
  * 
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -26,23 +26,41 @@
  * REVISION HISTORY:
  *        4/6/2004: Created
  */
-#include <w32k.h>
+
+#include <ddk/winddi.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddmou.h>
+#include <ntos/minmax.h>
+#include <include/dib.h>
+#include <include/eng.h>
+#include <include/object.h>
+#include <include/surface.h>
+#include <include/mouse.h>
+#include <include/inteng.h>
+
+#include "brush.h"
+#include "clip.h"
+#include "objects.h"
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 
 BOOL STDCALL
-EngTransparentBlt(SURFOBJ *Dest,
-		  SURFOBJ *Source,
-		  CLIPOBJ *Clip,
-		  XLATEOBJ *ColorTranslation,
+EngTransparentBlt(PSURFOBJ Dest,
+		  PSURFOBJ Source,
+		  PCLIPOBJ Clip,
+		  PXLATEOBJ ColorTranslation,
 		  PRECTL DestRect,
 		  PRECTL SourceRect,
 		  ULONG iTransColor,
 		  ULONG Reserved)
 {
-  BOOL Ret = TRUE;
+  BOOL Ret;
   BYTE ClippingType;
   INTENG_ENTER_LEAVE EnterLeaveSource, EnterLeaveDest;
   SURFOBJ *InputObj, *OutputObj;
+  SURFGDI *InputGDI, *OutputGDI;
   RECTL OutputRect, InputRect;
   POINTL Translate, InputPoint;
   
@@ -58,6 +76,9 @@ EngTransparentBlt(SURFOBJ *Dest,
   
   InputPoint.x = SourceRect->left + Translate.x;
   InputPoint.y = SourceRect->top + Translate.y;
+  
+  InputGDI = (InputObj ? (SURFGDI*)AccessInternalObjectFromUserObject(InputObj) : NULL);
+  ASSERT(InputGDI);
   
   OutputRect = *DestRect;
   if(Clip)
@@ -105,14 +126,17 @@ EngTransparentBlt(SURFOBJ *Dest,
   OutputRect.top = DestRect->top + Translate.y;
   OutputRect.bottom = DestRect->bottom + Translate.y;
   
+  OutputGDI = (OutputObj ? (SURFGDI*)AccessInternalObjectFromUserObject(OutputObj) : NULL);
+  ASSERT(OutputGDI);
+  
   ClippingType = (Clip ? Clip->iDComplexity : DC_TRIVIAL);
   
   switch(ClippingType)
   {
     case DC_TRIVIAL:
     {
-      Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
-        OutputObj, InputObj, &OutputRect, &InputPoint, ColorTranslation, iTransColor);
+      Ret = OutputGDI->DIB_TransparentBlt(OutputObj, InputObj, OutputGDI, InputGDI, &OutputRect, 
+                                         &InputPoint, ColorTranslation, iTransColor);
       break;
     }
     case DC_RECT:
@@ -127,8 +151,8 @@ EngTransparentBlt(SURFOBJ *Dest,
       EngIntersectRect(&CombinedRect, &OutputRect, &ClipRect);
       Pt.x = InputPoint.x + CombinedRect.left - OutputRect.left;
       Pt.y = InputPoint.y + CombinedRect.top - OutputRect.top;
-      Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
-        OutputObj, InputObj, &CombinedRect, &Pt, ColorTranslation, iTransColor);
+      Ret = OutputGDI->DIB_TransparentBlt(OutputObj, InputObj, OutputGDI, InputGDI, &CombinedRect, 
+                                          &Pt, ColorTranslation, iTransColor);
       break;
     }
     case DC_COMPLEX:
@@ -169,8 +193,8 @@ EngTransparentBlt(SURFOBJ *Dest,
           EngIntersectRect(&CombinedRect, &OutputRect, &ClipRect);
           Pt.x = InputPoint.x + CombinedRect.left - OutputRect.left;
           Pt.y = InputPoint.y + CombinedRect.top - OutputRect.top;
-          Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
-            OutputObj, InputObj, &CombinedRect, &Pt, ColorTranslation, iTransColor);
+          Ret = OutputGDI->DIB_TransparentBlt(OutputObj, InputObj, OutputGDI, InputGDI, &CombinedRect, 
+                                              &Pt, ColorTranslation, iTransColor);
           if(!Ret)
           {
             break;
@@ -193,10 +217,10 @@ EngTransparentBlt(SURFOBJ *Dest,
 }
 
 BOOL FASTCALL
-IntEngTransparentBlt(BITMAPOBJ *DestObj,
-                     BITMAPOBJ *SourceObj,
-                     CLIPOBJ *Clip,
-                     XLATEOBJ *ColorTranslation,
+IntEngTransparentBlt(PSURFOBJ Dest,
+                     PSURFOBJ Source,
+                     PCLIPOBJ Clip,
+                     PXLATEOBJ ColorTranslation,
                      PRECTL DestRect,
                      PRECTL SourceRect,
                      ULONG iTransColor,
@@ -204,19 +228,8 @@ IntEngTransparentBlt(BITMAPOBJ *DestObj,
 {
   BOOL Ret;
   RECTL OutputRect, InputClippedRect;
-  SURFOBJ *DestSurf;
-  SURFOBJ *SourceSurf;
+  PSURFGDI SurfGDIDest, SurfGDISrc;
   
-  ASSERT(DestObj);
-  ASSERT(SourceObj);
-  ASSERT(DestRect);
-
-  DestSurf = &DestObj->SurfObj;
-  SourceSurf = &SourceObj->SurfObj;
-
-  ASSERT(DestSurf);
-  ASSERT(SourceSurf);
-
   InputClippedRect = *DestRect;
   if(InputClippedRect.right < InputClippedRect.left)
   {
@@ -247,45 +260,55 @@ IntEngTransparentBlt(BITMAPOBJ *DestObj,
     OutputRect = *DestRect;
   }
   
-  if(SourceSurf != DestSurf)
+  if(Source != Dest)
   {
-    MouseSafetyOnDrawStart(SourceSurf, SourceRect->left, SourceRect->top, 
-                           SourceRect->right, SourceRect->bottom);
+    SurfGDISrc = (PSURFGDI)AccessInternalObjectFromUserObject(Source);
+    ASSERT(SurfGDISrc);
+    MouseSafetyOnDrawStart(Source, SurfGDISrc, SourceRect->left, SourceRect->top, 
+                           (SourceRect->left + abs(SourceRect->right - SourceRect->left)),
+                           (SourceRect->top + abs(SourceRect->bottom - SourceRect->top)));
   }
-  MouseSafetyOnDrawStart(DestSurf, OutputRect.left, OutputRect.top,
+  SurfGDIDest = (PSURFGDI)AccessInternalObjectFromUserObject(Dest);
+  ASSERT(SurfGDIDest);
+  MouseSafetyOnDrawStart(Dest, SurfGDIDest, OutputRect.left, OutputRect.top,
                          OutputRect.right, OutputRect.bottom);
   
-  if(DestObj->flHooks & HOOK_TRANSPARENTBLT)
+  if(SurfGDIDest->TransparentBlt)
   {
-    Ret = GDIDEVFUNCS(DestSurf).TransparentBlt(
-      DestSurf, SourceSurf, Clip, ColorTranslation, &OutputRect, 
-      SourceRect, iTransColor, Reserved);
+    IntLockGDIDriver(SurfGDIDest);
+    Ret = SurfGDIDest->TransparentBlt(Dest, Source, Clip, ColorTranslation, &OutputRect, 
+                                      SourceRect, iTransColor, Reserved);
+    IntUnLockGDIDriver(SurfGDIDest);
   }
   else
     Ret = FALSE;
   
   if(!Ret)
   {
-    Ret = EngTransparentBlt(DestSurf, SourceSurf, Clip, ColorTranslation,
-                            &OutputRect, SourceRect, iTransColor, Reserved);
+    Ret = EngTransparentBlt(Dest, Source, Clip, ColorTranslation, &OutputRect, 
+                            SourceRect, iTransColor, Reserved);
   }
   
   if(Ret)
   {
     /* Dummy BitBlt to let driver know that something has changed.
        0x00AA0029 is the Rop for D (no-op) */
-    if (DestObj->flHooks & HOOK_BITBLT)
+    if(SurfGDIDest->BitBlt)
     {
-      GDIDEVFUNCS(DestSurf).BitBlt(
-                          DestSurf, NULL, NULL, Clip, ColorTranslation,
+      IntLockGDIDriver(SurfGDIDest);
+      SurfGDIDest->BitBlt(Dest, NULL, NULL, Clip, ColorTranslation,
                           &OutputRect, NULL, NULL, NULL, NULL, ROP_NOOP);
+      IntUnLockGDIDriver(SurfGDIDest);
     }
+    else
+      EngBitBlt(Dest, NULL, NULL, Clip, ColorTranslation,
+                &OutputRect, NULL, NULL, NULL, NULL, ROP_NOOP);
   }
   
-  MouseSafetyOnDrawEnd(DestSurf);
-  if(SourceSurf != DestSurf)
+  MouseSafetyOnDrawEnd(Dest, SurfGDIDest);
+  if(Source != Dest)
   {
-    MouseSafetyOnDrawEnd(SourceSurf);
+    MouseSafetyOnDrawEnd(Source, SurfGDISrc);
   }
 
   return Ret;

@@ -1,4 +1,4 @@
-/* $Id: cnotify.c,v 1.11 2004/10/08 21:29:40 weiden Exp $
+/* $Id: cnotify.c,v 1.10 2004/01/23 21:16:03 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -20,13 +20,7 @@
 BOOL STDCALL
 FindCloseChangeNotification (HANDLE hChangeHandle)
 {
-   NTSTATUS Status = NtClose(hChangeHandle);
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastErrorByStatus(Status);
-     return FALSE;
-   }
-   
+   NtClose(hChangeHandle);
    return TRUE;
 }
 

@@ -31,7 +31,10 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
+
 
 #define FILE_DEVICE_USB_SCAN              0x8000
 #define IOCTL_INDEX                       0x0800
@@ -150,6 +153,8 @@ typedef enum _PIPE_TYPE {
 	WRITE_DATA_PIPE,
 	ALL_PIPE
 } PIPE_TYPE;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

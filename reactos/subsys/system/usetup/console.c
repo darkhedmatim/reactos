@@ -26,7 +26,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ddk/ntddblue.h>
 
 #include "usetup.h"
@@ -108,7 +108,7 @@ AllocConsole(VOID)
 VOID
 FreeConsole(VOID)
 {
-  DPRINT("FreeConsole() called\n");
+  DPRINT1("FreeConsole() called\n");
 
   if (StdInput != INVALID_HANDLE_VALUE)
     NtClose(StdInput);
@@ -116,7 +116,7 @@ FreeConsole(VOID)
   if (StdOutput != INVALID_HANDLE_VALUE)
     NtClose(StdOutput);
 
-  DPRINT("FreeConsole() done\n");
+  DPRINT1("FreeConsole() done\n");
 }
 
 
@@ -300,10 +300,10 @@ WriteConsoleOutputCharacters(LPCSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -344,10 +344,10 @@ WriteConsoleOutputCharactersW(LPCWSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -384,10 +384,10 @@ WriteConsoleOutputAttributes(CONST USHORT *lpAttribute,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_ATTRIBUTE,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength * sizeof(USHORT) + sizeof(COORD));
+				 nLength * sizeof(USHORT) + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -818,42 +818,6 @@ SetStatusText(char* fmt, ...)
   WriteConsoleOutputCharacters(Buffer,
 			       strlen(Buffer),
 			       coPos);
-}
-
-
-VOID
-InvertTextXY(SHORT x, SHORT y, SHORT col, SHORT row)
-{
-  COORD coPos;
-  ULONG Written;
-
-  for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
-    {
-      coPos.X = x;
-
-      FillConsoleOutputAttribute(0x71,
-				 col,
-				 coPos,
-				 &Written);
-    }
-}
-
-
-VOID
-NormalTextXY(SHORT x, SHORT y, SHORT col, SHORT row)
-{
-  COORD coPos;
-  ULONG Written;
-
-  for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
-    {
-      coPos.X = x;
-
-      FillConsoleOutputAttribute(0x17,
-				 col,
-				 coPos,
-				 &Written);
-    }
 }
 
 

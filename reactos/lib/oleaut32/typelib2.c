@@ -35,10 +35,8 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -48,6 +46,7 @@
 
 #include "wine/unicode.h"
 #include "objbase.h"
+#include "heap.h"
 #include "ole2disp.h"
 #include "typelib.h"
 #include "wine/debug.h"
@@ -147,8 +146,8 @@ typedef struct tagMSFT_ImpFile {
 
 typedef struct tagICreateTypeLib2Impl
 {
-    ICreateTypeLib2Vtbl *lpVtbl;
-    ITypeLib2Vtbl       *lpVtblTypeLib2;
+    ICOM_VFIELD(ICreateTypeLib2);
+    ICOM_VTABLE(ITypeLib2) *lpVtblTypeLib2;
 
     UINT ref;
 
@@ -173,8 +172,8 @@ typedef struct tagICreateTypeLib2Impl
 
 typedef struct tagICreateTypeInfo2Impl
 {
-    ICreateTypeInfo2Vtbl *lpVtbl;
-    ITypeInfo2Vtbl       *lpVtblTypeInfo2;
+    ICOM_VFIELD(ICreateTypeInfo2);
+    ICOM_VTABLE(ITypeInfo2) *lpVtblTypeInfo2;
 
     UINT ref;
 
@@ -255,58 +254,6 @@ static void ctl2_init_segdir(
 }
 
 /****************************************************************************
- *	ctl2_hash_guid
- *
- *  Generates a hash key from a GUID.
- *
- * RETURNS
- *
- *  The hash key for the GUID.
- */
-static int ctl2_hash_guid(
-	REFGUID guid)                /* [I] The guid to find. */
-{
-    int hash;
-    int i;
-
-    hash = 0;
-    for (i = 0; i < 8; i ++) {
-	hash ^= ((const short *)guid)[i];
-    }
-
-    return (hash & 0xf) | ((hash & 0x10) & (0 - !!(hash & 0xe0)));
-}
-
-/****************************************************************************
- *	ctl2_find_guid
- *
- *  Locates a guid in a type library.
- *
- * RETURNS
- *
- *  The offset into the GUID segment of the guid, or -1 if not found.
- */
-static int ctl2_find_guid(
-	ICreateTypeLib2Impl *This, /* [I] The typelib to operate against. */
-	int hash_key,              /* [I] The hash key for the guid. */
-	REFGUID guid)                /* [I] The guid to find. */
-{
-    int offset;
-    MSFT_GuidEntry *guidentry;
-
-    offset = This->typelib_guidhash_segment[hash_key];
-    while (offset != -1) {
-	guidentry = (MSFT_GuidEntry *)&This->typelib_segment_data[MSFT_SEG_GUID][offset];
-
-	if (!memcmp(guidentry, guid, sizeof(GUID))) return offset;
-
-	offset = guidentry->next_hash;
-    }
-
-    return offset;
-}
-
-/****************************************************************************
  *	ctl2_find_name
  *
  *  Locates a name in a type library.
@@ -359,7 +306,7 @@ static int ctl2_find_name(
  */
 static int ctl2_encode_name(
 	ICreateTypeLib2Impl *This, /* [I] The typelib to operate against (used for LCID only). */
-	const WCHAR *name,         /* [I] The name string to encode. */
+	WCHAR *name,               /* [I] The name string to encode. */
 	char **result)             /* [O] A pointer to a pointer to receive the encoded name. */
 {
     int length;
@@ -403,7 +350,7 @@ static int ctl2_encode_name(
  */
 static int ctl2_encode_string(
 	ICreateTypeLib2Impl *This, /* [I] The typelib to operate against (not used?). */
-	const WCHAR *string,       /* [I] The string to encode. */
+	WCHAR *string,             /* [I] The string to encode. */
 	char **result)             /* [O] A pointer to a pointer to receive the encoded string. */
 {
     int length;
@@ -550,12 +497,17 @@ static int ctl2_alloc_guid(
 {
     int offset;
     MSFT_GuidEntry *guid_space;
+    int hash;
     int hash_key;
+    int i;
 
-    hash_key = ctl2_hash_guid(&guid->guid);
-
-    offset = ctl2_find_guid(This, hash_key, &guid->guid);
-    if (offset != -1) return offset;
+    for (offset = 0; offset < This->typelib_segdir[MSFT_SEG_GUID].length;
+	 offset += sizeof(MSFT_GuidEntry)) {
+	if (!memcmp(&(This->typelib_segment_data[MSFT_SEG_GUID][offset]),
+		    guid, sizeof(GUID))) {
+	    return offset;
+	}
+    }
 
     offset = ctl2_alloc_segment(This, MSFT_SEG_GUID, sizeof(MSFT_GuidEntry), 0);
     if (offset == -1) return -1;
@@ -563,8 +515,16 @@ static int ctl2_alloc_guid(
     guid_space = (void *)(This->typelib_segment_data[MSFT_SEG_GUID] + offset);
     *guid_space = *guid;
 
-    guid_space->next_hash = This->typelib_guidhash_segment[hash_key];
+    hash = 0;
+    for (i = 0; i < 16; i += 2) {
+	hash ^= *((short *)&This->typelib_segment_data[MSFT_SEG_GUID][offset + i]);
+    }
+
+    hash_key = (hash & 0xf) | ((hash & 0x10) & (0 - !!(hash & 0xe0)));
+    guid_space->unk14 = This->typelib_guidhash_segment[hash_key];
     This->typelib_guidhash_segment[hash_key] = offset;
+
+    TRACE("Updating GUID hash table (%s,0x%x).\n", debugstr_guid(&guid->guid), hash);
 
     return offset;
 }
@@ -582,7 +542,7 @@ static int ctl2_alloc_guid(
  */
 static int ctl2_alloc_name(
 	ICreateTypeLib2Impl *This, /* [I] The type library to allocate in. */
-	const WCHAR *name)         /* [I] The name to store. */
+	WCHAR *name)               /* [I] The name to store. */
 {
     int length;
     int offset;
@@ -598,12 +558,12 @@ static int ctl2_alloc_name(
     if (offset == -1) return -1;
 
     name_space = (void *)(This->typelib_segment_data[MSFT_SEG_NAME] + offset);
-    name_space->hreftype = -1;
-    name_space->next_hash = -1;
+    name_space->unk00 = -1;
+    name_space->unk10 = -1;
     memcpy(&name_space->namelen, encoded_name, length);
 
     if (This->typelib_namehash_segment[encoded_name[2] & 0x7f] != -1)
-	name_space->next_hash = This->typelib_namehash_segment[encoded_name[2] & 0x7f];
+	name_space->unk10 = This->typelib_namehash_segment[encoded_name[2] & 0x7f];
 
     This->typelib_namehash_segment[encoded_name[2] & 0x7f] = offset;
 
@@ -625,7 +585,7 @@ static int ctl2_alloc_name(
  */
 static int ctl2_alloc_string(
 	ICreateTypeLib2Impl *This, /* [I] The type library to allocate in. */
-	const WCHAR *string)       /* [I] The string to store. */
+	WCHAR *string)             /* [I] The string to store. */
 {
     int length;
     int offset;
@@ -699,7 +659,7 @@ static int ctl2_alloc_importfile(
 	int guidoffset,            /* [I] The offset to the GUID for the imported library. */
 	int major_version,         /* [I] The major version number of the imported library. */
 	int minor_version,         /* [I] The minor version number of the imported library. */
-	const WCHAR *filename)     /* [I] The filename of the imported library. */
+	WCHAR *filename)           /* [I] The filename of the imported library. */
 {
     int length;
     int offset;
@@ -791,8 +751,8 @@ static HRESULT ctl2_set_custdata(
 
     guidentry.guid = *guid;
 
-    guidentry.hreftype = -1;
-    guidentry.next_hash = -1;
+    guidentry.unk10 = -1;
+    guidentry.unk14 = -1;
 
     guidoffset = ctl2_alloc_guid(This, &guidentry);
     if (guidoffset == -1) return E_OUTOFMEMORY;
@@ -1060,39 +1020,6 @@ static int ctl2_find_nth_reference(
     return offset;
 }
 
-/****************************************************************************
- *	ctl2_find_typeinfo_from_offset
- *
- *  Finds an ITypeInfo given an offset into the TYPEINFO segment.
- *
- * RETURNS
- *
- *  Success: S_OK.
- *  Failure: TYPE_E_ELEMENTNOTFOUND.
- */
-static HRESULT ctl2_find_typeinfo_from_offset(
-	ICreateTypeLib2Impl *This, /* [I] The typelib to find the typeinfo in. */
-	int offset,                /* [I] The offset of the desired typeinfo. */
-	ITypeInfo **ppTinfo)       /* [I] The typeinfo found. */
-{
-    void *typeinfodata;
-    ICreateTypeInfo2Impl *typeinfo;
-
-    typeinfodata = &This->typelib_segment_data[MSFT_SEG_TYPEINFO][offset];
-
-    for (typeinfo = This->typeinfos; typeinfo; typeinfo = typeinfo->next_typeinfo) {
-	if (typeinfo->typeinfo == typeinfodata) {
-	    *ppTinfo = (ITypeInfo *)&typeinfo->lpVtblTypeInfo2;
-	    ITypeInfo2_AddRef(*ppTinfo);
-	    return S_OK;
-	}
-    }
-
-    ERR("Failed to find typeinfo, invariant varied.\n");
-
-    return TYPE_E_ELEMENTNOTFOUND;
-}
-
 /*================== ICreateTypeInfo2 Implementation ===================================*/
 
 /******************************************************************************
@@ -1105,7 +1032,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnQueryInterface(
 	REFIID riid,
 	VOID **ppvObject)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS( ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p)->(IID: %s)\n",This,debugstr_guid(riid));
 
@@ -1137,7 +1064,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnQueryInterface(
  */
 static ULONG WINAPI ICreateTypeInfo2_fnAddRef(ICreateTypeInfo2 *iface)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS( ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p)->ref was %u\n",This, This->ref);
 
@@ -1151,7 +1078,7 @@ static ULONG WINAPI ICreateTypeInfo2_fnAddRef(ICreateTypeInfo2 *iface)
  */
 static ULONG WINAPI ICreateTypeInfo2_fnRelease(ICreateTypeInfo2 *iface)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS( ICreateTypeInfo2Impl, iface);
 
     --(This->ref);
 
@@ -1179,7 +1106,7 @@ static ULONG WINAPI ICreateTypeInfo2_fnRelease(ICreateTypeInfo2 *iface)
  */
 static HRESULT WINAPI ICreateTypeInfo2_fnSetGuid(ICreateTypeInfo2 *iface, REFGUID guid)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     MSFT_GuidEntry guidentry;
     int offset;
@@ -1187,18 +1114,14 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetGuid(ICreateTypeInfo2 *iface, REFGUI
     TRACE("(%p,%s)\n", iface, debugstr_guid(guid));
 
     guidentry.guid = *guid;
-    guidentry.hreftype = This->typelib->typelib_typeinfo_offsets[This->typeinfo->typekind >> 16];
-    guidentry.next_hash = -1;
+    guidentry.unk10 = 0;
+    guidentry.unk14 = 0x18;
 
     offset = ctl2_alloc_guid(This->typelib, &guidentry);
     
     if (offset == -1) return E_OUTOFMEMORY;
 
     This->typeinfo->posguid = offset;
-
-    if (IsEqualIID(guid, &IID_IDispatch)) {
-	This->typelib->typelib_header.dispatchpos = This->typelib->typelib_typeinfo_offsets[This->typeinfo->typekind >> 16];
-    }
 
     return S_OK;
 }
@@ -1210,7 +1133,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetGuid(ICreateTypeInfo2 *iface, REFGUI
  */
 static HRESULT WINAPI ICreateTypeInfo2_fnSetTypeFlags(ICreateTypeInfo2 *iface, UINT uTypeFlags)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS( ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p,0x%x)\n", iface, uTypeFlags);
 
@@ -1221,11 +1144,11 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetTypeFlags(ICreateTypeInfo2 *iface, U
 	int guidoffset;
 	int fileoffset;
 	MSFT_ImpInfo impinfo;
-	static const WCHAR stdole2tlb[] = { 's','t','d','o','l','e','2','.','t','l','b',0 };
+	WCHAR stdole2tlb[] = { 's','t','d','o','l','e','2','.','t','l','b',0 };
 
 	foo.guid = IID_StdOle;
-	foo.hreftype = 2;
-	foo.next_hash = -1;
+	foo.unk10 = 2;
+	foo.unk14 = -1;
 	guidoffset = ctl2_alloc_guid(This->typelib, &foo);
 	if (guidoffset == -1) return E_OUTOFMEMORY;
 
@@ -1233,8 +1156,8 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetTypeFlags(ICreateTypeInfo2 *iface, U
 	if (fileoffset == -1) return E_OUTOFMEMORY;
 
 	foo.guid = IID_IDispatch;
-	foo.hreftype = 1;
-	foo.next_hash = -1;
+	foo.unk10 = 1;
+	foo.unk14 = -1;
 	guidoffset = ctl2_alloc_guid(This->typelib, &foo);
 	if (guidoffset == -1) return E_OUTOFMEMORY;
 
@@ -1263,7 +1186,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetDocString(
         ICreateTypeInfo2* iface,
         LPOLESTR pStrDoc)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     int offset;
 
@@ -1284,13 +1207,8 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetHelpContext(
         ICreateTypeInfo2* iface,
         DWORD dwHelpContext)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
-
-    TRACE("(%p,%ld)\n", iface, dwHelpContext);
-
-    This->typeinfo->helpcontext = dwHelpContext;
-
-    return S_OK;
+    FIXME("(%p,%ld), stub!\n", iface, dwHelpContext);
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -1303,7 +1221,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetVersion(
         WORD wMajorVerNum,
         WORD wMinorVerNum)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p,%d,%d)\n", iface, wMajorVerNum, wMinorVerNum);
 
@@ -1321,7 +1239,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnAddRefTypeInfo(
         ITypeInfo* pTInfo,
         HREFTYPE* phRefType)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     ITypeLib *container;
     int index;
@@ -1363,7 +1281,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnAddFuncDesc(
         UINT index,
         FUNCDESC* pFuncDesc)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     int offset;
     int *typedata;
@@ -1447,7 +1365,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnAddImplType(
         UINT index,
         HREFTYPE hRefType)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p,%d,%ld)\n", iface, index, hRefType);
 
@@ -1516,7 +1434,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetImplTypeFlags(
         UINT index,
         INT implTypeFlags)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
     int offset;
     MSFT_RefRecord *ref;
 
@@ -1544,7 +1462,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetAlignment(
         ICreateTypeInfo2* iface,
         WORD cbAlignment)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     TRACE("(%p,%d)\n", iface, cbAlignment);
 
@@ -1602,7 +1520,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnAddVarDesc(
         UINT index,
         VARDESC* pVarDesc)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
     int offset;
     INT *typedata;
     int var_datawidth;
@@ -1695,7 +1613,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetFuncAndParamNames(
         LPOLESTR* rgszNames,
         UINT cNames)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     int i;
     int offset;
@@ -1733,7 +1651,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetVarName(
         UINT index,
         LPOLESTR szName)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
     int offset;
     char *namedata;
 
@@ -1748,10 +1666,8 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetVarName(
     if (offset == -1) return E_OUTOFMEMORY;
 
     namedata = This->typelib->typelib_segment_data[MSFT_SEG_NAME] + offset;
-    if (*((INT *)namedata) == -1) {
-	*((INT *)namedata) = This->typelib->typelib_typeinfo_offsets[This->typeinfo->typekind >> 16];
-	namedata[9] |= 0x10;
-    }
+    *((INT *)namedata) = This->typelib->typelib_typeinfo_offsets[This->typeinfo->typekind >> 16];
+    namedata[9] = 0x10;
     if ((This->typeinfo->typekind & 15) == TKIND_ENUM) {
 	namedata[9] |= 0x20;
     }
@@ -1769,25 +1685,8 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetTypeDescAlias(
         ICreateTypeInfo2* iface,
         TYPEDESC* pTDescAlias)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
-
-    int encoded_typedesc;
-    int width;
-
-    if ((This->typeinfo->typekind & 15) != TKIND_ALIAS) {
-	return TYPE_E_WRONGTYPEKIND;
-    }
-
-    FIXME("(%p,%p), hack!\n", iface, pTDescAlias);
-
-    if (ctl2_encode_typedesc(This->typelib, pTDescAlias, &encoded_typedesc, &width, NULL, NULL) == -1) {
-	return E_OUTOFMEMORY;
-    }
-
-    This->typeinfo->size = width;
-    This->typeinfo->datatype1 = encoded_typedesc;
-
-    return S_OK;
+    FIXME("(%p,%p), stub!\n", iface, pTDescAlias);
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -1829,7 +1728,7 @@ static HRESULT WINAPI ICreateTypeInfo2_fnSetVarDocString(
         UINT index,
         LPOLESTR szDocString)
 {
-    ICreateTypeInfo2Impl *This = (ICreateTypeInfo2Impl *)iface;
+    ICOM_THIS(ICreateTypeInfo2Impl, iface);
 
     FIXME("(%p,%d,%s), stub!\n", iface, index, debugstr_w(szDocString));
 
@@ -2799,8 +2698,9 @@ static HRESULT WINAPI ITypeInfo2_fnGetAllImplTypeCustData(
 
 /*================== ICreateTypeInfo2 & ITypeInfo2 VTABLEs And Creation ===================================*/
 
-static ICreateTypeInfo2Vtbl ctypeinfo2vt =
+static ICOM_VTABLE(ICreateTypeInfo2) ctypeinfo2vt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 
     ICreateTypeInfo2_fnQueryInterface,
     ICreateTypeInfo2_fnAddRef,
@@ -2847,8 +2747,9 @@ static ICreateTypeInfo2Vtbl ctypeinfo2vt =
     ICreateTypeInfo2_fnSetName
 };
 
-static ITypeInfo2Vtbl typeinfo2vt =
+static ICOM_VTABLE(ITypeInfo2) typeinfo2vt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 
     ITypeInfo2_fnQueryInterface,
     ITypeInfo2_fnAddRef,
@@ -2972,7 +2873,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnQueryInterface(
 	REFIID riid,
 	VOID **ppvObject)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS( ICreateTypeLib2Impl, iface);
 
     TRACE("(%p)->(IID: %s)\n",This,debugstr_guid(riid));
 
@@ -3004,7 +2905,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnQueryInterface(
  */
 static ULONG WINAPI ICreateTypeLib2_fnAddRef(ICreateTypeLib2 *iface)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS( ICreateTypeLib2Impl, iface);
 
     TRACE("(%p)->ref was %u\n",This, This->ref);
 
@@ -3018,7 +2919,7 @@ static ULONG WINAPI ICreateTypeLib2_fnAddRef(ICreateTypeLib2 *iface)
  */
 static ULONG WINAPI ICreateTypeLib2_fnRelease(ICreateTypeLib2 *iface)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS( ICreateTypeLib2Impl, iface);
 
     --(This->ref);
 
@@ -3065,7 +2966,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnCreateTypeInfo(
 	TYPEKIND tkind,
 	ICreateTypeInfo **ppCTInfo)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     TRACE("(%p,%s,%d,%p)\n", iface, debugstr_w(szName), tkind, ppCTInfo);
 
@@ -3085,7 +2986,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetName(
 	ICreateTypeLib2 * iface,
 	LPOLESTR szName)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     int offset;
 
@@ -3104,7 +3005,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetName(
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetVersion(ICreateTypeLib2 * iface, WORD wMajorVerNum, WORD wMinorVerNum)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     TRACE("(%p,%d,%d)\n", iface, wMajorVerNum, wMinorVerNum);
 
@@ -3119,7 +3020,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetVersion(ICreateTypeLib2 * iface, WORD
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetGuid(ICreateTypeLib2 * iface, REFGUID guid)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     MSFT_GuidEntry guidentry;
     int offset;
@@ -3127,8 +3028,8 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetGuid(ICreateTypeLib2 * iface, REFGUID
     TRACE("(%p,%s)\n", iface, debugstr_guid(guid));
 
     guidentry.guid = *guid;
-    guidentry.hreftype = -2;
-    guidentry.next_hash = -1;
+    guidentry.unk10 = -2;
+    guidentry.unk14 = -1;
 
     offset = ctl2_alloc_guid(This, &guidentry);
     
@@ -3146,7 +3047,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetGuid(ICreateTypeLib2 * iface, REFGUID
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetDocString(ICreateTypeLib2 * iface, LPOLESTR szDoc)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     int offset;
 
@@ -3165,7 +3066,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetDocString(ICreateTypeLib2 * iface, LP
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetHelpFileName(ICreateTypeLib2 * iface, LPOLESTR szHelpFileName)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     int offset;
 
@@ -3196,7 +3097,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetHelpContext(ICreateTypeLib2 * iface, 
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetLcid(ICreateTypeLib2 * iface, LCID lcid)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     TRACE("(%p,%ld)\n", iface, lcid);
 
@@ -3212,7 +3113,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetLcid(ICreateTypeLib2 * iface, LCID lc
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSetLibFlags(ICreateTypeLib2 * iface, UINT uLibFlags)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     TRACE("(%p,0x%x)\n", iface, uLibFlags);
 
@@ -3223,19 +3124,14 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetLibFlags(ICreateTypeLib2 * iface, UIN
 
 static int ctl2_write_chunk(HANDLE hFile, void *segment, int length)
 {
-    DWORD dwWritten;
-    if (!WriteFile(hFile, segment, length, &dwWritten, 0)) {
-        CloseHandle(hFile);
-        return 0;
-    }
+    if (!WriteFile(hFile, segment, length, NULL, 0)) {CloseHandle(hFile); return 0;}
     return -1;
 }
 
 static int ctl2_write_segment(ICreateTypeLib2Impl *This, HANDLE hFile, int segment)
 {
-    DWORD dwWritten;
     if (!WriteFile(hFile, This->typelib_segment_data[segment],
-		   This->typelib_segdir[segment].length, &dwWritten, 0)) {
+		   This->typelib_segdir[segment].length, NULL, 0)) {
 	CloseHandle(hFile);
 	return 0;
     }
@@ -3288,7 +3184,7 @@ static void ctl2_write_typeinfos(ICreateTypeLib2Impl *This, HANDLE hFile)
  */
 static HRESULT WINAPI ICreateTypeLib2_fnSaveAllChanges(ICreateTypeLib2 * iface)
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS( ICreateTypeLib2Impl, iface);
 
     int retval;
     int filepos;
@@ -3379,7 +3275,7 @@ static HRESULT WINAPI ICreateTypeLib2_fnSetCustData(
 	REFGUID guid,            /* [I] The GUID used as a key to retrieve the custom data. */
 	VARIANT *pVarVal)        /* [I] The custom data itself. */
 {
-    ICreateTypeLib2Impl *This = (ICreateTypeLib2Impl *)iface;
+    ICOM_THIS(ICreateTypeLib2Impl, iface);
 
     TRACE("(%p,%s,%p)\n", iface, debugstr_guid(guid), pVarVal);
 
@@ -3468,11 +3364,11 @@ static ULONG WINAPI ITypeLib2_fnRelease(ITypeLib2 * iface)
 static UINT WINAPI ITypeLib2_fnGetTypeInfoCount(
         ITypeLib2 * iface)
 {
-    ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface);
+/*     ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface); */
 
-    TRACE("(%p)\n", iface);
+    FIXME("(%p), stub!\n", iface);
 
-    return This->typelib_header.nrtypeinfos;
+    return 0;
 }
 
 /******************************************************************************
@@ -3485,15 +3381,11 @@ static HRESULT WINAPI ITypeLib2_fnGetTypeInfo(
         UINT index,
         ITypeInfo** ppTInfo)
 {
-    ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface);
+/*     ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface); */
 
-    TRACE("(%p,%d,%p)\n", iface, index, ppTInfo);
+    FIXME("(%p,%d,%p), stub!\n", iface, index, ppTInfo);
 
-    if ((index < 0) || (index >= This->typelib_header.nrtypeinfos)) {
-	return TYPE_E_ELEMENTNOTFOUND;
-    }
-
-    return ctl2_find_typeinfo_from_offset(This, This->typelib_typeinfo_offsets[index], ppTInfo);
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -3506,17 +3398,11 @@ static HRESULT WINAPI ITypeLib2_fnGetTypeInfoType(
         UINT index,
         TYPEKIND* pTKind)
 {
-    ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface);
+/*     ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface); */
 
-    TRACE("(%p,%d,%p)\n", iface, index, pTKind);
+    FIXME("(%p,%d,%p), stub!\n", iface, index, pTKind);
 
-    if ((index < 0) || (index >= This->typelib_header.nrtypeinfos)) {
-	return TYPE_E_ELEMENTNOTFOUND;
-    }
-
-    *pTKind = (This->typelib_segment_data[MSFT_SEG_TYPEINFO][This->typelib_typeinfo_offsets[index]]) & 15;
-
-    return S_OK;
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -3529,20 +3415,11 @@ static HRESULT WINAPI ITypeLib2_fnGetTypeInfoOfGuid(
         REFGUID guid,
         ITypeInfo** ppTinfo)
 {
-    ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface);
+/*     ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface); */
 
-    int guidoffset;
-    int typeinfo;
+    FIXME("(%p,%s,%p), stub!\n", iface, debugstr_guid(guid), ppTinfo);
 
-    TRACE("(%p,%s,%p)\n", iface, debugstr_guid(guid), ppTinfo);
-
-    guidoffset = ctl2_find_guid(This, ctl2_hash_guid(guid), guid);
-    if (guidoffset == -1) return TYPE_E_ELEMENTNOTFOUND;
-
-    typeinfo = ((MSFT_GuidEntry *)&This->typelib_segment_data[MSFT_SEG_GUID][guidoffset])->hreftype;
-    if (typeinfo < 0) return TYPE_E_ELEMENTNOTFOUND;
-
-    return ctl2_find_typeinfo_from_offset(This, typeinfo, ppTinfo);
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -3608,29 +3485,11 @@ static HRESULT WINAPI ITypeLib2_fnIsName(
         ULONG lHashVal,
         BOOL* pfName)
 {
-    ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface);
+/*     ICOM_THIS_From_ITypeLib2(ICreateTypeLib2Impl, iface); */
 
-    char *encoded_name;
-    int nameoffset;
-    MSFT_NameIntro *nameintro;
+    FIXME("(%p,%s,%lx,%p), stub!\n", iface, debugstr_w(szNameBuf), lHashVal, pfName);
 
-    TRACE("(%p,%s,%lx,%p)\n", iface, debugstr_w(szNameBuf), lHashVal, pfName);
-
-    ctl2_encode_name(This, szNameBuf, &encoded_name);
-    nameoffset = ctl2_find_name(This, encoded_name);
-
-    *pfName = 0;
-
-    if (nameoffset == -1) return S_OK;
-
-    nameintro = (MSFT_NameIntro *)(&This->typelib_segment_data[MSFT_SEG_NAME][nameoffset]);
-    if (nameintro->hreftype == -1) return S_OK;
-
-    *pfName = 1;
-
-    FIXME("Should be decoding our copy of the name over szNameBuf.\n");
-
-    return S_OK;
+    return E_OUTOFMEMORY;
 }
 
 /******************************************************************************
@@ -3761,8 +3620,9 @@ static HRESULT WINAPI ITypeLib2_fnGetAllCustData(
 
 /*================== ICreateTypeLib2 & ITypeLib2 VTABLEs And Creation ===================================*/
 
-static ICreateTypeLib2Vtbl ctypelib2vt =
+static ICOM_VTABLE(ICreateTypeLib2) ctypelib2vt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 
     ICreateTypeLib2_fnQueryInterface,
     ICreateTypeLib2_fnAddRef,
@@ -3785,8 +3645,9 @@ static ICreateTypeLib2Vtbl ctypelib2vt =
     ICreateTypeLib2_fnSetHelpStringDll
 };
 
-static ITypeLib2Vtbl typelib2vt =
+static ICOM_VTABLE(ITypeLib2) typelib2vt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 
     ITypeLib2_fnQueryInterface,
     ITypeLib2_fnAddRef,
@@ -3880,34 +3741,4 @@ HRESULT WINAPI CreateTypeLib2(
     if (!szFile) return E_INVALIDARG;
     *ppctlib = ICreateTypeLib2_Constructor(syskind, szFile);
     return (*ppctlib)? S_OK: E_OUTOFMEMORY;
-}
-
-/******************************************************************************
- * ClearCustData (OLEAUT32.171)
- *
- * Clear a custom data types' data.
- *
- * PARAMS
- *  lpCust [I] The custom data type instance
- *
- * RETURNS
- *  Nothing.
- */
-void WINAPI ClearCustData(LPCUSTDATA lpCust)
-{
-    if (lpCust && lpCust->cCustData)
-    {
-        if (lpCust->prgCustData)
-        {
-            DWORD i;
-
-            for (i = 0; i < lpCust->cCustData; i++)
-                VariantClear(&lpCust->prgCustData[i].varValue);
-
-            /* FIXME - Should be using a per-thread IMalloc */
-            HeapFree(GetProcessHeap(), 0, lpCust->prgCustData);
-            lpCust->prgCustData = NULL;
-        }
-        lpCust->cCustData = 0;
-    }
 }

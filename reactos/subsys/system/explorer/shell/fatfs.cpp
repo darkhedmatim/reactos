@@ -26,8 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../globals.h"
 
+#include "entries.h"
 #include "fatfs.h"
 
 
@@ -197,23 +200,6 @@ void FATDirectory::read_directory(int scan_flags)
 
 	_down = first_entry;
 	_scanned = true;
-}
-
-
-const void* FATDirectory::get_next_path_component(const void* p) const
-{
-	LPCTSTR s = (LPCTSTR) p;
-
-	while(*s && *s!=TEXT('\\') && *s!=TEXT('/'))
-		++s;
-
-	while(*s==TEXT('\\') || *s==TEXT('/'))
-		++s;
-
-	if (!*s)
-		return NULL;
-
-	return s;
 }
 
 

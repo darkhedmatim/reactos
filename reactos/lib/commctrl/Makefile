@@ -5,7 +5,7 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = commctrl
 
-TARGET_BASE=$(TARGET_BASE_LIB_COMMCTRL)
+TARGET_BASE=0x75e60000
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror

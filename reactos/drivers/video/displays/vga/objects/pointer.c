@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: pointer.c,v 1.4 2004/12/12 17:56:52 weiden Exp $
+/* $Id: pointer.c,v 1.2 2004/01/16 13:18:23 gvg Exp $
  *
  * PROJECT:         ReactOS VGA16 display driver
  * FILE:            drivers/dd/vga/display/objects/pointer.c
@@ -33,6 +33,8 @@
 
 /* GLOBALS *******************************************************************/
 
+static LONG oldx, oldy;
+static PSAVED_SCREEN_BITS ImageBehindCursor = NULL;
 static VOID VGADDI_HideCursor(PPDEV ppdev);
 static VOID VGADDI_ShowCursor(PPDEV ppdev, PRECTL prcl);
 
@@ -164,9 +166,6 @@ BOOL InitPointer(PPDEV ppdev)
   ULONG CursorWidth = 32, CursorHeight = 32;
   ULONG PointerAttributesSize;
   ULONG SavedMemSize;
-  
-  ppdev->xyHotSpot.x = 0;
-  ppdev->xyHotSpot.y = 0;
 
   /* Determine the size of the pointer attributes */
   PointerAttributesSize = sizeof(VIDEO_POINTER_ATTRIBUTES) +
@@ -185,7 +184,7 @@ BOOL InitPointer(PPDEV ppdev)
 
   /* Allocate memory for the pixels behind the cursor */
   SavedMemSize = ((((CursorWidth + 7) & ~0x7) + 16) * CursorHeight) >> 3;
-  ppdev->ImageBehindCursor = VGADDI_AllocSavedScreenBits(SavedMemSize);
+  ImageBehindCursor = VGADDI_AllocSavedScreenBits(SavedMemSize);
 
   return(TRUE);
 }
@@ -198,15 +197,20 @@ DrvMovePointer(IN SURFOBJ* pso,
 {
   PPDEV ppdev = (PPDEV)pso->dhpdev;
 
-  VGADDI_HideCursor(ppdev);
+  if (x < 0 && 0 == (ppdev->flCursor & CURSOR_DOWN))
+    {
+      /* x < 0 and y < 0 indicates we must hide the cursor */
+      VGADDI_HideCursor(ppdev);
+      return;
+    }
 
-  if(x != -1)
-  {
-    ppdev->pPointerAttributes->Column = x;
-    ppdev->pPointerAttributes->Row = y;
+  ppdev->xyCursor.x = x;
+  ppdev->xyCursor.y = y;
 
-    VGADDI_ShowCursor(ppdev, prcl);
-  }
+  if (0 == (ppdev->flCursor & CURSOR_DOWN))
+    {
+      VGADDI_ShowCursor(ppdev, prcl);
+    }
 }
 
 
@@ -226,17 +230,23 @@ DrvSetPointerShape(SURFOBJ* pso,
   ULONG NewWidth, NewHeight;
   PUCHAR Src, Dest;
   ULONG i;
-  
-  if (! psoMask)
-    {
-      return SPS_DECLINE;
-    }
 
   /* Hide the cursor */
-  VGADDI_HideCursor(ppdev);
+  if (ppdev->pPointerAttributes->Enable != 0
+      && 0 == (ppdev->flCursor & CURSOR_DOWN))
+    {
+      VGADDI_HideCursor(ppdev);
+    }
 
-  NewWidth = abs(psoMask->lDelta) << 3;
-  NewHeight = (psoMask->cjBits / abs(psoMask->lDelta)) / 2;
+  if (! psoMask)
+    {
+      ppdev->flCursor = CURSOR_DOWN;
+      return SPS_ACCEPT_EXCLUDE;
+    }
+  ppdev->flCursor = ppdev->flCursor & (~ CURSOR_DOWN);
+
+  NewWidth = psoMask->lDelta << 3;
+  NewHeight = (psoMask->cjBits / psoMask->lDelta) / 2;
 
   /* Reallocate the space for the cursor if necessary. */
   if (ppdev->pPointerAttributes->Width != NewWidth ||
@@ -260,15 +270,16 @@ DrvSetPointerShape(SURFOBJ* pso,
       ppdev->pPointerAttributes = NewPointerAttributes;
 
       /* Reallocate the space for the saved bits. */
-      VGADDI_FreeSavedScreenBits(ppdev->ImageBehindCursor);
+      VGADDI_FreeSavedScreenBits(ImageBehindCursor);
       SavedMemSize = ((((NewWidth + 7) & ~0x7) + 16) * NewHeight) >> 3;
-      ppdev->ImageBehindCursor = VGADDI_AllocSavedScreenBits(SavedMemSize);
+      ImageBehindCursor = VGADDI_AllocSavedScreenBits(SavedMemSize);
     }
 
-  Src = (PUCHAR)psoMask->pvScan0;
   /* Copy the new cursor in. */
   for (i = 0; i < (NewHeight * 2); i++)
     {
+      Src = (PUCHAR)psoMask->pvBits;
+      Src += (i * (NewWidth >> 3));
       Dest = (PUCHAR)ppdev->pPointerAttributes->Pixels;
       if (i >= NewHeight)
 	{
@@ -279,21 +290,16 @@ DrvSetPointerShape(SURFOBJ* pso,
 	  Dest += ((NewHeight - i - 1) * (NewWidth >> 3));
 	}
       memcpy(Dest, Src, NewWidth >> 3);
-      Src += psoMask->lDelta;
     }
 
   /* Set the new cursor position */
+  ppdev->xyCursor.x = x;
+  ppdev->xyCursor.y = y;
   ppdev->xyHotSpot.x = xHot;
   ppdev->xyHotSpot.y = yHot;
 
-  if(x != -1)
-  {
-    ppdev->pPointerAttributes->Column = x;
-    ppdev->pPointerAttributes->Row = y;
-
-    /* show the cursor */
-    VGADDI_ShowCursor(ppdev, prcl);
-  }
+  /* Show the cursor */
+  VGADDI_ShowCursor(ppdev, prcl);
 
   return SPS_ACCEPT_EXCLUDE;
 }
@@ -316,25 +322,18 @@ VGADDI_ComputePointerRect(PPDEV ppdev, LONG X, LONG Y, PRECTL Rect)
 static VOID
 VGADDI_HideCursor(PPDEV ppdev)
 {
-  if(ppdev->pPointerAttributes->Enable)
-  {
-    LONG cx, cy;
-    RECTL Rect;
-    
-    ppdev->pPointerAttributes->Enable = 0;
-    
-    cx = ppdev->pPointerAttributes->Column - ppdev->xyHotSpot.x;
-    cy = ppdev->pPointerAttributes->Row - ppdev->xyHotSpot.y;
-    
-    VGADDI_ComputePointerRect(ppdev, cx, cy, &Rect);
+  RECTL Rect;
 
-    /* Display what was behind cursor */
-    VGADDI_BltFromSavedScreenBits(Rect.left,
-                                  Rect.top,
-                                  ppdev->ImageBehindCursor,
-                                  Rect.right - Rect.left,
-                                  Rect.bottom - Rect.top);
-  }
+  VGADDI_ComputePointerRect(ppdev, oldx, oldy, &Rect);
+  
+  /* Display what was behind cursor */
+  VGADDI_BltFromSavedScreenBits(Rect.left,
+                                Rect.top,
+                                ImageBehindCursor,
+                                Rect.right - Rect.left,
+                                Rect.bottom - Rect.top);
+
+  ppdev->pPointerAttributes->Enable = 0;
 }
 
 static VOID
@@ -344,21 +343,19 @@ VGADDI_ShowCursor(PPDEV ppdev, PRECTL prcl)
   PUCHAR AndMask, XorMask;
   ULONG SizeX, SizeY;
   RECTL Rect;
-  
-  if(ppdev->pPointerAttributes->Enable)
-  {
-    return;
-  }
-  /* Mark the cursor as currently displayed. */
-  ppdev->pPointerAttributes->Enable = 1;
 
-  cx = ppdev->pPointerAttributes->Column - ppdev->xyHotSpot.x;
-  cy = ppdev->pPointerAttributes->Row - ppdev->xyHotSpot.y;
+  if (ppdev->pPointerAttributes->Enable != 0)
+    {
+      VGADDI_HideCursor(ppdev);
+    }
+
+  cx = ppdev->xyCursor.x - ppdev->xyHotSpot.x;
+  cy = ppdev->xyCursor.y - ppdev->xyHotSpot.y;
 
   /* Capture pixels behind the cursor */
   VGADDI_ComputePointerRect(ppdev, cx, cy, &Rect);
 
-  VGADDI_BltToSavedScreenBits(ppdev->ImageBehindCursor,
+  VGADDI_BltToSavedScreenBits(ImageBehindCursor,
                               Rect.left,
                               Rect.top,
                               Rect.right - Rect.left,
@@ -386,6 +383,13 @@ VGADDI_ShowCursor(PPDEV ppdev, PRECTL prcl)
 			 XorMask,
 			 ppdev->pPointerAttributes->WidthInBytes,
 			 VGA_XOR);
+
+  /* Save the new cursor location. */
+  oldx = cx;
+  oldy = cy;
+
+  /* Mark the cursor as currently displayed. */
+  ppdev->pPointerAttributes->Enable = 1;
 
   if (NULL != prcl)
     {

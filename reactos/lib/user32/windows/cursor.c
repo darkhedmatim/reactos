@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cursor.c,v 1.23 2004/12/30 02:32:26 navaraf Exp $
+/* $Id: cursor.c,v 1.19 2004/01/26 08:44:51 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/cursor.c
@@ -28,10 +28,10 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <string.h>
 #include <debug.h>
-#undef CopyCursor
 
 HBITMAP
 CopyBitmap(HBITMAP bmp);
@@ -78,6 +78,7 @@ CopyCursor(HCURSOR pcur)
   return (HCURSOR)0;
 }
 
+
 /*
  * @implemented
  */
@@ -90,59 +91,24 @@ CreateCursor(HINSTANCE hInst,
 	     CONST VOID *pvANDPlane,
 	     CONST VOID *pvXORPlane)
 {
-   ICONINFO IconInfo;
-   BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
-   BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   HDC hScreenDc;
+  ICONINFO IconInfo;
 
-   hScreenDc = CreateCompatibleDC(NULL);
-   if (hScreenDc == NULL)
-      return NULL;
-
-   bwBIH->bmiHeader.biBitCount = 1;
-   bwBIH->bmiHeader.biWidth = nWidth;
-   bwBIH->bmiHeader.biHeight = -nHeight * 2;
-   bwBIH->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-   bwBIH->bmiHeader.biPlanes = 1;
-   bwBIH->bmiHeader.biSizeImage = 0;
-   bwBIH->bmiHeader.biCompression = BI_RGB;
-   bwBIH->bmiHeader.biClrImportant = 0;
-   bwBIH->bmiHeader.biClrUsed = 0;
-   bwBIH->bmiHeader.biXPelsPerMeter = 0;
-   bwBIH->bmiHeader.biYPelsPerMeter = 0;
-
-   bwBIH->bmiColors[0].rgbBlue = 0;
-   bwBIH->bmiColors[0].rgbGreen = 0;
-   bwBIH->bmiColors[0].rgbRed = 0;
-   bwBIH->bmiColors[0].rgbReserved = 0;
-
-   bwBIH->bmiColors[1].rgbBlue = 0xff;
-   bwBIH->bmiColors[1].rgbGreen = 0xff;
-   bwBIH->bmiColors[1].rgbRed = 0xff;
-   bwBIH->bmiColors[1].rgbReserved = 0;
-
-   IconInfo.hbmMask = CreateDIBitmap(hScreenDc, &bwBIH->bmiHeader, 0,
-                                     NULL, bwBIH, DIB_RGB_COLORS);
-   if (IconInfo.hbmMask)
-   {   
-      SetDIBits(hScreenDc, IconInfo.hbmMask, 0, nHeight, 
-                pvXORPlane, bwBIH, DIB_RGB_COLORS);
-      SetDIBits(hScreenDc, IconInfo.hbmMask, nHeight, nHeight, 
-                pvANDPlane, bwBIH, DIB_RGB_COLORS);
-   }
-   else
-   {
-      return NULL;
-   }
-
-   DeleteDC(hScreenDc);
-
-   IconInfo.fIcon = FALSE;
-   IconInfo.xHotspot = xHotSpot;
-   IconInfo.yHotspot = yHotSpot;
-   IconInfo.hbmColor = 0;
+  IconInfo.fIcon = FALSE;
+  IconInfo.xHotspot = xHotSpot;
+  IconInfo.yHotspot = yHotSpot;
+  IconInfo.hbmMask = CreateBitmap(nWidth, nHeight, 1, 1, pvANDPlane);
+  if(!IconInfo.hbmMask)
+  {
+    return (HICON)0;
+  }
+  IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, 1, 1, pvXORPlane);
+  if(!IconInfo.hbmColor)
+  {
+    DeleteObject(IconInfo.hbmMask);
+    return (HICON)0;
+  }
   
-   return (HCURSOR)NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  return (HCURSOR)NtUserCreateCursorIconHandle(&IconInfo, FALSE);
 }
 
 
@@ -291,18 +257,10 @@ BOOL STDCALL
 SetCursorPos(int X,
 	     int Y)
 {
-  INPUT Input;
-  
-  Input.type = INPUT_MOUSE;
-  Input.mi.dx = (LONG)X;
-  Input.mi.dy = (LONG)Y;
-  Input.mi.mouseData = 0;
-  Input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
-  Input.mi.time = 0;
-  Input.mi.dwExtraInfo = 0;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-  return TRUE;
+  POINT pos;
+  pos.x = (LONG)X;
+  pos.y = (LONG)Y;
+  return NtUserSetCursorPos(&pos);
 }
 
 

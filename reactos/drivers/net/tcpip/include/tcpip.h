@@ -52,6 +52,8 @@
 
 #include <titypes.h>
 #include <ticonsts.h>
+#include <udp.h>
+
 
 /* Macros */
 
@@ -61,8 +63,6 @@
 #define MAX(value1, value2) \
     ((value1 > value2)? value1 : value2)
 
-#define NDIS_BUFFER_TAG FOURCC('n','b','u','f')
-#define NDIS_PACKET_TAG FOURCC('n','p','k','t')
 
 #ifdef i386
 
@@ -110,34 +110,6 @@
 
 #endif /* i386 */
 
-typedef TDI_STATUS (*InfoRequest_f)( UINT InfoClass, 
-				     UINT InfoType,
-				     UINT InfoId,
-				     PVOID Context,
-				     TDIEntityID *id,
-				     PNDIS_BUFFER Buffer,
-				     PUINT BufferSize );
-
-typedef TDI_STATUS (*InfoSet_f)( UINT InfoClass, 
-				 UINT InfoType,
-				 UINT InfoId,
-				 PVOID Context,
-				 TDIEntityID *id,
-				 PCHAR Buffer,
-				 UINT BufferSize );
-
-/* Sufficient information to manage the entity list */
-typedef struct {
-    UINT tei_entity;
-    UINT tei_instance;
-    PVOID context;
-    InfoRequest_f info_req;
-    InfoSet_f info_set;
-} TDIEntityInfo;
-
-#ifndef htons
-#define htons(x) (((x) << 16) | (((x) >> 8) & 0xff))
-#endif
 
 /* Global variable */
 extern PDEVICE_OBJECT TCPDeviceObject;
@@ -151,12 +123,10 @@ extern KSPIN_LOCK AddressFileListLock;
 extern NDIS_HANDLE GlobalPacketPool;
 extern NDIS_HANDLE GlobalBufferPool;
 extern KSPIN_LOCK EntityListLock;
-extern TDIEntityInfo *EntityList;
+extern TDIEntityID *EntityList;
 extern ULONG EntityCount;
 extern ULONG EntityMax;
-
-extern NTSTATUS TiGetProtocolNumber( PUNICODE_STRING FileName,
-				     PULONG Protocol );
+extern UDP_STATISTICS UDPStats;
 
 #endif /* __TCPIP_H */
 

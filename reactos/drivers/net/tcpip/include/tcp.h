@@ -7,9 +7,6 @@
 #ifndef __TCP_H
 #define __TCP_H
 
-typedef VOID 
-(*PTCP_COMPLETION_ROUTINE)( PVOID Context, NTSTATUS Status, ULONG Count );
-
 /* TCPv4 header structure */
 typedef struct TCPv4_HEADER {
   USHORT SourcePort;        /* Source port */
@@ -38,9 +35,6 @@ typedef struct TCPv4_HEADER {
 
 #define TCPOPTLEN_MAX_SEG_SIZE  0x4
 
-/* Data offset; 32-bit words (leftmost 4 bits); convert to bytes */
-#define TCP_DATA_OFFSET(DataOffset)(((DataOffset) & 0xF0) >> (4-2))
-
 
 /* TCPv4 pseudo header */
 typedef struct TCPv4_PSEUDO_HEADER {
@@ -51,11 +45,6 @@ typedef struct TCPv4_PSEUDO_HEADER {
   USHORT TCPLength;         /* Size of TCP segment */
 } __attribute__((packed)) TCPv4_PSEUDO_HEADER, *PTCPv4_PSEUDO_HEADER;
 
-typedef struct _SLEEPING_THREAD {
-    LIST_ENTRY Entry;
-    PVOID SleepToken;
-    KEVENT Event;
-} SLEEPING_THREAD, *PSLEEPING_THREAD;
 
 /* Retransmission timeout constants */
 
@@ -81,36 +70,10 @@ typedef struct _SLEEPING_THREAD {
 #define SRF_SYN   TCP_SYN
 #define SRF_FIN   TCP_FIN
 
-extern LONG TCP_IPIdentification;
-extern LIST_ENTRY SignalledConnections;
-extern LIST_ENTRY SleepingThreadsList;
-extern FAST_MUTEX SleepingThreadsLock;
-extern RECURSIVE_MUTEX TCPLock;
-
-/* accept.c */
-NTSTATUS TCPServiceListeningSocket( PCONNECTION_ENDPOINT Listener,
-				    PCONNECTION_ENDPOINT Connection,
-				    PTDI_REQUEST_KERNEL Request );
-NTSTATUS TCPListen( PCONNECTION_ENDPOINT Connection, UINT Backlog );
-VOID TCPAbortListenForSocket( PCONNECTION_ENDPOINT Listener,
-			      PCONNECTION_ENDPOINT Connection );
-NTSTATUS TCPAccept
-( PTDI_REQUEST Request,
-  PCONNECTION_ENDPOINT Listener,
-  PCONNECTION_ENDPOINT Connection,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context );
-
-/* tcp.c */
-PCONNECTION_ENDPOINT TCPAllocateConnectionEndpoint( PVOID ClientContext );
-VOID TCPFreeConnectionEndpoint( PCONNECTION_ENDPOINT Connection );
-
-NTSTATUS TCPSocket( PCONNECTION_ENDPOINT Connection, 
-		    UINT Family, UINT Type, UINT Proto );
 
 PTCP_SEGMENT TCPCreateSegment(
   PIP_PACKET IPPacket,
-  PTCPv4_HEADER TCPHeader,
+  ULONG SequenceNumber,
   ULONG SegmentLength);
 
 VOID TCPFreeSegment(
@@ -118,51 +81,41 @@ VOID TCPFreeSegment(
 
 VOID TCPAddSegment(
   PCONNECTION_ENDPOINT Connection,
-  PTCP_SEGMENT Segment,
-  PULONG Acknowledged);
+  PTCP_SEGMENT Segment);
+
+inline NTSTATUS TCPBuildSendRequest(
+    PTCP_SEND_REQUEST *SendRequest,
+    PDATAGRAM_SEND_REQUEST *DGSendRequest,
+    PCONNECTION_ENDPOINT Connection,
+    DATAGRAM_COMPLETION_ROUTINE Complete,
+    PVOID Context,
+    PNDIS_BUFFER Buffer,
+    DWORD BufferSize,
+    ULONG Flags);
+
+inline NTSTATUS TCPBuildAndTransmitSendRequest(
+    PCONNECTION_ENDPOINT Connection,
+    DATAGRAM_COMPLETION_ROUTINE Complete,
+    PVOID Context,
+    PNDIS_BUFFER Buffer,
+    DWORD BufferSize,
+    ULONG Flags);
 
 NTSTATUS TCPConnect(
-  PCONNECTION_ENDPOINT Connection,
+  PTDI_REQUEST Request,
   PTDI_CONNECTION_INFORMATION ConnInfo,
-  PTDI_CONNECTION_INFORMATION ReturnInfo,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
+  PTDI_CONNECTION_INFORMATION ReturnInfo);
 
-NTSTATUS TCPDisconnect(
-  PCONNECTION_ENDPOINT Connection,
-  UINT Flags,
+NTSTATUS TCPListen(
+  PTDI_REQUEST Request,
   PTDI_CONNECTION_INFORMATION ConnInfo,
-  PTDI_CONNECTION_INFORMATION ReturnInfo,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
+  PTDI_CONNECTION_INFORMATION ReturnInfo);
 
-NTSTATUS TCPReceiveData(
-  PCONNECTION_ENDPOINT Connection,    
+NTSTATUS TCPSendDatagram(
+  PTDI_REQUEST Request,
+  PTDI_CONNECTION_INFORMATION ConnInfo,
   PNDIS_BUFFER Buffer,
-  ULONG ReceiveLength,
-  PULONG BytesReceived,
-  ULONG ReceiveFlags,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
-
-NTSTATUS TCPSendData(
-  PCONNECTION_ENDPOINT Connection,
-  PCHAR Buffer,
-  ULONG DataSize,
-  PULONG DataUsed,
-  ULONG Flags);
-
-NTSTATUS TCPClose( PCONNECTION_ENDPOINT Connection );
-
-PVOID TCPPrepareInterface( PIP_INTERFACE IF );
-
-NTSTATUS TCPTranslateError( int OskitError );
-
-VOID TCPTimeout();
-
-UINT TCPAllocatePort( UINT HintPort );
-
-VOID TCPFreePort( UINT Port );
+  ULONG DataSize);
 
 NTSTATUS TCPStartup(
   VOID);

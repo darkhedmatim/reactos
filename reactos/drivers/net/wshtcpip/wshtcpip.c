@@ -141,8 +141,8 @@ WSHGetWildcardSockaddr(
     OUT PSOCKADDR Sockaddr,
     OUT PINT SockaddrLength)
 {
-    RtlZeroMemory((PVOID)Sockaddr, *SockaddrLength);
-    Sockaddr->sa_family = AF_INET;
+    UNIMPLEMENTED
+
     return 0;
 }
 

@@ -20,7 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN    /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -28,13 +29,14 @@
 #include <tchar.h>
 #include <stdio.h>
     
+#include "taskmgr.h"
 #include "column.h"
 #include "procpage.h"
 
 UINT    ColumnDataHints[25];
 
-int                 InsertColumn(int nCol, LPCTSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
-INT_PTR CALLBACK    ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+int                    InsertColumn(int nCol, LPCTSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
+LRESULT CALLBACK    ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 void AddColumns(void)
 {
@@ -328,7 +330,7 @@ void ProcessPage_OnViewSelectColumns(void)
 {
     int        i;
 
-    if (DialogBox(hInst, MAKEINTRESOURCE(IDD_COLUMNS_DIALOG), hMainWnd, ColumnsDialogWndProc) == IDOK)
+    if (DialogBox(hInst, MAKEINTRESOURCE(IDD_COLUMNS_DIALOG), hMainWnd, (DLGPROC)ColumnsDialogWndProc) == IDOK)
     {
         for (i=Header_GetItemCount(hProcessPageHeaderCtrl)-1; i>=0; i--)
         {
@@ -368,8 +370,7 @@ void ProcessPage_OnViewSelectColumns(void)
     }
 }
 
-INT_PTR CALLBACK
-ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 
     switch (message)

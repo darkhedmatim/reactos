@@ -20,7 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
     
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN    /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -29,13 +30,14 @@
 #include <winnt.h>
 #include <stdio.h>
     
+#include "taskmgr.h"
 #include "procpage.h"
 #include "affinity.h"
 #include "perfdata.h"
 
 HANDLE        hProcessAffinityHandle;
 
-INT_PTR CALLBACK AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 void ProcessPage_OnSetAffinity(void)
 {
@@ -62,15 +64,14 @@ void ProcessPage_OnSetAffinity(void)
         MessageBox(hMainWnd, strErrorText, _T("Unable to Access or Set Process Affinity"), MB_OK|MB_ICONSTOP);
         return;
     }
-    DialogBox(hInst, MAKEINTRESOURCE(IDD_AFFINITY_DIALOG), hMainWnd, AffinityDialogWndProc);
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_AFFINITY_DIALOG), hMainWnd, (DLGPROC)AffinityDialogWndProc);
     if (hProcessAffinityHandle)    {
         CloseHandle(hProcessAffinityHandle);
         hProcessAffinityHandle = NULL;
     }
 }
 
-INT_PTR CALLBACK
-AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     DWORD    dwProcessAffinityMask = 0;
     DWORD    dwSystemAffinityMask = 0;

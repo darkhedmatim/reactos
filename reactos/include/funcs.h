@@ -107,8 +107,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define MessageBoxIndirect  MessageBoxIndirectW
 #define GetWindowLong  GetWindowLongW
 #define SetWindowLong  SetWindowLongW
-#define GetWindowLongPtr  GetWindowLongW
-#define SetWindowLongPtr  SetWindowLongW
 #define GetClassLong  GetClassLongW
 #define SetClassLong  SetClassLongW
 #define FindWindow  FindWindowW
@@ -1075,6 +1073,29 @@ STDCALL
 RtlQueryDepthSList (
     PSLIST_HEADER ListHead
     );
+NTSTATUS
+STDCALL
+RtlCreateTimer(HANDLE TimerQueue,PHANDLE phNewTimer, WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
+
+NTSTATUS
+STDCALL
+RtlCreateTimerQueue(PHANDLE TimerQueue);
+
+NTSTATUS
+STDCALL
+RtlDeleteTimer(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);
+
+NTSTATUS
+STDCALL
+RtlUpdateTimer(HANDLE TimerQueue,HANDLE Timer,ULONG DueTime,ULONG Period);
+
+NTSTATUS
+STDCALL
+RtlDeleteTimerQueueEx(HANDLE TimerQueue,HANDLE CompletionEvent);
+
+NTSTATUS
+STDCALL
+RtlDeleteTimerQueue(HANDLE TimerQueue);
 
 NTSTATUS
 STDCALL
@@ -1209,6 +1230,13 @@ STDCALL
 RtlEnumerateGenericTableWithoutSplaying(
 	IN PRTL_GENERIC_TABLE Table,
 	IN PVOID *RestartKey
+	);
+
+VOID
+STDCALL
+RtlGetElementGenericTable(
+	IN PRTL_GENERIC_TABLE Table,
+	IN ULONG I
 	);
 
 PVOID
@@ -1352,9 +1380,9 @@ NtAccessCheckByTypeResultListAndAuditAlarmByHandle(
 NTSTATUS
 STDCALL
 NtAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
+	IN HANDLE ProcessHandle,
+	IN PULONG NumberOfPages,
+	OUT PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1396,8 +1424,8 @@ NTSTATUS
 STDCALL
 NtFreeUserPhysicalPages(
 	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
+	IN OUT PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1428,23 +1456,23 @@ NtIsProcessInJob(
 NTSTATUS
 STDCALL
 NtMakePermanentObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Object
 	);
 
 NTSTATUS
 STDCALL
 NtMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID BaseAddress,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
 STDCALL
 NtMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID *BaseAddresses,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1484,6 +1512,12 @@ NtOpenThreadTokenEx(
 
 NTSTATUS
 STDCALL
+NtQueryDefaultUILanguage(
+	OUT PLANGID LanguageId
+	);
+
+NTSTATUS
+STDCALL
 NtQueryInformationJobObject(
 	IN HANDLE JobHandle,
 	IN JOBOBJECTINFOCLASS JobInformationClass,
@@ -1492,6 +1526,11 @@ NtQueryInformationJobObject(
 	OUT PULONG ReturnLength OPTIONAL
 	);
 
+NTSTATUS
+STDCALL
+NtQueryInstallUILanguage(
+	OUT PLANGID LanguageId
+	);
 
 ULONG
 STDCALL
@@ -1548,8 +1587,23 @@ NtSecureConnectPort(
 
 NTSTATUS
 STDCALL
+NtSetDefaultUILanguage(
+	IN LANGID LanguageId
+	);
+
+NTSTATUS
+STDCALL
 NtSetHighWaitLowThread(
 	VOID
+	);
+
+NTSTATUS
+STDCALL
+NtSetInformationJobObject(
+	IN HANDLE JobHandle,
+	IN JOBOBJECTINFOCLASS JobInformationClass,
+	IN PVOID JobInformation,
+	IN ULONG JobInformationLength
 	);
 
 NTSTATUS
@@ -1782,9 +1836,9 @@ ZwAccessCheckByTypeResultListAndAuditAlarmByHandle(
 NTSTATUS
 STDCALL
 ZwAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
+	IN HANDLE ProcessHandle,
+	IN PULONG NumberOfPages,
+	OUT PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1843,8 +1897,8 @@ NTSTATUS
 STDCALL
 ZwFreeUserPhysicalPages(
 	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
+	IN OUT PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1881,17 +1935,17 @@ ZwMakePermanentObject(
 NTSTATUS
 STDCALL
 ZwMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID BaseAddress,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
 STDCALL
 ZwMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID *BaseAddresses,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1931,6 +1985,12 @@ ZwOpenThreadTokenEx(
 
 NTSTATUS
 STDCALL
+ZwQueryDefaultUILanguage(
+	OUT PLANGID LanguageId
+	);
+
+NTSTATUS
+STDCALL
 ZwQueryInformationJobObject(
 	IN HANDLE JobHandle,
 	IN JOBOBJECTINFOCLASS JobInformationClass,
@@ -1939,10 +1999,30 @@ ZwQueryInformationJobObject(
 	OUT PULONG ReturnLength OPTIONAL
 	);
 
+NTSTATUS
+STDCALL
+ZwQueryInstallUILanguage(
+	OUT PLANGID LanguageId
+	);
+
 ULONG
 STDCALL
 ZwQueryPortInformationProcess(
 	VOID
+	);
+
+NTSTATUS
+STDCALL
+ZwQueryQuotaInformationFile(
+	IN HANDLE FileHandle,
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	OUT PFILE_USER_QUOTA_INFORMATION Buffer,
+	IN ULONG BufferLength,
+	IN BOOLEAN ReturnSingleEntry,
+	IN PFILE_QUOTA_LIST_INFORMATION QuotaList OPTIONAL,
+	IN ULONG QuotaListLength,
+	IN PSID ResumeSid OPTIONAL,
+	IN BOOLEAN RestartScan
 	);
 
 NTSTATUS
@@ -1990,6 +2070,12 @@ ZwSecureConnectPort(
 	OUT PULONG MaxMessageSize OPTIONAL,
 	IN OUT PVOID ConnectData OPTIONAL,
 	IN OUT PULONG ConnectDataLength OPTIONAL
+	);
+
+NTSTATUS
+STDCALL
+ZwSetDefaultUILanguage(
+	IN LANGID LanguageId
 	);
 
 NTSTATUS
@@ -2098,6 +2184,33 @@ NTSTATUS  STDCALL RtlFindCharInUnicodeString(
     USHORT *pos);
 NTSTATUS  STDCALL RtlInitUnicodeStringEx(PUNICODE_STRING target,PCWSTR source);
 
+ULONG
+__cdecl
+DbgPrintEx(
+    IN ULONG ComponentId,
+    IN ULONG Level,
+    IN PCH Format,
+    ...
+    );
+ULONG
+__cdecl
+DbgPrintReturnControlC(
+    PCH Format,
+    ...
+    );
+NTSTATUS
+STDCALL
+DbgQueryDebugFilterState(
+    IN ULONG ComponentId,
+    IN ULONG Level
+    );
+NTSTATUS
+STDCALL
+DbgSetDebugFilterState(
+    IN ULONG ComponentId,
+    IN ULONG Level,
+    IN BOOL State
+    );
 NTSTATUS
 STDCALL
 NtCancelDeviceWakeupRequest(
@@ -2119,6 +2232,14 @@ STDCALL
 NtGetDevicePowerState(
     IN HANDLE Device,
     OUT DEVICE_POWER_STATE *State
+    );
+NTSTATUS
+STDCALL
+NtInitiatePowerAction(
+    IN POWER_ACTION SystemAction,
+    IN SYSTEM_POWER_STATE MinSystemState,
+    IN ULONG Flags,
+    IN BOOL Asynchronous
     );
 BOOL
 STDCALL
@@ -2205,6 +2326,28 @@ STDCALL
 RtlGetVersion(
     OUT PRTL_OSVERSIONINFOW lpVersionInformation
     );
+NTSTATUS
+STDCALL
+RtlHashUnicodeString(
+    IN const UNICODE_STRING *String,
+    IN BOOL CaseInSensitive,
+    IN ULONG HashAlgorithm,
+    OUT PULONG HashValue
+    );
+BOOL
+STDCALL
+RtlValidRelativeSecurityDescriptor (
+    IN PSECURITY_DESCRIPTOR SecurityDescriptorInput,
+    IN ULONG SecurityDescriptorLength,
+    IN SECURITY_INFORMATION RequiredInformation
+    );
+NTSTATUS
+STDCALL
+RtlVerifyVersionInfo(
+    IN PRTL_OSVERSIONINFOEXW VersionInfo,
+    IN ULONG TypeMask,
+    IN ULONGLONG  ConditionMask
+    );
 ULONG
 STDCALL
 RtlWalkFrameChain (
@@ -2248,6 +2391,14 @@ STDCALL
 ZwGetDevicePowerState(
     IN HANDLE Device,
     OUT DEVICE_POWER_STATE *State
+    );
+NTSTATUS
+STDCALL
+ZwInitiatePowerAction(
+    IN POWER_ACTION SystemAction,
+    IN SYSTEM_POWER_STATE MinSystemState,
+    IN ULONG Flags,
+    IN BOOL Asynchronous
     );
 BOOL
 STDCALL
@@ -2346,6 +2497,8 @@ VOID STDCALL A_SHAFinal(PSHA_CONTEXT Context, PVOID Result);
 
 VOID STDCALL GdiInitializeLanguagePack(DWORD InitParam);
 BOOL STDCALL SetConsoleIcon(HICON hicon);
+NTSTATUS STDCALL NtPowerInformation(DWORD x1,DWORD x2,DWORD x3,DWORD x4,DWORD x5);
+NTSTATUS STDCALL ZwPowerInformation(DWORD x1,DWORD x2,DWORD x3,DWORD x4,DWORD x5);
 double __cdecl _CIpow(double x,double y);
 LPSTR __cdecl _ui64toa(
     ULONGLONG value,
@@ -3004,7 +3157,7 @@ STDCALL
 AllocateUserPhysicalPages(
     HANDLE hProcess,
     PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+    PULONG_PTR PageArray
     );
 
 WINBOOL
@@ -3191,7 +3344,7 @@ STDCALL
 FreeUserPhysicalPages(
     HANDLE hProcess,
     PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+    PULONG_PTR PageArray
     );
 
 WINBOOL
@@ -4090,7 +4243,7 @@ DWORD
 STDCALL
 GdiGetCharDimensions(HDC hdc,LPTEXTMETRICW lptm,BOOL unk);
 
-PVOID
+PSHAREDHANDLETABLE
 STDCALL
 GdiQueryTable(VOID);
 
@@ -4325,7 +4478,7 @@ EndTask(
 	WINBOOL fForce
 	);
 
-int
+DWORD
 STDCALL
 InternalGetWindowText(
 		      HWND hWnd,
@@ -4471,11 +4624,11 @@ RegisterSystemThread(
 		     DWORD reserved
 		     );
 
-BOOL
+DWORD
 STDCALL
 RegisterLogonProcess(
-		     DWORD dwPprocessId,
-		     BOOL bRegister
+		     HANDLE hprocess,
+		     BOOL x
 		     );
 
 WINBOOL
@@ -5051,16 +5204,16 @@ WINBOOL
 STDCALL
 GetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 PSIZE_T lpMinimumWorkingSetSize,
-			 PSIZE_T lpMaximumWorkingSetSize
+			 LPDWORD lpMinimumWorkingSetSize,
+			 LPDWORD lpMaximumWorkingSetSize
 			 );
 
 WINBOOL
 STDCALL
 SetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 SIZE_T dwMinimumWorkingSetSize,
-			 SIZE_T dwMaximumWorkingSetSize
+			 DWORD dwMinimumWorkingSetSize,
+			 DWORD dwMaximumWorkingSetSize
 			 );
 
 HANDLE
@@ -8140,13 +8293,7 @@ SetTimer(
 	 UINT uElapse,
 	 TIMERPROC lpTimerFunc);
 
-typedef
-VOID STDCALL_FUNC
-(*PTIMERAPCROUTINE)(
-	LPVOID lpArgToCompletionRoutine,
-	DWORD dwTimerLowValue,
-	DWORD dwTimerHighValue
-	);
+
 WINBOOL
 STDCALL
 SetWaitableTimer(HANDLE hTimer,

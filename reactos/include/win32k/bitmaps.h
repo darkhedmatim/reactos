@@ -5,33 +5,37 @@
 #include <win32k/dc.h>
 #include <win32k/gdiobj.h>
 
+typedef struct _DDBITMAP
+{
+  const PDRIVER_FUNCTIONS  pDriverFunctions;
+/*  DHPDEV  PDev; */
+/*  HSURF  Surface; */
+} DDBITMAP;
+
 /* GDI logical bitmap object */
 typedef struct _BITMAPOBJ
 {
-  SURFOBJ     SurfObj;
-  FLONG	      flHooks;
-  FLONG       flFlags;
+  BITMAP      bitmap;
   SIZE        dimension;   /* For SetBitmapDimension(), do NOT use
                               to get width/height of bitmap, use
                               bitmap.bmWidth/bitmap.bmHeight for
                               that */
+
+  DDBITMAP   *DDBitmap;
 
   /* For device-independent bitmaps: */
   DIBSECTION *dib;
   RGBQUAD *ColorMap;
 } BITMAPOBJ, *PBITMAPOBJ;
 
-#define BITMAPOBJ_IS_APIBITMAP		0x1
-
 /*  Internal interface  */
 
 #define  BITMAPOBJ_AllocBitmap()  \
-  ((HBITMAP) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_BITMAP))
+  ((HBITMAP) GDIOBJ_AllocObj (sizeof (BITMAPOBJ), GDI_OBJECT_TYPE_BITMAP, (GDICLEANUPPROC) Bitmap_InternalDelete))
 #define  BITMAPOBJ_FreeBitmap(hBMObj)  \
-  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP)
+  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP, GDIOBJFLAG_DEFAULT)
 #define  BITMAPOBJ_LockBitmap(hBMObj) GDIOBJ_LockObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP)
-#define  BITMAPOBJ_UnlockBitmap(hBMObj) GDIOBJ_UnlockObj((HGDIOBJ) hBMObj)
-BOOL INTERNAL_CALL BITMAP_Cleanup(PVOID ObjectBody);
+#define  BITMAPOBJ_UnlockBitmap(hBMObj) GDIOBJ_UnlockObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP)
 
 INT     FASTCALL BITMAPOBJ_GetWidthBytes (INT bmWidth, INT bpp);
 HBITMAP FASTCALL BITMAPOBJ_CopyBitmap (HBITMAP  hBitmap);
@@ -39,6 +43,7 @@ INT     FASTCALL DIB_GetDIBWidthBytes (INT  width, INT  depth);
 int     STDCALL  DIB_GetDIBImageBytes (INT  width, INT  height, INT  depth);
 INT     FASTCALL DIB_BitmapInfoSize (const BITMAPINFO * info, WORD coloruse);
 INT     STDCALL  BITMAP_GetObject(BITMAPOBJ * bmp, INT count, LPVOID buffer);
+BOOL    FASTCALL Bitmap_InternalDelete( PBITMAPOBJ pBmp );
 HBITMAP FASTCALL BitmapToSurf(PBITMAPOBJ BitmapObj, HDEV GDIDevice);
 
 HBITMAP FASTCALL IntCreateCompatibleBitmap(PDC Dc, INT Width, INT Height);

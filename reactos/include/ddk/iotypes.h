@@ -1,4 +1,4 @@
-/* $Id: iotypes.h,v 1.73 2004/12/30 18:30:04 ion Exp $
+/* $Id: iotypes.h,v 1.62 2004/01/05 14:28:19 weiden Exp $
  *
  */
 
@@ -30,8 +30,8 @@ struct _IO_TIMER;
 
 enum
 {
-   KeepObject = 1,
    DeallocateObject,
+   KeepObject,
    DeallocateObjectKeepRegisters
 };
 
@@ -228,11 +228,6 @@ typedef struct
 	  {
 	     PHYSICAL_ADDRESS Start;
 	     ULONG Length;
-	  } Generic;
-	struct
-	  {
-	     PHYSICAL_ADDRESS Start;
-	     ULONG Length;
 	  } Port;
 	struct
 	  {
@@ -287,13 +282,15 @@ typedef struct
 /*
  * PURPOSE: IRP stack location
  */
+
+/*
 typedef struct _IO_STACK_LOCATION
 {
   UCHAR MajorFunction;
   UCHAR MinorFunction;
   UCHAR Flags;
   UCHAR Control;
-
+  
   union
     {
       struct
@@ -304,59 +301,57 @@ typedef struct _IO_STACK_LOCATION
 	  USHORT ShareAccess;
 	  ULONG EaLength;
 	} Create;
-
-      struct
-	{
-	  PIO_SECURITY_CONTEXT SecurityContext;
-	  ULONG Options;
-	  USHORT Reserved;
-	  USHORT ShareAccess;
-	  struct _NAMED_PIPE_CREATE_PARAMETERS *Parameters;
-	} CreatePipe;
-
-      struct
-	{
-	  PIO_SECURITY_CONTEXT SecurityContext;
-	  ULONG Options;
-	  USHORT Reserved;
-	  USHORT ShareAccess;
-	  struct _MAILSLOT_CREATE_PARAMETERS *Parameters;
-	} CreateMailslot;
-
       struct
 	{
 	  ULONG Length;
 	  ULONG Key;
 	  LARGE_INTEGER ByteOffset;
 	} Read;
-
       struct
 	{
 	  ULONG Length;
 	  ULONG Key;
 	  LARGE_INTEGER ByteOffset;
 	} Write;
-
       struct
 	{
-	  ULONG Length;
-	  PUNICODE_STRING FileName;
-	  FILE_INFORMATION_CLASS FileInformationClass;
-	  ULONG FileIndex;
-	} QueryDirectory;
-
+	  ULONG OutputBufferLength;
+	  ULONG InputBufferLength;
+	  ULONG IoControlCode;
+	  PVOID Type3InputBuffer;
+	} DeviceIoControl;
       struct
 	{
-	  ULONG Length;
-	  ULONG CompletionFilter;
-	} NotifyDirectory;
-
+	  ULONG OutputBufferLength;
+	  ULONG InputBufferLength;
+	  ULONG IoControlCode;
+	  PVOID Type3InputBuffer;
+	} FileSystemControl;
+      struct
+	{
+	  struct _VPB* Vpb;
+	  struct _DEVICE_OBJECT* DeviceObject;
+	} MountVolume;
+      struct
+	{
+	  struct _VPB* Vpb;
+	  struct _DEVICE_OBJECT* DeviceObject;
+	} VerifyVolume;
       struct
 	{
 	  ULONG Length;
 	  FILE_INFORMATION_CLASS FileInformationClass;
 	} QueryFile;
-
+      struct
+	{
+	  ULONG Length;
+	  FS_INFORMATION_CLASS FsInformationClass;
+	} QueryVolume;
+      struct
+	{
+	  ULONG Length;
+	  FS_INFORMATION_CLASS FsInformationClass;
+	} SetVolume;
       struct
 	{
 	  ULONG Length;
@@ -373,106 +368,21 @@ typedef struct _IO_STACK_LOCATION
 	      HANDLE DeleteHandle;
 	    } u;
 	} SetFile;
-
       struct
 	{
 	  ULONG Length;
-	  PVOID EaList;
-	  ULONG EaListLength;
-	  ULONG EaIndex;
-	} QueryEa;
+	  PUNICODE_STRING FileName;
+	  FILE_INFORMATION_CLASS FileInformationClass;
+	  ULONG FileIndex;
+	} QueryDirectory;
 
-      struct
-	{
-	  ULONG Length;
-	} SetEa;
-
-      struct
-	{
-	  ULONG Length;
-	  FS_INFORMATION_CLASS FsInformationClass;
-	} QueryVolume;
-
-      struct
-	{
-	  ULONG Length;
-	  FS_INFORMATION_CLASS FsInformationClass;
-	} SetVolume;
-
-      struct
-	{
-	  ULONG OutputBufferLength;
-	  ULONG InputBufferLength;
-	  ULONG FsControlCode;
-	  PVOID Type3InputBuffer;
-	} FileSystemControl;
-
-      /* byte range file locking */
-      struct
-	{
-	  PLARGE_INTEGER Length;
-	  ULONG Key;
-	  LARGE_INTEGER ByteOffset;
-	} LockControl;
-
-      struct
-	{
-	  ULONG OutputBufferLength;
-	  ULONG InputBufferLength;
-	  ULONG IoControlCode;
-	  PVOID Type3InputBuffer;
-	} DeviceIoControl;
-
-      struct
-	{
-	  SECURITY_INFORMATION SecurityInformation;
-	  ULONG POINTER_ALIGNMENT Length;
-	} QuerySecurity;
-
-      struct
-	{
-	  SECURITY_INFORMATION SecurityInformation;
-	  PSECURITY_DESCRIPTOR SecurityDescriptor;
-	} SetSecurity;
-
-      struct
-	{
-	  struct _VPB* Vpb;
-	  struct _DEVICE_OBJECT* DeviceObject;
-	} MountVolume;
-
-      struct
-	{
-	  struct _VPB* Vpb;
-	  struct _DEVICE_OBJECT* DeviceObject;
-	} VerifyVolume;
-
-      /* Parameters for IRP_MN_SCSI_CLASS */
-      struct
-	{
-	  struct _SCSI_REQUEST_BLOCK *Srb;
-	} Scsi;
-
-      struct
-	{
-	  ULONG Length;
-	  PSID StartSid;
-	  struct _FILE_GET_QUOTA_INFORMATION *SidList;
-	  ULONG SidListLength;
-	} QueryQuota;
-
-      struct
-	{
-	  ULONG Length;
-	} SetQuota;
-
-      /* Parameters for IRP_MN_QUERY_DEVICE_RELATIONS */
+      // Parameters for IRP_MN_QUERY_DEVICE_RELATIONS
       struct
 	{
 	  DEVICE_RELATION_TYPE Type;
 	} QueryDeviceRelations;
 
-      /* Parameters for IRP_MN_QUERY_INTERFACE */
+      // Parameters for IRP_MN_QUERY_INTERFACE
       struct
 	{
 	  CONST GUID *InterfaceType;
@@ -482,45 +392,32 @@ typedef struct _IO_STACK_LOCATION
 	  PVOID InterfaceSpecificData;
 	} QueryInterface;
 
-      /* Parameters for IRP_MN_QUERY_CAPABILITIES */
+      // Parameters for IRP_MN_QUERY_CAPABILITIES
       struct
 	{
 	  PDEVICE_CAPABILITIES Capabilities;
 	} DeviceCapabilities;
 
-      /* Parameters for IRP_MN_FILTER_RESOURCE_REQUIREMENTS */
+      // Parameters for IRP_MN_FILTER_RESOURCE_REQUIREMENTS
       struct
 	{
-	  PIO_RESOURCE_REQUIREMENTS_LIST IoResourceRequirementList;
-	} FilterResourceRequirements;
+      PIO_RESOURCE_REQUIREMENTS_LIST IoResourceRequirementList;
+    } FilterResourceRequirements;
 
-      struct
-	{
-	  ULONG WhichSpace;
-	  PVOID Buffer;
-	  ULONG Offset;
-	  ULONG POINTER_ALIGNMENT Length;
-	} ReadWriteConfig;
-
-      struct
-	{
-	  BOOLEAN Lock;
-	} SetLock;
-
-      /* Parameters for IRP_MN_QUERY_ID */
+      // Parameters for IRP_MN_QUERY_ID
       struct
 	{
 	  BUS_QUERY_ID_TYPE IdType;
 	} QueryId;
 
-      /* Parameters for IRP_MN_QUERY_DEVICE_TEXT */
+      // Parameters for IRP_MN_QUERY_DEVICE_TEXT
       struct
 	{
 	  DEVICE_TEXT_TYPE DeviceTextType;
 	  LCID LocaleId;
 	} QueryDeviceText;
 
-      /* Parameters for IRP_MN_DEVICE_USAGE_NOTIFICATION */
+      // Parameters for IRP_MN_DEVICE_USAGE_NOTIFICATION
       struct
 	{
 	  BOOLEAN InPath;
@@ -528,19 +425,19 @@ typedef struct _IO_STACK_LOCATION
 	  DEVICE_USAGE_NOTIFICATION_TYPE Type;
 	} UsageNotification;
 
-      /* Parameters for IRP_MN_WAIT_WAKE */
+      // Parameters for IRP_MN_WAIT_WAKE
       struct
 	{
 	  SYSTEM_POWER_STATE PowerState;
 	} WaitWake;
 
-      /* Parameter for IRP_MN_POWER_SEQUENCE */
+      // Parameter for IRP_MN_POWER_SEQUENCE
       struct
 	{
 	  PPOWER_SEQUENCE PowerSequence;
 	} PowerSequence;
 
-      /* Parameters for IRP_MN_SET_POWER and IRP_MN_QUERY_POWER */
+      // Parameters for IRP_MN_SET_POWER and IRP_MN_QUERY_POWER
       struct
 	{
 	  ULONG SystemContext;
@@ -549,23 +446,29 @@ typedef struct _IO_STACK_LOCATION
 	  POWER_ACTION ShutdownType;
 	} Power;
 
-      /* Parameters for IRP_MN_START_DEVICE */
+      // Parameters for IRP_MN_START_DEVICE
       struct
 	{
 	  PCM_RESOURCE_LIST AllocatedResources;
 	  PCM_RESOURCE_LIST AllocatedResourcesTranslated;
 	} StartDevice;
-
-      struct
+*/
+      /* Parameters for IRP_MN_SCSI_CLASS */
+/*      struct
 	{
-	  ULONG_PTR ProviderId;
-	  PVOID DataPath;
-	  ULONG BufferSize;
-	  PVOID Buffer;
-	} WMI;
+	  struct _SCSI_REQUEST_BLOCK *Srb;
+	} Scsi;
 
+	  //byte range file locking
+	  struct 
+	{
+      PLARGE_INTEGER Length;
+      ULONG Key;
+      LARGE_INTEGER ByteOffset;
+    } LockControl;
+*/
       /* Paramters for other calls */
-      struct
+/*      struct
 	{
 	  PVOID Argument1;
 	  PVOID Argument2;
@@ -573,15 +476,245 @@ typedef struct _IO_STACK_LOCATION
 	  PVOID Argument4;
 	} Others;
     } Parameters;
-
+  
   struct _DEVICE_OBJECT* DeviceObject;
   struct _FILE_OBJECT* FileObject;
 
   PIO_COMPLETION_ROUTINE CompletionRoutine;
-  PVOID Context;
+  PVOID CompletionContext;
 
+} IO_STACK_LOCATION, *PIO_STACK_LOCATION;*/
+
+typedef struct _IO_STACK_LOCATION {
+  UCHAR  MajorFunction;
+  UCHAR  MinorFunction;
+  UCHAR  Flags;
+  UCHAR  Control;
+  union {
+    struct {
+      PIO_SECURITY_CONTEXT  SecurityContext;
+      ULONG  Options;
+      USHORT POINTER_ALIGNMENT  FileAttributes;
+      USHORT  ShareAccess;
+      ULONG POINTER_ALIGNMENT  EaLength;
+    } Create;
+    struct {
+      ULONG  Length;
+      ULONG POINTER_ALIGNMENT  Key;
+      LARGE_INTEGER  ByteOffset;
+    } Read;
+    struct {
+      ULONG  Length;
+      ULONG POINTER_ALIGNMENT  Key;
+      LARGE_INTEGER  ByteOffset;
+    } Write;
+    struct {
+      ULONG  Length;
+      FILE_INFORMATION_CLASS POINTER_ALIGNMENT  FileInformationClass;
+    } QueryFile;
+    struct {
+      ULONG  Length;
+      FILE_INFORMATION_CLASS POINTER_ALIGNMENT  FileInformationClass;
+      struct _FILE_OBJECT*  FileObject;
+      union {
+        struct {
+          BOOLEAN  ReplaceIfExists;
+          BOOLEAN  AdvanceOnly;
+        };
+        ULONG  ClusterCount;
+        HANDLE  DeleteHandle;
+      };
+    } SetFile;
+    struct {
+      ULONG  Length;
+      FS_INFORMATION_CLASS POINTER_ALIGNMENT  FsInformationClass;
+    } QueryVolume;
+    struct {
+      ULONG  OutputBufferLength;
+      ULONG POINTER_ALIGNMENT  InputBufferLength;
+      ULONG POINTER_ALIGNMENT  IoControlCode;
+      PVOID  Type3InputBuffer;
+    } DeviceIoControl;
+    struct {
+      SECURITY_INFORMATION  SecurityInformation;
+      ULONG POINTER_ALIGNMENT  Length;
+    } QuerySecurity;
+    struct {
+      SECURITY_INFORMATION  SecurityInformation;
+      PSECURITY_DESCRIPTOR  SecurityDescriptor;
+    } SetSecurity;
+    struct {
+      struct _VPB*  Vpb;
+      struct _DEVICE_OBJECT*  DeviceObject;
+    } MountVolume;
+    struct {
+      struct _VPB*  Vpb;
+      struct _DEVICE_OBJECT*  DeviceObject;
+    } VerifyVolume;
+    struct {
+      struct _SCSI_REQUEST_BLOCK  *Srb;
+    } Scsi;
+    struct {
+      DEVICE_RELATION_TYPE  Type;
+    } QueryDeviceRelations;
+    struct {
+      CONST GUID  *InterfaceType;
+      USHORT  Size;
+      USHORT  Version;
+      PINTERFACE  Interface;
+      PVOID  InterfaceSpecificData;
+    } QueryInterface;
+    struct {
+      PDEVICE_CAPABILITIES  Capabilities;
+    } DeviceCapabilities;
+    struct {
+      PIO_RESOURCE_REQUIREMENTS_LIST  IoResourceRequirementList;
+    } FilterResourceRequirements;
+    struct {
+      ULONG  WhichSpace;
+      PVOID  Buffer;
+      ULONG  Offset;
+      ULONG POINTER_ALIGNMENT  Length;
+    } ReadWriteConfig;
+    struct {
+      BOOLEAN  Lock;
+    } SetLock;
+    struct {
+      BUS_QUERY_ID_TYPE  IdType;
+    } QueryId;
+    struct {
+      DEVICE_TEXT_TYPE  DeviceTextType;
+      LCID POINTER_ALIGNMENT  LocaleId;
+    } QueryDeviceText;
+    struct {
+      BOOLEAN  InPath;
+      BOOLEAN  Reserved[3];
+      DEVICE_USAGE_NOTIFICATION_TYPE POINTER_ALIGNMENT  Type;
+    } UsageNotification;
+    struct {
+      SYSTEM_POWER_STATE  PowerState;
+    } WaitWake;
+    struct {
+      PPOWER_SEQUENCE  PowerSequence;
+    } PowerSequence;
+    struct {
+      ULONG  SystemContext;
+      POWER_STATE_TYPE POINTER_ALIGNMENT  Type;
+      POWER_STATE POINTER_ALIGNMENT  State;
+      POWER_ACTION POINTER_ALIGNMENT  ShutdownType;
+    } Power;
+    struct {
+      PCM_RESOURCE_LIST  AllocatedResources;
+      PCM_RESOURCE_LIST  AllocatedResourcesTranslated;
+    } StartDevice;
+    struct {
+      ULONG_PTR  ProviderId;
+      PVOID  DataPath;
+      ULONG  BufferSize;
+      PVOID  Buffer;
+    } WMI;
+    struct {
+      PVOID  Argument1;
+      PVOID  Argument2;
+      PVOID  Argument3;
+      PVOID  Argument4;
+    } Others;
+  } Parameters;
+  struct _DEVICE_OBJECT*  DeviceObject;
+  struct _FILE_OBJECT*  FileObject;
+  PIO_COMPLETION_ROUTINE  CompletionRoutine;
+  PVOID  Context;
 } IO_STACK_LOCATION, *PIO_STACK_LOCATION;
 
+// AG: The commented lines in this structure are due to PMAILSLOT_CREATE_PARAMETERS
+// and PNAMED_PIPE_CREATE_PARAMETERS and PFILE_GET_QUOTA_INFORMATION not being
+// defined.
+
+typedef struct _EXTENDED_IO_STACK_LOCATION {
+
+    /* Included for padding */
+    UCHAR MajorFunction;
+    UCHAR MinorFunction;
+    UCHAR Flags;
+    UCHAR Control;
+
+    union {
+
+//       struct {
+//          PIO_SECURITY_CONTEXT              SecurityContext;
+//          ULONG                             Options;
+//          USHORT                            Reserved;
+//          USHORT                            ShareAccess;
+//          PMAILSLOT_CREATE_PARAMETERS       Parameters;
+//       } CreateMailslot;
+
+//        struct {
+//            PIO_SECURITY_CONTEXT            SecurityContext;
+//            ULONG                           Options;
+//            USHORT                          Reserved;
+//            USHORT                          ShareAccess;
+//            PNAMED_PIPE_CREATE_PARAMETERS   Parameters;
+//        } CreatePipe;
+
+        struct {
+            ULONG                           OutputBufferLength;
+            ULONG                           InputBufferLength;
+            ULONG                           FsControlCode;
+            PVOID                           Type3InputBuffer;
+        } FileSystemControl;
+
+        struct {
+            PLARGE_INTEGER                  Length;
+            ULONG                           Key;
+            LARGE_INTEGER                   ByteOffset;
+        } LockControl;
+
+        struct {
+            ULONG                           Length;
+            ULONG                           CompletionFilter;
+        } NotifyDirectory;
+
+        struct {
+            ULONG                           Length;
+            PUNICODE_STRING                 FileName;
+            FILE_INFORMATION_CLASS          FileInformationClass;
+            ULONG                           FileIndex;
+        } QueryDirectory;
+
+        struct {
+            ULONG                           Length;
+            PVOID                           EaList;
+            ULONG                           EaListLength;
+            ULONG                           EaIndex;
+        } QueryEa;
+
+//        struct {
+//            ULONG                           Length;
+//            PSID                            StartSid;
+//            PFILE_GET_QUOTA_INFORMATION     SidList;
+//            ULONG                           SidListLength;
+//        } QueryQuota;
+
+        struct {
+            ULONG                           Length;
+        } SetEa;
+
+        struct {
+            ULONG                           Length;
+        } SetQuota;
+
+        struct {
+            ULONG                           Length;
+            FS_INFORMATION_CLASS            FsInformationClass;
+        } SetVolume;
+
+    } Parameters;
+    struct _DEVICE_OBJECT*  DeviceObject;
+    struct _FILE_OBJECT*  FileObject;
+    PIO_COMPLETION_ROUTINE  CompletionRoutine;
+    PVOID  Context;
+
+} EXTENDED_IO_STACK_LOCATION, *PEXTENDED_IO_STACK_LOCATION;
 
 typedef struct _IO_STATUS_BLOCK
 {
@@ -614,7 +747,7 @@ typedef struct _SECTION_OBJECT_POINTERS
 typedef struct _IO_COMPLETION_CONTEXT
 {
    PVOID Port;
-   PVOID Key;
+   ULONG Key;
 } IO_COMPLETION_CONTEXT, *PIO_COMPLETION_CONTEXT;
 
 #define FO_FILE_OPEN                    0x00000001
@@ -689,7 +822,7 @@ typedef struct _IRP
      {
 	struct _IRP* MasterIrp;
 	LONG IrpCount;
-	PVOID SystemBuffer;
+	PVOID SystemBuffer;	
      } AssociatedIrp;
    LIST_ENTRY ThreadListEntry;
    IO_STATUS_BLOCK IoStatus;
@@ -731,6 +864,7 @@ typedef struct _IRP
 	KAPC Apc;
 	ULONG CompletionKey;
      } Tail;
+   IO_STACK_LOCATION Stack[1];
 } IRP, *PIRP;
 
 #define VPB_MOUNTED                     0x00000001
@@ -801,14 +935,6 @@ typedef BOOLEAN STDCALL_FUNC
 		    OUT PIO_STATUS_BLOCK IoStatus,
 		    IN struct _DEVICE_OBJECT *DeviceObject);
 
-typedef VOID
-(*PFAST_IO_ACQUIRE_FILE) (
-    IN struct _FILE_OBJECT *FileObject);
-
-typedef VOID
-(*PFAST_IO_RELEASE_FILE) (
-    IN struct _FILE_OBJECT *FileObject);
-
 typedef struct _FAST_IO_DISPATCH {
    ULONG SizeOfFastIoDispatch;
    PFAST_IO_ROUTINE FastIoCheckIfPossible;
@@ -821,8 +947,8 @@ typedef struct _FAST_IO_DISPATCH {
    PFAST_IO_ROUTINE FastIoUnlockAll;
    PFAST_IO_ROUTINE FastIoUnlockAllByKey;
    PFAST_IO_ROUTINE FastIoDeviceControl;
-   PFAST_IO_ACQUIRE_FILE AcquireFileForNtCreateSection;
-   PFAST_IO_RELEASE_FILE ReleaseFileForNtCreateSection;
+   PFAST_IO_ROUTINE AcquireFileForNtCreateSection;
+   PFAST_IO_ROUTINE ReleaseFileForNtCreateSection;
    PFAST_IO_ROUTINE FastIoDetachDevice;
    PFAST_IO_ROUTINE FastIoQueryNetworkOpenInfo;
    PFAST_IO_ROUTINE AcquireForModWrite;
@@ -886,15 +1012,6 @@ struct _FAST_IO_DISPATCH_TABLE
 } FAST_IO_DISPATCH_TABLE, * PFAST_IO_DISPATCH_TABLE;
 #endif
 
-#define IO_DRIVER_OBJECT 4L
-#define DRVO_UNLOAD_INVOKED 0x1L
-#define DRVO_LEGACY_DRIVER  0x2L
-#define DRVO_BUILTIN_DRIVER 0x4L
-#define DRVO_REINIT_REGISTERED 0x8L
-#define DRVO_INITIALIZED 0x10L
-#define DRVO_BOOTREINIT_REGISTERED 0x20L
-#define DRVO_LEGACY_RESOURCES 0x40L
-
 typedef struct _DRIVER_OBJECT
 {
    CSHORT Type;
@@ -944,15 +1061,15 @@ typedef VOID STDCALL_FUNC
 
 /*
  * PURPOSE: Special timer associated with each device
+ * NOTES: This is a guess
  */
- #define IO_TYPE_TIMER 9
-typedef struct _IO_TIMER {
-   USHORT Type;				/* Every IO Object has a Type */
-   USHORT TimerEnabled;			/* Tells us if the Timer is enabled or not */
-   LIST_ENTRY IoTimerList;		/* List of other Timers on the system */
-   PIO_TIMER_ROUTINE TimerRoutine;	/* The associated timer routine */
-   PVOID Context;			/* Context */
-   PDEVICE_OBJECT DeviceObject;		/* Driver that owns this IO Timer */
+typedef struct _IO_TIMER
+{
+   KTIMER timer;
+   KDPC dpc;
+   PDEVICE_OBJECT DeviceObject;
+   PIO_TIMER_ROUTINE TimerRoutine;
+   PVOID Context;
 } IO_TIMER, *PIO_TIMER;
 
 typedef struct _IO_WORKITEM *PIO_WORKITEM;
@@ -971,135 +1088,6 @@ typedef struct _PARTITION_INFORMATION
    BOOLEAN RewritePartition;
 } PARTITION_INFORMATION, *PPARTITION_INFORMATION;
 #endif
-
-typedef enum _PARTITION_STYLE {
-    PARTITION_STYLE_MBR,
-    PARTITION_STYLE_GPT,
-    PARTITION_STYLE_RAW
-} PARTITION_STYLE;
-
-typedef struct _PARTITION_INFORMATION_GPT {
-    GUID PartitionType;             
-    GUID PartitionId;                 
-    ULONG64 Attributes;                
-    WCHAR Name [36];                 
-} PARTITION_INFORMATION_GPT, *PPARTITION_INFORMATION_GPT;
-
-typedef struct _PARTITION_INFORMATION_MBR {
-    UCHAR PartitionType;
-    BOOLEAN BootIndicator;
-    BOOLEAN RecognizedPartition;
-    ULONG HiddenSectors;
-} PARTITION_INFORMATION_MBR, *PPARTITION_INFORMATION_MBR;
-
-typedef SET_PARTITION_INFORMATION SET_PARTITION_INFORMATION_MBR;
-typedef PARTITION_INFORMATION_GPT SET_PARTITION_INFORMATION_GPT;
-
-typedef struct _SET_PARTITION_INFORMATION_EX {
-    PARTITION_STYLE PartitionStyle;
-    union {
-        SET_PARTITION_INFORMATION_MBR Mbr;
-        SET_PARTITION_INFORMATION_GPT Gpt;
-    };
-} SET_PARTITION_INFORMATION_EX, *PSET_PARTITION_INFORMATION_EX;
-
-typedef struct _CREATE_DISK_GPT {
-    GUID DiskId;                    
-    ULONG MaxPartitionCount;       
-} CREATE_DISK_GPT, *PCREATE_DISK_GPT;
-
-typedef struct _CREATE_DISK_MBR {
-    ULONG Signature;
-} CREATE_DISK_MBR, *PCREATE_DISK_MBR;
-
-
-typedef struct _CREATE_DISK {
-    PARTITION_STYLE PartitionStyle;
-    union {
-        CREATE_DISK_MBR Mbr;
-        CREATE_DISK_GPT Gpt;
-    };
-} CREATE_DISK, *PCREATE_DISK;
-
-typedef struct _DRIVE_LAYOUT_INFORMATION_GPT {
-    GUID DiskId;
-    LARGE_INTEGER StartingUsableOffset;
-    LARGE_INTEGER UsableLength;
-    ULONG MaxPartitionCount;
-} DRIVE_LAYOUT_INFORMATION_GPT, *PDRIVE_LAYOUT_INFORMATION_GPT;
-
-typedef struct _DRIVE_LAYOUT_INFORMATION_MBR {
-    ULONG Signature;
-} DRIVE_LAYOUT_INFORMATION_MBR, *PDRIVE_LAYOUT_INFORMATION_MBR;
-
-typedef struct _PARTITION_INFORMATION_EX {
-    PARTITION_STYLE PartitionStyle;
-    LARGE_INTEGER StartingOffset;
-    LARGE_INTEGER PartitionLength;
-    ULONG PartitionNumber;
-    BOOLEAN RewritePartition;
-    union {
-        PARTITION_INFORMATION_MBR Mbr;
-        PARTITION_INFORMATION_GPT Gpt;
-    };
-} PARTITION_INFORMATION_EX, *PPARTITION_INFORMATION_EX;
-
-typedef struct _DRIVE_LAYOUT_INFORMATION_EX {
-    ULONG PartitionStyle;
-    ULONG PartitionCount;
-    union {
-        DRIVE_LAYOUT_INFORMATION_MBR Mbr;
-        DRIVE_LAYOUT_INFORMATION_GPT Gpt;
-    };
-    PARTITION_INFORMATION_EX PartitionEntry[1];
-} DRIVE_LAYOUT_INFORMATION_EX, *PDRIVE_LAYOUT_INFORMATION_EX;
-
-typedef struct _BOOTDISK_INFORMATION {
-    LONGLONG BootPartitionOffset;
-    LONGLONG SystemPartitionOffset;
-    ULONG BootDeviceSignature;
-    ULONG SystemDeviceSignature;
-} BOOTDISK_INFORMATION, *PBOOTDISK_INFORMATION;
-
-
-typedef struct _DISK_SIGNATURE {
-    ULONG PartitionStyle;
-    union {
-        struct {
-            ULONG Signature;
-            ULONG CheckSum;
-        } Mbr;
-
-        struct {
-            GUID DiskId;
-        } Gpt;
-    };
-} DISK_SIGNATURE, *PDISK_SIGNATURE;
-
-typedef struct _REPARSE_DATA_BUFFER {
-    ULONG  ReparseTag;
-    USHORT ReparseDataLength;
-    USHORT Reserved;
-    union {
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            WCHAR PathBuffer[1];
-        } SymbolicLinkReparseBuffer;
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            WCHAR PathBuffer[1];
-        } MountPointReparseBuffer;
-        struct {
-            UCHAR  DataBuffer[1];
-        } GenericReparseBuffer;
-    };
-} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
 
 typedef struct _DRIVER_LAYOUT_INFORMATION
 {
@@ -1121,25 +1109,23 @@ typedef VOID STDCALL_FUNC
 #endif // (_WIN32_WINNT >= 0x0400)
 
 
-typedef struct _NAMED_PIPE_CREATE_PARAMETERS
+typedef struct _IO_PIPE_CREATE_BUFFER
 {
-  ULONG NamedPipeType;
-  ULONG ReadMode;
-  ULONG CompletionMode;
-  ULONG MaximumInstances;
-  ULONG InboundQuota;
-  ULONG OutboundQuota;
-  LARGE_INTEGER DefaultTimeout;
-  BOOLEAN TimeoutSpecified;
-} NAMED_PIPE_CREATE_PARAMETERS, *PNAMED_PIPE_CREATE_PARAMETERS;
+   BOOLEAN WriteModeMessage;
+   BOOLEAN ReadModeMessage;
+   BOOLEAN NonBlocking;
+   ULONG MaxInstances;
+   ULONG InBufferSize;
+   ULONG OutBufferSize;
+   LARGE_INTEGER TimeOut;
+} IO_PIPE_CREATE_BUFFER, *PIO_PIPE_CREATE_BUFFER;
 
-typedef struct _MAILSLOT_CREATE_PARAMETERS
+typedef struct _IO_MAILSLOT_CREATE_BUFFER
 {
-  ULONG MailslotQuota;
-  ULONG MaximumMessageSize;
-  LARGE_INTEGER ReadTimeout;
-  BOOLEAN TimeoutSpecified;
-} MAILSLOT_CREATE_PARAMETERS, *PMAILSLOT_CREATE_PARAMETERS;
+   ULONG Param; /* ?? */
+   ULONG MaxMessageSize;
+   LARGE_INTEGER TimeOut;
+} IO_MAILSLOT_CREATE_BUFFER, *PIO_MAILSLOT_CREATE_BUFFER;
 
 
 /* error logging */
@@ -1173,12 +1159,6 @@ typedef struct _IO_ERROR_LOG_MESSAGE
 
 
 /* DMA types */
- 
-typedef struct _DMA_ADAPTER {
-  USHORT  Version;
-  USHORT  Size;
-  struct _DMA_OPERATIONS  *DmaOperations;
-} DMA_ADAPTER, *PDMA_ADAPTER;
 
 typedef struct _SCATTER_GATHER_ELEMENT {
   PHYSICAL_ADDRESS Address;
@@ -1189,8 +1169,17 @@ typedef struct _SCATTER_GATHER_ELEMENT {
 typedef struct _SCATTER_GATHER_LIST {
   ULONG NumberOfElements;
   ULONG_PTR Reserved;
-  SCATTER_GATHER_ELEMENT Elements[1];
+  SCATTER_GATHER_ELEMENT Elements[];
 } SCATTER_GATHER_LIST, *PSCATTER_GATHER_LIST;
+
+typedef struct _DMA_OPERATIONS *PDMA_OPERATIONS;
+
+typedef struct _DMA_ADAPTER {
+  USHORT Version;
+  USHORT Size;
+  PDMA_OPERATIONS DmaOperations;
+  PADAPTER_OBJECT HalAdapter;
+} DMA_ADAPTER, *PDMA_ADAPTER;
 
 typedef VOID (*PPUT_DMA_ADAPTER)(
   PDMA_ADAPTER DmaAdapter
@@ -1293,7 +1282,8 @@ typedef struct _DMA_OPERATIONS {
   PREAD_DMA_COUNTER ReadDmaCounter;
   PGET_SCATTER_GATHER_LIST GetScatterGatherList;
   PPUT_SCATTER_GATHER_LIST PutScatterGatherList;
-} DMA_OPERATIONS, *PDMA_OPERATIONS;
+} DMA_OPERATIONS;
+
 
 /* Standard bus interface */
 

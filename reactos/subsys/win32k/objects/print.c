@@ -16,15 +16,26 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: print.c,v 1.25 2004/12/12 21:58:42 royce Exp $ */
-#include <w32k.h>
+/* $Id: print.c,v 1.15 2004/03/01 19:25:33 navaraf Exp $ */
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/print.h>
+#include <win32k/dc.h>
+#include <include/error.h>
+#include <include/tags.h>
+#include <include/object.h>
+#include <internal/safe.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 INT
 STDCALL
 NtGdiAbortDoc(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
@@ -32,7 +43,6 @@ STDCALL
 NtGdiEndDoc(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
@@ -40,19 +50,6 @@ STDCALL
 NtGdiEndPage(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
-}
-
-INT
-FASTCALL
-IntGdiEscape(PDC    dc,
-             INT    Escape,
-             INT    InSize,
-             LPCSTR InData,
-             LPVOID OutData)
-{
-  UNIMPLEMENTED;
-  return 0;
 }
 
 INT
@@ -63,36 +60,19 @@ NtGdiEscape(HDC  hDC,
                 LPCSTR  InData,
                 LPVOID  OutData)
 {
-  PDC dc;
-  INT ret;
-
-  dc = DC_LockDc(hDC);
-  if (dc == NULL)
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return 0;
-  }
-
-  /* TODO FIXME - don't pass umode buffer to an Int function */
-  ret = IntGdiEscape(dc, Escape, InSize, InData, OutData);
-
-  DC_UnlockDc( hDC );
-  return ret;
+  UNIMPLEMENTED;
 }
 
 INT
 STDCALL
 IntEngExtEscape(
-   SURFOBJ *Surface,
-   INT      Escape,
-   INT      InSize,
-   LPVOID   InData,
-   INT      OutSize,
-   LPVOID   OutData)
+   HSURF  Surface,
+   INT    Escape,
+   INT    InSize,
+   LPVOID InData,
+   INT    OutSize,
+   LPVOID OutData)
 {
-   if (Escape == 0x1101)
-      return 0;
-
    UNIMPLEMENTED;
    return -1;
 }
@@ -107,15 +87,12 @@ IntGdiExtEscape(
    INT    OutSize,
    LPSTR  OutData)
 {
-   BITMAPOBJ *BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   INT Result;
-
-   /* FIXME - Handle BitmapObj == NULL !!!!!! */
+   PSURFOBJ Surface = (PSURFOBJ)AccessUserObject((ULONG)dc->Surface);
 
    if ( NULL == dc->DriverFunctions.Escape )
    {
-      Result = IntEngExtEscape(
-         &BitmapObj->SurfObj,
+      return IntEngExtEscape(
+         Surface,
          Escape,
          InSize,
          (PVOID)InData,
@@ -124,17 +101,14 @@ IntGdiExtEscape(
    }
    else
    {
-      Result = dc->DriverFunctions.Escape(
-         &BitmapObj->SurfObj,
+      return dc->DriverFunctions.Escape(
+         Surface,
          Escape,
          InSize,
          (PVOID)InData,
          OutSize,
          (PVOID)OutData );
    }
-   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-
-   return Result;
 }
 
 INT
@@ -161,7 +135,7 @@ NtGdiExtEscape(
 
    if ( InSize && UnsafeInData )
    {
-      SafeInData = ExAllocatePoolWithTag ( PagedPool, InSize, TAG_PRINT );
+      SafeInData = ExAllocatePoolWithTag ( NonPagedPool, InSize, TAG_PRINT );
       if ( !SafeInData )
       {
          DC_UnlockDc(hDC);
@@ -180,7 +154,7 @@ NtGdiExtEscape(
 
    if ( OutSize && UnsafeOutData )
    {
-      SafeOutData = ExAllocatePoolWithTag ( PagedPool, OutSize, TAG_PRINT );
+      SafeOutData = ExAllocatePoolWithTag ( NonPagedPool, OutSize, TAG_PRINT );
       if ( !SafeOutData )
       {
          if ( SafeInData )
@@ -218,16 +192,14 @@ NtGdiSetAbortProc(HDC  hDC,
                       ABORTPROC  AbortProc)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
 STDCALL
 NtGdiStartDoc(HDC  hDC,
-                  CONST LPDOCINFOW  di)
+                  CONST PDOCINFOW  di)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
@@ -235,6 +207,5 @@ STDCALL
 NtGdiStartPage(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 /* EOF */

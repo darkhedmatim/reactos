@@ -26,9 +26,8 @@
  //
 
 
-#include "precomp.h"
-
-//#include <shellapi.h>
+#include "utility.h"
+#include <shellapi.h>
 
 #include <time.h>
 #include <sstream>
@@ -206,7 +205,7 @@ BOOL launch_fileA(HWND hwnd, LPSTR cmd, UINT nCmdShow, LPCSTR parameters)
 #endif
 
 
-/* search for already running instance */
+/* search for already running win[e]files */
 
 static int g_foundPrevInstance = 0;
 
@@ -233,105 +232,6 @@ int find_window_class(LPCTSTR classname)
 		return 1;
 
 	return 0;
-}
-
-
-String get_windows_version_str()
-{
-	OSVERSIONINFOEX osvi = {sizeof(OSVERSIONINFOEX)};
-	BOOL osvie_val;
-	String str;
-
-	if (!(osvie_val = GetVersionEx((OSVERSIONINFO*)&osvi))) {
-		osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-
-		if (!GetVersionEx((OSVERSIONINFO*)&osvi))
-			return TEXT("???");
-	}
-
-	switch(osvi.dwPlatformId) {
-	  case VER_PLATFORM_WIN32_NT:
-#ifdef _ROS_	// This work around can be removed if ReactOS gets a unique version number.
-		str = TEXT("ReactOS");
-#else
-		if (osvi.dwMajorVersion <= 4)
-			str = TEXT("Microsoft Windows NT");
-		else if (osvi.dwMajorVersion==5 && osvi.dwMinorVersion==0)
-			str = TEXT("Microsoft Windows 2000");
-		else if (osvi.dwMajorVersion==5 && osvi.dwMinorVersion==1)
-			str = TEXT("Microsoft Windows XP");
-#endif
-
-		if (osvie_val) {
-			if (osvi.wProductType == VER_NT_WORKSTATION) {
-			   if (osvi.wSuiteMask & VER_SUITE_PERSONAL)
-				  str += TEXT(" Personal");
-			   else
-				  str += TEXT(" Professional");
-			} else if (osvi.wProductType == VER_NT_SERVER) {
-			   if (osvi.wSuiteMask & VER_SUITE_DATACENTER)
-				  str += TEXT(" DataCenter Server");
-			   else if (osvi.wSuiteMask & VER_SUITE_ENTERPRISE)
-				  str += TEXT(" Advanced Server");
-			   else
-				  str += TEXT(" Server");
-			} else if (osvi.wProductType == VER_NT_DOMAIN_CONTROLLER) {
-				str += TEXT(" Domain Controller");
-			}
-		} else {
-			TCHAR type[80];
-			DWORD dwBufLen;
-			HKEY hKey;
-
-			if (!RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SYSTEM\\CurrentControlSet\\Control\\ProductOptions"), 0, KEY_QUERY_VALUE, &hKey)) {
-				RegQueryValueEx(hKey, TEXT("ProductType"), NULL, NULL, (LPBYTE)type, &dwBufLen);
-				RegCloseKey(hKey);
-
-				if (!_tcsicmp(TEXT("WINNT"), type))
-				   str += TEXT(" Workstation");
-				else if (!_tcsicmp(TEXT("LANMANNT"), type))
-				   str += TEXT(" Server");
-				else if (!_tcsicmp(TEXT("SERVERNT"), type))
-					str += TEXT(" Advanced Server");
-			}
-		}
-		break;
-
-	  case VER_PLATFORM_WIN32_WINDOWS:
-		if (osvi.dwMajorVersion>4 ||
-			(osvi.dwMajorVersion==4 && osvi.dwMinorVersion>0)) {
-			if (osvi.dwMinorVersion == 90)
-				str = TEXT("Microsoft Windows ME");
-			else
-				str = TEXT("Microsoft Windows 98");
-
-            if (osvi.szCSDVersion[1] == 'A')
-				str += TEXT(" SE");
-		} else {
-			str = TEXT("Microsoft Windows 95");
-
-            if (osvi.szCSDVersion[1]=='B' || osvi.szCSDVersion[1]=='C')
-				str += TEXT(" OSR2");
-		}
-		break;
-
-	  case VER_PLATFORM_WIN32s:
-		str = TEXT("Microsoft Win32s");
-
-	  default:
-		return TEXT("???");
-	}
-
-	String vstr;
-
-	if (osvi.dwMajorVersion <= 4)
-		vstr.printf(TEXT(" Version %d.%d %s Build %d"),
-						osvi.dwMajorVersion, osvi.dwMinorVersion,
-						osvi.szCSDVersion, osvi.dwBuildNumber&0xFFFF);
-	else
-		vstr.printf(TEXT(" %s (Build %d)"), osvi.szCSDVersion, osvi.dwBuildNumber&0xFFFF);
-
-	return str + vstr;
 }
 
 
@@ -451,69 +351,4 @@ DWORD RegGetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD def)
 		return ret;
 	} else
 		return def;
-}
-
-
-BOOL RegSetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD value)
-{
-	HKEY hkey;
-	BOOL ret = FALSE;
-
-	if (!RegOpenKey(root, path, &hkey)) {
-		ret = RegSetValueEx(hkey, valueName, 0, REG_DWORD, (LPBYTE)&value, sizeof(value));
-
-		RegCloseKey(hkey);
-	}
-
-	return ret;
-}
-
-
-BOOL exists_path(LPCTSTR path)
-{
-	WIN32_FIND_DATA fd;
-
-	HANDLE hfind = FindFirstFile(path, &fd);
-
-	if (hfind != INVALID_HANDLE_VALUE) {
-		FindClose(hfind);
-
-		return TRUE;
-	} else
-		return FALSE;
-}
-
-
-bool SplitFileSysURL(LPCTSTR url, String& dir_out, String& fname_out)
-{
-	if (!_tcsnicmp(url, TEXT("file://"), 7)) {
-		url += 7;
-
-		 // remove third slash in front of drive characters
-		if (*url == '/')
-			++url;
-	}
-
-	if (exists_path(url)) {
-		TCHAR path[_MAX_PATH];
-
-		 // convert slashes to back slashes
-		GetFullPathName(url, _MAX_PATH, path, NULL);
-
-		if (GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY)
-			fname_out.erase();
-		else {
-			TCHAR drv[_MAX_DRIVE], dir[_MAX_DIR], fname[_MAX_FNAME], ext[_MAX_EXT];
-
-			_tsplitpath(path, drv, dir, fname, ext);
-			_stprintf(path, TEXT("%s%s"), drv, dir);
-
-			fname_out.printf(TEXT("%s%s"), fname, ext);
-		}
-
-		dir_out = path;
-
-		return true;
-	} else
-		return false;
 }

@@ -31,8 +31,11 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "ntddpar.h"
+
 
 #define DD_PARALLEL_PORT_BASE_NAME        "ParallelPort"
 #define DD_PARALLEL_PORT_BASE_NAME_U      L"ParallelPort"
@@ -269,6 +272,8 @@ typedef struct _PARCLASS_INFORMATION {
   PPARALLEL_TRYSELECT_DEVICE  ParallelTryselect;
   PPARALLEL_DESELECT_DEVICE  ParallelDeSelect;
 } PARCLASS_INFORMATION, *PPARCLASS_INFORMATION;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 
 #if defined(_BATTERYCLASS_)
@@ -290,6 +292,8 @@ NTSTATUS
 DDKAPI
 BatteryClassUnload(
   IN PVOID  ClassData);
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

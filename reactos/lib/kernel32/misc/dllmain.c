@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.38 2004/11/29 00:08:59 gdalsnes Exp $
+/* $Id: dllmain.c,v 1.34 2004/02/22 17:30:32 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,6 +11,7 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <roscfg.h>
 #include <k32.h>
 
 #define NDEBUG
@@ -22,7 +23,6 @@ extern UNICODE_STRING SystemDirectory;
 extern UNICODE_STRING WindowsDirectory;
 
 HANDLE hProcessHeap = NULL;
-HMODULE hCurrentModule = NULL;
 HANDLE hBaseDir = NULL;
 
 static BOOL DllInitialized = FALSE;
@@ -37,9 +37,7 @@ CRITICAL_SECTION DllLock;
 CRITICAL_SECTION ConsoleLock;
 
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
-
-extern BOOL FASTCALL NlsInit();
-extern VOID FASTCALL NlsUninit();
+extern BOOL FASTCALL PROFILE_Init();
 
 /* FUNCTIONS *****************************************************************/
 
@@ -93,7 +91,18 @@ DllMain(HANDLE hDll,
       case DLL_PROCESS_ATTACH:
 	DPRINT("DLL_PROCESS_ATTACH\n");
 
+#if !defined(REGTESTS)
+	/*
+	 * When running regression tests, this module need to receive
+	 * thread attach/detach notifications. This is needed because
+	 * the module is already loaded when the regression test suite
+	 * driver would load this module using LoadLibrary() so a
+	 * DLL_PROCESS_ATTACH notification is not sent. The regression
+	 * test suite driver sends thread notifications instead in this
+	 * case.
+	 */
 	LdrDisableThreadCalloutsForDll ((PVOID)hDll);
+#endif
 
 	/*
 	 * Connect to the csrss server
@@ -108,7 +117,6 @@ DllMain(HANDLE hDll,
 	  }
 
 	hProcessHeap = RtlGetProcessHeap();
-   hCurrentModule = hDll;
 
 	/*
 	 * Initialize WindowsDirectory and SystemDirectory
@@ -137,8 +145,8 @@ DllMain(HANDLE hDll,
 	/* Initialize the DLL critical section */
 	RtlInitializeCriticalSection(&DllLock);
 
-	/* Initialize the National Language Support routines */
-        if (! NlsInit())
+	/* Initialize the profile (.ini) routines */
+	if (! PROFILE_Init())
           {
             return FALSE;
           }
@@ -157,8 +165,6 @@ DllMain(HANDLE hDll,
 	if (DllInitialized == TRUE)
 	  {
 	    /* Insert more dll detach stuff here! */
-
-            NlsUninit();
 
 	    /* Delete DLL critical section */
 	    RtlDeleteCriticalSection (&ConsoleLock);

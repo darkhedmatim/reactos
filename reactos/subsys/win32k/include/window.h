@@ -13,7 +13,6 @@ typedef struct _WINDOW_OBJECT *PWINDOW_OBJECT;
 #include <include/winsta.h>
 #include <include/dce.h>
 #include <include/prop.h>
-#include <include/scroll.h>
 
 
 VOID FASTCALL
@@ -30,8 +29,6 @@ typedef struct _WINDOW_OBJECT
 {
   /* Pointer to the window class. */
   PWNDCLASS_OBJECT Class;
-  /* entry in the window list of the class object */
-  LIST_ENTRY ClassListEntry;
   /* Extended style. */
   DWORD ExStyle;
   /* Window name. */
@@ -88,7 +85,9 @@ typedef struct _WINDOW_OBJECT
   FAST_MUTEX PropListLock;
   ULONG PropListItems;
   /* Scrollbar info */
-  PWINDOW_SCROLLINFO Scroll;
+  PSCROLLBARINFO pHScroll;
+  PSCROLLBARINFO pVScroll;
+  PSCROLLBARINFO wExtra;
   LONG UserData;
   BOOL Unicode;
   WNDPROC WndProcA;
@@ -97,8 +96,6 @@ typedef struct _WINDOW_OBJECT
   HWND hWndLastPopup; /* handle to last active popup window (wine doesn't use pointer, for unk. reason)*/
   PINTERNALPOS InternalPos;
   ULONG Status;
-  /* counter for tiled child windows */
-  ULONG TiledCounter;
 } WINDOW_OBJECT; /* PWINDOW_OBJECT already declared at top of file */
 
 /* Window flags. */
@@ -129,7 +126,7 @@ typedef struct _WINDOW_OBJECT
   (hWnd == HWND_BROADCAST || hWnd == HWND_TOPMOST)
 
 #define IntGetWindowObject(hWnd) \
-  IntGetProcessWindowObject(PsGetWin32Thread(), hWnd)
+  IntGetProcessWindowObject(PsGetWin32Process(), hWnd)
 
 #define IntReferenceWindowObject(WndObj) \
   ObmReferenceObjectByPointer(WndObj, otWindow)
@@ -138,8 +135,8 @@ typedef struct _WINDOW_OBJECT
   ObmDereferenceObject(WndObj)
 
 #define IntWndBelongsToThread(WndObj, W32Thread) \
-  (((WndObj->OwnerThread && WndObj->OwnerThread->Tcb.Win32Thread)) && \
-   (WndObj->OwnerThread->Tcb.Win32Thread == W32Thread))
+  (((WndObj->OwnerThread && WndObj->OwnerThread->Win32Thread)) && \
+   (WndObj->OwnerThread->Win32Thread == W32Thread))
 
 #define IntGetWndThreadId(WndObj) \
   WndObj->OwnerThread->Cid.UniqueThread
@@ -161,7 +158,7 @@ typedef struct _WINDOW_OBJECT
 
 
 PWINDOW_OBJECT FASTCALL
-IntGetProcessWindowObject(PW32THREAD Thread, HWND hWnd);
+IntGetProcessWindowObject(PW32PROCESS ProcessData, HWND hWnd);
 
 BOOL FASTCALL
 IntIsWindow(HWND hWnd);
@@ -212,13 +209,7 @@ BOOL FASTCALL
 IntGetWindowInfo(PWINDOW_OBJECT WindowObject, PWINDOWINFO pwi);
 
 VOID FASTCALL
-IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, UINT *cx, UINT *cy);
-
-BOOL FASTCALL
-IntAnyPopup(VOID);
-
-BOOL FASTCALL
-IntIsWindowInDestroy(PWINDOW_OBJECT Window);
+IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, INT *cx, INT *cy);
 
 DWORD IntRemoveWndProcHandle(WNDPROC Handle);
 DWORD IntRemoveProcessWndProcHandles(HANDLE ProcessID);

@@ -1,4 +1,4 @@
-/* $Id: virtual.c,v 1.15 2004/10/30 22:18:17 weiden Exp $
+/* $Id: virtual.c,v 1.12 2004/01/23 17:13:36 ekohl Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -10,9 +10,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -129,8 +126,8 @@ VirtualProtectEx(HANDLE hProcess,
   NTSTATUS Status;
 
   Status = NtProtectVirtualMemory(hProcess,
-				  &lpAddress,
-				  &dwSize,
+				  (PVOID)lpAddress,
+				  dwSize,
 				  flNewProtect,
 				  (PULONG)lpflOldProtect);
   if (!NT_SUCCESS(Status))
@@ -201,7 +198,7 @@ VirtualQueryEx(HANDLE hProcess,
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
-      return 0;
+      return(ResultLength);
     }
   return(ResultLength);
 }

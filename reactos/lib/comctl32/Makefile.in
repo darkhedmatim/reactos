@@ -30,7 +30,6 @@ C_SRCS = \
 	smoothscroll.c \
 	string.c \
 	status.c \
-	syslink.c \
 	tab.c \
 	toolbar.c \
 	tooltips.c \
@@ -50,11 +49,7 @@ RC_BINARIES = \
 	idc_copy.cur \
 	idc_divider.cur \
 	idc_divideropen.cur \
-	idc_movebutton.cur \
 	idi_dragarrow.ico \
-	idi_tt_error_sm.ico \
-	idi_tt_info_sm.ico \
-	idi_tt_warn_sm.ico \
 	idt_check.bmp
 
 SUBDIRS = tests

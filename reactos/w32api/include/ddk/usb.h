@@ -35,6 +35,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "usb100.h"
 
@@ -461,6 +463,8 @@ typedef struct _OS_STRING {
 	UCHAR  bVendorCode;
 	UCHAR  bPad;
 } OS_STRING, *POS_STRING;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

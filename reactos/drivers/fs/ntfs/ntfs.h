@@ -29,10 +29,8 @@ typedef struct _BOOT_SECTOR
   ULONGLONG SectorCount;
   ULONGLONG MftLocation;
   ULONGLONG MftMirrLocation;
-  CHAR      ClustersPerMftRecord;
-  BYTE      Unused3[3];
-  CHAR      ClustersPerIndexRecord;
-  BYTE      Unused4[3];
+  ULONG     ClustersPerMftRecord;
+  ULONG     ClustersPerIndexRecord;
   ULONGLONG SerialNumber;			// 0x48
   UCHAR     BootCode[432];			// 0x50
 } __attribute__((packed)) BOOT_SECTOR, *PBOOT_SECTOR;
@@ -51,7 +49,7 @@ typedef struct _NTFS_INFO
   ULONGLONG SectorCount;
   ULARGE_INTEGER MftStart;
   ULARGE_INTEGER MftMirrStart;
-  ULONG BytesPerFileRecord;
+  ULONG ClustersPerFileRecord;
 
   ULONGLONG SerialNumber;
   USHORT VolumeLabelLength;
@@ -425,7 +423,7 @@ ReadAttribute(PATTRIBUTE attr, PVOID buffer, PDEVICE_EXTENSION Vcb,
 ULONG
 AttributeDataLength(PATTRIBUTE  attr);
 
-NTSTATUS
+VOID
 ReadFileRecord (PDEVICE_EXTENSION Vcb,
 		ULONG index,
 		PFILE_RECORD_HEADER file,

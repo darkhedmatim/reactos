@@ -29,7 +29,16 @@
  *        Added PagePrompt() and FilePrompt().
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <tchar.h>
+
+#include "cmd.h"
 
 
 /*
@@ -124,7 +133,7 @@ static BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry)
 		return FALSE;
 	}
 	_tcscpy (q, entry);
-
+		
 	oldarg = *arg;
 	*arg = realloc (oldarg, (*ac + 2) * sizeof (LPTSTR));
 	if (NULL == *arg)
@@ -350,8 +359,7 @@ BOOL IsValidPathName (LPCTSTR pszPath)
 
 BOOL IsValidFileName (LPCTSTR pszPath)
 {
-	DWORD attr = GetFileAttributes (pszPath);
-	return (attr != 0xFFFFFFFF && (! (attr & FILE_ATTRIBUTE_DIRECTORY)) );
+	return (GetFileAttributes (pszPath) != 0xFFFFFFFF);
 }
 
 
@@ -368,7 +376,7 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	DWORD  dwRead;
 	INT len;
 #ifdef _UNICODE
-	lpString = malloc(nBufferLength);
+	lpString = alloca(nBufferLength);
 #else
 	lpString = lpBuffer;
 #endif
@@ -391,7 +399,6 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	lpString[len++] = '\0';
 #ifdef _UNICODE
 	MultiByteToWideChar(CP_ACP, 0, lpString, len, lpBuffer, len);
-	free(lpString);
 #endif
 	return TRUE;
 }
@@ -505,7 +512,7 @@ INT FilePromptYN (LPTSTR szFormat, ...)
 		ConInKey (&ir);
                 cKey = _totlower (ir.Event.KeyEvent.uChar.AsciiChar);
                 if (_tcschr (szKeys, cKey[0]) == NULL)
-                        cKey = 0;
+                        cKey = 0;                        
 
 
 	}
@@ -574,7 +581,7 @@ INT FilePromptYNA (LPTSTR szFormat, ...)
 		ConInKey (&ir);
                 cKey = _totlower (ir.Event.KeyEvent.uChar.AsciiChar);
                 if (_tcschr (szKeys, cKey[0]) == NULL)
-                        cKey = 0;
+                        cKey = 0;                        
 
 
 	}

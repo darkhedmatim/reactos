@@ -99,20 +99,19 @@ public:
 
 	void	free_subentries();
 
-	void	read_directory_base(SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
-	Entry*	read_tree(const void* path, SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
+	void	read_directory(SORT_ORDER sortOrder, int scan_flags=SCAN_ALL);
+	Entry*	read_tree(const void* path, SORT_ORDER sortOrder);
 	void	sort_directory(SORT_ORDER sortOrder);
-	void	smart_scan(SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
+	void	smart_scan(int scan_flags=SCAN_ALL);
 	void	extract_icon();
 
-	virtual void		read_directory(int scan_flags=SCAN_ALL) {}
-	virtual const void*	get_next_path_component(const void*) const {return NULL;}
-	virtual Entry*		find_entry(const void*) {return NULL;}
-	virtual bool		get_path(PTSTR path) const = 0;
-	virtual ShellPath	create_absolute_pidl() const {return (LPCITEMIDLIST)NULL;}
-	virtual HRESULT		GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
-	virtual BOOL		launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
-	virtual HRESULT		do_context_menu(HWND hwnd, const POINT& pos);
+	virtual void read_directory(int scan_flags=SCAN_ALL) {}
+	virtual const void* get_next_path_component(const void*) {return NULL;}
+	virtual Entry* find_entry(const void*) {return NULL;}
+	virtual bool get_path(PTSTR path) const = 0;
+	virtual ShellPath create_absolute_pidl() const {return (LPCITEMIDLIST)NULL;}
+	virtual HRESULT GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
+	virtual BOOL launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
 };
 
 
@@ -121,6 +120,9 @@ struct Directory {
 protected:
 	Directory() : _path(NULL) {}
 	virtual ~Directory() {}
+
+	 // default implementation like that of Windows file systems
+	virtual const void* get_next_path_component(const void*);
 
 	void*	_path;
 };
@@ -137,8 +139,4 @@ struct Root {
 	TCHAR	_fs[_MAX_DIR];
 	DWORD	_drive_type;
 	DWORD	_fs_flags;
-	SORT_ORDER _sort_order;
-
-	Entry*	read_tree(LPCTSTR path, int scan_flags=SCAN_ALL);
-	Entry*	read_tree(LPCITEMIDLIST pidl, int scan_flags=SCAN_ALL);
 };

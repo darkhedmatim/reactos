@@ -35,6 +35,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include <stdarg.h>
 #include <windef.h>
 #include <ntdef.h>
@@ -78,6 +80,8 @@ typedef CONST char *PCSZ;
 
 /* Definitions only in Windows NT 4 */
 #include "winnt4.h"
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,4 @@
-/* $Id: acpisys.c,v 1.7 2004/12/27 14:24:00 ekohl Exp $
+/* $Id: acpisys.c,v 1.5 2002/05/05 14:57:44 chorns Exp $
  *
  * PROJECT:         ReactOS ACPI bus driver
  * FILE:            acpi/ospm/acpisys.c
@@ -83,7 +83,7 @@ ACPIPnpControl(
   if (DeviceExtension->IsFDO) {
     Status = FdoPnpControl(DeviceObject, Irp);
   } else {
-    Status = PdoPnpControl(DeviceObject, Irp);
+    Status = FdoPnpControl(DeviceObject, Irp);
   }
 
   return Status;
@@ -125,15 +125,9 @@ ACPIAddDevice(
 
   DPRINT("Called\n");
 
-  Status = IoCreateDevice(DriverObject,
-                          sizeof(FDO_DEVICE_EXTENSION),
-                          NULL,
-                          FILE_DEVICE_ACPI,
-                          FILE_DEVICE_SECURE_OPEN,
-                          TRUE,
-                          &Fdo);
-  if (!NT_SUCCESS(Status))
-  {
+  Status = IoCreateDevice(DriverObject, sizeof(FDO_DEVICE_EXTENSION),
+    NULL, FILE_DEVICE_ACPI, FILE_DEVICE_SECURE_OPEN, TRUE, &Fdo);
+  if (!NT_SUCCESS(Status)) {
     DPRINT("IoCreateDevice() failed with status 0x%X\n", Status);
     return Status;
   }
@@ -141,7 +135,6 @@ ACPIAddDevice(
   DeviceExtension = (PFDO_DEVICE_EXTENSION)Fdo->DeviceExtension;
 
   DeviceExtension->Pdo = PhysicalDeviceObject;
-  DeviceExtension->Common.IsFDO = TRUE;
 
   DeviceExtension->Common.Ldo =
     IoAttachDeviceToDeviceStack(Fdo, PhysicalDeviceObject);

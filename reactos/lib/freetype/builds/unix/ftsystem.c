@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Unix-specific FreeType low-level system interface (body).            */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2004 by                                     */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -67,7 +67,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 
   /*************************************************************************/
@@ -183,40 +182,18 @@
   /*************************************************************************/
   /*                                                                       */
   /* <Function>                                                            */
-  /*    ft_close_stream_by_munmap                                          */
+  /*    ft_close_stream                                                    */
   /*                                                                       */
   /* <Description>                                                         */
-  /*    The function to close a stream which is opened by mmap.            */
+  /*    The function to close a stream.                                    */
   /*                                                                       */
   /* <Input>                                                               */
   /*    stream :: A pointer to the stream object.                          */
   /*                                                                       */
   FT_CALLBACK_DEF( void )
-  ft_close_stream_by_munmap( FT_Stream  stream )
+  ft_close_stream( FT_Stream  stream )
   {
     munmap( (MUNMAP_ARG_CAST)stream->descriptor.pointer, stream->size );
-
-    stream->descriptor.pointer = NULL;
-    stream->size               = 0;
-    stream->base               = 0;
-  }
-
-
-  /*************************************************************************/
-  /*                                                                       */
-  /* <Function>                                                            */
-  /*    ft_close_stream_by_free                                            */
-  /*                                                                       */
-  /* <Description>                                                         */
-  /*    The function to close a stream which is created by ft_alloc.       */
-  /*                                                                       */
-  /* <Input>                                                               */
-  /*    stream :: A pointer to the stream object.                          */
-  /*                                                                       */
-  FT_CALLBACK_DEF( void )
-  ft_close_stream_by_free( FT_Stream  stream )
-  {
-    ft_free( NULL, stream->descriptor.pointer );
 
     stream->descriptor.pointer = NULL;
     stream->size               = 0;
@@ -275,49 +252,11 @@
                                           file,
                                           0 );
 
-    if ( (long)stream->base != -1 )
-      stream->close = ft_close_stream_by_munmap;
-    else
+    if ( (long)stream->base == -1 )
     {
-      ssize_t  total_read_count;
-    
-
       FT_ERROR(( "FT_Stream_Open:" ));
       FT_ERROR(( " could not `mmap' file `%s'\n", filepathname ));
-      
-      stream->base = ft_alloc( NULL, stream->size );
-      
-      if ( !stream->base )
-      {
-        FT_ERROR(( "FT_Stream_Open:" ));
-        FT_ERROR(( " could not `alloc' memory\n" ));
-        goto Fail_Map;
-      }
-      
-      total_read_count = 0;
-      do {
-        ssize_t  read_count;
-
-
-        read_count = read( file, 
-                           stream->base + total_read_count, 
-                           stream->size - total_read_count );
-
-        if ( ( read_count == -1 ) )
-        {
-          if ( errno == EINTR )
-            continue;
-
-          FT_ERROR(( "FT_Stream_Open:" ));
-          FT_ERROR(( " error while `read'ing file `%s'\n", filepathname ));
-          goto Fail_Read;
-        }
-
-        total_read_count += read_count;
-
-      } while ( total_read_count != stream->size );
-
-      stream->close = ft_close_stream_by_free;
+      goto Fail_Map;
     }
 
     close( file );
@@ -325,16 +264,14 @@
     stream->descriptor.pointer = stream->base;
     stream->pathname.pointer   = (char*)filepathname;
 
-    stream->read = 0;
+    stream->close = ft_close_stream;
+    stream->read  = 0;
 
     FT_TRACE1(( "FT_Stream_Open:" ));
     FT_TRACE1(( " opened `%s' (%d bytes) successfully\n",
                 filepathname, stream->size ));
 
     return FT_Err_Ok;
-
-  Fail_Read:
-    ft_free( NULL, stream->base );
 
   Fail_Map:
     close( file );

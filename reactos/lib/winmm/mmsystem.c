@@ -308,7 +308,7 @@ UINT16 WINAPI mixerGetLineControls16(HMIXEROBJ16 hmix,
 {
     MIXERLINECONTROLSA	mlcA;
     DWORD		ret;
-    unsigned int	i;
+    int			i;
     LPMIXERCONTROL16	lpmc16;
 
     TRACE("(%04x, %p, %08lx)\n", hmix, lpmlc16, fdwControls);
@@ -1839,7 +1839,7 @@ void	mmTaskEntryPoint16(LPSTR cmdLine, WORD di, WORD si)
 /**************************************************************************
  * 				mmTaskBlock		[MMSYSTEM.902]
  */
-void WINAPI mmTaskBlock16(HINSTANCE16 hInst)
+void	WINAPI	mmTaskBlock16(HINSTANCE16 WINE_UNUSED hInst)
 {
     MSG		msg;
 
@@ -1893,7 +1893,7 @@ static  WINE_MMTHREAD*	WINMM_GetmmThread(HANDLE16 h)
     return (WINE_MMTHREAD*)MapSL( MAKESEGPTR(h, 0) );
 }
 
-DWORD WINAPI WINE_mmThreadEntryPoint(LPVOID);
+void WINAPI WINE_mmThreadEntryPoint(DWORD);
 
 /**************************************************************************
  * 				mmThreadCreate		[MMSYSTEM.1120]
@@ -1951,8 +1951,8 @@ LRESULT	WINAPI mmThreadCreate16(FARPROC16 fpThreadAddr, LPHANDLE16 lpHndl, DWORD
 		/* lpMMThd->hVxD = OpenVxDHandle(lpMMThd->hEvent); */
 	    }
 
-	    lpMMThd->hThread = CreateThread(0, 0, WINE_mmThreadEntryPoint,
-					    (LPVOID)(DWORD_PTR)hndl, CREATE_SUSPENDED, &lpMMThd->dwThreadID);
+	    lpMMThd->hThread = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)WINE_mmThreadEntryPoint,
+					    (LPVOID)(DWORD)hndl, CREATE_SUSPENDED, &lpMMThd->dwThreadID);
 	    if (lpMMThd->hThread == 0) {
 		WARN("Couldn't create thread\n");
 		/* clean-up(VxDhandle...); devicedirectio... */
@@ -2143,9 +2143,9 @@ HANDLE16 WINAPI mmThreadGetTask16(HANDLE16 hndl)
 /**************************************************************************
  * 			        __wine_mmThreadEntryPoint (MMSYSTEM.2047)
  */
-DWORD WINAPI WINE_mmThreadEntryPoint(LPVOID p)
+void WINAPI WINE_mmThreadEntryPoint(DWORD _pmt)
 {
-    HANDLE16		hndl = (HANDLE16)(DWORD_PTR)p;
+    HANDLE16		hndl = (HANDLE16)_pmt;
     WINE_MMTHREAD*	lpMMThd = WINMM_GetmmThread(hndl);
 
     TRACE("(%04x %p)\n", hndl, lpMMThd);
@@ -2173,8 +2173,6 @@ DWORD WINAPI WINE_mmThreadEntryPoint(LPVOID p)
 	CloseHandle(lpMMThd->hEvent);
     GlobalFree16(hndl);
     TRACE("done\n");
-
-    return 0;
 }
 
 typedef	BOOL16 (WINAPI *MMCPLCALLBACK)(HWND, LPCSTR, LPCSTR, LPCSTR);
@@ -2526,9 +2524,12 @@ void MMSYSTEM_MMTIME16to32(LPMMTIME mmt32, const MMTIME16* mmt16)
  */
 MMRESULT16 WINAPI timeGetSystemTime16(LPMMTIME16 lpTime, UINT16 wSize)
 {
+    TRACE("(%p, %u);\n", lpTime, wSize);
+
     if (wSize >= sizeof(*lpTime)) {
 	lpTime->wType = TIME_MS;
-	lpTime->u.ms = GetTickCount();
+	TIME_MMTimeStart();
+	lpTime->u.ms = WINMM_SysTimeMS;
 
 	TRACE("=> %lu\n", lpTime->u.ms);
     }

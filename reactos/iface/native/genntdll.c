@@ -1,4 +1,4 @@
-/* $Id: genntdll.c,v 1.17 2004/04/12 22:07:45 hyperion Exp $
+/* $Id: genntdll.c,v 1.16 2004/04/07 15:32:41 ekohl Exp $
  *
  * COPYRIGHT:             See COPYING in the top level directory
  * PROJECT:               ReactOS version of ntdll
@@ -11,12 +11,6 @@
  * 		to twin NtXXX calls, via int 0x2e (x86).
  * 	19990617 (ea)
  * 		Fixed a bug in function numbers in kernel ZwXXX stubs.
- *      20040406 (kjkh)
- *              The sysfuncs.lst file now specifies the number of parameters,
- *              not their stack size, for obvious portability reastons. Also, we
- *              now generate real C functions to let the compiler do the correct
- *              name decoration and whatever else (this also makes this tool
- *              marginally more portable).
  *
  */
 
@@ -34,80 +28,43 @@
 
 /* FUNCTIONS ****************************************************************/
 
-void write_stub_header(FILE * out)
-{
- fputs
- (
-  "/* Machine generated, don't edit */\n"
-  "\n"
-  "#ifdef __cplusplus\n"
-  "#define EXTERN_C extern \"C\"\n"
-  "#else\n"
-  "#define EXTERN_C\n"
-  "#endif\n"
-  "\n"
-  "EXTERN_C static __inline__ __attribute__((regparm(2)))"
-  "void*ZwRosSystemServiceThunk(long n,void*a)"
-  "{"
-   "void*ret;"
-   "__asm__"
-   "("
-    "\"int $0x2E\":"
-    "\"=a\"(ret):"
-    "\"a\"(n),\"d\"(a)"
-   ");"
-   "return ret;"
-  "}\n",
-  out
- );
-}
-
-void write_syscall_stub_func(FILE* out, char* name, unsigned nr_args,
-                             unsigned int sys_call_idx)
-{
- unsigned i;
-
- fprintf(out, "EXTERN_C void*__stdcall %s(", name);
- 
- if(nr_args == 0)
-  fputs("void", out);
- else
-  for(i = 0; i < nr_args; ++ i)
-  {
-   if(i > 0)
-    fputs(",", out);
-
-   fprintf(out, "void*a%u", i);
-  }
- 
- fputs("){", out);
-
- if(nr_args > 1)
-  for(i = 1; i < nr_args; ++ i)
-   fprintf(out, "(void)a%u;", i);
-
- fprintf(out, "return ZwRosSystemServiceThunk(%u,", sys_call_idx);
- 
- if(nr_args == 0)
-  fputs("0", out);
- else
-  fputs("&a0", out);
- 
- fputs(");}\n", out);
-}
-
 void write_syscall_stub(FILE* out, FILE* out3, char* name, char* name2,
-			unsigned nr_args, unsigned int sys_call_idx)
+			char* nr_args, unsigned int sys_call_idx)
 {
-  write_syscall_stub_func(out, name, nr_args, sys_call_idx);
-  write_syscall_stub_func(out, name2, nr_args, sys_call_idx);
-
+#ifdef PARAMETERIZED_LIBS
+  fprintf(out,"__asm__(\"\\n\\t.global _%s@%s\\n\\t\"\n",name,nr_args);
+  fprintf(out,"\".global _%s@%s\\n\\t\"\n",name2,nr_args);
+  fprintf(out,"\"_%s@%s:\\n\\t\"\n",name,nr_args);
+  fprintf(out,"\"_%s@%s:\\n\\t\"\n",name2,nr_args);
+#else
+  fprintf(out,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+  fprintf(out,"\".global _%s\\n\\t\"\n",name2);
+  fprintf(out,"\"_%s:\\n\\t\"\n",name);
+  fprintf(out,"\"_%s:\\n\\t\"\n",name2);
+#endif
+  fprintf(out,"\t\"pushl\t%%ebp\\n\\t\"\n");
+  fprintf(out,"\t\"movl\t%%esp, %%ebp\\n\\t\"\n");
+  fprintf(out,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx);
+  fprintf(out,"\t\"lea\t8(%%ebp),%%edx\\n\\t\"\n");
+  fprintf(out,"\t\"int\t$0x2E\\n\\t\"\n");
+  fprintf(out,"\t\"popl\t%%ebp\\n\\t\"\n");
+  fprintf(out,"\t\"ret\t$%s\\n\\t\");\n\n",nr_args);
+  
   /*
    * Now write the NTOSKRNL stub for the
    * current system call. ZwXXX does NOT
    * alias the corresponding NtXXX call.
    */
-  write_syscall_stub_func(out3, name2, nr_args, sys_call_idx);
+  fprintf(out3,"__asm__(\n");
+  fprintf(out3,"\".global _%s@%s\\n\\t\"\n",name2,nr_args);
+  fprintf(out3,"\"_%s@%s:\\n\\t\"\n",name2,nr_args);
+  fprintf(out3,"\t\"pushl\t%%ebp\\n\\t\"\n");
+  fprintf(out3,"\t\"movl\t%%esp, %%ebp\\n\\t\"\n");
+  fprintf(out3,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx);
+  fprintf(out3,"\t\"lea\t8(%%ebp),%%edx\\n\\t\"\n");
+  fprintf(out3,"\t\"int\t$0x2E\\n\\t\"\n");
+  fprintf(out3,"\t\"popl\t%%ebp\\n\\t\"\n");
+  fprintf(out3,"\t\"ret\t$%s\\n\\t\");\n\n",nr_args);
 }
 
 int makeSystemServiceTable(FILE *in, FILE *out)
@@ -117,13 +74,13 @@ char    *s;
 char    *name;
 char    *name2;
 int     sys_call_idx;
-char    *snr_args;
+char    *nr_args;
 char    *stmp;
 
 	/*
 	 * Main SSDT Header
 	 */
-	fprintf(out,"/* Machine generated, don't edit */\n");
+	fprintf(out,"// Machine generated, don't edit\n");
 	fprintf(out,"\n\n");
 
 	/*
@@ -157,12 +114,12 @@ char    *stmp;
 			/* Extract the ZwXXX name */
 			name2 = (char *)strtok(NULL," \t");
 			//value = strtok(NULL," \t");
-			/* Extract the argument count */
-			snr_args = (char *)strtok(NULL," \t");
+			/* Extract the stack size */
+			nr_args = (char *)strtok(NULL," \t");
 			/*
 			 * Remove, if present, the trailing LF.
 			 */
-			if ((stmp = strchr(snr_args, '\n')) != NULL)
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
 			{
 				*stmp = '\0';
 			}
@@ -216,8 +173,15 @@ char    *stmp;
 			/* Extract the ZwXXX name */
 			name2 = (char *)strtok(NULL," \t");
 			//value = strtok(NULL," \t");
-			/* Extract the argument count */
-			snr_args = (char *)strtok(NULL," \t");
+			/* Extract the stack size */
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx,name);
 #endif
@@ -230,7 +194,7 @@ char    *stmp;
 			 * Now write the current system call's ID
 			 * in the service table along with its Parameters Size.
 			 */
-			fprintf(out,"\t\t%lu * sizeof(void *)",strtoul(snr_args, NULL, 0));
+			fprintf(out,"\t\t%s",nr_args);
 		}
 	}
 	/*
@@ -262,18 +226,20 @@ process(
 	char		* name;		/* NtXXX name */
 	char		* name2;	/* ZwXXX name */
 	int		sys_call_idx;	/* NtXXX index number in the service table */
-	char		* snr_args;	/* stack_size / machine_word_size */
+	char		* nr_args;	/* stack_size / machine_word_size */
+	char		* stmp;
 
 	/*
 	 * NTDLL stubs file header
 	 */
-        write_stub_header(out);
+	fprintf(out,"// Machine generated, don't edit\n");
+	fprintf(out,"\n\n");
 
 	/*
 	 * NTOSKRNL Zw functions stubs header
 	 */
-        write_stub_header(out3);
-
+	fprintf(out3,"// Machine generated, don't edit\n");
+	fprintf(out3,"\n\n");
 	/*
 	 * Scan the database. DB is a text file; each line
 	 * is a record, which contains data for one system
@@ -308,16 +274,20 @@ process(
 		s = & line[0];
 		if ((*s) != '#' && (*s) != '\0')
 		{
-                        unsigned nr_args;
-
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
 			/* Extract the ZwXXX name */
 			name2 = (char *)strtok(NULL," \t");
 			//value = strtok(NULL," \t");
-			/* Extract the argument count */
-			snr_args = (char *)strtok(NULL," \t");
-			nr_args = strtoul(snr_args, NULL, 0);
+			/* Extract the stack size */
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx,name);
 #endif

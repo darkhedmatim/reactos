@@ -9,7 +9,7 @@
  */
 #include <windows.h>
 #include <tchar.h>
-#include <stdio.h>     
+#include <stdio.h>
 
 typedef struct _EXTENSION_INFO
 {
@@ -21,7 +21,6 @@ typedef struct _EXTENSION_INFO
   TCHAR Description[256];
   DWORD FileCount;
   DWORD LineCount;
-  DWORD EmptyLines;
 } EXTENSION_INFO, *PEXTENSION_INFO;
 
 typedef struct _FILE_INFO
@@ -31,29 +30,26 @@ typedef struct _FILE_INFO
   PEXTENSION_INFO ExtInfo;
   TCHAR FileName[MAX_PATH];
   DWORD LineCount;
-  DWORD EmptyLines;
   DWORD FunctionCount;
 } FILE_INFO, *PFILE_INFO;
 
 HANDLE FileHandle;
+DWORD TotalLineCount;
 PEXTENSION_INFO ExtInfoList;
 PFILE_INFO StatInfoList;
-BOOLEAN SkipEmptyLines, BeSilent;
-
-#define MAX_OPTIONS	2
-TCHAR *Options[MAX_OPTIONS];
 
 
 VOID
-Initialize(VOID)
+Initialize()
 {
+  TotalLineCount = 0;
   ExtInfoList = NULL;
   StatInfoList = NULL;
 }
 
 
 VOID
-Cleanup(VOID)
+Cleanup()
 {
   PEXTENSION_INFO ExtInfo;
   PEXTENSION_INFO NextExtInfo;
@@ -161,7 +157,7 @@ AddFile(LPTSTR FileName,
 
 
 VOID
-CleanupAfterFile(VOID)
+CleanupAfterFile()
 {
   if(FileHandle != INVALID_HANDLE_VALUE)
     CloseHandle (FileHandle);
@@ -194,10 +190,10 @@ LoadFile(LPTSTR FileName)
 }
 
 
-VOID
-ReadLines(PFILE_INFO StatInfo)
+DWORD
+ReadLines()
 {
-  DWORD ReadBytes, LineLen;
+  DWORD ReadBytes, LineLen, Lines = 0;
   static char FileBuffer[1024];
   char LastChar = '\0';
   char *Current;
@@ -205,52 +201,51 @@ ReadLines(PFILE_INFO StatInfo)
   LineLen = 0;
   while(ReadFile (FileHandle, FileBuffer, sizeof(FileBuffer), &ReadBytes, NULL) && ReadBytes >= sizeof(char))
   {
+    if(ReadBytes & 0x1)
+      ReadBytes--;
+    
     for(Current = FileBuffer; ReadBytes > 0; ReadBytes -= sizeof(char), Current++)
     {
       if(*Current == '\n' && LastChar == '\r')
       {
         LastChar = '\0';
-        if(!SkipEmptyLines || (LineLen > 0))
-          StatInfo->LineCount++;
-        if(LineLen == 0)
-          StatInfo->EmptyLines++;
+        if(LineLen > 0)
+          Lines++;
         LineLen = 0;
-        continue;
       }
+      LineLen++;
       LastChar = *Current;
-      if(SkipEmptyLines && (*Current == ' ' || *Current == '\t'))
-      {
-        continue;
-      }
-      if(*Current != '\r')
-        LineLen++;
     }
   }
   
-  StatInfo->LineCount += (LineLen > 0);
-  StatInfo->EmptyLines += ((LastChar != '\0') && (LineLen == 0));
+  Lines += (LineLen > 0);
+  return Lines;
 }
 
 
 VOID
-PrintStatistics(VOID)
+DoStatisticsForFile(PFILE_INFO StatInfo)
+{
+  StatInfo->LineCount = ReadLines();
+}
+
+
+VOID
+PrintStatistics()
 {
   PEXTENSION_INFO Info;
   DWORD TotalFileCount;
   DWORD TotalLineCount;
   DWORD TotalAvgLF;
-  DWORD TotalEmptyLines;
 
   TotalFileCount = 0;
   TotalLineCount = 0;
-  TotalEmptyLines = 0;
   Info = ExtInfoList;
   
   for (Info = ExtInfoList; Info != NULL; Info = Info->Next)
   {
     TotalFileCount += Info->FileCount;
     TotalLineCount += Info->LineCount;
-    TotalEmptyLines += Info->EmptyLines;
   }
   
   TotalAvgLF = (TotalFileCount ? TotalLineCount / TotalFileCount : 0);
@@ -269,22 +264,18 @@ PrintStatistics(VOID)
     }
 
     _tprintf (_T("\n"));
-    _tprintf (_T("File extension%c             : %s\n"), ((Info->nExtensions > 1) ? _T('s') : _T(' ')), Info->ExpandedExtName);
-    _tprintf (_T("File ext. description       : %s\n"), Info->Description);
-    _tprintf (_T("Number of files             : %lu\n"), Info->FileCount);
-    _tprintf (_T("Number of lines             : %lu\n"), Info->LineCount);
-    if(SkipEmptyLines)
-      _tprintf (_T("Number of empty lines       : %lu\n"), Info->EmptyLines);
-    _tprintf (_T("Proportion of lines         : %.2f %%\n"), (float)(TotalLineCount ? (((float)Info->LineCount * 100) / (float)TotalLineCount) : 0));
-    _tprintf (_T("Average no. lines/file      : %lu\n"), AvgLF);
+    _tprintf (_T("File extension%c        : %s\n"), ((Info->nExtensions > 1) ? _T('s') : _T(' ')), Info->ExpandedExtName);
+    _tprintf (_T("File ext. description  : %s\n"), Info->Description);
+    _tprintf (_T("Number of files        : %lu\n"), Info->FileCount);
+    _tprintf (_T("Number of lines        : %lu\n"), Info->LineCount);
+    _tprintf (_T("Proportion of lines    : %.2f %%\n"), (float)(TotalLineCount ? (((float)Info->LineCount * 100) / (float)TotalLineCount) : 0));
+    _tprintf (_T("Average no. lines/file : %lu\n"), AvgLF);
   }
 
   _tprintf (_T("\n"));
-  _tprintf (_T("Total number of files       : %lu\n"), TotalFileCount);
-  _tprintf (_T("Total number of lines       : %lu\n"), TotalLineCount);
-  if(SkipEmptyLines)
-    _tprintf (_T("Total number of empty lines : %lu\n"), TotalEmptyLines);
-  _tprintf (_T("Average no. lines/file      : %lu\n"), TotalAvgLF);
+  _tprintf (_T("Total number of files  : %lu\n"), TotalFileCount);
+  _tprintf (_T("Total number of lines  : %lu\n"), TotalLineCount);
+  _tprintf (_T("Average no. lines/file : %lu\n"), TotalAvgLF);
 }
 
 
@@ -333,11 +324,10 @@ ProcessFiles(LPTSTR Path)
 	            return FALSE;
 						}
 	
-				    ReadLines (StatInfo);
+				    DoStatisticsForFile (StatInfo);
 	
             Info->FileCount++;
 	          Info->LineCount += StatInfo->LineCount;
-	          Info->EmptyLines += StatInfo->EmptyLines;
 
 	          CleanupAfterFile();
 				  }
@@ -362,10 +352,7 @@ ProcessDirectories(LPTSTR Path)
   HANDLE SearchHandle;
   BOOL More;
 
-  if(!BeSilent)
-  {
-    _tprintf (_T("Processing %s ...\n"), Path);
-  }
+	_tprintf (_T("Processing %s ...\n"), Path);
 
   _tcscpy (SearchPath, Path);
   _tcscat (SearchPath, _T("\\*.*"));
@@ -426,38 +413,19 @@ Execute(LPTSTR Path)
   PrintStatistics();
 }
 
-BOOLEAN
-IsOptionSet(TCHAR *Option)
-{
-  int i;
-  for(i = 0; i < MAX_OPTIONS; i++)
-  {
-    if(!Options[i])
-      continue;
-    
-    if(!_tcscmp(Options[i], Option))
-      return TRUE;
-  }
-  return FALSE;
-}
-
 
 int
 main (int argc, char * argv [])
 {
-  int a;
 #if UNICODE
   TCHAR Path[MAX_PATH + 1];
 #endif
 
-  _tprintf (_T("ReactOS Project Statistics\n"));
-  _tprintf (_T("==========================\n\n"));
+  _tprintf (_T("\nReactOS project statistics generator.\n\n"));
 
-  if (argc < 2 || argc > 2 + MAX_OPTIONS)
+  if (argc < 2)
   {
-    _tprintf(_T("Usage: stats [-e] [-s] directory\n"));
-    _tprintf(_T("  -e: don't count empty lines\n"));
-    _tprintf(_T("  -s: be silent, don't print directories while processing\n"));
+    _tprintf(_T("Usage: stats directory"));
     return 1;
   }
 
@@ -465,30 +433,12 @@ main (int argc, char * argv [])
   AddExtension (_T("c\0\0"), _T("Ansi C Source files"));
   AddExtension (_T("cpp\0cxx\0\0"), _T("C++ Source files"));
   AddExtension (_T("h\0\0"), _T("Header files"));
-  
-  for(a = 1; a < argc - 1; a++)
-  {
-#if UNICODE
-    int len = lstrlenA(argv[a]);
-    TCHAR *str = (TCHAR*)HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(TCHAR));
-    if(MultiByteToWideChar(CP_ACP, 0, argv[a], -1, str, len + 1) > 0)
-      Options[a - 1] = str;
-    else
-      Options[a - 1] = NULL;
-#else
-    Options[a - 1] = argv[a];
-#endif
-  }
-  
-  SkipEmptyLines = IsOptionSet(_T("-e"));
-  BeSilent = IsOptionSet(_T("-s"));
-  
 #if UNICODE
   ZeroMemory(Path, sizeof(Path));
-  if(MultiByteToWideChar(CP_ACP, 0, argv[argc - 1], -1, Path, MAX_PATH) > 0)
+  if(MultiByteToWideChar(CP_ACP, 0, argv[1], -1, Path, MAX_PATH) > 0)
     Execute (Path);
 #else
-  Execute (argv[argc - 1]);
+  Execute (argv[1]);
 #endif
   Cleanup();
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: object.c,v 1.13 2004/12/12 01:40:37 weiden Exp $
+/* $Id: object.c,v 1.11 2004/02/26 22:23:54 weiden Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -29,7 +29,8 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <include/object.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -324,7 +325,7 @@ ObmCreateObject(PUSER_HANDLE_TABLE HandleTable,
   PVOID ObjectBody;
   DWORD Status;
   
-  ObjectHeader = (PUSER_OBJECT_HEADER)ExAllocatePool(PagedPool, 
+  ObjectHeader = (PUSER_OBJECT_HEADER)ExAllocatePool(NonPagedPool, 
 				     ObjectSize + sizeof(USER_OBJECT_HEADER));
   if (!ObjectHeader)
     {
@@ -403,7 +404,7 @@ ObmCreateHandle(PUSER_HANDLE_TABLE HandleTable,
   /*
    * Add a new Handle block to the end of the list
    */
-  NewBlock = (PUSER_HANDLE_BLOCK)ExAllocatePool(PagedPool, 
+  NewBlock = (PUSER_HANDLE_BLOCK)ExAllocatePool(NonPagedPool, 
 						sizeof(USER_HANDLE_BLOCK));
   if (!NewBlock)
     {
@@ -504,7 +505,7 @@ ObmCreateHandleTable(VOID)
 {
   PUSER_HANDLE_TABLE HandleTable;
 
-  HandleTable = (PUSER_HANDLE_TABLE)ExAllocatePool(PagedPool, 
+  HandleTable = (PUSER_HANDLE_TABLE)ExAllocatePool(NonPagedPool, 
 						   sizeof(USER_HANDLE_TABLE));
   if (!HandleTable)
     {

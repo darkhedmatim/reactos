@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: prop.c,v 1.11 2004/05/10 17:07:18 weiden Exp $
+/* $Id: prop.c,v 1.9 2004/02/24 13:27:03 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,20 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <internal/safe.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/winpos.h>
+#include <include/callback.h>
+#include <include/msgqueue.h>
+#include <include/rect.h>
+#include <include/tags.h>
 
 //#define NDEBUG
 #include <debug.h>
@@ -180,12 +193,12 @@ NtUserGetProp(HWND hWnd, ATOM Atom)
   
   IntLockWindowProperties(WindowObject);
   Prop = IntGetProp(WindowObject, Atom);
+  IntUnLockWindowProperties(WindowObject);
   if (Prop != NULL)
   {
     Data = Prop->Data;
   }
-  IntUnLockWindowProperties(WindowObject);
-  IntReleaseWindowObject(WindowObject);
+
   return(Data);
 }
 
@@ -216,20 +229,19 @@ IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
 BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
-  PWINDOW_OBJECT WindowObject;
+  PWINDOW_OBJECT Wnd;
   BOOL ret;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
+  if (!(Wnd = IntGetWindowObject(hWnd)))
   {
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return FALSE;
   }
   
-  IntLockWindowProperties(WindowObject);
-  ret = IntSetProp(WindowObject, Atom, Data);
-  IntUnLockWindowProperties(WindowObject);
+  IntLockWindowProperties(Wnd);
+  ret = IntSetProp(Wnd, Atom, Data);
+  IntUnLockWindowProperties(Wnd);
   
-  IntReleaseWindowObject(WindowObject);
   return ret;
 }
 

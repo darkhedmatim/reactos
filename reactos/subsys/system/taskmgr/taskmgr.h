@@ -125,7 +125,7 @@ extern	int			nOldHeight;					/* Holds the previous client area height */
 extern	TASKMANAGER_SETTINGS	TaskManagerSettings;
 
 /* Foward declarations of functions included in this code module: */
-INT_PTR CALLBACK TaskManagerWndProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK TaskManagerWndProc(HWND, UINT, WPARAM, LPARAM);
 BOOL OnCreate(HWND hWnd);
 void OnSize(UINT nType, int cx, int cy);
 void OnMove(UINT nType, int cx, int cy);
@@ -135,7 +135,6 @@ void Draw3dRect(HDC hDC, int x, int y, int cx, int cy, COLORREF clrTopLeft, COLO
 void Draw3dRect2(HDC hDC, LPRECT lpRect, COLORREF clrTopLeft, COLORREF clrBottomRight);
 void LoadSettings(void);
 void SaveSettings(void);
-void TaskManager_OnRestoreMainWindow(void);
 void TaskManager_OnEnterMenuLoop(HWND hWnd);
 void TaskManager_OnExitMenuLoop(HWND hWnd);
 void TaskManager_OnMenuSelect(HWND hWnd, UINT nItemID, UINT nFlags, HMENU hSysMenu);

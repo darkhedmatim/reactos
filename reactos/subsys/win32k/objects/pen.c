@@ -17,9 +17,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: pen.c,v 1.18 2004/12/30 02:32:19 navaraf Exp $
+ * $Id: pen.c,v 1.14 2004/04/05 21:26:25 navaraf Exp $
  */
-#include <w32k.h>
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <ddk/winddi.h>
+#include <win32k/pen.h>
+#include <win32k/bitmaps.h>
+#include <include/error.h>
+#include <internal/safe.h>
+#define NDEBUG
+#include <win32k/debug1.h>
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
@@ -42,10 +52,10 @@ IntGdiCreatePenIndirect(PLOGPEN LogPen)
    }
 
    PenObject = PENOBJ_LockPen(hPen);  
-   /* FIXME - Handle PenObject == NULL!!! */
    PenObject->ptPenWidth = LogPen->lopnWidth;
    PenObject->ulPenStyle = LogPen->lopnStyle;
    PenObject->BrushAttr.lbColor = LogPen->lopnColor;
+   PenObject->BrushObject.iSolidColor = LogPen->lopnColor;
    PenObject->flAttrs = GDIBRUSH_IS_OLDSTYLEPEN;
    switch (LogPen->lopnStyle)
    {
@@ -109,21 +119,11 @@ HPEN STDCALL
 NtGdiExtCreatePen(
    DWORD PenStyle,
    DWORD Width,
-   CONST LOGBRUSH *LogBrush,
+   CONST PLOGBRUSH LogBrush,
    DWORD StyleCount,
-   CONST DWORD *Style)
+   CONST PDWORD Style)
 {
-   /* NOTE: This is HACK! */
-   LOGPEN LogPen;
-
-   if (PenStyle & PS_USERSTYLE)
-      PenStyle = (PenStyle & ~PS_STYLE_MASK) | PS_SOLID;
-
-   LogPen.lopnStyle = PenStyle & PS_STYLE_MASK;
-   LogPen.lopnWidth.x = Width;
-   LogPen.lopnColor = (LogBrush != NULL) ? LogBrush->lbColor : 0;
-
-   return IntGdiCreatePenIndirect(&LogPen);
+   UNIMPLEMENTED;
 }
 
 /* EOF */

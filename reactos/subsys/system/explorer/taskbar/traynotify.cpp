@@ -26,7 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "../explorer_intres.h"
 
@@ -118,7 +121,7 @@ NotifyInfo& NotifyInfo::operator=(NOTIFYICONDATA* pnid)
 		if (_hIcon)
 			DestroyIcon(_hIcon);
 
-		_hIcon = (HICON) CopyImage(pnid->hIcon, IMAGE_ICON, NOTIFYICON_SIZE, NOTIFYICON_SIZE, 0);
+		_hIcon = (HICON) CopyImage(pnid->hIcon, IMAGE_ICON, 16, 16, 0);
 	}
 
 #ifdef NIF_STATE	// as of 21.08.2003 missing in MinGW headers
@@ -175,7 +178,6 @@ NotifyArea::NotifyArea(HWND hwnd)
 	_last_icon_count = 0;
 	_show_hidden = false;
 	_hide_inactive = true;
-	_show_button = true;
 }
 
 NotifyArea::~NotifyArea()
@@ -210,36 +212,33 @@ void NotifyArea::read_config()
 	bool clock_visible = true;
 
 	 // read notification icon settings from XML configuration
-	XMLPos cfg_pos = g_Globals.get_cfg();
+	XMLPos pos = g_Globals.get_cfg();
 
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_HIDECLOCK))
 #endif
 	{
-		if (cfg_pos.go_down("desktopbar")) {
-			clock_visible = XMLBoolRef(XMLPos(cfg_pos,"options"), "show-clock", !get_hide_clock_from_registry());
-			cfg_pos.back();
+		if (pos.go_down("desktopbar")) {
+			clock_visible = XMLBoolRef(pos, "options", "show-clock", !get_hide_clock_from_registry());
+			pos.back();
 		}
 	}
 
-	if (cfg_pos.go_down("notify-icons")) {
-		XMLPos options(cfg_pos, "options");
+	if (pos.go_down("notify-icons")) {
+		_hide_inactive = XMLBool(pos, "options", "hide-inactive", true);	///@todo read default setting from registry
+		_show_hidden = XMLBool(pos, "options", "show-hidden", false);	///@todo read default setting from registry
 
-		_hide_inactive = XMLBool(options, "hide-inactive", true);	///@todo read default setting from registry
-		_show_hidden = XMLBool(options, "show-hidden", false);	///@todo read default setting from registry
-		_show_button = XMLBool(options, "show-button", true);
-
-		XMLChildrenFilter icons(cfg_pos, "icon");
+		XMLChildrenFilter icons(pos, "icon");
 
 		for(XMLChildrenFilter::iterator it=icons.begin(); it!=icons.end(); ++it) {
 			const XMLNode& node = **it;
 
 			NotifyIconConfig cfg;
 
-			cfg._name = node.get("name").c_str();
-			cfg._tipText = node.get("text").c_str();
-			cfg._windowTitle = node.get("window").c_str();
-			cfg._modulePath = node.get("module").c_str();
+			cfg._name = node.get("name");
+			cfg._tipText = node.get("text");
+			cfg._windowTitle = node.get("window");
+			cfg._modulePath = node.get("module");
 			const string& mode = node.get("show");
 
 			if (mode == "show")
@@ -252,7 +251,7 @@ void NotifyArea::read_config()
 			_cfg.push_back(cfg);
 		}
 
-		cfg_pos.back();
+		pos.back();
 	}
 
 	show_clock(clock_visible);
@@ -261,39 +260,34 @@ void NotifyArea::read_config()
 void NotifyArea::write_config()
 {
 	 // write notification icon settings to XML configuration file
-	XMLPos cfg_pos = g_Globals.get_cfg();
+	XMLPos pos = g_Globals.get_cfg();
 
-	cfg_pos.smart_create("desktopbar");
-	XMLBoolRef boolRef(XMLPos(cfg_pos,"options"), "show-clock");
-    boolRef = _hwndClock!=0;
-	cfg_pos.back();
+	pos.smart_create("desktopbar");
+	XMLBoolRef(pos, "options", "show-clock") = _hwndClock!=0;
+	pos.back();
 
-	cfg_pos.smart_create("notify-icons");
+	pos.smart_create("notify-icons");
 
-	XMLPos options(cfg_pos, "options");
-	XMLBoolRef(options, "hide-inactive") = _hide_inactive;
-	XMLBoolRef(options, "show-hidden") = _show_hidden;
-	XMLBoolRef(options, "show-button") = _show_button;
+	XMLBoolRef(pos, "options", "hide-inactive") = _hide_inactive;
+	XMLBoolRef(pos, "options", "show-hidden") = _show_hidden;
 
 	for(NotifyIconCfgList::iterator it=_cfg.begin(); it!=_cfg.end(); ++it) {
 		NotifyIconConfig& cfg = *it;
 
 		 // search for the corresponding node using the original name
-		cfg_pos.smart_create("icon", "name", cfg._name);
+		pos.smart_create("icon", "name", cfg._name);
 
 		 // refresh unique name
 		cfg.create_name();
 
-		cfg_pos["name"] = cfg._name.c_str();
-		cfg_pos["text"] = cfg._tipText.c_str();
-		cfg_pos["window"] = cfg._windowTitle.c_str();
-		cfg_pos["module"] = cfg._modulePath.c_str();
-		cfg_pos["show"] = string_from_mode(cfg._mode).c_str();
+		pos["name"] = cfg._name;
+		pos["text"] = cfg._tipText;
+		pos["window"] = cfg._windowTitle;
+		pos["module"] = cfg._modulePath;
+		pos["show"] = string_from_mode(cfg._mode);
 
-		cfg_pos.back();
+		pos.back();
 	}
-
-	cfg_pos.back();	// smart_create
 }
 
 void NotifyArea::show_clock(bool flag)
@@ -302,7 +296,7 @@ void NotifyArea::show_clock(bool flag)
 
 	if (vis != flag) {
 		if (flag) {
-			 // create clock window
+			 // smart_create clock window
 			_hwndClock = ClockWindow::Create(_hwnd);
 
 			if (_hwndClock) {
@@ -367,11 +361,8 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		SetWindowPos(_hwndClock, 0, cx-_clock_width, 0, 0, 0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
 		break;}
 
-	  case PM_GET_WIDTH: {
-		int w = _sorted_icons.size()*NOTIFYICON_DIST + NOTIFYAREA_SPACE + _clock_width;
-		if (_show_button)
-			w += NOTIFYICON_DIST;
-		return w;}
+	  case PM_GET_WIDTH:
+		return _sorted_icons.size()*NOTIFYICON_DIST + NOTIFYAREA_SPACE + _clock_width;
 
 	  case PM_REFRESH_CONFIG:
 		read_config();
@@ -385,7 +376,6 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			PopupMenu menu(IDM_NOTIFYAREA);
 			SetMenuDefaultItem(menu, 0, MF_BYPOSITION);
 			CheckMenuItem(menu, ID_SHOW_HIDDEN_ICONS, MF_BYCOMMAND|(_show_hidden?MF_CHECKED:MF_UNCHECKED));
-			CheckMenuItem(menu, ID_SHOW_ICON_BUTTON, MF_BYCOMMAND|(_show_button?MF_CHECKED:MF_UNCHECKED));
 			menu.TrackPopupMenu(_hwnd, MAKEPOINTS(lparam));
 		}
 		break;}
@@ -407,11 +397,9 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 				|| nmsg==WM_XBUTTONDOWN
 #endif
 				)
-
 				CancelModes();
 
-			Point pt(lparam);
-			NotifyIconSet::const_iterator found = IconHitTest(pt);
+			NotifyIconSet::const_iterator found = IconHitTest(Point(lparam));
 
 			if (found != _sorted_icons.end()) {
 				const NotifyInfo& entry = const_cast<NotifyInfo&>(*found);	// Why does GCC 3.3 need this additional const_cast ?!
@@ -453,13 +441,7 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 				}
 				else if (_icon_map.erase(entry))	// delete icons without valid owner window
 					UpdateIcons();
-			} else
-				 // handle clicks on notification area button "show hidden icons"
-				if (_show_button)
-					if (nmsg == WM_LBUTTONDOWN)
-						if (pt.x>=NOTIFYICON_X && pt.x<NOTIFYICON_X+NOTIFYICON_SIZE &&
-							pt.y>=NOTIFYICON_Y && pt.y<NOTIFYICON_Y+NOTIFYICON_SIZE)
-							PostMessage(_hwnd, WM_COMMAND, MAKEWPARAM(ID_SHOW_HIDDEN_ICONS,0), 0);
+			}
 		}
 
 		return super::WndProc(nmsg, wparam, lparam);
@@ -473,11 +455,6 @@ int NotifyArea::Command(int id, int code)
 	switch(id) {
 	  case ID_SHOW_HIDDEN_ICONS:
 		_show_hidden = !_show_hidden;
-		UpdateIcons();
-		break;
-
-	  case ID_SHOW_ICON_BUTTON:
-		_show_button = !_show_button;
 		UpdateIcons();
 		break;
 
@@ -504,22 +481,12 @@ int NotifyArea::Notify(int id, NMHDR* pnmh)
 		Point pt(GetMessagePos());
 		ScreenToClient(_hwnd, &pt);
 
-		if (_show_button &&
-			pt.x>=NOTIFYICON_X && pt.x<NOTIFYICON_X+NOTIFYICON_SIZE &&
-			pt.y>=NOTIFYICON_Y && pt.y<NOTIFYICON_Y+NOTIFYICON_SIZE)
-		{
-			static ResString sShowIcons(IDS_SHOW_HIDDEN_ICONS);
-			static ResString sHideIcons(IDS_HIDE_ICONS);
+		NotifyIconSet::iterator found = IconHitTest(pt);
 
-			pdi->lpszText = (LPTSTR)(_show_hidden?sHideIcons:sShowIcons).c_str();
-		} else {
-			NotifyIconSet::iterator found = IconHitTest(pt);
+		if (found != _sorted_icons.end()) {
+			NotifyInfo& entry = const_cast<NotifyInfo&>(*found);	// Why does GCC 3.3 need this additional const_cast ?!
 
-			if (found != _sorted_icons.end()) {
-				NotifyInfo& entry = const_cast<NotifyInfo&>(*found);	// Why does GCC 3.3 need this additional const_cast ?!
-
-				pdi->lpszText = (LPTSTR)entry._tipText.c_str();
-			}
+			pdi->lpszText = (LPTSTR)entry._tipText.c_str();
 		}
 	}
 
@@ -604,18 +571,10 @@ void NotifyArea::UpdateIcons()
 
 	 // sync tooltip areas to current icon number
 	if (_sorted_icons.size() != _last_icon_count) {
-		RECT rect = {NOTIFYICON_X, NOTIFYICON_Y, NOTIFYICON_X+NOTIFYICON_SIZE, NOTIFYICON_Y+NOTIFYICON_SIZE};
+		RECT rect = {2, 3, 2+16, 3+16};
+		size_t icon_cnt = _sorted_icons.size();
 
 		size_t tt_idx = 0;
-
-		if (_show_button) {
-			_tooltip.add(_hwnd, tt_idx++, rect);
-
-			rect.left += NOTIFYICON_DIST;
-			rect.right += NOTIFYICON_DIST;
-		}
-
-		size_t icon_cnt = _sorted_icons.size();
 		while(tt_idx < icon_cnt) {
 			_tooltip.add(_hwnd, tt_idx++, rect);
 
@@ -635,10 +594,6 @@ void NotifyArea::UpdateIcons()
 	UpdateWindow(_hwnd);
 }
 
-#ifdef _MSC_VER
-#pragma comment(lib, "msimg32")	// for AlphaBlend()
-#endif
-
 void NotifyArea::Paint()
 {
 	BufferedPaintCanvas canvas(_hwnd);
@@ -647,29 +602,11 @@ void NotifyArea::Paint()
 	FillRect(canvas, &canvas.rcPaint, GetSysColorBrush(COLOR_BTNFACE));
 
 	 // draw icons
-	int x = NOTIFYICON_X;
-	int y = NOTIFYICON_Y;
-
-	if (_show_button) {
-		static SmallIcon leftArrowIcon(IDI_NOTIFY_L);
-		static SmallIcon rightArrowIcon(IDI_NOTIFY_R);
-
-		DrawIconEx(canvas, x, y, _show_hidden?rightArrowIcon:leftArrowIcon, NOTIFYICON_SIZE, NOTIFYICON_SIZE, 0, 0, DI_NORMAL);
-		x += NOTIFYICON_DIST;
-	}
-
-	MemCanvas mem_dc;
-	SelectedBitmap bmp(mem_dc, CreateCompatibleBitmap(canvas, NOTIFYICON_SIZE, NOTIFYICON_SIZE));
-	RECT rect = {0, 0, NOTIFYICON_SIZE, NOTIFYICON_SIZE};
-	BLENDFUNCTION blend = {AC_SRC_OVER, 0, 128, 0};	// 50 % visible
+	int x = 2;
+	int y = 3;
 
 	for(NotifyIconSet::const_iterator it=_sorted_icons.begin(); it!=_sorted_icons.end(); ++it) {
-		if (it->_dwState & NIS_HIDDEN) {
-			FillRect(mem_dc, &rect, GetSysColorBrush(COLOR_BTNFACE));
-			DrawIconEx(mem_dc, 0, 0, it->_hIcon, NOTIFYICON_SIZE, NOTIFYICON_SIZE, 0, 0, DI_NORMAL);
-			AlphaBlend(canvas, x, y, NOTIFYICON_SIZE, NOTIFYICON_SIZE, mem_dc, 0, 0, NOTIFYICON_SIZE, NOTIFYICON_SIZE, blend);
-		} else
-			DrawIconEx(canvas, x, y, it->_hIcon, NOTIFYICON_SIZE, NOTIFYICON_SIZE, 0, 0, DI_NORMAL);
+		DrawIconEx(canvas, x, y, it->_hIcon, 16, 16, 0, 0, DI_NORMAL);
 
 		x += NOTIFYICON_DIST;
 	}
@@ -729,20 +666,17 @@ void NotifyArea::Refresh(bool update)
  /// search for a icon at a given client coordinate position
 NotifyIconSet::iterator NotifyArea::IconHitTest(const POINT& pos)
 {
-	if (pos.y<NOTIFYICON_Y || pos.y>=NOTIFYICON_Y+NOTIFYICON_SIZE)
+	if (pos.y<2 || pos.y>=2+16)
 		return _sorted_icons.end();
 
 	NotifyIconSet::iterator it = _sorted_icons.begin();
 
-	int x = NOTIFYICON_X;
-
-	if (_show_button)
-		x += NOTIFYICON_DIST;
+	int x = 2;
 
 	for(; it!=_sorted_icons.end(); ++it) {
 		//NotifyInfo& entry = const_cast<NotifyInfo&>(*it);	// Why does GCC 3.3 need this additional const_cast ?!
 
-		if (pos.x>=x && pos.x<x+NOTIFYICON_SIZE)
+		if (pos.x>=x && pos.x<x+16)
 			break;
 
 		x += NOTIFYICON_DIST;
@@ -867,9 +801,6 @@ TrayNotifyDlg::TrayNotifyDlg(HWND hwnd)
 	_resize_mgr.Add(IDC_PICTURE,		MOVE);
 	_resize_mgr.Add(ID_SHOW_HIDDEN_ICONS,MOVE_Y);
 
-	_resize_mgr.Add(IDC_LABEL6,			MOVE_Y);
-	_resize_mgr.Add(IDC_LAST_CHANGE,	MOVE_Y);
-
 	_resize_mgr.Add(IDOK,				MOVE);
 	_resize_mgr.Add(IDCANCEL,			MOVE);
 
@@ -927,8 +858,6 @@ void TrayNotifyDlg::Refresh()
 	_hitemCurrent_hidden = TreeView_InsertItem(_tree_ctrl, &tvi);
 
 	if (_pNotifyArea) {
-		_info.clear();
-
 		tv.mask |= TVIF_PARAM;
 
 		WindowCanvas canvas(_hwnd);
@@ -981,12 +910,9 @@ void TrayNotifyDlg::InsertItem(HTREEITEM hparent, HTREEITEM after, const NotifyI
 	InsertItem(hparent, after, entry, hdc, entry._hIcon, entry._mode);
 }
 
-void TrayNotifyDlg::InsertItem(HTREEITEM hparent, HTREEITEM after, const NotifyIconDlgInfo& entry,
+void TrayNotifyDlg::InsertItem(HTREEITEM hparent, HTREEITEM after, const NotifyIconConfig& entry,
 								HDC hdc, HICON hicon, NOTIFYICONMODE mode)
 {
-	int idx = _info.size();
-	_info[idx] = entry;
-
 	String mode_str = string_from_mode(mode);
 
 	switch(mode) {
@@ -1005,7 +931,7 @@ void TrayNotifyDlg::InsertItem(HTREEITEM hparent, HTREEITEM after, const NotifyI
 	TV_ITEM& tv = tvi.item;
 	tv.mask = TVIF_TEXT|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_PARAM;
 
-	tv.lParam = (LPARAM)idx;
+	tv.lParam = (LPARAM)&entry;
 	tv.pszText = (LPTSTR)txt.c_str();
 	tv.iSelectedImage = tv.iImage = ImageList_AddAlphaIcon(_himl, hicon, GetStockBrush(WHITE_BRUSH), hdc);
 	TreeView_InsertItem(_tree_ctrl, &tvi);
@@ -1097,18 +1023,13 @@ int TrayNotifyDlg::Notify(int id, NMHDR* pnmh)
 		LPARAM lparam = pnmtv->itemNew.lParam;
 
 		if (lparam) {
-			const NotifyIconDlgInfo& entry = _info[lparam];
+			const NotifyIconConfig& entry = *(NotifyIconConfig*)lparam;
 
 			SetDlgItemText(_hwnd, IDC_NOTIFY_TOOLTIP, entry._tipText);
 			SetDlgItemText(_hwnd, IDC_NOTIFY_TITLE, entry._windowTitle);
 			SetDlgItemText(_hwnd, IDC_NOTIFY_MODULE, entry._modulePath);
 
 			CheckRadioButton(_hwnd, IDC_NOTIFY_SHOW, IDC_NOTIFY_AUTOHIDE, IDC_NOTIFY_SHOW+entry._mode);
-
-			String change_str;
-			if (entry._lastChange)
-				change_str.printf(TEXT("before %d s"), (GetTickCount()-entry._lastChange+500)/1000);
-			SetDlgItemText(_hwnd, IDC_LAST_CHANGE, change_str);
 
 			HICON hicon = 0; //get_window_icon_big(entry._hWnd, false);
 
@@ -1152,7 +1073,7 @@ void TrayNotifyDlg::SetIconMode(NOTIFYICONMODE mode)
 	if (!lparam)
 		return;
 
-	NotifyIconConfig& entry = _info[lparam];
+	NotifyIconConfig& entry = *(NotifyIconConfig*)lparam;
 
 	if (entry._mode != mode) {
 		entry._mode = mode;
@@ -1251,11 +1172,9 @@ int ClockWindow::Notify(int id, NMHDR* pnmh)
 		TCHAR buffer[64];
 
 		GetLocalTime(&systime);
+		GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &systime, NULL, buffer, 64);
 
-		if (GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &systime, NULL, buffer, 64))
-			_tcscpy(pdi->szText, buffer);
-		else
-			pdi->szText[0] = '\0';
+		_tcscpy(pdi->szText, buffer);
 	}
 
 	return 0;

@@ -1,10 +1,10 @@
-/* $Id: tunnel.c,v 1.7 2004/08/15 16:39:02 chorns Exp $
+/* $Id: tunnel.c,v 1.6 2003/08/14 18:30:28 silverblade Exp $
  *
  * reactos/ntoskrnl/fs/tunnel.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
 
 /**********************************************************************

@@ -28,7 +28,13 @@
  //
 
 
-#include "precomp.h"
+#include "utility/utility.h"
+
+#include "explorer.h"
+#include "desktop/desktop.h"
+
+#include "globals.h"
+#include "externals.h"
 
 #include "explorer_intres.h"
 
@@ -38,8 +44,6 @@
 #include <io.h>		// for dup2()
 #include <fcntl.h>	// for _O_RDONLY
 #endif
-
-#include "dialogs/settings.h"	// for MdiSdiDlg
 
 
 extern "C" int initialize_gdb_stub();	// start up GDB stub
@@ -84,13 +88,8 @@ void ExplorerGlobals::read_persistent()
 	_cfg_dir.printf(TEXT("%s\\ReactOS"), (LPCTSTR)SpecialFolderFSPath(CSIDL_APPDATA,0));
 	_cfg_path.printf(TEXT("%s\\ros-explorer-cfg.xml"), _cfg_dir.c_str());
 
-	if (!_cfg.read(_cfg_path)) {
-		if (_cfg._last_error != XML_ERROR_NO_ELEMENTS)
-			MessageBox(g_Globals._hwndDesktop, String(_cfg._last_error_msg.c_str()),
-						TEXT("ROS Explorer - reading user settings"), MB_OK);
-
+	if (!_cfg.read(_cfg_path))
 		_cfg.read(TEXT("explorer-cfg-template.xml"));
-	}
 
 	 // read bookmarks
 	_favorites_path.printf(TEXT("%s\\ros-explorer-bookmarks.xml"), _cfg_dir.c_str());
@@ -113,21 +112,21 @@ void ExplorerGlobals::write_persistent()
 
 XMLPos ExplorerGlobals::get_cfg()
 {
-	XMLPos cfg_pos(&_cfg);
+	XMLPos pos(&_cfg);
 
-	cfg_pos.smart_create("explorer-cfg");
+	pos.smart_create("explorer-cfg");
 
-	return cfg_pos;
+	return pos;
 }
 
-XMLPos ExplorerGlobals::get_cfg(const char* path)
+XMLPos ExplorerGlobals::get_cfg(const String& name)
 {
-	XMLPos cfg_pos(&_cfg);
+	XMLPos pos(&_cfg);
 
-	cfg_pos.smart_create("explorer-cfg");
-	cfg_pos.create_relative(path);
+	pos.smart_create("explorer-cfg");
+	pos.smart_create(name);
 
-	return cfg_pos;
+	return pos;
 }
 
 
@@ -173,7 +172,7 @@ bool FileTypeManager::is_exe_file(LPCTSTR ext)
 
 const FileTypeInfo& FileTypeManager::operator[](String ext)
 {
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+#ifndef __WINE__ ///@todo
 	_tcslwr((LPTSTR)ext.c_str());
 #endif
 
@@ -283,18 +282,15 @@ HBITMAP	Icon::create_bitmap(COLORREF bk_color, HBRUSH hbrBkgnd, HDC hdc_wnd) con
 		ImageList_DrawEx(himl, _sys_idx, hdc, 0, 0, cx, cy, bk_color, CLR_DEFAULT, ILD_NORMAL);
 		SelectBitmap(hdc, hbmp_old);
 		DeleteDC(hdc);
-
 		return hbmp;
 	} else
 		return create_bitmap_from_icon(_hicon, hbrBkgnd, hdc_wnd);
 }
 
-
-int Icon::add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color, HBRUSH bk_brush) const
+HICON Icon::create_icon(COLORREF bk_color, HDC hdc_wnd) const
 {
-	int ret;
-
 	if (_itype == IT_SYSCACHE) {
+		return 0;	/*@@todo
 		HIMAGELIST himl = g_Globals._icon_cache.get_sys_imagelist();
 
 		int cx, cy;
@@ -306,14 +302,9 @@ int Icon::add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color, HBRU
 		ImageList_DrawEx(himl, _sys_idx, hdc, 0, 0, cx, cy, bk_color, CLR_DEFAULT, ILD_NORMAL);
 		SelectBitmap(hdc, hbmp_old);
 		DeleteDC(hdc);
-
-		ret = ImageList_Add(himl, hbmp, 0);
-
-		DeleteObject(hbmp);
-	} else
-		ret = ImageList_AddAlphaIcon(himl, _hicon, bk_brush, hdc_wnd);
-
-	return ret;
+		return hbmp;
+*/	} else
+		return (HICON) CopyImage(_hicon, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
 }
 
 HBITMAP create_bitmap_from_icon(HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd)
@@ -344,6 +335,17 @@ int ImageList_AddAlphaIcon(HIMAGELIST himl, HICON hIcon, HBRUSH hbrush_bkgnd, HD
 	return ret;
 }
 
+int ImageList_AddAlphaIcon(HIMAGELIST himl, const Icon& icon, HDC hdc_wnd)
+{
+	HICON hicon = icon.create_icon(ImageList_GetBkColor(himl), hdc_wnd);
+
+	int ret = ImageList_AddIcon(himl, hicon);
+
+	DeleteObject(hicon);
+
+	return ret;
+}
+
 
 int IconCache::s_next_id = ICID_DYNAMIC;
 
@@ -369,7 +371,6 @@ void IconCache::init()
 	_icons[ICID_NETWORK]	= Icon(ICID_NETWORK,	IDI_NETWORK);
 	_icons[ICID_COMPUTER]	= Icon(ICID_COMPUTER,	IDI_COMPUTER);
 	_icons[ICID_LOGOFF]		= Icon(ICID_LOGOFF,		IDI_LOGOFF);
-	_icons[ICID_BOOKMARK]	= Icon(ICID_BOOKMARK,	IDI_DOT_TRANS);
 }
 
 
@@ -406,7 +407,7 @@ const Icon& IconCache::extract(LPCTSTR path, int idx)
 {
 	CachePair key(path, idx);
 
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+#ifndef __WINE__ ///@todo
 	_tcslwr((LPTSTR)key.first.c_str());
 #endif
 
@@ -423,12 +424,8 @@ const Icon& IconCache::extract(LPCTSTR path, int idx)
 		_pathIdxMap[key] = icon;
 
 		return icon;
-	} else {
-
-		///@todo retreive "http://.../favicon.ico" format icons
-
+	} else
 		return _icons[ICID_NONE];
-	}
 }
 
 const Icon& IconCache::extract(IExtractIcon* pExtract, LPCTSTR path, int idx)
@@ -438,7 +435,7 @@ const Icon& IconCache::extract(IExtractIcon* pExtract, LPCTSTR path, int idx)
 
 	HRESULT hr = pExtract->Extract(path, idx, &hIconLarge, &hIcon, MAKELONG(0/*GetSystemMetrics(SM_CXICON)*/,GetSystemMetrics(SM_CXSMICON)));
 
-	if (hr == NOERROR) {	//@@ oder SUCCEEDED(hr) ?
+	if (hr == NOERROR) {
 		if (hIconLarge)
 			DestroyIcon(hIconLarge);
 
@@ -536,16 +533,32 @@ void explorer_show_frame(int cmdshow, LPTSTR lpCmdLine)
 
 	g_Globals._prescan_nodes = false;
 
-	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-	XS_String mdiStr = XMLString(explorer_options, "mdi");
-
-	if (mdiStr.empty())
-		Dialog::DoModal(IDD_MDI_SDI, WINDOW_CREATOR(MdiSdiDlg), g_Globals._hwndDesktop);
-
-	bool mdi = XMLBool(explorer_options, "mdi", true);
-
 	 // create main window
-	MainFrameBase::Create(lpCmdLine, mdi, cmdshow);
+	HWND hMainFrame = MainFrame::Create();
+
+	if (hMainFrame) {
+		g_Globals._hMainWnd = hMainFrame;
+
+		ShowWindow(hMainFrame, cmdshow);
+		UpdateWindow(hMainFrame);
+
+		bool valid_dir = false;
+
+		if (lpCmdLine) {
+			DWORD attribs = GetFileAttributes(lpCmdLine);
+
+			if (attribs!=INVALID_FILE_ATTRIBUTES && (attribs&FILE_ATTRIBUTE_DIRECTORY))
+				valid_dir = true;
+			else if (*lpCmdLine==':' || *lpCmdLine=='"')
+				valid_dir = true;
+		}
+
+		 // Open the first child window after initializing the application
+		if (valid_dir)
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, 0, (LPARAM)lpCmdLine);
+		else
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, OWM_EXPLORE|OWM_DETAILS, 0);
+	}
 }
 
 
@@ -577,13 +590,6 @@ struct ExplorerAboutDlg : public
 		new ColorStatic(hwnd, IDC_ROS_EXPLORER, RGB(32,32,128), 0, _hfont);
 
 		new HyperlinkCtrl(hwnd, IDC_WWW);
-
-		FmtString ver_txt(ResString(IDS_EXPLORER_VERSION_STR), (LPCTSTR)ResString(IDS_VERSION_STR));
-		SetWindowText(GetDlgItem(hwnd, IDC_VERSION_TXT), ver_txt);
-
-		HWND hwnd_winver = GetDlgItem(hwnd, IDC_WIN_VERSION);
-		SetWindowText(hwnd_winver, get_windows_version_str());
-		SetWindowFont(hwnd_winver, GetStockFont(DEFAULT_GUI_FONT), FALSE);
 
 		CenterWindow(hwnd);
 	}

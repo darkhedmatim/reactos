@@ -1,4 +1,4 @@
-/* $Id: pci.h,v 1.8 2004/08/16 09:13:00 ekohl Exp $ */
+/* $Id: pci.h,v 1.6 2004/03/14 17:10:43 navaraf Exp $ */
 
 #ifndef __PCI_H
 #define __PCI_H
@@ -69,9 +69,9 @@ typedef struct _PDO_DEVICE_EXTENSION
   // Compatible IDs
   UNICODE_STRING CompatibleIDs;
   // Textual description of device
-  UNICODE_STRING DeviceDescription;
-  // Textual description of device location
-  UNICODE_STRING DeviceLocation;
+  UNICODE_STRING DeviceText;
+  // Textual description of device
+  UNICODE_STRING DeviceTextLocation;
 } __attribute((packed)) PDO_DEVICE_EXTENSION, *PPDO_DEVICE_EXTENSION;
 
 /* Functional Device Object device extension for the PCI driver device object */
@@ -111,42 +111,6 @@ PciCreateUnicodeString(
   PUNICODE_STRING Destination,
   PWSTR Source,
   POOL_TYPE PoolType);
-
-NTSTATUS
-PciDuplicateUnicodeString(
-  PUNICODE_STRING Destination,
-  PUNICODE_STRING Source,
-  POOL_TYPE PoolType);
-
-BOOLEAN
-PciCreateDeviceIDString(
-  PUNICODE_STRING DeviceID,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateInstanceIDString(
-  PUNICODE_STRING InstanceID,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateHardwareIDsString(
-  PUNICODE_STRING HardwareIDs,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateCompatibleIDsString(
-  PUNICODE_STRING HardwareIDs,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateDeviceDescriptionString(
-  PUNICODE_STRING DeviceDescription,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateDeviceLocationString(
-  PUNICODE_STRING DeviceLocation,
-  PPCI_DEVICE Device);
 
 /* pdo.c */
 

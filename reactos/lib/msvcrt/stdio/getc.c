@@ -1,4 +1,4 @@
-/* $Id: getc.c,v 1.11 2004/08/20 00:57:44 navaraf Exp $
+/* $Id: getc.c,v 1.9 2003/07/11 21:58:09 royce Exp $
  *
  *  ReactOS msvcrt library
  *
@@ -21,7 +21,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 #include <msvcrt/errno.h>
@@ -80,8 +80,7 @@ wint_t getwc(FILE *fp)
     if (fp->_flag & _IOBINARY) {
         if (fp->_cnt > 1) {
             fp->_cnt -= sizeof(wchar_t);
-            c = *((wchar_t*)fp->_ptr);
-            fp->_ptr += sizeof(wchar_t);
+            c = (wint_t)*((wchar_t*)(fp->_ptr))++;
         } else {
             c = _filwbuf(fp);
             // need to fix by one values of  fp->_ptr and fp->_cnt

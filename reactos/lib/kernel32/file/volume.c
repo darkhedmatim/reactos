@@ -1,4 +1,4 @@
-/* $Id: volume.c,v 1.44 2004/11/21 10:39:11 weiden Exp $
+/* $Id: volume.c,v 1.40 2004/02/25 09:55:30 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -87,7 +87,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
    DWORD drive, count;
    DWORD dwDriveMap;
 
-   dwDriveMap = GetLogicalDrives();
+   dwDriveMap = SharedUserData->DosDeviceMap;
 
    for (drive = count = 0; drive < MAX_DOS_DRIVES; drive++)
      {
@@ -124,7 +124,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
    DWORD drive, count;
    DWORD dwDriveMap;
 
-   dwDriveMap = GetLogicalDrives();
+   dwDriveMap = SharedUserData->DosDeviceMap;
 
    for (drive = count = 0; drive < MAX_DOS_DRIVES; drive++)
      {
@@ -155,24 +155,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 DWORD STDCALL
 GetLogicalDrives(VOID)
 {
-	NTSTATUS Status;
-	PROCESS_DEVICEMAP_INFORMATION ProcessDeviceMapInfo;
-
-	/* Get the Device Map for this Process */
-	Status = NtQueryInformationProcess(NtCurrentProcess(),
-					   ProcessDeviceMap,
-					   &ProcessDeviceMapInfo,
-					   sizeof(ProcessDeviceMapInfo),
-					   NULL);
-
-	/* Return the Drive Map */
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus(Status);
-		return 0;
-	}
-
-        return ProcessDeviceMapInfo.Query.DriveMap;
+  return(SharedUserData->DosDeviceMap);
 }
 
 
@@ -465,28 +448,7 @@ GetDriveTypeW(LPCWSTR lpRootPathName)
 		return 0;	
 	}
 	CloseHandle(hFile);
-
-        switch (FileFsDevice.DeviceType)
-        {
-		case FILE_DEVICE_CD_ROM:
-		case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-			return DRIVE_CDROM;
-	        case FILE_DEVICE_VIRTUAL_DISK:
-	        	return DRIVE_RAMDISK;
-	        case FILE_DEVICE_NETWORK_FILE_SYSTEM:
-	        	return DRIVE_REMOTE;
-	        case FILE_DEVICE_DISK:
-	        case FILE_DEVICE_DISK_FILE_SYSTEM:
-			if (FileFsDevice.Characteristics & FILE_REMOTE_DEVICE)
-				return DRIVE_REMOTE;
-			if (FileFsDevice.Characteristics & FILE_REMOVABLE_MEDIA)
-				return DRIVE_REMOVABLE;
-			return DRIVE_FIXED;
-        }
-
-        DPRINT1("Returning DRIVE_UNKNOWN for device type %d\n", FileFsDevice.DeviceType);
-
-	return DRIVE_UNKNOWN;
+	return (UINT)FileFsDevice.DeviceType;
 }
 
 

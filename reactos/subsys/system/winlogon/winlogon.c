@@ -1,4 +1,4 @@
-/* $Id: winlogon.c,v 1.38 2004/12/22 01:22:08 navaraf Exp $
+/* $Id: winlogon.c,v 1.29 2004/03/28 12:21:41 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -65,7 +65,7 @@ PrintString (WCHAR* fmt,...)
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 ShutdownComputerProc (HWND hwndDlg,
 		      UINT uMsg,
 		      WPARAM wParam,
@@ -219,7 +219,7 @@ StartLsass (VOID)
 
 
 static BOOLEAN
-OpenRegistryKey (HKEY *WinLogonKey)
+OpenRegistryKey (HANDLE *WinLogonKey)
 {
    return ERROR_SUCCESS == RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                                         L"SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\WinLogon",
@@ -232,7 +232,7 @@ OpenRegistryKey (HKEY *WinLogonKey)
 static BOOLEAN StartProcess(PWCHAR ValueName)
 {
    BOOL StartIt;
-   HKEY WinLogonKey;
+   HANDLE WinLogonKey;
    DWORD Type;
    DWORD Size;
    DWORD StartValue;
@@ -262,7 +262,7 @@ static BOOLEAN StartProcess(PWCHAR ValueName)
 /*
 static BOOL RestartShell(void)
 {
-  HKEY WinLogonKey;
+  HANDLE WinLogonKey;
   DWORD Type, Size, Value;
   
   if(OpenRegistryKey(&WinLogonKey))
@@ -287,58 +287,10 @@ static BOOL RestartShell(void)
 }
 */
 
-VOID STDCALL
-RegisterHotKeys(VOID)
-{
-  RegisterHotKey(NULL, 0, MOD_ALT | MOD_CONTROL, VK_DELETE);
-}
-
-VOID STDCALL
-UnregisterHotKeys(VOID)
-{
-  UnregisterHotKey(NULL, 0);
-}
-
-VOID STDCALL
-HandleHotKey(MSG *Msg)
-{
-  DbgPrint("HOTKEY: Got hot key (%d)\n", Msg->wParam);
-
-  /* CTRL-ALT-DEL */
-  if (Msg->wParam == 0)
-  {
-    STARTUPINFO StartupInfo;
-    PROCESS_INFORMATION ProcessInformation;
-
-    StartupInfo.cb = sizeof(StartupInfo);
-    StartupInfo.lpReserved = NULL;
-    StartupInfo.lpDesktop = NULL;
-    StartupInfo.lpTitle = NULL;
-    StartupInfo.dwFlags = 0;
-    StartupInfo.cbReserved2 = 0;
-    StartupInfo.lpReserved2 = 0;
-
-    CreateProcessW(
-      L"taskmgr.exe",
-      NULL,
-      NULL,
-      NULL,
-      FALSE,
-      CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS,
-      NULL,
-      NULL,
-      &StartupInfo,
-      &ProcessInformation);
-
-    CloseHandle (ProcessInformation.hProcess);
-    CloseHandle (ProcessInformation.hThread);
-  }
-}
-
 #if SUPPORT_CONSOLESTART
 static BOOL StartIntoGUI(VOID)
 {
-  HKEY WinLogonKey;
+  HANDLE WinLogonKey;
   DWORD Type, Size, Value;
   
   if(OpenRegistryKey(&WinLogonKey))
@@ -364,9 +316,9 @@ static BOOL StartIntoGUI(VOID)
 
 
 static PWCHAR
-GetUserInit (WCHAR *CommandLine)
+GetShell (WCHAR *CommandLine)
 {
-   HKEY WinLogonKey;
+   HANDLE WinLogonKey;
    BOOL GotCommandLine;
    DWORD Type;
    DWORD Size;
@@ -377,7 +329,7 @@ GetUserInit (WCHAR *CommandLine)
      {
 	Size = MAX_PATH;
 	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
-                                         L"UserInit",
+                                         L"Shell",
 	                                     NULL,
 	                                     &Type,
 	                                     (LPBYTE) Shell,
@@ -399,8 +351,8 @@ GetUserInit (WCHAR *CommandLine)
 
    if (! GotCommandLine)
      {
-	GetSystemDirectory(CommandLine, MAX_PATH - 15);
-	wcscat(CommandLine, L"\\userinit.exe");
+	GetWindowsDirectory(CommandLine, MAX_PATH - 15);
+	wcscat(CommandLine, L"\\explorer.exe");
      }
 
    return CommandLine;
@@ -419,7 +371,6 @@ DoLogonUser (PWCHAR Name,
   PROFILEINFOW ProfileInfo;
   BOOL Result;
   LPVOID lpEnvironment = NULL;
-  MSG Msg;
 
   Result = LogonUserW (Name,
 		       NULL,
@@ -461,12 +412,6 @@ DoLogonUser (PWCHAR Name,
       return FALSE;
     }
 
-  if (ImpersonateLoggedOnUser(hToken))
-    {
-      UpdatePerUserSystemParameters(0, TRUE);
-      RevertToSelf();
-    }
-
   GetWindowsDirectoryW (CurrentDirectory, MAX_PATH);
 
   StartupInfo.cb = sizeof(StartupInfo);
@@ -479,7 +424,7 @@ DoLogonUser (PWCHAR Name,
 
   Result = CreateProcessAsUserW (hToken,
 				 NULL,
-				 GetUserInit (CommandLine),
+				 GetShell (CommandLine),
 				 NULL,
 				 NULL,
 				 FALSE,
@@ -491,11 +436,6 @@ DoLogonUser (PWCHAR Name,
   if (!Result)
     {
       DbgPrint ("WL: Failed to execute user shell %s\n", CommandLine);
-      if (ImpersonateLoggedOnUser(hToken))
-        {
-          UpdatePerUserSystemParameters(0, FALSE);
-          RevertToSelf();
-        }
       UnloadUserProfile (hToken,
 			 ProfileInfo.hProfile);
       CloseHandle (hToken);
@@ -503,29 +443,9 @@ DoLogonUser (PWCHAR Name,
       return FALSE;
     }
 
-  RegisterHotKeys();
-
-  while (WaitForSingleObject (ProcessInformation.hProcess, 100) != WAIT_OBJECT_0)
-  {
-    if (PeekMessage(&Msg, 0, 0, 0, PM_REMOVE))
-    {
-      if (Msg.message == WM_HOTKEY)
-        HandleHotKey(&Msg);
-      TranslateMessage(&Msg);
-      DispatchMessage(&Msg);
-    }
-  }
-
-  UnregisterHotKeys();
-
+  WaitForSingleObject (ProcessInformation.hProcess, INFINITE);
   CloseHandle (ProcessInformation.hProcess);
   CloseHandle (ProcessInformation.hThread);
-
-  if (ImpersonateLoggedOnUser(hToken))
-    {
-      UpdatePerUserSystemParameters(0, FALSE);
-      RevertToSelf();
-    }
 
   /* Unload user profile */
   UnloadUserProfile (hToken,
@@ -538,6 +458,7 @@ DoLogonUser (PWCHAR Name,
   return TRUE;
 }
 #endif
+
 
 int STDCALL
 WinMain(HINSTANCE hInstance,
@@ -555,16 +476,9 @@ WinMain(HINSTANCE hInstance,
   LSA_OPERATIONAL_MODE Mode;
   ULONG AuthenticationPackage;
 #endif
-
-  hAppInstance = hInstance;
+  NTSTATUS Status;
   
-  if(!RegisterLogonProcess(GetCurrentProcessId(), TRUE))
-  {
-    DbgPrint("WL: Could not register logon process\n");
-    NtShutdownSystem(ShutdownNoReboot);
-    ExitProcess(0);
-    return 0;
-  }
+  hAppInstance = hInstance;
   
 #if START_LSASS
    if (StartProcess(L"StartLsass"))
@@ -585,6 +499,15 @@ WinMain(HINSTANCE hInstance,
   }
   
   WLSession->LogonStatus = LOGON_INITIALIZING;
+#if START_LSASS
+  if(!RegisterLogonProcess(GetCurrentProcessId(), TRUE))
+  {
+    DbgPrint("WL: Could not register logon process\n");
+    NtShutdownSystem(ShutdownNoReboot);
+    ExitProcess(0);
+    return 0;
+  }
+#endif
   
   if(!WlxCreateWindowStationAndDesktops(WLSession))
   {
@@ -597,6 +520,14 @@ WinMain(HINSTANCE hInstance,
    * Switch to winlogon desktop
    */
   /* FIXME: Do start up in the application desktop for now. */
+  Status = NtSetInformationProcess(NtCurrentProcess(),
+                                   ProcessDesktop,
+                                   &WLSession->ApplicationDesktop,
+                                   sizeof(HDESK));
+  if(!NT_SUCCESS(Status))
+  {
+    DbgPrint("WL: Cannot set default desktop for winlogon.\n");
+  }
   SetThreadDesktop(WLSession->ApplicationDesktop);
   if(!SwitchDesktop(WLSession->ApplicationDesktop))
   {
@@ -618,13 +549,18 @@ WinMain(HINSTANCE hInstance,
   
 #if SUPPORT_CONSOLESTART
  StartConsole = !StartIntoGUI();
+ if(!StartConsole)
+ {
 #endif
- if(!InitializeSAS(WLSession))
+  if(!InitializeSAS(WLSession))
   {
     DbgPrint("WL: Failed to initialize SAS\n");
     ExitProcess(2);
     return 2;
   }
+#if SUPPORT_CONSOLESTART
+ }
+#endif
   
   InitServices();
    
@@ -720,13 +656,9 @@ WinMain(HINSTANCE hInstance,
  else
  {
 #endif
-
-   RegisterHotKeys();
   
-   SessionLoop(WLSession);
+  SessionLoop(WLSession);
   
-   UnregisterHotKeys();
-
    /* FIXME - Flush disks and registry, ... */
    
    if(WLSession->LogonStatus == LOGON_SHUTDOWN)
@@ -803,7 +735,7 @@ DoLogin(PWLSESSION Session)
   DWORD WlxAction, Options;
   WLX_MPR_NOTIFY_INFO MprNotifyInfo;
   PWLX_PROFILE_V2_0 Profile;
-  PSID LogonSid = NULL;
+  PSID LogonSid;
   HANDLE Token;
   
   /* FIXME - Create a Logon Sid
@@ -901,8 +833,6 @@ SessionLoop(PWLSESSION Session)
     /* Message loop for the SAS window */
     while(GetMessage(&Msg, 0, 0, 0))
     {
-      if (Msg.message == WM_HOTKEY)
-        HandleHotKey(&Msg);
       TranslateMessage(&Msg);
       DispatchMessage(&Msg);
     }

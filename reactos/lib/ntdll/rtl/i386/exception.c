@@ -1,4 +1,4 @@
-/* $Id: exception.c,v 1.9 2004/06/25 16:39:41 weiden Exp $
+/* $Id: exception.c,v 1.6 2003/09/12 17:51:48 vizzini Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -298,10 +298,6 @@ RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
     pExceptRec->ExceptionRecord = NULL;
     pExceptRec->ExceptionAddress = ReturnAddress;
     pExceptRec->ExceptionInformation[0] = 0;
-  }
-  else
-  {
-    pExceptRec = ExceptionRecord;
   }
 
   if (RegistrationFrame)

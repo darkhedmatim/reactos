@@ -1,4 +1,4 @@
-/* $Id: irp.c,v 1.72 2004/12/26 21:18:34 gvg Exp $
+/* $Id: irp.c,v 1.58 2004/03/04 00:07:00 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -30,7 +30,11 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/ps.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -41,19 +45,6 @@
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-IoForwardIrpSynchronously(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN PIRP Irp
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
 
 /*
  * @implemented
@@ -69,50 +60,9 @@ IoFreeIrp(PIRP Irp)
   ExFreePool(Irp);
 }
 
-/*
- * @unimplemented
- */
-ULONG
-STDCALL
-IoGetRequestorProcessId(
-    IN PIRP Irp
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
 
 /*
  * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoGetRequestorSessionId(
-	IN PIRP Irp,
-	OUT PULONG pSessionId
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-IoIsValidNameGraftingBuffer(
-    IN PIRP Irp,
-    IN PREPARSE_DATA_BUFFER ReparseBuffer
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @implemented
  */
 PIRP STDCALL
 IoMakeAssociatedIrp(PIRP Irp,
@@ -123,27 +73,13 @@ IoMakeAssociatedIrp(PIRP Irp,
  *       Irp = Master irp
  *       StackSize = Number of stack locations to be allocated in the irp
  * RETURNS: The irp allocated
- * NOTE: The caller is responsible for incrementing
- *       Irp->AssociatedIrp.IrpCount.
  */
 {
-   PIRP AssocIrp;
-
-   /* Allocate the IRP */
-   AssocIrp = IoAllocateIrp(StackSize,FALSE);
-   if (AssocIrp == NULL)
-      return NULL;
-
-   /* Set the Flags */
-   AssocIrp->Flags |= IRP_ASSOCIATED_IRP;
-
-   /* Set the Thread */
-   AssocIrp->Tail.Overlay.Thread = Irp->Tail.Overlay.Thread;
-
-   /* Associate them */
-   AssocIrp->AssociatedIrp.MasterIrp = Irp;
- 
-   return AssocIrp;
+  PIRP AssocIrp;
+  
+  AssocIrp = IoAllocateIrp(StackSize,FALSE);
+  UNIMPLEMENTED;
+  return NULL;
 }
 
 
@@ -162,17 +98,14 @@ IoInitializeIrp(PIRP Irp,
  *          StackSize = Number of stack locations in the IRP
  */
 {
-  ASSERT(Irp != NULL);
+  assert(Irp != NULL);
 
-  DPRINT("IoInitializeIrp(StackSize %x, Irp %x)\n",StackSize, Irp);
   memset(Irp, 0, PacketSize);
   Irp->Size = PacketSize;
   Irp->StackCount = StackSize;
   Irp->CurrentLocation = StackSize;
   InitializeListHead(&Irp->ThreadListEntry);
-  Irp->Tail.Overlay.CurrentStackLocation = (PIO_STACK_LOCATION)(Irp + 1) + StackSize;
-  DPRINT("Irp->Tail.Overlay.CurrentStackLocation %x\n", Irp->Tail.Overlay.CurrentStackLocation);
-  Irp->ApcEnvironment =  KeGetCurrentThread()->ApcStateIndex;
+  Irp->Tail.Overlay.CurrentStackLocation = &Irp->Stack[(ULONG)StackSize];
 }
 
 
@@ -188,21 +121,21 @@ IofCallDriver(PDEVICE_OBJECT DeviceObject,
 {
   PDRIVER_OBJECT DriverObject;
   PIO_STACK_LOCATION Param;
-
+  
   DPRINT("IofCallDriver(DeviceObject %x, Irp %x)\n",DeviceObject,Irp);
-
-  ASSERT(Irp);
-  ASSERT(DeviceObject);
+  
+  assert(Irp);
+  assert(DeviceObject);
 
   DriverObject = DeviceObject->DriverObject;
 
-  ASSERT(DriverObject);
+  assert(DriverObject);
 
   IoSetNextIrpStackLocation(Irp);
   Param = IoGetCurrentIrpStackLocation(Irp);
 
   DPRINT("IrpSp 0x%X\n", Param);
-
+  
   Param->DeviceObject = DeviceObject;
 
   DPRINT("MajorFunction %d\n", Param->MajorFunction);
@@ -295,24 +228,21 @@ IofCompleteRequest(PIRP Irp,
 {
    ULONG             i;
    NTSTATUS          Status;
-   PFILE_OBJECT      OriginalFileObject;
    PDEVICE_OBJECT    DeviceObject;
+   PFILE_OBJECT      OriginalFileObject;
    KIRQL             oldIrql;
-   PMDL              Mdl;
-   PIO_STACK_LOCATION Stack = (PIO_STACK_LOCATION)(Irp + 1);
 
    DPRINT("IoCompleteRequest(Irp %x, PriorityBoost %d) Event %x THread %x\n",
       Irp,PriorityBoost, Irp->UserEvent, PsGetCurrentThread());
 
-   ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-   ASSERT(Irp->CancelRoutine == NULL);
-   ASSERT(Irp->IoStatus.Status != STATUS_PENDING);
+   assert(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+   assert(Irp->CancelRoutine == NULL);
+   assert(Irp->IoStatus.Status != STATUS_PENDING);
 
-   Irp->PendingReturned = IoGetCurrentIrpStackLocation(Irp)->Control & SL_PENDING_RETURNED;
-   
-   /*
-    * Run the completion routines.
-    */
+   if (IoGetCurrentIrpStackLocation(Irp)->Control & SL_PENDING_RETURNED)
+   {
+      Irp->PendingReturned = TRUE;
+   }
 
    for (i=Irp->CurrentLocation;i<(ULONG)Irp->StackCount;i++)
    {
@@ -334,14 +264,14 @@ IofCompleteRequest(PIRP Irp,
          DeviceObject = NULL;
       }
 
-      if (Stack[i].CompletionRoutine != NULL &&
-         ((NT_SUCCESS(Irp->IoStatus.Status) && (Stack[i].Control & SL_INVOKE_ON_SUCCESS)) ||
-         (!NT_SUCCESS(Irp->IoStatus.Status) && (Stack[i].Control & SL_INVOKE_ON_ERROR)) ||
-         (Irp->Cancel && (Stack[i].Control & SL_INVOKE_ON_CANCEL))))
+      if (Irp->Stack[i].CompletionRoutine != NULL &&
+         ((NT_SUCCESS(Irp->IoStatus.Status) && (Irp->Stack[i].Control & SL_INVOKE_ON_SUCCESS)) ||
+         (!NT_SUCCESS(Irp->IoStatus.Status) && (Irp->Stack[i].Control & SL_INVOKE_ON_ERROR)) ||
+         (Irp->Cancel && (Irp->Stack[i].Control & SL_INVOKE_ON_CANCEL))))
       {
-         Status = Stack[i].CompletionRoutine(DeviceObject,
+         Status = Irp->Stack[i].CompletionRoutine(DeviceObject,
                                                   Irp,
-                                                  Stack[i].Context);
+                                                  Irp->Stack[i].Context);
 
          if (Status == STATUS_MORE_PROCESSING_REQUIRED)
          {
@@ -355,133 +285,72 @@ IofCompleteRequest(PIRP Irp,
       }
    }
 
-   /* Windows NT File System Internals, page 165 */
-   if (Irp->Flags & IRP_ASSOCIATED_IRP)
-   {
-      ULONG MasterIrpCount;
-      PIRP MasterIrp = Irp->AssociatedIrp.MasterIrp;
-
-      MasterIrpCount = InterlockedDecrement(&MasterIrp->AssociatedIrp.IrpCount);
-      while ((Mdl = Irp->MdlAddress))
-      {
-         Irp->MdlAddress = Mdl->Next;
-         IoFreeMdl(Mdl);
-      }
-      IoFreeIrp(Irp);
-      if (MasterIrpCount == 0)
-      {
-         IofCompleteRequest(MasterIrp, IO_NO_INCREMENT);
-      }
-      return;
-   }
-
-   /*
-    * Were done calling completion routines. Now do any cleanup that can be 
-    * done in an arbitrarily context.
-    */
-
-   /* Windows NT File System Internals, page 165 */
    if (Irp->Flags & (IRP_PAGING_IO|IRP_CLOSE_OPERATION))
-   {
-      /* 
-       * If MDL_IO_PAGE_READ is set, then the caller is responsible 
-       * for deallocating of the mdl. 
-       */
-      if (Irp->Flags & IRP_PAGING_IO &&
-          Irp->MdlAddress &&
-          !(Irp->MdlAddress->MdlFlags & MDL_IO_PAGE_READ))
-      {
-
-         if (Irp->MdlAddress->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA)
+     {
+       if (Irp->Flags & IRP_PAGING_IO)
          {
-            MmUnmapLockedPages(Irp->MdlAddress->MappedSystemVa, Irp->MdlAddress);
-         }
+           /* FIXME:
+            *   The mdl must be freed by the caller! 
+	    */
+           if (Irp->MdlAddress->MappedSystemVa != NULL)
+             {	     
+	       MmUnmapLockedPages(Irp->MdlAddress->MappedSystemVa,
+			          Irp->MdlAddress);
+	     }
+           MmUnlockPages(Irp->MdlAddress);
+           ExFreePool(Irp->MdlAddress);
+	 }
+       if (Irp->UserIosb)
+         {
+           *Irp->UserIosb = Irp->IoStatus;
+	 }
+       if (Irp->UserEvent)
+         {
+           KeSetEvent(Irp->UserEvent, PriorityBoost, FALSE);
+	 }
+       IoFreeIrp(Irp);
+     }
+   else
+     {
+       //Windows NT File System Internals, page 154
+       OriginalFileObject = Irp->Tail.Overlay.OriginalFileObject;
 
-         ExFreePool(Irp->MdlAddress);
-      }
-
-      if (Irp->UserIosb)
-      {
-         *Irp->UserIosb = Irp->IoStatus;
-      }
-
-      if (Irp->UserEvent)
-      {
-         KeSetEvent(Irp->UserEvent, PriorityBoost, FALSE);
-      }
+       if (Irp->PendingReturned || KeGetCurrentIrql() == DISPATCH_LEVEL)
+         {
+           BOOLEAN bStatus;
       
-      /* io manager frees the irp for close operations */
-//      if (Irp->Flags & IRP_PAGING_IO)
-//      {
-         IoFreeIrp(Irp);
-//      }
-      
-      return;
-   }
-   
-   
-   /*
-   Hi Dave,
-   
-    I went through my old notes. You are correct and in most cases
-   IoCompleteRequest() will issue an MmUnlockPages() for each MDL in the IRP
-   chain. There are however few exceptions: one is MDLs for associated IRPs,
-   it's expected that those MDLs have been initialized with
-   IoBuildPartialMdl(). Another exception is PAGING_IO irps, the i/o completion
-   code doesn't do anything to MDLs of those IRPs.
-   
-   sara
-   
-*/
-   
-
-   for (Mdl = Irp->MdlAddress; Mdl; Mdl = Mdl->Next)
-   {
-      /* 
-       * Undo the MmProbeAndLockPages. If MmGetSystemAddressForMdl was called
-       * on this mdl, this mapping (if any) is also undone by MmUnlockPages.
-       */
-      MmUnlockPages(Mdl);
-   }
-    
-   //Windows NT File System Internals, page 154
-   OriginalFileObject = Irp->Tail.Overlay.OriginalFileObject;
-
-   if (Irp->PendingReturned || KeGetCurrentIrql() == DISPATCH_LEVEL)
-   {
-      BOOLEAN bStatus;
-      
-      DPRINT("Dispatching APC\n");
-
-      KeInitializeApc(  &Irp->Tail.Apc,
+           DPRINT("Dispatching APC\n");
+           KeInitializeApc(  &Irp->Tail.Apc,
                              &Irp->Tail.Overlay.Thread->Tcb,
-                             Irp->ApcEnvironment,
+                             OriginalApcEnvironment,
                              IoSecondStageCompletion,//kernel routine
                              NULL,
                              (PKNORMAL_ROUTINE) NULL,
                              KernelMode,
-                             NULL);
+                             OriginalFileObject);
       
-      bStatus = KeInsertQueueApc(&Irp->Tail.Apc,
-                                      (PVOID)OriginalFileObject,
-                                      NULL, // This is used for REPARSE stuff
+           bStatus = KeInsertQueueApc(&Irp->Tail.Apc,
+                                      (PVOID)Irp,
+                                      (PVOID)(ULONG)PriorityBoost,
                                       PriorityBoost);
 
-      if (bStatus == FALSE)
-      {
-         DPRINT1("Error queueing APC for thread. Thread has probably exited.\n");
-      }
+           if (bStatus == FALSE)
+             {
+               DPRINT1("Error queueing APC for thread. Thread has probably exited.\n");
+             }
 
-      DPRINT("Finished dispatching APC\n");
+           DPRINT("Finished dispatching APC\n");
+	 }
+       else
+         {
+           DPRINT("Calling IoSecondStageCompletion routine directly\n");
+           KeRaiseIrql(APC_LEVEL, &oldIrql);
+           IoSecondStageCompletion(NULL,NULL,(PVOID)&OriginalFileObject,(PVOID) &Irp,(PVOID) &PriorityBoost);
+           KeLowerIrql(oldIrql);
+           DPRINT("Finished completition routine\n");
+	 }
    }
-   else
-   {
-      DPRINT("Calling IoSecondStageCompletion routine directly\n");
-      KeRaiseIrql(APC_LEVEL, &oldIrql);
-      IoSecondStageCompletion(&Irp->Tail.Apc,NULL,NULL,(PVOID)&OriginalFileObject, NULL);
-      KeLowerIrql(oldIrql);
-      DPRINT("Finished completition routine\n");
-   }
+
 }
 
 
@@ -556,10 +425,10 @@ IoEnqueueIrp(IN PIRP Irp)
 VOID STDCALL
 IoSetTopLevelIrp(IN PIRP Irp)
 {
-    PETHREAD Thread;
+  PETHREAD Thread;
 
-    Thread = PsGetCurrentThread();
-    Thread->TopLevelIrp = Irp;
+  Thread = PsGetCurrentThread();
+  Thread->TopLevelIrp->TopLevelIrp = Irp;
 }
 
 
@@ -569,7 +438,7 @@ IoSetTopLevelIrp(IN PIRP Irp)
 PIRP STDCALL
 IoGetTopLevelIrp(VOID)
 {
-    return(PsGetCurrentThread()->TopLevelIrp);
+  return(PsGetCurrentThread()->TopLevelIrp->TopLevelIrp);
 }
 
 

@@ -28,7 +28,9 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
+#include "shellbrowserimpl.h"
 
 
 HRESULT IShellBrowserImpl::QueryInterface(REFIID iid, void** ppvObject)
@@ -44,51 +46,12 @@ HRESULT IShellBrowserImpl::QueryInterface(REFIID iid, void** ppvObject)
 		*ppvObject = static_cast<IShellBrowser*>(this);
 	else if (iid == IID_ICommDlgBrowser)
 		*ppvObject = static_cast<ICommDlgBrowser*>(this);
-	else if (iid == IID_IServiceProvider)
-		*ppvObject = static_cast<IServiceProvider*>(this);
 	else {
 		*ppvObject = NULL;
 		return E_NOINTERFACE;
 	}
 
 	return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE IShellBrowserImpl::QueryService(REFGUID guidService, REFIID riid, void** ppvObject)
-{
-	if (!ppvObject)
-		return E_POINTER;
-
-	///@todo use guidService
-
-	if (riid == IID_IUnknown)
-		*ppvObject = (IUnknown*)static_cast<IShellBrowser*>(this);
-	else if (riid == IID_IOleWindow)
-		*ppvObject = static_cast<IOleWindow*>(this);
-	else if (riid == IID_IShellBrowser)
-		*ppvObject = static_cast<IShellBrowser*>(this);
-	else if (riid == IID_ICommDlgBrowser)
-		*ppvObject = static_cast<ICommDlgBrowser*>(this);
-	else if (riid == IID_IServiceProvider)
-		*ppvObject = static_cast<IServiceProvider*>(this);
-	else if (riid == IID_IOleCommandTarget)
-		*ppvObject = static_cast<IOleCommandTarget*>(this);
-	else {
-		*ppvObject = NULL;
-		return E_NOINTERFACE;
-	}
-
-	return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE IShellBrowserImpl::QueryStatus(const GUID* pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT* pCmdText)
-{
-	return E_FAIL;	///@todo implement IOleCommandTarget
-}
-
-HRESULT STDMETHODCALLTYPE IShellBrowserImpl::Exec(const GUID* pguidCmdGroup, DWORD nCmdID, DWORD nCmdexecopt, VARIANT* pvaIn, VARIANT* pvaOut)
-{
-	return E_FAIL;	///@todo implement IOleCommandTarget
 }
 
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: class2.c,v 1.55 2004/08/12 05:59:25 arty Exp $
+/* $Id: class2.c,v 1.52 2004/04/01 17:29:53 jimtabor Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -46,11 +46,6 @@
 
 #define INQUIRY_DATA_SIZE  2048
 #define START_UNIT_TIMEOUT   30
-/*
- * FIXME:
- *   Create a macro, which rounds up a size value to the next multiple of two.
- */
-#define SENSEINFO_ALIGNMENT  32
 
 static NTSTATUS STDCALL
 ScsiClassCreateClose(IN PDEVICE_OBJECT DeviceObject,
@@ -210,7 +205,7 @@ ScsiClassBuildRequest(IN PDEVICE_OBJECT DeviceObject,
   Srb->QueueAction = SRB_SIMPLE_TAG_REQUEST;
   Srb->QueueSortKey = LogicalBlockAddress;
 
-  Srb->SenseInfoBuffer = (SENSE_DATA*)ROUND_UP((ULONG_PTR)(Srb + 1), SENSEINFO_ALIGNMENT);
+  Srb->SenseInfoBuffer = DeviceExtension->SenseData;
   Srb->SenseInfoBufferLength = SENSE_BUFFER_SIZE;
 
   Srb->TimeOutValue =
@@ -563,9 +558,9 @@ ScsiClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 			  Irp));
     }
 
-  /* Allocate and initialize an SRB */
-  Srb = ExAllocateFromNPagedLookasideList(&DeviceExtension->SrbLookasideListHead);
-
+  /* Allocate an SRB */
+  Srb = ExAllocatePool (NonPagedPool,
+			sizeof(SCSI_REQUEST_BLOCK));
   if (Srb == NULL)
     {
       Irp->IoStatus.Information = 0;
@@ -593,9 +588,7 @@ ScsiClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 		DPRINT ("ScsiClassDeviceControl: IOCTL_DISK_CHECK_VERIFY SMALL\n");
 		Irp->IoStatus.Status = STATUS_BUFFER_TOO_SMALL;
 		Irp->IoStatus.Information = 0;
-                /* Free the SRB */
-                ExFreeToNPagedLookasideList(&DeviceExtension->SrbLookasideListHead,
-			                    Srb);
+		ExFreePool (Srb);
 		IoCompleteRequest (Irp,
 				   IO_NO_INCREMENT);
 		return STATUS_BUFFER_TOO_SMALL;
@@ -606,12 +599,10 @@ ScsiClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 				    FALSE);
 	    if (SubIrp == NULL)
 	      {
-	        DPRINT ("ScsiClassDeviceControl: IOCTL_DISK_CHECK_VERIFY NotEnuf\n");
+	      DPRINT ("ScsiClassDeviceControl: IOCTL_DISK_CHECK_VERIFY NotEnuf\n");
 		Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
 		Irp->IoStatus.Information = 0;
-                /* Free the SRB */
-                ExFreeToNPagedLookasideList(&DeviceExtension->SrbLookasideListHead,
-			                    Srb);
+		ExFreePool (Srb);
 		IoCompleteRequest (Irp,
 				   IO_NO_INCREMENT);
 		return STATUS_INSUFFICIENT_RESOURCES;
@@ -659,9 +650,8 @@ DPRINT ("ScsiClassDeviceControl: IOCTL_DISK_CHECK_VERIFY SrbAsync\n");
       default:
 	DPRINT("Unknown device io control code %lx\n",
 		ModifiedControlCode);
-        /* Free the SRB */
-        ExFreeToNPagedLookasideList(&DeviceExtension->SrbLookasideListHead,
-			            Srb);
+	ExFreePool(Srb);
+
 	/* Pass the IOCTL down to the port driver */
 	NextStack = IoGetNextIrpStackLocation(Irp);
 	NextStack->Parameters = Stack->Parameters;
@@ -1003,7 +993,7 @@ ScsiClassInitializeSrbLookasideList(IN PDEVICE_EXTENSION DeviceExtension,
 				  NULL,
 				  NULL,
 				  NonPagedPool,
-				  sizeof(SCSI_REQUEST_BLOCK) + sizeof(SENSE_DATA) + SENSEINFO_ALIGNMENT - 1,
+				  sizeof(SCSI_REQUEST_BLOCK),
 				  TAG_SRBT,
 				  (USHORT)NumberElements);
 }
@@ -1390,9 +1380,9 @@ ScsiClassIoComplete(IN PDEVICE_OBJECT DeviceObject,
 
       /* Retry the request */
       if ((Retry) &&
-	  ((ULONG_PTR)IrpStack->Parameters.Others.Argument4 > 0))
+	  ((ULONG)IrpStack->Parameters.Others.Argument4 > 0))
 	{
-	  IrpStack->Parameters.Others.Argument4 = (PVOID) ((ULONG_PTR)IrpStack->Parameters.Others.Argument4 - 1);
+	  ((ULONG)IrpStack->Parameters.Others.Argument4)--;
 
 	  ScsiClassRetryRequest(DeviceObject,
 				Irp,
@@ -1512,9 +1502,9 @@ ScsiClassIoCompleteAssociated(IN PDEVICE_OBJECT DeviceObject,
 
       /* Retry the request */
       if ((Retry) &&
-	  ((ULONG_PTR)IrpStack->Parameters.Others.Argument4 > 0))
+	  ((ULONG)IrpStack->Parameters.Others.Argument4 > 0))
 	{
-	  IrpStack->Parameters.Others.Argument4 = (PVOID) ((ULONG_PTR)IrpStack->Parameters.Others.Argument4 - 1);
+	  ((ULONG)IrpStack->Parameters.Others.Argument4)--;
 
 	  ScsiClassRetryRequest(DeviceObject,
 				Irp,
@@ -1730,7 +1720,7 @@ ScsiClassReadDriveCapacity(IN PDEVICE_OBJECT DeviceObject)
 
   DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
-  CapacityBuffer = ExAllocatePool(NonPagedPoolCacheAligned,
+  CapacityBuffer = ExAllocatePool(NonPagedPool,
 				  sizeof(READ_CAPACITY_DATA));
   if (CapacityBuffer == NULL)
     {
@@ -1887,7 +1877,6 @@ ScsiClassReleaseQueue(IN PDEVICE_OBJECT DeviceObject)
 			  NULL);
 
   /* Attach SRB to the IRP */
-  Irp->Tail.Overlay.Thread = PsGetCurrentThread();
   Stack = IoGetNextIrpStackLocation(Irp);
   Stack->MajorFunction = IRP_MJ_SCSI;
   Stack->Parameters.Scsi.Srb = Srb;
@@ -1936,7 +1925,7 @@ ScsiClassSendSrbAsynchronous(PDEVICE_OBJECT DeviceObject,
   Srb->Function = SRB_FUNCTION_EXECUTE_SCSI;
   Srb->Cdb[1] |= DeviceExtension->Lun << 5;
 
-  Srb->SenseInfoBuffer = (SENSE_DATA*)ROUND_UP((ULONG_PTR)(Srb + 1), SENSEINFO_ALIGNMENT);
+  Srb->SenseInfoBuffer = DeviceExtension->SenseData;
   Srb->SenseInfoBufferLength = SENSE_BUFFER_SIZE;
 
   Srb->DataBuffer = BufferAddress;
@@ -2013,7 +2002,7 @@ ScsiClassSendSrbSynchronous(PDEVICE_OBJECT DeviceObject,
   ULONG RequestType;
   BOOLEAN Retry;
   ULONG RetryCount;
-  KEVENT Event;
+  PKEVENT Event;
   PIRP Irp;
   NTSTATUS Status;
   LARGE_INTEGER RetryWait;
@@ -2055,11 +2044,13 @@ ScsiClassSendSrbSynchronous(PDEVICE_OBJECT DeviceObject,
 	}
     }
 
+  Srb->DataTransferLength = BufferLength;
   Srb->DataBuffer = BufferAddress;
 
+  Event = ExAllocatePool(NonPagedPool,
+			 sizeof(KEVENT));
 TryAgain:
-  Srb->DataTransferLength = BufferLength;
-  KeInitializeEvent(&Event,
+  KeInitializeEvent(Event,
 		    NotificationEvent,
 		    FALSE);
 
@@ -2070,14 +2061,13 @@ TryAgain:
 				      BufferAddress,
 				      BufferLength,
 				      TRUE,
-				      &Event,
+				      Event,
 				      &IoStatusBlock);
   if (Irp == NULL)
     {
       DPRINT("IoBuildDeviceIoControlRequest() failed\n");
       ExFreePool(Srb->SenseInfoBuffer);
-      Srb->SenseInfoBuffer = NULL;
-      Srb->SenseInfoBufferLength = 0;
+      ExFreePool(Event);
       return(STATUS_INSUFFICIENT_RESOURCES);
     }
 
@@ -2091,7 +2081,7 @@ TryAgain:
 			Irp);
   if (Status == STATUS_PENDING)
     {
-      KeWaitForSingleObject(&Event,
+      KeWaitForSingleObject(Event,
 			    Suspended,
 			    KernelMode,
 			    FALSE,
@@ -2133,6 +2123,7 @@ TryAgain:
     }
 
   ExFreePool(Srb->SenseInfoBuffer);
+  ExFreePool(Event);
 
   DPRINT("ScsiClassSendSrbSynchronous() done\n");
 
@@ -2202,7 +2193,6 @@ ScsiClassSplitRequest(IN PDEVICE_OBJECT DeviceObject,
 
       /* Initialize the new IRP */
       NewIrp->MdlAddress = Irp->MdlAddress;
-      NewIrp->Tail.Overlay.Thread = PsGetCurrentThread();
 
       IoSetNextIrpStackLocation(NewIrp);
       NewStack = IoGetCurrentIrpStackLocation(NewIrp);

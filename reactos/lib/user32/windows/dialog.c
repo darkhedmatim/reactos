@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dialog.c,v 1.28 2004/11/22 10:59:01 gvg Exp $
+/* $Id: dialog.c,v 1.24 2004/01/23 23:38:26 ekohl Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/dialog.c
@@ -30,17 +30,18 @@
  */
 
 /* INCLUDES ******************************************************************/
-
-#include "user32.h"
+#define __NTAPP__
+#include <windows.h>
 #include <string.h>
+#include <user32.h>
+#include <ntos/rtl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
-#include <limits.h>
 #include <debug.h>
 
 #include "user32/regcontrol.h"
 #include "../controls/controls.h"
+
 
 /* MACROS/DEFINITIONS ********************************************************/
 
@@ -131,7 +132,7 @@ typedef struct
 const struct builtin_class_descr DIALOG_builtin_class =
 {
     DIALOG_CLASS_ATOMW, /* name */
-    CS_SAVEBITS | CS_DBLCLKS, /* style  */
+    CS_GLOBALCLASS | CS_SAVEBITS | CS_DBLCLKS, /* style  */
     (WNDPROC) DefDlgProcW,        /* procW */
     (WNDPROC) DefDlgProcA,        /* procA */
     DWL_INIT + sizeof(LONG),  /* extra */
@@ -816,14 +817,32 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
     
     if (DIALOG_CreateControls32( hwnd, dlgTemplate, &template, hInst, unicode ))
     {
+        HWND hwndPreInitFocus;
+
         /* Send initialisation messages and set focus */
 
-        if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ))
+       dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE );
+
+        hwndPreInitFocus = GetFocus();
+        if (SendMessageA( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ))
         {
-            /* By returning TRUE, app has requested a default focus assignment */
+            /* check where the focus is again,
+             * some controls status might have changed in WM_INITDIALOG */
             dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
             if( dlgInfo->hwndFocus )
                 SetFocus( dlgInfo->hwndFocus );
+        }
+        else
+        {
+            /* If the dlgproc has returned FALSE (indicating handling of keyboard focus)
+               but the focus has not changed, set the focus where we expect it. */
+            if ((GetFocus() == hwndPreInitFocus) &&
+                (GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
+            {
+                dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
+                if( dlgInfo->hwndFocus )
+                    SetFocus( dlgInfo->hwndFocus );
+            }
         }
 
         if (template.style & WS_VISIBLE && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
@@ -1240,7 +1259,7 @@ inline static LPSTR HEAP_strdupWtoA( HANDLE heap, DWORD flags, LPCWSTR str )
 
     if (!str) return NULL;
     len = WideCharToMultiByte( CP_ACP, 0, str, -1, NULL, 0, NULL, NULL );
-    ret = RtlAllocateHeap(GetProcessHeap(), flags, len );
+    ret = RtlAllocateHeap(RtlGetProcessHeap(), flags, len );
     if(ret) WideCharToMultiByte( CP_ACP, 0, str, -1, ret, len, NULL, NULL );
     return ret;
 }

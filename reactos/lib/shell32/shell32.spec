@@ -52,7 +52,7 @@
   56 stdcall PathUnquoteSpaces(str) PathUnquoteSpacesAW
   57 stdcall PathGetDriveNumber (str) PathGetDriveNumberAW
   58 stdcall ParseField(str long ptr long) ParseFieldAW
-  59 stdcall RestartDialog(long wstr long)
+  59 stdcall RestartDialog(long long long)
   60 stdcall ExitWindowsDialog(long)
   61 stdcall RunFileDlg(long long long str str long)
   62 stdcall PickIconDlg(long long long long)
@@ -83,8 +83,8 @@
   87 stdcall SHRevokeDragDrop(long)
   88 stdcall SHDoDragDrop(long ptr ptr long ptr)
   89 stdcall SHCloneSpecialIDList(long long long)
-  90 stdcall SHFindFiles(ptr ptr)
-  91 stub SHFindComputer
+#  90 stub SHFindFiles
+#  91 stub SHFindComputer
   92 stdcall PathGetShortPath (ptr) PathGetShortPathAW
   93 stdcall Win32CreateDirectory(wstr ptr) Win32CreateDirectoryAW
   94 stdcall Win32RemoveDirectory(wstr) Win32RemoveDirectoryAW
@@ -162,7 +162,7 @@
  168 stdcall SHCreatePropSheetExtArray(long str long)
  169 stdcall SHDestroyPropSheetExtArray(long)
  170 stdcall SHReplaceFromPropSheetExtArray(long long long long)
- 171 stdcall PathCleanupSpec(ptr ptr)
+ 171 stdcall PathCleanupSpec(ptr ptr) PathCleanupSpecAW
  172 stdcall SHCreateLinks(long str ptr long ptr)
  173 stdcall SHValidateUNC(long long long)
  174 stdcall SHCreateShellFolderViewEx (ptr ptr)
@@ -179,13 +179,9 @@
  185 stub SHHandleDiskFull
  186 stdcall ILGetDisplayNameEx(ptr ptr ptr long)
  187 stub ILGetPseudoNameW
- 188 stdcall ShellDDEInit(long)
+ 188 stub ShellDDEInit
  189 stdcall ILCreateFromPathA(str)
  190 stdcall ILCreateFromPathW(wstr)
- 191 stub SHUpdateImageA
- 192 stdcall SHUpdateImageW(wstr long long long)
- 193 stub SHHandleUpdateImage
- 194 stub SHCreatePropSheetExtArrayEx
  195 stdcall SHFree(ptr)
  196 stdcall SHAlloc(long)
  197 stub SHGlobalDefect
@@ -282,11 +278,11 @@
  511 stdcall SHRegQueryValueExW (long wstr ptr ptr ptr ptr)
  512 stdcall SHRegDeleteKeyW (long wstr)
 
- 520 stdcall -noname SHAllocShared (ptr long long)
- 521 stdcall -noname SHLockShared (long long)
- 522 stdcall -noname SHUnlockShared (ptr)
- 523 stdcall -noname SHFreeShared (long long)
- 524 stdcall RealDriveType (long long)
+ 520 stdcall SHAllocShared (long long long)
+ 521 stdcall SHLockShared (long long)
+ 522 stdcall SHUnlockShared (long)
+ 523 stdcall SHFreeShared (long long)
+ 524 stub RealDriveType
  525 stub RealDriveTypeFlags
 
  640 stdcall NTSHChangeNotifyRegister (long long long long long long)
@@ -313,7 +309,8 @@
 
 # >= NT5
  714 stdcall @(ptr)SHELL32_714 # PathIsTemporaryW
- 730 stdcall RestartDialogEx(long wstr long long)
+
+ 730 stdcall RestartDialogEx(long long long long)
 
 1217 stub FOOBAR1217   # no joke! This is the real name!!
 
@@ -382,7 +379,7 @@
 @ stdcall SHFileOperationA(ptr)
 @ stdcall SHFileOperationW(ptr)
 @ stub SHFormatDrive
-@ stdcall SHFreeNameMappings(ptr)
+@ stub SHFreeNameMappings
 @ stdcall SHGetDesktopFolder(ptr)
 @ stdcall SHGetFileInfo(ptr long ptr long long)SHGetFileInfoAW
 @ stdcall SHGetFileInfoA(ptr long ptr long long)

@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 /* UpdateDriverForPlugAndPlayDevices.InstallFlags constants */
 #define INSTALLFLAG_FORCE                 0x00000001
 #define INSTALLFLAG_READONLY              0x00000002
@@ -58,6 +60,8 @@ UpdateDriverForPlugAndPlayDevicesW(
 #else
 #define UpdateDriverForPlugAndPlayDevices UpdateDriverForPlugAndPlayDevicesA
 #endif /* UNICODE */
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

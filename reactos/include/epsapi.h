@@ -1,4 +1,4 @@
-/* $Id: epsapi.h,v 1.6 2004/11/08 00:37:19 weiden Exp $
+/* $Id: epsapi.h,v 1.4 2004/03/21 12:34:02 gvg Exp $
 */
 /*
  * epsapi.h
@@ -22,8 +22,8 @@
  *
  */
 
-#ifndef __EPSAPI_H_INCLUDED__
-#define __EPSAPI_H_INCLUDED__
+#ifndef __INTERNAL_PSAPI_H_INCLUDED__
+#define __INTERNAL_PSAPI_H_INCLUDED__
 
 /* INCLUDES */
 #define NTOS_MODE_USER
@@ -32,18 +32,30 @@
 /* OBJECTS */
 
 /* TYPES */
-typedef NTSTATUS (NTAPI *PPROC_ENUM_ROUTINE)(IN PSYSTEM_PROCESSES CurrentProcess,
-                                             IN OUT PVOID CallbackContext);
+typedef NTSTATUS (NTAPI *PPROC_ENUM_ROUTINE)
+(
+ IN PSYSTEM_PROCESSES CurrentProcess,
+ IN OUT PVOID CallbackContext
+);
 
-typedef NTSTATUS (NTAPI *PTHREAD_ENUM_ROUTINE)(IN PSYSTEM_THREADS CurrentThread,
-                                               IN OUT PVOID CallbackContext);
+typedef NTSTATUS (NTAPI *PTHREAD_ENUM_ROUTINE)
+(
+ IN PSYSTEM_THREADS CurrentThread,
+ IN OUT PVOID CallbackContext
+);
 
-typedef NTSTATUS (NTAPI *PSYSMOD_ENUM_ROUTINE)(IN PSYSTEM_MODULE_INFORMATION_ENTRY CurrentModule,
-                                               IN OUT PVOID CallbackContext);
+typedef NTSTATUS (NTAPI *PSYSMOD_ENUM_ROUTINE)
+(
+ IN PSYSTEM_MODULE_INFORMATION_ENTRY CurrentModule,
+ IN OUT PVOID CallbackContext
+);
 
-typedef NTSTATUS (NTAPI *PPROCMOD_ENUM_ROUTINE)(IN HANDLE ProcessHandle,
-                                                IN PLDR_MODULE CurrentModule,
-                                                IN OUT PVOID CallbackContext);
+typedef NTSTATUS (NTAPI *PPROCMOD_ENUM_ROUTINE)
+(
+ IN HANDLE ProcessHandle,
+ IN PLDR_MODULE CurrentModule,
+ IN OUT PVOID CallbackContext
+);
 
 /* CONSTANTS */
 #define FAILED_WITH_STATUS DEFINE_DBG_MSG("%s() failed, status 0x%08X")
@@ -51,85 +63,157 @@ typedef NTSTATUS (NTAPI *PPROCMOD_ENUM_ROUTINE)(IN HANDLE ProcessHandle,
 /* PROTOTYPES */
 /* Processes and threads */
 /* enumeration */
-NTSTATUS NTAPI
-PsaEnumerateProcessesAndThreads(IN PPROC_ENUM_ROUTINE ProcessCallback,
-                                IN OUT PVOID ProcessCallbackContext,
-                                IN PTHREAD_ENUM_ROUTINE ThreadCallback,
-                                IN OUT PVOID ThreadCallbackContext);
+NTSTATUS
+NTAPI
+PsaEnumerateProcessesAndThreads
+(
+ IN PPROC_ENUM_ROUTINE ProcessCallback,
+ IN OUT PVOID ProcessCallbackContext,
+ IN PTHREAD_ENUM_ROUTINE ThreadCallback,
+ IN OUT PVOID ThreadCallbackContext
+);
 
-NTSTATUS NTAPI
-PsaEnumerateProcesses(IN PPROC_ENUM_ROUTINE Callback,
-                      IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaEnumerateProcesses
+(
+ IN PPROC_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
-NTSTATUS NTAPI
-PsaEnumerateThreads(IN PTHREAD_ENUM_ROUTINE Callback,
-                    IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaEnumerateThreads
+(
+ IN PTHREAD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
 /* capturing & walking */
-NTSTATUS NTAPI
-PsaCaptureProcessesAndThreads(OUT PSYSTEM_PROCESSES * ProcessesAndThreads);
+NTSTATUS
+NTAPI
+PsaCaptureProcessesAndThreads
+(
+ OUT PSYSTEM_PROCESSES * ProcessesAndThreads
+);
 
-NTSTATUS NTAPI
-PsaWalkProcessesAndThreads(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-                           IN PPROC_ENUM_ROUTINE ProcessCallback,
-                           IN OUT PVOID ProcessCallbackContext,
-                           IN PTHREAD_ENUM_ROUTINE ThreadCallback,
-                           IN OUT PVOID ThreadCallbackContext);
+NTSTATUS
+NTAPI
+PsaWalkProcessesAndThreads
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PPROC_ENUM_ROUTINE ProcessCallback,
+ IN OUT PVOID ProcessCallbackContext,
+ IN PTHREAD_ENUM_ROUTINE ThreadCallback,
+ IN OUT PVOID ThreadCallbackContext
+);
 
-NTSTATUS NTAPI
-PsaWalkProcesses(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-                 IN PPROC_ENUM_ROUTINE Callback,
-                 IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaWalkProcesses
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PPROC_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
-NTSTATUS NTAPI
-PsaWalkThreads(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-               IN PTHREAD_ENUM_ROUTINE Callback,
-               IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaWalkThreads
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PTHREAD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
-PSYSTEM_PROCESSES FASTCALL
-PsaWalkFirstProcess(IN PSYSTEM_PROCESSES ProcessesAndThreads);
+PSYSTEM_PROCESSES
+FASTCALL
+PsaWalkFirstProcess
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads
+);
 
-PSYSTEM_PROCESSES FASTCALL
-PsaWalkNextProcess(IN PSYSTEM_PROCESSES CurrentProcess);
+PSYSTEM_PROCESSES
+FASTCALL
+PsaWalkNextProcess
+(
+ IN PSYSTEM_PROCESSES CurrentProcess
+);
 
-PSYSTEM_THREADS FASTCALL
-PsaWalkFirstThread(IN PSYSTEM_PROCESSES CurrentProcess);
+PSYSTEM_THREADS
+FASTCALL
+PsaWalkFirstThread
+(
+ IN PSYSTEM_PROCESSES CurrentProcess
+);
 
-PSYSTEM_THREADS FASTCALL
-PsaWalkNextThread(IN PSYSTEM_THREADS CurrentThread);
+PSYSTEM_THREADS
+FASTCALL
+PsaWalkNextThread
+(
+ IN PSYSTEM_THREADS CurrentThread
+);
 
 /* System modules */
 /* enumeration */
-NTSTATUS NTAPI
-PsaEnumerateSystemModules(IN PSYSMOD_ENUM_ROUTINE Callback,
-                          IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaEnumerateSystemModules
+(
+ IN PSYSMOD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
 /* capturing & walking */
-NTSTATUS NTAPI
-PsaCaptureSystemModules(OUT PSYSTEM_MODULE_INFORMATION * SystemModules);
+NTSTATUS
+NTAPI
+PsaCaptureSystemModules
+(
+ OUT PSYSTEM_MODULE_INFORMATION * SystemModules
+);
 
-NTSTATUS NTAPI
-PsaWalkSystemModules(IN PSYSTEM_MODULE_INFORMATION SystemModules,
-                     IN PSYSMOD_ENUM_ROUTINE Callback,
-                     IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaWalkSystemModules
+(
+ IN PSYSTEM_MODULE_INFORMATION SystemModules,
+ IN PSYSMOD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
-PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
-PsaWalkFirstSystemModule(IN PSYSTEM_MODULE_INFORMATION SystemModules);
+PSYSTEM_MODULE_INFORMATION_ENTRY
+FASTCALL
+PsaWalkFirstSystemModule
+(
+ IN PSYSTEM_MODULE_INFORMATION SystemModules
+);
 
-PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
-PsaWalkNextSystemModule(IN PSYSTEM_MODULE_INFORMATION CurrentSystemModule);
+PSYSTEM_MODULE_INFORMATION_ENTRY
+FASTCALL
+PsaWalkNextSystemModule
+(
+ IN PSYSTEM_MODULE_INFORMATION CurrentSystemModule
+);
 
 /* Process modules */
-NTSTATUS NTAPI
-PsaEnumerateProcessModules(IN HANDLE ProcessHandle,
-                           IN PPROCMOD_ENUM_ROUTINE Callback,
-                           IN OUT PVOID CallbackContext);
+NTSTATUS
+NTAPI
+PsaEnumerateProcessModules
+(
+ IN HANDLE ProcessHandle,
+ IN PPROCMOD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+);
 
 /* Miscellaneous */
-VOID NTAPI
-PsaFreeCapture(IN PVOID Capture);
+VOID
+NTAPI
+PsaFreeCapture
+(
+ IN PVOID Capture
+);
 
-/* The user must define these functions. They are called by PSAPI to allocate
+/* The user must define these functions. They are called by PSAPI to allocate 
    memory. This allows PSAPI to be called from any environment */
 void *PsaiMalloc(SIZE_T size);
 void *PsaiRealloc(void *ptr, SIZE_T size);
@@ -138,4 +222,6 @@ void PsaiFree(void *ptr);
 /* MACROS */
 #define DEFINE_DBG_MSG(__str__) "PSAPI: " __str__ "\n"
 
-#endif /* __EPSAPI_H_INCLUDED__ */
+#endif /* __INTERNAL_PSAPI_H_INCLUDED__ */
+
+/* EOF */

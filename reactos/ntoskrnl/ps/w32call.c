@@ -1,4 +1,4 @@
-/* $Id: w32call.c,v 1.21 2004/11/28 18:14:02 blight Exp $
+/* $Id: w32call.c,v 1.12 2004/02/29 11:51:49 hbirr Exp $
  *
  * COPYRIGHT:              See COPYING in the top level directory
  * PROJECT:                ReactOS kernel
@@ -20,23 +20,23 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ob.h>
+#include <internal/pool.h>
+#include <ntos/minmax.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-#if defined(__GNUC__)
-void * alloca(size_t size);
-#elif defined(_MSC_VER)
-void* _alloca(size_t size);
-#else
-#error Unknown compiler for alloca intrinsic stack allocation "function"
-#endif
 
 /* TYPES *******************************************************************/
 
 typedef struct _NTW32CALL_SAVED_STATE
 {
-  ULONG_PTR SavedStackLimit;
+  ULONG SavedStackLimit;
   PVOID SavedStackBase;
   PVOID SavedInitialStack;
   PVOID CallerResult;
@@ -44,7 +44,6 @@ typedef struct _NTW32CALL_SAVED_STATE
   PNTSTATUS CallbackStatus;
   PKTRAP_FRAME SavedTrapFrame;
   PVOID SavedCallbackStack;
-  PVOID SavedExceptionStack;
 } NTW32CALL_SAVED_STATE, *PNTW32CALL_SAVED_STATE;
 
 typedef struct
@@ -77,12 +76,11 @@ NtCallbackReturn (PVOID		Result,
   PVOID* CallerResult;
   PVOID InitialStack;
   PVOID StackBase;
-  ULONG_PTR StackLimit;
+  ULONG StackLimit;
   KIRQL oldIrql;
   PNTW32CALL_SAVED_STATE State;
   PKTRAP_FRAME SavedTrapFrame;
   PVOID SavedCallbackStack;
-  PVOID SavedExceptionStack;
 
   Thread = PsGetCurrentThread();
   if (Thread->Tcb.CallbackStack == NULL)
@@ -104,8 +102,7 @@ NtCallbackReturn (PVOID		Result,
   StackLimit = State->SavedStackLimit;
   SavedTrapFrame = State->SavedTrapFrame;
   SavedCallbackStack = State->SavedCallbackStack;
-  SavedExceptionStack = State->SavedExceptionStack;
-
+  
   /*
    * Copy the callback status and the callback result to NtW32Call
    */
@@ -127,19 +124,12 @@ NtCallbackReturn (PVOID		Result,
    * Restore the old stack.
    */
   KeRaiseIrql(HIGH_LEVEL, &oldIrql);
-  if ((Thread->Tcb.NpxState & NPX_STATE_VALID) &&
-      ETHREAD_TO_KTHREAD(Thread) != KeGetCurrentKPCR()->PrcbData.NpxThread)
-    {
-      memcpy((char*)InitialStack - sizeof(FX_SAVE_AREA),
-             (char*)Thread->Tcb.InitialStack - sizeof(FX_SAVE_AREA),
-             sizeof(FX_SAVE_AREA));
-    }
   Thread->Tcb.InitialStack = InitialStack;
   Thread->Tcb.StackBase = StackBase;
   Thread->Tcb.StackLimit = StackLimit;
   Thread->Tcb.TrapFrame = SavedTrapFrame;
   Thread->Tcb.CallbackStack = SavedCallbackStack;
-  KeGetCurrentKPCR()->TSS->Esp0 = (ULONG)SavedExceptionStack;
+  KeGetCurrentKPCR()->TSS->Esp0 = (ULONG)Thread->Tcb.InitialStack;
   KeStackSwitchAndRet((PVOID)(OldStack + 1));
 
   /* Should never return. */
@@ -149,13 +139,13 @@ NtCallbackReturn (PVOID		Result,
 
 VOID STATIC
 PsFreeCallbackStackPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address, 
-			PFN_TYPE Page, SWAPENTRY SwapEntry, 
+			PHYSICAL_ADDRESS PhysAddr, SWAPENTRY SwapEntry, 
 			BOOLEAN Dirty)
 {
-  ASSERT(SwapEntry == 0);
-  if (Page != 0)
+  assert(SwapEntry == 0);
+  if (PhysAddr.QuadPart  != 0)
     {
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Page);
+      MmReleasePageMemoryConsumer(MC_NPPOOL, PhysAddr);
     }
 }
 
@@ -193,10 +183,8 @@ PsAllocateCallbackStack(ULONG StackSize)
   PVOID KernelStack = NULL;
   NTSTATUS Status;
   PMEMORY_AREA StackArea;
-  ULONG i, j;
+  ULONG i;
   PHYSICAL_ADDRESS BoundaryAddressMultiple;
-  PPFN_TYPE Pages = alloca(sizeof(PFN_TYPE) * (StackSize /PAGE_SIZE));
-
 
   BoundaryAddressMultiple.QuadPart = 0;
   StackSize = PAGE_ROUND_UP(StackSize);
@@ -219,28 +207,17 @@ PsAllocateCallbackStack(ULONG StackSize)
     }
   for (i = 0; i < (StackSize / PAGE_SIZE); i++)
     {
-      Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Pages[i]);
+      PHYSICAL_ADDRESS Page;
+      Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Page);
       if (!NT_SUCCESS(Status))
 	{
-	  for (j = 0; j < i; j++)
-	  {
-	    MmReleasePageMemoryConsumer(MC_NPPOOL, Pages[j]);
-	  }
 	  return(NULL);
 	}
-    }
-  Status = MmCreateVirtualMapping(NULL,
-				  KernelStack,
-				  PAGE_READWRITE,
-				  Pages,
-				  StackSize / PAGE_SIZE);
-  if (!NT_SUCCESS(Status))
-    {
-      for (i = 0; i < (StackSize / PAGE_SIZE); i++)
-        {
-	  MmReleasePageMemoryConsumer(MC_NPPOOL, Pages[i]);
-	}
-      return(NULL);
+      Status = MmCreateVirtualMapping(NULL,
+				      (char*)KernelStack + (i * PAGE_SIZE),
+				      PAGE_EXECUTE_READWRITE,
+				      Page,
+				      TRUE);
     }
   return(KernelStack);
 }
@@ -254,7 +231,7 @@ NtW32Call (IN ULONG RoutineIndex,
 {
   PETHREAD Thread;
   PVOID NewStack;
-  ULONG_PTR StackSize;
+  ULONG StackSize;
   PKTRAP_FRAME NewFrame;
   PULONG UserEsp;
   KIRQL oldIrql;
@@ -268,7 +245,7 @@ NtW32Call (IN ULONG RoutineIndex,
   Thread = PsGetCurrentThread();
 
   /* Set up the new kernel and user environment. */
-  StackSize = (ULONG_PTR)Thread->Tcb.StackBase - Thread->Tcb.StackLimit;
+  StackSize = (ULONG)((char*)Thread->Tcb.StackBase - Thread->Tcb.StackLimit);
   KeAcquireSpinLock(&CallbackStackListLock, &oldIrql);
   if (IsListEmpty(&CallbackStackListHead))
     {
@@ -284,16 +261,15 @@ NtW32Call (IN ULONG RoutineIndex,
 
       StackEntry = RemoveHeadList(&CallbackStackListHead);
       KeReleaseSpinLock(&CallbackStackListLock, oldIrql);
-      AssignedStack = CONTAINING_RECORD(StackEntry, NTW32CALL_CALLBACK_STACK,
+      AssignedStack = CONTAINING_RECORD(StackEntry, NTW32CALL_CALLBACK_STACK, 
 					ListEntry);
       NewStack = AssignedStack->BaseAddress;
-      memset(NewStack, 0, StackSize);
     }
   /* FIXME: Need to check whether we were interrupted from v86 mode. */
-  memcpy((char*)NewStack + StackSize - sizeof(KTRAP_FRAME) - sizeof(FX_SAVE_AREA),
-         Thread->Tcb.TrapFrame, sizeof(KTRAP_FRAME) - (4 * sizeof(DWORD)));
-  NewFrame = (PKTRAP_FRAME)((char*)NewStack + StackSize - sizeof(KTRAP_FRAME) - sizeof(FX_SAVE_AREA));
-  NewFrame->Esp -= (ArgumentLength + (4 * sizeof(ULONG)));
+  memcpy((char*)NewStack + StackSize - sizeof(KTRAP_FRAME), Thread->Tcb.TrapFrame,
+	 sizeof(KTRAP_FRAME) - (4 * sizeof(DWORD)));
+  NewFrame = (PKTRAP_FRAME)((char*)NewStack + StackSize - sizeof(KTRAP_FRAME));
+  NewFrame->Esp -= (ArgumentLength + (4 * sizeof(ULONG))); 
   NewFrame->Eip = (ULONG)LdrpGetSystemDllCallbackDispatcher();
   UserEsp = (PULONG)NewFrame->Esp;
   UserEsp[0] = 0;     /* Return address. */
@@ -312,18 +288,10 @@ NtW32Call (IN ULONG RoutineIndex,
   SavedState.CallbackStatus = &CallbackStatus;
   SavedState.SavedTrapFrame = Thread->Tcb.TrapFrame;
   SavedState.SavedCallbackStack = Thread->Tcb.CallbackStack;
-  SavedState.SavedExceptionStack = (PVOID)KeGetCurrentKPCR()->TSS->Esp0;
-  if ((Thread->Tcb.NpxState & NPX_STATE_VALID) &&
-      ETHREAD_TO_KTHREAD(Thread) != KeGetCurrentKPCR()->PrcbData.NpxThread)
-    {
-      memcpy((char*)NewStack + StackSize - sizeof(FX_SAVE_AREA),
-             (char*)SavedState.SavedInitialStack - sizeof(FX_SAVE_AREA),
-             sizeof(FX_SAVE_AREA));
-    }
   Thread->Tcb.InitialStack = Thread->Tcb.StackBase = (char*)NewStack + StackSize;
   Thread->Tcb.StackLimit = (ULONG)NewStack;
-  Thread->Tcb.KernelStack = (char*)NewStack + StackSize - sizeof(KTRAP_FRAME) - sizeof(FX_SAVE_AREA);
-  KeGetCurrentKPCR()->TSS->Esp0 = (ULONG)Thread->Tcb.InitialStack - sizeof(FX_SAVE_AREA);
+  Thread->Tcb.KernelStack = (char*)NewStack + StackSize - sizeof(KTRAP_FRAME);
+  KeGetCurrentKPCR()->TSS->Esp0 = (ULONG)Thread->Tcb.InitialStack;
   KePushAndStackSwitchAndSysRet((ULONG)&SavedState, Thread->Tcb.KernelStack);
 
   /* 

@@ -29,12 +29,13 @@ typedef struct IPDATAGRAM_HOLE {
 typedef struct IPDATAGRAM_REASSEMBLY {
     LIST_ENTRY ListEntry;        /* Entry on list */
     KSPIN_LOCK Lock;             /* Protecting spin lock */
+    ULONG RefCount;              /* Reference count for this object */
     UINT DataSize;               /* Size of datagram data area */
     IP_ADDRESS SrcAddr;          /* Source address */
     IP_ADDRESS DstAddr;          /* Destination address */
     UCHAR Protocol;              /* Internet Protocol number */
     USHORT Id;                   /* Identification number */
-    IP_HEADER IPv4Header;        /* Pointer to IP header */
+    PIPv4_HEADER IPv4Header;     /* Pointer to IP header */
     UINT HeaderSize;             /* Length of IP header */
     LIST_ENTRY FragmentListHead; /* IP fragment list */
     LIST_ENTRY HoleListHead;     /* IP datagram hole list */
@@ -55,7 +56,7 @@ VOID IPDatagramReassemblyTimeout(
     VOID);
 
 VOID IPReceive(
-    PIP_INTERFACE IF,
+    PVOID Context,
     PIP_PACKET IPPacket);
 
 #endif /* __RECEIVE_H */

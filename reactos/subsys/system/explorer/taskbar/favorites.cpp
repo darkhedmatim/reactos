@@ -26,28 +26,12 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "startmenu.h"
-
-
-String DecodeURLString(const char* s)
-{
-	TCHAR buffer[BUFFER_LEN];
-	LPTSTR o = buffer;
-
-	for(const char* p=s; *p; ++p)
-		if (*p == '%') {
-			if (!strncmp(p+1, "20", 2)) {
-				*o++ = ' ';
-				p += 2;
-			} else
-				*o++ = *p;
-		} else
-			*o++ = *p;
-
-	return String(buffer, o-buffer);
-}
 
 
  /// read .URL file
@@ -73,9 +57,9 @@ bool Bookmark::read_url(LPCTSTR path)
 				++cont;
 
 			if (!strnicmp(keyword, "URL", 3))
-				_url = DecodeURLString(cont);
+				_url = cont;
 			else if (!strnicmp(keyword, "IconFile", 8))
-				_icon_path = DecodeURLString(cont);
+				_icon_path = cont;
 		}
 	}
 
@@ -85,7 +69,7 @@ bool Bookmark::read_url(LPCTSTR path)
  /// convert XBEL bookmark node
 bool Bookmark::read(const_XMLPos& pos)
 {
-	_url = pos.get("href").c_str();
+	_url = pos.get("href");
 
 	if (pos.go_down("title")) {
 		_name = pos->get_content();
@@ -106,8 +90,8 @@ bool Bookmark::read(const_XMLPos& pos)
 
 			if (node.get("owner") == "ros-explorer") {
 				if (sub_pos.go_down("icon")) {
-					_icon_path = sub_pos.get("path").c_str();
-					_icon_idx = XS_toi(sub_pos.get("index"));
+					_icon_path = sub_pos.get("path");
+					_icon_idx = _ttoi(sub_pos.get("index"));
 
 					sub_pos.back();	// </icon>
 				}
@@ -122,11 +106,11 @@ bool Bookmark::read(const_XMLPos& pos)
 }
 
  /// write XBEL bookmark node
-void Bookmark::write(XMLPos& pos) const
+void Bookmark::write(XMLPos& pos)
 {
 	pos.create("bookmark");
 
-	pos["href"] = _url.c_str();
+	pos["href"] = _url;
 
 	if (!_name.empty()) {
 		pos.create("title");
@@ -145,8 +129,8 @@ void Bookmark::write(XMLPos& pos) const
 		pos.create("metadata");
 		pos["owner"] = "ros-explorer";
 		pos.create("icon");
-		pos["path"] = _icon_path.c_str();
-		pos["index"].printf(XS_TEXT("%d"), _icon_idx);
+		pos["path"] = _icon_path;
+		pos["index"].printf(TEXT("%d"), _icon_idx);
 		pos.back();	// </icon>
 		pos.back();	// </metadata>
 		pos.back();	// </info>
@@ -172,8 +156,8 @@ void BookmarkFolder::read(const_XMLPos& pos)
 	_bookmarks.read(pos);
 }
 
- /// write bookmark folder content from XBEL formated XML tree
-void BookmarkFolder::write(XMLPos& pos) const
+ /// write bookmark folder conten from XBEL formated XML tree
+void BookmarkFolder::write(XMLPos& pos)
 {
 	pos.create("folder");
 
@@ -193,12 +177,6 @@ void BookmarkFolder::write(XMLPos& pos) const
 }
 
 
-BookmarkNode::BookmarkNode()
- :	_type(BMNT_NONE)
-{
-	_pbookmark = NULL;
-}
-
 BookmarkNode::BookmarkNode(const Bookmark& bm)
  :	_type(BMNT_BOOKMARK)
 {
@@ -214,66 +192,18 @@ BookmarkNode::BookmarkNode(const BookmarkFolder& bmf)
 BookmarkNode::BookmarkNode(const BookmarkNode& other)
  :	_type(other._type)
 {
-	if (other._type == BMNT_BOOKMARK)
+	if (_type == BMNT_BOOKMARK)
 		_pbookmark = new Bookmark(*other._pbookmark);
-	else if (other._type == BMNT_FOLDER)
-		_pfolder = new BookmarkFolder(*other._pfolder);
 	else
-		_pbookmark = NULL;
+		_pfolder = new BookmarkFolder(*other._pfolder);
 }
 
 BookmarkNode::~BookmarkNode()
 {
 	if (_type == BMNT_BOOKMARK)
 		delete _pbookmark;
-	else if (_type == BMNT_FOLDER)
+	else
 		delete _pfolder;
-}
-
-BookmarkNode& BookmarkNode::operator=(const Bookmark& bm)
-{
-	clear();
-
-	_pbookmark = new Bookmark(bm);
-
-	return *this;
-}
-
-BookmarkNode& BookmarkNode::operator=(const BookmarkFolder& bmf)
-{
-	clear();
-
-	_pfolder = new BookmarkFolder(bmf);
-
-	return *this;
-}
-
-BookmarkNode& BookmarkNode::operator=(const BookmarkNode& other)
-{
-	clear();
-
-	_type = other._type;
-
-	if (other._type == BMNT_BOOKMARK)
-		_pbookmark = new Bookmark(*other._pbookmark);
-	else if (other._type == BMNT_FOLDER)
-		_pfolder = new BookmarkFolder(*other._pfolder);
-
-	return *this;
-}
-
-void BookmarkNode::clear()
-{
-	if (_type == BMNT_BOOKMARK) {
-		delete _pbookmark;
-		_pbookmark = NULL;
-	}
-	else if (_type == BMNT_FOLDER) {
-		delete _pfolder;
-		_pfolder = NULL;
-	}
-
-	_type = BMNT_NONE;
 }
 
 
@@ -308,13 +238,13 @@ void BookmarkList::write(XMLPos& pos) const
 		const BookmarkNode& node = *it;
 
 		if (node._type == BookmarkNode::BMNT_FOLDER) {
-			const BookmarkFolder& folder = *node._pfolder;
+			BookmarkFolder& folder = *node._pfolder;
 
 			folder.write(pos);
 
 			pos.back();
-		} else if (node._type == BookmarkNode::BMNT_BOOKMARK) {
-			const Bookmark& bookmark = *node._pbookmark;
+		} else {	// BookmarkNode::BMNT_BOOKMARK
+			Bookmark& bookmark = *node._pbookmark;
 
 			if (!bookmark._url.empty())
 				bookmark.write(pos);
@@ -348,7 +278,7 @@ void BookmarkList::fill_tree(HWND hwnd, HTREEITEM parent, HIMAGELIST himagelist,
 			HTREEITEM hitem = TreeView_InsertItem(hwnd, &tvi);
 
 			folder._bookmarks.fill_tree(hwnd, hitem, himagelist, hdc_wnd);
-		} else if (node._type == BookmarkNode::BMNT_BOOKMARK) {
+		} else {
 			const Bookmark& bookmark = *node._pbookmark;
 
 			tv.pszText = (LPTSTR)bookmark._name.c_str();
@@ -356,10 +286,11 @@ void BookmarkList::fill_tree(HWND hwnd, HTREEITEM parent, HIMAGELIST himagelist,
 			tv.iSelectedImage = 2;	// selected bookmark
 
 			if (!bookmark._icon_path.empty()) {
+				///@todo retreive "http://.../favicon.ico" icons
 				const Icon& icon = g_Globals._icon_cache.extract(bookmark._icon_path, bookmark._icon_idx);
 
 				if ((ICON_ID)icon != ICID_NONE)
-					tv.iImage = tv.iSelectedImage = icon.add_to_imagelist(himagelist, hdc_wnd);
+					tv.iImage = tv.iSelectedImage = ImageList_AddAlphaIcon(himagelist, icon, hdc_wnd);
 			}
 
 			TreeView_InsertItem(hwnd, &tvi);
@@ -373,7 +304,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 {
 	TCHAR path[MAX_PATH], ext[_MAX_EXT];
 
-	dir.smart_scan(SORT_NAME, SCAN_FILESYSTEM);
+	dir.smart_scan(SCAN_FILESYSTEM);
 
 	for(Entry*entry=dir._down; entry; entry=entry->_next) {
 		if (entry->_shell_attribs & SFGAO_HIDDEN)	// ignore files like "desktop.ini"
@@ -389,7 +320,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 		if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 			BookmarkFolder new_folder;
 
-			new_folder._name = DecodeXMLString(name);
+			new_folder._name = name;
 
 			if (entry->_etype == ET_SHELL) {
 				ShellDirectory new_dir(dir._folder, static_cast<ShellEntry*>(entry)->_pidl, hwnd);
@@ -404,7 +335,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 		} else {
 			Bookmark bookmark;
 
-			bookmark._name = DecodeXMLString(name);
+			bookmark._name = name;
 
 			entry->get_path(path);
 			_tsplitpath(path, NULL, NULL, NULL, ext);
@@ -414,7 +345,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 				push_back(bookmark);
 			} else {
 				///@todo read shell links
-				//assert(0);
+				assert(0);
 			}
 		}
 	}
@@ -427,11 +358,7 @@ bool Favorites::read(LPCTSTR path)
 	XMLDoc xbel;
 
 	if (!xbel.read(path))
-		if (xbel._last_error == XML_ERROR_NO_ELEMENTS)
-			return false;
-		else
-			MessageBox(g_Globals._hwndDesktop, String(xbel._last_error_msg.c_str()),
-						TEXT("ROS Explorer - reading bookmark file"), MB_OK);
+		return false;
 
 	const_XMLPos pos(&xbel);
 

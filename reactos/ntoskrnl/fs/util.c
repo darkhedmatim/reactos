@@ -1,12 +1,11 @@
-/* $Id: util.c,v 1.18 2004/08/21 20:40:27 tamlin Exp $
+/* $Id: util.c,v 1.15 2003/08/03 15:53:45 ea Exp $
  *
  * reactos/ntoskrnl/fs/util.c
  *
  */
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -88,18 +87,6 @@ FsRtlIsNtstatusExpected (
 		: TRUE;
 }
 	
-/*
- * @unimplemented
- */
-ULONG
-FsRtlIsPagingFile (
-    IN PFILE_OBJECT FileObject
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -284,48 +271,6 @@ FsRtlGetFileSize (
 	return Status;
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlInsertPerStreamContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER PerStreamContext,
-    IN PFSRTL_PER_STREAM_CONTEXT Ptr
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-PFSRTL_PER_STREAM_CONTEXT
-STDCALL
-FsRtlRemovePerStreamContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return NULL;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlInsertPerFileObjectContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
-    IN PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/ Ptr
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -373,21 +318,6 @@ FsRtlPostStackOverflow (
 }
 
 
-/*
- * @unimplemented
- */
-PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-STDCALL
-FsRtlRemovePerFileObjectContext (
-   IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return NULL;
-}
-
 /**********************************************************************
  * NAME							EXPORTED
  *	FsRtlSyncVolumes@12
@@ -414,16 +344,5 @@ FsRtlSyncVolumes (
 }
 
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlTeardownPerStreamContexts (
-  IN PFSRTL_ADVANCED_FCB_HEADER AdvancedHeader
-  )
-{
-	UNIMPLEMENTED;
-}
-
 /* EOF */
+

@@ -40,7 +40,7 @@ struct FileChildWndInfo : public ChildWndInfo
 	int			_open_mode;	//OPEN_WINDOW_MODE
 };
 
- /// information structure for creation of MDIShellBrowserChild
+ /// information structure for creation of ShellBrowserChild
 struct ShellChildWndInfo : public FileChildWndInfo
 {
 	typedef FileChildWndInfo super;
@@ -90,6 +90,7 @@ struct FileChildWindow : public ChildWindow
 	typedef ChildWindow super;
 
 	FileChildWindow(HWND hwnd, const FileChildWndInfo& info);
+	~FileChildWindow();
 
 	static FileChildWindow* create(const FileChildWndInfo& info);
 
@@ -99,20 +100,21 @@ protected:
 	int		Notify(int id, NMHDR* pnmh);
 
 	virtual void resize_children(int cx, int cy);
-	virtual String jump_to_int(LPCTSTR url);
+	virtual void jump_to(LPCTSTR path);
 
-	void	scan_entry(Entry* entry);
+	void	scan_entry(Entry* entry, HWND hwnd);
 
 	bool	expand_entry(Entry* dir);
 	static void collapse_entry(Pane* pane, Entry* dir);
 
-	void	set_curdir(Entry* entry);
-	void	activate_entry(Pane* pane);
+	void	set_curdir(Entry* entry, HWND hwnd);
+	void	activate_entry(Pane* pane, HWND hwnd);
 
 protected:
 	Root	_root;
 	Pane*	_left;
 	Pane*	_right;
+	SORT_ORDER _sortOrder;
 	TCHAR	_path[MAX_PATH];
 	bool	_header_wdths_ok;
 
@@ -132,5 +134,5 @@ struct ExecuteDialog {	///@todo use class Dialog
 	TCHAR	cmd[MAX_PATH];
 	int		cmdshow;
 
-	static INT_PTR CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
+	static BOOL CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
 };

@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 
 void *malloc(size_t size);

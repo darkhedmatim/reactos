@@ -1,4 +1,4 @@
-/* $Id: regcontrol.c,v 1.22 2004/12/24 17:45:58 weiden Exp $
+/* $Id: regcontrol.c,v 1.18 2004/03/27 10:46:32 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
@@ -9,52 +9,40 @@
  * NOTES:            Adapted from Wine
  */
 
-#include "user32.h"
+#include <windows.h>
 #include <wchar.h>
 #include "user32/regcontrol.h"
 #include "win32k/ntuser.h"
 
 static void RegisterBuiltinClass(const struct builtin_class_descr *Descr)
 {
-   WNDCLASSEXW wc;
-   UNICODE_STRING ClassName;
-   UNICODE_STRING MenuName;
+  WNDCLASSEXW wc;
+  ATOM Class;
   
-   wc.cbSize = sizeof(WNDCLASSEXW);
-   wc.lpszClassName = Descr->name;
-   wc.lpfnWndProc = Descr->procW;
-   wc.style = Descr->style;
-   wc.hInstance = User32Instance;
-   wc.hIcon = NULL;
-   wc.hIconSm = NULL;
-   wc.hCursor = LoadCursorW(NULL, Descr->cursor);
-   wc.hbrBackground = Descr->brush;
-   wc.lpszMenuName = NULL;
-   wc.cbClsExtra = 0;
-   wc.cbWndExtra = Descr->extra;
+  wc.cbSize = sizeof(WNDCLASSEXW);
+  wc.lpszClassName = Descr->name;
+  wc.lpfnWndProc = Descr->procW;
+  wc.style = Descr->style;
+  wc.hInstance = NULL;
+  wc.hIcon = NULL;
+  wc.hIconSm = NULL;
+  wc.hCursor = LoadCursorW(NULL, Descr->cursor);
+  wc.hbrBackground = Descr->brush;
+  wc.lpszMenuName = NULL;
+  wc.cbClsExtra = 0;
+  wc.cbWndExtra = Descr->extra;
 
-   MenuName.Length =
-   MenuName.MaximumLength = 0;
-   MenuName.Buffer = NULL;
 
-   if (IS_ATOM(Descr->name))
-   {
-      ClassName.Length =
-      ClassName.MaximumLength = 0;
-      ClassName.Buffer = (LPWSTR)Descr->name;
-   } else
-   {
-      RtlInitUnicodeString(&ClassName, Descr->name);
-   }
-
-   NtUserRegisterClassExWOW(
-      &wc,
-      &ClassName,
-      &ClassName,
-      &MenuName,
-      Descr->procA,
-      REGISTERCLASS_SYSTEM,
-      0);
+#if 0
+  if(IS_ATOM(wc.lpszClassName))
+    DbgPrint("Registering built-in class atom=0x%x\n", wc.lpszClassName);
+  else
+    DbgPrint("Registering built-in class %wS\n", wc.lpszClassName);
+#endif
+  Class = NtUserRegisterClassExWOW(&wc,TRUE,Descr->procA,0,0);
+#if 0
+  DbgPrint("RegisterClassW = %d\n", Class);
+#endif
 }
 
 /***********************************************************************

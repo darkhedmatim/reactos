@@ -1,4 +1,4 @@
-/* $Id: global.c,v 1.28 2004/10/30 22:18:17 weiden Exp $
+/* $Id: global.c,v 1.22 2004/04/06 20:59:40 gvg Exp $
  *
  * Win32 Global/Local heap functions (GlobalXXX, LocalXXX).
  * These functions included in Win32 for compatibility with 16 bit Windows
@@ -10,6 +10,7 @@
  */
 
 #include <k32.h>
+#include <time.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -143,7 +144,7 @@ GlobalAlloc(UINT uFlags,
 /*
  * @implemented
  */
-SIZE_T STDCALL
+UINT STDCALL
 GlobalCompact(DWORD dwMinFree)
 {
    return RtlCompactHeap(hProcessHeap, 0);
@@ -347,133 +348,58 @@ GlobalLock(HGLOBAL hMem)
     return palloc;
 }
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer)
-{
-  SYSTEM_BASIC_INFORMATION	SysBasicInfo;
-  SYSTEM_PERFORMANCE_INFORMATION	SysPerfInfo;
-  ULONG UserMemory;
-  NTSTATUS Status;
-
-    DPRINT("GlobalMemoryStatusEx\n");
-
-    if (lpBuffer->dwLength != sizeof(MEMORYSTATUSEX))
-      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-      }
-
-   Status = ZwQuerySystemInformation(SystemBasicInformation,
-                                     &SysBasicInfo,
-                                     sizeof(SysBasicInfo),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }
-
-   Status = ZwQuerySystemInformation(SystemPerformanceInformation,
-                                     &SysPerfInfo,
-                                     sizeof(SysPerfInfo),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }            
-
-   Status = ZwQuerySystemInformation(SystemFullMemoryInformation,
-                                     &UserMemory,
-                                     sizeof(ULONG),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }            
 
 /*
- * Load percentage 0 thru 100. 0 is good and 100 is bad.
- *
- *	Um = allocated memory / physical memory
- *	Um =      177 MB      /     256 MB        = 69.1%
- *
- *	Mult allocated memory by 100 to move decimal point up.
- */
-   lpBuffer->dwMemoryLoad = (SysBasicInfo.NumberOfPhysicalPages -
-  			     SysPerfInfo.AvailablePages) * 100 /
-    			     SysBasicInfo.NumberOfPhysicalPages;
-
-	DPRINT1("Memory Load: %d\n",lpBuffer->dwMemoryLoad );
-    
-   lpBuffer->ullTotalPhys = SysBasicInfo.NumberOfPhysicalPages *
-   					SysBasicInfo.PhysicalPageSize;
-   lpBuffer->ullAvailPhys = SysPerfInfo.AvailablePages *
-    					SysBasicInfo.PhysicalPageSize;
-
-	DPRINT("%d\n",SysPerfInfo.AvailablePages );
-	DPRINT("%d\n",lpBuffer->ullAvailPhys );
-
-   lpBuffer->ullTotalPageFile = SysPerfInfo.TotalCommitLimit *
-    					SysBasicInfo.PhysicalPageSize;
-
-	DPRINT("%d\n",lpBuffer->ullTotalPageFile );
-
-   lpBuffer->ullAvailPageFile = ((SysPerfInfo.TotalCommitLimit -
-    					SysPerfInfo.TotalCommittedPages) *
-    					SysBasicInfo.PhysicalPageSize);
-
-/* VM available to the calling processes, User Mem? */
-   lpBuffer->ullTotalVirtual = SysBasicInfo.HighestUserAddress - 
-    					SysBasicInfo.LowestUserAddress;
-
-   lpBuffer->ullAvailVirtual = (lpBuffer->ullTotalVirtual -
-    					(UserMemory *
-    					 SysBasicInfo.PhysicalPageSize));
-
-	DPRINT("%d\n",lpBuffer->ullAvailVirtual );
-	DPRINT("%d\n",UserMemory);
-	DPRINT("%d\n",SysBasicInfo.PhysicalPageSize);
-
-/* lol! Memory from beyond! */
-   lpBuffer->ullAvailExtendedVirtual = 0;
-   return TRUE;
-}
-
-/*
- * @implemented
+ * @unimplemented
  */
 VOID STDCALL
 GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer)
 {
-    MEMORYSTATUSEX lpBufferEx;
-#if 0    
-    if (lpBuffer->dwLength != sizeof(MEMORYSTATUS))
-      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return;      
-      }
-#endif
-    lpBufferEx.dwLength = sizeof(MEMORYSTATUSEX);
+    static MEMORYSTATUS	cached_memstatus;
+//    static int cache_lastchecked = 0;
+    SYSTEM_INFO si;
 
-    if (GlobalMemoryStatusEx(&lpBufferEx))
-      {
+//    if (GetSystemTimeAsFileTime(NULL)==cache_lastchecked) {
+//	memcpy(lpBuffer,&cached_memstatus,sizeof(MEMORYSTATUS));
+//	return;
+//    }
+//    cache_lastchecked = GetSystemTimeAsFileTime(NULL);
 
-	 lpBuffer->dwLength 	   = sizeof(MEMORYSTATUS);
+    lpBuffer->dwLength        = sizeof(MEMORYSTATUS);
+    lpBuffer->dwMemoryLoad    = 0;
+    lpBuffer->dwTotalPhys     = 32*1024*1024;
+    lpBuffer->dwAvailPhys     = 32*1024*1024;
+    lpBuffer->dwTotalPageFile = 32*1024*1024;
+    lpBuffer->dwAvailPageFile = 32*1024*1024;
 
-         lpBuffer->dwMemoryLoad    = lpBufferEx.dwMemoryLoad;
-         lpBuffer->dwTotalPhys     = lpBufferEx.ullTotalPhys;
-         lpBuffer->dwAvailPhys     = lpBufferEx.ullAvailPhys;
-         lpBuffer->dwTotalPageFile = lpBufferEx.ullTotalPageFile;
-         lpBuffer->dwAvailPageFile = lpBufferEx.ullAvailPageFile;
-         lpBuffer->dwTotalVirtual  = lpBufferEx.ullTotalVirtual;
-         lpBuffer->dwAvailVirtual  = lpBufferEx.ullAvailVirtual;
-      }
+    /* Some applications (e.g. QuickTime 6) crash if we tell them there
+     * is more than 2GB of physical memory.
+     */
+    if (lpBuffer->dwTotalPhys>2U*1024*1024*1024)
+    {
+        lpBuffer->dwTotalPhys=2U*1024*1024*1024;
+        lpBuffer->dwAvailPhys=2U*1024*1024*1024;
+    }
+
+    /* FIXME: should do something for other systems */
+    GetSystemInfo(&si);
+    lpBuffer->dwTotalVirtual  = (char*)si.lpMaximumApplicationAddress-(char*)si.lpMinimumApplicationAddress;
+    /* FIXME: we should track down all the already allocated VM pages and substract them, for now arbitrarily remove 64KB so that it matches NT */
+    lpBuffer->dwAvailVirtual  = lpBuffer->dwTotalVirtual-64*1024;
+    memcpy(&cached_memstatus,lpBuffer,sizeof(MEMORYSTATUS));
+
+    /* it appears some memory display programs want to divide by these values */
+    if(lpBuffer->dwTotalPageFile==0)
+        lpBuffer->dwTotalPageFile++;
+
+    if(lpBuffer->dwAvailPageFile==0)
+        lpBuffer->dwAvailPageFile++;
+
+    DPRINT1("<-- LPMEMORYSTATUS: dwLength %ld, dwMemoryLoad %ld, dwTotalPhys %ld, dwAvailPhys %ld,"
+          " dwTotalPageFile %ld, dwAvailPageFile %ld, dwTotalVirtual %ld, dwAvailVirtual %ld\n",
+          lpBuffer->dwLength, lpBuffer->dwMemoryLoad, lpBuffer->dwTotalPhys, lpBuffer->dwAvailPhys,
+          lpBuffer->dwTotalPageFile, lpBuffer->dwAvailPageFile, lpBuffer->dwTotalVirtual,
+          lpBuffer->dwAvailVirtual);
 }
 
 
@@ -490,6 +416,8 @@ GlobalReAlloc(HGLOBAL hMem,
 
     DPRINT("GlobalReAlloc( 0x%lX, 0x%lX, 0x%X )\n", (ULONG)hMem, dwBytes, uFlags);
 
+    hnew = 0;
+    
     if (uFlags & GMEM_ZEROINIT)
     {
         heap_flags = HEAP_ZERO_MEMORY;
@@ -543,6 +471,13 @@ GlobalReAlloc(HGLOBAL hMem,
         {
             /* reallocate a moveable block */
             phandle= HANDLE_TO_INTERN(hMem);
+#if 0
+            if(phandle->LockCount != 0)
+            {
+                SetLastError(ERROR_INVALID_HANDLE);
+            }
+            else
+#endif
             if (0 != dwBytes)
             {
                 hnew = hMem;
@@ -577,6 +512,7 @@ GlobalReAlloc(HGLOBAL hMem,
             }
             else
             {
+                hnew = hMem;
                 if(phandle->Pointer)
                 {
                     RtlFreeHeap(GetProcessHeap(), 0, phandle->Pointer - HANDLE_SIZE);
@@ -660,7 +596,7 @@ GlobalUnlock(HGLOBAL hMem)
 {
 
    PGLOBAL_HANDLE	phandle;
-   BOOL			    locked = FALSE;
+   BOOL			    locked;
 
    DPRINT("GlobalUnlock( 0x%lX )\n", (ULONG)hMem);
 
@@ -683,7 +619,7 @@ GlobalUnlock(HGLOBAL hMem)
       else if (GLOBAL_LOCK_MAX > phandle->LockCount)
       {
          phandle->LockCount--;
-         locked = (0 != phandle->LockCount) ? TRUE : FALSE;
+         locked = (0 == phandle->LockCount) ? TRUE : FALSE;
          SetLastError(NO_ERROR);
       }
    }
@@ -716,4 +652,12 @@ GlobalWire(HGLOBAL hMem)
    return GlobalLock(hMem);
 }
 
+/*
+ * @implemented
+ */
+//HGLOBAL STDCALL
+//GlobalDiscard(HGLOBAL hMem)
+//{
+//    return GlobalReAlloc(hMem, 0, GMEM_MOVEABLE);
+//}
 /* EOF */

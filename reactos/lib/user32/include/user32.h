@@ -5,11 +5,7 @@
  * PURPOSE:     Global user32 definitions
  */
 #include <windows.h>
-#define NTOS_MODE_USER
-#include <ntos.h>
 #include <win32k/win32k.h>
-
-extern HINSTANCE User32Instance;
 
 typedef struct _USER32_THREAD_DATA
 {
@@ -30,29 +26,10 @@ typedef struct _THRDCARETINFO
   BYTE Showing;
 } THRDCARETINFO, *PTHRDCARETINFO;
 
-void InitStockObjects(void);
 VOID CreateFrameBrushes(VOID);
 VOID DeleteFrameBrushes(VOID);
 void DrawCaret(HWND hWnd, PTHRDCARETINFO CaretInfo);
 
-#define NtUserMsqSetWakeMask(dwWaitMask) \
-  (HANDLE)NtUserCallOneParam(dwWaitMask, ONEPARAM_ROUTINE_MSQSETWAKEMASK)
-
-#define NtUserMsqClearWakeMask() \
-  NtUserCallNoParam(NOPARAM_ROUTINE_MSQCLEARWAKEMASK)
-
-LONG WINAPI RegCloseKey(HKEY);
-LONG WINAPI RegOpenKeyExW(HKEY,LPCWSTR,DWORD,REGSAM,PHKEY);
-LONG WINAPI RegQueryValueExW(HKEY,LPCWSTR,LPDWORD,LPDWORD,LPBYTE,LPDWORD);
-
-#ifdef __USE_W32API
-NTSTATUS STDCALL ZwCallbackReturn(PVOID Result,
-				  ULONG ResultLength,
-				  NTSTATUS Status);
-#endif
-
-#define NtUserAnyPopup() \
-  (BOOL)NtUserCallNoParam(NOPARAM_ROUTINE_ANYPOPUP)
 
 #define NtUserValidateRgn(hWnd, hRgn) \
   (BOOL)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_VALIDATERGN)
@@ -62,6 +39,12 @@ NTSTATUS STDCALL ZwCallbackReturn(PVOID Result,
 
 #define NtUserSetCaretPos(X, Y) \
   (BOOL)NtUserCallTwoParam((DWORD)X, (DWORD)Y, TWOPARAM_ROUTINE_SETCARETPOS)
+
+#define NtUserGetCursorPos(lpPoint) \
+  (BOOL)NtUserCallTwoParam((DWORD)lpPoint, (DWORD)FALSE, TWOPARAM_ROUTINE_CURSORPOSITION)
+
+#define NtUserSetCursorPos(lpPoint) \
+  (BOOL)NtUserCallTwoParam((DWORD)lpPoint, (DWORD)TRUE, TWOPARAM_ROUTINE_CURSORPOSITION)
 
 #define NtUserSetGUIThreadHandle(field, hwnd) \
   (BOOL)NtUserCallTwoParam((DWORD)field, (DWORD)hwnd, TWOPARAM_ROUTINE_SETGUITHRDHANDLE)
@@ -74,21 +57,6 @@ NTSTATUS STDCALL ZwCallbackReturn(PVOID Result,
 
 #define NtUserGetWindowInfo(hwnd, pwi) \
   (BOOL)NtUserCallTwoParam((DWORD)hwnd, (DWORD)pwi, TWOPARAM_ROUTINE_GETWINDOWINFO)
-
-#define NtUserRegisterLogonProcess(hproc, x) \
-  (BOOL)NtUserCallTwoParam((DWORD)hproc, (DWORD)x, TWOPARAM_ROUTINE_REGISTERLOGONPROC)
-
-#define NtUserGetSysColorBrushes(HBrushes, count) \
-  (BOOL)NtUserCallTwoParam((DWORD)(HBrushes), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES)
-
-#define NtUserGetSysColorPens(HPens, count) \
-  (BOOL)NtUserCallTwoParam((DWORD)(HPens), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORPENS)
-
-#define NtUserGetSysColors(ColorRefs, count) \
-  (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORS)
-
-#define NtUserSetSysColors(ColorRefs, count) \
-  (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_SETSYSCOLORS)
 
 #define NtUserSetCaretBlinkTime(uMSeconds) \
   (BOOL)NtUserCallOneParam((DWORD)uMSeconds, ONEPARAM_ROUTINE_SETCARETBLINKTIME)
@@ -120,12 +88,6 @@ NTSTATUS STDCALL ZwCallbackReturn(PVOID Result,
 #define NtUserGetWindowInstance(hwnd) \
   (HINSTANCE)NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWINDOWINSTANCE)
 
-#define NtUserGetCursorPos(lpPoint) \
-  (BOOL)NtUserCallOneParam((DWORD)lpPoint, ONEPARAM_ROUTINE_GETCURSORPOSITION)
-
-#define NtUserIsWindowInDestroy(hWnd) \
-  (BOOL)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_ISWINDOWINDESTROY)
-
-#define NtUserEnableProcessWindowGhosting(bEnable) \
-  NtUserCallOneParam((DWORD)bEnable, ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING)
-
+LONG WINAPI RegCloseKey(HKEY);
+LONG WINAPI RegOpenKeyExW(HKEY,LPCWSTR,DWORD,REGSAM,PHKEY);
+LONG WINAPI RegQueryValueExW(HKEY,LPCWSTR,LPDWORD,LPDWORD,LPBYTE,LPDWORD);

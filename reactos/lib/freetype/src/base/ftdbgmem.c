@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Memory debugger (body).                                              */
 /*                                                                         */
-/*  Copyright 2001, 2002, 2003, 2004 by                                    */
+/*  Copyright 2001, 2002, 2003 by                                          */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -540,15 +540,10 @@
     FT_Long      line_no   = table->line_no;
 
 
-    /* the following is valid according to ANSI C */
-#if 0
     if ( block == NULL || cur_size == 0 )
       ft_mem_debug_panic( "trying to reallocate NULL in (%s:%ld)",
-                          file_name, line_no );
-#endif
+                           file_name, line_no );
 
-    /* while the following is allowed in ANSI C also, we abort since */
-    /* such code shouldn't be in FreeType...                         */
     if ( new_size <= 0 )
       ft_mem_debug_panic(
         "trying to reallocate %p to size 0 (current is %ld) in (%s:%ld)",
@@ -609,7 +604,7 @@
         p = getenv( "FT2_ALLOC_TOTAL_MAX" );
         if ( p != NULL )
         {
-          FT_Long   total_max = ft_atol(p);
+          FT_Long   total_max = atol(p);
           
           if ( total_max > 0 )
           {
@@ -621,7 +616,7 @@
         p = getenv( "FT2_ALLOC_COUNT_MAX" );
         if ( p != NULL )
         {
-          FT_Long  total_count = ft_atol(p);
+          FT_Long  total_count = atol(p);
           
           if ( total_count > 0 )
           {
@@ -694,46 +689,6 @@
   }
 
 
-  FT_BASE_DEF( FT_Error )
-  FT_QAlloc_Debug( FT_Memory    memory,
-                   FT_Long      size,
-                   void*       *P,
-                   const char*  file_name,
-                   FT_Long      line_no )
-  {
-    FT_MemTable  table = (FT_MemTable)memory->user;
-
-
-    if ( table )
-    {
-      table->file_name = file_name;
-      table->line_no   = line_no;
-    }
-
-    return FT_QAlloc( memory, size, P );
-  }
-
-
-  FT_BASE_DEF( FT_Error )
-  FT_QRealloc_Debug( FT_Memory    memory,
-                     FT_Long      current,
-                     FT_Long      size,
-                     void*       *P,
-                     const char*  file_name,
-                     FT_Long      line_no )
-  {
-    FT_MemTable  table = (FT_MemTable)memory->user;
-
-
-    if ( table )
-    {
-      table->file_name = file_name;
-      table->line_no   = line_no;
-    }
-    return FT_QRealloc( memory, current, size, P );
-  }
-
-  
   FT_BASE_DEF( void )
   FT_Free_Debug( FT_Memory    memory,
                  FT_Pointer   block,

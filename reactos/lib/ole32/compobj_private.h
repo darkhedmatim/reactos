@@ -55,7 +55,7 @@ typedef struct tagXIF {
 
 /* exported object */
 typedef struct tagXOBJECT {
-  IRpcStubBufferVtbl *lpVtbl;
+  ICOM_VTABLE(IRpcStubBuffer) *lpVtbl;
   struct tagAPARTMENT *parent;
   struct tagXOBJECT *next;
   LPUNKNOWN obj;           /* object identity (IUnknown) */
@@ -78,7 +78,7 @@ typedef struct tagIIF {
 
 /* imported object */
 typedef struct tagIOBJECT {
-  IRemUnknownVtbl *lpVtbl;
+  ICOM_VTABLE(IRemUnknown) *lpVtbl;
   struct tagAPARTMENT *parent;
   struct tagIOBJECT *next;
   LPRPCCHANNELBUFFER chan; /* channel to object */
@@ -118,9 +118,18 @@ extern HRESULT create_marshalled_proxy(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
 
 extern void* StdGlobalInterfaceTableInstance;
 
+inline static HRESULT
+get_facbuf_for_iid(REFIID riid,IPSFactoryBuffer **facbuf) {
+    HRESULT       hres;
+    CLSID         pxclsid;
+
+    if ((hres = CoGetPSClsid(riid,&pxclsid)))
+	return hres;
+    return CoGetClassObject(&pxclsid,CLSCTX_INPROC_SERVER,NULL,&IID_IPSFactoryBuffer,(LPVOID*)facbuf);
+}
+
 #define PIPEPREF "\\\\.\\pipe\\"
 #define OLESTUBMGR PIPEPREF"WINE_OLE_StubMgr"
-
 /* Standard Marshalling definitions */
 typedef struct _wine_marshal_id {
     DWORD	processid;
@@ -147,10 +156,40 @@ MARSHAL_Compare_Mids_NoInterface(wine_marshal_id *mid1, wine_marshal_id *mid2) {
 }
 
 HRESULT MARSHAL_Find_Stub_Buffer(wine_marshal_id *mid,IRpcStubBuffer **stub);
-void    MARSHAL_Invalidate_Stub_From_MID(wine_marshal_id *mid);
-HRESULT MARSHAL_Disconnect_Proxies();
+HRESULT MARSHAL_Find_Stub_Server(wine_marshal_id *mid,LPUNKNOWN *punk);
+HRESULT MARSHAL_Register_Stub(wine_marshal_id *mid,LPUNKNOWN punk, IRpcStubBuffer *stub);
 
 HRESULT MARSHAL_GetStandardMarshalCF(LPVOID *ppv);
+
+typedef struct _wine_marshal_data {
+    DWORD	dwDestContext;
+    DWORD	mshlflags;
+} wine_marshal_data;
+
+
+#define REQTYPE_REQUEST		0
+typedef struct _wine_rpc_request_header {
+    DWORD		reqid;
+    wine_marshal_id	mid;
+    DWORD		iMethod;
+    DWORD		cbBuffer;
+} wine_rpc_request_header;
+
+#define REQTYPE_RESPONSE	1
+typedef struct _wine_rpc_response_header {
+    DWORD		reqid;
+    DWORD		cbBuffer;
+    DWORD		retval;
+} wine_rpc_response_header;
+
+#define REQSTATE_START			0
+#define REQSTATE_REQ_QUEUED		1
+#define REQSTATE_REQ_WAITING_FOR_REPLY	2
+#define REQSTATE_REQ_GOT		3
+#define REQSTATE_INVOKING		4
+#define REQSTATE_RESP_QUEUED		5
+#define REQSTATE_RESP_GOT		6
+#define REQSTATE_DONE			6
 
 void STUBMGR_Start();
 
@@ -171,11 +210,13 @@ HRESULT WINAPI __CLSIDFromStringA(LPCSTR idstr, CLSID *id);
  * Per-thread values are stored in the TEB on offset 0xF80,
  * see http://www.microsoft.com/msj/1099/bugslayer/bugslayer1099.htm
  */
+static inline APARTMENT* COM_CurrentInfo(void) WINE_UNUSED;
 static inline APARTMENT* COM_CurrentInfo(void)
 {
   APARTMENT* apt = NtCurrentTeb()->ReservedForOle;
   return apt;
 }
+static inline APARTMENT* COM_CurrentApt(void) WINE_UNUSED;
 static inline APARTMENT* COM_CurrentApt(void)
 {
   APARTMENT* apt = COM_CurrentInfo();
@@ -186,7 +227,5 @@ static inline APARTMENT* COM_CurrentApt(void)
 /* compobj.c */
 APARTMENT* COM_CreateApartment(DWORD model);
 HWND COM_GetApartmentWin(OXID oxid);
-
-#define ICOM_THIS_MULTI(impl,field,iface) impl* const This=(impl*)((char*)(iface) - offsetof(impl,field))
 
 #endif /* __WINE_OLE_COMPOBJ_H */

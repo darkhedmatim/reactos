@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: dispatch.c,v 1.7 2004/12/19 15:56:53 navaraf Exp $
+ * $Id: dispatch.c,v 1.3.2.1 2004/04/08 15:38:28 gvg Exp $
  */
 
 #include "videoprt.h"
@@ -49,19 +49,17 @@ IntVideoPortResetDisplayParameters(ULONG Columns, ULONG Rows)
 
    DriverExtension = ResetDisplayParametersDeviceExtension->DriverExtension;
 
-   if (DriverExtension->InitializationData.HwResetHw != NULL)
+   if (NULL == DriverExtension->InitializationData.HwResetHw ||
+       !DriverExtension->InitializationData.HwResetHw(
+          &ResetDisplayParametersDeviceExtension->MiniPortDeviceExtension,
+          Columns, Rows))
    {
-      if (DriverExtension->InitializationData.HwResetHw(
-             &ResetDisplayParametersDeviceExtension->MiniPortDeviceExtension,
-             Columns, Rows))
-      {
-         ResetDisplayParametersDeviceExtension = NULL;
-         return TRUE;
-      }
+      ResetDisplayParametersDeviceExtension = NULL;
+      return FALSE;
    }
 
    ResetDisplayParametersDeviceExtension = NULL;
-   return FALSE;
+   return TRUE;
 }
 
 NTSTATUS STDCALL
@@ -132,7 +130,7 @@ IntVideoPortDispatchOpen(
    {
       Irp->IoStatus.Status = STATUS_SUCCESS;
 
-      InterlockedIncrement((PLONG)&DeviceExtension->DeviceOpened);
+      InterlockedIncrement(&DeviceExtension->DeviceOpened);
 
       /*
        * Storing the device extension pointer in a static variable is an
@@ -176,8 +174,8 @@ IntVideoPortDispatchClose(
    DPRINT("IntVideoPortDispatchClose\n");
 
    DeviceExtension = (PVIDEO_PORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-   if (DeviceExtension->DeviceOpened >= 1 &&
-       InterlockedDecrement((PLONG)&DeviceExtension->DeviceOpened) == 0)
+   if (DeviceExtension->DeviceOpened > 1 &&
+       InterlockedDecrement(&DeviceExtension->DeviceOpened) == 0)
    {
       ResetDisplayParametersDeviceExtension = DeviceExtension;
       HalReleaseDisplayOwnership();

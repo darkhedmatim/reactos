@@ -81,39 +81,18 @@ LPAPI_VERSION WINAPI ImagehlpApiVersionEx(LPAPI_VERSION AppVersion)
 
 /***********************************************************************
  *           MakeSureDirectoryPathExists (IMAGEHLP.@)
- *
- * Path may contain a file at the end. If a dir is at the end, the path 
- * must end with a backslash.
- *
- * Path may be absolute or relative (to current dir).
- *
  */
 BOOL WINAPI MakeSureDirectoryPathExists(LPCSTR DirPath)
 {
-   char Path[MAX_PATH];
-   char *SlashPos = Path;
-   char Slash;
-   BOOL bRes;
-   
-   strcpy(Path, DirPath);
-        
-   while((SlashPos=strpbrk(SlashPos+1,"\\/")))
-   {
-      Slash = *SlashPos;
-      *SlashPos = 0;
-      
-      bRes = CreateDirectoryA(Path, NULL);
-      if (bRes == FALSE && GetLastError() != ERROR_ALREADY_EXISTS)
-      {
-         return FALSE;
-      }
-      
-      *SlashPos = Slash;
-   }
-
-   return TRUE;
+    if (CreateDirectoryA(DirPath,NULL))
+        return TRUE;
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        SetLastError(ERROR_SUCCESS);
+        return TRUE;
+    }
+    return FALSE;
 }
-
 
 /***********************************************************************
  *           MarkImageAsRunFromSwap (IMAGEHLP.@)
@@ -138,17 +117,12 @@ BOOL WINAPI SearchTreeForFile(
 /***********************************************************************
  *           TouchFileTimes (IMAGEHLP.@)
  */
-BOOL WINAPI TouchFileTimes(HANDLE FileHandle, LPSYSTEMTIME lpSystemTime)
+BOOL WINAPI TouchFileTimes(
+  HANDLE FileHandle, LPSYSTEMTIME lpSystemTime)
 {
-  FILETIME FileTime;
-  SYSTEMTIME SystemTime;
-  
-  if(lpSystemTime == NULL)
-  {
-    GetSystemTime(&SystemTime);
-    lpSystemTime = &SystemTime;
-  }
-
-  return (SystemTimeToFileTime(lpSystemTime, &FileTime) &&
-          SetFileTime(FileHandle, NULL, NULL, &FileTime));
+  FIXME("(%p, %p): stub\n",
+    FileHandle, lpSystemTime
+  );
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return FALSE;
 }

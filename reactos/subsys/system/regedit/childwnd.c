@@ -101,7 +101,6 @@ static void OnPaint(HWND hWnd)
 
 static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    ChildWnd* pChildWnd = g_pChildWnd;
     switch (LOWORD(wParam)) {
         /* Parse the menu selections: */
     case ID_REGISTRY_EXIT:
@@ -109,10 +108,6 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case ID_VIEW_REFRESH:
         /* TODO */
-        break;
-    case ID_SWITCH_PANELS:
-        pChildWnd->nFocusPanel = !pChildWnd->nFocusPanel;
-        SetFocus(pChildWnd->nFocusPanel? pChildWnd->hListWnd: pChildWnd->hTreeWnd);
         break;
     default:
         return FALSE;
@@ -131,8 +126,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
  *  WM_DESTROY  - post a quit message and return
  *
  */
-INT_PTR CALLBACK
-ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static short last_split;
     BOOL Result;
@@ -140,21 +134,15 @@ ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message) {
     case WM_CREATE:
-    {
-        TCHAR buffer[MAX_PATH];
-        /* load "My Computer" string */
-        LoadString(hInst, IDS_MY_COMPUTER, buffer, sizeof(buffer)/sizeof(TCHAR));
-        
-	g_pChildWnd = pChildWnd = HeapAlloc(GetProcessHeap(), 0, sizeof(ChildWnd));
+        g_pChildWnd = pChildWnd = HeapAlloc(GetProcessHeap(), 0, sizeof(ChildWnd));
         if (!pChildWnd) return 0;
-        _tcsncpy(pChildWnd->szPath, buffer, MAX_PATH);
+        _tcsncpy(pChildWnd->szPath, _T("My Computer"), MAX_PATH);
         pChildWnd->nSplitPos = 250;
         pChildWnd->hWnd = hWnd;
         pChildWnd->hTreeWnd = CreateTreeView(hWnd, pChildWnd->szPath, TREE_WINDOW);
         pChildWnd->hListWnd = CreateListView(hWnd, LIST_WINDOW/*, pChildWnd->szPath*/);
         SetFocus(pChildWnd->hTreeWnd);
         break;
-    }
     case WM_COMMAND:
         if (!_CmdWndProc(hWnd, message, wParam, lParam)) {
             goto def;
@@ -281,12 +269,16 @@ ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     HKEY hRootKey;
 
 		    keyPath = GetItemPath(pChildWnd->hTreeWnd, ((NMTREEVIEW*)lParam)->itemNew.hItem, &hRootKey);
+		    if(!hRootKey)
+		    {
+		      RefreshListView(pChildWnd->hListWnd, 0, NULL);
+		    }
 		    if (keyPath) {
 		        RefreshListView(pChildWnd->hListWnd, hRootKey, keyPath);
 			rootName = get_root_key_name(hRootKey);
-			fullPath = HeapAlloc(GetProcessHeap(), 0, (_tcslen(rootName) + 1 + _tcslen(keyPath) + 1) * sizeof(TCHAR));
+			fullPath = HeapAlloc(GetProcessHeap(), 0, (lstrlen(rootName) + 1 + lstrlen(keyPath) + 1) * sizeof(TCHAR));
 			if (fullPath) {
-			    _stprintf(fullPath, _T("%s\\%s"), rootName, keyPath);
+			    _stprintf(fullPath, "%s\\%s", rootName, keyPath);
 			    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)fullPath);
 			    HeapFree(GetProcessHeap(), 0, fullPath);
 			}
@@ -294,10 +286,10 @@ ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
 	    case NM_SETFOCUS:
-		pChildWnd->nFocusPanel = 0;
+		pChildWnd->nFocusPanel = 1;
 		break;
             default:
-                return 0;
+                goto def;
             }
         } else
         {
@@ -305,12 +297,12 @@ ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
 		switch (((LPNMHDR)lParam)->code) {
 		  case NM_SETFOCUS:
-		  	pChildWnd->nFocusPanel = 1;
+		  	pChildWnd->nFocusPanel = 0;
 		  	break;
 		  default:
-                	if(!ListWndNotifyProc(pChildWnd->hListWnd, wParam, lParam, &Result))
+                	if(ListWndNotifyProc(pChildWnd->hListWnd, wParam, lParam, &Result))
                 	{
-                  		goto def;
+                  		return Result;
                 	}
                 	break;
         	}

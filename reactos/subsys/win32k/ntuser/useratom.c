@@ -24,8 +24,9 @@
  * PROGRAMER:        Filip Navara <xnavara@volny.cz>
  */
 
-#include <w32k.h>
-
+#include <include/useratom.h>
+#include <include/winsta.h>
+#include <include/error.h>
 #define NDEBUG
 #include <debug.h>
 
@@ -33,17 +34,19 @@ RTL_ATOM FASTCALL
 IntAddAtom(LPWSTR AtomName)
 {
    PWINSTATION_OBJECT WinStaObject;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    RTL_ATOM Atom;
-   
-   if (PsGetWin32Thread()->Desktop == NULL)
+
+   Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+      KernelMode, 0, &WinStaObject);
+   if (!NT_SUCCESS(Status))
    {
       SetLastNtError(Status);      
       return (RTL_ATOM)0;
    }
-   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
    Status = RtlAddAtomToAtomTable(WinStaObject->AtomTable,
-				  AtomName, &Atom);
+      AtomName, &Atom);
+   ObDereferenceObject(WinStaObject);
    if (!NT_SUCCESS(Status))
    {
       SetLastNtError(Status);      
@@ -56,19 +59,21 @@ ULONG FASTCALL
 IntGetAtomName(RTL_ATOM nAtom, LPWSTR lpBuffer, ULONG nSize)
 {
    PWINSTATION_OBJECT WinStaObject;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    ULONG Size = nSize;
 
-   if (PsGetWin32Thread()->Desktop == NULL)
+   Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+      KernelMode, 0, &WinStaObject);
+   if (!NT_SUCCESS(Status))
    {
       SetLastNtError(Status);      
       return 0;
    }
-   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
    Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,
       nAtom, NULL, NULL, lpBuffer, &Size);
    if (Size < nSize)
       *(lpBuffer + Size) = 0;
+   ObDereferenceObject(WinStaObject);
    if (!NT_SUCCESS(Status))
    {
       SetLastNtError(Status);      

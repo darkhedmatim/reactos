@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2001, 2002, 2003, 2004 by
+# Copyright 1996-2000, 2001, 2002, 2003 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -97,7 +97,6 @@ BASE_DIR := $(SRC_DIR)/base
 #
 PUBLIC_DIR   := $(TOP_DIR)/include/freetype
 INTERNAL_DIR := $(PUBLIC_DIR)/internal
-SERVICES_DIR := $(INTERNAL_DIR)/services
 CONFIG_DIR   := $(PUBLIC_DIR)/config
 CACHE_DIR    := $(PUBLIC_DIR)/cache
 
@@ -156,8 +155,7 @@ OBJECTS_LIST :=
 # changes, the whole library is recompiled.
 #
 PUBLIC_H   := $(wildcard $(PUBLIC_DIR)/*.h)
-BASE_H     := $(wildcard $(INTERNAL_DIR)/*.h) \
-              $(wildcard $(SERVICES_DIR)/*.h)
+BASE_H     := $(wildcard $(INTERNAL_DIR)/*.h)
 CONFIG_H   := $(wildcard $(CONFIG_DIR)/*.h) \
               $(wildcard $(BUILD_DIR)/freetype/config/*.h)
 CACHE_H    := $(wildcard $(CACHE_DIR)/*.h)
@@ -254,7 +252,7 @@ library: $(PROJECT_LIBRARY)
 refdoc:
 	python $(SRC_DIR)/tools/docmaker/docmaker.py \
                --prefix=ft2                          \
-               --title=FreeType-2.1.9                \
+               --title=FreeType-2.1.5                \
                --output=$(DOC_DIR)                   \
                $(PUBLIC_DIR)/*.h                     \
                $(PUBLIC_DIR)/config/*.h              \

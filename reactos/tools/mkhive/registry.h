@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: registry.h,v 1.3 2004/12/30 16:02:12 royce Exp $
+/* $Id: registry.h,v 1.2 2003/04/16 15:06:33 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/registry.h
@@ -43,10 +43,10 @@ typedef struct _REG_KEY
   LIST_ENTRY SubKeyList;
   LIST_ENTRY ValueList;
 
-  USHORT SubKeyCount;
+  ULONG SubKeyCount;
   ULONG ValueCount;
 
-  USHORT NameSize;
+  ULONG NameSize;
   PUCHAR Name;
 
   /* default data */
@@ -283,7 +283,7 @@ RegEnumValue(HKEY Key,
 	     PUCHAR Data,
 	     PULONG DataSize);
 
-USHORT
+ULONG
 RegGetSubKeyCount (HKEY Key);
 
 ULONG

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: hotkey.c,v 1.11 2004/11/20 16:46:06 weiden Exp $
+/* $Id: hotkey.c,v 1.8 2004/02/24 13:27:03 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,14 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <internal/ex.h>
+#include <internal/ps.h>
+#include <include/error.h>
+#include <include/msgqueue.h>
+#include <include/hotkey.h>
+#include <include/tags.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -114,8 +121,9 @@ UnregisterWindowHotKeys(PWINDOW_OBJECT Window)
   PHOT_KEY_ITEM HotKeyItem;
   PWINSTATION_OBJECT WinStaObject = NULL;
   
-  if(Window->OwnerThread && Window->OwnerThread->ThreadsProcess)
-    WinStaObject = Window->OwnerThread->Tcb.Win32Thread->Desktop->WindowStation;
+  if(Window->OwnerThread && Window->OwnerThread->ThreadsProcess &&
+     Window->OwnerThread->ThreadsProcess->Win32Process)
+    WinStaObject = Window->OwnerThread->ThreadsProcess->Win32Process->WindowStation;
 
   if(!WinStaObject)
     return;
@@ -147,8 +155,8 @@ UnregisterThreadHotKeys(struct _ETHREAD *Thread)
   PHOT_KEY_ITEM HotKeyItem;
   PWINSTATION_OBJECT WinStaObject = NULL;
   
-  if(Thread->Tcb.Win32Thread && Thread->Tcb.Win32Thread->Desktop)
-    WinStaObject = Thread->Tcb.Win32Thread->Desktop->WindowStation;
+  if(Thread->ThreadsProcess && Thread->ThreadsProcess->Win32Process)
+    WinStaObject = Thread->ThreadsProcess->Win32Process->WindowStation;
   
   if(!WinStaObject)
     return;
@@ -209,30 +217,20 @@ NtUserRegisterHotKey(HWND hWnd,
   PHOT_KEY_ITEM HotKeyItem;
   PWINDOW_OBJECT Window;
   PWINSTATION_OBJECT WinStaObject = NULL;
-  PETHREAD HotKeyThread;
   
-  if (hWnd == NULL)
+  Window = IntGetWindowObject(hWnd);
+  if(!Window)
   {
-    HotKeyThread = PsGetCurrentThread();
+    SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
+    return FALSE;
   }
-  else
-  {
-    Window = IntGetWindowObject(hWnd);
-    if(!Window)
-    {
-      SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-      return FALSE;
-    }
-    HotKeyThread = Window->OwnerThread;
-    IntReleaseWindowObject(Window);
-  }
-
   
-  if(HotKeyThread->ThreadsProcess && HotKeyThread->ThreadsProcess->Win32Process)
-    WinStaObject = HotKeyThread->Tcb.Win32Thread->Desktop->WindowStation;
+  if(Window->OwnerThread->ThreadsProcess && Window->OwnerThread->ThreadsProcess->Win32Process)
+    WinStaObject = Window->OwnerThread->ThreadsProcess->Win32Process->WindowStation;
   
   if(!WinStaObject)
   {
+    IntReleaseWindowObject(Window);
     return FALSE;
   }
 
@@ -242,6 +240,7 @@ NtUserRegisterHotKey(HWND hWnd,
   if (IsHotKey (WinStaObject, fsModifiers, vk))
   {
     IntUnLockHotKeys(WinStaObject);
+    IntReleaseWindowObject(Window);
     return FALSE;
   }
 
@@ -249,10 +248,11 @@ NtUserRegisterHotKey(HWND hWnd,
   if (HotKeyItem == NULL)
     {
       IntUnLockHotKeys(WinStaObject);
+      IntReleaseWindowObject(Window);
       return FALSE;
     }
 
-  HotKeyItem->Thread = HotKeyThread;
+  HotKeyItem->Thread = PsGetCurrentThread();
   HotKeyItem->hWnd = hWnd;
   HotKeyItem->id = id;
   HotKeyItem->fsModifiers = fsModifiers;
@@ -263,6 +263,7 @@ NtUserRegisterHotKey(HWND hWnd,
 
   IntUnLockHotKeys(WinStaObject);
   
+  IntReleaseWindowObject(Window);
   return TRUE;
 }
 
@@ -284,7 +285,7 @@ NtUserUnregisterHotKey(HWND hWnd,
   }
   
   if(Window->OwnerThread->ThreadsProcess && Window->OwnerThread->ThreadsProcess->Win32Process)
-    WinStaObject = Window->OwnerThread->Tcb.Win32Thread->Desktop->WindowStation;
+    WinStaObject = Window->OwnerThread->ThreadsProcess->Win32Process->WindowStation;
   
   if(!WinStaObject)
   {

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.92 2004/12/13 21:11:45 ekohl Exp $
+# $Id: makefile,v 1.78 2004/03/14 09:21:41 weiden Exp $
 
 PATH_TO_TOP = ../..
 
@@ -8,50 +8,49 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = kernel32
 
-TARGET_BASE = $(TARGET_BASE_LIB_KERNEL32)
+TARGET_BASE = 0x77f00000
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -D_SEH_NO_NATIVE_NLG -Wall -Werror
+TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
 TARGET_RCFLAGS += -DWINVER=0x0500
 
-TARGET_SDKLIBS = pseh.a rosrtl.a ntdll.a kernel32.a
+TARGET_SDKLIBS = rosrtl.a ntdll.a kernel32.a
 
 TARGET_GCCLIBS = gcc
 
 TARGET_PCH = k32.h
 
-TARGET_CLEAN = errcodes.rc $(PATH_TO_TOP)/include/reactos/errcodes.h msg?????.bin
+TARGET_CLEAN = errcodes.rc msg?????.bin
 
 SYNCH_OBJECTS = synch/critical.o synch/event.o synch/intrlck.o synch/mutex.o \
                 synch/sem.o synch/timer.o synch/wait.o
 
 MISC_OBJECTS = misc/error.o misc/atom.o misc/handle.o misc/env.o \
                misc/dllmain.o misc/comm.o misc/errormsg.o \
-               misc/console.o misc/time.o misc/timerqueue.o misc/toolhelp.o \
+               misc/console.o misc/time.o misc/toolhelp.o \
                misc/stubs.o misc/lang.o misc/ldr.o misc/res.o \
                misc/sysinfo.o misc/profile.o \
-               misc/muldiv.o misc/nls.o misc/computername.o \
-               misc/perfcnt.o misc/lzexpand_main.o misc/lcformat.o \
-               misc/chartype.o
+               misc/mbchars.o misc/muldiv.o misc/computername.o \
+               misc/perfcnt.o misc/lzexpand_main.o
 
 FILE_OBJECTS = file/file.o file/curdir.o file/lfile.o file/dir.o \
                file/iocompl.o file/volume.o file/deviceio.o file/dosdev.o \
                file/create.o file/find.o file/copy.o file/pipe.o \
                file/move.o file/lock.o file/rw.o file/delete.o \
                file/npipe.o file/tape.o file/mailslot.o file/backup.o \
-               file/cnotify.o file/hardlink.o file/bintype.o
+               file/cnotify.o file/hardlink.o
 
 MEM_OBJECTS = mem/global.o mem/heap.o mem/isbad.o mem/local.o \
-              mem/procmem.o mem/resnotify.o mem/section.o mem/virtual.o
+              mem/procmem.o mem/section.o mem/virtual.o
 
 NLS_OBJECTS =
 
 THREAD_OBJECTS = \
-	thread/fiber.o \
-	thread/thread.o \
+	thread/fiber.o	\
+	thread/thread.o	\
 	thread/tls.o \
 	thread/fls.o
 
@@ -62,7 +61,6 @@ PROCESS_OBJECTS = \
 	process/proc.o \
 	process/cmdline.o \
 	process/create.o \
-	process/job.o \
 	process/session.o
 
 STRING_OBJECTS = string/lstring.o

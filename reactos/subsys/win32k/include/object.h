@@ -13,8 +13,7 @@ typedef enum {
   otMenu,
   otAcceleratorTable,
   otCursorIcon,
-  otHookProc,
-  otMonitor
+  otHookProc
 } USER_OBJECT_TYPE;
 
 typedef struct _USER_OBJECT_HEADER
@@ -113,12 +112,29 @@ ObmCreateHandleTable(VOID);
 
 VOID  FASTCALL ObmDestroyHandleTable (PUSER_HANDLE_TABLE HandleTable);
 
-VOID  INTERNAL_CALL InitGdiObjectHandleTable (VOID);
+ULONG FASTCALL CreateGDIHandle (ULONG InternalSize, ULONG UserSize);
+VOID  FASTCALL FreeGDIHandle (ULONG Handle);
+
+PVOID FASTCALL AccessUserObject (ULONG Handle);
+PVOID FASTCALL AccessInternalObject (ULONG Handle);
+
+PVOID FASTCALL AccessInternalObjectFromUserObject (PVOID UserObject);
+ULONG FASTCALL AccessHandleFromUserObject (PVOID UserObject);
+
+VOID  FASTCALL InitEngHandleTable (VOID);
+VOID  FASTCALL InitGdiObjectHandleTable (VOID);
 
 VOID  FASTCALL CreateStockObjects (VOID);
-VOID  FASTCALL CreateSysColorObjects (VOID);
+
+BOOL  FASTCALL CleanupForProcess (struct _EPROCESS *Process, INT Pid);
 
 PPOINT FASTCALL GDI_Bezier (const POINT *Points, INT count, PINT nPtsOut);
+
+/* objects/objconv.c */
+
+HBITMAP
+FASTCALL
+BitmapToSurf ( PBITMAPOBJ BitmapObj, HDEV GDIDevice );
 
 #endif /* _WIN32K_OBJECT_H */
 

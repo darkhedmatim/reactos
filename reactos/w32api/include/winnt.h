@@ -690,10 +690,7 @@ typedef DWORD FLONG;
 #define PROCESSOR_MIPS_R4000 4000
 #define PROCESSOR_ALPHA_21064 21064
 #define PROCESSOR_INTEL_IA64 2200
-#define PROCESSOR_PPC_601 601
-#define PROCESSOR_PPC_603 603
-#define PROCESSOR_PPC_604 604
-#define PROCESSOR_PPC_620 620
+
 #define PROCESSOR_ARCHITECTURE_INTEL 0
 #define PROCESSOR_ARCHITECTURE_MIPS 1
 #define PROCESSOR_ARCHITECTURE_ALPHA 2
@@ -2063,21 +2060,6 @@ typedef struct _TOKEN_GROUPS {
 	DWORD GroupCount;
 	SID_AND_ATTRIBUTES Groups[ANYSIZE_ARRAY];
 } TOKEN_GROUPS,*PTOKEN_GROUPS,*LPTOKEN_GROUPS;
-typedef struct _TOKEN_GROUPS_AND_PRIVILEGES {
-	ULONG SidCount;
-	ULONG SidLength;
-	PSID_AND_ATTRIBUTES Sids;
-	ULONG RestrictedSidCount;
-	ULONG RestrictedSidLength;
-	PSID_AND_ATTRIBUTES RestrictedSids;
-	ULONG PrivilegeCount;
-	ULONG PrivilegeLength;
-	PLUID_AND_ATTRIBUTES Privileges;
-	LUID AuthenticationId;
-} TOKEN_GROUPS_AND_PRIVILEGES, *PTOKEN_GROUPS_AND_PRIVILEGES;
-typedef struct _TOKEN_ORIGIN {
-	LUID OriginatingLogonSession;
-} TOKEN_ORIGIN, *PTOKEN_ORIGIN;
 typedef struct _TOKEN_OWNER {
 	PSID Owner;
 } TOKEN_OWNER,*PTOKEN_OWNER;
@@ -2122,8 +2104,7 @@ typedef enum _TOKEN_INFORMATION_CLASS {
 	TokenUser=1,TokenGroups,TokenPrivileges,TokenOwner,
 	TokenPrimaryGroup,TokenDefaultDacl,TokenSource,TokenType,
 	TokenImpersonationLevel,TokenStatistics,TokenRestrictedSids,
-	TokenSessionId,TokenGroupsAndPrivileges,TokenSessionReference,
-	TokenSandBoxInert,TokenAuditPolicy,TokenOrigin,
+	TokenSessionId
 } TOKEN_INFORMATION_CLASS;
 typedef enum _SID_NAME_USE {
 	SidTypeUser=1,SidTypeGroup,SidTypeDomain,SidTypeAlias,
@@ -2179,7 +2160,8 @@ typedef struct _TAPE_GET_MEDIA_PARAMETERS {
 typedef struct _TAPE_GET_POSITION {
 	ULONG Type;
 	ULONG Partition;
-	LARGE_INTEGER Offset;
+	ULONG OffsetLow;
+	ULONG OffsetHigh;
 } TAPE_GET_POSITION,*PTAPE_GET_POSITION;
 typedef struct _TAPE_PREPARE {
 	DWORD Operation;
@@ -2635,9 +2617,9 @@ typedef struct _IMAGE_EXPORT_DIRECTORY {
 	DWORD Base;
 	DWORD NumberOfFunctions;
 	DWORD NumberOfNames;
-	DWORD AddressOfFunctions;
-	DWORD AddressOfNames;
-	DWORD AddressOfNameOrdinals;
+	PDWORD *AddressOfFunctions;
+	PDWORD *AddressOfNames;
+	PWORD *AddressOfNameOrdinals;
 } IMAGE_EXPORT_DIRECTORY,*PIMAGE_EXPORT_DIRECTORY;
 typedef struct _IMAGE_IMPORT_BY_NAME {
 	WORD Hint;
@@ -3298,7 +3280,8 @@ ULONGLONG WINAPI VerSetConditionMask(ULONGLONG,DWORD,BYTE);
 
 #if defined(__GNUC__)
 
-static __inline__ PVOID GetCurrentFiber(void)
+PVOID GetCurrentFiber(void);
+extern __inline__ PVOID GetCurrentFiber(void)
 {
     void* ret;
     __asm__ __volatile__ (
@@ -3308,7 +3291,8 @@ static __inline__ PVOID GetCurrentFiber(void)
     return ret;
 }
 
-static __inline__ PVOID GetFiberData(void)
+PVOID GetFiberData(void);
+extern __inline__ PVOID GetFiberData(void)
 {
     void* ret;
     __asm__ __volatile__ (

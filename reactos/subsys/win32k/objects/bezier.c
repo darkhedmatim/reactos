@@ -16,9 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bezier.c,v 1.9 2004/06/20 00:45:37 navaraf Exp $ */
-
-#include <w32k.h>
+/* $Id: bezier.c,v 1.6 2004/03/27 00:35:02 weiden Exp $ */
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <math.h>
+#include <include/tags.h>
 
 /******************************************************************
  * 
@@ -62,6 +64,14 @@
 #define BEZIERMIDDLE(Mid, P1, P2) \
   (Mid).x=((P1).x+(P2).x + 1) >> 1;\
   (Mid).y=((P1).y+(P2).y + 1) >> 1;
+
+static int abs ( int __x )
+{
+  if ( __x < 0 )
+    return -__x;
+  else
+    return __x;
+}
 
 /**********************************************************
 * BezierCheck helper function to check
@@ -145,7 +155,7 @@ static void STDCALL GDI_InternalBezier( POINT *Points, POINT **PtsOut, INT *dwOu
 {
   if(*nPtsOut == *dwOut) {
     *dwOut *= 2;
-    *PtsOut = ExAllocatePoolWithTag(PagedPool, *dwOut * sizeof(POINT), TAG_BEZIER);
+    *PtsOut = ExAllocatePoolWithTag(NonPagedPool, *dwOut * sizeof(POINT), TAG_BEZIER);
   }
 
   if(!level || BezierCheck(level, Points)) {
@@ -209,7 +219,7 @@ POINT * FASTCALL GDI_Bezier( const POINT *Points, INT count, INT *nPtsOut )
     return NULL;
   }
   *nPtsOut = 0;
-  out = ExAllocatePoolWithTag(PagedPool, dwOut * sizeof(POINT), TAG_BEZIER);
+  out = ExAllocatePoolWithTag(NonPagedPool, dwOut * sizeof(POINT), TAG_BEZIER);
   for(Bezier = 0; Bezier < (count-1)/3; Bezier++) {
     POINT ptBuf[4];
     memcpy(ptBuf, Points + Bezier * 3, sizeof(POINT) * 4);

@@ -1,10 +1,6 @@
 #ifndef __WIN32K_NTUSER_H
 #define __WIN32K_NTUSER_H
 
-#include <ddk/ntapi.h>
-
-#define WM_SYSTIMER 280
-
 ULONG STDCALL
 NtUserGetSystemMetrics(ULONG Index);
 
@@ -72,10 +68,10 @@ NtUserBitBltSysBmp(
   DWORD Unknown6,
   DWORD Unknown7);
 
-BOOL
+DWORD
 STDCALL
 NtUserBlockInput(
-  BOOL BlockIt);
+  DWORD Unknown0);
 
 ULONG
 STDCALL
@@ -156,15 +152,11 @@ NtUserCallNextHookEx(
   WPARAM wParam,
   LPARAM lParam);
 
-#define NOPARAM_ROUTINE_MSQCLEARWAKEMASK      0x3
-#define NOPARAM_ROUTINE_REGISTER_PRIMITIVE	  0xffff0001 /* Private ROS */
-#define NOPARAM_ROUTINE_DESTROY_CARET         0xffff0002
-#define NOPARAM_ROUTINE_UNINIT_MESSAGE_PUMP   0xffff0003
-#define NOPARAM_ROUTINE_INIT_MESSAGE_PUMP     0xffff0004
-#define NOPARAM_ROUTINE_GETMESSAGEEXTRAINFO   0xffff0005
-#define NOPARAM_ROUTINE_ANYPOPUP              0xffff0006
-#define NOPARAM_ROUTINE_CSRSS_INITIALIZED     0xffff0007
-#define NOPARAM_ROUTINE_GDI_QUERY_TABLE       0xffff0008
+#define NOPARAM_ROUTINE_REGISTER_PRIMITIVE 0xffff0001 /* Private ROS */
+#define NOPARAM_ROUTINE_DESTROY_CARET      0xffff0002
+#define NOPARAM_ROUTINE_UNINIT_MESSAGE_PUMP 0xffff0003
+#define NOPARAM_ROUTINE_INIT_MESSAGE_PUMP  0xffff0004
+#define NOPARAM_ROUTINE_GETMESSAGEEXTRAINFO 0xffff0005
 DWORD
 STDCALL
 NtUserCallNoParam(
@@ -179,45 +171,34 @@ NtUserCallNoParam(
 #define ONEPARAM_ROUTINE_GETCARETINFO         0x07
 #define ONEPARAM_ROUTINE_SWITCHCARETSHOWING   0x08
 #define ONEPARAM_ROUTINE_ENUMCLIPBOARDFORMATS 0x09
-#define ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO  0x0a
-#define ONEPARAM_ROUTINE_GETCURSORPOSITION    0x0b
-#define ONEPARAM_ROUTINE_ISWINDOWINDESTROY    0x0c
-#define ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING 0x0d
 #define ONEPARAM_ROUTINE_GETWINDOWINSTANCE    0x10
-#define ONEPARAM_ROUTINE_MSQSETWAKEMASK       0x27
+#define ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO  0x0a
 DWORD
 STDCALL
 NtUserCallOneParam(
   DWORD Param,
   DWORD Routine);
 
-#define TWOPARAM_ROUTINE_SETDCPENCOLOR      0x45
-#define TWOPARAM_ROUTINE_SETDCBRUSHCOLOR    0x46
-#define TWOPARAM_ROUTINE_GETDCCOLOR         0x47
 #define TWOPARAM_ROUTINE_GETWINDOWRGNBOX    0x48
 #define TWOPARAM_ROUTINE_GETWINDOWRGN       0x49
 #define TWOPARAM_ROUTINE_SETMENUBARHEIGHT   0x50
 #define TWOPARAM_ROUTINE_SETMENUITEMRECT    0x51
 #define TWOPARAM_ROUTINE_SETGUITHRDHANDLE   0x52
-  #define MSQ_STATE_CAPTURE	0x1
-  #define MSQ_STATE_ACTIVE	0x2
-  #define MSQ_STATE_FOCUS	0x3
-  #define MSQ_STATE_MENUOWNER	0x4
-  #define MSQ_STATE_MOVESIZE	0x5
-  #define MSQ_STATE_CARET	0x6
+  #define TPR_SGTH_ACTIVE         0x01
+  #define TPR_SGTH_FOCUS          0x02
+  #define TPR_SGTH_CAPTURE        0x03
+  #define TPR_SGTH_MENUOWNER      0x04
+  #define TPR_SGTH_MOVESIZE       0x05
+  #define TPR_SGTH_CARET          0x06
 #define TWOPARAM_ROUTINE_ENABLEWINDOW       0x53
 #define TWOPARAM_ROUTINE_UNKNOWN            0x54
 #define TWOPARAM_ROUTINE_SHOWOWNEDPOPUPS    0x55
 #define TWOPARAM_ROUTINE_SWITCHTOTHISWINDOW 0x56
 #define TWOPARAM_ROUTINE_VALIDATERGN        0x57
 #define TWOPARAM_ROUTINE_SETWNDCONTEXTHLPID 0x58
+#define TWOPARAM_ROUTINE_CURSORPOSITION     0x59
 #define TWOPARAM_ROUTINE_SETCARETPOS        0x60
 #define TWOPARAM_ROUTINE_GETWINDOWINFO      0x61
-#define TWOPARAM_ROUTINE_REGISTERLOGONPROC  0x62
-#define TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES 0x63
-#define TWOPARAM_ROUTINE_GETSYSCOLORPENS    0x64
-#define TWOPARAM_ROUTINE_GETSYSCOLORS       0x65
-#define TWOPARAM_ROUTINE_SETSYSCOLORS       0x66
 DWORD
 STDCALL
 NtUserCallTwoParam(
@@ -380,7 +361,7 @@ NtUserDeferWindowPos(HDWP WinPosInfo,
          int cy,
 		     UINT Flags);
 BOOL STDCALL
-NtUserDefSetText(HWND WindowHandle, PUNICODE_STRING WindowText);
+NtUserDefSetText(HWND WindowHandle, PANSI_STRING Text);
 
 BOOLEAN
 STDCALL
@@ -396,17 +377,9 @@ NtUserDestroyCursorIcon(
 BOOLEAN STDCALL
 NtUserDestroyWindow(HWND Wnd);
 
-typedef struct tagNTUSERDISPATCHMESSAGEINFO
-{
-  BOOL HandledByKernel;
-  BOOL Ansi;
-  WNDPROC Proc;
-  MSG Msg;
-} NTUSERDISPATCHMESSAGEINFO, *PNTUSERDISPATCHMESSAGEINFO;
-
 LRESULT
 STDCALL
-NtUserDispatchMessage(PNTUSERDISPATCHMESSAGEINFO MsgInfo);
+NtUserDispatchMessage(CONST MSG* lpmsg);
 
 BOOL
 STDCALL
@@ -495,27 +468,13 @@ NtUserEnumDisplayDevices (
   PDISPLAY_DEVICE lpDisplayDevice, /* device information */
   DWORD dwFlags ); /* reserved */
 
-/*BOOL
+BOOL
 STDCALL
 NtUserEnumDisplayMonitors (
   HDC hdc,
   LPCRECT lprcClip,
   MONITORENUMPROC lpfnEnum,
-  LPARAM dwData );*/
-
-#define MONITORINFOF_PRIMARY 1
-#define MONITOR_DEFAULTTONULL 0
-#define MONITOR_DEFAULTTOPRIMARY 1
-#define MONITOR_DEFAULTTONEAREST 2
-INT
-STDCALL
-NtUserEnumDisplayMonitors(
-  OPTIONAL IN HDC hDC,
-  OPTIONAL IN LPCRECT pRect,
-  OPTIONAL OUT HMONITOR *hMonitorList,
-  OPTIONAL OUT LPRECT monitorRectList,
-  OPTIONAL IN DWORD listSize );
-
+  LPARAM dwData );
 
 BOOL
 STDCALL
@@ -768,25 +727,13 @@ STDCALL
 NtUserGetListBoxInfo(
   DWORD Unknown0);
 
-typedef struct tagNTUSERGETMESSAGEINFO
-{
-  MSG Msg;
-  ULONG LParamSize;
-} NTUSERGETMESSAGEINFO, *PNTUSERGETMESSAGEINFO;
-
 BOOL
 STDCALL
 NtUserGetMessage(
-  PNTUSERGETMESSAGEINFO MsgInfo,
+  LPMSG lpMsg,
   HWND hWnd,
   UINT wMsgFilterMin,
   UINT wMsgFilterMax);
-
-BOOL
-STDCALL
-NtUserGetMonitorInfo(
-  IN HMONITOR hMonitor,
-  OUT LPMONITORINFO pMonitorInfo);
 
 DWORD
 STDCALL
@@ -914,12 +861,12 @@ NtUserInitTask(
   DWORD Unknown9,
   DWORD Unknown10);
 
-INT
+DWORD
 STDCALL
 NtUserInternalGetWindowText(
   HWND hWnd,
   LPWSTR lpString,
-  INT nMaxCount);
+  int nMaxCount);
 
 DWORD
 STDCALL
@@ -1022,25 +969,6 @@ NtUserModifyUserStartupInfoFlags(
   DWORD Unknown0,
   DWORD Unknown1);
 
-HMONITOR
-STDCALL
-NtUserMonitorFromPoint(
-  IN POINT point,
-  IN DWORD dwFlags);
-
-HMONITOR
-STDCALL
-NtUserMonitorFromRect(
-  IN LPCRECT pRect,
-  IN DWORD dwFlags);
-
-HMONITOR
-STDCALL
-NtUserMonitorFromWindow(
-  IN HWND hWnd,
-  IN DWORD dwFlags);
-
-
 BOOL
 STDCALL
 NtUserMoveWindow(      
@@ -1101,7 +1029,7 @@ NtUserPaintDesktop(
 BOOL
 STDCALL
 NtUserPeekMessage(
-  PNTUSERGETMESSAGEINFO MsgInfo,
+  LPMSG lpMsg,
   HWND hWnd,
   UINT wMsgFilterMin,
   UINT wMsgFilterMax,
@@ -1163,20 +1091,13 @@ NtUserRedrawWindow
  UINT flags
 );
 
-/* FIXME: These flag constans aren't what Windows uses. */
-#define REGISTERCLASS_ANSI	2
-#define REGISTERCLASS_SYSTEM	4
-#define REGISTERCLASS_ALL	(REGISTERCLASS_ANSI | REGISTERCLASS_SYSTEM)
-
-RTL_ATOM STDCALL
-NtUserRegisterClassExWOW(
-   CONST WNDCLASSEXW* lpwcx,
-   PUNICODE_STRING ClassName,
-   PUNICODE_STRING ClassNameCopy,
-   PUNICODE_STRING MenuName,
-   WNDPROC wpExtra,
-   DWORD Flags,
-   DWORD Unknown7);
+RTL_ATOM
+STDCALL
+NtUserRegisterClassExWOW(CONST WNDCLASSEXW* lpwcx,
+			 BOOL bUnicodeClass,
+			 WNDPROC wpExtra,
+			 DWORD Unknown4,
+			 DWORD Unknown5);
 
 BOOL
 STDCALL
@@ -1224,12 +1145,12 @@ DWORD STDCALL
 NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *rect,
    const RECT *clipRect, HRGN hrgnUpdate, LPRECT rcUpdate, UINT flags);
 
-UINT
+DWORD
 STDCALL
 NtUserSendInput(
-  UINT nInputs,
-  LPINPUT pInput,
-  INT cbSize);
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2);
 
 typedef struct tagNTUSERSENDMESSAGEINFO
 {
@@ -1584,7 +1505,7 @@ STDCALL
 NtUserSwitchDesktop(
   HDESK hDesktop);
 
-BOOL
+DWORD
 STDCALL
 NtUserSystemParametersInfo(
   UINT uiAction,
@@ -1683,11 +1604,11 @@ NtUserUpdateLayeredWindow(
   DWORD Unknown7,
   DWORD Unknown8);
 
-BOOL
+DWORD
 STDCALL
 NtUserUpdatePerUserSystemParameters(
-  DWORD dwReserved,
-  BOOL bEnable);
+  DWORD Unknown0,
+  DWORD Unknown1);
 
 DWORD
 STDCALL
@@ -1788,36 +1709,6 @@ NtUserSetScrollBarInfo(
   HWND hwnd,
   LONG idObject,
   SETSCROLLBARINFO *info);
-
-/* lParam of DDE messages */
-typedef struct tagKMDDEEXECUTEDATA
-{
-  HWND Sender;
-  HGLOBAL ClientMem;
-  /* BYTE Data[DataSize] */
-} KMDDEEXECUTEDATA, *PKMDDEEXECUTEDATA; 
-
-typedef struct tagKMDDELPARAM
-{
-  BOOL Packed;
-  union
-    {
-      struct
-        {
-          UINT uiLo;
-          UINT uiHi;
-        } Packed;
-      LPARAM Unpacked;
-    } Value;
-} KMDDELPARAM, *PKMDDELPARAM;
-
-typedef struct _GDI_TABLE_ENTRY
-{
-  PVOID KernelData; /* Points to the kernel mode structure */
-  LONG ProcessId;   /* process id that created the object, 0 for stock objects */
-  LONG Type;        /* the first 16 bit is the object type including the stock obj flag, the last 16 bits is just the object type */
-  PVOID UserData;   /* Points to the user mode structure, usually NULL though */
-} GDI_TABLE_ENTRY, *PGDI_TABLE_ENTRY;
 
 #endif /* __WIN32K_NTUSER_H */
 

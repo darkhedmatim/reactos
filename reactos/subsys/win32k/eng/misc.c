@@ -16,8 +16,13 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: misc.c,v 1.9 2004/07/03 17:40:25 navaraf Exp $ */
-#include <w32k.h>
+/* $Id: misc.c,v 1.4 2004/02/11 19:26:51 weiden Exp $ */
+#include <ddk/winddi.h>
+#include <include/dib.h>
+#include <include/object.h>
+#include <include/surface.h>
+#include "misc.h"
+#include "objects.h"
 
 BOOL STDCALL
 IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
@@ -50,9 +55,9 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
   if (NULL != DestObj && STYPE_BITMAP != DestObj->iType &&
       (NULL == DestObj->pvScan0 || 0 == DestObj->lDelta))
     {
+    EnterLeave->DestGDI = (SURFGDI*)AccessInternalObjectFromUserObject(DestObj);
     /* Driver needs to support DrvCopyBits, else we can't do anything */
-    /* FIXME: Remove typecast! */
-    if (!(((BITMAPOBJ*)DestObj)->flHooks & HOOK_COPYBITS))
+    if (NULL == EnterLeave->DestGDI->CopyBits)
       {
       return FALSE;
       }
@@ -63,8 +68,8 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     Width = DIB_GetDIBWidthBytes(BitmapSize.cx, BitsPerFormat(DestObj->iBitmapFormat));
     EnterLeave->OutputBitmap = EngCreateBitmap(BitmapSize, Width,
                                                DestObj->iBitmapFormat,
-                                               BMF_TOPDOWN | BMF_NOZEROINIT, NULL);
-    *OutputObj = EngLockSurface((HSURF)EnterLeave->OutputBitmap);
+                                               BMF_NOZEROINIT, NULL);
+    *OutputObj = (SURFOBJ *) AccessUserObject((ULONG) EnterLeave->OutputBitmap);
 
     EnterLeave->DestRect.left = 0;
     EnterLeave->DestRect.top = 0;
@@ -99,14 +104,13 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
         ClippedDestRect.top <= (*OutputObj)->sizlBitmap.cy &&
         0 <= ClippedDestRect.bottom &&
         SrcPoint.y < DestObj->sizlBitmap.cy &&
-        ! GDIDEVFUNCS(DestObj).CopyBits(
-                                        *OutputObj, DestObj,
+        ! EnterLeave->DestGDI->CopyBits(*OutputObj, DestObj,
                                         EnterLeave->TrivialClipObj, NULL,
                                         &ClippedDestRect, &SrcPoint))
       {
       EngDeleteClip(EnterLeave->TrivialClipObj);
       EngFreeMem((*OutputObj)->pvBits);
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+      EngDeleteSurface(EnterLeave->OutputBitmap);
       return FALSE;
       }
     EnterLeave->DestRect.left = DestRect->left;
@@ -134,7 +138,7 @@ BOOL STDCALL
 IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
 {
   POINTL SrcPoint;
-  BOOL Result = TRUE;
+  BOOL Result;
 
   if (EnterLeave->OutputObj != EnterLeave->DestObj && NULL != EnterLeave->OutputObj)
     {
@@ -167,8 +171,7 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
           EnterLeave->DestRect.top <= EnterLeave->DestRect.bottom &&
           EnterLeave->DestRect.top < EnterLeave->DestObj->sizlBitmap.cy)
         {
-          Result = GDIDEVFUNCS(EnterLeave->DestObj).CopyBits(
-                                                 EnterLeave->DestObj,
+          Result = EnterLeave->DestGDI->CopyBits(EnterLeave->DestObj,
                                                  EnterLeave->OutputObj,
                                                  EnterLeave->TrivialClipObj, NULL,
                                                  &EnterLeave->DestRect, &SrcPoint);
@@ -179,8 +182,7 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
         }
       }
     EngFreeMem(EnterLeave->OutputObj->pvBits);
-    EngUnlockSurface(EnterLeave->OutputObj);
-    EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+    EngDeleteSurface(EnterLeave->OutputBitmap);
     EngDeleteClip(EnterLeave->TrivialClipObj);
     }
   else

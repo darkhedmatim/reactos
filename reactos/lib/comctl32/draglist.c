@@ -18,15 +18,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * NOTES
- *
- * This code was audited for completeness against the documented features
- * of Comctl32.dll version 6.0 on Mar. 10, 2004, by Robert Shearman.
- * 
- * Unless otherwise noted, we believe this code to be complete, as per
- * the specification mentioned above.
- * If you discover missing features or bugs please note them below.
- * 
  */
 
 #include <stdarg.h>
@@ -36,15 +27,16 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winnls.h"
+#include "winnt.h"
 #include "commctrl.h"
 #include "comctl32.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(commctrl);
 
-/* for compiler compatibility we only accept literal ASCII strings */
-#undef TEXT
-#define TEXT(string) string
+#ifndef TEXT
+# define TEXT(string) string
+#endif
 
 #define DRAGLIST_SUBCLASSID     0
 #define DRAGLIST_SCROLLPERIOD 200
@@ -58,23 +50,22 @@ WINE_DEFAULT_DEBUG_CHANNEL(commctrl);
 /* internal Wine specific data for the drag list control */
 typedef struct _DRAGLISTDATA
 {
-    /* are we currently in dragging mode? */
-    BOOL dragging;
+	/* are we currently in dragging mode? */
+	BOOL dragging;
 
-    /* cursor to use as determined by DL_DRAGGING notification.
+	/* cursor to use as determined by DL_DRAGGING notification.
      * NOTE: as we use LoadCursor we don't have to use DeleteCursor
      * when we are finished with it */
-    HCURSOR cursor;
+	HCURSOR cursor;
 
     /* optimisation so that we don't have to load the cursor
      * all of the time whilst dragging */
-    LRESULT last_dragging_response;
-
+	LRESULT last_dragging_response;
     /* prevents flicker with drawing drag arrow */
     RECT last_drag_icon_rect;
 } DRAGLISTDATA;
 
-UINT uDragListMessage = 0; /* registered window message code */
+static UINT uDragListMessage = 0; /* registered window message code */
 static DWORD dwLastScrollTime = 0;
 static HICON hDragArrow = NULL;
 
@@ -99,10 +90,9 @@ static inline void DragList_EndDrag(HWND hwnd, DRAGLISTDATA * data)
 {
     KillTimer(hwnd, DRAGLIST_TIMERID);
     ReleaseCapture();
+    data->dragging = FALSE;
     /* clear any drag insert icon present */
     InvalidateRect(GetParent(hwnd), &data->last_drag_icon_rect, TRUE);
-    /* clear data for next use */
-    memset(data, 0, sizeof(*data));
 }
 
 /***********************************************************************
@@ -119,6 +109,8 @@ DragList_SubclassWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
     {
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
+        data->cursor = NULL;
+        SetRectEmpty(&data->last_drag_icon_rect);
         data->dragging = DragList_Notify(hwnd, DL_BEGINDRAG);
         if (data->dragging)
         {
@@ -179,6 +171,15 @@ DragList_SubclassWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
         {
             DragList_EndDrag(hwnd, data);
             DragList_Notify(hwnd, DL_DROPPED);
+        }
+        break;
+
+	case WM_SETCURSOR:
+	    /* if app has told us to set a cursor then do so */
+        if (data->dragging && data->cursor)
+        {
+            SetCursor(data->cursor);
+            return TRUE;
         }
         break;
 
@@ -258,17 +259,12 @@ VOID WINAPI DrawInsert (HWND hwndParent, HWND hwndLB, INT nItem)
     if (!GetWindowSubclass(hwndLB, DragList_SubclassWindowProc, DRAGLIST_SUBCLASSID, (DWORD_PTR*)&data))
         return;
 
-    if (nItem < 0)
-        SetRectEmpty(&rcDragIcon);
-
     /* prevent flicker by only redrawing when necessary */
     if (!EqualRect(&rcDragIcon, &data->last_drag_icon_rect))
     {
         /* get rid of any previous inserts drawn */
         RedrawWindow(hwndParent, &data->last_drag_icon_rect, NULL,
             RDW_INTERNALPAINT | RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
-
-        CopyRect(&data->last_drag_icon_rect, &rcDragIcon);
 
         if (nItem >= 0)
         {
@@ -279,6 +275,7 @@ VOID WINAPI DrawInsert (HWND hwndParent, HWND hwndLB, INT nItem)
             ReleaseDC(hwndParent, hdc);
         }
     }
+    CopyRect(&data->last_drag_icon_rect, &rcDragIcon);
 }
 
 /***********************************************************************

@@ -201,7 +201,7 @@ Fat16WriteRootDirectory (IN HANDLE FileHandle,
 			 IN OUT PFORMAT_CONTEXT Context)
 {
   IO_STATUS_BLOCK IoStatusBlock;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   PUCHAR Buffer;
   LARGE_INTEGER FileOffset;
   ULONG FirstRootDirSector;

@@ -171,7 +171,7 @@ static BOOL	Control_Localize(const CPanel* panel, unsigned cx, unsigned cy,
     RECT	rc;
 
     GetClientRect(panel->hWnd, &rc);
-    for (applet = panel->first; applet; applet = applet->next) {
+    for (applet = panel->first; applet; applet = applet = applet->next) {
         for (i = 0; i < applet->count; i++) {
 	    if (!applet->info[i].dwSize) continue;
 	    if (x + XSTEP >= rc.right - rc.left) {
@@ -201,7 +201,7 @@ static LRESULT Control_WndProc_Paint(const CPanel* panel, WPARAM wParam)
     hdc = (wParam) ? (HDC)wParam : BeginPaint(panel->hWnd, &ps);
     hOldFont = SelectObject(hdc, GetStockObject(ANSI_VAR_FONT));
     GetClientRect(panel->hWnd, &rc);
-    for (applet = panel->first; applet; applet = applet->next) {
+    for (applet = panel->first; applet; applet = applet = applet->next) {
         for (i = 0; i < applet->count; i++) {
 	    if (x + XSTEP >= rc.right - rc.left) {
 	        x = 0;
@@ -438,22 +438,22 @@ void WINAPI Control_RunDLLA(HWND hWnd, HINSTANCE hInst, LPCSTR cmd, DWORD nCmdSh
 }
 
 /*************************************************************************
- * Control_FillCache_RunDLLW			[SHELL32.@]
- *
- */
-HRESULT WINAPI Control_FillCache_RunDLLW(HWND hWnd, HANDLE hModule, DWORD w, DWORD x)
-{
-    FIXME("%p %p 0x%08lx 0x%08lx stub\n", hWnd, hModule, w, x);
-    return 0;
-}
-
-/*************************************************************************
  * Control_FillCache_RunDLLA			[SHELL32.@]
  *
  */
 HRESULT WINAPI Control_FillCache_RunDLLA(HWND hWnd, HANDLE hModule, DWORD w, DWORD x)
 {
-    return Control_FillCache_RunDLLW(hWnd, hModule, w, x);
+    FIXME("%p %p 0x%04lx 0x%04lx stub\n", hWnd, hModule, w, x);
+    return 0;
+}
+
+/*************************************************************************
+ * Control_FillCache_RunDLLW			[SHELL32.@]
+ *
+ */
+HRESULT WINAPI Control_FillCache_RunDLLW(HWND hWnd, HANDLE hModule, DWORD w, DWORD x)
+{
+    return Control_FillCache_RunDLLA(hWnd, hModule, w, x);
 }
 
 

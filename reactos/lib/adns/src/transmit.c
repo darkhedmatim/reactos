@@ -99,8 +99,7 @@ adns_status adns__mkquery(adns_state ads, vbuf *vb, int *id_r,
 	if (!(flags & adns_qf_quoteok_query)) return adns_s_querydomaininvalid;
 	if (ctype_digit(p[0])) {
 	  if (ctype_digit(p[1]) && ctype_digit(p[2])) {
-	    c= (p[0] - '0')*100 + (p[1] - '0')*10 + (p[2] - '0');
-	    p += 3;
+	    c= (*p++ - '0')*100 + (*p++ - '0')*10 + (*p++ - '0');
 	    if (c >= 256) return adns_s_querydomaininvalid;
 	  } else {
 	    return adns_s_querydomaininvalid;
@@ -124,7 +123,7 @@ adns_status adns__mkquery(adns_state ads, vbuf *vb, int *id_r,
     nbytes+= ll+1;
     if (nbytes >= DNS_MAXDOMAIN) return adns_s_querydomaintoolong;
     MKQUERY_ADDB(ll);
-    memcpy(rqp,label,(size_t) ll); rqp+= ll;
+    memcpy(rqp,label,ll); rqp+= ll;
   }
   MKQUERY_ADDB(0);
 
@@ -153,7 +152,7 @@ adns_status adns__mkquery_frdgram(adns_state ads, vbuf *vb, int *id_r,
     if (!lablen) break;
     assert(lablen<255);
     MKQUERY_ADDB(lablen);
-    memcpy(rqp,qd_dgram+labstart, (size_t) lablen);
+    memcpy(rqp,qd_dgram+labstart,lablen);
     rqp+= lablen;
   }
   MKQUERY_ADDB(0);

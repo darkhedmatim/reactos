@@ -7,17 +7,7 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
-#include <ctype.h>
 #include <ws2_32.h>
-#include <winbase.h>
-
-#ifndef BUFSIZ
-#define BUFSIZ 1024
-#endif/*BUFSIZ*/
-
-#ifndef MAX_HOSTNAME_LEN
-#define MAX_HOSTNAME_LEN 256
-#endif
 
 /* Name resolution APIs */
 
@@ -342,50 +332,6 @@ WSAStringToAddressW(
     return 0;
 }
 
-void check_hostent(struct hostent **he) {
-  struct hostent *new_he;
-  WS_DbgPrint(MID_TRACE,("*he: %x\n",*he));
-  if(!*he) {
-    new_he = HeapAlloc(GlobalHeap, 0, sizeof(struct hostent) + MAX_HOSTNAME_LEN + 1);
-    new_he->h_name = (PCHAR)(new_he + 1);
-    new_he->h_aliases = 0;
-    new_he->h_addrtype = 0; // AF_INET
-    new_he->h_length = 0;   // sizeof(in_addr)
-    new_he->h_addr_list = HeapAlloc(GlobalHeap, 0, sizeof(char *) * 2);
-    RtlZeroMemory(new_he->h_addr_list, sizeof(char *) * 2);
-    *he = new_he;
-  }
-}
-
-void populate_hostent(struct hostent *he, char* name, DNS_A_DATA addr) {
-  ASSERT(he);
-  //he = HeapAlloc(GlobalHeap, 0, sizeof(struct hostent));
-  //he->h_name = HeapAlloc(GlobalHeap, 0, MAX_HOSTNAME_LEN+1);
-  strncpy(he->h_name, name, MAX_HOSTNAME_LEN);
-  he->h_aliases = 0;
-  he->h_addrtype = AF_INET;
-  he->h_length = sizeof(IN_ADDR); //sizeof(struct in_addr);
-  if( he->h_addr_list[0] ) HeapFree( GlobalHeap, 0, he->h_addr_list[0] );
-  he->h_addr_list[0] = HeapAlloc(GlobalHeap, 0, MAX_HOSTNAME_LEN+1);
-  WS_DbgPrint(MID_TRACE,("he->h_addr_list[0] %x\n", he->h_addr_list[0]));
-  RtlCopyMemory(he->h_addr_list[0], (char*)&addr.IpAddress, 
-		sizeof(addr.IpAddress));
-  he->h_addr_list[1] = 0;
-}
-
-
-#define HFREE(x) if(x) { HeapFree(GlobalHeap, 0, (x)); x=0; }
-void free_hostent(struct hostent *he) {
-  if(he) {
-    HFREE(he->h_name);
-    char *next = he->h_aliases[0];
-    while(next) { HFREE(next); next++; }
-    next = he->h_addr_list[0];
-    while(next) { HFREE(next); next++; }
-    HFREE(he->h_addr_list);
-    HFREE(he);
-  }
-}
 
 /* WinSock 1.1 compatible name resolution APIs */
 
@@ -405,193 +351,21 @@ gethostbyaddr(
 }
 
 /*
-  Assumes rfc 1123 - adam * 
-   addr[1] = 0;
-    addr[0] = inet_addr(name);
-    strcpy( hostname, name );
-    if(addr[0] == 0xffffffff) return NULL;
-    he.h_addr_list = (void *)addr;
-    he.h_name = hostname;
-    he.h_aliases = NULL;
-    he.h_addrtype = AF_INET;
-    he.h_length = sizeof(addr);
-    return &he;
-
-<RANT>
-From the MSDN Platform SDK: Windows Sockets 2
-"The gethostbyname function cannot resolve IP address strings passed to it.
-Such a request is treated exactly as if an unknown host name were passed."
-</RANT>
-
-Defferring to the the documented behaviour, rather than the unix behaviour
-What if the hostname is in the HOSTS file? see getservbyname
-
- * @implemented
+ * @unimplemented
  */
-
-/* DnsQuery -- lib/dnsapi/dnsapi/query.c */
-   /* see ws2_32.h, winsock2.h*/
-    /*getnetworkparameters - iphlp api */
-/*
-REFERENCES
-
-servent -- w32api/include/winsock2.h
-PWINSOCK_THREAD_BLOCK -- ws2_32.h
-dllmain.c -- threadlocal memory allocation / deallocation
-lib/dnsapi
-      
-
-*/
-      /* lib/adns/src/adns.h XXX */
-
-
-/*
-struct  hostent {
-        char    *h_name;
-        char    **h_aliases;
-        short   h_addrtype;
-        short   h_length;
-        char    **h_addr_list;
-#define h_addr h_addr_list[0]
-};
-struct  servent {
-        char    *s_name;
-        char    **s_aliases;
-        short   s_port;
-        char    *s_proto;
-};
-
-
-struct hostent defined in w32api/include/winsock2.h
-*/
-
-void free_servent(struct servent* s) {
-  HFREE(s->s_name);
-  char* next = s->s_aliases[0];
-  while(next) { HFREE(next); next++; }
-  s->s_port = 0;
-  HFREE(s->s_proto);
-  HFREE(s);
-}
-
-
- 
 LPHOSTENT
 EXPORT
 gethostbyname(
     IN  CONST CHAR FAR* name)
 {
-  enum addr_type{ GH_INVALID, GH_IPV6, GH_IPV4, GH_RFC1123_DNS };
-  typedef enum addr_type addr_type;
-  addr_type addr;
-  int ret = 0;
-  char* found = 0;
-  DNS_STATUS dns_status = {0};
-  /* include/WinDNS.h -- look up DNS_RECORD on MSDN */
-  PDNS_RECORD dp = 0;
+    UNIMPLEMENTED
 
-  addr = GH_INVALID;
-
-  PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
-
-  if( !p ) {
-    WSASetLastError( WSANOTINITIALISED );
-    return NULL;
-  }
-
-  check_hostent(&p->Hostent);   /*XXX alloc_hostent*/
-
-  /* Hostname NULL - behave like gethostname */
-  if(name == NULL) {
-    ret = gethostname(p->Hostent->h_name, MAX_HOSTNAME_LEN);
-    return p->Hostent;
-  }
-
-  if(ret) {
-    WSASetLastError( WSAHOST_NOT_FOUND ); //WSANO_DATA  ??
-    return NULL;
-  }
-
-  /* Is it an IPv6 address? */
-  found = strstr(name, ":");
-  if( found != NULL ) {
-    addr = GH_IPV6;
-    goto act;
-  }
-
-  /* Is it an IPv4 address? */
-  if (!isalpha(name[0])) {
-    addr = GH_IPV4;
-    goto act;
-  }
-
- addr = GH_RFC1123_DNS;
-
- /* Broken out in case we want to get fancy later */
- act:
-    switch(addr){
-      case GH_IPV6:
-	WSASetLastError(STATUS_NOT_IMPLEMENTED);
-	return NULL;
-	break;
-
-    case GH_INVALID:
-      WSASetLastError(WSAEFAULT);
-      return NULL;
-      break;
-
-    /* Note: If passed an IP address, MSDN says that gethostbyname()
-             treats it as an unknown host.
-       This is different from the unix implementation. Use inet_addr()
-    */
-    case GH_IPV4:
-    case GH_RFC1123_DNS:
-      /* DNS_TYPE_A: include/WinDNS.h */
-      /* DnsQuery -- lib/dnsapi/dnsapi/query.c */
-      dns_status = DnsQuery_A ( name, DNS_TYPE_A, DNS_QUERY_STANDARD,
-				0, /* extra dns servers */ &dp, 0 );
-
-      if(dns_status == 0) {
-	//ASSERT(dp->wType == DNS_TYPE_A);
-	//ASSERT(dp->wDataLength == sizeof(DNS_A_DATA));
-	PDNS_RECORD curr;
-	for(curr=dp;
-	    curr != NULL && curr->wType != DNS_TYPE_A;
-	    curr = curr->pNext ) { 
-	  WS_DbgPrint(MID_TRACE,("wType: %i\n", curr->wType));
-	  /*empty */ 
-	}
-
-	if(curr) {
-	  WS_DbgPrint(MID_TRACE,("populating hostent\n"));
-	  WS_DbgPrint(MID_TRACE,("pName is (%s)\n", curr->pName));
-	  populate_hostent(p->Hostent, (PCHAR)curr->pName, curr->Data.A);
-	  DnsRecordListFree(dp, DnsFreeRecordList);
-	  return p->Hostent;
-	} else {
-	  DnsRecordListFree(dp, DnsFreeRecordList);
-	}
-      }
-
-      WS_DbgPrint(MID_TRACE,("Called DnsQuery, but host not found. Err: %i\n",
-			     dns_status));
-      WSASetLastError(WSAHOST_NOT_FOUND);
-      return NULL;
-      
-      break;
-
-    default:
-      WSASetLastError(WSANO_RECOVERY);
-      return NULL;
-      break;
-    }
-
-    WSASetLastError(WSANO_RECOVERY);
-    return NULL;
+    return (LPHOSTENT)NULL;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -599,22 +373,15 @@ gethostname(
     OUT CHAR FAR* name,
     IN  INT namelen)
 {
-  DWORD size = namelen;
-  
-  int ret = GetComputerNameExA(ComputerNameDnsHostname, name, &size);
-  if(ret == 0) {
-    WSASetLastError(WSAEFAULT);
-    return SOCKET_ERROR;
-  } else {
-    name[namelen-1] = '\0';
+    UNIMPLEMENTED
+
     return 0;
-  }
 }
 
 
 /*
  * XXX arty -- Partial implementation pending a better one.  This one will
- * do for normal purposes.#include <ws2_32.h>
+ * do for normal purposes.
  *
  * Return the address of a static LPPROTOENT corresponding to the named
  * protocol.  These structs aren't very interesting, so I'm not too ashamed
@@ -653,222 +420,24 @@ getprotobynumber(
     return (LPPROTOENT)NULL;
 }
 
-#define SKIPWS(ptr,act) \
-{while(*ptr && isspace(*ptr)) ptr++; if(!*ptr) act;}
-#define SKIPANDMARKSTR(ptr,act) \
-{while(*ptr && !isspace(*ptr)) ptr++; \
- if(!*ptr) {act;} else { *ptr = 0; ptr++; }}
- 
-
-static BOOL DecodeServEntFromString( IN  PCHAR ServiceString,
-				     OUT PCHAR *ServiceName,
-				     OUT PCHAR *PortNumberStr,
-				     OUT PCHAR *ProtocolStr,
-				     IN  PCHAR *Aliases,
-				     IN  DWORD MaxAlias ) {
-    UINT NAliases = 0;
-
-    WS_DbgPrint(MAX_TRACE, ("Parsing service ent [%s]\n", ServiceString));
-
-    SKIPWS(ServiceString, return FALSE);
-    *ServiceName = ServiceString;
-    SKIPANDMARKSTR(ServiceString, return FALSE);
-    SKIPWS(ServiceString, return FALSE);
-    *PortNumberStr = ServiceString;
-    SKIPANDMARKSTR(ServiceString, ;);
-
-    while( *ServiceString && NAliases < MaxAlias - 1 ) {
-	SKIPWS(ServiceString, break);
-	if( *ServiceString ) {
-	    SKIPANDMARKSTR(ServiceString, ;);
-	    if( strlen(ServiceString) ) {
-		WS_DbgPrint(MAX_TRACE, ("Alias: %s\n", ServiceString));
-		*Aliases++ = ServiceString;
-		NAliases++;
-	    }
-	}
-    }
-    *Aliases = NULL;
-
-    *ProtocolStr = strchr(*PortNumberStr,'/');
-    if( !*ProtocolStr ) return FALSE;
-    **ProtocolStr = 0; (*ProtocolStr)++;
-
-    WS_DbgPrint(MAX_TRACE, ("Parsing done: %s %s %s %d\n",
-			    *ServiceName, *ProtocolStr, *PortNumberStr,
-			    NAliases));
-
-    return TRUE;
-}
-
-#define ADJ_PTR(p,b1,b2) p = (p - b1) + b2
 
 /*
- * @implemented
+ * @unimplemented
  */
 LPSERVENT
 EXPORT
 getservbyname(
-
     IN  CONST CHAR FAR* name, 
     IN  CONST CHAR FAR* proto)
 {
-    BOOL  Found = FALSE;
-    HANDLE ServicesFile;
-    CHAR ServiceDBData[BUFSIZ] = { 0 };
-    PCHAR SystemDirectory = ServiceDBData; /* Reuse this stack space */
-    PCHAR ServicesFileLocation = "\\drivers\\etc\\services";
-    PCHAR ThisLine = 0, NextLine = 0, ServiceName = 0, PortNumberStr = 0, 
-	ProtocolStr = 0, Comment = 0;
-    PCHAR Aliases[WS2_INTERNAL_MAX_ALIAS] = { 0 };
-    UINT i,SizeNeeded = 0, 
-	SystemDirSize = sizeof(ServiceDBData) - 1;
-    DWORD ReadSize = 0, ValidData = 0;
-    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
-    
-    if( !p ) {
-	WSASetLastError( WSANOTINITIALISED );
-	return NULL;
-    }
+    UNIMPLEMENTED
 
-    if( !name ) {
-	WSASetLastError( WSANO_RECOVERY );
-	return NULL;
-    }
-    
-    if( !GetSystemDirectoryA( SystemDirectory, SystemDirSize ) ) {
-	WSASetLastError( WSANO_RECOVERY );
-	WS_DbgPrint(MIN_TRACE, ("Could not get windows system directory.\n"));
-	return NULL; /* Can't get system directory */
-    }
-    
-    strncat( SystemDirectory, ServicesFileLocation, SystemDirSize );
-
-    ServicesFile = CreateFileA( SystemDirectory,
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,
-				OPEN_EXISTING,
-				FILE_ATTRIBUTE_NORMAL | 
-				FILE_FLAG_SEQUENTIAL_SCAN,
-				NULL );
-
-    if( ServicesFile == INVALID_HANDLE_VALUE ) {
-	WSASetLastError( WSANO_RECOVERY );
-	return NULL;
-    }
-
-    /* Scan the services file ... 
-     *
-     * We will read up to BUFSIZ bytes per pass, until the buffer does not
-     * contain a full line, then we will try to read more.
-     *
-     * We fall from the loop if the buffer does not have a line terminator.
-     */
-
-    /* Initial Read */
-    while( !Found &&
-	   ReadFile( ServicesFile, ServiceDBData + ValidData,
-		     sizeof( ServiceDBData ) - ValidData,
-		     &ReadSize, NULL ) ) {
-	ValidData += ReadSize;
-	ReadSize = 0;
-	NextLine = ThisLine = ServiceDBData;
-
-	/* Find the beginning of the next line */
-	while( NextLine < ServiceDBData + ValidData &&
-	       *NextLine != '\r' && *NextLine != '\n' ) NextLine++;
-	
-	/* Zero and skip, so we can treat what we have as a string */
-	if( NextLine >= ServiceDBData + ValidData ) 
-	    break;
-
-	*NextLine = 0; NextLine++;
-
-	Comment = strchr( ThisLine, '#' );
-	if( Comment ) *Comment = 0; /* Terminate at comment start */
-
-	if( DecodeServEntFromString( ThisLine, 
-				     &ServiceName, 
-				     &PortNumberStr,
-				     &ProtocolStr,
-				     Aliases,
-				     WS2_INTERNAL_MAX_ALIAS ) &&
-	    !strcmp( ServiceName, name ) &&
-	    (proto ? !strcmp( ProtocolStr, proto ) : TRUE) ) {
-
-	    WS_DbgPrint(MAX_TRACE,("Found the service entry.\n"));
-	    Found = TRUE;
-	    SizeNeeded = sizeof(WINSOCK_GETSERVBYNAME_CACHE) + 
-		(NextLine - ThisLine);
-	    break;
-	}
-
-	/* Get rid of everything we read so far */
-	while( NextLine <= ServiceDBData + ValidData &&
-	       isspace( *NextLine ) ) NextLine++;
-
-	WS_DbgPrint(MAX_TRACE,("About to move %d chars\n", 
-			       ServiceDBData + ValidData - NextLine));
-
-	memmove( ServiceDBData, NextLine, 
-		 ServiceDBData + ValidData - NextLine );
-	ValidData -= NextLine - ServiceDBData;
-	WS_DbgPrint(MAX_TRACE,("Valid bytes: %d\n", ValidData));
-    }
-
-    /* This we'll do no matter what */
-    CloseHandle( ServicesFile );
-    
-    if( !Found ) {
-	WS_DbgPrint(MAX_TRACE,("Not found\n"));
-	WSASetLastError( WSANO_DATA );
-	return NULL;
-    }
-    
-    if( !p->Getservbyname || p->Getservbyname->Size < SizeNeeded ) {
-	/* Free previous getservbyname buffer, allocate bigger */
-	if( p->Getservbyname ) 
-	    HeapFree(GlobalHeap, 0, p->Getservbyname);
-	p->Getservbyname = HeapAlloc(GlobalHeap, 0, SizeNeeded);
-	if( !p->Getservbyname ) {
-	    WS_DbgPrint(MIN_TRACE,("Couldn't allocate %d bytes\n", 
-				   SizeNeeded));
-	    WSASetLastError( WSATRY_AGAIN );
-	    return NULL;
-	}
-	p->Getservbyname->Size = SizeNeeded;
-    }
-
-    /* Copy the data */
-    memmove( p->Getservbyname->Data, 
-	     ThisLine,
-	     NextLine - ThisLine );
-
-    ADJ_PTR(ServiceName,ThisLine,p->Getservbyname->Data);
-    ADJ_PTR(ProtocolStr,ThisLine,p->Getservbyname->Data);
-    WS_DbgPrint(MAX_TRACE,
-		("ServiceName: %s, Protocol: %s\n", ServiceName, ProtocolStr));
-		
-    for( i = 0; Aliases[i]; i++ ) {
-	ADJ_PTR(Aliases[i],ThisLine,p->Getservbyname->Data);
-	WS_DbgPrint(MAX_TRACE,("Aliase %d: %s\n", i, Aliases[i]));
-    }
-
-    memcpy(p->Getservbyname,Aliases,sizeof(Aliases));
-
-    /* Create the struct proper */
-    p->Getservbyname->ServerEntry.s_name = ServiceName;
-    p->Getservbyname->ServerEntry.s_aliases = p->Getservbyname->Aliases;
-    p->Getservbyname->ServerEntry.s_port = htons(atoi(PortNumberStr));
-    p->Getservbyname->ServerEntry.s_proto = ProtocolStr;
-
-    return &p->Getservbyname->ServerEntry;
+    return (LPSERVENT)NULL;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 LPSERVENT
 EXPORT
@@ -876,160 +445,9 @@ getservbyport(
     IN  INT port, 
     IN  CONST CHAR FAR* proto)
 {
-    BOOL  Found = FALSE;
-    HANDLE ServicesFile;
-    CHAR ServiceDBData[BUFSIZ] = { 0 };
-    PCHAR SystemDirectory = ServiceDBData; /* Reuse this stack space */
-    PCHAR ServicesFileLocation = "\\drivers\\etc\\services";
-    PCHAR ThisLine = 0, NextLine = 0, ServiceName = 0, PortNumberStr = 0, 
-	ProtocolStr = 0, Comment = 0;
-    PCHAR Aliases[WS2_INTERNAL_MAX_ALIAS] = { 0 };
-    UINT i,SizeNeeded = 0, 
-	SystemDirSize = sizeof(ServiceDBData) - 1;
-    DWORD ReadSize = 0, ValidData = 0;
-    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
-    
-    if( !p ) {
-	WSASetLastError( WSANOTINITIALISED );
-	return NULL;
-    }
+    UNIMPLEMENTED
 
-    if ( !port ) {
-        WSASetLastError( WSANO_RECOVERY );
-        return NULL;
-    }
- 
-    if( !GetSystemDirectoryA( SystemDirectory, SystemDirSize ) ) {
-	WSASetLastError( WSANO_RECOVERY );
-	WS_DbgPrint(MIN_TRACE, ("Could not get windows system directory.\n"));
-	return NULL; /* Can't get system directory */
-    }
-    
-    strncat( SystemDirectory, ServicesFileLocation, SystemDirSize );
-
-    ServicesFile = CreateFileA( SystemDirectory,
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,
-				OPEN_EXISTING,
-				FILE_ATTRIBUTE_NORMAL | 
-				FILE_FLAG_SEQUENTIAL_SCAN,
-				NULL );
-
-    if( ServicesFile == INVALID_HANDLE_VALUE ) {
-	WSASetLastError( WSANO_RECOVERY );
-	return NULL;
-    }
-
-    /* Scan the services file ... 
-     *
-     * We will read up to BUFSIZ bytes per pass, until the buffer does not
-     * contain a full line, then we will try to read more.
-     *
-     * We fall from the loop if the buffer does not have a line terminator.
-     */
-
-    /* Initial Read */
-    while( !Found &&
-	   ReadFile( ServicesFile, ServiceDBData + ValidData,
-		     sizeof( ServiceDBData ) - ValidData,
-		     &ReadSize, NULL ) ) {
-	ValidData += ReadSize;
-	ReadSize = 0;
-	NextLine = ThisLine = ServiceDBData;
-
-	/* Find the beginning of the next line */
-	while( NextLine < ServiceDBData + ValidData &&
-	       *NextLine != '\r' && *NextLine != '\n' ) NextLine++;
-	
-	/* Zero and skip, so we can treat what we have as a string */
-	if( NextLine >= ServiceDBData + ValidData ) 
-	    break;
-
-	*NextLine = 0; NextLine++;
-
-	Comment = strchr( ThisLine, '#' );
-	if( Comment ) *Comment = 0; /* Terminate at comment start */
-
-	if( DecodeServEntFromString( ThisLine, 
-				     &ServiceName, 
-				     &PortNumberStr,
-				     &ProtocolStr,
-				     Aliases,
-				     WS2_INTERNAL_MAX_ALIAS ) &&
-	    (htons(atoi( PortNumberStr )) == port ) &&
-	    (proto ? !strcmp( ProtocolStr, proto ) : TRUE) ) {
-
-            WS_DbgPrint(MAX_TRACE,("Found the port entry.\n"));
-
-	    Found = TRUE;
-	    SizeNeeded = sizeof(WINSOCK_GETSERVBYPORT_CACHE) + 
-		(NextLine - ThisLine);
-	    break;
-	}
-
-	/* Get rid of everything we read so far */
-	while( NextLine <= ServiceDBData + ValidData &&
-	       isspace( *NextLine ) ) NextLine++;
-
-	WS_DbgPrint(MAX_TRACE,("About to move %d chars\n", 
-			       ServiceDBData + ValidData - NextLine));
-
-	memmove( ServiceDBData, NextLine, 
-		 ServiceDBData + ValidData - NextLine );
-	ValidData -= NextLine - ServiceDBData;
-	WS_DbgPrint(MAX_TRACE,("Valid bytes: %d\n", ValidData));
-    }
-
-    /* This we'll do no matter what */
-    CloseHandle( ServicesFile );
-    
-    if( !Found ) {
-	WS_DbgPrint(MAX_TRACE,("Not found\n"));
-	WSASetLastError( WSANO_DATA );
-	return NULL;
-    }
-    
-    if( !p->Getservbyport || p->Getservbyport->Size < SizeNeeded ) {
-	/* Free previous getservbyport buffer, allocate bigger */
-	if( p->Getservbyport ) 
-	    HeapFree(GlobalHeap, 0, p->Getservbyport);
-	p->Getservbyport = HeapAlloc(GlobalHeap, 0, SizeNeeded);
-	if( !p->Getservbyport ) {
-	    WS_DbgPrint(MIN_TRACE,("Couldn't allocate %d bytes\n", 
-				   SizeNeeded));
-	    WSASetLastError( WSATRY_AGAIN );
-	    return NULL;
-	}
-        p->Getservbyport->Size = SizeNeeded;
-    }
-    /* Copy the data */
-    memmove( p->Getservbyport->Data, 
-	     ThisLine,
-	     NextLine - ThisLine );
-
-    ADJ_PTR(PortNumberStr,ThisLine,p->Getservbyport->Data);
-    ADJ_PTR(ProtocolStr,ThisLine,p->Getservbyport->Data);
-    WS_DbgPrint(MAX_TRACE,
-		("Port Number: %s, Protocol: %s\n", PortNumberStr, ProtocolStr));
-		
-    for( i = 0; Aliases[i]; i++ ) {
-	ADJ_PTR(Aliases[i],ThisLine,p->Getservbyport->Data);
-	WS_DbgPrint(MAX_TRACE,("Aliases %d: %s\n", i, Aliases[i]));
-    }
-
-    memcpy(p->Getservbyport,Aliases,sizeof(Aliases));
-
-    /* Create the struct proper */
-    p->Getservbyport->ServerEntry.s_name = ServiceName;
-    p->Getservbyport->ServerEntry.s_aliases = p->Getservbyport->Aliases;
-    p->Getservbyport->ServerEntry.s_port = port;
-    p->Getservbyport->ServerEntry.s_proto = ProtocolStr;
-
-    WS_DbgPrint(MID_TRACE,("s_name: %s\n", ServiceName));
-
-    return &p->Getservbyport->ServerEntry;
-
+    return (LPSERVENT)NULL;
 }
 
 
@@ -1175,6 +593,7 @@ WSAAsyncGetProtoByNumber(
 
     return (HANDLE)0;
 }
+
 
 /*
  * @unimplemented

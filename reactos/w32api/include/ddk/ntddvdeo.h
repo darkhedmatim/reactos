@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 
 
@@ -432,6 +434,8 @@ typedef struct _VIDEO_HARDWARE_STATE {
 #define VIDEO_DUALVIEW_REMOVABLE          0x00000001
 #define VIDEO_DUALVIEW_PRIMARY            0x80000000
 #define VIDEO_DUALVIEW_SECONDARY          0x40000000
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -23,9 +23,16 @@
  *        Redirection ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_CLS
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+
 
 INT cmd_cls (LPTSTR cmd, LPTSTR param)
 {

@@ -1,6 +1,6 @@
-# $Id: Makefile.ros-template 11910 2004-12-03 23:37:44Z blight $
+# $Id: Makefile.ros-template,v 1.1 2004/01/02 19:49:46 gvg Exp $
 
-TARGET_NAME = wine_unicode
+TARGET_NAME = libwine_unicode
 
 CODEPAGES = @CODEPAGES@
 
@@ -23,11 +23,9 @@ TARGET_SDKLIBS = @IMPORTS@
 
 TARGET_NORC = yes
 
-TARGET_BASE = $(TARGET_BASE_LIB_UNICODE)
+TARGET_BASE = 0x6b200000
 
 TARGET_DEFNAME = wine_unicode
-
-TARGET_STUBS = no
 
 default: all
 

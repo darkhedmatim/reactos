@@ -26,7 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "taskbar.h"
 #include "traynotify.h"	// for NOTIFYAREA_WIDTH_DEF
@@ -319,18 +322,13 @@ BOOL CALLBACK TaskBar::EnumWndProc(HWND hwnd, LPARAM lparam)
 		} else {
 			HBITMAP hbmp;
 			HICON hIcon = get_window_icon_small(hwnd);
-			BOOL delete_icon = FALSE;
 
 			if (!hIcon)
-			{
 				hIcon = LoadIcon(0, IDI_APPLICATION);
-				delete_icon = TRUE;
-			}
 
 			if (hIcon) {
 				hbmp = create_bitmap_from_icon(hIcon, GetSysColorBrush(COLOR_BTNFACE), WindowCanvas(pThis->_htoolbar));
-				if (delete_icon)
-					DestroyIcon(hIcon); // some icons can be freed, some not - so ignore any error return of DestroyIcon()
+				DestroyIcon(hIcon); // some icons can be freed, some not - so ignore any error return of DestroyIcon()
 			} else
 				hbmp = 0;
 

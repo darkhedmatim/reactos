@@ -4,7 +4,7 @@
 4   stdcall -noname PathFileExistsDefExtW(wstr long)
 5   stdcall -noname PathFindOnPathExA(str ptr long)
 6   stdcall -noname PathFindOnPathExW(wstr ptr long)
-7   stdcall -noname SHAllocShared(ptr long long)
+7   stdcall -noname SHAllocShared(long long ptr)
 8   stdcall -noname SHLockShared(long long)
 9   stdcall -noname SHUnlockShared(ptr)
 10  stdcall -noname SHFreeShared(long long)
@@ -182,20 +182,20 @@
 182 stdcall -noname SHCheckMenuItem(long long long)
 183 stdcall -noname SHRegisterClassA(ptr)
 184 stdcall @(ptr ptr long) SHLWAPI_184
-185 stdcall -noname SHMessageBoxCheckA(ptr str str long long str)
-186 stdcall -noname SHSimulateDrop(ptr ptr long ptr ptr)
+185 stub -noname SHMessageBoxCheckA
+186 stub -noname SHSimulateDrop
 187 stdcall -noname SHLoadFromPropertyBag(ptr ptr)
 188 stub -noname IUnknown_TranslateAcceleratorOCS
 189 stdcall -noname IUnknown_OnFocusOCS(ptr ptr)
 190 stub -noname IUnknown_HandleIRestrict
-191 stdcall -noname SHMessageBoxCheckW(ptr wstr wstr long long wstr)
+191 stub -noname SHMessageBoxCheckW
 192 stdcall -noname SHGetMenuFromID(ptr long)
 193 stdcall -noname SHGetCurColorRes()
-194 stdcall -noname SHWaitForSendMessageThread(ptr long)
+194 stub -noname SHWaitForSendMessageThread
 195 stub -noname SHIsExpandableFolder
 196 stub -noname DnsRecordSetCompare
 197 stdcall -noname SHFillRectClr(long ptr long)
-198 stdcall -noname SHSearchMapInt(ptr ptr long long)
+198 stub -noname SHSearchMapInt
 199 stdcall -noname IUnknown_Set(ptr ptr)
 200 stub -noname MayQSForward
 201 stdcall -noname MayExecForward(ptr long ptr long long ptr ptr)
@@ -213,7 +213,7 @@
 213 stdcall -noname IStream_Reset(ptr)
 214 stdcall -noname IStream_Size(ptr ptr)
 215 stdcall -noname SHAnsiToUnicode(str ptr long)
-216 stdcall -noname SHAnsiToUnicodeCP(long str ptr long)
+216 stub -noname SHAnsiToUnicodeCP
 217 stdcall -noname SHUnicodeToAnsi(wstr ptr ptr)
 218 stdcall -noname SHUnicodeToAnsiCP(long wstr ptr ptr)
 219 stdcall -noname QISearch(long long long long)
@@ -222,7 +222,7 @@
 222 stdcall -noname _SHGlobalCounterCreate(long)
 223 stdcall -noname _SHGlobalCounterGetValue(long)
 224 stdcall -noname _SHGlobalCounterIncrement(long)
-225 stdcall -noname SHStripMneumonicW(wstr)
+225 stub -noname SHStripMneumonicW
 226 stub -noname ZoneCheckPathA
 227 stub -noname ZoneCheckPathW
 228 stub -noname ZoneCheckUrlA
@@ -288,8 +288,8 @@
 288 stub -noname IUnknown_CPContainerInvokeIndirect
 289 stdcall -noname PlaySoundWrapW(wstr long long)
 290 stub -noname SHMirrorIcon
-291 stdcall -noname SHMessageBoxCheckExA(ptr ptr ptr ptr ptr long str)
-292 stdcall -noname SHMessageBoxCheckExW(ptr ptr ptr ptr ptr long wstr)
+291 stub -noname SHMessageBoxCheckExA
+292 stub -noname SHMessageBoxCheckExW
 293 stub -noname SHCancelUserWorkItems
 294 stdcall -noname SHGetIniStringW(long long long long long)
 295 stdcall -noname SHSetIniStringW(wstr ptr wstr wstr)
@@ -327,8 +327,8 @@
 327 stdcall -noname UnregisterExtensionForMIMETypeW(wstr)
 328 stdcall -noname GetMIMETypeSubKeyA(str ptr long)
 329 stdcall -noname GetMIMETypeSubKeyW(wstr ptr long)
-330 stdcall -noname MIME_GetExtensionA(str ptr long)
-331 stdcall -noname MIME_GetExtensionW(wstr ptr long)
+330 stub -noname MIME_GetExtensionA
+331 stub -noname MIME_GetExtensionW
 332 stdcall @(ptr long) user32.CallMsgFilterW
 333 stdcall -noname SHBrowseForFolderWrapW(ptr)
 334 stdcall -noname SHGetPathFromIDListWrapW(ptr ptr)
@@ -342,7 +342,7 @@
 342 stdcall -noname SHInterlockedCompareExchange(ptr long long)
 343 stdcall -noname SHRegGetCLSIDKeyA(ptr str long long ptr)
 344 stdcall -noname SHRegGetCLSIDKeyW(ptr wstr long long ptr)
-345 stdcall -noname SHAnsiToAnsi(str ptr long)
+345 stub -noname SHAnsiToAnsi
 346 stdcall -noname SHUnicodeToUnicode(wstr ptr long)
 347 stdcall @(long wstr) advapi32.RegDeleteValueW
 348 stub -noname SHGetFileDescriptionW
@@ -416,7 +416,7 @@
 416 stub -noname SHWinHelpOnDemandW
 417 stub -noname SHWinHelpOnDemandA
 418 stdcall -noname MLFreeLibrary(long)
-419 stdcall -noname SHFlushSFCacheWrap()
+419 stub -noname SHFlushSFCacheWrap
 420 stub @ # CMemStream::Commit
 421 stub -noname SHLoadPersistedDataObject
 422 stdcall -noname _SHGlobalCounterCreateNamedA(str long)
@@ -445,20 +445,20 @@
 445 stdcall -noname PathFileExistsAndAttributesA(str ptr)
 446 stdcall -noname PathFileExistsAndAttributesW(wstr ptr)
 447 stub -noname FixSlashesAndColonA
-448 stdcall -noname FixSlashesAndColonW(wstr)
+448 stub -noname FixSlashesAndColonW
 449 stub -noname NextPathA
 450 stub -noname NextPathW
 451 stub -noname CharUpperNoDBCSA
 452 stub -noname CharUpperNoDBCSW
 453 stub -noname CharLowerNoDBCSA
 454 stub -noname CharLowerNoDBCSW
-455 stdcall -noname PathIsValidCharA(long long)
-456 stdcall -noname PathIsValidCharW(long long)
+455 stub -noname PathIsValidCharA
+456 stub -noname PathIsValidCharW
 457 stub -noname GetLongPathNameWrapW
 458 stub -noname GetLongPathNameWrapA
-459 stdcall SHExpandEnvironmentStringsA(str ptr long) kernel32.ExpandEnvironmentStringsA
-460 stdcall SHExpandEnvironmentStringsW(wstr ptr long) kernel32.ExpandEnvironmentStringsW
-461 stdcall -noname SHGetAppCompatFlags(long)
+459 stub -noname SHExpandEnvironmentStringsA
+460 stub -noname SHExpandEnvironmentStringsW
+461 stub -noname SHGetAppCompatFlags
 462 stub -noname UrlFixupW
 463 stub -noname SHExpandEnvironmentStringsForUserA
 464 stub -noname SHExpandEnvironmentStringsForUserW
@@ -535,7 +535,7 @@
 539 stub -noname IUnknown_ShowBrowserBar
 540 stub -noname SHInvokeCommandOnContextMenu
 541 stub -noname SHInvokeCommandsOnContextMen
-542 stdcall -noname GetUIVersion()
+542 stub -noname GetUIVersion
 543 stub -noname CreateColorSpaceWrapW
 544 stub -noname QuerySourceCreateFromKey
 545 stub -noname SHForwardContextMenuMsg

@@ -174,11 +174,10 @@ typedef struct _FCB
   PFILE_OBJECT FileObject;
   PDEVICE_EXTENSION DevExt;
 
-  UNICODE_STRING ShortNameU;
-
   WCHAR *ObjectName;		/* point on filename (250 chars max) in PathName */
   WCHAR PathName[MAX_PATH];	/* path+filename 260 max */
-  WCHAR ShortNameBuffer[13];
+  WCHAR ShortName[13];
+  USHORT ShortNameLength;
 
   ERESOURCE MainResource;
 
@@ -206,7 +205,7 @@ typedef struct _CCB
   ULONG Entry;
   ULONG Offset;
   /* for DirectoryControl */
-  UNICODE_STRING DirectorySearchPattern;
+  PWCHAR DirectorySearchPattern;
   ULONG LastCluster;
   ULONG LastOffset;
 } CCB, *PCCB;
@@ -306,7 +305,7 @@ CdfsAddFCBToTable(PDEVICE_EXTENSION Vcb,
 
 PFCB
 CdfsGrabFCBFromTable(PDEVICE_EXTENSION Vcb,
-		     PUNICODE_STRING FileName);
+		     PWSTR FileName);
 
 NTSTATUS
 CdfsFCBInitializeCache(PVCB Vcb,
@@ -336,14 +335,14 @@ CdfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 NTSTATUS
 CdfsDirFindFile(PDEVICE_EXTENSION DeviceExt,
 		PFCB DirectoryFcb,
-		PUNICODE_STRING FileToFind,
+		PWSTR FileToFind,
 		PFCB *FoundFCB);
 
 NTSTATUS
 CdfsGetFCBForFile(PDEVICE_EXTENSION Vcb,
 		  PFCB *pParentFCB,
 		  PFCB *pFCB,
-		  PUNICODE_STRING FileName);
+		  const PWSTR pFileName);
 
 
 /* finfo.c */
@@ -366,14 +365,17 @@ CdfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 
 /* misc.c */
 
+BOOLEAN
+wstrcmpjoki(PWSTR s1, PWSTR s2);
+
 VOID
 CdfsSwapString(PWCHAR Out,
 	       PUCHAR In,
 	       ULONG Count);
 
 VOID
-CdfsDateTimeToSystemTime(PFCB Fcb,
-			 PLARGE_INTEGER SystemTime);
+CdfsDateTimeToFileTime(PFCB Fcb,
+		       TIME *FileTime);
 
 VOID
 CdfsFileFlagsToAttributes(PFCB Fcb,

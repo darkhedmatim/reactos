@@ -37,8 +37,7 @@
 #include <windows.h>
 #include <string.h>
 #include <wine/unicode.h>
-#include <user32.h>
-#include <debug.h>
+#include <wine/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -651,10 +650,10 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         else
             IntDrawRectEdge(dc, &myr, edge, (uFlags&DFCS_FLAT)|BF_RECT|BF_SOFT|BF_ADJUST);
 
-        UITOOLS_DrawCheckedRect( dc, &myr );
-    }
-    else
-    {
+	UITOOLS_DrawCheckedRect( dc, &myr );
+        }
+        else
+        {
         if(uFlags & DFCS_MONO)
         {
             IntDrawRectEdge(dc, &myr, edge, BF_MONO|BF_RECT|BF_ADJUST);
@@ -662,7 +661,7 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         }
         else
         {
-            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT | BF_SOFT);
+            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT);
         }
     }
 
@@ -1817,18 +1816,13 @@ INT STDCALL
 FillRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 {
    HBRUSH prevhbr;
-   
-   if (hbr <= (HBRUSH)(COLOR_MENUBAR + 1))
-   {
-      hbr = GetSysColorBrush((int)hbr - 1);
-   }
-   if ((prevhbr = NtGdiSelectObject(hDC, hbr)) == NULL)
-   {
+   if ((DWORD)hbr < 0x4000)
+      hbr = GetSysColorBrush((DWORD)hbr);
+   if ((prevhbr = SelectObject(hDC, hbr)) == NULL)
       return FALSE;
-   }
-   NtGdiPatBlt(hDC, lprc->left, lprc->top, lprc->right - lprc->left,
+   PatBlt(hDC, lprc->left, lprc->top, lprc->right - lprc->left,
       lprc->bottom - lprc->top, PATCOPY);
-   NtGdiSelectObject(hDC, prevhbr);
+   SelectObject(hDC, prevhbr);
    return TRUE;
 }
 
@@ -1851,7 +1845,6 @@ DrawFocusRect(HDC hdc, CONST RECT *rect)
 {
    static HBRUSH hFocusRectBrush = NULL;
    HGDIOBJ OldObj;
-   UINT cx, cy;
    
    if(!hFocusRectBrush)
    {
@@ -1862,19 +1855,16 @@ DrawFocusRect(HDC hdc, CONST RECT *rect)
       hFocusRectBrush = CreatePatternBrush(hFocusPattern);
    }
    
-   NtUserSystemParametersInfo(SPI_GETFOCUSBORDERWIDTH, 0, &cx, 0);
-   NtUserSystemParametersInfo(SPI_GETFOCUSBORDERHEIGHT, 0, &cy, 0);
-   
    OldObj = SelectObject(hdc, hFocusRectBrush);
    
-   /* top */
-   PatBlt(hdc, rect->left, rect->top, rect->right - rect->left, cy, PATINVERT);
-   /* bottom */
-   PatBlt(hdc, rect->left, rect->bottom - cy, rect->right - rect->left, cy, PATINVERT);
-   /* left */
-   PatBlt(hdc, rect->left, rect->top + cy, cx, rect->bottom - rect->top - (2 * cy), PATINVERT);
-   /* right */
-   PatBlt(hdc, rect->right - cx, rect->top + cy, cx, rect->bottom - rect->top - (2 * cy), PATINVERT);
+   PatBlt(hdc, rect->left, rect->top,
+      rect->right - rect->left - 1, 1, PATINVERT);
+   PatBlt(hdc, rect->left, rect->top + 1, 1,
+      rect->bottom - rect->top - 1, PATINVERT);
+   PatBlt(hdc, rect->left + 1, rect->bottom - 1,
+      rect->right - rect->left - 1, -1, PATINVERT);
+   PatBlt(hdc, rect->right - 1, rect->top, -1,
+      rect->bottom - rect->top - 1, PATINVERT);
    
    SelectObject(hdc, OldObj);
    return TRUE;

@@ -26,7 +26,11 @@ typedef struct _EPORT
   
   ULONG		MaxDataLength;
   ULONG		MaxConnectInfoLength;
-  ULONG		MaxPoolUsage; /* size of NP zone */
+
+  /*
+   * List of processes that can receive connection requests on this port.
+   */
+  LIST_ENTRY ListenerListHead;
 } EPORT, * PEPORT;
 
 
@@ -84,12 +88,6 @@ LpcSendTerminationPort (PEPORT	Port,
 #define EPORT_CONNECTED_SERVER        (6)
 #define EPORT_DISCONNECTED            (7)
 
-/* Pool Tags */
-
-#define TAG_LPC_MESSAGE   TAG('L', 'p', 'c', 'M')
-#define TAG_LPC_ZONE      TAG('L', 'p', 'c', 'Z')
-
-
 typedef struct _QUEUEDMESSAGE
 {
   PEPORT		Sender;
@@ -141,8 +139,7 @@ NTSTATUS
 NiInitPort (VOID);
 
 extern POBJECT_TYPE	ExPortType;
-extern ULONG		LpcpNextMessageId;
-extern FAST_MUTEX	LpcpLock;
+extern ULONG		EiNextLpcMessageId;
 
 /* Code in ntoskrnl/lpc/reply.c */
 

@@ -3,8 +3,6 @@
 #
 PATH_TO_TOP = ../..
 
-include $(PATH_TO_TOP)/rules.mak
-
 TARGET = winebuild$(EXE_POSTFIX)
 
 all: $(TARGET)
@@ -22,7 +20,7 @@ OBJECTS = \
 
 CLEAN_FILES = *.o $(TARGET)
 
-HOST_CFLAGS = -D__USE_W32API -I$(PATH_TO_TOP)/include/wine
+HOST_CFLAGS = -D__USE_W32API -D__REACTOS__ -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/wine -I$(W32API_PATH)/include
 
 %.o: %.c
 	$(HOST_CC) $(HOST_CFLAGS) -c $< -o $@
@@ -41,3 +39,4 @@ endif
 
 .PHONY: clean
 
+include $(PATH_TO_TOP)/rules.mak

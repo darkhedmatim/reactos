@@ -1,4 +1,4 @@
-/* $Id: path.c,v 1.31 2004/11/29 01:42:03 gdalsnes Exp $
+/* $Id: path.c,v 1.27 2004/03/13 22:23:14 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -173,38 +173,44 @@ ULONG STDCALL RtlGetLongestNtPathLength (VOID)
 
 /*
  * @implemented
- *
  */
 ULONG STDCALL
-RtlDetermineDosPathNameType_U(PCWSTR Path)
+RtlDetermineDosPathNameType_U(PWSTR Path)
 {
    DPRINT("RtlDetermineDosPathNameType_U %S\n", Path);
 
    if (Path == NULL)
-   {
-      return INVALID_PATH;
-   }
+     {
+	return 0;
+     }
 
    if (IS_PATH_SEPARATOR(Path[0]))
-   {
-      if (!IS_PATH_SEPARATOR(Path[1])) return ABSOLUTE_PATH;         /* \xxx   */
-      if (Path[2] != L'.') return UNC_PATH;                          /* \\xxx   */
-      if (IS_PATH_SEPARATOR(Path[3])) return DEVICE_PATH;            /* \\.\xxx */
-      if (Path[3]) return UNC_PATH;                                  /* \\.xxxx */
+     {
+	if (!IS_PATH_SEPARATOR(Path[1]))
+	  {
+	     return 4;			/* \xxx   */
+	  }
 
-      return UNC_DOT_PATH;                                           /* \\.     */
-   }
+	if (Path[2] != L'.')
+	  return 1;			/* \\xxx   */
+
+	if (IS_PATH_SEPARATOR(Path[3]))
+	  return 6;			/* \\.\xxx */
+
+	if (Path[3])
+	  return 1;			/* \\.xxxx */
+
+	return 7;				/* \\.     */
+     }
    else
-   {
-      /* FIXME: the Wine version of this line reads:
-       * if (!Path[1] || Path[1] != L':')    return RELATIVE_PATH
-       * Should we do this too?
-       * -Gunnar
-       */ 
-      if (Path[1] != L':') return RELATIVE_PATH;                     /* xxx     */
-      if (IS_PATH_SEPARATOR(Path[2])) return ABSOLUTE_DRIVE_PATH;    /* x:\xxx  */
+     {
+	if (Path[1] != L':')
+		return 5;			/* xxx     */
 
-      return RELATIVE_DRIVE_PATH;                                    /* x:xxx   */
+	if (IS_PATH_SEPARATOR(Path[2]))
+		return 2;			/* x:\xxx  */
+
+	return 3;				/* x:xxx   */
    }
 }
 
@@ -367,7 +373,7 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
    PWSTR buf = 0;
    PFILE_NAME_INFORMATION filenameinfo;
    ULONG backslashcount = 0;
-   ULONG Index;
+   PWSTR cntr;
    WCHAR var[4];
    
    DPRINT ("RtlSetCurrentDirectory %wZ\n", name);
@@ -430,7 +436,7 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
 	RtlReleasePebLock ();
 	return Status;
      }
-
+   
    filenameinfo = RtlAllocateHeap(RtlGetProcessHeap(),
 				  0,
 				  MAX_PATH*sizeof(WCHAR)+sizeof(ULONG));
@@ -455,8 +461,7 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
 	return(Status);
      }
    
-   /* If it's just "\", we need special handling */
-   if (filenameinfo->FileNameLength > sizeof(WCHAR))
+   if (filenameinfo->FileName[1]) // If it's just "\", we need special handling
      {
 	wcs = buf + size / sizeof(WCHAR) - 1;
 	if (*wcs == L'\\')
@@ -466,11 +471,9 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
 	    size -= sizeof(WCHAR);
 	  }
 
-	for (Index = 0;
-	     Index < filenameinfo->FileNameLength / sizeof(WCHAR);
-	     Index++)
+	for (cntr=filenameinfo->FileName;*cntr!=0;cntr++)
 	  {
-	     if (filenameinfo->FileName[Index] == '\\') backslashcount++;
+	     if (*cntr=='\\') backslashcount++;
 	  }
 
 	DPRINT("%d \n",backslashcount);
@@ -480,10 +483,9 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
 	  }
 	wcs++;
 
-	RtlCopyMemory(wcs, filenameinfo->FileName, filenameinfo->FileNameLength);
-	wcs[filenameinfo->FileNameLength / sizeof(WCHAR)] = 0;
+	wcscpy(wcs,filenameinfo->FileName);
 
-	size = (wcs - buf) * sizeof(WCHAR) + filenameinfo->FileNameLength;
+	size=((wcs-buf)+wcslen(filenameinfo->FileName))*sizeof(WCHAR);
      }
    
    RtlFreeHeap (RtlGetProcessHeap (),
@@ -503,7 +505,7 @@ RtlSetCurrentDirectory_U(PUNICODE_STRING name)
 	   buf,
 	   size + sizeof(WCHAR));
    cd->DosPath.Length = size;
-
+   
    if (cd->Handle)
      NtClose(cd->Handle);
    cd->Handle = handle;
@@ -1008,20 +1010,6 @@ RtlDoesFileExists_U(IN PWSTR FileName)
 		return TRUE;
 
 	return FALSE;
-}
-
-NTSTATUS STDCALL
-RtlpEnsureBufferSize(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
-{
-    DPRINT1("RtlpEnsureBufferSize: stub\n");
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS STDCALL
-RtlNtPathNameToDosPathName(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
-{
-    DPRINT1("RtlNtPathNameToDosPathName: stub\n");
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

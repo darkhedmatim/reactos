@@ -1,4 +1,4 @@
-# $Id: Makefile.ros-template,v 1.3 2004/12/03 23:37:42 blight Exp $
+# $Id: Makefile.ros-template,v 1.1 2004/02/25 20:09:39 sedwards Exp $
 
 TARGET_NAME = odbc32
 
@@ -6,9 +6,9 @@ TARGET_OBJECTS = @C_SRCS@
 
 TARGET_CFLAGS = @EXTRADEFS@ -D__REACTOS__ -D__WINESRC__
 
-TARGET_SDKLIBS = @IMPORTS@ wine.a ntdll.a
+TARGET_SDKLIBS = @IMPORTS@ libwine.a ntdll.a
 
-TARGET_BASE = $(TARGET_BASE_LIB_ODBC32)
+TARGET_BASE = 0x76660000
 
 TARGET_RC_SRCS = @RC_SRCS@
 TARGET_RC_BINSRC = @RC_BINSRC@

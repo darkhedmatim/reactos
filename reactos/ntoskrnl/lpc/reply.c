@@ -1,4 +1,4 @@
-/* $Id: reply.c,v 1.24 2004/12/24 17:06:59 navaraf Exp $
+/* $Id: reply.c,v 1.19 2003/08/07 11:47:33 silverblade Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,11 +11,19 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
+
+#define TAG_LPC_MESSAGE   TAG('L', 'P', 'C', 'M')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -56,7 +64,7 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
    MessageReply->Message.ClientId.UniqueProcess = PsGetCurrentProcessId();
    MessageReply->Message.ClientId.UniqueThread = PsGetCurrentThreadId();
    MessageReply->Message.MessageType = MessageType;
-   MessageReply->Message.MessageId = InterlockedIncrementUL(&LpcpNextMessageId);
+   MessageReply->Message.MessageId = InterlockedIncrement((LONG *)&EiNextLpcMessageId);
    
    KeAcquireSpinLock(&Port->Lock, &oldIrql);
    EiEnqueueMessagePort(Port, MessageReply);
@@ -96,12 +104,6 @@ NtReplyPort (IN	HANDLE		PortHandle,
      {
 	DPRINT("NtReplyPort() = %x\n", Status);
 	return(Status);
-     }
-
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
      }
    
    Status = EiReplyOrRequestPort(Port->OtherPort, 
@@ -333,19 +335,5 @@ NtReplyWaitReplyPort (HANDLE		PortHandle,
    return(STATUS_NOT_IMPLEMENTED);
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LpcRequestWaitReplyPort (
-	IN PEPORT		Port,
-	IN PLPC_MESSAGE	LpcMessageRequest,
-	OUT PLPC_MESSAGE	LpcMessageReply
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 /* EOF */

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: float.c,v 1.3 2004/05/10 17:07:17 weiden Exp $
+/* $Id: float.c,v 1.1 2004/03/11 21:38:58 dwelch Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -25,7 +25,19 @@
  * PROGRAMER:         Jason Filby
  * REVISION HISTORY:
  */
-#include <w32k.h>
+
+#include <ddk/ntddk.h>
+#include <ddk/winddi.h>
+#include <win32k/dc.h>
+#include <win32k/gdiobj.h>
+#include <include/dib.h>
+#include <include/object.h>
+#include <include/paint.h>
+#include "handle.h"
+#include "../dib/dib.h"
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 BOOL
 STDCALL
@@ -40,7 +52,7 @@ EngRestoreFloatingPointState ( IN VOID *Buffer )
   return TRUE;
 }
 
-ULONG
+BOOL
 STDCALL
 EngSaveFloatingPointState(OUT VOID  *Buffer,
 			  IN ULONG  BufferSize)

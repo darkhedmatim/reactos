@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.30 2004/11/14 18:47:10 hbirr Exp $
+/* $Id: init.c,v 1.25 2003/12/03 21:50:49 gvg Exp $
  * 
  * reactos/subsys/csrss/init.c
  *
@@ -10,11 +10,11 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <csrss/csrss.h>
 #include <ddk/ntddk.h>
 #include <ntdll/csr.h>
 #include <ntdll/rtl.h>
 #include <ntdll/ldr.h>
+#include <csrss/csrss.h>
 #include <win32k/win32k.h>
 #include <rosrtl/string.h>
 
@@ -34,53 +34,6 @@ HANDLE CsrObjectDirectory = INVALID_HANDLE_VALUE;
 UNICODE_STRING CsrDirectoryName;
 
 extern HANDLE CsrssApiHeap;
-
-static unsigned InitCompleteProcCount;
-static CSRPLUGIN_INIT_COMPLETE_PROC *InitCompleteProcs = NULL;
-
-static NTSTATUS FASTCALL
-AddInitCompleteProc(CSRPLUGIN_INIT_COMPLETE_PROC Proc)
-{
-  CSRPLUGIN_INIT_COMPLETE_PROC *NewProcs;
-
-  NewProcs = RtlAllocateHeap(CsrssApiHeap, 0,
-                             (InitCompleteProcCount + 1)
-                             * sizeof(CSRPLUGIN_INIT_COMPLETE_PROC));
-  if (NULL == NewProcs)
-    {
-      return STATUS_NO_MEMORY;
-    }
-  if (0 != InitCompleteProcCount)
-    {
-      RtlCopyMemory(NewProcs, InitCompleteProcs,
-                    InitCompleteProcCount * sizeof(CSRPLUGIN_INIT_COMPLETE_PROC));
-      RtlFreeHeap(CsrssApiHeap, 0, InitCompleteProcs);
-    }
-  NewProcs[InitCompleteProcCount] = Proc;
-  InitCompleteProcs = NewProcs;
-  InitCompleteProcCount++;
-
-  return STATUS_SUCCESS;
-}
-
-static BOOL FASTCALL
-CallInitComplete(void)
-{
-  BOOL Ok;
-  unsigned i;
-
-  Ok = TRUE;
-  if (0 != InitCompleteProcCount)
-    {
-      for (i = 0; i < InitCompleteProcCount && Ok; i++)
-        {
-          Ok = (*(InitCompleteProcs[i]))();
-        }
-      RtlFreeHeap(CsrssApiHeap, 0, InitCompleteProcs);
-    }
-
-  return Ok;
-}
 
 ULONG
 InitializeVideoAddressSpace(VOID);
@@ -160,7 +113,6 @@ InitWin32Csr()
   CSRSS_EXPORTED_FUNCS Exports;
   PCSRSS_API_DEFINITION ApiDefinitions;
   PCSRSS_OBJECT_DEFINITION ObjectDefinitions;
-  CSRPLUGIN_INIT_COMPLETE_PROC InitCompleteProc;
 
   RtlInitUnicodeString(&DllName, L"win32csr.dll");
   Status = LdrLoadDll(NULL, 0, &DllName, (PVOID *) &hInst);
@@ -177,8 +129,7 @@ InitWin32Csr()
   Exports.CsrInsertObjectProc = CsrInsertObject;
   Exports.CsrGetObjectProc = CsrGetObject;
   Exports.CsrReleaseObjectProc = CsrReleaseObject;
-  if (! (*InitProc)(&ApiDefinitions, &ObjectDefinitions, &InitCompleteProc,
-                    &Exports, CsrssApiHeap))
+  if (! (*InitProc)(&ApiDefinitions, &ObjectDefinitions, &Exports, CsrssApiHeap))
     {
       return STATUS_UNSUCCESSFUL;
     }
@@ -189,14 +140,6 @@ InitWin32Csr()
       return Status;
     }
   Status = CsrRegisterObjectDefinitions(ObjectDefinitions);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  if (NULL != InitCompleteProc)
-    {
-      Status = AddInitCompleteProc(InitCompleteProc);
-    }
 
   return Status;
 }
@@ -207,6 +150,7 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     CSRSS_DEFINE_API(CSRSS_TERMINATE_PROCESS,            CsrTerminateProcess),
     CSRSS_DEFINE_API(CSRSS_CONNECT_PROCESS,              CsrConnectProcess),
     CSRSS_DEFINE_API(CSRSS_REGISTER_SERVICES_PROCESS,    CsrRegisterServicesProcess),
+    CSRSS_DEFINE_API(CSRSS_EXIT_REACTOS,                 CsrExitReactos),
     CSRSS_DEFINE_API(CSRSS_GET_SHUTDOWN_PARAMETERS,      CsrGetShutdownParameters),
     CSRSS_DEFINE_API(CSRSS_SET_SHUTDOWN_PARAMETERS,      CsrSetShutdownParameters),
     CSRSS_DEFINE_API(CSRSS_GET_INPUT_HANDLE,             CsrGetInputHandle),
@@ -214,7 +158,6 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     CSRSS_DEFINE_API(CSRSS_CLOSE_HANDLE,                 CsrCloseHandle),
     CSRSS_DEFINE_API(CSRSS_VERIFY_HANDLE,                CsrVerifyHandle),
     CSRSS_DEFINE_API(CSRSS_DUPLICATE_HANDLE,             CsrDuplicateHandle),
-    CSRSS_DEFINE_API(CSRSS_GET_INPUT_WAIT_HANDLE,        CsrGetInputWaitHandle),
     { 0, 0, 0, NULL }
   };
 
@@ -249,6 +192,7 @@ CsrServerInitialization (
       return FALSE;
     }
 
+  CsrIsCsrss( );
   CsrInitVideo();
 
   CsrssApiHeap = RtlCreateHeap(HEAP_GROWABLE,
@@ -267,6 +211,13 @@ CsrServerInitialization (
   if (! NT_SUCCESS(Status))
     {
       return Status;
+    }
+
+  Status = InitWin32Csr();
+  if (! NT_SUCCESS(Status))
+    {
+      DPRINT1("CSR: Unable to load usermode dll (Status %x)\n", Status);
+      return FALSE;
     }
 
   /* NEW NAMED PORT: \ApiPort */
@@ -292,7 +243,7 @@ CsrServerInitialization (
                                0,
                                NULL,
                                NULL,
-                               (PTHREAD_START_ROUTINE)ServerApiPortThead,
+                               (PTHREAD_START_ROUTINE)Thread_Api,
                                ApiPortHandle,
                                NULL,
                                NULL);
@@ -302,20 +253,8 @@ CsrServerInitialization (
       NtClose(ApiPortHandle);
       return FALSE;
     }
-  Status = CsrClientConnectToServer();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CsrClientConnectToServer() failed (Status %x)\n", Status);
-      return FALSE;
-    }
-  Status = InitWin32Csr();
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to load usermode dll (Status %x)\n", Status);
-      return FALSE;
-    }
 
-  return CallInitComplete();
+  return TRUE;
 }
 
 /* EOF */

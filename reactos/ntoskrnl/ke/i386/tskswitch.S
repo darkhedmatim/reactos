@@ -17,33 +17,29 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 /*
- * FILE:	    ntoskrnl/ke/i386/tskswitch.S
- * PURPOSE:	 Microkernel thread support
+ * FILE:            ntoskrnl/ke/i386/tskswitch.S
+ * PURPOSE:         Microkernel thread support
  * PROGRAMMER:      David Welch (welch@cwcom.net)
  * UPDATE HISTORY:
- *		  Created 09/10/00
+ *                  Created 09/10/00
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <roscfg.h>
 #include <internal/i386/segment.h>
-#include <internal/i386/ke.h>
-#include <internal/i386/fpu.h>
 #include <internal/ps.h>
 #include <ntos/tss.h>
 #include <internal/ntoskrnl.h>
-
+		
 /* FUNCTIONS ****************************************************************/
-
+	
 .globl _Ki386ContextSwitch
-.func Ki386ContextSwitch
 _Ki386ContextSwitch:
-/*
+/* 
  * FUNCTIONS: Switches to another thread's context
  * ARGUMENTS:
- *	Thread = Thread to switch to
- *	OldThread = Thread to switch from
+ *        Thread = Thread to switch to
+ *        OldThread = Thread to switch from
  */
 	pushl	%ebp
 	movl	%esp, %ebp
@@ -59,36 +55,12 @@ _Ki386ContextSwitch:
 	 * This is a critical section for this processor.
 	 */
 	cli
-	
-#ifdef MP
-	/*
-	 * Get the pointer to the old thread.
-	 */
-	movl	12(%ebp), %ebx
-	/*
-	 * Save FPU state if the thread has used it.
-	 */
-	movl	$0, %fs:KPCR_NPX_THREAD
-	testb	$NPX_STATE_DIRTY, KTHREAD_NPX_STATE(%ebx)
-	jz	3f
-	movl	KTHREAD_INITIAL_STACK(%ebx), %eax
-	cmpl	$0, _FxsrSupport
-	je	1f
-	fxsave	-SIZEOF_FX_SAVE_AREA(%eax)
-	jmp	2f
-1:
-	fnsave	-SIZEOF_FX_SAVE_AREA(%eax)
-2:
-	movb	$NPX_STATE_VALID, KTHREAD_NPX_STATE(%ebx)
-3:
-#endif /* MP */
-
 
 	/*
 	 * Get the pointer to the new thread.
 	 */
 	movl	8(%ebp), %ebx
-
+		
 	/*
 	 * Set the base of the TEB selector to the base of the TEB for
 	 * this thread.
@@ -111,13 +83,13 @@ _Ki386ContextSwitch:
 	 */
 	movl	%ebx, %fs:KPCR_CURRENT_THREAD
 
-	/*
+        /*
 	 * Set the current LDT
 	 */
-	xorl	%eax, %eax
-	movl	KTHREAD_APCSTATE_PROCESS(%ebx), %edi
+        xorl	%eax, %eax
+	movl	ETHREAD_THREADS_PROCESS(%ebx), %edi
 	testw	$0xFFFF, KPROCESS_LDT_DESCRIPTOR0(%edi)
-	jz	0f
+	jz	.L4
 
 	pushl	KPROCESS_LDT_DESCRIPTOR1(%edi)
 	pushl	KPROCESS_LDT_DESCRIPTOR0(%edi)
@@ -127,69 +99,72 @@ _Ki386ContextSwitch:
 
 	movl	$LDT_SELECTOR, %eax
 
-0:
+.L4:
 	lldtw	%ax
 
 	/*
-	 * Get the pointer to the old thread.
+	 * Load up the iomap offset for this thread in
+	 * preparation for setting it below.
 	 */
-	movl	12(%ebp), %ebx
+        movl	KPROCESS_IOPM_OFFSET(%edi), %eax
 
 	/*
 	 * FIXME: Save debugging state.
 	 */
 
 	/*
-	 * Load up the iomap offset for this thread in
-	 * preparation for setting it below.
+	 * FIXME: Save floating point state.
 	 */
-	movl	KPROCESS_IOPM_OFFSET(%edi), %eax
-
-	/*
-	 * Save the stack pointer in this processors TSS
-	 */
-	movl	%fs:KPCR_TSS, %esi
-	pushl	KTSS_ESP0(%esi)
 
 	/*
 	 * Switch stacks
 	 */
-	movl	%esp, KTHREAD_KERNEL_STACK(%ebx)
+	movl	12(%ebp), %ebx
+	movl	%esp, KTHREAD_KERNEL_STACK(%ebx)	
 	movl	8(%ebp), %ebx
 	movl	KTHREAD_KERNEL_STACK(%ebx), %esp
 	movl	KTHREAD_STACK_LIMIT(%ebx), %edi
 
+	/*
+	 * Set the stack pointer in this processors TSS
+	 */
 	movl	%fs:KPCR_TSS, %esi
 
-	/*
-	 * Set current IOPM offset in the TSS
-	 */
-	movw	%ax, KTSS_IOMAPBASE(%esi)
+        /*
+         * Set current IOPM offset in the TSS
+         */
+        movw	%ax, KTSS_IOMAPBASE(%esi)
+
+	movl	KTHREAD_INITIAL_STACK(%ebx), %eax
+	movl	%eax, KTSS_ESP0(%esi)
 
 	/*
 	 * Change the address space
 	 */
-	movl	KTHREAD_APCSTATE_PROCESS(%ebx), %eax
-	movl	KPROCESS_DIRECTORY_TABLE_BASE(%eax), %eax
+	movl	ETHREAD_THREADS_PROCESS(%ebx), %ebx
+	movl	KPROCESS_DIRECTORY_TABLE_BASE(%ebx), %eax
 	movl	%eax, %cr3
 
 	/*
-	 * Restore the stack pointer in this processors TSS
+	 * Set up the PDE for the top of the new stack.
 	 */
-	popl	KTSS_ESP0(%esi)
-
+	movl	$0, %ebx
+.L2:	movl	%edi, %esi
+	shr	$22, %esi
+	movl	0xF03C0000(,%esi, 4), %eax
+	cmpl	$0, %eax
+	jne	.L1
+	movl	_MmGlobalKernelPageDirectory(,%esi, 4), %eax
+	movl	%eax, 0xF03C0000(,%esi, 4)
+.L1:
+	addl	$4096, %edi
+	incl	%ebx
+	cmp	$(MM_STACK_SIZE / 4096), %ebx
+	jl	.L2
+		
 	/*
-	 * Set TS in cr0 to catch FPU code and load the FPU state when needed
-	 * For uni-processor we do this only if NewThread != KPCR->NpxThread
+	 * FIXME: Restore floating point state
 	 */
-#ifndef MP
-	cmpl	%ebx, %fs:KPCR_NPX_THREAD
-	je	4f
-#endif /* !MP */
-	movl	%cr0, %eax
-	orl	$X86_CR0_TS, %eax
-	movl	%eax, %cr0
-4:
 
 	/*
 	 * FIXME: Restore debugging state
@@ -199,22 +174,21 @@ _Ki386ContextSwitch:
 	 * Exit the critical section
 	 */
 	sti
-
-	call    _KeReleaseDispatcherDatabaseLockFromDpcLevel
-
+	
+	push	$_PiThreadListLock
+	call	_KeReleaseSpinLockFromDpcLevel@4
+	
 	cmpl	$0, _PiNrThreadsAwaitingReaping
-	je	5f
+	je	.L3
 	call	_PiWakeupReaperThread@0
-5:
-
+.L3:	
+	
 	/*
 	 * Restore the saved register and exit
 	 */
 	popl	%edi
 	popl	%esi
 	popl	%ebx
-
-	popl	%ebp
-	ret
-.endfunc
-
+	
+	popl    %ebp
+	ret 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: reginf.c,v 1.8 2004/12/30 16:02:12 royce Exp $
+/* $Id: reginf.c,v 1.6 2003/11/14 17:13:36 weiden Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/reginf.h
@@ -298,7 +298,7 @@ do_reg_operation(HKEY KeyHandle,
 	{
 	  ULONG dw = Str ? strtoul (Str, NULL, 0) : 0;
 
-	  DPRINT1("setting dword %s to %lx\n", ValueName, dw);
+	  DPRINT("setting dword %s to %lx\n", ValueName, dw);
 
 	  RegSetValue (KeyHandle,
 		       ValueName,
@@ -308,7 +308,7 @@ do_reg_operation(HKEY KeyHandle,
 	}
       else
 	{
-	  DPRINT1 ("setting value %s to %s\n", ValueName, Str);
+	  DPRINT ("setting value %s to %s\n", ValueName, Str);
 
 	  if (Str)
 	    {
@@ -379,7 +379,7 @@ registry_callback (HINF hInf, PCHAR Section, BOOL Delete)
 
   Ok = InfFindFirstLine (hInf, Section, NULL, &Context);
   if (!Ok)
-    return TRUE; /* Don't fail if the section isn't present */
+    return FALSE;
 
   for (;Ok; Ok = InfFindNextLine (&Context, &Context))
     {
@@ -396,16 +396,9 @@ registry_callback (HINF hInf, PCHAR Section, BOOL Delete)
 
       DPRINT("KeyName: <%s>\n", Buffer);
 
-      if (Delete)
-        {
-          Flags = FLG_ADDREG_DELVAL;
-        }
-      else
-        {
-          /* get flags */
-          if (!InfGetIntField (&Context, 4, (PLONG)&Flags))
-            Flags = 0;
-        }
+      /* get flags */
+      if (!InfGetIntField (&Context, 4, (PLONG)&Flags))
+	Flags = 0;
 
       DPRINT("Flags: %lx\n", Flags);
 
@@ -460,11 +453,6 @@ ImportRegistryFile(PCHAR FileName,
     {
       DPRINT1 ("InfOpenFile() failed\n");
       return FALSE;
-    }
-
-  if (!registry_callback (hInf, "DelReg", TRUE))
-    {
-      DPRINT1 ("registry_callback() failed\n");
     }
 
   if (!registry_callback (hInf, "AddReg", FALSE))

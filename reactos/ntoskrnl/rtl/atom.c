@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.12 2004/10/30 14:02:04 navaraf Exp $
+/* $Id: atom.c,v 1.9 2004/02/27 23:11:32 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/handle.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -64,18 +67,18 @@ static PRTL_ATOM_TABLE GlobalAtomTable = NULL;
  * @implemented
  */
 NTSTATUS STDCALL
-NtAddAtom(
-   IN PWSTR AtomName,
-   IN ULONG AtomNameLength,
-   OUT PRTL_ATOM Atom)
+NtAddAtom(IN PWSTR AtomName,
+	  OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
 
    AtomTable = RtlpGetGlobalAtomTable();
    if (AtomTable == NULL)
-      return STATUS_ACCESS_DENIED;
+     return STATUS_ACCESS_DENIED;
 
-   return RtlAddAtomToAtomTable(AtomTable, AtomName, Atom);
+   return (RtlAddAtomToAtomTable(AtomTable,
+				 AtomName,
+				 Atom));
 }
 
 
@@ -101,7 +104,6 @@ NtDeleteAtom(IN RTL_ATOM Atom)
  */
 NTSTATUS STDCALL
 NtFindAtom(IN PWSTR AtomName,
-           IN ULONG AtomNameLength,
 	   OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
@@ -377,7 +379,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	return STATUS_NO_MEMORY;
      }
 
-   InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
+   InsertTailList(&AtomTable->Slot[Hash], &Entry->List)
    RtlCreateUnicodeString (&Entry->Name,
 			   AtomName);
    Entry->RefCount = 1;

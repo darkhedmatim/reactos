@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "srb.h"
 #include "scsi.h"
@@ -135,6 +137,8 @@ ChangerClassInitialize(
   IN PDRIVER_OBJECT  DriverObject,
   IN PUNICODE_STRING  RegistryPath,
   IN PMCD_INIT_DATA  MCDInitData);
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

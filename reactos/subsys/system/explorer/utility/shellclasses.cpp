@@ -28,17 +28,12 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
 
 
 #ifdef _MS_VER
 #pragma comment(lib, "shell32")	// link to shell32.dll
-#endif
-
-
- // work around GCC's wide string constant bug
-#ifdef __GNUC__
-const LPCTSTR sCFSTR_SHELLIDLIST = TEXT("Shell IDList Array");
 #endif
 
 

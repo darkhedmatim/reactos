@@ -30,12 +30,12 @@
 
 /* INCLUDES *******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <draw.h>
 #include <stdlib.h>
 #include <string.h>
-#include <oleacc.h>
 #include <user32/regcontrol.h>
 #include <rosrtl/minmax.h>
 
@@ -75,8 +75,6 @@ HBRUSH DefWndControlColor(HDC hDC, UINT ctlType);
 
 static LRESULT WINAPI ScrollBarWndProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
-UINT STDCALL SetSystemTimer(HWND,UINT_PTR,UINT,TIMERPROC);
-WINBOOL STDCALL KillSystemTimer(HWND,UINT_PTR);
 
 /*********************************************************************
  * scrollbar class descriptor
@@ -87,7 +85,7 @@ const struct builtin_class_descr SCROLL_builtin_class =
     CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW | CS_PARENTDC, /* style */
     ScrollBarWndProc,       /* procW */
     NULL,                   /* procA (winproc is Unicode only) */
-    0,                      /* extra */
+    sizeof(SCROLLBARINFO) + sizeof(SCROLLINFO),  /* extra */
     IDC_ARROW,              /* cursor */
     0                       /* brush */
 };
@@ -341,9 +339,6 @@ IntDrawScrollBar(HWND Wnd, HDC DC, INT Bar)
       case SB_CTL:
         Vertical = (GetWindowLongW(Wnd, GWL_STYLE) & SBS_VERT) != 0;
         break;
-
-      default:
-        return;
     }
   if (! IntGetScrollBarInfo(Wnd, Bar, &Info))
     {
@@ -1424,7 +1419,7 @@ ScrollBarWndProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
         return 0;
 
       case SBM_SETSCROLLINFO:
-        return NtUserSetScrollInfo(Wnd, SB_CTL, (SCROLLINFO *) lParam, wParam);
+        return SetScrollInfo(Wnd, SB_CTL, (SCROLLINFO *) lParam, wParam);
 
       case SBM_GETSCROLLINFO:
         return NtUserGetScrollInfo(Wnd, SB_CTL, (SCROLLINFO *) lParam);
@@ -1477,16 +1472,9 @@ GetScrollBarInfo(HWND hWnd, LONG idObject, PSCROLLBARINFO psbi)
  * @implemented
  */
 BOOL STDCALL
-GetScrollInfo(HWND Wnd, INT SBType, LPSCROLLINFO Info)
+GetScrollInfo(HWND Wnd, INT SBType, LPSCROLLINFO lpsi)
 {
-  if (SB_CTL == SBType)
-    {
-      return SendMessageW(Wnd, SBM_GETSCROLLINFO, 0, (LPARAM) Info);
-    }
-  else
-    {
-      return NtUserGetScrollInfo(Wnd, SBType, Info);
-    }
+  return NtUserGetScrollInfo(Wnd, SBType, lpsi);
 }
 
 /*
@@ -1531,16 +1519,9 @@ GetScrollRange(HWND Wnd, int Bar, LPINT MinPos, LPINT MaxPos)
  * @implemented
  */
 INT STDCALL
-SetScrollInfo(HWND Wnd, int SBType, LPCSCROLLINFO Info, BOOL bRedraw)
+SetScrollInfo(HWND hWnd, int nBar, LPCSCROLLINFO lpsi, BOOL bRedraw)
 {
-  if (SB_CTL == SBType)
-    {
-      return SendMessageW(Wnd, SBM_SETSCROLLINFO, (WPARAM) bRedraw, (LPARAM) Info);
-    }
-  else
-    {
-      return NtUserSetScrollInfo(Wnd, SBType, Info, bRedraw);
-    }
+  return NtUserSetScrollInfo(hWnd, nBar, lpsi, bRedraw);
 }
 
 /*

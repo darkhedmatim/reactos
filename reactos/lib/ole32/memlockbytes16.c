@@ -52,7 +52,7 @@ struct HGLOBALLockBytesImpl16
    * Needs to be the first item in the stuct
    * since we want to cast this in an ILockBytes pointer
    */
-  ILockBytes16Vtbl *lpVtbl;
+  ICOM_VFIELD(ILockBytes16);
   ULONG        ref;
 
   /*
@@ -148,7 +148,7 @@ HGLOBALLockBytesImpl16_Construct(HGLOBAL16 hGlobal,
 {
   HGLOBALLockBytesImpl16* newLockBytes;
 
-  static ILockBytes16Vtbl vt16;
+  static ICOM_VTABLE(ILockBytes16) vt16;
   static SEGPTR msegvt16;
   HMODULE16 hcomp = GetModuleHandle16("OLE2");
 
@@ -176,7 +176,7 @@ HGLOBALLockBytesImpl16_Construct(HGLOBAL16 hGlobal,
 #undef VTENT
       msegvt16 = MapLS( &vt16 );
   }
-  newLockBytes->lpVtbl	= (ILockBytes16Vtbl*)msegvt16;
+  newLockBytes->lpVtbl	= (ICOM_VTABLE(ILockBytes16)*)msegvt16;
   newLockBytes->ref	= 0;
   /*
    * Initialize the support.
@@ -280,7 +280,9 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 
   TRACE("(%p)\n",This);
 
-  return InterlockedIncrement(&This->ref);
+  This->ref++;
+
+  return This->ref;
 }
 
 /******************************************************************************
@@ -290,18 +292,20 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 ULONG WINAPI HGLOBALLockBytesImpl16_Release(ILockBytes16* iface)
 {
   HGLOBALLockBytesImpl16* const This=(HGLOBALLockBytesImpl16*)iface;
-  ULONG ref;
 
+  ULONG newRef;
   TRACE("(%p)\n",This);
 
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0)
+  if (newRef==0)
     HGLOBALLockBytesImpl16_Destroy(This);
-  return ref;
+  return newRef;
 }
 
 /******************************************************************************

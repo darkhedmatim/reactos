@@ -31,7 +31,10 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
+
 
 #define IOCTL_PCMCIA_BASE                 FILE_DEVICE_CONTROLLER
 
@@ -157,6 +160,8 @@ typedef struct _PCMCIA_INTERFACE_STANDARD {
 	PPCMCIA_SET_VPP  SetVpp;
 	PPCMCIA_IS_WRITE_PROTECTED  IsWriteProtected;
 } PCMCIA_INTERFACE_STANDARD, *PPCMCIA_INTERFACE_STANDARD;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

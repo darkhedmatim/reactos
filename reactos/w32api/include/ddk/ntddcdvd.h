@@ -31,8 +31,11 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "ntddstor.h"
+
 
 #define IOCTL_DVD_BASE                    FILE_DEVICE_DVD
 
@@ -74,14 +77,12 @@ typedef enum DVD_STRUCTURE_FORMAT {
   DvdMaxDescriptor
 } DVD_STRUCTURE_FORMAT, *PDVD_STRUCTURE_FORMAT;
 
-#include <pshpack1.h>
 typedef struct DVD_READ_STRUCTURE {
   LARGE_INTEGER  BlockByteOffset;
   DVD_STRUCTURE_FORMAT  Format;
   DVD_SESSION_ID  SessionId;
   UCHAR  LayerNumber;
 } DVD_READ_STRUCTURE, *PDVD_READ_STRUCTURE;
-#include <poppack.h>
 
 typedef struct _DVD_DESCRIPTOR_HEADER {
     USHORT Length;
@@ -89,7 +90,6 @@ typedef struct _DVD_DESCRIPTOR_HEADER {
     UCHAR Data[0];
 } DVD_DESCRIPTOR_HEADER, *PDVD_DESCRIPTOR_HEADER;
 
-#include <pshpack1.h>
 typedef struct _DVD_LAYER_DESCRIPTOR {
   UCHAR  BookVersion : 4;
   UCHAR  BookType : 4;
@@ -108,7 +108,6 @@ typedef struct _DVD_LAYER_DESCRIPTOR {
   UCHAR  BCAFlag : 1;
   UCHAR  Reserved6;
 } DVD_LAYER_DESCRIPTOR, *PDVD_LAYER_DESCRIPTOR;
-#include <poppack.h>
 
 typedef struct _DVD_COPYRIGHT_DESCRIPTOR {
   UCHAR  CopyrightProtectionType;
@@ -205,6 +204,8 @@ typedef struct _DVD_REGION {
 	UCHAR  SystemRegion;
 	UCHAR  ResetCount;
 } DVD_REGION, *PDVD_REGION;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -11,13 +11,14 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 #include <ole32/guiddef.h>
 #ifdef DEFINE_GUID
 DEFINE_GUID(GUID_SERENUM_BUS_ENUMERATOR, 0x4D36E978L, 0xE325, 0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
 #endif
 #define NDEBUG
 #include <internal/debug.h>
+#define ASSERT assert
 
 /* FUNCTIONS *****************************************************************/
 
@@ -108,11 +109,11 @@ IoGetDeviceInterfaces(
    HANDLE SubKey;
    HANDLE SymbolicLinkKey;
    PKEY_FULL_INFORMATION fip;
-   PKEY_FULL_INFORMATION bfip = NULL;
+   PKEY_FULL_INFORMATION bfip;
    PKEY_BASIC_INFORMATION bip;
-   PKEY_VALUE_PARTIAL_INFORMATION vpip = NULL;
+   PKEY_VALUE_PARTIAL_INFORMATION vpip;
    PWCHAR SymLinkList = NULL;
-   ULONG SymLinkListSize = 0;
+   ULONG SymLinkListSize;
    NTSTATUS Status;
    ULONG Size = 0;
    ULONG i = 0;

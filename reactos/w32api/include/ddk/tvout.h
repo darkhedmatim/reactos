@@ -31,7 +31,10 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
+
 
 /* VIDEOPARAMETERS.dwCommand constants */
 #define VP_COMMAND_GET                    0x00000001
@@ -108,6 +111,8 @@ typedef struct _VIDEOPARAMETERS {
   BYTE  bCP_APSTriggerBits;
   BYTE  bOEMCopyProtection[256];
 } VIDEOPARAMETERS, *PVIDEOPARAMETERS, FAR *LPVIDEOPARAMETERS;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -4,6 +4,7 @@
 #include <unknwn.h>
 
 /* First part: objidl.h copied from w32api. Fixed:
+ * IMallocSpy::PreRealloc,
  * IMarshal::MarshalInteface
  * IMarshal::UnmarshalInterface
  * IStorage_CreateStorage
@@ -193,7 +194,7 @@ typedef struct  tagRPCOLEMESSAGE {
 	ULONG iMethod;
 	PVOID reserved2[5];
 	ULONG rpcFlags;
-} RPCOLEMESSAGE, *PRPCOLEMESSAGE;
+} RPCOLEMESSAGE;
 typedef enum tagMKSYS {
 	MKSYS_NONE,
 	MKSYS_GENERICCOMPOSITE,
@@ -525,7 +526,7 @@ DECLARE_INTERFACE_(IMallocSpy,IUnknown)
 	STDMETHOD_(void*,PostAlloc)(THIS_ void*) PURE;
 	STDMETHOD_(void*,PreFree)(THIS_ void*,BOOL) PURE;
 	STDMETHOD_(void,PostFree)(THIS_ BOOL) PURE;
-	STDMETHOD_(ULONG,PreRealloc)(THIS_ void*,ULONG,void**,BOOL) PURE;
+	STDMETHOD_(ULONG,PreRealloc)(THIS_ void*,ULONG,void*,BOOL) PURE;
 	STDMETHOD_(void*,PostRealloc)(THIS_ void*,BOOL) PURE;
 	STDMETHOD_(void*,PreGetSize)(THIS_ void*,BOOL) PURE;
 	STDMETHOD_(ULONG,PostGetSize)(THIS_ ULONG,BOOL) PURE;
@@ -812,11 +813,11 @@ DECLARE_INTERFACE_(IRpcStubBuffer,IUnknown)
 	STDMETHOD_(ULONG,Release)(THIS) PURE;
 	STDMETHOD(Connect)(THIS_ LPUNKNOWN) PURE;
 	STDMETHOD_(void,Disconnect)(THIS) PURE;
-	STDMETHOD(Invoke)(THIS_ RPCOLEMESSAGE*,LPRPCCHANNELBUFFER) PURE;
+	STDMETHOD(Invoke)(THIS_ RPCOLEMESSAGE*,LPRPCSTUBBUFFER) PURE;
 	STDMETHOD_(LPRPCSTUBBUFFER,IsIIDSupported)(THIS_ REFIID) PURE;
 	STDMETHOD_(ULONG,CountRefs)(THIS) PURE;
 	STDMETHOD(DebugServerQueryInterface)(THIS_ PVOID*) PURE;
-	STDMETHOD_(VOID,DebugServerRelease)(THIS_ PVOID) PURE;
+	STDMETHOD(DebugServerRelease)(THIS_ PVOID) PURE;
 };
 #undef INTERFACE
 
@@ -883,7 +884,7 @@ DECLARE_INTERFACE_(IROTData,IUnknown)
 	STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
 	STDMETHOD_(ULONG,AddRef)(THIS) PURE;
 	STDMETHOD_(ULONG,Release)(THIS) PURE;
-	STDMETHOD(GetComparisonData)(THIS_ PBYTE,ULONG,PULONG) PURE;
+	STDMETHOD(GetComparisonData)(THIS_ PVOID,ULONG,PULONG) PURE;
 };
 #undef INTERFACE
 
@@ -938,38 +939,6 @@ DECLARE_INTERFACE_(IPropertySetStorage,IUnknown)
 	STDMETHOD(Enum)(THIS_ IEnumSTATPROPSETSTG**) PURE;
 };
 #undef INTERFACE
-
-#ifdef COBJMACROS
-/*** IUnknown methods ***/
-#define IPropertyStorage_QueryInterface(p,a,b) (p)->lpVtbl->QueryInterface(p,a,b)
-#define IPropertyStorage_AddRef(p) (p)->lpVtbl->AddRef(p)
-#define IPropertyStorage_Release(p) (p)->lpVtbl->Release(p)
-/*** IPropertyStorage methods ***/
-#define IPropertyStorage_ReadMultiple(p,a,b,c) (p)->lpVtbl->ReadMultiple(p,a,b,c)
-#define IPropertyStorage_WriteMultiple(p,a,b,c,d) (p)->lpVtbl->WriteMultiple(p,a,b,c,d)
-#define IPropertyStorage_DeleteMultiple(p,a,b) (p)->lpVtbl->DeleteMultiple(p,a,b)
-#define IPropertyStorage_ReadPropertyNames(p,a,b,c) (p)->lpVtbl->ReadPropertyNames(p,a,b,c)
-#define IPropertyStorage_WritePropertyNames(p,a,b,c) (p)->lpVtbl->WritePropertyNames(p,a,b,c)
-#define IPropertyStorage_DeletePropertyNames(p,a,b) (p)->lpVtbl->DeletePropertyNames(p,a,b)
-#define IPropertyStorage_Commit(p,a) (p)->lpVtbl->Commit(p,a)
-#define IPropertyStorage_Revert(p) (p)->lpVtbl->Revert(p)
-#define IPropertyStorage_Enum(p,a) (p)->lpVtbl->Enum(p,a)
-#define IPropertyStorage_SetTimes(p,a,b,c) (p)->lpVtbl->SetTimes(p,a,b,c)
-#define IPropertyStorage_SetClass(p,a) (p)->lpVtbl->SetClass(p,a)
-#define IPropertyStorage_Stat(p,a) (p)->lpVtbl->Stat(p,a)
-#endif
-
-#ifdef COBJMACROS
-/*** IUnknown methods ***/
-#define IPropertySetStorage_QueryInterface(p,a,b) (p)->lpVtbl->QueryInterface(p,a,b)
-#define IPropertySetStorage_AddRef(p) (p)->lpVtbl->AddRef(p)
-#define IPropertySetStorage_Release(p) (p)->lpVtbl->Release(p)
-/*** IPropertySetStorage methods ***/
-#define IPropertySetStorage_Create(p,a,b,c,d,e) (p)->lpVtbl->Create(p,a,b,c,d,e)
-#define IPropertySetStorage_Open(p,a,b,c) (p)->lpVtbl->Open(p,a,b,c)
-#define IPropertySetStorage_Delete(p,a) (p)->lpVtbl->Delete(p,a)
-#define IPropertySetStorage_Enum(p,a) (p)->lpVtbl->Enum(p,a)
-#endif
 
 EXTERN_C const IID IID_IClientSecurity;
 #define INTERFACE IClientSecurity
@@ -1781,6 +1750,7 @@ DEFINE_GUID(IID_IClassActivator, 0x00000140, 0x0000, 0x0000, 0xc0,0x00, 0x00,0x0
 DEFINE_GUID(IID_ISequentialStream, 0x0c733a30, 0x2a1c, 0x11ce, 0xad,0xe5, 0x00,0xaa,0x00,0x44,0x77,0x3d);
 
 #define ISequentialStream_METHODS \
+    ICOM_MSVTABLE_COMPAT_FIELDS \
     /*** IUnknown methods ***/ \
     STDMETHOD_(HRESULT,QueryInterface)(THIS_ REFIID riid, void** ppvObject) PURE; \
     STDMETHOD_(ULONG,AddRef)(THIS) PURE; \
@@ -1860,6 +1830,8 @@ struct IGlobalInterfaceTable {
     const IGlobalInterfaceTableVtbl* lpVtbl;
 };
 struct IGlobalInterfaceTableVtbl {
+    ICOM_MSVTABLE_COMPAT_FIELDS
+
     /*** IUnknown methods ***/
     HRESULT (STDMETHODCALLTYPE *QueryInterface)(
         IGlobalInterfaceTable* This,
@@ -1903,6 +1875,7 @@ struct IGlobalInterfaceTableVtbl {
 #endif
 
 #define IGlobalInterfaceTable_METHODS \
+    ICOM_MSVTABLE_COMPAT_FIELDS \
     /*** IUnknown methods ***/ \
     STDMETHOD_(HRESULT,QueryInterface)(THIS_ REFIID riid, void** ppvObject) PURE; \
     STDMETHOD_(ULONG,AddRef)(THIS) PURE; \

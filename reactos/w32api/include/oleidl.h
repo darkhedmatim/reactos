@@ -22,7 +22,6 @@ typedef interface IEnumOleUndoUnits *LPENUMOLEUNDOUNITS;
 typedef interface IEnumOLEVERB *LPENUMOLEVERB;
 typedef interface IOleWindow *LPOLEWINDOW;
 typedef interface IOleInPlaceUIWindow *LPOLEINPLACEUIWINDOW;
-typedef interface IOleInPlaceObject *LPOLEINPLACEOBJECT;
 typedef interface IOleInPlaceActiveObject *LPOLEINPLACEACTIVEOBJECT;
 typedef interface IOleInPlaceFrame *LPOLEINPLACEFRAME;
 typedef interface IOleAdviseHolder *LPOLEADVISEHOLDER;

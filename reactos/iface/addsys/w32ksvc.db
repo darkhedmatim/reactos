@@ -123,7 +123,6 @@ NtGdiGetEnhMetaFileDescription		3
 NtGdiGetEnhMetaFileHeader		3
 NtGdiGetEnhMetaFilePaletteEntries	3
 NtGdiGetEnhMetaFilePixelFormat		3
-NtGdiGetFontData			5
 NtGdiGetFontFamilyInfo			4
 NtGdiGetFontLanguageInfo			1
 #NtGdiGetFontResourceInfo		?
@@ -345,7 +344,7 @@ NtUserEndDeferWindowPosEx               2
 NtUserEndMenu                           0
 NtUserEndPaint                          2
 NtUserEnumDisplayDevices                4
-NtUserEnumDisplayMonitors               5
+NtUserEnumDisplayMonitors               4
 NtUserEnumDisplaySettings               4
 NtUserEvent                             1
 NtUserExcludeUpdateRgn                  2
@@ -399,7 +398,6 @@ NtUserGetMenuIndex                      2
 NtUserGetMenuItemRect                   4
 NtUserGetMessage                        4
 NtUserGetMinMaxInfo                     3
-NtUserGetMonitorInfo                    2
 NtUserGetMouseMovePointsEx              5
 NtUserGetObjectInformation              5
 NtUserGetOpenClipboardWindow            0
@@ -444,9 +442,6 @@ NtUserMessageCall                       7
 NtUserMNDragLeave                       0
 NtUserMNDragOver                        2
 NtUserModifyUserStartupInfoFlags        2
-NtUserMonitorFromPoint                  3
-NtUserMonitorFromRect                   2
-NtUserMonitorFromWindow                 2
 NtUserMoveWindow                        6
 NtUserNotifyIMEStatus                   3
 NtUserNotifyWinEvent                    4
@@ -464,7 +459,7 @@ NtUserQueryWindow                       2
 NtUserReleaseDC				2
 NtUserRealChildWindowFromPoint          3
 NtUserRedrawWindow                      4
-NtUserRegisterClassExWOW                7
+NtUserRegisterClassExWOW                5
 NtUserRegisterHotKey                    4
 NtUserRegisterTasklist                  1
 NtUserRegisterWindowMessage             1

@@ -1,8 +1,6 @@
-
 #ifndef __INCLUDE_DDK_KEFUNCS_H
 #define __INCLUDE_DDK_KEFUNCS_H
 
-#define KEBUGCHECK(a) DbgPrint("KeBugCheck at %s:%i\n",__FILE__,__LINE__), KeBugCheck(a)
 
 /* KERNEL FUNCTIONS ********************************************************/
 
@@ -20,14 +18,13 @@ KeSaveFloatingPointState(
 #define KeFlushIoBuffers(Mdl, ReadOperation, DmaOperation)
 #endif
 
-VOID STDCALL KeAttachProcess(struct _KPROCESS *Process);
+VOID STDCALL KeAttachProcess (struct _EPROCESS*	Process);
 
 VOID FASTCALL KiAcquireSpinLock(PKSPIN_LOCK SpinLock);
 
 VOID FASTCALL KiReleaseSpinLock(PKSPIN_LOCK SpinLock);
 
 VOID KeDrainApcQueue(VOID);
-
 struct _KPROCESS* KeGetCurrentProcess(VOID);
 
 /*
@@ -86,7 +83,7 @@ BOOLEAN STDCALL KeCancelTimer (PKTIMER	Timer);
 
 VOID STDCALL KeClearEvent (PKEVENT	Event);
 
-BOOLEAN STDCALL KeConnectInterrupt(PKINTERRUPT InterruptObject);
+NTSTATUS STDCALL KeConnectInterrupt(PKINTERRUPT InterruptObject);
 
 NTSTATUS STDCALL KeDelayExecutionThread (KPROCESSOR_MODE	WaitMode,
 					 BOOLEAN		Alertable,
@@ -111,7 +108,7 @@ VOID STDCALL KeEnterKernelDebugger (VOID);
 KIRQL STDCALL KeGetCurrentIrql (VOID);
 
 #ifndef __USE_W32API
-#define KeGetCurrentProcessorNumber() (KeGetCurrentKPCR()->ProcessorNumber)
+ULONG KeGetCurrentProcessorNumber(VOID);
 ULONG KeGetDcacheFillSize(VOID);
 ULONG STDCALL KeGetPreviousMode (VOID);
 #endif
@@ -259,6 +256,17 @@ KeRaiseIrqlToDpcLevel (
 	VOID
 	);
 
+/*
+ * FUNCTION: Raises a user mode exception
+ * ARGUMENTS:
+ *	ExceptionCode = Status code of the exception
+ */
+VOID
+STDCALL
+KeRaiseUserException (
+	IN	NTSTATUS	ExceptionCode
+	);
+
 LONG
 STDCALL
 KeReadStateEvent (
@@ -357,15 +365,6 @@ KeRemoveQueueDpc(IN PKDPC Dpc);
 
 LONG STDCALL
 KeResetEvent(IN PKEVENT Event);
-
-VOID STDCALL
-KeRosDumpStackFrames ( PULONG Frame, ULONG FrameCount );
-
-ULONG STDCALL
-KeRosGetStackFrames ( PULONG Frames, ULONG FrameCount );
-
-BOOLEAN STDCALL
-KeRosPrintAddress(PVOID address);
 
 LONG STDCALL
 KeSetBasePriorityThread(struct _KTHREAD* Thread,
@@ -482,11 +481,7 @@ Ke386IoSetAccessProcess(struct _EPROCESS* Eprocess, BOOL EnableIo);
  *     Value2 = The value of the high dword of the descriptor.
  */
 VOID
-KeSetGdtSelector(
-	ULONG Entry,
-	ULONG Value1,
-	ULONG Value2
-);
+KeSetGdtSelector(ULONG Entry, ULONG Value1, ULONG Value2);
 
 /*
  * FUNCTION: Releases a set of Global Descriptor Table Selectors
@@ -494,11 +489,8 @@ KeSetGdtSelector(
  *	SelArray = 
  *	NumOfSelectors = 
  */
-NTSTATUS 
-KeI386ReleaseGdtSelectors(
-	OUT PULONG SelArray,
-	IN ULONG NumOfSelectors
-);
+NTSTATUS KeI386ReleaseGdtSelectors(OUT PULONG SelArray,
+				   IN ULONG NumOfSelectors);
 
 /*
  * FUNCTION: Allocates a set of Global Descriptor Table Selectors
@@ -506,11 +498,8 @@ KeI386ReleaseGdtSelectors(
  *	SelArray = 
  *	NumOfSelectors = 
  */
-NTSTATUS
-KeI386AllocateGdtSelectors(
-	OUT PULONG SelArray,
-    IN ULONG NumOfSelectors
-);
+NTSTATUS KeI386AllocateGdtSelectors(OUT PULONG SelArray,
+				    IN ULONG NumOfSelectors);
 
 
 KIRQL
@@ -540,254 +529,10 @@ KfReleaseSpinLock (
 	);
 
 
+VOID STDCALL KiDeliverApc(ULONG Unknown1,
+        ULONG Unknown2,
+        ULONG Unknown3);
+
 VOID STDCALL KiDispatchInterrupt(VOID);
-
-/* Stubs Start here */
-
-VOID
-STDCALL
-KeReleaseInterruptSpinLock(
-	IN PKINTERRUPT Interrupt,
-	IN KIRQL OldIrql
-	);
-
-BOOLEAN
-STDCALL
-KeAreApcsDisabled(
-	VOID
-	);
-
-VOID
-STDCALL
-KeFlushQueuedDpcs(
-	VOID
-	);
-
-ULONG
-STDCALL
-KeGetRecommendedSharedDataAlignment(
-	VOID
-	);
-
-ULONG
-STDCALL
-KeQueryRuntimeThread(
-	IN PKTHREAD Thread,
-	OUT PULONG UserTime
-	);    
-
-BOOLEAN
-STDCALL
-KeSetKernelStackSwapEnable(
-	IN BOOLEAN Enable
-	);
-
-BOOLEAN
-STDCALL
-KeDeregisterBugCheckReasonCallback(
-    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord
-    );
-
-BOOLEAN
-STDCALL
-KeRegisterBugCheckReasonCallback(
-    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord,
-    IN PKBUGCHECK_REASON_CALLBACK_ROUTINE CallbackRoutine,
-    IN KBUGCHECK_CALLBACK_REASON Reason,
-    IN PUCHAR Component
-    );
-
-VOID 
-STDCALL
-KeTerminateThread(
-	IN KPRIORITY   	 Increment  	 
-);
-
-BOOLEAN
-STDCALL
-KeIsExecutingDpc(
-	VOID
-);
-
-VOID
-STDCALL
-KeSetEventBoostPriority(
-	IN PKEVENT Event,
-	IN PKTHREAD *Thread OPTIONAL
-);
-
-PVOID
-STDCALL
-KeFindConfigurationEntry(
-    IN PVOID Unknown,
-    IN ULONG Class,
-    IN CONFIGURATION_TYPE Type,
-    IN PULONG RegKey
-);
-
-PVOID
-STDCALL
-KeFindConfigurationNextEntry(
-    IN PVOID Unknown,
-    IN ULONG Class,
-    IN CONFIGURATION_TYPE Type,
-    IN PULONG RegKey,
-    IN PVOID *NextLink
-);
-
-VOID
-STDCALL
-KeFlushEntireTb(
-    IN BOOLEAN Unknown,
-    IN BOOLEAN CurrentCpuOnly
-);
-
-VOID
-STDCALL
-KeRevertToUserAffinityThread(
-    VOID
-);
-
-VOID
-STDCALL
-KiCoprocessorError(
-    VOID
-);
-
-VOID
-STDCALL
-KiUnexpectedInterrupt(
-    VOID
-);
-
-VOID
-STDCALL
-KeSetDmaIoCoherency(
-    IN ULONG Coherency
-);
-
-VOID
-STDCALL
-KeSetProfileIrql(
-    IN KIRQL ProfileIrql
-);
-
-VOID
-STDCALL
-KeSetSystemAffinityThread(
-    IN KAFFINITY Affinity
-);
-
-NTSTATUS
-STDCALL
-KeUserModeCallback(
-    IN ULONG	FunctionID,
-    IN PVOID	InputBuffer,
-    IN ULONG	InputLength,
-    OUT PVOID	*OutputBuffer,
-    OUT PULONG	OutputLength
-);
-
-VOID
-STDCALL
-KeSetTimeIncrement(
-    IN ULONG MaxIncrement,
-    IN ULONG MinIncrement
-);
-
-VOID
-STDCALL
-KeCapturePersistentThreadState(
-	IN PVOID	CurrentThread,
-	IN ULONG	Setting1,
-	IN ULONG	Setting2,
-	IN ULONG	Setting3,
-	IN ULONG	Setting4,
-	IN ULONG	Setting5,
-	IN PVOID	ThreadState
-);
-
-BOOLEAN
-STDCALL
-KeRemoveSystemServiceTable(
-    IN PUCHAR Number
-);
-
-NTSTATUS
-KeI386FlatToGdtSelector(
-	IN ULONG	Base,
-	IN USHORT	Length,
-	IN USHORT	Selector
-);
-
-CCHAR
-STDCALL
-KeSetIdealProcessorThread (
-	IN PKTHREAD Thread,
-	IN CCHAR Processor
-	);
-
-typedef
-VOID
-(FASTCALL *PTIME_UPDATE_NOTIFY_ROUTINE)(
-    IN HANDLE ThreadId,
-    IN KPROCESSOR_MODE Mode
-    );
-
-VOID
-FASTCALL
-KeSetTimeUpdateNotifyRoutine(
-    IN PTIME_UPDATE_NOTIFY_ROUTINE NotifyRoutine
-    );
-
-PKDEVICE_QUEUE_ENTRY
-STDCALL
-KeRemoveByKeyDeviceQueueIfBusy (
-    IN PKDEVICE_QUEUE DeviceQueue,
-    IN ULONG SortKey
-    );
-
-KAFFINITY
-STDCALL
-KeQueryActiveProcessors (
-    VOID
-    );
-
-VOID
-FASTCALL
-KeAcquireInStackQueuedSpinLockAtDpcLevel(
-    IN PKSPIN_LOCK SpinLock,
-    IN PKLOCK_QUEUE_HANDLE LockHandle
-    );
-
-VOID
-FASTCALL
-KeReleaseInStackQueuedSpinLockFromDpcLevel(
-    IN PKLOCK_QUEUE_HANDLE LockHandle
-    );
-
-KPRIORITY
-STDCALL
-KeQueryPriorityThread (
-    IN PKTHREAD Thread
-    );  
-
-KIRQL
-STDCALL
-KeAcquireInterruptSpinLock(
-    IN PKINTERRUPT Interrupt
-    );
-
-VOID
-__cdecl
-KeSaveStateForHibernate(
-    IN PVOID State
-);
-
-NTSTATUS
-STDCALL
-KeRaiseUserException(
-	IN NTSTATUS	ExceptionCode
-);
 
 #endif /* __INCLUDE_DDK_KEFUNCS_H */

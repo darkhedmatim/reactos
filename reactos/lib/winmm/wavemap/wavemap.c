@@ -39,7 +39,7 @@
 #include "msacm.h"
 #include "wine/debug.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(wavemap);
+WINE_DEFAULT_DEBUG_CHANNEL(msacm);
 
 typedef	struct tagWAVEMAPDATA {
     struct tagWAVEMAPDATA*	self;
@@ -122,8 +122,6 @@ static	DWORD	wodOpenHelper(WAVEMAPDATA* wom, UINT idx,
 {
     DWORD	ret;
 
-    TRACE("(%p %04x %p %p %08lx)\n", wom, idx, lpDesc, lpwfx, dwFlags);
-
     /* destination is always PCM, so the formulas below apply */
     lpwfx->nBlockAlign = (lpwfx->nChannels * lpwfx->wBitsPerSample) / 8;
     lpwfx->nAvgBytesPerSec = lpwfx->nSamplesPerSec * lpwfx->nBlockAlign;
@@ -140,7 +138,6 @@ static	DWORD	wodOpenHelper(WAVEMAPDATA* wom, UINT idx,
 	    wom->hAcmStream = 0;
 	}
     }
-    TRACE("ret = %08lx\n", ret);
     return ret;
 }
 
@@ -149,21 +146,15 @@ static	DWORD	wodOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
     UINT 		ndlo, ndhi;
     UINT		i;
     WAVEMAPDATA*	wom = HeapAlloc(GetProcessHeap(), 0, sizeof(WAVEMAPDATA));
-    DWORD               res;
 
     TRACE("(%p %p %08lx)\n", lpdwUser, lpDesc, dwFlags);
 
-    if (!wom) {
-        WARN("no memory\n");
+    if (!wom)
 	return MMSYSERR_NOMEM;
-    }
 
     ndhi = waveOutGetNumDevs();
     if (dwFlags & WAVE_MAPPED) {
-	if (lpDesc->uMappedDeviceID >= ndhi) {
-            WARN("invalid parameter: dwFlags WAVE_MAPPED\n");
-            return MMSYSERR_INVALPARAM;
-        }
+	if (lpDesc->uMappedDeviceID >= ndhi) return MMSYSERR_INVALPARAM;
 	ndlo = lpDesc->uMappedDeviceID;
 	ndhi = ndlo + 1;
 	dwFlags &= ~WAVE_MAPPED;
@@ -188,7 +179,7 @@ static	DWORD	wodOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
 	}
     }
 
-    if ((dwFlags & WAVE_FORMAT_DIRECT) == 0 && lpDesc->lpFormat->wFormatTag == WAVE_FORMAT_PCM) {
+    if ((dwFlags & WAVE_FORMAT_DIRECT) == 0) {
         WAVEFORMATEX	wfx;
 
         wfx.wFormatTag = WAVE_FORMAT_PCM;
@@ -196,7 +187,7 @@ static	DWORD	wodOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
         /* try some ACM stuff */
 
 #define	TRY(sps,bps)    wfx.nSamplesPerSec = (sps); wfx.wBitsPerSample = (bps); \
-                        switch (res=wodOpenHelper(wom, i, lpDesc, &wfx, dwFlags | WAVE_FORMAT_DIRECT)) { \
+                        switch (wodOpenHelper(wom, i, lpDesc, &wfx, dwFlags | WAVE_FORMAT_DIRECT)) { \
                             case MMSYSERR_NOERROR: wom->avgSpeedInner = wfx.nAvgBytesPerSec; goto found; \
                             case WAVERR_BADFORMAT: break; \
                             default: goto error; \
@@ -252,7 +243,6 @@ static	DWORD	wodOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
     }
 
     HeapFree(GetProcessHeap(), 0, wom);
-    WARN("ret = WAVERR_BADFORMAT\n");
     return WAVERR_BADFORMAT;
 
 found:
@@ -265,21 +255,13 @@ found:
     return MMSYSERR_NOERROR;
 error:
     HeapFree(GetProcessHeap(), 0, wom);
-    if (res==ACMERR_NOTPOSSIBLE) {
-        WARN("ret = WAVERR_BADFORMAT\n");
-        return WAVERR_BADFORMAT;
-    }
-    WARN("ret = MMSYSERR_ERROR\n");
     return MMSYSERR_ERROR;
 }
 
 static	DWORD	wodClose(WAVEMAPDATA* wom)
 {
-    DWORD ret;
+    DWORD ret = waveOutClose(wom->u.out.hInnerWave);
 
-    TRACE("(%p)\n", wom);
-
-    ret = waveOutClose(wom->u.out.hInnerWave);
     if (ret == MMSYSERR_NOERROR) {
 	if (wom->hAcmStream) {
 	    ret = acmStreamClose(wom->hAcmStream, 0);
@@ -296,8 +278,6 @@ static	DWORD	wodWrite(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2)
     PACMSTREAMHEADER	ash;
     LPWAVEHDR		lpWaveHdrDst;
 
-    TRACE("(%p %p %08lx)\n", wom, lpWaveHdrSrc, dwParam2);
-
     if (!wom->hAcmStream) {
 	return waveOutWrite(wom->u.out.hInnerWave, lpWaveHdrSrc, dwParam2);
     }
@@ -306,10 +286,8 @@ static	DWORD	wodWrite(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2)
     ash = (PACMSTREAMHEADER)lpWaveHdrSrc->reserved;
     /* acmStreamConvert will actually check that the new size is less than initial size */
     ash->cbSrcLength = lpWaveHdrSrc->dwBufferLength;
-    if (acmStreamConvert(wom->hAcmStream, ash, 0L) != MMSYSERR_NOERROR) {
-        WARN("acmStreamConvert failed\n");
+    if (acmStreamConvert(wom->hAcmStream, ash, 0L) != MMSYSERR_NOERROR)
 	return MMSYSERR_ERROR;
-    }
 
     lpWaveHdrDst = (LPWAVEHDR)((LPSTR)ash + sizeof(ACMSTREAMHEADER));
     if (ash->cbSrcLength > ash->cbSrcLengthUsed)
@@ -317,7 +295,8 @@ static	DWORD	wodWrite(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2)
     else if (ash->cbSrcLength < ash->cbSrcLengthUsed)
         ERR("CoDec has read more data than it is allowed to\n");
 
-    if (ash->cbDstLengthUsed == 0) {
+    if (ash->cbDstLengthUsed == 0)
+    {
         /* something went wrong in decoding */
         FIXME("Got 0 length\n");
         return MMSYSERR_ERROR;
@@ -333,21 +312,15 @@ static	DWORD	wodPrepare(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2
     DWORD		dwRet;
     LPWAVEHDR		lpWaveHdrDst;
 
-    TRACE("(%p %p %08lx)\n", wom, lpWaveHdrSrc, dwParam2);
-
-    if (!wom->hAcmStream)
+    if (!wom->hAcmStream) {
 	return waveOutPrepareHeader(wom->u.out.hInnerWave, lpWaveHdrSrc, dwParam2);
-
-    if (acmStreamSize(wom->hAcmStream, lpWaveHdrSrc->dwBufferLength, &size, ACM_STREAMSIZEF_SOURCE) != MMSYSERR_NOERROR) {
-        WARN("acmStreamSize failed\n");
-	return MMSYSERR_ERROR;
     }
+    if (acmStreamSize(wom->hAcmStream, lpWaveHdrSrc->dwBufferLength, &size, ACM_STREAMSIZEF_SOURCE) != MMSYSERR_NOERROR)
+	return MMSYSERR_ERROR;
 
     ash = HeapAlloc(GetProcessHeap(), 0, sizeof(ACMSTREAMHEADER) + sizeof(WAVEHDR) + size);
-    if (ash == NULL) {
-        WARN("no memory\n");
+    if (ash == NULL)
 	return MMSYSERR_NOMEM;
-    }
 
     ash->cbStruct = sizeof(*ash);
     ash->fdwStatus = 0L;
@@ -361,10 +334,8 @@ static	DWORD	wodPrepare(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2
     /* ash->cbDstLengthUsed */
     ash->dwDstUser = 0; /* FIXME ? */
     dwRet = acmStreamPrepareHeader(wom->hAcmStream, ash, 0L);
-    if (dwRet != MMSYSERR_NOERROR) {
-        WARN("acmStreamPrepareHeader failed\n");
+    if (dwRet != MMSYSERR_NOERROR)
 	goto errCleanUp;
-    }
 
     lpWaveHdrDst = (LPWAVEHDR)((LPSTR)ash + sizeof(ACMSTREAMHEADER));
     lpWaveHdrDst->lpData = ash->pbDst;
@@ -372,10 +343,8 @@ static	DWORD	wodPrepare(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwParam2
     lpWaveHdrDst->dwFlags = 0;
     lpWaveHdrDst->dwLoops = 0;
     dwRet = waveOutPrepareHeader(wom->u.out.hInnerWave, lpWaveHdrDst, sizeof(*lpWaveHdrDst));
-    if (dwRet != MMSYSERR_NOERROR) {
-        WARN("waveOutPrepareHeader failed\n");
+    if (dwRet != MMSYSERR_NOERROR)
 	goto errCleanUp;
-    }
 
     lpWaveHdrSrc->reserved = (DWORD)ash;
     lpWaveHdrSrc->dwFlags = WHDR_PREPARED;
@@ -392,8 +361,6 @@ static	DWORD	wodUnprepare(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwPara
     PACMSTREAMHEADER	ash;
     LPWAVEHDR		lpWaveHdrDst;
     DWORD		dwRet1, dwRet2;
-
-    TRACE("(%p %p %08lx)\n", wom, lpWaveHdrSrc, dwParam2);
 
     if (!wom->hAcmStream) {
 	return waveOutUnprepareHeader(wom->u.out.hInnerWave, lpWaveHdrSrc, dwParam2);
@@ -412,10 +379,7 @@ static	DWORD	wodUnprepare(WAVEMAPDATA* wom, LPWAVEHDR lpWaveHdrSrc, DWORD dwPara
 
 static	DWORD	wodGetPosition(WAVEMAPDATA* wom, LPMMTIME lpTime, DWORD dwParam2)
 {
-    DWORD       val;
-    TRACE("(%p %p %08lx)\n", wom, lpTime, dwParam2);
-
-    val = waveOutGetPosition(wom->u.out.hInnerWave, lpTime, dwParam2);
+    DWORD       val = waveOutGetPosition(wom->u.out.hInnerWave, lpTime, dwParam2);
     if (lpTime->wType == TIME_BYTES)
         lpTime->u.cb = MulDiv(lpTime->u.cb, wom->avgSpeedOuter, wom->avgSpeedInner);
     /* other time types don't require conversion */
@@ -424,32 +388,21 @@ static	DWORD	wodGetPosition(WAVEMAPDATA* wom, LPMMTIME lpTime, DWORD dwParam2)
 
 static	DWORD	wodGetDevCaps(UINT wDevID, WAVEMAPDATA* wom, LPWAVEOUTCAPSA lpWaveCaps, DWORD dwParam2)
 {
-    TRACE("(%04x %p %p %08lx)\n",wDevID, wom, lpWaveCaps, dwParam2);
-
     /* if opened low driver, forward message */
     if (WAVEMAP_IsData(wom))
 	return waveOutGetDevCapsA((UINT)wom->u.out.hInnerWave, lpWaveCaps, dwParam2);
-    /* else if no drivers, nothing to map so return bad device */
-    if (waveOutGetNumDevs() == 0) {
-        WARN("bad device id\n");
-        return MMSYSERR_BADDEVICEID;
-    }
     /* otherwise, return caps of mapper itself */
     if (wDevID == (UINT)-1 || wDevID == (UINT16)-1) {
-        WAVEOUTCAPSA woc;
-	woc.wMid = 0x00FF;
-	woc.wPid = 0x0001;
-	woc.vDriverVersion = 0x0100;
-	strcpy(woc.szPname, "Wine wave out mapper");
-	woc.dwFormats =
-            WAVE_FORMAT_96M08 | WAVE_FORMAT_96S08 | WAVE_FORMAT_96M16 | WAVE_FORMAT_96S16 |
-            WAVE_FORMAT_48M08 | WAVE_FORMAT_48S08 | WAVE_FORMAT_48M16 | WAVE_FORMAT_48S16 |
+	lpWaveCaps->wMid = 0x00FF;
+	lpWaveCaps->wPid = 0x0001;
+	lpWaveCaps->vDriverVersion = 0x0100;
+	strcpy(lpWaveCaps->szPname, "Wine wave out mapper");
+	lpWaveCaps->dwFormats =
 	    WAVE_FORMAT_4M08 | WAVE_FORMAT_4S08 | WAVE_FORMAT_4M16 | WAVE_FORMAT_4S16 |
 	    WAVE_FORMAT_2M08 | WAVE_FORMAT_2S08 | WAVE_FORMAT_2M16 | WAVE_FORMAT_2S16 |
 	    WAVE_FORMAT_1M08 | WAVE_FORMAT_1S08 | WAVE_FORMAT_1M16 | WAVE_FORMAT_1S16;
-	woc.wChannels = 2;
-	woc.dwSupport = WAVECAPS_VOLUME | WAVECAPS_LRVOLUME;
-        memcpy(lpWaveCaps, &woc, min(dwParam2, sizeof(woc)));
+	lpWaveCaps->wChannels = 2;
+	lpWaveCaps->dwSupport = WAVECAPS_VOLUME | WAVECAPS_LRVOLUME;
 
 	return MMSYSERR_NOERROR;
     }
@@ -459,8 +412,6 @@ static	DWORD	wodGetDevCaps(UINT wDevID, WAVEMAPDATA* wom, LPWAVEOUTCAPSA lpWaveC
 
 static	DWORD	wodGetVolume(UINT wDevID, WAVEMAPDATA* wom, LPDWORD lpVol)
 {
-    TRACE("(%04x %p %p)\n",wDevID, wom, lpVol);
-
     if (WAVEMAP_IsData(wom))
 	return waveOutGetVolume(wom->u.out.hInnerWave, lpVol);
     return MMSYSERR_NOERROR;
@@ -468,8 +419,6 @@ static	DWORD	wodGetVolume(UINT wDevID, WAVEMAPDATA* wom, LPDWORD lpVol)
 
 static	DWORD	wodSetVolume(UINT wDevID, WAVEMAPDATA* wom, DWORD vol)
 {
-    TRACE("(%04x %p %08lx)\n",wDevID, wom, vol);
-
     if (WAVEMAP_IsData(wom))
 	return waveOutSetVolume(wom->u.out.hInnerWave, vol);
     return MMSYSERR_NOERROR;
@@ -477,29 +426,21 @@ static	DWORD	wodSetVolume(UINT wDevID, WAVEMAPDATA* wom, DWORD vol)
 
 static	DWORD	wodPause(WAVEMAPDATA* wom)
 {
-    TRACE("(%p)\n",wom);
-
     return waveOutPause(wom->u.out.hInnerWave);
 }
 
 static	DWORD	wodRestart(WAVEMAPDATA* wom)
 {
-    TRACE("(%p)\n",wom);
-
     return waveOutRestart(wom->u.out.hInnerWave);
 }
 
 static	DWORD	wodReset(WAVEMAPDATA* wom)
 {
-    TRACE("(%p)\n",wom);
-
     return waveOutReset(wom->u.out.hInnerWave);
 }
 
 static	DWORD	wodBreakLoop(WAVEMAPDATA* wom)
 {
-    TRACE("(%p)\n",wom);
-
     return waveOutBreakLoop(wom->u.out.hInnerWave);
 }
 
@@ -507,8 +448,6 @@ static  DWORD	wodMapperStatus(WAVEMAPDATA* wom, DWORD flags, LPVOID ptr)
 {
     UINT	id;
     DWORD	ret = MMSYSERR_NOTSUPPORTED;
-
-    TRACE("(%p %08lx %p)\n",wom, flags, ptr);
 
     switch (flags) {
     case WAVEOUT_MAPPER_STATUS_DEVICE:
@@ -567,10 +506,6 @@ DWORD WINAPI WAVEMAP_wodMessage(UINT wDevID, UINT wMsg, DWORD dwUser,
     case WODM_RESTART:		return wodRestart	((WAVEMAPDATA*)dwUser);
     case WODM_RESET:		return wodReset		((WAVEMAPDATA*)dwUser);
     case WODM_MAPPER_STATUS:	return wodMapperStatus  ((WAVEMAPDATA*)dwUser, dwParam1, (LPVOID)dwParam2);
-    /* known but not supported */
-    case DRV_QUERYDEVICEINTERFACESIZE:
-    case DRV_QUERYDEVICEINTERFACE:
-        return MMSYSERR_NOTSUPPORTED;
     default:
 	FIXME("unknown message %d!\n", wMsg);
     }
@@ -635,8 +570,6 @@ static	DWORD	widOpenHelper(WAVEMAPDATA* wim, UINT idx,
 {
     DWORD	ret;
 
-    TRACE("(%p %04x %p %p %08lx)\n", wim, idx, lpDesc, lpwfx, dwFlags);
-
     /* source is always PCM, so the formulas below apply */
     lpwfx->nBlockAlign = (lpwfx->nChannels * lpwfx->wBitsPerSample) / 8;
     lpwfx->nAvgBytesPerSec = lpwfx->nSamplesPerSec * lpwfx->nBlockAlign;
@@ -653,7 +586,6 @@ static	DWORD	widOpenHelper(WAVEMAPDATA* wim, UINT idx,
 	    wim->hAcmStream = 0;
 	}
     }
-    TRACE("ret = %08lx\n", ret);
     return ret;
 }
 
@@ -662,14 +594,11 @@ static	DWORD	widOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
     UINT 		ndlo, ndhi;
     UINT		i;
     WAVEMAPDATA*	wim = HeapAlloc(GetProcessHeap(), 0, sizeof(WAVEMAPDATA));
-    DWORD               res;
 
     TRACE("(%p %p %08lx)\n", lpdwUser, lpDesc, dwFlags);
 
-    if (!wim) {
-        WARN("no memory\n");
+    if (!wim)
 	return MMSYSERR_NOMEM;
-    }
 
     wim->self = wim;
     wim->dwCallback = lpDesc->dwCallback;
@@ -704,14 +633,14 @@ static	DWORD	widOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
         wfx.wFormatTag = WAVE_FORMAT_PCM;
         wfx.cbSize = 0; /* normally, this field is not used for PCM format, just in case */
         /* try some ACM stuff */
-
+        
 #define	TRY(sps,bps)    wfx.nSamplesPerSec = (sps); wfx.wBitsPerSample = (bps); \
-                        switch (res=widOpenHelper(wim, i, lpDesc, &wfx, dwFlags | WAVE_FORMAT_DIRECT)) { \
+                        switch (widOpenHelper(wim, i, lpDesc, &wfx, dwFlags | WAVE_FORMAT_DIRECT)) { \
                         case MMSYSERR_NOERROR: wim->avgSpeedInner = wfx.nAvgBytesPerSec; goto found; \
                         case WAVERR_BADFORMAT: break; \
                         default: goto error; \
                         }
-
+        
         for (i = ndlo; i < ndhi; i++) {
 	    wfx.nSamplesPerSec=lpDesc->lpFormat->nSamplesPerSec;
             /* first try with same stereo/mono option as source */
@@ -732,7 +661,7 @@ static	DWORD	widOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
             TRY(44100, 16);
             TRY(22050, 16);
             TRY(11025, 16);
-
+            
             /* 2^3 => 1, 1^3 => 2, so if stereo, try mono (and the other way around) */
             wfx.nChannels ^= 3;
             TRY(96000, 16);
@@ -748,7 +677,7 @@ static	DWORD	widOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
             TRY(44100, 8);
             TRY(22050, 8);
             TRY(11025, 8);
-
+            
             /* 2^3 => 1, 1^3 => 2, so if stereo, try mono (and the other way around) */
             wfx.nChannels ^= 3;
             TRY(96000, 8);
@@ -761,7 +690,6 @@ static	DWORD	widOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
     }
 
     HeapFree(GetProcessHeap(), 0, wim);
-    WARN("ret = WAVERR_BADFORMAT\n");
     return WAVERR_BADFORMAT;
 found:
     if (dwFlags & WAVE_FORMAT_QUERY) {
@@ -774,21 +702,13 @@ found:
     return MMSYSERR_NOERROR;
 error:
     HeapFree(GetProcessHeap(), 0, wim);
-    if (res==ACMERR_NOTPOSSIBLE) {
-        WARN("ret = WAVERR_BADFORMAT\n");
-        return WAVERR_BADFORMAT;
-    }
-    WARN("ret = MMSYSERR_ERROR\n");
     return MMSYSERR_ERROR;
 }
 
 static	DWORD	widClose(WAVEMAPDATA* wim)
 {
-    DWORD ret;
+    DWORD ret = waveInClose(wim->u.in.hInnerWave);
 
-    TRACE("(%p)\n", wim);
-
-    ret = waveInClose(wim->u.in.hInnerWave);
     if (ret == MMSYSERR_NOERROR) {
 	if (wim->hAcmStream) {
 	    ret = acmStreamClose(wim->hAcmStream, 0);
@@ -804,8 +724,6 @@ static	DWORD	widAddBuffer(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwPara
 {
     PACMSTREAMHEADER	ash;
     LPWAVEHDR		lpWaveHdrSrc;
-
-    TRACE("(%p %p %08lx)\n", wim, lpWaveHdrDst, dwParam2);
 
     if (!wim->hAcmStream) {
 	return waveInAddBuffer(wim->u.in.hInnerWave, lpWaveHdrDst, dwParam2);
@@ -825,22 +743,16 @@ static	DWORD	widPrepare(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwParam2
     DWORD		dwRet;
     LPWAVEHDR		lpWaveHdrSrc;
 
-    TRACE("(%p %p %08lx)\n", wim, lpWaveHdrDst, dwParam2);
-
     if (!wim->hAcmStream) {
 	return waveInPrepareHeader(wim->u.in.hInnerWave, lpWaveHdrDst, dwParam2);
     }
     if (acmStreamSize(wim->hAcmStream, lpWaveHdrDst->dwBufferLength, &size,
-		      ACM_STREAMSIZEF_DESTINATION) != MMSYSERR_NOERROR) {
-        WARN("acmStreamSize failed\n");
+		      ACM_STREAMSIZEF_DESTINATION) != MMSYSERR_NOERROR)
 	return MMSYSERR_ERROR;
-    }
 
     ash = HeapAlloc(GetProcessHeap(), 0, sizeof(ACMSTREAMHEADER) + sizeof(WAVEHDR) + size);
-    if (ash == NULL) {
-        WARN("no memory\n");
+    if (ash == NULL)
 	return MMSYSERR_NOMEM;
-    }
 
     ash->cbStruct = sizeof(*ash);
     ash->fdwStatus = 0L;
@@ -854,10 +766,8 @@ static	DWORD	widPrepare(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwParam2
     /* ash->cbDstLengthUsed */
     ash->dwDstUser = lpWaveHdrDst->dwUser; /* FIXME ? */
     dwRet = acmStreamPrepareHeader(wim->hAcmStream, ash, 0L);
-    if (dwRet != MMSYSERR_NOERROR) {
-        WARN("acmStreamPrepareHeader failed\n");
+    if (dwRet != MMSYSERR_NOERROR)
 	goto errCleanUp;
-    }
 
     lpWaveHdrSrc = (LPWAVEHDR)((LPSTR)ash + sizeof(ACMSTREAMHEADER));
     lpWaveHdrSrc->lpData = ash->pbSrc;
@@ -865,10 +775,8 @@ static	DWORD	widPrepare(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwParam2
     lpWaveHdrSrc->dwFlags = 0;
     lpWaveHdrSrc->dwLoops = 0;
     dwRet = waveInPrepareHeader(wim->u.in.hInnerWave, lpWaveHdrSrc, sizeof(*lpWaveHdrSrc));
-    if (dwRet != MMSYSERR_NOERROR) {
-        WARN("waveInPrepareHeader failed\n");
+    if (dwRet != MMSYSERR_NOERROR)
 	goto errCleanUp;
-    }
 
     lpWaveHdrDst->reserved = (DWORD)ash;
     lpWaveHdrDst->dwFlags = WHDR_PREPARED;
@@ -885,8 +793,6 @@ static	DWORD	widUnprepare(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwPara
     PACMSTREAMHEADER	ash;
     LPWAVEHDR		lpWaveHdrSrc;
     DWORD		dwRet1, dwRet2;
-
-    TRACE("(%p %p %08lx)\n", wim, lpWaveHdrDst, dwParam2);
 
     if (!wim->hAcmStream) {
 	return waveInUnprepareHeader(wim->u.in.hInnerWave, lpWaveHdrDst, dwParam2);
@@ -905,11 +811,7 @@ static	DWORD	widUnprepare(WAVEMAPDATA* wim, LPWAVEHDR lpWaveHdrDst, DWORD dwPara
 
 static	DWORD	widGetPosition(WAVEMAPDATA* wim, LPMMTIME lpTime, DWORD dwParam2)
 {
-    DWORD       val;
-
-    TRACE("(%p %p %08lx)\n", wim, lpTime, dwParam2);
-
-    val = waveInGetPosition(wim->u.in.hInnerWave, lpTime, dwParam2);
+    DWORD       val = waveInGetPosition(wim->u.in.hInnerWave, lpTime, dwParam2);
     if (lpTime->wType == TIME_BYTES)
         lpTime->u.cb = MulDiv(lpTime->u.cb, wim->avgSpeedOuter, wim->avgSpeedInner);
     /* other time types don't require conversion */
@@ -918,32 +820,20 @@ static	DWORD	widGetPosition(WAVEMAPDATA* wim, LPMMTIME lpTime, DWORD dwParam2)
 
 static	DWORD	widGetDevCaps(UINT wDevID, WAVEMAPDATA* wim, LPWAVEINCAPSA lpWaveCaps, DWORD dwParam2)
 {
-    TRACE("(%04x, %p %p %08lx)\n", wDevID, wim, lpWaveCaps, dwParam2);
-
     /* if opened low driver, forward message */
     if (WAVEMAP_IsData(wim))
 	return waveInGetDevCapsA((UINT)wim->u.in.hInnerWave, lpWaveCaps, dwParam2);
-    /* else if no drivers, nothing to map so return bad device */
-    if (waveInGetNumDevs() == 0) {
-        WARN("bad device id\n");
-        return MMSYSERR_BADDEVICEID;
-    }
     /* otherwise, return caps of mapper itself */
     if (wDevID == (UINT)-1 || wDevID == (UINT16)-1) {
-        WAVEINCAPSA wic;
-	wic.wMid = 0x00FF;
-	wic.wPid = 0x0001;
-	wic.vDriverVersion = 0x0001;
-	strcpy(wic.szPname, "Wine wave in mapper");
-	wic.dwFormats =
-            WAVE_FORMAT_96M08 | WAVE_FORMAT_96S08 | WAVE_FORMAT_96M16 | WAVE_FORMAT_96S16 |
-            WAVE_FORMAT_48M08 | WAVE_FORMAT_48S08 | WAVE_FORMAT_48M16 | WAVE_FORMAT_48S16 |
+	lpWaveCaps->wMid = 0x00FF;
+	lpWaveCaps->wPid = 0x0001;
+	lpWaveCaps->vDriverVersion = 0x0001;
+	strcpy(lpWaveCaps->szPname, "Wine wave in mapper");
+	lpWaveCaps->dwFormats =
 	    WAVE_FORMAT_4M08 | WAVE_FORMAT_4S08 | WAVE_FORMAT_4M16 | WAVE_FORMAT_4S16 |
 	    WAVE_FORMAT_2M08 | WAVE_FORMAT_2S08 | WAVE_FORMAT_2M16 | WAVE_FORMAT_2S16 |
 	    WAVE_FORMAT_1M08 | WAVE_FORMAT_1S08 | WAVE_FORMAT_1M16 | WAVE_FORMAT_1S16;
-	wic.wChannels = 2;
-        memcpy(lpWaveCaps, &wic, min(dwParam2, sizeof(wic)));
-
+	lpWaveCaps->wChannels = 2;
 	return MMSYSERR_NOERROR;
     }
     ERR("This shouldn't happen\n");
@@ -952,22 +842,16 @@ static	DWORD	widGetDevCaps(UINT wDevID, WAVEMAPDATA* wim, LPWAVEINCAPSA lpWaveCa
 
 static	DWORD	widStop(WAVEMAPDATA* wim)
 {
-    TRACE("(%p)\n", wim);
-
     return waveInStop(wim->u.in.hInnerWave);
 }
 
 static	DWORD	widStart(WAVEMAPDATA* wim)
 {
-    TRACE("(%p)\n", wim);
-
     return waveInStart(wim->u.in.hInnerWave);
 }
 
 static	DWORD	widReset(WAVEMAPDATA* wim)
 {
-    TRACE("(%p)\n", wim);
-
     return waveInReset(wim->u.in.hInnerWave);
 }
 
@@ -975,8 +859,6 @@ static  DWORD	widMapperStatus(WAVEMAPDATA* wim, DWORD flags, LPVOID ptr)
 {
     UINT	id;
     DWORD	ret = MMSYSERR_NOTSUPPORTED;
-
-    TRACE("(%p %08lx %p)\n", wim, flags, ptr);
 
     switch (flags) {
     case WAVEIN_MAPPER_STATUS_DEVICE:
@@ -1030,10 +912,6 @@ DWORD WINAPI WAVEMAP_widMessage(WORD wDevID, WORD wMsg, DWORD dwUser,
     case WIDM_START:		return widStart         ((WAVEMAPDATA*)dwUser);
     case WIDM_STOP:		return widStop          ((WAVEMAPDATA*)dwUser);
     case WIDM_MAPPER_STATUS:	return widMapperStatus  ((WAVEMAPDATA*)dwUser, dwParam1, (LPVOID)dwParam2);
-    /* known but not supported */
-    case DRV_QUERYDEVICEINTERFACESIZE:
-    case DRV_QUERYDEVICEINTERFACE:
-        return MMSYSERR_NOTSUPPORTED;
     default:
 	FIXME("unknown message %u!\n", wMsg);
     }
@@ -1051,8 +929,6 @@ static	struct WINE_WAVEMAP* oss = NULL;
  */
 static	DWORD	WAVEMAP_drvOpen(LPSTR str)
 {
-    TRACE("(%p)\n", str);
-
     if (oss)
 	return 0;
 
@@ -1066,8 +942,6 @@ static	DWORD	WAVEMAP_drvOpen(LPSTR str)
  */
 static	DWORD	WAVEMAP_drvClose(DWORD dwDevID)
 {
-    TRACE("(%08lx)\n", dwDevID);
-
     if (oss) {
 	oss = NULL;
 	return 1;

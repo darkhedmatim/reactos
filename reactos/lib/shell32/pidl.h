@@ -2,7 +2,6 @@
  * internal pidl functions
  *
  * Copyright 1998 Juergen Schmied
- * Copyright 2004 Juan Lang
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -71,7 +70,6 @@
 *	net provider	0x46		network
 *	whole network	0x47		network (5)
 *	MSITStore	0x61		htmlhlp (7)
-*	printers/ras connections 	0x70		guid
 *	history/favorites 0xb1		file
 *	share		0xc3		network (6)
 *
@@ -87,7 +85,7 @@
 *		GUID	871C5380-42A0-1069-A2EA-08002B30309D
 */
 
-#define PT_CPLAPPLET	0x00
+#define PT_DESKTOP	0x00 /* internal */
 #define PT_GUID		0x1F
 #define PT_DRIVE	0x23
 #define PT_DRIVE2	0x25
@@ -102,7 +100,7 @@
 #define PT_NETPROVIDER  0x46
 #define PT_NETWORK	0x47
 #define PT_IESPECIAL1	0x61
-#define PT_YAGUID	0x70 /* yet another guid.. */
+#define PT_RAS_FOLDER	0x70
 #define PT_IESPECIAL2	0xb1
 #define PT_SHARE	0xc3
 
@@ -118,37 +116,29 @@ typedef struct tagPIDLCPanelStruct
     CHAR szName[1];		/*10*/ /* terminated by 0x00, followed by display name and comment string */
 } PIDLCPanelStruct;
 
-typedef struct tagGUIDStruct
-{
-    BYTE dummy; /* offset 01 is unknown */
-    GUID guid;  /* offset 02 */
-} GUIDStruct;
-
-typedef struct tagDriveStruct
-{
-    CHAR szDriveName[20];	/*01*/
-    WORD unknown;		/*21*/
-} DriveStruct;
-
-typedef struct tagFileStruct
-{
-    BYTE dummy;			/*01 is 0x00 for files or dirs */
-    DWORD dwFileSize;		/*02*/
-    WORD uFileDate;		/*06*/
-    WORD uFileTime;		/*08*/
-    WORD uFileAttribs;		/*10*/
-    CHAR szNames[1];		/*12*/
-    /* Here are coming two strings. The first is the long name.
-    The second the dos name when needed or just 0x00 */
-} FileStruct;
-
 typedef struct tagPIDLDATA
 {	PIDLTYPE type;			/*00*/
 	union
-	{
-	  struct tagGUIDStruct guid;
-	  struct tagDriveStruct drive;
-	  struct tagFileStruct file;
+	{ struct
+	  { BYTE dummy;			/*01*/
+	    GUID guid;			/*02*/
+	    BYTE dummy1;		/*18*/
+	  } guid;
+	  struct
+	  { CHAR szDriveName[20];	/*01*/
+	    DWORD dwUnknown;		/*21*/
+	    /* the drive seems to be 25 bytes every time */
+	  } drive;
+	  struct
+	  { BYTE dummy;			/*01 is 0x00 for files or dirs */
+	    DWORD dwFileSize;		/*02*/
+	    WORD uFileDate;		/*06*/
+	    WORD uFileTime;		/*08*/
+	    WORD uFileAttribs;		/*10*/
+	    CHAR szNames[1];		/*12*/
+	    /* Here are coming two strings. The first is the long name.
+	    The second the dos name when needed or just 0x00 */
+	  } file, folder, generic;
 	  struct
 	  { WORD dummy;		/*01*/
 	    CHAR szNames[1];	/*03*/
@@ -193,16 +183,13 @@ BOOL	_ILIsCPanelStruct	(LPCITEMIDLIST pidl);
  * simple pidls
  */
 
-/* Basic PIDL constructor.  Allocates size + 5 bytes, where:
- * - two bytes are SHITEMID.cb
- * - one byte is PIDLDATA.type
- * - two bytes are the NULL PIDL terminator
- * Sets type of the returned PIDL to type.
+/* Basic PIDL constructor.  Allocates size + 2 bytes (to include space for the
+ * NULL PIDL terminator), and sets type to type.
  */
-LPITEMIDLIST	_ILAlloc(PIDLTYPE type, size_t size);
+LPITEMIDLIST	_ILCreateWithTypeAndSize(PIDLTYPE type, UINT size);
 
-/* Creates a PIDL with guid format and type type, which must be one of PT_GUID,
- * PT_SHELLEXT, or PT_YAGUID.
+/* Creates a PIDL with guid format and type type, which must be either PT_GUID
+ * or PT_SHELLEXT.
  */
 LPITEMIDLIST	_ILCreateGuid(PIDLTYPE type, REFIID guid);
 
@@ -212,7 +199,7 @@ LPITEMIDLIST	_ILCreateGuidFromStrA(LPCSTR szGUID);
 /* Commonly used PIDLs representing file system objects. */
 LPITEMIDLIST	_ILCreateDesktop	(void);
 LPITEMIDLIST	_ILCreateFromFindDataA(WIN32_FIND_DATAA *stffile);
-HRESULT		_ILCreateFromPathA	(LPCSTR szPath, LPITEMIDLIST* ppidl);
+LPITEMIDLIST	_ILCreateFromPathA	(LPCSTR szPath);
 
 /* Other helpers */
 LPITEMIDLIST	_ILCreateMyComputer	(void);
@@ -221,7 +208,8 @@ LPITEMIDLIST	_ILCreateControlPanel	(void);
 LPITEMIDLIST	_ILCreatePrinters	(void);
 LPITEMIDLIST	_ILCreateNetwork	(void);
 LPITEMIDLIST	_ILCreateBitBucket	(void);
-LPITEMIDLIST	_ILCreateDrive		(LPCWSTR);
+LPITEMIDLIST	_ILCreateDrive		(LPCSTR);
+LPITEMIDLIST	_ILCreateCPanel		(LPCSTR name, LPCSTR displayName, LPCSTR comment, int iconIdx);
 
 /*
  * helper functions (getting struct-pointer)
@@ -229,7 +217,8 @@ LPITEMIDLIST	_ILCreateDrive		(LPCWSTR);
 LPPIDLDATA	_ILGetDataPointer	(LPCITEMIDLIST);
 LPSTR		_ILGetTextPointer	(LPCITEMIDLIST);
 LPSTR		_ILGetSTextPointer	(LPCITEMIDLIST);
-IID		*_ILGetGUIDPointer	(LPCITEMIDLIST pidl);
+REFIID		_ILGetGUIDPointer	(LPCITEMIDLIST pidl);
+PIDLCPanelStruct* _ILGetCPanelPointer	(LPCITEMIDLIST pidl);
 
 /*
  * debug helper

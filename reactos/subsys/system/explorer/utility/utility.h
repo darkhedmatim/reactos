@@ -152,12 +152,6 @@ BOOL RecursiveCreateDirectory(LPCTSTR path_in);
  // read DWORD value from registry
 DWORD RegGetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD def);
 
- // write DWORD value to registry
-BOOL RegSetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD value);
-
- // test for existing directory
-BOOL exists_path(LPCTSTR path);
-
 
 #ifdef __cplusplus
 } // extern "C"
@@ -179,7 +173,6 @@ using namespace std;
 #include <map>
 #include <set>
 #include <list>
-#include <stack>
 #include <vector>
 
 
@@ -260,16 +253,14 @@ protected:
 struct HiddenWindow : public WindowHandle
 {
 	HiddenWindow(HWND hwnd)
-	 :	WindowHandle(IsWindowVisible(hwnd)? hwnd: 0)
+	 :	WindowHandle(hwnd)
 	{
-		if (_hwnd)
-			SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_HIDEWINDOW|SWP_NOREDRAW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
+		SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_HIDEWINDOW|SWP_NOREDRAW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
 	}
 
 	~HiddenWindow()
 	{
-		if (_hwnd)
-			SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
+		SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
 	}
 };
 
@@ -746,10 +737,8 @@ struct String
 #endif
 
 	String() {}
-
 	String(LPCTSTR s) {if (s) super::assign(s);}
 	String(LPCTSTR s, int l) : super(s, l) {}
-
 	String(const super& other) : super(other) {}
 	String(const String& other) : super(other) {}
 
@@ -900,10 +889,6 @@ protected:
 #endif
 
 
- // determine windows version string
-String get_windows_version_str();
-
-
  /// link dynamicly to functions by using GetModuleHandle() and GetProcAddress()
 template<typename FCT> struct DynamicFct
 {
@@ -1018,10 +1003,7 @@ protected:
 #define	CONTEXT_OBJ __ctx__._obj
 #define	CONTEXT(c) Context __ctx__(c)
 #define	CURRENT_CONTEXT Context::current()
-#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o)
-
-
-extern bool SplitFileSysURL(LPCTSTR url, String& dir_out, String& fname_out);
+#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o);
 
 
 #endif // __cplusplus

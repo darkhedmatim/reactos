@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: vis.c,v 1.29 2004/05/14 16:48:47 navaraf Exp $
+ * $Id: vis.c,v 1.26 2004/03/27 15:16:05 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -25,7 +25,10 @@
  * PROGRAMMER:       Ge van Geldorp (ge@gse.nl)
  */
 
-#include <w32k.h>
+#include <win32k/win32k.h>
+#include <include/painting.h>
+#include <include/rect.h>
+#include <include/vis.h>
 
 #define NDEBUG
 #include <win32k/debug1.h>
@@ -90,7 +93,7 @@ VIS_ComputeVisibleRegion(
       NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_AND);
       NtGdiDeleteObject(ClipRgn);
 
-      if ((PreviousWindow->Style & WS_CLIPSIBLINGS) ||
+      if ((CurrentWindow->Style & WS_CLIPSIBLINGS) ||
           (PreviousWindow == Window && ClipSiblings))
       {
          IntLockRelatives(CurrentWindow);

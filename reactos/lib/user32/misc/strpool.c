@@ -1,6 +1,7 @@
 // strpool.c
 
-#include "user32.h"
+#include <windows.h>
+#include <ddk/ntddk.h>
 #include <strpool.h>
 #include <string.h>
 

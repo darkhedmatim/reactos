@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: winlogon.h,v 1.5 2004/12/06 02:23:05 navaraf Exp $
+/* $Id: winlogon.h,v 1.3 2004/03/28 12:21:41 weiden Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS winlogon
  * FILE:            subsys/system/winlogon/winlogon.h
@@ -110,7 +110,7 @@ typedef struct _MSGINAFUNCTIONS
 
 typedef struct _MSGINAINSTANCE
 {
-  HMODULE hDllInstance;
+  HANDLE hDllInstance;
   MSGINAFUNCTIONS Functions;
   PVOID Context;
   DWORD Version;
@@ -125,7 +125,6 @@ typedef struct _WLSESSION
   BOOL TaskManHotkey;
   HWND SASWindow;
   HWINSTA InteractiveWindowStation;
-  LPWSTR InteractiveWindowStationName;
   HDESK ApplicationDesktop;
   HDESK WinlogonDesktop;
   HDESK ScreenSaverDesktop;
@@ -162,11 +161,6 @@ DispatchSAS(PWLSESSION Session, DWORD dwSasType);
   Session->MsGina.Functions.WlxRemoveStatusMessage(Session->MsGina.Context);
 #define DisplaySASNotice(Session) \
   Session->MsGina.Functions.WlxDisplaySASNotice(Session->MsGina.Context);
-
-/* user32 */
-BOOL WINAPI
-UpdatePerUserSystemParameters(DWORD dwUnknown,
-                              DWORD dwReserved);
 
 #endif /* __WINLOGON_MAIN_H__ */
 

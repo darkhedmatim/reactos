@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.27 2004/12/28 08:58:35 gvg Exp $
+/* $Id: input.c,v 1.23 2004/01/26 08:44:51 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <wchar.h>
 
@@ -61,12 +62,13 @@ ActivateKeyboardLayout(HKL hkl,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 BlockInput(BOOL fBlockIt)
 {
-  return NtUserBlockInput(fBlockIt);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
@@ -392,7 +394,7 @@ SwapMouseButton(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAscii(UINT uVirtKey,
@@ -401,12 +403,13 @@ ToAscii(UINT uVirtKey,
 	LPWORD lpChar,
 	UINT uFlags)
 {
-  return ToAsciiEx(uVirtKey, uScanCode, lpKeyState, lpChar, uFlags, 0);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAsciiEx(UINT uVirtKey,
@@ -416,14 +419,8 @@ ToAsciiEx(UINT uVirtKey,
 	  UINT uFlags,
 	  HKL dwhkl)
 {
-  WCHAR UniChars[2];
-  int Ret, CharCount;
-
-  Ret = ToUnicodeEx(uVirtKey, uScanCode, lpKeyState, UniChars, 2, uFlags, dwhkl);
-  CharCount = (Ret < 0 ? 1 : Ret);
-  WideCharToMultiByte(CP_ACP, 0, UniChars, CharCount, (LPSTR) lpChar, 2, NULL, NULL);
-
-  return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -483,33 +480,25 @@ UnregisterHotKey(HWND hWnd,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanA(CHAR ch)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanW(wChar);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanExA(CHAR ch,
 	     HKL dwhkl)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanExW(wChar, dwhkl);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -521,22 +510,23 @@ VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
   UNIMPLEMENTED;
-  return -1;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanW(WCHAR ch)
 {
-  return VkKeyScanExW(ch, GetKeyboardLayout(0));
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
@@ -545,7 +535,8 @@ SendInput(
   LPINPUT pInputs,
   int cbSize)
 {
-  return NtUserSendInput(nInputs, pInputs, cbSize);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 /*
@@ -566,57 +557,6 @@ STDCALL
 PrivateCsrssAcquireOrReleaseInputOwnership(BOOL Release)
 {
   NtUserAcquireOrReleaseInputOwnership(Release);
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-keybd_event(
-	    BYTE bVk,
-	    BYTE bScan,
-	    DWORD dwFlags,
-	    ULONG_PTR dwExtraInfo)
-
-
-{
-  INPUT Input;
-  
-  Input.type = INPUT_KEYBOARD;
-  Input.ki.wVk = bVk;
-  Input.ki.wScan = bScan;
-  Input.ki.dwFlags = dwFlags;
-  Input.ki.time = 0;
-  Input.ki.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-}
-
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-mouse_event(
-	    DWORD dwFlags,
-	    DWORD dx,
-	    DWORD dy,
-	    DWORD dwData,
-	    ULONG_PTR dwExtraInfo)
-{
-  INPUT Input;
-  
-  Input.type = INPUT_MOUSE;
-  Input.mi.dx = dx;
-  Input.mi.dy = dy;
-  Input.mi.mouseData = dwData;
-  Input.mi.dwFlags = dwFlags;
-  Input.mi.time = 0;
-  Input.mi.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
 }
 
 /* EOF */

@@ -20,7 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
     
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN    /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -29,6 +30,7 @@
 #include <stdio.h>
 #include <winnt.h>
     
+#include "taskmgr.h"
 #include "procpage.h"
 #include "perfdata.h"
 #include "column.h"
@@ -53,8 +55,7 @@ void CommaSeparateNumberString(LPTSTR strNumber, int nMaxCount);
 void ProcessPageShowContextMenu(DWORD dwProcessId);
 DWORD WINAPI ProcessPageRefreshThread(void *lpParameter);
 
-INT_PTR CALLBACK
-ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT    rc;
     int        nXDifference;
@@ -93,7 +94,7 @@ ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         /*
          * Subclass the process list control so we can intercept WM_ERASEBKGND
          */
-        OldProcessListWndProc = (WNDPROC)SetWindowLongPtr(hProcessPageListCtrl, GWL_WNDPROC, (DWORD_PTR)ProcessListWndProc);
+        OldProcessListWndProc = SetWindowLong(hProcessPageListCtrl, GWL_WNDPROC, (LONG)ProcessListWndProc);
 
         /* Start our refresh thread */
          CreateThread(NULL, 0, ProcessPageRefreshThread, NULL, 0, NULL);
@@ -131,14 +132,14 @@ ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         InvalidateRect(hProcessPageListCtrl, NULL, TRUE);
         
         GetClientRect(hProcessPageEndProcessButton, &rc);
-        MapWindowPoints(hProcessPageEndProcessButton, hDlg, (LPPOINT)(PRECT)(&rc), (sizeof(RECT)/sizeof(POINT)) );
+        MapWindowPoints(hProcessPageEndProcessButton, hDlg, (LPPOINT)(&rc), (sizeof(RECT)/sizeof(POINT)) );
            cx = rc.left + nXDifference;
         cy = rc.top + nYDifference;
         SetWindowPos(hProcessPageEndProcessButton, NULL, cx, cy, 0, 0, SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE|SWP_NOZORDER);
         InvalidateRect(hProcessPageEndProcessButton, NULL, TRUE);
         
         GetClientRect(hProcessPageShowAllProcessesButton, &rc);
-        MapWindowPoints(hProcessPageShowAllProcessesButton, hDlg, (LPPOINT)(PRECT)(&rc), (sizeof(RECT)/sizeof(POINT)) );
+        MapWindowPoints(hProcessPageShowAllProcessesButton, hDlg, (LPPOINT)(&rc), (sizeof(RECT)/sizeof(POINT)) );
            cx = rc.left;
         cy = rc.top + nYDifference;
         SetWindowPos(hProcessPageShowAllProcessesButton, NULL, cx, cy, 0, 0, SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE|SWP_NOZORDER);

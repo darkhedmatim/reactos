@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.72 2004/12/27 16:48:29 navaraf Exp $
+/* $Id: stubs.c,v 1.57 2004/03/23 21:47:36 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -7,16 +7,26 @@
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * NOTES:           If you implement a function, remove it from this file
  * UPDATE HISTORY:
- *      08-F05-2001  CSH  Created
+ *      08-05-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
 #include <debug.h>
 #include <string.h>
+typedef UINT *LPUINT;
 #include <mmsystem.h>
-#ifdef __USE_W32API
-typedef PVOID LPIMEPROW, LPIMEPROA;
-#endif
+#include <user32.h>
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+AnyPopup(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
 /*
  * @unimplemented
@@ -30,6 +40,23 @@ AttachThreadInput(
 {
   UNIMPLEMENTED;
   return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+long
+STDCALL
+BroadcastSystemMessage(
+  DWORD dwFlags,
+  LPDWORD lpdwRecipients,
+  UINT uiMessage,
+  WPARAM wParam,
+  LPARAM lParam)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -112,6 +139,97 @@ LockWorkStation(VOID)
 /*
  * @unimplemented
  */
+HMONITOR
+STDCALL
+MonitorFromPoint(
+  POINT pt,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromRect(
+  LPRECT lprc,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromWindow(
+  HWND hwnd,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+MsgWaitForMultipleObjects(
+  DWORD nCount,
+  CONST LPHANDLE pHandles,
+  BOOL fWaitAll,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+RealMsgWaitForMultipleObjectsEx(
+  DWORD nCount,
+  LPHANDLE pHandles,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetSysColors(
+  int cElements,
+  CONST INT *lpaElements,
+  CONST COLORREF *lpaRgbValues)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
 STDCALL
 TrackMouseEvent(
@@ -146,6 +264,39 @@ WaitForInputIdle(
 {
   UNIMPLEMENTED;
   return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+keybd_event(
+	    BYTE bVk,
+	    BYTE bScan,
+	    DWORD dwFlags,
+	    DWORD dwExtraInfo)
+
+
+{
+  UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+mouse_event(
+	    DWORD dwFlags,
+	    DWORD dx,
+	    DWORD dy,
+	    DWORD cButtons,
+	    DWORD dwExtraInfo)
+{
+  UNIMPLEMENTED
 }
 
 /******************************************************************************
@@ -189,6 +340,15 @@ EndTask(
     return TRUE;
 }
 
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SwitchToThisWindow ( HWND hwnd, BOOL fUnknown )
+{
+  UNIMPLEMENTED;
+}
 
 /*
  * @unimplemented
@@ -266,7 +426,29 @@ RegisterSystemThread ( DWORD flags, DWORD reserved )
  */
 DWORD
 STDCALL
+RegisterLogonProcess ( HANDLE hprocess, BOOL x )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
 RegisterTasklist ( DWORD x )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+SetLogonNotifyWindow ( HWINSTA hwinsta, HWND hwnd )
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -535,6 +717,16 @@ DefRawInputProc(
 {
   UNIMPLEMENTED;
   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL 
+DisableProcessWindowsGhosting(VOID)
+{
+  UNIMPLEMENTED;
 }
 
 /*
@@ -867,6 +1059,15 @@ BOOL STDCALL RegisterUserApiHook(HINSTANCE instance,THEME_HOOK_FUNC proc)
  * @unimplemented
  */
 BOOL STDCALL UnregisterUserApiHook(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL IsWindowInDestroy(HWND wnd)
 {
   UNIMPLEMENTED;
   return FALSE;

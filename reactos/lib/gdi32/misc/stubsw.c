@@ -1,4 +1,4 @@
-/* $Id: stubsw.c,v 1.33 2004/12/30 02:32:23 navaraf Exp $
+/* $Id: stubsw.c,v 1.27 2004/03/23 19:46:49 gvg Exp $
  *
  * reactos/lib/gdi32/misc/stubs.c
  *
@@ -8,10 +8,82 @@
  * remove its stub from this file.
  *
  */
+#ifndef UNICODE
+#define UNICODE
+#endif//UNICODE
+#include <windows.h>
+#include <win32k/kapi.h>
 
-#include "precomp.h"
+/*
+ * @implemented
+ */
+int
+STDCALL
+AddFontResourceExW ( LPCWSTR lpszFilename, DWORD fl, PVOID pvReserved )
+{
+  UNICODE_STRING Filename;
 
-#define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
+  /* FIXME handle fl parameter */
+  RtlInitUnicodeString(&Filename, lpszFilename);
+  return NtGdiAddFontResource ( &Filename, fl );
+}
+
+/*
+ * @implemented
+ */
+int
+STDCALL
+AddFontResourceW ( LPCWSTR lpszFilename )
+{
+	return AddFontResourceExW ( lpszFilename, 0, 0 );
+}
+
+
+/*
+ * @implemented
+ */
+HDC
+STDCALL
+CreateICW(
+	LPCWSTR			lpszDriver,
+	LPCWSTR			lpszDevice,
+	LPCWSTR			lpszOutput,
+	CONST DEVMODEW *	lpdvmInit
+	)
+{
+  UNICODE_STRING Driver, Device, Output;
+  
+  if(lpszDriver)
+    RtlInitUnicodeString(&Driver, lpszDriver);
+  if(lpszDevice)
+    RtlInitUnicodeString(&Device, lpszDevice);
+  if(lpszOutput)
+    RtlInitUnicodeString(&Output, lpszOutput);
+  return NtGdiCreateIC ((lpszDriver ? &Driver : NULL),
+		      (lpszDevice ? &Device : NULL),
+		      (lpszOutput ? &Output : NULL),
+		      (CONST PDEVMODEW)lpdvmInit );
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+CreateScalableFontResourceW(
+	DWORD		fdwHidden,
+	LPCWSTR		lpszFontRes,
+	LPCWSTR		lpszFontFile,
+	LPCWSTR		lpszCurrentPath
+	)
+{
+  return NtGdiCreateScalableFontResource ( fdwHidden,
+					  lpszFontRes,
+					  lpszFontFile,
+					  lpszCurrentPath );
+}
+
 
 /*
  * @unimplemented
@@ -34,7 +106,6 @@ DeviceCapabilitiesExW(
 				  pOutput,
 				  pDevMode );
 #else
-  UNIMPLEMENTED;
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
   return 0;
 #endif
@@ -56,10 +127,76 @@ EnumFontsW(
 #if 0
   return NtGdiEnumFonts ( hDC, lpFaceName, FontFunc, lParam );
 #else
-  UNIMPLEMENTED;
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
   return 0;
 #endif
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+APIENTRY
+GetCharWidthFloatW(
+	HDC	hdc,
+	UINT	iFirstChar,
+	UINT	iLastChar,
+	PFLOAT	pxBuffer
+	)
+{
+  return NtGdiGetCharWidthFloat ( hdc, iFirstChar, iLastChar, pxBuffer );
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+APIENTRY
+GetCharABCWidthsW(
+	HDC	hdc,
+	UINT	uFirstChar,
+	UINT	uLastChar,
+	LPABC	lpabc
+	)
+{
+  return NtGdiGetCharABCWidths ( hdc, uFirstChar, uLastChar, lpabc );
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+APIENTRY
+GetCharABCWidthsFloatW(
+	HDC		hdc,
+	UINT		iFirstChar,
+	UINT		iLastChar,
+	LPABCFLOAT	lpABCF
+	)
+{
+  return NtGdiGetCharABCWidthsFloat ( hdc, iFirstChar, iLastChar, lpABCF );
+}
+
+
+/*
+ * @implemented
+ */
+DWORD
+STDCALL
+GetGlyphOutlineW(
+	HDC		hdc,
+	UINT		uChar,
+	UINT		uFormat,
+	LPGLYPHMETRICS	lpgm,
+	DWORD		cbBuffer,
+	LPVOID		lpvBuffer,
+	CONST MAT2	*lpmat2
+	)
+{
+  return NtGdiGetGlyphOutline ( hdc, uChar, uFormat, lpgm, cbBuffer, lpvBuffer, (CONST LPMAT2)lpmat2 );
 }
 
 
@@ -74,9 +211,88 @@ GetOutlineTextMetricsW(
 	LPOUTLINETEXTMETRICW	lpOTM
 	)
 {
-  UNIMPLEMENTED;
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
   return 0;
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+APIENTRY
+GetTextExtentExPointW(
+	HDC		hdc,
+	LPCWSTR		lpszStr,
+	int		cchString,
+	int		nMaxExtent,
+	LPINT		lpnFit,
+	LPINT		alpDx,
+	LPSIZE		lpSize
+	)
+{
+  return NtGdiGetTextExtentExPoint (
+    hdc, lpszStr, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetCharacterPlacementW(
+	HDC		hDc,
+	LPCWSTR		a1,
+	int		a2,
+	int		a3,
+	LPGCP_RESULTSW	a4,
+	DWORD		a5
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @implemented
+ */
+HDC
+STDCALL
+ResetDCW(
+	HDC		hdc,
+	CONST DEVMODEW	*lpInitData
+	)
+{
+  return NtGdiResetDC ( hdc, lpInitData );
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+RemoveFontResourceW(
+	LPCWSTR	lpFileName
+	)
+{
+  return NtGdiRemoveFontResource ( lpFileName );
+}
+
+
+/*
+ * @implemented
+ */
+int 
+STDCALL 
+StartDocW(
+	HDC		hdc,
+	CONST DOCINFOW	*a1
+	)
+{
+	return NtGdiStartDoc ( hdc, (CONST PDOCINFOW)a1 );
 }
 
 
@@ -91,9 +307,24 @@ PolyTextOutW(
 	int			a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetTextFaceW(
+	HDC	a0,
+	int	a1,
+	LPWSTR	a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -108,7 +339,6 @@ GetKerningPairsW(
 	LPKERNINGPAIR	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -125,7 +355,6 @@ GetLogColorSpaceW(
 	DWORD			a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -139,7 +368,6 @@ CreateColorSpaceW(
 	LPLOGCOLORSPACEW	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -156,7 +384,6 @@ GetICMProfileW(
 	LPWSTR		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -172,7 +399,6 @@ SetICMProfileW(
 	LPWSTR	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -198,7 +424,6 @@ EnumICMProfilesW(
    * and call the user's callback function until we run out of strings or
    * the user returns FALSE
    */
-  UNIMPLEMENTED;
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
   return 0;
 }
@@ -216,7 +441,6 @@ wglUseFontBitmapsW(
 	DWORD		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -238,7 +462,6 @@ wglUseFontOutlinesW(
 	LPGLYPHMETRICSFLOAT	a7
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -256,7 +479,6 @@ UpdateICMRegKeyW(
 	UINT	a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -280,149 +502,6 @@ GetFontResourceInfoW(
 	DWORD	a3
 	)
 {
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EudcLoadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath,INT iPriority,INT iFontLinkType)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EudcUnloadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-int
-STDCALL
-GdiAddFontResourceW(LPCWSTR filename,FLONG f,DESIGNVECTOR *pdv)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GdiConsoleTextOut(HDC hdc, POLYTEXTW *lpto,UINT nStrings, RECTL *prclBounds)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetEUDCTimeStampExW(LPCWSTR str)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RemoveFontResourceExW(
-	LPCWSTR lpFileName,
-	DWORD fl,
-	PVOID pdv
-)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-bInitSystemAndFontsDirectoriesW(LPWSTR *SystemDir,LPWSTR *FontsDir)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-bMakePathNameW(LPWSTR lpBuffer,LPCWSTR lpFileName,LPWSTR *lpFilePart,DWORD unknown)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-HFONT
-STDCALL
-CreateFontIndirectExW(const ENUMLOGFONTEXDVW *elfexd)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetGlyphIndicesW(
-	HDC hdc,
-	LPCWSTR lpstr,
-	int c,
-	LPWORD pgi,
-	DWORD fl
-)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetStringBitmapW(HDC hdc,LPWSTR pwsz,BOOL unknown,UINT cj,BYTE *lpSB)
-{
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }

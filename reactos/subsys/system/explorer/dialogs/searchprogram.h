@@ -27,6 +27,8 @@
  // Martin Fuchs, 02.10.2003
  //
 
+#include <stack>
+
 
 typedef void (*COLLECT_CALLBACK)(Entry* entry, void* param);
 typedef stack<ShellDirectory*> ShellDirectoryStack;
@@ -101,7 +103,6 @@ protected:
 	void	Refresh(bool delete_cache=false);
 	void	add_entry(const FPDEntry& cache_entry);
 	void	LaunchSelected();
-	void	CheckEntries();
 
 	static void collect_programs_callback(Entry* entry, void* param);
 	static int CALLBACK CompareFunc(LPARAM lparam1, LPARAM lparam2, LPARAM lparamSort);

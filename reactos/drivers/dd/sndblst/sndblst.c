@@ -107,10 +107,10 @@ NTSTATUS InitDevice(
     
     s = RtlQueryRegistryValues(RTL_REGISTRY_ABSOLUTE, RegistryPath, Table,
                                 &Parameters, NULL);
+*/
 
     if (! NT_SUCCESS(s))
         return s;
-*/
 
     DPRINT("Port 0x%x  IRQ %d  DMA %d\n", Parameters->Port, Parameters->IRQ, Parameters->DMA);
 
@@ -124,7 +124,6 @@ NTSTATUS InitDevice(
         // Set state indication somehow
         // Failure - what error code do we give?!
         // return STATUS_????
-        return STATUS_UNSUCCESSFUL;
     }
 
     DSP_Major = DSP_Version / 256;
@@ -454,8 +453,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 //  DeviceExtension = DeviceObject->DeviceExtension;
 //  DeviceExtension->BeepOn = FALSE;
 
-//  return(STATUS_SUCCESS);
-    return(Status);
+  return(STATUS_SUCCESS);
 }
 
 /* EOF */

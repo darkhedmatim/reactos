@@ -44,8 +44,6 @@
 #define IDS_NOTIFY_SHOW                 40
 #define IDS_NOTIFY_HIDE                 41
 #define IDS_NOTIFY_AUTOHIDE             42
-#define IDS_SHOW_HIDDEN_ICONS           43
-#define IDS_HIDE_ICONS                  44
 #define IDI_REACTOS                     100
 #define IDI_EXPLORER                    101
 #define IDI_STARTMENU                   102
@@ -58,10 +56,9 @@
 #define IDB_IMAGES                      107
 #define IDD_EXECUTE                     108
 #define IDR_MAINFRAME                   109
-#define IDM_MDIFRAME                    110
+#define IDM_MAINFRAME                   110
 #define ID_EXECUTE                      111
 #define IDM_WINEFILE                    112
-#define IDM_SDIFRAME                    113
 #define IDI_LOGOFF                      124
 #define IDI_FOLDERARROW                 125
 #define IDI_ARROW                       125
@@ -96,7 +93,6 @@
 #define IDB_ICON_ALIGN_2                155
 #define IDD_NOTIFYAREA                  155
 #define IDB_ICON_ALIGN_3                156
-#define IDD_MDI_SDI                     156
 #define IDB_ICON_ALIGN_4                157
 #define IDB_ICON_ALIGN_5                158
 #define IDB_ICON_ALIGN_6                159
@@ -109,10 +105,6 @@
 #define IDB_LOGOV16                     164
 #define IDI_DOT_TRANS                   164
 #define IDI_DOT_RED                     165
-#define IDI_ARROW_UP                    166
-#define IDI_ARROW_DOWN                  167
-#define IDI_NOTIFY_L                    168
-#define IDI_NOTIFY_R                    169
 #define ID_VIEW_NAME                    401
 #define ID_VIEW_ALL_ATTRIBUTES          402
 #define ID_VIEW_SELECTED_ATTRIBUTES     403
@@ -141,11 +133,9 @@
 #define IDC_LABEL3                      1011
 #define IDC_ICON_ALIGN_10               1012
 #define IDC_WWW                         1012
-#define IDC_LABEL6                      1012
 #define IDC_ICON_ALIGN_11               1013
-#define IDC_LAST_CHANGE                 1013
-#define IDC_FILTER                      1017
-#define IDC_PROGRAMS_FOUND              1018
+#define IDC_TOPIC                       1017
+#define IDC_MAILS_FOUND                 1018
 #define IDC_PICTURE                     1019
 #define IDC_NOTIFY_SHOW                 1020
 #define IDC_NOTIFY_HIDE                 1021
@@ -154,16 +144,8 @@
 #define ID_HIDE_INACTIVE_ICONS          1025
 #define ID_SHOW_CLOCK                   1026
 #define ID_DESKTOP_VERSION              1027
-#define IDC_BUTTON1                     1028
-#define IDC_CHECK_ENTRIES               1028
-#define IDC_VERSION_TXT                 1029
-#define IDC_WIN_VERSION                 1030
-#define IDC_MDI                         1030
-#define IDC_SDI                         1031
 #define ID_REFRESH                      1704
 #define ID_ABOUT_WINEFILE               1705
-#define IDS_VERSION_STR                 5000
-#define IDS_EXPLORER_VERSION_STR        5001
 #define IDC_FILETREE                    10001
 #define ID_EXPLORER_FAQ                 10002
 #define ID_WEB_WINDOW                   10003
@@ -180,24 +162,20 @@
 #define ID_ABOUT_WINDOWS                40002
 #define ID_ABOUT_EXPLORER               40003
 #define ID_DESKTOPBAR_SETTINGS          40004
-#define ID_GO_BACK                      40005
-#define ID_GO_FORWARD                   40006
-#define ID_GO_HOME                      40007
-#define ID_GO_SEARCH                    40008
-#define ID_GO_UP                        40009
-#define ID_STOP                         40010
-#define ID_MINIMIZE_ALL                 40011
-#define ID_EXPLORE                      40012
-#define ID_TASKMGR                      40013
+#define ID_BROWSE_BACK                  40005
+#define ID_BROWSE_FORWARD               40006
+#define ID_BROWSE_HOME                  40007
+#define ID_BROWSE_SEARCH                40008
+#define ID_STOP                         40009
+#define ID_MINIMIZE_ALL                 40010
+#define ID_EXPLORE                      40011
+#define ID_TASKMGR                      40012
+#define ID_BROWSE_UP                    40013
 #define ID_TRAY_VOLUME                  40014
 #define ID_VOLUME_PROPERTIES            40015
 #define ID_SHOW_HIDDEN_ICONS            40016
 #define ID_CONFIG_NOTIFYAREA            40017
 #define ID_CONFIG_TIME                  40018
-#define ID_VIEW_MDI                     40019
-#define ID_VIEW_SDI                     40020
-#define ID_TOOLS_OPTIONS                40021
-#define ID_SHOW_ICON_BUTTON             40023
 #define ID_SWITCH_DESKTOP_1             50000
 #define ID_WINDOW_NEW                   0xE130
 #define ID_WINDOW_ARRANGE               0xE131
@@ -215,9 +193,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        169
-#define _APS_NEXT_COMMAND_VALUE         40024
-#define _APS_NEXT_CONTROL_VALUE         1033
+#define _APS_NEXT_RESOURCE_VALUE        166
+#define _APS_NEXT_COMMAND_VALUE         40019
+#define _APS_NEXT_CONTROL_VALUE         1028
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

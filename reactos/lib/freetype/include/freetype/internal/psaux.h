@@ -5,7 +5,7 @@
 /*    Auxiliary functions and data structures related to PostScript fonts  */
 /*    (specification).                                                     */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -24,7 +24,6 @@
 #include <ft2build.h>
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_TYPE1_TYPES_H
-#include FT_SERVICE_POSTSCRIPT_CMAPS_H
 
 
 FT_BEGIN_HEADER
@@ -124,7 +123,7 @@ FT_BEGIN_HEADER
     FT_Int             max_elems;
     FT_Int             num_elems;
     FT_Byte**          elements;       /* addresses of table elements */
-    FT_PtrDist*        lengths;        /* lengths of table elements   */
+    FT_Int*            lengths;        /* lengths of table elements   */
 
     FT_Memory          memory;
     PS_Table_FuncsRec  funcs;
@@ -330,20 +329,18 @@ FT_BEGIN_HEADER
     void
     (*skip_spaces)( PS_Parser  parser );
     void
-    (*skip_PS_token)( PS_Parser  parser );
+    (*skip_alpha)( PS_Parser  parser );
 
     FT_Long
     (*to_int)( PS_Parser  parser );
     FT_Fixed
     (*to_fixed)( PS_Parser  parser,
                  FT_Int     power_ten );
-
     FT_Error
     (*to_bytes)( PS_Parser  parser,
                  FT_Byte*   bytes,
-                 FT_Long    max_bytes,
-                 FT_Long*   pnum_bytes,
-                 FT_Bool    delimiters );
+                 FT_Int     max_bytes,
+                 FT_Int*    pnum_bytes );
 
     FT_Int
     (*to_coord_array)( PS_Parser  parser,
@@ -478,17 +475,6 @@ FT_BEGIN_HEADER
   } T1_Builder_FuncsRec;
 
 
-  /* an enumeration type to handle charstring parsing states */
-  typedef enum  T1_ParseState_
-  {
-    T1_Parse_Start,
-    T1_Parse_Have_Width,
-    T1_Parse_Have_Moveto,
-    T1_Parse_Have_Path
-
-  } T1_ParseState;
-
-
   /*************************************************************************/
   /*                                                                       */
   /* <Structure>                                                           */
@@ -530,12 +516,14 @@ FT_BEGIN_HEADER
   /*                                                                       */
   /*    bbox         :: Unused.                                            */
   /*                                                                       */
-  /*    parse_state  :: An enumeration which controls the charstring       */
-  /*                    parsing state.                                     */
+  /*    path_begun   :: A flag which indicates that a new path has begun.  */
   /*                                                                       */
   /*    load_points  :: If this flag is not set, no points are loaded.     */
   /*                                                                       */
   /*    no_recurse   :: Set but not used.                                  */
+  /*                                                                       */
+  /*    error        :: An error code that is only used to report memory   */
+  /*                    allocation problems.                               */
   /*                                                                       */
   /*    metrics_only :: A boolean indicating that we only want to compute  */
   /*                    the metrics of a given glyph, not load all of its  */
@@ -564,11 +552,12 @@ FT_BEGIN_HEADER
     FT_Vector       advance;
 
     FT_BBox         bbox;          /* bounding box */
-    T1_ParseState   parse_state;
+    FT_Bool         path_begun;
     FT_Bool         load_points;
     FT_Bool         no_recurse;
     FT_Bool         shift;
 
+    FT_Error        error;         /* only used for memory errors */
     FT_Bool         metrics_only;
 
     void*           hints_funcs;    /* hinter-specific */
@@ -659,14 +648,14 @@ FT_BEGIN_HEADER
     T1_Decoder_ZoneRec   zones[T1_MAX_SUBRS_CALLS + 1];
     T1_Decoder_Zone      zone;
 
-    FT_Service_PsCMaps   psnames;      /* for seac */
+    PSNames_Service      psnames;      /* for seac */
     FT_UInt              num_glyphs;
     FT_Byte**            glyph_names;
 
     FT_Int               lenIV;        /* internal for sub routine calls */
     FT_UInt              num_subrs;
     FT_Byte**            subrs;
-    FT_PtrDist*          subrs_len;    /* array of subrs length (optional) */
+    FT_Int*              subrs_len;    /* array of subrs length (optional) */
 
     FT_Matrix            font_matrix;
     FT_Vector            font_offset;

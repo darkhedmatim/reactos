@@ -31,7 +31,10 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
+
 
 #define EMULATOR_READ_ACCESS              0x01
 #define EMULATOR_WRITE_ACCESS             0x02
@@ -69,6 +72,8 @@ typedef VOID DDKAPI
   IN ULONG  ReadBank,
   IN ULONG  WriteBank,
   IN PVOID  Context);
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

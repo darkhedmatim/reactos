@@ -1,4 +1,4 @@
-/* $Id: timer.c,v 1.19 2004/10/24 16:49:48 weiden Exp $
+/* $Id: timer.c,v 1.15 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -23,37 +23,30 @@
 HANDLE STDCALL
 CreateWaitableTimerW(LPSECURITY_ATTRIBUTES lpTimerAttributes,
 		     BOOL bManualReset,
-		     LPCWSTR lpTimerName)
+		     LPWSTR lpTimerName)
 {
    NTSTATUS Status;
    HANDLE TimerHandle;
    OBJECT_ATTRIBUTES ObjectAttributes;
    UNICODE_STRING UnicodeName;
+   ULONG TimerType;
+   
+   if (bManualReset)
+     TimerType = NotificationTimer;
+   else
+     TimerType = SynchronizationTimer;
 
-   if (lpTimerName)
-     {
-       RtlInitUnicodeString(&UnicodeName, lpTimerName);
-     }
-
+   RtlInitUnicodeString(&UnicodeName, lpTimerName);
    InitializeObjectAttributes(&ObjectAttributes,
-			      (lpTimerName ? &UnicodeName : NULL),
+			      &UnicodeName,
 			      0,
 			      hBaseDir,
 			      NULL);
    
-   if (lpTimerAttributes != NULL)
-     {
-       ObjectAttributes.SecurityDescriptor = lpTimerAttributes->lpSecurityDescriptor;
-       if(lpTimerAttributes->bInheritHandle)
-         {
-           ObjectAttributes.Attributes |= OBJ_INHERIT;
-         }
-     }
-   
    Status = NtCreateTimer(&TimerHandle,
 			  TIMER_ALL_ACCESS,
 			  &ObjectAttributes,
-			  (bManualReset ? NotificationTimer : SynchronizationTimer));
+			  TimerType);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);
@@ -76,23 +69,17 @@ CreateWaitableTimerA(LPSECURITY_ATTRIBUTES lpTimerAttributes,
 	ANSI_STRING TimerName;
 	HANDLE TimerHandle;
 
-        if (lpTimerName != NULL)
-          {
-	    RtlInitAnsiString (&TimerName,
-	                       (LPSTR)lpTimerName);
-	    RtlAnsiStringToUnicodeString (&TimerNameU,
-	                                  &TimerName,
-	                                  TRUE);
-          }
+	RtlInitAnsiString (&TimerName,
+	                   (LPSTR)lpTimerName);
+	RtlAnsiStringToUnicodeString (&TimerNameU,
+	                              &TimerName,
+	                              TRUE);
 
 	TimerHandle = CreateWaitableTimerW (lpTimerAttributes,
 	                                    bManualReset,
-	                                    (lpTimerName ? TimerNameU.Buffer : NULL));
+	                                    TimerNameU.Buffer);
 
-        if (lpTimerName != NULL)
-          {
-            RtlFreeUnicodeString (&TimerNameU);
-          }
+	RtlFreeUnicodeString (&TimerNameU);
 
 	return TimerHandle;
 }
@@ -110,18 +97,18 @@ OpenWaitableTimerW(DWORD dwDesiredAccess,
    HANDLE TimerHandle;
    OBJECT_ATTRIBUTES ObjectAttributes;
    UNICODE_STRING UnicodeName;
-   
-   if (lpTimerName == NULL)
+   ULONG Attributes = 0;
+
+   if (bInheritHandle)
      {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return NULL;
+	Attributes = OBJ_INHERIT;
      }
 
    RtlInitUnicodeString(&UnicodeName,
 			lpTimerName);
    InitializeObjectAttributes(&ObjectAttributes,
 			      &UnicodeName,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      Attributes,
 			      hBaseDir,
 			      NULL);
 
@@ -146,29 +133,23 @@ OpenWaitableTimerA(DWORD dwDesiredAccess,
 		   BOOL bInheritHandle,
 		   LPCSTR lpTimerName)
 {
-   UNICODE_STRING TimerNameU;
-   ANSI_STRING TimerName;
-   HANDLE TimerHandle;
-	
-   if (lpTimerName == NULL)
-     {
-        SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-        return NULL;
-     }
+	UNICODE_STRING TimerNameU;
+	ANSI_STRING TimerName;
+	HANDLE TimerHandle;
 
-   RtlInitAnsiString (&TimerName,
-                     (LPSTR)lpTimerName);
-   RtlAnsiStringToUnicodeString (&TimerNameU,
-                                 &TimerName,
-                                 TRUE);
+	RtlInitAnsiString (&TimerName,
+	                   (LPSTR)lpTimerName);
+	RtlAnsiStringToUnicodeString (&TimerNameU,
+	                              &TimerName,
+	                              TRUE);
 
-   TimerHandle = OpenWaitableTimerW (dwDesiredAccess,
-                                     bInheritHandle,
-                                     TimerNameU.Buffer);
+	TimerHandle = OpenWaitableTimerW (dwDesiredAccess,
+	                                  bInheritHandle,
+	                                  TimerNameU.Buffer);
 
-   RtlFreeUnicodeString (&TimerNameU);
+	RtlFreeUnicodeString (&TimerNameU);
 
-   return TimerHandle;
+	return TimerHandle;
 }
 
 
@@ -188,7 +169,7 @@ SetWaitableTimer(HANDLE hTimer,
 
    Status = NtSetTimer(hTimer,
 		       (LARGE_INTEGER *)pDueTime,
-		       (PTIMER_APC_ROUTINE)pfnCompletionRoutine,
+		       pfnCompletionRoutine,
 		       lpArgToCompletionRoutine,
 		       fResume,
 		       lPeriod,

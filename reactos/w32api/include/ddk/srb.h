@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 
 #if defined(_SCSIPORT_)
@@ -745,6 +747,8 @@ ScsiDebugPrint(
   IN ULONG DebugPrintLevel,
   IN PCCHAR DebugMessage,
   IN ...);
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

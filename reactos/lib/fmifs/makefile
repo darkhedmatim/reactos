@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.23 2004/09/15 13:32:27 weiden Exp $
+# $Id: makefile,v 1.21 2004/02/23 11:55:12 ekohl Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,11 +6,11 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = fmifs
 
-TARGET_BASE = $(TARGET_BASE_LIB_FMIFS)
+TARGET_BASE = 0x76df0000
 
 TARGET_ENTRY = _InitializeFmIfs@12
 
-TARGET_CFLAGS = -fno-builtin -Werror -Wall -D__USE_W32API
+TARGET_CFLAGS = -fno-builtin -Werror -Wall
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS

@@ -45,13 +45,6 @@ using namespace _com_util;
 #endif
 #endif
 
- // work around GCC's wide string constant bug when compiling inline functions
-#ifdef __GNUC__
-extern const LPCTSTR sCFSTR_SHELLIDLIST;
-#undef CFSTR_SHELLIDLIST
-#define	CFSTR_SHELLIDLIST sCFSTR_SHELLIDLIST
-#endif
-
 
  // Exception Handling
 
@@ -85,7 +78,7 @@ struct COMExceptionBase
 				LocalFree(pBuf);
 			 } else {
 				TCHAR buffer[128];
-				_stprintf(buffer, TEXT("unknown Exception: 0x%08lX"), _hr);
+				_stprintf(buffer, TEXT("unknown Exception: 0x%08X"), _hr);
 				_msg = buffer;
 			 }
 		}
@@ -576,7 +569,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 		CONTEXT("ShellPath::ShellPath(IShellFolder*, LPCWSTR)");
 
 		if (path)
-			CHECKERROR(folder->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
+			CHECKERROR(folder->ParseDisplayName(0, 0, (LPOLESTR)path, NULL, &_p, 0));
 		else
 			_p = NULL;
 	}
@@ -586,7 +579,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 		OBJ_CONTEXT("ShellPath::ShellPath(LPCWSTR)", path);
 
 		if (path)
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
+			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, 0, (LPOLESTR)path, NULL, &_p, 0));
 		else
 			_p = NULL;
 	}
@@ -599,7 +592,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 		if (path) {
 			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(folder->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
+			CHECKERROR(folder->ParseDisplayName(0, 0, b, NULL, &_p, 0));
 		} else
 			_p = NULL;
 	}
@@ -612,7 +605,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 		if (path) {
 			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
+			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, 0, b, NULL, &_p, 0));
 		} else
 			_p = NULL;
 	}

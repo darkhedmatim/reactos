@@ -1,4 +1,4 @@
-/* $Id: device.c,v 1.87 2004/12/27 14:21:35 ekohl Exp $
+/* $Id: device.c,v 1.69.2.1 2004/04/08 16:06:16 navaraf Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,15 +11,24 @@
 
 /* INCLUDES *******************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/io.h>
+#include <internal/po.h>
+#include <internal/ldr.h>
+#include <internal/id.h>
+#include <internal/pool.h>
+
+#include <roscfg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
+
+#define ASSERT assert
 
 /* GLOBALS ********************************************************************/
 
 #define TAG_DEVICE_EXTENSION   TAG('D', 'E', 'X', 'T')
-
-static ULONG IopDeviceObjectNumber = 0;
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
@@ -38,22 +47,22 @@ IopInitializeDevice(
       /* This is a Plug and Play driver */
       DPRINT("Plug and Play driver found\n");
 
-      ASSERT(DeviceNode->PhysicalDeviceObject);
+      ASSERT(DeviceNode->Pdo);
 
       DPRINT("Calling driver AddDevice entrypoint at %08lx\n",
          DriverObject->DriverExtension->AddDevice);
 
       Status = DriverObject->DriverExtension->AddDevice(
-         DriverObject, DeviceNode->PhysicalDeviceObject);
+         DriverObject, DeviceNode->Pdo);
 
       if (!NT_SUCCESS(Status))
       {
          return Status;
       }
 
-      Fdo = IoGetAttachedDeviceReference(DeviceNode->PhysicalDeviceObject);
+      Fdo = IoGetAttachedDeviceReference(DeviceNode->Pdo);
 
-      if (Fdo == DeviceNode->PhysicalDeviceObject)
+      if (Fdo == DeviceNode->Pdo)
       {
          /* FIXME: What do we do? Unload the driver or just disable the device? */
          DbgPrint("An FDO was not attached\n");
@@ -65,10 +74,9 @@ IopInitializeDevice(
 
       DPRINT("Sending IRP_MN_START_DEVICE to driver\n");
 
-      /* FIXME: Should be DeviceNode->ResourceList */
-      Stack.Parameters.StartDevice.AllocatedResources = DeviceNode->BootResources;
-      /* FIXME: Should be DeviceNode->ResourceListTranslated */
-      Stack.Parameters.StartDevice.AllocatedResourcesTranslated = DeviceNode->BootResources;
+      /* FIXME: Put some resources in the IRP for the device */
+      Stack.Parameters.StartDevice.AllocatedResources = NULL;
+      Stack.Parameters.StartDevice.AllocatedResourcesTranslated = NULL;
 
       Status = IopInitiatePnpIrp(
          Fdo,
@@ -83,9 +91,21 @@ IopInitializeDevice(
           return Status;
       }
 
-#ifdef ACPI
-      if (Fdo->DeviceType == FILE_DEVICE_ACPI)
+      if (Fdo->DeviceType == FILE_DEVICE_BUS_EXTENDER)
       {
+         DPRINT("Bus extender found\n");
+
+         Status = IopInvalidateDeviceRelations(DeviceNode, BusRelations);
+
+         if (!NT_SUCCESS(Status))
+         {
+            ObDereferenceObject(Fdo);
+            return Status;
+         }
+      }
+      else if (Fdo->DeviceType == FILE_DEVICE_ACPI)
+      {
+#ifdef ACPI
          static BOOLEAN SystemPowerDeviceNodeCreated = FALSE;
 
          /* There can be only one system power device */
@@ -94,22 +114,8 @@ IopInitializeDevice(
             PopSystemPowerDeviceNode = DeviceNode;
             SystemPowerDeviceNodeCreated = TRUE;
          }
-      }
 #endif /* ACPI */
-
-      if (Fdo->DeviceType == FILE_DEVICE_BUS_EXTENDER ||
-          Fdo->DeviceType == FILE_DEVICE_ACPI)
-      {
-         DPRINT("Bus extender found\n");
-
-         Status = IopInvalidateDeviceRelations(DeviceNode, BusRelations);
-         if (!NT_SUCCESS(Status))
-         {
-            ObDereferenceObject(Fdo);
-            return Status;
-         }
       }
-
       ObDereferenceObject(Fdo);
    }
 
@@ -159,21 +165,6 @@ IoAttachDeviceByPointer(
 }
 
 /*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoAttachDeviceToDeviceStackSafe(
-    IN PDEVICE_OBJECT SourceDevice,
-    IN PDEVICE_OBJECT TargetDevice,
-    OUT PDEVICE_OBJECT *AttachedToDeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
  * IoDeleteDevice
  *
  * Status
@@ -191,7 +182,7 @@ IoDeleteDevice(PDEVICE_OBJECT DeviceObject)
    /* Remove the timer if it exists */
    if (DeviceObject->Timer)
    {
-      IopRemoveTimerFromTimerList(DeviceObject->Timer);
+      IoStopTimer(DeviceObject);
       ExFreePool(DeviceObject->Timer);
    }
 
@@ -213,64 +204,6 @@ IoDeleteDevice(PDEVICE_OBJECT DeviceObject)
    }
 
    ObDereferenceObject(DeviceObject);
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoEnumerateDeviceObjectList(
-    IN  PDRIVER_OBJECT  DriverObject,
-    IN  PDEVICE_OBJECT  *DeviceObjectList,
-    IN  ULONG           DeviceObjectListSize,
-    OUT PULONG          ActualNumberDeviceObjects
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-PDEVICE_OBJECT
-STDCALL
-IoGetDeviceAttachmentBaseRef(
-    IN PDEVICE_OBJECT DeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoGetDiskDeviceObject(
-    IN  PDEVICE_OBJECT  FileSystemDeviceObject,
-    OUT PDEVICE_OBJECT  *DiskDeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-PDEVICE_OBJECT
-STDCALL
-IoGetLowerDeviceObject(
-    IN  PDEVICE_OBJECT  DeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 /*
@@ -437,8 +370,6 @@ IoAttachDeviceToDeviceStack(
    AttachedDevice->AttachedDevice = SourceDevice;
    SourceDevice->AttachedDevice = NULL;
    SourceDevice->StackSize = AttachedDevice->StackSize + 1;
-   SourceDevice->AlignmentRequirement = AttachedDevice->AlignmentRequirement;
-   SourceDevice->SectorSize = AttachedDevice->SectorSize;
    SourceDevice->Vpb = AttachedDevice->Vpb;
    return AttachedDevice;
 }
@@ -535,14 +466,12 @@ IoCreateDevice(
    BOOLEAN Exclusive,
    PDEVICE_OBJECT *DeviceObject)
 {
-   WCHAR AutoNameBuffer[20];
-   UNICODE_STRING AutoName;
    PDEVICE_OBJECT CreatedDeviceObject;
    PDEVOBJ_EXTENSION DeviceObjectExtension;
    OBJECT_ATTRIBUTES ObjectAttributes;
    NTSTATUS Status;
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
    if (DeviceName != NULL)
    {
@@ -552,16 +481,6 @@ IoCreateDevice(
    else
    {
       DPRINT("IoCreateDevice(DriverObject %x)\n",DriverObject);
-   }
-   
-   if (DeviceCharacteristics & FILE_AUTOGENERATED_DEVICE_NAME)
-   {
-      swprintf(AutoNameBuffer,
-               L"\\Device\\%08lx",
-               InterlockedIncrementUL(&IopDeviceObjectNumber));
-      RtlInitUnicodeString(&AutoName,
-                           AutoNameBuffer);
-      DeviceName = &AutoName;
    }
    
    if (DeviceName != NULL)
@@ -657,7 +576,6 @@ IoCreateDevice(
    {
       IoAttachVpb(CreatedDeviceObject);
    }
-   CreatedDeviceObject->SectorSize = 512; /* FIXME */
   
    DeviceObjectExtension =
       ExAllocatePoolWithTag(
@@ -697,34 +615,6 @@ IoOpenDeviceInstanceKey(
 }
 
 /*
- * @unimplemented
- */
-VOID
-STDCALL
-IoRegisterBootDriverReinitialization(
-    IN PDRIVER_OBJECT DriverObject,
-    IN PDRIVER_REINITIALIZE DriverReinitializationRoutine,
-    IN PVOID Context
-    )
-{
-	UNIMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoRegisterLastChanceShutdownNotification(
-    IN PDEVICE_OBJECT DeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
  * IoQueryDeviceEnumInfo
  *
  * Status
@@ -738,48 +628,6 @@ IoQueryDeviceEnumInfo(
 {
    UNIMPLEMENTED;
    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-IoSetStartIoAttributes(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN BOOLEAN DeferredStartIo,
-    IN BOOLEAN NonCancelable
-    )
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-IoSynchronousInvalidateDeviceRelations(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN DEVICE_RELATION_TYPE Type
-    )
-{
-	UNIMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoValidateDeviceIoControlAccess(
-    IN  PIRP    Irp,
-    IN  ULONG   RequiredAccess
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

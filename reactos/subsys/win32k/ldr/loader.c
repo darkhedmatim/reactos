@@ -16,23 +16,15 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: loader.c,v 1.17 2004/06/28 21:02:49 navaraf Exp $
+/* $Id: loader.c,v 1.14 2004/03/07 04:44:41 dwelch Exp $
  *
  */
 
 #include <ddk/ntddk.h>
 #include <ddk/winddi.h>
-#include <ddk/ntapi.h>
 
 #define NDEBUG
 #include <debug.h>
-
-#ifdef __USE_W32API
-PIMAGE_NT_HEADERS STDCALL
-RtlImageNtHeader(PVOID);
-PVOID STDCALL
-RtlImageDirectoryEntryToData(PVOID,BOOLEAN,ULONG,PULONG);
-#endif
 
 /*
  * Blatantly stolen from ldr/utils.c in ntdll.  I can't link ntdll from
@@ -105,79 +97,6 @@ EngFindImageProcAddress(IN HANDLE Module,
   PVOID Function;
   NTSTATUS Status;
   ANSI_STRING ProcNameString;
-  unsigned i;
-  static struct
-    {
-      PCSTR ProcName;
-      PVOID ProcAddress;
-    }
-  Win32kExports[] =
-    {
-      { "BRUSHOBJ_hGetColorTransform",    BRUSHOBJ_hGetColorTransform    },
-      { "EngAlphaBlend",                  EngAlphaBlend                  }, 
-      { "EngClearEvent",                  EngClearEvent                  },
-      { "EngControlSprites",              EngControlSprites              },
-      { "EngCreateEvent",                 EngCreateEvent                 },
-      { "EngDeleteEvent",                 EngDeleteEvent                 },
-      { "EngDeleteFile",                  EngDeleteFile                  },
-      { "EngDeleteSafeSemaphore",         EngDeleteSafeSemaphore         },
-      { "EngDeleteWnd",                   EngDeleteWnd                   },
-      { "EngDitherColor",                 EngDitherColor                 },
-      { "EngGetPrinterDriver",            EngGetPrinterDriver            },
-      { "EngGradientFill",                EngGradientFill                },
-      { "EngHangNotification",            EngHangNotification            },
-      { "EngInitializeSafeSemaphore",     EngInitializeSafeSemaphore     },
-      { "EngLockDirectDrawSurface",       EngLockDirectDrawSurface       },
-      { "EngLpkInstalled",                EngLpkInstalled                },
-      { "EngMapEvent",                    EngMapEvent                    },
-      { "EngMapFile",                     EngMapFile                     },
-      { "EngMapFontFileFD",               EngMapFontFileFD               },
-      { "EngModifySurface",               EngModifySurface               },
-      { "EngMovePointer",                 EngMovePointer                 },
-      { "EngPlgBlt",                      EngPlgBlt                      },
-      { "EngQueryDeviceAttribute",        EngQueryDeviceAttribute        },
-      { "EngQueryPalette",                EngQueryPalette                },
-      { "EngQuerySystemAttribute",        EngQuerySystemAttribute        },
-      { "EngReadStateEvent",              EngReadStateEvent              },
-      { "EngRestoreFloatingPointState",   EngRestoreFloatingPointState   },
-      { "EngSaveFloatingPointState",      EngSaveFloatingPointState      },
-      { "EngSetEvent",                    EngSetEvent                    },
-      { "EngSetPointerShape",             EngSetPointerShape             },
-      { "EngSetPointerTag",               EngSetPointerTag               },
-      { "EngStretchBltROP",               EngStretchBltROP               },
-      { "EngTransparentBlt",              EngTransparentBlt              },
-      { "EngUnlockDirectDrawSurface",     EngUnlockDirectDrawSurface     },
-      { "EngUnmapEvent",                  EngUnmapEvent                  },
-      { "EngUnmapFile",                   EngUnmapFile                   },
-      { "EngUnmapFontFileFD",             EngUnmapFontFileFD             },
-      { "EngWaitForSingleObject",         EngWaitForSingleObject         },
-      { "FONTOBJ_pfdg",                   FONTOBJ_pfdg                   },
-      { "FONTOBJ_pjOpenTypeTablePointer", FONTOBJ_pjOpenTypeTablePointer },
-      { "FONTOBJ_pQueryGlyphAttrs",       FONTOBJ_pQueryGlyphAttrs       },
-      { "FONTOBJ_pwszFontFilePaths",      FONTOBJ_pwszFontFilePaths      },
-      { "HeapVidMemAllocAligned",         HeapVidMemAllocAligned         },
-      { "HT_Get8BPPMaskPalette",          HT_Get8BPPMaskPalette          },
-      { "STROBJ_bEnumPositionsOnly",      STROBJ_bEnumPositionsOnly      },
-      { "STROBJ_bGetAdvanceWidths",       STROBJ_bGetAdvanceWidths       },
-      { "STROBJ_fxBreakExtra",            STROBJ_fxBreakExtra            },
-      { "STROBJ_fxCharacterExtra",        STROBJ_fxCharacterExtra        },
-      { "VidMemFree",                     VidMemFree                     },
-      { "XLATEOBJ_hGetColorTransform",    XLATEOBJ_hGetColorTransform    }
-    };
-
-  if (NULL == Module)
-    {
-      DPRINT("Looking for win32k export %s\n", ProcName);
-      for (i = 0; i < sizeof(Win32kExports) / sizeof(Win32kExports[0]); i++)
-        {
-          if (0 == strcmp(ProcName, Win32kExports[i].ProcName))
-            {
-              DPRINT("Found it index %u address %p\n", i, Win32kExports[i].ProcName);
-              return Win32kExports[i].ProcAddress;
-            }
-        }
-      return NULL;
-    }
   RtlInitAnsiString(&ProcNameString, ProcName);
   Status = LdrGetProcedureAddress(Module, 
 				  &ProcNameString,
@@ -226,6 +145,54 @@ EngLoadModule(LPWSTR ModuleName)
   if (!NT_SUCCESS(Status)) return NULL;
 
   return (HANDLE)GdiDriverInfo.ModuleBase;
+}
+
+/*
+ * This is copied from ntdll...  It's needed for loading keyboard dlls.
+ */
+
+PVOID
+STDCALL
+RtlImageDirectoryEntryToData (
+	PVOID	BaseAddress,
+	BOOLEAN	bFlag,
+	ULONG	Directory,
+	PULONG	Size
+	)
+{
+	PIMAGE_NT_HEADERS NtHeader;
+	PIMAGE_SECTION_HEADER SectionHeader;
+	ULONG Va;
+	ULONG Count;
+
+	NtHeader = RtlImageNtHeader (BaseAddress);
+	if (NtHeader == NULL)
+		return NULL;
+
+	if (Directory >= NtHeader->OptionalHeader.NumberOfRvaAndSizes)
+		return NULL;
+
+	Va = NtHeader->OptionalHeader.DataDirectory[Directory].VirtualAddress;
+	if (Va == 0)
+		return NULL;
+
+	if (Size)
+		*Size = NtHeader->OptionalHeader.DataDirectory[Directory].Size;
+
+	if (bFlag)
+		return (PVOID)(BaseAddress + Va);
+
+	/* image mapped as ordinary file, we must find raw pointer */
+	SectionHeader = (PIMAGE_SECTION_HEADER)(NtHeader + 1);
+	Count = NtHeader->FileHeader.NumberOfSections;
+	while (Count--)
+	{
+		if (SectionHeader->VirtualAddress == Va)
+			return (PVOID)(BaseAddress + SectionHeader->PointerToRawData);
+		SectionHeader++;
+	}
+
+	return NULL;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: regio.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
+/* $Id: regio.c,v 1.6 2003/07/11 01:23:16 royce Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -9,7 +9,7 @@
  *                       29/12/1999 Created
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 
 
 /* FUNCTIONS ***************************************************************/
@@ -150,7 +150,7 @@ WRITE_REGISTER_BUFFER_UCHAR (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
@@ -167,7 +167,7 @@ WRITE_REGISTER_BUFFER_USHORT (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
@@ -184,7 +184,7 @@ WRITE_REGISTER_BUFFER_ULONG (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 

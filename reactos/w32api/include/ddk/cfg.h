@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #define CM_PROB_NOT_CONFIGURED		  				0x00000001
 #define CM_PROB_DEVLOADER_FAILED            0x00000002
 #define CM_PROB_OUT_OF_MEMORY               0x00000003
@@ -131,6 +133,8 @@ typedef enum _PNP_VETO_TYPE {
   PNP_VetoNonDisableable,
   PNP_VetoLegacyDriver
 } PNP_VETO_TYPE, *PPNP_VETO_TYPE;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

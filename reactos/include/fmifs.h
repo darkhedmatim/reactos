@@ -1,6 +1,6 @@
 #ifndef _FMIFS_H
 #define _FMIFS_H
-/* $Id: fmifs.h,v 1.4 2004/09/15 17:06:34 weiden Exp $
+/* $Id: fmifs.h,v 1.3 2004/02/23 11:52:39 ekohl Exp $
  *
  * fmifs.h
  *
@@ -98,11 +98,11 @@ STDCALL
 DiskCopy(VOID);
 
 /* Enable/Disable volume compression */
-BOOL
+BOOLEAN
 STDCALL
 EnableVolumeCompression(
 	PWCHAR	DriveRoot,
-	USHORT Compression
+	BOOLEAN	Enable
 	);
 
 /* Format command in FMIFS */

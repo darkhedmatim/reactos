@@ -15,6 +15,8 @@
 
 #ifndef __USE_W32API
 
+#define GENERIC_READ	(0x80000000L)
+#define GENERIC_WRITE	(0x40000000L)
 #define FILE_READ_DATA            ( 0x0001 )    /* file & pipe */
 #define FILE_LIST_DIRECTORY       ( 0x0001 )    /* directory */
 
@@ -113,5 +115,12 @@
 
 #endif /* !__USE_W32API */
 
+typedef struct _FILE_LOCK_TOC {
+	KSPIN_LOCK			SpinLock;
+	LIST_ENTRY			GrantedListHead;
+	LIST_ENTRY			PendingListHead;
+	LIST_ENTRY			CompletedListHead;
+	LIST_ENTRY			UnlockedListHead;
+} FILE_LOCK_TOC, *PFILE_LOCK_TOC;
 
 #endif /* __INCLUDE_FILE_H */

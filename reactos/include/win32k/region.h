@@ -7,15 +7,19 @@
 /* Internal region data. Can't use RGNDATA structure because buffer is allocated statically */
 typedef struct _ROSRGNDATA {
   RGNDATAHEADER rdh;
-  PRECT         Buffer;
+  char*         Buffer;
+  RECT          BuiltInRect;   /* Testing shows that > 95% of all regions have only 1 rect.
+                                  Including that here saves us from having to do another
+                                  allocation */
 } ROSRGNDATA, *PROSRGNDATA, *LPROSRGNDATA;
 
 
-#define  RGNDATA_FreeRgn(hRgn)  GDIOBJ_FreeObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION)
+#define  RGNDATA_FreeRgn(hRgn)  GDIOBJ_FreeObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION, GDIOBJFLAG_DEFAULT)
 #define  RGNDATA_LockRgn(hRgn) ((PROSRGNDATA)GDIOBJ_LockObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION))
-#define  RGNDATA_UnlockRgn(hRgn) GDIOBJ_UnlockObj((HGDIOBJ)hRgn)
+#define  RGNDATA_UnlockRgn(hRgn) GDIOBJ_UnlockObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION)
 HRGN FASTCALL RGNDATA_AllocRgn(INT n);
-BOOL INTERNAL_CALL RGNDATA_Cleanup(PVOID ObjectBody);
+
+BOOL FASTCALL RGNDATA_InternalDelete( PROSRGNDATA Obj );
 
 /*  User entry points */
 HRGN STDCALL
@@ -147,5 +151,12 @@ STDCALL
 NtGdiGetRegionData(HRGN hrgn,
 						DWORD count,
 						LPRGNDATA rgndata);
+
+HRGN STDCALL REGION_CropRgn(HRGN hDst, HRGN hSrc, const PRECT lpRect, PPOINT lpPt);
+
+HRGN FASTCALL UnsafeIntCreateRectRgnIndirect(CONST PRECT rc);
+INT FASTCALL UnsafeIntGetRgnBox(PROSRGNDATA Rgn, LPRECT pRect);
+VOID FASTCALL UnsafeIntUnionRectWithRgn(PROSRGNDATA RgnDest, CONST PRECT Rect);
+BOOL FASTCALL UnsafeIntRectInRegion(PROSRGNDATA Rgn, CONST LPRECT rc);
 #endif
 

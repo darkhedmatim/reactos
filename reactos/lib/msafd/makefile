@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.16 2004/09/23 20:05:32 chorns Exp $
+# $Id: makefile,v 1.12 2004/01/11 20:46:05 navaraf Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,9 +6,9 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = msafd
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSAFD)
+TARGET_BASE = 0x777a0000
 
-TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
+TARGET_SDKLIBS = ntdll.a kernel32.a
 
 TARGET_CFLAGS = \
  -I./include \
@@ -16,6 +16,7 @@ TARGET_CFLAGS = \
  -Werror \
  -fno-builtin \
  -DUNICODE \
+ -DDBG \
  -D__USE_W32API
 
 TARGET_LFLAGS = -nostartfiles -nostdlib

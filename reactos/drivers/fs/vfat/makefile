@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
+# $Id: makefile,v 1.43 2003/10/11 17:51:56 hbirr Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -40,7 +40,7 @@ include $(PATH_TO_TOP)/config
 ifeq ($(DBG), 1)
 TARGET_CFLAGS = -Wall -Werror -g
 else
-TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
+TARGET_CFLAGS = -Wall -Werror -fno-strict-aliasing -O6
 endif
 
 include $(PATH_TO_TOP)/rules.mak

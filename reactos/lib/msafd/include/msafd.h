@@ -7,120 +7,27 @@
 #ifndef __MSAFD_H
 #define __MSAFD_H
 
-#include <roscfg.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
-#include <wsahelp.h> /* comment for msvc */
-//#include "C:\Programming\ReactOS\reactos\w32api\include\wsahelp.h" uncomment for MSVC
+#include <wsahelp.h>
 #include <winsock2.h>
 #include <ws2spi.h>
-//#include "C:\Programming\ReactOS\reactos\w32api\include\ddk\tdi.h" uncomment for MSVC
-#include <ddk/tdi.h> /* comment for msvc */
+#include <ddk/tdi.h>
 #include <afd/shared.h>
-#include <helpers.h>
 #include <debug.h>
 
-/* Because our headers are f*cked up */
-typedef LARGE_INTEGER TIME;
-#include <ntos/zw.h>
+/*typedef _MSAFD_LISTEN_REQUEST
+{
+  LIST_ENTRY ListEntry;
+  HANDLE Socket;
+} MSAFD_LISTEN_REQUEST, *PMSAFD_LISTEN_REQUEST;*/
+
 
 extern HANDLE GlobalHeap;
 extern WSPUPCALLTABLE Upcalls;
 extern LPWPUCOMPLETEOVERLAPPEDREQUEST lpWPUCompleteOverlappedRequest;
-extern LIST_ENTRY SockHelpersListHead;
-extern HANDLE SockEvent;
-extern HANDLE SockAsyncCompletionPort;
-extern BOOLEAN SockAsyncSelectCalled;
-
-typedef enum _SOCKET_STATE {
-    SocketOpen,
-    SocketBound,
-    SocketBoundUdp,
-    SocketConnected,
-    SocketClosed
-} SOCKET_STATE, *PSOCKET_STATE;
-
-typedef struct _SOCK_SHARED_INFO {
-    SOCKET_STATE				State;
-    INT							AddressFamily;
-    INT							SocketType;
-    INT							Protocol;
-    INT							SizeOfLocalAddress;
-    INT							SizeOfRemoteAddress;
-    struct linger				LingerData;
-    ULONG						SendTimeout;
-    ULONG						RecvTimeout;
-    ULONG						SizeOfRecvBuffer;
-    ULONG						SizeOfSendBuffer;
-    struct {
-        BOOLEAN					Listening:1;
-        BOOLEAN					Broadcast:1;
-        BOOLEAN					Debug:1;
-        BOOLEAN					OobInline:1;
-        BOOLEAN					ReuseAddresses:1;
-        BOOLEAN					ExclusiveAddressUse:1;
-        BOOLEAN					NonBlocking:1;
-        BOOLEAN					DontUseWildcard:1;
-        BOOLEAN					ReceiveShutdown:1;
-        BOOLEAN					SendShutdown:1;
-        BOOLEAN					UseDelayedAcceptance:1;
-		BOOLEAN					UseSAN:1;
-    }; // Flags
-    DWORD						CreateFlags;
-    DWORD						CatalogEntryId;
-    DWORD						ServiceFlags1;
-    DWORD						ProviderFlags;
-    GROUP						GroupID;
-    DWORD						GroupType;
-    INT							GroupPriority;
-    INT							SocketLastError;
-    HWND						hWnd;
-    LONG						Unknown;
-    DWORD						SequenceNumber;
-    UINT						wMsg;
-    LONG						AsyncEvents;
-    LONG						AsyncDisabledEvents;
-} SOCK_SHARED_INFO, *PSOCK_SHARED_INFO;
-
-typedef struct _SOCKET_INFORMATION {
-	ULONG RefCount;
-	SOCKET Handle;
-	SOCK_SHARED_INFO SharedData;
-	DWORD HelperEvents;
-	PHELPER_DATA HelperData;
-	PVOID HelperContext;
-	PSOCKADDR LocalAddress;
-	PSOCKADDR RemoteAddress;
-	HANDLE TdiAddressHandle;
-	HANDLE TdiConnectionHandle;
-	PVOID AsyncData;
-	HANDLE EventObject;
-	LONG NetworkEvents;
-	CRITICAL_SECTION Lock;
-	PVOID SanData;
-	BOOL TrySAN;
-	SOCKADDR WSLocalAddress;
-	SOCKADDR WSRemoteAddress;
-} SOCKET_INFORMATION, *PSOCKET_INFORMATION;
-
-
-typedef struct _SOCKET_CONTEXT {
-	SOCK_SHARED_INFO SharedData;
-	ULONG SizeOfHelperData;
-	ULONG Padding;
-	SOCKADDR LocalAddress;
-	SOCKADDR RemoteAddress;
-	/* Plus Helper Data */
-} SOCKET_CONTEXT, *PSOCKET_CONTEXT;
-
-typedef struct _ASYNC_DATA {
-	PSOCKET_INFORMATION ParentSocket;
-	DWORD SequenceNumber;
-	IO_STATUS_BLOCK IoStatusBlock;
-	AFD_POLL_INFO AsyncSelectInfo;
-} ASYNC_DATA, *PASYNC_DATA;
 
 SOCKET
 WSPAPI
@@ -154,7 +61,7 @@ WSPAsyncSelect(
 INT
 WSPAPI WSPBind(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name, 
+    IN  CONST LPSOCKADDR name, 
     IN  INT namelen, 
     OUT LPINT lpErrno);
 
@@ -178,7 +85,7 @@ INT
 WSPAPI
 WSPConnect(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -273,7 +180,7 @@ SOCKET
 WSPAPI
 WSPJoinLeaf(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -362,7 +269,7 @@ WSPSendTo(
     IN  DWORD dwBufferCount,
     OUT LPDWORD lpNumberOfBytesSent,
     IN  DWORD dwFlags,
-    IN  CONST SOCKADDR *lpTo,
+    IN  CONST LPSOCKADDR lpTo,
     IN  INT iTolen,
     IN  LPWSAOVERLAPPED lpOverlapped,
     IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine,
@@ -406,70 +313,6 @@ WSPStringToAddress(
     OUT     LPSOCKADDR lpAddress,
     IN OUT  LPINT lpAddressLength,
     OUT     LPINT lpErrno);
-
-
-PSOCKET_INFORMATION GetSocketStructure(
-	SOCKET Handle
-);
-
-int GetSocketInformation(
-	PSOCKET_INFORMATION Socket,
-	ULONG				AfdInformationClass,
-	PULONG Ulong		OPTIONAL,
-	PLARGE_INTEGER		LargeInteger OPTIONAL
-);
-
-int SetSocketInformation(
-	PSOCKET_INFORMATION Socket,
-	ULONG				AfdInformationClass,
-	PULONG				Ulong		OPTIONAL,
-	PLARGE_INTEGER		LargeInteger OPTIONAL
-);
-
-int CreateContext(
-	PSOCKET_INFORMATION Socket
-);
-
-int SockAsyncThread(
-	PVOID ThreadParam
-);
-
-VOID 
-SockProcessAsyncSelect(
-	PSOCKET_INFORMATION Socket,
-	PASYNC_DATA AsyncData
-);
-
-VOID
-SockAsyncSelectCompletionRoutine(
-	PVOID Context,
-	PIO_STATUS_BLOCK IoStatusBlock
-);
-
-BOOLEAN
-SockCreateOrReferenceAsyncThread(
-	VOID
-);
-
-BOOLEAN SockGetAsyncSelectHelperAfdHandle(
-	VOID
-);
-
-VOID SockProcessQueuedAsyncSelect(
-	PVOID Context,
-	PIO_STATUS_BLOCK IoStatusBlock
-);
-
-VOID
-SockReenableAsyncSelectEvent (
-    IN PSOCKET_INFORMATION Socket,
-    IN ULONG Event
-    );
-    
-DWORD MsafdReturnWithErrno( NTSTATUS Status, LPINT Errno, DWORD Received,
-			    LPDWORD ReturnedBytes );
-
-typedef VOID (*PASYNC_COMPLETION_ROUTINE)(PVOID Context, PIO_STATUS_BLOCK IoStatusBlock);
 
 #endif /* __MSAFD_H */
 

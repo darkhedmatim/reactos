@@ -1,4 +1,4 @@
-/* $Id: delete.c,v 1.18 2004/11/29 17:31:21 gdalsnes Exp $
+/* $Id: delete.c,v 1.16 2004/01/23 21:16:03 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -77,10 +77,7 @@ DeleteFileW (
 	                                   &NtPathU,
 	                                   NULL,
 	                                   NULL))
-   {
-      SetLastError(ERROR_PATH_NOT_FOUND);
 		return FALSE;
-   }
 
 	DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
@@ -112,7 +109,7 @@ DeleteFileW (
 		return FALSE;
 	}
 
-	FileDispInfo.DeleteFile = TRUE;
+	FileDispInfo.DoDeleteFile = TRUE;
 
 	Status = NtSetInformationFile (FileHandle,
 	                               &IoStatusBlock,

@@ -5,7 +5,7 @@
 /*    Basic SFNT/TrueType tables definitions and interface                 */
 /*    (specification only).                                                */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -23,12 +23,6 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-
-#ifdef FREETYPE_H
-#error "freetype.h of FreeType 1 has been loaded!"
-#error "Please fix the directory search order for header files"
-#error "so that freetype.h of FreeType 2 is found first."
-#endif
 
 
 FT_BEGIN_HEADER
@@ -516,11 +510,12 @@ FT_BEGIN_HEADER
   /*    maxSizeOfInstructions :: The maximum number of TrueType opcodes    */
   /*                             used for glyph hinting.                   */
   /*                                                                       */
-  /*    maxComponentElements  :: The maximum number of simple (i.e., non-  */
-  /*                             composite) glyphs in a composite glyph.   */
+  /*    maxComponentElements  :: An obscure value related to composite     */
+  /*                             glyphs definitions.                       */
   /*                                                                       */
-  /*    maxComponentDepth     :: The maximum nesting depth of composite    */
-  /*                             glyphs.                                   */
+  /*    maxComponentDepth     :: An obscure value related to composite     */
+  /*                             glyphs definitions.  Probably the maximum */
+  /*                             number of simple glyphs in a composite.   */
   /*                                                                       */
   /* <Note>                                                                */
   /*    This structure is only used during font loading.                   */
@@ -570,6 +565,11 @@ FT_BEGIN_HEADER
   } FT_Sfnt_Tag;
 
   /* */
+
+  /* internal use only */
+  typedef void*
+  (*FT_Get_Sfnt_Table_Func)( FT_Face      face,
+                             FT_Sfnt_Tag  tag );
 
 
   /*************************************************************************/
@@ -661,27 +661,6 @@ FT_BEGIN_HEADER
                       FT_Long    offset,
                       FT_Byte*   buffer,
                       FT_ULong*  length );
-
-
-  /*************************************************************************/
-  /*                                                                       */
-  /* <Function>                                                            */
-  /*    FT_Get_CMap_Language_ID                                            */
-  /*                                                                       */
-  /* <Description>                                                         */
-  /*    Return TrueType/sfnt specific cmap language ID.  Definitions of    */
-  /*    language ID values are in freetype/ttnameid.h.                     */
-  /*                                                                       */
-  /* <Input>                                                               */
-  /*    charmap ::                                                         */
-  /*      The target charmap.                                              */
-  /*                                                                       */
-  /* <Return>                                                              */
-  /*    The language ID of `charmap'.  If `charmap' doesn't belong to a    */
-  /*    TrueType/sfnt face, just return 0 as the default value.            */
-  /*                                                                       */
-  FT_EXPORT( FT_ULong )
-  FT_Get_CMap_Language_ID( FT_CharMap  charmap );
 
   /* */
 

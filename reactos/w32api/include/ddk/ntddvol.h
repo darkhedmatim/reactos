@@ -31,7 +31,10 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
+
 
 #define IOCTL_VOLUME_BASE                 ((ULONG) 'V')
 
@@ -133,6 +136,8 @@ typedef struct _VOLUME_FAILOVER_SET {
 	ULONG  NumberOfDisks;
 	ULONG  DiskNumbers[1];
 } VOLUME_FAILOVER_SET, *PVOLUME_FAILOVER_SET;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bug.c,v 1.48 2004/12/12 17:42:00 hbirr Exp $
+/* $Id: bug.c,v 1.44 2004/03/11 21:50:24 dwelch Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/bug.c
@@ -30,15 +30,22 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <roskrnl.h>
 #include <ntos/bootvid.h>
+#include <internal/kd.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+
 #include <internal/debug.h>
+
 #include "../../hal/halx86/include/hal.h"
 
 /* GLOBALS ******************************************************************/
 
 static LIST_ENTRY BugcheckCallbackListHead = {NULL,NULL};
 static ULONG InBugCheck;
+
+VOID PsDumpThreads(VOID);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -50,20 +57,13 @@ KeInitializeBugCheck(VOID)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN STDCALL
 KeDeregisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord)
 {
-	/* Check the Current State */
-	if (CallbackRecord->State == BufferInserted) {
-		CallbackRecord->State = BufferEmpty;
-		RemoveEntryList(&CallbackRecord->Entry);
-		return TRUE;
-	}
-	
-	/* The callback wasn't registered */
-	return FALSE;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /*
@@ -76,21 +76,12 @@ KeRegisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord,
 			   ULONG Length,
 			   PUCHAR Component)
 {
-
-	/* Check the Current State first so we don't double-register */
-	if (CallbackRecord->State == BufferEmpty) {
-		CallbackRecord->Length = Length;
-		CallbackRecord->Buffer = Buffer;
-		CallbackRecord->Component = Component;
-		CallbackRecord->CallbackRoutine = CallbackRoutine;
-		CallbackRecord->State = BufferInserted;
-		InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
-		
-		return TRUE;
-	}
-  
-	/* The Callback was already registered */
-	return(FALSE);
+  InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
+  CallbackRecord->Length = Length;
+  CallbackRecord->Buffer = Buffer;
+  CallbackRecord->Component = Component;
+  CallbackRecord->CallbackRoutine = CallbackRoutine;
+  return(TRUE);
 }
 
 VOID STDCALL
@@ -103,7 +94,6 @@ KeBugCheckWithTf(ULONG BugCheckCode,
 {
   PRTL_MESSAGE_RESOURCE_ENTRY Message;
   NTSTATUS Status;
-  ULONG Mask;
   KIRQL OldIrql;
 
   /* Make sure we're switching back to the blue screen and print messages on it */
@@ -143,25 +133,13 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     {
       DbgPrint("  No message text found!\n\n");
     }
-  Mask = 1 << KeGetCurrentProcessorNumber();
-  if (InBugCheck & Mask)
+
+  if (InBugCheck == 1)
     {
-#ifdef MP
-      DbgPrint("Recursive bug check on CPU%d, halting now\n", KeGetCurrentProcessorNumber());
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
-#else
       DbgPrint("Recursive bug check halting now\n");
-#endif
       Ke386HaltProcessor();
     }
-  /* 
-   * FIXME:
-   *   Use InterlockedOr or InterlockedBitSet.
-   */
-  InBugCheck |= Mask;
+  InBugCheck = 1;  
   if (Tf != NULL)
     {
       KiDumpTrapFrame(Tf, BugCheckParameter1, BugCheckParameter2);
@@ -191,10 +169,6 @@ KeBugCheckWithTf(ULONG BugCheckCode,
 
   for (;;)
     {
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
       Ke386HaltProcessor();
     }
 }

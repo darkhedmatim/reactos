@@ -1,4 +1,4 @@
-/* $Id: null.c,v 1.14 2004/07/01 02:40:22 hyperion Exp $
+/* $Id: null.c,v 1.13 2004/02/10 16:22:55 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -8,15 +8,11 @@
  * UPDATE HISTORY:
  *              13/08/1998: Created
  *              29/04/2002: Fixed bugs, added zero-stream device
- *              28/06/2004: Compile against the DDK, use PSEH where necessary
  */
 
 /* INCLUDES */
-#include <ntddk.h>
-
+#include <ddk/ntddk.h>
 #include <rosrtl/string.h>
-#include <pseh.h>
-
 #include "null.h"
 
 /* OBJECTS */
@@ -31,24 +27,15 @@ NullDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
  NTSTATUS nErrCode;
  
  nErrCode = STATUS_SUCCESS;
- Irp->IoStatus.Information = 0;
 
  switch(piosStack->MajorFunction)
  {
   /* opening and closing handles to the device */
   case IRP_MJ_CREATE:
   case IRP_MJ_CLOSE:
-   switch(NULL_DEVICE_TYPE(DeviceObject))
-   {
-    case NullBitBucket:
-    case NullZeroStream:
-     break;
-
-    default:
-     ASSERT(FALSE);
-   }
-
+  {
    break;
+  }
 
   /* write data */
   case IRP_MJ_WRITE:
@@ -60,11 +47,9 @@ NullDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
      break;
 
     case NullZeroStream:
-     nErrCode = STATUS_INVALID_DEVICE_REQUEST;
-     break;
-
     default:
-     ASSERT(FALSE);
+     Irp->IoStatus.Information = 0;
+     nErrCode = STATUS_NOT_IMPLEMENTED;
    }
 
    break;
@@ -76,21 +61,13 @@ NullDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    switch(NULL_DEVICE_TYPE(DeviceObject))
    {
     case NullBitBucket:
+     Irp->IoStatus.Information = 0;
      nErrCode = STATUS_END_OF_FILE;
      break;
 
     case NullZeroStream:
-     _SEH_TRY
-     {
-      RtlZeroMemory(Irp->AssociatedIrp.SystemBuffer, piosStack->Parameters.Read.Length);
-      Irp->IoStatus.Information = piosStack->Parameters.Read.Length;
-     }
-     _SEH_HANDLE
-     {
-      nErrCode = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-
+     RtlZeroMemory(Irp->AssociatedIrp.SystemBuffer, piosStack->Parameters.Read.Length);
+     Irp->IoStatus.Information = piosStack->Parameters.Read.Length;
      break;
 
     default:
@@ -101,8 +78,11 @@ NullDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    break;
   }
 
+  /* unsupported operations */
   default:
-   ASSERT(FALSE);
+  {
+   nErrCode = STATUS_NOT_IMPLEMENTED;
+  }
  }
 
  Irp->IoStatus.Status = nErrCode;
@@ -116,7 +96,6 @@ NullUnload(PDRIVER_OBJECT DriverObject)
 {
 }
 
-/* TODO: \Device\Zero should be memory-mappable */
 NTSTATUS STDCALL 
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
@@ -130,6 +109,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
  DriverObject->MajorFunction[IRP_MJ_CREATE] = NullDispatch;
  DriverObject->MajorFunction[IRP_MJ_WRITE] = NullDispatch;
  DriverObject->MajorFunction[IRP_MJ_READ] = NullDispatch;
+ /* DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] = NullDispatch; */
  DriverObject->DriverUnload = NullUnload;
 
  /* create null device */

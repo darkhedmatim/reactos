@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 typedef enum _NET_PNP_EVENT_CODE {
   NetEventSetPower,
   NetEventQueryPower,
@@ -61,6 +63,8 @@ typedef enum _NET_DEVICE_POWER_STATE {
   NetDeviceStateD3,
   NetDeviceStateMaximum
 } NET_DEVICE_POWER_STATE, *PNET_DEVICE_POWER_STATE;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

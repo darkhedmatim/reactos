@@ -1,4 +1,4 @@
-/* $Id: mutex.c,v 1.10 2004/10/24 12:26:26 weiden Exp $
+/* $Id: mutex.c,v 1.8 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -31,24 +31,17 @@ CreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes,
    ANSI_STRING Name;
    HANDLE Handle;
 
-   if (lpName != NULL)
-     {
-        RtlInitAnsiString(&Name,
-                          (LPSTR)lpName);
-
-        RtlAnsiStringToUnicodeString(&NameU,
-                                     &Name,
-                                     TRUE);
-     }
+   RtlInitAnsiString(&Name,
+		     (LPSTR)lpName);
+   RtlAnsiStringToUnicodeString(&NameU,
+				&Name,
+				TRUE);
 
    Handle = CreateMutexW(lpMutexAttributes,
 			 bInitialOwner,
-			 (lpName ? NameU.Buffer : NULL));
+			 NameU.Buffer);
 
-   if (lpName != NULL)
-     {
-        RtlFreeUnicodeString(&NameU);
-     }
+   RtlFreeUnicodeString(&NameU);
 
    return Handle;
 }
@@ -64,25 +57,23 @@ CreateMutexW(LPSECURITY_ATTRIBUTES lpMutexAttributes,
 {
    OBJECT_ATTRIBUTES ObjectAttributes;
    NTSTATUS Status;
-   UNICODE_STRING UnicodeName;
+   UNICODE_STRING NameString;
    HANDLE MutantHandle;
 
-   if (lpName != NULL)
-     {
-       RtlInitUnicodeString(&UnicodeName,
-			    (LPWSTR)lpName);
-     }
+   RtlInitUnicodeString(&NameString,
+			(LPWSTR)lpName);
 
-   InitializeObjectAttributes(&ObjectAttributes,
-			      (lpName ? &UnicodeName : NULL),
-			      0,
-			      hBaseDir,
-			      NULL);
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = hBaseDir;
+   ObjectAttributes.ObjectName = &NameString;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
 
    if (lpMutexAttributes != NULL)
      {
 	ObjectAttributes.SecurityDescriptor = lpMutexAttributes->lpSecurityDescriptor;
-	if (lpMutexAttributes->bInheritHandle)
+	if (lpMutexAttributes->bInheritHandle == TRUE)
 	  {
 	     ObjectAttributes.Attributes |= OBJ_INHERIT;
 	  }
@@ -128,11 +119,16 @@ OpenMutexA(DWORD dwDesiredAccess,
 				&Name,
 				TRUE);
 
-   InitializeObjectAttributes(&ObjectAttributes,
-			      &NameU,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
-			      hBaseDir,
-			      NULL);
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = hBaseDir;
+   ObjectAttributes.ObjectName = &NameU;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
+   if (bInheritHandle == TRUE)
+     {
+	ObjectAttributes.Attributes |= OBJ_INHERIT;
+     }
 
    Status = NtOpenMutant(&Handle,
 			 (ACCESS_MASK)dwDesiredAccess,
@@ -172,11 +168,16 @@ OpenMutexW(DWORD dwDesiredAccess,
    RtlInitUnicodeString(&Name,
 			(LPWSTR)lpName);
 
-   InitializeObjectAttributes(&ObjectAttributes,
-			      &Name,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
-			      hBaseDir,
-			      NULL);
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = hBaseDir;
+   ObjectAttributes.ObjectName = &Name;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
+   if (bInheritHandle == TRUE)
+     {
+	ObjectAttributes.Attributes |= OBJ_INHERIT;
+     }
 
    Status = NtOpenMutant(&Handle,
 			 (ACCESS_MASK)dwDesiredAccess,

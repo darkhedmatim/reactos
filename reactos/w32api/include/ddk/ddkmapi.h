@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 
 #if defined(_DXAPI_)
@@ -326,6 +328,8 @@ typedef struct _DDSETSKIPFIELD {
   HANDLE  hVideoPort;
   DWORD  dwStartField;
 } DDSETSKIPFIELD, FAR *LPDDSETSKIPFIELD;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

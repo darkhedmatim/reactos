@@ -1,4 +1,4 @@
-/* $Id: rtl.c,v 1.20 2004/08/15 16:39:06 chorns Exp $
+/* $Id: rtl.c,v 1.18 2003/12/30 18:52:05 fireball Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -10,7 +10,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -169,7 +175,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
    AddressPtr = (PULONG)RVA((char*)BaseAddress, ExportDir->AddressOfFunctions);
    if (Name && Name->Length)
      {
-       LONG minn, maxn;
+       ULONG minn, maxn;
 
 	/* by name */
        OrdinalPtr = 
@@ -179,7 +185,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
 	minn = 0; maxn = ExportDir->NumberOfNames;
 	while (minn <= maxn)
 	  {
-	    LONG mid;
+	    ULONG mid;
 	    LONG res;
 
 	    mid = (minn + maxn) / 2;

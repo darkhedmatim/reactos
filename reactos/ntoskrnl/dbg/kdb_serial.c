@@ -29,7 +29,11 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <string.h>
+#include <ntos/minmax.h>
+#include <internal/kd.h>
+
 #define NDEBUG
 #include <debug.h>
 

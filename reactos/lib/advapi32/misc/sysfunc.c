@@ -1,4 +1,4 @@
-/* $Id: sysfunc.c,v 1.9 2004/12/11 00:21:33 weiden Exp $
+/* $Id: sysfunc.c,v 1.7 2003/07/10 15:05:55 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,8 +9,7 @@
  *	19990413 EA	created
  *	19990415 EA
  */
-
-#include "advapi32.h"
+#include <windows.h>
 
 /**********************************************************************
  *	SystemFunction001
@@ -76,6 +75,20 @@ SystemFunction005(INT a, INT b, INT c)
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 5;
 }
+
+
+/**********************************************************************
+ *
+ * @unimplemented
+ */
+INT
+STDCALL
+SystemFunction006(INT a, INT b)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 6;
+}
+
 
 /**********************************************************************
  *

@@ -31,8 +31,11 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "ntddstor.h"
+
 
 #define DD_CHANGER_DEVICE_NAME            "\\Device\\Changer"
 #define DD_CHANGER_DEVICE_NAME_U          L"\\Device\\Changer"
@@ -345,6 +348,8 @@ typedef struct _TAPE_WMI_OPERATIONS {
 typedef struct _WMI_CHANGER_PROBLEM_DEVICE_ERROR {
   ULONG  ChangerProblemType;
 } WMI_CHANGER_PROBLEM_DEVICE_ERROR, *PWMI_CHANGER_PROBLEM_DEVICE_ERROR;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

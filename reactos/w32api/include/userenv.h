@@ -36,28 +36,10 @@ typedef struct _PROFILEINFOW
   HANDLE hProfile;
 } PROFILEINFOW, *LPPROFILEINFOW;
 
-/* begin private */
-BOOL WINAPI InitializeProfiles (VOID);
-BOOL WINAPI CreateUserProfileA (PSID, LPCSTR);
 BOOL WINAPI CreateUserProfileW (PSID, LPCWSTR);
-BOOL WINAPI AddDesktopItemA (BOOL, LPCSTR, LPCSTR, LPCSTR, INT, LPCSTR, WORD, INT);
-BOOL WINAPI AddDesktopItemW (BOOL, LPCWSTR, LPCWSTR, LPCWSTR, INT, LPCWSTR, WORD, INT);
-BOOL WINAPI DeleteDesktopItemA (BOOL, LPCSTR);
-BOOL WINAPI DeleteDesktopItemW (BOOL, LPCWSTR);
-BOOL WINAPI CreateGroupA (LPCSTR, BOOL);
-BOOL WINAPI CreateGroupW (LPCWSTR, BOOL);
-BOOL WINAPI DeleteGroupA (LPCSTR, BOOL);
-BOOL WINAPI DeleteGroupW (LPCWSTR, BOOL);
-BOOL WINAPI AddItemA (LPCSTR, BOOL, LPCSTR, LPCSTR, LPCSTR, INT, LPCSTR, WORD, INT);
-BOOL WINAPI AddItemW (LPCWSTR, BOOL, LPCWSTR, LPCWSTR, LPCWSTR, INT, LPCWSTR, WORD, INT);
-BOOL WINAPI DeleteItemA (LPCSTR, BOOL, LPCSTR, BOOL);
-BOOL WINAPI DeleteItemW (LPCWSTR, BOOL, LPCWSTR, BOOL);
-BOOL WINAPI CopyProfileDirectoryA(LPCSTR, LPCSTR, DWORD);
-BOOL WINAPI CopyProfileDirectoryW(LPCWSTR, LPCWSTR, DWORD);
-/* end private */
-BOOL WINAPI LoadUserProfileA (HANDLE, LPPROFILEINFOA);
-BOOL WINAPI LoadUserProfileW (HANDLE, LPPROFILEINFOW);
-BOOL WINAPI UnloadUserProfile (HANDLE, HANDLE);
+BOOL WINAPI LoadUserProfileA(HANDLE, LPPROFILEINFOA);
+BOOL WINAPI LoadUserProfileW(HANDLE, LPPROFILEINFOW);
+BOOL WINAPI UnloadUserProfile(HANDLE, HANDLE);
 
 BOOL WINAPI GetAllUsersProfileDirectoryA (LPSTR, LPDWORD);
 BOOL WINAPI GetAllUsersProfileDirectoryW (LPWSTR, LPDWORD);
@@ -74,16 +56,6 @@ BOOL WINAPI DestroyEnvironmentBlock(LPVOID);
 #ifdef UNICODE
 typedef PROFILEINFOW PROFILEINFO;
 typedef LPPROFILEINFOW LPPROFILEINFO;
-/* begin private */
-#define CreateUserProfile  CreateUserProfileW
-#define AddDesktopItem  AddDesktopItemW
-#define DeleteDesktopItem  DeleteDesktopItemW
-#define CreateGroup  CreateGroupW
-#define DeleteGroup  DeleteGroupW
-#define AddItem  AddItemW
-#define DeleteItem  DeleteItemW
-#define CopyProfileDirectory  CopyProfileDirectoryW
-/* end private */
 #define LoadUserProfile  LoadUserProfileW
 #define GetAllUsersProfileDirectory  GetAllUsersProfileDirectoryW
 #define GetDefaultUserProfileDirectory  GetDefaultUserProfileDirectoryW
@@ -92,16 +64,6 @@ typedef LPPROFILEINFOW LPPROFILEINFO;
 #else
 typedef PROFILEINFOA PROFILEINFO;
 typedef LPPROFILEINFOA LPPROFILEINFO;
-/* begin private */
-#define CreateUserProfile  CreateUserProfileA
-#define AddDesktopItem  AddDesktopItemA
-#define DeleteDesktopItem  DeleteDesktopItemA
-#define CreateGroup  CreateGroupA
-#define DeleteGroup  DeleteGroupA
-#define AddItem  AddItemA
-#define DeleteItem  DeleteItemA
-#define CopyProfileDirectory  CopyProfileDirectoryA
-/* end private */
 #define LoadUserProfile  LoadUserProfileA
 #define GetAllUsersProfileDirectory  GetAllUsersProfileDirectoryA
 #define GetDefaultUserProfileDirectory  GetDefaultUserProfileDirectoryA

@@ -26,10 +26,12 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
 
+#include "entries.h"
 #include "ntobjfs.h"
-//#include "winfs.h"
+#include "winfs.h"
 #include "regfs.h"
 
 

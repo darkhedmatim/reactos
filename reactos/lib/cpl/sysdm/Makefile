@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.4 2004/07/02 20:28:00 ekohl Exp $
+# $Id: Makefile,v 1.1 2004/03/08 14:24:47 weiden Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -10,16 +10,13 @@ TARGET_NAME = sysdm
 
 TARGET_INSTALLDIR = system32
 
-TARGET_BASE = $(TARGET_BASE_LIB_CPL_SYSDM)
+TARGET_BASE = 0x58760000
 
 TARGET_CFLAGS = \
- -D_WIN32_IE=0x0600 \
- -D_WIN32_WINNT=0x0501 \
  -I./include \
  -DUNICODE \
  -D_UNICODE \
  -D__REACTOS__ \
- -D__USE_W32API \
  -Wall \
  -Werror \
  -fno-builtin
@@ -34,8 +31,7 @@ TARGET_PCH =
 
 TARGET_CLEAN = 
 
-TARGET_OBJECTS = sysdm.o general.o computer.o hardware.o advanced.o userprofile.o\
-                 environment.o
+TARGET_OBJECTS = sysdm.o general.o computer.o hardware.o advanced.o
 
 DEP_OBJECTS = $(TARGET_OBJECTS)
 

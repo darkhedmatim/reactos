@@ -1,4 +1,4 @@
-/* $Id: page.c,v 1.23 2004/08/18 02:21:53 navaraf Exp $
+/* $Id: page.c,v 1.21 2003/07/11 01:23:14 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -45,7 +47,6 @@ IoPageWrite(PFILE_OBJECT FileObject,
    Irp->Flags = IRP_NOCACHE|IRP_PAGING_IO;
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = FileObject;
-   StackPtr->Parameters.Write.Length = MmGetMdlByteCount(Mdl);
    DPRINT("Before IoCallDriver\n");
    Status = IofCallDriver(FileObject->DeviceObject,Irp);
    DPRINT("Status %d STATUS_PENDING %d\n",Status,STATUS_PENDING);
@@ -84,7 +85,6 @@ IoPageRead(PFILE_OBJECT FileObject,
    Irp->Flags = IRP_NOCACHE|IRP_PAGING_IO;
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = FileObject;
-   StackPtr->Parameters.Read.Length = MmGetMdlByteCount(Mdl);
    DPRINT("Before IoCallDriver\n");
    Status = IofCallDriver(FileObject->DeviceObject, Irp);
    DPRINT("Status %d STATUS_PENDING %d\n",Status,STATUS_PENDING);
@@ -124,7 +124,6 @@ IoSynchronousPageWrite (PFILE_OBJECT FileObject,
    Irp->Flags = IRP_NOCACHE|IRP_PAGING_IO|IRP_SYNCHRONOUS_PAGING_IO;
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = FileObject;
-   StackPtr->Parameters.Write.Length = MmGetMdlByteCount(Mdl);
    DPRINT("Before IoCallDriver\n");
    Status = IofCallDriver(FileObject->DeviceObject,Irp);
    DPRINT("Status %d STATUS_PENDING %d\n",Status,STATUS_PENDING);

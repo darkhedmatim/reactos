@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 
 #define DOT4_MAX_CHANNELS                 128
@@ -76,6 +78,8 @@ typedef struct _DOT4_WMI_XFER_INFO {
   ULONG  ulPacketBytesWritten;
   ULONG  ulPacketBytesRead;
 } DOT4_WMI_XFER_INFO, *PDOT4_WMI_XFER_INFO;
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

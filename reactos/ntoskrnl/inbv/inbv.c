@@ -1,4 +1,4 @@
-/* $Id: inbv.c,v 1.8 2004/08/15 16:39:03 chorns Exp $
+/* $Id: inbv.c,v 1.6 2004/01/20 21:08:40 navaraf Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,9 +11,11 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <roskrnl.h>
 #include <ntos/bootvid.h>
 #include <ddk/ntbootvid.h>
+#include <rosrtl/string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -119,7 +121,7 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
 				     sizeof(BootVidFunctionTable));
       if (!NT_SUCCESS(Status))
 	{
-	  KEBUGCHECK(0);
+	  KeBugCheck(0);
 	}
       BootVidDriverInstalled = TRUE;
       CHECKPOINT;
@@ -138,7 +140,7 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
 				     0);
       if (!NT_SUCCESS(Status))
 	{
-	  KEBUGCHECK(0);
+	  KeBugCheck(0);
 	}
       BootVidDriverInstalled = FALSE;
       /* Notify the hal we have released the display. */

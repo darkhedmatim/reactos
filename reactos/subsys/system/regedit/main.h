@@ -80,17 +80,17 @@ extern TCHAR szChildClass[];
 extern void ShowAboutBox(HWND hWnd);
 
 /* childwnd.c */
-extern INT_PTR CALLBACK ChildWndProc(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT CALLBACK ChildWndProc(HWND, UINT, WPARAM, LPARAM);
 
 /* framewnd.c */
-extern INT_PTR CALLBACK FrameWndProc(HWND, UINT, WPARAM, LPARAM);
+extern LRESULT CALLBACK FrameWndProc(HWND, UINT, WPARAM, LPARAM);
 extern void SetupStatusBar(HWND hWnd, BOOL bResize);
 extern void UpdateStatusBar(void);
 
 /* listview.c */
 extern HWND CreateListView(HWND hwndParent, int id);
 extern BOOL RefreshListView(HWND hwndLV, HKEY hKey, LPCTSTR keyPath);
-extern LPCTSTR GetValueName(HWND hwndLV, int iStartAt);
+extern LPCTSTR GetValueName(HWND hwndLV);
 extern BOOL ListWndNotifyProc(HWND hWnd, WPARAM wParam, LPARAM lParam, BOOL *Result);
 extern BOOL IsDefaultValue(HWND hwndLV, int i);
 
@@ -100,6 +100,6 @@ extern BOOL OnTreeExpanding(HWND hWnd, NMTREEVIEW* pnmtv);
 extern LPCTSTR GetItemPath(HWND hwndTV, HTREEITEM hItem, HKEY* phRootKey);
 
 /* edit.c */
-extern BOOL ModifyValue(HWND hwnd, HKEY hKey, LPCTSTR valueName, BOOL EditBin);
+extern BOOL ModifyValue(HWND hwnd, HKEY hKey, LPCTSTR valueName);
 
 #endif /* __MAIN_H__ */

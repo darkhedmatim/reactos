@@ -80,7 +80,6 @@ enum ICON_ID {
 	ICID_NETWORK,
 	ICID_COMPUTER,
 	ICID_LOGOFF,
-	ICID_BOOKMARK,
 
 	ICID_DYNAMIC
 };
@@ -95,7 +94,7 @@ struct Icon {
 
 	void	draw(HDC hdc, int x, int y, int cx, int cy, COLORREF bk_color, HBRUSH bk_brush) const;
 	HBITMAP	create_bitmap(COLORREF bk_color, HBRUSH hbrBkgnd, HDC hdc_wnd) const;
-	int		add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color=GetSysColor(COLOR_WINDOW), HBRUSH bk_brush=GetSysColorBrush(COLOR_WINDOW)) const;
+	HICON	create_icon(COLORREF bk_color, HDC hdc_wnd) const;
 
 	int		get_sysiml_idx() const {return _itype==IT_SYSCACHE? _sys_idx: -1;}
 
@@ -152,6 +151,9 @@ extern HBITMAP create_bitmap_from_icon(HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc
 
  /// add icon with alpha channel to imagelist using the specified background color
 extern int ImageList_AddAlphaIcon(HIMAGELIST himl, HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd);
+
+ /// add Icon object to image list
+extern int ImageList_AddAlphaIcon(HIMAGELIST himl, const Icon& icon, HDC hdc_wnd);
 
  /// retrieve icon from window
 extern HICON get_window_icon_small(HWND hwnd);
@@ -236,7 +238,7 @@ extern struct ExplorerGlobals
 	void	write_persistent();
 
 	XMLPos	get_cfg();
-	XMLPos	get_cfg(const char* path);
+	XMLPos	get_cfg(const String& name);
 
 	HINSTANCE	_hInstance;
 	ATOM		_hframeClass;

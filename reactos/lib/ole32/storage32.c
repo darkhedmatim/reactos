@@ -30,10 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -144,8 +142,8 @@ static void updatePropertyChain(
   StgProperty newProperty);
 
 static LONG propertyNameCmp(
-    const OLECHAR *newProperty,
-    const OLECHAR *currentProperty);
+  OLECHAR *newProperty,
+  OLECHAR *currentProperty);
 
 
 /***********************************************************************
@@ -160,8 +158,9 @@ static DWORD GetCreationModeFromSTGM(DWORD stgm);
 /*
  * Virtual function table for the IStorage32Impl class.
  */
-static IStorageVtbl Storage32Impl_Vtbl =
+static ICOM_VTABLE(IStorage) Storage32Impl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StorageBaseImpl_QueryInterface,
     StorageBaseImpl_AddRef,
     StorageBaseImpl_Release,
@@ -185,8 +184,9 @@ static IStorageVtbl Storage32Impl_Vtbl =
 /*
  * Virtual function table for the Storage32InternalImpl class.
  */
-static IStorageVtbl Storage32InternalImpl_Vtbl =
+static ICOM_VTABLE(IStorage) Storage32InternalImpl_Vtbl =
   {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StorageBaseImpl_QueryInterface,
     StorageBaseImpl_AddRef,
     StorageBaseImpl_Release,
@@ -210,8 +210,9 @@ static IStorageVtbl Storage32InternalImpl_Vtbl =
 /*
  * Virtual function table for the IEnumSTATSTGImpl class.
  */
-static IEnumSTATSTGVtbl IEnumSTATSTGImpl_Vtbl =
+static ICOM_VTABLE(IEnumSTATSTG) IEnumSTATSTGImpl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IEnumSTATSTGImpl_QueryInterface,
     IEnumSTATSTGImpl_AddRef,
     IEnumSTATSTGImpl_Release,
@@ -242,7 +243,7 @@ HRESULT WINAPI StorageBaseImpl_QueryInterface(
   REFIID             riid,
   void**             ppvObject)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   /*
    * Perform a sanity check on the parameters.
    */
@@ -292,8 +293,10 @@ HRESULT WINAPI StorageBaseImpl_QueryInterface(
 ULONG WINAPI StorageBaseImpl_AddRef(
             IStorage* iface)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
-  return InterlockedIncrement(&This->ref);
+  ICOM_THIS(StorageBaseImpl,iface);
+  This->ref++;
+
+  return This->ref;
 }
 
 /************************************************************************
@@ -307,16 +310,16 @@ ULONG WINAPI StorageBaseImpl_AddRef(
 ULONG WINAPI StorageBaseImpl_Release(
       IStorage* iface)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   /*
    * Decrease the reference count on this object.
    */
-  ULONG ref = InterlockedDecrement(&This->ref);
+  This->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref == 0)
+  if (This->ref==0)
   {
     /*
      * Since we are using a system of base-classes, we want to call the
@@ -324,9 +327,11 @@ ULONG WINAPI StorageBaseImpl_Release(
      * using virtual functions to implement the destructor.
      */
     This->v_destructor(This);
+
+    return 0;
   }
 
-  return ref;
+  return This->ref;
 }
 
 /************************************************************************
@@ -344,7 +349,7 @@ HRESULT WINAPI StorageBaseImpl_OpenStream(
   DWORD            reserved2, /* [in]  */
   IStream**        ppstm)     /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgStreamImpl*    newStream;
   StgProperty       currentProperty;
@@ -460,7 +465,7 @@ HRESULT WINAPI StorageBaseImpl_OpenStorage(
   DWORD            reserved,      /* [in] */
   IStorage**       ppstg)         /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   StorageInternalImpl* newStorage;
   IEnumSTATSTGImpl*      propertyEnumeration;
   StgProperty            currentProperty;
@@ -585,7 +590,7 @@ HRESULT WINAPI StorageBaseImpl_EnumElements(
   DWORD           reserved3, /* [in] */
   IEnumSTATSTG**  ppenum)    /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* newEnum;
 
   TRACE("(%p, %ld, %p, %ld, %p)\n",
@@ -632,7 +637,7 @@ HRESULT WINAPI StorageBaseImpl_Stat(
   STATSTG*         pstatstg,     /* [out] */
   DWORD            grfStatFlag)  /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   StgProperty    curProperty;
   BOOL           readSuccessful;
   HRESULT        res = STG_E_UNKNOWN;
@@ -695,7 +700,7 @@ HRESULT WINAPI StorageBaseImpl_RenameElement(
             const OLECHAR*   pwcsOldName,  /* [in] */
             const OLECHAR*   pwcsNewName)  /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgProperty       currentProperty;
   ULONG             foundPropertyIndex;
@@ -853,7 +858,7 @@ HRESULT WINAPI StorageBaseImpl_CreateStream(
             DWORD            reserved2, /* [in] */
             IStream**        ppstm)     /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgStreamImpl*    newStream;
   StgProperty       currentProperty, newStreamProperty;
@@ -1003,7 +1008,7 @@ HRESULT WINAPI StorageBaseImpl_SetClass(
   IStorage*        iface,
   REFCLSID         clsid) /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   HRESULT hRes = E_FAIL;
   StgProperty curProperty;
   BOOL success;
@@ -1158,7 +1163,7 @@ HRESULT WINAPI StorageImpl_CreateStorage(
    */
   hr = IStorage_OpenStorage(
          iface,
-         (const OLECHAR*)pwcsName,
+         (OLECHAR*)pwcsName,
          0,
          grfMode,
          0,
@@ -1284,8 +1289,8 @@ static ULONG getFreeProperty(
  *          0 when newPrpoerty == currentProperty
  */
 static LONG propertyNameCmp(
-    const OLECHAR *newProperty,
-    const OLECHAR *currentProperty)
+  OLECHAR *newProperty,
+  OLECHAR *currentProperty)
 {
   LONG diff      = lstrlenW(newProperty) - lstrlenW(currentProperty);
 
@@ -2675,7 +2680,7 @@ ULONG Storage32Impl_AddExtBlockDepot(StorageImpl* This)
   }
   else
   {
-    unsigned int i;
+    int i;
     /*
      * Follow the chain to the last one.
      */
@@ -3635,7 +3640,9 @@ ULONG   WINAPI IEnumSTATSTGImpl_AddRef(
   IEnumSTATSTG* iface)
 {
   IEnumSTATSTGImpl* const This=(IEnumSTATSTGImpl*)iface;
-  return InterlockedIncrement(&This->ref);
+
+  This->ref++;
+  return This->ref;
 }
 
 ULONG   WINAPI IEnumSTATSTGImpl_Release(
@@ -3645,7 +3652,8 @@ ULONG   WINAPI IEnumSTATSTGImpl_Release(
 
   ULONG newRef;
 
-  newRef = InterlockedDecrement(&This->ref);
+  This->ref--;
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
@@ -3962,8 +3970,8 @@ ULONG IEnumSTATSTGImpl_FindProperty(
       currentProperty);
 
     if ( propertyNameCmp(
-          (const OLECHAR*)currentProperty->name,
-          (const OLECHAR*)lpszPropName) == 0)
+          (OLECHAR*)currentProperty->name,
+          (OLECHAR*)lpszPropName) == 0)
       return currentSearchNode;
 
     /*
@@ -4096,9 +4104,7 @@ void StorageUtl_CopyPropertyToSTATSTG(
   /*
    * The copy of the string occurs only when the flag is not set
    */
-  if( ((statFlags & STATFLAG_NONAME) != 0) || 
-       (source->name == NULL) || 
-       (source->name[0] == 0) )
+  if ((statFlags & STATFLAG_NONAME) != 0)
   {
     destination->pwcsName = 0;
   }
@@ -4348,7 +4354,7 @@ BOOL BlockChainStream_WriteAt(BlockChainStream* This,
   ULONG offsetInBlock     = offset.u.LowPart % This->parentStorage->bigBlockSize;
   ULONG bytesToWrite;
   ULONG blockIndex;
-  const BYTE* bufferWalker;
+  BYTE* bufferWalker;
   BYTE* bigBlockBuffer;
 
   /*
@@ -4385,7 +4391,7 @@ BOOL BlockChainStream_WriteAt(BlockChainStream* This,
    * This is OK since we don't intend to modify that buffer.
    */
   *bytesWritten   = 0;
-  bufferWalker = (const BYTE*)buffer;
+  bufferWalker = (BYTE*)buffer;
 
   while ( (size > 0) && (blockIndex != BLOCK_END_OF_CHAIN) )
   {
@@ -5095,7 +5101,7 @@ BOOL SmallBlockChainStream_WriteAt(
   ULONG bytesToWriteInBuffer;
   ULONG blockIndex;
   ULONG bytesWrittenFromBigBlockFile;
-  const BYTE* bufferWalker;
+  BYTE* bufferWalker;
 
   /*
    * This should never happen on a small block file.
@@ -5121,7 +5127,7 @@ BOOL SmallBlockChainStream_WriteAt(
    * This is OK since we don't intend to modify that buffer.
    */
   *bytesWritten   = 0;
-  bufferWalker = (const BYTE*)buffer;
+  bufferWalker = (BYTE*)buffer;
   while ( (size > 0) && (blockIndex != BLOCK_END_OF_CHAIN) )
   {
     /*
@@ -5439,7 +5445,7 @@ HRESULT WINAPI StgCreateDocfile(
   if (pwcsName == 0)
   {
     WCHAR tempPath[MAX_PATH];
-    static const WCHAR prefix[] = { 'S', 'T', 'O', 0 };
+    WCHAR prefix[] = { 'S', 'T', 'O', 0 };
 
     if (!(grfMode & STGM_SHARE_EXCLUSIVE))
       return STG_E_INVALIDFLAG;
@@ -5528,16 +5534,6 @@ HRESULT WINAPI StgCreateDocfile(
          (void**)ppstgOpen);
 
   return hr;
-}
-
-/******************************************************************************
- *              StgCreateStorageEx        [OLE32.@]
- */
-HRESULT WINAPI StgCreateStorageEx(const WCHAR* pwcsName, DWORD grfMode, DWORD stgfmt, DWORD grfAttrs, STGOPTIONS* pStgOptions, void* reserved, REFIID riid, void** ppObjectOpen)
-{
-    TRACE("(%s, %lx, %lx, %lx, %p, %p, %p, %p)\n", debugstr_w(pwcsName),
-          grfMode, stgfmt, grfAttrs, pStgOptions, reserved, riid, ppObjectOpen);
-    return STG_E_UNIMPLEMENTEDFUNCTION;
 }
 
 /******************************************************************************
@@ -6428,7 +6424,7 @@ void OLECONVERT_GetOLE20FromOLE10(LPSTORAGE pDestStorage, BYTE *pBuffer, DWORD n
     IStorage *pTempStorage;
     DWORD dwNumOfBytesWritten;
     WCHAR wstrTempDir[MAX_PATH], wstrTempFile[MAX_PATH];
-    static const WCHAR wstrPrefix[] = {'s', 'i', 's', 0};
+    WCHAR wstrPrefix[] = {'s', 'i', 's', 0};
 
     /* Create a temp File */
     GetTempPathW(MAX_PATH, wstrTempDir);
@@ -6478,7 +6474,7 @@ DWORD OLECONVERT_WriteOLE20ToBuffer(LPSTORAGE pStorage, BYTE **pData)
     DWORD nDataLength = 0;
     IStorage *pTempStorage;
     WCHAR wstrTempDir[MAX_PATH], wstrTempFile[MAX_PATH];
-    static const WCHAR wstrPrefix[] = {'s', 'i', 's', 0};
+    WCHAR wstrPrefix[] = {'s', 'i', 's', 0};
 
     *pData = NULL;
 
@@ -6531,7 +6527,7 @@ void OLECONVERT_CreateOleStream(LPSTORAGE pStorage)
 {
     HRESULT hRes;
     IStream *pStream;
-    static const WCHAR wstrStreamName[] = {1,'O', 'l', 'e', 0};
+    WCHAR wstrStreamName[] = {1,'O', 'l', 'e', 0};
     BYTE pOleStreamHeader [] =
     {
         0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
@@ -6620,7 +6616,7 @@ static HRESULT STORAGE_WriteCompObj( LPSTORAGE pstg, CLSID *clsid,
 {
     IStream *pstm;
     HRESULT r = S_OK;
-    static const WCHAR szwStreamName[] = {1, 'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
+    WCHAR szwStreamName[] = {1, 'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
 
     static const BYTE unknown1[12] =
        { 0x01, 0x00, 0xFE, 0xFF, 0x03, 0x0A, 0x00, 0x00,
@@ -6662,13 +6658,12 @@ static HRESULT STORAGE_WriteCompObj( LPSTORAGE pstg, CLSID *clsid,
 /* enumerate HKEY_CLASSES_ROOT\\CLSID looking for a CLSID whose name matches */
 static HRESULT CLSIDFromUserType(LPCWSTR lpszUserType, CLSID *clsid)
 {
-    LONG r, i, len;
-    ULONG count;
+    LONG r, count, i, len;
     WCHAR szKey[0x40];
     HKEY hkey, hkeyclsid;
     LPWSTR buffer = NULL;
     BOOL found = FALSE;
-    static const WCHAR szclsid[] = { 'C','L','S','I','D',0 };
+    const WCHAR szclsid[] = { 'C','L','S','I','D',0 };
 
     TRACE("Finding CLSID for %s\n", debugstr_w(lpszUserType));
 
@@ -6775,7 +6770,7 @@ HRESULT WINAPI ReadFmtUserTypeStg (LPSTORAGE pstg, CLIPFORMAT* pcf, LPOLESTR* lp
 {
     HRESULT r;
     IStream *stm = 0;
-    static const WCHAR szCompObj[] = { 1, 'C','o','m','p','O','b','j', 0 };
+    const WCHAR szCompObj[] = { 1, 'C','o','m','p','O','b','j', 0 };
     unsigned char unknown1[12];
     unsigned char unknown2[16];
     DWORD count;
@@ -6860,7 +6855,7 @@ HRESULT OLECONVERT_CreateCompObjStream(LPSTORAGE pStorage, LPCSTR strOleTypeName
     IStream *pStream;
     HRESULT hStorageRes, hRes = S_OK;
     OLECONVERT_ISTORAGE_COMPOBJ IStorageCompObj;
-    static const WCHAR wstrStreamName[] = {1,'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
+    WCHAR wstrStreamName[] = {1,'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
     WCHAR bufferW[OLESTREAM_MAX_STR_LEN];
 
     BYTE pCompObjUnknown1[] = {0x01, 0x00, 0xFE, 0xFF, 0x03, 0x0A, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -6961,7 +6956,7 @@ void OLECONVERT_CreateOlePresStream(LPSTORAGE pStorage, DWORD dwExtentX, DWORD d
 {
     HRESULT hRes;
     IStream *pStream;
-    static const WCHAR wstrStreamName[] = {2, 'O', 'l', 'e', 'P', 'r', 'e', 's', '0', '0', '0', 0};
+    WCHAR wstrStreamName[] = {2, 'O', 'l', 'e', 'P', 'r', 'e', 's', '0', '0', '0', 0};
     BYTE pOlePresStreamHeader [] =
     {
         0xFF, 0xFF, 0xFF, 0xFF, 0x03, 0x00, 0x00, 0x00,
@@ -7045,7 +7040,7 @@ void OLECONVERT_CreateOle10NativeStream(LPSTORAGE pStorage, BYTE *pData, DWORD d
 {
     HRESULT hRes;
     IStream *pStream;
-    static const WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
+    WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
 
     /* Create the Ole10Native Stream */
     hRes = IStorage_CreateStream(pStorage, wstrStreamName,
@@ -7086,7 +7081,7 @@ HRESULT OLECONVERT_GetOLE10ProgID(LPSTORAGE pStorage, char *strProgID, DWORD *dw
     IStream *pStream;
     LARGE_INTEGER iSeekPos;
     OLECONVERT_ISTORAGE_COMPOBJ CompObj;
-    static const WCHAR wstrStreamName[] = {1,'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
+    WCHAR wstrStreamName[] = {1,'C', 'o', 'm', 'p', 'O', 'b', 'j', 0};
 
     /* Open the CompObj Stream */
     hRes = IStorage_OpenStream(pStorage, wstrStreamName, NULL,
@@ -7155,7 +7150,7 @@ void OLECONVERT_GetOle10PresData(LPSTORAGE pStorage, OLECONVERT_OLESTREAM_DATA *
 
     HRESULT hRes;
     IStream *pStream;
-    static const WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
+    WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
 
     /* Initialize Default data for OLESTREAM */
     pOleStreamData[0].dwOleID = OLESTREAM_ID;
@@ -7208,7 +7203,7 @@ void OLECONVERT_GetOle20PresData(LPSTORAGE pStorage, OLECONVERT_OLESTREAM_DATA *
     HRESULT hRes;
     IStream *pStream;
     OLECONVERT_ISTORAGE_OLEPRES olePress;
-    static const WCHAR wstrStreamName[] = {2, 'O', 'l', 'e', 'P', 'r', 'e', 's', '0', '0', '0', 0};
+    WCHAR wstrStreamName[] = {2, 'O', 'l', 'e', 'P', 'r', 'e', 's', '0', '0', '0', 0};
 
     /* Initialize Default data for OLESTREAM */
     pOleStreamData[0].dwOleID = OLESTREAM_ID;
@@ -7233,7 +7228,7 @@ void OLECONVERT_GetOle20PresData(LPSTORAGE pStorage, OLECONVERT_OLESTREAM_DATA *
     {
         LARGE_INTEGER iSeekPos;
         METAFILEPICT16 MetaFilePict;
-        static const char strMetafilePictName[] = "METAFILEPICT";
+        char strMetafilePictName[] = "METAFILEPICT";
 
         /* Set the TypeID for a Metafile */
         pOleStreamData[1].dwTypeID = 5;
@@ -7389,7 +7384,7 @@ HRESULT WINAPI OleConvertIStorageToOLESTREAM (
     HRESULT hRes = S_OK;
     IStream *pStream;
     OLECONVERT_OLESTREAM_DATA pOleStreamData[2];
-    static const WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
+    WCHAR wstrStreamName[] = {1, 'O', 'l', 'e', '1', '0', 'N', 'a', 't', 'i', 'v', 'e', 0};
 
 
     memset(pOleStreamData, 0, sizeof(pOleStreamData));

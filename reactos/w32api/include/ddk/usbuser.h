@@ -31,11 +31,12 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 #include "ntddk.h"
 #include "usb.h"
 #include "usbiodef.h"
 
-#include <pshpack1.h>
 
 #define USBUSER_VERSION                   0x0004
 
@@ -319,7 +320,7 @@ typedef struct _USBUSER_GET_USB2HW_VERSION {
 	USB_USB2HW_VERSION_PARAMETERS  Parameters;
 } USBUSER_GET_USB2HW_VERSION, *PUSBUSER_GET_USB2HW_VERSION;
 
-#include <poppack.h>
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

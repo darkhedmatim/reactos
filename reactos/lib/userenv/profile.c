@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: profile.c,v 1.17 2004/11/19 20:02:47 weiden Exp $
+/* $Id: profile.c,v 1.8 2004/03/17 14:46:23 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -25,7 +7,13 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#include "precomp.h"
+#include <ntos.h>
+#include <windows.h>
+#include <string.h>
+
+#include <userenv.h>
+
+#include "internal.h"
 
 
 /* FUNCTIONS ***************************************************************/
@@ -35,8 +23,10 @@ AppendSystemPostfix (LPWSTR lpName,
 		     DWORD dwMaxLength)
 {
   WCHAR szSystemRoot[MAX_PATH];
+  WCHAR szDrivePostfix[3];
   LPWSTR lpszPostfix;
   LPWSTR lpszPtr;
+  DWORD dwPostfixLength;
 
   /* Build profile name postfix */
   if (!ExpandEnvironmentStringsW (L"%SystemRoot%",
@@ -60,40 +50,28 @@ AppendSystemPostfix (LPWSTR lpName,
       lpszPtr++;
     }
 
-  if (wcslen(lpName) + wcslen(lpszPostfix) >= dwMaxLength)
+  dwPostfixLength = wcslen (lpszPostfix);
+  if (szSystemRoot[0] != L'C')
+    {
+      dwPostfixLength += 2;
+      szDrivePostfix[0] = L'_';
+      szDrivePostfix[1] = szSystemRoot[0];
+      szDrivePostfix[2] = (WCHAR)0;
+    }
+
+  if (wcslen (lpName) + dwPostfixLength >= dwMaxLength)
     {
       DPRINT1("Error: buffer overflow\n");
       return FALSE;
     }
 
-  wcscat(lpName, lpszPostfix);
-
-  return TRUE;
-}
-
-
-BOOL WINAPI
-CreateUserProfileA (PSID Sid,
-		    LPCSTR lpUserName)
-{
-  UNICODE_STRING UserName;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz (&UserName,
-					     (LPSTR)lpUserName);
-  if (!NT_SUCCESS(Status))
+  wcscat (lpName, lpszPostfix);
+  if (szSystemRoot[0] != L'C')
     {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
+      wcscat (lpName, szDrivePostfix);
     }
 
-  bResult = CreateUserProfileW (Sid,
-				UserName.Buffer);
-
-  RtlFreeUnicodeString (&UserName);
-
-  return bResult;
+  return TRUE;
 }
 
 
@@ -112,7 +90,7 @@ CreateUserProfileW (PSID Sid,
   HKEY hKey;
   NTSTATUS Status;
 
-  DPRINT("CreateUserProfileW() called\n");
+  DPRINT ("CreateUserProfileW() called\n");
 
   if (RegOpenKeyExW (HKEY_LOCAL_MACHINE,
 		     L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList",
@@ -267,13 +245,12 @@ CreateUserProfileW (PSID Sid,
   RegCloseKey (hKey);
 
   /* Create user hive name */
-  wcscpy (szBuffer, szUserProfilePath);
-  wcscat (szBuffer, L"\\ntuser.dat");
+  wcscat (szUserProfilePath, L"\\ntuser.dat");
 
   /* Create new user hive */
   if (RegLoadKeyW (HKEY_USERS,
 		   SidString.Buffer,
-		   szBuffer))
+		   szUserProfilePath))
     {
       DPRINT1("Error: %lu\n", GetLastError());
       RtlFreeUnicodeString (&SidString);
@@ -281,7 +258,7 @@ CreateUserProfileW (PSID Sid,
     }
 
   /* Initialize user hive */
-  if (!CreateUserHive (SidString.Buffer, szUserProfilePath))
+  if (!CreateUserHive (SidString.Buffer))
     {
       DPRINT1("Error: %lu\n", GetLastError());
       RtlFreeUnicodeString (&SidString);
@@ -293,41 +270,9 @@ CreateUserProfileW (PSID Sid,
 
   RtlFreeUnicodeString (&SidString);
 
-  DPRINT("CreateUserProfileW() done\n");
+  DPRINT ("CreateUserProfileW() done\n");
 
   return TRUE;
-}
-
-
-BOOL WINAPI
-GetAllUsersProfileDirectoryA (LPSTR lpProfileDir,
-			      LPDWORD lpcchSize)
-{
-  LPWSTR lpBuffer;
-  BOOL bResult;
-
-  lpBuffer = GlobalAlloc (GMEM_FIXED,
-			  *lpcchSize * sizeof(WCHAR));
-  if (lpBuffer == NULL)
-    return FALSE;
-
-  bResult = GetAllUsersProfileDirectoryW (lpBuffer,
-					  lpcchSize);
-  if (bResult)
-    {
-      WideCharToMultiByte (CP_ACP,
-			   0,
-			   lpBuffer,
-			   -1,
-			   lpProfileDir,
-			   *lpcchSize,
-			   NULL,
-			   NULL);
-    }
-
-  GlobalFree (lpBuffer);
-
-  return bResult;
 }
 
 
@@ -351,7 +296,7 @@ GetAllUsersProfileDirectoryW (LPWSTR lpProfileDir,
     }
 
   /* Get profiles path */
-  dwLength = sizeof(szBuffer);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"ProfilesDirectory",
 			NULL,
@@ -375,7 +320,7 @@ GetAllUsersProfileDirectoryW (LPWSTR lpProfileDir,
     }
 
   /* Get 'AllUsersProfile' name */
-  dwLength = sizeof(szBuffer);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"AllUsersProfile",
 			NULL,
@@ -393,7 +338,7 @@ GetAllUsersProfileDirectoryW (LPWSTR lpProfileDir,
   wcscat (szProfilePath, L"\\");
   wcscat (szProfilePath, szBuffer);
 
-  dwLength = wcslen (szProfilePath) + 1;
+  dwLength = wcslen (szProfilePath);
   if (lpProfileDir != NULL)
     {
       if (*lpcchSize < dwLength)
@@ -409,38 +354,6 @@ GetAllUsersProfileDirectoryW (LPWSTR lpProfileDir,
   *lpcchSize = dwLength;
 
   return TRUE;
-}
-
-
-BOOL WINAPI
-GetDefaultUserProfileDirectoryA (LPSTR lpProfileDir,
-				 LPDWORD lpcchSize)
-{
-  LPWSTR lpBuffer;
-  BOOL bResult;
-
-  lpBuffer = GlobalAlloc (GMEM_FIXED,
-			  *lpcchSize * sizeof(WCHAR));
-  if (lpBuffer == NULL)
-    return FALSE;
-
-  bResult = GetDefaultUserProfileDirectoryW (lpBuffer,
-					     lpcchSize);
-  if (bResult)
-    {
-      WideCharToMultiByte (CP_ACP,
-			   0,
-			   lpBuffer,
-			   -1,
-			   lpProfileDir,
-			   *lpcchSize,
-			   NULL,
-			   NULL);
-    }
-
-  GlobalFree (lpBuffer);
-
-  return bResult;
 }
 
 
@@ -464,7 +377,7 @@ GetDefaultUserProfileDirectoryW (LPWSTR lpProfileDir,
     }
 
   /* Get profiles path */
-  dwLength = sizeof(szBuffer);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"ProfilesDirectory",
 			NULL,
@@ -488,7 +401,7 @@ GetDefaultUserProfileDirectoryW (LPWSTR lpProfileDir,
     }
 
   /* Get 'DefaultUserProfile' name */
-  dwLength = sizeof(szBuffer);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"DefaultUserProfile",
 			NULL,
@@ -506,7 +419,7 @@ GetDefaultUserProfileDirectoryW (LPWSTR lpProfileDir,
   wcscat (szProfilePath, L"\\");
   wcscat (szProfilePath, szBuffer);
 
-  dwLength = wcslen (szProfilePath) + 1;
+  dwLength = wcslen (szProfilePath);
   if (lpProfileDir != NULL)
     {
       if (*lpcchSize < dwLength)
@@ -522,38 +435,6 @@ GetDefaultUserProfileDirectoryW (LPWSTR lpProfileDir,
   *lpcchSize = dwLength;
 
   return TRUE;
-}
-
-
-BOOL WINAPI
-GetProfilesDirectoryA (LPSTR lpProfileDir,
-		       LPDWORD lpcchSize)
-{
-  LPWSTR lpBuffer;
-  BOOL bResult;
-
-  lpBuffer = GlobalAlloc (GMEM_FIXED,
-			  *lpcchSize * sizeof(WCHAR));
-  if (lpBuffer == NULL)
-    return FALSE;
-
-  bResult = GetProfilesDirectoryW (lpBuffer,
-				   lpcchSize);
-  if (bResult)
-    {
-      WideCharToMultiByte (CP_ACP,
-			   0,
-			   lpBuffer,
-			   -1,
-			   lpProfileDir,
-			   *lpcchSize,
-			   NULL,
-			   NULL);
-    }
-
-  GlobalFree (lpBuffer);
-
-  return bResult;
 }
 
 
@@ -577,7 +458,7 @@ GetProfilesDirectoryW (LPWSTR lpProfilesDir,
     }
 
   /* Get profiles path */
-  dwLength = sizeof(szBuffer);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"ProfilesDirectory",
 			NULL,
@@ -601,7 +482,7 @@ GetProfilesDirectoryW (LPWSTR lpProfilesDir,
       return FALSE;
     }
 
-  dwLength = wcslen (szProfilesPath) + 1;
+  dwLength = wcslen (szProfilesPath);
   if (lpProfilesDir != NULL)
     {
       if (*lpcchSize < dwLength)
@@ -617,40 +498,6 @@ GetProfilesDirectoryW (LPWSTR lpProfilesDir,
   *lpcchSize = dwLength;
 
   return TRUE;
-}
-
-
-BOOL WINAPI
-GetUserProfileDirectoryA (HANDLE hToken,
-			  LPSTR lpProfileDir,
-			  LPDWORD lpcchSize)
-{
-  LPWSTR lpBuffer;
-  BOOL bResult;
-
-  lpBuffer = GlobalAlloc (GMEM_FIXED,
-			  *lpcchSize * sizeof(WCHAR));
-  if (lpBuffer == NULL)
-    return FALSE;
-
-  bResult = GetUserProfileDirectoryW (hToken,
-				      lpBuffer,
-				      lpcchSize);
-  if (bResult)
-    {
-      WideCharToMultiByte (CP_ACP,
-			   0,
-			   lpBuffer,
-			   -1,
-			   lpProfileDir,
-			   *lpcchSize,
-			   NULL,
-			   NULL);
-    }
-
-  GlobalFree (lpBuffer);
-
-  return bResult;
 }
 
 
@@ -694,7 +541,7 @@ GetUserProfileDirectoryW (HANDLE hToken,
       return FALSE;
     }
 
-  dwLength = sizeof(szRawImagePath);
+  dwLength = MAX_PATH * sizeof(WCHAR);
   if (RegQueryValueExW (hKey,
 			L"ProfileImagePath",
 			NULL,
@@ -722,8 +569,8 @@ GetUserProfileDirectoryW (HANDLE hToken,
 
   DPRINT ("ImagePath: '%S'\n", szImagePath);
 
-  dwLength = wcslen (szImagePath) + 1;
-  if (*lpcchSize < dwLength)
+  dwLength = wcslen (szImagePath);
+  if (dwLength > *lpcchSize)
     {
       DPRINT1 ("Buffer too small\n");
       SetLastError (ERROR_INSUFFICIENT_BUFFER);
@@ -775,21 +622,12 @@ CheckForLoadedProfile (HANDLE hToken)
 
 
 BOOL WINAPI
-LoadUserProfileA (HANDLE hToken,
-		  LPPROFILEINFOA lpProfileInfo)
-{
-  DPRINT ("LoadUserProfileA() not implemented\n");
-  return FALSE;
-}
-
-
-BOOL WINAPI
 LoadUserProfileW (HANDLE hToken,
 		  LPPROFILEINFOW lpProfileInfo)
 {
   WCHAR szUserHivePath[MAX_PATH];
   UNICODE_STRING SidString;
-  DWORD dwLength = sizeof(szUserHivePath) / sizeof(szUserHivePath[0]);
+  DWORD dwLength;
 
   DPRINT ("LoadUserProfileW() called\n");
 

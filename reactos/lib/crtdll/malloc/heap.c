@@ -1,4 +1,5 @@
-#include "precomp.h"
+
+#include <windows.h>
 #include <msvcrt/malloc.h>
 
 /*

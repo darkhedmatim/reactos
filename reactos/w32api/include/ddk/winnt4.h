@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#pragma pack(push,4)
+
 typedef struct _ZONE_SEGMENT_HEADER {
   SINGLE_LIST_ENTRY  SegmentList;
   PVOID  Reserved;
@@ -596,6 +598,8 @@ Exfi386InterlockedExchangeUlong(
 #define ExInterlockedExchangeUlong(Target, Value, Lock) Exfi386InterlockedExchangeUlong(Target, Value)
 
 #endif /* _X86_ */
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -1,19 +1,16 @@
-# $Id: makefile,v 1.68 2004/10/03 14:24:42 weiden Exp $
+# $Id: makefile,v 1.63 2004/02/26 12:23:29 ekohl Exp $
 
 PATH_TO_TOP = ../..
 
 PATH_TO_MSVCRT = ../msvcrt
 
+TARGET_DEFONLY = yes
+
 TARGET_TYPE = dynlink
 
 TARGET_NAME = crtdll
 
-TARGET_PCH = precomp.h
-
-TARGET_BASE = $(TARGET_BASE_LIB_CRTDLL)
-
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
+TARGET_BASE = 0x77630000
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
@@ -359,9 +356,9 @@ STDIO_OBJECTS = \
 	$(PATH_TO_MSVCRT)/stdio/tmpfile.o \
 	$(PATH_TO_MSVCRT)/stdio/tmpnam.o \
 	$(PATH_TO_MSVCRT)/stdio/ungetc.o \
-	$(PATH_TO_MSVCRT)/stdio/vfprintf.o \
+	stdio/vfprintf.o \
 	$(PATH_TO_MSVCRT)/stdio/vfscanf.o \
-	$(PATH_TO_MSVCRT)/stdio/vfwprint.o \
+	stdio/vfwprint.o \
 	$(PATH_TO_MSVCRT)/stdio/vprintf.o \
 	$(PATH_TO_MSVCRT)/stdio/vscanf.o \
 	$(PATH_TO_MSVCRT)/stdio/vsprintf.o \

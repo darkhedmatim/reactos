@@ -1,4 +1,4 @@
-/* $Id: exception.c,v 1.18 2004/07/01 02:40:22 hyperion Exp $
+/* $Id: exception.c,v 1.16 2003/09/13 06:17:51 vizzini Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -6,10 +6,8 @@
  * FILE:              lib/ntdll/rtl/exception.c
  * PROGRAMERS:        David Welch <welch@cwcom.net>
  *                    Skywing <skywing@valhallalegends.com>
- *                    KJK::Hyperion <noog@libero.it>
  * UPDATES:           Skywing, 09/11/2003: Implemented RtlRaiseException and
  *                    KiUserRaiseExceptionDispatcher.
- *                    KJK::Hyperion, 22/06/2003: Moved common parts to rtl
  */
 
 /* INCLUDES *****************************************************************/
@@ -42,6 +40,8 @@ KiUserExceptionDispatcher(PEXCEPTION_RECORD ExceptionRecord,
   EXCEPTION_RECORD NestedExceptionRecord;
   NTSTATUS Status;
 
+  DPRINT("KiUserExceptionDispatcher()\n");
+
   if (RtlpDispatchException(ExceptionRecord, Context) != ExceptionContinueExecution)
     {
       Status = NtContinue(Context, FALSE);
@@ -59,6 +59,28 @@ KiUserExceptionDispatcher(PEXCEPTION_RECORD ExceptionRecord,
   RtlRaiseException(&NestedExceptionRecord);
 }
 
+/* implemented in except.s */
+VOID
+RtlpCaptureContext(PCONTEXT Context);
+
+/*
+ * @implemented
+ */
+VOID STDCALL
+RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
+{
+  CONTEXT Context;
+  NTSTATUS Status;
+
+  RtlpCaptureContext(&Context);
+
+  ExceptionRecord->ExceptionAddress = (PVOID)(*(((PULONG)Context.Ebp)+1));
+  Context.ContextFlags = CONTEXT_FULL;
+
+  Status = ZwRaiseException(ExceptionRecord, &Context, TRUE);
+  RtlRaiseException(ExceptionRecord);
+  RtlRaiseStatus(Status); /* If we get to this point, something is seriously wrong... */
+}
 
 /*
  * @implemented

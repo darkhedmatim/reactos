@@ -92,7 +92,7 @@ struct Pane : public SubclassedWindow
 	void	calc_single_width(int col);
 	void	draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol=-1);
 
-	void	insert_entries(Entry* dir, int idx=-1);
+	void	insert_entries(Entry* dir, int idx);
 	BOOL	command(UINT cmd);
 	int		Notify(int id, NMHDR* pnmh);
 
@@ -101,7 +101,7 @@ protected:
 
 	void	calc_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
 	void	calc_tabbed_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
-	struct MainFrameBase* get_frame();
+	MainFrame* get_frame();
 
 protected:
 	HIMAGELIST	_himl;

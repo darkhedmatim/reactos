@@ -18,16 +18,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
- * $Id: bootvid.c,v 1.13 2004/10/17 18:51:09 gvg Exp $
+ * $Id: bootvid.c,v 1.7 2004/03/04 18:55:08 navaraf Exp $
  */
 
 /* INCLUDES ******************************************************************/
 
 #include <ddk/ntddk.h>
 #include <ddk/ntbootvid.h>
+#include <reactos/resource.h>
 #include <rosrtl/string.h>
 #include "bootvid.h"
-#include "resource.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -41,7 +41,7 @@
  * - Graphics: Data Rotate (Index 3)
  *   Set to zero to indicate that the data written to video memory by
  *   CPU should be processed unmodified.
- * - Graphics: Mode Register (Index 5)
+ * - Graphics: Mode Register (index 5)
  *   Set to Write Mode 2 and Read Mode 0.
  */
 
@@ -123,7 +123,7 @@ InbvMapVideoMemory(VOID)
    PHYSICAL_ADDRESS PhysicalAddress;
 
    PhysicalAddress.QuadPart = 0xA0000;
-   VideoMemory = MmMapIoSpace(PhysicalAddress, 0x10000, MmNonCached);
+   VideoMemory = MmMapIoSpace(PhysicalAddress, 0x10000, FALSE);
 
    return VideoMemory != NULL;
 }
@@ -327,7 +327,6 @@ InbvDisplayCompressedBitmap()
    ULONG bfOffBits;
    ULONG clen;
    PCHAR ImageData;
-   UCHAR ClrUsed;
 
    bminfo = (PBITMAPV5HEADER) &BootimageBitmap[0];
    DPRINT("bV5Size = %d\n", bminfo->bV5Size);
@@ -342,14 +341,9 @@ InbvDisplayCompressedBitmap()
    DPRINT("bV5ClrUsed = %d\n", bminfo->bV5ClrUsed);
    DPRINT("bV5ClrImportant = %d\n", bminfo->bV5ClrImportant);
 
-   if (bminfo->bV5ClrUsed)
-      ClrUsed = bminfo->bV5ClrUsed;
-   else
-      ClrUsed = 1 << bminfo->bV5BitCount;
-
-   bfOffBits = bminfo->bV5Size + ClrUsed * sizeof(RGBQUAD);
+   bfOffBits = bminfo->bV5Size + bminfo->bV5ClrUsed * sizeof(RGBQUAD);
    DPRINT("bfOffBits = %d\n", bfOffBits);
-   DPRINT("size of color indices = %d\n", ClrUsed * sizeof(RGBQUAD));
+   DPRINT("size of color indices = %d\n", bminfo->bV5ClrUsed * sizeof(RGBQUAD));
    DPRINT("first byte of data = %d\n", BootimageBitmap[bfOffBits]);
 
    InbvSetBlackPalette();
@@ -402,11 +396,6 @@ InbvDisplayCompressedBitmap()
             if (b == 0)
             {
                /* End of line */
-               if (k % bminfo->bV5Width)
-               {
-                  cury = k / bminfo->bV5Width;
-                  k = (cury + 1) * bminfo->bV5Width;
-               }
             }
             else if (b == 1)
             {
@@ -476,7 +465,6 @@ InbvFadeUpPalette()
    LARGE_INTEGER Interval;
    FADER_PALETTE_ENTRY FaderPalette[16];
    FADER_PALETTE_ENTRY FaderPaletteDelta[16];
-   UCHAR ClrUsed;
 
    RtlZeroMemory(&FaderPalette, sizeof(FaderPalette));
    RtlZeroMemory(&FaderPaletteDelta, sizeof(FaderPaletteDelta));
@@ -484,16 +472,14 @@ InbvFadeUpPalette()
    bminfo = (PBITMAPV5HEADER)&BootimageBitmap[0];
    Palette = (PRGBQUAD)&BootimageBitmap[bminfo->bV5Size];
 
-   if (bminfo->bV5ClrUsed)
-      ClrUsed = bminfo->bV5ClrUsed;
-   else
-      ClrUsed = 1 << bminfo->bV5BitCount;
-
-   for (i = 0; i < 16 && i < ClrUsed; i++)
+   for (i = 0; i < 16; i++)
    {
-      FaderPaletteDelta[i].r = ((Palette[i].rgbRed << 8) / PALETTE_FADE_STEPS);
-      FaderPaletteDelta[i].g = ((Palette[i].rgbGreen << 8) / PALETTE_FADE_STEPS);
-      FaderPaletteDelta[i].b = ((Palette[i].rgbBlue << 8) / PALETTE_FADE_STEPS);
+      if (i < bminfo->bV5ClrUsed)
+      {
+         FaderPaletteDelta[i].r = ((Palette[i].rgbRed << 8) / PALETTE_FADE_STEPS);
+         FaderPaletteDelta[i].g = ((Palette[i].rgbGreen << 8) / PALETTE_FADE_STEPS);
+         FaderPaletteDelta[i].b = ((Palette[i].rgbBlue << 8) / PALETTE_FADE_STEPS);
+      }
    }
 
    for (i = 0; i < PALETTE_FADE_STEPS; i++)
@@ -502,7 +488,7 @@ InbvFadeUpPalette()
       READ_PORT_UCHAR(STATUS);
       WRITE_PORT_UCHAR(ATTRIB, 0x00);
 
-      for (c = 0; c < ClrUsed; c++)
+      for (c = 0; c < bminfo->bV5ClrUsed; c++)
       {
          /* Add the delta */
          FaderPalette[c].r += FaderPaletteDelta[c].r;
@@ -605,7 +591,6 @@ VidDispatch(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
                FunctionTable = (NTBOOTVID_FUNCTION_TABLE *)
                   Irp->AssociatedIrp.SystemBuffer;
                FunctionTable->ResetDisplay = VidResetDisplay;
-               Irp->IoStatus.Information = sizeof(NTBOOTVID_FUNCTION_TABLE);
                break;
 
             case IOCTL_BOOTVID_CLEANUP:

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.42 2004/12/30 03:42:03 navaraf Exp $
+# $Id: makefile,v 1.36 2004/03/23 00:18:54 gvg Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,9 +6,7 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = gdi32
 
-TARGET_BASE = $(TARGET_BASE_LIB_GDI32)
-
-TARGET_PCH = include/precomp.h
+TARGET_BASE = 0x77ed0000
 
 TARGET_SDKLIBS = rosrtl.a ntdll.a advapi32.a kernel32.a
 
@@ -17,10 +15,7 @@ TARGET_CFLAGS = \
  -DUNICODE \
  -Wall \
  -Werror \
- -fno-builtin \
- -D__USE_W32API \
- -DWINVER=0x0600 \
- -D_WIN32_WINNT=0x0501
+ -fno-builtin
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
@@ -31,7 +26,6 @@ MAIN_OBJECTS = main/dllmain.o
 
 MISC_OBJECTS = \
  misc/heap.o \
- misc/misc.o \
  misc/stubs.o \
  misc/stubsa.o \
  misc/stubsw.o \
@@ -40,11 +34,16 @@ MISC_OBJECTS = \
 
 OBJECTS_OBJECTS = \
  objects/bitblt.o \
+ objects/brush.o \
+ objects/clip.o \
  objects/dc.o \
+ objects/fillshap.o \
  objects/font.o \
+ objects/line.o \
  objects/linedda.o \
- objects/region.o \
  objects/metafile.o \
+ objects/pen.o \
+ objects/region.o \
  objects/text.o
 
 TARGET_OBJECTS = $(MAIN_OBJECTS) $(MISC_OBJECTS) $(OBJECTS_OBJECTS)

@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: registry.c,v 1.7 2004/10/03 09:27:22 ekohl Exp $
+/* $Id: registry.c,v 1.4 2004/03/16 11:34:51 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -25,7 +7,11 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#include "precomp.h"
+#include <ntos.h>
+#include <windows.h>
+#include <string.h>
+
+#include "internal.h"
 
 
 /* FUNCTIONS ***************************************************************/
@@ -240,11 +226,11 @@ CopyKey (HKEY hDstKey,
 
 
 BOOL
-CreateUserHive (LPCWSTR lpKeyName,
-		LPCWSTR lpProfilePath)
+CreateUserHive (LPCWSTR lpKeyName)
 {
   HKEY hDefaultKey;
   HKEY hUserKey;
+  BOOL bResult;
 
   DPRINT ("CreateUserHive(%S) called\n", lpKeyName);
 
@@ -269,22 +255,8 @@ CreateUserHive (LPCWSTR lpKeyName,
       return FALSE;
     }
 
-  if (!CopyKey(hUserKey, hDefaultKey))
-    {
-      DPRINT1 ("Error: %lu\n", GetLastError());
-      RegCloseKey (hUserKey);
-      RegCloseKey (hDefaultKey);
-      return FALSE;
-    }
-
-  if (!UpdateUsersShellFolderSettings(lpProfilePath,
-				      hUserKey))
-    {
-      DPRINT1("Error: %lu\n", GetLastError());
-      RegCloseKey (hUserKey);
-      RegCloseKey (hDefaultKey);
-      return FALSE;
-    }
+  bResult = CopyKey (hUserKey,
+		     hDefaultKey);
 
   RegFlushKey (hUserKey);
 
@@ -293,7 +265,7 @@ CreateUserHive (LPCWSTR lpKeyName,
 
   DPRINT ("CreateUserHive() done\n");
 
-  return TRUE;
+  return bResult;
 }
 
 /* EOF */

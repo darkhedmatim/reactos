@@ -12,9 +12,6 @@
 extern "C" {
 #endif
 #include <objfwd.h>
-#define TARGET_IS_NT50_OR_LATER 1
-#define TARGET_IS_NT40_OR_LATER 1
-#define TARGET_IS_NT351_OR_WIN95_OR_LATER 1
 #define DECLSPEC_UUID(x)
 #define MIDL_INTERFACE(x) struct
 #define NDR_CHAR_REP_MASK (unsigned long)0xFL
@@ -153,16 +150,6 @@ void RPC_ENTRY tree_size_ndr(void*,PRPC_MESSAGE,char*,unsigned char);
 void RPC_ENTRY tree_peek_ndr(PRPC_MESSAGE,unsigned char**,char*,unsigned char);
 void *RPC_ENTRY midl_allocate(int);
 
-typedef struct
-{
-  unsigned long WireCodeset;
-  unsigned long DesiredReceivingCodeset;
-  void *CSArrayInfo;
-} CS_STUB_INFO;
-
-typedef struct _NDR_ASYNC_MESSAGE *PNDR_ASYNC_MESSAGE;
-typedef struct _NDR_CORRELATION_INFO *PNDR_CORRELATION_INFO;
-
 #pragma pack(push,4)
 typedef struct _MIDL_STUB_MESSAGE {
 	PRPC_MESSAGE RpcMsg;
@@ -180,7 +167,7 @@ typedef struct _MIDL_STUB_MESSAGE {
 	int IgnoreEmbeddedPointers;
 	unsigned char *PointerBufferMark;
 	unsigned char fBufferValid;
-	unsigned char uFlags;
+	unsigned char Unused;
 	unsigned long MaxCount;
 	unsigned long Offset;
 	unsigned long ActualCount;
@@ -209,21 +196,7 @@ typedef struct _MIDL_STUB_MESSAGE {
 	unsigned long *SizePtrLengthArray;
 	void*pArgQueue;
 	unsigned long dwStubPhase;
-	void *LowStackMark;
-	PNDR_ASYNC_MESSAGE pAsyncMsg;
-	PNDR_CORRELATION_INFO pCorrInfo;
-	unsigned char *pCorrMemory;
-	void *pMemoryList;
-	CS_STUB_INFO *pCSInfo;
-	unsigned char *ConformanceMark;
-	unsigned char *VarianceMark;
-	INT_PTR Unused;
-	struct _NDR_PROC_CONTEXT *pContext;
-	INT_PTR Reserved51_1;
-	INT_PTR Reserved51_2;
-	INT_PTR Reserved51_3;
-	INT_PTR Reserved51_4;
-	INT_PTR Reserved51_5;
+	unsigned long Reserved[5];
 } MIDL_STUB_MESSAGE,*PMIDL_STUB_MESSAGE;
 #pragma pack(pop)
 typedef void*(__RPC_API *GENERIC_BINDING_ROUTINE)(void*);
@@ -253,37 +226,6 @@ typedef struct _COMM_FAULT_OFFSETS {
 	short CommOffset;
 	short FaultOffset;
 } COMM_FAULT_OFFSETS;
-typedef unsigned long (__RPC_USER *USER_MARSHAL_SIZING_ROUTINE)(unsigned long *,unsigned long,void *);
-typedef unsigned char *(__RPC_USER *USER_MARSHAL_MARSHALLING_ROUTINE)(unsigned long *,unsigned char *,void *);
-typedef unsigned char *(__RPC_USER *USER_MARSHAL_UNMARSHALLING_ROUTINE)(unsigned long *,unsigned char *,void *);
-typedef void (__RPC_USER *USER_MARSHAL_FREEING_ROUTINE)(unsigned long *,void *);
-typedef struct _USER_MARSHAL_ROUTINE_QUADRUPLE {
-	USER_MARSHAL_SIZING_ROUTINE pfnBufferSize;
-	USER_MARSHAL_MARSHALLING_ROUTINE pfnMarshall;
-	USER_MARSHAL_UNMARSHALLING_ROUTINE pfnUnmarshall;
-	USER_MARSHAL_FREEING_ROUTINE pfnFree;
-} USER_MARSHAL_ROUTINE_QUADRUPLE;
-typedef void (__RPC_USER *NDR_NOTIFY_ROUTINE)(void);
-typedef enum _IDL_CS_CONVERT {
-	IDL_CS_NO_CONVERT,
-	IDL_CS_IN_PLACE_CONVERT,
-	IDL_CS_NEW_BUFFER_CONVERT
-} IDL_CS_CONVERT;
-typedef void (__RPC_USER *CS_TYPE_NET_SIZE_ROUTINE)(RPC_BINDING_HANDLE,unsigned long,unsigned long,IDL_CS_CONVERT*,unsigned long*,error_status_t*);
-typedef void (__RPC_USER *CS_TYPE_LOCAL_SIZE_ROUTINE)(RPC_BINDING_HANDLE,unsigned long,unsigned long,IDL_CS_CONVERT*,unsigned long*,error_status_t*);
-typedef void (__RPC_USER *CS_TYPE_TO_NETCS_ROUTINE)(RPC_BINDING_HANDLE,unsigned long,void*,unsigned long,byte*,unsigned long*,error_status_t*);
-typedef void (__RPC_USER *CS_TYPE_FROM_NETCS_ROUTINE)(RPC_BINDING_HANDLE,unsigned long,byte*,unsigned long,unsigned long,void*,unsigned long*,error_status_t*);
-typedef void (__RPC_USER *CS_TAG_GETTING_ROUTINE)(RPC_BINDING_HANDLE,int,unsigned long*,unsigned long*,unsigned long*,error_status_t*);
-typedef struct _NDR_CS_SIZE_CONVERT_ROUTINES {
-	CS_TYPE_NET_SIZE_ROUTINE pfnNetSize;
-	CS_TYPE_TO_NETCS_ROUTINE pfnToNetCs;
-	CS_TYPE_LOCAL_SIZE_ROUTINE pfnLocalSize;
-	CS_TYPE_FROM_NETCS_ROUTINE pfnFromNetCs;
-} NDR_CS_SIZE_CONVERT_ROUTINES;
-typedef struct _NDR_CS_ROUTINES {
-	NDR_CS_SIZE_CONVERT_ROUTINES *pSizeConvertRoutines;
-	CS_TAG_GETTING_ROUTINE *pTagGettingRoutines;
-} NDR_CS_ROUTINES;
 typedef struct _MIDL_STUB_DESC {
 	void*RpcInterfaceInformation;
 	void*(__RPC_API *pfnAllocate)(unsigned int);
@@ -303,12 +245,6 @@ typedef struct _MIDL_STUB_DESC {
 	MALLOC_FREE_STRUCT *pMallocFreeStruct;
 	long MIDLVersion;
 	const COMM_FAULT_OFFSETS *CommFaultOffsets;
-	const USER_MARSHAL_ROUTINE_QUADRUPLE *aUserMarshalQuadruple;
-	const NDR_NOTIFY_ROUTINE *NotifyRoutineTable;
-	ULONG_PTR mFlags;
-	const NDR_CS_ROUTINES *CsRoutineTables;
-	void *Reserved4;
-	ULONG_PTR Reserved5;
 } MIDL_STUB_DESC;
 typedef const MIDL_STUB_DESC *PMIDL_STUB_DESC;
 typedef void*PMIDL_XMIT_TYPE;
@@ -531,11 +467,6 @@ void*RPC_ENTRY NdrAllocate(PMIDL_STUB_MESSAGE,unsigned int);
 void RPC_ENTRY NdrClearOutParameters(PMIDL_STUB_MESSAGE,PFORMAT_STRING,void*);
 void*RPC_ENTRY NdrOleAllocate(unsigned int);
 void RPC_ENTRY NdrOleFree(void*);
-unsigned char*RPC_ENTRY NdrUserMarshalMarshall(PMIDL_STUB_MESSAGE,unsigned char*,PFORMAT_STRING);
-unsigned char*RPC_ENTRY NdrUserMarshalUnmarshall(PMIDL_STUB_MESSAGE,unsigned char**,PFORMAT_STRING,unsigned char);
-void RPC_ENTRY NdrUserMarshalBufferSize(PMIDL_STUB_MESSAGE,unsigned char*,PFORMAT_STRING);
-unsigned long RPC_ENTRY NdrUserMarshalMemorySize(PMIDL_STUB_MESSAGE,PFORMAT_STRING);
-void RPC_ENTRY NdrUserMarshalFree(PMIDL_STUB_MESSAGE,unsigned char*,PFORMAT_STRING);
 #ifdef __cplusplus
 }
 #endif

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: hook.c,v 1.10 2004/11/20 16:46:06 weiden Exp $
+/* $Id: hook.c,v 1.7 2004/04/07 00:58:05 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,17 @@
  *                   Copyright (C) 2002 Alexandre Julliard
  */
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <include/callback.h>
+#include <include/error.h>
+#include <include/hook.h>
+#include <include/object.h>
+#include <include/msgqueue.h>
+#include <include/winsta.h>
+#include <include/tags.h>
+#include <internal/ps.h>
+#include <internal/safe.h>
 
 #define NDEBUG
 #include <win32k/debug1.h>
@@ -64,7 +74,7 @@ STATIC FASTCALL PHOOK
 IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinStaObj)
 {
   PHOOK Hook;
-  PHOOKTABLE Table = Global ? GlobalHooks : MsqGetHooks(Thread->Tcb.Win32Thread->MessageQueue);
+  PHOOKTABLE Table = Global ? GlobalHooks : MsqGetHooks(Thread->Win32Thread->MessageQueue);
   HANDLE Handle;
 
   if (NULL == Table)
@@ -80,7 +90,7 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
         }
       else
         {
-          MsqSetHooks(Thread->Tcb.Win32Thread->MessageQueue, Table);
+          MsqSetHooks(Thread->Win32Thread->MessageQueue, Table);
         }
     }
 
@@ -113,7 +123,7 @@ IntGetTable(PHOOK Hook)
       return GlobalHooks;
     }
 
-  return MsqGetHooks(Hook->Thread->Tcb.Win32Thread->MessageQueue);
+  return MsqGetHooks(Hook->Thread->Win32Thread->MessageQueue);
 }
 
 /* get the first hook in the chain */
@@ -289,7 +299,7 @@ HOOK_CallHooks(INT HookId, INT Code, WPARAM wParam, LPARAM lParam)
   Result = IntCallHookProc(HookId, Code, wParam, lParam, Hook->Proc,
                            Hook->Ansi, &Hook->ModuleName);
 
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
 				          KernelMode,
 				          0,
 				          &WinStaObj);
@@ -319,11 +329,11 @@ HOOK_DestroyThreadHooks(PETHREAD Thread)
 
   if (NULL != GlobalHooks)
     {
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObj);
-
+  
       if(! NT_SUCCESS(Status))
         {
           DPRINT1("Invalid window station????\n");
@@ -367,11 +377,11 @@ NtUserCallNextHookEx(
   PWINSTATION_OBJECT WinStaObj;
   NTSTATUS Status;
 
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
 				          KernelMode,
 				          0,
 				          &WinStaObj);
-
+  
   if(! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -509,7 +519,7 @@ NtUserSetWindowsHookEx(
       return NULL;
     }
   
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
 				          KernelMode,
 				          0,
 				          &WinStaObj);
@@ -613,7 +623,7 @@ NtUserUnhookWindowsHookEx(
   PHOOK HookObj;
   NTSTATUS Status;
 
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
 				          KernelMode,
 				          0,
 				          &WinStaObj);
