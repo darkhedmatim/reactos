@@ -1,0 +1,8 @@
+base.tmp
+junk.tmp
+temp.exp
+sound.coff
+sound.sys
+sound.sys.unstripped
+
+*.map
