@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    TrueType bytecode interpreter (body).                                */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -30,10 +30,9 @@
 #ifdef TT_CONFIG_OPTION_BYTECODE_INTERPRETER
 
 
-#define TT_MULFIX           FT_MulFix
-#define TT_MULDIV           FT_MulDiv
-#define TT_MULDIV_NO_ROUND  FT_MulDiv_No_Round
-
+#define TT_MULFIX  FT_MulFix
+#define TT_MULDIV  FT_MulDiv
+#define TT_INT64   FT_Int64
 
   /*************************************************************************/
   /*                                                                       */
@@ -162,9 +161,6 @@
 
 #define CUR_Func_move( z, p, d ) \
           CUR.func_move( EXEC_ARG_ z, p, d )
-
-#define CUR_Func_move_orig( z, p, d ) \
-          CUR.func_move_orig( EXEC_ARG_ z, p, d )
 
 #define CUR_Func_dualproj( x, y ) \
           CUR.func_dualproj( EXEC_ARG_ x, y )
@@ -519,7 +515,8 @@
 
     if ( *size < new_max )
     {
-      if ( FT_REALLOC( *buff, *size, new_max * multiplier ) )
+      FT_FREE( *buff );
+      if ( FT_ALLOC( *buff, new_max * multiplier ) )
         return error;
       *size = new_max;
     }
@@ -1569,6 +1566,7 @@
 
     if ( v != 0 )
     {
+
       zone->cur[point].x += TT_MULDIV( distance,
                                        v * 0x10000L,
                                        CUR.F_dot_P );
@@ -1580,57 +1578,13 @@
 
     if ( v != 0 )
     {
+
       zone->cur[point].y += TT_MULDIV( distance,
                                        v * 0x10000L,
                                        CUR.F_dot_P );
 
       zone->tags[point] |= FT_CURVE_TAG_TOUCH_Y;
     }
-  }
-
-
-  /*************************************************************************/
-  /*                                                                       */
-  /* <Function>                                                            */
-  /*    Direct_Move_Orig                                                   */
-  /*                                                                       */
-  /* <Description>                                                         */
-  /*    Moves the *original* position of a point by a given distance along */
-  /*    the freedom vector.  Obviously, the point will not be `touched'.   */
-  /*                                                                       */
-  /* <Input>                                                               */
-  /*    point    :: The index of the point to move.                        */
-  /*                                                                       */
-  /*    distance :: The distance to apply.                                 */
-  /*                                                                       */
-  /* <InOut>                                                               */
-  /*    zone     :: The affected glyph zone.                               */
-  /*                                                                       */
-  static void
-  Direct_Move_Orig( EXEC_OP_ TT_GlyphZone  zone,
-                             FT_UShort     point,
-                             FT_F26Dot6    distance )
-  {
-    FT_F26Dot6  v;
-
-
-#ifdef TT_CONFIG_OPTION_UNPATENTED_HINTING
-    FT_ASSERT( !CUR.face->unpatented_hinting );
-#endif
-
-    v = CUR.GS.freeVector.x;
-
-    if ( v != 0 )
-      zone->org[point].x += TT_MULDIV( distance,
-                                       v * 0x10000L,
-                                       CUR.F_dot_P );
-
-    v = CUR.GS.freeVector.y;
-
-    if ( v != 0 )
-      zone->org[point].y += TT_MULDIV( distance,
-                                       v * 0x10000L,
-                                       CUR.F_dot_P );
   }
 
 
@@ -1670,38 +1624,6 @@
 
   /*************************************************************************/
   /*                                                                       */
-  /* Special versions of Direct_Move_Orig()                                */
-  /*                                                                       */
-  /*   The following versions are used whenever both vectors are both      */
-  /*   along one of the coordinate unit vectors, i.e. in 90% of the cases. */
-  /*                                                                       */
-  /*************************************************************************/
-
-
-  static void
-  Direct_Move_Orig_X( EXEC_OP_ TT_GlyphZone  zone,
-                               FT_UShort     point,
-                               FT_F26Dot6    distance )
-  {
-    FT_UNUSED_EXEC;
-
-    zone->org[point].x += distance;
-  }
-
-
-  static void
-  Direct_Move_Orig_Y( EXEC_OP_ TT_GlyphZone  zone,
-                               FT_UShort     point,
-                               FT_F26Dot6    distance )
-  {
-    FT_UNUSED_EXEC;
-
-    zone->org[point].y += distance;
-  }
-
-
-  /*************************************************************************/
-  /*                                                                       */
   /* <Function>                                                            */
   /*    Round_None                                                         */
   /*                                                                       */
@@ -1734,7 +1656,7 @@
     if ( distance >= 0 )
     {
       val = distance + compensation;
-      if ( distance && val < 0 )
+      if ( val < 0 )
         val = 0;
     }
     else {
@@ -1774,14 +1696,14 @@
     if ( distance >= 0 )
     {
       val = distance + compensation + 32;
-      if ( distance && val > 0 )
+      if ( val > 0 )
         val &= ~63;
       else
         val = 0;
     }
     else
     {
-      val = -FT_PIX_ROUND( compensation - distance );
+      val = -( ( compensation - distance + 32 ) & -64 );
       if ( val > 0 )
         val = 0;
     }
@@ -1817,13 +1739,13 @@
 
     if ( distance >= 0 )
     {
-      val = FT_PIX_FLOOR( distance + compensation ) + 32;
-      if ( distance && val < 0 )
+      val = ( ( distance + compensation ) & -64 ) + 32;
+      if ( val < 0 )
         val = 0;
     }
     else
     {
-      val = -( FT_PIX_FLOOR( compensation - distance ) + 32 );
+      val = -( ( (compensation - distance) & -64 ) + 32 );
       if ( val > 0 )
         val = 0;
     }
@@ -1860,7 +1782,7 @@
     if ( distance >= 0 )
     {
       val = distance + compensation;
-      if ( distance && val > 0 )
+      if ( val > 0 )
         val &= ~63;
       else
         val = 0;
@@ -1904,14 +1826,14 @@
     if ( distance >= 0 )
     {
       val = distance + compensation + 63;
-      if ( distance && val > 0 )
+      if ( val > 0 )
         val &= ~63;
       else
         val = 0;
     }
     else
     {
-      val = - FT_PIX_CEIL( compensation - distance );
+      val = -( ( compensation - distance + 63 ) & -64 );
       if ( val > 0 )
         val = 0;
     }
@@ -1948,14 +1870,14 @@
     if ( distance >= 0 )
     {
       val = distance + compensation + 16;
-      if ( distance && val > 0 )
+      if ( val > 0 )
         val &= ~31;
       else
         val = 0;
     }
     else
     {
-      val = -FT_PAD_ROUND( compensation - distance, 32 );
+      val = -( ( compensation - distance + 16 ) & -32 );
       if ( val > 0 )
         val = 0;
     }
@@ -1997,7 +1919,7 @@
     {
       val = ( distance - CUR.phase + CUR.threshold + compensation ) &
               -CUR.period;
-      if ( distance && val < 0 )
+      if ( val < 0 )
         val = 0;
       val += CUR.phase;
     }
@@ -2045,7 +1967,7 @@
     {
       val = ( ( distance - CUR.phase + CUR.threshold + compensation ) /
                 CUR.period ) * CUR.period;
-      if ( distance && val < 0 )
+      if ( val < 0 )
         val = 0;
       val += CUR.phase;
     }
@@ -2321,15 +2243,13 @@
 
       if ( CUR.GS.both_x_axis )
       {
-        CUR.func_project   = Project_x;
-        CUR.func_move      = Direct_Move_X;
-        CUR.func_move_orig = Direct_Move_Orig_X;
+        CUR.func_project  = Project_x;
+        CUR.func_move     = Direct_Move_X;
       }
       else
       {
-        CUR.func_project   = Project_y;
-        CUR.func_move      = Direct_Move_Y;
-        CUR.func_move_orig = Direct_Move_Orig_Y;
+        CUR.func_project  = Project_y;
+        CUR.func_move     = Direct_Move_Y;
       }
 
       if ( CUR.GS.dualVector.x == 0x4000 )
@@ -2380,30 +2300,23 @@
         CUR.func_dualproj = (TT_Project_Func)Dual_Project;
     }
 
-    CUR.func_move      = (TT_Move_Func)Direct_Move;
-    CUR.func_move_orig = (TT_Move_Func)Direct_Move_Orig;
+    CUR.func_move = (TT_Move_Func)Direct_Move;
 
     if ( CUR.F_dot_P == 0x40000000L )
     {
       if ( CUR.GS.freeVector.x == 0x4000 )
-      {
-        CUR.func_move      = (TT_Move_Func)Direct_Move_X;
-        CUR.func_move_orig = (TT_Move_Func)Direct_Move_Orig_X;
-      }
+        CUR.func_move = (TT_Move_Func)Direct_Move_X;
       else
       {
         if ( CUR.GS.freeVector.y == 0x4000 )
-        {
-          CUR.func_move      = (TT_Move_Func)Direct_Move_Y;
-          CUR.func_move_orig = (TT_Move_Func)Direct_Move_Orig_Y;
-        }
+          CUR.func_move = (TT_Move_Func)Direct_Move_Y;
       }
     }
 
     /* at small sizes, F_dot_P can become too small, resulting   */
     /* in overflows and `spikes' in a number of glyphs like `w'. */
 
-    if ( FT_ABS( CUR.F_dot_P ) < 0x4000000L )
+    if ( ABS( CUR.F_dot_P ) < 0x4000000L )
       CUR.F_dot_P = 0x40000000L;
 
     /* Disable cached aspect ratio */
@@ -2446,7 +2359,7 @@
     FT_UNUSED_EXEC;
 
 
-    if ( FT_ABS( Vx ) < 0x10000L && FT_ABS( Vy ) < 0x10000L )
+    if ( ABS( Vx ) < 0x10000L && ABS( Vy ) < 0x10000L )
     {
       Vx *= 0x100;
       Vy *= 0x100;
@@ -2974,19 +2887,19 @@
     args[0] -= args[1];
 
 
-#define DO_DIV                                               \
-    if ( args[1] == 0 )                                      \
-      CUR.error = TT_Err_Divide_By_Zero;                     \
-    else                                                     \
-      args[0] = TT_MULDIV_NO_ROUND( args[0], 64L, args[1] );
+#define DO_DIV                                      \
+    if ( args[1] == 0 )                             \
+      CUR.error = TT_Err_Divide_By_Zero;            \
+    else                                            \
+      args[0] = TT_MULDIV( args[0], 64L, args[1] );
 
 
 #define DO_MUL                                    \
     args[0] = TT_MULDIV( args[0], args[1], 64L );
 
 
-#define DO_ABS                   \
-    args[0] = FT_ABS( args[0] );
+#define DO_ABS                \
+    args[0] = ABS( args[0] );
 
 
 #define DO_NEG          \
@@ -2994,11 +2907,11 @@
 
 
 #define DO_FLOOR    \
-    args[0] = FT_PIX_FLOOR( args[0] );
+    args[0] &= -64;
 
 
 #define DO_CEILING                    \
-    args[0] = FT_PIX_CEIL( args[0] );
+    args[0] = ( args[0] + 63 ) & -64;
 
 
 #define DO_RS                          \
@@ -4106,9 +4019,9 @@
 
     K = CUR.stack[CUR.args - L];
 
-    FT_ARRAY_MOVE( &CUR.stack[CUR.args - L    ],
-                   &CUR.stack[CUR.args - L + 1],
-                   ( L - 1 ) );
+    FT_MEM_MOVE( &CUR.stack[CUR.args - L    ],
+                 &CUR.stack[CUR.args - L + 1],
+                 ( L - 1 ) * sizeof ( FT_Long ) );
 
     CUR.stack[CUR.args - 1] = K;
   }
@@ -5288,7 +5201,7 @@
       {
         *x = 0;
         *y = d;
-      }
+      }    
     }
     else
 #endif
@@ -5446,11 +5359,11 @@
         last_point = 0;
     }
 
-    /* XXX: UNDOCUMENTED! SHC does touch the points */
+    /* XXX: UNDOCUMENTED! SHC doesn't touch the points */
     for ( i = first_point; i <= last_point; i++ )
     {
       if ( zp.cur != CUR.zp2.cur || refp != i )
-        MOVE_Zp2_Point( i, dx, dy, TRUE );
+        MOVE_Zp2_Point( i, dx, dy, FALSE );
     }
   }
 
@@ -5585,11 +5498,9 @@
     }
 
     /* XXX: UNDOCUMENTED! behaviour */
-    if ( CUR.GS.gep1 == 0 )   /* if the point that is to be moved */
-                              /* is in twilight zone              */
+    if ( CUR.GS.gep0 == 0 )   /* if in twilight zone */
     {
       CUR.zp1.org[point] = CUR.zp0.org[CUR.GS.rp0];
-      CUR_Func_move_orig( &CUR.zp1, point, args[1] );
       CUR.zp1.cur[point] = CUR.zp1.org[point];
     }
 
@@ -5708,7 +5619,7 @@
 
     if ( ( CUR.opcode & 1 ) != 0 )   /* rounding and control cutin flag */
     {
-      if ( FT_ABS( distance - org_dist ) > CUR.GS.control_value_cutin )
+      if ( ABS( distance - org_dist ) > CUR.GS.control_value_cutin )
         distance = org_dist;
 
       distance = CUR_Func_round( distance, CUR.tt_metrics.compensations[0] );
@@ -5752,7 +5663,7 @@
 
     /* single width cutin test */
 
-    if ( FT_ABS( org_dist - CUR.GS.single_width_value ) <
+    if ( ABS( org_dist - CUR.GS.single_width_value ) <
          CUR.GS.single_width_cutin )
     {
       if ( org_dist >= 0 )
@@ -5842,7 +5753,7 @@
 
     /* single width test */
 
-    if ( FT_ABS( cvt_dist - CUR.GS.single_width_value ) <
+    if ( ABS( cvt_dist - CUR.GS.single_width_value ) <
          CUR.GS.single_width_cutin )
     {
       if ( cvt_dist >= 0 )
@@ -5886,7 +5797,7 @@
       /*      refer to the same zone.                                  */
 
       if ( CUR.GS.gep0 == CUR.GS.gep1 )
-        if ( FT_ABS( cvt_dist - org_dist ) >= CUR.GS.control_value_cutin )
+        if ( ABS( cvt_dist - org_dist ) >= CUR.GS.control_value_cutin )
           cvt_dist = org_dist;
 
       distance = CUR_Func_round(
@@ -6036,7 +5947,7 @@
     discriminant = TT_MULDIV( dax, -dby, 0x40 ) +
                    TT_MULDIV( day, dbx, 0x40 );
 
-    if ( FT_ABS( discriminant ) >= 0x40 )
+    if ( ABS( discriminant ) >= 0x40 )
     {
       val = TT_MULDIV( dx, -dby, 0x40 ) + TT_MULDIV( dy, dbx, 0x40 );
 

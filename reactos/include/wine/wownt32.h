@@ -25,9 +25,5 @@
 #define HWND_16(h32)      (LOWORD(h32))
 #endif
 
-#ifndef HWND_32
-#define HWND_32(h16)      ((HWND)      (ULONG_PTR)(h16))
-#endif
-
 #endif /* _WOWNT32_H_ */
 

@@ -5,7 +5,7 @@
 /*    Basic Type 1/Type 2 tables definitions and interface (specification  */
 /*    only).                                                               */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -23,12 +23,6 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-
-#ifdef FREETYPE_H
-#error "freetype.h of FreeType 1 has been loaded!"
-#error "Please fix the directory search order for header files"
-#error "so that freetype.h of FreeType 2 is found first."
-#endif
 
 
 FT_BEGIN_HEADER
@@ -135,8 +129,6 @@ FT_BEGIN_HEADER
     FT_Short   snap_widths [13];  /* including std width  */
     FT_Short   snap_heights[13];  /* including std height */
 
-    FT_Fixed   expansion_factor;
-
     FT_Long    language_group;
     FT_Long    password;
 
@@ -165,7 +157,7 @@ FT_BEGIN_HEADER
   /*                                                                       */
   /* <Description>                                                         */
   /*    A set of flags used to indicate which fields are present in a      */
-  /*    given blend dictionary (font info or private).  Used to support    */
+  /*    given blen dictionary (font info or private).  Used to support     */
   /*    Multiple Masters fonts.                                            */
   /*                                                                       */
   typedef enum
@@ -226,7 +218,7 @@ FT_BEGIN_HEADER
   typedef struct  PS_DesignMap_
   {
     FT_Byte    num_points;
-    FT_Long*   design_points;
+    FT_Fixed*  design_points;
     FT_Fixed*  blend_points;
 
   } PS_DesignMapRec, *PS_DesignMap;

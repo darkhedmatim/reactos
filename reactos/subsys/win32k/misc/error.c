@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: error.c,v 1.8 2004/10/03 03:03:54 ion Exp $
+/* $Id: error.c,v 1.6 2003/08/12 20:08:45 royce Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -27,8 +27,6 @@
  *       06-06-2001  CSH  Created
  */
 #include <ddk/ntddk.h>
-#include <ddk/ntpoapi.h>
-#include <internal/ps.h>
 #include <include/error.h>
 
 
@@ -41,7 +39,7 @@ SetLastNtError(NTSTATUS Status)
 VOID FASTCALL
 SetLastWin32Error(DWORD Status)
 {
-  PTEB Teb = PsGetCurrentThread()->Tcb.Teb;
+  PTEB Teb = NtCurrentTeb();
 
   if (NULL != Teb)
     {
@@ -52,7 +50,8 @@ SetLastWin32Error(DWORD Status)
 NTSTATUS FASTCALL
 GetLastNtError()
 {
-  PTEB Teb = PsGetCurrentThread()->Tcb.Teb;
+  // FIXME - not 100% sure this is correct
+  PTEB Teb = NtCurrentTeb();
 
   if ( NULL != Teb )
     {

@@ -1,4 +1,4 @@
-/* $Id: fstati64.c,v 1.3 2004/08/15 18:16:38 chorns Exp $
+/* $Id: fstati64.c,v 1.2 2003/07/11 21:58:16 royce Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,8 +8,7 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/sys/types.h>
 #include <msvcrt/sys/stat.h>
 #include <msvcrt/fcntl.h>

@@ -26,8 +26,12 @@
 
 #include "config.h"
 
-#include <string.h>
-#include <stdlib.h>
+#ifdef HAVE_STRING_H
+# include <string.h>
+#endif
+#ifdef HAVE_STDLIB_H
+# include <stdlib.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -35,12 +39,13 @@
 #define NONAMELESSSTRUCT
 #include "windef.h"
 #include "winbase.h"
+#include "oleauto.h"
+#include "wine/debug.h"
 #include "wine/unicode.h"
 #include "winerror.h"
 #include "variant.h"
-#include "wine/debug.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(variant);
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 /* Make sure internal conversions to strings use the '.','+'/'-' and ','
  * format chars from the US locale. This enables us to parse the created
@@ -1386,7 +1391,7 @@ VARIANT_FormatNumber_Bool:
         TRACE("write %d fractional digits or skip\n", pToken[1]);
 
         for (count = 0; count < fractionalDigits; count++)
-          pBuff[count] = '0' + rgbDig[wholeNumberDigits + count];
+          pBuff[count] = rgbDig[wholeNumberDigits + count];
         pBuff += fractionalDigits;
       }
       else
@@ -1416,7 +1421,7 @@ VARIANT_FormatNumber_Bool:
         TRACE("write %d fractional digits or 0's\n", pToken[1]);
 
         for (count = 0; count < fractionalDigits; count++)
-          pBuff[count] = '0' + rgbDig[wholeNumberDigits + count];
+          pBuff[count] = rgbDig[wholeNumberDigits + count];
         pBuff += fractionalDigits;
         if (pToken[1] > fractionalDigits)
         {

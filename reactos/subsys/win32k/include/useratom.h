@@ -2,7 +2,6 @@
 #define _WIN32K_USERATOM_H
 
 #include <windows.h>
-#include <ddk/ntapi.h>
 
 RTL_ATOM FASTCALL
 IntAddAtom(LPWSTR AtomName);

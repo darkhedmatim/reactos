@@ -1,10 +1,12 @@
-# $Id: Makefile,v 1.12 2004/10/16 20:27:32 gvg Exp $
+# $Id: Makefile,v 1.9 2004/02/15 21:45:28 gvg Exp $
 
 PATH_TO_TOP = ../..
 
 TARGET_TYPE = kmdll
 
 TARGET_NAME = freetype
+
+TARGET_NORC = yes
 
 TARGET_DEFONLY = yes
 
@@ -25,8 +27,6 @@ ROS_OBJECTS = rosglue.o i386/setjmplongjmp.o
 
 TARGET_OBJECTS = objs/*.o $(ROS_OBJECTS)
 
-TARGET_CLEAN = objs/libfreetype.a
-
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
@@ -37,9 +37,9 @@ all: $(MK_FULLNAME) $(MK_NOSTRIPNAME)
 
 objs/*.o objs/libfreetype.a:
 ifeq ($(DBG), 1)
-	@$(MAKE) -f Makefile.freetype CFLAGS="-c -g -Wall -fno-strict-aliasing" CC:=$(CC)
+	@$(MAKE) -f Makefile.freetype CFLAGS="-c -g -Wall" CC:=$(CC)
 else
-	@$(MAKE) -f Makefile.freetype CFLAGS="-c -Wall -O3 -fno-strict-aliasing" CC:=$(CC)
+	@$(MAKE) -f Makefile.freetype CFLAGS="-c -Wall -O3" CC:=$(CC)
 endif
 
 # Automatic dependency tracking

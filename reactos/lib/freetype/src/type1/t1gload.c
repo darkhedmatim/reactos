@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Type 1 Glyph Loader (body).                                          */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -60,7 +60,7 @@
   {
     T1_Face   face  = (T1_Face)decoder->builder.face;
     T1_Font   type1 = &face->type1;
-    FT_Error  error = T1_Err_Ok;
+    FT_Error  error = 0;
 
 
     decoder->font_matrix = type1->font_matrix;
@@ -81,7 +81,7 @@
     /* For ordinary fonts get the character data stored in the face record. */
     {
       char_string->pointer = type1->charstrings[glyph_index];
-      char_string->length  = (FT_Int)type1->charstrings_len[glyph_index];
+      char_string->length  = type1->charstrings_len[glyph_index];
     }
 
     if ( !error )
@@ -97,7 +97,6 @@
     {
       FT_Incremental_MetricsRec  metrics;
 
-
       metrics.bearing_x = decoder->builder.left_bearing.x;
       metrics.bearing_y = decoder->builder.left_bearing.y;
       metrics.advance   = decoder->builder.advance.x;
@@ -112,7 +111,7 @@
 
 #endif /* FT_CONFIG_OPTION_INCREMENTAL */
 
-    return error;
+  return error;
   }
 
 
@@ -121,12 +120,11 @@
                   FT_UInt     glyph_index )
   {
     FT_Data   glyph_data;
-    FT_Error  error = T1_Parse_Glyph_And_Get_Char_String(
+    FT_Error  error = T1_Parse_Glyph_And_Get_Char_String( 
                         decoder, glyph_index, &glyph_data );
 
 
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
-
     if ( !error )
     {
       T1_Face  face = (T1_Face)decoder->builder.face;
@@ -137,7 +135,6 @@
           face->root.internal->incremental_interface->object,
           &glyph_data );
     }
-
 #endif /* FT_CONFIG_OPTION_INCREMENTAL */
 
     return error;
@@ -187,7 +184,7 @@
       error = T1_Parse_Glyph( &decoder, glyph_index );
       if ( glyph_index == 0 || decoder.builder.advance.x > *max_advance )
         *max_advance = decoder.builder.advance.x;
-
+        
       /* ignore the error if one occurred - skip to next glyph */
     }
 
@@ -255,7 +252,7 @@
                                  (FT_Byte**)type1->glyph_names,
                                  face->blend,
                                  FT_BOOL( hinting ),
-                                 FT_LOAD_TARGET_MODE( load_flags ),
+                                 FT_LOAD_TARGET_MODE(load_flags),
                                  T1_Parse_Glyph );
     if ( error )
       goto Exit;
@@ -374,11 +371,11 @@
 
           if ( hinting )
           {
-            metrics->horiAdvance = FT_PIX_ROUND( metrics->horiAdvance );
-            metrics->vertAdvance = FT_PIX_ROUND( metrics->vertAdvance );
+            metrics->horiAdvance = ( metrics->horiAdvance + 32 ) & -64;
+            metrics->vertAdvance = ( metrics->vertAdvance + 32 ) & -64;
 
-            metrics->vertBearingX = FT_PIX_ROUND( metrics->vertBearingX );
-            metrics->vertBearingY = FT_PIX_ROUND( metrics->vertBearingY );
+            metrics->vertBearingX = ( metrics->vertBearingX + 32 ) & -64;
+            metrics->vertBearingY = ( metrics->vertBearingY + 32 ) & -64;
           }
         }
 
@@ -388,10 +385,10 @@
         /* grid fit the bounding box if necessary */
         if ( hinting )
         {
-          cbox.xMin = FT_PIX_FLOOR( cbox.xMin );
-          cbox.yMin = FT_PIX_FLOOR( cbox.yMin );
-          cbox.xMax = FT_PIX_CEIL( cbox.xMax );
-          cbox.yMax = FT_PIX_CEIL( cbox.yMax );
+          cbox.xMin &= -64;
+          cbox.yMin &= -64;
+          cbox.xMax  = ( cbox.xMax+63 ) & -64;
+          cbox.yMax  = ( cbox.yMax+63 ) & -64;
         }
 
         metrics->width  = cbox.xMax - cbox.xMin;

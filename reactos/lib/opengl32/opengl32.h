@@ -1,4 +1,4 @@
-/* $Id: opengl32.h,v 1.17 2004/07/17 02:26:33 blight Exp $
+/* $Id: opengl32.h,v 1.14 2004/02/12 23:56:15 royce Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -14,15 +14,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif /* __cplusplus */
-
-#define NDEBUG
-
-#ifndef PFD_GENERIC_ACCELERATED
-# define PFD_GENERIC_ACCELERATED 0x00001000
-#endif
-
-#define OPENGL_DRIVERS_SUBKEY L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\OpenGLDrivers"
+#endif//__cplusplus
 
 /* gl function list */
 #include "glfuncs.h"
@@ -33,10 +25,9 @@ extern "C" {
 /* debug flags */
 #if !defined(NDEBUG)
 # define DEBUG_OPENGL32
-/*# define DEBUG_OPENGL32_BRKPTS*/		/* enable breakpoints */
+# define DEBUG_OPENGL32_BRKPTS		/* enable breakpoints */
 # define DEBUG_OPENGL32_ICD_EXPORTS	/* dumps the list of (un)supported glXXX
                                        functions when an ICD is loaded. */
-# define DEBUG_OPENGL32_TRACE       /* prints much information about whats going on */
 #endif /* !NDEBUG */
 
 /* debug macros */
@@ -48,11 +39,9 @@ ULONG DbgPrint(PCH Format,...);
 #  include <debug.h>
 #  define DBGPRINT( fmt, args... ) \
           DPRINT( "OpenGL32.DLL: %s: "fmt"\n", __FUNCTION__, ##args )
+# else
+#  define DBGPRINT( ... ) do {} while (0)
 # endif
-#endif
-
-#ifndef DBGPRINT
-# define DBGPRINT( ... ) do {} while (0)
 #endif
 
 #ifdef DEBUG_OPENGL32_BRKPTS
@@ -63,14 +52,6 @@ ULONG DbgPrint(PCH Format,...);
 # else
 #  error Unsupported compiler!
 # endif
-#else
-# define DBGBREAK() do {} while (0)
-#endif
-
-#ifdef DEBUG_OPENGL32_TRACE
-# define DBGTRACE( args... ) DBGPRINT( args )
-#else
-# define DBGTRACE( ... ) do {} while (0)
 #endif
 
 /* function/data attributes */
@@ -80,7 +61,7 @@ ULONG DbgPrint(PCH Format,...);
 #  define SHARED
 #  ifndef STDCALL
 #    define STDCALL __stdcall
-#  endif /* STDCALL */
+#  endif/*STDCALL*/
 #else /* GCC */
 #  define NAKED __attribute__((naked))
 #  define SHARED __attribute__((section("shared"), shared))
@@ -88,7 +69,7 @@ ULONG DbgPrint(PCH Format,...);
 
 #ifdef APIENTRY
 #undef APIENTRY
-#endif /* APIENTRY */
+#endif//APIENTRY
 #define APIENTRY EXPORT __stdcall
 
 /* gl function list */
@@ -118,14 +99,14 @@ typedef DWORD APIENTRY (*SetContextCallBack)( const ICDTable * );
 /* OpenGL ICD data */
 typedef struct tagGLDRIVERDATA
 {
-	HMODULE handle;                 /*!< DLL handle */
-	UINT    refcount;               /*!< Number of references to this ICD */
-	WCHAR   driver_name[256];       /*!< Name of ICD driver */
+	HMODULE handle;                 /* DLL handle */
+	UINT    refcount;               /* number of references to this ICD */
+	WCHAR   driver_name[256];       /* name of display driver */
 
-	WCHAR   dll[256];               /*!< Dll filename from registry */
-	DWORD   version;                /*!< Version value from registry */
-	DWORD   driver_version;         /*!< DriverVersion value from registry */
-	DWORD   flags;                  /*!< Flags value from registry */
+	WCHAR   dll[256];               /* Dll value from registry */
+	DWORD   version;                /* Version value from registry */
+	DWORD   driver_version;         /* DriverVersion value from registry */
+	DWORD   flags;                  /* Flags value from registry */
 
 	BOOL      APIENTRY (*DrvCopyContext)( HGLRC, HGLRC, UINT );
 	HGLRC     APIENTRY (*DrvCreateContext)( HDC );
@@ -135,11 +116,11 @@ typedef struct tagGLDRIVERDATA
 	int       APIENTRY (*DrvDescribePixelFormat)( IN HDC, IN int, IN UINT, OUT LPPIXELFORMATDESCRIPTOR );
 	int       APIENTRY (*DrvGetLayerPaletteEntries)( HDC, int, int, int, COLORREF * );
 	PROC      APIENTRY (*DrvGetProcAddress)( LPCSTR lpProcName );
-	void      APIENTRY (*DrvReleaseContext)( HGLRC hglrc ); /* maybe returns BOOL? */
+	void      APIENTRY (*DrvReleaseContext)();
 	BOOL      APIENTRY (*DrvRealizeLayerPalette)( HDC, int, BOOL );
 	PICDTable APIENTRY (*DrvSetContext)( HDC hdc, HGLRC hglrc, SetContextCallBack callback );
 	int       APIENTRY (*DrvSetLayerPaletteEntries)( HDC, int, int, int, CONST COLORREF * );
-	BOOL      APIENTRY (*DrvSetPixelFormat)( IN HDC, IN int ); /*, IN CONST PIXELFORMATDESCRIPTOR * );*/
+	BOOL      APIENTRY (*DrvSetPixelFormat)( IN HDC, IN int, IN CONST PIXELFORMATDESCRIPTOR * );
 	BOOL      APIENTRY (*DrvShareLists)( HGLRC, HGLRC );
 	BOOL      APIENTRY (*DrvSwapBuffers)( HDC );
 	BOOL      APIENTRY (*DrvSwapLayerBuffers)( HDC, UINT );
@@ -148,45 +129,34 @@ typedef struct tagGLDRIVERDATA
 	struct tagGLDRIVERDATA *next;   /* next ICD -- linked list */
 } GLDRIVERDATA;
 
-/* Our private OpenGL context (stored in TLS) */
+/* Out private OpenGL context (saved in TLS) */
 typedef struct tagGLRC
 {
-	GLDRIVERDATA *icd;  /*!< driver used for this context */
-	HDC     hdc;        /*!< DC handle */
-	BOOL    is_current; /*!< Wether this context is current for some DC */
-	DWORD   thread_id;  /*!< Thread holding this context */
+	GLDRIVERDATA *icd;  /* driver used for this context */
+	HDC     hdc;        /* DC handle */
+	BOOL    is_current; /* wether this context is current for some DC */
+	DWORD   thread_id;  /* thread holding this context */
 
-	HGLRC   hglrc;      /*!< GLRC from DrvCreateContext (ICD internal) */
+	HGLRC   hglrc;      /* GLRC from DrvCreateContext */
 
 	struct tagGLRC *next; /* linked list */
 } GLRC;
 
-/* OpenGL private device context data */
-typedef struct tagGLDCDATA
-{
-	HDC hdc;           /*!< Device context handle for which this data is */
-	GLDRIVERDATA *icd; /*!< Driver used for this DC */
-	int pixel_format;  /*!< Selected pixel format */
-
-	struct tagGLDCDATA *next; /* linked list */
-} GLDCDATA;
-
-
 /* Process data */
 typedef struct tagGLPROCESSDATA
 {
-	GLDRIVERDATA *driver_list;  /*!< List of loaded drivers */
-	HANDLE        driver_mutex; /*!< Mutex to protect driver list */
-	GLRC         *glrc_list;    /*!< List of GL rendering contexts */
-	HANDLE        glrc_mutex;   /*!< Mutex to protect glrc list */
-	GLDCDATA     *dcdata_list;  /*!< List of GL private DC data */
-	HANDLE        dcdata_mutex; /*!< Mutex to protect glrc list */
+	GLDRIVERDATA *driver_list;  /* list of loaded drivers */
+	HANDLE        driver_mutex; /* mutex to protect driver list */
+	GLRC  *glrc_list;           /* list of GL rendering contexts */
+	HANDLE glrc_mutex;          /* mutex to protect glrc list */
+	HDC    cachedHdc;           /* cached HDC from last SetPixelFormat */
+	INT    cachedFormat;        /* cached format from last SetPixelFormat */
 } GLPROCESSDATA;
 
 /* TLS data */
 typedef struct tagGLTHREADDATA
 {
-	GLRC   *glrc;      /*!< current GL rendering context */
+	GLRC   *glrc;      /* current GL rendering context */
 } GLTHREADDATA;
 
 extern DWORD OPENGL32_tls;
@@ -194,9 +164,11 @@ extern GLPROCESSDATA OPENGL32_processdata;
 #define OPENGL32_threaddata ((GLTHREADDATA *)TlsGetValue( OPENGL32_tls ))
 
 /* function prototypes */
+GLDRIVERDATA *OPENGL32_LoadICDForHDC( HDC hdc );
 GLDRIVERDATA *OPENGL32_LoadICD( LPCWSTR driver );
 BOOL OPENGL32_UnloadICD( GLDRIVERDATA *icd );
-
+DWORD OPENGL32_RegEnumDrivers( DWORD idx, LPWSTR name, LPDWORD cName );
+DWORD OPENGL32_RegGetDriverInfo( LPCWSTR driver, GLDRIVERDATA *icd );
 
 /* empty gl functions from gl.c */
 int STDCALL glEmptyFunc0();
@@ -221,18 +193,14 @@ int STDCALL glEmptyFunc52( long, long, long, long, long, long, long, long,
 int STDCALL glEmptyFunc56( long, long, long, long, long, long, long, long,
                            long, long, long, long, long, long );
 
-#ifdef OPENGL32_GL_FUNC_PROTOTYPES
-
 #define X(func,ret,typeargs,args,icdidx,tebidx,stack) EXPORT ret STDCALL func typeargs;
 GLFUNCS_MACRO
 #undef X
 
-#endif /* OPENGL32_GL_FUNC_PROTOTYPES */
-
 #ifdef __cplusplus
-}; /* extern "C" */
-#endif /* __cplusplus */
+}; // extern "C"
+#endif//__cplusplus
 
-#endif /* OPENGL32_PRIVATE_H */
+#endif//OPENGL32_PRIVATE_H
 
 /* EOF */

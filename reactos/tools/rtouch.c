@@ -60,10 +60,10 @@ int main(int argc, char* argv[])
     }
 
   path = convert_path(argv[1]);
-  id = open(path, S_IWRITE, S_IRUSR | S_IWUSR);
+  id = open(path, S_IWRITE);
   if (id < 0)
     {
-      id = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+      id = open(path, S_IWRITE | O_CREAT);
       if (id < 0)
         {
           fprintf(stderr, "Cannot create file.\n");

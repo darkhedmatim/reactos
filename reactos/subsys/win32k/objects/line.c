@@ -16,10 +16,27 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: line.c,v 1.38 2004/12/12 01:40:38 weiden Exp $ */
-#include <w32k.h>
+/* $Id: line.c,v 1.26 2003/12/13 10:57:29 weiden Exp $ */
 
 // Some code from the WINE project source (www.winehq.com)
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <internal/safe.h>
+#include <ddk/ntddk.h>
+#include <win32k/dc.h>
+#include <win32k/line.h>
+#include <win32k/path.h>
+#include <win32k/pen.h>
+#include <win32k/region.h>
+#include <include/error.h>
+#include <include/inteng.h>
+#include <include/object.h>
+#include <include/path.h>
+#include <include/intgdi.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 
 BOOL FASTCALL
@@ -51,12 +68,17 @@ IntGdiLineTo(DC  *dc,
              int XEnd,
              int YEnd)
 {
-  BITMAPOBJ *BitmapObj;
-  BOOL      Ret = TRUE;
-  PGDIBRUSHOBJ PenBrushObj;
-  GDIBRUSHINST PenBrushInst;
-  RECTL     Bounds;
-  POINT     Points[2];
+  SURFOBJ *SurfObj;
+  BOOL     Ret;
+  BRUSHOBJ PenBrushObj;
+  RECT     Bounds;
+
+  SurfObj = (SURFOBJ*)AccessUserObject ( (ULONG)dc->Surface );
+  if (NULL == SurfObj)
+    {
+      SetLastWin32Error(ERROR_INVALID_HANDLE);
+      return FALSE;
+    }
 
   if (PATH_IsPathOpen(dc->w.path))
     {
@@ -71,50 +93,41 @@ IntGdiLineTo(DC  *dc,
     }
   else
     {
-      BitmapObj = BITMAPOBJ_LockBitmap ( dc->w.hBitmap );
-      if (NULL == BitmapObj)
-        {
-          SetLastWin32Error(ERROR_INVALID_HANDLE);
-          return FALSE;
-        }
+      if (dc->w.CursPosX <= XEnd)
+	{
+	  Bounds.left = dc->w.CursPosX;
+	  Bounds.right = XEnd;
+	}
+      else
+	{
+	  Bounds.left = XEnd;
+	  Bounds.right = dc->w.CursPosX;
+	}
+      Bounds.left += dc->w.DCOrgX;
+      Bounds.right += dc->w.DCOrgX;
+      if (dc->w.CursPosY <= YEnd)
+	{
+	  Bounds.top = dc->w.CursPosY;
+	  Bounds.bottom = YEnd;
+	}
+      else
+	{
+	  Bounds.top = YEnd;
+	  Bounds.bottom = dc->w.CursPosY;
+	}
+      Bounds.top += dc->w.DCOrgY;
+      Bounds.bottom += dc->w.DCOrgY;
 
-      Points[0].x = dc->w.CursPosX;
-      Points[0].y = dc->w.CursPosY;
-      Points[1].x = XEnd;
-      Points[1].y = YEnd;
+      /* make BRUSHOBJ from current pen. */
+      HPenToBrushObj ( &PenBrushObj, dc->w.hPen );
 
-      IntLPtoDP(dc, Points, 2);
-
-      /* FIXME: Is it correct to do this after the transformation? */
-      Points[0].x += dc->w.DCOrgX;
-      Points[0].y += dc->w.DCOrgY;
-      Points[1].x += dc->w.DCOrgX;
-      Points[1].y += dc->w.DCOrgY;
-
-      Bounds.left = min(Points[0].x, Points[1].x);
-      Bounds.top = min(Points[0].y, Points[1].y);
-      Bounds.right = max(Points[0].x, Points[1].x);
-      Bounds.bottom = max(Points[0].y, Points[1].y);
-
-      /* get BRUSHOBJ from current pen. */
-      PenBrushObj = PENOBJ_LockPen( dc->w.hPen );
-      /* FIXME - PenBrushObj can be NULL!!!! Don't assert here! */
-      ASSERT(PenBrushObj);
-
-      if (!(PenBrushObj->flAttrs & GDIBRUSH_IS_NULL))
-      {
-        IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
-        Ret = IntEngLineTo(BitmapObj,
-                           dc->CombinedClip,
-                           &PenBrushInst.BrushObject,
-                           Points[0].x, Points[0].y,
-                           Points[1].x, Points[1].y,
-                           &Bounds,
-                           dc->w.ROPmode);
-      }
-
-      BITMAPOBJ_UnlockBitmap ( dc->w.hBitmap );
-      PENOBJ_UnlockPen( dc->w.hPen );
+      Ret = IntEngLineTo(SurfObj,
+                         dc->CombinedClip,
+                         &PenBrushObj,
+                         dc->w.DCOrgX + dc->w.CursPosX, dc->w.DCOrgY + dc->w.CursPosY,
+                         dc->w.DCOrgX + XEnd,           dc->w.DCOrgY + YEnd,
+                         &Bounds,
+                         dc->w.ROPmode);
     }
 
   if (Ret)
@@ -167,7 +180,7 @@ IntGdiPolyBezierTo(DC      *dc,
   else /* We'll do it using PolyBezier */
   {
     POINT *npt;
-    npt = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * (Count + 1), TAG_BEZIER);
+    npt = ExAllocatePool(NonPagedPool, sizeof(POINT) * (Count + 1));
     if ( npt )
     {
       npt[0].x = dc->w.CursPosX;
@@ -191,57 +204,56 @@ IntGdiPolyline(DC      *dc,
                LPPOINT pt,
                int     Count)
 {
-   BITMAPOBJ *BitmapObj;
-   GDIBRUSHOBJ *PenBrushObj;
-   GDIBRUSHINST PenBrushInst;
-   LPPOINT Points;
-   BOOL Ret = TRUE;
-   LONG i;
+  SURFOBJ     *SurfObj = NULL;
+  BOOL         ret = FALSE; // default to failure
+  LONG         i;
+  PROSRGNDATA  reg;
+  BRUSHOBJ     PenBrushObj;
+  POINT       *pts;
 
-   if (PATH_IsPathOpen(dc->w.path))
-      return PATH_Polyline(dc, pt, Count);
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
+  ASSERT(SurfObj);
 
-   /* Get BRUSHOBJ from current pen. */
-   PenBrushObj = PENOBJ_LockPen(dc->w.hPen);
-   /* FIXME - PenBrushObj can be NULL! Don't assert here! */
-   ASSERT(PenBrushObj);
+  if ( PATH_IsPathOpen ( dc->w.path ) )
+    return PATH_Polyline ( dc, pt, Count );
 
-   if (!(PenBrushObj->flAttrs & GDIBRUSH_IS_NULL))
-   {
-      Points = EngAllocMem(0, Count * sizeof(POINT), TAG_COORD);
-      if (Points != NULL)
+  reg = RGNDATA_LockRgn(dc->w.hGCClipRgn);
+
+  //FIXME: Do somthing with reg...
+
+  //Allocate "Count" bytes of memory to hold a safe copy of pt
+  pts = (POINT*)ExAllocatePool ( NonPagedPool, sizeof(POINT)*Count );
+  if ( pts )
+  {
+    // safely copy pt to local version
+    if ( STATUS_SUCCESS == MmCopyFromCaller(pts, pt, sizeof(POINT)*Count) )
+    {
+      //offset the array of point by the dc->w.DCOrg
+      for ( i = 0; i < Count; i++ )
       {
-         BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-         /* FIXME - BitmapObj can be NULL!!!! Don't assert but handle this case gracefully! */
-         ASSERT(BitmapObj);
-
-         RtlCopyMemory(Points, pt, Count * sizeof(POINT));
-         IntLPtoDP(dc, Points, Count);
-
-         /* Offset the array of point by the dc->w.DCOrg */
-         for (i = 0; i < Count; i++)
-         {
-            Points[i].x += dc->w.DCOrgX;
-            Points[i].y += dc->w.DCOrgY;
-         }
-
-         IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
-         Ret = IntEngPolyline(BitmapObj, dc->CombinedClip,
-     			   &PenBrushInst.BrushObject, Points, Count,
-     			   dc->w.ROPmode);
-
-         BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-         EngFreeMem(Points);
+	pts[i].x += dc->w.DCOrgX;
+	pts[i].y += dc->w.DCOrgY;
       }
-      else
-      {
-         Ret = FALSE;
-      }
-   }
 
-   PENOBJ_UnlockPen(dc->w.hPen);
+      /* make BRUSHOBJ from current pen. */
+      HPenToBrushObj ( &PenBrushObj, dc->w.hPen );
 
-   return Ret;
+      //get IntEngPolyline to do the drawing.
+      ret = IntEngPolyline(SurfObj,
+			   dc->CombinedClip,
+			   &PenBrushObj,
+			   pts,
+			   Count,
+			   dc->w.ROPmode);
+    }
+
+    ExFreePool ( pts );
+  }
+
+  //Clean up
+  RGNDATA_UnlockRgn(dc->w.hGCClipRgn);
+
+  return ret;
 }
 
 BOOL FASTCALL
@@ -257,7 +269,7 @@ IntGdiPolylineTo(DC      *dc,
   }
   else /* do it using Polyline */
   {
-    POINT *pts = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * (Count + 1), TAG_SHAPE);
+    POINT *pts = ExAllocatePool(NonPagedPool, sizeof(POINT) * (Count + 1));
     if ( pts )
     {
       pts[0].x = dc->w.CursPosX;
@@ -344,7 +356,6 @@ NtGdiAngleArc(HDC  hDC,
              FLOAT  SweepAngle)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -529,7 +540,7 @@ NtGdiPolyBezier(HDC           hDC,
   
   if(Count > 0)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_BEZIER);
+    Safept = ExAllocatePool(NonPagedPool, sizeof(POINT) * Count);
     if(!Safept)
     {
       DC_UnlockDc(hDC);
@@ -580,7 +591,7 @@ NtGdiPolyBezierTo(HDC  hDC,
   
   if(Count > 0)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_BEZIER);
+    Safept = ExAllocatePool(NonPagedPool, sizeof(POINT) * Count);
     if(!Safept)
     {
       DC_UnlockDc(hDC);
@@ -619,7 +630,6 @@ NtGdiPolyDraw(HDC            hDC,
              int            Count)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -642,7 +652,7 @@ NtGdiPolyline(HDC            hDC,
   
   if(Count >= 2)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_SHAPE);
+    Safept = ExAllocatePool(NonPagedPool, sizeof(POINT) * Count);
     if(!Safept)
     {
       DC_UnlockDc(hDC);
@@ -693,7 +703,7 @@ NtGdiPolylineTo(HDC            hDC,
   
   if(Count > 0)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_SHAPE);
+    Safept = ExAllocatePool(NonPagedPool, sizeof(POINT) * Count);
     if(!Safept)
     {
       DC_UnlockDc(hDC);
@@ -746,7 +756,7 @@ NtGdiPolyPolyline(HDC            hDC,
   
   if(Count > 0)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, (sizeof(POINT) + sizeof(DWORD)) * Count, TAG_SHAPE);
+    Safept = ExAllocatePool(NonPagedPool, (sizeof(POINT) + sizeof(DWORD)) * Count);
     if(!Safept)
     {
       DC_UnlockDc(hDC);

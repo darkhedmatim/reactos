@@ -21,8 +21,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -312,7 +310,7 @@ BOOL WINAPI SHCreateThread(LPTHREAD_START_ROUTINE pfnThreadProc, VOID *pData,
     if(hThread)
     {
       /* Wait for the thread to signal us to continue */
-      WaitForSingleObject(ti.hEvent, INFINITE);
+      WaitForSingleObject(ti.hEvent, -1);
       CloseHandle(hThread);
       bCalled = TRUE;
     }

@@ -1,4 +1,4 @@
-/* $Id: res.c,v 1.22 2004/09/11 17:06:33 gvg Exp $
+/* $Id: res.c,v 1.20 2004/01/23 21:16:03 ekohl Exp $
  *
  * COPYRIGHT: See COPYING in the top level directory
  * PROJECT  : ReactOS user mode libraries
@@ -132,6 +132,12 @@ FindResourceExW (
 	ResourceInfo.Type = (ULONG)lpType;
 	ResourceInfo.Name = (ULONG)lpName;
 	ResourceInfo.Language = (ULONG)wLanguage;
+	if (ResourceInfo.Language == (ULONG) MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) {
+		ResourceInfo.Language = (ULONG) GetUserDefaultLangID();
+		if (ResourceInfo.Language == (ULONG) MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) {
+			ResourceInfo.Language = (ULONG) MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+		}
+	}
 
 	Status = LdrFindResource_U (hModule,
 				    &ResourceInfo,
@@ -143,7 +149,7 @@ FindResourceExW (
 		return NULL;
 	}
 
-	return (HRSRC)ResourceDataEntry;
+	return ResourceDataEntry;
 }
 
 
@@ -159,14 +165,13 @@ LoadResource (
 {
 	NTSTATUS Status;
 	PVOID Data;
-	PIMAGE_RESOURCE_DATA_ENTRY ResInfo = (PIMAGE_RESOURCE_DATA_ENTRY)hResInfo;
 
-	if (hModule == NULL)
-	{
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
-	}
+   if (hModule == NULL)
+   {
+     hModule = (HINSTANCE)GetModuleHandleW(NULL);
+   }
 
-	Status = LdrAccessResource (hModule, ResInfo, &Data, NULL);
+	Status = LdrAccessResource (hModule, hResInfo, &Data, NULL);
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);

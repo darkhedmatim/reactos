@@ -26,27 +26,12 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../explorer.h"
 
 #include "../explorer_intres.h"
 
 #include "webchild.h"
-
-
-#ifdef _MSC_VER
-
-#if _MSC_VER>=1300	// vtMissing for VS.Net
-#include <comutil.h>
-#pragma comment(lib, "comsupp")
-#endif
-
-#else
-
-#ifdef __MINGW32__	// MinGW is lacking vtMissing (as of 07.02.2004)
-static Variant vtMissing;
-#endif
-
-#endif
 
 //#include <mshtml.h>
 
@@ -222,15 +207,18 @@ WebChildWindow::WebChildWindow(HWND hwnd, const WebChildWndInfo& info)
 
 		_connector = auto_ptr<EventConnector>(new EventConnector(_control, DIID_DWebBrowserEvents2, this));
 
+#ifdef __MINGW32__	// MinGW is lacking vtMissing (as of 07.02.2004)
+		Variant vtMissing;
+#endif
 		_control->Navigate(BStr(info._path), &vtMissing, &vtMissing, &vtMissing, &vtMissing);
 		//browser->Navigate2(&Variant(info._path), &vtMissing, &vtMissing, &vtMissing, &vtMissing);
 	}
 }
 
-LRESULT WebChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT WebChildWindow::WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 {
 	try {
-		switch(nmsg) {
+		switch(message) {
 		  case WM_ERASEBKGND:
 			if (!_control) {
 				HDC hdc = (HDC)wparam;
@@ -251,23 +239,19 @@ LRESULT WebChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 				HRESULT hr = E_FAIL;
 
 				switch(LOWORD(wparam)) {
-				  case ID_GO_BACK:
+				  case ID_BROWSE_BACK:
 					hr = _control->GoBack();
 					break;
 
-				  case ID_GO_FORWARD:
+				  case ID_BROWSE_FORWARD:
 					hr = _control->GoForward();
 					break;
 
-				  case ID_GO_UP:
-					///@todo
-					break;
-
-				  case ID_GO_HOME:
+				  case ID_BROWSE_HOME:
 					hr = _control->GoHome();
 					break;
 
-				  case ID_GO_SEARCH:
+				  case ID_BROWSE_SEARCH:
 					hr = _control->GoSearch();
 					break;
 
@@ -280,7 +264,7 @@ LRESULT WebChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 					break;
 
 				  default:
-					return super::WndProc(nmsg, wparam, lparam);
+					return FALSE;
 				}
 
 				if (FAILED(hr) && hr!=E_FAIL)
@@ -290,20 +274,11 @@ LRESULT WebChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			return TRUE;}
 
 		  default:
-			return super::WndProc(nmsg, wparam, lparam);
+			return super::WndProc(message, wparam, lparam);
 		}
 	} catch(COMException& e) {
 		HandleException(e, _hwnd);
 	}
 
 	return 0;
-}
-
-
-String WebChildWindow::jump_to_int(LPCTSTR url)
-{
-
-//@@
-
-	return String();
 }

@@ -90,234 +90,16 @@ static const BYTE STORAGE_magic[8]   ={0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1};
 #define SMALLBLOCKS_PER_BIGBLOCK	(BIGSIZE/SMALLSIZE)
 
 #define READ_HEADER	STORAGE_get_big_block(hf,-1,(LPBYTE)&sth);assert(!memcmp(STORAGE_magic,sth.magic,sizeof(STORAGE_magic)));
-static IStorage16Vtbl stvt16;
-static IStorage16Vtbl *segstvt16 = NULL;
-static IStream16Vtbl strvt16;
-static IStream16Vtbl *segstrvt16 = NULL;
+static ICOM_VTABLE(IStorage16) stvt16;
+static ICOM_VTABLE(IStorage16) *segstvt16 = NULL;
+static ICOM_VTABLE(IStream16) strvt16;
+static ICOM_VTABLE(IStream16) *segstrvt16 = NULL;
 
 /*ULONG WINAPI IStorage16_AddRef(LPSTORAGE16 this);*/
 static void _create_istorage16(LPSTORAGE16 *stg);
 static void _create_istream16(LPSTREAM16 *str);
 
 #define IMPLEMENTED 1
-
-/* The following is taken from the CorVu implementation of docfiles, and
- * documents things about the file format that are not implemented here, and
- * not documented by the LAOLA project. The CorVu implementation was posted
- * to wine-devel in February 2004, and released under the LGPL at the same
- * time. Because that implementation is in C++, it's not directly usable in
- * Wine, but does have documentation value.
- *
- *
- * #define DF_EXT_VTOC		-4
- * #define DF_VTOC_VTOC		-3
- * #define DF_VTOC_EOF		-2
- * #define DF_VTOC_FREE		-1
- * #define DF_NAMELEN	0x20	// Maximum entry name length - 31 characters plus
- * 				// a NUL terminator
- * 
- * #define DF_FT_STORAGE	1
- * #define DF_FT_STREAM		2
- * #define DF_FT_LOCKBYTES	3	// Not used -- How the bloody hell did I manage
- * #define DF_FT_PROPERTY	4	// Not Used -- to figure these two out?
- * #define DF_FT_ROOT		5
- * 
- * #define DF_BLOCK_SIZE	0x200
- * #define DF_VTOC_SIZE		0x80
- * #define DF_DE_PER_BLOCK	4
- * #define DF_STREAM_BLOCK_SIZE	0x40
- * 
- * A DocFile is divided into blocks of 512 bytes.
- * The first block contains the header.
- *
- * The file header contains The first 109 entries in the VTOC of VTOCs.
- *
- * Each block pointed to by a VTOC of VTOCs contains a VTOC, which
- * includes block chains - just like FAT. This is a somewhat poor
- * design for the following reasons:
- *
- *	1. FAT was a poor file system design to begin with, and
- *	   has long been known to be horrendously inefficient
- *	   for day to day operations.
- *
- *	2. The problem is compounded here, since the file
- *	   level streams are generally *not* read sequentially.
- *	   This means that a significant percentage of reads
- *	   require seeking from the start of the chain.
- *
- * Data chains also contain an internal VTOC. The block size for
- * the standard VTOC is 512. The block size for the internal VTOC
- * is 64.
- *
- * Now, the 109 blocks in the VTOC of VTOCs allows for files of
- * up to around 7MB. So what do you think happens if that's
- * exceeded? Well, there's an entry in the header block which
- * points to the first block used as additional storage for
- * the VTOC of VTOCs.
- *
- * Now we can get up to around 15MB. Now, guess how the file
- * format adds in another block to the VTOC of VTOCs. Come on,
- * it's no big surprise. That's right - the last entry in each
- * block extending the VTOC of VTOCs is, you guessed it, the
- * block number of the next block containing an extension to
- * the VTOC of VTOCs. The VTOC of VTOCs is chained!!!!
- *
- * So, to review:
- *
- * 1. If you are using a FAT file system, the location of
- *    your file's blocks is stored in chains.
- *
- * 2. At the abstract level, the file contains a VTOC of VTOCs,
- *    which is stored in the most inefficient possible format for
- *    random access - a chain (AKA list).
- *
- * 3. The VTOC of VTOCs contains descriptions of three file level
- *    streams:
- *
- *    a. The Directory stream
- *    b. The Data stream
- *    c. The Data VTOC stream
- *
- *    These are, of course, represented as chains.
- *
- * 4. The Data VTOC contains data describing the chains of blocks
- *    within the Data stream.
- *
- * That's right - we have a total of four levels of block chains!
- *
- * Now, is that complicated enough for you? No? OK, there's another
- * complication. If an individual stream (ie. an IStream) reaches
- * 4096 bytes in size, it gets moved from the Data Stream to
- * a new file level stream. Now, if the stream then gets truncated
- * back to less than 4096 bytes, it returns to the data stream.
- *
- * The effect of using this format can be seen very easily. Pick
- * an arbitrary application with a grid data representation that
- * can export to both Lotus 123 and Excel 5 or higher. Export
- * a large file to Lotus 123 and time it. Export the same thing
- * to Excel 5 and time that. The difference is the inefficiency
- * of the Microsoft DocFile format.
- *
- *
- * #define TOTAL_SIMPLE_VTOCS	109
- * 
- * struct	DocFile_Header
- * {
- * 	df_byte iMagic1;	// 0xd0 
- * 	df_byte iMagic2;	// 0xcf 
- * 	df_byte iMagic3;	// 0x11 
- * 	df_byte iMagic4;	// 0xe0 - Spells D0CF11E0, or DocFile 
- * 	df_byte iMagic5;	// 161	(igi upside down) 
- * 	df_byte iMagic6;	// 177	(lli upside down - see below 
- * 	df_byte iMagic7;	// 26 (gz upside down) 
- * 	df_byte iMagic8;	// 225 (szz upside down) - see below 
- * 	df_int4 aiUnknown1[4];
- * 	df_int4 iVersion;	// DocFile Version - 0x03003E	
- * 	df_int4 aiUnknown2[4];
- * 	df_int4 nVTOCs;		// Number of VTOCs 
- * 	df_int4 iFirstDirBlock; // First Directory Block 
- * 	df_int4 aiUnknown3[2];
- * 	df_int4 iFirstDataVTOC; // First data VTOC block 
- * 	df_int4 iHasData;	// 1 if there is data in the file - yes, this is important
- * 	df_int4 iExtendedVTOC;	// Extended VTOC location 
- * 	df_int4 iExtendedVTOCSize; // Size of extended VTOC (+1?) 
- * 	df_int4 aiVTOCofVTOCs[TOTAL_SIMPLE_VTOCS];
- * };
- * 
- * struct	DocFile_VTOC
- * {
- * 	df_int4 aiBlocks[DF_VTOC_SIZE];
- * };
- * 
- * 
- * The meaning of the magic numbers
- *
- * 0xd0cf11e0 is DocFile with a zero on the end (sort of)
- *
- * If you key 177161 into a calculator, then turn the calculator
- * upside down, you get igilli, which may be a reference to
- * somebody's name, or to the Hebrew word for "angel".
- *
- * If you key 26225 into a calculator, then turn it upside down, you
- * get szzgz. Microsoft has a tradition of creating nonsense words
- * using the letters s, g, z and y. We think szzgz may be one of the
- * Microsoft placeholder variables, along the lines of foo, bar and baz.
- * Alternatively, it could be 22526, which would be gzszz.
- *
- * 
- * struct	DocFile_DirEnt
- * {
- * 	df_char achEntryName[DF_NAMELEN];	// Entry Name 
- * 	df_int2 iNameLen;			// Name length in bytes, including NUL terminator 
- * 	df_byte iFileType;			// Entry type 
- * 	df_byte iColour;			// 1 = Black, 0 = Red 
- * 	df_int4 iLeftSibling;			// Next Left Sibling Entry - See below 
- * 	df_int4 iRightSibling;			// Next Right Sibling Entry 
- * 	df_int4 iFirstChild;			// First Child Entry 
- * 	df_byte achClassID[16];			// Class ID 
- * 	df_int4 iStateBits;			// [GS]etStateBits value 
- * 	df_int4 iCreatedLow;			// Low DWORD of creation time 
- * 	df_int4 iCreatedHigh;			// High DWORD of creation time 
- * 	df_int4 iModifiedLow;			// Low DWORD of modification time 
- * 	df_int4 iModifiedHigh;			// High DWORD of modification time 
- * 	df_int4 iVTOCPosition;			// VTOC Position 
- * 	df_int4 iFileSize;			// Size of the stream 
- * 	df_int4 iZero;				// We think this is part of the 64 bit stream size - must be 0 
- * };
- * 
- * Siblings
- * ========
- *
- * Siblings are stored in an obscure but incredibly elegant
- * data structure called a red-black tree. This is generally
- * defined as a 2-3-4 tree stored in a binary tree.
- *
- * A red-black tree can always be balanced very easily. The rules
- * for a red-black tree are as follows:
- *
- *	1. The root node is always black.
- *	2. The parent of a red node is always black.
- *
- * There is a Java demo of red-black trees at:
- *
- *	http://langevin.usc.edu/BST/RedBlackTree-Example.html
- *
- * This demo is an excellent tool for learning how red-black
- * trees work, without having to go through the process of
- * learning how they were derived.
- *
- * Within the tree, elements are ordered by the length of the
- * name and within that, ASCII order by name. This causes the
- * apparently bizarre reordering you see when you use dfview.
- *
- * This is a somewhat bizarre choice. It suggests that the
- * designer of the DocFile format was trying to optimise
- * searching through the directory entries. However searching
- * through directory entries is a relatively rare operation.
- * Reading and seeking within a stream are much more common
- * operations, especially within the file level streams, yet
- * these use the horrendously inefficient FAT chains.
- *
- * This suggests that the designer was probably somebody
- * fresh out of university, who had some basic knowledge of
- * basic data structures, but little knowledge of anything
- * more practical. It is bizarre to attempt to optimise
- * directory searches while not using a more efficient file
- * block locating system than FAT (seedling/sapling/tree
- * would result in a massive improvement - in fact we have
- * an alternative to DocFiles that we use internally that
- * uses seedling/sapling/tree and *is* far more efficient).
- *
- * It is worth noting that the MS implementation of red-black
- * trees is incorrect (I can tell you're surprised) and
- * actually causes more operations to occur than are really
- * needed. Fortunately the fact that our implementation is
- * correct will not cause any problems - the MS implementation
- * still appears to cause the tree to satisfy the rules, albeit
- * a sequence of the same insertions in the different
- * implementations may result in a different, and possibly
- * deeper (but never shallower) tree.
- */
 
 
 /******************************************************************************
@@ -766,8 +548,7 @@ static int
 STORAGE_get_free_big_blocknr(HANDLE hf) {
 	BYTE	block[BIGSIZE];
 	LPINT	sbd = (LPINT)block;
-	int	lastbigblocknr,i,bigblocknr;
-	unsigned int curblock;
+	int	lastbigblocknr,i,curblock,bigblocknr;
 	struct storage_header sth;
 	BOOL ret;
 
@@ -955,7 +736,7 @@ STORAGE_get_free_pps_entry(HANDLE hf) {
 typedef struct
 {
         /* IUnknown fields */
-        IStream16Vtbl                  *lpVtbl;
+        ICOM_VFIELD(IStream16);
         DWORD                           ref;
         /* IStream16 fields */
         SEGPTR                          thisptr; /* pointer to this struct as segmented */
@@ -971,7 +752,7 @@ typedef struct
 HRESULT WINAPI IStream16_fnQueryInterface(
 	IStream16* iface,REFIID refiid,LPVOID *obj
 ) {
-	IStream16Impl *This = (IStream16Impl *)iface;
+	ICOM_THIS(IStream16Impl,iface);
 	TRACE_(relay)("(%p)->(%s,%p)\n",This,debugstr_guid(refiid),obj);
 	if (!memcmp(&IID_IUnknown,refiid,sizeof(IID_IUnknown))) {
 		*obj = This;
@@ -985,24 +766,24 @@ HRESULT WINAPI IStream16_fnQueryInterface(
  * IStream16_AddRef [STORAGE.519]
  */
 ULONG WINAPI IStream16_fnAddRef(IStream16* iface) {
-	IStream16Impl *This = (IStream16Impl *)iface;
-	return InterlockedIncrement(&This->ref);
+	ICOM_THIS(IStream16Impl,iface);
+	return ++(This->ref);
 }
 
 /******************************************************************************
  * IStream16_Release [STORAGE.520]
  */
 ULONG WINAPI IStream16_fnRelease(IStream16* iface) {
-	IStream16Impl *This = (IStream16Impl *)iface;
-        ULONG ref;
+	ICOM_THIS(IStream16Impl,iface);
 	FlushFileBuffers(This->hf);
-        ref = InterlockedDecrement(&This->ref);
-	if (!ref) {
+	This->ref--;
+	if (!This->ref) {
 		CloseHandle(This->hf);
                 UnMapLS( This->thisptr );
 		HeapFree( GetProcessHeap(), 0, This );
+		return 0;
 	}
-	return ref;
+	return This->ref;
 }
 
 /******************************************************************************
@@ -1014,7 +795,7 @@ ULONG WINAPI IStream16_fnRelease(IStream16* iface) {
 HRESULT WINAPI IStream16_fnSeek(
 	IStream16* iface,LARGE_INTEGER offset,DWORD whence,ULARGE_INTEGER *newpos
 ) {
-	IStream16Impl *This = (IStream16Impl *)iface;
+	ICOM_THIS(IStream16Impl,iface);
 	TRACE_(relay)("(%p)->([%ld.%ld],%ld,%p)\n",This,offset.u.HighPart,offset.u.LowPart,whence,newpos);
 
 	switch (whence) {
@@ -1058,11 +839,10 @@ HRESULT WINAPI IStream16_fnSeek(
 HRESULT WINAPI IStream16_fnRead(
         IStream16* iface,void  *pv,ULONG cb,ULONG  *pcbRead
 ) {
-	IStream16Impl *This = (IStream16Impl *)iface;
+	ICOM_THIS(IStream16Impl,iface);
 	BYTE	block[BIGSIZE];
 	ULONG	*bytesread=pcbRead,xxread;
 	int	blocknr;
-	LPBYTE	pbv = pv;
 
 	TRACE_(relay)("(%p)->(%p,%ld,%p)\n",This,pv,cb,pcbRead);
 	if (!pcbRead) bytesread=&xxread;
@@ -1074,7 +854,7 @@ HRESULT WINAPI IStream16_fnRead(
 		/* use small block reader */
 		blocknr = STORAGE_get_nth_next_small_blocknr(This->hf,This->stde.pps_sb,This->offset.u.LowPart/SMALLSIZE);
 		while (cb) {
-			unsigned int cc;
+			int	cc;
 
 			if (!STORAGE_get_small_block(This->hf,blocknr,block)) {
 			   WARN("small block read failed!!!\n");
@@ -1083,9 +863,9 @@ HRESULT WINAPI IStream16_fnRead(
 			cc = cb;
 			if (cc>SMALLSIZE-(This->offset.u.LowPart&(SMALLSIZE-1)))
 				cc=SMALLSIZE-(This->offset.u.LowPart&(SMALLSIZE-1));
-			memcpy(pbv,block+(This->offset.u.LowPart&(SMALLSIZE-1)),cc);
+			memcpy((LPBYTE)pv,block+(This->offset.u.LowPart&(SMALLSIZE-1)),cc);
 			This->offset.u.LowPart+=cc;
-			pbv+=cc;
+			(LPBYTE)pv+=cc;
 			*bytesread+=cc;
 			cb-=cc;
 			blocknr = STORAGE_get_next_small_blocknr(This->hf,blocknr);
@@ -1094,7 +874,7 @@ HRESULT WINAPI IStream16_fnRead(
 		/* use big block reader */
 		blocknr = STORAGE_get_nth_next_big_blocknr(This->hf,This->stde.pps_sb,This->offset.u.LowPart/BIGSIZE);
 		while (cb) {
-			unsigned int cc;
+			int	cc;
 
 			if (!STORAGE_get_big_block(This->hf,blocknr,block)) {
 				WARN("big block read failed!!!\n");
@@ -1103,9 +883,9 @@ HRESULT WINAPI IStream16_fnRead(
 			cc = cb;
 			if (cc>BIGSIZE-(This->offset.u.LowPart&(BIGSIZE-1)))
 				cc=BIGSIZE-(This->offset.u.LowPart&(BIGSIZE-1));
-			memcpy(pbv,block+(This->offset.u.LowPart&(BIGSIZE-1)),cc);
+			memcpy((LPBYTE)pv,block+(This->offset.u.LowPart&(BIGSIZE-1)),cc);
 			This->offset.u.LowPart+=cc;
-			pbv+=cc;
+			(LPBYTE)pv+=cc;
 			*bytesread+=cc;
 			cb-=cc;
 			blocknr=STORAGE_get_next_big_blocknr(This->hf,blocknr);
@@ -1120,12 +900,11 @@ HRESULT WINAPI IStream16_fnRead(
 HRESULT WINAPI IStream16_fnWrite(
         IStream16* iface,const void *pv,ULONG cb,ULONG *pcbWrite
 ) {
-	IStream16Impl *This = (IStream16Impl *)iface;
+	ICOM_THIS(IStream16Impl,iface);
 	BYTE	block[BIGSIZE];
 	ULONG	*byteswritten=pcbWrite,xxwritten;
 	int	oldsize,newsize,i,curoffset=0,lastblocknr,blocknr,cc;
 	HANDLE	hf = This->hf;
-	const BYTE*     pbv = (const BYTE*)pv;
 
 	if (!pcbWrite) byteswritten=&xxwritten;
 	*byteswritten = 0;
@@ -1343,14 +1122,14 @@ HRESULT WINAPI IStream16_fnWrite(
 			if (cc>cb)
 				cc=cb;
 			memcpy(	((LPBYTE)block)+(This->offset.u.LowPart&(SMALLSIZE-1)),
-				pbv+curoffset,
+				(LPBYTE)((char *) pv+curoffset),
 				cc
 			);
 			if (!STORAGE_put_small_block(hf,blocknr,block))
 				return E_FAIL;
 			cb			-= cc;
 			curoffset		+= cc;
-			pbv			+= cc;
+			(LPBYTE)pv		+= cc;
 			This->offset.u.LowPart	+= cc;
 			*byteswritten		+= cc;
 			blocknr = STORAGE_get_next_small_blocknr(hf,blocknr);
@@ -1371,14 +1150,14 @@ HRESULT WINAPI IStream16_fnWrite(
 			if (cc>cb)
 				cc=cb;
 			memcpy(	((LPBYTE)block)+(This->offset.u.LowPart&(BIGSIZE-1)),
-				pbv+curoffset,
+				(LPBYTE)((char *) pv+curoffset),
 				cc
 			);
 			if (!STORAGE_put_big_block(hf,blocknr,block))
 				return E_FAIL;
 			cb			-= cc;
 			curoffset		+= cc;
-			pbv			+= cc;
+			(LPBYTE)pv		+= cc;
 			This->offset.u.LowPart	+= cc;
 			*byteswritten		+= cc;
 			blocknr = STORAGE_get_next_big_blocknr(hf,blocknr);
@@ -1413,7 +1192,7 @@ static void _create_istream16(LPSTREAM16 *str) {
 			VTENT(Stat);
 			VTENT(Clone);
 #undef VTENT
-			segstrvt16 = (IStream16Vtbl*)MapLS( &strvt16 );
+			segstrvt16 = (ICOM_VTABLE(IStream16)*)MapLS( &strvt16 );
 		} else {
 #define VTENT(xfn) strvt16.xfn = IStream16_fn##xfn;
 			VTENT(QueryInterface);
@@ -1449,7 +1228,7 @@ static void _create_istream16(LPSTREAM16 *str) {
 typedef struct
 {
         /* IUnknown fields */
-        IStreamVtbl                    *lpVtbl;
+        ICOM_VFIELD(IStream);
         DWORD                           ref;
         /* IStream32 fields */
         struct storage_pps_entry        stde;
@@ -1464,7 +1243,7 @@ typedef struct
 HRESULT WINAPI IStream_fnQueryInterface(
 	IStream* iface,REFIID refiid,LPVOID *obj
 ) {
-	IStream32Impl *This = (IStream32Impl *)iface;
+	ICOM_THIS(IStream32Impl,iface);
 
 	TRACE_(relay)("(%p)->(%s,%p)\n",This,debugstr_guid(refiid),obj);
 	if (!memcmp(&IID_IUnknown,refiid,sizeof(IID_IUnknown))) {
@@ -1479,23 +1258,23 @@ HRESULT WINAPI IStream_fnQueryInterface(
  * IStream32_AddRef [VTABLE]
  */
 ULONG WINAPI IStream_fnAddRef(IStream* iface) {
-	IStream32Impl *This = (IStream32Impl *)iface;
-	return InterlockedIncrement(&This->ref);
+	ICOM_THIS(IStream32Impl,iface);
+	return ++(This->ref);
 }
 
 /******************************************************************************
  * IStream32_Release [VTABLE]
  */
 ULONG WINAPI IStream_fnRelease(IStream* iface) {
-	IStream32Impl *This = (IStream32Impl *)iface;
-        ULONG ref;
+	ICOM_THIS(IStream32Impl,iface);
 	FlushFileBuffers(This->hf);
-        ref = InterlockedDecrement(&This->ref);
-	if (!ref) {
+	This->ref--;
+	if (!This->ref) {
 		CloseHandle(This->hf);
 		HeapFree( GetProcessHeap(), 0, This );
+		return 0;
 	}
-	return ref;
+	return This->ref;
 }
 
 /* --- IStorage16 implementation */
@@ -1503,7 +1282,7 @@ ULONG WINAPI IStream_fnRelease(IStream* iface) {
 typedef struct
 {
         /* IUnknown fields */
-        IStorage16Vtbl                 *lpVtbl;
+        ICOM_VFIELD(IStorage16);
         DWORD                           ref;
         /* IStorage16 fields */
         SEGPTR                          thisptr; /* pointer to this struct as segmented */
@@ -1518,7 +1297,7 @@ typedef struct
 HRESULT WINAPI IStorage16_fnQueryInterface(
 	IStorage16* iface,REFIID refiid,LPVOID *obj
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 
 	TRACE_(relay)("(%p)->(%s,%p)\n",This,debugstr_guid(refiid),obj);
 
@@ -1533,23 +1312,21 @@ HRESULT WINAPI IStorage16_fnQueryInterface(
  * IStorage16_AddRef [STORAGE.501]
  */
 ULONG WINAPI IStorage16_fnAddRef(IStorage16* iface) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
-	return InterlockedIncrement(&This->ref);
+	ICOM_THIS(IStorage16Impl,iface);
+	return ++(This->ref);
 }
 
 /******************************************************************************
  * IStorage16_Release [STORAGE.502]
  */
 ULONG WINAPI IStorage16_fnRelease(IStorage16* iface) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
-        ULONG ref;
-        ref = InterlockedDecrement(&This->ref);
-        if (!ref)
-        {
-            UnMapLS( This->thisptr );
-            HeapFree( GetProcessHeap(), 0, This );
-        }
-        return ref;
+	ICOM_THIS(IStorage16Impl,iface);
+	This->ref--;
+	if (This->ref)
+		return This->ref;
+        UnMapLS( This->thisptr );
+        HeapFree( GetProcessHeap(), 0, This );
+	return 0;
 }
 
 /******************************************************************************
@@ -1558,7 +1335,7 @@ ULONG WINAPI IStorage16_fnRelease(IStorage16* iface) {
 HRESULT WINAPI IStorage16_fnStat(
         LPSTORAGE16 iface,STATSTG16 *pstatstg, DWORD grfStatFlag
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
         DWORD len = WideCharToMultiByte( CP_ACP, 0, This->stde.pps_rawname, -1, NULL, 0, NULL, NULL );
         LPSTR nameA = HeapAlloc( GetProcessHeap(), 0, len );
 
@@ -1586,7 +1363,7 @@ HRESULT WINAPI IStorage16_fnStat(
 HRESULT WINAPI IStorage16_fnCommit(
         LPSTORAGE16 iface,DWORD commitflags
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	FIXME("(%p)->(0x%08lx),STUB!\n",
 		This,commitflags
 	);
@@ -1597,7 +1374,7 @@ HRESULT WINAPI IStorage16_fnCommit(
  * IStorage16_CopyTo [STORAGE.507]
  */
 HRESULT WINAPI IStorage16_fnCopyTo(LPSTORAGE16 iface,DWORD ciidExclude,const IID *rgiidExclude,SNB16 SNB16Exclude,IStorage16 *pstgDest) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	FIXME("IStorage16(%p)->(0x%08lx,%s,%p,%p),stub!\n",
 		This,ciidExclude,debugstr_guid(rgiidExclude),SNB16Exclude,pstgDest
 	);
@@ -1611,7 +1388,7 @@ HRESULT WINAPI IStorage16_fnCopyTo(LPSTORAGE16 iface,DWORD ciidExclude,const IID
 HRESULT WINAPI IStorage16_fnCreateStorage(
 	LPSTORAGE16 iface,LPCOLESTR16 pwcsName,DWORD grfMode,DWORD dwStgFormat,DWORD reserved2, IStorage16 **ppstg
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	IStorage16Impl*	lpstg;
 	int		ppsent,x;
 	struct storage_pps_entry	stde;
@@ -1676,7 +1453,7 @@ HRESULT WINAPI IStorage16_fnCreateStorage(
 HRESULT WINAPI IStorage16_fnCreateStream(
 	LPSTORAGE16 iface,LPCOLESTR16 pwcsName,DWORD grfMode,DWORD reserved1,DWORD reserved2, IStream16 **ppstm
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	IStream16Impl*	lpstr;
 	int		ppsent,x;
 	struct storage_pps_entry	stde;
@@ -1734,7 +1511,7 @@ HRESULT WINAPI IStorage16_fnCreateStream(
 HRESULT WINAPI IStorage16_fnOpenStorage(
 	LPSTORAGE16 iface,LPCOLESTR16 pwcsName, IStorage16 *pstgPrio, DWORD grfMode, SNB16 snbExclude, DWORD reserved, IStorage16 **ppstg
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	IStream16Impl*	lpstg;
 	WCHAR		name[33];
 	int		newpps;
@@ -1769,7 +1546,7 @@ HRESULT WINAPI IStorage16_fnOpenStorage(
 HRESULT WINAPI IStorage16_fnOpenStream(
 	LPSTORAGE16 iface,LPCOLESTR16 pwcsName, void *reserved1, DWORD grfMode, DWORD reserved2, IStream16 **ppstm
 ) {
-	IStorage16Impl *This = (IStorage16Impl *)iface;
+	ICOM_THIS(IStorage16Impl,iface);
 	IStream16Impl*	lpstr;
 	WCHAR		name[33];
 	int		newpps;
@@ -1829,7 +1606,7 @@ static void _create_istorage16(LPSTORAGE16 *stg) {
 			VTENT(SetStateBits)
 			VTENT(Stat)
 #undef VTENT
-			segstvt16 = (IStorage16Vtbl*)MapLS( &stvt16 );
+			segstvt16 = (ICOM_VTABLE(IStorage16)*)MapLS( &stvt16 );
 		} else {
 #define VTENT(xfn) stvt16.xfn = IStorage16_fn##xfn;
 			VTENT(QueryInterface)
@@ -1985,7 +1762,7 @@ HRESULT WINAPI StgIsStorageILockBytes16(SEGPTR plkbyt)
   args[5] = 0;
 
   if (!K32WOWCallback16Ex(
-      (DWORD)((ILockBytes16Vtbl*)MapSL(
+      (DWORD)((ICOM_VTABLE(ILockBytes16)*)MapSL(
                   (SEGPTR)((LPLOCKBYTES16)MapSL(plkbyt))->lpVtbl)
       )->ReadAt,
       WCB16_PASCAL,

@@ -1,4 +1,4 @@
-/* $Id: connect.c,v 1.27 2004/08/15 16:39:06 chorns Exp $
+/* $Id: connect.c,v 1.25 2004/02/02 23:48:42 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -424,20 +432,20 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     {
       if (UnsafeConnectDataLength != NULL)
 	{
+	  if (ExGetPreviousMode() != KernelMode)
+	    {
+	      Status = MmCopyToCaller(UnsafeConnectData,
+				      ConnectData,
+				      ConnectDataLength);
+	      ExFreePool(ConnectData);
+	      if (!NT_SUCCESS(Status))
+		{
+		  return(Status);
+		}
+	    }
 	  Status = MmCopyToCaller(UnsafeConnectDataLength,
 				  &ConnectDataLength,
 				  sizeof(ULONG));
-	  if (!NT_SUCCESS(Status))
-	    {
-	      return(Status);
-	    }
-	}
-      if (UnsafeConnectData != NULL && ConnectData != NULL)
-	{
-	  Status = MmCopyToCaller(UnsafeConnectData,
-				      ConnectData,
-				      ConnectDataLength);
-	  ExFreePool(ConnectData);
 	  if (!NT_SUCCESS(Status))
 	    {
 	      return(Status);

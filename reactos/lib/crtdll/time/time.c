@@ -15,7 +15,7 @@
  * Copyright 1996 Alexandre Julliard
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/time.h>
 #include <msvcrt/internal/file.h>
 

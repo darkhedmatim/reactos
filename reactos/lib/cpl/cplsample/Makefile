@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.2 2004/10/30 19:14:22 ekohl Exp $
+# $Id: Makefile,v 1.1 2004/02/05 19:17:11 weiden Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -13,9 +13,6 @@ TARGET_INSTALLDIR = system32
 TARGET_BASE = 0x75970000
 
 TARGET_CFLAGS = \
- -D_WIN32_IE=0x0600 \
- -D_WIN32_WINNT=0x0501 \
- -D__USE_W32API \
  -I./include \
  -DUNICODE \
  -D_UNICODE \

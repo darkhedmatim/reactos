@@ -1,4 +1,4 @@
-/* Multimedia resources (MMSYSTEM.DLL & WINMM.DLL)
+/* Multimedia resources (MMSYSTEM.DLL & WINMM.DLL
  *
  * Copyright (c) 1999, Eric Pouech
  *
@@ -28,15 +28,12 @@
 #include "winnls.h"
 
 /* Add your language specific defines here */
-#include "winmm_Cs.rc"
-#include "winmm_De.rc"
 #include "winmm_En.rc"
-#include "winmm_Es.rc"
 #include "winmm_Fr.rc"
 #include "winmm_It.rc"
-/* #include "winmm_Ja.rc" */ /* Gives error during ReactOS build */
 #include "winmm_Nl.rc"
 #include "winmm_Pt.rc"
+#include "winmm_Es.rc"
 #include "winmm_Ru.rc"
 #include "winmm_Si.rc"
 #include "winmm_Sk.rc"
@@ -408,7 +405,7 @@ END
 
 CDAUDIO RCDATA
 BEGIN
-"status\0", 0x00000814L, MCI_COMMAND_HEAD,
+"atus\0", 0x00000814L, MCI_COMMAND_HEAD,
 "\0", 0x00000002L, MCI_RETURN,
 "notify\0", 0x00000001L, MCI_FLAG,
 "wait\0", 0x00000002L, MCI_FLAG,
@@ -459,7 +456,7 @@ END
 
 SEQUENCER RCDATA
 BEGIN
-"status\0", 0x00000814L, MCI_COMMAND_HEAD,
+"atus\0", 0x00000814L, MCI_COMMAND_HEAD,
 "\0", 0x00000002L, MCI_RETURN,
 "notify\0", 0x00000001L, MCI_FLAG,
 "wait\0", 0x00000002L, MCI_FLAG,

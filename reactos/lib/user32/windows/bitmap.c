@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bitmap.c,v 1.34 2004/12/19 05:00:22 royce Exp $
+/* $Id: bitmap.c,v 1.26 2003/12/31 19:25:51 navaraf Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,8 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
 #include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <stdlib.h>
 
@@ -38,6 +39,7 @@ HICON ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, 
 HICON ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 CURSORICONDIRENTRY *CURSORICON_FindBestIcon( CURSORICONDIR *dir, int width, int height, int colors);
 CURSORICONDIRENTRY *CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, int height, int colors);
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -85,14 +87,14 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
    HDC hScreenDc;
    HANDLE hIcon;
    ULONG HeaderSize;
-   ULONG ColorCount;
+   ULONG ColourCount;
    PVOID Data;
    CURSORICONDIRENTRY* dirEntry;
    ICONIMAGE* SafeIconImage;
    GRPCURSORICONDIR* IconResDir;
    INT id;
    ICONIMAGE *ResIcon;
-   UINT ColorBits;
+   UINT Colors;
   
    if (!(fuLoad & LR_LOADFROMFILE))
    {
@@ -180,8 +182,7 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
 
       IconDIR = MapViewOfFile(hSection, FILE_MAP_READ, 0, 0, 0);
       CloseHandle(hSection);
-      if (IconDIR == NULL || 0 != IconDIR->idReserved
-          || (IMAGE_ICON != IconDIR->idType && IMAGE_CURSOR != IconDIR->idType))
+      if (IconDIR == NULL)
       {
          return NULL;
       }
@@ -199,28 +200,26 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
 
       if (fuLoad & LR_MONOCHROME)
       {
-         ColorBits = 1;
+         Colors = 2;
       }
       else
       {
-         ColorBits = GetDeviceCaps(hScreenDc, BITSPIXEL);
-         /*
-          * FIXME:
-          * Remove this after proper support for alpha icons will be finished.
-          */
-         if (ColorBits > 8)
-            ColorBits = 8;
+         Colors = GetDeviceCaps(hScreenDc, BITSPIXEL);
+         if (Colors > 8)
+            Colors = 256;
+         else
+            Colors = 1 << Colors;
       }
 
       /* Pick the best size. */
-      dirEntry = (CURSORICONDIRENTRY *)CURSORICON_FindBestIcon(IconDIR, 32, 32, ColorBits);
+      dirEntry = (CURSORICONDIRENTRY *)CURSORICON_FindBestIcon(IconDIR, 32, 32, Colors);
       if (!dirEntry)
       {
          UnmapViewOfFile(IconDIR);
          return(NULL);
       }
 
-      SafeIconImage = RtlAllocateHeap(GetProcessHeap(), 0, dirEntry->dwBytesInRes); 
+      SafeIconImage = RtlAllocateHeap(RtlGetProcessHeap(), 0, dirEntry->dwBytesInRes); 
       memcpy(SafeIconImage, ((PBYTE)IconDIR) + dirEntry->dwImageOffset, dirEntry->dwBytesInRes);
    }
 
@@ -231,17 +230,17 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
   if (SafeIconImage->icHeader.biSize == sizeof(BITMAPCOREHEADER))
     {
       BITMAPCOREHEADER* Core = (BITMAPCOREHEADER*)SafeIconImage;
-      ColorCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
-      HeaderSize = sizeof(BITMAPCOREHEADER) + ColorCount * sizeof(RGBTRIPLE);
+      ColourCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
+      HeaderSize = sizeof(BITMAPCOREHEADER) + ColourCount * sizeof(RGBTRIPLE);
     }
   else
     {
-      ColorCount = SafeIconImage->icHeader.biClrUsed;
-      if (ColorCount == 0 && SafeIconImage->icHeader.biBitCount <= 8)
+      ColourCount = SafeIconImage->icHeader.biClrUsed;
+      if (ColourCount == 0 && SafeIconImage->icHeader.biBitCount <= 8)
 	{
-	  ColorCount = 1 << SafeIconImage->icHeader.biBitCount;
+	  ColourCount = 1 << SafeIconImage->icHeader.biBitCount;
 	}
-      HeaderSize = sizeof(BITMAPINFOHEADER) + ColorCount * sizeof(RGBQUAD);
+      HeaderSize = sizeof(BITMAPINFOHEADER) + ColourCount * sizeof(RGBQUAD);
     }
   
   //make data point to the start of the XOR image data
@@ -249,7 +248,7 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
 
   hIcon = ICON_CreateCursorFromData(hScreenDc, Data, SafeIconImage, 32, 32, dirEntry->Info.cursor.wXHotspot, dirEntry->Info.cursor.wYHotspot);
   DeleteDC(hScreenDc);
-  RtlFreeHeap(GetProcessHeap(), 0, SafeIconImage);
+  RtlFreeHeap(RtlGetProcessHeap(), 0, SafeIconImage);
   return hIcon;
 }
 
@@ -266,7 +265,7 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
   HDC hScreenDc;
   HANDLE hIcon;
   ULONG HeaderSize;
-  ULONG ColorCount;
+  ULONG ColourCount;
   PVOID Data;
   CURSORICONDIRENTRY* dirEntry;
   ICONIMAGE* SafeIconImage;
@@ -335,14 +334,6 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
   }
   else
   {
-      /*
-       * FIXME: This code is incorrect and is likely to crash in many cases. 
-       * In the file the cursor/icon directory records are stored like
-       * CURSORICONFILEDIR, but we treat them like CURSORICONDIR. In Wine
-       * this is solved by creating a fake cursor/icon directory in memory
-       * and passing that to CURSORICON_FindBestIcon.
-       */
-
       if (fuLoad & LR_SHARED)
       {
         DbgPrint("FIXME: need LR_SHARED support for loading icon images from files\n");
@@ -378,8 +369,7 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
 				 0,
 				 0);
 
-      if (IconDIR == NULL || 0 != IconDIR->idReserved
-          || (IMAGE_ICON != IconDIR->idType && IMAGE_CURSOR != IconDIR->idType))
+      if (IconDIR == NULL)
 	  {
 	    CloseHandle(hFile);
 	    CloseHandle(hSection);
@@ -398,7 +388,7 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
 	       return(NULL);
 	  }
 
-      SafeIconImage = RtlAllocateHeap(GetProcessHeap(), 0, dirEntry->dwBytesInRes); 
+      SafeIconImage = RtlAllocateHeap(RtlGetProcessHeap(), 0, dirEntry->dwBytesInRes); 
 
       memcpy(SafeIconImage, ((PBYTE)IconDIR) + dirEntry->dwImageOffset, dirEntry->dwBytesInRes);
 
@@ -413,17 +403,17 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
   if (SafeIconImage->icHeader.biSize == sizeof(BITMAPCOREHEADER))
     {
       BITMAPCOREHEADER* Core = (BITMAPCOREHEADER*)SafeIconImage;
-      ColorCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
-      HeaderSize = sizeof(BITMAPCOREHEADER) + ColorCount * sizeof(RGBTRIPLE);
+      ColourCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
+      HeaderSize = sizeof(BITMAPCOREHEADER) + ColourCount * sizeof(RGBTRIPLE);
     }
   else
     {
-      ColorCount = SafeIconImage->icHeader.biClrUsed;
-      if (ColorCount == 0 && SafeIconImage->icHeader.biBitCount <= 8)
+      ColourCount = SafeIconImage->icHeader.biClrUsed;
+      if (ColourCount == 0 && SafeIconImage->icHeader.biBitCount <= 8)
 	{
-	  ColorCount = 1 << SafeIconImage->icHeader.biBitCount;
+	  ColourCount = 1 << SafeIconImage->icHeader.biBitCount;
 	}
-      HeaderSize = sizeof(BITMAPINFOHEADER) + ColorCount * sizeof(RGBQUAD);
+      HeaderSize = sizeof(BITMAPINFOHEADER) + ColourCount * sizeof(RGBQUAD);
     }
   
   //make data point to the start of the XOR image data
@@ -436,14 +426,14 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
   {
       if (fuLoad & LR_LOADFROMFILE)
 	  {
-	  	RtlFreeHeap(GetProcessHeap(), 0, SafeIconImage);
+	  	RtlFreeHeap(RtlGetProcessHeap(), 0, SafeIconImage);
         UnmapViewOfFile(IconDIR);
 	  }
       return(NULL);
   }
 
   hIcon = ICON_CreateIconFromData(hScreenDc, Data, SafeIconImage, width, height, width/2, height/2);
-  RtlFreeHeap(GetProcessHeap(), 0, SafeIconImage);
+  RtlFreeHeap(RtlGetProcessHeap(), 0, SafeIconImage);
   return hIcon;
 }
 
@@ -459,7 +449,7 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
   HDC hScreenDc;
   HANDLE hBitmap;
   ULONG HeaderSize;
-  ULONG ColorCount;
+  ULONG ColourCount;
   PVOID Data;
 
   if (!(fuLoad & LR_LOADFROMFILE))
@@ -527,21 +517,21 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
   if (BitmapInfo->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
     {
       BITMAPCOREHEADER* Core = (BITMAPCOREHEADER*)BitmapInfo;
-      ColorCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
-      HeaderSize = sizeof(BITMAPCOREHEADER) + ColorCount * sizeof(RGBTRIPLE);
+      ColourCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
+      HeaderSize = sizeof(BITMAPCOREHEADER) + ColourCount * sizeof(RGBTRIPLE);
     }
   else
     {
-      ColorCount = BitmapInfo->bmiHeader.biClrUsed;
-      if (ColorCount == 0 && BitmapInfo->bmiHeader.biBitCount <= 8)
+      ColourCount = BitmapInfo->bmiHeader.biClrUsed;
+      if (ColourCount == 0 && BitmapInfo->bmiHeader.biBitCount <= 8)
 	{
-	  ColorCount = 1 << BitmapInfo->bmiHeader.biBitCount;
+	  ColourCount = 1 << BitmapInfo->bmiHeader.biBitCount;
 	}
-      HeaderSize = sizeof(BITMAPINFOHEADER) + ColorCount * sizeof(RGBQUAD);
+      HeaderSize = sizeof(BITMAPINFOHEADER) + ColourCount * sizeof(RGBQUAD);
     }
   Data = (PVOID)BitmapInfo + HeaderSize;
 
-  PrivateInfo = RtlAllocateHeap(GetProcessHeap(), 0, HeaderSize);
+  PrivateInfo = RtlAllocateHeap(RtlGetProcessHeap(), 0, HeaderSize);
   if (PrivateInfo == NULL)
     {
       if (fuLoad & LR_LOADFROMFILE)
@@ -552,12 +542,11 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
     }
   memcpy(PrivateInfo, BitmapInfo, HeaderSize);
 
-  /* FIXME: Handle color conversion and transparency. */
+  /* FIXME: Handle colour conversion and transparency. */
 
   hScreenDc = CreateDCW(L"DISPLAY", NULL, NULL, NULL);
   if (hScreenDc == NULL)
     {
-      RtlFreeHeap(GetProcessHeap(), 0, PrivateInfo);
       if (fuLoad & LR_LOADFROMFILE)
 	{
 	  UnmapViewOfFile(BitmapInfo);
@@ -581,8 +570,8 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
 			       Data, PrivateInfo, DIB_RGB_COLORS);
     }
 
-  RtlFreeHeap(GetProcessHeap(), 0, PrivateInfo);
-  DeleteDC(hScreenDc);
+  RtlFreeHeap(RtlGetProcessHeap(), 0, PrivateInfo);
+  /*DeleteDC(hScreenDc);*/
   if (fuLoad & LR_LOADFROMFILE)
     {
       UnmapViewOfFile(BitmapInfo);
@@ -667,53 +656,39 @@ LoadBitmapW(HINSTANCE hInstance, LPCWSTR lpBitmapName)
 
 
 /*
- * @unimplemented
+ * @implemented
  */
 HANDLE WINAPI
 CopyImage(HANDLE hnd, UINT type, INT desiredx, INT desiredy, UINT flags)
 {
-	switch (type)
-	{
-        case IMAGE_BITMAP:
-			{
-				DbgPrint("WARNING:  Incomplete implementation of CopyImage!\n");
-        		/* FIXME:  support flags LR_COPYDELETEORG, LR_COPYFROMRESOURCE,
-     	   							 LR_COPYRETURNORG, LR_CREATEDIBSECTION,
-     	   							 and LR_MONOCHROME; */
-				HBITMAP res;
-				BITMAP bm;
+   switch (type)
+   {
+      case IMAGE_BITMAP:
+         {
+         	DbgPrint("WARNING:  Incomplete implementation of CopyImage!\n");
+         	/* FIXME:  support flags LR_COPYDELETEORG, LR_COPYFROMRESOURCE,
+         	   						 LR_COPYRETURNORG, LR_CREATEDIBSECTION,
+         	   						 and LR_MONOCHROME; */
+            HBITMAP res;
+            BITMAP bm;
 
-				if (!GetObjectW(hnd, sizeof(bm), &bm)) return 0;
-				bm.bmBits = NULL;
-				if ((res = CreateBitmapIndirect(&bm)))
-				{
-                    char *buf = HeapAlloc(GetProcessHeap(), 0, bm.bmWidthBytes * bm.bmHeight);
-					GetBitmapBits(hnd, bm.bmWidthBytes * bm.bmHeight, buf);
-					SetBitmapBits(res, bm.bmWidthBytes * bm.bmHeight, buf);
-					HeapFree(GetProcessHeap(), 0, buf);
-				}
-                return res;
-			}
-		case IMAGE_ICON: 
-			{
-				static BOOL IconMsgDisplayed = FALSE;
-				/* FIXME: support loading the image as shared from an instance */
-				if (!IconMsgDisplayed) {
-					DbgPrint("FIXME: CopyImage doesn't support IMAGE_ICON correctly!\n");
-					IconMsgDisplayed = TRUE;
-				}
-		        return CopyIcon(hnd);
-			}
-		case IMAGE_CURSOR: 
-			{
-				static BOOL IconMsgDisplayed = FALSE;
-				/* FIXME: support loading the image as shared from an instance */
-				if (!IconMsgDisplayed) {
-					DbgPrint("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
-					IconMsgDisplayed = TRUE;
-				}
-				return CopyCursor(hnd);
-			}
-	}
-	return 0;
+            if (!GetObjectW(hnd, sizeof(bm), &bm)) return 0;
+            bm.bmBits = NULL;
+            if ((res = CreateBitmapIndirect(&bm)))
+            {
+               char *buf = HeapAlloc(GetProcessHeap(), 0, bm.bmWidthBytes * bm.bmHeight);
+               GetBitmapBits(hnd, bm.bmWidthBytes * bm.bmHeight, buf);
+               SetBitmapBits(res, bm.bmWidthBytes * bm.bmHeight, buf);
+               HeapFree(GetProcessHeap(), 0, buf);
+            }
+            return res;
+        }
+     case IMAGE_ICON:
+        DbgPrint("FIXME: CopyImage doesn't support IMAGE_ICON correctly!\n");
+        return CopyIcon(hnd);
+     case IMAGE_CURSOR:
+        DbgPrint("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
+        return CopyCursor(hnd);
+    }
+    return 0;
 }

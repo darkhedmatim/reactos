@@ -1,10 +1,12 @@
-# $Id: makefile,v 1.4 2004/12/03 23:37:41 blight Exp $
+# $Id: makefile,v 1.2 2004/01/10 00:39:52 sedwards Exp $
 
 PATH_TO_TOP = ../..
 
+TARGET_DEFONLY = yes
+
 TARGET_TYPE = library
 
-TARGET_NAME = wine
+TARGET_NAME = libwine
 
 TARGET_CFLAGS = -D__REACTOS__
 

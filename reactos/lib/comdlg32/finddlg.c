@@ -121,7 +121,7 @@ BOOL FINDDLG_Get16BitsTemplate(LFRPRIVATE lfr)
 	    COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
 	    return FALSE;
 	}
-        size = SizeofResource(COMDLG32_hInstance, hResInfo);
+        size = SizeofResource(GetModuleHandleA("COMDLG32"), hResInfo);
         hGlobal16 = GlobalAlloc16(0, size);
         if (!hGlobal16)
         {
@@ -182,7 +182,7 @@ HWND16 WINAPI FindText16( SEGPTR find )
     lfr->find = TRUE;
     if (FINDDLG_Get16BitsTemplate(lfr))
     {
-        hInst = GetWindowLongPtrA( HWND_32(lfr->fr16->hwndOwner), GWLP_HINSTANCE);
+        hInst = GetWindowLongA( HWND_32(lfr->fr16->hwndOwner), GWL_HINSTANCE);
         ptr = GetProcAddress16(GetModuleHandle16("COMMDLG"), (LPCSTR) 13);
         ret = CreateDialogIndirectParam16( hInst, lfr->template,
                     lfr->fr16->hwndOwner, (DLGPROC16) ptr, find);
@@ -212,7 +212,7 @@ HWND16 WINAPI ReplaceText16( SEGPTR find )
     lfr->find = FALSE;
     if (FINDDLG_Get16BitsTemplate(lfr))
     {
-        hInst = GetWindowLongPtrA( HWND_32(lfr->fr16->hwndOwner), GWLP_HINSTANCE);
+        hInst = GetWindowLongA( HWND_32(lfr->fr16->hwndOwner), GWL_HINSTANCE);
         ptr = GetProcAddress16(GetModuleHandle16("COMMDLG"), (LPCSTR) 14);
         ret = CreateDialogIndirectParam16( hInst, lfr->template,
                     lfr->fr16->hwndOwner, (DLGPROC16) ptr, find);

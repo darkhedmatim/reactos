@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,11 +24,17 @@
  //
  // Martin Fuchs, 23.07.2003
  //
- // Credits: Thanks to Leon Finker for his explorer cabinet window example
+ // Credits: Thanks to Leon Finker for his explorer window example
  //
 
 
-#include "precomp.h"
+#include "utility/utility.h"
+
+#include "explorer.h"
+#include "desktop/desktop.h"
+
+#include "globals.h"
+#include "externals.h"
 
 #include "explorer_intres.h"
 
@@ -38,8 +44,6 @@
 #include <io.h>		// for dup2()
 #include <fcntl.h>	// for _O_RDONLY
 #endif
-
-#include "dialogs/settings.h"	// for MdiSdiDlg
 
 
 extern "C" int initialize_gdb_stub();	// start up GDB stub
@@ -62,7 +66,6 @@ ExplorerGlobals::ExplorerGlobals()
 #endif
 	_hwndDesktopBar = 0;
 	_hwndShellView = 0;
-	_hwndDesktop = 0;
 }
 
 
@@ -75,59 +78,6 @@ void ExplorerGlobals::init(HINSTANCE hInstance)
 #endif
 
 	_icon_cache.init();
-}
-
-
-void ExplorerGlobals::read_persistent()
-{
-	 // read configuration file
-	_cfg_dir.printf(TEXT("%s\\ReactOS"), (LPCTSTR)SpecialFolderFSPath(CSIDL_APPDATA,0));
-	_cfg_path.printf(TEXT("%s\\ros-explorer-cfg.xml"), _cfg_dir.c_str());
-
-	if (!_cfg.read(_cfg_path)) {
-		if (_cfg._last_error != XML_ERROR_NO_ELEMENTS)
-			MessageBox(g_Globals._hwndDesktop, String(_cfg._last_error_msg.c_str()),
-						TEXT("ROS Explorer - reading user settings"), MB_OK);
-
-		_cfg.read(TEXT("explorer-cfg-template.xml"));
-	}
-
-	 // read bookmarks
-	_favorites_path.printf(TEXT("%s\\ros-explorer-bookmarks.xml"), _cfg_dir.c_str());
-
-	if (!_favorites.read(_favorites_path)) {
-		_favorites.import_IE_favorites(0);
-		_favorites.write(_favorites_path);
-	}
-}
-
-void ExplorerGlobals::write_persistent()
-{
-	 // write configuration file
-	RecursiveCreateDirectory(_cfg_dir);
-
-	_cfg.write(_cfg_path);
-	_favorites.write(_favorites_path);
-}
-
-
-XMLPos ExplorerGlobals::get_cfg()
-{
-	XMLPos cfg_pos(&_cfg);
-
-	cfg_pos.smart_create("explorer-cfg");
-
-	return cfg_pos;
-}
-
-XMLPos ExplorerGlobals::get_cfg(const char* path)
-{
-	XMLPos cfg_pos(&_cfg);
-
-	cfg_pos.smart_create("explorer-cfg");
-	cfg_pos.create_relative(path);
-
-	return cfg_pos;
 }
 
 
@@ -173,7 +123,7 @@ bool FileTypeManager::is_exe_file(LPCTSTR ext)
 
 const FileTypeInfo& FileTypeManager::operator[](String ext)
 {
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+#ifndef __WINE__ ///@todo
 	_tcslwr((LPTSTR)ext.c_str());
 #endif
 
@@ -186,7 +136,7 @@ const FileTypeInfo& FileTypeManager::operator[](String ext)
 	ftype._neverShowExt = false;
 
 	HKEY hkey;
-	TCHAR value[MAX_PATH], display_name[MAX_PATH];
+	TCHAR value[MAX_PATH], display_name[MAX_PATH];;
 	LONG valuelen = sizeof(value);
 
 	if (!RegQueryValue(HKEY_CLASSES_ROOT, ext, value, &valuelen)) {
@@ -283,65 +233,24 @@ HBITMAP	Icon::create_bitmap(COLORREF bk_color, HBRUSH hbrBkgnd, HDC hdc_wnd) con
 		ImageList_DrawEx(himl, _sys_idx, hdc, 0, 0, cx, cy, bk_color, CLR_DEFAULT, ILD_NORMAL);
 		SelectBitmap(hdc, hbmp_old);
 		DeleteDC(hdc);
-
 		return hbmp;
 	} else
 		return create_bitmap_from_icon(_hicon, hbrBkgnd, hdc_wnd);
 }
 
-
-int Icon::add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color, HBRUSH bk_brush) const
-{
-	int ret;
-
-	if (_itype == IT_SYSCACHE) {
-		HIMAGELIST himl = g_Globals._icon_cache.get_sys_imagelist();
-
-		int cx, cy;
-		ImageList_GetIconSize(himl, &cx, &cy);
-
-		HBITMAP hbmp = CreateCompatibleBitmap(hdc_wnd, cx, cy);
-		HDC hdc = CreateCompatibleDC(hdc_wnd);
-		HBITMAP hbmp_old = SelectBitmap(hdc, hbmp);
-		ImageList_DrawEx(himl, _sys_idx, hdc, 0, 0, cx, cy, bk_color, CLR_DEFAULT, ILD_NORMAL);
-		SelectBitmap(hdc, hbmp_old);
-		DeleteDC(hdc);
-
-		ret = ImageList_Add(himl, hbmp, 0);
-
-		DeleteObject(hbmp);
-	} else
-		ret = ImageList_AddAlphaIcon(himl, _hicon, bk_brush, hdc_wnd);
-
-	return ret;
-}
-
 HBITMAP create_bitmap_from_icon(HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd)
 {
-	int cx = GetSystemMetrics(SM_CXSMICON);
-	int cy = GetSystemMetrics(SM_CYSMICON);
-	HBITMAP hbmp = CreateCompatibleBitmap(hdc_wnd, cx, cy);
+	HBITMAP hbmp = CreateCompatibleBitmap(hdc_wnd, 16, 16);
 
 	MemCanvas canvas;
 	BitmapSelection sel(canvas, hbmp);
 
-	RECT rect = {0, 0, cx, cy};
+	RECT rect = {0, 0, 16, 16};
 	FillRect(canvas, &rect, hbrush_bkgnd);
 
-	DrawIconEx(canvas, 0, 0, hIcon, cx, cy, 0, hbrush_bkgnd, DI_NORMAL);
+	DrawIconEx(canvas, 0, 0, hIcon, 16, 16, 0, hbrush_bkgnd, DI_NORMAL);
 
 	return hbmp;
-}
-
-int ImageList_AddAlphaIcon(HIMAGELIST himl, HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd)
-{
-	HBITMAP hbmp = create_bitmap_from_icon(hIcon, hbrush_bkgnd, hdc_wnd);
-
-	int ret = ImageList_Add(himl, hbmp, 0);
-
-	DeleteObject(hbmp);
-
-	return ret;
 }
 
 
@@ -353,7 +262,7 @@ void IconCache::init()
 	_icons[ICID_NONE]		= Icon(IT_STATIC, ICID_NONE, (HICON)0);
 
 	_icons[ICID_FOLDER]		= Icon(ICID_FOLDER,		IDI_FOLDER);
-	//_icons[ICID_DOCUMENT]	= Icon(ICID_DOCUMENT,	IDI_DOCUMENT);
+	//_icons[ICID_DOCUMENT] = Icon(ICID_DOCUMENT,	IDI_DOCUMENT);
 	_icons[ICID_EXPLORER]	= Icon(ICID_EXPLORER,	IDI_EXPLORER);
 	_icons[ICID_APP]		= Icon(ICID_APP,		IDI_APPICON);
 
@@ -369,7 +278,6 @@ void IconCache::init()
 	_icons[ICID_NETWORK]	= Icon(ICID_NETWORK,	IDI_NETWORK);
 	_icons[ICID_COMPUTER]	= Icon(ICID_COMPUTER,	IDI_COMPUTER);
 	_icons[ICID_LOGOFF]		= Icon(ICID_LOGOFF,		IDI_LOGOFF);
-	_icons[ICID_BOOKMARK]	= Icon(ICID_BOOKMARK,	IDI_DOT_TRANS);
 }
 
 
@@ -406,7 +314,7 @@ const Icon& IconCache::extract(LPCTSTR path, int idx)
 {
 	CachePair key(path, idx);
 
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+#ifndef __WINE__ ///@todo
 	_tcslwr((LPTSTR)key.first.c_str());
 #endif
 
@@ -423,12 +331,8 @@ const Icon& IconCache::extract(LPCTSTR path, int idx)
 		_pathIdxMap[key] = icon;
 
 		return icon;
-	} else {
-
-		///@todo retreive "http://.../favicon.ico" format icons
-
+	} else
 		return _icons[ICID_NONE];
-	}
 }
 
 const Icon& IconCache::extract(IExtractIcon* pExtract, LPCTSTR path, int idx)
@@ -438,7 +342,7 @@ const Icon& IconCache::extract(IExtractIcon* pExtract, LPCTSTR path, int idx)
 
 	HRESULT hr = pExtract->Extract(path, idx, &hIconLarge, &hIcon, MAKELONG(0/*GetSystemMetrics(SM_CXICON)*/,GetSystemMetrics(SM_CXSMICON)));
 
-	if (hr == NOERROR) {	//@@ oder SUCCEEDED(hr) ?
+	if (hr == NOERROR) {
 		if (hIconLarge)
 			DestroyIcon(hIconLarge);
 
@@ -536,16 +440,32 @@ void explorer_show_frame(int cmdshow, LPTSTR lpCmdLine)
 
 	g_Globals._prescan_nodes = false;
 
-	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-	XS_String mdiStr = XMLString(explorer_options, "mdi");
-
-	if (mdiStr.empty())
-		Dialog::DoModal(IDD_MDI_SDI, WINDOW_CREATOR(MdiSdiDlg), g_Globals._hwndDesktop);
-
-	bool mdi = XMLBool(explorer_options, "mdi", true);
-
 	 // create main window
-	MainFrameBase::Create(lpCmdLine, mdi, cmdshow);
+	HWND hMainFrame = MainFrame::Create();
+
+	if (hMainFrame) {
+		g_Globals._hMainWnd = hMainFrame;
+
+		ShowWindow(hMainFrame, cmdshow);
+		UpdateWindow(hMainFrame);
+
+		bool valid_dir = false;
+
+		if (lpCmdLine) {
+			DWORD attribs = GetFileAttributes(lpCmdLine);
+
+			if (attribs!=INVALID_FILE_ATTRIBUTES && (attribs&FILE_ATTRIBUTE_DIRECTORY))
+				valid_dir = true;
+			else if (*lpCmdLine==':' || *lpCmdLine=='"')
+				valid_dir = true;
+		}
+
+		 // Open the first child window after initializing the application
+		if (valid_dir)
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, 0, (LPARAM)lpCmdLine);
+		else
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, OWM_EXPLORE|OWM_DETAILS, 0);
+	}
 }
 
 
@@ -577,13 +497,6 @@ struct ExplorerAboutDlg : public
 		new ColorStatic(hwnd, IDC_ROS_EXPLORER, RGB(32,32,128), 0, _hfont);
 
 		new HyperlinkCtrl(hwnd, IDC_WWW);
-
-		FmtString ver_txt(ResString(IDS_EXPLORER_VERSION_STR), (LPCTSTR)ResString(IDS_VERSION_STR));
-		SetWindowText(GetDlgItem(hwnd, IDC_VERSION_TXT), ver_txt);
-
-		HWND hwnd_winver = GetDlgItem(hwnd, IDC_WIN_VERSION);
-		SetWindowText(hwnd_winver, get_windows_version_str());
-		SetWindowFont(hwnd_winver, GetStockFont(DEFAULT_GUI_FONT), FALSE);
 
 		CenterWindow(hwnd);
 	}
@@ -706,57 +619,11 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 {
 	CONTEXT("WinMain()");
 
-	BOOL any_desktop_running = IsAnyDesktopRunning();
+	 // create desktop window and task bar only, if there is no other shell and we are
+	 // the first explorer instance
+	BOOL startup_desktop = !IsAnyDesktopRunning();
 
-	BOOL startup_desktop;
-
-	 // command line option "-install" to replace previous shell application with ROS Explorer
-	if (_tcsstr(lpCmdLine,TEXT("-install"))) {
-		 // install ROS Explorer into the registry
-		TCHAR path[MAX_PATH];
-
-		int l = GetModuleFileName(0, path, MAX_PATH);
-		if (l) {
-			HKEY hkey;
-
-			if (!RegOpenKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"), &hkey)) {
-
-				///@todo save previous shell application in config file
-
-				RegSetValueEx(hkey, TEXT("Shell"), 0, REG_SZ, (LPBYTE)path, l*sizeof(TCHAR));
-				RegCloseKey(hkey);
-			}
-		}
-
-		HWND shellWindow = GetShellWindow();
-
-		if (shellWindow) {
-			DWORD pid;
-
-			 // terminate shell process for NT like systems
-			GetWindowThreadProcessId(shellWindow, &pid);
-			HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-
-			 // On Win 9x it's sufficient to destroy the shell window.
-			DestroyWindow(shellWindow);
-
-			if (TerminateProcess(hProcess, 0))
-				WaitForSingleObject(hProcess, INFINITE);
-
-			CloseHandle(hProcess);
-		}
-
-		startup_desktop = TRUE;
-	} else
-		 // create desktop window and task bar only, if there is no other shell and we are
-		 // the first explorer instance
-		startup_desktop = !any_desktop_running;
-
-	bool autostart = !any_desktop_running;
-
-	 // disable autostart if the SHIFT key is pressed
-	if (GetAsyncKeyState(VK_SHIFT) < 0)
-		autostart = false;
+	bool autostart = true;
 
 #ifdef _DEBUG	//MF: disabled for debugging
 	autostart = false;
@@ -774,8 +641,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	if (_tcsstr(lpCmdLine,TEXT("-noautostart")))
 		autostart = false;
-	else if (_tcsstr(lpCmdLine,TEXT("-autostart")))
-		autostart = true;
 
 #ifndef __WINE__
 	if (_tcsstr(lpCmdLine,TEXT("-console"))) {
@@ -818,17 +683,14 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	 // initialize COM and OLE before creating the desktop window
 	OleInit usingCOM;
 
-	 // init common controls library
-	CommonControlInit usingCmnCtrl;
-
-	g_Globals.read_persistent();
+	HWND hwndDesktop = 0;
 
 	if (startup_desktop) {
 		g_Globals._desktops.init();
 
-		g_Globals._hwndDesktop = DesktopWindow::Create();
+		hwndDesktop = DesktopWindow::Create();
 #ifdef _USE_HDESK
-		g_Globals._desktops.get_current_Desktop()->_hwndDesktop = g_Globals._hwndDesktop;
+		g_Globals._desktops.get_current_Desktop()->_hwndDesktop = hwndDesktop;
 #endif
 
 		if (autostart) {
@@ -843,13 +705,10 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		lpCmdLine[_tcslen(lpCmdLine)-1] = '\0';
 	}
 
-	if (g_Globals._hwndDesktop)
+	if (hwndDesktop)
 		g_Globals._desktop_mode = true;
 
 	int ret = explorer_main(hInstance, lpCmdLine, nShowCmd);
-
-	 // write configuration file
-	g_Globals.write_persistent();
 
 	return ret;
 }

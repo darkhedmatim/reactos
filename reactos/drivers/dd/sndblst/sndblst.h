@@ -14,9 +14,6 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
-#include <debug.h>
-
 #define DEFAULT_PORT    0x220
 #define DEFAULT_IRQ     5
 #define DEFAULT_DMA     1
@@ -46,9 +43,9 @@
 #define IOCTL_SOUND_BASE FILE_DEVICE_SOUND
 #define IOCTL_WAVE_BASE  0x0000 // CORRECT?
 
-/* #define IOCTL_MIDI_PLAY CTL_CODE(IOCTL_SOUND_BASE, IOCTL_MIDI_BASE + 0x0006, \
- *                                METHOD_BUFFERED, FILE_WRITE_ACCESS)
- */
+//#define IOCTL_MIDI_PLAY CTL_CODE(IOCTL_SOUND_BASE, IOCTL_MIDI_BASE + 0x0006, \
+//                                METHOD_BUFFERED, FILE_WRITE_ACCESS)
+
 
 // Some constants
 

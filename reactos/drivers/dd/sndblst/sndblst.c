@@ -12,7 +12,12 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
+//#include <ddk/ntddbeep.h>
+
+//#define NDEBUG
+#include <debug.h>
 #include <rosrtl/string.h>
+
 #include "sndblst.h"
 
 
@@ -30,8 +35,8 @@ NTSTATUS InitDevice(
 //    PDEVICE_INSTANCE Instance = Context;
     PDEVICE_OBJECT DeviceObject; // = Context;
     PDEVICE_EXTENSION Parameters; // = DeviceObject->DeviceExtension;
-    UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\WaveOut0");   // CHANGE THESE?
-    UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\WaveOut0");
+    UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\WaveOut");   // CHANGE THESE!
+    UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\WaveOut");
 
 //    CONFIG Config;
     RTL_QUERY_REGISTRY_TABLE Table[2];
@@ -107,10 +112,10 @@ NTSTATUS InitDevice(
     
     s = RtlQueryRegistryValues(RTL_REGISTRY_ABSOLUTE, RegistryPath, Table,
                                 &Parameters, NULL);
+*/
 
     if (! NT_SUCCESS(s))
         return s;
-*/
 
     DPRINT("Port 0x%x  IRQ %d  DMA %d\n", Parameters->Port, Parameters->IRQ, Parameters->DMA);
 
@@ -124,7 +129,6 @@ NTSTATUS InitDevice(
         // Set state indication somehow
         // Failure - what error code do we give?!
         // return STATUS_????
-        return STATUS_UNSUCCESSFUL;
     }
 
     DSP_Major = DSP_Version / 256;
@@ -136,10 +140,10 @@ NTSTATUS InitDevice(
     if (! CreateDMA(DeviceObject))
         DPRINT("FAILURE!\n");
 
-    // TEMPORARY TESTING STUFF: should be in BlasterCreate
+    // TEMPORARY TESTING STUFF:
     EnableSpeaker(Parameters->Port, TRUE);
-    SetOutputSampleRate(Parameters->Port, 2205);
-    BeginPlayback(Parameters->Port, 16, 2, Parameters->BufferSize);
+    SetOutputSampleRate(Parameters->Port, 11025);
+    BeginPlayback(Parameters->Port, 8, 1, Parameters->BufferSize);
 
     DeviceCount ++;
 
@@ -174,14 +178,9 @@ BlasterCreate(PDEVICE_OBJECT DeviceObject,
 
     Irp->IoStatus.Status = STATUS_SUCCESS;
     Irp->IoStatus.Information = 0;
-
-    DPRINT("IoCompleteRequest()\n");
-
     IoCompleteRequest(Irp,
 		    IO_NO_INCREMENT);
 
-    DPRINT("BlasterCreate() completed\n");
-    
     return(STATUS_SUCCESS);
 }
 
@@ -238,39 +237,6 @@ BlasterCleanup(PDEVICE_OBJECT DeviceObject,
 //        MPU401_WRITE_MESSAGE(MPU401_PORT, 0xb0 + Channel, 121, 0);
     }
 
-
-  Irp->IoStatus.Status = STATUS_SUCCESS;
-  Irp->IoStatus.Information = 0;
-  IoCompleteRequest(Irp,
-		    IO_NO_INCREMENT);
-
-  return(STATUS_SUCCESS);
-}
-
-
-static NTSTATUS STDCALL
-BlasterWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
-    PIO_STACK_LOCATION Stack;
-    PDEVICE_EXTENSION DeviceExtension;
-    UINT ByteCount;
-    PBYTE Data;
-
-    DPRINT("BlasterWrite() called!\n");
-
-    DeviceExtension = DeviceObject->DeviceExtension;
-    Stack = IoGetCurrentIrpStackLocation(Irp);
-
-    DPRINT("%d bytes\n", Stack->Parameters.Write.Length);
-
-            Data = (PBYTE) Irp->AssociatedIrp.SystemBuffer;
-
-            for (ByteCount = 0; ByteCount < Stack->Parameters.Write.Length; ByteCount ++)
-            {
-//                DPRINT("0x%x ", Data[ByteCount]);
-
-//                MPU401_WRITE_BYTE(DeviceExtension->Port, Data[ByteCount]);
-            }
 
   Irp->IoStatus.Status = STATUS_SUCCESS;
   Irp->IoStatus.Information = 0;
@@ -426,7 +392,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
   // Doesn't support multiple instances (yet ...)
   NTSTATUS Status;
 
-  DPRINT("Sound Blaster Device Driver 0.0.2\n");
+  DPRINT("Sound Blaster Device Driver 0.0.1\n");
 
 //    Instance.DriverObject = DriverObject;
     // previous instance = NULL...
@@ -438,7 +404,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
   DriverObject->MajorFunction[IRP_MJ_CLOSE] = BlasterClose;
   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = BlasterCleanup;
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = BlasterDeviceControl;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = BlasterWrite;
   DriverObject->DriverUnload = BlasterUnload;
 
     // Major hack to just get this damn thing working:
@@ -454,8 +419,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 //  DeviceExtension = DeviceObject->DeviceExtension;
 //  DeviceExtension->BeepOn = FALSE;
 
-//  return(STATUS_SUCCESS);
-    return(Status);
+  return(STATUS_SUCCESS);
 }
 
 /* EOF */

@@ -597,7 +597,7 @@ static	HGLOBAL	WDML_BuildExecuteCommand(WDML_CONV* pConv, LPCVOID pData, DWORD c
 
     if (hMem)
     {
-	PCHAR	pDst;
+	LPBYTE	pDst;
 
 	pDst = GlobalLock(hMem);
 	if (pDst)
@@ -1340,7 +1340,7 @@ static LRESULT CALLBACK WDML_ClientProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPA
     }
 
     return (IsWindowUnicode(hwnd)) ?
-	DefWindowProcW(hwnd, iMsg, wParam, lParam) : DefWindowProcA(hwnd, iMsg, wParam, lParam);
+	DefWindowProcA(hwnd, iMsg, wParam, lParam) : DefWindowProcW(hwnd, iMsg, wParam, lParam);
 }
 
 /*****************************************************************

@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: videoprt.h,v 1.13 2004/12/19 15:51:51 navaraf Exp $
+ * $Id: videoprt.h,v 1.1 2004/01/19 15:56:53 navaraf Exp $
  */
 
 #ifndef VIDEOPRT_H
@@ -27,149 +27,73 @@
 #include <ddk/miniport.h>
 #include <ddk/video.h>
 #include <ddk/ntddvdeo.h>
-#include <ddk/ntapi.h>
+#include "internal/ps.h"
 #define NDEBUG
 #include <debug.h>
 
-int swprintf(wchar_t *buf, const wchar_t *fmt, ...);
-int vsprintf(char *buf, const char *fmt, va_list args);
-
-BOOLEAN STDCALL
-HalDisableSystemInterrupt(ULONG Vector,
-  KIRQL Irql);
-  
-BOOLEAN STDCALL
-HalEnableSystemInterrupt(ULONG Vector,
-  KIRQL Irql,
-  KINTERRUPT_MODE InterruptMode);
-
-PIMAGE_NT_HEADERS STDCALL RtlImageNtHeader(IN PVOID BaseAddress);
+/*
+ * FIXME: Definition missing from w32api!
+ */
+#ifndef SYNCH_LEVEL
+#define SYNCH_LEVEL	(IPI_LEVEL - 2)
+#endif
+VOID FASTCALL KfLowerIrql(IN KIRQL NewIrql);
+#define KeRaiseIrql(a,b) *(b) = KfRaiseIrql(a)
+KIRQL FASTCALL KfRaiseIrql(IN KIRQL NewIrql);
+NTKERNELAPI VOID HalAcquireDisplayOwnership(IN PHAL_RESET_DISPLAY_PARAMETERS ResetDisplayParameters);
 
 #define TAG_VIDEO_PORT  TAG('V', 'I', 'D', 'P')
+
+extern PEPROCESS Csrss;
 
 typedef struct _VIDEO_PORT_ADDRESS_MAPPING
 {
    LIST_ENTRY List;
    PVOID MappedAddress;
-   PVOID MappedUserAddress;
    ULONG NumberOfUchars;
    PHYSICAL_ADDRESS IoAddress;
    ULONG SystemIoBusNumber;
    UINT MappingCount;
-   UINT UserMappingCount;
 } VIDEO_PORT_ADDRESS_MAPPING, *PVIDEO_PORT_ADDRESS_MAPPING;
-
-typedef struct _VIDEO_PORT_DRIVER_EXTENSION
-{
-   VIDEO_HW_INITIALIZATION_DATA InitializationData;
-   PVOID HwContext;
-   UNICODE_STRING RegistryPath;
-} VIDEO_PORT_DRIVER_EXTENSION, *PVIDEO_PORT_DRIVER_EXTENSION;
 
 typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
 {
-   PDEVICE_OBJECT PhysicalDeviceObject;
-   PDEVICE_OBJECT FunctionalDeviceObject;
-   PDEVICE_OBJECT NextDeviceObject;
-   UNICODE_STRING RegistryPath;
+   PDEVICE_OBJECT DeviceObject;
    PKINTERRUPT InterruptObject;
    KSPIN_LOCK InterruptSpinLock;
    ULONG InterruptVector;
    ULONG InterruptLevel;
-   ULONG AdapterInterfaceType;
-   ULONG SystemIoBusNumber;
-   ULONG SystemIoSlotNumber;
+   PVIDEO_HW_INITIALIZE HwInitialize;
+   PVIDEO_HW_RESET_HW HwResetHw;
+   PVIDEO_HW_TIMER HwTimer;
+   PVIDEO_HW_INTERRUPT HwInterrupt;
    LIST_ENTRY AddressMappingListHead;
-   KDPC DpcObject;
-   VIDEO_PORT_DRIVER_EXTENSION *DriverExtension;
-   ULONG DeviceOpened;
-   CHAR MiniPortDeviceExtension[1];
+   INTERFACE_TYPE AdapterInterfaceType;
+   ULONG SystemIoBusNumber;
+   UNICODE_STRING RegistryPath;
+   UCHAR MiniPortDeviceExtension[1]; /* must be the last entry */
 } VIDEO_PORT_DEVICE_EXTENSION, *PVIDEO_PORT_DEVICE_EXTENSION;
 
-#define VIDEO_PORT_GET_DEVICE_EXTENSION(MiniportExtension) \
-   CONTAINING_RECORD( \
-      HwDeviceExtension, \
-      VIDEO_PORT_DEVICE_EXTENSION, \
-      MiniPortDeviceExtension)
-
-/* dispatch.c */
+NTSTATUS STDCALL
+VidDispatchOpen(IN PDEVICE_OBJECT pDO, IN PIRP Irp);
 
 NTSTATUS STDCALL
-IntVideoPortAddDevice(
-   IN PDRIVER_OBJECT DriverObject,
-   IN PDEVICE_OBJECT PhysicalDeviceObject);
+VidDispatchClose(IN PDEVICE_OBJECT pDO, IN PIRP Irp);
 
 NTSTATUS STDCALL
-IntVideoPortDispatchOpen(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS STDCALL
-IntVideoPortDispatchClose(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS STDCALL
-IntVideoPortDispatchCleanup(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS STDCALL
-IntVideoPortDispatchDeviceControl(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS STDCALL
-IntVideoPortDispatchPnp(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS STDCALL
-IntVideoPortDispatchPower(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-VOID STDCALL
-IntVideoPortUnload(PDRIVER_OBJECT DriverObject);
-
-/* timer.c */
-
-BOOLEAN STDCALL
-IntVideoPortSetupTimer(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension);
-
-/* interrupt.c */
-
-BOOLEAN STDCALL
-IntVideoPortSetupInterrupt(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
-   IN PVIDEO_PORT_CONFIG_INFO ConfigInfo);
-
-/* videoprt.c */
-
-extern ULONG CsrssInitialized;
-extern PEPROCESS Csrss;
+VidDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 PVOID STDCALL
-VideoPortGetProcAddress(
-   IN PVOID HwDeviceExtension,
-   IN PUCHAR FunctionName);
+InternalMapMemory(
+   IN PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension,
+   IN PHYSICAL_ADDRESS  IoAddress,
+   IN ULONG NumberOfUchars,
+   IN UCHAR InIoSpace);
 
-VOID FASTCALL 
-IntAttachToCSRSS(PEPROCESS *CallingProcess, PEPROCESS *PrevAttachedProcess);
-
-VOID FASTCALL 
-IntDetachFromCSRSS(PEPROCESS *CallingProcess, PEPROCESS *PrevAttachedProcess);
-
-NTSTATUS STDCALL
-IntVideoPortFindAdapter(
-   IN PDRIVER_OBJECT DriverObject,
-   IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
-   IN PDEVICE_OBJECT PhysicalDeviceObject);
-
-/* int10.c */
+VOID STDCALL
+InternalUnmapMemory(
+   IN PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension,
+   IN PVOID MappedAddress);
 
 VP_STATUS STDCALL
 IntInt10AllocateBuffer(
@@ -204,10 +128,5 @@ VP_STATUS STDCALL
 IntInt10CallBios(
    IN PVOID Context,
    IN OUT PINT10_BIOS_ARGUMENTS BiosArguments);
-
-VP_STATUS STDCALL
-VideoPortInt10(
-   IN PVOID HwDeviceExtension,
-   IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments);
 
 #endif /* VIDEOPRT_H */

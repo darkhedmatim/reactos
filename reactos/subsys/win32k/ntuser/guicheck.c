@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: guicheck.c,v 1.22 2004/12/24 17:45:58 weiden Exp $
+/* $Id: guicheck.c,v 1.17 2003/12/07 23:02:57 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -33,49 +33,52 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <napi/teb.h>
+#include <win32k/win32k.h>
+#include <include/guicheck.h>
+#include <include/msgqueue.h>
+#include <include/object.h>
+#include <napi/win32.h>
+#include <include/winsta.h>
 
 #define NDEBUG
 #include <debug.h>
 
 /* GLOBALS *******************************************************************/
 
-static LONG NrGuiAppsRunning = 0;
-static FAST_MUTEX GuiSwitchLock;
+static ULONG NrGuiApplicationsRunning = 0;
 
 /* FUNCTIONS *****************************************************************/
 
 static BOOL FASTCALL
 AddGuiApp(PW32PROCESS W32Data)
 {
-  W32Data->Flags |= W32PF_CREATEDWINORDC;
-  if (InterlockedIncrement(&NrGuiAppsRunning) == 1)
+  W32Data->CreatedWindowOrDC = TRUE;
+  if (0 == NrGuiApplicationsRunning++)
     {
-      BOOL Initialized;
-      
-      ExAcquireFastMutex(&GuiSwitchLock);
-      Initialized = IntInitializeDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
-      
-      if (!Initialized)
+      if (! IntInitializeDesktopGraphics())
         {
-          W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-          InterlockedDecrement(&NrGuiAppsRunning);
+          W32Data->CreatedWindowOrDC = FALSE;
+          NrGuiApplicationsRunning--;
           return FALSE;
         }
     }
+
   return TRUE;
 }
 
 static void FASTCALL
 RemoveGuiApp(PW32PROCESS W32Data)
 {
-  W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-  if (InterlockedDecrement(&NrGuiAppsRunning) == 0)
+  W32Data->CreatedWindowOrDC = FALSE;
+  if (0 < NrGuiApplicationsRunning)
     {
-      ExAcquireFastMutex(&GuiSwitchLock);
+      NrGuiApplicationsRunning--;
+    }
+  if (0 == NrGuiApplicationsRunning)
+    {
       IntEndDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
     }
 }
 
@@ -87,14 +90,14 @@ IntGraphicsCheck(BOOL Create)
   W32Data = PsGetWin32Process();
   if (Create)
     {
-      if (! (W32Data->Flags & W32PF_CREATEDWINORDC) && ! (W32Data->Flags & W32PF_MANUALGUICHECK))
+      if (! W32Data->CreatedWindowOrDC && ! W32Data->ManualGuiCheck)
         {
           return AddGuiApp(W32Data);
         }
     }
   else
     {
-      if ((W32Data->Flags & W32PF_CREATEDWINORDC) && ! (W32Data->Flags & W32PF_MANUALGUICHECK))
+      if (W32Data->CreatedWindowOrDC && ! W32Data->ManualGuiCheck)
         {
           RemoveGuiApp(W32Data);
         }
@@ -111,29 +114,22 @@ NtUserManualGuiCheck(LONG Check)
   W32Data = PsGetWin32Process();
   if (0 == Check)
     {
-      W32Data->Flags |= W32PF_MANUALGUICHECK;
+      W32Data->ManualGuiCheck = TRUE;
     }
   else if (0 < Check)
     {
-      if (! (W32Data->Flags & W32PF_CREATEDWINORDC))
+      if (! W32Data->CreatedWindowOrDC)
         {
           AddGuiApp(W32Data);
         }
     }
   else
     {
-      if (W32Data->Flags & W32PF_CREATEDWINORDC)
+      if (W32Data->CreatedWindowOrDC)
         {
           RemoveGuiApp(W32Data);
         }
     }
-}
-
-NTSTATUS FASTCALL
-InitGuiCheckImpl (VOID)
-{
-  ExInitializeFastMutex(&GuiSwitchLock);
-  return STATUS_SUCCESS;
 }
 
 /* EOF */

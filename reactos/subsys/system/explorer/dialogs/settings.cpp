@@ -28,11 +28,14 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
 
+#include "../explorer.h"
+#include "../globals.h"
+#include "../externals.h"
 #include "../explorer_intres.h"
+#include "../desktop/desktop.h"
 
-#include "../taskbar/traynotify.h"
 #include "settings.h"
 
 
@@ -91,9 +94,6 @@ DesktopSettingsDlg::DesktopSettingsDlg(HWND hwnd)
 
 	_alignment_cur = SendMessage(g_Globals._hwndShellView, PM_GET_ICON_ALGORITHM, 0, 0);
 	_alignment_tmp = _alignment_cur;
-
-	_display_version_org = SendMessage(g_Globals._hwndShellView, PM_DISPLAY_VERSION, 0, MAKELONG(0,0));
-	CheckDlgButton(hwnd, ID_DESKTOP_VERSION, _display_version_org? BST_CHECKED: BST_UNCHECKED);
 }
 
 #ifndef PSN_QUERYINITIALFOCUS	// currently (as of 18.01.2004) missing in MinGW headers
@@ -109,13 +109,11 @@ int DesktopSettingsDlg::Notify(int id, NMHDR* pnmh)
 
 	  case PSN_APPLY:
 		_alignment_cur = _alignment_tmp;
-		_display_version_org = SendMessage(g_Globals._hwndShellView, PM_DISPLAY_VERSION, 0, MAKELONG(0,0));
 		break;
 
 	  case PSN_RESET:
 		if (_alignment_tmp != _alignment_cur)
 			SendMessage(g_Globals._hwndShellView, PM_SET_ICON_ALGORITHM, _alignment_cur, 0);
-		SendMessage(g_Globals._hwndShellView, PM_DISPLAY_VERSION, _display_version_org, MAKELONG(1,0));
 		break;
 
 	  default:
@@ -138,75 +136,28 @@ int	DesktopSettingsDlg::Command(int id, int code)
 			SendMessage(g_Globals._hwndShellView, PM_SET_ICON_ALGORITHM, alignment, 0);
 		}
 
-		return 0;
+		return TRUE;
 	}
 
-	switch(id) {
-	  case ID_DESKTOP_VERSION:
-		SendMessage(g_Globals._hwndShellView, PM_DISPLAY_VERSION, 0, MAKELONG(0,1));	// toggle version display flag
-		PropSheet_Changed(GetParent(_hwnd), _hwnd);
-		break;
-
-	  default:
-		return 1;
-	}
-
-	return 0;
+	return FALSE;
 }
 
 
 TaskbarSettingsDlg::TaskbarSettingsDlg(HWND hwnd)
- :	super(hwnd),
-	_cfg_org(g_Globals._cfg)
+ :	super(hwnd)
 {
-	XMLPos options = g_Globals.get_cfg("desktopbar/options");
-
- 	CheckDlgButton(hwnd, ID_SHOW_CLOCK, XMLBool(options, "show-clock", true)? BST_CHECKED: BST_UNCHECKED);
-	CheckDlgButton(hwnd, ID_HIDE_INACTIVE_ICONS, XMLBool(options, "hide-inactive", true)? BST_CHECKED: BST_UNCHECKED);
 }
 
-int TaskbarSettingsDlg::Notify(int id, NMHDR* pnmh)
+LRESULT TaskbarSettingsDlg::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
-	switch(pnmh->code) {
-	  case PSN_APPLY:
-		_cfg_org = g_Globals._cfg;
-		break;
-
-	  case PSN_RESET:
-		g_Globals._cfg = _cfg_org;
-		SendMessage(g_Globals._hwndDesktopBar, PM_REFRESH_CONFIG, 0, 0);
-		break;
-
-	  default:
-		return super::Notify(id, pnmh);
-	}
-
-	return 0;
-}
-
-int	TaskbarSettingsDlg::Command(int id, int code)
-{
-	switch(id) {
-	  case ID_CONFIG_NOTIFYAREA:
-		Dialog::DoModal(IDD_NOTIFYAREA, WINDOW_CREATOR(TrayNotifyDlg), _hwnd);
-		break;
-
-	  case ID_SHOW_CLOCK: {
-		XMLBoolRef boolRef1(XMLPos(g_Globals.get_cfg("desktopbar/options")), "show-clock", true);
-		boolRef1.toggle();
-		SendMessage(g_Globals._hwndDesktopBar, PM_REFRESH_CONFIG, 0, 0);
-		PropSheet_Changed(GetParent(_hwnd), _hwnd);
-		break;}
-
-	  case ID_HIDE_INACTIVE_ICONS: {
-		XMLBoolRef boolRef2(XMLPos(g_Globals.get_cfg("notify-icons/options")), "hide-inactive", true);
-        boolRef2.toggle();
-		SendMessage(g_Globals._hwndDesktopBar, PM_REFRESH_CONFIG, 0, 0);
-		PropSheet_Changed(GetParent(_hwnd), _hwnd);
+	switch(nmsg) {
+	  case WM_PAINT: {
+		PaintCanvas canvas(_hwnd);
+		FillRect(canvas, &canvas.rcPaint, GetStockBrush(GRAY_BRUSH));
 		break;}
 
 	  default:
-		return 1;
+		return super::WndProc(nmsg, wparam, lparam);
 	}
 
 	return 0;
@@ -218,49 +169,17 @@ StartmenuSettingsDlg::StartmenuSettingsDlg(HWND hwnd)
 {
 }
 
-int	StartmenuSettingsDlg::Command(int id, int code)
+LRESULT StartmenuSettingsDlg::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
-/*
-	switch(id) {
-	  case ID_CONFIG_NOTIFYAREA:
-		Dialog::DoModal(IDD_NOTIFYAREA, WINDOW_CREATOR(TrayNotifyDlg), _hwnd);
-		return 0;
-	}
-*/
-	return 1;
-}
+	switch(nmsg) {
+	  case WM_PAINT: {
+		PaintCanvas canvas(_hwnd);
+		FillRect(canvas, &canvas.rcPaint, GetStockBrush(DKGRAY_BRUSH));
+		break;}
 
-
-MdiSdiDlg::MdiSdiDlg(HWND hwnd)
- :	super(hwnd)
-{
-	CenterWindow(hwnd);
-
-	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-	bool mdi = XMLBool(explorer_options, "mdi", true);
-
-	int id = mdi? IDC_MDI: IDC_SDI;
-	CheckDlgButton(hwnd, id, BST_CHECKED);
-	SetFocus(GetDlgItem(hwnd, id));
-}
-
-int	MdiSdiDlg::Command(int id, int code)
-{	
-	if (code == BN_CLICKED) {
-		switch(id) {
-		  case IDOK: {
-			bool mdi = IsDlgButtonChecked(_hwnd, IDC_MDI)==BST_CHECKED;
-			XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-			XMLBoolRef(explorer_options, "mdi") = mdi;
-		  } // fall through
-
-		  case IDCANCEL:
-			EndDialog(_hwnd, id);
-			break;
-		}
-
-		return 0;
+	  default:
+		return super::WndProc(nmsg, wparam, lparam);
 	}
 
-	return 1;
+	return 0;
 }

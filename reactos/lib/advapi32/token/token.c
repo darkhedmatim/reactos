@@ -1,4 +1,4 @@
-/* $Id: token.c,v 1.17 2004/12/14 00:41:24 gdalsnes Exp $
+/* $Id: token.c,v 1.8 2004/01/20 01:40:19 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,35 +9,31 @@
  *                  Created 01/11/98
  */
 
-#include "advapi32.h"
-
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include <windows.h>
 
 /*
  * @implemented
  */
 BOOL STDCALL
-AdjustTokenGroups (HANDLE TokenHandle,
+AdjustTokenGroups (
+		   HANDLE TokenHandle,
 		   BOOL ResetToDefault,
 		   PTOKEN_GROUPS NewState,
 		   DWORD BufferLength,
 		   PTOKEN_GROUPS PreviousState,
-		   PDWORD ReturnLength)
+		   PDWORD ReturnLength
+		    )
 {
-  NTSTATUS Status;
-
-  Status = NtAdjustGroupsToken (TokenHandle,
-				ResetToDefault,
-				NewState,
-				BufferLength,
-				PreviousState,
-				(PULONG)ReturnLength);
-  if (!NT_SUCCESS (Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  return TRUE;
+	NTSTATUS errCode;
+	errCode = NtAdjustGroupsToken(TokenHandle,ResetToDefault,NewState,
+			BufferLength, PreviousState, (PULONG)ReturnLength );
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;	
 }
 
 
@@ -45,34 +41,22 @@ AdjustTokenGroups (HANDLE TokenHandle,
  * @implemented
  */
 BOOL STDCALL
-AdjustTokenPrivileges (HANDLE TokenHandle,
+AdjustTokenPrivileges (
+		       HANDLE TokenHandle,
 		       BOOL DisableAllPrivileges,
 		       PTOKEN_PRIVILEGES NewState,
 		       DWORD BufferLength,
 		       PTOKEN_PRIVILEGES PreviousState,
-		       PDWORD ReturnLength)
-{
-  NTSTATUS Status;
-
-  Status = NtAdjustPrivilegesToken (TokenHandle,
-				    DisableAllPrivileges,
-				    NewState,
-				    BufferLength,
-				    PreviousState,
-				    (PULONG)ReturnLength);
-  if (STATUS_NOT_ALL_ASSIGNED == Status)
-    {
-      SetLastError(ERROR_NOT_ALL_ASSIGNED);
-      return TRUE;
-    }
-  if (! NT_SUCCESS(Status))
-    {
-      SetLastError(RtlNtStatusToDosError(Status));
-      return FALSE;
-    }
-
-  SetLastError(ERROR_SUCCESS); /* AdjustTokenPrivileges is documented to do this */
-  return TRUE;
+		       PDWORD ReturnLength
+			)
+{	NTSTATUS errCode;
+	errCode = NtAdjustPrivilegesToken(TokenHandle,DisableAllPrivileges,NewState,
+			BufferLength, PreviousState, (PULONG)ReturnLength );
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;	
 }
 
 
@@ -80,26 +64,22 @@ AdjustTokenPrivileges (HANDLE TokenHandle,
  * @implemented
  */
 BOOL STDCALL
-GetTokenInformation (HANDLE TokenHandle,
+GetTokenInformation (
+		     HANDLE TokenHandle,
 		     TOKEN_INFORMATION_CLASS TokenInformationClass,
 		     LPVOID TokenInformation,
 		     DWORD TokenInformationLength,
-		     PDWORD ReturnLength)
+		     PDWORD ReturnLength
+		      )
 {
-  NTSTATUS Status;
-
-  Status = NtQueryInformationToken (TokenHandle,
-				    TokenInformationClass,
-				    TokenInformation,
-				    TokenInformationLength,
-				    (PULONG)ReturnLength);
-  if (!NT_SUCCESS (Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  return TRUE;
+	NTSTATUS errCode;
+	errCode = NtQueryInformationToken(TokenHandle,TokenInformationClass,TokenInformation,
+			TokenInformationLength, (PULONG)ReturnLength);
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;
 }
 
 
@@ -107,24 +87,21 @@ GetTokenInformation (HANDLE TokenHandle,
  * @implemented
  */
 BOOL STDCALL
-SetTokenInformation (HANDLE TokenHandle,
+SetTokenInformation (
+		     HANDLE TokenHandle,
 		     TOKEN_INFORMATION_CLASS TokenInformationClass,
 		     LPVOID TokenInformation,
-		     DWORD TokenInformationLength)
+		     DWORD TokenInformationLength
+		      )
 {
-  NTSTATUS Status;
-
-  Status = NtSetInformationToken (TokenHandle,
-				  TokenInformationClass,
-				  TokenInformation,
-				  TokenInformationLength);
-  if (!NT_SUCCESS (Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  return TRUE;
+	NTSTATUS errCode;
+	errCode = NtSetInformationToken(TokenHandle,TokenInformationClass,TokenInformation,
+			TokenInformationLength);
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;
 }
 
 
@@ -142,7 +119,6 @@ AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
 	     LPBOOL AccessStatus)
 {
   NTSTATUS Status;
-  NTSTATUS AccessStat;
 
   Status = NtAccessCheck (pSecurityDescriptor,
 			  ClientToken,
@@ -150,22 +126,13 @@ AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
 			  GenericMapping,
 			  PrivilegeSet,
 			  (PULONG)PrivilegeSetLength,
-			  (PACCESS_MASK)GrantedAccess,
-			  &AccessStat);
+			  (PULONG)GrantedAccess,
+			  (PBOOLEAN)AccessStatus);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
       return FALSE;
     }
-
-  if (!NT_SUCCESS (AccessStat))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      *AccessStatus = FALSE;
-      return TRUE;
-    }
-
-  *AccessStatus = TRUE;
 
   return TRUE;
 }
@@ -235,7 +202,7 @@ SetThreadToken (PHANDLE ThreadHandle,
 
   Status = NtSetInformationThread (hThread,
 				   ThreadImpersonationToken,
-				   &TokenHandle,
+				   TokenHandle,
 				   sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
     {
@@ -261,27 +228,22 @@ DuplicateTokenEx (HANDLE ExistingTokenHandle,
   OBJECT_ATTRIBUTES ObjectAttributes;
   HANDLE NewToken;
   NTSTATUS Status;
-  SECURITY_QUALITY_OF_SERVICE Sqos;
-  
-  Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-  Sqos.ImpersonationLevel = ImpersonationLevel;
-  Sqos.ContextTrackingMode = 0;
-  Sqos.EffectiveOnly = FALSE;
 
-  InitializeObjectAttributes(
-      &ObjectAttributes,
-      NULL,
-      lpTokenAttributes->bInheritHandle ? OBJ_INHERIT : 0,
-      NULL,
-      lpTokenAttributes->lpSecurityDescriptor
-      );
- 
-  ObjectAttributes.SecurityQualityOfService = &Sqos;
+  ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+  ObjectAttributes.RootDirectory = NULL;
+  ObjectAttributes.ObjectName = NULL;
+  ObjectAttributes.Attributes = 0;
+  if (lpTokenAttributes->bInheritHandle)
+    {
+      ObjectAttributes.Attributes |= OBJ_INHERIT;
+    }
+  ObjectAttributes.SecurityDescriptor = lpTokenAttributes->lpSecurityDescriptor;
+  ObjectAttributes.SecurityQualityOfService = NULL;
 
   Status = NtDuplicateToken (ExistingTokenHandle,
 			     dwDesiredAccess,
 			     &ObjectAttributes,
-              Sqos.EffectiveOnly, /* why both here _and_ in Sqos? */
+			     ImpersonationLevel,
 			     TokenType,
 			     &NewToken);
   if (!NT_SUCCESS(Status))
@@ -303,7 +265,7 @@ DuplicateToken (HANDLE ExistingTokenHandle,
                 PHANDLE DuplicateTokenHandle)
 {
   return DuplicateTokenEx (ExistingTokenHandle,
-                           TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY,
+                           TOKEN_DUPLICATE|TOKEN_IMPERSONATE|TOKEN_QUERY,
                            NULL,
                            ImpersonationLevel,
                            TokenImpersonation,

@@ -23,21 +23,33 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <stdarg.h>
 #include <ctype.h>
 #ifdef HAVE_GETOPT_H
 # include <getopt.h>
 #endif
 
-#include "winglue.h"
 #include "build.h"
 
+ORDDEF *EntryPoints[MAX_ORDINALS];
+ORDDEF *Ordinals[MAX_ORDINALS];
+ORDDEF *Names[MAX_ORDINALS];
+
+SPEC_MODE SpecMode = SPEC_MODE_DLL;
+SPEC_TYPE SpecType = SPEC_WIN32;
+
+int Base = MAX_ORDINALS;
+int Limit = 0;
+int DLLHeapSize = 0;
 int UsePIC = 0;
+int stack_size = 0;
+int nb_entry_points = 0;
+int nb_names = 0;
 int nb_debug_channels = 0;
 int nb_lib_paths = 0;
 int nb_errors = 0;
@@ -51,71 +63,49 @@ int debugging = 1;
 int debugging = 0;
 #endif
 
+char *owner_name = NULL;
+char *dll_name = NULL;
+char *dll_file_name = NULL;
+const char *init_func = NULL;
 char **debug_channels = NULL;
 char **lib_path = NULL;
 
 char *input_file_name = NULL;
 const char *output_file_name = NULL;
 
+static FILE *input_file;
 static FILE *output_file;
 static const char *current_src_dir;
 static int nb_res_files;
 static char **res_files;
-static char *spec_file_name;
 
 /* execution mode */
 enum exec_mode_values
 {
     MODE_NONE,
-    MODE_DLL,
+    MODE_SPEC,
     MODE_EXE,
     MODE_DEF,
     MODE_DEBUG,
     MODE_RELAY16,
-    MODE_RELAY32,
-    MODE_PEDLL
+    MODE_RELAY32
 };
 
 static enum exec_mode_values exec_mode = MODE_NONE;
 
 /* set the dll file name from the input file name */
-static void set_dll_file_name( const char *name, DLLSPEC *spec )
+static void set_dll_file_name( const char *name )
 {
     char *p;
 
-    if (spec->file_name) return;
+    if (dll_file_name) return;
 
     if ((p = strrchr( name, '\\' ))) name = p + 1;
     if ((p = strrchr( name, '/' ))) name = p + 1;
-    spec->file_name = xmalloc( strlen(name) + 5 );
-    strcpy( spec->file_name, name );
-    if ((p = strrchr( spec->file_name, '.' )))
-    {
-        if (!strcmp( p, ".spec" ) || !strcmp( p, ".def" )) *p = 0;
-    }
-    if (!strchr( spec->file_name, '.' )) strcat( spec->file_name, ".dll" );
-}
-
-/* set the dll subsystem */
-static void set_subsystem( const char *subsystem, DLLSPEC *spec )
-{
-    char *major, *minor, *str = xstrdup( subsystem );
-
-    if ((major = strchr( str, ':' ))) *major++ = 0;
-    if (!strcmp( str, "native" )) spec->subsystem = IMAGE_SUBSYSTEM_NATIVE;
-    else if (!strcmp( str, "windows" )) spec->subsystem = IMAGE_SUBSYSTEM_WINDOWS_GUI;
-    else if (!strcmp( str, "console" )) spec->subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
-    else fatal_error( "Invalid subsystem name '%s'\n", subsystem );
-    if (major)
-    {
-        if ((minor = strchr( major, '.' )))
-        {
-            *minor++ = 0;
-            spec->subsystem_minor = atoi( minor );
-        }
-        spec->subsystem_major = atoi( major );
-    }
-    free( str );
+    dll_file_name = xmalloc( strlen(name) + 5 );
+    strcpy( dll_file_name, name );
+    if ((p = strrchr( dll_file_name, '.' )) && !strcmp( p, ".spec" )) *p = 0;
+    if (!strchr( dll_file_name, '.' )) strcat( dll_file_name, ".dll" );
 }
 
 /* cleanup on program exit */
@@ -145,49 +135,44 @@ static const char usage_str[] =
 "    -K FLAGS                Compiler flags (only -KPIC is supported)\n"
 "    -l --library=LIB        Import the specified library\n"
 "    -L --library-path=DIR   Look for imports libraries in DIR\n"
+"    -m --exe-mode=MODE      Set the executable mode (cui|gui|cuiw|guiw)\n"
 "    -M --main-module=MODULE Set the name of the main module for a Win16 dll\n"
 "    -N --dll-name=DLLNAME   Set the DLL name (default: from input file name)\n"
 "    -o --output=NAME        Set the output file name (default: stdout)\n"
 "    -r --res=RSRC.RES       Load resources from RSRC.RES\n"
-"       --subsystem=SUBSYS   Set the subsystem (one of native, windows, console)\n"
 "       --version            Print the version and exit\n"
 "    -w --warnings           Turn on warnings\n"
 "\nMode options:\n"
-"       --dll=FILE           Build a .c file from a .spec or .def file\n"
+"       --spec=FILE.SPEC     Build a .c file from a spec file\n"
 "       --def=FILE.SPEC      Build a .def file from a spec file\n"
 "       --exe=NAME           Build a .c file for the named executable\n"
 "       --debug [FILES]      Build a .c file with the debug channels declarations\n"
 "       --relay16            Build the 16-bit relay assembly routines\n"
-"       --relay32            Build the 32-bit relay assembly routines\n"
-"       --pedll              Build a .c file for PE dll\n\n"
+"       --relay32            Build the 32-bit relay assembly routines\n\n"
 "The mode options are mutually exclusive; you must specify one and only one.\n\n";
 
 enum long_options_values
 {
-    LONG_OPT_DLL = 1,
+    LONG_OPT_SPEC = 1,
     LONG_OPT_DEF,
     LONG_OPT_EXE,
     LONG_OPT_DEBUG,
     LONG_OPT_RELAY16,
     LONG_OPT_RELAY32,
-    LONG_OPT_SUBSYSTEM,
-    LONG_OPT_VERSION,
-    LONG_OPT_PEDLL
+    LONG_OPT_VERSION
 };
 
 static const char short_options[] = "C:D:F:H:I:K:L:M:N:d:e:f:hi:kl:m:o:r:w";
 
 static const struct option long_options[] =
 {
-    { "dll",      1, 0, LONG_OPT_DLL },
+    { "spec",     1, 0, LONG_OPT_SPEC },
     { "def",      1, 0, LONG_OPT_DEF },
     { "exe",      1, 0, LONG_OPT_EXE },
     { "debug",    0, 0, LONG_OPT_DEBUG },
     { "relay16",  0, 0, LONG_OPT_RELAY16 },
     { "relay32",  0, 0, LONG_OPT_RELAY32 },
-    { "subsystem",1, 0, LONG_OPT_SUBSYSTEM },
     { "version",  0, 0, LONG_OPT_VERSION },
-    { "pedll",    1, 0, LONG_OPT_PEDLL },
     /* aliases for short options */
     { "source-dir",    1, 0, 'C' },
     { "delay-lib",     1, 0, 'd' },
@@ -199,6 +184,7 @@ static const struct option long_options[] =
     { "kill-at",       0, 0, 'k' },
     { "library",       1, 0, 'l' },
     { "library-path",  1, 0, 'L' },
+    { "exe-mode",      1, 0, 'm' },
     { "main-module",   1, 0, 'M' },
     { "dll-name",      1, 0, 'N' },
     { "output",        1, 0, 'o' },
@@ -220,7 +206,7 @@ static void set_exec_mode( enum exec_mode_values mode )
 }
 
 /* parse options from the argv array and remove all the recognized ones */
-static char **parse_options( int argc, char **argv, DLLSPEC *spec )
+static char **parse_options( int argc, char **argv )
 {
     char *p;
     int optc;
@@ -236,14 +222,14 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             /* ignored */
             break;
         case 'F':
-            spec->file_name = xstrdup( optarg );
+            dll_file_name = xstrdup( optarg );
             break;
         case 'H':
             if (!isdigit(optarg[0]))
                 fatal_error( "Expected number argument with -H option instead of '%s'\n", optarg );
-            spec->heap_size = atoi(optarg);
-            if (spec->heap_size > 65535)
-                fatal_error( "Invalid heap size %d, maximum is 65535\n", spec->heap_size );
+            DLLHeapSize = atoi(optarg);
+            if (DLLHeapSize > 65535)
+                fatal_error( "Invalid heap size %d, maximum is 65535\n", DLLHeapSize );
             break;
         case 'I':
             /* ignored */
@@ -256,18 +242,18 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             lib_path[nb_lib_paths++] = xstrdup( optarg );
             break;
         case 'M':
-            spec->owner_name = xstrdup( optarg );
-            spec->type = SPEC_WIN16;
+            owner_name = xstrdup( optarg );
+            SpecType = SPEC_WIN16;
             break;
         case 'N':
-            spec->dll_name = xstrdup( optarg );
+            dll_name = xstrdup( optarg );
             break;
         case 'd':
             add_import_dll( optarg, 1 );
             break;
         case 'e':
-            spec->init_func = xstrdup( optarg );
-            if ((p = strchr( spec->init_func, '@' ))) *p = 0;  /* kill stdcall decoration */
+            init_func = xstrdup( optarg );
+            if ((p = strchr( init_func, '@' ))) *p = 0;  /* kill stdcall decoration */
             break;
         case 'f':
             if (!strcmp( optarg, "PIC") || !strcmp( optarg, "pic")) UsePIC = 1;
@@ -294,6 +280,13 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
         case 'l':
             add_import_dll( optarg, 0 );
             break;
+        case 'm':
+            if (!strcmp( optarg, "gui" )) SpecMode = SPEC_MODE_GUIEXE;
+            else if (!strcmp( optarg, "cui" )) SpecMode = SPEC_MODE_CUIEXE;
+            else if (!strcmp( optarg, "guiw" )) SpecMode = SPEC_MODE_GUIEXE_UNICODE;
+            else if (!strcmp( optarg, "cuiw" )) SpecMode = SPEC_MODE_CUIEXE_UNICODE;
+            else usage(1);
+            break;
         case 'o':
             if (unlink( optarg ) == -1 && errno != ENOENT)
                 fatal_error( "Unable to create output file '%s'\n", optarg );
@@ -309,24 +302,24 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
         case 'w':
             display_warnings = 1;
             break;
-        case LONG_OPT_DLL:
-            set_exec_mode( MODE_DLL );
-            spec_file_name = xstrdup( optarg );
-            set_dll_file_name( optarg, spec );
+        case LONG_OPT_SPEC:
+            set_exec_mode( MODE_SPEC );
+            input_file = open_input_file( NULL, optarg );
+            set_dll_file_name( optarg );
             break;
         case LONG_OPT_DEF:
             set_exec_mode( MODE_DEF );
-            spec_file_name = xstrdup( optarg );
-            set_dll_file_name( optarg, spec );
+            input_file = open_input_file( NULL, optarg );
+            set_dll_file_name( optarg );
             break;
         case LONG_OPT_EXE:
             set_exec_mode( MODE_EXE );
             if ((p = strrchr( optarg, '/' ))) p++;
             else p = optarg;
-            spec->file_name = xmalloc( strlen(p) + 5 );
-            strcpy( spec->file_name, p );
-            if (!strchr( spec->file_name, '.' )) strcat( spec->file_name, ".exe" );
-            if (!spec->subsystem) spec->subsystem = IMAGE_SUBSYSTEM_WINDOWS_GUI;
+            dll_file_name = xmalloc( strlen(p) + 5 );
+            strcpy( dll_file_name, p );
+            if (!strchr( dll_file_name, '.' )) strcat( dll_file_name, ".exe" );
+            if (SpecMode == SPEC_MODE_DLL) SpecMode = SPEC_MODE_GUIEXE;
             break;
         case LONG_OPT_DEBUG:
             set_exec_mode( MODE_DEBUG );
@@ -337,17 +330,9 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
         case LONG_OPT_RELAY32:
             set_exec_mode( MODE_RELAY32 );
             break;
-        case LONG_OPT_SUBSYSTEM:
-            set_subsystem( optarg, spec );
-            break;
         case LONG_OPT_VERSION:
             printf( "winebuild version " PACKAGE_VERSION "\n" );
             exit(0);
-        case LONG_OPT_PEDLL:
-            set_exec_mode( MODE_PEDLL );
-            spec_file_name = xstrdup( optarg );
-            set_dll_file_name( optarg, spec );
-            break;
         case '?':
             usage(1);
             break;
@@ -358,28 +343,28 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
 
 
 /* load all specified resource files */
-static void load_resources( char *argv[], DLLSPEC *spec )
+static void load_resources( char *argv[] )
 {
     int i;
     char **ptr, **last;
 
-    switch (spec->type)
+    switch (SpecType)
     {
     case SPEC_WIN16:
-        for (i = 0; i < nb_res_files; i++) load_res16_file( res_files[i], spec );
+        for (i = 0; i < nb_res_files; i++) load_res16_file( res_files[i] );
         break;
 
     case SPEC_WIN32:
         for (i = 0; i < nb_res_files; i++)
         {
-            if (!load_res32_file( res_files[i], spec ))
+            if (!load_res32_file( res_files[i] ))
                 fatal_error( "%s is not a valid Win32 resource file\n", res_files[i] );
         }
 
         /* load any resource file found in the remaining arguments */
         for (ptr = last = argv; *ptr; ptr++)
         {
-            if (!load_res32_file( *ptr, spec ))
+            if (!load_res32_file( *ptr ))
                 *last++ = *ptr; /* not a resource file, keep it in the list */
         }
         *last = NULL;
@@ -387,72 +372,67 @@ static void load_resources( char *argv[], DLLSPEC *spec )
     }
 }
 
-static int parse_input_file( DLLSPEC *spec )
-{
-    FILE *input_file = open_input_file( NULL, spec_file_name );
-    char *extension = strrchr( spec_file_name, '.' );
-
-    if (extension && !strcmp( extension, ".def" ))
-        return parse_def_file( input_file, spec );
-    else
-        return parse_spec_file( input_file, spec );
-    close_input_file( input_file );
-}
-
-
 /*******************************************************************
  *         main
  */
 int main(int argc, char **argv)
 {
-    DLLSPEC *spec = alloc_dll_spec();
-
     output_file = stdout;
-    argv = parse_options( argc, argv, spec );
+    argv = parse_options( argc, argv );
 
     switch(exec_mode)
     {
-    case MODE_DLL:
-        spec->characteristics |= IMAGE_FILE_DLL;
-        load_resources( argv, spec );
-        if (!parse_input_file( spec )) break;
-        switch (spec->type)
+    case MODE_SPEC:
+        load_resources( argv );
+        if (!ParseTopLevel( input_file )) break;
+        switch (SpecType)
         {
             case SPEC_WIN16:
+#if defined(__REACTOS__)
                 fatal_error( "Win16 specs are not supported in ReactOS version of winebuild\n" );
+#else
+                if (argv[0])
+                    fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
+                BuildSpec16File( output_file );
+#endif
                 break;
             case SPEC_WIN32:
                 read_undef_symbols( argv );
-                BuildSpec32File( output_file, spec );
+                BuildSpec32File( output_file );
                 break;
             default: assert(0);
         }
         break;
     case MODE_EXE:
-        if (spec->type == SPEC_WIN16) fatal_error( "Cannot build 16-bit exe files\n" );
-        load_resources( argv, spec );
+        if (SpecType == SPEC_WIN16) fatal_error( "Cannot build 16-bit exe files\n" );
+        load_resources( argv );
         read_undef_symbols( argv );
-        BuildSpec32File( output_file, spec );
+        BuildSpec32File( output_file );
         break;
     case MODE_DEF:
         if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
-        if (spec->type == SPEC_WIN16) fatal_error( "Cannot yet build .def file for 16-bit dlls\n" );
-        if (!parse_input_file( spec )) break;
-        BuildDef32File( output_file, spec );
+        if (SpecType == SPEC_WIN16) fatal_error( "Cannot yet build .def file for 16-bit dlls\n" );
+        if (!ParseTopLevel( input_file )) break;
+        BuildDef32File( output_file );
         break;
     case MODE_DEBUG:
         BuildDebugFile( output_file, current_src_dir, argv );
         break;
     case MODE_RELAY16:
+#if defined(__REACTOS__)
         fatal_error( "Win16 relays are not supported in ReactOS version of winebuild\n" );
+#else
+        if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
+        BuildRelays16( output_file );
+#endif
         break;
     case MODE_RELAY32:
+#if defined(__REACTOS__)
         fatal_error( "Win32 relays are not supported in ReactOS version of winebuild\n" );
-        break;
-    case MODE_PEDLL:
+#else
         if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
-        if (!parse_input_file( spec )) break;
-        BuildPedllFile( output_file, spec );
+        BuildRelays32( output_file );
+#endif
         break;
     default:
         usage(1);

@@ -33,7 +33,7 @@ typedef struct _MENU_ITEM
 
 typedef struct _MENU_OBJECT
 {
-  PEPROCESS Process;
+  PW32PROCESS W32Process;
   LIST_ENTRY ListEntry;
   FAST_MUTEX MenuItemsLock;
   PMENU_ITEM MenuItemList;
@@ -44,20 +44,8 @@ typedef struct _MENU_OBJECT
 PMENU_OBJECT FASTCALL
 IntGetMenuObject(HMENU hMenu);
 
-#define IntLockMenuItems(MenuObj) \
-  ExAcquireFastMutex(&MenuObj->MenuItemsLock)
-
-#define IntUnLockMenuItems(MenuObj) \
-  ExReleaseFastMutex(&MenuObj->MenuItemsLock)
-
-#define IntLockProcessMenus(W32Process) \
-  ExAcquireFastMutex(&W32Process->MenuListLock)
-
-#define IntUnLockProcessMenus(W32Process) \
-  ExReleaseFastMutex(&W32Process->MenuListLock)
-
-#define IntReleaseMenuObject(MenuObj) \
-  ObmDereferenceObject(MenuObj)
+VOID FASTCALL
+IntReleaseMenuObject(PMENU_OBJECT MenuObject);
 
 BOOL FASTCALL
 IntFreeMenuItem(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem,
@@ -113,9 +101,6 @@ IntSetMenuItemRect(PMENU_OBJECT MenuObject, UINT Item, BOOL fByPos, RECT *rcRect
 BOOL FASTCALL
 IntCleanupMenus(struct _EPROCESS *Process, PW32PROCESS Win32Process);
 
-BOOL FASTCALL
-IntInsertMenuItem(PMENU_OBJECT MenuObject, UINT uItem, BOOL fByPosition,
-                  PROSMENUITEMINFO ItemInfo);
 
 
 NTSTATUS FASTCALL

@@ -22,9 +22,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __USE_W32API
 #define __USE_W32API
-#endif
 
 #include "wine/config.h"
 #include "wine/port.h"
@@ -262,7 +260,7 @@ BOOL WINAPI DdeSetQualityOfService(HWND hwndClient, CONST SECURITY_QUALITY_OF_SE
  */
 static void WDML_IncrementInstanceId(WDML_INSTANCE* pInstance)
 {
-    DWORD	id = InterlockedIncrement((PLONG)&WDML_MaxInstanceID);
+    DWORD	id = InterlockedIncrement(&WDML_MaxInstanceID);
 
     pInstance->instanceID = id;
     TRACE("New instance id %ld allocated\n", id);
@@ -512,7 +510,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 
 	if (WDML_InstanceList == NULL)
 	{
-	    ret = DMLERR_INVALIDPARAMETER;
+	    ret = DMLERR_DLL_USAGE;
 	    goto theError;
 	}
 	HeapFree(GetProcessHeap(), 0, pInstance); /* finished - release heap space used as work store */
@@ -533,11 +531,11 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 		{
 		    if  ((reference_inst->CBFflags & CBF_FAIL_ALLSVRXACTIONS) != CBF_FAIL_ALLSVRXACTIONS)
 		    {
-			/* i.e. Was set to Client-only and through APPCMD_CLIENTONLY */
+				/* i.e. Was set to Client-only and through APPCMD_CLIENTONLY */
 
 			if (!(afCmd & APPCMD_CLIENTONLY))
 			{
-			    ret = DMLERR_INVALIDPARAMETER;
+			    ret = DMLERR_DLL_USAGE;
 			    goto theError;
 			}
 		    }
@@ -546,7 +544,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 
 		if (pInstance->monitor != reference_inst->monitor)
 		{
-		    ret = DMLERR_INVALIDPARAMETER;
+		    ret = DMLERR_DLL_USAGE;
 		    goto theError;
 		}
 
@@ -554,7 +552,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 
 		if ((afCmd&APPCMD_CLIENTONLY) && !reference_inst->clientOnly)
 		{
-		    ret = DMLERR_INVALIDPARAMETER;
+		    ret = DMLERR_DLL_USAGE;
 		    goto theError;
 		}
 		break;
@@ -563,6 +561,10 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 	}
 	if (reference_inst->next == NULL)
 	{
+	    /* Crazy situation - trying to re-initialize something that has not beeen initialized !!
+	     *
+	     *	Manual does not say what we do, cannot return DMLERR_NOT_INITIALIZED so what ?
+	     */
 	    ret = DMLERR_INVALIDPARAMETER;
 	    goto theError;
 	}
@@ -783,6 +785,8 @@ UINT WINAPI DdeGetLastError(DWORD idInst)
     DWORD		error_code;
     WDML_INSTANCE*	pInstance;
 
+    FIXME("(%ld): error reporting is weakly implemented\n", idInst);
+
     EnterCriticalSection(&WDML_CritSect);
 
     /*  First check instance
@@ -790,7 +794,7 @@ UINT WINAPI DdeGetLastError(DWORD idInst)
     pInstance = WDML_GetInstance(idInst);
     if  (pInstance == NULL)
     {
-	error_code = DMLERR_INVALIDPARAMETER;
+	error_code = DMLERR_DLL_NOT_INITIALIZED;
     }
     else
     {
@@ -991,7 +995,6 @@ static int	WDML_QueryString(WDML_INSTANCE* pInstance, HSZ hsz, LPVOID ptr, DWORD
 	break;
     case CP_WINUNICODE:
 	ret = GetAtomNameW(HSZ2ATOM(hsz), ptr, cchMax);
-	break;
     default:
 	ERR("Unknown code page %d\n", codepage);
 	ret = 0;

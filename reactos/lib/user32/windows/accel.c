@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: accel.c,v 1.15 2004/08/15 21:36:28 chorns Exp $
+/* $Id: accel.c,v 1.13 2004/01/28 21:00:23 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,8 +28,7 @@
  */
 
 /* INCLUDES ******************************************************************/
-
-#include "user32.h"
+#include <windows.h>
 #include <user32/accel.h>
 #include <win32k/ntuser.h>
 
@@ -102,7 +101,7 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
  /* failure */
  if(hAccTableData == NULL) return NULL;
 
- EnterCriticalSection(&U32AccelCacheLock);
+ RtlEnterCriticalSection(&U32AccelCacheLock);
 
  /* see if this accelerator table has already been loaded */
  pEntry = *U32AccelCacheFind(NULL, hAccTableData);
@@ -153,7 +152,7 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
  U32AccelCacheAdd(hAccTable, pAccTableResData);
 
 l_Leave:
- LeaveCriticalSection(&U32AccelCacheLock);
+ RtlLeaveCriticalSection(&U32AccelCacheLock);
  return hAccTable;
 }
 
@@ -187,7 +186,7 @@ BOOL WINAPI DestroyAcceleratorTable(HACCEL hAccel)
  U32_ACCEL_CACHE_ENTRY ** ppEntry;
  ULONG_PTR nUsage = 0;
 
- EnterCriticalSection(&U32AccelCacheLock);
+ RtlEnterCriticalSection(&U32AccelCacheLock);
 
  /* see if this accelerator table has been cached */
  ppEntry = U32AccelCacheFind(hAccel, NULL);
@@ -211,7 +210,7 @@ BOOL WINAPI DestroyAcceleratorTable(HACCEL hAccel)
   }
  }
 
- LeaveCriticalSection(&U32AccelCacheLock);
+ RtlLeaveCriticalSection(&U32AccelCacheLock);
 
  if(nUsage > 0) return FALSE;
 

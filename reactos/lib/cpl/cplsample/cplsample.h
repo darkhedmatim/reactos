@@ -1,6 +1,8 @@
 #ifndef __CPL_SAMPLE_H
 #define __CPL_SAMPLE_H
 
+typedef LONG (CALLBACK *APPLET_PROC)(VOID);
+
 typedef struct
 {
   int idIcon;

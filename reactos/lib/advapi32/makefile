@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.46 2004/12/14 00:00:40 weiden Exp $
+# $Id: makefile,v 1.32 2004/01/20 01:40:18 ekohl Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,34 +6,23 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = advapi32
 
-TARGET_PCH = advapi32.h
-
-TARGET_CFLAGS = -Wall -Werror -fno-builtin \
-                -D__USE_W32API \
-                -D_WIN32_IE=0x0500 \
-                -D_WIN32_WINNT=0x501 \
-                -DWINVER=0x600 \
+TARGET_CFLAGS = -Wall -Werror -fno-builtin
+# TARGET_CFLAGS += -DUNICODE
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
 TARGET_SDKLIBS = ntdll.a kernel32.a
 
-TARGET_BASE = $(TARGET_BASE_LIB_ADVAPI32)
-
-CRYPT_OBJECTS = \
-	crypt/crypt_des.o \
-	crypt/crypt_lmhash.o \
-	crypt/crypt_md4.o \
-	crypt/crypt_md5.o \
-	crypt/crypt_sha.o \
-	crypt/crypt.o
+TARGET_BASE = 0x77DB0000
 
 MISC_OBJECTS = \
 	misc/dllmain.o \
-	misc/hwprofiles.o \
 	misc/logon.o \
 	misc/shutdown.o \
 	misc/sysfunc.o \
+	misc/crstubs.o \
+	misc/aclstubs.o \
+	misc/stubs.o
 
 REGISTRY_OBJECTS = \
 	reg/reg.o
@@ -44,11 +33,9 @@ SECURITY_OBJECTS = \
 	sec/lsa.o \
 	sec/misc.o \
 	sec/sec.o \
-	sec/sid.o \
-	sec/trustee.o
+	sec/sid.o
 
 SERVICE_OBJECTS = \
-	service/eventlog.o \
 	service/scm.o \
 	service/sctrl.o \
 	service/undoc.o
@@ -58,7 +45,6 @@ TOKEN_OBJECTS = \
 	token/token.o
 
 TARGET_OBJECTS = \
-	$(CRYPT_OBJECTS) \
 	$(MISC_OBJECTS) \
 	$(REGISTRY_OBJECTS) \
 	$(SECURITY_OBJECTS) \

@@ -35,7 +35,6 @@ protected:
 	FATEntry() : Entry(ET_FAT) {}
 
 	virtual bool get_path(PTSTR path) const;
-	virtual ShellPath create_absolute_pidl() const;
 
 	DWORD	_cluster;
 };
@@ -51,7 +50,6 @@ struct FATDirectory : public FATEntry, public Directory
 	~FATDirectory();
 
 	virtual void read_directory(int scan_flags=SCAN_ALL);
-	virtual const void* get_next_path_component(const void*) const;
 	virtual Entry* find_entry(const void*);
 
 protected:

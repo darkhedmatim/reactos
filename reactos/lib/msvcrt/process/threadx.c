@@ -1,4 +1,7 @@
-#include "precomp.h"
+/* $Id: threadx.c,v 1.6 2003/12/03 17:17:03 navaraf Exp $
+ *
+ */
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/process.h>
 #include <msvcrt/internal/file.h>

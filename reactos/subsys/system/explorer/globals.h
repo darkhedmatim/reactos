@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,13 +24,6 @@
  //
  // Martin Fuchs, 23.07.2003
  //
-
-
-#include "utility/xmlstorage.h"
-
-using namespace XMLStorage;
-
-#include "taskbar/favorites.h"
 
 
  /// management of file types
@@ -80,7 +73,6 @@ enum ICON_ID {
 	ICID_NETWORK,
 	ICID_COMPUTER,
 	ICID_LOGOFF,
-	ICID_BOOKMARK,
 
 	ICID_DYNAMIC
 };
@@ -95,7 +87,6 @@ struct Icon {
 
 	void	draw(HDC hdc, int x, int y, int cx, int cy, COLORREF bk_color, HBRUSH bk_brush) const;
 	HBITMAP	create_bitmap(COLORREF bk_color, HBRUSH hbrBkgnd, HDC hdc_wnd) const;
-	int		add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color=GetSysColor(COLOR_WINDOW), HBRUSH bk_brush=GetSysColorBrush(COLOR_WINDOW)) const;
 
 	int		get_sysiml_idx() const {return _itype==IT_SYSCACHE? _sys_idx: -1;}
 
@@ -150,13 +141,6 @@ protected:
  /// create a bitmap from an icon
 extern HBITMAP create_bitmap_from_icon(HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd);
 
- /// add icon with alpha channel to imagelist using the specified background color
-extern int ImageList_AddAlphaIcon(HIMAGELIST himl, HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd);
-
- /// retrieve icon from window
-extern HICON get_window_icon_small(HWND hwnd);
-extern HICON get_window_icon_big(HWND hwnd, bool allow_from_class=true);
-
 
  /// desktop management
 #ifdef _USE_HDESK
@@ -193,13 +177,9 @@ protected:
 
 #else
 
-typedef pair<HWND, DWORD> MinimizeStruct;
-
 struct Desktop
 {
 	set<HWND> _windows;
-	WindowHandle _hwndForeground;
-	list<MinimizeStruct> _minimized;
 };
 typedef Desktop DesktopRef;
 
@@ -215,11 +195,8 @@ struct Desktops : public vector<DesktopRef>
 
 	void	init();
 	void	SwitchToDesktop(int idx);
-	void	ToggleMinimize();
 
-#ifdef _USE_HDESK
 	DesktopRef& get_current_Desktop() {return (*this)[_current_desktop];}
-#endif
 
 	int		_current_desktop;
 };
@@ -230,13 +207,7 @@ extern struct ExplorerGlobals
 {
 	ExplorerGlobals();
 
-	void	init(HINSTANCE hInstance);
-
-	void	read_persistent();
-	void	write_persistent();
-
-	XMLPos	get_cfg();
-	XMLPos	get_cfg(const char* path);
+	void		init(HINSTANCE hInstance);
 
 	HINSTANCE	_hInstance;
 	ATOM		_hframeClass;
@@ -256,16 +227,8 @@ extern struct ExplorerGlobals
 
 	HWND		_hwndDesktopBar;
 	HWND		_hwndShellView;
-	HWND		_hwndDesktop;
 
 	Desktops	_desktops;
-
-	XMLDoc		_cfg;
-	String		_cfg_dir;
-	String		_cfg_path;
-
-	Favorites	_favorites;
-	String		_favorites_path;
 } g_Globals;
 
 

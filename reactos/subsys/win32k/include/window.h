@@ -7,13 +7,11 @@ typedef struct _WINDOW_OBJECT *PWINDOW_OBJECT;
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <include/object.h>
 #include <include/class.h>
 #include <include/msgqueue.h>
 #include <include/winsta.h>
 #include <include/dce.h>
 #include <include/prop.h>
-#include <include/scroll.h>
 
 
 VOID FASTCALL
@@ -30,8 +28,6 @@ typedef struct _WINDOW_OBJECT
 {
   /* Pointer to the window class. */
   PWNDCLASS_OBJECT Class;
-  /* entry in the window list of the class object */
-  LIST_ENTRY ClassListEntry;
   /* Extended style. */
   DWORD ExStyle;
   /* Window name. */
@@ -63,24 +59,22 @@ typedef struct _WINDOW_OBJECT
   /* Handle of region of the window to be updated. */
   HANDLE UpdateRegion;
   HANDLE NCUpdateRegion;
-  /* Handle of the window region. */
-  HANDLE WindowRegion;
   /* Lock to be held when manipulating (NC)UpdateRegion */
   FAST_MUTEX UpdateLock;
   /* Pointer to the owning thread's message queue. */
   PUSER_MESSAGE_QUEUE MessageQueue;
-  /* Lock for the list of child windows. */
-  FAST_MUTEX RelativesLock;
   struct _WINDOW_OBJECT* FirstChild;
   struct _WINDOW_OBJECT* LastChild;
+  /* Lock for the list of child windows. */
+  FAST_MUTEX ChildrenListLock;
   struct _WINDOW_OBJECT* NextSibling;
   struct _WINDOW_OBJECT* PrevSibling;
   /* Entry in the list of thread windows. */
   LIST_ENTRY ThreadListEntry;
-  /* Handle to the parent window. */
-  HANDLE Parent;
-  /* Handle to the owner window. */
-  HANDLE Owner;
+  /* Pointer to the parent window. */
+  struct _WINDOW_OBJECT* Parent;
+  /* Pointer to the owner window. */
+  struct _WINDOW_OBJECT* Owner;
   /* DC Entries (DCE) */
   PDCE Dce;
   /* Property list head.*/
@@ -88,7 +82,9 @@ typedef struct _WINDOW_OBJECT
   FAST_MUTEX PropListLock;
   ULONG PropListItems;
   /* Scrollbar info */
-  PWINDOW_SCROLLINFO Scroll;
+  PSCROLLBARINFO pHScroll;
+  PSCROLLBARINFO pVScroll;
+  PSCROLLBARINFO wExtra;
   LONG UserData;
   BOOL Unicode;
   WNDPROC WndProcA;
@@ -96,9 +92,6 @@ typedef struct _WINDOW_OBJECT
   PETHREAD OwnerThread;
   HWND hWndLastPopup; /* handle to last active popup window (wine doesn't use pointer, for unk. reason)*/
   PINTERNALPOS InternalPos;
-  ULONG Status;
-  /* counter for tiled child windows */
-  ULONG TiledCounter;
 } WINDOW_OBJECT; /* PWINDOW_OBJECT already declared at top of file */
 
 /* Window flags. */
@@ -108,66 +101,18 @@ typedef struct _WINDOW_OBJECT
 #define WINDOWOBJECT_NEED_INTERNALPAINT   (0x00000008)
 #define WINDOWOBJECT_RESTOREMAX           (0x00000020)
 
-#define WINDOWSTATUS_DESTROYING         (0x1)
-#define WINDOWSTATUS_DESTROYED          (0x2)
+inline BOOL IntIsDesktopWindow(PWINDOW_OBJECT WindowObject);
 
-#define HAS_DLGFRAME(Style, ExStyle) \
-            (((ExStyle) & WS_EX_DLGMODALFRAME) || \
-            (((Style) & WS_DLGFRAME) && (!((Style) & WS_THICKFRAME))))
-
-#define HAS_THICKFRAME(Style, ExStyle) \
-            (((Style) & WS_THICKFRAME) && \
-            (!(((Style) & (WS_DLGFRAME | WS_BORDER)) == WS_DLGFRAME)))
-
-#define HAS_THINFRAME(Style, ExStyle) \
-            (((Style) & WS_BORDER) || (!((Style) & (WS_CHILD | WS_POPUP))))
-
-#define IntIsDesktopWindow(WndObj) \
-  (WndObj->Parent == NULL)
-
-#define IntIsBroadcastHwnd(hWnd) \
-  (hWnd == HWND_BROADCAST || hWnd == HWND_TOPMOST)
-
-#define IntGetWindowObject(hWnd) \
-  IntGetProcessWindowObject(PsGetWin32Thread(), hWnd)
-
-#define IntReferenceWindowObject(WndObj) \
-  ObmReferenceObjectByPointer(WndObj, otWindow)
-
-#define IntReleaseWindowObject(WndObj) \
-  ObmDereferenceObject(WndObj)
-
-#define IntWndBelongsToThread(WndObj, W32Thread) \
-  (((WndObj->OwnerThread && WndObj->OwnerThread->Tcb.Win32Thread)) && \
-   (WndObj->OwnerThread->Tcb.Win32Thread == W32Thread))
-
-#define IntGetWndThreadId(WndObj) \
-  WndObj->OwnerThread->Cid.UniqueThread
-
-#define IntGetWndProcessId(WndObj) \
-  WndObj->OwnerThread->ThreadsProcess->UniqueProcessId
-
-#define IntLockRelatives(WndObj) \
-  ExAcquireFastMutex(&WndObj->RelativesLock)
-
-#define IntUnLockRelatives(WndObj) \
-  ExReleaseFastMutex(&WndObj->RelativesLock)
-
-#define IntLockThreadWindows(Thread) \
-  ExAcquireFastMutex(&Thread->WindowListLock)
-
-#define IntUnLockThreadWindows(Thread) \
-  ExReleaseFastMutex(&Thread->WindowListLock)
-
-
-PWINDOW_OBJECT FASTCALL
-IntGetProcessWindowObject(PW32THREAD Thread, HWND hWnd);
+inline BOOL IntIsBroadcastHwnd(HWND hwnd);
 
 BOOL FASTCALL
 IntIsWindow(HWND hWnd);
 
 HWND* FASTCALL
 IntWinListChildren(PWINDOW_OBJECT Window);
+
+BOOLEAN FASTCALL
+IntWndBelongsToThread(PWINDOW_OBJECT Window, PW32THREAD ThreadData);
 
 NTSTATUS FASTCALL
 InitWindowImpl (VOID);
@@ -178,14 +123,29 @@ CleanupWindowImpl (VOID);
 VOID FASTCALL
 IntGetClientRect (PWINDOW_OBJECT WindowObject, PRECT Rect);
 
+PWINDOW_OBJECT FASTCALL
+IntGetWindowObject (HWND hWnd);
+
+VOID FASTCALL
+IntReleaseWindowObject (PWINDOW_OBJECT Window);
+
 HWND FASTCALL
 IntGetActiveWindow (VOID);
 
 BOOL FASTCALL
-IntIsWindowVisible (HWND hWnd);
+IntIsWindowVisible (HWND Wnd);
 
 BOOL FASTCALL
 IntIsChildWindow (HWND Parent, HWND Child);
+
+BOOL FASTCALL
+IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data);
+
+PPROPERTY FASTCALL
+IntGetProp(PWINDOW_OBJECT WindowObject, ATOM Atom);
+
+DWORD FASTCALL
+IntGetWindowThreadProcessId(PWINDOW_OBJECT Wnd, PDWORD pid);
 
 VOID FASTCALL
 IntUnlinkWindow(PWINDOW_OBJECT Wnd);
@@ -199,27 +159,24 @@ IntGetAncestor(PWINDOW_OBJECT Wnd, UINT Type);
 PWINDOW_OBJECT FASTCALL
 IntGetParent(PWINDOW_OBJECT Wnd);
 
-PWINDOW_OBJECT FASTCALL
-IntGetParentObject(PWINDOW_OBJECT Wnd);
+typedef enum _WINLOCK_TYPE
+{
+  None,
+  Any,
+  Shared,
+  Exclusive
+} WINLOCK_TYPE; 
 
-INT FASTCALL
-IntGetWindowRgn(HWND hWnd, HRGN hRgn);
+#define ASSERT_WINLOCK(a) assert(IntVerifyWinLock(a))
 
-INT FASTCALL
-IntGetWindowRgnBox(HWND hWnd, RECT *Rect);
-
-BOOL FASTCALL
-IntGetWindowInfo(PWINDOW_OBJECT WindowObject, PWINDOWINFO pwi);
-
-VOID FASTCALL
-IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, UINT *cx, UINT *cy);
-
-BOOL FASTCALL
-IntAnyPopup(VOID);
-
-BOOL FASTCALL
-IntIsWindowInDestroy(PWINDOW_OBJECT Window);
-
+inline VOID IntAcquireWinLockShared();
+inline VOID IntAcquireWinLockExclusive();
+inline VOID IntReleaseWinLock();
+BOOL FASTCALL IntVerifyWinLock(WINLOCK_TYPE Type);
+WINLOCK_TYPE FASTCALL IntSuspendWinLock();
+VOID FASTCALL IntRestoreWinLock(WINLOCK_TYPE Type);
+inline BOOL IntInitializeWinLock();
+inline VOID IntDeleteWinLock();
 DWORD IntRemoveWndProcHandle(WNDPROC Handle);
 DWORD IntRemoveProcessWndProcHandles(HANDLE ProcessID);
 DWORD IntAddWndProcHandle(WNDPROC WindowProc, BOOL IsUnicode);

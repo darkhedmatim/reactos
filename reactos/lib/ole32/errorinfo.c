@@ -26,14 +26,12 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
-#include "objbase.h"
 #include "oleauto.h"
 #include "winerror.h"
 
+#include "objbase.h"
 #include "wine/unicode.h"
 #include "compobj_private.h"
 
@@ -129,9 +127,9 @@ static VOID WINAPI ERRORINFO_SysFreeString(BSTR in)
 
 typedef struct ErrorInfoImpl
 {
-	IErrorInfoVtbl		*lpvtei;
-	ICreateErrorInfoVtbl	*lpvtcei;
-	ISupportErrorInfoVtbl	*lpvtsei;
+	ICOM_VTABLE(IErrorInfo)		*lpvtei;
+	ICOM_VTABLE(ICreateErrorInfo)	*lpvtcei;
+	ICOM_VTABLE(ISupportErrorInfo)	*lpvtsei;
 	DWORD				ref;
 
 	GUID m_Guid;
@@ -141,9 +139,9 @@ typedef struct ErrorInfoImpl
 	DWORD m_dwHelpContext;
 } ErrorInfoImpl;
 
-static IErrorInfoVtbl		IErrorInfoImpl_VTable;
-static ICreateErrorInfoVtbl	ICreateErrorInfoImpl_VTable;
-static ISupportErrorInfoVtbl	ISupportErrorInfoImpl_VTable;
+static ICOM_VTABLE(IErrorInfo)		IErrorInfoImpl_VTable;
+static ICOM_VTABLE(ICreateErrorInfo)	ICreateErrorInfoImpl_VTable;
+static ICOM_VTABLE(ISupportErrorInfo)	ISupportErrorInfoImpl_VTable;
 
 /*
  converts a objectpointer to This
@@ -302,8 +300,9 @@ static HRESULT WINAPI IErrorInfoImpl_GetHelpContext(
 	return S_OK;
 }
 
-static IErrorInfoVtbl IErrorInfoImpl_VTable =
+static ICOM_VTABLE(IErrorInfo) IErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   IErrorInfoImpl_QueryInterface,
   IErrorInfoImpl_AddRef,
   IErrorInfoImpl_Release,
@@ -358,7 +357,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetSource(
 	LPOLESTR szSource)
 {
 	_ICOM_THIS_From_ICreateErrorInfo(ErrorInfoImpl, iface);
-	TRACE("(%p): %s\n",This, debugstr_w(szSource));
+	TRACE("(%p)\n",This);
 	if (This->bstrSource != NULL)
 	    ERRORINFO_SysFreeString(This->bstrSource);
 	This->bstrSource = ERRORINFO_SysAllocString(szSource);
@@ -371,7 +370,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetDescription(
 	LPOLESTR szDescription)
 {
 	_ICOM_THIS_From_ICreateErrorInfo(ErrorInfoImpl, iface);
-	TRACE("(%p): %s\n",This, debugstr_w(szDescription));
+	TRACE("(%p)\n",This);
 	if (This->bstrDescription != NULL)
 	    ERRORINFO_SysFreeString(This->bstrDescription);
 	This->bstrDescription = ERRORINFO_SysAllocString(szDescription);
@@ -403,8 +402,9 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetHelpContext(
 	return S_OK;
 }
 
-static ICreateErrorInfoVtbl ICreateErrorInfoImpl_VTable =
+static ICOM_VTABLE(ICreateErrorInfo) ICreateErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   ICreateErrorInfoImpl_QueryInterface,
   ICreateErrorInfoImpl_AddRef,
   ICreateErrorInfoImpl_Release,
@@ -453,8 +453,9 @@ static HRESULT WINAPI ISupportErrorInfoImpl_InterfaceSupportsErrorInfo(
 	return (IsEqualIID(riid, &This->m_Guid)) ? S_OK : S_FALSE;
 }
 
-static ISupportErrorInfoVtbl ISupportErrorInfoImpl_VTable =
+static ICOM_VTABLE(ISupportErrorInfo) ISupportErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   ISupportErrorInfoImpl_QueryInterface,
   ISupportErrorInfoImpl_AddRef,
   ISupportErrorInfoImpl_Release,
@@ -483,20 +484,13 @@ HRESULT WINAPI CreateErrorInfo(ICreateErrorInfo **pperrinfo)
  */
 HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 {
-	APARTMENT * apt = COM_CurrentInfo();
+	TRACE("(%ld, %p, %p): stub:\n", dwReserved, pperrinfo, COM_CurrentInfo()->ErrorInfo);
 
-	TRACE("(%ld, %p, %p)\n", dwReserved, pperrinfo, COM_CurrentInfo()->ErrorInfo);
+	if(! pperrinfo ) return E_INVALIDARG;
+	if(!(*pperrinfo = (IErrorInfo*)(COM_CurrentInfo()->ErrorInfo))) return S_FALSE;
 
-	if(!pperrinfo) return E_INVALIDARG;
-	if (!apt || !apt->ErrorInfo)
-	{
-	   *pperrinfo = NULL;
-	   return S_FALSE;
-	}
-
-	*pperrinfo = (IErrorInfo*)(apt->ErrorInfo);
 	/* clear thread error state */
-	apt->ErrorInfo = NULL;
+	COM_CurrentInfo()->ErrorInfo = NULL;
 	return S_OK;
 }
 
@@ -506,18 +500,14 @@ HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 HRESULT WINAPI SetErrorInfo(ULONG dwReserved, IErrorInfo *perrinfo)
 {
 	IErrorInfo * pei;
-	APARTMENT * apt = COM_CurrentInfo();
-
-	TRACE("(%ld, %p)\n", dwReserved, perrinfo);
-	
-	if (!apt) apt = COM_CreateApartment(COINIT_UNINITIALIZED);
+	TRACE("(%ld, %p): stub:\n", dwReserved, perrinfo);
 
 	/* release old errorinfo */
-	pei = (IErrorInfo*)apt->ErrorInfo;
+	pei = (IErrorInfo*)COM_CurrentInfo()->ErrorInfo;
 	if(pei) IErrorInfo_Release(pei);
 
 	/* set to new value */
-	apt->ErrorInfo = perrinfo;
+	COM_CurrentInfo()->ErrorInfo = perrinfo;
 	if(perrinfo) IErrorInfo_AddRef(perrinfo);
 	return S_OK;
 }

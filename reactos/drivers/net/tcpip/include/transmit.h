@@ -7,9 +7,10 @@
 #ifndef __TRANSMIT_H
 #define __TRANSMIT_H
 
-typedef VOID (*PIP_TRANSMIT_COMPLETE)( PVOID Context,
-				       PNDIS_PACKET Packet,
-				       NDIS_STATUS Status );
+#include <neighbor.h>
+#include <route.h>
+#include <ip.h>
+
 
 /* IP fragment context information */
 typedef struct IPFRAGMENT_CONTEXT {
@@ -25,13 +26,21 @@ typedef struct IPFRAGMENT_CONTEXT {
     UINT BytesLeft;                     /* Number of bytes left to send */
     UINT PathMTU;                       /* Path Maximum Transmission Unit */
     PNEIGHBOR_CACHE_ENTRY NCE;          /* Pointer to NCE to use */
-    PIP_TRANSMIT_COMPLETE Complete;     /* Completion Routine */
-    PVOID Context;                      /* Completion Context */
 } IPFRAGMENT_CONTEXT, *PIPFRAGMENT_CONTEXT;
 
 
-NTSTATUS IPSendDatagram(PIP_PACKET IPPacket, PNEIGHBOR_CACHE_ENTRY NCE,
-			PIP_TRANSMIT_COMPLETE Complete, PVOID Context);
+VOID IPSendComplete(
+    PVOID Context,
+    PNDIS_PACKET NdisPacket,
+    NDIS_STATUS NdisStatus);
+
+NTSTATUS IPSendFragment(
+    PNDIS_PACKET NdisPacket,
+    PNEIGHBOR_CACHE_ENTRY NCE);
+
+NTSTATUS IPSendDatagram(
+    PIP_PACKET IPPacket,
+    PROUTE_CACHE_NODE RCN);
 
 #endif /* __TRANSMIT_H */
 

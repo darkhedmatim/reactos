@@ -1,4 +1,4 @@
-/* $Id: regcontrol.h,v 1.10 2004/12/24 17:45:57 weiden Exp $
+/* $Id: regcontrol.h,v 1.7 2003/12/07 23:02:57 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
@@ -13,6 +13,9 @@
 
 #define IS_ATOM(x) \
   (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
+
+/* Built-in class names (see _Undocumented_Windows_ p.418) */
+#define ICONTITLE_CLASS_ATOM MAKEINTATOMA(32772)  /* IconTitle */
 
 /* Built-in class descriptor */
 struct builtin_class_descr

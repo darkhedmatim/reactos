@@ -1,4 +1,4 @@
-/* $Id: dlog.c,v 1.16 2004/09/01 00:15:08 navaraf Exp $
+/* $Id: dlog.c,v 1.11 2004/01/05 14:28:20 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <roscfg.h>
+#include <internal/kd.h>
+#include <ntos/minmax.h>
+#include <rosrtl/string.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -26,41 +31,9 @@ static ULONG DebugLogOverflow;
 static HANDLE DebugLogThreadHandle;
 static CLIENT_ID DebugLogThreadCid;
 static HANDLE DebugLogFile;
-static KEVENT DebugLogEvent;
+static KSEMAPHORE DebugLogSem;
 
 /* FUNCTIONS *****************************************************************/
-
-VOID
-DebugLogDumpMessages(VOID)
-{
-  static CHAR Buffer[256];
-  ULONG Offset;
-  ULONG Length;
-
-  if (!(KdDebugState & KD_DEBUG_BOOTLOG))
-    {
-      return;
-    }
-  KdDebugState &= ~KD_DEBUG_BOOTLOG;
- 
-  Offset = (DebugLogEnd + 1) % DEBUGLOG_SIZE;
-  do
-    {
-      if (Offset <= DebugLogEnd)
-	{
-	  Length = min(255, DebugLogEnd - Offset);
-	}
-      else
-	{
-	  Length = min(255, DEBUGLOG_SIZE - Offset);
-	}
-      memcpy(Buffer, DebugLog + Offset, Length);
-      Buffer[Length] = 0;
-      DbgPrint(Buffer);
-      Offset = (Offset + Length) % DEBUGLOG_SIZE;
-    }
-  while (Length > 0);
-}
 
 VOID INIT_FUNCTION
 DebugLogInit(VOID)
@@ -70,7 +43,7 @@ DebugLogInit(VOID)
   DebugLogEnd = 0;
   DebugLogOverflow = 0;
   DebugLogCount = 0;
-  KeInitializeEvent(&DebugLogEvent, NotificationEvent, FALSE);
+  KeInitializeSemaphore(&DebugLogSem, 0, 255);
 }
 
 VOID STDCALL
@@ -83,13 +56,11 @@ DebugLogThreadMain(PVOID Context)
 
   for (;;)
     {
-      LARGE_INTEGER TimeOut;
-      TimeOut.QuadPart = -5000000; /* Half a second. */
-      KeWaitForSingleObject(&DebugLogEvent,
+      KeWaitForSingleObject(&DebugLogSem,
 			    0,
 			    KernelMode,
 			    FALSE,
-			    &TimeOut);
+			    NULL);
       KeAcquireSpinLock(&DebugLogLock, &oldIrql);
       while (DebugLogCount > 0)
 	{
@@ -132,7 +103,6 @@ DebugLogThreadMain(PVOID Context)
 	    }
 	  KeAcquireSpinLock(&DebugLogLock, &oldIrql);
 	}
-      KeResetEvent(&DebugLogEvent);
       KeReleaseSpinLock(&DebugLogLock, oldIrql);
     }
 }
@@ -158,7 +128,7 @@ DebugLogInit2(VOID)
 			&Iosb,
 			NULL,
 			FILE_ATTRIBUTE_NORMAL,
-			FILE_SHARE_READ,
+			0,
 			FILE_SUPERSEDE,
 			FILE_WRITE_THROUGH | FILE_SYNCHRONOUS_IO_NONALERT,
 			NULL,
@@ -197,7 +167,7 @@ DebugLogWrite(PCH String)
       KeReleaseSpinLock(&DebugLogLock, oldIrql);
       if (oldIrql < DISPATCH_LEVEL)
  	{
-	  KeSetEvent(&DebugLogEvent, IO_NO_INCREMENT, FALSE);
+   	KeReleaseSemaphore(&DebugLogSem, IO_NO_INCREMENT, 1, FALSE);
  	}
       	return;
     }
@@ -214,7 +184,7 @@ DebugLogWrite(PCH String)
  	  KeReleaseSpinLock(&DebugLogLock, oldIrql);
  	  if (oldIrql < DISPATCH_LEVEL)
  	    {
-	      KeSetEvent(&DebugLogEvent, IO_NO_INCREMENT, FALSE);
+ 	      KeReleaseSemaphore(&DebugLogSem, IO_NO_INCREMENT, 1, FALSE);
  	    }
  	  return;
  	}
@@ -225,7 +195,7 @@ DebugLogWrite(PCH String)
 
     if (oldIrql < DISPATCH_LEVEL)
     {
-      KeSetEvent(&DebugLogEvent, IO_NO_INCREMENT, FALSE);
+      KeReleaseSemaphore(&DebugLogSem, IO_NO_INCREMENT, 1, FALSE);
     }
 }
 

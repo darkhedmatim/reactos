@@ -26,7 +26,6 @@
 #include "wingdi.h"
 #include "pidl.h"
 #include "shlguid.h"
-#include "shldisp.h"
 #include "wine/debug.h"
 #include "debughlp.h"
 #include "docobj.h"
@@ -35,7 +34,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(pidl);
 
-static
 LPITEMIDLIST _dbg_ILGetNext(LPCITEMIDLIST pidl)
 {
 	WORD len;
@@ -51,13 +49,11 @@ LPITEMIDLIST _dbg_ILGetNext(LPCITEMIDLIST pidl)
 	return NULL;
 }
 
-static
 BOOL _dbg_ILIsDesktop(LPCITEMIDLIST pidl)
 {
 	return ( !pidl || (pidl && pidl->mkid.cb == 0x00) );
 }
 
-static
 LPPIDLDATA _dbg_ILGetDataPointer(LPCITEMIDLIST pidl)
 {
 	if(pidl && pidl->mkid.cb != 0x00)
@@ -65,7 +61,6 @@ LPPIDLDATA _dbg_ILGetDataPointer(LPCITEMIDLIST pidl)
 	return NULL;
 }
 
-static
 LPSTR _dbg_ILGetTextPointer(LPCITEMIDLIST pidl)
 {
 	LPPIDLDATA pdata =_dbg_ILGetDataPointer(pidl);
@@ -74,9 +69,8 @@ LPSTR _dbg_ILGetTextPointer(LPCITEMIDLIST pidl)
 	{
 	  switch (pdata->type)
 	  {
-	    case PT_GUID:
-	    case PT_SHELLEXT:
-	    case PT_YAGUID:
+	    case PT_MYCOMP:
+	    case PT_SPECIAL:
 	      return NULL;
 
 	    case PT_DRIVE:
@@ -89,6 +83,7 @@ LPSTR _dbg_ILGetTextPointer(LPCITEMIDLIST pidl)
 	    case PT_FOLDER1:
 	    case PT_VALUE:
 	    case PT_IESPECIAL1:
+	    case PT_RAS_FOLDER:
 	    case PT_IESPECIAL2:
 	      return (LPSTR)&(pdata->u.file.szNames);
 
@@ -103,7 +98,6 @@ LPSTR _dbg_ILGetTextPointer(LPCITEMIDLIST pidl)
 	return NULL;
 }
 
-static
 LPSTR _dbg_ILGetSTextPointer(LPCITEMIDLIST pidl)
 {
 	LPPIDLDATA pdata =_dbg_ILGetDataPointer(pidl);
@@ -115,6 +109,7 @@ LPSTR _dbg_ILGetSTextPointer(LPCITEMIDLIST pidl)
 	    case PT_FOLDER:
 	    case PT_VALUE:
 	    case PT_IESPECIAL1:
+	    case PT_RAS_FOLDER:
 	    case PT_IESPECIAL2:
 	      return (LPSTR)(pdata->u.file.szNames + strlen (pdata->u.file.szNames) + 1);
 
@@ -125,8 +120,7 @@ LPSTR _dbg_ILGetSTextPointer(LPCITEMIDLIST pidl)
 	return NULL;
 }
 
-static
-IID* _dbg_ILGetGUIDPointer(LPCITEMIDLIST pidl)
+REFIID _dbg_ILGetGUIDPointer(LPCITEMIDLIST pidl)
 {
 	LPPIDLDATA pdata =_ILGetDataPointer(pidl);
 
@@ -134,15 +128,14 @@ IID* _dbg_ILGetGUIDPointer(LPCITEMIDLIST pidl)
 	{
 	  switch (pdata->type)
 	  {
-	    case PT_SHELLEXT:
-	    case PT_GUID:
-	      return &(pdata->u.guid.guid);
+	    case PT_SPECIAL:
+	    case PT_MYCOMP:
+	      return (REFIID) &(pdata->u.mycomp.guid);
 	  }
 	}
 	return NULL;
 }
 
-static
 DWORD _dbg_ILSimpleGetText (LPCITEMIDLIST pidl, LPSTR szOut, UINT uOutSize)
 {
 	DWORD		dwReturn=0;
@@ -207,7 +200,9 @@ void pdump (LPCITEMIDLIST pidl)
 	      char szName[MAX_PATH];
 
 	      _dbg_ILSimpleGetText(pidltemp, szName, MAX_PATH);
-	      if( PT_FOLDER == type || PT_VALUE == type)
+	      if( PT_FOLDER == type)
+	        dwAttrib = pData->u.folder.uFileAttribs;
+	      else if( PT_VALUE == type)
 	        dwAttrib = pData->u.file.uFileAttribs;
 
 	      MESSAGE ("[%p] size=%04u type=%lx attr=0x%08lx name=\"%s\" (%s,%s)\n",
@@ -234,9 +229,9 @@ BOOL pcheck (LPCITEMIDLIST pidl)
         { do
           { type   = _dbg_ILGetDataPointer(pidltemp)->type;
             switch (type)
-	    { case PT_CPLAPPLET:
-	      case PT_GUID:
-	      case PT_SHELLEXT:
+	    { case PT_DESKTOP:
+	      case PT_MYCOMP:
+	      case PT_SPECIAL:
 	      case PT_DRIVE:
 	      case PT_DRIVE1:
 	      case PT_DRIVE2:
@@ -249,7 +244,7 @@ BOOL pcheck (LPCITEMIDLIST pidl)
 	      case PT_NETPROVIDER:
 	      case PT_NETWORK:
 	      case PT_IESPECIAL1:
-	      case PT_YAGUID:
+	      case PT_RAS_FOLDER:
 	      case PT_IESPECIAL2:
 	      case PT_SHARE:
 		break;
@@ -262,7 +257,7 @@ BOOL pcheck (LPCITEMIDLIST pidl)
 		memset(szTemp, ' ', BYTES_PRINTED*4 + 1);
 		for ( i = 0; (i<pidltemp->mkid.cb) && (i<BYTES_PRINTED); i++)
 		{
-		  c = ((const unsigned char *)pidltemp)[i];
+		  c = ((unsigned char *)pidltemp)[i];
 
 		  szTemp[i*3+0] = ((c>>4)>9)? (c>>4)+55 : (c>>4)+48;
 		  szTemp[i*3+1] = ((0x0F&c)>9)? (0x0F&c)+55 : (0x0F&c)+48;
@@ -306,8 +301,6 @@ static struct {
 	{&IID_IExtractIconA,		"IID_IExtractIconA"},
 	{&IID_IExtractIconW,		"IID_IExtractIconW"},
 	{&IID_IDataObject,		"IID_IDataObject"},
-	{&IID_IAutoComplete,            "IID_IAutoComplete"},
-	{&IID_IAutoComplete2,           "IID_IAutoComplete2"},
 	{NULL,NULL}};
 
 const char * shdebugstr_guid( const struct _GUID *id )

@@ -1,4 +1,4 @@
-/* $Id: swprintf.c,v 1.16 2004/08/15 16:39:11 chorns Exp $
+/* $Id: swprintf.c,v 1.14 2004/01/10 14:22:14 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -22,8 +22,13 @@
  * Wirzenius wrote this portably, Torvalds fucked it up :-)
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include <internal/ctype.h>
+#include <wchar.h>
+#include <limits.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -338,10 +343,10 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 
 		/* get the conversion qualifier */
 		qualifier = -1;
-		if (*fmt == L'h' || *fmt == L'l' || *fmt == L'L' || *fmt == L'w') {
+		if (*fmt == 'h' || *fmt == 'l' || *fmt == 'L' || *fmt == 'w') {
 			qualifier = *fmt;
 			++fmt;
-		} else if (*fmt == L'I' && *(fmt+1) == L'6' && *(fmt+2) == L'4') {
+		} else if (*fmt == 'I' && *(fmt+1) == '6' && *(fmt+2) == '4') {
 			qualifier = *fmt;
 			fmt += 3;
 		}
@@ -503,15 +508,11 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 			continue;
 		}
 
-		if (qualifier == L'I')
+		if (qualifier == 'I')
 			num = va_arg(args, SWPRINT_UINT64);
-		else if (qualifier == L'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
-		else if (qualifier == L'h') {
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
+		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
 			else

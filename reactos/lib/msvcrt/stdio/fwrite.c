@@ -44,7 +44,7 @@ size_t fwrite(const void *vptr, size_t size, size_t count, FILE *iop)
         return 1;
   }
 
-  if (iop->_flag & _IO_LBF)
+  if (iop->_flag & _IOLBF)
   {
      while (to_write > 0)
      {

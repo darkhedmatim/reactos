@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,12 +26,19 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../utility/shellbrowserimpl.h"
+#include "../utility/dragdropimpl.h"
+#include "../utility/window.h"
 
+#include "../globals.h"
+#include "../externals.h"
 #include "../explorer_intres.h"
 
+#include "desktop.h"
 #include "../taskbar/desktopbar.h"
-#include "../taskbar/taskbar.h"	// for PM_GET_LAST_ACTIVE
+#include "../shell/mainframe.h"	// for MainFrame::Create()
 
 
 static BOOL (WINAPI*SetShellWindow)(HWND);
@@ -151,13 +158,18 @@ int DesktopThread::Run()
 
 #else // _USE_HDESK
 
-static BOOL CALLBACK SwitchDesktopEnumFct(HWND hwnd, LPARAM lparam)
+static BOOL CALLBACK DesktopEnumFct(HWND hwnd, LPARAM lparam)
 {
 	WindowSet& windows = *(WindowSet*)lparam;
 
-	if (IsWindowVisible(hwnd))
-		if (hwnd!=g_Globals._hwndDesktopBar && hwnd!=g_Globals._hwndDesktop)
+	if (IsWindowVisible(hwnd)) {
+		DWORD pid;
+
+		GetWindowThreadProcessId(hwnd, &pid);
+
+		if (pid != GetCurrentProcessId())
 			windows.insert(hwnd);
+	}
 
 	return TRUE;
 }
@@ -167,24 +179,16 @@ void Desktops::SwitchToDesktop(int idx)
 	if (_current_desktop == idx)
 		return;
 
-	Desktop& old_desktop = (*this)[_current_desktop];
-	WindowSet& windows = old_desktop._windows;
 	Desktop& desktop = (*this)[idx];
 
-	windows.clear();
-
-	 // collect window handles of all other desktops
-	WindowSet other_wnds;
-	for(const_iterator it1=begin(); it1!=end(); ++it1)
-		for(WindowSet::const_iterator it2=it1->_windows.begin(); it2!=it1->_windows.end(); ++it2)
-			other_wnds.insert(*it2);
-
 	 // save currently visible application windows
-	EnumWindows(SwitchDesktopEnumFct, (LPARAM)&windows);
+	Desktop& old_desktop = (*this)[_current_desktop];
+	WindowSet& windows = old_desktop._windows;
 
-	old_desktop._hwndForeground = (HWND)SendMessage(g_Globals._hwndDesktopBar, PM_GET_LAST_ACTIVE, 0, 0);
+	windows.clear();
+	EnumWindows(DesktopEnumFct, (LPARAM)&windows);
 
-	 // hide all windows of the previous desktop
+	 // hide all windows we found
 	for(WindowSet::iterator it=windows.begin(); it!=windows.end(); ++it)
 		ShowWindowAsync(*it, SW_HIDE);
 
@@ -192,50 +196,12 @@ void Desktops::SwitchToDesktop(int idx)
 	for(WindowSet::iterator it=desktop._windows.begin(); it!=desktop._windows.end(); ++it)
 		ShowWindowAsync(*it, SW_SHOW);
 
-	if (desktop._hwndForeground)
-		SetForegroundWindow(desktop._hwndForeground);
-
-	 // remove the window handles of the other desktops from what we found on the previous desktop
-	for(WindowSet::const_iterator it=other_wnds.begin(); it!=other_wnds.end(); ++it)
-		windows.erase(*it);
-
-	 // We don't need to store the window handles of what's now visible the now current desktop.
 	desktop._windows.clear();
 
 	_current_desktop = idx;
 }
 
 #endif // _USE_HDESK
-
-
-static BOOL CALLBACK MinimizeDesktopEnumFct(HWND hwnd, LPARAM lparam)
-{
-	list<MinimizeStruct>& minimized = *(list<MinimizeStruct>*)lparam;
-
-	if (IsWindowVisible(hwnd))
-		if (hwnd!=g_Globals._hwndDesktopBar && hwnd!=g_Globals._hwndDesktop)
-			if (!IsIconic(hwnd)) {
-				minimized.push_back(MinimizeStruct(hwnd, GetWindowStyle(hwnd)));
-				ShowWindowAsync(hwnd, SW_MINIMIZE);
-			}
-
-	return TRUE;
-}
-
- /// minimize/restore all windows on the desktop
-void Desktops::ToggleMinimize()
-{
-	list<MinimizeStruct>& minimized = (*this)[_current_desktop]._minimized;
-
-	if (minimized.empty()) {
-		EnumWindows(MinimizeDesktopEnumFct, (LPARAM)&minimized);
-	} else {
-		for(list<MinimizeStruct>::const_iterator it=minimized.begin(); it!=minimized.end(); ++it)
-			ShowWindowAsync(it->first, it->second&WS_MAXIMIZE? SW_MAXIMIZE: SW_RESTORE);
-
-		minimized.clear();
-	}
-}
 
 
 BOOL IsAnyDesktopRunning()
@@ -249,57 +215,53 @@ BOOL IsAnyDesktopRunning()
 }
 
 
-BackgroundWindow::BackgroundWindow(HWND hwnd)
- :	super(hwnd)
+static void draw_desktop_background(HWND hwnd, HDC hdc)
 {
-	 // set background brush for the short moment of displaying the
-	 // background color while moving foreground windows
-	SetClassLong(hwnd, GCL_HBRBACKGROUND, COLOR_BACKGROUND+1);
+	ClientRect rect(hwnd);
 
-	_display_version = RegGetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), 1);
+	PaintDesktop(hdc);
+/*
+	HBRUSH bkgndBrush = CreateSolidBrush(RGB(0,32,160));	// dark blue
+	FillRect(hdc, &rect, bkgndBrush);
+	DeleteBrush(bkgndBrush);
+*/
+
+	rect.left = rect.right - 280;
+	rect.top = rect.bottom - 56 - DESKTOPBARBAR_HEIGHT;
+	rect.right = rect.left + 250;
+	rect.bottom = rect.top + 40;
+
+#include "../buildno.h"
+	static const LPCTSTR BkgndText = TEXT("ReactOS ")TEXT(KERNEL_VERSION_STR)TEXT(" Explorer\nby Martin Fuchs");
+
+	BkMode bkMode(hdc, TRANSPARENT);
+
+	TextColor textColor(hdc, RGB(128,128,192));
+	DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
+
+	SetTextColor(hdc, RGB(255,255,255));
+	--rect.right;
+	++rect.top;
+	DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
 }
 
-LRESULT BackgroundWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+
+LRESULT	BackgroundWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
 	  case WM_ERASEBKGND:
-		DrawDesktopBkgnd((HDC)wparam);
+		PaintDesktop((HDC)wparam);
 		return TRUE;
 
 	  case WM_MBUTTONDBLCLK:
-		/* Imagelist icons are missing if MainFrame::Create() is called directly from here!
-		explorer_show_frame(SW_SHOWNORMAL); */
-		PostMessage(g_Globals._hwndDesktop, nmsg, wparam, lparam);
+		explorer_show_frame(SW_SHOWNORMAL);
 		break;
-
-	  case PM_DISPLAY_VERSION:
-		if (lparam || wparam) {
-			DWORD or_mask = wparam;
-			DWORD reset_mask = LOWORD(lparam);
-			DWORD xor_mask = HIWORD(lparam);
-			_display_version = ((_display_version&~reset_mask) | or_mask) ^ xor_mask;
-			RegSetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), _display_version);
-			///@todo Changing the PaintDesktopVersion-Flag needs a restart of the shell -> display a message box
-			InvalidateRect(_hwnd, NULL, TRUE);
-		}
-		return _display_version;
 
 	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
 
 	return 0;
-}
-
-void BackgroundWindow::DrawDesktopBkgnd(HDC hdc)
-{
-	PaintDesktop(hdc);
-
-/* special solid background
-	HBRUSH bkgndBrush = CreateSolidBrush(RGB(0,32,160));	// dark blue
-	FillRect(hdc, &rect, bkgndBrush);
-	DeleteBrush(bkgndBrush);
-*/
 }
 
 
@@ -319,14 +281,13 @@ DesktopWindow::~DesktopWindow()
 HWND DesktopWindow::Create()
 {
 	static IconWindowClass wcDesktop(TEXT("Progman"), IDI_REACTOS, CS_DBLCLKS);
-	/* (disabled because of small ugly temporary artefacts when hiding start menu)
-	wcDesktop.hbrBackground = (HBRUSH)(COLOR_BACKGROUND+1); */
+	wcDesktop.hbrBackground = (HBRUSH)(COLOR_BACKGROUND+1);
 
 	int width = GetSystemMetrics(SM_CXSCREEN);
 	int height = GetSystemMetrics(SM_CYSCREEN);
 
 	HWND hwndDesktop = Window::Create(WINDOW_CREATOR(DesktopWindow),
-					WS_EX_TOOLWINDOW, wcDesktop, TEXT("Program Manager"), WS_POPUP|WS_VISIBLE,	//|WS_CLIPCHILDREN for SDI frames
+					WS_EX_TOOLWINDOW, wcDesktop, TEXT("Program Manager"), WS_POPUP|WS_VISIBLE|WS_CLIPCHILDREN,
 					0, 0, width, height, 0);
 
 	 // work around to display desktop bar in Wine
@@ -424,6 +385,10 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 LRESULT DesktopWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
+	  case WM_PAINT:
+		draw_desktop_background(_hwnd, PaintCanvas(_hwnd));
+		break;
+
 	  case WM_LBUTTONDBLCLK:
 	  case WM_RBUTTONDBLCLK:
 	  case WM_MBUTTONDBLCLK:
@@ -462,7 +427,7 @@ LRESULT DesktopWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 HRESULT DesktopWindow::OnDefaultCommand(LPIDA pida)
 {
-	if (MainFrameBase::OpenShellFolders(pida, 0))
+	if (MainFrame::OpenShellFolders(pida, 0))
 		return S_OK;
 
 	return E_NOTIMPL;
@@ -537,9 +502,6 @@ LRESULT	DesktopShellView::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 	  case PM_GET_ICON_ALGORITHM:
 		return _icon_algo;
-
-	  case PM_DISPLAY_VERSION:
-		return SendMessage(_hwndListView, nmsg, wparam, lparam);
 
 	  default:
 		return super::WndProc(nmsg, wparam, lparam);

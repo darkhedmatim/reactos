@@ -5,12 +5,14 @@
 */
 
 #include <ddk/ntddk.h>
+
+#include <debug.h>
 #include "sndblst.h"
 
 VOID SetOutputSampleRate(UINT BasePort, UINT SampleRate)
 {
     // This only works for DSP v4.xx ONLY - need a workaround!
-    DPRINT("Setting output sample rate\n");
+    DbgPrint("Setting output sample rate\n");
 
     // WAIT
 //    if (! WaitToSend(BasePort))
@@ -24,7 +26,7 @@ VOID SetOutputSampleRate(UINT BasePort, UINT SampleRate)
 
 VOID EnableSpeaker(UINT BasePort, BOOLEAN SpeakerOn)
 {
-    DPRINT("Setting speaker status %d\n", SpeakerOn);
+    DbgPrint("Setting speaker status %d\n", SpeakerOn);
 
 //    if (! WaitForWrite(BasePort))
 //        return;
@@ -35,7 +37,7 @@ VOID EnableSpeaker(UINT BasePort, BOOLEAN SpeakerOn)
 
 BOOLEAN IsSpeakerEnabled(UINT BasePort)
 {
-    DPRINT("Obtaining speaker status\n");
+    DbgPrint("Obtaining speaker status\n");
 
 //    if (! WaitToSend(BasePort))
 //        return FALSE;
@@ -52,7 +54,7 @@ VOID BeginPlayback(UINT BasePort, UINT BitDepth, UINT Channels, UINT BlockSize)
 {
     CHAR Command;
 
-    DPRINT("BeginPlayback(%d, %d, %d, %d)\n", BasePort, BitDepth, Channels, BlockSize);
+    DbgPrint("BeginPlayback(%d, %d, %d, %d)\n", BasePort, BitDepth, Channels, BlockSize);
 
 //    switch(BitDepth)
 //    {
@@ -61,7 +63,7 @@ VOID BeginPlayback(UINT BasePort, UINT BitDepth, UINT Channels, UINT BlockSize)
 //        default :   Command = 0xc0;
 //    }
 
-    DPRINT("Initiating playback\n");
+    DbgPrint("Initiating playback\n");
 
     // TEMPORARY:
     SB_WRITE_BYTE(BasePort, 0xc6);

@@ -4,16 +4,18 @@ SRCDIR    = @srcdir@
 VPATH     = @srcdir@
 MODULE    = comdlg32.dll
 IMPORTS   = shell32 shlwapi comctl32 winspool user32 gdi32 kernel32 ntdll
-EXTRALIBS = -luuid
+ALTNAMES  = commdlg.dll
+EXTRALIBS = $(LIBUUID)
+
+SPEC_SRCS16 = $(ALTNAMES:.dll=.spec)
 
 C_SRCS = \
 	cdlg32.c \
 	colordlg.c \
 	filedlg.c \
-	filedlg31.c \
 	filedlgbrowser.c \
-	filetitle.c \
 	finddlg32.c \
+	filetitle.c \
 	fontdlg.c \
 	printdlg.c
 
@@ -24,8 +26,6 @@ C_SRCS16 = \
 	fontdlg16.c \
 	generic.c \
 	printdlg16.c
-
-SPEC_SRCS16 = commdlg.spec
 
 RC_SRCS = rsrc.rc
 RC_BINSRC = cdlg_xx.rc

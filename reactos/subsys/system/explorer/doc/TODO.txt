@@ -1,5 +1,6 @@
-- rewrite autostart code and include all possible autostart locations
 - read "DESCRIPT.ION" files to display file descriptions
+- tool tip texts for notification icons
+- context menus for quick launch bar
 - detect display mode changes and adjust desktop bar size
 - handling of full screen applications
 - implement additional deskbands
@@ -13,15 +14,28 @@
 - command line in explorer windows
 - hide CVS subdirectories, may be even implement a CVS managment plugin
 - printer and RAS connection icons in desktop notification area
+- make task buttons smaller when running many applications
 - use multi threading for launching of programs and filling start menu subdirectories
 - close start start menu when resizing explorer bar
 - adjust already open windows of all running applications when resizing explorer bar
 - implement blink effect in task bar for SetForegoundWindow() requests
+- implement more than one column for very crowded start menus
 - Execute selected programs with additional command line options ("Run" dialog with pre-filled edit field)
-- switch background images with desktop switcher
-- Desktop Manager: Desktop Names; Speicherung der Verteilung von Applikations-Fenstern auf die verschiedenen Desktops -> config file
-- autostart doesn't work on NT4 ?
-- hide desktop bar when showing full screen applications
-- new start menu entry "Filemanager" close to "Explore" -> display C: and D: drive in MDI window
-- Startmenu: You can open the start menu by pressing Win-key, but can't close with another hit of Win-key.
+
+- GDI-Leaks
+- autostart doesn't on NT4 ?
+
+- Startmenu: You can't close the start menu with pressing Win-key You can open the start menu
+  with pressing Win-key, but can't close with another hit of Win-key.
+
+- Despite of settings, the clock's always shown I set my Win-Exp to hide the clock shown in
+  the taskbar, but the ROS-Exp ignores the setting and always shows the clock.
+  Yes, ROS epxlorer doesn't read many settings from the registry currently,
+  as it doesn't have a way to configure them. (missing configuration dialogs)
+
+- Unterdrücken des Taskbar-Kontext-Menüs über Taskbar Buttons
+- Vollbildfenster suchen -> Taskleiste ausblenden [Ist WS_EX_TOPMOST überhaupt notwendig?]
+- Fenster-Aktivierung nach Desktop-Umschaltung
+- Desktop-Manager: Speicherung der Verteilung von Applikations-Fenstern auf die verschiedenen Desktops; Desktop-Namen
+- neuer Startmenü-Eintrag: "Filemanager" neben "Explore"  ->  Anzeige von C: und D:
 

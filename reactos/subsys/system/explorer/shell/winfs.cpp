@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,12 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../globals.h"
 
-//#include "winfs.h"
+#include "entries.h"
+#include "winfs.h"
 
 
 int ScanNTFSStreams(Entry* entry, HANDLE hFile)
@@ -185,23 +188,6 @@ void WinDirectory::read_directory(int scan_flags)
 }
 
 
-const void* WinDirectory::get_next_path_component(const void* p) const
-{
-	LPCTSTR s = (LPCTSTR) p;
-
-	while(*s && *s!=TEXT('\\') && *s!=TEXT('/'))
-		++s;
-
-	while(*s==TEXT('\\') || *s==TEXT('/'))
-		++s;
-
-	if (!*s)
-		return NULL;
-
-	return s;
-}
-
-
 Entry* WinDirectory::find_entry(const void* p)
 {
 	LPCTSTR name = (LPCTSTR)p;
@@ -293,16 +279,4 @@ bool WinEntry::get_path(PTSTR path) const
 	path[len] = TEXT('\0');
 
 	return true;
-}
-
-ShellPath WinEntry::create_absolute_pidl() const
-{
-	CONTEXT("WinEntry::create_absolute_pidl()");
-
-	TCHAR path[MAX_PATH];
-
-	if (get_path(path))
-		return ShellPath(path);
-
-	return ShellPath();
 }

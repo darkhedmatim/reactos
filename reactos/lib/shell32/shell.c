@@ -611,7 +611,7 @@ DWORD WINAPI RegEnumKey16( HKEY hkey, DWORD index, LPSTR name, DWORD name_len )
 /*************************************************************************
  *           SHELL_Execute16 [Internal]
  */
-static UINT SHELL_Execute16(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
+static UINT SHELL_Execute16(const WCHAR *lpCmd, void *env, BOOL shWait,
 			    LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
 {
     UINT ret;
@@ -633,10 +633,17 @@ HINSTANCE16 WINAPI ShellExecute16( HWND16 hWnd, LPCSTR lpOperation,
     WCHAR *wVerb = NULL, *wFile = NULL, *wParameters = NULL, *wDirectory = NULL;
     HANDLE hProcess = 0;
 
-    seiW.lpVerb = lpOperation ? __SHCloneStrAtoW(&wVerb, lpOperation) : NULL;
-    seiW.lpFile = lpFile ? __SHCloneStrAtoW(&wFile, lpFile) : NULL;
-    seiW.lpParameters = lpParameters ? __SHCloneStrAtoW(&wParameters, lpParameters) : NULL;
-    seiW.lpDirectory = lpDirectory ? __SHCloneStrAtoW(&wDirectory, lpDirectory) : NULL;
+    if (lpOperation)
+        seiW.lpVerb = __SHCloneStrAtoW(&wVerb, lpOperation);
+
+    if (lpFile)
+        seiW.lpFile = __SHCloneStrAtoW(&wFile, lpFile);
+
+    if (lpParameters)
+        seiW.lpParameters = __SHCloneStrAtoW(&wParameters, lpParameters);
+
+    if (lpDirectory)
+        seiW.lpDirectory = __SHCloneStrAtoW(&wDirectory, lpDirectory);
 
     seiW.cbSize = sizeof(seiW);
     seiW.fMask = 0;

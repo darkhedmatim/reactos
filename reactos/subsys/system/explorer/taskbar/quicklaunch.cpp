@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,8 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
 
+#include "../explorer.h"
+#include "../globals.h"
+#include "../externals.h"
 #include "../explorer_intres.h"
 
 #include "quicklaunch.h"
@@ -78,8 +81,7 @@ HWND QuickLaunchBar::Create(HWND hwndParent)
 	ClientRect clnt(hwndParent);
 
 	HWND hwnd = CreateToolbarEx(hwndParent,
-								WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|
-								CCS_TOP|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE|
+								WS_CHILD|WS_VISIBLE|CCS_NODIVIDER|CCS_NORESIZE|
 								TBSTYLE_TOOLTIPS|TBSTYLE_WRAPABLE|TBSTYLE_FLAT,
 								IDW_QUICKLAUNCHBAR, 0, 0, 0, NULL, 0, 0, 0, 16, 16, sizeof(TBBUTTON));
 
@@ -105,7 +107,7 @@ void QuickLaunchBar::AddShortcuts()
 		RecursiveCreateDirectory(path);
 		_dir = new ShellDirectory(GetDesktopFolder(), path, _hwnd);
 
-		_dir->smart_scan(SORT_NAME, SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
+		_dir->smart_scan(SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
 	} catch(COMException&) {
 		return;
 	}
@@ -132,7 +134,6 @@ void QuickLaunchBar::AddShortcuts()
 	int cy = HIWORD(size);
 	RECT rect = {0, 0, cx, cy};
 	RECT textRect = {0, 0, cx-7, cy-7};
-
 	for(int i=0; i<DESKTOP_COUNT; ++i) {
 		HBITMAP hbmp = CreateCompatibleBitmap(canvas, cx, cy);
 		HBITMAP hbmp_old = SelectBitmap(hdc, hbmp);
@@ -231,28 +232,7 @@ LRESULT QuickLaunchBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		UpdateDesktopButtons(wparam);
 		break;
 
-	  case WM_CONTEXTMENU: {
-		TBBUTTON btn;
-		QuickLaunchMap::iterator it;
-		Point screen_pt(lparam), clnt_pt=screen_pt;
-		ScreenToClient(_hwnd, &clnt_pt);
-
-		Entry* entry = NULL;
-		int idx = SendMessage(_hwnd, TB_HITTEST, 0, (LPARAM)&clnt_pt);
-
-		if (idx>=0 &&
-			SendMessage(_hwnd, TB_GETBUTTON, idx, (LPARAM)&btn)!=-1 &&
-			(it=_entries.find(btn.idCommand))!=_entries.end()) {
-			entry = it->second._entry;
-		}
-
-		if (entry)	// entry is NULL for desktop switch buttons
-			CHECKERROR(entry->do_context_menu(_hwnd, screen_pt));
-		else
-			goto def;
-		break;}
-
-	  default: def:
+	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
 
@@ -272,7 +252,7 @@ int QuickLaunchBar::Command(int id, int code)
 		}
 	}
 
-	return 0; // Don't return 1 to avoid recursion with DesktopBar::Command()
+	return 1;
 }
 
 int QuickLaunchBar::Notify(int id, NMHDR* pnmh)

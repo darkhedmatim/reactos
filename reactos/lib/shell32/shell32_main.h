@@ -30,7 +30,6 @@
 #include "winuser.h"
 #include "winnls.h"
 #include "commctrl.h"
-#include "objbase.h"
 #include "docobj.h"
 #include "undocshell.h"
 #include "shlobj.h"
@@ -45,6 +44,7 @@ extern HMODULE	huser32;
 extern HINSTANCE shell32_hInstance;
 extern HIMAGELIST	ShellSmallIconList;
 extern HIMAGELIST	ShellBigIconList;
+extern HDPA		sic_hdpa;
 
 BOOL WINAPI Shell_GetImageList(HIMAGELIST * lpBigList, HIMAGELIST * lpSmallList);
 
@@ -52,12 +52,12 @@ BOOL WINAPI Shell_GetImageList(HIMAGELIST * lpBigList, HIMAGELIST * lpSmallList)
 #define INVALID_INDEX -1
 BOOL SIC_Initialize(void);
 void SIC_Destroy(void);
-BOOL PidlToSicIndex (IShellFolder * sh, LPCITEMIDLIST pidl, BOOL bBigIcon, UINT uFlags, int * pIndex);
-INT SIC_GetIconIndex (LPCWSTR sSourceFile, INT dwSourceIndex );
+BOOL PidlToSicIndex (IShellFolder * sh, LPCITEMIDLIST pidl, BOOL bBigIcon, UINT uFlags, UINT * pIndex);
+INT SIC_GetIconIndex (LPCSTR sSourceFile, INT dwSourceIndex );
 
 /* Classes Root */
 BOOL HCR_MapTypeToValueW(LPCWSTR szExtension, LPWSTR szFileType, DWORD len, BOOL bPrependDot);
-BOOL HCR_GetExecuteCommandW( HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LPWSTR szDest, DWORD len );
+BOOL HCR_GetExecuteCommandW(HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LPWSTR szDest, DWORD len);
 BOOL HCR_GetDefaultIconW(LPCWSTR szClass, LPWSTR szDest, DWORD len, LPDWORD dwNr);
 BOOL HCR_GetDefaultIconFromGUIDW(REFIID riid, LPWSTR szDest, DWORD len, LPDWORD dwNr);
 BOOL HCR_GetClassNameW(REFIID riid, LPWSTR szDest, DWORD len);
@@ -97,7 +97,13 @@ HRESULT WINAPI CPanel_GetIconLocationW(LPITEMIDLIST pidl, LPWSTR szIconFile, UIN
 HRESULT WINAPI CPanel_ExtractIconA(LPITEMIDLIST pidl, LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
 HRESULT WINAPI CPanel_ExtractIconW(LPITEMIDLIST pidl, LPCWSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
 
-HRESULT WINAPI IAutoComplete_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
+/* kind of enumidlist */
+#define EIDL_DESK	0
+#define EIDL_MYCOMP	1
+#define EIDL_FILE	2
+#define EIDL_CPANEL	3
+
+LPENUMIDLIST	IEnumIDList_Constructor(LPCSTR,DWORD,DWORD);
 
 LPEXTRACTICONA	IExtractIconA_Constructor(LPCITEMIDLIST);
 LPEXTRACTICONW	IExtractIconW_Constructor(LPCITEMIDLIST);
@@ -127,6 +133,24 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 	(((kst) & MK_CONTROL) ?\
 	(((kst) & MK_SHIFT) ? DROPEFFECT_LINK : DROPEFFECT_COPY):\
 	DROPEFFECT_MOVE)
+
+/* Systray */
+BOOL SYSTRAY_Init(void);
+
+/* OLE32 */
+extern HINSTANCE hShellOle32;
+
+extern HRESULT (WINAPI *pOleInitialize)(LPVOID reserved);
+extern void    (WINAPI *pOleUninitialize)(void);
+extern HRESULT (WINAPI *pRegisterDragDrop)(HWND hwnd, IDropTarget* pDropTarget);
+extern HRESULT (WINAPI *pRevokeDragDrop)(HWND hwnd);
+extern HRESULT (WINAPI *pDoDragDrop)(LPDATAOBJECT,LPDROPSOURCE,DWORD,DWORD*);
+extern void    (WINAPI *pReleaseStgMedium)(STGMEDIUM* pmedium);
+extern HRESULT (WINAPI *pOleSetClipboard)(IDataObject* pDataObj);
+extern HRESULT (WINAPI *pOleGetClipboard)(IDataObject** ppDataObj);
+extern HRESULT (WINAPI *pCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID iid, LPVOID *ppv);
+
+BOOL GetShellOle(void);
 
 HGLOBAL RenderHDROP(LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl);
 HGLOBAL RenderSHELLIDLIST (LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl);
@@ -210,17 +234,18 @@ inline static WCHAR * __SHCloneStrAtoW(WCHAR ** target, const char * source)
 #define HINSTANCE_32(h16)	((HINSTANCE)(ULONG_PTR)(h16))
 #define HINSTANCE_16(h32)	(LOWORD(h32))
 
-typedef UINT (*SHELL_ExecuteW32)(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
-			    LPSHELLEXECUTEINFOW sei, LPSHELLEXECUTEINFOW sei_out);
+typedef UINT (*SHELL_ExecuteW32)(const WCHAR *lpCmd, void *env, BOOL shWait,
+			    LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out);
 
-BOOL WINAPI ShellExecuteExW32(LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc);
+BOOL WINAPI ShellExecuteExW32(LPSHELLEXECUTEINFOW psei, SHELL_ExecuteW32 execfunc);
 
 UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
-                          LPWSTR lpResult, int resultLen, LPWSTR key, WCHAR **env, LPITEMIDLIST pidl, LPCWSTR args);
+                          LPWSTR lpResult, LPWSTR key, void **env, LPITEMIDLIST pidl, LPCWSTR args);
+
+int WINAPI RestartDialog(HWND hwndOwner, LPCSTR lpstrReason, UINT uFlags);
+int WINAPI RestartDialogEx(HWND hwndOwner, LPCWSTR lpwstrReason, UINT uFlags, UINT uReason);
 
 extern WCHAR swShell32Name[MAX_PATH];
-
-/* Default shell folder value registration */
-HRESULT SHELL_RegisterShellFolders(void);
+extern char sShell32Name[MAX_PATH];
 
 #endif

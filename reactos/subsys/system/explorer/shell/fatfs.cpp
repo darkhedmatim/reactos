@@ -26,8 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../globals.h"
 
+#include "entries.h"
 #include "fatfs.h"
 
 
@@ -200,23 +203,6 @@ void FATDirectory::read_directory(int scan_flags)
 }
 
 
-const void* FATDirectory::get_next_path_component(const void* p) const
-{
-	LPCTSTR s = (LPCTSTR) p;
-
-	while(*s && *s!=TEXT('\\') && *s!=TEXT('/'))
-		++s;
-
-	while(*s==TEXT('\\') || *s==TEXT('/'))
-		++s;
-
-	if (!*s)
-		return NULL;
-
-	return s;
-}
-
-
 Entry* FATDirectory::find_entry(const void* p)
 {
 	LPCTSTR name = (LPCTSTR)p;
@@ -305,21 +291,6 @@ bool FATEntry::get_path(PTSTR path) const
 	path[len] = TEXT('\0');
 
 	return true;
-}
-
-ShellPath FATEntry::create_absolute_pidl() const
-{
-	CONTEXT("WinEntry::create_absolute_pidl()");
-
-	return (LPCITEMIDLIST)NULL;
-/* prepend root path if the drive is currently actually mounted in the file system -> return working PIDL
-	TCHAR path[MAX_PATH];
-
-	if (get_path(path))
-		return ShellPath(path);
-
-	return ShellPath();
-*/
 }
 
 
@@ -474,7 +445,7 @@ FATDrive::FATDrive(LPCTSTR path)
 	_CacheDty = NULL;
 	_Caches = 0;
 
-	_hDrive = CreateFile(path, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, 0);
+	_hDrive = CreateFile(path, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
 
 	if (_hDrive != INVALID_HANDLE_VALUE) {
 		_boot_sector.BytesPerSector = 512;

@@ -26,8 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
 
+#include "entries.h"
 #include "regfs.h"
 
 
@@ -152,7 +154,7 @@ void RegDirectory::read_directory(int scan_flags)
 					entry->_content = _tcsdup(value);
 				else if (type == REG_DWORD) {
 					TCHAR b[32];
-					_stprintf(b, TEXT("%ld"), *(DWORD*)&value);
+					_stprintf(b, TEXT("%d"), *(DWORD*)&value);
 					entry->_content = _tcsdup(b);
 				}
 			}
@@ -176,23 +178,6 @@ void RegDirectory::read_directory(int scan_flags)
 
 	_down = first_entry;
 	_scanned = true;
-}
-
-
-const void* RegDirectory::get_next_path_component(const void* p) const
-{
-	LPCTSTR s = (LPCTSTR) p;
-
-	while(*s && *s!=TEXT('\\'))
-		++s;
-
-	while(*s==TEXT('\\'))
-		++s;
-
-	if (!*s)
-		return NULL;
-
-	return s;
 }
 
 

@@ -1,4 +1,5 @@
-#include <ddk/ntddvdeo.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddvid.h>
 #include <ddk/winddi.h>
 #include <ntos/minmax.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@ int xconv[640];
 int bit8[640];
 int startmasks[8];
 int endmasks[8];
-PBYTE vidmem;
+char* vidmem;
 static ULONG UnpackPixel[256];
 
 static unsigned char leftMask;
@@ -407,10 +408,7 @@ void DIB_BltFromVGA(int x, int y, int w, int h, void *b, int Dest_lDelta)
     }
 
   /* Reset the destination. */
-  for (j = 0; j < h; j++)
-    {
-      memset(b + (j * Dest_lDelta), 0, abs(Dest_lDelta));
-    }
+  memset(b, 0, h * Dest_lDelta);
 
   for (plane = 0; plane < 4; plane++)
     {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2004, 2004 Martin Fuchs
+ * Copyright 2004 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -54,8 +54,6 @@ protected:
 	int	_alignment_cur;
 	int	_alignment_tmp;
 
-	int	_display_version_org;
-
 	virtual int Command(int id, int code);
 	virtual int Notify(int id, NMHDR* pnmh);
 };
@@ -68,11 +66,7 @@ struct TaskbarSettingsDlg : public PropSheetPageDlg
 
 	TaskbarSettingsDlg(HWND hwnd);
 
-	virtual int	Command(int id, int code);
-	virtual int Notify(int id, NMHDR* pnmh);
-
-protected:
-	XMLDoc	_cfg_org;
+	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 };
 
 
@@ -83,17 +77,5 @@ struct StartmenuSettingsDlg : public PropSheetPageDlg
 
 	StartmenuSettingsDlg(HWND hwnd);
 
-	virtual int	Command(int id, int code);
-};
-
-
- /// configuration dialog to choose between MDI and SDI mode
-struct MdiSdiDlg : public ResizeController<Dialog>
-{
-	typedef ResizeController<Dialog> super;
-
-	MdiSdiDlg(HWND hwnd);
-
-protected:
-	virtual int	Command(int id, int code);
+	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 };

@@ -10,7 +10,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+#include <internal/safe.h>
+#include <internal/v86m.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -38,9 +42,6 @@ NtEarlyInitVdm(VOID)
   memcpy(OrigBDA, (PVOID)0x400, 256);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL NtVdmControl(ULONG ControlCode,
 			      PVOID ControlData)
 {

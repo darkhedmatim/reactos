@@ -1,4 +1,5 @@
-/*
+/* $Id: fs.c,v 1.40 2003/12/13 14:36:42 ekohl Exp $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/fs.c
@@ -10,7 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/ps.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -50,124 +55,112 @@ IopNotifyFileSystemChange(PDEVICE_OBJECT DeviceObject,
 /* FUNCTIONS *****************************************************************/
 
 /*
- * @unimplemented
- */
-VOID
-STDCALL
-IoCancelFileOpen(
-    IN PDEVICE_OBJECT  DeviceObject,
-    IN PFILE_OBJECT    FileObject
-    )
-{
-	UNIMPLEMENTED;
-}
-
-/*
  * @implemented
  */
 NTSTATUS STDCALL
 NtFsControlFile (
 	IN	HANDLE			DeviceHandle,
-	IN	HANDLE			EventHandle OPTIONAL,
-	IN	PIO_APC_ROUTINE		ApcRoutine OPTIONAL,
-	IN	PVOID			ApcContext OPTIONAL,
-	OUT	PIO_STATUS_BLOCK	IoStatusBlock,
+	IN	HANDLE			EventHandle	OPTIONAL, 
+	IN	PIO_APC_ROUTINE		ApcRoutine	OPTIONAL, 
+	IN	PVOID			ApcContext	OPTIONAL, 
+	OUT	PIO_STATUS_BLOCK	IoStatusBlock, 
 	IN	ULONG			IoControlCode,
-	IN	PVOID			InputBuffer,
+	IN	PVOID			InputBuffer, 
 	IN	ULONG			InputBufferSize,
 	OUT	PVOID			OutputBuffer,
 	IN	ULONG			OutputBufferSize
 	)
 {
-  NTSTATUS Status;
-  PFILE_OBJECT FileObject;
-  PDEVICE_OBJECT DeviceObject;
-  PIRP Irp;
-  PIO_STACK_LOCATION StackPtr;
-  PKEVENT ptrEvent;
-  KPROCESSOR_MODE PreviousMode;
+   NTSTATUS Status;
+   PFILE_OBJECT FileObject;
+   PDEVICE_OBJECT DeviceObject;
+   PIRP Irp;
+   PEXTENDED_IO_STACK_LOCATION StackPtr;
+   PKEVENT ptrEvent;
+   KPROCESSOR_MODE PreviousMode;
 
-  DPRINT("NtFsControlFile(DeviceHandle %x EventHandle %x ApcRoutine %x "
-         "ApcContext %x IoStatusBlock %x IoControlCode %x "
-         "InputBuffer %x InputBufferSize %x OutputBuffer %x "
-         "OutputBufferSize %x)\n",
-         DeviceHandle,EventHandle,ApcRoutine,ApcContext,IoStatusBlock,
-         IoControlCode,InputBuffer,InputBufferSize,OutputBuffer,
-         OutputBufferSize);
+   DPRINT("NtFsControlFile(DeviceHandle %x EventHandle %x ApcRoutine %x "
+          "ApcContext %x IoStatusBlock %x IoControlCode %x "
+          "InputBuffer %x InputBufferSize %x OutputBuffer %x "
+          "OutputBufferSize %x)\n",
+          DeviceHandle,EventHandle,ApcRoutine,ApcContext,IoStatusBlock,
+          IoControlCode,InputBuffer,InputBufferSize,OutputBuffer,
+          OutputBufferSize);
 
-  PreviousMode = ExGetPreviousMode();
+   PreviousMode = ExGetPreviousMode();
 
-  /* Check granted access against the access rights from IoContolCode */
-  Status = ObReferenceObjectByHandle(DeviceHandle,
-				     (IoControlCode >> 14) & 0x3,
-				     NULL,
-				     PreviousMode,
-				     (PVOID *) &FileObject,
-				     NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
+   Status = ObReferenceObjectByHandle(DeviceHandle,
+				      FILE_READ_DATA | FILE_WRITE_DATA,
+				      NULL,
+				      PreviousMode,
+				      (PVOID *) &FileObject,
+				      NULL);
+   
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
 
-  if (EventHandle != NULL)
-    {
-      Status = ObReferenceObjectByHandle(EventHandle,
-                                         SYNCHRONIZE,
-                                         ExEventObjectType,
-                                         PreviousMode,
-                                         (PVOID*)&ptrEvent,
-                                         NULL);
-      if (!NT_SUCCESS(Status))
-        {
-          ObDereferenceObject(FileObject);
-          return Status;
-        }
-    }
-  else
-    {
-      KeResetEvent(&FileObject->Event);
-      ptrEvent = &FileObject->Event;
-    }
+   if (EventHandle != NULL)
+     {
+        Status = ObReferenceObjectByHandle (EventHandle,
+                                            SYNCHRONIZE,
+                                            ExEventObjectType,
+                                            PreviousMode,
+                                            (PVOID*)&ptrEvent,
+                                            NULL);
+        if (!NT_SUCCESS(Status))
+          {
+            ObDereferenceObject(FileObject);
+	    return Status;
+          }
+      }
+    else
+      {
+         KeResetEvent (&FileObject->Event);
+         ptrEvent = &FileObject->Event;
+      }
 
-  DeviceObject = FileObject->DeviceObject;
+   
+   DeviceObject = FileObject->DeviceObject;
 
-  Irp = IoBuildDeviceIoControlRequest(IoControlCode,
-				      DeviceObject,
-				      InputBuffer,
-				      InputBufferSize,
-				      OutputBuffer,
-				      OutputBufferSize,
-				      FALSE,
-				      ptrEvent,
-				      IoStatusBlock);
+   Irp = IoBuildDeviceIoControlRequest(IoControlCode,
+				       DeviceObject,
+				       InputBuffer,
+				       InputBufferSize,
+				       OutputBuffer,
+				       OutputBufferSize,
+				       FALSE,
+				       ptrEvent,
+				       IoStatusBlock);
+   
+   /* Trigger FileObject/Event dereferencing */
+   Irp->Tail.Overlay.OriginalFileObject = FileObject;
 
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
+   Irp->RequestorMode = PreviousMode;
+   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
+   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
 
-  Irp->RequestorMode = PreviousMode;
-  Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
-  Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
+   StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
+   StackPtr->FileObject = FileObject;
+   StackPtr->DeviceObject = DeviceObject;
+   StackPtr->Parameters.FileSystemControl.InputBufferLength = InputBufferSize;
+   StackPtr->Parameters.FileSystemControl.OutputBufferLength = 
+     OutputBufferSize;
+   StackPtr->MajorFunction = IRP_MJ_FILE_SYSTEM_CONTROL;
+   
+   Status = IoCallDriver(DeviceObject,Irp);
+   if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
+     {
+	KeWaitForSingleObject(ptrEvent,
+			      Executive,
+			      PreviousMode,
+			      FileObject->Flags & FO_ALERTABLE_IO,
+			      NULL);
+	Status = IoStatusBlock->Status;
+     }
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
-  StackPtr->FileObject = FileObject;
-  StackPtr->DeviceObject = DeviceObject;
-  StackPtr->Parameters.FileSystemControl.InputBufferLength = InputBufferSize;
-  StackPtr->Parameters.FileSystemControl.OutputBufferLength = 
-    OutputBufferSize;
-  StackPtr->MajorFunction = IRP_MJ_FILE_SYSTEM_CONTROL;
-
-  Status = IoCallDriver(DeviceObject,Irp);
-  if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
-    {
-      KeWaitForSingleObject(ptrEvent,
-			    Executive,
-			    PreviousMode,
-			    FileObject->Flags & FO_ALERTABLE_IO,
-			    NULL);
-      Status = IoStatusBlock->Status;
-    }
-
-  return Status;
+   return(Status);
 }
 
 
@@ -245,7 +238,7 @@ IopMountFileSystem(PDEVICE_OBJECT DeviceObject,
   DPRINT("IopMountFileSystem(DeviceObject %x, DeviceToMount %x)\n",
 	 DeviceObject,DeviceToMount);
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
   KeInitializeEvent(&Event, NotificationEvent, FALSE);
   Irp = IoAllocateIrp(DeviceObject->StackSize, TRUE);
@@ -293,7 +286,7 @@ IopLoadFileSystem(IN PDEVICE_OBJECT DeviceObject)
 
   DPRINT("IopLoadFileSystem(DeviceObject %x)\n", DeviceObject);
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
   KeInitializeEvent(&Event, NotificationEvent, FALSE);
   Irp = IoAllocateIrp(DeviceObject->StackSize, TRUE);
@@ -343,7 +336,7 @@ IoMountVolume(IN PDEVICE_OBJECT DeviceObject,
   DEVICE_TYPE MatchingDeviceType;
   PDEVICE_OBJECT DevObject;
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
   DPRINT("IoMountVolume(DeviceObject %x  AllowRawMount %x)\n",
 	 DeviceObject, AllowRawMount);
@@ -393,7 +386,7 @@ IoMountVolume(IN PDEVICE_OBJECT DeviceObject,
       else
         {
           Status = IopMountFileSystem(current->DeviceObject,
-				      DeviceObject);
+    				  DeviceObject);
         }
       switch (Status)
 	{
@@ -403,10 +396,10 @@ IoMountVolume(IN PDEVICE_OBJECT DeviceObject,
 	    Status = IopLoadFileSystem(DevObject);
 	    if (!NT_SUCCESS(Status))
 	      {
-		KeLeaveCriticalRegion();
+          KeLeaveCriticalRegion();
 		return(Status);
 	      }
-	    ExAcquireResourceSharedLite(&FileSystemListLock,TRUE);
+            ExAcquireResourceSharedLite(&FileSystemListLock,TRUE);
 	    current_entry = FileSystemListHead.Flink;
 	    continue;
 
@@ -414,7 +407,7 @@ IoMountVolume(IN PDEVICE_OBJECT DeviceObject,
 	    DeviceObject->Vpb->Flags = DeviceObject->Vpb->Flags |
 	                               VPB_MOUNTED;
 	    ExReleaseResourceLite(&FileSystemListLock);
-	    KeLeaveCriticalRegion();
+      KeLeaveCriticalRegion();
 	    return(STATUS_SUCCESS);
 
 	  case STATUS_UNRECOGNIZED_VOLUME:
@@ -589,7 +582,7 @@ IoRegisterFileSystem(IN PDEVICE_OBJECT DeviceObject)
   Fs = ExAllocatePoolWithTag(NonPagedPool,
 			     sizeof(FILE_SYSTEM_OBJECT),
 			     TAG_FILE_SYSTEM);
-  ASSERT(Fs!=NULL);
+  assert(Fs!=NULL);
 
   Fs->DeviceObject = DeviceObject;
   KeEnterCriticalRegion();
@@ -633,7 +626,7 @@ IoUnregisterFileSystem(IN PDEVICE_OBJECT DeviceObject)
 	  RemoveEntryList(current_entry);
 	  ExFreePool(current);
 	  ExReleaseResourceLite(&FileSystemListLock);
-	  KeLeaveCriticalRegion();
+    KeLeaveCriticalRegion();
 	  IopNotifyFileSystemChange(DeviceObject, FALSE);
 	  return;
 	}

@@ -4,9 +4,8 @@
  *	Copyright 1995	Martin von Loewis
  *	Copyright 1998	Justin Bradford
  *      Copyright 1999  Francis Beaudet
- *      Copyright 1999  Sylvain St-Germain
- *      Copyright 2002  Marcus Meissner
- *      Copyright 2004  Mike Hearn
+ *  Copyright 1999  Sylvain St-Germain
+ *  Copyright 2002  Marcus Meissner
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,10 +30,8 @@
 #include <string.h>
 #include <assert.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -121,10 +118,10 @@ static CRITICAL_SECTION csRegisteredClassList = { &class_cs_debug, -1, 0, 0, 0, 
  * This section contains OpenDllList definitions
  *
  * The OpenDllList contains only handles of dll loaded by CoGetClassObject or
- * other functions that do LoadLibrary _without_ giving back a HMODULE.
- * Without this list these handles would never be freed.
+ * other functions what do LoadLibrary _without_ giving back a HMODULE.
+ * Without this list these handles would be freed never.
  *
- * FIXME: a DLL that says OK when asked for unloading is unloaded in the
+ * FIXME: a DLL what says OK whenn asked for unloading is unloaded in the
  * next unload-call but not before 600 sec.
  */
 
@@ -150,19 +147,14 @@ static LRESULT CALLBACK COM_AptWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 static void COMPOBJ_DLLList_Add(HANDLE hLibrary);
 static void COMPOBJ_DllList_FreeUnused(int Timeout);
 
+
+/******************************************************************************
+ * Initialize/Unitialize threading stuff.
+ */
 void COMPOBJ_InitProcess( void )
 {
     WNDCLASSA wclass;
 
-    /* Dispatching to the correct thread in an apartment is done through
-     * window messages rather than RPC transports. When an interface is
-     * marshalled into another apartment in the same process, a window of the
-     * following class is created. The *caller* of CoMarshalInterface (ie the
-     * application) is responsible for pumping the message loop in that thread.
-     * The WM_USER messages which point to the RPCs are then dispatched to
-     * COM_AptWndProc by the user's code from the apartment in which the interface
-     * was unmarshalled.
-     */
     memset(&wclass, 0, sizeof(wclass));
     wclass.lpfnWndProc = &COM_AptWndProc;
     wclass.hInstance = OLE32_hInstance;
@@ -178,24 +170,10 @@ void COMPOBJ_UninitProcess( void )
 /******************************************************************************
  * Manage apartments.
  */
-
-
-/* The multi-threaded apartment (MTA) contains zero or more threads interacting
-   with free threaded (ie thread safe) COM objects. There is only ever one MTA
-   in a process - you can enter it by calling CoInitializeEx(COINIT_MULTITHREADED)
- */
 static void COM_InitMTA(void)
 {
-    /* OXIDs are object exporter IDs. Each apartment has an OXID, which is unique
-       within a network. That is, two different MTAs on different machines will have
-       different OXIDs.
-
-       This method of generating an OXID is therefore wrong as it doesn't work across
-       a network, but for local RPC only it's OK. We can distinguish between MTAs and
-       STAs because STAs use the thread ID as well, and no thread can have an ID of zero.
-
-       The algorithm Microsoft use is currently unknown.
-     */
+    /* FIXME: how does windoze create OXIDs?
+     * this method will only work for local RPC */
     MTA.oxid = ((OXID)GetCurrentProcessId() << 32);
     InitializeCriticalSection(&MTA.cs);
 }
@@ -206,28 +184,16 @@ static void COM_UninitMTA(void)
     MTA.oxid = 0;
 }
 
-/* creates an apartment structure which stores OLE thread-local
- * information. Call with COINIT_UNINITIALIZED to create an apartment
- * that will be initialized with a model later. Note: do not call
- * with COINIT_UNINITIALIZED if the apartment has already been initialized
- * with a different COINIT value */
-APARTMENT* COM_CreateApartment(DWORD model)
+static APARTMENT* COM_CreateApartment(DWORD model)
 {
     APARTMENT *apt;
-    BOOL create = (NtCurrentTeb()->ReservedForOle == NULL);
 
-    if (create)
-    {
-        apt = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(APARTMENT));
-        apt->tid = GetCurrentThreadId();
-        DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
-                        GetCurrentProcess(), &apt->thread,
-                        THREAD_ALL_ACCESS, FALSE, 0);
-    }
-    else
-        apt = NtCurrentTeb()->ReservedForOle;
-
+    apt = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(APARTMENT));
     apt->model = model;
+    apt->tid = GetCurrentThreadId();
+    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+                    GetCurrentProcess(), &apt->thread,
+                    THREAD_ALL_ACCESS, FALSE, 0);
     if (model & COINIT_APARTMENTTHREADED) {
       /* FIXME: how does windoze create OXIDs? */
       apt->oxid = MTA.oxid | GetCurrentThreadId();
@@ -236,17 +202,14 @@ APARTMENT* COM_CreateApartment(DWORD model)
 			       0, 0, OLE32_hInstance, NULL);
       InitializeCriticalSection(&apt->cs);
     }
-    else if (!(model & COINIT_UNINITIALIZED)) {
+    else {
       apt->parent = &MTA;
       apt->oxid = MTA.oxid;
     }
     EnterCriticalSection(&csApartment);
-    if (create)
-    {
-        if (apts) apts->prev = apt;
-        apt->next = apts;
-        apts = apt;
-    }
+    if (apts) apts->prev = apt;
+    apt->next = apts;
+    apts = apt;
     LeaveCriticalSection(&csApartment);
     NtCurrentTeb()->ReservedForOle = apt;
     return apt;
@@ -268,8 +231,6 @@ static void COM_DestroyApartment(APARTMENT *apt)
     HeapFree(GetProcessHeap(), 0, apt);
 }
 
-/* The given OXID must be local to this process: you cannot use apartment
-   windows to send RPCs to other processes. This all needs to move to rpcrt4 */
 HWND COM_GetApartmentWin(OXID oxid)
 {
     APARTMENT *apt;
@@ -283,7 +244,6 @@ HWND COM_GetApartmentWin(OXID oxid)
     return win;
 }
 
-/* Currently inter-thread marshalling is not fully implemented, so this does nothing */
 static LRESULT CALLBACK COM_AptWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   return DefWindowProcA(hWnd, msg, wParam, lParam);
@@ -380,11 +340,9 @@ DWORD WINAPI CoBuildVersion(void)
 /******************************************************************************
  *		CoInitialize	[OLE32.@]
  *
- * Initializes the COM libraries by calling CoInitializeEx with
- * COINIT_APARTMENTTHREADED, ie it enters a STA thread.
+ * Initializes the COM libraries.
  *
- * SEE ALSO
- *   CoInitializeEx
+ * See CoInitializeEx
  */
 HRESULT WINAPI CoInitialize(
 	LPVOID lpReserved	/* [in] pointer to win32 malloc interface
@@ -400,22 +358,14 @@ HRESULT WINAPI CoInitialize(
 /******************************************************************************
  *		CoInitializeEx	[OLE32.@]
  *
- * Initializes the COM libraries. The behavior used to set the win32
- * IMalloc used for memory management is obsolete. If
- * COINIT_APARTMENTTHREADED is specified this thread enters a new STA
- * (single threaded apartment), otherwise COINIT_MULTITHREADED should
- * be specified which indicates that the thread will enter the MTA.
- *
- * Currently STA threading is only partly implemented.
+ * Initializes the COM libraries. The behavior used to set the win32 IMalloc
+ * used for memory management is obsolete.
  *
  * RETURNS
  *  S_OK               if successful,
  *  S_FALSE            if this function was called already.
- *  RPC_E_CHANGED_MODE if a previous call to CoInitializeEx specified another
- *                     threading model.
- *
- * SEE ALSO
- *   CoUninitialize
+ *  RPC_E_CHANGED_MODE if a previous call to CoInitialize specified another
+ *                      threading model.
  */
 HRESULT WINAPI CoInitializeEx(
 	LPVOID lpReserved,	/* [in] pointer to win32 malloc interface
@@ -434,19 +384,8 @@ HRESULT WINAPI CoInitializeEx(
   }
 
   apt = NtCurrentTeb()->ReservedForOle;
-  if (apt && !(apt->model == COINIT_UNINITIALIZED))
-  {
-    if (dwCoInit != apt->model)
-    {
-      /* Changing the threading model after it's been set is illegal. If this warning is triggered by Wine
-         code then we are probably using the wrong threading model to implement that API. */
-      ERR("Attempt to change threading model of this apartment from 0x%lx to 0x%lx\n", apt->model, dwCoInit);
-      return RPC_E_CHANGED_MODE;
-    }
-    hr = S_FALSE;
-  }
-  else
-    hr = S_OK;
+  if (apt && dwCoInit != apt->model) return RPC_E_CHANGED_MODE;
+  hr = apt ? S_FALSE : S_OK;
 
   /*
    * Check the lock count. If this is the first time going through the initialize
@@ -466,7 +405,7 @@ HRESULT WINAPI CoInitializeEx(
     RunningObjectTableImpl_Initialize();
   }
 
-  if (!apt || apt->model == COINIT_UNINITIALIZED) apt = COM_CreateApartment(dwCoInit);
+  if (!apt) apt = COM_CreateApartment(dwCoInit);
 
   InterlockedIncrement(&apt->inits);
   if (hr == S_OK) NtCurrentTeb()->ReservedForOle = apt;
@@ -474,40 +413,12 @@ HRESULT WINAPI CoInitializeEx(
   return hr;
 }
 
-/* On COM finalization for a STA thread, the message queue is flushed to ensure no
-   pending RPCs are ignored. Non-COM messages are discarded at this point.
- */
-void COM_FlushMessageQueue(void)
-{
-    MSG message;
-    APARTMENT *apt = NtCurrentTeb()->ReservedForOle;
-
-    if (!apt || !apt->win) return;
-
-    TRACE("Flushing STA message queue\n");
-
-    while (PeekMessageA(&message, NULL, 0, 0, PM_REMOVE)) {
-        if (message.hwnd != apt->win) continue;
-        TranslateMessage(&message);
-        DispatchMessageA(&message);
-    }
-}
-
 /***********************************************************************
  *           CoUninitialize   [OLE32.@]
  *
- * This method will decrement the refcount on the COM libraries,
- * potentially unloading them. The current thread leaves the apartment
- * it's currently in. If not in an apartment, the routine does
- * nothing.
+ * This method will release the COM libraries.
  *
- * If COM is to be shut down, any outstanding proxies are
- * disconnected, all registered class objects are unregistered and the
- * message queue for the thread is flushed (if native does
- * this or not is unknown).
- *
- * SEE ALSO
- *   CoInitializeEx
+ * See the windows documentation for more details.
  */
 void WINAPI CoUninitialize(void)
 {
@@ -532,29 +443,26 @@ void WINAPI CoUninitialize(void)
   lCOMRefCnt = InterlockedExchangeAdd(&s_COMLockCount,-1);
   if (lCOMRefCnt==1)
   {
+    /*
+     * Release the various COM libraries and data structures.
+     */
     TRACE("() - Releasing the COM libraries\n");
 
     RunningObjectTableImpl_UnInitialize();
-
-    /* disconnect proxies to release the corresponding stubs.
-     * It is confirmed in "Essential COM" in the sub-chapter on
-     * "Lifecycle Management and Marshalling" that the native version also
-     * does some kind of proxy cleanup in this function.
-     * FIXME: does it just disconnect or completely destroy the proxies?
-     * FIXME: should this be in the apartment destructor? */
-    MARSHAL_Disconnect_Proxies();
-
-    /* Release the references to the registered class objects */
+    /*
+     * Release the references to the registered class objects.
+     */
     COM_RevokeAllClasses();
 
-    /* This will free the loaded COM Dlls  */
+    /*
+     * This will free the loaded COM Dlls.
+     */
     CoFreeAllLibraries();
 
-    /* This will free list of external references to COM objects */
+    /*
+     * This will free list of external references to COM objects.
+     */
     COM_ExternalLockFreeList();
-
-    /* This ensures we deal with any pending RPCs */
-    COM_FlushMessageQueue();
 
     COM_UninitMTA();
   }
@@ -567,27 +475,15 @@ void WINAPI CoUninitialize(void)
 /******************************************************************************
  *		CoDisconnectObject	[COMPOBJ.15]
  *		CoDisconnectObject	[OLE32.@]
- *
- * Disconnects all connections to this object from remote processes. Dispatches
- * pending RPCs while blocking new RPCs from occurring, and then calls
- * IMarshal::DisconnectObject on the given object.
- *
- * Typically called when the object server is forced to shut down, for instance by
- * the user.
  */
 HRESULT WINAPI CoDisconnectObject( LPUNKNOWN lpUnk, DWORD reserved )
 {
-    FIXME("(%p, %lx): stub - probably harmless\n",lpUnk,reserved);
+    TRACE("(%p, %lx)\n",lpUnk,reserved);
     return S_OK;
 }
 
 /******************************************************************************
  *		CoCreateGuid[OLE32.@]
- *
- * Simply forwards to UuidCreate in RPCRT4.
- *
- * SEE ALSO
- *   UuidCreate
  *
  */
 HRESULT WINAPI CoCreateGuid(
@@ -599,23 +495,20 @@ HRESULT WINAPI CoCreateGuid(
 /******************************************************************************
  *		CLSIDFromString	[OLE32.@]
  *		IIDFromString   [OLE32.@]
- *
  * Converts a unique identifier from its string representation into
  * the GUID struct.
  *
- * In Windows, if idstr is not a valid CLSID string then it gets
- * treated as a ProgID. Wine currently doesn't do this. If idstr is
- * NULL it's treated as an all-zero GUID.
+ * UNDOCUMENTED
+ *      If idstr is not a valid CLSID string then it gets treated as a ProgID
  *
  * RETURNS
- *   S_OK on success
- *   CO_E_CLASSSTRING if idstr is not a valid CLSID
+ *	the converted GUID
  */
 HRESULT WINAPI __CLSIDFromStringA(
 	LPCSTR idstr,	        /* [in] string representation of guid */
 	CLSID *id)		/* [out] GUID converted from string */
 {
-  const BYTE *s = (const BYTE *) idstr;
+  const BYTE *s = (BYTE *) idstr;
   int	i;
   BYTE table[256];
 
@@ -691,7 +584,15 @@ HRESULT WINAPI CLSIDFromString(
     return ret;
 }
 
-/* Converts a GUID into the respective string representation. */
+/******************************************************************************
+ *		WINE_StringFromCLSID	[Internal]
+ * Converts a GUID into the respective string representation.
+ *
+ * NOTES
+ *
+ * RETURNS
+ *	the string representation and HRESULT
+ */
 HRESULT WINE_StringFromCLSID(
 	const CLSID *id,	/* [in] GUID to be converted */
 	LPSTR idstr		/* [out] pointer to buffer to contain converted guid */
@@ -729,23 +630,20 @@ HRESULT WINE_StringFromCLSID(
 /******************************************************************************
  *		StringFromCLSID	[OLE32.@]
  *		StringFromIID   [OLE32.@]
- *
  * Converts a GUID into the respective string representation.
  * The target string is allocated using the OLE IMalloc.
- *
  * RETURNS
- *   S_OK
- *   E_FAIL
+ *	the string representation and HRESULT
  */
 HRESULT WINAPI StringFromCLSID(
-        REFCLSID id,    /* [in] the GUID to be converted */
+        REFCLSID id,            /* [in] the GUID to be converted */
 	LPOLESTR *idstr	/* [out] a pointer to a to-be-allocated pointer pointing to the resulting string */
 ) {
 	char            buf[80];
 	HRESULT       ret;
 	LPMALLOC	mllc;
 
-	if ((ret = CoGetMalloc(0,&mllc)))
+	if ((ret=CoGetMalloc(0,&mllc)))
 		return ret;
 
 	ret=WINE_StringFromCLSID(id,buf);
@@ -761,16 +659,15 @@ HRESULT WINAPI StringFromCLSID(
  *		StringFromGUID2	[COMPOBJ.76]
  *		StringFromGUID2	[OLE32.@]
  *
- * Modified version of StringFromCLSID that allows you to specify max
- * buffer size.
+ * Converts a global unique identifier into a string of an API-
+ * specified fixed format. (The usual {.....} stuff.)
  *
  * RETURNS
+ *	The (UNICODE) string representation of the GUID in 'str'
  *	The length of the resulting string, 0 if there was any problem.
  */
-INT WINAPI StringFromGUID2(
-    REFGUID id,    /* [in]  GUID to convert to string */
-    LPOLESTR str,  /* [out] Unicode buffer to hold result */
-    INT cmax)
+INT WINAPI
+StringFromGUID2(REFGUID id, LPOLESTR str, INT cmax)
 {
   char		xguid[80];
 
@@ -780,16 +677,12 @@ INT WINAPI StringFromGUID2(
 }
 
 /******************************************************************************
- *               ProgIDFromCLSID [OLE32.@]
- *
- * Converts a class id into the respective Program ID. (By using a
- * registry lookup)
- *
- * RETURNS
- *   S_OK
- *   E_OUTOFMEMORY
- *   REGDB_E_CLASSNOTREG if the given clsid has no associated ProgID
+ * ProgIDFromCLSID [OLE32.@]
+ * Converts a class id into the respective Program ID. (By using a registry lookup)
+ * RETURNS S_OK on success
+ * riid associated with the progid
  */
+
 HRESULT WINAPI ProgIDFromCLSID(
   REFCLSID clsid, /* [in] class id as found in registry */
   LPOLESTR *lplpszProgID/* [out] associated Prog ID */
@@ -835,6 +728,12 @@ HRESULT WINAPI ProgIDFromCLSID(
   return ret;
 }
 
+/******************************************************************************
+ *		CLSIDFromProgID	[COMPOBJ.61]
+ * Converts a program id into the respective GUID. (By using a registry lookup)
+ * RETURNS
+ *	riid associated with the progid
+ */
 HRESULT WINAPI CLSIDFromProgID16(
 	LPCOLESTR16 progid,	/* [in] program id as found in registry */
 	LPCLSID riid		/* [out] associated CLSID */
@@ -861,17 +760,13 @@ HRESULT WINAPI CLSIDFromProgID16(
 }
 
 /******************************************************************************
- *		CLSIDFromProgID	[COMPOBJ.61]
- *
- * Converts a program id into the respective GUID. (By using a
- * registry lookup)
- *
+ *		CLSIDFromProgID	[OLE32.@]
+ * Converts a program id into the respective GUID. (By using a registry lookup)
  * RETURNS
- *	S_OK
- *      CO_E_CLASSSTRING if the given ProgID cannot be found
+ *	riid associated with the progid
  */
 HRESULT WINAPI CLSIDFromProgID(
-	LPCOLESTR progid,	/* [in] Unicode program id as found in registry */
+	LPCOLESTR progid,	/* [in] program id as found in registry */
 	LPCLSID riid )		/* [out] associated CLSID */
 {
     static const WCHAR clsidW[] = { '\\','C','L','S','I','D',0 };
@@ -903,30 +798,18 @@ HRESULT WINAPI CLSIDFromProgID(
 /*****************************************************************************
  *             CoGetPSClsid [OLE32.@]
  *
- * This function returns the CLSID of the proxy/stub factory that
- * implements IPSFactoryBuffer for the specified interface.
+ * This function returns the CLSID of the DLL that implements the proxy and stub
+ * for the specified interface.
  *
- * The standard marshaller activates the object with the CLSID
- * returned and uses the CreateProxy and CreateStub methods on its
- * IPSFactoryBuffer interface to construct the proxies and stubs for a
- * given object.
+ * It determines this by searching the
+ * HKEY_CLASSES_ROOT\Interface\{string form of riid}\ProxyStubClsid32 in the registry
+ * and any interface id registered by CoRegisterPSClsid within the current process.
  *
- * CoGetPSClsid determines this CLSID by searching the
- * HKEY_CLASSES_ROOT\Interface\{string form of riid}\ProxyStubClsid32
- * in the registry and any interface id registered by
- * CoRegisterPSClsid within the current process.
- *
- * FIXME: We only search the registry, not ids registered with
- * CoRegisterPSClsid.
- *
- * RETURNS
- *   S_OK
- *   E_OUTOFMEMORY
- *   E_INVALIDARG if no PSFactoryBuffer is associated with the IID, or it could not be parsed
+ * FIXME: We only search the registry, not ids registered with CoRegisterPSClsid.
  */
 HRESULT WINAPI CoGetPSClsid(
           REFIID riid,     /* [in]  Interface whose proxy/stub CLSID is to be returned */
-          CLSID *pclsid )  /* [out] Where to store returned proxy/stub CLSID */
+          CLSID *pclsid )    /* [out] Where to store returned proxy/stub CLSID */
 {
     char *buf, buf2[40];
     DWORD buf2len;
@@ -950,7 +833,6 @@ HRESULT WINAPI CoGetPSClsid(
     /* Open the key.. */
     if (RegOpenKeyA(HKEY_CLASSES_ROOT, buf, &xhkey))
     {
-       WARN("No PSFactoryBuffer object is registered for this IID\n");
        HeapFree(GetProcessHeap(),0,buf);
        return (E_INVALIDARG);
     }
@@ -1107,108 +989,81 @@ _LocalServerThread(LPVOID param) {
     ULONG		res;
 
     TRACE("Starting threader for %s.\n",debugstr_guid(&newClass->classIdentifier));
-
     strcpy(pipefn,PIPEPREF);
     WINE_StringFromCLSID(&newClass->classIdentifier,pipefn+strlen(PIPEPREF));
 
-    hPipe = CreateNamedPipeA( pipefn, PIPE_ACCESS_DUPLEX,
-               PIPE_TYPE_BYTE|PIPE_WAIT, PIPE_UNLIMITED_INSTANCES,
-               4096, 4096, NMPWAIT_USE_DEFAULT_WAIT, NULL );
-    if (hPipe == INVALID_HANDLE_VALUE) {
-        FIXME("pipe creation failed for %s, le is %lx\n",pipefn,GetLastError());
-        return 1;
+    hres = IUnknown_QueryInterface(newClass->classObject,&IID_IClassFactory,(LPVOID*)&classfac);
+    if (hres) return hres;
+
+    hres = CreateStreamOnHGlobal(0,TRUE,&pStm);
+    if (hres) {
+	FIXME("Failed to create stream on hglobal.\n");
+	return hres;
     }
+    hres = CoMarshalInterface(pStm,&IID_IClassFactory,(LPVOID)classfac,0,NULL,0);
+    if (hres) {
+	FIXME("CoMarshalInterface failed, %lx!\n",hres);
+	return hres;
+    }
+    hres = IStream_Stat(pStm,&ststg,0);
+    if (hres) return hres;
+
+    buflen = ststg.cbSize.u.LowPart;
+    buffer = HeapAlloc(GetProcessHeap(),0,buflen);
+    seekto.u.LowPart = 0;
+    seekto.u.HighPart = 0;
+    hres = IStream_Seek(pStm,seekto,SEEK_SET,&newpos);
+    if (hres) {
+	FIXME("IStream_Seek failed, %lx\n",hres);
+	return hres;
+    }
+    hres = IStream_Read(pStm,buffer,buflen,&res);
+    if (hres) {
+	FIXME("Stream Read failed, %lx\n",hres);
+	return hres;
+    }
+    IStream_Release(pStm);
+
     while (1) {
-        if (!ConnectNamedPipe(hPipe,NULL)) {
-            ERR("Failure during ConnectNamedPipe %lx, ABORT!\n",GetLastError());
-            break;
-        }
-
-        TRACE("marshalling IClassFactory to client\n");
-        
-        hres = IUnknown_QueryInterface(newClass->classObject,&IID_IClassFactory,(LPVOID*)&classfac);
-        if (hres) return hres;
-
-        hres = CreateStreamOnHGlobal(0,TRUE,&pStm);
-        if (hres) {
-            FIXME("Failed to create stream on hglobal.\n");
-            return hres;
-        }
-        hres = CoMarshalInterface(pStm,&IID_IClassFactory,(LPVOID)classfac,0,NULL,0);
-        if (hres) {
-            FIXME("CoMarshalInterface failed, %lx!\n",hres);
-            return hres;
-        }
-
-        IUnknown_Release(classfac); /* is this right? */
-
-        hres = IStream_Stat(pStm,&ststg,0);
-        if (hres) return hres;
-
-        buflen = ststg.cbSize.u.LowPart;
-        buffer = HeapAlloc(GetProcessHeap(),0,buflen);
-        seekto.u.LowPart = 0;
-        seekto.u.HighPart = 0;
-        hres = IStream_Seek(pStm,seekto,SEEK_SET,&newpos);
-        if (hres) {
-            FIXME("IStream_Seek failed, %lx\n",hres);
-            return hres;
-        }
-        
-        hres = IStream_Read(pStm,buffer,buflen,&res);
-        if (hres) {
-            FIXME("Stream Read failed, %lx\n",hres);
-            return hres;
-        }
-        
-        IStream_Release(pStm);
-
-        WriteFile(hPipe,buffer,buflen,&res,NULL);
-        FlushFileBuffers(hPipe);
-        DisconnectNamedPipe(hPipe);
-
-        TRACE("done marshalling IClassFactory\n");
+	hPipe = CreateNamedPipeA(
+	    pipefn,
+	    PIPE_ACCESS_DUPLEX,
+	    PIPE_TYPE_BYTE|PIPE_WAIT,
+	    PIPE_UNLIMITED_INSTANCES,
+	    4096,
+	    4096,
+	    NMPWAIT_USE_DEFAULT_WAIT,
+	    NULL
+	);
+	if (hPipe == INVALID_HANDLE_VALUE) {
+	    FIXME("pipe creation failed for %s, le is %lx\n",pipefn,GetLastError());
+	    return 1;
+	}
+	if (!ConnectNamedPipe(hPipe,NULL)) {
+	    ERR("Failure during ConnectNamedPipe %lx, ABORT!\n",GetLastError());
+	    CloseHandle(hPipe);
+	    continue;
+	}
+	WriteFile(hPipe,buffer,buflen,&res,NULL);
+	CloseHandle(hPipe);
     }
-    CloseHandle(hPipe);
     return 0;
 }
 
 /******************************************************************************
  *		CoRegisterClassObject	[OLE32.@]
- * 
- * This method will register the class object for a given class
- * ID. Servers housed in EXE files use this method instead of
- * exporting DllGetClassObject to allow other code to connect to their
- * objects.
  *
- * When a class object (an object which implements IClassFactory) is
- * registered in this way, a new thread is started which listens for
- * connections on a named pipe specific to the registered CLSID. When
- * something else connects to it, it writes out the marshalled
- * IClassFactory interface to the pipe. The code on the other end uses
- * this buffer to unmarshal the class factory, and can then call
- * methods on it.
+ * This method will register the class object for a given class ID.
  *
- * In Windows, such objects are registered with the RPC endpoint
- * mapper, not with a unique named pipe.
- *
- * MSDN claims that multiple interface registrations are legal, but we
- * can't do that with our current implementation.
- *
- * RETURNS
- *   S_OK on success, 
- *   E_INVALIDARG if lpdwRegister or pUnk are NULL, 
- *   CO_E_OBJISREG if the object is already registered. We should not return this.
- *
- * SEE ALSO
- *   CoRevokeClassObject, CoGetClassObject
+ * See the Windows documentation for more details.
  */
 HRESULT WINAPI CoRegisterClassObject(
-        REFCLSID rclsid,       /* [in] CLSID of the object to register */
-	LPUNKNOWN pUnk,        /* [in] IUnknown of the object */
-	DWORD dwClsContext,    /* [in] CLSCTX flags indicating the context in which to run the executable */
-	DWORD flags,           /* [in] REGCLS flags indicating how connections are made */
-	LPDWORD lpdwRegister)  /* [out] A unique cookie that can be passed to CoRevokeClassObject */
+	REFCLSID rclsid,
+	LPUNKNOWN pUnk,
+	DWORD dwClsContext, /* [in] CLSCTX flags indicating the context in which to run the executable */
+	DWORD flags,        /* [in] REGCLS flags indicating how connections are made */
+	LPDWORD lpdwRegister
+)
 {
   RegisteredClass* newClass;
   LPUNKNOWN        foundObject;
@@ -1339,7 +1194,7 @@ end:
  *
  *	Reads a registry value and expands it when necessary
  */
-HRESULT compobj_RegReadPath(char * keyname, char * valuename, char * dst, DWORD dstlen)
+HRESULT compobj_RegReadPath(char * keyname, char * valuename, char * dst, int dstlen)
 {
 	HRESULT hres;
 	HKEY key;
@@ -1352,7 +1207,7 @@ HRESULT compobj_RegReadPath(char * keyname, char * valuename, char * dst, DWORD 
             if (keytype == REG_EXPAND_SZ) {
               if (dstlen <= ExpandEnvironmentStringsA(src, dst, dstlen)) hres = ERROR_MORE_DATA;
             } else {
-              lstrcpynA(dst, src, dstlen);
+              strncpy(dst, src, dstlen);
             }
 	  }
           RegCloseKey (key);
@@ -1419,7 +1274,7 @@ HRESULT WINAPI CoGetClassObject(
 
 	if ( compobj_RegReadPath(keyname, NULL, dllpath, sizeof(dllpath)) != ERROR_SUCCESS) {
 	    /* failure: CLSID is not found in registry */
-           WARN("class %s not registered inproc\n", xclsid);
+	    WARN("class %s not registred\n", xclsid);
             hres = REGDB_E_CLASSNOTREG;
 	} else {
 	  if ((hLibrary = LoadLibraryExA(dllpath, 0, LOAD_WITH_ALTERED_SEARCH_PATH)) == 0) {
@@ -1445,7 +1300,7 @@ HRESULT WINAPI CoGetClassObject(
         return create_marshalled_proxy(rclsid,iid,ppv);
     }
 
-    /* Finally try remote: this requires networked DCOM (a lot of work) */
+    /* Finally try remote */
     if (CLSCTX_REMOTE_SERVER & dwClsContext)
     {
         FIXME ("CLSCTX_REMOTE_SERVER not supported\n");
@@ -1461,7 +1316,7 @@ HRESULT WINAPI CoGetClassObject(
  */
 HRESULT WINAPI CoResumeClassObjects(void)
 {
-       FIXME("stub\n");
+	FIXME("\n");
 	return S_OK;
 }
 
@@ -1518,7 +1373,7 @@ HRESULT WINAPI GetClassFile(LPCOLESTR filePathName,CLSID *pclsid)
         }
      */
 
-    /* if the above strategies fail then search for the extension key in the registry */
+    /* if the obove strategies fail then search for the extension key in the registry */
 
     /* get the last element (absolute file) in the path name */
     nbElm=FileMonikerImpl_DecomposePath(filePathName,&pathDec);
@@ -1569,11 +1424,9 @@ HRESULT WINAPI CoCreateInstance(
 	REFIID iid,
 	LPVOID *ppv)
 {
-  HRESULT hres;
-  LPCLASSFACTORY lpclf = 0;
+	HRESULT hres;
+	LPCLASSFACTORY lpclf = 0;
 
-  if (!COM_CurrentApt()) return CO_E_NOTINITIALIZED;
-        
   /*
    * Sanity check
    */
@@ -1640,7 +1493,7 @@ HRESULT WINAPI CoCreateInstanceEx(
   IUnknown* pUnk = NULL;
   HRESULT   hr;
   ULONG     index;
-  ULONG     successCount = 0;
+  int       successCount = 0;
 
   /*
    * Sanity check
@@ -1712,22 +1565,22 @@ HINSTANCE WINAPI CoLoadLibrary(LPOLESTR lpszLibName, BOOL bAutoFree)
 /***********************************************************************
  *           CoFreeLibrary [OLE32.@]
  *
- * NOTES: don't believe the documentation
+ * NOTES: don't belive the docu
  */
 void WINAPI CoFreeLibrary(HINSTANCE hLibrary)
 {
-    FreeLibrary(hLibrary);
+	FreeLibrary(hLibrary);
 }
 
 
 /***********************************************************************
  *           CoFreeAllLibraries [OLE32.@]
  *
- * NOTES: don't believe the documentation
+ * NOTES: don't belive the docu
  */
 void WINAPI CoFreeAllLibraries(void)
 {
-    /* NOP */
+        /* NOP */
 }
 
 
@@ -2008,6 +1861,10 @@ HRESULT WINAPI CoInitializeWOW(DWORD x,DWORD y) {
     return 0;
 }
 
+static IUnknown * pUnkState = 0; /* FIXME: thread local */
+static int nStatCounter = 0;	 /* global */
+static HMODULE hOleAut32 = 0;	 /* global */
+
 /***********************************************************************
  *           CoGetState [OLE32.@]
  *
@@ -2015,13 +1872,11 @@ HRESULT WINAPI CoInitializeWOW(DWORD x,DWORD y) {
  */
 HRESULT WINAPI CoGetState(IUnknown ** ppv)
 {
-	APARTMENT * apt = COM_CurrentInfo();
-
 	FIXME("\n");
 
-	if(apt && apt->state) {
-	    IUnknown_AddRef(apt->state);
-	    *ppv = apt->state;
+	if(pUnkState) {
+	    IUnknown_AddRef(pUnkState);
+	    *ppv = pUnkState;
 	    FIXME("-- %p\n", *ppv);
 	    return S_OK;
 	}
@@ -2033,24 +1888,25 @@ HRESULT WINAPI CoGetState(IUnknown ** ppv)
 /***********************************************************************
  *           CoSetState [OLE32.@]
  *
+ * NOTES: FIXME: protect this with a crst
  */
 HRESULT WINAPI CoSetState(IUnknown * pv)
 {
-    APARTMENT * apt = COM_CurrentInfo();
-
-    if (!apt) apt = COM_CreateApartment(COINIT_UNINITIALIZED);
-
 	FIXME("(%p),stub!\n", pv);
 
 	if (pv) {
 	    IUnknown_AddRef(pv);
+	    nStatCounter++;
+	    if (nStatCounter == 1) LoadLibraryA("OLEAUT32.DLL");
 	}
 
-	if (apt->state) {
-	    TRACE("-- release %p now\n", apt->state);
-	    IUnknown_Release(apt->state);
+	if (pUnkState) {
+	    TRACE("-- release %p now\n", pUnkState);
+	    IUnknown_Release(pUnkState);
+	    nStatCounter--;
+	    if (!nStatCounter) FreeLibrary(hOleAut32);
 	}
-	apt->state = pv;
+	pUnkState = pv;
 	return S_OK;
 }
 
@@ -2126,19 +1982,14 @@ HRESULT WINAPI OleDoAutoConvert(IStorage *pStg, LPCLSID pClsidNew)
 
 /******************************************************************************
  *              CoTreatAsClass        [OLE32.@]
- *
- * Sets TreatAs value of a class
  */
 HRESULT WINAPI CoTreatAsClass(REFCLSID clsidOld, REFCLSID clsidNew)
 {
     HKEY hkey = 0;
-    char buf[47];
-    char szClsidNew[39];
+    char buf[200], szClsidNew[200];
     HRESULT res = S_OK;
-    char auto_treat_as[39];
-    LONG auto_treat_as_size = sizeof(auto_treat_as);
-    CLSID id;
 
+    FIXME("(%s,%s)\n", debugstr_guid(clsidOld), debugstr_guid(clsidNew));
     sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
     WINE_StringFromCLSID(clsidNew, szClsidNew);
     if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
@@ -2146,26 +1997,9 @@ HRESULT WINAPI CoTreatAsClass(REFCLSID clsidOld, REFCLSID clsidNew)
         res = REGDB_E_CLASSNOTREG;
 	goto done;
     }
-    if (!memcmp( clsidOld, clsidNew, sizeof(*clsidOld) ))
+    if (RegSetValueA(hkey, "AutoTreatAs", REG_SZ, szClsidNew, strlen(szClsidNew)+1))
     {
-       if (!RegQueryValueA(hkey, "AutoTreatAs", auto_treat_as, &auto_treat_as_size) &&
-           !__CLSIDFromStringA(auto_treat_as, &id))
-       {
-           if (RegSetValueA(hkey, "TreatAs", REG_SZ, auto_treat_as, strlen(auto_treat_as)+1))
-           {
-               res = REGDB_E_WRITEREGDB;
-               goto done;
-           }
-       }
-       else
-       {
-           RegDeleteKeyA(hkey, "TreatAs");
-           goto done;
-       }
-    }
-    else if (RegSetValueA(hkey, "TreatAs", REG_SZ, szClsidNew, strlen(szClsidNew)+1))
-    {
-       res = REGDB_E_WRITEREGDB;
+        res = REGDB_E_WRITEREGDB;
 	goto done;
     }
 
@@ -2239,31 +2073,4 @@ HRESULT WINAPI CoInitializeSecurity(PSECURITY_DESCRIPTOR pSecDesc, LONG cAuthSvc
         asAuthSvc, pReserved1, dwAuthnLevel, dwImpLevel, pReserved2,
         dwCapabilities, pReserved3);
   return S_OK;
-}
-
-/***********************************************************************
- *           CoSuspendClassObjects [OLE32.@]
- */
-HRESULT WINAPI CoSuspendClassObjects(void)
-{
-    FIXME("\n");
-    return S_OK;
-}
-
-/***********************************************************************
- *           CoAddRefServerProcess [OLE32.@]
- */
-ULONG WINAPI CoAddRefServerProcess(void)
-{
-    FIXME("\n");
-    return 2;
-}
-
-/***********************************************************************
- *           CoReleaseServerProcess [OLE32.@]
- */
-ULONG WINAPI CoReleaseServerProcess(void)
-{
-    FIXME("\n");
-    return 1;
 }

@@ -7,7 +7,6 @@
  * REVISIONS:
  *   CSH 15/08-2003 Created
  */
-
 #include <ntos.h>
 #include <stdio.h>
 #include <string.h>
@@ -206,7 +205,7 @@ SeekInFile(HANDLE hFile,
   PNTSTATUS Status)
 {
   FILE_POSITION_INFORMATION FilePosition;
-  FILE_STANDARD_INFORMATION FileStandard;
+  FILE_STANDARD_INFORMATION FileStandart;
   NTSTATUS errCode;
   IO_STATUS_BLOCK IoStatusBlock;
   LARGE_INTEGER Distance;
@@ -241,11 +240,11 @@ SeekInFile(HANDLE hFile,
     {
       NtQueryInformationFile(hFile,
         &IoStatusBlock,
-        &FileStandard,
+        &FileStandart,
         sizeof(FILE_STANDARD_INFORMATION),
         FileStandardInformation);
         FilePosition.CurrentByteOffset.QuadPart =
-        FileStandard.EndOfFile.QuadPart + Distance.QuadPart;
+        FileStandart.EndOfFile.QuadPart + Distance.QuadPart;
     }
   else if ( dwMoveMethod == SEEK_BEGIN )
     {

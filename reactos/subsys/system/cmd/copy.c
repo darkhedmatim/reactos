@@ -1,4 +1,4 @@
-/* $Id: copy.c,v 1.6 2004/11/08 02:16:06 weiden Exp $
+/* $Id: copy.c,v 1.4 2003/08/11 00:22:04 royce Exp $
  *
  *  COPY.C -- copy internal command.
  *
@@ -22,9 +22,19 @@
  *        Disabled prompting when used in batch mode.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_COPY
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <tchar.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 #define VERIFY  1               /* VERIFY Switch */

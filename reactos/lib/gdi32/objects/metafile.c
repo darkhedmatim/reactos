@@ -1,4 +1,15 @@
-#include "precomp.h"
+#ifdef UNICODE
+#undef UNICODE
+#endif
+
+#undef WIN32_LEAN_AND_MEAN
+#include <string.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <internal/heap.h>
+#include <win32k/kapi.h>
+#include <win32k/metafile.h>
+
 
 /*
  * @implemented
@@ -6,11 +17,11 @@
 HMETAFILE
 STDCALL
 CopyMetaFileW(
-	HMETAFILE	hmfSrc,
-	LPCWSTR		lpszFile
+	HMETAFILE	Src,
+	LPCWSTR		File
 	)
 {
-  return NtGdiCopyMetaFile (hmfSrc, lpszFile);
+	return NtGdiCopyMetaFile ( Src, File );
 }
 
 
@@ -20,7 +31,7 @@ CopyMetaFileW(
 HMETAFILE
 STDCALL
 CopyMetaFileA(
-	HMETAFILE	hmfSrc,
+	HMETAFILE	Src,
 	LPCSTR		lpszFile
 	)
 {
@@ -33,7 +44,7 @@ CopyMetaFileA(
     SetLastError (RtlNtStatusToDosError(Status));
   else
   {
-    rc = NtGdiCopyMetaFile ( hmfSrc, lpszFileW );
+    rc = NtGdiCopyMetaFile ( Src, lpszFileW );
 
     HEAP_free ( lpszFileW );
   }
@@ -51,7 +62,7 @@ CreateMetaFileW(
 	LPCWSTR		lpszFile
 	)
 {
-  return NtGdiCreateMetaFile ( lpszFile );
+	return NtGdiCreateMetaFile ( lpszFile );
 }
 
 
@@ -168,13 +179,13 @@ CopyEnhMetaFileA(
 HDC
 STDCALL
 CreateEnhMetaFileW(
-	HDC		hdcRef,
+	HDC		hdc,
 	LPCWSTR		lpFileName,
 	CONST RECT	*lpRect,
 	LPCWSTR		lpDescription
 	)
 {
-  return NtGdiCreateEnhMetaFile ( hdcRef, lpFileName, (CONST LPRECT)lpRect, lpDescription );
+  return NtGdiCreateEnhMetaFile ( hdc, lpFileName, (CONST LPRECT)lpRect, lpDescription );
 }
 
 
@@ -184,7 +195,7 @@ CreateEnhMetaFileW(
 HDC
 STDCALL
 CreateEnhMetaFileA(
-	HDC		hdcRef,
+	HDC		hdc,
 	LPCSTR		lpFileName,
 	CONST RECT	*lpRect,
 	LPCSTR		lpDescription
@@ -205,7 +216,7 @@ CreateEnhMetaFileA(
       else
       {
 	rc = NtGdiCreateEnhMetaFile (
-	  hdcRef, lpFileNameW, (CONST LPRECT)lpRect, lpDescriptionW );
+	  hdc, lpFileNameW, (CONST LPRECT)lpRect, lpDescriptionW );
 
 	HEAP_free ( lpDescriptionW );
       }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fsctl.c,v 1.11 2004/12/25 11:18:38 navaraf Exp $
+/* $Id: fsctl.c,v 1.9 2003/11/12 15:30:21 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -31,7 +31,7 @@
 #include <ddk/ntddk.h>
 #include <ntos/minmax.h>
 
-//#define NDEBUG
+#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -108,7 +108,7 @@ NtfsHasFileSystem(PDEVICE_OBJECT DeviceToMount)
   if (NT_SUCCESS(Status))
     {
       DPRINT1("NTFS-identifier: [%.8s]\n", BootSector->OemName);
-      if (RtlCompareMemory(BootSector->OemName, "NTFS    ", 8) != 8)
+      if (strncmp(BootSector->OemName, "NTFS    ", 8) != 0)
 	{
 	  Status = STATUS_UNRECOGNIZED_VOLUME;
 	}
@@ -122,7 +122,7 @@ NtfsHasFileSystem(PDEVICE_OBJECT DeviceToMount)
 
 static NTSTATUS
 NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
-                  PDEVICE_EXTENSION DeviceExt)
+		  PNTFS_INFO NtfsInfo)
 {
   DISK_GEOMETRY DiskGeometry;
   PFILE_RECORD_HEADER MftRecord;
@@ -130,9 +130,9 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
   PVOLINFO_ATTRIBUTE VolumeInfo;
   PBOOT_SECTOR BootSector;
   PATTRIBUTE Attribute;
+  ULONG FileRecordSize;
   ULONG Size;
   NTSTATUS Status;
-  PNTFS_INFO NtfsInfo = &DeviceExt->NtfsInfo;
 
   DPRINT("NtfsGetVolumeData() called\n");
 
@@ -179,10 +179,7 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
   NtfsInfo->MftStart.QuadPart = BootSector->MftLocation;
   NtfsInfo->MftMirrStart.QuadPart = BootSector->MftMirrLocation;
   NtfsInfo->SerialNumber = BootSector->SerialNumber;
-  if (BootSector->ClustersPerMftRecord > 0)
-    NtfsInfo->BytesPerFileRecord = BootSector->ClustersPerMftRecord * NtfsInfo->BytesPerCluster;
-  else
-    NtfsInfo->BytesPerFileRecord = 1 << (-BootSector->ClustersPerMftRecord);
+  NtfsInfo->ClustersPerFileRecord = BootSector->ClustersPerMftRecord;
 
 //#ifndef NDEBUG
   DbgPrint("Boot sector information:\n");
@@ -202,8 +199,13 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
 
   ExFreePool(BootSector);
 
+  if (NtfsInfo->ClustersPerFileRecord == 0xF6)
+    FileRecordSize = NtfsInfo->ClustersPerFileRecord * NtfsInfo->BytesPerCluster;
+  else
+    FileRecordSize = NtfsInfo->BytesPerCluster;
+
   MftRecord = ExAllocatePool(NonPagedPool,
-			     NtfsInfo->BytesPerFileRecord);
+			     FileRecordSize);
   if (MftRecord == NULL)
     {
       return STATUS_INSUFFICIENT_RESOURCES;
@@ -211,7 +213,7 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
 
   Status = NtfsReadSectors(DeviceObject,
 			   NtfsInfo->MftStart.u.LowPart * NtfsInfo->SectorsPerCluster,
-			   NtfsInfo->BytesPerFileRecord / NtfsInfo->BytesPerSector,
+			   FileRecordSize / NtfsInfo->BytesPerSector,
 			   NtfsInfo->BytesPerSector,
 			   (PVOID)MftRecord,
 			   TRUE);
@@ -221,20 +223,32 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
       return Status;
     }
 
-  VolumeRecord = ExAllocatePool(NonPagedPool, NtfsInfo->BytesPerFileRecord);
-  if (VolumeRecord == NULL)
+  if (NtfsInfo->ClustersPerFileRecord == 0xF6)
     {
-      ExFreePool (MftRecord);
-      return STATUS_INSUFFICIENT_RESOURCES;
+      VolumeRecord = (PVOID)((ULONG_PTR)MftRecord + 3 * (NtfsInfo->BytesPerCluster / 4));
     }
-
-  /* Read Volume File (MFT index 3) */
-  DeviceExt->StorageDevice = DeviceObject;
-  Status = ReadFileRecord(DeviceExt, 3, VolumeRecord, MftRecord);
-  if (!NT_SUCCESS(Status))
+  else
     {
-      ExFreePool (MftRecord);
-      return Status;
+      VolumeRecord = ExAllocatePool(NonPagedPool,
+				    FileRecordSize);
+      if (VolumeRecord == NULL)
+	{
+	  ExFreePool (MftRecord);
+	  return STATUS_INSUFFICIENT_RESOURCES;
+	}
+
+      /* Read cluster MftStart + 3 (Volume File) */
+      Status = NtfsReadSectors(DeviceObject,
+			       (NtfsInfo->MftStart.u.LowPart + 3) * NtfsInfo->SectorsPerCluster,
+			       FileRecordSize / NtfsInfo->BytesPerSector,
+			       NtfsInfo->BytesPerSector,
+			       (PVOID)VolumeRecord,
+			       TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  ExFreePool (MftRecord);
+	  return Status;
+	}
     }
 
 #ifndef NDEBUG
@@ -252,10 +266,10 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
   /* Get volume name */
   Attribute = FindAttribute (VolumeRecord, AttributeVolumeName, NULL);
   DPRINT("Attribute %p\n", Attribute);
+  DPRINT("Data length %lu\n", AttributeDataLength (Attribute));
 
   if (Attribute != NULL && ((PRESIDENT_ATTRIBUTE)Attribute)->ValueLength != 0)
     {
-      DPRINT("Data length %lu\n", AttributeDataLength (Attribute));
       NtfsInfo->VolumeLabelLength =
 	min (((PRESIDENT_ATTRIBUTE)Attribute)->ValueLength, MAXIMUM_VOLUME_LABEL_LENGTH);
       RtlCopyMemory (NtfsInfo->VolumeLabel,
@@ -270,10 +284,10 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
   /* Get volume information */
   Attribute = FindAttribute (VolumeRecord, AttributeVolumeInformation, NULL);
   DPRINT("Attribute %p\n", Attribute);
+  DPRINT("Data length %lu\n", AttributeDataLength (Attribute));
 
   if (Attribute != NULL && ((PRESIDENT_ATTRIBUTE)Attribute)->ValueLength != 0)
     {
-      DPRINT("Data length %lu\n", AttributeDataLength (Attribute));
       VolumeInfo = (PVOID)((ULONG_PTR)Attribute + ((PRESIDENT_ATTRIBUTE)Attribute)->ValueOffset);
 
       NtfsInfo->MajorVersion = VolumeInfo->MajorVersion;
@@ -281,6 +295,10 @@ NtfsGetVolumeData(PDEVICE_OBJECT DeviceObject,
       NtfsInfo->Flags = VolumeInfo->Flags;
     }
 
+  if (NtfsInfo->ClustersPerFileRecord != 0xF6)
+    {
+      ExFreePool (VolumeRecord);
+    }
   ExFreePool (MftRecord);
 
   return Status;
@@ -335,7 +353,7 @@ NtfsMountVolume(PDEVICE_OBJECT DeviceObject,
 		sizeof(DEVICE_EXTENSION));
 
   Status = NtfsGetVolumeData(DeviceToMount,
-			     DeviceExt);
+			     &DeviceExt->NtfsInfo);
   if (!NT_SUCCESS(Status))
     goto ByeBye;
 

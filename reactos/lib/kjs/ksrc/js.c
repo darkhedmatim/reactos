@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/ksrc/js.c,v $
- * $Id: js.c,v 1.3 2004/12/24 23:01:35 navaraf Exp $
+ * $Id: js.c,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 #include "js.h"
@@ -160,7 +160,7 @@ static JSIOStream *iostream_iofunc (JSIOFunc func, void *context,
  * Global functions.
  */
 
-JSCharPtr
+const JSCharPtr
 js_version ()
 {
   return VERSION;
@@ -226,7 +226,7 @@ js_create_interp (JSInterpOptions *options, PKJS kjs)
 			     options->stacktrace_on_error,
 			     s_stdin, s_stdout, s_stderr);
   if (interp->vm == NULL)
-    KEBUGCHECK(0);
+    KeBugCheck(0);
 
   /* Set some options. */
   interp->vm->warn_undef = options->warn_undef;
@@ -253,17 +253,17 @@ js_create_interp (JSInterpOptions *options, PKJS kjs)
       /* Define compiler to the virtual machine. */
       bc = js_bc_read_data (js_compiler_bytecode, js_compiler_bytecode_len);
       if (bc == NULL)
-	KEBUGCHECK(0);
+	KeBugCheck(0);
 
       result = js_vm_execute (interp->vm, bc);
       js_bc_free (bc);
       if (!result)
-	KEBUGCHECK(0);
+	KeBugCheck(0);
     }
 
   /* Initialize our extensions. */
   if (!js_define_module (interp, js_core_globals))
-    KEBUGCHECK(0);
+    KeBugCheck(0);
 
   /* Ok, we'r done. */
   return interp;
@@ -278,7 +278,7 @@ js_destroy_interp (JSInterpPtr interp)
 }
 
 
-JSCharPtr
+const JSCharPtr
 js_error_message (JSInterpPtr interp)
 {
   return interp->vm->error;
@@ -792,7 +792,7 @@ js_instantiate_class (JSInterpPtr interp, JSClassPtr cls, void *ictx,
 }
 
 
-JSClassPtr
+const JSClassPtr
 js_lookup_class (JSInterpPtr interp, char *name)
 {
   JSNode *n;
@@ -840,7 +840,7 @@ js_type_make_string (JSInterpPtr interp, JSType *type, unsigned char *data,
 {
   JSNode *n = (JSNode *) type;
 
-  js_vm_make_string (interp->vm, n, (char*)data, length);
+  js_vm_make_string (interp->vm, n, data, length);
 }
 
 

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    SFNT object management (base).                                       */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -21,9 +21,10 @@
 #include "ttload.h"
 #include "ttcmap0.h"
 #include FT_INTERNAL_SFNT_H
+#include FT_INTERNAL_POSTSCRIPT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TRUETYPE_TAGS_H
-#include FT_SERVICE_POSTSCRIPT_CMAPS_H
+
 #include "sferrors.h"
 
 
@@ -160,8 +161,6 @@
     FT_Int            found_win     = -1;
     FT_Int            found_unicode = -1;
 
-    FT_Bool           is_english = 0;
-
     TT_NameEntry_ConvertFunc  convert;
 
 
@@ -207,8 +206,7 @@
             case TT_MS_ID_SYMBOL_CS:
             case TT_MS_ID_UNICODE_CS:
             case TT_MS_ID_UCS_4:
-              is_english = ( rec->languageID & 0x3FF ) == 0x009;
-              found_win  = n;
+              found_win = n;
               break;
 
             default:
@@ -225,10 +223,9 @@
 
     /* some fonts contain invalid Unicode or Macintosh formatted entries; */
     /* we will thus favor names encoded in Windows formats if available   */
-    /* (provided it is an English name)                                   */
     /*                                                                    */
     convert = NULL;
-    if ( found_win >= 0 && !( found_apple >= 0 && !is_english ) )
+    if ( found_win >= 0 )
     {
       rec = face->name_table.names + found_win;
       switch ( rec->encodingID )
@@ -267,7 +264,7 @@
         FT_UNUSED( error );
 
 
-        if ( FT_QNEW_ARRAY ( rec->string, rec->stringLength ) ||
+        if ( FT_NEW_ARRAY  ( rec->string, rec->stringLength ) ||
              FT_STREAM_SEEK( rec->stringOffset )              ||
              FT_STREAM_READ( rec->string, rec->stringLength ) )
         {
@@ -368,7 +365,11 @@
       face->goto_table = sfnt->goto_table;
     }
 
-    FT_FACE_FIND_GLOBAL_SERVICE( face, face->psnames, POSTSCRIPT_CMAPS );
+    if ( !face->psnames )
+    {
+      face->psnames = (PSNames_Service)
+                        FT_Get_Module_Interface( library, "psnames" );
+    }
 
     /* check that we have a valid TrueType file */
     error = sfnt->load_sfnt_header( face, stream, face_index, &sfnt_header );
@@ -404,7 +405,7 @@
                   FT_Int         num_params,
                   FT_Parameter*  params )
   {
-    FT_Error      error, psnames_error;
+    FT_Error      error;
     FT_Bool       has_outline;
     FT_Bool       is_apple_sbit;
 
@@ -435,11 +436,11 @@
     /* do we have outlines in there? */
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
     has_outline   = FT_BOOL( face->root.internal->incremental_interface != 0 ||
-                             tt_face_lookup_table( face, TTAG_glyf )    != 0 ||
-                             tt_face_lookup_table( face, TTAG_CFF )     != 0 );
+                             tt_face_lookup_table( face, TTAG_glyf ) != 0         ||
+                             tt_face_lookup_table( face, TTAG_CFF ) != 0          );
 #else
     has_outline   = FT_BOOL( tt_face_lookup_table( face, TTAG_glyf ) != 0 ||
-                             tt_face_lookup_table( face, TTAG_CFF )  != 0 );
+                             tt_face_lookup_table( face, TTAG_CFF ) != 0  );
 #endif
 
     is_apple_sbit = 0;
@@ -466,7 +467,7 @@
     /* the following tables are optional in PCL fonts -- */
     /* don't check for errors                            */
     (void)LOAD_( names );
-    psnames_error = LOAD_( psnames );
+    (void)LOAD_( psnames );
 
     /* do not load the metrics headers and tables if this is an Apple */
     /* sbit font file                                                 */
@@ -533,9 +534,9 @@
                FT_FACE_FLAG_HORIZONTAL;   /* horizontal data   */
 
 #ifdef TT_CONFIG_OPTION_POSTSCRIPT_NAMES
-      if ( psnames_error == SFNT_Err_Ok &&
-           face->postscript.FormatType != 0x00030000L )
-        flags |= FT_FACE_FLAG_GLYPH_NAMES;
+      /* might need more polish to detect the presence of a Postscript */
+      /* name table in the font                                        */
+      flags |= FT_FACE_FLAG_GLYPH_NAMES;
 #endif
 
       /* fixed width font? */
@@ -549,15 +550,6 @@
       /* kerning available ? */
       if ( face->kern_pairs )
         flags |= FT_FACE_FLAG_KERNING;
-
-#ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
-      /* Don't bother to load the tables unless somebody asks for them. */
-      /* No need to do work which will (probably) not be used.          */
-      if ( tt_face_lookup_table( face, TTAG_glyf ) != 0 &&
-           tt_face_lookup_table( face, TTAG_fvar ) != 0 &&
-           tt_face_lookup_table( face, TTAG_gvar ) != 0 )
-        flags |= FT_FACE_FLAG_MULTIPLE_MASTERS;
-#endif
 
       root->face_flags = flags;
 
@@ -651,14 +643,14 @@
           FT_Bitmap_Size*  bsize  = root->available_sizes + n;
           TT_SBit_Strike   strike = face->sbit_strikes + n;
           FT_UShort        fupem  = face->header.Units_Per_EM;
-          FT_Short         height = (FT_Short)( face->horizontal.Ascender -
-                                                face->horizontal.Descender +
-                                                face->horizontal.Line_Gap );
+          FT_Short         height = face->horizontal.Ascender -
+                                      face->horizontal.Descender +
+                                      face->horizontal.Line_Gap;
           FT_Short         avg    = face->os2.xAvgCharWidth;
 
 
           /* assume 72dpi */
-          bsize->height =
+          bsize->height = 
             (FT_Short)( ( height * strike->y_ppem + fupem/2 ) / fupem );
           bsize->width  =
             (FT_Short)( ( avg * strike->y_ppem + fupem/2 ) / fupem );
@@ -842,10 +834,9 @@
     FT_FREE( face->root.style_name );
 
     /* freeing sbit size table */
-    FT_FREE( face->root.available_sizes );
     face->root.num_fixed_sizes = 0;
-
-    FT_FREE( face->postscript_name );
+    if ( face->root.available_sizes )
+      FT_FREE( face->root.available_sizes );
 
     face->sfnt = 0;
   }

@@ -52,9 +52,8 @@ CalcVolumeSerialNumber(VOID)
 
 
 static NTSTATUS
-Fat32WriteBootSector (IN HANDLE FileHandle,
-		      IN PFAT32_BOOT_SECTOR BootSector,
-		      IN OUT PFORMAT_CONTEXT Context)
+Fat32WriteBootSector(IN HANDLE FileHandle,
+  IN PFAT32_BOOT_SECTOR BootSector)
 {
   IO_STATUS_BLOCK IoStatusBlock;
   NTSTATUS Status;
@@ -91,10 +90,8 @@ Fat32WriteBootSector (IN HANDLE FileHandle,
     {
       DPRINT("NtWriteFile() failed (Status %lx)\n", Status);
       RtlFreeHeap(RtlGetProcessHeap(), 0, NewBootSector);
-      return Status;
+      return(Status);
     }
-
-  UpdateProgress (Context, 1);
 
   /* Write backup boot sector */
   if (BootSector->BootBackup != 0x0000)
@@ -113,23 +110,20 @@ Fat32WriteBootSector (IN HANDLE FileHandle,
         {
           DPRINT("NtWriteFile() failed (Status %lx)\n", Status);
           RtlFreeHeap(RtlGetProcessHeap(), 0, NewBootSector);
-          return Status;
+          return(Status);
         }
-
-      UpdateProgress (Context, 1);
     }
 
   /* Free the new boot sector */
   RtlFreeHeap(RtlGetProcessHeap(), 0, NewBootSector);
 
-  return Status;
+  return(Status);
 }
 
 
 static NTSTATUS
-Fat32WriteFsInfo (IN HANDLE FileHandle,
-		  IN PFAT32_BOOT_SECTOR BootSector,
-		  IN OUT PFORMAT_CONTEXT Context)
+Fat32WriteFsInfo(IN HANDLE FileHandle,
+  IN PFAT32_BOOT_SECTOR BootSector)
 {
   IO_STATUS_BLOCK IoStatusBlock;
   NTSTATUS Status;
@@ -170,8 +164,6 @@ Fat32WriteFsInfo (IN HANDLE FileHandle,
       return(Status);
     }
 
-  UpdateProgress (Context, 1);
-
   /* Free the new sector buffer */
   RtlFreeHeap(RtlGetProcessHeap(), 0, FsInfo);
 
@@ -180,16 +172,16 @@ Fat32WriteFsInfo (IN HANDLE FileHandle,
 
 
 static NTSTATUS
-Fat32WriteFAT (IN HANDLE FileHandle,
-	       IN ULONG SectorOffset,
-	       IN PFAT32_BOOT_SECTOR BootSector,
-	       IN OUT PFORMAT_CONTEXT Context)
+Fat32WriteFAT(IN HANDLE FileHandle,
+  ULONG SectorOffset,
+  IN PFAT32_BOOT_SECTOR BootSector)
 {
   IO_STATUS_BLOCK IoStatusBlock;
   NTSTATUS Status;
   PUCHAR Buffer;
   LARGE_INTEGER FileOffset;
   ULONG i;
+  ULONG Size;
   ULONG Sectors;
 
   /* Allocate buffer */
@@ -236,8 +228,6 @@ Fat32WriteFAT (IN HANDLE FileHandle,
       return(Status);
     }
 
-  UpdateProgress (Context, 1);
-
   /* Zero the begin of the buffer */
   memset(Buffer, 0, 12);
 
@@ -247,19 +237,19 @@ Fat32WriteFAT (IN HANDLE FileHandle,
     {
       /* Zero some sectors of the FAT */
       FileOffset.QuadPart = (SectorOffset + BootSector->ReservedSectors + i) * BootSector->BytesPerSector;
-
-      if ((BootSector->FATSectors32 - i) <= Sectors)
+      Size = BootSector->FATSectors32 - i;
+      if (Size > Sectors)
         {
-          Sectors = BootSector->FATSectors32 - i;
+          Size = Sectors;
         }
-
+      Size *= BootSector->BytesPerSector;
       Status = NtWriteFile(FileHandle,
         NULL,
         NULL,
         NULL,
         &IoStatusBlock,
         Buffer,
-        Sectors * BootSector->BytesPerSector,
+        Size,
         &FileOffset,
         NULL);
       if (!NT_SUCCESS(Status))
@@ -268,8 +258,6 @@ Fat32WriteFAT (IN HANDLE FileHandle,
           RtlFreeHeap(RtlGetProcessHeap(), 0, Buffer);
           return(Status);
         }
-
-      UpdateProgress (Context, Sectors);
     }
 
   /* Free the buffer */
@@ -280,9 +268,8 @@ Fat32WriteFAT (IN HANDLE FileHandle,
 
 
 static NTSTATUS
-Fat32WriteRootDirectory (IN HANDLE FileHandle,
-			 IN PFAT32_BOOT_SECTOR BootSector,
-			 IN OUT PFORMAT_CONTEXT Context)
+Fat32WriteRootDirectory(IN HANDLE FileHandle,
+  IN PFAT32_BOOT_SECTOR BootSector)
 {
   IO_STATUS_BLOCK IoStatusBlock;
   NTSTATUS Status;
@@ -334,8 +321,6 @@ Fat32WriteRootDirectory (IN HANDLE FileHandle,
       return(Status);
     }
 
-  UpdateProgress (Context, (ULONG)BootSector->SectorsPerCluster);
-
   /* Free the buffer */
   RtlFreeHeap(RtlGetProcessHeap(), 0, Buffer);
 
@@ -344,13 +329,13 @@ Fat32WriteRootDirectory (IN HANDLE FileHandle,
 
 
 NTSTATUS
-Fat32Format (HANDLE FileHandle,
-	     PPARTITION_INFORMATION PartitionInfo,
+Fat32Format (HANDLE  FileHandle,
+	     PPARTITION_INFORMATION  PartitionInfo,
 	     PDISK_GEOMETRY DiskGeometry,
 	     PUNICODE_STRING Label,
-	     BOOLEAN QuickFormat,
-	     ULONG ClusterSize,
-	     PFORMAT_CONTEXT Context)
+	     BOOL  QuickFormat,
+	     DWORD  ClusterSize,
+	     PFMIFSCALLBACK  Callback)
 {
   FAT32_BOOT_SECTOR BootSector;
   OEM_STRING VolumeLabel;
@@ -432,29 +417,16 @@ Fat32Format (HANDLE FileHandle,
   BootSector.FATSectors32 = (TmpVal1 + (TmpVal2 - 1)) / TmpVal2;
   DPRINT("FATSectors32 = %lu\n", BootSector.FATSectors32);
 
-  /* Init context data */
-  if (QuickFormat)
-    {
-      Context->TotalSectorCount =
-	2 + (BootSector.FATSectors32 * BootSector.FATCount) + BootSector.SectorsPerCluster;
-    }
-  else
-    {
-      Context->TotalSectorCount = BootSector.SectorsHuge;
-    }
-
-  Status = Fat32WriteBootSector (FileHandle,
-				 &BootSector,
-				 Context);
+  Status = Fat32WriteBootSector(FileHandle,
+    &BootSector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("Fat32WriteBootSector() failed with status 0x%.08x\n", Status);
       return Status;
     }
 
-  Status = Fat32WriteFsInfo (FileHandle,
-			     &BootSector,
-			     Context);
+  Status = Fat32WriteFsInfo(FileHandle,
+    &BootSector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("Fat32WriteFsInfo() failed with status 0x%.08x\n", Status);
@@ -462,10 +434,9 @@ Fat32Format (HANDLE FileHandle,
     }
 
   /* Write first FAT copy */
-  Status = Fat32WriteFAT (FileHandle,
-			  0,
-			  &BootSector,
-			  Context);
+  Status = Fat32WriteFAT(FileHandle,
+    0,
+    &BootSector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("Fat32WriteFAT() failed with status 0x%.08x\n", Status);
@@ -473,30 +444,21 @@ Fat32Format (HANDLE FileHandle,
     }
 
   /* Write second FAT copy */
-  Status = Fat32WriteFAT (FileHandle,
-			  BootSector.FATSectors32,
-			  &BootSector,
-			  Context);
+  Status = Fat32WriteFAT(FileHandle,
+    BootSector.FATSectors32,
+    &BootSector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("Fat32WriteFAT() failed with status 0x%.08x.\n", Status);
       return Status;
     }
 
-  Status = Fat32WriteRootDirectory (FileHandle,
-				    &BootSector,
-				    Context);
+  Status = Fat32WriteRootDirectory(FileHandle,
+    &BootSector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("Fat32WriteRootDirectory() failed with status 0x%.08x\n", Status);
     }
 
-  if (!QuickFormat)
-    {
-      /* FIXME: Fill remaining sectors */
-    }
-
   return Status;
 }
-
-/* EOF */

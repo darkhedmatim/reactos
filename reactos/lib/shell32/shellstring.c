@@ -44,7 +44,16 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 /************************* STRRET functions ****************************/
 
-BOOL WINAPI StrRetToStrNA(LPSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
+/*
+ * ***** NOTE *****
+ *  These routines are identical to StrRetToBuf[AW] in dlls/shlwapi/string.c.
+ *  They were duplicated here because not every version of Shlwapi.dll exports
+ *  StrRetToBuf[AW]. If you change one routine, change them both. YOU HAVE BEEN
+ *  WARNED.
+ * ***** NOTE *****
+ */
+
+HRESULT WINAPI StrRetToStrNA (LPVOID dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
 {
 	TRACE("dest=%p len=0x%lx strret=%p(%s) pidl=%p\n",
 	    dest,len,src,
@@ -53,36 +62,33 @@ BOOL WINAPI StrRetToStrNA(LPSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST 
 	    (src->uType == STRRET_OFFSET) ? "STRRET_OFFSET" : "STRRET_???",
 	    pidl);
 
-    if (!dest)
-        return FALSE;
-
 	switch (src->uType)
 	{
 	  case STRRET_WSTR:
-	    WideCharToMultiByte(CP_ACP, 0, src->u.pOleStr, -1, dest, len, NULL, NULL);
+	    WideCharToMultiByte(CP_ACP, 0, src->u.pOleStr, -1, (LPSTR)dest, len, NULL, NULL);
 	    CoTaskMemFree(src->u.pOleStr);
 	    break;
 
 	  case STRRET_CSTR:
-	    lstrcpynA(dest, src->u.cStr, len);
+	    lstrcpynA((LPSTR)dest, src->u.cStr, len);
 	    break;
 
 	  case STRRET_OFFSET:
-	    lstrcpynA(dest, ((LPCSTR)&pidl->mkid)+src->u.uOffset, len);
+	    lstrcpynA((LPSTR)dest, ((LPCSTR)&pidl->mkid)+src->u.uOffset, len);
 	    break;
 
 	  default:
 	    FIXME("unknown type!\n");
-	    if (len) *dest = '\0';
-	    return FALSE;
+	    if (len) *(LPSTR)dest = '\0';
+	    return(FALSE);
 	}
 	TRACE("-- %s\n", debugstr_a(dest) );
-	return TRUE;
+	return S_OK;
 }
 
 /************************************************************************/
 
-BOOL WINAPI StrRetToStrNW(LPWSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
+HRESULT WINAPI StrRetToStrNW (LPVOID dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
 {
 	TRACE("dest=%p len=0x%lx strret=%p(%s) pidl=%p\n",
 	    dest,len,src,
@@ -91,32 +97,29 @@ BOOL WINAPI StrRetToStrNW(LPWSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST
 	    (src->uType == STRRET_OFFSET) ? "STRRET_OFFSET" : "STRRET_???",
 	    pidl);
 
-    if (!dest)
-        return FALSE;
-
 	switch (src->uType)
 	{
 	  case STRRET_WSTR:
-	    lstrcpynW(dest, src->u.pOleStr, len);
+	    lstrcpynW((LPWSTR)dest, src->u.pOleStr, len);
 	    CoTaskMemFree(src->u.pOleStr);
 	    break;
 
 	  case STRRET_CSTR:
             if (!MultiByteToWideChar( CP_ACP, 0, src->u.cStr, -1, dest, len ) && len)
-                  dest[len-1] = 0;
+                  ((LPWSTR)dest)[len-1] = 0;
 	    break;
 
 	  case STRRET_OFFSET:
             if (!MultiByteToWideChar( CP_ACP, 0, ((LPCSTR)&pidl->mkid)+src->u.uOffset, -1, dest, len ) && len)
-                  dest[len-1] = 0;
+                  ((LPWSTR)dest)[len-1] = 0;
 	    break;
 
 	  default:
 	    FIXME("unknown type!\n");
-	    if (len) *dest = '\0';
-	    return FALSE;
+	    if (len) *(LPWSTR)dest = '\0';
+	    return(FALSE);
 	}
-	return TRUE;
+	return S_OK;
 }
 
 
@@ -128,12 +131,11 @@ BOOL WINAPI StrRetToStrNW(LPWSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST
  * NOTES
  *  the pidl is for STRRET OFFSET
  */
-BOOL WINAPI StrRetToStrNAW(LPVOID dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
+HRESULT WINAPI StrRetToStrNAW (LPVOID dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
 {
 	if(SHELL_OsIsUnicode())
-        return StrRetToStrNW(dest, len, src, pidl);
-    else
-        return StrRetToStrNA(dest, len, src, pidl);
+	  return StrRetToStrNW (dest, len, src, pidl);
+	return StrRetToStrNA (dest, len, src, pidl);
 }
 
 /************************* OLESTR functions ****************************/

@@ -33,19 +33,25 @@
 
 #include "config.h"
 
-#include <string.h>
+#ifdef HAVE_STRING_H
+# include <string.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
-
-#define COBJMACROS
-
 #include "windef.h"
 #include "winerror.h"
 #include "winbase.h"
-#include "variant.h"
+#include "oleauto.h"
 #include "wine/debug.h"
+#include "variant.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(variant);
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
+
+
+#ifdef __REACTOS__ /*FIXME*/
+#include "ros-mingw-fixes.h"
+#endif
+
 
 /************************************************************************
  * SafeArray {OLEAUT32}
@@ -62,8 +68,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(variant);
  * using the IRecordInfo interface.
  *
  * There are two types of SafeArray, normal and vectors. Normal arrays can have
- * multiple dimensions and the data for the array is allocated separately from
- * the array header. This is the most flexible type of array. Vectors, on the
+ * multiple dimensions and the data for the array is allocated seperately from
+ * the array header. This is the most flexable type of array. Vectors, on the
  * other hand, are fixed in size and consist of a single allocated block, and a
  * single dimension.
  *
@@ -119,8 +125,10 @@ static DWORD SAFEARRAY_GetVTSize(VARTYPE vt)
     case VT_UI8:      return sizeof(LONG64);
     case VT_INT:
     case VT_UINT:     return sizeof(INT);
+#ifndef __REACTOS__ /*FIXME: wrong definition of VT_INT_PTR in MinGW headers */
     case VT_INT_PTR:
     case VT_UINT_PTR: return sizeof(UINT_PTR);
+#endif
     case VT_CY:       return sizeof(CY);
     case VT_DATE:     return sizeof(DATE);
     case VT_BSTR:     return sizeof(BSTR);
@@ -342,9 +350,7 @@ static HRESULT SAFEARRAY_DestroyData(SAFEARRAY *psa, ULONG ulStartCell)
 
       while(ulCellCount--)
       {
-        HRESULT hRet = VariantClear(lpVariant);
-
-        if (FAILED(hRet)) FIXME("VariantClear of element failed!\n");
+        VariantClear(lpVariant);
         lpVariant++;
       }
     }
@@ -371,10 +377,7 @@ static HRESULT SAFEARRAY_CopyData(SAFEARRAY *psa, SAFEARRAY *dest)
 
       while(ulCellCount--)
       {
-        HRESULT hRet;
-
-        hRet = VariantCopy(lpDest, lpVariant);
-        if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantCopy(lpDest, lpVariant);
         lpVariant++;
         lpDest++;
       }
@@ -661,7 +664,7 @@ SAFEARRAY* WINAPI SafeArrayCreateEx(VARTYPE vt, UINT cDims, SAFEARRAYBOUND *rgsa
  * NOTES
  * See SafeArray.
  */
-SAFEARRAY* WINAPI SafeArrayCreateVector(VARTYPE vt, LONG lLbound, ULONG cElements)
+SAFEARRAY* WINAPI SafeArrayCreateVector(VARTYPE vt, LONG lLbound, UINT cElements) /*MF: was ULONG */
 {
   TRACE("(%d->%s,%ld,%ld\n", vt, debugstr_vt(vt), lLbound, cElements);
     
@@ -879,10 +882,8 @@ HRESULT WINAPI SafeArrayPutElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
         VARIANT* lpVariant = (VARIANT*)pvData;
         VARIANT* lpDest = (VARIANT*)lpvDest;
 
-        hRet = VariantClear(lpDest);
-        if (FAILED(hRet)) FIXME("VariantClear failed with 0x%lx\n", hRet);
-        hRet = VariantCopy(lpDest, lpVariant);
-        if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantClear(lpDest);
+        VariantCopy(lpDest, lpVariant);
       }
       else if (psa->fFeatures & FADF_BSTR)
       {
@@ -966,10 +967,7 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
         VARIANT* lpVariant = (VARIANT*)lpvSrc;
         VARIANT* lpDest = (VARIANT*)pvData;
 
-        /* The original content of pvData is ignored. */
-        V_VT(lpDest) = VT_EMPTY;
-        hRet = VariantCopy(lpDest, lpVariant);
-	if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantCopy(lpDest, lpVariant);
       }
       else if (psa->fFeatures & FADF_BSTR)
       {
@@ -1252,10 +1250,9 @@ HRESULT WINAPI SafeArrayDestroyData(SAFEARRAY *psa)
     return E_INVALIDARG;
 
   if (psa->cLocks)
-    return DISP_E_ARRAYISLOCKED; /* Can't delete a locked array */
+    return DISP_E_ARRAYISLOCKED; /* Cant delete a locked array */
 
-  /* If static, keep pvData and don't free */
-  if (psa->pvData && !(psa->fFeatures & FADF_STATIC))
+  if (psa->pvData)
   {
     /* Delete the actual item data */
     if (FAILED(SAFEARRAY_DestroyData(psa, 0)))

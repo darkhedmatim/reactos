@@ -31,9 +31,16 @@
  *        Fixed little bug.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_SET
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "cmd.h"
 
 
 /* initial size of environment variable buffer */
@@ -87,10 +94,7 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		/* set or remove environment variable */
 		*p = _T('\0');
 		p++;
-		if (*p == _T('\0'))
-		{
-			p = NULL;
-		}
+
 		SetEnvironmentVariable (param, p);
 	}
 	else

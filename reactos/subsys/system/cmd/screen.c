@@ -9,9 +9,16 @@
  *
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_SCREEN
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 INT CommandScreen (LPTSTR cmd, LPTSTR param)

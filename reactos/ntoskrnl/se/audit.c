@@ -1,4 +1,4 @@
-/* $Id: audit.c,v 1.6 2004/08/15 16:39:11 chorns Exp $
+/* $Id: audit.c,v 1.2 2003/12/14 17:44:02 hbirr Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,7 +11,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 
@@ -97,171 +98,6 @@ NtPrivilegeObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
 {
   UNIMPLEMENTED;
   return(STATUS_NOT_IMPLEMENTED);
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SeAuditHardLinkCreation(
-	IN PUNICODE_STRING FileName,
-	IN PUNICODE_STRING LinkName,
-	IN BOOLEAN bSuccess
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-SeAuditingFileEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-SeAuditingFileEventsWithContext(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-SeAuditingHardLinkEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-SeAuditingHardLinkEventsWithContext(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-SeAuditingFileOrGlobalEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SeCloseObjectAuditAlarm(
-	IN PVOID Object,
-	IN HANDLE Handle,
-	IN BOOLEAN PerformAction
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-SeDeleteObjectAuditAlarm(IN PVOID Object,
-			 IN HANDLE Handle)
-{
-  UNIMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-SeOpenObjectAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
-		       IN PVOID Object OPTIONAL,
-		       IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
-		       IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-		       IN PACCESS_STATE AccessState,
-		       IN BOOLEAN ObjectCreated,
-		       IN BOOLEAN AccessGranted,
-		       IN KPROCESSOR_MODE AccessMode,
-		       OUT PBOOLEAN GenerateOnClose)
-{
-  UNIMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-SeOpenObjectForDeleteAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
-				IN PVOID Object OPTIONAL,
-				IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
-				IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-				IN PACCESS_STATE AccessState,
-				IN BOOLEAN ObjectCreated,
-				IN BOOLEAN AccessGranted,
-				IN KPROCESSOR_MODE AccessMode,
-				OUT PBOOLEAN GenerateOnClose)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SePrivilegeObjectAuditAlarm(
-	IN HANDLE Handle,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-	IN ACCESS_MASK DesiredAccess,
-	IN PPRIVILEGE_SET Privileges,
-	IN BOOLEAN AccessGranted,
-	IN KPROCESSOR_MODE CurrentMode
-	)
-{
-	UNIMPLEMENTED;
 }
 
 /* EOF */

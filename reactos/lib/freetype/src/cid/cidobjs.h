@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID objects manager (specification).                                 */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2004 by                                     */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -112,47 +112,42 @@ FT_BEGIN_HEADER
 
 
   FT_LOCAL( void )
-  cid_slot_done( FT_GlyphSlot  slot );
+  cid_slot_done( CID_GlyphSlot  slot );
 
   FT_LOCAL( FT_Error )
-  cid_slot_init( FT_GlyphSlot  slot );
+  cid_slot_init( CID_GlyphSlot   slot );
 
 
   FT_LOCAL( void )
-  cid_size_done( FT_Size  size );       /* CID_Size */
+  cid_size_done( CID_Size  size );
+
 
   FT_LOCAL( FT_Error )
-  cid_size_init( FT_Size  size );       /* CID_Size */
+  cid_size_init( CID_Size  size );
+
 
   FT_LOCAL( FT_Error )
-  cid_size_reset( FT_Size  size,        /* CID_Size */
-                  FT_UInt  char_width,
-                  FT_UInt  char_height );
-
-  FT_LOCAL( FT_Error )
-  cid_point_size_reset( FT_Size     size,
-                        FT_F26Dot6  char_width,
-                        FT_F26Dot6  char_height,
-                        FT_UInt     horz_resolution,
-                        FT_UInt     vert_resolution );
+  cid_size_reset( CID_Size  size );
 
 
   FT_LOCAL( FT_Error )
   cid_face_init( FT_Stream      stream,
-                 FT_Face        face,           /* CID_Face */
+                 CID_Face       face,
                  FT_Int         face_index,
                  FT_Int         num_params,
                  FT_Parameter*  params );
 
+
   FT_LOCAL( void )
-  cid_face_done( FT_Face  face );               /* CID_Face */
+  cid_face_done( CID_Face  face );
 
 
   FT_LOCAL( FT_Error )
-  cid_driver_init( FT_Module  driver );
+  cid_driver_init( CID_Driver  driver );
+
 
   FT_LOCAL( void )
-  cid_driver_done( FT_Module  driver );
+  cid_driver_done( CID_Driver  driver );
 
 
 FT_END_HEADER

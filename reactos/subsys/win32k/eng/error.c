@@ -1,4 +1,5 @@
-#include <w32k.h>
+#include <ddk/winddi.h>
+#include <include/error.h>
 
 /*
  * @implemented

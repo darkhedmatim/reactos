@@ -12,7 +12,6 @@ extern PDESKTOP_OBJECT InputDesktop;
 extern HDESK InputDesktopHandle; 
 extern PWNDCLASS_OBJECT DesktopWindowClass;
 extern HDC ScreenDeviceContext;
-extern BOOL g_PaintDesktopVersion;
 
 NTSTATUS FASTCALL
 InitDesktopImpl(VOID);
@@ -20,8 +19,8 @@ InitDesktopImpl(VOID);
 NTSTATUS FASTCALL
 CleanupDesktopImpl(VOID);
 
-VOID FASTCALL
-IntGetDesktopWorkArea(PDESKTOP_OBJECT Desktop, PRECT Rect);
+PRECT FASTCALL
+IntGetDesktopWorkArea(PDESKTOP_OBJECT Desktop);
 
 LRESULT CALLBACK
 IntDesktopWindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -31,9 +30,6 @@ IntGetScreenDC(VOID);
 
 HWND FASTCALL
 IntGetDesktopWindow (VOID);
-
-HWND FASTCALL
-IntGetCurrentThreadDesktopWindow(VOID);
 
 PUSER_MESSAGE_QUEUE FASTCALL
 IntGetFocusMessageQueue(VOID);
@@ -49,28 +45,6 @@ IntShowDesktop(PDESKTOP_OBJECT Desktop, ULONG Width, ULONG Height);
 
 NTSTATUS FASTCALL
 IntHideDesktop(PDESKTOP_OBJECT Desktop);
-
-HDESK FASTCALL
-IntGetDesktopObjectHandle(PDESKTOP_OBJECT DesktopObject);
-
-NTSTATUS FASTCALL
-IntValidateDesktopHandle(
-   HDESK Desktop,
-   KPROCESSOR_MODE AccessMode,
-   ACCESS_MASK DesiredAccess,
-   PDESKTOP_OBJECT *Object);
-
-NTSTATUS FASTCALL
-IntParseDesktopPath(PEPROCESS Process,
-                    PUNICODE_STRING DesktopPath,
-                    HWINSTA *hWinSta,
-                    HDESK *hDesktop);
-
-BOOL FASTCALL
-IntDesktopUpdatePerUserSettings(BOOL bEnable);
-
-#define IntIsActiveDesktop(Desktop) \
-  ((Desktop)->WindowStation->ActiveDesktop == (Desktop))
 
 #endif /* _WIN32K_DESKTOP_H */
 

@@ -26,8 +26,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "objbase.h"
@@ -37,9 +35,9 @@
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 typedef struct _FTMarshalImpl {
-	IUnknownVtbl *lpVtbl;
+	ICOM_VFIELD (IUnknown);
 	DWORD ref;
-	IMarshalVtbl *lpvtblFTM;
+	ICOM_VTABLE (IMarshal) * lpvtblFTM;
 
 	IUnknown *pUnkOuter;
 } FTMarshalImpl;
@@ -54,7 +52,7 @@ typedef struct _FTMarshalImpl {
 HRESULT WINAPI IiFTMUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, LPVOID * ppv)
 {
 
-    FTMarshalImpl *This = (FTMarshalImpl *)iface;
+    ICOM_THIS (FTMarshalImpl, iface);
 
     TRACE ("\n");
     *ppv = NULL;
@@ -74,7 +72,7 @@ HRESULT WINAPI IiFTMUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, LPV
 ULONG WINAPI IiFTMUnknown_fnAddRef (IUnknown * iface)
 {
 
-    FTMarshalImpl *This = (FTMarshalImpl *)iface;
+    ICOM_THIS (FTMarshalImpl, iface);
 
     TRACE ("\n");
     return InterlockedIncrement (&This->ref);
@@ -83,7 +81,7 @@ ULONG WINAPI IiFTMUnknown_fnAddRef (IUnknown * iface)
 ULONG WINAPI IiFTMUnknown_fnRelease (IUnknown * iface)
 {
 
-    FTMarshalImpl *This = (FTMarshalImpl *)iface;
+    ICOM_THIS (FTMarshalImpl, iface);
 
     TRACE ("\n");
     if (InterlockedDecrement (&This->ref))
@@ -92,8 +90,9 @@ ULONG WINAPI IiFTMUnknown_fnRelease (IUnknown * iface)
     return 0;
 }
 
-static IUnknownVtbl iunkvt =
+static ICOM_VTABLE (IUnknown) iunkvt =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IiFTMUnknown_fnQueryInterface,
 	IiFTMUnknown_fnAddRef,
 	IiFTMUnknown_fnRelease
@@ -202,8 +201,9 @@ HRESULT WINAPI FTMarshalImpl_DisconnectObject (LPMARSHAL iface, DWORD dwReserved
     return S_OK;
 }
 
-IMarshalVtbl ftmvtbl =
+ICOM_VTABLE (IMarshal) ftmvtbl =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	FTMarshalImpl_QueryInterface,
 	FTMarshalImpl_AddRef,
 	FTMarshalImpl_Release,

@@ -37,8 +37,7 @@
 #include <windows.h>
 #include <string.h>
 #include <wine/unicode.h>
-#include <user32.h>
-#include <debug.h>
+#include <wine/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -651,10 +650,10 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         else
             IntDrawRectEdge(dc, &myr, edge, (uFlags&DFCS_FLAT)|BF_RECT|BF_SOFT|BF_ADJUST);
 
-        UITOOLS_DrawCheckedRect( dc, &myr );
-    }
-    else
-    {
+	UITOOLS_DrawCheckedRect( dc, &myr );
+        }
+        else
+        {
         if(uFlags & DFCS_MONO)
         {
             IntDrawRectEdge(dc, &myr, edge, BF_MONO|BF_RECT|BF_ADJUST);
@@ -662,7 +661,7 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         }
         else
         {
-            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT | BF_SOFT);
+            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT);
         }
     }
 
@@ -1817,18 +1816,13 @@ INT STDCALL
 FillRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 {
    HBRUSH prevhbr;
-   
-   if (hbr <= (HBRUSH)(COLOR_MENUBAR + 1))
-   {
-      hbr = GetSysColorBrush((int)hbr - 1);
-   }
-   if ((prevhbr = NtGdiSelectObject(hDC, hbr)) == NULL)
-   {
+   if ((DWORD)hbr < 0x4000)
+      hbr = GetSysColorBrush((DWORD)hbr);
+   if ((prevhbr = SelectObject(hDC, hbr)) == NULL)
       return FALSE;
-   }
-   NtGdiPatBlt(hDC, lprc->left, lprc->top, lprc->right - lprc->left,
+   PatBlt(hDC, lprc->left, lprc->top, lprc->right - lprc->left,
       lprc->bottom - lprc->top, PATCOPY);
-   NtGdiSelectObject(hDC, prevhbr);
+   SelectObject(hDC, prevhbr);
    return TRUE;
 }
 
@@ -1849,35 +1843,39 @@ DrawAnimatedRects(HWND hWnd, int idAni, CONST RECT *lprcFrom,
 BOOL STDCALL
 DrawFocusRect(HDC hdc, CONST RECT *rect)
 {
-   static HBRUSH hFocusRectBrush = NULL;
-   HGDIOBJ OldObj;
-   UINT cx, cy;
-   
-   if(!hFocusRectBrush)
-   {
-      static HBITMAP hFocusPattern = NULL;
-      const DWORD Pattern[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
-      
-      hFocusPattern = CreateBitmap(8, 8, 1, 1, Pattern);
-      hFocusRectBrush = CreatePatternBrush(hFocusPattern);
-   }
-   
-   NtUserSystemParametersInfo(SPI_GETFOCUSBORDERWIDTH, 0, &cx, 0);
-   NtUserSystemParametersInfo(SPI_GETFOCUSBORDERHEIGHT, 0, &cy, 0);
-   
-   OldObj = SelectObject(hdc, hFocusRectBrush);
-   
-   /* top */
-   PatBlt(hdc, rect->left, rect->top, rect->right - rect->left, cy, PATINVERT);
-   /* bottom */
-   PatBlt(hdc, rect->left, rect->bottom - cy, rect->right - rect->left, cy, PATINVERT);
-   /* left */
-   PatBlt(hdc, rect->left, rect->top + cy, cx, rect->bottom - rect->top - (2 * cy), PATINVERT);
-   /* right */
-   PatBlt(hdc, rect->right - cx, rect->top + cy, cx, rect->bottom - rect->top - (2 * cy), PATINVERT);
-   
-   SelectObject(hdc, OldObj);
+/* FIXME PS_ALTERNATE and R2_XORPEN not yet implemented */
+#if 0 
+   HBRUSH hOldBrush;
+   HPEN hOldPen, hNewPen;
+   INT oldDrawMode, oldBkMode;
+
+   hOldBrush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+   hNewPen = CreatePen(PS_ALTERNATE, 1, GetSysColor(COLOR_WINDOWTEXT));
+   hOldPen = SelectObject(hdc, hNewPen);
+   oldDrawMode = SetROP2(hdc, R2_XORPEN);
+   oldBkMode = SetBkMode(hdc, TRANSPARENT);
+
+   Rectangle(hdc, rect->left, rect->top, rect->right, rect->bottom);
+
+   SetBkMode(hdc, oldBkMode);
+   SetROP2(hdc, oldDrawMode);
+   SelectObject(hdc, hOldPen);
+   DeleteObject(hNewPen);
+   SelectObject(hdc, hOldBrush);
+
    return TRUE;
+#else
+   PatBlt(hdc, rect->left, rect->top,
+      rect->right - rect->left - 1, 1, DSTINVERT);
+   PatBlt(hdc, rect->left, rect->top + 1, 1,
+      rect->bottom - rect->top - 1, DSTINVERT);
+   PatBlt(hdc, rect->left + 1, rect->bottom - 1,
+      rect->right - rect->left - 1, -1, DSTINVERT);
+   PatBlt(hdc, rect->right - 1, rect->top, -1,
+      rect->bottom - rect->top - 1, DSTINVERT);
+
+   return TRUE;
+#endif
 }
 
 /*

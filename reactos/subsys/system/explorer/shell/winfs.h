@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -35,7 +35,6 @@ protected:
 	WinEntry() : Entry(ET_WINDOWS) {}
 
 	virtual bool get_path(PTSTR path) const;
-	virtual ShellPath create_absolute_pidl() const;
 };
 
 
@@ -61,7 +60,6 @@ struct WinDirectory : public WinEntry, public Directory
 	}
 
 	virtual void read_directory(int scan_flags=SCAN_ALL);
-	virtual const void* get_next_path_component(const void*) const;
 	virtual Entry* find_entry(const void*);
 };
 

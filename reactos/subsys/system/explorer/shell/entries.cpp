@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../globals.h"	// for _prescan_nodes
 
-//#include "entries.h"
+#include "entries.h"
 
 
  // allocate and initialise a directory entry
@@ -110,33 +112,35 @@ Entry::~Entry()
 
 
  // read directory tree and expand to the given location
-Entry* Entry::read_tree(const void* path, SORT_ORDER sortOrder, int scan_flags)
+Entry* Entry::read_tree(const void* path, SORT_ORDER sortOrder)
 {
 	CONTEXT("Entry::read_tree()");
 
-	WaitCursor wait;
+	HCURSOR old_cursor = SetCursor(LoadCursor(0, IDC_WAIT));
 
 	Entry* entry = this;
+	Entry* next_entry = entry;
 
-	for(const void*p=path; p && entry; ) {
-		entry->smart_scan(sortOrder, scan_flags);
+	for(const void*p=path; p&&next_entry; p=entry->get_next_path_component(p)) {
+		entry = next_entry;
+
+		entry->read_directory(sortOrder);
 
 		if (entry->_down)
 			entry->_expanded = true;
 
-		Entry* found = entry->find_entry(p);
-		p = entry->get_next_path_component(p);
-
-		entry = found;
+		next_entry = entry->find_entry(p);
 	}
+
+	SetCursor(old_cursor);
 
 	return entry;
 }
 
 
-void Entry::read_directory_base(SORT_ORDER sortOrder, int scan_flags)
+void Entry::read_directory(SORT_ORDER sortOrder, int scan_flags)
 {
-	CONTEXT("Entry::read_directory_base()");
+	CONTEXT("Entry::read_directory(SORT_ORDER)");
 
 	 // call into subclass
 	read_directory(scan_flags);
@@ -168,16 +172,10 @@ Root::~Root()
  // directories first...
 static int compareType(const WIN32_FIND_DATA* fd1, const WIN32_FIND_DATA* fd2)
 {
-	int order1 = fd1->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-	int order2 = fd2->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+	int dir1 = fd1->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+	int dir2 = fd2->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
 
-	/* Handle "." and ".." as special case and move them at the very first beginning. */
-	if (order1 && order2) {
-		order1 = fd1->cFileName[0]!='.'? 1: fd1->cFileName[1]=='.'? 2: fd1->cFileName[1]=='\0'? 3: 1;
-		order2 = fd2->cFileName[0]!='.'? 1: fd2->cFileName[1]=='.'? 2: fd2->cFileName[1]=='\0'? 3: 1;
-	}
-
-	return order2==order1? 0: order2<order1? -1: 1;
+	return dir2==dir1? 0: dir2<dir1? -1: 1;
 }
 
 
@@ -306,14 +304,27 @@ void Entry::sort_directory(SORT_ORDER sortOrder)
 }
 
 
-void Entry::smart_scan(SORT_ORDER sortOrder, int scan_flags)
+void Entry::smart_scan(int scan_flags)
 {
 	CONTEXT("Entry::smart_scan()");
 
 	if (!_scanned) {
 		free_subentries();
-		read_directory_base(sortOrder, scan_flags);	///@todo We could use IShellFolder2::GetDefaultColumn to determine sort order.
+		read_directory(SORT_NAME, scan_flags);	// we could use IShellFolder2::GetDefaultColumn to determine sort order
 	}
+}
+
+
+ShellPath Entry::create_absolute_pidl() const
+{
+	CONTEXT("Entry::create_absolute_pidl()");
+
+	TCHAR path[MAX_PATH];
+
+	if (get_path(path))
+		return ShellPath(path);
+
+	return ShellPath();
 }
 
 
@@ -393,57 +404,8 @@ BOOL Entry::launch_entry(HWND hwnd, UINT nCmdShow)
 	if (!get_path(cmd))
 		return FALSE;
 
-	 // add path to the recent file list
-	SHAddToRecentDocs(SHARD_PATH, cmd);
-
 	  // start program, open document...
 	return launch_file(hwnd, cmd, nCmdShow);
-}
-
-
-HRESULT Entry::do_context_menu(HWND hwnd, const POINT& pos)
-{
-	ShellPath shell_path = create_absolute_pidl();
-	LPCITEMIDLIST pidl_abs = shell_path;
-
-	if (!pidl_abs)
-		return S_FALSE;	// no action for registry entries, etc.
-
-	static DynamicFct<HRESULT(WINAPI*)(LPCITEMIDLIST, REFIID, LPVOID*, LPCITEMIDLIST*)> SHBindToParent(TEXT("SHELL32"), "SHBindToParent");
-
-	if (SHBindToParent) {
-		IShellFolder* parentFolder;
-		LPCITEMIDLIST pidlLast;
-
-		 // get and use the parent folder to display correct context menu in all cases -> correct "Properties" dialog for directories, ...
-		HRESULT hr = (*SHBindToParent)(pidl_abs, IID_IShellFolder, (LPVOID*)&parentFolder, &pidlLast);
-
-		if (SUCCEEDED(hr)) {
-			hr = ShellFolderContextMenu(parentFolder, hwnd, 1, &pidlLast, pos.x, pos.y);
-
-			parentFolder->Release();
-		}
-
-		return hr;
-	} else {
-		/**@todo use parent folder instead of desktop folder
-		Entry* dir = _up;
-
-		ShellPath parent_path;
-
-		if (dir)
-			parent_path = dir->create_absolute_pidl();
-		else
-			parent_path = DesktopFolderPath();
-
-		ShellPath shell_path = create_relative_pidl(parent_path);
-		LPCITEMIDLIST pidl = shell_path;
-
-		ShellFolder parent_folder = parent_path;
-		return ShellFolderContextMenu(parent_folder, hwnd, 1, &pidl, pos.x, pos.y);
-		*/
-		return ShellFolderContextMenu(GetDesktopFolder(), hwnd, 1, &pidl_abs, pos.x, pos.y);
-	}
 }
 
 
@@ -523,26 +485,18 @@ void Entry::free_subentries()
 }
 
 
-Entry* Root::read_tree(LPCTSTR path, int scan_flags)
+const void* Directory::get_next_path_component(const void* p)
 {
-	Entry* entry;
+	LPCTSTR s = (LPCTSTR) p;
 
-	if (path && *path)
-		entry = _entry->read_tree(path, _sort_order);
-	else {
-		entry = _entry->read_tree(NULL, _sort_order);
+	while(*s && *s!=TEXT('\\') && *s!=TEXT('/'))
+		++s;
 
-		_entry->smart_scan();
+	while(*s==TEXT('\\') || *s==TEXT('/'))
+		++s;
 
-		if (_entry->_down)
-			_entry->_expanded = true;
-	}
+	if (!*s)
+		return NULL;
 
-	return entry;
-}
-
-
-Entry* Root::read_tree(LPCITEMIDLIST pidl, int scan_flags)
-{
-	return _entry->read_tree(pidl, _sort_order);
+	return s;
 }

@@ -21,8 +21,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
@@ -48,6 +46,17 @@ extern const GUID CLSID_PSDispatch;
 static BOOL BSTR_bCache = TRUE; /* Cache allocations to minimise alloc calls? */
 
 HMODULE OLEAUT32_hModule = NULL;
+
+
+#ifndef COLOR_GRADIENTINACTIVECAPTION
+/*FIXME There are missing some constants in MinGW: */
+#if(WINVER >= 0x0500)
+#define COLOR_HOTLIGHT                  26
+#define COLOR_GRADIENTACTIVECAPTION     27
+#define COLOR_GRADIENTINACTIVECAPTION   28
+#endif /* WINVER >= 0x0500 */
+#endif
+
 
 /******************************************************************************
  * BSTR  {OLEAUT32}
@@ -93,7 +102,8 @@ HMODULE OLEAUT32_hModule = NULL;
  *  calculated by lstrlenW(), since it returns the length that was used to
  *  allocate the string by SysAllocStringLen().
  */
-UINT WINAPI SysStringLen(BSTR str)
+unsigned/*FIXME: wrong return type of SysStringLen() in MinGW header */
+int WINAPI SysStringLen(BSTR str)
 {
     DWORD* bufferPointer;
 
@@ -123,7 +133,8 @@ UINT WINAPI SysStringLen(BSTR str)
  * NOTES
  *  See SysStringLen(), BSTR().
  */
-UINT WINAPI SysStringByteLen(BSTR str)
+unsigned/*FIXME: wrong return type of SysStringLen() in MinGW header */
+int WINAPI SysStringByteLen(BSTR str)
 {
     DWORD* bufferPointer;
 
@@ -571,28 +582,6 @@ ULONG WINAPI OaBuildVersion()
 }
 
 /******************************************************************************
- *      GetRecordInfoFromGuids  [OLEAUT32.322]
- *
- * RETURNS
- *  Success: S_OK
- *  Failure: E_INVALIDARG, if any argument is invalid.
- *
- * BUGS
- *  Unimplemented
- */
-HRESULT WINAPI GetRecordInfoFromGuids(
-    REFGUID rGuidTypeLib,
-    ULONG uVerMajor,
-    ULONG uVerMinor,
-    LCID lcid,
-    REFGUID rGuidTypeInfo,
-    IRecordInfo** ppRecInfo)
-{
-    FIXME("(%p,%ld,%ld,%ld,%p,%p),stub!\n",rGuidTypeLib, uVerMajor, uVerMinor, lcid, rGuidTypeInfo, ppRecInfo);
-    return E_NOTIMPL;
-}
-
-/******************************************************************************
  *		OleTranslateColor	[OLEAUT32.421]
  *
  * Convert an OLE_COLOR to a COLORREF.
@@ -667,7 +656,7 @@ HRESULT WINAPI OleTranslateColor(
       /*
        * Validate GetSysColor index.
        */
-      if ((index < COLOR_SCROLLBAR) || (index > COLOR_MENUBAR))
+      if ((index < COLOR_SCROLLBAR) || (index > COLOR_GRADIENTINACTIVECAPTION))
         return E_INVALIDARG;
 
       *pColorRef =  GetSysColor(index);
@@ -690,6 +679,7 @@ extern void _get_STDPIC_CF(LPVOID);
 /***********************************************************************
  *		DllGetClassObject (OLEAUT32.1)
  */
+#ifndef __REACTOS__ /*FIXME: no marshalling yet*/
 HRESULT WINAPI OLEAUT32_DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
 {
     *ppv = NULL;
@@ -718,6 +708,7 @@ HRESULT WINAPI OLEAUT32_DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *p
     FIXME("\n\tCLSID:\t%s,\n\tIID:\t%s\n",debugstr_guid(rclsid),debugstr_guid(iid));
     return CLASS_E_CLASSNOTAVAILABLE;
 }
+#endif
 
 /***********************************************************************
  *		DllCanUnloadNow (OLEAUT32.410)
@@ -730,7 +721,7 @@ HRESULT WINAPI OLEAUT32_DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *p
  * RETURNS
  *  Always returns S_FALSE. This dll cannot be unloaded.
  */
-HRESULT WINAPI OLEAUT32_DllCanUnloadNow(void)
+HRESULT WINAPI OLEAUT32_DllCanUnloadNow()
 {
     return S_FALSE;
 }

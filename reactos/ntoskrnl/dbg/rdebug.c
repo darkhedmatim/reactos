@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rdebug.c,v 1.7 2004/10/22 20:16:48 ekohl Exp $
+/* $Id: rdebug.c,v 1.5 2003/10/12 21:21:40 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -29,7 +29,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -119,7 +121,7 @@ DbgEnableFile(PCH Filename)
   if (!DbgpFind(Filename))
     {
       Entry = ExAllocatePool(NonPagedPool, sizeof(RDEBUG_ENTRY));
-      ASSERT(Entry);
+      assert(Entry);
       RtlMoveMemory(Entry->Filename, Filename, strlen(Filename) + 1);
       InsertTailList(&RDebugListHead, &Entry->ListEntry);
     }

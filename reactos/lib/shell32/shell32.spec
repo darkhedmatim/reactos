@@ -6,10 +6,10 @@
    2 stdcall SHChangeNotifyRegister(long long long long long ptr)
    4 stdcall SHChangeNotifyDeregister (long)
    5 stdcall SHChangeNotifyUpdateEntryList (long long long long)
-   9 stub PifMgr_OpenProperties
-  10 stub PifMgr_GetProperties
-  11 stub PifMgr_SetProperties
-  13 stub PifMgr_CloseProperties
+   9 stub PifMgr_OpenProperties@16
+  10 stub PifMgr_GetProperties@20
+  11 stub PifMgr_SetProperties@20
+  13 stub PifMgr_CloseProperties@8
   15 stdcall ILGetDisplayName(ptr ptr)
   16 stdcall ILFindLastID(ptr)
   17 stdcall ILRemoveLastID(ptr)
@@ -52,7 +52,7 @@
   56 stdcall PathUnquoteSpaces(str) PathUnquoteSpacesAW
   57 stdcall PathGetDriveNumber (str) PathGetDriveNumberAW
   58 stdcall ParseField(str long ptr long) ParseFieldAW
-  59 stdcall RestartDialog(long wstr long)
+  59 stdcall RestartDialog(long long long)
   60 stdcall ExitWindowsDialog(long)
   61 stdcall RunFileDlg(long long long str str long)
   62 stdcall PickIconDlg(long long long long)
@@ -83,8 +83,8 @@
   87 stdcall SHRevokeDragDrop(long)
   88 stdcall SHDoDragDrop(long ptr ptr long ptr)
   89 stdcall SHCloneSpecialIDList(long long long)
-  90 stdcall SHFindFiles(ptr ptr)
-  91 stub SHFindComputer
+#  90 stub SHFindFiles
+#  91 stub SHFindComputer
   92 stdcall PathGetShortPath (ptr) PathGetShortPathAW
   93 stdcall Win32CreateDirectory(wstr ptr) Win32CreateDirectoryAW
   94 stdcall Win32RemoveDirectory(wstr) Win32RemoveDirectoryAW
@@ -162,7 +162,7 @@
  168 stdcall SHCreatePropSheetExtArray(long str long)
  169 stdcall SHDestroyPropSheetExtArray(long)
  170 stdcall SHReplaceFromPropSheetExtArray(long long long long)
- 171 stdcall PathCleanupSpec(ptr ptr)
+ 171 stdcall PathCleanupSpec(ptr ptr) PathCleanupSpecAW
  172 stdcall SHCreateLinks(long str ptr long ptr)
  173 stdcall SHValidateUNC(long long long)
  174 stdcall SHCreateShellFolderViewEx (ptr ptr)
@@ -179,13 +179,9 @@
  185 stub SHHandleDiskFull
  186 stdcall ILGetDisplayNameEx(ptr ptr ptr long)
  187 stub ILGetPseudoNameW
- 188 stdcall ShellDDEInit(long)
+ 188 stub ShellDDEInit
  189 stdcall ILCreateFromPathA(str)
  190 stdcall ILCreateFromPathW(wstr)
- 191 stub SHUpdateImageA
- 192 stdcall SHUpdateImageW(wstr long long long)
- 193 stub SHHandleUpdateImage
- 194 stub SHCreatePropSheetExtArrayEx
  195 stdcall SHFree(ptr)
  196 stdcall SHAlloc(long)
  197 stub SHGlobalDefect
@@ -206,7 +202,7 @@
  212 stub Printers_AddPrinterPropPages
  213 stub Printers_RegisterWindowW
  214 stub Printers_UnregisterWindow
- 215 stub SHStartNetConnectionDialog
+ 215 stub SHStartNetConnectionDialog@12
  243 stdcall @(long long) shell32_243
  244 stdcall SHInitRestricted(ptr ptr)
  247 stdcall SHGetDataFromIDListA (ptr ptr long ptr long)
@@ -223,8 +219,8 @@
  276 stub SheFullPathA
  277 stub SheFullPathW
  278 stub SheGetCurDrive
- 279 stub SheGetDirA
- 280 stub SheGetDirExW
+ 279 stub SheGetDirA@8
+ 280 stub SheGetDirExW@12
  281 stdcall SheGetDirW (long long)
  282 stub SheGetPathOffsetW
  283 stub SheRemoveQuotesA
@@ -276,28 +272,28 @@
  505 stdcall SHRegCloseKey (long)
  506 stdcall SHRegOpenKeyA (long str long)
  507 stdcall SHRegOpenKeyW (long wstr long)
- 508 stub SHRegQueryValueA
+ 508 stub SHRegQueryValueA@16
  509 stdcall SHRegQueryValueExA(long str ptr ptr ptr ptr)
  510 stdcall SHRegQueryValueW (long long long long)
  511 stdcall SHRegQueryValueExW (long wstr ptr ptr ptr ptr)
  512 stdcall SHRegDeleteKeyW (long wstr)
 
- 520 stdcall -noname SHAllocShared (ptr long long)
- 521 stdcall -noname SHLockShared (long long)
- 522 stdcall -noname SHUnlockShared (ptr)
- 523 stdcall -noname SHFreeShared (long long)
- 524 stdcall RealDriveType (long long)
- 525 stub RealDriveTypeFlags
+ 520 stdcall SHAllocShared (long long long)
+ 521 stdcall SHLockShared (long long)
+ 522 stdcall SHUnlockShared (long)
+ 523 stdcall SHFreeShared (long long)
+ 524 stub RealDriveType@8
+ 525 stub RealDriveTypeFlags@8
 
  640 stdcall NTSHChangeNotifyRegister (long long long long long long)
  641 stdcall NTSHChangeNotifyDeregister (long)
 
- 643 stub SHChangeNotifyReceive
+ 643 stub SHChangeNotifyReceive@16
  644 stdcall SHChangeNotification_Lock(long long ptr ptr)
  645 stdcall SHChangeNotification_Unlock(long)
- 646 stub SHChangeRegistrationReceive
- 647 stub ReceiveAddToRecentDocs
- 648 stub SHWaitOp_Operate
+ 646 stub SHChangeRegistrationReceive@8
+ 647 stub ReceiveAddToRecentDocs@8
+ 648 stub SHWaitOp_Operate@8
 
  650 stdcall PathIsSameRoot(ptr ptr)PathIsSameRootAW
 
@@ -313,7 +309,8 @@
 
 # >= NT5
  714 stdcall @(ptr)SHELL32_714 # PathIsTemporaryW
- 730 stdcall RestartDialogEx(long wstr long long)
+
+ 730 stdcall RestartDialogEx(long long long long)
 
 1217 stub FOOBAR1217   # no joke! This is the real name!!
 
@@ -376,33 +373,33 @@
 @ stdcall SHCreateDirectoryExA(long str ptr)
 @ stdcall SHCreateDirectoryExW(long wstr ptr)
 @ stub ShellHookProc
-@ stub SHEmptyRecycleBinA
-@ stub SHEmptyRecycleBinW
+@ stub SHEmptyRecycleBinA@12
+@ stub SHEmptyRecycleBinW@12
 @ stdcall SHFileOperation(ptr)SHFileOperationAW
 @ stdcall SHFileOperationA(ptr)
 @ stdcall SHFileOperationW(ptr)
-@ stub SHFormatDrive
-@ stdcall SHFreeNameMappings(ptr)
+@ stub SHFormatDrive@16
+@ stub SHFreeNameMappings@4
 @ stdcall SHGetDesktopFolder(ptr)
 @ stdcall SHGetFileInfo(ptr long ptr long long)SHGetFileInfoAW
 @ stdcall SHGetFileInfoA(ptr long ptr long long)
 @ stdcall SHGetFileInfoW(ptr long ptr long long)
 @ stdcall SHGetInstanceExplorer(long)
 @ stdcall SHGetMalloc(ptr)
-@ stub SHGetNewLinkInfo
+@ stub SHGetNewLinkInfo@20
 @ stdcall SHGetPathFromIDList(ptr ptr)SHGetPathFromIDListAW
 @ stdcall SHGetPathFromIDListA(ptr ptr)
 @ stdcall SHGetPathFromIDListW(ptr ptr)
 @ stdcall SHGetSettings(ptr long)
 @ stdcall SHGetSpecialFolderLocation(long long ptr)
 @ stdcall SHHelpShortcuts_RunDLL(long long long long)
-@ stub SHHelpShortcuts_RunDLLA
-@ stub SHHelpShortcuts_RunDLLW
+@ stub SHHelpShortcuts_RunDLLA@16
+@ stub SHHelpShortcuts_RunDLLW@16
 @ stdcall SHLoadInProc(long)
-@ stub SHQueryRecycleBinA
-@ stub SHQueryRecycleBinW
-@ stub SHUpdateRecycleBinIcon
-@ stub WOWShellExecute
+@ stub SHQueryRecycleBinA@8
+@ stub SHQueryRecycleBinW@8
+@ stub SHUpdateRecycleBinIcon@0
+@ stub WOWShellExecute@28
 
 #
 # version 4.70 (IE3.0)

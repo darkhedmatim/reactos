@@ -1,4 +1,4 @@
-/* $Id: wlx.c,v 1.6 2004/10/11 21:08:05 weiden Exp $
+/* $Id: wlx.c,v 1.3 2004/01/06 16:11:57 ekohl Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include <WinWlx.h>
 #include <wchar.h>
-#include <reactos/winlogon.h>
 
 #include "setup.h"
 #include "winlogon.h"
@@ -27,19 +26,21 @@
 
 #define Unimplemented DbgPrint("WL: %S() at %S:%i unimplemented!\n", __FUNCTION__, __FILE__, __LINE__)
 
+PMSGINAINSTANCE MsGinaInst;
+
 /*
- * @implemented
+ * @unimplemented
  */
 VOID WINAPI
 WlxUseCtrlAltDel(
   HANDLE hWlx
 )
 {
-  WlxSetOption(hWlx, WLX_OPTION_USE_CTRL_ALT_DEL, TRUE, NULL);
+  Unimplemented;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID WINAPI
 WlxSetContextPointer(
@@ -47,11 +48,11 @@ WlxSetContextPointer(
   PVOID pWlxContext
 )
 {
-  WlxSetOption(hWlx, WLX_OPTION_CONTEXT_POINTER, (ULONG_PTR)pWlxContext, NULL);
+  Unimplemented;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID WINAPI
 WlxSasNotify(
@@ -59,7 +60,7 @@ WlxSasNotify(
   DWORD dwSasType
 )
 {
-  DispatchSAS((PWLSESSION)hWlx, dwSasType);
+  Unimplemented;
 }
 
 /*
@@ -71,7 +72,7 @@ WlxSetTimeout(
   DWORD Timeout
 )
 {
-  /* Unimplemented; */
+  Unimplemented;
   return FALSE;
 }
 
@@ -293,9 +294,9 @@ WlxSetOption(
   ULONG_PTR* OldValue
 )
 {
-  PWLSESSION Session = (PWLSESSION)hWlx;
-  
-  if(Session || !Value)
+  PMSGINAINSTANCE Instance = (PMSGINAINSTANCE)hWlx;
+  Unimplemented;
+  if(Instance || !Value)
   {
     switch(Option)
     {
@@ -303,8 +304,8 @@ WlxSetOption(
         return TRUE;
       case WLX_OPTION_CONTEXT_POINTER:
       {
-        *OldValue = (ULONG_PTR)Session->MsGina.Context;
-        Session->MsGina.Context = (PVOID)Value;
+        *OldValue = (ULONG_PTR)Instance->Context;
+        Instance->Context = (PVOID)Value;
         return TRUE;
       }    
       case WLX_OPTION_USE_SMART_CARD:
@@ -494,7 +495,7 @@ static void
 GetMsGinaPath(WCHAR *path)
 {
   DWORD Status, Type, Size;
-  HKEY hKey;
+  HANDLE hKey;
   
   Status = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                         L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
@@ -521,7 +522,8 @@ GetMsGinaPath(WCHAR *path)
   RegCloseKey(hKey);
 }
 
-INT_PTR CALLBACK
+BOOL 
+CALLBACK 
 GinaLoadFailedProc(
   HWND hwndDlg,
   UINT uMsg,
@@ -569,19 +571,21 @@ GinaLoadFailedProc(
 }
 
 BOOL
-LoadGina(PMSGINAFUNCTIONS Functions, DWORD *DllVersion, HMODULE *GinaInstance)
+LoadGina(PMSGINAFUNCTIONS Functions, DWORD *DllVersion)
 {
   HMODULE hGina;
   WCHAR GinaDll[MAX_PATH + 1];
   
+  MsGinaInst = NULL;
+  
   GetMsGinaPath(GinaDll);
   
-  if(!(hGina = LoadLibrary(GinaDll)))
+  hGina = LoadLibrary(GinaDll);
+  if(!hGina)
   {
     DialogBoxParam(hAppInstance, MAKEINTRESOURCE(IDD_GINALOADFAILED), 0, GinaLoadFailedProc, (LPARAM)&GinaDll);
     return FALSE;
   }
-  *GinaInstance = hGina;
   
   Functions->WlxNegotiate = (PFWLXNEGOTIATE)GetProcAddress(hGina, "WlxNegotiate");
   Functions->WlxInitialize = (PFWLXINITIALIZE)GetProcAddress(hGina, "WlxInitialize");
@@ -630,101 +634,32 @@ LoadGina(PMSGINAFUNCTIONS Functions, DWORD *DllVersion, HMODULE *GinaInstance)
   return (Functions->WlxNegotiate != NULL) && (Functions->WlxInitialize != NULL);
 }
 
-PWLSESSION
-MsGinaInit(void)
-{
-  PWLSESSION WLSession;
-  DWORD GinaDllVersion;
-  
-  WLSession = (PWLSESSION)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(WLSESSION));
-  if(!WLSession)
-  {
-    return NULL;
-  }
-  
-  if(!LoadGina(&WLSession->MsGina.Functions, &GinaDllVersion, &WLSession->MsGina.hDllInstance))
-  {
-    HeapFree(GetProcessHeap(), 0, WLSession);
-    return NULL;
-  }
-  
-  WLSession->MsGina.Context = NULL;
-  WLSession->MsGina.Version = GinaDllVersion;
-  WLSession->SuppressStatus = FALSE;
-  
-  if(!WLSession->MsGina.Functions.WlxInitialize(WLSession->InteractiveWindowStationName,
-                                               (HANDLE)WLSession,
-                                               NULL,
-                                               (PVOID)&FunctionTable,
-                                               &WLSession->MsGina.Context))
-  {
-    HeapFree(GetProcessHeap(), 0, WLSession);
-    return NULL;
-  }
-  return WLSession;
-}
-
 BOOL
-WlxCreateWindowStationAndDesktops(PWLSESSION Session)
+MsGinaInit(DWORD Version)
 {
-  /*
-   * Create the interactive window station
-   */
-  Session->InteractiveWindowStationName = L"WinSta0";
-  Session->InteractiveWindowStation = CreateWindowStation(Session->InteractiveWindowStationName,
-                                                          0, GENERIC_ALL, NULL);
-  if(!Session->InteractiveWindowStation)
-  {
-    DbgPrint("WL: Failed to create window station (0x%X)\n", GetLastError());
-    return FALSE;
-  }
-  SetProcessWindowStation(Session->InteractiveWindowStation);
+  PMSGINAINSTANCE Instance;
   
-  /*
-   * Create the application desktop
-   */
-  Session->ApplicationDesktop = CreateDesktop(L"Default",
-                                              NULL,
-                                              NULL,
-                                              0,      /* FIXME: Set some flags */
-                                              GENERIC_ALL,
-                                              NULL);
-  if(!Session->ApplicationDesktop)
+  Instance = (PMSGINAINSTANCE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MSGINAINSTANCE));
+  if(!Instance)
   {
-    DbgPrint("WL: Failed to create Default desktop (0x%X)\n", GetLastError());
-    return FALSE;
+    return 0;
   }
   
-  /*
-   * Create the winlogon desktop
-   */
-  Session->WinlogonDesktop = CreateDesktop(WINLOGON_DESKTOP,
-                                           NULL,
-                                           NULL,
-                                           0,      /* FIXME: Set some flags */
-                                           GENERIC_ALL,
-                                           NULL);
-  if(!Session->WinlogonDesktop)
-  {
-    DbgPrint("WL: Failed to create Winlogon desktop (0x%X)\n", GetLastError());
-    return FALSE;
-  }
+  Instance->Functions = &MsGinaFunctions;
+  Instance->hDllInstance = NULL; /* FIXME */
+  Instance->Context = NULL;
+  Instance->Version = Version;
   
-  /*
-   * Create the screen saver desktop
-   */
-  Session->ScreenSaverDesktop = CreateDesktop(L"Screen-Saver",
-                                              NULL,
-                                              NULL,
-                                              0,      /* FIXME: Set some flags */
-                                              GENERIC_ALL,
-                                              NULL);
-  if(!Session->ScreenSaverDesktop)
-  {
-    DbgPrint("WL: Failed to create Screen-Saver desktop (0x%X)\n", GetLastError());
-    return FALSE;
-  }
+  MsGinaInst = Instance;
   
+  if(!Instance->Functions->WlxInitialize(InteractiveWindowStation,
+                                         (HANDLE)Instance,
+                                         NULL,
+                                         (PVOID)&FunctionTable,
+                                         &Instance->Context))
+  {
+    return 0;
+  }
   return TRUE;
 }
 

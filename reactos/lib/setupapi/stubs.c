@@ -51,6 +51,44 @@ DWORD WINAPI suErrorToIds16( WORD w1, WORD w2 )
 }
 
 /***********************************************************************
+ *		SetupDiOpenClassRegKeyExW  (SETUPAPI.@)
+ *
+ * WINAPI in description not given
+ */
+HKEY WINAPI SetupDiOpenClassRegKeyExW(const GUID* class, REGSAM access, DWORD flags, PCWSTR machine, PVOID reserved)
+{
+  FIXME("\n");
+  return INVALID_HANDLE_VALUE;
+}
+
+/***********************************************************************
+ *		SetupDiGetClassDescriptionExW  (SETUPAPI.@)
+ */
+BOOL WINAPI SetupDiGetClassDescriptionExW (const GUID* class, PWSTR desc, DWORD size, PDWORD required, PCWSTR machine, PVOID reserved)
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
+ *		SetupDiClassNameFromGuidExW  (SETUPAPI.@)
+ */
+BOOL WINAPI SetupDiClassNameFromGuidExW (const GUID* class, PWSTR desc, DWORD size, PDWORD required, PCWSTR machine, PVOID reserved)
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
+ *		SetupDiBuildClassInfoListExW  (SETUPAPI.@)
+ */
+BOOL WINAPI SetupDiBuildClassInfoListExW(DWORD flags, LPGUID list, DWORD size, PDWORD required,  LPCWSTR  machine, PVOID reserved)
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
  *		SetupDiGetDeviceInfoListDetailA  (SETUPAPI.@)
  */
 BOOL WINAPI SetupDiGetDeviceInfoListDetailA(HDEVINFO devinfo, PSP_DEVINFO_LIST_DETAIL_DATA_A devinfo_data )
@@ -68,9 +106,26 @@ BOOL WINAPI SetupDiGetDeviceInfoListDetailW(HDEVINFO devinfo, PSP_DEVINFO_LIST_D
   return FALSE;
 }
 
+/***********************************************************************
+ *		SetupDiCreateDeviceInfoListA (SETUPAPI.@)
+ */
+HDEVINFO WINAPI SetupDiCreateDeviceInfoList(const GUID *class, HWND parend)
+{
+  FIXME("\n");
+  return FALSE;
+}
 
 /***********************************************************************
- *		SetupDiGetClassDevsExA  (SETUPAPI.@)
+ *		SetupDiCreateDeviceInfoListExW  (SETUPAPI.@)
+ */
+HDEVINFO WINAPI SetupDiCreateDeviceInfoListExW(const GUID *class, HWND parend , PCWSTR machine, PVOID reserved)
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
+ *		  (SETUPAPI.@)
  *
  * NO WINAPI in description given
  */
@@ -81,11 +136,20 @@ HDEVINFO WINAPI SetupDiGetClassDevsExA(const GUID *class, PCSTR filter, HWND par
 }
 
 /***********************************************************************
- *		SetupDiGetClassDevsExW  (SETUPAPI.@)
+ *		  (SETUPAPI.@)
  *
  * NO WINAPI in description given
  */
 HDEVINFO WINAPI SetupDiGetClassDevsExW(const GUID *class, PCWSTR filter, HWND parent, DWORD flags, HDEVINFO deviceset, PCWSTR machine, PVOID reserved)
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
+ *		SetupDiClassGuidsFromNameExW  (SETUPAPI.@)
+ */
+BOOL WINAPI SetupDiClassGuidsFromNameExW(LPCWSTR class, LPGUID list, DWORD size, PDWORD required,  LPCWSTR  machine, PVOID reserved)
 {
   FIXME("\n");
   return FALSE;
@@ -122,43 +186,4 @@ BOOL WINAPI SetupCopyOEMInfA(PCSTR sourceinffile, PCSTR sourcemedialoc,
 {
   FIXME("stub: source %s location %s ...\n",sourceinffile, sourcemedialoc);
   return FALSE;
-}
-
-/***********************************************************************
- *		SetupGetInfInformationA    (SETUPAPI.@)
- */
-BOOL WINAPI SetupGetInfInformationA( LPCVOID InfSpec, DWORD SearchControl,
-                                     PSP_INF_INFORMATION ReturnBuffer,
-                                     DWORD ReturnBufferSize, PDWORD RequiredSize)
-{
-    FIXME("(%p, %ld, %p, %ld, %p) Stub!\n",
-          InfSpec, SearchControl, ReturnBuffer, ReturnBufferSize, RequiredSize );
-    return TRUE;
-}
-
-/***********************************************************************
- *		SetupInitializeFileLogW(SETUPAPI.@)
- */
-HANDLE WINAPI SetupInitializeFileLogW(LPWSTR LogFileName, DWORD Flags)
-{
-    FIXME("Stub %s, 0x%lx\n",debugstr_w(LogFileName),Flags);
-    return INVALID_HANDLE_VALUE;
-}
-
-/***********************************************************************
- *		SetupInitializeFileLogA(SETUPAPI.@)
- */
-HANDLE WINAPI SetupInitializeFileLogA(LPSTR LogFileName, DWORD Flags)
-{
-    FIXME("Stub %s, 0x%lx\n",debugstr_a(LogFileName),Flags);
-    return INVALID_HANDLE_VALUE;
-}
-
-/***********************************************************************
- *		SetupTerminateFileLog(SETUPAPI.@)
- */
-BOOL WINAPI SetupTerminateFileLog(HANDLE FileLogHandle)
-{
-    FIXME ("Stub %p\n",FileLogHandle);
-    return TRUE;
 }

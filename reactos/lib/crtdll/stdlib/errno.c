@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include "../../msvcrt/stdlib/doserrmap.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,7 +36,7 @@
 
 
 #define	STARTMENU_WIDTH_MIN		120
-#define	STARTMENU_LINE_HEIGHT	20
+#define	STARTMENU_LINE_HEIGHT	22
 #define	STARTMENU_SEP_HEIGHT	(STARTMENU_LINE_HEIGHT/2)
 #define	STARTMENU_TOP_BTN_SPACE	8
 
@@ -138,7 +138,7 @@ struct StartMenuSeparator : public Static
 
 typedef list<ShellPath> StartMenuFolders;
 
- /// structor containing information for creating of start menus
+ /// structor containing information for creating start menus
 struct StartMenuCreateInfo
 {
 	StartMenuCreateInfo() : _border_top(0) {}
@@ -147,7 +147,6 @@ struct StartMenuCreateInfo
 	int		_border_top;
 	String	_title;
 	Window::CREATORFUNC_INFO _creator;
-	void*	_info;
 };
 
 #define STARTMENU_CREATOR(WND_CLASS) WINDOW_CREATOR_INFO(WND_CLASS, StartMenuCreateInfo)
@@ -217,8 +216,7 @@ struct StartMenu :
 	StartMenu(HWND hwnd, const StartMenuCreateInfo& create_info);
 	~StartMenu();
 
-	static HWND Create(int x, int y, const StartMenuFolders&, HWND hwndParent, LPCTSTR title,
-						CREATORFUNC_INFO creator=s_def_creator, void* info=NULL);
+	static HWND Create(int x, int y, const StartMenuFolders&, HWND hwndParent, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator);
 	static CREATORFUNC_INFO s_def_creator;
 
 protected:
@@ -240,15 +238,8 @@ protected:
 
 	int		_border_left;	// left border in pixels
 	int		_border_top;	// top border in pixels
-	int		_bottom_max;	// limit display area for long start menus
-
-	bool	_floating_btn;
-	bool	_arrow_btns;
 
 	POINT	_last_pos;
-	enum SCROLL_MODE {SCROLL_NOT, SCROLL_UP, SCROLL_DOWN} _scroll_mode;
-	int		_scroll_pos;
-	int		_invisible_lines;
 
 	StartMenuCreateInfo _create_info;	// copy of the original create info
 
@@ -267,7 +258,6 @@ protected:
 	virtual void ProcessKey(int vk);
 	bool	Navigate(int step);
 	bool	OpenSubmenu(bool select_first=false);
-	bool	JumpToNextShortcut(char c);
 #endif
 
 	 // member functions
@@ -275,10 +265,10 @@ protected:
 
 	virtual void AddEntries();
 
-	ShellEntryMap::iterator AddEntry(const String& title, ICON_ID icon_id, Entry* entry);
-	ShellEntryMap::iterator AddEntry(const String& title, ICON_ID icon_id=ICID_NONE, int id=-1);
-	ShellEntryMap::iterator AddEntry(const ShellFolder folder, ShellEntry* entry);
-	ShellEntryMap::iterator AddEntry(const ShellFolder folder, Entry* entry);
+	StartMenuEntry& AddEntry(const String& title, ICON_ID icon_id, Entry* entry);
+	StartMenuEntry& AddEntry(const String& title, ICON_ID icon_id=ICID_NONE, int id=-1);
+	StartMenuEntry& AddEntry(const ShellFolder folder, ShellEntry* entry);
+	StartMenuEntry& AddEntry(const ShellFolder folder, Entry* entry);
 
 	void	AddShellEntries(const ShellDirectory& dir, int max=-1, bool subfolders=true);
 
@@ -287,10 +277,10 @@ protected:
 
 	bool	CloseSubmenus() {return CloseOtherSubmenus();}
 	bool	CloseOtherSubmenus(int id=0);
-	void	CreateSubmenu(int id, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	bool	CreateSubmenu(int id, int folder, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	bool	CreateSubmenu(int id, int folder1, int folder2, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	void	CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
+	void	CreateSubmenu(int id, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator);
+	void	CreateSubmenu(int id, int folder, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator);
+	void	CreateSubmenu(int id, int folder1, int folder2, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator);
+	void	CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator);
 	void	ActivateEntry(int id, const ShellEntrySet& entries);
 	virtual void CloseStartMenu(int id=0);
 
@@ -298,9 +288,6 @@ protected:
 
 	void	DrawFloatingButton(HDC hdc);
 	void	GetFloatingButtonRect(LPRECT prect);
-	void	GetArrowButtonRects(LPRECT prect_up, LPRECT prect_down);
-
-	void	DrawArrows(HDC hdc);
 
 	void	Paint(PaintCanvas& canvas);
 	void	UpdateIcons(/*int idx*/);
@@ -369,11 +356,10 @@ protected:
 
 	SIZE	_logo_size;
 
-	virtual void AddEntries();
-	virtual void ProcessKey(int vk);
-
+	void	AddEntries();
 	void	Paint(PaintCanvas& canvas);
 	void	CloseStartMenu(int id=0);
+	virtual void ProcessKey(int vk);
 };
 
 
@@ -388,7 +374,7 @@ struct SettingsMenu : public StartMenuHandler
 	}
 
 protected:
-	virtual void AddEntries();
+	void	AddEntries();
 };
 
 
@@ -403,7 +389,7 @@ struct BrowseMenu : public StartMenuHandler
 	}
 
 protected:
-	virtual void AddEntries();
+	void	AddEntries();
 };
 
 
@@ -418,11 +404,9 @@ struct SearchMenu : public StartMenuHandler
 	}
 
 protected:
-	virtual void AddEntries();
+	void	AddEntries();
 };
 
-
-#define	RECENT_DOCS_COUNT	20	///@todo read max. count of entries from registry
 
  /// "Recent Files" sub-start menu
 struct RecentStartMenu : public StartMenu
@@ -437,29 +421,3 @@ struct RecentStartMenu : public StartMenu
 protected:
 	virtual void AddEntries();
 };
-
-
-#ifndef _SHELL32_FAVORITES
-
-typedef map<int, BookmarkNode> BookmarkMap;
-
- /// Bookmarks sub-startmenu
-struct FavoritesMenu : public StartMenu
-{
-	typedef StartMenu super;
-
-	FavoritesMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info),
-		_bookmarks(*(BookmarkList*)create_info._info)
-	{
-	}
-
-protected:
-	virtual int Command(int id, int code);
-	virtual void AddEntries();
-
-	BookmarkList _bookmarks;
-	BookmarkMap	_entries;
-};
-
-#endif

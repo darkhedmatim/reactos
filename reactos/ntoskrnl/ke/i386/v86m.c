@@ -25,7 +25,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/v86m.h>
+#include <internal/trap.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+#include <string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -360,7 +367,7 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	      else
 		{
 		  ULONG v;
-		  v = READ_PORT_ULONG((PULONG)(ULONG)ip[1]);
+		  v = READ_PORT_USHORT((PUSHORT)(ULONG)ip[1]);
 		  DPRINT("inl %d\t%X\n", (ULONG)ip[1], v);
 		  Tf->Eax = v;
 		}
@@ -413,7 +420,7 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 		{
 		  ULONG v;
 
-		  v = READ_PORT_ULONG((PULONG)(Tf->Edx & 0xFFFF));
+		  v = READ_PORT_USHORT((PUSHORT)(Tf->Edx & 0xFFFF));
 		  DPRINT("inl %d\t%X\n", Tf->Edx & 0xFFFF, v);
 		  Tf->Eax = v;
 		}

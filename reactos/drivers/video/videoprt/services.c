@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: services.c,v 1.3 2004/03/19 20:58:32 navaraf Exp $
+ * $Id: services.c,v 1.1 2004/01/19 15:56:53 navaraf Exp $
  */
 
 #include "videoprt.h"
@@ -35,7 +35,8 @@ IntInterfaceDereference(PVOID Context)
    /* Do nothing */
 }
 
-VP_STATUS STDCALL
+VP_STATUS
+STDCALL
 VideoPortQueryServices(
   IN PVOID HwDeviceExtension,
   IN VIDEO_PORT_SERVICES ServicesType,
@@ -57,28 +58,18 @@ VideoPortQueryServices(
             Int10Interface->Int10ReadMemory = IntInt10ReadMemory;
             Int10Interface->Int10WriteMemory = IntInt10WriteMemory;
             Int10Interface->Int10CallBios = IntInt10CallBios;
-            return NO_ERROR;
+            return STATUS_SUCCESS;
          }
          break;
 
       case VideoPortServicesAGP:
       case VideoPortServicesI2C:
       case VideoPortServicesHeadless:
-         return ERROR_CALL_NOT_IMPLEMENTED;
+         return STATUS_NOT_IMPLEMENTED;
 
       default:
          break;
    }
 
-   return ERROR_INVALID_FUNCTION;
-}
-
-BOOLEAN STDCALL
-VideoPortGetAgpServices(
-   IN PVOID HwDeviceExtension,
-   IN PVIDEO_PORT_AGP_SERVICES AgpServices)
-{
-   DPRINT("VideoPortGetAgpServices\n");
-   UNIMPLEMENTED;
-   return FALSE;
+   return STATUS_UNSUCCESSFUL;
 }

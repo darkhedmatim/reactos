@@ -6,17 +6,17 @@
 #ifdef NDEBUG
 #define DPRINT(args...)
 #define CHECKPOINT
-#ifdef ASSERT
-#undef ASSERT
+#ifdef assert
+#undef assert
 #endif
-#define ASSERT(x)
+#define assert(x)
 #else
 #define DPRINT(args...) do { DbgPrint("(KERNEL32:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
 #define CHECKPOINT do { DbgPrint("(KERNEL32:%s:%d) Checkpoint\n",__FILE__,__LINE__); } while(0);
-#ifdef ASSERT
-#undef ASSERT
+#ifdef assert
+#undef assert
 #endif
-#define ASSERT(x) do { if(!x) RtlAssert("#x", __FILE__,__LINE__, ""); } while(0);
+#define assert(x) do { if(!x) RtlAssert(x, __FILE__,__LINE__, ""); } while(0);
 #endif
 
 #define DPRINT1(args...) do { DbgPrint("(KERNEL32:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,17 +28,12 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
 
 
 #ifdef _MS_VER
 #pragma comment(lib, "shell32")	// link to shell32.dll
-#endif
-
-
- // work around GCC's wide string constant bug
-#ifdef __GNUC__
-const LPCTSTR sCFSTR_SHELLIDLIST = TEXT("Shell IDList Array");
 #endif
 
 
@@ -92,11 +87,11 @@ void HandleException(COMException& e, HWND hwnd)
 	if (hwnd && !IsWindowVisible(hwnd))
 		hwnd = 0;
 
-	MessageBox(hwnd, msg, TEXT("ShellClasses Exception"), MB_ICONHAND|MB_OK);
+	MessageBox(hwnd, msg, TEXT("ShellClasses COM Exception"), MB_ICONHAND|MB_OK);
 
 	 // If displaying the error message box _with_ parent was not successfull, display it now without a parent window.
 	if (GetLastError() == ERROR_INVALID_WINDOW_HANDLE)
-		MessageBox(0, msg, TEXT("ShellClasses Exception"), MB_ICONHAND|MB_OK);
+		MessageBox(0, msg, TEXT("ShellClasses COM Exception"), MB_ICONHAND|MB_OK);
 }
 
 

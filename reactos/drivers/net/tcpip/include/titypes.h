@@ -65,7 +65,7 @@
 #else /* DBG */
 
 #define DEFINE_TAG
-#define INIT_TAG(Object, Tag)
+#define INIT_TAG (Object, Tag)
 
 /*
  * VOID ReferenceObject(
@@ -91,18 +91,16 @@
 
 #include <ip.h>
 
-struct _ADDRESS_FILE;
 
 /***************************************************
 * Connection-less communication support structures *
 ***************************************************/
 
 typedef NTSTATUS (*DATAGRAM_SEND_ROUTINE)(
-    struct _ADDRESS_FILE *AddrFile,
+    PTDI_REQUEST Request,
     PTDI_CONNECTION_INFORMATION ConnInfo,
-    PCHAR Buffer,
-    ULONG DataSize,
-    PULONG DataUsed);
+    PNDIS_BUFFER Buffer,
+    ULONG DataSize);
 
 /* Datagram completion handler prototype */
 typedef VOID (*DATAGRAM_COMPLETION_ROUTINE)(
@@ -110,19 +108,15 @@ typedef VOID (*DATAGRAM_COMPLETION_ROUTINE)(
     NDIS_STATUS Status,
     ULONG Count);
 
-typedef DATAGRAM_COMPLETION_ROUTINE PDATAGRAM_COMPLETION_ROUTINE;
-
 typedef struct _DATAGRAM_RECEIVE_REQUEST {
-    LIST_ENTRY ListEntry;                  /* Entry on list */
-    IP_ADDRESS RemoteAddress;              /* Remote address we receive from (NULL means any) */
-    USHORT RemotePort;                     /* Remote port we receive from (0 means any) */
-    PTDI_CONNECTION_INFORMATION ReturnInfo;/* Return information */
-    PCHAR Buffer;                          /* Pointer to receive buffer */
-    ULONG BufferSize;                      /* Size of Buffer */
-    DATAGRAM_COMPLETION_ROUTINE Complete;  /* Completion routine */
-    PVOID Context;                         /* Pointer to context information */
-    DATAGRAM_COMPLETION_ROUTINE UserComplete;   /* Completion routine */
-    PVOID UserContext;                     /* Pointer to context information */
+    LIST_ENTRY ListEntry;                   /* Entry on list */
+    PIP_ADDRESS RemoteAddress;              /* Remote address we receive from (NULL means any) */
+    USHORT RemotePort;                      /* Remote port we receive from (0 means any) */
+    PTDI_CONNECTION_INFORMATION ReturnInfo; /* Return information */
+    PNDIS_BUFFER Buffer;                    /* Pointer to receive buffer */
+    ULONG BufferSize;                       /* Size of Buffer */
+    DATAGRAM_COMPLETION_ROUTINE Complete;   /* Completion routine */
+    PVOID Context;                          /* Pointer to context information */
 } DATAGRAM_RECEIVE_REQUEST, *PDATAGRAM_RECEIVE_REQUEST;
 
 /* Datagram build routine prototype */
@@ -133,16 +127,36 @@ typedef NTSTATUS (*DATAGRAM_BUILD_ROUTINE)(
     PIP_PACKET *IPPacket);
 
 typedef struct _DATAGRAM_SEND_REQUEST {
-    LIST_ENTRY ListEntry;
-    PNDIS_PACKET PacketToSend;
+    LIST_ENTRY ListEntry;                 /* Entry on list */
+    PIP_ADDRESS RemoteAddress;            /* Pointer to remote IP address */
+    USHORT RemotePort;                    /* Remote port number */
+    PNDIS_BUFFER Buffer;                  /* Pointer to NDIS buffer to send */
+    DWORD BufferSize;                     /* Size of Buffer */
     DATAGRAM_COMPLETION_ROUTINE Complete; /* Completion routine */
     PVOID Context;                        /* Pointer to context information */
-    IP_PACKET Packet;
-    UINT BufferSize;
-    IP_ADDRESS RemoteAddress;
-    USHORT RemotePort;
+    DATAGRAM_BUILD_ROUTINE Build;         /* Datagram build routine */
     ULONG Flags;                          /* Protocol specific flags */
 } DATAGRAM_SEND_REQUEST, *PDATAGRAM_SEND_REQUEST;
+
+#define InitializeDatagramSendRequest( \
+  _SendRequest, \
+  _RemoteAddress, \
+  _RemotePort, \
+  _Buffer, \
+  _BufferSize, \
+  _Complete, \
+  _Context, \
+  _Build, \
+  _Flags) { \
+    (_SendRequest)->RemoteAddress = (_RemoteAddress); \
+    (_SendRequest)->RemotePort = (_RemotePort); \
+    (_SendRequest)->Buffer = (_Buffer); \
+    (_SendRequest)->BufferSize = (_BufferSize); \
+    (_SendRequest)->Complete = (_Complete); \
+    (_SendRequest)->Context = (_Context); \
+    (_SendRequest)->Build = (_Build); \
+    (_SendRequest)->Flags = (_Flags); \
+  }
 
 /* Transport address file context structure. The FileObject->FsContext2
    field holds a pointer to this structure */
@@ -150,10 +164,10 @@ typedef struct _ADDRESS_FILE {
     DEFINE_TAG
     LIST_ENTRY ListEntry;                 /* Entry on list */
     KSPIN_LOCK Lock;                      /* Spin lock to manipulate this structure */
+    ULONG RefCount;                       /* Number of references to this object */
     OBJECT_FREE_ROUTINE Free;             /* Routine to use to free resources for the object */
     USHORT Flags;                         /* Flags for address file (see below) */
-    IP_ADDRESS Address;                   /* Address of this address file */
-    USHORT Family;                        /* Address family */
+    PADDRESS_ENTRY ADE;                   /* Associated address entry */
     USHORT Protocol;                      /* Protocol number */
     USHORT Port;                          /* Network port (network byte order) */
     WORK_QUEUE_ITEM WorkItem;             /* Work queue item handle */
@@ -163,10 +177,9 @@ typedef struct _ADDRESS_FILE {
     LIST_ENTRY ReceiveQueue;              /* List of outstanding receive requests */
     LIST_ENTRY TransmitQueue;             /* List of outstanding transmit requests */
     struct _CONNECTION_ENDPOINT *Connection;
-    /* Associated connection or NULL if no associated connection exist */
-    struct _CONNECTION_ENDPOINT *Listener;
-    /* Associated listener (see transport/tcp/accept.c) */
-    IP_ADDRESS AddrCache;                 /* One entry address cache (destination
+                                          /* Associated connection or NULL if no
+                                             associated connection exist */
+    PIP_ADDRESS AddrCache;                /* One entry address cache (destination
                                              address of last packet transmitted) */
 
     /* The following members are used to control event notification */
@@ -241,17 +254,30 @@ typedef struct _AF_SEARCH {
     USHORT Protocol;        /* Protocol number */
 } AF_SEARCH, *PAF_SEARCH;
 
+
+
 /*******************************************************
 * Connection-oriented communication support structures *
 *******************************************************/
 
-typedef struct _TCP_RECEIVE_REQUEST {
+typedef struct _TCP_SEND_REQUEST {
   LIST_ENTRY ListEntry;                 /* Entry on list */
-  PNDIS_BUFFER Buffer;                  /* Pointer to receive buffer */
-  ULONG BufferSize;                     /* Size of Buffer */
   DATAGRAM_COMPLETION_ROUTINE Complete; /* Completion routine */
   PVOID Context;                        /* Pointer to context information */
-} TCP_RECEIVE_REQUEST, *PTCP_RECEIVE_REQUEST;
+  PVOID ProtocolContext;                /* Protocol specific context */
+  ULONG Flags;                          /* Protocol specific flags */
+} TCP_SEND_REQUEST, *PTCP_SEND_REQUEST;
+
+#define InitializeTCPSendRequest( \
+  _SendRequest, \
+  _Complete, \
+  _Context, \
+  _ProtocolContext) { \
+    (_SendRequest)->Complete = (_Complete); \
+    (_SendRequest)->Context = (_Context); \
+    (_SendRequest)->ProtocolContext = (_ProtocolContext); \
+  }
+
 
 /* Connection states */
 typedef enum {
@@ -270,44 +296,42 @@ typedef enum {
 } CONNECTION_STATE, *PCONNECTION_STATE;
 
 
-/* Structure for an TCP segment */
-typedef struct _TCP_SEGMENT {
-  LIST_ENTRY ListEntry;
-  PIP_PACKET IPPacket;        /* Pointer to IP packet */
-  PVOID SegmentData;          /* Pointer to segment data */
-  ULONG SequenceNumber;       /* Sequence number of first byte in segment */
-  ULONG Length;               /* Number of bytes in segment */
-  ULONG BytesDelivered;       /* Number of bytes already delivered to the client */
-} TCP_SEGMENT, *PTCP_SEGMENT;
-
-typedef struct _TDI_BUCKET {
-    LIST_ENTRY Entry;
-    struct _CONNECTION_ENDPOINT *AssociatedEndpoint;
-    TDI_REQUEST Request;
-} TDI_BUCKET, *PTDI_BUCKET;
-
 /* Transport connection context structure A.K.A. Transmission Control Block
    (TCB) in TCP terminology. The FileObject->FsContext2 field holds a pointer
    to this structure */
 typedef struct _CONNECTION_ENDPOINT {
-    LIST_ENTRY ListEntry;       /* Entry on list */
-    KSPIN_LOCK Lock;            /* Spin lock to protect this structure */
-    PVOID ClientContext;        /* Pointer to client context information */
-    PADDRESS_FILE AddressFile;  /* Associated address file object (NULL if none) */
-    PVOID SocketContext;        /* Context for lower layer */
-    
-    UINT State;                 /* Socket state W.R.T. oskit */
+  LIST_ENTRY ListEntry;       /* Entry on list */
+  KSPIN_LOCK Lock;            /* Spin lock to protect this structure */
+  ULONG RefCount;             /* Number of references to this object */
+  PVOID ClientContext;        /* Pointer to client context information */
+  PADDRESS_FILE AddressFile;  /* Associated address file object (NULL if none) */
 
-    /* Requests */
-    LIST_ENTRY ConnectRequest; /* Queued connect rqueusts */
-    LIST_ENTRY ListenRequest;  /* Queued listen requests */
-    LIST_ENTRY ReceiveRequest; /* Queued receive requests */
+  CONNECTION_STATE State;     /* Connection state */
 
-    /* Signals */
-    LIST_ENTRY SignalList;     /* Entry in the list of sockets waiting for
-				* notification service to the client */
-    UINT    SignalState;       /* Active signals from oskit */
-    BOOLEAN Signalled;         /* Are we a member of the signal list */
+  PIP_ADDRESS LocalAddress;   /* Pointer to local IP address */
+  USHORT LocalPort;           /* Local port number (network byte order) */
+
+  PIP_ADDRESS RemoteAddress;  /* Pointer to remote IP address */
+  USHORT RemotePort;          /* Remote port number (network byte order) */
+
+  /* Send sequence variables */
+  ULONG SendUnacknowledged;   /* Highest sequence number that is acknowledged */
+  ULONG SendNext;             /* Sequence number of last data block sent */
+  ULONG SendWindow;           /* Maximum allowed number of octets in a segment */
+  ULONG SendUrgentPointer;    /* Sequence number of start of urgent data */
+  ULONG SendWL1;              /* Sequence number used for last window update */
+  ULONG SendWL2;              /* Acknowledgment number used for last window update */
+  ULONG SendISS;              /* Initial send sequence number */
+
+  /* Receive sequence variables */
+  ULONG RecvNext;             /* Sequence number of last data block received */
+  ULONG RecvWindow;           /* Maximum allowed number of octets in a segment */
+  ULONG RecvUrgentPointer;    /* Sequence number of start of urgent data */
+  ULONG RecvIRS;              /* Initial receive sequence number */
+
+  /* Statistics for computing the retransmission timeout */
+  ULONG TimestampSend;        /* Timestamp when sending a segment */
+  ULONG TimestampAck;         /* Timestamp when receiving acknowledgment */
 } CONNECTION_ENDPOINT, *PCONNECTION_ENDPOINT;
 
 
@@ -321,6 +345,7 @@ typedef struct _CONNECTION_ENDPOINT {
 typedef struct _CONTROL_CHANNEL {
     LIST_ENTRY ListEntry;       /* Entry on list */
     KSPIN_LOCK Lock;            /* Spin lock to protect this structure */
+    ULONG RefCount;             /* Number of references to this object */
 } CONTROL_CHANNEL, *PCONTROL_CHANNEL;
 
 /* Transport (TCP/UDP) endpoint context structure. The FileObject->FsContext
@@ -331,6 +356,7 @@ typedef struct _TRANSPORT_CONTEXT {
         CONNECTION_CONTEXT ConnectionContext;
         HANDLE ControlChannel;
     } Handle;
+    ULONG RefCount;
     BOOL CancelIrps;
     KEVENT CleanupEvent;
 } TRANSPORT_CONTEXT, *PTRANSPORT_CONTEXT;

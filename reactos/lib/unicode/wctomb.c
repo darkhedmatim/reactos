@@ -142,7 +142,7 @@ static inline int wcstombs_sbcs( const struct sbcs_table *table,
         ret = -1;
     }
 
-    if (dst <= (const char *)src && dst + 16 > (const char *)src)
+    if (dst <= (char *)src && dst + 16 > (char *)src)
     {
         /* overlapping buffers, do it char by char */
         while (srclen--)
@@ -453,25 +453,4 @@ int wine_cp_wcstombs( const union cptable *table, int flags,
                                        dst, dstlen, defchar, used );
         return wcstombs_dbcs( &table->dbcs, src, srclen, dst, dstlen );
     }
-}
-
-/* CP_SYMBOL implementation */
-/* return -1 on dst buffer overflow, -2 on invalid character */
-int wine_cpsymbol_wcstombs( const WCHAR *src, int srclen, char *dst, int dstlen)
-{
-    int len, i;
-    if( dstlen == 0) return srclen;
-    len = dstlen > srclen ? srclen : dstlen;
-    for( i = 0; i < len; i++)
-    {
-        WCHAR w = src [ i ];
-        if( w < 0x20 )
-            dst[i] = w;
-        else if( w >= 0xf020 && w < 0xf100)
-            dst[i] = w - 0xf000;
-        else
-            return -2;
-    }
-    if( srclen > len) return -1;
-    return len;
 }

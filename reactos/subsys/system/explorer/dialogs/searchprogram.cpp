@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,8 +28,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
 
+#include "../explorer.h"
+#include "../globals.h"
 #include "../explorer_intres.h"
 
 #include "searchprogram.h"
@@ -58,7 +60,7 @@ void CollectProgramsThread::collect_programs(const ShellPath& path)
 	ShellDirectory* dir = new ShellDirectory(GetDesktopFolder(), path, 0);
 	_dirs.push(dir);
 
-	dir->smart_scan(SORT_NONE, /*SCAN_EXTRACT_ICONS|*/SCAN_FILESYSTEM);
+	dir->smart_scan(/*SCAN_EXTRACT_ICONS|*/SCAN_FILESYSTEM);
 
 	for(Entry*entry=dir->_down; entry; entry=entry->_next) {
 		if (!_alive)
@@ -91,21 +93,23 @@ void CollectProgramsThread::free_dirs()
 
 FindProgramDlg::FindProgramDlg(HWND hwnd)
  :	super(hwnd),
-	_list_ctrl(GetDlgItem(hwnd, IDC_PROGRAMS_FOUND)),
+	_list_ctrl(GetDlgItem(hwnd, IDC_MAILS_FOUND)),
+	//_himl(ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ILC_COLOR32, 0, 0)),
 	_thread(collect_programs_callback, hwnd, this),
 	_sort(_list_ctrl, CompareFunc/*, (LPARAM)this*/)
 {
 	SetWindowIcon(hwnd, IDI_REACTOS/*IDI_SEARCH*/);
 
-	_resize_mgr.Add(IDC_FILTER,			RESIZE_X);
-	_resize_mgr.Add(IDC_CHECK_ENTRIES,	MOVE_X);
-	_resize_mgr.Add(IDC_PROGRAMS_FOUND,	RESIZE);
+	_resize_mgr.Add(IDC_TOPIC,		RESIZE_X);
+	_resize_mgr.Add(IDC_MAILS_FOUND,RESIZE);
 
 	_resize_mgr.Resize(+520, +300);
 
 	_haccel = LoadAccelerators(g_Globals._hInstance, MAKEINTRESOURCE(IDA_SEARCH_PROGRAM));
 
 	ListView_SetImageList(_list_ctrl, g_Globals._icon_cache.get_sys_imagelist(), LVSIL_SMALL);
+	//ListView_SetImageList(_list_ctrl, _himl, LVSIL_SMALL);
+	 //_idxNoIcon = ImageList_AddIcon(_himl, SmallIcon(IDI_APPICON));
 
 	LV_COLUMN column = {LVCF_FMT|LVCF_WIDTH|LVCF_TEXT, LVCFMT_LEFT, 250};
 
@@ -133,13 +137,11 @@ FindProgramDlg::FindProgramDlg(HWND hwnd)
 	CenterWindow(hwnd);
 
 	Refresh();
-
-	register_pretranslate(hwnd);
 }
 
 FindProgramDlg::~FindProgramDlg()
 {
-	unregister_pretranslate(_hwnd);
+	//ImageList_Destroy(_himl);
 }
 
 
@@ -150,8 +152,8 @@ void FindProgramDlg::Refresh(bool delete_cache)
 	_thread.Stop();
 
 	TCHAR buffer[1024];
-	GetWindowText(GetDlgItem(_hwnd, IDC_FILTER), buffer, 1024);
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+	GetWindowText(GetDlgItem(_hwnd, IDC_TOPIC), buffer, 1024);
+#ifndef __WINE__ ///@todo
 	_tcslwr(buffer);
 #endif
 	_lwr_filter = buffer;
@@ -230,7 +232,7 @@ void FindProgramDlg::add_entry(const FPDEntry& cache_entry)
 	String lwr_path = cache_entry._path;
 	String lwr_name = cache_entry._entry->_display_name;
 
-#ifndef __WINE__ ///@todo _tcslwr() for Wine
+#ifndef __WINE__ ///@todo
 	_tcslwr((LPTSTR)lwr_path.c_str());
 	_tcslwr((LPTSTR)lwr_name.c_str());
 #endif
@@ -259,24 +261,6 @@ void FindProgramDlg::add_entry(const FPDEntry& cache_entry)
 	ListView_SetItem(_list_ctrl, &item);
 }
 
-LRESULT FindProgramDlg::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-{
-	switch(nmsg) {
-	  case PM_TRANSLATE_MSG: {
-		MSG* pmsg = (MSG*) lparam;
-
-		if (TranslateAccelerator(_hwnd, _haccel, pmsg))
-			return TRUE;
-
-		return FALSE;}
-
-	  default:
-		return super::WndProc(nmsg, wparam, lparam);
-	}
-
-	return 0;
-}
-
 int FindProgramDlg::Command(int id, int code)
 {
 	if (code == BN_CLICKED) {
@@ -289,27 +273,23 @@ int FindProgramDlg::Command(int id, int code)
 			LaunchSelected();
 			break;
 
-		  case IDC_CHECK_ENTRIES:
-			CheckEntries();
-			break;
-
 		  default:
 			return super::Command(id, code);
 		}
 
-		return 0;
+		return TRUE;
 	}
 	else if (code == EN_CHANGE) {
 		switch(id) {
-		  case IDC_FILTER:
+		  case IDC_TOPIC:
 			Refresh();
 			break;
 		}
 
-		return 0;
+		return TRUE;
 	}
 
-	return 1;
+	return FALSE;
 }
 
 void FindProgramDlg::LaunchSelected()
@@ -346,7 +326,7 @@ int FindProgramDlg::Notify(int id, NMHDR* pnmh)
 				if (entry->_icon_id == ICID_UNKNOWN)
 					entry->extract_icon();
 
-				pDispInfo->item.iImage = g_Globals._icon_cache.get_icon(entry->_icon_id).get_sysiml_idx();
+				pDispInfo->item.iImage = g_Globals._icon_cache.get_icon(entry->_icon_id).get_sysiml_idx();//ImageList_AddIcon(_himl, g_Globals._icon_cache.get_icon(entry->_icon_id).get_hicon());
 				pDispInfo->item.mask |= LVIF_DI_SETITEM;
 
 				return 1;
@@ -409,9 +389,4 @@ int CALLBACK FindProgramDlg::CompareFunc(LPARAM lparam1, LPARAM lparam2, LPARAM 
 	}
 
 	return sort->_direction? -cmp: cmp;
-}
-
-void FindProgramDlg::CheckEntries()
-{
-	///@todo check all entries for existing targets, display a list of not working entries and ask the user for permission to delete them
 }

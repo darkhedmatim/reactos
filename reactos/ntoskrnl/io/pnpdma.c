@@ -1,4 +1,4 @@
-/* $Id: pnpdma.c,v 1.9 2004/10/23 17:32:51 navaraf Exp $
+/* $Id: pnpdma.c,v 1.5 2003/12/20 21:43:21 navaraf Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,15 +11,24 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
+#include <ddk/ntddk.h>
+#include <ddk/pnptypes.h>
+#include <ddk/pnpfuncs.h>
+#include <reactos/bugcodes.h>
+#include <internal/io.h>
+#include <internal/po.h>
+#include <internal/ldr.h>
+#include <internal/module.h>
+
+//#define NDEBUG
 #include <internal/debug.h>
+
 #ifdef __USE_W32API
 #include <initguid.h>
 #else
 #include <ole32/guiddef.h>
 #endif
-#include <ddk/wdmguid.h>
+DEFINE_GUID(GUID_BUS_INTERFACE_STANDARD, 0x496B8280L, 0x6F25, 0x11D0, 0xBE, 0xAF, 0x08, 0x00, 0x2B, 0xE2, 0x09, 0x2F);
 
 typedef struct _DMA_ADAPTER_INTERNAL {
   USHORT Version;
@@ -193,21 +202,6 @@ IoGetDmaAdapter(
   IN PDEVICE_DESCRIPTION DeviceDescription,
   IN OUT PULONG NumberOfMapRegisters)
 {
-  static DMA_OPERATIONS HalDmaOperations = {
-    sizeof(DMA_OPERATIONS),
-    IopPutDmaAdapter,
-    IopAllocateCommonBuffer,
-    IopFreeCommonBuffer,
-    IopAllocateAdapterChannel,
-    IopFlushAdapterBuffers,
-    IopFreeAdapterChannel,
-    IopFreeMapRegisters,
-    IopMapTransfer,
-    IopGetDmaAlignment,
-    IopReadDmaCounter,
-    IopGetScatterGatherList,
-    IopPutScatterGatherList
-  };
   NTSTATUS Status;
   ULONG ResultLength;
   BUS_INTERFACE_STANDARD BusInterface;
@@ -228,7 +222,7 @@ IoGetDmaAdapter(
     if (DeviceDescription->InterfaceType == 0x0F /*PNPBus*/ ||
         DeviceDescription->InterfaceType == 0xFFFFFFFF)
     {      
-      RtlCopyMemory(&PrivateDeviceDescription, DeviceDescription,
+      memcpy(&PrivateDeviceDescription, DeviceDescription,
         sizeof(DEVICE_DESCRIPTION));
       Status = IoGetDeviceProperty(PhysicalDeviceObject,
          DevicePropertyLegacyBusType, sizeof(INTERFACE_TYPE), 
@@ -246,8 +240,8 @@ IoGetDmaAdapter(
     Stack.Parameters.QueryInterface.InterfaceType = 
       &GUID_BUS_INTERFACE_STANDARD;
     Status = IopInitiatePnpIrp(PhysicalDeviceObject, &IoStatusBlock,
-      IRP_MN_QUERY_INTERFACE, &Stack);
-    if (NT_SUCCESS(Status))
+      IRP_MN_QUERY_BUS_INFORMATION, &Stack);
+    if (!NT_SUCCESS(Status))
     {
       Result = BusInterface.GetDmaAdapter(BusInterface.Context,
         DeviceDescription, NumberOfMapRegisters);
@@ -263,15 +257,33 @@ IoGetDmaAdapter(
 
   HalAdapter = HalGetAdapter(DeviceDescription, NumberOfMapRegisters);
   if (HalAdapter == NULL)
+  {
     return NULL;
+  }
 
-  ResultInternal = ExAllocatePool(PagedPool, sizeof(DMA_ADAPTER_INTERNAL));
-  if (ResultInternal == NULL)
+  ResultInternal = ExAllocatePool(PagedPool, sizeof(DMA_ADAPTER_INTERNAL) +
+    sizeof(DMA_OPERATIONS));
+  if (Result == NULL)
+  {
     return NULL;
+  }
 
   ResultInternal->Version = DEVICE_DESCRIPTION_VERSION;
   ResultInternal->Size = sizeof(DMA_ADAPTER);
-  ResultInternal->DmaOperations = &HalDmaOperations;
+  ResultInternal->DmaOperations = (PDMA_OPERATIONS)(ResultInternal + 1);
+  ResultInternal->DmaOperations->Size = sizeof(DMA_OPERATIONS);
+  ResultInternal->DmaOperations->PutDmaAdapter = IopPutDmaAdapter;
+  ResultInternal->DmaOperations->AllocateCommonBuffer = IopAllocateCommonBuffer;
+  ResultInternal->DmaOperations->FreeCommonBuffer = IopFreeCommonBuffer;
+  ResultInternal->DmaOperations->AllocateAdapterChannel = IopAllocateAdapterChannel;
+  ResultInternal->DmaOperations->FlushAdapterBuffers = IopFlushAdapterBuffers;
+  ResultInternal->DmaOperations->FreeAdapterChannel = IopFreeAdapterChannel;
+  ResultInternal->DmaOperations->FreeMapRegisters = IopFreeMapRegisters;
+  ResultInternal->DmaOperations->MapTransfer = IopMapTransfer;
+  ResultInternal->DmaOperations->GetDmaAlignment = IopGetDmaAlignment;
+  ResultInternal->DmaOperations->ReadDmaCounter = IopReadDmaCounter;
+  ResultInternal->DmaOperations->GetScatterGatherList = IopGetScatterGatherList;
+  ResultInternal->DmaOperations->PutScatterGatherList = IopPutScatterGatherList;
   ResultInternal->HalAdapter = HalAdapter;
 
   return (PDMA_ADAPTER)ResultInternal;

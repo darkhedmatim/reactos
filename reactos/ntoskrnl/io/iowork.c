@@ -1,4 +1,4 @@
-/* $Id: iowork.c,v 1.7 2004/08/15 16:39:03 chorns Exp $
+/* $Id: iowork.c,v 1.6 2003/12/30 18:52:04 fireball Exp $
  *
  * COPYRIGHT:          See COPYING in the top level directory
  * PROJECT:            ReactOS kernel
@@ -12,7 +12,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: version.h,v 1.19.2.3 2004/03/03 18:50:28 vizzini Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS kernel
@@ -18,11 +18,11 @@
 #define __VERSION_H
 
 #define KERNEL_VERSION_MAJOR		0
-#define KERNEL_VERSION_MINOR		3
-#define KERNEL_VERSION_PATCH_LEVEL	0
+#define KERNEL_VERSION_MINOR		2
+#define KERNEL_VERSION_PATCH_LEVEL	1
 
-/* KERNEL_VERSION_BUILD_TYPE is L"SVN", L"RC1", L"RC2" or L"RELEASE" */
-#define KERNEL_VERSION_BUILD_TYPE	L"SVN"
+/* KERNEL_VERSION_BUILD_TYPE is L"CVS", L"RC1", L"RC2" or L"FINAL" */
+#define KERNEL_VERSION_BUILD_TYPE	L"FINAL"
 
 
 #endif

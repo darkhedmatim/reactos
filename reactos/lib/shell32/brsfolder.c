@@ -23,10 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "wine/debug.h"
 #include "undocshell.h"
 #include "shlguid.h"
@@ -393,8 +391,7 @@ static INT_PTR CALLBACK BrsFolderDlgProc(HWND hWnd, UINT msg, WPARAM wParam,
 	    switch (wParam)
 	    { case IDOK:
 	        pdump ( pidlRet );
-		if (lpBrowseInfo->pszDisplayName)
-	            SHGetPathFromIDListW(pidlRet, lpBrowseInfo->pszDisplayName);
+	        SHGetPathFromIDListW(pidlRet, lpBrowseInfo->pszDisplayName);
 	        EndDialog(hWnd, (DWORD) ILClone(pidlRet));
 	        return TRUE;
 
@@ -441,7 +438,7 @@ static INT_PTR CALLBACK BrsFolderDlgProc(HWND hWnd, UINT msg, WPARAM wParam,
 	return FALSE;
 }
 
-static const WCHAR swBrowseTempName[] = {'S','H','B','R','S','F','O','R','F','O','L','D','E','R','_','M','S','G','B','O','X',0};
+static WCHAR swBrowseTempName[] = {'S','H','B','R','S','F','O','R','F','O','L','D','E','R','_','M','S','G','B','O','X',0};
 
 /*************************************************************************
  * SHBrowseForFolderA [SHELL32.@]
@@ -463,9 +460,9 @@ LPITEMIDLIST WINAPI SHBrowseForFolderA (LPBROWSEINFOA lpbi)
 	bi.pidlRoot = lpbi->pidlRoot;
 	if (lpbi->pszDisplayName)
 	{
-	  /*lpbi->pszDisplayName is assumed to be MAX_PATH (MSDN) */
-	  bi.pszDisplayName = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR));
-	  MultiByteToWideChar(CP_ACP, 0, lpbi->pszDisplayName, -1, bi.pszDisplayName, MAX_PATH);
+	  len = MultiByteToWideChar(CP_ACP, 0, lpbi->pszDisplayName, -1, NULL, 0);
+	  bi.pszDisplayName = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+	  MultiByteToWideChar(CP_ACP, 0, lpbi->pszDisplayName, -1, bi.pszDisplayName, len);
 	}
 	else
 	  bi.pszDisplayName = NULL;

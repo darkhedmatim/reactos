@@ -28,6 +28,7 @@
 # include <unistd.h>
 #endif
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "windef.h"
@@ -245,8 +246,6 @@ void SYSTRAY_ItemSetMessage(SystrayItem *ptrayItem, UINT uCallbackMessage)
 
 void SYSTRAY_ItemSetIcon(SystrayItem *ptrayItem, HICON hIcon)
 {
-  if(ptrayItem->notifyIcon.hIcon)
-    DestroyIcon(ptrayItem->notifyIcon.hIcon);
   ptrayItem->notifyIcon.hIcon = CopyIcon(hIcon);
   InvalidateRect(ptrayItem->hWnd, NULL, TRUE);
 }
@@ -288,7 +287,7 @@ static BOOL SYSTRAY_Add(PNOTIFYICONDATAA pnid)
     ptrayItem = &((*ptrayItem)->nextTrayItem);
   }
   /* Allocate SystrayItem for element and add to end of list. */
-  (*ptrayItem) = HeapAlloc(GetProcessHeap(),0,sizeof(SystrayItem));
+  (*ptrayItem) = ( SystrayItem *)malloc( sizeof(SystrayItem) );
 
   /* Initialize and set data for the tray element. */
   SYSTRAY_ItemInit( (*ptrayItem) );
@@ -336,7 +335,7 @@ static BOOL SYSTRAY_Delete(PNOTIFYICONDATAA pnid)
       TRACE("%p: %p %s\n", *ptrayItem, (*ptrayItem)->notifyIcon.hWnd, (*ptrayItem)->notifyIcon.szTip);
       SYSTRAY_ItemTerm(*ptrayItem);
 
-      HeapFree(GetProcessHeap(),0,*ptrayItem);
+      free(*ptrayItem);
       *ptrayItem = next;
 
       return TRUE;

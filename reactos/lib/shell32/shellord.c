@@ -24,9 +24,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-
-#define COBJMACROS
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -71,25 +68,6 @@ extern DWORD  WINAPI FreeMRUList(HANDLE hMRUList);
 extern INT    WINAPI AddMRUData(HANDLE hList, LPCVOID lpData, DWORD cbData);
 extern INT    WINAPI FindMRUData(HANDLE hList, LPCVOID lpData, DWORD cbData, LPINT lpRegNum);
 extern INT    WINAPI EnumMRUListA(HANDLE hList, INT nItemPos, LPVOID lpBuffer, DWORD nBufferSize);
-
-
-/* Get a function pointer from a DLL handle */
-#define GET_FUNC(func, module, name, fail) \
-  do { \
-    if (!func) { \
-      if (!SHELL32_h##module && !(SHELL32_h##module = LoadLibraryA(#module ".dll"))) return fail; \
-      func = (void*)GetProcAddress(SHELL32_h##module, name); \
-      if (!func) return fail; \
-    } \
-  } while (0)
-
-/* Function pointers for GET_FUNC macro */
-static HMODULE SHELL32_hshlwapi=NULL;
-static HANDLE (WINAPI *pSHAllocShared)(LPCVOID,DWORD,DWORD);
-static LPVOID (WINAPI *pSHLockShared)(HANDLE,DWORD);
-static BOOL   (WINAPI *pSHUnlockShared)(LPVOID);
-static BOOL   (WINAPI *pSHFreeShared)(HANDLE,DWORD);
-
 
 /*************************************************************************
  * ParseFieldA					[internal]
@@ -235,6 +213,8 @@ VOID WINAPI SHGetSetSettings(LPSHELLSTATE lpss, DWORD dwMask, BOOL bSet)
  *  the registry path are for win98 (tested)
  *  and possibly are the same in nt40
  *
+ * FIXME: implement new flags such as SSF_WIN95CLASSIC and SSF_STARTPANELON
+ *
  */
 VOID WINAPI SHGetSettings(LPSHELLFLAGSTATE lpsfs, DWORD dwMask)
 {
@@ -305,12 +285,12 @@ VOID WINAPI SHGetSettings(LPSHELLFLAGSTATE lpsfs, DWORD dwMask)
  *    shell view to re-sort the item list. dwParam identifies the column
  *    that was clicked.
  */
-LRESULT WINAPI SHShellFolderView_Message(
+int WINAPI SHShellFolderView_Message(
 	HWND hwndCabinet,
-	UINT uMessage,
-	LPARAM lParam)
+	DWORD dwMessage,
+	DWORD dwParam)
 {
-	FIXME("%p %08x %08lx stub\n",hwndCabinet, uMessage, lParam);
+	FIXME("%p %08lx %08lx stub\n",hwndCabinet, dwMessage, dwParam);
 	return 0;
 }
 
@@ -446,7 +426,8 @@ HRESULT WINAPI SHRegisterDragDrop(
 	LPDROPTARGET pDropTarget)
 {
 	FIXME("(%p,%p):stub.\n", hWnd, pDropTarget);
-	return RegisterDragDrop(hWnd, pDropTarget);
+	if (GetShellOle()) return pRegisterDragDrop(hWnd, pDropTarget);
+        return 0;
 }
 
 /*************************************************************************
@@ -458,7 +439,8 @@ HRESULT WINAPI SHRegisterDragDrop(
 HRESULT WINAPI SHRevokeDragDrop(HWND hWnd)
 {
     FIXME("(%p):stub.\n",hWnd);
-    return RevokeDragDrop(hWnd);
+    if (GetShellOle()) return pRevokeDragDrop(hWnd);
+    return 0;
 }
 
 /*************************************************************************
@@ -476,7 +458,8 @@ HRESULT WINAPI SHDoDragDrop(
 {
     FIXME("(%p %p %p 0x%08lx %p):stub.\n",
     hWnd, lpDataObject, lpDropSource, dwOKEffect, pdwEffect);
-	return DoDragDrop(lpDataObject, lpDropSource, dwOKEffect, pdwEffect);
+	if (GetShellOle()) return pDoDragDrop(lpDataObject, lpDropSource, dwOKEffect, pdwEffect);
+        return 0;
 }
 
 /*************************************************************************
@@ -628,8 +611,10 @@ static INT SHADD_create_add_mru_data(HANDLE mruhandle, LPSTR doc_name, LPSTR new
  *
  * NOTES
  *     exported by name
+ *
+ * FIXME: ?? MSDN shows this as a VOID
  */
-void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
+DWORD WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 {
 /* If list is a string list lpfnCompare has the following prototype
  * int CALLBACK MRUCompareString(LPCSTR s1, LPCSTR s2)
@@ -668,20 +653,20 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
     ret=SHADD_get_policy( "NoRecentDocsHistory", &type, &data, &datalen);
     if ((ret > 0) && (ret != ERROR_FILE_NOT_FOUND)) {
 	ERR("Error %d getting policy \"NoRecentDocsHistory\"\n", ret);
-	return;
+	return 0;
     }
     if (ret == ERROR_SUCCESS) {
 	if (!( (type == REG_DWORD) ||
 	       ((type == REG_BINARY) && (datalen == 4)) )) {
 	    ERR("Error policy data for \"NoRecentDocsHistory\" not formated correctly, type=%ld, len=%ld\n",
 		type, datalen);
-	    return;
+	    return 0;
 	}
 
 	TRACE("policy value for NoRecentDocsHistory = %08lx\n", data[0]);
 	/* now test the actual policy value */
 	if ( data[0] != 0)
-	    return;
+	    return 0;
     }
 
     /* Open key to where the necessary info is
@@ -694,7 +679,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
 			0, 0, 0, KEY_READ, 0, &HCUbasekey, 0)) {
 	ERR("Failed to create 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer'\n");
-	return;
+	return 0;
     }
 
     /* Get path to user's "Recent" directory
@@ -744,7 +729,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 	 */
 	RegDeleteKeyA(HCUbasekey, "RecentDocs");
 	RegCloseKey(HCUbasekey);
-	return;
+	return 0;
     }
 
     /* Have data to add, the jobs to be done:
@@ -761,7 +746,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 	SHGetPathFromIDListA((LPCITEMIDLIST) pv, doc_name);
     }
     else {
-	lstrcpyA(doc_name, (LPCSTR) pv);
+	lstrcpyA(doc_name, (LPSTR) pv);
     }
     TRACE("full document name %s\n", doc_name);
     PathStripPathA(doc_name);
@@ -800,7 +785,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 	    /* MRU failed */
 	    ERR("MRU processing failed, handle zero\n");
 	    RegCloseKey(HCUbasekey);
-	    return;
+	    return 0;
 	}
 	len = lstrlenA(doc_name);
 	pos = FindMRUData(mruhandle, doc_name, len, 0);
@@ -949,7 +934,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 
     /* all done */
     RegCloseKey(HCUbasekey);
-    return;
+    return 0;
 }
 
 /*************************************************************************
@@ -959,15 +944,15 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
  *  see IShellFolder::CreateViewObject
  */
 HRESULT WINAPI SHCreateShellFolderViewEx(
-	LPCSFV psvcbi,    /* [in] shelltemplate struct */
-	IShellView **ppv) /* [out] IShellView pointer */
+	LPCSHELLFOLDERVIEWINFO psvcbi, /* [in] shelltemplate struct */
+	LPSHELLVIEW* ppv)              /* [out] IShellView pointer */
 {
 	IShellView * psf;
 	HRESULT hRes;
 
-	TRACE("sf=%p pidl=%p cb=%p mode=0x%08x parm=%p\n",
-	  psvcbi->pshf, psvcbi->pidl, psvcbi->pfnCallback,
-	  psvcbi->fvm, psvcbi->psvOuter);
+	TRACE("sf=%p pidl=%p cb=%p mode=0x%08x parm=0x%08lx\n",
+	  psvcbi->pshf, psvcbi->pidlFolder, psvcbi->lpfnCallback,
+	  psvcbi->uViewMode, psvcbi->dwUser);
 
 	psf = IShellView_Constructor(psvcbi->pshf);
 
@@ -1040,7 +1025,7 @@ void WINAPI SHFreeUnusedLibraries (void)
  * DAD_AutoScroll				[SHELL32.129]
  *
  */
-BOOL WINAPI DAD_AutoScroll(HWND hwnd, AUTO_SCROLL_DATA *samples, LPPOINT pt)
+DWORD WINAPI DAD_AutoScroll(HWND hwnd, LPSCROLLSAMPLES samples, LPPOINT pt)
 {
     FIXME("hwnd = %p %p %p\n",hwnd,samples,pt);
     return 0;
@@ -1211,45 +1196,70 @@ HRESULT WINAPI IsUserAdmin(void)
 /*************************************************************************
  * SHAllocShared				[SHELL32.520]
  *
- * See shlwapi.SHAllocShared
+ * NOTES
+ *  parameter1 is return value from HeapAlloc
+ *  parameter2 is equal to the size allocated with HeapAlloc
+ *  parameter3 is return value from GetCurrentProcessId
+ *
+ *  the return value is posted as lParam with 0x402 (WM_USER+2) to somewhere
+ *  WM_USER+2 could be the undocumented CWM_SETPATH
+ *  the allocated memory contains a pidl
  */
-HANDLE WINAPI SHAllocShared(LPVOID lpvData, DWORD dwSize, DWORD dwProcId)
-{
-    GET_FUNC(pSHAllocShared, shlwapi, (char*)7, NULL);
-    return pSHAllocShared(lpvData, dwSize, dwProcId);
-}
+HGLOBAL WINAPI SHAllocShared(LPVOID psrc, DWORD size, DWORD procID)
+{	HGLOBAL hmem;
+	LPVOID pmem;
 
+	TRACE("ptr=%p size=0x%04lx procID=0x%04lx\n",psrc,size,procID);
+	hmem = GlobalAlloc(GMEM_FIXED, size);
+	if (!hmem)
+	  return 0;
+
+	pmem =  GlobalLock (hmem);
+
+	if (! pmem)
+	  return 0;
+
+	memcpy (pmem, psrc, size);
+	GlobalUnlock(hmem);
+	return hmem;
+}
 /*************************************************************************
  * SHLockShared					[SHELL32.521]
  *
- * See shlwapi.SHLockShared
+ * NOTES
+ *  parameter1 is return value from SHAllocShared
+ *  parameter2 is return value from GetCurrentProcessId
+ *  the receiver of (WM_USER+2) tries to lock the HANDLE (?)
+ *  the return value seems to be a memory address
  */
-LPVOID WINAPI SHLockShared(HANDLE hShared, DWORD dwProcId)
-{
-    GET_FUNC(pSHLockShared, shlwapi, (char*)8, NULL);
-    return pSHLockShared(hShared, dwProcId);
+LPVOID WINAPI SHLockShared(HANDLE hmem, DWORD procID)
+{	TRACE("handle=%p procID=0x%04lx\n",hmem,procID);
+	return GlobalLock(hmem);
 }
-
 /*************************************************************************
  * SHUnlockShared				[SHELL32.522]
  *
- * See shlwapi.SHUnlockShared
+ * NOTES
+ *  parameter1 is return value from SHLockShared
  */
-BOOL WINAPI SHUnlockShared(LPVOID lpView)
+BOOL WINAPI SHUnlockShared(LPVOID pv)
 {
-    GET_FUNC(pSHUnlockShared, shlwapi, (char*)9, FALSE);
-    return pSHUnlockShared(lpView);
+	TRACE("%p\n",pv);
+	return GlobalUnlock((HANDLE)pv);
 }
-
 /*************************************************************************
  * SHFreeShared					[SHELL32.523]
  *
- * See shlwapi.SHFreeShared
+ * NOTES
+ *  parameter1 is return value from SHAllocShared
+ *  parameter2 is return value from GetCurrentProcessId
  */
-BOOL WINAPI SHFreeShared(HANDLE hShared, DWORD dwProcId)
+BOOL WINAPI SHFreeShared(
+	HANDLE hMem,
+	DWORD pid)
 {
-    GET_FUNC(pSHFreeShared, shlwapi, (char*)10, FALSE);
-    return pSHFreeShared(hShared, dwProcId);
+	TRACE("handle=%p 0x%04lx\n",hMem,pid);
+	return (BOOL)GlobalFree(hMem);
 }
 
 /*************************************************************************
@@ -1263,8 +1273,8 @@ HRESULT WINAPI SetAppStartingCursor(HWND u, DWORD v)
  * SHLoadOLE					[SHELL32.151]
  *
  */
-HRESULT WINAPI SHLoadOLE(LPARAM lParam)
-{	FIXME("0x%04lx stub\n",lParam);
+HRESULT WINAPI SHLoadOLE(DWORD u)
+{	FIXME("0x%04lx stub\n",u);
 	return S_OK;
 }
 /*************************************************************************
@@ -1494,7 +1504,7 @@ HRESULT WINAPI SHCreateStdEnumFmtEtc(
 
 
 /*************************************************************************
- *		SHELL32_256 (SHELL32.256)
+ *                              SHELL32_256
  */
 HRESULT WINAPI SHELL32_256(LPDWORD lpdw0, LPDWORD lpdw1)
 {
@@ -1517,34 +1527,4 @@ HRESULT WINAPI SHELL32_256(LPDWORD lpdw0, LPDWORD lpdw1)
     }
 
     return ret;
-}
-
-/*************************************************************************
- *		SHFindFiles (SHELL32.90)
- */
-BOOL WINAPI SHFindFiles( LPCITEMIDLIST pidlFolder, LPCITEMIDLIST pidlSaveFile )
-{
-    FIXME("%p %p\n", pidlFolder, pidlSaveFile );
-    return FALSE;
-}
-
-/*************************************************************************
- *		SHUpdateImageW (SHELL32.192)
- *
- * Notifies the shell that an icon in the system image list has been changed.
- *
- * PARAMS
- *  pszHashItem [I] Path to file that contains the icon.
- *  iIndex      [I] Zero-based index of the icon in the file.
- *  uFlags      [I] Flags determining the icon attributes. See notes.
- *  iImageIndex [I] Index of the icon in the system image list.
- *
- * NOTES
- *  uFlags can be one or more of the following flags:
- *  GIL_NOTFILENAME - pszHashItem is not a file name.
- *  GIL_SIMULATEDOC - Create a document icon using the specified icon.
- */
-void WINAPI SHUpdateImageW(LPCWSTR pszHashItem, int iIndex, UINT uFlags, int iImageIndex)
-{
-    FIXME("%s, %d, 0x%x, %d\n", debugstr_w(pszHashItem), iIndex, uFlags, iImageIndex);
 }

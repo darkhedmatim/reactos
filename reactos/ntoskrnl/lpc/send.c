@@ -1,4 +1,4 @@
-/* $Id: send.c,v 1.20 2004/11/13 22:27:16 hbirr Exp $
+/* $Id: send.c,v 1.14 2004/01/07 21:13:22 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -217,8 +222,6 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 			PLPC_MESSAGE UnsafeLpcRequest,    
 			PLPC_MESSAGE UnsafeLpcReply)
 {
-   PETHREAD CurrentThread;
-   struct _KPROCESS *AttachedProcess;
    NTSTATUS Status;
    PEPORT Port;
    PQUEUEDMESSAGE Message;
@@ -240,55 +243,22 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 	return(Status);
      }
 
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
-     }
-
-   /* win32k sometimes needs to KeAttach() the CSRSS process in order to make
-      the PortHandle valid. Now that we've got the EPORT structure from the
-      handle we can undo this, so everything is normal again. Need to
-      re-KeAttach() before returning though */
-   CurrentThread = PsGetCurrentThread();
-   if (&CurrentThread->ThreadsProcess->Pcb == CurrentThread->Tcb.ApcState.Process)
-     {
-       AttachedProcess = NULL;
-     }
-   else
-     {
-       AttachedProcess = CurrentThread->Tcb.ApcState.Process;
-       KeDetachProcess();
-     }
-
    Status = MmCopyFromCaller(&LpcRequestMessageSize,
 			     &UnsafeLpcRequest->MessageSize,
 			     sizeof(USHORT));
    if (!NT_SUCCESS(Status))
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(Status);
      }
    if (LpcRequestMessageSize > (sizeof(LPC_MESSAGE) + MAX_MESSAGE_DATA))
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
    LpcRequest = ExAllocatePool(NonPagedPool, LpcRequestMessageSize);
    if (LpcRequest == NULL)
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_NO_MEMORY);
      }
@@ -297,10 +267,6 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
    if (!NT_SUCCESS(Status))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(Status);
      }
@@ -308,20 +274,12 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
    if (LpcRequestMessageSize > (sizeof(LPC_MESSAGE) + MAX_MESSAGE_DATA))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
    if (LpcRequest->DataSize != (LpcRequest->MessageSize - sizeof(LPC_MESSAGE)))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
@@ -332,12 +290,8 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 				 Port);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT1("Enqueue failed\n");
+	DbgPrint("Enqueue failed\n");
 	ExFreePool(LpcRequest);
-        if (NULL != AttachedProcess)
-          {
-            KeAttachProcess(AttachedProcess);
-          }
 	ObDereferenceObject(Port);
 	return(Status);
      }
@@ -379,10 +333,6 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
          {
 	   Status = STATUS_UNSUCCESSFUL;
 	 }
-     }
-   if (NULL != AttachedProcess)
-     {
-       KeAttachProcess(AttachedProcess);
      }
    ObDereferenceObject(Port);
    

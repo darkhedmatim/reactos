@@ -66,6 +66,8 @@ NtGdiEndDoc				1
 NtGdiEndPage				1
 NtGdiEndPath				1
 NtGdiEnumEnhMetaFile			5
+NtGdiEnumFontFamilies			4
+NtGdiEnumFontFamiliesEx			5
 NtGdiEnumFonts				4
 NtGdiEnumICMProfiles			3
 NtGdiEnumMetaFile			4
@@ -104,6 +106,7 @@ NtGdiGetBrushOrgEx			2
 NtGdiGetCharABCWidths			4
 NtGdiGetCharABCWidthsFloat		4
 NtGdiGetCharacterPlacement		6
+NtGdiGetCharWidth			4
 NtGdiGetCharWidth32			4
 NtGdiGetCharWidthFloat			4
 NtGdiGetClipBox				2
@@ -123,8 +126,6 @@ NtGdiGetEnhMetaFileDescription		3
 NtGdiGetEnhMetaFileHeader		3
 NtGdiGetEnhMetaFilePaletteEntries	3
 NtGdiGetEnhMetaFilePixelFormat		3
-NtGdiGetFontData			5
-NtGdiGetFontFamilyInfo			4
 NtGdiGetFontLanguageInfo			1
 #NtGdiGetFontResourceInfo		?
 NtGdiGetGlyphOutline			7
@@ -275,7 +276,6 @@ NtGdiStrokeAndFillPath			1
 NtGdiStrokePath				1
 NtGdiSwapBuffers				1
 NtGdiTextOut				5
-NtGdiTransparentBlt         11
 NtGdiTranslateCharsetInfo		3
 NtGdiUnrealizeObject			2
 NtGdiUpdateColors			1
@@ -345,7 +345,7 @@ NtUserEndDeferWindowPosEx               2
 NtUserEndMenu                           0
 NtUserEndPaint                          2
 NtUserEnumDisplayDevices                4
-NtUserEnumDisplayMonitors               5
+NtUserEnumDisplayMonitors               4
 NtUserEnumDisplaySettings               4
 NtUserEvent                             1
 NtUserExcludeUpdateRgn                  2
@@ -399,7 +399,6 @@ NtUserGetMenuIndex                      2
 NtUserGetMenuItemRect                   4
 NtUserGetMessage                        4
 NtUserGetMinMaxInfo                     3
-NtUserGetMonitorInfo                    2
 NtUserGetMouseMovePointsEx              5
 NtUserGetObjectInformation              5
 NtUserGetOpenClipboardWindow            0
@@ -444,9 +443,6 @@ NtUserMessageCall                       7
 NtUserMNDragLeave                       0
 NtUserMNDragOver                        2
 NtUserModifyUserStartupInfoFlags        2
-NtUserMonitorFromPoint                  3
-NtUserMonitorFromRect                   2
-NtUserMonitorFromWindow                 2
 NtUserMoveWindow                        6
 NtUserNotifyIMEStatus                   3
 NtUserNotifyWinEvent                    4
@@ -464,7 +460,7 @@ NtUserQueryWindow                       2
 NtUserReleaseDC				2
 NtUserRealChildWindowFromPoint          3
 NtUserRedrawWindow                      4
-NtUserRegisterClassExWOW                7
+NtUserRegisterClassExWOW                5
 NtUserRegisterHotKey                    4
 NtUserRegisterTasklist                  1
 NtUserRegisterWindowMessage             1
@@ -477,7 +473,6 @@ NtUserScrollWindowEx                    8
 NtUserSendInput                         3
 NtUserSendMessage                       5
 NtUserSendMessageCallback               6
-NtUserSendMessageTimeout                8
 NtUserSendNotifyMessage                 4
 NtUserSetActiveWindow                   1
 NtUserSetCapture                        1

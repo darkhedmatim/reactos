@@ -29,7 +29,7 @@ extern	HWND		hProcessPageHeaderCtrl;			/* Process Header Control */
 extern	HWND		hProcessPageEndProcessButton;		/* Process End Process button */
 extern	HWND		hProcessPageShowAllProcessesButton;	/* Process Show All Processes checkbox */
 
-INT_PTR CALLBACK	ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK	ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void				RefreshProcessPage(void);
 
 #endif /* __PROCESSPAGE_H */

@@ -68,7 +68,6 @@ union cptable
 #define strlwrW(s) _wcslwr((wchar_t *)(s))
 #define struprW(s) _wcsupr((wchar_t *)(s))
 #define sprintfW wsprintfW
-#define snprintfW _snwprintf
 
 #ifndef WINE_UNICODE_API
 #define WINE_UNICODE_API __attribute__((dllimport))
@@ -86,20 +85,6 @@ static inline WCHAR *strpbrkW( const WCHAR *str, const WCHAR *accept )
 {
     for ( ; *str; str++) if (strchrW( accept, *str )) return (WCHAR *)str;
     return NULL;
-}
-
-static inline WCHAR *memchrW( const WCHAR *ptr, WCHAR ch, size_t n )
-{
-    const WCHAR *end;
-    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) return (WCHAR *)ptr;
-    return NULL;
-}
-
-static inline WCHAR *memrchrW( const WCHAR *ptr, WCHAR ch, size_t n )
-{
-    const WCHAR *end, *ret = NULL;
-    for (end = ptr + n; ptr < end; ptr++) if (*ptr == ch) ret = ptr;
-    return (WCHAR *)ret;
 }
 
 #endif

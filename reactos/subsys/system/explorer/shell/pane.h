@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -68,7 +68,6 @@ struct Pane : public SubclassedWindow
 	typedef SubclassedWindow super;
 
 	Pane(HWND hparent, int id, int id_header, Entry* rool, bool treePane, int visible_cols);
-	~Pane();
 
 #define COLUMNS 12
 	int 	_widths[COLUMNS];
@@ -92,7 +91,7 @@ struct Pane : public SubclassedWindow
 	void	calc_single_width(int col);
 	void	draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol=-1);
 
-	void	insert_entries(Entry* dir, int idx=-1);
+	void	insert_entries(Entry* dir, int idx);
 	BOOL	command(UINT cmd);
 	int		Notify(int id, NMHDR* pnmh);
 
@@ -101,7 +100,7 @@ protected:
 
 	void	calc_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
 	void	calc_tabbed_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
-	struct MainFrameBase* get_frame();
+	MainFrame* get_frame();
 
 protected:
 	HIMAGELIST	_himl;

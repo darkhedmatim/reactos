@@ -16,10 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: paint.c,v 1.27 2004/08/15 21:36:30 chorns Exp $
+/* $Id: paint.c,v 1.22 2004/01/26 08:44:51 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/paint.c
+ * FILE:            lib/user32/windows/input.c
  * PURPOSE:         Input
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -28,16 +28,15 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
 #include <resource.h>
+#include <user32.h>
 #define NDEBUG
 #include <debug.h>
 
 static HBRUSH FrameBrushes[13];
 static HBITMAP hHatch;
 const DWORD HatchBitmap[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
-
-BOOL STDCALL PolyPatBlt(HDC,DWORD,PPATRECT,INT,ULONG);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -121,16 +120,17 @@ ExcludeUpdateRgn(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
 GetUpdateRect(
-  HWND Wnd,
-  LPRECT Rect,
-  BOOL Erase)
+  HWND hWnd,
+  LPRECT lpRect,
+  BOOL bErase)
 {
-  return NtUserGetUpdateRect(Wnd, Rect, Erase);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
@@ -192,7 +192,7 @@ RedrawWindow(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
@@ -204,7 +204,7 @@ ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
@@ -213,7 +213,8 @@ SetWindowRgn(
   HRGN hRgn,
   BOOL bRedraw)
 {
-  return (int)NtUserSetWindowRgn(hWnd, hRgn, bRedraw);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -257,7 +258,7 @@ ValidateRgn(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
@@ -265,22 +266,9 @@ GetWindowRgn(
   HWND hWnd,
   HRGN hRgn)
 {
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_GETWINDOWRGN);
+  UNIMPLEMENTED;
+  return 0;
 }
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-GetWindowRgnBox(
-    HWND hWnd,
-    LPRECT lprc)
-{
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)lprc, TWOPARAM_ROUTINE_GETWINDOWRGNBOX);
-}
-
 
 const BYTE MappingTable[33] = {5,9,2,3,5,7,0,0,0,7,5,5,3,2,7,5,3,3,0,5,7,10,5,0,11,4,1,1,3,8,6,12,7};
 /*

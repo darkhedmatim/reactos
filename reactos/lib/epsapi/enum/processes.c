@@ -1,4 +1,4 @@
-/* $Id: processes.c,v 1.3 2004/11/08 00:34:46 weiden Exp $
+/* $Id: processes.c,v 1.1 2003/04/13 03:24:27 hyperion Exp $
 */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -37,266 +37,342 @@
 
 #include <epsapi.h>
 
-NTSTATUS NTAPI
-PsaCaptureProcessesAndThreads(OUT PSYSTEM_PROCESSES *ProcessesAndThreads)
+NTSTATUS
+NTAPI
+PsaCaptureProcessesAndThreads
+(
+ OUT PSYSTEM_PROCESSES * ProcessesAndThreads
+)
 {
-  PSYSTEM_PROCESSES pInfoBuffer = NULL;
-  SIZE_T nSize = 0x8000;
-  NTSTATUS Status;
+ NTSTATUS nErrCode = STATUS_SUCCESS;
+ PSYSTEM_PROCESSES pInfoBuffer = NULL;
+ SIZE_T nSize = 32768;
 
-  if(ProcessesAndThreads == NULL)
+ /* parameter validation */
+ if(!ProcessesAndThreads)
+  return STATUS_INVALID_PARAMETER_1;
+
+ /* FIXME: if the system has loaded several processes and threads, the buffer
+    could get really big. But if there's several processes and threads, the
+    system is already under stress, and a huge buffer could only make things
+    worse. The function should be profiled to see what's the average minimum
+    buffer size, to succeed on the first shot */
+ do
+ {
+  void * pTmp;
+
+  /* free the buffer, and reallocate it to the new size. RATIONALE: since we
+     ignore the buffer's contents at this point, there's no point in a realloc()
+     that could end up copying a large chunk of data we'd discard anyway */
+  PsaiFree(pInfoBuffer);
+  pTmp = PsaiMalloc(nSize);
+  
+  if(pTmp == NULL)
   {
-    return STATUS_INVALID_PARAMETER_1;
+   /* failure */
+   DPRINT(FAILED_WITH_STATUS, "PsaiMalloc", STATUS_NO_MEMORY);
+   nErrCode = STATUS_NO_MEMORY;
+   break;
   }
-
-  /* FIXME: if the system has loaded several processes and threads, the buffer
-            could get really big. But if there's several processes and threads, the
-            system is already under stress, and a huge buffer could only make things
-            worse. The function should be profiled to see what's the average minimum
-            buffer size, to succeed on the first shot */
-  do
-  {
-    PVOID pTmp;
-
-    /* free the buffer, and reallocate it to the new size. RATIONALE: since we
-       ignore the buffer's contents at this point, there's no point in a realloc()
-       that could end up copying a large chunk of data we'd discard anyway */
-    PsaiFree(pInfoBuffer);
-    pTmp = PsaiMalloc(nSize);
   
-    if(pTmp == NULL)
-    {
-      DPRINT(FAILED_WITH_STATUS, "PsaiMalloc", STATUS_NO_MEMORY);
-      Status = STATUS_NO_MEMORY;
-      break;
-    }
+  pInfoBuffer = pTmp;
   
-    pInfoBuffer = pTmp;
-  
-    /* query the information */
-    Status = NtQuerySystemInformation(SystemProcessesAndThreadsInformation,
-                                      pInfoBuffer,
-                                      nSize,
-                                      NULL);
+  /* query the information */
+  nErrCode = NtQuerySystemInformation
+  (
+   SystemProcessesAndThreadsInformation,
+   pInfoBuffer,
+   nSize,
+   NULL
+  );
 
-    /* double the buffer size */
-    nSize *= 2;
-  } while(Status == STATUS_INFO_LENGTH_MISMATCH);
+  /* double the buffer size */
+  nSize += nSize;
+ }
+ /* repeat until the buffer is big enough */
+ while(nErrCode == STATUS_INFO_LENGTH_MISMATCH);
  
-  if(!NT_SUCCESS(Status))
-  {
-    DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", Status);
-    return Status;
-  }
+ /* failure */
+ if(!NT_SUCCESS(nErrCode))
+ {
+  DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", nErrCode);
+  return nErrCode;  
+ }
 
-  *ProcessesAndThreads = pInfoBuffer;
-  return STATUS_SUCCESS;
+ /* success */
+ *ProcessesAndThreads = pInfoBuffer;
+ return STATUS_SUCCESS;
 }
 
-NTSTATUS NTAPI
-PsaWalkProcessesAndThreads(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-                           IN PPROC_ENUM_ROUTINE ProcessCallback,
-                           IN OUT PVOID ProcessCallbackContext,
-                           IN PTHREAD_ENUM_ROUTINE ThreadCallback,
-                           IN OUT PVOID ThreadCallbackContext)
+NTSTATUS
+NTAPI
+PsaWalkProcessesAndThreads
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PPROC_ENUM_ROUTINE ProcessCallback,
+ IN OUT PVOID ProcessCallbackContext,
+ IN PTHREAD_ENUM_ROUTINE ThreadCallback,
+ IN OUT PVOID ThreadCallbackContext
+)
 {
-  NTSTATUS Status;
+ register NTSTATUS nErrCode = STATUS_SUCCESS;
 
-  if(ProcessCallback == NULL && ThreadCallback == NULL)
+ /* parameter validation */
+ if(!ProcessCallback && !ThreadCallback)
+  return STATUS_INVALID_PARAMETER;
+
+ ProcessesAndThreads = PsaWalkFirstProcess(ProcessesAndThreads);
+
+ /* scan the process list */
+ do
+ {
+  /* if the caller provided a process callback */
+  if(ProcessCallback)
   {
-    return STATUS_INVALID_PARAMETER;
-  }
-  
-  Status = STATUS_SUCCESS;
-
-  ProcessesAndThreads = PsaWalkFirstProcess(ProcessesAndThreads);
-
-  /* scan the process list */
-  do
-  {
-    if(ProcessCallback)
-    {
-      Status = ProcessCallback(ProcessesAndThreads, ProcessCallbackContext);
+   /* notify the callback */
+   nErrCode = ProcessCallback(ProcessesAndThreads, ProcessCallbackContext);
  
-      if(!NT_SUCCESS(Status))
-      {
-        break;
-      }
-    }
+   /* if the callback returned an error, break out */
+   if(!NT_SUCCESS(nErrCode))
+    break;
+  }
 
-    /* if the caller provided a thread callback */
-    if(ThreadCallback)
-    {
-      ULONG i;
-      PSYSTEM_THREADS pCurThread;
+  /* if the caller provided a thread callback */
+  if(ThreadCallback)
+  {
+   ULONG i;
+   PSYSTEM_THREADS pCurThread;
 
-      /* scan the current process's thread list */
-      for(i = 0, pCurThread = PsaWalkFirstThread(ProcessesAndThreads);
-          i < ProcessesAndThreads->ThreadCount;
-          i++, pCurThread = PsaWalkNextThread(pCurThread))
-      {
-        Status = ThreadCallback(pCurThread, ThreadCallbackContext);
-        
-        if(!NT_SUCCESS(Status))
-        {
-          goto Bail;
-        }
-      }
-    }
+   /* scan the current process's thread list */
+   for
+   (
+    i = 0, pCurThread = PsaWalkFirstThread(ProcessesAndThreads);
+    i < ProcessesAndThreads->ThreadCount;
+    ++ i, pCurThread = PsaWalkNextThread(pCurThread)
+   )
+   {
+    /* notify the callback */
+    nErrCode = ThreadCallback(pCurThread, ThreadCallbackContext);
 
-    /* move to the next process */
-    ProcessesAndThreads = PsaWalkNextProcess(ProcessesAndThreads);
-  } while(ProcessesAndThreads);
+    /* if the callback returned an error, break out */
+    if(!NT_SUCCESS(nErrCode)) goto epat_Breakout;
+   }
+  }
 
-Bail:
-  return Status;
+  /* move to the next process */
+  ProcessesAndThreads = PsaWalkNextProcess(ProcessesAndThreads);
+ }
+ /* repeat until the end of the string */
+ while(ProcessesAndThreads);
+
+epat_Breakout:
+ /* return the last status */
+ return (nErrCode);
 }
 
-NTSTATUS NTAPI
-PsaEnumerateProcessesAndThreads(IN PPROC_ENUM_ROUTINE ProcessCallback,
-                                IN OUT PVOID ProcessCallbackContext,
-                                IN PTHREAD_ENUM_ROUTINE ThreadCallback,
-                                IN OUT PVOID ThreadCallbackContext)
+NTSTATUS
+NTAPI
+PsaEnumerateProcessesAndThreads
+(
+ IN PPROC_ENUM_ROUTINE ProcessCallback,
+ IN OUT PVOID ProcessCallbackContext,
+ IN PTHREAD_ENUM_ROUTINE ThreadCallback,
+ IN OUT PVOID ThreadCallbackContext
+)
 {
-  PSYSTEM_PROCESSES pInfoBuffer;
-  NTSTATUS Status;
+ register NTSTATUS nErrCode;
+ PSYSTEM_PROCESSES pInfoBuffer;
 
-  if(ProcessCallback == NULL && ThreadCallback == NULL)
-  {
-    return STATUS_INVALID_PARAMETER;
-  }
+ /* parameter validation */
+ if(!ProcessCallback && !ThreadCallback)
+  return STATUS_INVALID_PARAMETER;
 
-  /* get the processes and threads list */
-  Status = PsaCaptureProcessesAndThreads(&pInfoBuffer);
+ /* get the processes and threads list */
+ nErrCode = PsaCaptureProcessesAndThreads(&pInfoBuffer);
 
-  if(!NT_SUCCESS(Status))
-  {
-    goto Bail;
-  }
+ /* failure */
+ if(!NT_SUCCESS(nErrCode))
+  goto epat_Finalize;
 
-  /* walk the processes and threads list */
-  Status = PsaWalkProcessesAndThreads(pInfoBuffer,
-                                      ProcessCallback,
-                                      ProcessCallbackContext,
-                                      ThreadCallback,
-                                      ThreadCallbackContext);
+ /* walk the processes and threads list */
+ nErrCode = PsaWalkProcessesAndThreads
+ (
+  pInfoBuffer,
+  ProcessCallback,
+  ProcessCallbackContext,
+  ThreadCallback,
+  ThreadCallbackContext
+ );
 
-Bail:
-  PsaFreeCapture(pInfoBuffer);
+epat_Finalize:
+ /* free the buffer */
+ PsaFreeCapture(pInfoBuffer);
  
-  return Status;
+ /* return the last status */
+ return (nErrCode);
 }
 
-VOID NTAPI
-PsaFreeCapture(IN PVOID Capture)
+VOID
+NTAPI
+PsaFreeCapture
+(
+ IN PVOID Capture
+)
 {
-  PsaiFree(Capture);
+ PsaiFree(Capture);
 }
 
-NTSTATUS NTAPI
-PsaWalkProcesses(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-                 IN PPROC_ENUM_ROUTINE Callback,
-                 IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaWalkProcesses
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PPROC_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  return PsaWalkProcessesAndThreads(ProcessesAndThreads,
-                                    Callback,
-                                    CallbackContext,
-                                    NULL,
-                                    NULL);
+ return PsaWalkProcessesAndThreads
+ (
+  ProcessesAndThreads,
+  Callback,
+  CallbackContext,
+  NULL,
+  NULL
+ );
 }
 
-NTSTATUS NTAPI
-PsaWalkThreads(IN PSYSTEM_PROCESSES ProcessesAndThreads,
-               IN PTHREAD_ENUM_ROUTINE Callback,
-               IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaWalkThreads
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads,
+ IN PTHREAD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  return PsaWalkProcessesAndThreads(ProcessesAndThreads,
-                                    NULL,
-                                    NULL,
-                                   Callback,
-                                   CallbackContext);
+ return PsaWalkProcessesAndThreads
+ (
+  ProcessesAndThreads,
+  NULL,
+  NULL,
+  Callback,
+  CallbackContext
+ );
 }
 
-NTSTATUS NTAPI
-PsaEnumerateProcesses(IN PPROC_ENUM_ROUTINE Callback,
-                      IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaEnumerateProcesses
+(
+ IN PPROC_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  return PsaEnumerateProcessesAndThreads(Callback,
-                                         CallbackContext,
-                                         NULL,
-                                         NULL);
+ return PsaEnumerateProcessesAndThreads
+ (
+  Callback,
+  CallbackContext,
+  NULL,
+  NULL
+ );
 }
 
-NTSTATUS NTAPI
-PsaEnumerateThreads(IN PTHREAD_ENUM_ROUTINE Callback,
-                    IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaEnumerateThreads
+(
+ IN PTHREAD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  return PsaEnumerateProcessesAndThreads(NULL,
-                                         NULL,
-                                         Callback,
-                                         CallbackContext);
+ return PsaEnumerateProcessesAndThreads
+ (
+  NULL,
+  NULL,
+  Callback,
+  CallbackContext
+ );
 }
 
-PSYSTEM_PROCESSES FASTCALL
-PsaWalkFirstProcess(IN PSYSTEM_PROCESSES ProcessesAndThreads)
+PSYSTEM_PROCESSES
+FASTCALL
+PsaWalkFirstProcess
+(
+ IN PSYSTEM_PROCESSES ProcessesAndThreads
+)
 {
-  return ProcessesAndThreads;
+ return ProcessesAndThreads;
 }
 
-PSYSTEM_PROCESSES FASTCALL
-PsaWalkNextProcess(IN PSYSTEM_PROCESSES CurrentProcess)
+PSYSTEM_PROCESSES
+FASTCALL
+PsaWalkNextProcess
+(
+ IN PSYSTEM_PROCESSES CurrentProcess
+)
 {
-  if(CurrentProcess->NextEntryDelta == 0)
+ if(CurrentProcess->NextEntryDelta == 0)
+  return NULL;
+ else
+  return
+   (PSYSTEM_PROCESSES)
+   ((ULONG_PTR)CurrentProcess + CurrentProcess->NextEntryDelta);
+}
+
+PSYSTEM_THREADS
+FASTCALL
+PsaWalkFirstThread
+(
+ IN PSYSTEM_PROCESSES CurrentProcess
+)
+{
+ static SIZE_T nOffsetOfThreads = 0;
+
+ /* get the offset of the Threads field (dependant on the kernel version) */
+ if(!nOffsetOfThreads)
+ {
+  /*
+   FIXME: we should probably use the build number, instead, but it isn't
+   available as reliably as the major and minor version numbers
+  */
+  switch(SharedUserData->NtMajorVersion)
   {
-    return NULL;
+   /* NT 3 and 4 */
+   case 3:
+   case 4:
+   {
+    nOffsetOfThreads = offsetof(SYSTEM_PROCESSES_NT4, Threads);
+    break;
+   }
+
+   /* NT 5 and later */
+   default:
+   case 5:
+   {
+    nOffsetOfThreads = offsetof(SYSTEM_PROCESSES_NT5, Threads);
+    break;
+   }
   }
-  else
-  {
-    return (PSYSTEM_PROCESSES)((ULONG_PTR)CurrentProcess + CurrentProcess->NextEntryDelta);
-  }
+ }
+
+ return (PSYSTEM_THREADS)((ULONG_PTR)CurrentProcess + nOffsetOfThreads);
 }
 
-PSYSTEM_THREADS FASTCALL
-PsaWalkFirstThread(IN PSYSTEM_PROCESSES CurrentProcess)
+PSYSTEM_THREADS
+FASTCALL
+PsaWalkNextThread
+(
+ IN PSYSTEM_THREADS CurrentThread
+)
 {
-  static SIZE_T nOffsetOfThreads = 0;
-
-  /* get the offset of the Threads field (dependant on the kernel version) */
-  if(!nOffsetOfThreads)
-  {
-    /*
-     FIXME: we should probably use the build number, instead, but it isn't
-     available as reliably as the major and minor version numbers
-    */
-    switch(SharedUserData->NtMajorVersion)
-    {
-      /* NT 3 and 4 */
-      case 3:
-      case 4:
-      {
-        nOffsetOfThreads = offsetof(SYSTEM_PROCESSES_NT4, Threads);
-        break;
-      }
-
-      /* NT 5 and later */
-      case 5:
-      default:
-      {
-        nOffsetOfThreads = offsetof(SYSTEM_PROCESSES_NT5, Threads);
-        break;
-      }
-    }
-  }
-
-  return (PSYSTEM_THREADS)((ULONG_PTR)CurrentProcess + nOffsetOfThreads);
-}
-
-PSYSTEM_THREADS FASTCALL
-PsaWalkNextThread(IN PSYSTEM_THREADS CurrentThread)
-{
-  return (PSYSTEM_THREADS)((ULONG_PTR)CurrentThread +
-                           (offsetof(SYSTEM_PROCESSES, Threads[1]) -
-                            offsetof(SYSTEM_PROCESSES, Threads[0])));
+ return (PSYSTEM_THREADS)
+ (
+  (ULONG_PTR)CurrentThread +
+  (
+   offsetof(SYSTEM_PROCESSES, Threads[1]) -
+   offsetof(SYSTEM_PROCESSES, Threads[0])
+  )
+ );
 }
 
 /* EOF */

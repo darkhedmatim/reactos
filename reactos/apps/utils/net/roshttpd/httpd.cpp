@@ -315,7 +315,7 @@ VOID CHttpClient::OnWrite()
 	DWORD nBytesToRead;
 	DWORD nBytesRead;
 
-	OutputDebugString(TS("Can write\n"));
+	OutputDebugString(_T("Can write\n"));
 
 	if (bSendingFile) {
 		if (nTotalRead + nBufferSize < nFileSize)

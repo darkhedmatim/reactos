@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: msgina.c,v 1.10 2004/10/11 21:08:04 weiden Exp $
+/* $Id: msgina.c,v 1.7 2003/12/27 11:09:58 weiden Exp $
  *
  * PROJECT:         ReactOS msgina.dll
  * FILE:            lib/msgina/msgina.c
@@ -42,7 +42,7 @@ typedef struct _DISPLAYSTATUSMSG
   HANDLE StartupEvent;
 } DISPLAYSTATUSMSG, *PDISPLAYSTATUSMSG;
 
-INT_PTR CALLBACK
+BOOL CALLBACK 
 LoggedOnDlgProc(
   HWND hwndDlg,
   UINT uMsg,
@@ -203,7 +203,7 @@ WlxActivateUserShell(
   if(RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
                   L"SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\Winlogon", 
                   0, KEY_QUERY_VALUE, &hKey) != ERROR_SUCCESS)
-  {DbgPrint("GINA: Failed: 1\n");
+  {
     VirtualFree(pEnvironment, 0, MEM_RELEASE);
     return FALSE;
   }
@@ -211,7 +211,7 @@ WlxActivateUserShell(
   if((RegQueryValueEx(hKey, L"Userinit", NULL, &ValueType, (LPBYTE)pszUserInitApp, 
                      &BufSize) != ERROR_SUCCESS) || 
                      !((ValueType == REG_SZ) || (ValueType == REG_EXPAND_SZ)))
-  {DbgPrint("GINA: Failed: 2\n");
+  {
     RegCloseKey(hKey);
     VirtualFree(pEnvironment, 0, MEM_RELEASE);
     return FALSE;
@@ -243,7 +243,7 @@ WlxActivateUserShell(
                             NULL,
                             &si,
                             &pi);
-  if(!Ret) DbgPrint("GINA: Failed: 3\n");
+  
   VirtualFree(pEnvironment, 0, MEM_RELEASE);
   return Ret;
 }
@@ -444,96 +444,6 @@ WlxRemoveStatusMessage(
   }
   
   return TRUE;
-}
-
-
-/*
- * @implemented
- */
-VOID WINAPI
-WlxDisplaySASNotice(
-	PVOID pWlxContext)
-{
-  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-  pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
-}
-
-
-static PWSTR
-DuplicationString(PWSTR Str)
-{
-  DWORD cb;
-  PWSTR NewStr;
-
-  cb = (wcslen(Str) + 1) * sizeof(WCHAR);
-  if((NewStr = LocalAlloc(LMEM_FIXED, cb)))
-  {
-    memcpy(NewStr, Str, cb);
-  }
-  return NewStr;
-}
-
-
-/*
- * @unimplemented
- */
-int WINAPI
-WlxLoggedOutSAS(
-	PVOID                pWlxContext,
-	DWORD                dwSasType,
-	PLUID                pAuthenticationId,
-	PSID                 pLogonSid,
-	PDWORD               pdwOptions,
-	PHANDLE              phToken,
-	PWLX_MPR_NOTIFY_INFO pNprNotifyInfo,
-	PVOID                *pProfile)
-{
-  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-  TOKEN_STATISTICS Stats;
-  DWORD cbStats;
-
-  if(!phToken)
-  {
-    DbgPrint("msgina: phToken == NULL!\n");
-    return WLX_SAS_ACTION_NONE;
-  }
-
-  if(!LogonUser(L"Administrator", NULL, L"Secrect",
-                LOGON32_LOGON_INTERACTIVE, /* FIXME - use LOGON32_LOGON_UNLOCK instead! */
-                LOGON32_PROVIDER_DEFAULT,
-                phToken))
-  {
-    DbgPrint("msgina: Logonuser() failed\n");
-    return WLX_SAS_ACTION_NONE;
-  }
-  
-  if(!(*phToken))
-  {
-    DbgPrint("msgina: *phToken == NULL!\n");
-    return WLX_SAS_ACTION_NONE;
-  }
-
-  pgContext->UserToken =*phToken;
-  
-  *pdwOptions = 0;
-  *pProfile =NULL; 
-  
-  if(!GetTokenInformation(*phToken,
-                          TokenStatistics,
-                          (PVOID)&Stats,
-                          sizeof(TOKEN_STATISTICS),
-                          &cbStats))
-  {
-    DbgPrint("msgina: Couldn't get Autentication id from user token!\n");
-    return WLX_SAS_ACTION_NONE;
-  }
-  *pAuthenticationId = Stats.AuthenticationId; 
-  pNprNotifyInfo->pszUserName = DuplicationString(L"Administrator");
-  pNprNotifyInfo->pszDomain = NULL;
-  pNprNotifyInfo->pszPassword = DuplicationString(L"Secret");
-  pNprNotifyInfo->pszOldPassword = NULL;
-
-  return WLX_SAS_ACTION_LOGON;
 }
 
 

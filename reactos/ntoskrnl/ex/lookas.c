@@ -1,4 +1,4 @@
-/* $Id: lookas.c,v 1.14 2004/08/15 16:39:01 chorns Exp $
+/* $Id: lookas.c,v 1.13 2003/12/30 18:52:03 fireball Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -14,7 +14,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+//#ifdef __USE_W32API
+// #define NONAMELESSUNION
+//#endif
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 #define NDEBUG
 #include <internal/debug.h>
 

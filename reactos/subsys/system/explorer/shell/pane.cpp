@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "../explorer_intres.h"
 
@@ -90,11 +93,6 @@ Pane::Pane(HWND hparent, int id, int id_header, Entry* root, bool treePane, int 
 	init();
 
 	create_header(hparent, id_header);
-}
-
-Pane::~Pane()
-{
-	ImageList_Destroy(_himl);
 }
 
 
@@ -540,23 +538,19 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 
 		if (visible_cols & COL_INDEX) {
 			_stprintf(buffer, TEXT("%") LONGLONGARG TEXT("X"), index);
-
 			if (calcWidthCol == -1)
 				_out_wrkr.output_text(dis, _positions, col, buffer, DT_RIGHT);
 			else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 				calc_width(dis, col, buffer);
-
 			++col;
 		}
 
 		if (visible_cols & COL_LINKS) {
 			wsprintf(buffer, TEXT("%d"), entry->_bhfi.nNumberOfLinks);
-
 			if (calcWidthCol == -1)
 				_out_wrkr.output_text(dis, _positions, col, buffer, DT_RIGHT);
 			else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 				calc_width(dis, col, buffer);
-
 			++col;
 		}
 	} else
@@ -664,6 +658,8 @@ void Pane::insert_entries(Entry* dir, int idx)
 	if (!entry)
 		return;
 
+	SendMessage(_hwnd, WM_SETREDRAW, FALSE, 0);	//ShowWindow(_hwnd, SW_HIDE);
+
 	for(; entry; entry=entry->_next) {
 #ifndef _LEFT_FILES
 		if (_treePane &&
@@ -687,6 +683,8 @@ void Pane::insert_entries(Entry* dir, int idx)
 		if (_treePane && entry->_expanded)
 			insert_entries(entry->_down, idx);
 	}
+
+	SendMessage(_hwnd, WM_SETREDRAW, TRUE, 0);	//ShowWindow(_hwnd, SW_SHOW);
 }
 
 
@@ -984,9 +982,9 @@ BOOL Pane::command(UINT cmd)
 	return TRUE;
 }
 
-MainFrameBase* Pane::get_frame()
+MainFrame* Pane::get_frame()
 {
 	HWND owner = GetParent(_hwnd);
 
-	return (MainFrameBase*)owner;
+	return (MainFrame*)owner;
 }

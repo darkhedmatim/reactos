@@ -1,4 +1,4 @@
-/* $Id: batch.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: batch.c,v 1.3 2003/12/26 09:52:37 navaraf Exp $
  *
  *  BATCH.C - batch file processor for CMD.EXE.
  *
@@ -56,7 +56,16 @@
  *        Fixes made to get "for" working.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /* The stack of current batch contexts.

@@ -28,10 +28,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -40,7 +38,7 @@
 #include "wingdi.h"
 #include "pidl.h"
 #include "shlguid.h"
-#include "enumidlist.h"
+
 #include "undocshell.h"
 #include "shell32_main.h"
 #include "shresdef.h"
@@ -57,17 +55,17 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    IShellFolder2Vtbl   *lpVtbl;
-    DWORD                ref;
-    IPersistFolder2Vtbl *lpVtblPersistFolder2;
+    ICOM_VFIELD (IShellFolder2);
+    DWORD ref;
+      ICOM_VTABLE (IPersistFolder2) * lpVtblPersistFolder2;
 
     /* both paths are parsible from the desktop */
     LPITEMIDLIST pidlRoot;	/* absolute pidl */
     int dwAttributes;		/* attributes returned by GetAttributesOf FIXME: use it */
 } IGenericSFImpl;
 
-static struct IShellFolder2Vtbl vt_ShellFolder2;
-static struct IPersistFolder2Vtbl vt_PersistFolder2;
+static struct ICOM_VTABLE (IShellFolder2) vt_ShellFolder2;
+static struct ICOM_VTABLE (IPersistFolder2) vt_PersistFolder2;
 
 #define _IPersistFolder2_Offset ((int)(&(((IGenericSFImpl*)0)->lpVtblPersistFolder2)))
 #define _ICOM_THIS_From_IPersistFolder2(class, name) class* This = (class*)(((char*)name)-_IPersistFolder2_Offset);
@@ -135,7 +133,7 @@ HRESULT WINAPI ISF_MyComputer_Constructor (IUnknown * pUnkOuter, REFIID riid, LP
  */
 static HRESULT WINAPI ISF_MyComputer_fnQueryInterface (IShellFolder2 * iface, REFIID riid, LPVOID * ppvObj)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, shdebugstr_guid (riid), ppvObj);
 
@@ -160,7 +158,7 @@ static HRESULT WINAPI ISF_MyComputer_fnQueryInterface (IShellFolder2 * iface, RE
 
 static ULONG WINAPI ISF_MyComputer_fnAddRef (IShellFolder2 * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -169,7 +167,7 @@ static ULONG WINAPI ISF_MyComputer_fnAddRef (IShellFolder2 * iface)
 
 static ULONG WINAPI ISF_MyComputer_fnRelease (IShellFolder2 * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -193,11 +191,12 @@ ISF_MyComputer_fnParseDisplayName (IShellFolder2 * iface,
 				   LPOLESTR lpszDisplayName,
 				   DWORD * pchEaten, LPITEMIDLIST * ppidl, DWORD * pdwAttributes)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     HRESULT hr = E_INVALIDARG;
     LPCWSTR szNext = NULL;
     WCHAR szElement[MAX_PATH];
+    CHAR szTempA[MAX_PATH];
     LPITEMIDLIST pidlTemp = NULL;
     CLSID clsid;
 
@@ -213,13 +212,13 @@ ISF_MyComputer_fnParseDisplayName (IShellFolder2 * iface,
 	szNext = GetNextElementW (lpszDisplayName, szElement, MAX_PATH);
 	TRACE ("-- element: %s\n", debugstr_w (szElement));
 	SHCLSIDFromStringW (szElement + 2, &clsid);
-	pidlTemp = _ILCreateGuid (PT_GUID, &clsid);
+	pidlTemp = _ILCreate (PT_MYCOMP, &clsid, sizeof (clsid));
     }
     /* do we have an absolute path name ? */
     else if (PathGetDriveNumberW (lpszDisplayName) >= 0 && lpszDisplayName[2] == (WCHAR) '\\') {
 	szNext = GetNextElementW (lpszDisplayName, szElement, MAX_PATH);
-	szElement[0] = toupper(szElement[0]); /* make drive letter uppercase to enable PIDL comparison */
-	pidlTemp = _ILCreateDrive (szElement);
+	WideCharToMultiByte (CP_ACP, 0, szElement, -1, szTempA, MAX_PATH, NULL, NULL);
+	pidlTemp = _ILCreateDrive (szTempA);
     }
 
     if (szNext && *szNext) {
@@ -239,74 +238,16 @@ ISF_MyComputer_fnParseDisplayName (IShellFolder2 * iface,
 }
 
 /**************************************************************************
- *  CreateMyCompEnumList()
- */
-static BOOL CreateMyCompEnumList(IEnumIDList *list, DWORD dwFlags)
-{
-    BOOL ret = TRUE;
-
-    TRACE("(%p)->(flags=0x%08lx) \n",list,dwFlags);
-
-    /*enumerate the folders*/
-    if(dwFlags & SHCONTF_FOLDERS)
-    {
-        WCHAR wszDriveName[] = {'A', ':', '\\', '\0'};
-        DWORD dwDrivemap = GetLogicalDrives();
-        HKEY hkey;
-
-        while (ret && wszDriveName[0]<='Z')
-        {
-            if(dwDrivemap & 0x00000001L)
-                ret = AddToEnumList(list, _ILCreateDrive(wszDriveName));
-            wszDriveName[0]++;
-            dwDrivemap = dwDrivemap >> 1;
-        }
-
-        TRACE("-- (%p)-> enumerate (mycomputer shell extensions)\n",list);
-        if (ret && !RegOpenKeyExA(HKEY_LOCAL_MACHINE,
-         "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\explorer\\mycomputer\\NameSpace",
-         0, KEY_READ, &hkey))
-        {
-            char iid[50];
-            int i=0;
-
-            while (ret)
-            {
-                DWORD size = sizeof (iid);
-                LONG apiRet = RegEnumKeyExA(hkey, i, iid, &size, 0, NULL, NULL,
-                 NULL);
-
-                if (ERROR_SUCCESS == apiRet)
-                {
-                    /* FIXME: shell extensions, shouldn't the type be
-                     * PT_SHELLEXT? */
-                    ret = AddToEnumList(list, _ILCreateGuidFromStrA(iid));
-                    i++;
-                }
-                else if (ERROR_NO_MORE_ITEMS == apiRet)
-                    break;
-                else
-                    ret = FALSE;
-            }
-            RegCloseKey(hkey);
-        }
-    }
-    return ret;
-}
-
-/**************************************************************************
 *		ISF_MyComputer_fnEnumObjects
 */
 static HRESULT WINAPI
 ISF_MyComputer_fnEnumObjects (IShellFolder2 * iface, HWND hwndOwner, DWORD dwFlags, LPENUMIDLIST * ppEnumIDList)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(HWND=%p flags=0x%08lx pplist=%p)\n", This, hwndOwner, dwFlags, ppEnumIDList);
 
-    *ppEnumIDList = IEnumIDList_Constructor();
-    if (*ppEnumIDList)
-        CreateMyCompEnumList(*ppEnumIDList, dwFlags);
+    *ppEnumIDList = IEnumIDList_Constructor (NULL, dwFlags, EIDL_MYCOMP);
 
     TRACE ("-- (%p)->(new ID List: %p)\n", This, *ppEnumIDList);
 
@@ -320,7 +261,7 @@ static HRESULT WINAPI
 ISF_MyComputer_fnBindToObject (IShellFolder2 * iface, LPCITEMIDLIST pidl,
 			       LPBC pbcReserved, REFIID riid, LPVOID * ppvOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(pidl=%p,%p,%s,%p)\n", This, pidl, pbcReserved, shdebugstr_guid (riid), ppvOut);
 
@@ -334,7 +275,7 @@ static HRESULT WINAPI
 ISF_MyComputer_fnBindToStorage (IShellFolder2 * iface,
 				LPCITEMIDLIST pidl, LPBC pbcReserved, REFIID riid, LPVOID * ppvOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     FIXME ("(%p)->(pidl=%p,%p,%s,%p) stub\n", This, pidl, pbcReserved, shdebugstr_guid (riid), ppvOut);
 
@@ -349,7 +290,7 @@ ISF_MyComputer_fnBindToStorage (IShellFolder2 * iface,
 static HRESULT WINAPI
 ISF_MyComputer_fnCompareIDs (IShellFolder2 * iface, LPARAM lParam, LPCITEMIDLIST pidl1, LPCITEMIDLIST pidl2)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     int nReturn;
 
@@ -365,7 +306,7 @@ ISF_MyComputer_fnCompareIDs (IShellFolder2 * iface, LPARAM lParam, LPCITEMIDLIST
 static HRESULT WINAPI
 ISF_MyComputer_fnCreateViewObject (IShellFolder2 * iface, HWND hwndOwner, REFIID riid, LPVOID * ppvOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     LPSHELLVIEW pShellView;
     HRESULT hr = E_INVALIDARG;
@@ -399,7 +340,7 @@ ISF_MyComputer_fnCreateViewObject (IShellFolder2 * iface, HWND hwndOwner, REFIID
 static HRESULT WINAPI
 ISF_MyComputer_fnGetAttributesOf (IShellFolder2 * iface, UINT cidl, LPCITEMIDLIST * apidl, DWORD * rgfInOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     HRESULT hr = S_OK;
 
@@ -407,9 +348,6 @@ ISF_MyComputer_fnGetAttributesOf (IShellFolder2 * iface, UINT cidl, LPCITEMIDLIS
 
     if ((!cidl) || (!apidl) || (!rgfInOut))
 	return E_INVALIDARG;
-
-    if (*rgfInOut == 0)
-	*rgfInOut = ~0;
 
     while (cidl > 0 && *apidl) {
 	pdump (*apidl);
@@ -439,7 +377,7 @@ ISF_MyComputer_fnGetUIObjectOf (IShellFolder2 * iface,
 				HWND hwndOwner,
 				UINT cidl, LPCITEMIDLIST * apidl, REFIID riid, UINT * prgfInOut, LPVOID * ppvOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     LPITEMIDLIST pidl;
     IUnknown *pObj = NULL;
@@ -492,10 +430,10 @@ ISF_MyComputer_fnGetUIObjectOf (IShellFolder2 * iface,
 */
 static HRESULT WINAPI ISF_MyComputer_fnGetDisplayNameOf (IShellFolder2 * iface, LPCITEMIDLIST pidl, DWORD dwFlags, LPSTRRET strRet)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     char szPath[MAX_PATH],
-      szDrive[18];
+    szDrive[18];
     int len = 0;
     BOOL bSimplePidl;
     HRESULT hr = S_OK;
@@ -617,26 +555,26 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDisplayNameOf (IShellFolder2 * iface, 
 static HRESULT WINAPI ISF_MyComputer_fnSetNameOf (IShellFolder2 * iface, HWND hwndOwner, LPCITEMIDLIST pidl,	/*simple pidl */
 						  LPCOLESTR lpName, DWORD dwFlags, LPITEMIDLIST * pPidlOut)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     FIXME ("(%p)->(%p,pidl=%p,%s,%lu,%p)\n", This, hwndOwner, pidl, debugstr_w (lpName), dwFlags, pPidlOut);
     return E_FAIL;
 }
 
 static HRESULT WINAPI ISF_MyComputer_fnGetDefaultSearchGUID (IShellFolder2 * iface, GUID * pguid)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     FIXME ("(%p)\n", This);
     return E_NOTIMPL;
 }
 static HRESULT WINAPI ISF_MyComputer_fnEnumSearches (IShellFolder2 * iface, IEnumExtraSearch ** ppenum)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     FIXME ("(%p)\n", This);
     return E_NOTIMPL;
 }
 static HRESULT WINAPI ISF_MyComputer_fnGetDefaultColumn (IShellFolder2 * iface, DWORD dwRes, ULONG * pSort, ULONG * pDisplay)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)\n", This);
 
@@ -646,7 +584,7 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDefaultColumn (IShellFolder2 * iface, 
 }
 static HRESULT WINAPI ISF_MyComputer_fnGetDefaultColumnState (IShellFolder2 * iface, UINT iColumn, DWORD * pcsFlags)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)\n", This);
 
@@ -656,7 +594,7 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDefaultColumnState (IShellFolder2 * if
 }
 static HRESULT WINAPI ISF_MyComputer_fnGetDetailsEx (IShellFolder2 * iface, LPCITEMIDLIST pidl, const SHCOLUMNID * pscid, VARIANT * pv)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     FIXME ("(%p)\n", This);
     return E_NOTIMPL;
 }
@@ -664,7 +602,7 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDetailsEx (IShellFolder2 * iface, LPCI
 /* FIXME: drive size >4GB is rolling over */
 static HRESULT WINAPI ISF_MyComputer_fnGetDetailsOf (IShellFolder2 * iface, LPCITEMIDLIST pidl, UINT iColumn, SHELLDETAILS * psd)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     HRESULT hr;
 
     TRACE ("(%p)->(%p %i %p)\n", This, pidl, iColumn, psd);
@@ -713,13 +651,14 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDetailsOf (IShellFolder2 * iface, LPCI
 }
 static HRESULT WINAPI ISF_MyComputer_fnMapColumnToSCID (IShellFolder2 * iface, UINT column, SHCOLUMNID * pscid)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
     FIXME ("(%p)\n", This);
     return E_NOTIMPL;
 }
 
-static IShellFolder2Vtbl vt_ShellFolder2 =
+static ICOM_VTABLE (IShellFolder2) vt_ShellFolder2 =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISF_MyComputer_fnQueryInterface,
 	ISF_MyComputer_fnAddRef,
 	ISF_MyComputer_fnRelease,
@@ -734,7 +673,7 @@ static IShellFolder2Vtbl vt_ShellFolder2 =
 	ISF_MyComputer_fnGetDisplayNameOf,
 	ISF_MyComputer_fnSetNameOf,
 	/* ShellFolder2 */
-        ISF_MyComputer_fnGetDefaultSearchGUID,
+	ISF_MyComputer_fnGetDefaultSearchGUID,
 	ISF_MyComputer_fnEnumSearches,
 	ISF_MyComputer_fnGetDefaultColumn,
 	ISF_MyComputer_fnGetDefaultColumnState,
@@ -822,8 +761,9 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_GetCurFolder (IPersistFolder2 * ifa
     return S_OK;
 }
 
-static IPersistFolder2Vtbl vt_PersistFolder2 =
+static ICOM_VTABLE (IPersistFolder2) vt_PersistFolder2 =
 {
+ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IMCFldr_PersistFolder2_QueryInterface,
 	IMCFldr_PersistFolder2_AddRef,
 	IMCFldr_PersistFolder2_Release,

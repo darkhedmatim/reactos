@@ -25,7 +25,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -44,16 +45,6 @@ DbgBreakPoint(VOID)
 #error Unknown compiler for inline assembler
 #endif
 }
-
-/*
- * @implemented
- */
-#if defined(__GNUC__)
-__asm__(".globl _DbgBreakPointNoBugCheck@0\n\t"
-	"_DbgBreakPointNoBugCheck@0:\n\t"
-	"int $3\n\t"
-	"ret\n\t");
-#endif
 
 /*
  * @implemented

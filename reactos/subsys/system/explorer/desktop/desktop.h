@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,7 +28,6 @@
 
 #define	PM_SET_ICON_ALGORITHM	(WM_APP+0x19)
 #define	PM_GET_ICON_ALGORITHM	(WM_APP+0x1A)
-#define	PM_DISPLAY_VERSION		(WM_APP+0x24)
 
 
  /// subclassed Background window behind the visible desktop window
@@ -36,14 +35,10 @@ struct BackgroundWindow : public SubclassedWindow
 {
 	typedef SubclassedWindow super;
 
-	BackgroundWindow(HWND hwnd);
+	BackgroundWindow(HWND hwnd) : super(hwnd) {}
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-
-	void	DrawDesktopBkgnd(HDC hdc);
-
-	int		_display_version;
 };
 
 

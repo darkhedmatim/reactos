@@ -63,7 +63,9 @@ int*	_sys_nerr_dll = &__sys_nerr;
 /*
  * @implemented
  *
+ * this function is now forwarded to MSVCRT.strerror to reduce code duplication
  */
+#if 0
 char *strerror(int errnum)
 {
   static char ebuf[40];		/* 64-bit number + slop */
@@ -94,11 +96,14 @@ char *strerror(int errnum)
 
   return ebuf;
 }
+#endif
 
 /*
  * @implemented
  *
+ * this function is now forwarded to MSVCRT._strerror to reduce code duplication
  */
+#if 0
 char *_strerror(const char *s)
 {
 	if ( s == NULL )
@@ -106,3 +111,4 @@ char *_strerror(const char *s)
 
 	return strerror(atoi(s));
 }
+#endif

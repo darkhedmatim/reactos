@@ -9,8 +9,6 @@ TARGET_TYPE = program
 
 TARGET_APPTYPE = console
 
-TARGET_INSTALLDIR = system32
-
 TARGET_NAME = sc
 
 TARGET_CFLAGS = -DDBG -Werror -Wall

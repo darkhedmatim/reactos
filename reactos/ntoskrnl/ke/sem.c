@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: sem.c,v 1.16 2004/11/21 18:33:54 gdalsnes Exp $
+/* $Id: sem.c,v 1.14 2003/11/02 01:15:15 ekohl Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/sem.c
@@ -28,7 +28,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/id.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -105,7 +109,7 @@ KeReleaseSemaphore (PKSEMAPHORE	Semaphore,
   Semaphore->Header.SignalState += Adjustment;
   if (InitialState == 0)
     {
-      KiDispatcherObjectWake(&Semaphore->Header);
+      KeDispatcherObjectWake(&Semaphore->Header);
     }
 
   if (Wait == FALSE)

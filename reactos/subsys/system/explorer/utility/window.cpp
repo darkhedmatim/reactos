@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
+#include "window.h"
 
-#include "../explorer_intres.h"	// for ID_GO_BACK, ...
+#include "../globals.h"
 
 
 WindowClass::WindowClass(LPCTSTR classname, UINT style_, WNDPROC wndproc)
@@ -257,9 +259,6 @@ LRESULT CALLBACK Window::WindowWndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPAR
 		  case WM_NOTIFY:
 			return pThis->Notify(wparam, (NMHDR*)lparam);
 
-		  case WM_NOTIFYFORMAT:
-			return NFR_CURRENT;
-
 		  case WM_CREATE:
 			return pThis->Init((LPCREATESTRUCT)lparam);
 
@@ -332,9 +331,6 @@ LRESULT CALLBACK SubclassedWindow::SubclassedWndProc(HWND hwnd, UINT nmsg, WPARA
 		  case WM_NOTIFY:
 			return pThis->Notify(wparam, (NMHDR*)lparam);
 
-		  case WM_NOTIFYFORMAT:
-			return NFR_CURRENT;
-
 		  case WM_CREATE:
 			return pThis->Init((LPCREATESTRUCT)lparam);
 
@@ -383,7 +379,7 @@ ChildWindow::ChildWindow(HWND hwnd, const ChildWndInfo& info)
 
 
 ChildWindow* ChildWindow::create(const ChildWndInfo& info, const RECT& rect, CREATORFUNC_INFO creator,
-									LPCTSTR classname, LPCTSTR title, DWORD style)
+									LPCTSTR classname, LPCTSTR title)
 {
 	MDICREATESTRUCT mcs;
 
@@ -394,7 +390,7 @@ ChildWindow* ChildWindow::create(const ChildWndInfo& info, const RECT& rect, CRE
 	mcs.y		= rect.top;
 	mcs.cx		= rect.right - rect.left;
 	mcs.cy		= rect.bottom - rect.top;
-	mcs.style	= style;
+	mcs.style	= 0;
 	mcs.lParam	= 0;
 
 	return static_cast<ChildWindow*>(create_mdi_child(info, mcs, creator));
@@ -489,45 +485,13 @@ LRESULT ChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		}
 		break;
 
- 	  case PM_DISPATCH_COMMAND:
-		switch(LOWORD(wparam)) {
-		  case ID_GO_BACK:
-			if (!_url_history.empty()) {
-				const String& url = jump_to_int(_url_history.top());
-
-				if (jump_to_int(url))
-					set_url(url);
-
-				_url_history.pop();
-			}
-			break;
-
-		  case ID_GO_FORWARD:
-			//@@
-			break;
-
-		  case ID_GO_UP:
-			///@todo
-			break;
-
-		  case ID_GO_HOME:
-			//@@
-			break;
-
-		  default:
-			return FALSE;
-		}
-		return TRUE;
+	  case PM_DISPATCH_COMMAND:
+		return FALSE;
 
 	  case WM_MDIACTIVATE:
-		if ((HWND)lparam == _hwnd) {
+		if ((HWND)lparam == _hwnd)
 			SendMessage(_hwndFrame, PM_SETSTATUSTEXT, 0, (LPARAM)_statusText.c_str());
-			SendMessage(_hwndFrame, PM_URL_CHANGED, 0, (LPARAM)_url.c_str());
-		}
 		break;
-
-	  case PM_JUMP_TO_URL:
-		return go_to((LPCTSTR)lparam)? TRUE: FALSE;
 
 	  default: def:
 		return DefMDIChildProc(_hwnd, nmsg, wparam, lparam);
@@ -539,7 +503,7 @@ LRESULT ChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 void ChildWindow::resize_children(int cx, int cy)
 {
-	HDWP hdwp = BeginDeferWindowPos(2);
+	HDWP hdwp = BeginDeferWindowPos(4);
 	RECT rt;
 
 	rt.left   = 0;
@@ -556,34 +520,9 @@ void ChildWindow::resize_children(int cx, int cy)
 		cx = 0;
 	}
 
-	if (_right_hwnd)
-		hdwp = DeferWindowPos(hdwp, _right_hwnd, 0, rt.left+cx+1, rt.top, rt.right-cx, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
+	hdwp = DeferWindowPos(hdwp, _right_hwnd, 0, rt.left+cx+1, rt.top, rt.right-cx, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
 
 	EndDeferWindowPos(hdwp);
-}
-
-
-bool ChildWindow::go_to(LPCTSTR url)
-{
-	const String& url_str = jump_to_int(url);
-
-	if (!url_str.empty()) {
-		set_url(url_str);
-
-		_url_history.push(url_str);
-
-		return true;
-	} else
-		return false;
-}
-
-void ChildWindow::set_url(LPCTSTR url)
-{
-	if (_url != url) {
-		_url = url;
-
-		SendMessage(_hwndFrame, PM_URL_CHANGED, 0, (LPARAM)url);
-	}
 }
 
 
@@ -710,8 +649,6 @@ int Dialog::DoModal(UINT nid, CREATORFUNC creator, HWND hwndParent)
 	s_window_creator = creator;
 	s_new_info = NULL;
 
-	///@todo call Window::pretranslate_msg()
-
 	return DialogBoxParam(g_Globals._hInstance, MAKEINTRESOURCE(nid), hwndParent, DialogProc, 0/*lpParam*/);
 }
 
@@ -721,8 +658,6 @@ int Dialog::DoModal(UINT nid, CREATORFUNC_INFO creator, const void* info, HWND h
 
 	s_window_creator = (CREATORFUNC) creator;
 	s_new_info = NULL;
-
-	///@todo call Window::pretranslate_msg()
 
 	return DialogBoxParam(g_Globals._hInstance, MAKEINTRESOURCE(nid), hwndParent, DialogProc, 0/*lpParam*/);
 }
@@ -739,10 +674,6 @@ INT_PTR CALLBACK Window::DialogProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM 
 
 		  case WM_NOTIFY:
 			pThis->Notify(wparam, (NMHDR*)lparam);
-			return TRUE;	// message has been processed
-
-		  case WM_NOTIFYFORMAT:
-			SetWindowLong(hwnd, DWLP_MSGRESULT, NFR_CURRENT);	// set return value NFR_CURRENT
 			return TRUE;	// message has been processed
 
 		  case WM_NCDESTROY:
@@ -771,10 +702,10 @@ int Dialog::Command(int id, int code)
 {
 	if (code == BN_CLICKED) {
 		EndDialog(_hwnd, id);
-		return 0;	// message has been processed
+		return TRUE;	// message has been processed
 	}
 
-	return 1;
+	return FALSE;
 }
 
 
@@ -809,8 +740,8 @@ void ResizeManager::HandleSize(int cx, int cy)
 		const ResizeEntry& e = *it;
 		RECT move = {0};
 
-		if (e._flags & MOVE_LEFT)
-			move.left += dx;
+		if (e._flags & MOVE_LEFT)	// Die verschiedenen Transformationsmatrizen in move ließen sich eigentlich
+			move.left += dx;		// cachen oder vorausberechnen, da sie nur von _flags und der Größenänderung abhängig sind.
 
 		if (e._flags & MOVE_RIGHT)
 			move.right += dx;
@@ -831,18 +762,15 @@ void ResizeManager::HandleSize(int cx, int cy)
 
 		if (flags != (SWP_NOMOVE|SWP_NOSIZE)) {
 			HWND hwnd = GetDlgItem(_hwnd, e._id);
+			WindowRect rect(hwnd);
+			ScreenToClient(_hwnd, rect);
 
-			if (hwnd) {
-				WindowRect rect(hwnd);
-				ScreenToClient(_hwnd, rect);
+			rect.left	+= move.left;
+			rect.right	+= move.right;
+			rect.top	+= move.top;
+			rect.bottom	+= move.bottom;
 
-				rect.left	+= move.left;
-				rect.right	+= move.right;
-				rect.top	+= move.top;
-				rect.bottom	+= move.bottom;
-
-				hDWP = DeferWindowPos(hDWP, hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, flags|SWP_NOACTIVATE|SWP_NOZORDER);
-			}
+			hDWP = DeferWindowPos(hDWP, hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, flags|SWP_NOACTIVATE|SWP_NOZORDER);
 		}
 	}
 
@@ -852,7 +780,6 @@ void ResizeManager::HandleSize(int cx, int cy)
 void ResizeManager::Resize(int dx, int dy)
 {
 	::SetWindowPos(_hwnd, 0, 0, 0, _min_wnd_size.cx+dx, _min_wnd_size.cy+dy, SWP_NOMOVE|SWP_NOACTIVATE);
-	MoveVisible(_hwnd);
 
 	ClientRect clnt_rect(_hwnd);
 	HandleSize(clnt_rect.right, clnt_rect.bottom);
@@ -867,13 +794,13 @@ Button::Button(HWND parent, LPCTSTR title, int left, int top, int width, int hei
 }
 
 
-LRESULT OwnerdrawnButton::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT OwnerdrawnButton::WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 {
-	if (nmsg == PM_DISPATCH_DRAWITEM) {
+	if (message == PM_DISPATCH_DRAWITEM) {
 		DrawItem((LPDRAWITEMSTRUCT)lparam);
 		return TRUE;
 	} else
-		return super::WndProc(nmsg, wparam, lparam);
+		return super::WndProc(message, wparam, lparam);
 }
 
 
@@ -1129,7 +1056,7 @@ LRESULT	FlatButton::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 		if (IsWindowEnabled(_hwnd)) {
 			DWORD pid_foreground;
-			HWND hwnd_foreground = GetForegroundWindow();	//@@ may be better look for WM_ACTIVATEAPP ?
+			HWND hwnd_foreground = GetForegroundWindow();	//@@ vielleicht besser über WM_ACTIVATEAPP-Abfrage
 			GetWindowThreadProcessId(hwnd_foreground, &pid_foreground);
 
 			if (GetCurrentProcessId() == pid_foreground) {
@@ -1224,9 +1151,9 @@ HyperlinkCtrl::~HyperlinkCtrl()
 		DeleteObject(_hfont);
 }
 
-LRESULT HyperlinkCtrl::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT HyperlinkCtrl::WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 {
-	switch(nmsg) {
+	switch(message) {
 	  case PM_DISPATCH_CTLCOLOR: {
 		if (!_hfont) {
 			HFONT hfont = (HFONT) SendMessage(_hwnd, WM_GETFONT, 0, 0);
@@ -1262,7 +1189,7 @@ LRESULT HyperlinkCtrl::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		return 0;
 
 	  default:
-		return super::WndProc(nmsg, wparam, lparam);
+		return super::WndProc(message, wparam, lparam);
 	}
 }
 
@@ -1425,10 +1352,6 @@ INT_PTR CALLBACK PropSheetPageDlg::DialogProc(HWND hwnd, UINT nmsg, WPARAM wpara
 
 		  case WM_NOTIFY:
 			pThis->Notify(wparam, (NMHDR*)lparam);
-			return TRUE;	// message has been processed
-
-		  case WM_NOTIFYFORMAT:
-			SetWindowLong(hwnd, DWLP_MSGRESULT, NFR_CURRENT);	// set return value NFR_CURRENT
 			return TRUE;	// message has been processed
 
 		  case WM_NCDESTROY:

@@ -1471,7 +1471,7 @@ unsigned long CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
                 return CAB_STATUS_INVALID_CAB;
             }
 
-            *(unsigned char**)&CurrentIBuffer += BytesRead;
+            (unsigned char*)CurrentIBuffer += BytesRead;
 
             CurrentIBufferSize += (unsigned short)BytesRead;
 
@@ -3031,7 +3031,7 @@ unsigned long CCabinet::WriteDataBlock()
     CurrentFolderNode->TotalFolderSize += (BytesWritten + sizeof(CFDATA));
     CurrentFolderNode->Folder.DataBlockCount++;
 
-    *(unsigned char**)&CurrentOBuffer += DataNode->Data.CompSize;
+    (unsigned char*)CurrentOBuffer += DataNode->Data.CompSize;
     CurrentOBufferSize     -= DataNode->Data.CompSize;
 
     LastBlockStart += DataNode->Data.UncompSize;
@@ -3092,7 +3092,7 @@ unsigned long CCabinet::GetFileTimes(FILEHANDLE FileHandle, PCFFILE_NODE File)
 #if defined(WIN32)
     FILETIME FileTime;
 
-    if (GetFileTime(FileHandle, NULL, NULL, &FileTime))
+    if (GetFileTime(FileHandle, NULL, &FileTime, NULL))
         FileTimeToDosDateTime(&FileTime,
             &File->File.FileDate,
             &File->File.FileTime);

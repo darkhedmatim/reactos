@@ -1,13 +1,8 @@
-/* $Id: npfs.h,v 1.17 2004/05/10 19:58:10 navaraf Exp $ */
+/* $Id: npfs.h,v 1.14 2003/06/21 19:55:55 hbirr Exp $ */
 
 #ifndef __SERVICES_FS_NP_NPFS_H
 #define __SERVICES_FS_NP_NPFS_H
 
-/*
- * Hacky support for delayed closing of pipes. We need this to support
- * reading from pipe the was closed on one end.
- */
-#define FIN_WORKAROUND_READCLOSE
 
 typedef struct
 {
@@ -22,9 +17,10 @@ typedef struct
 {
   UNICODE_STRING PipeName;
   LIST_ENTRY PipeListEntry;
-  KMUTEX FcbListLock;
+  KSPIN_LOCK FcbListLock;
   LIST_ENTRY ServerFcbListHead;
   LIST_ENTRY ClientFcbListHead;
+  ULONG ReferenceCount;
   ULONG PipeType;
   ULONG PipeReadMode;
   ULONG PipeWriteMode;
@@ -78,8 +74,6 @@ NTSTATUS STDCALL NpfsClose(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS STDCALL NpfsRead(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS STDCALL NpfsWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-NTSTATUS STDCALL NpfsFlushBuffers(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS STDCALL NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 

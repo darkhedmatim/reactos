@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,7 +31,8 @@
 
 #define	IDW_QUICKLAUNCHBAR	101
 
-#define	PM_UPDATE_DESKTOP	(WM_APP+0x23)
+#define	PM_REFRESH			(WM_APP+0x1B)
+#define	PM_UPDATE_DESKTOP	(WM_APP+0x1C)
 
 #define	IDC_FIRST_QUICK_ID	0x4000
 

@@ -28,8 +28,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "objbase.h"
@@ -182,6 +180,28 @@ HRESULT WINAPI CreateStdDispatch(
     return S_OK;
 }
 
+/******************************************************************************
+ * CreateDispTypeInfo [OLEAUT32.31]
+ *
+ * Build type information for an object so it can be called through an
+ * IDispatch interface.
+ *
+ * RETURNS
+ *  Success: S_OK. pptinfo contains the created ITypeInfo object.
+ *  Failure: E_INVALIDARG, if one or more arguments is invalid.
+ *
+ * NOTES
+ *  This call allows an objects methods to be accessed through IDispatch, by
+ *  building an ITypeInfo object that IDispatch can use to call through.
+ */
+HRESULT WINAPI CreateDispTypeInfo(
+	INTERFACEDATA *pidata, /* [I] Description of the interface to build type info for */
+	LCID lcid, /* [I] Locale Id */
+	ITypeInfo **pptinfo) /* [O] Destination for created ITypeInfo object */
+{
+	FIXME("(%p,%ld,%p),stub\n",pidata,lcid,pptinfo);
+	return 0;
+}
 
 /******************************************************************************
  * IDispatch {OLEAUT32}
@@ -219,7 +239,7 @@ HRESULT WINAPI CreateStdDispatch(
 
 typedef struct
 {
-    IDispatchVtbl *lpVtbl;
+    ICOM_VFIELD(IDispatch);
     void * pvThis;
     ITypeInfo * pTypeInfo;
     ULONG ref;
@@ -235,7 +255,7 @@ static HRESULT WINAPI StdDispatch_QueryInterface(
   REFIID riid,
   void** ppvObject)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("(%p)->(%s, %p)\n", iface, debugstr_guid(riid), ppvObject);
 
     if (IsEqualIID(riid, &IID_IDispatch) ||
@@ -255,10 +275,10 @@ static HRESULT WINAPI StdDispatch_QueryInterface(
  */
 static ULONG WINAPI StdDispatch_AddRef(LPDISPATCH iface)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("()\n");
 
-    return InterlockedIncrement(&This->ref);
+    return ++This->ref;
 }
 
 /******************************************************************************
@@ -268,19 +288,19 @@ static ULONG WINAPI StdDispatch_AddRef(LPDISPATCH iface)
  */
 static ULONG WINAPI StdDispatch_Release(LPDISPATCH iface)
 {
-    StdDispatch *This = (StdDispatch *)iface;
-    ULONG ref;
+    ICOM_THIS(StdDispatch, iface);
+    ULONG ret;
     TRACE("(%p)->()\n", This);
 
-    ref = InterlockedDecrement(&This->ref);
+    ret = This->ref--;
 
-    if (ref == 0)
+    if (This->ref == 0)
     {
         ITypeInfo_Release(This->pTypeInfo);
         CoTaskMemFree(This);
     }
 
-    return ref;
+    return ret;
 }
 
 /******************************************************************************
@@ -302,7 +322,7 @@ static ULONG WINAPI StdDispatch_Release(LPDISPATCH iface)
  */
 static HRESULT WINAPI StdDispatch_GetTypeInfoCount(LPDISPATCH iface, UINT * pctinfo)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("(%p)\n", pctinfo);
 
     *pctinfo = This->pTypeInfo ? 1 : 0;
@@ -329,7 +349,7 @@ static HRESULT WINAPI StdDispatch_GetTypeInfoCount(LPDISPATCH iface, UINT * pcti
  */
 static HRESULT WINAPI StdDispatch_GetTypeInfo(LPDISPATCH iface, UINT iTInfo, LCID lcid, ITypeInfo** ppTInfo)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("(%d, %lx, %p)\n", iTInfo, lcid, ppTInfo);
 
     *ppTInfo = NULL;
@@ -372,7 +392,7 @@ static HRESULT WINAPI StdDispatch_GetTypeInfo(LPDISPATCH iface, UINT iTInfo, LCI
  */
 static HRESULT WINAPI StdDispatch_GetIDsOfNames(LPDISPATCH iface, REFIID riid, LPOLESTR * rgszNames, UINT cNames, LCID lcid, DISPID * rgDispId)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("(%s, %p, %d, 0x%lx, %p)\n", debugstr_guid(riid), rgszNames, cNames, lcid, rgDispId);
 
     if (!IsEqualGUID(riid, &IID_NULL))
@@ -410,7 +430,7 @@ static HRESULT WINAPI StdDispatch_Invoke(LPDISPATCH iface, DISPID dispIdMember, 
                                          WORD wFlags, DISPPARAMS * pDispParams, VARIANT * pVarResult,
                                          EXCEPINFO * pExcepInfo, UINT * puArgErr)
 {
-    StdDispatch *This = (StdDispatch *)iface;
+    ICOM_THIS(StdDispatch, iface);
     TRACE("(%ld, %s, 0x%lx, 0x%x, %p, %p, %p, %p)\n", dispIdMember, debugstr_guid(riid), lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 
     if (!IsEqualGUID(riid, &IID_NULL))
@@ -421,8 +441,9 @@ static HRESULT WINAPI StdDispatch_Invoke(LPDISPATCH iface, DISPID dispIdMember, 
     return DispInvoke(This->pvThis, This->pTypeInfo, dispIdMember, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 }
 
-static IDispatchVtbl StdDispatch_VTable =
+static ICOM_VTABLE(IDispatch) StdDispatch_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   StdDispatch_QueryInterface,
   StdDispatch_AddRef,
   StdDispatch_Release,

@@ -1,4 +1,4 @@
-/* $Id: rtltypes.h,v 1.16 2004/10/24 20:37:26 weiden Exp $
+/* $Id: rtltypes.h,v 1.13 2004/02/10 16:22:56 navaraf Exp $
  * 
  */
 
@@ -14,31 +14,6 @@
 #define COMPRESSION_ENGINE_STANDARD	0x0000
 #define COMPRESSION_ENGINE_MAXIMUM	0x0100
 #define COMPRESSION_ENGINE_HIBER	0x0200
-/*
-#define VER_EQUAL						1
-#define VER_GREATER						2
-#define VER_GREATER_EQUAL				3
-#define VER_LESS						4
-#define VER_LESS_EQUAL					5
-#define VER_AND							6
-#define VER_OR							7
-
-#define VER_CONDITION_MASK				7
-#define VER_NUM_BITS_PER_CONDITION_MASK	3
-
-#define VER_MINORVERSION				0x0000001
-#define VER_MAJORVERSION				0x0000002
-#define VER_BUILDNUMBER					0x0000004
-#define VER_PLATFORMID					0x0000008
-#define VER_SERVICEPACKMINOR			0x0000010
-#define VER_SERVICEPACKMAJOR			0x0000020
-#define VER_SUITENAME					0x0000040
-#define VER_PRODUCT_TYPE				0x0000080
-
-#define VER_NT_WORKSTATION				0x0000001
-#define VER_NT_DOMAIN_CONTROLLER		0x0000002
-#define VER_NT_SERVER					0x0000003
-*/
 
 typedef struct _CONTROLLER_OBJECT
 {
@@ -154,13 +129,11 @@ typedef struct _RTL_SPLAY_LINKS
 typedef struct _RTL_RANGE_LIST
 {
   LIST_ENTRY ListHead;
-  ULONG Flags;  /* RTL_RANGE_LIST_... flags */
+  ULONG Flags;
   ULONG Count;
   ULONG Stamp;
 } RTL_RANGE_LIST, *PRTL_RANGE_LIST;
 
-#define RTL_RANGE_LIST_ADD_IF_CONFLICT  0x00000001
-#define RTL_RANGE_LIST_ADD_SHARED       0x00000002
 
 typedef struct _RTL_RANGE
 {
@@ -169,11 +142,9 @@ typedef struct _RTL_RANGE
   PVOID UserData;
   PVOID Owner;
   UCHAR Attributes;
-  UCHAR Flags;  /* RTL_RANGE_... flags */
+  UCHAR Flags;
 } RTL_RANGE, *PRTL_RANGE;
 
-#define RTL_RANGE_SHARED      0x01
-#define RTL_RANGE_CONFLICT    0x02
 
 typedef BOOLEAN
 (STDCALL *PRTL_CONFLICT_RANGE_CALLBACK) (PVOID Context,
@@ -189,14 +160,14 @@ typedef struct _RANGE_LIST_ITERATOR
 } RTL_RANGE_LIST_ITERATOR, *PRTL_RANGE_LIST_ITERATOR;
 
 
-typedef struct _INITIAL_TEB
+typedef struct _USER_STACK
 {
-  PVOID StackBase;
-  PVOID StackLimit;
-  PVOID StackCommit;
-  PVOID StackCommitMax;
-  PVOID StackReserved;
-} INITIAL_TEB, *PINITIAL_TEB;
+  PVOID FixedStackBase;
+  PVOID FixedStackLimit;
+  PVOID ExpandableStackBase;
+  PVOID ExpandableStackLimit;
+  PVOID ExpandableStackBottom;
+} USER_STACK, *PUSER_STACK;
 
 #else /* __USE_W32API */
 
@@ -263,36 +234,23 @@ typedef struct _NLS_FILE_HEADER
 } NLS_FILE_HEADER, *PNLS_FILE_HEADER;
 
 #include <poppack.h>
-/*
-typedef struct _OSVERSIONINFOEXA {
-	ULONG dwOSVersionInfoSize;
-	ULONG dwMajorVersion;
-	ULONG dwMinorVersion;
-	ULONG dwBuildNumber;
-	ULONG dwPlatformId;
-	CHAR szCSDVersion [128];
-	USHORT wServicePackMajor;
-	USHORT wServicePackMinor;
-	USHORT wSuiteMask;
-	UCHAR wProductType;
-	UCHAR wReserved;
-} OSVERSIONINFOEXA, *POSVERSIONINFOEXA, *LPOSVERSIONINFOEXA;
 
-typedef struct _OSVERSIONINFOEXW {
-	ULONG dwOSVersionInfoSize;
-	ULONG dwMajorVersion;
-	ULONG dwMinorVersion;
-	ULONG dwBuildNumber;
-	ULONG dwPlatformId;
-	WCHAR szCSDVersion[128];
-	USHORT wServicePackMajor;
-	USHORT wServicePackMinor;
-	USHORT wSuiteMask;
-	UCHAR wProductType;
-	UCHAR wReserved;
-} OSVERSIONINFOEXW, *POSVERSIONINFOEXW, *LPOSVERSIONINFOEXW, RTL_OSVERSIONINFOEXW, *PRTL_OSVERSIONINFOEXW;
 
-*/
+typedef struct _RTL_GENERIC_TABLE
+{
+  PVOID RootElement;
+  ULONG Unknown2;
+  ULONG Unknown3;
+  ULONG Unknown4;
+  ULONG Unknown5;
+  ULONG ElementCount;
+  PVOID CompareRoutine;
+  PVOID AllocateRoutine;
+  PVOID FreeRoutine;
+  ULONG UserParameter;
+} RTL_GENERIC_TABLE, *PRTL_GENERIC_TABLE;
+
+
 typedef struct _RTL_MESSAGE_RESOURCE_ENTRY
 {
   USHORT Length;
@@ -316,133 +274,5 @@ typedef struct _RTL_MESSAGE_RESOURCE_DATA
 typedef VOID
 (STDCALL *PRTL_BASE_PROCESS_START_ROUTINE)(PTHREAD_START_ROUTINE StartAddress,
   PVOID Parameter);
-
-
-typedef struct _UNICODE_PREFIX_TABLE_ENTRY {
-	USHORT NodeTypeCode;
-	USHORT NameLength;
-	struct _UNICODE_PREFIX_TABLE_ENTRY *NextPrefixTree;
-	struct _UNICODE_PREFIX_TABLE_ENTRY *CaseMatch;
-	RTL_SPLAY_LINKS Links;
-	PUNICODE_STRING Prefix;
-} UNICODE_PREFIX_TABLE_ENTRY;
-typedef UNICODE_PREFIX_TABLE_ENTRY *PUNICODE_PREFIX_TABLE_ENTRY;
-
-typedef struct _UNICODE_PREFIX_TABLE {
-	USHORT NodeTypeCode;
-	USHORT NameLength;
-	PUNICODE_PREFIX_TABLE_ENTRY NextPrefixTree;
-	PUNICODE_PREFIX_TABLE_ENTRY LastNextEntry;
-} UNICODE_PREFIX_TABLE;
-typedef UNICODE_PREFIX_TABLE *PUNICODE_PREFIX_TABLE;
-
-typedef enum _TABLE_SEARCH_RESULT{
-    TableEmptyTree,
-    TableFoundNode,
-    TableInsertAsLeft,
-    TableInsertAsRight
-} TABLE_SEARCH_RESULT;
-
-
-typedef enum _RTL_GENERIC_COMPARE_RESULTS {
-	GenericLessThan,
-	GenericGreaterThan,
-	GenericEqual
-} RTL_GENERIC_COMPARE_RESULTS;
-
-struct _RTL_AVL_TABLE;
-
-typedef
-RTL_GENERIC_COMPARE_RESULTS
-(STDCALL *PRTL_AVL_COMPARE_ROUTINE) (
-	struct _RTL_AVL_TABLE *Table,
-	PVOID FirstStruct,
-	PVOID SecondStruct
-	);
-
-typedef
-PVOID
-(STDCALL *PRTL_AVL_ALLOCATE_ROUTINE) (
-	struct _RTL_AVL_TABLE *Table,
-	ULONG ByteSize
-	);
-
-typedef
-VOID
-(STDCALL *PRTL_AVL_FREE_ROUTINE) (
-	struct _RTL_AVL_TABLE *Table,
-	PVOID Buffer
-	);
-
-typedef
-NTSTATUS
-(STDCALL *PRTL_AVL_MATCH_FUNCTION) (
-	struct _RTL_AVL_TABLE *Table,
-	PVOID UserData,
-	PVOID MatchData
-	);
-
-typedef struct _RTL_BALANCED_LINKS {
-	struct _RTL_BALANCED_LINKS *Parent;
-	struct _RTL_BALANCED_LINKS *LeftChild;
-	struct _RTL_BALANCED_LINKS *RightChild;
-	CHAR Balance;
-	UCHAR Reserved[3];
-} RTL_BALANCED_LINKS;
-
-typedef RTL_BALANCED_LINKS *PRTL_BALANCED_LINKS;
-
-typedef struct _RTL_AVL_TABLE {
-	RTL_BALANCED_LINKS BalancedRoot;
-	PVOID OrderedPointer;
-	ULONG WhichOrderedElement;
-	ULONG NumberGenericTableElements;
-	ULONG DepthOfTree;
-	PRTL_BALANCED_LINKS RestartKey;
-	ULONG DeleteCount;
-	PRTL_AVL_COMPARE_ROUTINE CompareRoutine;
-	PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine;
-	PRTL_AVL_FREE_ROUTINE FreeRoutine;
-	PVOID TableContext;
-} RTL_AVL_TABLE;
-typedef RTL_AVL_TABLE *PRTL_AVL_TABLE;
-
-struct _RTL_GENERIC_TABLE;
-
-typedef
-RTL_GENERIC_COMPARE_RESULTS
-(STDCALL *PRTL_GENERIC_COMPARE_ROUTINE) (
-	struct _RTL_GENERIC_TABLE *Table,
-	PVOID FirstStruct,
-	PVOID SecondStruct
-	);
-
-typedef
-PVOID
-(STDCALL *PRTL_GENERIC_ALLOCATE_ROUTINE) (
-	struct _RTL_GENERIC_TABLE *Table,
-	ULONG ByteSize
-	);
-
-typedef
-VOID
-(STDCALL *PRTL_GENERIC_FREE_ROUTINE) (
-	struct _RTL_GENERIC_TABLE *Table,
-	PVOID Buffer
-	);
-
-
-typedef struct _RTL_GENERIC_TABLE {
-	PRTL_SPLAY_LINKS TableRoot;
-	LIST_ENTRY InsertOrderList;
-	PLIST_ENTRY OrderedPointer;
-	ULONG WhichOrderedElement;
-	ULONG NumberGenericTableElements;
-	PRTL_GENERIC_COMPARE_ROUTINE CompareRoutine;
-	PRTL_GENERIC_ALLOCATE_ROUTINE AllocateRoutine;
-	PRTL_GENERIC_FREE_ROUTINE FreeRoutine;
-	PVOID TableContext;
-} RTL_GENERIC_TABLE;
-typedef RTL_GENERIC_TABLE *PRTL_GENERIC_TABLE;
 
 #endif /* __DDK_RTLTYPES_H */

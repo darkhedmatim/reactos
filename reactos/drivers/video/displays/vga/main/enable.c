@@ -1,9 +1,9 @@
 /*
  * entry.c
  *
- * $Revision: 1.5 $
- * $Author: weiden $
- * $Date: 2004/12/12 17:56:51 $
+ * $Revision: 1.1 $
+ * $Author: navaraf $
+ * $Date: 2004/01/10 14:39:20 $
  *
  */
 
@@ -189,6 +189,9 @@ DrvEnableDriver(IN ULONG EngineVersion,
 
   vgaPreCalc();
 
+  // FIXME: Use Vidport to map the memory properly
+  vidmem = (char *)(0xd0000000 + 0xa0000);
+
   VGADDI_InitializeOffScreenMem((640 * 480) >> 3, 65536 - ((640 * 480) >> 3));
 
   DriveEnableData->pdrvfn = FuncList;
@@ -258,6 +261,12 @@ DrvEnablePDEV(IN DEVMODEW *DM,
     }
   PDev->KMDriver = Driver;
   DPRINT( "PDev: %x, Driver: %x\n", PDev, PDev->KMDriver );
+  PDev->xyCursor.x = 320;
+  PDev->xyCursor.y = 240;
+  PDev->ptlExtent.x = 0;
+  PDev->ptlExtent.y = 0;
+  PDev->cExtent = 0;
+  PDev->flCursor = CURSOR_DOWN;
 
   gaulCap.ulHorzRes = 640;
   gaulCap.ulVertRes = 480;
@@ -358,7 +367,6 @@ DrvDisableSurface(IN DHPDEV PDev)
   PDEVSURF pdsurf = ppdev->AssociatedSurf;
   CHECKPOINT;
   DPRINT( "KMDriver: %x\n", ppdev->KMDriver );
-  DeinitVGA(ppdev);
   //  EngFreeMem(pdsurf->BankSelectInfo);
   CHECKPOINT;
   if (pdsurf->BankInfo != NULL) {
@@ -479,9 +487,6 @@ DrvEnableSurface(IN DHPDEV PDev)
   pdsurf->Scan0       = ppdev->fbScreen;
   pdsurf->BitmapStart = ppdev->fbScreen;
   pdsurf->StartBmp      = ppdev->fbScreen;
-  pdsurf->BankInfo      = NULL;
-  pdsurf->BankInfo2RW   = NULL;
-  pdsurf->BankBufferPlane0 = NULL;
 
 /*  pdsurf->Conv          = &ConvertBuffer[0]; */
 

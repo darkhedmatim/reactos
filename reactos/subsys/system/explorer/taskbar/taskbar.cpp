@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "taskbar.h"
 #include "traynotify.h"	// for NOTIFYAREA_WIDTH_DEF
@@ -55,7 +58,6 @@ TaskBarMap::~TaskBarMap()
 TaskBar::TaskBar(HWND hwnd)
  :	super(hwnd)
 {
-	_last_btn_width = 0;
 }
 
 TaskBar::~TaskBar()
@@ -69,12 +71,9 @@ HWND TaskBar::Create(HWND hwndParent)
 {
 	ClientRect clnt(hwndParent);
 
-	int taskbar_pos = 80;	// This start position will be adjusted in DesktopBar::Resize().
-
 	return Window::Create(WINDOW_CREATOR(TaskBar), 0,
-							BtnWindowClass(CLASSNAME_TASKBAR), TITLE_TASKBAR,
-							WS_CHILD|WS_VISIBLE | CCS_TOP|CCS_NODIVIDER|CCS_NORESIZE,
-							taskbar_pos, 0, clnt.right-taskbar_pos-(NOTIFYAREA_WIDTH_DEF+1), clnt.bottom, hwndParent);
+							BtnWindowClass(CLASSNAME_TASKBAR), TITLE_TASKBAR, WS_CHILD|WS_VISIBLE,
+							TASKBAR_LEFT, 0, clnt.right-TASKBAR_LEFT-(NOTIFYAREA_WIDTH_DEF+1), clnt.bottom, hwndParent);
 }
 
 LRESULT TaskBar::Init(LPCREATESTRUCT pcs)
@@ -83,15 +82,14 @@ LRESULT TaskBar::Init(LPCREATESTRUCT pcs)
 		return 1;
 
 	_htoolbar = CreateToolbarEx(_hwnd,
-								WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|
-								CCS_TOP|CCS_NODIVIDER | TBSTYLE_LIST|TBSTYLE_TOOLTIPS|TBSTYLE_WRAPABLE,//|TBSTYLE_AUTOSIZE
+								WS_CHILD|WS_VISIBLE|CCS_NODIVIDER|CCS_TOP|
+								TBSTYLE_LIST|TBSTYLE_TOOLTIPS|TBSTYLE_WRAPABLE,
 								IDW_TASKTOOLBAR, 0, 0, 0, NULL, 0, 0, 0, 16, 16, sizeof(TBBUTTON));
 
-	SendMessage(_htoolbar, TB_SETBUTTONWIDTH, 0, MAKELONG(TASKBUTTONWIDTH_MAX,TASKBUTTONWIDTH_MAX));
+	SendMessage(_htoolbar, TB_SETBUTTONWIDTH, 0, MAKELONG(80,160));
 	//SendMessage(_htoolbar, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
 	//SendMessage(_htoolbar, TB_SETDRAWTEXTFLAGS, DT_CENTER|DT_VCENTER, DT_CENTER|DT_VCENTER);
 	//SetWindowFont(_htoolbar, GetStockFont(ANSI_VAR_FONT), FALSE);
-	//SendMessage(_htoolbar, TB_SETPADDING, 0, MAKELPARAM(8,8));
 
 	_next_id = IDC_FIRST_APP;
 
@@ -109,21 +107,11 @@ LRESULT TaskBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 	switch(nmsg) {
 	  case WM_SIZE:
 		SendMessage(_htoolbar, WM_SIZE, 0, 0);
-		ResizeButtons();
 		break;
 
 	  case WM_TIMER:
 		Refresh();
 		return 0;
-
-	  case WM_CONTEXTMENU: {
-		Point pt(lparam);
-		ScreenToClient(_htoolbar, &pt);
-
-		if ((HWND)wparam==_htoolbar && SendMessage(_htoolbar, TB_HITTEST, 0, (LPARAM)&pt)>0)
-			break;	// avoid displaying context menu for application button _and_ desktop bar at the same time
-
-		goto def;}
 /*
 //#define PM_SHELLHOOK_NOTIFY		(WM_APP+0x10)
 
@@ -141,10 +129,7 @@ LRESULT TaskBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		Refresh();
 		break;}
 */
-	  case PM_GET_LAST_ACTIVE:
-		return (LRESULT)(HWND)_last_foreground_wnd;
-
-	  default: def:
+	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
 
@@ -206,23 +191,18 @@ void TaskBar::ActivateApp(TaskBarMap::iterator it, bool can_minimize)
 {
 	HWND hwnd = it->first;
 
-	bool minimize_it = can_minimize && !IsIconic(hwnd) &&
-						(hwnd==GetForegroundWindow() || hwnd==_last_foreground_wnd);
-
-	 // switch to selected application window
-	if (!minimize_it)
+	if (can_minimize && (hwnd==GetForegroundWindow() || hwnd==_last_foreground_wnd)) {
+		PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+		_last_foreground_wnd = 0;
+	} else {
+		 // switch to selected application window
 		if (IsIconic(hwnd))
 			PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
 
-	 // In case minimize_it is true, we _have_ to switch to the app before
-	 // posting SW_MINIMIZE to be compatible with some applications (e.g. "Sleipnir")
-	SetForegroundWindow(hwnd);
+		SetForegroundWindow(hwnd);
 
-	if (minimize_it) {
-		PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-		_last_foreground_wnd = 0;
-	} else
 		_last_foreground_wnd = hwnd;
+	}
 
 	Refresh();
 }
@@ -243,7 +223,7 @@ void TaskBar::ShowAppSystemMenu(TaskBarMap::iterator it)
 }
 
 
-HICON get_window_icon_small(HWND hwnd)
+static HICON get_window_icon(HWND hwnd)
 {
 	HICON hIcon = 0;
 
@@ -264,31 +244,8 @@ HICON get_window_icon_small(HWND hwnd)
 	if (!hIcon)
 		SendMessageTimeout(hwnd, WM_QUERYDRAGICON, 0, 0, 0, 1000, (LPDWORD)&hIcon);
 
-	return hIcon;
-}
-
-HICON get_window_icon_big(HWND hwnd, bool allow_from_class)
-{
-	HICON hIcon = 0;
-
-	SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
 	if (!hIcon)
-		SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-	if (!hIcon)
-		SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-	if (allow_from_class) {
-		if (!hIcon)
-			hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
-
-		if (!hIcon)
-			hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
-	}
-
-	if (!hIcon)
-		SendMessageTimeout(hwnd, WM_QUERYDRAGICON, 0, 0, 0, 1000, (LPDWORD)&hIcon);
+		hIcon = LoadIcon(0, IDI_APPLICATION);
 
 	return hIcon;
 }
@@ -317,22 +274,8 @@ BOOL CALLBACK TaskBar::EnumWndProc(HWND hwnd, LPARAM lparam)
 			if (!last_id)
 				found->second._id = pThis->_next_id++;
 		} else {
-			HBITMAP hbmp;
-			HICON hIcon = get_window_icon_small(hwnd);
-			BOOL delete_icon = FALSE;
-
-			if (!hIcon)
-			{
-				hIcon = LoadIcon(0, IDI_APPLICATION);
-				delete_icon = TRUE;
-			}
-
-			if (hIcon) {
-				hbmp = create_bitmap_from_icon(hIcon, GetSysColorBrush(COLOR_BTNFACE), WindowCanvas(pThis->_htoolbar));
-				if (delete_icon)
-					DestroyIcon(hIcon); // some icons can be freed, some not - so ignore any error return of DestroyIcon()
-			} else
-				hbmp = 0;
+			HICON hIcon = get_window_icon(hwnd);
+			HBITMAP hbmp = hIcon? create_bitmap_from_icon(hIcon, GetSysColorBrush(COLOR_BTNFACE), WindowCanvas(pThis->_htoolbar)): 0;
 
 			TBADDBITMAP ab = {0, (UINT_PTR)hbmp};
 			int bmp_idx = SendMessage(pThis->_htoolbar, TB_ADDBITMAP, 1, (LPARAM)&ab);
@@ -371,8 +314,7 @@ BOOL CALLBACK TaskBar::EnumWndProc(HWND hwnd, LPARAM lparam)
 			entry._btn_idx = SendMessage(pThis->_htoolbar, TB_BUTTONCOUNT, 0, 0);
 
 			SendMessage(pThis->_htoolbar, TB_INSERTBUTTON, entry._btn_idx, (LPARAM)&btn);
-
-			pThis->ResizeButtons();
+			SendMessage(pThis->_htoolbar, TB_AUTOSIZE, 0, 0);	///@todo useless?
 		} else {
 			 // refresh attributes of existing buttons
 			if (btn.fsState != entry._fsState)
@@ -416,7 +358,6 @@ void TaskBar::Refresh()
 	//EnumDesktopWindows(GetThreadDesktop(GetCurrentThreadId()), EnumWndProc, (LPARAM)_htoolbar);
 
 	set<int> btn_idx_to_delete;
-	set<HBITMAP> hbmp_to_delete;
 
 	for(TaskBarMap::iterator it=_map.begin(); it!=_map.end(); ++it) {
 		TaskBarEntry& entry = it->second;
@@ -424,7 +365,6 @@ void TaskBar::Refresh()
 		if (!entry._used && entry._id) {
 			 // store button indexes to remove
 			btn_idx_to_delete.insert(entry._btn_idx);
-			hbmp_to_delete.insert(entry._hbmp);
 			entry._id = 0;
 		}
 	}
@@ -440,37 +380,12 @@ void TaskBar::Refresh()
 				TaskBarEntry& entry = it->second;
 
 				 // adjust button indexes
-				if (entry._btn_idx > idx) {
+				if (entry._btn_idx > idx)
 					--entry._btn_idx;
-					--entry._bmp_idx;
-
-					TBBUTTONINFO info;
-
-					info.cbSize = sizeof(TBBUTTONINFO);
-					info.dwMask = TBIF_IMAGE;
-					info.iImage = entry._bmp_idx;
-
-					SendMessage(_htoolbar, TB_SETBUTTONINFO, entry._id, (LPARAM)&info);
-				}
 			}
 		}
 
-		for(set<HBITMAP>::iterator it=hbmp_to_delete.begin(); it!=hbmp_to_delete.end(); ++it) {
-			HBITMAP hbmp = *it;
-
-			TBREPLACEBITMAP tbrepl = {0, (UINT_PTR)hbmp, 0, 0};
-			SendMessage(_htoolbar, TB_REPLACEBITMAP, 0, (LPARAM)&tbrepl);
-
-			DeleteObject(hbmp);
-
-			for(TaskBarMap::iterator it=_map.begin(); it!=_map.end(); ++it)
-				if (it->second._hbmp == hbmp) {
-					_map.erase(it);
-					break;
-				}
-		}
-
-		ResizeButtons();
+		SendMessage(_htoolbar, TB_AUTOSIZE, 0, 0);	///@todo useless?
 	}
 }
 
@@ -481,26 +396,4 @@ TaskBarMap::iterator TaskBarMap::find_id(int id)
 			return it;
 
 	return end();
-}
-
-void TaskBar::ResizeButtons()
-{
-	int btns = _map.size();
-
-	if (btns > 0) {
-		int bar_width = ClientRect(_hwnd).right;
-		int btn_width = bar_width / btns;
-
-		if (btn_width < TASKBUTTONWIDTH_MIN)
-			btn_width = TASKBUTTONWIDTH_MIN;
-		else if (btn_width > TASKBUTTONWIDTH_MAX)
-			btn_width = TASKBUTTONWIDTH_MAX;
-
-		if (btn_width != _last_btn_width) {
-			_last_btn_width = btn_width;
-
-			SendMessage(_htoolbar, TB_SETBUTTONWIDTH, 0, MAKELONG(btn_width,btn_width));
-			SendMessage(_htoolbar, TB_AUTOSIZE, 0, 0);
-		}
-	}
 }

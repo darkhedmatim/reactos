@@ -1,6 +1,6 @@
 #ifndef __INCLUDE_INTERNAL_IFS_H
 #define __INCLUDE_INTERNAL_IFS_H
-/* $Id: ifs.h,v 1.7 2004/12/30 02:30:40 gdalsnes Exp $ */
+/* $Id: ifs.h,v 1.6 2003/08/14 18:30:28 silverblade Exp $ */
 
 #include <ddk/ntifs.h>
 #include <ntos.h>
@@ -38,7 +38,7 @@ FsRtlpFastUnlockAllByKey(
     IN PVOID                Context OPTIONAL
     );
 
-BOOLEAN FASTCALL
+NTSTATUS FASTCALL
 FsRtlpAddLock(
     IN PFILE_LOCK_TOC		LockToc,
     IN PFILE_OBJECT         FileObject,
@@ -46,16 +46,14 @@ FsRtlpAddLock(
     IN PLARGE_INTEGER       Length,
     IN PEPROCESS            Process,
     IN ULONG                Key,
-    IN BOOLEAN              ExclusiveLock,
-    IN PVOID                UnlockContext
+    IN BOOLEAN              ExclusiveLock
 	);
 
 VOID FASTCALL
 FsRtlpCompletePendingLocks(
 	IN		PFILE_LOCK		FileLock,
 	IN		PFILE_LOCK_TOC	LockToc,
-	IN OUT	PKIRQL			oldirql,
-   IN    PVOID          Context
+	IN OUT	PKIRQL			oldirql
 	);
 
 NTSTATUS FASTCALL
@@ -67,6 +65,7 @@ FsRtlpUnlockSingle(
     IN PEPROCESS            Process,
     IN ULONG                Key,
     IN PVOID                Context OPTIONAL,
+    IN BOOLEAN              AlreadySynchronized,
 	IN BOOLEAN				CallUnlockRoutine
 	);
 

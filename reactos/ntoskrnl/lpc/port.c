@@ -1,4 +1,4 @@
-/* $Id: port.c,v 1.20 2004/10/31 20:27:08 ea Exp $
+/* $Id: port.c,v 1.17 2004/02/02 23:48:42 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -14,7 +14,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <rosrtl/string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -22,8 +30,7 @@
 /* GLOBALS *******************************************************************/
 
 POBJECT_TYPE	ExPortType = NULL;
-ULONG		LpcpNextMessageId = 0; /* 0 is not a valid ID */
-FAST_MUTEX	LpcpLock; /* global internal sync in LPC facility */
+ULONG		EiNextLpcMessageId = 0;
 
 static GENERIC_MAPPING ExpPortMapping = {
 	STANDARD_RIGHTS_READ,
@@ -37,7 +44,7 @@ static GENERIC_MAPPING ExpPortMapping = {
 NTSTATUS INIT_FUNCTION
 NiInitPort (VOID)
 {
-   ExPortType = ExAllocatePoolWithTag(NonPagedPool,sizeof(OBJECT_TYPE),TAG_OBJECT_TYPE);
+   ExPortType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
    
    RtlRosInitUnicodeStringFromLiteral(&ExPortType->TypeName,L"Port");
    
@@ -59,12 +66,8 @@ NiInitPort (VOID)
    ExPortType->OkayToClose = NULL;
    ExPortType->Create = NiCreatePort;
    ExPortType->DuplicationNotify = NULL;
-
-   ObpCreateTypeObject(ExPortType);
    
-   LpcpNextMessageId = 0;
-
-   ExInitializeFastMutex (& LpcpLock);
+   EiNextLpcMessageId = 0;
    
    return(STATUS_SUCCESS);
 }
@@ -72,7 +75,7 @@ NiInitPort (VOID)
 
 /**********************************************************************
  * NAME							INTERNAL
- *	NiInitializePort/3
+ *	NiInitializePort
  *	
  * DESCRIPTION
  *	Initialize the EPORT object attributes. The Port
@@ -80,9 +83,6 @@ NiInitPort (VOID)
  *
  * ARGUMENTS
  *	Port	Pointer to an EPORT object to initialize.
- *	Type	connect (RQST), or communication port (COMM)
- *	Parent	OPTIONAL connect port a communication port
- *		is created from
  *
  * RETURN VALUE
  *	STATUS_SUCCESS if initialization succedeed. An error code
@@ -120,7 +120,7 @@ NiInitializePort (IN OUT  PEPORT Port,
 
 /**********************************************************************
  * NAME							SYSTEM
- *	NtImpersonateClientOfPort/2
+ *	NtImpersonateClientOfPort@8
  *	
  * DESCRIPTION
  *
@@ -137,5 +137,7 @@ NtImpersonateClientOfPort (HANDLE		PortHandle,
   UNIMPLEMENTED;
   return(STATUS_NOT_IMPLEMENTED);
 }
+
+
 
 /* EOF */

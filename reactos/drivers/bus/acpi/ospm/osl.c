@@ -148,7 +148,7 @@ acpi_os_map_memory(ACPI_PHYSICAL_ADDRESS phys, u32 size, void **virt)
   }
 
   Address.QuadPart = (ULONG)phys;
-  *virt = MmMapIoSpace(Address, size, MmNonCached);
+  *virt = MmMapIoSpace(Address, size, FALSE);
   if (!*virt)
     return AE_ERROR;
  
@@ -228,11 +228,11 @@ acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
     DIrql,
     DIrql,
     LevelSensitive, /* FIXME: LevelSensitive or Latched? */
-    TRUE,
+    FALSE,
     Affinity,
     FALSE);
   if (!NT_SUCCESS(Status)) {
-    DPRINT("Could not connect to interrupt %d\n", Vector);
+	  DPRINT("Could not connect to interrupt %d\n", Vector);
     return AE_ERROR;
   }
 

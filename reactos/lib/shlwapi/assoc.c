@@ -58,13 +58,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 typedef struct
 {
-  IQueryAssociationsVtbl *lpVtbl;
+  ICOM_VFIELD(IQueryAssociations);
   LONG ref;
   HKEY hkeySource;
   HKEY hkeyProgID;
 } IQueryAssociationsImpl;
 
-static struct IQueryAssociationsVtbl IQueryAssociations_vtbl;
+static struct ICOM_VTABLE(IQueryAssociations) IQueryAssociations_vtbl;
 
 /**************************************************************************
  *  IQueryAssociations_Constructor [internal]
@@ -75,7 +75,7 @@ static IQueryAssociations* IQueryAssociations_Constructor(void)
 {
   IQueryAssociationsImpl* iface;
 
-  iface = HeapAlloc(GetProcessHeap(),0,sizeof(IQueryAssociationsImpl));
+  iface =(IQueryAssociationsImpl*)HeapAlloc(GetProcessHeap(),0,sizeof(IQueryAssociationsImpl));
   iface->lpVtbl = &IQueryAssociations_vtbl;
   iface->ref = 1;
   iface->hkeySource = NULL;
@@ -95,7 +95,7 @@ static BOOL SHLWAPI_ParamAToW(LPCSTR lpszParam, LPWSTR lpszBuff, DWORD dwLen,
 {
   if (lpszParam)
   {
-    DWORD dwStrLen = MultiByteToWideChar(CP_ACP, 0, lpszParam, -1, NULL, 0);
+    DWORD dwStrLen = lstrlenA(lpszParam);
 
     if (dwStrLen < dwLen)
     {
@@ -104,12 +104,12 @@ static BOOL SHLWAPI_ParamAToW(LPCSTR lpszParam, LPWSTR lpszBuff, DWORD dwLen,
     else
     {
       /* Create a new buffer big enough for the string */
-      *lpszOut = HeapAlloc(GetProcessHeap(), 0,
-                                   dwStrLen * sizeof(WCHAR));
+      *lpszOut = (LPWSTR)HeapAlloc(GetProcessHeap(), 0,
+                                   (dwStrLen + 1) * sizeof(WCHAR));
       if (!*lpszOut)
         return FALSE;
     }
-    MultiByteToWideChar(CP_ACP, 0, lpszParam, -1, *lpszOut, dwStrLen);
+    MultiByteToWideChar(0, 0, lpszParam, -1, *lpszOut, -1);
   }
   else
     *lpszOut = NULL;
@@ -298,7 +298,7 @@ HRESULT WINAPI AssocQueryStringA(ASSOCF cfFlags, ASSOCSTR str, LPCSTR pszAssoc,
     DWORD dwLenOut = *pcchOut;
 
     if (dwLenOut >= MAX_PATH)
-      lpszReturnW = HeapAlloc(GetProcessHeap(), 0,
+      lpszReturnW = (LPWSTR)HeapAlloc(GetProcessHeap(), 0,
                                       (dwLenOut + 1) * sizeof(WCHAR));
 
     if (!lpszReturnW)
@@ -389,7 +389,7 @@ HRESULT WINAPI AssocQueryStringByKeyA(ASSOCF cfFlags, ASSOCSTR str, HKEY hkAssoc
   {
     DWORD dwLenOut = *pcchOut;
     if (dwLenOut >= MAX_PATH)
-      lpszReturnW = HeapAlloc(GetProcessHeap(), 0,
+      lpszReturnW = (LPWSTR)HeapAlloc(GetProcessHeap(), 0,
                                       (dwLenOut + 1) * sizeof(WCHAR));
 
     if (lpszReturnW)
@@ -414,20 +414,11 @@ HRESULT WINAPI AssocQueryStringByKeyA(ASSOCF cfFlags, ASSOCSTR str, HKEY hkAssoc
 
 /**************************************************************************
  *  AssocIsDangerous  (SHLWAPI.@)
- *  
- * Determine if a file association is dangerous (potentially malware).
- *
- * PARAMS
- *  lpszAssoc [I] Name of file or file extension to check.
- *
- * RETURNS
- *  TRUE, if lpszAssoc may potentially be malware (executable),
- *  FALSE, Otherwise.
  */
-BOOL WINAPI AssocIsDangerous(LPCWSTR lpszAssoc)
+HRESULT WINAPI AssocIsDangerous( ASSOCSTR str )
 {
-    FIXME("%s\n", debugstr_w(lpszAssoc));
-    return FALSE;
+    FIXME("%08x\n", str);
+    return S_FALSE;
 }
 
 /**************************************************************************
@@ -440,7 +431,7 @@ static HRESULT WINAPI IQueryAssociations_fnQueryInterface(
   REFIID riid,
   LPVOID *ppvObj)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl, iface);
 
   TRACE("(%p,%s,%p)\n",This, debugstr_guid(riid), ppvObj);
 
@@ -466,7 +457,7 @@ static HRESULT WINAPI IQueryAssociations_fnQueryInterface(
  */
 static ULONG WINAPI IQueryAssociations_fnAddRef(IQueryAssociations *iface)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl,iface);
 
   TRACE("(%p)->(ref before=%lu)\n",This, This->ref);
 
@@ -480,7 +471,7 @@ static ULONG WINAPI IQueryAssociations_fnAddRef(IQueryAssociations *iface)
  */
 static ULONG WINAPI IQueryAssociations_fnRelease(IQueryAssociations *iface)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl,iface);
   ULONG ulRet;
 
   TRACE("(%p)->(ref before=%lu)\n",This, This->ref);
@@ -517,7 +508,7 @@ static HRESULT WINAPI IQueryAssociations_fnInit(
   HWND hWnd)
 {
     static const WCHAR szProgID[] = {'P','r','o','g','I','D',0};
-    IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+    ICOM_THIS(IQueryAssociationsImpl,iface);
     HRESULT hr;
 
     TRACE("(%p)->(%ld,%s,%p,%p)\n", iface,
@@ -587,7 +578,7 @@ static HRESULT WINAPI IQueryAssociations_fnGetString(
   LPWSTR pszOut,
   DWORD *pcchOut)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl, iface);
 
   FIXME("(%p,0x%8lx,0x%8x,%s,%p,%p)-stub!\n", This, cfFlags, str,
         debugstr_w(pszExtra), pszOut, pcchOut);
@@ -617,7 +608,7 @@ static HRESULT WINAPI IQueryAssociations_fnGetKey(
   LPCWSTR pszExtra,
   HKEY *phkeyOut)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl, iface);
 
   FIXME("(%p,0x%8lx,0x%8x,%s,%p)-stub!\n", This, cfFlags, assockey,
         debugstr_w(pszExtra), phkeyOut);
@@ -649,7 +640,7 @@ static HRESULT WINAPI IQueryAssociations_fnGetData(
   LPVOID pvOut,
   DWORD *pcbOut)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl, iface);
 
   FIXME("(%p,0x%8lx,0x%8x,%s,%p,%p)-stub!\n", This, cfFlags, assocdata,
         debugstr_w(pszExtra), pvOut, pcbOut);
@@ -684,15 +675,16 @@ static HRESULT WINAPI IQueryAssociations_fnGetEnum(
   REFIID riid,
   LPVOID *ppvOut)
 {
-  IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
+  ICOM_THIS(IQueryAssociationsImpl, iface);
 
   FIXME("(%p,0x%8lx,0x%8x,%s,%s,%p)-stub!\n", This, cfFlags, assocenum,
         debugstr_w(pszExtra), debugstr_guid(riid), ppvOut);
   return E_NOTIMPL;
 }
 
-static struct IQueryAssociationsVtbl IQueryAssociations_vtbl =
+static struct ICOM_VTABLE(IQueryAssociations) IQueryAssociations_vtbl =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   IQueryAssociations_fnQueryInterface,
   IQueryAssociations_fnAddRef,
   IQueryAssociations_fnRelease,

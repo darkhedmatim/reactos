@@ -112,7 +112,7 @@ Item& CList<Item>::Get(const LONG index) const
 		return NULL;
 
 	node = Header;
-	for (int i = 0; i <= index; i++)
+	for (i = 0; i <= index; i++)
 		node = node->GetNext();
 
 	return (Item *) node->GetElement();

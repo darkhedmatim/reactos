@@ -2,9 +2,13 @@
 #  pipetools Makefile
 #
 
-PATH_TO_TOP = ../..
+CC = gcc
+CXX = g++
+LINK = g++
 
-CFLAGS	= -DWIN32 -Wall -I$(W32API_PATH)/include
+TOOLS_PATH = ..
+
+CFLAGS	= -DWIN32 -Wall
 RCFLAGS	= -DWIN32
 LFLAGS	=
 
@@ -38,4 +42,3 @@ all: $(TARGETS)
 clean:
 	$(TOOLS_PATH)/rdel $(TARGETS) *.o
 
-include $(PATH_TO_TOP)/rules.mak

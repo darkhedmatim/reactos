@@ -3,8 +3,8 @@
  *
  * Copyright 2000 Juergen Schmied
  * Copyright 2002 Andriy Palamarchuk
- * Copyright 2004 Dietrich Teickner (from Odin)
- * Copyright 2004 Rolf Kalbermatter
+ * Copyright 2002 Dietrich Teickner (from Odin)
+ * Copyright 2002 Rolf Kalbermatter
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -45,27 +45,26 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-#define IsAttrib(x, y)  ((INVALID_FILE_ATTRIBUTES != (x)) && ((x) & (y)))
-#define IsAttribFile(x) (!((x) & FILE_ATTRIBUTE_DIRECTORY))
-#define IsAttribDir(x)  IsAttrib(x, FILE_ATTRIBUTE_DIRECTORY)
+#define IsAttribFile(x) (!(x == -1) && !(x & FILE_ATTRIBUTE_DIRECTORY))
+#define IsAttribDir(x)  (!(x == -1) && (x & FILE_ATTRIBUTE_DIRECTORY))
+
 #define IsDotDir(x)     ((x[0] == '.') && ((x[1] == 0) || ((x[1] == '.') && (x[2] == 0))))
 
 #define FO_MASK         0xF
 
-static const WCHAR wWildcardFile[] = {'*',0};
-static const WCHAR wWildcardChars[] = {'*','?',0};
-static const WCHAR wBackslash[] = {'\\',0};
+CHAR aWildcardFile[] = {'*','.','*',0};
+WCHAR wWildcardFile[] = {'*','.','*',0};
+WCHAR wWildcardChars[] = {'*','?',0};
+WCHAR wBackslash[] = {'\\',0};
 
-static BOOL SHELL_DeleteDirectoryW(LPCWSTR path, BOOL bShowUI);
 static DWORD SHNotifyCreateDirectoryA(LPCSTR path, LPSECURITY_ATTRIBUTES sec);
 static DWORD SHNotifyCreateDirectoryW(LPCWSTR path, LPSECURITY_ATTRIBUTES sec);
 static DWORD SHNotifyRemoveDirectoryA(LPCSTR path);
 static DWORD SHNotifyRemoveDirectoryW(LPCWSTR path);
 static DWORD SHNotifyDeleteFileA(LPCSTR path);
 static DWORD SHNotifyDeleteFileW(LPCWSTR path);
-static DWORD SHNotifyMoveFileW(LPCWSTR src, LPCWSTR dest);
-static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bFailIfExists);
-static DWORD SHFindAttrW(LPCWSTR pName, BOOL fileOnly);
+static DWORD SHNotifyMoveFileW(LPCWSTR src, LPCWSTR dest, BOOL bRenameIfExists);
+static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bRenameIfExists);
 
 typedef struct
 {
@@ -131,47 +130,47 @@ BOOL SHELL_ConfirmDialogW(int nKindOfDialog, LPCWSTR szDir)
 	return (IDOK == MessageBoxW(GetActiveWindow(), szBuffer, szCaption, MB_OKCANCEL | MB_ICONEXCLAMATION));
 }
 
-static DWORD SHELL32_AnsiToUnicodeBuf(LPCSTR aPath, LPWSTR *wPath, DWORD minChars)
-{
-	DWORD len = MultiByteToWideChar(CP_ACP, 0, aPath, -1, NULL, 0);
-
-	if (len < minChars)
-	  len = minChars;
-
-	*wPath = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-	if (*wPath)
-	{
-	  MultiByteToWideChar(CP_ACP, 0, aPath, -1, *wPath, len);
-	  return NO_ERROR;
-	}
-	return E_OUTOFMEMORY;
-}
-
-static void SHELL32_FreeUnicodeBuf(LPWSTR wPath)
-{
-	HeapFree(GetProcessHeap(), 0, wPath);
-}
-
 /**************************************************************************
- * SHELL_DeleteDirectory()  [internal]
+ * SHELL_DeleteDirectoryA()  [internal]
  *
- * Asks for confirmation when bShowUI is true and deletes the directory and
- * all its subdirectories and files if necessary.
+ * like rm -r
  */
 BOOL SHELL_DeleteDirectoryA(LPCSTR pszDir, BOOL bShowUI)
 {
-	LPWSTR wPath;
-	BOOL ret = FALSE;
+	BOOL    ret = TRUE;
+	HANDLE  hFind;
+	WIN32_FIND_DATAA wfd;
+	char    szTemp[MAX_PATH];
 
-	if (!SHELL32_AnsiToUnicodeBuf(pszDir, &wPath, 0))
+	/* Make sure the directory exists before eventually prompting the user */
+	PathCombineA(szTemp, pszDir, aWildcardFile);
+	hFind = FindFirstFileA(szTemp, &wfd);
+	if (hFind == INVALID_HANDLE_VALUE)
+	  return FALSE;
+
+	if (!bShowUI || SHELL_ConfirmDialog(ASK_DELETE_FOLDER, pszDir))
 	{
-	  ret = SHELL_DeleteDirectoryW(wPath, bShowUI);
-	  SHELL32_FreeUnicodeBuf(wPath);
+	  do
+	  {
+	    LPSTR lp = wfd.cAlternateFileName;
+	    if (!lp[0])
+	      lp = wfd.cFileName;
+	    if (IsDotDir(lp))
+	      continue;
+	    PathCombineA(szTemp, pszDir, lp);
+	    if (FILE_ATTRIBUTE_DIRECTORY & wfd.dwFileAttributes)
+	      ret = SHELL_DeleteDirectoryA(szTemp, FALSE);
+	    else
+	      ret = (SHNotifyDeleteFileA(szTemp) == ERROR_SUCCESS);
+	  } while (ret && FindNextFileA(hFind, &wfd));
 	}
+	FindClose(hFind);
+	if (ret)
+	  ret = (SHNotifyRemoveDirectoryA(pszDir) == ERROR_SUCCESS);
 	return ret;
 }
 
-static BOOL SHELL_DeleteDirectoryW(LPCWSTR pszDir, BOOL bShowUI)
+BOOL SHELL_DeleteDirectoryW(LPCWSTR pszDir, BOOL bShowUI)
 {
 	BOOL    ret = TRUE;
 	HANDLE  hFind;
@@ -184,7 +183,7 @@ static BOOL SHELL_DeleteDirectoryW(LPCWSTR pszDir, BOOL bShowUI)
 	if (hFind == INVALID_HANDLE_VALUE)
 	  return FALSE;
 
-	if (!bShowUI || (ret = SHELL_ConfirmDialogW(ASK_DELETE_FOLDER, pszDir)))
+	if (!bShowUI || SHELL_ConfirmDialogW(ASK_DELETE_FOLDER, pszDir))
 	{
 	  do
 	  {
@@ -242,25 +241,29 @@ BOOL SHELL_DeleteFileW(LPCWSTR pszFile, BOOL bShowUI)
  */
 static DWORD SHNotifyCreateDirectoryA(LPCSTR path, LPSECURITY_ATTRIBUTES sec)
 {
-	LPWSTR wPath;
-	DWORD retCode;
-
+	WCHAR wPath[MAX_PATH];
 	TRACE("(%s, %p)\n", debugstr_a(path), sec);
 
-	retCode = SHELL32_AnsiToUnicodeBuf(path, &wPath, 0);
-	if (!retCode)
-	{
-	  retCode = SHNotifyCreateDirectoryW(wPath, sec);
-	  SHELL32_FreeUnicodeBuf(wPath);
-	}
-	return retCode;
+	MultiByteToWideChar(CP_ACP, 0, path, -1, wPath, MAX_PATH);
+	return SHNotifyCreateDirectoryW(wPath, sec);
 }
-
-/**********************************************************************/
 
 static DWORD SHNotifyCreateDirectoryW(LPCWSTR path, LPSECURITY_ATTRIBUTES sec)
 {
 	TRACE("(%s, %p)\n", debugstr_w(path), sec);
+
+	if (StrPBrkW(path, wWildcardChars))
+	{
+	  /* FIXME: This test is currently necessary since our CreateDirectory
+	     implementation does create directories with wildcard characters
+	     without objection!! Once this is fixed, this here can go away. */
+	  SetLastError(ERROR_INVALID_NAME);
+#ifdef W98_FO_FUNCTION /* W98 */
+	  return ERROR_FILE_NOT_FOUND;
+#else
+	  return ERROR_INVALID_NAME;
+#endif
+	}
 
 	if (CreateDirectoryW(path, sec))
 	{
@@ -269,8 +272,6 @@ static DWORD SHNotifyCreateDirectoryW(LPCWSTR path, LPSECURITY_ATTRIBUTES sec)
 	}
 	return GetLastError();
 }
-
-/**********************************************************************/
 
 BOOL WINAPI Win32CreateDirectoryAW(LPCVOID path, LPSECURITY_ATTRIBUTES sec)
 {
@@ -294,20 +295,14 @@ BOOL WINAPI Win32CreateDirectoryAW(LPCVOID path, LPSECURITY_ATTRIBUTES sec)
  *  Verified on Win98 / IE 5 (SHELL32 4.72, March 1999 build) to be ANSI.
  *  This is Unicode on NT/2000
  */
+
 static DWORD SHNotifyRemoveDirectoryA(LPCSTR path)
 {
-	LPWSTR wPath;
-	DWORD retCode;
-
+	WCHAR wPath[MAX_PATH];
 	TRACE("(%s)\n", debugstr_a(path));
 
-	retCode = SHELL32_AnsiToUnicodeBuf(path, &wPath, 0);
-	if (!retCode)
-	{
-	  retCode = SHNotifyRemoveDirectoryW(wPath);
-	  SHELL32_FreeUnicodeBuf(wPath);
-	}
-	return retCode;
+	MultiByteToWideChar(CP_ACP, 0, path, -1, wPath, MAX_PATH);
+	return SHNotifyRemoveDirectoryW(wPath);
 }
 
 /***********************************************************************/
@@ -322,7 +317,7 @@ static DWORD SHNotifyRemoveDirectoryW(LPCWSTR path)
 	{
 	  /* Directory may be write protected */
 	  DWORD dwAttr = GetFileAttributesW(path);
-	  if (IsAttrib(dwAttr, FILE_ATTRIBUTE_READONLY))
+	  if (dwAttr != -1 && dwAttr & FILE_ATTRIBUTE_READONLY)
 	    if (SetFileAttributesW(path, dwAttr & ~FILE_ATTRIBUTE_READONLY))
 	      ret = RemoveDirectoryW(path);
 	}
@@ -358,20 +353,14 @@ BOOL WINAPI Win32RemoveDirectoryAW(LPCVOID path)
  *  Verified on Win98 / IE 5 (SHELL32 4.72, March 1999 build) to be ANSI.
  *  This is Unicode on NT/2000
  */
+
 static DWORD SHNotifyDeleteFileA(LPCSTR path)
 {
-	LPWSTR wPath;
-	DWORD retCode;
-
+	WCHAR wPath[MAX_PATH];
 	TRACE("(%s)\n", debugstr_a(path));
 
-	retCode = SHELL32_AnsiToUnicodeBuf(path, &wPath, 0);
-	if (!retCode)
-	{
-	  retCode = SHNotifyDeleteFileW(wPath);
-	  SHELL32_FreeUnicodeBuf(wPath);
-	}
-	return retCode;
+	MultiByteToWideChar(CP_ACP, 0, path, -1, wPath, MAX_PATH);
+	return SHNotifyDeleteFileW(wPath);
 }
 
 /***********************************************************************/
@@ -387,7 +376,7 @@ static DWORD SHNotifyDeleteFileW(LPCWSTR path)
 	{
 	  /* File may be write protected or a system file */
 	  DWORD dwAttr = GetFileAttributesW(path);
-	  if (IsAttrib(dwAttr, FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM))
+	  if ((dwAttr != -1) && (dwAttr & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM)))
 	    if (SetFileAttributesW(path, dwAttr & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM)))
 	      ret = DeleteFileW(path);
 	}
@@ -416,29 +405,48 @@ DWORD WINAPI Win32DeleteFileAW(LPCVOID path)
  * PARAMS
  *  src        [I]   path to source file to move
  *  dest       [I]   path to target file to move to
+ *  bRename    [I]   if TRUE, the target file will be renamed if a
+ *                   file with this name already exists
  *
  * RETURNS
  *  ERORR_SUCCESS if successful
  */
-static DWORD SHNotifyMoveFileW(LPCWSTR src, LPCWSTR dest)
+static DWORD SHNotifyMoveFileW(LPCWSTR src, LPCWSTR dest, BOOL bRename)
 {
 	BOOL ret;
 
-	TRACE("(%s %s)\n", debugstr_w(src), debugstr_w(dest));
+	TRACE("(%s %s %s)\n", debugstr_w(src), debugstr_w(dest), bRename ? "renameIfExists" : "");
+
+	if (StrPBrkW(dest, wWildcardChars))
+	{
+	  /* FIXME: This test is currently necessary since our MoveFile
+	     implementation does create files with wildcard characters
+	     without objection!! Once this is fixed, this here can go away. */
+	  SetLastError(ERROR_INVALID_NAME);
+#ifdef W98_FO_FUNCTION /* W98 */
+	  return ERROR_FILE_NOT_FOUND;
+#else
+	  return ERROR_INVALID_NAME;
+#endif
+	}
 
 	ret = MoveFileW(src, dest);
 	if (!ret)
 	{
-	  DWORD dwAttr;
+	  /* Source file may be write protected or a system file */
+	  DWORD dwAttr = GetFileAttributesW(src);
+	  if ((dwAttr != -1) && (dwAttr & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM)))
+	    if (SetFileAttributesW(src, dwAttr & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM)))
+	      ret = MoveFileW(src, dest);
 
-	  dwAttr = SHFindAttrW(dest, FALSE);
-	  if (INVALID_FILE_ATTRIBUTES == dwAttr)
+	  if (!ret && bRename)
 	  {
-	    /* Source file may be write protected or a system file */
-	    dwAttr = GetFileAttributesW(src);
-	    if (IsAttrib(dwAttr, FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM))
-	      if (SetFileAttributesW(src, dwAttr & ~(FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_SYSTEM)))
-	        ret = MoveFileW(src, dest);
+	    /* Destination file probably exists */
+	    dwAttr = GetFileAttributesW(dest);
+	    if (dwAttr != -1)
+	    {
+	      FIXME("Rename on move to existing file not implemented!\n");
+	    }
 	  }
 	}
 	if (ret)
@@ -455,21 +463,30 @@ static DWORD SHNotifyMoveFileW(LPCWSTR src, LPCWSTR dest)
  * Copies a file. Also triggers a change notify if one exists.
  *
  * PARAMS
- *  src           [I]   path to source file to move
- *  dest          [I]   path to target file to move to
- *  bFailIfExists [I]   if TRUE, the target file will not be overwritten if
- *                      a file with this name already exists
+ *  src        [I]   path to source file to move
+ *  dest       [I]   path to target file to move to
+ *  bRename    [I]   if TRUE, the target file will be renamed if a
+ *                   file with this name already exists
  *
  * RETURNS
  *  ERROR_SUCCESS if successful
  */
-static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bFailIfExists)
+static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bRename)
 {
 	BOOL ret;
 
-	TRACE("(%s %s %s)\n", debugstr_w(src), debugstr_w(dest), bFailIfExists ? "failIfExists" : "");
+	TRACE("(%s %s %s)\n", debugstr_w(src), debugstr_w(dest), bRename ? "renameIfExists" : "");
 
-	ret = CopyFileW(src, dest, bFailIfExists);
+	ret = CopyFileW(src, dest, TRUE);
+	if (!ret && bRename)
+	{
+	  /* Destination file probably exists */
+	  DWORD dwAttr = GetFileAttributesW(dest);
+	  if (dwAttr != -1)
+	  {
+	    FIXME("Rename on copy to existing file not implemented!\n");
+	  }
+	}
 	if (ret)
 	{
 	  SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW, dest, NULL);
@@ -481,9 +498,7 @@ static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bFailIfExists)
 /*************************************************************************
  * SHCreateDirectory         [SHELL32.165]
  *
- * This function creates a file system folder whose fully qualified path is
- * given by path. If one or more of the intermediate folders do not exist,
- * they will be created as well.
+ * Create a directory at the specified location
  *
  * PARAMS
  *  hWnd       [I]
@@ -493,8 +508,6 @@ static DWORD SHNotifyCopyFileW(LPCWSTR src, LPCWSTR dest, BOOL bFailIfExists)
  *  ERRROR_SUCCESS or one of the following values:
  *  ERROR_BAD_PATHNAME if the path is relative
  *  ERROR_FILE_EXISTS when a file with that name exists
- *  ERROR_PATH_NOT_FOUND can't find the path, probably invalid
- *  ERROR_INVLID_NAME if the path contains invalid chars
  *  ERROR_ALREADY_EXISTS when the directory already exists
  *  ERROR_FILENAME_EXCED_RANGE if the filename was to long to process
  *
@@ -513,58 +526,37 @@ DWORD WINAPI SHCreateDirectory(HWND hWnd, LPCVOID path)
 /*************************************************************************
  * SHCreateDirectoryExA      [SHELL32.@]
  *
- * This function creates a file system folder whose fully qualified path is
- * given by path. If one or more of the intermediate folders do not exist,
- * they will be created as well.
+ * Create a directory at the specified location
  *
  * PARAMS
- *  hWnd       [I]
- *  path       [I]   path of directory to create
+ *  hWnd       [I]   
+ *  path       [I]   path of directory to create 
  *  sec        [I]   security attributes to use or NULL
  *
  * RETURNS
  *  ERRROR_SUCCESS or one of the following values:
- *  ERROR_BAD_PATHNAME or ERROR_PATH_NOT_FOUND if the path is relative
- *  ERROR_INVLID_NAME if the path contains invalid chars
+ *  ERROR_BAD_PATHNAME if the path is relative
+ *  ERORO_INVALID_NAME if the path contains invalid chars
  *  ERROR_FILE_EXISTS when a file with that name exists
  *  ERROR_ALREADY_EXISTS when the directory already exists
  *  ERROR_FILENAME_EXCED_RANGE if the filename was to long to process
- *
- *  FIXME: Not implemented yet;
- *  SHCreateDirectoryEx also verifies that the files in the directory will be visible
- *  if the path is a network path to deal with network drivers which might have a limited
- *  but unknown maximum path length. If not:
- *
- *  If hWnd is set to a valid window handle, a message box is displayed warning
- *  the user that the files may not be accessible. If the user chooses not to
- *  proceed, the function returns ERROR_CANCELLED.
- *
- *  If hWnd is set to NULL, no user interface is displayed and the function
- *  returns ERROR_CANCELLED.
  */
-int WINAPI SHCreateDirectoryExA(HWND hWnd, LPCSTR path, LPSECURITY_ATTRIBUTES sec)
+DWORD WINAPI SHCreateDirectoryExA(HWND hWnd, LPCSTR path, LPSECURITY_ATTRIBUTES sec)
 {
-	LPWSTR wPath;
-	DWORD retCode;
+	WCHAR wPath[MAX_PATH];
+	TRACE("(%p, %s, %p)\n",hWnd, debugstr_a(path), sec);
 
-	TRACE("(%s, %p)\n", debugstr_a(path), sec);
-
-	retCode = SHELL32_AnsiToUnicodeBuf(path, &wPath, 0);
-	if (!retCode)
-	{
-	  retCode = SHCreateDirectoryExW(hWnd, wPath, sec);
-	  SHELL32_FreeUnicodeBuf(wPath);
-	}
-	return retCode;
+	MultiByteToWideChar(CP_ACP, 0, path, -1, wPath, MAX_PATH);
+	return SHCreateDirectoryExW(hWnd, wPath, sec);
 }
 
 /*************************************************************************
  * SHCreateDirectoryExW      [SHELL32.@]
  */
-int WINAPI SHCreateDirectoryExW(HWND hWnd, LPCWSTR path, LPSECURITY_ATTRIBUTES sec)
+DWORD WINAPI SHCreateDirectoryExW(HWND hWnd, LPCWSTR path, LPSECURITY_ATTRIBUTES sec)
 {
-	int ret = ERROR_BAD_PATHNAME;
-	TRACE("(%p, %s, %p)\n", hWnd, debugstr_w(path), sec);
+	DWORD ret = ERROR_BAD_PATHNAME;
+	TRACE("(%p, %s, %p)\n",hWnd, debugstr_w(path), sec);
 
 	if (PathIsRelativeW(path))
 	{
@@ -573,79 +565,17 @@ int WINAPI SHCreateDirectoryExW(HWND hWnd, LPCWSTR path, LPSECURITY_ATTRIBUTES s
 	else
 	{
 	  ret = SHNotifyCreateDirectoryW(path, sec);
-	  /* Refuse to work on certain error codes before trying to create directories recursively */
 	  if (ret != ERROR_FILE_EXISTS &&
 	      ret != ERROR_ALREADY_EXISTS &&
 	      ret != ERROR_FILENAME_EXCED_RANGE)
 	  {
-	    WCHAR *pEnd, *pSlash, szTemp[MAX_PATH + 1];  /* extra for PathAddBackslash() */
-
-	    lstrcpynW(szTemp, path, MAX_PATH);
-	    pEnd = PathAddBackslashW(szTemp);
-	    pSlash = szTemp + 3;
-
-	    while (*pSlash)
-	    {
-	      while (*pSlash && *pSlash != '\\')
-	        pSlash = CharNextW(pSlash);
-
-	      if (*pSlash)
-	      {
-	        *pSlash = 0;    /* terminate path at separator */
-
-	        ret = SHNotifyCreateDirectoryW(szTemp, pSlash + 1 == pEnd ? sec : NULL);
-	      }
-	      *pSlash++ = '\\'; /* put the separator back */
-	    }
-	  }
-
-	  if (ret && hWnd && (ERROR_CANCELLED != ret))
-	  {
-	    /* We failed and should show a dialog box */
-	    FIXME("Show system error message, creating path %s, failed with error %d\n", debugstr_w(path), ret);
-	    ret = ERROR_CANCELLED; /* Error has been already presented to user (not really yet!) */
+	  /* handling network file names?
+	    lstrcpynW(pathName, path, MAX_PATH);
+	    lpStr = PathAddBackslashW(pathName);*/
+	    FIXME("Semi-stub, non zero hWnd should be used somehow?\n");
 	  }
 	}
 	return ret;
-}
-
-
-/*************************************************************************
- * SHFindAttrW      [internal]
- *
- * Get the Attributes for a file or directory. The difference to GetAttributes()
- * is that this function will also work for paths containing wildcard characters
- * in its filename.
-
- * PARAMS
- *  path       [I]   path of directory or file to check
- *  fileOnly   [I]   TRUE if only files should be found
- *
- * RETURNS
- *  INVALID_FILE_ATTRIBUTES if the path does not exist, the actual attributes of
- *  the first file or directory found otherwise
- */
-static DWORD SHFindAttrW(LPCWSTR pName, BOOL fileOnly)
-{
-	WIN32_FIND_DATAW wfd;
-	BOOL b_FileMask = fileOnly && (NULL != StrPBrkW(pName, wWildcardChars));
-	DWORD dwAttr = INVALID_FILE_ATTRIBUTES;
-	HANDLE hFind = FindFirstFileW(pName, &wfd);
-
-	TRACE("%s %d\n", debugstr_w(pName), fileOnly);
-	if (INVALID_HANDLE_VALUE != hFind)
-	{
-	  do
-	  {
-	    if (b_FileMask && IsAttribDir(wfd.dwFileAttributes))
-	       continue;
-	    dwAttr = wfd.dwFileAttributes;
-	    break;
-	  }
-	  while (FindNextFileW(hFind, &wfd));
-	  FindClose(hFind);
-	}
-	return dwAttr;
 }
 
 /*************************************************************************
@@ -738,7 +668,7 @@ BOOL SHELL_FileNamesMatch(LPCWSTR pszFiles1, LPCWSTR pszFiles2, BOOL bOnlySrc)
 	{
 	  if (NULL == StrPBrkW(pszFiles1, wWildcardChars))
 	  {
-	    if (INVALID_FILE_ATTRIBUTES == GetFileAttributesW(pszFiles1))
+	    if (-1 == GetFileAttributesW(pszFiles1))
 	      return FALSE;
 	  }
 	  pszFiles1 += lstrlenW(pszFiles1) + 1;
@@ -858,9 +788,6 @@ static const char * debug_shfileops_action( DWORD op )
     return wine_dbg_sprintf("%s", cFO_Name[ op ]);
 }
 
-#define ERROR_SHELL_INTERNAL_FILE_NOT_FOUND 1026
-#define HIGH_ADR (LPWSTR)0xffffffff
-
 /*************************************************************************
  * SHFileOperationW          [SHELL32.@]
  *
@@ -908,7 +835,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
 	nFileOp.fAnyOperationsAborted = FALSE;
 
 	if ((FuncSwitch < FO_MOVE) || (FuncSwitch > FO_RENAME))
-	    goto shfileop_end; /* no valid FunctionCode */
+	  goto shfileop_normal; /* no valid FunctionCode */
 
 	if (level == 0)
             TRACE("%s: flags (0x%04x) : %s\n",
@@ -931,29 +858,19 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
          * copy files to dir       1 0 1 1 0 0 1 0
          * create dir              0 0 0 0 0 0 1 0
          */
-
-        /*
-         * Summary of flags:
-         *
-         * implemented flags:
-         * FOF_MULTIDESTFILES, FOF_NOCONFIRMATION, FOF_FILESONLY
-         *
-         * unimplememented and ignored flags:
-         * FOF_CONFIRMMOUSE, FOF_SILENT, FOF_NOCONFIRMMKDIR,
-         *       FOF_SIMPLEPROGRESS, FOF_NOCOPYSECURITYATTRIBS
-         *
-         * partially implemented, breaks if file exists:
-         * FOF_RENAMEONCOLLISION
-         *
-         * unimplemented and break if any other flag set:
-         * FOF_ALLOWUNDO, FOF_WANTMAPPINGHANDLE
-         */
-
+/*
+ * FOF_MULTIDESTFILES, FOF_NOCONFIRMATION, FOF_FILESONLY  are implemented
+ * FOF_CONFIRMMOUSE, FOF_SILENT, FOF_NOCONFIRMMKDIR,
+ *       FOF_SIMPLEPROGRESS, FOF_NOCOPYSECURITYATTRIBS    are not implemented and ignored
+ * FOF_RENAMEONCOLLISION                                  are implemented partially and breaks if file exist
+ * FOF_ALLOWUNDO, FOF_WANTMAPPINGHANDLE                   are not implemented and breaks
+ * if any other flag set, an error occurs
+ */
         TRACE("%s level=%ld nFileOp.fFlags=0x%x\n", 
                 debug_shfileops_action(FuncSwitch), level, lpFileOp->fFlags);
 
-        /*    OFl &= (-1 - (FOF_MULTIDESTFILES | FOF_FILESONLY)); */
-        /*    OFl ^= (FOF_SILENT | FOF_NOCONFIRMATION | FOF_SIMPLEPROGRESS | FOF_NOCONFIRMMKDIR); */
+/*    OFl &= (-1 - (FOF_MULTIDESTFILES | FOF_FILESONLY)); */
+/*    OFl ^= (FOF_SILENT | FOF_NOCONFIRMATION | FOF_SIMPLEPROGRESS | FOF_NOCONFIRMMKDIR); */
         OFl &= (~(FOF_MULTIDESTFILES | FOF_NOCONFIRMATION | FOF_FILESONLY));  /* implemented */
         OFl ^= (FOF_SILENT | FOF_NOCONFIRMMKDIR | FOF_NOERRORUI | FOF_NOCOPYSECURITYATTRIBS); /* ignored, if one */
         OFl &= (~FOF_SIMPLEPROGRESS);                      /* ignored, only with FOF_SILENT */
@@ -965,7 +882,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 TRACE("%s level=%ld lpFileOp->fFlags=0x%x not implemented, Aborted=TRUE, stub\n",
                       debug_shfileops_action(FuncSwitch), level, OFl);
                 retCode = 0x403; /* 1027, we need an extension to shlfileop */
-                goto shfileop_end;
+                goto shfileop_error;
 	    }
 	    else
 	    {
@@ -981,7 +898,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
 	    {
                 retCode = ERROR_OUTOFMEMORY;
                 SetLastError(retCode);
-                goto shfileop_end;
+                goto shfileop_error;
 	    }
 	    if (b_MultiTo)
                 pTempTo = &pTempFrom[MAX_PATH + 4];
@@ -991,8 +908,8 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
         }
         else
         {
-	    retCode = ERROR_SHELL_INTERNAL_FILE_NOT_FOUND;
-	    goto shfileop_end;
+	    retCode = 0x402;      /* 1026 */
+	    goto shfileop_error;
         }
         /* need break at error before change sourcepointer */
         while(!nFileOp.fAnyOperationsAborted && (pNextFrom[0]))
@@ -1025,8 +942,8 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
 	    }
 	    if (!(b_MultiPaired) || !(pFromFile) || !(pFromFile[1]) || ((pTo) && !(pToFile)))
 	    {
-                retCode = ERROR_SHELL_INTERNAL_FILE_NOT_FOUND;
-                goto shfileop_end;
+                retCode = 0x402;      /* 1026 */
+                goto shfileop_error;
 	    }
 	    if (pTo)
 	    {
@@ -1052,7 +969,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
 #ifndef W98_FO_FUNCTION
                     retCode = ERROR_GEN_FAILURE;  /* W2K ERROR_GEN_FAILURE, W98 returns no error */
 #endif
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
 	    }
 
@@ -1067,17 +984,18 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     if (IsAttribDir(FromPathAttr))
                     {
                         /* FO_DELETE with mask and without found is valid */
-                        goto shfileop_end;
+                        goto shfileop_normal;
                     }
                 }
                 /* root (without mask) is also not allowed as source, tested in W98 */
-                retCode = ERROR_SHELL_INTERNAL_FILE_NOT_FOUND;
-                goto shfileop_end;
+                retCode = 0x402;   /* 1026 */
+                goto shfileop_error;
 	    }
 
-            /* for all */
+/* for all */
+#define HIGH_ADR (LPWSTR)0xffffffff
 
-            /* ??? b_Mask = (!SHFileStrICmpA(&pFromFile[1], &wfd.cFileName[0], HIGH_ADR, HIGH_ADR)); */
+/* ???	    b_Mask = (!SHFileStrICmpA(&pFromFile[1], &wfd.cFileName[0], HIGH_ADR, HIGH_ADR)); */
 	    if (!pTo) /* FO_DELETE */
 	    {
                 do
@@ -1092,25 +1010,21 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     /* TODO: Check the SHELL_DeleteFileOrDirectoryW() function in shell32.dll */
                     if (IsAttribFile(wfd.dwFileAttributes))
                     {
-                        if(SHNotifyDeleteFileW(pTempFrom) != ERROR_SUCCESS)
-                        {
-                            nFileOp.fAnyOperationsAborted = TRUE;
-                            retCode = 0x78; /* value unknown */
-                        }
+                        nFileOp.fAnyOperationsAborted = (SHNotifyDeleteFileW(pTempFrom) != ERROR_SUCCESS);
+                        retCode = 0x78; /* value unknown */
                     }
                     else
                     {
-                        if(!SHELL_DeleteDirectoryW(pTempFrom, (!(nFileOp.fFlags & FOF_NOCONFIRMATION))))
-                        {
-                            nFileOp.fAnyOperationsAborted = TRUE;
-                            retCode = 0x79; /* value unknown */
-                        }
+                        nFileOp.fAnyOperationsAborted = (!SHELL_DeleteDirectoryW(pTempFrom, (!(nFileOp.fFlags & FOF_NOCONFIRMATION))));
+                        retCode = 0x79; /* value unknown */
                     }
                 } while (!nFileOp.fAnyOperationsAborted && FindNextFileW(hFind, &wfd));
                 FindClose(hFind);
                 hFind = INVALID_HANDLE_VALUE;
                 if (nFileOp.fAnyOperationsAborted)
-                    goto shfileop_end;
+                {
+                    goto shfileop_error;
+                }
                 continue;
 	    } /* FO_DELETE ends, pTo must be always valid from here */
 
@@ -1118,7 +1032,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
 	    b_SameTailName = SHFileStrICmpW(pToFile, pFromFile, NULL, NULL);
 
 	    ToPathAttr = ToAttr = GetFileAttributesW(pTempTo);
-	    if (!b_Mask && (ToAttr == INVALID_FILE_ATTRIBUTES) && (pToFile))
+	    if (!b_Mask && (ToAttr == -1) && (pToFile))
 	    {
                 pToFile[0] = '\0';
                 ToPathAttr = GetFileAttributesW(pTempTo);
@@ -1132,34 +1046,34 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     || (SHFileStrICmpW(pTempFrom, pTempTo, pFromFile, HIGH_ADR) && !b_ToTailSlash))
                 {
                     retCode = 0x73;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
                 if (b_ToInvalidTail)
                 {
                     retCode=0x2;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
-                if (INVALID_FILE_ATTRIBUTES == ToPathAttr)
+                if (-1 == ToPathAttr)
                 {
                     retCode = 0x75;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
                 if (IsAttribDir(wfd.dwFileAttributes) && IsAttribDir(ToAttr))
                 {
                     retCode = (b_ToTailSlash) ? 0xb7 : 0x7b;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
                 /* we use SHNotifyMoveFile() instead MoveFileW */
-                if (SHNotifyMoveFileW(pTempFrom, pTempTo) != ERROR_SUCCESS)
+                if (SHNotifyMoveFileW(pTempFrom, pTempTo, nFileOp.fFlags & FOF_RENAMEONCOLLISION) != ERROR_SUCCESS)
                 {
                     /* we need still the value for the returncode, we use the mostly assumed */
                     retCode = 0xb7;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
-                goto shfileop_end;
+                goto shfileop_normal;
 	    }
 
-	    /* W98 Bug with FO_MOVE different from FO_COPY, better the same as FO_COPY */
+	    /* W98 Bug with FO_MOVE different to FO_COPY, better the same as FO_COPY */
 	    b_ToValid = ((b_SameTailName &&  b_SameRoot && (FO_COPY == FuncSwitch)) ||
                          (b_SameTailName && !b_SameRoot) || (b_ToInvalidTail));
 
@@ -1170,7 +1084,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 {
                     retCode = (b_ToInvalidTail &&/* b_SameTailName &&*/ (FO_MOVE == FuncSwitch)) \
                         ? 0x2 : 0x75;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
                 pToFile = SHFileStrCpyCatW(pTempTo, NULL, wBackslash);
                 nFileOp.fFlags = (nFileOp.fFlags | FOF_MULTIDESTFILES);
@@ -1194,19 +1108,19 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 continue;
 
 	    /* only FO_COPY/FO_MOVE without mask, all others are (must be) solved */
-	    if (IsAttribDir(wfd.dwFileAttributes) && (ToAttr == INVALID_FILE_ATTRIBUTES))
+	    if (IsAttribDir(wfd.dwFileAttributes) && (ToAttr == -1))
 	    {
                 if (pToFile)
                 {
                     pToFile[0] = '\0';
                     ToPathAttr = GetFileAttributesW(pTempTo);
-                    if ((ToPathAttr == INVALID_FILE_ATTRIBUTES) && b_ToValid)
+                    if ((ToPathAttr == -1) && b_ToValid)
                     {
                         /* create dir must be here, sample target D:\y\ *.* create with RC=10003 */
-                        if (SHNotifyCreateDirectoryW(pTempTo, NULL))
+                        if (SHCreateDirectoryExW(NULL, pTempTo, NULL))
                         {
                             retCode = 0x73;/* value unknown */
-                            goto shfileop_end;
+                            goto shfileop_error;
                         }
                         ToPathAttr = GetFileAttributesW(pTempTo);
                     }
@@ -1214,7 +1128,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     if (b_ToInvalidTail)
                     {
                         retCode = 0x10003;
-                        goto shfileop_end;
+                        goto shfileop_error;
                     }
                 }
 	    }
@@ -1227,7 +1141,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     if (b_Multi)
                     {
                         retCode = 0x73; /* !b_Multi = 0x8 ?? */
-                        goto shfileop_end;
+                        goto shfileop_error;
                     }
                 }
                 pToFile = SHFileStrCpyCatW(pTempTo, NULL, wfd.cFileName);
@@ -1239,7 +1153,7 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 if (IsAttribFile(wfd.dwFileAttributes))
                 {
                     retCode = (FO_COPY == FuncSwitch) ? 0x75 : 0xb7;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
 	    }
 	    else
@@ -1251,23 +1165,23 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 {
                     /* error, is this tested ? */
                     retCode = 0x777402;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
 	    }
 
 	    /* singlesource + no mask */
-	    if (INVALID_FILE_ATTRIBUTES == (ToAttr & ToPathAttr))
+	    if (-1 == (ToAttr & ToPathAttr))
 	    {
                 /* Target-dir does not exist, and cannot be created */
                 retCode=0x75;
-                goto shfileop_end;
+                goto shfileop_error;
 	    }
 
 	    switch(FuncSwitch)
 	    {
 	    case FO_MOVE:
                 pToFile = NULL;
-                if ((ToAttr == INVALID_FILE_ATTRIBUTES) && SHFileStrICmpW(pTempFrom, pTempTo, pFromFile, NULL))
+                if ((ToAttr == -1) && SHFileStrICmpW(pTempFrom, pTempTo, pFromFile, NULL))
                 {
                     nFileOp.wFunc =  ((level+1)<<4) + FO_RENAME;
                 }
@@ -1297,20 +1211,20 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                 { /* target is the same as source ? */
                     /* we still need the value for the returncode, we assume 0x71 */
                     retCode = 0x71;
-                    goto shfileop_end;
+                    goto shfileop_error;
                 }
                 if (IsAttribDir((ToAttr & wfd.dwFileAttributes)))
                 {
-                    if (IsAttribDir(ToAttr) || !SHNotifyCreateDirectoryW(pTempTo, NULL))
+                    if (IsAttribDir(ToAttr) || !SHCreateDirectoryExW(NULL,pTempTo, NULL))
                     {
-                        /* ??? nFileOp.fFlags = (nFileOp.fFlags | FOF_MULTIDESTFILES); */
+/* ???	          nFileOp.fFlags = (nFileOp.fFlags | FOF_MULTIDESTFILES); */
                         SHFileStrCpyCatW(pTempFrom, NULL, wWildcardFile);
                         retCode = SHFileOperationW(&nFileOp);
                     }
                     else
                     {
                         retCode = 0x750;/* value unknown */
-                        goto shfileop_end;
+                        goto shfileop_error;
                     }
                 }
                 else
@@ -1320,25 +1234,30 @@ int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW lpFileOp)
                     {
                         /* we still need the value for the returncode, we use the mostly assumed */
                         retCode = 0x73;
-                        goto shfileop_end;
+                        goto shfileop_error;
                     }
-                    if (SHNotifyCopyFileW(pTempFrom, pTempTo, TRUE) != ERROR_SUCCESS)
+                    if (SHNotifyCopyFileW(pTempFrom, pTempTo, nFileOp.fFlags & FOF_RENAMEONCOLLISION) != ERROR_SUCCESS)
                     {
                         retCode = 0x77; /* value unknown */
-                        goto shfileop_end;
+                        goto shfileop_error;
                     }
                 }
 	    }
         }
 
-shfileop_end:
+shfileop_normal:
+	if (!(nFileOp.fAnyOperationsAborted))
+	  retCode = 0;
+shfileop_error:
 	if (hFind != INVALID_HANDLE_VALUE)
-	    FindClose(hFind);
+	  FindClose(hFind);
 	hFind = INVALID_HANDLE_VALUE;
 	if (pTempFrom)
-	    HeapFree(GetProcessHeap(), 0, pTempFrom);
+	  HeapFree(GetProcessHeap(), 0, pTempFrom);
 	if (retCode)
-	    nFileOp.fAnyOperationsAborted = TRUE;
+	{
+	  nFileOp.fAnyOperationsAborted = TRUE;
+	}
 	TRACE("%s level=%ld AnyOpsAborted=%s ret=0x%x, with %s %s%s\n",
               debug_shfileops_action(FuncSwitch), level,
 	      nFileOp.fAnyOperationsAborted ? "TRUE":"FALSE",
@@ -1357,35 +1276,6 @@ DWORD WINAPI SHFileOperationAW(LPVOID lpFileOp)
 	if (SHELL_OsIsUnicode())
 	  return SHFileOperationW(lpFileOp);
 	return SHFileOperationA(lpFileOp);
-}
-
-#define SHDSA_GetItemCount(hdsa) (*(int*)(hdsa))
-
-/*************************************************************************
- * SHFreeNameMappings      [shell32.246]
- *
- * Free the mapping handle returned by SHFileoperation if FOF_WANTSMAPPINGHANDLE
- * was specified.
- *
- * PARAMS
- *  hNameMapping [I] handle to the name mappings used during renaming of files
- *
- */
-void WINAPI SHFreeNameMappings(HANDLE hNameMapping)
-{
-	if (hNameMapping)
-	{
-	  int i = SHDSA_GetItemCount((HDSA)hNameMapping) - 1;
-
-	  for (; i>= 0; i--)
-	  {
-	    LPSHNAMEMAPPINGW lp = DSA_GetItemPtr((HDSA)hNameMapping, i);
-
-	    SHFree(lp->pszOldPath);
-	    SHFree(lp->pszNewPath);
-	  }
-	  DSA_Destroy((HDSA)hNameMapping);
-	}
 }
 
 /*************************************************************************
@@ -1415,15 +1305,4 @@ BOOL WINAPI IsNetDrive(DWORD drive)
 	strcpy(root, "A:\\");
 	root[0] += (char)drive;
 	return (GetDriveTypeA(root) == DRIVE_REMOTE);
-}
-
-
-/*************************************************************************
- * RealDriveType                [SHELL32.524]
- */
-INT WINAPI RealDriveType(INT drive, BOOL bQueryNet)
-{
-    char root[] = "A:\\";
-    root[0] += (char)drive;
-    return GetDriveTypeA(root);
 }

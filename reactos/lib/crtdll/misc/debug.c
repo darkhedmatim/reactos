@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>

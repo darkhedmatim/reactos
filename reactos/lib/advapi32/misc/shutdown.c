@@ -1,4 +1,4 @@
-/* $Id: shutdown.c,v 1.12 2004/08/15 17:03:14 chorns Exp $
+/* $Id: shutdown.c,v 1.11 2004/01/20 01:40:18 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -10,7 +10,10 @@
  *      19990515 EA
  */
 
-#include "advapi32.h"
+#include <windows.h>
+
+#define NTOS_MODE_USER
+#include <ntos.h>
 
 #define USZ {0,0,0}
 

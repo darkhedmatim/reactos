@@ -26,7 +26,11 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <string.h>
+#include <ntos/keyboard.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -77,7 +81,7 @@ VOID KbdDisableMouse()
 }
 
 CHAR
-KdbTryGetCharKeyboard(PULONG ScanCode)
+KdbTryGetCharKeyboard()
 {
     static byte_t last_key = 0;
     static byte_t shift = 0;
@@ -101,7 +105,6 @@ KdbTryGetCharKeyboard(PULONG ScanCode)
 		//printf("kbd: %d, %d, %c\n", scancode, last_key, keyb_layout[shift][scancode]);
 		last_key = scancode;
 		c = keyb_layout[shift][scancode];
-		*ScanCode = scancode;
 		if (c > 0) return c;
 	    }
 	}

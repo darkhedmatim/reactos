@@ -17,11 +17,8 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "wine/debug.h"
 #include "wine/unicode.h"
 #include "winbase.h"
@@ -30,7 +27,13 @@
 #include "variant.h"
 #include "resource.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(variant);
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
+
+
+#ifdef __REACTOS__ /*FIXME*/
+#include "ros-mingw-fixes.h"
+#endif
+
 
 extern HMODULE OLEAUT32_hModule;
 
@@ -46,18 +49,29 @@ static inline void VARIANT_CopyData(const VARIANT *srcVar, VARTYPE vt, void *pOu
   case VT_UI1: memcpy(pOut, &V_UI1(srcVar), sizeof(BYTE)); break;
   case VT_BOOL:
   case VT_I2:
-  case VT_UI2: memcpy(pOut, &V_UI2(srcVar), sizeof(SHORT)); break;
+#ifndef __REACTOS__ /*FIXME*/
+  case VT_UI2: memcpy(pOut, &V_UI2(srcVar), sizeof(SHORT));
+#endif
+	break;
   case VT_R4:
   case VT_INT:
   case VT_I4:
   case VT_UINT:
-  case VT_UI4: memcpy(pOut, &V_UI4(srcVar), sizeof (LONG)); break;
+#ifndef __REACTOS__ /*FIXME*/
+  case VT_UI4: memcpy(pOut, &V_UI4(srcVar), sizeof (LONG));
+#endif
+	break;
   case VT_R8:
   case VT_DATE:
   case VT_CY:
   case VT_I8:
-  case VT_UI8: memcpy(pOut, &V_UI8(srcVar), sizeof (LONG64)); break;
+#ifndef __REACTOS__ /*FIXME*/
+  case VT_UI8: memcpy(pOut, &V_UI8(srcVar), sizeof (LONG64));
+#endif
+	break;
+#ifndef __REACTOS__ /*FIXME: wrong definition of VT_INT_PTR in MinGW headers */
   case VT_INT_PTR: memcpy(pOut, &V_INT_PTR(srcVar), sizeof (INT_PTR)); break;
+#endif
   case VT_DECIMAL: memcpy(pOut, &V_DECIMAL(srcVar), sizeof (DECIMAL)); break;
   default:
     FIXME("VT_ type %d unhandled, please report!\n", vt);
@@ -71,6 +85,7 @@ HRESULT VARIANT_NumberFromBstr(OLECHAR* pStrIn, LCID lcid, ULONG ulFlags,
 {
   VARIANTARG dstVar;
   HRESULT hRet;
+#ifndef __REACTOS__ /*FIXME: missing NUMPARSE in MinGW */
   NUMPARSE np;
   BYTE rgb[1024];
 
@@ -87,6 +102,7 @@ HRESULT VARIANT_NumberFromBstr(OLECHAR* pStrIn, LCID lcid, ULONG ulFlags,
     if (SUCCEEDED(hRet))
       VARIANT_CopyData(&dstVar, vt, pOut);
   }
+#endif
   return hRet;
 }
 
@@ -380,6 +396,7 @@ HRESULT WINAPI VarI1FromUI4(ULONG ulIn, signed char* pcOut)
  *  Failure: E_INVALIDARG, if the source value is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarI1FromDec(DECIMAL *pdecIn, signed char* pcOut)
 {
   LONG64 i64;
@@ -391,6 +408,7 @@ HRESULT WINAPI VarI1FromDec(DECIMAL *pdecIn, signed char* pcOut)
     hRet = _VarI1FromI8(i64, pcOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarI1FromI8 (OLEAUT32.376)
@@ -582,6 +600,7 @@ HRESULT WINAPI VarUI1FromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, BYTE* pbO
   return _VarUI1FromStr(strIn, lcid, dwFlags, pbOut);
 }
 
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarUI1FromDisp() in MinGW header */
 /************************************************************************
  * VarUI1FromDisp (OLEAUT32.137)
  *
@@ -602,6 +621,7 @@ HRESULT WINAPI VarUI1FromDisp(IDispatch* pdispIn, LCID lcid, BYTE* pbOut)
 {
   return _VarUI1FromDisp(pdispIn, lcid, pbOut);
 }
+#endif
 
 /************************************************************************
  * VarUI1FromBool (OLEAUT32.138)
@@ -691,6 +711,7 @@ HRESULT WINAPI VarUI1FromUI4(ULONG ulIn, BYTE* pbOut)
  *  Failure: E_INVALIDARG, if the source value is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarUI1FromDec(DECIMAL *pdecIn, BYTE* pbOut)
 {
   LONG64 i64;
@@ -702,6 +723,7 @@ HRESULT WINAPI VarUI1FromDec(DECIMAL *pdecIn, BYTE* pbOut)
     hRet = _VarUI1FromI8(i64, pbOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarUI1FromI8 (OLEAUT32.372)
@@ -883,6 +905,7 @@ HRESULT WINAPI VarI2FromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, SHORT* psO
   return _VarI2FromStr(strIn, lcid, dwFlags, psOut);
 }
 
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarI2FromDisp() in MinGW header */
 /************************************************************************
  * VarI2FromDisp (OLEAUT32.55)
  *
@@ -903,6 +926,7 @@ HRESULT WINAPI VarI2FromDisp(IDispatch* pdispIn, LCID lcid, SHORT* psOut)
 {
   return _VarI2FromDisp(pdispIn, lcid, psOut);
 }
+#endif
 
 /************************************************************************
  * VarI2FromBool (OLEAUT32.56)
@@ -988,6 +1012,7 @@ HRESULT WINAPI VarI2FromUI4(ULONG ulIn, SHORT* psOut)
  *  Failure: E_INVALIDARG, if the source value is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarI2FromDec(DECIMAL *pdecIn, SHORT* psOut)
 {
   LONG64 i64;
@@ -999,6 +1024,7 @@ HRESULT WINAPI VarI2FromDec(DECIMAL *pdecIn, SHORT* psOut)
     hRet = _VarI2FromI8(i64, psOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarI2FromI8 (OLEAUT32.346)
@@ -1285,6 +1311,7 @@ HRESULT WINAPI VarUI2FromUI4(ULONG ulIn, USHORT* pusOut)
  *  Failure: E_INVALIDARG, if the source value is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarUI2FromDec(DECIMAL *pdecIn, USHORT* pusOut)
 {
   LONG64 i64;
@@ -1296,6 +1323,7 @@ HRESULT WINAPI VarUI2FromDec(DECIMAL *pdecIn, USHORT* pusOut)
     hRet = _VarUI2FromI8(i64, pusOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarUI2FromI8 (OLEAUT32.378)
@@ -1359,7 +1387,7 @@ HRESULT WINAPI VarI4FromUI1(BYTE bIn, LONG *piOut)
  * Convert a VT_I2 to a VT_I4.
  *
  * PARAMS
- *  sIn     [I] Source
+ *  iIn     [I] Source
  *  piOut   [O] Destination
  *
  * RETURNS
@@ -1473,6 +1501,7 @@ HRESULT WINAPI VarI4FromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, LONG *piOu
   return _VarI4FromStr(strIn, lcid, dwFlags, piOut);
 }
 
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarI4FromDisp() in MinGW header */
 /************************************************************************
  * VarI4FromDisp (OLEAUT32.65)
  *
@@ -1493,6 +1522,7 @@ HRESULT WINAPI VarI4FromDisp(IDispatch* pdispIn, LCID lcid, LONG *piOut)
 {
   return _VarI4FromDisp(pdispIn, lcid, piOut);
 }
+#endif
 
 /************************************************************************
  * VarI4FromBool (OLEAUT32.66)
@@ -1577,6 +1607,7 @@ HRESULT WINAPI VarI4FromUI4(ULONG ulIn, LONG *piOut)
  *  Failure: E_INVALIDARG, if pdecIn is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarI4FromDec(DECIMAL *pdecIn, LONG *piOut)
 {
   LONG64 i64;
@@ -1588,6 +1619,7 @@ HRESULT WINAPI VarI4FromDec(DECIMAL *pdecIn, LONG *piOut)
     hRet = _VarI4FromI8(i64, piOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarI4FromI8 (OLEAUT32.348)
@@ -1760,6 +1792,7 @@ HRESULT WINAPI VarUI4FromCy(CY cyIn, ULONG *pulOut)
   return _VarUI4FromR8(d, pulOut);
 }
 
+
 /************************************************************************
  * VarUI4FromStr (OLEAUT32.277)
  *
@@ -1869,6 +1902,7 @@ HRESULT WINAPI VarUI4FromUI2(USHORT usIn, ULONG *pulOut)
  *  Failure: E_INVALIDARG, if pdecIn is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarUI4FromDec(DECIMAL *pdecIn, ULONG *pulOut)
 {
   LONG64 i64;
@@ -1880,6 +1914,7 @@ HRESULT WINAPI VarUI4FromDec(DECIMAL *pdecIn, ULONG *pulOut)
     hRet = _VarUI4FromI8(i64, pulOut);
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarUI4FromI8 (OLEAUT32.425)
@@ -2012,6 +2047,7 @@ HRESULT WINAPI VarI8FromR8(double dblIn, LONG64* pi64Out)
   OLEAUT32_DutchRound(LONG64, dblIn, *pi64Out);
   return S_OK;
 }
+
 
 /************************************************************************
  * VarI8FromCy (OLEAUT32.337)
@@ -2192,6 +2228,7 @@ HRESULT WINAPI VarI8FromUI4(ULONG ulIn, LONG64* pi64Out)
  *  Failure: E_INVALIDARG, if the source value is invalid
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarI8FromDec(DECIMAL *pdecIn, LONG64* pi64Out)
 {
   if (!DEC_SCALE(pdecIn))
@@ -2221,6 +2258,7 @@ HRESULT WINAPI VarI8FromDec(DECIMAL *pdecIn, LONG64* pi64Out)
     return hRet;
   }
 }
+#endif
 
 /************************************************************************
  * VarI8FromUI8 (OLEAUT32.427)
@@ -2527,6 +2565,7 @@ HRESULT WINAPI VarUI8FromUI4(ULONG ulIn, ULONG64* pui64Out)
  *  with DISP_E_OVERFLOW. This bug has been fixed in Wine's implementation
  *  (use VarAbs() on pDecIn first if you really want this behaviour).
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarUI8FromDec(DECIMAL *pdecIn, ULONG64* pui64Out)
 {
   if (!DEC_SCALE(pdecIn))
@@ -2559,6 +2598,7 @@ HRESULT WINAPI VarUI8FromDec(DECIMAL *pdecIn, ULONG64* pui64Out)
     return hRet;
   }
 }
+#endif
 
 /* R4
  */
@@ -2704,10 +2744,12 @@ HRESULT WINAPI VarR4FromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, float *pFl
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarR4FromDisp() in MinGW header */
 HRESULT WINAPI VarR4FromDisp(IDispatch* pdispIn, LCID lcid, float *pFltOut)
 {
   return _VarR4FromDisp(pdispIn, lcid, pFltOut);
 }
+#endif
 
 /************************************************************************
  * VarR4FromBool (OLEAUT32.76)
@@ -2799,6 +2841,7 @@ HRESULT WINAPI VarR4FromUI4(ULONG ulIn, float *pFltOut)
  *  Success: S_OK.
  *  Failure: E_INVALIDARG, if the source value is invalid.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarR4FromDec(DECIMAL* pDecIn, float *pFltOut)
 {
   BYTE scale = DEC_SCALE(pDecIn);
@@ -2825,6 +2868,8 @@ HRESULT WINAPI VarR4FromDec(DECIMAL* pDecIn, float *pFltOut)
   *pFltOut = (double)DEC_LO64(pDecIn) / (double)divisor + highPart;
   return S_OK;
 }
+#endif
+
 
 /************************************************************************
  * VarR4FromI8 (OLEAUT32.360)
@@ -3024,10 +3069,12 @@ HRESULT WINAPI VarR8FromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, double *pD
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarUI1FromDisp() in MinGW header */
 HRESULT WINAPI VarR8FromDisp(IDispatch* pdispIn, LCID lcid, double *pDblOut)
 {
   return _VarR8FromDisp(pdispIn, lcid, pDblOut);
 }
+#endif
 
 /************************************************************************
  * VarR8FromBool (OLEAUT32.86)
@@ -3119,6 +3166,7 @@ HRESULT WINAPI VarR8FromUI4(ULONG ulIn, double *pDblOut)
  *  Success: S_OK.
  *  Failure: E_INVALIDARG, if the source value is invalid.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarR8FromDec(DECIMAL* pDecIn, double *pDblOut)
 {
   BYTE scale = DEC_SCALE(pDecIn);
@@ -3144,6 +3192,7 @@ HRESULT WINAPI VarR8FromDec(DECIMAL* pDecIn, double *pDblOut)
   *pDblOut = (double)DEC_LO64(pDecIn) / divisor + highPart;
   return S_OK;
 }
+#endif
 
 /************************************************************************
  * VarR8FromI8 (OLEAUT32.362)
@@ -3445,10 +3494,13 @@ HRESULT WINAPI VarCyFromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, CY* pCyOut
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarCyFromDisp() in MinGW header */
 HRESULT WINAPI VarCyFromDisp(IDispatch* pdispIn, LCID lcid, CY* pCyOut)
 {
   return _VarCyFromDisp(pdispIn, lcid, pCyOut);
 }
+#endif
+
 
 /************************************************************************
  * VarCyFromBool (OLEAUT32.106)
@@ -3549,6 +3601,7 @@ HRESULT WINAPI VarCyFromUI4(ULONG ulIn, CY* pCyOut)
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarCyFromDec(DECIMAL* pdecIn, CY* pCyOut)
 {
   DECIMAL rounded;
@@ -3571,6 +3624,7 @@ HRESULT WINAPI VarCyFromDec(DECIMAL* pdecIn, CY* pCyOut)
   }
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarCyFromI8 (OLEAUT32.366)
@@ -3851,7 +3905,7 @@ HRESULT WINAPI VarCyRound(const CY cyIn, int cDecimals, CY* pCyOut)
  * RETURNS
  *  Success: VARCMP_LT, VARCMP_EQ or VARCMP_GT indicating that the value to
  *           compare is less, equal or greater than source respectively.
- *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparison
+ *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparason
  */
 HRESULT WINAPI VarCyCmp(const CY cyLeft, const CY cyRight)
 {
@@ -3885,7 +3939,7 @@ HRESULT WINAPI VarCyCmp(const CY cyLeft, const CY cyRight)
  * RETURNS
  *  Success: VARCMP_LT, VARCMP_EQ or VARCMP_GT indicating that dblRight is
  *           less than, equal to or greater than cyLeft respectively.
- *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparison
+ *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparason
  */
 HRESULT WINAPI VarCyCmpR8(const CY cyLeft, double dblRight)
 {
@@ -3938,6 +3992,7 @@ HRESULT WINAPI VarCyMulI8(const CY cyLeft, LONG64 llRight, CY* pCyOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarDecFromUI1(BYTE bIn, DECIMAL* pDecOut)
 {
   return _VarDecFromUI1(bIn, pDecOut);
@@ -3959,6 +4014,7 @@ HRESULT WINAPI VarDecFromI2(SHORT sIn, DECIMAL* pDecOut)
 {
   return _VarDecFromI2(sIn, pDecOut);
 }
+#endif
 
 /************************************************************************
  * VarDecFromI4 (OLEAUT32.192)
@@ -3972,6 +4028,7 @@ HRESULT WINAPI VarDecFromI2(SHORT sIn, DECIMAL* pDecOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarDecFromI4(LONG lIn, DECIMAL* pDecOut)
 {
   DEC_HI32(pDecOut) = 0;
@@ -3989,6 +4046,7 @@ HRESULT WINAPI VarDecFromI4(LONG lIn, DECIMAL* pDecOut)
   }
   return S_OK;
 }
+#endif
 
 /************************************************************************
  * VarDecFromR4 (OLEAUT32.193)
@@ -4059,6 +4117,7 @@ HRESULT WINAPI VarDecFromDate(DATE dateIn, DECIMAL* pDecOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarDecFromCy(CY cyIn, DECIMAL* pDecOut)
 {
   DEC_HI32(pDecOut) = 0;
@@ -4077,6 +4136,8 @@ HRESULT WINAPI VarDecFromCy(CY cyIn, DECIMAL* pDecOut)
   }
   return S_OK;
 }
+#endif
+
 
 /************************************************************************
  * VarDecFromStr (OLEAUT32.197)
@@ -4132,6 +4193,7 @@ HRESULT WINAPI VarDecFromDisp(IDispatch* pdispIn, LCID lcid, DECIMAL* pDecOut)
  * NOTES
  *  The value is converted to either 0 (if bIn is FALSE) or -1 (TRUE).
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarDecFromBool(VARIANT_BOOL bIn, DECIMAL* pDecOut)
 {
   DEC_HI32(pDecOut) = 0;
@@ -4182,6 +4244,7 @@ HRESULT WINAPI VarDecFromUI2(USHORT usIn, DECIMAL* pDecOut)
 {
   return _VarDecFromUI2(usIn, pDecOut);
 }
+#endif
 
 /************************************************************************
  * VarDecFromUI4 (OLEAUT32.243)
@@ -4195,6 +4258,7 @@ HRESULT WINAPI VarDecFromUI2(USHORT usIn, DECIMAL* pDecOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarDecFromUI4(ULONG ulIn, DECIMAL* pDecOut)
 {
   DEC_SIGNSCALE(pDecOut) = SIGNSCALE(DECIMAL_POS,0);
@@ -4203,6 +4267,7 @@ HRESULT WINAPI VarDecFromUI4(ULONG ulIn, DECIMAL* pDecOut)
   DEC_LO32(pDecOut) = ulIn;
   return S_OK;
 }
+#endif
 
 /************************************************************************
  * VarDecFromI8 (OLEAUT32.374)
@@ -4216,6 +4281,7 @@ HRESULT WINAPI VarDecFromUI4(ULONG ulIn, DECIMAL* pDecOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarDecFromI8(LONG64 llIn, DECIMAL* pDecOut)
 {
   PULARGE_INTEGER pLi = (PULARGE_INTEGER)&llIn;
@@ -4236,6 +4302,7 @@ HRESULT WINAPI VarDecFromI8(LONG64 llIn, DECIMAL* pDecOut)
   }
   return S_OK;
 }
+#endif
 
 /************************************************************************
  * VarDecFromUI8 (OLEAUT32.375)
@@ -4249,6 +4316,7 @@ HRESULT WINAPI VarDecFromI8(LONG64 llIn, DECIMAL* pDecOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarDecFromUI8(ULONG64 ullIn, DECIMAL* pDecOut)
 {
   DEC_SIGNSCALE(pDecOut) = SIGNSCALE(DECIMAL_POS,0);
@@ -4256,7 +4324,9 @@ HRESULT WINAPI VarDecFromUI8(ULONG64 ullIn, DECIMAL* pDecOut)
   DEC_LO64(pDecOut) = ullIn;
   return S_OK;
 }
+#endif
 
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO32 */
 /* Make two DECIMALS the same scale; used by math functions below */
 static HRESULT VARIANT_DecScale(const DECIMAL** ppDecLeft,
                                 const DECIMAL** ppDecRight,
@@ -4302,6 +4372,7 @@ static HRESULT VARIANT_DecScale(const DECIMAL** ppDecLeft,
   DEC_SCALE(pDecOut) += scaleAmount; /* Set the new scale */
   return hRet;
 }
+#endif
 
 /* Add two unsigned 32 bit values with overflow */
 static ULONG VARIANT_Add(ULONG ulLeft, ULONG ulRight, ULONG* pulHigh)
@@ -4347,6 +4418,7 @@ static ULONG VARIANT_Mul(ULONG ulLeft, ULONG ulRight, ULONG* pulHigh)
   return ul64.u.LowPart;
 }
 
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 /* Compare two decimals that have the same scale */
 static inline int VARIANT_DecCmp(const DECIMAL *pDecLeft, const DECIMAL *pDecRight)
 {
@@ -4357,6 +4429,7 @@ static inline int VARIANT_DecCmp(const DECIMAL *pDecLeft, const DECIMAL *pDecRig
     return 0;
   return 1;
 }
+#endif
 
 /************************************************************************
  * VarDecAdd (OLEAUT32.177)
@@ -4372,6 +4445,7 @@ static inline int VARIANT_DecCmp(const DECIMAL *pDecLeft, const DECIMAL *pDecRig
  *  Success: S_OK.
  *  Failure: DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO32 */
 HRESULT WINAPI VarDecAdd(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECIMAL* pDecOut)
 {
   HRESULT hRet;
@@ -4442,6 +4516,7 @@ VarDecAdd_AsPositive:
   }
   return hRet;
 }
+#endif
 
 /************************************************************************
  * VarDecDiv (OLEAUT32.178)
@@ -4477,6 +4552,7 @@ HRESULT WINAPI VarDecDiv(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECI
  *  Success: S_OK.
  *  Failure: DISP_E_OVERFLOW, if the value will not fit in the destination
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO32 */
 HRESULT WINAPI VarDecMul(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECIMAL* pDecOut)
 {
   /* FIXME: This only allows multiplying by a fixed integer <= 0xffffffff */
@@ -4538,6 +4614,7 @@ HRESULT WINAPI VarDecSub(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECI
   VarDecNeg(pDecRight, &decRight);
   return VarDecAdd(pDecLeft, &decRight, pDecOut);
 }
+#endif
 
 /************************************************************************
  * VarDecAbs (OLEAUT32.182)
@@ -4577,7 +4654,7 @@ HRESULT WINAPI VarDecAbs(const DECIMAL* pDecIn, DECIMAL* pDecOut)
  */
 HRESULT WINAPI VarDecFix(const DECIMAL* pDecIn, DECIMAL* pDecOut)
 {
-  if (DEC_SIGN(pDecIn) & ~DECIMAL_NEG)
+  if (DEC_SIGN(pDecOut) & ~DECIMAL_NEG)
     return E_INVALIDARG;
 
   if (!DEC_SCALE(pDecIn))
@@ -4609,10 +4686,10 @@ HRESULT WINAPI VarDecFix(const DECIMAL* pDecIn, DECIMAL* pDecOut)
  */
 HRESULT WINAPI VarDecInt(const DECIMAL* pDecIn, DECIMAL* pDecOut)
 {
-  if (DEC_SIGN(pDecIn) & ~DECIMAL_NEG)
+  if (DEC_SIGN(pDecOut) & ~DECIMAL_NEG)
     return E_INVALIDARG;
 
-  if (!(DEC_SIGN(pDecIn) & DECIMAL_NEG) || !DEC_SCALE(pDecIn))
+  if (!(DEC_SIGN(pDecOut) & DECIMAL_NEG) || !DEC_SCALE(pDecIn))
     return VarDecFix(pDecIn, pDecOut); /* The same, if +ve or no fractionals */
 
   FIXME("semi-stub!\n");
@@ -4680,8 +4757,9 @@ HRESULT WINAPI VarDecRound(const DECIMAL* pDecIn, int cDecimals, DECIMAL* pDecOu
  * RETURNS
  *  Success: VARCMP_LT, VARCMP_EQ or VARCMP_GT indicating that pDecLeft
  *           is less than, equal to or greater than pDecRight respectively.
- *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparison
+ *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparason
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO32 */
 HRESULT WINAPI VarDecCmp(const DECIMAL* pDecLeft, const DECIMAL* pDecRight)
 {
   HRESULT hRet;
@@ -4704,6 +4782,7 @@ HRESULT WINAPI VarDecCmp(const DECIMAL* pDecLeft, const DECIMAL* pDecRight)
   return hRet;
 }
 
+
 /************************************************************************
  * VarDecCmpR8 (OLEAUT32.298)
  *
@@ -4716,7 +4795,7 @@ HRESULT WINAPI VarDecCmp(const DECIMAL* pDecLeft, const DECIMAL* pDecRight)
  * RETURNS
  *  Success: VARCMP_LT, VARCMP_EQ or VARCMP_GT indicating that dblRight
  *           is less than, equal to or greater than pDecLeft respectively.
- *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparison
+ *  Failure: DISP_E_OVERFLOW, if overflow occurs during the comparason
  */
 HRESULT WINAPI VarDecCmpR8(const DECIMAL* pDecLeft, double dblRight)
 {
@@ -4730,6 +4809,7 @@ HRESULT WINAPI VarDecCmpR8(const DECIMAL* pDecLeft, double dblRight)
 
   return hRet;
 }
+#endif
 
 /* BOOL
  */
@@ -5000,10 +5080,12 @@ VarBoolFromStr_CheckLocalised:
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarBoolFromDisp() in MinGW header */
 HRESULT WINAPI VarBoolFromDisp(IDispatch* pdispIn, LCID lcid, VARIANT_BOOL *pBoolOut)
 {
   return _VarBoolFromDisp(pdispIn, lcid, pBoolOut);
 }
+#endif
 
 /************************************************************************
  * VarBoolFromI1 (OLEAUT32.233)
@@ -5069,6 +5151,7 @@ HRESULT WINAPI VarBoolFromUI4(ULONG ulIn, VARIANT_BOOL *pBoolOut)
  *  Success: S_OK.
  *  Failure: E_INVALIDARG, if pDecIn is invalid.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO32 */
 HRESULT WINAPI VarBoolFromDec(DECIMAL* pDecIn, VARIANT_BOOL *pBoolOut)
 {
   if (DEC_SCALE(pDecIn) > DEC_MAX_SCALE || (DEC_SIGN(pDecIn) & ~DECIMAL_NEG))
@@ -5080,6 +5163,7 @@ HRESULT WINAPI VarBoolFromDec(DECIMAL* pDecIn, VARIANT_BOOL *pBoolOut)
     *pBoolOut = VARIANT_FALSE;
   return S_OK;
 }
+#endif
 
 /************************************************************************
  * VarBoolFromI8 (OLEAUT32.370)
@@ -5241,7 +5325,7 @@ HRESULT WINAPI VarBstrFromI4(LONG lIn, LCID lcid, ULONG dwFlags, BSTR* pbstrOut)
 
   if (lIn < 0)
   {
-    ul64 = (ULONG)-lIn;
+    ul64 = -lIn;
     dwFlags |= VAR_NEGATIVE;
   }
   return VARIANT_BstrFromUInt(ul64, lcid, dwFlags, pbstrOut);
@@ -5382,7 +5466,11 @@ HRESULT WINAPI VarBstrFromDate(DATE dateIn, LCID lcid, ULONG dwFlags, BSTR* pbst
 
   TRACE("(%g,0x%08lx,0x%08lx,%p)\n", dateIn, lcid, dwFlags, pbstrOut);
 
+#ifndef __REACTOS__ /*FIXME: no VariantTimeToSystemTime() yet */
   if (!pbstrOut || !VariantTimeToSystemTime(dateIn, &st))
+#else
+  if (!pbstrOut)
+#endif
     return E_INVALIDARG;
 
   *pbstrOut = NULL;
@@ -5588,6 +5676,7 @@ HRESULT WINAPI VarBstrFromUI4(ULONG ulIn, LCID lcid, ULONG dwFlags, BSTR* pbstrO
  *  Failure: E_INVALIDARG, if pbstrOut is invalid.
  *           E_OUTOFMEMORY, if memory allocation fails.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_LO64 */
 HRESULT WINAPI VarBstrFromDec(DECIMAL* pDecIn, LCID lcid, ULONG dwFlags, BSTR* pbstrOut)
 {
   if (!pbstrOut)
@@ -5610,6 +5699,7 @@ HRESULT WINAPI VarBstrFromDec(DECIMAL* pDecIn, LCID lcid, ULONG dwFlags, BSTR* p
   FIXME("semi-stub\n");
   return E_INVALIDARG;
 }
+#endif
 
 /************************************************************************
  * VarBstrFromI8 (OLEAUT32.370)
@@ -5709,7 +5799,7 @@ HRESULT WINAPI VarBstrCat(BSTR pbstrLeft, BSTR pbstrRight, BSTR *pbstrOut)
  * PARAMS
  *  pbstrLeft  [I] Source
  *  pbstrRight [I] Value to compare
- *  lcid       [I] LCID for the comparison
+ *  lcid       [I] LCID for the comparason
  *  dwFlags    [I] Flags to pass directly to CompareStringW().
  *
  * RETURNS
@@ -5841,10 +5931,12 @@ HRESULT WINAPI VarDateFromR8(double dblIn, DATE* pdateOut)
  *           DISP_E_OVERFLOW, if the value will not fit in the destination
  *           DISP_E_TYPEMISMATCH, if the type cannot be converted
  */
+#ifndef __REACTOS__	/*FIXME: wrong declaration of VarDateFromDisp() in MinGW header */
 HRESULT WINAPI VarDateFromDisp(IDispatch* pdispIn, LCID lcid, DATE* pdateOut)
 {
   return _VarDateFromDisp(pdispIn, lcid, pdateOut);
 }
+#endif
 
 /******************************************************************************
  * VarDateFromBool (OLEAUT32.96)
@@ -6121,6 +6213,7 @@ VARIANT_MakeDate_OK:
  *  the date is invalid in that format, in which the most compatible format
  *  that produces a valid date will be used.
  */
+#ifndef __REACTOS__ /*FIXME: no SystemTimeToVariantTime() yet */
 HRESULT WINAPI VarDateFromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, DATE* pdateOut)
 {
   static const USHORT ParseDateTokens[] =
@@ -6450,6 +6543,7 @@ HRESULT WINAPI VarDateFromStr(OLECHAR* strIn, LCID lcid, ULONG dwFlags, DATE* pd
     SysFreeString(tokens[i]);
   return hRet;
 }
+#endif
 
 /******************************************************************************
  * VarDateFromI1 (OLEAUT32.221)
@@ -6514,10 +6608,12 @@ HRESULT WINAPI VarDateFromUI4(ULONG ulIn, DATE* pdateOut)
  * RETURNS
  *  S_OK.
  */
+#ifndef __REACTOS__	/*FIXME: problems with MinGW and DEC_MID32 */
 HRESULT WINAPI VarDateFromDec(DECIMAL *pdecIn, DATE* pdateOut)
 {
   return _VarDateFromDec(pdecIn, pdateOut);
 }
+#endif
 
 /******************************************************************************
  * VarDateFromI8 (OLEAUT32.364)

@@ -1,4 +1,4 @@
-/* $Id: drivers.c,v 1.4 2004/11/08 00:34:45 weiden Exp $
+/* $Id: drivers.c,v 1.2 2003/06/01 14:59:01 chorns Exp $
 */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -23,173 +23,208 @@
 
 #include <epsapi.h>
 
-NTSTATUS NTAPI
-PsaEnumerateSystemModules(IN PSYSMOD_ENUM_ROUTINE Callback,
-                          IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaEnumerateSystemModules
+(
+ IN PSYSMOD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  PSYSTEM_MODULE_INFORMATION psmModules;
-  NTSTATUS Status = STATUS_SUCCESS;
+ register NTSTATUS nErrCode = STATUS_SUCCESS;
+ PSYSTEM_MODULE_INFORMATION psmModules = NULL;
 
 #if 0
-  __try
-  {
-#else
+ __try
+ {
+#endif
   do
   {
-#endif
-  /* capture the system modules */
-  Status = PsaCaptureSystemModules(&psmModules);
- 
-  if(!NT_SUCCESS(Status))
-  {
+   /* capture the system modules */
+   nErrCode = PsaCaptureSystemModules(&psmModules);
+   
+   if(!NT_SUCCESS(nErrCode))
+    /* failure */
     break;
+ 
+   /* walk the system modules */
+   nErrCode = PsaWalkSystemModules(psmModules, Callback, CallbackContext);
   }
-
-  /* walk the system modules */
-  Status = PsaWalkSystemModules(psmModules, Callback, CallbackContext);
+  while(0);
 #if 0
-  }
-  __finally
-  {
-#else
-  } while(0);
+ }
+ __finally
+ {
 #endif
   /* free the capture */
   PsaFreeCapture(psmModules);
 #if 0
-  }
+ }
 #endif
  
-  return Status;
+ /* return the last status */
+ return nErrCode;
 }
 
-NTSTATUS NTAPI
-PsaCaptureSystemModules(OUT PSYSTEM_MODULE_INFORMATION *SystemModules)
+NTSTATUS
+NTAPI
+PsaCaptureSystemModules
+(
+ OUT PSYSTEM_MODULE_INFORMATION * SystemModules
+)
 {
-  SIZE_T nSize = 0;
-  PSYSTEM_MODULE_INFORMATION psmModules;
-  NTSTATUS Status;
+ SIZE_T nSize = 0;
+ register NTSTATUS nErrCode;
+ register PSYSTEM_MODULE_INFORMATION psmModules = (PSYSTEM_MODULE_INFORMATION)&nSize;
 
 #if 0
-  __try
-  {
-#else
-  do
-  {
+ __try
+ {
 #endif
-  /* initial probe. We just get the count of system modules */
-  Status = NtQuerySystemInformation(SystemModuleInformation,
-                                    &nSize,
-                                    sizeof(nSize),
-                                    NULL);
-
-  if(!NT_SUCCESS(Status) && (Status != STATUS_INFO_LENGTH_MISMATCH))
-  {
-    DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", Status);
-    break;
-  }
-
-  /* RATIONALE: the loading of a system module is a rare occurrence. To
-     minimize memory operations that could be expensive, or fragment the
-     pool/heap, we try to determine the buffer size in advance, knowing that
-     the number of elements is unlikely to change */
-  nSize = sizeof(SYSTEM_MODULE_INFORMATION) +
-          ((psmModules->Count - 1) * sizeof(SYSTEM_MODULE_INFORMATION));
-
-  psmModules = NULL;
-
   do
   {
-    PVOID pTmp;
+   /* initial probe. We just get the count of system modules */
+   nErrCode = NtQuerySystemInformation
+   (
+    SystemModuleInformation,
+    psmModules,
+    sizeof(nSize),
+    NULL
+   );
+
+   if(nErrCode != STATUS_INFO_LENGTH_MISMATCH && !NT_SUCCESS(nErrCode))
+   {
+    /* failure */
+    DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", nErrCode);
+    break;
+   }
+
+   /* RATIONALE: the loading of a system module is a rare occurrence. To
+      minimize memory operations that could be expensive, or fragment the
+      pool/heap, we try to determine the buffer size in advance, knowing that
+      the number of elements is unlikely to change */
+   nSize =
+    sizeof(*psmModules) +
+    (psmModules->Count - 1) * sizeof(SYSTEM_MODULE_INFORMATION);
+
+   psmModules = NULL;
+
+   do
+   {
+    register void * pTmp;
   
     /* free the buffer, and reallocate it to the new size. RATIONALE: since we
        ignore the buffer's content at this point, there's no point in a realloc,
        that could end up copying a large chunk of data we'd discard anyway */
     PsaiFree(psmModules);
     pTmp = PsaiMalloc(nSize);
-
+    
     if(pTmp == NULL)
     {
-      Status = STATUS_NO_MEMORY;
-      DPRINT(FAILED_WITH_STATUS, "PsaiMalloc", Status);
-      break;
+     /* failure */
+     nErrCode = STATUS_NO_MEMORY;
+     DPRINT(FAILED_WITH_STATUS, "PsaiMalloc", nErrCode);
+     break;
     }
 
     psmModules = pTmp;
 
     /* query the information */
-    Status = NtQuerySystemInformation(SystemModuleInformation,
-                                      psmModules,
-                                      nSize,
-                                      NULL);
+    nErrCode = NtQuerySystemInformation
+    (
+     SystemModuleInformation,
+     psmModules,
+     nSize,
+     NULL
+    );
 
     /* double the buffer for the next loop */
-    nSize *= 2;
-  } while(Status == STATUS_INFO_LENGTH_MISMATCH);
+    nSize += nSize;
+   }
+   /* repeat until the buffer is big enough */
+   while(nErrCode == STATUS_INFO_LENGTH_MISMATCH);
 
-  if(!NT_SUCCESS(Status))
-  {
-    DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", Status);
+   if(!NT_SUCCESS(nErrCode))
+   {
+    /* failure */
+    DPRINT(FAILED_WITH_STATUS, "NtQuerySystemInformation", nErrCode);
     break;
+   }
+
+   /* success */
+   *SystemModules = psmModules;
+
+   nErrCode = STATUS_SUCCESS;
   }
-
-  *SystemModules = psmModules;
-
-  Status = STATUS_SUCCESS;
+  while(0);
 #if 0
-  }
-  __finally
-  {
-#else
-  } while(0);
+ }
+ __finally
+ {
 #endif
   /* in case of failure, free the buffer */
-  if(!NT_SUCCESS(Status))
-  {
-    PsaiFree(psmModules);
-  }
+  if(!NT_SUCCESS(nErrCode))
+   PsaiFree(psmModules);
 #if 0
-  }
+ }
 #endif
 
-  return Status;
+ /* return the last status */
+ return (nErrCode);
 }
 
-NTSTATUS NTAPI
-PsaWalkSystemModules(IN PSYSTEM_MODULE_INFORMATION SystemModules,
-                     IN PSYSMOD_ENUM_ROUTINE Callback,
-                     IN OUT PVOID CallbackContext)
+NTSTATUS
+NTAPI
+PsaWalkSystemModules
+(
+ IN PSYSTEM_MODULE_INFORMATION SystemModules,
+ IN PSYSMOD_ENUM_ROUTINE Callback,
+ IN OUT PVOID CallbackContext
+)
 {
-  ULONG i;
-  NTSTATUS Status;
+ register NTSTATUS nErrCode;
+ register SIZE_T i;
 
-  /* repeat until all modules have been returned */
-  for(i = 0; i < SystemModules->Count; i++)
-  {
-    /* return current module to the callback */
-    Status = Callback(&(SystemModules->Module[i]), CallbackContext);
+ /* repeat until all modules have been returned */
+ for(i = 0; i < SystemModules->Count; ++ i)
+ {
+  /* return current module to the callback */
+  nErrCode = Callback(&(SystemModules->Module[i]), CallbackContext);
   
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
+  if(!NT_SUCCESS(nErrCode))
+   /* failure */
+   return nErrCode;
+ }
 
-  return STATUS_SUCCESS;
+ /* success */
+ return STATUS_SUCCESS;
 }
 
-PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
-PsaWalkFirstSystemModule(IN PSYSTEM_MODULE_INFORMATION SystemModules)
+PSYSTEM_MODULE_INFORMATION_ENTRY
+FASTCALL
+PsaWalkFirstSystemModule
+(
+ IN PSYSTEM_MODULE_INFORMATION SystemModules
+)
 { 
-  return &(SystemModules->Module[0]);
+ return &(SystemModules->Module[0]);
 }
 
-PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
-PsaWalkNextSystemModule(IN PSYSTEM_MODULE_INFORMATION CurrentSystemModule)
+PSYSTEM_MODULE_INFORMATION_ENTRY
+FASTCALL
+PsaWalkNextSystemModule
+(
+ IN PSYSTEM_MODULE_INFORMATION CurrentSystemModule
+)
 {
-  return (PSYSTEM_MODULE_INFORMATION_ENTRY)((ULONG_PTR)CurrentSystemModule +
-                                            (offsetof(SYSTEM_MODULE_INFORMATION, Module[1]) -
-                                             offsetof(SYSTEM_MODULE_INFORMATION, Module[0])));
+ return (PSYSTEM_MODULE_INFORMATION_ENTRY)
+ (
+  (ULONG_PTR)CurrentSystemModule +
+  (
+   offsetof(SYSTEM_MODULE_INFORMATION, Module[1]) -
+   offsetof(SYSTEM_MODULE_INFORMATION, Module[0])
+  )
+ );
 }
 
 /* EOF */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -138,12 +138,6 @@ protected:
 	static WindowSet s_dialogs;
 };
 
-#ifdef UNICODE
-#define	NFR_CURRENT	NFR_UNICODE
-#else
-#define	NFR_CURRENT	NFR_ANSI
-#endif
-
 
 #ifdef _MSC_VER
 template<typename CLASS> struct GetWindowHelper
@@ -271,10 +265,11 @@ struct IconWindowClass : public WindowClass
 #define	COLOR_SPLITBAR		LTGRAY_BRUSH
 
 
- /// menu info structure
+ /// menu info structure for MDI child windows
 struct MenuInfo
 {
 	HMENU	_hMenuView;
+	HMENU	_hMenuOptions;
 };
 
 #define	PM_FRM_GET_MENUINFO		(WM_APP+0x02)
@@ -293,15 +288,12 @@ struct ChildWindow : public Window
 	ChildWindow(HWND hwnd, const ChildWndInfo& info);
 
 	static ChildWindow* create(const ChildWndInfo& info, const RECT& rect, CREATORFUNC_INFO creator,
-								LPCTSTR classname, LPCTSTR title=NULL, DWORD style=0);
-
-	bool	go_to(LPCTSTR url);
+								LPCTSTR classname, LPCTSTR title=NULL);
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 
 	virtual void resize_children(int cx, int cy);
-	virtual String jump_to_int(LPCTSTR url) = 0;
 
 protected:
 	MenuInfo*_menu_info;
@@ -315,14 +307,9 @@ protected:
 
 	HWND	_hwndFrame;
 	String	_statusText;
-	String	_url;
-
-	stack<String> _url_history;
-
-	void	set_url(LPCTSTR url);
 };
 
-#define	PM_SETSTATUSTEXT		(WM_APP+0x1E)
+#define	PM_SETSTATUSTEXT		(WM_APP+0x1D)
 
 
  /**
@@ -386,8 +373,6 @@ protected:
 #define	PM_FRM_CALC_CLIENT		(WM_APP+0x03)
 #define	Frame_CalcFrameClient(hwnd, prt) ((BOOL)SNDMSG(hwnd, PM_FRM_CALC_CLIENT, 0, (LPARAM)(PRECT)prt))
 
-#define	PM_JUMP_TO_URL			(WM_APP+0x25)
-#define	PM_URL_CHANGED			(WM_APP+0x26)
 
 
 struct PropSheetPage : public PROPSHEETPAGE
@@ -521,9 +506,9 @@ template<typename BASE> struct ResizeController : public BASE
 	{
 	}
 
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 	{
-		switch(nmsg) {
+		switch(message) {
 		  case PM_FRM_CALC_CLIENT:
 			GetClientSpace((PRECT)lparam);
 			return TRUE;
@@ -538,17 +523,17 @@ template<typename BASE> struct ResizeController : public BASE
 			goto def;
 
 		  default: def:
-			return super::WndProc(nmsg, wparam, lparam);
+			return super::WndProc(message, wparam, lparam);
 		}
 	}
 
 	virtual void GetClientSpace(PRECT prect)
 	{
-		 if (!IsIconic(this->_hwnd)) {
-			GetClientRect(this->_hwnd, prect);
+		 if (!IsIconic(_hwnd)) {
+			GetClientRect(_hwnd, prect);
 		 } else {
 			WINDOWPLACEMENT wp;
-			GetWindowPlacement(this->_hwnd, &wp);
+			GetWindowPlacement(_hwnd, &wp);
 			prect->left = prect->top = 0;
 			prect->right = wp.rcNormalPosition.right-wp.rcNormalPosition.left-
 				2*(GetSystemMetrics(SM_CXSIZEFRAME)+GetSystemMetrics(SM_CXEDGE));
@@ -632,7 +617,7 @@ template<typename BASE> struct OwnerDrawParent : public BASE
 		switch(nmsg) {
 		  case WM_DRAWITEM:
 			if (wparam) {	// should there be drawn a control?
-				HWND hctl = GetDlgItem(this->_hwnd, wparam);
+				HWND hctl = GetDlgItem(_hwnd, wparam);
 
 				if (hctl)
 					return SendMessage(hctl, PM_DISPATCH_DRAWITEM, wparam, lparam);
@@ -784,9 +769,9 @@ struct ColorStatic : public SubclassedWindow
 	}
 
 protected:
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 	{
-		if (nmsg == PM_DISPATCH_CTLCOLOR) {
+		if (message == PM_DISPATCH_CTLCOLOR) {
 			HDC hdc = (HDC) wparam;
 
 			SetTextColor(hdc, _textColor);
@@ -801,7 +786,7 @@ protected:
 				return (LRESULT)GetStockBrush(HOLLOW_BRUSH);
 			}
 		} else
-			return super::WndProc(nmsg, wparam, lparam);
+			return super::WndProc(message, wparam, lparam);
 	}
 
 	COLORREF	_textColor;
@@ -829,7 +814,7 @@ protected:
 	HFONT	 _hfont;
 	HCURSOR	_crsr_link;
 
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam);
 
 	void init();
 
@@ -857,56 +842,14 @@ struct ToolTip : public WindowHandle
 		SendMessage(_hwnd, TTM_ACTIVATE, active, 0);
 	}
 
-	void add(HWND hparent, HWND htool, LPCTSTR txt=LPSTR_TEXTCALLBACK, LPARAM lparam=0)
+	void add(HWND hparent, HWND htool, LPCTSTR txt=LPSTR_TEXTCALLBACK)
 	{
 		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_IDISHWND|TTF_TRANSPARENT, hparent, (UINT)htool,
-			{0,0,0,0}, 0, (LPTSTR)txt, lparam
+			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_IDISHWND/*|TTF_TRANSPARENT*/, hparent, (UINT)htool, {0,0,0,0}, 0, 0, 0
 		};
+		ti.lpszText = (LPTSTR) txt;
 
-#ifdef UNICODE	///@todo Why is it neccesary to try both TTM_ADDTOOLW and TTM_ADDTOOLW ?!
-		if (!SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
-#else
-		if (!SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti);
-#endif
-	}
-
-	void add(HWND hparent, UINT id, const RECT& rect, LPCTSTR txt=LPSTR_TEXTCALLBACK, LPARAM lparam=0)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_TRANSPARENT, hparent, id,
-			{rect.left,rect.top,rect.right,rect.bottom}, 0, (LPTSTR)txt, lparam
-		};
-
-#ifdef UNICODE
-		if (!SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
-#else
-		if (!SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti);
-#endif
-	}
-
-	void remove(HWND hparent, HWND htool)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_IDISHWND, hparent, (UINT)htool,
-			{0,0,0,0}, 0, 0, 0
-		};
-
-		SendMessage(_hwnd, TTM_DELTOOL, 0, (LPARAM)&ti);
-	}
-
-	void remove(HWND hparent, UINT id)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), 0, hparent, id,
-			{0,0,0,0}, 0, 0, 0
-		};
-
-		SendMessage(_hwnd, TTM_DELTOOL, 0, (LPARAM)&ti);
+		SendMessage(_hwnd, TTM_ADDTOOL, 0, (LPARAM)&ti);
 	}
 };
 
@@ -961,157 +904,4 @@ protected:
 	PFNLVCOMPARE _compare_fct;
 
 	static int CALLBACK CompareFunc(LPARAM lparam1, LPARAM lparam2, LPARAM lparamSort);
-};
-
-
-inline LPARAM TreeView_GetItemData(HWND hwndTreeView, HTREEITEM hItem)
-{
-	TVITEM tvItem;
-
-	tvItem.mask = TVIF_PARAM;
-	tvItem.hItem = hItem;
-
-	if (!TreeView_GetItem(hwndTreeView, &tvItem))
-		return 0;
-
-	return tvItem.lParam;
-}
-
-
-enum {TRAYBUTTON_LEFT=0, TRAYBUTTON_RIGHT, TRAYBUTTON_MIDDLE};
-
-#define	PM_TRAYICON		(WM_APP+0x20)
-
-#define	WINMSG_TASKBARCREATED	TEXT("TaskbarCreated")
-
-
-struct TrayIcon
-{
-	TrayIcon(HWND hparent, UINT id)
-	 :	_hparent(hparent), _id(id) {}
-
-	~TrayIcon()
-		{Remove();}
-
-	void	Add(HICON hIcon, LPCTSTR tooltip=NULL)
-		{Set(NIM_ADD, _id, hIcon, tooltip);}
-
-	void	Modify(HICON hIcon, LPCTSTR tooltip=NULL)
-		{Set(NIM_MODIFY, _id, hIcon, tooltip);}
-
-	void	Remove()
-	{
-		NOTIFYICONDATA nid = {
-			sizeof(NOTIFYICONDATA),	// cbSize
-			_hparent,				// hWnd
-			_id,					// uID
-		};
-
-		Shell_NotifyIcon(NIM_DELETE, &nid);
-	}
-
-protected:
-	HWND	_hparent;
-	UINT	_id;
-
-	void	Set(DWORD dwMessage, UINT id, HICON hIcon, LPCTSTR tooltip=NULL)
-	{
-		NOTIFYICONDATA nid = {
-			sizeof(NOTIFYICONDATA),	// cbSize
-			_hparent,				// hWnd
-			id,						// uID
-			NIF_MESSAGE|NIF_ICON,	// uFlags
-			PM_TRAYICON,			// uCallbackMessage
-			hIcon					// hIcon
-		};
-
-		if (tooltip)
-			lstrcpyn(nid.szTip, tooltip, COUNTOF(nid.szTip));
-
-		if (nid.szTip[0])
-			nid.uFlags |= NIF_TIP;
-
-		Shell_NotifyIcon(dwMessage, &nid);
-	}
-};
-
-
-template<typename BASE> struct TrayIconControllerTemplate : public BASE
-{
-	typedef BASE super;
-
-	TrayIconControllerTemplate(HWND hwnd) : BASE(hwnd),
-		WM_TASKBARCREATED(RegisterWindowMessage(WINMSG_TASKBARCREATED))
-	{
-	}
-
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-	{
-		if (nmsg == PM_TRAYICON) {
-			switch(lparam) {
-			  case WM_MOUSEMOVE:
-				TrayMouseOver(wparam);
-				break;
-
-			  case WM_LBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_LEFT);
-				break;
-
-			  case WM_LBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_LEFT);
-				break;
-
-			  case WM_RBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_RIGHT);
-				break;
-
-			  case WM_RBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_RIGHT);
-				break;
-
-			  case WM_MBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_MIDDLE);
-				break;
-
-			  case WM_MBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_MIDDLE);
-				break;
-			}
-
-			return 0;
-		} else if (nmsg == WM_TASKBARCREATED) {
-			AddTrayIcons();
-			return 0;
-		} else
-			return super::WndProc(nmsg, wparam, lparam);
-	}
-
-	virtual void AddTrayIcons() = 0;
-	virtual void TrayMouseOver(UINT id) {}
-	virtual void TrayClick(UINT id, int btn) {}
-	virtual void TrayDblClick(UINT id, int btn) {}
-
-protected:
-	const UINT WM_TASKBARCREATED;
-};
-
-
-struct EditController : public SubclassedWindow
-{
-	typedef SubclassedWindow super;
-
-	EditController(HWND hwnd)
-	 :	super(hwnd)
-	{
-	}
-
-protected:
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-	{
-		if (nmsg==WM_KEYDOWN && wparam==VK_RETURN) {
-			SendParent(WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(_hwnd),1), (LPARAM)_hwnd);
-			return 0;
-		} else
-			return super::WndProc(nmsg, wparam, lparam);
-	}
 };

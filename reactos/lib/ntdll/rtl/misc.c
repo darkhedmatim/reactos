@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.11 2004/12/13 23:11:13 navaraf Exp $
+/* $Id: misc.c,v 1.9 2003/11/17 20:35:46 sedwards Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -14,6 +14,36 @@
 #include <windows.h>
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
+
+/* GLOBALS ******************************************************************/
+
+extern ULONG NtGlobalFlag;
+
+/* FUNCTIONS ****************************************************************/
+
+/**********************************************************************
+ * NAME							EXPORTED
+ * 	RtlGetNtGlobalFlags
+ *
+ * DESCRIPTION
+ *	Retrieves the global os flags.
+ *
+ * ARGUMENTS
+ *	None
+ *
+ * RETURN VALUE
+ *	global flags
+ *
+ * REVISIONS
+ * 	2000-08-10 ekohl
+ */
+
+ULONG STDCALL
+RtlGetNtGlobalFlags(VOID)
+{
+  return(NtGlobalFlag);
+}
+
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -84,10 +114,7 @@ RtlGetNtVersionNumbers(LPDWORD major, LPDWORD minor, LPDWORD build)
 
 	if (minor)
 	{
-		if (pPeb->OSMinorVersion <= 5)
-			*minor = pPeb->OSMinorVersion < 1 ? 1 : pPeb->OSMinorVersion;
-		else
-			*minor = pPeb->OSMinorVersion;
+		*minor = pPeb->OSMinorVersion;
 	}
 
 	if (build)

@@ -9,18 +9,20 @@
 
 #include <fmifs.h>
 
-NTSTATUS
-VfatInitialize (VOID);
 
 NTSTATUS
-VfatCleanup (VOID);
+VfatInitialize();
 
 NTSTATUS
-VfatFormat (PUNICODE_STRING DriveRoot,
-	    ULONG MediaFlag,
-	    PUNICODE_STRING Label,
-	    BOOLEAN QuickFormat,
-	    ULONG ClusterSize,
-	    PFMIFSCALLBACK Callback);
+VfatCleanup();
+
+NTSTATUS
+VfatFormat(
+	PUNICODE_STRING  DriveRoot,
+	DWORD  MediaFlag,
+	PUNICODE_STRING  Label,
+	BOOL  QuickFormat,
+	DWORD  ClusterSize,
+	PFMIFSCALLBACK  Callback);
 
 #endif /*__VFATLIB_H */

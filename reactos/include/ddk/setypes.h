@@ -1,4 +1,4 @@
-/* $Id: setypes.h,v 1.17 2004/12/22 05:06:59 royce Exp $
+/* $Id: setypes.h,v 1.13 2004/02/02 12:03:43 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory for details
  * PROJECT:           ReactOS kernel
@@ -51,7 +51,6 @@
 
 /* SECURITY_DESCRIPTOR_CONTROL */
 #define SECURITY_DESCRIPTOR_REVISION	(1)
-#define SECURITY_DESCRIPTOR_REVISION1	(1)
 #define SECURITY_DESCRIPTOR_MIN_LENGTH	(20)
 #define SE_OWNER_DEFAULTED	(1)
 #define SE_GROUP_DEFAULTED	(2)
@@ -66,10 +65,6 @@
 #define SE_PRIVILEGE_ENABLED	(0x2L)
 #define SE_PRIVILEGE_USED_FOR_ACCESS	(0x80000000L)
 #define PRIVILEGE_SET_ALL_NECESSARY	(0x1)
-
-/* SID */
-#define SID_REVISION		(1)
-#define SID_MAX_SUB_AUTHORITIES	(15)
 
 typedef struct _ACCESS_TOKEN
 {
@@ -96,7 +91,7 @@ typedef struct _ACCESS_TOKEN
   UCHAR				Unused[2];                 /* 0x66 */
   PVOID				ProxyData;                 /* 0x68 */
   PVOID				AuditData;                 /* 0x6c */
-  UCHAR				VariablePart[1];           /* 0x70 */
+  UCHAR				VariablePart[0];           /* 0x70 */
 } ACCESS_TOKEN, *PACCESS_TOKEN;
 
 
@@ -183,37 +178,6 @@ typedef enum _SECURITY_OPERATION_CODE
   DeleteSecurityDescriptor,
   AssignSecurityDescriptor
 } SECURITY_OPERATION_CODE, *PSECURITY_OPERATION_CODE;
-
-typedef struct _ACCESS_STATE
-{
-  LUID OperationID;
-  BOOLEAN SecurityEvaluated;
-  BOOLEAN GenerateAudit;
-  BOOLEAN GenerateClose;
-  BOOLEAN PrivilegesAllocated;
-  ULONG Flags;
-  ACCESS_MASK RemainingDesiredAccess;
-  ACCESS_MASK PreviouslyGrantedAccess;
-  ACCESS_MASK OriginallyDesiredAccess;
-  SECURITY_SUBJECT_CONTEXT SubjectSecurityContext; /* 0x1C */
-  PSECURITY_DESCRIPTOR SecurityDescriptor; /* 0x2C */
-  PVOID AuxData; /* 0x30 */
-  union
-  {
-    INITIAL_PRIVILEGE_SET InitialPrivilegeSet;
-    PRIVILEGE_SET PrivilegeSet;
-  } Privileges;
-  BOOLEAN AuditPrivileges;
-  UNICODE_STRING ObjectName;
-  UNICODE_STRING ObjectTypeName;
-} ACCESS_STATE, *PACCESS_STATE;
-
-typedef struct _SE_IMPERSONATION_STATE {
-	PVOID		Token;
-	BOOLEAN		CopyOnOpen;
-	BOOLEAN		EffectiveOnly;
-	SECURITY_IMPERSONATION_LEVEL Level;
-} SE_IMPERSONATION_STATE, *PSE_IMPERSONATION_STATE;
 
 #endif
 

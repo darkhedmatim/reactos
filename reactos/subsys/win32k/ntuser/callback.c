@@ -16,100 +16,34 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: callback.c,v 1.26 2004/12/14 23:14:15 navaraf Exp $
+/* $Id: callback.c,v 1.21 2003/12/26 22:52:11 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window classes
  * FILE:             subsys/win32k/ntuser/wndproc.c
  * PROGRAMER:        Casper S. Hornstrup (chorns@users.sourceforge.net)
- *                   Thomas Weidenmueller (w3seek@users.sourceforge.net)
  * REVISION HISTORY:
  *       06-06-2001  CSH  Created
- * NOTES:            Please use the Callback Memory Management functions for
- *                   callbacks to make sure, the memory is freed on thread
- *                   termination!
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/desktop.h>
+#include <include/window.h>
+#include <include/msgqueue.h>
+#include <user32/callback.h>
+#include <include/callback.h>
 
 #define NDEBUG
 #include <debug.h>
 
-/* CALLBACK MEMORY MANAGEMENT ************************************************/
-
-typedef struct _INT_CALLBACK_HEADER
-{
-  /* list entry in the W32THREAD structure */
-  LIST_ENTRY ListEntry;
-} INT_CALLBACK_HEADER, *PINT_CALLBACK_HEADER;
-
-PVOID FASTCALL
-IntCbAllocateMemory(ULONG Size)
-{
-  PINT_CALLBACK_HEADER Mem;
-  PW32THREAD W32Thread;
-  
-  if(!(Mem = ExAllocatePoolWithTag(PagedPool, Size + sizeof(INT_CALLBACK_HEADER),
-                                   TAG_CALLBACK)))
-  {
-    return NULL;
-  }
-  
-  W32Thread = PsGetWin32Thread();
-  ASSERT(W32Thread);
-  
-  /* insert the callback memory into the thread's callback list */
-  
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  InsertTailList(&W32Thread->W32CallbackListHead, &Mem->ListEntry);
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-  
-  return (Mem + 1);
-}
-
-VOID FASTCALL
-IntCbFreeMemory(PVOID Data)
-{
-  PINT_CALLBACK_HEADER Mem;
-  PW32THREAD W32Thread;
-  
-  ASSERT(Data);
-  
-  Mem = ((PINT_CALLBACK_HEADER)Data - 1);
-  
-  W32Thread = PsGetWin32Thread();
-  ASSERT(W32Thread);
-  
-  /* remove the memory block from the thread's callback list */
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  RemoveEntryList(&Mem->ListEntry);
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-  
-  /* free memory */
-  ExFreePool(Mem);
-}
-
-VOID FASTCALL
-IntCleanupThreadCallbacks(PW32THREAD W32Thread)
-{
-  PLIST_ENTRY CurrentEntry;
-  PINT_CALLBACK_HEADER Mem;
-  
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  while (!IsListEmpty(&W32Thread->W32CallbackListHead))
-  {
-    CurrentEntry = RemoveHeadList(&W32Thread->W32CallbackListHead);
-    Mem = CONTAINING_RECORD(CurrentEntry, INT_CALLBACK_HEADER, 
-                            ListEntry);
-    
-    /* free memory */
-    ExFreePool(Mem);
-  }
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-}
+#define TAG_CALLBACK TAG('C', 'B', 'C', 'K')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -160,7 +94,7 @@ IntCallWindowProc(WNDPROC Proc,
   if (0 < lParamBufferSize)
     {
       ArgumentLength = sizeof(WINDOWPROC_CALLBACK_ARGUMENTS) + lParamBufferSize;
-      Arguments = IntCbAllocateMemory(ArgumentLength);
+      Arguments = ExAllocatePoolWithTag(PagedPool,ArgumentLength, TAG_CALLBACK);
       if (NULL == Arguments)
         {
           DPRINT1("Unable to allocate buffer for window proc callback\n");
@@ -192,7 +126,7 @@ IntCallWindowProc(WNDPROC Proc,
     {
       if (0 < lParamBufferSize)
         {
-          IntCbFreeMemory(Arguments);
+          ExFreePool(Arguments);
         }
       return -1;
     }
@@ -203,7 +137,7 @@ IntCallWindowProc(WNDPROC Proc,
       RtlMoveMemory((PVOID) lParam,
                     (PVOID) ((char *) Arguments + sizeof(WINDOWPROC_CALLBACK_ARGUMENTS)),
                     lParamBufferSize);
-      IntCbFreeMemory(Arguments);
+      ExFreePool(Arguments);
     }      
 
   return Result;
@@ -232,26 +166,25 @@ IntLoadSysMenuTemplate()
 }
 
 BOOL STDCALL
-IntLoadDefaultCursors(VOID)
+IntLoadDefaultCursors(BOOL SetDefault)
 {
   LRESULT Result;
   NTSTATUS Status;
   PVOID ResultPointer;
   ULONG ResultLength;
-  BOOL DefaultCursor = TRUE;
 
   ResultPointer = &Result;
   ResultLength = sizeof(LRESULT);
   Status = NtW32Call(USER32_CALLBACK_LOADDEFAULTCURSORS,
-		     &DefaultCursor,
+		     &SetDefault,
 		     sizeof(BOOL),
 		     &ResultPointer,
 		     &ResultLength);
   if (!NT_SUCCESS(Status))
     {
-      return FALSE;
+      return(0);
     }
-  return TRUE;
+  return (BOOL)Result;
 }
 
 LRESULT STDCALL
@@ -273,8 +206,6 @@ IntCallHookProc(INT HookId,
   CBT_CREATEWNDW *CbtCreateWnd;
   PCHAR Extra;
   PHOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS CbtCreatewndExtra;
-  PUNICODE_STRING WindowName;
-  PUNICODE_STRING ClassName;
 
   ArgumentLength = sizeof(HOOKPROC_CALLBACK_ARGUMENTS) - sizeof(WCHAR)
                    + ModuleName->Length;
@@ -286,12 +217,15 @@ IntCallHookProc(INT HookId,
         case HCBT_CREATEWND:
           CbtCreateWnd = (CBT_CREATEWNDW *) lParam;
           ArgumentLength += sizeof(HOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS);
-          WindowName = (PUNICODE_STRING) (CbtCreateWnd->lpcs->lpszName);
-          ArgumentLength += WindowName->Length + sizeof(WCHAR);
-          ClassName = (PUNICODE_STRING) (CbtCreateWnd->lpcs->lpszClass);
-          if (! IS_ATOM(ClassName->Buffer))
+          if (NULL != CbtCreateWnd->lpcs->lpszName)
             {
-              ArgumentLength += ClassName->Length + sizeof(WCHAR);
+              ArgumentLength += (wcslen(CbtCreateWnd->lpcs->lpszName)
+                                 + 1) * sizeof(WCHAR);
+            }
+          if (0 != HIWORD(CbtCreateWnd->lpcs->lpszClass))
+            {
+              ArgumentLength += (wcslen(CbtCreateWnd->lpcs->lpszClass)
+                                 + 1) * sizeof(WCHAR);
             }
           break;
         default:
@@ -304,7 +238,7 @@ IntCallHookProc(INT HookId,
       return 0;
     }
 
-  Argument = IntCbAllocateMemory(ArgumentLength);
+  Argument = ExAllocatePoolWithTag(PagedPool, ArgumentLength, TAG_CALLBACK);
   if (NULL == Argument)
     {
       DPRINT1("HookProc callback failed: out of memory\n");
@@ -332,19 +266,19 @@ IntCallHookProc(INT HookId,
           CbtCreatewndExtra->Cs = *(CbtCreateWnd->lpcs);
           CbtCreatewndExtra->WndInsertAfter = CbtCreateWnd->hwndInsertAfter;
           Extra = (PCHAR) (CbtCreatewndExtra + 1);
-          RtlCopyMemory(Extra, WindowName->Buffer, WindowName->Length);
-          CbtCreatewndExtra->Cs.lpszName = (LPCWSTR) (Extra - (PCHAR) CbtCreatewndExtra);
-          CbtCreatewndExtra->Cs.lpszClass = ClassName->Buffer;
-          Extra += WindowName->Length;
-          *((WCHAR *) Extra) = L'\0';
-          Extra += sizeof(WCHAR);
-          if (! IS_ATOM(ClassName->Buffer))
+          if (NULL != CbtCreateWnd->lpcs->lpszName)
             {
-              RtlCopyMemory(Extra, ClassName->Buffer, ClassName->Length);
+              memcpy(Extra, CbtCreateWnd->lpcs->lpszName,
+                     (wcslen(CbtCreateWnd->lpcs->lpszName) + 1) * sizeof(WCHAR));
+              CbtCreatewndExtra->Cs.lpszName = (LPCWSTR) (Extra - (PCHAR) CbtCreatewndExtra);
+              Extra += (wcslen(CbtCreateWnd->lpcs->lpszName) + 1) * sizeof(WCHAR);
+            }
+          if (0 != HIWORD(CbtCreateWnd->lpcs->lpszClass))
+            {
+              memcpy(Extra, CbtCreateWnd->lpcs->lpszClass,
+                     (wcslen(CbtCreateWnd->lpcs->lpszClass) + 1) * sizeof(WCHAR));
               CbtCreatewndExtra->Cs.lpszClass =
                 (LPCWSTR) MAKELONG(Extra - (PCHAR) CbtCreatewndExtra, 1);
-              Extra += ClassName->Length;
-              *((WCHAR *) Extra) = L'\0';
             }
           break;
         }
@@ -358,9 +292,6 @@ IntCallHookProc(INT HookId,
 		     ArgumentLength,
 		     &ResultPointer,
 		     &ResultLength);
-  
-  IntCbFreeMemory(Argument);
-  
   if (!NT_SUCCESS(Status))
     {
       return 0;

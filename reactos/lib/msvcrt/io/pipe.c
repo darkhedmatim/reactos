@@ -1,4 +1,4 @@
-/* $Id: pipe.c,v 1.8 2004/08/15 18:16:36 chorns Exp $
+/* $Id: pipe.c,v 1.7 2003/12/03 17:17:03 navaraf Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,8 +8,7 @@
  * UPDATE HISTORY:
  *              28/12/98: Appropriated for Reactos
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>

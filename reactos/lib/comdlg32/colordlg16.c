@@ -442,7 +442,7 @@ BOOL16 WINAPI ChooseColor16( LPCHOOSECOLOR16 lpChCol )
 	    COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
 	    return FALSE;
 	}
-        size = SizeofResource(COMDLG32_hInstance, hResInfo);
+        size = SizeofResource(GetModuleHandleA("COMDLG32"), hResInfo);
         hGlobal16 = GlobalAlloc16(0, size);
         if (!hGlobal16)
         {
@@ -463,7 +463,7 @@ BOOL16 WINAPI ChooseColor16( LPCHOOSECOLOR16 lpChCol )
     }
 
     ptr = GetProcAddress16(GetModuleHandle16("COMMDLG"), (LPCSTR) 8);
-    hInst = GetWindowLongPtrA(HWND_32(lpChCol->hwndOwner), GWLP_HINSTANCE);
+    hInst = GetWindowLongA(HWND_32(lpChCol->hwndOwner), GWL_HINSTANCE);
     bRet = DialogBoxIndirectParam16(hInst, hDlgTmpl16, lpChCol->hwndOwner,
                      (DLGPROC16) ptr, (DWORD)lpChCol);
     if (hResource16) FreeResource16(hDlgTmpl16);

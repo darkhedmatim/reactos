@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,16 +34,12 @@
 
 #define	IDC_FIRST_APP	0x2000
 
+#define	STARTBUTTON_WIDTH		60
+#define	TASKBAR_LEFT			70
 //#define TASKBAR_AT_TOP
-
-#define	TASKBUTTONWIDTH_MIN		38
-#define	TASKBUTTONWIDTH_MAX		160
 
 
 #define	IDW_TASKTOOLBAR	100
-
-
-#define	PM_GET_LAST_ACTIVE	(WM_APP+0x1D)
 
 
  /// internal task bar button management entry
@@ -84,7 +80,6 @@ protected:
 	TaskBarMap	_map;
 	int			_next_id;
 	WindowHandle _last_foreground_wnd;
-	int		_last_btn_width;
 
 	LRESULT	Init(LPCREATESTRUCT pcs);
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
@@ -97,5 +92,4 @@ protected:
 	static BOOL CALLBACK EnumWndProc(HWND hwnd, LPARAM lparam);
 
 	void	Refresh();
-	void	ResizeButtons();
 };

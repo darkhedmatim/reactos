@@ -1,4 +1,7 @@
 #include <ddk/ntddk.h>
+
+#include <debug.h>
+
 #include "sndblst.h"
 
 
@@ -62,7 +65,7 @@ BOOLEAN ISR(
     PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)Context;
     PDEVICE_EXTENSION Parameters = DeviceObject->DeviceExtension;
 
-    DPRINT("*** Processing ISR ***\n");
+    DbgPrint("*** Processing ISR ***\n");
 
     // What do we do here then?
 

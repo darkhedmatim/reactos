@@ -1,4 +1,4 @@
-/* $Id: wait.c,v 1.32 2004/12/04 19:31:26 navaraf Exp $
+/* $Id: wait.c,v 1.27 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -18,9 +18,6 @@
 
 
 /* FUNCTIONS ****************************************************************/
-
-DWORD STDCALL
-GetConsoleInputWaitHandle (VOID);
 
 /*
  * @implemented
@@ -66,18 +63,11 @@ WaitForSingleObjectEx(HANDLE hHandle,
   /* Check for console handle */
   if (IsConsoleHandle(hHandle))
     {
-      if (!VerifyConsoleIoHandle(hHandle))
+      if (VerifyConsoleIoHandle(hHandle))
 	{
-	  SetLastError (ERROR_INVALID_HANDLE);
+	  DPRINT1("Console handles are not supported yet!\n");
+	  SetLastError(ERROR_INVALID_HANDLE);
 	  return WAIT_FAILED;
-        }
-	  
-      hHandle = (HANDLE)GetConsoleInputWaitHandle();
-      if (hHandle == NULL || hHandle == INVALID_HANDLE_VALUE)
-        {
-	  SetLastError (ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
-
 	}
     }
 
@@ -94,14 +84,19 @@ WaitForSingleObjectEx(HANDLE hHandle,
   Status = NtWaitForSingleObject(hHandle,
 				 (BOOLEAN) bAlertable,
 				 TimePtr);
-
-  if (HIWORD(Status))
+  if (Status == STATUS_TIMEOUT)
     {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
+      return WAIT_TIMEOUT;
+    }
+  else if ((Status == WAIT_OBJECT_0) ||
+	   (Status == WAIT_ABANDONED_0))
+    {
+      return Status;
     }
 
-  return Status;
+  SetLastErrorByStatus (Status);
+
+  return WAIT_FAILED;
 }
 
 
@@ -135,25 +130,18 @@ WaitForMultipleObjectsEx(DWORD nCount,
   PLARGE_INTEGER TimePtr;
   LARGE_INTEGER Time;
   PHANDLE HandleBuffer;
-  HANDLE Handle[3];
   DWORD i;
   NTSTATUS Status;
 
   DPRINT("nCount %lu\n", nCount);
 
-  if (nCount > 3)
+  HandleBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, nCount * sizeof(HANDLE));
+  if (HandleBuffer == NULL)
     {
-      HandleBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, nCount * sizeof(HANDLE));
-      if (HandleBuffer == NULL)
-        {
-          SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-          return WAIT_FAILED;
-        }
+      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+      return WAIT_FAILED;
     }
-  else
-    {
-      HandleBuffer = Handle;
-    }
+
   for (i = 0; i < nCount; i++)
     {
       switch ((DWORD)lpHandles[i])
@@ -178,24 +166,12 @@ WaitForMultipleObjectsEx(DWORD nCount,
       /* Check for console handle */
       if (IsConsoleHandle(HandleBuffer[i]))
 	{
-	  if (!VerifyConsoleIoHandle(HandleBuffer[i]))
+	  if (VerifyConsoleIoHandle(HandleBuffer[i]))
 	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
-	    }
-	  HandleBuffer[i] = (HANDLE)GetConsoleInputWaitHandle();
-	  if (HandleBuffer[i] == NULL || HandleBuffer[i] == INVALID_HANDLE_VALUE)
-	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
+	      DPRINT1("Console handles are not supported yet!\n");
+	      RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
+	      SetLastError(ERROR_INVALID_HANDLE);
+	      return FALSE;
 	    }
 	}
     }
@@ -215,18 +191,25 @@ WaitForMultipleObjectsEx(DWORD nCount,
 				     bWaitAll  ? WaitAll : WaitAny,
 				     (BOOLEAN)bAlertable,
 				     TimePtr);
-  if (HandleBuffer != Handle)
+
+  RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
+
+  if (Status == STATUS_TIMEOUT)
     {
-      RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
+      return WAIT_TIMEOUT;
+    }
+  else if (((Status >= WAIT_OBJECT_0) &&
+	    (Status <= WAIT_OBJECT_0 + nCount - 1)) ||
+	   ((Status >= WAIT_ABANDONED_0) &&
+	    (Status <= WAIT_ABANDONED_0 + nCount - 1)))
+    {
+      return Status;
     }
 
-  if (HIWORD(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
-    }
+  DPRINT("Status %lx\n", Status);
+  SetLastErrorByStatus (Status);
 
-  return Status;
+  return WAIT_FAILED;
 }
 
 

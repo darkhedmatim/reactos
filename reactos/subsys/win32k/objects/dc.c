@@ -16,16 +16,47 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dc.c,v 1.155 2004/12/24 17:45:59 weiden Exp $
+/* $Id: dc.c,v 1.120 2004/02/01 15:45:41 gvg Exp $
  *
  * DC.C - Device context functions
  *
  */
-#include <w32k.h>
 
-#ifndef OBJ_COLORSPACE
-#define OBJ_COLORSPACE	(14)
-#endif
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddvid.h>
+
+#include <internal/safe.h>
+#include <win32k/bitmaps.h>
+#include <win32k/brush.h>
+#include <win32k/cliprgn.h>
+#include <win32k/coord.h>
+#include <win32k/driver.h>
+#include <win32k/dc.h>
+#include <win32k/misc.h>
+#include <win32k/print.h>
+#include <win32k/region.h>
+#include <win32k/gdiobj.h>
+#include <win32k/paint.h>
+#include <win32k/pen.h>
+#include <win32k/text.h>
+#include "../eng/clip.h"
+#include "../eng/handle.h"
+#include <include/dce.h>
+#include <include/error.h>
+#include <include/inteng.h>
+#include <include/eng.h>
+#include <include/palette.h>
+#include <include/guicheck.h>
+#include <include/desktop.h>
+#include <include/intgdi.h>
+#include <include/cleanup.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
+
+#define TAG_DC  TAG('D', 'C', 'D', 'C')
 
 static GDIDEVICE PrimarySurface;
 
@@ -43,7 +74,6 @@ func_type STDCALL  func_name( HDC hdc ) \
   PDC  dc = DC_LockDc( hdc );  \
   if (!dc)                          \
   {                                 \
-    SetLastWin32Error(ERROR_INVALID_HANDLE); \
     return 0;                       \
   }                                 \
   ft = dc->dc_field;                \
@@ -55,38 +85,22 @@ func_type STDCALL  func_name( HDC hdc ) \
  * important that the function has the right signature, for the implementation
  * we can do whatever we want.
  */
-#define DC_GET_VAL_EX( FuncName, ret_x, ret_y, type, ax, ay ) \
-VOID FASTCALL Int##FuncName ( PDC dc, LP##type pt) \
-{ \
-  ASSERT(dc); \
-  ASSERT(pt); \
-  pt->ax = dc->ret_x; \
-  pt->ay = dc->ret_y; \
-} \
-BOOL STDCALL NtGdi##FuncName ( HDC hdc, LP##type pt ) \
-{ \
-  NTSTATUS Status; \
-  type Safept; \
-  PDC dc; \
-  if(!pt) \
-  { \
-    SetLastWin32Error(ERROR_INVALID_PARAMETER); \
-    return FALSE; \
-  } \
-  if(!(dc = DC_LockDc(hdc))) \
-  { \
-    SetLastWin32Error(ERROR_INVALID_HANDLE); \
-    return FALSE; \
-  } \
-  Int##FuncName( dc, &Safept); \
-  DC_UnlockDc(hdc); \
-  Status = MmCopyToCaller(pt, &Safept, sizeof( type )); \
-  if(!NT_SUCCESS(Status)) \
-  { \
-    SetLastNtError(Status); \
-    return FALSE; \
-  } \
-  return TRUE; \
+#define DC_GET_VAL_EX( NtGdiFuncName, IntFuncName, ret_x, ret_y, type ) \
+VOID FASTCALL IntFuncName ( PDC dc, LP##type pt )  \
+{                                                  \
+  ASSERT ( dc );                                   \
+  ASSERT ( pt );                                   \
+  ((LPPOINT)pt)->x = dc->ret_x;                    \
+  ((LPPOINT)pt)->y = dc->ret_y;                    \
+}                                                  \
+BOOL STDCALL NtGdiFuncName ( HDC hdc, LP##type pt ) \
+{                                                  \
+  PDC dc = DC_LockDc ( hdc );                 \
+  if ( !dc )                                       \
+    return FALSE;                                  \
+  IntFuncName ( dc, pt );                          \
+  DC_UnlockDc ( hdc );                           \
+  return TRUE;                                     \
 }
 
 #define DC_SET_MODE( func_name, dc_field, min_val, max_val ) \
@@ -95,16 +109,10 @@ INT STDCALL  func_name( HDC hdc, INT mode ) \
   INT  prevMode;                            \
   PDC  dc;                                  \
   if ((mode < min_val) || (mode > max_val)) \
-  { \
-    SetLastWin32Error(ERROR_INVALID_PARAMETER); \
     return 0;                               \
-  } \
   dc = DC_LockDc ( hdc );              \
   if ( !dc )                                \
-  { \
-    SetLastWin32Error(ERROR_INVALID_HANDLE); \
     return 0;                               \
-  } \
   prevMode = dc->dc_field;                  \
   dc->dc_field = mode;                      \
   DC_UnlockDc ( hdc );                    \
@@ -120,7 +128,6 @@ BOOL STDCALL
 NtGdiCancelDC(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 HDC STDCALL
@@ -130,6 +137,7 @@ NtGdiCreateCompatableDC(HDC hDC)
   HBITMAP  hBitmap;
   HDC hNewDC, DisplayDC;
   HRGN hVisRgn;
+  BITMAPOBJ *pb;
   UNICODE_STRING DriverName;
 
   DisplayDC = NULL;
@@ -168,7 +176,7 @@ NtGdiCreateCompatableDC(HDC hDC)
   NewDC = DC_LockDc( hNewDC );
 
   /* Copy information from original DC to new DC  */
-  NewDC->hSelf = hNewDC;
+  NewDC->hSelf = NewDC;
 
   NewDC->PDev = OrigDC->PDev;
   NewDC->DMW = OrigDC->DMW;
@@ -206,6 +214,9 @@ NtGdiCreateCompatableDC(HDC hDC)
   NewDC->w.hBitmap      = hBitmap;
   NewDC->w.hFirstBitmap = hBitmap;
   NewDC->GDIDevice      = OrigDC->GDIDevice;
+  pb = BITMAPOBJ_LockBitmap(hBitmap);
+  NewDC->Surface = BitmapToSurf(pb, NewDC->GDIDevice);
+  BITMAPOBJ_UnlockBitmap(hBitmap);
 
   NewDC->w.hPalette = OrigDC->w.hPalette;
   NewDC->w.textColor = OrigDC->w.textColor;
@@ -229,17 +240,15 @@ NtGdiCreateCompatableDC(HDC hDC)
 }
 
 static BOOL FASTCALL
-GetRegistryPath(PUNICODE_STRING RegistryPath, ULONG DisplayNumber)
+GetRegistryPath(PUNICODE_STRING RegistryPath)
 {
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
-  WCHAR DeviceNameBuffer[20];
   NTSTATUS Status;
 
-  swprintf(DeviceNameBuffer, L"\\Device\\Video%d", DisplayNumber);
   RtlInitUnicodeString(RegistryPath, NULL);
   RtlZeroMemory(QueryTable, sizeof(QueryTable));
   QueryTable[0].Flags = RTL_QUERY_REGISTRY_REQUIRED | RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[0].Name = DeviceNameBuffer;
+  QueryTable[0].Name = L"\\Device\\Video0";
   QueryTable[0].EntryContext = RegistryPath;
 
   Status = RtlQueryRegistryValues(RTL_REGISTRY_DEVICEMAP,
@@ -249,7 +258,7 @@ GetRegistryPath(PUNICODE_STRING RegistryPath, ULONG DisplayNumber)
                                   NULL);
   if (! NT_SUCCESS(Status))
     {
-      DPRINT1("No \\Device\\Video%d value in DEVICEMAP\\VIDEO found\n", DisplayNumber);
+      DPRINT1("No \\Device\\Video0 value in DEVICEMAP\\VIDEO found\n");
       return FALSE;
     }
 
@@ -259,13 +268,13 @@ GetRegistryPath(PUNICODE_STRING RegistryPath, ULONG DisplayNumber)
 }
 
 static BOOL FASTCALL
-FindDriverFileNames(PUNICODE_STRING DriverFileNames, ULONG DisplayNumber)
+FindDriverFileNames(PUNICODE_STRING DriverFileNames)
 {
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   UNICODE_STRING RegistryPath;
   NTSTATUS Status;
 
-  if (! GetRegistryPath(&RegistryPath, DisplayNumber))
+  if (! GetRegistryPath(&RegistryPath))
     {
       DPRINT("GetRegistryPath failed\n");
       return FALSE;
@@ -342,7 +351,7 @@ DevModeCallback(IN PWSTR ValueName,
 }
 
 static BOOL FASTCALL
-SetupDevMode(PDEVMODEW DevMode, ULONG DisplayNumber)
+SetupDevMode(PDEVMODEW DevMode)
 {
   static WCHAR RegistryMachineSystem[] = L"\\REGISTRY\\MACHINE\\SYSTEM\\";
   static WCHAR CurrentControlSet[] = L"CURRENTCONTROLSET\\";
@@ -355,7 +364,7 @@ SetupDevMode(PDEVMODEW DevMode, ULONG DisplayNumber)
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   NTSTATUS Status;
 
-  if (! GetRegistryPath(&RegistryPath, DisplayNumber))
+  if (! GetRegistryPath(&RegistryPath))
     {
       DPRINT("GetRegistryPath failed\n");
       return FALSE;
@@ -456,238 +465,209 @@ SetupDevMode(PDEVMODEW DevMode, ULONG DisplayNumber)
 BOOL FASTCALL
 IntCreatePrimarySurface()
 {
-   PGD_ENABLEDRIVER GDEnableDriver;
-   DRVENABLEDATA DED;
-   SURFOBJ *SurfObj;
-   SIZEL SurfSize;
-   UNICODE_STRING DriverFileNames;
-   PWSTR CurrentName;
-   BOOL GotDriver;
-   BOOL DoDefault;
-   ULONG DisplayNumber;
-   RECTL SurfaceRect;
+  PGD_ENABLEDRIVER GDEnableDriver;
+  DRVENABLEDATA DED;
+  PSURFOBJ SurfObj;
+  PSURFGDI SurfGDI;
+  UNICODE_STRING DriverFileNames;
+  PWSTR CurrentName;
+  BOOL GotDriver;
+  BOOL DoDefault;
 
-   for (DisplayNumber = 0; ; DisplayNumber++)
-   {
-      DPRINT("Trying to load display driver no. %d\n", DisplayNumber);
+  RtlZeroMemory(&PrimarySurface, sizeof(PrimarySurface));
 
-      RtlZeroMemory(&PrimarySurface, sizeof(PrimarySurface));
+  ExInitializeFastMutex(&PrimarySurface.DriverLock);
 
-      PrimarySurface.VideoFileObject = DRIVER_FindMPDriver(DisplayNumber);
+  /*  Open the miniport driver  */
+  if ((PrimarySurface.VideoFileObject = DRIVER_FindMPDriver(L"DISPLAY")) == NULL)
+    {
+      DPRINT1("FindMPDriver failed\n");
+      return FALSE;
+    }
 
-      /* Open the miniport driver  */
-      if (PrimarySurface.VideoFileObject == NULL)
-      {
-         DPRINT1("FindMPDriver failed\n");
-         return FALSE;
-      }
+  /*  Retrieve DDI driver names from registry */
+  RtlInitUnicodeString(&DriverFileNames, NULL);
+  if (! FindDriverFileNames(&DriverFileNames))
+    {
+      DPRINT1("FindDriverFileNames failed\n");
+      return FALSE;
+    }
 
-      /* Retrieve DDI driver names from registry */
-      RtlInitUnicodeString(&DriverFileNames, NULL);
-      if (!FindDriverFileNames(&DriverFileNames, DisplayNumber))
-      {
-         DPRINT1("FindDriverFileNames failed\n");
-         /* return FALSE; */
-         continue;
-      }
-
-      /*
-       * DriverFileNames may be a list of drivers in REG_SZ_MULTI format,
-       * scan all of them until a good one found.
-       */
-      CurrentName = DriverFileNames.Buffer;
-      GotDriver = FALSE;
-      while (!GotDriver &&
-             CurrentName < DriverFileNames.Buffer + (DriverFileNames.Length / sizeof (WCHAR)))
-      {
-         /* Get the DDI driver's entry point */
-         GDEnableDriver = DRIVER_FindDDIDriver(CurrentName);
-         if (NULL == GDEnableDriver)
-         {
-            DPRINT("FindDDIDriver failed for %S\n", CurrentName);
-         }
-         else
-         {
-            /*  Call DDI driver's EnableDriver function  */
-            RtlZeroMemory(&DED, sizeof(DED));
-
-            if (! GDEnableDriver(DDI_DRIVER_VERSION_NT5_01, sizeof(DED), &DED))
-            {
-               DPRINT("DrvEnableDriver failed for %S\n", CurrentName);
-            }
-            else
-            {
-               GotDriver = TRUE;
-            }
-         }
-
-         if (! GotDriver)
-         {
-            /* Skip to the next name but never get past the Unicode string */
-            while (L'\0' != *CurrentName &&
-                   CurrentName < DriverFileNames.Buffer + (DriverFileNames.Length / sizeof (WCHAR)))
-            {
-               CurrentName++;
-            }
-            if (CurrentName < DriverFileNames.Buffer + (DriverFileNames.Length / sizeof (WCHAR)))
-            {
-               CurrentName++;
-            }
-         }
-      }
-
-      RtlFreeUnicodeString(&DriverFileNames);
-
-      if (!GotDriver)
-      {
-         ObDereferenceObject(PrimarySurface.VideoFileObject);
-         DPRINT1("No suitable DDI driver found\n");
-         /* return FALSE; */
-         continue;
-      }
-
-      DPRINT("Display driver %S loaded\n", CurrentName);
-
-      DPRINT("Building DDI Functions\n");
-
-      /* Construct DDI driver function dispatch table */
-      if (!DRIVER_BuildDDIFunctions(&DED, &PrimarySurface.DriverFunctions))
-      {
-         ObDereferenceObject(PrimarySurface.VideoFileObject);
-         DPRINT1("BuildDDIFunctions failed\n");
-         return FALSE;
-      }
-
-      /* Allocate a phyical device handle from the driver */
-      PrimarySurface.DMW.dmSize = sizeof (PrimarySurface.DMW);
-      if (SetupDevMode(&PrimarySurface.DMW, DisplayNumber))
-      {
-         PrimarySurface.PDev = PrimarySurface.DriverFunctions.EnablePDEV(
-            &PrimarySurface.DMW,
-            L"",
-            HS_DDI_MAX,
-            PrimarySurface.FillPatterns,
-            sizeof(PrimarySurface.GDIInfo),
-            (ULONG *) &PrimarySurface.GDIInfo,
-            sizeof(PrimarySurface.DevInfo),
-            &PrimarySurface.DevInfo,
-            NULL,
-            L"",
-            (HANDLE) (PrimarySurface.VideoFileObject->DeviceObject));
-         DoDefault = (NULL == PrimarySurface.PDev);
-         if (DoDefault)
-         {
-            DPRINT1("DrvEnablePDev with registry parameters failed\n");
-         }
-      }
+  /* DriverFileNames may be a list of drivers in REG_SZ_MULTI format, scan all of
+     them until a good one found */
+  CurrentName = DriverFileNames.Buffer;
+  GotDriver = FALSE;
+  while (! GotDriver && CurrentName < DriverFileNames.Buffer + DriverFileNames.Length)
+    {
+      /*  Get the DDI driver's entry point  */
+      GDEnableDriver = DRIVER_FindDDIDriver(CurrentName);
+      if (NULL == GDEnableDriver)
+        {
+          DPRINT("FindDDIDriver failed for %S\n", CurrentName);
+        }
       else
-      {
-         DoDefault = TRUE;
-      }
+        {
+          /*  Call DDI driver's EnableDriver function  */
+          RtlZeroMemory(&DED, sizeof(DED));
 
+          if (! GDEnableDriver(DDI_DRIVER_VERSION, sizeof(DED), &DED))
+            {
+              DPRINT("DrvEnableDriver failed for %S\n", CurrentName);
+            }
+          else
+            {
+              GotDriver = TRUE;
+            }
+        }
+
+      if (! GotDriver)
+        {
+          /* Skip to the next name but never get past the Unicode string */
+          while (L'\0' != *CurrentName &&
+                 CurrentName < DriverFileNames.Buffer + DriverFileNames.Length)
+            {
+              CurrentName++;
+            }
+          if (CurrentName < DriverFileNames.Buffer + DriverFileNames.Length)
+            {
+              CurrentName++;
+            }
+        }
+    }
+  RtlFreeUnicodeString(&DriverFileNames);
+  if (! GotDriver)
+    {
+      ObDereferenceObject(PrimarySurface.VideoFileObject);
+      DPRINT1("No suitable DDI driver found\n");
+      return FALSE;
+    }
+
+  DPRINT("Display driver %S loaded\n", CurrentName);
+
+  DPRINT("Building DDI Functions\n");
+
+  /*  Construct DDI driver function dispatch table  */
+  if (! DRIVER_BuildDDIFunctions(&DED, &PrimarySurface.DriverFunctions))
+    {
+      ObDereferenceObject(PrimarySurface.VideoFileObject);
+      DPRINT1("BuildDDIFunctions failed\n");
+      return FALSE;
+    }
+
+  /*  Allocate a phyical device handle from the driver  */
+  if (SetupDevMode(&PrimarySurface.DMW))
+    {
+      PrimarySurface.PDev =
+        PrimarySurface.DriverFunctions.EnablePDev(&PrimarySurface.DMW,
+                                                  L"",
+                                                  HS_DDI_MAX,
+                                                  PrimarySurface.FillPatterns,
+                                                  sizeof(PrimarySurface.GDIInfo),
+                                                  (ULONG *) &PrimarySurface.GDIInfo,
+                                                  sizeof(PrimarySurface.DevInfo),
+                                                  &PrimarySurface.DevInfo,
+                                                  NULL,
+                                                  L"",
+                                                  (HANDLE) (PrimarySurface.VideoFileObject->DeviceObject));
+      DoDefault = (NULL == PrimarySurface.PDev);
       if (DoDefault)
-      {
-         RtlZeroMemory(&(PrimarySurface.DMW), sizeof(DEVMODEW));
-         PrimarySurface.DMW.dmSize = sizeof (PrimarySurface.DMW);
-         PrimarySurface.PDev = PrimarySurface.DriverFunctions.EnablePDEV(
-            &PrimarySurface.DMW,
-            L"",
-            HS_DDI_MAX,
-            PrimarySurface.FillPatterns,
-            sizeof(PrimarySurface.GDIInfo),
-            (ULONG *) &PrimarySurface.GDIInfo,
-            sizeof(PrimarySurface.DevInfo),
-            &PrimarySurface.DevInfo,
-            NULL,
-            L"",
-            (HANDLE) (PrimarySurface.VideoFileObject->DeviceObject));
+        {
+          DPRINT1("DrvEnablePDev with registry parameters failed\n");
+        }
+    }
+  else
+    {
+      DoDefault = TRUE;
+    }
 
-         if (NULL == PrimarySurface.PDev)
-         {
-            ObDereferenceObject(PrimarySurface.VideoFileObject);
-            DPRINT1("DrvEnablePDEV with default parameters failed\n");
-            DPRINT1("Perhaps DDI driver doesn't match miniport driver?\n");
-            /* return FALSE; */
-            continue;
-         }
-      }
+  if (DoDefault)
+    {
+      RtlZeroMemory(&(PrimarySurface.DMW), sizeof(DEVMODEW));
+      PrimarySurface.PDev =
+        PrimarySurface.DriverFunctions.EnablePDev(&PrimarySurface.DMW,
+                                                  L"",
+                                                  HS_DDI_MAX,
+                                                  PrimarySurface.FillPatterns,
+                                                  sizeof(PrimarySurface.GDIInfo),
+                                                  (ULONG *) &PrimarySurface.GDIInfo,
+                                                  sizeof(PrimarySurface.DevInfo),
+                                                  &PrimarySurface.DevInfo,
+                                                  NULL,
+                                                  L"",
+                                                  (HANDLE) (PrimarySurface.VideoFileObject->DeviceObject));
 
-      if (0 == PrimarySurface.GDIInfo.ulLogPixelsX)
-      {
-         DPRINT("Adjusting GDIInfo.ulLogPixelsX\n");
-         PrimarySurface.GDIInfo.ulLogPixelsX = 96;
-      }
-      if (0 == PrimarySurface.GDIInfo.ulLogPixelsY)
-      {
-         DPRINT("Adjusting GDIInfo.ulLogPixelsY\n");
-         PrimarySurface.GDIInfo.ulLogPixelsY = 96;
-      }
-      
-      PrimarySurface.Pointer.Exclude.right = -1;
+      if (NULL == PrimarySurface.PDev)
+        {
+          ObDereferenceObject(PrimarySurface.VideoFileObject);
+          DPRINT1("DrvEnablePDEV with default parameters failed\n");
+          DPRINT1("Perhaps DDI driver doesn't match miniport driver?\n");
+          return FALSE;
+        }
+    }
 
-      DPRINT("calling completePDev\n");
+  if (0 == PrimarySurface.GDIInfo.ulLogPixelsX)
+    {
+      DPRINT("Adjusting GDIInfo.ulLogPixelsX\n");
+      PrimarySurface.GDIInfo.ulLogPixelsX = 96;
+    }
+  if (0 == PrimarySurface.GDIInfo.ulLogPixelsY)
+    {
+      DPRINT("Adjusting GDIInfo.ulLogPixelsY\n");
+      PrimarySurface.GDIInfo.ulLogPixelsY = 96;
+    }
 
-      /* Complete initialization of the physical device */
-      PrimarySurface.DriverFunctions.CompletePDEV(
-         PrimarySurface.PDev,
-	 (HDEV)&PrimarySurface);
+  DPRINT("calling completePDev\n");
 
-      DPRINT("calling DRIVER_ReferenceDriver\n");
+  /*  Complete initialization of the physical device  */
+  PrimarySurface.DriverFunctions.CompletePDev(PrimarySurface.PDev,
+					      &PrimarySurface);
 
-      DRIVER_ReferenceDriver(L"DISPLAY");
+  DPRINT("calling DRIVER_ReferenceDriver\n");
 
-      DPRINT("calling EnableSurface\n");
+  DRIVER_ReferenceDriver(L"DISPLAY");
 
-      /* Enable the drawing surface */
-      PrimarySurface.Handle =
-         PrimarySurface.DriverFunctions.EnableSurface(PrimarySurface.PDev);
-      if (NULL == PrimarySurface.Handle)
-      {
-/*         PrimarySurface.DriverFunctions.AssertMode(PrimarySurface.PDev, FALSE);*/
-         PrimarySurface.DriverFunctions.DisablePDEV(PrimarySurface.PDev);
-         ObDereferenceObject(PrimarySurface.VideoFileObject);
-         DPRINT1("DrvEnableSurface failed\n");
-         /* return FALSE; */
-         continue;
-      }
+  DPRINT("calling EnableSurface\n");
 
-      /* attach monitor */
-      IntAttachMonitor(&PrimarySurface, DisplayNumber);
+  /*  Enable the drawing surface  */
+  PrimarySurface.Handle =
+    PrimarySurface.DriverFunctions.EnableSurface(PrimarySurface.PDev);
+  if (NULL == PrimarySurface.Handle)
+    {
+      ObDereferenceObject(PrimarySurface.VideoFileObject);
+      DPRINT1("DrvEnableSurface failed\n");
+      return FALSE;
+    }
 
-      SurfObj = EngLockSurface((HSURF)PrimarySurface.Handle);
-      SurfObj->dhpdev = PrimarySurface.PDev;
-      SurfSize = SurfObj->sizlBitmap;
-      SurfSize = SurfObj->sizlBitmap;
-      SurfaceRect.left = SurfaceRect.top = 0;
-      SurfaceRect.right = SurfObj->sizlBitmap.cx;
-      SurfaceRect.bottom = SurfObj->sizlBitmap.cy;
-      /* FIXME - why does EngEraseSurface() sometimes crash?
-        EngEraseSurface(SurfObj, &SurfaceRect, 0); */
-      EngUnlockSurface(SurfObj);
-      IntShowDesktop(IntGetActiveDesktop(), SurfSize.cx, SurfSize.cy);
-      break;
-   }
+  SurfObj = (PSURFOBJ)AccessUserObject((ULONG) PrimarySurface.Handle);
+  SurfObj->dhpdev = PrimarySurface.PDev;
+  SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) PrimarySurface.Handle);
+  IntShowDesktop(IntGetActiveDesktop(),
+                 SurfGDI->SurfObj.sizlBitmap.cx,
+                 SurfGDI->SurfObj.sizlBitmap.cy);
 
-   return TRUE;
+  return TRUE;
 }
 
 VOID FASTCALL
 IntDestroyPrimarySurface()
   {
+#if 0
+    PSURFOBJ SurfObj;
+    PSURFGDI SurfGDI;
+#endif
+
     DRIVER_UnreferenceDriver(L"DISPLAY");
 
-    /* detach monitor */
-    IntDetachMonitor(&PrimarySurface);
-
-    /*
-     * FIXME: Hide a mouse pointer there. Also because we have to prevent
-     * memory leaks with the Eng* mouse routines.
-     */
-
+#if 0
+    DPRINT("Hiding mouse pointer\n" );
+    SurfObj = (PSURFOBJ)AccessUserObject((ULONG) PrimarySurface.Handle);
+    SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) PrimarySurface.Handle);
+    SurfGDI->SetPointerShape(SurfObj, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0);
+#endif
     DPRINT("Reseting display\n" );
     PrimarySurface.DriverFunctions.AssertMode(PrimarySurface.PDev, FALSE);
     PrimarySurface.DriverFunctions.DisableSurface(PrimarySurface.PDev);
-    PrimarySurface.DriverFunctions.DisablePDEV(PrimarySurface.PDev);
+    PrimarySurface.DriverFunctions.DisablePDev(PrimarySurface.PDev);
 
     DceEmptyCache();
 
@@ -703,7 +683,7 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   HDC      hNewDC;
   PDC      NewDC;
   HDC      hDC = NULL;
-  SURFOBJ *SurfObj;
+  PSURFGDI SurfGDI;
   HRGN     hVisRgn;
   UNICODE_STRING StdDriver;
   
@@ -725,10 +705,7 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
     return  NtGdiCreateCompatableDC(hDC);
   }
 
-  if (Driver != NULL && Driver->Buffer != NULL)
-  {
-    DPRINT("NAME: %S\n", Driver->Buffer); // FIXME: Should not crash if NULL
-  }
+  DPRINT("NAME: %S\n", Driver); // FIXME: Should not crash if NULL
 
   /*  Allocate a DC object  */
   if ((hNewDC = DC_AllocDC(Driver)) == NULL)
@@ -737,12 +714,7 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   }
 
   NewDC = DC_LockDc( hNewDC );
-  /* FIXME - NewDC can be NULL!!! Don't assert here! */
-  if ( !NewDC )
-  {
-    DC_FreeDC( hNewDC );
-    return NULL;
-  }
+  ASSERT( NewDC );
 
   NewDC->DMW = PrimarySurface.DMW;
   NewDC->DevInfo = &PrimarySurface.DevInfo;
@@ -750,9 +722,9 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   memcpy(NewDC->FillPatternSurfaces, PrimarySurface.FillPatterns,
 	 sizeof(NewDC->FillPatternSurfaces));
   NewDC->PDev = PrimarySurface.PDev;
-  NewDC->GDIDevice = (HDEV)&PrimarySurface;
+  NewDC->Surface = PrimarySurface.Handle;
+  NewDC->GDIDevice = &PrimarySurface;
   NewDC->DriverFunctions = PrimarySurface.DriverFunctions;
-  NewDC->w.hBitmap = PrimarySurface.Handle;
 
   NewDC->DMW.dmSize = sizeof(NewDC->DMW);
   NewDC->DMW.dmFields = 0x000fc000;
@@ -760,20 +732,14 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   /* FIXME: get mode selection information from somewhere  */
 
   NewDC->DMW.dmLogPixels = 96;
-  SurfObj = EngLockSurface((HSURF)PrimarySurface.Handle);
-  if ( !SurfObj )
-  {
-	  DC_UnlockDc ( hNewDC );
-	  DC_FreeDC ( hNewDC) ;
-	  return NULL;
-  }
-  NewDC->DMW.dmBitsPerPel = BitsPerFormat(SurfObj->iBitmapFormat);
-  NewDC->DMW.dmPelsWidth = SurfObj->sizlBitmap.cx;
-  NewDC->DMW.dmPelsHeight = SurfObj->sizlBitmap.cy;
+  SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) PrimarySurface.Handle);
+  NewDC->DMW.dmBitsPerPel = SurfGDI->BitsPerPixel;
+  NewDC->DMW.dmPelsWidth = SurfGDI->SurfObj.sizlBitmap.cx;
+  NewDC->DMW.dmPelsHeight = SurfGDI->SurfObj.sizlBitmap.cy;
   NewDC->DMW.dmDisplayFlags = 0;
   NewDC->DMW.dmDisplayFrequency = 0;
 
-  NewDC->w.bitsPerPixel = NewDC->DMW.dmBitsPerPel; // FIXME: set this here??
+  NewDC->w.bitsPerPixel = SurfGDI->BitsPerPixel; // FIXME: set this here??
 
   NewDC->w.hPalette = NewDC->DevInfo->hpalDefault;
 
@@ -781,8 +747,8 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   
   DC_UnlockDc( hNewDC );
 
-  hVisRgn = NtGdiCreateRectRgn(0, 0, SurfObj->sizlBitmap.cx,
-                              SurfObj->sizlBitmap.cy);
+  hVisRgn = NtGdiCreateRectRgn(0, 0, SurfGDI->SurfObj.sizlBitmap.cx,
+                              SurfGDI->SurfObj.sizlBitmap.cy);
   NtGdiSelectVisRgn(hNewDC, hVisRgn);
   NtGdiDeleteObject(hVisRgn);
 
@@ -792,8 +758,6 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   NtGdiSetTextAlign(hNewDC, TA_TOP);
   NtGdiSetBkColor(hNewDC, RGB(255, 255, 255));
   NtGdiSetBkMode(hNewDC, OPAQUE);
-
-  EngUnlockSurface(SurfObj);
   
   return hNewDC;
 }
@@ -866,7 +830,8 @@ NtGdiDeleteDC(HDC  DCHandle)
     {
       return  FALSE;
     }
-
+  DPRINT( "Deleting DC\n" );
+  CHECKPOINT;
   /*  First delete all saved DCs  */
   while (DCToDelete->saveLevel)
   {
@@ -881,7 +846,7 @@ NtGdiDeleteDC(HDC  DCHandle)
     }
     DC_SetNextDC (DCToDelete, DC_GetNextDC (savedDC));
     DCToDelete->saveLevel--;
-    DC_UnlockDc( savedHDC );
+	DC_UnlockDc( savedHDC );
     NtGdiDeleteDC (savedHDC);
   }
 
@@ -895,12 +860,9 @@ NtGdiDeleteDC(HDC  DCHandle)
     DC_LockDC (DCHandle); NtGdiSelectObject does not recognize stock objects yet  */
     if (DCToDelete->w.flags & DC_MEMORY)
     {
+      EngDeleteSurface (DCToDelete->Surface);
       NtGdiDeleteObject (DCToDelete->w.hFirstBitmap);
     }
-    if (DCToDelete->XlateBrush != NULL)
-      EngDeleteXlate(DCToDelete->XlateBrush);
-    if (DCToDelete->XlatePen != NULL)
-      EngDeleteXlate(DCToDelete->XlatePen);
   }
   if (DCToDelete->w.hClipRgn)
   {
@@ -934,7 +896,6 @@ NtGdiDrawEscape(HDC  hDC,
                LPCSTR  lpszInData)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT STDCALL
@@ -944,59 +905,20 @@ NtGdiEnumObjects(HDC  hDC,
                 LPARAM  lParam)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 DC_GET_VAL( COLORREF, NtGdiGetBkColor, w.backgroundColor )
 DC_GET_VAL( INT, NtGdiGetBkMode, w.backgroundMode )
-DC_GET_VAL_EX( GetBrushOrgEx, w.brushOrgX, w.brushOrgY, POINT, x, y )
+DC_GET_VAL_EX( NtGdiGetBrushOrgEx, IntGetBrushOrgEx, w.brushOrgX, w.brushOrgY, POINT )
 DC_GET_VAL( HRGN, NtGdiGetClipRgn, w.hClipRgn )
 
 HGDIOBJ STDCALL
 NtGdiGetCurrentObject(HDC  hDC, UINT  ObjectType)
 {
-  HGDIOBJ SelObject;
-  DC *dc;
-  
-  if(!(dc = DC_LockDc(hDC)))
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return NULL;
-  }
-  
-  switch(ObjectType)
-  {
-    case OBJ_PEN:
-      SelObject = dc->w.hPen;
-      break;
-    case OBJ_BRUSH:
-      SelObject = dc->w.hBrush;
-      break;
-    case OBJ_PAL:
-      DPRINT1("FIXME: NtGdiGetCurrentObject() ObjectType OBJ_PAL not supported yet!\n");
-      SelObject = NULL;
-      break;
-    case OBJ_FONT:
-      SelObject = dc->w.hFont;
-      break;
-    case OBJ_BITMAP:
-      SelObject = dc->w.hBitmap;
-      break;
-    case OBJ_COLORSPACE:
-      DPRINT1("FIXME: NtGdiGetCurrentObject() ObjectType OBJ_COLORSPACE not supported yet!\n");
-      SelObject = NULL;
-      break;
-    default:
-      SelObject = NULL;
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      break;
-  }
-  
-  DC_UnlockDc(hDC);
-  return SelObject;
+  UNIMPLEMENTED;
 }
 
-DC_GET_VAL_EX ( GetCurrentPositionEx, w.CursPosX, w.CursPosY, POINT, x, y )
+DC_GET_VAL_EX ( NtGdiGetCurrentPositionEx, IntGetCurrentPositionEx, w.CursPosX, w.CursPosY, POINT )
 
 BOOL FASTCALL
 IntGdiGetDCOrgEx(DC *dc, LPPOINT  Point)
@@ -1046,20 +968,14 @@ COLORREF STDCALL
 NtGdiSetBkColor(HDC hDC, COLORREF color)
 {
   COLORREF oldColor;
-  PDC dc;
-  HBRUSH hBrush;
+  PDC  dc = DC_LockDc(hDC);
 
-  if (!(dc = DC_LockDc(hDC)))
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return CLR_INVALID;
-  }
+  if ( !dc )
+    return 0x80000000;
 
   oldColor = dc->w.backgroundColor;
   dc->w.backgroundColor = color;
-  hBrush = dc->w.hBrush;
   DC_UnlockDc ( hDC );
-  NtGdiSelectObject(hDC, hBrush);
   return oldColor;
 }
 
@@ -1072,7 +988,6 @@ NtGdiGetDCState(HDC  hDC)
   dc = DC_LockDc(hDC);
   if (dc == NULL)
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return 0;
   }
 
@@ -1083,7 +998,6 @@ NtGdiGetDCState(HDC  hDC)
     return 0;
   }
   newdc = DC_LockDc( hnewdc );
-  /* FIXME - newdc can be NULL!!!! Don't assert here!!! */
   ASSERT( newdc );
 
   newdc->w.flags            = dc->w.flags | DC_SAVED;
@@ -1094,8 +1008,8 @@ NtGdiGetDCState(HDC  hDC)
   newdc->w.hFirstBitmap     = dc->w.hFirstBitmap;
 #if 0
   newdc->w.hDevice          = dc->w.hDevice;
-#endif
   newdc->w.hPalette         = dc->w.hPalette;
+#endif
   newdc->w.totalExtent      = dc->w.totalExtent;
   newdc->w.bitsPerPixel     = dc->w.bitsPerPixel;
   newdc->w.ROPmode          = dc->w.ROPmode;
@@ -1145,11 +1059,17 @@ NtGdiGetDCState(HDC  hDC)
 
   /* Get/SetDCState() don't change hVisRgn field ("Undoc. Windows" p.559). */
 
+#if 0
   newdc->w.hGCClipRgn = newdc->w.hVisRgn = 0;
+#endif
   if (dc->w.hClipRgn)
   {
     newdc->w.hClipRgn = NtGdiCreateRectRgn( 0, 0, 0, 0 );
     NtGdiCombineRgn( newdc->w.hClipRgn, dc->w.hClipRgn, 0, RGN_COPY );
+  }
+  else
+  {
+    newdc->w.hClipRgn = 0;
   }
   DC_UnlockDc( hnewdc );
   DC_UnlockDc( hDC );
@@ -1243,11 +1163,7 @@ NtGdiSetDCState ( HDC hDC, HDC hDCSave )
 
 	  dc->w.hClipRgn = 0;
 	}
-	{
-		int res;
-		res = CLIPPING_UpdateGCRegion( dc );
-		ASSERT ( res != ERROR );
-	}
+	CLIPPING_UpdateGCRegion( dc );
 	DC_UnlockDc ( hDC );
 #else
 	DC_UnlockDc ( hDC );
@@ -1261,29 +1177,32 @@ NtGdiSetDCState ( HDC hDC, HDC hDCSave )
 	NtGdiSetBkColor( hDC, dcs->w.backgroundColor);
 	NtGdiSetTextColor( hDC, dcs->w.textColor);
 
-	NtGdiSelectPalette( hDC, dcs->w.hPalette, FALSE );
-
 #if 0
 	GDISelectPalette16( hDC, dcs->w.hPalette, FALSE );
 #endif
       } else {
-	DC_UnlockDc(hDC);
+	DC_UnlockDc(hDC);      
       }
       DC_UnlockDc ( hDCSave );
     } else {
       DC_UnlockDc ( hDC );
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
     }
   }
-  else
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
 }
 
-INT FASTCALL
-IntGdiGetDeviceCaps(PDC dc, INT Index)
+INT STDCALL
+NtGdiGetDeviceCaps(HDC  hDC,
+                  INT  Index)
 {
-  INT ret;
+  PDC  dc;
+  INT  ret;
   POINT  pt;
+
+  dc = DC_LockDc(hDC);
+  if (dc == NULL)
+  {
+    return 0;
+  }
 
   /* Retrieve capability */
   switch (Index)
@@ -1377,7 +1296,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case PHYSICALWIDTH:
-      if(IntGdiEscape(dc, GETPHYSPAGESIZE, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETPHYSPAGESIZE, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.x;
       }
@@ -1388,7 +1307,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case PHYSICALHEIGHT:
-      if(IntGdiEscape(dc, GETPHYSPAGESIZE, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETPHYSPAGESIZE, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.y;
       }
@@ -1399,7 +1318,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case PHYSICALOFFSETX:
-      if(IntGdiEscape(dc, GETPRINTINGOFFSET, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETPRINTINGOFFSET, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.x;
       }
@@ -1410,7 +1329,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case PHYSICALOFFSETY:
-      if(IntGdiEscape(dc, GETPRINTINGOFFSET, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETPRINTINGOFFSET, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.y;
       }
@@ -1425,7 +1344,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case SCALINGFACTORX:
-      if(IntGdiEscape(dc, GETSCALINGFACTOR, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETSCALINGFACTOR, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.x;
       }
@@ -1436,7 +1355,7 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
 
     case SCALINGFACTORY:
-      if(IntGdiEscape(dc, GETSCALINGFACTOR, 0, NULL, (LPVOID)&pt) > 0)
+      if(NtGdiEscape(hDC, GETSCALINGFACTOR, 0, NULL, (LPVOID)&pt) > 0)
       {
         ret = pt.y;
       }
@@ -1471,25 +1390,6 @@ IntGdiGetDeviceCaps(PDC dc, INT Index)
       break;
   }
 
-  return ret;
-}
-
-INT STDCALL
-NtGdiGetDeviceCaps(HDC  hDC,
-                  INT  Index)
-{
-  PDC  dc;
-  INT  ret;
-
-  dc = DC_LockDc(hDC);
-  if (dc == NULL)
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return 0;
-  }
-
-  ret = IntGdiGetDeviceCaps(dc, Index);
-
   DPRINT("(%04x,%d): returning %d\n", hDC, Index, ret);
 
   DC_UnlockDc( hDC );
@@ -1500,56 +1400,47 @@ DC_GET_VAL( INT, NtGdiGetMapMode, w.MapMode )
 DC_GET_VAL( INT, NtGdiGetPolyFillMode, w.polyFillMode )
 
 INT FASTCALL
-IntGdiGetObject(HANDLE Handle, INT Count, LPVOID Buffer)
+IntGdiGetObject(HANDLE handle, INT count, LPVOID buffer)
 {
-  PVOID GdiObject;
-  INT Result = 0;
-  DWORD ObjectType;
+  PGDIOBJHDR  gdiObject;
+  INT  result = 0;
+  DWORD objectType;
 
-  GdiObject = GDIOBJ_LockObj(Handle, GDI_OBJECT_TYPE_DONTCARE);
-  if (NULL == GdiObject)
-    {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return 0;
-    }
+  gdiObject = GDIOBJ_LockObj(handle, GDI_OBJECT_TYPE_DONTCARE);
+  if (gdiObject == 0)
+    return 0;
   
-  ObjectType = GDIOBJ_GetObjectType(Handle);
-  switch (ObjectType)
-    {
-#if 0
-      case GDI_OBJECT_TYPE_PEN:
-        Result = PEN_GetObject((PENOBJ *) GdiObject, Count, Buffer);
-        break;
-      case GDI_OBJECT_TYPE_BRUSH:
-        Result = BRUSH_GetObject((BRUSHOBJ *) GdiObject, Count, Buffer);
-        break;
-#endif
-      case GDI_OBJECT_TYPE_BITMAP:
-        Result = BITMAP_GetObject((BITMAPOBJ *) GdiObject, Count, Buffer);
-        break;
-      case GDI_OBJECT_TYPE_FONT:
-        Result = FontGetObject((PTEXTOBJ) GdiObject, Count, Buffer);
-#if 0
-        // Fix the LOGFONT structure for the stock fonts
-        if (FIRST_STOCK_HANDLE <= Handle && Handle <= LAST_STOCK_HANDLE)
-          {
-            FixStockFontSizeW(Handle, Count, Buffer);
-          }
-#endif
-        break;
-#if 0
-      case GDI_OBJECT_TYPE_PALETTE:
-        Result = PALETTE_GetObject((PALETTEOBJ *) GdiObject, Count, Buffer);
-        break;
-#endif
-      default:
-        DPRINT1("GDI object type 0x%08x not implemented\n", ObjectType);
-        break;
-    }
+  objectType = GDIOBJ_GetObjectType(handle);
+  switch(objectType)
+  {
+/*    case GDI_OBJECT_TYPE_PEN:
+      result = PEN_GetObject((PENOBJ *)gdiObject, count, buffer);
+      break;
+    case GDI_OBJECT_TYPE_BRUSH:
+      result = BRUSH_GetObject((BRUSHOBJ *)gdiObject, count, buffer);
+       break; */
+    case GDI_OBJECT_TYPE_BITMAP:
+      result = BITMAP_GetObject((BITMAPOBJ *)gdiObject, count, buffer);
+      break;
+/*    case GDI_OBJECT_TYPE_FONT:
+      result = FONT_GetObjectW((FONTOBJ *)gdiObject, count, buffer);
 
-  GDIOBJ_UnlockObj(Handle);
+      // Fix the LOGFONT structure for the stock fonts
 
-  return Result;
+      if ( (handle >= FIRST_STOCK_HANDLE) && (handle <= LAST_STOCK_HANDLE) )
+      FixStockFontSizeW(handle, count, buffer);
+    break;
+    case GDI_OBJECT_TYPE_PALETTE:
+      result = PALETTE_GetObject((PALETTEOBJ *)gdiObject, count, buffer);
+      break; */
+    default:
+      DPRINT1("GDI object type 0x%08x not implemented\n", objectType);
+      break;
+  }
+
+  GDIOBJ_UnlockObj(handle, GDI_OBJECT_TYPE_DONTCARE);
+
+  return result;
 }
 
 INT STDCALL
@@ -1564,7 +1455,7 @@ NtGdiGetObject(HANDLE handle, INT count, LPVOID buffer)
     return 0;
   }
   
-  SafeBuf = ExAllocatePoolWithTag(PagedPool, count, TAG_GDIOBJ);
+  SafeBuf = ExAllocatePool(NonPagedPool, count);
   if(!SafeBuf)
   {
     SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -1588,15 +1479,12 @@ DWORD STDCALL
 NtGdiGetObjectType(HANDLE handle)
 {
   GDIOBJHDR * ptr;
-  INT result;
+  INT result = 0;
   DWORD objectType;
 
   ptr = GDIOBJ_LockObj(handle, GDI_OBJECT_TYPE_DONTCARE);
   if (ptr == 0)
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return 0;
-  }
 
   objectType = GDIOBJ_GetObjectType(handle);
   switch(objectType)
@@ -1640,13 +1528,11 @@ NtGdiGetObjectType(HANDLE handle)
     case GDI_OBJECT_TYPE_MEMDC:
       result = OBJ_MEMDC;
       break;
-
     default:
       DPRINT1("Magic 0x%08x not implemented\n", objectType);
-      result = 0;
       break;
   }
-  GDIOBJ_UnlockObj(handle);
+  GDIOBJ_UnlockObj(handle, GDI_OBJECT_TYPE_DONTCARE);
   return result;
 }
 
@@ -1655,39 +1541,36 @@ DC_GET_VAL( INT, NtGdiGetROP2, w.ROPmode )
 DC_GET_VAL( INT, NtGdiGetStretchBltMode, w.stretchBltMode )
 DC_GET_VAL( UINT, NtGdiGetTextAlign, w.textAlign )
 DC_GET_VAL( COLORREF, NtGdiGetTextColor, w.textColor )
-DC_GET_VAL_EX( GetViewportExtEx, vportExtX, vportExtY, SIZE, cx, cy )
-DC_GET_VAL_EX( GetViewportOrgEx, vportOrgX, vportOrgY, POINT, x, y )
-DC_GET_VAL_EX( GetWindowExtEx, wndExtX, wndExtY, SIZE, cx, cy )
-DC_GET_VAL_EX( GetWindowOrgEx, wndOrgX, wndOrgY, POINT, x, y )
+DC_GET_VAL_EX( NtGdiGetViewportExtEx, IntGetViewportExtEx, vportExtX, vportExtY, SIZE )
+DC_GET_VAL_EX( NtGdiGetViewportOrgEx, IntGetViewportOrgEx, vportOrgX, vportOrgY, POINT )
+DC_GET_VAL_EX( NtGdiGetWindowExtEx, IntGetWindowExtEx, wndExtX, wndExtY, SIZE )
+DC_GET_VAL_EX( NtGdiGetWindowOrgEx, IntGetWindowOrgEx, wndOrgX, wndOrgY, POINT )
 
 HDC STDCALL
 NtGdiResetDC(HDC  hDC, CONST DEVMODEW *InitData)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL STDCALL
 NtGdiRestoreDC(HDC  hDC, INT  SaveLevel)
 {
-  PDC dc, dcs;
-  BOOL success;
-
-  DPRINT("NtGdiRestoreDC(%lx, %d)\n", hDC, SaveLevel);
+  PDC  dc, dcs;
+  BOOL  success;
 
   dc = DC_LockDc(hDC);
-  if (!dc)
+  if(!dc)
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return FALSE;
   }
 
   if (SaveLevel == -1)
+  {
     SaveLevel = dc->saveLevel;
+  }
 
   if ((SaveLevel < 1) || (SaveLevel > dc->saveLevel))
   {
-    DC_UnlockDc(hDC);
     return FALSE;
   }
 
@@ -1699,7 +1582,6 @@ NtGdiRestoreDC(HDC  hDC, INT  SaveLevel)
     dcs = DC_LockDc (hdcs);
     if (dcs == NULL)
     {
-      DC_UnlockDc(hDC);
       return FALSE;
     }
     DC_SetNextDC (dcs, DC_GetNextDC (dcs));
@@ -1739,8 +1621,6 @@ NtGdiSaveDC(HDC  hDC)
   PDC  dc, dcs;
   INT  ret;
 
-  DPRINT("NtGdiSaveDC(%lx)\n", hDC);
-
   if (!(hdcs = NtGdiGetDCState(hDC)))
   {
     return 0;
@@ -1749,14 +1629,12 @@ NtGdiSaveDC(HDC  hDC)
   dcs = DC_LockDc (hdcs);
   if (dcs == NULL)
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return 0;
   }
   dc = DC_LockDc (hDC);
   if (dc == NULL)
   {
-    DC_UnlockDc(hdcs);
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
+    DC_UnlockDc(dc);
     return 0;
   }
 
@@ -1790,16 +1668,19 @@ NtGdiSelectObject(HDC  hDC, HGDIOBJ  hGDIObj)
   HGDIOBJ objOrg = NULL; // default to failure
   BITMAPOBJ *pb;
   PDC dc;
-  PGDIBRUSHOBJ pen;
-  PGDIBRUSHOBJ brush;
-  XLATEOBJ *XlateObj;
+  PPENOBJ pen;
+  PBRUSHOBJ brush;
+  PXLATEOBJ XlateObj;
+  PPALGDI PalGDI;
   DWORD objectType;
-  ULONG NumColors = 0;
+  COLORREF *ColorMap;
+  COLORREF MonoColorMap[2];
+  ULONG NumColors, Index;
   HRGN hVisRgn;
-  BOOLEAN Failed;
+  USHORT Mode;
 
   if(!hDC || !hGDIObj) return NULL;
-  
+
   dc = DC_LockDc(hDC);
   if (NULL == dc)
     {
@@ -1812,57 +1693,81 @@ NtGdiSelectObject(HDC  hDC, HGDIOBJ  hGDIObj)
   switch (objectType)
   {
     case GDI_OBJECT_TYPE_PEN:
-      pen = PENOBJ_LockPen((HPEN) hGDIObj);
-      if (pen == NULL)
-      {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        break;
-      }
-
-      XlateObj = IntGdiCreateBrushXlate(dc, pen, &Failed);
-      PENOBJ_UnlockPen(hGDIObj);
-      if (Failed)
-      {
-        SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-        break;
-      }
-
-      objOrg = (HGDIOBJ)dc->w.hPen;
-      dc->w.hPen = hGDIObj;
-      if (dc->XlatePen != NULL)
-        EngDeleteXlate(dc->XlatePen);
-      dc->XlatePen = XlateObj;
+      objOrg = NULL;
+      /* Convert the color of the pen to the format of the DC */
+      PalGDI = PALETTE_LockPalette(dc->w.hPalette);
+      if (NULL != PalGDI)
+        {
+          Mode = PalGDI->Mode;
+          PALETTE_UnlockPalette(dc->w.hPalette);
+          XlateObj = (PXLATEOBJ)IntEngCreateXlate(Mode, PAL_RGB, dc->w.hPalette, NULL);
+          if (NULL != XlateObj)
+            {
+              pen = PENOBJ_LockPen((HPEN) hGDIObj);
+              if (NULL != pen)
+                {
+                  pen->iSolidColor = XLATEOBJ_iXlate(XlateObj, pen->logpen.lopnColor);
+                  PENOBJ_UnlockPen((HPEN) hGDIObj);
+                  objOrg = (HGDIOBJ)dc->w.hPen;
+                  dc->w.hPen = hGDIObj;
+                }
+              else
+                {
+                  SetLastWin32Error(ERROR_INVALID_HANDLE);
+                }
+              EngDeleteXlate(XlateObj);
+	    }
+          else
+            {
+              SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+            }
+        }
+      else
+        {
+          SetLastWin32Error(ERROR_INVALID_HANDLE);
+        }
       break;
 
     case GDI_OBJECT_TYPE_BRUSH:
-      brush = BRUSHOBJ_LockBrush((HPEN) hGDIObj);
-      if (brush == NULL)
-      {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        break;
-      }
-
-      XlateObj = IntGdiCreateBrushXlate(dc, brush, &Failed);
-      BRUSHOBJ_UnlockBrush(hGDIObj);
-      if (Failed)
-      {
-        SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-        break;
-      }
-
-      objOrg = (HGDIOBJ)dc->w.hBrush;
-      dc->w.hBrush = hGDIObj;
-      if (dc->XlateBrush != NULL)
-        EngDeleteXlate(dc->XlateBrush);
-      dc->XlateBrush = XlateObj;
+      objOrg = NULL;
+      /* Convert the color of the brush to the format of the DC */
+      PalGDI = PALETTE_LockPalette(dc->w.hPalette);
+      if (NULL != PalGDI)
+        {
+	  Mode = PalGDI->Mode;
+          PALETTE_UnlockPalette(dc->w.hPalette);
+          XlateObj = (PXLATEOBJ)IntEngCreateXlate(Mode, PAL_RGB, dc->w.hPalette, NULL);
+          if (NULL != XlateObj)
+            {
+              brush = BRUSHOBJ_LockBrush((HBRUSH) hGDIObj);
+              if (NULL != brush)
+                {
+                  brush->iSolidColor = XLATEOBJ_iXlate(XlateObj, brush->logbrush.lbColor);
+                  BRUSHOBJ_UnlockBrush((HBRUSH) hGDIObj);
+                  objOrg = (HGDIOBJ)dc->w.hBrush;
+                  dc->w.hBrush = (HBRUSH) hGDIObj;
+                }
+              else
+                {
+                  SetLastWin32Error(ERROR_INVALID_HANDLE);
+                }
+              EngDeleteXlate(XlateObj);
+            }
+          else
+            {
+              SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+            }
+        }
+      else
+        {
+          SetLastWin32Error(ERROR_INVALID_HANDLE);
+        }
       break;
 
     case GDI_OBJECT_TYPE_FONT:
-      if(NT_SUCCESS(TextIntRealizeFont((HFONT)hGDIObj)))
-      {
-        objOrg = (HGDIOBJ)dc->w.hFont;
-        dc->w.hFont = (HFONT) hGDIObj;
-      }
+      objOrg = (HGDIOBJ)dc->w.hFont;
+      dc->w.hFont = (HFONT) hGDIObj;
+      TextIntRealizeFont(dc->w.hFont);
       break;
 
     case GDI_OBJECT_TYPE_BITMAP:
@@ -1882,7 +1787,9 @@ NtGdiSelectObject(HDC  hDC, HGDIOBJ  hGDIObj)
       objOrg = (HGDIOBJ)dc->w.hBitmap;
 
       /* Release the old bitmap, lock the new one and convert it to a SURF */
+      EngDeleteSurface(dc->Surface);
       dc->w.hBitmap = hGDIObj;
+      dc->Surface = BitmapToSurf(pb, dc->GDIDevice);
 
       // if we're working with a DIB, get the palette [fixme: only create if the selected palette is null]
       if(pb->dib)
@@ -1894,44 +1801,56 @@ NtGdiSelectObject(HDC  hDC, HGDIOBJ  hGDIObj)
           if(pb->dib->dsBmih.biBitCount == 1) { NumColors = 2; } else
           if(pb->dib->dsBmih.biBitCount == 4) { NumColors = 16; } else
           if(pb->dib->dsBmih.biBitCount == 8) { NumColors = 256; }
-          dc->w.hPalette = PALETTE_AllocPaletteIndexedRGB(NumColors, pb->ColorMap);
+
+          ColorMap = ExAllocatePoolWithTag(PagedPool, sizeof(COLORREF) * NumColors, TAG_DC);
+          ASSERT(ColorMap);
+          for (Index = 0; Index < NumColors; Index++)
+          {
+            ColorMap[Index] = RGB(pb->ColorMap[Index].rgbRed,
+                                  pb->ColorMap[Index].rgbGreen,
+                                  pb->ColorMap[Index].rgbBlue);
+          }
+          dc->w.hPalette = PALETTE_AllocPalette(PAL_INDEXED, NumColors, (ULONG *) ColorMap, 0, 0, 0);
+          ExFreePool(ColorMap);
         }
-        else
+        else if ( 16 == pb->dib->dsBmih.biBitCount )
         {
-          dc->w.hPalette = PALETTE_AllocPalette(PAL_BITFIELDS, 0, NULL,
-                                                pb->dib->dsBitfields[0],
-                                                pb->dib->dsBitfields[1],
-                                                pb->dib->dsBitfields[2]);
+          dc->w.hPalette = PALETTE_AllocPalette(PAL_BITFIELDS, pb->dib->dsBmih.biClrUsed, NULL, 0x7c00, 0x03e0, 0x001f);
+        }
+        else if(pb->dib->dsBmih.biBitCount >= 24)
+        {
+          dc->w.hPalette = PALETTE_AllocPalette(PAL_RGB, pb->dib->dsBmih.biClrUsed, NULL, 0, 0, 0);
         }
       }
       else
       {
-        dc->w.bitsPerPixel = BitsPerFormat(pb->SurfObj.iBitmapFormat);
-        dc->w.hPalette = dc->DevInfo->hpalDefault;
+        dc->w.bitsPerPixel = pb->bitmap.bmBitsPixel;
+        if (1 == dc->w.bitsPerPixel)
+          {
+            MonoColorMap[0] = RGB(0, 0, 0);
+            MonoColorMap[1] = RGB(255, 255, 255);
+            dc->w.hPalette = PALETTE_AllocPalette(PAL_INDEXED, 2, MonoColorMap, 0, 0, 0);
+          }
+        else
+          {
+            dc->w.hPalette = dc->DevInfo->hpalDefault;
+          }
       }
 
-      /* Reselect brush and pen to regenerate the XLATEOBJs. */
-      NtGdiSelectObject ( hDC, dc->w.hBrush );
-      NtGdiSelectObject ( hDC, dc->w.hPen );
-
       DC_UnlockDc ( hDC );
-      hVisRgn = NtGdiCreateRectRgn ( 0, 0, pb->SurfObj.sizlBitmap.cx, pb->SurfObj.sizlBitmap.cy );
-      BITMAPOBJ_UnlockBitmap( hGDIObj );
+      hVisRgn = NtGdiCreateRectRgn ( 0, 0, pb->bitmap.bmWidth, pb->bitmap.bmHeight );
       NtGdiSelectVisRgn ( hDC, hVisRgn );
       NtGdiDeleteObject ( hVisRgn );
+      BITMAPOBJ_UnlockBitmap(hGDIObj);
 
       return objOrg;
 
+#if UPDATEREGIONS
     case GDI_OBJECT_TYPE_REGION:
-      DC_UnlockDc (hDC);
-      /*
-       * The return value is one of the following values:
-       *  SIMPLEREGION
-       *  COMPLEXREGION
-       *  NULLREGION
-       */
-      return (HGDIOBJ) NtGdiSelectClipRgn(hDC, (HRGN) hGDIObj);
-
+      DC_UnlockDc ( hDC );
+      SelectClipRgn(hDC, (HRGN)hGDIObj);
+      return NULL;
+#endif
     default:
       break;
   }
@@ -1947,7 +1866,6 @@ NtGdiSetHookFlags(HDC hDC, WORD Flags)
 
   if (NULL == dc)
     {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return 0;
     }
 
@@ -1997,7 +1915,7 @@ DC_AllocDC(PUNICODE_STRING Driver)
     RtlCopyMemory(Buf, Driver->Buffer, Driver->MaximumLength);
   }
 
-  hDC = (HDC) GDIOBJ_AllocObj(GDI_OBJECT_TYPE_DC);
+  hDC = (HDC) GDIOBJ_AllocObj(sizeof(DC), GDI_OBJECT_TYPE_DC, (GDICLEANUPPROC) DC_InternalDeleteDC);
   if (hDC == NULL)
   {
     if(Buf)
@@ -2008,7 +1926,6 @@ DC_AllocDC(PUNICODE_STRING Driver)
   }
 
   NewDC = DC_LockDc(hDC);
-  /* FIXME - Handle NewDC == NULL! */
   
   if (Driver != NULL)
   {
@@ -2026,17 +1943,9 @@ DC_AllocDC(PUNICODE_STRING Driver)
   NewDC->w.xformVport2World = NewDC->w.xformWorld2Wnd;
   NewDC->w.vport2WorldValid = TRUE;
   NewDC->w.MapMode = MM_TEXT;
-  NewDC->wndExtX = 1.0f;
-  NewDC->wndExtY = 1.0f;
-  NewDC->vportExtX = 1.0f;
-  NewDC->vportExtY = 1.0f;
-  NewDC->w.textColor = 0;
-  NewDC->w.backgroundColor = 0xffffff;
 
   NewDC->w.hFont = NtGdiGetStockObject(SYSTEM_FONT);
   TextIntRealizeFont(NewDC->w.hFont);
-
-  NewDC->w.hPalette = NtGdiGetStockObject(DEFAULT_PALETTE);
 
   DC_UnlockDc(hDC);
 
@@ -2061,29 +1970,24 @@ DC_InitDC(HDC  DCHandle)
   NtGdiSelectObject(DCHandle, NtGdiGetStockObject( BLACK_PEN ));
   //NtGdiSelectObject(DCHandle, hFont);
 
-/*
-  {
-    int res;
-    res = CLIPPING_UpdateGCRegion(DCToInit);
-    ASSERT ( res != ERROR );
-  }
-*/
+//  CLIPPING_UpdateGCRegion(DCToInit);
+
 }
 
 VOID FASTCALL
 DC_FreeDC(HDC  DCToFree)
 {
-  if (!GDIOBJ_FreeObj(DCToFree, GDI_OBJECT_TYPE_DC))
+  if (!GDIOBJ_FreeObj(DCToFree, GDI_OBJECT_TYPE_DC, GDIOBJFLAG_DEFAULT))
   {
     DPRINT("DC_FreeDC failed\n");
   }
 }
 
-BOOL INTERNAL_CALL
-DC_Cleanup(PVOID ObjectBody)
+BOOL FASTCALL
+DC_InternalDeleteDC( PDC DCToDelete )
 {
-  PDC pDC = (PDC)ObjectBody;
-  RtlFreeUnicodeString(&pDC->DriverName);
+
+  RtlFreeUnicodeString(&DCToDelete->DriverName);
   return TRUE;
 }
 
@@ -2106,8 +2010,8 @@ DC_UpdateXforms(PDC  dc)
   FLOAT  scaleX, scaleY;
 
   /* Construct a transformation to do the window-to-viewport conversion */
-  scaleX = (dc->wndExtX ? (FLOAT)dc->vportExtX / (FLOAT)dc->wndExtX : 0.0f);
-  scaleY = (dc->wndExtY ? (FLOAT)dc->vportExtY / (FLOAT)dc->wndExtY : 0.0f);
+  scaleX = (dc->wndExtX ? (FLOAT)dc->vportExtX / (FLOAT)dc->wndExtX : 0.0);
+  scaleY = (dc->wndExtY ? (FLOAT)dc->vportExtY / (FLOAT)dc->wndExtY : 0.0);
   xformWnd2Vport.eM11 = scaleX;
   xformWnd2Vport.eM12 = 0.0;
   xformWnd2Vport.eM21 = 0.0;
@@ -2167,271 +2071,6 @@ DC_SetOwnership(HDC hDC, PEPROCESS Owner)
         }
       DC_UnlockDc(hDC);
     }
-}
-
-BOOL FASTCALL
-IntIsPrimarySurface(SURFOBJ *SurfObj)
-{
-   if (PrimarySurface.Handle == NULL)
-     {
-       return FALSE;
-     }
-   return SurfObj->hsurf == PrimarySurface.Handle;
-}
-
-/*
- * Returns the color of the brush or pen that is currently selected into the DC.
- * This function is called from GetDCBrushColor() and GetDCPenColor()
- */
-COLORREF FASTCALL
-IntGetDCColor(HDC hDC, ULONG Object)
-{
-   /*
-    * The previous implementation was completly incorrect. It modified the
-    * brush that was currently selected into the device context, but in fact
-    * the DC pen/brush color should be stored directly in the device context
-    * (at address 0x2C of the user mode DC object memory on Windows 2K/XP).
-    * The actual color is then used when DC_BRUSH/DC_PEN object is selected
-    * into the device context and BRUSHOBJ for drawing is composed (belongs
-    * to IntGdiInitBrushInstance in the current ReactOS implementation). Also
-    * the implementation should be moved to user mode GDI32.dll when UM
-    * mapped GDI objects will be implemented.
-    */
-
-   DPRINT("WIN32K:IntGetDCColor is unimplemented\n");
-   return 0xFFFFFF; /* The default DC color. */
-}
-
-/*
- * Changes the color of the brush or pen that is currently selected into the DC.
- * This function is called from SetDCBrushColor() and SetDCPenColor()
- */
-COLORREF FASTCALL
-IntSetDCColor(HDC hDC, ULONG Object, COLORREF Color)
-{
-   /* See the comment in IntGetDCColor. */
-
-   DPRINT("WIN32K:IntSetDCColor is unimplemented\n");
-   return CLR_INVALID;
-}
-
-#define SIZEOF_DEVMODEW_300 188
-#define SIZEOF_DEVMODEW_400 212
-#define SIZEOF_DEVMODEW_500 220
-
-/*! \brief Enumerate possible display settings for the given display...
- *
- * \todo Make thread safe!?
- * \todo Don't ignore lpszDeviceName
- * \todo Implement non-raw mode (only return settings valid for driver and monitor)
- */
-BOOL FASTCALL
-IntEnumDisplaySettings(
-  PUNICODE_STRING lpszDeviceName,
-  DWORD iModeNum,
-  LPDEVMODEW lpDevMode,
-  DWORD dwFlags)
-{
-  static DEVMODEW *CachedDevModes = NULL, *CachedDevModesEnd = NULL;
-  static DWORD SizeOfCachedDevModes = 0;
-  LPDEVMODEW CachedMode = NULL;
-  DEVMODEW DevMode;
-  INT Size, OldSize;
-  ULONG DisplayNumber = 0; /* only default display supported */
-  
-  if (lpDevMode->dmSize != SIZEOF_DEVMODEW_300 &&
-      lpDevMode->dmSize != SIZEOF_DEVMODEW_400 &&
-      lpDevMode->dmSize != SIZEOF_DEVMODEW_500)
-  {
-    SetLastWin32Error(STATUS_INVALID_PARAMETER);
-    return FALSE;
-  }
-
-  if (iModeNum == ENUM_CURRENT_SETTINGS)
-  {
-    CachedMode = &PrimarySurface.DMW;    
-    assert(CachedMode->dmSize > 0);
-  }
-  else if (iModeNum == ENUM_REGISTRY_SETTINGS)
-  {
-    RtlZeroMemory(&DevMode, sizeof (DevMode));
-    DevMode.dmSize = sizeof (DevMode);
-    DevMode.dmDriverExtra = 0;
-    if (SetupDevMode(&DevMode, DisplayNumber))
-      CachedMode = &DevMode;
-    else
-    {
-      SetLastWin32Error(0); /* FIXME: use error code */
-      return FALSE;
-    }
-    /* FIXME: Maybe look for the matching devmode supplied by the
-     *        driver so we can provide driver private/extra data?
-     */
-  }
-  else
-  {
-    if (iModeNum == 0 || CachedDevModes == NULL) /* query modes from drivers */
-    {
-      BOOL PrimarySurfaceCreated = FALSE;
-      UNICODE_STRING DriverFileNames;
-      LPWSTR CurrentName;
-      DRVENABLEDATA DrvEnableData;
-  
-      /* Retrieve DDI driver names from registry */
-      RtlInitUnicodeString(&DriverFileNames, NULL);
-      if (!FindDriverFileNames(&DriverFileNames, DisplayNumber))
-      {
-        DPRINT1("FindDriverFileNames failed\n");
-        return FALSE;
-      }
-      
-      if (!HalQueryDisplayOwnership())
-      {
-        IntCreatePrimarySurface();
-        PrimarySurfaceCreated = TRUE;
-      }
-  
-      /*
-       * DriverFileNames may be a list of drivers in REG_SZ_MULTI format,
-       * scan all of them until a good one found.
-       */
-      CurrentName = DriverFileNames.Buffer;
-      for (;CurrentName < DriverFileNames.Buffer + (DriverFileNames.Length / sizeof (WCHAR));
-           CurrentName += wcslen(CurrentName) + 1)
-      {
-        INT i;
-        PGD_ENABLEDRIVER GDEnableDriver;
-  
-        /* Get the DDI driver's entry point */
-        GDEnableDriver = DRIVER_FindDDIDriver(CurrentName);
-        if (NULL == GDEnableDriver)
-        {
-          DPRINT("FindDDIDriver failed for %S\n", CurrentName);
-          continue;
-        }
-  
-        /*  Call DDI driver's EnableDriver function  */
-        RtlZeroMemory(&DrvEnableData, sizeof (DrvEnableData));
-  
-        if (!GDEnableDriver(DDI_DRIVER_VERSION_NT5_01, sizeof (DrvEnableData), &DrvEnableData))
-        {
-          DPRINT("DrvEnableDriver failed for %S\n", CurrentName);
-          continue;
-        }
-        
-        CachedDevModesEnd = CachedDevModes;
-        
-        /* find DrvGetModes function */
-        for (i = 0; i < DrvEnableData.c; i++)
-        {
-          PDRVFN DrvFn = DrvEnableData.pdrvfn + i;
-          PGD_GETMODES GetModes;
-          INT SizeNeeded, SizeUsed;
-  
-          if (DrvFn->iFunc != INDEX_DrvGetModes)
-            continue;
-  
-          GetModes = (PGD_GETMODES)DrvFn->pfn;
-  
-          /* make sure we have enough memory to hold the modes */
-          SizeNeeded = GetModes((HANDLE)(PrimarySurface.VideoFileObject->DeviceObject), 0, NULL);
-          if (SizeNeeded <= 0)
-          {
-            DPRINT("DrvGetModes failed for %S\n", CurrentName);
-            break;
-          }
-          
-          SizeUsed = CachedDevModesEnd - CachedDevModes;
-          if (SizeOfCachedDevModes - SizeUsed < SizeNeeded)
-          {
-            PVOID NewBuffer;
-            
-            SizeOfCachedDevModes += SizeNeeded;
-            NewBuffer = ExAllocatePool(PagedPool, SizeOfCachedDevModes);
-            if (NewBuffer == NULL)
-            {
-              /* clean up */
-              ExFreePool(CachedDevModes);
-              SizeOfCachedDevModes = 0;
-              CachedDevModes = NULL;
-              CachedDevModesEnd = NULL;
-              if (PrimarySurfaceCreated)
-              {
-                IntDestroyPrimarySurface();
-              }
-              SetLastWin32Error(STATUS_NO_MEMORY);
-              return FALSE;
-            }
-            if (CachedDevModes != NULL)
-            {
-              RtlCopyMemory(NewBuffer, CachedDevModes, SizeUsed);
-              ExFreePool(CachedDevModes);
-            }
-            CachedDevModes = NewBuffer;
-            CachedDevModesEnd = (DEVMODEW *)((PCHAR)NewBuffer + SizeUsed);
-          }
-  
-          /* query modes */
-          SizeNeeded = GetModes((HANDLE)(PrimarySurface.VideoFileObject->DeviceObject),
-                                SizeOfCachedDevModes - SizeUsed,
-                                CachedDevModesEnd);
-          if (SizeNeeded <= 0)
-          {
-            DPRINT("DrvGetModes failed for %S\n", CurrentName);
-          }
-          else
-          {
-            CachedDevModesEnd = (DEVMODEW *)((PCHAR)CachedDevModesEnd + SizeNeeded);
-          }
-          break;
-        }
-      }
-      
-      if (PrimarySurfaceCreated)
-      {
-        IntDestroyPrimarySurface();
-      }
-  
-      RtlFreeUnicodeString(&DriverFileNames);
-    }
-
-    /* return cached info */
-    CachedMode = CachedDevModes;
-    if (CachedMode >= CachedDevModesEnd)
-    {
-      SetLastWin32Error(STATUS_NO_MORE_ENTRIES);
-      return FALSE;
-    }
-    while (iModeNum-- > 0 && CachedMode < CachedDevModesEnd)
-    {
-      assert(CachedMode->dmSize > 0);
-      CachedMode = (DEVMODEW *)((PCHAR)CachedMode + CachedMode->dmSize + CachedMode->dmDriverExtra);
-    }
-    if (CachedMode >= CachedDevModesEnd)
-    {
-      SetLastWin32Error(STATUS_NO_MORE_ENTRIES);
-      return FALSE;
-    }
-  }
-
-  assert(CachedMode != NULL);
-
-  Size = OldSize = lpDevMode->dmSize;
-  if (Size > CachedMode->dmSize)
-    Size = CachedMode->dmSize;
-  RtlCopyMemory(lpDevMode, CachedMode, Size);
-  RtlZeroMemory((PCHAR)lpDevMode + Size, OldSize - Size);
-  lpDevMode->dmSize = OldSize;
-  
-  Size = OldSize = lpDevMode->dmDriverExtra;
-  if (Size > CachedMode->dmDriverExtra)
-    Size = CachedMode->dmDriverExtra;
-  RtlCopyMemory((PCHAR)lpDevMode + lpDevMode->dmSize,
-                (PCHAR)CachedMode + CachedMode->dmSize, Size);
-  RtlZeroMemory((PCHAR)lpDevMode + lpDevMode->dmSize + Size, OldSize - Size);
-  lpDevMode->dmDriverExtra = OldSize;
-
-  return TRUE;
 }
 
 /* EOF */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -32,13 +32,12 @@ struct ShellEntry : public Entry
 	ShellEntry(Entry* parent, LPITEMIDLIST shell_path) : Entry(parent, ET_SHELL), _pidl(shell_path) {}
 	ShellEntry(Entry* parent, const ShellPath& shell_path) : Entry(parent, ET_SHELL), _pidl(shell_path) {}
 
-	virtual bool		get_path(PTSTR path) const;
-	virtual ShellPath	create_absolute_pidl() const;
-	virtual HRESULT		GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
-	virtual BOOL		launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
-	virtual HRESULT		do_context_menu(HWND hwnd, LPPOINT pptScreen);
+	virtual bool get_path(PTSTR path) const;
+	virtual ShellPath create_absolute_pidl() const;
+	virtual BOOL launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
+	virtual HRESULT GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
 
-	IShellFolder*		get_parent_folder() const;
+	IShellFolder* get_parent_folder() const;
 
 	ShellPath	_pidl;	// parent relative PIDL
 
@@ -100,8 +99,8 @@ struct ShellDirectory : public ShellEntry, public Directory
 	}
 
 	virtual void read_directory(int scan_flags=SCAN_ALL);
-	virtual const void* get_next_path_component(const void*) const;
-	virtual Entry* find_entry(const void*);
+	virtual const void* get_next_path_component(const void*);
+	virtual Entry* find_entry(const void* p);
 
 	virtual bool get_path(PTSTR path) const;
 
