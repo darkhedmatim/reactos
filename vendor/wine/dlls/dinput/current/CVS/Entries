@@ -1,0 +1,15 @@
+/.cvsignore/1.6/Wed Mar 24 03:36:50 2004//TWine-20041201
+/Makefile.in/1.19/Tue Aug 31 18:51:24 2004//TWine-20041201
+/data_formats.c/1.2/Fri Sep  3 17:27:58 2004//TWine-20041201
+/device.c/1.23/Fri Sep 17 18:10:42 2004//TWine-20041201
+/device_private.h/1.12/Mon Sep 13 18:03:30 2004//TWine-20041201
+/dinput.spec/1.14/Wed Jul 30 03:48:56 2003//TWine-20041201
+/dinput_main.c/1.48/Thu Oct  7 03:06:52 2004//TWine-20041201
+/dinput_private.h/1.13/Mon Sep 13 19:16:48 2004//TWine-20041201
+/joystick_linux.c/1.17/Fri Sep 17 18:10:42 2004//TWine-20041201
+/joystick_linuxinput.c/1.12/Fri Sep 17 18:10:42 2004//TWine-20041201
+/keyboard.c/1.10/Thu Oct 28 21:01:44 2004//TWine-20041201
+/mouse.c/1.12/Tue Sep 21 20:04:38 2004//TWine-20041201
+/regsvr.c/1.1/Tue Apr  6 20:09:46 2004//TWine-20041201
+/version.rc/1.5/Tue Nov 23 13:59:36 2004//TWine-20041201
+D
