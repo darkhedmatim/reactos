@@ -1,6 +1,0 @@
-fmifs.coff
-fmifs.dll
-fmifs.nostrip.dll
-*.o
-*.obj
-*.d
