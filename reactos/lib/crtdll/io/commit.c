@@ -1,12 +1,10 @@
-#include "precomp.h"
-#include <msvcrt/io.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <windows.h>
+#include <crtdll/io.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
 
+int _commode_dll = _IOCOMMIT;
 
-/*
- * @implemented
- */
 int _commit(int _fd)
 {
 	if (! FlushFileBuffers(_get_osfhandle(_fd)) ) {

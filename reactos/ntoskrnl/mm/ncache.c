@@ -1,4 +1,4 @@
-/* $Id: ncache.c,v 1.31 2004/10/22 20:38:22 ekohl Exp $
+/* $Id: ncache.c,v 1.22 2002/10/01 19:27:23 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,30 +22,29 @@
 
 
 /**********************************************************************
- * NAME       EXPORTED
- *  MmAllocateNonCachedMemory@4
+ * NAME							EXPORTED
+ * 	MmAllocateNonCachedMemory@4
  *
  * DESCRIPTION
- *  Allocates a virtual address range of noncached and cache
- * aligned memory.
- * 
+ * 	Allocates a virtual address range of noncached and cache
+ *	aligned memory.
+ *	
  * ARGUMENTS
- * NumberOfBytes
- *  Size of region to allocate.
- *  
+ *	NumberOfBytes
+ *		Size of region to allocate.
+ *		
  * RETURN VALUE
- * The base address of the range on success;
- * NULL on failure.
+ *	The base address of the range on success;
+ *	NULL on failure.
  *
  * NOTE
- *  Description taken from include/ddk/mmfuncs.h.
- *  Code taken from ntoskrnl/mm/special.c.
+ * 	Description taken from include/ddk/mmfuncs.h.
+ * 	Code taken from ntoskrnl/mm/special.c.
  *
  * REVISIONS
  *
- * @implemented
  */
-PVOID STDCALL
+PVOID STDCALL 
 MmAllocateNonCachedMemory(IN ULONG NumberOfBytes)
 {
    PVOID Result;
@@ -50,91 +52,85 @@ MmAllocateNonCachedMemory(IN ULONG NumberOfBytes)
    NTSTATUS Status;
    ULONG i;
    ULONG Attributes;
-   PHYSICAL_ADDRESS BoundaryAddressMultiple;
 
-   BoundaryAddressMultiple.QuadPart = 0;
    MmLockAddressSpace(MmGetKernelAddressSpace());
    Result = NULL;
    Status = MmCreateMemoryArea (NULL,
-                                MmGetKernelAddressSpace(),
-                                MEMORY_AREA_NO_CACHE,
-                                &Result,
-                                NumberOfBytes,
-                                0,
-                                &marea,
-                                FALSE,
-                                FALSE,
-                                BoundaryAddressMultiple);
+				MmGetKernelAddressSpace(),
+				MEMORY_AREA_NO_CACHE,
+				&Result,
+				NumberOfBytes,
+				0,
+				&marea,
+				FALSE);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 
    if (!NT_SUCCESS(Status))
-   {
-      return (NULL);
-   }
-   Attributes = PAGE_READWRITE | PAGE_SYSTEM | PAGE_NOCACHE |
-                PAGE_WRITETHROUGH;
-   for (i = 0; i < (PAGE_ROUND_UP(NumberOfBytes) / PAGE_SIZE); i++)
-   {
-      PFN_TYPE NPage;
+     {
+	return (NULL);
+     }
+   Attributes = PAGE_READWRITE | PAGE_SYSTEM | PAGE_NOCACHE | 
+     PAGE_WRITETHROUGH;
+   for (i = 0; i <= (NumberOfBytes / PAGE_SIZE); i++)
+     {
+       PHYSICAL_ADDRESS NPage;
 
-      Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &NPage);
-      MmCreateVirtualMapping (NULL,
-                              (char*)Result + (i * PAGE_SIZE),
-                              Attributes,
-                              &NPage,
-                              1);
-   }
+       Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &NPage);
+       MmCreateVirtualMapping (NULL,
+			       Result + (i * PAGE_SIZE),
+			       Attributes,
+			       NPage,
+			       TRUE);
+     }
    return ((PVOID)Result);
 }
 
 VOID STATIC
-MmFreeNonCachedPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
-                    PFN_TYPE Page, SWAPENTRY SwapEntry,
-                    BOOLEAN Dirty)
+MmFreeNonCachedPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address, 
+		    PHYSICAL_ADDRESS PhysAddr, SWAPENTRY SwapEntry, 
+		    BOOLEAN Dirty)
 {
-   ASSERT(SwapEntry == 0);
-   if (Page != 0)
-   {
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Page);
-   }
+  assert(SwapEntry == 0);
+  if (PhysAddr.QuadPart != 0)
+    {
+      MmReleasePageMemoryConsumer(MC_NPPOOL, PhysAddr);
+    }
 }
 
 /**********************************************************************
- * NAME       EXPORTED
- * MmFreeNonCachedMemory@8
+ * NAME							EXPORTED
+ *	MmFreeNonCachedMemory@8
  *
  * DESCRIPTION
- * Releases a range of noncached memory allocated with 
- * MmAllocateNonCachedMemory.
- * 
+ *	Releases a range of noncached memory allocated with 
+ *	MmAllocateNonCachedMemory.
+ *	
  * ARGUMENTS
- * BaseAddress
- *  Virtual address to be freed;
- *  
- * NumberOfBytes
- *  Size of the region to be freed.
- *  
+ *	BaseAddress
+ *		Virtual address to be freed;
+ *		
+ *	NumberOfBytes
+ *		Size of the region to be freed.
+ *		
  * RETURN VALUE
- *  None.
+ * 	None.
  *
  * NOTE
- *  Description taken from include/ddk/mmfuncs.h.
- *  Code taken from ntoskrnl/mm/special.c.
+ * 	Description taken from include/ddk/mmfuncs.h.
+ * 	Code taken from ntoskrnl/mm/special.c.
  *
  * REVISIONS
  *
- * @implemented
  */
 VOID STDCALL MmFreeNonCachedMemory (IN PVOID BaseAddress,
-                                    IN ULONG NumberOfBytes)
+				    IN ULONG NumberOfBytes)
 {
-   MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryArea (MmGetKernelAddressSpace(),
-                     BaseAddress,
-                     NumberOfBytes,
-                     MmFreeNonCachedPage,
-                     NULL);
-   MmUnlockAddressSpace(MmGetKernelAddressSpace());
+  MmFreeMemoryArea (MmGetKernelAddressSpace(),
+		    BaseAddress,
+		    NumberOfBytes,
+		    MmFreeNonCachedPage,
+		    NULL);
 }
+
 
 /* EOF */

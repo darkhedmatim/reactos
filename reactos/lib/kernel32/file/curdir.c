@@ -1,4 +1,4 @@
-/* $Id: curdir.c,v 1.45 2004/08/29 12:12:34 weiden Exp $
+/* $Id: curdir.c,v 1.32 2002/10/20 03:33:34 robd Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,10 +11,13 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 
 /* GLOBAL VARIABLES **********************************************************/
@@ -25,9 +28,6 @@ UNICODE_STRING WindowsDirectory;
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetCurrentDirectoryA (
@@ -75,9 +75,6 @@ GetCurrentDirectoryA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetCurrentDirectoryW (
@@ -87,17 +84,14 @@ GetCurrentDirectoryW (
 {
 	ULONG Length;
 
-	Length = RtlGetCurrentDirectory_U (nBufferLength * sizeof(WCHAR),
+	Length = RtlGetCurrentDirectory_U (nBufferLength,
 	                                   lpBuffer);
 
 	return (Length / sizeof (WCHAR));
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCurrentDirectoryA (
 	LPCSTR	lpPathName
@@ -134,10 +128,7 @@ SetCurrentDirectoryA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCurrentDirectoryW (
 	LPCWSTR	lpPathName
@@ -160,9 +151,6 @@ SetCurrentDirectoryW (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetTempPathA (
@@ -206,9 +194,6 @@ GetTempPathA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetTempPathW (
@@ -224,7 +209,7 @@ GetTempPathW (
 	Value.MaximumLength = (nBufferLength - 1) * sizeof(WCHAR);
 	Value.Buffer = lpBuffer;
 
-	RtlRosInitUnicodeStringFromLiteral (&Name,
+	RtlInitUnicodeStringFromLiteral (&Name,
 	                      L"TMP");
 
 	Status = RtlQueryEnvironmentVariable_U (NULL,
@@ -232,7 +217,7 @@ GetTempPathW (
 	                                        &Value);
 	if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_TOO_SMALL)
 	{
-		RtlRosInitUnicodeStringFromLiteral (&Name,
+		RtlInitUnicodeStringFromLiteral (&Name,
 		                      L"TEMP");
 
 		Status = RtlQueryEnvironmentVariable_U (NULL,
@@ -256,9 +241,6 @@ GetTempPathW (
 }
 
 
-/*
- * @implemented
- */
 UINT
 STDCALL
 GetSystemDirectoryA (
@@ -270,10 +252,10 @@ GetSystemDirectoryA (
 	ULONG Length;
 	NTSTATUS Status;
 
-	Length = RtlUnicodeStringToAnsiSize (&SystemDirectory);	  //len of ansi str incl. nullchar
-
 	if (lpBuffer == NULL)
-		return Length;
+		return 0;
+
+	Length = RtlUnicodeStringToAnsiSize (&SystemDirectory);	  //len of ansi str incl. nullchar
 
 	if (uSize >= Length){
 		String.Length = 0;
@@ -300,9 +282,6 @@ GetSystemDirectoryA (
 }
 
 
-/*
- * @implemented
- */
 UINT
 STDCALL
 GetSystemDirectoryW (
@@ -312,11 +291,10 @@ GetSystemDirectoryW (
 {
 	ULONG Length;
 
-	Length = SystemDirectory.Length / sizeof (WCHAR);
-
 	if (lpBuffer == NULL)
-		return Length + 1;
+		return 0;
 
+	Length = SystemDirectory.Length / sizeof (WCHAR);
 	if (uSize > Length)	{
 		memmove (lpBuffer,
 		         SystemDirectory.Buffer,
@@ -329,9 +307,7 @@ GetSystemDirectoryW (
 	return Length+1;	 //bad: ret space needed incl. nullchar
 }
 
-/*
- * @implemented
- */
+
 UINT
 STDCALL
 GetWindowsDirectoryA (
@@ -343,12 +319,16 @@ GetWindowsDirectoryA (
 	ULONG Length;
 	NTSTATUS Status;
 
+	if (lpBuffer == NULL)
+		return 0;
+
 	Length = RtlUnicodeStringToAnsiSize (&WindowsDirectory); //len of ansi str incl. nullchar
 	
-	if (lpBuffer == NULL)
-		return Length;
+	printf("windirlen incl term %i\n", Length);
 
 	if (uSize >= Length){
+
+		printf("ok: enoug space\n");
 
 		String.Length = 0;
 		String.MaximumLength = uSize;
@@ -367,16 +347,16 @@ GetWindowsDirectoryA (
 		if (!NT_SUCCESS(Status))
 			return 0;
 
+		printf("good: ret chars %i\n",Length-1);
+		printf("dir: %s\n",lpBuffer);
 		return Length-1;	//good: ret chars excl. nullchar
 	}
 
+	printf("bad: ret chars needed %i\n",Length);
 	return Length;	//bad: ret space needed incl. nullchar
 }
 
 
-/*
- * @implemented
- */
 UINT
 STDCALL
 GetWindowsDirectoryW (
@@ -386,11 +366,10 @@ GetWindowsDirectoryW (
 {
 	ULONG Length;
 
-	Length = WindowsDirectory.Length / sizeof (WCHAR);
-
 	if (lpBuffer == NULL)
-		return Length + 1;
+		return 0;
 
+	Length = WindowsDirectory.Length / sizeof (WCHAR);
 	if (uSize > Length)
 	{
 		memmove (lpBuffer,
@@ -402,32 +381,6 @@ GetWindowsDirectoryW (
 	}
 
 	return Length+1;	//bad: ret space needed incl. nullchar
-}
-
-/*
- * @implemented
- */
-UINT
-STDCALL
-GetSystemWindowsDirectoryA(
-	LPSTR	lpBuffer,
-	UINT	uSize
-	)
-{
-    return GetWindowsDirectoryA( lpBuffer, uSize );
-}
-
-/*
- * @implemented
- */
-UINT
-STDCALL
-GetSystemWindowsDirectoryW(
-	LPWSTR	lpBuffer,
-	UINT	uSize
-	)
-{
-    return GetWindowsDirectoryW( lpBuffer, uSize );
 }
 
 /* EOF */

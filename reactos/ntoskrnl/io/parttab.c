@@ -1,4 +1,4 @@
-/* $Id: parttab.c,v 1.9 2004/11/27 13:04:06 navaraf Exp $
+/* $Id: parttab.c,v 1.3 2002/09/08 10:23:25 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -13,52 +13,50 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 		     ULONG SectorSize,
 		     BOOLEAN ReturnRecognizedPartitions,
 		     PDRIVE_LAYOUT_INFORMATION *PartitionBuffer)
 {
-  return(HalIoReadPartitionTable(DeviceObject,
-				 SectorSize,
-				 ReturnRecognizedPartitions,
-				 PartitionBuffer));
+	return HalDispatchTable.HalIoReadPartitionTable(DeviceObject,
+	                                                SectorSize,
+	                                                ReturnRecognizedPartitions,
+	                                                PartitionBuffer);
 }
 
 
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoSetPartitionInformation(PDEVICE_OBJECT DeviceObject,
 			  ULONG SectorSize,
 			  ULONG PartitionNumber,
 			  ULONG PartitionType)
 {
-  return(HalIoSetPartitionInformation(DeviceObject,
-				      SectorSize,
-				      PartitionNumber,
-				      PartitionType));
+   return HalDispatchTable.HalIoSetPartitionInformation(DeviceObject,
+							SectorSize,
+							PartitionNumber,
+							PartitionType);
 }
 
 
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoWritePartitionTable(PDEVICE_OBJECT DeviceObject,
 		      ULONG SectorSize,
 		      ULONG SectorsPerTrack,
 		      ULONG NumberOfHeads,
 		      PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
 {
-  return(HalIoWritePartitionTable(DeviceObject,
-				  SectorSize,
-				  SectorsPerTrack,
-				  NumberOfHeads,
-				  PartitionBuffer));
+   return HalDispatchTable.HalIoWritePartitionTable(DeviceObject,
+						    SectorSize,
+						    SectorsPerTrack,
+						    NumberOfHeads,
+						    PartitionBuffer);
 }
 
 /* EOF */

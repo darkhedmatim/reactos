@@ -1,52 +1,36 @@
-/* $Id: isbad.c,v 1.11 2004/09/14 14:01:25 weiden Exp $
+/* $Id: isbad.c,v 1.4 2002/09/08 10:22:43 chorns Exp $
  *
  * lib/kernel32/mem/isbad.c
  *
  * ReactOS Operating System
  *
  */
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
+#include <windows.h>
 
 /* FIXME: Stubs. What is it for? */
-/*
- * @implemented
- */
 UINT
 wcsnlen (
 	LPCWSTR	lpsz,
 	UINT	ucchMax
 	)
 {
-  UINT i = 0;
-  while( lpsz[i] && i < ucchMax ) i++;
-  return i;
+	return 0;
 }
 
 
 /* FIXME: Stubs. What is it for? */
-/*
- * @implemented
- */
 UINT
 strnlen (
 	LPCSTR	lpsz,
 	UINT	uiMax
 	)
 {
-  UINT i = 0;
-  while( lpsz[i] && i < uiMax ) i++;
-  return i;
+	return 0;
 }
 
 /* --- --- --- */
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadReadPtr (
 	CONST VOID	* lp,
@@ -57,7 +41,7 @@ IsBadReadPtr (
 
 	if ( ucb == 0 )
 	{
-		return TRUE;
+		return FALSE;
 	}
 
 	VirtualQuery (
@@ -68,33 +52,30 @@ IsBadReadPtr (
 	
 	if ( MemoryInformation.State != MEM_COMMIT )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if ( MemoryInformation.RegionSize < ucb )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if ( MemoryInformation.Protect == PAGE_EXECUTE )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if ( MemoryInformation.Protect == PAGE_NOACCESS )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
-	return FALSE;
+	return TRUE;
 			
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadHugeReadPtr (
 	CONST VOID	* lp,
@@ -105,10 +86,7 @@ IsBadHugeReadPtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadCodePtr (
 	FARPROC	lpfn
@@ -125,24 +103,21 @@ IsBadCodePtr (
 	
 	if ( MemoryInformation.State != MEM_COMMIT )
 	{
-		return TRUE;
+		return FALSE;
 	}	
 			
 	if (	(MemoryInformation.Protect == PAGE_EXECUTE)
 		|| (MemoryInformation.Protect == PAGE_EXECUTE_READ)
 		)
 	{
-		return FALSE;
+		return TRUE;
 	}
 		
-	return TRUE;
+	return FALSE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadWritePtr (
 	LPVOID	lp,
@@ -153,7 +128,7 @@ IsBadWritePtr (
 
 	if ( ucb == 0 )
 	{
-		return TRUE;
+		return FALSE;
 	}
 
 	VirtualQuery (
@@ -164,40 +139,37 @@ IsBadWritePtr (
 	
 	if ( MemoryInformation.State != MEM_COMMIT )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if ( MemoryInformation.RegionSize < ucb )
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 		
 	if ( MemoryInformation.Protect == PAGE_READONLY)
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if (	(MemoryInformation.Protect == PAGE_EXECUTE)
 		|| (MemoryInformation.Protect == PAGE_EXECUTE_READ)
 		)
 	{
-		return TRUE;
+		return FALSE;
 	}
 		
 	if ( MemoryInformation.Protect == PAGE_NOACCESS )
 	{
-		return TRUE;	
+		return FALSE;	
 	}
 		
-	return FALSE;
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadHugeWritePtr (
 	LPVOID	lp,
@@ -208,10 +180,7 @@ IsBadHugeWritePtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadStringPtrW (
 	LPCWSTR	lpsz,
@@ -229,10 +198,7 @@ IsBadStringPtrW (
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadStringPtrA (
 	LPCSTR	lpsz,

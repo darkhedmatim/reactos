@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002,2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,22 +16,20 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: attrib.c,v 1.10 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: attrib.c,v 1.1 2002/07/15 15:37:33 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/ntfs/attrib.c
+ * FILE:             services/fs/ntfs/attrib.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
- * Updated	by       Valentin Verkhovsky  2003/09/12 
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
 
-
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -39,153 +37,29 @@
 
 /* FUNCTIONS ****************************************************************/
 
-
-
-ULONG
-RunLength(PUCHAR run)
-{
-  return(*run & 0x0f) + ((*run >> 4) & 0x0f) + 1;
-}
-
-
-LONGLONG
-RunLCN(PUCHAR run)
-{
-	UCHAR n1 = *run & 0x0f;
-	UCHAR n2 = (*run >> 4) & 0x0f;
-	LONGLONG lcn = (n2 == 0) ? 0 : (CHAR)(run[n1 + n2]);
-	LONG i = 0;
-	
-	for (i = n1 +n2 - 1; i > n1; i--)
-		lcn = (lcn << 8) + run[i];
-	return lcn;
-}
-
-
-
-ULONGLONG
-RunCount(PUCHAR run)
-{
-	UCHAR n =  *run & 0xf;
-	ULONGLONG count = 0;
-	ULONG i = 0;
-
-	for (i = n; i > 0; i--)
-		count = (count << 8) + run[i];
-	return count;
-}
-
-
-BOOLEAN
-FindRun (PNONRESIDENT_ATTRIBUTE NresAttr,
-	 ULONGLONG vcn,
-	 PULONGLONG lcn,
-	 PULONGLONG count)
-{
-  PUCHAR run;
-
-  ULONGLONG base = NresAttr->StartVcn;
-
-  if (vcn < NresAttr->StartVcn || vcn > NresAttr->LastVcn)
-    return FALSE;
-
-  *lcn = 0;
-
-  for (run = (PUCHAR)((ULONG)NresAttr + NresAttr->RunArrayOffset);
-	*run != 0; run += RunLength(run))
-    {
-      *lcn += RunLCN(run);
-      *count = RunCount(run);
-
-      if (base <= vcn && vcn < base + *count)
-	{
-	  *lcn = (RunLCN(run) == 0) ? 0 : *lcn + vcn - base;
-	  *count -= (ULONG)(vcn - base);
-
-	  return TRUE;
-	}
-      else
-	{
-	  base += *count;
-	}
-    }
-
-  return FALSE;
-}
-
-
-static VOID
-NtfsDumpFileNameAttribute(PATTRIBUTE Attribute)
-{
-  PRESIDENT_ATTRIBUTE ResAttr;
-  PFILENAME_ATTRIBUTE FileNameAttr;
-
-  DbgPrint("  $FILE_NAME ");
-
-  ResAttr = (PRESIDENT_ATTRIBUTE)Attribute;
-//  DbgPrint(" Length %lu  Offset %hu ", ResAttr->ValueLength, ResAttr->ValueOffset);
-
-  FileNameAttr = (PFILENAME_ATTRIBUTE)((PVOID)ResAttr + ResAttr->ValueOffset);
-  DbgPrint(" '%.*S' ", FileNameAttr->NameLength, FileNameAttr->Name);
-}
-
-
-static VOID
-NtfsDumpVolumeNameAttribute(PATTRIBUTE Attribute)
-{
-  PRESIDENT_ATTRIBUTE ResAttr;
-  PWCHAR VolumeName;
-
-  DbgPrint("  $VOLUME_NAME ");
-
-  ResAttr = (PRESIDENT_ATTRIBUTE)Attribute;
-//  DbgPrint(" Length %lu  Offset %hu ", ResAttr->ValueLength, ResAttr->ValueOffset);
-
-  VolumeName = (PWCHAR)((PVOID)ResAttr + ResAttr->ValueOffset);
-  DbgPrint(" '%.*S' ", ResAttr->ValueLength / sizeof(WCHAR), VolumeName);
-}
-
-
-static VOID
-NtfsDumpVolumeInformationAttribute(PATTRIBUTE Attribute)
-{
-  PRESIDENT_ATTRIBUTE ResAttr;
-  PVOLINFO_ATTRIBUTE VolInfoAttr;
-
-  DbgPrint("  $VOLUME_INFORMATION ");
-
-  ResAttr = (PRESIDENT_ATTRIBUTE)Attribute;
-//  DbgPrint(" Length %lu  Offset %hu ", ResAttr->ValueLength, ResAttr->ValueOffset);
-
-  VolInfoAttr = (PVOLINFO_ATTRIBUTE)((PVOID)ResAttr + ResAttr->ValueOffset);
-  DbgPrint(" NTFS Version %u.%u  Flags 0x%04hx ",
-	   VolInfoAttr->MajorVersion,
-	   VolInfoAttr->MinorVersion,
-	   VolInfoAttr->Flags);
-}
-
-
-static VOID
-NtfsDumpAttribute (PATTRIBUTE Attribute)
+VOID
+NtfsDumpAttribute(PATTRIBUTE Attribute)
 {
   PNONRESIDENT_ATTRIBUTE NresAttr;
+  PRESIDENT_ATTRIBUTE ResAttr;
   UNICODE_STRING Name;
-
-  ULONGLONG lcn;
-  ULONGLONG runcount;
+  PUCHAR Ptr;
+  UCHAR RunHeader;
+  ULONG RunLength;
+  ULONG RunStart;
 
   switch (Attribute->AttributeType)
     {
-      case AttributeFileName:
-	NtfsDumpFileNameAttribute(Attribute);
-	break;
-
       case AttributeStandardInformation:
 	DbgPrint("  $STANDARD_INFORMATION ");
 	break;
 
       case AttributeAttributeList:
 	DbgPrint("  $ATTRIBUTE_LIST ");
+	break;
+
+      case AttributeFileName:
+	DbgPrint("  $FILE_NAME ");
 	break;
 
       case AttributeObjectId:
@@ -197,16 +71,15 @@ NtfsDumpAttribute (PATTRIBUTE Attribute)
 	break;
 
       case AttributeVolumeName:
-	NtfsDumpVolumeNameAttribute(Attribute);
+	DbgPrint("  $VOLUME_NAME ");
 	break;
 
       case AttributeVolumeInformation:
-	NtfsDumpVolumeInformationAttribute(Attribute);
+	DbgPrint("  $VOLUME_INFORMATION ");
 	break;
 
       case AttributeData:
 	DbgPrint("  $DATA ");
-	//DataBuf = ExAllocatePool(NonPagedPool,AttributeLengthAllocated(Attribute));
 	break;
 
       case AttributeIndexRoot:
@@ -257,35 +130,88 @@ NtfsDumpAttribute (PATTRIBUTE Attribute)
     }
 
   DbgPrint("(%s)\n",
-	   Attribute->Nonresident ? "non-resident" : "resident");
+	   Attribute->Nonresident ? "nonresident" : "resident");
 
-  if (Attribute->Nonresident)
+  if (Attribute->Nonresident != 0)
     {
       NresAttr = (PNONRESIDENT_ATTRIBUTE)Attribute;
+      Ptr = (PUCHAR)((ULONG)NresAttr + NresAttr->RunArrayOffset);
+      while (*Ptr != 0)
+	{
+	  RunHeader = *Ptr++;
 
-      FindRun (NresAttr,0,&lcn, &runcount);
+	  switch (RunHeader & 0x0F)
+	    {
+	      case 1:
+		RunLength = (ULONG)*Ptr++;
+		break;
 
-      DbgPrint ("  AllocatedSize %I64u  DataSize %I64u\n",
-		NresAttr->AllocatedSize, NresAttr->DataSize);
-      DbgPrint ("  logical clusters: %I64u - %I64u\n",
-		lcn, lcn + runcount - 1);
+	      case 2:
+		RunLength = *((PUSHORT)Ptr);
+		Ptr += 2;
+		break;
+
+	      case 3:
+		RunLength = *Ptr++;
+		RunLength += *Ptr++ << 8;
+		RunLength += *Ptr++ << 16;
+		break;
+
+	      case 4:
+		RunLength = *((PULONG)Ptr);
+		Ptr += 4;
+		break;
+
+	      default:
+		DbgPrint("RunLength size of %hu not implemented!\n", RunHeader & 0x0F);
+		KeBugCheck(0);
+	    }
+
+	  switch (RunHeader >> 4)
+	    {
+	      case 1:
+		RunStart = (ULONG)*Ptr;
+		Ptr++;
+		break;
+
+	      case 2:
+		RunStart = *((PUSHORT)Ptr);
+		Ptr += 2;
+		break;
+
+	      case 3:
+		RunStart = *Ptr++;
+		RunStart += *Ptr++ << 8;
+		RunStart += *Ptr++ << 16;
+		break;
+
+	      case 4:
+		RunStart = *((PULONG)Ptr);
+		Ptr += 4;
+		break;
+
+	      default:
+		DbgPrint("RunStart size of %hu not implemented!\n", RunHeader >> 4);
+		KeBugCheck(0);
+	    }
+
+	  DbgPrint("    AllocatedSize %I64d  DataSize %I64d\n", NresAttr->AllocatedSize, NresAttr->DataSize);
+//	  DbgPrint("    Run: Header %hx  Start %lu  Length %lu\n", RunHeader, RunStart, RunLength);
+	  if (RunLength == 1)
+	    {
+	      DbgPrint("    logical sector %lu (0x%lx)\n", RunStart, RunStart);
+	    }
+	  else
+	    {
+	      DbgPrint("    logical sectors %lu-%lu (0x%lx-0x%lx)\n",
+		       RunStart, RunStart + RunLength - 1,
+		       RunStart, RunStart + RunLength - 1);
+	    }
+	}
     }
+
+
 }
 
-
-VOID
-NtfsDumpFileAttributes (PFILE_RECORD_HEADER FileRecord)
-{
-  PATTRIBUTE Attribute;
-
-  Attribute = (PATTRIBUTE)((ULONG_PTR)FileRecord + FileRecord->AttributeOffset);
-  while (Attribute < (PATTRIBUTE)((ULONG_PTR)FileRecord + FileRecord->BytesInUse) &&
-         Attribute->AttributeType != -1)
-    {
-      NtfsDumpAttribute (Attribute);
-
-      Attribute = (PATTRIBUTE)((ULONG_PTR)Attribute + Attribute->Length);
-    }
-}
 
 /* EOF */

@@ -27,7 +27,8 @@
  * UPDATE HISTORY:
  *      15-03-2002  CSH  Created
  */
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 
 #define NDEBUG
 #include <internal/debug.h>
@@ -194,7 +195,7 @@ ExInitializeHashTable(IN PHASH_TABLE  HashTable,
   IN BOOLEAN  UseNonPagedPool)
 {
   BOOLEAN Status;
-  ULONG Index;
+  LONG Index;
 
   RtlZeroMemory(HashTable, sizeof(HASH_TABLE));
 

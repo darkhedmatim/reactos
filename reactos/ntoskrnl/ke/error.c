@@ -11,34 +11,11 @@
 
 /* INCLUDE *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS ***************************************************************/
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-KiCoprocessorError(
-    VOID
-)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-KiUnexpectedInterrupt(
-    VOID
-)
-{
-	UNIMPLEMENTED;
-}
 
 NTSTATUS STDCALL 
 NtRaiseHardError(IN NTSTATUS Status,
@@ -56,7 +33,6 @@ NTSTATUS STDCALL
 NtSetDefaultHardErrorPort(IN HANDLE PortHandle)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
 
 /* EOF */

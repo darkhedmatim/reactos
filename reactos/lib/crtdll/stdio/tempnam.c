@@ -1,30 +1,21 @@
-#include "precomp.h"
-#include <msvcrt/stdio.h>
-#include <msvcrt/stdlib.h>
+#include <windows.h>
+#include <crtdll/stdio.h>
+#include <crtdll/stdlib.h>
 
 
-/*
- * @unimplemented
- */
 char *_tempnam(const char *dir,const char *prefix )
 {
-    char *TempFileName = malloc(MAX_PATH);
-    char *d;
+	char *TempFileName = malloc(MAX_PATH);
+	char *d;
+	if ( dir == NULL )
+		d = getenv("TMP");
+	else 
+		d = (char *)dir;
 
-    if ( dir == NULL )
-        d = getenv("TMP");
-    else 
-        d = (char *)dir;
-
-#ifdef _MSVCRT_LIB_    // TODO: check on difference?
-    if (GetTempFileNameA(d, prefix, 1, TempFileName) == 0) {
-#else// TODO: FIXME: review which is correct
-    if (GetTempFileNameA(d, prefix, 0, TempFileName) == 0) {
-#endif /*_MSVCRT_LIB_*/
-
-        free(TempFileName);
-        return NULL;
-    }
-        
-    return TempFileName;
+	if ( GetTempFileNameA(d, prefix, 0, TempFileName ) == 0 ) {
+		free(TempFileName);
+		return NULL;
+	}
+		
+	return TempFileName;
 }

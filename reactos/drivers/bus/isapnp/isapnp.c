@@ -1,4 +1,4 @@
-/* $Id: isapnp.c,v 1.10 2004/07/03 17:40:20 navaraf Exp $
+/* $Id: isapnp.c,v 1.4 2002/09/08 10:22:03 chorns Exp $
  *
  * PROJECT:         ReactOS ISA PnP Bus driver
  * FILE:            isapnp.c
@@ -217,44 +217,19 @@ static ULONG FindNextReadPort(VOID)
 {
 	ULONG Port;
 
-
-
-	Port = (ULONG)IsaPnPReadPort;
-
-	while (TRUE) {
-
-		Port += READ_DATA_PORT_STEP;
-
-
-
-		if (Port > ISAPNP_MAX_READ_PORT)
-
-		{
-
-			return 0;
-
-		}
-
-
-
+  Port = (ULONG)IsaPnPReadPort;
+	while (Port <= ISAPNP_MAX_READ_PORT) {
 		/*
-
 		 * We cannot use NE2000 probe spaces for
-
-		 * ISAPnP or we will lock up machines
-
+     * ISAPnP or we will lock up machines
 		 */
-
 		if ((Port < 0x280) || (Port > 0x380))
-
 		{
-
 			return Port;
-
 		}
-
+		Port += READ_DATA_PORT_STEP;
 	}
-
+	return 0;
 }
 
 static BOOLEAN IsolateReadDataPortSelect(VOID)
@@ -484,6 +459,7 @@ static NTSTATUS AddResourceList(
   PISAPNP_CONFIGURATION_LIST *NewList)
 {
   PISAPNP_CONFIGURATION_LIST List;
+  NTSTATUS Status;
 
   DPRINT("Adding resource list for logical device %d on card %d (Priority %d)\n",
         LogicalDevice->Number,
@@ -533,7 +509,7 @@ static NTSTATUS AddResourceDescriptor(
   d = (PISAPNP_DESCRIPTOR)
     ExAllocatePool(PagedPool, sizeof(ISAPNP_DESCRIPTOR));
   if (!d)
-    return STATUS_NO_MEMORY;
+    return Status;
 
   RtlZeroMemory(d, sizeof(ISAPNP_DESCRIPTOR));
 
@@ -584,7 +560,7 @@ static NTSTATUS AddIrqResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[3];
-  ULONG irq, i, last = 0;
+  ULONG irq, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -639,7 +615,7 @@ static NTSTATUS AddDmaResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[2];
-  ULONG dma, flags, i, last = 0;
+  ULONG dma, flags, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -961,8 +937,8 @@ static BOOLEAN CreateLogicalDevice(PISAPNP_DEVICE_EXTENSION DeviceExtension,
 		if (!ReadTag(&type, &Size, &Small))
 			return FALSE;
 
-                if (skip && !(Small && ((type == ISAPNP_SRIN_LDEVICE_ID)
-      || (type == ISAPNP_SRIN_END_TAG))))
+		if (skip && !(Small && (type == ISAPNP_SRIN_LDEVICE_ID)
+      || (type == ISAPNP_SRIN_END_TAG)))
 			goto skip;
 
     if (Small) {
@@ -1211,6 +1187,7 @@ static NTSTATUS BuildResourceList(PISAPNP_LOGICAL_DEVICE LogicalDevice,
   PLIST_ENTRY CurrentEntry, Entry;
   PISAPNP_CONFIGURATION_LIST List;
   PISAPNP_DESCRIPTOR Descriptor;
+  NTSTATUS Status;
   ULONG i;
 
   if (IsListEmpty(&LogicalDevice->Configuration))
@@ -1371,6 +1348,7 @@ static NTSTATUS BuildDeviceList(PISAPNP_DEVICE_EXTENSION DeviceExtension)
 	ULONG csn;
 	UCHAR header[9], checksum;
   PISAPNP_CARD Card;
+  NTSTATUS Status;
 
   DPRINT("Called\n");
 
@@ -1424,7 +1402,7 @@ ISAPNPQueryBusRelations(
   PISAPNP_LOGICAL_DEVICE LogicalDevice;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   ULONG Size;
   ULONG i;
 

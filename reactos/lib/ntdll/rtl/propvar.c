@@ -1,4 +1,4 @@
-/* $Id: propvar.c,v 1.4 2003/07/11 13:50:23 royce Exp $
+/* $Id: propvar.c,v 1.3 2002/09/08 10:23:06 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -8,9 +8,6 @@
 #define NTOS_MODE_USER
 #include <ntos.h>
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 PropertyLengthAsVariant (
@@ -23,9 +20,6 @@ PropertyLengthAsVariant (
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
-/*
- * @unimplemented
- */
 BOOLEAN
 STDCALL
 RtlCompareVariants (
@@ -37,9 +31,6 @@ RtlCompareVariants (
 	return (FALSE);
 }
 
-/*
- * @unimplemented
- */
 BOOLEAN
 STDCALL
 RtlConvertPropertyToVariant (
@@ -52,9 +43,6 @@ RtlConvertPropertyToVariant (
 	return (FALSE);
 }
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 RtlConvertVariantToProperty (

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: print.c,v 1.22 2004/12/10 18:31:04 blight Exp $
+/* $Id: print.c,v 1.16 2002/09/08 10:23:18 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -30,8 +30,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <internal/debug.h>
+#include <ddk/ntddk.h>
+#include <internal/kd.h>
+
 
 /* FUNCTIONS ****************************************************************/
 
@@ -52,22 +53,12 @@ __asm__ ("\n\t.global _DbgService\n\t"
  *       You'll only break the serial/bochs debugging feature!!!
  */
 
-/*
- * @implemented
- */
 ULONG 
 DbgPrint(PCH Format, ...)
 {
    ANSI_STRING DebugString;
    CHAR Buffer[1024];
    va_list ap;
-#ifdef SERIALIZE_DBGPRINT
-#  define MESSAGETABLE_SIZE  16
-   LONG MyTableIndex;
-   static LONG Lock = 0;
-   static LONG TableWriteIndex = 0, TableReadIndex = 0;
-   static CHAR MessageTable[MESSAGETABLE_SIZE][sizeof(Buffer)] = { { '\0' } };
-#endif /* SERIALIZE_DBGPRINT */
 
    /* init ansi string */
    DebugString.Buffer = Buffer;
@@ -77,94 +68,12 @@ DbgPrint(PCH Format, ...)
    DebugString.Length = _vsnprintf (Buffer, sizeof( Buffer ), Format, ap);
    va_end (ap);
 
-#ifdef SERIALIZE_DBGPRINT
-   /* check if we are already running */
-   if (InterlockedCompareExchange(&Lock, 1, 0) == 1)
-     {
-        MyTableIndex = InterlockedIncrement(&TableWriteIndex) - 1;
-        InterlockedCompareExchange(&TableWriteIndex, 0, MESSAGETABLE_SIZE);
-        MyTableIndex %= MESSAGETABLE_SIZE;
-
-        if (MessageTable[MyTableIndex][0] != '\0') /* table is full */
-          {
-             DebugString.Buffer = "CRITICAL ERROR: DbgPrint Table is FULL!";
-             DebugString.Length = 39;
-             KdpPrintString(&DebugString);
-             for (;;);
-          }
-        else
-          {
-             /*DebugString.Buffer = "µµµ";
-             DebugString.Length = 3;
-             KdpPrintString(&DebugString);*/
-             memcpy(MessageTable[MyTableIndex], DebugString.Buffer, DebugString.Length);
-             MessageTable[MyTableIndex][DebugString.Length] = '\0';
-          }
-     }
-   else
-     {
-#endif /* SERIALIZE_DBGPRINT */
-        KdpPrintString (&DebugString);
-#ifdef SERIALIZE_DBGPRINT
-        MyTableIndex = TableReadIndex;
-        while (MessageTable[MyTableIndex][0] != '\0')
-          {
-             /*DebugString.Buffer = "$$$";
-             DebugString.Length = 3;
-             KdpPrintString(&DebugString);*/
-
-             DebugString.Buffer = MessageTable[MyTableIndex];
-             DebugString.Length = strlen(DebugString.Buffer);
-             DebugString.MaximumLength = DebugString.Length + 1;
-
-             KdpPrintString(&DebugString);
-             MessageTable[MyTableIndex][0] = '\0';
-
-             MyTableIndex = InterlockedIncrement(&TableReadIndex);
-             InterlockedCompareExchange(&TableReadIndex, 0, MESSAGETABLE_SIZE);
-             MyTableIndex %= MESSAGETABLE_SIZE;
-          }
-        InterlockedDecrement(&Lock);
-     }
-#  undef MESSAGETABLE_SIZE
-#endif /* SERIALIZE_DBGPRINT */
+   KdpPrintString (&DebugString);
 
    return (ULONG)DebugString.Length;
 }
 
-/*
- * @unimplemented
- */
-ULONG
-__cdecl
-DbgPrintEx(
-    IN ULONG ComponentId,
-    IN ULONG Level,
-    IN PCH Format,
-    ...
-    )
-{
-    UNIMPLEMENTED;
-    return 0;
-}
 
-/*
- * @unimplemented
- */
-ULONG
-__cdecl
-DbgPrintReturnControlC(
-    PCH Format,
-    ...
-    )
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
 VOID STDCALL
 DbgPrompt (PCH OutputString,
 	   PCH InputString,
@@ -184,35 +93,6 @@ DbgPrompt (PCH OutputString,
    /* FIXME: Not implemented yet! */
    //	KdpPromptString (&Output,
    //	                 &Input);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-DbgQueryDebugFilterState(
-    IN ULONG ComponentId,
-    IN ULONG Level
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-DbgSetDebugFilterState(
-    IN ULONG ComponentId,
-    IN ULONG Level,
-    IN BOOLEAN State
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

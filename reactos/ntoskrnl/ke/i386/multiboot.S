@@ -1,37 +1,33 @@
 #include <roscfg.h>
 #include <internal/ntoskrnl.h>
-#include <internal/i386/ke.h>
 #include <internal/i386/segment.h>
 #include <internal/ps.h>
-#include <internal/i386/mm.h>
-#include <internal/i386/fpu.h>
+
+#define KERNEL_BASE (0xc0000000)
 
 #define MULTIBOOT_HEADER_MAGIC (0x1BADB002)
 
 #define MULTIBOOT_HEADER_FLAGS (0x00010003)
 
-#define V2P(x) (x - KERNEL_BASE + 0x200000)
+#define V2P(x) (x - 0xc0000000 + 0x200000)
 
 #ifdef MP
 
 #define AP_MAGIC (0x12481020)
 
 #endif /* MP */
-
+	
 .globl _NtProcessStartup
 .globl _start
 .globl _init_stack
 .globl _init_stack_top
 .globl _trap_stack
-.globl _trap_stack_top
+.globl _trap_stack_top	
 .globl _unmap_me
 .globl _unmap_me2
 .globl _unmap_me3
 .globl _unmap_me4
-.globl _pagetable_start
-.globl _pagetable_end 
-.globl _pae_pagedirtable
-
+		
 	/*
 	 * This is called by the realmode loader, with protected mode
 	 * enabled, paging disabled and the segment registers pointing
@@ -49,7 +45,7 @@ _start:
 
 	/* Align 32 bits boundary */
 	.align 4
-
+	
 	/* Multiboot header */
 multiboot_header:
 	/* magic */
@@ -69,11 +65,11 @@ multiboot_header:
 	/* entry_addr */
 	.long (0x200000 + _start - KERNEL_BASE)
 
-_multiboot_entry:
+_multiboot_entry:	
 	/*
 	 * This	must be PIC because we haven't set up paging yet
-	 */
-
+	 */	
+	
 	/*
 	 * Gcc expects this at all times
 	 */
@@ -84,9 +80,9 @@ _multiboot_entry:
 	/*
 	 * Save the multiboot or application processor magic
 	 */
-	movl	%eax, %edx
+	movl    %eax, %edx
 
-	cmpl	$AP_MAGIC, %edx
+	cmpl    $AP_MAGIC, %edx
 	je	.m1
 
 #endif /* MP */
@@ -100,7 +96,7 @@ _multiboot_entry:
 	subl	$__bss_start__, %ecx
 	shr	$2, %ecx
 	movl	$__bss_start__, %edi
-	subl	$KERNEL_BASE, %edi
+	subl	$0xc0000000, %edi
 	addl	$0x200000, %edi
 	rep
 	stosl
@@ -109,16 +105,46 @@ _multiboot_entry:
 	 * Initialize the page directory
 	 */
 	movl	$V2P(startup_pagedirectory), %esi
-	movl	$(V2P(lowmem_pagetable) + 0x3), 0x0(%esi)
-	movl	$(V2P(kernel_pagetable) + 0x3), (KERNEL_BASE >> 20)(%esi)
-	movl	$(V2P(kernel_pagetable+4096) + 0x3), ((KERNEL_BASE >> 20) + 4)(%esi)
+	movl	$(V2P(lowmem_pagetable) + 0x7), 0x0(%esi)
+	movl	$(V2P(kernel_pagetable) + 0x7), 0xC00(%esi)
+	movl	$(V2P(kernel_pagetable+4096) + 0x7), 0xC04(%esi)
+	movl	$(V2P(kernel_pagetable+2*4096) + 0x7), 0xC08(%esi)
+	movl	$(V2P(kernel_pagetable+3*4096) + 0x7), 0xC0c(%esi)
+	movl	$(V2P(kernel_pagetable+4*4096) + 0x7), 0xC10(%esi)
+	movl	$(V2P(kernel_pagetable+5*4096) + 0x7), 0xC14(%esi)
+	movl	$(V2P(kernel_pagetable+6*4096) + 0x7), 0xC18(%esi)
+	movl	$(V2P(kernel_pagetable+7*4096) + 0x7), 0xC1c(%esi)
+	movl	$(V2P(kernel_pagetable+8*4096) + 0x7), 0xC20(%esi)
+	movl	$(V2P(kernel_pagetable+9*4096) + 0x7), 0xC24(%esi)
+	movl	$(V2P(kernel_pagetable+10*4096) + 0x7), 0xC28(%esi)
+	movl	$(V2P(kernel_pagetable+11*4096) + 0x7), 0xC2c(%esi)
+	movl	$(V2P(kernel_pagetable+12*4096) + 0x7), 0xC30(%esi)
+	movl	$(V2P(kernel_pagetable+13*4096) + 0x7), 0xC34(%esi)
+	movl	$(V2P(kernel_pagetable+14*4096) + 0x7), 0xC38(%esi)
+	movl	$(V2P(kernel_pagetable+15*4096) + 0x7), 0xC3c(%esi)
+	movl	$(V2P(kernel_pagetable+16*4096) + 0x7), 0xC40(%esi)
+	movl	$(V2P(kernel_pagetable+17*4096) + 0x7), 0xC44(%esi)
+	movl	$(V2P(kernel_pagetable+18*4096) + 0x7), 0xC48(%esi)
+	movl	$(V2P(kernel_pagetable+19*4096) + 0x7), 0xC4c(%esi)
+	movl	$(V2P(kernel_pagetable+20*4096) + 0x7), 0xC50(%esi)
+	movl	$(V2P(kernel_pagetable+21*4096) + 0x7), 0xC54(%esi)
+	movl	$(V2P(kernel_pagetable+22*4096) + 0x7), 0xC58(%esi)
+	movl	$(V2P(kernel_pagetable+23*4096) + 0x7), 0xC5c(%esi)
+	movl	$(V2P(kernel_pagetable+24*4096) + 0x7), 0xC60(%esi)
+	movl	$(V2P(kernel_pagetable+25*4096) + 0x7), 0xC64(%esi)
+	movl	$(V2P(kernel_pagetable+26*4096) + 0x7), 0xC68(%esi)
+	movl	$(V2P(kernel_pagetable+27*4096) + 0x7), 0xC6c(%esi)
+	movl	$(V2P(kernel_pagetable+28*4096) + 0x7), 0xC70(%esi)
+	movl	$(V2P(kernel_pagetable+29*4096) + 0x7), 0xC74(%esi)
+	movl	$(V2P(kernel_pagetable+30*4096) + 0x7), 0xC78(%esi)
+	movl	$(V2P(kernel_pagetable+31*4096) + 0x7), 0xC7c(%esi)
 
-	movl	$(V2P(startup_pagedirectory) + 0x3), 0xF00(%esi) 
-	movl	$(V2P(kernelmap_pagetable) + 0x3), 0xF0C(%esi)
+	movl	$(V2P(lowmem_pagetable) + 0x7), 0xD00(%esi)
+	movl	$(V2P(startup_pagedirectory) + 0x7), 0xF00(%esi) 
 #ifdef MP
-	movl	$(V2P(apic_pagetable) + 0x3), 0xFEC(%esi)
+	movl	$(V2P(apic_pagetable) + 0x7), 0xFEC(%esi)
 #endif /* MP */
-	movl	$(V2P(kpcr_pagetable) + 0x3), 0xFF0(%esi)
+	movl	$(V2P(kpcr_pagetable) + 0x7), 0xFF0(%esi)
 
 	/*
 	 * Initialize the page table that maps low memory
@@ -137,24 +163,24 @@ _multiboot_entry:
 	 * Initialize the page table that maps kernel memory
 	 */
 	movl	$V2P(kernel_pagetable), %esi
-	movl	$0x200003, %eax
+	movl	$0x200007, %eax
 	movl	$0, %edi
 .l4:
 	movl	%eax, (%esi, %edi)
 	addl	$0x1000, %eax
 	addl	$4, %edi
-	cmpl	$6144, %edi
+	cmpl	$8192, %edi
 	jl	.l4
-
+	
 #ifdef  MP
 
 	/*
 	 * Initialize the page table that maps the APIC register address space
 	 */
-
+	 
 	/* 
-	 * FIXME: APIC register address space can be non-standard so do the
-	 * mapping later
+	 * FIXME: APIC register address space can be non-standard so do the 
+	 * mapping later 
 	 */
 	movl	$V2P(apic_pagetable), %esi
 	movl	$0, %edi
@@ -171,49 +197,20 @@ _multiboot_entry:
 	 */
 	movl	$V2P(kpcr_pagetable), %esi
 	movl	$0, %edi
-	movl	$0x1003, %eax
+	movl	$0x1007, %eax
 	movl	%eax, (%esi, %edi)
-
 
 #ifdef MP
 
 .m1:
-    	/*
-     	 * Check for pae mode (only possible for an application processor)
-     	 */
-     
-	movl	$(V2P(_Ke386Pae)), %eax
-	cmpb	$0, (%eax)
-	je		.m3
-	
-	/*
-	 * Set up the PDBR
-	 */
-	movl	$(V2P(_pae_pagedirtable)), %eax
-	movl	%eax, %cr3
-	
-	/*
-	 * Enable pae mode
-	 */
-	movl	%cr4, %eax
-	orl		$X86_CR4_PAE, %eax
-	movl	%eax, %cr4
-
-	jmp		.m4
-
-.m3:
 
 #endif /* MP */
 
 	/*
 	 * Set up the PDBR
-	 */
+	 */	
 	movl	$(V2P(startup_pagedirectory)), %eax
 	movl	%eax, %cr3
-	
-#ifdef MP
-.m4:
-#endif
 
 	/*
 	 * Enable paging and set write protect
@@ -224,16 +221,16 @@ _multiboot_entry:
 
 	/*
 	 * Do an absolute jump because we now want to execute above 0xc0000000
-	 */
+	 */	
 	movl	$.l2, %eax
 	jmp	*%eax
 .l2:
-
+	
 	/*
 	 * Load the GDTR and IDTR with new tables located above
 	 * 0xc0000000
 	 */
-
+	
 	/* FIXME: Application processors should have their own GDT/IDT */
 	lgdt	_KiGdtDescriptor
 	lidt	_KiIdtDescriptor
@@ -251,8 +248,8 @@ _multiboot_entry:
 
 #ifdef MP
 
-	cmpl	$AP_MAGIC, %edx
-	jne	.m2
+	cmpl    $AP_MAGIC, %edx
+	jne     .m2
 
 	/*
 	 * This is an application processor executing
@@ -263,11 +260,6 @@ _multiboot_entry:
 	 */
 	pushl	$0
 	popfl
-	
-	/*
-	 *  Reserve space for the floating point save area.
-	 */
-	subl    $SIZEOF_FX_SAVE_AREA, %esp
 
 	/*
 	 * Call the application processor initialization code
@@ -289,7 +281,7 @@ _multiboot_entry:
 .l8:
 	jmp	.l8
 
-
+	
 .m2:
 
 #endif /* MP */
@@ -303,7 +295,7 @@ _multiboot_entry:
 	/*
 	 * Load the initial kernel stack
 	 */
-	movl	$(_init_stack_top - SIZEOF_FX_SAVE_AREA), %esp
+	movl	$_init_stack_top, %esp
 
 	/*
 	 * Initialize EFLAGS
@@ -321,7 +313,7 @@ _multiboot_entry:
 	pushl	$KERNEL_CS
 	pushl	$__main
 	lret
-
+	
 	/*
 	 * Catch illegal returns from main, try bug checking the system,
 	 * if that fails then loop forever.
@@ -335,13 +327,12 @@ _multiboot_entry:
 .l6:
 	jmp	.l6
 
-
+	
 	/*
 	 * This needs to be page aligned so put it at the beginning of the bss
 	 * segment
 	 */
 .bss
-_pagetable_start:
 startup_pagedirectory:
 	.fill 4096, 1, 0
 
@@ -349,33 +340,29 @@ lowmem_pagetable:
 	.fill 4096, 1, 0
 
 kernel_pagetable:
-	.fill 2*4096, 1, 0
+	.fill 32*4096, 1, 0	
 
-kernelmap_pagetable:
-	.fill 4096, 1, 0
-_pae_pagedirtable:
-	.fill 4096, 1, 0
 #ifdef MP
 apic_pagetable:
-	.fill 4096, 1, 0
+	.fill 4096, 1, 0	
 #endif /* MP */
 
 kpcr_pagetable:
-	.fill 4096, 1, 0
-_pagetable_end:
+	.fill 4096, 1, 0	
+
 _unmap_me:
 	.fill 4096, 1, 0
-
+	
 _init_stack:
 	.fill 3*4096, 1, 0
-_init_stack_top:
+_init_stack_top: 
 
-_unmap_me2:
+_unmap_me2:	
 	.fill 4096, 1, 0
-
-_trap_stack:
+	
+_trap_stack:	
 	.fill 3*4096, 1, 0
-_trap_stack_top:
-
-_unmap_me3:
-	.fill 4096, 1, 0
+_trap_stack_top:	
+	
+_unmap_me3:	
+	.fill 4096, 1, 0			

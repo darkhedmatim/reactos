@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: power.c,v 1.12 2004/10/24 20:37:26 weiden Exp $
+/* $Id: power.c,v 1.6 2002/09/08 10:23:39 chorns Exp $
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/po/power.c
  * PURPOSE:         Power Manager
@@ -25,17 +25,18 @@
  *   20/08/1999 EA  Created
  *   16/04/2001 CSH Stubs added
  */
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/io.h>
+#include <internal/po.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
 
 PDEVICE_NODE PopSystemPowerDeviceNode = NULL;
 
-/*
- * @implemented
- */
+
 NTSTATUS
 STDCALL
 PoCallDriver(
@@ -49,9 +50,6 @@ PoCallDriver(
   return Status;
 }
 
-/*
- * @unimplemented
- */
 PULONG
 STDCALL
 PoRegisterDeviceForIdleDetection(
@@ -63,9 +61,6 @@ PoRegisterDeviceForIdleDetection(
   return NULL;
 }
 
-/*
- * @unimplemented
- */
 PVOID
 STDCALL
 PoRegisterSystemState(
@@ -75,9 +70,6 @@ PoRegisterSystemState(
   return NULL;
 }
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 PoRequestPowerIrp(
@@ -98,9 +90,6 @@ PoSetDeviceBusy(
 {
 }
 
-/*
- * @unimplemented
- */
 POWER_STATE
 STDCALL
 PoSetPowerState(
@@ -116,9 +105,6 @@ PoSetPowerState(
   return ps;
 }
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 PoSetSystemState(
@@ -126,9 +112,6 @@ PoSetSystemState(
 {
 }
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 PoStartNextPowerIrp(
@@ -136,9 +119,6 @@ PoStartNextPowerIrp(
 {
 }
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 PoUnregisterSystemState(
@@ -212,41 +192,9 @@ PopSetSystemPowerState(
   return STATUS_NOT_IMPLEMENTED;
 }
 
-VOID INIT_FUNCTION
+VOID
 PoInit(VOID)
 {
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-NtInitiatePowerAction (
-	IN POWER_ACTION SystemAction,
-	IN SYSTEM_POWER_STATE MinSystemState,
- 	IN ULONG Flags,
-	IN BOOLEAN Asynchronous)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-STDCALL 
-NtPowerInformation(
-	IN POWER_INFORMATION_LEVEL PowerInformationLevel,
-	IN PVOID InputBuffer  OPTIONAL,
-	IN ULONG InputBufferLength,
-	OUT PVOID OutputBuffer  OPTIONAL,
-	IN ULONG OutputBufferLength
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

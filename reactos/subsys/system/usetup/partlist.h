@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: partlist.h,v 1.23 2004/08/21 19:30:12 hbirr Exp $
+/* $Id: partlist.h,v 1.3 2002/11/02 23:17:06 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/partlist.h
@@ -27,73 +27,43 @@
 #ifndef __PARTLIST_H__
 #define __PARTLIST_H__
 
-typedef enum _FORMATSTATE
+typedef struct _PARTDATA
 {
-  Unformatted,
-  UnformattedOrDamaged,
-  UnknownFormat,
-  Preformatted,
-  Formatted
-} FORMATSTATE, *PFORMATSTATE;
-
-
-typedef struct _PARTENTRY
-{
-  LIST_ENTRY ListEntry;
-
-  CHAR DriveLetter;
-  CHAR VolumeLabel[17];
-  CHAR FileSystemName[9];
-
-  /* Partition is unused disk space */
-  BOOLEAN Unpartitioned;
-
-  /* Partition is new. Table does not exist on disk yet */
-  BOOLEAN New;
-
-  /* Partition was created automatically. */
-  BOOLEAN AutoCreate;
-
-  FORMATSTATE FormatState;
-
-  /*
-   * Raw offset and length of the unpartitioned disk space.
-   * Includes the leading, not yet existing, partition table.
-   */
-  ULONGLONG UnpartitionedOffset;
-  ULONGLONG UnpartitionedLength;
-
-  PARTITION_INFORMATION PartInfo[4];
-
-} PARTENTRY, *PPARTENTRY;
-
-
-typedef struct _DISKENTRY
-{
-  LIST_ENTRY ListEntry;
-
-  ULONGLONG Cylinders;
-  ULONGLONG TracksPerCylinder;
-  ULONGLONG SectorsPerTrack;
-  ULONGLONG BytesPerSector;
-
   ULONGLONG DiskSize;
-  ULONGLONG CylinderSize;
-  ULONGLONG TrackSize;
-
   ULONG DiskNumber;
   USHORT Port;
   USHORT Bus;
   USHORT Id;
 
-  /* Has the partition list been modified? */
-  BOOLEAN Modified;
+  ULONGLONG PartSize;
+  ULONG PartNumber;
+  ULONG PartType;
 
-  BOOLEAN NewDisk;
+  CHAR DriveLetter;
+} PARTDATA, *PPARTDATA;
 
-  UNICODE_STRING DriverName;
 
-  LIST_ENTRY PartListHead;
+typedef struct _PARTENTRY
+{
+  ULONGLONG PartSize;
+  ULONG PartNumber;
+  ULONG PartType;
+
+  CHAR DriveLetter;
+  BOOL Used;
+} PARTENTRY, *PPARTENTRY;
+
+typedef struct _DISKENTRY
+{
+  ULONGLONG DiskSize;
+  ULONG DiskNumber;
+  USHORT Port;
+  USHORT Bus;
+  USHORT Id;
+  BOOL FixedDisk;
+
+  ULONG PartCount;
+  PPARTENTRY PartArray;
 
 } DISKENTRY, *PDISKENTRY;
 
@@ -106,60 +76,42 @@ typedef struct _PARTLIST
   SHORT Bottom;
 
   SHORT Line;
-  SHORT Offset;
 
   ULONG TopDisk;
   ULONG TopPartition;
 
-  PDISKENTRY CurrentDisk;
-  PPARTENTRY CurrentPartition;
+  ULONG CurrentDisk;
+  ULONG CurrentPartition;
 
-  PDISKENTRY ActiveBootDisk;
-  PPARTENTRY ActiveBootPartition;
-
-  LIST_ENTRY DiskListHead;
+  ULONG DiskCount;
+  PDISKENTRY DiskArray;
 
 } PARTLIST, *PPARTLIST;
 
 
 
+
 PPARTLIST
-CreatePartitionList (SHORT Left,
-		     SHORT Top,
-		     SHORT Right,
-		     SHORT Bottom);
+CreatePartitionList(SHORT Left,
+		    SHORT Top,
+		    SHORT Right,
+		    SHORT Bottom);
 
 VOID
-DestroyPartitionList (PPARTLIST List);
+DestroyPartitionList(PPARTLIST List);
 
 VOID
-DrawPartitionList (PPARTLIST List);
+DrawPartitionList(PPARTLIST List);
 
 VOID
-SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber);
+ScrollDownPartitionList(PPARTLIST List);
 
 VOID
-ScrollDownPartitionList (PPARTLIST List);
+ScrollUpPartitionList(PPARTLIST List);
 
-VOID
-ScrollUpPartitionList (PPARTLIST List);
-
-VOID
-CreateNewPartition (PPARTLIST List,
-		    ULONGLONG PartitionSize,
-		    BOOLEAN AutoCreate);
-
-VOID
-DeleteCurrentPartition (PPARTLIST List);
-
-VOID
-CheckActiveBootPartition (PPARTLIST List);
-
-BOOLEAN
-CheckForLinuxFdiskPartitions (PPARTLIST List);
-
-BOOLEAN
-WritePartitionsToDisk (PPARTLIST List);
+BOOL
+GetPartitionData(PPARTLIST List,
+		 PPARTDATA Data);
 
 #endif /* __PARTLIST_H__ */
 

@@ -1,4 +1,4 @@
-/* $Id: reply.c,v 1.24 2004/12/24 17:06:59 navaraf Exp $
+/* $Id: reply.c,v 1.12 2002/11/03 20:01:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,11 +11,19 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
+
+#define TAG_LPC_MESSAGE   TAG('L', 'P', 'C', 'M')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -29,6 +37,7 @@
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL
 EiReplyOrRequestPort (IN	PEPORT		Port, 
@@ -41,7 +50,7 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
    
    if (Port == NULL)
      {
-       KEBUGCHECK(0);
+       KeBugCheck(0);
      }
 
    MessageReply = ExAllocatePoolWithTag(NonPagedPool, sizeof(QUEUEDMESSAGE),
@@ -53,10 +62,10 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
 	memcpy(&MessageReply->Message, LpcReply, LpcReply->MessageSize);
      }
    
-   MessageReply->Message.ClientId.UniqueProcess = PsGetCurrentProcessId();
-   MessageReply->Message.ClientId.UniqueThread = PsGetCurrentThreadId();
+   MessageReply->Message.Cid.UniqueProcess = PsGetCurrentProcessId();
+   MessageReply->Message.Cid.UniqueThread = PsGetCurrentThreadId();
    MessageReply->Message.MessageType = MessageType;
-   MessageReply->Message.MessageId = InterlockedIncrementUL(&LpcpNextMessageId);
+   MessageReply->Message.MessageId = InterlockedIncrement(&EiNextLpcMessageId);
    
    KeAcquireSpinLock(&Port->Lock, &oldIrql);
    EiEnqueueMessagePort(Port, MessageReply);
@@ -76,6 +85,7 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL
 NtReplyPort (IN	HANDLE		PortHandle,
@@ -96,12 +106,6 @@ NtReplyPort (IN	HANDLE		PortHandle,
      {
 	DPRINT("NtReplyPort() = %x\n", Status);
 	return(Status);
-     }
-
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
      }
    
    Status = EiReplyOrRequestPort(Port->OtherPort, 
@@ -134,6 +138,7 @@ NtReplyPort (IN	HANDLE		PortHandle,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL
 NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
@@ -215,10 +220,7 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
    
    if (!NT_SUCCESS(Status))
      {
-       if (STATUS_THREAD_IS_TERMINATING != Status)
-	 {
-	   DPRINT1("NtReplyWaitReceivePortEx() = %x\n", Status);
-	 }
+       DPRINT1("NtReplyWaitReceivePortEx() = %x\n", Status);
        ObDereferenceObject(Port);
        return(Status);
      }
@@ -228,8 +230,7 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
     */
    KeAcquireSpinLock(&Port->Lock, &oldIrql);
    Request = EiDequeueMessagePort(Port);
-   KeReleaseSpinLock(&Port->Lock, oldIrql);
-
+   
    if (Request->Message.MessageType == LPC_CONNECTION_REQUEST)
      {
        LPC_MESSAGE Header;
@@ -240,7 +241,7 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
        Header.DataSize = CRequest->ConnectDataLength;
        Header.MessageSize = Header.DataSize + sizeof(LPC_MESSAGE);
        Status = MmCopyToCaller(LpcMessage, &Header, sizeof(LPC_MESSAGE));
-       if (NT_SUCCESS(Status))
+       if (!NT_SUCCESS(Status))
 	 {
 	   Status = MmCopyToCaller((PVOID)(LpcMessage + 1),
 				   CRequest->ConnectData,
@@ -259,7 +260,6 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
 	* undo what we did and return.
 	* FIXME: Also increment semaphore.
 	*/
-       KeAcquireSpinLock(&Port->Lock, &oldIrql);
        EiEnqueueMessageAtHeadPort(Port, Request);
        KeReleaseSpinLock(&Port->Lock, oldIrql);
        ObDereferenceObject(Port);
@@ -267,12 +267,12 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
      }
    if (Request->Message.MessageType == LPC_CONNECTION_REQUEST)
      {
-       KeAcquireSpinLock(&Port->Lock, &oldIrql);
        EiEnqueueConnectMessagePort(Port, Request);
        KeReleaseSpinLock(&Port->Lock, oldIrql);
      }
    else
      {
+       KeReleaseSpinLock(&Port->Lock, oldIrql);
        ExFreePool(Request);
      }
    
@@ -300,6 +300,7 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL
 NtReplyWaitReceivePort (IN  HANDLE		PortHandle,
@@ -324,28 +325,14 @@ NtReplyWaitReceivePort (IN  HANDLE		PortHandle,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL
 NtReplyWaitReplyPort (HANDLE		PortHandle,
 		      PLPC_MESSAGE	ReplyMessage)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LpcRequestWaitReplyPort (
-	IN PEPORT		Port,
-	IN PLPC_MESSAGE	LpcMessageRequest,
-	OUT PLPC_MESSAGE	LpcMessageReply
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 /* EOF */

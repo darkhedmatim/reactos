@@ -11,9 +11,6 @@
 #include <msvcrt/string.h>
 #include <msvcrt/ctype.h>
 
-/*
- * @implemented
- */
 char * _strlwr(char *x)
 {
 	char  *y=x;

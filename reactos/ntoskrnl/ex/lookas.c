@@ -1,4 +1,4 @@
-/* $Id: lookas.c,v 1.14 2004/08/15 16:39:01 chorns Exp $
+/* $Id: lookas.c,v 1.7 2002/09/30 20:52:23 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -6,7 +6,6 @@
  * PURPOSE:         Lookaside lists
  * PROGRAMMERS:     David Welch (welch@mcmail.com)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
- * TODO:            Use InterlockedXxxEntrySList for binary compatibility
  * UPDATE HISTORY:
  *   22-05-1998 DW  Created
  *   02-07-2001 CSH Implemented lookaside lists
@@ -14,7 +13,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -28,44 +28,7 @@ KSPIN_LOCK ExpPagedLookasideListLock;
 
 PLOOKASIDE_MINMAX_ROUTINE ExpMinMaxRoutine;
 
-#define LookasideListLock(l)(&(l->Obsoleted))
-
 /* FUNCTIONS *****************************************************************/
-
-static
-inline
-PSINGLE_LIST_ENTRY
- PopEntrySList(
-	PSLIST_HEADER	ListHead
-	)
-{
-	PSINGLE_LIST_ENTRY ListEntry;
-
-	ListEntry = ListHead->Next.Next;
-	if (ListEntry!=NULL)
-	{
-		ListHead->Next.Next = ListEntry->Next;
-    ListHead->Depth++;
-    ListHead->Sequence++;
-  }
-	return ListEntry;
-}
-
-
-static
-inline
-VOID
-PushEntrySList (
-	PSLIST_HEADER	ListHead,
-	PSINGLE_LIST_ENTRY	Entry
-	)
-{
-	Entry->Next = ListHead->Next.Next;
-	ListHead->Next.Next = Entry;
-  ListHead->Depth++;
-  ListHead->Sequence++;
-}
-
 
 VOID ExpDefaultMinMax(
   POOL_TYPE PoolType,
@@ -122,11 +85,11 @@ ExpDefaultFree(PVOID Buffer)
  *   Buffer = Pointer to memory to free
  */
 {
-  ExFreePool(Buffer);
+  return ExFreePool(Buffer);
 }
 
 
-VOID INIT_FUNCTION
+VOID
 ExpInitLookasideLists()
 {
   InitializeListHead(&ExpNonPagedLookasideListHead);
@@ -139,10 +102,9 @@ ExpInitLookasideLists()
   ExpMinMaxRoutine = ExpDefaultMinMax;
 }
 
-
 PVOID
-FASTCALL
-ExiAllocateFromPagedLookasideList (
+STDCALL
+ExAllocateFromPagedLookasideList (
 	PPAGED_LOOKASIDE_LIST	Lookaside
 	)
 {
@@ -153,11 +115,11 @@ ExiAllocateFromPagedLookasideList (
 
   Lookaside->TotalAllocates++;
 
-//  ExAcquireFastMutex(LookasideListLock(Lookaside));
+//  ExAcquireFastMutex(&Lookaside->Lock);
 
   Entry = PopEntrySList(&Lookaside->ListHead);
 
-//  ExReleaseFastMutex(LookasideListLock(Lookaside));
+//  ExReleaseFastMutex(&Lookaside->Lock);
 
   if (Entry)
     return Entry;
@@ -171,10 +133,6 @@ ExiAllocateFromPagedLookasideList (
   return Entry;
 }
 
-
-/*
- * @implemented
- */
 VOID
 STDCALL
 ExDeleteNPagedLookasideList (
@@ -188,7 +146,7 @@ ExDeleteNPagedLookasideList (
      for them */
   while ((Entry = ExInterlockedPopEntrySList(
     &Lookaside->ListHead,
-    LookasideListLock(Lookaside))) != NULL)
+    &Lookaside->Lock)) != NULL)
   {
     (*Lookaside->Free)(Entry);
   }
@@ -198,10 +156,6 @@ ExDeleteNPagedLookasideList (
   KeReleaseSpinLock(&ExpNonPagedLookasideListLock, OldIrql);
 }
 
-
-/*
- * @implemented
- */
 VOID
 STDCALL
 ExDeletePagedLookasideList (
@@ -216,13 +170,13 @@ ExDeletePagedLookasideList (
   for (;;)
   {
 
-//  ExAcquireFastMutex(LookasideListLock(Lookaside));
+//  ExAcquireFastMutex(&Lookaside->Lock);
 
     Entry = PopEntrySList(&Lookaside->ListHead);
     if (!Entry)
       break;
 
-//  ExReleaseFastMutex(LookasideListLock(Lookaside));
+//  ExReleaseFastMutex(&Lookaside->Lock);
 
     (*Lookaside->Free)(Entry);
   }
@@ -232,33 +186,28 @@ ExDeletePagedLookasideList (
   KeReleaseSpinLock(&ExpPagedLookasideListLock, OldIrql);
 }
 
-
 VOID
 STDCALL
-ExiFreeToPagedLookasideList (
+ExFreeToPagedLookasideList (
 	PPAGED_LOOKASIDE_LIST	Lookaside,
 	PVOID			Entry
 	)
 {
 	Lookaside->TotalFrees++;
 
-	if (ExQueryDepthSList(&Lookaside->ListHead) >= Lookaside->Depth)
+	if (ExQueryDepthSList(&Lookaside->ListHead) >= Lookaside->MinimumDepth)
 	{
 		Lookaside->FreeMisses++;
 		(*Lookaside->Free)(Entry);
 	}
 	else
 	{
-//  ExAcquireFastMutex(LookasideListLock(Lookaside));
+//  ExAcquireFastMutex(&Lookaside->Lock);
     PushEntrySList(&Lookaside->ListHead, (PSINGLE_LIST_ENTRY)Entry);
-//  ExReleaseFastMutex(LookasideListLock(Lookaside));
+//  ExReleaseFastMutex(&Lookaside->Lock);
 	}
 }
 
-
-/*
- * @implemented
- */
 VOID
 STDCALL
 ExInitializeNPagedLookasideList (
@@ -297,14 +246,14 @@ ExInitializeNPagedLookasideList (
     Lookaside->Free = ExpDefaultFree;
 
   ExInitializeSListHead(&Lookaside->ListHead);
-  KeInitializeSpinLock(LookasideListLock(Lookaside));
+  KeInitializeSpinLock(&Lookaside->Lock);
 
   /* Determine minimum and maximum number of entries on the lookaside list
      using the configured algorithm */
   (*ExpMinMaxRoutine)(
     NonPagedPool,
     Lookaside->Size,
-    &Lookaside->Depth,
+    &Lookaside->MinimumDepth,
     &Lookaside->MaximumDepth);
 
   ExInterlockedInsertTailList(
@@ -313,10 +262,6 @@ ExInitializeNPagedLookasideList (
     &ExpNonPagedLookasideListLock);
 }
 
-
-/*
- * @implemented
- */
 VOID
 STDCALL
 ExInitializePagedLookasideList (
@@ -356,14 +301,14 @@ ExInitializePagedLookasideList (
     Lookaside->Free = ExpDefaultFree;
 
   ExInitializeSListHead(&Lookaside->ListHead);
-  //ExInitializeFastMutex(LookasideListLock(Lookaside));
+  //ExInitializeFastMutex(&Lookaside->Lock);
 
   /* Determine minimum and maximum number of entries on the lookaside list
      using the configured algorithm */
   (*ExpMinMaxRoutine)(
     PagedPool,
     Lookaside->Size,
-    &Lookaside->Depth,
+    &Lookaside->MinimumDepth,
     &Lookaside->MaximumDepth);
 
   ExInterlockedInsertTailList(

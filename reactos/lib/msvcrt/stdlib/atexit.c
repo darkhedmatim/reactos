@@ -2,58 +2,17 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/internal/atexit.h>
 
-typedef int (* _onexit_t)(void);
-
-/*
- * @implemented
- *
- * Ported from WINE
- * Copyright (C) 2000 Jon Griffiths
- */
-_onexit_t __dllonexit(_onexit_t func, _onexit_t **start, _onexit_t **end)
-{
-   _onexit_t *tmp;
-   int len;
-
-   if (!start || !*start || !end || !*end)
-      return NULL;
-
-   len = (*end - *start);
-   if (++len <= 0)
-      return NULL;
-
-   tmp = (_onexit_t *)realloc(*start, len * sizeof(tmp));
-   if (!tmp)
-      return NULL;
-
-   *start = tmp;
-   *end = tmp + len;
-   tmp[len - 1] = func;
-
-   return func;
-}
-
-/*
- * @implemented
- */
-_onexit_t _onexit(_onexit_t a)
+int
+atexit(void (*a)(void))
 {
   struct __atexit *ap;
   if (a == 0)
-    return NULL;
+    return -1;
   ap = (struct __atexit *)malloc(sizeof(struct __atexit));
   if (!ap)
-    return NULL;
+    return -1;
   ap->__next = __atexit_ptr;
-  ap->__function = (void (*)(void))a;
+  ap->__function = a;
   __atexit_ptr = ap;
-  return a;
-}
-
-/*
- * @implemented
- */
-int atexit(void (*a)(void))
-{
-  return _onexit((_onexit_t)a) == (_onexit_t)a ? 0 : -1;
+  return 0;
 }

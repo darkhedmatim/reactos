@@ -8,22 +8,40 @@
 #define __ROUTINES_H
 
 
-UINT Random(VOID);
+inline NTSTATUS BuildDatagramSendRequest(
+    PDATAGRAM_SEND_REQUEST *SendRequest,
+    PIP_ADDRESS RemoteAddress,
+    USHORT RemotePort,
+    PNDIS_BUFFER Buffer,
+    DWORD BufferSize,
+    DATAGRAM_COMPLETION_ROUTINE Complete,
+    PVOID Context,
+    DATAGRAM_BUILD_ROUTINE Build,
+    ULONG Flags);
+
+inline NTSTATUS BuildTCPSendRequest(
+    PTCP_SEND_REQUEST *SendRequest,
+    DATAGRAM_COMPLETION_ROUTINE Complete,
+    PVOID Context,
+    PVOID ProtocolContext);
+
+UINT Random(
+    VOID);
 
 UINT CopyBufferToBufferChain(
     PNDIS_BUFFER DstBuffer,
     UINT DstOffset,
-    PCHAR SrcData,
+    PUCHAR SrcData,
     UINT Length);
 
 UINT CopyBufferChainToBuffer(
-    PCHAR DstData,
+    PUCHAR DstData,
     PNDIS_BUFFER SrcBuffer,
     UINT SrcOffset,
     UINT Length);
 
 UINT CopyPacketToBuffer(
-    PCHAR DstData,
+    PUCHAR DstData,
     PNDIS_PACKET SrcPacket,
     UINT SrcOffset,
     UINT Length);
@@ -35,10 +53,8 @@ UINT CopyPacketToBufferChain(
     UINT SrcOffset,
     UINT Length);
 
-VOID FreeNdisPacketX(
-    PNDIS_PACKET Packet,
-    PCHAR File,
-    UINT Line);
+VOID FreeNdisPacket(
+    PNDIS_PACKET Packet);
 
 PVOID AdjustPacket(
     PNDIS_PACKET Packet,
@@ -49,25 +65,12 @@ UINT ResizePacket(
     PNDIS_PACKET Packet,
     UINT Size);
 
-NDIS_STATUS AllocatePacketWithBufferX( PNDIS_PACKET *NdisPacket,
-				       PCHAR Data, UINT Len,
-				       PCHAR File, UINT Line );
-
-void GetDataPtr( PNDIS_PACKET Packet,
-		 UINT Offset, 
-		 PCHAR *DataOut,
-		 PUINT Size );
-
 #ifdef DBG
 VOID DisplayIPPacket(
     PIP_PACKET IPPacket);
 #define DISPLAY_IP_PACKET(x) DisplayIPPacket(x)
-VOID DisplayTCPPacket(
-    PIP_PACKET IPPacket);
-#define DISPLAY_TCP_PACKET(x) DisplayTCPPacket(x)
 #else
 #define DISPLAY_IP_PACKET(x)
-#define DISPLAY_TCP_PACKET(x)
 #endif /* DBG */
 
 #endif /* __ROUTINES_H */

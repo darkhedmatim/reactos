@@ -83,10 +83,18 @@
  *
  ****************************************************************************/
 
-#include <ntoskrnl.h>
+#include <ntddk.h>
+#include <internal/kd.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/module.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-#include <internal/ps.h>
+
+extern LIST_ENTRY PiThreadListHead;
+
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
@@ -106,8 +114,6 @@ static PETHREAD GspRunThread; /* NULL means run all threads */
 static PETHREAD GspDbgThread;
 static PETHREAD GspEnumThread;
 
-extern LIST_ENTRY PsProcessListHead;
-
 /* Number of Registers.  */
 #define NUMREGS	16
 
@@ -123,8 +129,6 @@ typedef struct _CPU_REGISTER
 {
   DWORD Size;
   DWORD OffsetInTF;
-  DWORD OffsetInContext;
-  BOOLEAN SetInContext;
 } CPU_REGISTER, *PCPU_REGISTER;
 
 #define KTRAP_FRAME_X86 KTRAP_FRAME
@@ -133,22 +137,22 @@ typedef struct _CPU_REGISTER
 
 static CPU_REGISTER GspRegisters[NUMREGS] =
 {
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eax), FIELD_OFFSET (CONTEXT, Eax), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ecx), FIELD_OFFSET (CONTEXT, Ecx), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Edx), FIELD_OFFSET (CONTEXT, Edx), FALSE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ebx), FIELD_OFFSET (CONTEXT, Ebx), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Esp), FIELD_OFFSET (CONTEXT, Esp), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ebp), FIELD_OFFSET (CONTEXT, Ebp), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Esi), FIELD_OFFSET (CONTEXT, Esi), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Edi), FIELD_OFFSET (CONTEXT, Edi), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eip), FIELD_OFFSET (CONTEXT, Eip), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eflags), FIELD_OFFSET (CONTEXT, EFlags), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Cs), FIELD_OFFSET (CONTEXT, SegCs), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ss), FIELD_OFFSET (CONTEXT, SegSs), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ds), FIELD_OFFSET (CONTEXT, SegDs), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Es), FIELD_OFFSET (CONTEXT, SegEs), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Fs), FIELD_OFFSET (CONTEXT, SegFs), TRUE },
-  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Gs), FIELD_OFFSET (CONTEXT, SegGs), TRUE }
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eax) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ecx) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Edx) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ebx) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Esp) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ebp) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Esi) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Edi) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eip) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Eflags) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Cs) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ss) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Ds) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Es) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Fs) },
+  { 4, FIELD_OFFSET (KTRAP_FRAME_X86, Gs) }
 };
 
 static PCHAR GspThreadStates[THREAD_STATE_MAX] =
@@ -263,9 +267,9 @@ GspGetPacket()
       if (ch == '#')
 	{
 	  ch = KdGetChar ();
-	  XmitChecksum = (CHAR)(HexValue (ch) << 4);
+	  XmitChecksum = HexValue (ch) << 4;
 	  ch = KdGetChar ();
-	  XmitChecksum += (CHAR)(HexValue (ch));
+	  XmitChecksum += HexValue (ch);
 
 	  if (Checksum != XmitChecksum)
 	    {
@@ -345,10 +349,46 @@ GspPutPacketNoWait (PCHAR Buffer)
   KdPutChar (HexChars[Checksum & 0xf]);
 }
 
+
+VOID
+GspDebugError(LPSTR Message)
+{
+  DbgPrint ("%s\n", Message);
+}
+
+/* Address of a routine to RTE to if we get a memory fault.  */
+static VOID (*volatile MemoryFaultRoutine) () = NULL;
+
 /* Indicate to caller of GspMem2Hex or GspHex2Mem that there has been an
    error.  */
 static volatile BOOLEAN GspMemoryError = FALSE;
-static volatile void *GspAccessLocation = NULL;
+
+
+/* Currently not used */
+VOID
+GspSetMemoryError()
+{
+  GspMemoryError = TRUE;
+}
+
+
+/* These are separate functions so that they are so short and sweet
+   that the compiler won't save any Registers (if there is a fault
+   to MemoryFaultRoutine, they won't get restored, so there better
+   not be any saved).  */
+CHAR
+GspGetChar (PCHAR Address)
+{
+  return *Address;
+}
+
+
+VOID
+GspSetChar (PCHAR Address,
+  CHAR Value)
+{
+  *Address = Value;
+}
 
 
 /* Convert the memory pointed to by Address into hex, placing result in Buffer */
@@ -364,25 +404,19 @@ GspMem2Hex (PCHAR Address,
   ULONG i;
   CHAR ch;
 
-  if (NULL == Address && MayFault)
+  if (MayFault)
+    MemoryFaultRoutine = GspSetMemoryError;
+  for (i = 0; i < Count; i++)
     {
-      GspMemoryError = TRUE;
-      return Buffer;
-    }
-
-  for (i = 0; i < (ULONG) Count; i++)
-    {
-      if (MayFault)
-        GspAccessLocation = Address;
-      ch = *Address;
-      GspAccessLocation = NULL;
+      ch = GspGetChar (Address++);
       if (MayFault && GspMemoryError)
         return (Buffer);
       *Buffer++ = HexChars[(ch >> 4) & 0xf];
       *Buffer++ = HexChars[ch & 0xf];
-      Address++;
     }
   *Buffer = 0;
+  if (MayFault)
+    MemoryFaultRoutine = NULL;
   return (Buffer);
 }
 
@@ -395,51 +429,21 @@ GspHex2Mem (PCHAR Buffer,
   ULONG Count,
   BOOLEAN MayFault)
 {
-  PCHAR current;
-  PCHAR page;
-  ULONG countinpage;
   ULONG i;
   CHAR ch;
-  ULONG oldprot = 0;
 
-  current = Address;
-  while ( current < Address + Count )
+  if (MayFault)
+    MemoryFaultRoutine = GspSetMemoryError;
+  for (i = 0; i < Count; i++)
     {
-      page = (PCHAR)PAGE_ROUND_DOWN (current);
-      if (Address + Count <= page + PAGE_SIZE)
-        {
-          /* Fits in this page */
-          countinpage = Count;
-        }
-      else
-        {
-          /* Flows into next page, handle only current page in this iteration */
-          countinpage = PAGE_SIZE - (Address - page);
-        }
-      if (MayFault)
-        {
-          oldprot = MmGetPageProtect (NULL, Address);
-          MmSetPageProtect (NULL, Address, PAGE_EXECUTE_READWRITE);
-        }
-
-      for (i = 0; i < countinpage && ! GspMemoryError; i++)
-        {
-          ch = (CHAR)(HexValue (*Buffer++) << 4);
-          ch = (CHAR)(ch + HexValue (*Buffer++));
-
-          GspAccessLocation = Address;
-          *current = ch;
-          GspAccessLocation = NULL;
-          current++;
-        }
-      if (MayFault)
-        {
-          MmSetPageProtect (NULL, page, oldprot);
-          if (GspMemoryError)
-            return (Buffer);
-        }
+      ch = HexValue (*Buffer++) << 4;
+      ch = ch + HexValue (*Buffer++);
+      GspSetChar (Address++, ch);
+      if (MayFault && GspMemoryError)
+        return (Buffer);
     }
-
+  if (MayFault)
+    MemoryFaultRoutine = NULL;
   return (Buffer);
 }
 
@@ -457,12 +461,14 @@ GspComputeSignal (NTSTATUS ExceptionCode)
       SigVal = 8;
       break;			/* divide by zero */
     case STATUS_SINGLE_STEP:
-      				/* debug exception */
+      SigVal = 5;
+      break;			/* debug exception */
     case STATUS_BREAKPOINT:
       SigVal = 5;
       break;			/* breakpoint */
     case STATUS_INTEGER_OVERFLOW:
-      				/* into instruction (overflow) */
+      SigVal = 16;
+      break;			/* into instruction (overflow) */
     case STATUS_ARRAY_BOUNDS_EXCEEDED:
       SigVal = 16;
       break;			/* bound instruction */
@@ -475,12 +481,11 @@ GspComputeSignal (NTSTATUS ExceptionCode)
       break;			/* coprocessor not available */
 #endif
     case STATUS_STACK_OVERFLOW:
-      				/* stack exception */
+      SigVal = 11;
+      break;			/* stack exception */
     case STATUS_DATATYPE_MISALIGNMENT:
-      				/* page fault */
-    case STATUS_ACCESS_VIOLATION:
-      SigVal = 11;		/* access violation */
-      break;
+      SigVal = 11;
+      break;			/* page fault */
     default:
       SigVal = 7;		/* "software generated" */
     }
@@ -525,76 +530,55 @@ GspLong2Hex (PCHAR *Address,
 {
   LONG Save;
 
-  Save = (((Value >> 0) & 0xff) << 24) |
-         (((Value >> 8) & 0xff) << 16) |
-         (((Value >> 16) & 0xff) << 8) |
-         (((Value >> 24) & 0xff) << 0);
+  Save = (((Value >> 0) & 0xf) << 24) |
+         (((Value >> 8) & 0xf) << 16) |
+         (((Value >> 16) & 0xf) << 8) |
+         (((Value >> 24) & 0xf) << 0);
   *Address = GspMem2Hex ((PCHAR) &Save, *Address, 4, FALSE);
-}
-
-
-/*
- * When coming from kernel mode, Esp is not stored in the trap frame.
- * Instead, it was pointing to the location of the TrapFrame Esp member
- * when the exception occured. When coming from user mode, Esp is just
- * stored in the TrapFrame Esp member.
- */
-static LONG
-GspGetEspFromTrapFrame(PKTRAP_FRAME TrapFrame)
-{
-
-  return KeGetPreviousMode() == KernelMode
-         ? (LONG) &TrapFrame->Esp : TrapFrame->Esp;
 }
 
 
 VOID
 GspGetRegistersFromTrapFrame(PCHAR Address,
-  PCONTEXT Context,
   PKTRAP_FRAME TrapFrame)
 {
+  PCPU_REGISTER Regs;
   ULONG Value;
   PCHAR Buffer;
   PULONG p;
   DWORD i;
 
   Buffer = Address;
-  for (i = 0; i < sizeof (GspRegisters) / sizeof (GspRegisters[0]); i++)
+  Regs = &GspRegisters[0];
+  for (i = 0; i < NUMREGS; i++)
   {
     if (TrapFrame)
     {
-      if (ESP == i)
-      {
-        Value = GspGetEspFromTrapFrame (TrapFrame);
-      }
-      else
-      {
-        p = (PULONG) ((ULONG_PTR) TrapFrame + GspRegisters[i].OffsetInTF);
-        Value = *p;
-      }
+      p = (PULONG) ((ULONG_PTR) TrapFrame + Regs[i].OffsetInTF);
+      Value = *p;
     }
     else if (i == EIP_REGNO)
-    {
+		{
       /*
        * This thread has not been sheduled yet so assume it
        * is still in PsBeginThreadWithContextInternal().
        */
       Value = (ULONG) PsBeginThreadWithContextInternal;
-    }
+		}
     else
-    {
+		{
       Value = 0;
     }
-    Buffer = GspMem2Hex ((PCHAR) &Value, Buffer, GspRegisters[i].Size, FALSE);
+    Buffer = GspMem2Hex ((PCHAR) &Value, Buffer, Regs[i].Size, FALSE);
   }
 }
 
 
 VOID
 GspSetRegistersInTrapFrame(PCHAR Address,
-  PCONTEXT Context,
   PKTRAP_FRAME TrapFrame)
 {
+  PCPU_REGISTER Regs;
   ULONG Value;
   PCHAR Buffer;
   PULONG p;
@@ -604,14 +588,12 @@ GspSetRegistersInTrapFrame(PCHAR Address,
     return;
 
   Buffer = Address;
+  Regs = &GspRegisters[0];
   for (i = 0; i < NUMREGS; i++)
   {
-    if (GspRegisters[i].SetInContext)
-      p = (PULONG) ((ULONG_PTR) Context + GspRegisters[i].OffsetInContext);
-    else
-      p = (PULONG) ((ULONG_PTR) TrapFrame + GspRegisters[i].OffsetInTF);
+    p = (PULONG) ((ULONG_PTR) TrapFrame + Regs[i].OffsetInTF);
     Value = 0;
-    Buffer = GspHex2Mem (Buffer, (PCHAR) &Value, GspRegisters[i].Size, FALSE);
+    Buffer = GspHex2Mem (Buffer, (PCHAR) &Value, Regs[i].Size, FALSE);
     *p = Value;
   }
 }
@@ -620,7 +602,6 @@ GspSetRegistersInTrapFrame(PCHAR Address,
 VOID
 GspSetSingleRegisterInTrapFrame(PCHAR Address,
   LONG Number,
-  PCONTEXT Context,
   PKTRAP_FRAME TrapFrame)
 {
   ULONG Value;
@@ -629,10 +610,7 @@ GspSetSingleRegisterInTrapFrame(PCHAR Address,
   if (!TrapFrame)
     return;
 
-  if (GspRegisters[Number].SetInContext)
-    p = (PULONG) ((ULONG_PTR) Context + GspRegisters[Number].OffsetInContext);
-  else
-    p = (PULONG) ((ULONG_PTR) TrapFrame + GspRegisters[Number].OffsetInTF);
+  p = (PULONG) ((ULONG_PTR) TrapFrame + GspRegisters[Number].OffsetInTF);
   Value = 0;
   GspHex2Mem (Address, (PCHAR) &Value, GspRegisters[Number].Size, FALSE);
   *p = Value;
@@ -649,6 +627,14 @@ GspFindThread(PCHAR Data,
     {
       /* All threads */
       ThreadInfo = NULL;
+    }
+    else if (strcmp (Data, "0") == 0)
+    {
+       /* Pick any thread, pick the first thread,
+        * which is what most people are interested in
+        */
+       ThreadInfo = CONTAINING_RECORD (PiThreadListHead.Flink,
+         ETHREAD, Tcb.ThreadListEntry);
     }
     else
     {
@@ -681,11 +667,7 @@ GspSetThread(PCHAR Request)
 			  {
 			    GspOutBuffer[0] = 'O';
 			    GspOutBuffer[1] = 'K';
-
-                            if(GspRunThread) ObDereferenceObject(GspRunThread);
-
-	                    GspRunThread = ThreadInfo;
-	                    if (GspRunThread) ObReferenceObject(GspRunThread);
+	        GspRunThread = ThreadInfo;
 			  }
 			  else
 			  {
@@ -697,10 +679,7 @@ GspSetThread(PCHAR Request)
 			  {
 			    GspOutBuffer[0] = 'O';
 			    GspOutBuffer[1] = 'K';
-
-                            if(GspDbgThread) ObDereferenceObject(GspDbgThread);
-
-                            GspDbgThread = ThreadInfo;
+	        GspDbgThread = ThreadInfo;
 			  }
 			  else
 			  {
@@ -727,101 +706,37 @@ GspQuery(PCHAR Request)
     /* Get current thread id */
     GspOutBuffer[0] = 'Q';
     GspOutBuffer[1] = 'C';
-    if (NULL != GspDbgThread)
-    {
-      Value = (ULONG) GspDbgThread->Cid.UniqueThread;
-    }
-    else
-    {
-      Value = (ULONG) PsGetCurrentThread()->Cid.UniqueThread;
-    }
+    Value = (ULONG) GspDbgThread->Cid.UniqueThread;
     GspLong2Hex (&ptr, Value);
   }
   else if (strncmp (Command, "fThreadInfo", 11) == 0)
   {
-    PEPROCESS Process;
-    PLIST_ENTRY AThread, AProcess;
     PCHAR ptr = &GspOutBuffer[1];
 
     /* Get first thread id */
-    GspEnumThread = NULL;
-    AProcess = PsProcessListHead.Flink;
-    while(AProcess != &PsProcessListHead)
-    {
-      Process = CONTAINING_RECORD(AProcess, EPROCESS, ProcessListEntry);
-      AThread = Process->ThreadListHead.Flink;
-      if(AThread != &Process->ThreadListHead)
-      {
-        GspEnumThread = CONTAINING_RECORD (Process->ThreadListHead.Flink,
-                                           ETHREAD, ThreadListEntry);
-        break;
-      }
-      AProcess = AProcess->Flink;
-    }
-    if(GspEnumThread != NULL)
-    {
-      GspOutBuffer[0] = 'm';
-      Value = (ULONG) GspEnumThread->Cid.UniqueThread;
-      GspLong2Hex (&ptr, Value);
-    }
-    else
-    {
-      /* FIXME - what to do here? This case should never happen though, there
-                 should always be at least one thread on the system... */
-      /* GspOutBuffer[0] = 'l'; */
-    }
+    GspOutBuffer[0] = 'm';
+    GspEnumThread = CONTAINING_RECORD (PiThreadListHead.Flink,
+      ETHREAD, Tcb.ThreadListEntry);
+    Value = (ULONG) GspEnumThread->Cid.UniqueThread;
+    GspLong2Hex (&ptr, Value);
   }
   else if (strncmp (Command, "sThreadInfo", 11) == 0)
   {
-    PEPROCESS Process;
-    PLIST_ENTRY AThread, AProcess;
     PCHAR ptr = &GspOutBuffer[1];
 
     /* Get next thread id */
-    if (GspEnumThread != NULL)
+    if ((GspEnumThread) && (GspEnumThread->Tcb.ThreadListEntry.Flink != PiThreadListHead.Flink))
     {
-      /* find the next thread */
-      Process = GspEnumThread->ThreadsProcess;
-      if(GspEnumThread->ThreadListEntry.Flink != &Process->ThreadListHead)
-      {
-        GspEnumThread = CONTAINING_RECORD (GspEnumThread->ThreadListEntry.Flink,
-                                           ETHREAD, ThreadListEntry);
-      }
-      else
-      {
-        PETHREAD Thread = NULL;
-        AProcess = Process->ProcessListEntry.Flink;
-        while(AProcess != &PsProcessListHead)
-        {
-          Process = CONTAINING_RECORD(AProcess, EPROCESS, ProcessListEntry);
-          AThread = Process->ThreadListHead.Flink;
-          if(AThread != &Process->ThreadListHead)
-          {
-            Thread = CONTAINING_RECORD (Process->ThreadListHead.Flink,
-                                        ETHREAD, ThreadListEntry);
-            break;
-          }
-          AProcess = AProcess->Flink;
-        }
-        GspEnumThread = Thread;
-      }
-
-      if(GspEnumThread != NULL)
-      {
-        /* return the ID */
-        GspOutBuffer[0] = 'm';
-        Value = (ULONG) GspEnumThread->Cid.UniqueThread;
-        GspLong2Hex (&ptr, Value);
-      }
-      else
-      {
-        GspOutBuffer[0] = 'l';
-      }
+      GspEnumThread = CONTAINING_RECORD (GspEnumThread->Tcb.ThreadListEntry.Flink,
+        ETHREAD, Tcb.ThreadListEntry);
+	    GspOutBuffer[0] = 'm';
+	    Value = (ULONG) GspEnumThread->Cid.UniqueThread;
+      GspLong2Hex (&ptr, Value);
     }
-    else
-    {
-      GspOutBuffer[0] = 'l';
-    }
+		else
+		{
+	    GspOutBuffer[0] = '1';
+		}
   }
   else if (strncmp (Command, "ThreadExtraInfo", 15) == 0)
   {
@@ -831,11 +746,8 @@ GspQuery(PCHAR Request)
     /* Get thread information */
     if (GspFindThread (ptr, &ThreadInfo))
 	  {
-             PCHAR String = GspThreadStates[ThreadInfo->Tcb.State];
-           
-             ObDereferenceObject(ThreadInfo);
-           
-             GspMem2Hex (String, &GspOutBuffer[0], strlen (String), FALSE);
+      PCHAR String = GspThreadStates[ThreadInfo->Tcb.State];
+      GspMem2Hex (String, &GspOutBuffer[0], strlen (String), FALSE);
 	  }
   }
 #if 0
@@ -896,8 +808,6 @@ GspQueryThreadStatus(PCHAR Request)
 
   if (GspFindThread (ptr, &ThreadInfo))
   {
-    ObDereferenceObject(ThreadInfo);
-
     GspOutBuffer[0] = 'O';
     GspOutBuffer[1] = 'K';
     GspOutBuffer[2] = '\0';
@@ -918,7 +828,6 @@ typedef struct _GsHwBreakPoint
   ULONG Address;
 } GsHwBreakPoint;
 
-#if defined(__GNUC__)
 GsHwBreakPoint GspBreakpoints[4] =
 {
   { Enabled : FALSE },
@@ -926,15 +835,6 @@ GsHwBreakPoint GspBreakpoints[4] =
   { Enabled : FALSE },
   { Enabled : FALSE }
 };
-#else
-GsHwBreakPoint GspBreakpoints[4] =
-{
-  { FALSE },
-  { FALSE },
-  { FALSE },
-  { FALSE }
-};
-#endif
 
 VOID
 GspCorrectHwBreakpoint()
@@ -942,11 +842,10 @@ GspCorrectHwBreakpoint()
   ULONG BreakpointNumber;
   BOOLEAN CorrectIt;
   BOOLEAN Bit;
-  ULONG dr7_;
+  ULONG dr7;
 
-#if defined(__GNUC__)
   asm volatile (
-    "movl %%db7, %0\n" : "=r" (dr7_) : );
+    "movl %%db7, %0\n" : "=r" (dr7) : );
   do
     {
       ULONG addr0, addr1, addr2, addr3;
@@ -959,30 +858,17 @@ GspCorrectHwBreakpoint()
           : "=r" (addr0), "=r" (addr1),
             "=r" (addr2), "=r" (addr3) : );
     } while (FALSE);
-#elif defined(_MSC_VER)
-    __asm
-    {
-	mov eax, dr7; mov dr7_, eax;
-	mov eax, dr0; mov addr0, eax;
-	mov eax, dr1; mov addr1, eax;
-	mov eax, dr2; mov addr2, eax;
-	mov eax, dr3; mov addr3, eax;
-    }
-#else
-#error Unknown compiler for inline assembler
-#endif
     CorrectIt = FALSE;
     for (BreakpointNumber = 0; BreakpointNumber < 3; BreakpointNumber++)
     {
 			Bit = 2 << (BreakpointNumber << 1);
-			if (!(dr7_ & Bit) && GspBreakpoints[BreakpointNumber].Enabled) {
+			if (!(dr7 & Bit) && GspBreakpoints[BreakpointNumber].Enabled) {
 		  CorrectIt = TRUE;
-			dr7_ |= Bit;
-			dr7_ &= ~(0xf0000 << (BreakpointNumber << 2));
-			dr7_ |= (((GspBreakpoints[BreakpointNumber].Length << 2) |
+			dr7 |= Bit;
+			dr7 &= ~(0xf0000 << (BreakpointNumber << 2));
+			dr7 |= (((GspBreakpoints[BreakpointNumber].Length << 2) |
         GspBreakpoints[BreakpointNumber].Type) << 16) << (BreakpointNumber << 2);
     switch (BreakpointNumber) {
-#if defined(__GNUC__)
 			case 0:
 			  asm volatile ("movl %0, %%dr0\n"
 			    : : "r" (GspBreakpoints[BreakpointNumber].Address) );
@@ -1002,57 +888,18 @@ GspCorrectHwBreakpoint()
         asm volatile ("movl %0, %%dr3\n"
           : : "r" (GspBreakpoints[BreakpointNumber].Address) );
         break;
-#elif defined(_MSC_VER)
-	case 0:
-	    {
-	      ULONG addr = GspBreakpoints[BreakpointNumber].Address;
-	      __asm mov eax, addr;
-	      __asm mov dr0, eax;
-	    }
-	  break;
-	case 1:
-	    {
-	      ULONG addr = GspBreakpoints[BreakpointNumber].Address;
-	      __asm mov eax, addr;
-	      __asm mov dr1, eax;
-	    }
-	  break;
-	case 2:
-	    {
-	      ULONG addr = GspBreakpoints[BreakpointNumber].Address;
-	      __asm mov eax, addr;
-	      __asm mov dr2, eax;
-	    }
-	  break;
-	case 3:
-	    {
-	      ULONG addr = GspBreakpoints[BreakpointNumber].Address;
-	      __asm mov eax, addr;
-	      __asm mov dr3, eax;
-	    }
-	  break;
-#else
-#error Unknown compiler for inline assembler
-#endif
       }
     }
-    else if ((dr7_ & Bit) && !GspBreakpoints[BreakpointNumber].Enabled)
+    else if ((dr7 & Bit) && !GspBreakpoints[BreakpointNumber].Enabled)
       {
         CorrectIt = TRUE;
-        dr7_ &= ~Bit;
-        dr7_ &= ~(0xf0000 << (BreakpointNumber << 2));
+        dr7 &= ~Bit;
+        dr7 &= ~(0xf0000 << (BreakpointNumber << 2));
       }
   }
   if (CorrectIt)
     {
-#if defined(__GNUC__)
-	    asm volatile ( "movl %0, %%db7\n" : : "r" (dr7_));
-#elif defined(_MSC_VER)
-	    __asm mov eax, dr7_;
-	    __asm mov dr7, eax;
-#else
-#error Unknown compiler for inline assembler
-#endif
+	    asm volatile ( "movl %0, %%db7\n" : : "r" (dr7));
     }
 }
 
@@ -1100,322 +947,251 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
   LONG SigVal;
   LONG NewPC;
   PCHAR ptr;
-  LONG Esp;
-  KIRQL OldIrql;
 
   /* FIXME: Stop on other CPUs too */
   /* Disable hardware debugging while we are inside the stub */
-#if defined(__GNUC__)
   __asm__("movl %0,%%db7" : /* no output */ : "r" (0));
-#elif defined(_MSC_VER)
-  __asm mov eax, 0  __asm mov dr7, eax
-#else
-#error Unknown compiler for inline assembler
-#endif
 
-  if (STATUS_ACCESS_VIOLATION == (NTSTATUS) ExceptionRecord->ExceptionCode &&
-      NULL != GspAccessLocation &&
-      (ULONG_PTR) GspAccessLocation ==
-      (ULONG_PTR) ExceptionRecord->ExceptionInformation[1])
+  /* reply to host that an exception has occurred */
+  SigVal = GspComputeSignal (ExceptionRecord->ExceptionCode);
+
+  ptr = &GspOutBuffer[0];
+
+  *ptr++ = 'T';			/* notify gdb with signo, PC, FP and SP */
+  *ptr++ = HexChars[(SigVal >> 4) & 0xf];
+  *ptr++ = HexChars[SigVal & 0xf];
+
+  *ptr++ = HexChars[ESP];
+  *ptr++ = ':';
+  ptr = GspMem2Hex ((PCHAR) &TrapFrame->Esp, ptr, 4, 0);	/* SP */
+  *ptr++ = ';';
+
+  *ptr++ = HexChars[EBP];
+  *ptr++ = ':';
+  ptr = GspMem2Hex ((PCHAR) &TrapFrame->Ebp, ptr, 4, 0); 	/* FP */
+  *ptr++ = ';';
+
+  *ptr++ = HexChars[PC];
+  *ptr++ = ':';
+  ptr = GspMem2Hex((PCHAR) &TrapFrame->Eip, ptr, 4, 0); 	/* PC */
+  *ptr++ = ';';
+
+  *ptr = '\0';
+
+  GspPutPacket (&GspOutBuffer[0]);
+
+  Stepping = FALSE;
+
+  while (TRUE)
     {
-      GspAccessLocation = NULL;
-      GspMemoryError = TRUE;
-      Context->Eip += 2;
-    }
-  else
-    {
-      /* Don't switch threads */
-      OldIrql = KeGetCurrentIrql();
-      if (OldIrql < DISPATCH_LEVEL)
-        {
-          KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
-        }
-          
-      /* Always use the current thread when entering the exception handler */
-      if (NULL != GspDbgThread)
-        {
-          ObDereferenceObject(GspDbgThread);
-          GspDbgThread = NULL;
-        }
+      /* Zero the buffer now so we don't have to worry about the terminating zero character */
+      memset (GspOutBuffer, 0, sizeof (GspInBuffer));
+      ptr = GspGetPacket ();
 
-      /* reply to host that an exception has occurred */
-      SigVal = GspComputeSignal (ExceptionRecord->ExceptionCode);
+      switch (*ptr++)
+	{
+	case '?':
+	  GspOutBuffer[0] = 'S';
+	  GspOutBuffer[1] = HexChars[SigVal >> 4];
+	  GspOutBuffer[2] = HexChars[SigVal % 16];
+	  GspOutBuffer[3] = 0;
+	  break;
+	case 'd':
+	  GspRemoteDebug = !GspRemoteDebug; /* toggle debug flag */
+	  break;
+	case 'g':		/* return the value of the CPU Registers */
+    if (GspDbgThread)
+      GspGetRegistersFromTrapFrame (&GspOutBuffer[0], GspDbgThread->Tcb.TrapFrame);
+    else
+      GspGetRegistersFromTrapFrame (&GspOutBuffer[0], TrapFrame);
+	  break;
+	case 'G':		/* set the value of the CPU Registers - return OK */
+    if (GspDbgThread)
+      GspSetRegistersInTrapFrame (ptr, GspDbgThread->Tcb.TrapFrame);
+    else
+      GspSetRegistersInTrapFrame (ptr, TrapFrame);
+	  strcpy (GspOutBuffer, "OK");
+	  break;
+	case 'P':		/* set the value of a single CPU register - return OK */
+	  {
+	    LONG Register;
 
-      ptr = &GspOutBuffer[0];
+	    if ((GspHex2Long (&ptr, &Register)) && (*ptr++ == '='))
+	      if ((Register >= 0) && (Register < NUMREGS))
+					{
+				    if (GspDbgThread)
+				      GspSetSingleRegisterInTrapFrame (ptr, Register,
+                GspDbgThread->Tcb.TrapFrame);
+				    else
+				       GspSetSingleRegisterInTrapFrame (ptr, Register, TrapFrame);
+					  strcpy (GspOutBuffer, "OK");
+					  break;
+					}
 
-      *ptr++ = 'T';			/* notify gdb with signo, PC, FP and SP */
-      *ptr++ = HexChars[(SigVal >> 4) & 0xf];
-      *ptr++ = HexChars[SigVal & 0xf];
+	    strcpy (GspOutBuffer, "E01");
+	    break;
+	  }
 
-      *ptr++ = HexChars[ESP];
-      *ptr++ = ':';
+	  /* mAA..AA,LLLL  Read LLLL bytes at address AA..AA */
+	case 'm':
+	  /* TRY TO READ %x,%x.  IF SUCCEED, SET PTR = 0 */
+	  if (GspHex2Long (&ptr, &Address))
+	    if (*(ptr++) == ',')
+	      if (GspHex2Long (&ptr, &Length))
+		{
+		  ptr = 0;
+		  GspMemoryError = FALSE;
+		  GspMem2Hex ((PCHAR) Address, GspOutBuffer, Length, 1);
+		  if (GspMemoryError)
+		    {
+		      strcpy (GspOutBuffer, "E03");
+		      GspDebugError ("memory fault");
+		    }
+		}
 
-      Esp = GspGetEspFromTrapFrame (TrapFrame);			/* SP */
-      ptr = GspMem2Hex ((PCHAR) &Esp, ptr, 4, 0);
-      *ptr++ = ';';
+	  if (ptr)
+	    {
+	      strcpy (GspOutBuffer, "E01");
+	    }
+	  break;
 
-      *ptr++ = HexChars[EBP];
-      *ptr++ = ':';
-      ptr = GspMem2Hex ((PCHAR) &TrapFrame->Ebp, ptr, 4, 0); 	/* FP */
-      *ptr++ = ';';
+	  /* MAA..AA,LLLL: Write LLLL bytes at address AA.AA return OK */
+	case 'M':
+	  /* TRY TO READ '%x,%x:'.  IF SUCCEED, SET PTR = 0 */
+	  if (GspHex2Long (&ptr, &Address))
+	    if (*(ptr++) == ',')
+	      if (GspHex2Long (&ptr, &Length))
+		if (*(ptr++) == ':')
+		  {
+        GspMemoryError = FALSE;
+		    GspHex2Mem (ptr, (PCHAR) Address, Length, TRUE);
 
-      *ptr++ = HexChars[PC];
-      *ptr++ = ':';
-      ptr = GspMem2Hex((PCHAR) &TrapFrame->Eip, ptr, 4, 0); 	/* PC */
-      *ptr++ = ';';
+		    if (GspMemoryError)
+		      {
+						strcpy (GspOutBuffer, "E03");
+						GspDebugError ("memory fault");
+		      }
+		    else
+		      {
+			      strcpy (GspOutBuffer, "OK");
+		      }
 
-      *ptr = '\0';
+		    ptr = NULL;
+		  }
+	  if (ptr)
+	    {
+	      strcpy (GspOutBuffer, "E02");
+	    }
+	  break;
 
+	  /* cAA..AA   Continue at address AA..AA(optional) */
+	  /* sAA..AA   Step one instruction from AA..AA(optional) */
+	case 's':
+	  Stepping = TRUE;
+	case 'c':
+  {
+    ULONG BreakpointNumber;
+    ULONG dr6;
+
+	  /* try to read optional parameter, pc unchanged if no parm */
+	  if (GspHex2Long (&ptr, &Address))
+	    Context->Eip = Address;
+
+	  NewPC = Context->Eip;
+
+	  /* clear the trace bit */
+	  Context->EFlags &= 0xfffffeff;
+
+	  /* set the trace bit if we're Stepping */
+	  if (Stepping)
+	    Context->EFlags |= 0x100;
+
+    asm volatile ("movl %%db6, %0\n" : "=r" (dr6) : );
+    if (!(dr6 & 0x4000))
+	    {
+	      for (BreakpointNumber = 0; BreakpointNumber < 4; ++BreakpointNumber)
+	        {
+	          if (dr6 & (1 << BreakpointNumber))
+	            {
+	              if (GspBreakpoints[BreakpointNumber].Type == 0)
+	                {
+	                  /* Set restore flag */
+	                  Context->EFlags |= 0x10000;
+	                  break;
+	                }
+	            }
+	        }
+      }
+    GspCorrectHwBreakpoint();
+    asm volatile ("movl %0, %%db6\n" : : "r" (0));
+
+	  return kdHandleException;
+	  break;
+  }
+	case 'k':	/* kill the program */
+    strcpy (GspOutBuffer, "OK");
+	  break;
+	  /* kill the program */
+	case 'H':		/* Set thread */
+    GspSetThread (ptr);
+	  break;
+  case 'q': /* Query */
+    GspQuery (ptr);
+    break;
+  case 'T': /* Query thread status */
+    GspQueryThreadStatus (ptr);
+    break;
+  case 'Y':
+  {
+    ULONG Number;
+    ULONG Length;
+    ULONG Type;
+    ULONG Address;
+
+    ptr = &GspOutBuffer[1];
+    GspHex2Long (&ptr, &Number);
+    ptr++;
+    GspHex2Long (&ptr, &Type);
+    ptr++;
+    GspHex2Long (&ptr, &Length);
+    ptr++;
+    GspHex2Long (&ptr, &Address);
+    if (GspSetHwBreakpoint (Number & 0x3, Type & 0x3 , Length & 0x3, Address) == 0)
+      {
+        strcpy (GspOutBuffer, "OK");
+      }
+    else
+      {
+        strcpy (GspOutBuffer, "E");
+      }
+    break;
+    /* Remove hardware breakpoint */
+  }
+  case 'y':
+  {
+    ULONG Number;
+
+    ptr = &GspOutBuffer[1];
+    GspHex2Long(&ptr, &Number);
+    if (GspRemoveHwBreakpoint (Number & 0x3) == 0)
+      {
+        strcpy (GspOutBuffer, "OK");
+      }
+    else
+      {
+        strcpy (GspOutBuffer, "E");
+      }
+    break;
+  }
+  default:
+    break;
+	}			/* switch */
+
+      /* reply to the request */
       GspPutPacket (&GspOutBuffer[0]);
-
-      Stepping = FALSE;
-
-      while (TRUE)
-        {
-          /* Zero the buffer now so we don't have to worry about the terminating zero character */
-          memset (GspOutBuffer, 0, sizeof (GspInBuffer));
-          ptr = GspGetPacket ();
-
-          switch (*ptr++)
-            {
-            case '?':
-              GspOutBuffer[0] = 'S';
-              GspOutBuffer[1] = HexChars[SigVal >> 4];
-              GspOutBuffer[2] = HexChars[SigVal % 16];
-              GspOutBuffer[3] = 0;
-              break;
-            case 'd':
-              GspRemoteDebug = !GspRemoteDebug; /* toggle debug flag */
-              break;
-            case 'g':		/* return the value of the CPU Registers */
-              if (NULL != GspDbgThread)
-                {
-                  GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, GspDbgThread->Tcb.TrapFrame);
-                }
-              else
-                {
-                  GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, TrapFrame);
-                }
-              break;
-            case 'G':		/* set the value of the CPU Registers - return OK */
-              if (NULL != GspDbgThread)
-                {
-                  GspSetRegistersInTrapFrame (ptr, Context, GspDbgThread->Tcb.TrapFrame);
-                }
-              else
-                {
-                  GspSetRegistersInTrapFrame (ptr, Context, TrapFrame);
-                }
-              strcpy (GspOutBuffer, "OK");
-              break;
-            case 'P':		/* set the value of a single CPU register - return OK */
-              {
-                LONG Register;
-
-                if ((GspHex2Long (&ptr, &Register)) && (*ptr++ == '='))
-                  if ((Register >= 0) && (Register < NUMREGS))
-                    {
-                      if (GspDbgThread)
-                        {
-                          GspSetSingleRegisterInTrapFrame(ptr, Register,
-                                                          Context, GspDbgThread->Tcb.TrapFrame);
-                        }
-                      else
-                        {
-                          GspSetSingleRegisterInTrapFrame (ptr, Register, Context, TrapFrame);
-                        }
-                      strcpy (GspOutBuffer, "OK");
-                      break;
-                    }
-
-                strcpy (GspOutBuffer, "E01");
-                break;
-              }
-
-            /* mAA..AA,LLLL  Read LLLL bytes at address AA..AA */
-            case 'm':
-              /* TRY TO READ %x,%x.  IF SUCCEED, SET PTR = 0 */
-              if (GspHex2Long (&ptr, &Address))
-                if (*(ptr++) == ',')
-                  if (GspHex2Long (&ptr, &Length))
-                    {
-                      ptr = 0;
-                      GspMemoryError = FALSE;
-                      GspMem2Hex ((PCHAR) Address, GspOutBuffer, Length, 1);
-                      if (GspMemoryError)
-                        {
-                          strcpy (GspOutBuffer, "E03");
-                          DPRINT ("Fault during memory read\n");
-                        }
-                    }
-
-              if (ptr)
-                strcpy (GspOutBuffer, "E01");
-              break;
-
-            /* MAA..AA,LLLL: Write LLLL bytes at address AA.AA return OK */
-            case 'M':
-              /* TRY TO READ '%x,%x:'.  IF SUCCEED, SET PTR = 0 */
-              if (GspHex2Long (&ptr, &Address))
-                if (*(ptr++) == ',')
-                  if (GspHex2Long (&ptr, &Length))
-                    if (*(ptr++) == ':')
-                      {
-                        GspMemoryError = FALSE;
-                        GspHex2Mem (ptr, (PCHAR) Address, Length, TRUE);
-
-                        if (GspMemoryError)
-                          {
-                            strcpy (GspOutBuffer, "E03");
-                            DPRINT ("Fault during memory write\n");
-                          }
-                        else
-                          {
-                            strcpy (GspOutBuffer, "OK");
-                          }
-
-                        ptr = NULL;
-                      }
-              if (ptr)
-                strcpy (GspOutBuffer, "E02");
-              break;
-
-            /* cAA..AA   Continue at address AA..AA(optional) */
-            /* sAA..AA   Step one instruction from AA..AA(optional) */
-            case 's':
-              Stepping = TRUE;
-            case 'c':
-              {
-                ULONG BreakpointNumber;
-                ULONG dr6_;
-
-                /* try to read optional parameter, pc unchanged if no parm */
-                if (GspHex2Long (&ptr, &Address))
-                  Context->Eip = Address;
-
-                NewPC = Context->Eip;
-
-                /* clear the trace bit */
-                Context->EFlags &= 0xfffffeff;
-
-                /* set the trace bit if we're Stepping */
-                if (Stepping)
-                  Context->EFlags |= 0x100;
-
-#if defined(__GNUC__)
-                asm volatile ("movl %%db6, %0\n" : "=r" (dr6_) : );
-#elif defined(_MSC_VER)
-                __asm mov eax, dr6  __asm mov dr6_, eax;
-#else
-#error Unknown compiler for inline assembler
-#endif
-                if (!(dr6_ & 0x4000))
-                  {
-                    for (BreakpointNumber = 0; BreakpointNumber < 4; ++BreakpointNumber)
-                      {
-                        if (dr6_ & (1 << BreakpointNumber))
-                          {
-                            if (GspBreakpoints[BreakpointNumber].Type == 0)
-                              {
-                                /* Set restore flag */
-                                Context->EFlags |= 0x10000;
-                                break;
-                              }
-                          }
-                      }
-                  }
-                GspCorrectHwBreakpoint();
-#if defined(__GNUC__)
-                asm volatile ("movl %0, %%db6\n" : : "r" (0));
-#elif defined(_MSC_VER)
-                __asm mov eax, 0  __asm mov dr6, eax;
-#else
-#error Unknown compiler for inline assembler
-#endif
-                if (OldIrql < DISPATCH_LEVEL)
-                  {
-                    KeLowerIrql(OldIrql);
-                  }
-
-                KeContextToTrapFrame(Context, TrapFrame);
-                return ((SigVal == 5) ? (kdContinue) : (kdHandleException));
-                break;
-              }
-
-            case 'k':	/* kill the program */
-              strcpy (GspOutBuffer, "OK");
-              break;
-              /* kill the program */
-
-            case 'H':		/* Set thread */
-              GspSetThread (ptr);
-              break;
-
-            case 'q': /* Query */
-              GspQuery (ptr);
-              break;
-
-            case 'T': /* Query thread status */
-              GspQueryThreadStatus (ptr);
-              break;
-
-            case 'Y':
-              {
-                LONG Number;
-                LONG Length;
-                LONG Type;
-                LONG Address;
-
-                ptr = &GspOutBuffer[1];
-                GspHex2Long (&ptr, &Number);
-                ptr++;
-                GspHex2Long (&ptr, &Type);
-                ptr++;
-                GspHex2Long (&ptr, &Length);
-                ptr++;
-                GspHex2Long (&ptr, &Address);
-                if (GspSetHwBreakpoint (Number & 0x3, Type & 0x3 , Length & 0x3, Address) == 0)
-                  {
-                    strcpy (GspOutBuffer, "OK");
-                  }
-                else
-                  {
-                    strcpy (GspOutBuffer, "E");
-                  }
-                break;
-              }
-
-            /* Remove hardware breakpoint */
-            case 'y':
-              {
-                LONG Number;
-
-                ptr = &GspOutBuffer[1];
-                GspHex2Long(&ptr, &Number);
-                if (GspRemoveHwBreakpoint (Number & 0x3) == 0)
-                  {
-                    strcpy (GspOutBuffer, "OK");
-                  }
-                else
-                  {
-                    strcpy (GspOutBuffer, "E");
-                  }
-                break;
-              }
-
-            default:
-              break;
-            }			/* switch */
-
-          /* reply to the request */
-          GspPutPacket (&GspOutBuffer[0]);
-        }
-
-      /* not reached */
-      ASSERT(0);
     }
 
-    return kdDoNotHandleException;
+  return kdDoNotHandleException;
 }
 
 
@@ -1428,7 +1204,7 @@ GspBreakIn(PKINTERRUPT Interrupt,
   BOOLEAN DoBreakIn;
   CONTEXT Context;
   KIRQL OldIrql;
-  UCHAR Value;
+  CHAR Value;
 
   DPRINT ("Break In\n");
 
@@ -1461,7 +1237,7 @@ GspBreakIn(PKINTERRUPT Interrupt,
 extern ULONG KdpPortIrq;
 
 /* Initialize the GDB stub */
-VOID INIT_FUNCTION
+VOID
 KdGdbStubInit(ULONG Phase)
 {
 #if 0
@@ -1477,11 +1253,7 @@ KdGdbStubInit(ULONG Phase)
 
 		  GspInitialized = TRUE;
 		  GspRunThread = PsGetCurrentThread();
-     
-                  ObReferenceObject(GspRunThread);
-
-/*		  GspDbgThread = PsGetCurrentThread(); */
-                  GspDbgThread = NULL;
+		  GspDbgThread = PsGetCurrentThread();
 		  GspEnumThread = NULL;
 
       DbgBreakPointWithStatus (DBG_STATUS_CONTROL_C);

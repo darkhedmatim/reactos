@@ -1,14 +1,11 @@
-#include "precomp.h"
-#include <msvcrt/stdlib.h>
-#include <msvcrt/io.h>
-#include <msvcrt/fcntl.h>
-#include <msvcrt/internal/atexit.h>
+#include <windows.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/io.h>
+#include <crtdll/fcntl.h>
+#include <crtdll/internal/atexit.h>
 
 struct __atexit *__atexit_ptr = 0;
 
-/*
- * @implemented
- */
 void exit(int status) 
 {
   //int i;
@@ -32,26 +29,17 @@ void exit(int status)
 }
 
 
-/*
- * @implemented
- */
 void _exit(int _status)
 {
 	ExitProcess(_status);
 	for(;;);
 }
 
-/*
- * @unimplemented
- */
 void _cexit( void )
 {
 	// flush
 }
 
-/*
- * @unimplemented
- */
 void _c_exit( void )
 {
 	// reset interup vectors

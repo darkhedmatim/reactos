@@ -2,9 +2,6 @@
 
 #include <msvcrt/math.h>
 
-/*
- * @implemented
- */
 double tanh(double x)
 {
   if (x > 50)

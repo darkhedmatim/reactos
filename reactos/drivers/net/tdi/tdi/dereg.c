@@ -1,8 +1,8 @@
-/* $Id: dereg.c,v 1.8 2004/03/02 18:18:14 navaraf Exp $
+/* $Id: dereg.c,v 1.4 2002/09/08 10:22:20 chorns Exp $
  *
  */
-#include <ddk/ntddk.h>
-#include <ddk/tdi.h>
+#include <ntos.h>
+#include <net/tdi.h>
 
 /* De-/Register Action IDs for TdiDeRegister */
 
@@ -35,9 +35,6 @@ TdiDeRegister (
 
 /* ADDRESS_CHANGE_HANDLER */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterAddressChangeHandler (
@@ -46,8 +43,8 @@ TdiRegisterAddressChangeHandler (
 	DWORD	Unknown2
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_ADDRESS_CHANGE_HANDLER,
 			AddressChangeHandler
@@ -57,9 +54,6 @@ TdiRegisterAddressChangeHandler (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterAddressChangeHandler (
@@ -75,9 +69,6 @@ TdiDeregisterAddressChangeHandler (
 
 /* DEVICE_OBJECT */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterDeviceObject (
@@ -85,8 +76,8 @@ TdiRegisterDeviceObject (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_DEVICE_OBJECT,
 			DeviceObject
@@ -96,9 +87,6 @@ TdiRegisterDeviceObject (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterDeviceObject (
@@ -114,9 +102,6 @@ TdiDeregisterDeviceObject (
 
 /* NET_ADDRESS */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterNetAddress (
@@ -124,8 +109,8 @@ TdiRegisterNetAddress (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NET_ADDRESS,
 			NetAddress
@@ -135,9 +120,6 @@ TdiRegisterNetAddress (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterNetAddress (
@@ -153,9 +135,6 @@ TdiDeregisterNetAddress (
 
 /* NOTIFICATION_HANDLER */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterNotificationHandler (
@@ -164,8 +143,8 @@ TdiRegisterNotificationHandler (
 	DWORD	Unknown2
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NOTIFICATION_HANDLER,
 			NotificationHandler
@@ -175,9 +154,6 @@ TdiRegisterNotificationHandler (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterNotificationHandler (

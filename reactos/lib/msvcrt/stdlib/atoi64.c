@@ -2,9 +2,6 @@
 #include <msvcrt/ctype.h>
 #include <msvcrt/stdlib.h>
 
-/*
- * @implemented
- */
 __int64
 _atoi64(const char *nptr)
 {

@@ -1,13 +1,10 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#include <msvcrt/stdio.h>
-#include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/io.h>
+#include <crtdll/internal/file.h>
 
 
-/*
- * @implemented
- */
 void rewind(FILE *f)
 {
   fflush(f);
@@ -15,4 +12,5 @@ void rewind(FILE *f)
   f->_cnt = 0;
   f->_ptr = f->_base;
   f->_flag &= ~(_IOERR|_IOEOF|_IOAHEAD);
+
 }

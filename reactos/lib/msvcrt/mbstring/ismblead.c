@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/ismblead.c
+ * FILE:        lib/crtdll/mbstring/ismblead.c
  * PURPOSE:     Checks for a lead byte 
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -36,9 +36,6 @@ char _jctype[257] = {
 };
 
 char *_mbctype = _jctype;
-/*
- * @implemented
- */
 int _ismbblead(unsigned int c)
 {
 	return ((_jctype+1)[(unsigned char)(c)] & _KNJ_1);
@@ -49,9 +46,6 @@ int _ismbblead(unsigned int c)
 //	return (int)IsDBCSLeadByte(byte) 
 //}
 
-/*
- * @implemented
- */
 int _ismbslead( const unsigned char *str, const unsigned char *t)
 {
 	unsigned char *s = (unsigned char *)str;

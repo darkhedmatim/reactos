@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/stdio/fgetc.c
+ * FILE:        lib/crtdll/stdio/fgetc.c
  * PURPOSE:     Get a character string from stdin
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -12,17 +12,11 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 int fgetc(FILE *f)
 {
   return getc(f);
 }
 
-/*
- * @implemented
- */
 wint_t fgetwc(FILE *f)
 {
   return getwc(f);

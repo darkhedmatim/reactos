@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: main.c,v 1.212 2004/12/24 17:06:58 navaraf Exp $
+/* $Id: main.c,v 1.139 2002/09/17 23:48:14 dwelch Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/main.c
@@ -28,20 +28,30 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <reactos/resource.h>
+#include <internal/mm.h>
+#include <internal/module.h>
+#include <internal/ldr.h>
+#include <internal/ex.h>
+#include <internal/ps.h>
+#include <internal/ke.h>
+#include <internal/io.h>
+#include <internal/po.h>
+#include <internal/cc.h>
+#include <internal/se.h>
+#include <internal/v86m.h>
+#include <internal/kd.h>
+#include <internal/trap.h>
 #include "../dbg/kdb.h"
-#include <ntos/bootvid.h>
-#include <napi/core.h>
+#include <internal/registry.h>
+#include <reactos/bugcodes.h>
 
 #ifdef HALDBG
 #include <internal/ntosdbg.h>
 #else
-#if defined(_MSC_VER) && (_MSC_VER <= 1200)
-#define ps
-#else
 #define ps(args...)
-#endif /* HALDBG */
-
 #endif
 
 #define NDEBUG
@@ -49,47 +59,52 @@
 
 /* GLOBALS *******************************************************************/
 
-#ifdef  __GNUC__
 ULONG EXPORTED NtBuildNumber = KERNEL_VERSION_BUILD;
 ULONG EXPORTED NtGlobalFlag = 0;
 CHAR  EXPORTED KeNumberProcessors;
-KAFFINITY  EXPORTED KeActiveProcessors;
 LOADER_PARAMETER_BLOCK EXPORTED KeLoaderBlock;
 ULONG EXPORTED KeDcacheFlushCount = 0;
 ULONG EXPORTED KeIcacheFlushCount = 0;
-ULONG EXPORTED KiDmaIoCoherency = 0; /* RISC Architectures only */
-ULONG EXPORTED InitSafeBootMode = 0; /* KB83764 */
-#else
-/* Microsoft-style declarations */
-EXPORTED ULONG NtBuildNumber = KERNEL_VERSION_BUILD;
-EXPORTED ULONG NtGlobalFlag = 0;
-EXPORTED CHAR  KeNumberProcessors;
-EXPORTED KAFFINITY KeActiveProcessors;
-EXPORTED LOADER_PARAMETER_BLOCK KeLoaderBlock;
-EXPORTED ULONG KeDcacheFlushCount = 0;
-EXPORTED ULONG KeIcacheFlushCount = 0;
-EXPORTED ULONG KiDmaIoCoherency = 0; /* RISC Architectures only */
-EXPORTED ULONG InitSafeBootMode = 0; /* KB83764 */
-#endif	/* __GNUC__ */
-
 static LOADER_MODULE KeLoaderModules[64];
-static CHAR KeLoaderModuleStrings[64][256];
-static CHAR KeLoaderCommandLine[256];
+static UCHAR KeLoaderModuleStrings[64][256];
+static UCHAR KeLoaderCommandLine[256];
 static ADDRESS_RANGE KeMemoryMap[64];
 static ULONG KeMemoryMapRangeCount;
 static ULONG FirstKrnlPhysAddr;
 static ULONG LastKrnlPhysAddr;
 static ULONG LastKernelAddress;
 volatile BOOLEAN Initialized = FALSE;
-extern ULONG MmCoreDumpType;
-extern CHAR KiTimerSystemAuditing;
 
 extern PVOID Ki386InitialStackArray[MAXIMUM_PROCESSORS];
 
 
 /* FUNCTIONS ****************************************************************/
 
-static VOID INIT_FUNCTION
+static BOOLEAN
+RtlpCheckFileNameExtension(PCHAR FileName,
+			   PCHAR Extension)
+{
+   PCHAR Ext;
+
+   Ext = strrchr(FileName, '.');
+   if ((Extension == NULL) || (*Extension == 0))
+     {
+	if (Ext == NULL)
+	  return TRUE;
+	else
+	  return FALSE;
+     }
+   if (*Extension != '.')
+     Ext++;
+   
+   if (_stricmp(Ext, Extension) == 0)
+     return TRUE;
+   else
+     return FALSE;
+}
+
+
+static VOID
 InitSystemSharedUserPage (PCSZ ParameterLine)
 {
    UNICODE_STRING ArcDeviceName;
@@ -114,12 +129,7 @@ InitSystemSharedUserPage (PCSZ ParameterLine)
     *   There is NO need to do this again.
     */
 
-   Ki386SetProcessorFeatures();
-
    SharedUserData->NtProductType = NtProductWinNt;
-   SharedUserData->ProductTypeIsValid = TRUE;
-   SharedUserData->NtMajorVersion = 5;
-   SharedUserData->NtMinorVersion = 0;
 
    BootDriveFound = FALSE;
 
@@ -189,7 +199,7 @@ InitSystemSharedUserPage (PCSZ ParameterLine)
 	CPRINT("NtOpenSymbolicLinkObject() failed (Status %x)\n",
 	         Status);
 
-	KEBUGCHECK (0x0);
+	KeBugCheck (0x0);
      }
 
    Status = NtQuerySymbolicLinkObject (Handle,
@@ -203,7 +213,7 @@ InitSystemSharedUserPage (PCSZ ParameterLine)
 	CPRINT("NtQuerySymbolicObject() failed (Status %x)\n",
 		 Status);
 
-	KEBUGCHECK (0x0);
+	KeBugCheck (0x0);
      }
    DPRINT("Length: %lu ArcDeviceName: %wZ\n", Length, &ArcDeviceName);
 
@@ -263,295 +273,88 @@ InitSystemSharedUserPage (PCSZ ParameterLine)
    RtlFreeUnicodeString (&DriveDeviceName);
    RtlFreeUnicodeString (&ArcDeviceName);
 
+   DPRINT("DosDeviceMap: 0x%x\n", SharedUserData->DosDeviceMap);
+
    if (BootDriveFound == FALSE)
      {
 	DbgPrint("No system drive found!\n");
-	KEBUGCHECK (NO_BOOT_DEVICE);
+	KeBugCheck (0x0);
      }
 }
 
-VOID INIT_FUNCTION
+VOID
 ExpInitializeExecutive(VOID)
 {
-  LARGE_INTEGER Timeout;
-  HANDLE ProcessHandle;
-  HANDLE ThreadHandle;
+  ULONG BootDriverCount;
   ULONG i;
   ULONG start;
   ULONG length;
   PCHAR name;
   CHAR str[50];
   NTSTATUS Status;
-  BOOLEAN SetupBoot;
-  PCHAR p1, p2;
-  ULONG MaxMem;
-  BOOLEAN NoGuiBoot = FALSE;
-  UNICODE_STRING Name;
-  HANDLE InitDoneEventHandle;
-  OBJECT_ATTRIBUTES ObjectAttributes;
 
   /*
    * Fail at runtime if someone has changed various structures without
    * updating the offsets used for the assembler code.
    */
-  ASSERT(FIELD_OFFSET(KTHREAD, InitialStack) == KTHREAD_INITIAL_STACK);
-  ASSERT(FIELD_OFFSET(KTHREAD, Teb) == KTHREAD_TEB);
-  ASSERT(FIELD_OFFSET(KTHREAD, KernelStack) == KTHREAD_KERNEL_STACK);
-  ASSERT(FIELD_OFFSET(KTHREAD, NpxState) == KTHREAD_NPX_STATE);
-  ASSERT(FIELD_OFFSET(KTHREAD, ServiceTable) == KTHREAD_SERVICE_TABLE);
-  ASSERT(FIELD_OFFSET(KTHREAD, PreviousMode) == KTHREAD_PREVIOUS_MODE);
-  ASSERT(FIELD_OFFSET(KTHREAD, TrapFrame) == KTHREAD_TRAP_FRAME);
-  ASSERT(FIELD_OFFSET(KTHREAD, CallbackStack) == KTHREAD_CALLBACK_STACK);
-  ASSERT(FIELD_OFFSET(KTHREAD, ApcState.Process) == KTHREAD_APCSTATE_PROCESS);
-  ASSERT(FIELD_OFFSET(KPROCESS, DirectoryTableBase) == 
+  assert(FIELD_OFFSET(KTHREAD, InitialStack) == KTHREAD_INITIAL_STACK);
+  assert(FIELD_OFFSET(KTHREAD, Teb) == KTHREAD_TEB);
+  assert(FIELD_OFFSET(KTHREAD, KernelStack) == KTHREAD_KERNEL_STACK);
+  assert(FIELD_OFFSET(KTHREAD, PreviousMode) == KTHREAD_PREVIOUS_MODE);
+  assert(FIELD_OFFSET(KTHREAD, TrapFrame) == KTHREAD_TRAP_FRAME);
+  assert(FIELD_OFFSET(KTHREAD, CallbackStack) == KTHREAD_CALLBACK_STACK);
+  assert(FIELD_OFFSET(ETHREAD, ThreadsProcess) == ETHREAD_THREADS_PROCESS);
+  assert(FIELD_OFFSET(KPROCESS, DirectoryTableBase) == 
 	 KPROCESS_DIRECTORY_TABLE_BASE);
-  ASSERT(FIELD_OFFSET(KPROCESS, IopmOffset) == KPROCESS_IOPM_OFFSET);
-  ASSERT(FIELD_OFFSET(KPROCESS, LdtDescriptor) == KPROCESS_LDT_DESCRIPTOR0);
-  ASSERT(FIELD_OFFSET(KTRAP_FRAME, Reserved9) == KTRAP_FRAME_RESERVED9);
-  ASSERT(FIELD_OFFSET(KV86M_TRAP_FRAME, SavedExceptionStack) == TF_SAVED_EXCEPTION_STACK);
-  ASSERT(FIELD_OFFSET(KV86M_TRAP_FRAME, regs) == TF_REGS);
-  ASSERT(FIELD_OFFSET(KV86M_TRAP_FRAME, orig_ebp) == TF_ORIG_EBP);
-
-  ASSERT(FIELD_OFFSET(KPCR, Tib.ExceptionList) == KPCR_EXCEPTION_LIST);
-  ASSERT(FIELD_OFFSET(KPCR, Self) == KPCR_SELF);
-  ASSERT(FIELD_OFFSET(KPCR, PrcbData) + FIELD_OFFSET(KPRCB, CurrentThread) == KPCR_CURRENT_THREAD);  
-  ASSERT(FIELD_OFFSET(KPCR, PrcbData) + FIELD_OFFSET(KPRCB, NpxThread) == KPCR_NPX_THREAD);
-
-  ASSERT(FIELD_OFFSET(KTSS, Esp0) == KTSS_ESP0);
-  ASSERT(FIELD_OFFSET(KTSS, Eflags) == KTSS_EFLAGS);
-  ASSERT(FIELD_OFFSET(KTSS, IoMapBase) == KTSS_IOMAPBASE);
-
-  ASSERT(sizeof(FX_SAVE_AREA) == SIZEOF_FX_SAVE_AREA);
+  assert(FIELD_OFFSET(KTRAP_FRAME, Reserved9) == KTRAP_FRAME_RESERVED9);
+  assert(FIELD_OFFSET(KV86M_TRAP_FRAME, regs) == TF_REGS);
+  assert(FIELD_OFFSET(KV86M_TRAP_FRAME, orig_ebp) == TF_ORIG_EBP);
+  
+  assert(FIELD_OFFSET(KPCR, ExceptionList) == KPCR_EXCEPTION_LIST);
+  assert(FIELD_OFFSET(KPCR, Self) == KPCR_SELF);
+  assert(FIELD_OFFSET(KPCR, CurrentThread) == KPCR_CURRENT_THREAD);
 
   LdrInit1();
 
   KeLowerIrql(DISPATCH_LEVEL);
   
   NtEarlyInitVdm();
-
-  p1 = (PCHAR)KeLoaderBlock.CommandLine;
-
-  MaxMem = 0;
-  while(*p1 && (p2 = strchr(p1, '/')))
-  {
-     p2++;
-     if (!_strnicmp(p2, "MAXMEM", 6))
-     {
-        p2 += 6;
-        while (isspace(*p2)) p2++;
-	if (*p2 == '=')
-	{
-	   p2++;
-	   while(isspace(*p2)) p2++;
-	   if (isdigit(*p2))
-	   {
-	      while (isdigit(*p2))
-	      {
-	         MaxMem = MaxMem * 10 + *p2 - '0';
-		 p2++;
-	      }
-	      break;
-	   }
-	}
-     }
-     else if (!_strnicmp(p2, "NOGUIBOOT", 9))
-     {
-       p2 += 9;
-       NoGuiBoot = TRUE;
-     }
-     else if (!_strnicmp(p2, "CRASHDUMP", 9))
-     {
-       p2 += 9;
-       if (*p2 == ':')
-	 {
-	   p2++;
-	   if (!_strnicmp(p2, "FULL", 4))
-	     {
-	       MmCoreDumpType = MM_CORE_DUMP_TYPE_FULL;
-	     }
-	   else
-	     {
-	       MmCoreDumpType = MM_CORE_DUMP_TYPE_NONE;
-	     }
-	 }
-     }
-     p1 = p2;
-  }
-
+  
   MmInit1(FirstKrnlPhysAddr,
 	  LastKrnlPhysAddr,
 	  LastKernelAddress,
 	  (PADDRESS_RANGE)&KeMemoryMap,
-	  KeMemoryMapRangeCount,
-	  MaxMem > 8 ? MaxMem : 4096);
-
-  /* Import ANSI code page table */
-  for (i = 1; i < KeLoaderBlock.ModsCount; i++)
-    {
-      start = KeLoaderModules[i].ModStart;
-      length = KeLoaderModules[i].ModEnd - start;
-
-      name = strrchr((PCHAR)KeLoaderModules[i].String, '\\');
-      if (name == NULL)
-	{
-	  name = (PCHAR)KeLoaderModules[i].String;
-	}
-      else
-	{
-	  name++;
-	}
-
-      if (!_stricmp (name, "ansi.nls"))
-	{
-	  RtlpImportAnsiCodePage((PUSHORT)start, length);
-	}
-    }
-
-  /* Import OEM code page table */
-  for (i = 1; i < KeLoaderBlock.ModsCount; i++)
-    {
-      start = KeLoaderModules[i].ModStart;
-      length = KeLoaderModules[i].ModEnd - start;
-
-      name = strrchr((PCHAR)KeLoaderModules[i].String, '\\');
-      if (name == NULL)
-	{
-	  name = (PCHAR)KeLoaderModules[i].String;
-	}
-      else
-	{
-	  name++;
-	}
-
-      if (!_stricmp (name, "oem.nls"))
-	{
-	  RtlpImportOemCodePage((PUSHORT)start, length);
-	}
-    }
-
-  /* Import Unicode casemap table */
-  for (i = 1; i < KeLoaderBlock.ModsCount; i++)
-    {
-      start = KeLoaderModules[i].ModStart;
-      length = KeLoaderModules[i].ModEnd - start;
-
-      name = strrchr((PCHAR)KeLoaderModules[i].String, '\\');
-      if (name == NULL)
-	{
-	  name = (PCHAR)KeLoaderModules[i].String;
-	}
-      else
-	{
-	  name++;
-	}
-
-      if (!_stricmp (name, "casemap.nls"))
-	{
-	  RtlpImportUnicodeCasemap((PUSHORT)start, length);
-	}
-    }
-
-  /* Create initial NLS tables */
-  RtlpCreateInitialNlsTables();
-
+	  KeMemoryMapRangeCount);
+  
+  /* create default nls tables */
+  RtlpInitNlsTables();
+  
   /*
    * Initialize the kernel debugger
    */
-  KdInitSystem (1, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+  KdInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
+  MmInit2();
   KeInit2();
   
-#if 1
-  if (KeMemoryMapRangeCount > 0)
-    {
-      DPRINT("MemoryMap:\n");
-      for (i = 0; i < KeMemoryMapRangeCount; i++)
-        {
-          switch(KeMemoryMap[i].Type)
-            {
-              case 1:
-	        strcpy(str, "(usable)");
-	        break;
-	      case 2:
-	        strcpy(str, "(reserved)");
-	        break;
-	      case 3:
-	        strcpy(str, "(ACPI data)");
-	        break;
-	      case 4:
-	        strcpy(str, "(ACPI NVS)");
-	        break;
-	      default:
-	        sprintf(str, "type %lu", KeMemoryMap[i].Type);
-            }
-          DPRINT("%08x - %08x %s\n", KeMemoryMap[i].BaseAddrLow, KeMemoryMap[i].BaseAddrLow + KeMemoryMap[i].LengthLow, str);
-	}
-    }
-#endif
-
   KeLowerIrql(PASSIVE_LEVEL);
 
   if (!SeInit1())
-    KEBUGCHECK(SECURITY_INITIALIZATION_FAILED);
+    KeBugCheck(SECURITY_INITIALIZATION_FAILED);
 
   ObInit();
-  ExInit2();
-  MmInit2();
 
   if (!SeInit2())
-    KEBUGCHECK(SECURITY1_INITIALIZATION_FAILED);
+    KeBugCheck(SECURITY1_INITIALIZATION_FAILED);
 
   PiInitProcessManager();
+
+  KdInit1();
 
   if (KdPollBreakIn ())
     {
       DbgBreakPointWithStatus (DBG_STATUS_CONTROL_C);
     }
-
-  /* Initialize all processors */
-  KeNumberProcessors = 1;
-
-  while (!HalAllProcessorsStarted())
-    {
-      PVOID ProcessorStack;
-
-      KePrepareForApplicationProcessorInit(KeNumberProcessors);
-      PsPrepareForApplicationProcessorInit(KeNumberProcessors);
-
-      /* Allocate a stack for use when booting the processor */
-      /* FIXME: The nonpaged memory for the stack is not released after use */
-      ProcessorStack = 
-	(char*)ExAllocatePool(NonPagedPool, MM_STACK_SIZE) + MM_STACK_SIZE;
-      Ki386InitialStackArray[((int)KeNumberProcessors)] = 
-	(PVOID)((char*)ProcessorStack - MM_STACK_SIZE);
-
-      HalStartNextProcessor(0, (ULONG)ProcessorStack - 2*sizeof(FX_SAVE_AREA));
-      KeNumberProcessors++;
-    }
-
-  /*
-   * Initialize various critical subsystems
-   */
-  HalInitSystem(1, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
-
-  ExInit3();
-  KdInit1();
-  IoInit();
-  PoInit();
-  CmInitializeRegistry();
-  NtInit();
-  MmInit3();
-  CcInit();
-  KdInit2();
-  FsRtlpInitFileLockingImplementation();
-
-  /* Report all resources used by hal */
-  HalReportResourceUsage();  
-
-  /*
-   * Clear the screen to blue
-   */
-  HalInitSystem(2, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
   /*
    * Display version number and copyright/warranty message
@@ -565,6 +368,28 @@ ExpInitializeExecutive(VOID)
 		   "under certain\n"); 
   HalDisplayString("conditions. There is absolutely no warranty for "
 		   "ReactOS.\n\n");
+
+  /* Initialize all processors */
+  KeNumberProcessors = 0;
+
+  while (!HalAllProcessorsStarted())
+    {
+      PVOID ProcessorStack;
+
+      if (KeNumberProcessors != 0)
+	{
+	  KePrepareForApplicationProcessorInit(KeNumberProcessors);
+	  PsPrepareForApplicationProcessorInit(KeNumberProcessors);
+	}
+      /* Allocate a stack for use when booting the processor */
+      /* FIXME: The nonpaged memory for the stack is not released after use */
+      ProcessorStack = 
+	ExAllocatePool(NonPagedPool, MM_STACK_SIZE) + MM_STACK_SIZE;
+      Ki386InitialStackArray[((int)KeNumberProcessors)] = 
+	(PVOID)(ProcessorStack - MM_STACK_SIZE);
+      HalInitializeProcessor(KeNumberProcessors, ProcessorStack);
+      KeNumberProcessors++;
+    }
 
   if (KeNumberProcessors > 1)
     {
@@ -581,12 +406,24 @@ ExpInitializeExecutive(VOID)
     }
   HalDisplayString(str);
 
-  KdInit3();
+  /*
+   * Initialize various critical subsystems
+   */
+  HalInitSystem(1, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
-
-  /* Create the NLS section */
-  RtlpCreateNlsSection();
-
+  ExInit();
+  IoInit();
+  PoInit();
+  LdrInitModuleManagement();
+  CmInitializeRegistry();
+  NtInit();
+  MmInit3();
+  CcInit();
+  KdInit2();
+  
+  /* Report all resources used by hal */
+  HalReportResourceUsage();
+  
   /*
    * Initalize services loaded at boot time
    */
@@ -599,58 +436,58 @@ ExpInitializeExecutive(VOID)
        KeLoaderModules[i].ModEnd - KeLoaderModules[i].ModStart);
     }
 
-  /* Pass 1: import system hive registry chunk */
-  SetupBoot = TRUE;
+  /*  Pass 1: load nls files  */
   for (i = 1; i < KeLoaderBlock.ModsCount; i++)
     {
-      start = KeLoaderModules[i].ModStart;
-      length = KeLoaderModules[i].ModEnd - start;
+      name = (PCHAR)KeLoaderModules[i].String;
+      if (RtlpCheckFileNameExtension(name, ".nls"))
+	{
+	  ULONG Mod2Start = 0;
+	  ULONG Mod2End = 0;
+	  ULONG Mod3Start = 0;
+	  ULONG Mod3End = 0;
 
-      DPRINT("Module: '%s'\n", (PCHAR)KeLoaderModules[i].String);
-      name = strrchr((PCHAR)KeLoaderModules[i].String, '\\');
-      if (name == NULL)
-	{
-	  name = (PCHAR)KeLoaderModules[i].String;
-	}
-      else
-	{
-	  name++;
-	}
+	  name = (PCHAR)KeLoaderModules[i+1].String;
+	  if (RtlpCheckFileNameExtension(name, ".nls"))
+	    {
+	      Mod2Start = (ULONG)KeLoaderModules[i+1].ModStart;
+	      Mod2End = (ULONG)KeLoaderModules[i+1].ModEnd;
 
-      if (!_stricmp (name, "system") ||
-	  !_stricmp (name, "system.hiv"))
-	{
-	  CPRINT("Process system hive registry chunk at %08lx\n", start);
-	  SetupBoot = FALSE;
-	  CmImportSystemHive((PCHAR)start, length);
+	      name = (PCHAR)KeLoaderModules[i+2].String;
+	      if (RtlpCheckFileNameExtension(name, ".nls"))
+	        {
+		  Mod3Start = (ULONG)KeLoaderModules[i+2].ModStart;
+		  Mod3End = (ULONG)KeLoaderModules[i+2].ModEnd;
+	        }
+	    }
+
+	  /* Initialize nls sections */
+	  RtlpInitNlsSections((ULONG)KeLoaderModules[i].ModStart,
+			      (ULONG)KeLoaderModules[i].ModEnd,
+			      Mod2Start,
+			      Mod2End,
+			      Mod3Start,
+			      Mod3End);
+	  break;
 	}
     }
 
-  /* Pass 2: import hardware hive registry chunk */
+  /*  Pass 2: load registry chunks passed in  */
   for (i = 1; i < KeLoaderBlock.ModsCount; i++)
     {
       start = KeLoaderModules[i].ModStart;
       length = KeLoaderModules[i].ModEnd - start;
       name = (PCHAR)KeLoaderModules[i].String;
-      if (!_stricmp (name, "hardware") ||
-	  !_stricmp (name, "hardware.hiv"))
+      if (RtlpCheckFileNameExtension(name, "") ||
+	  RtlpCheckFileNameExtension(name, ".hiv"))
 	{
-	  CPRINT("Process hardware hive registry chunk at %08lx\n", start);
-	  CmImportHardwareHive((PCHAR)start, length);
+	  CPRINT("Process registry chunk at %08lx\n", start);
+	  CmImportHive((PCHAR)start, length);
 	}
     }
 
-  /* Create dummy keys if no hardware hive was found */
-  CmImportHardwareHive (NULL, 0);
-
   /* Initialize volatile registry settings */
-  if (SetupBoot == FALSE)
-    {
-      CmInit2((PCHAR)KeLoaderBlock.CommandLine);
-    }
-
-  /* Initialize the time zone information from the registry */
-  ExpInitTimeZoneInfo();
+  CmInit2((PCHAR)KeLoaderBlock.CommandLine);
 
   /*
    * Enter the kernel debugger before starting up the boot drivers
@@ -661,77 +498,65 @@ ExpInitializeExecutive(VOID)
 
   IoCreateDriverList();
 
-  IoInit2();
-
-  /* Initialize Callbacks before drivers */
-  ExpInitializeCallbacks();
-
-  /* Start boot logging */
-  IopInitBootLog();
-  p1 = (PCHAR)KeLoaderBlock.CommandLine;
-  while (*p1 && (p2 = strchr(p1, '/')))
-  {
-    p2++;
-    if (!_strnicmp(p2, "BOOTLOG", 7))
+  /*  Pass 3: process boot loaded drivers  */
+  BootDriverCount = 0;
+  for (i=1; i < KeLoaderBlock.ModsCount; i++)
     {
-      p2 += 7;
-      IopStartBootLog();
+      start = KeLoaderModules[i].ModStart;
+      length = KeLoaderModules[i].ModEnd - start;
+      name = (PCHAR)KeLoaderModules[i].String;
+      if (RtlpCheckFileNameExtension(name, ".sys") ||
+	  RtlpCheckFileNameExtension(name, ".sym"))
+	{
+	  CPRINT("Initializing driver '%s' at %08lx, length 0x%08lx\n",
+	         name, start, length);
+	  LdrInitializeBootStartDriver((PVOID)start, name, length);
+	}
+      if (RtlpCheckFileNameExtension(name, ".sys"))
+	BootDriverCount++;
     }
 
-    p1 = p2;
-  }
-
-  /*
-   * Load boot start drivers
-   */
-  IopInitializeBootDrivers();
-
-  /* Display the boot screen image if not disabled */
-  if (!NoGuiBoot)
+  if (BootDriverCount == 0)
     {
-      InbvEnableBootDriver(TRUE);
+      DbgPrint("No boot drivers available.\n");
+      KeBugCheck(0);
     }
 
   /* Create ARC names for boot devices */
   IoCreateArcNames();
 
   /* Create the SystemRoot symbolic link */
-  CPRINT("CommandLine: %s\n", (PCHAR)KeLoaderBlock.CommandLine);
-  Status = IoCreateSystemRootLink((PCHAR)KeLoaderBlock.CommandLine);
+  CPRINT("CommandLine: %s\n", (PUCHAR)KeLoaderBlock.CommandLine);
+  Status = IoCreateSystemRootLink((PUCHAR)KeLoaderBlock.CommandLine);
   if (!NT_SUCCESS(Status))
-  {
-    DbgPrint ( "IoCreateSystemRootLink FAILED: (0x%x) - ", Status );
-    DbgPrintErrorMessage ( Status );
-    KEBUGCHECK(INACCESSIBLE_BOOT_DEVICE);
-  }
+    KeBugCheck(INACCESSIBLE_BOOT_DEVICE);
 
-#ifdef KDBG
-  KdbInitProfiling2();
-#endif /* KDBG */
-
+#ifdef DBGPRINT_FILE_LOG
   /* On the assumption that we can now access disks start up the debug
-   * logger thread */
-  if ((KdDebuggerEnabled == TRUE) && (KdDebugState & KD_DEBUG_BOOTLOG))
-    {
-      DebugLogInit2();
-    }
+     logger thread */
+  DebugLogInit2();
+#endif /* DBGPRINT_FILE_LOG */
+
 
   PiInitDefaultLocale();
 
   /*
-   * Load services for devices found by PnP manager
+   * Start the motherboard enumerator (the HAL)
    */
-  IopInitializePnpServices(IopRootDeviceNode, FALSE);
-
+  HalInitSystem(2, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+#if 0
   /*
-   * Load system start drivers
+   * Load boot start drivers
    */
-  IopInitializeSystemDrivers();
+  IopLoadBootStartDrivers();
+#else
+  /*
+   * Load Auto configured drivers
+   */
+  LdrLoadAutoConfigDrivers();
+#endif
 
   IoDestroyDriverList();
-
-  /* Stop boot logging */
-  IopStopBootLog();
 
   /*
    * Assign drive letters
@@ -745,137 +570,38 @@ ExpInitializeExecutive(VOID)
    * Initialize shared user page:
    *  - set dos system path, dos device map, etc.
    */
-  InitSystemSharedUserPage ((PCHAR)KeLoaderBlock.CommandLine);
-
-  /* Create 'ReactOSInitDone' event */
-  RtlInitUnicodeString(&Name, L"\\ReactOSInitDone");
-  InitializeObjectAttributes(&ObjectAttributes,
-    &Name,
-    0,
-    NULL,
-    NULL);
-  Status = NtCreateEvent(&InitDoneEventHandle,
-    EVENT_ALL_ACCESS,
-    &ObjectAttributes,
-    SynchronizationEvent,
-    FALSE);             /* Not signalled */
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to create 'ReactOSInitDone' event (Status 0x%x)\n", Status);
-      InitDoneEventHandle = INVALID_HANDLE_VALUE;
-    }
+  InitSystemSharedUserPage ((PUCHAR)KeLoaderBlock.CommandLine);
 
   /*
    *  Launch initial process
    */
-  Status = LdrLoadInitialProcess(&ProcessHandle,
-				 &ThreadHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      KEBUGCHECKEX(SESSION4_INITIALIZATION_FAILED, Status, 0, 0, 0);
-    }
+  LdrLoadInitialProcess();
 
-  if (InitDoneEventHandle != INVALID_HANDLE_VALUE)
-    {
-      HANDLE Handles[2]; /* Init event, Initial process */
-
-      Handles[0] = InitDoneEventHandle;
-      Handles[1] = ProcessHandle;
-
-      /* Wait for the system to be initialized */
-      Timeout.QuadPart = (LONGLONG)-1200000000;  /* 120 second timeout */
-      Status = NtWaitForMultipleObjects(((LONG) sizeof(Handles) / sizeof(HANDLE)),
-        Handles,
-        WaitAny,
-        FALSE,    /* Non-alertable */
-        &Timeout);
-      if (!NT_SUCCESS(Status))
-        {
-          DPRINT1("NtWaitForMultipleObjects failed with status 0x%x!\n", Status);
-        }
-      else if (Status == STATUS_TIMEOUT)
-        {
-          DPRINT1("WARNING: System not initialized after 120 seconds.\n");
-        }
-      else if (Status == STATUS_WAIT_0 + 1)
-        {
-          /*
-           * Crash the system if the initial process was terminated.
-           */
-          KEBUGCHECKEX(SESSION5_INITIALIZATION_FAILED, Status, 0, 0, 0);
-        }
-
-      if (!NoGuiBoot)
-        {
-          InbvEnableBootDriver(FALSE);
-        }
-
-      NtSetEvent(InitDoneEventHandle, NULL);
-
-      NtClose(InitDoneEventHandle);
-    }
-  else
-    {
-      /* On failure to create 'ReactOSInitDone' event, go to text mode ASAP */
-      if (!NoGuiBoot)
-        {
-          InbvEnableBootDriver(FALSE);
-        }
-
-      /*
-       * Crash the system if the initial process terminates within 5 seconds.
-       */
-      Timeout.QuadPart = (LONGLONG)-50000000;  /* 5 second timeout */
-      Status = NtWaitForSingleObject(ProcessHandle,
-    				 FALSE,
-    				 &Timeout);
-      if (Status != STATUS_TIMEOUT)
-        {
-          KEBUGCHECKEX(SESSION5_INITIALIZATION_FAILED, Status, 1, 0, 0);
-        }
-    }
-/*
- * Tell ke/timer.c it's okay to run.
- */
-
-  KiTimerSystemAuditing = 1;
-
-  NtClose(ThreadHandle);
-  NtClose(ProcessHandle);
+  PsTerminateSystemThread(STATUS_SUCCESS);
 }
 
-VOID __attribute((noinline))
+
+VOID
 KiSystemStartup(BOOLEAN BootProcessor)
 {
-  if (BootProcessor)
-  {
-  }
-  else
-  {
-     KeApplicationProcessorInit();
-  }
-
-  HalInitializeProcessor(KeNumberProcessors, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+  HalInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
   if (BootProcessor)
-  {
-     ExpInitializeExecutive();
-     MiFreeInitMemory();
-     /* Never returns */
-     PsTerminateSystemThread(STATUS_SUCCESS);
-  }
-  else
-  {
-     /* Do application processor initialization */
-     PsApplicationProcessorInit();
-     KeLowerIrql(PASSIVE_LEVEL);
-     PsIdleThreadMain(NULL);
-  }
-  KEBUGCHECK(0);
+    {
+      /* Never returns */
+      ExpInitializeExecutive();
+      KeBugCheck(0);
+    }
+  /* Do application processor initialization */
+  KeApplicationProcessorInit();
+  PsApplicationProcessorInit();
+  KeLowerIrql(PASSIVE_LEVEL);
+  PsIdleThreadMain(NULL);
+  KeBugCheck(0);
   for(;;);
 }
 
-VOID INIT_FUNCTION
+VOID
 _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
 /*
  * FUNCTION: Called by the boot loader to start the kernel
@@ -888,10 +614,14 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
 {
   ULONG i;
   ULONG size;
+  ULONG last_kernel_address;
   extern ULONG _bss_end__;
   ULONG HalBase;
   ULONG DriverBase;
   ULONG DriverSize;
+
+  /* Low level architecture specific initialization */
+  KeInit1();
 
   /*
    * Copy the parameters to a local buffer because lowmem will go away
@@ -917,10 +647,10 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
       if (((PUCHAR)_LoaderBlock->CommandLine)[1] == 'h' &&
 	  ((PUCHAR)_LoaderBlock->CommandLine)[2] == 'd')
 	{
-	  DiskNumber = ((PCHAR)_LoaderBlock->CommandLine)[3] - '0';
-	  PartNumber = ((PCHAR)_LoaderBlock->CommandLine)[5] - '0';
+	  DiskNumber = ((PUCHAR)_LoaderBlock->CommandLine)[3] - '0';
+	  PartNumber = ((PUCHAR)_LoaderBlock->CommandLine)[5] - '0';
 	}
-      strcpy(Temp, &((PCHAR)_LoaderBlock->CommandLine)[7]);
+      strcpy(Temp, &((PUCHAR)_LoaderBlock->CommandLine)[7]);
       if ((options = strchr(Temp, ' ')) != NULL)
 	{
 	  *options = 0;
@@ -939,7 +669,7 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
 	    }
 	}
       sprintf(KeLoaderCommandLine, 
-	      "multi(0)disk(0)rdisk(%lu)partition(%lu)%s %s",
+	      "multi(0)disk(0)rdisk(%ld)partition(%ld)%s %s",
 	      DiskNumber, PartNumber + 1, Temp, options);
 
       p = KeLoaderCommandLine;
@@ -955,71 +685,61 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
     }
   else
     {
-      strcpy(KeLoaderCommandLine, (PCHAR)_LoaderBlock->CommandLine);
+      strcpy(KeLoaderCommandLine, (PUCHAR)_LoaderBlock->CommandLine);
     }
   KeLoaderBlock.CommandLine = (ULONG)KeLoaderCommandLine;
   
   strcpy(KeLoaderModuleStrings[0], "ntoskrnl.exe");
   KeLoaderModules[0].String = (ULONG)KeLoaderModuleStrings[0];
-  KeLoaderModules[0].ModStart = KERNEL_BASE;
-#ifdef  __GNUC__
+  KeLoaderModules[0].ModStart = 0xC0000000;
   KeLoaderModules[0].ModEnd = PAGE_ROUND_UP((ULONG)&_bss_end__);
-#else
-  /* Take this value from the PE... */
-  {
-    PIMAGE_NT_HEADERS      NtHeader = RtlImageNtHeader((PVOID)KeLoaderModules[0].ModStart);
-    PIMAGE_OPTIONAL_HEADER OptHead  = &NtHeader->OptionalHeader;
-    KeLoaderModules[0].ModEnd =
-      KeLoaderModules[0].ModStart + PAGE_ROUND_UP((ULONG)OptHead->SizeOfImage);
-  }
-#endif
   for (i = 1; i < KeLoaderBlock.ModsCount; i++)
     {      
       CHAR* s;
-      if ((s = strrchr((PCHAR)KeLoaderModules[i].String, '/')) != 0)
+      if ((s = strrchr((PUCHAR)KeLoaderModules[i].String, '/')) != 0)
 	{
 	  strcpy(KeLoaderModuleStrings[i], s + 1);
 	}
       else
 	{
-	  strcpy(KeLoaderModuleStrings[i], (PCHAR)KeLoaderModules[i].String);
+	  strcpy(KeLoaderModuleStrings[i], (PUCHAR)KeLoaderModules[i].String);
 	}
-      /* TODO: Fix this hardcoded load address stuff... */
       KeLoaderModules[i].ModStart -= 0x200000;
-      KeLoaderModules[i].ModStart += KERNEL_BASE;
+      KeLoaderModules[i].ModStart += 0xc0000000;
       KeLoaderModules[i].ModEnd -= 0x200000;
-      KeLoaderModules[i].ModEnd += KERNEL_BASE;
+      KeLoaderModules[i].ModEnd += 0xc0000000;
       KeLoaderModules[i].String = (ULONG)KeLoaderModuleStrings[i];
     }
 
-  LastKernelAddress = PAGE_ROUND_UP(KeLoaderModules[KeLoaderBlock.ModsCount - 1].ModEnd);
-
-  /* Low level architecture specific initialization */
-  KeInit1((PCHAR)KeLoaderBlock.CommandLine, &LastKernelAddress);
+#ifdef HAL_DBG
+  HalnInitializeDisplay((PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+#endif
 
   HalBase = KeLoaderModules[1].ModStart;
-  DriverBase = LastKernelAddress;
-  LdrHalBase = (ULONG_PTR)DriverBase;
-
-  LdrInitModuleManagement();
+  DriverBase = 
+    PAGE_ROUND_UP(KeLoaderModules[KeLoaderBlock.ModsCount - 1].ModEnd);
 
   /*
    * Process hal.dll
    */
-  LdrSafePEProcessModule((PVOID)HalBase, (PVOID)DriverBase, (PVOID)KERNEL_BASE, &DriverSize);
+  LdrSafePEProcessModule((PVOID)HalBase, (PVOID)DriverBase, (PVOID)0xC0000000, &DriverSize);
 
-  LastKernelAddress += PAGE_ROUND_UP(DriverSize);
+  LdrHalBase = (ULONG_PTR)DriverBase;
+  last_kernel_address = DriverBase + DriverSize;
 
   /*
    * Process ntoskrnl.exe
    */
-  LdrSafePEProcessModule((PVOID)KERNEL_BASE, (PVOID)KERNEL_BASE, (PVOID)DriverBase, &DriverSize);
+  LdrSafePEProcessModule((PVOID)0xC0000000, (PVOID)0xC0000000, (PVOID)DriverBase, &DriverSize);
 
-  /* Now our imports from HAL are fixed. This is the first */
-  /* time in the boot process that we can use HAL          */
+  FirstKrnlPhysAddr = KeLoaderModules[0].ModStart - 0xc0000000 + 0x200000;
+  LastKrnlPhysAddr = last_kernel_address - 0xc0000000 + 0x200000;
+  LastKernelAddress = last_kernel_address;
 
-  FirstKrnlPhysAddr = KeLoaderModules[0].ModStart - KERNEL_BASE + 0x200000;
-  LastKrnlPhysAddr = LastKernelAddress - KERNEL_BASE + 0x200000;
+#ifndef ACPI
+  /* FIXME: VMware does not like it when ReactOS is using the BIOS memory map */
+  KeLoaderBlock.Flags &= ~MB_FLAGS_MMAP_INFO;
+#endif
 
   KeMemoryMapRangeCount = 0;
   if (KeLoaderBlock.Flags & MB_FLAGS_MMAP_INFO)
@@ -1035,18 +755,8 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
           KeMemoryMapRangeCount++;
           i += size;
         }
-      KeLoaderBlock.MmapLength = KeMemoryMapRangeCount * sizeof(ADDRESS_RANGE);
-      KeLoaderBlock.MmapAddr = (ULONG)KeMemoryMap;
     }
-  else
-    {
-      KeLoaderBlock.MmapLength = 0;
-      KeLoaderBlock.MmapAddr = (ULONG)KeMemoryMap;
-    }
-
-  KdInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
-  HalInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
-
+  
   KiSystemStartup(1);
 }
 

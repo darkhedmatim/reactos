@@ -1,4 +1,4 @@
-/* $Id: registry.h,v 1.5 2003/05/30 22:26:25 ekohl Exp $
+/* $Id: registry.h,v 1.3 2002/06/19 22:30:29 ekohl Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -12,8 +12,6 @@
 
 #ifndef __INCLUDE_NTOS_REGISTRY_H
 #define __INCLUDE_NTOS_REGISTRY_H
-
-#ifndef __USE_W32API
 
 /* Key access rights */
 #define KEY_QUERY_VALUE			(1)
@@ -35,12 +33,6 @@
 #define REG_OPTION_BACKUP_RESTORE	(0x8L)
 #define REG_OPTION_OPEN_LINK		(0x8L)
 
-/* Key load/restore options */
-#define REG_WHOLE_HIVE_VOLATILE		(0x1L)
-#define REG_REFRESH_HIVE		(0x2L)
-#define REG_NO_LAZY_FLUSH		(0x4L)
-#define REG_FORCE_RESTORE		(0x8L)
-
 /* Key create/open disposition */
 #define REG_CREATED_NEW_KEY		(0x1L)
 #define REG_OPENED_EXISTING_KEY		(0x2L)
@@ -59,6 +51,5 @@
 #define REG_FULL_RESOURCE_DESCRIPTOR	(9)
 #define REG_RESOURCE_REQUIREMENTS_LIST	(10)
 
-#endif /* !__USE_W32API */
 
 #endif /* __INCLUDE_NTOS_REGISTRY_H */

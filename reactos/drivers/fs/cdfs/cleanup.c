@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cleanup.c,v 1.5 2003/09/20 20:31:57 weiden Exp $
+/* $Id: cleanup.c,v 1.1 2002/09/09 17:27:14 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -45,17 +45,21 @@ CdfsCleanupFile(PDEVICE_EXTENSION DeviceExt,
  * FUNCTION: Cleans up after a file has been closed.
  */
 {
+  PCCB Ccb;
 
   DPRINT("CdfsCleanupFile(DeviceExt %x, FileObject %x)\n",
 	 DeviceExt,
 	 FileObject);
 
 
-  /* Uninitialize file cache if initialized for this file object. */
-  if (FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->SharedCacheMap)
+  Ccb = (PCCB) (FileObject->FsContext2);
+  if (Ccb == NULL)
     {
-      CcRosReleaseFileCache (FileObject);
+      return  STATUS_SUCCESS;
     }
+
+  /* Uninitialize the file cache. */
+  CcRosReleaseFileCache (FileObject, Ccb->Fcb->RFCB.Bcb);
  
   return STATUS_SUCCESS;
 }
@@ -98,4 +102,3 @@ ByeBye:
 }
 
 /* EOF */
-

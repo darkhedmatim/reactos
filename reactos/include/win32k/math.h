@@ -18,17 +18,15 @@
  *  DISCLAMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.4 $
- * $Author: sedwards $
- * $Date: 2003/08/25 01:37:48 $
+ * $Revision: 1.1 $
+ * $Author: jfilby $
+ * $Date: 2000/06/16 20:58:56 $
  *
  */
-/* added modfl */
+// added modfl 
 
 #ifndef _MATH_H_
 #define _MATH_H_
-
-#include_next <math.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +42,7 @@ extern "C" {
  *
  * NOTE: The CRTDLL version uses _HUGE_dll instead.
  */
-#ifdef __MSVCRT__
+#if __MSVCRT__
 extern double*	__imp__HUGE;
 #define	HUGE_VAL	(*__imp__HUGE)
 #else
@@ -144,10 +142,7 @@ double	_yn (int n, double x);
  * Non-underscored versions of non-ANSI functions. These reside in
  * liboldnames.a. Provided for extra portability.
  */
-#if 0
-/* GCC 3.4 warns that this is not equal to it's internal definition for cabs */
 double cabs (struct _complex x);
-#endif
 double hypot (double x, double y);
 double j0 (double x);
 double j1 (double x);

@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,14 +16,14 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rw.c,v 1.12 2003/11/13 15:25:08 ekohl Exp $
+/* $Id: rw.c,v 1.7 2002/10/01 19:27:16 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/cdfs/rw.c
+ * FILE:             services/fs/cdfs/rw.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
- *                   Eric Kohl
+ * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
@@ -58,6 +58,8 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
  */
 {
   NTSTATUS Status = STATUS_SUCCESS;
+  PUCHAR TempBuffer;
+  ULONG TempLength;
   PCCB Ccb;
   PFCB Fcb;
 
@@ -66,28 +68,28 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
   *LengthRead = 0;
 
   if (Length == 0)
-    return(STATUS_SUCCESS);
+    return STATUS_SUCCESS;
 
   Ccb = (PCCB)FileObject->FsContext2;
-  Fcb = (PFCB)FileObject->FsContext;
+  Fcb = Ccb->Fcb;
 
-  if (ReadOffset >= Fcb->Entry.DataLengthL)
-    return(STATUS_END_OF_FILE);
+  if (ReadOffset + Length > Fcb->Entry.DataLengthL)
+    Length = Fcb->Entry.DataLengthL - ReadOffset;
 
   DPRINT("Reading %d bytes at %d\n", Length, ReadOffset);
+
+  if (Length == 0)
+    return(STATUS_UNSUCCESSFUL);
 
   if (!(IrpFlags & (IRP_NOCACHE|IRP_PAGING_IO)))
     {
       LARGE_INTEGER FileOffset;
       IO_STATUS_BLOCK IoStatus;
 
-      if (ReadOffset + Length > Fcb->Entry.DataLengthL)
-         Length = Fcb->Entry.DataLengthL - ReadOffset;
-
       if (FileObject->PrivateCacheMap == NULL)
-	{
-	  CcRosInitializeFileCache(FileObject, PAGE_SIZE);
-	}
+      {
+	  CcRosInitializeFileCache(FileObject, &Fcb->RFCB.Bcb, PAGE_SIZE);
+      }
 
       FileOffset.QuadPart = (LONGLONG)ReadOffset;
       CcCopyRead(FileObject,
@@ -101,31 +103,63 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
       return(IoStatus.Status);
     }
 
-  if ((ReadOffset % BLOCKSIZE) != 0 || (Length % BLOCKSIZE) != 0)
+  if ((ReadOffset % BLOCKSIZE) != 0)
     {
-      return STATUS_INVALID_PARAMETER;
+      TempLength = min(Length, BLOCKSIZE - (ReadOffset % BLOCKSIZE));
+      TempBuffer = ExAllocatePool(NonPagedPool, BLOCKSIZE);
+
+      Status = CdfsReadSectors(DeviceExt->StorageDevice,
+			       Fcb->Entry.ExtentLocationL + (ReadOffset / BLOCKSIZE),
+			       1,
+			       TempBuffer);
+      if (NT_SUCCESS(Status))
+	{
+	  memcpy(Buffer, TempBuffer + (ReadOffset % BLOCKSIZE), TempLength);
+	  (*LengthRead) = (*LengthRead) + TempLength;
+	  Length = Length - TempLength;
+	  Buffer = Buffer + TempLength;
+	  ReadOffset = ReadOffset + TempLength;
+	}
+      ExFreePool(TempBuffer);
     }
 
-  if (ReadOffset + Length > ROUND_UP(Fcb->Entry.DataLengthL, BLOCKSIZE))
-    Length = ROUND_UP(Fcb->Entry.DataLengthL, BLOCKSIZE) - ReadOffset;
+  DPRINT("Status %lx\n", Status);
 
-  Status = CdfsReadSectors(DeviceExt->StorageDevice,
-			   Fcb->Entry.ExtentLocationL + (ReadOffset / BLOCKSIZE),
-			   Length / BLOCKSIZE,
-			   Buffer,
-			   FALSE);
-  if (NT_SUCCESS(Status))
+  if ((Length / BLOCKSIZE) != 0 && NT_SUCCESS(Status))
     {
-      *LengthRead = Length;
-      if (Length + ReadOffset > Fcb->Entry.DataLengthL)
+      TempLength = ROUND_DOWN(Length, BLOCKSIZE);
+      Status = CdfsReadSectors(DeviceExt->StorageDevice,
+			       Fcb->Entry.ExtentLocationL + (ReadOffset / BLOCKSIZE),
+			       TempLength / BLOCKSIZE,
+			       Buffer);
+      if (NT_SUCCESS(Status))
 	{
-	  memset(Buffer + Fcb->Entry.DataLengthL - ReadOffset,
-		 0,
-		 Length + ReadOffset - Fcb->Entry.DataLengthL);
+	  (*LengthRead) = (*LengthRead) + TempLength;
+	  Length = Length - TempLength;
+	  Buffer = Buffer + TempLength;
+	  ReadOffset = ReadOffset + TempLength;
 	}
     }
 
-  return Status;
+  DPRINT("Status %lx\n", Status);
+
+  if (Length > 0 && NT_SUCCESS(Status))
+    {
+      TempBuffer = ExAllocatePool(NonPagedPool, BLOCKSIZE);
+
+      Status = CdfsReadSectors(DeviceExt->StorageDevice,
+			       Fcb->Entry.ExtentLocationL + (ReadOffset / BLOCKSIZE),
+			       1,
+			       TempBuffer);
+      if (NT_SUCCESS(Status))
+	{
+	  memcpy(Buffer, TempBuffer, Length);
+	  (*LengthRead) = (*LengthRead) + Length;
+	}
+      ExFreePool(TempBuffer);
+    }
+
+  return(Status);
 }
 
 
@@ -159,6 +193,8 @@ CdfsRead(PDEVICE_OBJECT DeviceObject,
 			ReadOffset.u.LowPart,
 			Irp->Flags,
 			&ReturnedReadLength);
+
+ByeBye:
   if (NT_SUCCESS(Status))
     {
       if (FileObject->Flags & FO_SYNCHRONOUS_IO)

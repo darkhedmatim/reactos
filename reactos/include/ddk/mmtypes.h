@@ -1,10 +1,15 @@
-/* $Id: mmtypes.h,v 1.21 2004/12/22 05:06:59 royce Exp $ */
+/* $Id: mmtypes.h,v 1.14 2002/10/01 19:27:19 chorns Exp $ */
 
 #ifndef _INCLUDE_DDK_MMTYPES_H
 #define _INCLUDE_DDK_MMTYPES_H
 
 #include <ddk/i386/pagesize.h>
 #include <ntos/mm.h>
+
+
+#define PAGE_ROUND_UP(x) ( (((ULONG)x)%PAGE_SIZE) ? ((((ULONG)x)&(~0xfff))+0x1000) : ((ULONG)x) )
+#define PAGE_ROUND_DOWN(x) (((ULONG)x)&(~0xfff))
+
 
 /*
  * FUNCTION: Determines if the given virtual address is page aligned
@@ -14,9 +19,7 @@
 /*
  * PURPOSE: Returns the byte offset of a field within a structure
  */
-#ifndef FIELD_OFFSET
-#define FIELD_OFFSET(Type,Field) ((LONG)(&(((Type *)(0))->Field)))
-#endif
+#define FIELD_OFFSET(Type,Field) (LONG)(&(((Type *)(0))->Field))
 
 /*
  * PURPOSE: Returns the base address structure if the caller knows the 
@@ -26,9 +29,7 @@
  *          Type = Type of the whole structure
  *          Field = Name of the field whose address is none
  */
-#ifndef CONTAINING_RECORD
-#define CONTAINING_RECORD(Address,Type,Field) ((Type *)(((LONG)Address) - FIELD_OFFSET(Type,Field)))
-#endif
+#define CONTAINING_RECORD(Address,Type,Field) (Type *)(((LONG)Address) - FIELD_OFFSET(Type,Field))
 
 
 #define   MDL_MAPPED_TO_SYSTEM_VA      (0x1)
@@ -64,24 +65,6 @@ typedef struct _MDL
    ULONG ByteOffset;
 } MDL, *PMDL;
 
-typedef struct _PHYSICAL_MEMORY_RANGE {
-	PHYSICAL_ADDRESS BaseAddress;
-	LARGE_INTEGER NumberOfBytes;
-} PHYSICAL_MEMORY_RANGE, *PPHYSICAL_MEMORY_RANGE; 
-
-// read file scatter / write file scatter
-typedef union _FILE_SEGMENT_ELEMENT {
-	PVOID Buffer;
-	ULONG Alignment;
-}FILE_SEGMENT_ELEMENT, *PFILE_SEGMENT_ELEMENT;
-
-typedef struct _READ_LIST {
-	struct _FILE_OBJECT* FileObject;
-    ULONG NumberOfEntries;
-    ULONG IsImage;
-    FILE_SEGMENT_ELEMENT List[1];
-} READ_LIST, *PREAD_LIST;
-
 #define MmSmallSystem (0)
 #define MmMediumSystem (1)
 #define MmLargeSystem (2)
@@ -93,49 +76,13 @@ typedef enum _MMFLUSH_TYPE
 	MmFlushForWrite
 } MMFLUSH_TYPE;
 
-typedef enum _MEMORY_CACHING_TYPE_ORIG {
-    MmFrameBufferCached = 2
-} MEMORY_CACHING_TYPE_ORIG;
-
 typedef enum _MEMORY_CACHING_TYPE
 {
 	MmNonCached = FALSE,
 	MmCached = TRUE,
-	MmWriteCombined = MmFrameBufferCached,
+	MmFrameBufferCached,
 	MmHardwareCoherentCached,
 	MmMaximumCacheType
 } MEMORY_CACHING_TYPE;
-
-typedef struct _MMWSL *PMMWSL;
-
-typedef struct _MMSUPPORT_FLAGS {
-    ULONG SessionSpace              : 1;
-    ULONG BeingTrimmed              : 1;
-    ULONG SessionLeader             : 1;
-    ULONG TrimHard                  : 1;
-    ULONG WorkingSetHard            : 1;
-    ULONG AddressSpaceBeingDeleted  : 1;
-    ULONG Available                 : 10;
-    ULONG AllowWorkingSetAdjustment : 8;
-    ULONG MemoryPriority            : 8;
-} MMSUPPORT_FLAGS, *PMMSUPPORT_FLAGS;
-
-typedef struct _MMSUPPORT
-{
-    LARGE_INTEGER   LastTrimTime;
-    MMSUPPORT_FLAGS Flags;
-    ULONG           PageFaultCount;
-    ULONG           PeakWorkingSetSize;
-    ULONG           WorkingSetSize;
-    ULONG           MinimumWorkingSetSize;
-    ULONG           MaximumWorkingSetSize;
-    PMMWSL          VmWorkingSetList;
-    LIST_ENTRY      WorkingSetExpansionLinks;
-    ULONG           Claim;
-    ULONG           NextEstimationSlot;
-    ULONG           NextAgingSlot;
-    ULONG           EstimatedAvailable;
-    ULONG           GrowthSinceLastEstimate;
-} MMSUPPORT, *PMMSUPPORT;
 
 #endif

@@ -8,19 +8,18 @@
  *              28/12/98: Created
  */
 
-#include "precomp.h"
-#include <msvcrt/conio.h>
-#include <msvcrt/internal/console.h>
+#include <windows.h>
+#include <crtdll/conio.h>
+#include <crtdll/stdio.h>
 
 
 // FIXME PeekCosoleInput returns more than keyboard hits
+extern int char_avail;
 
-/*
- * @unimplemented
- */
-int _kbhit(void)
+int
+_kbhit(void)
 {
-  //INPUT_RECORD InputRecord;
+  INPUT_RECORD InputRecord;
   DWORD NumberRead=0;
   if (char_avail)
     	return(1);

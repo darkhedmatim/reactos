@@ -2,15 +2,13 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
 #include <msvcrt/stdio.h>
+//#include <crtdll/unistd.h>
 #include <msvcrt/fcntl.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 long ftell(FILE *f)
 {
   long tres;

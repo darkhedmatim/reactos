@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/ismbkaln.c
+ * FILE:        lib/crtdll/mbstring/iskpun.c
  * PURPOSE:     
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -10,9 +10,6 @@
 #include <msvcrt/mbctype.h>
 #include <msvcrt/ctype.h>
 
-/*
- * @implemented
- */
 int _ismbbkalnum( unsigned int c )
 {
   return ((_jctype+1)[(unsigned char)(c)] & (_KNJ_P));

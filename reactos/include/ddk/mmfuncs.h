@@ -1,6 +1,6 @@
 #ifndef _INCLUDE_DDK_MMFUNCS_H
 #define _INCLUDE_DDK_MMFUNCS_H
-/* $Id: mmfuncs.h,v 1.24 2004/10/22 20:51:44 ekohl Exp $ */
+/* $Id: mmfuncs.h,v 1.14 2002/10/01 19:27:19 chorns Exp $ */
 /* MEMORY MANAGMENT ******************************************************/
 
 
@@ -51,34 +51,12 @@ extern inline unsigned int ADDRESS_AND_SIZE_TO_SPAN_PAGES(PVOID Va,
  * FUNCTION: Returns the byte offset of the address within its page
  */
 #define BYTE_OFFSET(va) (((ULONG)va)%PAGE_SIZE)
-#define PAGE_OFFSET(va) BYTE_OFFSET(va)
-
 
 /*
  * FUNCTION: Takes a count in bytes and returns the number of pages
  * required to hold it
  */
-#define BYTES_TO_PAGES(Size) \
-  ((ULONG) ((ULONG_PTR) (Size) >> PAGE_SHIFT) + (((ULONG) (Size) & (PAGE_SIZE - 1)) != 0))
-  
-  
-#define PAGE_ALIGN(va) ( (PVOID) (((ULONG)(va)) & (~(PAGE_SIZE-1))) )
-#define PAGE_BASE(va) PAGE_ALIGN(va)
-
-NTSTATUS
-STDCALL
-MmAddPhysicalMemory (
-    IN PPHYSICAL_ADDRESS StartAddress,
-    IN OUT PLARGE_INTEGER NumberOfBytes
-    );
-
-NTSTATUS
-STDCALL
-MmAddVerifierThunks (
-    IN PVOID ThunkBuffer,
-    IN ULONG ThunkBufferSize
-    );
-
+#define BYTES_TO_PAGES(size) (?)
 
 DWORD
 STDCALL
@@ -87,14 +65,6 @@ MmAdjustWorkingSetSize (
 	DWORD	Unknown1,
 	DWORD	Unknown2
 	);
-
-NTSTATUS
-STDCALL
-MmAdvanceMdl (
-    IN PMDL Mdl,
-    IN ULONG NumberOfBytes
-    );
-
 PVOID
 STDCALL
 MmAllocateContiguousMemory (
@@ -102,28 +72,10 @@ MmAllocateContiguousMemory (
 	IN	PHYSICAL_ADDRESS	HighestAcceptableAddress
 	);
 
-PVOID STDCALL 
-MmAllocateContiguousMemorySpecifyCache (IN ULONG NumberOfBytes,
-                IN PHYSICAL_ADDRESS LowestAcceptableAddress,
-			    IN PHYSICAL_ADDRESS HighestAcceptableAddress,
-			    IN PHYSICAL_ADDRESS BoundaryAddressMultiple OPTIONAL,
-			    IN MEMORY_CACHING_TYPE CacheType
-			    );
-
 PVOID STDCALL
 MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
-					  IN PHYSICAL_ADDRESS LowestAcceptableAddress,
 			          IN PHYSICAL_ADDRESS HighestAcceptableAddress,
-			          IN PHYSICAL_ADDRESS BoundaryAddressMultiple OPTIONAL,
-			          IN MEMORY_CACHING_TYPE CacheType OPTIONAL,
-					  IN ULONG Alignment);
-
-PVOID
-STDCALL
-MmAllocateMappingAddress (
-     IN SIZE_T NumberOfBytes,
-     IN ULONG PoolTag
-     );
+				  IN ULONG Alignment);
 
 PVOID
 STDCALL
@@ -206,20 +158,6 @@ MmFreeContiguousMemory (
 	);
 VOID
 STDCALL
-MmFreeContiguousMemorySpecifyCache(IN PVOID BaseAddress,
-				IN ULONG NumberOfBytes,
-			    IN MEMORY_CACHING_TYPE CacheType
-			    );
-
-VOID
-STDCALL
-MmFreeMappingAddress (
-     IN PVOID BaseAddress,
-     IN ULONG PoolTag
-     );
-
-VOID
-STDCALL
 MmFreeNonCachedMemory (
 	IN	PVOID	BaseAddress,
 	IN	ULONG	NumberOfBytes
@@ -265,12 +203,6 @@ MmGetPhysicalAddress (
 	IN	PVOID	BaseAddress
 	);
 
-PPHYSICAL_MEMORY_RANGE
-STDCALL
-MmGetPhysicalMemoryRanges (
-    VOID
-    );
-
 #define MmGetProcedureAddress(Address) (Address)
 
 /*
@@ -291,18 +223,6 @@ MmGetPhysicalMemoryRanges (
 #define MmGetSystemAddressForMdl(Mdl) \
 	(((Mdl)->MdlFlags & (MDL_MAPPED_TO_SYSTEM_VA | MDL_SOURCE_IS_NONPAGED_POOL)) ? \
 		((Mdl)->MappedSystemVa):(MmMapLockedPages((Mdl),KernelMode)))
-
-PVOID
-STDCALL
-MmGetSystemRoutineAddress (
-    IN PUNICODE_STRING SystemRoutineName
-    );
-
-PVOID
-STDCALL
-MmGetVirtualForPhysical (
-    IN PHYSICAL_ADDRESS PhysicalAddress
-    );
 
 NTSTATUS
 STDCALL
@@ -333,9 +253,10 @@ MmGrowKernelStack (
 	(MemoryDescriptorList)->Size = (CSHORT)(sizeof(MDL) + \
 		(ADDRESS_AND_SIZE_TO_SPAN_PAGES((BaseVa),(Length)) * sizeof(ULONG))); \
 	(MemoryDescriptorList)->MdlFlags = 0; \
-	(MemoryDescriptorList)->StartVa = (PVOID)PAGE_BASE(BaseVa); \
-	(MemoryDescriptorList)->ByteOffset = (ULONG)PAGE_OFFSET(BaseVa); \
+	(MemoryDescriptorList)->StartVa = (PVOID)PAGE_ROUND_DOWN((BaseVa)); \
+	(MemoryDescriptorList)->ByteOffset = (ULONG)((BaseVa) - PAGE_ROUND_DOWN((BaseVa))); \
 	(MemoryDescriptorList)->ByteCount = (Length); \
+	(MemoryDescriptorList)->Process = PsGetCurrentProcess(); \
 }
 
 /*
@@ -349,11 +270,6 @@ STDCALL
 MmIsAddressValid (
 	IN	PVOID	VirtualAddress
 	);
-ULONG
-STDCALL
-MmIsDriverVerifying (
-    IN struct _DRIVER_OBJECT *DriverObject
-    );
 BOOLEAN
 STDCALL
 MmIsNonPagedSystemAddressValid (
@@ -375,13 +291,6 @@ STDCALL
 MmIsThisAnNtAsSystem (
 	VOID
 	);
-
-NTSTATUS
-STDCALL
-MmIsVerifierEnabled (
-    OUT PULONG VerifierFlags
-    );
-
 /*
  * FUNCTION: Locks a section of the driver's code into memory
  * ARGUMENTS:
@@ -423,7 +332,7 @@ STDCALL
 MmMapIoSpace (
 	PHYSICAL_ADDRESS	PhysicalAddress,
 	ULONG			NumberOfBytes,
-	MEMORY_CACHING_TYPE 	CacheEnable
+	BOOLEAN			CacheEnable
 	);
 /*
  * FUNCTION: Maps the pages described by a given MDL
@@ -445,21 +354,6 @@ MmMapMemoryDumpMdl (
 	);
 PVOID
 STDCALL
-MmMapLockedPagesWithReservedMapping (
-    IN PVOID MappingAddress,
-    IN ULONG PoolTag,
-    IN PMDL MemoryDescriptorList,
-    IN MEMORY_CACHING_TYPE CacheType
-    );
-NTSTATUS
-STDCALL
-MmMapUserAddressesToPage (
-    IN PVOID BaseAddress,
-    IN SIZE_T NumberOfBytes,
-    IN PVOID PageAddress
-    );
-PVOID
-STDCALL
 MmMapVideoDisplay (
 	IN	PHYSICAL_ADDRESS	PhysicalAddress,
 	IN	ULONG			NumberOfBytes,
@@ -467,19 +361,11 @@ MmMapVideoDisplay (
 	);
 NTSTATUS
 STDCALL
-MmMapViewInSessionSpace (
-    IN	PVOID Section,
-    OUT PVOID *MappedBase,
-    IN	OUT PSIZE_T ViewSize
-    );
-NTSTATUS
-STDCALL
 MmMapViewInSystemSpace (
-	IN	PVOID	SectionObject,
+	IN	PVOID	Section,
 	OUT	PVOID	* MappedBase,
 	IN	PULONG	ViewSize
 	);
-
 NTSTATUS
 STDCALL
 MmMapViewOfSection (
@@ -494,19 +380,6 @@ MmMapViewOfSection (
 	IN	ULONG		AllocationType,
 	IN	ULONG		Protect
 	);
-NTSTATUS
-STDCALL
-MmMarkPhysicalMemoryAsBad(
-    IN PPHYSICAL_ADDRESS StartAddress,
-    IN OUT PLARGE_INTEGER NumberOfBytes
-    );
-
-NTSTATUS
-STDCALL
-MmMarkPhysicalMemoryAsGood(
-    IN PPHYSICAL_ADDRESS StartAddress,
-    IN OUT PLARGE_INTEGER NumberOfBytes
-    );
 
 /*
  * FUNCTION: Makes the whole driver pageable
@@ -518,13 +391,6 @@ STDCALL
 MmPageEntireDriver (
 	PVOID	AddressWithinSection
 	);
-
-NTSTATUS
-STDCALL
-MmPrefetchPages (
-    IN ULONG NumberOfLists,
-    IN PREAD_LIST *ReadLists
-    );
 
 /*
  * VOID
@@ -541,12 +407,12 @@ MmPrefetchPages (
 #define MmPrepareMdlForReuse(Mdl) \
 	if (((Mdl)->MdlFlags & MDL_PARTIAL_HAS_BEEN_MAPPED) != 0) \
 	{ \
-		ASSERT(((Mdl)->MdlFlags & MDL_PARTIAL) != 0); \
+		assert(((Mdl)->MdlFlags & MDL_PARTIAL) != 0); \
 		MmUnmapLockedPages ((Mdl)->MappedSystemVa, (Mdl)); \
 	} \
 	else if (((Mdl)->MdlFlags & MDL_PARTIAL) == 0) \
 	{ \
-		ASSERT(((Mdl)->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA) == 0); \
+		assert(((Mdl)->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA) == 0); \
 	}
 
 /*
@@ -567,32 +433,6 @@ MmProbeAndLockPages (
 	LOCK_OPERATION	Operation
 	);
 
-VOID
-STDCALL
-MmProbeAndLockProcessPages (
-    IN OUT PMDL MemoryDescriptorList,
-    IN PEPROCESS Process,
-    IN KPROCESSOR_MODE AccessMode,
-    IN LOCK_OPERATION Operation
-    );
-
-VOID 
-STDCALL
-MmProbeAndLockSelectedPages(
-	IN OUT PMDL MemoryDescriptorList,
-	IN LARGE_INTEGER PageList[],
-	IN KPROCESSOR_MODE AccessMode,
-	IN LOCK_OPERATION Operation
-	);
-
-NTSTATUS
-STDCALL
-MmProtectMdlSystemAddress (
-    IN PMDL MemoryDescriptorList,
-    IN ULONG NewProtect
-    );
-
-
 /*
  * FUNCTION: Returns an estimate of the amount of memory in the system
  * RETURNS: Either MmSmallSystem, MmMediumSystem or MmLargeSystem
@@ -602,13 +442,6 @@ STDCALL
 MmQuerySystemSize (
 	VOID
 	);
-
-NTSTATUS
-STDCALL
-MmRemovePhysicalMemory (
-    IN PPHYSICAL_ADDRESS StartAddress,
-    IN OUT PLARGE_INTEGER NumberOfBytes
-    );
 
 /*
  * FUNCTION: Resets the pageable status of a driver's sections to their
@@ -622,12 +455,12 @@ MmResetDriverPaging (
 	PVOID	AddressWithinSection
 	);
 
-PVOID
+DWORD
 STDCALL
 MmSecureVirtualMemory (
-	PVOID   Address,
-	SIZE_T	Length,
-	ULONG   Mode
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
 	);
 BOOLEAN
 STDCALL
@@ -660,13 +493,6 @@ MmSizeOfMdl (
 	PVOID	Base,
 	ULONG	Length
 	);
-
-ULONG
-STDCALL
-MmTrimAllSystemPagableMemory (
-	IN ULONG PurgeTransitionList
-	);
-
 /*
  * FUNCTION: Unlocks the physical pages described by a given MDL
  * ARGUMENTS:
@@ -702,13 +528,6 @@ MmUnmapLockedPages (
 	);
 VOID
 STDCALL
-MmUnmapReservedMapping (
-     IN PVOID BaseAddress,
-     IN ULONG PoolTag,
-     IN PMDL MemoryDescriptorList
-     );
-VOID
-STDCALL
 MmUnmapVideoDisplay (
 	IN	PVOID	BaseAddress,
 	IN	ULONG	NumberOfBytes
@@ -716,37 +535,19 @@ MmUnmapVideoDisplay (
 NTSTATUS
 STDCALL
 MmUnmapViewInSystemSpace (
-	IN	PVOID	MappedBase
+	DWORD	Unknown0
 	);
-NTSTATUS
-STDCALL
-MmUnmapViewInSessionSpace (
-    IN PVOID MappedBase
-    );
 #if 0
 NTSTATUS
 STDCALL
 MmUnmapViewOfSection (
 	PEPROCESS	Process,
 	PMEMORY_AREA	MemoryArea
-	);
+	)
 #endif
 VOID
 STDCALL
 MmUnsecureVirtualMemory (
-	PVOID	SecureMem
+	DWORD	Unknown0
 	);
-
-VOID STDCALL
-ProbeForRead (IN PVOID Address,
-	      IN ULONG Length,
-	      IN ULONG Alignment);
-
-VOID STDCALL
-ProbeForWrite (IN PVOID Address,
-	       IN ULONG Length,
-	       IN ULONG Alignment);
-
-#endif /* _INCLUDE_DDK_MMFUNCS_H */
-
-/* EOF */
+#endif

@@ -1,4 +1,4 @@
-/* $Id: resource.c,v 1.8 2004/08/15 16:39:06 chorns Exp $
+/* $Id: resource.c,v 1.3 2002/09/08 10:23:31 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -9,15 +9,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LdrAccessResource(IN  PVOID BaseAddress,
                   IN  PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry,
@@ -31,9 +29,6 @@ LdrAccessResource(IN  PVOID BaseAddress,
    ULONG DataSize;
    ULONG Offset = 0;
    ULONG Data;
-
-   if(!ResourceDataEntry)
-        return STATUS_RESOURCE_DATA_NOT_FOUND;
 
    Data = (ULONG)RtlImageDirectoryEntryToData (BaseAddress,
 					       TRUE,
@@ -75,9 +70,6 @@ LdrAccessResource(IN  PVOID BaseAddress,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LdrFindResource_U(PVOID BaseAddress,
                   PLDR_RESOURCE_INFO ResourceInfo,
@@ -128,7 +120,7 @@ LdrFindResource_U(PVOID BaseAddress,
 		    {
 		       ws = (PWCHAR)((ULONG)ResDir + (ResEntry->Name & 0x7FFFFFFF));
 		       if (!wcsncmp((PWCHAR)Id, ws + 1, *ws ) &&
-			   wcslen((PWCHAR)Id) == (ULONG)*ws )
+			   wcslen((PWCHAR)Id) == (int)*ws )
 			 {
 			    goto found;
 			 }
@@ -187,41 +179,6 @@ found:;
      }
 
   return Status;
-}
-
-/* STUBS */
-
-/*
- * @unimplemented
- */
-STDCALL
-NTSTATUS
-LdrFindResourceDirectory_U(
-	IN PVOID   	BaseAddress,
-	IN PLDR_RESOURCE_INFO			ResourceInfo,
-	IN  ULONG						Level,
-	OUT PIMAGE_RESOURCE_DIRECTORY	*ResourceDirectory
-)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-STDCALL
-NTSTATUS
-LdrEnumResources(
-	IN PVOID   	BaseAddress,
-	IN PLDR_RESOURCE_INFO			ResourceInfo,
-	IN  ULONG						Level,
-	IN OUT PULONG					ResourceCount,
-	OUT PVOID						Resources  OPTIONAL
-)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

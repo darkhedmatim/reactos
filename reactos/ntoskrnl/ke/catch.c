@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: catch.c,v 1.56 2004/12/18 19:22:10 blight Exp $
+/* $Id: catch.c,v 1.26 2002/10/26 00:32:18 chorns Exp $
  *
  * PROJECT:              ReactOS kernel
  * FILE:                 ntoskrnl/ke/catch.c
@@ -27,7 +27,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ke.h>
+#include <internal/ldr.h>
+#include <internal/ps.h>
+#include <internal/kd.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -37,7 +43,7 @@ ULONG
 RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
 	IN PCONTEXT  Context);
 
-VOID
+VOID 
 KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 		    PCONTEXT Context,
 		    PKTRAP_FRAME Tf,
@@ -46,7 +52,6 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 {
   EXCEPTION_DISPOSITION Value;
   CONTEXT TContext;
-  KD_CONTINUE_TYPE Action = kdHandleException;
 
   DPRINT("KiDispatchException() called\n");
 
@@ -71,92 +76,69 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
       Context->Eip--;
     }
 #endif
-      
-  if (KdDebuggerEnabled && KdDebugState & KD_DEBUG_GDB)
+  if (PreviousMode == UserMode)
     {
-      Action = KdEnterDebuggerException (ExceptionRecord, Context, Tf);
-    }
-
-  if (Action == kdContinue)
-    {
-      return;
-    }
-
-  if (Action != kdDoNotHandleException)
-    {
-      if (PreviousMode == UserMode)
+      if (SearchFrames)
 	{
-	  if (SearchFrames)
-	    {
-	      PULONG Stack;
-	      ULONG CDest;
-	      char temp_space[12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)]; /* FIXME: HACKHACK */
-	      PULONG pNewUserStack = (PULONG)(Tf->Esp - (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
-	      NTSTATUS StatusOfCopy;
+	  PULONG Stack;
+	  ULONG CDest;
 
-#ifdef KDBG
-	      KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
-					 Context, Tf, FALSE);
-#endif
+	  /* FIXME: Give the kernel debugger a chance */
 
-	      /* FIXME: Forward exception to user mode debugger */
+	  /* FIXME: Forward exception to user mode debugger */
 
-	      /* FIXME: Check user mode stack for enough space */
+	  /* FIXME: Check user mode stack for enough space */
+
 	  
-	      /*
-	       * Let usermode try and handle the exception
-	       */
-	      Stack = (PULONG)temp_space;
-	      CDest = 3 + (ROUND_UP(sizeof(EXCEPTION_RECORD), 4) / 4);
-	      /* Return address */
-	      Stack[0] = 0;    
-	      /* Pointer to EXCEPTION_RECORD structure */
-	      Stack[1] = (ULONG)&pNewUserStack[3];
-	      /* Pointer to CONTEXT structure */
-	      Stack[2] = (ULONG)&pNewUserStack[CDest];
-	      memcpy(&Stack[3], ExceptionRecord, sizeof(EXCEPTION_RECORD));
-	      memcpy(&Stack[CDest], Context, sizeof(CONTEXT));
+	  /*
+	   * Let usermode try and handle the exception
+	   */
+	  Tf->Esp = Tf->Esp - 
+	    (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT));
+	  Stack = (PULONG)Tf->Esp;
+	  CDest = 3 + (ROUND_UP(sizeof(EXCEPTION_RECORD), 4) / 4);
+	  /* Return address */
+	  Stack[0] = 0;    
+	  /* Pointer to EXCEPTION_RECORD structure */
+	  Stack[1] = (ULONG)&Stack[3];   
+	  /* Pointer to CONTEXT structure */
+	  Stack[2] = (ULONG)&Stack[CDest];     
+	  memcpy(&Stack[3], ExceptionRecord, sizeof(EXCEPTION_RECORD));
+	  memcpy(&Stack[CDest], Context, sizeof(CONTEXT));
 
-	      StatusOfCopy = MmCopyToCaller(pNewUserStack,
-	                                    temp_space,
-	                                    (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
-	      if (NT_SUCCESS(StatusOfCopy))
-	        {
-	          Tf->Esp = (ULONG)pNewUserStack;
-	        }
-	      else
-	        {
-	          /* Now it really hit the ventilation device. Sorry,
-	           * can do nothing but kill the sucker.
-	           */
-	          ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
-	          DPRINT1("User-mode stack was invalid. Terminating target thread\n");
-	        }
-	      Tf->Eip = (ULONG)LdrpGetSystemDllExceptionDispatcher();
-	      return;
-	    }
-
-	  /* FIXME: Forward the exception to the debugger */
-
-	  /* FIXME: Forward the exception to the process exception port */
-
-#ifdef KDBG
-	  KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
-				     Context, Tf, TRUE);
-#endif
-
-	  /* Terminate the offending thread */
-	  DPRINT1("Unhandled UserMode exception, terminating thread\n");
-	  ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
+	  Tf->Eip = (ULONG)LdrpGetSystemDllExceptionDispatcher();
+	  return;
 	}
-      else
-	{
-	  /* PreviousMode == KernelMode */
-#ifdef KDBG
-	  KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
-				     Context, Tf, FALSE);
-#endif
+      
+      /* FIXME: Forward the exception to the debugger */
 
+      /* FIXME: Forward the exception to the process exception port */
+
+      /* Terminate the offending thread */
+      ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
+
+      /* If that fails then bugcheck */
+      DbgPrint("Could not terminate thread\n");
+      KeBugCheck(KMODE_EXCEPTION_NOT_HANDLED);
+    }
+  else
+    {
+      KD_CONTINUE_TYPE Action = kdContinue;
+
+      /* PreviousMode == KernelMode */
+      
+      if (KdDebuggerEnabled && KdDebugState & KD_DEBUG_GDB)
+	{
+	  Action = KdEnterDebuggerException (ExceptionRecord, Context, Tf);
+	}
+#ifdef KDBG
+      else if (KdDebuggerEnable && KdDebugState & KD_DEBUG_KDB)
+	{
+	  Action = KdbEnterDebuggerException (ExceptionRecord, Context, Tf);
+	}
+#endif /* KDBG */
+      if (Action != kdHandleException)
+	{
 	  Value = RtlpDispatchException (ExceptionRecord, Context);
 	  
 	  DPRINT("RtlpDispatchException() returned with 0x%X\n", Value);
@@ -164,46 +146,30 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 	   * If RtlpDispatchException() does not handle the exception then 
 	   * bugcheck 
 	   */
-	  if (Value != ExceptionContinueExecution ||
-	      0 != (ExceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE))
+	  if (Value != ExceptionContinueExecution)
 	    {
-	      DPRINT("ExceptionRecord->ExceptionAddress = 0x%x\n",
-		     ExceptionRecord->ExceptionAddress );
-#ifdef KDBG
-              Action = KdbEnterDebuggerException (ExceptionRecord, PreviousMode,
-                                                  Context, Tf, TRUE);
-              if (Action == kdContinue)
-                {
-                  return;
-                }
-#endif
-	      KEBUGCHECKWITHTF(KMODE_EXCEPTION_NOT_HANDLED, 0, 0, 0, 0, Tf);
+	      KeBugCheck (KMODE_EXCEPTION_NOT_HANDLED);	      
 	    }
 	}
+      else
+        {
+          KeContextToTrapFrame (Context, KeGetCurrentThread()->TrapFrame);
+        }
     }
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 ExRaiseAccessViolation (VOID)
 {
   ExRaiseStatus (STATUS_ACCESS_VIOLATION);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 ExRaiseDatatypeMisalignment (VOID)
 {
   ExRaiseStatus (STATUS_DATATYPE_MISALIGNMENT);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 ExRaiseStatus (IN NTSTATUS Status)
 {
@@ -220,86 +186,24 @@ ExRaiseStatus (IN NTSTATUS Status)
 }
 
 
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-ExRaiseException (
-	PEXCEPTION_RECORD ExceptionRecord
-	)
+NTSTATUS STDCALL
+NtRaiseException (IN PEXCEPTION_RECORD ExceptionRecord,
+		  IN PCONTEXT Context,
+		  IN BOOLEAN SearchFrames)
 {
-    RtlRaiseException(ExceptionRecord);
+  KiDispatchException(ExceptionRecord,
+		      Context,
+		      PsGetCurrentThread()->Tcb.TrapFrame,
+		      ExGetPreviousMode(),
+		      SearchFrames);
+  return(STATUS_SUCCESS);
 }
 
-/*
- * @implemented
- */
-BOOLEAN
-STDCALL
-ExSystemExceptionFilter(VOID)
-{
-  return KeGetPreviousMode() != KernelMode ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH;
-}
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-ExRaiseHardError (
-	IN NTSTATUS ErrorStatus,
-	IN ULONG NumberOfParameters, 
-	IN PUNICODE_STRING UnicodeStringParameterMask OPTIONAL,
-	IN PVOID *Parameters, 
-	IN HARDERROR_RESPONSE_OPTION ResponseOption, 
-	OUT PHARDERROR_RESPONSE Response 
-	)
+VOID STDCALL
+RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
 {
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-KeDeregisterBugCheckReasonCallback(
-    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-ULONG
-STDCALL
-KeGetRecommendedSharedDataAlignment(
-	VOID
-	)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-KeRegisterBugCheckReasonCallback(
-    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord,
-    IN PKBUGCHECK_REASON_CALLBACK_ROUTINE CallbackRoutine,
-    IN KBUGCHECK_CALLBACK_REASON Reason,
-    IN PUCHAR Component
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
+  ZwRaiseException(ExceptionRecord, NULL, TRUE);
 }
 
 /* EOF */

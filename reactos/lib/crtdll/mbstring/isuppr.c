@@ -8,14 +8,10 @@
  *              12/04/99: Created
  */
 
-#include <msvcrt/mbctype.h>
-#include <msvcrt/ctype.h>
+#include <crtdll/mbctype.h>
+#include <crtdll/ctype.h>
 
-/*
- * code page 952 only
- *
- * @implemented
- */
+// code page 952 only
 int _ismbcupper( unsigned int c )
 {
 	if ((c & 0xFF00) != 0) {

@@ -1,11 +1,8 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/wchar.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/wchar.h>
+#include <crtdll/internal/file.h>
 
-/*
- * @implemented
- */
 int
 fprintf(register FILE *iop, const char *fmt, ...)
 {
@@ -32,9 +29,6 @@ fprintf(register FILE *iop, const char *fmt, ...)
   return ferror(iop) ? EOF : len;
 }
 
-/*
- * @implemented
- */
 int
 fwprintf(register FILE *iop, const wchar_t *fmt, ...)
 {

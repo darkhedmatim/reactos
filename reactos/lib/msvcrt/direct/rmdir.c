@@ -1,16 +1,16 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/direct.h>
-#include <msvcrt/internal/file.h>
 
-
-/*
- * @implemented
- */
-int _rmdir(const char* _path)
+int _rmdir( const char *_path )
 {
-    if (!RemoveDirectoryA(_path)) {
-    	_dosmaperr(GetLastError());
-        return -1;
-    }
-    return 0;
+	if (!RemoveDirectoryA(_path))
+		return -1;
+	return 0;
+}
+
+int _wrmdir( const wchar_t *_path )
+{
+	if (!RemoveDirectoryW(_path))
+		return -1;
+	return 0;
 }

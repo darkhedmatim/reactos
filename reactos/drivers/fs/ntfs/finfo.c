@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: finfo.c,v 1.4 2004/11/24 11:02:15 ekohl Exp $
+/* $Id: finfo.c,v 1.1 2002/06/25 22:23:05 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,7 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -52,8 +52,8 @@ NtfsGetStandardInformation(PFCB Fcb,
     return(STATUS_BUFFER_OVERFLOW);
 
   /* PRECONDITION */
-  ASSERT(StandardInfo != NULL);
-  ASSERT(Fcb != NULL);
+  assert(StandardInfo != NULL);
+  assert(Fcb != NULL);
 
   RtlZeroMemory(StandardInfo,
 		sizeof(FILE_STANDARD_INFORMATION));
@@ -137,19 +137,19 @@ NtfsGetNameInformation(PFILE_OBJECT FileObject,
 
   DPRINT("NtfsGetNameInformation() called\n");
 
-  ASSERT(NameInfo != NULL);
-  ASSERT(Fcb != NULL);
+  assert(NameInfo != NULL);
+  assert(Fcb != NULL);
 
-  NameLength = wcslen(Fcb->PathName) * sizeof(WCHAR);
-//  NameLength = 2;
+//  NameLength = wcslen(Fcb->PathName) * sizeof(WCHAR);
+  NameLength = 2;
   if (*BufferLength < sizeof(FILE_NAME_INFORMATION) + NameLength)
     return(STATUS_BUFFER_OVERFLOW);
 
   NameInfo->FileNameLength = NameLength;
-  memcpy(NameInfo->FileName,
-	 Fcb->PathName,
-	 NameLength + sizeof(WCHAR));
-//  wcscpy(NameInfo->FileName, L"\\");
+//  memcpy(NameInfo->FileName,
+//	 Fcb->PathName,
+//	 NameLength + sizeof(WCHAR));
+  wcscpy(NameInfo->FileName, L"\\");
 
   *BufferLength -=
     (sizeof(FILE_NAME_INFORMATION) + NameLength + sizeof(WCHAR));
@@ -165,8 +165,8 @@ NtfsGetInternalInformation(PFCB Fcb,
 {
   DPRINT("NtfsGetInternalInformation() called\n");
 
-  ASSERT(InternalInfo);
-  ASSERT(Fcb);
+  assert(InternalInfo);
+  assert(Fcb);
 
   if (*BufferLength < sizeof(FILE_INTERNAL_INFORMATION))
     return(STATUS_BUFFER_OVERFLOW);

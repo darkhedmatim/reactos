@@ -1,14 +1,10 @@
-# $Id: makefile,v 1.9 2003/11/14 17:13:25 weiden Exp $
+# $Id: makefile,v 1.7 2001/08/21 20:13:13 chorns Exp $
 
 PATH_TO_TOP = ../../..
-
-TARGET_BOOTSTRAP = yes
 
 TARGET_TYPE = driver
 
 TARGET_NAME = keyboard
-
-TARGET_CFLAGS = -Wall -Werror
 
 TARGET_OBJECTS = $(TARGET_NAME).o
 

@@ -959,4 +959,3 @@ bpf_validate(f, len,mem_ex_size)
 	}
 	return BPF_CLASS(f[len - 1].code) == BPF_RET;
 }
-

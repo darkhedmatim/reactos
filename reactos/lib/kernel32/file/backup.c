@@ -1,4 +1,4 @@
-/* $Id: backup.c,v 1.7 2004/10/30 22:18:17 weiden Exp $
+/* $Id: backup.c,v 1.3 2002/09/08 10:22:41 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -10,25 +10,26 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <wchar.h>
+#include <string.h>
+#include <ntdll/rtl.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BackupRead (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
 	DWORD	nNumberOfBytesToRead,
 	LPDWORD	lpNumberOfBytesRead,
-	BOOL	bAbort,
-	BOOL	bProcessSecurity,
+	WINBOOL	bAbort,
+	WINBOOL	bProcessSecurity,
 	LPVOID	* lpContext
 	)
 {
@@ -37,10 +38,7 @@ BackupRead (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BackupSeek (
 	HANDLE	hFile,
@@ -56,23 +54,21 @@ BackupSeek (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BackupWrite (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
 	DWORD	nNumberOfBytesToWrite,
 	LPDWORD	lpNumberOfBytesWritten,
-	BOOL	bAbort,
-	BOOL	bProcessSecurity,
+	WINBOOL	bAbort,
+	WINBOOL	bProcessSecurity,
 	LPVOID	* lpContext
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
 
 /* EOF */

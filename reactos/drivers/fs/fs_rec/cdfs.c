@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cdfs.c,v 1.9 2003/11/17 02:12:49 hyperion Exp $
+/* $Id: cdfs.c,v 1.7 2002/09/08 10:22:09 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -77,7 +76,6 @@ FsRecIsCdfsVolume(IN PDEVICE_OBJECT DeviceObject)
   if (!NT_SUCCESS(Status))
     {
       DPRINT("FsRecReadSectors() failed (Status %lx)\n", Status);
-      ExFreePool(Buffer);
       return(Status);
     }
 
@@ -121,7 +119,7 @@ FsRecCdfsFsControl(IN PDEVICE_OBJECT DeviceObject,
 
       case IRP_MN_LOAD_FILE_SYSTEM:
 	DPRINT("Cdfs: IRP_MN_LOAD_FILE_SYSTEM\n");
-	RtlRosInitUnicodeStringFromLiteral(&RegistryPath,
+	RtlInitUnicodeStringFromLiteral(&RegistryPath,
 			     L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\Cdfs");
 	Status = ZwLoadDriver(&RegistryPath);
 	if (!NT_SUCCESS(Status))

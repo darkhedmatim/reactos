@@ -10,18 +10,20 @@
 
 #include <msvcrt/ctype.h>
 
-/*
- * @implemented
- */
 int __isascii(int c)
 {
-    return (!((c)&(~0x7f)));
+   return (!((c)&(~0x7f)));
 }
 
-/*
- * @implemented
- */
 int iswascii(wint_t c)
 {
-    return __isascii(c);
+   return __isascii(c);
 }
+
+
+
+
+
+
+
+

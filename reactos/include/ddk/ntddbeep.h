@@ -3,7 +3,7 @@
  *
  * Beep device IOCTL interface
  *
- * This file is part of the w32api package.
+ * This file is part of the MinGW package.
  *
  * Contributors:
  *   Created by Casper S. Hornstrup <chorns@users.sourceforge.net>
@@ -15,7 +15,7 @@
  *
  * This code is distributed in the hope that it will be useful but
  * WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
- * DISCLAIMED. This includes but is not limited to warranties of
+ * DISCLAMED. This includes but is not limited to warranties of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  */
@@ -31,26 +31,17 @@
 extern "C" {
 #endif
 
-#pragma pack(push,4)
-
-#include "ntddk.h"
-
-
-#define DD_BEEP_DEVICE_NAME               "\\Device\\Beep"
-#define DD_BEEP_DEVICE_NAME_U             L"\\Device\\Beep"
 
 #define IOCTL_BEEP_SET \
   CTL_CODE(FILE_DEVICE_BEEP,0,METHOD_BUFFERED,FILE_ANY_ACCESS)
 
-typedef struct _BEEP_SET_PARAMETERS {
+typedef struct tagBEEP_SET_PARAMETERS {
     ULONG Frequency;
     ULONG Duration;
 } BEEP_SET_PARAMETERS, *PBEEP_SET_PARAMETERS;
 
 #define BEEP_FREQUENCY_MINIMUM  0x25
 #define BEEP_FREQUENCY_MAXIMUM  0x7FFF
-
-#pragma pack(pop)
 
 #ifdef __cplusplus
 }

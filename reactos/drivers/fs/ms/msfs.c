@@ -1,4 +1,4 @@
-/* $Id: msfs.c,v 1.8 2004/03/07 20:33:25 navaraf Exp $
+/* $Id: msfs.c,v 1.5 2002/09/08 10:22:10 chorns Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -27,7 +27,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
    UNICODE_STRING DeviceName;
    NTSTATUS Status;
    
-   DPRINT("Mailslot FSD 0.0.1\n");
+   DbgPrint("Mailslot FSD 0.0.1\n");
    
    DriverObject->Flags = 0;
    DriverObject->MajorFunction[IRP_MJ_CREATE] = MsfsCreate;

@@ -7,13 +7,9 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
+#include <ndissys.h>
 
-#include "ndissys.h"
 
-
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 ArcFilterDprIndicateReceive(
@@ -26,9 +22,6 @@ ArcFilterDprIndicateReceive(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 ArcFilterDprIndicateReceiveComplete(
@@ -38,12 +31,257 @@ ArcFilterDprIndicateReceiveComplete(
 }
 
 
-/*
- * @unimplemented
- */
+NDIS_STATUS
+EXPORT
+EthChangeFilterAddresses(
+    IN  PETH_FILTER     Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            AddressCount,
+    IN  CHAR            Addresses [] [ETH_LENGTH_OF_ADDRESS],
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+BOOLEAN
+EXPORT
+EthCreateFilter(
+    IN  UINT                MaximumMulticastAddresses,
+    IN  ETH_ADDRESS_CHANGE  AddressChangeAction,
+    IN  ETH_FILTER_CHANGE   FilterChangeAction,
+    IN  ETH_DEFERRED_CLOSE  CloseAction,
+    IN  PUCHAR              AdapterAddress,
+    IN  PNDIS_SPIN_LOCK     Lock,
+    OUT PETH_FILTER         * Filter)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
 VOID
 EXPORT
-FddiFilterDprIndicateReceive(
+EthDeleteFilter(
+    IN  PETH_FILTER Filter)
+{
+    UNIMPLEMENTED
+}
+
+
+NDIS_STATUS
+EXPORT
+EthDeleteFilterOpenAdapter(
+    IN  PETH_FILTER	Filter,
+    IN  NDIS_HANDLE	NdisFilterHandle,
+    IN  PNDIS_REQUEST	NdisRequest)
+{
+    UNIMPLEMENTED
+
+    return NDIS_STATUS_FAILURE;
+}
+
+
+NDIS_STATUS
+EXPORT
+EthFilterAdjust(
+    IN  PETH_FILTER     Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            FilterClasses,
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+VOID
+EXPORT
+EthFilterIndicateReceive(
+    IN	PETH_FILTER Filter,
+    IN	NDIS_HANDLE MacReceiveContext,
+    IN	PCHAR       Address,
+    IN	PVOID       HeaderBuffer,
+    IN	UINT        HeaderBufferSize,
+    IN	PVOID       LookaheadBuffer,
+    IN	UINT        LookaheadBufferSize,
+    IN	UINT        PacketSize)
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+EthFilterIndicateReceiveComplete(
+    IN  PETH_FILTER Filter)
+{
+    UNIMPLEMENTED
+}
+
+
+BOOLEAN
+EXPORT
+EthNoteFilterOpenAdapter(
+    IN  PETH_FILTER     Filter,
+    IN  NDIS_HANDLE     MacBindingHandle,
+    IN  NDIS_HANDLE     NdisBindingContext,
+    OUT PNDIS_HANDLE    NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
+UINT
+EXPORT
+EthNumberOfOpenFilterAddresses(
+    IN  PETH_FILTER Filter,
+    IN  NDIS_HANDLE NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return 0;
+}
+
+
+VOID
+EXPORT
+EthQueryGlobalFilterAddresses (
+    OUT PNDIS_STATUS    Status,
+    IN  PETH_FILTER     Filter,
+    IN  UINT            SizeOfArray,
+    OUT PUINT           NumberOfAddresses,
+    IN  OUT	CHAR        AddressArray [] [ETH_LENGTH_OF_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+EthQueryOpenFilterAddresses(
+    OUT	    PNDIS_STATUS    Status,
+    IN	    PETH_FILTER     Filter,
+    IN	    NDIS_HANDLE     NdisFilterHandle,
+    IN	    UINT            SizeOfArray,
+    OUT	    PUINT           NumberOfAddresses,
+    IN OUT  CHAR            AddressArray [] [ETH_LENGTH_OF_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+BOOLEAN
+EXPORT
+EthShouldAddressLoopBack(
+    IN  PETH_FILTER Filter,
+    IN  CHAR        Address [ETH_LENGTH_OF_ADDRESS])
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
+NDIS_STATUS
+EXPORT
+FddiChangeFilterLongAddresses(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            AddressCount,
+    IN  CHAR            Addresses [] [FDDI_LENGTH_OF_LONG_ADDRESS],
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+NDIS_STATUS
+EXPORT
+FddiChangeFilterShortAddresses(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            AddressCount,
+    IN  CHAR            Addresses [] [FDDI_LENGTH_OF_SHORT_ADDRESS],
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+BOOLEAN
+EXPORT
+FddiCreateFilter(
+    IN  UINT                MaximumMulticastLongAddresses,
+    IN  UINT                MaximumMulticastShortAddresses,
+    IN  FDDI_ADDRESS_CHANGE AddressChangeAction,
+    IN  FDDI_FILTER_CHANGE  FilterChangeAction,
+    IN  FDDI_DEFERRED_CLOSE CloseAction,
+    IN  PUCHAR              AdapterLongAddress,
+    IN  PUCHAR              AdapterShortAddress,
+    IN  PNDIS_SPIN_LOCK     Lock,
+    OUT PFDDI_FILTER        * Filter)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
+VOID
+EXPORT
+FddiDeleteFilter(
+    IN  PFDDI_FILTER    Filter)
+{
+    UNIMPLEMENTED
+}
+
+
+NDIS_STATUS
+EXPORT
+FddiDeleteFilterOpenAdapter(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+NDIS_STATUS
+EXPORT
+FddiFilterAdjust(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            FilterClasses,
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+VOID
+EXPORT
+FddiFilterIndicateReceive(
     IN  PFDDI_FILTER    Filter,
     IN  NDIS_HANDLE     MacReceiveContext,
     IN  PCHAR           Address,
@@ -58,21 +296,120 @@ FddiFilterDprIndicateReceive(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
-FddiFilterDprIndicateReceiveComplete(
+FddiFilterIndicateReceiveComplete(
     IN  PFDDI_FILTER    Filter)
 {
     UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
+BOOLEAN
+EXPORT
+FddiNoteFilterOpenAdapter(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     MacBindingHandle,
+    IN  NDIS_HANDLE     NdisBindingContext,
+    OUT PNDIS_HANDLE    NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
+UINT
+EXPORT
+FddiNumberOfOpenFilterLongAddresses(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return 0;
+}
+
+
+UINT
+EXPORT
+FddiNumberOfOpenFilterShortAddresses(
+    IN  PFDDI_FILTER    Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return 0;
+}
+
+
+VOID
+EXPORT
+FddiQueryGlobalFilterLongAddresses(
+    OUT     PNDIS_STATUS    Status,
+    IN      PFDDI_FILTER    Filter,
+    IN      UINT            SizeOfArray,
+    OUT     PUINT           NumberOfAddresses,
+    IN OUT  CHAR            AddressArray [] [FDDI_LENGTH_OF_LONG_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+FddiQueryGlobalFilterShortAddresses(
+    OUT     PNDIS_STATUS    Status,
+    IN      PFDDI_FILTER    Filter,
+    IN      UINT            SizeOfArray,
+    OUT     PUINT           NumberOfAddresses,
+    IN OUT  CHAR            AddressArray [] [FDDI_LENGTH_OF_SHORT_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+FddiQueryOpenFilterLongAddresses(
+    OUT     PNDIS_STATUS    Status,
+    IN      PFDDI_FILTER    Filter,
+    IN      NDIS_HANDLE     NdisFilterHandle,
+    IN      UINT            SizeOfArray,
+    OUT     PUINT           NumberOfAddresses,
+    IN OUT  CHAR            AddressArray [] [FDDI_LENGTH_OF_LONG_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+FddiQueryOpenFilterShortAddresses(
+    OUT     PNDIS_STATUS    Status,
+    IN      PFDDI_FILTER    Filter,
+    IN      NDIS_HANDLE     NdisFilterHandle,
+    IN      UINT            SizeOfArray,
+    OUT     PUINT           NumberOfAddresses,
+    IN OUT  CHAR            AddressArray [] [FDDI_LENGTH_OF_SHORT_ADDRESS])
+{
+    UNIMPLEMENTED
+}
+
+
+BOOLEAN
+EXPORT
+FddiShouldAddressLoopBack(
+    IN  PFDDI_FILTER    Filter,
+    IN  CHAR            Address [],
+    IN  UINT            LengthOfAddress)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
 VOID
 EXPORT
 NdisAllocateDmaChannel(
@@ -86,9 +423,6 @@ NdisAllocateDmaChannel(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisAllocateSharedMemory(
@@ -102,9 +436,6 @@ NdisAllocateSharedMemory(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteBufferPhysicalMapping(
@@ -116,9 +447,6 @@ NdisCompleteBufferPhysicalMapping(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteRequest(
@@ -130,9 +458,6 @@ NdisCompleteRequest(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteReset(
@@ -143,9 +468,6 @@ NdisCompleteReset(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteSend(
@@ -157,9 +479,6 @@ NdisCompleteSend(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteTransferData(
@@ -172,9 +491,6 @@ NdisCompleteTransferData(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIndicateReceive(
@@ -191,9 +507,6 @@ NdisIndicateReceive(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIndicateReceiveComplete(
@@ -203,9 +516,6 @@ NdisIndicateReceiveComplete(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIndicateStatus(
@@ -218,9 +528,6 @@ NdisIndicateStatus(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIndicateStatusComplete(
@@ -230,9 +537,6 @@ NdisIndicateStatusComplete(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisPciAssignResources(
@@ -248,9 +552,6 @@ NdisPciAssignResources(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisReadBindingInformation (
@@ -262,9 +563,6 @@ NdisReadBindingInformation (
 }
 
 
-/*
- * @unimplemented
- */
 ULONG
 EXPORT
 NdisReadDmaCounter(
@@ -276,9 +574,6 @@ NdisReadDmaCounter(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisStartBufferPhysicalMapping(
@@ -293,9 +588,6 @@ NdisStartBufferPhysicalMapping(
 }
 
 
-/*
- * @unimplemented
- */
 BOOLEAN
 EXPORT
 NdisSynchronizeWithInterrupt(
@@ -309,9 +601,6 @@ NdisSynchronizeWithInterrupt(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisUnmapIoSpace(
@@ -321,12 +610,95 @@ NdisUnmapIoSpace(
 {
     UNIMPLEMENTED
 }
-/*
- * @unimplemented
- */
+
+
+NDIS_STATUS
+EXPORT
+TrChangeFunctionalAddress(
+    IN  PTR_FILTER      Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  CHAR            FunctionalAddressArray [TR_LENGTH_OF_FUNCTIONAL],
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+NDIS_STATUS
+EXPORT
+TrChangeGroupAddress(
+    IN  PTR_FILTER      Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  CHAR            GroupAddressArray [TR_LENGTH_OF_FUNCTIONAL],
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+BOOLEAN
+EXPORT
+TrCreateFilter(
+    IN  TR_ADDRESS_CHANGE   AddressChangeAction,
+    IN  TR_GROUP_CHANGE     GroupChangeAction,
+    IN  TR_FILTER_CHANGE    FilterChangeAction,
+    IN  TR_DEFERRED_CLOSE   CloseAction,
+    IN  PUCHAR              AdapterAddress,
+    IN  PNDIS_SPIN_LOCK     Lock,
+    OUT PTR_FILTER          * Filter)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
 VOID
 EXPORT
-TrFilterDprIndicateReceive(
+TrDeleteFilter(
+    IN  PTR_FILTER  Filter)
+{
+    UNIMPLEMENTED
+}
+
+
+NDIS_STATUS
+EXPORT
+TrDeleteFilterOpenAdapter (
+    IN  PTR_FILTER      Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+NDIS_STATUS
+EXPORT
+TrFilterAdjust(
+    IN  PTR_FILTER      Filter,
+    IN  NDIS_HANDLE     NdisFilterHandle,
+    IN  PNDIS_REQUEST   NdisRequest,
+    IN  UINT            FilterClasses,
+    IN  BOOLEAN         Set)
+{
+    UNIMPLEMENTED
+
+	return NDIS_STATUS_FAILURE;
+}
+
+
+VOID
+EXPORT
+TrFilterIndicateReceive(
     IN  PTR_FILTER  Filter,
     IN  NDIS_HANDLE MacReceiveContext,
     IN  PVOID       HeaderBuffer,
@@ -339,15 +711,39 @@ TrFilterDprIndicateReceive(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
-TrFilterDprIndicateReceiveComplete(
+TrFilterIndicateReceiveComplete(
     IN  PTR_FILTER  Filter)
 {
     UNIMPLEMENTED
+}
+
+
+BOOLEAN
+EXPORT
+TrNoteFilterOpenAdapter(
+    IN  PTR_FILTER      Filter,
+    IN  NDIS_HANDLE     MacBindingHandle,
+    IN  NDIS_HANDLE     NdisBindingContext,
+    OUT PNDIS_HANDLE    NdisFilterHandle)
+{
+    UNIMPLEMENTED
+
+	return FALSE;
+}
+
+
+BOOLEAN
+EXPORT
+TrShouldAddressLoopBack(
+    IN  PTR_FILTER  Filter,
+    IN  CHAR        DestinationAddress [TR_LENGTH_OF_ADDRESS],
+    IN  CHAR        SourceAddress [TR_LENGTH_OF_ADDRESS])
+{
+    UNIMPLEMENTED
+
+	return FALSE;
 }
 
 /* EOF */

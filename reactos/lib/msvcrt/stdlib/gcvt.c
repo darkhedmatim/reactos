@@ -3,9 +3,6 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 char *
 _gcvt (double value, int ndigits, char *buf)
 {

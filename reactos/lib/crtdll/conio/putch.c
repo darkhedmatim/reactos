@@ -7,19 +7,15 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
+#include <crtdll/conio.h>
+#include <windows.h>
 
-#include "precomp.h"
-#include <msvcrt/conio.h>
-
-/*
- * @implemented
- */
 int _putch( int c )
 {
 	DWORD NumberOfCharsWritten;
-
 	if ( WriteFile(GetStdHandle(STD_OUTPUT_HANDLE),&c,1,&NumberOfCharsWritten,NULL) ) {
 		return -1;
 	}
+
 	return NumberOfCharsWritten;
 }

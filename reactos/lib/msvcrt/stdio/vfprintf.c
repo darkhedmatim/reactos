@@ -4,10 +4,6 @@
 #include <msvcrt/malloc.h>
 #include <msvcrt/internal/file.h>
 
-#ifdef __USE_W32API
-#include <ntdef.h>
-#endif
-
 int _isnanl(double x);
 int _isinfl(double x);
 int _isnan(double x);
@@ -15,37 +11,36 @@ int _isinf(double x);
 
 
 
-int __vfprintf(FILE*, const char*, va_list);
+int
+__vfprintf (FILE *fp, const char *fmt0, va_list args);
 
-
-/*
- * @implemented
- */
-int vfprintf(FILE* f, const char* fmt, va_list ap)
+int
+vfprintf(FILE *f, const char *fmt, va_list ap)
 {
-    int len;
-    char localbuf[BUFSIZ];
+  int len;
+  char localbuf[BUFSIZ];
 
 #if 0
-    __fileno_lock(fileno(f));
+  __fileno_lock(fileno(f));
 #endif
-    if (f->_flag & _IONBF) {
-        f->_flag &= ~_IONBF;
-        f->_ptr = f->_base = localbuf;
-        f->_bufsiz = BUFSIZ;
-        len = __vfprintf(f, fmt, ap);
-        (void)fflush(f);
-        f->_flag |= _IONBF;
-        f->_base = NULL;
-        f->_bufsiz = 0;
-        f->_cnt = 0;
-    } else {
-        len = __vfprintf(f,fmt, ap);
-    }
+  if (f->_flag & _IONBF)
+  {
+    f->_flag &= ~_IONBF;
+    f->_ptr = f->_base = localbuf;
+    f->_bufsiz = BUFSIZ;
+    len = __vfprintf(f,fmt, ap);
+    (void)fflush(f);
+    f->_flag |= _IONBF;
+    f->_base = NULL;
+    f->_bufsiz = 0;
+    f->_cnt = 0;
+  }
+  else
+    len = __vfprintf(f,fmt, ap);
 #if 0
-    __fileno_unlock(fileno(f));
+  __fileno_unlock(fileno(f));
 #endif
-    return (ferror(f) ? EOF : len);
+  return (ferror(f) ? EOF : len);
 }
 
 
@@ -94,15 +89,15 @@ static int skip_atoi(const char **s)
 }
 
 
-static int do_div(LONGLONG *n,int base)
+static int do_div(long long *n,int base)
 {
-	int __res = ((ULONGLONG) *n) % (unsigned) base;
-	*n = ((ULONGLONG) *n) / (unsigned) base;
+	int __res = ((unsigned long long) *n) % (unsigned) base;
+	*n = ((unsigned long long) *n) / (unsigned) base;
 	return __res;
 }
 
 
-static int number(FILE * f, LONGLONG num, int base, int size, int precision ,int type)
+static int number(FILE * f, long long num, int base, int size, int precision ,int type)
 {
 	char c,sign,tmp[66];
 	const char *digits="0123456789abcdefghijklmnopqrstuvwxyz";
@@ -219,16 +214,10 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 	char ro = 0;
 	int result, done = 0;
 
-	union
-	{
-		double*  __n;
-		double_t*  n;
-	} n;
-	
-	n.__n = &__n;
+	double_t *n = (double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3ff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3ff);
 		exponent = ie/3.321928;
 	}
 
@@ -320,11 +309,10 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 		}
 		else {
 			while ( intr > 0.0 ) {
-			        p = intr;
 				intr/=10.0L;
-				modf(intr, &intr);
+				p = modf(intr, &intr);
 
-				p -= 10.0*intr;
+				p *=10;
 
 				buf[i++] = (int)p + '0';
 				size--;
@@ -428,16 +416,10 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 
 	int result, done = 0;
 
-	union
-	{
-	    long double*   __n;
-	    long_double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	long_double_t *n = (long_double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3fff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3fff);
 		exponent = ie/3.321928;
 	}
 
@@ -530,11 +512,10 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 		}
 		else {
 			while ( intr > 0.0 ) {
-			        p=intr;
 				intr/=10.0L;
-				modfl(intr, &intr);
+				p = modfl(intr, &intr);
 
-				p -= 10.0L*intr;
+				p *=10;
 
 				buf[i++] = (int)p + '0';
 				size--;
@@ -629,7 +610,7 @@ static int string(FILE *f, const char* s, int len, int field_width, int precisio
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -673,7 +654,7 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -691,20 +672,9 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 		}
 	for (i = 0; i < len; ++i)
 	{
-#define MB_CUR_MAX 1
-		char mb[MB_CUR_MAX];
-		int mbcount, j;
-		mbcount = wctomb(mb, *sw++);
-		if (mbcount <= 0)
-		{
-			break;
-		}
-		for (j = 0; j < mbcount; j++)
-		{
-			if (putc(mb[j], f) == EOF)
-				return -1;
-			done++;
-		}
+		if (putc((unsigned char)(*sw++), f) == EOF)
+			return -1;
+		done++;
 	}
 	while (len < field_width--)
 	{
@@ -718,12 +688,12 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 int __vfprintf(FILE *f, const char *fmt, va_list args)
 {
 	int len;
-	ULONGLONG num;
-	int base;
+	unsigned long long num;
+	int i, base;
 	long double _ldouble;
 	double _double;
 	const char *s;
-	const wchar_t *sw;
+	const short int* sw;
 	int result, done = 0;
 
 	int flags;		/* flags to number() */
@@ -1082,13 +1052,9 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 		}
 
 		if (qualifier == 'I')
-			num = va_arg(args, ULONGLONG);
-		else if (qualifier == 'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+			num = va_arg(args, unsigned long long);
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);

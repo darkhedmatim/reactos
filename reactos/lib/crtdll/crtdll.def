@@ -19,9 +19,9 @@
 ;  DISCLAMED. This includes but is not limited to warrenties of
 ;  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ;
-; $Revision: 1.19 $
-; $Author: ekohl $
-; $Date: 2004/02/26 12:23:29 $
+; $Revision: 1.14 $
+; $Author: ea $
+; $Date: 2000/12/22 23:20:15 $
 ;
 ; These three functions appear to be name mangled in some way, so GCC is
 ; probably not going to be able to use them in any case.
@@ -41,9 +41,6 @@ LIBRARY CRTDLL.DLL
 EXPORTS
 __builtin_new
 __builtin_delete
-??2@YAPAXI@Z=malloc
-??3@YAXPAX@Z=free
-?_set_new_handler@@YAP6AHI@ZP6AHI@Z@Z=_set_new_handler__FPFUi_i
 _set_new_handler__FPFUi_i
 _CIacos
 _CIasin
@@ -70,13 +67,13 @@ __dllonexit
 __doserrno
 __fpecode
 __isascii
-__iscsym=NTDLL.__iscsym
-__iscsymf=NTDLL.__iscsymf
+__iscsym
+__iscsymf
 __mb_cur_max_dll
 __pxcptinfoptrs
 __threadhandle
 __threadid
-__toascii=NTDLL.__toascii
+__toascii
 _abnormal_termination
 _access
 _acmdln_dll
@@ -154,7 +151,7 @@ _fputwchar
 _fsopen
 _fstat
 _ftime
-_ftol=NTDLL._ftol
+_ftol
 _fullpath
 _futime
 _gcvt
@@ -206,8 +203,8 @@ _ismbcupper
 _ismbslead
 _ismbstrail
 _isnan
-_itoa=NTDLL._itoa
-_itow=NTDLL._itow
+_itoa
+_itow
 _j0
 _j1
 _jn
@@ -221,8 +218,8 @@ _lrotl
 _lrotr
 _lsearch
 _lseek
-_ltoa=NTDLL._ltoa
-_ltow=NTDLL._ltow
+_ltoa
+_ltow
 _makepath
 _matherr
 _mbbtombc
@@ -274,7 +271,7 @@ _mbstok
 _mbstrlen
 _mbsupr
 _memccpy
-_memicmp=NTDLL._memicmp
+_memicmp
 _mkdir
 _mktemp
 _msize
@@ -323,37 +320,37 @@ _spawnvpe
 _splitpath
 _stat
 _statusfp
-_strcmpi=NTDLL._strcmpi
+_strcmpi
 _strdate
 _strdec
 _strdup
 _strerror
-_stricmp=NTDLL._stricmp
+_stricmp
 _stricoll
 _strinc
-_strlwr=NTDLL._strlwr
+_strlwr
 _strncnt
 _strnextc
-_strnicmp=NTDLL._strnicmp
+_strnicmp
 _strninc
 _strnset
 _strrev
 _strset
 _strspnp
 _strtime
-_strupr=NTDLL._strupr
+_strupr
 _swab
 _sys_errlist
 _sys_nerr_dll
 _tell
 _tempnam
 _timezone_dll
-_tolower=NTDLL._tolower
-_toupper=NTDLL._toupper
+_tolower
+_toupper
 _tzname
 _tzset
-_ultoa=NTDLL._ultoa
-_ultow=NTDLL._ultow
+_ultoa
+_ultow
 _umask
 _ungetch
 _unlink
@@ -365,7 +362,7 @@ _wcsdup
 _wcsicmp
 _wcsicoll
 _wcslwr
-_wcsnicmp=NTDLL._wcsnicmp
+_wcsnicmp
 _wcsnset
 _wcsrev
 _wcsset
@@ -374,8 +371,8 @@ _winmajor_dll
 _winminor_dll
 _winver_dll
 _write
-_wtoi=NTDLL._wtoi
-_wtol=NTDLL._wtol
+_wtoi
+_wtol
 _y0
 _y1
 _yn
@@ -436,18 +433,18 @@ gets
 gmtime
 is_wctype
 isalnum
-isalpha=NTDLL.isalpha
+isalpha
 iscntrl
-isdigit=NTDLL.isdigit
+isdigit
 isgraph
 isleadbyte
-islower=NTDLL.islower
+islower
 isprint
 ispunct
-isspace=NTDLL.isspace
+isspace
 isupper
 iswalnum
-iswalpha=NTDLL.iswalpha
+iswalpha
 iswascii
 iswcntrl
 iswctype
@@ -456,10 +453,10 @@ iswgraph
 iswlower
 iswprint
 iswpunct
-iswspace=NTDLL.iswspace
+iswspace
 iswupper
 iswxdigit
-isxdigit=NTDLL.isxdigit
+isxdigit
 labs
 ldexp
 ldiv
@@ -472,10 +469,10 @@ malloc
 mblen
 mbstowcs
 mbtowc
-memchr=NTDLL.memchr
-memcmp=NTDLL.memcmp
-memcpy=NTDLL.memcpy
-memmove=NTDLL.memmove
+memchr
+memcmp
+memcpy
+memmove
 memset
 mktime
 modf
@@ -515,10 +512,10 @@ strlen
 strncat
 strncmp
 strncpy
-strpbrk=NTDLL.strpbrk
+strpbrk
 strrchr
 strspn
-strstr=NTDLL.strstr
+strstr
 strtod
 strtok
 strtol
@@ -532,8 +529,8 @@ tanh
 time
 tmpfile
 tmpnam
-tolower=NTDLL.tolower
-toupper=NTDLL.toupper
+tolower
+toupper
 towlower
 towupper
 ungetc

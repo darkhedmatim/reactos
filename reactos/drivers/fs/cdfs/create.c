@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003, 2004 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,14 +16,14 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: create.c,v 1.13 2004/11/06 13:41:58 ekohl Exp $
+/* $Id: create.c,v 1.7 2002/09/15 22:21:40 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             services/fs/cdfs/cdfs.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
- *                   Eric Kohl
+ * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
@@ -39,103 +39,61 @@
 /* FUNCTIONS ****************************************************************/
 
 static NTSTATUS
-CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
-			 PUNICODE_STRING RelativeFileName,
-			 PUNICODE_STRING AbsoluteFileName)
+CdfsMakeAbsoluteFilename(PFILE_OBJECT pFileObject,
+			 PWSTR pRelativeFileName,
+			 PWSTR *pAbsoluteFilename)
 {
-  ULONG Length;
-//  PWSTR rcName;
+  PWSTR rcName;
   PFCB Fcb;
-  NTSTATUS Status;
+  PCCB Ccb;
 
-  DPRINT("try related for %wZ\n", RelativeFileName);
-  Fcb = FileObject->FsContext;
-  ASSERT(Fcb);
+  DPRINT("try related for %S\n", pRelativeFileName);
+  Ccb = pFileObject->FsContext2;
+  assert(Ccb);
+  Fcb = Ccb->Fcb;
+  assert(Fcb);
 
   /* verify related object is a directory and target name
      don't start with \. */
-  if ((Fcb->Entry.FileFlags & FILE_FLAG_DIRECTORY) == 0 ||
-      RelativeFileName->Buffer[0] == L'\\')
+  if (Fcb->Entry.FileFlags & 0x02 == 0 ||
+      pRelativeFileName[0] == L'\\')
     {
-      return STATUS_INVALID_PARAMETER;
+      return(STATUS_INVALID_PARAMETER);
     }
 
   /* construct absolute path name */
-  Length = (wcslen(Fcb->PathName) * sizeof(WCHAR)) +
-           sizeof(WCHAR) +
-           RelativeFileName->Length +
-           sizeof(WCHAR);
-//  ASSERT(wcslen (Fcb->PathName) + 1 + wcslen (pRelativeFileName) + 1
-//          <= MAX_PATH);
-//  rcName = ExAllocatePool(NonPagedPool, MAX_PATH * sizeof(WCHAR));
-//  if (!rcName)
-//    {
-//      return(STATUS_INSUFFICIENT_RESOURCES);
-//    }
-  AbsoluteFileName->Length = 0;
-  AbsoluteFileName->MaximumLength = Length;
-  AbsoluteFileName->Buffer = ExAllocatePool(NonPagedPool,
-					    Length);
-  if (AbsoluteFileName->Buffer == NULL)
+  assert(wcslen (Fcb->PathName) + 1 + wcslen (pRelativeFileName) + 1
+          <= MAX_PATH);
+  rcName = ExAllocatePool(NonPagedPool, MAX_PATH * sizeof(WCHAR));
+  if (!rcName)
     {
-CHECKPOINT1;
-      return STATUS_INSUFFICIENT_RESOURCES;
+      return(STATUS_INSUFFICIENT_RESOURCES);
     }
 
-
-//  wcscpy(rcName, Fcb->PathName);
-  Status = RtlAppendUnicodeToString(AbsoluteFileName,
-				    Fcb->PathName);
-  if (!NT_SUCCESS(Status))
-    {
-CHECKPOINT1;
-      RtlFreeUnicodeString(AbsoluteFileName);
-      return Status;
-    }
-
+  wcscpy(rcName, Fcb->PathName);
   if (!CdfsFCBIsRoot(Fcb))
-    {
-//    wcscat (rcName, L"\\");
-      Status = RtlAppendUnicodeToString(AbsoluteFileName,
-					L"\\");
-      if (!NT_SUCCESS(Status))
-	{
-CHECKPOINT1;
-	  RtlFreeUnicodeString(AbsoluteFileName);
-	  return Status;
-	}
-    }
+    wcscat (rcName, L"\\");
+  wcscat (rcName, pRelativeFileName);
+  *pAbsoluteFilename = rcName;
 
-  Status = RtlAppendUnicodeStringToString(AbsoluteFileName,
-					  RelativeFileName);
-  if (!NT_SUCCESS(Status))
-    {
-CHECKPOINT1;
-      RtlFreeUnicodeString(AbsoluteFileName);
-      return Status;
-    }
-
-//  wcscat (rcName, pRelativeFileName);
-//  *pAbsoluteFilename = rcName;
-
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
-/*
- * FUNCTION: Opens a file
- */
 static NTSTATUS
 CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
 	     PFILE_OBJECT FileObject,
-	     PUNICODE_STRING FileName)
+	     PWSTR FileName)
+/*
+ * FUNCTION: Opens a file
+ */
 {
   PFCB ParentFcb;
   PFCB Fcb;
   NTSTATUS Status;
-  UNICODE_STRING AbsFileName;
+  PWSTR AbsFileName = NULL;
 
-  DPRINT("CdfsOpenFile(%08lx, %08lx, %wZ)\n", DeviceExt, FileObject, FileName);
+  DPRINT("CdfsOpenFile(%08lx, %08lx, %S)\n", DeviceExt, FileObject, FileName);
 
   if (FileObject->RelatedFileObject)
     {
@@ -144,52 +102,17 @@ CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
       Status = CdfsMakeAbsoluteFilename(FileObject->RelatedFileObject,
 					FileName,
 					&AbsFileName);
+      FileName = AbsFileName;
       if (!NT_SUCCESS(Status))
 	{
-	  return Status;
+	  return(Status);
 	}
-
-      FileName = &AbsFileName;
-
-      RtlFreeUnicodeString(&AbsFileName);
-
-      return STATUS_UNSUCCESSFUL;
+      return(STATUS_UNSUCCESSFUL);
     }
 
-  Status = CdfsDeviceIoControl (DeviceExt->StorageDevice,
-				IOCTL_CDROM_CHECK_VERIFY,
-				NULL,
-				0,
-				NULL,
-				0,
-				TRUE);
-  DPRINT ("Status %lx\n", Status);
-  if (Status == STATUS_VERIFY_REQUIRED)
-    {
-      PDEVICE_OBJECT DeviceToVerify;
+  //FIXME: Get cannonical path name (remove .'s, ..'s and extra separators)
 
-      DPRINT1 ("Media change detected!\n");
-      DPRINT1 ("Device %p\n", DeviceExt->VolumeDevice);
-
-      DeviceToVerify = IoGetDeviceToVerify (PsGetCurrentThread ());
-      IoSetDeviceToVerify (PsGetCurrentThread (),
-			   NULL);
-
-      Status = IoVerifyVolume (DeviceToVerify,
-			       FALSE);
-      if (!NT_SUCCESS(Status))
-	{
-	  DPRINT1 ("Status %lx\n", Status);
-	  return Status;
-	}
-    }
-  else if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("Status %lx\n", Status);
-      return Status;
-    }
-
-  DPRINT("PathName to open: %wZ\n", FileName);
+  DPRINT("PathName to open: %S\n", FileName);
 
   /*  try first to find an existing FCB in memory  */
   DPRINT("Checking for existing FCB in memory\n");
@@ -212,10 +135,10 @@ CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
 	{
 	  DPRINT("Could not make a new FCB, status: %x\n", Status);
 
-	  if (FileName == &AbsFileName)
-	    RtlFreeUnicodeString(&AbsFileName);
+	  if (AbsFileName)
+	    ExFreePool(AbsFileName);
 
-	  return Status;
+	  return(Status);
 	}
     }
 
@@ -224,19 +147,21 @@ CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
 				     Fcb,
 				     FileObject);
 
-  if (FileName == &AbsFileName)
-    RtlFreeUnicodeString(&AbsFileName);
+  if (AbsFileName)
+    ExFreePool (AbsFileName);
 
-  return Status;
+  return  Status;
 }
 
 
-/*
- * FUNCTION: Opens a file
- */
+
+
 static NTSTATUS
 CdfsCreateFile(PDEVICE_OBJECT DeviceObject,
 	       PIRP Irp)
+/*
+ * FUNCTION: Opens a file
+ */
 {
   PDEVICE_EXTENSION DeviceExt;
   PIO_STACK_LOCATION Stack;
@@ -244,14 +169,16 @@ CdfsCreateFile(PDEVICE_OBJECT DeviceObject,
   ULONG RequestedDisposition;
   ULONG RequestedOptions;
   PFCB Fcb;
+  PCCB Ccb;
+//  PWSTR FileName;
   NTSTATUS Status;
 
   DPRINT("CdfsCreateFile() called\n");
 
   DeviceExt = DeviceObject->DeviceExtension;
-  ASSERT(DeviceExt);
+  assert (DeviceExt);
   Stack = IoGetCurrentIrpStackLocation (Irp);
-  ASSERT(Stack);
+  assert (Stack);
 
   RequestedDisposition = ((Stack->Parameters.Create.Options >> 24) & 0xff);
   RequestedOptions = Stack->Parameters.Create.Options & FILE_VALID_OPTION_FLAGS;
@@ -264,29 +191,31 @@ CdfsCreateFile(PDEVICE_OBJECT DeviceObject,
       RequestedDisposition == FILE_OVERWRITE_IF ||
       RequestedDisposition == FILE_SUPERSEDE)
     {
-      return STATUS_ACCESS_DENIED;
+      return(STATUS_ACCESS_DENIED);
     }
 
   Status = CdfsOpenFile(DeviceExt,
 			FileObject,
-			&FileObject->FileName);
+			FileObject->FileName.Buffer);
+
   if (NT_SUCCESS(Status))
+  {
+    Ccb = FileObject->FsContext2;
+    Fcb = Ccb->Fcb;
+    /*
+     * Check the file has the requested attributes
+     */
+    if (RequestedOptions & FILE_NON_DIRECTORY_FILE && CdfsFCBIsDirectory(Fcb))
     {
-      Fcb = FileObject->FsContext;
-
-      /* Check whether the file has the requested attributes */
-      if (RequestedOptions & FILE_NON_DIRECTORY_FILE && CdfsFCBIsDirectory(Fcb))
-	{
-	  CdfsCloseFile (DeviceExt, FileObject);
-	  return STATUS_FILE_IS_A_DIRECTORY;
-	}
-
-      if (RequestedOptions & FILE_DIRECTORY_FILE && !CdfsFCBIsDirectory(Fcb))
-	{
-	  CdfsCloseFile (DeviceExt, FileObject);
-	  return STATUS_NOT_A_DIRECTORY;
-	}
-  }
+       CdfsCloseFile (DeviceExt, FileObject);
+       return STATUS_FILE_IS_A_DIRECTORY;
+    }
+    if (RequestedOptions & FILE_DIRECTORY_FILE && !CdfsFCBIsDirectory(Fcb))
+    {
+       CdfsCloseFile (DeviceExt, FileObject);
+       return STATUS_NOT_A_DIRECTORY;
+    }
+  }  
 
   /*
    * If the directory containing the file to open doesn't exist then
@@ -295,7 +224,7 @@ CdfsCreateFile(PDEVICE_OBJECT DeviceObject,
   Irp->IoStatus.Information = (NT_SUCCESS(Status)) ? FILE_OPENED : 0;
   Irp->IoStatus.Status = Status;
 
-  return Status;
+  return(Status);
 }
 
 
@@ -328,7 +257,7 @@ ByeBye:
   IoCompleteRequest(Irp,
 		    NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
 
-  return Status;
+  return(Status);
 }
 
 /* EOF */

@@ -1,12 +1,9 @@
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdlib.h>
+#include <crtdll/stdlib.h>
 
 
-/*
- * @implemented
- */
-double wcstod(const wchar_t* s, wchar_t** sret)
+double wcstod(const wchar_t *s, wchar_t **sret)
 {
   long double r;		/* result */
   int e;			/* exponent */

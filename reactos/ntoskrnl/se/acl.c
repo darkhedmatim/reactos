@@ -1,4 +1,4 @@
-/* $Id: acl.c,v 1.22 2004/12/10 16:50:37 navaraf Exp $
+/* $Id: acl.c,v 1.10 2002/10/25 21:48:00 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/se.h>
+
 #include <internal/debug.h>
 
 #define TAG_ACL    TAG('A', 'C', 'L', 'T')
@@ -30,236 +32,294 @@ PACL SeUnrestrictedDacl = NULL;
 
 /* FUNCTIONS ****************************************************************/
 
-BOOLEAN INIT_FUNCTION
+BOOLEAN
 SepInitDACLs(VOID)
 {
-  ULONG AclLength;
+  ULONG AclLength2;
+  ULONG AclLength3;
+  ULONG AclLength4;
+
+  AclLength2 = sizeof(ACL) +
+	       2 * (RtlLengthRequiredSid(1) + sizeof(ACE));
+  AclLength3 = sizeof(ACL) +
+	       3 * (RtlLengthRequiredSid(1) + sizeof(ACE));
+  AclLength4 = sizeof(ACL) +
+	       4 * (RtlLengthRequiredSid(1) + sizeof(ACE));
 
   /* create PublicDefaultDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeWorldSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid));
-
   SePublicDefaultDacl = ExAllocatePoolWithTag(NonPagedPool,
-					      AclLength,
+					      AclLength2,
 					      TAG_ACL);
   if (SePublicDefaultDacl == NULL)
-    return FALSE;
+    return(FALSE);
 
   RtlCreateAcl(SePublicDefaultDacl,
-	       AclLength,
-	       ACL_REVISION);
+	       AclLength2,
+	       2);
 
   RtlAddAccessAllowedAce(SePublicDefaultDacl,
-			 ACL_REVISION,
+			 2,
 			 GENERIC_EXECUTE,
 			 SeWorldSid);
 
   RtlAddAccessAllowedAce(SePublicDefaultDacl,
-			 ACL_REVISION,
+			 2,
 			 GENERIC_ALL,
 			 SeLocalSystemSid);
 
 
   /* create PublicDefaultUnrestrictedDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeWorldSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeRestrictedCodeSid));
-
   SePublicDefaultUnrestrictedDacl = ExAllocatePoolWithTag(NonPagedPool,
-							  AclLength,
+							  AclLength4,
 							  TAG_ACL);
   if (SePublicDefaultUnrestrictedDacl == NULL)
-    return FALSE;
+    return(FALSE);
 
   RtlCreateAcl(SePublicDefaultUnrestrictedDacl,
-	       AclLength,
-	       ACL_REVISION);
+	       AclLength4,
+	       2);
 
   RtlAddAccessAllowedAce(SePublicDefaultUnrestrictedDacl,
-			 ACL_REVISION,
+			 4,
 			 GENERIC_EXECUTE,
 			 SeWorldSid);
 
   RtlAddAccessAllowedAce(SePublicDefaultUnrestrictedDacl,
-			 ACL_REVISION,
+			 4,
 			 GENERIC_ALL,
 			 SeLocalSystemSid);
 
   RtlAddAccessAllowedAce(SePublicDefaultUnrestrictedDacl,
-			 ACL_REVISION,
+			 4,
 			 GENERIC_ALL,
 			 SeAliasAdminsSid);
 
   RtlAddAccessAllowedAce(SePublicDefaultUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_READ | GENERIC_EXECUTE | READ_CONTROL,
+			 4,
+			 GENERIC_READ | GENERIC_EXECUTE | STANDARD_RIGHTS_READ,
 			 SeRestrictedCodeSid);
 
   /* create PublicOpenDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeWorldSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid));
-
   SePublicOpenDacl = ExAllocatePoolWithTag(NonPagedPool,
-					   AclLength,
+					   AclLength3,
 					   TAG_ACL);
   if (SePublicOpenDacl == NULL)
-    return FALSE;
+    return(FALSE);
 
   RtlCreateAcl(SePublicOpenDacl,
-	       AclLength,
-	       ACL_REVISION);
+	       AclLength3,
+	       3);
 
   RtlAddAccessAllowedAce(SePublicOpenDacl,
-			 ACL_REVISION,
+			 2,
 			 GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE,
 			 SeWorldSid);
 
   RtlAddAccessAllowedAce(SePublicOpenDacl,
-			 ACL_REVISION,
+			 2,
 			 GENERIC_ALL,
 			 SeLocalSystemSid);
 
   RtlAddAccessAllowedAce(SePublicOpenDacl,
-			 ACL_REVISION,
+			 2,
 			 GENERIC_ALL,
 			 SeAliasAdminsSid);
 
-  /* create PublicOpenUnrestrictedDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeWorldSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeRestrictedCodeSid));
-
-  SePublicOpenUnrestrictedDacl = ExAllocatePoolWithTag(NonPagedPool,
-						       AclLength,
-						       TAG_ACL);
-  if (SePublicOpenUnrestrictedDacl == NULL)
-    return FALSE;
-
-  RtlCreateAcl(SePublicOpenUnrestrictedDacl,
-	       AclLength,
-	       ACL_REVISION);
-
-  RtlAddAccessAllowedAce(SePublicOpenUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_ALL,
-			 SeWorldSid);
-
-  RtlAddAccessAllowedAce(SePublicOpenUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_ALL,
-			 SeLocalSystemSid);
-
-  RtlAddAccessAllowedAce(SePublicOpenUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_ALL,
-			 SeAliasAdminsSid);
-
-  RtlAddAccessAllowedAce(SePublicOpenUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_READ | GENERIC_EXECUTE,
-			 SeRestrictedCodeSid);
-
-  /* create SystemDefaultDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid));
-
-  SeSystemDefaultDacl = ExAllocatePoolWithTag(NonPagedPool,
-					      AclLength,
-					      TAG_ACL);
-  if (SeSystemDefaultDacl == NULL)
-    return FALSE;
-
-  RtlCreateAcl(SeSystemDefaultDacl,
-	       AclLength,
-	       ACL_REVISION);
-
-  RtlAddAccessAllowedAce(SeSystemDefaultDacl,
-			 ACL_REVISION,
-			 GENERIC_ALL,
-			 SeLocalSystemSid);
-
-  RtlAddAccessAllowedAce(SeSystemDefaultDacl,
-			 ACL_REVISION,
-			 GENERIC_READ | GENERIC_EXECUTE | READ_CONTROL,
-			 SeAliasAdminsSid);
-
-  /* create UnrestrictedDacl */
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeWorldSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeRestrictedCodeSid));
-
-  SeUnrestrictedDacl = ExAllocatePoolWithTag(NonPagedPool,
-					     AclLength,
-					     TAG_ACL);
-  if (SeUnrestrictedDacl == NULL)
-    return FALSE;
-
-  RtlCreateAcl(SeUnrestrictedDacl,
-	       AclLength,
-	       ACL_REVISION);
-
-  RtlAddAccessAllowedAce(SeUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_ALL,
-			 SeWorldSid);
-
-  RtlAddAccessAllowedAce(SeUnrestrictedDacl,
-			 ACL_REVISION,
-			 GENERIC_READ | GENERIC_EXECUTE,
-			 SeRestrictedCodeSid);
 
   return(TRUE);
 }
 
-NTSTATUS STDCALL 
-SepCreateImpersonationTokenDacl(PACCESS_TOKEN Token, 
-                                PACCESS_TOKEN PrimaryToken,
-                                PACL *Dacl)
+
+BOOLEAN STDCALL
+RtlFirstFreeAce(PACL Acl,
+		PACE* Ace)
 {
-  ULONG AclLength;
-  PVOID TokenDacl;
+   PACE Current;
+   PVOID AclEnd;
+   ULONG i;
 
-  AclLength = sizeof(ACL) +
-	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeRestrictedCodeSid)) +
-	      (sizeof(ACE) + RtlLengthSid(SeLocalSystemSid)) +
-	      (sizeof(ACE) + RtlLengthSid(Token->UserAndGroups->Sid)) +
-	      (sizeof(ACE) + RtlLengthSid(PrimaryToken->UserAndGroups->Sid));
+   Current = (PACE)(Acl + 1);
+   *Ace = NULL;
+   i = 0;
+   if (Acl->AceCount == 0)
+     {
+	*Ace = Current;
+	return(TRUE);
+     }
+   AclEnd = Acl->AclSize + Acl;
+   do
+     {
+	if ((PVOID)Current >= AclEnd)
+	  {
+	     return(FALSE);
+	  }
+	if (Current->Header.AceType == 4)
+	  {
+	     if (Acl->AclRevision < 3)
+	       {
+		  return(FALSE);
+	       }
+	  }
+	Current = (PACE)((PVOID)Current + (ULONG)Current->Header.AceSize);
+	i++;
+     } while (i < Acl->AceCount);
+   if ((PVOID)Current >= AclEnd)
+     {
+	return(FALSE);
+     }
+   *Ace = Current;
+   return(TRUE);
+}
 
-  TokenDacl = ExAllocatePoolWithTag(PagedPool, AclLength, TAG_ACL);
-  if (TokenDacl == NULL)
+
+NTSTATUS
+RtlpAddKnownAce(PACL Acl,
+		ULONG Revision,
+		ACCESS_MASK AccessMask,
+		PSID Sid,
+		ULONG Type)
+{
+  PACE Ace;
+
+  if (!RtlValidSid(Sid))
     {
-      return STATUS_INSUFFICIENT_RESOURCES;
+      return(STATUS_INVALID_SID);
     }
-
-  RtlCreateAcl(TokenDacl, AclLength, ACL_REVISION);
-  RtlAddAccessAllowedAce(TokenDacl, ACL_REVISION, GENERIC_ALL,
-                         Token->UserAndGroups->Sid);
-  RtlAddAccessAllowedAce(TokenDacl, ACL_REVISION, GENERIC_ALL,
-                         PrimaryToken->UserAndGroups->Sid);
-  RtlAddAccessAllowedAce(TokenDacl, ACL_REVISION, GENERIC_ALL,
-                         SeAliasAdminsSid);
-  RtlAddAccessAllowedAce(TokenDacl, ACL_REVISION, GENERIC_ALL,
-                         SeLocalSystemSid);
-
-  /* FIXME */
-#if 0
-  if (Token->RestrictedSids != NULL || PrimaryToken->RestrictedSids != NULL)
+  if (Acl->AclRevision > 3 ||
+      Revision > 3)
     {
-      RtlAddAccessAllowedAce(TokenDacl, ACL_REVISION, GENERIC_ALL,
-                             SeRestrictedCodeSid);
+      return(STATUS_UNKNOWN_REVISION);
     }
-#endif
+  if (Revision < Acl->AclRevision)
+    {
+      Revision = Acl->AclRevision;
+    }
+  if (!RtlFirstFreeAce(Acl, &Ace))
+    {
+      return(STATUS_BUFFER_TOO_SMALL);
+    }
+  if (Ace == NULL)
+    {
+      return(STATUS_UNSUCCESSFUL);
+    }
+  if (((PVOID)Ace + RtlLengthSid(Sid) + sizeof(ACE)) >= 
+      ((PVOID)Acl + Acl->AclSize))
+    {
+      return(STATUS_BUFFER_TOO_SMALL);
+    }
+  Ace->Header.AceFlags = 0;
+  Ace->Header.AceType = Type;
+  Ace->Header.AceSize = RtlLengthSid(Sid) + sizeof(ACE);
+  Ace->AccessMask = AccessMask;
+  RtlCopySid(RtlLengthSid(Sid), (PSID)(Ace + 1), Sid);
+  Acl->AceCount++;
+  Acl->AclRevision = Revision;
+  return(STATUS_SUCCESS);
+}
 
-  return STATUS_SUCCESS;
+
+NTSTATUS STDCALL
+RtlAddAccessAllowedAce(PACL Acl,
+		       ULONG Revision,
+		       ACCESS_MASK AccessMask,
+		       PSID Sid)
+{
+  return(RtlpAddKnownAce(Acl, Revision, AccessMask, Sid, 0));
+}
+
+
+NTSTATUS STDCALL
+RtlAddAce(PACL Acl,
+	  ULONG AclRevision,
+	  ULONG StartingIndex,
+	  PACE AceList,
+	  ULONG AceListLength)
+{
+   PACE Ace;
+   ULONG i;
+   PACE Current;
+   ULONG j;
+   
+   if (Acl->AclRevision != 2 &&
+       Acl->AclRevision != 3)
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   if (!RtlFirstFreeAce(Acl,&Ace))
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   if (Acl->AclRevision <= AclRevision)
+     {
+	AclRevision = Acl->AclRevision;
+     }
+   if (((PVOID)AceList + AceListLength) <= (PVOID)AceList)
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   i = 0;
+   Current = (PACE)(Acl + 1);
+   while ((PVOID)Current < ((PVOID)AceList + AceListLength))
+     {
+	if (AceList->Header.AceType == 4 &&
+	    AclRevision < 3)
+	  {
+	     return(STATUS_UNSUCCESSFUL);
+	  }
+	Current = (PACE)((PVOID)Current + Current->Header.AceSize);
+     }
+   if (Ace == NULL)
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   if (((PVOID)Ace + AceListLength) >= ((PVOID)Acl + Acl->AclSize))
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   if (StartingIndex != 0)
+     {
+	if (Acl->AceCount > 0)
+	  {
+	     Current = (PACE)(Acl + 1);
+	     for (j = 0; j < StartingIndex; j++)
+	       {
+		  Current = (PACE)((PVOID)Current + Current->Header.AceSize);
+	       }
+	  }
+     }
+   /* RtlpAddData(AceList, AceListLength, Current, (PVOID)Ace - Current)); */
+   memcpy(Current, AceList, AceListLength);
+   Acl->AceCount = Acl->AceCount + i;
+   Acl->AclRevision = AclRevision;
+   return(TRUE);
+}
+
+
+NTSTATUS STDCALL
+RtlCreateAcl(PACL Acl,
+	     ULONG AclSize,
+	     ULONG AclRevision)
+{
+  if (AclSize < 8)
+    {
+      return(STATUS_BUFFER_TOO_SMALL);
+    }
+  if (AclRevision != 2 &&
+      AclRevision != 3)
+    {
+      return(STATUS_UNKNOWN_REVISION);
+    }
+  if (AclSize > 0xffff)
+    {
+      return(STATUS_UNSUCCESSFUL);
+    }
+  AclSize = AclSize & ~(0x3);
+  Acl->AclSize = AclSize;
+  Acl->AclRevision = AclRevision;
+  Acl->AceCount = 0;
+  Acl->Sbz1 = 0;
+  Acl->Sbz2 = 0;
+  return(STATUS_SUCCESS);
 }
 
 /* EOF */

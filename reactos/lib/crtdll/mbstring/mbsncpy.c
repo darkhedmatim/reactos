@@ -8,12 +8,8 @@
  *              12/04/99: Created
  */
 
-#include <msvcrt/mbstring.h>
+#include <crtdll/mbstring.h>
 
-
-/*
- * @implemented
- */
 unsigned char *_mbsncpy(unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;
@@ -47,15 +43,6 @@ unsigned char *_mbsncpy(unsigned char *str1, const unsigned char *str2, size_t n
 	return str1;
 }
 
-
-
-/*
- * The _mbsnbcpy function copies count bytes from src to dest. If src is shorter 
- * than dest, the string is padded with null characters. If dest is less than or 
- * equal to count it is not terminated with a null character.
- *
- * @implemented
- */
 unsigned char * _mbsnbcpy(unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;
@@ -67,10 +54,8 @@ unsigned char * _mbsnbcpy(unsigned char *str1, const unsigned char *str2, size_t
 		return 0;
 	do {
 		
-        if (*s2 == 0) {
-			*s1 = *s2;
+		if (*s2 == 0)
 			break;	
-        }
 
 		if (  !_ismbblead(*s2) ) {
 

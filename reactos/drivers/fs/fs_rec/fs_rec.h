@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002,2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fs_rec.h,v 1.4 2004/05/02 20:12:38 hbirr Exp $
+/* $Id: fs_rec.h,v 1.2 2002/05/15 18:02:59 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/fs_rec/fs_rec.h
+ * FILE:             services/fs/fs_rec/fs_rec.h
  * PURPOSE:          Filesystem recognizer driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -32,7 +32,6 @@
 #define FS_TYPE_VFAT		1
 #define FS_TYPE_NTFS		2
 #define FS_TYPE_CDFS		3
-#define FS_TYPE_UDFS		4
 
 
 typedef struct _DEVICE_EXTENSION
@@ -40,24 +39,6 @@ typedef struct _DEVICE_EXTENSION
   ULONG FsType;
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
-struct _BootSector
-{
-  unsigned char  magic0, res0, magic1;
-  unsigned char  OEMName[8];
-  unsigned short BytesPerSector;
-  unsigned char  SectorsPerCluster;
-  unsigned short ReservedSectors;
-  unsigned char  FATCount;
-  unsigned short RootEntries, Sectors;
-  unsigned char  Media;
-  unsigned short FATSectors, SectorsPerTrack, Heads;
-  unsigned long  HiddenSectors, SectorsHuge;
-  unsigned char  Drive, Res1, Sig;
-  unsigned long  VolumeID;
-  unsigned char  VolumeLabel[11], SysType[8];
-  unsigned char  Res2[448];
-  unsigned short Signatur1;
-} __attribute__((packed));
 
 /* blockdev.c */
 
@@ -95,13 +76,6 @@ FsRecVfatFsControl(IN PDEVICE_OBJECT DeviceObject,
 
 NTSTATUS
 FsRecNtfsFsControl(IN PDEVICE_OBJECT DeviceObject,
-		   IN PIRP Irp);
-
-
-/* udfs.c */
-
-NTSTATUS
-FsRecUdfsFsControl(IN PDEVICE_OBJECT DeviceObject,
 		   IN PIRP Irp);
 
 /* EOF */

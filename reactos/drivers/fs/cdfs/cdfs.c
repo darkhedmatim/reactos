@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,19 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cdfs.c,v 1.12 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: cdfs.c,v 1.8 2002/09/15 22:23:22 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/cdfs/cdfs.c
+ * FILE:             services/fs/cdfs/cdfs.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
- *                   Eric Kohl
+ * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -57,9 +56,9 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_OBJECT DeviceObject;
   NTSTATUS Status;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Cdfs");
+  UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Cdfs");
 
-  DPRINT("CDFS 0.0.3\n");
+  DPRINT("CDFS 0.0.2\n");
 
   Status = IoCreateDevice(DriverObject,
 			  sizeof(CDFS_GLOBAL_DATA),

@@ -1,4 +1,4 @@
-/* $Id: namespc.c,v 1.50 2004/11/21 10:59:10 weiden Exp $
+/* $Id: namespc.c,v 1.34 2002/09/08 10:23:39 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,10 +11,14 @@
 
 /* INCLUDES ***************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/io.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
 
 /* GLOBALS ****************************************************************/
 
@@ -22,8 +26,6 @@ POBJECT_TYPE ObDirectoryType = NULL;
 POBJECT_TYPE ObTypeObjectType = NULL;
 
 PDIRECTORY_OBJECT NameSpaceRoot = NULL;
- /* FIXME: Move this somewhere else once devicemap support is in */
-PDEVICE_MAP ObSystemDeviceMap = NULL;
 
 static GENERIC_MAPPING ObpDirectoryMapping = {
 	STANDARD_RIGHTS_READ|DIRECTORY_QUERY|DIRECTORY_TRAVERSE,
@@ -39,9 +41,6 @@ static GENERIC_MAPPING ObpTypeMapping = {
 
 /* FUNCTIONS **************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 ObReferenceObjectByName(PUNICODE_STRING ObjectPath,
 			ULONG Attributes,
@@ -79,7 +78,7 @@ CHECKPOINT;
 DPRINT("Object %p\n", Object);
 	*ObjectPtr = NULL;
 	RtlFreeUnicodeString (&RemainingPath);
-	return(STATUS_OBJECT_NAME_NOT_FOUND);
+	return(STATUS_UNSUCCESSFUL);
      }
    *ObjectPtr = Object;
    RtlFreeUnicodeString (&RemainingPath);
@@ -112,8 +111,6 @@ DPRINT("Object %p\n", Object);
  *
  * RETURN VALUE
  * 	Status.
- *
- * @implemented
  */
 NTSTATUS STDCALL
 ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -128,7 +125,7 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
    PVOID Object = NULL;
    NTSTATUS Status;
 
-   DPRINT("ObOpenObjectByName(...)\n");
+   DPRINT("ObOpenObjectByName()\n");
 
    Status = ObFindObject(ObjectAttributes,
 			 &Object,
@@ -136,7 +133,6 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
 			 ObjectType);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT("ObFindObject() failed (Status %lx)\n", Status);
 	return Status;
      }
 
@@ -159,29 +155,7 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
    return Status;
 }
 
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process,
-			    PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo)
-{
-	//KIRQL OldIrql ;
-	
-	/*
-	 * FIXME: This is an ugly hack for now, to always return the System Device Map
-	 * instead of returning the Process Device Map. Not important yet since we don't use it
-	 */
-	   
-	 /* FIXME: Acquire the DeviceMap Spinlock */
-	 // KeAcquireSpinLock(DeviceMap->Lock, &OldIrql);
-	 
-	 /* Make a copy */
-	 DeviceMapInfo->Query.DriveMap = ObSystemDeviceMap->DriveMap;
-	 RtlMoveMemory(DeviceMapInfo->Query.DriveType, ObSystemDeviceMap->DriveType, sizeof(ObSystemDeviceMap->DriveType));
-	 
-	 /* FIXME: Release the DeviceMap Spinlock */
-	 // KeReleasepinLock(DeviceMap->Lock, OldIrql);
-}	 
-	 
+
 VOID
 ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
 		     POBJECT_HEADER Header,
@@ -204,7 +178,6 @@ ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
   KeReleaseSpinLock(&Parent->Lock, oldlvl);
 }
 
-
 VOID
 ObpRemoveEntryDirectory(POBJECT_HEADER Header)
 /*
@@ -221,7 +194,6 @@ ObpRemoveEntryDirectory(POBJECT_HEADER Header)
   RemoveEntryList(&(Header->Entry));
   KeReleaseSpinLock(&(Header->Parent->Lock),oldlvl);
 }
-
 
 PVOID
 ObpFindEntryDirectory(PDIRECTORY_OBJECT DirectoryObject,
@@ -248,7 +220,7 @@ ObpFindEntryDirectory(PDIRECTORY_OBJECT DirectoryObject,
    while (current!=(&(DirectoryObject->head)))
      {
 	current_obj = CONTAINING_RECORD(current,OBJECT_HEADER,Entry);
-	DPRINT("  Scanning: %S for: %S\n",current_obj->Name.Buffer, Name);
+	DPRINT("Scanning %S %S\n",current_obj->Name.Buffer, Name);
 	if (Attributes & OBJ_CASE_INSENSITIVE)
 	  {
 	     if (_wcsicmp(current_obj->Name.Buffer, Name)==0)
@@ -267,10 +239,9 @@ ObpFindEntryDirectory(PDIRECTORY_OBJECT DirectoryObject,
 	  }
 	current = current->Flink;
      }
-   DPRINT("    Not Found: %s() = NULL\n",__FUNCTION__);
+   DPRINT("%s() = NULL\n",__FUNCTION__);
    return(NULL);
 }
-
 
 NTSTATUS STDCALL
 ObpParseDirectory(PVOID Object,
@@ -279,60 +250,55 @@ ObpParseDirectory(PVOID Object,
 		  PWSTR * Path,
 		  ULONG Attributes)
 {
-  PWSTR Start;
-  PWSTR End;
-  PVOID FoundObject;
-
-  DPRINT("ObpParseDirectory(Object %x, Path %x, *Path %S)\n",
-	 Object,Path,*Path);
-
-  *NextObject = NULL;
-
-  if ((*Path) == NULL)
-    {
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  Start = *Path;
-  if (*Start == L'\\')
-    Start++;
-
-  End = wcschr(Start, L'\\');
-  if (End != NULL)
-    {
-      *End = 0;
-    }
-
-  FoundObject = ObpFindEntryDirectory(Object, Start, Attributes);
-  if (FoundObject == NULL)
-    {
-      if (End != NULL)
-	{
-	  *End = L'\\';
-	}
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  ObReferenceObjectByPointer(FoundObject,
-			     STANDARD_RIGHTS_REQUIRED,
-			     NULL,
-			     UserMode);
-
-  if (End != NULL)
-    {
-      *End = L'\\';
-      *Path = End;
-    }
-  else
-    {
-      *Path = NULL;
-    }
-
-  *NextObject = FoundObject;
-
-  return STATUS_SUCCESS;
+   PWSTR end;
+   PVOID FoundObject;
+   
+   DPRINT("ObpParseDirectory(Object %x, Path %x, *Path %S)\n",
+	  Object,Path,*Path);
+   
+   *NextObject = NULL;
+   
+   if ((*Path) == NULL)
+     {
+	return STATUS_UNSUCCESSFUL;
+     }
+   
+   end = wcschr((*Path)+1, '\\');
+   if (end != NULL)
+     {
+	*end = 0;
+     }
+   
+   FoundObject = ObpFindEntryDirectory(Object, (*Path)+1, Attributes);
+   
+   if (FoundObject == NULL)
+     {
+	if (end != NULL)
+	  {
+	     *end = '\\';
+	  }
+	return STATUS_UNSUCCESSFUL;
+     }
+   
+   ObReferenceObjectByPointer(FoundObject,
+			      STANDARD_RIGHTS_REQUIRED,
+			      NULL,
+			      UserMode);
+   
+   if (end != NULL)
+     {
+	*end = '\\';
+	*Path = end;
+     }
+   else
+     {
+	*Path = NULL;
+     }
+   
+   *NextObject = FoundObject;
+   
+   return STATUS_SUCCESS;
 }
-
 
 NTSTATUS STDCALL
 ObpCreateDirectory(PVOID ObjectBody,
@@ -357,7 +323,7 @@ ObpCreateDirectory(PVOID ObjectBody,
 }
 
 
-VOID INIT_FUNCTION
+VOID
 ObInit(VOID)
 /*
  * FUNCTION: Initialize the object manager namespace
@@ -365,10 +331,6 @@ ObInit(VOID)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING Name;
-  SECURITY_DESCRIPTOR SecurityDescriptor;
-
-  /* Initialize the security descriptor cache */
-  ObpInitSdCache();
 
   /* create 'directory' object type */
   ObDirectoryType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
@@ -391,8 +353,8 @@ ObInit(VOID)
   ObDirectoryType->OkayToClose = NULL;
   ObDirectoryType->Create = ObpCreateDirectory;
   ObDirectoryType->DuplicationNotify = NULL;
-
-  RtlRosInitUnicodeStringFromLiteral(&ObDirectoryType->TypeName,
+  
+  RtlInitUnicodeStringFromLiteral(&ObDirectoryType->TypeName,
 		       L"Directory");
 
   /* create 'type' object type*/
@@ -416,70 +378,33 @@ ObInit(VOID)
   ObTypeObjectType->OkayToClose = NULL;
   ObTypeObjectType->Create = NULL;
   ObTypeObjectType->DuplicationNotify = NULL;
-
-  RtlRosInitUnicodeStringFromLiteral(&ObTypeObjectType->TypeName,
+  
+  RtlInitUnicodeStringFromLiteral(&ObTypeObjectType->TypeName,
 		       L"ObjectType");
 
-  /* Create security descriptor */
-  RtlCreateSecurityDescriptor(&SecurityDescriptor,
-			      SECURITY_DESCRIPTOR_REVISION1);
-
-  RtlSetOwnerSecurityDescriptor(&SecurityDescriptor,
-				SeAliasAdminsSid,
-				FALSE);
-
-  RtlSetGroupSecurityDescriptor(&SecurityDescriptor,
-				SeLocalSystemSid,
-				FALSE);
-
-  RtlSetDaclSecurityDescriptor(&SecurityDescriptor,
-			       TRUE,
-			       SePublicDefaultDacl,
-			       FALSE);
-
-  /* Create root directory */
-  InitializeObjectAttributes(&ObjectAttributes,
-			     NULL,
-			     OBJ_PERMANENT,
-			     NULL,
-			     &SecurityDescriptor);
-  ObCreateObject(KernelMode,
-		 ObDirectoryType,
-		 &ObjectAttributes,
-		 KernelMode,
+  /* create root directory */
+  ObCreateObject(NULL,
+		 STANDARD_RIGHTS_REQUIRED,
 		 NULL,
-		 sizeof(DIRECTORY_OBJECT),
-		 0,
-		 0,
+		 ObDirectoryType,
 		 (PVOID*)&NameSpaceRoot);
 
-  /* Create '\ObjectTypes' directory */
-  RtlRosInitUnicodeStringFromLiteral(&Name,
+  /* create '\ObjectTypes' directory */
+  RtlInitUnicodeStringFromLiteral(&Name,
 		       L"\\ObjectTypes");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &Name,
 			     OBJ_PERMANENT,
 			     NULL,
-			     &SecurityDescriptor);
-  ObCreateObject(KernelMode,
-		 ObDirectoryType,
+			     NULL);
+  ObCreateObject(NULL,
+		 STANDARD_RIGHTS_REQUIRED,
 		 &ObjectAttributes,
-		 KernelMode,
-		 NULL,
-		 sizeof(DIRECTORY_OBJECT),
-		 0,
-		 0,
+		 ObDirectoryType,
 		 NULL);
 
   ObpCreateTypeObject(ObDirectoryType);
   ObpCreateTypeObject(ObTypeObjectType);
-
-  /* Create 'symbolic link' object type */
-  ObInitSymbolicLinkImplementation();
-  
-  /* FIXME: Hack Hack! */
-  ObSystemDeviceMap = ExAllocatePoolWithTag(NonPagedPool, sizeof(*ObSystemDeviceMap), TAG('O', 'b', 'D', 'm'));
-  RtlZeroMemory(ObSystemDeviceMap, sizeof(*ObSystemDeviceMap));
 }
 
 
@@ -492,7 +417,7 @@ ObpCreateTypeObject(POBJECT_TYPE ObjectType)
   UNICODE_STRING Name;
   NTSTATUS Status;
 
-  DPRINT("ObpCreateTypeObject(ObjectType: %wZ)\n", &ObjectType->TypeName);
+  DPRINT("ObjectType: %wZ\n", &ObjectType->TypeName);
   wcscpy(NameString, L"\\ObjectTypes\\");
   wcscat(NameString, ObjectType->TypeName.Buffer);
   RtlInitUnicodeString(&Name,
@@ -503,14 +428,10 @@ ObpCreateTypeObject(POBJECT_TYPE ObjectType)
 			     OBJ_PERMANENT,
 			     NULL,
 			     NULL);
-  Status = ObCreateObject(KernelMode,
-			  ObTypeObjectType,
+  Status = ObCreateObject(NULL,
+			  STANDARD_RIGHTS_REQUIRED,
 			  &ObjectAttributes,
-			  KernelMode,
-			  NULL,
-			  sizeof(TYPE_OBJECT),
-			  0,
-			  0,
+			  ObTypeObjectType,
 			  (PVOID*)&TypeObject);
   if (NT_SUCCESS(Status))
     {
@@ -519,5 +440,6 @@ ObpCreateTypeObject(POBJECT_TYPE ObjectType)
 
   return(STATUS_SUCCESS);
 }
+
 
 /* EOF */

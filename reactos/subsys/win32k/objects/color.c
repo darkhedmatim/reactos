@@ -1,35 +1,23 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: color.c,v 1.51 2004/12/12 01:40:38 weiden Exp $ */
-#include <w32k.h>
-
 // FIXME: Use PXLATEOBJ logicalToSystem instead of int *mapping
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <ddk/winddi.h>
+#include <win32k/dc.h>
+#include <win32k/color.h>
+#include "../eng/handle.h"
+
+// #define NDEBUG
+#include <win32k/debug1.h>
 
 int COLOR_gapStart = 256;
 int COLOR_gapEnd = -1;
 int COLOR_gapFilled = 0;
 int COLOR_max = 256;
 
-#ifndef NO_MAPPING
 static HPALETTE hPrimaryPalette = 0; // used for WM_PALETTECHANGED
-#endif
-//static HPALETTE hLastRealizedPalette = 0; // UnrealizeObject() needs it
+static HPALETTE hLastRealizedPalette = 0; // UnrealizeObject() needs it
 
 const PALETTEENTRY COLOR_sysPalTemplate[NB_RESERVED_COLORS] =
 {
@@ -44,14 +32,14 @@ const PALETTEENTRY COLOR_sysPalTemplate[NB_RESERVED_COLORS] =
   { 0x00, 0x80, 0x80, PC_SYS_USED },
   { 0xc0, 0xc0, 0xc0, PC_SYS_USED },
   { 0xc0, 0xdc, 0xc0, PC_SYS_USED },
-  { 0xd4, 0xd0, 0xc7, PC_SYS_USED },
+  { 0xa6, 0xca, 0xf0, PC_SYS_USED },
 
   // ... c_min/2 dynamic colorcells
   // ... gap (for sparse palettes)
   // ... c_min/2 dynamic colorcells
 
   { 0xff, 0xfb, 0xf0, PC_SYS_USED },
-  { 0x3a, 0x6e, 0xa5, PC_SYS_USED },
+  { 0xa0, 0xa0, 0xa4, PC_SYS_USED },
   { 0x80, 0x80, 0x80, PC_SYS_USED },
   { 0xff, 0x00, 0x00, PC_SYS_USED },
   { 0x00, 0xff, 0x00, PC_SYS_USED },
@@ -62,216 +50,195 @@ const PALETTEENTRY COLOR_sysPalTemplate[NB_RESERVED_COLORS] =
   { 0xff, 0xff, 0xff, PC_SYS_USED }     // last 10
 };
 
-const PALETTEENTRY* FASTCALL COLOR_GetSystemPaletteTemplate(void)
+//forward declarations
+COLORREF COLOR_LookupNearestColor( PALETTEENTRY* palPalEntry, int size, COLORREF color );
+
+
+const PALETTEENTRY* COLOR_GetSystemPaletteTemplate(void)
 {
-   return (const PALETTEENTRY*)&COLOR_sysPalTemplate;
+  return (const PALETTEENTRY*)&COLOR_sysPalTemplate;
 }
 
-BOOL STDCALL NtGdiAnimatePalette(HPALETTE hPalette, UINT uStartIndex,
-   UINT uEntries, CONST PPALETTEENTRY ppe)
+BOOL STDCALL W32kAnimatePalette(HPALETTE  hpal,
+                         UINT  StartIndex,
+                         UINT  Entries,
+                         CONST PPALETTEENTRY  ppe)
 {
-   UNIMPLEMENTED;
-   SetLastWin32Error(ERROR_CALL_NOT_IMPLEMENTED);
-   return FALSE;
+/*
+  if( hPal != W32kGetStockObject(DEFAULT_PALETTE) )
+  {
+    PALETTEOBJ* palPtr = (PALETTEOBJ *)GDI_GetObjPtr(hPal, PALETTE_MAGIC);
+    if (!palPtr) return FALSE;
+
+    if( (StartIndex + NumEntries) <= palPtr->logpalette.palNumEntries )
+    {
+      UINT u;
+      for( u = 0; u < NumEntries; u++ )
+        palPtr->logpalette.palPalEntry[u + StartIndex] = PaletteColors[u];
+      PALETTE_Driver->pSetMapping(palPtr, StartIndex, NumEntries, hPal != hPrimaryPalette );
+      GDI_ReleaseObj(hPal);
+      return TRUE;
+    }
+    GDI_ReleaseObj(hPal);
+  }
+  return FALSE;
+*/
+  UNIMPLEMENTED;
 }
 
-HPALETTE STDCALL NtGdiCreateHalftonePalette(HDC  hDC)
+HPALETTE STDCALL W32kCreateHalftonePalette(HDC  hDC)
 {
-   int i, r, g, b;
-   struct {
-      WORD Version;
-      WORD NumberOfEntries;
-      PALETTEENTRY aEntries[256];
-   } Palette;
+  int i, r, g, b;
+  struct {
+    WORD Version;
+    WORD NumberOfEntries;
+    PALETTEENTRY aEntries[256];
+  } Palette;
 
-   Palette.Version = 0x300;
-   Palette.NumberOfEntries = 256;
-   if (NtGdiGetSystemPaletteEntries(hDC, 0, 256, Palette.aEntries) == 0)
-   {
-      return 0;
+  Palette.Version = 0x300;
+  Palette.NumberOfEntries = 256;
+  W32kGetSystemPaletteEntries(hDC, 0, 256, Palette.aEntries);
+
+  for (r = 0; r < 6; r++) {
+    for (g = 0; g < 6; g++) {
+      for (b = 0; b < 6; b++) {
+        i = r + g*6 + b*36 + 10;
+        Palette.aEntries[i].peRed = r * 51;
+        Palette.aEntries[i].peGreen = g * 51;
+        Palette.aEntries[i].peBlue = b * 51;
+      }
+     }
    }
 
-   for (r = 0; r < 6; r++)
-      for (g = 0; g < 6; g++)
-         for (b = 0; b < 6; b++)
-         {
-            i = r + g*6 + b*36 + 10;
-            Palette.aEntries[i].peRed = r * 51;
-            Palette.aEntries[i].peGreen = g * 51;
-            Palette.aEntries[i].peBlue = b * 51;
-         }
+  for (i = 216; i < 246; i++) {
+    int v = (i - 216) * 8;
+    Palette.aEntries[i].peRed = v;
+    Palette.aEntries[i].peGreen = v;
+    Palette.aEntries[i].peBlue = v;
+  }
 
-   for (i = 216; i < 246; i++)
-   {
-      int v = (i - 216) << 3;
-      Palette.aEntries[i].peRed = v;
-      Palette.aEntries[i].peGreen = v;
-      Palette.aEntries[i].peBlue = v;
-   }
-
-   return NtGdiCreatePalette((LOGPALETTE *)&Palette);
+  return W32kCreatePalette((LOGPALETTE *)&Palette);
 }
 
-HPALETTE STDCALL NtGdiCreatePalette(CONST PLOGPALETTE palette)
+HPALETTE STDCALL W32kCreatePalette(CONST PLOGPALETTE palette)
 {
-  PPALGDI PalGDI;
+  PPALOBJ  PalObj;
 
-  HPALETTE NewPalette = PALETTE_AllocPalette(
-	  PAL_INDEXED,
-	  palette->palNumEntries,
-	  (PULONG)palette->palPalEntry,
-	  0, 0, 0);
+  HPALETTE NewPalette = (HPALETTE)EngCreatePalette(PAL_INDEXED, palette->palNumEntries, (PULONG*) palette->palPalEntry, 0, 0, 0);
+  ULONG size;
 
-  PalGDI = (PPALGDI) PALETTE_LockPalette(NewPalette);
-  /* FIXME - Handle PalGDI == NULL!!!! */
+  PalObj = (PPALOBJ)AccessUserObject(NewPalette);
 
-  PALETTE_ValidateFlags(PalGDI->IndexedColors, PalGDI->NumColors);
-  PalGDI->logicalToSystem = NULL;
-
-  PALETTE_UnlockPalette(NewPalette);
+  size = sizeof(LOGPALETTE) + (palette->palNumEntries * sizeof(PALETTEENTRY));
+  PalObj->logpalette = ExAllocatePool(NonPagedPool, size);
+  memcpy(PalObj->logpalette, palette, size);
+  PALETTE_ValidateFlags(PalObj->logpalette->palPalEntry, PalObj->logpalette->palNumEntries);
+  PalObj->logicalToSystem = NULL;
 
   return NewPalette;
 }
 
-BOOL STDCALL NtGdiGetColorAdjustment(HDC  hDC,
+BOOL STDCALL W32kGetColorAdjustment(HDC  hDC,
                              LPCOLORADJUSTMENT  ca)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
-unsigned short GetNumberOfBits(unsigned int dwMask)
+COLORREF STDCALL W32kGetNearestColor(HDC  hDC,
+                              COLORREF  Color)
 {
-   unsigned short wBits;
-   for (wBits = 0; dwMask; dwMask = dwMask & (dwMask - 1))
-      wBits++;
-   return wBits;
+  COLORREF nearest = CLR_INVALID;
+  PDC dc;
+  PPALOBJ palObj;
+
+  if( (dc = DC_HandleToPtr(hDC) ) )
+  {
+    HPALETTE hpal = (dc->w.hPalette)? dc->w.hPalette : W32kGetStockObject(DEFAULT_PALETTE);
+    palObj = (PPALOBJ)AccessUserObject(hpal);
+    if (!palObj) {
+//      GDI_ReleaseObj(hdc);
+      return nearest;
+    }
+
+    nearest = COLOR_LookupNearestColor(palObj->logpalette->palPalEntry,
+                                       palObj->logpalette->palNumEntries, Color);
+	// FIXME: release hpal!!
+//    GDI_ReleaseObj( hpal );
+    DC_ReleasePtr( hDC );
+  }
+
+  return nearest;
 }
 
-COLORREF STDCALL NtGdiGetNearestColor(HDC hDC, COLORREF Color)
-{
-   COLORREF nearest = CLR_INVALID;
-   PDC dc;
-   PPALGDI palGDI;
-   LONG RBits, GBits, BBits;
-
-   dc = DC_LockDc(hDC);
-   if (NULL != dc)
-   {
-      HPALETTE hpal = dc->w.hPalette;
-      palGDI = (PPALGDI) PALETTE_LockPalette(hpal);
-      if (!palGDI)
-      {
-         DC_UnlockDc(hDC);
-         return nearest;
-      }
-
-      switch (palGDI->Mode)
-      {
-         case PAL_INDEXED:
-            nearest = COLOR_LookupNearestColor(palGDI->IndexedColors,
-               palGDI->NumColors, Color);
-            break;
-         case PAL_BGR:
-         case PAL_RGB:
-            nearest = Color;
-            break;
-         case PAL_BITFIELDS:
-            RBits = 8 - GetNumberOfBits(palGDI->RedMask);
-            GBits = 8 - GetNumberOfBits(palGDI->GreenMask);
-            BBits = 8 - GetNumberOfBits(palGDI->BlueMask);
-            nearest = RGB(
-              (GetRValue(Color) >> RBits) << RBits,
-              (GetGValue(Color) >> GBits) << GBits,
-              (GetBValue(Color) >> BBits) << BBits);
-            break;
-      }
-      PALETTE_UnlockPalette(hpal);
-      DC_UnlockDc(hDC);
-   }
-
-   return nearest;
-}
-
-UINT STDCALL NtGdiGetNearestPaletteIndex(HPALETTE  hpal,
+UINT STDCALL W32kGetNearestPaletteIndex(HPALETTE  hpal,
                                  COLORREF  Color)
 {
-  PPALGDI palGDI = (PPALGDI) PALETTE_LockPalette(hpal);
+  PPALOBJ     palObj = (PPALOBJ)AccessUserObject(hpal);
   UINT index  = 0;
 
-  if (NULL != palGDI)
-    {
-      /* Return closest match for the given RGB color */
-      index = COLOR_PaletteLookupPixel(palGDI->IndexedColors, palGDI->NumColors, NULL, Color, FALSE);
-      PALETTE_UnlockPalette(hpal);
-    }
+  if( palObj )
+  {
+    // Return closest match for the given RGB color
+    index = COLOR_PaletteLookupPixel(palObj->logpalette->palPalEntry, palObj->logpalette->palNumEntries, NULL, Color, FALSE);
+//    GDI_ReleaseObj( hpalette );
+  }
 
   return index;
 }
 
-UINT STDCALL NtGdiGetPaletteEntries(HPALETTE  hpal,
+UINT STDCALL W32kGetPaletteEntries(HPALETTE  hpal,
                             UINT  StartIndex,
                             UINT  Entries,
                             LPPALETTEENTRY  pe)
 {
-  PPALGDI palGDI;
+  PPALOBJ palPtr;
   UINT numEntries;
 
-  palGDI = (PPALGDI) PALETTE_LockPalette(hpal);
-  if (NULL == palGDI)
+  palPtr = (PPALOBJ)AccessUserObject(hpal);
+  if (!palPtr) return 0;
+
+  numEntries = palPtr->logpalette->palNumEntries;
+  if (StartIndex + Entries > numEntries) Entries = numEntries - StartIndex;
+  if (pe)
+  {
+    if (StartIndex >= numEntries)
     {
+//      GDI_ReleaseObj( hpalette );
       return 0;
     }
+    memcpy(pe, &palPtr->logpalette->palPalEntry[StartIndex], Entries * sizeof(PALETTEENTRY));
+    for(numEntries = 0; numEntries < Entries ; numEntries++)
+      if (pe[numEntries].peFlags & 0xF0)
+        pe[numEntries].peFlags = 0;
+  }
 
-  numEntries = palGDI->NumColors;
-  if (numEntries < StartIndex + Entries)
-    {
-      Entries = numEntries - StartIndex;
-    }
-  if (NULL != pe)
-    {
-      if (numEntries <= StartIndex)
-	{
-	  PALETTE_UnlockPalette(hpal);
-	  return 0;
-	}
-      memcpy(pe, palGDI->IndexedColors + StartIndex, Entries * sizeof(PALETTEENTRY));
-      for (numEntries = 0; numEntries < Entries; numEntries++)
-	{
-	  if (pe[numEntries].peFlags & 0xF0)
-	    {
-	      pe[numEntries].peFlags = 0;
-	    }
-	}
-    }
-
-  PALETTE_UnlockPalette(hpal);
+//  GDI_ReleaseObj( hpalette );
   return Entries;
 }
 
-UINT STDCALL NtGdiGetSystemPaletteEntries(HDC  hDC,
+UINT STDCALL W32kGetSystemPaletteEntries(HDC  hDC,
                                   UINT  StartIndex,
                                   UINT  Entries,
                                   LPPALETTEENTRY  pe)
 {
-  //UINT i;
-  //PDC dc;
+  UINT i;
+  PDC dc;
 /*
   if (!(dc = AccessUserObject(hdc))) return 0;
 
   if (!pe)
   {
-    Entries = dc->GDIInfo->ulNumPalReg;
+    Entries = dc->devCaps->sizePalette;
     goto done;
   }
 
-  if (StartIndex >= dc->GDIInfo->ulNumPalReg)
+  if (StartIndex >= dc->devCaps->sizePalette)
   {
     Entries = 0;
     goto done;
   }
 
-  if (StartIndex + Entries >= dc->GDIInfo->ulNumPalReg) Entries = dc->GDIInfo->ulNumPalReg - StartIndex;
+  if (StartIndex + Entries >= dc->devCaps->sizePalette) Entries = dc->devCaps->sizePalette - StartIndex;
 
   for (i = 0; i < Entries; i++)
   {
@@ -281,17 +248,15 @@ UINT STDCALL NtGdiGetSystemPaletteEntries(HDC  hDC,
   done:
 //    GDI_ReleaseObj(hdc);
   return count; */
-  // FIXME UNIMPLEMENTED;
-  return 0;
 }
 
-UINT STDCALL NtGdiGetSystemPaletteUse(HDC  hDC)
+UINT STDCALL W32kGetSystemPaletteUse(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
-/*!
+UINT STDCALL W32kRealizePalette(HDC  hDC)
+/*
 The RealizePalette function modifies the palette for the device associated with the specified device context. If the device context is a memory DC, the color table for the bitmap selected into the DC is modified. If the device context is a display DC, the physical palette for that device is modified.
 
 A logical palette is a buffer between color-intensive applications and the system, allowing these applications to use as many colors as needed without interfering with colors displayed by other windows.
@@ -306,48 +271,28 @@ A logical palette is a buffer between color-intensive applications and the syste
    the dc palette.
 -- If it is an RGB palette, then an XLATEOBJ is created between the RGB values and the dc palette.
 */
-UINT STDCALL NtGdiRealizePalette(HDC hDC)
 {
-  /*
-   * This function doesn't do any real work now and there's plenty
-   * of bugd in it (calling SetPalette for high/true-color modes,
-   * using DEFAULT_PALETTE instead of the device palette, ...).
-   */
-#if 1
-  DPRINT1("NtGdiRealizePalette is unimplemented\n");
-  return 0;
-#else
-  PALOBJ *palPtr, *sysPtr;
+  PPALOBJ palPtr, sysPtr;
   PPALGDI palGDI, sysGDI;
   int realized = 0;
-  PDC dc;
+  PDC dc = (PDC)AccessUserObject(hDC);
   HPALETTE systemPalette;
-  SURFOBJ *SurfObj;
+  PSURFGDI SurfGDI;
   BOOLEAN success;
-  USHORT sysMode, palMode;
 
-  dc = DC_LockDc(hDC);
-  if (!dc)
-  	return 0;
+  if (!dc) return 0;
 
-  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
-  systemPalette = NtGdiGetStockObject((INT)DEFAULT_PALETTE);
-  palGDI = PALETTE_LockPalette(dc->w.hPalette);
-  palPtr = (PALOBJ*) palGDI;
-  /* FIXME - Handle palGDI == NULL!!!! */
+  palPtr = (PPALOBJ)AccessUserObject(dc->w.hPalette);
+  SurfGDI = (PSURFGDI)AccessInternalObjectFromUserObject(dc->Surface);
+  systemPalette = W32kGetStockObject(STOCK_DEFAULT_PALETTE);
+  sysPtr = (PPALOBJ)AccessInternalObject(systemPalette);
+  palGDI = (PPALGDI)AccessInternalObject(dc->w.hPalette);
+  sysGDI = (PPALGDI)AccessInternalObject(systemPalette);
 
   // Step 1: Create mapping of system palette\DC palette
-#ifndef NO_MAPPING
-  realized = PALETTE_SetMapping(palPtr, 0, palGDI->NumColors,
+  realized = PALETTE_SetMapping(palPtr, 0, palPtr->logpalette->palNumEntries,
                (dc->w.hPalette != hPrimaryPalette) ||
-               (dc->w.hPalette == NtGdiGetStockObject(DEFAULT_PALETTE)));
-#else
-  realized = 0;
-#endif
-
-  sysGDI = PALETTE_LockPalette(systemPalette);
-  sysPtr = (PALOBJ*) sysGDI;
-  /* FIXME - Handle sysGDI == NULL!!!!! */
+               (dc->w.hPalette == W32kGetStockObject(DEFAULT_PALETTE)));
 
   // Step 2:
   // The RealizePalette function modifies the palette for the device associated with the specified device context. If the
@@ -358,40 +303,32 @@ UINT STDCALL NtGdiRealizePalette(HDC hDC)
     // Memory managed DC
     DbgPrint("win32k: realizepalette unimplemented step 2 for DC_MEMORY");
   } else {
-    if(GDIDEVFUNCS(SurfObj).SetPalette)
+    if(SurfGDI->SetPalette)
     {
-      ASSERT(sysGDI->NumColors <= 256);
-      success = GDIDEVFUNCS(SurfObj).SetPalette(
-        dc->PDev, sysPtr, 0, 0, sysGDI->NumColors);
+      success = SurfGDI->SetPalette(dc->PDev, sysPtr, 0, 0, sysPtr->logpalette->palNumEntries);
     }
   }
-
-  // need to pass this to IntEngCreateXlate with palettes unlocked
-  sysMode = sysGDI->Mode;
-  palMode = palGDI->Mode;
-  PALETTE_UnlockPalette(systemPalette);
-  PALETTE_UnlockPalette(dc->w.hPalette);
 
   // Step 3: Create the XLATEOBJ for device managed DCs
   if(dc->w.flags != DC_MEMORY)
   {
     // Device managed DC
-    palGDI->logicalToSystem = IntEngCreateXlate(sysMode, palMode, systemPalette, dc->w.hPalette);
+    palPtr->logicalToSystem = EngCreateXlate(sysGDI->Mode, palGDI->Mode, systemPalette, dc->w.hPalette);
   }
 
-  DC_UnlockDc(hDC);
+//  GDI_ReleaseObj(dc->w.hPalette);
+//  GDI_ReleaseObj(hdc);
 
   return realized;
-#endif
 }
 
-BOOL STDCALL NtGdiResizePalette(HPALETTE  hpal,
+BOOL STDCALL W32kResizePalette(HPALETTE  hpal,
                         UINT  Entries)
 {
-/*  PALOBJ *palPtr = (PALOBJ*)AccessUserObject(hPal);
+/*  PPALOBJ palPtr = (PPALOBJ)AccessUserObject(hPal);
   UINT cPrevEnt, prevVer;
   INT prevsize, size = sizeof(LOGPALETTE) + (cEntries - 1) * sizeof(PALETTEENTRY);
-  XLATEOBJ *XlateObj = NULL;
+  PXLATEOBJ XlateObj = NULL;
 
   if(!palPtr) return FALSE;
   cPrevEnt = palPtr->logpalette->palNumEntries;
@@ -404,7 +341,7 @@ BOOL STDCALL NtGdiResizePalette(HPALETTE  hpal,
 
   if(XlateObj)
   {
-    XLATEOBJ *NewXlateObj = (int*) HeapReAlloc(GetProcessHeap(), 0, XlateObj, cEntries * sizeof(int));
+    PXLATEOBJ NewXlateObj = (int*) HeapReAlloc(GetProcessHeap(), 0, XlateObj, cEntries * sizeof(int));
     if(NewXlateObj == NULL)
     {
       ERR("Can not resize logicalToSystem -- out of memory!");
@@ -426,165 +363,135 @@ BOOL STDCALL NtGdiResizePalette(HPALETTE  hpal,
   return TRUE; */
 
   UNIMPLEMENTED;
-  return FALSE;
 }
 
-/*!
- * Select logical palette into device context.
- * \param	hDC 				handle to the device context
- * \param	hpal				handle to the palette
- * \param	ForceBackground 	If this value is FALSE the logical palette will be copied to the device palette only when the applicatioon
- * 								is in the foreground. If this value is TRUE then map the colors in the logical palette to the device
- * 								palette colors in the best way.
- * \return	old palette
- *
- * \todo	implement ForceBackground == TRUE
-*/
-HPALETTE STDCALL NtGdiSelectPalette(HDC  hDC,
+HPALETTE STDCALL W32kSelectPalette(HDC  hDC,
                             HPALETTE  hpal,
                             BOOL  ForceBackground)
 {
-  PDC dc;
-  HPALETTE oldPal = NULL;
-  PPALGDI PalGDI;
+  PDC dc = (PDC)AccessUserObject(hDC);
+  HPALETTE oldPal;
+
+  oldPal = dc->w.hPalette;
+  dc->w.hPalette = hpal;
 
   // FIXME: mark the palette as a [fore\back]ground pal
-  dc = DC_LockDc(hDC);
-  if (NULL != dc)
-    {
-      /* Check if this is a valid palette handle */
-      PalGDI = PALETTE_LockPalette(hpal);
-      if (NULL != PalGDI)
-	{
-          /* Is this a valid palette for this depth? */
-          if ((dc->w.bitsPerPixel <= 8 && PAL_INDEXED == PalGDI->Mode)
-              || (8 < dc->w.bitsPerPixel && PAL_INDEXED != PalGDI->Mode))
-            {
-              PALETTE_UnlockPalette(hpal);
-              oldPal = dc->w.hPalette;
-              dc->w.hPalette = hpal;
-            }
-          else
-            {
-              PALETTE_UnlockPalette(hpal);
-              oldPal = NULL;
-            }
-	}
-      else
-	{
-	  oldPal = NULL;
-	}
-      DC_UnlockDc(hDC);
-    }
 
   return oldPal;
 }
 
-BOOL STDCALL NtGdiSetColorAdjustment(HDC  hDC,
+BOOL STDCALL W32kSetColorAdjustment(HDC  hDC,
                              CONST LPCOLORADJUSTMENT  ca)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
-UINT STDCALL NtGdiSetPaletteEntries(HPALETTE  hpal,
+UINT STDCALL W32kSetPaletteEntries(HPALETTE  hpal,
                             UINT  Start,
                             UINT  Entries,
                             CONST LPPALETTEENTRY  pe)
 {
-  PPALGDI palGDI;
-  WORD numEntries;
+  PPALOBJ palPtr;
+  INT numEntries;
 
-  palGDI = PALETTE_LockPalette(hpal);
-  if (!palGDI) return 0;
+  palPtr = (PPALOBJ)AccessUserObject(hpal);
+  if (!palPtr) return 0;
 
-  numEntries = palGDI->NumColors;
+  numEntries = palPtr->logpalette->palNumEntries;
   if (Start >= numEntries)
-    {
-      PALETTE_UnlockPalette(hpal);
-      return 0;
-    }
-  if (numEntries < Start + Entries)
-    {
-      Entries = numEntries - Start;
-    }
-  memcpy(palGDI->IndexedColors + Start, pe, Entries * sizeof(PALETTEENTRY));
-  PALETTE_ValidateFlags(palGDI->IndexedColors, palGDI->NumColors);
-  ExFreePool(palGDI->logicalToSystem);
-  palGDI->logicalToSystem = NULL;
-  PALETTE_UnlockPalette(hpal);
-
+  {
+//    GDI_ReleaseObj( hpalette );
+    return 0;
+  }
+  if (Start + Entries > numEntries) Entries = numEntries - Start;
+  memcpy(&palPtr->logpalette->palPalEntry[Start], pe, Entries * sizeof(PALETTEENTRY));
+  PALETTE_ValidateFlags(palPtr->logpalette->palPalEntry, palPtr->logpalette->palNumEntries);
+  ExFreePool(palPtr->logicalToSystem);
+  palPtr->logicalToSystem = NULL;
+//  GDI_ReleaseObj( hpalette );
   return Entries;
 }
 
-UINT STDCALL
-NtGdiSetSystemPaletteUse(HDC hDC, UINT Usage)
+UINT STDCALL W32kSetSystemPaletteUse(HDC  hDC,
+                              UINT  Usage)
 {
-   UNIMPLEMENTED;
-   return 0;
+  UNIMPLEMENTED;
 }
 
-BOOL STDCALL
-NtGdiUnrealizeObject(HGDIOBJ hgdiobj)
+BOOL STDCALL W32kUnrealizeObject(HGDIOBJ  hgdiobj)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
-BOOL STDCALL
-NtGdiUpdateColors(HDC hDC)
+BOOL STDCALL W32kUpdateColors(HDC  hDC)
 {
-   HWND hWnd;
+  PDC dc;
+  HWND hWnd;
+  int size;
+/*
+  if (!(dc = AccessUserObject(hDC))) return 0;
+  size = dc->devCaps->sizePalette;
+//  GDI_ReleaseObj( hDC );
 
-   hWnd = (HWND)NtUserCallOneParam((DWORD)hDC, ONEPARAM_ROUTINE_WINDOWFROMDC);
-   if (hWnd == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-      return FALSE;
-   }
-   return NtUserRedrawWindow(hWnd, NULL, 0, RDW_INVALIDATE);
+  if (Callout.WindowFromDC)
+  {
+    hWnd = Callout.WindowFromDC( hDC );
+
+    // Docs say that we have to remap current drawable pixel by pixel
+    // but it would take forever given the speed of XGet/PutPixel.
+    if (hWnd && size) Callout.RedrawWindow( hWnd, NULL, 0, RDW_INVALIDATE );
+  } */
+  return 0x666;
 }
 
-INT STDCALL COLOR_PaletteLookupPixel(PALETTEENTRY *palPalEntry, INT size,
-                             XLATEOBJ *XlateObj, COLORREF col, BOOL skipReserved)
+int COLOR_PaletteLookupPixel(PALETTEENTRY *palPalEntry, int size,
+                             PXLATEOBJ XlateObj, COLORREF col, BOOL skipReserved)
 {
   int i, best = 0, diff = 0x7fffffff;
   int r, g, b;
 
   for( i = 0; i < size && diff ; i++ )
   {
-#if 0
     if(!(palPalEntry[i].peFlags & PC_SYS_USED) || (skipReserved && palPalEntry[i].peFlags  & PC_SYS_RESERVED))
       continue;
-#endif
 
-    r = abs((SHORT)palPalEntry[i].peRed - GetRValue(col));
-    g = abs((SHORT)palPalEntry[i].peGreen - GetGValue(col));
-    b = abs((SHORT)palPalEntry[i].peBlue - GetBValue(col));
+    r = palPalEntry[i].peRed - GetRValue(col);
+    g = palPalEntry[i].peGreen - GetGValue(col);
+    b = palPalEntry[i].peBlue - GetBValue(col);
 
     r = r*r + g*g + b*b;
 
     if( r < diff ) { best = i; diff = r; }
   }
-
-  if (XlateObj == NULL)
-    return best;
-  else
-    return (XlateObj->pulXlate) ? (INT)XlateObj->pulXlate[best] : best;
+  return (XlateObj->pulXlate) ? XlateObj->pulXlate[best] : best;
 }
 
-COLORREF STDCALL COLOR_LookupNearestColor( PALETTEENTRY* palPalEntry, int size, COLORREF color )
+COLORREF COLOR_LookupNearestColor( PALETTEENTRY* palPalEntry, int size, COLORREF color )
 {
-   INT index;
+  unsigned char spec_type = color >> 24;
+  int i;
+  PALETTEENTRY *COLOR_sysPal = (PALETTEENTRY*)ReturnSystemPalette();
 
-   index = COLOR_PaletteLookupPixel(palPalEntry, size, NULL, color, FALSE);
-   return RGB(
-      palPalEntry[index].peRed,
-      palPalEntry[index].peGreen,
-      palPalEntry[index].peBlue);
+  // we need logical palette for PALETTERGB and PALETTEINDEX colorrefs
+
+  if( spec_type == 2 ) /* PALETTERGB */
+    color = *(COLORREF*)(palPalEntry + COLOR_PaletteLookupPixel(palPalEntry,size,NULL,color,FALSE));
+
+  else if( spec_type == 1 ) /* PALETTEINDEX */
+  {
+    if( (i = color & 0x0000ffff) >= size )
+    {
+      DbgPrint("RGB(%lx) : idx %d is out of bounds, assuming NULL\n", color, i);
+      color = *(COLORREF*)palPalEntry;
+    }
+    else color = *(COLORREF*)(palPalEntry + i);
+  }
+
+  color &= 0x00ffffff;
+  return (0x00ffffff & *(COLORREF*)(COLOR_sysPal + COLOR_PaletteLookupPixel(COLOR_sysPal, 256, NULL, color, FALSE)));
 }
 
-int STDCALL COLOR_PaletteLookupExactIndex( PALETTEENTRY* palPalEntry, int size,
+int COLOR_PaletteLookupExactIndex( PALETTEENTRY* palPalEntry, int size,
                                    COLORREF col )
 {
   int i;
@@ -596,4 +503,3 @@ int STDCALL COLOR_PaletteLookupExactIndex( PALETTEENTRY* palPalEntry, int size,
   }
   return -1;
 }
-/* EOF */

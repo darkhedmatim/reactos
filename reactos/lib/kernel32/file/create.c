@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.42 2004/12/06 14:24:51 gdalsnes Exp $
+/* $Id: create.c,v 1.29 2002/09/08 10:22:41 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,17 +15,19 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+/* please FIXME: ddk/ntddk.h should be enough */
+#include <ddk/iodef.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
@@ -69,9 +71,6 @@ HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 }
 
 
-/*
- * @implemented
- */
 HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
@@ -86,15 +85,13 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
    HANDLE FileHandle;
    NTSTATUS Status;
    ULONG Flags = 0;
-   CSRSS_API_REQUEST Request;
-   CSRSS_API_REPLY Reply;
 
    DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
 
-   if(hTemplateFile != NULL && hTemplateFile != INVALID_HANDLE_VALUE)
+   if(hTemplateFile != NULL)
    {
     /* FIXME */
-    DPRINT1("Template file feature not supported yet\n");
+    DPRINT("Template file feature not supported yet\n");
     SetLastError(ERROR_NOT_SUPPORTED);
     return INVALID_HANDLE_VALUE;
    }
@@ -127,6 +124,16 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
         return (INVALID_HANDLE_VALUE);
      }
 
+   /* validate & translate the flags */
+   if (dwFlagsAndAttributes & FILE_FLAG_OVERLAPPED)
+   {
+    DPRINT("Overlapped I/O not supported\n");
+    SetLastError(ERROR_NOT_SUPPORTED);
+    return INVALID_HANDLE_VALUE;
+   }
+   else
+     Flags |= FILE_SYNCHRONOUS_IO_ALERT;
+   
    /* validate & translate the filename */
    if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpFileName,
 				      &NtPathU,
@@ -134,21 +141,13 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 				      NULL))
    {
      DPRINT("Invalid path\n");
-     SetLastError(ERROR_PATH_NOT_FOUND);
+     SetLastError(ERROR_BAD_PATHNAME);
      return INVALID_HANDLE_VALUE;
    }
    
    DPRINT("NtPathU \'%S\'\n", NtPathU.Buffer);
 
-  /* validate & translate the flags */
-
    /* translate the flags that need no validation */
-  if (!(dwFlagsAndAttributes & FILE_FLAG_OVERLAPPED)){
-    /* yes, nonalert is correct! apc's are not delivered
-    while waiting for file io to complete */
-    Flags |= FILE_SYNCHRONOUS_IO_NONALERT;
-  }
-   
    if(dwFlagsAndAttributes & FILE_FLAG_WRITE_THROUGH)
     Flags |= FILE_WRITE_THROUGH;
 
@@ -179,10 +178,6 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
    }
    else
     Flags |= FILE_NON_DIRECTORY_FILE;
-    
-    
-  /* handle may allways be waited on and querying attributes are allways allowed */
-  dwDesiredAccess |= SYNCHRONIZE|FILE_READ_ATTRIBUTES; 
 
    /* FILE_FLAG_POSIX_SEMANTICS is handled later */
 
@@ -195,44 +190,19 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
     Flags |= FILE_OPEN_NO_RECALL;
 #endif
 
-   /* check for console output */
-   if (0 == _wcsicmp(L"CONOUT$", lpFileName))
+   /* translate the desired access */
+   if (dwDesiredAccess & GENERIC_ALL)
+     dwDesiredAccess |= FILE_ALL_ACCESS;
+   else
    {
-      /* FIXME: Send required access rights to Csrss */
-      Request.Type = CSRSS_GET_OUTPUT_HANDLE;
-      Status = CsrClientCallServer(&Request,
-			           &Reply,
-			           sizeof(CSRSS_API_REQUEST),
-			           sizeof(CSRSS_API_REPLY));
-      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Reply.Status))
-      {
-         SetLastErrorByStatus(Status);
-	 return INVALID_HANDLE_VALUE;
-      }
-      else
-      {
-         return Reply.Data.GetOutputHandleReply.OutputHandle;
-      }
-   }
-
-   /* check for console input */
-   if (0 == _wcsicmp(L"CONIN$", lpFileName))
-   {
-      /* FIXME: Send required access rights to Csrss */
-      Request.Type = CSRSS_GET_INPUT_HANDLE;
-      Status = CsrClientCallServer(&Request,
-			           &Reply,
-			           sizeof(CSRSS_API_REQUEST),
-			           sizeof(CSRSS_API_REPLY));
-      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Reply.Status))
-      {
-         SetLastErrorByStatus(Status);
-	 return INVALID_HANDLE_VALUE;
-      }
-      else
-      {
-         return Reply.Data.GetInputHandleReply.InputHandle;
-      }
+     if (dwDesiredAccess & GENERIC_READ)
+       dwDesiredAccess |= FILE_GENERIC_READ;
+     
+     if (dwDesiredAccess & GENERIC_WRITE)
+       dwDesiredAccess |= FILE_GENERIC_WRITE;
+     
+     if (dwDesiredAccess & GENERIC_EXECUTE)
+       dwDesiredAccess |= FILE_GENERIC_EXECUTE;
    }
 
    /* build the object attributes */
@@ -272,39 +242,22 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 
    /* error */
    if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus (Status);
+	return INVALID_HANDLE_VALUE;
+     }
+   
+   switch(IoStatusBlock.Information)
    {
-      /* In the case file creation was rejected due to CREATE_NEW flag
-       * was specified and file with that name already exists, correct
-       * last error is ERROR_FILE_EXISTS and not ERROR_ALREADY_EXISTS.
-       * Note: RtlNtStatusToDosError is not the subject to blame here.
-       */
-      if (Status == STATUS_OBJECT_NAME_COLLISION &&
-          dwCreationDisposition == FILE_CREATE)
-      {
-         SetLastError( ERROR_FILE_EXISTS );
-      }
-      else
-      {
-         SetLastErrorByStatus (Status);
-      }
-     
-      return INVALID_HANDLE_VALUE;
+    case FILE_OPENED:
+    case FILE_CREATED:
+     SetLastError(ERROR_ALREADY_EXISTS);
+     break;
+    
+    default:
    }
    
-  /*
-  create with OPEN_ALWAYS (FILE_OPEN_IF) returns info = FILE_OPENED or FILE_CREATED
-  create with CREATE_ALWAYS (FILE_OVERWRITE_IF) returns info = FILE_OVERWRITTEN or FILE_CREATED
-  */    
-  if (dwCreationDisposition == FILE_OPEN_IF)
-  {
-    SetLastError(IoStatusBlock.Information == FILE_OPENED ? ERROR_ALREADY_EXISTS : 0);
-  }
-  else if (dwCreationDisposition == FILE_OVERWRITE_IF)
-  {
-    SetLastError(IoStatusBlock.Information == FILE_OVERWRITTEN ? ERROR_ALREADY_EXISTS : 0);
-  }
-
-  return FileHandle;
+   return FileHandle;
 }
 
 /* EOF */

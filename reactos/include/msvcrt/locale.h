@@ -16,18 +16,21 @@
  *
  *  This code is distributed in the hope that it will be useful but
  *  WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
- *  DISCLAIMED. This includes but is not limited to warranties of
+ *  DISCLAMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.4 $
- * $Author: robd $
- * $Date: 2002/11/24 18:06:00 $
+ * $Revision: 1.3 $
+ * $Author: chorns $
+ * $Date: 2002/09/08 10:22:31 $
  *
  */
 
-#ifndef _LOCALE_H_
-#define _LOCALE_H_
+#ifndef	_LOCALE_H_
+#define	_LOCALE_H_
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
 /*
  * NOTE: I have tried to test this, but I am limited by my knowledge of
@@ -38,50 +41,44 @@
  *       of the system).
  */
 
-#define LC_ALL      0
-#define LC_COLLATE  1
-#define LC_CTYPE    2
-#define LC_MONETARY 3
-#define LC_NUMERIC  4
-#define LC_TIME     5
-#define LC_MIN      LC_ALL
-#define LC_MAX      LC_TIME
+#define	LC_ALL		0
+#define LC_COLLATE	1
+#define LC_CTYPE	2
+#define	LC_MONETARY	3
+#define	LC_NUMERIC	4
+#define	LC_TIME		5
 
 /*
  * The structure returned by 'localeconv'.
  */
 struct lconv
 {
-    char*   decimal_point;
-    char*   thousands_sep;
-    char*   grouping;
-    char*   int_curr_symbol;
-    char*   currency_symbol;
-    char*   mon_decimal_point;
-    char*   mon_thousands_sep;
-    char*   mon_grouping;
-    char*   positive_sign;
-    char*   negative_sign;
-    char    int_frac_digits;
-    char    frac_digits;
-    char    p_cs_precedes;
-    char    p_sep_by_space;
-    char    n_cs_precedes;
-    char    n_sep_by_space;
-    char    p_sign_posn;
-    char    n_sign_posn;
+	char*	decimal_point;
+	char*	thousands_sep;
+	char*	grouping;
+	char*	int_curr_symbol;
+	char*	currency_symbol;
+	char*	mon_decimal_point;
+	char*	mon_thousands_sep;
+	char*	mon_grouping;
+	char*	positive_sign;
+	char*	negative_sign;
+	char	int_frac_digits;
+	char	frac_digits;
+	char	p_cs_precedes;
+	char	p_sep_by_space;
+	char	n_cs_precedes;
+	char	n_sep_by_space;
+	char	p_sign_posn;
+	char	n_sign_posn;
 };
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
+char*		setlocale (int nCategory, const char* locale);
+struct lconv*	localeconv (void);
 
-char* setlocale(int, const char*);
-struct lconv* localeconv(void);
-
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 }
 #endif
 
-#endif  /* Not _LOCALE_H_ */
+#endif
 

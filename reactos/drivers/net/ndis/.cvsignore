@@ -1,0 +1,5 @@
+objects
+ndis.coff
+*.d
+*.o
+*.sym

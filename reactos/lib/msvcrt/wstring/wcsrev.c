@@ -1,8 +1,5 @@
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 wchar_t * _wcsrev(wchar_t *s)
 {
 	wchar_t  *e;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: create.c,v 1.5 2004/11/24 11:02:15 ekohl Exp $
+/* $Id: create.c,v 1.1 2002/06/25 22:23:05 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,7 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -44,10 +44,13 @@ NtfsMakeAbsoluteFilename(PFILE_OBJECT pFileObject,
 {
   PWSTR rcName;
   PFCB Fcb;
+  PCCB Ccb;
 
   DPRINT("try related for %S\n", pRelativeFileName);
-  Fcb = pFileObject->FsContext;
-  ASSERT(Fcb);
+  Ccb = pFileObject->FsContext2;
+  assert(Ccb);
+  Fcb = Ccb->Fcb;
+  assert(Fcb);
 
   /* verify related object is a directory and target name
      don't start with \. */
@@ -58,7 +61,7 @@ NtfsMakeAbsoluteFilename(PFILE_OBJECT pFileObject,
     }
 
   /* construct absolute path name */
-  ASSERT(wcslen (Fcb->PathName) + 1 + wcslen (pRelativeFileName) + 1
+  assert(wcslen (Fcb->PathName) + 1 + wcslen (pRelativeFileName) + 1
           <= MAX_PATH);
   rcName = ExAllocatePool(NonPagedPool, MAX_PATH * sizeof(WCHAR));
   if (!rcName)
@@ -161,17 +164,17 @@ NtfsCreateFile(PDEVICE_OBJECT DeviceObject,
   PIO_STACK_LOCATION Stack;
   PFILE_OBJECT FileObject;
   ULONG RequestedDisposition;
-//  ULONG RequestedOptions;
-//  PFCB Fcb;
+  ULONG RequestedOptions;
+  PFCB Fcb;
 //  PWSTR FileName;
   NTSTATUS Status;
 
   DPRINT("NtfsCreateFile() called\n");
 
   DeviceExt = DeviceObject->DeviceExtension;
-  ASSERT(DeviceExt);
+  assert (DeviceExt);
   Stack = IoGetCurrentIrpStackLocation (Irp);
-  ASSERT(Stack);
+  assert (Stack);
 
   RequestedDisposition = ((Stack->Parameters.Create.Options >> 24) & 0xff);
 //  RequestedOptions =

@@ -5,7 +5,7 @@
  */
 #ifndef __SOCKET_H
 #define __SOCKET_H
-#include <msvcrt/stdio.h>
+#include <crtdll/stdio.h>
 #include <windows.h>
 #include <winsock2.h>
 #include <thread.h>

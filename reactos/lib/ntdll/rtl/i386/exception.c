@@ -1,4 +1,4 @@
-/* $Id: exception.c,v 1.9 2004/06/25 16:39:41 weiden Exp $
+/* $Id: exception.c,v 1.3 2002/10/26 09:53:15 dwelch Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -42,9 +42,6 @@ RtlpCaptureContext(PCONTEXT pContext);
 { \
 	RtlpCaptureContext(Context); \
 }
-
-#define SehpContinue(Context, TestAlert) \
-	NtContinue(Context, TestAlert)
 
 /*** Code below this line is shared with ntoskrnl/rtl/i386/exception.c - please keep in sync ***/
 
@@ -171,7 +168,7 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
       Context,
       &DispatcherContext,
       RegistrationFrame->handler);
-#ifdef DEBUG
+
     DPRINT("Exception handler said 0x%X\n", ReturnValue);
 	DPRINT("RegistrationFrame == 0x%.08x\n", RegistrationFrame);
 	{
@@ -184,7 +181,7 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
 		DPRINT("TryLevel == 0x%.08x\n", sp[5]);
 		DPRINT("EBP == 0x%.08x\n", sp[6]);
 	}
-#endif
+
     if (RegistrationFrame == NULL)
     {
       ExceptionRecord->ExceptionFlags &= ~EXCEPTION_NESTED_CALL;  // Turn off flag
@@ -206,7 +203,7 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
       else
       {
         /* Copy the (possibly changed) context back to the trap frame and return */
-        SehpContinue(Context, FALSE);
+        NtContinue(Context, FALSE);
         return ExceptionContinueExecution;
       }
     }
@@ -247,9 +244,6 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
   return ExceptionContinueExecution;  
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlRaiseStatus(NTSTATUS Status)
 {
@@ -264,9 +258,6 @@ RtlRaiseStatus(NTSTATUS Status)
   RtlRaiseException (& ExceptionRecord);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
   PVOID ReturnAddress,
@@ -298,10 +289,6 @@ RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
     pExceptRec->ExceptionRecord = NULL;
     pExceptRec->ExceptionAddress = ReturnAddress;
     pExceptRec->ExceptionInformation[0] = 0;
-  }
-  else
-  {
-    pExceptRec = ExceptionRecord;
   }
 
   if (RegistrationFrame)
@@ -343,7 +330,7 @@ RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
     if (ERHead == RegistrationFrame)
     {
       DPRINT("Continueing execution\n");
-      SehpContinue(&Context, FALSE);
+      NtContinue(&Context, FALSE);
       return;
     }
     else
@@ -438,7 +425,7 @@ RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
     RegistrationFrame);
 
   if ((ULONG_PTR)RegistrationFrame == -1)
-    SehpContinue(&Context, FALSE);
+    NtContinue(&Context, FALSE);
   else
     NtRaiseException(pExceptRec, &Context, 0);
 }

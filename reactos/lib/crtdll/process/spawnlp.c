@@ -1,12 +1,9 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include <msvcrt/process.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/process.h>
+#include <crtdll/stdlib.h>
 #include <stdarg.h>
 
-/*
- * @implemented
- */
 int _spawnlp(int nMode, const char* szPath, const char* szArgv0, ...)
 {
   char *szArg[100];

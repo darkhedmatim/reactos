@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2001
- *  Politecnico di Torino.  All rights reserved.
+ *	Politecnico di Torino.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that: (1) source code distributions
@@ -65,4 +65,3 @@ exec_fcn exec_fcn_mapper(uint32 index);
 #endif
 
 #endif
-

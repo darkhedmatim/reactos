@@ -1,4 +1,4 @@
-/* $Id: iowork.c,v 1.7 2004/08/15 16:39:03 chorns Exp $
+/* $Id: iowork.c,v 1.2 2002/10/05 10:53:37 dwelch Exp $
  *
  * COPYRIGHT:          See COPYING in the top level directory
  * PROJECT:            ReactOS kernel
@@ -12,7 +12,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -32,18 +34,14 @@ typedef struct _IO_WORKITEM
 
 /* FUNCTIONS ****************************************************************/
 
-VOID STATIC STDCALL
+VOID STDCALL STATIC
 IoWorkItemCallback(PVOID Parameter)
 {
   PIO_WORKITEM IoWorkItem = (PIO_WORKITEM)Parameter;
-  PDEVICE_OBJECT DeviceObject = IoWorkItem->DeviceObject;
   IoWorkItem->WorkerRoutine(IoWorkItem->DeviceObject, IoWorkItem->Context);
-  ObDereferenceObject(DeviceObject);
+  ObDereferenceObject(IoWorkItem->DeviceObject);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoQueueWorkItem(IN PIO_WORKITEM IoWorkItem, 
 		IN PIO_WORKITEM_ROUTINE WorkerRoutine,
@@ -68,18 +66,12 @@ IoQueueWorkItem(IN PIO_WORKITEM IoWorkItem,
   ExQueueWorkItem(&IoWorkItem->Item, QueueType);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoFreeWorkItem(PIO_WORKITEM IoWorkItem)
 {
   ExFreePool(IoWorkItem);
 }
 
-/*
- * @implemented
- */
 PIO_WORKITEM STDCALL
 IoAllocateWorkItem(PDEVICE_OBJECT DeviceObject)
 {

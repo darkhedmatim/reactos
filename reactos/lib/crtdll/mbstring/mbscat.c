@@ -1,8 +1,5 @@
-#include <msvcrt/string.h>
+#include <crtdll/string.h>
 
-/*
- * @implemented
- */
 unsigned char * _mbscat(unsigned char *dst, const unsigned char *src)
 {
 	return strcat(dst,src);

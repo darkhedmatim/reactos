@@ -1,55 +1,11 @@
-/* $Id: mdl.c,v 1.9 2004/12/30 18:30:05 ion Exp $
+/* $Id: mdl.c,v 1.4 2002/09/08 10:23:20 chorns Exp $
  *
  * reactos/ntoskrnl/fs/mdl.c
  *
  */
-
-#include <ntoskrnl.h>
-#include <internal/debug.h>
-
-extern ULONG CcFastReadResourceMiss;
-extern ULONG CcFastReadNoWait;
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadResourceMiss( VOID )
-{
-    CcFastReadResourceMiss++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadNotPossible( VOID )
-{
-    CcFastReadNotPossible++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadWait( VOID )
-{
-    CcFastReadWait++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadNoWait( VOID )
-{
-    CcFastReadNoWait++;
-}
-
+#include <ntos.h>
+#include <internal/cc.h>
+#include <ddk/ntifs.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -61,7 +17,6 @@ FsRtlIncrementCcFastReadNoWait( VOID )
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -88,7 +43,6 @@ FsRtlMdlRead (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN STDCALL
 FsRtlMdlReadComplete(IN PFILE_OBJECT FileObject,
@@ -171,8 +125,6 @@ FsRtlMdlReadComplete(IN PFILE_OBJECT FileObject,
  * NOTE
  * 	From Bo Branten's ntifs.h v13.
  * 	(CcMdlReadCompleteDev declared in internal/cc.h)
- *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -198,7 +150,6 @@ FsRtlMdlReadCompleteDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -226,7 +177,6 @@ FsRtlMdlReadDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -250,7 +200,6 @@ FsRtlMdlWriteComplete (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -275,7 +224,6 @@ FsRtlMdlWriteCompleteDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -302,7 +250,6 @@ FsRtlPrepareMdlWrite (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL

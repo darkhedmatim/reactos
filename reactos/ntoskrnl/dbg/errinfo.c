@@ -27,7 +27,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -165,7 +165,7 @@ static struct _ERRLIST
   {STATUS_OBJECT_PATH_INVALID, "OBJECT_PATH_INVALID", NULL},
   {STATUS_OBJECT_PATH_NOT_FOUND, "OBJECT_PATH_NOT_FOUND", NULL},
   {STATUS_DFS_EXIT_PATH_FOUND, "DFS_EXIT_PATH_FOUND", NULL},
-  {STATUS_OBJECT_PATH_SYNTAX_BAD, "OBJECT_PATH_SYNTAX_BAD", NULL},
+  {STATUS_PATH_SYNTAX_BAD, "PATH_SYNTAX_BAD", NULL},
   {STATUS_DATA_OVERRUN, "DATA_OVERRUN", NULL},
   {STATUS_DATA_LATE_ERROR, "DATA_LATE_ERROR", NULL},
   {STATUS_DATA_ERROR, "DATA_ERROR", NULL},
@@ -204,32 +204,29 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (NT_CUSTOMER(ErrorCode))
         {
-          _snprintf(TempBuf, sizeof(TempBuf)-1,
+          sprintf(TempBuf, 
                   "%%CUST-%s-", 
                   SeverityCodes[NT_SEVERITY(ErrorCode)]);
-		  TempBuf[sizeof(TempBuf)-1] = '\0';
         }
       else 
         {
           for (i = 0; FacList[i].Name != NULL; i++)
             {
-              if (FacList[i].Code == (ULONG) NT_FACILITY(ErrorCode))
+              if (FacList[i].Code == NT_FACILITY(ErrorCode))
                 {
                   break;
                 }
             }
           if (FacList[i].Name != NULL)
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%%s-%s-", 
+              sprintf(TempBuf, "%%%s-%s-", 
                       FacList[i].Name, 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
           else
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%UNKNOWN-%s-", 
+              sprintf(TempBuf, "%%UNKNOWN-%s-", 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
         }
     }
@@ -260,8 +257,7 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (Flags & DBG_GET_SHOW_FACILITY)
         {
-          _snprintf(NumBuf, sizeof(NumBuf)-1, "%08lx", ErrorCode);
-		  NumBuf[sizeof(NumBuf)-1] = '\0';
+          sprintf(NumBuf, "%08lx", ErrorCode);
           strcat(TempBuf, NumBuf);
           strcat(TempBuf, " ");
         }

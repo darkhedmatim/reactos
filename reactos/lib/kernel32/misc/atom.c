@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.21 2004/11/28 21:16:15 gdalsnes Exp $
+/* $Id: atom.c,v 1.15 2002/09/08 10:22:43 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -10,10 +10,12 @@
  *                  Full rewrite 27/05/2001
  */
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <kernel32/error.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS *******************************************************************/
@@ -25,9 +27,6 @@ static PRTL_ATOM_TABLE GetLocalAtomTable(VOID);
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 ATOM STDCALL
 GlobalAddAtomA(LPCSTR lpString)
 {
@@ -45,20 +44,10 @@ GlobalAddAtomA(LPCSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    RtlCreateUnicodeStringFromAsciiz(&AtomName,
 				    (LPSTR)lpString);
 
    Status = NtAddAtom(AtomName.Buffer,
-                      AtomName.Length,
 		      &Atom);
    RtlFreeUnicodeString(&AtomName);
    if (!NT_SUCCESS(Status))
@@ -71,9 +60,6 @@ GlobalAddAtomA(LPCSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 GlobalAddAtomW(LPCWSTR lpString)
 {
@@ -90,17 +76,7 @@ GlobalAddAtomW(LPCWSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    Status = NtAddAtom((LPWSTR)lpString,
-                      wcslen(lpString),
 		      &Atom);
    if (!NT_SUCCESS(Status))
      {
@@ -112,9 +88,6 @@ GlobalAddAtomW(LPCWSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 GlobalDeleteAtom(ATOM nAtom)
 {
@@ -136,9 +109,6 @@ GlobalDeleteAtom(ATOM nAtom)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 GlobalFindAtomA(LPCSTR lpString)
 {
@@ -156,19 +126,9 @@ GlobalFindAtomA(LPCSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    RtlCreateUnicodeStringFromAsciiz(&AtomName,
 				    (LPSTR)lpString);
    Status = NtFindAtom(AtomName.Buffer,
-                       AtomName.Length,
 		       &Atom);
    RtlFreeUnicodeString(&AtomName);
    if (!NT_SUCCESS(Status))
@@ -181,9 +141,6 @@ GlobalFindAtomA(LPCSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 GlobalFindAtomW(LPCWSTR lpString)
 {
@@ -200,17 +157,7 @@ GlobalFindAtomW(LPCWSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    Status = NtFindAtom((LPWSTR)lpString,
-                       wcslen(lpString),
 		       &Atom);
    if (!NT_SUCCESS(Status))
      {
@@ -241,7 +188,7 @@ GlobalGetAtomNameA(ATOM nAtom,
 
    Status = NtQueryInformationAtom(nAtom,
 				   AtomBasicInformation,
-				   Buffer,
+				   (PVOID)&Buffer,
 				   BufferSize,
 				   &ReturnLength);
    if (!NT_SUCCESS(Status))
@@ -270,9 +217,6 @@ GlobalGetAtomNameA(ATOM nAtom,
 }
 
 
-/*
- * @implemented
- */
 UINT STDCALL
 GlobalGetAtomNameW(ATOM nAtom,
 		   LPWSTR lpBuffer,
@@ -290,7 +234,7 @@ GlobalGetAtomNameW(ATOM nAtom,
 
    Status = NtQueryInformationAtom(nAtom,
 				   AtomBasicInformation,
-				   Buffer,
+				   (PVOID)&Buffer,
 				   BufferSize,
 				   &ReturnLength);
    if (!NT_SUCCESS(Status))
@@ -301,9 +245,8 @@ GlobalGetAtomNameW(ATOM nAtom,
 	return 0;
      }
 
-   memcpy(lpBuffer, Buffer->Name, Buffer->NameLength);
+   wcscpy(lpBuffer, Buffer->Name);
    ReturnLength = Buffer->NameLength / sizeof(WCHAR);
-   *(lpBuffer + ReturnLength) = 0;
    RtlFreeHeap(RtlGetProcessHeap(),
 	       0,
 	       Buffer);
@@ -325,9 +268,6 @@ GetLocalAtomTable(VOID)
 }
 
 
-/*
- * @implemented
- */
 BOOL STDCALL
 InitAtomTable(DWORD nSize)
 {
@@ -355,9 +295,6 @@ InitAtomTable(DWORD nSize)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 AddAtomA(LPCSTR lpString)
 {
@@ -395,9 +332,6 @@ AddAtomA(LPCSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 AddAtomW(LPCWSTR lpString)
 {
@@ -430,9 +364,6 @@ AddAtomW(LPCWSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 DeleteAtom(ATOM nAtom)
 {
@@ -458,9 +389,6 @@ DeleteAtom(ATOM nAtom)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 FindAtomA(LPCSTR lpString)
 {
@@ -496,9 +424,6 @@ FindAtomA(LPCSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 ATOM STDCALL
 FindAtomW(LPCWSTR lpString)
 {
@@ -531,9 +456,6 @@ FindAtomW(LPCWSTR lpString)
 }
 
 
-/*
- * @implemented
- */
 UINT STDCALL
 GetAtomNameA(ATOM nAtom,
 	     LPSTR lpBuffer,
@@ -585,9 +507,6 @@ GetAtomNameA(ATOM nAtom,
 }
 
 
-/*
- * @implemented
- */
 UINT STDCALL
 GetAtomNameW(ATOM nAtom,
 	     LPWSTR lpBuffer,

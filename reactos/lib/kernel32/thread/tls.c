@@ -1,4 +1,4 @@
-/* $Id: tls.c,v 1.14 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: tls.c,v 1.9 2002/09/08 10:22:46 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,17 +12,18 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
+#include <kernel32/thread.h>
+#include <kernel32/error.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 DWORD STDCALL 
 TlsAlloc(VOID)
 {
@@ -43,11 +44,7 @@ TlsAlloc(VOID)
    return(Index);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL 
+WINBOOL STDCALL 
 TlsFree(DWORD dwTlsIndex)
 {
    if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
@@ -76,34 +73,18 @@ TlsFree(DWORD dwTlsIndex)
    return(TRUE);
 }
 
-
-/*
- * @implemented
- */
 LPVOID STDCALL 
 TlsGetValue(DWORD dwTlsIndex)
 {
-   LPVOID Value;
-
    if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
      {
 	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
 	return(NULL);
      }
-
-   Value = NtCurrentTeb()->TlsSlots[dwTlsIndex];
-   if (Value == 0)
-   {
-      SetLastError(NO_ERROR);
-   }
-   return Value;
+   return(NtCurrentTeb()->TlsSlots[dwTlsIndex]);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL 
+WINBOOL STDCALL 
 TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue)
 {
    if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)

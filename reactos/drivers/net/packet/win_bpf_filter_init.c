@@ -135,16 +135,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp2): );
 #endif
 			continue;
 
@@ -164,16 +154,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(X),"=c"(tmp2): );
 #endif
 			continue;
 
@@ -192,16 +172,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp): );
 #endif
 			continue;
 
@@ -220,16 +190,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(X),"=c"(tmp): );
 #endif
 			continue;
 			
@@ -261,16 +221,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp2): );
 #endif
 			continue;
 
@@ -293,16 +243,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp): );
 #endif
 			continue;
 /* END LD NO PACKET INSTRUCTIONS */
@@ -339,16 +279,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp): );
 #endif
 			continue;
 
@@ -367,16 +297,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(X),"=c"(tmp): );
 #endif
 			continue;
 
@@ -395,16 +315,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp2): );
 #endif
 			continue;
 
@@ -423,16 +333,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(X),"=c"(tmp2): );
 #endif
 			continue;
 
@@ -454,16 +354,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp): );
 #endif
 			continue;
 
@@ -482,16 +372,6 @@ uint32 bpf_filter_init(register struct bpf_insn *pc, MEM_TYPE *mem_ex, TME_CORE 
 				pop eax
 			}
 #else
-			asm("push %%eax;"
-				"push %%ebx;"
-				"mov %1,%%ebx;"
-				"xor %%eax, %%eax;"
-				"mov (%%ebx), %%ax;"
-				"bswap %%eax;"
-				"mov %%eax, %0;"
-				"pop %%ebx;"
-				"pop %%eax;"
-                :"=a"(A),"=c"(tmp2): );
 #endif
 			continue;
 /* END STORE INSTRUCTIONS */

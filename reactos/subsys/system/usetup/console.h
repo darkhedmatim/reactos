@@ -60,17 +60,6 @@ WriteConsoleOutputAttributes(CONST USHORT *lpAttribute,
 			     COORD dwWriteCoord,
 			     PULONG lpNumberOfAttrsWritten);
 
-NTSTATUS
-FillConsoleOutputAttribute(USHORT wAttribute,
-			   ULONG nLength,
-			   COORD dwWriteCoord,
-			   PULONG lpNumberOfAttrsWritten);
-NTSTATUS
-FillConsoleOutputCharacter(CHAR Character,
-			   ULONG Length,
-			   COORD WriteCoord,
-			   PULONG NumberOfCharsWritten);
-
 #if 0
 NTSTATUS
 SetConsoleMode(HANDLE hConsoleHandle,
@@ -113,19 +102,13 @@ VOID
 ClearScreen(VOID);
 
 VOID
-SetStatusText(char* fmt, ...);
-
-VOID
-InvertTextXY(SHORT x, SHORT y, SHORT col, SHORT row);
-
-VOID
-NormalTextXY(SHORT x, SHORT y, SHORT col, SHORT row);
+SetStatusText(PCHAR Text);
 
 VOID
 SetTextXY(SHORT x, SHORT y, PCHAR Text);
 
 VOID
-SetInputTextXY(SHORT x, SHORT y, SHORT len, PWCHAR Text);
+SetInputTextXY(SHORT x, SHORT y, SHORT len, PCHAR Text);
 
 VOID
 SetUnderlinedTextXY(SHORT x, SHORT y, PCHAR Text);
@@ -137,10 +120,7 @@ VOID
 SetHighlightedTextXY(SHORT x, SHORT y, PCHAR Text);
 
 VOID
-PrintTextXY(SHORT x, SHORT y, char* fmt, ...);
-
-VOID
-PrintTextXYN(SHORT x, SHORT y, SHORT len, char* fmt, ...);
+PrintTextXY(SHORT x, SHORT y, char* fmt,...);
 
 #endif /* __CONSOLE_H__*/
 

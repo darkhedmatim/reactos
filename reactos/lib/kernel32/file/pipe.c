@@ -1,4 +1,4 @@
-/* $Id: pipe.c,v 1.12 2004/10/08 23:12:29 weiden Exp $
+/* $Id: pipe.c,v 1.7 2002/09/08 10:22:42 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -10,10 +10,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <kernel32/error.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -21,9 +21,6 @@ ULONG ProcessPipeId = 0;
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 BOOL STDCALL CreatePipe(PHANDLE hReadPipe,
 			PHANDLE hWritePipe,
 			LPSECURITY_ATTRIBUTES lpPipeAttributes,
@@ -37,32 +34,35 @@ BOOL STDCALL CreatePipe(PHANDLE hReadPipe,
    NTSTATUS Status;
    HANDLE ReadPipeHandle;
    HANDLE WritePipeHandle;
-   ULONG PipeId, Attributes;
    PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
 
    DefaultTimeout.QuadPart = 300000000; /* 30 seconds */
 
-   PipeId = (ULONG)InterlockedIncrement((LONG*)&ProcessPipeId);
+   ProcessPipeId++;
    swprintf(Buffer,
 	    L"\\Device\\NamedPipe\\Win32Pipes.%08x.%08x",
 	    NtCurrentTeb()->Cid.UniqueProcess,
-	    PipeId);
+	    ProcessPipeId);
    RtlInitUnicodeString (&PipeName,
 			 Buffer);
 
-   Attributes = OBJ_CASE_INSENSITIVE;
    if (lpPipeAttributes)
      {
 	SecurityDescriptor = lpPipeAttributes->lpSecurityDescriptor;
-	if(lpPipeAttributes->bInheritHandle)
-           Attributes |= OBJ_INHERIT;
      }
 
    InitializeObjectAttributes(&ObjectAttributes,
 			      &PipeName,
-			      Attributes,
+			      OBJ_CASE_INSENSITIVE,
 			      NULL,
 			      SecurityDescriptor);
+   if (lpPipeAttributes)
+   {
+      if(lpPipeAttributes->bInheritHandle)
+         ObjectAttributes.Attributes |= OBJ_INHERIT;
+      if (lpPipeAttributes->lpSecurityDescriptor)
+	 ObjectAttributes.SecurityDescriptor = lpPipeAttributes->lpSecurityDescriptor;
+   }
 
    Status = NtCreateNamedPipeFile(&ReadPipeHandle,
 				  FILE_GENERIC_READ,

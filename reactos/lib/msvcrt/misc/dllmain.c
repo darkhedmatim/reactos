@@ -1,140 +1,220 @@
-/* $Id: dllmain.c,v 1.24 2004/08/27 03:08:23 navaraf Exp $
- *
- * dllmain.c
+/* $Id: dllmain.c,v 1.16 2002/09/08 10:22:53 chorns Exp $
  *
  * ReactOS MSVCRT.DLL Compatibility Library
- *
- *  THIS SOFTWARE IS NOT COPYRIGHTED
- *
- *  This source code is offered for use in the public domain. You may
- *  use, modify or distribute it freely.
- *
- *  This code is distributed in the hope that it will be useful but
- *  WITHOUT ANY WARRANTY. ALL WARRENTIES, EXPRESS OR IMPLIED ARE HEREBY
- *  DISCLAMED. This includes but is not limited to warrenties of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * $Revision: 1.24 $
- * $Author: navaraf $
- * $Date: 2004/08/27 03:08:23 $
- *
  */
+#include <windows.h>
 
-#include "precomp.h"
 #include <msvcrt/internal/tls.h>
 #include <msvcrt/stdlib.h>
-#include "../wine/msvcrt.h"
 
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
 
+static int nAttachCount = 0;
 
-/* EXTERNAL PROTOTYPES ********************************************************/
+unsigned int _osver = 0;
+unsigned int _winminor = 0;
+unsigned int _winmajor = 0;
+unsigned int _winver = 0;
 
-//void __fileno_init(void);
-extern BOOL __fileno_init(void);
-extern int BlockEnvToEnvironA(void);
-extern int BlockEnvToEnvironW(void);
-extern void FreeEnvironment(char **environment);
-
-extern unsigned int _osver;
-extern unsigned int _winminor;
-extern unsigned int _winmajor;
-extern unsigned int _winver;
-
-extern char* _acmdln;        /* pointer to ascii command line */
-extern wchar_t* _wcmdln;     /* pointer to wide character command line */
+char *_acmdln = NULL;		/* pointer to ascii command line */
 #undef _environ
-extern char** _environ;      /* pointer to environment block */
-extern char** __initenv;     /* pointer to initial environment block */
-extern wchar_t** _wenviron;  /* pointer to environment block */
-extern wchar_t** __winitenv; /* pointer to initial environment block */
+char **_environ = NULL;		/* pointer to environment block */
+char ***_environ_dll = &_environ;/* pointer to environment block */
+
+char **__initenv = NULL;
+
+char *_pgmptr = NULL;		/* pointer to program name */
+
+int __app_type = 0; //_UNKNOWN_APP;	/* application type */
+
+int __mb_cur_max = 1;
+
+HANDLE hHeap = NULL;		/* handle for heap */
 
 
-/* LIBRARY GLOBAL VARIABLES ***************************************************/
+/* FUNCTIONS **************************************************************/
 
-HANDLE hHeap = NULL;        /* handle for heap */
-
-
-/* LIBRARY ENTRY POINT ********************************************************/
-
-BOOL
-STDCALL
-DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
+int BlockEnvToEnviron()
 {
-    switch (dwReason)
-    {
-    case DLL_PROCESS_ATTACH://1
-        /* initialize version info */
-        DPRINT("Attach %d\n", nAttachCount);
-        _osver = GetVersion();
-        _winmajor = (_osver >> 8) & 0xFF;
-        _winminor = _osver & 0xFF;
-        _winver = (_winmajor << 8) + _winminor;
-        _osver = (_osver >> 16) & 0xFFFF;
-        hHeap = HeapCreate(0, 100000, 0);
-        if (hHeap == NULL)
-            return FALSE;
-        if (!__fileno_init()) 
-            return FALSE;
+  char * ptr, * ptr2;
+  int i, len;
 
-        /* create tls stuff */
-        if (!CreateThreadData())
-            return FALSE;
+  DPRINT("BlockEnvToEnviron()\n");
 
-        if (BlockEnvToEnvironA() < 0)
-            return FALSE;
-
-        if (BlockEnvToEnvironW() < 0)
-        {
-            FreeEnvironment((char**)_wenviron);
-            return FALSE;
-        }
-
-        _acmdln = strdup(GetCommandLineA());
-        _wcmdln = wcsdup(GetCommandLineW());
-
-        /* FIXME: more initializations... */
-
-        /* FIXME: Initialization of the WINE code */
-        msvcrt_init_mt_locks();
-
-        DPRINT("Attach done\n");
-        break;
-
-    case DLL_THREAD_ATTACH://2
-        break;
-
-    case DLL_THREAD_DETACH://4
-        FreeThreadData(NULL);
-        break;
-
-    case DLL_PROCESS_DETACH://0
-        DPRINT("Detach %d\n", nAttachCount);
-        /* FIXME: more cleanup... */
-        _fcloseall();
-
-        /* destroy tls stuff */
-        DestroyThreadData();
-
-	if (__winitenv && __winitenv != _wenviron)
-            FreeEnvironment((char**)__winitenv);
-        if (_wenviron)
-            FreeEnvironment((char**)_wenviron);
-
-	if (__initenv && __initenv != _environ)
-            FreeEnvironment(__initenv);
-        if (_environ)
-            FreeEnvironment(_environ);
-
-        /* destroy heap */
-        HeapDestroy(hHeap);
-
-        DPRINT("Detach done\n");
-        break;
-    }
-
-    return TRUE;
+  if (_environ)
+  {
+     FreeEnvironmentStringsA(_environ[0]);
+     free(_environ);
+     _environ = NULL;
+  }
+  ptr2 = ptr = (char*)GetEnvironmentStringsA();
+  if (ptr == NULL)
+  {
+     DPRINT("GetEnvironmentStringsA() returnd NULL\n");
+     return -1;
+  }
+  len = 0;
+  while (*ptr2)
+  {
+     len++;
+     while (*ptr2++);
+  }
+  _environ = malloc((len + 1) * sizeof(char*));
+  if (_environ == NULL)
+  {
+     FreeEnvironmentStringsA(ptr);
+     return -1;
+  }
+  for (i = 0; i < len && *ptr; i++)
+  {
+     _environ[i] = ptr;
+     while (*ptr++);
+  }
+  _environ[i] = NULL;
+  return 0;
 }
+
+BOOL __stdcall
+DllMain(PVOID hinstDll,
+	ULONG dwReason,
+	PVOID reserved)
+{
+	switch (dwReason)
+	{
+		case DLL_PROCESS_ATTACH://1
+			/* initialize version info */
+			DPRINT("Attach %d\n", nAttachCount);
+			_osver = GetVersion();
+			_winmajor = (_osver >> 8) & 0xFF;
+			_winminor = _osver & 0xFF;
+			_winver = (_winmajor << 8) + _winminor;
+			_osver = (_osver >> 16) & 0xFFFF;
+
+			if (hHeap == NULL || hHeap == INVALID_HANDLE_VALUE)
+			{
+				hHeap = HeapCreate(0, 0, 0);
+				if (hHeap == NULL || hHeap == INVALID_HANDLE_VALUE)
+				{
+					return FALSE;
+				}
+			}
+			if (nAttachCount==0)
+			{
+				__fileno_init();
+			}
+
+			/* create tls stuff */
+			if (!CreateThreadData())
+				return FALSE;
+
+			_acmdln = (char *)GetCommandLineA();
+
+			/* FIXME: This crashes all applications */
+			if (BlockEnvToEnviron() < 0)
+			  return FALSE;
+
+			/* FIXME: more initializations... */
+
+			nAttachCount++;
+			DPRINT("Attach done\n");
+			break;
+
+		case DLL_THREAD_ATTACH://2
+			break;
+
+		case DLL_THREAD_DETACH://4
+			FreeThreadData(NULL);
+			break;
+
+		case DLL_PROCESS_DETACH://0
+			DPRINT("Detach %d\n", nAttachCount);
+			if (nAttachCount > 0)
+			{
+				nAttachCount--;
+
+				/* FIXME: more cleanup... */
+				_fcloseall();
+
+				/* destroy tls stuff */
+				DestroyThreadData();
+
+				/* destroy heap */
+				if (nAttachCount == 0)
+				{
+
+					if (_environ)
+					{
+						FreeEnvironmentStringsA(_environ[0]);
+						free(_environ);
+						_environ = NULL;
+					}
+#if 1
+					HeapDestroy(hHeap);
+					hHeap = NULL;
+#endif
+				}
+			DPRINT("Detach done\n");
+			}
+			break;
+	}
+
+	return TRUE;
+}
+
+
+
+void __set_app_type(int app_type)
+{
+   __app_type = app_type;
+}
+
+
+char **__p__acmdln(void)
+{
+   return &_acmdln;
+}
+
+char ***__p__environ(void)
+{
+   return _environ_dll;
+}
+
+char ***__p___initenv(void)
+{
+   return &__initenv;
+}
+
+int *__p___mb_cur_max(void)
+{
+   return &__mb_cur_max;
+}
+
+unsigned int *__p__osver(void)
+{
+   return &_osver;
+}
+
+char **__p__pgmptr(void)
+{
+   return &_pgmptr;
+}
+
+unsigned int *__p__winmajor(void)
+{
+   return &_winmajor;
+}
+
+unsigned int *__p__winminor(void)
+{
+   return &_winminor;
+}
+
+unsigned int *__p__winver(void)
+{
+   return &_winver;
+}
+
+
 
 /* EOF */

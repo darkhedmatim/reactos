@@ -14,24 +14,92 @@
 #ifndef __INCLUDE_TYPES_H
 #define __INCLUDE_TYPES_H
 
-#define EXPORTED __declspec(dllexport)
-#define IMPORTED __declspec(dllimport)
-
-#include <basetsd.h>
-
-#ifndef STDCALL_FUNC
-#define STDCALL_FUNC(a)  (STDCALL a)
-#endif
-
 /* Fixed precision types */
 typedef signed char         INT8, *PINT8;
-typedef unsigned char       UINT8, *PUINT8;
-
-#ifndef __USE_W32API
 typedef signed short        INT16, *PINT16;
+typedef signed int          INT32, *PINT32;
+typedef signed long long    INT64, *PINT64;
+typedef unsigned char       UINT8, *PUINT8;
 typedef unsigned short      UINT16, *PUINT16;
-#endif
+typedef unsigned int        UINT32, *PUINT32;
+typedef unsigned long long  UINT64, *PUINT64;
 
+typedef signed long int     LONG32, *PLONG32;
+typedef unsigned long int   ULONG32, *PULONG32;
+typedef unsigned long int   DWORD32, *PDWORD32;
+
+
+#ifdef _WIN64
+
+/* 64-bit architecture */
+
+typedef INT64 INT, *PINT;
+typedef LONG64 LONG, *PLONG;
+typedef DWORD64 DWORD, *PDWORD;
+typedef UINT64 UINT, *PUINT;
+typedef ULONG64 ULONG, *PULONG;
+
+/* Pointer precision types */
+typedef long long           INT_PTR, *PINT_PTR;
+typedef unsigned long long  UINT_PTR, *PUINT_PTR;
+typedef long long           LONG_PTR, *PLONG_PTR;
+typedef unsigned long long  ULONG_PTR, *PULONG_PTR;
+typedef unsigned long long  HANDLE_PTR;
+typedef unsigned int        UHALF_PTR, *PUHALF_PTR;
+typedef int                 HALF_PTR, *PHALF_PTR;
+
+#else /* _WIN64 */
+
+/* 32-bit architecture */
+
+typedef INT32 INT, *PINT;
+typedef LONG32 LONG, *PLONG;
+typedef DWORD32 DWORD, *PDWORD;
+typedef UINT32 UINT, *PUINT;
+typedef ULONG32 ULONG, *PULONG;
+
+
+/* Pointer precision types */
+typedef int               INT_PTR, *PINT_PTR;
+typedef unsigned int      UINT_PTR, *PUINT_PTR;
+typedef long              LONG_PTR, *PLONG_PTR;
+typedef unsigned long     ULONG_PTR, *PULONG_PTR;
+typedef unsigned short    UHALF_PTR, *PUHALF_PTR;
+typedef short             HALF_PTR, *PHALF_PTR;
+typedef unsigned long     HANDLE_PTR;
+
+#endif /* _WIN64 */
+
+typedef ULONG_PTR DWORD_PTR, *PDWORD_PTR;
+
+typedef long long LONG64, *PLONG64;
+
+typedef unsigned long long ULONG64, *PULONG64;
+typedef unsigned long long DWORD64, *PDWORD64;
+
+
+typedef unsigned char UCHAR;
+typedef unsigned short USHORT;
+typedef unsigned short WCHAR;
+typedef unsigned short WORD;
+typedef int BOOL;
+typedef unsigned char BOOLEAN;
+typedef BOOLEAN* PBOOLEAN;
+typedef unsigned short *LPWSTR;
+typedef unsigned short *PWSTR;
+typedef unsigned char *PUCHAR;
+typedef unsigned short *PUSHORT;
+typedef void *PVOID;
+typedef unsigned char BYTE;
+typedef void *LPVOID;
+typedef float *PFLOAT;
+typedef unsigned short *PWCH;
+typedef unsigned short *PWORD;
+
+typedef long long LONGLONG;
+typedef unsigned long long ULONGLONG;
+typedef long long *PLONGLONG;
+typedef unsigned long long *PULONGLONG;
 
 /* Check VOID before defining CHAR, SHORT */
 #ifndef VOID
@@ -40,106 +108,27 @@ typedef char CHAR;
 typedef short SHORT;
 #endif
 
-
-#ifndef __USE_W32API
-
-#ifdef i386
-#ifdef __GNUC__
-#define STDCALL     __attribute__ ((stdcall))
-#define CDECL       __attribute__ ((cdecl))
-#else
-#define STDCALL __stdcall
-#define CDECL __cdecl
-#endif
-#define CALLBACK    STDCALL
-#define PASCAL      WINAPI
-#else
-
-#ifdef __GNUC__
-#define STDCALL
-#define CDECL
-#define CALLBACK
-#define PASCAL
-#else
-#define STDCALL __stdcall
-#define CDECL __cdecl
-#define CALLBACK
-#define PASCAL
-#endif /*__GNUC__*/
-
-#endif /*i386*/
-
-typedef INT32 INT, *PINT;
-typedef LONG32 LONG, *PLONG;
-typedef ULONG32 DWORD, *PDWORD;
-typedef UINT32 UINT, *PUINT;
-typedef ULONG32 ULONG, *PULONG;
-
-#ifndef _WCHAR_T_
-#define _WCHAR_T_
-#define _WCHAR_T
-#define _WCHAR_T_DEFINED
-#ifndef __WCHAR_TYPE__
-#define __WCHAR_TYPE__      short unsigned int
-#endif
-
-#ifndef __cplusplus
-typedef __WCHAR_TYPE__      wchar_t;
-#endif  /* C++ */
-
-#endif  /* wchar_t not already defined */
-
-
-/* #ifndef __cplusplus
-#ifndef _WCHAR_T_DEFINED
-#define _WCHAR_T_DEFINED
-typedef unsigned short wchar_t;
-#endif
-#endif
-*/
-
-typedef unsigned char UCHAR;
-typedef unsigned short USHORT;
-typedef wchar_t WCHAR;
-typedef unsigned short WORD;
-typedef int BOOL;
-typedef unsigned char BOOLEAN;
-typedef BOOLEAN* PBOOLEAN;
-typedef wchar_t *LPWSTR;
-typedef wchar_t *PWSTR;
-typedef unsigned char *PUCHAR;
-typedef unsigned short *PUSHORT;
-typedef void *PVOID;
-typedef unsigned char BYTE;
-typedef void *LPVOID;
-typedef float *PFLOAT;
-typedef wchar_t *PWCH;
-typedef unsigned short *PWORD;
-
-#include <msvcrt/crttypes.h> /* for definition of LONGLONG, PLONGLONG etc */
-
-typedef const void *LPCVOID;
-typedef BYTE *LPBYTE, *PBYTE;
-typedef BOOL *PBOOL;
-typedef DWORD LCID;
-typedef DWORD *PLCID;
-typedef const char *LPCSTR;
-typedef char *LPSTR;
-typedef const wchar_t *LPCWSTR;
 typedef CHAR *PCHAR;
 typedef CHAR *PCH;
 typedef void *HANDLE;
-typedef HANDLE *PHANDLE;
 typedef char CCHAR;
 typedef CCHAR *PCCHAR;
-typedef wchar_t *PWCHAR;
-typedef ULONG WAIT_TYPE;
-typedef USHORT CSHORT;
-typedef const wchar_t *PCWSTR;
+
+
+#define FALSE 0
+#define TRUE 1
+
+#ifndef NULL
+#ifdef __cplusplus
+#define NULL 0
+#else
+#define NULL ((void*)0)
+#endif /* __cplusplus */
+#endif /* NULL */
+
+typedef const unsigned short *PCWSTR;
+
 typedef char* PCSZ;
-
-typedef DWORD STDCALL_FUNC (*PTHREAD_START_ROUTINE) (LPVOID);
-
 
 typedef union _LARGE_INTEGER
 {
@@ -175,81 +164,39 @@ typedef union _ULARGE_INTEGER
   ULONGLONG QuadPart;
 } ULARGE_INTEGER, *PULARGE_INTEGER;
 
-
-/* 
- * Moved here by AG
- * typedef ULARGE_INTEGER TIME, *PTIME;
- */
-
 typedef struct _FILETIME
 {
-  DWORD dwLowDateTime;
-  DWORD dwHighDateTime;
+   DWORD dwLowDateTime;
+   DWORD dwHighDateTime;
 } FILETIME, *LPFILETIME, *PFILETIME;
 
-typedef struct _LIST_ENTRY
-{
+#define CONST const
+
+#ifdef i386
+#define STDCALL     __attribute__ ((stdcall))
+#define CDECL       __attribute((cdecl))
+#define CALLBACK    WINAPI
+#define PASCAL      WINAPI
+#else
+#define STDCALL
+#define CDECL
+#define CALLBACK
+#define PASCAL
+#endif
+
+typedef struct _LIST_ENTRY {
   struct _LIST_ENTRY *Flink;
   struct _LIST_ENTRY *Blink;
 } LIST_ENTRY, *PLIST_ENTRY;
 
-typedef struct _SINGLE_LIST_ENTRY
-{
+typedef struct _SINGLE_LIST_ENTRY {
   struct _SINGLE_LIST_ENTRY *Next;
 } SINGLE_LIST_ENTRY, *PSINGLE_LIST_ENTRY;
 
-#define SLIST_ENTRY SINGLE_LIST_ENTRY
-#define PSLIST_ENTRY PSINGLE_LIST_ENTRY
+typedef DWORD STDCALL (*PTHREAD_START_ROUTINE) (LPVOID);
+typedef PTHREAD_START_ROUTINE LPTHREAD_START_ROUTINE;
 
-typedef struct _UNICODE_STRING
-{
-  USHORT Length;
-  USHORT MaximumLength;
-  PWSTR Buffer;
-} UNICODE_STRING, *PUNICODE_STRING;
-
-typedef const UNICODE_STRING* PCUNICODE_STRING;
-
-#define UNICODE_NULL ((WCHAR)0)
-
-typedef struct _FLOATING_SAVE_AREA
-{
-  DWORD   ControlWord;
-  DWORD   StatusWord;
-  DWORD   TagWord;
-  DWORD   ErrorOffset;
-  DWORD   ErrorSelector;
-  DWORD   DataOffset;
-  DWORD   DataSelector;
-  BYTE    RegisterArea[80];
-  DWORD   Cr0NpxState;
-} FLOATING_SAVE_AREA;
-
-typedef unsigned short RTL_ATOM;
-typedef unsigned short *PRTL_ATOM;
-
-#else /* __USE_W32API */
-
-#include <windows.h>
-
-#endif /* __USE_W32API */
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-#ifndef NULL
-#ifdef __cplusplus
-#define NULL 0
-#else
-#define NULL ((void*)0)
-#endif /* __cplusplus */
-#endif /* NULL */
-
-#define CONST const
+typedef unsigned short *PWCHAR;
 
 #ifdef __PPC__
 #define CONTEXT_CONTROL         1L
@@ -261,25 +208,17 @@ typedef unsigned short *PRTL_ATOM;
 #define CONTEXT_DEBUGGER (CONTEXT_FULL)
 
 #else /* x86 */
-
+/* The doc refered me to winnt.h, so I had to look... */
 #define SIZE_OF_80387_REGISTERS      80
 
 /* Values for contextflags */
 #define CONTEXT_i386    0x10000
-
-#ifndef __USE_W32API
-
-#define CONTEXT_CONTROL            (CONTEXT_i386 | 1)
-#define CONTEXT_INTEGER            (CONTEXT_i386 | 2)
-#define CONTEXT_SEGMENTS           (CONTEXT_i386 | 4)
-#define CONTEXT_FLOATING_POINT     (CONTEXT_i386 | 8)
-#define CONTEXT_DEBUG_REGISTERS    (CONTEXT_i386 | 0x10)
-#define CONTEXT_EXTENDED_REGISTERS (CONTEXT_i386 | 0x20)
-#define CONTEXT_FULL               (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
-
-#define MAXIMUM_SUPPORTED_EXTENSION  512
-
-#endif /* !__USE_W32API */
+#define CONTEXT_CONTROL         (CONTEXT_i386 | 1)	
+#define CONTEXT_INTEGER         (CONTEXT_i386 | 2)	
+#define CONTEXT_SEGMENTS        (CONTEXT_i386 | 4)	
+#define CONTEXT_FLOATING_POINT  (CONTEXT_i386 | 8)	
+#define CONTEXT_DEBUG_REGISTERS (CONTEXT_i386 | 0x10)
+#define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
 
 /* our own invention */
 #define FLAG_TRACE_BIT 0x100
@@ -287,149 +226,144 @@ typedef unsigned short *PRTL_ATOM;
 
 #endif
 
-typedef struct _CONTEXT_X86
-{
-  DWORD ContextFlags;
+typedef struct _FLOATING_SAVE_AREA {
+    DWORD   ControlWord;
+    DWORD   StatusWord;
+    DWORD   TagWord;
+    DWORD   ErrorOffset;
+    DWORD   ErrorSelector;
+    DWORD   DataOffset;
+    DWORD   DataSelector;
+    BYTE    RegisterArea[80];
+    DWORD   Cr0NpxState;
+} FLOATING_SAVE_AREA;
 
-  DWORD   Dr0;
-  DWORD   Dr1;
-  DWORD   Dr2;
-  DWORD   Dr3;
-  DWORD   Dr6;
-  DWORD   Dr7;
+typedef struct _CONTEXT_X86 {
+    DWORD ContextFlags;
 
-  FLOATING_SAVE_AREA FloatSave;
+    DWORD   Dr0;
+    DWORD   Dr1;
+    DWORD   Dr2;
+    DWORD   Dr3;
+    DWORD   Dr6;
+    DWORD   Dr7;
 
-  DWORD   SegGs;
-  DWORD   SegFs;
-  DWORD   SegEs;
-  DWORD   SegDs;
+    FLOATING_SAVE_AREA FloatSave;
 
-  DWORD   Edi;
-  DWORD   Esi;
-  DWORD   Ebx;
-  DWORD   Edx;
-  DWORD   Ecx;
-  DWORD   Eax;
+    DWORD   SegGs;
+    DWORD   SegFs;
+    DWORD   SegEs;
+    DWORD   SegDs;
 
-  DWORD   Ebp;
-  DWORD   Eip;
-  DWORD   SegCs;
-  DWORD   EFlags;
-  DWORD   Esp;
-  DWORD   SegSs;
+    DWORD   Edi;
+    DWORD   Esi;
+    DWORD   Ebx;
+    DWORD   Edx;
+    DWORD   Ecx;
+    DWORD   Eax;
 
-  BYTE    ExtendedRegisters[MAXIMUM_SUPPORTED_EXTENSION];
+    DWORD   Ebp;
+    DWORD   Eip;
+    DWORD   SegCs;
+    DWORD   EFlags;
+    DWORD   Esp;
+    DWORD   SegSs;
 } CONTEXT_X86, *PCONTEXT_X86, *LPCONTEXT_X86;
 
 typedef struct _CONTEXT_PPC
-{
-  /* Floating point registers returned when CONTEXT_FLOATING_POINT is set */
-  double Fpr0;
-  double Fpr1;
-  double Fpr2;
-  double Fpr3;
-  double Fpr4;
-  double Fpr5;
-  double Fpr6;
-  double Fpr7;
-  double Fpr8;
-  double Fpr9;
-  double Fpr10;
-  double Fpr11;
-  double Fpr12;
-  double Fpr13;
-  double Fpr14;
-  double Fpr15;
-  double Fpr16;
-  double Fpr17;
-  double Fpr18;
-  double Fpr19;
-  double Fpr20;
-  double Fpr21;
-  double Fpr22;
-  double Fpr23;
-  double Fpr24;
-  double Fpr25;
-  double Fpr26;
-  double Fpr27;
-  double Fpr28;
-  double Fpr29;
-  double Fpr30;
-  double Fpr31;
-  double Fpscr;
+  {
+    /* Floating point registers returned when CONTEXT_FLOATING_POINT is set */
+    double Fpr0;
+    double Fpr1;
+    double Fpr2;
+    double Fpr3;
+    double Fpr4;
+    double Fpr5;
+    double Fpr6;
+    double Fpr7;
+    double Fpr8;
+    double Fpr9;
+    double Fpr10;
+    double Fpr11;
+    double Fpr12;
+    double Fpr13;
+    double Fpr14;
+    double Fpr15;
+    double Fpr16;
+    double Fpr17;
+    double Fpr18;
+    double Fpr19;
+    double Fpr20;
+    double Fpr21;
+    double Fpr22;
+    double Fpr23;
+    double Fpr24;
+    double Fpr25;
+    double Fpr26;
+    double Fpr27;
+    double Fpr28;
+    double Fpr29;
+    double Fpr30;
+    double Fpr31;
+    double Fpscr;
 
-  /* Integer registers returned when CONTEXT_INTEGER is set. */
-  DWORD Gpr0;
-  DWORD Gpr1;
-  DWORD Gpr2;
-  DWORD Gpr3;
-  DWORD Gpr4;
-  DWORD Gpr5;
-  DWORD Gpr6;
-  DWORD Gpr7;
-  DWORD Gpr8;
-  DWORD Gpr9;
-  DWORD Gpr10;
-  DWORD Gpr11;
-  DWORD Gpr12;
-  DWORD Gpr13;
-  DWORD Gpr14;
-  DWORD Gpr15;
-  DWORD Gpr16;
-  DWORD Gpr17;
-  DWORD Gpr18;
-  DWORD Gpr19;
-  DWORD Gpr20;
-  DWORD Gpr21;
-  DWORD Gpr22;
-  DWORD Gpr23;
-  DWORD Gpr24;
-  DWORD Gpr25;
-  DWORD Gpr26;
-  DWORD Gpr27;
-  DWORD Gpr28;
-  DWORD Gpr29;
-  DWORD Gpr30;
-  DWORD Gpr31;
+    /* Integer registers returned when CONTEXT_INTEGER is set.  */
+    DWORD Gpr0;
+    DWORD Gpr1;
+    DWORD Gpr2;
+    DWORD Gpr3;
+    DWORD Gpr4;
+    DWORD Gpr5;
+    DWORD Gpr6;
+    DWORD Gpr7;
+    DWORD Gpr8;
+    DWORD Gpr9;
+    DWORD Gpr10;
+    DWORD Gpr11;
+    DWORD Gpr12;
+    DWORD Gpr13;
+    DWORD Gpr14;
+    DWORD Gpr15;
+    DWORD Gpr16;
+    DWORD Gpr17;
+    DWORD Gpr18;
+    DWORD Gpr19;
+    DWORD Gpr20;
+    DWORD Gpr21;
+    DWORD Gpr22;
+    DWORD Gpr23;
+    DWORD Gpr24;
+    DWORD Gpr25;
+    DWORD Gpr26;
+    DWORD Gpr27;
+    DWORD Gpr28;
+    DWORD Gpr29;
+    DWORD Gpr30;
+    DWORD Gpr31;
 
-  DWORD Cr;	/* Condition register */
-  DWORD Xer;	/* Fixed point exception register */
+    DWORD Cr;			/* Condition register */
+    DWORD Xer;			/* Fixed point exception register */
 
-  /* The following are set when CONTEXT_CONTROL is set. */
-  DWORD Msr;	/* Machine status register */
-  DWORD Iar;	/* Instruction address register */
-  DWORD Lr;	/* Link register */
-  DWORD Ctr;	/* Control register */
+    /* The following are set when CONTEXT_CONTROL is set.  */
+    DWORD Msr;			/* Machine status register */
+    DWORD Iar;			/* Instruction address register */
+    DWORD Lr;			/* Link register */
+    DWORD Ctr;			/* Control register */
 
-  /* Control which context values are returned */
-  DWORD ContextFlags;
-  DWORD Fill[3];
+    /* Control which context values are returned */
+    DWORD ContextFlags;
+    DWORD Fill[3];
 
-  /* Registers returned if CONTEXT_DEBUG_REGISTERS is set. */
-  DWORD Dr0;	/* Breakpoint Register 1 */
-  DWORD Dr1;	/* Breakpoint Register 2 */
-  DWORD Dr2;	/* Breakpoint Register 3 */
-  DWORD Dr3;	/* Breakpoint Register 4 */
-  DWORD Dr4;	/* Breakpoint Register 5 */
-  DWORD Dr5;	/* Breakpoint Register 6 */
-  DWORD Dr6;	/* Debug Status Register */
-  DWORD Dr7;	/* Debug Control Register */
+    /* Registers returned if CONTEXT_DEBUG_REGISTERS is set.  */
+    DWORD Dr0;                          /* Breakpoint Register 1 */
+    DWORD Dr1;                          /* Breakpoint Register 2 */
+    DWORD Dr2;                          /* Breakpoint Register 3 */
+    DWORD Dr3;                          /* Breakpoint Register 4 */
+    DWORD Dr4;                          /* Breakpoint Register 5 */
+    DWORD Dr5;                          /* Breakpoint Register 6 */
+    DWORD Dr6;                          /* Debug Status Register */
+    DWORD Dr7;                          /* Debug Control Register */
 } CONTEXT_PPC, *PCONTEXT_PPC, *LPCONTEXT_PPC;
-
-typedef struct value_ent
-{
-  LPWSTR ve_valuename;
-  DWORD  ve_valuelen;
-  DWORD  ve_valueptr;
-  DWORD  ve_type;
-} WVALENT, *PWVALENT;
-
-/* #include "except.h" */
-
-#ifndef __USE_W32API
-
-typedef PTHREAD_START_ROUTINE LPTHREAD_START_ROUTINE;
 
 #ifdef __i386__
 
@@ -445,103 +379,54 @@ typedef LPCONTEXT_PPC LPCONTEXT;
 
 #endif
 
+typedef HANDLE *PHANDLE;
+
+typedef struct value_ent {
+    LPWSTR ve_valuename;
+    DWORD  ve_valuelen;
+    DWORD  ve_valueptr;
+    DWORD  ve_type;
+} WVALENT, *PWVALENT;
+
+
+typedef const void *LPCVOID;
+typedef BYTE *LPBYTE, *PBYTE;
+
+typedef BOOL *PBOOL;
+
+typedef DWORD LCID;
+typedef DWORD *PLCID;
+
+typedef const char *LPCSTR;
+
+typedef char *LPSTR;
+
+typedef const unsigned short *LPCWSTR;
+
+typedef unsigned short RTL_ATOM;
+typedef unsigned short *PRTL_ATOM;
 typedef WORD ATOM;
 
-typedef struct _COORD
-{
+typedef struct _COORD {
   SHORT X;
   SHORT Y;
 } COORD;
 
-typedef struct _SMALL_RECT
-{
+typedef struct _SMALL_RECT {
   SHORT Left;
   SHORT Top;
   SHORT Right;
   SHORT Bottom;
 } SMALL_RECT, *PSMALL_RECT;
 
+
+typedef VOID STDCALL
+(*PTIMERAPCROUTINE)(
+	LPVOID lpArgToCompletionRoutine,
+	DWORD dwTimerLowValue,
+	DWORD dwTimerHighValue
+	);
+
 #include "except.h"
-
-#else /* __USE_W32API */
-
-typedef LPTHREAD_START_ROUTINE PTHREAD_START_ROUTINE;
-
-#include <ddk/ntapi.h>
-
-#endif /* __USE_W32API */
-
-typedef struct _ADDRESS_RANGE
-{
-   ULONG BaseAddrLow;
-   ULONG BaseAddrHigh;
-   ULONG LengthLow;
-   ULONG LengthHigh;
-   ULONG Type;
-} ADDRESS_RANGE, *PADDRESS_RANGE;
-
-#define MB_FLAGS_MEM_INFO         (0x1)
-#define MB_FLAGS_BOOT_DEVICE      (0x2)
-#define MB_FLAGS_COMMAND_LINE     (0x4)
-#define MB_FLAGS_MODULE_INFO      (0x8)
-#define MB_FLAGS_AOUT_SYMS        (0x10)
-#define MB_FLAGS_ELF_SYMS         (0x20)
-#define MB_FLAGS_MMAP_INFO        (0x40)
-#define MB_FLAGS_DRIVES_INFO      (0x80)
-#define MB_FLAGS_CONFIG_TABLE     (0x100)
-#define MB_FLAGS_BOOT_LOADER_NAME (0x200)
-#define MB_FLAGS_APM_TABLE        (0x400)
-#define MB_FLAGS_GRAPHICS_TABLE   (0x800)
-
-typedef struct _LOADER_MODULE
-{
-   ULONG ModStart;
-   ULONG ModEnd;
-   ULONG String;
-   ULONG Reserved;
-} LOADER_MODULE, *PLOADER_MODULE;
-
-typedef struct _LOADER_PARAMETER_BLOCK
-{
-   ULONG Flags;
-   ULONG MemLower;
-   ULONG MemHigher;
-   ULONG BootDevice;
-   ULONG CommandLine;
-   ULONG ModsCount;
-   ULONG ModsAddr;
-   UCHAR Syms[12];
-   ULONG MmapLength;
-   ULONG MmapAddr;
-   ULONG DrivesCount;
-   ULONG DrivesAddr;
-   ULONG ConfigTable;
-   ULONG BootLoaderName;
-} LOADER_PARAMETER_BLOCK, *PLOADER_PARAMETER_BLOCK;
-
-typedef enum _KAPC_ENVIRONMENT
-{
-  OriginalApcEnvironment,
-  AttachedApcEnvironment,
-  CurrentApcEnvironment
-} KAPC_ENVIRONMENT;
-
-/* FIXME: Are these official values ?? */
-#define STATUS_FS_QUERY_REQUIRED                    ((NTSTATUS)0xC1000001)
-#define STATUS_HANDLE_NOT_WAITABLE                  ((NTSTATUS)0xC1000002)
-#define STATUS_OBJECT_FILE_MISMATCH                 ((NTSTATUS)0xC1000003)
-#define STATUS_INVALID_PARAMETER_MAX                ((NTSTATUS)0xC1000004)
-#define STATUS_CONFLICTING_ADDRESS                  ((NTSTATUS)0xC1000005)
-#define STATUS_NO_MEDIA_IN_DRIVE                    ((NTSTATUS)0xC1000006)
-
-#define NTSTAT_SEVERITY_SHIFT 30
-#define NTSTAT_SEVERITY_MASK  0x00000003
-#define NTSTAT_FACILITY_SHIFT 16
-#define NTSTAT_FACILITY_MASK  0x00000FFF
-#define NTSTAT_CUSTOMER_MASK  0x20000000
-
-#define NT_SEVERITY(StatCode) (((StatCode) >> NTSTAT_SEVERITY_SHIFT) & NTSTAT_SEVERITY_MASK)
-#define NT_FACILITY(StatCode) (((StatCode) >> NTSTAT_FACILITY_SHIFT) & NTSTAT_FACILITY_MASK)
-#define NT_CUSTOMER(StatCode) ((StatCode) & NTSTAT_CUSTOMER_MASK)
 
 #endif /* __INCLUDE_TYPES_H */

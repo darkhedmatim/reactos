@@ -1,29 +1,15 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#ifdef __USE_W32API
-#undef __USE_W32API
-#endif
-
 #include <msvcrt/string.h>
 #include <msvcrt/internal/tls.h>
 
-char** _lasttoken(); /* lasttok.c */
-
-/*
- * @implemented
- */
-char* strtok(char* s, const char* delim)
+char *strtok(char *s, const char *delim)
 {
   const char *spanp;
   int c, sc;
   char *tok;
-#if 1
-  char ** lasttoken = _lasttoken();
-#else
   PTHREADDATA ThreadData = GetThreadData();
-  char ** lasttoken = &ThreadData->lasttoken;
-#endif
 
-  if (s == NULL && (s = *lasttoken) == NULL)
+  if (s == NULL && (s = ThreadData->lasttoken) == NULL)
     return (NULL);
 
   /*
@@ -37,7 +23,7 @@ char* strtok(char* s, const char* delim)
   }
 
   if (c == 0) {			/* no non-delimiter characters */
-    *lasttoken = NULL;
+    ThreadData->lasttoken = NULL;
     return (NULL);
   }
   tok = s - 1;
@@ -55,7 +41,7 @@ char* strtok(char* s, const char* delim)
 	  s = NULL;
 	else
 	  s[-1] = 0;
-	*lasttoken = s;
+	ThreadData->lasttoken = s;
 	return (tok);
       }
     } while (sc != 0);
