@@ -1,21 +1,21 @@
-# $Id: makefile,v 1.11 2003/11/14 17:13:22 weiden Exp $
+#
+#
+#
+OBJECTS= cat.o
 
-PATH_TO_TOP = ../../..
+all: cat.exe
 
-TARGET_NORC = yes
+.phony: all
 
-TARGET_TYPE = program
+clean:
+	- $(RM) cat.o
+	- $(RM) cat.exe
+	- $(RM) cat.sym
 
-TARGET_APPTYPE = console
+.phony: clean
 
-TARGET_NAME = cat
+cat.exe: $(OBJECTS) $(LIBS)
+	$(CC) $(OBJECTS) -o cat.exe
+	$(NM) --numeric-sort cat.exe > args.sym
 
-TARGET_OBJECTS = $(TARGET_NAME).o
-
-TARGET_CFLAGS = -Wall -Werror
-
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-# EOF
+include ../../rules.mak

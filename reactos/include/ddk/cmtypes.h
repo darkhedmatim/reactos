@@ -1,10 +1,47 @@
-#ifndef __INCLUDE_DDK_CMTYPES_H
-#define __INCLUDE_DDK_CMTYPES_H
+
 /*
- * Configuration Manager structures and typedefs
+ * Object Manager structures and typedefs
  */
 
-/* key query information class */
+typedef struct _KEY_VALUE
+{
+  ULONG Flags;
+  ULONG TitleIndex;
+  ULONG Type;
+  WCHAR *Name;
+  ULONG DataLength;
+  PVOID Data;
+} KEY_VALUE, *PKEY_VALUE;
+
+typedef struct _KEY_OBJECT
+/*
+ * Type defining the Object Manager Key Object
+ */
+{
+  CSHORT Type;
+  CSHORT Size;
+  
+  ULONG Flags;
+  LARGE_INTEGER LastWriteTime;
+  ULONG TitleIndex;
+  ULONG NumSubKeys;
+  ULONG MaxSubNameLength;
+  ULONG MaxSubClassLength;
+  struct _KEY_OBJECT *SubKeys;
+  ULONG NumValues;
+  ULONG MaxValueNameLength;
+  ULONG MaxValueDataLength;
+  PKEY_VALUE *Values;
+  WCHAR *Name;
+  WCHAR *Class;
+  struct _KEY_OBJECT *NextKey;
+} KEY_OBJECT, *PKEY_OBJECT;
+
+#define  KO_MARKED_FOR_DELETE  0x00000001
+
+/*
+ * key query information class 
+ */
 
 typedef enum _KEY_INFORMATION_CLASS
 {
@@ -13,7 +50,7 @@ typedef enum _KEY_INFORMATION_CLASS
   KeyFullInformation
 } KEY_INFORMATION_CLASS;
 
-typedef struct _KEY_BASIC_INFORMATION
+typedef struct _KEY_BASIC_INFORMATION 
 {
   LARGE_INTEGER  LastWriteTime;
   ULONG  TitleIndex;
@@ -21,7 +58,7 @@ typedef struct _KEY_BASIC_INFORMATION
   WCHAR  Name[1];
 } KEY_BASIC_INFORMATION, *PKEY_BASIC_INFORMATION;
 
-typedef struct _KEY_FULL_INFORMATION
+typedef struct _KEY_FULL_INFORMATION 
 {
   LARGE_INTEGER  LastWriteTime;
   ULONG  TitleIndex;
@@ -36,7 +73,7 @@ typedef struct _KEY_FULL_INFORMATION
   WCHAR  Class[1];
 } KEY_FULL_INFORMATION, *PKEY_FULL_INFORMATION;
 
-typedef struct _KEY_NODE_INFORMATION
+typedef struct _KEY_NODE_INFORMATION 
 {
   LARGE_INTEGER  LastWriteTime;
   ULONG  TitleIndex;
@@ -46,19 +83,10 @@ typedef struct _KEY_NODE_INFORMATION
   WCHAR  Name[1];
 } KEY_NODE_INFORMATION, *PKEY_NODE_INFORMATION;
 
-
 /* key set information class */
-
-typedef enum _KEY_SET_INFORMATION_CLASS
-{
-  KeyLastWriteTimeInformation
-} KEY_SET_INFORMATION_CLASS;
-
-typedef struct _KEY_LAST_WRITE_TIME_INFORMATION
-{
-  LARGE_INTEGER  LastWriteTime;
-} KEY_LAST_WRITE_TIME_INFORMATION, *PKEY_LAST_WRITE_TIME_INFORMATION;
-
+/*
+ * KeyWriteTimeInformation
+ */
 
 /* key value information class */
 
@@ -69,7 +97,7 @@ typedef enum _KEY_VALUE_INFORMATION_CLASS
   KeyValuePartialInformation
 } KEY_VALUE_INFORMATION_CLASS;
 
-typedef struct _KEY_VALUE_BASIC_INFORMATION
+typedef struct _KEY_VALUE_BASIC_INFORMATION 
 {
   ULONG  TitleIndex;
   ULONG  Type;
@@ -77,7 +105,7 @@ typedef struct _KEY_VALUE_BASIC_INFORMATION
   WCHAR  Name[1];
 } KEY_VALUE_BASIC_INFORMATION, *PKEY_VALUE_BASIC_INFORMATION;
 
-typedef struct _KEY_VALUE_FULL_INFORMATION
+typedef struct _KEY_VALUE_FULL_INFORMATION 
 {
   ULONG  TitleIndex;
   ULONG  Type;
@@ -87,7 +115,7 @@ typedef struct _KEY_VALUE_FULL_INFORMATION
   WCHAR  Name[1];
 } KEY_VALUE_FULL_INFORMATION, *PKEY_VALUE_FULL_INFORMATION;
 
-typedef struct _KEY_VALUE_PARTIAL_INFORMATION
+typedef struct _KEY_VALUE_PARTIAL_INFORMATION 
 {
   ULONG  TitleIndex;
   ULONG  Type;
@@ -96,15 +124,3 @@ typedef struct _KEY_VALUE_PARTIAL_INFORMATION
 } KEY_VALUE_PARTIAL_INFORMATION, *PKEY_VALUE_PARTIAL_INFORMATION;
 
 
-/* used by [Nt/Zw]QueryMultipleValueKey */
-
-typedef struct _KEY_VALUE_ENTRY
-{
-  PUNICODE_STRING  ValueName;
-  ULONG  DataLength;
-  ULONG  DataOffset;
-  ULONG  Type;
-} KEY_VALUE_ENTRY, *PKEY_VALUE_ENTRY;
-
-
-#endif /* __INCLUDE_DDK_CMTYPES_H */

@@ -1,8 +1,9 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <limits.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
+//#include <internal/file.h>
 
 
 /*
@@ -10,8 +11,6 @@
  *
  * Ignores `locale' stuff.  Assumes that the upper and lower case
  * alphabets and digits are each contiguous.
- *
- * @implemented
  */
 unsigned long
 strtoul(const char *nptr, char **endptr, int base)
@@ -67,6 +66,7 @@ strtoul(const char *nptr, char **endptr, int base)
   if (any < 0)
   {
     acc = ULONG_MAX;
+//    __set_errno(ERANGE);
   }
   else if (neg)
     acc = -acc;

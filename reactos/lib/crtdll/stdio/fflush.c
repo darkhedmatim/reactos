@@ -1,28 +1,16 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/crtdll/conio/kbhit.c
- * PURPOSE:     Checks for keyboard hits
- * PROGRAMER:   Boudewijn Dekker
- * UPDATE HISTORY:
- *              28/12/98: Created
- */
 /* Copyright (C) 1998 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include <msvcrt/stdio.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/sys/types.h>
-#include <msvcrt/sys/stat.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
-#include <msvcrt/io.h>
+#include <crtdll/stdio.h>
+#include <crtdll/errno.h>
+#include <crtdll/sys/types.h>
+#include <crtdll/sys/stat.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/file.h>
+#include <crtdll/io.h>
 
 
-/*
- * @implemented
- */
 int fflush(FILE *f)
 {
   char *base;
@@ -36,7 +24,7 @@ int fflush(FILE *f)
 
      __set_errno(0);
     _fwalk((void (*)(FILE *))fflush);
-    if (*_errno())
+    if (_errno)
       return EOF;
     __set_errno(e);
     return 0;
@@ -91,16 +79,14 @@ int fflush(FILE *f)
     do {
       n = _write(fileno(f), base, rn);
       if (n <= 0) {
-	    f->_flag |= _IOERR;
-	    return EOF;
+	f->_flag |= _IOERR;
+	return EOF;
       }
       rn -= n;
       base += n;
     } while (rn > 0);
     f->_flag &= ~_IODIRTY;
 
-// commit flushed data
-//    _commit(fileno(f));
   }
   if (OPEN4READING(f) && OPEN4WRITING(f) )
   {
@@ -110,9 +96,6 @@ int fflush(FILE *f)
   return 0;
 }
 
-/*
- * @implemented
- */
 int _flushall( void )
 {
 	return fflush(NULL);

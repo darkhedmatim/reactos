@@ -16,9 +16,9 @@
  *
  */
  
-#include <msvcrt/float.h>
-#include <msvcrt/math.h>
-#include <msvcrt/errno.h>
+#include <crtdll/float.h>
+#include <crtdll/math.h>
+#include <crtdll/errno.h>
  
 /* Approximate square roots of DBL_MAX and DBL_MIN.  Numbers
    between these two shouldn't neither overflow nor underflow
@@ -26,9 +26,6 @@
 #define __SQRT_DBL_MAX 1.3e+154
 #define __SQRT_DBL_MIN 2.3e-162
  
-/*
- * @implemented
- */
 double
 _hypot(double x, double y)
 {
@@ -81,7 +78,7 @@ _hypot(double x, double y)
  
 #ifdef  TEST
  
-#include <msvcrt/stdio.h>
+#include <crtdll/stdio.h>
  
 int
 main(void)

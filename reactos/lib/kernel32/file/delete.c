@@ -1,141 +1,85 @@
-/* $Id: delete.c,v 1.18 2004/11/29 17:31:21 gdalsnes Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/file/delete.c
  * PURPOSE:         Deleting files
- * PROGRAMMER:      Ariadne (ariadne@xs4all.nl)
+ * PROGRAMMER:      Ariadne ( ariadne@xs4all.nl)
  * UPDATE HISTORY:
  *                  Created 01/11/98
  */
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <wchar.h>
+#include <string.h>
 
-#define NDEBUG
-#include "../include/debug.h"
-
+//#define NDEBUG
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-DeleteFileA (
-	LPCSTR	lpFileName
-	)
+WINBOOL STDCALL DeleteFileA(LPCSTR lpFileName)
 {
-	UNICODE_STRING FileNameU;
-	ANSI_STRING FileName;
-	BOOL Result;
+   ULONG i;
+   WCHAR FileNameW[MAX_PATH];
 
-	RtlInitAnsiString (&FileName,
-	                   (LPSTR)lpFileName);
-
-	/* convert ansi (or oem) string to unicode */
-	if (bIsFileApiAnsi)
-		RtlAnsiStringToUnicodeString (&FileNameU,
-		                              &FileName,
-		                              TRUE);
-	else
-		RtlOemStringToUnicodeString (&FileNameU,
-		                             &FileName,
-		                             TRUE);
-
-	Result = DeleteFileW (FileNameU.Buffer);
-
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             FileNameU.Buffer);
-
-	return Result;
+   i = 0;
+   while ((*lpFileName)!=0 && i < MAX_PATH)
+     {
+	FileNameW[i] = *lpFileName;
+	lpFileName++;
+	i++;
+     }
+   FileNameW[i] = 0;
+   return DeleteFileW(FileNameW);
 }
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-DeleteFileW (
-	LPCWSTR	lpFileName
-	)
+WINBOOL STDCALL DeleteFileW(LPCWSTR lpFileName)
 {
-	FILE_DISPOSITION_INFORMATION FileDispInfo;
-	OBJECT_ATTRIBUTES ObjectAttributes;
-	IO_STATUS_BLOCK IoStatusBlock;
-	UNICODE_STRING NtPathU;
-	HANDLE FileHandle;
-	NTSTATUS Status;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING FileNameString;
+   NTSTATUS errCode;
+   WCHAR PathNameW[MAX_PATH];
+   UINT Len;
 
-	DPRINT("DeleteFileW (lpFileName %S)\n",lpFileName);
+   if (lpFileName[1] != ':') 
+     {
+	Len =  GetCurrentDirectoryW(MAX_PATH,PathNameW);
+	if ( Len == 0 )
+	  return FALSE;
+	if ( PathNameW[Len-1] != L'\\' ) 
+	  {
+	     PathNameW[Len] = L'\\';
+	     PathNameW[Len+1] = 0;
+	  }
+     }
+   else
+     PathNameW[0] = 0;
+   lstrcatW(PathNameW,lpFileName); 
+   FileNameString.Length = lstrlenW( PathNameW)*sizeof(WCHAR);
+   if ( FileNameString.Length == 0 )
+     return FALSE;
 
-	if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpFileName,
-	                                   &NtPathU,
-	                                   NULL,
-	                                   NULL))
-   {
-      SetLastError(ERROR_PATH_NOT_FOUND);
-		return FALSE;
-   }
+   if (FileNameString.Length > MAX_PATH*sizeof(WCHAR))
+     return FALSE;
 
-	DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
+   FileNameString.Buffer = (WCHAR *)PathNameW;
+   FileNameString.MaximumLength = FileNameString.Length+sizeof(WCHAR);
 
-	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
-	ObjectAttributes.RootDirectory = NULL;
-	ObjectAttributes.ObjectName = &NtPathU;
-	ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE| OBJ_INHERIT;
-	ObjectAttributes.SecurityDescriptor = NULL;
-	ObjectAttributes.SecurityQualityOfService = NULL;
-
-	Status = NtCreateFile (&FileHandle,
-	                       FILE_WRITE_ATTRIBUTES,
-	                       &ObjectAttributes,
-	                       &IoStatusBlock,
-	                       NULL,
-	                       FILE_ATTRIBUTE_NORMAL,
-	                       0,
-	                       FILE_OPEN,
-                               FILE_NON_DIRECTORY_FILE,
-	                       NULL,
-	                       0);
-
-	RtlFreeUnicodeString(&NtPathU);
-
-	if (!NT_SUCCESS(Status))
-	{
-		CHECKPOINT;
-		SetLastErrorByStatus (Status);
-		return FALSE;
-	}
-
-	FileDispInfo.DeleteFile = TRUE;
-
-	Status = NtSetInformationFile (FileHandle,
-	                               &IoStatusBlock,
-	                               &FileDispInfo,
-	                               sizeof(FILE_DISPOSITION_INFORMATION),
-	                               FileDispositionInformation);
-	if (!NT_SUCCESS(Status))
-	{
-		CHECKPOINT;
-		NtClose (FileHandle);
-		SetLastErrorByStatus (Status);
-		return FALSE;
-	}
-
-	Status = NtClose (FileHandle);
-	if (!NT_SUCCESS (Status))
-	{
-		CHECKPOINT;
-		SetLastErrorByStatus (Status);
-		return FALSE;
-	}
-
-	return TRUE;
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = NULL;
+   ObjectAttributes.ObjectName = &FileNameString;
+   ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE| OBJ_INHERIT;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
+   
+   errCode = NtDeleteFile(&ObjectAttributes);
+   if (!NT_SUCCESS(errCode)) 
+     {
+	SetLastError(RtlNtStatusToDosError(errCode));
+	return FALSE;
+     }
+   return TRUE;
 }
-
-/* EOF */

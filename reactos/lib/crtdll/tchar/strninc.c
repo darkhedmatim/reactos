@@ -1,9 +1,6 @@
-#include <msvcrt/string.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/tchar.h>
+#include <crtdll/stdlib.h>
 
-/*
- * @implemented
- */
 char * _strninc(const char *str, size_t inc)
 { 
 	return (char *)(str + inc); 

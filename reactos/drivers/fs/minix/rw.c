@@ -11,17 +11,15 @@
 
 #include <ddk/ntddk.h>
 #include <string.h>
-#include <ntos/minmax.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "minix.h"
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS STDCALL
-MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("MinixWrite(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -30,34 +28,7 @@ MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-static NTSTATUS MinixReadFilePage(PDEVICE_OBJECT DeviceObject,
-				  PMINIX_DEVICE_EXTENSION DeviceExt,
-				  PMINIX_FSCONTEXT FsContext,
-				  ULONG Offset,
-				  PVOID* Buffer)
-{
-   NTSTATUS Status;
-   ULONG i;
-   ULONG DiskOffset;
-
-   *Buffer = ExAllocatePool(NonPagedPool, 4096);
-
-   for (i=0; i<4; i++)
-     {
-	Status = MinixReadBlock(DeviceObject,
-				DeviceExt,
-				&FsContext->inode,
-				Offset + (i * BLOCKSIZE),
-				&DiskOffset);
-	MinixReadSector(DeviceObject,
-			DiskOffset / BLOCKSIZE,
-			(*Buffer) + (i * BLOCKSIZE));
-     }
-   return(STATUS_SUCCESS);
-}
-
-NTSTATUS STDCALL
-MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    ULONG Length;
    PVOID Buffer;
@@ -66,9 +37,9 @@ MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PFILE_OBJECT FileObject = Stack->FileObject;
    MINIX_DEVICE_EXTENSION* DeviceExt = DeviceObject->DeviceExtension;
-   PMINIX_FSCONTEXT FsContext = (PMINIX_FSCONTEXT)FileObject->FsContext;
+   struct minix_inode* inode = (struct minix_inode *)FileObject->FsContext;
    unsigned int i;
-   PVOID DiskBuffer;
+   PCCB Ccb = NULL;
    
    DPRINT("MinixRead(DeviceObject %x, Irp %x)\n",DeviceObject,Irp);
    
@@ -82,77 +53,60 @@ MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    
    DPRINT("inode->i_size %d\n",inode->i_size);
    
-   if (Offset > FsContext->inode.i_size)
+   if (Offset > inode->i_size)
      {
 	Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 	Irp->IoStatus.Information = 0;
 	IoCompleteRequest(Irp,IO_NO_INCREMENT);
 	return(STATUS_UNSUCCESSFUL);
      }
-   if ((Offset+Length) > FsContext->inode.i_size)
+   if ((Offset+Length) > inode->i_size)
      {
-	Length = FsContext->inode.i_size - Offset;
+	Length = inode->i_size - Offset;
      }
    
-   if ((Offset%PAGE_SIZE)!=0)
+   if ((Offset%BLOCKSIZE)!=0)
      {
-	CurrentOffset = Offset - (Offset%PAGE_SIZE);
+	CHECKPOINT;
 	
-	MinixReadFilePage(DeviceObject,
-			  DeviceExt,
-			  FsContext,
-			  CurrentOffset,
-			  &DiskBuffer);
-
-	memcpy(Buffer,
-	       DiskBuffer+(Offset%PAGE_SIZE),
-	       min(PAGE_SIZE - (Offset%PAGE_SIZE),Length));
+	CurrentOffset = Offset - (Offset%BLOCKSIZE);
 	
-	ExFreePool(DiskBuffer);
-	
+	MinixReadBlock(DeviceExt,inode,
+		       CurrentOffset/BLOCKSIZE,
+		       &Ccb);
+	memcpy(Buffer,Ccb->Buffer+(Offset%BLOCKSIZE),
+		  min(BLOCKSIZE - (Offset%BLOCKSIZE),Length));
 	DPRINT("(BLOCKSIZE - (Offset%BLOCKSIZE)) %d\n",
 	       (BLOCKSIZE - (Offset%BLOCKSIZE)));
 	DPRINT("Length %d\n",Length);
-	CurrentOffset = CurrentOffset + PAGE_SIZE;
-	Buffer = Buffer + PAGE_SIZE - (Offset%PAGE_SIZE);
-	Length = Length - min(PAGE_SIZE - (Offset%PAGE_SIZE),Length);
+	CurrentOffset = CurrentOffset + BLOCKSIZE;
+	Buffer = Buffer + BLOCKSIZE - (Offset%BLOCKSIZE);
+	Length = Length - min(BLOCKSIZE - (Offset%BLOCKSIZE),Length);
 	DPRINT("CurrentOffset %d Buffer %x Length %d\n",CurrentOffset,Buffer,
 	       Length);
      }
-   for (i=0;i<(Length/PAGE_SIZE);i++)
+   for (i=0;i<(Length/BLOCKSIZE);i++)
      {
 	CHECKPOINT;
 	
 	DPRINT("Length %d\n",Length);
 	
-	MinixReadFilePage(DeviceObject,
-			  DeviceExt,
-			  FsContext,
-			  CurrentOffset,
-			  &DiskBuffer);
-	memcpy(Buffer, DiskBuffer, PAGE_SIZE);
-	
-	ExFreePool(DiskBuffer);
-	
-	CurrentOffset = CurrentOffset + PAGE_SIZE;
-	Buffer = Buffer + PAGE_SIZE;
+	MinixReadBlock(DeviceExt,inode,
+		       CurrentOffset/BLOCKSIZE,&Ccb);
+	memcpy(Buffer,Ccb->Buffer,BLOCKSIZE);
+	CurrentOffset = CurrentOffset + BLOCKSIZE;
+	Buffer = Buffer + BLOCKSIZE;
      }
-   if ((Length%PAGE_SIZE) > 0)
+   if ((Length%BLOCKSIZE) > 0)
      {
 	CHECKPOINT;
 	
-	DPRINT("Length %x Buffer %x\n",(Length%PAGE_SIZE),Buffer);
+	DPRINT("Length %x Buffer %x\n",(Length%BLOCKSIZE),Buffer);
 	
-	MinixReadFilePage(DeviceObject,
-			  DeviceExt,
-			  FsContext,
-			  CurrentOffset,
-			  &DiskBuffer);
-
-	memcpy(Buffer, DiskBuffer, (Length%PAGE_SIZE));
-
-	ExFreePool(DiskBuffer);
-
+	MinixReadBlock(DeviceExt,inode,
+		       CurrentOffset/BLOCKSIZE,
+		       &Ccb);	
+	memcpy(Buffer,Ccb->Buffer,(Length%BLOCKSIZE));
      }
    
    Irp->IoStatus.Status = STATUS_SUCCESS;

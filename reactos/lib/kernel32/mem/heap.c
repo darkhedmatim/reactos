@@ -1,5 +1,4 @@
-/* $Id: heap.c,v 1.28 2004/12/16 15:10:00 gdalsnes Exp $
- *
+/*
  * kernel/heap.c
  * Copyright (C) 1996, Onno Hovers, All rights reserved
  *
@@ -27,48 +26,57 @@
  * Put the type definitions of the heap in a seperate header. Boudewijn Dekker
  */
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /*********************************************************************
 *                     HeapCreate -- KERNEL32                         *
 *********************************************************************/
-/*
- * @implemented
- */
-HANDLE STDCALL HeapCreate(DWORD flags, DWORD dwInitialSize, DWORD dwMaximumSize)
+HANDLE STDCALL HeapCreate(DWORD flags, DWORD minsize, DWORD maxsize)
 {
 
-   DPRINT("HeapCreate( 0x%lX, 0x%lX, 0x%lX )\n", flags, dwInitialSize, dwMaximumSize);
-   return(RtlCreateHeap(flags, NULL, dwMaximumSize, dwInitialSize, NULL, NULL));
+   DPRINT("HeapCreate( 0x%lX, 0x%lX, 0x%lX )\n", flags, minsize, maxsize);
+   return(RtlCreateHeap(flags, NULL, maxsize, minsize, NULL, NULL));
 }
 
 /*********************************************************************
 *                     HeapDestroy -- KERNEL32                        *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapDestroy(HANDLE hheap)
 {
-   if (hheap == RtlGetProcessHeap())
-   {
-      return FALSE;
-   }
+   return(RtlDestroyHeap(hheap));
+}
 
-   if (RtlDestroyHeap( hheap )==NULL) return TRUE;
-   SetLastError( ERROR_INVALID_HANDLE );
-   return FALSE;
+/*********************************************************************
+*                     HeapAlloc -- KERNEL32                          *
+*********************************************************************/
+LPVOID STDCALL HeapAlloc(HANDLE hheap, DWORD flags, DWORD size)
+{
+   return(RtlAllocateHeap(hheap, flags, size));
+}
+
+/*********************************************************************
+*                     HeapReAlloc -- KERNEL32                        *
+*********************************************************************/
+LPVOID STDCALL HeapReAlloc(HANDLE hheap, DWORD flags, LPVOID ptr, DWORD size)
+{
+   return(RtlReAllocHeap(hheap, flags, ptr, size));
+}
+
+/*********************************************************************
+*                     HeapFree -- KERNEL32                           *
+*********************************************************************/
+WINBOOL STDCALL HeapFree(HANDLE hheap, DWORD flags, LPVOID ptr)
+{
+   return(RtlFreeHeap(hheap, flags, ptr));
 }
 
 /*********************************************************************
 *                   GetProcessHeap  --  KERNEL32                     *
 *********************************************************************/
-/*
- * @implemented
- */
 HANDLE WINAPI GetProcessHeap(VOID)
 {
    DPRINT("GetProcessHeap()\n");
@@ -77,21 +85,17 @@ HANDLE WINAPI GetProcessHeap(VOID)
 
 /********************************************************************
 *                   GetProcessHeaps  --  KERNEL32                   *
+*                                                                   *
+* NOTE in Win95 this function is not implemented and just returns   *
+* ERROR_CALL_NOT_IMPLEMENTED                                        *
 ********************************************************************/
-/*
- * @implemented
- */
-DWORD WINAPI GetProcessHeaps(DWORD maxheaps, PHANDLE phandles)
+DWORD WINAPI GetProcessHeaps(DWORD maxheaps, PHANDLE phandles )
 {
-   return(RtlGetProcessHeaps(maxheaps, phandles));
 }
 
 /*********************************************************************
 *                    HeapLock  --  KERNEL32                          *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapLock(HANDLE hheap)
 {
    return(RtlLockHeap(hheap));
@@ -100,9 +104,6 @@ BOOL WINAPI HeapLock(HANDLE hheap)
 /*********************************************************************
 *                    HeapUnlock  --  KERNEL32                        *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapUnlock(HANDLE hheap)
 {
    return(RtlUnlockHeap(hheap));
@@ -114,137 +115,26 @@ BOOL WINAPI HeapUnlock(HANDLE hheap)
 * NT uses this function to compact moveable blocks and other things  *
 * Here it does not compact, but it finds the largest free region     *
 *********************************************************************/
-/*
- * @implemented
- */
-SIZE_T WINAPI HeapCompact(HANDLE hheap, DWORD flags)
+UINT HeapCompact(HANDLE hheap, DWORD flags)
 {
-   return RtlCompactHeap(hheap, flags);
+   return(RtlCompactHeap(hheap, flags));
+}
+
+/*********************************************************************
+*                    HeapSize  --  KERNEL32                          *
+*********************************************************************/
+DWORD WINAPI HeapSize(HANDLE hheap, DWORD flags, LPCVOID pmem)
+{
+   return(RtlSizeHeap(hheap, flags, pmem));
 }
 
 /*********************************************************************
 *                    HeapValidate  --  KERNEL32                      *
+*                                                                    *
+* NOTE: only implemented in NT                                       *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapValidate(HANDLE hheap, DWORD flags, LPCVOID pmem)
 {
-   return(RtlValidateHeap(hheap, flags, (PVOID)pmem));
+   return(RtlValidateHeap(hheap, flags, pmem));
 }
 
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-HeapCreateTagsW (
-	DWORD	Unknown0,
-	DWORD	Unknown1,
-	DWORD	Unknown2,
-	DWORD	Unknown3
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-HeapExtend (
-	DWORD	Unknown0,
-	DWORD	Unknown1,
-	DWORD	Unknown2,
-	DWORD	Unknown3
-	)
-{
-#if 0
-   NTSTATUS Status;
-
-   Status = RtlExtendHeap(Unknown1, Unknown2, Unknown3, Unknown4);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return FALSE;
-     }
-   return TRUE;
-#endif
-
-   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-   return 0;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-HeapQueryTagW (
-	DWORD	Unknown0,
-	DWORD	Unknown1,
-	DWORD	Unknown2,
-	DWORD	Unknown3,
-	DWORD	Unknown4
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-HeapSummary (
-	DWORD	Unknown0,
-	DWORD	Unknown1,
-	DWORD	Unknown2
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-HeapUsage (
-	DWORD	Unknown0,
-	DWORD	Unknown1,
-	DWORD	Unknown2,
-	DWORD	Unknown3,
-	DWORD	Unknown4
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-HeapWalk (
-	HANDLE			hHeap,
-	LPPROCESS_HEAP_ENTRY	lpEntry
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/* EOF */

@@ -1,36 +1,21 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/*
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/dbg/errinfo.c
- * PURPOSE:         Print information descriptions of error messages
- * PORTABILITY:     Checked
+ * FILE:            ntoskrnl/dbg/brkpoints.c
+ * PURPOSE:         Handles breakpoints
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
-
-/* GLOBALS *******************************************************************/
+#include <string.h>
+#include <internal/string.h>
+#include <internal/ntoskrnl.h> /* for sprintf */
 
 static PCHAR SeverityCodes[] = {"SUC", "INF", "ERR", "WRN"};
 
@@ -190,10 +175,7 @@ static struct _ERRLIST
   {0, NULL, NULL}
 };
 
-/* FUNCTIONS *****************************************************************/
-
-VOID 
-DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
+VOID DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
 {
   int i;
   char TempBuf[255], NumBuf[32];
@@ -204,32 +186,29 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (NT_CUSTOMER(ErrorCode))
         {
-          _snprintf(TempBuf, sizeof(TempBuf)-1,
+          sprintf(TempBuf, 
                   "%%CUST-%s-", 
                   SeverityCodes[NT_SEVERITY(ErrorCode)]);
-		  TempBuf[sizeof(TempBuf)-1] = '\0';
         }
       else 
         {
           for (i = 0; FacList[i].Name != NULL; i++)
             {
-              if (FacList[i].Code == (ULONG) NT_FACILITY(ErrorCode))
+              if (FacList[i].Code == NT_FACILITY(ErrorCode))
                 {
                   break;
                 }
             }
           if (FacList[i].Name != NULL)
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%%s-%s-", 
+              sprintf(TempBuf, "%%%s-%s-", 
                       FacList[i].Name, 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
           else
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%UNKNOWN-%s-", 
+              sprintf(TempBuf, "%%UNKNOWN-%s-", 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
         }
     }
@@ -260,8 +239,7 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (Flags & DBG_GET_SHOW_FACILITY)
         {
-          _snprintf(NumBuf, sizeof(NumBuf)-1, "%08lx", ErrorCode);
-		  NumBuf[sizeof(NumBuf)-1] = '\0';
+          sprintf(NumBuf, "%08lx", ErrorCode);
           strcat(TempBuf, NumBuf);
           strcat(TempBuf, " ");
         }
@@ -272,13 +250,12 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
   RtlAnsiStringToUnicodeString(ErrorText, &AnsiString, TRUE);
 }
 
-VOID 
-DbgPrintErrorMessage(NTSTATUS ErrorCode)
+VOID DbgPrintErrorMessage(NTSTATUS ErrorCode)
 {
   UNICODE_STRING ErrorText;
 
   DbgGetErrorText(ErrorCode, &ErrorText, 0xf);
-  DbgPrint("%wZ\n", &ErrorText);
+  DbgPrint("%W\n", &ErrorText);
   RtlFreeUnicodeString(&ErrorText);
 }
 

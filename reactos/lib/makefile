@@ -1,19 +1,12 @@
 LIBRARIES = ntdll kernel32
 
-BASE_CFLAGS = -I../include
-
 all: $(LIBRARIES)
 
 ntdll: dummy
-	$(MAKE) -C ntdll
+	make -C ntdll
        
 kernel32: dummy
-	$(MAKE) -C kernel32
+	make -C kernel32
 
 dummy:
 
-
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu

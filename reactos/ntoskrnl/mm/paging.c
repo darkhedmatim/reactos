@@ -10,23 +10,25 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-MmMapUserAddressesToPage (
-    IN PVOID BaseAddress,
-    IN SIZE_T NumberOfBytes,
-    IN PVOID PageAddress
-    )
+NTSTATUS STDCALL NtCreatePagingFile(IN PUNICODE_STRING PageFileName,
+				    IN ULONG MiniumSize,
+				    IN ULONG MaxiumSize,
+				    OUT PULONG ActualSize)
 {
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
+   return(ZwCreatePagingFile(PageFileName,MiniumSize,MaxiumSize,ActualSize));
+}
+
+NTSTATUS STDCALL ZwCreatePagingFile(IN PUNICODE_STRING PageFileName,
+				    IN ULONG MiniumSize,
+				    IN ULONG MaxiumSize,
+				    OUT PULONG ActualSize)
+{
+   UNIMPLEMENTED;
 }

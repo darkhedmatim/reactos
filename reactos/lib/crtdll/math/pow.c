@@ -18,8 +18,6 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include <msvcrt/math.h>
-
 double pow (double __x, double __y);
 
 double __log2 (double __x);
@@ -27,27 +25,18 @@ double __log2 (double __x);
 double __log2 (double __x)
 {
   register double __value;
-#ifdef __GNUC__
   __asm __volatile__
     ("fld1\n\t"
      "fxch\n\t"
      "fyl2x"
      : "=t" (__value) : "0" (__x));
-#else
-  //__value = linkme_log2(__x);
-  __value = 0;
-#endif /*__GNUC__*/
+
   return __value;
 }
 
-/*
- * @implemented
- */
 double pow (double __x, double __y)
 {
-  register double __value;
-#ifdef __GNUC__
-  register double __exponent;
+  register double __value, __exponent;
   long __p = (long) __y;
 
   if (__x == 0.0 && __y > 0.0)
@@ -75,7 +64,7 @@ double pow (double __x, double __y)
     }
   __asm __volatile__
     ("fmul      %%st(1)         # y * log2(x)\n\t"
-     "fst       %%st(1)\n\t"
+     "fstl      %%st(1)\n\t"
      "frndint                   # int(y * log2(x))\n\t"
      "fxch\n\t"
      "fsub      %%st(1)         # fract(y * log2(x))\n\t"
@@ -85,9 +74,7 @@ double pow (double __x, double __y)
   __asm __volatile__
     ("fscale"
      : "=t" (__value) : "0" (__value), "u" (__exponent));
-#else
-  __value = linkme_pow(__x, __y);
-#endif /*__GNUC__*/
+
   return __value;
 }
 
@@ -95,3 +82,4 @@ long double powl (long double __x,long double __y)
 {
 	return pow(__x,__y/2)*pow(__x,__y/2);
 }
+

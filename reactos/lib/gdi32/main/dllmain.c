@@ -1,72 +1,16 @@
 /*
  * dllmain.c
  *
- * $Revision: 1.11 $
- * $Author: weiden $
- * $Date: 2004/09/06 21:15:45 $
+ * $Revision: 1.1 $
+ * $Author: rex $
+ * $Date: 1999/03/28 23:12:42 $
  *
  */
 
-#include "precomp.h"
+#include <windows.h>
 
-/*
- * GDI32.DLL doesn't have an entry point. The initialization is done by a call
- * to GdiDllInitialize(). This call is done from the entry point of USER32.DLL.
- */
-BOOL
-WINAPI
-DllMain (
-	HANDLE	hDll,
-	DWORD	dwReason,
-	LPVOID	lpReserved
-	)
+BOOL WINAPI DllMain (HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
 {
 	return TRUE;
 }
 
-
-VOID
-WINAPI
-GdiProcessSetup (VOID)
-{
-	hProcessHeap = GetProcessHeap();
-
-        /* map the gdi handle table to user space */
-	GdiHandleTable = NtGdiQueryTable();
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-GdiDllInitialize (
-	HANDLE	hDll,
-	DWORD	dwReason,
-	LPVOID	lpReserved
-	)
-{
-	switch (dwReason)
-	{
-		case DLL_PROCESS_ATTACH:
-			GdiProcessSetup ();
-			break;
-
-		case DLL_THREAD_ATTACH:
-			break;
-
-		default:
-			return FALSE;
-	}
-
-#if 0
-	/* FIXME: working teb handling needed */
-	NtCurrentTeb()->GdiTebBatch.Offset = 0;
-	NtCurrentTeb()->GdiBatchCount = 0;
-#endif
-
-	return TRUE;
-}
-
-/* EOF */

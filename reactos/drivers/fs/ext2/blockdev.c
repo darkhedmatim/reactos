@@ -1,28 +1,29 @@
 /*
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             services/fs/ext2/blockdev.c
+ * FILE:             services/fs/vfat/blockdev.c
  * PURPOSE:          Temporary sector reading support
- * PROGRAMMER:       David Welch (welch@cwcom.net)
+ * PROGRAMMER:       David Welch (welch@mcmail.com)
  * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
+#include <string.h>
+#include <internal/string.h>
 
-//#define NDEBUG
-#include <debug.h>
+#define NDEBUG
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
 /* FUNCTIONS ***************************************************************/
 
-BOOLEAN
-Ext2ReadSectors(IN PDEVICE_OBJECT pDeviceObject,
-		IN ULONG DiskSector,
-		IN ULONG SectorCount,
-		IN PVOID Buffer)
+BOOLEAN Ext2ReadSectors(IN PDEVICE_OBJECT pDeviceObject,
+			IN ULONG	DiskSector,
+                        IN ULONG        SectorCount,
+			IN PVOID	Buffer)
 {
     LARGE_INTEGER   sectorNumber;
     PIRP            irp;
@@ -41,8 +42,8 @@ Ext2ReadSectors(IN PDEVICE_OBJECT pDeviceObject,
     DPRINT("DiskSector:%ld BLKSZ:%ld sectorNumber:%ld:%ld\n", 
            (unsigned long) DiskSector,
            (unsigned long) BLOCKSIZE,
-           (unsigned long) sectorNumber.u.HighPart,
-           (unsigned long) sectorNumber.u.LowPart);
+           (unsigned long) sectorNumber.HighPart,
+           (unsigned long) sectorNumber.LowPart);
 
     KeInitializeEvent(&event, NotificationEvent, FALSE);
 
@@ -58,18 +59,17 @@ Ext2ReadSectors(IN PDEVICE_OBJECT pDeviceObject,
                                        &event,
                                        &ioStatus );
 
-    if (!irp) 
-     {
+    if (!irp) {
         DbgPrint("READ failed!!!\n");
         return FALSE;
-     }
-   
+    }
+
     DPRINT("Calling IO Driver...\n");
-    status = IoCallDriver(pDeviceObject, irp);
+    status = IoCallDriver(pDeviceObject,
+                          irp);
 
     DPRINT("Waiting for IO Operation...\n");
-    if (status == STATUS_PENDING) 
-     {
+    if (status == STATUS_PENDING) {
         KeWaitForSingleObject(&event,
                               Suspended,
                               KernelMode,
@@ -77,15 +77,14 @@ Ext2ReadSectors(IN PDEVICE_OBJECT pDeviceObject,
                               NULL);
         DPRINT("Getting IO Status...\n");
         status = ioStatus.Status;
-     }
+    }
 
-   if (!NT_SUCCESS(status)) 
-     {
+    if (!NT_SUCCESS(status)) {
         DbgPrint("IO failed!!! Error code: %d(%x)\n", status, status);
         return FALSE;
-     }
-   
-   return TRUE;
+    }
+
+    return TRUE;
 }
 
 BOOLEAN VFATWriteSectors(IN PDEVICE_OBJECT pDeviceObject,

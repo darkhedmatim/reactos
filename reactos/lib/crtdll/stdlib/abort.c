@@ -1,19 +1,11 @@
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/io.h>
-#include <msvcrt/signal.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdio.h>
+#include <crtdll/io.h>
 
-char *msg ="Abort\n\r";
+static char msg[] = "Abort!\r\n";
 
-/*
- * @implemented
- */
 void abort()
 {
-	fflush(NULL);
-	fcloseall();
-	raise(SIGABRT);
-	_write(stderr->_file, msg, sizeof(msg)-1);
-	exit(3);
+   _write(stderr->_file, msg, sizeof(msg)-1);
+   _exit(1);
 }
-

@@ -1,42 +1,77 @@
-# $Id: makefile,v 1.23 2004/09/15 13:32:27 weiden Exp $
+# $Id: makefile,v 1.2 1999/05/21 05:25:12 ea Exp $
+#
+# Makefile for fmifs.dll
+#
+TARGET=fmifs
+ifneq ($(HOST),mingw32-windows)
+  ifneq ($(HOST),mingw32-linux)
+    DLLTARGET=$(TARGET).a
+  else
+    DLLTARGET=$(TARGET).dll
+  endif
+else
+  DLLTARGET=$(TARGET).dll
+endif
 
-PATH_TO_TOP = ../..
+all: $(DLLTARGET)
 
-TARGET_TYPE = dynlink
+IFS_OBJECTS = chkdsk.o compress.o diskcopy.o extend.o \
+	format.o init.o label.o media.o 
+	
+MISC_OBJECTS = dllmain.o $(TARGET).coff
 
-TARGET_NAME = fmifs
+OBJECTS = $(IFS_OBJECTS) $(MISC_OBJECTS)
 
-TARGET_BASE = $(TARGET_BASE_LIB_FMIFS)
+CLEAN_FILES = *.o *.a *.tmp *.dll *.sym *.coff
 
-TARGET_ENTRY = _InitializeFmIfs@12
+$(TARGET).coff: $(TARGET).rc ../../include/reactos/resource.h
+	$(RC) $(TARGET).rc $(TARGET).coff
 
-TARGET_CFLAGS = -fno-builtin -Werror -Wall -D__USE_W32API
+$(TARGET).a: $(OBJECTS)
+	$(AR) csr $(TARGET).a $(OBJECTS)
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
+$(TARGET).dll: $(DLLMAIN) $(OBJECTS) $(TARGET).def
+	$(LD) -r $(OBJECTS) -o $(TARGET).o
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--def $(TARGET).def \
+		--output-lib $(TARGET).a \
+		--add-stdcall-alias \
+		--kill-at
+	$(CC) \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--base-file,base.tmp \
+		$(TARGET).o
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGET).def \
+		--add-stdcall-alias \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o $(TARGET).dll \
+		$(TARGET).o \
+		-Wl,--image-base,0x70000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).dll > $(TARGET).sym
 
-TARGET_LFLAGS = -nostartfiles
+clean: $(CLEAN_FILES:%=%_clean)
 
-TARGET_SDKLIBS = vfatlib.a ntdll.a kernel32.a
+$(CLEAN_FILES:%=%_clean): %_clean:
+	- $(RM) $*
 
-TARGET_OBJECTS = \
-	chkdsk.o \
-	compress.o \
-	diskcopy.o \
-	extend.o \
-	format.o \
-	init.o \
-	label.o \
-	media.o 
+.PHONY: clean $(CLEAN_FILES:%=%_clean)
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
-
-TARGET_FILES = misc/*.o
+include ../../rules.mak
 
 # EOF

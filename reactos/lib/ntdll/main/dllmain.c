@@ -1,5 +1,4 @@
-/* $Id: dllmain.c,v 1.10 2002/09/08 10:23:04 chorns Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/ntdll/main/dllmain.c
@@ -7,17 +6,37 @@
  * PROGRAMMER:      
  */
 
-#include <ddk/ntddk.h>
+#include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <ddk/ntddk.h>
 #include <ntdll/ntdll.h>
-#include <windows.h>
 
-BOOL WINAPI DllMainCRTStartup(HINSTANCE hinstDll,
-			      DWORD fdwReason,
+void dprintf(char* fmt,...)
+{
+   char buffer[512];
+   va_list ap;
+   WCHAR bufferw[512];
+   UNICODE_STRING UnicodeString;
+   ULONG i;
+   
+   va_start(ap, fmt);
+   vsprintf(buffer, fmt, ap);
+   for (i=0; buffer[i] != 0; i++)
+     {
+	bufferw[i] = buffer[i];
+     }
+   bufferw[i] = 0;
+   RtlInitUnicodeString(&UnicodeString, bufferw);
+   NtDisplayString(&UnicodeString);
+   va_end(ap);
+}
+
+BOOL WINAPI DllMainCRTStartup(HINSTANCE hinstDll, 
+			      DWORD fdwReason, 
 			      LPVOID fImpLoad)
 {
   return TRUE;
 }
 
-/* EOF */
+

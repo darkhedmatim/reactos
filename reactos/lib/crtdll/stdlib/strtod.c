@@ -1,12 +1,9 @@
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
+#include <crtdll/math.h>
+#include <crtdll/stdlib.h>
 
-#include <msvcrt/stdlib.h>
 
-
-/*
- * @implemented
- */
 double
 strtod(const char *s, char **sret)
 {

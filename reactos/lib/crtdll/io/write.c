@@ -7,21 +7,17 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
+#include <crtdll/io.h>
+#include <windows.h>
 
-#include "precomp.h"
-#include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 size_t _write(int _fd, const void *_buf, size_t _nbyte)
 {
-   DWORD _wbyte;
+   size_t _wbyte;
    
-   if ( !WriteFile(_get_osfhandle(_fd),_buf,_nbyte,&_wbyte,NULL) )
-   {
+   if ( !WriteFile(_get_osfhandle(_fd),_buf,_nbyte,&_wbyte,NULL) ) {
       return -1;
    }
-   return (size_t)_wbyte;
+   return _wbyte;
 }

@@ -15,16 +15,13 @@ include rules.mak
 # Required to run the system
 #
 COMPONENTS = iface_native ntoskrnl
-#DLLS = ntdll kernel32 crtdll user32 fmifs gdi32
-DLLS = ntdll kernel32 crtdll fmifs gdi32
+DLLS = ntdll kernel32 crtdll user32 fmifs
 #DLLS = crtdll mingw32
-SUBSYS = win32k
 
 #
 # Select the server(s) you want to build
 #
-SERVERS = win32
-# SERVERS = posix linux os2
+SERVERS = win32 posix linux os2
 
 #
 # Select the loader(s) you want to build
@@ -35,16 +32,16 @@ LOADERS = dos
 #
 # Select the device drivers and filesystems you want
 #
-DEVICE_DRIVERS = blue ide keyboard mouse null parallel serial vidport
+DEVICE_DRIVERS = blue ide keyboard mouse null parallel serial
 # DEVICE_DRIVERS = beep event floppy ide_test sound test test1
-FS_DRIVERS = vfat
-# FS_DRIVERS = minix ext2 template
+FS_DRIVERS = minix vfat ext2
+# FS_DRIVERS = template
 KERNEL_SERVICES = $(DEVICE_DRIVERS) $(FS_DRIVERS)
 		  
 APPS = args hello shell test cat bench
 # APPS = cmd
 
-all: $(COMPONENTS) $(DLLS) $(SUBSYS) $(LOADERS) $(KERNEL_SERVICES) $(APPS)
+all: $(COMPONENTS) $(DLLS) $(LOADERS) $(KERNEL_SERVICES) $(APPS)
 .PHONY: all
 
 clean: $(COMPONENTS:%=%_clean) $(DLLS:%=%_clean) $(LOADERS:%=%_clean) \
@@ -127,16 +124,5 @@ $(DLLS:%=%_clean): %_clean:
 	make -C lib/$* clean
 
 .PHONY: $(DLLS) $(DLLS:%=%_clean)
-
-#
-# Kernel Subsystems
-#
-$(SUBSYS): %:
-	make -C subsys/$*
-
-$(SUBSYS:%=%_clean): %_clean:
-	make -C lib/$* clean
-
-.PHONY: $(SUBSYS) $(SUBSYS:%=%_clean)
 
 

@@ -1,51 +1,38 @@
-# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
+#
+#
+#
+OBJECTS = blockdev.o dir.o dirwr.o iface.o ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: vfatfsd.sys
 
-TARGET_BOOTSTRAP = yes
+.phony: all
 
-TARGET_TYPE = driver
-
-TARGET_NAME = vfatfs
-
-TARGET_GCCLIBS = gcc
-
-TARGET_OBJECTS = \
-  blockdev.o \
-  cleanup.o \
-  close.o \
-  create.o \
-  dir.o \
-  direntry.o \
-  dirwr.o \
-  fat.o \
-  fcb.o \
-  finfo.o \
-  iface.o \
-  rw.o \
-  shutdown.o \
-  string.o \
-  volume.o \
-  misc.o \
-  fsctl.o \
-  ea.o \
-  flush.o
-
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
-TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
-
-include $(PATH_TO_TOP)/config
-
-ifeq ($(DBG), 1)
-TARGET_CFLAGS = -Wall -Werror -g
+clean:
+ifeq ($(DOSCLI),yes)
+	- $(RM) blockdev.o
+	- $(RM) dir.o
+	- $(RM) dirwr.o
+	- $(RM) iface.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) vfatfsd.sys
 else
-TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
+	- $(RM) blockdev.o dir.o dirwr.o iface.o junk.tmp base.tmp temp.exp vfatfsd.sys
 endif
 
-include $(PATH_TO_TOP)/rules.mak
+.phony: clean
 
-include $(TOOLS_PATH)/helper.mk
+vfatfsd.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname vfatfsd.sys --base-file base.tmp \
+	           --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o vfatfsd.sys $(OBJECTS) -Wl,temp.exp
+	- $(RM) temp.exp
 
-include $(TOOLS_PATH)/depend.mk
 

@@ -1,5 +1,4 @@
-/* $Id: env.c,v 1.27 2004/12/27 16:40:14 navaraf Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/misc/env.c
@@ -9,652 +8,336 @@
  *                  Created 01/11/98
  */
 
-#include <k32.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <wchar.h>
+#include <string.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
+#define MAX_ENVIRONMENT_VARS 255
+#define MAX_VALUE 1024
 
-/* FUNCTIONS ******************************************************************/
+typedef struct _ENV_ELEMENT 
+{
+	UNICODE_STRING Name;
+	UNICODE_STRING Value;
+	WINBOOL Valid;
+} ENV_ELEMENT;
 
-/*
- * @implemented
- */
+ENV_ELEMENT Environment[MAX_ENVIRONMENT_VARS+1];
+UINT nEnvVar = 0;
+
+DWORD STDCALL GetEnvironmentVariableA(LPCSTR lpName,
+				      LPSTR lpBuffer,
+				      DWORD nSize)
+{
+	WCHAR BufferW[MAX_VALUE];
+	WCHAR NameW[MAX_PATH];
+	DWORD RetValue;
+	int i=0;
+	while ((*lpName)!=0 && i < MAX_PATH)
+     	{
+		NameW[i] = *lpName;
+		lpName++;
+		i++;
+     	}
+   	NameW[i] = 0;
+
+	RetValue = GetEnvironmentVariableW(NameW,BufferW,nSize);
+	for(i=0;i<nSize;i++)
+		lpBuffer[i] = (char)BufferW[i];	
+	return RetValue;
+}
+
 DWORD
 STDCALL
-GetEnvironmentVariableA (
-	LPCSTR	lpName,
-	LPSTR	lpBuffer,
-	DWORD	nSize
-	)
+GetEnvironmentVariableW(
+    LPCWSTR lpName,
+    LPWSTR lpBuffer,
+    DWORD nSize
+    )
 {
-	ANSI_STRING VarName;
-	ANSI_STRING VarValue;
-	UNICODE_STRING VarNameU;
-	UNICODE_STRING VarValueU;
-	NTSTATUS Status;
+	UINT NameLen;
+	UINT i;
+	NameLen = lstrlenW(lpName);
+	i = 0;
 
-	/* initialize unicode variable name string */
-	RtlInitAnsiString (&VarName,
-	                   (LPSTR)lpName);
-	RtlAnsiStringToUnicodeString (&VarNameU,
-	                              &VarName,
-	                              TRUE);
-
-	/* initialize ansi variable value string */
-	VarValue.Length = 0;
-	VarValue.MaximumLength = nSize;
-	VarValue.Buffer = lpBuffer;
-
-	/* initialize unicode variable value string and allocate buffer */
-	VarValueU.Length = 0;
-	VarValueU.MaximumLength = nSize * sizeof(WCHAR);
-	VarValueU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
-	                                    0,
-	                                    VarValueU.MaximumLength);
-
-	/* get unicode environment variable */
-	Status = RtlQueryEnvironmentVariable_U (NULL,
-	                                        &VarNameU,
-	                                        &VarValueU);
-	if (!NT_SUCCESS(Status))
+	while (i < nEnvVar) 
 	{
-		/* free unicode buffer */
-		RtlFreeHeap (RtlGetProcessHeap (),
-		             0,
-		             VarValueU.Buffer);
-
-		/* free unicode variable name string */
-		RtlFreeUnicodeString (&VarNameU);
-
-		SetLastErrorByStatus (Status);
-		if (Status == STATUS_BUFFER_TOO_SMALL)
-		{
-			return VarValueU.Length / sizeof(WCHAR) + 1;
+		if ( wcsnicmp(Environment[i].Name.Buffer,lpName,min(NameLen,Environment[i].Name.Length/sizeof(WCHAR))) != 0 ) {
+			lstrcpynW(lpBuffer,Environment[i].Value.Buffer,min(nSize,Environment[i].Value.Length/sizeof(WCHAR)));
+			
+			return lstrlenW(Environment[i].Value.Buffer);
+			
 		}
-		else
-		{
-			return 0;
-		}
+		i++;
 	}
-
-	/* convert unicode value string to ansi */
-	RtlUnicodeStringToAnsiString (&VarValue,
-	                              &VarValueU,
-	                              FALSE);
-
-	/* free unicode buffer */
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             VarValueU.Buffer);
-
-	/* free unicode variable name string */
-	RtlFreeUnicodeString (&VarNameU);
-
-	return (VarValueU.Length / sizeof(WCHAR));
+	return 0;
+	
 }
 
 
-/*
- * @implemented
- */
-DWORD
+
+WINBOOL
 STDCALL
-GetEnvironmentVariableW (
-	LPCWSTR	lpName,
-	LPWSTR	lpBuffer,
-	DWORD	nSize
-	)
+SetEnvironmentVariableA(
+    LPCSTR lpName,
+    LPCSTR lpValue
+    )
 {
-	UNICODE_STRING VarName;
-	UNICODE_STRING VarValue;
-	NTSTATUS Status;
+	WCHAR NameW[MAX_PATH];
+	WCHAR ValueW[MAX_VALUE];
 
-	RtlInitUnicodeString (&VarName,
-	                      lpName);
+	int i=0;
+	while ((*lpName)!=0 && i < MAX_PATH)
+     	{
+		NameW[i] = *lpName;
+		lpName++;
+		i++;
+     	}
+   	NameW[i] = 0;
 
-	VarValue.Length = 0;
-	VarValue.MaximumLength = nSize * sizeof(WCHAR);
-	VarValue.Buffer = lpBuffer;
+	i = 0;
+	
+	while ((*lpValue)!=0 && i < MAX_PATH)
+     	{
+		ValueW[i] = *lpValue;
+		lpValue++;
+		i++;
+     	}
+   	ValueW[i] = 0;
+	return SetEnvironmentVariableW(NameW,ValueW);
 
-	Status = RtlQueryEnvironmentVariable_U (NULL,
-	                                        &VarName,
-	                                        &VarValue);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus (Status);
-		if (Status == STATUS_BUFFER_TOO_SMALL)
-		{
-			return (VarValue.Length / sizeof(WCHAR)) + 1;
-		}
-		else
-		{
-			return 0;
-		}
-	}
-
-	return (VarValue.Length / sizeof(WCHAR));
+	
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
-SetEnvironmentVariableA (
-	LPCSTR	lpName,
-	LPCSTR	lpValue
-	)
+SetEnvironmentVariableW(
+    LPCWSTR lpName,
+    LPCWSTR lpValue
+    )
 {
-	ANSI_STRING VarName;
-	ANSI_STRING VarValue;
-	UNICODE_STRING VarNameU;
-	UNICODE_STRING VarValueU;
-	NTSTATUS Status;
+	UINT NameLen, ValueLen;
+	UINT i;
+	WCHAR *NameBuffer;
+	WCHAR *ValueBuffer;
+	NameLen = lstrlenW(lpName);
+	ValueLen = lstrlenW(lpValue);
+	i = 0;
 
-	DPRINT("SetEnvironmentVariableA(Name '%s', Value '%s')\n", lpName, lpValue);
-
-	RtlInitAnsiString (&VarName,
-	                   (LPSTR)lpName);
-	RtlAnsiStringToUnicodeString (&VarNameU,
-	                              &VarName,
-	                              TRUE);
-
-	RtlInitAnsiString (&VarValue,
-	                   (LPSTR)lpValue);
-	RtlAnsiStringToUnicodeString (&VarValueU,
-	                              &VarValue,
-	                              TRUE);
-
-	Status = RtlSetEnvironmentVariable (NULL,
-	                                    &VarNameU,
-	                                    &VarValueU);
-
-	RtlFreeUnicodeString (&VarNameU);
-	RtlFreeUnicodeString (&VarValueU);
-
-	if (!NT_SUCCESS(Status))
+	while (i < nEnvVar) 
 	{
-		SetLastErrorByStatus (Status);
+		if ( wcsnicmp(Environment[i].Name.Buffer,lpName,min(NameLen,Environment[i].Name.Length/sizeof(WCHAR))) != 0 ) {
+			if ( lpValue != NULL ) {
+				lstrcpynW(Environment[i].Value.Buffer,lpValue,min(ValueLen,Environment[i].Value.MaximumLength/sizeof(WCHAR)));
+				return TRUE;
+			}
+			else {
+				Environment[i].Valid = FALSE;
+				Environment[i].Value.Length = 0;
+				Environment[i].Name.Length = 0;
+				return FALSE;
+			}
+				
+				
+			
+		}
+		i++;
+	}
+
+	if ( nEnvVar >= MAX_ENVIRONMENT_VARS )
 		return FALSE;
-	}
 
-	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetEnvironmentVariableW (
-	LPCWSTR	lpName,
-	LPCWSTR	lpValue
-	)
-{
-	UNICODE_STRING VarName;
-	UNICODE_STRING VarValue;
-	NTSTATUS Status;
-
-	DPRINT("SetEnvironmentVariableW(Name '%S', Value '%S')\n", lpName, lpValue);
-
-	RtlInitUnicodeString (&VarName,
-	                      lpName);
-
-	RtlInitUnicodeString (&VarValue,
-	                      lpValue);
-
-	Status = RtlSetEnvironmentVariable (NULL,
-	                                    &VarName,
-	                                    &VarValue);
-	if (!NT_SUCCESS(Status))
+	while (i < nEnvVar) 
 	{
-		SetLastErrorByStatus (Status);
-		return FALSE;
+		if ( Environment[i].Valid == FALSE ) 
+			break;
+		i++;
 	}
+	if ( i == nEnvVar ) {
+		NameBuffer = (WCHAR *)HeapAlloc(GetProcessHeap(),HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,MAX_PATH*sizeof(WCHAR) );
+		ValueBuffer = (WCHAR *)HeapAlloc(GetProcessHeap(),HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,MAX_VALUE*sizeof(WCHAR) );
+	
+		Environment[i].Name.Buffer = NameBuffer;
+		Environment[i].Name.MaximumLength = MAX_PATH*sizeof(WCHAR);
 
+		Environment[i].Value.Buffer = ValueBuffer;
+		Environment[i].Value.MaximumLength = MAX_VALUE*sizeof(WCHAR);
+		nEnvVar++;
+	}
+	Environment[i].Valid = TRUE;
+
+	lstrcpynW(Environment[i].Name.Buffer,lpValue,min(NameLen,(Environment[i].Name.MaximumLength-sizeof(WCHAR))/sizeof(WCHAR)));
+	Environment[i].Name.Length = NameLen*sizeof(WCHAR);
+
+	
+	lstrcpynW(Environment[i].Value.Buffer,lpValue,min(ValueLen,(Environment[i].Value.MaximumLength-sizeof(WCHAR)))/sizeof(WCHAR));
+	Environment[i].Value.Length = ValueLen*sizeof(WCHAR);
+	
+	
+	
 	return TRUE;
+
 }
 
-
-/*
- * @implemented
- */
-DWORD
+DWORD 
 STDCALL
 GetVersion(VOID)
 {
- PPEB pPeb = NtCurrentPeb();
- DWORD nVersion;
+	DWORD Version = 0;
+	OSVERSIONINFO VersionInformation;
+	GetVersionExW(&VersionInformation);
+	
+	Version |= ( VersionInformation.dwMajorVersion << 8 );
+	Version |= VersionInformation.dwMinorVersion;
+	
+	Version |= ( VersionInformation.dwPlatformId << 16 );
 
- nVersion = MAKEWORD(pPeb->OSMajorVersion, pPeb->OSMinorVersion);
-
- /* behave consistently when posing as another operating system */
- /* build number */
- if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_WINDOWS)
-  nVersion |= ((DWORD)(pPeb->OSBuildNumber)) << 16;
- 
- /* non-NT platform flag */
- if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_NT)
-  nVersion |= 0x80000000;
-
- return nVersion;
+	return Version;
+		
 }
 
 
-/*
- * @implemented
- */
-BOOL
+
+WINBOOL 
 STDCALL
 GetVersionExW(
-    LPOSVERSIONINFOW lpVersionInformation
-    )
+    LPOSVERSIONINFO lpVersionInformation 	
+   )
 {
- PPEB pPeb = NtCurrentPeb();
- WCHAR *RosVersion;
-
- /* TODO: move this into RtlGetVersion */
- switch(lpVersionInformation->dwOSVersionInfoSize)
- {
-  case sizeof(OSVERSIONINFOEXW):
-  {
-   LPOSVERSIONINFOEXW lpVersionInformationEx =
-    (LPOSVERSIONINFOEXW)lpVersionInformation;
-
-   lpVersionInformationEx->wServicePackMajor = pPeb->SPMajorVersion;
-   lpVersionInformationEx->wServicePackMinor = pPeb->SPMinorVersion;
-   /* TODO: read from the KUSER_SHARED_DATA */
-   lpVersionInformationEx->wSuiteMask = 0;
-   /* TODO: call RtlGetNtProductType */
-   lpVersionInformationEx->wProductType = 0;
-   /* ??? */
-   lpVersionInformationEx->wReserved = 0;
-   /* fall through */
-  }
-
-  case sizeof(OSVERSIONINFOW):
-  {
-   lpVersionInformation->dwMajorVersion = pPeb->OSMajorVersion;
-   lpVersionInformation->dwMinorVersion = pPeb->OSMinorVersion;
-   lpVersionInformation->dwBuildNumber = pPeb->OSBuildNumber;
-   lpVersionInformation->dwPlatformId = pPeb->OSPlatformId;
-
-   /* First the Windows compatible string */
-   _snwprintf(lpVersionInformation->szCSDVersion,
-              sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR),
-              L"Service Pack %u", pPeb->SPMajorVersion);
-   /* Add the Reactos-specific string */
-   RosVersion = lpVersionInformation->szCSDVersion + wcslen(lpVersionInformation->szCSDVersion) + 1;
-   wcsncpy
-   (
-    RosVersion,
-    L"ReactOS " KERNEL_VERSION_STR L" (Build " KERNEL_VERSION_BUILD_STR L")",
-    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) -
-    ((RosVersion - lpVersionInformation->szCSDVersion) + 1)
-   );
-
-   /* null-terminate, just in case */
-   lpVersionInformation->szCSDVersion
-   [
-    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) - 1
-   ] = 0;
-
-   break;
-  }
-
-  default:
-  {
-   /* unknown version information revision */
-   SetLastError(ERROR_INSUFFICIENT_BUFFER);
-   return FALSE;
-  }
- }
- 
- return TRUE;
+	lpVersionInformation->dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	lpVersionInformation->dwMajorVersion = 4;
+	lpVersionInformation->dwMinorVersion = 0;
+	lpVersionInformation->dwBuildNumber = 12;
+	lpVersionInformation->dwPlatformId = VER_PLATFORM_WIN32_NT;
+	lstrcpyW((WCHAR *)lpVersionInformation->szCSDVersion,L"Ariadne was here...");
+	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL 
 STDCALL
 GetVersionExA(
-    LPOSVERSIONINFOA lpVersionInformation
-    )
+    LPOSVERSIONINFO lpVersionInformation 	
+   )
 {
- NTSTATUS nErrCode;
- OSVERSIONINFOEXW oviVerInfo;
- LPOSVERSIONINFOEXA lpVersionInformationEx;
-
- /* UNICODE_STRING descriptor of the Unicode version string */
- UNICODE_STRING wstrVerStr =
- {
-  /*
-   gives extra work to RtlUnicodeStringToAnsiString, but spares us an
-   RtlInitUnicodeString round
-  */
-  0,
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion),
-  oviVerInfo.szCSDVersion
- };
-
- /* ANSI_STRING descriptor of the ANSI version string buffer */
- ANSI_STRING strVerStr =
- {
-  0,
-  sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion),
-  lpVersionInformation->szCSDVersion
- };
-
- switch(lpVersionInformation->dwOSVersionInfoSize)
- {
-  case sizeof(OSVERSIONINFOEXA):
-  {
-   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
-   break;
-  }
-
-  case sizeof(OSVERSIONINFOA):
-  {
-   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOW);
-   break;
-  }
-
-  default:
-  {
-   /* unknown version information revision */
-   SetLastError(ERROR_INSUFFICIENT_BUFFER);
-   return FALSE;
-  }
- }
-
- if(!GetVersionExW((LPOSVERSIONINFOW)&oviVerInfo))
-  return FALSE;
-
- /* null-terminate, just in case */
- oviVerInfo.szCSDVersion
- [
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) /
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]) -
-  1
- ] = 0;
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
-
- /* convert the win version string */
- nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
- 
- if(!NT_SUCCESS(nErrCode))
- {
-  /* failure */
-  SetLastErrorByStatus(nErrCode);
-  return FALSE;
- }
-
- wstrVerStr.Buffer = oviVerInfo.szCSDVersion + wstrVerStr.Length / sizeof(WCHAR) + 1;
- wstrVerStr.MaximumLength = sizeof(oviVerInfo.szCSDVersion) - (wstrVerStr.Length + sizeof(WCHAR));
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
- strVerStr.Buffer = lpVersionInformation->szCSDVersion + strVerStr.Length + 1;
- strVerStr.MaximumLength = sizeof(lpVersionInformation->szCSDVersion) - (strVerStr.Length + 1);
- strVerStr.Length = 0;
-
- /* convert the ReactOS version string */
- nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
- 
- if(!NT_SUCCESS(nErrCode))
- {
-  /* failure */
-  SetLastErrorByStatus(nErrCode);
-  return FALSE;
- }
-
- /* copy the fields */
- lpVersionInformation->dwMajorVersion = oviVerInfo.dwMajorVersion;
- lpVersionInformation->dwMinorVersion = oviVerInfo.dwMinorVersion;
- lpVersionInformation->dwBuildNumber = oviVerInfo.dwBuildNumber;
- lpVersionInformation->dwPlatformId = oviVerInfo.dwPlatformId;
- 
- if(lpVersionInformation->dwOSVersionInfoSize < sizeof(OSVERSIONINFOEXA))
-  /* success */
-  return TRUE;
-
- /* copy the extended fields */
- lpVersionInformationEx = (LPOSVERSIONINFOEXA)lpVersionInformation;
- lpVersionInformationEx->wServicePackMajor = oviVerInfo.wServicePackMajor;
- lpVersionInformationEx->wServicePackMinor = oviVerInfo.wServicePackMinor;
- lpVersionInformationEx->wSuiteMask = oviVerInfo.wSuiteMask;
- lpVersionInformationEx->wProductType = oviVerInfo.wProductType;
- lpVersionInformationEx->wReserved = oviVerInfo.wReserved;
-
- /* success */
- return TRUE;
-}
-
-
-/*
- * @implemented
- */
-LPSTR
-STDCALL
-GetEnvironmentStringsA (
-	VOID
-	)
-{
-	UNICODE_STRING UnicodeString;
-	ANSI_STRING AnsiString;
-	PWCHAR EnvU;
-	PWCHAR PtrU;
-	ULONG  Length;
-	PCHAR EnvPtr = NULL;
-
-	EnvU = (PWCHAR)(NtCurrentPeb ()->ProcessParameters->Environment);
-
-	if (EnvU == NULL)
-		return NULL;
-
-	if (*EnvU == 0)
-		return NULL;
-
-	/* get environment size */
-	PtrU = EnvU;
-	while (*PtrU)
-	{
-		while (*PtrU)
-			PtrU++;
-		PtrU++;
-	}
-	Length = (ULONG)(PtrU - EnvU);
-	DPRINT("Length %lu\n", Length);
-
-	/* allocate environment buffer */
-	EnvPtr = RtlAllocateHeap (RtlGetProcessHeap (),
-	                          0,
-	                          Length + 1);
-	DPRINT("EnvPtr %p\n", EnvPtr);
-
-	/* convert unicode environment to ansi */
-	UnicodeString.MaximumLength = Length * sizeof(WCHAR) + sizeof(WCHAR);
-	UnicodeString.Buffer = EnvU;
-
-	AnsiString.MaximumLength = Length + 1;
-	AnsiString.Length = 0;
-	AnsiString.Buffer = EnvPtr;
-
-	DPRINT ("UnicodeString.Buffer \'%S\'\n", UnicodeString.Buffer);
-
-	while (*(UnicodeString.Buffer))
-	{
-		UnicodeString.Length = wcslen (UnicodeString.Buffer) * sizeof(WCHAR);
-		UnicodeString.MaximumLength = UnicodeString.Length + sizeof(WCHAR);
-		if (UnicodeString.Length > 0)
-		{
-			AnsiString.Length = 0;
-			AnsiString.MaximumLength = Length + 1 - (AnsiString.Buffer - EnvPtr);
-
-			RtlUnicodeStringToAnsiString (&AnsiString,
-			                              &UnicodeString,
-			                              FALSE);
-
-			AnsiString.Buffer += (AnsiString.Length + 1);
-			UnicodeString.Buffer += ((UnicodeString.Length / sizeof(WCHAR)) + 1);
-		}
-	}
-	*(AnsiString.Buffer) = 0;
-
-	return EnvPtr;
-}
-
-
-/*
- * @implemented
- */
-LPWSTR
-STDCALL
-GetEnvironmentStringsW (
-	VOID
-	)
-{
-	return (LPWSTR)(NtCurrentPeb ()->ProcessParameters->Environment);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-FreeEnvironmentStringsA (
-	LPSTR	EnvironmentStrings
-	)
-{
-	if (EnvironmentStrings == NULL)
-		return FALSE;
-
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             EnvironmentStrings);
-
+	lpVersionInformation->dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	lpVersionInformation->dwMajorVersion = 4;
+	lpVersionInformation->dwMinorVersion = 0;
+	lpVersionInformation->dwBuildNumber = 12;
+	lpVersionInformation->dwPlatformId = VER_PLATFORM_WIN32_NT;
+	lstrcpyA((char *)lpVersionInformation->szCSDVersion,"ReactOs Pre-Alpha");
 	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-FreeEnvironmentStringsW (
-	LPWSTR	EnvironmentStrings
-	)
+
+
+
+LPSTR STDCALL GetEnvironmentStringsA(VOID)
 {
- (void)EnvironmentStrings;
- return TRUE;
+   WCHAR *EnvironmentStringsW;
+   char *EnvironmentStringsA;
+   int size = 0;
+   int i;
+ 
+   return(NULL);
+   
+   /* FIXME: This doesn't work */
+#if 0
+   EnvironmentStringsW = GetEnvironmentStringsW();
+   EnvironmentStringsA = (char *)EnvironmentStringsW;
+
+   for(i=0;i<nEnvVar;i++) 
+     {
+	if ( Environment[i].Valid ) 
+	  {
+	     size += Environment[i].Name.Length;
+	     size += sizeof(WCHAR); // =
+	     size += Environment[i].Value.Length;
+	     size += sizeof(WCHAR); // zero
+	  }
+     }
+   size += sizeof(WCHAR);
+   size /= sizeof(WCHAR);
+   for(i=0;i<size;i++)
+     EnvironmentStringsA[i] = (char)EnvironmentStringsW[i];	
+   return EnvironmentStringsA;
+#endif
 }
 
 
-/*
- * @implemented
- */
-DWORD
-STDCALL
-ExpandEnvironmentStringsA (
-	LPCSTR	lpSrc,
-	LPSTR	lpDst,
-	DWORD	nSize
-	)
+LPWSTR STDCALL GetEnvironmentStringsW(VOID)
 {
-	ANSI_STRING Source;
-	ANSI_STRING Destination;
-	UNICODE_STRING SourceU;
-	UNICODE_STRING DestinationU;
-	NTSTATUS Status;
-	ULONG Length = 0;
+   int size = 0;
+   int i;
+   WCHAR *EnvironmentString;
+   WCHAR *EnvironmentStringSave;
 
-	RtlInitAnsiString (&Source,
-	                   (LPSTR)lpSrc);
-	RtlAnsiStringToUnicodeString (&SourceU,
-	                              &Source,
-	                              TRUE);
-
-	Destination.Length = 0;
-	Destination.MaximumLength = nSize;
-	Destination.Buffer = lpDst;
-
-	DestinationU.Length = 0;
-	DestinationU.MaximumLength = nSize * sizeof(WCHAR);
-	DestinationU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
-	                                       0,
-	                                       DestinationU.MaximumLength);
-
-	Status = RtlExpandEnvironmentStrings_U (NULL,
-	                                        &SourceU,
-	                                        &DestinationU,
-	                                        &Length);
-
-	RtlFreeUnicodeString (&SourceU);
-
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-		{
-			RtlFreeHeap (RtlGetProcessHeap (),
-			             0,
-			             DestinationU.Buffer);
-			return 0;
-		}
-	}
-
-	RtlUnicodeStringToAnsiString (&Destination,
-	                              &DestinationU,
-	                              FALSE);
-
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             DestinationU.Buffer);
-
-	return (Length / sizeof(WCHAR));
+   return(NULL);
+   
+   /* FIXME: This doesn't work, why not? */
+#if 0
+   for(i=0;i<nEnvVar;i++) 
+     {
+	if ( Environment[i].Valid ) 
+	  {
+	     size += Environment[i].Name.Length;
+	     size += sizeof(WCHAR); // =
+	     size += Environment[i].Value.Length;
+	     size += sizeof(WCHAR); // zero
+	  }
+     }
+   size += sizeof(WCHAR); // extra zero
+   DPRINT("size %d\n",size);
+   EnvironmentString =  (WCHAR *)HeapAlloc(GetProcessHeap(),
+					   HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,
+					   size);
+   DPRINT("EnvironmentString %x\n",EnvironmentString);
+   EnvironmentStringSave = EnvironmentString;
+   for(i=0;i<nEnvVar;i++) 
+     {
+	if ( Environment[i].Valid ) 
+	  {
+	     wcscpy(EnvironmentString,Environment[i].Name.Buffer);
+	     wcscat(EnvironmentString,L"=");
+	     wcscat(EnvironmentString,Environment[i].Value.Buffer);
+	     
+	     size = Environment[i].Name.Length;
+	     size += sizeof(WCHAR); // =
+	     size += Environment[i].Value.Length;
+	     size += sizeof(WCHAR); // zero
+	     EnvironmentString += (size/sizeof(WCHAR));
+	  }
+     }
+   *EnvironmentString = 0;
+   return EnvironmentStringSave;
+#endif
 }
 
 
-/*
- * @implemented
- */
-DWORD
+WINBOOL
 STDCALL
-ExpandEnvironmentStringsW (
-	LPCWSTR	lpSrc,
-	LPWSTR	lpDst,
-	DWORD	nSize
-	)
+FreeEnvironmentStringsA(
+			LPSTR EnvironmentStrings
+			)
 {
-	UNICODE_STRING Source;
-	UNICODE_STRING Destination;
-	NTSTATUS Status;
-	ULONG Length = 0;
-
-	RtlInitUnicodeString (&Source,
-	                      (LPWSTR)lpSrc);
-
-	Destination.Length = 0;
-	Destination.MaximumLength = nSize * sizeof(WCHAR);
-	Destination.Buffer = lpDst;
-
-	Status = RtlExpandEnvironmentStrings_U (NULL,
-	                                        &Source,
-	                                        &Destination,
-	                                        &Length);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-			return 0;
-	}
-
-	return (Length / sizeof(WCHAR));
+	if ( EnvironmentStrings == NULL )
+		return FALSE;
+	HeapFree(GetProcessHeap(),0,EnvironmentStrings);
+	return TRUE;
 }
 
-/* EOF */
+WINBOOL
+STDCALL
+FreeEnvironmentStringsW(
+    LPWSTR EnvironmentStrings
+    )
+{
+	if ( EnvironmentStrings == NULL )
+		return FALSE;
+	HeapFree(GetProcessHeap(),0,EnvironmentStrings);
+	return TRUE;
+}
+

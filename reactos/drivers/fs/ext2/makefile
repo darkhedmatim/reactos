@@ -1,26 +1,36 @@
-# $Id: makefile,v 1.14 2001/08/21 20:13:12 chorns Exp $
+#
+#
+#
+OBJECTS = super.o blockdev.o inode.o file.o dir.o rw.o \
+          ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: ext2fs.sys
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = ext2fs
+clean:
+	- $(RM) super.o 
+	- $(RM) blockdev.o
+	- $(RM) inode.o
+	- $(RM) file.o
+	- $(RM) dir.o
+	- $(RM) rw.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) ext2fs.sys
 
-TARGET_CFLAGS = -I./include -DDBG
+.phony: clean
 
-TARGET_OBJECTS = \
-  attr.o \
-  blockdev.o \
-  dir.o \
-  file.o \
-  inode.o \
-  rw.o \
-  quota.o \
-  security.o \
-  super.o
+ext2fs.sys: $(OBJECTS)
+	$(CC) -specs=$(KM_SPECS) -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	$(RM) junk.tmp
+	$(DLLTOOL) --dllname ext2fs.sys --base-file base.tmp \
+	           --output-exp temp.exp
+	$(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry \
+	      -specs=$(KM_SPECS) -mdll -o ext2fs.sys $(OBJECTS) -Wl,temp.exp
+	$(RM) temp.exp
 
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-# EOF

@@ -1,4 +1,4 @@
-; $Id: fmifs.def,v 1.6 2004/02/23 11:55:12 ekohl Exp $
+; $Id: fmifs.def,v 1.2 1999/05/21 05:25:12 ea Exp $
 ;
 ; fmifs.def
 ;
@@ -10,22 +10,17 @@
 ;
 ;  NOTE: Functions with trailing @0 are unknown.
 ;
-LIBRARY fmifs.dll
+LIBRARY fmifs
 EXPORTS
-Chkdsk@36
-;ChkdskEx
-;ComputeFmMediaType
-DiskCopy@0
-EnableVolumeCompression@8
-Extend@0
-Format@0
-FormatEx@28
-;FormatEx2
-InitializeFmIfs@12
-;QueryAvailableFileSystemFormat
-;QueryDeviceInformation
-;QueryDeviceInformationByHandle
-;QueryFileSystemName
-;QueryLatestFileSystemVersion
-QuerySupportedMedia@0
-SetLabel@0
+	Chkdsk@36
+	Chkdsk			= Chkdsk@36
+	DiskCopy		= DiskCopy@0
+	EnableVolumeCompression@8
+	EnableVolumeCompression	= EnableVolumeCompression@8
+	Extend			= Extend@0
+	Format			= Format@0
+	FormatEx@28
+	FormatEx		= FormatEx@28
+	InitializeFmIfs		= InitializeFmIfs@0
+	QuerySupportedMedia	= QuerySupportedMedia@0
+	SetLabel		= SetLabel@0

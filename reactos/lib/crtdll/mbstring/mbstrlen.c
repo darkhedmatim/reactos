@@ -1,14 +1,10 @@
-#include <msvcrt/mbstring.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/mbstring.h>
+#include <crtdll/stdlib.h>
 
-/*
- * @implemented
- */
 size_t _mbstrlen( const char *string )
 {
 	char *s = (char *)string;
-	size_t i = 0;
-
+	size_t i;
 	while ( *s != 0 ) {
 		if ( _ismbblead(*s) )
 			s++;

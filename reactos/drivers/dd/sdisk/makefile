@@ -1,13 +1,33 @@
-# $Id: makefile,v 1.5 2001/08/21 20:13:11 chorns Exp $
+#
+#
+#
+OBJECTS= sdisk.o ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: sdisk.sys
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = sdisk
+clean:
+	- $(RM) sdisk.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) sdisk.sys
 
-TARGET_OBJECTS = sdisk.o
+.phony: clean
 
-include $(PATH_TO_TOP)/rules.mak
+sdisk.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname sdisk.sys --base-file base.tmp \
+	           --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o sdisk.sys $(OBJECTS) -Wl,temp.exp
+	- $(RM) temp.exp
 
-include $(TOOLS_PATH)/helper.mk
+WIN32_LEAN_AND_MEAN = yes
+include ../../../rules.mak
+

@@ -20,17 +20,16 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.5 $
- * $Author: chorns $
- * $Date: 2004/08/15 17:34:27 $
+ * $Revision: 1.2 $
+ * $Author: ariadne $
+ * $Date: 1999/04/02 21:43:56 $
  * 
  */
 
-#include "precomp.h"
-#include <msvcrt/stdio.h>
-#include <msvcrt/io.h>
-#include <msvcrt/process.h>
-
+#include <crtdll/stdio.h>
+#include <crtdll/io.h>
+#include <crtdll/process.h>
+#include <windows.h>
 
 /* See note in crt0.c */
 #include "init.c"
@@ -47,11 +46,12 @@ extern void __do_global_dtors();
 extern BOOL WINAPI DllMain(HANDLE, DWORD, LPVOID);
 
 BOOL WINAPI
-DllMainCRTStartup(HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
+DllMainCRTStartup (HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
 {
 	BOOL bRet;
  
-	if (dwReason == DLL_PROCESS_ATTACH)	{
+	if (dwReason == DLL_PROCESS_ATTACH)
+	{
         	_mingw32_init_mainargs();
 
 #ifdef	__GNUC__
@@ -68,7 +68,8 @@ DllMainCRTStartup(HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
 	bRet = DllMain(hDll, dwReason, lpReserved);
 
 #ifdef	__GNUC__
-	if (dwReason == DLL_PROCESS_DETACH) {
+	if (dwReason == DLL_PROCESS_DETACH)
+	{
 		/* From libgcc.a, calls global class destructors. */
 		__do_global_dtors();
 	}
@@ -84,11 +85,9 @@ DllMainCRTStartup(HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
  *       the global constructor function __do_global_ctors called from __main
  *       will attempt to register __do_global_dtors using atexit.
  *       Thanks to Andrey A. Smirnov for pointing this one out.
- *
- * @unimplemented
  */
 int
-atexit(void (*pfn)())
+atexit (void (*pfn)())
 {
 	return 0;
 }

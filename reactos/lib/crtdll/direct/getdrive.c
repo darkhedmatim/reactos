@@ -1,30 +1,25 @@
-#include "precomp.h"
-#include <msvcrt/ctype.h>
-#include <msvcrt/direct.h>
-
+#include <crtdll/direct.h>
+#include <crtdll/ctype.h>
+#include <windows.h>
 
 extern int cur_drive;
 
-/*
- * @implemented
- */
-int _getdrive(void)
-{
-    char Buffer[MAX_PATH];
 
-    if (cur_drive == 0) {
-        GetCurrentDirectoryA(MAX_PATH, Buffer);
-        cur_drive = toupper(Buffer[0] - '@');
-    }
-    return cur_drive;
+
+int _getdrive( void )
+{
+	char Buffer[MAX_PATH];
+
+	if ( cur_drive == 0 ) {
+		GetCurrentDirectory(MAX_PATH,Buffer);
+		cur_drive = toupper(Buffer[0] - '@');
+	}
+	
+	return cur_drive;
 }
 
-/*
- * @unimplemented
- */
 unsigned long _getdrives(void)
 {
-    //fixme get logical drives
+    return printf("get logical drives\n");
     //return GetLogicalDrives();
-    return 5;  // drive A and C
 }

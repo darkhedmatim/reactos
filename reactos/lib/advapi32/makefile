@@ -1,74 +1,81 @@
-# $Id: makefile,v 1.46 2004/12/14 00:00:40 weiden Exp $
+# $Id: makefile,v 1.2 1999/05/19 16:43:30 ea Exp $
+#
+# Makefile for ReactOS advapi32.dll
+#
+TARGET=advapi32
+ifneq ($(HOST),mingw32-windows)
+  ifneq ($(HOST),mingw32-linux)
+    DLLTARGET=$(TARGET).a
+  else
+    DLLTARGET=$(TARGET).dll
+  endif
+else
+  DLLTARGET=$(TARGET).dll
+endif
 
-PATH_TO_TOP = ../..
 
-TARGET_TYPE = dynlink
+MISC_OBJECTS = misc/dllmain.o misc/shutdown.o \
+		misc/sysfunc.o
 
-TARGET_NAME = advapi32
+REGISTRY_OBJECTS = reg/reg.o
 
-TARGET_PCH = advapi32.h
+SECURITY_OBJECTS = sec/lsa.o sec/sec.o
+#SECURITY_OBJECTS = sec/lsa.o sec/rtlsec.o sec/sec.o
 
-TARGET_CFLAGS = -Wall -Werror -fno-builtin \
-                -D__USE_W32API \
-                -D_WIN32_IE=0x0500 \
-                -D_WIN32_WINNT=0x501 \
-                -DWINVER=0x600 \
+SERVICE_OBJECTS = service/scm.o
 
-TARGET_LFLAGS = -nostartfiles -nostdlib
+TOKEN_OBJECTS = token/token.o
 
-TARGET_SDKLIBS = ntdll.a kernel32.a
+RESOURCE_OBJECT = advapi32.coff
 
-TARGET_BASE = $(TARGET_BASE_LIB_ADVAPI32)
+OBJECTS = $(MISC_OBJECTS) $(REGISTRY_OBJECTS) $(SECURITY_OBJECTS) \
+          $(SERVICE_OBJECTS) $(TOKEN_OBJECTS) \
+	  $(RESOURCE_OBJECT)
 
-CRYPT_OBJECTS = \
-	crypt/crypt_des.o \
-	crypt/crypt_lmhash.o \
-	crypt/crypt_md4.o \
-	crypt/crypt_md5.o \
-	crypt/crypt_sha.o \
-	crypt/crypt.o
+all: $(DLLTARGET)
 
-MISC_OBJECTS = \
-	misc/dllmain.o \
-	misc/hwprofiles.o \
-	misc/logon.o \
-	misc/shutdown.o \
-	misc/sysfunc.o \
+$(TARGET).a: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o $(TARGET).a
 
-REGISTRY_OBJECTS = \
-	reg/reg.o
+$(TARGET).dll: $(DLLMAIN) $(OBJECTS) $(TARGET).def
+	$(LD) -r $(OBJECTS) -o $(TARGET).o
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--def $(TARGET).def \
+		--output-lib $(TARGET).a
+	$(CC) \
+		$(TARGET).o \
+		../kernel32/kernel32.a \
+		../ntdll/ntdll.a \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGET).def
+	- $(RM) base.tmp
+	$(CC) \
+		$(TARGET).o
+		../kernel32/kernel32.a
+		../ntdll/ntdll.a \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o $(TARGET).dll   \
+		-Wl,--image-base,0x20000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).dll > $(TARGET).sym
 
-SECURITY_OBJECTS = \
-	sec/ac.o \
-	sec/audit.o \
-	sec/lsa.o \
-	sec/misc.o \
-	sec/sec.o \
-	sec/sid.o \
-	sec/trustee.o
+$(TARGET).coff: $(TARGET).rc ../../include/reactos/resource.h
+	$(RC) $(TARGET).rc $(TARGET).coff
 
-SERVICE_OBJECTS = \
-	service/eventlog.o \
-	service/scm.o \
-	service/sctrl.o \
-	service/undoc.o
+clean:
 
-TOKEN_OBJECTS = \
-	token/privilege.o \
-	token/token.o
+include ../../rules.mak
 
-TARGET_OBJECTS = \
-	$(CRYPT_OBJECTS) \
-	$(MISC_OBJECTS) \
-	$(REGISTRY_OBJECTS) \
-	$(SECURITY_OBJECTS) \
-	$(SERVICE_OBJECTS) \
-	$(TOKEN_OBJECTS)
-
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk

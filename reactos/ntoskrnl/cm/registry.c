@@ -1,1181 +1,757 @@
-/* $Id: registry.c,v 1.129 2004/12/12 22:36:10 ekohl Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cm/registry.c
  * PURPOSE:         Registry functions
- * PROGRAMMERS:     Rex Jolliff
- *                  Matt Pyne
- *                  Jean Michault
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
  */
 
-#include <ntoskrnl.h>
-#define NDEBUG
+/* INCLUDES *****************************************************************/
+
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
-#include "cm.h"
+/* #define  PROTO_REG  1  /* Comment out to disable */
 
-/* GLOBALS ******************************************************************/
+/* FILE STATICS *************************************************************/
 
-POBJECT_TYPE  CmiKeyType = NULL;
-PREGISTRY_HIVE  CmiVolatileHive = NULL;
-KSPIN_LOCK  CmiKeyListLock;
+POBJECT_TYPE CmKeyType = NULL;
+PKEY_OBJECT RootKey = NULL;
 
-LIST_ENTRY CmiHiveListHead;
+#if PROTO_REG
+static PVOID CmpObjectParse(PVOID ParsedObject, PWSTR* Path);
+#endif
 
-ERESOURCE CmiRegistryLock;
-
-volatile BOOLEAN CmiHiveSyncEnabled = FALSE;
-volatile BOOLEAN CmiHiveSyncPending = FALSE;
-KDPC CmiHiveSyncDpc;
-KTIMER CmiHiveSyncTimer;
-
-static GENERIC_MAPPING CmiKeyMapping =
-	{KEY_READ, KEY_WRITE, KEY_EXECUTE, KEY_ALL_ACCESS};
-
-
+/* FUNCTIONS *****************************************************************/
 
 VOID
-CmiCheckKey(BOOLEAN Verbose,
-  HANDLE Key);
-
-static NTSTATUS
-CmiCreateCurrentControlSetLink(VOID);
-
-static VOID STDCALL
-CmiHiveSyncDpcRoutine(PKDPC Dpc,
-		      PVOID DeferredContext,
-		      PVOID SystemArgument1,
-		      PVOID SystemArgument2);
-
-/* FUNCTIONS ****************************************************************/
-
-VOID
-CmiCheckSubKeys(BOOLEAN Verbose,
-  HANDLE Key)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  PKEY_NODE_INFORMATION KeyInfo;
-  WCHAR KeyBuffer[MAX_PATH];
-  UNICODE_STRING KeyPath;
-  WCHAR Name[MAX_PATH];
-  ULONG BufferSize;
-  ULONG ResultSize;
-  NTSTATUS Status;
-  HANDLE SubKey;
-  ULONG Index;
-
-  Index = 0;
-  while (TRUE)
-    {
-      BufferSize = sizeof(KEY_NODE_INFORMATION) + 4096;
-      KeyInfo = ExAllocatePool(PagedPool, BufferSize);
-
-      Status = NtEnumerateKey(Key,
-			      Index,
-			      KeyNodeInformation,
-			      KeyInfo,
-			      BufferSize,
-			      &ResultSize);
-      if (!NT_SUCCESS(Status))
-	{
-	  ExFreePool(KeyInfo);
-	  if (Status == STATUS_NO_MORE_ENTRIES)
-	    Status = STATUS_SUCCESS;
-	  break;
-	}
-
-      wcsncpy(Name,
-	      KeyInfo->Name,
-	      KeyInfo->NameLength / sizeof(WCHAR));
-
-      if (Verbose)
-	{
-	  DbgPrint("Key: %S\n", Name);
-	}
-
-      /* FIXME: Check info. */
-
-      ExFreePool(KeyInfo);
-
-      wcscpy(KeyBuffer, L"\\Registry\\");
-      wcscat(KeyBuffer, Name);
-
-      RtlInitUnicodeString(&KeyPath, KeyBuffer);
-
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &KeyPath,
-				 OBJ_CASE_INSENSITIVE,
-				 NULL,
-				 NULL);
-
-      Status = NtOpenKey(&SubKey,
-			 KEY_ALL_ACCESS,
-			 &ObjectAttributes);
-
-      ASSERT(NT_SUCCESS(Status));
-
-      CmiCheckKey(Verbose, SubKey);
-
-      NtClose(SubKey);
-
-      Index++;
-    }
-
-  ASSERT(NT_SUCCESS(Status));
-}
-
-
-VOID
-CmiCheckValues(BOOLEAN Verbose,
-  HANDLE Key)
-{
-  PKEY_NODE_INFORMATION ValueInfo;
-  WCHAR Name[MAX_PATH];
-  ULONG BufferSize;
-  ULONG ResultSize;
-  NTSTATUS Status;
-  ULONG Index;
-
-  Index = 0;
-  while (TRUE)
-    {
-      BufferSize = sizeof(KEY_NODE_INFORMATION) + 4096;
-      ValueInfo = ExAllocatePool(PagedPool, BufferSize);
-
-      Status = NtEnumerateValueKey(Key,
-				   Index,
-				   KeyNodeInformation,
-				   ValueInfo,
-				   BufferSize,
-				   &ResultSize);
-      if (!NT_SUCCESS(Status))
-	{
-	  ExFreePool(ValueInfo);
-	  if (Status == STATUS_NO_MORE_ENTRIES)
-	    Status = STATUS_SUCCESS;
-	  break;
-	}
-
-      wcsncpy(Name,
-	      ValueInfo->Name,
-	      ValueInfo->NameLength / sizeof(WCHAR));
-
-      if (Verbose)
-	{
-	  DbgPrint("Value: %S\n", Name);
-	}
-
-      /* FIXME: Check info. */
-
-      ExFreePool(ValueInfo);
-
-      Index++;
-    }
-
-  ASSERT(NT_SUCCESS(Status));
-}
-
-
-VOID
-CmiCheckKey(BOOLEAN Verbose,
-  HANDLE Key)
-{
-  CmiCheckValues(Verbose, Key);
-  CmiCheckSubKeys(Verbose, Key);
-}
-
-
-VOID
-CmiCheckByName(BOOLEAN Verbose,
-  PWSTR KeyName)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  WCHAR KeyPathBuffer[MAX_PATH];
-  UNICODE_STRING KeyPath;
-  NTSTATUS Status;
-  HANDLE Key;
-
-  wcscpy(KeyPathBuffer, L"\\Registry\\");
-  wcscat(KeyPathBuffer, KeyName);
-
-  RtlInitUnicodeString(&KeyPath, KeyPathBuffer);
-
-  InitializeObjectAttributes(&ObjectAttributes,
-		&KeyPath,
-		OBJ_CASE_INSENSITIVE,
-		NULL,
-		NULL);
-
-  Status = NtOpenKey(&Key,
-		KEY_ALL_ACCESS,
-		&ObjectAttributes);
-
-  if (CHECKED)
-    {
-      if (!NT_SUCCESS(Status))
-	{
-          DbgPrint("KeyPath %wZ  Status: %.08x", KeyPath, Status);
-          DbgPrint("KeyPath %S  Status: %.08x", KeyPath.Buffer, Status);
-          ASSERT(NT_SUCCESS(Status));
-	}
-    }
-
-  CmiCheckKey(Verbose, Key);
-
-  NtClose(Key);
-}
-
-
-VOID
-CmiCheckRegistry(BOOLEAN Verbose)
-{
-  if (Verbose)
-    DbgPrint("Checking registry internals\n");
-
-  CmiCheckByName(Verbose, L"Machine");
-  CmiCheckByName(Verbose, L"User");
-}
-
-
-VOID INIT_FUNCTION
 CmInitializeRegistry(VOID)
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING KeyName;
-  PKEY_OBJECT RootKey;
-#if 0
-  PSECURITY_CELL RootSecurityCell;
-#endif
-  HANDLE RootKeyHandle;
-  HANDLE KeyHandle;
-  NTSTATUS Status;
+#if PROTO_REG
+  ANSI_STRING AnsiString;
+  
+  CmKeyType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
+  CmKeyType->TotalObjects = 0;
+  CmKeyType->TotalHandles = 0;
+  CmKeyType->MaxObjects = ULONG_MAX;
+  CmKeyType->MaxHandles = ULONG_MAX;
+  CmKeyType->PagedPoolCharge = 0;
+  CmKeyType->NonpagedPoolCharge = sizeof(KEY_OBJECT);
+  CmKeyType->Dump = NULL;
+  CmKeyType->Open = NULL;
+  CmKeyType->Close = NULL;
+  CmKeyType->Delete = NULL;
+  CmKeyType->Parse = CmpObjectParse;
+  CmKeyType->Security = NULL;
+  CmKeyType->QueryName = NULL;
+  CmKeyType->OkayToClose = NULL;
+   
+  RtlInitAnsiString(&AnsiString, "Key");
+  RtlAnsiStringToUnicodeString(&CmKeyType->TypeName, &AnsiString, TRUE);
 
-  /*  Initialize the Key object type  */
-  CmiKeyType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
-  ASSERT(CmiKeyType);
-  CmiKeyType->Tag = TAG('R', 'e', 'g', 'K');
-  CmiKeyType->TotalObjects = 0;
-  CmiKeyType->TotalHandles = 0;
-  CmiKeyType->MaxObjects = LONG_MAX;
-  CmiKeyType->MaxHandles = LONG_MAX;
-  CmiKeyType->PagedPoolCharge = 0;
-  CmiKeyType->NonpagedPoolCharge = sizeof(KEY_OBJECT);
-  CmiKeyType->Mapping = &CmiKeyMapping;
-  CmiKeyType->Dump = NULL;
-  CmiKeyType->Open = NULL;
-  CmiKeyType->Close = NULL;
-  CmiKeyType->Delete = CmiObjectDelete;
-  CmiKeyType->Parse = CmiObjectParse;
-  CmiKeyType->Security = CmiObjectSecurity;
-  CmiKeyType->QueryName = CmiObjectQueryName;
-  CmiKeyType->OkayToClose = NULL;
-  CmiKeyType->Create = CmiObjectCreate;
-  CmiKeyType->DuplicationNotify = NULL;
-  RtlInitUnicodeString(&CmiKeyType->TypeName, L"Key");
+  RtlInitAnsiString(&AnsiString,"\\Registry");
+  RtlAnsiStringToUnicodeString(&UnicodeString, &AnsiString, TRUE);
+  InitializeObjectAttributes(&attr, &UnicodeString, 0, NULL, NULL);
+  ZwCreateDirectoryObject(&handle, 0, &attr);
+  RtlFreeUnicodeString(UnicodeString);
 
-  ObpCreateTypeObject (CmiKeyType);
-
-  /* Initialize the hive list */
-  InitializeListHead(&CmiHiveListHead);
-
-  /* Initialize registry lock */
-  ExInitializeResourceLite(&CmiRegistryLock);
-
-  /*  Build volatile registry store  */
-  Status = CmiCreateVolatileHive (&CmiVolatileHive);
-  ASSERT(NT_SUCCESS(Status));
-
-  /* Create '\Registry' key. */
-  RtlInitUnicodeString(&KeyName, REG_ROOT_KEY_NAME);
-  InitializeObjectAttributes(&ObjectAttributes, &KeyName, 0, NULL, NULL);
-  Status = ObCreateObject(KernelMode,
-			  CmiKeyType,
-			  &ObjectAttributes,
-			  KernelMode,
-			  NULL,
-			  sizeof(KEY_OBJECT),
-			  0,
-			  0,
-			  (PVOID *) &RootKey);
-  ASSERT(NT_SUCCESS(Status));
-  Status = ObInsertObject(RootKey,
-			  NULL,
-			  STANDARD_RIGHTS_REQUIRED,
-			  0,
-			  NULL,
-			  &RootKeyHandle);
-  ASSERT(NT_SUCCESS(Status));
-  RootKey->RegistryHive = CmiVolatileHive;
-  RootKey->KeyCellOffset = CmiVolatileHive->HiveHeader->RootKeyOffset;
-  RootKey->KeyCell = CmiGetCell (CmiVolatileHive, RootKey->KeyCellOffset, NULL);
-  RootKey->ParentKey = RootKey;
-  RootKey->Flags = 0;
-  RootKey->NumberOfSubKeys = 0;
-  RootKey->SubKeys = NULL;
-  RootKey->SizeOfSubKeys = 0;
-  Status = RtlCreateUnicodeString(&RootKey->Name, L"Registry");
-  ASSERT(NT_SUCCESS(Status));
-
-#if 0
-  Status = CmiAllocateCell(CmiVolatileHive,
-			   0x10, //LONG CellSize,
-			   (PVOID *)&RootSecurityCell,
-			   &RootKey->KeyCell->SecurityKeyOffset);
-  ASSERT(NT_SUCCESS(Status));
-
-  /* Copy the security descriptor */
-
-  CmiVolatileHive->RootSecurityCell = RootSecurityCell;
-#endif
-
-  KeInitializeSpinLock(&CmiKeyListLock);
-
-  /* Create '\Registry\Machine' key. */
-  RtlInitUnicodeString(&KeyName,
-		       L"Machine");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     0,
-			     RootKeyHandle,
-			     NULL);
-  Status = NtCreateKey(&KeyHandle,
-		       STANDARD_RIGHTS_REQUIRED,
-		       &ObjectAttributes,
-		       0,
-		       NULL,
-		       REG_OPTION_VOLATILE,
-		       NULL);
-  ASSERT(NT_SUCCESS(Status));
-
-  /* Create '\Registry\User' key. */
-  RtlInitUnicodeString(&KeyName,
-		       L"User");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     0,
-			     RootKeyHandle,
-			     NULL);
-  Status = NtCreateKey(&KeyHandle,
-		       STANDARD_RIGHTS_REQUIRED,
-		       &ObjectAttributes,
-		       0,
-		       NULL,
-		       REG_OPTION_VOLATILE,
-		       NULL);
-  ASSERT(NT_SUCCESS(Status));
-}
-
-
-VOID INIT_FUNCTION
-CmInit2(PCHAR CommandLine)
-{
-  ULONG PiceStart = 4;
-  BOOLEAN MiniNT = FALSE;
-  PWCHAR SystemBootDevice;
-  PWCHAR SystemStartOptions;
-  ULONG Position;
-  NTSTATUS Status;
-
-  /* Create the 'CurrentControlSet' link. */
-  Status = CmiCreateCurrentControlSetLink();
-  if (!NT_SUCCESS(Status))
-    KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-
-  /*
-   * Parse the system boot device.
-   */
-  Position = 0;
-  SystemBootDevice = ExAllocatePool(PagedPool,
-				    (strlen(CommandLine) + 1) * sizeof(WCHAR));
-  if (SystemBootDevice == NULL)
-  {
-    KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
-
-  while (*CommandLine != 0 && *CommandLine != ' ')
-    SystemBootDevice[Position++] = *(CommandLine++);
-  SystemBootDevice[Position++] = 0;
-
-  /*
-   * Write the system boot device to registry.
-   */
-  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
-				 L"SystemBootDevice",
-				 REG_SZ,
-				 SystemBootDevice,
-				 Position * sizeof(WCHAR));
-  if (!NT_SUCCESS(Status))
-  {
-    KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
-
-  /*
-   * Parse the system start options.
-   */
-  Position = 0;
-  SystemStartOptions = SystemBootDevice;
-  while ((CommandLine = strchr(CommandLine, '/')) != NULL)
+  /* FIXME: build initial registry skeleton */
+  RootKey = ObGenericCreateObject(NULL, 
+                                 KEY_ALL_ACCESS, 
+                                 NULL, 
+                                 CmKeyType);
+  if (NewKey == NULL)
     {
-      /* Skip over the slash */
-      CommandLine++;
-
-      /* Special options */
-      if (!_strnicmp(CommandLine, "MININT", 6))
-        MiniNT = TRUE;
-      else if (!_strnicmp(CommandLine, "DEBUGPORT=PICE", 14))
-        PiceStart = 1;
-      
-      /* Add a space between the options */
-      if (Position != 0)
-        SystemStartOptions[Position++] = L' ';
-
-      /* Copy the command */
-      while (*CommandLine != 0 && *CommandLine != ' ')
-        SystemStartOptions[Position++] = *(CommandLine++);
-    }
-  SystemStartOptions[Position++] = 0;
-
-  /*
-   * Write the system start options to registry.
-   */
-  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
-				 L"SystemStartOptions",
-				 REG_SZ,
-				 SystemStartOptions,
-				 Position * sizeof(WCHAR));
-  if (!NT_SUCCESS(Status))
-  {
-    KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
-
-  /*
-   * Create a CurrentControlSet\Control\MiniNT key that is used
-   * to detect WinPE/MiniNT systems.
-   */
-  if (MiniNT)
-    {
-      Status = RtlCreateRegistryKey(RTL_REGISTRY_CONTROL, L"MiniNT");
-      if (!NT_SUCCESS(Status))
-        KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-    }
-
-  /* Set PICE 'Start' value to 1, if PICE debugging is enabled */
-  Status = RtlWriteRegistryValue(
-    RTL_REGISTRY_SERVICES,
-    L"\\Pice",
-    L"Start",
-    REG_DWORD,
-    &PiceStart,
-    sizeof(ULONG));
-  if (!NT_SUCCESS(Status))
-    KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-
-  ExFreePool(SystemBootDevice);
-}
-
-
-static NTSTATUS
-CmiCreateCurrentControlSetLink(VOID)
-{
-  RTL_QUERY_REGISTRY_TABLE QueryTable[5];
-  WCHAR TargetNameBuffer[80];
-  ULONG TargetNameLength;
-  UNICODE_STRING LinkName;
-  UNICODE_STRING LinkValue;
-  ULONG CurrentSet;
-  ULONG DefaultSet;
-  ULONG Failed;
-  ULONG LastKnownGood;
-  NTSTATUS Status;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE KeyHandle;
-
-  DPRINT("CmiCreateCurrentControlSetLink() called\n");
-
-  RtlZeroMemory(&QueryTable, sizeof(QueryTable));
-
-  QueryTable[0].Name = L"Current";
-  QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[0].EntryContext = &CurrentSet;
-
-  QueryTable[1].Name = L"Default";
-  QueryTable[1].Flags = RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[1].EntryContext = &DefaultSet;
-
-  QueryTable[2].Name = L"Failed";
-  QueryTable[2].Flags = RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[2].EntryContext = &Failed;
-
-  QueryTable[3].Name = L"LastKnownGood";
-  QueryTable[3].Flags = RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[3].EntryContext = &LastKnownGood;
-
-  Status = RtlQueryRegistryValues(RTL_REGISTRY_ABSOLUTE,
-				  L"\\Registry\\Machine\\SYSTEM\\Select",
-				  QueryTable,
-				  NULL,
-				  NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return(Status);
-    }
-
-  DPRINT("Current %ld  Default %ld\n", CurrentSet, DefaultSet);
-
-  swprintf(TargetNameBuffer,
-	   L"\\Registry\\Machine\\SYSTEM\\ControlSet%03lu",
-	   CurrentSet);
-  TargetNameLength = wcslen(TargetNameBuffer) * sizeof(WCHAR);
-
-  DPRINT("Link target '%S'\n", TargetNameBuffer);
-
-  RtlRosInitUnicodeStringFromLiteral(&LinkName,
-				  L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &LinkName,
-			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF | OBJ_OPENLINK,
-			     NULL,
-			     NULL);
-  Status = NtCreateKey(&KeyHandle,
-		       KEY_ALL_ACCESS | KEY_CREATE_LINK,
-		       &ObjectAttributes,
-		       0,
-		       NULL,
-		       REG_OPTION_VOLATILE | REG_OPTION_CREATE_LINK,
-		       NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  RtlRosInitUnicodeStringFromLiteral(&LinkValue,
-				  L"SymbolicLinkValue");
-  Status = NtSetValueKey(KeyHandle,
-			 &LinkValue,
-			 0,
-			 REG_LINK,
-			 (PVOID)TargetNameBuffer,
-			 TargetNameLength);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-    }
-
-  NtClose(KeyHandle);
-
-  return Status;
-}
-
-
-NTSTATUS
-CmiConnectHive(IN POBJECT_ATTRIBUTES KeyObjectAttributes,
-	       IN PREGISTRY_HIVE RegistryHive)
-{
-  UNICODE_STRING RemainingPath;
-  PKEY_OBJECT ParentKey;
-  PKEY_OBJECT NewKey;
-  NTSTATUS Status;
-  PWSTR SubName;
-
-  DPRINT("CmiConnectHive(%p, %p) called.\n",
-	 KeyObjectAttributes, RegistryHive);
-
-  Status = ObFindObject(KeyObjectAttributes,
-			(PVOID*)&ParentKey,
-			&RemainingPath,
-			CmiKeyType);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  DPRINT ("RemainingPath %wZ\n", &RemainingPath);
-
-  if ((RemainingPath.Buffer == NULL) || (RemainingPath.Buffer[0] == 0))
-    {
-      ObDereferenceObject (ParentKey);
-      RtlFreeUnicodeString(&RemainingPath);
-      return STATUS_OBJECT_NAME_COLLISION;
-    }
-
-  /* Ignore leading backslash */
-  SubName = RemainingPath.Buffer;
-  if (*SubName == L'\\')
-    SubName++;
-
-  /* If RemainingPath contains \ we must return error
-     because CmiConnectHive() can not create trees */
-  if (wcschr (SubName, L'\\') != NULL)
-    {
-      ObDereferenceObject (ParentKey);
-      RtlFreeUnicodeString(&RemainingPath);
-      return STATUS_OBJECT_NAME_NOT_FOUND;
-    }
-
-  DPRINT("RemainingPath %wZ  ParentKey %p\n",
-	 &RemainingPath, ParentKey);
-
-  Status = ObCreateObject(KernelMode,
-			  CmiKeyType,
-			  NULL,
-			  KernelMode,
-			  NULL,
-			  sizeof(KEY_OBJECT),
-			  0,
-			  0,
-			  (PVOID*)&NewKey);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("ObCreateObject() failed (Status %lx)\n", Status);
-      ObDereferenceObject (ParentKey);
-      RtlFreeUnicodeString(&RemainingPath);
-      return Status;
-    }
-
-  NewKey->RegistryHive = RegistryHive;
-  NewKey->KeyCellOffset = RegistryHive->HiveHeader->RootKeyOffset;
-  NewKey->KeyCell = CmiGetCell (RegistryHive, NewKey->KeyCellOffset, NULL);
-  NewKey->Flags = 0;
-  NewKey->NumberOfSubKeys = 0;
-  if (NewKey->KeyCell->NumberOfSubKeys != 0)
-    {
-      NewKey->SubKeys = ExAllocatePool(NonPagedPool,
-				       NewKey->KeyCell->NumberOfSubKeys * sizeof(ULONG));
-      if (NewKey->SubKeys == NULL)
-	{
-	  DPRINT("ExAllocatePool() failed\n");
-	  ObDereferenceObject (NewKey);
-	  ObDereferenceObject (ParentKey);
-	  RtlFreeUnicodeString(&RemainingPath);
-	  return STATUS_INSUFFICIENT_RESOURCES;
-	}
-    }
-  else
-    {
-      NewKey->SubKeys = NULL;
-    }
-
-  DPRINT ("SubName %S\n", SubName);
-
-  Status = RtlCreateUnicodeString(&NewKey->Name,
-				  SubName);
-  RtlFreeUnicodeString(&RemainingPath);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("RtlCreateUnicodeString() failed (Status %lx)\n", Status);
-      if (NewKey->SubKeys != NULL)
-	{
-	  ExFreePool (NewKey->SubKeys);
-	}
-      ObDereferenceObject (NewKey);
-      ObDereferenceObject (ParentKey);
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-  CmiAddKeyToList (ParentKey, NewKey);
-  ObDereferenceObject (ParentKey);
-
-  VERIFY_KEY_OBJECT(NewKey);
-
-  /* Note: Do not dereference NewKey here! */
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-CmiDisconnectHive (IN POBJECT_ATTRIBUTES KeyObjectAttributes,
-		   OUT PREGISTRY_HIVE *RegistryHive)
-{
-  PKEY_OBJECT KeyObject;
-  PREGISTRY_HIVE Hive;
-  HANDLE KeyHandle;
-  NTSTATUS Status;
-
-  DPRINT("CmiDisconnectHive() called\n");
-
-  *RegistryHive = NULL;
-
-  Status = ObOpenObjectByName (KeyObjectAttributes,
-			       CmiKeyType,
-			       NULL,
-			       KernelMode,
-			       STANDARD_RIGHTS_REQUIRED,
-			       NULL,
-			       &KeyHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("ObOpenObjectByName() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  Status = ObReferenceObjectByHandle (KeyHandle,
-				      STANDARD_RIGHTS_REQUIRED,
-				      CmiKeyType,
-				      KernelMode,
-				      (PVOID*)&KeyObject,
-				      NULL);
-  NtClose (KeyHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("ObReferenceObjectByName() failed (Status %lx)\n", Status);
-      return Status;
-    }
-  DPRINT ("KeyObject %p  Hive %p\n", KeyObject, KeyObject->RegistryHive);
-
-  if (!(KeyObject->KeyCell->Flags & REG_KEY_ROOT_CELL))
-    {
-      DPRINT1 ("Key is not the Hive-Root-Key\n");
-      ObDereferenceObject (KeyObject);
-      return STATUS_INVALID_PARAMETER;
-    }
-
-  if (ObGetObjectHandleCount (KeyObject) != 0 ||
-      ObGetObjectPointerCount (KeyObject) != 2)
-    {
-      DPRINT1 ("Hive is still in use\n");
-      ObDereferenceObject (KeyObject);
       return STATUS_UNSUCCESSFUL;
     }
+  RootKey->Flags = 0;
+  KeQuerySystemTime(&RootKey->LastWriteTime);
+  RootKey->TitleIndex = 0;
+  RootKey->NumSubKeys = 0;
+  RootKey->MaxSubNameLength = 0;
+  RootKey->MaxSubClassLength = 0;
+  RootKey->SubKeys = NULL;
+  RootKey->NumValues = 0;
+  RootKey->MaxValueNameLength = 0;
+  RootKey->MaxValueDataLength = 0;
+  RootKey->Values = NULL;
+  RootKey->Name = ExAllocatePool(NonPagedPool, 2);
+  wstrcpy(RootKey->Name, "\\");
+  RootKey->Class = NULL;
+  RootKey->NextKey = NULL;
 
-  Hive = KeyObject->RegistryHive;
-
-  /* Dereference KeyObject twice to delete it */
-  ObDereferenceObject (KeyObject);
-  ObDereferenceObject (KeyObject);
-
-  *RegistryHive = Hive;
-
-  DPRINT ("CmiDisconnectHive() done\n");
-
-  return STATUS_SUCCESS;
+  /* FIXME: Create initial predefined symbolic links */
+  /* HKEY_LOCAL_MACHINE */
+  /* HKEY_USERS */
+#endif
 }
 
-
-static NTSTATUS
-CmiInitControlSetLink (VOID)
+NTSTATUS 
+NtCreateKey(PHANDLE KeyHandle, 
+            ACCESS_MASK DesiredAccess,
+            POBJECT_ATTRIBUTES ObjectAttributes, 
+            ULONG TitleIndex,
+            PUNICODE_STRING Class, 
+            ULONG CreateOptions, 
+            PULONG Disposition)
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING ControlSetKeyName;
-  UNICODE_STRING ControlSetLinkName;
-  UNICODE_STRING ControlSetValueName;
-  HANDLE KeyHandle;
-  NTSTATUS Status;
-
-  /* Create 'ControlSet001' key */
-  RtlRosInitUnicodeStringFromLiteral (&ControlSetKeyName,
-				   L"\\Registry\\Machine\\SYSTEM\\ControlSet001");
-  InitializeObjectAttributes (&ObjectAttributes,
-			      &ControlSetKeyName,
-			      OBJ_CASE_INSENSITIVE,
-			      NULL,
-			      NULL);
-  Status = NtCreateKey (&KeyHandle,
-			KEY_ALL_ACCESS,
-			&ObjectAttributes,
-			0,
-			NULL,
-			REG_OPTION_NON_VOLATILE,
-			NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("NtCreateKey() failed (Status %lx)\n", Status);
-      return Status;
-    }
-  NtClose (KeyHandle);
-
-  /* Link 'CurrentControlSet' to 'ControlSet001' key */
-  RtlRosInitUnicodeStringFromLiteral (&ControlSetLinkName,
-				   L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet");
-  InitializeObjectAttributes (&ObjectAttributes,
-			      &ControlSetLinkName,
-			      OBJ_CASE_INSENSITIVE | OBJ_OPENIF | OBJ_OPENLINK,
-			      NULL,
-			      NULL);
-  Status = NtCreateKey (&KeyHandle,
-			KEY_ALL_ACCESS | KEY_CREATE_LINK,
-			&ObjectAttributes,
-			0,
-			NULL,
-			REG_OPTION_VOLATILE | REG_OPTION_CREATE_LINK,
-			NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("NtCreateKey() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  RtlRosInitUnicodeStringFromLiteral (&ControlSetValueName,
-				   L"SymbolicLinkValue");
-  Status = NtSetValueKey (KeyHandle,
-			  &ControlSetValueName,
-			  0,
-			  REG_LINK,
-			  (PVOID)ControlSetKeyName.Buffer,
-			  ControlSetKeyName.Length);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("NtSetValueKey() failed (Status %lx)\n", Status);
-    }
-  NtClose (KeyHandle);
-
-  return STATUS_SUCCESS;
+  return ZwCreateKey(KeyHandle, 
+                     DesiredAccess,
+                     ObjectAttributes, 
+                     TitleIndex,
+                     Class, 
+                     CreateOptions,
+                     Disposition);
 }
 
-
-NTSTATUS
-CmiInitHives(BOOLEAN SetupBoot)
+NTSTATUS 
+ZwCreateKey(PHANDLE KeyHandle, 
+            ACCESS_MASK DesiredAccess,
+            POBJECT_ATTRIBUTES ObjectAttributes, 
+            ULONG TitleIndex,
+            PUNICODE_STRING Class, 
+            ULONG CreateOptions,
+            PULONG Disposition)
 {
-  PKEY_VALUE_PARTIAL_INFORMATION ValueInfo;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING FileName;
-  UNICODE_STRING KeyName;
-  UNICODE_STRING ValueName;
-  HANDLE KeyHandle;
+#if PROTO_REG
+  /* FIXME: Should CurLevel be alloced to handle arbitrary size components? */
+  WCHAR *S, *T, CurLevel[255];
+  PKEY_OBJECT ParentKey, CurSubKey, NewKey;
+  
+  assert(ObjectAttributes != NULL);
 
-  NTSTATUS Status;
-
-  WCHAR ConfigPath[MAX_PATH];
-
-  ULONG BufferSize;
-  ULONG ResultSize;
-  PWSTR EndPtr;
-
-
-  DPRINT("CmiInitHives() called\n");
-
-  if (SetupBoot == TRUE)
+  /* FIXME: Verify ObjectAttributes is in \\Registry space */
+  if (ObjectAttributes->RootDirectory == NULL)
     {
-      RtlRosInitUnicodeStringFromLiteral(&KeyName,
-				      L"\\Registry\\Machine\\HARDWARE");
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &KeyName,
-				 OBJ_CASE_INSENSITIVE,
-				 NULL,
-				 NULL);
-      Status =  NtOpenKey(&KeyHandle,
-			  KEY_ALL_ACCESS,
-			  &ObjectAttributes);
-      if (!NT_SUCCESS(Status))
-	{
-	  DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
-	  return(Status);
-	}
+      S = ObjectAttributes->ObjectName;
+      if (wstrncmp(S, "\\Registry", 9))
+        {
+          return STATUS_UNSUCCESSFUL;
+        }
+      ParentKey = RootKey;
 
-      RtlRosInitUnicodeStringFromLiteral(&ValueName,
-				      L"InstallPath");
+      /*  Get remainder of full key path after removal of \\Registry */
+      S += 9;
+      if (S[0] != '\\')
+        {
+          return STATUS_UNSUCCESSFUL;
+        }
+      S++;
 
-      BufferSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 4096;
-      ValueInfo = ExAllocatePool(PagedPool,
-				 BufferSize);
-      if (ValueInfo == NULL)
-	{
-	  NtClose(KeyHandle);
-	  return(STATUS_INSUFFICIENT_RESOURCES);
-	}
+      /*  Walk through key path and fail if any component does not exist */
+      while ((T = wstrchr(S, '\\')) != NULL)
+        {
+          /*  Move Key Object pointer to first child  */
+          ParentKey = ParentKey->SubKeys;
+          
+          /*  Extract the next path component from requested path  */
+          wstrncpy(CurLevel, S, T-S);
+          CurLevel[T-S] = 0;
+          DPRINT("CurLevel:[%w]", CurLevel);
+          
+          /*  Walk through children looking for path component  */
+          while (ParentKey != NULL)
+            {
+              if (wstrcmp(CurLevel, ParentKey->Name) == 0)
+                {
+                  break;
+                }
+              ParentKey = ParentKey->NextKey;
+            }
+          
+          /*  Fail if path component was not one of the children  */
+          if (ParentKey == NULL)
+            {
+              return STATUS_UNSUCCESSFUL;
+            }
+          
+          /*  Advance path string pointer to next component  */
+          S = wstrchr(S, '\\') + 1;
+        }
 
-      Status = NtQueryValueKey(KeyHandle,
-			       &ValueName,
-			       KeyValuePartialInformation,
-			       ValueInfo,
-			       BufferSize,
-			       &ResultSize);
-      NtClose(KeyHandle);
-      if (!NT_SUCCESS(Status))
-	{
-	  ExFreePool(ValueInfo);
-	  return(Status);
-	}
+      /*  Check for existance of subkey , return if it exists */
+      CurSubKey = ParentKey->SubKeys;
+      while (CurSubKey != NULL && wstrcmp(S, CurSubKey->Name) != 0)
+        {
+          CurSubKey = CurSubKey->NextKey;
+        }
+      if (CurSubKey != NULL)
+        {
+          /* FIXME: Fail if key is marked for deletion  */
+          *Disposition = REG_KEY_ALREADY_EXISTS;
+          *KeyHandle = ObInsertHandle(KeGetCurrentProcess(),
+                                      HEADER_TO_BODY(CurSubKey),
+                                      DesiredAccess,
+                                      FALSE);
 
-      RtlCopyMemory(ConfigPath,
-		    ValueInfo->Data,
-		    ValueInfo->DataLength);
-      ConfigPath[ValueInfo->DataLength / sizeof(WCHAR)] = (WCHAR)0;
-      ExFreePool(ValueInfo);
+          return STATUS_SUCCESS;
+        }
+      else
+        {
+          /*  If KeyHandle is not the parent key, or is not open with */
+          /*  KEY_CREATE_SUB_KEY permission, then fail */
+          KeyHandleRep = ObTranslateHandle(KeGetCurrentProcess(), KeyHandle);
+          if (KeyHandleRep == NULL ||
+              KeyHandleRep->ObjectBody != ParentKey ||
+              (KeyHandleRep->GrantedAccess & KEY_CREATE_SUB_KEY) == 0)
+            {
+              return STATUS_UNSUCCESSFUL;
+            }
+          
+          /*  Build new CmKeyType object */
+          NewKey = ObGenericCreateObject(KeyHandle, 
+                                         DesiredAccess, 
+                                         NULL, 
+                                         CmKeyType);
+          if (NewKey == NULL)
+            {
+              return STATUS_UNSUCCESSFUL;
+            }
+          NewKey->Flags = 0;
+          KeQuerySystemTime(&NewKey->LastWriteTime);
+          NewKey->TitleIndex = 0;
+          NewKey->NumSubKeys = 0;
+          NewKey->MaxSubNameLength = 0;
+          NewKey->MaxSubClassLength = 0;
+          NewKey->SubKeys = NULL;
+          NewKey->NumValues = 0;
+          NewKey->MaxValueNameLength = 0;
+          NewKey->MaxValueDataLength = 0;
+          NewKey->Values = NULL;
+          NewKey->Name = ExAllocatePool(NonPagedPool, 
+                                        (wstrlen(S) + 1) * sizeof(WCHAR));
+          wstrcpy(NewKey->Name, S);
+          if (Class != NULL)
+            {
+              NewKey->Class = ExAllocatePool(NonPagedPool, 
+                                             (wstrlen(Class) + 1) * 
+                                               sizeof(WCHAR));
+              wstrcpy(NewKey->Class, Class);
+            }
+          else
+            {
+              NewKey->Class = NULL;
+            }
+          NewKey->NextKey = NULL;
+          
+          /*  Add to end of parent key subkey list */
+          if (ParentKey->SubKeys == NULL)
+            {
+              ParentKey->SubKeys = NewKey;
+            }
+          else
+            {
+              CurSubKey = ParentKey->SubKeys;
+              while (CurSubKey->NextKey != NULL)
+                {
+                  CurSubKey = CurSubKey->NextKey;
+                }
+              NewKey->TitleIndex = CurSubKey->TitleIndex + 1;
+              CurSubKey->NextKey = NewKey;
+            }
+          
+          /*  Increment parent key subkey count and set parent subkey maxes */
+          ParentKey->NumSubKeys++;
+          if (ParentKey->MaxSubNameLength < wstrlen(NewKey->Name))
+            {
+              ParentKey->MaxSubNameLength = wstrlen(NewKey->Name);
+            }
+          if (NewKey->Class != NULL &&
+              ParentKey->MaxSubClassLength < wstrlen(NewKey->Class))
+            {
+              ParentKey->MaxSubClassLength = wstrlen(NewKey->Class);
+            }
+          
+          return STATUS_SUCCESS;
+        }
     }
   else
     {
-      wcscpy(ConfigPath, L"\\SystemRoot");
+      return STATUS_UNSUCCESSFUL;
     }
-  wcscat(ConfigPath, L"\\system32\\config");
-
-  DPRINT("ConfigPath: %S\n", ConfigPath);
-
-  EndPtr = ConfigPath + wcslen(ConfigPath);
-
-  CmiDoVerify = TRUE;
-
-  /* FIXME: Save boot log */
-
-  /* Connect the SYSTEM hive only if it has been created */
-  if (SetupBoot == TRUE)
-    {
-      wcscpy(EndPtr, REG_SYSTEM_FILE_NAME);
-      DPRINT ("ConfigPath: %S\n", ConfigPath);
-
-      RtlInitUnicodeString (&KeyName,
-			    REG_SYSTEM_KEY_NAME);
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &KeyName,
-				 OBJ_CASE_INSENSITIVE,
-				 NULL,
-				 NULL);
-
-      RtlInitUnicodeString (&FileName,
-			    ConfigPath);
-      Status = CmiLoadHive (&ObjectAttributes,
-			    &FileName,
-			    0);
-      if (!NT_SUCCESS(Status))
-	{
-	  DPRINT1 ("CmiLoadHive() failed (Status %lx)\n", Status);
-	  return Status;
-	}
-
-      Status = CmiInitControlSetLink ();
-      if (!NT_SUCCESS(Status))
-	{
-	  DPRINT1("CmiInitControlSetLink() failed (Status %lx)\n", Status);
-	  return(Status);
-	}
-    }
-
-  /* Connect the SOFTWARE hive */
-  wcscpy(EndPtr, REG_SOFTWARE_FILE_NAME);
-  RtlInitUnicodeString (&FileName,
-			ConfigPath);
-  DPRINT ("ConfigPath: %S\n", ConfigPath);
-
-  RtlInitUnicodeString (&KeyName,
-			REG_SOFTWARE_KEY_NAME);
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-
-  Status = CmiLoadHive (&ObjectAttributes,
-			&FileName,
-			0);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CmiInitializeHive() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Connect the SAM hive */
-  wcscpy(EndPtr, REG_SAM_FILE_NAME);
-  RtlInitUnicodeString (&FileName,
-			ConfigPath);
-  DPRINT ("ConfigPath: %S\n", ConfigPath);
-
-  RtlInitUnicodeString (&KeyName,
-			REG_SAM_KEY_NAME);
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-  Status = CmiLoadHive (&ObjectAttributes,
-			&FileName,
-			0);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CmiInitializeHive() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Connect the SECURITY hive */
-  wcscpy(EndPtr, REG_SEC_FILE_NAME);
-  RtlInitUnicodeString (&FileName,
-			ConfigPath);
-  DPRINT ("ConfigPath: %S\n", ConfigPath);
-
-  RtlInitUnicodeString (&KeyName,
-			REG_SEC_KEY_NAME);
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-  Status = CmiLoadHive (&ObjectAttributes,
-			&FileName,
-			0);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CmiInitializeHive() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Connect the DEFAULT hive */
-  wcscpy(EndPtr, REG_DEFAULT_USER_FILE_NAME);
-  RtlInitUnicodeString (&FileName,
-			ConfigPath);
-  DPRINT ("ConfigPath: %S\n", ConfigPath);
-
-  RtlInitUnicodeString (&KeyName,
-			REG_DEFAULT_USER_KEY_NAME);
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-  Status = CmiLoadHive (&ObjectAttributes,
-			&FileName,
-			0);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CmiInitializeHive() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-//  CmiCheckRegistry(TRUE);
-
-  /* Start automatic hive synchronization */
-  KeInitializeDpc(&CmiHiveSyncDpc,
-		  CmiHiveSyncDpcRoutine,
-		  NULL);
-  KeInitializeTimer(&CmiHiveSyncTimer);
-  CmiHiveSyncEnabled = TRUE;
-
-  DPRINT("CmiInitHives() done\n");
-
-  return(STATUS_SUCCESS);
+#endif
+  
+  UNIMPLEMENTED;
 }
 
-
-VOID
-CmShutdownRegistry(VOID)
+NTSTATUS NtDeleteKey(HANDLE KeyHandle)
 {
-  PREGISTRY_HIVE Hive;
-  PLIST_ENTRY Entry;
-
-  DPRINT("CmShutdownRegistry() called\n");
-
-  /* Stop automatic hive synchronization */
-  CmiHiveSyncEnabled = FALSE;
-
-  /* Cancel pending hive synchronization */
-  if (CmiHiveSyncPending == TRUE)
-    {
-      KeCancelTimer(&CmiHiveSyncTimer);
-      CmiHiveSyncPending = FALSE;
-    }
-
-  /* Acquire hive list lock exclusively */
-  KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&CmiRegistryLock, TRUE);
-
-  Entry = CmiHiveListHead.Flink;
-  while (Entry != &CmiHiveListHead)
-    {
-      Hive = CONTAINING_RECORD(Entry, REGISTRY_HIVE, HiveList);
-
-      if (!(IsNoFileHive(Hive) || IsNoSynchHive(Hive)))
-	{
-	  /* Flush non-volatile hive */
-	  CmiFlushRegistryHive(Hive);
-	}
-
-      Entry = Entry->Flink;
-    }
-
-  /* Release hive list lock */
-  ExReleaseResourceLite(&CmiRegistryLock);
-  KeLeaveCriticalRegion();
-
-  DPRINT("CmShutdownRegistry() done\n");
+   return(ZwDeleteKey(KeyHandle));
 }
 
-
-VOID STDCALL
-CmiHiveSyncRoutine(PVOID DeferredContext)
+NTSTATUS ZwDeleteKey(HANDLE KeyHandle)
 {
-  PREGISTRY_HIVE Hive;
-  PLIST_ENTRY Entry;
+   UNIMPLEMENTED;
+}
 
-  DPRINT("CmiHiveSyncRoutine() called\n");
+NTSTATUS NtEnumerateKey(HANDLE KeyHandle, 
+			ULONG Index,
+			KEY_INFORMATION_CLASS KeyInformationClass,
+			PVOID KeyInformation,
+			ULONG Length,
+			PULONG ResultLength)
+{
+   return(ZwEnumerateKey(KeyHandle,
+			 Index,
+			 KeyInformationClass,
+			 KeyInformation,
+			 Length,
+			 ResultLength));
+}
 
-  CmiHiveSyncPending = FALSE;
+NTSTATUS ZwEnumerateKey(HANDLE KeyHandle, 
+			ULONG Index,
+			KEY_INFORMATION_CLASS KeyInformationClass,
+			PVOID KeyInformation,
+			ULONG Length,
+			PULONG ResultLength)
+{
+   UNIMPLEMENTED;
+}
 
-  /* Acquire hive list lock exclusively */
-  KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&CmiRegistryLock, TRUE);
+NTSTATUS NtEnumerateValueKey(HANDLE KeyHandle, ULONG Index, 
+			     KEY_VALUE_INFORMATION_CLASS KeyInformationClass,
+			     PVOID KeyInformation,
+			     ULONG Length,
+			     PULONG ResultLength)
+{
+  return ZwEnumerateValueKey(KeyHandle, 
+                             Index, 
+			     KeyInformationClass,
+			     KeyInformation,
+			     Length,
+			     ResultLength);
+}
 
-  Entry = CmiHiveListHead.Flink;
-  while (Entry != &CmiHiveListHead)
+NTSTATUS ZwEnumerateValueKey(HANDLE KeyHandle, ULONG Index, 
+			     KEY_VALUE_INFORMATION_CLASS KeyInformationClass,
+			     PVOID KeyInformation,
+			     ULONG Length,
+			     PULONG ResultLength)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS NtFlushKey(HANDLE KeyHandle)
+{
+  return ZwFlushKey(KeyHandle);
+}
+
+NTSTATUS ZwFlushKey(HANDLE KeyHandle)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS NtOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess,
+		   POBJECT_ATTRIBUTES ObjectAttributes)
+{
+  return ZwOpenKey(KeyHandle, 
+                   DesiredAccess,
+		   ObjectAttributes);
+}
+
+NTSTATUS ZwOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess,
+		   POBJECT_ATTRIBUTES ObjectAttributes)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS NtQueryKey(HANDLE KeyHandle, 
+		    KEY_INFORMATION_CLASS KeyInformationClass,
+		    PVOID KeyInformation,
+		    ULONG Length,
+		    PULONG ResultLength)
+{
+  return ZwQueryKey(KeyHandle, 
+		    KeyInformationClass,
+		    KeyInformation,
+		    Length,
+		    ResultLength);
+}
+
+NTSTATUS ZwQueryKey(HANDLE KeyHandle, 
+		    KEY_INFORMATION_CLASS KeyInformationClass,
+		    PVOID KeyInformation,
+		    ULONG Length,
+		    PULONG ResultLength)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS NtQueryValueKey(HANDLE KeyHandle,
+		    PUNICODE_STRING ValueName,
+		    KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass,
+		    PVOID KeyValueInformation,
+		    ULONG Length,
+		    PULONG ResultLength)
+{
+  return ZwQueryValueKey(KeyHandle,
+		         ValueName,
+		         KeyValueInformationClass,
+		         KeyValueInformation,
+		         Length,
+		         ResultLength);
+}
+
+NTSTATUS ZwQueryValueKey(HANDLE KeyHandle,
+		    PUNICODE_STRING ValueName,
+		    KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass,
+		    PVOID KeyValueInformation,
+		    ULONG Length,
+		    PULONG ResultLength)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS NtSetValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName,
+		       ULONG TitleIndex, ULONG Type, PVOID Data,
+		       ULONG DataSize)
+{
+  return ZwSetValueKey(KeyHandle, 
+                       ValueName,
+		       TitleIndex, 
+                       Type, 
+                       Data,
+		       DataSize);
+}
+
+NTSTATUS ZwSetValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName,
+		       ULONG TitleIndex, ULONG Type, PVOID Data,
+		       ULONG DataSize)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtDeleteValueKey(
+	IN HANDLE KeyHandle,
+	IN PUNICODE_STRING ValueName
+	)
+{
+  return ZwDeleteValueKey(KeyHandle,
+                          ValueName);
+}
+
+NTSTATUS
+STDCALL
+ZwDeleteValueKey(
+	IN HANDLE KeyHandle,
+	IN PUNICODE_STRING ValueName	
+		 )
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL 
+NtLoadKey(
+	PHANDLE KeyHandle,
+	OBJECT_ATTRIBUTES ObjectAttributes
+	)
+{
+  return ZwLoadKey(KeyHandle,
+                   ObjectAttributes);
+}
+
+NTSTATUS
+STDCALL 
+ZwLoadKey(
+	PHANDLE KeyHandle,
+	OBJECT_ATTRIBUTES ObjectAttributes
+	)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtLoadKey2(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtNotifyChangeKey(
+	IN HANDLE KeyHandle,
+	IN HANDLE Event,
+	IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, 
+	IN PVOID ApcContext OPTIONAL, 
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN ULONG CompletionFilter,
+	IN BOOLEAN Asynchroneous, 
+	OUT PVOID ChangeBuffer,
+	IN ULONG Length,
+	IN BOOLEAN WatchSubtree
+	)
+{
+  return ZwNotifyChangeKey(KeyHandle,
+                           Event,
+                           ApcRoutine, 
+                           ApcContext, 
+                           IoStatusBlock,
+                           CompletionFilter,
+                           Asynchroneous, 
+                           ChangeBuffer,
+                           Length,
+                           WatchSubtree);
+}
+
+NTSTATUS
+STDCALL
+ZwNotifyChangeKey(
+	IN HANDLE KeyHandle,
+	IN HANDLE Event,
+	IN PIO_APC_ROUTINE ApcRoutine OPTIONAL, 
+	IN PVOID ApcContext OPTIONAL, 
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN ULONG CompletionFilter,
+	IN BOOLEAN Asynchroneous, 
+	OUT PVOID ChangeBuffer,
+	IN ULONG Length,
+	IN BOOLEAN WatchSubtree
+	)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtQueryMultipleValueKey(
+   HANDLE KeyHandle,	
+   PVALENT ListOfValuesToQuery,	
+   ULONG NumberOfItems,	
+   PVOID MultipleValueInformation,		
+   ULONG Length,
+   PULONG  ReturnLength
+)
+{
+  return ZwQueryMultipleValueKey(KeyHandle,	
+                                 ListOfValuesToQuery,	
+                                 NumberOfItems,	
+                                 MultipleValueInformation,		
+                                 Length,
+                                 ReturnLength);
+}
+
+NTSTATUS
+STDCALL
+ZwQueryMultipleValueKey(
+   HANDLE KeyHandle,	
+   PVALENT ListOfValuesToQuery,	
+   ULONG NumberOfItems,	
+   PVOID MultipleValueInformation,		
+   ULONG Length,
+   PULONG  ReturnLength
+)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtReplaceKey(
+	IN POBJECT_ATTRIBUTES ObjectAttributes, 
+	IN HANDLE Key,
+	IN POBJECT_ATTRIBUTES ReplacedObjectAttributes 
+	)
+{
+  return ZwReplaceKey(ObjectAttributes, 
+                      Key,
+                      ReplacedObjectAttributes);
+}
+
+NTSTATUS
+STDCALL
+ZwReplaceKey(
+	IN POBJECT_ATTRIBUTES ObjectAttributes, 
+	IN HANDLE Key,
+	IN POBJECT_ATTRIBUTES ReplacedObjectAttributes 
+	)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtRestoreKey(
+	HANDLE KeyHandle,
+	HANDLE FileHandle,
+	ULONG RestoreFlags
+	)
+{
+  return ZwRestoreKey(KeyHandle,
+                      FileHandle,
+                      RestoreFlags);
+}
+
+NTSTATUS
+STDCALL
+ZwRestoreKey(
+	HANDLE KeyHandle,
+	HANDLE FileHandle,
+	ULONG RestoreFlags
+	)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtSaveKey(
+	IN HANDLE KeyHandle,
+	IN HANDLE FileHandle
+	)
+{
+  return ZwSaveKey(KeyHandle,
+                   FileHandle);
+}
+
+NTSTATUS
+STDCALL
+ZwSaveKey(
+	IN HANDLE KeyHandle,
+	IN HANDLE FileHandle
+	)
+{
+  UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+NtSetInformationKey(
+	IN HANDLE KeyHandle,
+	IN CINT KeyInformationClass,
+	IN PVOID KeyInformation,
+	IN ULONG KeyInformationLength
+	)
+{
+  return ZwSetInformationKey(KeyHandle,
+                             KeyInformationClass,
+                             KeyInformation,
+                             KeyInformationLength);
+}
+
+NTSTATUS STDCALL ZwSetInformationKey(IN HANDLE KeyHandle,
+				     IN CINT KeyInformationClass,
+				     IN PVOID KeyInformation,
+				     IN ULONG KeyInformationLength)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtUnloadKey(HANDLE KeyHandle)
+{
+  return ZwUnloadKey(KeyHandle);
+}
+
+NTSTATUS STDCALL ZwUnloadKey(HANDLE KeyHandle)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtInitializeRegistry(BOOLEAN SetUpBoot)
+{
+  return ZwInitializeRegistry(SetUpBoot);
+}
+
+NTSTATUS STDCALL ZwInitializeRegistry(BOOLEAN SetUpBoot)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS RtlCheckRegistryKey(ULONG RelativeTo, PWSTR Path)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS RtlCreateRegistryKey(ULONG RelativeTo, PWSTR Path)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS RtlDeleteRegistryValue(ULONG RelativeTo, PWSTR Path,
+				PWSTR ValueName)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS RtlQueryRegistryValues(ULONG RelativeTo,
+				PWSTR Path,
+				PRTL_QUERY_REGISTRY_TABLE QueryTable,
+				PVOID Context,
+				PVOID Environment)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS RtlWriteRegistryValue(ULONG RelativeTo,
+			       PWSTR Path,
+			       PWSTR ValueName,
+			       ULONG ValueType,
+			       PVOID ValueData,
+			       ULONG ValueLength)
+{
+   UNIMPLEMENTED;
+}
+
+
+#if 0
+static PVOID 
+CmpObjectParse(PVOID ParsedObject, PWSTR* Path)
+{
+  PWSTR  S, SubKeyBuffer;
+  PKEY_OBJECT  CurrentKey, ChildKey;
+
+  UNIMPLEMENTED
+
+  /*  If the path is an empty string, we're done  */
+  if (Path == NULL || Path[0] == 0)
     {
-      Hive = CONTAINING_RECORD(Entry, REGISTRY_HIVE, HiveList);
-
-      if (!(IsNoFileHive(Hive) || IsNoSynchHive(Hive)))
-	{
-	  /* Flush non-volatile hive */
-	  CmiFlushRegistryHive(Hive);
-	}
-
-      Entry = Entry->Flink;
+      return NULL;
     }
 
-  /* Release hive list lock */
-  ExReleaseResourceLite(&CmiRegistryLock);
-  KeLeaveCriticalRegion();
-
-  DPRINT("DeferredContext %x\n", DeferredContext);
-  ExFreePool(DeferredContext);
-
-  DPRINT("CmiHiveSyncRoutine() done\n");
-}
-
-
-static VOID STDCALL
-CmiHiveSyncDpcRoutine(PKDPC Dpc,
-		      PVOID DeferredContext,
-		      PVOID SystemArgument1,
-		      PVOID SystemArgument2)
-{
-  PWORK_QUEUE_ITEM WorkQueueItem;
-
-  WorkQueueItem = ExAllocatePool(NonPagedPool,
-				 sizeof(WORK_QUEUE_ITEM));
-  if (WorkQueueItem == NULL)
+  /*  Extract subkey name from path  */
+  S = *Path;
+  while (*S != '\\')
     {
-      DbgPrint("Failed to allocate work item\n");
-      return;
+      S++;
     }
+  SubKeyBuffer = ExAllocatePool(NonPagedPool, (S - *Path) * sizeof(WSTR));
+  wstrncpy(SubKeyBuffer, *Path, (S - *Path));
+  SubKeyBuffer[S - *Path] = 0;
+  
+  /* %%% Scan Key for matching SubKey  */
+  CurrentKey = (PKEY_OBJECT) ParsedObject;
+  ChildKey = CurrentKey->
+          /*  Move Key Object pointer to first child  */
+          ParentKey = ParentKey->SubKeys;
+          
+          /*  Extract the next path component from requested path  */
+          wstrncpy(CurLevel, S, T-S);
+          CurLevel[T-S] = 0;
+          DPRINT("CurLevel:[%w]", CurLevel);
+          
+          /*  Walk through children looking for path component  */
+          while (ParentKey != NULL)
+            {
+              if (wstrcmp(CurLevel, ParentKey->Name) == 0)
+                {
+                  break;
+                }
+              ParentKey = ParentKey->NextKey;
+            }
 
-  ExInitializeWorkItem(WorkQueueItem,
-		       CmiHiveSyncRoutine,
-		       WorkQueueItem);
 
-  DPRINT("DeferredContext %x\n", WorkQueueItem);
-  ExQueueWorkItem(WorkQueueItem,
-		  CriticalWorkQueue);
+  /* %%% If SubKey is not found return NULL  */
+  /* %%% Adjust path to next level  */
+  /* %%% Return object for SubKey  */
+
+  ExFreePool(SubKeyBuffer);
+
 }
+#endif
 
 
-VOID
-CmiSyncHives(VOID)
-{
-  LARGE_INTEGER Timeout;
-
-  DPRINT("CmiSyncHives() called\n");
-
-  if (CmiHiveSyncEnabled == FALSE ||
-      CmiHiveSyncPending == TRUE)
-    return;
-
-  CmiHiveSyncPending = TRUE;
-
-  Timeout.QuadPart = (LONGLONG)-50000000;
-  KeSetTimer(&CmiHiveSyncTimer,
-	     Timeout,
-	     &CmiHiveSyncDpc);
-}
-
-/* EOF */

@@ -1,33 +1,32 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/string.h>
-#include <msvcrt/time.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/wchar.h>
+#include <crtdll/string.h>
 
+
+#include <crtdll/time.h>
 
 #define TM_YEAR_BASE 1900
 
-static const char* afmt[] = {
+static const char *afmt[] = {
   "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
 };
-static const char* Afmt[] = {
+static const char *Afmt[] = {
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
   "Saturday",
 };
-static const char* bfmt[] = {
+static const char *bfmt[] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
   "Oct", "Nov", "Dec",
 };
-static const char* Bfmt[] = {
+static const char *Bfmt[] = {
   "January", "February", "March", "April", "May", "June", "July",
   "August", "September", "October", "November", "December",
 };
 
 static size_t gsize;
-static char* pt;
+static char *pt;
 
-
-static int _add(const char* str)
+static int
+_add(const char *str)
 {
   for (;; ++pt, --gsize)
   {
@@ -38,10 +37,11 @@ static int _add(const char* str)
   }
 }
 
-static int _conv(int n, int digits, char pad)
+static int
+_conv(int n, int digits, char pad)
 {
   static char buf[10];
-  char* p;
+  char *p;
 
   for (p = buf + sizeof(buf) - 2; n > 0 && p > buf; n /= 10, --digits)
     *p-- = n % 10 + '0';
@@ -50,14 +50,14 @@ static int _conv(int n, int digits, char pad)
   return _add(++p);
 }
 
-static size_t _fmt(const char* format, const struct tm* t)
+static size_t
+_fmt(const char *format, const struct tm *t)
 {
   for (; *format; ++format)
   {
-    if (*format == '%') {
-	if (*(format+1) == '#') {format++;}
-
-    switch(*++format) {
+    if (*format == '%')
+      switch(*++format)
+      {
       case '\0':
 	--format;
 	break;
@@ -111,7 +111,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'I':
-	if (!_conv(t->tm_hour % 12 ? t->tm_hour % 12 : 12, 2, '0'))
+	if (!_conv(t->tm_hour % 12 ?
+		   t->tm_hour % 12 : 12, 2, '0'))
 	  return 0;
 	continue;
       case 'j':
@@ -123,7 +124,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'l':
-	if (!_conv(t->tm_hour % 12 ? t->tm_hour % 12 : 12, 2, ' '))
+	if (!_conv(t->tm_hour % 12 ?
+		   t->tm_hour % 12 : 12, 2, ' '))
 	  return 0;
 	continue;
       case 'M':
@@ -164,11 +166,14 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'U':
-	if (!_conv((t->tm_yday + 7 - t->tm_wday) / 7, 2, '0'))
+	if (!_conv((t->tm_yday + 7 - t->tm_wday) / 7,
+		   2, '0'))
 	  return 0;
 	continue;
       case 'W':
-	if (!_conv((t->tm_yday + 7 - (t->tm_wday ? (t->tm_wday - 1) : 6)) / 7, 2, '0'))
+	if (!_conv((t->tm_yday + 7 -
+		    (t->tm_wday ? (t->tm_wday - 1) : 6))
+		   / 7, 2, '0'))
 	  return 0;
 	continue;
       case 'w':
@@ -180,7 +185,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'y':
-	if (!_conv((t->tm_year + TM_YEAR_BASE) % 100, 2, '0'))
+	if (!_conv((t->tm_year + TM_YEAR_BASE)
+		   % 100, 2, '0'))
 	  return 0;
 	continue;
       case 'Y':
@@ -200,7 +206,6 @@ static size_t _fmt(const char* format, const struct tm* t)
       default:
 	break;
       }
-    }
     if (!gsize--)
       return 0;
     *pt++ = *format;
@@ -208,9 +213,6 @@ static size_t _fmt(const char* format, const struct tm* t)
   return gsize;
 }
 
-/*
- * @implemented
- */
 size_t
 strftime(char *s, size_t maxsize, const char *format, const struct tm *t)
 {
@@ -225,36 +227,8 @@ strftime(char *s, size_t maxsize, const char *format, const struct tm *t)
   return 0;
 }
 
-/*
- * @implemented
- */
-size_t wcsftime(wchar_t* s, size_t maxsize, const wchar_t* format, const struct tm* t)
+size_t
+wcsftime(wchar_t *s, size_t maxsize, const wchar_t *format, const struct tm *t)
 {
-  char* x;
-  char* f;
-  int i,j;
-  x = malloc(maxsize);
-  j = wcslen(format);
-  f = malloc(j+1);
-  for (i = 0; i < j; i++)
-	f[i] = (char)*format;
-  f[i] = 0;
-  pt = x;
-  if ((gsize = maxsize) < 1)
-    return 0;
-  if (_fmt(f, t)) {
-    *pt = '\0';
-    free(f);
-    for (i = 0; i < maxsize;i ++)
-	s[i] = (wchar_t)x[i];
-    s[i] = 0;
-    free(x);
-    return maxsize - gsize;
-  }
-  for (i = 0; i < maxsize; i++)
-	s[i] = (wchar_t)x[i];
-  s[i] = 0;
-  free(f);
-  free(x);
-  return 0;
+	printf("wcsftime\n");
 }

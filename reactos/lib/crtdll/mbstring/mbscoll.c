@@ -8,7 +8,7 @@
  *              12/04/99: Created
  */
 
-#include <msvcrt/mbstring.h>
+#include <crtdll/mbstring.h>
 
 int colldif(unsigned short c1, unsigned short c2);
 
@@ -54,7 +54,6 @@ int _mbscoll(const unsigned char *str1, const unsigned char *str2)
 	return 0;
 }
 
-#if 0
 int _mbsbcoll(const unsigned char *str1, const unsigned char *str2)
 {
 	unsigned char *s1 = (unsigned char *)str1;
@@ -94,4 +93,3 @@ int _mbsbcoll(const unsigned char *str1, const unsigned char *str2)
 	} ;
 	return 0;
 }
-#endif

@@ -1,35 +1,17 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/crtdll/process/cwait.c
- * PURPOSE:     Waits for a process to exit 
- * PROGRAMER:   Boudewijn Dekker
- * UPDATE HISTORY:
- *              04/03/99: Created
- */
+#include <windows.h>
+#include <crtdll/process.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
 
-#include "precomp.h"
-#include <msvcrt/process.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
-
-
-/*
- * @implemented
- */
-int _cwait(int* pnStatus, int hProc, int nAction)
+int	_cwait (int* pnStatus, int hProc, int nAction)
 {
-    DWORD ExitCode;
-
 	nAction = 0;
-	if (WaitForSingleObject((void*)hProc, INFINITE) != WAIT_OBJECT_0) {
+	if ( WaitForSingleObject((void *)hProc,INFINITE) != WAIT_OBJECT_0 ) {
 		__set_errno(ECHILD);
 		return -1;
 	}
 
-	if (!GetExitCodeProcess((void*)hProc, &ExitCode))
+	if ( !GetExitCodeProcess((void *)hProc,pnStatus) )
 		return -1;
-	if (pnStatus != NULL)
-        *pnStatus = (int)ExitCode;
-	return hProc;
+	return *pnStatus;
 }

@@ -1,17 +1,31 @@
-# $Id: makefile,v 1.20 2004/12/03 23:37:39 blight Exp $
+#
+#
+#
+OBJECTS= null.o ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: null.sys
 
-include $(PATH_TO_TOP)/rules.mak
+.phony: all
 
-TARGET_TYPE = driver
+clean:
+	- $(RM) null.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) null.sys
 
-TARGET_NAME = null
+.phony: clean
 
-TARGET_OBJECTS = null.o
+null.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname null.sys --base-file base.tmp \
+	           --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o null.sys $(OBJECTS) -Wl,temp.exp
+	- $(RM) temp.exp
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API
 
-TARGET_LIBS = $(SDK_PATH_LIB)/libpseh.a
-
-include $(TOOLS_PATH)/helper.mk

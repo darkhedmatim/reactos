@@ -1,5 +1,4 @@
-/* $Id: event.c,v 1.20 2004/10/24 15:26:14 weiden Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/synch/event.c
@@ -9,233 +8,190 @@
  *                  Created 01/11/98
  */
 
-/* INCLUDES *****************************************************************/
-
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <wchar.h>
 
 
-/* FUNCTIONS ****************************************************************/
-
-/*
- * @implemented
- */
-HANDLE STDCALL
-CreateEventA(LPSECURITY_ATTRIBUTES lpEventAttributes,
-	     BOOL bManualReset,
-	     BOOL bInitialState,
-	     LPCSTR lpName)
+WINBOOL
+STDCALL
+SetEvent(
+	 HANDLE hEvent
+	 )
 {
-   UNICODE_STRING EventNameU;
-   ANSI_STRING EventName;
-   HANDLE EventHandle;
+	NTSTATUS errCode;
+	ULONG Count;
+	errCode = NtSetEvent(hEvent,&Count);
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;
+}
 
-   if (lpName)
-     {
-	RtlInitAnsiString(&EventName,
-			  (LPSTR)lpName);
-	RtlAnsiStringToUnicodeString(&EventNameU,
-				     &EventName,
-				     TRUE);
-     }
-
-   EventHandle = CreateEventW(lpEventAttributes,
-			      bManualReset,
-			      bInitialState,
-			      (lpName ? EventNameU.Buffer : NULL));
-
-   if (lpName)
-     {
-	RtlFreeUnicodeString(&EventNameU);
-     }
-
-   return EventHandle;
+WINBOOL
+STDCALL
+ResetEvent(
+	   HANDLE hEvent
+	   )
+{
+	NTSTATUS errCode;
+	ULONG Count;
+	errCode = NtResetEvent(hEvent, &Count);
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-HANDLE STDCALL
-CreateEventW(LPSECURITY_ATTRIBUTES lpEventAttributes,
-	     BOOL bManualReset,
-	     BOOL bInitialState,
-	     LPCWSTR lpName)
-{
-   NTSTATUS Status;
-   HANDLE hEvent;
-   UNICODE_STRING UnicodeName;
-   OBJECT_ATTRIBUTES ObjectAttributes;
 
-   if (lpName != NULL)
-     {
-	RtlInitUnicodeString(&UnicodeName, (LPWSTR)lpName);
-     }
+HANDLE
+STDCALL
+CreateEventW(
+    LPSECURITY_ATTRIBUTES lpEventAttributes,
+    WINBOOL bManualReset,
+    WINBOOL bInitialState,
+    LPCWSTR lpName
+    )
+{	
+	NTSTATUS errCode;
+	HANDLE hEvent;
+	UNICODE_STRING EventNameString;
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	ObjectAttributes.Attributes = 0;
+	if ( lpEventAttributes != NULL ) {
+		ObjectAttributes.SecurityDescriptor = lpEventAttributes->lpSecurityDescriptor;
+		if ( lpEventAttributes->bInheritHandle == TRUE )
+			ObjectAttributes.Attributes |= OBJ_INHERIT;
+		
+	}
+	
 
-   InitializeObjectAttributes(&ObjectAttributes,
-			      (lpName ? &UnicodeName : NULL),
-			      0,
-			      hBaseDir,
-			      NULL);
+    	if(lpName != NULL) {
+        	EventNameString.Buffer = (WCHAR *)lpName;
+		EventNameString.Length = lstrlenW(lpName)*sizeof(WCHAR);
+		EventNameString.MaximumLength = EventNameString.Length;
+		ObjectAttributes.ObjectName = &EventNameString;
+    	}
+	else
+		ObjectAttributes.ObjectName = NULL;
+ 
+    
+   
+	errCode = NtCreateEvent(&hEvent,STANDARD_RIGHTS_ALL|EVENT_READ_ACCESS|EVENT_WRITE_ACCESS,&ObjectAttributes,bManualReset,bInitialState);
+	if(!NT_SUCCESS(errCode)) {
+        	SetLastError(RtlNtStatusToDosError(errCode));
+        	return NULL;
+    	}
 
-   if (lpEventAttributes != NULL)
-     {
-	ObjectAttributes.SecurityDescriptor = lpEventAttributes->lpSecurityDescriptor;
-	if (lpEventAttributes->bInheritHandle)
-	  {
-	     ObjectAttributes.Attributes |= OBJ_INHERIT;
-	  }
-     }
-
-   Status = NtCreateEvent(&hEvent,
-			  STANDARD_RIGHTS_ALL | EVENT_READ_ACCESS | EVENT_WRITE_ACCESS,
-			  &ObjectAttributes,
-			  (bManualReset ? NotificationEvent : SynchronizationEvent),
-			  bInitialState);
-   DPRINT( "Called\n" );
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return NULL;
-     }
-
-   return hEvent;
+    
+	return hEvent;
 }
 
 
-/*
- * @implemented
- */
-HANDLE STDCALL
-OpenEventA(DWORD dwDesiredAccess,
-	   BOOL bInheritHandle,
-	   LPCSTR lpName)
+HANDLE
+STDCALL
+OpenEventW(
+    DWORD dwDesiredAccess,
+    WINBOOL bInheritHandle,
+    LPCWSTR lpName
+    )
 {
-   UNICODE_STRING EventNameU;
-   ANSI_STRING EventName;
-   HANDLE EventHandle;
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	UNICODE_STRING EventNameString;
+	NTSTATUS errCode;
+	HANDLE hEvent = NULL;
 
-   if (lpName == NULL)
-     {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return NULL;
-     }
+	if(lpName == NULL) {
+		SetLastError(ERROR_INVALID_PARAMETER);
+        	return NULL;
+    	}
+	
+	ObjectAttributes.Attributes = 0;
+	ObjectAttributes.SecurityDescriptor = NULL;    
+	EventNameString.Buffer = (WCHAR *)lpName;
+	EventNameString.Length = lstrlenW(lpName)*sizeof(WCHAR);
+	EventNameString.MaximumLength = EventNameString.Length;
+	ObjectAttributes.ObjectName = &EventNameString;
+    	
+	if (bInheritHandle == TRUE )
+		ObjectAttributes.Attributes |= OBJ_INHERIT;
+	
 
-   RtlInitUnicodeString(&EventNameU,
-			NULL);
-
-   RtlInitAnsiString(&EventName,
-                     (LPSTR)lpName);
-   RtlAnsiStringToUnicodeString(&EventNameU,
-                                &EventName,
-                                TRUE);
-
-   EventHandle = OpenEventW(dwDesiredAccess,
-			    bInheritHandle,
-			    EventNameU.Buffer);
-
-   RtlFreeUnicodeString(&EventNameU);
-
-   return EventHandle;
+    	errCode = NtOpenEvent(hEvent,dwDesiredAccess,&ObjectAttributes);
+    	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return NULL;
+	}
+  
+	return hEvent;
 }
 
 
-/*
- * @implemented
- */
-HANDLE STDCALL
-OpenEventW(DWORD dwDesiredAccess,
-	   BOOL bInheritHandle,
-	   LPCWSTR lpName)
-{
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   UNICODE_STRING EventNameString;
-   NTSTATUS Status;
-   HANDLE hEvent = NULL;
-
-   if (lpName == NULL)
-     {
-	SetLastError(ERROR_INVALID_PARAMETER);
-	return NULL;
-     }
-
-   RtlInitUnicodeString(&EventNameString, (LPWSTR)lpName);
-
-   InitializeObjectAttributes(&ObjectAttributes,
-			      &EventNameString,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
-			      hBaseDir,
-			      NULL);
-
-   Status = NtOpenEvent(&hEvent,
-			dwDesiredAccess,
-			&ObjectAttributes);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return NULL;
-     }
-
-   return hEvent;
+HANDLE
+STDCALL
+CreateEventA(
+    LPSECURITY_ATTRIBUTES lpEventAttributes,
+    WINBOOL bManualReset,
+    WINBOOL bInitialState,
+    LPCSTR lpName
+    )
+{	
+	int i;
+	WCHAR EventNameW[MAX_PATH];
+   	i = 0;
+   	while ((*lpName)!=0 && i < MAX_PATH)
+     	{
+		EventNameW[i] = *lpName;
+		lpName++;
+		i++;
+     	}
+   	EventNameW[i] = 0;
+   
+	return CreateEventW(lpEventAttributes,bManualReset,bInitialState,EventNameW);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-PulseEvent(HANDLE hEvent)
+HANDLE
+STDCALL
+OpenEventA(
+    DWORD dwDesiredAccess,
+    WINBOOL bInheritHandle,
+    LPCSTR lpName
+    )
 {
-   NTSTATUS Status;
-
-   Status = NtPulseEvent(hEvent, NULL);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus (Status);
-	return FALSE;
-     }
-
-   return TRUE;
+	ULONG i;	
+	WCHAR EventNameW[MAX_PATH];
+	
+	
+   
+	i = 0;
+   	while ((*lpName)!=0 && i < MAX_PATH)
+     	{
+		EventNameW[i] = *lpName;
+		lpName++;
+		i++;
+     	}
+   	EventNameW[i] = 0;
+   
+  
+	return OpenEventW(dwDesiredAccess,bInheritHandle,EventNameW);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ResetEvent(HANDLE hEvent)
+WINBOOL
+STDCALL
+PulseEvent(
+	   HANDLE hEvent
+	   )
 {
-   NTSTATUS Status;
-
-   Status = NtClearEvent(hEvent);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return FALSE;
-     }
-
-   return TRUE;
+	ULONG Count;
+	NTSTATUS errCode;
+	errCode = NtPulseEvent(hEvent,&Count);
+	if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
+	return TRUE;
 }
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SetEvent(HANDLE hEvent)
-{
-   NTSTATUS Status;
-
-   Status = NtSetEvent(hEvent, NULL);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return FALSE;
-     }
-
-   return TRUE;
-}
-
-/* EOF */

@@ -1,16 +1,13 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
 
 #ifdef clearerr
 #undef clearerr
 void clearerr(FILE *stream);
 #endif
 
-/*
- * @implemented
- */
 void
 clearerr(FILE *f)
 {

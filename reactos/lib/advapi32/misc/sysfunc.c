@@ -1,5 +1,4 @@
-/* $Id: sysfunc.c,v 1.9 2004/12/11 00:21:33 weiden Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/advapi32/misc/sysfun.c
@@ -9,17 +8,14 @@
  *	19990413 EA	created
  *	19990415 EA
  */
-
-#include "advapi32.h"
+#include <windows.h>
 
 /**********************************************************************
  *	SystemFunction001
- *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction001(INT a, INT b, INT c)
+SystemFunction001(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 1;
@@ -28,11 +24,10 @@ SystemFunction001(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction002(INT a, INT b, INT c)
+SystemFunction002(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 2;
@@ -41,11 +36,10 @@ SystemFunction002(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction003(INT a, INT b)
+SystemFunction003(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 3;
@@ -54,11 +48,10 @@ SystemFunction003(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction004(INT a, INT b, INT c)
+SystemFunction004(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 4;
@@ -67,23 +60,34 @@ SystemFunction004(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction005(INT a, INT b, INT c)
+SystemFunction005(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 5;
 }
 
+
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction007(INT a, INT b)
+SystemFunction006(VOID)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 6;
+}
+
+
+/**********************************************************************
+ *
+ */
+INT
+STDCALL
+SystemFunction007(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 7;
@@ -92,11 +96,10 @@ SystemFunction007(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction008(INT a, INT b, INT c)
+SystemFunction008(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 8;
@@ -105,11 +108,10 @@ SystemFunction008(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction009(INT a, INT b, INT c)
+SystemFunction009(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 9;
@@ -118,11 +120,10 @@ SystemFunction009(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction010(INT a, INT b, INT c)
+SystemFunction010(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 10;
@@ -131,11 +132,10 @@ SystemFunction010(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction011(INT a, INT b, INT c)
+SystemFunction011(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 11;
@@ -144,11 +144,10 @@ SystemFunction011(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction012(INT a, INT b, INT c)
+SystemFunction012(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 12;
@@ -157,11 +156,10 @@ SystemFunction012(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction013(INT a, INT b, INT c)
+SystemFunction013(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 13;
@@ -170,11 +168,10 @@ SystemFunction013(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction014(INT a, INT b, INT c)
+SystemFunction014(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 14;
@@ -183,11 +180,10 @@ SystemFunction014(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction015(INT a, INT b, INT c)
+SystemFunction015(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 15;
@@ -196,11 +192,10 @@ SystemFunction015(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction016(INT a, INT b, INT c)
+SystemFunction016(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 16;
@@ -209,11 +204,10 @@ SystemFunction016(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction017(INT a, INT b, INT c)
+SystemFunction017(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 17;
@@ -222,11 +216,10 @@ SystemFunction017(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction018(INT a, INT b, INT c)
+SystemFunction018(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 18;
@@ -235,11 +228,10 @@ SystemFunction018(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction019(INT a, INT b, INT c)
+SystemFunction019(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 19;
@@ -248,11 +240,10 @@ SystemFunction019(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction020(INT a, INT b, INT c)
+SystemFunction020(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 20;
@@ -261,11 +252,10 @@ SystemFunction020(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction021(INT a, INT b, INT c)
+SystemFunction021(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 21;
@@ -274,11 +264,10 @@ SystemFunction021(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction022(INT a, INT b, INT c)
+SystemFunction022(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 22;
@@ -287,11 +276,10 @@ SystemFunction022(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction023(INT a, INT b, INT c)
+SystemFunction023(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 23;
@@ -300,11 +288,10 @@ SystemFunction023(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction024(INT a, INT b, INT c)
+SystemFunction024(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 24;
@@ -313,11 +300,10 @@ SystemFunction024(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction025(INT a, INT b, INT c)
+SystemFunction025(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 25;
@@ -326,11 +312,10 @@ SystemFunction025(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction026(INT a, INT b, INT c)
+SystemFunction026(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 26;
@@ -339,11 +324,10 @@ SystemFunction026(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction027(INT a, INT b, INT c)
+SystemFunction027(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 27;
@@ -352,11 +336,10 @@ SystemFunction027(INT a, INT b, INT c)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction028(INT a, INT b)
+SystemFunction028(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 28;
@@ -365,11 +348,10 @@ SystemFunction028(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction029(INT a, INT b)
+SystemFunction029(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 29;
@@ -378,11 +360,10 @@ SystemFunction029(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction030(INT a, INT b)
+SystemFunction030(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 30;
@@ -391,11 +372,10 @@ SystemFunction030(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction031(INT a, INT b)
+SystemFunction031(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 31;
@@ -404,11 +384,10 @@ SystemFunction031(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction032(INT a, INT b)
+SystemFunction032(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 32;
@@ -417,39 +396,14 @@ SystemFunction032(INT a, INT b)
 
 /**********************************************************************
  *
- * @unimplemented
  */
 INT
 STDCALL
-SystemFunction033(INT a, INT b)
+SystemFunction033(VOID)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 33;
 }
 
-/**********************************************************************
- *
- * @unimplemented
- */
-INT
-STDCALL
-SystemFunction034(INT a, INT b)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 34;
-}
-
-
-/**********************************************************************
- *
- * @unimplemented
- */
-INT
-STDCALL
-SystemFunction035(INT a, INT b)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 35;
-}
 
 /* EOF */

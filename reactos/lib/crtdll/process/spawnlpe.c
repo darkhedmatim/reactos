@@ -1,11 +1,8 @@
-#include <msvcrt/process.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdarg.h>
+#include <crtdll/process.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdarg.h>
 
 
-/*
- * @implemented
- */
 int _spawnlpe(int mode, const char *path, const char *szArgv0, ... /*, const char **envp */)
 {
   char *szArg[100];

@@ -1,20 +1,32 @@
-# $Id: makefile,v 1.24 2004/01/20 20:00:45 weiden Exp $
+#
+#
+#
 
-PATH_TO_TOP = ../../..
+OBJECTS = blue.o ../../../ntoskrnl/ntoskrnl.a
 
-TARGET_BOOTSTRAP = yes
+all: blue.sys
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = blue
+clean:
+	- $(RM) blue.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) blue.sys
 
-TARGET_OBJECTS = blue.o
+.phony: clean
 
-TARGET_CFLAGS = -Wall -Werror
+blue.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname blue.sys --base-file base.tmp \
+		   --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o blue.sys $(OBJECTS) -Wl,temp.exp
+	- $(RM) temp.exp
 
-include $(PATH_TO_TOP)/rules.mak
 
-include $(TOOLS_PATH)/helper.mk
-
-DEP_OBJECTS := $(TARGET_OBJECTS)
-include $(PATH_TO_TOP)/tools/depend.mk

@@ -1,8 +1,5 @@
-#include <msvcrt/mbstring.h>
+#include <crtdll/mbstring.h>
 
-/*
- * @implemented
- */
 unsigned char * _mbsrev(unsigned char *s)
 {
 	unsigned char  *e;

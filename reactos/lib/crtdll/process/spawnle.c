@@ -1,32 +1,30 @@
-#include <msvcrt/process.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdarg.h>
+#include <crtdll/process.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdarg.h>
 
 
-/*
- * @implemented
- */
 int _spawnle(int mode, const char *path, const char *szArgv0, ... /*, const char **envp */)
 {
   char *szArg[100];
   char *a;
   char *ptr;
-  int i = 1;
+  int i = 0;
   va_list l = 0;
-  szArg[0]=(char*)szArgv0;
   va_start(l,szArgv0);
   do {
-  	a = (char *)va_arg(l,const char *);
+  	a = (const char *)va_arg(l,const char *);
 	szArg[i++] = (char *)a;
   } while ( a != NULL && i < 100 );
 
-  if(a != NULL)
-  {
-//    __set_errno(E2BIG);
-    return -1;
-  }
 
-  ptr = (char *)va_arg(l,const char *);
+// szArg0 is passed and not environment if there is only one parameter;
+
+  if ( i >=2 ) {
+  	ptr = szArg[i-2];
+  	szArg[i-2] = NULL;
+  }
+  else
+	ptr = NULL;
 
   return _spawnve(mode, path, (char * const *)szArg, (char * const *)ptr);
 }

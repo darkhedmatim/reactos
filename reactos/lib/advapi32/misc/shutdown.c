@@ -1,149 +1,164 @@
-/* $Id: shutdown.c,v 1.12 2004/08/15 17:03:14 chorns Exp $
+/* $Id: shutdown.c,v 1.1 1999/05/19 16:43:30 ea Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/advapi32/misc/shutdown.c
- * PURPOSE:     System shutdown functions
+ * PROJECT:         ReactOS system libraries
+ * FILE:            lib/advapi32/misc/shutdown.c
+ * PURPOSE:         System shutdown functions
  * PROGRAMMER:      Emanuele Aliberti
  * UPDATE HISTORY:
- *      19990413 EA     created
- *      19990515 EA
+ * 	19990413 EA	created
+ * 	19990515 EA
  */
 
-#include "advapi32.h"
+#include <windows.h>
+#include <ddk/ntddk.h>
 
 #define USZ {0,0,0}
 
 /**********************************************************************
- *      AbortSystemShutdownW
- *
- * @unimplemented
+ *	AbortSystemShutdownW
  */
-BOOL STDCALL
-AbortSystemShutdownW(LPCWSTR lpMachineName)
+BOOL
+STDCALL
+AbortSystemShutdownW(
+	LPWSTR	lpMachineName
+	)
 {
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+	NTSTATUS Status;
+	
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
 /**********************************************************************
- *      AbortSystemShutdownA
- *
- * @unimplemented
+ *	AbortSystemShutdownA
  */
-BOOL STDCALL
-AbortSystemShutdownA(LPCSTR lpMachineName)
+BOOL
+STDCALL
+AbortSystemShutdownA(
+	LPSTR	lpMachineName
+	)
 {
-    ANSI_STRING MachineNameA;
-    UNICODE_STRING MachineNameW;
-    NTSTATUS Status;
-    BOOL rv;
+	UNICODE_STRING	MachineNameW = USZ;
+	NTSTATUS	Status;
+	BOOL		rv;
 
-    RtlInitAnsiString(&MachineNameA, (LPSTR)lpMachineName);
-    Status = RtlAnsiStringToUnicodeString(&MachineNameW, &MachineNameA, TRUE);
-    if (STATUS_SUCCESS != Status) {
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-    }
-    rv = AbortSystemShutdownW(MachineNameW.Buffer);
-    RtlFreeAnsiString(&MachineNameA);
-    RtlFreeUnicodeString(&MachineNameW);
-    SetLastError(ERROR_SUCCESS);
-    return rv;
+	Status = RtlAnsiStringToUnicodeString(
+			& MachineNameW,
+			lpMachineName,
+			TRUE
+			);
+	if (STATUS_SUCCESS != Status) 
+	{
+		SetLastError(RtlNtStatusToDosError(Status));
+		return FALSE;
+	}
+	rv = AbortSystemShutdownW(
+			MachineNameW.Buffer
+			);
+	RtlFreeUnicodeString(
+			& MachineNameW
+			);
+	SetLastError(ERROR_SUCCESS);
+	return rv;
 }
 
 
 /**********************************************************************
- *      InitiateSystemShutdownW
- *
- * @unimplemented
+ *	InitiateSystemShutdownW
  */
-BOOL STDCALL
+BOOL
+STDCALL
 InitiateSystemShutdownW(
-    LPWSTR  lpMachineName,
-    LPWSTR  lpMessage,
-    DWORD   dwTimeout,
-    BOOL    bForceAppsClosed,
-    BOOL    bRebootAfterShutdown)
+	LPWSTR	lpMachineName,
+	LPWSTR	lpMessage,
+	DWORD	dwTimeout,
+	BOOL	bForceAppsClosed,
+	BOOL	bRebootAfterShutdown
+	)
 {
-    SHUTDOWN_ACTION Action = ShutdownNoReboot;
-    NTSTATUS        Status;
+	SHUTDOWN_ACTION	Action = ShutdownNoReboot;
+	NTSTATUS	Status;
 
-    if (lpMachineName) {
-    /* FIXME: remote machine shutdown not supported yet */
-        SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-        return FALSE;
-    }
-    if (dwTimeout) {
-    }
-    Status = NtShutdownSystem(Action);
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
+	if (lpMachineName)
+	{
+		/* remote machine shutdown not supported yet */
+		SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+		return FALSE;
+	}
+	if (dwTimeout)
+	{
+	}
+	Status = NtShutdownSystem(Action);
+	SetLastError(RtlNtStatusToDosError(Status));
+	return FALSE;
 }
 
 
 /**********************************************************************
- *      InitiateSystemShutdownA
- *
- * @unimplemented
+ *	InitiateSystemShutdownA
  */
 BOOL
 STDCALL
 InitiateSystemShutdownA(
-    LPSTR   lpMachineName,
-    LPSTR   lpMessage,
-    DWORD   dwTimeout,
-    BOOL    bForceAppsClosed,
-    BOOL    bRebootAfterShutdown)
+	LPSTR	lpMachineName,
+	LPSTR	lpMessage,
+	DWORD	dwTimeout,
+	BOOL	bForceAppsClosed,
+	BOOL	bRebootAfterShutdown
+	)
 {
-    ANSI_STRING     MachineNameA;
-    ANSI_STRING     MessageA;
-    UNICODE_STRING  MachineNameW;
-    UNICODE_STRING  MessageW;
-    NTSTATUS        Status;
-    INT         LastError;
-    BOOL        rv;
+	UNICODE_STRING	MachineNameW = USZ;
+	UNICODE_STRING	MessageW = USZ;
+	NTSTATUS	Status;
+	INT		LastError;
+	BOOL		rv;
 
-    if (lpMachineName) {
-        RtlInitAnsiString(&MachineNameA, lpMachineName);
-        Status = RtlAnsiStringToUnicodeString(&MachineNameW, &MachineNameA, TRUE);
-        if (STATUS_SUCCESS != Status) {
-            RtlFreeAnsiString(&MachineNameA);
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
-    }
-    if (lpMessage) {
-        RtlInitAnsiString(&MessageA, lpMessage);
-        Status = RtlAnsiStringToUnicodeString(&MessageW, &MessageA, TRUE);
-        if (STATUS_SUCCESS != Status) {
-            if (MachineNameW.Length) {
-                RtlFreeAnsiString(&MachineNameA);
-                RtlFreeUnicodeString(&MachineNameW);
-            }
-            RtlFreeAnsiString(&MessageA);
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
-    }
-    rv = InitiateSystemShutdownW(
-            MachineNameW.Buffer,
-            MessageW.Buffer,
-            dwTimeout,
-            bForceAppsClosed,
-            bRebootAfterShutdown);
-    LastError = GetLastError();
-    if (lpMachineName) {
-        RtlFreeAnsiString(&MachineNameA);
-        RtlFreeUnicodeString(&MachineNameW);
-    }
-    if (lpMessage) {
-        RtlFreeAnsiString(&MessageA);
-        RtlFreeUnicodeString(&MessageW);
-    }
-    SetLastError(LastError);
-    return rv;
+	if (lpMachineName)
+	{
+		Status = RtlAnsiStringToUnicodeString(
+				& MachineNameW,
+				lpMachineName,
+				TRUE
+				);
+		if (STATUS_SUCCESS != Status)
+		{
+			SetLastError(RtlNtStatusToDosError(Status));
+			return FALSE;
+		}
+	}
+	if (lpMessage)
+	{
+		Status = RtlAnsiStringToUnicodeString(
+				& MessageW,
+				lpMessage,
+				TRUE
+				);
+		if (STATUS_SUCCESS != Status)
+		{
+			if (MachineNameW.Length)
+			{
+				RtlFreeUnicodeString(&MachineNameW);
+			}
+			SetLastError(RtlNtStatusToDosError(Status));
+			return FALSE;
+		}
+	}
+	rv = InitiateSystemShutdownW(
+			MachineNameW.Buffer,
+			MessageW.Buffer,
+			dwTimeout,
+			bForceAppsClosed,
+			bRebootAfterShutdown
+			);
+	LastError = GetLastError();
+	if (MachineNameW.Length) RtlFreeUnicodeString(&MachineNameW);
+	if (MessageW.Length) RtlFreeUnicodeString(&MessageW);
+	SetLastError(LastError);
+	return rv;
 }
 
+
 /* EOF */
+

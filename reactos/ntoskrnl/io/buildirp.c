@@ -1,5 +1,4 @@
-/* $Id: buildirp.c,v 1.45 2004/08/21 20:42:10 tamlin Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/buildirp.c
@@ -12,13 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-/* GLOBALS ******************************************************************/
-
-#define TAG_SYS_BUF  TAG('S', 'B', 'U', 'F')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -35,8 +31,8 @@ NTSTATUS IoPrepareIrpBuffer(PIRP Irp,
    if (DeviceObject->Flags & DO_BUFFERED_IO)
      {
 	DPRINT("Doing buffer i/o\n");
-	Irp->AssociatedIrp.SystemBuffer = 
-	  (PVOID)ExAllocatePoolWithTag(NonPagedPool,Length, TAG_SYS_BUF);
+	Irp->AssociatedIrp.SystemBuffer = (PVOID)
+			   ExAllocatePool(NonPagedPool,Length);
 	if (Irp->AssociatedIrp.SystemBuffer==NULL)
 	  {
 	     IoFreeIrp(Irp);
@@ -53,10 +49,6 @@ NTSTATUS IoPrepareIrpBuffer(PIRP Irp,
 	DPRINT("Doing direct i/o\n");
 	
 	Irp->MdlAddress = MmCreateMdl(NULL,Buffer,Length);
-	if(Irp->MdlAddress == NULL) {
-		DPRINT("MmCreateMdl: Out of memory!");
-		return(STATUS_NO_MEMORY);
-	}	
 	if (MajorFunction == IRP_MJ_READ)
 	  {
 	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoWriteAccess);
@@ -71,17 +63,68 @@ NTSTATUS IoPrepareIrpBuffer(PIRP Irp,
    return(STATUS_SUCCESS);
 }
 
-
+PIRP IoBuildFilesystemControlRequest(ULONG MinorFunction,
+				     PDEVICE_OBJECT DeviceObject,
+				     PKEVENT UserEvent,
+				     PIO_STATUS_BLOCK IoStatusBlock,
+				     PDEVICE_OBJECT DeviceToMount)
 /*
- * @implemented
+ * FUNCTION: Allocates and sets up a filesystem control IRP
+ * ARGUMENTS:
+ *         MinorFunction = Type of filesystem control
+ *         DeviceObject = Device object to send the request to
+ *         UserEvent = Event used to notify the caller of completion
+ *         IoStatusBlock (OUT) = Used to return the status of the operation
+ *         DeviceToMount = Device to mount (for the IRP_MN_MOUNT_DEVICE 
+ *                                          request)
  */
-PIRP STDCALL
-IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
-			      PDEVICE_OBJECT DeviceObject,
-			      PVOID Buffer,
-			      ULONG Length,
-			      PLARGE_INTEGER StartingOffset,
-			      PIO_STATUS_BLOCK IoStatusBlock)
+{
+   PIRP Irp;
+   PIO_STACK_LOCATION StackPtr;
+   
+   Irp = IoAllocateIrp(DeviceObject->StackSize, TRUE);
+   if (Irp==NULL)
+     {
+	return(NULL);
+     }
+   
+   Irp->UserIosb = IoStatusBlock;
+   Irp->UserEvent = UserEvent;
+   
+   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr->MajorFunction = IRP_MJ_FILE_SYSTEM_CONTROL;
+   StackPtr->MinorFunction = MinorFunction;
+   StackPtr->Flags = 0;
+   StackPtr->Control = 0;
+   StackPtr->DeviceObject = DeviceObject;
+   StackPtr->FileObject = NULL;
+   StackPtr->CompletionRoutine = NULL;
+   
+   switch(MinorFunction)
+     {
+      case IRP_MN_USER_FS_REQUEST:
+	break;
+	
+      case IRP_MN_MOUNT_VOLUME:
+	StackPtr->Parameters.Mount.Vpb = DeviceObject->Vpb;
+	StackPtr->Parameters.Mount.DeviceObject = DeviceToMount;
+	break;
+	
+      case IRP_MN_VERIFY_VOLUME:
+	break;
+	
+      case IRP_MN_LOAD_FILE_SYSTEM:
+	break;
+     }
+   return(Irp);
+}
+
+PIRP IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
+				   PDEVICE_OBJECT DeviceObject,
+				   PVOID Buffer,
+				   ULONG Length,
+				   PLARGE_INTEGER StartingOffset,
+				   PIO_STATUS_BLOCK IoStatusBlock)
 /*
  * FUNCTION: Allocates and sets up an IRP to be sent to lower level drivers
  * ARGUMENTS:
@@ -96,84 +139,76 @@ IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
  *          NULL on failure
  */
 {
-   PIRP Irp;
+      PIRP Irp;
    PIO_STACK_LOCATION StackPtr;
-
+   
    DPRINT("IoBuildAsynchronousFsdRequest(MajorFunction %x, DeviceObject %x, "
 	  "Buffer %x, Length %x, StartingOffset %x, "
 	  "IoStatusBlock %x\n",MajorFunction,DeviceObject,Buffer,Length,
 	  StartingOffset,IoStatusBlock);
-
+   
    Irp = IoAllocateIrp(DeviceObject->StackSize,TRUE);
    if (Irp==NULL)
      {
 	return(NULL);
      }
 
-   Irp->UserIosb = IoStatusBlock;
-   DPRINT("Irp->UserIosb %x\n", Irp->UserIosb);
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-
    StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = (UCHAR)MajorFunction;
+   StackPtr->MajorFunction = MajorFunction;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;
    StackPtr->Control = 0;
    StackPtr->DeviceObject = DeviceObject;
    StackPtr->FileObject = NULL;
    StackPtr->CompletionRoutine = NULL;
-
-   if (Buffer != NULL)
+   StackPtr->Parameters.Write.Length = Length;
+   
+   if (MajorFunction == IRP_MJ_READ || MajorFunction == IRP_MJ_WRITE)
      {
-	IoPrepareIrpBuffer(Irp,
-			   DeviceObject,
-			   Buffer,
-			   Length,
-			   MajorFunction);
-     }
-
-   if (MajorFunction == IRP_MJ_READ)
-     {
-	StackPtr->Parameters.Read.Length = Length;
-	if (StartingOffset!=NULL)
+	Irp->UserBuffer = (LPVOID)Buffer;
+	if (DeviceObject->Flags&DO_BUFFERED_IO)
 	  {
-	     StackPtr->Parameters.Read.ByteOffset = *StartingOffset;
+	     DPRINT("Doing buffer i/o\n",0);
+	     Irp->AssociatedIrp.SystemBuffer = (PVOID)
+	       ExAllocatePool(NonPagedPool,Length);
+	     if (Irp->AssociatedIrp.SystemBuffer==NULL)
+	       {
+		  return(NULL);
+	       }
 	  }
-	else
+	if (DeviceObject->Flags&DO_DIRECT_IO)
 	  {
-	     StackPtr->Parameters.Read.ByteOffset.QuadPart = 0;
+	     DPRINT("Doing direct i/o\n",0);
+	     
+	     Irp->MdlAddress = MmCreateMdl(NULL,Buffer,Length);
+	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoWriteAccess);
+	     Irp->UserBuffer = NULL;
+	     Irp->AssociatedIrp.SystemBuffer = NULL;
 	  }
-     }
-   else if (MajorFunction == IRP_MJ_WRITE)
-     {
-	StackPtr->Parameters.Write.Length = Length;
 	if (StartingOffset!=NULL)
 	  {
 	     StackPtr->Parameters.Write.ByteOffset = *StartingOffset;
 	  }
 	else
 	  {
-	    StackPtr->Parameters.Write.ByteOffset.QuadPart = 0;
-	  }
+             StackPtr->Parameters.Write.ByteOffset.QuadPart = 0;
+	  }     
      }
-
+	
+   Irp->UserIosb = IoStatusBlock;
+      
    return(Irp);
 }
 
-
-/*
- * @implemented
- */
-PIRP STDCALL
-IoBuildDeviceIoControlRequest(ULONG IoControlCode,
-			      PDEVICE_OBJECT DeviceObject,
-			      PVOID InputBuffer,
-			      ULONG InputBufferLength,
-			      PVOID OutputBuffer,
-			      ULONG OutputBufferLength,
-			      BOOLEAN InternalDeviceIoControl,
-			      PKEVENT Event,
-			      PIO_STATUS_BLOCK IoStatusBlock)
+PIRP IoBuildDeviceIoControlRequest(ULONG IoControlCode,
+				   PDEVICE_OBJECT DeviceObject,
+				   PVOID InputBuffer,
+				   ULONG InputBufferLength,
+				   PVOID OutputBuffer,
+				   ULONG OutputBufferLength,
+				   BOOLEAN InternalDeviceIoControl,
+				   PKEVENT Event,
+				   PIO_STATUS_BLOCK IoStatusBlock)
 /*
  * FUNCTION: Allocates and sets up an IRP to be sent to drivers
  * ARGUMENTS:
@@ -197,26 +232,23 @@ IoBuildDeviceIoControlRequest(ULONG IoControlCode,
    ULONG BufferLength;
 
    DPRINT("IoBuildDeviceIoRequest(IoControlCode %x, DeviceObject %x, "
-	  "InputBuffer %x, InputBufferLength %x, OutputBuffer %x, "
-	  "OutputBufferLength %x, InternalDeviceIoControl %x "
-	  "Event %x, IoStatusBlock %x\n",IoControlCode,DeviceObject,
-	  InputBuffer,InputBufferLength,OutputBuffer,OutputBufferLength,
-	  InternalDeviceIoControl,Event,IoStatusBlock);
+      "InputBuffer %x, InputBufferLength %x, OutputBuffer %x, "
+      "OutputBufferLength %x, InternalDeviceIoControl %x "
+      "Event %x, IoStatusBlock %x\n",IoControlCode,DeviceObject,
+      InputBuffer,InputBufferLength,OutputBuffer,OutputBufferLength,
+      InternalDeviceIoControl,Event,IoStatusBlock);
    
    Irp = IoAllocateIrp(DeviceObject->StackSize,TRUE);
    if (Irp==NULL)
-     {
-	return(NULL);
-     }
+   {
+      return(NULL);
+   }
    
    Irp->UserEvent = Event;
    Irp->UserIosb = IoStatusBlock;
-   DPRINT("Irp->UserIosb %x\n", Irp->UserIosb);
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
 
    StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = InternalDeviceIoControl ? 
-     IRP_MJ_INTERNAL_DEVICE_CONTROL : IRP_MJ_DEVICE_CONTROL;
+   StackPtr->MajorFunction = InternalDeviceIoControl ? IRP_MJ_INTERNAL_DEVICE_CONTROL : IRP_MJ_DEVICE_CONTROL;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;
    StackPtr->Control = 0;
@@ -225,135 +257,107 @@ IoBuildDeviceIoControlRequest(ULONG IoControlCode,
    StackPtr->CompletionRoutine = NULL;
    StackPtr->Parameters.DeviceIoControl.IoControlCode = IoControlCode;
    StackPtr->Parameters.DeviceIoControl.InputBufferLength = InputBufferLength;
-   StackPtr->Parameters.DeviceIoControl.OutputBufferLength = 
-     OutputBufferLength;
+   StackPtr->Parameters.DeviceIoControl.OutputBufferLength = OutputBufferLength;
 
    switch (IO_METHOD_FROM_CTL_CODE(IoControlCode))
-     {
-      case METHOD_BUFFERED:
-	DPRINT("Using METHOD_BUFFERED!\n");
+   {
+    case METHOD_BUFFERED:
+      DPRINT("Using METHOD_BUFFERED!\n");
       
-	if (InputBufferLength > OutputBufferLength)
-	  {
-	     BufferLength = InputBufferLength;
-	  }
-	else
-	  {
-	     BufferLength = OutputBufferLength;
-	  }
-	if (BufferLength)
-	  {
-	     Irp->AssociatedIrp.SystemBuffer = (PVOID)
-	       ExAllocatePoolWithTag(NonPagedPool,BufferLength, TAG_SYS_BUF);
+      BufferLength = (InputBufferLength>OutputBufferLength)?InputBufferLength:OutputBufferLength;
+      if (BufferLength)
+         {
+            Irp->AssociatedIrp.SystemBuffer = (PVOID)
+	      ExAllocatePool(NonPagedPool,BufferLength);
 	    
-	     if (Irp->AssociatedIrp.SystemBuffer == NULL)
-	       {
-		  IoFreeIrp(Irp);
-		  return(NULL);
-	       }
-	  }
+            if (Irp->AssociatedIrp.SystemBuffer==NULL)
+	      {
+		 IoFreeIrp(Irp);
+		 return(NULL);
+	      }
+         }
       
-	if (InputBuffer && InputBufferLength)
-	  {
-	     RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
-			   InputBuffer,
-			   InputBufferLength);
-	     RtlZeroMemory((char*)Irp->AssociatedIrp.SystemBuffer + InputBufferLength,
-			   BufferLength - InputBufferLength);
-	  }
-	else
-	  {
-	     RtlZeroMemory(Irp->AssociatedIrp.SystemBuffer,
-			   BufferLength);
-	  }
-	Irp->UserBuffer = OutputBuffer;
-	break;
-	
-      case METHOD_IN_DIRECT:
-	DPRINT("Using METHOD_IN_DIRECT!\n");
-	
-	/* build input buffer (control buffer) */
-	if (InputBuffer && InputBufferLength)
-	  {
-            Irp->AssociatedIrp.SystemBuffer = (PVOID)
-               ExAllocatePoolWithTag(NonPagedPool,InputBufferLength, 
-				     TAG_SYS_BUF);
-	     
-	     if (Irp->AssociatedIrp.SystemBuffer==NULL)
-	       {
-		  IoFreeIrp(Irp);
-		  return(NULL);
-	       }
-	     
-            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
-			  InputBuffer,
-			  InputBufferLength);
-	  }
-	
-	/* build output buffer (data transfer buffer) */
-         if (OutputBuffer && OutputBufferLength)
-	  {
-	     Irp->MdlAddress = IoAllocateMdl(OutputBuffer,
-					     OutputBufferLength,
-					     FALSE,
-					     FALSE,
-					    Irp);
-	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoReadAccess);
-	  }
-	break;
-	
-      case METHOD_OUT_DIRECT:
-	DPRINT("Using METHOD_OUT_DIRECT!\n");
-	
-	/* build input buffer (control buffer) */
-	if (InputBuffer && InputBufferLength)
-	  {
-            Irp->AssociatedIrp.SystemBuffer = (PVOID)
-               ExAllocatePoolWithTag(NonPagedPool,InputBufferLength, 
-				     TAG_SYS_BUF);
-	     
-	     if (Irp->AssociatedIrp.SystemBuffer==NULL)
-	       {
-		  IoFreeIrp(Irp);
-		  return(NULL);
-	       }
-	     
-            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
-			  InputBuffer,
-			  InputBufferLength);
-	  }
-	
-	/* build output buffer (data transfer buffer) */
-         if (OutputBuffer && OutputBufferLength)
-	  {
-	     Irp->MdlAddress = IoAllocateMdl(OutputBuffer,
-					     OutputBufferLength,
-					     FALSE,
-					     FALSE,
-					    Irp);
-	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoWriteAccess);
-	  }
-	break;
-	
-      case METHOD_NEITHER:
-	DPRINT("Using METHOD_NEITHER!\n");
-	
-	Irp->UserBuffer = OutputBuffer;
-	StackPtr->Parameters.DeviceIoControl.Type3InputBuffer = InputBuffer;
-	break;
-     }
+      if (InputBuffer && InputBufferLength)
+	{
+	   RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
+			 InputBuffer,
+			 InputBufferLength);
+	}
+      Irp->UserBuffer = OutputBuffer;
+      break;
 
-   /* synchronous irp's are queued to requestor thread's irp cancel/cleanup list */
-   IoQueueThreadIrp(Irp);
+    case METHOD_IN_DIRECT:
+      DPRINT("Using METHOD_IN_DIRECT!\n");
+      
+      /* build input buffer (control buffer) */
+      if (InputBuffer && InputBufferLength)
+	{
+	   Irp->AssociatedIrp.SystemBuffer = (PVOID)
+               ExAllocatePool(NonPagedPool,InputBufferLength);
+	   
+	   if (Irp->AssociatedIrp.SystemBuffer==NULL)
+            {
+               IoFreeIrp(Irp);
+               return(NULL);
+            }
+
+            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
+               InputBuffer,
+               InputBufferLength);
+         }
+
+         /* build output buffer (data transfer buffer) */
+         if (OutputBuffer && OutputBufferLength)
+         {
+            Irp->MdlAddress = IoAllocateMdl (OutputBuffer,OutputBufferLength,FALSE,FALSE,Irp);
+            MmProbeAndLockPages (Irp->MdlAddress,UserMode,IoReadAccess);
+         }
+         break;
+
+      case METHOD_OUT_DIRECT:
+         DPRINT("Using METHOD_OUT_DIRECT!\n");
+
+         /* build input buffer (control buffer) */
+         if (InputBuffer && InputBufferLength)
+         {
+            Irp->AssociatedIrp.SystemBuffer = (PVOID)
+               ExAllocatePool(NonPagedPool,InputBufferLength);
+
+            if (Irp->AssociatedIrp.SystemBuffer==NULL)
+            {
+               IoFreeIrp(Irp);
+               return(NULL);
+            }
+
+            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
+               InputBuffer,
+               InputBufferLength);
+         }
+
+         /* build output buffer (data transfer buffer) */
+         if (OutputBuffer && OutputBufferLength)
+         {
+            Irp->MdlAddress = IoAllocateMdl(OutputBuffer,
+					    OutputBufferLength,
+					    FALSE,
+					    FALSE,
+					    Irp);
+            MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoWriteAccess);
+         }
+         break;
+
+      case METHOD_NEITHER:
+         DPRINT("Using METHOD_NEITHER!\n");
+
+         Irp->UserBuffer = OutputBuffer;
+         StackPtr->Parameters.DeviceIoControl.Type3InputBuffer = InputBuffer;
+         break;
+   }
+
    return(Irp);
 }
 
-
-/*
- * @implemented
- */
-PIRP STDCALL
-IoBuildSynchronousFsdRequest(ULONG MajorFunction,
+PIRP IoBuildSynchronousFsdRequest(ULONG MajorFunction,
 				  PDEVICE_OBJECT DeviceObject,
 				  PVOID Buffer,
 				  ULONG Length,
@@ -377,62 +381,11 @@ IoBuildSynchronousFsdRequest(ULONG MajorFunction,
  */
 {
    PIRP Irp;
+   PIO_STACK_LOCATION StackPtr;
    
    DPRINT("IoBuildSynchronousFsdRequest(MajorFunction %x, DeviceObject %x, "
 	  "Buffer %x, Length %x, StartingOffset %x, Event %x, "
 	  "IoStatusBlock %x\n",MajorFunction,DeviceObject,Buffer,Length,
-	  StartingOffset,Event,IoStatusBlock);
-   
-   Irp = IoBuildAsynchronousFsdRequest(MajorFunction,
-                                       DeviceObject,
-                                       Buffer,
-                                       Length,
-                                       StartingOffset,
-                                       IoStatusBlock );
-   if (Irp==NULL)
-     {
-	return(NULL);
-     }
-   
-   Irp->UserEvent = Event;
-
-   /* synchronous irp's are queued to requestor thread's irp cancel/cleanup list */
-   IoQueueThreadIrp(Irp);
-   return(Irp);
-}
-
-
-PIRP 
-IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
-				    PDEVICE_OBJECT DeviceObject,
-				    PMDL Mdl,
-				    PLARGE_INTEGER StartingOffset,
-				    PKEVENT Event,
-				    PIO_STATUS_BLOCK IoStatusBlock,
-				    BOOLEAN PagingIo)
-/*
- * FUNCTION: Allocates and builds an IRP to be sent synchronously to lower
- * level driver(s)
- * ARGUMENTS:
- *        MajorFunction = Major function code, one of IRP_MJ_READ,
- *                        IRP_MJ_WRITE, IRP_MJ_FLUSH_BUFFERS, IRP_MJ_SHUTDOWN
- *        DeviceObject = Target device object
- *        Buffer = Buffer containing data for a read or write
- *        Length = Length in bytes of the information to be transferred
- *        StartingOffset = Offset to begin the read/write from
- *        Event (OUT) = Will be set when the operation is complete
- *        IoStatusBlock (OUT) = Set to the status of the operation
- * RETURNS: The IRP allocated on success, or
- *          NULL on failure
- */
-{
-   PIRP Irp;
-   PIO_STACK_LOCATION StackPtr;
-   
-   DPRINT("IoBuildSynchronousFsdRequestWithMdl(MajorFunction %x, "
-	  "DeviceObject %x, "
-	  "Mdl %x, StartingOffset %x, Event %x, "
-	  "IoStatusBlock %x\n",MajorFunction,DeviceObject,Mdl,
 	  StartingOffset,Event,IoStatusBlock);
    
    Irp = IoAllocateIrp(DeviceObject->StackSize,TRUE);
@@ -443,19 +396,9 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
    
    Irp->UserEvent = Event;
    Irp->UserIosb = IoStatusBlock;
-   DPRINT("Irp->UserIosb %x\n", Irp->UserIosb);
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-   if (PagingIo)
-     {
-       Irp->Flags = IRP_PAGING_IO;
-     }
-   else
-     {
-       Irp->Flags = 0;
-     }
-   
+
    StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = (UCHAR)MajorFunction;
+   StackPtr->MajorFunction = MajorFunction;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;
    StackPtr->Control = 0;
@@ -463,10 +406,15 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
    StackPtr->FileObject = NULL;
    StackPtr->CompletionRoutine = NULL;
    
-   Irp->MdlAddress = Mdl;
-   Irp->UserBuffer = MmGetMdlVirtualAddress(Mdl);
-   Irp->AssociatedIrp.SystemBuffer = NULL;
-      
+   if (Buffer != NULL)
+     {
+	IoPrepareIrpBuffer(Irp,
+			   DeviceObject,
+			   Buffer,
+			   Length,
+			   MajorFunction);
+     }
+   
    if (MajorFunction == IRP_MJ_READ)
      {
        if (StartingOffset != NULL)
@@ -477,7 +425,7 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
 	 {
             StackPtr->Parameters.Read.ByteOffset.QuadPart = 0;
 	 }
-	StackPtr->Parameters.Read.Length = MmGetMdlByteCount(Mdl);
+	StackPtr->Parameters.Read.Length = Length;
      }
    else
      {
@@ -489,10 +437,9 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
 	 {
             StackPtr->Parameters.Write.ByteOffset.QuadPart = 0;
 	 }
-	StackPtr->Parameters.Write.Length = MmGetMdlByteCount(Mdl);
+	StackPtr->Parameters.Write.Length = Length;
      }
 
    return(Irp);
 }
 
-/* EOF */

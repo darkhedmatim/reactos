@@ -1,13 +1,10 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <limits.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
+//#include <crtdll/internal/file.h>
 
-
-/*
- * @implemented
- */
 long
 strtol(const char *nptr, char **endptr, int base)
 {
@@ -84,6 +81,7 @@ strtol(const char *nptr, char **endptr, int base)
   if (any < 0)
   {
     acc = neg ? LONG_MIN : LONG_MAX;
+//    __set_errno(ERANGE);
   }
   else if (neg)
     acc = -acc;

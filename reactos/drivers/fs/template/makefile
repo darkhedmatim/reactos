@@ -1,15 +1,17 @@
-# $Id: makefile,v 1.6 2001/08/21 20:13:13 chorns Exp $
+#
+#
+#
+OBJECTS = template.o
 
-PATH_TO_TOP = ../../..
+all: tfsd.o
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = template
+clean:
+	- $(RM) template.o
+	- $(RM) tfsd.o
 
-TARGET_OBJECTS = $(TARGET_NAME).o
+.phony: clean
 
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-# EOF
+tfsd.o: template.o
+	$(LD) -r template.o -o tfsd.o

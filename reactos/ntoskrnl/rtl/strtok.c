@@ -10,7 +10,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 
@@ -22,7 +23,8 @@ char* strtok(char *s, const char *delim)
   int c, sc;
   char *tok;
   static char *last;
-   
+
+
   if (s == NULL && (s = last) == NULL)
     return (NULL);
 

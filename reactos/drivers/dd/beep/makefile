@@ -1,15 +1,31 @@
-# $Id: makefile,v 1.14 2003/11/13 14:20:44 ekohl Exp $
+#
+#
+#
+OBJECTS = beep.o ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: beep.sys
 
-TARGET_TYPE = driver
+.PHONY: all
 
-TARGET_NAME = beep
+clean:
+	- $(RM) beep.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) beep.sys
 
-TARGET_OBJECTS = beep.o
+.phony: clean
 
-TARGET_CFLAGS = -Wall -Werror
+beep.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname beep.sys --base-file base.tmp \
+		   --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o beep.sys $(OBJECTS) -Wl,temp.exp
+	- $(RM) temp.exp
 
-include $(PATH_TO_TOP)/rules.mak
 
-include $(TOOLS_PATH)/helper.mk

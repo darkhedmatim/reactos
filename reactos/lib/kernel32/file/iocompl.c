@@ -1,5 +1,4 @@
-/* $Id: iocompl.c,v 1.17 2004/12/06 14:37:11 gdalsnes Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/file/iocompl.c
@@ -9,187 +8,141 @@
  *                  Created 01/11/98
  */
 
-#include <k32.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <wchar.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+
+typedef struct _FILE_COMPLETION_INFORMATION {                    
+    HANDLE CompletionPort;                                     
+    ULONG CompletionKey;                                      
+} FILE_COMPLETION_INFORMATION;
+typedef FILE_COMPLETION_INFORMATION *PFILE_COMPLETION_INFORMATION;   
 
 
-/*
- * @implemented
- */
-HANDLE
+VOID 
+STDCALL 
+FileIOCompletionRoutine(
+	DWORD dwErrorCode,	
+	DWORD dwNumberOfBytesTransfered,	
+	LPOVERLAPPED lpOverlapped 	 
+	);
+
+
+HANDLE 
 STDCALL
-CreateIoCompletionPort(
-    HANDLE FileHandle,
-    HANDLE ExistingCompletionPort,
-    ULONG_PTR CompletionKey,
-    DWORD NumberOfConcurrentThreads
+CreateIoCompletionPort( 
+    HANDLE FileHandle, 
+    HANDLE ExistingCompletionPort, 
+    DWORD CompletionKey, 
+    DWORD NumberOfConcurrentThreads 
     )
 {
-   HANDLE CompletionPort = NULL;
-   NTSTATUS errCode;
-   FILE_COMPLETION_INFORMATION CompletionInformation;
-   IO_STATUS_BLOCK IoStatusBlock;
+	HANDLE CompletionPort = NULL;
+	NTSTATUS errCode;
+	FILE_COMPLETION_INFORMATION CompletionInformation;
+	IO_STATUS_BLOCK IoStatusBlock;
 
-   if ( ExistingCompletionPort == NULL && FileHandle == INVALID_HANDLE_VALUE ) 
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-   }
+        if ( ExistingCompletionPort == NULL && FileHandle == INVALID_HANDLE_VALUE ) {
+                SetLastError(RtlNtStatusToDosError(STATUS_INVALID_PARAMETER));
+                return FALSE;
+        }
 
-   if ( ExistingCompletionPort != NULL ) 
-   {
-      CompletionPort = ExistingCompletionPort;
-   }
-   else 
-   {
+        if ( ExistingCompletionPort != NULL )  {
+                CompletionPort = ExistingCompletionPort;
+	}
+	else {
+                errCode = NtCreateIoCompletion(&CompletionPort,GENERIC_ALL,&IoStatusBlock,NumberOfConcurrentThreads);
+                if (!NT_SUCCESS(errCode) ) {
+                        SetLastError(RtlNtStatusToDosError(errCode));
+                        return FALSE;
+                }
+                
+        }
+        if ( FileHandle != INVALID_HANDLE_VALUE ) {
 
-      errCode = NtCreateIoCompletion(&CompletionPort,
-                                     IO_COMPLETION_ALL_ACCESS,
-                                     NULL,//ObjectAttributes
-                                     NumberOfConcurrentThreads);
-
-      if (!NT_SUCCESS(errCode) ) 
-      {
-         SetLastErrorByStatus (errCode);
-         return FALSE;
-      }
-
-   }
-   
-   if ( FileHandle != INVALID_HANDLE_VALUE ) 
-   {
-#ifdef __USE_W32API
-      CompletionInformation.Port = CompletionPort;
-      CompletionInformation.Key  = (PVOID)CompletionKey;
-#else
-      CompletionInformation.IoCompletionHandle = CompletionPort;
-      CompletionInformation.CompletionKey  = CompletionKey;
-#endif
-
-      errCode = NtSetInformationFile(FileHandle, 
-                                     &IoStatusBlock,
-                                     &CompletionInformation,
-                                     sizeof(FILE_COMPLETION_INFORMATION),
-                                     FileCompletionInformation);
-
-      if ( !NT_SUCCESS(errCode) ) 
-      {
-         if ( ExistingCompletionPort == NULL )
-         {
-            NtClose(CompletionPort);
-         }
-   
-         SetLastErrorByStatus (errCode);
-         return FALSE;
-      }
-   }
-
-   return CompletionPort;
+		CompletionInformation.CompletionPort = CompletionPort;
+                CompletionInformation.CompletionKey  = CompletionKey;
+              
+                errCode = NtSetInformationFile(FileHandle, &IoStatusBlock,&CompletionInformation,sizeof(FILE_COMPLETION_INFORMATION),FileCompletionInformation);
+                if ( !NT_SUCCESS(errCode) ) {
+			if ( ExistingCompletionPort == NULL )
+                        	NtClose(CompletionPort);
+                        SetLastError(RtlNtStatusToDosError(errCode));
+                        return FALSE;
+                }    
+        }
+        
+        return CompletionPort;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+
+WINBOOL
 STDCALL
 GetQueuedCompletionStatus(
-   HANDLE CompletionHandle,
-   LPDWORD lpNumberOfBytesTransferred,
-   PULONG_PTR lpCompletionKey,
-   LPOVERLAPPED *lpOverlapped,
-   DWORD dwMilliseconds
-   )
+			  HANDLE CompletionPort,
+			  LPDWORD lpNumberOfBytesTransferred,
+			  LPDWORD lpCompletionKey,
+			  LPOVERLAPPED *lpOverlapped,
+			  DWORD dwMilliseconds
+			  )
 {
-   NTSTATUS errCode;
-   IO_STATUS_BLOCK IoStatus;
-   LARGE_INTEGER Interval;
 
-   if (!lpNumberOfBytesTransferred||!lpCompletionKey||!lpOverlapped)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-   }
+	NTSTATUS errCode;
+	ULONG CompletionStatus;
+	LARGE_INTEGER TimeToWait;
 
-   if (dwMilliseconds != INFINITE)
-   {
-      Interval.QuadPart = RELATIVE_TIME(MILLIS_TO_100NS(dwMilliseconds));
-   }  
+	errCode = NtRemoveIoCompletion(CompletionPort,(PULONG)lpCompletionKey,(PIO_STATUS_BLOCK)lpOverlapped,&CompletionStatus,&TimeToWait);
+	if (!NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+	}
 
-   errCode = NtRemoveIoCompletion(CompletionHandle,
-                                  (PVOID*)lpCompletionKey,
-                                  (PVOID*)lpNumberOfBytesTransferred,
-                                  &IoStatus,
-                                  dwMilliseconds == INFINITE ? NULL : &Interval);
-
-   if (!NT_SUCCESS(errCode)) {
-      *lpOverlapped = NULL;
-      SetLastErrorByStatus(errCode);
-      return FALSE;
-   }
-
-   *lpOverlapped = (LPOVERLAPPED)IoStatus.Information;
-
-   if (!NT_SUCCESS(IoStatus.Status)){
-      //failed io operation
-      SetLastErrorByStatus(IoStatus.Status);
-      return FALSE;
-   }
-
-   return TRUE;
-
+	return TRUE; 
+	
 }
 
 
-/*
- * @implemented
- */
-BOOL
+
+WINBOOL 
 STDCALL
 PostQueuedCompletionStatus(
-   HANDLE CompletionHandle,
-   DWORD dwNumberOfBytesTransferred,
-   DWORD dwCompletionKey,
-   LPOVERLAPPED lpOverlapped
-   )
+  HANDLE CompletionPort,  
+  DWORD dwNumberOfBytesTransferred,  
+  DWORD dwCompletionKey, 
+  LPOVERLAPPED lpOverlapped  
+)
 {
-   NTSTATUS errCode;
 
-   errCode = NtSetIoCompletion(CompletionHandle,  
-                               (PVOID)dwCompletionKey, 
-                               (PVOID)lpOverlapped,//CompletionValue 
-                               STATUS_SUCCESS,                         //IoStatusBlock->Status
-                               dwNumberOfBytesTransferred);     //IoStatusBlock->Information
+        NTSTATUS errCode;
+        errCode = NtSetIoCompletion(CompletionPort,  dwCompletionKey, (PIO_STATUS_BLOCK)lpOverlapped , 0, (PULONG)&dwNumberOfBytesTransferred );
 
-   if ( !NT_SUCCESS(errCode) ) 
-   {
-      SetLastErrorByStatus (errCode);
-      return FALSE;
-   }
-   return TRUE;
+                                  
+        if ( !NT_SUCCESS(errCode) ) {
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return FALSE;
+        }
+        return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-CancelIo(HANDLE hFile)
+// this should be a place holder ??????????????????
+VOID 
+STDCALL 
+FileIOCompletionRoutine(
+	DWORD dwErrorCode,	
+	DWORD dwNumberOfBytesTransfered,	
+	LPOVERLAPPED lpOverlapped 	 
+	)
 {
-  IO_STATUS_BLOCK IoStatusBlock;
-  NTSTATUS Status;
-
-  Status = NtCancelIoFile(hFile,
-			  &IoStatusBlock);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return(FALSE);
-    }
-
-  return(TRUE);
+	return;
 }
 
-/* EOF */
+
+
+
+
+
+
+

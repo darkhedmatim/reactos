@@ -10,24 +10,23 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS
-STDCALL
-NtDisplayString(IN PUNICODE_STRING DisplayString)
+NTSTATUS STDCALL NtWriteRequestData(VOID)
 {
-   ANSI_STRING AnsiString;
-
-   RtlUnicodeStringToAnsiString (&AnsiString, DisplayString, TRUE);
-
-   HalDisplayString (AnsiString.Buffer);
-
-   RtlFreeAnsiString (&AnsiString);
-
-   return(STATUS_SUCCESS);
+   UNIMPLEMENTED;
 }
 
-/* EOF */
+NTSTATUS STDCALL NtVdmControl(VOID)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtReadRequestData(VOID)
+{
+   UNIMPLEMENTED;
+}
