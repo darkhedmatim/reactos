@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: brush.c,v 1.11 2004/05/10 17:07:17 weiden Exp $
+/* $Id: brush.c,v 1.8 2003/07/11 15:59:37 royce Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -26,13 +26,14 @@
  * REVISION HISTORY:
  *                 3/7/1999: Created
  */
-#include <w32k.h>
+
+#include <ddk/winddi.h>
 
 /*
  * @implemented
  */
 PVOID STDCALL
-BRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ  *BrushObj,
+BRUSHOBJ_pvAllocRbrush(IN PBRUSHOBJ  BrushObj,
 		       IN ULONG  ObjSize)
 {
   BrushObj->pvRbrush=EngAllocMem(0, ObjSize, 0);
@@ -43,18 +44,8 @@ BRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ  *BrushObj,
  * @implemented
  */
 PVOID STDCALL
-BRUSHOBJ_pvGetRbrush(IN BRUSHOBJ  *BrushObj)
+BRUSHOBJ_pvGetRbrush(IN PBRUSHOBJ  BrushObj)
 {
   return(BrushObj->pvRbrush);
 }
-
-/*
- * @implemented
- */
-ULONG STDCALL
-BRUSHOBJ_ulGetBrushColor(IN BRUSHOBJ *BrushObj)
-{
-   return BrushObj->iSolidColor;
-}
-
 /* EOF */

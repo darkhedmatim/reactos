@@ -1,6 +1,6 @@
 #ifndef _NTOS_H
 #define _NTOS_H
-/* $Id: ntos.h,v 1.21 2004/04/10 23:19:42 ekohl Exp $ */
+/* $Id: ntos.h,v 1.16 2003/08/27 21:21:59 dwelch Exp $ */
 
 #if defined(NTOS_MODE_USER)
 /* 
@@ -9,12 +9,10 @@
  */
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <ddk/ntifs.h>
 #include "ntos/types.h"
 #include "ntos/cdrom.h"
 #include "ntos/console.h"
 #include "ntos/disk.h"
-#include "ntos/tape.h"
 #include "ntos/except.h"
 #include "ntos/file.h"
 #include "ntos/gditypes.h"
@@ -34,6 +32,7 @@
 #include "napi/i386/segment.h"
 #include "napi/types.h"
 #include "napi/dbg.h"
+#include "napi/lpc.h"
 #include "napi/npipe.h"
 #include "napi/shared_data.h"
 #include "napi/win32.h"
@@ -46,9 +45,11 @@
 #include "ntdll/csr.h"
 #include "ntdll/dbg.h"
 #include "ntdll/ldr.h"
+#include "ntdll/registry.h"
 #include "ntdll/rtl.h"
 #include "ntdll/trace.h"
 #include "rosrtl/thread.h"
+#include "kernel32/error.h"
 #else /* Assume kernel mode */
 #include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
@@ -56,7 +57,6 @@
 #include "ntos/cdrom.h"
 #include "ntos/console.h"
 #include "ntos/disk.h"
-#include "ntos/tape.h"
 #include "ntos/except.h"
 #include "ntos/file.h"
 #include "ntos/gditypes.h"
@@ -75,6 +75,7 @@
 #include "napi/i386/segment.h"
 #include "napi/types.h"
 #include "napi/dbg.h"
+#include "napi/lpc.h"
 #include "napi/npipe.h"
 #include "napi/shared_data.h"
 #include "napi/win32.h"

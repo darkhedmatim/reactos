@@ -1,9 +1,8 @@
 #ifndef __INCLUDE_DDK_HALFUNCS_H
 #define __INCLUDE_DDK_HALFUNCS_H
-/* $Id: halfuncs.h,v 1.12 2003/10/20 06:03:29 vizzini Exp $ */
+/* $Id: halfuncs.h,v 1.11 2003/08/25 01:37:47 sedwards Exp $ */
 
 #include <ntos/haltypes.h>
-#include <ddk/iotypes.h>
 
 VOID STDCALL
 HalAcquireDisplayOwnership(IN PHAL_RESET_DISPLAY_PARAMETERS ResetDisplayParameters);
@@ -13,9 +12,10 @@ HalAdjustResourceList(PCM_RESOURCE_LIST	Resources);
 
 NTSTATUS STDCALL
 HalAllocateAdapterChannel(IN PADAPTER_OBJECT AdapterObject,
-			  IN PWAIT_CONTEXT_BLOCK WaitContextBlock,
+			  IN PDEVICE_OBJECT DeviceObject,
 			  IN ULONG NumberOfMapRegisters,
-			  IN PDRIVER_CONTROL ExecutionRoutine);
+			  IN PDRIVER_CONTROL ExecutionRoutine,
+			  IN PVOID Context);
 
 PVOID STDCALL
 HalAllocateCommonBuffer(PADAPTER_OBJECT AdapterObject,

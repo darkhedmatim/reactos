@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mutex.c,v 1.19 2004/11/21 18:33:54 gdalsnes Exp $
+/* $Id: mutex.c,v 1.14 2003/07/21 21:53:51 royce Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/mutex.c
@@ -28,7 +28,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/id.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -67,35 +71,22 @@ LONG STDCALL
 KeReleaseMutex(IN PKMUTEX Mutex,
 	       IN BOOLEAN Wait)
 {
-  KIRQL OldIrql;
-
-  OldIrql = KeAcquireDispatcherDatabaseLock();
+  KeAcquireDispatcherDatabaseLock(Wait);
   if (Mutex->OwnerThread != KeGetCurrentThread())
     {
       DbgPrint("THREAD_NOT_MUTEX_OWNER: Mutex %p\n", Mutex);
-      KEBUGCHECK(THREAD_NOT_MUTEX_OWNER);
+      KEBUGCHECK(0); /* THREAD_NOT_MUTEX_OWNER */
     }
   Mutex->Header.SignalState++;
-  ASSERT(Mutex->Header.SignalState <= 1);
+  assert(Mutex->Header.SignalState <= 1);
   if (Mutex->Header.SignalState == 1)
     {
       Mutex->OwnerThread = NULL;
       if (Mutex->MutantListEntry.Flink && Mutex->MutantListEntry.Blink)
 	RemoveEntryList(&Mutex->MutantListEntry);
-      KiDispatcherObjectWake(&Mutex->Header);
+      KeDispatcherObjectWake(&Mutex->Header);
     }
-
-  if (Wait == FALSE)
-    {
-      KeReleaseDispatcherDatabaseLock(OldIrql);
-    }
-  else
-    {
-      KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = Wait;
-      Thread->WaitIrql = OldIrql;
-    }
-
+  KeReleaseDispatcherDatabaseLock(Wait);
   return(0);
 }
 
@@ -162,9 +153,7 @@ KeReleaseMutant(IN PKMUTANT Mutant,
 		IN BOOLEAN Abandon,
 		IN BOOLEAN Wait)
 {
-  KIRQL OldIrql;
-
-  OldIrql = KeAcquireDispatcherDatabaseLock();
+  KeAcquireDispatcherDatabaseLock(Wait);
   if (Abandon == FALSE)
     {
       if (Mutant->OwnerThread != NULL && Mutant->OwnerThread != KeGetCurrentThread())
@@ -172,10 +161,10 @@ KeReleaseMutant(IN PKMUTANT Mutant,
 	  DbgPrint("THREAD_NOT_MUTEX_OWNER: Mutant->OwnerThread %p CurrentThread %p\n",
 		   Mutant->OwnerThread,
 		   KeGetCurrentThread());
-	  KEBUGCHECK(THREAD_NOT_MUTEX_OWNER);
+	  KEBUGCHECK(0); /* THREAD_NOT_MUTEX_OWNER */
 	}
       Mutant->Header.SignalState++;
-      ASSERT(Mutant->Header.SignalState <= 1);
+      assert(Mutant->Header.SignalState <= 1);
     }
   else
     {
@@ -191,20 +180,10 @@ KeReleaseMutant(IN PKMUTANT Mutant,
       Mutant->OwnerThread = NULL;
       if (Mutant->MutantListEntry.Flink && Mutant->MutantListEntry.Blink)
 	RemoveEntryList(&Mutant->MutantListEntry);
-      KiDispatcherObjectWake(&Mutant->Header);
+      KeDispatcherObjectWake(&Mutant->Header);
     }
 
-  if (Wait == FALSE)
-    {
-      KeReleaseDispatcherDatabaseLock(OldIrql);
-    }
-  else
-    {
-      KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = Wait;
-      Thread->WaitIrql = OldIrql;
-    }
-
+  KeReleaseDispatcherDatabaseLock(Wait);
   return(0);
 }
 

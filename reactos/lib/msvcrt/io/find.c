@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/string.h>
 #include <msvcrt/internal/file.h>
@@ -39,7 +39,6 @@ int _findfirst(const char* _name, struct _finddata_t* result)
     hFindFile = (long)FindFirstFileA(dir, &FindFileData);
     if (hFindFile == -1) {
         memset(result,0,sizeof(struct _finddata_t));
-        _dosmaperr(GetLastError());
         return -1;
     }
 
@@ -72,10 +71,8 @@ int _findnext(int handle, struct _finddata_t* result)
     if (handle == 0 || handle == -1)
         return 0;
 
-    if (!FindNextFileA((void*)handle, &FindFileData)) {
-    	_dosmaperr(GetLastError());
+    if (!FindNextFileA((void*)handle, &FindFileData))
         return -1;
-	}
 
     result->attrib = FindFileData.dwFileAttributes;
     result->time_create = FileTimeToUnixTime(&FindFileData.ftCreationTime,NULL);

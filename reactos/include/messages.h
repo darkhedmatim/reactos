@@ -32,12 +32,6 @@
 #ifndef _GNU_H_WINDOWS32_MESSAGES
 #define _GNU_H_WINDOWS32_MESSAGES
 
-#ifdef __USE_W32API
-
-#include <winuser.h>
-
-#else /* __USE_W32API */
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -1050,11 +1044,7 @@ extern "C" {
 #define WM_NCRBUTTONDBLCLK	(166)
 #define WM_NCRBUTTONDOWN	(164)
 #define WM_NCRBUTTONUP	(165)
-#define WM_NCXBUTTONDOWN	(171)
-#define WM_NCXBUTTONUP	(172)
-#define WM_NCXBUTTONDBLCLK	(173)
 #define WM_NEXTDLGCTL	(40)
-#define WM_NEXTMENU	(531)
 #define WM_NOTIFY	(78)
 #define WM_NOTIFYFORMAT	(85)
 #define WM_NULL         (0)
@@ -1115,7 +1105,6 @@ extern "C" {
 #define WM_TCARD	(82)
 #define WM_TIMECHANGE	(30)
 #define WM_TIMER	(275)
-#define WM_SYSTIMER	(280)
 #define WM_UNDO	(772)
 #define WM_USER	(1024)
 #define WM_USERCHANGED	(84)
@@ -1125,20 +1114,15 @@ extern "C" {
 #define WM_WINDOWPOSCHANGED	(71)
 #define WM_WINDOWPOSCHANGING	(70)
 #define WM_WININICHANGE	(26)
-#define WM_XBUTTONDOWN  (523)
-#define WM_XBUTTONUP    (524)
-#define WM_XBUTTONDBLCLK    (525)
 
 /* Window message ranges */
 #define WM_KEYFIRST	(256)
 #define WM_KEYLAST	(264)
 #define WM_MOUSEFIRST	(512)
-#define WM_MOUSELAST	(525)
+#define WM_MOUSELAST	(521)
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#endif /* __USE_W32API */
 
 #endif /* _GNU_H_WINDOWS32_MESSAGES */

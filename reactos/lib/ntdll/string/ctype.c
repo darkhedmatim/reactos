@@ -1,4 +1,4 @@
-/* $Id: ctype.c,v 1.14 2004/02/01 20:48:06 ekohl Exp $
+/* $Id: ctype.c,v 1.13 2003/07/11 13:50:23 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -415,33 +415,21 @@ int iswalpha(wint_t c)
    return (iswctype (c, _ALPHA));
 }
 
-/*
- * @implemented
- */
 int iswdigit(wint_t c)
 {
    return (iswctype (c, _DIGIT));
 }
 
-/*
- * @implemented
- */
-int iswlower(wint_t c)
-{
-   return (iswctype (c, _LOWER));
-}
-
-/*
- * @implemented
- */
 int iswspace(wint_t c)
 {
    return (iswctype (c, _SPACE));
 }
 
-/*
- * @implemented
- */
+int iswlower(wint_t c)
+{
+   return (iswctype (c, _LOWER));
+}
+
 int iswxdigit(wint_t c)
 {
    return (iswctype (c, _HEX));

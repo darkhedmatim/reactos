@@ -1,4 +1,4 @@
-/* $Id: wopen.c,v 1.5 2004/08/15 18:16:36 chorns Exp $
+/* $Id: wopen.c,v 1.3 2003/07/11 21:57:54 royce Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -12,7 +12,7 @@
 // rember to interlock the allocation of fileno when making this thread safe
 // possibly store extra information at the handle
 
-#include "precomp.h"
+#include <windows.h>
 #if !defined(NDEBUG) && defined(DBG)
 #include <msvcrt/stdarg.h>
 #endif
@@ -132,10 +132,8 @@ int _wopen(const wchar_t* _path, int _oflag, ...)
                dwCreationDistribution,
                dwFlagsAndAttributes,
                NULL);
-    if (hFile == (HANDLE)-1) {
-    	_dosmaperr(GetLastError());
+    if (hFile == (HANDLE)-1)
         return -1;
-	}
     return __fileno_alloc(hFile,_oflag);
 }
 

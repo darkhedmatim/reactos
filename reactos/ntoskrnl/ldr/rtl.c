@@ -1,4 +1,4 @@
-/* $Id: rtl.c,v 1.20 2004/08/15 16:39:06 chorns Exp $
+/* $Id: rtl.c,v 1.17 2003/07/11 01:23:15 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -10,7 +10,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -27,7 +33,7 @@ RtlImageNtHeader (IN PVOID BaseAddress)
    PIMAGE_NT_HEADERS NTHeaders;
    
    DosHeader = (PIMAGE_DOS_HEADER)BaseAddress;
-   NTHeaders = (PIMAGE_NT_HEADERS)((char*)BaseAddress + DosHeader->e_lfanew);
+   NTHeaders = (PIMAGE_NT_HEADERS)(BaseAddress + DosHeader->e_lfanew);
    if ((DosHeader->e_magic != IMAGE_DOS_MAGIC)
        || (DosHeader->e_lfanew == 0L)
        || (*(PULONG) NTHeaders != IMAGE_PE_MAGIC))
@@ -67,7 +73,7 @@ RtlImageDirectoryEntryToData (IN PVOID	BaseAddress,
 		*Size = NtHeader->OptionalHeader.DataDirectory[Directory].Size;
 
 	if (ImageLoaded)
-		return (PVOID)((char*)BaseAddress + Va);
+		return (PVOID)(BaseAddress + Va);
 
 	/* image mapped as ordinary file, we must find raw pointer */
 	SectionHeader = (PIMAGE_SECTION_HEADER)(NtHeader + 1);
@@ -75,7 +81,7 @@ RtlImageDirectoryEntryToData (IN PVOID	BaseAddress,
 	while (Count--)
 	{
 		if (SectionHeader->VirtualAddress == Va)
-			return (PVOID)((char*)BaseAddress + SectionHeader->PointerToRawData);
+			return (PVOID)(BaseAddress + SectionHeader->PointerToRawData);
 		SectionHeader++;
 	}
 
@@ -136,7 +142,7 @@ RtlImageRvaToVa (
 			*SectionHeader = Section;
 	}
 
-	return (ULONG)((char*)BaseAddress +
+	return (ULONG)(BaseAddress +
 	               Rva +
 	               Section->PointerToRawData -
 	               Section->VirtualAddress);
@@ -166,29 +172,29 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
 	return(STATUS_INVALID_PARAMETER);
      }
    
-   AddressPtr = (PULONG)RVA((char*)BaseAddress, ExportDir->AddressOfFunctions);
+   AddressPtr = (PULONG)RVA(BaseAddress, ExportDir->AddressOfFunctions);
    if (Name && Name->Length)
      {
-       LONG minn, maxn;
+       ULONG minn, maxn;
 
 	/* by name */
        OrdinalPtr = 
-	 (PUSHORT)RVA((char*)BaseAddress, ExportDir->AddressOfNameOrdinals);
-       NamePtr = (PULONG)RVA((char*)BaseAddress, ExportDir->AddressOfNames);
+	 (PUSHORT)RVA(BaseAddress, ExportDir->AddressOfNameOrdinals);
+       NamePtr = (PULONG)RVA(BaseAddress, ExportDir->AddressOfNames);
 
 	minn = 0; maxn = ExportDir->NumberOfNames;
 	while (minn <= maxn)
 	  {
-	    LONG mid;
+	    ULONG mid;
 	    LONG res;
 
 	    mid = (minn + maxn) / 2;
-	    res = _strnicmp(Name->Buffer, (PCH)RVA((char*)BaseAddress, NamePtr[mid]),
+	    res = _strnicmp(Name->Buffer, (PCH)RVA(BaseAddress, NamePtr[mid]),
 			    Name->Length);
 	    if (res == 0)
 	      {
 		*ProcedureAddress = 
-		  (PVOID)RVA((char*)BaseAddress, AddressPtr[OrdinalPtr[mid]]);
+		  (PVOID)RVA(BaseAddress, AddressPtr[OrdinalPtr[mid]]);
 		return(STATUS_SUCCESS);
 	      }
 	    else if (res > 0)
@@ -204,7 +210,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
 	for (i = 0; i < ExportDir->NumberOfNames; i++, NamePtr++, OrdinalPtr++)
 	  {
 	     if (!_strnicmp(Name->Buffer, 
-			    (char*)((char*)BaseAddress + *NamePtr), Name->Length))
+			    (char*)(BaseAddress + *NamePtr), Name->Length))
 	       {
 		  *ProcedureAddress = 
 		    (PVOID)((ULONG)BaseAddress + 

@@ -1,8 +1,7 @@
 # compute arctangent table for CORDIC computations in fttrigon.c
 import sys, math
 
-#units  = 64*65536.0   # don't change !!
-units  = 256
+units  = 64*65536.0   # don't change !!
 scale  = units/math.pi
 shrink = 1.0
 comma  = ""
@@ -24,7 +23,7 @@ def  print_val( n, x ):
 
     errlo = abs( alo - ax )
     errhi = abs( ahi - ax )
-
+    
     if ( errlo < errhi ):
       hi = lo
 
@@ -45,8 +44,8 @@ for n in r:
         x = 1.0/(2.0**n)    # tangent value
     else:
         x = 2.0**(-n)
-
-    angle  = math.atan(x)    # arctangent
+      
+    angle  = math.atan(x)    # arctangent 
     angle2 = angle*scale     # arctangent in FT_Angle units
 
     # determine which integer value for angle gives the best tangent
@@ -64,12 +63,12 @@ for n in r:
 
     if angle2 <= 0:
         break
-
+    
     sys.stdout.write( comma + repr( int(angle2) ) )
     comma = ", "
-
+    
     shrink = shrink * math.cos( angle2/scale)
-
+      
 
 print
 print "shrink factor    = " + repr( shrink )

@@ -1,8 +1,8 @@
-/* $Id: dereg.c,v 1.8 2004/03/02 18:18:14 navaraf Exp $
+/* $Id: dereg.c,v 1.5 2003/07/10 19:54:13 chorns Exp $
  *
  */
-#include <ddk/ntddk.h>
-#include <ddk/tdi.h>
+#include <ntos.h>
+#include <net/tdi.h>
 
 /* De-/Register Action IDs for TdiDeRegister */
 
@@ -46,8 +46,8 @@ TdiRegisterAddressChangeHandler (
 	DWORD	Unknown2
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_ADDRESS_CHANGE_HANDLER,
 			AddressChangeHandler
@@ -85,8 +85,8 @@ TdiRegisterDeviceObject (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_DEVICE_OBJECT,
 			DeviceObject
@@ -124,8 +124,8 @@ TdiRegisterNetAddress (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NET_ADDRESS,
 			NetAddress
@@ -164,8 +164,8 @@ TdiRegisterNotificationHandler (
 	DWORD	Unknown2
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NOTIFICATION_HANDLER,
 			NotificationHandler

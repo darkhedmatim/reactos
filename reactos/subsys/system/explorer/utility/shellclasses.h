@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -45,26 +45,18 @@ using namespace _com_util;
 #endif
 #endif
 
- // work around GCC's wide string constant bug when compiling inline functions
-#ifdef __GNUC__
-extern const LPCTSTR sCFSTR_SHELLIDLIST;
-#undef CFSTR_SHELLIDLIST
-#define	CFSTR_SHELLIDLIST sCFSTR_SHELLIDLIST
-#endif
 
-
- // Exception Handling
+ // COM Exception Handling
 
 #ifndef _NO_COMUTIL
 
-#define	COMExceptionBase _com_error
+#define	COMException _com_error
 
 #else
 
- /// COM ExceptionBase class as replacement for _com_error
-struct COMExceptionBase
+struct COMException
 {
-	COMExceptionBase(HRESULT hr)
+	COMException(HRESULT hr)
 	 :	_hr(hr)
 	{
 	}
@@ -80,12 +72,12 @@ struct COMExceptionBase
 			LPTSTR pBuf;
 
 			if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
-				0, _hr, MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT), (LPTSTR)&pBuf, 0, NULL)) {
+				0, _hr, MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT), (LPSTR)&pBuf, 0, NULL)) {
 				_msg = pBuf;
 				LocalFree(pBuf);
 			 } else {
 				TCHAR buffer[128];
-				_stprintf(buffer, TEXT("unknown Exception: 0x%08lX"), _hr);
+				_stprintf(buffer, _T("unknown COM Exception: 0x%08X"), _hr);
 				_msg = buffer;
 			 }
 		}
@@ -98,87 +90,29 @@ protected:
 	mutable String _msg;
 };
 
-#endif
-
-
- /// Exception with context information
-
-struct COMException : public COMExceptionBase
-{
-	typedef COMExceptionBase super;
-
-	COMException(HRESULT hr)
-	 :	super(hr),
-		_context(CURRENT_CONTEXT),
-		_file(NULL), _line(0)
-	{
-		LOG(toString());
-		LOG(CURRENT_CONTEXT.getStackTrace());
-	}
-
-	COMException(HRESULT hr, const char* file, int line)
-	 :	super(hr),
-		_context(CURRENT_CONTEXT),
-		_file(file), _line(line)
-	{
-		LOG(toString());
-		LOG(CURRENT_CONTEXT.getStackTrace());
-	}
-
-	COMException(HRESULT hr, const String& obj)
-	 :	super(hr),
-		_context(CURRENT_CONTEXT),
-		_file(NULL), _line(0)
-	{
-		LOG(toString());
-		LOG(CURRENT_CONTEXT.getStackTrace());
-	}
-
-	COMException(HRESULT hr, const String& obj, const char* file, int line)
-	 :	super(hr),
-		_context(CURRENT_CONTEXT),
-		_file(file), _line(line)
-	{
-		LOG(toString());
-		LOG(CURRENT_CONTEXT.getStackTrace());
-	}
-
-	String toString() const;
-
-	Context _context;
-
-	const char* _file;
-	int _line;
-};
-
-#define	THROW_EXCEPTION(hr) throw COMException(hr, __FILE__, __LINE__)
-#define	CHECKERROR(hr) ((void)(FAILED(hr)? THROW_EXCEPTION(hr): 0))
-
-
-#ifdef _NO_COMUTIL
-
 inline void CheckError(HRESULT hr)
 {
-	if (FAILED(hr))
+	if (FAILED(hr)) {
 		throw COMException(hr);
+	}
 }
 
 #endif
 
 
- /// COM Initialisation
+ // COM Initialisation
 
 struct ComInit
 {
 	ComInit()
 	{
-		CHECKERROR(CoInitialize(0));
+		CheckError(CoInitialize(0));
 	}
 
 #if (_WIN32_WINNT>=0x0400) || defined(_WIN32_DCOM)
 	ComInit(DWORD flag)
 	{
-		CHECKERROR(CoInitializeEx(0, flag));
+		CheckError(CoInitializeEx(0, flag));
 	}
 #endif
 
@@ -189,13 +123,13 @@ struct ComInit
 };
 
 
- /// OLE initialisation for drag drop support
+ // OLE initialisation for drag drop support
 
 struct OleInit
 {
 	OleInit()
 	{
-		CHECKERROR(OleInitialize(0));
+		CheckError(OleInitialize(0));
 	}
 
 	~OleInit()
@@ -205,24 +139,24 @@ struct OleInit
 };
 
 
- /// Exception Handler for COM exceptions
+ // Exception Handler for COM exceptions
 
 extern void HandleException(COMException& e, HWND hwnd);
 
 
- /// We use a common IMalloc object for all shell memory allocations.
+ // We use a common IMalloc object for all shell memory allocations.
 
 struct CommonShellMalloc
 {
 	CommonShellMalloc()
 	{
-		_p = NULL;
+		_p = 0;
 	}
 
 	void init()
 	{
 		if (!_p)
-			CHECKERROR(SHGetMalloc(&_p));
+			CheckError(SHGetMalloc(&_p));
 	}
 
 	~CommonShellMalloc()
@@ -240,7 +174,7 @@ struct CommonShellMalloc
 };
 
 
- /// wrapper class for IMalloc with usage of common allocator
+ // wrapper class for IMalloc with usage of common allocator
 
 struct ShellMalloc
 {
@@ -259,7 +193,7 @@ struct ShellMalloc
 };
 
 
- /// wrapper template class for pointers to shell objects managed by IMalloc
+ // wrapper template class for pointers to shell objects managed by IMalloc
 
 template<typename T> struct SShellPtr
 {
@@ -307,7 +241,7 @@ protected:
 	void Free()
 	{
 		_malloc->Free(_p);
-		_p = NULL;
+		_p = 0;
 	}
 
 	T* _p;
@@ -320,7 +254,7 @@ private:
 };
 
 
- /// wrapper class for COM interface pointers
+ // wrapper class for COM interface pointers
 
 template<typename T> struct SIfacePtr
 {
@@ -334,11 +268,6 @@ template<typename T> struct SIfacePtr
 	{
 		if (p)
 			p->AddRef();
-	}
-
-	SIfacePtr(IUnknown* unknown, REFIID riid)
-	{
-		CHECKERROR(unknown->QueryInterface(riid, (LPVOID*)&_p));
 	}
 
 	~SIfacePtr()
@@ -372,7 +301,7 @@ template<typename T> struct SIfacePtr
 		return &_p;
 	}
 
-	bool empty() const	//NOTE: GCC seems not to work correctly when defining operator bool() AND operator T*() at one time
+	bool empty() const	//NOTE: GCC seems not to work correctly when defining operator bool() AND operator T*()
 	{
 		return !_p;
 	}
@@ -380,11 +309,8 @@ template<typename T> struct SIfacePtr
 	SIfacePtr& operator=(T* p)
 	{
 		Free();
-
-		if (p) {
-			p->AddRef();
-			_p = p;
-		}
+		p->AddRef();
+		_p = p;
 
 		return *this;
 	}
@@ -402,25 +328,10 @@ template<typename T> struct SIfacePtr
 			h->Release();
 	}
 
-	HRESULT CreateInstance(REFIID clsid, REFIID riid)
-	{
-		return CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, riid, (LPVOID*)&_p);
-	}
-
-	template<typename I> HRESULT QueryInterface(REFIID riid, I* p)
-	{
-		return _p->QueryInterface(riid, (LPVOID*)p);
-	}
-
-	T* get()
-	{
-		return _p;
-	}
-
 	void Free()
 	{
 		T* h = _p;
-		_p = NULL;
+		_p = 0;
 
 		if (h)
 			h->Release();
@@ -439,10 +350,9 @@ protected:
 
 
 
+ // caching of desktop ShellFolder object
+
 struct ShellFolder;
-
-
- /// caching of desktop ShellFolder object
 
 struct CommonDesktop
 {
@@ -455,7 +365,7 @@ struct CommonDesktop
 
 	void init();
 
-	operator ShellFolder&()
+	operator struct ShellFolder&()
 	{
 		return *_desktop;
 	}
@@ -467,7 +377,6 @@ protected:
 
 #ifndef _NO_COMUTIL	// _com_ptr available?
 
- /// IShellFolder smart pointer
 struct ShellFolder : public IShellFolderPtr	// IShellFolderPtr uses intrinsic extensions of the VC++ compiler.
 {
 	typedef IShellFolderPtr super;
@@ -483,29 +392,8 @@ struct ShellFolder : public IShellFolderPtr	// IShellFolderPtr uses intrinsic ex
 	bool	empty() const {return !operator bool();}	//NOTE: see SIfacePtr::empty()
 };
 
-#ifdef UNICODE
-#define	IShellLinkPtr IShellLinkWPtr
-#else
-#define	IShellLinkPtr IShellLinkAPtr
-#endif
-
- /// IShellLink smart pointer
-struct ShellLinkPtr : public IShellLinkPtr
-{
-	typedef IShellLinkPtr super;
-
-	ShellLinkPtr(IShellLink* p)
-	 :	super(p)
-	{
-		p->AddRef();
-	}
-
-	bool	empty() const {return !operator bool();}	//NOTE: see SIfacePtr::empty()
-};
-
 #else // _com_ptr not available -> use SIfacePtr
 
- /// IShellFolder smart pointer
 struct ShellFolder : public SIfacePtr<IShellFolder>
 {
 	typedef SIfacePtr<IShellFolder> super;
@@ -519,23 +407,10 @@ struct ShellFolder : public SIfacePtr<IShellFolder>
 	String	get_name(LPCITEMIDLIST pidl, SHGDNF flags=SHGDN_NORMAL) const;
 };
 
- /// IShellLink smart pointer
-struct ShellLinkPtr : public SIfacePtr<IShellLink>
-{
-	typedef SIfacePtr<IShellLink> super;
-
-	ShellLinkPtr(IShellLink* p)
-	 :	super(p)
-	{
-		_p->AddRef();
-	}
-
-};
-
 #endif
 
 
-extern ShellFolder& GetDesktopFolder();
+extern ShellFolder& Desktop();
 
 
 #ifdef UNICODE
@@ -549,19 +424,7 @@ extern HRESULT path_from_pidlW(IShellFolder* folder, LPCITEMIDLIST pidl, LPWSTR 
 extern HRESULT name_from_pidl(IShellFolder* folder, LPCITEMIDLIST pidl, LPTSTR buffer, int len, SHGDNF flags);
 
 
-#ifdef __MINGW32__	// ILGetSize() is currently missing in MinGW.
-extern "C" UINT STDCALL ILGetSize(LPCITEMIDLIST pidl);
-
-#ifdef UNICODE		// CFSTR_FILENAME is defined wrong in MinGW.
-#define CFSTR_FILENAMEW TEXT("FileNameW")
-#undef CFSTR_FILENAME
-#define CFSTR_FILENAME CFSTR_FILENAMEW
-#endif
-
-#endif
-
-
- /// wrapper class for item ID lists
+ // wrapper class for item ID lists
 
 struct ShellPath : public SShellPtr<ITEMIDLIST>
 {
@@ -573,109 +436,77 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 	ShellPath(IShellFolder* folder, LPCWSTR path)
 	{
-		CONTEXT("ShellPath::ShellPath(IShellFolder*, LPCWSTR)");
-
-		if (path)
-			CHECKERROR(folder->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
-		else
-			_p = NULL;
+		ULONG l;
+		CheckError(folder->ParseDisplayName(0, 0, (LPOLESTR)path, &l, &_p, 0));
 	}
 
 	ShellPath(LPCWSTR path)
 	{
-		OBJ_CONTEXT("ShellPath::ShellPath(LPCWSTR)", path);
-
-		if (path)
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
-		else
-			_p = NULL;
+		ULONG l;
+		CheckError(Desktop()->ParseDisplayName(0, 0, (LPOLESTR)path, &l, &_p, 0));
 	}
 
 	ShellPath(IShellFolder* folder, LPCSTR path)
 	{
-		CONTEXT("ShellPath::ShellPath(IShellFolder*, LPCSTR)");
-
+		ULONG l;
 		WCHAR b[MAX_PATH];
 
-		if (path) {
-			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(folder->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
-		} else
-			_p = NULL;
+		MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
+		CheckError(folder->ParseDisplayName(0, 0, b, &l, &_p, 0));
 	}
 
 	ShellPath(LPCSTR path)
 	{
-		CONTEXT("ShellPath::ShellPath(LPCSTR)");
-
+		ULONG l;
 		WCHAR b[MAX_PATH];
 
-		if (path) {
-			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
-		} else
-			_p = NULL;
+		MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
+		CheckError(Desktop()->ParseDisplayName(0, 0, b, &l, &_p, 0));
 	}
 
 	ShellPath(const ShellPath& o)
 	 :	super(NULL)
 	{
-		//CONTEXT("ShellPath::ShellPath(const ShellPath&)");
-
 		if (o._p) {
-			int l = ILGetSize(o._p);
+			int l = _malloc->GetSize(o._p);
 			_p = (ITEMIDLIST*) _malloc->Alloc(l);
-			if (_p) memcpy(_p, o._p, l);
+			memcpy(_p, o._p, l);
 		}
 	}
 
-	explicit ShellPath(LPITEMIDLIST p)
-	 :	super(p)
+	ShellPath(ITEMIDLIST* p)
+	 :	SShellPtr<ITEMIDLIST>(p)
 	{
-	}
-
-	ShellPath(LPCITEMIDLIST p)
-	{
-		//CONTEXT("ShellPath::ShellPath(LPCITEMIDLIST)");
-
-		if (p) {
-			int l = ILGetSize(p);
-			_p = (ITEMIDLIST*) _malloc->Alloc(l);
-			if (_p) memcpy(_p, p, l);
-		}
 	}
 
 	void operator=(const ShellPath& o)
 	{
-		//CONTEXT("ShellPath::operator=(const ShellPath&)");
-
 		ITEMIDLIST* h = _p;
 
 		if (o._p) {
-			int l = ILGetSize(o._p);
+			int l = _malloc->GetSize(o._p);
 
-			_p = (ITEMIDLIST*) _malloc->Alloc(l);
-			if (_p) memcpy(_p, o._p, l);
+			_p = (ITEMIDLIST*)_malloc->Alloc(l);
+			memcpy(_p, o._p, l);
 		}
 		else
-			_p = NULL;
+			_p = 0;
 
 		_malloc->Free(h);
 	}
 
 	void operator=(ITEMIDLIST* p)
 	{
-		//CONTEXT("ShellPath::operator=(ITEMIDLIST*)");
-
 		ITEMIDLIST* h = _p;
 
 		if (p) {
-			int l = ILGetSize(p);
-			_p = (ITEMIDLIST*) _malloc->Alloc(l);
-			if (_p) memcpy(_p, p, l);
+			int l = _malloc->GetSize(p);
+
+			_p = (ITEMIDLIST*)_malloc->Alloc(l);
+			memcpy(_p, p, l);
 		}
 		else
-			_p = NULL;
+			_p = 0;
 
 		_malloc->Free(h);
 	}
@@ -685,7 +516,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 		ITEMIDLIST* h = _p;
 
 		LPBYTE p = (LPBYTE)_malloc->Alloc(o.cb+2);
-		if (p) *(PWORD)((LPBYTE)memcpy(p, &o, o.cb)+o.cb) = 0;
+		*(PWORD)((LPBYTE)memcpy(p, &o, o.cb)+o.cb) = 0;
 		_p = (ITEMIDLIST*)p;
 
 		_malloc->Free(h);
@@ -693,54 +524,45 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 	void operator+=(const SHITEMID& o)
 	{
-		int l0 = ILGetSize(_p);
+		int l0 = _malloc->GetSize(_p);
 		LPBYTE p = (LPBYTE)_malloc->Alloc(l0+o.cb);
 		int l = l0 - 2;
 
-		if (p) {
-			memcpy(p, _p, l);
-			*(PWORD)((LPBYTE)memcpy(p+l, &o, o.cb)+o.cb) = 0;
-		}
+		memcpy(p, _p, l);
+		*(PWORD)((LPBYTE)memcpy(p+l, &o, o.cb)+o.cb) = 0;
 
 		_malloc->Free(_p);
 		_p = (ITEMIDLIST*)p;
 	}
 
-	void assign(LPCITEMIDLIST pidl, size_t size)
+	void assign(ITEMIDLIST* pidl, size_t size)
 	{
-		//CONTEXT("ShellPath::assign(LPCITEMIDLIST, size_t)");
-
 		ITEMIDLIST* h = _p;
 
 		_p = (ITEMIDLIST*) _malloc->Alloc(size+sizeof(USHORT/*SHITEMID::cb*/));
-
-		if (_p) {
-			memcpy(_p, pidl, size);
-			((ITEMIDLIST*)((LPBYTE)_p+size))->mkid.cb = 0; // terminator
-		}
+		memcpy(_p, pidl, size);
+		((ITEMIDLIST*)((LPBYTE)_p+size))->mkid.cb = 0; // terminator
 
 		_malloc->Free(h);
 	}
 
-	void assign(LPCITEMIDLIST pidl)
+	void assign(ITEMIDLIST* pidl)
 	{
-		//CONTEXT("ShellPath::assign(LPCITEMIDLIST)");
-
 		ITEMIDLIST* h = _p;
 
 		if (pidl) {
-			int l = ILGetSize(pidl);
-			_p = (ITEMIDLIST*) _malloc->Alloc(l);
-			if (_p) memcpy(_p, pidl, l);
+			int l = _malloc->GetSize(pidl);
+			_p = (ITEMIDLIST*)_malloc->Alloc(l);
+			memcpy(_p, pidl, l);
 		} else
-			_p = NULL; 
+			_p = 0; 
 
 		_malloc->Free(h);
 	}
 
 	void split(ShellPath& parent, ShellPath& obj) const;
 
-	void GetUIObjectOf(REFIID riid, LPVOID* ppvOut, HWND hWnd=0, ShellFolder& sf=GetDesktopFolder());
+	void GetUIObjectOf(REFIID riid, LPVOID* ppvOut, HWND hWnd=0, ShellFolder& sf=Desktop());
 
 	ShellFolder get_folder()
 	{
@@ -749,16 +571,15 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 	ShellFolder get_folder(IShellFolder* parent)
 	{
-		CONTEXT("ShellPath::get_folder()");
 		return ShellFolder(parent, _p);
 	}
 
 	 // convert an item id list from relative to absolute (=relative to the desktop) format
-	ShellPath create_absolute_pidl(LPCITEMIDLIST parent_pidl) const;
+	LPITEMIDLIST create_absolute_pidl(LPCITEMIDLIST parent_pidl, HWND hwnd) const;
 };
 
 
-#ifdef __WINE__	// Wine doesn't know of unnamed union members and uses some macros instead.
+#ifdef __GCC__	// Wine doesn't know of unnamed union members and uses some macros instead.
 #define	UNION_MEMBER(x) DUMMYUNIONNAME.##x
 #else
 #define	UNION_MEMBER(x) x
@@ -778,7 +599,6 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 extern LPSTR strcpyn(LPSTR dest, LPCSTR source, size_t count);
 extern LPWSTR wcscpyn(LPWSTR dest, LPCWSTR source, size_t count);
 
- /// easy retrieval of multi byte strings out of STRRET structures
 struct StrRetA : public STRRET
 {
 	~StrRetA()
@@ -804,7 +624,6 @@ struct StrRetA : public STRRET
 	}
 };
 
- /// easy retrieval of wide char strings out of STRRET structures
 struct StrRetW : public STRRET
 {
 	~StrRetW()
@@ -831,7 +650,6 @@ struct StrRetW : public STRRET
 };
 
 
- /// Retrieval of file system paths of ShellPath objects
 class FileSysShellPath : public ShellPath
 {
 	TCHAR	_fullpath[MAX_PATH];
@@ -842,11 +660,10 @@ protected:
 public:
 	FileSysShellPath(const ShellPath& o) : ShellPath(o) {_fullpath[0] = '\0';}
 
-	operator LPCTSTR() {if (!SHGetPathFromIDList(_p, _fullpath)) return NULL; return _fullpath;}
+	operator LPCTSTR() {SHGetPathFromIDList(_p, _fullpath); return _fullpath;}
 };
 
 
- /// Browse dialog operating on shell namespace
 struct FolderBrowser : public FileSysShellPath
 {
 	FolderBrowser(HWND owner, UINT flags, LPCTSTR title, LPCITEMIDLIST root=0)
@@ -880,44 +697,43 @@ private:
 };
 
 
- /// Retrieval of special shell folder paths
 struct SpecialFolderPath : public ShellPath
 {
 	SpecialFolderPath(int folder, HWND hwnd)
 	{
 		HRESULT hr = SHGetSpecialFolderLocation(hwnd, folder, &_p);
-		CHECKERROR(hr);
+		CheckError(hr);
 	}
 };
 
- /// Shell folder path of the desktop
-struct DesktopFolderPath : public SpecialFolderPath
+struct DesktopFolder : public SpecialFolderPath
 {
-	DesktopFolderPath()
+	DesktopFolder()
 	 :	SpecialFolderPath(CSIDL_DESKTOP, 0)
 	{
 	}
 };
 
- /// Retrieval of special shell folder
 struct SpecialFolder : public ShellFolder
 {
 	SpecialFolder(int folder, HWND hwnd)
-	 :	ShellFolder(GetDesktopFolder(), SpecialFolderPath(folder, hwnd))
+	 :	ShellFolder(Desktop(), SpecialFolderPath(folder, hwnd))
 	{
 	}
 };
 
- /// Shell folder of the desktop
-struct DesktopFolder : public ShellFolder
-{
-};
 
+#if _WIN32_IE>=0x400 // is SHGetSpecialFolderPath() available?
 
  /// file system path of special folder
 struct SpecialFolderFSPath
 {
-	SpecialFolderFSPath(int folder/*e.g. CSIDL_DESKTOP*/, HWND hwnd);
+	SpecialFolderFSPath(int folder/*e.g. CSIDL_DESKTOP*/, HWND hwnd)
+	{
+		_fullpath[0] = '\0';
+
+		SHGetSpecialFolderPath(hwnd, _fullpath, folder, TRUE);
+	}
 
 	operator LPCTSTR()
 	{
@@ -928,79 +744,26 @@ protected:
 	TCHAR	_fullpath[MAX_PATH];
 };
 
-/*
- /// file system path of special folder
+#else // _WIN32_IE<0x400 -> use SHGetSpecialFolderLocation()
+
 struct SpecialFolderFSPath : public FileSysShellPath
 {
 	SpecialFolderFSPath(int folder, HWND hwnd)
 	{
-		CONTEXT("SpecialFolderFSPath::SpecialFolderFSPath()");
-
 		HRESULT hr = SHGetSpecialFolderLocation(hwnd, folder, &_p);
-		CHECKERROR(hr);
+		CheckError(hr);
 	}
 };
-*/
+
+#endif
 
 
- /// wrapper class for enumerating shell namespace objects
+ // wrapper class for enumerating shell namespace objects
 
 struct ShellItemEnumerator : public SIfacePtr<IEnumIDList>
 {
 	ShellItemEnumerator(IShellFolder* folder, DWORD flags=SHCONTF_FOLDERS|SHCONTF_NONFOLDERS|SHCONTF_INCLUDEHIDDEN)
 	{
-		CONTEXT("ShellItemEnumerator::ShellItemEnumerator()");
-
-		CHECKERROR(folder->EnumObjects(0, flags, &_p));
+		CheckError(folder->EnumObjects(0, flags, &_p));
 	}
 };
-
-
- /// list of PIDLs
-struct PIDList
-{
-	PIDList()
-	{
-		memset(&_stgm, 0, sizeof(STGMEDIUM));
-	}
-
-	~PIDList()
-	{
-		if (_stgm.hGlobal) {
-			GlobalUnlock(_stgm.hGlobal);
-			ReleaseStgMedium(&_stgm);
-		}
-	}
-
-	HRESULT GetData(IDataObject* selection)
-	{
-		static UINT CF_IDLIST = RegisterClipboardFormat(CFSTR_SHELLIDLIST);
-
-		FORMATETC fetc;
-		fetc.cfFormat = CF_IDLIST;
-		fetc.ptd = NULL;
-		fetc.dwAspect = DVASPECT_CONTENT;
-		fetc.lindex = -1;
-		fetc.tymed = TYMED_HGLOBAL;
-
-		HRESULT hr = selection->QueryGetData(&fetc);
-		if (FAILED(hr))
-			return hr;
-
-		hr = selection->GetData(&fetc, &_stgm);
-		if (FAILED(hr))
-			return hr;
-
-		_pIDList = (LPIDA)GlobalLock(_stgm.hGlobal);
-
-		return hr;
-	}
-
-	operator LPIDA() {return _pIDList;}
-
-protected:
-	STGMEDIUM _stgm;
-	LPIDA _pIDList;
-};
-
-extern HRESULT ShellFolderContextMenu(IShellFolder* shell_folder, HWND hwndParent, int cidl, LPCITEMIDLIST* ppidl, int x, int y);

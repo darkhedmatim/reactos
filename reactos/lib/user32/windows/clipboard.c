@@ -16,10 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: clipboard.c,v 1.14 2004/08/15 21:36:29 chorns Exp $
+/* $Id: clipboard.c,v 1.5 2003/07/10 21:04:31 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/clipboard.c
+ * FILE:            lib/user32/windows/input.c
  * PURPOSE:         Input
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -28,212 +28,254 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <strpool.h>
-#define NDEBUG
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
-OpenClipboard(HWND hWndNewOwner)
-{
-   return NtUserOpenClipboard(hWndNewOwner, 0);
-}
-
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL
+STDCALL
 CloseClipboard(VOID)
 {
-   return NtUserCloseClipboard();
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-INT STDCALL
+int
+STDCALL
 CountClipboardFormats(VOID)
 {
-   return NtUserCountClipboardFormats();
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL
+STDCALL
 EmptyClipboard(VOID)
 {
-   return NtUserEmptyClipboard();
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-UINT STDCALL
-EnumClipboardFormats(UINT format)
+UINT
+STDCALL
+EnumClipboardFormats(
+  UINT format)
 {
-   return NtUserEnumClipboardFormats(format);
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-HANDLE STDCALL
-GetClipboardData(UINT uFormat)
+HANDLE
+STDCALL
+GetClipboardData(
+  UINT uFormat)
 {
-   return NtUserGetClipboardData(uFormat, 0);
+  UNIMPLEMENTED;
+  return (HANDLE)0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-INT STDCALL
-GetClipboardFormatNameA(UINT format, LPSTR lpszFormatName, int cchMaxCount)
+int
+STDCALL
+GetClipboardFormatNameA(
+  UINT format,
+  LPSTR lpszFormatName,
+  int cchMaxCount)
 {
-   LPWSTR lpBuffer;
-   UNICODE_STRING FormatName;
-   INT Length;
-
-   lpBuffer = HEAP_alloc(cchMaxCount * sizeof(WCHAR));
-   if (!lpBuffer)
-   {
-      SetLastError(ERROR_OUTOFMEMORY);
-      return 0;
-   }
-   RtlInitUnicodeString(&FormatName, lpBuffer);
-   FormatName.Length = 0;
-   FormatName.MaximumLength = cchMaxCount * sizeof(WCHAR);
-   FormatName.Buffer = lpBuffer;
-   Length = NtUserGetClipboardFormatName(format, &FormatName, cchMaxCount);
-   DPRINT("GetClipboardFormatNameA(%x): %S\n", format, lpBuffer);
-   HEAP_strcpyWtoA(lpszFormatName, lpBuffer, Length);
-   HEAP_free(lpBuffer);
-   DPRINT("GetClipboardFormatNameA(%x): returning %s\n", format, lpszFormatName);
-   
-   return Length;
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-INT STDCALL
-GetClipboardFormatNameW(UINT format, LPWSTR lpszFormatName, INT cchMaxCount)
+int
+STDCALL
+GetClipboardFormatNameW(
+  UINT format,
+  LPWSTR lpszFormatName,
+  int cchMaxCount)
 {
-   UNICODE_STRING FormatName;
-   ULONG Ret;
-   
-   FormatName.Length = 0;
-   FormatName.MaximumLength = cchMaxCount * sizeof(WCHAR);
-   FormatName.Buffer = (PWSTR)lpszFormatName;
-   Ret = NtUserGetClipboardFormatName(format, &FormatName, cchMaxCount);
-   DPRINT("GetClipboardFormatNameW(%x): returning %S\n", format, lpszFormatName);
-   return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-HWND STDCALL
+HWND
+STDCALL
 GetClipboardOwner(VOID)
 {
-   return NtUserGetClipboardOwner();
+  UNIMPLEMENTED;
+  return (HWND)0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-DWORD STDCALL
+DWORD
+STDCALL
 GetClipboardSequenceNumber(VOID)
 {
-   return NtUserGetClipboardSequenceNumber();
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-HWND STDCALL
+HWND
+STDCALL
 GetClipboardViewer(VOID)
 {
-   return NtUserGetClipboardViewer();
+  UNIMPLEMENTED;
+  return (HWND)0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-HWND STDCALL
+HWND
+STDCALL
 GetOpenClipboardWindow(VOID)
 {
-   return NtUserGetOpenClipboardWindow();
+  UNIMPLEMENTED;
+  return (HWND)0;
 }
 
-/*
- * @implemented
- */
-INT STDCALL
-GetPriorityClipboardFormat(UINT *paFormatPriorityList, INT cFormats)
-{
-   return NtUserGetPriorityClipboardFormat(paFormatPriorityList, cFormats);
-}
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
-IsClipboardFormatAvailable(UINT format)
+int
+STDCALL
+GetPriorityClipboardFormat(
+  UINT *paFormatPriorityList,
+  int cFormats)
 {
-   return NtUserIsClipboardFormatAvailable(format);
+  UNIMPLEMENTED;
+  return 0;
 }
 
-/*
- * @implemented
- */
-UINT STDCALL
-RegisterClipboardFormatA(LPCSTR lpszFormat)
-{
-   ULONG Ret = RegisterWindowMessageA(lpszFormat);
-   DPRINT("RegisterClipboardFormatA(%s) - %x\n", lpszFormat, Ret);
-   return Ret;
-}
 
 /*
- * @implemented
+ * @unimplemented
  */
-UINT STDCALL
-RegisterClipboardFormatW(LPCWSTR lpszFormat)
+WINBOOL
+STDCALL
+IsClipboardFormatAvailable(
+  UINT format)
 {
-   ULONG Ret = RegisterWindowMessageW(lpszFormat);
-   DPRINT("RegisterClipboardFormatW(%S) - %x\n", lpszFormat, Ret);
-   return Ret;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-/*
- * @implemented
- */
-HANDLE STDCALL
-SetClipboardData(UINT uFormat, HANDLE hMem)
-{
-   return NtUserSetClipboardData(uFormat, hMem, 0);
-}
 
 /*
- * @implemented
+ * @unimplemented
  */
-HWND STDCALL
-SetClipboardViewer(HWND hWndNewViewer)
+WINBOOL
+STDCALL
+OpenClipboard(
+  HWND hWndNewOwner)
 {
-   return NtUserSetClipboardViewer(hWndNewViewer);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
-ChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext)
+UINT
+STDCALL
+RegisterClipboardFormatA(
+  LPCSTR lpszFormat)
 {
-   return NtUserChangeClipboardChain(hWndRemove, hWndNewNext);
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+RegisterClipboardFormatW(
+  LPCWSTR lpszFormat)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+SetClipboardData(
+  UINT uFormat,
+  HANDLE hMem)
+{
+  UNIMPLEMENTED;
+  return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HWND
+STDCALL
+SetClipboardViewer(
+  HWND hWndNewViewer)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+WINBOOL
+STDCALL
+ChangeClipboardChain(
+  HWND hWndRemove,
+  HWND hWndNewNext)
+{
+  UNIMPLEMENTED;
+  return FALSE;
 }

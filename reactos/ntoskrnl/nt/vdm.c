@@ -10,7 +10,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+#include <internal/safe.h>
+#include <internal/v86m.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -24,7 +28,7 @@ extern VOID Ki386RetToV86Mode(PKV86M_REGISTERS InRegs,
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 NtEarlyInitVdm(VOID)
 {
   /* GCC 3.4 warns if NULL is passed in parameter 2 to the standard function memcpy */
@@ -38,9 +42,6 @@ NtEarlyInitVdm(VOID)
   memcpy(OrigBDA, (PVOID)0x400, 256);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL NtVdmControl(ULONG ControlCode,
 			      PVOID ControlData)
 {

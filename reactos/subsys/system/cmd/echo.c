@@ -1,4 +1,4 @@
-/* $Id: echo.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: echo.c,v 1.2 2003/08/07 09:27:42 hbirr Exp $
  *
  *  ECHO.C - internal echo commands.
  *
@@ -24,7 +24,14 @@
  *        Implemented 'echo.' and 'echoerr.'.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 INT CommandEcho (LPTSTR cmd, LPTSTR param)
@@ -35,13 +42,13 @@ INT CommandEcho (LPTSTR cmd, LPTSTR param)
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		ConOutPuts (_T("Displays a message or switches command echoing on or off.\n"
-			       "\n"
-			       "  ECHO [ON | OFF]\n"
-			       "  ECHO [message]\n"
-			       "  ECHO.             prints an empty line\n"
-			       "\n"
-			       "Type ECHO without a parameter to display the current ECHO setting."));
+		ConOutPuts ("Displays a message or switches command echoing on or off.\n"
+			    "\n"
+			    "  ECHO [ON | OFF]\n"
+			    "  ECHO [message]\n"
+			    "  ECHO.             prints an empty line\n"
+			    "\n"
+			    "Type ECHO without a parameter to display the current ECHO setting.");
 		return 0;
 	}
 

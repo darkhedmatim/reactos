@@ -1,4 +1,4 @@
-/* $Id: adapter.c,v 1.11 2004/08/15 16:39:03 chorns Exp $
+/* $Id: adapter.c,v 1.9 2003/08/14 18:30:28 silverblade Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ddk/halfuncs.h>
+
 #include <internal/debug.h>
 
 /* DATA **********************************************************************/
@@ -32,13 +34,11 @@ IoAllocateAdapterChannel (PADAPTER_OBJECT	AdapterObject,
 			  PDRIVER_CONTROL	ExecutionRoutine,
 			  PVOID		Context)
 {
-  DeviceObject->Queue.Wcb.DeviceObject = DeviceObject;
-  DeviceObject->Queue.Wcb.DeviceContext = Context;
-
   return HalAllocateAdapterChannel( AdapterObject,
-				    &DeviceObject->Queue.Wcb,
+				    DeviceObject,
 				    NumberOfMapRegisters,
-				    ExecutionRoutine);
+				    ExecutionRoutine,
+				    Context );
 }
 
 

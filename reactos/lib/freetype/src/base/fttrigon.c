@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType trigonometric functions (body).                             */
 /*                                                                         */
-/*  Copyright 2001, 2002, 2003 by                                          */
+/*  Copyright 2001 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -17,7 +17,6 @@
 
 
 #include <ft2build.h>
-#include FT_INTERNAL_OBJECTS_H
 #include FT_TRIGONOMETRY_H
 
 
@@ -72,10 +71,10 @@
     val = ( val >= 0 ) ? val : -val;
 
     v1 = (FT_UInt32)val >> 16;
-    v2 = (FT_UInt32)val & 0xFFFFL;
+    v2 = (FT_UInt32)val & 0xFFFF;
 
     k1 = FT_TRIG_SCALE >> 16;       /* constant */
-    k2 = FT_TRIG_SCALE & 0xFFFFL;   /* constant */
+    k2 = FT_TRIG_SCALE & 0xFFFF;    /* constant */
 
     hi   = k1 * v1;
     lo1  = k1 * v2 + k2 * v1;       /* can't overflow */
@@ -272,9 +271,9 @@
 
     /* round theta */
     if ( theta >= 0 )
-      theta = FT_PAD_ROUND( theta, 32 );
+      theta = ( theta + 16 ) & -32;
     else
-      theta = - FT_PAD_ROUND( -theta, 32 );
+      theta = - (( -theta + 16 ) & -32);
 
     vec->x = x;
     vec->y = theta;
@@ -357,14 +356,6 @@
   }
 
 
-  /* these macros return 0 for positive numbers,
-     and -1 for negative ones */
-#define FT_SIGN_LONG( x )   ( (x) >> ( FT_SIZEOF_LONG * 8 - 1 ) )
-#define FT_SIGN_INT( x )    ( (x) >> ( FT_SIZEOF_INT * 8 - 1 ) )
-#define FT_SIGN_INT32( x )  ( (x) >> 31 )
-#define FT_SIGN_INT16( x )  ( (x) >> 15 )
-
-
   /* documentation is in fttrigon.h */
 
   FT_EXPORT_DEF( void )
@@ -385,13 +376,10 @@
       v.x = ft_trig_downscale( v.x );
       v.y = ft_trig_downscale( v.y );
 
-      if ( shift > 0 )
+      if ( shift >= 0 )
       {
-        FT_Int32  half = 1L << ( shift - 1 );
-
-
-        vec->x = ( v.x + half + FT_SIGN_LONG( v.x ) ) >> shift;
-        vec->y = ( v.y + half + FT_SIGN_LONG( v.y ) ) >> shift;
+        vec->x = v.x >> shift;
+        vec->y = v.y >> shift;
       }
       else
       {

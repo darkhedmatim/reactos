@@ -7,13 +7,11 @@
  *              Vizzini (vizzini@plasmic.com)
  * REVISIONS:
  *   CSH 01/08-2000 Created
- *   15 Aug 2003 Vizzini - DMA support
- *   3  Oct 2003 Vizzini - formatting and minor bugfixing
+ *   8/15/2003 Vizzini - DMA support
  */
+#include <ndissys.h>
+#include <miniport.h>
 
-#include "ndissys.h"
-
-
 /*
  * @implemented
  */
@@ -47,7 +45,7 @@ NdisAllocateMemoryWithTag(
   return NDIS_STATUS_SUCCESS;
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -61,7 +59,7 @@ NdisCreateLookaheadBufferFromSharedMemory(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -73,7 +71,64 @@ NdisDestroyLookaheadBufferFromSharedMemory(
     UNIMPLEMENTED
 }
 
-
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisMoveFromMappedMemory(
+    OUT PVOID   Destination,
+    IN  PVOID   Source,
+    IN  ULONG   Length)
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisMoveMappedMemory(
+    OUT PVOID   Destination,
+    IN  PVOID   Source,
+    IN  ULONG   Length)
+{
+    RtlCopyMemory(Destination,Source,Length);
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisMoveToMappedMemory(
+    OUT PVOID   Destination,
+    IN  PVOID   Source,
+    IN  ULONG   Length)
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisMUpdateSharedMemory(
+    IN  NDIS_HANDLE             MiniportAdapterHandle,
+    IN  ULONG                   Length,
+    IN  PVOID                   VirtualAddress,
+    IN  NDIS_PHYSICAL_ADDRESS   PhysicalAddress)
+{
+    UNIMPLEMENTED
+}
+
+
 /*
  * @implemented
  */
@@ -125,7 +180,7 @@ NdisAllocateMemory(
   return NDIS_STATUS_SUCCESS;
 }
 
-
+
 /*
  * @implemented
  */
@@ -160,7 +215,7 @@ NdisFreeMemory(
   ExFreePool(VirtualAddress);
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -175,7 +230,7 @@ NdisImmediateReadSharedMemory(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -190,7 +245,7 @@ NdisImmediateWriteSharedMemory(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @implemented
  */
@@ -218,11 +273,10 @@ NdisMAllocateSharedMemory(
 
   NDIS_DbgPrint(MAX_TRACE,("Called.\n"));
 
-  *VirtualAddress = Adapter->NdisMiniportBlock.SystemAdapterObject->DmaOperations->AllocateCommonBuffer(
-      Adapter->NdisMiniportBlock.SystemAdapterObject, Length, PhysicalAddress, Cached);
+  *VirtualAddress = HalAllocateCommonBuffer(Adapter->AdapterObject, Length, PhysicalAddress, Cached);
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -237,10 +291,9 @@ NdisMAllocateSharedMemoryAsync(
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
     UNIMPLEMENTED
 
-  return NDIS_STATUS_FAILURE;
+	return NDIS_STATUS_FAILURE;
 }
 
-
 /*
  * @implemented
  */
@@ -262,14 +315,13 @@ NdisMFreeSharedMemoryPassive(
 
   ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-  Memory->AdapterObject->DmaOperations->FreeCommonBuffer(
-      Memory->AdapterObject, Memory->Length, Memory->PhysicalAddress,
+  HalFreeCommonBuffer(Memory->AdapterObject, Memory->Length, Memory->PhysicalAddress,
       Memory->VirtualAddress, Memory->Cached);
 
   ExFreePool(Memory);
 }
 
-
+
 /*
  * @implemented
  */
@@ -311,7 +363,7 @@ NdisMFreeSharedMemory(
       return;
     }
 
-  Memory->AdapterObject = Adapter->NdisMiniportBlock.SystemAdapterObject;
+  Memory->AdapterObject = Adapter->AdapterObject;
   Memory->Length = Length;
   Memory->PhysicalAddress = PhysicalAddress;
   Memory->VirtualAddress = VirtualAddress;

@@ -11,7 +11,7 @@ OBJECTS = mkhive.o binhive.o infcache.o reginf.o registry.o
 
 CLEAN_FILES = *.o mkhive$(EXE_POSTFIX)
 
-HOST_CFLAGS = -I. -Werror -Wall
+HOST_CFLAGS = -I.
 
 mkhive.o: mkhive.c
 	$(HOST_CC) $(HOST_CFLAGS) -c mkhive.c -o mkhive.o
@@ -38,8 +38,8 @@ clean:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	-del *.o
-	-del mkhive$(EXE_POSTFIX)
+	del *.o
+	del mkhive$(EXE_POSTFIX)
 endif
 
 .phony: clean

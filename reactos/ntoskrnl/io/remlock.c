@@ -10,7 +10,15 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <reactos/bugcodes.h>
+#include <internal/io.h>
+#include <internal/po.h>
+#include <internal/ldr.h>
+#include <internal/registry.h>
+#include <internal/module.h>
+
+//#define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/

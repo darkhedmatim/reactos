@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.17 2004/09/25 21:32:17 arty Exp $
+# $Id: makefile,v 1.9 2003/08/07 04:03:23 royce Exp $
 
 PATH_TO_TOP = ../..
 
@@ -12,27 +12,12 @@ TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
 
 THREAD_OBJECTS = \
  thread/create.o \
- thread/exit.o \
- thread/stack.o \
- thread/priv.o
-
-STRING_OBJECTS = \
- string/append.o \
- string/resstr.o
-
-REGISTRY_OBJECTS = \
- registry/registry.o
+ thread/stack.o
 
 MISC_OBJECTS = \
  misc/devmode.o \
- misc/intrlck.o \
  misc/logfont.o \
  misc/qsort.o
-
-FILE_OBJECTS = \
- file/sparse.o
-
-RECMUTEX_OBJECTS = recmutex/recmutex.o
 
 include $(PATH_TO_TOP)/config
 
@@ -42,11 +27,13 @@ TARGET_TYPE = library
 
 TARGET_NAME = rosrtl
 
-TARGET_CFLAGS = -D__USE_W32API -Wall -Werror
+TARGET_CFLAGS = -Wall -Werror
 
-TARGET_OBJECTS = $(THREAD_OBJECTS) $(MISC_OBJECTS) $(STRING_OBJECTS) \
-		 $(REGISTRY_OBJECTS) $(FILE_OBJECTS) $(RECMUTEX_OBJECTS)
+# require os code to explicitly request A/W version of structs/functions
+TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
+TARGET_OBJECTS = $(THREAD_OBJECTS) $(MISC_OBJECTS)
+ 
 DEP_OBJECTS = $(TARGET_OBJECTS)
 
 include $(PATH_TO_TOP)/rules.mak

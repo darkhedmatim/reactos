@@ -7,14 +7,11 @@
  *              Vizzini (vizzini@plasmic.com)
  * REVISIONS:
  *   CSH 01/08-2000 Created
- *   20 Aug 2003 Vizzini - DMA support
- *   3  Oct 2003 Vizzini - Formatting and minor bugfixes
+ *   8-20-2003 Vizzini - DMA support
  */
+#include <ndissys.h>
+#include <miniport.h>
 
-#include <roscfg.h>
-#include "ndissys.h"
-
-
 VOID STDCALL HandleDeferredProcessing(
     IN  PKDPC   Dpc,
     IN  PVOID   DeferredContext,
@@ -29,48 +26,32 @@ VOID STDCALL HandleDeferredProcessing(
  *     SystemArgument2 = Unused
  */
 {
-  BOOLEAN WasBusy;
-  PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(DeferredContext);
+    BOOLEAN WasBusy;
+    PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(DeferredContext);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
+    KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+    WasBusy = Adapter->MiniportBusy;
+    Adapter->MiniportBusy = TRUE;
+    KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
 
-  /* XXX try to grok WasBusy */
-  KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
-    {
-      WasBusy = Adapter->MiniportBusy;
-      Adapter->MiniportBusy = TRUE;
-    }
-  KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
-
-  /* Call the deferred interrupt service handler for this adapter */
-  (*Adapter->Miniport->Chars.HandleInterruptHandler)(
-      Adapter->NdisMiniportBlock.MiniportAdapterContext);
-
-  KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
-    {
-      if ((!WasBusy) && (Adapter->WorkQueueHead)) 
-        {
-          KeInsertQueueDpc(&Adapter->MiniportDpc, NULL, NULL);
-        } 
-      else 
-        {
-          Adapter->MiniportBusy = WasBusy;
-        }
-    }
-  KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
-
-  /* re-enable the interrupt */
-  NDIS_DbgPrint(MAX_TRACE, ("re-enabling the interrupt\n"));
-  if(Adapter->Miniport->Chars.EnableInterruptHandler)
-    (*Adapter->Miniport->Chars.EnableInterruptHandler)(
+    /* Call the deferred interrupt service handler for this adapter */
+    (*Adapter->Miniport->Chars.HandleInterruptHandler)(
         Adapter->NdisMiniportBlock.MiniportAdapterContext);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Leaving.\n"));
+    KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+    if ((!WasBusy) && (Adapter->WorkQueueHead)) {
+        KeInsertQueueDpc(&Adapter->MiniportDpc, NULL, NULL);
+    } else {
+        Adapter->MiniportBusy = WasBusy;
+    }
+    KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+
+    NDIS_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
 
-
+
 BOOLEAN STDCALL ServiceRoutine(
     IN  PKINTERRUPT Interrupt,
     IN  PVOID       ServiceContext)
@@ -83,28 +64,27 @@ BOOLEAN STDCALL ServiceRoutine(
  *     TRUE if a miniport controlled device generated the interrupt
  */
 {
-  BOOLEAN InterruptRecognized;
-  BOOLEAN QueueMiniportHandleInterrupt;
-  PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(ServiceContext);
+    BOOLEAN InterruptRecognized;
+    BOOLEAN QueueMiniportHandleInterrupt;
+    PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(ServiceContext);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called. Adapter (0x%X)\n", Adapter));
+    NDIS_DbgPrint(MAX_TRACE, ("Called. Adapter (0x%X)\n", Adapter));
 
-  (*Adapter->Miniport->Chars.ISRHandler)(&InterruptRecognized,
-      &QueueMiniportHandleInterrupt,
-      Adapter->NdisMiniportBlock.MiniportAdapterContext);
+    (*Adapter->Miniport->Chars.ISRHandler)(&InterruptRecognized,
+                                           &QueueMiniportHandleInterrupt,
+                                           Adapter->NdisMiniportBlock.MiniportAdapterContext);
 
-  if (QueueMiniportHandleInterrupt) 
-    {
-      NDIS_DbgPrint(MAX_TRACE, ("Queueing DPC.\n"));
-      KeInsertQueueDpc(&Adapter->NdisMiniportBlock.Interrupt->InterruptDpc, NULL, NULL);
+    if (QueueMiniportHandleInterrupt) {
+        NDIS_DbgPrint(MAX_TRACE, ("Queueing DPC.\n"));
+        KeInsertQueueDpc(&Adapter->NdisMiniportBlock.Interrupt->InterruptDpc, NULL, NULL);
     }
 
-  NDIS_DbgPrint(MAX_TRACE, ("Leaving.\n"));
+    NDIS_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 
-  return InterruptRecognized;
+    return InterruptRecognized;
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -121,7 +101,7 @@ NdisCompleteDmaTransfer(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -134,7 +114,7 @@ NdisFlushBuffer(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -145,10 +125,10 @@ NdisGetCacheFillSize(
 {
     UNIMPLEMENTED
 
-  return 0;
+	return 0;
 }
 
-
+
 /*
  * @implemented
  */
@@ -159,11 +139,11 @@ NdisImmediateReadPortUchar(
     IN  ULONG       Port,
     OUT PUCHAR      Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  *Data = READ_PORT_UCHAR((PUCHAR)Port); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    *Data = READ_PORT_UCHAR((PUCHAR)Port); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
+
 /*
  * @implemented
  */
@@ -174,11 +154,11 @@ NdisImmediateReadPortUlong(
     IN  ULONG       Port,
     OUT PULONG      Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  *Data = READ_PORT_ULONG((PULONG)Port); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    *Data = READ_PORT_ULONG((PULONG)Port); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
+
 /*
  * @implemented
  */
@@ -189,11 +169,11 @@ NdisImmediateReadPortUshort(
     IN  ULONG       Port,
     OUT PUSHORT     Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  *Data = READ_PORT_USHORT((PUSHORT)Port); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    *Data = READ_PORT_USHORT((PUSHORT)Port); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
+
 /*
  * @implemented
  */
@@ -204,11 +184,11 @@ NdisImmediateWritePortUchar(
     IN  ULONG       Port,
     IN  UCHAR       Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  WRITE_PORT_UCHAR((PUCHAR)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    WRITE_PORT_UCHAR((PUCHAR)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
+
 /*
  * @implemented
  */
@@ -219,11 +199,11 @@ NdisImmediateWritePortUlong(
     IN  ULONG       Port,
     IN  ULONG       Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  WRITE_PORT_ULONG((PULONG)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    WRITE_PORT_ULONG((PULONG)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -234,43 +214,43 @@ NdisImmediateWritePortUshort(
     IN  ULONG       Port,
     IN  USHORT      Data)
 {
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  WRITE_PORT_USHORT((PUSHORT)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+    WRITE_PORT_USHORT((PUSHORT)Port, Data); // FIXME: What to do with WrapperConfigurationContext?
 }
 
-
-IO_ALLOCATION_ACTION STDCALL NdisMapRegisterCallback (
+
+IO_ALLOCATION_ACTION NdisMapRegisterCallback (
     IN PDEVICE_OBJECT  DeviceObject,
     IN PIRP            Irp,
     IN PVOID           MapRegisterBase,
     IN PVOID           Context)
 /*
  * FUNCTION: Called back during reservation of map registers
- * ARGUMENTS:
- *     DeviceObject: Device object of the deivce setting up DMA
- *     Irp: Reserved; must be ignored
- *     MapRegisterBase: Map registers assigned for transfer
- *     Context: LOGICAL_ADAPTER object of the requesting miniport
- * NOTES:       
- *     - Called once per BaseMapRegister (see NdisMAllocateMapRegisters)
- *     - Called at IRQL = DISPATCH_LEVEL
  */
 {
   PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)Context;
+  PADAPTER_MAP_REGISTER_LIST Register = ExAllocatePool(NonPagedPool, sizeof(ADAPTER_MAP_REGISTER_LIST));
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
+   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-  Adapter->NdisMiniportBlock.MapRegisters[Adapter->NdisMiniportBlock.CurrentMapRegister].MapRegister = MapRegisterBase;
+  if(!Register)
+    {
+      NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
+      KeSetEvent(&Adapter->DmaEvent, 0, FALSE);
+      return DeallocateObject;
+    }
 
-  NDIS_DbgPrint(MAX_TRACE, ("setting event and leaving.\n"));
+  Register->MapRegister = MapRegisterBase;
+  Register->NumRegisters = Adapter->MapRegistersRequested;
+
+  ExInterlockedInsertTailList(&Adapter->MapRegisterList.ListEntry, &Register->ListEntry, &Adapter->DmaLock);
 
   KeSetEvent(&Adapter->DmaEvent, 0, FALSE);
 
-  /* this is only the thing to do for busmaster NICs */
+  /* XXX this is only the thing to do for busmaster NICs */
   return DeallocateObjectKeepRegisters;
 }
 
-
 /*
  * @implemented
  */
@@ -288,7 +268,7 @@ NdisMAllocateMapRegisters(
  *     MiniportAdapterHandle: Passed in to MiniportInitialize
  *     DmaChannel: DMA channel to use
  *     DmaSize: bit width of DMA transfers
- *     BaseMapRegistersNeeded: number of base map registers requested
+ *     BaseMapRegistersNeeded: number of map registers requested
  *     MaximumBufferSize: largest single buffer transferred
  * RETURNS:
  *     NDIS_STATUS_SUCCESS on success
@@ -296,24 +276,11 @@ NdisMAllocateMapRegisters(
  * NOTES: 
  *     - the win2k ddk and the nt4 ddk have conflicting prototypes for this.
  *       I'm implementing the 2k one.
- *     - do not confuse a "base map register" with a "map register" - they
- *       are different.  Only NDIS seems to use the base concept.  The idea
- *       is that a miniport supplies the number of base map registers it will
- *       need, which is equal to the number of DMA send buffers it manages.
- *       NDIS then allocates a number of map registers to go with each base
- *       map register, so that a driver just has to send the base map register
- *       number during dma operations and NDIS can find the group of real
- *       map registers that represent the transfer.
- *     - Because of the above sillyness, you can only specify a few base map
- *       registers at most.  a 1514-byte packet is two map registers at 4k
- *       page size.  
- *     - NDIS limits the total number of allocated map registers to 64,
- *       which (in the case of the above example) limits the number of base
- *       map registers to 32.
  */
 {
   DEVICE_DESCRIPTION Description;
-  PDMA_ADAPTER       AdapterObject = 0;
+  PADAPTER_OBJECT    AdapterObject = 0;
+  UINT               MapRegistersRequired = 0;
   UINT               MapRegistersPerBaseRegister = 0;
   ULONG              AvailableMapRegisters;
   NTSTATUS           NtStatus;
@@ -327,16 +294,9 @@ NdisMAllocateMapRegisters(
   memset(&Description,0,sizeof(Description));
 
   Adapter = (PLOGICAL_ADAPTER)MiniportAdapterHandle;
-
-  ASSERT(Adapter);
-
-  /* only bus masters may call this routine */
-  ASSERT(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER);
-  if(!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER))
-    return NDIS_STATUS_SUCCESS;
-
   DeviceObject = Adapter->NdisMiniportBlock.DeviceObject;
 
+  InitializeListHead(&Adapter->MapRegisterList.ListEntry);
   KeInitializeEvent(&Adapter->DmaEvent, NotificationEvent, FALSE);
   KeInitializeSpinLock(&Adapter->DmaLock);
 
@@ -350,45 +310,36 @@ NdisMAllocateMapRegisters(
   * given that physical mapping is > 2.
   */
 
-  /* unhandled corner case: {1,2}-byte max buffer size */
-  ASSERT(MaximumBufferSize > 2);
-  MapRegistersPerBaseRegister = ((MaximumBufferSize-2) / (2*PAGE_SIZE)) + 2;
+  /* unhandled corner case: 1-byte max buffer size */
+  MapRegistersPerBaseRegister = 2 + MaximumBufferSize / PAGE_SIZE;
+  MapRegistersRequired = BaseMapRegistersNeeded * MapRegistersPerBaseRegister;
+
+  if(MapRegistersRequired > 64)
+    {
+      NDIS_DbgPrint(MID_TRACE, ("Request for too many map registers: %d\n", MapRegistersRequired));
+      return NDIS_STATUS_RESOURCES;
+    }
 
   Description.Version = DEVICE_DESCRIPTION_VERSION;
   Description.Master = TRUE;                         /* implied by calling this function */
-  Description.ScatterGather = TRUE;                  /* XXX UNTRUE: All BM DMA are S/G (ms seems to do this) */
-  Description.Dma32BitAddresses = DmaSize;
-  Description.BusNumber = Adapter->NdisMiniportBlock.BusNumber;
-  Description.InterfaceType = Adapter->NdisMiniportBlock.BusType;
-  Description.DmaChannel = DmaChannel;
-  Description.MaximumLength = MaximumBufferSize;
+  Description.ScatterGather = FALSE;                 /* implied by calling this function */
+  Description.DemandMode = 0;                        /* unused due to bus master */
+  Description.AutoInitialize = 0;                    /* unused due to bus master */
+  Description.Dma32BitAddresses = DmaSize;          
+  Description.IgnoreCount = 0;                       /* unused due to bus master */
+  Description.Reserved1 = 0;
+  Description.Reserved2 = 0;
+  Description.BusNumber = Adapter->BusNumber;
+  Description.DmaChannel = 0;                        /* unused due to bus master */
+  Description.InterfaceType = Adapter->BusType;
+  Description.DmaChannel = 0;                        /* unused due to bus master */
+  Description.DmaWidth = 0;                          /* unused (i think) due to bus master */
+  Description.DmaSpeed = 0;                          /* unused (i think) due to bus master */
+  Description.MaximumLength = 0;                     /* unused (i think) due to bus master */
+  Description.DmaPort = 0;                           /* unused due to bus type */
 
-  if(Adapter->NdisMiniportBlock.AdapterType == Isa)
-    {
-      /* system dma */
-      if(DmaChannel < 4)
-        Description.DmaWidth = Width8Bits;
-      else
-        Description.DmaWidth = Width16Bits;
-
-      Description.DmaSpeed = Compatible;
-    }
-  else if(Adapter->NdisMiniportBlock.AdapterType == PCIBus)
-    {
-      if(DmaSize == NDIS_DMA_64BITS)
-        Description.Dma64BitAddresses = TRUE;
-      else
-        Description.Dma32BitAddresses = TRUE;
-    }
-  else
-    {
-      NDIS_DbgPrint(MIN_TRACE, ("Unsupported bus type\n"));
-      ASSERT(0);
-    }
-
-  AdapterObject = IoGetDmaAdapter(
-    Adapter->NdisMiniportBlock.PhysicalDeviceObject,
-    &Description, &AvailableMapRegisters);
+  AvailableMapRegisters = MapRegistersRequired;
+  AdapterObject = HalGetAdapter(&Description, &AvailableMapRegisters);
 
   if(!AdapterObject)
     {
@@ -396,172 +347,43 @@ NdisMAllocateMapRegisters(
       return NDIS_STATUS_RESOURCES;
     }
 
-  Adapter->NdisMiniportBlock.SystemAdapterObject = AdapterObject;
+  Adapter->AdapterObject = AdapterObject;
 
-  if(AvailableMapRegisters < MapRegistersPerBaseRegister)
+  if(AvailableMapRegisters < MapRegistersRequired)
     {
       NDIS_DbgPrint(MIN_TRACE, ("Didn't get enough map registers from hal - requested 0x%x, got 0x%x\n", 
-          MapRegistersPerBaseRegister, AvailableMapRegisters));
-
+                                MapRegistersRequired, AvailableMapRegisters));
       return NDIS_STATUS_RESOURCES;
     }
 
-  /* allocate & zero space in the miniport block for the registers */
-  Adapter->NdisMiniportBlock.MapRegisters = ExAllocatePool(NonPagedPool, BaseMapRegistersNeeded * sizeof(MAP_REGISTER_ENTRY));
-  if(!Adapter->NdisMiniportBlock.MapRegisters)
+  KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
+
+  Adapter->MapRegistersRequested = MapRegistersRequired;
+
+  NtStatus = IoAllocateAdapterChannel(AdapterObject, DeviceObject, 
+      MapRegistersRequired, NdisMapRegisterCallback, Adapter);
+
+  KeLowerIrql(OldIrql);
+
+  if(!NT_SUCCESS(NtStatus))
     {
-      NDIS_DbgPrint(MIN_TRACE, ("insufficient resources.\n"));
+      NDIS_DbgPrint(MIN_TRACE, ("IoAllocateAdapterChannel failed: 0x%x\n", NtStatus));
       return NDIS_STATUS_RESOURCES;
     }
 
-  memset(Adapter->NdisMiniportBlock.MapRegisters, 0, BaseMapRegistersNeeded * sizeof(MAP_REGISTER_ENTRY));
-  Adapter->NdisMiniportBlock.BaseMapRegistersNeeded = BaseMapRegistersNeeded;
+  NtStatus = KeWaitForSingleObject(&Adapter->DmaEvent, Executive, KernelMode, FALSE, 0);
 
-  while(BaseMapRegistersNeeded)
+  if(!NT_SUCCESS(NtStatus))
     {
-      NDIS_DbgPrint(MAX_TRACE, ("iterating, basemapregistersneeded = %d\n", BaseMapRegistersNeeded));
-
-      BaseMapRegistersNeeded--;
-      Adapter->NdisMiniportBlock.CurrentMapRegister = BaseMapRegistersNeeded;
-      KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
-        {
-          NtStatus = AdapterObject->DmaOperations->AllocateAdapterChannel(
-              AdapterObject, DeviceObject, MapRegistersPerBaseRegister,
-              NdisMapRegisterCallback, Adapter);
-        }
-      KeLowerIrql(OldIrql);
-
-      if(!NT_SUCCESS(NtStatus))
-        {
-          NDIS_DbgPrint(MIN_TRACE, ("IoAllocateAdapterChannel failed: 0x%x\n", NtStatus));
-          return NDIS_STATUS_RESOURCES;
-        }
-
-      NDIS_DbgPrint(MAX_TRACE, ("waiting on event\n"));
-
-      NtStatus = KeWaitForSingleObject(&Adapter->DmaEvent, Executive, KernelMode, FALSE, 0);
-
-      if(!NT_SUCCESS(NtStatus))
-        {
-          NDIS_DbgPrint(MIN_TRACE, ("KeWaitForSingleObject failed: 0x%x\n", NtStatus));
-          return NDIS_STATUS_RESOURCES;
-        }
-
-      NDIS_DbgPrint(MAX_TRACE, ("resetting event\n"));
-
-      KeResetEvent(&Adapter->DmaEvent);
+      NDIS_DbgPrint(MIN_TRACE, ("KeWaitForSingleObject failed: 0x%x\n", NtStatus));
+      return NDIS_STATUS_RESOURCES;
     }
 
   NDIS_DbgPrint(MAX_TRACE, ("returning success\n"));
   return NDIS_STATUS_SUCCESS;
 }
 
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisMStartBufferPhysicalMapping(
-    IN  NDIS_HANDLE                 MiniportAdapterHandle,
-    IN  PNDIS_BUFFER                Buffer,
-    IN  ULONG                       PhysicalMapRegister,
-    IN  BOOLEAN                     WriteToDevice,
-    OUT PNDIS_PHYSICAL_ADDRESS_UNIT	PhysicalAddressArray,
-    OUT PUINT                       ArraySize)
-/*
- * FUNCTION: Sets up map registers for a bus-master DMA transfer
- * ARGUMENTS:
- *     MiniportAdapterHandle: handle originally input to MiniportInitialize
- *     Buffer: data to be transferred 
- *     PhysicalMapRegister: specifies the map register to set up
- *     WriteToDevice: if true, data is being written to the device; else it is being read
- *     PhysicalAddressArray: list of mapped ranges suitable for DMA with the device
- *     ArraySize: number of elements in PhysicalAddressArray
- * NOTES:
- *     - Must be called at IRQL <= DISPATCH_LEVEL
- *     - The basic idea:  call IoMapTransfer() in a loop as many times as it takes
- *       in order to map all of the virtual memory to physical memoroy readable
- *       by the device
- *     - The caller supplies storage for the physical address array.  
- */
-{
-  PLOGICAL_ADAPTER Adapter = 0;
-  VOID *CurrentVa;
-  ULONG TotalLength;
-  PHYSICAL_ADDRESS ReturnedAddress;
-  UINT LoopCount =  0;
 
-  ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-  ASSERT(MiniportAdapterHandle && Buffer && PhysicalAddressArray && ArraySize);
-
-  Adapter = (PLOGICAL_ADAPTER)MiniportAdapterHandle;
-  CurrentVa = MmGetMdlVirtualAddress(Buffer);
-  TotalLength = MmGetMdlByteCount(Buffer);
-
-  while(TotalLength)
-    {
-      ULONG Length = TotalLength;
-
-      ReturnedAddress = Adapter->NdisMiniportBlock.SystemAdapterObject->DmaOperations->MapTransfer(
-          Adapter->NdisMiniportBlock.SystemAdapterObject, Buffer, 
-          Adapter->NdisMiniportBlock.MapRegisters[PhysicalMapRegister].MapRegister, 
-          CurrentVa, &Length, WriteToDevice);
-
-      Adapter->NdisMiniportBlock.MapRegisters[PhysicalMapRegister].WriteToDevice = WriteToDevice;
-
-      PhysicalAddressArray[LoopCount].PhysicalAddress = ReturnedAddress;
-      PhysicalAddressArray[LoopCount].Length = Length;
-
-      TotalLength -= Length;
-      CurrentVa += Length;
-
-      LoopCount++;
-    }
-
-  *ArraySize = LoopCount;
-}
-
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisMCompleteBufferPhysicalMapping(
-    IN  NDIS_HANDLE     MiniportAdapterHandle,
-    IN  PNDIS_BUFFER    Buffer,
-    IN  ULONG           PhysicalMapRegister)
-/*
- * FUNCTION: Complete dma action started by NdisMStartBufferPhysicalMapping
- * ARGUMENTS:
- *     - MiniportAdapterHandle: handle originally input to MiniportInitialize
- *     - Buffer: NDIS_BUFFER to complete the mapping on
- *     - PhyscialMapRegister: the chosen map register
- * NOTES:
- *     - May be called at IRQL <= DISPATCH_LEVEL
- */
-{
-  PLOGICAL_ADAPTER Adapter = 0;
-  VOID *CurrentVa;
-  ULONG Length;
-
-  ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-  ASSERT(MiniportAdapterHandle && Buffer);
-
-  Adapter = (PLOGICAL_ADAPTER)MiniportAdapterHandle;
-  CurrentVa = MmGetMdlVirtualAddress(Buffer);
-  Length = MmGetMdlByteCount(Buffer);
-
-  Adapter->NdisMiniportBlock.SystemAdapterObject->DmaOperations->FlushAdapterBuffers(
-      Adapter->NdisMiniportBlock.SystemAdapterObject, Buffer, 
-      Adapter->NdisMiniportBlock.MapRegisters[PhysicalMapRegister].MapRegister,
-      CurrentVa, Length, 
-      Adapter->NdisMiniportBlock.MapRegisters[PhysicalMapRegister].WriteToDevice);
-}
-
-
-
 /*
  * @unimplemented
  */
@@ -578,7 +400,7 @@ NdisMCompleteDmaTransfer(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -590,7 +412,7 @@ NdisMDeregisterDmaChannel(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @implemented
  */
@@ -608,7 +430,7 @@ NdisMDeregisterInterrupt(
     IoDisconnectInterrupt(Interrupt->InterruptObject);
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -628,10 +450,10 @@ NdisMDeregisterIoPortRange(
  *     PortOffset            = Pointer to mapped base port address
  */
 {
-  NDIS_DbgPrint(MAX_TRACE, ("called - IMPLEMENT ME.\n"));
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 }
 
-
+
 /*
  * @implemented
  */
@@ -648,45 +470,30 @@ NdisMFreeMapRegisters(
 {
   KIRQL            OldIrql;
   PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)MiniportAdapterHandle;
-  PDMA_ADAPTER     AdapterObject;
-  UINT             MapRegistersPerBaseRegister;
-  UINT             i;
+  PADAPTER_OBJECT  AdapterObject = Adapter->AdapterObject;
 
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-  ASSERT(Adapter);
-
-  /* only bus masters may call this routine */
-  ASSERT(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER);
-  if(!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER) ||
-     Adapter->NdisMiniportBlock.SystemAdapterObject == NULL)
-    return;
-
-  MapRegistersPerBaseRegister = ((Adapter->NdisMiniportBlock.MaximumPhysicalMapping - 2) / PAGE_SIZE) + 2;
-
-  AdapterObject = Adapter->NdisMiniportBlock.SystemAdapterObject;
-
   KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
+
+  while(!IsListEmpty(&Adapter->MapRegisterList.ListEntry))
     {
-      for(i = 0; i < Adapter->NdisMiniportBlock.BaseMapRegistersNeeded; i++)
+      PADAPTER_MAP_REGISTER_LIST Register = (PADAPTER_MAP_REGISTER_LIST)RemoveTailList(&Adapter->MapRegisterList.ListEntry);
+      if(Register)
         {
-          AdapterObject->DmaOperations->FreeMapRegisters(
-              Adapter->NdisMiniportBlock.SystemAdapterObject, 
-              Adapter->NdisMiniportBlock.MapRegisters[i].MapRegister,
-              MapRegistersPerBaseRegister);
+          IoFreeMapRegisters(AdapterObject, Register->MapRegister, Register->NumRegisters);
+          ExFreePool(Register);
         }
+      else
+        NDIS_DbgPrint(MIN_TRACE,("Internal NDIS error - Register is 0\n"));
     }
+
  KeLowerIrql(OldIrql);
-
- AdapterObject->DmaOperations->PutDmaAdapter(AdapterObject);
- Adapter->NdisMiniportBlock.SystemAdapterObject = NULL;
-
- ExFreePool(Adapter->NdisMiniportBlock.MapRegisters);
 }
 
-
+
 /*
- * @implemented
+ * @unimplemented
  */
 NDIS_STATUS
 EXPORT
@@ -695,78 +502,27 @@ NdisMMapIoSpace(
     IN  NDIS_HANDLE             MiniportAdapterHandle,
     IN  NDIS_PHYSICAL_ADDRESS   PhysicalAddress,
     IN  UINT                    Length)
-/*
- * FUNCTION: Maps a bus-relative address to a system-wide virtual address
- * ARGUMENTS:
- *     VirtualAddress: receives virtual address of mapping
- *     MiniportAdapterHandle: Handle originally input to MiniportInitialize
- *     PhysicalAddress: bus-relative address to map
- *     Length: Number of bytes to map
- * RETURNS:
- *     NDIS_STATUS_SUCCESS: the operation completed successfully
- *     NDIS_STATUS_RESOURCE_CONFLICT: the physical address range is already claimed
- *     NDIS_STATUS_RESOURCES: insufficient resources to complete the mapping
- *     NDIS_STATUS_FAILURE: a general failure has occured
- * NOTES:
- *     - Must be called at IRQL = PASSIVE_LEVEL
- * BUGS:
- *     - Only supports things that MmMapIoSpace internally supports - what
- *       about considering bus type, etc?
- *     - doesn't track resources allocated...
- */
 {
-  PAGED_CODE();
-  ASSERT(VirtualAddress && MiniportAdapterHandle);
+    UNIMPLEMENTED
 
-  *VirtualAddress = MmMapIoSpace(PhysicalAddress, Length, MmNonCached);
-
-  if(!*VirtualAddress)
-    return NDIS_STATUS_RESOURCES;
-
-  return NDIS_STATUS_SUCCESS;
+	return NDIS_STATUS_FAILURE;
 }
 
-
+
 /*
- * @implemented
+ * @unimplemented
  */
 ULONG
 EXPORT
 NdisMReadDmaCounter(
     IN  NDIS_HANDLE MiniportDmaHandle)
 {
-  PNDIS_MINIPORT_BLOCK MiniportBlock = (PNDIS_MINIPORT_BLOCK)MiniportDmaHandle;
-  PDMA_ADAPTER AdapterObject = MiniportBlock->SystemAdapterObject;
+    UNIMPLEMENTED
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-  if (AdapterObject == NULL)
-    return 0;
-    
-  return AdapterObject->DmaOperations->ReadDmaCounter(AdapterObject);
+	return 0;
 }
 
-
-/*
- * @implemented
- */
-ULONG
-EXPORT
-NdisMGetDmaAlignment(
-    IN  NDIS_HANDLE MiniportDmaHandle)
-{
-  PNDIS_MINIPORT_BLOCK MiniportBlock = (PNDIS_MINIPORT_BLOCK)MiniportDmaHandle;
-  PDMA_ADAPTER AdapterObject = MiniportBlock->SystemAdapterObject;
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-  if (AdapterObject == NULL)
-    return 0;
-    
-  return AdapterObject->DmaOperations->GetDmaAlignment(AdapterObject);
-}
-
-
 /*
  * @unimplemented
  */
@@ -782,10 +538,9 @@ NdisMRegisterDmaChannel(
 {
     UNIMPLEMENTED
 
-  return NDIS_STATUS_FAILURE;
+	return NDIS_STATUS_FAILURE;
 }
 
-
 /*
  * @implemented
  */
@@ -813,55 +568,67 @@ NdisMRegisterInterrupt(
  *     Status of operation
  */
 {
-  NTSTATUS Status;
-  ULONG MappedIRQ;
-  KIRQL DIrql;
-  KAFFINITY Affinity;
-  PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(MiniportAdapterHandle);
+    NTSTATUS Status;
+    ULONG MappedIRQ;
+    KIRQL DIrql;
+    KAFFINITY Affinity;
+    PLOGICAL_ADAPTER Adapter = GET_LOGICAL_ADAPTER(MiniportAdapterHandle);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Called. InterruptVector (0x%X)  InterruptLevel (0x%X)  "
-      "SharedInterrupt (%d)  InterruptMode (0x%X)\n",
-      InterruptVector, InterruptLevel, SharedInterrupt, InterruptMode));
+    NDIS_DbgPrint(MAX_TRACE, ("Called. InterruptVector (0x%X)  InterruptLevel (0x%X)  "
+        "SharedInterrupt (%d)  InterruptMode (0x%X)\n",
+        InterruptVector, InterruptLevel, SharedInterrupt, InterruptMode));
 
-  RtlZeroMemory(Interrupt, sizeof(NDIS_MINIPORT_INTERRUPT));
+    RtlZeroMemory(Interrupt, sizeof(NDIS_MINIPORT_INTERRUPT));
 
-  KeInitializeSpinLock(&Interrupt->DpcCountLock);
+    KeInitializeSpinLock(&Interrupt->DpcCountLock);
 
-  KeInitializeDpc(&Interrupt->InterruptDpc, HandleDeferredProcessing, Adapter);
+    KeInitializeDpc(&Interrupt->InterruptDpc,
+                    HandleDeferredProcessing,
+                    Adapter);
 
-  KeInitializeEvent(&Interrupt->DpcsCompletedEvent, NotificationEvent, FALSE);
+    KeInitializeEvent(&Interrupt->DpcsCompletedEvent,
+                      NotificationEvent,
+                      FALSE);
 
-  Interrupt->SharedInterrupt = SharedInterrupt;
+    Interrupt->SharedInterrupt = SharedInterrupt;
 
-  Adapter->NdisMiniportBlock.Interrupt = Interrupt;
+    Adapter->NdisMiniportBlock.Interrupt = Interrupt;
 
-  MappedIRQ = HalGetInterruptVector(Adapter->NdisMiniportBlock.BusType,
-                                    Adapter->NdisMiniportBlock.BusNumber,
-                                    InterruptLevel, InterruptVector, &DIrql,
-                                    &Affinity);
+    MappedIRQ = HalGetInterruptVector(Adapter->BusType,
+                                      Adapter->BusNumber,
+                                      InterruptLevel,
+                                      InterruptVector,
+                                      &DIrql,
+                                      &Affinity);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Connecting to interrupt vector (0x%X)  Affinity (0x%X).\n", MappedIRQ, Affinity));
+    NDIS_DbgPrint(MAX_TRACE, ("Connecting to interrupt vector (0x%X)  Affinity (0x%X).\n", MappedIRQ, Affinity));
 
-  Status = IoConnectInterrupt(&Interrupt->InterruptObject, ServiceRoutine, Adapter, &Interrupt->DpcCountLock, MappedIRQ,
-      DIrql, DIrql, InterruptMode, SharedInterrupt, Affinity, FALSE);
+    Status = IoConnectInterrupt(&Interrupt->InterruptObject,
+                                ServiceRoutine,
+                                Adapter,
+                                &Interrupt->DpcCountLock,
+                                MappedIRQ,
+                                DIrql,
+                                DIrql,
+                                InterruptMode,
+                                SharedInterrupt,
+                                Affinity,
+                                FALSE);
 
-  NDIS_DbgPrint(MAX_TRACE, ("Leaving. Status (0x%X).\n", Status));
+    NDIS_DbgPrint(MAX_TRACE, ("Leaving. Status (0x%X).\n", Status));
 
-  if (NT_SUCCESS(Status))
-    return NDIS_STATUS_SUCCESS;
+    if (NT_SUCCESS(Status))
+        return NDIS_STATUS_SUCCESS;
 
-  if (Status == STATUS_INSUFFICIENT_RESOURCES) 
-    {
+    if (Status == STATUS_INSUFFICIENT_RESOURCES) {
         /* FIXME: Log error */
-      NDIS_DbgPrint(MIN_TRACE, ("Resource conflict!\n"));
-      return NDIS_STATUS_RESOURCE_CONFLICT;
+        return NDIS_STATUS_RESOURCE_CONFLICT;
     }
 
-  NDIS_DbgPrint(MIN_TRACE, ("Function failed\n"));
-  return NDIS_STATUS_FAILURE;
+    return NDIS_STATUS_FAILURE;
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -891,22 +658,16 @@ NdisMRegisterIoPortRange(
 
   memset(&PortAddress, 0, sizeof(PortAddress));
 
-  /*
-   * FIXME: NDIS 5+ completely ignores the InitialPort parameter, but
-   * we don't have a way to get the I/O base address yet (see
-   * NDIS_MINIPORT_BLOCK->AllocatedResources and
-   * NDIS_MINIPORT_BLOCK->AllocatedResourcesTranslated).
-   */
+  /* this might be a hack - ndis5 miniports seem to specify 0 */
   if(InitialPort)
       PortAddress = RtlConvertUlongToLargeInteger(InitialPort);
   else
-      ASSERT(FALSE);
+      PortAddress = Adapter->BaseIoAddress;
 
   NDIS_DbgPrint(MAX_TRACE, ("Translating address 0x%x 0x%x\n", PortAddress.u.HighPart, PortAddress.u.LowPart));
 
-  if(!HalTranslateBusAddress(Adapter->NdisMiniportBlock.BusType,
-                             Adapter->NdisMiniportBlock.BusNumber,
-                             PortAddress, &AddressSpace, &TranslatedAddress))
+  /* FIXME: hard-coded bus number */
+  if(!HalTranslateBusAddress(Adapter->BusType, 0, PortAddress, &AddressSpace, &TranslatedAddress))
     {
       NDIS_DbgPrint(MIN_TRACE, ("Unable to translate address\n"));
       return NDIS_STATUS_RESOURCES;
@@ -926,7 +687,7 @@ NdisMRegisterIoPortRange(
   NDIS_DbgPrint(MAX_TRACE, ("calling MmMapIoSpace\n"));
 
   *PortOffset = 0;
-  *PortOffset = MmMapIoSpace(TranslatedAddress, NumberOfPorts, MmNonCached);
+  *PortOffset = MmMapIoSpace(TranslatedAddress, NumberOfPorts, 0);
   NDIS_DbgPrint(MAX_TRACE, ("Returning 0x%x for port range\n", *PortOffset));
 
   if(!*PortOffset)
@@ -953,7 +714,7 @@ NdisMSetupDmaTransfer(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 EXPORT
@@ -961,26 +722,8 @@ NdisMUnmapIoSpace(
     IN  NDIS_HANDLE MiniportAdapterHandle,
     IN  PVOID       VirtualAddress,
     IN  UINT        Length)
-/*
- * FUNCTION: Un-maps space previously mapped with NdisMMapIoSpace
- * ARGUMENTS:
- *     MiniportAdapterHandle: handle originally passed into MiniportInitialize
- *     VirtualAddress: Address to un-map
- *     Length: length of the mapped memory space
- * NOTES:
- *     - Must be called at IRQL = PASSIVE_LEVEL
- *     - Must only be called from MiniportInitialize and MiniportHalt
- *     - See also: NdisMMapIoSpace
- * BUGS:
- *     - Depends on MmUnmapIoSpace to Do The Right Thing in all cases
- */
 {
-  PAGED_CODE();
-
-  ASSERT(MiniportAdapterHandle);
-
-  MmUnmapIoSpace(VirtualAddress, Length);
+    UNIMPLEMENTED
 }
 
 /* EOF */
-

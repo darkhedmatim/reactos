@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: registry.c,v 1.11 2004/12/30 16:02:12 royce Exp $
+/* $Id: registry.c,v 1.5 2003/07/27 22:27:36 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/registry.c
@@ -32,7 +32,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "mkhive.h"
 #include "registry.h"
@@ -100,11 +99,6 @@ RegInitializeRegistry(VOID)
 	       "Registry\\Machine\\SECURITY",
 	       NULL);
 
-  /* Create SOFTWARE key */
-  RegCreateKey(RootKey,
-	       "Registry\\Machine\\SOFTWARE",
-	       NULL);
-
   /* Create DEFAULT key */
   RegCreateKey(RootKey,
 	       "Registry\\User\\.DEFAULT",
@@ -126,7 +120,7 @@ RegCreateKey(HKEY ParentKey,
   int subkeyLength;
   int stringLength;
 
-  DPRINT ("RegCreateKey('%s')\n", KeyName);
+  DPRINT ("KeyName '%s'\n", KeyName);
 
   if (*KeyName == '\\')
     {
@@ -171,14 +165,14 @@ RegCreateKey(HKEY ParentKey,
       Ptr = CurrentKey->SubKeyList.Flink;
       while (Ptr != &CurrentKey->SubKeyList)
 	{
-	  DPRINT ("Ptr 0x%p\n", Ptr);
+	  DPRINT ("Ptr 0x%x\n", Ptr);
 
 	  SearchKey = CONTAINING_RECORD(Ptr,
 					KEY,
 					KeyList);
-	  DPRINT ("SearchKey 0x%p\n", SearchKey);
+	  DPRINT ("SearchKey 0x%x\n", SearchKey);
 	  DPRINT ("Searching '%s'\n", SearchKey->Name);
-	  if (strncasecmp (SearchKey->Name, name, subkeyLength) == 0)
+	  if (strncmp (SearchKey->Name, name, subkeyLength) == 0)
 	    break;
 
 	  Ptr = Ptr->Flink;
@@ -211,8 +205,8 @@ RegCreateKey(HKEY ParentKey,
 	  memcpy(NewKey->Name, name, subkeyLength);
 	  NewKey->Name[subkeyLength] = 0;
 
-	  DPRINT ("NewKey 0x%p\n", NewKey);
-	  DPRINT ("NewKey '%s'  Length %ld\n", NewKey->Name, NewKey->NameSize);
+	  DPRINT ("NewKey 0x%x\n", NewKey);
+	  DPRINT ("NewKey '%s'  Length %d\n", NewKey->Name, NewKey->NameSize);
 
 	  CurrentKey = NewKey;
 	}
@@ -241,7 +235,8 @@ LONG
 RegDeleteKey(HKEY Key,
 	     PCHAR Name)
 {
-  if (Name != NULL && strchr(Name, '\\') != NULL)
+
+  if (strchr(Name, '\\') != NULL)
     return(ERROR_INVALID_PARAMETER);
 
   DPRINT1("FIXME!\n");
@@ -278,7 +273,7 @@ RegEnumKey(HKEY Key,
 				KEY,
 				KeyList);
 
-  DPRINT ("Name '%s'  Length %ld\n", SearchKey->Name, SearchKey->NameSize);
+  DPRINT ("Name '%s'  Length %d\n", SearchKey->Name, SearchKey->NameSize);
 
   Size = min(SearchKey->NameSize, *NameSize);
   *NameSize = Size;
@@ -348,16 +343,16 @@ RegOpenKey(HKEY ParentKey,
       Ptr = CurrentKey->SubKeyList.Flink;
       while (Ptr != &CurrentKey->SubKeyList)
 	{
-	  DPRINT ("Ptr 0x%p\n", Ptr);
+	  DPRINT ("Ptr 0x%x\n", Ptr);
 
 	  SearchKey = CONTAINING_RECORD(Ptr,
 					KEY,
 					KeyList);
 
-	  DPRINT ("SearchKey 0x%p\n", SearchKey);
+	  DPRINT ("SearchKey 0x%x\n", SearchKey);
 	  DPRINT ("Searching '%s'\n", SearchKey->Name);
 
-	  if (strncasecmp(SearchKey->Name, name, subkeyLength) == 0)
+	  if (strncmp(SearchKey->Name, name, subkeyLength) == 0)
 	    break;
 
 	  Ptr = Ptr->Flink;
@@ -599,7 +594,7 @@ RegDeleteValue(HKEY Key,
 	  Value = CONTAINING_RECORD(Ptr,
 				    VALUE,
 				    ValueList);
-	  if (strcasecmp(Value->Name, ValueName) == 0)
+	  if (strcmp(Value->Name, ValueName) == 0)
 	    break;
 
 	  Ptr = Ptr->Flink;
@@ -687,7 +682,7 @@ RegEnumValue(HKEY Key,
 }
 
 
-USHORT
+ULONG
 RegGetSubKeyCount (HKEY Key)
 {
   return Key->SubKeyCount;

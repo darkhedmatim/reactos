@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rw.c,v 1.3 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: rw.c,v 1.1 2003/07/17 13:31:39 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -31,7 +31,7 @@
 #include <ddk/ntddk.h>
 #include <ntos/minmax.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -163,6 +163,7 @@ NtfsRead(PDEVICE_OBJECT DeviceObject,
 			Irp->Flags,
 			&ReturnedReadLength);
 
+ByeBye:
   if (NT_SUCCESS(Status))
     {
       if (FileObject->Flags & FO_SYNCHRONOUS_IO)

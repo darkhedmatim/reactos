@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: class.c,v 1.65 2004/12/26 23:54:54 navaraf Exp $
+/* $Id: class.c,v 1.36 2003/09/14 09:03:53 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,15 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <napi/win32.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -47,181 +55,208 @@ CleanupClassImpl(VOID)
   return(STATUS_SUCCESS);
 }
 
-BOOL FASTCALL
-ClassReferenceClassByAtom(
-   PWNDCLASS_OBJECT* Class,
-   RTL_ATOM Atom,
-   HINSTANCE hInstance)
+
+NTSTATUS FASTCALL
+ClassReferenceClassByAtom(PWNDCLASS_OBJECT* Class,
+			  RTL_ATOM Atom)
 {
-   PWNDCLASS_OBJECT Current, BestMatch = NULL;
-   PLIST_ENTRY CurrentEntry;
-   PW32PROCESS Process = PsGetWin32Process();
+  PWNDCLASS_OBJECT Current;
+  PLIST_ENTRY CurrentEntry;
+  PW32PROCESS Process = PsGetWin32Process();
+  
+  ExAcquireFastMutexUnsafe (&Process->ClassListLock);
+  CurrentEntry = Process->ClassListHead.Flink;
+  while (CurrentEntry != &Process->ClassListHead)
+    {
+    Current = CONTAINING_RECORD(CurrentEntry, WNDCLASS_OBJECT, ListEntry);
+      
+	if (Current->lpszClassName == (PUNICODE_STRING)(ULONG)Atom)
+	{
+	*Class = Current;
+	ObmReferenceObject(Current);
+	ExReleaseFastMutexUnsafe (&Process->ClassListLock);
+	return(STATUS_SUCCESS);
+	}
 
-   IntLockProcessClasses(Process);
-   CurrentEntry = Process->ClassListHead.Flink;
-   while (CurrentEntry != &Process->ClassListHead)
-   {
-      Current = CONTAINING_RECORD(CurrentEntry, WNDCLASS_OBJECT, ListEntry);
-
-      if (Current->Atom == Atom && (hInstance == NULL || Current->hInstance == hInstance))
-      {
-         *Class = Current;
-         ObmReferenceObject(Current);
-         IntUnLockProcessClasses(Process);
-         return TRUE;
-      }
-
-      if (Current->Atom == Atom && Current->Global)
-         BestMatch = Current;
-
-      CurrentEntry = CurrentEntry->Flink;
-   }
-   IntUnLockProcessClasses(Process);
-
-   if (BestMatch != NULL)
-   {
-      *Class = BestMatch;
-      ObmReferenceObject(BestMatch);
-      return TRUE;
-   }
-
-   return FALSE;
+	CurrentEntry = CurrentEntry->Flink;
+    }
+  ExReleaseFastMutexUnsafe (&Process->ClassListLock);
+  
+  return(STATUS_NOT_FOUND);
 }
 
-BOOL FASTCALL
-ClassReferenceClassByName(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassName,
-   HINSTANCE hInstance)
+NTSTATUS STDCALL
+ClassReferenceClassByName(PWNDCLASS_OBJECT *Class,
+			  PWSTR ClassName)
 {
-   PWINSTATION_OBJECT WinStaObject;
-   NTSTATUS Status;
-   BOOL Found;
-   RTL_ATOM ClassAtom;
+  PWINSTATION_OBJECT WinStaObject;
+  NTSTATUS Status;
+  RTL_ATOM ClassAtom;
 
-   if (!ClassName || !PsGetWin32Thread()->Desktop)
-      return FALSE;
+  if (!ClassName)
+    {
+      return(STATUS_INVALID_PARAMETER);
+    }
 
-   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
+  Status = ValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+				       KernelMode,
+				       0,
+				       &WinStaObject);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("Validation of window station handle (0x%X) failed\n",
+	     PROCESS_WINDOW_STATION());
+      return(STATUS_UNSUCCESSFUL);
+    }
 
-   Status = RtlLookupAtomInAtomTable(
-      WinStaObject->AtomTable,
-      (LPWSTR)ClassName,
-      &ClassAtom);
+  Status  = RtlLookupAtomInAtomTable(WinStaObject->AtomTable,
+				     ClassName,
+				     &ClassAtom);
 
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed to lookup class atom!\n");
-      return FALSE;
-   }
-
-   Found = ClassReferenceClassByAtom(Class, ClassAtom, hInstance);
-
-   return Found;
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject(WinStaObject);  
+      return(Status);
+    }
+  Status = ClassReferenceClassByAtom(Class,
+				     ClassAtom);
+  
+  ObDereferenceObject(WinStaObject);  
+  return(Status);
 }
 
-BOOL FASTCALL
-ClassReferenceClassByNameOrAtom(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassNameOrAtom,
-   HINSTANCE hInstance)
+NTSTATUS FASTCALL
+ClassReferenceClassByNameOrAtom(PWNDCLASS_OBJECT *Class,
+				LPWSTR ClassNameOrAtom)
 {
-   BOOL Found;
+  NTSTATUS Status;
 
-   if (IS_ATOM(ClassNameOrAtom))
-      Found = ClassReferenceClassByAtom(Class, (RTL_ATOM)((ULONG_PTR)ClassNameOrAtom), hInstance);
-   else
-      Found = ClassReferenceClassByName(Class, ClassNameOrAtom, hInstance);
+  if (IS_ATOM(ClassNameOrAtom))
+    {
+      Status = ClassReferenceClassByAtom(Class, 
+				  (RTL_ATOM)((ULONG_PTR)ClassNameOrAtom));
+  }
+  else
+    {
+      Status = ClassReferenceClassByName(Class, 
+					 ClassNameOrAtom);
+    }
 
-   return Found;
+  if (!NT_SUCCESS(Status))
+    {
+      SetLastNtError(Status);
+    }
+  
+  return(Status);
 }
 
 DWORD STDCALL
-NtUserGetClassInfo(
-   HINSTANCE hInstance,
-   LPCWSTR lpClassName,
-   LPWNDCLASSEXW lpWndClassEx,
-   BOOL Ansi,
-   DWORD unknown3)
+NtUserGetClassInfo(HINSTANCE hInst,
+		   LPCWSTR str,
+		   LPWNDCLASSEXW wcex,
+		   BOOL Ansi,
+		   DWORD unknown3)
 {
-   PWNDCLASS_OBJECT Class;
-   RTL_ATOM Atom;
-
-   if (IS_ATOM(lpClassName))
-      DPRINT("NtUserGetClassInfo - %x (%lx)\n", lpClassName, hInstance);
-   else
-      DPRINT("NtUserGetClassInfo - %S (%lx)\n", lpClassName, hInstance);
-
-   if (!ClassReferenceClassByNameOrAtom(&Class, lpClassName, hInstance))
-   {
-      SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
-      return 0;
-   }
-
-   lpWndClassEx->cbSize = sizeof(WNDCLASSEXW);
-   lpWndClassEx->style = Class->style;
-   if (Ansi)
-      lpWndClassEx->lpfnWndProc = Class->lpfnWndProcA;
-   else
-      lpWndClassEx->lpfnWndProc = Class->lpfnWndProcW;
-   lpWndClassEx->cbClsExtra = Class->cbClsExtra;
-   lpWndClassEx->cbWndExtra = Class->cbWndExtra;
-   /* This is not typo, we're really not going to use Class->hInstance here. */
-   lpWndClassEx->hInstance = hInstance;
-   lpWndClassEx->hIcon = Class->hIcon;
-   lpWndClassEx->hCursor = Class->hCursor;
-   lpWndClassEx->hbrBackground = Class->hbrBackground;
-   if (Class->lpszMenuName.MaximumLength)
-      RtlCopyUnicodeString((PUNICODE_STRING)lpWndClassEx->lpszMenuName, &Class->lpszMenuName);
-   else
-      lpWndClassEx->lpszMenuName = Class->lpszMenuName.Buffer;
-   lpWndClassEx->lpszClassName = lpClassName;
-   lpWndClassEx->hIconSm = Class->hIconSm;
-   Atom = Class->Atom;
-   
-   ObmDereferenceObject(Class);
-
-   return Atom;
+	PWNDCLASS_OBJECT Class;
+	NTSTATUS Status;
+	Status = ClassReferenceClassByNameOrAtom(&Class,(LPWSTR)str);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastNtError(Status);
+		return 0;
+	}
+	wcex->cbSize = sizeof(LPWNDCLASSEXW);
+	wcex->style = Class->style;
+	if (Ansi)
+	{
+		wcex->lpfnWndProc = Class->lpfnWndProcA;
+	}
+	else
+	{
+		wcex->lpfnWndProc = Class->lpfnWndProcW;
+	}
+	wcex->cbClsExtra = Class->cbClsExtra;
+	wcex->cbWndExtra = Class->cbWndExtra;
+	wcex->hInstance = Class->hInstance;
+	wcex->hIcon = Class->hIcon;
+	wcex->hCursor = Class->hCursor;
+	wcex->hbrBackground = Class->hbrBackground;
+	if(Class->lpszMenuName)
+	{
+	  if(!IS_INTRESOURCE((LPCWSTR)Class->lpszMenuName))
+  	    RtlCopyUnicodeString((PUNICODE_STRING)wcex->lpszMenuName, Class->lpszMenuName);
+      else
+        wcex->lpszMenuName = (LPCWSTR)Class->lpszMenuName;
+    }
+    else
+      wcex->lpszMenuName = (LPCWSTR)NULL;
+	if(Class->lpszClassName)
+	{
+	  if(!IS_ATOM((LPCWSTR)Class->lpszClassName))
+  	    RtlCopyUnicodeString((PUNICODE_STRING)wcex->lpszClassName, Class->lpszClassName);
+      else
+        wcex->lpszClassName = (LPCWSTR)Class->lpszClassName;
+    }
+    else
+      wcex->lpszClassName = (LPCWSTR)NULL;
+	wcex->hIconSm = Class->hIconSm;
+	return 1;
 }
 
 ULONG FASTCALL
-IntGetClassName(struct _WINDOW_OBJECT *WindowObject, LPWSTR lpClassName,
-   ULONG nMaxCount)
+IntGetClassName(struct _WINDOW_OBJECT *WindowObject,
+		   LPWSTR lpClassName,
+		   ULONG nMaxCount)
 {
-   ULONG Length;
-   LPWSTR Name;
-   PWINSTATION_OBJECT WinStaObject;
-   NTSTATUS Status;
-
-   if(!PsGetWin32Thread()->Desktop)
-   {
-      return 0;
-   }
-
-   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
-   
-   Length = 0;
-   Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,
-      WindowObject->Class->Atom, NULL, NULL, NULL, &Length);
-   Name = ExAllocatePoolWithTag(PagedPool, Length + sizeof(UNICODE_NULL), TAG_STRING);
-   Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,
-      WindowObject->Class->Atom, NULL, NULL, Name, &Length);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("IntGetClassName: RtlQueryAtomInAtomTable failed\n");
-      return 0;
-   }
-   Length /= sizeof(WCHAR);
-   if (Length > nMaxCount)
-   {
-      Length = nMaxCount;
-   }
-   wcsncpy(lpClassName, Name, Length);
-   /* FIXME: Check buffer size before doing this! */
-   *(lpClassName + Length) = 0;
-   ExFreePool(Name);
-
-   return Length;
+  ULONG length;
+  LPWSTR name;
+  BOOL free;
+  PWINSTATION_OBJECT WinStaObject;
+  NTSTATUS Status;
+  if (IS_ATOM(WindowObject->Class->lpszClassName))
+  {
+	DPRINT("About to open window station handle (0x%X)\n", 
+	PROCESS_WINDOW_STATION());
+	Status = ValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+	KernelMode,
+	0,
+	&WinStaObject);
+	if (!NT_SUCCESS(Status))
+	{
+		DPRINT("Validation of window station handle (0x%X) failed\n",
+		PROCESS_WINDOW_STATION());
+		return((RTL_ATOM)0);
+	}
+	length = 0;
+	Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,(RTL_ATOM)(size_t)WindowObject->Class->lpszClassName,NULL,NULL,name,&length);
+        name = ExAllocatePool(PagedPool,length+sizeof(WCHAR));
+	free = TRUE;
+	Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,(RTL_ATOM)(size_t)WindowObject->Class->lpszClassName,NULL,NULL,name,&length);
+	if (!NT_SUCCESS(Status))
+	{
+		DPRINT("Validation of window station handle (0x%X) failed\n",
+		PROCESS_WINDOW_STATION());
+		return((RTL_ATOM)0);
+	}
+	ObDereferenceObject(WinStaObject);
+  }
+  else
+  {
+    name = WindowObject->Class->lpszClassName->Buffer;
+    length = WindowObject->Class->lpszClassName->Length / sizeof(WCHAR);
+	free = FALSE;
+  }
+  if (length > nMaxCount)
+  {
+    length = nMaxCount;
+  }
+  *(lpClassName+length) = 0;
+  wcsncpy(lpClassName,name,length);
+  if (free)
+  {
+	ExFreePool(name);
+  }
+  return length;
 }
 
 DWORD STDCALL
@@ -230,18 +265,18 @@ NtUserGetClassName (
   LPWSTR lpClassName,
   ULONG nMaxCount)
 {
-   PWINDOW_OBJECT WindowObject;
-   LONG Length;
+  PWINDOW_OBJECT WindowObject;
+  LONG Ret;
 
-   WindowObject = IntGetWindowObject(hWnd);
-   if (WindowObject == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-      return 0;
-   }
-   Length = IntGetClassName(WindowObject, lpClassName, nMaxCount);
-   IntReleaseWindowObject(WindowObject);
-   return Length;
+  WindowObject = IntGetWindowObject(hWnd);
+  if (WindowObject == NULL)
+  {
+    SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
+    return 0;
+  }
+  Ret = IntGetClassName(WindowObject, lpClassName, nMaxCount);
+  IntReleaseWindowObject(WindowObject);
+  return(Ret);
 }
 
 DWORD STDCALL
@@ -253,46 +288,19 @@ NtUserGetWOWClass(DWORD Unknown0,
 }
 
 PWNDCLASS_OBJECT FASTCALL
-IntCreateClass(
-   CONST WNDCLASSEXW *lpwcx,
-   DWORD Flags,
-   WNDPROC wpExtra,
-   PUNICODE_STRING MenuName,
-   RTL_ATOM Atom)
+IntCreateClass(CONST WNDCLASSEXW *lpwcx,
+                BOOL bUnicodeClass,
+                RTL_ATOM Atom)
 {
 	PWNDCLASS_OBJECT ClassObject;
-	ULONG  objectSize;
-	BOOL Global;
-
-	Global = (Flags & REGISTERCLASS_SYSTEM) || (lpwcx->style & CS_GLOBALCLASS) ? TRUE : FALSE;
-
-	/* Check for double registration of the class. */
-	if (PsGetWin32Process() != NULL)
-	{
-		if (ClassReferenceClassByAtom(&ClassObject, Atom, lpwcx->hInstance))
-		{
-			/*
-			 * NOTE: We may also get a global class from
-                         * ClassReferenceClassByAtom. This simple check
-                         * prevents that we fail valid request.
-                         */
-			if (ClassObject->hInstance == lpwcx->hInstance)
-			{
-			        SetLastWin32Error(ERROR_CLASS_ALREADY_EXISTS);
-				ObmDereferenceObject(ClassObject);
-				return(NULL);
-			}
-		}	
-	}
-	
-	objectSize = sizeof(WNDCLASS_OBJECT) + lpwcx->cbClsExtra;
+	WORD  objectSize;
+	objectSize = sizeof(WNDCLASS_OBJECT);
 	ClassObject = ObmCreateObject(NULL, NULL, otClass, objectSize);
 	if (ClassObject == 0)
 	{          
-		SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
 		return(NULL);
 	}
-	
+
 	ClassObject->cbSize = lpwcx->cbSize;
 	ClassObject->style = lpwcx->style;
 	ClassObject->cbClsExtra = lpwcx->cbClsExtra;
@@ -301,72 +309,38 @@ IntCreateClass(
 	ClassObject->hIcon = lpwcx->hIcon;
 	ClassObject->hCursor = lpwcx->hCursor;
 	ClassObject->hbrBackground = lpwcx->hbrBackground;
-	ClassObject->Unicode = !(Flags & REGISTERCLASS_ANSI);
-	ClassObject->Global = Global;
+	ClassObject->Unicode = bUnicodeClass;
 	ClassObject->hIconSm = lpwcx->hIconSm;
-	ClassObject->Atom = Atom;
-	if (wpExtra == NULL) {
-		if (Flags & REGISTERCLASS_ANSI)
-		{
-			ClassObject->lpfnWndProcA = lpwcx->lpfnWndProc;
-			ClassObject->lpfnWndProcW = (WNDPROC)IntAddWndProcHandle(lpwcx->lpfnWndProc,FALSE);
-		}
-		else
-		{
-			ClassObject->lpfnWndProcW = lpwcx->lpfnWndProc;
-			ClassObject->lpfnWndProcA = (WNDPROC)IntAddWndProcHandle(lpwcx->lpfnWndProc,TRUE);
-		}
-	} else {
-		if (Flags & REGISTERCLASS_ANSI)
-		{
-			ClassObject->lpfnWndProcA = lpwcx->lpfnWndProc;
-			ClassObject->lpfnWndProcW = wpExtra;
-		}
-		else
-		{
-			ClassObject->lpfnWndProcW = lpwcx->lpfnWndProc;
-			ClassObject->lpfnWndProcA = wpExtra;
-		}
-	}
-	if (MenuName->Length == 0)
+	ClassObject->lpszClassName = (PUNICODE_STRING)(ULONG)Atom;
+	if (bUnicodeClass)
 	{
-		ClassObject->lpszMenuName.Length =
-		ClassObject->lpszMenuName.MaximumLength = 0;
-		ClassObject->lpszMenuName.Buffer = MenuName->Buffer;
+		ClassObject->lpfnWndProcW = lpwcx->lpfnWndProc;
+		ClassObject->lpfnWndProcA = lpwcx->lpfnWndProc+0x80000000;
+	}
+	else
+	{
+		ClassObject->lpfnWndProcA = lpwcx->lpfnWndProc;
+		ClassObject->lpfnWndProcW = lpwcx->lpfnWndProc+0x80000000;
+	}
+	if (IS_INTRESOURCE(lpwcx->lpszMenuName))
+	{
+		ClassObject->lpszMenuName = (PUNICODE_STRING)lpwcx->lpszMenuName;
 	}
 	else
 	{		
-		ClassObject->lpszMenuName.Length =
-		ClassObject->lpszMenuName.MaximumLength = MenuName->MaximumLength;
-		ClassObject->lpszMenuName.Buffer = ExAllocatePoolWithTag(PagedPool, ClassObject->lpszMenuName.MaximumLength, TAG_STRING);
-		RtlCopyUnicodeString(&ClassObject->lpszMenuName, MenuName);
+		ClassObject->lpszMenuName = ExAllocatePool(NonPagedPool,sizeof(UNICODE_STRING));
+		RtlCreateUnicodeString(ClassObject->lpszMenuName,(LPWSTR)lpwcx->lpszMenuName);
 	}
-	/* Extra class data */
-	if (ClassObject->cbClsExtra != 0)
-	{
-		ClassObject->ExtraData = (PCHAR)(ClassObject + 1);
-		RtlZeroMemory(ClassObject->ExtraData, (ULONG)ClassObject->cbClsExtra);
-	}
-	else
-	{
-		ClassObject->ExtraData = NULL;
-	}
-
-	InitializeListHead(&ClassObject->ClassWindowsListHead);
-	ExInitializeFastMutex(&ClassObject->ClassWindowsListLock);
-
 	return(ClassObject);
 }
 
 RTL_ATOM STDCALL
 NtUserRegisterClassExWOW(
-   CONST WNDCLASSEXW* lpwcx,
-   PUNICODE_STRING ClassName,
-   PUNICODE_STRING ClassNameCopy,
-   PUNICODE_STRING MenuName,
-   WNDPROC wpExtra, /* FIXME: Windows uses this parameter for something different. */
-   DWORD Flags,
-   DWORD Unknown7)
+	CONST WNDCLASSEXW *lpwcx,
+	BOOL bUnicodeClass,
+	DWORD Unknown3,
+	DWORD Unknown4,
+	DWORD Unknown5)
 
 /*
  * FUNCTION:
@@ -375,78 +349,60 @@ NtUserRegisterClassExWOW(
  *   lpwcx          = Win32 extended window class structure
  *   bUnicodeClass = Whether to send ANSI or unicode strings
  *                   to window procedures
- *   wpExtra       = Extra window procedure, if this is not null, its used for the second window procedure for standard controls.
  * RETURNS:
  *   Atom identifying the new class
  */
 {
-   WNDCLASSEXW SafeClass;
-   PWINSTATION_OBJECT WinStaObject;
-   PWNDCLASS_OBJECT ClassObject;
-   NTSTATUS Status;
-   RTL_ATOM Atom;
-  
-   if (!lpwcx)
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return (RTL_ATOM)0;
-   }
-
-   if (Flags & ~REGISTERCLASS_ALL)
-   {
-      SetLastWin32Error(ERROR_INVALID_FLAGS);
-      return (RTL_ATOM)0;
-   }
-
-   Status = MmCopyFromCaller(&SafeClass, lpwcx, sizeof(WNDCLASSEXW));
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastNtError(Status);
-      return (RTL_ATOM)0;
-   }
-  
-   /* Deny negative sizes */
-   if (lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0)
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return (RTL_ATOM)0;
-   }
-  
-  WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
-  
-  if (ClassName->Length > 0)
+  PWINSTATION_OBJECT WinStaObject;
+  PWNDCLASS_OBJECT ClassObject;
+  NTSTATUS Status;
+  RTL_ATOM Atom;
+  DPRINT("About to open window station handle (0x%X)\n", 
+    PROCESS_WINDOW_STATION());
+  Status = ValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+    KernelMode,
+    0,
+    &WinStaObject);
+  if (!NT_SUCCESS(Status))
   {
-    DPRINT("NtUserRegisterClassExWOW(%S)\n", ClassName->Buffer);
-    /* FIXME - Safely copy/verify the buffer first!!! */
+    DPRINT("Validation of window station handle (0x%X) failed\n",
+      PROCESS_WINDOW_STATION());
+    return((RTL_ATOM)0);
+  }
+  if (!IS_ATOM(lpwcx->lpszClassName))
+  {
     Status = RtlAddAtomToAtomTable(WinStaObject->AtomTable,
-      ClassName->Buffer,
+      (LPWSTR)lpwcx->lpszClassName,
       &Atom);
     if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed adding class name (%S) to atom table\n",
-	ClassName->Buffer);
+      ObDereferenceObject(WinStaObject);
+      DPRINT("Failed adding class name (%wS) to atom table\n",
+	lpwcx->lpszClassName);
       SetLastNtError(Status);      
       return((RTL_ATOM)0);
     }
   }
   else
   {
-    Atom = (RTL_ATOM)(ULONG)ClassName->Buffer;
+    Atom = (RTL_ATOM)(ULONG)lpwcx->lpszClassName;
   }
-  ClassObject = IntCreateClass(&SafeClass, Flags, wpExtra, MenuName, Atom);
+  ClassObject = IntCreateClass(lpwcx, bUnicodeClass, Atom);
   if (ClassObject == NULL)
   {
-    if (ClassName->Length)
+    if (!IS_ATOM(lpwcx->lpszClassName))
     {
       RtlDeleteAtomFromAtomTable(WinStaObject->AtomTable, Atom);
     }
+    ObDereferenceObject(WinStaObject);
     DPRINT("Failed creating window class object\n");
+    SetLastNtError(STATUS_INSUFFICIENT_RESOURCES);
     return((RTL_ATOM)0);
   }
-  IntLockProcessClasses(PsGetWin32Process());
+  ExAcquireFastMutex(&PsGetWin32Process()->ClassListLock);
   InsertTailList(&PsGetWin32Process()->ClassListHead, &ClassObject->ListEntry);
-  IntUnLockProcessClasses(PsGetWin32Process());
-  
+  ExReleaseFastMutex(&PsGetWin32Process()->ClassListLock);
+  ObDereferenceObject(WinStaObject);
   return(Atom);
 }
 
@@ -454,20 +410,6 @@ ULONG FASTCALL
 IntGetClassLong(struct _WINDOW_OBJECT *WindowObject, ULONG Offset, BOOL Ansi)
 {
   LONG Ret;
-
-  if ((int)Offset >= 0)
-    {
-      DPRINT("GetClassLong(%x, %d)\n", WindowObject->Self, Offset);
-      if ((Offset + sizeof(LONG)) > WindowObject->Class->cbClsExtra)
-	{
-	  SetLastWin32Error(ERROR_INVALID_PARAMETER);
-	  return 0;
-	}
-      Ret = *((LONG *)(WindowObject->Class->ExtraData + Offset));
-      DPRINT("Result: %x\n", Ret);
-      return Ret;
-    }
-
   switch (Offset)
     {
     case GCL_CBWNDEXTRA:
@@ -492,7 +434,7 @@ IntGetClassLong(struct _WINDOW_OBJECT *WindowObject, ULONG Offset, BOOL Ansi)
       Ret = (ULONG)WindowObject->Class->hInstance;
       break;
     case GCL_MENUNAME:
-      Ret = (ULONG)WindowObject->Class->lpszMenuName.Buffer;
+      Ret = (ULONG)WindowObject->Class->lpszMenuName;
       break;
     case GCL_STYLE:
       Ret = WindowObject->Class->style;
@@ -534,18 +476,7 @@ NtUserGetClassLong(HWND hWnd, DWORD Offset, BOOL Ansi)
 void FASTCALL
 IntSetClassLong(PWINDOW_OBJECT WindowObject, ULONG Offset, LONG dwNewLong, BOOL Ansi)
 {
-  if ((int)Offset >= 0)
-    {
-      DPRINT("SetClassLong(%x, %d, %x)\n", WindowObject->Self, Offset, dwNewLong);
-      if ((Offset + sizeof(LONG)) > WindowObject->Class->cbClsExtra)
-	{
-	  SetLastWin32Error(ERROR_INVALID_PARAMETER);
-	  return;
-	}
-      *((LONG *)(WindowObject->Class->ExtraData + Offset)) = dwNewLong;
-      return;
-    }
-  
+  PUNICODE_STRING str;
   switch (Offset)
     {
     case GCL_CBWNDEXTRA:
@@ -570,21 +501,16 @@ IntSetClassLong(PWINDOW_OBJECT WindowObject, ULONG Offset, LONG dwNewLong, BOOL 
       WindowObject->Class->hInstance = (HINSTANCE)dwNewLong;
       break;
     case GCL_MENUNAME:
-      if (WindowObject->Class->lpszMenuName.MaximumLength)
-        RtlFreeUnicodeString(&WindowObject->Class->lpszMenuName);
-      if (!IS_INTRESOURCE(dwNewLong))
-      {
-        WindowObject->Class->lpszMenuName.Length =
-        WindowObject->Class->lpszMenuName.MaximumLength = ((PUNICODE_STRING)dwNewLong)->MaximumLength;
-        WindowObject->Class->lpszMenuName.Buffer = ExAllocatePoolWithTag(PagedPool, WindowObject->Class->lpszMenuName.MaximumLength, TAG_STRING);
-        RtlCopyUnicodeString(&WindowObject->Class->lpszMenuName, (PUNICODE_STRING)dwNewLong);
-      }
-      else
-      {
-        WindowObject->Class->lpszMenuName.Length =
-        WindowObject->Class->lpszMenuName.MaximumLength = 0;
-        WindowObject->Class->lpszMenuName.Buffer = (LPWSTR)dwNewLong;
-      }
+	  if (!IS_INTRESOURCE(dwNewLong))
+	  {
+	    str = ExAllocatePool(PagedPool,sizeof(UNICODE_STRING)+((PUNICODE_STRING)dwNewLong)->Length);
+	    memcpy(str,(PUNICODE_STRING)dwNewLong,sizeof(UNICODE_STRING)+((PUNICODE_STRING)dwNewLong)->Length);
+        WindowObject->Class->lpszMenuName = str;
+	  }
+	  else
+	  {
+		WindowObject->Class->lpszMenuName = (PUNICODE_STRING)dwNewLong;
+	  }
       break;
     case GCL_STYLE:
       WindowObject->Class->style = dwNewLong;
@@ -593,13 +519,13 @@ IntSetClassLong(PWINDOW_OBJECT WindowObject, ULONG Offset, LONG dwNewLong, BOOL 
 	  if (Ansi)
 	  {
 		WindowObject->Class->lpfnWndProcA = (WNDPROC)dwNewLong;
-        WindowObject->Class->lpfnWndProcW = (WNDPROC) IntAddWndProcHandle((WNDPROC)dwNewLong,FALSE);
+		WindowObject->Class->lpfnWndProcW = (WNDPROC)dwNewLong+0x80000000;
 		WindowObject->Class->Unicode = FALSE;
 	  }
 	  else
 	  {
 		WindowObject->Class->lpfnWndProcW = (WNDPROC)dwNewLong;
-        WindowObject->Class->lpfnWndProcA = (WNDPROC) IntAddWndProcHandle((WNDPROC)dwNewLong,TRUE);
+		WindowObject->Class->lpfnWndProcA = (WNDPROC)dwNewLong+0x80000000;
 		WindowObject->Class->Unicode = TRUE;
 	  }
       break;
@@ -636,60 +562,13 @@ NtUserSetClassWord(DWORD Unknown0,
   return(0);
 }
 
-BOOL STDCALL
-NtUserUnregisterClass(
-   LPCWSTR ClassNameOrAtom,
-	 HINSTANCE hInstance,
-	 DWORD Unknown)
+DWORD STDCALL
+NtUserUnregisterClass(DWORD Unknown0,
+		      DWORD Unknown1,
+		      DWORD Unknown2)
 {
-   PWNDCLASS_OBJECT Class;
-   PWINSTATION_OBJECT WinStaObject;
-  
-   DPRINT("NtUserUnregisterClass(%S)\n", ClassNameOrAtom);
-   
-   if (!ClassNameOrAtom || !PsGetWin32Thread()->Desktop)
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return FALSE;
-   }
-  
-   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
-
-   if (!ClassReferenceClassByNameOrAtom(&Class, ClassNameOrAtom, hInstance))
-   {
-      SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
-      return FALSE;
-   }
-  
-   if (Class->hInstance && Class->hInstance != hInstance)
-   {
-      ClassDereferenceObject(Class);
-      SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
-      return FALSE;
-   }
-  
-  IntLockClassWindows(Class);
-   if (!IsListEmpty(&Class->ClassWindowsListHead))
-   {
-      IntUnLockClassWindows(Class);
-      /* Dereference the ClassReferenceClassByNameOrAtom() call */
-      ObmDereferenceObject(Class);
-      SetLastWin32Error(ERROR_CLASS_HAS_WINDOWS);
-      return FALSE;
-   }
-   IntUnLockClassWindows(Class);
-  
-   /* Dereference the ClassReferenceClassByNameOrAtom() call */
-   ClassDereferenceObject(Class);
-  
-   RemoveEntryList(&Class->ListEntry);
-
-   RtlDeleteAtomFromAtomTable(WinStaObject->AtomTable, Class->Atom);
-  
-   /* Free the object */
-   ClassDereferenceObject(Class);
-  
-   return TRUE;
+  UNIMPLEMENTED;
+  return(0);
 }
 
 /* EOF */

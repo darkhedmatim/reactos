@@ -49,8 +49,6 @@ extern "C" {
     WCHAR wchComposed;
     USHORT uFlags;
   } DEADKEY, *PDEADKEY;
-  
-  typedef WCHAR *DEADKEY_LPWSTR;
 
 #define DKF_DEAD 1
 

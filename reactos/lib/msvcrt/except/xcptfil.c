@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 
 
 /*
@@ -10,6 +10,5 @@ _XcptFilter(DWORD ExceptionCode,
 {
 	//fixme XcptFilter
 //	return UnhandledExceptionFilter(ExceptionInfo);
-	return 0;
 }
 

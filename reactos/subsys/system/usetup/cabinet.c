@@ -7,7 +7,6 @@
  * REVISIONS:
  *   CSH 15/08-2003 Created
  */
-
 #include <ntos.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,9 +19,7 @@
 
 #define SEEK_BEGIN    0
 #define SEEK_CURRENT  1
-#ifndef SEEK_END
 #define SEEK_END      2
-#endif
 
 typedef struct __DOSTIME
 {
@@ -206,7 +203,7 @@ SeekInFile(HANDLE hFile,
   PNTSTATUS Status)
 {
   FILE_POSITION_INFORMATION FilePosition;
-  FILE_STANDARD_INFORMATION FileStandard;
+  FILE_STANDARD_INFORMATION FileStandart;
   NTSTATUS errCode;
   IO_STATUS_BLOCK IoStatusBlock;
   LARGE_INTEGER Distance;
@@ -241,11 +238,11 @@ SeekInFile(HANDLE hFile,
     {
       NtQueryInformationFile(hFile,
         &IoStatusBlock,
-        &FileStandard,
+        &FileStandart,
         sizeof(FILE_STANDARD_INFORMATION),
         FileStandardInformation);
         FilePosition.CurrentByteOffset.QuadPart =
-        FileStandard.EndOfFile.QuadPart + Distance.QuadPart;
+        FileStandart.EndOfFile.QuadPart + Distance.QuadPart;
     }
   else if ( dwMoveMethod == SEEK_BEGIN )
     {
@@ -624,7 +621,6 @@ DestroyFileNodes()
 }
 
 
-#if 0
 static VOID
 DestroyDeletedFileNodes()
 /*
@@ -672,7 +668,7 @@ DestroyDeletedFileNodes()
       CurNode = NextNode;
     }
 }
-#endif
+
 
 static VOID
 DestroyFolderNodes()
@@ -695,7 +691,7 @@ DestroyFolderNodes()
   FolderListTail = NULL;
 }
 
-#if 0
+
 static VOID
 DestroyDeletedFolderNodes()
 /*
@@ -740,7 +736,7 @@ DestroyDeletedFolderNodes()
       CurNode = NextNode;
     }
 }
-#endif
+
 
 static PCFFOLDER_NODE
 LocateFolderNode(ULONG Index)
@@ -937,7 +933,7 @@ ReadString(PWCHAR String, ULONG MaxLength)
 
 
 static ULONG
-ReadFileTable(VOID)
+ReadFileTable()
 /*
  * FUNCTION: Reads the file table from the cabinet file
  * RETURNS:
@@ -1065,7 +1061,7 @@ ReadDataBlocks(PCFFOLDER_NODE FolderNode)
   return CAB_STATUS_SUCCESS;
 }
 
-#if 0
+
 static ULONG
 ComputeChecksum(PVOID Buffer,
   UINT Size,
@@ -1124,16 +1120,20 @@ ComputeChecksum(PVOID Buffer,
   /* Return computed checksum */
   return Checksum;
 }
-#endif
+
 
 static ULONG
-CloseCabinet(VOID)
+CloseCabinet()
 /*
  * FUNCTION: Closes the current cabinet
  * RETURNS:
  *     Status of operation
  */
 {
+  PCFFOLDER_NODE PrevNode;
+  PCFFOLDER_NODE NextNode;
+  ULONG Status;
+  
   DestroyFileNodes();
   
   DestroyFolderNodes();
@@ -1151,12 +1151,11 @@ CloseCabinet(VOID)
     }
 
   NtClose(FileHandle);
-  return 0;
 }
 
 
 VOID
-CabinetInitialize(VOID)
+CabinetInitialize()
 /*
  * FUNCTION: Initialize archiver
  */
@@ -1198,7 +1197,7 @@ CabinetInitialize(VOID)
 
 
 VOID
-CabinetCleanup(VOID)
+CabinetCleanup()
 /*
  * FUNCTION: Cleanup archiver
  */
@@ -1284,7 +1283,7 @@ CabinetGetDestinationPath()
 
 
 ULONG
-CabinetOpen(VOID)
+CabinetOpen()
 /*
  * FUNCTION: Opens a cabinet file
  * RETURNS:
@@ -1323,7 +1322,7 @@ CabinetOpen(VOID)
 		    &ObjectAttributes,
 		    &IoStatusBlock,
 		    FILE_SHARE_READ,
-		    FILE_SYNCHRONOUS_IO_NONALERT);
+		    FILE_SYNCHRONOUS_IO_ALERT);
       if (!NT_SUCCESS(NtStatus))
         {
           DPRINT("Cannot open file (%S) (%x).\n", CabinetName, NtStatus);
@@ -1486,7 +1485,7 @@ CabinetOpen(VOID)
 
 
 VOID
-CabinetClose(VOID)
+CabinetClose()
 /*
  * FUNCTION: Closes the cabinet file
  */
@@ -1619,7 +1618,6 @@ CabinetExtractFile(PWCHAR FileName)
   FILETIME FileTime;
   WCHAR DestName[MAX_PATH];
   WCHAR TempName[MAX_PATH];
-  PWCHAR s;
   NTSTATUS NtStatus;
   UNICODE_STRING UnicodeString;
   IO_STATUS_BLOCK IoStatusBlock;
@@ -1655,16 +1653,10 @@ CabinetExtractFile(PWCHAR FileName)
 
   wcscpy(DestName, DestPath);
   wcscat(DestName, FileName);
-
-  while (NULL != (s = wcsstr(DestName, L"\\.\\")))
-    {
-      memmove(s, s + 2, (wcslen(s + 2) + 1) *sizeof(WCHAR));
-    }
-
+  
   /* Create destination file, fail if it already exists */
   RtlInitUnicodeString(&UnicodeString,
     DestName);
-
 
   InitializeObjectAttributes(&ObjectAttributes,
     &UnicodeString,
@@ -1680,7 +1672,7 @@ CabinetExtractFile(PWCHAR FileName)
     FILE_ATTRIBUTE_NORMAL,
     0,
     FILE_CREATE,
-    FILE_SYNCHRONOUS_IO_NONALERT,
+    FILE_SYNCHRONOUS_IO_ALERT,
     NULL,
     0);
   if (!NT_SUCCESS(NtStatus))

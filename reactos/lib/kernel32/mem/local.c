@@ -1,4 +1,4 @@
-/* $Id: local.c,v 1.11 2004/06/13 20:04:55 navaraf Exp $
+/* $Id: local.c,v 1.9 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  *              Copyright (C) 1996, Onno Hovers, All rights reserved
@@ -24,7 +24,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS ***************************************************************/
 
@@ -34,7 +34,7 @@
  */
 HLOCAL STDCALL
 LocalAlloc(UINT uFlags,
-	   SIZE_T uBytes)
+	   UINT uBytes)
 {
    return (HLOCAL)GlobalAlloc(uFlags, uBytes);
 }
@@ -43,7 +43,7 @@ LocalAlloc(UINT uFlags,
 /*
  * @implemented
  */
-SIZE_T STDCALL
+UINT STDCALL
 LocalCompact(UINT uMinFree)
 {
    return RtlCompactHeap(hProcessHeap, 0);
@@ -95,7 +95,7 @@ LocalLock(HLOCAL hMem)
  */
 HLOCAL STDCALL
 LocalReAlloc(HLOCAL hMem,
-	     SIZE_T uBytes,
+	     UINT uBytes,
 	     UINT uFlags)
 {
    return (HLOCAL)GlobalReAlloc((HGLOBAL)hMem, uBytes, uFlags);
@@ -105,7 +105,7 @@ LocalReAlloc(HLOCAL hMem,
 /*
  * @implemented
  */
-SIZE_T STDCALL
+UINT STDCALL
 LocalShrink(HLOCAL hMem, UINT cbNewSize)
 {
    return RtlCompactHeap(hProcessHeap, 0);

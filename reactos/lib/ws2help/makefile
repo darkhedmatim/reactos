@@ -6,15 +6,14 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = ws2help
 
-TARGET_BASE = $(TARGET_BASE_LIB_WS2HELP)
+TARGET_BASE = 0x777c0000
 
 TARGET_CFLAGS = \
  -I./include \
  -Wall \
  -Werror \
  -fno-builtin \
- -DUNICODE \
- -D__USE_W32API
+ -DUNICODE
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS

@@ -21,35 +21,22 @@
  *        New version info and some output changes.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
+
 
 
 VOID ShortVersion (VOID)
 {
-	OSVERSIONINFO VersionInfo;
-	unsigned RosVersionLen;
-	LPTSTR RosVersion;
-
 	ConOutPuts (_T("\n"
-	               SHELLINFO));
-	VersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-#ifdef _UNICODE
-		ConOutPrintf(_T("%S"), SHELLVER);
-#else
-		ConOutPrintf(_T("%s"), SHELLVER);
-#endif /* _UNICODE */
-	memset(VersionInfo.szCSDVersion, 0, sizeof(VersionInfo.szCSDVersion));
-	if (GetVersionEx(&VersionInfo))
-	{
-		RosVersion = VersionInfo.szCSDVersion + _tcslen(VersionInfo.szCSDVersion) + 1;
-		RosVersionLen = sizeof(VersionInfo.szCSDVersion) / sizeof(VersionInfo.szCSDVersion[0]) -
-	                        (RosVersion - VersionInfo.szCSDVersion);
-		if (7 <= RosVersionLen && 0 == _tcsnicmp(RosVersion, _T("ReactOS"), 7))
-		{
-			ConOutPrintf(_T(" running on %s"), RosVersion);
-		}
-	}
-	ConOutPuts (_T("\n"));
+	               SHELLINFO "\n"
+	               SHELLVER "\n"));
 }
 
 
@@ -76,8 +63,11 @@ INT cmd_ver (LPTSTR cmd, LPTSTR param)
 		return 0;
 	}
 
-	ShortVersion();
-	ConOutPuts (_T("Copyright (C) 1994-1998 Tim Norman and others."));
+	ConOutPuts (_T("\n"
+	               SHELLINFO "\n"
+	               SHELLVER "\n"
+	               "\n"
+	               "Copyright (C) 1994-1998 Tim Norman and others."));
 	ConOutPuts (_T("Copyright (C) 1998-2001 Eric Kohl and others."));
 
 	/* Basic copyright notice */

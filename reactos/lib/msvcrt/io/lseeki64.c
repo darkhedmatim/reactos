@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/internal/file.h>
 
@@ -21,7 +21,7 @@ __int64 _lseeki64(int _fildes, __int64 _offset, int _whence)
 //    }
     if (SetFilePointerEx((HANDLE)filehnd(_fildes), offset, &new_pos, _whence)) {
     } else {
-		_dosmaperr(error);
+        //__set_errno ( EINVAL );
         return -1L;
     }
     return new_pos.QuadPart;

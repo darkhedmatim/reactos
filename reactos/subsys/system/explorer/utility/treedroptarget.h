@@ -9,7 +9,6 @@
 
 #include "dragdropimpl.h"
 
- /// OLE drop target for tree controls
 class TreeDropTarget : public IDropTargetImpl
 {
 public:
@@ -34,14 +33,14 @@ public:
 					{
 						 // copy the file or dir
 
-						///@todo Add the code to handle Copy
+						//TODO: Add the code to handle Copy
 
 					}
 					else if (DROPEFFECT_MOVE & *pdwEffect)
 					{
 						 // move the file or dir
 
-						///@todo Add the code to handle Move
+						//TODO: Add the code to handle Move
 
 					}
 				}
@@ -49,9 +48,7 @@ public:
 			}
 			GlobalUnlock(medium.hGlobal);
 		}
-
 		TreeView_SelectDropTarget(m_hTargetWnd, NULL);
-
 		return true; //let base free the medium
 	}
 
@@ -62,12 +59,14 @@ public:
 	{
 		TVHITTESTINFO hit;
 		hit.pt = (POINT&)pt;
-		ScreenToClient(m_hTargetWnd, &hit.pt);
+		ScreenToClient(m_hTargetWnd,&hit.pt);
 		hit.flags = TVHT_ONITEM;
 		HTREEITEM hItem = TreeView_HitTest(m_hTargetWnd,&hit);
 
 		if (hItem != NULL)
+		{
 			TreeView_SelectDropTarget(m_hTargetWnd, hItem);
+		}
 
 		return IDropTargetImpl::DragOver(grfKeyState, pt, pdwEffect);
 	}
@@ -75,7 +74,6 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE DragLeave(void)
 	{
 		TreeView_SelectDropTarget(m_hTargetWnd, NULL);
-
 		return IDropTargetImpl::DragLeave();
 	}
 };

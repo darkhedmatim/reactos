@@ -1,4 +1,4 @@
-/* $Id: import.c,v 1.31 2004/12/12 22:36:10 ekohl Exp $
+/* $Id: import.c,v 1.21 2003/06/01 15:10:52 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -9,7 +9,17 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ctype.h>
+
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ob.h>
+#include <limits.h>
+#include <string.h>
+#include <internal/pool.h>
+#include <internal/registry.h>
+#include <internal/ntoskrnl.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -78,9 +88,9 @@ CmImportBinaryHive (PCHAR ChunkBase,
 
   /* Allocate block list */
   DPRINT("Space needed for block list describing hive: 0x%x\n",
-	 Hive->BlockListSize * sizeof(BLOCK_LIST_ENTRY));
+	 Hive->BlockListSize * sizeof(PHBIN *));
   Hive->BlockList = ExAllocatePool (NonPagedPool,
-				    Hive->BlockListSize * sizeof(BLOCK_LIST_ENTRY));
+				    Hive->BlockListSize * sizeof(PHBIN *));
   if (Hive->BlockList == NULL)
     {
       DPRINT1 ("Allocating block list failed\n");
@@ -89,7 +99,7 @@ CmImportBinaryHive (PCHAR ChunkBase,
       return FALSE;
     }
   RtlZeroMemory (Hive->BlockList,
-		 Hive->BlockListSize * sizeof(BLOCK_LIST_ENTRY));
+		 Hive->BlockListSize * sizeof(PHBIN *));
 
   /* Import the bins */
   Status = CmiImportHiveBins(Hive,
@@ -101,7 +111,7 @@ CmImportBinaryHive (PCHAR ChunkBase,
       ExFreePool (Hive->BlockList);
       ExFreePool (Hive->HiveHeader);
       ExFreePool (Hive);
-      return (BOOLEAN)Status;
+      return Status;
     }
 
   /* Initialize the free cell list */
@@ -114,7 +124,7 @@ CmImportBinaryHive (PCHAR ChunkBase,
       ExFreePool (Hive->HiveHeader);
       ExFreePool (Hive);
 
-      return (BOOLEAN)Status;
+      return Status;
     }
 
   if (!(Hive->Flags & HIVE_NO_FILE))
@@ -130,20 +140,21 @@ CmImportBinaryHive (PCHAR ChunkBase,
 	  ExFreePool (Hive->HiveHeader);
 	  ExFreePool (Hive);
 
-	  return (BOOLEAN)Status;
+	  return Status;
 	}
     }
 
+  /* Initialize the hive's executive resource */
+  ExInitializeResourceLite(&Hive->HiveResource);
+
   /* Acquire hive list lock exclusively */
-  KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&CmiRegistryLock, TRUE);
+  ExAcquireResourceExclusiveLite(&CmiHiveListLock, TRUE);
 
   /* Add the new hive to the hive list */
   InsertTailList(&CmiHiveListHead, &Hive->HiveList);
 
   /* Release hive list lock */
-  ExReleaseResourceLite(&CmiRegistryLock);
-  KeLeaveCriticalRegion();
+  ExReleaseResourceLite(&CmiHiveListLock);
 
   *RegistryHive = Hive;
 
@@ -151,7 +162,7 @@ CmImportBinaryHive (PCHAR ChunkBase,
 }
 
 
-BOOLEAN INIT_FUNCTION
+BOOLEAN
 CmImportSystemHive(PCHAR ChunkBase,
 		   ULONG ChunkSize)
 {
@@ -173,13 +184,13 @@ CmImportSystemHive(PCHAR ChunkBase,
   /* Import the binary system hive (non-volatile, offset-based, permanent) */
   if (!CmImportBinaryHive (ChunkBase, ChunkSize, 0, &RegistryHive))
     {
-      DPRINT1 ("CmiImportBinaryHive() failed\n");
+      DPRINT1 ("CmiImportBinaryHive() failed\n", Status);
       return FALSE;
     }
 
   /* Attach it to the machine key */
   RtlInitUnicodeString (&KeyName,
-			REG_SYSTEM_KEY_NAME);
+			L"\\Registry\\Machine\\System");
   InitializeObjectAttributes (&ObjectAttributes,
 			      &KeyName,
 			      OBJ_CASE_INSENSITIVE,
@@ -189,7 +200,7 @@ CmImportSystemHive(PCHAR ChunkBase,
 			   RegistryHive);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1 ("CmiConnectHive(%wZ) failed (Status %lx)\n", &KeyName, Status);
+      DPRINT1 ("CmiConnectHive() failed (Status %lx)\n", Status);
 //      CmiRemoveRegistryHive(RegistryHive);
       return FALSE;
     }
@@ -206,7 +217,7 @@ CmImportSystemHive(PCHAR ChunkBase,
 }
 
 
-BOOLEAN INIT_FUNCTION
+BOOLEAN
 CmImportHardwareHive(PCHAR ChunkBase,
 		     ULONG ChunkSize)
 {
@@ -227,7 +238,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
     {
       /* Create '\Registry\Machine\HARDWARE' key. */
       RtlInitUnicodeString (&KeyName,
-			    REG_HARDWARE_KEY_NAME);
+			    L"\\Registry\\Machine\\HARDWARE");
       InitializeObjectAttributes (&ObjectAttributes,
 				  &KeyName,
 				  OBJ_CASE_INSENSITIVE,
@@ -248,7 +259,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 
       /* Create '\Registry\Machine\HARDWARE\DESCRIPTION' key. */
       RtlInitUnicodeString(&KeyName,
-			   REG_DESCRIPTION_KEY_NAME);
+			   L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION");
       InitializeObjectAttributes (&ObjectAttributes,
 				  &KeyName,
 				  OBJ_CASE_INSENSITIVE,
@@ -269,7 +280,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 
       /* Create '\Registry\Machine\HARDWARE\DEVICEMAP' key. */
       RtlInitUnicodeString (&KeyName,
-			    REG_DEVICEMAP_KEY_NAME);
+			    L"\\Registry\\Machine\\HARDWARE\\DEVICEMAP");
       InitializeObjectAttributes (&ObjectAttributes,
 				  &KeyName,
 				  OBJ_CASE_INSENSITIVE,
@@ -290,7 +301,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 
       /* Create '\Registry\Machine\HARDWARE\RESOURCEMAP' key. */
       RtlInitUnicodeString(&KeyName,
-			   REG_RESOURCEMAP_KEY_NAME);
+			   L"\\Registry\\Machine\\HARDWARE\\RESOURCEMAP");
       InitializeObjectAttributes (&ObjectAttributes,
 				  &KeyName,
 				  OBJ_CASE_INSENSITIVE,
@@ -325,13 +336,13 @@ CmImportHardwareHive(PCHAR ChunkBase,
   /* Import the binary system hive (volatile, offset-based, permanent) */
   if (!CmImportBinaryHive (ChunkBase, ChunkSize, HIVE_NO_FILE, &RegistryHive))
     {
-      DPRINT1 ("CmiImportBinaryHive() failed\n");
+      DPRINT1 ("CmiImportBinaryHive() failed\n", Status);
       return FALSE;
     }
 
   /* Attach it to the machine key */
   RtlInitUnicodeString (&KeyName,
-			REG_HARDWARE_KEY_NAME);
+			L"\\Registry\\Machine\\HARDWARE");
   InitializeObjectAttributes (&ObjectAttributes,
 			      &KeyName,
 			      OBJ_CASE_INSENSITIVE,
@@ -341,7 +352,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 			   RegistryHive);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1 ("CmiConnectHive(%wZ) failed (Status %lx)\n", &KeyName, Status);
+      DPRINT1 ("CmiConnectHive() failed (Status %lx)\n", Status);
 //      CmiRemoveRegistryHive(RegistryHive);
       return FALSE;
     }

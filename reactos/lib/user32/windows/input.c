@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.27 2004/12/28 08:58:35 gvg Exp $
+/* $Id: input.c,v 1.18 2003/09/12 12:54:26 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,9 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
-#include <wchar.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -38,7 +38,7 @@
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DragDetect(
   HWND hWnd,
@@ -61,21 +61,22 @@ ActivateKeyboardLayout(HKL hkl,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
-BlockInput(BOOL fBlockIt)
+WINBOOL STDCALL
+BlockInput(WINBOOL fBlockIt)
 {
-  return NtUserBlockInput(fBlockIt);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 EnableWindow(HWND hWnd,
-	     BOOL bEnable)
+	     WINBOOL bEnable)
 {
     LONG Style = NtUserGetWindowLong(hWnd, GWL_STYLE, FALSE);
     Style = bEnable ? Style & ~WS_DISABLED : Style | WS_DISABLED;
@@ -133,47 +134,33 @@ GetKBCodePage(VOID)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 GetKeyNameTextA(LONG lParam,
 		LPSTR lpString,
 		int nSize)
 {
-  LPWSTR intermediateString = 
-    HeapAlloc(GetProcessHeap(),0,nSize * sizeof(WCHAR));
-  int ret = 0;
-  UINT wstrLen = 0;
-  BOOL defChar = FALSE;
-
-  if( !intermediateString ) return 0;
-  ret = GetKeyNameTextW(lParam,intermediateString,nSize);
-  if( ret == 0 ) { lpString[0] = 0; return 0; }
-  
-  wstrLen = wcslen( intermediateString );
-  ret = WideCharToMultiByte(CP_ACP, 0, 
-			    intermediateString, wstrLen,
-			    lpString, nSize, ".", &defChar );
-  lpString[ret] = 0;
-  HeapFree(GetProcessHeap(),0,intermediateString);
-
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 GetKeyNameTextW(LONG lParam,
 		LPWSTR lpString,
 		int nSize)
 {
-  return NtUserGetKeyNameText( lParam, lpString, nSize );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 GetKeyState(int nVirtKey)
@@ -197,7 +184,7 @@ GetKeyboardLayoutList(int nBuff,
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardLayoutNameA(LPSTR pwszKLID)
 {
   UNIMPLEMENTED;
@@ -208,7 +195,7 @@ GetKeyboardLayoutNameA(LPSTR pwszKLID)
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 {
   UNIMPLEMENTED;
@@ -219,11 +206,11 @@ GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardState(PBYTE lpKeyState)
 {
   
-  return (BOOL) NtUserGetKeyboardState((LPBYTE) lpKeyState);
+  return (WINBOOL) NtUserGetKeyboardState((LPBYTE) lpKeyState);
 }
 
 
@@ -241,7 +228,7 @@ GetKeyboardType(int nTypeFlag)
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetLastInputInfo(PLASTINPUTINFO plii)
 {
   UNIMPLEMENTED;
@@ -274,48 +261,52 @@ LoadKeyboardLayoutW(LPCWSTR pwszKLID,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 MapVirtualKeyA(UINT uCode,
 	       UINT uMapType)
 {
-  return MapVirtualKeyExA( uCode, uMapType, GetKeyboardLayout( 0 ) );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 MapVirtualKeyExA(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
 {
-  return MapVirtualKeyExW( uCode, uMapType, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 MapVirtualKeyExW(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
 {
-  return NtUserMapVirtualKeyEx( uCode, uMapType, 0, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 MapVirtualKeyW(UINT uCode,
 	       UINT uMapType)
 {
-  return MapVirtualKeyExW( uCode, uMapType, GetKeyboardLayout( 0 ) );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -333,26 +324,12 @@ OemKeyScan(WORD wOemChar)
 /*
  * @implemented
  */
-BOOL STDCALL
-RegisterHotKey(HWND hWnd,
-	       int id,
-	       UINT fsModifiers,
-	       UINT vk)
+WINBOOL
+STDCALL
+SetDoubleClickTime(
+  UINT uInterval)
 {
-  return (BOOL)NtUserRegisterHotKey(hWnd,
-                                       id,
-                                       fsModifiers,
-                                       vk);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SetDoubleClickTime(UINT uInterval)
-{
-  return (BOOL)NtUserSystemParametersInfo(SPI_SETDOUBLECLICKTIME,
+  return (WINBOOL)NtUserSystemParametersInfo(SPI_SETDOUBLECLICKTIME,
                                              uInterval,
                                              NULL,
                                              0);
@@ -372,27 +349,28 @@ SetFocus(HWND hWnd)
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetKeyboardState(LPBYTE lpKeyState)
 {
- return (BOOL) NtUserSetKeyboardState((LPBYTE)lpKeyState);
+ return (WINBOOL) NtUserSetKeyboardState((LPBYTE)lpKeyState);
 }
 
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SwapMouseButton(
-  BOOL fSwap)
+  WINBOOL fSwap)
 {
-  return NtUserSwapMouseButton(fSwap);
+  return (WINBOOL)NtUserCallOneParam((DWORD)fSwap, 
+                                     ONEPARAM_ROUTINE_SWAPMOUSEBUTTON);
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAscii(UINT uVirtKey,
@@ -401,12 +379,13 @@ ToAscii(UINT uVirtKey,
 	LPWORD lpChar,
 	UINT uFlags)
 {
-  return ToAsciiEx(uVirtKey, uScanCode, lpKeyState, lpChar, uFlags, 0);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAsciiEx(UINT uVirtKey,
@@ -416,19 +395,13 @@ ToAsciiEx(UINT uVirtKey,
 	  UINT uFlags,
 	  HKL dwhkl)
 {
-  WCHAR UniChars[2];
-  int Ret, CharCount;
-
-  Ret = ToUnicodeEx(uVirtKey, uScanCode, lpKeyState, UniChars, 2, uFlags, dwhkl);
-  CharCount = (Ret < 0 ? 1 : Ret);
-  WideCharToMultiByte(CP_ACP, 0, UniChars, CharCount, (LPSTR) lpChar, 2, NULL, NULL);
-
-  return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToUnicode(UINT wVirtKey,
@@ -438,8 +411,8 @@ ToUnicode(UINT wVirtKey,
 	  int cchBuff,
 	  UINT wFlags)
 {
-  return ToUnicodeEx( wVirtKey, wScanCode, lpKeyState, pwszBuff, cchBuff, 
-		      wFlags, 0 );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -455,15 +428,15 @@ ToUnicodeEx(UINT wVirtKey,
 	    UINT wFlags,
 	    HKL dwhkl)
 {
-  return NtUserToUnicodeEx( wVirtKey, wScanCode, lpKeyState, pwszBuff, cchBuff,
-			    wFlags, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
  * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 UnloadKeyboardLayout(HKL hkl)
 {
   UNIMPLEMENTED;
@@ -472,44 +445,25 @@ UnloadKeyboardLayout(HKL hkl)
 
 
 /*
- * @implemented
- */
-BOOL STDCALL
-UnregisterHotKey(HWND hWnd,
-		 int id)
-{
-  return (BOOL)NtUserUnregisterHotKey(hWnd, id);
-}
-
-
-/*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanA(CHAR ch)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanW(wChar);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanExA(CHAR ch,
 	     HKL dwhkl)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanExW(wChar, dwhkl);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -521,22 +475,23 @@ VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
   UNIMPLEMENTED;
-  return -1;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanW(WCHAR ch)
 {
-  return VkKeyScanExW(ch, GetKeyboardLayout(0));
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
@@ -545,78 +500,6 @@ SendInput(
   LPINPUT pInputs,
   int cbSize)
 {
-  return NtUserSendInput(nInputs, pInputs, cbSize);
+  UNIMPLEMENTED;
+  return 0;
 }
-
-/*
- * Private call for CSRSS
- */
-VOID
-STDCALL
-PrivateCsrssRegisterPrimitive(VOID)
-{
-  NtUserCallNoParam(NOPARAM_ROUTINE_REGISTER_PRIMITIVE);
-}
-
-/*
- * Another private call for CSRSS
- */
-VOID
-STDCALL
-PrivateCsrssAcquireOrReleaseInputOwnership(BOOL Release)
-{
-  NtUserAcquireOrReleaseInputOwnership(Release);
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-keybd_event(
-	    BYTE bVk,
-	    BYTE bScan,
-	    DWORD dwFlags,
-	    ULONG_PTR dwExtraInfo)
-
-
-{
-  INPUT Input;
-  
-  Input.type = INPUT_KEYBOARD;
-  Input.ki.wVk = bVk;
-  Input.ki.wScan = bScan;
-  Input.ki.dwFlags = dwFlags;
-  Input.ki.time = 0;
-  Input.ki.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-}
-
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-mouse_event(
-	    DWORD dwFlags,
-	    DWORD dx,
-	    DWORD dy,
-	    DWORD dwData,
-	    ULONG_PTR dwExtraInfo)
-{
-  INPUT Input;
-  
-  Input.type = INPUT_MOUSE;
-  Input.mi.dx = dx;
-  Input.mi.dy = dy;
-  Input.mi.mouseData = dwData;
-  Input.mi.dwFlags = dwFlags;
-  Input.mi.time = 0;
-  Input.mi.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-}
-
-/* EOF */

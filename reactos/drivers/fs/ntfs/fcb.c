@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fcb.c,v 1.12 2004/11/24 11:02:15 ekohl Exp $
+/* $Id: fcb.c,v 1.9 2003/08/07 11:47:32 silverblade Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,13 +28,13 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ntos/kefuncs.h>
 
-#include "ntfs.h"
-
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
+#include <ntos.h>
+
+#include "ntfs.h"
 
 
 /* MACROS *******************************************************************/
@@ -452,9 +452,9 @@ NtfsDirFindFile(PDEVICE_EXTENSION DeviceExt,
   LARGE_INTEGER StreamOffset;
   PVOID Context;
 
-  ASSERT(DeviceExt);
-  ASSERT(DirectoryFcb);
-  ASSERT(FileToFind);
+  assert(DeviceExt);
+  assert(DirectoryFcb);
+  assert(FileToFind);
 
   DPRINT("NtfsDirFindFile(VCB:%08x, dirFCB:%08x, File:%S)\n",
 	 DeviceExt,

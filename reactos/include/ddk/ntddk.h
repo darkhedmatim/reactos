@@ -1,4 +1,4 @@
-/* $Id: ntddk.h,v 1.38 2003/12/30 17:39:38 fireball Exp $
+/* $Id: ntddk.h,v 1.36 2003/06/07 10:14:39 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -19,16 +19,13 @@
 #define __NTDDK_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* INCLUDES ***************************************************************/
 
-#if defined(__GNUC__)
 #define FASTCALL  __attribute__((fastcall))
-#else
-#define FASTCALL __fastcall
-#endif
 
 #define STATIC static
 
@@ -89,7 +86,7 @@ extern "C" {
 #endif /*__NTOSKRNL__ || __NTDRIVER__ || __NTHAL__ */
 
 #ifdef __cplusplus
-}
+};
 #endif
 
 #endif /* __NTDDK_H */

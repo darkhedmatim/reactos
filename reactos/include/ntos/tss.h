@@ -5,13 +5,10 @@
 #ifndef __INCLUDE_DDK_I386_TSS_H
 #define __INCLUDE_DDK_I386_TSS_H
 
-#define KTSS_ESP0      (0x4)
-#define KTSS_EFLAGS    (0x24)
+#define KTSS_ESP0 (0x4)
 #define KTSS_IOMAPBASE (0x66)
 
 #ifndef __ASM__
-
-#include <pshpack1.h>
 
 typedef struct _KTSSNOIOPM
 {
@@ -55,8 +52,7 @@ typedef struct _KTSSNOIOPM
   USHORT IoMapBase;
   /* no interrupt redirection map */
   UCHAR IoBitmap[1];
-} KTSSNOIOPM;
-
+} PACKED KTSSNOIOPM;
 
 typedef struct _KTSS
 {
@@ -100,9 +96,7 @@ typedef struct _KTSS
   USHORT IoMapBase;
   /* no interrupt redirection map */
   UCHAR  IoBitmap[8193];
-} KTSS;
-
-#include <poppack.h>
+} PACKED KTSS;
 
 #endif /* not __ASM__ */
 

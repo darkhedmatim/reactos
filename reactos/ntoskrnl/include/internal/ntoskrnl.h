@@ -16,12 +16,11 @@
 /*
  * Use these to place a function in a specific section of the executable
  */
-#define PLACE_IN_SECTION(s)	__attribute__((section (s)))
-#define INIT_FUNCTION		PLACE_IN_SECTION("init")
-#define PAGE_LOCKED_FUNCTION	PLACE_IN_SECTION("pagelk")
-#define PAGE_UNLOCKED_FUNCTION	PLACE_IN_SECTION("pagepo")
+#define PLACE_IN_SECTION(s) __attribute__((section (s)))
+#define INIT_FUNCTION (PLACE_IN_SECTION("init"))
+#define PAGE_LOCKED_FUNCTION (PLACE_IN_SECTION("pagelk"))
+#define PAGE_UNLOCKED_FUNCTION (PLACE_IN_SECTION("pagepo"))
 
-#include <pshpack1.h>
 /*
  * Defines a descriptor as it appears in the processor tables
  */
@@ -29,9 +28,7 @@ typedef struct _DESCRIPTOR
 {
   ULONG a;
   ULONG b;
-} IDT_DESCRIPTOR, GDT_DESCRIPTOR;
-
-#include <poppack.h>
+} __attribute__ ((packed)) IDT_DESCRIPTOR, GDT_DESCRIPTOR;
 
 extern IDT_DESCRIPTOR KiIdt[256];
 //extern GDT_DESCRIPTOR KiGdt[256];

@@ -1,4 +1,4 @@
-/* $Id: ldr.c,v 1.23 2004/12/18 13:35:15 weiden Exp $
+/* $Id: ldr.c,v 1.16 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT: See COPYING in the top level directory
  * PROJECT  : ReactOS user mode libraries
@@ -10,21 +10,15 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
-typedef struct tagLOADPARMS32 {
-  LPSTR lpEnvAddress;
-  LPSTR lpCmdLine;
-  LPSTR lpCmdShow;
-  DWORD dwReserved;
-} LOADPARMS32;
 
 /* FUNCTIONS ****************************************************************/
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DisableThreadLibraryCalls (
 	HMODULE	hLibModule
@@ -136,11 +130,6 @@ LoadLibraryExW (
 	if ( lpLibFileName == NULL )
 		return NULL;
 
-	dwFlags &= 
-	  DONT_RESOLVE_DLL_REFERENCES |
-	  LOAD_LIBRARY_AS_DATAFILE |
-	  LOAD_WITH_ALTERED_SEARCH_PATH;
-
 	RtlInitUnicodeString (&DllName, (LPWSTR)lpLibFileName);
 	Status = LdrLoadDll(NULL, dwFlags, &DllName, (PVOID*)&hInst);
 	if ( !NT_SUCCESS(Status))
@@ -187,7 +176,7 @@ GetProcAddress( HMODULE hModule, LPCSTR lpProcName )
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 FreeLibrary( HMODULE hLibModule )
 {
@@ -208,8 +197,7 @@ FreeLibraryAndExitThread (
 {
 	if ( FreeLibrary(hLibModule) )
 		ExitThread(dwExitCode);
-	for (;;)
-		;
+	return;
 }
 
 
@@ -414,92 +402,6 @@ GetModuleHandleW (LPCWSTR lpModuleName)
 	}
 
 	return ((HMODULE)BaseAddress);
-}
-
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-LoadModule (
-    LPCSTR  lpModuleName,
-    LPVOID  lpParameterBlock
-    )
-{
-  STARTUPINFOA StartupInfo;
-  PROCESS_INFORMATION ProcessInformation;
-  LOADPARMS32 *LoadParams;
-  char FileName[MAX_PATH];
-  char *CommandLine, *t;
-  BYTE Length;
-  
-  LoadParams = (LOADPARMS32*)lpParameterBlock;
-  if(!lpModuleName || !LoadParams || (((WORD*)LoadParams->lpCmdShow)[0] != 2))
-  {
-    /* windows doesn't check parameters, we do */
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return 0;
-  }
-  
-  if(!SearchPathA(NULL, lpModuleName, ".exe", MAX_PATH, FileName, NULL) &&
-     !SearchPathA(NULL, lpModuleName, NULL, MAX_PATH, FileName, NULL))
-  {
-    return ERROR_FILE_NOT_FOUND;
-  }
-  
-  Length = (BYTE)LoadParams->lpCmdLine[0];
-  if(!(CommandLine = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                               strlen(lpModuleName) + Length + 2)))
-  {
-    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-    return 0;
-  }
-  
-  /* Create command line string */
-  strcpy(CommandLine, lpModuleName);
-  t = CommandLine + strlen(CommandLine);
-  *(t++) = ' ';
-  memcpy(t, LoadParams->lpCmdLine + 1, Length);
-  
-  /* Build StartupInfo */
-  RtlZeroMemory(&StartupInfo, sizeof(STARTUPINFOA));
-  StartupInfo.cb = sizeof(STARTUPINFOA);
-  StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
-  StartupInfo.wShowWindow = ((WORD*)LoadParams->lpCmdShow)[1];
-  
-  if(!CreateProcessA(FileName, CommandLine, NULL, NULL, FALSE, 0, LoadParams->lpEnvAddress,
-                     NULL, &StartupInfo, &ProcessInformation))
-  {
-    DWORD Error;
-    
-    HeapFree(GetProcessHeap(), 0, CommandLine);
-    /* return the right value */
-    Error = GetLastError();
-    switch(Error)
-    {
-      case ERROR_BAD_EXE_FORMAT:
-      {
-        return ERROR_BAD_FORMAT;
-      }
-      case ERROR_FILE_NOT_FOUND:
-      case ERROR_PATH_NOT_FOUND:
-      {
-        return Error;
-      }
-    }
-    return 0;
-  }
-  
-  HeapFree(GetProcessHeap(), 0, CommandLine);
-  
-  /* Wait up to 15 seconds for the process to become idle */
-  WaitForInputIdle(ProcessInformation.hProcess, 15000);
-  
-  CloseHandle(ProcessInformation.hThread);
-  CloseHandle(ProcessInformation.hProcess);
-  
-  return 33;
 }
 
 /* EOF */

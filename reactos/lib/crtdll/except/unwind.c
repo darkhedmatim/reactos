@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #define PEXCEPTION_FRAME void*
 
 /*

@@ -1,4 +1,4 @@
-/* $Id: ppb.c,v 1.20 2004/11/19 01:30:35 weiden Exp $
+/* $Id: ppb.c,v 1.18 2003/07/11 13:50:23 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <windows.h>
 #include <ntdll/ldr.h>
 #include <napi/teb.h>
 #include <ntdll/base.h>
@@ -23,8 +22,8 @@
 
 /* MACROS ****************************************************************/
 
-#define NORMALIZE(x,addr)   {if(x) x=(PVOID)((ULONG_PTR)(x)+(ULONG_PTR)(addr));}
-#define DENORMALIZE(x,addr) {if(x) x=(PVOID)((ULONG_PTR)(x)-(ULONG_PTR)(addr));}
+#define NORMALIZE(x,addr)   {if(x) x=(VOID*)((ULONG)(x)+(ULONG)(addr));}
+#define DENORMALIZE(x,addr) {if(x) x=(VOID*)((ULONG)(x)-(ULONG)(addr));}
 #define ALIGN(x,align)      (((ULONG)(x)+(align)-1UL)&(~((align)-1UL)))
 
 

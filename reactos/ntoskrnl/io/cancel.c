@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cancel.c,v 1.13 2004/08/15 16:39:03 chorns Exp $
+/* $Id: cancel.c,v 1.11 2003/07/11 01:23:14 royce Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/cancel.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -68,7 +69,7 @@ IoCancelIrp(PIRP Irp)
    return(TRUE);
 }
 
-VOID INIT_FUNCTION
+VOID 
 IoInitCancelHandling(VOID)
 {
    KeInitializeSpinLock(&CancelSpinLock);

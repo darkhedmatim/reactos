@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: infcache.c,v 1.11 2004/08/15 22:29:50 chorns Exp $
+/* $Id: infcache.c,v 1.5 2003/08/24 10:36:06 chorns Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/infcache.c
@@ -27,12 +27,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include "usetup.h"
 #include "infcache.h"
 
-#define NDEBUG
-#include <debug.h>
 
 #define CONTROL_Z  '\x1a'
 #define MAX_SECTION_NAME_LEN  255
@@ -508,6 +506,7 @@ static PVOID add_section_from_token( struct parser *parser )
 static struct field *add_field_from_token( struct parser *parser, int is_key )
 {
   PVOID field;
+  WCHAR *text;
 
   if (!parser->line)  /* need to start a new line */
     {
@@ -994,7 +993,7 @@ InfOpenFile(PHINF InfHandle,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,
-		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
+		      FILE_NON_DIRECTORY_FILE);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
@@ -1009,7 +1008,12 @@ InfOpenFile(PHINF InfHandle,
 				  &FileInfo,
 				  sizeof(FILE_STANDARD_INFORMATION),
 				  FileStandardInformation);
-  if (!NT_SUCCESS(Status))
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtQueryInformationFile() returns STATUS_PENDING\n");
+
+    }
+  else if (!NT_SUCCESS(Status))
     {
       DPRINT("NtQueryInformationFile() failed (Status %lx)\n", Status);
       NtClose(FileHandle);
@@ -1042,6 +1046,13 @@ InfOpenFile(PHINF InfHandle,
 		      FileLength,
 		      &FileOffset,
 		      NULL);
+
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtReadFile() returns STATUS_PENDING\n");
+
+      Status = IoStatusBlock.Status;
+    }
 
   /* Append string terminator */
   FileBuffer[FileLength] = 0;
@@ -1142,7 +1153,7 @@ InfFindFirstLine (HINF InfHandle,
 
   /* Iterate through list of sections */
   CacheSection = Cache->FirstSection;
-  while (CacheSection != NULL)
+  while (Section != NULL)
     {
       DPRINT("Comparing '%S' and '%S'\n", CacheSection->Name, Section);
 

@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/string.h>
 
 #if 1

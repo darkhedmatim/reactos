@@ -1,4 +1,4 @@
-/* $Id: fputs.c,v 1.9 2004/12/25 11:18:50 navaraf Exp $
+/* $Id: fputs.c,v 1.7 2003/07/16 17:53:34 royce Exp $
  *
  *  ReactOS msvcrt library
  *
@@ -25,7 +25,7 @@
  */
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/internal/file.h>
 #include <msvcrt/string.h>
@@ -76,7 +76,7 @@ fputws(const wchar_t* s, FILE* f)
   if (unbuffered)
   {
     f->_flag &= ~_IONBF;
-    f->_ptr = f->_base = (char*)localbuf;
+    f->_ptr = f->_base = (unsigned char*)localbuf;
     f->_bufsiz = BUFSIZ;
   }
 

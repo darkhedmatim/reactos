@@ -20,7 +20,7 @@
 #include <msvcrt/wchar.h>
 
 #include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <msvcrt/wchar.h>
 
 #ifndef EILSEQ
 #define EILSEQ EINVAL
@@ -29,7 +29,7 @@
 
 static const wchar_t encoding_mask[] =
 {
-  (~0x7ff&WCHAR_MAX), (~0xffff&WCHAR_MAX), (~0x1fffff&WCHAR_MAX), (~0x3ffffff&WCHAR_MAX)
+  ~0x7ff, ~0xffff, ~0x1fffff, ~0x3ffffff
 };
 
 static const unsigned char encoding_byte[] =
@@ -94,14 +94,12 @@ __wcsrtombs (char *dst, const wchar_t **src, size_t len, mbstate_t *ps)
     {
       wchar_t wc = *run++;
 
-#if 0
-      if (wc < 0 || wc > WCHAR_MAX)
+      if (wc < 0 || wc > 0x7fffffff)
         {
           /* This is no correct ISO 10646 character.  */
           __set_errno (EILSEQ);
           return (size_t) -1;
         }
-#endif
 
       if (wc == L'\0')
         {

@@ -60,17 +60,6 @@ WriteConsoleOutputAttributes(CONST USHORT *lpAttribute,
 			     COORD dwWriteCoord,
 			     PULONG lpNumberOfAttrsWritten);
 
-NTSTATUS
-FillConsoleOutputAttribute(USHORT wAttribute,
-			   ULONG nLength,
-			   COORD dwWriteCoord,
-			   PULONG lpNumberOfAttrsWritten);
-NTSTATUS
-FillConsoleOutputCharacter(CHAR Character,
-			   ULONG Length,
-			   COORD WriteCoord,
-			   PULONG NumberOfCharsWritten);
-
 #if 0
 NTSTATUS
 SetConsoleMode(HANDLE hConsoleHandle,
@@ -114,12 +103,6 @@ ClearScreen(VOID);
 
 VOID
 SetStatusText(char* fmt, ...);
-
-VOID
-InvertTextXY(SHORT x, SHORT y, SHORT col, SHORT row);
-
-VOID
-NormalTextXY(SHORT x, SHORT y, SHORT col, SHORT row);
 
 VOID
 SetTextXY(SHORT x, SHORT y, PCHAR Text);

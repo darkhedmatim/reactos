@@ -1,4 +1,4 @@
-/* $Id: lookas.c,v 1.14 2004/08/15 16:39:01 chorns Exp $
+/* $Id: lookas.c,v 1.11 2003/08/14 18:30:28 silverblade Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -14,7 +14,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+//#ifdef __USE_W32API
+// #define NONAMELESSUNION
+//#endif
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -122,11 +126,11 @@ ExpDefaultFree(PVOID Buffer)
  *   Buffer = Pointer to memory to free
  */
 {
-  ExFreePool(Buffer);
+  return ExFreePool(Buffer);
 }
 
 
-VOID INIT_FUNCTION
+VOID
 ExpInitLookasideLists()
 {
   InitializeListHead(&ExpNonPagedLookasideListHead);

@@ -14,9 +14,18 @@
  *        Fixed timeout.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_CHOICE
+
+#include <windows.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <tchar.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 #define GC_TIMEOUT	-1

@@ -1,4 +1,4 @@
-/* $Id: batch.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: batch.c,v 1.2 2003/08/07 09:27:42 hbirr Exp $
  *
  *  BATCH.C - batch file processor for CMD.EXE.
  *
@@ -56,7 +56,16 @@
  *        Fixes made to get "for" working.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /* The stack of current batch contexts.
@@ -122,7 +131,7 @@ LPTSTR BatchParams (LPTSTR s1, LPTSTR s2)
 
 	if (s1 && *s1)
 	{
-		s1 = _stpcpy (dp, s1);
+		s1 = stpcpy (dp, s1);
 		*s1++ = _T('\0');
 	}
 	else
@@ -372,7 +381,7 @@ LPTSTR ReadBatchLine (LPBOOL bLocalEcho)
 				if ((*sp == _T('%')) && (*(sp + 1) == bc->forvar))
 				{
 					/* replace % var */
-					dp = _stpcpy (dp, fv);
+					dp = stpcpy (dp, fv);
 					sp += 2;
 				}
 				else

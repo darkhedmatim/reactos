@@ -1,5 +1,3 @@
-#include "precomp.h"
-
 /**************************************************************************
    THIS CODE AND INFORMATION IS PROVIDED 'AS IS' WITHOUT WARRANTY OF
    ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
@@ -11,19 +9,18 @@
 
 // dragdropimp.cpp: implementation of the IDataObjectImpl class.
 //////////////////////////////////////////////////////////////////////
+#include <shlobj.h>
+#include <assert.h>
 
-//#include <shlobj.h>
-//#include <assert.h>
-
-//#include "dragdropimpl.h"
+#include "dragdropimpl.h"
 
 //////////////////////////////////////////////////////////////////////
 // IDataObjectImpl Class
 //////////////////////////////////////////////////////////////////////
 
-IDataObjectImpl::IDataObjectImpl(IDropSourceImpl* pDropSource)
- :	m_pDropSource(pDropSource),
-	m_cRefCount(0)
+IDataObjectImpl::IDataObjectImpl(IDropSourceImpl* pDropSource):
+	m_cRefCount(0),
+	m_pDropSource(pDropSource)
 {
 }
 
@@ -64,10 +61,10 @@ STDMETHODIMP_(ULONG) IDataObjectImpl::Release()
    return nTemp;
 }
 
-STDMETHODIMP IDataObjectImpl::GetData(
+STDMETHODIMP IDataObjectImpl::GetData( 
 	/* [unique][in] */ FORMATETC __RPC_FAR *pformatetcIn,
 	/* [out] */ STGMEDIUM __RPC_FAR *pmedium)
-{
+{ 
 	if (pformatetcIn == NULL || pmedium == NULL)
 		return E_INVALIDARG;
 
@@ -87,16 +84,16 @@ STDMETHODIMP IDataObjectImpl::GetData(
 	return DV_E_FORMATETC;
 }
 
-STDMETHODIMP IDataObjectImpl::GetDataHere(
+STDMETHODIMP IDataObjectImpl::GetDataHere( 
 	/* [unique][in] */ FORMATETC __RPC_FAR *pformatetc,
 	/* [out][in] */ STGMEDIUM __RPC_FAR *pmedium)
-{
+{ 
 	return E_NOTIMPL;
 }
 
-STDMETHODIMP IDataObjectImpl::QueryGetData(
+STDMETHODIMP IDataObjectImpl::QueryGetData( 
    /* [unique][in] */ FORMATETC __RPC_FAR *pformatetc)
-{
+{ 
 	if (pformatetc == NULL)
 		return E_INVALIDARG;
 
@@ -118,25 +115,24 @@ STDMETHODIMP IDataObjectImpl::QueryGetData(
 	   else
 		  hr = DV_E_TYMED;
 	}
-
 	return hr;
 }
 
-STDMETHODIMP IDataObjectImpl::GetCanonicalFormatEtc(
+STDMETHODIMP IDataObjectImpl::GetCanonicalFormatEtc( 
 	/* [unique][in] */ FORMATETC __RPC_FAR *pformatectIn,
 	/* [out] */ FORMATETC __RPC_FAR *pformatetcOut)
-{
+{ 
 	if (pformatetcOut == NULL)
 		return E_INVALIDARG;
 
 	return DATA_S_SAMEFORMATETC;
 }
 
-STDMETHODIMP IDataObjectImpl::SetData(
+STDMETHODIMP IDataObjectImpl::SetData( 
 	/* [unique][in] */ FORMATETC __RPC_FAR *pformatetc,
 	/* [unique][in] */ STGMEDIUM __RPC_FAR *pmedium,
 	/* [in] */ BOOL fRelease)
-{
+{ 
 	if (pformatetc == NULL || pmedium == NULL)
 	  return E_INVALIDARG;
 
@@ -205,7 +201,7 @@ void IDataObjectImpl::CopyMedium(STGMEDIUM* pMedDest, STGMEDIUM* pMedSrc, FORMAT
 STDMETHODIMP IDataObjectImpl::EnumFormatEtc(
    /* [in] */ DWORD dwDirection,
    /* [out] */ IEnumFORMATETC __RPC_FAR *__RPC_FAR *ppenumFormatEtc)
-{
+{ 
 	if (ppenumFormatEtc == NULL)
 	  return E_POINTER;
 
@@ -218,9 +214,9 @@ STDMETHODIMP IDataObjectImpl::EnumFormatEtc(
 		 if (!*ppenumFormatEtc)
 			 return E_OUTOFMEMORY;
 
-		 (*ppenumFormatEtc)->AddRef();
+		 (*ppenumFormatEtc)->AddRef(); 
 		 break;
-	
+	  
 	  case DATADIR_SET:
 	  default:
 		 return E_NOTIMPL;
@@ -230,22 +226,22 @@ STDMETHODIMP IDataObjectImpl::EnumFormatEtc(
    return S_OK;
 }
 
-STDMETHODIMP IDataObjectImpl::DAdvise(
+STDMETHODIMP IDataObjectImpl::DAdvise( 
    /* [in] */ FORMATETC __RPC_FAR *pformatetc,
    /* [in] */ DWORD advf,
    /* [unique][in] */ IAdviseSink __RPC_FAR *pAdvSink,
    /* [out] */ DWORD __RPC_FAR *pdwConnection)
-{
+{ 
 	return OLE_E_ADVISENOTSUPPORTED;
 }
 
-STDMETHODIMP IDataObjectImpl::DUnadvise(
+STDMETHODIMP IDataObjectImpl::DUnadvise( 
    /* [in] */ DWORD dwConnection)
 {
 	return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE IDataObjectImpl::EnumDAdvise(
+HRESULT STDMETHODCALLTYPE IDataObjectImpl::EnumDAdvise( 
    /* [out] */ IEnumSTATDATA __RPC_FAR *__RPC_FAR *ppenumAdvise)
 {
 	return OLE_E_ADVISENOTSUPPORTED;
@@ -287,7 +283,7 @@ STDMETHODIMP_(ULONG) IDropSourceImpl::Release()
    return nTemp;
 }
 
-STDMETHODIMP IDropSourceImpl::QueryContinueDrag(
+STDMETHODIMP IDropSourceImpl::QueryContinueDrag( 
 	/* [in] */ BOOL fEscapePressed,
 	/* [in] */ DWORD grfKeyState)
 {
@@ -357,7 +353,7 @@ STDMETHODIMP_(ULONG) EnumFormatEtcImpl::Release(void)
    if (nTemp == 0)
 	 delete this;
 
-   return nTemp;
+   return nTemp; 
 }
 
 STDMETHODIMP EnumFormatEtcImpl::Next( ULONG celt,LPFORMATETC lpFormatEtc, ULONG* pceltFetched)
@@ -398,12 +394,12 @@ STDMETHODIMP EnumFormatEtcImpl::Reset(void)
    m_iCur = 0;
    return S_OK;
 }
-			
+			   
 STDMETHODIMP EnumFormatEtcImpl::Clone(IEnumFORMATETC** ppCloneEnumFormatEtc)
 {
   if (ppCloneEnumFormatEtc == NULL)
 	return E_POINTER;
-	
+	  
   EnumFormatEtcImpl* newEnum = new EnumFormatEtcImpl(m_pFmtEtc);
 
   if (!newEnum)
@@ -419,16 +415,14 @@ STDMETHODIMP EnumFormatEtcImpl::Clone(IEnumFORMATETC** ppCloneEnumFormatEtc)
 //////////////////////////////////////////////////////////////////////
 // IDropTargetImpl Class
 //////////////////////////////////////////////////////////////////////
-IDropTargetImpl::IDropTargetImpl(HWND hTargetWnd)
- :	m_cRefCount(0),
-	m_bAllowDrop(false),
-	m_pDropTargetHelper(NULL),
-	m_pSupportedFrmt(NULL),
-	m_hTargetWnd(hTargetWnd)
-{
+IDropTargetImpl::IDropTargetImpl(HWND hTargetWnd): 
+	m_hTargetWnd(hTargetWnd),
+	m_cRefCount(0), m_bAllowDrop(false),
+	m_pDropTargetHelper(NULL), m_pSupportedFrmt(NULL)
+{ 
 	assert(m_hTargetWnd != NULL);
 
-	if (FAILED(CoCreateInstance(CLSID_DragDropHelper, NULL, CLSCTX_INPROC_SERVER,
+	if (FAILED(CoCreateInstance(CLSID_DragDropHelper,NULL,CLSCTX_INPROC_SERVER,
 					 IID_IDropTargetHelper,(LPVOID*)&m_pDropTargetHelper)))
 		m_pDropTargetHelper = NULL;
 }
@@ -445,16 +439,15 @@ IDropTargetImpl::~IDropTargetImpl()
 HRESULT STDMETHODCALLTYPE IDropTargetImpl::QueryInterface( /* [in] */ REFIID riid,
 						/* [iid_is][out] */ void __RPC_FAR *__RPC_FAR *ppvObject)
 {
-	*ppvObject = NULL;
-	if (IID_IUnknown==riid || IID_IDropTarget==riid)
-		*ppvObject=this;
+   *ppvObject = NULL;
+   if (IID_IUnknown==riid || IID_IDropTarget==riid)
+			 *ppvObject=this;
 
 	if (*ppvObject != NULL)
 	{
 		((LPUNKNOWN)*ppvObject)->AddRef();
 		return S_OK;
 	}
-
 	return E_NOINTERFACE;
 }
 
@@ -471,15 +464,14 @@ ULONG STDMETHODCALLTYPE IDropTargetImpl::Release()
 }
 
 bool IDropTargetImpl::QueryDrop(DWORD grfKeyState, LPDWORD pdwEffect)
-{
-	DWORD dwOKEffects = *pdwEffect;
+{  
+	DWORD dwOKEffects = *pdwEffect; 
 
 	if (!m_bAllowDrop)
 	{
 	   *pdwEffect = DROPEFFECT_NONE;
 	   return false;
 	}
-
 	//CTRL+SHIFT  -- DROPEFFECT_LINK
 	//CTRL		  -- DROPEFFECT_COPY
 	//SHIFT 	  -- DROPEFFECT_MOVE
@@ -487,27 +479,27 @@ bool IDropTargetImpl::QueryDrop(DWORD grfKeyState, LPDWORD pdwEffect)
 	*pdwEffect = (grfKeyState & MK_CONTROL) ?
 				 ( (grfKeyState & MK_SHIFT) ? DROPEFFECT_LINK : DROPEFFECT_COPY ):
 				 ( (grfKeyState & MK_SHIFT) ? DROPEFFECT_MOVE : DROPEFFECT_NONE );
-	if (*pdwEffect == 0)
+	if (*pdwEffect == 0) 
 	{
-	   // No modifier keys used by user while dragging.
+	   // No modifier keys used by user while dragging. 
 	   if (DROPEFFECT_COPY & dwOKEffects)
 		  *pdwEffect = DROPEFFECT_COPY;
 	   else if (DROPEFFECT_MOVE & dwOKEffects)
-		  *pdwEffect = DROPEFFECT_MOVE;
+		  *pdwEffect = DROPEFFECT_MOVE; 
 	   else if (DROPEFFECT_LINK & dwOKEffects)
-		  *pdwEffect = DROPEFFECT_LINK;
-	   else
+		  *pdwEffect = DROPEFFECT_LINK; 
+	   else 
 	   {
 		  *pdwEffect = DROPEFFECT_NONE;
 	   }
-	}
+	} 
 	else
 	{
 	   // Check if the drag source application allows the drop effect desired by user.
 	   // The drag source specifies this in DoDragDrop
 	   if (!(*pdwEffect & dwOKEffects))
 		  *pdwEffect = DROPEFFECT_NONE;
-	}
+	}  
 
 	return (DROPEFFECT_NONE == *pdwEffect)?false:true;
 }	
@@ -523,7 +515,6 @@ HRESULT STDMETHODCALLTYPE IDropTargetImpl::DragEnter(
 
 	if (m_pDropTargetHelper)
 		m_pDropTargetHelper->DragEnter(m_hTargetWnd, pDataObj, (LPPOINT)&pt, *pdwEffect);
-
 	//IEnumFORMATETC* pEnum;
 	//pDataObj->EnumFormatEtc(DATADIR_GET,&pEnum);
 	//FORMATETC ftm;
@@ -544,20 +535,17 @@ HRESULT STDMETHODCALLTYPE IDropTargetImpl::DragEnter(
 	}
 
 	QueryDrop(grfKeyState, pdwEffect);
-
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE IDropTargetImpl::DragOver(
+HRESULT STDMETHODCALLTYPE IDropTargetImpl::DragOver( 
 		/* [in] */ DWORD grfKeyState,
 		/* [in] */ POINTL pt,
 		/* [out][in] */ DWORD __RPC_FAR *pdwEffect)
 {
 	if (m_pDropTargetHelper)
 		m_pDropTargetHelper->DragOver((LPPOINT)&pt, *pdwEffect);
-
 	QueryDrop(grfKeyState, pdwEffect);
-
 	return S_OK;
 }
 
@@ -568,13 +556,12 @@ HRESULT STDMETHODCALLTYPE IDropTargetImpl::DragLeave()
 	
 	m_bAllowDrop = false;
 	m_pSupportedFrmt = NULL;
-
 	return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE IDropTargetImpl::Drop(
 	/* [unique][in] */ IDataObject __RPC_FAR *pDataObj,
-	/* [in] */ DWORD grfKeyState, /* [in] */ POINTL pt,
+	/* [in] */ DWORD grfKeyState, /* [in] */ POINTL pt, 
 	/* [out][in] */ DWORD __RPC_FAR *pdwEffect)
 {
 	if (pDataObj == NULL)

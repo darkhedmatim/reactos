@@ -1,75 +1,68 @@
-preall: all
+# $Id: Makefile,v 1.106 2003/09/25 15:54:42 navaraf Exp $
+#
+# ReactOS Operating System
+#
 
+#
+# Path to the directory containing the root makefile
+#
 PATH_TO_TOP := ..
 
+#
+# Include details of the host OS configuration
+#
 include $(PATH_TO_TOP)/config
-
-TARGET_REGTESTS = yes
-
-TARGET_TYPE = kernel
-
-TARGET_NAME = ntoskrnl
-
-TARGET_BASE = 0xc0000000
-
-TARGET_BOOTSTRAP = yes
 
 CONFIG :=
 
 ifeq ($(DBG), 1)
-DBG_OR_KDBG := 1
-endif
-ifeq ($(KDBG), 1)
-DBG_OR_KDBG := 1
-endif
-
+CFLAGS_DBG := -g
 LINKER_SCRIPT := ntoskrnl.lnk
 STRIP_FLAGS := -Wl,-s
-
-ifeq ($(OPTIMIZED), 1)
-CFLAGS_OPT := -O2 -Wno-strict-aliasing
 else
-CFLAGS_OPT :=
+CFLAGS_DBG :=
+LINKER_SCRIPT := ntoskrnl.lnk
+STRIP_FLAGS := -Wl,-s
 endif
 
 ifeq ($(KDBG), 1)
-OBJECTS_KDBG := dbg/kdb.o dbg/kdb_serial.o dbg/kdb_keyboard.o dbg/rdebug.o \
-                dbg/i386/kdb_help.o dbg/profile.o \
-		../dk/w32/lib/libkjs.a dbg/i386/i386-dis.o
-CFLAGS_KDBG := -I../lib/kjs/include
-preall: all
-
-../dk/w32/lib/libkjs.a:
-	$(MAKE) -C ../lib/kjs
+OBJECTS_KDBG := dbg/kdb.o dbg/kdb_keyboard.o dbg/rdebug.o \
+                dbg/i386/kdb_help.o dbg/kdb_stabs.o dbg/profile.o
 else
 OBJECTS_KDBG :=
 endif
-ifeq ($(DBG_OR_KDBG), 1)
-OBJECTS_KDBG := $(OBJECTS_KDBG) dbg/kdb_stabs.o dbg/kdb_symbols.o
+
+ifeq ($(strip $(SDK_PATH_INC)),)
+ASFLAGS += -I./include
+CFLAGS += -I./include -D__NTOSKRNL__ $(CFLAGS_DBG) -Wall -Werror
+else
+ASFLAGS += -I./include -I$(SDK_PATH_INC)
+CFLAGS += -I./include -I$(SDK_PATH_INC) -D__NTOSKRNL__ $(CFLAGS_DBG) -Wall -Werror
 endif
 
-TARGET_ASFLAGS = -I./include
-TARGET_CFLAGS = -I./include $(CFLAGS_KDBG) -Wall -Werror $(CFLAGS_OPT)
+# ASFLAGS += -D__USE_W32API -D_NTOSKRNL_
+# CFLAGS += -D__USE_W32API -D_NTOSKRNL_
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
-
-# 3GB User Mode Memory Space support
-ifeq ($(3GB), 1)
-TARGET_CFLAGS += -D__3GB__
-TARGET_BASE = 0xC0000000
-else
-TARGET_BASE = 0x80000000
-endif
-
-# enable thread event pair features (NT4 only!)
-# TARGET_CFLAGS += -D_ENABLE_THRDEVTPAIR
+CFLAGS += -D_DISABLE_TIDENTS
 
 #
-# Javascript extension for kdb
+# Build configuration
 #
+include $(PATH_TO_TOP)/rules.mak
+
+
+TARGETNAME := ntoskrnl
 
 OBJECTS_PATH = objects
+
+all: \
+	$(OBJECTS_PATH) \
+	bugcodes.rc \
+	$(TARGETNAME).nostrip.exe \
+	$(TARGETNAME).exe \
+	$(TARGETNAME).sym \
+	ntoskrnl.map
 
 #
 # Architecture specific Makefile
@@ -80,7 +73,6 @@ include Makefile.$(ARCH)
 # System API (Nt/Zw)
 OBJECTS_NT = \
 	nt/channel.o \
-	nt/efi.o \
 	nt/evtpair.o \
 	nt/mutant.o \
 	nt/misc.o \
@@ -90,26 +82,34 @@ OBJECTS_NT = \
 	nt/nttimer.o \
 	nt/plugplay.o \
 	nt/profile.o \
-	nt/vdm.o \
-	nt/zw.o
+	nt/zw.o \
+	nt/vdm.o
 
 # Run-Time Library (Rtl)
 OBJECTS_RTL = \
 	rtl/atom.o \
-	rtl/capture.o \
+	rtl/bitmap.o \
+	rtl/compress.o \
 	rtl/ctype.o \
+	rtl/dos8dot3.o \
+	rtl/error.o \
 	rtl/handle.o \
+	rtl/largeint.o \
+	rtl/mem.o \
 	rtl/message.o \
+	rtl/nls.o \
 	rtl/purecall.o \
+	rtl/random.o \
 	rtl/regio.o \
 	rtl/sprintf.o \
 	rtl/stdlib.o \
 	rtl/string.o \
 	rtl/swprintf.o \
+	rtl/time.o \
+	rtl/timezone.o \
+	rtl/unicode.o \
 	rtl/wstring.o \
-	rtl/nls.o \
-	rtl/rangelist.o \
-	rtl/libsupp.o
+	rtl/capture.o
 
 OBJECTS_RTL := $(filter-out $(RTL_EXCLUDE_FILTER), $(OBJECTS_RTL))
 
@@ -121,63 +121,54 @@ OBJECTS_KE = \
 	ke/catch.o \
 	ke/critical.o \
 	ke/dpc.o \
-	ke/device.o \
 	ke/error.o \
 	ke/event.o \
 	ke/kqueue.o \
-	ke/kthread.o \
-	ke/ipi.o \
 	ke/main.o \
 	ke/mutex.o \
 	ke/process.o \
-	ke/profile.o \
-	ke/queue.o \
 	ke/sem.o \
 	ke/spinlock.o \
 	ke/timer.o \
-	ke/wait.o
+	ke/wait.o \
+	ke/kthread.o \
+	ke/queue.o
 
 # Memory Manager (Mm)
 OBJECTS_MM = \
-	mm/anonmem.o \
 	mm/aspace.o \
-	mm/balance.o \
 	mm/cont.o \
 	mm/drvlck.o \
-	mm/elf32.o \
-	mm/elf64.o \
 	mm/freelist.o \
 	mm/iospace.o \
-	mm/kmap.o \
 	mm/marea.o \
 	mm/mdl.o \
 	mm/mm.o \
-	mm/mminit.o \
-	mm/mpw.o \
 	mm/ncache.o \
 	mm/npool.o \
 	mm/pagfault.o \
 	mm/pagefile.o \
-	mm/pageop.o \
-	mm/pager.o \
 	mm/paging.o \
-	mm/pe.o \
 	mm/pool.o \
 	mm/ppool.o \
-	mm/physical.o \
-	mm/region.o \
-	mm/rmap.o \
 	mm/section.o \
-	mm/slab.o \
-	mm/verifier.o \
 	mm/virtual.o \
-	mm/wset.o
+	mm/pager.o \
+	mm/wset.o \
+	mm/mminit.o \
+	mm/kmap.o \
+	mm/mpw.o \
+	mm/pageop.o \
+	mm/balance.o \
+	mm/rmap.o \
+	mm/slab.o \
+	mm/anonmem.o \
+	mm/region.o
 
 # I/O Subsystem (Io)
 OBJECTS_IO = \
 	io/adapter.o \
 	io/arcname.o \
-	io/bootlog.o \
 	io/buildirp.o \
 	io/cancel.o \
 	io/cleanup.o \
@@ -198,7 +189,6 @@ OBJECTS_IO = \
 	io/iomgr.o \
 	io/iowork.o \
 	io/irp.o \
-	io/irq.o \
 	io/lock.o \
 	io/mailslot.o \
 	io/mdl.o \
@@ -222,7 +212,6 @@ OBJECTS_IO = \
 	io/timer.o \
 	io/vpb.o \
 	io/wdm.o \
-	io/wmi.o \
 	io/xhaldisp.o \
 	io/xhaldrv.o
 
@@ -233,33 +222,30 @@ OBJECTS_OB = \
 	ob/namespc.o \
 	ob/ntobj.o \
 	ob/object.o \
-	ob/sdcache.o \
 	ob/security.o \
 	ob/symlink.o
 
 # Process Manager (Ps)
 OBJECTS_PS = \
-	ps/cid.o \
 	ps/create.o \
-	ps/debug.o \
 	ps/idle.o \
-	ps/job.o \
 	ps/kill.o \
 	ps/locale.o \
 	ps/process.o \
 	ps/psmgr.o \
-	ps/suspend.o \
 	ps/thread.o \
 	ps/tinfo.o \
+	ps/debug.o \
+	ps/suspend.o \
 	ps/win32.o \
 	ps/w32call.o
 
 # Executive Subsystem (Ex)
 OBJECTS_EX = \
-	ex/btree.o \
+  ex/btree.o \
 	ex/callback.o \
 	ex/fmutex.o \
-	ex/hashtab.o \
+  ex/hashtab.o \
 	ex/init.o \
 	ex/interlck.o \
 	ex/list.o \
@@ -267,13 +253,9 @@ OBJECTS_EX = \
 	ex/napi.o \
 	ex/power.o \
 	ex/resource.o \
-	ex/rundown.o \
-	ex/stree.o \
-	ex/synch.o \
-	ex/sysinfo.o \
 	ex/time.o \
-	ex/util.o \
-	ex/uuid.o \
+  ex/stree.o \
+	ex/sysinfo.o \
 	ex/win32k.o \
 	ex/work.o \
 	ex/zone.o
@@ -308,11 +290,11 @@ OBJECTS_SE = \
 # Configuration Manager (Registry)
 OBJECTS_CM = \
 	cm/import.o  \
-	cm/ntfunc.o \
-	cm/regfile.o \
 	cm/registry.o  \
-	cm/regobj.o \
-	cm/rtlfunc.o
+	cm/ntfunc.o \
+	cm/rtlfunc.o \
+	cm/regfile.o \
+	cm/regobj.o
 
 # Debugger Support (Dbg)
 OBJECTS_DBG = \
@@ -346,26 +328,23 @@ OBJECTS_LPC = \
 	lpc/send.o
 
 # Power Management (Po)
-OBJECTS_PO = \
-	po/power.o
+OBJECTS_PO = po/power.o
 
 # Cache Manager (Cc)
 OBJECTS_CC = \
 	cc/cacheman.o \
+	cc/view.o \
 	cc/copy.o \
-	cc/fs.o \
 	cc/pin.o \
-	cc/mdl.o \
-	cc/misc.o \
-	cc/view.o
+	cc/misc.o
 
 # Kernel Debugger Support (Kd)
 OBJECTS_KD = \
-	kd/dlog.o \
-	kd/gdbstub.o \
 	kd/kdebug.o \
-	kd/mda.o \
-	kd/service.o
+	kd/service.o \
+	kd/dlog.o \
+    kd/gdbstub.o \
+    kd/mda.o
 
 # Boot video (Inbv)
 OBJECTS_INBV = \
@@ -375,21 +354,30 @@ DEP_OBJECTS := $(OBJECTS_NT) $(OBJECTS_MM) $(OBJECTS_ARCH) \
 	$(OBJECTS_IO) $(OBJECTS_KE) $(OBJECTS_OB) \
 	$(OBJECTS_PS) $(OBJECTS_EX) $(OBJECTS_CC) $(OBJECTS_FS) $(OBJECTS_SE) \
 	$(OBJECTS_DBG) $(OBJECTS_CM) $(OBJECTS_LDR) $(OBJECTS_LPC) \
-	$(OBJECTS_PO) $(OBJECTS_KD) $(OBJECTS_RTL) $(OBJECTS_INBV)
+	$(OBJECTS_PO) $(OBJECTS_KD) $(OBJECTS_RTL)
 
 TAG_OBJECTS := $(join $(dir $(DEP_OBJECTS)),$(patsubst %.o, .%.TAG, $(notdir $(DEP_OBJECTS))))
 
-TARGET_PCH = include/ntoskrnl.h
+#
+# Include automatic dependancy tracking
+#
+DEP_EXCLUDE_FILTER := ex/napi.% nt/zw.%
+include $(PATH_TO_TOP)/tools/depend.mk
 
 
 # Resources
 OBJECTS_RESOURCE = \
-	$(TARGET_NAME).coff
+	$(TARGETNAME).coff
+
+# IMPORTS/EXPORTS
+IE_DATA = \
+	$(TARGETNAME).def \
+	$(TARGETNAME).edf
 
 $(OBJECTS_PATH):
 	mkdir $(OBJECTS_PATH)
 
-$(OBJECTS_RESOURCE): $(TARGET_NAME).rc bugcodes.rc $(PATH_TO_TOP)/include/reactos/resource.h
+$(OBJECTS_RESOURCE): $(TARGETNAME).rc bugcodes.rc $(PATH_TO_TOP)/include/reactos/resource.h
 
 #
 # Build subsystem intermediate objects
@@ -528,48 +516,238 @@ OBJECTS := \
 	$(OBJECTS_PATH)/inbv.o \
 	$(OBJECTS_RESOURCE)
 
-EXTRA_OBJECTS = $(PATH_TO_TOP)/include/reactos/bugcodes.h
 
-TARGET_OBJECTS = $(EXTRA_OBJECTS) $(OBJECTS)
+$(TARGETNAME).nostrip.exe: $(TARGETNAME).o $(IE_DATA) $(SDK_PATH_LIB)/string.a $(SDK_PATH_LIB)/rosrtl.a 
+	$(CC) \
+		-Wl,-T,ntoskrnl.lnk \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,--base-file,base.tmp \
+		$(TARGETNAME).o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).exe \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		-nostartfiles \
+		-nostdlib \
+		-Wl,-T,ntoskrnl.lnk \
+		-mdll \
+		-o $(TARGETNAME).nostrip.exe \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,temp.exp \
+		$(TARGETNAME).o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) temp.exp
 
-TARGET_LIBS = \
-	$(DDK_PATH_LIB)/libhal.a \
-	$(SDK_PATH_LIB)/librtl.a \
-	$(SDK_PATH_LIB)/libstring.a \
-	$(SDK_PATH_LIB)/librosrtl.a \
-	$(SDK_PATH_LIB)/libpseh.a \
-	$(PATH_TO_TOP)/drivers/lib/csq/csq.o
+$(TARGETNAME).exe: $(TARGETNAME).o $(LINKER_SCRIPT) $(DDK_PATH_LIB)/hal.a $(SDK_PATH_LIB)/string.a $(SDK_PATH_LIB)/rosrtl.a
+	- $(CC) \
+		-Wl,-T,$(LINKER_SCRIPT) \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,--base-file,base.tmp \
+		$(TARGETNAME).o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).exe \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		-Wl,-T,$(LINKER_SCRIPT) $(STRIP_FLAGS)\
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o $(TARGETNAME).exe \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,temp.exp \
+		$(TARGETNAME).o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) temp.exp
 
-TARGET_LFLAGS = \
-	-Wl,-T,ntoskrnl.lnk \
-	-Wl,--subsystem,native \
-	-Wl,--image-base,$(TARGET_BASE) \
-	-Wl,--file-alignment,0x1000 \
-	-Wl,--section-alignment,0x1000 \
-	-Wl,--entry,_NtProcessStartup
+$(TARGETNAME).dbg.o: $(TARGETNAME).o
+	$(STRIP) --strip-debug -o $(TARGETNAME).dbg.o $(TARGETNAME).o
+
+$(TARGETNAME).dbg: $(TARGETNAME).dbg.o $(TARGETNAME).a $(TARGETNAME).dbg.lnk $(DDK_PATH_LIB)/hal.a $(SDK_PATH_LIB)/string.a $(SDK_PATH_LIB)/rosrtl.a
+	$(CC) \
+		-Wl,-T,$(TARGETNAME).dbg.lnk \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,--base-file,base.tmp \
+		$(TARGETNAME).dbg.o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dbg \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		-Wl,-T,$(TARGETNAME).dbg.lnk \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o $(TARGETNAME).dbg \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0xc0000000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--entry,_NtProcessStartup \
+		-Wl,temp.exp \
+		$(TARGETNAME).dbg.o -lgcc \
+		$(SDK_PATH_LIB)/string.a \
+		$(SDK_PATH_LIB)/rosrtl.a \
+		$(DDK_PATH_LIB)/hal.a
+	- $(RM) temp.exp
+
+$(TARGETNAME).sym: $(TARGETNAME).nostrip.exe
+	$(RSYM) $(TARGETNAME).nostrip.exe $(TARGETNAME).sym
 
 TAGS: $(TAG_OBJECTS)
 	etags $(addprefix -i , $(TAG_OBJECTS))
 
-GENERATED_HEADER_FILES := $(PATH_TO_TOP)/include/reactos/bugcodes.h
+ntoskrnl.map: $(TARGETNAME).nostrip.exe
+	$(NM) --numeric-sort $(TARGETNAME).nostrip.exe > ntoskrnl.map
 
-$(PATH_TO_TOP)/include/reactos/bugcodes.h bugcodes.rc: ntoskrnl.mc
+$(TARGETNAME).o: $(OBJECTS)
+	$(LD) \
+		-r \
+		-o $(TARGETNAME).o \
+		$(OBJECTS)
+
+bugcodes.rc: ntoskrnl.mc
 	$(MC) \
 		-H $(PATH_TO_TOP)/include/reactos/bugcodes.h \
 		-o bugcodes.rc \
-		$(TARGET_NAME).mc
+		$(TARGETNAME).mc
 
-TARGET_CLEAN = \
-  $(PATH_TO_TOP)/include/reactos/bugcodes.h \
-  $(DEP_OBJECTS) $(DEP_FILES) MSG00409.bin bugcodes.rc 
+$(DDK_PATH_LIB)/$(TARGETNAME).a: $(TARGETNAME).def
+	- $(DLLTOOL) \
+		--dllname $(TARGETNAME).exe \
+		--def $(TARGETNAME).def \
+		--output-lib $(DDK_PATH_LIB)/$(TARGETNAME).a \
+		--kill-at
+
+implib: $(DDK_PATH_LIB)/$(TARGETNAME).a
+
+clean:
+	- $(RM) $(OBJECTS_PATH)/*.o cc/*.o cm/*.o dbg/*.o dbg/i386/*.o ex/*.o \
+              ex/i386/*.o inbv/*.o io/*.o ke/*.o ldr/*.o mm/*.o nt/*.o ob/*.o ps/*.o \
+              rtl/*.o rtl/i386/*.o se/*.o ke/i386/*.o mm/i386/*.o fs/*.o po/*.o \
+              lpc/*.o kd/*.o $(TARGETNAME).o junk.tmp base.tmp temp.exp \
+              $(TARGETNAME).exe $(TARGETNAME).nostrip.exe $(TARGETNAME).sym ntoskrnl.map \
+	          $(TARGETNAME).coff bugcodes.rc msg?????.bin $(DEP_FILES) \
+	      $(TAG_OBJECTS)
+
+
+.PHONY: clean
+
+ifneq ($(BOOTCD_INSTALL),)
+
+install: all $(INSTALL_DIR)/$(TARGETNAME).exe
+
+$(INSTALL_DIR)/$(TARGETNAME).exe: $(TARGETNAME).exe
+	$(CP) $(TARGETNAME).exe $(INSTALL_DIR)/$(TARGETNAME).exe
+
+else # BOOTCD_INSTALL
+
+install: all $(INSTALL_DIR)/system32/$(TARGETNAME).exe $(INSTALL_DIR)/symbols/$(TARGETNAME).sym
+
+$(INSTALL_DIR)/system32/$(TARGETNAME).exe: $(TARGETNAME).exe
+	$(CP) $(TARGETNAME).exe $(INSTALL_DIR)/system32/$(TARGETNAME).exe
+
+$(INSTALL_DIR)/symbols/$(TARGETNAME).sym: $(TARGETNAME).sym
+	$(CP) $(TARGETNAME).sym $(INSTALL_DIR)/symbols/$(TARGETNAME).sym
+
+endif # BOOTCD_INSTALL
+
+
+.PHONY: install
+
+dist: $(DIST_DIR)/$(TARGETNAME).exe
+
+$(DIST_DIR)/$(TARGETNAME).exe: $(TARGETNAME).exe
+	$(CP) $(TARGETNAME).exe $(DIST_DIR)/$(TARGETNAME).exe
+
+.PHONY: dist
+
+bootcd: all $(BOOTCD_DIR)/reactos/$(TARGETNAME).exe
+
+$(BOOTCD_DIR)/reactos/$(TARGETNAME).exe: $(TARGETNAME).exe
+	$(CP) $(TARGETNAME).exe $(BOOTCD_DIR)/reactos/$(TARGETNAME).exe
+
+.PHONY: bootcd
+
 
 ex/napi.o: ex/napi.c $(PATH_TO_TOP)/include/ntdll/napi.h
 
 ke/main.o: ke/main.c $(PATH_TO_TOP)/include/reactos/buildno.h
 
-$(TARGET_PCH): $(PATH_TO_TOP)/include/reactos/bugcodes.h
+%.o: %.cc
+	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.S
+	$(AS) $(ASFLAGS) -c $< -o $@
+%.o: %.s
+	$(AS) $(ASFLAGS) -c $< -o $@
+%.o: %.asm
+	$(NASM_CMD) $(NFLAGS) $< -o $@
+%.coff: %.rc
+	$(RC) $(RCINC) $< -o $@
 
-
+#
+#
+#
 .%.TAG: %.S
 	etags -o $@ $<
 
@@ -579,14 +757,4 @@ $(TARGET_PCH): $(PATH_TO_TOP)/include/reactos/bugcodes.h
 .%.TAG: %.c
 	etags -o $@ $^
 
-
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu
-
-include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
+# EOF

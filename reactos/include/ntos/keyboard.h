@@ -83,8 +83,6 @@
 #define FOCUS_EVENT	(16)
 
 
-#include <pshpack1.h>
-
 typedef struct _KEY_EVENT_RECORD
 {
   BOOL bKeyDown;
@@ -97,10 +95,7 @@ typedef struct _KEY_EVENT_RECORD
     CHAR  AsciiChar;
   } uChar;
   DWORD dwControlKeyState;
-} KEY_EVENT_RECORD;
-
-#include <poppack.h>
-
+} PACKED KEY_EVENT_RECORD;
 
 typedef struct _MOUSE_EVENT_RECORD
 {
@@ -171,11 +166,7 @@ typedef struct _INPUT_RECORD
 #define VK_SNAPSHOT	(44)
 #define VK_INSERT	(45)
 #define VK_DELETE	(46)
-#define VK_HELP	    (47)
-#define VK_LWIN     (91)
-#define VK_RWIN     (92)
-#define VK_APPS     (93)
-#define VK_SLEEP    (95)
+#define VK_HELP	(47)
 #define VK_NUMPAD0	(96)
 #define VK_NUMPAD1	(97)
 #define VK_NUMPAD2	(98)
@@ -226,80 +217,6 @@ typedef struct _INPUT_RECORD
 #define VK_RSHIFT	(161)
 #define VK_RCONTROL	(163)
 #define VK_RMENU	(165)
-
-#define VK_BROWSER_BACK        (166)
-#define VK_BROWSER_FORWARD     (167)
-#define VK_BROWSER_REFRESH     (168)
-#define VK_BROWSER_STOP        (169)
-#define VK_BROWSER_SEARCH      (170)
-#define VK_BROWSER_FAVORITES   (171)
-#define VK_BROWSER_HOME        (172)
-#define VK_VOLUME_MUTE         (173)
-#define VK_VOLUME_DOWN         (174)
-#define VK_VOLUME_UP           (175)
-#define VK_MEDIA_NEXT_TRACK    (176)
-#define VK_MEDIA_PREV_TRACK    (177)
-#define VK_MEDIA_STOP          (178)
-#define VK_MEDIA_PLAY_PAUSE    (179)
-#define VK_LAUNCH_MAIL         (180)
-#define VK_LAUNCH_MEDIA_SELECT (181)
-#define VK_LAUNCH_APP1         (182)
-#define VK_LAUNCH_APP2         (183)
-
-#define VK_PROCESSKEY          (229)
-#define VK_ICO_CLEAR           (230)
-
-/* Fujitsu/OASYS keys */
-#define VK_OEM_FJ_JISHO        (146) /* 'Dictionary' key */
-#define VK_OEM_FJ_MASSHOU      (147) /* 'Unregister word' key */
-#define VK_OEM_FJ_TOUROKU      (148) /* 'Register word' key */
-#define VK_OEM_FJ_LOYA         (149) /* 'Left OYAYUBI' key */
-#define VK_OEM_FJ_ROYA         (150) /* 'Right OYAYUBI' key */
-
-/* Nokia/Ericsson keys */
-#define VK_OEM_RESET           (223)
-#define VK_OEM_JUMP            (234)
-#define VK_OEM_PA1             (235)
-#define VK_OEM_PA2             (236)
-#define VK_OEM_PA3             (237)
-#define VK_OEM_WSCTRL          (238)
-#define VK_OEM_CUSEL           (239)
-#define VK_OEM_ATTN            (240)
-#define VK_OEM_FINISH          (241)
-#define VK_OEM_COPY            (242)
-#define VK_OEM_AUTO            (243)
-#define VK_OEM_ENLW            (244)
-#define VK_OEM_BACKTAB         (245)
-#define VK_ATTN                (246)
-#define VK_CRSEL               (247)
-#define VK_EXSEL               (248)
-#define VK_EREOF               (249)
-#define VK_PLAY                (250)
-#define VK_ZOOM                (251)
-#define VK_NONAME              (252)
-#define VK_PA1                 (253)
-#define VK_OEM_CLEAR           (254)
-
-#define VK_OEM_NEC_EQUAL       (146) /* = key on numpad */
-
-#define VK_OEM_1               (186) /* ';:' for US */
-#define VK_OEM_PLUS            (187) /* '+' any country */
-#define VK_OEM_COMMA           (188) /* ',' any country */
-#define VK_OEM_MINUS           (189) /* '-' any country */
-#define VK_OEM_PERIOD          (190) /* '.' any country */
-#define VK_OEM_2               (191) /* '/?' for US */
-#define VK_OEM_3               (192) /* '`~' for US */
-
-#define VK_OEM_4               (219) /* '[{' for US */
-#define VK_OEM_5               (220) /* '\|' for US */
-#define VK_OEM_6               (221) /* ']}' for US */
-#define VK_OEM_7               (222) /* ''"' for US */
-#define VK_OEM_8               (223)
-
-#define VK_OEM_AX              (225) /* AX key on Japanese AX keyboard */
-#define VK_OEM_102             (226) /* <> or | on RT 102-key keyboard */
-#define VK_ICO_HELP            (227) /* Help key on ICO */
-#define VK_ICO_00              (228) /* 00 key on ICO */
 
 #endif /* !__USE_W32API */
 

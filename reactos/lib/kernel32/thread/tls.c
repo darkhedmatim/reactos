@@ -1,4 +1,4 @@
-/* $Id: tls.c,v 1.14 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: tls.c,v 1.12 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,7 +15,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS *****************************************************************/
@@ -47,7 +47,7 @@ TlsAlloc(VOID)
 /*
  * @implemented
  */
-BOOL STDCALL 
+WINBOOL STDCALL 
 TlsFree(DWORD dwTlsIndex)
 {
    if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
@@ -103,7 +103,7 @@ TlsGetValue(DWORD dwTlsIndex)
 /*
  * @implemented
  */
-BOOL STDCALL 
+WINBOOL STDCALL 
 TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue)
 {
    if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)

@@ -1,4 +1,4 @@
-/* $Id: class2.h,v 1.5 2004/02/07 21:36:56 gvg Exp $
+/* $Id: class2.h,v 1.3 2003/07/11 14:07:30 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,14 +7,13 @@
  * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
  */
 
-#ifndef __INCLUDE_DDK_CLASS2_H
-#define __INCLUDE_DDK_CLASS2_H
+#ifndef __STORAGE_INCLUDE_CLASS2_H
+#define __STORAGE_INCLUDE_CLASS2_H
 
 #include "ntddscsi.h"
 #include "srb.h"
 
-#define MAXIMUM_RETRIES    15
-#define RETRY_WAIT         2000000 /* 200 ms in units of 100 ns */
+#define MAXIMUM_RETRIES    4
 
 struct _CLASS_INIT_DATA;
 
@@ -109,13 +108,6 @@ typedef struct _DEVICE_EXTENSION
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
-typedef struct _COMPLETION_CONTEXT
-{
-  PDEVICE_OBJECT DeviceObject;
-  SCSI_REQUEST_BLOCK Srb;
-} COMPLETION_CONTEXT, *PCOMPLETION_CONTEXT;
-
-
 /* FUNCTIONS ****************************************************************/
 
 NTSTATUS STDCALL
@@ -205,9 +197,6 @@ ScsiClassQueryTimeOutRegistryValue(IN PUNICODE_STRING RegistryPath);
 NTSTATUS STDCALL
 ScsiClassReadDriveCapacity(IN PDEVICE_OBJECT DeviceObject);
 
-VOID STDCALL
-ScsiClassReleaseQueue(IN PDEVICE_OBJECT DeviceObject);
-
 NTSTATUS STDCALL
 ScsiClassSendSrbAsynchronous(PDEVICE_OBJECT DeviceObject,
 			     PSCSI_REQUEST_BLOCK Srb,
@@ -228,6 +217,6 @@ ScsiClassSplitRequest(IN PDEVICE_OBJECT DeviceObject,
 		      IN PIRP Irp,
 		      IN ULONG MaximumBytes);
 
-#endif /* __INCLUDE_DDK_CLASS2_H */
+#endif /* __STORAGE_INCLUDE_CLASS2_H */
 
 /* EOF */

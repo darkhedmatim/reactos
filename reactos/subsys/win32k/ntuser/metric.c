@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: metric.c,v 1.23 2004/11/20 16:46:06 weiden Exp $
+/* $Id: metric.c,v 1.14 2003/09/08 18:50:00 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,14 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <win32k/userobj.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/msgqueue.h>
+#include <include/window.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -66,32 +73,28 @@ NtUserGetSystemMetrics(ULONG Index)
     case SM_CXDOUBLECLK:
     case SM_CYDOUBLECLK:
     case SM_SWAPBUTTON:
-    {
-      PSYSTEM_CURSORINFO CurInfo;
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
-                                              KernelMode,
-                                              0,
-                                              &WinStaObject);
+      Status = ValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+                                           KernelMode,
+                                           0,
+                                           &WinStaObject);
       if (!NT_SUCCESS(Status))
         return 0xFFFFFFFF;
-
-      CurInfo = IntGetSysCursorInfo(WinStaObject);
+      
       switch(Index)
       {
         case SM_CXDOUBLECLK:
-          Result = CurInfo->DblClickWidth;
+          Result = WinStaObject->SystemCursor.DblClickWidth;
           break;
         case SM_CYDOUBLECLK:
-          Result = CurInfo->DblClickWidth;
+          Result = WinStaObject->SystemCursor.DblClickWidth;
           break;
         case SM_SWAPBUTTON:
-          Result = (UINT)CurInfo->SwapButtons;
+          Result = (UINT)WinStaObject->SystemCursor.SwapButtons;
           break;
       }
-
+      
       ObDereferenceObject(WinStaObject);
       return Result;
-    }
 
     case SM_CXDRAG:
     case SM_CYDRAG:
@@ -118,15 +121,15 @@ NtUserGetSystemMetrics(ULONG Index)
       return(32);
     case SM_CXICONSPACING:
     case SM_CYICONSPACING:
-      return(64);
+      return(44);
     case SM_CXMAXIMIZED:
       return(NtUserGetSystemMetrics(SM_CXSCREEN) + 8); /* This seems to be 8
                                                           pixels greater than
                                                           the screen width */
     case SM_CYMAXIMIZED:
       return(NtUserGetSystemMetrics(SM_CYSCREEN) - 20); /* This seems to be 20
-                                                           pixels less than
-                                                           the screen height,
+                                                           pixels less than 
+                                                           the screen height, 
                                                            taskbar maybe? */
     case SM_CXMAXTRACK:
       return(NtUserGetSystemMetrics(SM_CYSCREEN) + 12);
@@ -178,7 +181,7 @@ NtUserGetSystemMetrics(ULONG Index)
     case SM_CXSMSIZE:
       return(12);
     case SM_CYSMSIZE:
-      return(14);
+      return(15);
     case SM_CXVSCROLL:
     case SM_CYVSCROLL:
       return(16);
@@ -189,24 +192,21 @@ NtUserGetSystemMetrics(ULONG Index)
     case SM_CYMENU:
       return(19);
     case SM_CYSMCAPTION:
-      return(15);
+      return(16);
     case SM_DBCSENABLED:
     case SM_DEBUG:
-    case SM_MENUDROPALIGNMENT:
+    case SM_MENUDROPALIGNMENT: 
     case SM_MIDEASTENABLED:
       return(0);
-    case SM_MOUSEPRESENT:
+    case SM_MOUSEPRESENT:      
       return(1);
-    case SM_NETWORK:
+    case SM_NETWORK:           
       return(3);
-    case SM_PENWINDOWS:
-    case SM_SECURE:
-    case SM_SHOWSOUNDS:
-    case SM_SLOWMACHINE:
+    case SM_PENWINDOWS:        
+    case SM_SECURE:            
+    case SM_SHOWSOUNDS:        
+    case SM_SLOWMACHINE:       
       return(0);
-    case SM_CMONITORS:
-      return(1);
-
     default:
       return(0xFFFFFFFF);
     }

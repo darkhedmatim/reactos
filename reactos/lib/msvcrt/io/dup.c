@@ -1,6 +1,6 @@
-#include "precomp.h"
+/* $Id: dup.c,v 1.5 2003/07/11 21:57:54 royce Exp $ */
+#include <windows.h>
 #include <msvcrt/io.h>
-#include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
@@ -15,10 +15,8 @@ int _dup(int handle)
   int fd;
   
   hFile = _get_osfhandle(handle);
-	if (hFile == INVALID_HANDLE_VALUE) {
-		__set_errno(EBADF);
-		return -1;
-	}
+  if (hFile == INVALID_HANDLE_VALUE)
+	  return -1;
   result = DuplicateHandle(hProcess, 
 	                   hFile, 
 			   hProcess, 
@@ -26,10 +24,8 @@ int _dup(int handle)
 			   0, 
 			   TRUE, 
 			   DUPLICATE_SAME_ACCESS);
-	if (result == FALSE) {
-		_dosmaperr(GetLastError());
-		return -1;
-	}
+  if (result == FALSE)
+	  return -1;
 
   fd = __fileno_alloc(hFile, __fileno_getmode(handle));
   if (fd < 0)

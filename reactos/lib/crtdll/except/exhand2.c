@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <ntos/except.h>
 
 
@@ -17,8 +17,6 @@ MsvcrtDebug(ULONG Value)
     //DbgPrint("MsvcrtDebug 0x%.08x\n", Value);
 }
 
-struct _EXCEPTION_RECORD;
-struct _CONTEXT;
 
 /*
  * @unimplemented

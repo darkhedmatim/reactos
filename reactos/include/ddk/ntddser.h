@@ -3,7 +3,7 @@
  *
  * Serial port driver interface
  *
- * This file is part of the w32api package.
+ * This file is part of the MinGW package.
  *
  * Contributors:
  *   Created by Casper S. Hornstrup <chorns@users.sourceforge.net>
@@ -15,7 +15,7 @@
  *
  * This code is distributed in the hope that it will be useful but
  * WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
- * DISCLAIMED. This includes but is not limited to warranties of
+ * DISCLAMED. This includes but is not limited to warranties of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  */

@@ -1,4 +1,4 @@
-/* $Id: error.c,v 1.23 2004/10/24 12:36:12 weiden Exp $
+/* $Id: error.c,v 1.20 2003/08/07 04:03:23 royce Exp $
  *
  * reactos/lib/kernel32/misc/error.c
  *
@@ -7,7 +7,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /*
@@ -37,7 +37,7 @@ GetLastError (VOID)
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 Beep (DWORD dwFreq, DWORD dwDuration)
 {
@@ -45,7 +45,7 @@ Beep (DWORD dwFreq, DWORD dwDuration)
     BEEP_SET_PARAMETERS BeepSetParameters;
     DWORD dwReturned;
 
-    hBeep = CreateFileW(L"\\\\.\\Beep",
+    hBeep = CreateFileA("\\\\.\\Beep",
                        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                        0,
                        NULL,

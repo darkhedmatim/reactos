@@ -1,10 +1,8 @@
 #ifndef __INCLUDE_DDK_KDFUNCS_H
 #define __INCLUDE_DDK_KDFUNCS_H
-/* $Id: kdfuncs.h,v 1.2 2003/12/30 18:34:58 fireball Exp $ */
+/* $Id: kdfuncs.h,v 1.1 2003/06/07 10:14:39 chorns Exp $ */
 
 #ifndef __USE_W32API
-
-#ifdef __GNUC__
 
 #if defined(__NTOSKRNL__)
 extern BOOLEAN KdDebuggerEnabled __declspec(dllexport);
@@ -13,19 +11,6 @@ extern BOOLEAN KdDebuggerNotPresent __declspec(dllexport);
 extern BOOLEAN KdDebuggerEnabled __declspec(dllimport);
 extern BOOLEAN KdDebuggerNotPresent __declspec(dllimport);
 #endif
-
-#else /* __GNUC__ */
-/* Microsft-style */
-
-#if defined(__NTOSKRNL__)
-extern __declspec(dllexport) BOOLEAN KdDebuggerEnabled;
-extern __declspec(dllexport) BOOLEAN KdDebuggerNotPresent;
-#else
-extern __declspec(dllimport) BOOLEAN KdDebuggerEnabled;
-extern __declspec(dllimport) BOOLEAN KdDebuggerNotPresent;
-#endif
-
-#endif /* __GNUC__ */
 
 #endif /* __USE_W32API */
 

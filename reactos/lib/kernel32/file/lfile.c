@@ -1,4 +1,4 @@
-/* $Id: lfile.c,v 1.11 2004/10/30 22:18:17 weiden Exp $
+/* $Id: lfile.c,v 1.9 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -10,9 +10,6 @@
  */
 
 #include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
 
 
 /*
@@ -40,6 +37,25 @@ _hread(
 	}
 	return NumberOfBytesRead;
 }
+
+
+/*
+//19990828.EA: aliased in DEF
+UINT
+STDCALL
+_lread (
+	HFILE	fd,
+	LPVOID	buffer,
+	UINT	count
+	)
+{
+	return _hread(
+		 fd,
+		 buffer,
+		 count
+		 );
+}
+*/
 
 
 /*
@@ -78,6 +94,22 @@ _hwrite (
 
 
 /*
+//19990828.EA: aliased in DEF
+
+UINT
+STDCALL
+_lwrite(
+	HFILE	hFile,
+	LPCSTR	lpBuffer,
+	UINT	uBytes
+	)
+{
+	return _hwrite(hFile,lpBuffer,uBytes);
+}
+*/
+
+
+/*
  * @implemented
  */
 HFILE
@@ -108,6 +140,7 @@ _lopen (
 	else if ((iReadWrite & OF_SHARE_EXCLUSIVE) == OF_SHARE_EXCLUSIVE)
 		dwShareMode = 0;
 
+	SetLastError (ERROR_SUCCESS);
 	return (HFILE) CreateFileA(
 			lpPathName,
 			dwAccessMask,
@@ -129,13 +162,25 @@ _lcreat (
 	int	iAttribute
 	)
 {
+
+	DWORD FileAttributes = 0;
+	
+	if (  iAttribute == 0 )
+		FileAttributes |= FILE_ATTRIBUTE_NORMAL;
+	else if (  iAttribute == 1 )
+		FileAttributes |= FILE_ATTRIBUTE_READONLY;
+	else if (  iAttribute == 2 )
+		FileAttributes |= FILE_ATTRIBUTE_HIDDEN;
+	else if (  iAttribute == 4 )
+		FileAttributes |= FILE_ATTRIBUTE_SYSTEM;
+
 	return (HFILE) CreateFileA(
 			lpPathName,
 			GENERIC_ALL,
 			(FILE_SHARE_READ | FILE_SHARE_WRITE),
 			NULL,
 			CREATE_ALWAYS,
-			iAttribute & FILE_ATTRIBUTE_VALID_FLAGS,
+			iAttribute,
 			NULL);
 }
 

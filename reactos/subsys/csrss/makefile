@@ -1,30 +1,25 @@
-# $Id: makefile,v 1.31 2004/09/10 23:29:28 sedwards Exp $
+# $Id: makefile,v 1.22 2003/08/07 04:03:24 royce Exp $
 
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = program
-#TARGET_TYPE = proglib
+#TARGET_TYPE = program
+TARGET_TYPE = proglib
 
 TARGET_APPTYPE = native
 
 TARGET_NAME = csrss
 
-TARGET_SDKLIBS = rosrtl.a ntdll.a 
-
 TARGET_INSTALLDIR = system32
 
-TARGET_CFLAGS = -D__NTAPP__ -D__USE_W32API -Wall -Werror -Iinclude
-
-TARGET_LFLAGS = -nostdlib
+TARGET_CFLAGS = -D__NTAPP__
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D__USE_W32API -DWINVER=0x0600 -D_WIN32_WINNT=0x0501
-
-SUBDIRS = win32csr
+TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 OBJECTS_API = \
   api/process.o \
   api/wapi.o \
+  api/conio.o \
   api/handle.o \
   api/user.o
 
@@ -32,18 +27,15 @@ OBJECTS_MISC = \
   $(TARGET_NAME).o \
   init.o \
   print.o \
-  video.o
+  video.o \
+  win32k.o
 
 TARGET_OBJECTS = \
   $(OBJECTS_API) \
   $(OBJECTS_MISC)
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
 
 # EOF

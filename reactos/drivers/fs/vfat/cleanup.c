@@ -1,11 +1,10 @@
-/* $Id: cleanup.c,v 1.16 2004/12/05 16:31:50 gvg Exp $
+/* $Id: cleanup.c,v 1.13 2003/07/24 20:52:58 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/cleanup.c
+ * FILE:             services/fs/vfat/cleanup.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
  */
 
 /* INCLUDES *****************************************************************/
@@ -26,39 +25,32 @@ VfatCleanupFile(PVFAT_IRP_CONTEXT IrpContext)
  */
 {
   PVFATFCB pFcb;
+  PDEVICE_EXTENSION DeviceExt = IrpContext->DeviceExt;
   PFILE_OBJECT FileObject = IrpContext->FileObject;
   
   DPRINT("VfatCleanupFile(DeviceExt %x, FileObject %x)\n",
-	 IrpContext->DeviceExt, FileObject);
+	 DeviceExt, FileObject);
   
   /* FIXME: handle file/directory deletion here */
   pFcb = (PVFATFCB) FileObject->FsContext;
   if (pFcb)
-    {
-      if (!(*pFcb->Attributes & FILE_ATTRIBUTE_DIRECTORY) &&
-          FsRtlAreThereCurrentFileLocks(&pFcb->FileLock))
-       {
-         /* remove all locks this process have on this file */
-         FsRtlFastUnlockAll(&pFcb->FileLock,
-                            FileObject,
-                            IoGetRequestorProcess(IrpContext->Irp),
-                            NULL);
-       }
-
-     if (pFcb->Flags & FCB_IS_DIRTY)
-       {
-	 VfatUpdateEntry (pFcb);
-       }
+  {
+     if (!(pFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY) &&
+        FsRtlAreThereCurrentFileLocks(&pFcb->FileLock))
+     {
+        /* remove all locks this process have on this file */
+        FsRtlFastUnlockAll(&pFcb->FileLock,
+                           FileObject,
+                           IoGetRequestorProcess(IrpContext->Irp),
+                           NULL);
+     }
 
      /* Uninitialize file cache if initialized for this file object. */
      if (FileObject->PrivateCacheMap)
-       {
-         CcRosReleaseFileCache (FileObject);
-       }
-
-     pFcb->OpenHandleCount--;
-     IoRemoveShareAccess(FileObject, &pFcb->FCBShareAccess);
-    }
+     {
+        CcRosReleaseFileCache (FileObject);
+     }
+  }
   return STATUS_SUCCESS;
 }
 
@@ -71,17 +63,17 @@ NTSTATUS VfatCleanup (PVFAT_IRP_CONTEXT IrpContext)
 
    DPRINT("VfatCleanup(DeviceObject %x, Irp %x)\n", IrpContext->DeviceObject, IrpContext->Irp);
 
-   if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
-     {
-       Status = STATUS_SUCCESS;
-       goto ByeBye;
-     }
+  if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
+    {
+      Status = STATUS_SUCCESS;
+      goto ByeBye;
+    }
 
    if (!ExAcquireResourceExclusiveLite (&IrpContext->DeviceExt->DirResource,
                                         (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT)))
-     {
-       return VfatQueueRequest (IrpContext);
-     }
+   {
+     return VfatQueueRequest (IrpContext);
+   }
 
    Status = VfatCleanupFile(IrpContext);
 

@@ -1,4 +1,4 @@
-/* $Id: cmdline.c,v 1.19 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: cmdline.c,v 1.17 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS ******************************************************************/
@@ -22,7 +22,7 @@
 static UNICODE_STRING CommandLineStringW;
 static ANSI_STRING CommandLineStringA;
 
-static BOOL bCommandLineInitialized = FALSE;
+static WINBOOL bCommandLineInitialized = FALSE;
 
 
 /* FUNCTIONS ****************************************************************/

@@ -83,10 +83,10 @@ typedef struct _DC
   HSURF  FillPatternSurfaces[HS_DDI_MAX];
   PGDIINFO  GDIInfo;
   PDEVINFO  DevInfo;
-  HDEV   GDIDevice;
+  HSURF  Surface;
 
   DRIVER_FUNCTIONS  DriverFunctions;
-  UNICODE_STRING    DriverName;
+  PWSTR  DriverName;
   HANDLE  DeviceDriver;
 
   INT  wndOrgX;          /* Window origin */
@@ -100,33 +100,10 @@ typedef struct _DC
 
   CLIPOBJ *CombinedClip;
 
-  XLATEOBJ *XlateBrush;
-  XLATEOBJ *XlatePen;
-
   INT  saveLevel;
 
   WIN_DC_INFO  w;
 } DC, *PDC;
-
-typedef struct _GDIPOINTER /* should stay private to ENG */
-{
-  /* private GDI pointer handling information, required for software emulation */
-  BOOL Enabled;
-  POINTL Pos;
-  SIZEL Size;
-  POINTL HotSpot;
-  XLATEOBJ *XlateObject;
-  HSURF ColorSurface;
-  HSURF MaskSurface;
-  HSURF SaveSurface;
-  
-  /* public pointer information */
-  RECTL Exclude; /* required publicly for SPS_ACCEPT_EXCLUDE */
-  PGD_MOVEPOINTER MovePointer;
-  ULONG Status;
-  BOOL SafetySwitch;
-  UINT SafetyRemoveCount;
-} GDIPOINTER, *PGDIPOINTER;
 
 typedef struct
 {
@@ -137,9 +114,7 @@ typedef struct
   GDIINFO GDIInfo;
   DEVINFO DevInfo;
   DRIVER_FUNCTIONS DriverFunctions;
-  PFILE_OBJECT VideoFileObject;
-
-  GDIPOINTER Pointer;
+  HANDLE DisplayDevice;
 } GDIDEVICE;
 
 /*  Internal functions  */
@@ -147,17 +122,16 @@ typedef struct
 #define  DC_LockDc(hDC)  \
   ((PDC) GDIOBJ_LockObj ((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC))
 #define  DC_UnlockDc(hDC)  \
-  GDIOBJ_UnlockObj ((HGDIOBJ) hDC)
+  GDIOBJ_UnlockObj ((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC)
 
 HDC  FASTCALL RetrieveDisplayHDC(VOID);
-HDC  FASTCALL DC_AllocDC(PUNICODE_STRING  Driver);
+HDC  FASTCALL DC_AllocDC(LPCWSTR  Driver);
 VOID FASTCALL DC_InitDC(HDC  DCToInit);
-HDC  FASTCALL DC_FindOpenDC(PUNICODE_STRING  Driver);
+HDC  FASTCALL DC_FindOpenDC(LPCWSTR  Driver);
 VOID FASTCALL DC_FreeDC(HDC  DCToFree);
-BOOL INTERNAL_CALL DC_Cleanup(PVOID ObjectBody);
 HDC  FASTCALL DC_GetNextDC (PDC pDC);
 VOID FASTCALL DC_SetNextDC (PDC pDC, HDC hNextDC);
-VOID FASTCALL DC_SetOwnership(HDC DC, PEPROCESS Owner);
+BOOL FASTCALL DC_InternalDeleteDC( PDC DCToDelete );
 
 VOID FASTCALL DC_UpdateXforms(PDC  dc);
 BOOL FASTCALL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
@@ -166,14 +140,14 @@ BOOL FASTCALL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
 
 BOOL STDCALL  NtGdiCancelDC(HDC  hDC);
 HDC STDCALL  NtGdiCreateCompatableDC(HDC  hDC);
-HDC STDCALL  NtGdiCreateDC(PUNICODE_STRING Driver,
-                           PUNICODE_STRING Device,
-                           PUNICODE_STRING Output,
-                           CONST PDEVMODEW  InitData);
-HDC STDCALL NtGdiCreateIC(PUNICODE_STRING Driver,
-                          PUNICODE_STRING Device,
-                          PUNICODE_STRING Output,
-                          CONST PDEVMODEW  DevMode);
+HDC STDCALL  NtGdiCreateDC(LPCWSTR  Driver,
+                          LPCWSTR  Device,
+                          LPCWSTR  Output,
+                          CONST PDEVMODEW  InitData);
+HDC STDCALL NtGdiCreateIC(LPCWSTR  Driver,
+                         LPCWSTR  Device,
+                         LPCWSTR  Output,
+                         CONST PDEVMODEW  DevMode);
 BOOL STDCALL  NtGdiDeleteDC(HDC  hDC);
 BOOL STDCALL  NtGdiDeleteObject(HGDIOBJ hObject);
 INT STDCALL  NtGdiDrawEscape(HDC  hDC,
@@ -181,10 +155,8 @@ INT STDCALL  NtGdiDrawEscape(HDC  hDC,
                             INT  cbInput,
                             LPCSTR  lpszInData);
 
-#ifndef __USE_W32API
 /* FIXME: this typedef should go somewhere else...  */
 typedef VOID (*GOBJENUMPROC)(PVOID, LPARAM);
-#endif
 
 INT STDCALL  NtGdiEnumObjects(HDC  hDC,
                              INT  ObjectType,

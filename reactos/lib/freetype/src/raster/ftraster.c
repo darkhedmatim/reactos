@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    The FreeType glyph rasterizer (body).                                */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003 by                                     */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -251,16 +251,6 @@
   typedef unsigned char   Byte, *PByte;
   typedef char            Bool;
 
-
-  typedef union  Alignment_
-  {
-    long    l;
-    void*   p;
-    void  (*f)(void);
-
-  } Alignment, *PAlignment;
-
-
   typedef struct  TPoint_
   {
     Long  x;
@@ -323,7 +313,7 @@
 
 
 #define AlignProfileSize \
-  ( ( sizeof ( TProfile ) + sizeof ( Alignment ) - 1 ) / sizeof ( long ) )
+          ( ( sizeof ( TProfile ) + sizeof ( long ) - 1 ) / sizeof ( long ) )
 
 
 #ifdef TT_STATIC_RASTER
@@ -697,8 +687,8 @@
   static Bool
   Insert_Y_Turn( RAS_ARGS Int  y )
   {
-    PLong  y_turns;
-    Int    y2, n;
+    PLong     y_turns;
+    Int       y2, n;
 
 
     n       = ras.numTurns - 1;
@@ -720,12 +710,12 @@
 
     if ( n < 0 )
     {
-      ras.maxBuff--;
       if ( ras.maxBuff <= ras.top )
       {
         ras.error = Raster_Err_Overflow;
         return FAILURE;
       }
+      ras.maxBuff--;
       ras.numTurns++;
       ras.sizeBuff[-ras.numTurns] = y;
     }
@@ -927,7 +917,7 @@
       /* Take care: miny-y1 can be a very large value; we use     */
       /*            a slow MulDiv function to avoid clipping bugs */
       x1 += SMulDiv( Dx, miny - y1, Dy );
-      e1  = (Int)TRUNC( miny );
+      e1  = TRUNC( miny );
       f1  = 0;
     }
     else

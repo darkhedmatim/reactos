@@ -31,8 +31,7 @@
  *     - All the routines in this file are PASSIVE_LEVEL only, and all memory is PagedPool
  */
 
-#include <roscfg.h>
-#include "ndissys.h"
+#include <miniport.h>
 
 #define NDIS_VERSION 0x00040000          /* the version of NDIS we claim to be to miniport drivers */
 #define PARAMETERS_KEY L"Parameters"     /* The parameters subkey under the device-specific key */
@@ -169,19 +168,21 @@ NdisOpenConfiguration(
  *     I think this is the parameters key; please verify.
  */
 {
+    OBJECT_ATTRIBUTES KeyAttributes;
+    UNICODE_STRING KeyNameU;
     HANDLE KeyHandle;
     PMINIPORT_CONFIGURATION_CONTEXT ConfigurationContext;
-    PNDIS_WRAPPER_CONTEXT WrapperContext = (PNDIS_WRAPPER_CONTEXT)WrapperConfigurationContext;
-    HANDLE RootKeyHandle = WrapperContext->RegistryHandle;
+    HANDLE RootKeyHandle = (HANDLE)WrapperConfigurationContext;
 
     NDIS_DbgPrint(MAX_TRACE, ("Called\n"));
 
-    *Status = ZwDuplicateObject(NtCurrentProcess(), RootKeyHandle,
-                                NtCurrentProcess(), &KeyHandle, 0, FALSE,
-                                DUPLICATE_SAME_ACCESS);
-    if(!NT_SUCCESS(*Status))
+    RtlInitUnicodeString(&KeyNameU, PARAMETERS_KEY);
+    InitializeObjectAttributes(&KeyAttributes, &KeyNameU, OBJ_CASE_INSENSITIVE, RootKeyHandle, NULL);
+
+    *Status = ZwOpenKey(&KeyHandle, KEY_ALL_ACCESS, &KeyAttributes);
+    if(*Status != STATUS_SUCCESS)
     {
-        NDIS_DbgPrint(MID_TRACE, ("Failed to open registry configuration for this miniport\n"));
+      NDIS_DbgPrint(MID_TRACE, ("Failed to open registry configuration for this miniport\n"));
         *ConfigurationHandle = NULL;
         *Status = NDIS_STATUS_FAILURE;
         return;
@@ -333,7 +334,7 @@ NdisReadConfiguration(
         wcslen(L"Environment") == Keyword->Length/sizeof(WCHAR)
     )
     {
-        *ParameterValue = ExAllocatePool(PagedPool, sizeof(NDIS_CONFIGURATION_PARAMETER));
+        *ParameterValue = ExAllocatePool(PagedPool, sizeof(ULONG));
         if(!*ParameterValue)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
@@ -345,7 +346,6 @@ NdisReadConfiguration(
         if(!MiniportResource)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
-            ExFreePool(*ParameterValue);
             *ParameterValue = NULL;
             *Status = NDIS_STATUS_RESOURCES;
             return;
@@ -372,7 +372,7 @@ NdisReadConfiguration(
         wcslen(L"ProcessorType") == Keyword->Length/sizeof(WCHAR)
     )
     {
-        *ParameterValue = ExAllocatePool(PagedPool, sizeof(NDIS_CONFIGURATION_PARAMETER));
+        *ParameterValue = ExAllocatePool(PagedPool, sizeof(ULONG));
         if(!*ParameterValue)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
@@ -384,7 +384,6 @@ NdisReadConfiguration(
         if(!MiniportResource)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
-            ExFreePool(*ParameterValue);
             *ParameterValue = NULL;
             *Status = NDIS_STATUS_RESOURCES;
             return;
@@ -408,7 +407,7 @@ NdisReadConfiguration(
         wcslen(L"NdisVersion") == Keyword->Length/sizeof(WCHAR)
     )
     {
-        *ParameterValue = ExAllocatePool(PagedPool, sizeof(NDIS_CONFIGURATION_PARAMETER));
+        *ParameterValue = ExAllocatePool(PagedPool, sizeof(ULONG));
         if(!*ParameterValue)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
@@ -420,7 +419,6 @@ NdisReadConfiguration(
         if(!MiniportResource)
         {
             NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
-            ExFreePool(*ParameterValue);
             *ParameterValue = NULL;
             *Status = NDIS_STATUS_RESOURCES;
             return;
@@ -436,8 +434,6 @@ NdisReadConfiguration(
         (*ParameterValue)->ParameterData.IntegerData = NDIS_VERSION;
         *Status = NDIS_STATUS_SUCCESS;
 
-        NDIS_DbgPrint(MAX_TRACE,("ParameterType = %0x%x, ParameterValue = 0x%x\n",
-            (*ParameterValue)->ParameterType, (*ParameterValue)->ParameterData.IntegerData));
         return;
     }
 
@@ -863,7 +859,7 @@ NdisOpenConfigurationKeyByName(
     NDIS_HANDLE RegKeyHandle;
 
     InitializeObjectAttributes(&KeyAttributes, KeyName, OBJ_CASE_INSENSITIVE, ConfigurationHandle, 0);
-    *Status = ZwOpenKey(&RegKeyHandle, KEY_ALL_ACCESS, &KeyAttributes);
+    *Status = ZwOpenKey(RegKeyHandle, KEY_ALL_ACCESS, &KeyAttributes);
 
     if(*Status != STATUS_SUCCESS)
     {

@@ -1,4 +1,4 @@
-/* $Id: iocompl.c,v 1.17 2004/12/06 14:37:11 gdalsnes Exp $
+/* $Id: iocompl.c,v 1.11 2003/09/21 14:02:29 mf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,9 +11,8 @@
 
 #include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
 
+#include <kernel32/error.h>
 
 /*
  * @implemented
@@ -23,7 +22,7 @@ STDCALL
 CreateIoCompletionPort(
     HANDLE FileHandle,
     HANDLE ExistingCompletionPort,
-    ULONG_PTR CompletionKey,
+    DWORD CompletionKey,
     DWORD NumberOfConcurrentThreads
     )
 {
@@ -34,7 +33,7 @@ CreateIoCompletionPort(
 
    if ( ExistingCompletionPort == NULL && FileHandle == INVALID_HANDLE_VALUE ) 
    {
-      SetLastError(ERROR_INVALID_PARAMETER);
+      SetLastErrorByStatus (STATUS_INVALID_PARAMETER);
       return FALSE;
    }
 
@@ -60,13 +59,8 @@ CreateIoCompletionPort(
    
    if ( FileHandle != INVALID_HANDLE_VALUE ) 
    {
-#ifdef __USE_W32API
-      CompletionInformation.Port = CompletionPort;
-      CompletionInformation.Key  = (PVOID)CompletionKey;
-#else
       CompletionInformation.IoCompletionHandle = CompletionPort;
       CompletionInformation.CompletionKey  = CompletionKey;
-#endif
 
       errCode = NtSetInformationFile(FileHandle, 
                                      &IoStatusBlock,
@@ -93,12 +87,12 @@ CreateIoCompletionPort(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetQueuedCompletionStatus(
    HANDLE CompletionHandle,
    LPDWORD lpNumberOfBytesTransferred,
-   PULONG_PTR lpCompletionKey,
+   LPDWORD lpCompletionKey,
    LPOVERLAPPED *lpOverlapped,
    DWORD dwMilliseconds
    )
@@ -109,22 +103,30 @@ GetQueuedCompletionStatus(
 
    if (!lpNumberOfBytesTransferred||!lpCompletionKey||!lpOverlapped)
    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
+      return ERROR_INVALID_PARAMETER;
    }
 
    if (dwMilliseconds != INFINITE)
    {
-      Interval.QuadPart = RELATIVE_TIME(MILLIS_TO_100NS(dwMilliseconds));
+      /*
+       * System time units are 100 nanoseconds (a nanosecond is a billionth of
+       * a second).
+       */
+      Interval.QuadPart = -((ULONGLONG)dwMilliseconds * 10000);
    }  
+   else
+   {
+      /* Approximately 292000 years hence */
+      Interval.QuadPart = -0x7FFFFFFFFFFFFFFFLL;
+   }
 
    errCode = NtRemoveIoCompletion(CompletionHandle,
-                                  (PVOID*)lpCompletionKey,
-                                  (PVOID*)lpNumberOfBytesTransferred,
+                                  lpCompletionKey,
+                                  lpNumberOfBytesTransferred,
                                   &IoStatus,
-                                  dwMilliseconds == INFINITE ? NULL : &Interval);
+                                  &Interval);
 
-   if (!NT_SUCCESS(errCode)) {
+   if (!NT_SUCCESS(errCode) ) {
       *lpOverlapped = NULL;
       SetLastErrorByStatus(errCode);
       return FALSE;
@@ -134,7 +136,7 @@ GetQueuedCompletionStatus(
 
    if (!NT_SUCCESS(IoStatus.Status)){
       //failed io operation
-      SetLastErrorByStatus(IoStatus.Status);
+      SetLastErrorByStatus (IoStatus.Status);
       return FALSE;
    }
 
@@ -146,7 +148,7 @@ GetQueuedCompletionStatus(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 PostQueuedCompletionStatus(
    HANDLE CompletionHandle,
@@ -158,10 +160,10 @@ PostQueuedCompletionStatus(
    NTSTATUS errCode;
 
    errCode = NtSetIoCompletion(CompletionHandle,  
-                               (PVOID)dwCompletionKey, 
-                               (PVOID)lpOverlapped,//CompletionValue 
-                               STATUS_SUCCESS,                         //IoStatusBlock->Status
-                               dwNumberOfBytesTransferred);     //IoStatusBlock->Information
+                               dwCompletionKey, 
+                               dwNumberOfBytesTransferred,//CompletionValue 
+                               0,                         //IoStatusBlock->Status
+                               (ULONG)lpOverlapped );     //IoStatusBlock->Information
 
    if ( !NT_SUCCESS(errCode) ) 
    {

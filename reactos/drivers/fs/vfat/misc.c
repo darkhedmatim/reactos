@@ -1,8 +1,8 @@
-/* $Id: misc.c,v 1.15 2004/12/05 16:31:51 gvg Exp $
+/* $Id: misc.c,v 1.10 2003/07/24 20:52:58 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/misc.c
+ * FILE:             services/fs/vfat/misc.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Hartmut Birr
  *
@@ -30,8 +30,8 @@ NTSTATUS VfatLockControl(
    NTSTATUS Status;
 
    DPRINT("VfatLockControl(IrpContext %x)\n", IrpContext);
-
-   ASSERT(IrpContext);
+ 
+   assert(IrpContext);
 
    Fcb = (PVFATFCB)IrpContext->FileObject->FsContext;
 
@@ -41,7 +41,7 @@ NTSTATUS VfatLockControl(
       goto Fail;
    }
 
-   if (*Fcb->Attributes & FILE_ATTRIBUTE_DIRECTORY)
+   if (Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY)
    {
       Status = STATUS_INVALID_PARAMETER;
       goto Fail;
@@ -67,7 +67,7 @@ NTSTATUS VfatDispatchRequest (
 {
    DPRINT ("VfatDispatchRequest (IrpContext %x), MajorFunction %x\n", IrpContext, IrpContext->MajorFunction);
 
-   ASSERT(IrpContext);
+   assert (IrpContext);
 
    switch (IrpContext->MajorFunction)
    {
@@ -115,8 +115,8 @@ NTSTATUS STDCALL VfatBuildRequest (
 
    DPRINT ("VfatBuildRequest (DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-   ASSERT(DeviceObject);
-   ASSERT(Irp);
+   assert (DeviceObject);
+   assert (Irp);
    IrpContext = VfatAllocateIrpContext(DeviceObject, Irp);
    if (IrpContext == NULL)
    {
@@ -135,19 +135,17 @@ NTSTATUS STDCALL VfatBuildRequest (
          DPRINT1("Vfat is entered at irql = %d\n", KeGetCurrentIrql());
       }
       Status = VfatDispatchRequest (IrpContext);
-      
       if (KeGetCurrentIrql() <= PASSIVE_LEVEL)
       {
          FsRtlExitFileSystem();
       }
-      
    }
    return Status;
 }
 
 VOID VfatFreeIrpContext (PVFAT_IRP_CONTEXT IrpContext)
 {
-   ASSERT(IrpContext);
+   assert (IrpContext);
    ExFreeToNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList, IrpContext);
 }
 
@@ -158,22 +156,21 @@ PVFAT_IRP_CONTEXT VfatAllocateIrpContext(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    UCHAR MajorFunction;
    DPRINT ("VfatAllocateIrpContext(DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-   ASSERT(DeviceObject);
-   ASSERT(Irp);
+   assert (DeviceObject);
+   assert (Irp);
 
    IrpContext = ExAllocateFromNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList);
    if (IrpContext)
    {
-      RtlZeroMemory(IrpContext, sizeof(VFAT_IRP_CONTEXT));
+      RtlZeroMemory(IrpContext, sizeof(IrpContext));
       IrpContext->Irp = Irp;
       IrpContext->DeviceObject = DeviceObject;
       IrpContext->DeviceExt = DeviceObject->DeviceExtension;
       IrpContext->Stack = IoGetCurrentIrpStackLocation(Irp);
-      ASSERT(IrpContext->Stack);
+      assert (IrpContext->Stack);
       MajorFunction = IrpContext->MajorFunction = IrpContext->Stack->MajorFunction;
       IrpContext->MinorFunction = IrpContext->Stack->MinorFunction;
       IrpContext->FileObject = IrpContext->Stack->FileObject;
-      IrpContext->Flags = 0;
       if (MajorFunction == IRP_MJ_FILE_SYSTEM_CONTROL ||
           MajorFunction == IRP_MJ_DEVICE_CONTROL ||
           MajorFunction == IRP_MJ_SHUTDOWN)
@@ -186,29 +183,25 @@ PVFAT_IRP_CONTEXT VfatAllocateIrpContext(PDEVICE_OBJECT DeviceObject, PIRP Irp)
       {
          IrpContext->Flags |= IRPCONTEXT_CANWAIT;
       }
-      KeInitializeEvent(&IrpContext->Event, NotificationEvent, FALSE);
-      IrpContext->RefCount = 0;
    }
    return IrpContext;
 }
 
 VOID STDCALL VfatDoRequest (PVOID IrpContext)
 {
-   InterlockedDecrement(&QueueCount);
-   DPRINT ("VfatDoRequest (IrpContext %x), MajorFunction %x, %d\n", IrpContext, ((PVFAT_IRP_CONTEXT)IrpContext)->MajorFunction, QueueCount);
-   FsRtlEnterFileSystem();
+   ULONG Count = InterlockedDecrement(&QueueCount);
+   DPRINT ("VfatDoRequest (IrpContext %x), MajorFunction %x, %d\n", IrpContext, ((PVFAT_IRP_CONTEXT)IrpContext)->MajorFunction, Count);
    VfatDispatchRequest((PVFAT_IRP_CONTEXT)IrpContext);
-   FsRtlExitFileSystem();
 
 }
 
 NTSTATUS VfatQueueRequest(PVFAT_IRP_CONTEXT IrpContext)
 {
-   InterlockedIncrement(&QueueCount);
-   DPRINT ("VfatQueueRequest (IrpContext %x), %d\n", IrpContext, QueueCount);
+   ULONG Count = InterlockedIncrement(&QueueCount);
+   DPRINT ("VfatQueueRequest (IrpContext %x), %d\n", IrpContext, Count);
 
-   ASSERT(IrpContext != NULL);
-   ASSERT(IrpContext->Irp != NULL);
+   assert (IrpContext != NULL);
+   assert (IrpContext->Irp != NULL);
 
    IrpContext->Flags |= IRPCONTEXT_CANWAIT;
    IoMarkIrpPending (IrpContext->Irp);
@@ -219,7 +212,7 @@ NTSTATUS VfatQueueRequest(PVFAT_IRP_CONTEXT IrpContext)
 
 PVOID VfatGetUserBuffer(IN PIRP Irp)
 {
-   ASSERT(Irp);
+   assert(Irp);
 
    if (Irp->MdlAddress)
    {
@@ -233,7 +226,7 @@ PVOID VfatGetUserBuffer(IN PIRP Irp)
 
 NTSTATUS VfatLockUserBuffer(IN PIRP Irp, IN ULONG Length, IN LOCK_OPERATION Operation)
 {
-   ASSERT(Irp);
+   assert(Irp);
 
    if (Irp->MdlAddress)
    {

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: objects.h,v 1.33 2004/12/12 01:40:36 weiden Exp $
+/* $Id: objects.h,v 1.18 2003/08/28 12:35:59 gvg Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -29,10 +29,11 @@
 #ifndef __ENG_OBJECTS_H
 #define __ENG_OBJECTS_H
 
-#include <ft2build.h>
 #include <freetype/freetype.h>
 
 /* Structure of internal gdi objects that win32k manages for ddi engine:
+   |---------------------------------|
+   |           EngObj                |
    |---------------------------------|
    |         Public part             |
    |      accessed from engine       |
@@ -43,8 +44,28 @@
 
 ---------------------------------------------------------------------------*/
 
+typedef struct _ENGOBJ {
+	ULONG  hObj;
+	ULONG  InternalSize;
+	ULONG  UserSize;
+}ENGOBJ, *PENGOBJ;
+
+
+
+typedef struct _BRUSHGDI {
+  ENGOBJ 		Header;
+  BRUSHOBJ	BrushObj;
+} BRUSHGDI;
+
 typedef struct _CLIPGDI {
-  CLIPOBJ ClipObj;
+  ENGOBJ 		Header;
+  CLIPOBJ		ClipObj;
+  /* ei what were these for?
+  ULONG NumRegionRects;
+  ULONG NumIntersectRects;
+  RECTL *RegionRects;
+  RECTL *IntersectRects;
+  */
   ULONG EnumPos;
   ULONG EnumOrder;
   ULONG EnumMax;
@@ -58,11 +79,12 @@ typedef struct _DRVFUNCTIONSGDI {
 } DRVFUNCTIONSGDI;
 
 typedef struct _FLOATGDI {
-  ULONG Dummy;
+
 } FLOATGDI;
 
 typedef struct _FONTGDI {
-  FONTOBJ FontObj;
+  ENGOBJ 		Header;
+  FONTOBJ		FontObj;
 
   LPCWSTR Filename;
   FT_Face face;
@@ -70,91 +92,137 @@ typedef struct _FONTGDI {
 } FONTGDI, *PFONTGDI;
 
 typedef struct _PATHGDI {
-  PATHOBJ PathObj;
+  ENGOBJ 		Header;
+  PATHOBJ		PathObj;
 } PATHGDI;
 
 typedef struct _STRGDI {
-  STROBJ StrObj;
+  ENGOBJ 		Header;
+  STROBJ		StrObj;
 } STRGDI;
 
-typedef BOOL STDCALL (*PFN_BitBlt)(SURFOBJ *, SURFOBJ *, SURFOBJ *, CLIPOBJ *,
-                           XLATEOBJ *, RECTL *, POINTL *, POINTL *,
-                           BRUSHOBJ *, POINTL *, ROP4);
+typedef BOOL STDCALL (*PFN_BitBlt)(PSURFOBJ, PSURFOBJ, PSURFOBJ, PCLIPOBJ,
+                           PXLATEOBJ, PRECTL, PPOINTL, PPOINTL,
+                           PBRUSHOBJ, PPOINTL, ROP4);
 
-typedef BOOL STDCALL (*PFN_TransparentBlt)(SURFOBJ *, SURFOBJ *, CLIPOBJ *, XLATEOBJ *, RECTL *, RECTL *, ULONG, ULONG);
+typedef BOOL STDCALL (*PFN_TransparentBlt)(PSURFOBJ, PSURFOBJ, PCLIPOBJ, PXLATEOBJ, PRECTL, PRECTL, ULONG, ULONG);
 
-typedef BOOL STDCALL (*PFN_StretchBlt)(SURFOBJ *, SURFOBJ *, SURFOBJ *, CLIPOBJ *,
-                               XLATEOBJ *, COLORADJUSTMENT *, POINTL *,
-                               RECTL *, RECTL *, PPOINT, ULONG);
+typedef BOOL STDCALL (*PFN_StretchBlt)(PSURFOBJ, PSURFOBJ, PSURFOBJ, PCLIPOBJ,
+                               PXLATEOBJ, PCOLORADJUSTMENT, PPOINTL,
+                               PRECTL, PRECTL, PPOINT, ULONG);
 
-typedef BOOL STDCALL (*PFN_TextOut)(SURFOBJ *, STROBJ *, FONTOBJ *, CLIPOBJ *,
-                            RECTL *, RECTL *, BRUSHOBJ *, BRUSHOBJ *,
-                            POINTL *, MIX);
+typedef BOOL STDCALL (*PFN_TextOut)(PSURFOBJ, PSTROBJ, PFONTOBJ, PCLIPOBJ,
+                            PRECTL, PRECTL, PBRUSHOBJ, PBRUSHOBJ,
+                            PPOINTL, MIX);
 
-typedef BOOL STDCALL (*PFN_Paint)(SURFOBJ *, CLIPOBJ *, BRUSHOBJ *, POINTL *, MIX);
+typedef BOOL STDCALL (*PFN_Paint)(PSURFOBJ, PCLIPOBJ, PBRUSHOBJ, PPOINTL, MIX);
 
-typedef BOOL STDCALL (*PFN_StrokePath)(SURFOBJ *, PATHOBJ *, CLIPOBJ *, XFORMOBJ *,
-                               BRUSHOBJ *, POINTL *, LINEATTRS *, MIX);
+typedef BOOL STDCALL (*PFN_StrokePath)(PSURFOBJ, PPATHOBJ, PCLIPOBJ, PXFORMOBJ,
+                               PBRUSHOBJ, PPOINTL, PLINEATTRS, MIX);
 
-typedef BOOL STDCALL (*PFN_FillPath)(SURFOBJ *, PATHOBJ *, CLIPOBJ *, BRUSHOBJ *,
-                             POINTL *, MIX, ULONG);
+typedef BOOL STDCALL (*PFN_FillPath)(PSURFOBJ, PPATHOBJ, PCLIPOBJ, PBRUSHOBJ,
+                             PPOINTL, MIX, ULONG);
 
-typedef BOOL STDCALL (*PFN_StrokeAndFillPath)(SURFOBJ *, PATHOBJ *, CLIPOBJ *,
-                XFORMOBJ *, BRUSHOBJ *, LINEATTRS *, BRUSHOBJ *,
-                POINTL *, MIX, ULONG);
+typedef BOOL STDCALL (*PFN_StrokeAndFillPath)(PSURFOBJ, PPATHOBJ, PCLIPOBJ,
+                PXFORMOBJ, PBRUSHOBJ, PLINEATTRS, PBRUSHOBJ,
+                PPOINTL, MIX, ULONG);
 
-typedef BOOL STDCALL (*PFN_LineTo)(SURFOBJ *, CLIPOBJ *, BRUSHOBJ *,
-                           LONG, LONG, LONG, LONG, RECTL *, MIX);
+typedef BOOL STDCALL (*PFN_LineTo)(PSURFOBJ, PCLIPOBJ, PBRUSHOBJ,
+                           LONG, LONG, LONG, LONG, PRECTL, MIX);
 
-typedef BOOL STDCALL (*PFN_CopyBits)(SURFOBJ *, SURFOBJ *, CLIPOBJ *,
-                             XLATEOBJ *, RECTL *, POINTL *);
+typedef BOOL STDCALL (*PFN_CopyBits)(PSURFOBJ, PSURFOBJ, PCLIPOBJ,
+                             PXLATEOBJ, PRECTL, PPOINTL);
 
-typedef VOID STDCALL (*PFN_Synchronize)(DHPDEV, RECTL *);
+typedef VOID STDCALL (*PFN_Synchronize)(DHPDEV, PRECTL);
 
-typedef VOID STDCALL (*PFN_MovePointer)(SURFOBJ *, LONG, LONG, RECTL *);
+typedef VOID STDCALL (*PFN_MovePointer)(PSURFOBJ, LONG, LONG, PRECTL);
 
-typedef ULONG STDCALL (*PFN_SetPointerShape)(SURFOBJ *, SURFOBJ *, SURFOBJ *, XLATEOBJ *,
-			    LONG, LONG, LONG, LONG, RECTL *, FLONG);
+typedef ULONG STDCALL (*PFN_SetPointerShape)(PSURFOBJ, PSURFOBJ, PSURFOBJ, PXLATEOBJ,
+			    LONG, LONG, LONG, LONG, PRECTL, ULONG);
 
 typedef HBITMAP STDCALL (*PFN_CreateDeviceBitmap)(DHPDEV, SIZEL, ULONG);
 
 typedef BOOL STDCALL (*PFN_SetPalette)(DHPDEV, PALOBJ*, ULONG, ULONG, ULONG);
 
-typedef BOOL STDCALL (*PFN_GradientFill)(SURFOBJ*, CLIPOBJ*, XLATEOBJ*, TRIVERTEX*, ULONG, PVOID, ULONG, RECTL*, POINTL*, ULONG);
+/* Forward declare (circular reference) */
+typedef struct _SURFGDI *PSURFGDI;
+
+typedef VOID    (*PFN_DIB_PutPixel)(PSURFOBJ, LONG, LONG, ULONG);
+typedef ULONG   (*PFN_DIB_GetPixel)(PSURFOBJ, LONG, LONG);
+typedef VOID    (*PFN_DIB_HLine)   (PSURFOBJ, LONG, LONG, LONG, ULONG);
+typedef VOID    (*PFN_DIB_VLine)   (PSURFOBJ, LONG, LONG, LONG, ULONG);
+typedef BOOLEAN (*PFN_DIB_BitBlt)  (PSURFOBJ DestSurf, PSURFOBJ SourceSurf,
+                                    PSURFGDI DestGDI,  PSURFGDI SourceGDI,
+                                    PRECTL   DestRect, PPOINTL  SourcePoint,
+				    PBRUSHOBJ BrushObj, PPOINTL BrushOrigin,
+                                    XLATEOBJ *ColorTranslation, ULONG Rop4);
+
+typedef struct _SURFGDI {
+  ENGOBJ 		Header;
+  SURFOBJ		SurfObj;
+
+  INT BitsPerPixel;
+
+  /* Driver functions */
+  PFN_BitBlt BitBlt;
+  PFN_TransparentBlt TransparentBlt;
+  PFN_StretchBlt StretchBlt;
+  PFN_TextOut TextOut;
+  PFN_Paint Paint;
+  PFN_StrokePath StrokePath;
+  PFN_FillPath FillPath;
+  PFN_StrokeAndFillPath StrokeAndFillPath;
+  PFN_LineTo LineTo;
+  PFN_CopyBits CopyBits;
+  PFN_Synchronize Synchronize;
+  BOOL SynchronizeAccess;
+  PFN_CreateDeviceBitmap CreateDeviceBitmap;
+  PFN_SetPalette SetPalette;
+  PFN_MovePointer MovePointer;
+  PFN_SetPointerShape SetPointerShape;
+
+  /* DIB functions */
+  PFN_DIB_PutPixel DIB_PutPixel;
+  PFN_DIB_HLine    DIB_HLine;
+  PFN_DIB_VLine    DIB_VLine;
+  PFN_DIB_BitBlt   DIB_BitBlt;
+} SURFGDI;
 
 typedef struct _XFORMGDI {
-  ULONG Dummy;
+  ENGOBJ 		Header;
   /* XFORMOBJ has no public members */
 } XFORMGDI;
 
 typedef struct _XLATEGDI {
+  ENGOBJ 		Header;
   XLATEOBJ		XlateObj;
   HPALETTE DestPal;
   HPALETTE SourcePal;
-  BOOL UseShiftAndMask;
 
-//  union {
-//    struct {            /* For Shift Translations */
-      ULONG RedMask;
-      ULONG GreenMask;
-      ULONG BlueMask;
-      INT RedShift;
-      INT GreenShift;
-      INT BlueShift;
-//    };
-//    struct {            /* For Table Translations */
-      ULONG *translationTable;
-//    };
-//    struct {            /* For Color -> Mono Translations */
-      ULONG BackgroundColor;
-//    };
-//  };
+  ULONG *translationTable;
+
+  ULONG RedMask;
+  ULONG GreenMask;
+  ULONG BlueMask;
+  INT RedShift;
+  INT GreenShift;
+  INT BlueShift;
+  BOOL UseShiftAndMask;
 } XLATEGDI;
 
-/* as the *OBJ structures are located at the beginning of the *GDI structures
-   we can simply typecast the pointer */
-#define ObjToGDI(ClipObj, Type) (Type##GDI *)(ClipObj)
-#define GDIToObj(ClipGDI, Type) (Type##OBJ *)(ClipGDI)
+// List of GDI objects
+// FIXME: Make more dynamic
 
+#define MAX_GDI_BRUSHES      255
+#define MAX_GDI_CLIPS        255
+#define MAX_GDI_DRVFUNCTIONS  16
+#define MAX_GDI_FLOATS       255
+#define MAX_GDI_FONTS        255
+#define MAX_GDI_PALS         255
+#define MAX_GDI_PATHS        255
+#define MAX_GDI_STRS         255
+#define MAX_GDI_SURFS        255
+#define MAX_GDI_XFORMS       255
+#define MAX_GDI_XLATES       255
 
 #endif //__ENG_OBJECTS_H

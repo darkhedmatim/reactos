@@ -1,4 +1,4 @@
-/* $Id: priv.c,v 1.11 2004/08/15 16:39:11 chorns Exp $
+/* $Id: priv.c,v 1.9 2003/07/11 01:23:16 royce Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/se.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -45,7 +47,7 @@ LUID SeRemoteShutdownPrivilege;
 
 /* FUNCTIONS ***************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 SepInitPrivileges (VOID)
 {
   SeCreateTokenPrivilege.LowPart = SE_CREATE_TOKEN_PRIVILEGE;

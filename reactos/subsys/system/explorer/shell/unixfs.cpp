@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,11 +26,13 @@
  //
 
 
-#ifdef __WINE__
+#ifdef __linux__
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
 
-//#include "unixfs.h"
+#include "entries.h"
+#include "unixfs.h"
 
  // for UnixDirectory::read_directory()
 #include <dirent.h>
@@ -102,6 +104,7 @@ void UnixDirectory::read_directory()
 				entry->_bhfi_valid = FALSE;
 			}
 
+			entry->_down = NULL;
 			entry->_up = this;
 			entry->_expanded = FALSE;
 			entry->_scanned = FALSE;
@@ -192,4 +195,4 @@ void UnixEntry::get_path(PTSTR path) const
 	path[len] = TEXT('\0');
 }
 
-#endif // __WINE__
+#endif // __linux__

@@ -1,4 +1,4 @@
-/* $Id: except.s,v 1.5 2004/06/25 16:39:41 weiden Exp $
+/* $Id: except.s,v 1.3 2003/05/07 18:45:56 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id: services.c,v 1.18 2004/04/12 17:20:47 navaraf Exp $
+/* $Id: services.c,v 1.12 2003/08/28 13:38:24 gvg Exp $
  *
  * service control manager
  * 
@@ -31,7 +31,6 @@
 
 #define NTOS_MODE_USER
 #include <ntos.h>
-#include <stdio.h>
 #include <windows.h>
 
 #include "services.h"
@@ -243,25 +242,6 @@ BOOL StartScmNamedPipeThreadListener(void)
     return TRUE;
 }
 
-VOID FASTCALL
-AcquireLoadDriverPrivilege(VOID)
-{
-    HANDLE hToken; 
-    TOKEN_PRIVILEGES tkp; 
-
-    /* Get a token for this process.  */
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-        /* Get the LUID for the debug privilege.  */
-        LookupPrivilegeValue(NULL, SE_LOAD_DRIVER_NAME, &tkp.Privileges[0].Luid); 
-
-        tkp.PrivilegeCount = 1;  /* one privilege to set */
-        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; 
-
-        /* Get the debug privilege for this process. */
-        AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0); 
-    }
-}
-
 int STDCALL
 WinMain(HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
@@ -273,9 +253,6 @@ WinMain(HINSTANCE hInstance,
   NTSTATUS Status;
 
   DPRINT("SERVICES: Service Control Manager\n");
-
-  /* Acquire privileges to load drivers */
-  AcquireLoadDriverPrivilege();
 
   /* Create start event */
   if (!ScmCreateStartEvent(&hScmStartEvent))

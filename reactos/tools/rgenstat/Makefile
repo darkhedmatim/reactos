@@ -8,7 +8,7 @@ OBJECTS = rgenstat.o llmosrt.o
 
 CLEAN_FILES = *.o rgenstat$(EXE_POSTFIX)
 
-HOST_CFLAGS = -I. -Wall -Werror
+HOST_CFLAGS = -I.
 
 rgenstat.o: rgenstat.c
 	$(HOST_CC) $(HOST_CFLAGS) -c rgenstat.c -o rgenstat.o
@@ -26,8 +26,8 @@ clean:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	-del *.o
-	-del rgenstat$(EXE_POSTFIX)
+	del *.o
+	del rgenstat$(EXE_POSTFIX)
 endif
 
 web/apistatus.html: web/apistatus.xml web/rapistatus.xsl

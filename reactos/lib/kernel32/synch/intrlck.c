@@ -123,14 +123,14 @@ InterlockedExchange(LPLONG target, LONG value )
  *
  * @implemented
  */
-LONG 
+PVOID 
 STDCALL 
 InterlockedCompareExchange(
-	    PLONG Destination, 
-	    LONG Exchange,     
-            LONG Comperand     ) 
+	    PVOID *Destination, 
+	    PVOID Exchange,     
+            PVOID Comperand     ) 
 {	
-	LONG ret;
+	PVOID ret;
 	__asm__ ( /* lock for SMP systems */
                   "lock\n\t"
                   "cmpxchgl %2,(%1)"
@@ -138,6 +138,7 @@ InterlockedCompareExchange(
                   :"r" (Destination),"r" (Exchange), "0" (Comperand)
                   :"memory" );
 	return ret;
+
 }
 
 /************************************************************************

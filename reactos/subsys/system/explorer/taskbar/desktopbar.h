@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,8 +26,11 @@
  //
 
 
-#define	CLASSNAME_EXPLORERBAR	TEXT("Shell_TrayWnd")
-#define	TITLE_EXPLORERBAR		TEXT("")	// use an empty window title, so windows taskmanager does not show the window in its application list
+#define	CLASSNAME_EXPLORERBAR	_T("Shell_TrayWnd")
+#define	TITLE_EXPLORERBAR		_T("")	// use an empty window title, so windows taskmanager does not show the window in its application list
+
+
+#define	WINMSG_TASKBARCREATED	_T("TaskbarCreated")
 
 
 #define	DESKTOPBARBAR_HEIGHT	29
@@ -38,7 +41,7 @@
 #define	IDC_SHUTDOWN			0x1002
 #define	IDC_LAUNCH				0x1003
 #define	IDC_START_HELP			0x1004
-#define	IDC_SEARCH_FILES		0x1005
+#define	IDC_SEARCH				0x1005
 #define	IDC_SEARCH_COMPUTER		0x1006
 #define	IDC_SETTINGS			0x1007
 #define	IDC_ADMIN				0x1008
@@ -50,22 +53,16 @@
 #define	IDC_NETWORK				0x100E
 #define	IDC_CONNECTIONS			0x100F
 #define	IDC_DRIVES				0x1010
-#define	IDC_SETTINGS_MENU		0x1011
-#define	IDC_CONTROL_PANEL		0x1012
-#define	IDC_PRINTERS			0x1013
-#define	IDC_BROWSE				0x1014
-#define	IDC_SEARCH_PROGRAM		0x1015
-#define	IDC_SEARCH				0x1016
+#define	IDC_SETTINGS_WND		0x1011
+#define	IDC_PRINTERS			0x1012
 
 #define	IDC_FIRST_MENU			0x3000
 
 
  /// desktop bar window, also known as "system tray"
-struct DesktopBar : public TrayIconControllerTemplate<
-						OwnerDrawParent<Window> >
+struct DesktopBar : public OwnerDrawParent<Window>
 {
-	typedef TrayIconControllerTemplate<
-				OwnerDrawParent<Window> > super;
+	typedef OwnerDrawParent<Window> super;
 
 	DesktopBar(HWND hwnd);
 	~DesktopBar();
@@ -73,29 +70,21 @@ struct DesktopBar : public TrayIconControllerTemplate<
 	static HWND Create();
 
 protected:
+	CommonControlInit _usingCmnCtrl;
+
+	int		WM_TASKBARCREATED;
 	RECT	_work_area_org;
-	int		_taskbar_pos;
 
 	LRESULT	Init(LPCREATESTRUCT pcs);
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 	int		Command(int id, int code);
 
-	void	Resize(int cx, int cy);
 	void	RegisterHotkeys();
 	void	ProcessHotKey(int id_hotkey);
 	void	ShowStartMenu();
-	LRESULT	ProcessCopyData(COPYDATASTRUCT* pcd);
+	LRESULT ProcessCopyData(COPYDATASTRUCT* pcd);
 
 	WindowHandle _hwndTaskBar;
 	WindowHandle _hwndNotify;
 	WindowHandle _hwndQuickLaunch;
-	WindowHandle _hwndrebar;
-
-	struct StartMenuRoot* _startMenuRoot;
-
-	TrayIcon	_trayIcon;
-
-	void	AddTrayIcons();
-	virtual void TrayClick(UINT id, int btn);
-	virtual void TrayDblClick(UINT id, int btn);
 };

@@ -1,4 +1,4 @@
-/* $Id: regcontrol.h,v 1.10 2004/12/24 17:45:57 weiden Exp $
+/* $Id: regcontrol.h,v 1.5 2003/08/15 15:55:02 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
@@ -14,19 +14,21 @@
 #define IS_ATOM(x) \
   (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
 
+/* Built-in class names (see _Undocumented_Windows_ p.418) */
+#define ICONTITLE_CLASS_ATOM MAKEINTATOMA(32772)  /* IconTitle */
+
 /* Built-in class descriptor */
 struct builtin_class_descr
 {
     LPCWSTR name;    /* class name */
     UINT    style;   /* class style */
     WNDPROC procW;   /* Unicode window procedure */
-    WNDPROC procA;   /* Ansi window procedure */
     INT     extra;   /* window extra bytes */
     LPCWSTR cursor;  /* cursor name */
     HBRUSH  brush;   /* brush or system color */
 };
 
-extern BOOL FASTCALL ControlsInit(LPCWSTR ClassName);
+extern void ControlsInit(void);
 
 extern const struct builtin_class_descr BUTTON_builtin_class;
 extern const struct builtin_class_descr COMBO_builtin_class;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,31 +26,28 @@
  //
 
 
-#define	PM_OPEN_WINDOW			(WM_APP+0x07)
-enum OPEN_WINDOW_MODE {OWM_EXPLORE=1, OWM_DETAILS=2, OWM_PIDL=4};
-
-
- /// Explorer frame window base class
-struct MainFrameBase : public PreTranslateWindow
+struct MainFrame : public PreTranslateWindow
 {
 	typedef PreTranslateWindow super;
 
-	MainFrameBase(HWND hwnd);
-	~MainFrameBase();
+	MainFrame(HWND hwnd);
+	~MainFrame();
 
-	static HWND Create(LPCTSTR path, bool mdi=true, UINT cmdshow=SW_SHOWNORMAL);
-	static int OpenShellFolders(LPIDA pida, HWND hFrameWnd);
+	static HWND Create();
+	static HWND Create(LPCTSTR path, BOOL mode_explore=TRUE);
 
-	WindowHandle _hwndrebar;
+	ChildWindow* CreateChild(LPCTSTR path=NULL, BOOL mode_explore=TRUE);
 
-	WindowHandle _htoolbar;
+protected:
+	FullScreenParameters _fullscreen;
+
+#ifndef _NO_MDI
+	HWND	_hmdiclient;
+#endif
+
 	WindowHandle _hstatusbar;
-
-	WindowHandle _haddressedit;
-	WindowHandle _hcommandedit;
-
-	WindowHandle _hsidebar;
-	HIMAGELIST	_himl;
+	WindowHandle _htoolbar;
+	WindowHandle _hdrivebar;
 
 	HMENU	_hMenuFrame;
 	HMENU	_hMenuWindow;
@@ -58,110 +55,20 @@ struct MainFrameBase : public PreTranslateWindow
 	MenuInfo _menu_info;
 
 protected:
-	FullScreenParameters _fullscreen;
-
-	HACCEL	_hAccel;
-
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-	bool	ProcessMessage(UINT nmsg, WPARAM wparam, LPARAM lparam, LRESULT* pres);
 	int		Command(int id, int code);
-	int		Notify(int id, NMHDR* pnmh);
 
-	virtual BOOL TranslateMsg(MSG* pmsg);
+	void	toggle_child(HWND hwnd, UINT cmd, HWND hchild);
+	bool	activate_drive_window(LPCTSTR path);
+	bool	activate_fs_window(LPCTSTR filesys);
 
-	void	toggle_child(HWND hwnd, UINT cmd, HWND hchild, int band_idx=-1);
-
+	void	resize_frame_rect(PRECT prect);
+	void	resize_frame(int cx, int cy);
 	void	resize_frame_client();
-	virtual void resize_frame(int cx, int cy);
-	virtual void frame_get_clientspace(PRECT prect);
-
+	void	frame_get_clientspace(PRECT prect);
 	BOOL	toggle_fullscreen();
 	void	fullscreen_move();
 
-	void	FillBookmarks();
-	virtual bool go_to(LPCTSTR url, bool new_window);
-};
-
-
-#ifndef _NO_MDI
-
-struct MDIMainFrame : public MainFrameBase
-{
-	typedef MainFrameBase super;
-
-	MDIMainFrame(HWND hwnd);
-
-	static HWND Create();
-	static HWND Create(LPCTSTR path, int mode=OWM_EXPLORE|OWM_DETAILS);
-	static HWND Create(LPCITEMIDLIST pidl, int mode=OWM_EXPLORE|OWM_DETAILS|OWM_PIDL);
-
-	ChildWindow* CreateChild(LPCTSTR path=NULL, int mode=OWM_EXPLORE|OWM_DETAILS);
-	ChildWindow* CreateChild(LPCITEMIDLIST pidl, int mode=OWM_EXPLORE|OWM_DETAILS|OWM_PIDL);
-
-protected:
-	HWND	_hmdiclient;
-
-	WindowHandle _hextrabar;
-	WindowHandle _hdrivebar;
-
-protected:
-	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-	int		Command(int id, int code);
-
-	virtual BOOL TranslateMsg(MSG* pmsg);
-
-	bool	activate_drive_window(LPCTSTR path);
-	bool	activate_child_window(LPCTSTR filesys);
-
-	virtual void resize_frame(int cx, int cy);
-	virtual void frame_get_clientspace(PRECT prect);
-
-	virtual bool go_to(LPCTSTR url, bool new_window);
-
+	HACCEL	_hAccel;
 	TCHAR	_drives[BUFFER_LEN];
-};
-
-#endif
-
-
-struct SDIMainFrame : public ShellBrowserChildT<MainFrameBase>
-{
-	typedef ShellBrowserChildT<MainFrameBase> super;
-
-	SDIMainFrame(HWND hwnd);
-
-	static HWND Create();
-	static HWND Create(LPCITEMIDLIST pidl, int mode=OWM_EXPLORE|OWM_DETAILS|OWM_PIDL);
-
-protected:
-	ShellPathInfo _shellpath_info;
-
-	WindowHandle _left_hwnd;
-	WindowHandle _right_hwnd;
-
-/**@todo focus handling for TAB switching
-	int 	_focus_pane;		// 0: left	1: right
-*/
-
-	int 	_split_pos;
-	int		_last_split;
-	RECT	_clnt_rect;
-
-	String	_url;
-
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-	int		Command(int id, int code);
-
-	void	resize_frame(int cx, int cy);
-	void	resize_children();
-	void	update_clnt_rect();
-
-	void	update_shell_browser();
-	void	jump_to(LPCTSTR path, int mode);
-	void	jump_to(LPCITEMIDLIST path, int mode);
-
-	 // interface BrowserCallback
-	virtual void	entry_selected(Entry* entry);
-
-	void	set_url(LPCTSTR url);
 };

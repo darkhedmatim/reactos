@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: diskdump.c,v 1.4 2004/06/07 18:03:12 navaraf Exp $
+/* $Id: diskdump.c,v 1.1 2003/08/27 21:28:08 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -37,14 +37,12 @@
 #define NDEBUG
 #include <debug.h>
 
-/* It's already defined in scsiport_int.h */
-#undef VERSION
 #define VERSION  "0.0.1"
 
 /* PROTOTYPES ***************************************************************/
 
 NTSTATUS STDCALL
-DiskDumpPrepare(PDEVICE_OBJECT DeviceObject, PDUMP_POINTERS DumpPointers);
+DiskDumpPrepare(PDEVICE_OBJECT StorageDevice, PDUMP_POINTERS DumpPointers);
 VOID
 DiskDumpScsiInvalid(VOID);
 VOID
@@ -66,10 +64,10 @@ typedef VOID (*SCSIPORTNOTIFICATION)(IN SCSI_NOTIFICATION_TYPE NotificationType,
 
 MM_CORE_DUMP_FUNCTIONS DiskDumpFunctions =
   {
-    (PVOID)DiskDumpPrepare,
-    (PVOID)DiskDumpInit,
-    (PVOID)DiskDumpWrite,
-    (PVOID)DiskDumpFinish,
+    DiskDumpPrepare,
+    DiskDumpInit,
+    DiskDumpWrite,
+    DiskDumpFinish,
   };
 
 typedef struct
@@ -289,7 +287,7 @@ DiskDumpWrite(LARGE_INTEGER Address, PMDL Mdl)
 }
 
 NTSTATUS STDCALL
-DiskDumpPrepare(PDEVICE_OBJECT DeviceObject, PDUMP_POINTERS DumpPointers)
+DiskDumpPrepare(PDEVICE_OBJECT StorageDevice, PDUMP_POINTERS DumpPointers)
 {
   PIMAGE_NT_HEADERS NtHeader;
   PVOID ImportDirectory;
@@ -303,7 +301,7 @@ DiskDumpPrepare(PDEVICE_OBJECT DeviceObject, PDUMP_POINTERS DumpPointers)
   PULONG FunctionNameList;
 
   /* Save the information from the kernel. */
-  CoreDumpClassDevice = DeviceObject;
+  CoreDumpClassDevice = StorageDevice;
   CoreDumpPointers = *DumpPointers;
   CoreDumpClass2DeviceExtension = (PDEVICE_EXTENSION)CoreDumpClassDevice->DeviceExtension;
   CoreDumpPortDevice = DumpPointers->DeviceObject;

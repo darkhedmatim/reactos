@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: windc.c,v 1.71 2004/12/26 20:34:49 navaraf Exp $
+/* $Id: windc.c,v 1.25 2003/09/26 20:58:05 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,49 +29,41 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <win32k/region.h>
+#include <win32k/userobj.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/msgqueue.h>
+#include <include/window.h>
+#include <include/rect.h>
+#include <include/dce.h>
+#include <include/vis.h>
 
 #define NDEBUG
 #include <debug.h>
 
-#define DCX_USESTYLE 0x10000
-
 /* GLOBALS *******************************************************************/
 
-/* NOTE - I think we should store this per window station (including gdi objects) */
-
-static FAST_MUTEX DceListLock;
 static PDCE FirstDce = NULL;
 static HDC defaultDCstate;
-
-#if 0
-
-#define DCE_LockList() \
-  ExAcquireFastMutex(&DceListLock)
-#define DCE_UnlockList() \
-  ExReleaseFastMutex(&DceListLock)
-
-#else
-#define DCE_LockList()
-#define DCE_UnlockList()
-#endif
 
 #define DCX_CACHECOMPAREMASK (DCX_CLIPSIBLINGS | DCX_CLIPCHILDREN | \
                               DCX_CACHE | DCX_WINDOW | DCX_PARENTCLIP)
 
 /* FUNCTIONS *****************************************************************/
 
-VOID FASTCALL
-DceInit(VOID)
-{
-  ExInitializeFastMutex(&DceListLock);
-}
-
 HRGN STDCALL
 DceGetVisRgn(HWND hWnd, ULONG Flags, HWND hWndChild, ULONG CFlags)
 {
   PWINDOW_OBJECT Window;
+  PWINDOW_OBJECT Child;
   HRGN VisRgn;
+  HRGN VisChild;
+  HRGN ChildRect;
+  HRGN ParentRect;
 
   Window = IntGetWindowObject(hWnd);
 
@@ -80,39 +72,53 @@ DceGetVisRgn(HWND hWnd, ULONG Flags, HWND hWndChild, ULONG CFlags)
       return NULL;
     }
 
-  VisRgn = VIS_ComputeVisibleRegion(Window,
+  VisRgn = VIS_ComputeVisibleRegion(PsGetWin32Thread()->Desktop, Window,
                                     0 == (Flags & DCX_WINDOW),
                                     0 != (Flags & DCX_CLIPCHILDREN),
                                     0 != (Flags & DCX_CLIPSIBLINGS));
+  if (NULL != hWndChild && 0 != (CFlags & DCX_CLIPCHILDREN))
+    {
+      /* We need to filter out the child windows of hWndChild */
+      Child = IntGetWindowObject(hWnd);
+      if (NULL != Child)
+ 	{
+    if (Child->FirstChild)
+	    {
+	      /* Compute the visible region of the child */
+	      VisChild = VIS_ComputeVisibleRegion(PsGetWin32Thread()->Desktop,
+	                                          Child, FALSE, TRUE, FALSE);
+	      /* If the child doesn't obscure the whole window, we need to
+                 extend it. First compute the difference between window and child */
+	      ChildRect = UnsafeIntCreateRectRgnIndirect(&(Child->ClientRect));
+	      if (0 == (Flags & DCX_WINDOW))
+		{
+		  ParentRect = UnsafeIntCreateRectRgnIndirect(&(Window->ClientRect));
+		}
+	      else
+		{
+		  ParentRect = UnsafeIntCreateRectRgnIndirect(&(Window->WindowRect));
+		}
+	      NtGdiCombineRgn(ChildRect, ParentRect, ChildRect, RGN_DIFF);
+
+	      /* Now actually extend the child by adding the difference */
+	      NtGdiCombineRgn(VisChild, VisChild, ChildRect, RGN_OR);
+
+	      /* Clip the childs children */
+	      NtGdiCombineRgn(VisRgn, VisRgn, VisChild, RGN_AND);
+	    }
+	  IntReleaseWindowObject(Child);
+	}
+    }
 
   IntReleaseWindowObject(Window);
 
   return VisRgn;
 }
 
-/*
- * NtUserGetWindowDC
- *
- * The NtUserGetWindowDC function retrieves the device context (DC) for the
- * entire window, including title bar, menus, and scroll bars. A window device
- * context permits painting anywhere in a window, because the origin of the
- * device context is the upper-left corner of the window instead of the client
- * area. 
- *
- * Status
- *    @implemented
- */
-
-DWORD STDCALL
-NtUserGetWindowDC(HWND hWnd)
-{
-   return (DWORD)NtUserGetDCEx(hWnd, 0, DCX_USESTYLE | DCX_WINDOW);
-}
-
 HDC STDCALL
 NtUserGetDC(HWND hWnd)
 {
-   return NtUserGetDCEx(hWnd, NULL, NULL == hWnd ? DCX_CACHE | DCX_WINDOW : DCX_USESTYLE);
+    return NtUserGetDCEx(hWnd, NULL, NULL == hWnd ? DCX_CACHE | DCX_WINDOW : DCX_USESTYLE);
 }
 
 PDCE FASTCALL
@@ -120,32 +126,21 @@ DceAllocDCE(HWND hWnd, DCE_TYPE Type)
 {
   HDCE DceHandle;
   DCE* Dce;
-  UNICODE_STRING DriverName;
 
   DceHandle = DCEOBJ_AllocDCE();
   if(!DceHandle)
     return NULL;
   
-  RtlInitUnicodeString(&DriverName, L"DISPLAY");
-  
   Dce = DCEOBJ_LockDCE(DceHandle);
-  /* No real locking, just get the pointer */
-  DCEOBJ_UnlockDCE(DceHandle);
-  Dce->Self = DceHandle;
-  Dce->hDC = IntGdiCreateDC(&DriverName, NULL, NULL, NULL);
+  Dce->hDC = NtGdiCreateDC(L"DISPLAY", NULL, NULL, NULL);
   if (NULL == defaultDCstate)
     {
       defaultDCstate = NtGdiGetDCState(Dce->hDC);
-      GDIOBJ_SetOwnership(defaultDCstate, NULL);
     }
-  GDIOBJ_SetOwnership(Dce->Self, NULL);
-  DC_SetOwnership(Dce->hDC, NULL);
   Dce->hwndCurrent = hWnd;
   Dce->hClipRgn = NULL;
-  DCE_LockList();
   Dce->next = FirstDce;
   FirstDce = Dce;
-  DCE_UnlockList();
 
   if (Type != DCE_CACHE_DC)
     {
@@ -215,7 +210,6 @@ DceDeleteClipRgn(DCE* Dce)
     }
   else if (Dce->hClipRgn > (HRGN) 1)
     {
-      GDIOBJ_SetOwnership(Dce->hClipRgn, PsGetCurrentProcess());
       NtGdiDeleteObject(Dce->hClipRgn);
     }
 
@@ -233,12 +227,13 @@ DceReleaseDC(DCE* dce)
       return 0;
     }
 
+#if 0
   /* restore previous visible region */
 
   if ((dce->DCXFlags & (DCX_INTERSECTRGN | DCX_EXCLUDERGN)) &&
       (dce->DCXFlags & (DCX_CACHE | DCX_WINDOWPAINT)) )
     {
-      DceDeleteClipRgn(dce);
+      DceDeleteClipRgn( dce );
     }
 
   if (dce->DCXFlags & DCX_CACHE)
@@ -257,106 +252,20 @@ DceReleaseDC(DCE* dce)
 	  dce->DCXFlags |= DCX_DCEEMPTY;
 	}
     }
+#endif
 
   return 1;
-}
-
-STATIC VOID FASTCALL
-DceUpdateVisRgn(DCE *Dce, PWINDOW_OBJECT Window, ULONG Flags)
-{
-   HANDLE hRgnVisible = NULL;
-   ULONG DcxFlags;
-   PWINDOW_OBJECT DesktopWindow;
-
-   if (Flags & DCX_PARENTCLIP)
-   {
-      PWINDOW_OBJECT Parent;
-
-      Parent = IntGetParentObject(Window);
-      if(!Parent)
-      {
-        hRgnVisible = NULL;
-        goto noparent;
-      }
-      
-      if (Parent->Style & WS_CLIPSIBLINGS)
-      {
-         DcxFlags = DCX_CLIPSIBLINGS | 
-            (Flags & ~(DCX_CLIPCHILDREN | DCX_WINDOW));
-      }
-      else
-      {
-         DcxFlags = Flags & ~(DCX_CLIPSIBLINGS | DCX_CLIPCHILDREN | DCX_WINDOW);
-      }
-      hRgnVisible = DceGetVisRgn(Parent->Self, DcxFlags, Window->Self, Flags);
-      if (hRgnVisible == NULL)
-      {
-         hRgnVisible = NtGdiCreateRectRgn(0, 0, 0, 0);
-      }
-      else
-      {
-         if (0 == (Flags & DCX_WINDOW))
-         {
-            NtGdiOffsetRgn(
-               hRgnVisible,
-               Parent->ClientRect.left - Window->ClientRect.left,
-               Parent->ClientRect.top - Window->ClientRect.top);
-         }
-         else
-         {
-            NtGdiOffsetRgn(
-               hRgnVisible,
-               Parent->WindowRect.left - Window->WindowRect.left,
-               Parent->WindowRect.top - Window->WindowRect.top);
-         }
-      }
-   }
-   else if (Window == NULL)
-   {
-      DesktopWindow = IntGetWindowObject(IntGetDesktopWindow());
-      if (NULL != DesktopWindow)
-      {
-         hRgnVisible = UnsafeIntCreateRectRgnIndirect(&DesktopWindow->WindowRect);
-         IntReleaseWindowObject(DesktopWindow);
-      }
-      else
-      {
-         hRgnVisible = NULL;
-      }
-   }
-   else
-   {
-      hRgnVisible = DceGetVisRgn(Window->Self, Flags, 0, 0);
-   }
-
-noparent:
-   if (Flags & DCX_INTERSECTRGN)
-   {
-      NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_AND);
-   }
-
-   if (Flags & DCX_EXCLUDERGN)
-   {
-      NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_DIFF);
-   }
-
-   Dce->DCXFlags &= ~DCX_DCEDIRTY;
-   NtGdiSelectVisRgn(Dce->hDC, hRgnVisible);
-
-   if (hRgnVisible != NULL)
-   {
-      NtGdiDeleteObject(hRgnVisible);
-   }
 }
 
 HDC STDCALL
 NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
 {
-  PWINDOW_OBJECT Window, Parent;
+  PWINDOW_OBJECT Window;
   ULONG DcxFlags;
   DCE* Dce;
   BOOL UpdateVisRgn = TRUE;
   BOOL UpdateClipOrigin = FALSE;
+  HANDLE hRgnVisible = NULL;
 
   if (NULL == hWnd)
     {
@@ -413,37 +322,33 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
       Flags = (Flags & ~DCX_CLIPCHILDREN) | DCX_CACHE;
     }
 
-  Parent = (Window ? IntGetParentObject(Window) : NULL);
-  
-  if (NULL == Window || !(Window->Style & WS_CHILD) || NULL == Parent)
+  if (NULL == Window || !(Window->Style & WS_CHILD) || NULL == Window->Parent)
     {
       Flags &= ~DCX_PARENTCLIP;
     }
   else if (Flags & DCX_PARENTCLIP)
     {
       Flags |= DCX_CACHE;
-      if ((Window->Style & WS_VISIBLE) &&
-          (Parent->Style & WS_VISIBLE))
-        {
-          Flags &= ~DCX_CLIPCHILDREN;
-          if (Parent->Style & WS_CLIPSIBLINGS)
-            {
-              Flags |= DCX_CLIPSIBLINGS;
-            }
-        }
+      if (!(Flags & (DCX_CLIPCHILDREN | DCX_CLIPSIBLINGS)))
+	{
+	  if ((Window->Style & WS_VISIBLE) && 
+	      (Window->Parent->Style & WS_VISIBLE))
+	    {
+	      Flags &= ~DCX_CLIPCHILDREN;
+	      if (Window->Parent->Style & WS_CLIPSIBLINGS)
+		{
+		  Flags |= DCX_CLIPSIBLINGS;
+		}
+	    }
+	}
     }
 
-  if(Parent)
-    IntReleaseWindowObject(Parent);
-  
   DcxFlags = Flags & DCX_CACHECOMPAREMASK;
 
   if (Flags & DCX_CACHE)
     {
       DCE* DceEmpty = NULL;
       DCE* DceUnused = NULL;
-      
-      DCE_LockList();
 
       for (Dce = FirstDce; Dce != NULL; Dce = Dce->next)
 	{
@@ -457,20 +362,16 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
 	      else if (Dce->hwndCurrent == hWnd &&
 		       ((Dce->DCXFlags & DCX_CACHECOMPAREMASK) == DcxFlags))
 		{
-#if 0 /* FIXME */
 		  UpdateVisRgn = FALSE;
-#endif
 		  UpdateClipOrigin = TRUE;
 		  break;
 		}
 	    }
 	}
 
-      DCE_UnlockList();
-      
       if (Dce == NULL)
 	{
-	  Dce = (DceEmpty == NULL) ? DceUnused : DceEmpty;
+	  Dce = (DceEmpty == NULL) ? DceEmpty : DceUnused;
 	}
 
       if (Dce == NULL)
@@ -481,13 +382,8 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
   else
     {
       Dce = Window->Dce;
-      if (NULL != Dce && Dce->hwndCurrent == hWnd)
-        {
-          UpdateVisRgn = FALSE; /* updated automatically, via DCHook() */
-        }
-#if 1 /* FIXME */
-      UpdateVisRgn = TRUE;
-#endif
+      /* FIXME: Implement this. */
+      DbgBreakPoint();
     }
 
   if (NULL == Dce)
@@ -498,6 +394,7 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
     }
 
   Dce->hwndCurrent = hWnd;
+  Dce->hClipRgn = NULL;
   Dce->DCXFlags = DcxFlags | (Flags & DCX_WINDOWPAINT) | DCX_DCEBUSY;
 
   if (0 == (Flags & (DCX_EXCLUDERGN | DCX_INTERSECTRGN)) && NULL != ClipRegion)
@@ -509,77 +406,80 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
   if (NULL != Dce->hClipRgn)
     {
       DceDeleteClipRgn(Dce);
-      Dce->hClipRgn = NULL;
     }
 
-  if (0 != (Flags & DCX_INTERSECTUPDATE) && NULL == ClipRegion)
+  if (NULL != ClipRegion)
     {
       Dce->hClipRgn = NtGdiCreateRectRgn(0, 0, 0, 0);
-      if (Dce->hClipRgn && Window->UpdateRegion)
-        {
-          GDIOBJ_SetOwnership(Dce->hClipRgn, NULL);
-          NtGdiCombineRgn(Dce->hClipRgn, Window->UpdateRegion, NULL, RGN_COPY);
-          if(Window->WindowRegion && !(Window->Style & WS_MINIMIZE))
-            NtGdiCombineRgn(Dce->hClipRgn, Dce->hClipRgn, Window->WindowRegion, RGN_AND);
-          if (!(Flags & DCX_WINDOW))
-            {
-              NtGdiOffsetRgn(Dce->hClipRgn,
-                Window->WindowRect.left - Window->ClientRect.left,
-                Window->WindowRect.top - Window->ClientRect.top);
-            }
-        }
-      Flags |= DCX_INTERSECTRGN;
-    }
-
-  if (ClipRegion == (HRGN) 1)
-    {
-      if (!(Flags & DCX_WINDOW))
-        {
-          Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->ClientRect);
-          GDIOBJ_SetOwnership(Dce->hClipRgn, NULL);
-          if(!Window->WindowRegion || (Window->Style & WS_MINIMIZE))
-          {
-            NtGdiOffsetRgn(Dce->hClipRgn, -Window->ClientRect.left, -Window->ClientRect.top);
-          }
-          else
-          {
-            NtGdiOffsetRgn(Dce->hClipRgn, -Window->WindowRect.left, -Window->WindowRect.top);
-            NtGdiCombineRgn(Dce->hClipRgn, Dce->hClipRgn, Window->WindowRegion, RGN_AND);
-            NtGdiOffsetRgn(Dce->hClipRgn, -(Window->ClientRect.left - Window->WindowRect.left), 
-                                          -(Window->ClientRect.top - Window->WindowRect.top));
-          }
-        }
-      else
-        {
-          Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->WindowRect);
-          GDIOBJ_SetOwnership(Dce->hClipRgn, NULL);
-          NtGdiOffsetRgn(Dce->hClipRgn, -Window->WindowRect.left,
-             -Window->WindowRect.top);
-          if(Window->WindowRegion && !(Window->Style & WS_MINIMIZE))
-            NtGdiCombineRgn(Dce->hClipRgn, Dce->hClipRgn, Window->WindowRegion, RGN_AND);
-        }
-    }
-  else if (NULL != ClipRegion)
-    {
-      Dce->hClipRgn = NtGdiCreateRectRgn(0, 0, 0, 0);
-      if (Dce->hClipRgn)
-        {
-          GDIOBJ_SetOwnership(Dce->hClipRgn, NULL);
-          if(!Window->WindowRegion || (Window->Style & WS_MINIMIZE))
-            NtGdiCombineRgn(Dce->hClipRgn, ClipRegion, NULL, RGN_COPY);
-          else
-            NtGdiCombineRgn(Dce->hClipRgn, ClipRegion, Window->WindowRegion, RGN_AND);
-        }
+      if(Dce->hClipRgn)
+        NtGdiCombineRgn(Dce->hClipRgn, ClipRegion, NULL, RGN_COPY);
       NtGdiDeleteObject(ClipRegion);
     }
 
   DceSetDrawable(Window, Dce->hDC, Flags, UpdateClipOrigin);
 
-//  if (UpdateVisRgn)
+  if (UpdateVisRgn)
     {
-      DceUpdateVisRgn(Dce, Window, Flags);
+      if (Flags & DCX_PARENTCLIP)
+	{
+	  PWINDOW_OBJECT Parent;
+
+	  Parent = Window->Parent;
+
+	  if (Window->Style & WS_VISIBLE &&
+	      !(Parent->Style & WS_MINIMIZE))
+	    {
+	      if (Parent->Style & WS_CLIPSIBLINGS)
+		{
+		  DcxFlags = DCX_CLIPSIBLINGS | 
+		    (Flags & ~(DCX_CLIPCHILDREN | DCX_WINDOW));
+		}
+	      else
+		{
+		  DcxFlags = Flags & 
+		    ~(DCX_CLIPSIBLINGS | DCX_CLIPCHILDREN | DCX_WINDOW);
+		}
+	      hRgnVisible = DceGetVisRgn(Parent->Self, DcxFlags, 
+					 Window->Self, Flags);
+	    }
+	  else
+	    {
+	      hRgnVisible = NtGdiCreateRectRgn(0, 0, 0, 0);
+	    }
+	}
+      else
+	{
+	  if (hWnd == IntGetDesktopWindow())
+	    {
+	      hRgnVisible = 
+		NtGdiCreateRectRgn(0, 0, 
+				  NtUserGetSystemMetrics(SM_CXSCREEN),
+				  NtUserGetSystemMetrics(SM_CYSCREEN));
+	    }
+	  else
+	    {
+	      hRgnVisible = DceGetVisRgn(hWnd, Flags, 0, 0);
+	    }
+	}
+
+      if (0 != (Flags & DCX_INTERSECTRGN))
+	{
+	  NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_AND);
+	}
+
+      if (0 != (Flags & DCX_EXCLUDERGN))
+	{
+	  NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_DIFF);
+	}
+
+      Dce->DCXFlags &= ~DCX_DCEDIRTY;
+      NtGdiSelectVisRgn(Dce->hDC, hRgnVisible);
     }
 
+  if (hRgnVisible != NULL)
+    {
+      NtGdiDeleteObject(hRgnVisible);
+    }
   if (NULL != Window)
     {
       IntReleaseWindowObject(Window);
@@ -588,34 +488,29 @@ NtUserGetDCEx(HWND hWnd, HANDLE ClipRegion, ULONG Flags)
   return(Dce->hDC);
 }
 
-BOOL INTERNAL_CALL
-DCE_Cleanup(PVOID ObjectBody)
+BOOL FASTCALL
+DCE_InternalDelete(PDCE Dce)
 {
   PDCE PrevInList;
-  PDCE pDce = (PDCE)ObjectBody;
-  
-  DCE_LockList();
-  
-  if (pDce == FirstDce)
+
+  if (Dce == FirstDce)
     {
-      FirstDce = pDce->next;
-      PrevInList = pDce;
+      FirstDce = Dce->next;
+      PrevInList = Dce;
     }
   else
     {
       for (PrevInList = FirstDce; NULL != PrevInList; PrevInList = PrevInList->next)
 	{
-	  if (pDce == PrevInList->next)
+	  if (Dce == PrevInList->next)
 	    {
-	      PrevInList->next = pDce->next;
+	      PrevInList->next = Dce->next;
 	      break;
 	    }
 	}
       assert(NULL != PrevInList);
     }
 
-  DCE_UnlockList();
-  
   return NULL != PrevInList;
 }
 
@@ -623,17 +518,13 @@ HWND FASTCALL
 IntWindowFromDC(HDC hDc)
 {
   DCE *Dce;
-  
-  DCE_LockList();
   for (Dce = FirstDce; Dce != NULL; Dce = Dce->next)
   {
     if(Dce->hDC == hDc)
     {
-      DCE_UnlockList();
       return Dce->hwndCurrent;
     }
   }
-  DCE_UnlockList();
   return 0;
 }
 
@@ -643,8 +534,7 @@ NtUserReleaseDC(HWND hWnd, HDC hDc)
   DCE *dce;
   INT nRet = 0;
 
-  DCE_LockList();
-  
+  /* FIXME USER_Lock(); */
   dce = FirstDce;
 
   DPRINT("%p %p\n", hWnd, hDc);
@@ -659,279 +549,10 @@ NtUserReleaseDC(HWND hWnd, HDC hDc)
       nRet = DceReleaseDC(dce);
     }
 
-  DCE_UnlockList();
+  /* FIXME USER_Unlock(); */
 
   return nRet;
 }
-
-/***********************************************************************
- *           DceFreeDCE
- */
-PDCE FASTCALL
-DceFreeDCE(PDCE dce, BOOLEAN Force)
-{
-  DCE *ret;
-
-  if (NULL == dce)
-    {
-      return NULL;
-    }
-
-  ret = dce->next;
-
-#if 0 /* FIXME */
-  SetDCHook(dce->hDC, NULL, 0L);
-#endif
-
-  if(Force && !GDIOBJ_OwnedByCurrentProcess(dce->hDC))
-  {
-    GDIOBJ_SetOwnership(dce->Self, PsGetCurrentProcess());
-    DC_SetOwnership(dce->hDC, PsGetCurrentProcess());
-  }
-
-  NtGdiDeleteDC(dce->hDC);
-  if (dce->hClipRgn && ! (dce->DCXFlags & DCX_KEEPCLIPRGN))
-    {
-      GDIOBJ_SetOwnership(dce->hClipRgn, PsGetCurrentProcess());
-      NtGdiDeleteObject(dce->hClipRgn);
-    }
-
-  DCEOBJ_FreeDCE(dce->Self);
-
-  return ret;
-}
   
-
-/***********************************************************************
- *           DceFreeWindowDCE
- *
- * Remove owned DCE and reset unreleased cache DCEs.
- */
-void FASTCALL
-DceFreeWindowDCE(PWINDOW_OBJECT Window)
-{
-  DCE *pDCE;
-
-  DCE_LockList();
-  
-  pDCE = FirstDce;
-  while (pDCE)
-    {
-      if (pDCE->hwndCurrent == Window->Self)
-        {
-          if (pDCE == Window->Dce) /* owned or Class DCE*/
-            {
-              if (Window->Class->style & CS_OWNDC) /* owned DCE*/
-                {
-                  pDCE = DceFreeDCE(pDCE, FALSE);
-                  Window->Dce = NULL;
-                  continue;
-                }
-              else if (pDCE->DCXFlags & (DCX_INTERSECTRGN | DCX_EXCLUDERGN))	/* Class DCE*/
-		{
-                  DceDeleteClipRgn(pDCE);
-                  pDCE->hwndCurrent = 0;
-                }
-            }
-          else
-            {
-              if (pDCE->DCXFlags & DCX_DCEBUSY) /* shared cache DCE */
-                {
-                  /* FIXME: AFAICS we are doing the right thing here so
-                   * this should be a DPRINT. But this is best left as an ERR
-                   * because the 'application error' is likely to come from
-                   * another part of Wine (i.e. it's our fault after all).
-                   * We should change this to DPRINT when ReactOS is more stable
-                   * (for 1.0?).
-                   */
-                  DPRINT1("[%p] GetDC() without ReleaseDC()!\n", Window->Self);
-                  DceReleaseDC(pDCE);
-                }
-
-              pDCE->DCXFlags &= DCX_CACHE;
-              pDCE->DCXFlags |= DCX_DCEEMPTY;
-              pDCE->hwndCurrent = 0;
-            }
-        }
-      pDCE = pDCE->next;
-    }
-    DCE_UnlockList();
-}
-
-void FASTCALL
-DceEmptyCache()
-{
-  DCE_LockList();
-  while (FirstDce != NULL)
-    {
-      DceFreeDCE(FirstDce, TRUE);
-    }
-  DCE_UnlockList();
-}
-
-VOID FASTCALL 
-DceResetActiveDCEs(PWINDOW_OBJECT Window)
-{
-  DCE *pDCE;
-  PDC dc;
-  PWINDOW_OBJECT CurrentWindow;
-  INT DeltaX;
-  INT DeltaY;
-
-  if (NULL == Window)
-    {
-      return;
-    }
-
-  DCE_LockList();
-  
-  pDCE = FirstDce;
-  while (pDCE)
-    {
-      if (0 == (pDCE->DCXFlags & DCX_DCEEMPTY))
-        {
-          if (Window->Self == pDCE->hwndCurrent)
-            {
-              CurrentWindow = Window;
-            }
-          else
-            {
-              CurrentWindow = IntGetWindowObject(pDCE->hwndCurrent);
-              if (NULL == CurrentWindow)
-                {
-                  pDCE = pDCE->next;
-                  continue;
-                }
-            }
-
-          dc = DC_LockDc(pDCE->hDC);
-          if (dc == NULL)
-            {
-              if (Window->Self != pDCE->hwndCurrent)
-                {
-                  IntReleaseWindowObject(CurrentWindow);
-                }
-              pDCE = pDCE->next;
-              continue;
-            }
-          if (Window == CurrentWindow || IntIsChildWindow(Window->Self, CurrentWindow->Self))
-            {
-              if (pDCE->DCXFlags & DCX_WINDOW)
-                {
-                  DeltaX = CurrentWindow->WindowRect.left - dc->w.DCOrgX;
-                  DeltaY = CurrentWindow->WindowRect.top - dc->w.DCOrgY;
-                  dc->w.DCOrgX = CurrentWindow->WindowRect.left;
-                  dc->w.DCOrgY = CurrentWindow->WindowRect.top;
-                }
-              else
-                {
-                  DeltaX = CurrentWindow->ClientRect.left - dc->w.DCOrgX;
-                  DeltaY = CurrentWindow->ClientRect.top - dc->w.DCOrgY;
-                  dc->w.DCOrgX = CurrentWindow->ClientRect.left;
-                  dc->w.DCOrgY = CurrentWindow->ClientRect.top;
-                }
-              if (NULL != dc->w.hClipRgn)
-                {
-                  NtGdiOffsetRgn(dc->w.hClipRgn, DeltaX, DeltaY);
-                }
-              if (NULL != pDCE->hClipRgn)
-                {
-                  NtGdiOffsetRgn(pDCE->hClipRgn, DeltaX, DeltaY);
-                }
-            }
-          DC_UnlockDc(pDCE->hDC);
-
-          DceUpdateVisRgn(pDCE, CurrentWindow, pDCE->DCXFlags);
-
-          if (Window->Self != pDCE->hwndCurrent)
-            {
-              IntReleaseWindowObject(CurrentWindow);
-            }
-        }
-      
-      pDCE = pDCE->next;
-    }
-  
-  DCE_UnlockList();
-}
-
-/* FIXME: find header file for this prototype. */
-extern BOOL FASTCALL
-IntEnumDisplaySettings(
-  PUNICODE_STRING lpszDeviceName,
-  DWORD iModeNum,
-  LPDEVMODEW lpDevMode,
-  DWORD dwFlags);
-
-#define COPY_DEVMODE_VALUE_TO_CALLER(dst, src, member) \
-    Status = MmCopyToCaller(&(dst)->member, &(src)->member, sizeof ((src)->member)); \
-    if (!NT_SUCCESS(Status)) \
-    { \
-      SetLastNtError(Status); \
-      ExFreePool(src); \
-      return FALSE; \
-    }
-
-BOOL
-STDCALL
-NtUserEnumDisplaySettings(
-  PUNICODE_STRING lpszDeviceName,
-  DWORD iModeNum,
-  LPDEVMODEW lpDevMode, /* FIXME is this correct? */
-  DWORD dwFlags )
-{
-  NTSTATUS Status;
-  LPDEVMODEW pSafeDevMode;
-  DWORD Size = 0, ExtraSize = 0;
-  
-  Status = MmCopyFromCaller(&Size, &lpDevMode->dmSize, sizeof (lpDevMode->dmSize));
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
-    return FALSE;
-  }
-  Status = MmCopyFromCaller(&ExtraSize, &lpDevMode->dmDriverExtra, sizeof (lpDevMode->dmDriverExtra));
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
-    return FALSE;
-  }
-  pSafeDevMode = ExAllocatePool(PagedPool, Size + ExtraSize);
-  if (pSafeDevMode == NULL)
-  {
-    SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-    return DISP_CHANGE_FAILED;
-  }
-  pSafeDevMode->dmSize = Size;
-  pSafeDevMode->dmDriverExtra = ExtraSize;
-
-  if (!IntEnumDisplaySettings(lpszDeviceName, iModeNum, pSafeDevMode, dwFlags))
-  {
-    ExFreePool(pSafeDevMode);
-    return FALSE;
-  }
-
-  COPY_DEVMODE_VALUE_TO_CALLER(lpDevMode, pSafeDevMode, dmPelsWidth);
-  COPY_DEVMODE_VALUE_TO_CALLER(lpDevMode, pSafeDevMode, dmPelsHeight);
-  COPY_DEVMODE_VALUE_TO_CALLER(lpDevMode, pSafeDevMode, dmBitsPerPel);
-  COPY_DEVMODE_VALUE_TO_CALLER(lpDevMode, pSafeDevMode, dmDisplayFrequency);
-  COPY_DEVMODE_VALUE_TO_CALLER(lpDevMode, pSafeDevMode, dmDisplayFlags);
-
-  /* output private/extra driver data */
-  if (ExtraSize > 0)
-  {
-    Status = MmCopyToCaller((PCHAR)lpDevMode + Size, (PCHAR)pSafeDevMode + Size, ExtraSize);
-    if (!NT_SUCCESS(Status))
-    {
-      SetLastNtError(Status);
-      ExFreePool(pSafeDevMode);
-      return FALSE;
-    }
-  }
-
-  return TRUE;
-}
-
-#undef COPY_DEVMODE_VALUE_TO_CALLER
 
 /* EOF */

@@ -19,8 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __DDRAWI_INCLUDED__
-#define __DDRAWI_INCLUDED__
+#ifndef __WINE_DDRAWI_H
+#define __WINE_DDRAWI_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,11 +28,9 @@ extern "C" {
 
 #include <ddraw.h>
 
-#ifndef __DDK_DDRAWINT_H
 typedef struct _DDVIDEOPORTCAPS *LPDDVIDEOPORTCAPS; /* should be in dvp.h */
 typedef struct _DDKERNELCAPS *LPDDKERNELCAPS; /* should be in ddkernel.h */
 typedef struct _VMEMHEAP *LPVMEMHEAP; /* should be in dmemmgr.h */
-#endif
 
 #define DDAPI WINAPI
 
@@ -68,10 +66,8 @@ typedef struct {
 
 typedef DWORD (PASCAL *LPDD32BITDRIVERINIT)(DWORD dwContext);
 
-#ifndef __DDK_DDRAWINT_H
 /* pointer to video memory */
 typedef ULONG_PTR FLATPTR;
-#endif
 
 /* predeclare some structures */
 typedef struct _DDHALINFO *LPDDHALINFO;
@@ -149,14 +145,12 @@ typedef struct _VIDMEM {
     } DUMMYUNIONNAME2;
 } VIDMEM,*LPVIDMEM;
 
-#ifndef __DDK_DDRAWINT_H
 #define VIDMEM_ISLINEAR		0x00000001
 #define VIDMEM_ISRECTANGULAR	0x00000002
 #define VIDMEM_ISHEAP		0x00000004
 #define VIDMEM_ISNONLOCAL	0x00000008
 #define VIDMEM_ISWC		0x00000010
 #define VIDMEM_ISDISABLED	0x00000020
-#endif
 
 typedef struct _VIDMEMINFO {
     FLATPTR		fpPrimary;
@@ -255,6 +249,12 @@ typedef struct _DDNONLOCALVIDMEMCAPS {
     DWORD	dwNLVBFXCaps;
     DWORD	dwNLVBRops[DD_ROP_SPACE];
 } DDNONLOCALVIDMEMCAPS,*LPDDNONLOCALVIDMEMCAPS;
+
+typedef struct _DDSCAPSEX {
+    DWORD	dwCaps2;
+    DWORD	dwCaps3;
+    DWORD	dwCaps4;
+} DDSCAPSEX,*LPDDSCAPSEX;
 
 #define DDSCAPS_EXECUTEBUFFER	DDSCAPS_RESERVED2
 #define DDSCAPS2_VERTEXBUFFER	DDSCAPS2_RESERVED1
@@ -616,9 +616,7 @@ typedef struct _DDHAL_GETDRIVERINFODATA {
 /*****************************************************************************
  * high-level ddraw implementation structures
  */
-#ifndef __USE_W32API
 typedef DWORD IUnknown; /* FIXME: implement proper definition */
-#endif
 typedef struct _IUNKNOWN_LIST {
     struct _IUNKNOWN_LIST *	lpLink;
     LPGUID			lpGuid;
@@ -973,21 +971,13 @@ typedef struct _DDRAWI_DDRAWSURFACE_LCL {
 #define DDRAWISURF_HASCKEYDESTOVERLAY	0x00000100
 #define DDRAWISURF_HASCKEYDESTBLT	0x00000200
 #define DDRAWISURF_HASCKEYSRCOVERLAY	0x00000400
-#ifndef DDRAWISURF_HASCKEYSRCBLT
 #define DDRAWISURF_HASCKEYSRCBLT	0x00000800
-#endif
 #define DDRAWISURF_LOCKEXCLUDEDCURSOR	0x00001000
-#ifndef DDRAWISURF_HASPIXELFORMAT
 #define DDRAWISURF_HASPIXELFORMAT	0x00002000
-#endif
-#ifndef DDRAWISURF_HASOVERLAYDATA
 #define DDRAWISURF_HASOVERLAYDATA	0x00004000
-#endif
 #define DDRAWISURF_SETGAMMA		0x00008000
 /* more... */
-#ifndef DDRAWISURF_INVALID
 #define DDRAWISURF_INVALID		0x10000000
-#endif
 
 /* palettes */
 typedef struct _DDRAWI_DDRAWPALETTE_INT {
@@ -1324,8 +1314,19 @@ typedef struct _DDHAL_WAITFORVERTICALBLANKDATA
     LPDDHAL_WAITFORVERTICALBLANK    WaitForVerticalBlank; // PRIVATE: ptr to callback
 } DDHAL_WAITFORVERTICALBLANKDATA;
 
+typedef struct _DD_D3DBUFCALLBACKS
+{
+    DWORD dwSize;
+    DWORD dwFlags;
+    LPDDHAL_CANCREATESURFACE        CanCreateD3DBuffer;
+	LPDDHAL_CREATESURFACE           CreateD3DBuffer;
+    LPDDHALSURFCB_DESTROYSURFACE   DestroyD3DBuffer;
+	LPDDHALSURFCB_LOCK             LockD3DBuffer;
+    LPDDHALSURFCB_UNLOCK           UnlockD3DBuffer;
+} DD_D3DBUFCALLBACKS, *PDD_D3DBUFCALLBACKS;
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif /* __DDRAWI_INCLUDED__ */
+#endif /* __WINE_DDRAWI_H */

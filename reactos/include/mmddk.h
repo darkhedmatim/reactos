@@ -26,8 +26,8 @@
 #ifndef __MMDDK_H
 #define __MMDDK_H
 
-#include <mmsystem.h>
-#include <winbase.h>
+#include "mmsystem.h"
+/* #include "winbase.h" */
 
 #define MAX_MIDIINDRV 	(16)
 /* For now I'm making 16 the maximum number of midi devices one can
@@ -41,7 +41,7 @@
  *   Multimedia DDK compatible part
  * ================================== */
 
-#include <pshpack1.h>
+#include "pshpack1.h"
 
 #define DRVM_INIT		100
 #define DRVM_EXIT		101
@@ -69,29 +69,20 @@ typedef struct {
 #define DRVM_IOCTL_CMD_USER   0x00000000L
 #define DRVM_IOCTL_CMD_SYSTEM 0x80000000L
 
-#define DRVM_MAPPER			0x2000
-#define DRVM_USER			0x4000
-#define DRVM_MAPPER_STATUS		(DRVM_MAPPER+0)
-#define DRVM_MAPPER_RECONFIGURE 	(DRVM_MAPPER+1)
-#define DRVM_MAPPER_PREFERRED_GET	(DRVM_MAPPER+21)
-#define DRVM_MAPPER_CONSOLEVOICECOM_GET	(DRVM_MAPPER+23)
+#define DRVM_MAPPER		0x2000
+#define DRVM_USER               0x4000
+#define DRVM_MAPPER_STATUS      (DRVM_MAPPER+0)
+#define DRVM_MAPPER_RECONFIGURE (DRVM_MAPPER+1)
 
-#define DRV_QUERYDRVENTRY		(DRV_RESERVED + 1)
-#define DRV_QUERYDEVNODE		(DRV_RESERVED + 2)
-#define DRV_QUERYNAME			(DRV_RESERVED + 3)
-#define DRV_QUERYDRIVERIDS		(DRV_RESERVED + 4)
-#define DRV_QUERYMAPPABLE		(DRV_RESERVED + 5)
-#define DRV_QUERYMODULE			(DRV_RESERVED + 9)
-#define DRV_PNPINSTALL			(DRV_RESERVED + 11)
-#define DRV_QUERYDEVICEINTERFACE	(DRV_RESERVED + 12)
-#define DRV_QUERYDEVICEINTERFACESIZE	(DRV_RESERVED + 13)
-#define DRV_QUERYSTRINGID		(DRV_RESERVED + 14)
-#define DRV_QUERYSTRINGIDSIZE		(DRV_RESERVED + 15)
-#define DRV_QUERYIDFROMSTRINGID		(DRV_RESERVED + 16)
+#define DRV_QUERYDRVENTRY	(DRV_RESERVED + 1)
+#define DRV_QUERYDEVNODE	(DRV_RESERVED + 2)
+#define DRV_QUERYNAME		(DRV_RESERVED + 3)
+#define DRV_QUERYDRIVERIDS	(DRV_RESERVED + 4)
+#define DRV_QUERYMAPPABLE	(DRV_RESERVED + 5)
 #ifdef __WINESRC__
-#define DRV_QUERYDSOUNDIFACE		(DRV_RESERVED + 20)
-#define DRV_QUERYDSOUNDDESC		(DRV_RESERVED + 21)
-#define DRV_QUERYDSOUNDGUID		(DRV_RESERVED + 22)
+#define DRV_QUERYDSOUNDIFACE	(DRV_RESERVED + 10)
+#define DRV_QUERYDSOUNDDESC	(DRV_RESERVED + 11)
+#define DRV_QUERYDSOUNDGUID	(DRV_RESERVED + 12)
 #endif
 
 #define WODM_INIT		DRVM_INIT
@@ -113,14 +104,11 @@ typedef struct {
 #define WODM_GETPLAYBACKRATE	18
 #define WODM_SETPLAYBACKRATE	19
 #define WODM_BREAKLOOP		20
-#define WODM_PREFERRED		21
 
 #define WODM_MAPPER_STATUS      (DRVM_MAPPER_STATUS + 0)
 #define WAVEOUT_MAPPER_STATUS_DEVICE    0
 #define WAVEOUT_MAPPER_STATUS_MAPPED    1
 #define WAVEOUT_MAPPER_STATUS_FORMAT    2
-
-#define WODM_BUSY		21
 
 #define WIDM_INIT		DRVM_INIT
 #define WIDM_GETNUMDEVS		50
@@ -134,7 +122,7 @@ typedef struct {
 #define WIDM_STOP		58
 #define WIDM_RESET		59
 #define WIDM_GETPOS		60
-#define WIDM_PREFERRED		61
+
 #define WIDM_MAPPER_STATUS      (DRVM_MAPPER_STATUS + 0)
 #define WAVEIN_MAPPER_STATUS_DEVICE     0
 #define WAVEIN_MAPPER_STATUS_MAPPED     1
@@ -449,20 +437,6 @@ BOOL			WINAPI	mciFreeCommandResource(UINT uTable);
 BOOL		 	WINAPI	DriverCallback(DWORD dwCallBack, UINT uFlags, HDRVR hDev,
 					       UINT wMsg, DWORD dwUser, DWORD dwParam1, DWORD dwParam2);
 
-typedef void (*LPTASKCALLBACK)(DWORD dwInst);
-
-#define TASKERR_NOTASKSUPPORT 1
-#define TASKERR_OUTOFMEMORY   2
-MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK, HANDLE*, DWORD);
-void     WINAPI mmTaskBlock(HANDLE);
-BOOL     WINAPI mmTaskSignal(HANDLE);
-void     WINAPI mmTaskYield(void);
-HANDLE   WINAPI mmGetCurrentTask(void);
-
-#ifdef __WINESRC__
-#define  WAVE_DIRECTSOUND               0x0080
-#endif
-
-#include <poppack.h>
+#include "poppack.h"
 
 #endif /* __MMDDK_H */

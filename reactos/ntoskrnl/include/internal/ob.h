@@ -12,8 +12,6 @@
 #define NTOS_MODE_KERNEL
 #include <ntos.h>
 
-#define TAG_OBJECT_TYPE TAG('O', 'b', 'j', 'T')
-
 struct _EPROCESS;
 
 typedef struct
@@ -35,14 +33,6 @@ typedef struct _DIRECTORY_OBJECT
    LIST_ENTRY head;
    KSPIN_LOCK Lock;
 } DIRECTORY_OBJECT, *PDIRECTORY_OBJECT;
-
-typedef struct _SYMLINK_OBJECT
-{
-  CSHORT Type;
-  CSHORT Size;
-  UNICODE_STRING TargetName;
-  LARGE_INTEGER CreateTime;
-} SYMLINK_OBJECT, *PSYMLINK_OBJECT;
 
 
 typedef struct _TYPE_OBJECT
@@ -106,19 +96,8 @@ NTSTATUS ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 		      POBJECT_TYPE ObjectType);
 VOID ObCloseAllHandles(struct _EPROCESS* Process);
 VOID ObDeleteHandleTable(struct _EPROCESS* Process);
-
-NTSTATUS
-ObDeleteHandle(PEPROCESS Process,
-	       HANDLE Handle,
-	       PVOID *ObjectBody);
-
-NTSTATUS
-ObpQueryHandleAttributes(HANDLE Handle,
-			 POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo);
-
-NTSTATUS
-ObpSetHandleAttributes(HANDLE Handle,
-		       POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo);
+PVOID ObDeleteHandle(struct _EPROCESS* Process,
+		     HANDLE Handle);
 
 NTSTATUS
 ObpCreateTypeObject(POBJECT_TYPE ObjectType);
@@ -133,31 +112,5 @@ ObDuplicateObject(PEPROCESS SourceProcess,
 		  ACCESS_MASK DesiredAccess,
 		  BOOLEAN InheritHandle,
 		  ULONG	Options);
-
-ULONG
-ObpGetHandleCountByHandleTable(PHANDLE_TABLE HandleTable);
-
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process, PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo);
-
-/* Security descriptor cache functions */
-
-NTSTATUS
-ObpInitSdCache(VOID);
-
-NTSTATUS
-ObpAddSecurityDescriptor(IN PSECURITY_DESCRIPTOR SourceSD,
-			 OUT PSECURITY_DESCRIPTOR *DestinationSD);
-
-NTSTATUS
-ObpRemoveSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-VOID
-ObpReferenceCachedSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-VOID
-ObpDereferenceCachedSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
 
 #endif /* __INCLUDE_INTERNAL_OBJMGR_H */

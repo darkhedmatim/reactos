@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: volinfo.c,v 1.4 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: volinfo.c,v 1.2 2003/07/17 13:31:39 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,7 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -42,43 +42,40 @@ NtfsGetFsVolumeInformation(PDEVICE_OBJECT DeviceObject,
 			   PFILE_FS_VOLUME_INFORMATION FsVolumeInfo,
 			   PULONG BufferLength)
 {
+  ULONG LabelLength;
+
   DPRINT("NtfsGetFsVolumeInformation() called\n");
   DPRINT("FsVolumeInfo = %p\n", FsVolumeInfo);
   DPRINT("BufferLength %lu\n", *BufferLength);
 
   DPRINT("Vpb %p\n", DeviceObject->Vpb);
+  LabelLength = DeviceObject->Vpb->VolumeLabelLength;
 
-  DPRINT("Required length %lu\n",
-	 sizeof(FILE_FS_VOLUME_INFORMATION) + DeviceObject->Vpb->VolumeLabelLength);
-  DPRINT("LabelLength %hu\n",
-	 DeviceObject->Vpb->VolumeLabelLength);
-  DPRINT("Label %*.S\n",
-	 DeviceObject->Vpb->VolumeLabelLength / sizeof(WCHAR),
-	 DeviceObject->Vpb->VolumeLabel);
+  DPRINT("Required length %lu\n", (sizeof(FILE_FS_VOLUME_INFORMATION) + LabelLength*sizeof(WCHAR)));
+  DPRINT("LabelLength %lu\n", LabelLength);
+  DPRINT("Label %S\n", DeviceObject->Vpb->VolumeLabel);
 
   if (*BufferLength < sizeof(FILE_FS_VOLUME_INFORMATION))
-    return STATUS_INFO_LENGTH_MISMATCH;
+    return(STATUS_INFO_LENGTH_MISMATCH);
 
-  if (*BufferLength < (sizeof(FILE_FS_VOLUME_INFORMATION) + DeviceObject->Vpb->VolumeLabelLength))
-    return STATUS_BUFFER_OVERFLOW;
+  if (*BufferLength < (sizeof(FILE_FS_VOLUME_INFORMATION) + LabelLength*sizeof(WCHAR)))
+    return(STATUS_BUFFER_OVERFLOW);
 
   /* valid entries */
   FsVolumeInfo->VolumeSerialNumber = DeviceObject->Vpb->SerialNumber;
-  FsVolumeInfo->VolumeLabelLength = DeviceObject->Vpb->VolumeLabelLength;
-  memcpy(FsVolumeInfo->VolumeLabel,
-	 DeviceObject->Vpb->VolumeLabel,
-	 DeviceObject->Vpb->VolumeLabelLength);
+  FsVolumeInfo->VolumeLabelLength = LabelLength * sizeof (WCHAR);
+  wcscpy(FsVolumeInfo->VolumeLabel, DeviceObject->Vpb->VolumeLabel);
 
   /* dummy entries */
   FsVolumeInfo->VolumeCreationTime.QuadPart = 0;
   FsVolumeInfo->SupportsObjects = FALSE;
 
-  *BufferLength -= (sizeof(FILE_FS_VOLUME_INFORMATION) + DeviceObject->Vpb->VolumeLabelLength);
+  *BufferLength -= (sizeof(FILE_FS_VOLUME_INFORMATION) + LabelLength * sizeof(WCHAR));
 
   DPRINT("BufferLength %lu\n", *BufferLength);
   DPRINT("NtfsGetFsVolumeInformation() done\n");
 
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: caret.c,v 1.8 2004/08/15 21:36:29 chorns Exp $
+/* $Id: caret.c,v 1.1 2003/07/20 00:06:16 ekohl Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/caret.c
@@ -28,119 +28,101 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-void DrawCaret(HWND hWnd, PTHRDCARETINFO CaretInfo)
-{
-  HDC hDC, hComp;
-  
-  hDC = GetDC(hWnd);
-  if(hDC)
-  {
-    if(CaretInfo->Bitmap && GetBitmapDimensionEx(CaretInfo->Bitmap, &CaretInfo->Size))
-    {
-      hComp = CreateCompatibleDC(hDC);
-      if(hComp)
-      {
-        SelectObject(hComp, CaretInfo->Bitmap);
-        BitBlt(hDC, CaretInfo->Pos.x, CaretInfo->Pos.y, CaretInfo->Size.cx, CaretInfo->Size.cy, hComp, 0, 0, SRCINVERT);
-        DeleteDC(hComp);
-      }
-      else
-        PatBlt(hDC, CaretInfo->Pos.x, CaretInfo->Pos.y, CaretInfo->Size.cx, CaretInfo->Size.cy, DSTINVERT);
-    }
-    else
-    {
-      PatBlt(hDC, CaretInfo->Pos.x, CaretInfo->Pos.y, CaretInfo->Size.cx, CaretInfo->Size.cy, DSTINVERT);
-    }
-    ReleaseDC(hWnd, hDC);
-  }
-}
-
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 CreateCaret(HWND hWnd,
 	    HBITMAP hBitmap,
 	    int nWidth,
 	    int nHeight)
 {
-  return (BOOL)NtUserCreateCaret(hWnd, hBitmap, nWidth, nHeight);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 DestroyCaret(VOID)
 {
-  return (BOOL)NtUserCallNoParam(NOPARAM_ROUTINE_DESTROY_CARET);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 GetCaretBlinkTime(VOID)
 {
-  return NtUserGetCaretBlinkTime();
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetCaretPos(LPPOINT lpPoint)
 {
-  return (BOOL)NtUserGetCaretPos(lpPoint);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 HideCaret(HWND hWnd)
 {
-  return (BOOL)NtUserHideCaret(hWnd);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetCaretBlinkTime(UINT uMSeconds)
 {
-  return NtUserSetCaretBlinkTime(uMSeconds);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetCaretPos(int X,
 	    int Y)
 {
-  return NtUserSetCaretPos(X, Y);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ShowCaret(HWND hWnd)
 {
-  return (BOOL)NtUserShowCaret(hWnd);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /* EOF */

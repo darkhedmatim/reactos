@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: trap.s,v 1.21 2004/11/20 23:46:36 blight Exp $
+/* $Id: trap.s,v 1.18 2003/04/27 16:21:16 hbirr Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/trap.s
@@ -42,19 +42,7 @@ _KiTrapEpilog:
 	jmp	_KiV86Complete
 _KiTrapRet:				
 	/* Skip debug information and unsaved registers */
-	addl	$0x18, %esp
-	popl	%eax		/* Dr0 */
-	movl	%eax, %dr0
-	popl	%eax		/* Dr1 */
-	movl	%eax, %dr1
-	popl	%eax		/* Dr2 */
-	movl	%eax, %dr2
-	popl	%eax		/* Dr3 */
-	movl	%eax, %dr3
-	popl	%eax		/* Dr6 */
-	movl	%eax, %dr6
-	popl	%eax		/* Dr7 */
-	movl	%eax, %dr7
+	addl	$0x30, %esp
 	popl	%gs
 	popl	%es
 	popl	%ds
@@ -99,6 +87,9 @@ _KiTrapProlog:
 	movl    %fs:KPCR_EXCEPTION_LIST, %ebx
 	pushl	%ebx
 	
+	/* Put the exception handler chain terminator */
+	movl    $0xffffffff, %fs:KPCR_EXCEPTION_LIST
+	
 	/* Get a pointer to the current thread */
 	movl    %fs:KPCR_CURRENT_THREAD, %edi
 
@@ -129,21 +120,12 @@ _KiTrapProlog:
 	pushl	%ds
 	pushl	%es
 	pushl	%gs
-	movl	%dr7, %eax
-	pushl	%eax		/* Dr7 */
-	/* Clear all breakpoint enables in dr7. */
-	andl	$0xFFFF0000, %eax
-	movl	%eax, %dr7
-	movl	%dr6, %eax
-	pushl	%eax		/* Dr6 */
-	movl	%dr3, %eax
-	pushl	%eax		/* Dr3 */
-	movl	%dr2, %eax
-	pushl	%eax		/* Dr2 */
-	movl	%dr1, %eax
-	pushl	%eax		/* Dr1 */
-	movl	%dr0, %eax
-	pushl	%eax		/* Dr0 */
+	pushl	$0     /* DR7 */
+	pushl	$0     /* DR6 */
+	pushl	$0     /* DR3 */
+	pushl	$0     /* DR2 */
+	pushl	$0     /* DR1 */
+	pushl	$0     /* DR0 */
 	pushl	$0     /* XXX: TempESP */
 	pushl	$0     /* XXX: TempCS */
 	pushl	$0     /* XXX: DebugPointer */
@@ -353,33 +335,6 @@ _KiTrap16:
 	movl	$16, %esi
 	jmp	_KiTrapProlog
 	 
-.globl _KiTrap17
-_KiTrap17:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$17, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap18
-_KiTrap18:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$18, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap19
-_KiTrap19:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$19, %esi
-	jmp	_KiTrapProlog
-
 .globl _KiTrapUnknown
 _KiTrapUnknown:
         pushl	$0

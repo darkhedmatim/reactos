@@ -1,6 +1,5 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
 
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
@@ -14,33 +13,24 @@
 int _chmod(const char* filename, mode_t mode)
 {
     DWORD FileAttributes = 0;
-    BOOLEAN Set = FALSE;
-
     DPRINT("_chmod('%s', %x)\n", filename, mode);
 
     FileAttributes = GetFileAttributesA(filename);
-    if ( FileAttributes == -1 ) {
-    	_dosmaperr(GetLastError());
+    if ( FileAttributes == -1 )
         return -1;
-    }
 
     if ( mode == 0 )
         return -1;
-    
-    if (mode & _S_IWRITE) {
-	if (FileAttributes & FILE_ATTRIBUTE_READONLY) {
-	    FileAttributes &= ~FILE_ATTRIBUTE_READONLY;
-	    Set = TRUE;
-	}
-    } else {
-	if (!(FileAttributes & FILE_ATTRIBUTE_READONLY)) {
-	    FileAttributes |= FILE_ATTRIBUTE_READONLY;
-	    Set = TRUE;
-	}
-    }
-    if (Set && SetFileAttributesA(filename, FileAttributes) == FALSE) {
-        _dosmaperr(GetLastError());
-	return -1;
-    }
-    return 0;
+
+    if ((mode & _S_IREAD) == _S_IREAD && (mode & _S_IWRITE) != _S_IWRITE)
+        FileAttributes &= FILE_ATTRIBUTE_READONLY;
+    else if (((mode & _S_IREAD) != _S_IREAD) && ((mode & _S_IWRITE) == _S_IWRITE))
+        FileAttributes &= FILE_ATTRIBUTE_NORMAL;
+    else
+        FileAttributes &= FILE_ATTRIBUTE_NORMAL;
+
+    if (SetFileAttributesA(filename, FileAttributes) == FALSE)
+        return -1;
+
+    return 1;
 }

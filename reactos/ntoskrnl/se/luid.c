@@ -1,4 +1,4 @@
-/* $Id: luid.c,v 1.10 2004/08/15 16:39:11 chorns Exp $
+/* $Id: luid.c,v 1.8 2003/07/11 01:23:16 royce Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,7 +11,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -24,7 +25,7 @@ static LARGE_INTEGER LuidValue;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 SepInitLuid(VOID)
 {
   KeInitializeSpinLock(&LuidLock);

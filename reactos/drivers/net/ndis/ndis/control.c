@@ -4,15 +4,11 @@
  * FILE:        ndis/control.c
  * PURPOSE:     Program control routines
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Vizzini (vizzini@plasmic.com)
  * REVISIONS:
  *   CSH 01/08-2000 Created
- *   3 Oct 2003 Vizzini - Formatting and minor bugfixes
  */
+#include <ndissys.h>
 
-#include "ndissys.h"
-
-
 /*
  * @implemented
  */
@@ -21,11 +17,11 @@ EXPORT
 NdisReinitializePacket(
      IN OUT  PNDIS_PACKET    Packet)
 {
-  (Packet)->Private.Head = (PNDIS_BUFFER)NULL;
-  (Packet)->Private.ValidCounts = FALSE;
+	(Packet)->Private.Head = (PNDIS_BUFFER)NULL;
+	(Packet)->Private.ValidCounts = FALSE;
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -45,7 +41,7 @@ NdisAcquireReadWriteLock(
     UNIMPLEMENTED
 }
 
-
+
 /*
  * @implemented
  */
@@ -59,10 +55,10 @@ NdisAcquireSpinLock(
  *     SpinLock = Pointer to the initialized NDIS spin lock to be acquired
  */
 {
-  KeAcquireSpinLock(&SpinLock->SpinLock, &SpinLock->OldIrql);
+    KeAcquireSpinLock(&SpinLock->SpinLock, &SpinLock->OldIrql);
 }
 
-
+
 /*
  * @implemented
  */
@@ -76,10 +72,10 @@ NdisAllocateSpinLock(
  *     SpinLock = Pointer to an NDIS spin lock structure
  */
 {
-  KeInitializeSpinLock(&SpinLock->SpinLock);
+    KeInitializeSpinLock(&SpinLock->SpinLock);
 }
 
-
+
 /*
  * @implemented
  */
@@ -93,11 +89,11 @@ NdisDprAcquireSpinLock(
  *     SpinLock = Pointer to the initialized NDIS spin lock to be acquired
  */
 {
-  KeAcquireSpinLockAtDpcLevel(&SpinLock->SpinLock);
-  SpinLock->OldIrql = DISPATCH_LEVEL;
+    KeAcquireSpinLockAtDpcLevel(&SpinLock->SpinLock);
+    SpinLock->OldIrql = DISPATCH_LEVEL;
 }
 
-
+
 /*
  * @implemented
  */
@@ -111,10 +107,10 @@ NdisDprReleaseSpinLock(
  *     SpinLock = Pointer to the acquired NDIS spin lock to be released
  */
 {
-  KeReleaseSpinLockFromDpcLevel(&SpinLock->SpinLock);
+    KeReleaseSpinLockFromDpcLevel(&SpinLock->SpinLock);
 }
 
-
+
 /*
  * @implemented
  */
@@ -128,10 +124,10 @@ NdisFreeSpinLock(
  *     SpinLock = Pointer to an initialized NDIS spin lock
  */
 {
-  /* Nothing to do here! */
+    /* Nothing to do here! */
 }
 
-
+
 /*
  * @unimplemented
  */
@@ -162,7 +158,7 @@ NdisInitializeEvent(
  *     Event = Pointer to an NDIS event structure to be initialized
  */
 {
-  KeInitializeEvent(&Event->Event, NotificationEvent, FALSE);
+    KeInitializeEvent(&Event->Event, NotificationEvent, FALSE);
 }
 
 
@@ -179,7 +175,7 @@ NdisReleaseSpinLock(
  *     SpinLock = Pointer to the acquired NDIS spin lock to be released
  */
 {
-  KeReleaseSpinLock(&SpinLock->SpinLock, SpinLock->OldIrql);
+    KeReleaseSpinLock(&SpinLock->SpinLock, SpinLock->OldIrql);
 }
 
 
@@ -196,7 +192,7 @@ NdisResetEvent(
  *     Event = Pointer to the initialized event object to be reset
  */
 {
-  KeResetEvent(&Event->Event);
+    KeResetEvent(&Event->Event);
 }
 
 
@@ -213,7 +209,7 @@ NdisSetEvent(
  *     Event = Pointer to the initialized event object to be set
  */
 {
-  KeSetEvent(&Event->Event, IO_NO_INCREMENT, FALSE);
+    KeSetEvent(&Event->Event, IO_NO_INCREMENT, FALSE);
 }
 
 
@@ -234,15 +230,18 @@ NdisWaitEvent(
  *     TRUE if the event is in the signaled state
  */
 {
-  LARGE_INTEGER Timeout;
-  NTSTATUS Status;
+    LARGE_INTEGER Timeout;
+    NTSTATUS Status;
 
-  Timeout.QuadPart = MsToWait * -10000LL;
+    Timeout.QuadPart = MsToWait * -10000LL;
 
-  Status = KeWaitForSingleObject(&Event->Event, Executive, KernelMode, TRUE, &Timeout);
+    Status = KeWaitForSingleObject(&Event->Event,
+				   Executive,
+				   KernelMode,
+				   TRUE,
+				   &Timeout);
 
-  return (Status == STATUS_SUCCESS);
+    return (Status == STATUS_SUCCESS);
 }
 
 /* EOF */
-

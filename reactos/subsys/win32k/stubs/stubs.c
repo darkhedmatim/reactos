@@ -2,7 +2,15 @@
  * Stubs for unimplemented WIN32K.SYS exports
  */
 
-#include <w32k.h>
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdlib.h>
+#include <win32k/bitmaps.h>
+#include <win32k/debug.h>
+#include <debug.h>
+#include <ddk/winddi.h>
+#include "../eng/objects.h"
+#include <include/error.h>
 
 #define STUB(x) void x(void) { DbgPrint("WIN32K: Stub for %s\n", #x); }
 
@@ -84,6 +92,18 @@ EngTextOut (
   // www.osr.com/ddk/graphics/gdifncs_4tgn.htm
   UNIMPLEMENTED;
   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+BRUSHOBJ_ulGetBrushColor ( IN BRUSHOBJ  *pbo )
+{
+  // www.osr.com/ddk/graphics/gdifncs_0ch3.htm
+  UNIMPLEMENTED;
+  return 0;
 }
 
 /*
@@ -254,6 +274,21 @@ EngFillPath (
  */
 PVOID
 STDCALL
+EngFindImageProcAddress(
+	IN HANDLE  hModule,
+	IN LPSTR   lpProcName
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_0oiw.htm
+  UNIMPLEMENTED;
+  return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID
+STDCALL
 EngFindResource(
 	IN  HANDLE  h,
 	IN  int     iName,
@@ -312,7 +347,7 @@ BOOL
 STDCALL
 EngGetFilePath(
 	IN  HANDLE h,
-        OUT WCHAR (*pDest)[MAX_PATH+1]
+	OUT WCHAR* pDest
 	)
 {
   // www.osr.com/ddk/graphics/gdifncs_5g2v.htm
@@ -337,6 +372,28 @@ EngGetForm(
   // www.osr.com/ddk/graphics/gdifncs_5vvr.htm
   UNIMPLEMENTED;
   return FALSE;
+}
+
+/*
+ * @implemented
+ */
+ULONG
+STDCALL
+EngGetLastError ( VOID )
+{
+  // www.osr.com/ddk/graphics/gdifncs_3non.htm
+  return GetLastNtError();
+}
+
+/*
+ * @implemented
+ */
+VOID
+STDCALL
+EngSetLastError ( IN ULONG iError )
+{
+  // www.osr.com/ddk/graphics/gdifncs_95m0.htm
+  SetLastNtError ( iError );
 }
 
 /*
@@ -385,6 +442,19 @@ EngGetPrinterDataFileName ( IN HDEV hdev )
 {
   // www.osr.com/ddk/graphics/gdifncs_2giv.htm
   UNIMPLEMENTED;
+  return NULL;
+}
+
+/*
+ * @unimplemented ( for NT4 only )
+ */
+HANDLE
+STDCALL
+EngGetProcessHandle ( VOID )
+{
+  // www.osr.com/ddk/graphics/gdifncs_3tif.htm
+  // In Windows 2000 and later, the EngGetProcessHandle function always returns NULL.
+  // FIXME - what does NT4 return?
   return NULL;
 }
 
@@ -461,6 +531,23 @@ EngMarkBandingSurface ( IN HSURF hsurf )
   return FALSE;
 }
 
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+EngMovePointer(
+	IN SURFOBJ  *pso,
+	IN LONG      x,
+	IN LONG      y,
+	IN RECTL    *prcl
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_8wfb.htm
+  UNIMPLEMENTED;
+}
+
+
 INT
 STDCALL
 EngMultiByteToWideChar(
@@ -500,6 +587,47 @@ EngQueryPalette(
 
 BOOL
 STDCALL
+EngRestoreFloatingPointState ( IN VOID *pBuffer )
+{
+  // www.osr.com/ddk/graphics/gdifncs_9l0n.htm
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+ULONG
+STDCALL
+EngSaveFloatingPointState(
+	OUT VOID  *pBuffer,
+	IN ULONG  cjBufferSize
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_9tif.htm
+  UNIMPLEMENTED;
+  return 0;
+}
+
+ULONG
+STDCALL
+EngSetPointerShape(
+	IN SURFOBJ  *pso,
+	IN SURFOBJ  *psoMask,
+	IN SURFOBJ  *psoColor,
+	IN XLATEOBJ  *pxlo,
+	IN LONG  xHot,
+	IN LONG  yHot,
+	IN LONG  x,
+	IN LONG  y,
+	IN RECTL  *prcl,
+	IN FLONG  fl
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_1y5j.htm
+  UNIMPLEMENTED;
+  return 0;
+}
+
+BOOL
+STDCALL
 EngSetPointerTag(
 	IN HDEV  hdev,
 	IN SURFOBJ  *psoMask,
@@ -527,6 +655,27 @@ EngSetPrinterData(
   // www.osr.com/ddk/graphics/gdifncs_8drb.htm
   UNIMPLEMENTED;
   return 0;
+}
+
+BOOL
+STDCALL
+EngStretchBlt(
+	IN SURFOBJ  *psoDest,
+	IN SURFOBJ  *psoSrc,
+	IN SURFOBJ  *psoMask,
+	IN CLIPOBJ  *pco,
+	IN XLATEOBJ  *pxlo,
+	IN COLORADJUSTMENT  *pca,
+	IN POINTL  *pptlHTOrg,
+	IN RECTL  *prclDest,
+	IN RECTL  *prclSrc,
+	IN POINTL  *pptlMask,
+	IN ULONG  iMode
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_0bs7.htm
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 BOOL
@@ -871,7 +1020,7 @@ FLOATOBJ_SubLong(
 ULONG
 STDCALL
 FONTOBJ_cGetAllGlyphHandles (
-	IN FONTOBJ  *FontObj,
+	IN PFONTOBJ  FontObj,
 	IN HGLYPH   *Glyphs
 	)
 {
@@ -885,7 +1034,7 @@ FONTOBJ_cGetAllGlyphHandles (
 ULONG
 STDCALL
 FONTOBJ_cGetGlyphs(
-	IN FONTOBJ *FontObj,
+	IN PFONTOBJ FontObj,
 	IN ULONG    Mode,
 	IN ULONG    NumGlyphs,
 	IN HGLYPH  *GlyphHandles,
@@ -901,7 +1050,7 @@ FONTOBJ_cGetGlyphs(
  */
 IFIMETRICS*
 STDCALL
-FONTOBJ_pifi ( IN FONTOBJ *FontObj )
+FONTOBJ_pifi ( IN PFONTOBJ FontObj )
 {
   UNIMPLEMENTED;
   return NULL;
@@ -913,7 +1062,7 @@ FONTOBJ_pifi ( IN FONTOBJ *FontObj )
 PVOID
 STDCALL
 FONTOBJ_pvTrueTypeFontFile (
-	IN FONTOBJ  *FontObj,
+	IN PFONTOBJ  FontObj,
 	IN ULONG    *FileSize)
 {
   UNIMPLEMENTED;
@@ -925,7 +1074,7 @@ FONTOBJ_pvTrueTypeFontFile (
  */
 XFORMOBJ*
 STDCALL
-FONTOBJ_pxoGetXform ( IN FONTOBJ *FontObj )
+FONTOBJ_pxoGetXform ( IN PFONTOBJ FontObj )
 {
   UNIMPLEMENTED;
   return NULL;
@@ -937,7 +1086,7 @@ FONTOBJ_pxoGetXform ( IN FONTOBJ *FontObj )
 VOID
 STDCALL
 FONTOBJ_vGetInfo (
-	IN  FONTOBJ   *FontObj,
+	IN  PFONTOBJ   FontObj,
 	IN  ULONG      InfoSize,
 	OUT PFONTINFO  FontInfo)
 {
@@ -1191,395 +1340,3 @@ STUB(FLOATOBJ_AddFloatObj)
 STUB(FLOATOBJ_DivFloatObj)
 STUB(FLOATOBJ_MulFloatObj)
 STUB(FLOATOBJ_SubFloatObj)
-
-/*
- * @unimplemented
- */
-ULONG STDCALL
-EngDitherColor(
-   IN HDEV hdev,
-   IN ULONG iMode,
-   IN ULONG rgb,
-   OUT ULONG *pul)
-{
-   return DCR_SOLID;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngQuerySystemAttribute(
-   IN ENG_SYSTEM_ATTRIBUTE CapNum,
-   OUT PDWORD pCapability)
-{
-   switch (CapNum)
-   {
-      case EngNumberOfProcessors:
-         *pCapability = 1;
-         return TRUE;
-
-      case EngProcessorFeature:
-         *pCapability = 0;
-         return TRUE;
-
-      default:
-         break;
-   }
-
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-FLATPTR STDCALL
-HeapVidMemAllocAligned(
-   IN LPVIDMEM lpVidMem,
-   IN DWORD dwWidth,
-   IN DWORD dwHeight,
-   IN LPSURFACEALIGNMENT lpAlignment,
-   OUT LPLONG lpNewPitch)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-VidMemFree(
-   IN LPVMEMHEAP pvmh,
-   IN FLATPTR ptr)
-{
-   UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-HANDLE STDCALL
-BRUSHOBJ_hGetColorTransform(
-   IN BRUSHOBJ *Brush)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-EngClearEvent(
-   IN PEVENT Event)
-{
-   UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngDeleteFile(
-   IN LPWSTR FileName)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-EngDeleteSafeSemaphore(
-   IN OUT ENGSAFESEMAPHORE *Semaphore)
-{
-   UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngGetPrinterDriver(
-   IN HANDLE Printer,
-   IN LPWSTR Environment,
-   IN DWORD Level,
-   OUT BYTE *DrvInfo,
-   IN DWORD Buf,
-   OUT DWORD *Needed)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-ULONG STDCALL
-EngHangNotification(
-   IN HDEV Dev,
-   IN PVOID Reserved)
-{
-   UNIMPLEMENTED;
-   return EHN_ERROR;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngInitializeSafeSemaphore(
-   OUT ENGSAFESEMAPHORE *Semaphore)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-PDD_SURFACE_LOCAL STDCALL
-EngLockDirectDrawSurface(
-   IN HANDLE Surface)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngLpkInstalled()
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-PVOID STDCALL
-EngMapFile(
-   IN LPWSTR Filename,
-   IN ULONG Size,
-   OUT ULONG_PTR *File)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngPlgBlt(
-   IN SURFOBJ *Dest,
-   IN SURFOBJ *Source,
-   IN SURFOBJ *Mask,
-   IN CLIPOBJ *Clip,
-   IN XLATEOBJ *Xlate,
-   IN COLORADJUSTMENT *ColorAdjustment,
-   IN POINTL *BrusOrigin,
-   IN POINTFIX *DestPoints,
-   IN RECTL *SourceRect,
-   IN POINTL *MaskPoint,
-   IN ULONG Mode)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngQueryDeviceAttribute(
-   IN HDEV Device,
-   IN ENG_DEVICE_ATTRIBUTE Attribute,
-   IN VOID *In,
-   IN ULONG InSize,
-   OUT VOID *Out,
-   OUT ULONG OutSize)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LONG STDCALL
-EngReadStateEvent(
-   IN PEVENT Event)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-BOOL STDCALL
-EngStretchBltROP(
-   IN SURFOBJ *Dest,
-   IN SURFOBJ *Source,
-   IN SURFOBJ *Mask,
-   IN CLIPOBJ *Clip,
-   IN XLATEOBJ *Xlate,
-   IN COLORADJUSTMENT *ColorAdjustment,
-   IN POINTL *BrushOrigin,
-   IN RECTL *DestRect,
-   IN RECTL *SourceRect,
-   IN POINTL *MaskPoint,
-   IN ULONG Mode,
-   IN BRUSHOBJ *BrushObj,
-   IN DWORD ROP4)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngUnlockDirectDrawSurface(
-   IN PDD_SURFACE_LOCAL Surface)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-EngUnmapFile(
-   IN ULONG_PTR File)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-FD_GLYPHSET * STDCALL
-FONTOBJ_pfdg(
-   IN FONTOBJ *FontObj)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-PBYTE STDCALL
-FONTOBJ_pjOpenTypeTablePointer(
-   IN FONTOBJ *FontObj,
-   IN ULONG Tag,
-   OUT ULONG *Table)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-PFD_GLYPHATTR STDCALL
-FONTOBJ_pQueryGlyphAttrs(
-   IN FONTOBJ *FontObj,
-   IN ULONG Mode)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-LPWSTR STDCALL
-FONTOBJ_pwszFontFilePaths(
-   IN FONTOBJ *FontObj,
-   OUT ULONG *PathLength)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}
-
-/*
- * @unimplemented
- */
-LONG STDCALL
-HT_Get8BPPMaskPalette(
-   IN OUT LPPALETTEENTRY PaletteEntry,
-   IN BOOL Use8BPPMaskPal,
-   IN BYTE CMYMask,
-   IN USHORT RedGamma,
-   IN USHORT GreenGamma,
-   IN USHORT BlueGamma)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-STROBJ_bEnumPositionsOnly(
-   IN STROBJ *StringObj,
-   OUT ULONG *Count,
-   OUT PGLYPHPOS *Pos)
-{
-   UNIMPLEMENTED;
-   return (BOOL) DDI_ERROR;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-STROBJ_bGetAdvanceWidths(
-   IN STROBJ *StringObj,
-   IN ULONG First,
-   IN ULONG Count,
-   OUT POINTQF *Widths)
-{
-   UNIMPLEMENTED;
-   return FALSE;
-}
-
-/*
- * @unimplemented
- */
-FIX STDCALL
-STROBJ_fxBreakExtra(
-   IN STROBJ *StringObj)
-{
-   UNIMPLEMENTED;
-   return (FIX) 0;
-}
-
-/*
- * @unimplemented
- */
-FIX STDCALL
-STROBJ_fxCharacterExtra(
-   IN STROBJ *StringObj)
-{
-   UNIMPLEMENTED;
-   return (FIX) 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE STDCALL
-XLATEOBJ_hGetColorTransform(
-   IN XLATEOBJ *XlateObj)
-{
-   UNIMPLEMENTED;
-   return NULL;
-}

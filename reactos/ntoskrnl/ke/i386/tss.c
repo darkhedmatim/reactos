@@ -27,7 +27,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -111,7 +115,7 @@ Ke386QueryIoAccessMap(DWORD MapNumber, PULONG IOMapStart)
 VOID
 Ki386ApplicationProcessorInitializeTSS(VOID)
 {
-  ULONG cr3_;
+  ULONG cr3;
   KTSS* Tss;
   KTSSNOIOPM* TrapTss;
   PVOID TrapStack;
@@ -122,7 +126,7 @@ Ki386ApplicationProcessorInitializeTSS(VOID)
   Id = KeGetCurrentProcessorNumber();
   Gdt = KeGetCurrentKPCR()->GDT;
 
-  Ke386GetPageTableDirectory(cr3_);
+  __asm__("movl %%cr3,%0\n\t" : "=d" (cr3));
 
   Tss = ExAllocatePool(NonPagedPool, sizeof(KTSS));
   TrapTss = ExAllocatePool(NonPagedPool, sizeof(KTSSNOIOPM));
@@ -134,7 +138,7 @@ Ki386ApplicationProcessorInitializeTSS(VOID)
   KeGetCurrentKPCR()->TSS = Tss;
 
   /* Initialize the boot TSS. */
-  Tss->Esp0 = (ULONG)Ki386InitialStackArray[Id] + MM_STACK_SIZE; /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  Tss->Esp0 = (ULONG)Ki386InitialStackArray[Id];
   Tss->Ss0 = KERNEL_DS;
   Tss->IoMapBase = 0xFFFF; /* No i/o bitmap */
   Tss->IoBitmap[8192] = 0xFF;   
@@ -146,17 +150,17 @@ Ki386ApplicationProcessorInitializeTSS(VOID)
   base = (ULONG)Tss;
   length = sizeof(KTSS) - 1;
   
-  Gdt[(TSS_SELECTOR / 2) + 0] = (USHORT)(length & 0xFFFF);
-  Gdt[(TSS_SELECTOR / 2) + 1] = (USHORT)(base & 0xFFFF);
-  Gdt[(TSS_SELECTOR / 2) + 2] = (USHORT)(((base & 0xFF0000) >> 16) | 0x8900);
-  Gdt[(TSS_SELECTOR / 2) + 3] = (USHORT)(((length & 0xF0000) >> 16) |
-    ((base & 0xFF000000) >> 16));
+  Gdt[(TSS_SELECTOR / 2) + 0] = (length & 0xFFFF);
+  Gdt[(TSS_SELECTOR / 2) + 1] = (base & 0xFFFF);
+  Gdt[(TSS_SELECTOR / 2) + 2] = ((base & 0xFF0000) >> 16) | 0x8900;
+  Gdt[(TSS_SELECTOR / 2) + 3] = ((length & 0xF0000) >> 16) |
+    ((base & 0xFF000000) >> 16);
 
   /* Initialize the TSS used for handling double faults. */
   TrapTss->Eflags = 0;
-  TrapTss->Esp0 = ((ULONG)TrapStack + MM_STACK_SIZE); /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  TrapTss->Esp0 = ((ULONG)TrapStack + MM_STACK_SIZE);
   TrapTss->Ss0 = KERNEL_DS;
-  TrapTss->Esp = ((ULONG)TrapStack + MM_STACK_SIZE); /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  TrapTss->Esp = ((ULONG)TrapStack + MM_STACK_SIZE);
   TrapTss->Cs = KERNEL_CS;
   TrapTss->Eip = (ULONG)KiTrap8;
   TrapTss->Ss = KERNEL_DS;
@@ -166,7 +170,7 @@ Ki386ApplicationProcessorInitializeTSS(VOID)
   TrapTss->IoMapBase = 0xFFFF; /* No i/o bitmap */
   TrapTss->IoBitmap[0] = 0xFF;   
   TrapTss->Ldt = 0;
-  TrapTss->Cr3 = cr3_;  
+  TrapTss->Cr3 = cr3;  
 
   /*
    * Initialize a descriptor for the trap TSS.
@@ -174,36 +178,29 @@ Ki386ApplicationProcessorInitializeTSS(VOID)
   base = (ULONG)TrapTss;
   length = sizeof(KTSSNOIOPM) - 1;
 
-  Gdt[(TRAP_TSS_SELECTOR / 2) + 0] = (USHORT)(length & 0xFFFF);
-  Gdt[(TRAP_TSS_SELECTOR / 2) + 1] = (USHORT)(base & 0xFFFF);
-  Gdt[(TRAP_TSS_SELECTOR / 2) + 2] = (USHORT)(((base & 0xFF0000) >> 16) | 0x8900);
-  Gdt[(TRAP_TSS_SELECTOR / 2) + 3] = (USHORT)(((length & 0xF0000) >> 16) |
-    ((base & 0xFF000000) >> 16));
+  Gdt[(TRAP_TSS_SELECTOR / 2) + 0] = (length & 0xFFFF);
+  Gdt[(TRAP_TSS_SELECTOR / 2) + 1] = (base & 0xFFFF);
+  Gdt[(TRAP_TSS_SELECTOR / 2) + 2] = ((base & 0xFF0000) >> 16) | 0x8900;
+  Gdt[(TRAP_TSS_SELECTOR / 2) + 3] = ((length & 0xF0000) >> 16) |
+    ((base & 0xFF000000) >> 16);
 
   /*
    * Load the task register
    */
-#if defined(__GNUC__)
   __asm__("ltr %%ax" 
 	  : /* no output */
 	  : "a" (TSS_SELECTOR));
-#elif defined(_MSC_VER)
-  __asm mov ax, TSS_SELECTOR
-  __asm ltr ax
-#else
-#error Unknown compiler for inline assembler
-#endif
 }
 
-VOID INIT_FUNCTION
+VOID
 Ki386BootInitializeTSS(VOID)
 {
-  ULONG cr3_;
+  ULONG cr3;
   extern unsigned int init_stack, init_stack_top;
   extern unsigned int trap_stack, trap_stack_top;
   unsigned int base, length;
 
-  Ke386GetPageTableDirectory(cr3_);
+  __asm__("movl %%cr3,%0\n\t" : "=d" (cr3));
 
   Ki386TssArray[0] = &KiBootTss;
   Ki386TrapTssArray[0] = &KiBootTrapTss;
@@ -211,7 +208,7 @@ Ki386BootInitializeTSS(VOID)
   Ki386InitialStackArray[0] = (PVOID)&init_stack;
 
   /* Initialize the boot TSS. */
-  KiBootTss.Esp0 = (ULONG)&init_stack_top - sizeof(FX_SAVE_AREA);
+  KiBootTss.Esp0 = (ULONG)&init_stack_top;
   KiBootTss.Ss0 = KERNEL_DS;
   //   KiBootTss.IoMapBase = FIELD_OFFSET(KTSS, IoBitmap);
   KiBootTss.IoMapBase = 0xFFFF; /* No i/o bitmap */
@@ -232,9 +229,9 @@ Ki386BootInitializeTSS(VOID)
 
   /* Initialize the TSS used for handling double faults. */
   KiBootTrapTss.Eflags = 0;
-  KiBootTrapTss.Esp0 = (ULONG)&trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  KiBootTrapTss.Esp0 = (ULONG)&trap_stack_top;
   KiBootTrapTss.Ss0 = KERNEL_DS;
-  KiBootTrapTss.Esp = (ULONG)&trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  KiBootTrapTss.Esp = (ULONG)&trap_stack_top;
   KiBootTrapTss.Cs = KERNEL_CS;
   KiBootTrapTss.Eip = (ULONG)KiTrap8;
   KiBootTrapTss.Ss = KERNEL_DS;
@@ -244,7 +241,7 @@ Ki386BootInitializeTSS(VOID)
   KiBootTrapTss.IoMapBase = 0xFFFF; /* No i/o bitmap */
   KiBootTrapTss.IoBitmap[0] = 0xFF;   
   KiBootTrapTss.Ldt = 0x0;
-  KiBootTrapTss.Cr3 = cr3_;
+  KiBootTrapTss.Cr3 = cr3;
   
   /*
    * Initialize a descriptor for the trap TSS.
@@ -261,16 +258,9 @@ Ki386BootInitializeTSS(VOID)
   /*
    * Load the task register
    */
-#if defined(__GNUC__)
   __asm__("ltr %%ax" 
 	  : /* no output */
 	  : "a" (TSS_SELECTOR));
-#elif defined(_MSC_VER)
-  __asm mov ax, TSS_SELECTOR
-  __asm ltr ax
-#else
-#error Unknown compiler for inline assembler
-#endif
 }
 
 

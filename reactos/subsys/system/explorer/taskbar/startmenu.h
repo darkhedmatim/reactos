@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,34 +26,21 @@
  //
 
 
-#define _LIGHT_STARTMENU
-#define _LAZY_ICONEXTRACT
-#define _SINGLE_ICONEXTRACT
-
-
-#define	CLASSNAME_STARTMENU		TEXT("ReactosStartmenuClass")
-#define	TITLE_STARTMENU			TEXT("Start Menu")
+#define	CLASSNAME_STARTMENU		_T("ReactosStartmenuClass")
+#define	TITLE_STARTMENU			_T("Start Menu")
 
 
 #define	STARTMENU_WIDTH_MIN		120
-#define	STARTMENU_LINE_HEIGHT	20
+#define	STARTMENU_LINE_HEIGHT	22
 #define	STARTMENU_SEP_HEIGHT	(STARTMENU_LINE_HEIGHT/2)
-#define	STARTMENU_TOP_BTN_SPACE	8
 
 
  // private message constants
 #define	PM_STARTMENU_CLOSED		(WM_APP+0x11)
-#define	PM_STARTENTRY_LAUNCHED	(WM_APP+0x12)
-
-#ifndef _LIGHT_STARTMENU
-#define	PM_STARTENTRY_FOCUSED	(WM_APP+0x13)
-#endif
-
-#define	PM_UPDATE_ICONS			(WM_APP+0x14)
-#define	PM_SELECT_ENTRY			(WM_APP+0x15)
+#define	PM_STARTENTRY_FOCUSED	(WM_APP+0x12)
+#define	PM_STARTENTRY_LAUNCHED	(WM_APP+0x13)
 
 
- /// StartMenuDirectory is used to store the base directory of start menus.
 struct StartMenuDirectory
 {
 	StartMenuDirectory(const ShellDirectory& dir, bool subfolders=true)
@@ -71,39 +58,34 @@ struct StartMenuDirectory
 };
 
 typedef list<StartMenuDirectory> StartMenuShellDirs;
-typedef set<Entry*> ShellEntrySet;
 
- /// structure holding information about one start menu entry
 struct StartMenuEntry
 {
-	StartMenuEntry() : _icon_id(ICID_UNKNOWN) {}
+	StartMenuEntry() : _entry(NULL), _hIcon(0) {}
 
 	String	_title;
-	ICON_ID	_icon_id;
-	ShellEntrySet _entries;
+	HICON	_hIcon;
+	const ShellEntry* _entry;
 };
 
 
-extern int GetStartMenuBtnTextWidth(HDC hdc, LPCTSTR title, HWND hwnd);
-
-
-#ifndef _LIGHT_STARTMENU
-
  /**
-	StartMenuButton draws the face of a StartMenuCtrl button control.
+	StartMenuButton draws to face of a StartMenuCtrl button control.
  */
 struct StartMenuButton : public OwnerdrawnButton
 {
 	typedef OwnerdrawnButton super;
 
-	StartMenuButton(HWND hwnd, ICON_ID icon_id, bool hasSubmenu)
+	StartMenuButton(HWND hwnd, HICON hIcon, bool hasSubmenu)
 	 :	super(hwnd), _hIcon(hIcon), _hasSubmenu(hasSubmenu) {}
+
+	static int GetTextWidth(LPCTSTR title, HWND hwnd);
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis);
 
-	ICON_ID	_icon_id;
+	HICON	_hIcon;
 	bool	_hasSubmenu;
 };
 
@@ -124,7 +106,6 @@ struct StartMenuCtrl : public Button
 };
 
 
- /// separator between start menu entries
 struct StartMenuSeparator : public Static
 {
 	StartMenuSeparator(HWND parent, int x, int y, int w, DWORD style=WS_VISIBLE|WS_CHILD|WS_DISABLED|SS_ETCHEDHORZ, DWORD exStyle=0)
@@ -133,93 +114,27 @@ struct StartMenuSeparator : public Static
 	}
 };
 
-#endif
-
 
 typedef list<ShellPath> StartMenuFolders;
+#define STARTMENU_CREATOR(WND_CLASS) WINDOW_CREATOR_INFO(WND_CLASS, StartMenuFolders)
 
- /// structor containing information for creating of start menus
-struct StartMenuCreateInfo
-{
-	StartMenuCreateInfo() : _border_top(0) {}
-
-	StartMenuFolders _folders;
-	int		_border_top;
-	String	_title;
-	Window::CREATORFUNC_INFO _creator;
-	void*	_info;
-};
-
-#define STARTMENU_CREATOR(WND_CLASS) WINDOW_CREATOR_INFO(WND_CLASS, StartMenuCreateInfo)
-
-typedef map<int, StartMenuEntry> ShellEntryMap;
-
-
-#ifdef _LIGHT_STARTMENU
-
-struct SMBtnInfo
-{
-	SMBtnInfo(const StartMenuEntry& entry, int id, bool hasSubmenu=false, bool enabled=true)
-	 :	_title(entry._title),
-		_icon_id(entry._icon_id),
-		_id(id),
-		_hasSubmenu(hasSubmenu),
-		_enabled(enabled)
-	{
-	}
-
-	SMBtnInfo(LPCTSTR title, ICON_ID icon_id, int id, bool hasSubmenu=false, bool enabled=true)
-	 :	_title(title),
-		_icon_id(icon_id),
-		_id(id),
-		_hasSubmenu(hasSubmenu),
-		_enabled(enabled)
-	{
-	}
-
-	String	_title;
-	ICON_ID	_icon_id;
-	int		_id;
-	bool	_hasSubmenu;
-	bool	_enabled;
-};
-
-typedef vector<SMBtnInfo> SMBtnVector;
-
-extern void DrawStartMenuButton(HDC hdc, const RECT& rect, LPCTSTR title, const SMBtnInfo& btn, bool has_focus, bool pushed);
-
-#else
-
-extern void DrawStartMenuButton(HDC hdc, const RECT& rect, LPCTSTR title, HICON hIcon,
-								bool hasSubmenu, bool enabled, bool has_focus, bool pushed);
-
-#endif
+typedef map<UINT, StartMenuEntry> ShellEntryMap;
 
 
  /**
-	Startmenu window.
-	To create a start menu call its Create() function.
+	Startmenu window
  */
-struct StartMenu :
-#ifdef _LIGHT_STARTMENU
-	public OwnerDrawParent<Window>
-#else
-	public OwnerDrawParent<DialogWindow>
-#endif
+struct StartMenu : public OwnerDrawParent<Dialog>
 {
-#ifdef _LIGHT_STARTMENU
-	typedef OwnerDrawParent<Window> super;
-#else
-	typedef OwnerDrawParent<DialogWindow> super;
-#endif
+	typedef OwnerDrawParent<Dialog> super;
 
 	StartMenu(HWND hwnd);
-	StartMenu(HWND hwnd, const StartMenuCreateInfo& create_info);
+	StartMenu(HWND hwnd, const StartMenuFolders& info);
 	~StartMenu();
 
-	static HWND Create(int x, int y, const StartMenuFolders&, HWND hwndParent, LPCTSTR title,
-						CREATORFUNC_INFO creator=s_def_creator, void* info=NULL);
-	static CREATORFUNC_INFO s_def_creator;
+//	static HWND Create(int x, int y, HWND hwndParent=0);
+	static HWND Create(int x, int y, const StartMenuFolders&, HWND hwndParent=0, CREATORFUNC creator=s_def_creator);
+	static CREATORFUNC s_def_creator;
 
 protected:
 	 // overridden member functions
@@ -235,75 +150,30 @@ protected:
 	ShellEntryMap _entries;
 	StartMenuShellDirs _dirs;
 
-	int		_submenu_id;
+	UINT	_submenu_id;
 	WindowHandle _submenu;
 
 	int		_border_left;	// left border in pixels
-	int		_border_top;	// top border in pixels
-	int		_bottom_max;	// limit display area for long start menus
-
-	bool	_floating_btn;
-	bool	_arrow_btns;
-
-	POINT	_last_pos;
-	enum SCROLL_MODE {SCROLL_NOT, SCROLL_UP, SCROLL_DOWN} _scroll_mode;
-	int		_scroll_pos;
-	int		_invisible_lines;
-
-	StartMenuCreateInfo _create_info;	// copy of the original create info
-
-#ifdef _LIGHT_STARTMENU
-	SMBtnVector _buttons;
-	int		_selected_id;
-	LPARAM	_last_mouse_pos;
-
-	void	ResizeToButtons();
-	int		ButtonHitTest(POINT pt);
-	void	InvalidateSelection();
-	const SMBtnInfo* GetButtonInfo(int id) const;
-	bool	SelectButton(int id, bool open_sub=true);
-	bool	SelectButtonIndex(int idx, bool open_sub=true);
-	int		GetSelectionIndex();
-	virtual void ProcessKey(int vk);
-	bool	Navigate(int step);
-	bool	OpenSubmenu(bool select_first=false);
-	bool	JumpToNextShortcut(char c);
-#endif
 
 	 // member functions
 	void	ResizeButtons(int cx);
 
 	virtual void AddEntries();
 
-	ShellEntryMap::iterator AddEntry(const String& title, ICON_ID icon_id, Entry* entry);
-	ShellEntryMap::iterator AddEntry(const String& title, ICON_ID icon_id=ICID_NONE, int id=-1);
-	ShellEntryMap::iterator AddEntry(const ShellFolder folder, ShellEntry* entry);
-	ShellEntryMap::iterator AddEntry(const ShellFolder folder, Entry* entry);
+	StartMenuEntry& AddEntry(LPCTSTR title, HICON hIcon=0, UINT id=(UINT)-1);
+	StartMenuEntry& AddEntry(const ShellFolder folder, const ShellEntry* entry);
 
 	void	AddShellEntries(const ShellDirectory& dir, int max=-1, bool subfolders=true);
 
-	void	AddButton(LPCTSTR title, ICON_ID icon_id=ICID_NONE, bool hasSubmenu=false, int id=-1, bool enabled=true);
+	void	AddButton(LPCTSTR title, HICON hIcon=0, bool hasSubmenu=false, UINT id=(UINT)-1, DWORD style=WS_VISIBLE|WS_CHILD|BS_OWNERDRAW);
 	void	AddSeparator();
 
-	bool	CloseSubmenus() {return CloseOtherSubmenus();}
-	bool	CloseOtherSubmenus(int id=0);
-	void	CreateSubmenu(int id, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	bool	CreateSubmenu(int id, int folder, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	bool	CreateSubmenu(int id, int folder1, int folder2, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	void	CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTSTR title, CREATORFUNC_INFO creator=s_def_creator, void*info=NULL);
-	void	ActivateEntry(int id, const ShellEntrySet& entries);
-	virtual void CloseStartMenu(int id=0);
-
-	bool	GetButtonRect(int id, PRECT prect) const;
-
-	void	DrawFloatingButton(HDC hdc);
-	void	GetFloatingButtonRect(LPRECT prect);
-	void	GetArrowButtonRects(LPRECT prect_up, LPRECT prect_down);
-
-	void	DrawArrows(HDC hdc);
-
-	void	Paint(PaintCanvas& canvas);
-	void	UpdateIcons(/*int idx*/);
+	bool	CloseOtherSubmenus(int id);
+	void	CreateSubmenu(int id, const StartMenuFolders& new_folders, CREATORFUNC creator=s_def_creator);
+	void	CreateSubmenu(int id, int folder1, int folder2, CREATORFUNC creator=s_def_creator);
+	void	CreateSubmenu(int id, int folder, CREATORFUNC creator=s_def_creator);
+	void	ActivateEntry(int id, ShellEntry* entry);
+	void	CloseStartMenu(int id=0);
 };
 
 
@@ -314,10 +184,10 @@ typedef	void (WINAPI* RUNFILEDLG)(HWND hwndOwner, HICON hIcon, LPCSTR lpstrDirec
  // Flags for RunFileDlg
  //
 
-#define	RFF_NOBROWSE		0x01	// Removes the browse button.
-#define	RFF_NODEFAULT		0x02	// No default item selected.
+#define	RFF_NOBROWSE		0x01	// Removes the browse button. 
+#define	RFF_NODEFAULT		0x02	// No default item selected. 
 #define	RFF_CALCDIRECTORY	0x04	// Calculates the working directory from the file name.
-#define	RFF_NOLABEL			0x08	// Removes the edit box label.
+#define	RFF_NOLABEL			0x08	// Removes the edit box label. 
 #define	RFF_NOSEPARATEMEM	0x20	// Removes the Separate Memory Space check box (Windows NT only).
 
 
@@ -328,35 +198,10 @@ typedef	BOOL (WINAPI* SHFINDFILES)(LPCITEMIDLIST pidlRoot, LPCITEMIDLIST pidlSav
 typedef	BOOL (WINAPI* SHFINDCOMPUTER)(LPCITEMIDLIST pidlRoot, LPCITEMIDLIST pidlSavedSearch);
 
 
- /// Handling of standard start menu commands
-struct StartMenuHandler : public StartMenu
+ // Startmenu root window
+struct StartMenuRoot : public StartMenu
 {
 	typedef StartMenu super;
-
-	StartMenuHandler(HWND hwnd)
-	 :	super(hwnd)
-	{
-	}
-
-	StartMenuHandler(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info)
-	{
-	}
-
-protected:
-	int		Command(int id, int code);
-
-	static void	ShowLaunchDialog(HWND hwndOwner);
-	static void	ShowRestartDialog(HWND hwndOwner, UINT flags);
-	static void	ShowSearchDialog();
-	static void	ShowSearchComputer();
-};
-
-
- /// Startmenu root window
-struct StartMenuRoot : public StartMenuHandler
-{
-	typedef StartMenuHandler super;
 
 	StartMenuRoot(HWND hwnd);
 
@@ -366,100 +211,24 @@ struct StartMenuRoot : public StartMenuHandler
 protected:
 	LRESULT	Init(LPCREATESTRUCT pcs);
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
+	int		Command(int id, int code);
+
+	static void	ShowLaunchDialog(HWND hwndDesktopBar);
+	static void	ShowExitWindowsDialog(HWND hwndOwner);
+	static void	ShowRestartDialog(HWND hwndOwner, UINT flags);
+	static void	ShowSearchDialog();
+	static void	ShowSearchComputer();
 
 	SIZE	_logo_size;
-
-	virtual void AddEntries();
-	virtual void ProcessKey(int vk);
-
-	void	Paint(PaintCanvas& canvas);
-	void	CloseStartMenu(int id=0);
 };
 
 
- /// Settings sub-startmenu
-struct SettingsMenu : public StartMenuHandler
-{
-	typedef StartMenuHandler super;
-
-	SettingsMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info)
-	{
-	}
-
-protected:
-	virtual void AddEntries();
-};
-
-
- /// "Browse Files..." sub-start menu
-struct BrowseMenu : public StartMenuHandler
-{
-	typedef StartMenuHandler super;
-
-	BrowseMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info)
-	{
-	}
-
-protected:
-	virtual void AddEntries();
-};
-
-
- /// Search sub-startmenu
-struct SearchMenu : public StartMenuHandler
-{
-	typedef StartMenuHandler super;
-
-	SearchMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info)
-	{
-	}
-
-protected:
-	virtual void AddEntries();
-};
-
-
-#define	RECENT_DOCS_COUNT	20	///@todo read max. count of entries from registry
-
- /// "Recent Files" sub-start menu
 struct RecentStartMenu : public StartMenu
 {
 	typedef StartMenu super;
 
-	RecentStartMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info)
-	{
-	}
+	RecentStartMenu(HWND hwnd, const StartMenuFolders& info);
 
 protected:
 	virtual void AddEntries();
 };
-
-
-#ifndef _SHELL32_FAVORITES
-
-typedef map<int, BookmarkNode> BookmarkMap;
-
- /// Bookmarks sub-startmenu
-struct FavoritesMenu : public StartMenu
-{
-	typedef StartMenu super;
-
-	FavoritesMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
-	 :	super(hwnd, create_info),
-		_bookmarks(*(BookmarkList*)create_info._info)
-	{
-	}
-
-protected:
-	virtual int Command(int id, int code);
-	virtual void AddEntries();
-
-	BookmarkList _bookmarks;
-	BookmarkMap	_entries;
-};
-
-#endif

@@ -7,8 +7,6 @@
 #ifndef __INFO_H
 #define __INFO_H
 
-#define MAX_PHYSADDR_LEN 8
-#define MAX_IFDESCR_LEN  256
 
 typedef struct IPSNMP_INFO {
 	ULONG Forwarding;
@@ -46,57 +44,10 @@ typedef struct IPADDR_ENTRY {
 	USHORT Pad;
 } IPADDR_ENTRY, *PIPADDR_ENTRY;
 
-typedef struct IPROUTE_ENTRY {
-    ULONG Dest;
-    ULONG Index;    //matches if_index in IFEntry and iae_index in IPAddrEntry
-    ULONG Metric1;
-    ULONG Metric2;
-    ULONG Metric3;
-    ULONG Metric4;
-    ULONG Gw;
-    ULONG Type; 
-    ULONG Proto;
-    ULONG Age; 
-    ULONG Mask;
-    ULONG Metric5;
-    ULONG Info;
-} IPROUTE_ENTRY, *PIPROUTE_ENTRY;
-
-typedef struct IFENTRY {
-    ULONG Index;
-    ULONG Type;
-    ULONG Mtu;
-    ULONG Speed;
-    ULONG PhysAddrLen;
-    UCHAR PhysAddr[MAX_PHYSADDR_LEN];
-    ULONG AdminStatus;
-    ULONG OperStatus;
-    ULONG LastChange;
-    ULONG InOctets;
-    ULONG InUcastPackets;
-    ULONG InDiscards;
-    ULONG InErrors;
-    ULONG InUnknownProtos;
-    ULONG OutOctets;
-    ULONG OutUcastPackets;
-    ULONG OutDiscards;
-    ULONG OutErrors;
-    ULONG OutQLen;
-    ULONG DescrLen;
-} IFENTRY, *PIFENTRY;
- 
 #define	IP_MIB_STATS_ID           1
-#define IF_MIB_STATS_ID           1
-
-#ifndef IP_MIB_ROUTETABLE_ENTRY_ID
-#define IP_MIB_ROUTETABLE_ENTRY_ID 0x101
-#endif
-#ifndef IP_MIB_ADDRTABLE_ENTRY_ID
 #define	IP_MIB_ADDRTABLE_ENTRY_ID 0x102
-#endif
-#ifndef MAX_PHYSADDR_SIZE
+
 #define	MAX_PHYSADDR_SIZE 8
-#endif
 
 
 /* Only UDP is supported */
@@ -123,8 +74,6 @@ typedef union TDI_INFO {
     TDI_PROVIDER_STATISTICS ProviderStats;
 } TDI_INFO, *PTDI_INFO;
 
-TDI_STATUS InfoCopyOut( PCHAR DataOut, UINT SizeOut,
-			PNDIS_BUFFER ClientBuf, PUINT ClientBufSize );
 
 TDI_STATUS InfoTdiQueryInformationEx(
     PTDI_REQUEST Request,
@@ -138,59 +87,6 @@ TDI_STATUS InfoTdiSetInformationEx(
     TDIObjectID *ID,
     PVOID Buffer,
     UINT BufferSize);
-
-/* Network layer info functions */
-TDI_STATUS InfoNetworkLayerTdiQueryEx( UINT InfoClass,
-				       UINT InfoType,
-				       UINT InfoId,
-				       PVOID Context,
-				       TDIEntityID *id,
-				       PNDIS_BUFFER Buffer,
-				       PUINT BufferSize );
-
-TDI_STATUS InfoNetworkLayerTdiSetEx( UINT InfoClass,
-				     UINT InfoType,
-				     UINT InfoId,
-				     PVOID Context,
-				     TDIEntityID *id,
-				     PCHAR Buffer,
-				     UINT BufferSize );
-
-TDI_STATUS InfoTransportLayerTdiQueryEx( UINT InfoClass,
-					 UINT InfoType,
-					 UINT InfoId,
-					 PVOID Context,
-					 TDIEntityID *id,
-					 PNDIS_BUFFER Buffer,
-					 PUINT BufferSize );
-
-TDI_STATUS InfoTransportLayerTdiSetEx( UINT InfoClass,
-				       UINT InfoType,
-				       UINT InfoId,
-				       PVOID Context,
-				       TDIEntityID *id,
-				       PCHAR Buffer,
-				       UINT BufferSize );
-
-TDI_STATUS InfoInterfaceTdiQueryEx( UINT InfoClass,
-				    UINT InfoType,
-				    UINT InfoId,
-				    PVOID Context,
-				    TDIEntityID *id,
-				    PNDIS_BUFFER Buffer,
-				    PUINT BufferSize );
-
-TDI_STATUS InfoInterfaceTdiSetEx( UINT InfoClass,
-				  UINT InfoType,
-				  UINT InfoId,
-				  PVOID Context,
-				  TDIEntityID *id,
-				  PCHAR Buffer,
-				  UINT BufferSize );
-
-/* Insert and remove interface entities */
-VOID InsertTDIInterfaceEntity( PIP_INTERFACE Interface );
-VOID RemoveTDIInterfaceEntity( PIP_INTERFACE Interface );
 
 #endif /* __INFO_H */
 

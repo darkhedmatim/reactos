@@ -1,4 +1,4 @@
-/* $Id: shutdown.c,v 1.10 2004/08/15 16:39:03 chorns Exp $
+/* $Id: shutdown.c,v 1.8 2003/07/10 15:47:00 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -30,8 +32,7 @@ static KSPIN_LOCK ShutdownListLock;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
-IoInitShutdownNotification (VOID)
+VOID IoInitShutdownNotification (VOID)
 {
    InitializeListHead(&ShutdownListHead);
    KeInitializeSpinLock(&ShutdownListLock);

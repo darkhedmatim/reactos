@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: accel.c,v 1.15 2004/08/15 21:36:28 chorns Exp $
+/* $Id: accel.c,v 1.11 2003/07/23 20:39:45 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,20 +28,9 @@
  */
 
 /* INCLUDES ******************************************************************/
-
-#include "user32.h"
+#include <windows.h>
 #include <user32/accel.h>
 #include <win32k/ntuser.h>
-
-/* this is the 8 byte accel struct used in Win32 resources (internal only) */
-typedef struct
-{
-    BYTE   fVirt;
-    BYTE   pad0;
-    WORD   key;
-    WORD   cmd;
-    WORD   pad1;
-} PE_ACCEL, *LPPE_ACCEL;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -91,7 +80,8 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
  HGLOBAL hAccTableData;
  HACCEL hAccTable = NULL;
  U32_ACCEL_CACHE_ENTRY * pEntry;
- PE_ACCEL * pAccTableResData;
+ RES_ACCEL * pAccTableResData;
+ RES_ACCEL * p;
  SIZE_T i = 0;
  SIZE_T j = 0;
  ACCEL * pAccTableData;
@@ -102,7 +92,7 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
  /* failure */
  if(hAccTableData == NULL) return NULL;
 
- EnterCriticalSection(&U32AccelCacheLock);
+ RtlEnterCriticalSection(&U32AccelCacheLock);
 
  /* see if this accelerator table has already been loaded */
  pEntry = *U32AccelCacheFind(NULL, hAccTableData);
@@ -120,16 +110,26 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
   goto l_Leave;
  }
 
- /* determine the number of entries in the table */
- i = SizeofResource(hInstance, hTableRes) / sizeof(PE_ACCEL);
+ /* count the number of entries in the table */
+ p = pAccTableResData = (RES_ACCEL *)hAccTableData;
+
+ while(1)
+ {
+  /* FIXME??? unknown flag 0x60 stops the scan */
+  if(p->fVirt & 0x60) break;
+
+  ++ i;
+  ++ p;
+
+  /* flag 0x80 marks the last entry of the table */
+  if(p->fVirt & 0x80) break;
+ }
 
  /* allocate the buffer for the table to be passed to Win32K */
  pAccTableData = LocalAlloc(LMEM_FIXED, i * sizeof(ACCEL));
 
  /* failure */
  if(pAccTableData == NULL) goto l_Leave;
-
- pAccTableResData = (PE_ACCEL *)hAccTableData;
 
  /* copy the table */
  for(j = 0; j < i; ++ j)
@@ -138,7 +138,6 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
   pAccTableData[j].key = pAccTableResData[j].key;
   pAccTableData[j].cmd = pAccTableResData[j].cmd;
  }
- pAccTableData[i - 1].fVirt |= 0x80;
 
  /* create a new accelerator table object */
  hAccTable = NtUserCreateAcceleratorTable(pAccTableData, i);
@@ -153,7 +152,7 @@ HACCEL WINAPI U32LoadAccelerators(HINSTANCE hInstance, HRSRC hTableRes)
  U32AccelCacheAdd(hAccTable, pAccTableResData);
 
 l_Leave:
- LeaveCriticalSection(&U32AccelCacheLock);
+ RtlLeaveCriticalSection(&U32AccelCacheLock);
  return hAccTable;
 }
 
@@ -163,10 +162,9 @@ BOOL WINAPI U32IsValidAccelMessage(UINT uMsg)
  switch(uMsg)
  {
   case WM_KEYDOWN:
-  case WM_KEYUP:
   case WM_CHAR:
   case WM_SYSKEYDOWN:
-  case WM_SYSKEYUP:
+  case WM_SYSCHAR:
    return TRUE;
 
   default:
@@ -187,7 +185,7 @@ BOOL WINAPI DestroyAcceleratorTable(HACCEL hAccel)
  U32_ACCEL_CACHE_ENTRY ** ppEntry;
  ULONG_PTR nUsage = 0;
 
- EnterCriticalSection(&U32AccelCacheLock);
+ RtlEnterCriticalSection(&U32AccelCacheLock);
 
  /* see if this accelerator table has been cached */
  ppEntry = U32AccelCacheFind(hAccel, NULL);
@@ -211,7 +209,7 @@ BOOL WINAPI DestroyAcceleratorTable(HACCEL hAccel)
   }
  }
 
- LeaveCriticalSection(&U32AccelCacheLock);
+ RtlLeaveCriticalSection(&U32AccelCacheLock);
 
  if(nUsage > 0) return FALSE;
 
@@ -354,14 +352,16 @@ int WINAPI TranslateAcceleratorA(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg)
  MSG mCopy = *lpMsg;
  CHAR cChar;
  WCHAR wChar;
- NTSTATUS Status;
+ NTSTATUS nErrCode;
 
  if(!U32IsValidAccelMessage(lpMsg->message)) return 0;
 
- Status = RtlMultiByteToUnicodeN(&wChar, sizeof(wChar), NULL, &cChar, sizeof(cChar));
- if(!NT_SUCCESS(Status))
+ nErrCode =
+  RtlMultiByteToUnicodeN(&wChar, sizeof(wChar), NULL, &cChar, sizeof(cChar));
+
+ if(!nErrCode)
  {
-  SetLastError(RtlNtStatusToDosError(Status));
+  SetLastError(RtlNtStatusToDosError(nErrCode));
   return 0;
  }
 

@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #define NDEBUG
@@ -13,7 +13,7 @@ int _waccess(const wchar_t *_path, int _amode)
     DWORD Attributes = GetFileAttributesW(_path);
 
     if (Attributes == -1) {
-		_dosmaperr(GetLastError());
+        __set_errno(ENOENT);
         return -1;
     }
     if ((_amode & W_OK) == W_OK) {

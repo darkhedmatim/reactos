@@ -37,7 +37,6 @@
 #include "packet.h"
 #include "win_bpf.h"
 
-#define assert(exp)     ((void)0)
 //-------------------------------------------------------------------
 
 NTSTATUS
@@ -46,12 +45,14 @@ NPF_OpenDumpFile(POPEN_INSTANCE Open , PUNICODE_STRING fileName, BOOLEAN Append)
     NTSTATUS ntStatus;
     IO_STATUS_BLOCK IoStatus;
     OBJECT_ATTRIBUTES ObjectAttributes;
-    PWCHAR PathPrefix = NULL;
+    PWCHAR PathPrefix;
     USHORT PathLen;
     UNICODE_STRING FullFileName;
     ULONG FullFileNameLength;
     PDEVICE_OBJECT fsdDevice;
 
+    FILE_STANDARD_INFORMATION StandardInfo;
+    
     IF_LOUD(DbgPrint("NPF: OpenDumpFile.\n");)
 
     if(fileName->Buffer[0] == L'\\' &&
@@ -157,6 +158,9 @@ NPF_StartDump(POPEN_INSTANCE Open)
     NTSTATUS ntStatus;
     struct packet_file_header hdr;
     IO_STATUS_BLOCK IoStatus;
+    NDIS_REQUEST pRequest;
+    ULONG MediaType;
+    OBJECT_ATTRIBUTES ObjectAttributes;
 
     IF_LOUD(DbgPrint("NPF: StartDump.\n");)
 
@@ -269,6 +273,7 @@ NPF_StartDump(POPEN_INSTANCE Open)
 
 VOID NPF_DumpThread(POPEN_INSTANCE Open)
 {
+    ULONG       FrozenNic;
 
     IF_LOUD(DbgPrint("NPF: In the work routine.  Parameter = 0x%0x\n",Open);)
 
@@ -310,6 +315,7 @@ NTSTATUS NPF_SaveCurrentBuffer(POPEN_INSTANCE Open)
     UINT        Ttail;
     UINT        TLastByte;
     PUCHAR      CurrBuff;
+    NTSTATUS    ntStatus;
     IO_STATUS_BLOCK IoStatus;
     PMDL        lMdl;
     UINT        SizeToDump;
@@ -461,6 +467,12 @@ NTSTATUS NPF_SaveCurrentBuffer(POPEN_INSTANCE Open)
 //-------------------------------------------------------------------
 
 NTSTATUS NPF_CloseDumpFile(POPEN_INSTANCE Open){
+    NTSTATUS    ntStatus;
+    IO_STATUS_BLOCK IoStatus;
+    PMDL        WriteMdl;
+    PUCHAR      VMBuff;
+    UINT        VMBufLen;
+
 
     IF_LOUD(DbgPrint("NPF: NPF_CloseDumpFile.\n");)
     IF_LOUD(DbgPrint("Dumpoffset=%d\n",Open->DumpOffset.QuadPart);)
@@ -530,6 +542,7 @@ VOID NPF_WriteDumpFile(PFILE_OBJECT FileObject,
     KEVENT event;
     PIO_STACK_LOCATION ioStackLocation;
     PDEVICE_OBJECT fsdDevice = IoGetRelatedDeviceObject(FileObject);
+    NTSTATUS Status;
  
     // Set up the event we'll use
     KeInitializeEvent(&event, SynchronizationEvent, FALSE);

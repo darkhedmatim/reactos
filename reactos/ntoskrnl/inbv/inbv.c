@@ -1,4 +1,4 @@
-/* $Id: inbv.c,v 1.8 2004/08/15 16:39:03 chorns Exp $
+/* $Id: inbv.c,v 1.2 2003/08/24 12:08:16 dwelch Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,9 +11,10 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <roskrnl.h>
 #include <ntos/bootvid.h>
 #include <ddk/ntbootvid.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -40,7 +41,7 @@ InbvCheckBootVid(VOID)
       OBJECT_ATTRIBUTES ObjectAttributes;
       UNICODE_STRING BootVidName;
 
-      RtlRosInitUnicodeStringFromLiteral(&BootVidName, L"\\Device\\BootVid");
+      RtlInitUnicodeStringFromLiteral(&BootVidName, L"\\Device\\BootVid");
       InitializeObjectAttributes(&ObjectAttributes,
 				 &BootVidName,
 				 0,
@@ -83,14 +84,14 @@ InbvDisplayString(IN PCHAR String)
 }
 
 BOOLEAN
-STDCALL
+STDCALL_FUNC
 InbvResetDisplayParameters(ULONG SizeX, ULONG SizeY)
 {
   return(InbvResetDisplay());
 }
 
 VOID
-STDCALL INIT_FUNCTION
+STDCALL
 InbvEnableBootDriver(IN BOOLEAN Enable)
 {
   NTSTATUS Status;
@@ -104,9 +105,6 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
 
   if (Enable)
     {
-      /* Notify the hal we will acquire the display. */
-      HalAcquireDisplayOwnership(InbvResetDisplayParameters);
-
       Status = NtDeviceIoControlFile(BootVidDevice,
 				     NULL,
 				     NULL,
@@ -119,10 +117,12 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
 				     sizeof(BootVidFunctionTable));
       if (!NT_SUCCESS(Status))
 	{
-	  KEBUGCHECK(0);
+	  KeBugCheck(0);
 	}
       BootVidDriverInstalled = TRUE;
+      /* Notify the hal we have acquired the display. */
       CHECKPOINT;
+      HalAcquireDisplayOwnership(InbvResetDisplayParameters);
     }
   else
     {
@@ -138,7 +138,7 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
 				     0);
       if (!NT_SUCCESS(Status))
 	{
-	  KEBUGCHECK(0);
+	  KeBugCheck(0);
 	}
       BootVidDriverInstalled = FALSE;
       /* Notify the hal we have released the display. */

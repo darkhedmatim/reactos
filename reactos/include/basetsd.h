@@ -1,20 +1,8 @@
-#ifndef _ROS_BASETSD_H
-#define _ROS_BASETSD_H
+#ifndef _BASETSD_H
+#define _BASETSD_H
 #if __GNUC__ >=3
 #pragma GCC system_header
 #endif
-
-#ifdef __USE_W32API
-
-#include_next <basetsd.h>
-
-#ifdef __GNUC__
-#ifndef __int64
-#define __int64 long long
-#endif
-#endif
-
-#else /* __USE_W32API */
 
 #ifdef __GNUC__
 #ifndef __int64
@@ -128,6 +116,4 @@ typedef unsigned __int64 UINT64,  *PUINT64;
 #endif
 #endif /* !RC_INVOKED */
 
-#endif /* !__USE_W32API */
-
-#endif /* _ROS_BASETSD_H */
+#endif /* _BASETSD_H */

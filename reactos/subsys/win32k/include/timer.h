@@ -1,8 +1,7 @@
-#ifndef _WIN32K_TIMER_H
-#define _WIN32K_TIMER_H
+#ifndef _SUBSYS_WIN32K_INCLUDE_TIMER_H
+#define _SUBSYS_WIN32K_INCLUDE_TIMER_H
 
 NTSTATUS FASTCALL InitTimerImpl(VOID);
-BOOL FASTCALL IntKillTimer(HWND Wnd, UINT_PTR IDEvent, BOOL SystemTimer);
-UINT_PTR FASTCALL IntSetTimer(HWND Wnd, UINT_PTR IDEvent, UINT Elapse, TIMERPROC TimerFunc, BOOL SystemTimer);
+VOID FASTCALL RemoveTimersThread(HANDLE ThreadID);
 
-#endif /* _WIN32K_TIMER_H */
+#endif /* ndef _SUBSYS_WIN32K_INCLUDE_TIMER_H */

@@ -1,4 +1,4 @@
-/* $Id: lpc.c,v 1.15 2004/12/24 17:45:57 weiden Exp $
+/* $Id: lpc.c,v 1.10 2003/07/11 13:50:22 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,7 +16,6 @@
 #include <ddk/ntddk.h>
 #include <ntdll/csr.h>
 #include <string.h>
-#include <rosrtl/string.h>
 
 #include <csrss/csrss.h>
 
@@ -126,11 +125,6 @@ CsrClientConnectToServer(VOID)
    HANDLE CsrSectionHandle;
    LARGE_INTEGER CsrSectionViewSize;
 
-   if (WindowsApiPort != INVALID_HANDLE_VALUE)
-     {
-       return STATUS_SUCCESS;
-     }
-
    CsrSectionViewSize.QuadPart = CSR_CSRSS_SECTION_SIZE;
    Status = NtCreateSection(&CsrSectionHandle,
 			    SECTION_ALL_ACCESS,
@@ -143,7 +137,7 @@ CsrClientConnectToServer(VOID)
      {
        return(Status);
      }
-   RtlRosInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
+   RtlInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
    ConnectInfoLength = 0;
    LpcWrite.Length = sizeof(LPC_SECTION_WRITE);
    LpcWrite.SectionHandle = CsrSectionHandle;
@@ -159,7 +153,6 @@ CsrClientConnectToServer(VOID)
 			  &ConnectInfoLength);
    if (!NT_SUCCESS(Status))
      {
-     	WindowsApiPort = INVALID_HANDLE_VALUE;
 	return(Status);
      }
 

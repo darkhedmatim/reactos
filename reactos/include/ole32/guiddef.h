@@ -32,9 +32,6 @@ Cambridge, MA 02139, USA.
 
 #include <string.h>
 
-#ifdef __USE_W32API
-#include <basetyps.h>
-#endif /* __USE_W32API */
 
 #ifndef EXTERN_C
 	#ifdef __cplusplus
@@ -44,11 +41,10 @@ Cambridge, MA 02139, USA.
 	#endif
 #endif
 
-#ifndef __USE_W32API
 
 /*	guid definition */
-#ifndef GUID_DEFINED
-	#define GUID_DEFINED
+#ifndef _GUID_DEFINED
+	#define _GUID_DEFINED
 	typedef struct _GUID {
 		unsigned long  Data1;
 		unsigned short Data2;
@@ -58,8 +54,6 @@ Cambridge, MA 02139, USA.
 	typedef GUID*		LPGUID;
 	typedef const GUID*	LPCGUID;
 #endif
-
-#endif /* __USE_W32API */
 
 
 /*	guid definition macro */
@@ -80,31 +74,24 @@ Cambridge, MA 02139, USA.
 #endif
 
 
-
 /*	IID section */
-#ifndef __USE_W32API
 typedef	GUID		IID;
 typedef	IID*		LPIID;
-#endif /* __USE_W32API */
 #ifndef IsEqualIID
 #define IsEqualIID(riid1, riid2) IsEqualGUID(riid1, riid2)
 #endif
 
 
 /*	CLSID section */
-#ifndef __USE_W32API
 typedef GUID		CLSID;
 typedef CLSID*		LPCLSID;
-#endif /* __USE_W32API */
 #ifndef IsEqualCLSID
 #define IsEqualCLSID(rclsid1, rclsid2) IsEqualGUID(rclsid1, rclsid2)
 #endif
 
 /*	FMTID */
-#ifndef __USE_W32API
 typedef	GUID		FMTID;
 typedef	FMTID*		LPFMTID;
-#endif /* __USE_W32API */
 #define	IsEqualFMTID(rfmtid1, rfmtid2) IsEqualGUID(rfmtid1, rfmtid2)
 
 
@@ -119,9 +106,8 @@ typedef	FMTID*		LPFMTID;
 #endif
 
 /*	REFIID section */
-#if !defined(_REFIID_DEFINED) && !defined(_REFGIID_DEFINED)
+#ifndef _REFIID_DEFINED
 	#define _REFIID_DEFINED
-	#define _REFGIID_DEFINED
 	#ifdef __cplusplus
 		#define REFIID const IID &
 	#else

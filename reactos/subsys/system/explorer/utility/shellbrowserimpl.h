@@ -24,71 +24,74 @@
  //
  // Martin Fuchs, 23.07.2003
  //
- // Credits: Thanks to Leon Finker for his explorer cabinet window example
+ // Credits: Thanks to Leon Finker for his explorer window example
  //
 
-#ifdef __MINGW32__
-#include "servprov.h"	// for IServiceProvider
-#include "docobj.h"		// for IOleCommandTarget
-#endif
 
-
- /// Implementation of IShellBrowser and ICommDlgBrowser interfaces for explorer child windows (see ShellBrowserChild)
-struct IShellBrowserImpl
- :	public IShellBrowser,
-	public ICommDlgBrowser,
-	public IServiceProvider,
-	public IOleCommandTarget
+struct IShellBrowserImpl : public IShellBrowser, public ICommDlgBrowser
 {
 	IShellBrowserImpl()
 	 :	_dwRef(0)
 	{
 	}
 
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject);
+	STDMETHOD(QueryInterface)(REFIID iid, void **ppvObject)
+	{
+		if (!ppvObject)
+			return E_POINTER;
 
-	virtual ULONG STDMETHODCALLTYPE AddRef() {return ++_dwRef;}
-	virtual ULONG STDMETHODCALLTYPE Release() {return --_dwRef;}  //not heap based
+		if (iid == IID_IUnknown)
+			*ppvObject = (IUnknown*)static_cast<IShellBrowser*>(this);
+		else if (iid == IID_IOleWindow)
+			*ppvObject = static_cast<IOleWindow*>(this);
+		else if (iid == IID_IShellBrowser)
+			*ppvObject = static_cast<IShellBrowser*>(this);
+		else if (iid == IID_ICommDlgBrowser)
+			*ppvObject = static_cast<ICommDlgBrowser*>(this);
+		else {
+			*ppvObject = NULL;
+			return E_NOINTERFACE;
+		}
+
+		return S_OK;
+	}
+
+	STDMETHOD_(ULONG, AddRef)() {return ++_dwRef;}
+	STDMETHOD_(ULONG, Release)() {return --_dwRef;}  //not heap based
 
     // *** IOleWindow methods ***
-    virtual HRESULT STDMETHODCALLTYPE ContextSensitiveHelp(BOOL fEnterMode) {return E_NOTIMPL;}
+    STDMETHOD(ContextSensitiveHelp)(BOOL fEnterMode) {return E_NOTIMPL;}
 
 	// *** ICommDlgBrowser methods ***
-    virtual HRESULT STDMETHODCALLTYPE OnDefaultCommand(IShellView* ppshv);
+    STDMETHOD(OnDefaultCommand)(struct IShellView* ppshv)
+	{
+		return E_NOTIMPL;
+	}
 
-    virtual HRESULT STDMETHODCALLTYPE OnStateChange(IShellView* ppshv, ULONG uChange)
+    STDMETHOD(OnStateChange)(struct IShellView* ppshv, ULONG uChange)
 	{	//handle selection, rename, focus if needed
 		return E_NOTIMPL;
 	}
 
-    virtual HRESULT STDMETHODCALLTYPE IncludeObject(IShellView* ppshv, LPCITEMIDLIST pidl)
+    STDMETHOD(IncludeObject)(struct IShellView* ppshv, LPCITEMIDLIST pidl)
 	{	//filter files if needed
 		return S_OK;
 	}
 
     // *** IShellBrowser methods *** (same as IOleInPlaceFrame)
-    virtual HRESULT STDMETHODCALLTYPE InsertMenusSB(HMENU hmenuShared, LPOLEMENUGROUPWIDTHS lpMenuWidths) {return E_NOTIMPL;}
-    virtual HRESULT STDMETHODCALLTYPE SetMenuSB(HMENU hmenuShared, HOLEMENU holemenuReserved, HWND hwndActiveObject) {return E_NOTIMPL;}
-    virtual HRESULT STDMETHODCALLTYPE RemoveMenusSB(HMENU hmenuShared) {return E_NOTIMPL;}
-    virtual HRESULT STDMETHODCALLTYPE SetStatusTextSB(LPCOLESTR lpszStatusText) {return E_NOTIMPL;}
-    virtual HRESULT STDMETHODCALLTYPE EnableModelessSB(BOOL fEnable) {return E_NOTIMPL;}
-	virtual HRESULT STDMETHODCALLTYPE BrowseObject(LPCITEMIDLIST pidl, UINT wFlags) {return E_NOTIMPL;}
-	virtual HRESULT STDMETHODCALLTYPE GetViewStateStream(DWORD grfMode, LPSTREAM* ppStrm) {return E_NOTIMPL;}
-	virtual HRESULT STDMETHODCALLTYPE OnViewWindowActive(IShellView* ppshv) {return E_NOTIMPL;}
-	virtual HRESULT STDMETHODCALLTYPE SetToolbarItems(LPTBBUTTON lpButtons, UINT nButtons, UINT uFlags) {return E_NOTIMPL;}
-	virtual HRESULT STDMETHODCALLTYPE TranslateAcceleratorSB(LPMSG lpmsg, WORD wID) {return S_OK;}
-
-    // IServiceProvider
-	virtual HRESULT STDMETHODCALLTYPE QueryService(REFGUID guidService, REFIID riid, void** ppvObject);
-
-    // IOleCommandTarget
-    virtual HRESULT STDMETHODCALLTYPE QueryStatus(const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT* pCmdText);
-    virtual HRESULT STDMETHODCALLTYPE Exec(const GUID *pguidCmdGroup, DWORD nCmdID, DWORD nCmdexecopt, VARIANT *pvaIn, VARIANT *pvaOut);
+    STDMETHOD(InsertMenusSB)(HMENU hmenuShared, LPOLEMENUGROUPWIDTHS lpMenuWidths) {return E_NOTIMPL;}
+    STDMETHOD(SetMenuSB)(HMENU hmenuShared, HOLEMENU holemenuReserved,HWND hwndActiveObject) {return E_NOTIMPL;}
+    STDMETHOD(RemoveMenusSB)(HMENU hmenuShared) {return E_NOTIMPL;}
+    STDMETHOD(SetStatusTextSB)(LPCOLESTR lpszStatusText) {return E_NOTIMPL;}
+    STDMETHOD(EnableModelessSB)(BOOL fEnable) {return E_NOTIMPL;}
+	STDMETHOD(BrowseObject)(LPCITEMIDLIST pidl, UINT wFlags) {return E_NOTIMPL;}
+	STDMETHOD(GetViewStateStream)(DWORD grfMode,LPSTREAM  *ppStrm) {return E_NOTIMPL;}
+	STDMETHOD(OnViewWindowActive)(struct IShellView *ppshv) {return E_NOTIMPL;}
+	STDMETHOD(SetToolbarItems)(LPTBBUTTON lpButtons, UINT nButtons,UINT uFlags) {return E_NOTIMPL;}
+	STDMETHOD(TranslateAcceleratorSB)(LPMSG lpmsg, WORD wID) {return S_OK;}
 
 protected:
 	DWORD	_dwRef;
-
-	virtual HRESULT OnDefaultCommand(LPIDA pida) {return E_NOTIMPL;}
 };
 
 #ifndef WM_GETISHELLBROWSER

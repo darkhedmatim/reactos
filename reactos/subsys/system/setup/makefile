@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.5 2004/12/28 14:40:33 ekohl Exp $
+# $Id: makefile,v 1.1 2003/05/02 18:08:39 ekohl Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -12,7 +12,7 @@ TARGET_INSTALLDIR = system32
 
 TARGET_SDKLIBS = kernel32.a
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API -D_WIN32_IE=0x0400
+TARGET_CFLAGS = -DUNICODE
 
 TARGET_LFLAGS =
 

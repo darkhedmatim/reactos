@@ -1,4 +1,4 @@
-/* $Id: thread.h,v 1.5 2004/10/24 20:37:26 weiden Exp $
+/* $Id: thread.h,v 1.3 2003/07/22 20:10:04 hyperion Exp $
  */
 
 #ifdef __cplusplus
@@ -36,25 +36,20 @@ NTSTATUS CDECL RtlRosCreateUserThreadVa
  ...
 );
 
-__declspec(noreturn) VOID NTAPI RtlRosExitUserThread
-(
- IN NTSTATUS Status
-);
-
 NTSTATUS NTAPI RtlRosInitializeContext
 (
  IN HANDLE ProcessHandle,
- OUT PCONTEXT ThreadContext,
- IN PVOID ThreadStartAddress,
- IN PINITIAL_TEB InitialTeb,
+ OUT PCONTEXT Context,
+ IN PVOID StartAddress,
+ IN PUSER_STACK UserStack,
  IN ULONG ParameterCount,
- IN ULONG_PTR *Parameters
+ IN ULONG_PTR * Parameters
 );
 
 NTSTATUS NTAPI RtlRosCreateStack
 (
  IN HANDLE ProcessHandle,
- OUT PINITIAL_TEB InitialTeb,
+ OUT PUSER_STACK UserStack,
  IN LONG StackZeroBits,
  IN OUT PULONG StackReserve OPTIONAL,
  IN OUT PULONG StackCommit OPTIONAL
@@ -63,27 +58,13 @@ NTSTATUS NTAPI RtlRosCreateStack
 NTSTATUS NTAPI RtlRosDeleteStack
 (
  IN HANDLE ProcessHandle,
- IN PINITIAL_TEB InitialTeb
-);
-
-NTSTATUS NTAPI RtlRosFreeUserThreadStack
-(
- IN HANDLE ProcessHandle,
- IN HANDLE ThreadHandle
-);
-
-NTSTATUS NTAPI RtlRosSwitchStackForExit
-(
- IN PVOID StackBase,
- IN SIZE_T StackSize,
- IN VOID (NTAPI * ExitRoutine)(ULONG_PTR Parameter),
- IN ULONG_PTR Parameter
+ IN PUSER_STACK UserStack
 );
 
 /* Private functions - for ROSRTL internal use only */
 NTSTATUS NTAPI RtlpRosGetStackLimits
 (
- IN PINITIAL_TEB InitialTeb,
+ IN PUSER_STACK UserStack,
  OUT PVOID * StackBase,
  OUT PVOID * StackLimit
 );

@@ -1,42 +1,40 @@
-/* $Id: object.c,v 1.85 2004/11/21 21:53:07 ion Exp $
+/* $Id: object.c,v 1.69.2.1 2003/09/28 15:20:47 ekohl Exp $
  * 
  * COPYRIGHT:     See COPYING in the top level directory
  * PROJECT:       ReactOS kernel
  * FILE:          ntoskrnl/ob/object.c
  * PURPOSE:       Implements generic object managment functions
- * PROGRAMMERS    David Welch (welch@cwcom.net), Skywing (skywing@valhallalegends.com)
+ * PROGRAMMERS    David Welch (welch@cwcom.net)
  * UPDATE HISTORY:
  *               10/06/98: Created
- *               09/13/03: Fixed various ObXxx routines to not call retention
- *                         checks directly at a raised IRQL.
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <roscfg.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/id.h>
+#include <internal/ke.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-
-typedef struct _RETENTION_CHECK_PARAMS
-{
-  WORK_QUEUE_ITEM WorkItem;
-  POBJECT_HEADER ObjectHeader;
-} RETENTION_CHECK_PARAMS, *PRETENTION_CHECK_PARAMS;
 
 
 /* FUNCTIONS ************************************************************/
 
 PVOID HEADER_TO_BODY(POBJECT_HEADER obj)
 {
-  return(((char*)obj)+sizeof(OBJECT_HEADER)-sizeof(COMMON_BODY_HEADER));
+   return(((void *)obj)+sizeof(OBJECT_HEADER)-sizeof(COMMON_BODY_HEADER));
 }
 
 
 POBJECT_HEADER BODY_TO_HEADER(PVOID body)
 {
-  PCOMMON_BODY_HEADER chdr = (PCOMMON_BODY_HEADER)body;
-  return(CONTAINING_RECORD((&(chdr->Type)),OBJECT_HEADER,Type));
+   PCOMMON_BODY_HEADER chdr = (PCOMMON_BODY_HEADER)body;
+   return(CONTAINING_RECORD((&(chdr->Type)),OBJECT_HEADER,Type));
 }
 
 
@@ -69,44 +67,44 @@ ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 	     PUNICODE_STRING RemainingPath,
 	     POBJECT_TYPE ObjectType)
 {
-  PVOID NextObject;
-  PVOID CurrentObject;
-  PVOID RootObject;
-  POBJECT_HEADER CurrentHeader;
-  NTSTATUS Status;
-  PWSTR current;
-  UNICODE_STRING PathString;
-  ULONG Attributes;
-  PUNICODE_STRING ObjectName;
+   PVOID NextObject;
+   PVOID CurrentObject;
+   PVOID RootObject;
+   POBJECT_HEADER CurrentHeader;
+   NTSTATUS Status;
+   PWSTR current;
+   UNICODE_STRING PathString;
+   ULONG Attributes;
+   PUNICODE_STRING ObjectName;
 
-  DPRINT("ObFindObject(ObjectAttributes %x, ReturnedObject %x, "
-	 "RemainingPath %x)\n",ObjectAttributes,ReturnedObject,RemainingPath);
-  DPRINT("ObjectAttributes->ObjectName %wZ\n",
-	 ObjectAttributes->ObjectName);
+   DPRINT("ObFindObject(ObjectAttributes %x, ReturnedObject %x, "
+	  "RemainingPath %x)\n",ObjectAttributes,ReturnedObject,RemainingPath);
+   DPRINT("ObjectAttributes->ObjectName %wZ\n",
+	  ObjectAttributes->ObjectName);
 
-  RtlInitUnicodeString (RemainingPath, NULL);
+   RtlInitUnicodeString (RemainingPath, NULL);
 
-  if (ObjectAttributes->RootDirectory == NULL)
-    {
-      ObReferenceObjectByPointer(NameSpaceRoot,
-				 DIRECTORY_TRAVERSE,
-				 NULL,
-				 UserMode);
-      CurrentObject = NameSpaceRoot;
-    }
-  else
-    {
-      Status = ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
-					 DIRECTORY_TRAVERSE,
-					 NULL,
-					 UserMode,
-					 &CurrentObject,
-					 NULL);
-      if (!NT_SUCCESS(Status))
-	{
-	  return Status;
-	}
-    }
+   if (ObjectAttributes->RootDirectory == NULL)
+     {
+	ObReferenceObjectByPointer(NameSpaceRoot,
+				   DIRECTORY_TRAVERSE,
+				   NULL,
+				   UserMode);
+	CurrentObject = NameSpaceRoot;
+     }
+   else
+     {
+	Status = ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
+					   DIRECTORY_TRAVERSE,
+					   NULL,
+					   UserMode,
+					   &CurrentObject,
+					   NULL);
+	if (!NT_SUCCESS(Status))
+	  {
+	     return(Status);
+	  }
+     }
 
   ObjectName = ObjectAttributes->ObjectName;
   if (ObjectName->Length == 0 ||
@@ -141,13 +139,13 @@ ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 
   current = PathString.Buffer;
 
-  RootObject = CurrentObject;
-  Attributes = ObjectAttributes->Attributes;
-  if (ObjectType == ObSymbolicLinkType)
-    Attributes |= OBJ_OPENLINK;
+   RootObject = CurrentObject;
+   Attributes = ObjectAttributes->Attributes;
+   if (ObjectType == ObSymbolicLinkType)
+     Attributes |= OBJ_OPENLINK;
 
-  while (TRUE)
-    {
+   while (TRUE)
+     {
 	DPRINT("current %S\n",current);
 	CurrentHeader = BODY_TO_HEADER(CurrentObject);
 
@@ -167,7 +165,7 @@ ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 	if (Status == STATUS_REPARSE)
 	  {
 	     /* reparse the object path */
-	     NextObject = NameSpaceRoot;
+	     NextObject = RootObject;
 	     current = PathString.Buffer;
 	     
 	     ObReferenceObjectByPointer(NextObject,
@@ -182,14 +180,14 @@ ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 	  }
 	ObDereferenceObject(CurrentObject);
 	CurrentObject = NextObject;
-    }
-
-  if (current)
-     RtlCreateUnicodeString (RemainingPath, current);
-  RtlFreeUnicodeString (&PathString);
-  *ReturnedObject = CurrentObject;
-
-  return STATUS_SUCCESS;
+     }
+   
+   if (current)
+      RtlCreateUnicodeString (RemainingPath, current);
+   RtlFreeUnicodeString (&PathString);
+   *ReturnedObject = CurrentObject;
+   
+   return(STATUS_SUCCESS);
 }
 
 
@@ -221,7 +219,7 @@ ObQueryNameString (IN PVOID Object,
   if (Length < sizeof(OBJECT_NAME_INFORMATION) + sizeof(WCHAR))
     return STATUS_INVALID_BUFFER_SIZE;
 
-  ObjectNameInfo->Name.MaximumLength = (USHORT)(Length - sizeof(OBJECT_NAME_INFORMATION));
+  ObjectNameInfo->Name.MaximumLength = Length - sizeof(OBJECT_NAME_INFORMATION);
   ObjectNameInfo->Name.Length = 0;
   ObjectNameInfo->Name.Buffer =
     (PWCHAR)((ULONG_PTR)ObjectNameInfo + sizeof(OBJECT_NAME_INFORMATION));
@@ -340,19 +338,11 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
   NTSTATUS Status;
   BOOLEAN ObjectAttached = FALSE;
   PWCHAR NamePtr;
-  PSECURITY_DESCRIPTOR NewSecurityDescriptor = NULL;
-  SECURITY_SUBJECT_CONTEXT SubjectContext;
 
-  ASSERT_IRQL(APC_LEVEL);
+  assert_irql(APC_LEVEL);
 
-  DPRINT("ObCreateObject(Type %p ObjectAttributes %p, Object %p)\n",
-	 Type, ObjectAttributes, Object);
-
-  if (Type == NULL)
-    {
-      DPRINT1("Invalid object type!\n");
-      return STATUS_INVALID_PARAMETER;
-    }
+  DPRINT("ObCreateObject(Handle %x, ObjectAttributes %x, Type %x)\n",
+	 Handle, ObjectAttributes, Type);
 
   if (ObjectAttributes != NULL &&
       ObjectAttributes->ObjectName != NULL &&
@@ -364,8 +354,8 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
 			    NULL);
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT1("ObFindObject() failed! (Status 0x%x)\n", Status);
-	  return Status;
+	  DPRINT("ObFindObject() failed! (Status 0x%x)\n", Status);
+	  return(Status);
 	}
     }
   else
@@ -376,15 +366,10 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
   Header = (POBJECT_HEADER)ExAllocatePoolWithTag(NonPagedPool,
 						 OBJECT_ALLOC_SIZE(ObjectSize),
 						 Type->Tag);
-  if (Header == NULL) {
-	DPRINT1("Not enough memory!\n");
-	return STATUS_INSUFFICIENT_RESOURCES;
-  }
-
-  RtlZeroMemory(Header, OBJECT_ALLOC_SIZE(ObjectSize));
+  if (Header == NULL)
+    return STATUS_INSUFFICIENT_RESOURCES;
 
   /* Initialize the object header */
-  DPRINT("Initalizing header\n");
   Header->HandleCount = 0;
   Header->RefCount = 1;
   Header->ObjectType = Type;
@@ -410,7 +395,6 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
 
   RtlInitUnicodeString(&(Header->Name),NULL);
 
-  DPRINT("Getting Parent and adding entry\n");
   if (Parent != NULL)
     {
       ParentHeader = BODY_TO_HEADER(Parent);
@@ -431,8 +415,8 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
       ObjectAttached = TRUE;
     }
 
-  DPRINT("About to call Create Routine\n");
-  if (Header->ObjectType->Create != NULL)
+  if ((Header->ObjectType != NULL) &&
+      (Header->ObjectType->Create != NULL))
     {
       DPRINT("Calling %x\n", Header->ObjectType->Create);
       Status = Header->ObjectType->Create(HEADER_TO_BODY(Header),
@@ -452,61 +436,28 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
 	  RtlFreeUnicodeString(&Header->Name);
 	  RtlFreeUnicodeString(&RemainingPath);
 	  ExFreePool(Header);
-	  DPRINT("Create Failed\n");
-	  return Status;
+	  return(Status);
 	}
     }
-  RtlFreeUnicodeString(&RemainingPath);
-
-  SeCaptureSubjectContext(&SubjectContext);
-
-  DPRINT("Security Assignment in progress\n");
-  /* Build the new security descriptor */
-  Status = SeAssignSecurity((ParentHeader != NULL) ? ParentHeader->SecurityDescriptor : NULL,
-			    (ObjectAttributes != NULL) ? ObjectAttributes->SecurityDescriptor : NULL,
-			    &NewSecurityDescriptor,
-			    (Header->ObjectType == ObDirectoryType),
-			    &SubjectContext,
-			    Header->ObjectType->Mapping,
-			    PagedPool);
-  if (NT_SUCCESS(Status))
-    {
-      DPRINT("NewSecurityDescriptor %p\n", NewSecurityDescriptor);
-
-      if (Header->ObjectType->Security != NULL)
-	{
-	  /* Call the security method */
-	  Status = Header->ObjectType->Security(HEADER_TO_BODY(Header),
-						AssignSecurityDescriptor,
-						0,
-						NewSecurityDescriptor,
-						NULL);
-	}
-      else
-	{
-	  /* Assign the security descriptor to the object header */
-	  Status = ObpAddSecurityDescriptor(NewSecurityDescriptor,
-					    &Header->SecurityDescriptor);
-	  DPRINT("Object security descriptor %p\n", Header->SecurityDescriptor);
-	}
-
-      /* Release the new security descriptor */
-      SeDeassignSecurity(&NewSecurityDescriptor);
-    }
-
-  DPRINT("Security Complete\n");
-  SeReleaseSubjectContext(&SubjectContext);
+  RtlFreeUnicodeString( &RemainingPath );
 
   if (Object != NULL)
     {
       *Object = HEADER_TO_BODY(Header);
     }
 
-  DPRINT("Sucess!\n");
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
+/*
+ * @implemented
+ */
+NTSTATUS STDCALL
+ObReferenceObjectByPointer(IN PVOID Object,
+			   IN ACCESS_MASK DesiredAccess,
+			   IN POBJECT_TYPE ObjectType,
+			   IN KPROCESSOR_MODE AccessMode)
 /*
  * FUNCTION: Increments the pointer reference count for a given object
  * ARGUMENTS:
@@ -515,19 +466,12 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
  *         ObjectType = Points to the object type structure
  *         AccessMode = Type of access check to perform
  * RETURNS: Status
- *
- * @implemented
  */
-NTSTATUS STDCALL
-ObReferenceObjectByPointer(IN PVOID Object,
-			   IN ACCESS_MASK DesiredAccess,
-			   IN POBJECT_TYPE ObjectType,
-			   IN KPROCESSOR_MODE AccessMode)
 {
    POBJECT_HEADER Header;
 
-   DPRINT("ObReferenceObjectByPointer(Object %x, ObjectType %x)\n",
-	  Object,ObjectType);
+//   DPRINT("ObReferenceObjectByPointer(Object %x, ObjectType %x)\n",
+//	  Object,ObjectType);
    
    Header = BODY_TO_HEADER(Object);
    
@@ -538,7 +482,7 @@ ObReferenceObjectByPointer(IN PVOID Object,
 		Header->ObjectType,
 		Header->ObjectType->TypeName.Buffer,
 		ObjectType,
-		ObjectType->TypeName.Buffer);
+    ObjectType->TypeName.Buffer);
 	return(STATUS_UNSUCCESSFUL);
      }
    if (Header->ObjectType == PsProcessType)
@@ -601,7 +545,7 @@ ObOpenObjectByPointer(IN POBJECT Object,
    Status = ObCreateHandle(PsGetCurrentProcess(),
 			   Object,
 			   DesiredAccess,
-			   (BOOLEAN)(HandleAttributes & OBJ_INHERIT),
+			   HandleAttributes & OBJ_INHERIT,
 			   Handle);
    
    ObDereferenceObject(Object);
@@ -611,118 +555,48 @@ ObOpenObjectByPointer(IN POBJECT Object,
 
 
 static NTSTATUS
-ObpDeleteObject(POBJECT_HEADER Header)
+ObpPerformRetentionChecks(POBJECT_HEADER Header)
 {
-  DPRINT("ObpDeleteObject(Header %p)\n", Header);
-  if (KeGetCurrentIrql() != PASSIVE_LEVEL)
-    {
-      DPRINT("ObpDeleteObject called at an unsupported IRQL.  Use ObpDeleteObjectDpcLevel instead.\n");
-      KEBUGCHECK(0);
-    }
-
-  if (Header->SecurityDescriptor != NULL)
-    {
-      ObpRemoveSecurityDescriptor(Header->SecurityDescriptor);
-    }
-
-  if (Header->ObjectType != NULL &&
-      Header->ObjectType->Delete != NULL)
-    {
-      Header->ObjectType->Delete(HEADER_TO_BODY(Header));
-    }
-
-  if (Header->Name.Buffer != NULL)
-    {
-      ObpRemoveEntryDirectory(Header);
-      RtlFreeUnicodeString(&Header->Name);
-    }
-
-  DPRINT("ObPerformRetentionChecks() = Freeing object\n");
-  ExFreePool(Header);
-
-  return(STATUS_SUCCESS);
-}
-
-
-VOID STDCALL
-ObpDeleteObjectWorkRoutine (IN PVOID Parameter)
-{
-  PRETENTION_CHECK_PARAMS Params = (PRETENTION_CHECK_PARAMS)Parameter;
-  /* ULONG Tag; */ /* See below */
-
-  ASSERT(Params);
-  ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL); /* We need PAGED_CODE somewhere... */
-
-  /* Turn this on when we have ExFreePoolWithTag
-  Tag = Params->ObjectHeader->ObjectType->Tag; */
-  ObpDeleteObject(Params->ObjectHeader);
-  ExFreePool(Params);
-  /* ExFreePoolWithTag(Params, Tag); */
-}
-
-
-STATIC NTSTATUS
-ObpDeleteObjectDpcLevel(IN POBJECT_HEADER ObjectHeader,
-			IN LONG OldRefCount)
-{
-  if (ObjectHeader->RefCount < 0)
-    {
-      CPRINT("Object %p/%p has invalid reference count (%d)\n",
-	     ObjectHeader, HEADER_TO_BODY(ObjectHeader), 
-	     ObjectHeader->RefCount);
-      KEBUGCHECK(0);
-    }
-
-  if (ObjectHeader->HandleCount < 0)
-    {
-      CPRINT("Object %p/%p has invalid handle count (%d)\n",
-	     ObjectHeader, HEADER_TO_BODY(ObjectHeader), 
-	     ObjectHeader->HandleCount);
-      KEBUGCHECK(0);
-    }
-
-  if (ObjectHeader->CloseInProcess)
-    {
-      KEBUGCHECK(0);
-      return STATUS_UNSUCCESSFUL;
-    }
-  ObjectHeader->CloseInProcess = TRUE;
+//  DPRINT("ObPerformRetentionChecks(Header %x), RefCount %d, HandleCount %d\n",
+//	  Header,Header->RefCount,Header->HandleCount);
   
-  switch (KeGetCurrentIrql ())
+  if (Header->RefCount < 0)
     {
-    case PASSIVE_LEVEL:
-      return ObpDeleteObject (ObjectHeader);
-      
-    case APC_LEVEL:
-    case DISPATCH_LEVEL:
-      {
-	PRETENTION_CHECK_PARAMS Params;
-	
-	/*
-	  We use must succeed pool here because if the allocation fails
-	  then we leak memory.
-	*/
-	Params = (PRETENTION_CHECK_PARAMS)
-	  ExAllocatePoolWithTag(NonPagedPoolMustSucceed,
-				sizeof(RETENTION_CHECK_PARAMS),
-				ObjectHeader->ObjectType->Tag);
-	Params->ObjectHeader = ObjectHeader;
-	ExInitializeWorkItem(&Params->WorkItem,
-			     ObpDeleteObjectWorkRoutine,
-			     (PVOID)Params);
-	ExQueueWorkItem(&Params->WorkItem,
-			CriticalWorkQueue);
-      }
-      return STATUS_PENDING;
-      
-    default:
-      DPRINT("ObpDeleteObjectDpcLevel called at unsupported "
-	     "IRQL %u!\n", KeGetCurrentIrql());
+      CPRINT("Object %x/%x has invalid reference count (%d)\n",
+	     Header, HEADER_TO_BODY(Header), Header->RefCount);
       KEBUGCHECK(0);
-      return STATUS_UNSUCCESSFUL;
     }
-
-  return STATUS_SUCCESS;
+  if (Header->HandleCount < 0)
+    {
+      CPRINT("Object %x/%x has invalid handle count (%d)\n",
+	     Header, HEADER_TO_BODY(Header), Header->HandleCount);
+      KEBUGCHECK(0);
+    }
+  
+  if (Header->RefCount == 0 &&
+      Header->HandleCount == 0 &&
+      Header->Permanent == FALSE)
+    {
+      if (Header->CloseInProcess)
+      {
+	 KEBUGCHECK(0);
+	 return STATUS_UNSUCCESSFUL;
+      }
+      Header->CloseInProcess = TRUE;
+      if (Header->ObjectType != NULL &&
+	  Header->ObjectType->Delete != NULL)
+	{
+	  Header->ObjectType->Delete(HEADER_TO_BODY(Header));
+	}
+      if (Header->Name.Buffer != NULL)
+	{
+	  ObpRemoveEntryDirectory(Header);
+	  RtlFreeUnicodeString(&Header->Name);
+	}
+      DPRINT("ObPerformRetentionChecks() = Freeing object\n");
+      ExFreePool(Header);
+    }
+  return(STATUS_SUCCESS);
 }
 
 
@@ -747,17 +621,17 @@ ObfReferenceObject(IN PVOID Object)
 {
   POBJECT_HEADER Header;
 
-  ASSERT(Object);
+  assert(Object);
 
   Header = BODY_TO_HEADER(Object);
 
-  /* No one should be referencing an object once we are deleting it. */
   if (Header->CloseInProcess)
-    {
+  {
       KEBUGCHECK(0);
-    }
+  }
+  InterlockedIncrement(&Header->RefCount);
 
-  (VOID)InterlockedIncrement(&Header->RefCount);
+  ObpPerformRetentionChecks(Header);
 }
 
 
@@ -781,31 +655,28 @@ VOID FASTCALL
 ObfDereferenceObject(IN PVOID Object)
 {
   POBJECT_HEADER Header;
-  LONG NewRefCount;
-  BOOL Permanent;
-  ULONG HandleCount;
+  extern POBJECT_TYPE PsProcessType;
 
-  ASSERT(Object);
+  assert(Object);
 
-  /* Extract the object header. */
   Header = BODY_TO_HEADER(Object);
-  Permanent = Header->Permanent;
-  HandleCount = Header->HandleCount;
 
-  /* 
-     Drop our reference and get the new count so we can tell if this was the
-     last reference.
-  */
-  NewRefCount = InterlockedDecrement(&Header->RefCount);
-  ASSERT(NewRefCount >= 0);
-
-  /* Check whether the object can now be deleted. */
-  if (NewRefCount == 0 &&
-      HandleCount == 0 &&
-      !Permanent)
+  if (Header->ObjectType == PsProcessType)
     {
-      ObpDeleteObjectDpcLevel(Header, NewRefCount);
+      DPRINT("Deref p 0x%x with refcount %d type %x ",
+	     Object, Header->RefCount, PsProcessType);
+      DPRINT("eip %x\n", ((PULONG)&Object)[-1]);
     }
+  if (Header->ObjectType == PsThreadType)
+    {
+      DPRINT("Deref t 0x%x with refcount %d type %x ",
+	     Object, Header->RefCount, PsThreadType);
+      DPRINT("eip %x\n", ((PULONG)&Object)[-1]);
+    }
+  
+  InterlockedDecrement(&Header->RefCount);
+  
+  ObpPerformRetentionChecks(Header);
 }
 
 
@@ -829,10 +700,10 @@ ObGetObjectPointerCount(PVOID Object)
 {
   POBJECT_HEADER Header;
 
-  ASSERT(Object);
+  assert(Object);
   Header = BODY_TO_HEADER(Object);
 
-  return Header->RefCount;
+  return(Header->RefCount);
 }
 
 
@@ -854,38 +725,10 @@ ObGetObjectHandleCount(PVOID Object)
 {
   POBJECT_HEADER Header;
 
-  ASSERT(Object);
+  assert(Object);
   Header = BODY_TO_HEADER(Object);
 
-  return Header->HandleCount;
-}
-
-
-/**********************************************************************
- * NAME							EXPORTED
- *	ObDereferenceObject@4
- *
- * DESCRIPTION
- *	Decrements a given object's reference count and performs
- *	retention checks.
- *
- * ARGUMENTS
- *	ObjectBody = Body of the object.
- *
- * RETURN VALUE
- * 	None.
- *
- * @implemented
- */
-
-#ifdef ObDereferenceObject
-#undef ObDereferenceObject
-#endif
-
-VOID STDCALL
-ObDereferenceObject(IN PVOID Object)
-{
-  ObfDereferenceObject(Object);
+  return(Header->HandleCount);
 }
 
 /* EOF */

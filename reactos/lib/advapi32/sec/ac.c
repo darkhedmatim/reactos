@@ -1,4 +1,4 @@
-/* $Id: ac.c,v 1.12 2004/12/13 19:06:28 weiden Exp $
+/* $Id: ac.c,v 1.7 2003/07/10 15:05:55 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -6,17 +6,17 @@
  * PURPOSE:         ACL/ACE functions
  */
 
-#include "advapi32.h"
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include <windows.h>
 
-#define NDEBUG
-#include <debug.h>
 
 /* --- ACL --- */
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetAclInformation (
 	PACL			pAcl,
@@ -41,10 +41,92 @@ GetAclInformation (
 }
 
 
+#if 0
+DWORD
+WINAPI
+GetAuditedPermissionsFromAclA (
+	IN	PACL		pacl,
+	IN	PTRUSTEE_A	pTrustee,
+	OUT	PACCESS_MASK	pSuccessfulAuditedRights,
+	OUT	PACCESS_MASK	pFailedAuditRights
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+GetAuditedPermissionsFromAclW (
+	IN	PACL		pacl,
+	IN	PTRUSTEE_W	pTrustee,
+	OUT	PACCESS_MASK	pSuccessfulAuditedRights,
+	OUT	PACCESS_MASK	pFailedAuditRights
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+GetEffectiveRightsFromAclA (
+	IN	PACL		pacl,
+	IN	PTRUSTEE_A	pTrustee,
+	OUT	PACCESS_MASK	pAccessRights
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+GetEffectiveRightsFromAclW (
+	IN	PACL		pacl,
+	IN	PTRUSTEE_W	pTrustee,
+	OUT	PACCESS_MASK	pAccessRights
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+GetExplicitEntriesFromAclA (
+	IN	PACL			pacl,
+	OUT	PULONG			pcCountOfExplicitEntries,
+	OUT	PEXPLICIT_ACCESS_A	* pListOfExplicitEntries
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+GetExplicitEntriesFromAclW (
+	IN	PACL			pacl,
+	OUT	PULONG			pcCountOfExplicitEntries,
+	OUT	PEXPLICIT_ACCESS_W	* pListOfExplicitEntries
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+#endif
+
+
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 InitializeAcl (
 	PACL	pAcl,
@@ -70,7 +152,7 @@ InitializeAcl (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 IsValidAcl (
 	PACL	pAcl
@@ -83,7 +165,7 @@ IsValidAcl (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetAclInformation (
 	PACL			pAcl,
@@ -108,12 +190,43 @@ SetAclInformation (
 }
 
 
+#if 0
+DWORD
+WINAPI
+SetEntriesInAclA (
+	IN	ULONG			cCountOfExplicitEntries,
+	IN	PEXPLICIT_ACCESS_A	pListOfExplicitEntries,
+	IN	PACL			OldAcl,
+	OUT	PACL			* NewAcl
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+DWORD
+WINAPI
+SetEntriesInAclW (
+	IN	ULONG			cCountOfExplicitEntries,
+	IN	PEXPLICIT_ACCESS_W	pListOfExplicitEntries,
+	IN	PACL			OldAcl,
+	OUT	PACL			* NewAcl
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+#endif
+
+
+
 /* --- ACE --- */
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 AddAccessAllowedAce (
 	PACL	pAcl,
@@ -141,34 +254,7 @@ AddAccessAllowedAce (
 /*
  * @implemented
  */
-BOOL STDCALL
-AddAccessAllowedAceEx(PACL pAcl,
-		      DWORD dwAceRevision,
-		      DWORD AceFlags,
-		      DWORD AccessMask,
-		      PSID pSid)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAccessAllowedAceEx(pAcl,
-                                    dwAceRevision,
-                                    AceFlags,
-                                    AccessMask,
-                                    pSid);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 AddAccessDeniedAce (
 	PACL	pAcl,
@@ -196,34 +282,7 @@ AddAccessDeniedAce (
 /*
  * @implemented
  */
-BOOL STDCALL
-AddAccessDeniedAceEx(PACL pAcl,
-		     DWORD dwAceRevision,
-		     DWORD AceFlags,
-		     DWORD AccessMask,
-		     PSID pSid)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAccessDeniedAceEx(pAcl,
-                                   dwAceRevision,
-                                   AceFlags,
-                                   AccessMask,
-                                   pSid);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 AddAce (
 	PACL	pAcl,
@@ -253,15 +312,15 @@ AddAce (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 AddAuditAccessAce (
 	PACL	pAcl,
 	DWORD	dwAceRevision,
 	DWORD	dwAccessMask,
 	PSID	pSid,
-	BOOL	bAuditSuccess,
-	BOOL	bAuditFailure
+	WINBOOL	bAuditSuccess,
+	WINBOOL	bAuditFailure
 	)
 {
 	NTSTATUS Status;
@@ -285,38 +344,7 @@ AddAuditAccessAce (
 /*
  * @implemented
  */
-BOOL STDCALL
-AddAuditAccessAceEx(PACL pAcl,
-		    DWORD dwAceRevision,
-		    DWORD AceFlags,
-		    DWORD dwAccessMask,
-		    PSID pSid,
-		    BOOL bAuditSuccess,
-		    BOOL bAuditFailure)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAuditAccessAceEx(pAcl,
-                                  dwAceRevision,
-                                  AceFlags,
-                                  dwAccessMask,
-                                  pSid,
-                                  bAuditSuccess,
-                                  bAuditFailure);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DeleteAce (
 	PACL	pAcl,
@@ -340,7 +368,7 @@ DeleteAce (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 FindFirstFreeAce (
 	PACL	pAcl,
@@ -355,7 +383,7 @@ FindFirstFreeAce (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetAce (
 	PACL	pAcl,
@@ -375,68 +403,6 @@ GetAce (
 	}
 
 	return TRUE;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetInheritanceSourceW (
-	LPWSTR			pObjectName,
-	SE_OBJECT_TYPE		ObjectType,
-	SECURITY_INFORMATION	SecurityInfo,
-	BOOL			Container,
-	GUID**			pObjectClassGuids  OPTIONAL,
-	DWORD			GuidCount,
-	PACL			pAcl,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL,
-	PGENERIC_MAPPING	pGenericMapping,
-	PINHERITED_FROMW	pInheritArray
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetInheritanceSourceA (
-	LPSTR			pObjectName,
-	SE_OBJECT_TYPE		ObjectType,
-	SECURITY_INFORMATION	SecurityInfo,
-	BOOL			Container,
-	GUID**			pObjectClassGuids  OPTIONAL,
-	DWORD			GuidCount,
-	PACL			pAcl,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL,
-	PGENERIC_MAPPING	pGenericMapping,
-	PINHERITED_FROM		pInheritArray
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-FreeInheritedFromArray (
-	PINHERITED_FROM		pInheritArray,
-	USHORT			AceCnt,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /* EOF */

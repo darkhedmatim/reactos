@@ -1,6 +1,5 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/direct.h>
-#include <msvcrt/internal/file.h>
 
 
 /*
@@ -14,19 +13,15 @@ wchar_t* _wgetdcwd(int nDrive, wchar_t* caBuffer, int nBufLen)
     if (nDrive < 1 || nDrive > 26)
         return NULL;
 
-    if (dr != nDrive) {
-        if ( _chdrive(nDrive) != 0 )
-        	return NULL;
-	}
+    if (dr != nDrive)
+        _chdrive(nDrive);
 
     i = GetCurrentDirectoryW(nBufLen, caBuffer);
-    if (i == nBufLen)
+    if (i  == nBufLen)
         return NULL;
 
-    if (dr != nDrive) {
-    	if ( _chdrive(dr) != 0 )
-			return NULL;
-	}
+    if (dr != nDrive)
+        _chdrive(dr);
 
     return caBuffer;
 }

@@ -8,12 +8,9 @@
  *   CSH 01/09-2000 Created
  */
 #include <ws2_32.h>
-#include <catalog.h>
-#include <handle.h>
-
 
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -22,41 +19,14 @@ getpeername(
     OUT     LPSOCKADDR name,
     IN OUT  INT FAR* namelen)
 {
-  int Error;
-  INT Errno;
-  PCATALOG_ENTRY Provider;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPGetPeerName(s,
-                                               name,
-                                               namelen,
-                                               &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
-
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -65,40 +35,14 @@ getsockname(
     OUT     LPSOCKADDR name,
     IN OUT  INT FAR* namelen)
 {
-  int Error;
-  INT Errno;
-  PCATALOG_ENTRY Provider;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPGetSockName(s,
-                                               name,
-                                               namelen,
-                                               &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -109,45 +53,33 @@ getsockopt(
     OUT     CHAR FAR* optval,
     IN OUT  INT FAR* optlen)
 {
-  PCATALOG_ENTRY Provider;
-  INT Errno;
-  int Error;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPGetSockOpt(s,
-                                              level,
-                                              optname,
-                                              optval,
-                                              optlen,
-                                              &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 INT
-EXPORT __stdcall
+EXPORT
+ioctlsocket(
+    IN      SOCKET s,
+    IN      LONG cmd,
+    IN OUT  ULONG FAR* argp)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+INT
+EXPORT
 setsockopt(
     IN  SOCKET s,
     IN  INT level,
@@ -155,42 +87,14 @@ setsockopt(
     IN  CONST CHAR FAR* optval,
     IN  INT optlen)
 {
-  PCATALOG_ENTRY Provider;
-  INT Errno;
-  int Error;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPSetSockOpt(s,
-                                              level,
-                                              optname,
-                                              optval,
-                                              optlen,
-                                              &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -198,39 +102,14 @@ shutdown(
     IN  SOCKET s,
     IN  INT how)
 {
-  PCATALOG_ENTRY Provider;
-  INT Errno;
-  int Error;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPShutdown(s,
-                                            how,
-                                            &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -240,36 +119,9 @@ WSAAsyncSelect(
     IN  UINT wMsg,
     IN  LONG lEvent)
 {
-  PCATALOG_ENTRY Provider;
-  INT Errno;
-  int Error;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPAsyncSelect(s,
-                                               hWnd,
-                                               wMsg,
-                                               lEvent,
-                                               &Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
@@ -280,38 +132,9 @@ INT
 EXPORT
 WSACancelBlockingCall(VOID)
 {
-#if 0
-  INT Errno;
-  int Error;
-  PCATALOG_ENTRY Provider;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPCancelBlockingCall(&Errno);
-                                              
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
-#endif
-
-  UNIMPLEMENTED
-  
-  return 0;
+    return 0;
 }
 
 
@@ -325,31 +148,14 @@ WSADuplicateSocketA(
     IN  DWORD dwProcessId,
     OUT LPWSAPROTOCOL_INFOA lpProtocolInfo)
 {
-#if 0
-  WSAPROTOCOL_INFOA ProtocolInfoU;
-  
-  Error  = WSADuplicateSocketW(s,
-                               dwProcessId,
-                               &ProtocolInfoU);
-                               
-  if (Error == NO_ERROR)
-  {
-    UnicodeToAnsi(lpProtocolInfo, ProtocolInfoU, sizeof( 
-    
-  }
-  
-  return Error;
-#endif
-  
-  UNIMPLEMENTED
-  
-  return 0;
+    UNIMPLEMENTED
+
+    return 0;
 }
 
 
-
 /*
- * @implemented
+ * @unimplemented
  */
 INT
 EXPORT
@@ -358,34 +164,9 @@ WSADuplicateSocketW(
     IN  DWORD dwProcessId,
     OUT LPWSAPROTOCOL_INFOW lpProtocolInfo)
 {
-  INT Errno;
-  int Error;
-  PCATALOG_ENTRY Provider;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Error = Provider->ProcTable.lpWSPDuplicateSocket(s,
-                                                   dwProcessId,
-                                                   lpProtocolInfo,
-                                                   &Errno);
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Error == SOCKET_ERROR)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Error;
+    return 0;
 }
 
 
@@ -422,7 +203,7 @@ WSAEnumProtocolsW(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 EXPORT
@@ -433,36 +214,9 @@ WSAGetOverlappedResult(
     IN  BOOL fWait,
     OUT LPDWORD lpdwFlags)
 {
-  INT Errno;
-  BOOL Success;
-  PCATALOG_ENTRY Provider;
+    UNIMPLEMENTED
 
-  if (!WSAINITIALIZED) 
-  {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) 
-  {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-  
-  Success = Provider->ProcTable.lpWSPGetOverlappedResult(s,
-                                                        lpOverlapped,
-                                                        lpcbTransfer,
-                                                        fWait,
-                                                        lpdwFlags,
-                                                        &Errno);
-  DereferenceProviderByPointer(Provider);                                              
-  
-  if (Success == FALSE)
-  {
-    WSASetLastError(Errno);
-  }
- 
-  return Success;
+    return 0;
 }
 
 
@@ -517,6 +271,28 @@ WSAHtons(
 /*
  * @unimplemented
  */
+INT
+EXPORT
+WSAIoctl(
+    IN  SOCKET s,
+    IN  DWORD dwIoControlCode,
+    IN  LPVOID lpvInBuffer,
+    IN  DWORD cbInBuffer,
+    OUT LPVOID lpvOutBuffer,
+    IN  DWORD cbOutBuffer,
+    OUT LPDWORD lpcbBytesReturned,
+    IN  LPWSAOVERLAPPED lpOverlapped,
+    IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
 EXPORT
 WSAIsBlocking(VOID)
@@ -534,7 +310,7 @@ SOCKET
 EXPORT
 WSAJoinLeaf(
     IN  SOCKET s,
-    IN  CONST struct sockaddr *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -635,6 +411,23 @@ WSACancelAsyncRequest(
 
     return 0;
 }
+
+/*
+ * @unimplemented
+ */
+INT
+#if 0
+PASCAL FAR
+#else
+EXPORT
+#endif
+__WSAFDIsSet(SOCKET s, LPFD_SET set)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
 
 /* WinSock Service Provider support functions */
 
@@ -818,7 +611,7 @@ WSANSPIoctl(
     LPWSACOMPLETION  lpCompletion
     )
 {
-    //UNIMPLEMENTED
+    UNIMPLEMENTED
 
     return 0;
 }
@@ -863,7 +656,7 @@ WSCWriteNameSpaceOrder (
 VOID
 EXPORT
 freeaddrinfo(
-    struct addrinfo *pAddrInfo
+    LPADDRINFO      pAddrInfo
     )
 {
     UNIMPLEMENTED

@@ -10,6 +10,8 @@
 #include "winuser.h"
 #include "richedit.h"
 
+void RTFSetEditStream(EDITSTREAM *es);
+
 
 /* The following defines are automatically generated.  Do not edit. */
 
@@ -418,6 +420,21 @@
  */
 
 
+/*
+ * Information pertaining to last token read by RTFToken.  The
+ * text is exactly as it occurs in the input file, e.g., "\{"
+ * will be found in rtfTextBuf as "\{", even though it means "{".
+ * These variables are also set when styles are reprocessed.
+ */
+
+extern char	*rtfTextBuf;		/* text of token */
+extern int	rtfTextLen;		/* length of token in rtfTextBuf */
+extern int	rtfClass;		/* token class */
+extern int	rtfMajor;		/* token major number */
+extern int	rtfMinor;		/* token minor number */
+extern int	rtfParam;		/* control symbol parameter */
+extern int	rtfFormat;		/* either SF_RTF or SF_TEXT */
+
 # ifdef THINK_C
 # define	rtfNoParam	(-32768)	/* 16-bit max. neg. value */
 # endif
@@ -425,8 +442,8 @@
 # define	rtfNoParam	(-1000000)
 # endif
 
-
-
+extern long	rtfLineNum;		/* input line number */
+extern int	rtfLinePos;		/* input line position */
 
 /*
  * For some reason, the no-style number is 222
@@ -1374,170 +1391,46 @@ struct RTFStyleElt
 };
 
 
-/*
- * Return pointer to new element of type t, or NULL
- * if no memory available.
- */
-
-# define        New(t)  ((t *) RTFAlloc ((int) sizeof (t)))
-
-/* maximum number of character values representable in a byte */
-
-# define        charSetSize             256
-
-/* charset stack size */
-
-# define        maxCSStack              10
-
-
-struct _RTF_Info;
-typedef struct _RTF_Info RTF_Info;
-
-typedef	void (*RTFFuncPtr) (RTF_Info *);		/* generic function pointer */
-
-struct _RTF_Info {
-    /*
-     * Public variables (listed in rtf.h)
-     */
-
-    /*
-     * Information pertaining to last token read by RTFToken.  The
-     * text is exactly as it occurs in the input file, e.g., "\{"
-     * will be found in rtfTextBuf as "\{", even though it means "{".
-     * These variables are also set when styles are reprocessed.
-     */
-
-    int	rtfClass;
-    int	rtfMajor;
-    int	rtfMinor;
-    int	rtfParam;
-    int rtfFormat;
-    char *rtfTextBuf;
-    int	rtfTextLen;
-
-    long rtfLineNum;
-    int	rtfLinePos;
-
-
-    /*
-     * Private stuff
-     */
-
-    int	pushedChar;	/* pushback char if read too far */
-
-    int	pushedClass;	/* pushed token info for RTFUngetToken() */
-    int	pushedMajor;
-    int	pushedMinor;
-    int	pushedParam;
-    char *pushedTextBuf;
-
-    int	prevChar;
-    int	bumpLine;
-
-    RTFFont	*fontList;	/* these lists MUST be */
-    RTFColor	*colorList;	/* initialized to NULL */
-    RTFStyle	*styleList;
-
-    char *inputName;
-    char *outputName;
-
-    EDITSTREAM editstream;
-    char InputBuffer[0x1000];
-    DWORD dwInputSize;
-    DWORD dwInputUsed;
-
-    /* edit window to output to */
-    HWND hwndEdit;
-
-    /*
-     * These arrays are used to map RTF input character values onto the standard
-     * character names represented by the values.  Input character values are
-     * used as indices into the arrays to produce standard character codes.
-     */
-
-
-    char *genCharSetFile ;
-    int	genCharCode[charSetSize];	/* general */
-    int	haveGenCharSet;
-
-    char *symCharSetFile;
-    int	symCharCode[charSetSize];	/* symbol */
-    int	haveSymCharSet;
-
-    int	curCharSet;
-    int	*curCharCode;
-
-    /*
-     * By default, the reader is configured to handle charset mapping invisibly,
-     * including reading the charset files and switching charset maps as necessary
-     * for Symbol font.
-     */
-
-    int	autoCharSetFlags;
-
-    /*
-     * Stack for keeping track of charset map on group begin/end.  This is
-     * necessary because group termination reverts the font to the previous
-     * value, which may implicitly change it.
-     */
-
-    int	csStack[maxCSStack];
-    int	csTop;
-
-    RTFFuncPtr       ccb[rtfMaxClass];               /* class callbacks */
-
-    RTFFuncPtr       dcb[rtfMaxDestination]; /* destination callbacks */
-
-    RTFFuncPtr       readHook;
-
-    RTFFuncPtr       panicProc;
-
-    FILE     *(*libFileOpen) ();
-
-    char     *outMap[rtfSC_MaxChar];
-
-    DWORD    dwOutputCount;
-    char     OutputBuffer[0x1000];
-};
+typedef	void (*RTFFuncPtr) ();		/* generic function pointer */
 
 
 /*
  * Public RTF reader routines
  */
 
-void		RTFInit (RTF_Info *);
-void		RTFSetInputName (RTF_Info *, char *);
-char		*RTFGetInputName (RTF_Info *);
-void		RTFSetOutputName (RTF_Info *, char *);
-char		*RTFGetOutputName (RTF_Info *);
-void		RTFSetClassCallback (RTF_Info *, int, RTFFuncPtr);
-RTFFuncPtr	RTFGetClassCallback (RTF_Info *, int);
-void		RTFSetDestinationCallback (RTF_Info *, int, RTFFuncPtr);
-RTFFuncPtr	RTFGetDestinationCallback (RTF_Info *, int);
-void		RTFRead (RTF_Info *);
-int		RTFGetToken (RTF_Info *);	/* writer should rarely need this */
-void		RTFUngetToken (RTF_Info *);
-int		RTFPeekToken (RTF_Info *);
-void		RTFSetToken (RTF_Info *, int, int, int, int, char *);
-void		RTFSetReadHook (RTF_Info *, RTFFuncPtr);
-RTFFuncPtr	RTFGetReadHook (RTF_Info *);
-void		RTFRouteToken (RTF_Info *);
-void		RTFSkipGroup (RTF_Info *);
-void		RTFExpandStyle (RTF_Info *, int);
-int		RTFCheckCM (RTF_Info *, int, int);
-int		RTFCheckCMM (RTF_Info *, int, int, int);
-int		RTFCheckMM (RTF_Info *, int, int);
-RTFFont		*RTFGetFont (RTF_Info *, int);
-RTFColor	*RTFGetColor (RTF_Info *, int);
-RTFStyle	*RTFGetStyle (RTF_Info *, int);
+void		RTFInit ();
+void		RTFSetInputName ();
+char		*RTFGetInputName ();
+void		RTFSetOutputName ();
+char		*RTFGetOutputName ();
+void		RTFSetClassCallback ();
+RTFFuncPtr	RTFGetClassCallback ();
+void		RTFSetDestinationCallback ();
+RTFFuncPtr	RTFGetDestinationCallback ();
+void		RTFRead ();
+int		RTFGetToken ();	/* writer should rarely need this */
+void		RTFUngetToken ();
+int		RTFPeekToken ();
+void		RTFSetToken ();
+void		RTFSetReadHook ();
+RTFFuncPtr	RTFGetReadHook ();
+void		RTFRouteToken ();
+void		RTFSkipGroup ();
+void		RTFExpandStyle ();
+int		RTFCheckCM ();
+int		RTFCheckCMM ();
+int		RTFCheckMM ();
+RTFFont		*RTFGetFont ();
+RTFColor	*RTFGetColor ();
+RTFStyle	*RTFGetStyle ();
 # define	RTFAlloc(size)	_RTFAlloc ((int) size)
-char		*_RTFAlloc (int);
-char		*RTFStrSave (char *);
-void		RTFFree (char *);
-int		RTFCharToHex ( char);
-int		RTFHexToChar ( int );
-void		RTFSetMsgProc ( RTFFuncPtr );
-void		RTFSetPanicProc ( RTF_Info *, RTFFuncPtr);
+char		*_RTFAlloc ();
+char		*RTFStrSave ();
+void		RTFFree ();
+int		RTFCharToHex (char);
+int		RTFHexToChar ();
+void		RTFSetMsgProc ();
+void		RTFSetPanicProc ();
 
 /*
  * The following messing around is used to allow RTFMsg() and RTFPanic()
@@ -1546,23 +1439,20 @@ void		RTFSetPanicProc ( RTF_Info *, RTFFuncPtr);
  * stdarg.h.
  */
 
-void	RTFMsg (RTF_Info *, char *fmt, ...);
-void	RTFPanic (RTF_Info *, char *fmt, ...);
+void	RTFMsg (char *fmt, ...);
+void	RTFPanic (char *fmt, ...);
 
-int 	    	RTFReadOutputMap ( RTF_Info *, char *[], int);
-int		RTFReadCharSetMap ( RTF_Info *, int);
-void		RTFSetCharSetMap ( RTF_Info *, char *, int);
-int		RTFStdCharCode ( RTF_Info *, char *);
-char		*RTFStdCharName ( RTF_Info *, int);
-int		RTFMapChar ( RTF_Info *, int);
-int		RTFGetCharSet( RTF_Info * );
-void		RTFSetCharSet( RTF_Info *, int);
+int 	    	RTFReadOutputMap ();
+int		RTFReadCharSetMap ();
+void		RTFSetCharSetMap ();
+int		RTFStdCharCode ();
+char		*RTFStdCharName ();
+int		RTFMapChar ();
+int		RTFGetCharSet();
+void		RTFSetCharSet();
 
 /*char		*RTFGetLibPrefix();*/
-void	RTFSetOpenLibFileProc ( RTF_Info *, FILE *(*)());
-FILE	*RTFOpenLibFile ( RTF_Info *, char *, char *);
-
-void RTFFlushOutputBuffer( RTF_Info *info );
-void RTFSetEditStream(RTF_Info *, EDITSTREAM *es);
+void	RTFSetOpenLibFileProc ();
+FILE	*RTFOpenLibFile ();
 
 #endif

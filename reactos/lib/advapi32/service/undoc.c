@@ -1,4 +1,4 @@
-/* $Id: undoc.c,v 1.4 2004/08/15 17:03:15 chorns Exp $
+/* $Id: undoc.c,v 1.3 2002/09/08 10:22:37 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,8 +12,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "advapi32.h"
-
+#include <windows.h>
 
 /* FUNCTIONS *****************************************************************/
 

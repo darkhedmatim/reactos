@@ -4,9 +4,6 @@
  * DESCRIPTION
  *	An enumeration containing the states in the timer DFA
  */
-
-#define VERSION "0.0.3"
-
 typedef enum _SCSI_PORT_TIMER_STATES
 {
   IDETimerIdle,
@@ -40,11 +37,7 @@ typedef struct _SCSI_PORT_LUN_EXTENSION
 
   INQUIRYDATA InquiryData;
 
-  ULONG PendingIrpCount;
-  ULONG ActiveIrpCount;
-
-  PIRP NextIrp;
-  ULONG Flags;
+  KDEVICE_QUEUE DeviceQueue;
 
   /* More data? */
 
@@ -64,23 +57,24 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
 {
   ULONG Length;
   ULONG MiniPortExtensionSize;
-  PPORT_CONFIGURATION_INFORMATION PortConfig;
+  PORT_CONFIGURATION_INFORMATION PortConfig;
   ULONG PortNumber;
 
-  KSPIN_LOCK Lock;
-  ULONG Flags;
-
+  KSPIN_LOCK IrpLock;
+  KSPIN_LOCK SpinLock;
   PKINTERRUPT Interrupt;
+  PIRP                   CurrentIrp;
+  ULONG IrpFlags;
 
   SCSI_PORT_TIMER_STATES TimerState;
   LONG                   TimerCount;
+
+  BOOLEAN Initializing;
 
   LIST_ENTRY DeviceBaseListHead;
 
   ULONG LunExtensionSize;
   LIST_ENTRY LunExtensionListHead;
-
-  ULONG SrbExtensionSize;
 
   PIO_SCSI_CAPABILITIES PortCapabilities;
 
@@ -90,6 +84,9 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
   PHW_STARTIO HwStartIo;
   PHW_INTERRUPT HwInterrupt;
 
+  PSCSI_REQUEST_BLOCK OriginalSrb;
+  SCSI_REQUEST_BLOCK InternalSrb;
+  SENSE_DATA InternalSenseData;
 
   /* DMA related stuff */
   PADAPTER_OBJECT AdapterObject;
@@ -97,31 +94,7 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
 
   PHYSICAL_ADDRESS PhysicalAddress;
   PVOID VirtualAddress;
-  RTL_BITMAP SrbExtensionAllocMap;
-  ULONG MaxSrbExtensions;
-  ULONG CurrentSrbExtensions;
   ULONG CommonBufferLength;
-
-  LIST_ENTRY PendingIrpListHead;
-  PIRP NextIrp;
-  ULONG PendingIrpCount;
-  ULONG ActiveIrpCount;
 
   UCHAR MiniPortDeviceExtension[1]; /* must be the last entry */
 } SCSI_PORT_DEVICE_EXTENSION, *PSCSI_PORT_DEVICE_EXTENSION;
-
-typedef struct _SCSI_PORT_SCAN_ADAPTER
-{
-  KEVENT Event;
-  IO_STATUS_BLOCK IoStatusBlock;
-  NTSTATUS Status;
-  PSCSI_PORT_LUN_EXTENSION LunExtension;
-  ULONG Lun;
-  ULONG Bus;
-  ULONG Target;
-  SCSI_REQUEST_BLOCK Srb;
-  UCHAR DataBuffer[256];
-  BOOL Active;
-} SCSI_PORT_SCAN_ADAPTER, *PSCSI_PORT_SCAN_ADAPTER;
-
-

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -37,35 +37,29 @@
 #include "utility/window.h"
 
 
-#define	IDW_STATUSBAR			0x100
-#define	IDW_TOOLBAR				0x101
-#define	IDW_EXTRABAR			0x102
-#define	IDW_DRIVEBAR			0x103
-#define	IDW_ADDRESSBAR			0x104
-#define	IDW_COMMANDBAR			0x105
-#define	IDW_SIDEBAR				0x106
+#define IDW_STATUSBAR			0x100
+#define IDW_TOOLBAR				0x101
+#define IDW_DRIVEBAR			0x102
 #define	IDW_FIRST_CHILD			0xC000	/*0x200*/
 
 
-#define	PM_GET_FILEWND_PTR		(WM_APP+0x05)
-#define	PM_GET_SHELLBROWSER_PTR	(WM_APP+0x06)
+#define	PM_GET_FILEWND_PTR		(WM_APP+0x03)
 
-#define	PM_GET_CONTROLWINDOW	(WM_APP+0x16)
+#define	PM_FRM_CALC_CLIENT		(WM_APP+0x04)
+#define	Frame_CalcFrameClient(hwnd, prt) ((BOOL)SNDMSG(hwnd, PM_FRM_CALC_CLIENT, 0, (LPARAM)(PRECT)prt))
 
-#define	PM_RESIZE_CHILDREN		(WM_APP+0x17)
-#define	PM_GET_WIDTH			(WM_APP+0x18)
+#define	PM_OPEN_WINDOW			(WM_APP+0x05)
 
-#define	PM_REFRESH				(WM_APP+0x1B)
-#define	PM_REFRESH_CONFIG		(WM_APP+0x1C)
+#define	PM_GET_CONTROLWINDOW	(WM_APP+0x06)
 
 
-#define	CLASSNAME_FRAME 		TEXT("CabinetWClass")	// same class name for frame window as in MS Explorer
+#define CLASSNAME_FRAME 		TEXT("CabinetWClass")	// same class name for frame window as in MS Explorer
 
-#define	CLASSNAME_CHILDWND		TEXT("WFS_Child")
-#define	CLASSNAME_WINEFILETREE	TEXT("WFS_Tree")
+#define CLASSNAME_CHILDWND		TEXT("WFS_Child")
+#define CLASSNAME_WINEFILETREE	TEXT("WFS_Tree")
 
 
+#include "shell/mainframe.h"
 #include "shell/pane.h"
 #include "shell/filechild.h"
 #include "shell/shellbrowser.h"
-#include "shell/mainframe.h"

@@ -1,7 +1,7 @@
 /*
  *  RPCRT4
  *
- * Copyright 2000 Huw D M Davies for CodeWeavers
+ * Copyright 2000 Huw D M Davies for Codeweavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,91 +17,29 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * WINE RPC TODO's (and a few TODONT's)
- *
- * - Ove's decreasingly incomplete widl is an IDL compiler for wine.  For widl
- *   to be wine's only IDL compiler, a fair bit of work remains to be done.
- *   until then we have used some midl-generated stuff.  (What?)
- *   widl currently doesn't generate stub/proxy files required by wine's (O)RPC
- *   capabilities -- nor does it make those lovely format strings :(
- *   The MS MIDL compiler does some really esoteric stuff.  Of course Ove has
- *   started with the less esoteric stuff.  There are also lots of nice
- *   comments in there if you want to flex your bison and help build this monster.
- *
- * - RPC has a quite featureful error handling mechanism; basically none of this is
- *   implemented right now.  We also have deficiencies on the compiler side, where
- *   wine's __TRY / __EXCEPT / __FINALLY macros are not even used for RpcTryExcept & co,
- *   due to syntactic differences! (we can fix it with widl by using __TRY)
- *
- * - There are several different memory allocation schemes for MSRPC.
- *   I don't even understand what they all are yet, much less have them
- *   properly implemented.  Surely we are supposed to be doing something with
- *   the user-provided allocation/deallocation functions, but so far,
- *   I don't think we are doing this...
- *
- * - MSRPC provides impersonation capabilities which currently are not possible
- *   to implement in wine.  At the very least we should implement the authorization
- *   API's & gracefully ignore the irrelevant stuff (to an extent we already do).
- *
- * - Some transports are not yet implemented.  The existing transport implementations
- *   are incomplete and may be bug-infested.
- * 
- * - The various transports that we do support ought to be supported in a more
- *   object-oriented manner, as in DCE's RPC implementation, instead of cluttering
- *   up the code with conditionals like we do now.
- * 
- * - Data marshalling: So far, only the beginnings of a full implementation
- *   exist in wine.  NDR protocol itself is documented, but the MS API's to
- *   convert data-types in memory into NDR are not.  This is challenging work,
- *   and has supposedly been "at the top of Greg's queue" for several months now.
- *
- * - ORPC is RPC for OLE; once we have a working RPC framework, we can
- *   use it to implement out-of-process OLE client/server communications.
- *   ATM there is maybe a disconnect between the marshalling in the OLE DLL's
- *   and the marshalling going on here [TODO: well, is there or not?]
- * 
- * - In-source API Documentation, at least for those functions which we have
- *   implemented, but preferably for everything we can document, would be nice,
- *   since some of this stuff is quite obscure.
- *
- * - Name services... [TODO: what about them]
- *
- * - Protocol Towers: Totally unimplemented.... I think.
- *
- * - Context Handle Rundown: whatever that is.
- *
- * - Nested RPC's: Totally unimplemented.
- *
- * - Statistics: we are supposed to be keeping various counters.  we aren't.
- *
- * - Async RPC: Unimplemented.
- *
- * - XML/http RPC: Somewhere there's an XML fiend that wants to do this! Betcha
- *   we could use these as a transport for RPC's across computers without a
- *   permissions and/or licensing crisis.
- *
- * - The NT "ports" API, aka LPC.  Greg claims this is on his radar.  Might (or
- *   might not) enable users to get some kind of meaningful result out of
- *   NT-based native rpcrt4's.  Commonly-used transport for self-to-self RPC's.
- *
- * - ...?  More stuff I haven't thought of.  If you think of more RPC todo's
- *   drop me an e-mail <gmturner007@ameritech.net> or send a patch to the
- *   wine-patches mailing list.
  */
 
-#include "config.h"
+#include "wine/config.h"
+#include "wine/port.h"
+#include "wine/debug.h"
 
-#include <stdarg.h>
+#define _TIMEVAL_DEFINED // ReactOS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <stdarg.h>
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #include "windef.h"
 #include "winerror.h"
 #include "winbase.h"
-#include "winuser.h"
-#include "iptypes.h"
-#include "iphlpapi.h"
 #include "wine/unicode.h"
 #include "rpc.h"
 
@@ -109,10 +47,24 @@
 #include "rpcndr.h"
 #include "rpcproxy.h"
 
-#include "rpc_binding.h"
-#include "rpcss_np_client.h"
-
-#include "wine/debug.h"
+#ifdef HAVE_SYS_FILE_H
+# include <sys/file.h>
+#endif
+#ifdef HAVE_SYS_IOCTL_H
+# include <sys/ioctl.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+#ifdef HAVE_SYS_SOCKIO_H
+# include <sys/sockio.h>
+#endif
+#ifdef HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#endif
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
@@ -123,15 +75,6 @@ HANDLE RPCRT4_GetMasterMutex(void)
 {
     return master_mutex;
 }
-
-static CRITICAL_SECTION uuid_cs;
-static CRITICAL_SECTION_DEBUG critsect_debug =
-{
-    0, 0, &uuid_cs,
-    { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
-      0, 0, { 0, (DWORD)(__FILE__ ": uuid_cs") }
-};
-static CRITICAL_SECTION uuid_cs = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 /***********************************************************************
  * DllMain
@@ -150,19 +93,25 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     switch (fdwReason) {
     case DLL_PROCESS_ATTACH:
-        DisableThreadLibraryCalls(hinstDLL);
-        master_mutex = CreateMutexA( NULL, FALSE, RPCSS_MASTER_MUTEX_NAME);
-        if (!master_mutex)
-          ERR("Failed to create master mutex\n");
-        break;
+    break;
 
     case DLL_PROCESS_DETACH:
-        CloseHandle(master_mutex);
-        master_mutex = NULL;
-        break;
+    break;
     }
 
     return TRUE;
+}
+
+/* From WINE RPC_Binding.c */
+LPWSTR RPCRT4_strdupAtoW(LPSTR src)
+{
+  DWORD len;
+  LPWSTR s;
+  if (!src) return NULL;
+  len = MultiByteToWideChar(CP_ACP, 0, src, -1, NULL, 0);
+  s = HeapAlloc(GetProcessHeap(), 0, len*sizeof(WCHAR));
+  MultiByteToWideChar(CP_ACP, 0, src, -1, s, len);
+  return s;
 }
 
 /*************************************************************************
@@ -211,46 +160,26 @@ void WINAPI RpcRaiseException(RPC_STATUS exception)
 /*************************************************************************
  * UuidCompare [RPCRT4.@]
  *
+ * (an educated-guess implementation)
+ *
  * PARAMS
  *     UUID *Uuid1        [I] Uuid to compare
  *     UUID *Uuid2        [I] Uuid to compare
  *     RPC_STATUS *Status [O] returns RPC_S_OK
  * 
  * RETURNS
- *    -1  if Uuid1 is less than Uuid2
+ *     -1 if Uuid1 is less than Uuid2
  *     0  if Uuid1 and Uuid2 are equal
  *     1  if Uuid1 is greater than Uuid2
  */
 int WINAPI UuidCompare(UUID *Uuid1, UUID *Uuid2, RPC_STATUS *Status)
 {
-  int i;
-
   TRACE("(%s,%s)\n", debugstr_guid(Uuid1), debugstr_guid(Uuid2));
-
   *Status = RPC_S_OK;
-
   if (!Uuid1) Uuid1 = &uuid_nil;
   if (!Uuid2) Uuid2 = &uuid_nil;
-
   if (Uuid1 == Uuid2) return 0;
-
-  if (Uuid1->Data1 != Uuid2->Data1)
-    return Uuid1->Data1 < Uuid2->Data1 ? -1 : 1;
-
-  if (Uuid1->Data2 != Uuid2->Data2)
-    return Uuid1->Data2 < Uuid2->Data2 ? -1 : 1;
-
-  if (Uuid1->Data3 != Uuid2->Data3)
-    return Uuid1->Data3 < Uuid2->Data3 ? -1 : 1;
-
-  for (i = 0; i < 8; i++) {
-    if (Uuid1->Data4[i] < Uuid2->Data4[i])
-      return -1;
-    if (Uuid1->Data4[i] > Uuid2->Data4[i])
-      return 1;
-  }
-
-  return 0;
+  return memcmp(Uuid1, Uuid2, sizeof(UUID));
 }
 
 /*************************************************************************
@@ -280,11 +209,12 @@ int WINAPI UuidEqual(UUID *Uuid1, UUID *Uuid2, RPC_STATUS *Status)
  * RETURNS
  *     TRUE/FALSE
  */
-int WINAPI UuidIsNil(UUID *Uuid, RPC_STATUS *Status)
+int WINAPI UuidIsNil(UUID *uuid, RPC_STATUS *Status)
 {
-  TRACE("(%s)\n", debugstr_guid(Uuid));
-  if (!Uuid) return TRUE;
-  return !UuidCompare(Uuid, &uuid_nil, Status);
+  TRACE("(%s)\n", debugstr_guid(uuid));
+  *Status = RPC_S_OK;
+  if (!uuid) return TRUE;
+  return !memcmp(uuid, &uuid_nil, sizeof(UUID));
 }
 
  /*************************************************************************
@@ -302,164 +232,264 @@ RPC_STATUS WINAPI UuidCreateNil(UUID *Uuid)
   return RPC_S_OK;
 }
 
-/* Number of 100ns ticks per clock tick. To be safe, assume that the clock
-   resolution is at least 1000 * 100 * (1/1000000) = 1/10 of a second */
-#define TICKS_PER_CLOCK_TICK 1000
-#define SECSPERDAY  86400
-#define TICKSPERSEC 10000000
-/* UUID system time starts at October 15, 1582 */
-#define SECS_15_OCT_1582_TO_1601  ((17 + 30 + 31 + 365 * 18 + 5) * SECSPERDAY)
-#define TICKS_15_OCT_1582_TO_1601 ((ULONGLONG)SECS_15_OCT_1582_TO_1601 * TICKSPERSEC)
+ /*************************************************************************
+ * gettimeofday for systems that lack it
+ *
+ * By Wu Yongwei
+ */
 
-static void RPC_UuidGetSystemTime(ULONGLONG *time)
+#ifndef __GNUC__
+#define EPOCHFILETIME (116444736000000000i64)
+#else
+#define EPOCHFILETIME (116444736000000000LL)
+#endif
+
+struct timezone {
+    int tz_minuteswest; /* minutes W of Greenwich */
+    int tz_dsttime;     /* type of dst correction */
+};
+
+int gettimeofday(struct timeval *tv, struct timezone *tz)
 {
-    FILETIME ft;
+    FILETIME        ft;
+    LARGE_INTEGER   li;
+    __int64         t;
+    static int      tzflag;
 
-    GetSystemTimeAsFileTime(&ft);
-
-    *time = ((ULONGLONG)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-    *time += TICKS_15_OCT_1582_TO_1601;
-}
-
-/* Assume that a hardware address is at least 6 bytes long */ 
-#define ADDRESS_BYTES_NEEDED 6
-
-static RPC_STATUS RPC_UuidGetNodeAddress(BYTE *address)
-{
-    int i;
-    DWORD status = RPC_S_OK;
-
-    ULONG buflen = sizeof(IP_ADAPTER_INFO);
-    PIP_ADAPTER_INFO adapter = (PIP_ADAPTER_INFO)HeapAlloc(GetProcessHeap(), 0, buflen);
-
-    if (GetAdaptersInfo(adapter, &buflen) == ERROR_BUFFER_OVERFLOW) {
-        HeapFree(GetProcessHeap(), 0, adapter);
-        adapter = (IP_ADAPTER_INFO *)HeapAlloc(GetProcessHeap(), 0, buflen);
+    if (tv)
+    {
+        GetSystemTimeAsFileTime(&ft);
+        li.LowPart  = ft.dwLowDateTime;
+        li.HighPart = ft.dwHighDateTime;
+        t  = li.QuadPart;       /* In 100-nanosecond intervals */
+        t -= EPOCHFILETIME;     /* Offset to the Epoch time */
+        t /= 10;                /* In microseconds */
+        tv->tv_sec  = (long)(t / 1000000);
+        tv->tv_usec = (long)(t % 1000000);
     }
 
-    if (GetAdaptersInfo(adapter, &buflen) == NO_ERROR) {
-        for (i = 0; i < ADDRESS_BYTES_NEEDED; i++) {
-            address[i] = adapter->Address[i];
+    if (tz)
+    {
+        if (!tzflag)
+        {
+            _tzset();
+            tzflag++;
         }
-    }
-    /* We can't get a hardware address, just use random numbers.
-       Set the multicast bit to prevent conflicts with real cards. */
-    else {
-        for (i = 0; i < ADDRESS_BYTES_NEEDED; i++) {
-            address[i] = rand() & 0xff;
-        }
-
-        address[0] |= 0x80;
-        status = RPC_S_UUID_LOCAL_ONLY;
+        tz->tz_minuteswest = _timezone / 60;
+        tz->tz_dsttime = _daylight;
     }
 
-    HeapFree(GetProcessHeap(), 0, adapter);
-    return status;
+    return 0;
 }
 
 /*************************************************************************
  *           UuidCreate   [RPCRT4.@]
  *
  * Creates a 128bit UUID.
+ * Implemented according the DCE specification for UUID generation.
+ * Code is based upon uuid library in e2fsprogs by Theodore Ts'o.
+ * Copyright (C) 1996, 1997 Theodore Ts'o.
  *
  * RETURNS
  *
- *  RPC_S_OK if successful.
- *  RPC_S_UUID_LOCAL_ONLY if UUID is only locally unique.
- *
- *  FIXME: No compensation for changes across reloading
- *         this dll or across reboots (e.g. clock going 
- *         backwards and swapped network cards). The RFC
- *         suggests using NVRAM for storing persistent 
- *         values.
+ *  S_OK if successful.
  */
 RPC_STATUS WINAPI UuidCreate(UUID *Uuid)
 {
-    static int initialised, count;
+   static char has_init = 0;
+   static unsigned char a[6];
+   static int                      adjustment = 0;
+   static struct timeval           last = {0, 0};
+   static WORD                     clock_seq;
+   struct timeval                  tv;
+   unsigned long long              clock_reg;
+   DWORD clock_high, clock_low;
+   WORD temp_clock_seq, temp_clock_mid, temp_clock_hi_and_version;
+#ifdef HAVE_NET_IF_H
+   int             sd;
+   struct ifreq    ifr, *ifrp;
+   struct ifconf   ifc;
+   char buf[1024];
+   int             n, i;
+#endif
 
-    ULONGLONG time;
-    static ULONGLONG timelast;
-    static WORD sequence;
+   /* Have we already tried to get the MAC address? */
+   if (!has_init) {
+#ifdef HAVE_NET_IF_H
+      /* BSD 4.4 defines the size of an ifreq to be
+       * max(sizeof(ifreq), sizeof(ifreq.ifr_name)+ifreq.ifr_addr.sa_len
+       * However, under earlier systems, sa_len isn't present, so
+       *  the size is just sizeof(struct ifreq)
+       */
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+#  ifndef max
+#   define max(a,b) ((a) > (b) ? (a) : (b))
+#  endif
+#  define ifreq_size(i) max(sizeof(struct ifreq),\
+sizeof((i).ifr_name)+(i).ifr_addr.sa_len)
+# else
+#  define ifreq_size(i) sizeof(struct ifreq)
+# endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-    static DWORD status;
-    static BYTE address[MAX_ADAPTER_ADDRESS_LENGTH];
+      sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+      if (sd < 0) {
+	 /* if we can't open a socket, just use random numbers */
+	 /* set the multicast bit to prevent conflicts with real cards */
+	 a[0] = (rand() & 0xff) | 0x80;
+	 a[1] = rand() & 0xff;
+	 a[2] = rand() & 0xff;
+	 a[3] = rand() & 0xff;
+	 a[4] = rand() & 0xff;
+	 a[5] = rand() & 0xff;
+      } else {
+	 memset(buf, 0, sizeof(buf));
+	 ifc.ifc_len = sizeof(buf);
+	 ifc.ifc_buf = buf;
+	 /* get the ifconf interface */
+	 if (ioctl (sd, SIOCGIFCONF, (char *)&ifc) < 0) {
+	    close(sd);
+	    /* no ifconf, so just use random numbers */
+	    /* set the multicast bit to prevent conflicts with real cards */
+	    a[0] = (rand() & 0xff) | 0x80;
+	    a[1] = rand() & 0xff;
+	    a[2] = rand() & 0xff;
+	    a[3] = rand() & 0xff;
+	    a[4] = rand() & 0xff;
+	    a[5] = rand() & 0xff;
+	 } else {
+	    /* loop through the interfaces, looking for a valid one */
+	    n = ifc.ifc_len;
+	    for (i = 0; i < n; i+= ifreq_size(ifr) ) {
+	       ifrp = (struct ifreq *)((char *) ifc.ifc_buf+i);
+	       strncpy(ifr.ifr_name, ifrp->ifr_name, IFNAMSIZ);
+	       /* try to get the address for this interface */
+# ifdef SIOCGIFHWADDR
+	       if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0)
+		   continue;
+	       memcpy(a, (unsigned char *)&ifr.ifr_hwaddr.sa_data, 6);
+# else
+#  ifdef SIOCGENADDR
+	       if (ioctl(sd, SIOCGENADDR, &ifr) < 0)
+		   continue;
+	       memcpy(a, (unsigned char *) ifr.ifr_enaddr, 6);
+#  else
+	       /* XXX we don't have a way of getting the hardware address */
+	       close(sd);
+	       a[0] = 0;
+	       break;
+#  endif /* SIOCGENADDR */
+# endif /* SIOCGIFHWADDR */
+	       /* make sure it's not blank */
+	       if (!a[0] && !a[1] && !a[2] && !a[3] && !a[4] && !a[5])
+		   continue;
 
-    EnterCriticalSection(&uuid_cs);
+	       goto valid_address;
+	    }
+	    /* if we didn't find a valid address, make a random one */
+	    /* once again, set multicast bit to avoid conflicts */
+	    a[0] = (rand() & 0xff) | 0x80;
+	    a[1] = rand() & 0xff;
+	    a[2] = rand() & 0xff;
+	    a[3] = rand() & 0xff;
+	    a[4] = rand() & 0xff;
+	    a[5] = rand() & 0xff;
 
-    if (!initialised) {
-        RPC_UuidGetSystemTime(&timelast);
-        count = TICKS_PER_CLOCK_TICK;
+	    valid_address:
+	    close(sd);
+	 }
+      }
+#else
+      /* no networking info, so generate a random address */
+      a[0] = (rand() & 0xff) | 0x80;
+      a[1] = rand() & 0xff;
+      a[2] = rand() & 0xff;
+      a[3] = rand() & 0xff;
+      a[4] = rand() & 0xff;
+      a[5] = rand() & 0xff;
+#endif /* HAVE_NET_IF_H */
+      has_init = 1;
+   }
 
-        sequence = ((rand() & 0xff) << 8) + (rand() & 0xff);
-        sequence &= 0x1fff;
+   /* generate time element of GUID */
 
-        status = RPC_UuidGetNodeAddress(address);
-        initialised = 1;
-    }
+   /* Assume that the gettimeofday() has microsecond granularity */
+#define MAX_ADJUSTMENT 10
 
-    /* Generate time element of the UUID. Account for going faster
-       than our clock as well as the clock going backwards. */
-    while (1) {
-        RPC_UuidGetSystemTime(&time);
-        if (time > timelast) {
-            count = 0;
-            break;
-        }
-        if (time < timelast) {
-            sequence = (sequence + 1) & 0x1fff;
-            count = 0;
-            break;
-        }
-        if (count < TICKS_PER_CLOCK_TICK) {
-            count++;
-            break;
-        }
-    }
+   try_again:
+   gettimeofday(&tv, 0);
+   if ((last.tv_sec == 0) && (last.tv_usec == 0)) {
+      clock_seq = ((rand() & 0xff) << 8) + (rand() & 0xff);
+      clock_seq &= 0x1FFF;
+      last = tv;
+      last.tv_sec--;
+   }
+   if ((tv.tv_sec < last.tv_sec) ||
+       ((tv.tv_sec == last.tv_sec) &&
+	(tv.tv_usec < last.tv_usec))) {
+      clock_seq = (clock_seq+1) & 0x1FFF;
+      adjustment = 0;
+   } else if ((tv.tv_sec == last.tv_sec) &&
+	      (tv.tv_usec == last.tv_usec)) {
+      if (adjustment >= MAX_ADJUSTMENT)
+	  goto try_again;
+      adjustment++;
+   } else
+       adjustment = 0;
 
-    timelast = time;
-    time += count;
+   clock_reg = tv.tv_usec*10 + adjustment;
+   clock_reg += ((unsigned long long) tv.tv_sec)*10000000;
+   clock_reg += (((unsigned long long) 0x01B21DD2) << 32) + 0x13814000;
 
-    /* Pack the information into the UUID structure. */
+   clock_high = clock_reg >> 32;
+   clock_low = clock_reg;
+   temp_clock_seq = clock_seq | 0x8000;
+   temp_clock_mid = (WORD)clock_high;
+   temp_clock_hi_and_version = (clock_high >> 16) | 0x1000;
 
-    Uuid->Data1  = (unsigned long)(time & 0xffffffff);
-    Uuid->Data2  = (unsigned short)((time >> 32) & 0xffff);
-    Uuid->Data3  = (unsigned short)((time >> 48) & 0x0fff);
+   /* pack the information into the GUID structure */
 
-    /* This is a version 1 UUID */
-    Uuid->Data3 |= (1 << 12);
+   ((unsigned char*)&Uuid->Data1)[3] = (unsigned char)clock_low;
+   clock_low >>= 8;
+   ((unsigned char*)&Uuid->Data1)[2] = (unsigned char)clock_low;
+   clock_low >>= 8;
+   ((unsigned char*)&Uuid->Data1)[1] = (unsigned char)clock_low;
+   clock_low >>= 8;
+   ((unsigned char*)&Uuid->Data1)[0] = (unsigned char)clock_low;
 
-    Uuid->Data4[0]  = sequence & 0xff;
-    Uuid->Data4[1]  = (sequence & 0x3f00) >> 8;
-    Uuid->Data4[1] |= 0x80;
+   ((unsigned char*)&Uuid->Data2)[1] = (unsigned char)temp_clock_mid;
+   temp_clock_mid >>= 8;
+   ((unsigned char*)&Uuid->Data2)[0] = (unsigned char)temp_clock_mid;
 
-    Uuid->Data4[2] = address[0];
-    Uuid->Data4[3] = address[1];
-    Uuid->Data4[4] = address[2];
-    Uuid->Data4[5] = address[3];
-    Uuid->Data4[6] = address[4];
-    Uuid->Data4[7] = address[5];
+   ((unsigned char*)&Uuid->Data3)[1] = (unsigned char)temp_clock_hi_and_version;
+   temp_clock_hi_and_version >>= 8;
+   ((unsigned char*)&Uuid->Data3)[0] = (unsigned char)temp_clock_hi_and_version;
 
-    LeaveCriticalSection(&uuid_cs);
+   ((unsigned char*)Uuid->Data4)[1] = (unsigned char)temp_clock_seq;
+   temp_clock_seq >>= 8;
+   ((unsigned char*)Uuid->Data4)[0] = (unsigned char)temp_clock_seq;
 
-    TRACE("%s\n", debugstr_guid(Uuid));
+   ((unsigned char*)Uuid->Data4)[2] = a[0];
+   ((unsigned char*)Uuid->Data4)[3] = a[1];
+   ((unsigned char*)Uuid->Data4)[4] = a[2];
+   ((unsigned char*)Uuid->Data4)[5] = a[3];
+   ((unsigned char*)Uuid->Data4)[6] = a[4];
+   ((unsigned char*)Uuid->Data4)[7] = a[5];
 
-    return status;
+   TRACE("%s\n", debugstr_guid(Uuid));
+
+   return RPC_S_OK;
 }
+
 
 /*************************************************************************
  *           UuidCreateSequential   [RPCRT4.@]
  *
- * Creates a 128bit UUID.
- *
- * RETURNS
- *
- *  RPC_S_OK if successful.
- *  RPC_S_UUID_LOCAL_ONLY if UUID is only locally unique.
- *
+ * Creates a 128bit UUID by calling UuidCreate.
+ * New API in Win 2000
  */
 RPC_STATUS WINAPI UuidCreateSequential(UUID *Uuid)
 {
-   return UuidCreate(Uuid);
+   return UuidCreate (Uuid);
 }
 
 
@@ -475,7 +505,7 @@ unsigned short WINAPI UuidHash(UUID *uuid, RPC_STATUS *Status)
 {
   BYTE *data = (BYTE*)uuid;
   short c0 = 0, c1 = 0, x, y;
-  unsigned int i;
+  int i;
 
   if (!uuid) data = (BYTE*)(uuid = &uuid_nil);
 
@@ -690,61 +720,4 @@ BOOL RPCRT4_StartRPCSS(void)
     }
 
     return rslt;
-}
-
-/***********************************************************************
- *           RPCRT4_RPCSSOnDemandCall (internal)
- * 
- * Attempts to send a message to the RPCSS process
- * on the local machine, invoking it if necessary.
- * For remote RPCSS calls, use.... your imagination.
- * 
- * PARAMS
- *     msg             [I] pointer to the RPCSS message
- *     vardata_payload [I] pointer vardata portion of the RPCSS message
- *     reply           [O] pointer to reply structure
- *
- * RETURNS
- *     TRUE if successful
- *     FALSE otherwise
- */
-BOOL RPCRT4_RPCSSOnDemandCall(PRPCSS_NP_MESSAGE msg, char *vardata_payload, PRPCSS_NP_REPLY reply)
-{
-    HANDLE client_handle;
-    int i, j = 0;
-
-    TRACE("(msg == %p, vardata_payload == %p, reply == %p)\n", msg, vardata_payload, reply);
-
-    client_handle = RPCRT4_RpcssNPConnect();
-
-    while (!client_handle) {
-        /* start the RPCSS process */
-	if (!RPCRT4_StartRPCSS()) {
-	    ERR("Unable to start RPCSS process.\n");
-	    return FALSE;
-	}
-	/* wait for a connection (w/ periodic polling) */
-        for (i = 0; i < 60; i++) {
-            Sleep(200);
-            client_handle = RPCRT4_RpcssNPConnect();
-            if (client_handle) break;
-        } 
-        /* we are only willing to try twice */
-	if (j++ >= 1) break;
-    }
-
-    if (!client_handle) {
-        /* no dice! */
-        ERR("Unable to connect to RPCSS process!\n");
-	SetLastError(RPC_E_SERVER_DIED_DNE);
-	return FALSE;
-    }
-
-    /* great, we're connected.  now send the message */
-    if (!RPCRT4_SendReceiveNPMsg(client_handle, msg, vardata_payload, reply)) {
-        ERR("Something is amiss: RPC_SendReceive failed.\n");
-	return FALSE;
-    }
-
-    return TRUE;
 }

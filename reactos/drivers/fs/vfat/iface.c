@@ -16,19 +16,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: iface.c,v 1.74 2004/02/10 16:22:56 navaraf Exp $
+/* $Id: iface.c,v 1.71 2003/09/20 20:31:57 weiden Exp $
  *
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/iface.c
+ * FILE:             services/fs/vfat/iface.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -53,7 +51,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Fat");
+   UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Fat");
    NTSTATUS Status;
 
    Status = IoCreateDevice(DriverObject,
@@ -73,22 +71,22 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
    VfatGlobalData->DeviceObject = DeviceObject;
 
    DeviceObject->Flags = DO_DIRECT_IO;
-   DriverObject->MajorFunction[IRP_MJ_CLOSE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_CREATE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_READ] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_WRITE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] = VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_READ] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_WRITE] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] = (PDRIVER_DISPATCH)VfatBuildRequest;
    DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] = 
-     VfatBuildRequest;
+     (PDRIVER_DISPATCH)VfatBuildRequest;
    DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] = 
-     VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = VfatShutdown;
-   DriverObject->MajorFunction[IRP_MJ_LOCK_CONTROL] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = VfatBuildRequest;
+     (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = (PDRIVER_DISPATCH)VfatShutdown;
+   DriverObject->MajorFunction[IRP_MJ_LOCK_CONTROL] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = (PDRIVER_DISPATCH)VfatBuildRequest;
+   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = (PDRIVER_DISPATCH)VfatBuildRequest;
 
    DriverObject->DriverUnload = NULL;
 

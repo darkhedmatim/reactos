@@ -1,6 +1,6 @@
 /*
  * Copyright 2000 Computing Research Labs, New Mexico State University
- * Copyright 2001, 2002, 2003, 2004 Francesco Zappa Nardelli
+ * Copyright 2001, 2002 Francesco Zappa Nardelli
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -159,8 +159,8 @@ FT_BEGIN_HEADER
 
   typedef struct  _hashnode_
   {
-    const char*  key;
-    void*        data;
+    char*  key;
+    void*  data;
   
   } _hashnode, *hashnode;
 
@@ -202,7 +202,7 @@ FT_BEGIN_HEADER
 
     unsigned short   monowidth;      /* Logical width for monowidth font.   */
 
-    long             default_char;   /* Encoding of the default glyph.      */
+    long             default_glyph;  /* Encoding of the default glyph.      */
 
     long             font_ascent;    /* Font ascent.                        */
     long             font_descent;   /* Font descent.                       */
@@ -283,7 +283,7 @@ FT_BEGIN_HEADER
 
   FT_LOCAL( bdf_property_t * )
   bdf_get_font_property( bdf_font_t*  font,
-                         const char*  name );
+                         char*        name );
 
 
 FT_END_HEADER

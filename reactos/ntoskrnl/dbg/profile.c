@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: profile.c,v 1.10 2004/10/22 20:16:47 ekohl Exp $
+/* $Id: profile.c,v 1.5 2003/07/24 18:14:59 royce Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/dbg/profile.c
@@ -28,7 +28,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ldr.h>
 #include "kdb.h"
 
 #define NDEBUG
@@ -100,7 +102,7 @@ KdbAddEntryToProfileDatabase(PPROFILE_DATABASE ProfileDatabase, ULONG_PTR Addres
   if (IsListEmpty(&ProfileDatabase->ListHead))
     {
       block = ExAllocatePool(NonPagedPool, sizeof(PROFILE_DATABASE_BLOCK));
-      ASSERT(block);
+      assert(block);
       block->UsedEntries = 0;
       InsertTailList(&ProfileDatabase->ListHead, &block->ListEntry);
       block->Entries[block->UsedEntries++].Address = Address;
@@ -111,20 +113,20 @@ KdbAddEntryToProfileDatabase(PPROFILE_DATABASE ProfileDatabase, ULONG_PTR Addres
   if (block->UsedEntries >= PDE_BLOCK_ENTRIES)
     {
       block = ExAllocatePool(NonPagedPool, sizeof(PROFILE_DATABASE_BLOCK));
-      ASSERT(block);
+      assert(block);
       block->UsedEntries = 0;
       InsertTailList(&ProfileDatabase->ListHead, &block->ListEntry);
     }
   block->Entries[block->UsedEntries++].Address = Address;
 }
 
-VOID INIT_FUNCTION
+VOID
 KdbInitProfiling()
 {
   KdbEnableProfiler = TRUE;
 }
 
-VOID INIT_FUNCTION
+VOID
 KdbInitProfiling2()
 {
   if (KdbEnableProfiler)
@@ -170,7 +172,7 @@ KdbProfilerGetSymbolInfo(PVOID address, OUT PCH NameBuffer)
 	    address < (PVOID)(current->Base + current->Length))
 	  {
             RelativeAddress = (ULONG_PTR) address - current->Base;
-            Status = KdbSymGetAddressInformation(&current->SymbolInfo,
+            Status = LdrGetAddressInformation(&current->SymbolInfo,
               RelativeAddress,
               &LineNumber,
               FileName,
@@ -335,7 +337,7 @@ KdbProfilerAnalyzeSamples()
 	      if (!ExSearchHashTable(&Hashtable, (PVOID) NameBuffer, KeyLength, (PVOID *) &sgi))
 	        {
 	          sgi = ExAllocatePool(NonPagedPool, sizeof(SAMPLE_GROUP_INFO));
-	          ASSERT(sgi);
+	          assert(sgi);
               sgi->Address = Address;
 	          sgi->Count = 1;
 	          strcpy(sgi->Description, NameBuffer);
@@ -362,7 +364,7 @@ KdbProfilerAnalyzeSamples()
   return STATUS_SUCCESS;
 }
 
-VOID STDCALL
+VOID STDCALL_FUNC
 KdbProfilerThreadMain(PVOID Context)
 {
   for (;;)
@@ -413,7 +415,7 @@ KdbProfilerCollectorDpcRoutine(PKDPC Dpc, PVOID DeferredContext,
   KdbAddEntryToProfileDatabase(KdbProfileDatabase, address);
 }
 
-VOID INIT_FUNCTION
+VOID
 KdbEnableProfiling()
 {
   if (KdbProfilingEnabled == FALSE)
@@ -464,7 +466,7 @@ KdbEnableProfiling()
       KeInitializeMutex(&KdbProfilerLock, 0);
 
       KdbProfileDatabase = ExAllocatePool(NonPagedPool, sizeof(PROFILE_DATABASE));
-      ASSERT(KdbProfileDatabase);
+      assert(KdbProfileDatabase);
       InitializeListHead(&KdbProfileDatabase->ListHead);
       KeInitializeDpc(&KdbProfilerCollectorDpc, KdbProfilerCollectorDpcRoutine, NULL);
 
@@ -484,7 +486,7 @@ KdbEnableProfiling()
 VOID
 KdbProfileInterrupt(ULONG_PTR Address)
 {
-  ASSERT(KeGetCurrentIrql() == PROFILE_LEVEL);
+  assert(KeGetCurrentIrql() == PROFILE_LEVEL);
 
   if (KdbProfilingInitialized != TRUE)
     {

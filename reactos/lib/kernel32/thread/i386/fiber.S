@@ -1,4 +1,4 @@
-/* $Id: fiber.S,v 1.4 2004/03/07 20:07:05 hyperion Exp $
+/* $Id: fiber.S,v 1.2 2003/06/09 22:39:48 hyperion Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS system libraries
@@ -25,7 +25,7 @@ _SwitchToFiber@4:
  movl %fs:0x18, %ecx           /* Teb = NtCurrentTeb() */
 
  /* get the current fiber */
- movl 0x10(%ecx), %eax         /* Fiber = Teb->Tib.FiberData */
+ movl 0x10(%ecx), %eax         /* Fiber = Teb->Tib.Fib.FiberData */
 
  /* store the volatile context of the current fiber */
  movl 0x0(%ecx),   %edx
@@ -78,7 +78,7 @@ l_NoFloatSave:
  movl 0x2C(%eax),  %edi        /* edi = Fiber->Edi */
 
  testb $1, 0x14(%eax)
- jz l_NoFloatRestore
+ jz l_NoFloatSave
  
  /* restore the floating point context */
  /* TODO */

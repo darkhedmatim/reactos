@@ -1,4 +1,4 @@
-/* $Id: kd.h,v 1.29 2004/12/09 14:20:06 royce Exp $
+/* $Id: kd.h,v 1.19 2003/08/11 18:50:12 chorns Exp $
  *
  * kernel debugger prototypes
  */
@@ -8,7 +8,6 @@
 
 #include <internal/ke.h>
 #include <internal/ldr.h>
-#include <ntdll/ldr.h>
 
 #define KD_DEBUG_DISABLED	0x00
 #define KD_DEBUG_GDB		0x01
@@ -16,11 +15,9 @@
 #define KD_DEBUG_SCREEN		0x04
 #define KD_DEBUG_SERIAL		0x08
 #define KD_DEBUG_BOCHS		0x10
-#define KD_DEBUG_BOOTLOG	0x20
+#define KD_DEBUG_FILELOG	0x20
 #define KD_DEBUG_MDA            0x40
 #define KD_DEBUG_KDB            0x80
-#define KD_DEBUG_KDSERIAL       0x100
-#define KD_DEBUG_KDNOECHO       0x200
 
 extern ULONG KdDebugState;
 
@@ -34,12 +31,6 @@ typedef enum _KD_CONTINUE_TYPE
   kdHandleException
 } KD_CONTINUE_TYPE;
 
-VOID
-KbdDisableMouse();
-
-VOID
-KbdEnableMouse();
-
 ULONG
 KdpPrintString (PANSI_STRING String);
 
@@ -49,30 +40,6 @@ VOID
 DebugLogInit(VOID);
 VOID
 DebugLogInit2(VOID);
-
-VOID
-STDCALL
-KdDisableDebugger(
-    VOID
-    );
-
-VOID
-STDCALL
-KdEnableDebugger(
-    VOID
-    );
-
-NTSTATUS
-STDCALL
-KdPowerTransition(
-	ULONG PowerState
-	);
-
-BOOLEAN
-STDCALL
-KeIsAttachedProcess(
-	VOID
-	);
 
 VOID
 KdInit1(VOID);
@@ -98,9 +65,6 @@ KdGdbDebugPrint (LPSTR Message);
 VOID
 KdDebugPrint (LPSTR Message);
 
-VOID
-KdbCreateThreadHook(PCONTEXT Context);
-
 KD_CONTINUE_TYPE
 KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
 			 PCONTEXT Context,
@@ -108,61 +72,39 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
 VOID KdInitializeMda(VOID);
 VOID KdPrintMda(PCH pch);
 
-#if !defined(KDBG) && !defined(DBG)
-# define KDB_LOADUSERMODULE_HOOK(LDRMOD) do { } while (0)
-# define KDB_DELETEPROCESS_HOOK(PROCESS) do { } while (0)
-# define KDB_LOADDRIVER_HOOK(FILENAME, MODULE) do { } while (0)
-# define KDB_UNLOADDRIVER_HOOK(MODULE) do { } while (0)
-# define KDB_LOADERINIT_HOOK(NTOS, HAL) do { } while (0)
-# define KDB_SYMBOLFILE_HOOK(LOADBASE, FILENAME, LENGTH) do { } while (0)
-# define KDB_CREATE_THREAD_HOOK(CONTEXT) do { } while (0)
+#ifndef KDBG
+#define KDB_DELETEPROCESS_HOOK(PROCESS)
+#define KDB_LOADDRIVER_HOOK(FILENAME, MODULE)
+#define KDB_UNLOADDRIVER_HOOK(MODULE)
+#define KDB_LOADERINIT_HOOK(NTOS, HAL)
+#define KDB_SYMBOLFILE_HOOK(LOADBASE, FILENAME, LENGTH)
 #else
-# define KDB_LOADUSERMODULE_HOOK(LDRMOD) KdbSymLoadUserModuleSymbols(LDRMOD)
-# define KDB_DELETEPROCESS_HOOK(PROCESS) KdbSymFreeProcessSymbols(PROCESS)
-# define KDB_LOADDRIVER_HOOK(FILENAME, MODULE) KdbSymLoadDriverSymbols(FILENAME, MODULE)
-# define KDB_UNLOADDRIVER_HOOK(MODULE) KdbSymUnloadDriverSymbols(MODULE)
-# define KDB_LOADERINIT_HOOK(NTOS, HAL) KdbSymInit(NTOS, HAL)
-# define KDB_SYMBOLFILE_HOOK(LOADBASE, FILENAME, LENGTH) \
-        KdbSymProcessSymbolFile(LOADBASE, FILENAME, LENGTH)
-/*#define KDB_CREATE_THREAD_HOOK(CONTEXT) \
-        KdbCreateThreadHook(CONTEXT)
-*/
-VOID
-KdbSymLoadUserModuleSymbols(IN PLDR_MODULE LdrModule);
+#define KDB_DELETEPROCESS_HOOK(PROCESS) KdbFreeSymbolsProcess(PROCESS)
+#define KDB_LOADDRIVER_HOOK(FILENAME, MODULE) KdbLoadDriver(FILENAME, MODULE)
+#define KDB_UNLOADDRIVER_HOOK(MODULE) KdbUnloadDriver(MODULE)
+#define KDB_LOADERINIT_HOOK(NTOS, HAL) KdbLdrInit(NTOS, HAL)
+#define KDB_SYMBOLFILE_HOOK(LOADBASE, FILENAME, LENGTH) \
+        KdbProcessSymbolFile(LOADBASE, FILENAME, LENGTH)
+#endif /* KDBG */
 
 VOID
-KdbSymFreeProcessSymbols(IN PEPROCESS Process);
-
+KdbLdrLoadUserModuleSymbols(PLDR_MODULE LdrModule);
 VOID
-KdbSymLoadDriverSymbols(IN PUNICODE_STRING Filename,
-                        IN PMODULE_OBJECT Module);
-
+KdbProcessSymbolFile(PVOID ModuleLoadBase, PCHAR FileName, ULONG Length);
 VOID
-KdbSymUnloadDriverSymbols(IN PMODULE_OBJECT ModuleObject);
-
+KdbLdrInit(MODULE_TEXT_SECTION* NtoskrnlTextSection,
+	   MODULE_TEXT_SECTION* LdrHalTextSection);
 VOID
-KdbSymProcessSymbolFile(IN PVOID ModuleLoadBase,
-                        IN PCHAR FileName,
-                        IN ULONG Length);
-
+KdbUnloadDriver(PMODULE_OBJECT ModuleObject);
 VOID
-KdbSymInit(IN PMODULE_TEXT_SECTION NtoskrnlTextSection,
-           IN PMODULE_TEXT_SECTION LdrHalTextSection);
-
-
-BOOLEAN 
-KdbSymPrintAddress(IN PVOID Address);
-
+KdbLoadDriver(PUNICODE_STRING Filename, PMODULE_OBJECT Module);
+VOID
+KdbFreeSymbolsProcess(PEPROCESS Process);
+BOOLEAN
+KdbPrintAddress(PVOID address);
 KD_CONTINUE_TYPE
 KdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
-			  KPROCESSOR_MODE PreviousMode,
-                          PCONTEXT Context,
-                          PKTRAP_FRAME TrapFrame,
-			  BOOLEAN HandleAlways);
-
-#endif /* KDBG || DBG */
-
-VOID
-DebugLogDumpMessages(VOID);
+			  PCONTEXT Context,
+			  PKTRAP_FRAME TrapFrame);
 
 #endif /* __INCLUDE_INTERNAL_KERNEL_DEBUGGER_H */

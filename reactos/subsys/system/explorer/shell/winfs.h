@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,20 +26,16 @@
  //
 
 
- /// Windows file system file-entry
 struct WinEntry : public Entry
 {
-	WinEntry(Entry* parent) : Entry(parent, ET_WINDOWS) {}
+	WinEntry(Entry* parent) : Entry(parent) {}
 
 protected:
 	WinEntry() : Entry(ET_WINDOWS) {}
 
-	virtual bool get_path(PTSTR path) const;
-	virtual ShellPath create_absolute_pidl() const;
+	virtual void get_path(PTSTR path) const;
 };
 
-
- /// Windows file system directory-entry
 struct WinDirectory : public WinEntry, public Directory
 {
 	WinDirectory(LPCTSTR root_path)
@@ -48,7 +44,7 @@ struct WinDirectory : public WinEntry, public Directory
 		_path = _tcsdup(root_path);
 	}
 
-	WinDirectory(Entry* parent, LPCTSTR path)
+	WinDirectory(WinDirectory* parent, LPCTSTR path)
 	 :	WinEntry(parent)
 	{
 		_path = _tcsdup(path);
@@ -60,9 +56,7 @@ struct WinDirectory : public WinEntry, public Directory
 		_path = NULL;
 	}
 
-	virtual void read_directory(int scan_flags=SCAN_ALL);
-	virtual const void* get_next_path_component(const void*) const;
+	virtual void read_directory();
+	virtual const void* get_next_path_component(const void*);
 	virtual Entry* find_entry(const void*);
 };
-
-extern int ScanNTFSStreams(Entry* entry, HANDLE hFile);

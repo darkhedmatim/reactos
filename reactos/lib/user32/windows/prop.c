@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: prop.c,v 1.13 2004/08/15 21:36:30 chorns Exp $
+/* $Id: prop.c,v 1.9 2003/08/07 04:03:24 royce Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,265 +28,54 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <strpool.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
-typedef struct _PROPLISTITEM
-{
-  ATOM Atom;
-  HANDLE Data;
-} PROPLISTITEM, *PPROPLISTITEM;
-
-#define ATOM_BUFFER_SIZE 256
 
 /* FUNCTIONS *****************************************************************/
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 EnumPropsA(HWND hWnd, PROPENUMPROCA lpEnumFunc)
 {
-  PPROPLISTITEM pli, i;
-  NTSTATUS Status;
-  DWORD Count;
-  int ret = -1;
-  
-  if(!lpEnumFunc)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return ret;
-  }
-  
-  Status = NtUserBuildPropList(hWnd, NULL, 0, &Count);
-  if(!NT_SUCCESS(Status))
-  {
-    if(Status == STATUS_INVALID_HANDLE)
-      SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-    else
-      SetLastError(RtlNtStatusToDosError(Status));
-    return ret;
-  }
-  
-  if(Count > 0)
-  {
-    pli = RtlAllocateHeap(GetProcessHeap(), 0, Count);
-    
-    Status = NtUserBuildPropList(hWnd, (LPVOID)pli, Count, &Count);
-    if(!NT_SUCCESS(Status))
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, pli);
-      if(Status == STATUS_INVALID_HANDLE)
-        SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-      else
-        SetLastError(RtlNtStatusToDosError(Status));
-      return ret;
-    }
-    
-    i = pli;
-    for(; Count > 0; Count--, i++)
-    {
-      char str[ATOM_BUFFER_SIZE];
-      
-      if(!GlobalGetAtomNameA(i->Atom, str, ATOM_BUFFER_SIZE))
-        continue;
-      
-      ret = lpEnumFunc(hWnd, str, i->Data);
-      if(!ret)
-        break;
-    }
-    
-    RtlFreeHeap(GetProcessHeap(), 0, pli);
-  }
-  
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 EnumPropsExA(HWND hWnd, PROPENUMPROCEXA lpEnumFunc, LPARAM lParam)
 {
-  PPROPLISTITEM pli, i;
-  NTSTATUS Status;
-  DWORD Count;
-  int ret = -1;
-  
-  if(!lpEnumFunc)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return ret;
-  }
-  
-  Status = NtUserBuildPropList(hWnd, NULL, 0, &Count);
-  if(!NT_SUCCESS(Status))
-  {
-    if(Status == STATUS_INVALID_HANDLE)
-      SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-    else
-      SetLastError(RtlNtStatusToDosError(Status));
-    return ret;
-  }
-  
-  if(Count > 0)
-  {
-    pli = RtlAllocateHeap(GetProcessHeap(), 0, Count);
-    
-    Status = NtUserBuildPropList(hWnd, (LPVOID)pli, Count, &Count);
-    if(!NT_SUCCESS(Status))
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, pli);
-      if(Status == STATUS_INVALID_HANDLE)
-        SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-      else
-        SetLastError(RtlNtStatusToDosError(Status));
-      return ret;
-    }
-    
-    i = pli;
-    for(; Count > 0; Count--, i++)
-    {
-      char str[ATOM_BUFFER_SIZE];
-      
-      if(!GlobalGetAtomNameA(i->Atom, str, ATOM_BUFFER_SIZE))
-        continue;
-      
-      ret = lpEnumFunc(hWnd, str, i->Data, lParam);
-      if(!ret)
-        break;
-    }
-    
-    RtlFreeHeap(GetProcessHeap(), 0, pli);
-  }
-  
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 EnumPropsExW(HWND hWnd, PROPENUMPROCEXW lpEnumFunc, LPARAM lParam)
 {
-  PPROPLISTITEM pli, i;
-  NTSTATUS Status;
-  DWORD Count;
-  int ret = -1;
-  
-  if(!lpEnumFunc)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return ret;
-  }
-  
-  Status = NtUserBuildPropList(hWnd, NULL, 0, &Count);
-  if(!NT_SUCCESS(Status))
-  {
-    if(Status == STATUS_INVALID_HANDLE)
-      SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-    else
-      SetLastError(RtlNtStatusToDosError(Status));
-    return ret;
-  }
-  
-  if(Count > 0)
-  {
-    pli = RtlAllocateHeap(GetProcessHeap(), 0, Count);
-    
-    Status = NtUserBuildPropList(hWnd, (LPVOID)pli, Count, &Count);
-    if(!NT_SUCCESS(Status))
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, pli);
-      if(Status == STATUS_INVALID_HANDLE)
-        SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-      else
-        SetLastError(RtlNtStatusToDosError(Status));
-      return ret;
-    }
-    
-    i = pli;
-    for(; Count > 0; Count--, i++)
-    {
-      WCHAR str[ATOM_BUFFER_SIZE];
-      
-      if(!GlobalGetAtomNameW(i->Atom, str, ATOM_BUFFER_SIZE))
-        continue;
-      
-      ret = lpEnumFunc(hWnd, str, i->Data, lParam);
-      if(!ret)
-        break;
-    }
-    
-    RtlFreeHeap(GetProcessHeap(), 0, pli);
-  }
-  
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 EnumPropsW(HWND hWnd, PROPENUMPROCW lpEnumFunc)
 {
-  PPROPLISTITEM pli, i;
-  NTSTATUS Status;
-  DWORD Count;
-  int ret = -1;
-  
-  if(!lpEnumFunc)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return ret;
-  }
-  
-  Status = NtUserBuildPropList(hWnd, NULL, 0, &Count);
-  if(!NT_SUCCESS(Status))
-  {
-    if(Status == STATUS_INVALID_HANDLE)
-      SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-    else
-      SetLastError(RtlNtStatusToDosError(Status));
-    return ret;
-  }
-  
-  if(Count > 0)
-  {
-    pli = RtlAllocateHeap(GetProcessHeap(), 0, Count);
-    
-    Status = NtUserBuildPropList(hWnd, (LPVOID)pli, Count, &Count);
-    if(!NT_SUCCESS(Status))
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, pli);
-      if(Status == STATUS_INVALID_HANDLE)
-        SetLastError(ERROR_INVALID_WINDOW_HANDLE);
-      else
-        SetLastError(RtlNtStatusToDosError(Status));
-      return ret;
-    }
-    
-    i = pli;
-    for(; Count > 0; Count--, i++)
-    {
-      WCHAR str[ATOM_BUFFER_SIZE];
-      
-      if(!GlobalGetAtomNameW(i->Atom, str, ATOM_BUFFER_SIZE))
-        continue;
-      
-      ret = lpEnumFunc(hWnd, str, i->Data);
-      if(!ret)
-        break;
-    }
-    
-    RtlFreeHeap(GetProcessHeap(), 0, pli);
-  }
-  
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -389,7 +178,7 @@ RemovePropW(HWND hWnd,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 {
   PWSTR lpWString;
@@ -418,13 +207,13 @@ SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetPropW(HWND hWnd, LPCWSTR lpString, HANDLE hData)
 {
   ATOM Atom;
   if (HIWORD(lpString))
     {
-      Atom = GlobalAddAtomW(lpString);
+      Atom = GlobalFindAtomW(lpString);
     }
   else
     {
