@@ -1,13 +1,10 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 
 void *malloc(size_t size);
 
 
 
-/*
- * @implemented
- */
 char *getenv(const char *name) 
 {
 	char *buffer;

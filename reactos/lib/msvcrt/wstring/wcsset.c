@@ -1,8 +1,5 @@
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 wchar_t* _wcsnset (wchar_t* wsToFill, wchar_t wcFill, size_t sizeMaxFill)
 {
 	wchar_t *t = wsToFill;
@@ -17,9 +14,6 @@ wchar_t* _wcsnset (wchar_t* wsToFill, wchar_t wcFill, size_t sizeMaxFill)
 	return t;
 }
 
-/*
- * @implemented
- */
 wchar_t* _wcsset (wchar_t* wsToFill, wchar_t wcFill)
 {
 	wchar_t *t = wsToFill;

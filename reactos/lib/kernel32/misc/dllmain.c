@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.38 2004/11/29 00:08:59 gdalsnes Exp $
+/* $Id: dllmain.c,v 1.27 2003/03/05 22:51:48 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -22,10 +22,9 @@ extern UNICODE_STRING SystemDirectory;
 extern UNICODE_STRING WindowsDirectory;
 
 HANDLE hProcessHeap = NULL;
-HMODULE hCurrentModule = NULL;
 HANDLE hBaseDir = NULL;
 
-static BOOL DllInitialized = FALSE;
+static WINBOOL DllInitialized = FALSE;
 
 BOOL STDCALL
 DllMain(HANDLE hInst,
@@ -34,12 +33,6 @@ DllMain(HANDLE hInst,
 
 /* Critical section for various kernel32 data structures */
 CRITICAL_SECTION DllLock;
-CRITICAL_SECTION ConsoleLock;
-
-extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
-
-extern BOOL FASTCALL NlsInit();
-extern VOID FASTCALL NlsUninit();
 
 /* FUNCTIONS *****************************************************************/
 
@@ -47,7 +40,7 @@ static NTSTATUS
 OpenBaseDirectory(PHANDLE DirHandle)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING Name = ROS_STRING_INITIALIZER(L"\\BaseNamedObjects");
+  UNICODE_STRING Name = UNICODE_STRING_INITIALIZER(L"\\BaseNamedObjects");
   NTSTATUS Status;
 
   InitializeObjectAttributes(&ObjectAttributes,
@@ -86,7 +79,7 @@ DllMain(HANDLE hDll,
   (void)lpReserved;
 
   DPRINT("DllMain(hInst %lx, dwReason %lu)\n",
-	 hDll, dwReason);
+	 hInst, dwReason);
 
   switch (dwReason)
     {
@@ -108,7 +101,6 @@ DllMain(HANDLE hDll,
 	  }
 
 	hProcessHeap = RtlGetProcessHeap();
-   hCurrentModule = hDll;
 
 	/*
 	 * Initialize WindowsDirectory and SystemDirectory
@@ -137,16 +129,6 @@ DllMain(HANDLE hDll,
 	/* Initialize the DLL critical section */
 	RtlInitializeCriticalSection(&DllLock);
 
-	/* Initialize the National Language Support routines */
-        if (! NlsInit())
-          {
-            return FALSE;
-          }
-
-	/* Initialize console ctrl handler */
-	RtlInitializeCriticalSection(&ConsoleLock);
-	SetConsoleCtrlHandler(DefaultConsoleCtrlHandler, TRUE);
-
 	/* Insert more dll attach stuff here! */
 
 	DllInitialized = TRUE;
@@ -158,10 +140,7 @@ DllMain(HANDLE hDll,
 	  {
 	    /* Insert more dll detach stuff here! */
 
-            NlsUninit();
-
 	    /* Delete DLL critical section */
-	    RtlDeleteCriticalSection (&ConsoleLock);
 	    RtlDeleteCriticalSection (&DllLock);
 
 	    /* Close object base directory */
@@ -175,8 +154,6 @@ DllMain(HANDLE hDll,
       default:
 	break;
     }
-
-   PREPARE_TESTS
 
    return TRUE;
 }

@@ -1,4 +1,4 @@
-/* $Id: vpb.c,v 1.27 2004/12/23 12:34:59 ekohl Exp $
+/* $Id: vpb.c,v 1.19 2002/09/08 10:23:26 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/mm.h>
+#include <internal/pool.h>
+
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -24,7 +29,7 @@ static KSPIN_LOCK IoVpbLock;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 IoInitVpbImplementation(VOID)
 {
    KeInitializeSpinLock(&IoVpbLock);
@@ -60,6 +65,13 @@ IoAttachVpb(PDEVICE_OBJECT DeviceObject)
 }
 
 
+NTSTATUS STDCALL
+NtQueryVolumeInformationFile(IN HANDLE FileHandle,
+			     OUT PIO_STATUS_BLOCK IoStatusBlock,
+			     OUT PVOID FsInformation,
+			     IN ULONG Length,
+			     IN FS_INFORMATION_CLASS FsInformationClass)
+
 /*
  * FUNCTION: Queries the volume information
  * ARGUMENTS: 
@@ -81,16 +93,7 @@ IoAttachVpb(PDEVICE_OBJECT DeviceObject)
  *		FileFsMaximumInformation	
  *
  * RETURNS: Status
- *
- * @implemented
  */
-
-NTSTATUS STDCALL
-NtQueryVolumeInformationFile(IN HANDLE FileHandle,
-			     OUT PIO_STATUS_BLOCK IoStatusBlock,
-			     OUT PVOID FsInformation,
-			     IN ULONG Length,
-			     IN FS_INFORMATION_CLASS FsInformationClass)
 {
    PFILE_OBJECT FileObject;
    PDEVICE_OBJECT DeviceObject;
@@ -98,19 +101,17 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
    NTSTATUS Status;
    PIO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
-   KPROCESSOR_MODE PreviousMode;
+   IO_STATUS_BLOCK IoSB;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FsInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FsInformation != NULL);
    
    DPRINT("FsInformation %p\n", FsInformation);
-
-   PreviousMode = ExGetPreviousMode();
-
+   
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_READ_ATTRIBUTES,
 				      IoFileObjectType,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID*)&FileObject,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -138,14 +139,10 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
 	return(STATUS_INSUFFICIENT_RESOURCES);
      }
    
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-
-   Irp->RequestorMode = PreviousMode;
    Irp->AssociatedIrp.SystemBuffer = SystemBuffer;
    KeResetEvent( &FileObject->Event );
    Irp->UserEvent = &FileObject->Event;
-   Irp->UserIosb = IoStatusBlock;
+   Irp->UserIosb = &IoSB;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -165,10 +162,10 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      UserRequest,
-			      PreviousMode,
+			      KernelMode,
 			      FALSE,
 			      NULL);
-	Status = IoStatusBlock->Status;
+	Status = IoSB.Status;
      }
    DPRINT("Status %x\n", Status);
    
@@ -177,18 +174,18 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
 	DPRINT("Information %lu\n", IoStatusBlock->Information);
 	MmSafeCopyToUser(FsInformation,
 			 SystemBuffer,
-			 IoStatusBlock->Information);
+			 IoSB.Information);
      }
-
+   if (IoStatusBlock)
+     {
+       *IoStatusBlock = IoSB;
+     }
    ExFreePool(SystemBuffer);
    
    return(Status);
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 IoQueryVolumeInformation(IN PFILE_OBJECT FileObject,
 			 IN FS_INFORMATION_CLASS FsInformationClass,
@@ -202,7 +199,7 @@ IoQueryVolumeInformation(IN PFILE_OBJECT FileObject,
    PIRP Irp;
    NTSTATUS Status;
    
-   ASSERT(FsInformation != NULL);
+   assert(FsInformation != NULL);
    
    DPRINT("FsInformation %p\n", FsInformation);
    
@@ -224,10 +221,7 @@ IoQueryVolumeInformation(IN PFILE_OBJECT FileObject,
 	ObDereferenceObject(FileObject);
 	return(STATUS_INSUFFICIENT_RESOURCES);
      }
-
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = KernelMode;
+   
    Irp->AssociatedIrp.SystemBuffer = FsInformation;
    KeResetEvent( &FileObject->Event );
    Irp->UserEvent = &FileObject->Event;
@@ -267,9 +261,6 @@ IoQueryVolumeInformation(IN PFILE_OBJECT FileObject,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtSetVolumeInformationFile(IN HANDLE FileHandle,
 			   OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -283,17 +274,12 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    NTSTATUS Status;
    PIO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
-   KPROCESSOR_MODE PreviousMode;
-
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FsInformation != NULL);
-
-   PreviousMode = ExGetPreviousMode();
-
+   IO_STATUS_BLOCK IoSB;
+   
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_WRITE_ATTRIBUTES,
 				      NULL,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID*)&FileObject,
 				      NULL);
    if (Status != STATUS_SUCCESS)
@@ -324,13 +310,10 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
 		      FsInformation,
 		      Length);
    
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
    Irp->AssociatedIrp.SystemBuffer = SystemBuffer;
    KeResetEvent( &FileObject->Event );
    Irp->UserEvent = &FileObject->Event;
-   Irp->UserIosb = IoStatusBlock;
+   Irp->UserIosb = &IoSB;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -349,21 +332,21 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      UserRequest,
-			      PreviousMode,
+			      KernelMode,
 			      FALSE,
 			      NULL);
-	Status = IoStatusBlock->Status;
+        Status = IoSB.Status;
      }
-
+   if (IoStatusBlock)
+   {
+     *IoStatusBlock = IoSB;
+   }
    ExFreePool(SystemBuffer);
    
    return(Status);
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoAcquireVpbSpinLock(OUT PKIRQL Irql)
 {
@@ -372,9 +355,6 @@ IoAcquireVpbSpinLock(OUT PKIRQL Irql)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoReleaseVpbSpinLock(IN KIRQL Irql)
 {

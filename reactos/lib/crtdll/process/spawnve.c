@@ -2,7 +2,7 @@
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
@@ -10,7 +10,6 @@
 #include <msvcrt/process.h>
 #include <msvcrt/ctype.h>
 #include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
 
 
 #ifndef F_OK
@@ -37,9 +36,9 @@ direct_exec_tail(const char* program, const char* args,
                  char* const envp[],
                  PROCESS_INFORMATION* ProcessInformation)
 {
-    static STARTUPINFOA StartupInfo;
+    static STARTUPINFO StartupInfo;
 
-    StartupInfo.cb = sizeof(StartupInfo);
+    StartupInfo.cb = sizeof(STARTUPINFO);
     StartupInfo.lpReserved= NULL;
     StartupInfo.dwFlags = 0;
     StartupInfo.wShowWindow = SW_SHOWDEFAULT; 
@@ -146,9 +145,6 @@ static struct {
 
 /*-------------------------------------------------*/
 
-/*
- * @implemented
- */
 int _spawnve(int mode, const char* path, char* const argv[], char* const envp[])
 {
     /* This is the one that does the work! */
@@ -283,9 +279,6 @@ const char* find_exec(char* path, char* rpath)
     return rpath;
 }
 
-/*
- * @implemented
- */
 int _spawnvpe(int nMode, const char* szPath, char* const* szaArgv, char* const* szaEnv)
 {
     char rpath[FILENAME_MAX];

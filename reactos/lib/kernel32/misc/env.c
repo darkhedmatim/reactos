@@ -1,4 +1,4 @@
-/* $Id: env.c,v 1.27 2004/12/27 16:40:14 navaraf Exp $
+/* $Id: env.c,v 1.20 2003/02/12 00:39:31 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,14 +12,11 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ******************************************************************/
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetEnvironmentVariableA (
@@ -95,9 +92,6 @@ GetEnvironmentVariableA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetEnvironmentVariableW (
@@ -137,10 +131,7 @@ GetEnvironmentVariableW (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetEnvironmentVariableA (
 	LPCSTR	lpName,
@@ -184,10 +175,7 @@ SetEnvironmentVariableA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetEnvironmentVariableW (
 	LPCWSTR	lpName,
@@ -219,9 +207,6 @@ SetEnvironmentVariableW (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetVersion(VOID)
@@ -244,17 +229,13 @@ GetVersion(VOID)
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetVersionExW(
     LPOSVERSIONINFOW lpVersionInformation
     )
 {
  PPEB pPeb = NtCurrentPeb();
- WCHAR *RosVersion;
 
  /* TODO: move this into RtlGetVersion */
  switch(lpVersionInformation->dwOSVersionInfoSize)
@@ -282,18 +263,12 @@ GetVersionExW(
    lpVersionInformation->dwBuildNumber = pPeb->OSBuildNumber;
    lpVersionInformation->dwPlatformId = pPeb->OSPlatformId;
 
-   /* First the Windows compatible string */
-   _snwprintf(lpVersionInformation->szCSDVersion,
-              sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR),
-              L"Service Pack %u", pPeb->SPMajorVersion);
-   /* Add the Reactos-specific string */
-   RosVersion = lpVersionInformation->szCSDVersion + wcslen(lpVersionInformation->szCSDVersion) + 1;
+   /* version string is "ReactOS x.y.z" */
    wcsncpy
    (
-    RosVersion,
-    L"ReactOS " KERNEL_VERSION_STR L" (Build " KERNEL_VERSION_BUILD_STR L")",
-    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) -
-    ((RosVersion - lpVersionInformation->szCSDVersion) + 1)
+    lpVersionInformation->szCSDVersion,
+    L"ReactOS " KERNEL_VERSION_STR,
+    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR)
    );
 
    /* null-terminate, just in case */
@@ -317,10 +292,7 @@ GetVersionExW(
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetVersionExA(
     LPOSVERSIONINFOA lpVersionInformation
@@ -337,8 +309,11 @@ GetVersionExA(
    gives extra work to RtlUnicodeStringToAnsiString, but spares us an
    RtlInitUnicodeString round
   */
-  0,
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion),
+   sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) *
+   sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]) -
+   1,
+   sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) *
+   sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]),
   oviVerInfo.szCSDVersion
  };
 
@@ -346,7 +321,9 @@ GetVersionExA(
  ANSI_STRING strVerStr =
  {
   0,
-  sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion),
+   sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion) *
+   sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion[0]) -
+   1,
   lpVersionInformation->szCSDVersion
  };
 
@@ -378,30 +355,12 @@ GetVersionExA(
  /* null-terminate, just in case */
  oviVerInfo.szCSDVersion
  [
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) /
+  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) *
   sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]) -
   1
  ] = 0;
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
 
- /* convert the win version string */
- nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
- 
- if(!NT_SUCCESS(nErrCode))
- {
-  /* failure */
-  SetLastErrorByStatus(nErrCode);
-  return FALSE;
- }
-
- wstrVerStr.Buffer = oviVerInfo.szCSDVersion + wstrVerStr.Length / sizeof(WCHAR) + 1;
- wstrVerStr.MaximumLength = sizeof(oviVerInfo.szCSDVersion) - (wstrVerStr.Length + sizeof(WCHAR));
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
- strVerStr.Buffer = lpVersionInformation->szCSDVersion + strVerStr.Length + 1;
- strVerStr.MaximumLength = sizeof(lpVersionInformation->szCSDVersion) - (strVerStr.Length + 1);
- strVerStr.Length = 0;
-
- /* convert the ReactOS version string */
+ /* convert the version string */
  nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
  
  if(!NT_SUCCESS(nErrCode))
@@ -434,9 +393,6 @@ GetVersionExA(
 }
 
 
-/*
- * @implemented
- */
 LPSTR
 STDCALL
 GetEnvironmentStringsA (
@@ -508,9 +464,6 @@ GetEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
 LPWSTR
 STDCALL
 GetEnvironmentStringsW (
@@ -521,10 +474,7 @@ GetEnvironmentStringsW (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeEnvironmentStringsA (
 	LPSTR	EnvironmentStrings
@@ -541,10 +491,7 @@ FreeEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeEnvironmentStringsW (
 	LPWSTR	EnvironmentStrings
@@ -555,9 +502,6 @@ FreeEnvironmentStringsW (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 ExpandEnvironmentStringsA (
@@ -581,7 +525,7 @@ ExpandEnvironmentStringsA (
 
 	Destination.Length = 0;
 	Destination.MaximumLength = nSize;
-	Destination.Buffer = lpDst;
+	Destination.Buffer = lpDst,
 
 	DestinationU.Length = 0;
 	DestinationU.MaximumLength = nSize * sizeof(WCHAR);
@@ -598,14 +542,11 @@ ExpandEnvironmentStringsA (
 
 	if (!NT_SUCCESS(Status))
 	{
+		RtlFreeHeap (RtlGetProcessHeap (),
+		             0,
+		             DestinationU.Buffer);
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-		{
-			RtlFreeHeap (RtlGetProcessHeap (),
-			             0,
-			             DestinationU.Buffer);
-			return 0;
-		}
+		return 0;
 	}
 
 	RtlUnicodeStringToAnsiString (&Destination,
@@ -620,9 +561,6 @@ ExpandEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 ExpandEnvironmentStringsW (
@@ -650,8 +588,7 @@ ExpandEnvironmentStringsW (
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-			return 0;
+		return 0;
 	}
 
 	return (Length / sizeof(WCHAR));

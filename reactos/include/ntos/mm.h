@@ -17,13 +17,11 @@
 
 #define SEC_BASED       (0x00200000)
 #define SEC_NO_CHANGE   (0x00400000)
-#define SEC_FILE        (0x00800000)
 #define SEC_IMAGE       (0x01000000)
 #define SEC_VLM         (0x02000000)
 #define SEC_RESERVE     (0x04000000)
 #define SEC_COMMIT      (0x08000000)
 #define SEC_NOCACHE     (0x10000000)
-#define PAGE_NOACCESS	(1)
 #define PAGE_READONLY	(2)
 #define PAGE_READWRITE	(4)
 #define PAGE_WRITECOPY	(8)
@@ -32,8 +30,8 @@
 #define PAGE_EXECUTE_READWRITE	(64)
 #define PAGE_EXECUTE_WRITECOPY	(128)
 #define PAGE_GUARD	(256)
+#define PAGE_NOACCESS	(1)
 #define PAGE_NOCACHE	(512)
-#define PAGE_WRITECOMBINE	(1024)
 #define MEM_COMMIT	(4096)
 #define MEM_FREE	(65536)
 #define MEM_RESERVE	(8192)
@@ -55,14 +53,10 @@
 #define FILE_MAP_READ	(4)
 #define FILE_MAP_WRITE	(2)
 #define FILE_MAP_COPY	(1)
-
 #else /* __USE_W32API */
 
 #include <ddk/ntifs.h>
 
 #endif /* __USE_W32API */
-
-#define PAGE_ROUND_UP(x) ( (((ULONG)x)%PAGE_SIZE) ? ((((ULONG)x)&(~(PAGE_SIZE-1)))+PAGE_SIZE) : ((ULONG)x) )
-#define PAGE_ROUND_DOWN(x) (((ULONG)x)&(~(PAGE_SIZE-1)))
 
 #endif /* __INCLUDE_MM_H */

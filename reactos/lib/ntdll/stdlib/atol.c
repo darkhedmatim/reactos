@@ -1,9 +1,6 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <stdlib.h>
 
-/*
- * @implemented
- */
 long
 atol(const char *str)
 {

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.4 2003/11/13 15:25:28 ekohl Exp $
+# $Id: makefile,v 1.3 2003/01/16 11:58:15 ekohl Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -18,7 +18,7 @@ DEP_OBJECTS = $(TARGET_OBJECTS)
 
 TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
 
-TARGET_CFLAGS = -Werror -Wall
+TARGET_CFLAGS = -g
 
 include $(PATH_TO_TOP)/rules.mak
 

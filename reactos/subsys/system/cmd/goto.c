@@ -23,7 +23,15 @@
  *        Added help text ("/?").
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /*
@@ -39,7 +47,7 @@ INT cmd_goto (LPTSTR cmd, LPTSTR param)
 	LONG   lNewPosHigh;
 
 #ifdef _DEBUG
-	DebugPrintf (_T("cmd_goto (\'%s\', \'%s\'\n"), cmd, param);
+	DebugPrintf ("cmd_goto (\'%s\', \'%s\'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))

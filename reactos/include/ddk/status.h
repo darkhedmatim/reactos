@@ -3,19 +3,16 @@
 
 #ifndef __ASM__
 
-/* 
-NT_SUCCESS return TRUE for a SUCCESS or INFORMATION error code.
-NT_SUCCESS return FALSE for a WARNING or ERROR error code.
-Note that !NT_SUCCESS(errCode) is NOT the same as NT_ERROR(errCode)
-*/
+#define NTSTAT_SEVERITY_SHIFT 30
+#define NTSTAT_SEVERITY_MASK  0x00000003
+#define NTSTAT_FACILITY_SHIFT 16
+#define NTSTAT_FACILITY_MASK  0x00000FFF
+#define NTSTAT_CUSTOMER_MASK  0x20000000
+
+#define NT_SEVERITY(StatCode) (((StatCode) >> NTSTAT_SEVERITY_SHIFT) & NTSTAT_SEVERITY_MASK)
+#define NT_FACILITY(StatCode) (((StatCode) >> NTSTAT_FACILITY_SHIFT) & NTSTAT_FACILITY_MASK)
+#define NT_CUSTOMER(StatCode) ((StatCode) & NTSTAT_CUSTOMER_MASK)
 #define NT_SUCCESS(StatCode)  ((NTSTATUS)(StatCode) >= 0)
-
-#define NT_INFORMATION(StatCode)  ((ULONG)(StatCode) >> 30 == 1)
-
-#define NT_WARNING(StatCode)  ((ULONG)(StatCode) >> 30 == 2)
-
-#define NT_ERROR(StatCode)  ((ULONG)(StatCode) >> 30 == 3)
-
 
 /*
  * Possible status codes
@@ -54,8 +51,6 @@ Note that !NT_SUCCESS(errCode) is NOT the same as NT_ERROR(errCode)
 #define STATUS_NOTIFY_ENUM_DIR                      ((NTSTATUS)0x0000010C)
 #define STATUS_NO_QUOTAS_NO_ACCOUNT                 ((NTSTATUS)0x0000010D)
 #define STATUS_PRIMARY_TRANSPORT_CONNECT_FAILED     ((NTSTATUS)0x0000010E)
-#define STATUS_PROCESS_NOT_IN_JOB                   ((NTSTATUS)0x00000123)
-#define STATUS_PROCESS_IN_JOB                       ((NTSTATUS)0x00000124)
 
 #define STATUS_OBJECT_EXISTS                        ((NTSTATUS)0x40000000)
 #define STATUS_THREAD_WAS_SUSPENDED                 ((NTSTATUS)0x40000001)
@@ -197,7 +192,7 @@ Note that !NT_SUCCESS(errCode) is NOT the same as NT_ERROR(errCode)
 #define STATUS_DEVICE_ALREADY_ATTACHED              ((NTSTATUS)0xc0000038)
 #define STATUS_OBJECT_PATH_INVALID                  ((NTSTATUS)0xc0000039)
 #define STATUS_OBJECT_PATH_NOT_FOUND                ((NTSTATUS)0xc000003a)
-#define STATUS_OBJECT_PATH_SYNTAX_BAD               ((NTSTATUS)0xc000003b)
+#define STATUS_PATH_SYNTAX_BAD                      ((NTSTATUS)0xc000003b)
 #define STATUS_DATA_OVERRUN                         ((NTSTATUS)0xc000003c)
 #define STATUS_DATA_LATE_ERROR                      ((NTSTATUS)0xc000003d)
 #define STATUS_DATA_ERROR                           ((NTSTATUS)0xc000003e)
@@ -665,9 +660,6 @@ Note that !NT_SUCCESS(errCode) is NOT the same as NT_ERROR(errCode)
 #define STATUS_IO_REPARSE_DATA_INVALID              ((NTSTATUS)0xc0000278)
 #define STATUS_IO_REPARSE_TAG_NOT_HANDLED           ((NTSTATUS)0xc0000279)
 
-#define STATUS_RANGE_LIST_CONFLICT                  ((NTSTATUS)0xC0000282)
-
-#define STATUS_RANGE_NOT_FOUND                      ((NTSTATUS)0xC000028C)
 
 #define STATUS_SAM_INIT_FAILURE                     ((NTSTATUS)0xC00002CB)
 
@@ -704,6 +696,15 @@ Note that !NT_SUCCESS(errCode) is NOT the same as NT_ERROR(errCode)
 
 
 #define RPC_NT_SS_IN_NULL_CONTEXT                   ((NTSTATUS)0xC0030004)
+
+
+/* FIXME: Are these official values ?? */
+#define STATUS_FS_QUERY_REQUIRED                    ((NTSTATUS)0xC1000001)
+#define STATUS_HANDLE_NOT_WAITABLE                  ((NTSTATUS)0xC1000002)
+#define STATUS_OBJECT_FILE_MISMATCH                 ((NTSTATUS)0xC1000003)
+#define STATUS_INVALID_PARAMETER_MAX                ((NTSTATUS)0xC1000004)
+#define STATUS_CONFLICTING_ADDRESS                  ((NTSTATUS)0xC1000005)
+#define STATUS_NO_MEDIA_IN_DRIVE                    ((NTSTATUS)0xC1000006)
 
 #else /* !__ASM__ */
 

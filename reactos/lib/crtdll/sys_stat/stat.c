@@ -1,20 +1,17 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/sys/types.h>
 #include <msvcrt/sys/stat.h>
 #include <msvcrt/fcntl.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
+
 int _stat(const char* path, struct stat* buffer)
 {
     HANDLE fh;
-    WIN32_FIND_DATAA wfd;
+    WIN32_FIND_DATA wfd;
 
-    fh = FindFirstFileA(path, &wfd);
+    fh = FindFirstFile(path, &wfd);
     if (fh == INVALID_HANDLE_VALUE) {
         __set_errno(ENOFILE);
         return -1;
@@ -45,7 +42,7 @@ int _stat(const char* path, struct stat* buffer)
 
     buffer->st_size = wfd.nFileSizeLow; 
     buffer->st_nlink = 1;
-    if (FindNextFileA(fh, &wfd)) {
+    if (FindNextFile(fh, &wfd)) {
         __set_errno(ENOFILE);
         FindClose(fh);
         return -1;

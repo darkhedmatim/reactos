@@ -21,9 +21,16 @@
  *        Fixed time input bug.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_TIME
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 static BOOL ParseTime (LPTSTR s)
@@ -180,7 +187,7 @@ INT cmd_time (LPTSTR cmd, LPTSTR param)
 			ConInString (s, 40);
 
 #ifdef _DEBUG
-			DebugPrintf (_T("\'%s\'\n"), s);
+			DebugPrintf ("\'%s\'\n", s);
 #endif
 
 			while (*s && s[_tcslen (s) - 1] < _T(' '))

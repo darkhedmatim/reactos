@@ -5,10 +5,38 @@ LIBRARY NDIS.SYS
 EXPORTS
 ArcFilterDprIndicateReceive@16
 ArcFilterDprIndicateReceiveComplete@4
-EthFilterDprIndicateReceive@32
-EthFilterDprIndicateReceiveComplete@4
-FddiFilterDprIndicateReceive@36
-FddiFilterDprIndicateReceiveComplete@4
+EthChangeFilterAddresses@24
+EthCreateFilter@28
+EthDeleteFilter@4
+EthDeleteFilterOpenAdapter@12
+EthFilterAdjust@20
+;EthFilterDprIndicateReceive@32 ?
+;EthFilterDprIndicateReceiveComplete@4 ?
+EthFilterIndicateReceive@32
+EthFilterIndicateReceiveComplete@4
+EthNoteFilterOpenAdapter@16
+EthNumberOfOpenFilterAddresses@8
+EthQueryGlobalFilterAddresses@20
+EthQueryOpenFilterAddresses@24
+EthShouldAddressLoopBack@8
+FddiChangeFilterLongAddresses@24
+FddiChangeFilterShortAddresses@24
+FddiCreateFilter@36
+FddiDeleteFilter@4
+FddiDeleteFilterOpenAdapter@12
+FddiFilterAdjust@20
+;FddiFilterDprIndicateReceive@36 ?
+;FddiFilterDprIndicateReceiveComplete@4 ?
+FddiFilterIndicateReceive@36
+FddiFilterIndicateReceiveComplete@4
+FddiNoteFilterOpenAdapter@16
+FddiNumberOfOpenFilterLongAddresses@8
+FddiNumberOfOpenFilterShortAddresses@8
+FddiQueryGlobalFilterLongAddresses@20
+FddiQueryGlobalFilterShortAddresses@20
+FddiQueryOpenFilterLongAddresses@24
+FddiQueryOpenFilterShortAddresses@24
+FddiShouldAddressLoopBack@12
 NDIS_BUFFER_TO_SPAN_PAGES@4
 NdisAcquireReadWriteLock@12
 NdisAcquireSpinLock@4
@@ -175,12 +203,12 @@ NdisMFlushLog@4
 NdisMFreeMapRegisters@4
 NdisMFreeSharedMemory@24
 NdisMGetDeviceProperty@24
-NdisMGetDmaAlignment@4
 NdisMIndicateStatus@16
 NdisMIndicateStatusComplete@4
 NdisMInitializeScatterGatherDma@12
 NdisMInitializeTimer@16
 NdisMMapIoSpace@20
+NdisMoveMappedMemory@12
 NdisMPciAssignResources@12
 NdisMPromoteMiniport@4
 NdisMQueryAdapterInstanceName@8
@@ -268,11 +296,21 @@ NdisUpcaseUnicodeString@8
 NdisUpdateSharedMemory@20
 NdisWaitEvent@8
 NdisWriteConfiguration@16
-NdisWriteErrorLogEntry
+NdisWriteErrorLogEntry@16
 NdisWriteEventLogEntry@28
 NdisWritePciSlotInformation@20
 NdisWritePcmciaAttributeMemory@16
-TrFilterDprIndicateReceive@28
-TrFilterDprIndicateReceiveComplete@4
+TrChangeFunctionalAddress@20
+TrChangeGroupAddress@20
+TrCreateFilter@28
+TrDeleteFilter@4
+TrDeleteFilterOpenAdapter@12
+TrFilterAdjust@20
+;TrFilterDprIndicateReceive@28
+;TrFilterDprIndicateReceiveComplete@4
+TrFilterIndicateReceive@28
+TrFilterIndicateReceiveComplete@4
+TrNoteFilterOpenAdapter@16
+TrShouldAddressLoopBack@12
 
 ; EOF

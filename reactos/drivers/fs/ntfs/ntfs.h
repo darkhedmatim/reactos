@@ -29,10 +29,8 @@ typedef struct _BOOT_SECTOR
   ULONGLONG SectorCount;
   ULONGLONG MftLocation;
   ULONGLONG MftMirrLocation;
-  CHAR      ClustersPerMftRecord;
-  BYTE      Unused3[3];
-  CHAR      ClustersPerIndexRecord;
-  BYTE      Unused4[3];
+  ULONG     ClustersPerMftRecord;
+  ULONG     ClustersPerIndexRecord;
   ULONGLONG SerialNumber;			// 0x48
   UCHAR     BootCode[432];			// 0x50
 } __attribute__((packed)) BOOT_SECTOR, *PBOOT_SECTOR;
@@ -51,14 +49,7 @@ typedef struct _NTFS_INFO
   ULONGLONG SectorCount;
   ULARGE_INTEGER MftStart;
   ULARGE_INTEGER MftMirrStart;
-  ULONG BytesPerFileRecord;
-
   ULONGLONG SerialNumber;
-  USHORT VolumeLabelLength;
-  WCHAR VolumeLabel[MAXIMUM_VOLUME_LABEL_LENGTH];
-  UCHAR MajorVersion;
-  UCHAR MinorVersion;
-  USHORT Flags;
 
 } NTFS_INFO, *PNTFS_INFO;
 
@@ -87,7 +78,7 @@ typedef struct
 
 typedef struct _FCB
 {
-  FSRTL_COMMON_FCB_HEADER RFCB;
+  REACTOS_COMMON_FCB_HEADER RFCB;
   SECTION_OBJECT_POINTERS SectionObjectPointers;
 
   PFILE_OBJECT FileObject;
@@ -161,37 +152,24 @@ typedef enum
 
 typedef struct
 {
-  ULONG Type;             /* Magic number 'FILE' */
-  USHORT UsaOffset;       /* Offset to the update sequence */
-  USHORT UsaCount;        /* Size in words of Update Sequence Number & Array (S) */
-  ULONGLONG Lsn;          /* $LogFile Sequence Number (LSN) */
+  ULONG Type;
+  USHORT UsnOffset;
+  USHORT UsnSize;
+  ULONGLONG Usn;
 } NTFS_RECORD_HEADER, *PNTFS_RECORD_HEADER;
-
-/* NTFS_RECORD_HEADER.Type */
-#define NRH_FILE_TYPE  0x454C4946  /* 'FILE' */
-
 
 typedef struct
 {
   NTFS_RECORD_HEADER Ntfs;
-  USHORT SequenceNumber;        /* Sequence number */
-  USHORT LinkCount;             /* Hard link count */
-  USHORT AttributeOffset;       /* Offset to the first Attribute */
-  USHORT Flags;                 /* Flags */
-  ULONG BytesInUse;             /* Real size of the FILE record */
-  ULONG BytesAllocated;         /* Allocated size of the FILE record */
-  ULONGLONG BaseFileRecord;     /* File reference to the base FILE record */
-  USHORT NextAttributeNumber;   /* Next Attribute Id */
-  USHORT Pading;                /* Align to 4 byte boundary (XP) */
-  ULONG MFTRecordNumber;        /* Number of this MFT Record (XP) */
+  USHORT SequenceNumber;
+  USHORT LinkCount;
+  USHORT AttributeOffset;
+  USHORT Flags;
+  ULONG BytesInUse;
+  ULONG BytesAllocated;
+  ULONGLONG BaseFileRecord;
+  USHORT NextAttributeNumber;
 } FILE_RECORD_HEADER, *PFILE_RECORD_HEADER;
-
-/* Flags in FILE_RECORD_HEADER */
-
-#define FRH_IN_USE    0x0001    /* Record is in use */
-#define FRH_DIRECTORY 0x0002    /* Record is a directory */
-#define FRH_UNKNOWN1  0x0004    /* Don't know */
-#define FRH_UNKNOWN2  0x0008    /* Don't know */
 
 typedef struct
 {
@@ -293,21 +271,9 @@ extern PNTFS_GLOBAL_DATA NtfsGlobalData;
 
 /* attrib.c */
 
-//VOID
-//NtfsDumpAttribute(PATTRIBUTE Attribute);
-
-//LONGLONG RunLCN(PUCHAR run);
-
-//ULONG RunLength(PUCHAR run);
-
-BOOLEAN
-FindRun (PNONRESIDENT_ATTRIBUTE NresAttr,
-	 ULONGLONG vcn,
-	 PULONGLONG lcn,
-	 PULONGLONG count);
-
 VOID
-NtfsDumpFileAttributes (PFILE_RECORD_HEADER FileRecord);
+NtfsDumpAttribute(PATTRIBUTE Attribute);
+
 
 /* blockdev.c */
 
@@ -316,8 +282,14 @@ NtfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
 		IN ULONG DiskSector,
 		IN ULONG SectorCount,
 		IN ULONG SectorSize,
-		IN OUT PUCHAR Buffer,
-		IN BOOLEAN Override);
+		IN OUT PUCHAR Buffer);
+
+NTSTATUS
+NtfsReadRawSectors(IN PDEVICE_OBJECT DeviceObject,
+		   IN ULONG DiskSector,
+		   IN ULONG SectorCount,
+		   IN ULONG SectorSize,
+		   IN OUT PUCHAR Buffer);
 
 NTSTATUS
 NtfsDeviceIoControl(IN PDEVICE_OBJECT DeviceObject,
@@ -325,14 +297,15 @@ NtfsDeviceIoControl(IN PDEVICE_OBJECT DeviceObject,
 		    IN PVOID InputBuffer,
 		    IN ULONG InputBufferSize,
 		    IN OUT PVOID OutputBuffer,
-		    IN OUT PULONG OutputBufferSize,
-		    IN BOOLEAN Override);
+		    IN OUT PULONG OutputBufferSize);
 
+#if 0
 /* close.c */
 
 NTSTATUS STDCALL
-NtfsClose(PDEVICE_OBJECT DeviceObject,
+CdfsClose(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
+#endif
 
 /* create.c */
 
@@ -346,6 +319,7 @@ NtfsCreate(PDEVICE_OBJECT DeviceObject,
 NTSTATUS STDCALL
 NtfsDirectoryControl(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
+
 
 /* fcb.c */
 
@@ -415,59 +389,9 @@ NtfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 
 /* mft.c */
 NTSTATUS
-NtfsOpenMft (PDEVICE_EXTENSION Vcb);
+NtfsOpenMft(PDEVICE_OBJECT DeviceObject,
+	    PDEVICE_EXTENSION Vcb);
 
-
-VOID
-ReadAttribute(PATTRIBUTE attr, PVOID buffer, PDEVICE_EXTENSION Vcb, 
-				    PDEVICE_OBJECT DeviceObject);
-
-ULONG
-AttributeDataLength(PATTRIBUTE  attr);
-
-NTSTATUS
-ReadFileRecord (PDEVICE_EXTENSION Vcb,
-		ULONG index,
-		PFILE_RECORD_HEADER file,
-		PFILE_RECORD_HEADER Mft);
-
-PATTRIBUTE
-FindAttribute(PFILE_RECORD_HEADER file,
-	      ATTRIBUTE_TYPE type,
-	      PWSTR name);
-
-ULONG
-AttributeLengthAllocated(PATTRIBUTE attr);
-
-VOID
-ReadVCN (PDEVICE_EXTENSION Vcb,
-	 PFILE_RECORD_HEADER file,
-	 ATTRIBUTE_TYPE type,
-	 ULONGLONG vcn,
-	 ULONG count,
-	 PVOID buffer);
-
-
-VOID FixupUpdateSequenceArray(PFILE_RECORD_HEADER file);
-
-VOID
-ReadExternalAttribute (PDEVICE_EXTENSION Vcb,
-		       PNONRESIDENT_ATTRIBUTE NresAttr,
-		       ULONGLONG vcn,
-		       ULONG count,
-		       PVOID buffer);
-
-NTSTATUS
-ReadLCN (PDEVICE_EXTENSION Vcb,
-	 ULONGLONG lcn,
-	 ULONG count,
-	 PVOID buffer);
-
-
-VOID
-EnumerAttribute(PFILE_RECORD_HEADER file,
-		PDEVICE_EXTENSION Vcb,
-		PDEVICE_OBJECT DeviceObject);
 
 #if 0
 /* misc.c */
@@ -487,17 +411,17 @@ CdfsDateTimeToFileTime(PFCB Fcb,
 VOID
 CdfsFileFlagsToAttributes(PFCB Fcb,
 			  PULONG FileAttributes);
-#endif
 
 /* rw.c */
 
 NTSTATUS STDCALL
-NtfsRead(PDEVICE_OBJECT DeviceObject,
+CdfsRead(PDEVICE_OBJECT DeviceObject,
 	PIRP Irp);
 
 NTSTATUS STDCALL
-NtfsWrite(PDEVICE_OBJECT DeviceObject,
+CdfsWrite(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
+#endif
 
 
 /* volinfo.c */

@@ -1,7 +1,5 @@
-#ifndef _WIN32K_PALETTE_H
-#define _WIN32K_PALETTE_H
-
-#define NO_MAPPING
+#ifndef __WIN32K_PALETTE_H
+#define __WIN32K_PALETTE_H
 
 #define PALETTE_FIXED    0x0001 /* read-only colormap - have to use XAllocColor (if not virtual) */
 #define PALETTE_VIRTUAL  0x0002 /* no mapping needed - pixel == pixel color */
@@ -15,38 +13,13 @@ typedef struct {
     int max;
 } ColorShifts;
 
-typedef struct _PALGDI {
-  PALOBJ PalObj;
-  XLATEOBJ *logicalToSystem;
-  HPALETTE Self;
-  ULONG Mode; // PAL_INDEXED, PAL_BITFIELDS, PAL_RGB, PAL_BGR
-  ULONG NumColors;
-  PALETTEENTRY *IndexedColors;
-  ULONG RedMask;
-  ULONG GreenMask;
-  ULONG BlueMask;
-} PALGDI, *PPALGDI;
+static ColorShifts PALETTE_PRed   = {0,0,0};
+static ColorShifts PALETTE_LRed   = {0,0,0};
+static ColorShifts PALETTE_PGreen = {0,0,0};
+static ColorShifts PALETTE_LGreen = {0,0,0};
+static ColorShifts PALETTE_PBlue  = {0,0,0};
+static ColorShifts PALETTE_LBlue  = {0,0,0};
+static int PALETTE_Graymax        = 0;
+static int palette_size;
 
-HPALETTE FASTCALL PALETTE_AllocPalette(ULONG Mode,
-                                       ULONG NumColors,
-                                       ULONG *Colors,
-                                       ULONG Red,
-                                       ULONG Green,
-                                       ULONG Blue);
-HPALETTE FASTCALL PALETTE_AllocPaletteIndexedRGB(ULONG NumColors,
-                                                 CONST RGBQUAD *Colors);
-#define  PALETTE_FreePalette(hPalette)  GDIOBJ_FreeObj((HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE)
-#define  PALETTE_LockPalette(hPalette) ((PPALGDI)GDIOBJ_LockObj((HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE))
-#define  PALETTE_UnlockPalette(hPalette) GDIOBJ_UnlockObj((HGDIOBJ)hPalette)
-BOOL INTERNAL_CALL PALETTE_Cleanup(PVOID ObjectBody);
-
-HPALETTE FASTCALL PALETTE_Init (VOID);
-VOID     FASTCALL PALETTE_ValidateFlags (PALETTEENTRY* lpPalE, INT size);
-#ifndef NO_MAPPING
-INT      STDCALL  PALETTE_SetMapping(PALOBJ* palPtr, UINT uStart, UINT uNum, BOOL mapOnly);
-#endif
-INT      FASTCALL PALETTE_ToPhysical (PDC dc, COLORREF color);
-
-PPALETTEENTRY FASTCALL ReturnSystemPalette (VOID);
-
-#endif /* _WIN32K_PALETTE_H */
+#endif /* __WIN32K_PALETTE_H */

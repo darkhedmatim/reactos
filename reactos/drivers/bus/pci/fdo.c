@@ -1,4 +1,4 @@
-/* $Id: fdo.c,v 1.11 2004/11/15 11:49:37 ekohl Exp $
+/* $Id: fdo.c,v 1.2 2002/05/05 14:57:45 chorns Exp $
  *
  * PROJECT:         ReactOS PCI bus driver
  * FILE:            fdo.c
@@ -7,29 +7,21 @@
  * UPDATE HISTORY:
  *      10-09-2001  CSH  Created
  */
-
-#include <ddk/ntddk.h>
-
-#include "pcidef.h"
-#include "pci.h"
+#include <pci.h>
 
 #define NDEBUG
 #include <debug.h>
 
 /*** PRIVATE *****************************************************************/
 
-static NTSTATUS
+NTSTATUS
 FdoLocateChildDevice(
   PPCI_DEVICE *Device,
   PFDO_DEVICE_EXTENSION DeviceExtension,
-  ULONG BusNumber,
-  PCI_SLOT_NUMBER SlotNumber,
   PPCI_COMMON_CONFIG PciConfig)
 {
   PLIST_ENTRY CurrentEntry;
   PPCI_DEVICE CurrentDevice;
-
-  DPRINT("Called\n");
 
   CurrentEntry = DeviceExtension->DeviceListHead.Flink;
   while (CurrentEntry != &DeviceExtension->DeviceListHead) {
@@ -37,11 +29,8 @@ FdoLocateChildDevice(
 
     /* If both vendor ID and device ID match, it is the same device */
     if ((PciConfig->VendorID == CurrentDevice->PciConfig.VendorID) &&
-        (PciConfig->DeviceID == CurrentDevice->PciConfig.DeviceID) &&
-        (SlotNumber.u.AsULONG == CurrentDevice->SlotNumber.u.AsULONG) &&
-        (BusNumber == CurrentDevice->BusNumber)) {
+      (PciConfig->DeviceID == CurrentDevice->PciConfig.DeviceID)) {
       *Device = CurrentDevice;
-      DPRINT("Done\n");
       return STATUS_SUCCESS;
     }
 
@@ -49,12 +38,11 @@ FdoLocateChildDevice(
   }
 
   *Device = NULL;
-  DPRINT("Done\n");
   return STATUS_UNSUCCESSFUL;
 }
 
 
-static NTSTATUS
+NTSTATUS
 FdoEnumerateDevices(
   PDEVICE_OBJECT DeviceObject)
 {
@@ -62,12 +50,9 @@ FdoEnumerateDevices(
   PCI_COMMON_CONFIG PciConfig;
   PLIST_ENTRY CurrentEntry;
   PPCI_DEVICE Device;
-  PCI_SLOT_NUMBER SlotNumber;
-  ULONG BusNumber;
-  ULONG DeviceNumber;
-  ULONG FunctionNumber;
-  ULONG Size;
   NTSTATUS Status;
+  ULONG Slot;
+  ULONG Size;
 
   DPRINT("Called\n");
 
@@ -85,100 +70,54 @@ FdoEnumerateDevices(
   DeviceExtension->DeviceListCount = 0;
 
   /* Enumerate devices on the PCI bus */
-  for (BusNumber = 0; BusNumber < 8; BusNumber++)
-  {
-    SlotNumber.u.AsULONG = 0;
-    for (DeviceNumber = 0; DeviceNumber < PCI_MAX_DEVICES; DeviceNumber++)
+  for (Slot = 0; Slot < 256; Slot++)
+	{
+	  Size = PciGetBusData(
+      DeviceExtension->BusNumber,
+			Slot,
+			&PciConfig,
+      0,
+			sizeof(PCI_COMMON_CONFIG));
+	  if (Size != 0)
     {
-      SlotNumber.u.bits.DeviceNumber = DeviceNumber;
-      for (FunctionNumber = 0; FunctionNumber < PCI_MAX_FUNCTION; FunctionNumber++)
-      {
-        SlotNumber.u.bits.FunctionNumber = FunctionNumber;
+      DPRINT("Bus %1lu  Device %2lu  Func %1lu  VenID 0x%04hx  DevID 0x%04hx\n",
+		  	DeviceExtension->BusNumber,
+		  	Slot>>3,
+		  	Slot & 0x07,
+		  	PciConfig.VendorID,
+		  	PciConfig.DeviceID);
 
-        DPRINT("Bus %1lu  Device %2lu  Func %1lu\n",
-          BusNumber,
-          DeviceNumber,
-          FunctionNumber);
-
-        RtlZeroMemory(&PciConfig,
-                      sizeof(PCI_COMMON_CONFIG));
-
-        Size = HalGetBusData(PCIConfiguration,
-                             BusNumber,
-                             SlotNumber.u.AsULONG,
-                             &PciConfig,
-                             PCI_COMMON_HDR_LENGTH);
-        DPRINT("Size %lu\n", Size);
-        if (Size < PCI_COMMON_HDR_LENGTH)
+      Status = FdoLocateChildDevice(&Device, DeviceExtension, &PciConfig);
+      if (!NT_SUCCESS(Status)) {
+        Device = (PPCI_DEVICE)ExAllocatePool(PagedPool, sizeof(PCI_DEVICE));
+        if (!Device)
         {
-          if (FunctionNumber == 0)
-          {
-            break;
-          }
-          else
-          {
-            continue;
-          }
+          /* FIXME: Cleanup resources for already discovered devices */
+          return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        DPRINT("Bus %1lu  Device %2lu  Func %1lu  VenID 0x%04hx  DevID 0x%04hx\n",
-          BusNumber,
-          DeviceNumber,
-          FunctionNumber,
-          PciConfig.VendorID,
-          PciConfig.DeviceID);
+        RtlZeroMemory(Device, sizeof(PCI_DEVICE));
 
-        Status = FdoLocateChildDevice(&Device, DeviceExtension, BusNumber, SlotNumber, &PciConfig);
-        if (!NT_SUCCESS(Status))
-        {
-          Device = (PPCI_DEVICE)ExAllocatePool(PagedPool, sizeof(PCI_DEVICE));
-          if (!Device)
-          {
-            /* FIXME: Cleanup resources for already discovered devices */
-            return STATUS_INSUFFICIENT_RESOURCES;
-          }
+        RtlMoveMemory(&Device->PciConfig, &PciConfig, sizeof(PCI_COMMON_CONFIG));
 
-          RtlZeroMemory(Device,
-                        sizeof(PCI_DEVICE));
-
-          Device->BusNumber = BusNumber;
-
-          RtlCopyMemory(&Device->SlotNumber,
-                        &SlotNumber,
-                        sizeof(PCI_SLOT_NUMBER));
-
-          RtlCopyMemory(&Device->PciConfig,
-                        &PciConfig,
-                        sizeof(PCI_COMMON_CONFIG));
-
-          ExInterlockedInsertTailList(
-            &DeviceExtension->DeviceListHead,
-            &Device->ListEntry,
-            &DeviceExtension->DeviceListLock);
-        }
-
-        /* Don't remove this device */
-        Device->RemovePending = FALSE;
-
-        DeviceExtension->DeviceListCount++;
-
-        /* Skip to next device if the current one is not a multifunction device */
-        if ((FunctionNumber == 0) &&
-            ((PciConfig.HeaderType & 0x80) == 0))
-        {
-          break;
-        }
+        ExInterlockedInsertTailList(
+          &DeviceExtension->DeviceListHead,
+          &Device->ListEntry,
+          &DeviceExtension->DeviceListLock);
       }
-    }
-  }
 
-  DPRINT("Done\n");
+      /* Don't remove this device */
+      Device->RemovePending = FALSE;
+
+      DeviceExtension->DeviceListCount++;
+    }
+	}
 
   return STATUS_SUCCESS;
 }
 
 
-static NTSTATUS
+NTSTATUS
 FdoQueryBusRelations(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp,
@@ -192,6 +131,7 @@ FdoQueryBusRelations(
   NTSTATUS Status;
   BOOLEAN ErrorOccurred;
   NTSTATUS ErrorStatus;
+  WCHAR Buffer[MAX_PATH];
   ULONG Size;
   ULONG i;
 
@@ -235,7 +175,7 @@ FdoQueryBusRelations(
         sizeof(PDO_DEVICE_EXTENSION),
         NULL,
         FILE_DEVICE_CONTROLLER,
-        FILE_AUTOGENERATED_DEVICE_NAME,
+        0,
         FALSE,
         &Device->Pdo);
       if (!NT_SUCCESS(Status)) {
@@ -261,70 +201,25 @@ FdoQueryBusRelations(
 
       PdoDeviceExtension->Common.DevicePowerState = PowerDeviceD0;
 
-      PdoDeviceExtension->Fdo = DeviceObject;
+      /* FIXME: Get device properties (Hardware IDs, etc.) */
 
-      PdoDeviceExtension->BusNumber = Device->BusNumber;
+      swprintf(
+        Buffer,
+        L"PCI\\VEN_%04X&DEV_%04X&SUBSYS_%08X&REV_%02X",
+        Device->PciConfig.VendorID,
+        Device->PciConfig.DeviceID,
+        Device->PciConfig.u.type0.SubSystemID,
+        Device->PciConfig.RevisionID);
 
-      RtlCopyMemory(
-        &PdoDeviceExtension->SlotNumber,
-        &Device->SlotNumber,
-        sizeof(PCI_SLOT_NUMBER));
-
-      /* Add Device ID string */
-      if (!PciCreateDeviceIDString(&PdoDeviceExtension->DeviceID,
-                                   Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
+      if (!PciCreateUnicodeString(
+        &PdoDeviceExtension->DeviceID,
+        Buffer,
+        PagedPool)) {
         ErrorOccurred = TRUE;
         break;
       }
 
       DPRINT("DeviceID: %S\n", PdoDeviceExtension->DeviceID.Buffer);
-
-      /* Add Instance ID string */
-      if (!PciCreateInstanceIDString(&PdoDeviceExtension->InstanceID,
-                                     Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
-        ErrorOccurred = TRUE;
-        break;
-      }
-
-      /* Add Hardware IDs string */
-      if (!PciCreateHardwareIDsString(&PdoDeviceExtension->HardwareIDs,
-                                      Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
-        ErrorOccurred = TRUE;
-        break;
-      }
-
-      /* Add Compatible IDs string */
-      if (!PciCreateCompatibleIDsString(&PdoDeviceExtension->CompatibleIDs,
-                                        Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
-        ErrorOccurred = TRUE;
-        break;
-      }
-
-      /* Add device description string */
-      if (!PciCreateDeviceDescriptionString(&PdoDeviceExtension->DeviceDescription,
-                                            Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
-        ErrorOccurred = TRUE;
-        break;
-      }
-
-      /* Add device location string */
-      if (!PciCreateDeviceLocationString(&PdoDeviceExtension->DeviceLocation,
-                                         Device))
-      {
-        ErrorStatus = STATUS_INSUFFICIENT_RESOURCES;
-        ErrorOccurred = TRUE;
-        break;
-      }
     }
 
     if (!Device->RemovePending) {
@@ -354,13 +249,11 @@ FdoQueryBusRelations(
 
   Irp->IoStatus.Information = (ULONG_PTR)Relations;
 
-  DPRINT("Done\n");
-
   return Status;
 }
 
 
-static NTSTATUS
+NTSTATUS
 FdoStartDevice(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -376,15 +269,27 @@ FdoStartDevice(
   InitializeListHead(&DeviceExtension->DeviceListHead);
   KeInitializeSpinLock(&DeviceExtension->DeviceListLock);
   DeviceExtension->DeviceListCount = 0;
+
+  PciBusConfigType = PciGetBusConfigType();
+
+  DPRINT("Bus configuration is %d\n", PciBusConfigType);
+
+  if (PciBusConfigType != pbtUnknown) {
+    /* At least one PCI bus is found */
+  }
+
+  /* FIXME: Find a way to get this information */
+  DeviceExtension->BusNumber = 0;
+
   DeviceExtension->State = dsStarted;
 
   //Irp->IoStatus.Information = 0;
 
-  return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 
-static NTSTATUS
+NTSTATUS
 FdoSetPower(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp,

@@ -1,4 +1,4 @@
-/* $Id: virtual.c,v 1.15 2004/10/30 22:18:17 weiden Exp $
+/* $Id: virtual.c,v 1.10 2003/01/15 21:24:34 chorns Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -11,14 +11,8 @@
 
 #include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
-
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 LPVOID STDCALL
 VirtualAllocEx(HANDLE hProcess,
 	       LPVOID lpAddress,
@@ -43,9 +37,6 @@ VirtualAllocEx(HANDLE hProcess,
 }
 
 
-/*
- * @implemented
- */
 LPVOID STDCALL
 VirtualAlloc(LPVOID lpAddress,
 	     DWORD dwSize,
@@ -60,10 +51,7 @@ VirtualAlloc(LPVOID lpAddress,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualFreeEx(HANDLE hProcess,
 	      LPVOID lpAddress,
 	      DWORD dwSize,
@@ -84,10 +72,7 @@ VirtualFreeEx(HANDLE hProcess,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualFree(LPVOID lpAddress,
 	    DWORD dwSize,
 	    DWORD dwFreeType)
@@ -99,10 +84,7 @@ VirtualFree(LPVOID lpAddress,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualProtect(LPVOID lpAddress,
 	       DWORD dwSize,
 	       DWORD flNewProtect,
@@ -116,10 +98,7 @@ VirtualProtect(LPVOID lpAddress,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualProtectEx(HANDLE hProcess,
 		 LPVOID lpAddress,
 		 DWORD dwSize,
@@ -129,8 +108,8 @@ VirtualProtectEx(HANDLE hProcess,
   NTSTATUS Status;
 
   Status = NtProtectVirtualMemory(hProcess,
-				  &lpAddress,
-				  &dwSize,
+				  (PVOID)lpAddress,
+				  dwSize,
 				  flNewProtect,
 				  (PULONG)lpflOldProtect);
   if (!NT_SUCCESS(Status))
@@ -142,10 +121,7 @@ VirtualProtectEx(HANDLE hProcess,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualLock(LPVOID lpAddress,
 	    DWORD dwSize)
 {
@@ -165,9 +141,6 @@ VirtualLock(LPVOID lpAddress,
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 VirtualQuery(LPCVOID lpAddress,
 	     PMEMORY_BASIC_INFORMATION lpBuffer,
@@ -180,9 +153,6 @@ VirtualQuery(LPCVOID lpAddress,
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 VirtualQueryEx(HANDLE hProcess,
 	       LPCVOID lpAddress,
@@ -201,16 +171,13 @@ VirtualQueryEx(HANDLE hProcess,
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
-      return 0;
+      return(ResultLength);
     }
   return(ResultLength);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 VirtualUnlock(LPVOID lpAddress,
 	      DWORD dwSize)
 {

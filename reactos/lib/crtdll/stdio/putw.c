@@ -20,11 +20,7 @@
 #include <msvcrt/stdio.h>
 
 
-/*
- * Write the word (int) W to STREAM.
- *
- * @implemented
- */
+/* Write the word (int) W to STREAM.  */
 int _putw(int w,FILE *stream)
 {
   /* Is there a better way?  */

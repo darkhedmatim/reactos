@@ -1,4 +1,4 @@
-/* $Id: luid.c,v 1.10 2004/08/15 16:39:11 chorns Exp $
+/* $Id: luid.c,v 1.6 2002/09/08 10:23:43 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,73 +11,59 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
 static KSPIN_LOCK LuidLock;
 static LARGE_INTEGER LuidIncrement;
-static LARGE_INTEGER LuidValue;
-
-#define SYSTEM_LUID   0x3E7;
+static LUID Luid;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 SepInitLuid(VOID)
 {
   KeInitializeSpinLock(&LuidLock);
-  LuidValue.QuadPart = SYSTEM_LUID;
+  Luid.QuadPart = 999;   /* SYSTEM_LUID */
   LuidIncrement.QuadPart = 1;
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
-NtAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
+NtAllocateLocallyUniqueId(OUT LUID* LocallyUniqueId)
 {
-  LARGE_INTEGER ReturnedLuid;
-  KIRQL Irql;
+  KIRQL oldIrql;
+  LUID ReturnedLuid;
 
   KeAcquireSpinLock(&LuidLock,
-		    &Irql);
-  ReturnedLuid = LuidValue;
-  LuidValue = RtlLargeIntegerAdd(LuidValue,
-				 LuidIncrement);
+		    &oldIrql);
+  ReturnedLuid = Luid;
+  Luid = RtlLargeIntegerAdd(Luid,
+			    LuidIncrement);
   KeReleaseSpinLock(&LuidLock,
-		    Irql);
-
-  LocallyUniqueId->LowPart = ReturnedLuid.u.LowPart;
-  LocallyUniqueId->HighPart = ReturnedLuid.u.HighPart;
+		    oldIrql);
+  *LocallyUniqueId = ReturnedLuid;
 
   return(STATUS_SUCCESS);
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlCopyLuid(IN PLUID LuidDest,
 	    IN PLUID LuidSrc)
 {
-  LuidDest->LowPart = LuidSrc->LowPart;
-  LuidDest->HighPart = LuidSrc->HighPart;
+  LuidDest->QuadPart = LuidSrc->QuadPart;
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlEqualLuid(IN PLUID Luid1,
 	     IN PLUID Luid2)
 {
-  return (Luid1->LowPart == Luid2->LowPart &&
-	  Luid1->HighPart == Luid2->HighPart);
+  return((Luid1->QuadPart == Luid2->QuadPart) ? TRUE : FALSE);
 }
 
 /* EOF */

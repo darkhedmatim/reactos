@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: text.c,v 1.12 2004/10/04 19:22:16 gvg Exp $
+/* $Id: text.c,v 1.6 2003/01/15 20:12:27 robd Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,29 +28,33 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <ctype.h>
+#define __NTAPP__
+
+#include <windows.h>
+#include <user32.h>
+
+//#include <kernel32/winnls.h>
+#include <ntos/rtl.h>
+
 #include <debug.h>
+
+
+const unsigned short wctype_table[] =
+{
+};
+
+/* the character type contains the C1_* flags in the low 12 bits */
+/* and the C2_* type in the high 4 bits */
+static inline unsigned short get_char_typeW(WCHAR ch)
+{
+    extern const unsigned short wctype_table[];
+    return wctype_table[wctype_table[ch >> 8] + (ch & 0xff)];
+}
 
 
 /* FUNCTIONS *****************************************************************/
 
-static WORD
-GetC1Type(WCHAR Ch)
-{
-    WORD CharType;
-
-    if (! GetStringTypeW(CT_CTYPE1, &Ch, 1, &CharType))
-    {
-        return 0;
-    }
-
-    return CharType;
-}
-
-/*
- * @implemented
- */
+//LPSTR STDCALL CharLowerA(LPSTR lpsz)
 LPSTR
 WINAPI
 CharLowerA(LPSTR x)
@@ -76,9 +80,7 @@ CharLowerA(LPSTR x)
     return x;
 }
 
-/*
- * @implemented
- */
+//DWORD STDCALL CharLowerBuffA(LPSTR lpsz, DWORD cchLength)
 DWORD
 WINAPI
 CharLowerBuffA(LPSTR str, DWORD len)
@@ -99,9 +101,7 @@ CharLowerBuffA(LPSTR str, DWORD len)
     return 0;
 }
 
-/*
- * @implemented
- */
+//DWORD STDCALL CharLowerBuffW(LPWSTR lpsz, DWORD cchLength)
 DWORD
 WINAPI
 CharLowerBuffW(LPWSTR str, DWORD len)
@@ -112,9 +112,7 @@ CharLowerBuffW(LPWSTR str, DWORD len)
     return ret;
 }
 
-/*
- * @implemented
- */
+//LPWSTR STDCALL CharLowerW(LPWSTR lpsz)
 LPWSTR
 WINAPI
 CharLowerW(LPWSTR x)
@@ -126,9 +124,7 @@ CharLowerW(LPWSTR x)
     }
 }
 
-/*
- * @implemented
- */
+//LPWSTR STDCALL CharPrevW(LPCWSTR lpszStart, LPCWSTR lpszCurrent)
 LPWSTR
 WINAPI
 CharPrevW(LPCWSTR start, LPCWSTR x)
@@ -137,9 +133,7 @@ CharPrevW(LPCWSTR start, LPCWSTR x)
     else return (LPWSTR)x;
 }
 
-/*
- * @implemented
- */
+//LPSTR STDCALL CharNextA(LPCSTR lpsz)
 LPSTR
 WINAPI
 CharNextA(LPCSTR ptr)
@@ -149,9 +143,7 @@ CharNextA(LPCSTR ptr)
     return (LPSTR)(ptr + 1);
 }
 
-/*
- * @implemented
- */
+//LPSTR STDCALL CharNextExA(WORD CodePage, LPCSTR lpCurrentChar, DWORD dwFlags)
 LPSTR
 WINAPI
 CharNextExA(WORD codepage, LPCSTR ptr, DWORD flags)
@@ -161,9 +153,7 @@ CharNextExA(WORD codepage, LPCSTR ptr, DWORD flags)
     return (LPSTR)(ptr + 1);
 }
 
-/*
- * @implemented
- */
+//LPWSTR STDCALL CharNextW(LPCWSTR lpsz)
 LPWSTR
 WINAPI
 CharNextW(LPCWSTR x)
@@ -172,9 +162,7 @@ CharNextW(LPCWSTR x)
     return (LPWSTR)x;
 }
 
-/*
- * @implemented
- */
+//LPSTR STDCALL CharPrevA(LPCSTR lpszStart, LPCSTR lpszCurrent)
 LPSTR
 WINAPI
 CharPrevA(LPCSTR start, LPCSTR ptr)
@@ -187,9 +175,7 @@ CharPrevA(LPCSTR start, LPCSTR ptr)
     return (LPSTR)start;
 }
 
-/*
- * @implemented
- */
+//LPSTR STDCALL CharPrevExA(WORD CodePage, LPCSTR lpStart, LPCSTR lpCurrentChar, DWORD dwFlags)
 LPSTR WINAPI CharPrevExA( WORD codepage, LPCSTR start, LPCSTR ptr, DWORD flags )
 {
     while (*start && (start < ptr))
@@ -201,9 +187,7 @@ LPSTR WINAPI CharPrevExA( WORD codepage, LPCSTR start, LPCSTR ptr, DWORD flags )
     return (LPSTR)start;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL CharToOemA(LPCSTR lpszSrc, LPSTR lpszDst)
 BOOL
 WINAPI
 CharToOemA(LPCSTR s, LPSTR d)
@@ -212,9 +196,7 @@ CharToOemA(LPCSTR s, LPSTR d)
     return CharToOemBuffA(s, d, strlen(s) + 1);
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL CharToOemBuffA(LPCSTR lpszSrc, LPSTR lpszDst, DWORD cchDstLength)
 BOOL
 WINAPI
 CharToOemBuffA(LPCSTR s, LPSTR d, DWORD len)
@@ -230,9 +212,7 @@ CharToOemBuffA(LPCSTR s, LPSTR d, DWORD len)
     return TRUE;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL CharToOemBuffW(LPCWSTR lpszSrc, LPSTR lpszDst, DWORD cchDstLength)
 BOOL
 WINAPI
 CharToOemBuffW(LPCWSTR s, LPSTR d, DWORD len)
@@ -243,9 +223,7 @@ CharToOemBuffW(LPCWSTR s, LPSTR d, DWORD len)
     return TRUE;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL CharToOemW(LPCWSTR lpszSrc, LPSTR lpszDst)
 BOOL
 WINAPI
 CharToOemW(LPCWSTR s, LPSTR d)
@@ -253,19 +231,32 @@ CharToOemW(LPCWSTR s, LPSTR d)
     return CharToOemBuffW(s, d, wcslen(s) + 1);
 }
 
-/*
- * @implemented
- */
+//LPSTR STDCALL CharUpperA(LPSTR lpsz)
 LPSTR WINAPI CharUpperA(LPSTR x)
 {
     if (!HIWORD(x)) return (LPSTR)toupper((char)(int)x);
-    CharUpperBuffA(x, strlen(x));
+/*
+    __TRY
+    {
+        LPSTR s = x;
+        while (*s)
+        {
+            *s=toupper(*s);
+            s++;
+        }
+    }
+    __EXCEPT(page_fault)
+    {
+        SetLastError( ERROR_INVALID_PARAMETER );
+        return NULL;
+    }
+    __ENDTRY
     return x;
+ */
+  return (LPSTR)NULL;
 }
 
-/*
- * @implemented
- */
+//DWORD STDCALL CharUpperBuffA(LPSTR lpsz, DWORD cchLength)
 DWORD
 WINAPI
 CharUpperBuffA(LPSTR str, DWORD len)
@@ -286,9 +277,7 @@ CharUpperBuffA(LPSTR str, DWORD len)
     return 0;
 }
 
-/*
- * @implemented
- */
+//DWORD STDCALL CharUpperBuffW(LPWSTR lpsz, DWORD cchLength)
 DWORD
 WINAPI
 CharUpperBuffW(LPWSTR str, DWORD len)
@@ -299,9 +288,7 @@ CharUpperBuffW(LPWSTR str, DWORD len)
     return ret;
 }
 
-/*
- * @implemented
- */
+//LPWSTR STDCALL CharUpperW(LPWSTR lpsz)
 LPWSTR
 WINAPI
 CharUpperW(LPWSTR x)
@@ -310,101 +297,88 @@ CharUpperW(LPWSTR x)
     else return (LPWSTR)(UINT)towlower((WORD)(((DWORD)(x)) & 0xFFFF));
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharAlphaA(CHAR ch)
 BOOL
 WINAPI
-IsCharAlphaA(CHAR Ch)
+IsCharAlphaA(CHAR x)
 {
-    WCHAR WCh;
-
-    MultiByteToWideChar(CP_ACP, 0, &Ch, 1, &WCh, 1);
-    return IsCharAlphaW(WCh);
+    WCHAR wch;
+    MultiByteToWideChar(CP_ACP, 0, &x, 1, &wch, 1);
+    return IsCharAlphaW(wch);
 }
 
-/*
- * @implemented
- */
-BOOL
+const char IsCharAlphaNumericA_lookup_table[] = { 
+    0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0xff,  0x03,
+    0xfe,  0xff,  0xff,  0x07,  0xfe,  0xff,  0xff,  0x07,
+    0x08,  0x54,  0x00,  0xd4,  0x00,  0x00,  0x0c,  0x02,
+    0xff,  0xff,  0x7f,  0xff,  0xff,  0xff,  0x7f,  0xff
+};
+
+WINBOOL
 STDCALL
-IsCharAlphaNumericA(CHAR Ch)
+IsCharAlphaNumericA(CHAR ch)
 {
-    WCHAR WCh;
+//    return (IsCharAlphaNumericA_lookup_table[ch / 8] & (1 << (ch % 8))) ? 1 : 0;
 
-    MultiByteToWideChar(CP_ACP, 0, &Ch, 1, &WCh, 1);
-    return IsCharAlphaNumericW(WCh);
+    WCHAR wch;
+    MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wch, 1);
+    return IsCharAlphaNumericW(wch);
+  //return FALSE;
 }
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
-IsCharAlphaNumericW(WCHAR Ch)
+IsCharAlphaNumericW(WCHAR ch)
 {
-    return (GetC1Type(Ch) & (C1_ALPHA|C1_DIGIT)) != 0;
+    return (get_char_typeW(ch) & (C1_ALPHA|C1_DIGIT)) != 0;
+//  return FALSE;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharAlphaW(WCHAR ch)
 BOOL
 WINAPI
-IsCharAlphaW(WCHAR Ch)
+IsCharAlphaW(WCHAR x)
 {
-    return (GetC1Type(Ch) & C1_ALPHA) != 0;
+    return (get_char_typeW(x) & C1_ALPHA) != 0;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharLowerA(CHAR ch)
 BOOL
 WINAPI
-IsCharLowerA(CHAR Ch)
+IsCharLowerA(CHAR x)
 {
-    WCHAR WCh;
-
-    MultiByteToWideChar(CP_ACP, 0, &Ch, 1, &WCh, 1);
-    return IsCharLowerW(WCh);
+    WCHAR wch;
+    MultiByteToWideChar(CP_ACP, 0, &x, 1, &wch, 1);
+    return IsCharLowerW(wch);
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharLowerW(WCHAR ch)
 BOOL
 WINAPI
-IsCharLowerW(WCHAR Ch)
+IsCharLowerW(WCHAR x)
 {
-    return (GetC1Type(Ch) & C1_LOWER) != 0;
+    return (get_char_typeW(x) & C1_LOWER) != 0;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharUpperA(CHAR ch)
 BOOL
 WINAPI
-IsCharUpperA(CHAR Ch)
+IsCharUpperA(CHAR x)
 {
-    WCHAR WCh;
-
-    MultiByteToWideChar(CP_ACP, 0, &Ch, 1, &WCh, 1);
-    return IsCharUpperW(WCh);
+    WCHAR wch;
+    MultiByteToWideChar(CP_ACP, 0, &x, 1, &wch, 1);
+    return IsCharUpperW(wch);
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL IsCharUpperW(WCHAR ch)
 BOOL
 WINAPI
-IsCharUpperW(WCHAR Ch)
+IsCharUpperW(WCHAR x)
 {
-    return (GetC1Type(Ch) & C1_UPPER) != 0;
+    return (get_char_typeW(x) & C1_UPPER) != 0;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL OemToCharA(LPCSTR lpszSrc, LPSTR lpszDst)
 BOOL
 WINAPI
 OemToCharA(LPCSTR s, LPSTR d)
@@ -412,9 +386,7 @@ OemToCharA(LPCSTR s, LPSTR d)
     return OemToCharBuffA(s, d, strlen(s) + 1);
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL OemToCharBuffA(LPCSTR lpszSrc, LPSTR lpszDst, DWORD cchDstLength)
 BOOL WINAPI OemToCharBuffA(LPCSTR s, LPSTR d, DWORD len)
 {
     WCHAR* bufW;
@@ -428,9 +400,7 @@ BOOL WINAPI OemToCharBuffA(LPCSTR s, LPSTR d, DWORD len)
     return TRUE;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL OemToCharBuffW(LPCSTR lpszSrc, LPWSTR lpszDst, DWORD cchDstLength)
 BOOL
 WINAPI
 OemToCharBuffW(LPCSTR s, LPWSTR d, DWORD len)
@@ -439,12 +409,8 @@ OemToCharBuffW(LPCSTR s, LPWSTR d, DWORD len)
     return TRUE;
 }
 
-/*
- * @implemented
- */
+//WINBOOL STDCALL OemToCharW(LPCSTR lpszSrc, LPWSTR lpszDst)
 BOOL WINAPI OemToCharW(LPCSTR s, LPWSTR d)
 {
     return OemToCharBuffW(s, d, strlen(s) + 1);
 }
-
-/* EOF */

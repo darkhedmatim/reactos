@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.7 2004/10/30 14:02:04 navaraf Exp $
+/* $Id: atom.c,v 1.4 2002/09/08 10:23:04 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -55,9 +55,6 @@ static VOID RtlpDestroyAtomHandleTable(PRTL_ATOM_TABLE AtomTable);
 /* FUNCTIONS *****************************************************************/
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCreateAtomTable(ULONG TableSize,
 		   PRTL_ATOM_TABLE *AtomTable)
@@ -115,9 +112,6 @@ RtlCreateAtomTable(ULONG TableSize,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDestroyAtomTable(IN PRTL_ATOM_TABLE AtomTable)
 {
@@ -162,9 +156,6 @@ RtlDestroyAtomTable(IN PRTL_ATOM_TABLE AtomTable)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlEmptyAtomTable(PRTL_ATOM_TABLE AtomTable,
 		  BOOLEAN DeletePinned)
@@ -214,9 +205,6 @@ RtlEmptyAtomTable(PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 		      IN PWSTR AtomName,
@@ -285,7 +273,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	return STATUS_NO_MEMORY;
      }
 
-   InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
+   InsertTailList(&AtomTable->Slot[Hash], &Entry->List)
    RtlCreateUnicodeString (&Entry->Name,
 			   AtomName);
    Entry->RefCount = 1;
@@ -310,9 +298,6 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDeleteAtomFromAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 			   IN RTL_ATOM Atom)
@@ -375,9 +360,6 @@ RtlDeleteAtomFromAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlLookupAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 			 IN PWSTR AtomName,
@@ -434,15 +416,10 @@ RtlLookupAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	Current = Current->Flink;
      }
 
-   RtlpUnlockAtomTable(AtomTable);
-
    return STATUS_OBJECT_NAME_NOT_FOUND;
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlPinAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 		      IN RTL_ATOM Atom)
@@ -484,9 +461,6 @@ RtlPinAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlQueryAtomInAtomTable(PRTL_ATOM_TABLE AtomTable,
 			RTL_ATOM Atom,

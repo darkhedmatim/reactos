@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/string.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _wtmpnam(wchar_t* s)
 {
     wchar_t PathName[MAX_PATH];

@@ -237,11 +237,7 @@ int mod(int num, int denom)
   return dvt.rem;
 }
 
-/*
- * FIXME! Is there a better algorithm. like FT_MulDiv
- *
- * @implemented
- */
+//FIXME! Is there a better algorithm. like FT_MulDiv
 INT STDCALL EngMulDiv(
 	     INT nMultiplicand,
 	     INT nMultiplier,

@@ -22,9 +22,9 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.8 $
- * $Author: hbirr $
- * $Date: 2004/04/21 21:40:43 $
+ * $Revision: 1.6 $
+ * $Author: robd $
+ * $Date: 2002/11/25 15:47:52 $
  *
  */
 /* Appropriated for Reactos Crtdll by Ariadne */
@@ -46,22 +46,26 @@ extern "C" {
 #include <msvcrt/stddef.h>
 
 
-#define _IOREAD   0x0001
-#define _IOWRT    0x0002
-#define _IOMYBUF  0x0008  /* stdio malloc()'d buffer */
-#define _IOEOF    0x0010  /* EOF reached on read */
-#define _IOERR    0x0020  /* I/O error from system */
-#define _IOSTRG   0x0040  /* Strange or no file descriptor */
+/* Some flags for the iobuf structure provided by djgpp stdio.h */
+#define _IOREAD   0x000010
+#define _IOWRT    0x000020
+#define _IOMYBUF  0x000040
+#define _IOEOF    0x000100
+#define _IOERR    0x000200
+#define _IOSTRG   0x000400
 
-#define _IOBINARY 0x040000
+#define _IOBINARY 0x000800
 #define _IOTEXT   0x000000
 
-#define _IOCOMMIT 0x100000
+#define _IOAPPEND 0x002000
+#define _IORMONCL 0x004000  /* remove on close, for temp files */
+/* if _flag & _IORMONCL, ._name_to_remove needs freeing */
+#define _IOUNGETC 0x010000  /* there is an ungetc'ed character in the buffer */
+#define _IOCOMMIT 0x008000
 
-#define _IODIRTY  0x010000
-#define _IOAHEAD  0x020000
-
-
+#define _IODIRTY  0x000080
+#define _IOAHEAD  0x000008
+#define _IORW (_IOREAD | _IOWRITE )
 
 
 /*
@@ -69,12 +73,10 @@ extern "C" {
  * functions later on in the file which use va_list. That conflicts with
  * using stdio.h and varargs.h in the same file, so I do the typedef myself.
  */
-/*
- *#ifndef _VA_LIST
- *#define _VA_LIST
- *typedef   char* va_list;
- *#endif
- */
+//#ifndef _VA_LIST
+//#define _VA_LIST
+//typedef   char* va_list;
+//#endif
 #include <msvcrt/stdarg.h>
 
 /*
@@ -176,13 +178,9 @@ wchar_t *_wtempnam(const wchar_t *dir,const wchar_t *prefix);
  * NOTE: _IOFBF works, but _IOLBF seems to work like unbuffered...
  * maybe I'm testing it wrong?
  */
-#define _IOFBF    0x0000     /* full buffered */
-#define _IOLBF    0x0040     /* line buffered */
-#define _IONBF    0x0004     /* not buffered */
-
-#define _IO_LBF   0x80000    /* this value is used insteat of _IOLBF within the 
-                                structure FILE as value for _flags, 
-                                because _IOLBF has the same value as _IOSTRG */
+#define _IOFBF  0   /* fully buffered */
+#define _IOLBF  1   /* line buffered */
+#define _IONBF  2   /* unbuffered */
 
 int setvbuf(FILE* fileSetBuffer, char* caBuffer, int nMode, size_t sizeBuffer);
 
@@ -264,8 +262,8 @@ wint_t fgetwc(FILE* fileRead);
 wint_t fputwc(wchar_t wc, FILE* fileWrite);
 wint_t getwc(FILE *fileRead); // not exported from crtdll
 
-/* TODO: check type wint_t, why doesn't compare to WEOF correctly ??? */
-/* wint_t putwc(wint_t wc, FILE* fileWrite); */
+// TODO: check type wint_t, why doesn't compare to WEOF correctly ???
+//wint_t putwc(wint_t wc, FILE* fileWrite);
 int putwc(wint_t wc, FILE* fileWrite);
 
 wint_t putwchar(wint_t c);
@@ -346,7 +344,7 @@ void _wperror(const wchar_t *s);
 
 #define clearerr(f)  (((f)->_flag) &= ~(_IOERR|_IOEOF))
 #define feof(f)      (((f)->_flag&_IOEOF)!=0)
-/* #define ferror(f)    (((f)->_flag&_IOERR)!=0) */
+//#define ferror(f)    (((f)->_flag&_IOERR)!=0)
 int ferror(FILE* fileIsError);
 #define perror(s)    (fprintf(stderr, "%s: %s\n", (s), _strerror(NULL)))
 

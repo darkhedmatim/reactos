@@ -9,9 +9,15 @@
  *
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DELAY
+
+#include <tchar.h>
+#include <windows.h>
+#include <stdlib.h>
+
+#include "cmd.h"
 
 
 INT CommandDelay (LPTSTR cmd, LPTSTR param)
@@ -37,13 +43,13 @@ INT CommandDelay (LPTSTR cmd, LPTSTR param)
 		return 1;
 	}
 
-	if (_tcsnicmp(param,_T("/m"),2) == 0)
+	if (_tcsnicmp(param,"/m",2) == 0)
 	{
 		mul = 1;
 		param += 2;
 	}
 
-	val = _ttoi(param);
+	val = atoi(param);
 	Sleep(val*mul);
 
 	return 0;

@@ -1,4 +1,4 @@
-/* $Id: res.c,v 1.22 2004/09/11 17:06:33 gvg Exp $
+/* $Id: res.c,v 1.13 2003/03/21 00:20:41 gdalsnes Exp $
  *
  * COPYRIGHT: See COPYING in the top level directory
  * PROJECT  : ReactOS user mode libraries
@@ -10,12 +10,9 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
-/*
- * @implemented
- */
 HRSRC
 STDCALL
 FindResourceA (
@@ -27,10 +24,6 @@ FindResourceA (
 	return FindResourceExA (hModule, lpType, lpName, 0);
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
 FindResourceExA(
@@ -87,10 +80,6 @@ FindResourceExA(
 	return Res;
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
 FindResourceW (
@@ -102,10 +91,6 @@ FindResourceW (
 	return FindResourceExW (hModule, lpType, lpName, 0);
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
 FindResourceExW (
@@ -118,15 +103,48 @@ FindResourceExW (
 	PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry = NULL;
 	LDR_RESOURCE_INFO ResourceInfo;
 	NTSTATUS Status;
-
+	int i,l;
+	ULONG nType = 0, nName = 0;
+	
 	if ( hModule == NULL )
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
+		hModule = GetModuleHandle(NULL);
 
-	if ( !IS_INTRESOURCE(lpName) && lpName[0] == L'#' ) {
-		lpName = MAKEINTRESOURCEW(wcstoul(lpName + 1, NULL, 10));
+	if ( HIWORD(lpName) != 0 )  {
+		if ( lpName[0] == L'#' ) {
+			l = lstrlenW(lpName) -1;
+
+			for(i=0;i<l;i++) {
+				nName = lpName[i+1] - L'0';
+				if ( i < l - 1 )
+					nName*= 10;
+			}
+		}
+		else
+		{
+			SetLastErrorByStatus (STATUS_INVALID_PARAMETER);
+			return NULL;
+		}
+
+		lpName = (LPWSTR)nName;
 	}
-	if ( !IS_INTRESOURCE(lpType) && lpType[0] == L'#' ) {
-		lpType = MAKEINTRESOURCEW(wcstoul(lpType + 1, NULL, 10));
+
+	if ( HIWORD(lpType) != 0 )  {
+		if ( lpType[0] == L'#' ) {
+			l = lstrlenW(lpType);
+
+			for(i=0;i<l;i++) {
+				nType = lpType[i] - L'0';
+				if ( i < l - 1 )
+					nType*= 10;
+			}
+		}
+		else
+		{
+			SetLastErrorByStatus (STATUS_INVALID_PARAMETER);
+			return NULL;
+		}
+
+		lpType = (LPWSTR)nType;
 	}
 
 	ResourceInfo.Type = (ULONG)lpType;
@@ -143,13 +161,9 @@ FindResourceExW (
 		return NULL;
 	}
 
-	return (HRSRC)ResourceDataEntry;
+	return ResourceDataEntry;
 }
 
-
-/*
- * @implemented
- */
 HGLOBAL
 STDCALL
 LoadResource (
@@ -159,14 +173,13 @@ LoadResource (
 {
 	NTSTATUS Status;
 	PVOID Data;
-	PIMAGE_RESOURCE_DATA_ENTRY ResInfo = (PIMAGE_RESOURCE_DATA_ENTRY)hResInfo;
 
-	if (hModule == NULL)
-	{
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
-	}
+   if (hModule == NULL)
+   {
+     hModule = GetModuleHandle(NULL);
+   }
 
-	Status = LdrAccessResource (hModule, ResInfo, &Data, NULL);
+	Status = LdrAccessResource (hModule, hResInfo, &Data, NULL);
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
@@ -176,10 +189,6 @@ LoadResource (
 	return Data;
 }
 
-
-/*
- * @implemented
- */
 DWORD
 STDCALL
 SizeofResource (
@@ -190,11 +199,7 @@ SizeofResource (
 	return ((PIMAGE_RESOURCE_DATA_ENTRY)hResInfo)->Size;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeResource (
 	HGLOBAL	hResData
@@ -203,10 +208,6 @@ FreeResource (
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
 LPVOID
 STDCALL
 LockResource (
@@ -216,15 +217,11 @@ LockResource (
 	return hResData;
 }
 
-
-/*
- * @unimplemented
- */
 HANDLE
 STDCALL
 BeginUpdateResourceW (
 	LPCWSTR	pFileName,
-	BOOL	bDeleteExistingResources
+	WINBOOL	bDeleteExistingResources
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -232,29 +229,22 @@ BeginUpdateResourceW (
 }
 
 
-/*
- * @unimplemented
- */
 HANDLE
 STDCALL
 BeginUpdateResourceA (
 	LPCSTR	pFileName,
-	BOOL	bDeleteExistingResources
+	WINBOOL	bDeleteExistingResources
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EndUpdateResourceW (
 	HANDLE	hUpdate,
-	BOOL	fDiscard
+	WINBOOL	fDiscard
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -262,14 +252,11 @@ EndUpdateResourceW (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EndUpdateResourceA (
 	HANDLE	hUpdate,
-	BOOL	fDiscard
+	WINBOOL	fDiscard
 	)
 {
 	return EndUpdateResourceW(
@@ -278,18 +265,14 @@ EndUpdateResourceA (
 			);
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceLanguagesW (
-	HINSTANCE		hModule,
-	LPCWSTR			lpType,
-	LPCWSTR			lpName,
-	ENUMRESLANGPROCW	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	LPCWSTR		lpType,
+	LPCWSTR		lpName,
+	ENUMRESLANGPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -297,14 +280,14 @@ EnumResourceLanguagesW (
 }
 
 
-BOOL
+WINBOOL
 STDCALL
 EnumResourceLanguagesA (
-	HINSTANCE		hModule,
-	LPCSTR			lpType,
-	LPCSTR			lpName,
-	ENUMRESLANGPROCA	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	LPCSTR		lpType,
+	LPCSTR		lpName,
+	ENUMRESLANGPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -312,16 +295,13 @@ EnumResourceLanguagesA (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceNamesW (
-	HINSTANCE		hModule,
-	LPCWSTR			lpType,
-	ENUMRESNAMEPROCW	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	LPCWSTR		lpType,
+	ENUMRESNAMEPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -329,16 +309,13 @@ EnumResourceNamesW (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceNamesA (
-	HINSTANCE		hModule,
-	LPCSTR			lpType,
-	ENUMRESNAMEPROCA	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	LPCSTR		lpType,
+	ENUMRESNAMEPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -346,15 +323,12 @@ EnumResourceNamesA (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceTypesW (
-	HINSTANCE		hModule,
-	ENUMRESTYPEPROCW	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	ENUMRESTYPEPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -362,26 +336,20 @@ EnumResourceTypesW (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+
+WINBOOL
 STDCALL
 EnumResourceTypesA (
-	HINSTANCE		hModule,
-	ENUMRESTYPEPROCA	lpEnumFunc,
-	LONG			lParam
+	HINSTANCE	hModule,
+	ENUMRESTYPEPROC	lpEnumFunc,
+	LONG		lParam
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 UpdateResourceA (
 	HANDLE	hUpdate,
@@ -397,10 +365,7 @@ UpdateResourceA (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 UpdateResourceW (
 	HANDLE	hUpdate,
@@ -414,5 +379,6 @@ UpdateResourceW (
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
 
 /* EOF */

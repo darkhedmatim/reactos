@@ -241,7 +241,7 @@ BOOL Ext2ScanDir(PDEVICE_EXTENSION DeviceExt,
 	       }
 	     
 	     offset = offset + current->rec_len;
-	     ASSERT(current->rec_len != 0);
+	     assert(current->rec_len != 0);
 	     DPRINT("offset %d\n",offset);
 	  }
 	DPRINT("Onto next block\n");

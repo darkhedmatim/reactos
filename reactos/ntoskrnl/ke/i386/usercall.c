@@ -1,4 +1,4 @@
-/* $Id: usercall.c,v 1.32 2004/11/21 18:42:58 gdalsnes Exp $
+/* $Id: usercall.c,v 1.22 2002/09/08 10:23:30 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,14 +11,23 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
+#include <ddk/service.h>
+
+#include <ddk/defines.h>
+#include <internal/ps.h>
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-KiSystemCallHook(ULONG Nr, ...)
+VOID KiSystemCallHook(ULONG Nr, ...)
 {
 #if 0
    va_list ap;
@@ -33,63 +42,27 @@ KiSystemCallHook(ULONG Nr, ...)
 	DbgPrint("%x, ", va_arg(ap, ULONG));
      }
    DbgPrint(")\n");
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    va_end(ap);
 #endif
 }
 
-VOID
-KiAfterSystemCallHook(PKTRAP_FRAME TrapFrame)
+ULONG KiAfterSystemCallHook(ULONG NtStatus, PKTRAP_FRAME TrapFrame)
 {
-   KIRQL oldIrql;
-   
-   /* If we are returning to umode, deliver one pending umode apc.
-    * Note that kmode apcs are also delivered, even if deliverymode is UserMode.
-    * This is because we can't return to umode with pending kmode apcs!
-    * FIXME: Should we deliver pending kmode apcs when returning from a 
-    * kmode-to-kmode syscall (ZwXxx calls)?????
-    * -Gunnar
-    */
-   if (TrapFrame->Cs != KERNEL_CS)
-   {
-      KeRaiseIrql(APC_LEVEL, &oldIrql);
-      KiDeliverApc(UserMode, NULL, TrapFrame);
-      KeLowerIrql(oldIrql);
-   }
-
-}
-
-
-VOID
-KiServiceCheck (ULONG Nr)
-{
-  PETHREAD Thread;
-
-  Thread = PsGetCurrentThread();
-
-#if 0
-  DbgPrint ("KiServiceCheck(%p) called\n", Thread);
-  DbgPrint ("Service %d (%p)\n", Nr, KeServiceDescriptorTableShadow[1].SSDT[Nr].SysCallPtr);
-#endif
-
-  if (Thread->Tcb.ServiceTable != KeServiceDescriptorTableShadow)
+  if (KeGetCurrentThread()->Alerted[1] != 0 && TrapFrame->Cs != KERNEL_CS)
     {
-#if 0
-      DbgPrint ("Initialize Win32 thread\n");
-#endif
-
-      PsInitWin32Thread (Thread);
-
-      Thread->Tcb.ServiceTable = KeServiceDescriptorTableShadow;
+      KiDeliverNormalApc();
     }
+  if (KeGetCurrentThread()->Alerted[0] != 0 && TrapFrame->Cs != KERNEL_CS)
+    {
+      KiDeliverUserApc(TrapFrame);
+    }
+  return(NtStatus);
 }
 
 // This function should be used by win32k.sys to add its own user32/gdi32 services
 // TableIndex is 0 based
 // ServiceCountTable its not used at the moment
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 KeAddSystemServiceTable (
 	PSSDT	SSDT,
@@ -123,36 +96,6 @@ KeAddSystemServiceTable (
     }
 
     return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-KeRemoveSystemServiceTable(
-    IN PUCHAR Number
-)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-KeUserModeCallback(
-    IN ULONG	FunctionID,
-    IN PVOID	InputBuffer,
-    IN ULONG	InputLength,
-    OUT PVOID	*OutputBuffer,
-    OUT PULONG	OutputLength
-)
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 /* EOF */

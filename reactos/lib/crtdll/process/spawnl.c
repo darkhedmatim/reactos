@@ -5,9 +5,6 @@
 #include <stdarg.h>
 
 
-/*
- * @implemented
- */
 int _spawnl(int nMode, const char* szPath, const char* szArgv0,...)
 {
   char* szArg[100];

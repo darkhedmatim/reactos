@@ -1,5 +1,5 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/io.h>
 #include <msvcrt/string.h>
@@ -8,9 +8,6 @@
 #undef putwchar
 
 
-/*
- * @implemented
- */
 int puts(const char *s)
 {
     int c;
@@ -21,9 +18,6 @@ int puts(const char *s)
     return putchar('\n');
 }
 
-/*
- * @implemented
- */
 int _putws(const wchar_t *s)
 {
     wint_t c;

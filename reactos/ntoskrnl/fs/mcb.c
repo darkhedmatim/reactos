@@ -1,10 +1,11 @@
-/* $Id: mcb.c,v 1.17 2004/12/30 18:30:05 ion Exp $
+/* $Id: mcb.c,v 1.5 2002/09/08 10:23:20 chorns Exp $
  *
  * reactos/ntoskrnl/fs/mcb.c
  *
  */
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
 #include <internal/debug.h>
 
 /**********************************************************************
@@ -17,8 +18,6 @@
  * RETURN VALUE
  *
  * NOTES
- *
- * @unimplemented
  */
 BOOLEAN STDCALL
 FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
@@ -26,30 +25,24 @@ FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
 		      IN LONGLONG Lbn,
 		      IN LONGLONG SectorCount)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
   return(FALSE);
 }
 
-/*
- * FsRtlAddMcbEntry: Obsolete
- *
- * @implemented
- */
-BOOLEAN STDCALL
-FsRtlAddMcbEntry (IN PMCB     Mcb,
-		  IN VBN      Vbn,
-		  IN LBN      Lbn,
-		  IN ULONG    SectorCount)
+
+VOID
+STDCALL
+FsRtlAddMcbEntry (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3
+	)
 {
-  return FsRtlAddLargeMcbEntry(& Mcb->LargeMcb,
-			       (LONGLONG) Vbn,
-			       (LONGLONG) Lbn,
-			       (LONGLONG) SectorCount);
+	UNIMPLEMENTED
 }
 
-/*
- * @unimplemented
- */
+
 BOOLEAN STDCALL
 FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
 			  IN ULONG RunIndex,
@@ -57,69 +50,45 @@ FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
 			  OUT PLONGLONG Lbn,
 			  OUT PLONGLONG SectorCount)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
   return(FALSE);
 }
 
 
-/*
- * @implemented
- */
-BOOLEAN STDCALL
-FsRtlGetNextMcbEntry (IN PMCB     Mcb,
-		      IN ULONG    RunIndex,
-		      OUT PVBN    Vbn,
-		      OUT PLBN    Lbn,
-		      OUT PULONG  SectorCount)
+VOID
+STDCALL
+FsRtlGetNextMcbEntry (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4
+	)
 {
-  BOOLEAN Return = FALSE;
-  LONGLONG llVbn;
-  LONGLONG llLbn;
-  LONGLONG llSectorCount;
-
-  /* Call the Large version */
-  Return = FsRtlGetNextLargeMcbEntry(&Mcb->LargeMcb,
-                                     RunIndex,
-                                     &llVbn,
-                                     &llLbn,
-                                     &llSectorCount);
-  
-  /* Return everything typecasted */
-  *Vbn = (ULONG)llVbn;
-  *Lbn = (ULONG)llLbn;
-  *SectorCount = (ULONG)llSectorCount;
-  
-  /* And return the original value */
-  return(Return);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 FsRtlInitializeLargeMcb(IN PLARGE_MCB Mcb,
 			IN POOL_TYPE PoolType)
 {
-  UNIMPLEMENTED;
-  Mcb->PoolType = PoolType;
+  UNIMPLEMENTED
+	Mcb->PoolType = PoolType;
 }
 
-/*
- * FsRtlInitializeMcb: Obsolete
- * @implemented
- */
-VOID STDCALL
-FsRtlInitializeMcb (IN PMCB         Mcb,
-		    IN POOL_TYPE    PoolType)
+
+VOID
+STDCALL
+FsRtlInitializeMcb (
+	DWORD	Unknown0,
+	DWORD	Unknown1
+	)
 {
-  FsRtlInitializeLargeMcb(& Mcb->LargeMcb, PoolType);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
 BOOLEAN STDCALL
 FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
 			 IN LONGLONG Vbn,
@@ -129,248 +98,129 @@ FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
 			 OUT PLONGLONG SectorCountFromStartingLbn OPTIONAL,
 			 OUT PULONG Index OPTIONAL)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
   return(FALSE);
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-FsRtlLookupLastLargeMcbEntryAndIndex (
-    IN PLARGE_MCB OpaqueMcb,
-    OUT PLONGLONG LargeVbn,
-    OUT PLONGLONG LargeLbn,
-    OUT PULONG Index
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
 
-/*
- * @unimplemented
- */
-PFSRTL_PER_STREAM_CONTEXT
-STDCALL
-FsRtlLookupPerStreamContextInternal (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-STDCALL
-FsRtlLookupPerFileObjectContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
 BOOLEAN STDCALL
 FsRtlLookupLastLargeMcbEntry(IN PLARGE_MCB Mcb,
 			     OUT PLONGLONG Vbn,
 			     OUT PLONGLONG Lbn)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
   return(FALSE);
 }
 
 
-/*
- * @implemented
- */
-BOOLEAN STDCALL
-FsRtlLookupLastMcbEntry(IN PMCB Mcb,
-                        OUT PVBN Vbn,
-                        OUT PLBN Lbn)
+VOID
+STDCALL
+FsRtlLookupLastMcbEntry (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	)
 {
-  BOOLEAN Return = FALSE;
-  LONGLONG llVbn;
-  LONGLONG llLbn;
-
-  /* Call the Large version */
-  Return = FsRtlLookupLastLargeMcbEntry(&Mcb->LargeMcb,
-                                        &llVbn,
-                                        &llLbn);
-  
-  /* Return everything typecasted */
-  *Vbn = (ULONG)llVbn;
-  *Lbn = (ULONG)llLbn;
-  
-  /* And return the original value */
-  return(Return);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
-BOOLEAN STDCALL
-FsRtlLookupMcbEntry(IN PMCB Mcb,
-                    IN VBN Vbn,
-                    OUT PLBN Lbn,
-                    OUT PULONG SectorCount OPTIONAL,
-                    OUT PULONG Index)
+VOID
+STDCALL
+FsRtlLookupMcbEntry (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4
+	)
 {
-  BOOLEAN Return = FALSE;
-  LONGLONG llLbn;
-  LONGLONG llSectorCount;
-
-  /* Call the Large version */
-  Return = FsRtlLookupLargeMcbEntry(&Mcb->LargeMcb,
-                                    (LONGLONG)Vbn,
-                                    &llLbn,
-                                    &llSectorCount,
-                                    NULL,
-                                    NULL,
-                                    Index);
-  
-  /* Return everything typecasted */
-  *Lbn = (ULONG)llLbn;
-  if (SectorCount) *SectorCount = (ULONG)llSectorCount;
-  
-  /* And return the original value */
-  return(Return);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 ULONG STDCALL
 FsRtlNumberOfRunsInLargeMcb(IN PLARGE_MCB Mcb)
 {
-  ULONG NumberOfRuns;
-  ExAcquireFastMutex (Mcb->FastMutex);
-  NumberOfRuns=Mcb->PairCount;
-  ExReleaseFastMutex (Mcb->FastMutex);
-  return(NumberOfRuns);
+  UNIMPLEMENTED
+  return(0);
 }
 
 
-/*
- * FsRtlNumberOfRunsInMcb: Obsolete
- *
- * @implemented
- */
-ULONG STDCALL
-FsRtlNumberOfRunsInMcb (IN PMCB Mcb)
+VOID
+STDCALL
+FsRtlNumberOfRunsInMcb (
+	DWORD	Unknown0
+	)
 {
-  return FsRtlNumberOfRunsInLargeMcb(& Mcb->LargeMcb);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 FsRtlRemoveLargeMcbEntry(IN PLARGE_MCB Mcb,
 			 IN LONGLONG Vbn,
 			 IN LONGLONG SectorCount)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
-VOID STDCALL
-FsRtlRemoveMcbEntry (IN PMCB     Mcb,
-		     IN VBN      Vbn,
-		     IN ULONG    SectorCount)
-{
-    /* Call the large function */
-      return FsRtlRemoveLargeMcbEntry(&Mcb->LargeMcb,
-                                      (LONGLONG)Vbn,
-                                      (LONGLONG)SectorCount);
-}
-
-
-/*
- * @unimplemented
- */
 VOID
 STDCALL
-FsRtlResetLargeMcb (
-    IN PLARGE_MCB Mcb,
-    IN BOOLEAN SelfSynchronized
-    )
+FsRtlRemoveMcbEntry (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	)
 {
-  UNIMPLEMENTED;
+	UNIMPLEMENTED
 }
 
-/*
- * @unimplemented
- */
+
 BOOLEAN STDCALL
 FsRtlSplitLargeMcb(IN PLARGE_MCB Mcb,
 		   IN LONGLONG Vbn,
 		   IN LONGLONG Amount)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
   return(FALSE);
 }
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 FsRtlTruncateLargeMcb(IN PLARGE_MCB Mcb,
 		      IN LONGLONG Vbn)
 {
-  UNIMPLEMENTED;
+  UNIMPLEMENTED
 }
 
 
-/*
- * FsRtlTruncateMcb: Obsolete
- *
- * @implemented
- */
-VOID STDCALL
-FsRtlTruncateMcb (IN PMCB Mcb,
-		  IN VBN  Vbn)
+VOID
+STDCALL
+FsRtlTruncateMcb (
+	DWORD	Unknown0,
+	DWORD	Unknown1
+	)
 {
-  FsRtlTruncateLargeMcb (& Mcb->LargeMcb, (LONGLONG) Vbn);
+	UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 FsRtlUninitializeLargeMcb(IN PLARGE_MCB Mcb)
 {
   UNIMPLEMENTED;
 }
 
-/*
- * FsRtlUninitializeMcb: Obsolete
- *
- * @implemented
- */
-VOID STDCALL
-FsRtlUninitializeMcb (IN PMCB Mcb)
+
+VOID
+STDCALL
+FsRtlUninitializeMcb (
+	DWORD	Unknown0
+	)
 {
-  FsRtlUninitializeLargeMcb(& Mcb->LargeMcb);
+	UNIMPLEMENTED
 }
 
 

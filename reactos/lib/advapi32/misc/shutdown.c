@@ -1,4 +1,4 @@
-/* $Id: shutdown.c,v 1.12 2004/08/15 17:03:14 chorns Exp $
+/* $Id: shutdown.c,v 1.9 2003/02/02 19:27:16 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -10,16 +10,18 @@
  *      19990515 EA
  */
 
-#include "advapi32.h"
+#include <windows.h>
+
+#define NTOS_MODE_USER
+#include <ntos.h>
 
 #define USZ {0,0,0}
 
 /**********************************************************************
  *      AbortSystemShutdownW
- *
- * @unimplemented
  */
-BOOL STDCALL
+WINBOOL
+STDCALL
 AbortSystemShutdownW(LPCWSTR lpMachineName)
 {
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -29,10 +31,9 @@ AbortSystemShutdownW(LPCWSTR lpMachineName)
 
 /**********************************************************************
  *      AbortSystemShutdownA
- *
- * @unimplemented
  */
-BOOL STDCALL
+BOOL
+STDCALL
 AbortSystemShutdownA(LPCSTR lpMachineName)
 {
     ANSI_STRING MachineNameA;
@@ -56,10 +57,9 @@ AbortSystemShutdownA(LPCSTR lpMachineName)
 
 /**********************************************************************
  *      InitiateSystemShutdownW
- *
- * @unimplemented
  */
-BOOL STDCALL
+BOOL
+STDCALL
 InitiateSystemShutdownW(
     LPWSTR  lpMachineName,
     LPWSTR  lpMessage,
@@ -85,9 +85,7 @@ InitiateSystemShutdownW(
 
 /**********************************************************************
  *      InitiateSystemShutdownA
- *
- * @unimplemented
- */
+*/
 BOOL
 STDCALL
 InitiateSystemShutdownA(

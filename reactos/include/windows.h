@@ -32,12 +32,6 @@
 #ifndef _GNU_H_WINDOWS_H
 #define _GNU_H_WINDOWS_H
 
-#ifdef __USE_W32API
-
-#include_next <windows.h>
-
-#else /* __USE_W32API */
-
 #ifndef max
 #define max(a,b)   (((a) > (b)) ? (a) : (b))
 #endif
@@ -104,7 +98,7 @@
    using Objective-C then you must use WINBOOL for Win32 operations.
 */
 #ifndef __OBJC__
-/* typedef WINBOOL BOOL; */
+//typedef WINBOOL BOOL;
 #endif /* !__OBJC__ */
 
 /* How do we get the VM page size on NT? */
@@ -165,16 +159,10 @@
 #define DUMMYSTRUCTNAME3
 #endif
 
-#ifndef DECLARE_STDCALL_P
-#define DECLARE_STDCALL_P( type ) __stdcall type
-#endif
-
 #ifndef NO_STRICT
 #ifndef STRICT
 #define STRICT 1
 #endif
 #endif
-
-#endif /* !__USE_W32API */
 
 #endif /* _GNU_H_WINDOWS_H */

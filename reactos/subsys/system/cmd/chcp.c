@@ -9,9 +9,17 @@
  *
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_CHCP
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "cmd.h"
+
 
 INT CommandChcp (LPTSTR cmd, LPTSTR param)
 {
@@ -30,23 +38,22 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 		return 0;
 	}
 
-	/* get parameters */
-	arg = split (param, &args, FALSE);
-
 	if (args == 0)
 	{
 		/* display active code page number */
-		ConOutPrintf (_T("Active code page: %u\n"), GetConsoleCP ());
+		ConOutPrintf ("Active code page: %u\n", GetConsoleCP ());
 		return 0;
 	}
 
 	if (args >= 2)
 	{
 		/* too many parameters */
-		ConErrPrintf (_T("Invalid parameter format - %s\n"), param);
+		ConErrPrintf ("Invalid parameter format - %s\n", param);
 		return 1;
 	}
 
+	/* get parameters */
+	arg = split (param, &args, FALSE);
 
 	/* save old code page */
 	uOldCodePage = GetConsoleCP ();
@@ -55,14 +62,14 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 
 	if (uNewCodePage == 0)
 	{
-		ConErrPrintf (_T("Parameter format incorrect - %s\n"), arg[0]);
+		ConErrPrintf ("Parameter format incorrect - %s\n", arg[0]);
 		freep (arg);
 		return 1;
 	}
 
 	if (!SetConsoleCP (uNewCodePage))
 	{
-		ConErrPrintf (_T("Invalid code page\n"));
+		ConErrPrintf ("Invalid code page\n");
 	}
 	else
 	{

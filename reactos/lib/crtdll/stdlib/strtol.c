@@ -5,9 +5,6 @@
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 long
 strtol(const char *nptr, char **endptr, int base)
 {

@@ -1,13 +1,10 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/internal/file.h>
 
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
 
-/*
- * @implemented
- */
 int _close(int _fd)
 {
   DPRINT("_close(fd %d)\n", _fd);

@@ -1,8 +1,8 @@
-/* $Id: shutdown.c,v 1.9 2004/12/05 16:31:51 gvg Exp $
+/* $Id: shutdown.c,v 1.5 2003/02/09 18:02:55 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/shutdown.c
+ * FILE:             services/fs/vfat/shutdown.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Eric Kohl (ekohl@rz-online.de)
  */
@@ -48,9 +48,9 @@ VfatShutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	    Irp->IoStatus.Status = Status;
 	 }
          /* FIXME: Unmount the logical volume */
-      }
+
 	 ExReleaseResourceLite(&VfatGlobalData->VolumeListLock);
-      
+      }
       /* FIXME: Free all global acquired resources */
 
       Status = Irp->IoStatus.Status;

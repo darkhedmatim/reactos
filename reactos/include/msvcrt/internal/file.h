@@ -24,11 +24,11 @@ extern "C" {
 #define _IOUNGETC 010000  /* there is an ungetc'ed character in the buffer */
 #endif
 
-/* might need check for IO_APPEND aswell */
+// might need check for IO_APPEND aswell
 #define OPEN4WRITING(f) ((((f)->_flag & _IOWRT)  == _IOWRT))
 #define OPEN4READING(f) ((((f)->_flag & _IOREAD) == _IOREAD))
 
-/* might need check for IO_APPEND aswell */
+// might need check for IO_APPEND aswell
 #define WRITE_STREAM(f) ((((f)->_flag & _IOWRT) == _IOWRT))
 #define READ_STREAM(f) ((((f)->_flag & _IOREAD) == _IOREAD))
 
@@ -68,7 +68,6 @@ typedef struct __file_rec
 
 extern __file_rec* __file_rec_list;
 
-void _dosmaperr(unsigned long oserrcode);
 
 #ifdef __cplusplus
 }

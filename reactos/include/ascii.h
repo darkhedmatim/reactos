@@ -37,597 +37,6 @@ extern "C" {
 
 WINBOOL
 STDCALL
-BackupEventLogA (
- HANDLE hEventLog,
- LPCSTR lpBackupFileName
- );
-
-WINBOOL
-STDCALL
-ClearEventLogA (
- HANDLE hEventLog,
- LPCSTR lpBackupFileName
- );
-
-WINBOOL
-STDCALL
-CreateProcessAsUserA (
- HANDLE hToken,
- LPCSTR lpApplicationName,
- LPSTR lpCommandLine,
- LPSECURITY_ATTRIBUTES lpProcessAttributes,
- LPSECURITY_ATTRIBUTES lpThreadAttributes,
- WINBOOL bInheritHandles,
- DWORD dwCreationFlags,
- LPVOID lpEnvironment,
- LPCSTR lpCurrentDirectory,
- LPSTARTUPINFOA lpStartupInfo,
- LPPROCESS_INFORMATION lpProcessInformation
- );
-
-WINBOOL
-STDCALL
-DecryptFileA(
- LPCSTR lpFileName,
- DWORD dwReserved
- );
-
-WINBOOL
-STDCALL
-EncryptFileA(
- LPCSTR lpFileName
- );
-
-WINBOOL
-STDCALL
-FileEncryptionStatusA(
- LPCSTR lpFileName,
- LPDWORD lpStatus
- );
-
-WINBOOL
-STDCALL
-GetCurrentHwProfileA (
- LPHW_PROFILE_INFOA lpHwProfileInfo
- );
-
-WINBOOL
-STDCALL
-LogonUserA (
- LPSTR lpszUsername,
- LPSTR lpszDomain,
- LPSTR lpszPassword,
- DWORD dwLogonType,
- DWORD dwLogonProvider,
- PHANDLE phToken
- );
-
-WINBOOL
-STDCALL
-LogonUserExA (
- LPCSTR lpszUsername,
- LPCSTR lpszDomain,
- LPCSTR lpszPassword,
- DWORD dwLogonType,
- DWORD dwLogonProvider,
- PHANDLE phToken ,
- PSID *ppLogonSid ,
- PVOID *ppProfileBuffer ,
- LPDWORD pdwProfileLength ,
- PQUOTA_LIMITS pQuotaLimits
- );
-
-HANDLE
-STDCALL
-OpenBackupEventLogA (
- LPCSTR lpUNCServerName,
- LPCSTR lpFileName
- );
-
-DWORD
-STDCALL
-OpenEncryptedFileRawA(
- LPCSTR lpFileName,
- ULONG ulFlags,
- PVOID * pvContext
- );
-
-HANDLE
-STDCALL
-OpenEventLogA (
- LPCSTR lpUNCServerName,
- LPCSTR lpSourceName
- );
-
-WINBOOL
-STDCALL
-ReadEventLogA (
- HANDLE hEventLog,
- DWORD dwReadFlags,
- DWORD dwRecordOffset,
- LPVOID lpBuffer,
- DWORD nNumberOfBytesToRead,
- DWORD *pnBytesRead,
- DWORD *pnMinNumberOfBytesNeeded
- );
-
-WINBOOL
-STDCALL
-ChangeServiceConfig2A(
-    SC_HANDLE    hService,
-    DWORD        dwInfoLevel,
-    LPVOID       lpInfo
-    );
-
-WINBOOL
-STDCALL
-EnumServicesStatusExA(
-    SC_HANDLE                  hSCManager,
-    SC_ENUM_TYPE               InfoLevel,
-    DWORD                      dwServiceType,
-    DWORD                      dwServiceState,
-    LPBYTE                     lpServices,
-    DWORD                      cbBufSize,
-    LPDWORD                    pcbBytesNeeded,
-    LPDWORD                    lpServicesReturned,
-    LPDWORD                    lpResumeHandle,
-    LPCSTR                   pszGroupName
-    );
-
-WINBOOL
-STDCALL
-QueryServiceConfig2A(
-    SC_HANDLE   hService,
-    DWORD       dwInfoLevel,
-    LPBYTE      lpBuffer,
-    DWORD       cbBufSize,
-    LPDWORD     pcbBytesNeeded
-    );
-
-SERVICE_STATUS_HANDLE
-STDCALL
-RegisterServiceCtrlHandlerExA(
-    LPCSTR                lpServiceName,
-    LPHANDLER_FUNCTION_EX   lpHandlerProc,
-    LPVOID                  lpContext
-    );
-
-LRESULT 
-STDCALL
-SendIMEMessageExA(HWND hwnd, LPARAM lparam);
-
-WINBOOL
-STDCALL
-IMPSetIMEA( HWND hwnd, LPIMEPROA ime);
-
-WINBOOL
-STDCALL
-IMPQueryIMEA( LPIMEPROA ime);
-
-WINBOOL
-STDCALL
-IMPGetIMEA( HWND hwnd, LPIMEPROA ime);
-
-WINBOOL
-STDCALL
-SetCalendarInfoA(
-    LCID     Locale,
-    CALID    Calendar,
-    CALTYPE  CalType,
-    LPCSTR  lpCalData);
-
-WINBOOL
-STDCALL
-EnumUILanguagesA(
-    UILANGUAGE_ENUMPROCA lpUILanguageEnumProc,
-    DWORD                dwFlags,
-    LONG_PTR             lParam);
-
-WINBOOL
-STDCALL
-EnumLanguageGroupLocalesA(
-    LANGGROUPLOCALE_ENUMPROCA lpLangGroupLocaleEnumProc,
-    LGRPID                    LanguageGroup,
-    DWORD                     dwFlags,
-    LONG_PTR                  lParam);
-
-WINBOOL
-STDCALL
-EnumSystemLanguageGroupsA(
-    LANGUAGEGROUP_ENUMPROCA lpLanguageGroupEnumProc,
-    DWORD                   dwFlags,
-    LONG_PTR                lParam);
-
-int
-STDCALL
-GetGeoInfoA(
-    GEOID       Location,
-    GEOTYPE     GeoType,
-    LPSTR     lpGeoData,
-    int         cchData,
-    LANGID      LangId);
-
-WINBOOL
-STDCALL
-EnumDateFormatsExA(
-    DATEFMT_ENUMPROCEXA lpDateFmtEnumProcEx,
-    LCID                Locale,
-    DWORD               dwFlags);
-
-WINBOOL
-STDCALL
-EnumCalendarInfoExA(
-    CALINFO_ENUMPROCEXA lpCalInfoEnumProcEx,
-    LCID                Locale,
-    CALID               Calendar,
-    CALTYPE             CalType);
-
-int
-STDCALL
-GetCalendarInfoA(
-    LCID     Locale,
-    CALID    Calendar,
-    CALTYPE  CalType,
-    LPSTR   lpCalData,
-    int      cchData,
-    LPDWORD  lpValue);
-
-WINBOOL
-STDCALL
-GetCPInfoExA(
-    UINT          CodePage,
-    DWORD         dwFlags,
-    LPCPINFOEXA  lpCPInfoEx);
-
-WINBOOL
-STDCALL
-CheckNameLegalDOS8Dot3A(
-    LPCSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PWINBOOL pbNameContainsSpaces OPTIONAL,
-    PWINBOOL pbNameLegal
-    );
-
-WINBOOL
-STDCALL
-CreateHardLinkA(
-    LPCSTR lpFileName,
-    LPCSTR lpExistingFileName,
-    LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    );
-
-HANDLE
-STDCALL
-CreateJobObjectA(
-    LPSECURITY_ATTRIBUTES lpJobAttributes,
-    LPCSTR lpName
-    );
-
-WINBOOL
-STDCALL
-DeleteVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint
-    );
-
-WINBOOL
-STDCALL
-DnsHostnameToComputerNameA (
-    LPCSTR Hostname,
-    LPSTR ComputerName,
-    LPDWORD nSize
-    );
-
-WINBOOL
-STDCALL
-FindActCtxSectionStringA(
-    DWORD dwFlags,
-    const GUID *lpExtensionGuid,
-    ULONG ulSectionId,
-    LPCSTR lpStringToFind,
-    PACTCTX_SECTION_KEYED_DATA ReturnedData
-    );
-
-HANDLE
-STDCALL
-FindFirstFileExA(
-    LPCSTR lpFileName,
-    FINDEX_INFO_LEVELS fInfoLevelId,
-    LPVOID lpFindFileData,
-    FINDEX_SEARCH_OPS fSearchOp,
-    LPVOID lpSearchFilter,
-    DWORD dwAdditionalFlags
-    );
-
-HANDLE
-STDCALL
-FindFirstVolumeA(
-    LPSTR lpszVolumeName,
-    DWORD cchBufferLength
-    );
-
-HANDLE
-STDCALL
-FindFirstVolumeMountPointA(
-    LPCSTR lpszRootPathName,
-    LPSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    );
-
-WINBOOL
-STDCALL
-FindNextVolumeA(
-    HANDLE hFindVolume,
-    LPSTR lpszVolumeName,
-    DWORD cchBufferLength
-    );
-
-WINBOOL
-STDCALL
-FindNextVolumeMountPointA(
-    HANDLE hFindVolumeMountPoint,
-    LPSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    );
-
-WINBOOL
-STDCALL
-GetComputerNameExA (
-    COMPUTER_NAME_FORMAT NameType,
-    LPSTR lpBuffer,
-    LPDWORD nSize
-    );
-
-DWORD
-STDCALL
-GetDllDirectoryA(
-    DWORD nBufferLength,
-    LPSTR lpBuffer
-    );
-
-DWORD
-STDCALL
-GetFirmwareEnvironmentVariableA(
-    LPCSTR lpName,
-    LPCSTR lpGuid,
-    PVOID   pBuffer,
-    DWORD    nSize
-    );
-
-DWORD
-STDCALL
-GetLongPathNameA(
-    LPCSTR lpszShortPath,
-    LPSTR  lpszLongPath,
-    DWORD    cchBuffer
-    );
-
-WINBOOL
-STDCALL
-GetModuleHandleExA(
-    DWORD        dwFlags,
-    LPCSTR     lpModuleName,
-    HMODULE*    phModule
-    );
-
-UINT
-STDCALL
-GetSystemWow64DirectoryA(
-    LPSTR lpBuffer,
-    UINT uSize
-    );
-
-WINBOOL
-STDCALL
-GetVolumeNameForVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint,
-    LPSTR lpszVolumeName,
-    DWORD cchBufferLength
-    );
-
-WINBOOL
-STDCALL
-GetVolumePathNameA(
-    LPCSTR lpszFileName,
-    LPSTR lpszVolumePathName,
-    DWORD cchBufferLength
-    );
-
-WINBOOL
-STDCALL
-GetVolumePathNamesForVolumeNameA(
-    LPCSTR lpszVolumeName,
-    LPSTR lpszVolumePathNames,
-    DWORD cchBufferLength,
-    PDWORD lpcchReturnLength
-    );
-
-HANDLE
-STDCALL
-OpenJobObjectA(
-    DWORD dwDesiredAccess,
-    WINBOOL bInheritHandle,
-    LPCSTR lpName
-    );
-
-WINBOOL
-STDCALL
-ReplaceFileA(
-    LPCSTR  lpReplacedFileName,
-    LPCSTR  lpReplacementFileName,
-    LPCSTR  lpBackupFileName,
-    DWORD   dwReplaceFlags,
-    LPVOID  lpExclude,
-    LPVOID  lpReserved
-    );
-
-WINBOOL
-STDCALL
-SetComputerNameExA (
-    COMPUTER_NAME_FORMAT NameType,
-    LPCSTR lpBuffer
-    );
-
-WINBOOL
-STDCALL
-SetDllDirectoryA(
-    LPCSTR lpPathName
-    );
-
-WINBOOL
-STDCALL
-SetFileShortNameA(
-    HANDLE hFile,
-    LPCSTR lpShortName
-    );
-
-WINBOOL
-STDCALL
-SetFirmwareEnvironmentVariableA(
-    LPCSTR lpName,
-    LPCSTR lpGuid,
-    PVOID    pValue,
-    DWORD    nSize
-    );
-
-WINBOOL
-STDCALL
-SetVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint,
-    LPCSTR lpszVolumeName
-    );
-
-WINBOOL
-STDCALL
-VerifyVersionInfoA(
-    LPOSVERSIONINFOEXA lpVersionInformation,
-    DWORD dwTypeMask,
-    DWORDLONG dwlConditionMask
-    );
-
-HDEVNOTIFY
-STDCALL
-RegisterDeviceNotificationA(
-    HANDLE hRecipient,
-    LPVOID NotificationFilter,
-    DWORD Flags
-    );
-
-UINT
-STDCALL
-GetRawInputDeviceInfoA(
-    HANDLE hDevice,
-    UINT uiCommand,
-    LPVOID pData,
-    PUINT pcbSize);
-
-LONG
-STDCALL
-BroadcastSystemMessageExA(
-    DWORD dwflags,
-    LPDWORD lpdwRecipients,
-    UINT uiMessage,
-    WPARAM wParam,
-    LPARAM lParam,
-    PBSMINFO pBSMInfo);
-
-HFONT 
-STDCALL
-CreateFontIndirectExA(const ENUMLOGFONTEXDVA *elfexd);
-
-DWORD 
-STDCALL
-GetGlyphIndicesA(
-	HDC hdc,
-	LPCSTR lpstr,
-	int c,
-	LPWORD pgi,
-	DWORD fl
-);
-
-WINBOOL 
-STDCALL
-RemoveFontResourceExA(
-	LPCSTR lpFileName,
-	DWORD fl,
-	PVOID pdv
-);
-
-UINT 
-STDCALL
-GetStringBitmapA(HDC hdc,LPSTR psz,WINBOOL unknown,UINT cj,BYTE *lpSB);
-
-WINBOOL 
-STDCALL
-GetAltTabInfoA(
-	       HWND hwnd,
-	       int iItem,
-	       PALTTABINFO pati,
-	       LPSTR pszItemText,
-	       UINT cchItemText
-	       );
-
-UINT 
-STDCALL
-PrivateExtractIconsA(
-		     LPCSTR szFileName,
-		     int nIconIndex,
-		     int cxIcon,
-		     int cyIcon,
-		     HICON *phicon,
-		     UINT *piconid,
-		     UINT nIcons,
-		     UINT flags
-		     );
-
-UINT
-STDCALL
-RealGetWindowClassA(
-		    HWND hwnd,
-		    LPSTR pszType,
-		    UINT cchType
-		    );
-
-LRESULT
-STDCALL
-MenuWindowProcA(
-		HWND hWnd,
-		UINT Msg,
-		WPARAM wParam,
-		LPARAM lParam
-		);
-
-WINBOOL
-STDCALL
-DrawCaptionTempA(
-		  HWND hwnd,
-		  HDC hdc,
-		  const RECT *rect,
-		  HFONT hFont,
-		  HICON hIcon,
-		  LPCSTR str,
-		  UINT uFlags
-		  );
-
-HHOOK
-STDCALL
-SetWindowsHookA(
-		int idHook,
-		HOOKPROC lpfn
-		);
-
-HRESULT
-STDCALL
-PrivateExtractIconExA(
-		      DWORD u,
-		      DWORD v,
-		      DWORD w,
-		      DWORD x,
-		      DWORD y
-		      );
-
-WINBOOL
-STDCALL
 GetBinaryTypeA(
 	       LPCSTR lpApplicationName,
 	       LPDWORD lpBinaryType
@@ -883,7 +292,7 @@ WINBOOL
 STDCALL
 EnumResourceTypesA(
 		   HINSTANCE hModule,
-		   ENUMRESTYPEPROCA lpEnumFunc,
+		   ENUMRESTYPEPROC lpEnumFunc,
 		   LONG lParam
 		   );
 
@@ -892,7 +301,7 @@ STDCALL
 EnumResourceNamesA(
 		   HINSTANCE hModule,
 		   LPCSTR lpType,
-		   ENUMRESNAMEPROCA lpEnumFunc,
+		   ENUMRESNAMEPROC lpEnumFunc,
 		   LONG lParam
 		   );
 
@@ -902,7 +311,7 @@ EnumResourceLanguagesA(
 		       HINSTANCE hModule,
 		       LPCSTR lpType,
 		       LPCSTR lpName,
-		       ENUMRESLANGPROCA lpEnumFunc,
+		       ENUMRESLANGPROC lpEnumFunc,
 		       LONG lParam
 		       );
 
@@ -1196,14 +605,6 @@ STDCALL
 GetFileAttributesA(
     LPCSTR lpFileName
     );
-
-BOOL 
-STDCALL
-GetFileAttributesExA(
-    LPCSTR lpFileName,
-    GET_FILEEX_INFO_LEVELS fInfoLevelId, 
-    LPVOID lpFileInformation
-    );    
 
 DWORD
 STDCALL
@@ -1647,7 +1048,7 @@ WINBOOL
 STDCALL
 EnumDesktopsA(
     HWINSTA hwinsta,
-    DESKTOPENUMPROCA lpEnumFunc,
+    DESKTOPENUMPROC lpEnumFunc,
     LPARAM lParam);
 
 HWINSTA
@@ -1660,7 +1061,7 @@ CreateWindowStationA(
 
 HANDLE STDCALL CreateWaitableTimerA( LPSECURITY_ATTRIBUTES Attributes,
 				     BOOL ManualReset,
-				     LPCSTR Name );
+				     LPCTSTR Name );
   
 HWINSTA
 STDCALL
@@ -1672,7 +1073,7 @@ OpenWindowStationA(
 WINBOOL
 STDCALL
 EnumWindowStationsA(
-    ENUMWINDOWSTATIONPROCA lpEnumFunc,
+    ENUMWINDOWSTATIONPROC lpEnumFunc,
     LPARAM lParam);
  
 WINBOOL
@@ -1792,7 +1193,7 @@ CallWindowProcA(
 ATOM
 STDCALL
 RegisterClassA(
-    CONST WNDCLASSA *lpWndClass);
+    CONST WNDCLASS *lpWndClass);
  
 WINBOOL
 STDCALL
@@ -1805,15 +1206,15 @@ STDCALL
 GetClassInfoA(
     HINSTANCE hInstance ,
     LPCSTR lpClassName,
-    LPWNDCLASSA lpWndClass);
+    LPWNDCLASS lpWndClass);
  
 ATOM
 STDCALL
-RegisterClassExA(CONST WNDCLASSEXA *);
+RegisterClassExA(CONST WNDCLASSEX *);
  
 WINBOOL
 STDCALL
-GetClassInfoExA(HINSTANCE, LPCSTR, LPWNDCLASSEXA);
+GetClassInfoExA(HINSTANCE, LPCSTR, LPWNDCLASSEX);
  
 HWND
 STDCALL
@@ -1881,13 +1282,7 @@ GetDlgItemTextA(
     int nIDDlgItem,
     LPSTR lpString,
     int nMaxCount);
-
-WINBOOL
-STDCALL
-IsDialogMessageA(
-    HWND hDlg,
-    LPMSG lpMsg);
-
+ 
 LRESULT
 STDCALL
 SendDlgItemMessageA(
@@ -2122,7 +1517,7 @@ InsertMenuItemA(
     HMENU,
     UINT,
     WINBOOL,
-    LPCMENUITEMINFOA
+    LPCMENUITEMINFO
     );
  
 WINBOOL
@@ -2131,7 +1526,7 @@ GetMenuItemInfoA(
     HMENU,
     UINT,
     WINBOOL,
-    LPMENUITEMINFOA
+    LPMENUITEMINFO
     );
  
 WINBOOL
@@ -2140,7 +1535,7 @@ SetMenuItemInfoA(
   HMENU hMenu,
   UINT uItem,
   WINBOOL fByPosition,
-  LPMENUITEMINFOA lpmii);
+  LPMENUITEMINFO lpmii);
  
 int
 STDCALL
@@ -2216,14 +1611,14 @@ int
 STDCALL
 EnumPropsExA(
     HWND hWnd,
-    PROPENUMPROCEXA lpEnumFunc,
+    PROPENUMPROCEX lpEnumFunc,
     LPARAM lParam);
  
 int
 STDCALL
 EnumPropsA(
     HWND hWnd,
-    PROPENUMPROCA lpEnumFunc);
+    PROPENUMPROC lpEnumFunc);
  
 WINBOOL
 STDCALL
@@ -2483,15 +1878,15 @@ DeviceCapabilitiesA(LPCSTR, LPCSTR, WORD,
 
 int
 STDCALL
-EnumFontFamiliesExA(HDC, LPLOGFONTA, FONTENUMEXPROCA, LPARAM,DWORD);
+EnumFontFamiliesExA(HDC, LPLOGFONTA, FONTENUMEXPROC, LPARAM,DWORD);
 
 int
 STDCALL
-EnumFontFamiliesA(HDC, LPCSTR, FONTENUMPROCA, LPARAM);
+EnumFontFamiliesA(HDC, LPCSTR, FONTENUMPROC, LPARAM);
 
 int
 STDCALL
-EnumFontsA(HDC, LPCSTR,  FONTENUMPROCA, LPARAM);
+EnumFontsA(HDC, LPCSTR,  ENUMFONTSPROC, LPARAM);
 
 WINBOOL
 STDCALL
@@ -2556,7 +1951,7 @@ GetTextExtentExPointA(
 
 DWORD
 STDCALL
-GetCharacterPlacementA(HDC, LPCSTR, int, int, LPGCP_RESULTSA, DWORD);
+GetCharacterPlacementA(HDC, LPCSTR, int, int, LPGCP_RESULTS, DWORD);
 
 HDC
 STDCALL
@@ -2588,7 +1983,7 @@ GetTextMetricsA(HDC, LPTEXTMETRICA);
 
 int
 STDCALL
-StartDocA(HDC, CONST DOCINFOA *);
+StartDocA(HDC, CONST DOCINFO *);
 
 int
 STDCALL
@@ -2604,7 +1999,7 @@ ExtTextOutA(HDC, int, int, UINT, CONST RECT *,LPCSTR, UINT, CONST INT *);
 
 WINBOOL
 STDCALL
-PolyTextOutA(HDC, CONST POLYTEXTA *, int); 
+PolyTextOutA(HDC, CONST POLYTEXT *, int); 
 
 int
 STDCALL
@@ -2616,11 +2011,11 @@ GetKerningPairsA(HDC, DWORD, LPKERNINGPAIR);
 
 HCOLORSPACE
 STDCALL
-CreateColorSpaceA(LPLOGCOLORSPACEA);
+CreateColorSpaceA(LPLOGCOLORSPACE);
 
 WINBOOL
 STDCALL
-GetLogColorSpaceA(HCOLORSPACE,LPLOGCOLORSPACEA,DWORD);
+GetLogColorSpaceA(HCOLORSPACE,LPLOGCOLORSPACE,DWORD);
 
 WINBOOL
 STDCALL
@@ -2636,11 +2031,11 @@ UpdateICMRegKeyA(DWORD, DWORD, LPSTR, UINT);
 
 int
 STDCALL
-EnumICMProfilesA(HDC,ICMENUMPROCA,LPARAM);
+EnumICMProfilesA(HDC,ICMENUMPROC,LPARAM);
 
 int
 STDCALL
-PropertySheetA(LPCPROPSHEETHEADERA lppsph);
+PropertySheetA(LPCPROPSHEETHEADER lppsph);
 
 HIMAGELIST
 STDCALL
@@ -2656,11 +2051,11 @@ DrawStatusTextA(HDC hDC, LPRECT lprc, LPCSTR pszText, UINT uFlags);
 
 WINBOOL
 STDCALL
-GetOpenFileNameA(LPOPENFILENAMEA);
+GetOpenFileNameA(LPOPENFILENAME);
 
 WINBOOL
 STDCALL
-GetSaveFileNameA(LPOPENFILENAMEA);
+GetSaveFileNameA(LPOPENFILENAME);
 
 short
 STDCALL
@@ -2668,27 +2063,27 @@ GetFileTitleA(LPCSTR, LPSTR, WORD);
 
 WINBOOL
 STDCALL
-ChooseColorA(LPCHOOSECOLORA);
+ChooseColorA(LPCHOOSECOLOR);
 
 HWND
 STDCALL
-FindTextA(LPFINDREPLACEA);
+FindTextA(LPFINDREPLACE);
 
 HWND
 STDCALL
-ReplaceTextA(LPFINDREPLACEA);
+ReplaceTextA(LPFINDREPLACE);
 
 WINBOOL
 STDCALL
-ChooseFontA(LPCHOOSEFONTA);
+ChooseFontA(LPCHOOSEFONT);
 
 WINBOOL
 STDCALL
-PrintDlgA(LPPRINTDLGA);
+PrintDlgA(LPPRINTDLG);
 
 WINBOOL
 STDCALL
-PageSetupDlgA( LPPAGESETUPDLGA );
+PageSetupDlgA( LPPAGESETUPDLG );
 
 WINBOOL
 STDCALL
@@ -2727,14 +2122,14 @@ HANDLE
 STDCALL
 FindFirstFileA(
     LPCSTR lpFileName,
-    LPWIN32_FIND_DATAA lpFindFileData
+    LPWIN32_FIND_DATA lpFindFileData
     );
 
 WINBOOL
 STDCALL
 FindNextFileA(
     HANDLE hFindFile,
-    LPWIN32_FIND_DATAA lpFindFileData
+    LPWIN32_FIND_DATA lpFindFileData
     );
 
 WINBOOL
@@ -2958,7 +2353,7 @@ LONG
 STDCALL
 RegQueryMultipleValuesA (
     HKEY hKey,
-    PVALENTA val_list,
+    PVALENT val_list,
     DWORD num_vals,
     LPSTR lpValueBuf,
     LPDWORD ldwTotsize
@@ -3105,7 +2500,7 @@ GetNumberFormatA(
     LCID     Locale,
     DWORD    dwFlags,
     LPCSTR lpValue,
-    CONST NUMBERFMTA *lpFormat,
+    CONST NUMBERFMT *lpFormat,
     LPSTR  lpNumberStr,
     int      cchNumber);
 
@@ -3115,14 +2510,14 @@ GetCurrencyFormatA(
     LCID     Locale,
     DWORD    dwFlags,
     LPCSTR lpValue,
-    CONST CURRENCYFMTA *lpFormat,
+    CONST CURRENCYFMT *lpFormat,
     LPSTR  lpCurrencyStr,
     int      cchCurrency);
 
 WINBOOL
 STDCALL
 EnumCalendarInfoA(
-    CALINFO_ENUMPROCA lpCalInfoEnumProc,
+    CALINFO_ENUMPROC lpCalInfoEnumProc,
     LCID              Locale,
     CALID             Calendar,
     CALTYPE           CalType);
@@ -3130,14 +2525,14 @@ EnumCalendarInfoA(
 WINBOOL
 STDCALL
 EnumTimeFormatsA(
-    TIMEFMT_ENUMPROCA lpTimeFmtEnumProc,
+    TIMEFMT_ENUMPROC lpTimeFmtEnumProc,
     LCID              Locale,
     DWORD             dwFlags);
 
 WINBOOL
 STDCALL
 EnumDateFormatsA(
-    DATEFMT_ENUMPROCA lpDateFmtEnumProc,
+    DATEFMT_ENUMPROC lpDateFmtEnumProc,
     LCID              Locale,
     DWORD             dwFlags);
 
@@ -3172,13 +2567,13 @@ FoldStringA(
 WINBOOL
 STDCALL
 EnumSystemLocalesA(
-    LOCALE_ENUMPROCA lpLocaleEnumProc,
+    LOCALE_ENUMPROC lpLocaleEnumProc,
     DWORD            dwFlags);
 
 WINBOOL
 STDCALL
 EnumSystemCodePagesA(
-    CODEPAGE_ENUMPROCA lpCodePageEnumProc,
+    CODEPAGE_ENUMPROC lpCodePageEnumProc,
     DWORD              dwFlags);
 
 WINBOOL
@@ -3310,7 +2705,7 @@ WNetAddConnectionA(
 
 DWORD STDCALL
 WNetAddConnection2A(
-     LPNETRESOURCEA lpNetResource,
+     LPNETRESOURCE lpNetResource,
      LPCSTR       lpPassword,
      LPCSTR       lpUserName,
      DWORD          dwFlags
@@ -3319,7 +2714,7 @@ WNetAddConnection2A(
 DWORD STDCALL
 WNetAddConnection3A(
      HWND           hwndOwner,
-     LPNETRESOURCEA lpNetResource,
+     LPNETRESOURCE lpNetResource,
      LPCSTR       lpPassword,
      LPCSTR       lpUserName,
      DWORD          dwFlags
@@ -3348,7 +2743,7 @@ WNetGetConnectionA(
 DWORD STDCALL
 WNetUseConnectionA(
     HWND            hwndOwner,
-    LPNETRESOURCEA  lpNetResource,
+    LPNETRESOURCE  lpNetResource,
     LPCSTR        lpUserID,
     LPCSTR        lpPassword,
     DWORD           dwFlags,
@@ -3366,12 +2761,12 @@ WNetSetConnectionA(
 
 DWORD STDCALL
 WNetConnectionDialog1A(
-    LPCONNECTDLGSTRUCTA lpConnDlgStruct
+    LPCONNECTDLGSTRUCT lpConnDlgStruct
     );
 
 DWORD STDCALL
 WNetDisconnectDialog1A(
-    LPDISCDLGSTRUCTA lpConnDlgStruct
+    LPDISCDLGSTRUCT lpConnDlgStruct
     );
 
 DWORD STDCALL
@@ -3379,7 +2774,7 @@ WNetOpenEnumA(
      DWORD          dwScope,
      DWORD          dwType,
      DWORD          dwUsage,
-     LPNETRESOURCEA lpNetResource,
+     LPNETRESOURCE lpNetResource,
      LPHANDLE       lphEnum
     );
 
@@ -3430,7 +2825,7 @@ WNetGetLastErrorA(
 
 DWORD STDCALL
 MultinetGetConnectionPerformanceA(
-        LPNETRESOURCEA lpNetResource,
+        LPNETRESOURCE lpNetResource,
         LPNETCONNECTINFOSTRUCT lpNetConnectInfoStruct
         );
 
@@ -3611,11 +3006,10 @@ DdeQueryStringA (DWORD, HSZ, char *, DWORD, int);
 /* end of stuff from ddeml.h in old Cygnus headers */
 /* ----------------------------------------------- */
 
-DWORD WINAPI
-SHGetFileInfoA (LPCSTR, DWORD, SHFILEINFO FAR *, UINT, UINT);
-
-WINBOOL WINAPI
-SHGetPathFromIDListA (LPCITEMIDLIST, LPSTR);
+WINBOOL STDCALL LogonUserA (LPSTR, LPSTR, LPSTR, DWORD, DWORD, HANDLE *);
+WINBOOL STDCALL CreateProcessAsUserA (HANDLE, LPCTSTR, LPTSTR,
+	SECURITY_ATTRIBUTES*, SECURITY_ATTRIBUTES*, WINBOOL, DWORD, LPVOID,
+        LPCTSTR, STARTUPINFOA*, PROCESS_INFORMATION*);
 
 #ifdef __cplusplus
 }

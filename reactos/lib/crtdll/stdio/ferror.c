@@ -7,9 +7,6 @@
 int ferror(FILE *stream);
 #endif
 
-/*
- * @implemented
- */
 int ferror(FILE *stream)
 {
   return stream->_flag & _IOERR;

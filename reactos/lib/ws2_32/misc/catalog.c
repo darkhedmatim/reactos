@@ -22,8 +22,6 @@ VOID ReferenceProviderByPointer(
     //EnterCriticalSection(&Provider->Lock);
     Provider->ReferenceCount++;
     //LeaveCriticalSection(&Provider->Lock);
-
-    WS_DbgPrint(MAX_TRACE, ("Leaving\n"));
 }
 
 
@@ -74,7 +72,7 @@ PCATALOG_ENTRY CreateCatalogEntry(
   Provider->ReferenceCount = 1;
 
 	InitializeCriticalSection(&Provider->Lock);
-  Provider->hModule = NULL;
+  Provider->hModule = (HMODULE)INVALID_HANDLE_VALUE;
 
   Provider->Mapping = NULL;
 
@@ -101,7 +99,7 @@ INT DestroyCatalogEntry(
 
   HeapFree(GlobalHeap, 0, Provider->Mapping);
 
-  if (NULL != Provider->hModule) {
+  if (Provider->hModule) {
     Status = UnloadProvider(Provider);
   } else {
     Status = NO_ERROR;
@@ -190,18 +188,13 @@ INT LoadProvider(
 {
   INT Status;
 
-  WS_DbgPrint(MID_TRACE, ("Loading provider at (0x%X)  Name (%wZ).\n",
+  WS_DbgPrint(MAX_TRACE, ("Loading provider at (0x%X)  Name (%wZ).\n",
     Provider, &Provider->LibraryName));
 
-  if (NULL == Provider->hModule)
-  {
-    /* DLL is not loaded so load it now
-     * UNICODE_STRING objects are not null-terminated, but LoadLibraryW
-     * expects a null-terminated string
-     */
-    Provider->LibraryName.Buffer[Provider->LibraryName.Length / sizeof(WCHAR)] = L'\0';
-    Provider->hModule = LoadLibraryW(Provider->LibraryName.Buffer);
-    if (NULL != Provider->hModule) {
+  if (Provider->hModule == INVALID_HANDLE_VALUE) {
+    /* DLL is not loaded so load it now */
+    Provider->hModule = LoadLibrary(Provider->LibraryName.Buffer);
+    if (Provider->hModule != INVALID_HANDLE_VALUE) {
       Provider->WSPStartup = (LPWSPSTARTUP)GetProcAddress(
         Provider->hModule,
         "WSPStartup");
@@ -223,7 +216,7 @@ INT LoadProvider(
   } else
     Status = NO_ERROR;
 
-  WS_DbgPrint(MID_TRACE, ("Status (%d).\n", Status));
+  WS_DbgPrint(MAX_TRACE, ("Status (%d).\n", Status));
 
   return Status;
 }
@@ -236,7 +229,7 @@ INT UnloadProvider(
 
   WS_DbgPrint(MAX_TRACE, ("Unloading provider at (0x%X)\n", Provider));
 
-  if (NULL != Provider->hModule) {
+  if (Provider->hModule) {
     WS_DbgPrint(MAX_TRACE, ("Calling WSPCleanup at (0x%X).\n",
       Provider->ProcTable.lpWSPCleanup));
       Provider->ProcTable.lpWSPCleanup(&Status);
@@ -247,7 +240,7 @@ INT UnloadProvider(
       Status = GetLastError();
     }
 
-    Provider->hModule = NULL;
+    Provider->hModule = (HMODULE)INVALID_HANDLE_VALUE;
   }
 
   WS_DbgPrint(MAX_TRACE, ("Status (%d).\n", Status));
@@ -264,12 +257,7 @@ VOID CreateCatalog(VOID)
 
 	InitializeListHead(&CatalogListHead);
 
-  /* FIXME: Read service provider catalog from registry 
-  
-  Catalog info is saved somewhere under
-  HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinSock2
-  */
-  
+  /* FIXME: Read service provider catalog from registry */
 #if 1
     Provider = CreateCatalogEntry(L"msafd.dll");
     if (!Provider) {
@@ -282,32 +270,24 @@ VOID CreateCatalog(VOID)
 
   Provider->Mapping = HeapAlloc(GlobalHeap,
     0,
-    5 * sizeof(WINSOCK_MAPPING) + 3 * sizeof(DWORD));
+    3 * sizeof(WINSOCK_MAPPING) + 3 * sizeof(DWORD));
   if (!Provider->Mapping)
     return;
 
-  Provider->Mapping->Rows    = 5;
+  Provider->Mapping->Rows    = 3;
   Provider->Mapping->Columns = 3;
 
   Provider->Mapping->Mapping[0].AddressFamily = AF_INET;
   Provider->Mapping->Mapping[0].SocketType    = SOCK_STREAM;
-  Provider->Mapping->Mapping[0].Protocol      = 0;
+  Provider->Mapping->Mapping[0].Protocol      = IPPROTO_TCP;
 
   Provider->Mapping->Mapping[1].AddressFamily = AF_INET;
-  Provider->Mapping->Mapping[1].SocketType    = SOCK_STREAM;
-  Provider->Mapping->Mapping[1].Protocol      = IPPROTO_TCP;
+  Provider->Mapping->Mapping[1].SocketType    = SOCK_DGRAM;
+  Provider->Mapping->Mapping[1].Protocol      = IPPROTO_UDP;
 
   Provider->Mapping->Mapping[2].AddressFamily = AF_INET;
-  Provider->Mapping->Mapping[2].SocketType    = SOCK_DGRAM;
+  Provider->Mapping->Mapping[2].SocketType    = SOCK_RAW;
   Provider->Mapping->Mapping[2].Protocol      = 0;
-
-  Provider->Mapping->Mapping[3].AddressFamily = AF_INET;
-  Provider->Mapping->Mapping[3].SocketType    = SOCK_DGRAM;
-  Provider->Mapping->Mapping[3].Protocol      = IPPROTO_UDP;
-
-  Provider->Mapping->Mapping[4].AddressFamily = AF_INET;
-  Provider->Mapping->Mapping[4].SocketType    = SOCK_RAW;
-  Provider->Mapping->Mapping[4].Protocol      = 0;
 #endif
 }
 

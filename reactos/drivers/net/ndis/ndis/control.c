@@ -4,31 +4,20 @@
  * FILE:        ndis/control.c
  * PURPOSE:     Program control routines
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Vizzini (vizzini@plasmic.com)
  * REVISIONS:
  *   CSH 01/08-2000 Created
- *   3 Oct 2003 Vizzini - Formatting and minor bugfixes
  */
+#include <ndissys.h>
 
-#include "ndissys.h"
-
-
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisReinitializePacket(
      IN OUT  PNDIS_PACKET    Packet)
 {
-  (Packet)->Private.Head = (PNDIS_BUFFER)NULL;
-  (Packet)->Private.ValidCounts = FALSE;
+	(Packet)->Private.Head = (PNDIS_BUFFER)NULL;
+	(Packet)->Private.ValidCounts = FALSE;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisAcquireReadWriteLock(
@@ -45,10 +34,7 @@ NdisAcquireReadWriteLock(
     UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisAcquireSpinLock(
@@ -59,13 +45,10 @@ NdisAcquireSpinLock(
  *     SpinLock = Pointer to the initialized NDIS spin lock to be acquired
  */
 {
-  KeAcquireSpinLock(&SpinLock->SpinLock, &SpinLock->OldIrql);
+    UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisAllocateSpinLock(
@@ -76,13 +59,10 @@ NdisAllocateSpinLock(
  *     SpinLock = Pointer to an NDIS spin lock structure
  */
 {
-  KeInitializeSpinLock(&SpinLock->SpinLock);
+    UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisDprAcquireSpinLock(
@@ -93,14 +73,10 @@ NdisDprAcquireSpinLock(
  *     SpinLock = Pointer to the initialized NDIS spin lock to be acquired
  */
 {
-  KeAcquireSpinLockAtDpcLevel(&SpinLock->SpinLock);
-  SpinLock->OldIrql = DISPATCH_LEVEL;
+    UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisDprReleaseSpinLock(
@@ -111,13 +87,10 @@ NdisDprReleaseSpinLock(
  *     SpinLock = Pointer to the acquired NDIS spin lock to be released
  */
 {
-  KeReleaseSpinLockFromDpcLevel(&SpinLock->SpinLock);
+    UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisFreeSpinLock(
@@ -128,13 +101,10 @@ NdisFreeSpinLock(
  *     SpinLock = Pointer to an initialized NDIS spin lock
  */
 {
-  /* Nothing to do here! */
+    UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
+
 VOID
 EXPORT
 NdisGetCurrentProcessorCpuUsage(
@@ -149,9 +119,6 @@ NdisGetCurrentProcessorCpuUsage(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisInitializeEvent(
@@ -162,13 +129,10 @@ NdisInitializeEvent(
  *     Event = Pointer to an NDIS event structure to be initialized
  */
 {
-  KeInitializeEvent(&Event->Event, NotificationEvent, FALSE);
+    UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisReleaseSpinLock(
@@ -179,13 +143,10 @@ NdisReleaseSpinLock(
  *     SpinLock = Pointer to the acquired NDIS spin lock to be released
  */
 {
-  KeReleaseSpinLock(&SpinLock->SpinLock, SpinLock->OldIrql);
+    UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisResetEvent(
@@ -196,13 +157,10 @@ NdisResetEvent(
  *     Event = Pointer to the initialized event object to be reset
  */
 {
-  KeResetEvent(&Event->Event);
+    UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisSetEvent(
@@ -213,13 +171,10 @@ NdisSetEvent(
  *     Event = Pointer to the initialized event object to be set
  */
 {
-  KeSetEvent(&Event->Event, IO_NO_INCREMENT, FALSE);
+    UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN
 EXPORT
 NdisWaitEvent(
@@ -234,15 +189,9 @@ NdisWaitEvent(
  *     TRUE if the event is in the signaled state
  */
 {
-  LARGE_INTEGER Timeout;
-  NTSTATUS Status;
+    UNIMPLEMENTED
 
-  Timeout.QuadPart = MsToWait * -10000LL;
-
-  Status = KeWaitForSingleObject(&Event->Event, Executive, KernelMode, TRUE, &Timeout);
-
-  return (Status == STATUS_SUCCESS);
+    return FALSE;
 }
 
 /* EOF */
-

@@ -1,4 +1,4 @@
-/* $Id: deviceio.c,v 1.15 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: deviceio.c,v 1.11 2003/01/15 21:24:33 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,13 +12,11 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+//#define DBG
+#include <kernel32/kernel32.h>
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DeviceIoControl(
 		HANDLE hDevice,
@@ -36,7 +34,7 @@ DeviceIoControl(
 	PIO_STATUS_BLOCK IoStatusBlock;
 	IO_STATUS_BLOCK IIosb;
 
-	BOOL bFsIoControlCode = FALSE;
+	WINBOOL bFsIoControlCode = FALSE;
 
     DPRINT("DeviceIoControl(hDevice %x dwIoControlCode %d lpInBuffer %x "
           "nInBufferSize %d lpOutBuffer %x nOutBufferSize %d "
@@ -132,52 +130,57 @@ DeviceIoControl(
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetOverlappedResult (
-  IN HANDLE   hFile,
-	IN LPOVERLAPPED	lpOverlapped,
-	OUT LPDWORD		lpNumberOfBytesTransferred,
-	IN BOOL		bWait
+	HANDLE		hFile,
+	LPOVERLAPPED	lpOverlapped,
+	LPDWORD		lpNumberOfBytesTransferred,
+	WINBOOL		bWait
 	)
 {
 	DWORD WaitStatus;
-  HANDLE hObject;
 
-  if (lpOverlapped->Internal == STATUS_PENDING)
-  {
-    if (!bWait)
-    {
-      /* can't use SetLastErrorByStatus(STATUS_PENDING) here, 
-      since STATUS_PENDING translates to ERROR_IO_PENDING */
-      SetLastError(ERROR_IO_INCOMPLETE);
-      return FALSE;
-    }
-    
-    hObject = lpOverlapped->hEvent ? lpOverlapped->hEvent : hFile;
+	if (lpOverlapped == NULL)
+	{
+		SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+		return FALSE;
+	}
 
-    /* Wine delivers pending APC's while waiting, but Windows does
-    not, nor do we... */
-    WaitStatus = WaitForSingleObject(hObject, INFINITE);
-    
-    if (WaitStatus == WAIT_FAILED)
-    {
-      DPRINT("Wait failed!\n");
-      /* WaitForSingleObjectEx sets the last error */
-      return FALSE;
-    }
-  }
+	if (lpOverlapped ->Internal == STATUS_PENDING)
+	{
+		if (lpNumberOfBytesTransferred == 0)
+		{
+			SetLastErrorByStatus (STATUS_PENDING);
+			return FALSE;
+		}
+		else if (bWait == TRUE)
+		{
+			if (lpOverlapped->hEvent != NULL)
+			{
+				WaitStatus = WaitForSingleObject (lpOverlapped->hEvent,
+				                                  -1);
+				if (WaitStatus ==  STATUS_TIMEOUT)
+				{
+					SetLastError (ERROR_IO_INCOMPLETE);
+					return FALSE;
+				}
+				else
+					return GetOverlappedResult (hFile,
+					                            lpOverlapped,
+					                            lpNumberOfBytesTransferred,
+					                            FALSE);
+			}
+		}
+	}
 
-  *lpNumberOfBytesTransferred = lpOverlapped->InternalHigh;
-  
-  if (!NT_SUCCESS(lpOverlapped->Internal))
-  {
-    SetLastErrorByStatus(lpOverlapped->Internal);
-    return FALSE;
-  }
+	*lpNumberOfBytesTransferred = lpOverlapped->InternalHigh;
+
+	if (lpOverlapped->Internal < 0)
+	{
+		SetLastErrorByStatus (lpOverlapped->Internal);
+		return FALSE;
+	}
 
 	return TRUE;
 }

@@ -2,9 +2,6 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/errno.h>
 
-/*
- * @implemented
- */
 int fgetpos(FILE *stream, fpos_t *pos)
 {
   if (stream && pos)

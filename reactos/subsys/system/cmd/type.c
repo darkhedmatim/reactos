@@ -23,9 +23,15 @@
  *        Added multiple file support (copied from y.c)
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_TYPE
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
 
 
 INT cmd_type (LPTSTR cmd, LPTSTR param)
@@ -60,7 +66,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 	{
 		if (_T('/') == argv[i][0])
 		{
-			ConErrPrintf(_T("Invalid option \"%S\"\n"), argv[i] + 1);
+			ConErrPrintf("Invalid option \"%s\"\n", argv[i] + 1);
 			continue;
 		}
 		hFile = CreateFile(argv[i],
@@ -80,7 +86,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 			               (LPTSTR) &errmsg,
 			               0,
 			               NULL);
-			ConErrPrintf (_T("%s - %s"), argv[i], errmsg);
+			ConErrPrintf ("%s - %s", argv[i], errmsg);
 			LocalFree (errmsg);
 			continue;
 		}

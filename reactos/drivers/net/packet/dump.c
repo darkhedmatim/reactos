@@ -28,9 +28,7 @@
 #include <ddk/ntddk.h>
 #include <net/ndis.h>
 //#define PsGetCurrentProcess() IoGetCurrentProcess()
-#ifndef PsGetCurrentThread
 #define PsGetCurrentThread() ((PETHREAD) (KeGetCurrentThread()))
-#endif
 #endif
 
 #include "debug.h"
@@ -250,7 +248,7 @@ NPF_StartDump(POPEN_INSTANCE Open)
         THREAD_ALL_ACCESS,
         NULL,
         KernelMode,
-        (VOID **)&Open->DumpThreadObject,
+        &Open->DumpThreadObject,
         0);
     if ( !NT_SUCCESS( ntStatus ) )
     {

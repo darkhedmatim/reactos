@@ -441,7 +441,7 @@ BOOLEAN ConsoleInitHercules(void)
 
     attr.u.Asuchar = 0x07;
 	FrameBuffer.u.LowPart = 0xb0000;
-	pScreenBufferHercules=MmMapIoSpace(FrameBuffer,FRAMEBUFFER_SIZE,MmNonCached);
+	pScreenBufferHercules=MmMapIoSpace(FrameBuffer,FRAMEBUFFER_SIZE,FALSE);
 
     DPRINT((0,"VGA memory phys. 0xb0000 mapped to virt. 0x%x\n",pScreenBufferHercules));
 

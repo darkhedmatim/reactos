@@ -1,9 +1,6 @@
 #ifndef __INCLUDE_DDK_HALFUNCS_H
 #define __INCLUDE_DDK_HALFUNCS_H
-/* $Id: halfuncs.h,v 1.12 2003/10/20 06:03:29 vizzini Exp $ */
-
-#include <ntos/haltypes.h>
-#include <ddk/iotypes.h>
+/* $Id: halfuncs.h,v 1.4 2003/02/26 14:11:41 ekohl Exp $ */
 
 VOID STDCALL
 HalAcquireDisplayOwnership(IN PHAL_RESET_DISPLAY_PARAMETERS ResetDisplayParameters);
@@ -13,9 +10,10 @@ HalAdjustResourceList(PCM_RESOURCE_LIST	Resources);
 
 NTSTATUS STDCALL
 HalAllocateAdapterChannel(IN PADAPTER_OBJECT AdapterObject,
-			  IN PWAIT_CONTEXT_BLOCK WaitContextBlock,
+			  IN PDEVICE_OBJECT DeviceObject,
 			  IN ULONG NumberOfMapRegisters,
-			  IN PDRIVER_CONTROL ExecutionRoutine);
+			  IN PDRIVER_CONTROL ExecutionRoutine,
+			  IN PVOID Context);
 
 PVOID STDCALL
 HalAllocateCommonBuffer(PADAPTER_OBJECT AdapterObject,
@@ -26,6 +24,9 @@ HalAllocateCommonBuffer(PADAPTER_OBJECT AdapterObject,
 PVOID STDCALL
 HalAllocateCrashDumpRegisters(IN PADAPTER_OBJECT AdapterObject,
 			      IN OUT PULONG NumberOfMapRegisters);
+
+BOOLEAN STDCALL
+HalAllProcessorsStarted(VOID);
 
 NTSTATUS STDCALL
 HalAssignSlotResources(
@@ -39,6 +40,11 @@ HalAssignSlotResources(
 	PCM_RESOURCE_LIST	*AllocatedResources
 	);
 
+BOOLEAN STDCALL
+HalBeginSystemInterrupt(ULONG Vector,
+			KIRQL Irql,
+			PKIRQL OldIrql);
+
 VOID STDCALL
 HalCalibratePerformanceCounter(ULONG Count);
 
@@ -47,8 +53,22 @@ FASTCALL
 HalClearSoftwareInterrupt
 */
 
+BOOLEAN STDCALL
+HalDisableSystemInterrupt(ULONG Vector,
+			  ULONG Unknown2);
+
 VOID STDCALL
 HalDisplayString(IN PCH String);
+
+BOOLEAN STDCALL
+HalEnableSystemInterrupt(ULONG Vector,
+			 ULONG Unknown2,
+			 ULONG Unknown3);
+
+VOID STDCALL
+HalEndSystemInterrupt(KIRQL Irql,
+		      ULONG Unknown2);
+
 
 /*
  * HalExamineMBR() is not exported explicitly.
@@ -97,18 +117,10 @@ HalGetBusDataByOffset(BUS_DATA_TYPE BusDataType,
 		      ULONG Offset,
 		      ULONG Length);
 
-/* Is this function really exported ??
+/* Is this function really exported ?? */
 ULONG
 HalGetDmaAlignmentRequirement(VOID);
-NTOSAPI
-DDKAPI
-*/
 
-ULONG STDCALL
-HalGetDmaAlignmentRequirement( 
-  VOID);
-
-			   
 BOOLEAN STDCALL
 HalGetEnvironmentVariable(IN PCH Name,
 			  OUT PCH Value,
@@ -121,6 +133,14 @@ HalGetInterruptVector(INTERFACE_TYPE InterfaceType,
 		      ULONG BusInterruptVector,
 		      PKIRQL Irql,
 		      PKAFFINITY Affinity);
+
+VOID STDCALL
+HalInitializeProcessor(ULONG ProcessorNumber,
+		       PVOID ProcessorStack);
+
+BOOLEAN STDCALL
+HalInitSystem(ULONG BootPhase,
+	      PLOADER_PARAMETER_BLOCK LoaderBlock);
 
 BOOLEAN STDCALL
 HalMakeBeep(ULONG Frequency);
@@ -146,12 +166,18 @@ ULONG STDCALL
 HalReadDmaCounter(PADAPTER_OBJECT AdapterObject);
 
 VOID STDCALL
+HalReportResourceUsage(VOID);
+
+VOID STDCALL
 HalRequestIpi(ULONG Unknown);
 
 /*
 FASTCALL
 HalRequestSoftwareInterrupt
 */
+
+VOID STDCALL
+HalReturnToFirmware(ULONG Action);
 
 ULONG STDCALL
 HalSetBusData(BUS_DATA_TYPE BusDataType,

@@ -1,10 +1,7 @@
-#include "user32.h"
 #include <string.h>
-
-/* FIXME: Currently IsBadWritePtr is implemented using VirtualQuery which
-          does not seem to work properly for stack address space. */
-/* kill `left-hand operand of comma expression has no effect' warning */
-#define IsBadWritePtr(lp, n) ((DWORD)lp==n?0:0)
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <kernel32/error.h>
 
 BOOL STDCALL _InternalLoadString
 (
@@ -14,7 +11,6 @@ BOOL STDCALL _InternalLoadString
 )
 {
  HRSRC hrsStringTable;
- HGLOBAL hResource;
  PWCHAR pStringTable;
  unsigned i;
  unsigned l = uID % 16; /* (1) */
@@ -33,10 +29,10 @@ BOOL STDCALL _InternalLoadString
   (actual resource ids) start from 1. See (1) and (2)
  */
  /* TODO: some sort of cache, here, would be great */
- hrsStringTable = FindResourceW
+ hrsStringTable = FindResource
  (
   (HMODULE)hInstance,
-  MAKEINTRESOURCEW((uID / 16) + 1), /* (2) */
+  MAKEINTRESOURCE((uID / 16) + 1), /* (2) */
   RT_STRING
  );
 
@@ -44,13 +40,7 @@ BOOL STDCALL _InternalLoadString
  if(hrsStringTable == NULL) return FALSE;
 
  /* load the string table into memory */
- hResource = LoadResource((HMODULE)hInstance, hrsStringTable);
-
- /* failure */
- if(hResource == NULL) return FALSE;
-
- /* lock the resource into memory */
- pStringTable = LockResource(hResource);
+ pStringTable = LoadResource((HMODULE)hInstance, hrsStringTable);
 
  /* failure */
  if(pStringTable == NULL) return FALSE;
@@ -75,8 +65,8 @@ BOOL STDCALL _InternalLoadString
   return FALSE; /* 3 */
  }
 
- /* string length in bytes */
- pwstrDest->Length = pwstrDest->MaximumLength = (*pStringTable) * sizeof(WCHAR);
+ /* string length */
+ pwstrDest->Length = pwstrDest->MaximumLength = (*pStringTable);
 
  /* string */
  pwstrDest->Buffer = pStringTable + 1;
@@ -85,10 +75,6 @@ BOOL STDCALL _InternalLoadString
  return TRUE;
 }
 
-
-/*
- * @implemented
- */
 int STDCALL LoadStringA
 (
  HINSTANCE hInstance,
@@ -131,7 +117,7 @@ int STDCALL LoadStringA
  if(!NT_SUCCESS(nErrCode))
  {
   /* failure */
-  RtlNtStatusToDosError(nErrCode);
+  SetLastErrorByStatus(nErrCode);
   return 0;
  }
 
@@ -157,10 +143,6 @@ int STDCALL LoadStringA
  }
 }
 
-
-/*
- * @implemented
- */
 int STDCALL LoadStringW
 (
  HINSTANCE hInstance,

@@ -1,4 +1,4 @@
-/* $Id: sprintf.c,v 1.16 2004/07/03 17:40:23 navaraf Exp $
+/* $Id: sprintf.c,v 1.10 2002/09/13 18:45:10 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -23,7 +23,6 @@
 #include <ddk/ntddk.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <string.h>
 #include <limits.h>
@@ -63,8 +62,8 @@ number(char * buf, char * end, long long num, int base, int size, int precision,
 {
 	char c,sign,tmp[66];
 	const char *digits;
-	const char *small_digits = "0123456789abcdefghijklmnopqrstuvwxyz";
-	const char *large_digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	const char small_digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+	const char large_digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	int i;
 
 	digits = (type & LARGE) ? large_digits : small_digits;
@@ -166,7 +165,7 @@ string(char* buf, char* end, const char* s, int len, int field_width, int precis
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -211,7 +210,7 @@ stringw(char* buf, char* end, const wchar_t* sw, int len, int field_width, int p
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -242,14 +241,11 @@ stringw(char* buf, char* end, const wchar_t* sw, int len, int field_width, int p
 	return buf;
 }
 
-/*
- * @implemented
- */
 int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 {
 	int len;
 	unsigned long long num;
-	int base;
+	int i, base;
 	char *str, *end;
 	const char *s;
 	const wchar_t *sw;
@@ -486,12 +482,8 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 
 		if (qualifier == 'I')
 			num = va_arg(args, unsigned long long);
-		else if (qualifier == 'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
@@ -515,9 +507,6 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 }
 
 
-/*
- * @implemented
- */
 int sprintf(char * buf, const char *fmt, ...)
 {
 	va_list args;
@@ -530,9 +519,6 @@ int sprintf(char * buf, const char *fmt, ...)
 }
 
 
-/*
- * @implemented
- */
 int _snprintf(char * buf, size_t cnt, const char *fmt, ...)
 {
 	va_list args;
@@ -545,9 +531,6 @@ int _snprintf(char * buf, size_t cnt, const char *fmt, ...)
 }
 
 
-/*
- * @implemented
- */
 int vsprintf(char *buf, const char *fmt, va_list args)
 {
 	return _vsnprintf(buf,INT_MAX,fmt,args);

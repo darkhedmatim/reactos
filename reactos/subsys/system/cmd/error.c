@@ -17,7 +17,14 @@
  *        Use FormatMessage() for error reports.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <stdarg.h>
+
+#include "cmd.h"
 
 
 #define INVALID_SWITCH		_T("Invalid switch - /%c\n")
@@ -44,12 +51,9 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 	if (dwErrorCode == ERROR_SUCCESS)
 		return;
 
-	if (szFormat)
-	{
-		va_start (arg_ptr, szFormat);
-		_vstprintf (szMessage, szFormat, arg_ptr);
-		va_end (arg_ptr);
-	}
+	va_start (arg_ptr, szFormat);
+	_vstprintf (szMessage, szFormat, arg_ptr);
+	va_end (arg_ptr);
 
 #ifndef __REACTOS__
 
@@ -72,15 +76,11 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 	switch (dwErrorCode)
 	{
 		case ERROR_FILE_NOT_FOUND:
-			szError = _T("File not found");
+			szError = _T("File not found --");
 			break;
 
 		case ERROR_PATH_NOT_FOUND:
-			szError = _T("Path not found");
-			break;
-
-		case ERROR_NOT_READY:
-			szError = _T("Drive not ready");
+			szError = _T("Path not found --");
 			break;
 
 		default:
@@ -88,10 +88,7 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 			return;
 	}
 
-	if (szFormat)
-		ConErrPrintf (_T("%s -- %s\n"), szError, szMessage);
-	else
-		ConErrPrintf (_T("%s\n"), szError);
+	ConErrPrintf (_T("%s %s\n"), szError, szMessage);
 #endif
 }
 

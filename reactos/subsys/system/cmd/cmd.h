@@ -1,4 +1,4 @@
-/* $Id: cmd.h,v 1.5 2004/06/21 18:57:22 weiden Exp $
+/* $Id: cmd.h,v 1.1 2003/03/20 19:19:22 rcampbell Exp $
  *
  *  CMD.H - header file for the modules in CMD.EXE
  *
@@ -49,20 +49,20 @@
 #define BREAK_IGNORE 4
 
 /* define some error messages */
-#define NOENVERR        _T("ERROR: no environment")
-#define INVALIDDRIVE    _T("ERROR: invalid drive")
-#define INVALIDFUNCTION _T("ERROR: invalid function")
-#define ACCESSDENIED    _T("ERROR: access denied")
-#define BADENVIROMENT   _T("ERROR: bad enviroment")
-#define BADFORMAT       _T("ERROR: bad format")
-#define ERROR_E2BIG     _T("ERROR: Argument list too long")
-#define ERROR_EINVAL    _T("ERROR: Invalid argument")
+#define NOENVERR        "ERROR: no environment"
+#define INVALIDDRIVE    "ERROR: invalid drive"
+#define INVALIDFUNCTION "ERROR: invalid function"
+#define ACCESSDENIED    "ERROR: access denied"
+#define BADENVIROMENT   "ERROR: bad enviroment"
+#define BADFORMAT       "ERROR: bad format"
+#define ERROR_E2BIG     "ERROR: Argument list too long"
+#define ERROR_EINVAL    "ERROR: Invalid argument"
 
 #define SHELLINFO       "ReactOS Command Line Interpreter"
 
 
-#define D_ON         _T("on")
-#define D_OFF        _T("off")
+#define D_ON         "on"
+#define D_OFF        "off"
 
 
 /* command line buffer length */
@@ -76,7 +76,6 @@
 /* global variables */
 extern HANDLE hOut;
 extern HANDLE hIn;
-extern HANDLE hConsole;
 extern WORD   wColor;
 extern WORD   wDefColor;
 extern BOOL   bCtrlBreak;
@@ -170,7 +169,6 @@ VOID ConOutPrintf (LPTSTR, ...);
 VOID ConErrChar (TCHAR);
 VOID ConErrPuts (LPTSTR);
 VOID ConErrPrintf (LPTSTR, ...);
-VOID ConOutFormatMessage (DWORD MessageId, ...);	
 
 SHORT GetCursorX  (VOID);
 SHORT GetCursorY  (VOID);
@@ -307,7 +305,7 @@ TCHAR  cgetchar (VOID);
 BOOL   CheckCtrlBreak (INT);
 LPTSTR *split (LPTSTR, LPINT, BOOL);
 VOID   freep (LPTSTR *);
-LPTSTR _stpcpy (LPTSTR, LPTSTR);
+LPTSTR stpcpy (LPTSTR, LPTSTR);
 BOOL   IsValidPathName (LPCTSTR);
 BOOL   IsValidFileName (LPCTSTR);
 BOOL   IsValidDirectory (LPCTSTR);
@@ -410,8 +408,8 @@ INT CommandWindow (LPTSTR, LPTSTR);
 
 
 /* The MSDOS Batch Commands [MS-DOS 5.0 User's Guide and Reference p359] */
-int cmd_if(TCHAR *, TCHAR *);
-int cmd_pause(TCHAR *, TCHAR *);
-int cmd_shift(TCHAR *, TCHAR *);
+int cmd_if(char *, char *);
+int cmd_pause(char *, char *);
+int cmd_shift(char *, char *);
 
 #endif /* _CMD_H_INCLUDED_ */

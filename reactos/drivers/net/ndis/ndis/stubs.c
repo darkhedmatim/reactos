@@ -7,13 +7,20 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
+#include <ndissys.h>
 
-#include "ndissys.h"
+
+VOID
+EXPORT
+NdisCompleteBindAdapter(
+    IN  NDIS_HANDLE BindAdapterContext,
+    IN  NDIS_STATUS Status,
+    IN  NDIS_STATUS OpenStatus)
+{
+    UNIMPLEMENTED
+}
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteQueryStatistics(
@@ -25,9 +32,6 @@ NdisCompleteQueryStatistics(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompleteUnbindAdapter(
@@ -38,11 +42,15 @@ NdisCompleteUnbindAdapter(
 }
 
 
-#undef NdisInterlockedAddUlong
+VOID
+EXPORT
+NdisInitializeListHead(
+    IN  PLIST_ENTRY ListHead)
+{
+    UNIMPLEMENTED
+}
 
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisInterlockedAddUlong (
@@ -50,15 +58,10 @@ NdisInterlockedAddUlong (
     IN  ULONG           Increment,
     IN  PNDIS_SPIN_LOCK SpinLock)
 {
-   ExInterlockedAddUlong ( Addend, Increment, (PKSPIN_LOCK)SpinLock );
+    UNIMPLEMENTED
 }
 
 
-#undef NdisInterlockedInsertHeadList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
 EXPORT
 NdisInterlockedInsertHeadList(
@@ -66,15 +69,12 @@ NdisInterlockedInsertHeadList(
     IN  PLIST_ENTRY     ListEntry,
     IN  PNDIS_SPIN_LOCK SpinLock)
 {
-  return ExInterlockedInsertHeadList ( ListHead, ListEntry, (PKSPIN_LOCK)SpinLock );
+    UNIMPLEMENTED
+
+	return NULL;
 }
 
 
-#undef NdisInterlockedInsertTailList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
 EXPORT
 NdisInterlockedInsertTailList(
@@ -82,28 +82,48 @@ NdisInterlockedInsertTailList(
     IN  PLIST_ENTRY     ListEntry,
     IN  PNDIS_SPIN_LOCK SpinLock)
 {
-  return ExInterlockedInsertTailList ( ListHead, ListEntry, (PKSPIN_LOCK)SpinLock );
+    UNIMPLEMENTED
+
+	return NULL;
 }
 
 
-#undef NdisInterlockedRemoveHeadList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
 EXPORT
 NdisInterlockedRemoveHeadList(
     IN  PLIST_ENTRY     ListHead,
     IN  PNDIS_SPIN_LOCK SpinLock)
 {
-  return ExInterlockedRemoveHeadList ( ListHead, (PKSPIN_LOCK)SpinLock );
+    UNIMPLEMENTED
+
+	return NULL;
 }
 
-
-/*
- * @unimplemented
- */
+
+VOID
+EXPORT
+NdisMCompleteBufferPhysicalMapping(
+    IN  NDIS_HANDLE     MiniportAdapterHandle,
+    IN  PNDIS_BUFFER    Buffer,
+    IN  ULONG           PhysicalMapRegister)
+{
+}
+
+
+VOID
+EXPORT
+NdisMStartBufferPhysicalMapping(
+    IN  NDIS_HANDLE                 MiniportAdapterHandle,
+    IN  PNDIS_BUFFER                Buffer,
+    IN  ULONG                       PhysicalMapRegister,
+    IN  BOOLEAN                     WriteToDevice,
+    OUT PNDIS_PHYSICAL_ADDRESS_UNIT	PhysicalAddressArray,
+    OUT PUINT                       ArraySize)
+{
+    UNIMPLEMENTED
+}
+
+
 VOID
 EXPORT
 NdisMapFile(
@@ -114,64 +134,52 @@ NdisMapFile(
     UNIMPLEMENTED
 }
 
-typedef struct _NDIS_HANDLE_OBJECT
-{
-  HANDLE FileHandle;
-  BOOL Mapped;
-  ULONG FileLength;
-  PVOID MapBuffer;
-} NDIS_HANDLE_OBJECT, *PNDIS_HANDLE_OBJECT;
 
-inline
-PNDIS_HANDLE_OBJECT
-NDIS_HANDLE_TO_POBJECT ( NDIS_HANDLE handle )
+VOID
+EXPORT
+NdisWriteConfiguration(
+    OUT PNDIS_STATUS                    Status,
+    IN  NDIS_HANDLE                     WrapperConfigurationContext,
+    IN  PNDIS_STRING                    Keyword,
+    IN  PNDIS_CONFIGURATION_PARAMETER   * ParameterValue)
 {
-  return (PNDIS_HANDLE_OBJECT)handle;
+    UNIMPLEMENTED
 }
 
-inline
-NDIS_HANDLE
-NDIS_POBJECT_TO_HANDLE ( PNDIS_HANDLE_OBJECT obj )
-{
-  return (NDIS_HANDLE)obj;
-}
 
-const WCHAR* NDIS_FILE_FOLDER = L"\\SystemRoot\\System32\\Drivers\\";
-
-/*
- * @implemented
+VOID
+EXPORT
+NdisWriteErrorLogEntry(
+    IN  NDIS_HANDLE     NdisAdapterHandle,
+    IN  NDIS_ERROR_CODE ErrorCode,
+    IN  ULONG           NumberOfErrorValues,
+    IN  ULONG           ERROR_LOG_MAXIMUM_SIZE)
+/*  IN  ULONG           ...) 
+ *  ERROR_LOG_MAXIMUM_SIZE = ... in MSDN
  */
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+NdisCloseConfiguration(
+    IN  NDIS_HANDLE ConfigurationHandle)
+{
+    UNIMPLEMENTED
+}
+
+
 VOID
 EXPORT
 NdisCloseFile(
     IN  NDIS_HANDLE FileHandle)
 {
-  PNDIS_HANDLE_OBJECT FileHandleObject;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  ASSERT ( FileHandle );
-
-  FileHandleObject = NDIS_HANDLE_TO_POBJECT(FileHandle);
-
-  ASSERT ( FileHandleObject->FileHandle );
-
-  /*
-  if ( FileHandleObject->Mapped )
-    NdisUnmapFile ( FileHandle );
-  */
-
-  ZwClose ( FileHandleObject->FileHandle );
-
-  memset ( FileHandleObject, 0, sizeof(NDIS_HANDLE_OBJECT) );
-
-  ExFreePool ( FileHandleObject );
+    UNIMPLEMENTED
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisIMDeInitializeDeviceInstance(
@@ -183,11 +191,6 @@ NdisIMDeInitializeDeviceInstance(
 }
 
 
-#undef NdisIMInitializeDeviceInstance
-
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisIMInitializeDeviceInstance(
@@ -200,9 +203,6 @@ NdisIMInitializeDeviceInstance(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisIMRegisterLayeredMiniport(
@@ -217,9 +217,6 @@ NdisIMRegisterLayeredMiniport(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisMWanIndicateReceive(
@@ -233,9 +230,6 @@ NdisMWanIndicateReceive(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisMWanIndicateReceiveComplete(
@@ -245,9 +239,6 @@ NdisMWanIndicateReceiveComplete(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisMWanSendComplete(
@@ -259,9 +250,23 @@ NdisMWanSendComplete(
 }
 
 
+VOID
+EXPORT
+NdisOpenConfiguration(
+    OUT PNDIS_STATUS    Status,
+    OUT PNDIS_HANDLE    ConfigurationHandle,
+    IN  NDIS_HANDLE     WrapperConfigurationContext)
+{
+    UNIMPLEMENTED
+}
+
+
 /*
- * @unimplemented
- */
+NdisOpenConfigurationKeyByIndex
+NdisOpenConfigurationKeyByName
+*/
+
+
 VOID
 EXPORT
 NdisOpenFile(
@@ -271,85 +276,49 @@ NdisOpenFile(
     IN  PNDIS_STRING            FileName,
     IN  NDIS_PHYSICAL_ADDRESS   HighestAcceptableAddress)
 {
-  NDIS_STRING FullFileName;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  PNDIS_HANDLE_OBJECT FileHandleObject = NULL;
-  IO_STATUS_BLOCK IoStatusBlock;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  *Status = NDIS_STATUS_SUCCESS;
-  FullFileName.Buffer = NULL;
-
-  ASSERT ( Status && FileName );
-
-  FullFileName.Length = sizeof(NDIS_FILE_FOLDER);
-  FullFileName.MaximumLength = FileName->MaximumLength + sizeof(NDIS_FILE_FOLDER);
-  FullFileName.Buffer = ExAllocatePool ( NonPagedPool, FullFileName.MaximumLength );
-
-  if ( !FullFileName.Buffer )
-  {
-    *Status = NDIS_STATUS_RESOURCES;
-    goto cleanup;
-  }
-
-  FileHandleObject = ExAllocatePool ( NonPagedPool, sizeof(NDIS_HANDLE_OBJECT) );
-  if ( !FileHandleObject )
-  {
-    *Status = NDIS_STATUS_RESOURCES;
-    goto cleanup;
-  }
-  memset ( FileHandleObject, 0, sizeof(NDIS_HANDLE_OBJECT) );
-
-  memmove ( FullFileName.Buffer, NDIS_FILE_FOLDER, FullFileName.Length );
-  *Status = RtlAppendUnicodeStringToString ( &FullFileName, FileName );
-  if ( !NT_SUCCESS(*Status) )
-    goto cleanup;
-
-  InitializeObjectAttributes ( &ObjectAttributes,
-    &FullFileName,
-    OBJ_CASE_INSENSITIVE,
-    NULL,
-    NULL );
-
-  *Status = ZwCreateFile (
-    &FileHandleObject->FileHandle,
-    FILE_READ_DATA|SYNCHRONIZE,
-    &ObjectAttributes,
-    &IoStatusBlock,
-    NULL, // PLARGE_INTEGER AllocationSize
-    0, // ULONG FileAttributes
-    FILE_SHARE_READ, // ULONG ShareAccess
-    CREATE_NEW, // ULONG CreateDisposition
-    FILE_SYNCHRONOUS_IO_NONALERT, // ULONG CreateOptions
-    0, // PVOID EaBuffer
-    0 ); // ULONG EaLength
-
-  //if ( !NT_SUCCESS(*Status) )
-  //  goto cleanup;
-
-cleanup:
-  if ( FullFileName.Buffer != NULL )
-  {
-    ExFreePool ( FullFileName.Buffer );
-    FullFileName.Buffer = NULL;
-  }
-  if ( !NT_SUCCESS(*Status) && FileHandleObject != NULL )
-  {
-    ExFreePool ( FileHandleObject );
-    FileHandleObject = NULL;
-    *FileHandle = NULL;
-  }
-  else
-    *FileHandle = NDIS_POBJECT_TO_HANDLE(FileHandleObject);
-
-  return;
+    UNIMPLEMENTED
 }
 
 
 /*
 NdisOpenGlobalConfiguration
 */
+
+VOID
+EXPORT
+NdisOpenProtocolConfiguration(
+    OUT PNDIS_STATUS    Status,
+    OUT PNDIS_HANDLE    ConfigurationHandle,
+    IN  PNDIS_STRING    ProtocolSection)
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+NdisReadConfiguration(
+    OUT PNDIS_STATUS                    Status,
+    OUT PNDIS_CONFIGURATION_PARAMETER   * ParameterValue,
+    IN  NDIS_HANDLE                     ConfigurationHandle,
+    IN  PNDIS_STRING                    Keyword,
+    IN  NDIS_PARAMETER_TYPE             ParameterType)
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+NdisReadNetworkAddress(
+    OUT PNDIS_STATUS    Status,
+    OUT PVOID           * NetworkAddress,
+    OUT PUINT           NetworkAddressLength,
+    IN  NDIS_HANDLE     ConfigurationHandle)
+{
+    UNIMPLEMENTED
+}
+
 
 #if 0
 VOID
@@ -385,9 +354,6 @@ NdisSetProtocolFilter(
 #endif
 
 
-/*
- * @unimplemented
- */
 CCHAR
 EXPORT
 NdisSystemProcessorCount(
@@ -397,9 +363,6 @@ NdisSystemProcessorCount(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisUnmapFile(
@@ -423,9 +386,6 @@ NdisWriteEventLogEntry
 
 /* NDIS 5.0 extensions */
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCompletePnPEvent(
@@ -443,9 +403,6 @@ NdisCompletePnPEvent(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisConvertStringToAtmAddress(
@@ -463,9 +420,6 @@ NdisConvertStringToAtmAddress(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisGetCurrentProcessorCounts(
@@ -483,9 +437,6 @@ NdisGetCurrentProcessorCounts(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisGetDriverHandle(
@@ -502,9 +453,6 @@ NdisGetDriverHandle(
 }
 
 
-/*
- * @unimplemented
- */
 PNDIS_PACKET
 EXPORT
 NdisGetReceivedPacket(
@@ -523,9 +471,6 @@ NdisGetReceivedPacket(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisGetSystemUptime(
@@ -541,11 +486,21 @@ NdisGetSystemUptime(
 }
 
 
-#undef NdisInterlockedDecrement
-
+VOID
+EXPORT
+NdisInitializeReadWriteLock(
+    IN  PNDIS_RW_LOCK   Lock)
 /*
- * @implemented
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
  */
+{
+    UNIMPLEMENTED
+}
+
+
 LONG
 EXPORT
 NdisInterlockedDecrement(
@@ -557,15 +512,12 @@ NdisInterlockedDecrement(
  *    NDIS 5.0
  */
 {
-  return InterlockedDecrement ( Addend );
+    UNIMPLEMENTED
+
+    return 0;
 }
 
 
-#undef NdisInterlockedIncrement
-
-/*
- * @implemented
- */
 LONG
 EXPORT
 NdisInterlockedIncrement(
@@ -577,13 +529,12 @@ NdisInterlockedIncrement(
  *    NDIS 5.0
  */
 {
-  return InterlockedIncrement ( Addend );
+    UNIMPLEMENTED
+
+    return 0;
 }
 
 
-/*
- * @implemented
- */
 PSINGLE_LIST_ENTRY 
 EXPORT
 NdisInterlockedPopEntrySList(
@@ -596,13 +547,12 @@ NdisInterlockedPopEntrySList(
  *    NDIS 5.0
  */
 {
-  return ExInterlockedPopEntrySList ( ListHead, Lock );
+    UNIMPLEMENTED
+
+    return NULL;
 }
 
 
-/*
- * @implemented
- */
 PSINGLE_LIST_ENTRY 
 EXPORT
 NdisInterlockedPushEntrySList(
@@ -616,13 +566,12 @@ NdisInterlockedPushEntrySList(
  *    NDIS 5.0
  */
 {
-  return ExInterlockedPushEntrySList ( ListHead, ListEntry, Lock );
+    UNIMPLEMENTED
+
+    return NULL;
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMDeregisterDevice(
@@ -640,9 +589,6 @@ NdisMDeregisterDevice(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisMGetDeviceProperty(
@@ -663,9 +609,6 @@ NdisMGetDeviceProperty(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMInitializeScatterGatherDma(
@@ -685,9 +628,6 @@ NdisMInitializeScatterGatherDma(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMPromoteMiniport(
@@ -705,9 +645,6 @@ NdisMPromoteMiniport(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMQueryAdapterInstanceName(
@@ -726,9 +663,6 @@ NdisMQueryAdapterInstanceName(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMRegisterDevice(
@@ -751,9 +685,6 @@ NdisMRegisterDevice(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisMRegisterUnloadHandler(
@@ -770,9 +701,6 @@ NdisMRegisterUnloadHandler(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMRemoveMiniport(
@@ -790,9 +718,6 @@ NdisMRemoveMiniport(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisMSetMiniportSecondary(
@@ -811,10 +736,43 @@ NdisMSetMiniportSecondary(
 }
 
 
-
+VOID
+EXPORT
+NdisOpenConfigurationKeyByIndex(
+    OUT PNDIS_STATUS    Status,
+    IN  NDIS_HANDLE     ConfigurationHandle,
+    IN  ULONG           Index,
+    OUT PNDIS_STRING    KeyName,
+    OUT PNDIS_HANDLE    KeyHandle)
 /*
- * @unimplemented
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
  */
+{
+    UNIMPLEMENTED
+}
+
+
+VOID
+EXPORT
+NdisOpenConfigurationKeyByName(
+    OUT PNDIS_STATUS    Status,
+    IN  NDIS_HANDLE     ConfigurationHandle,
+    IN  PNDIS_STRING    SubKeyName,
+    OUT PNDIS_HANDLE    SubKeyHandle)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
 NDIS_STATUS
 EXPORT
 NdisQueryAdapterInstanceName(
@@ -833,9 +791,24 @@ NdisQueryAdapterInstanceName(
 }
 
 
+VOID
+EXPORT
+NdisQueryBufferSafe(
+    IN  PNDIS_BUFFER    Buffer,
+    OUT PVOID           *VirtualAddress OPTIONAL,
+    OUT PUINT           Length,
+    IN  UINT            Priority)
 /*
- * @unimplemented
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
  */
+{
+    UNIMPLEMENTED
+}
+
+
 ULONG
 EXPORT
 NdisReadPcmciaAttributeMemory(
@@ -856,9 +829,6 @@ NdisReadPcmciaAttributeMemory(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisReleaseReadWriteLock(
@@ -874,9 +844,30 @@ NdisReleaseReadWriteLock(
     UNIMPLEMENTED
 }
 
+
+NDIS_STATUS
+EXPORT
+NdisWriteEventLogEntry(
+    IN  PVOID       LogHandle,
+    IN  NDIS_STATUS EventCode,
+    IN  ULONG       UniqueEventValue,
+    IN  USHORT      NumStrings,
+    IN  PVOID       StringsList OPTIONAL,
+    IN  ULONG       DataSize,
+    IN  PVOID       Data        OPTIONAL)
 /*
- * @unimplemented
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
  */
+{
+    UNIMPLEMENTED
+
+    return NDIS_STATUS_FAILURE;
+}
+
+
 ULONG
 EXPORT
 NdisWritePcmciaAttributeMemory(
@@ -899,9 +890,6 @@ NdisWritePcmciaAttributeMemory(
 
 /* NDIS 5.0 extensions for intermediate drivers */
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIMAssociateMiniport(
@@ -918,9 +906,6 @@ NdisIMAssociateMiniport(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS 
 EXPORT
 NdisIMCancelInitializeDeviceInstance(
@@ -939,9 +924,6 @@ NdisIMCancelInitializeDeviceInstance(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIMCopySendCompletePerPacketInfo(
@@ -958,9 +940,6 @@ NdisIMCopySendCompletePerPacketInfo(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIMCopySendPerPacketInfo(
@@ -977,9 +956,6 @@ NdisIMCopySendPerPacketInfo(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisIMDeregisterLayeredMiniport(
@@ -995,9 +971,6 @@ NdisIMDeregisterLayeredMiniport(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_HANDLE
 EXPORT
 NdisIMGetBindingContext(
@@ -1015,9 +988,6 @@ NdisIMGetBindingContext(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_HANDLE
 EXPORT
 NdisIMGetDeviceContext(
@@ -1035,9 +1005,6 @@ NdisIMGetDeviceContext(
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
 EXPORT
 NdisIMInitializeDeviceInstanceEx(

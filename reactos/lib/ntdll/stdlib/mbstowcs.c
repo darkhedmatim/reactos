@@ -1,4 +1,4 @@
-/* $Id: mbstowcs.c,v 1.3 2003/07/11 13:50:23 royce Exp $
+/* $Id: mbstowcs.c,v 1.2 2002/07/18 18:12:59 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -10,9 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * @implemented
- */
 size_t mbstowcs (wchar_t *wcstr, const char *mbstr, size_t count)
 {
 	NTSTATUS Status;

@@ -2,68 +2,46 @@
 #include <msvcrt/string.h>
 
 
-/*
- * @implemented
- */
 void _splitpath(const char* path, char* drive, char* dir, char* fname, char* ext)
 {
-  char* tmp_drive;
-  char* tmp_dir;
-  char* tmp_ext;
+    char* tmp_drive;
+    char* tmp_dir;
+    char* tmp_ext;
 
-  tmp_drive = (char*)strchr(path,':');
-  if (drive)
-    {
-      if (tmp_drive)
-        {
-          strncpy(drive,tmp_drive-1,2);
-          *(drive+2) = 0;
-        }
-      else
-        {
-          *drive = 0;
-        }
+    tmp_drive = (char*)strchr(path,':');
+    if ( tmp_drive != (char*)NULL ) {
+        strncpy(drive,tmp_drive-1,1);
+        *(drive+1) = 0;
     }
-  if (!tmp_drive)
-    {
-      tmp_drive = (char*)path - 1;
+    else {
+        *drive = 0;
+        tmp_drive = (char*)path;
     }
 
-  tmp_dir = (char*)strrchr(path,'\\');
-  if (dir)
-    {
-      if (tmp_dir)
-        {
-          strncpy(dir,tmp_drive+1,tmp_dir-tmp_drive);
-          *(dir+(tmp_dir-tmp_drive)) = 0;
-        }
-      else
-        {
-          *dir =0;
-        }
+    tmp_dir = (char*)strrchr(path,'\\');
+    if( tmp_dir != NULL && tmp_dir != tmp_drive + 1 ) {
+        strncpy(dir,tmp_drive+1,tmp_dir - tmp_drive);
+        *(dir + (tmp_dir - tmp_drive)) = 0;
     }
+    else
+        *dir =0;
 
-  tmp_ext = (char*)strrchr(path,'.');
-  if (!tmp_ext)
-    {
-      tmp_ext = (char*)path+strlen(path);
+    tmp_ext = ( char* )strrchr(path,'.');
+    if ( tmp_ext != NULL ) {
+        strcpy(ext,tmp_ext);
     }
-  if (ext)
+    else
     {
-      strcpy(ext,tmp_ext);
+        *ext = 0;
+        tmp_ext = (char*)path+strlen(path);
     }
-
-  if (fname)
+    if ( tmp_dir != NULL ) {
+        strncpy(fname,tmp_dir+1,tmp_ext - tmp_dir - 1);
+        *(fname + (tmp_ext - tmp_dir -1)) = 0;
+    }
+    else
     {
-      if (tmp_dir)
-        {
-          strncpy(fname,tmp_dir+1,tmp_ext-tmp_dir-1);
-          *(fname+(tmp_ext-tmp_dir-1)) = 0;
-        }
-      else
-        {
-          strncpy(fname,tmp_drive+1,tmp_ext-tmp_drive-1);
-          *(fname+(tmp_ext-path))=0;
-        }
+        strncpy(fname,path,tmp_ext - path);
+        *(fname+(tmp_ext-path))=0;
     }
 }

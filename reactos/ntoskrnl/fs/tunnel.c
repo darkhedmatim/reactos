@@ -1,10 +1,10 @@
-/* $Id: tunnel.c,v 1.7 2004/08/15 16:39:02 chorns Exp $
+/* $Id: tunnel.c,v 1.4 2002/09/08 10:23:20 chorns Exp $
  *
  * reactos/ntoskrnl/fs/tunnel.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
 
 /**********************************************************************
@@ -17,7 +17,6 @@
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -44,7 +43,6 @@ FsRtlAddToTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -66,7 +64,6 @@ FsRtlDeleteKeyFromTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -87,9 +84,8 @@ FsRtlDeleteTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-BOOLEAN
+VOID
 STDCALL
 FsRtlFindInTunnelCache (
     IN PTUNNEL          Cache,
@@ -101,7 +97,6 @@ FsRtlFindInTunnelCache (
     OUT PVOID           Data
     )
 {
-    return FALSE;
 }
 
 
@@ -115,7 +110,6 @@ FsRtlFindInTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL

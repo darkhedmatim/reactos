@@ -1,8 +1,6 @@
-# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
+# $Id: makefile,v 1.41 2003/02/09 18:02:56 hbirr Exp $
 
 PATH_TO_TOP = ../../..
-
-TARGET_BOOTSTRAP = yes
 
 TARGET_TYPE = driver
 
@@ -35,13 +33,7 @@ DEP_OBJECTS = $(TARGET_OBJECTS)
 
 TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
 
-include $(PATH_TO_TOP)/config
-
-ifeq ($(DBG), 1)
-TARGET_CFLAGS = -Wall -Werror -g
-else
-TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
-endif
+TARGET_CFLAGS = -g
 
 include $(PATH_TO_TOP)/rules.mak
 

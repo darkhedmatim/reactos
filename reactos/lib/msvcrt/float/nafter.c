@@ -1,9 +1,6 @@
 #include <msvcrt/float.h>
 
 
-/*
- * @implemented
- */
 double _nextafter( double x, double y )
 {
 	if ( x == y)

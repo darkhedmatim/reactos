@@ -16,32 +16,25 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: filesup.c,v 1.11 2004/08/15 22:29:50 chorns Exp $
+/* $Id: filesup.c,v 1.5 2003/02/08 00:19:32 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/filesup.c
  * PURPOSE:         File support functions
  * PROGRAMMER:      Eric Kohl
- *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 
 #include "usetup.h"
 #include "filesup.h"
-#include "cabinet.h"
 
-#define NDEBUG
-#include <debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
-
-static BOOLEAN HasCurrentCabinet = FALSE;
-static WCHAR CurrentCabinetName[MAX_PATH];
 
 NTSTATUS
 CreateDirectory(PWCHAR DirectoryName)
@@ -54,20 +47,6 @@ CreateDirectory(PWCHAR DirectoryName)
 
   RtlCreateUnicodeString(&PathName,
 			 DirectoryName);
-  if (PathName.Length > sizeof(WCHAR) &&
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 2] == L'\\' &&
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 1] == L'.')
-    {
-       PathName.Length -= sizeof(WCHAR);
-       PathName.Buffer[PathName.Length / sizeof(WCHAR)] = 0;
-    }
-      
-  if (PathName.Length > sizeof(WCHAR) && 
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 1] == L'\\')
-    {
-      PathName.Length -= sizeof(WCHAR);
-      PathName.Buffer[PathName.Length / sizeof(WCHAR)] = 0;
-   }
 
   InitializeObjectAttributes(&ObjectAttributes,
 			     &PathName,
@@ -83,7 +62,7 @@ CreateDirectory(PWCHAR DirectoryName)
 			FILE_ATTRIBUTE_DIRECTORY,
 			0,
 			FILE_CREATE,
-			FILE_SYNCHRONOUS_IO_NONALERT | FILE_DIRECTORY_FILE,
+			FILE_DIRECTORY_FILE,
 			NULL,
 			0);
   if (NT_SUCCESS(Status))
@@ -129,9 +108,10 @@ SetupCopyFile(PWCHAR SourceFileName,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,
-		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_SEQUENTIAL_ONLY);
+		      FILE_SYNCHRONOUS_IO_ALERT | FILE_SEQUENTIAL_ONLY);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       return(Status);
     }
 
@@ -142,6 +122,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 				  FileStandardInformation);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
      NtClose(FileHandleSource);
      return(Status);
     }
@@ -152,6 +133,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 				  FileBasicInformation);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       NtClose(FileHandleSource);
       return(Status);
     }
@@ -173,11 +155,12 @@ SetupCopyFile(PWCHAR SourceFileName,
 			FILE_ATTRIBUTE_NORMAL,
 			0,
 			FILE_OVERWRITE_IF,
-			FILE_SYNCHRONOUS_IO_NONALERT | FILE_SEQUENTIAL_ONLY,
+			FILE_SYNCHRONOUS_IO_ALERT | FILE_SEQUENTIAL_ONLY,
 			NULL,
 			0);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       NtClose(FileHandleSource);
       return(Status);
     }
@@ -191,6 +174,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 				FilePositionInformation);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       NtClose(FileHandleSource);
       NtClose(FileHandleDest);
       return(Status);
@@ -203,6 +187,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 				FilePositionInformation);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       NtClose(FileHandleSource);
       NtClose(FileHandleDest);
       return(Status);
@@ -221,6 +206,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 				   PAGE_READWRITE);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       NtClose(FileHandleSource);
       NtClose(FileHandleDest);
       return(Status);
@@ -248,6 +234,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 	      DPRINT("STATUS_END_OF_FILE\n");
 	      break;
 	    }
+CHECKPOINT1;
 	  NtClose(FileHandleSource);
 	  NtClose(FileHandleDest);
 	  return(Status);
@@ -266,6 +253,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 			   NULL);
       if (!NT_SUCCESS(Status))
 	{
+CHECKPOINT1;
 	  NtFreeVirtualMemory(NtCurrentProcess(),
 			      (PVOID *)&Buffer,
 			      &RegionSize,
@@ -292,65 +280,6 @@ SetupCopyFile(PWCHAR SourceFileName,
   NtClose(FileHandleDest);
 
   return(Status);
-}
-
-
-NTSTATUS
-SetupExtractFile(PWCHAR CabinetFileName,
-        PWCHAR SourceFileName,
-	      PWCHAR DestinationPathName)
-{
-  ULONG CabStatus;
-
-  DPRINT("SetupExtractFile(CabinetFileName %S, SourceFileName %S, DestinationPathName %S)\n",
-    CabinetFileName, SourceFileName, DestinationPathName);
-
-  if (HasCurrentCabinet)
-    {
-      DPRINT("CurrentCabinetName: %S\n", CurrentCabinetName);
-    }
-
-  if ((HasCurrentCabinet) && (wcscmp(CabinetFileName, CurrentCabinetName) == 0))
-    {
-      DPRINT("Using same cabinet as last time\n");
-    }
-  else
-    {
-      DPRINT("Using new cabinet\n");
-
-      if (HasCurrentCabinet)
-        {
-          CabinetCleanup();
-        }
-
-      wcscpy(CurrentCabinetName, CabinetFileName);
-
-      CabinetInitialize();
-      CabinetSetEventHandlers(NULL, NULL, NULL);
-      CabinetSetCabinetName(CabinetFileName);
-
-      CabStatus = CabinetOpen();
-      if (CabStatus == CAB_STATUS_SUCCESS)
-        {
-          DPRINT("Opened cabinet %S\n", CabinetGetCabinetName());
-          HasCurrentCabinet = TRUE;
-        }
-      else
-        {
-          DPRINT("Cannot open cabinet (%d)\n", CabStatus);
-          return STATUS_UNSUCCESSFUL;
-        }
-    }
-
-  CabinetSetDestinationPath(DestinationPathName);
-  CabStatus = CabinetExtractFile(SourceFileName);
-  if (CabStatus != CAB_STATUS_SUCCESS)
-    {
-      DPRINT("Cannot extract file %S (%d)\n", SourceFileName, CabStatus);
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  return STATUS_SUCCESS;
 }
 
 
@@ -387,9 +316,10 @@ DoesFileExist(PWSTR PathName,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      0,
-		      FILE_SYNCHRONOUS_IO_NONALERT);
+		      FILE_SYNCHRONOUS_IO_ALERT);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       return(FALSE);
     }
 

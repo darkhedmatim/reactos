@@ -16,10 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: ea.c,v 1.4 2003/10/11 17:51:56 hbirr Exp $
+/* $Id: ea.c,v 1.1 2002/08/14 20:58:31 dwelch Exp $
  *
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/ea.c
+ * FILE:             services/fs/vfat/ea.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
 

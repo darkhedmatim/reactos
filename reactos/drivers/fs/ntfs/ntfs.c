@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: ntfs.c,v 1.6 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: ntfs.c,v 1.2 2002/08/20 20:37:06 hyperion Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -56,7 +55,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_OBJECT DeviceObject;
   NTSTATUS Status;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Ntfs");
+  UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Ntfs");
 
   DPRINT("NTFS 0.0.1\n");
 
@@ -81,20 +80,20 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 
   /* Initialize driver data */
   DeviceObject->Flags = DO_DIRECT_IO;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = NtfsClose;
+//  DriverObject->MajorFunction[IRP_MJ_CLOSE] = NtfsClose;
   DriverObject->MajorFunction[IRP_MJ_CREATE] = NtfsCreate;
-  DriverObject->MajorFunction[IRP_MJ_READ] = NtfsRead;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = NtfsWrite;
+//  DriverObject->MajorFunction[IRP_MJ_READ] = NtfsRead;
+//  DriverObject->MajorFunction[IRP_MJ_WRITE] = NtfsWrite;
   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] =
     NtfsFileSystemControl;
   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] =
     NtfsDirectoryControl;
   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] =
     NtfsQueryInformation;
-  DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
-    NtfsQueryVolumeInformation;
-  DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
-    NtfsSetVolumeInformation;
+//  DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
+//    NtfsQueryVolumeInformation;
+//  DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
+//    NtfsSetVolumeInformation;
 
   DriverObject->DriverUnload = NULL;
 

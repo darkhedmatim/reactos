@@ -1,9 +1,6 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/direct.h>
 
-/*
- * @implemented
- */
 char* _getdcwd(int nDrive, char* caBuffer, int nBufLen)
 {
     int i =0;

@@ -1,15 +1,10 @@
-/* $Id: exception.c,v 1.18 2004/07/01 02:40:22 hyperion Exp $
+/* $Id: exception.c,v 1.12 2003/03/16 14:16:54 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
  * PURPOSE:           User-mode exception support
  * FILE:              lib/ntdll/rtl/exception.c
- * PROGRAMERS:        David Welch <welch@cwcom.net>
- *                    Skywing <skywing@valhallalegends.com>
- *                    KJK::Hyperion <noog@libero.it>
- * UPDATES:           Skywing, 09/11/2003: Implemented RtlRaiseException and
- *                    KiUserRaiseExceptionDispatcher.
- *                    KJK::Hyperion, 22/06/2003: Moved common parts to rtl
+ * PROGRAMER:         David Welch <welch@cwcom.net>
  */
 
 /* INCLUDES *****************************************************************/
@@ -17,7 +12,6 @@
 #include <ddk/ntddk.h>
 #include <windows.h>
 #include <string.h>
-#include <napi/teb.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -42,6 +36,8 @@ KiUserExceptionDispatcher(PEXCEPTION_RECORD ExceptionRecord,
   EXCEPTION_RECORD NestedExceptionRecord;
   NTSTATUS Status;
 
+  DPRINT("KiUserExceptionDispatcher()\n");
+
   if (RtlpDispatchException(ExceptionRecord, Context) != ExceptionContinueExecution)
     {
       Status = NtContinue(Context, FALSE);
@@ -59,21 +55,10 @@ KiUserExceptionDispatcher(PEXCEPTION_RECORD ExceptionRecord,
   RtlRaiseException(&NestedExceptionRecord);
 }
 
-
-/*
- * @implemented
- */
 VOID STDCALL
-KiRaiseUserExceptionDispatcher(VOID)
+RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
 {
-  EXCEPTION_RECORD ExceptionRecord;
-
-  ExceptionRecord.ExceptionCode = ((PTEB)NtCurrentTeb())->ExceptionCode;
-  ExceptionRecord.ExceptionFlags = 0;
-  ExceptionRecord.ExceptionRecord = NULL;
-  ExceptionRecord.NumberParameters = 0;
-
-  RtlRaiseException(&ExceptionRecord);
+	DbgPrint("RtlRaiseException()");
 }
 
 VOID STDCALL
@@ -85,6 +70,6 @@ RtlBaseProcessStart(PTHREAD_START_ROUTINE StartAddress,
   ExitStatus = (NTSTATUS) (StartAddress)(Parameter);
 
   NtTerminateProcess(NtCurrentProcess(), ExitStatus);
-}
+ }
 
 /* EOF */

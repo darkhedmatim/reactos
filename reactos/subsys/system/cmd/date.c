@@ -28,9 +28,16 @@
  *        Fixed date input bug.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DATE
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 static WORD awMonths[2][13] =
@@ -224,16 +231,16 @@ INT cmd_date (LPTSTR cmd, LPTSTR param)
 			PrintDateString ();
 			ConInString (s, 40);
 #ifdef _DEBUG
-			DebugPrintf (_T("\'%s\'\n"), s);
+			DebugPrintf ("\'%s\'\n", s);
 #endif
-			while (*s && s[_tcslen (s) - 1] < _T(' '))
-				s[_tcslen (s) - 1] = _T('\0');
+			while (*s && s[_tcslen (s) - 1] < ' ')
+				s[_tcslen (s) - 1] = '\0';
 			if (ParseDate (s))
 			{
 				freep (arg);
 				return 0;
 			}
-			ConErrPuts (_T("Invalid date."));
+			ConErrPuts ("Invalid date.");
 		}
 	}
 	else
@@ -243,7 +250,7 @@ INT cmd_date (LPTSTR cmd, LPTSTR param)
 			freep (arg);
 			return 0;
 		}
-		ConErrPuts (_T("Invalid date."));
+		ConErrPuts ("Invalid date.");
 	}
 
 	freep (arg);

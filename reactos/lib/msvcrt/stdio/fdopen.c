@@ -4,9 +4,6 @@
 FILE* __alloc_file(void);
 
 
-/*
- * @implemented
- */
 FILE* _fdopen(int handle, char* mode)
 {
   FILE* file;

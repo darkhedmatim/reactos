@@ -1,4 +1,4 @@
-/* $Id: rw.c,v 1.56 2004/10/10 18:23:09 ekohl Exp $
+/* $Id: rw.c,v 1.41 2003/01/11 15:32:40 hbirr Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -30,118 +33,128 @@
  *
  * REVISIONS
  *
- * @implemented
  */
-NTSTATUS STDCALL
-NtReadFile (IN HANDLE FileHandle,
-	    IN HANDLE Event OPTIONAL,
-	    IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-	    IN PVOID ApcContext OPTIONAL,
-	    OUT PIO_STATUS_BLOCK IoStatusBlock,
-	    OUT PVOID Buffer,
-	    IN ULONG Length,
-	    IN PLARGE_INTEGER ByteOffset OPTIONAL, /* NOT optional for asynch. operations! */
-	    IN PULONG Key OPTIONAL)
+NTSTATUS STDCALL NtReadFile(HANDLE			FileHandle,
+			    HANDLE			EventHandle,
+			    PIO_APC_ROUTINE		ApcRoutine,
+			    PVOID			ApcContext,
+			    PIO_STATUS_BLOCK	        UserIoStatusBlock,
+			    PVOID			Buffer,
+			    ULONG			Length,
+			    PLARGE_INTEGER		ByteOffset,
+			    PULONG			Key)
 {
   NTSTATUS Status;
   PFILE_OBJECT FileObject;
   PIRP Irp;
   PIO_STACK_LOCATION StackPtr;
-  KPROCESSOR_MODE PreviousMode;
-  PKEVENT EventObject = NULL;
-
+  PKEVENT Event = NULL;
+  IO_STATUS_BLOCK Iosb;
+  PIO_STATUS_BLOCK IoStatusBlock;
+  
   DPRINT("NtReadFile(FileHandle %x Buffer %x Length %x ByteOffset %x, "
 	 "IoStatusBlock %x)\n", FileHandle, Buffer, Length, ByteOffset,
 	 IoStatusBlock);
-
-  if (IoStatusBlock == NULL)
-    return STATUS_ACCESS_VIOLATION;
-
-  PreviousMode = ExGetPreviousMode();
-
+  
   Status = ObReferenceObjectByHandle(FileHandle,
 				     FILE_READ_DATA,
 				     IoFileObjectType,
-				     PreviousMode,
+				     UserMode,
 				     (PVOID*)&FileObject,
 				     NULL);
   if (!NT_SUCCESS(Status))
-  {
-    return Status;
-  }
-
-  if (ByteOffset == NULL ||
-      (ByteOffset->u.LowPart == FILE_USE_FILE_POINTER_POSITION &&
-       ByteOffset->u.HighPart == 0xffffffff))
-  {
-    /* a valid ByteOffset is required if asynch. op. */
-    if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
     {
-      DPRINT1("NtReadFile: missing ByteOffset for asynch. op\n");
-      ObDereferenceObject(FileObject);
-      return STATUS_INVALID_PARAMETER;
+      return(Status);
     }
-
-    ByteOffset = &FileObject->CurrentByteOffset;
-  }
-
-  if (Event != NULL)
-  {
-    Status = ObReferenceObjectByHandle(Event,
-				       SYNCHRONIZE,
-				       ExEventObjectType,
-				       PreviousMode,
-				       (PVOID*)&EventObject,
-				       NULL);
+  
+  if (ByteOffset == NULL)
+    {
+      ByteOffset = &FileObject->CurrentByteOffset;
+    }
+  
+  if (EventHandle != NULL)
+    {
+      Status = ObReferenceObjectByHandle(EventHandle,
+					 SYNCHRONIZE,
+					 ExEventObjectType,
+					 UserMode,
+					 (PVOID*)&Event,
+					 NULL);
       if (!NT_SUCCESS(Status))
 	{
 	  ObDereferenceObject(FileObject);
-	  return Status;
+	  return(Status);
 	}
-
-    KeClearEvent(EventObject);
-  }
-
-  KeClearEvent(&FileObject->Event);
-
+    }
+  else 
+    {
+      Event = &FileObject->Event;
+      KeResetEvent(Event);
+    }
+  
+  if (FileObject->Flags & FO_SYNCHRONOUS_IO)
+    {
+      IoStatusBlock = &Iosb;
+    }
+  else
+    {
+      IoStatusBlock = UserIoStatusBlock;
+    }
+  
   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_READ,
 				     FileObject->DeviceObject,
 				     Buffer,
 				     Length,
 				     ByteOffset,
-				     EventObject,
+				     Event,
 				     IoStatusBlock);
-
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
-
-  Irp->RequestorMode = PreviousMode;
-
+  
   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
-
+  
   StackPtr = IoGetNextIrpStackLocation(Irp);
   StackPtr->FileObject = FileObject;
-  StackPtr->Parameters.Read.Key = Key ? *Key : 0;
-
-  Status = IoCallDriver(FileObject->DeviceObject, Irp);
-  if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
-  {
-    Status = KeWaitForSingleObject(&FileObject->Event,
-				   Executive,
-				   PreviousMode,
-				   FileObject->Flags & FO_ALERTABLE_IO,
-				   NULL);
-    if (Status != STATUS_WAIT_0)
+  if (Key != NULL)
     {
-      /* Wait failed. */
-      return Status;
+      StackPtr->Parameters.Read.Key = *Key;
     }
-
-    Status = IoStatusBlock->Status;
-  }
-
-  return Status;
+  else
+    {
+      StackPtr->Parameters.Read.Key = 0;
+    }
+  
+  Status = IoCallDriver(FileObject->DeviceObject, Irp);
+  if (Status == STATUS_PENDING && FileObject->Flags & FO_SYNCHRONOUS_IO)
+     {
+       BOOLEAN Alertable;
+       
+       if (FileObject->Flags & FO_ALERTABLE_IO)
+	 {
+	   Alertable = TRUE;
+	 }
+       else
+	 {
+	   Alertable = FALSE;
+	 } 
+       
+       Status = KeWaitForSingleObject(Event,
+				      Executive,
+				      UserMode,
+				      Alertable,
+				      NULL);
+       if (Status != STATUS_WAIT_0)
+	 {
+	   /* Wait failed. */
+	   return(Status);
+	 }
+	Status = Iosb.Status;
+	return(Status);
+     }
+  if (FileObject->Flags & FO_SYNCHRONOUS_IO)
+    {
+      *UserIoStatusBlock = Iosb;
+    }
+  return(Status);
 }
 
 
@@ -157,143 +170,128 @@ NtReadFile (IN HANDLE FileHandle,
  *
  * REVISIONS
  *
- * @implemented
  */
-NTSTATUS STDCALL
-NtWriteFile (IN HANDLE FileHandle,
-	     IN HANDLE Event OPTIONAL,
-	     IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-	     IN PVOID ApcContext OPTIONAL,
-	     OUT PIO_STATUS_BLOCK IoStatusBlock,
-	     IN PVOID Buffer,
-	     IN ULONG Length,
-	     IN PLARGE_INTEGER ByteOffset OPTIONAL, /* NOT optional for asynch. operations! */
-	     IN PULONG Key OPTIONAL)
+NTSTATUS STDCALL NtWriteFile(HANDLE			FileHandle,
+			     HANDLE			EventHandle,
+			     PIO_APC_ROUTINE		ApcRoutine,
+			     PVOID			ApcContext,
+			     PIO_STATUS_BLOCK	        UserIoStatusBlock,
+			     PVOID			Buffer,
+			     ULONG			Length,
+			     PLARGE_INTEGER		ByteOffset,
+			     PULONG			Key)
 {
-  OBJECT_HANDLE_INFORMATION HandleInformation;
   NTSTATUS Status;
   PFILE_OBJECT FileObject;
   PIRP Irp;
   PIO_STACK_LOCATION StackPtr;
-  KPROCESSOR_MODE PreviousMode;
-  PKEVENT EventObject = NULL;
-  LARGE_INTEGER Offset;
-
+  PKEVENT Event = NULL;
+  IO_STATUS_BLOCK Iosb;
+  PIO_STATUS_BLOCK IoStatusBlock;
+  
   DPRINT("NtWriteFile(FileHandle %x Buffer %x Length %x ByteOffset %x, "
 	 "IoStatusBlock %x)\n", FileHandle, Buffer, Length, ByteOffset,
 	 IoStatusBlock);
-
-  if (IoStatusBlock == NULL)
-    return STATUS_ACCESS_VIOLATION;
-
-  PreviousMode = ExGetPreviousMode();
-
+  
   Status = ObReferenceObjectByHandle(FileHandle,
-				     0,
+				     FILE_READ_DATA,
 				     IoFileObjectType,
-				     PreviousMode,
+				     UserMode,
 				     (PVOID*)&FileObject,
-				     &HandleInformation);
+				     NULL);
   if (!NT_SUCCESS(Status))
-  {
-    return Status;
-  }
-
-  /* Must have FILE_WRITE_DATA | FILE_APPEND_DATA access */
-  if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA)))
-  {
-    DPRINT1("Invalid access rights\n");
-    ObDereferenceObject(FileObject);
-    return STATUS_ACCESS_DENIED;
-  }
-
-  if (HandleInformation.GrantedAccess & FILE_WRITE_DATA)
-  {
-    if (ByteOffset == NULL)
     {
-      /* a valid ByteOffset is required if asynch. op. */
-      if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
-      {
-        DPRINT1("NtWriteFile: missing ByteOffset for asynch. op\n");
-        ObDereferenceObject(FileObject);
-        return STATUS_INVALID_PARAMETER;
-      }
-
+      return(Status);
+    }
+  
+  if (ByteOffset == NULL)
+    {
       ByteOffset = &FileObject->CurrentByteOffset;
     }
-  }
-  else if (HandleInformation.GrantedAccess & FILE_APPEND_DATA)
-  {
-    /* a valid ByteOffset is required if asynch. op. */
-    if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
+  
+  if (EventHandle != NULL)
     {
-      DPRINT1("NtWriteFile: missing ByteOffset for asynch. op\n");
-      ObDereferenceObject(FileObject);
-      return STATUS_INVALID_PARAMETER;
+      Status = ObReferenceObjectByHandle(EventHandle,
+					 SYNCHRONIZE,
+					 ExEventObjectType,
+					 UserMode,
+					 (PVOID*)&Event,
+					 NULL);
+      if (!NT_SUCCESS(Status))
+	{
+	  ObDereferenceObject(FileObject);
+	  return(Status);
+	}
     }
-
-    Offset.u.LowPart = FILE_WRITE_TO_END_OF_FILE;
-    Offset.u.HighPart = 0xffffffff;
-    ByteOffset = &Offset;
-  }
-
-  if (Event != NULL)
-  {
-    Status = ObReferenceObjectByHandle(Event,
-				       SYNCHRONIZE,
-				       ExEventObjectType,
-				       PreviousMode,
-				       (PVOID*)&EventObject,
-				       NULL);
-    if (!NT_SUCCESS(Status))
+  else 
     {
-      ObDereferenceObject(FileObject);
-      return Status;
+      Event = &FileObject->Event;
+      KeResetEvent(Event);
     }
-
-    KeClearEvent(EventObject);
-  }
-
-  KeClearEvent(&FileObject->Event);
-
+  
+  if (FileObject->Flags & FO_SYNCHRONOUS_IO)
+    {
+      IoStatusBlock = &Iosb;
+    }
+  else
+    {
+      IoStatusBlock = UserIoStatusBlock;
+    }
+  
   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_WRITE,
 				     FileObject->DeviceObject,
 				     Buffer,
 				     Length,
 				     ByteOffset,
-				     EventObject,
+				     Event,
 				     IoStatusBlock);
-
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
-
-  Irp->RequestorMode = PreviousMode;
-
+  
   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
-
+  
   StackPtr = IoGetNextIrpStackLocation(Irp);
   StackPtr->FileObject = FileObject;
-  StackPtr->Parameters.Write.Key = Key ? *Key : 0;
-
-  Status = IoCallDriver(FileObject->DeviceObject, Irp);
-  if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
-  {
-    Status = KeWaitForSingleObject(&FileObject->Event,
-				   Executive,
-				   PreviousMode,
-				   FileObject->Flags & FO_ALERTABLE_IO,
-				   NULL);
-    if (Status != STATUS_WAIT_0)
+  if (Key != NULL)
     {
-      /* Wait failed. */
-      return Status;
+      StackPtr->Parameters.Write.Key = *Key;
     }
-
-    Status = IoStatusBlock->Status;
-  }
-
-  return Status;
+  else
+    {
+      StackPtr->Parameters.Write.Key = 0;
+    }
+  
+  Status = IoCallDriver(FileObject->DeviceObject, Irp);
+  if (Status == STATUS_PENDING && FileObject->Flags & FO_SYNCHRONOUS_IO)
+     {
+       BOOLEAN Alertable;
+       
+       if (FileObject->Flags & FO_ALERTABLE_IO)
+	 {
+	   Alertable = TRUE;
+	 }
+       else
+	 {
+	   Alertable = FALSE;
+	 } 
+       
+       Status = KeWaitForSingleObject(Event,
+				      Executive,
+				      UserMode,
+				      Alertable,
+				      NULL);
+       if (Status != STATUS_WAIT_0)
+	 {
+	   /* Wait failed. */
+	   return(Status);
+	 }
+	Status = Iosb.Status;
+	return(Status);
+     }
+  if (FileObject->Flags & FO_SYNCHRONOUS_IO)
+    {
+      *UserIoStatusBlock = Iosb;
+    }
+  return(Status);
 }
 
 
@@ -308,23 +306,23 @@ NtWriteFile (IN HANDLE FileHandle,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS
 STDCALL
 NtReadFileScatter (
-	IN	HANDLE			FileHandle,
-	IN	HANDLE			Event			OPTIONAL,
-	IN	PIO_APC_ROUTINE		UserApcRoutine		OPTIONAL,
-	IN	PVOID			UserApcContext		OPTIONAL,
-	OUT	PIO_STATUS_BLOCK	UserIoStatusBlock,
-	IN	FILE_SEGMENT_ELEMENT	BufferDescription [],
-	IN	ULONG			BufferLength,
-	IN	PLARGE_INTEGER		ByteOffset,
+	IN	HANDLE			FileHandle, 
+	IN	HANDLE			Event			OPTIONAL, 
+	IN	PIO_APC_ROUTINE		UserApcRoutine		OPTIONAL, 
+	IN	PVOID			UserApcContext		OPTIONAL, 
+	OUT	PIO_STATUS_BLOCK	UserIoStatusBlock, 
+	IN	FILE_SEGMENT_ELEMENT	BufferDescription [], 
+	IN	ULONG			BufferLength, 
+	IN	PLARGE_INTEGER		ByteOffset, 
 	IN	PULONG			Key			OPTIONAL
 	)
 {
 	UNIMPLEMENTED;
-	return(STATUS_NOT_IMPLEMENTED);
 }
 
 
@@ -339,23 +337,23 @@ NtReadFileScatter (
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS
 STDCALL
 NtWriteFileGather (
-	IN	HANDLE			FileHandle,
-	IN	HANDLE			Event OPTIONAL,
-	IN	PIO_APC_ROUTINE		ApcRoutine		OPTIONAL,
-	IN	PVOID			ApcContext		OPTIONAL,
+	IN	HANDLE			FileHandle, 
+	IN	HANDLE			Event OPTIONAL, 
+	IN	PIO_APC_ROUTINE		ApcRoutine		OPTIONAL, 
+	IN	PVOID			ApcContext		OPTIONAL, 
 	OUT	PIO_STATUS_BLOCK	IoStatusBlock,
 	IN	FILE_SEGMENT_ELEMENT	BufferDescription [],
-	IN	ULONG			BufferLength,
-	IN	PLARGE_INTEGER		ByteOffset,
+	IN	ULONG			BufferLength, 
+	IN	PLARGE_INTEGER		ByteOffset, 
 	IN	PULONG			Key			OPTIONAL
 	)
 {
 	UNIMPLEMENTED;
-	return(STATUS_NOT_IMPLEMENTED);
 }
 
 

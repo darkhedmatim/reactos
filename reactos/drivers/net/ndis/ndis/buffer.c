@@ -7,8 +7,8 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
 #include <buffer.h>
+
 
 
 __inline ULONG SkipToOffset(
@@ -39,8 +39,8 @@ __inline ULONG SkipToOffset(
         NdisQueryBuffer(Buffer, (PVOID)Data, Size);
 
         if (Offset < *Size) {
-            *Data  = (PUCHAR) ((ULONG_PTR) *Data + Offset);
-            *Size -= Offset;
+            ((ULONG_PTR)*Data) += Offset;
+            *Size              -= Offset;
             break;
         }
 
@@ -51,6 +51,7 @@ __inline ULONG SkipToOffset(
 
     return Offset;
 }
+
 
 UINT CopyBufferToBufferChain(
     PNDIS_BUFFER DstBuffer,
@@ -86,8 +87,8 @@ UINT CopyBufferToBufferChain(
         BytesToCopy = MIN(DstSize, Length);
 
         RtlCopyMemory((PVOID)DstData, (PVOID)SrcData, BytesToCopy);
-        BytesCopied += BytesToCopy;
-        SrcData      = (PUCHAR) ((ULONG_PTR) SrcData + BytesToCopy);
+        BytesCopied        += BytesToCopy;
+        (ULONG_PTR)SrcData += BytesToCopy;
 
         Length -= BytesToCopy;
         if (Length == 0)
@@ -145,8 +146,8 @@ UINT CopyBufferChainToBuffer(
         NDIS_DbgPrint(MAX_TRACE, ("Copying (%d) bytes from 0x%X to 0x%X\n", BytesToCopy, SrcData, DstData));
 
         RtlCopyMemory((PVOID)DstData, (PVOID)SrcData, BytesToCopy);
-        BytesCopied += BytesToCopy;
-        DstData      = (PUCHAR)((ULONG_PTR) DstData + BytesToCopy);
+        BytesCopied        += BytesToCopy;
+        (ULONG_PTR)DstData += BytesToCopy;
 
         Length -= BytesToCopy;
         if (Length == 0)
@@ -236,10 +237,12 @@ UINT CopyPacketToBufferChain(
     NdisQueryBuffer(DstBuffer, (PVOID)&DstData, &DstSize);
     if (SkipToOffset(DstBuffer, DstOffset, &DstData, &DstSize) == -1)
         return 0;
+
     /* Skip SrcOffset bytes in the source packet */
     NdisGetFirstBufferFromPacket(SrcPacket, &SrcBuffer, (PVOID)&SrcData, &SrcSize, &Total);
     if (SkipToOffset(SrcBuffer, SrcOffset, &SrcData, &SrcSize) == -1)
         return 0;
+
     /* Copy the data */
     for (Total = 0;;) {
         /* Find out how many bytes we can copy at one time */
@@ -284,9 +287,7 @@ UINT CopyPacketToBufferChain(
 }
 
 
-/*
- * @implemented
- */
+
 VOID
 EXPORT
 NdisAdjustBufferLength(
@@ -303,9 +304,6 @@ NdisAdjustBufferLength(
 }
 
 
-/*
- * @implemented
- */
 ULONG
 EXPORT
 NDIS_BUFFER_TO_SPAN_PAGES(
@@ -325,9 +323,6 @@ NDIS_BUFFER_TO_SPAN_PAGES(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisAllocateBuffer(
@@ -354,18 +349,6 @@ NdisAllocateBuffer(
         "VirtualAddress (0x%X)  Length (%d)\n",
         Status, Buffer, PoolHandle, VirtualAddress, Length));
 
-#if 0
-    Temp = Pool->FreeList;
-    while( Temp ) {
-	NDIS_DbgPrint(MID_TRACE,("Free buffer -> %x\n", Temp));
-	Temp = Temp->Next;
-    }
-    
-    NDIS_DbgPrint(MID_TRACE,("|:. <- End free buffers"));
-#endif
-
-    if(!VirtualAddress && !Length) return;
-
     KeAcquireSpinLock(&Pool->SpinLock, &OldIrql);
 
     if (Pool->FreeList) {
@@ -376,9 +359,25 @@ NdisAllocateBuffer(
 
         Temp->Next = NULL;
 
+#ifdef _MSC_VER
         MmInitializeMdl(&Temp->Mdl, VirtualAddress, Length);
         Temp->Mdl.MdlFlags      |= (MDL_SOURCE_IS_NONPAGED_POOL | MDL_ALLOCATED_FIXED_SIZE);
         Temp->Mdl.MappedSystemVa = VirtualAddress;
+#else
+	    Temp->Mdl.Next = (PMDL)NULL;
+	    Temp->Mdl.Size = (CSHORT)(sizeof(MDL) +
+            (ADDRESS_AND_SIZE_TO_SPAN_PAGES(VirtualAddress, Length) * sizeof(ULONG)));
+	    Temp->Mdl.MdlFlags   = (MDL_SOURCE_IS_NONPAGED_POOL | MDL_ALLOCATED_FIXED_SIZE);
+;	    Temp->Mdl.StartVa    = (PVOID)PAGE_ROUND_DOWN(VirtualAddress);
+	    Temp->Mdl.ByteOffset = (ULONG_PTR)(VirtualAddress - PAGE_ROUND_DOWN(VirtualAddress));
+	    Temp->Mdl.ByteCount  = Length;
+        Temp->Mdl.MappedSystemVa = VirtualAddress;
+#if 0
+	    //Temp->Mdl.Process    = PsGetCurrentProcess();
+#else
+        Temp->Mdl.Process    = NULL;
+#endif
+#endif
         
         Temp->BufferPool = Pool;
 
@@ -387,15 +386,10 @@ NdisAllocateBuffer(
     } else {
         KeReleaseSpinLock(&Pool->SpinLock, OldIrql);
         *Status = NDIS_STATUS_FAILURE;
-	NDIS_DbgPrint(MID_TRACE, ("Can't get another packet.\n"));
-	KeBugCheck(0);
     }
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisAllocateBufferPool(
@@ -426,13 +420,10 @@ NdisAllocateBufferPool(
 
         if (NumberOfDescriptors > 0) {
             Buffer             = &Pool->Buffers[0];
-	    NDIS_DbgPrint(MAX_TRACE, ("NDIS BUFFER ADDRESS << %x >>\n", Buffer));
             Pool->FreeList     = Buffer;
             for (i = 1; i < NumberOfDescriptors; i++) {
                 Buffer->Next = &Pool->Buffers[i];
                 Buffer       = Buffer->Next;
-		NDIS_DbgPrint(MAX_TRACE, ("NDIS BUFFER ADDRESS << %x >>\n",
-		              Buffer));
             }
             Buffer->Next = NULL;
         } else
@@ -445,9 +436,6 @@ NdisAllocateBufferPool(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisAllocatePacket(
@@ -489,9 +477,6 @@ NdisAllocatePacket(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisAllocatePacketPool(
@@ -545,9 +530,6 @@ NdisAllocatePacketPool(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisAllocatePacketPoolEx(
@@ -567,9 +549,6 @@ NdisAllocatePacketPoolEx(
 }
 
 
-/*
- * @implemented
- */
 ULONG
 EXPORT
 NdisBufferLength(
@@ -589,9 +568,6 @@ NdisBufferLength(
 }
 
 
-/*
- * @unimplemented
- */
 PVOID
 EXPORT
 NdisBufferVirtualAddress(
@@ -609,9 +585,6 @@ NdisBufferVirtualAddress(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisCopyBuffer(
@@ -636,9 +609,6 @@ NdisCopyBuffer(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisCopyFromPacketToPacket(
@@ -721,9 +691,6 @@ NdisCopyFromPacketToPacket(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisDprAllocatePacket(
@@ -741,9 +708,6 @@ NdisDprAllocatePacket(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisDprAllocatePacketNonInterlocked(
@@ -762,9 +726,6 @@ NdisDprAllocatePacketNonInterlocked(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisDprFreePacket(
@@ -778,9 +739,6 @@ NdisDprFreePacket(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisDprFreePacketNonInterlocked(
@@ -794,9 +752,6 @@ NdisDprFreePacketNonInterlocked(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisFreeBufferPool(
@@ -811,9 +766,6 @@ NdisFreeBufferPool(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisFreePacketPool(
@@ -828,9 +780,6 @@ NdisFreePacketPool(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisFreeBuffer(
@@ -850,15 +799,12 @@ NdisFreeBuffer(
     Pool = Temp->BufferPool;
 
     KeAcquireSpinLock(&Pool->SpinLock, &OldIrql);
-    Temp->Next     = (PNETWORK_HEADER)Pool->FreeList;
-    Pool->FreeList = (PNETWORK_HEADER)Temp;
+    Buffer->Next   = (PMDL)Pool->FreeList;
+    Pool->FreeList = (PNETWORK_HEADER)Buffer;
     KeReleaseSpinLock(&Pool->SpinLock, OldIrql);
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisFreePacket(
@@ -880,9 +826,6 @@ NdisFreePacket(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisGetBufferPhysicalArraySize(
@@ -895,16 +838,10 @@ NdisGetBufferPhysicalArraySize(
  *     ArraySize = Address of buffer to place number of physical blocks
  */
 {
-  ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-  ASSERT(Buffer && ArraySize);
-
-  *ArraySize = NDIS_BUFFER_TO_SPAN_PAGES(Buffer);
+    UNIMPLEMENTED
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisGetFirstBufferFromPacket(
@@ -944,9 +881,6 @@ NdisGetFirstBufferFromPacket(
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 EXPORT
 NdisReturnPackets(
@@ -963,9 +897,6 @@ NdisReturnPackets(
 }
 
 
-/*
- * @unimplemented
- */
 UINT
 EXPORT
 NdisPacketPoolUsage(
@@ -983,9 +914,6 @@ NdisPacketPoolUsage(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisQueryBuffer(
@@ -1008,32 +936,6 @@ NdisQueryBuffer(
 }
 
 
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisQueryBufferSafe(
-    IN  PNDIS_BUFFER    Buffer,
-    OUT PVOID           *VirtualAddress OPTIONAL,
-    OUT PUINT           Length,
-    IN  UINT            Priority)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    if (VirtualAddress != NULL)
-        *VirtualAddress = MmGetSystemAddressForMdlSafe(Buffer, Priority);
-    *Length = MmGetMdlByteCount(Buffer);
-}
-
-
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisQueryBufferOffset(
@@ -1046,9 +948,6 @@ NdisQueryBufferOffset(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisUnchainBufferAtBack(
@@ -1094,9 +993,6 @@ NdisUnchainBufferAtBack(
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 NdisUnchainBufferAtFront(

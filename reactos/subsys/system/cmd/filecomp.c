@@ -11,16 +11,18 @@
  *
  *    25-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *       Cleanup. Unicode safe!
- *
- *    30-Apr-2004 (Filip Navara <xnavara@volny.cz>)
- *       Make the file listing readable when there is a lot of long names.
- *
-
- *    05-Jul-2004 (Jens Collin <jens.collin@lakhei.com>)
- *       Now expands lfn even when trailing " is omitted.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdio.h>
+
+#include "cmd.h" 
 
 
 #ifdef FEATURE_UNIX_FILENAME_COMPLETION
@@ -32,8 +34,6 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 	INT   curplace = 0;
 	INT   start;
 	INT   count;
-	INT step;
-	INT c = 0;
 	BOOL  found_dot = FALSE;
 	BOOL  perfectmatch = TRUE;
 	TCHAR path[MAX_PATH];
@@ -47,28 +47,9 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 	if (count < 0)
 		count = 0;
 
-	/* find how many '"'s there is typed already.*/
-	step = count;
-	while (step > 0)
-	{
-		if (str[step] == _T('"'))
-			c++;
-		step--;
-	}
-	/* if c is odd, then user typed " before name, else not.*/
-
 	/* find front of word */
-	if (str[count] == _T('"') || (c % 2))
-	{
+	while (count > 0 && str[count] != _T(' '))
 		count--;
-		while (count > 0 && str[count] != _T('"'))
-			count--;
-	}
-	else
-	{
-		while (count > 0 && str[count] != _T(' '))
-			count--;
-	}
 
 	/* if not at beginning, go forward 1 */
 	if (str[count] == _T(' '))
@@ -76,24 +57,17 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 
 	start = count;
 
-	if (str[count] == _T('"'))
-		count++;	/* don't increment start */
-
 	/* extract directory from word */
-	_tcscpy (directory, &str[count]);
+	_tcscpy (directory, &str[start]);
 	curplace = _tcslen (directory) - 1;
-
-	if (curplace >= 0 && directory[curplace] == _T('"'))
-		directory[curplace--] = _T('\0');
-
-	_tcscpy (path, directory);
-
 	while (curplace >= 0 && directory[curplace] != _T('\\') &&
 		   directory[curplace] != _T(':'))
 	{
 		directory[curplace] = 0;
 		curplace--;
 	}
+
+	_tcscpy (path, &str[start]);
 
 	/* look for a '.' in the filename */
 	for (count = _tcslen (directory); path[count] != _T('\0'); count++)
@@ -128,6 +102,8 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 
 			if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				_tcscat (fname, _T("\\"));
+			else
+				_tcscat (fname, _T(" "));
 
 			if (!maxmatch[0] && perfectmatch)
 			{
@@ -144,49 +120,25 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 						break;
 					}
 				}
-
-				if (maxmatch[count] == _T('\0') &&
-				    fname[count] != _T('\0'))
-					perfectmatch = FALSE;
 			}
 		}
 		while (FindNextFile (hFile, &file));
 
 		FindClose (hFile);
+                if( perfectmatch )
+                {
+		    str[start] = '\"';
+		    _tcscpy (&str[start+1], directory);
+		    _tcscat (&str[start], maxmatch);
+                    _tcscat (&str[start], "\"" );
+                }
 
-		/* only quote if the filename contains spaces */
-		if (_tcschr(directory, _T(' ')) ||
-		    _tcschr(maxmatch, _T(' ')))
-		{
-			str[start] = _T('\"');
-			_tcscpy (&str[start+1], directory);
-			_tcscat (&str[start], maxmatch);
-			_tcscat (&str[start], _T("\"") );
-		}
 		else
-		{
-			_tcscpy (&str[start], directory);
-			_tcscat (&str[start], maxmatch);
-		}
-
-		/* append a space if last word is not a directory */
-		if(perfectmatch)
-		{
-			curplace = _tcslen(&str[start]);
-			if(str[start+curplace-1] == _T('"'))
-				curplace--;
-
-			if(str[start+curplace-1] != _T('\\'))
-				_tcscat(&str[start], _T(" "));
-		}
-		else
-		{
 #ifdef __REACTOS__
 			Beep (440, 50);
 #else
 			MessageBeep (-1);
 #endif
-		}
 	}
 	else
 	{
@@ -227,8 +179,6 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 	TCHAR path[MAX_PATH];
 	TCHAR fname[MAX_PATH];
 	TCHAR directory[MAX_PATH];
-	INT   longestfname = 0;
-	SHORT screenwidth;
 
 	/* expand current file name */
 	count = charcount - 1;
@@ -236,17 +186,8 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 		count = 0;
 
 	/* find front of word */
-	if (str[count] == _T('"'))
-	{
+	while (count > 0 && str[count] != _T(' '))
 		count--;
-		while (count > 0 && str[count] != _T('"'))
-			count--;
-	}
-	else
-	{
-		while (count > 0 && str[count] != _T(' '))
-			count--;
-	}
 
 	/* if not at beginning, go forward 1 */
 	if (str[count] == _T(' '))
@@ -254,18 +195,9 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 
 	start = count;
 
-	if (str[count] == _T('"'))
-		count++;	/* don't increment start */
-
 	/* extract directory from word */
-	_tcscpy (directory, &str[count]);
+	_tcscpy (directory, &str[start]);
 	curplace = _tcslen (directory) - 1;
-
-	if (curplace >= 0 && directory[curplace] == _T('"'))
-		directory[curplace--] = _T('\0');
-
-	_tcscpy (path, directory);
-
 	while (curplace >= 0 &&
 		   directory[curplace] != _T('\\') &&
 		   directory[curplace] != _T(':'))
@@ -273,6 +205,8 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 		directory[curplace] = 0;
 		curplace--;
 	}
+
+	_tcscpy (path, &str[start]);
 
 	/* look for a . in the filename */
 	for (count = _tcslen (directory); path[count] != _T('\0'); count++)
@@ -295,37 +229,13 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 	hFile = FindFirstFile (path, &file);
 	if (hFile != INVALID_HANDLE_VALUE)
 	{
-		/* Get the size of longest filename first. */
-		do
-		{
-			if (_tcslen(file.cFileName) > longestfname)
-			{
-				longestfname = _tcslen(file.cFileName);
-				/* Directories get extra brackets around them. */
-				if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-					longestfname += 2;
-			}
-		}
-		while (FindNextFile (hFile, &file));
-		FindClose (hFile);
-
-		hFile = FindFirstFile (path, &file);
-
-		/* Count the highest number of columns */
-		GetScreenSize(&screenwidth, 0);
-
-		/* For counting columns of output */
-		count = 0;
-
-		/* Increase by the number of spaces behind file name */
-		longestfname += 3;
-
 		/* find anything */
 		ConOutChar (_T('\n'));
+		count = 0;
 		do
 		{
 			/* ignore . and .. */
-			if (!_tcscmp (file.cFileName, _T(".")) ||
+			if (!_tcscmp (file.cFileName, _T(".")) || 
 				!_tcscmp (file.cFileName, _T("..")))
 				continue;
 
@@ -334,15 +244,10 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
 			else
 				_tcscpy (fname, file.cFileName);
 
-			ConOutPrintf (_T("%*s"), - longestfname, fname);
-			count++;
-			/* output as much columns as fits on the screen */
-			if (count >= (screenwidth / longestfname))
+			ConOutPrintf (_T("%-14s"), fname);
+			if (++count == 5)
 			{
-				/* print the new line only if we aren't on the
-				 * last column, in this case it wraps anyway */
-				if (count * longestfname != screenwidth)
-					ConOutPrintf (_T("\n"));
+				ConOutChar (_T('\n'));
 				count = 0;
 			}
 		}

@@ -1,37 +1,63 @@
-/* $Id: stubs.c,v 1.11 2004/11/06 11:45:47 weiden Exp $ */
-#include "precomp.h"
+/* $Id: stubs.c,v 1.4 2002/08/31 15:36:56 hyperion Exp $ */
+#include <windows.h>
+#include <psapi.h>
 
-#define NDEBUG
-#include <debug.h>
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetProcessMemoryInfo(HANDLE Process,
-                     PPROCESS_MEMORY_COUNTERS ppsmemCounters,
-                     DWORD cb)
+#if 0
+BOOL STDCALL EnumPageFiles(
+  PENUM_PAGE_CALLBACKW pCallbackRoutine,
+  LPVOID lpContext
+)
 {
-  DPRINT1("PSAPI: GetProcessMemoryInfo is UNIMPLEMENTED!\n");
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return FALSE;
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
 }
 
+BOOL STDCALL GetPerformanceInfo(
+  PPERFORMANCE_INFORMATION pPerformanceInformation, 
+  DWORD cb 
 
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-QueryWorkingSet(HANDLE hProcess,
-                PVOID pv,
-                DWORD cb)
+)
 {
-  DPRINT1("PSAPI: QueryWorkingSet is UNIMPLEMENTED!\n");
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return FALSE;
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+#endif
+BOOL STDCALL GetProcessMemoryInfo(
+  HANDLE Process,                          // handle to process
+  PPROCESS_MEMORY_COUNTERS ppsmemCounters, // buffer
+  DWORD cb                                 // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL GetWsChanges(
+  HANDLE hProcess,                         // handle to process
+  PPSAPI_WS_WATCH_INFORMATION lpWatchInfo, // buffer
+  DWORD cb                                 // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL InitializeProcessForWsWatch(
+  HANDLE hProcess  // handle to process
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL QueryWorkingSet(
+  HANDLE hProcess,  // handle to process
+  PVOID pv,         // information buffer
+  DWORD cb          // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
 }
 
 /* EOF */

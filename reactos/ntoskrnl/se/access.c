@@ -1,4 +1,4 @@
-/* $Id: access.c,v 1.7 2004/08/15 16:39:11 chorns Exp $
+/* $Id: access.c,v 1.3 2002/09/08 10:23:43 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,15 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
+#include <ddk/ntddk.h>
+
 
 /* FUNCTIONS ***************************************************************/
 
-/*
- * @implemented
- */
 BOOLEAN
 STDCALL
 RtlAreAllAccessesGranted (
@@ -31,9 +27,6 @@ RtlAreAllAccessesGranted (
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN
 STDCALL
 RtlAreAnyAccessesGranted (
@@ -45,9 +38,6 @@ RtlAreAnyAccessesGranted (
 }
 
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 RtlMapGenericMask (
@@ -68,47 +58,6 @@ RtlMapGenericMask (
 		*AccessMask |= GenericMapping->GenericAll;
 
 	*AccessMask &= 0x0FFFFFFF;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-SeCreateAccessState(
-	PACCESS_STATE AccessState,
-	PVOID AuxData,
-	ACCESS_MASK Access,
-	PGENERIC_MAPPING GenericMapping
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SeDeleteAccessState(
-	IN PACCESS_STATE AccessState
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SeSetAccessStateGenericMapping(
-	PACCESS_STATE AccessState,
-	PGENERIC_MAPPING GenericMapping
-	)
-{
-	UNIMPLEMENTED;
 }
 
 /* EOF */

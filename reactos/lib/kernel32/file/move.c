@@ -1,4 +1,4 @@
-/* $Id: move.c,v 1.16 2004/12/18 13:26:57 weiden Exp $
+/* $Id: move.c,v 1.9 2003/01/15 21:24:34 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,13 +14,133 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
-/* GLOBALS *****************************************************************/
+
+#define FILE_RENAME_SIZE  MAX_PATH +sizeof(FILE_RENAME_INFORMATION)
+
 
 /* FUNCTIONS ****************************************************************/
 
-static BOOL
+WINBOOL
+STDCALL
+MoveFileA (
+	LPCSTR	lpExistingFileName,
+	LPCSTR	lpNewFileName
+	)
+{
+	return MoveFileExA (lpExistingFileName,
+	                    lpNewFileName,
+	                    MOVEFILE_COPY_ALLOWED);
+}
+
+
+WINBOOL
+STDCALL
+MoveFileExA (
+	LPCSTR	lpExistingFileName,
+	LPCSTR	lpNewFileName,
+	DWORD	dwFlags
+	)
+{
+	return MoveFileWithProgressA (lpExistingFileName,
+	                              lpNewFileName,
+	                              NULL,
+	                              NULL,
+	                              dwFlags);
+}
+
+
+WINBOOL
+STDCALL
+MoveFileWithProgressA (
+	LPCSTR			lpExistingFileName,
+	LPCSTR			lpNewFileName,
+	LPPROGRESS_ROUTINE	lpProgressRoutine,
+	LPVOID			lpData,
+	DWORD			dwFlags
+	)
+{
+	UNICODE_STRING ExistingFileNameU;
+	UNICODE_STRING NewFileNameU;
+	ANSI_STRING ExistingFileName;
+	ANSI_STRING NewFileName;
+	WINBOOL Result;
+
+	RtlInitAnsiString (&ExistingFileName,
+	                   (LPSTR)lpExistingFileName);
+
+	RtlInitAnsiString (&NewFileName,
+	                   (LPSTR)lpNewFileName);
+
+	/* convert ansi (or oem) string to unicode */
+	if (bIsFileApiAnsi)
+	{
+		RtlAnsiStringToUnicodeString (&ExistingFileNameU,
+		                              &ExistingFileName,
+		                              TRUE);
+		RtlAnsiStringToUnicodeString (&NewFileNameU,
+		                              &NewFileName,
+		                              TRUE);
+	}
+	else
+	{
+		RtlOemStringToUnicodeString (&ExistingFileNameU,
+		                             &ExistingFileName,
+		                             TRUE);
+		RtlOemStringToUnicodeString (&NewFileNameU,
+		                             &NewFileName,
+		                             TRUE);
+	}
+
+	Result = MoveFileWithProgressW (ExistingFileNameU.Buffer,
+	                                NewFileNameU.Buffer,
+	                                lpProgressRoutine,
+	                                lpData,
+	                                dwFlags);
+
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             ExistingFileNameU.Buffer);
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             NewFileNameU.Buffer);
+
+	return Result;
+}
+
+
+WINBOOL
+STDCALL
+MoveFileW (
+	LPCWSTR	lpExistingFileName,
+	LPCWSTR	lpNewFileName
+	)
+{
+	return MoveFileExW (lpExistingFileName,
+	                    lpNewFileName,
+	                    MOVEFILE_COPY_ALLOWED);
+}
+
+
+WINBOOL
+STDCALL
+MoveFileExW (
+	LPCWSTR	lpExistingFileName,
+	LPCWSTR	lpNewFileName,
+	DWORD	dwFlags
+	)
+{
+	return MoveFileWithProgressW (lpExistingFileName,
+	                              lpNewFileName,
+	                              NULL,
+	                              NULL,
+	                              dwFlags);
+}
+
+
+static WINBOOL
 AdjustFileAttributes (
 	LPCWSTR ExistingFileName,
 	LPCWSTR NewFileName
@@ -32,7 +152,7 @@ AdjustFileAttributes (
 	HANDLE hFile;
 	DWORD Attributes;
 	NTSTATUS errCode;
-	BOOL Result = FALSE;
+	WINBOOL Result = FALSE;
 
 	hFile = CreateFileW (ExistingFileName,
 	                     FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
@@ -147,10 +267,7 @@ AdjustFileAttributes (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 MoveFileWithProgressW (
 	LPCWSTR			lpExistingFileName,
@@ -162,12 +279,11 @@ MoveFileWithProgressW (
 {
 	HANDLE hFile = NULL;
 	IO_STATUS_BLOCK IoStatusBlock;
-	PFILE_RENAME_INFORMATION FileRename;
+	FILE_RENAME_INFORMATION *FileRename;
+	USHORT Buffer[FILE_RENAME_SIZE];
 	NTSTATUS errCode;
-	BOOL Result;
-	UNICODE_STRING DstPathU;
-
-	DPRINT("MoveFileWithProgressW()\n");
+	DWORD err;
+	WINBOOL Result;
 
 	hFile = CreateFileW (lpExistingFileName,
 	                     GENERIC_ALL,
@@ -177,251 +293,73 @@ MoveFileWithProgressW (
 	                     FILE_ATTRIBUTE_NORMAL,
 	                     NULL);
 
-	if (hFile == INVALID_HANDLE_VALUE)
-	{
-           return FALSE;
-	}
-
-        /* validate & translate the filename */
-        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpNewFileName,
-				           &DstPathU,
-				           NULL,
-				           NULL))
-        {
-           DPRINT("Invalid destination path\n");
-	   CloseHandle(hFile);
-           SetLastError(ERROR_PATH_NOT_FOUND);
-           return FALSE;
-        }
-
-	FileRename = alloca(sizeof(FILE_RENAME_INFORMATION) + DstPathU.Length);
+	FileRename = (FILE_RENAME_INFORMATION *)Buffer;
 	if ((dwFlags & MOVEFILE_REPLACE_EXISTING) == MOVEFILE_REPLACE_EXISTING)
-		FileRename->ReplaceIfExists = TRUE;
+		FileRename->Replace = TRUE;
 	else
-		FileRename->ReplaceIfExists = FALSE;
+		FileRename->Replace = FALSE;
 
-	memcpy(FileRename->FileName, DstPathU.Buffer, DstPathU.Length);
-        RtlFreeHeap (RtlGetProcessHeap (),
-		     0,
-		     DstPathU.Buffer);
-	/* 
-	 * FIXME:
-	 *   Is the length the count of characters or the length of the buffer?
-	 */
-	FileRename->FileNameLength = DstPathU.Length / sizeof(WCHAR);
+	FileRename->FileNameLength = wcslen (lpNewFileName);
+	memcpy (FileRename->FileName,
+	        lpNewFileName,
+	        min(FileRename->FileNameLength, MAX_PATH));
+
 	errCode = NtSetInformationFile (hFile,
 	                                &IoStatusBlock,
 	                                FileRename,
-	                                sizeof(FILE_RENAME_INFORMATION) + DstPathU.Length,
+	                                FILE_RENAME_SIZE,
 	                                FileRenameInformation);
 	CloseHandle(hFile);
 	if (NT_SUCCESS(errCode))
 	{
 		Result = TRUE;
 	}
-	else if (STATUS_NOT_SAME_DEVICE == errCode &&
-		 MOVEFILE_COPY_ALLOWED == (dwFlags & MOVEFILE_COPY_ALLOWED))
-	{
-		Result = CopyFileExW (lpExistingFileName,
-		                      lpNewFileName,
-		                      lpProgressRoutine,
-		                      lpData,
-		                      NULL,
-		                      FileRename->ReplaceIfExists ? 0 : COPY_FILE_FAIL_IF_EXISTS);
-		if (Result)
-		{
-			/* Cleanup the source file */
-			AdjustFileAttributes(lpExistingFileName, lpNewFileName);
-	                Result = DeleteFileW (lpExistingFileName);
-		}
-	}
-#if 1
 	/* FIXME file rename not yet implemented in all FSDs so it will always
 	 * fail, even when the move is to the same device
 	 */
-	else if (STATUS_NOT_IMPLEMENTED == errCode)
+#if 0
+	else if (STATUS_NOT_SAME_DEVICE == errCode &&
+		 MOVEFILE_COPY_ALLOWED == (dwFlags & MOVEFILE_COPY_ALLOWED))
+#else
+	else
+#endif
 	{
-
-		UNICODE_STRING SrcPathU;
-
-		SrcPathU.Buffer = alloca(sizeof(WCHAR) * MAX_PATH);
-		SrcPathU.MaximumLength = MAX_PATH * sizeof(WCHAR);
-		SrcPathU.Length = GetFullPathNameW(lpExistingFileName, MAX_PATH, SrcPathU.Buffer, NULL);
-		if (SrcPathU.Length >= MAX_PATH)
-		{
-		    SetLastError(ERROR_FILENAME_EXCED_RANGE);
-		    return FALSE;
-		}
-		SrcPathU.Length *= sizeof(WCHAR);
-
-		DstPathU.Buffer = alloca(sizeof(WCHAR) * MAX_PATH);
-		DstPathU.MaximumLength = MAX_PATH * sizeof(WCHAR);
-		DstPathU.Length = GetFullPathNameW(lpNewFileName, MAX_PATH, DstPathU.Buffer, NULL);
-		if (DstPathU.Length >= MAX_PATH)
-		{
-		    SetLastError(ERROR_FILENAME_EXCED_RANGE);
-		    return FALSE;
-		}
-		DstPathU.Length *= sizeof(WCHAR);
-
-		if (0 == RtlCompareUnicodeString(&SrcPathU, &DstPathU, TRUE))
-		{
-		   /* Source and destination file are the same, nothing to do */
-		   return TRUE;
-		}
-
 		Result = CopyFileExW (lpExistingFileName,
 		                      lpNewFileName,
 		                      lpProgressRoutine,
 		                      lpData,
 		                      NULL,
-		                      FileRename->ReplaceIfExists ? 0 : COPY_FILE_FAIL_IF_EXISTS);
-		if (Result)
+		                      FileRename->Replace ? 0 : COPY_FILE_FAIL_IF_EXISTS) &&
+		         AdjustFileAttributes(lpExistingFileName, lpNewFileName) &&
+		         DeleteFileW (lpExistingFileName);
+		if (! Result)
 		{
-		    /* Cleanup the source file */
-                    AdjustFileAttributes(lpExistingFileName, lpNewFileName); 
-		    Result = DeleteFileW (lpExistingFileName);
+			/* Delete of the existing file failed so the
+			 * existing file is still there. Clean up the
+			 * new file (if possible)
+			 */
+			err = GetLastError();
+			if (! SetFileAttributesW (lpNewFileName, FILE_ATTRIBUTE_NORMAL))
+			{
+				DPRINT("Removing possible READONLY attrib from new file failed with code %d\n", GetLastError());
+			}
+			if (! DeleteFileW (lpNewFileName))
+			{
+				DPRINT("Deleting new file during cleanup failed with code %d\n", GetLastError());
+			}
+			SetLastError (err);
 		}
 	}
-#endif
+	/* See FIXME above */
+#if 0
 	else
 	{
 		SetLastErrorByStatus (errCode);
 		Result = FALSE;
 	}
-	return Result;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-MoveFileWithProgressA (
-	LPCSTR			lpExistingFileName,
-	LPCSTR			lpNewFileName,
-	LPPROGRESS_ROUTINE	lpProgressRoutine,
-	LPVOID			lpData,
-	DWORD			dwFlags
-	)
-{
-	UNICODE_STRING ExistingFileNameU;
-	UNICODE_STRING NewFileNameU;
-	ANSI_STRING ExistingFileName;
-	ANSI_STRING NewFileName;
-	BOOL Result;
-
-	RtlInitAnsiString (&ExistingFileName,
-	                   (LPSTR)lpExistingFileName);
-
-	RtlInitAnsiString (&NewFileName,
-	                   (LPSTR)lpNewFileName);
-
-	/* convert ansi (or oem) string to unicode */
-	if (bIsFileApiAnsi)
-	{
-		RtlAnsiStringToUnicodeString (&ExistingFileNameU,
-		                              &ExistingFileName,
-		                              TRUE);
-		RtlAnsiStringToUnicodeString (&NewFileNameU,
-		                              &NewFileName,
-		                              TRUE);
-	}
-	else
-	{
-		RtlOemStringToUnicodeString (&ExistingFileNameU,
-		                             &ExistingFileName,
-		                             TRUE);
-		RtlOemStringToUnicodeString (&NewFileNameU,
-		                             &NewFileName,
-		                             TRUE);
-	}
-
-	Result = MoveFileWithProgressW (ExistingFileNameU.Buffer,
-	                                NewFileNameU.Buffer,
-	                                lpProgressRoutine,
-	                                lpData,
-	                                dwFlags);
-
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             ExistingFileNameU.Buffer);
-	RtlFreeHeap (RtlGetProcessHeap (),
-	             0,
-	             NewFileNameU.Buffer);
+#endif
 
 	return Result;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-MoveFileW (
-	LPCWSTR	lpExistingFileName,
-	LPCWSTR	lpNewFileName
-	)
-{
-	return MoveFileExW (lpExistingFileName,
-	                    lpNewFileName,
-	                    MOVEFILE_COPY_ALLOWED);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-MoveFileExW (
-	LPCWSTR	lpExistingFileName,
-	LPCWSTR	lpNewFileName,
-	DWORD	dwFlags
-	)
-{
-	return MoveFileWithProgressW (lpExistingFileName,
-	                              lpNewFileName,
-	                              NULL,
-	                              NULL,
-	                              dwFlags);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-MoveFileA (
-	LPCSTR	lpExistingFileName,
-	LPCSTR	lpNewFileName
-	)
-{
-	return MoveFileExA (lpExistingFileName,
-	                    lpNewFileName,
-	                    MOVEFILE_COPY_ALLOWED);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-MoveFileExA (
-	LPCSTR	lpExistingFileName,
-	LPCSTR	lpNewFileName,
-	DWORD	dwFlags
-	)
-{
-	return MoveFileWithProgressA (lpExistingFileName,
-	                              lpNewFileName,
-	                              NULL,
-	                              NULL,
-	                              dwFlags);
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: lpc.c,v 1.15 2004/12/24 17:45:57 weiden Exp $
+/* $Id: lpc.c,v 1.9 2002/11/03 20:01:05 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,7 +16,6 @@
 #include <ddk/ntddk.h>
 #include <ntdll/csr.h>
 #include <string.h>
-#include <rosrtl/string.h>
 
 #include <csrss/csrss.h>
 
@@ -84,9 +83,6 @@ CsrReleaseParameterBuffer(PVOID ClientAddress)
   return(STATUS_SUCCESS);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 CsrClientCallServer(PCSRSS_API_REQUEST Request,
 		    PCSRSS_API_REPLY Reply OPTIONAL,
@@ -111,9 +107,6 @@ CsrClientCallServer(PCSRSS_API_REQUEST Request,
    return(Status);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 CsrClientConnectToServer(VOID)
 {
@@ -125,11 +118,6 @@ CsrClientConnectToServer(VOID)
    LPC_SECTION_WRITE LpcWrite;
    HANDLE CsrSectionHandle;
    LARGE_INTEGER CsrSectionViewSize;
-
-   if (WindowsApiPort != INVALID_HANDLE_VALUE)
-     {
-       return STATUS_SUCCESS;
-     }
 
    CsrSectionViewSize.QuadPart = CSR_CSRSS_SECTION_SIZE;
    Status = NtCreateSection(&CsrSectionHandle,
@@ -143,7 +131,7 @@ CsrClientConnectToServer(VOID)
      {
        return(Status);
      }
-   RtlRosInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
+   RtlInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
    ConnectInfoLength = 0;
    LpcWrite.Length = sizeof(LPC_SECTION_WRITE);
    LpcWrite.SectionHandle = CsrSectionHandle;
@@ -159,7 +147,6 @@ CsrClientConnectToServer(VOID)
 			  &ConnectInfoLength);
    if (!NT_SUCCESS(Status))
      {
-     	WindowsApiPort = INVALID_HANDLE_VALUE;
 	return(Status);
      }
 

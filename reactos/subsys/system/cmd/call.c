@@ -1,4 +1,4 @@
-/* $Id: call.c,v 1.4 2004/11/08 02:16:06 weiden Exp $
+/* $Id: call.c,v 1.1 2003/03/20 19:19:22 rcampbell Exp $
  *
  *  CALL.C - call internal batch command.
  *
@@ -26,7 +26,16 @@
  *        Unicode and redirection safe!
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /*
@@ -43,7 +52,7 @@ INT cmd_call (LPTSTR cmd, LPTSTR param)
 	LPBATCH_CONTEXT n = NULL;
 
 #ifdef _DEBUG
-	DebugPrintf (_T("cmd_call: (\'%s\',\'%s\')\n"), cmd, param);
+	DebugPrintf ("cmd_call: (\'%s\',\'%s\')\n", cmd, param);
 #endif
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{

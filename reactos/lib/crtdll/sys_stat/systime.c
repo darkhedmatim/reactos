@@ -1,15 +1,14 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/sys/time.h>
 
 
 int month[12] = { 31,28,31,30,31,30,31,31,30,31,30,31};
 
-/*
- * @unimplemented
- */
 unsigned int _getsystime(struct tm* tp)
 {
     SYSTEMTIME Time;
+    TIME_ZONE_INFORMATION TimeZoneInformation;
+    DWORD TimeZoneId;
     int i;
 
     GetLocalTime(&Time);
@@ -47,9 +46,6 @@ unsigned int _getsystime(struct tm* tp)
 }
 
 
-/*
- * @implemented
- */
 unsigned int _setsystime(struct tm* tp, unsigned int ms)
 {
     SYSTEMTIME Time;

@@ -1,4 +1,4 @@
-/* $Id: open.c,v 1.15 2004/08/15 17:34:26 chorns Exp $
+/* $Id: open.c,v 1.13 2002/11/24 18:42:13 robd Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -13,7 +13,7 @@
 
 // possibly store extra information at the handle
 
-#include "precomp.h"
+#include <windows.h>
 #include <stdarg.h>
 #include <msvcrt/io.h>
 #include <msvcrt/fcntl.h>
@@ -47,9 +47,6 @@ char __is_text_file(FILE* p)
    return (!((p)->_flag&_IOSTRG) && (fileno_modes[(p)->_file].mode&O_TEXT));
 }
 
-/*
- * @implemented
- */
 int _open(const char* _path, int _oflag,...)
 {
     HANDLE hFile;
@@ -222,17 +219,11 @@ int __fileno_close(int _fd)
     return 0;
 }
 
-/*
- * @implemented
- */
 int _open_osfhandle(void *osfhandle, int flags)
 {
     return __fileno_alloc((HANDLE)osfhandle, flags);
 }
 
-/*
- * @implemented
- */
 void *_get_osfhandle(int fileno)
 {
     return filehnd(fileno);

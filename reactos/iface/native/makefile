@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.14 2004/07/21 18:17:50 chorns Exp $
+# $Id: makefile,v 1.12 2001/07/15 21:18:54 rex Exp $
 #
 # ReactOS Operating System
 #
@@ -22,7 +22,7 @@ BASE_CFLAGS = -I../../include
 all: $(TARGET)$(EXE_POSTFIX) $(NAPI_FILES)
 
 $(NAPI_FILES): $(SYSTEM_CALLS_DB) $(TARGET)$(EXE_POSTFIX) 
-	@./$(TARGET)$(EXE_POSTFIX) \
+	./$(TARGET)$(EXE_POSTFIX) \
 		$(SYSTEM_CALLS_DB) \
 		$(NTDLL_STUBS) \
 		$(KERNEL_SERVICE_TABLE) \
@@ -30,7 +30,7 @@ $(NAPI_FILES): $(SYSTEM_CALLS_DB) $(TARGET)$(EXE_POSTFIX)
 
 # (rjj) i removed the following option from line below: -If:\gnu\mingw32\include
 $(TARGET)$(EXE_POSTFIX): $(TARGET).c
-	$(HOST_CC) -g -Wall -Werror $(TARGET).c -o $(TARGET)$(EXE_POSTFIX) 
+	$(HOST_CC) -g $(TARGET).c -o $(TARGET)$(EXE_POSTFIX)	
 
 clean:
 	- $(RM) $(TARGET)$(EXE_POSTFIX) $(NTDLL_STUBS) $(KERNEL_SERVICE_TABLE) $(KERNEL_ZW_CALLS)

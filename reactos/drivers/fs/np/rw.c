@@ -1,4 +1,4 @@
-/* $Id: rw.c,v 1.16 2004/12/30 16:15:10 ekohl Exp $
+/* $Id: rw.c,v 1.8 2002/09/08 10:22:11 chorns Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -10,54 +10,71 @@
 /* INCLUDES ******************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/minmax.h>
 #include "npfs.h"
 
 #define NDEBUG
 #include <debug.h>
 
-#define FIN_WORKAROUND_READCLOSE
 
 /* FUNCTIONS *****************************************************************/
 
-#ifndef NDEBUG
-VOID HexDump(PUCHAR Buffer, ULONG Length)
+static inline PNPFS_PIPE_DATA
+NpfsAllocatePipeData(PVOID Data,
+		     ULONG Size)
 {
-  CHAR Line[65];
-  UCHAR ch;
-  const char Hex[] = "0123456789ABCDEF";
-  int i, j;
+  PNPFS_PIPE_DATA PipeData;
 
-  DbgPrint("---------------\n");
-
-  for (i = 0; i < ROUND_UP(Length, 16); i+= 16)
+  PipeData = ExAllocateFromNPagedLookasideList(&NpfsPipeDataLookasideList);
+  if (!PipeData)
     {
-      memset(Line, ' ', 64);
-      Line[64] = 0;
-
-      for (j = 0; j < 16 && j + i < Length; j++)
-        {
-          ch = Buffer[i + j];
-          Line[3*j + 0] = Hex[ch >> 4];
-	  Line[3*j + 1] = Hex[ch & 0x0f];
-	  Line[48 + j] = isprint(ch) ? ch : '.';
-        }
-      DbgPrint("%s\n", Line);
+      return NULL;
     }
-  DbgPrint("---------------\n");
+
+  PipeData->Data = Data;
+  PipeData->Size = Size;
+  PipeData->Offset = 0;
+
+  return PipeData;
 }
-#endif
+
+
+static inline PNPFS_PIPE_DATA
+NpfsInitializePipeData(
+  PVOID Data,
+  ULONG Size)
+{
+  PNPFS_PIPE_DATA PipeData;
+  PVOID Buffer;
+
+  Buffer = ExAllocatePool(NonPagedPool, Size);
+  if (!Buffer)
+  {
+    return NULL;
+  }
+
+  RtlMoveMemory(Buffer, Data, Size);
+
+  PipeData = NpfsAllocatePipeData(Buffer, Size);
+  if (!PipeData)
+  {
+    ExFreePool(Buffer);
+  }
+
+  return PipeData;
+}
 
 
 NTSTATUS STDCALL
-NpfsRead(PDEVICE_OBJECT DeviceObject,
-	 PIRP Irp)
+NpfsRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
   PIO_STACK_LOCATION IoStack;
   PFILE_OBJECT FileObject;
   NTSTATUS Status;
   PNPFS_DEVICE_EXTENSION DeviceExt;
+  PWSTR PipeName;
   KIRQL OldIrql;
+  PLIST_ENTRY CurrentEntry;
+  PNPFS_PIPE_DATA Current;
   ULONG Information;
   PNPFS_FCB Fcb;
   PNPFS_FCB ReadFcb;
@@ -65,10 +82,9 @@ NpfsRead(PDEVICE_OBJECT DeviceObject,
   ULONG Length;
   PVOID Buffer;
   ULONG CopyLength;
-  ULONG TempLength;
 
   DPRINT("NpfsRead(DeviceObject %p  Irp %p)\n", DeviceObject, Irp);
-
+  
   DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
   IoStack = IoGetCurrentIrpStackLocation(Irp);
   FileObject = IoStack->FileObject;
@@ -79,14 +95,8 @@ NpfsRead(PDEVICE_OBJECT DeviceObject,
   if (ReadFcb == NULL)
     {
       DPRINT("Pipe is NOT connected!\n");
-      if (Fcb->PipeState == FILE_PIPE_LISTENING_STATE)
-        Status = STATUS_PIPE_LISTENING;
-      else if (Fcb->PipeState == FILE_PIPE_DISCONNECTED_STATE)
-        Status = STATUS_PIPE_DISCONNECTED;
-      else
-        Status = STATUS_PIPE_BROKEN;
+      Status = STATUS_UNSUCCESSFUL;
       Information = 0;
-      DPRINT("%x\n", Status);
       goto done;
     }
 
@@ -98,153 +108,116 @@ NpfsRead(PDEVICE_OBJECT DeviceObject,
       goto done;
     }
 
-  if (ReadFcb->Data == NULL)
-    {
-      DPRINT("Pipe is NOT readable!\n");
-      Status = STATUS_UNSUCCESSFUL;
-      Information = 0;
-      goto done;
-    }
-
-#ifdef FIN_WORKAROUND_READCLOSE
-  if (ReadFcb->ReadDataAvailable == 0 &&
-      ReadFcb->PipeState == FILE_PIPE_CLOSING_STATE)
-    {
-      DPRINT("Other end of pipe is closed!\n");
-      Status = STATUS_PIPE_BROKEN;
-      Information = 0;
-      goto done;
-    }
-#endif
-
   Status = STATUS_SUCCESS;
   Length = IoStack->Parameters.Read.Length;
   Information = 0;
 
   Buffer = MmGetSystemAddressForMdl(Irp->MdlAddress);
+  DPRINT("Length %d Buffer %x\n",Length,Buffer);
+
   KeAcquireSpinLock(&ReadFcb->DataListLock, &OldIrql);
   while (1)
-    {
-      /* FIXME: check if in blocking mode */
-      if (ReadFcb->ReadDataAvailable == 0)
+  {
+     /* FIXME: check if in blocking mode */
+     if (IsListEmpty(&ReadFcb->DataListHead))
+     {
+        KeResetEvent(&Fcb->ReadEvent);
+        KeReleaseSpinLock(&ReadFcb->DataListLock, OldIrql);
+	if (Information > 0)
 	{
-	  KeResetEvent(&Fcb->Event);
-	  KeSetEvent(&ReadFcb->Event, IO_NO_INCREMENT, FALSE);
-	  KeReleaseSpinLock(&ReadFcb->DataListLock, OldIrql);
-	  if (Information > 0)
-	    {
-	      Status = STATUS_SUCCESS;
-	      goto done;
-	    }
+	   Status = STATUS_SUCCESS;
+	   goto done;
+	}
+        if (Fcb->PipeState != FILE_PIPE_CONNECTED_STATE)
+	{
+	   Status = STATUS_PIPE_BROKEN;
+	   goto done;
+	}
+        /* Wait for ReadEvent to become signaled */
+        DPRINT("Waiting for readable data (%S)\n", Pipe->PipeName.Buffer);
+        Status = KeWaitForSingleObject(&Fcb->ReadEvent,
+				       UserRequest,
+				       KernelMode,
+				       FALSE,
+				       NULL);
+        DPRINT("Finished waiting (%S)! Status: %x\n", Pipe->PipeName.Buffer, Status);
+        KeAcquireSpinLock(&ReadFcb->DataListLock, &OldIrql);
+     }
 
-	  if (Fcb->PipeState != FILE_PIPE_CONNECTED_STATE)
-	    {
-	      DPRINT("PipeState: %x\n", Fcb->PipeState);
-	      Status = STATUS_PIPE_BROKEN;
-	      goto done;
-	    }
+     if (Pipe->PipeReadMode == FILE_PIPE_BYTE_STREAM_MODE)
+     {
+        DPRINT("Byte stream mode\n");
 
-	  /* Wait for ReadEvent to become signaled */
-	  DPRINT("Waiting for readable data (%S)\n", Pipe->PipeName.Buffer);
-	  Status = KeWaitForSingleObject(&Fcb->Event,
-				         UserRequest,
-				         KernelMode,
-				         FALSE,
-				         NULL);
-	  DPRINT("Finished waiting (%S)! Status: %x\n", Pipe->PipeName.Buffer, Status);
+        /* Byte stream mode */
+        CurrentEntry = NULL;
+        while (Length > 0 && !IsListEmpty(&ReadFcb->DataListHead))
+	{
+	   CurrentEntry = RemoveHeadList(&ReadFcb->DataListHead);
+	   Current = CONTAINING_RECORD(CurrentEntry, NPFS_PIPE_DATA, ListEntry);
 
-#ifndef FIN_WORKAROUND_READCLOSE
-	  /*
-	   * It's possible that the event was signaled because the
-	   * other side of pipe was closed.
-	   */
-	  if (Fcb->PipeState != FILE_PIPE_CONNECTED_STATE)
-	    {
-	      DPRINT("PipeState: %x\n", Fcb->PipeState);
-	      Status = STATUS_PIPE_BROKEN;
-	      goto done;
-	    }
-#endif
-	  KeAcquireSpinLock(&ReadFcb->DataListLock, &OldIrql);
+	   DPRINT("Took pipe data at %p off the queue\n", Current);
+
+	   CopyLength = RtlMin(Current->Size, Length);
+	   RtlCopyMemory(Buffer,
+			 ((PVOID)((PVOID)Current->Data + Current->Offset)),
+			 CopyLength);
+	   Buffer += CopyLength;
+	   Length -= CopyLength;
+	   Information += CopyLength;
+
+	   /* Update the data buffer */
+	   Current->Offset += CopyLength;
+	   Current->Size -= CopyLength;
+	   if (Current->Size == 0)
+	   {
+	       NpfsFreePipeData(Current);
+	       CurrentEntry = NULL;
+	   }
 	}
 
-      if (Pipe->PipeReadMode == FILE_PIPE_BYTE_STREAM_MODE)
+        if (CurrentEntry && Current->Size > 0)
 	{
-	  DPRINT("Byte stream mode\n");
-	  /* Byte stream mode */
-	  while (Length > 0 && ReadFcb->ReadDataAvailable > 0)
-	    {
-	      CopyLength = RtlRosMin(ReadFcb->ReadDataAvailable, Length);
-	      if (ReadFcb->ReadPtr + CopyLength <= ReadFcb->Data + ReadFcb->MaxDataLength)
-		{
-		  memcpy(Buffer, ReadFcb->ReadPtr, CopyLength);
-		  ReadFcb->ReadPtr += CopyLength;
-		  if (ReadFcb->ReadPtr == ReadFcb->Data + ReadFcb->MaxDataLength)
-		    {
-		      ReadFcb->ReadPtr = ReadFcb->Data;
-		    }
-		}
-	      else
-		{
-		  TempLength = ReadFcb->Data + ReadFcb->MaxDataLength - ReadFcb->ReadPtr;
-		  memcpy(Buffer, ReadFcb->ReadPtr, TempLength);
-		  memcpy(Buffer + TempLength, ReadFcb->Data, CopyLength - TempLength);
-		  ReadFcb->ReadPtr = ReadFcb->Data + CopyLength - TempLength;
-		}
+	   DPRINT("Putting pipe data at %p back in queue\n", Current);
 
-	      Buffer += CopyLength;
-	      Length -= CopyLength;
-	      Information += CopyLength;
-
-	      ReadFcb->ReadDataAvailable -= CopyLength;
-	      ReadFcb->WriteQuotaAvailable += CopyLength;
-	    }
-
-	  if (Length == 0)
-	    {
-	      KeSetEvent(&ReadFcb->Event, IO_NO_INCREMENT, FALSE);
-	      break;
-	    }
-	}
-      else
-	{
-	  DPRINT("Message mode\n");
-
-	  /* Message mode */
-	  if (ReadFcb->ReadDataAvailable)
-	    {
-	      /* Truncate the message if the receive buffer is too small */
-	      CopyLength = RtlRosMin(ReadFcb->ReadDataAvailable, Length);
-	      memcpy(Buffer, ReadFcb->Data, CopyLength);
-
-#ifndef NDEBUG
-	      DPRINT("Length %d Buffer %x\n",CopyLength,Buffer);
-	      HexDump((PUCHAR)Buffer, CopyLength);
-#endif
-
-	      Information = CopyLength;
-	      ReadFcb->ReadDataAvailable = 0;
-	      ReadFcb->WriteQuotaAvailable = ReadFcb->MaxDataLength;
-	    }
-
-	  if (Information > 0)
-	    {
-	      KeSetEvent(&ReadFcb->Event, IO_NO_INCREMENT, FALSE);
-	      break;
-	    }
+	   /* The caller's buffer could not contain the complete message,
+	      so put it back on the queue */
+	   InsertHeadList(&ReadFcb->DataListHead, &Current->ListEntry);
 	}
 
-#ifdef FIN_WORKAROUND_READCLOSE
-      if (ReadFcb->ReadDataAvailable == 0 &&
-	  ReadFcb->PipeState == FILE_PIPE_CLOSING_STATE)
+	if (Length == 0)
 	{
-	  DPRINT("Other end of pipe is closed!\n");
-	  break;
+	   break;
 	}
-#endif
-    }
+     }
+     else
+     {
+        DPRINT("Message mode\n");
 
+        /* Message mode */
+        if (!IsListEmpty(&ReadFcb->DataListHead))
+	{
+	   CurrentEntry = RemoveHeadList(&ReadFcb->DataListHead);
+	   Current = CONTAINING_RECORD(CurrentEntry, NPFS_PIPE_DATA, ListEntry);
+
+	   DPRINT("Took pipe data at %p off the queue\n", Current);
+
+	   /* Truncate the message if the receive buffer is too small */
+	   CopyLength = RtlMin(Current->Size, Length);
+	   RtlCopyMemory(Buffer, Current->Data, CopyLength);
+	   Information = CopyLength;
+
+	   Current->Offset += CopyLength;
+	   NpfsFreePipeData(Current);
+	}
+	if (Information > 0)
+	{
+	   break;
+	}
+     }
+  }
+  /* reset ReaderEvent */
   KeReleaseSpinLock(&ReadFcb->DataListLock, OldIrql);
+
 
 done:
   Irp->IoStatus.Status = Status;
@@ -252,9 +225,7 @@ done:
 
   IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-  DPRINT("NpfsRead done (Status %lx)\n", Status);
-
-  return Status;
+  return(Status);
 }
 
 
@@ -271,9 +242,7 @@ NpfsWrite(PDEVICE_OBJECT DeviceObject,
   ULONG Length;
   ULONG Offset;
   KIRQL OldIrql;
-  ULONG Information;
-  ULONG CopyLength;
-  ULONG TempLength;
+  PNPFS_PIPE_DATA PipeData;
 
   DPRINT("NpfsWrite()\n");
 
@@ -287,11 +256,10 @@ NpfsWrite(PDEVICE_OBJECT DeviceObject,
 
   Length = IoStack->Parameters.Write.Length;
   Offset = IoStack->Parameters.Write.ByteOffset.u.LowPart;
-  Information = 0;
 
   if (Irp->MdlAddress == NULL)
     {
-      DPRINT("Irp->MdlAddress == NULL\n");
+      DbgPrint ("Irp->MdlAddress == NULL\n");
       Status = STATUS_UNSUCCESSFUL;
       Length = 0;
       goto done;
@@ -300,138 +268,41 @@ NpfsWrite(PDEVICE_OBJECT DeviceObject,
   if (Fcb->OtherSide == NULL)
     {
       DPRINT("Pipe is NOT connected!\n");
-      if (Fcb->PipeState == FILE_PIPE_LISTENING_STATE)
-        Status = STATUS_PIPE_LISTENING;
-      else if (Fcb->PipeState == FILE_PIPE_DISCONNECTED_STATE)
-        Status = STATUS_PIPE_DISCONNECTED;
-      else
-        Status = STATUS_UNSUCCESSFUL;
-      Length = 0;
-      goto done;
-    }
-
-  if (Fcb->Data == NULL)
-    {
-      DPRINT("Pipe is NOT writable!\n");
       Status = STATUS_UNSUCCESSFUL;
       Length = 0;
       goto done;
     }
 
-  Status = STATUS_SUCCESS;
   Buffer = MmGetSystemAddressForMdl (Irp->MdlAddress);
-
-  KeAcquireSpinLock(&Fcb->DataListLock, &OldIrql);
-#ifndef NDEBUG
   DPRINT("Length %d Buffer %x Offset %x\n",Length,Buffer,Offset);
-  HexDump(Buffer, Length);
-#endif
 
-  while(1)
+  PipeData = NpfsInitializePipeData(Buffer, Length);
+  if (PipeData)
     {
-      if (Fcb->WriteQuotaAvailable == 0)
-	{
-	  KeResetEvent(&Fcb->Event);
-	  KeSetEvent(&Fcb->OtherSide->Event, IO_NO_INCREMENT, FALSE);
-	  KeReleaseSpinLock(&Fcb->DataListLock, OldIrql);
-	  if (Fcb->PipeState != FILE_PIPE_CONNECTED_STATE)
-	    {
-	      Status = STATUS_PIPE_BROKEN;
-	      goto done;
-	    }
+      DPRINT("Attaching pipe data at %p (%d bytes)\n", PipeData, Length);
 
-	  DPRINT("Waiting for buffer space (%S)\n", Pipe->PipeName.Buffer);
-	  Status = KeWaitForSingleObject(&Fcb->Event,
-				         UserRequest,
-				         KernelMode,
-				         FALSE,
-				         NULL);
-	  DPRINT("Finished waiting (%S)! Status: %x\n", Pipe->PipeName.Buffer, Status);
+      KeAcquireSpinLock(&Fcb->DataListLock, &OldIrql);
+      InsertTailList(&Fcb->DataListHead, &PipeData->ListEntry);
 
-#ifndef FIN_WORKAROUND_READCLOSE
-	  /*
-	   * It's possible that the event was signaled because the
-	   * other side of pipe was closed.
-	   */
-	  if (Fcb->PipeState != FILE_PIPE_CONNECTED_STATE)
-	    {
-	      DPRINT("PipeState: %x\n", Fcb->PipeState);
-	      Status = STATUS_PIPE_BROKEN;
-	      goto done;
-	    }
-#endif
-	  KeAcquireSpinLock(&Fcb->DataListLock, &OldIrql);
-	}
+      /* signal the readers ReadEvent */
+      KeSetEvent(&Fcb->OtherSide->ReadEvent, IO_NO_INCREMENT, FALSE);
 
-      if (Pipe->PipeWriteMode == FILE_PIPE_BYTE_STREAM_MODE)
-	{
-	  DPRINT("Byte stream mode\n");
-	  while (Length > 0 && Fcb->WriteQuotaAvailable > 0)
-	    {
-	      CopyLength = RtlRosMin(Length, Fcb->WriteQuotaAvailable);
-	      if (Fcb->WritePtr + CopyLength <= Fcb->Data + Fcb->MaxDataLength)
-		{
-		  memcpy(Fcb->WritePtr, Buffer, CopyLength);
-		  Fcb->WritePtr += CopyLength;
-		  if (Fcb->WritePtr == Fcb->Data + Fcb->MaxDataLength)
-		    {
-		      Fcb->WritePtr = Fcb->Data;
-		    }
-		}
-	      else
-		{
-		  TempLength = Fcb->Data + Fcb->MaxDataLength - Fcb->WritePtr;
-		  memcpy(Fcb->WritePtr, Buffer, TempLength);
-		  memcpy(Fcb->Data, Buffer + TempLength, CopyLength - TempLength);
-		  Fcb->WritePtr = Fcb->Data + CopyLength - TempLength;
-		}
+      KeReleaseSpinLock(&Fcb->DataListLock, OldIrql);
 
-	      Buffer += CopyLength;
-	      Length -= CopyLength;
-	      Information += CopyLength;
-
-	      Fcb->ReadDataAvailable += CopyLength;
-	      Fcb->WriteQuotaAvailable -= CopyLength;
-	    }
-
-	  if (Length == 0)
-	    {
-	      KeSetEvent(&Fcb->OtherSide->Event, IO_NO_INCREMENT, FALSE);
-	      break;
-	    }
-	}
-      else
-	{
-	  DPRINT("Message mode\n");
-	  if (Length > 0)
-	    {
-	      CopyLength = RtlRosMin(Length, Fcb->WriteQuotaAvailable);
-	      memcpy(Fcb->Data, Buffer, CopyLength);
-
-	      Information = CopyLength;
-	      Fcb->ReadDataAvailable = CopyLength;
-	      Fcb->WriteQuotaAvailable = 0;
-	    }
-
-	  if (Information > 0)
-	    {
-	      KeSetEvent(&Fcb->OtherSide->Event, IO_NO_INCREMENT, FALSE);
-	      break;
-	    }
-	}
     }
-
-  KeReleaseSpinLock(&Fcb->DataListLock, OldIrql);
+  else
+    {
+      Length = 0;
+      Status = STATUS_INSUFFICIENT_RESOURCES;
+    }
 
 done:
   Irp->IoStatus.Status = Status;
-  Irp->IoStatus.Information = Information;
-
+  Irp->IoStatus.Information = Length;
+  
   IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-  DPRINT("NpfsWrite done (Status %lx)\n", Status);
-
-  return Status;
+  
+  return(Status);
 }
 
 /* EOF */

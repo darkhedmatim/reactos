@@ -5,9 +5,6 @@
 #include <msvcrt/msvcrtdbg.h>
 
 
-/*
- * @implemented
- */
 int _creat(const char* filename, int mode)
 {
     DPRINT("_creat('%s', mode %x)\n", filename, mode);

@@ -1,4 +1,4 @@
-/* $Id: nttimer.c,v 1.26 2004/10/24 16:49:49 weiden Exp $
+/* $Id: nttimer.c,v 1.17 2003/02/27 15:41:54 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ntos/synch.h>
+#include <internal/ke.h>
+#include <limits.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+
 #include <internal/debug.h>
 
 
@@ -76,7 +82,7 @@ NtpDeleteTimer(PVOID ObjectBody)
 }
 
 
-VOID STDCALL
+VOID
 NtpTimerDpcRoutine(PKDPC Dpc,
 		   PVOID DeferredContext,
 		   PVOID SystemArgument1,
@@ -90,15 +96,15 @@ NtpTimerDpcRoutine(PKDPC Dpc,
 
    if ( Timer->Running )
      {
-       KeInsertQueueApc(&Timer->Apc,
-			SystemArgument1,
-			SystemArgument2,
-			IO_NO_INCREMENT);
+	KeInsertQueueApc(&Timer->Apc,
+			 SystemArgument1,
+			 SystemArgument2,
+			 KernelMode);
      }
 }
 
 
-VOID STDCALL
+VOID
 NtpTimerApcKernelRoutine(PKAPC Apc,
 			 PKNORMAL_ROUTINE* NormalRoutine,
 			 PVOID* NormalContext,
@@ -110,10 +116,8 @@ NtpTimerApcKernelRoutine(PKAPC Apc,
 }
 
 
-VOID INIT_FUNCTION
-NtInitializeTimerImplementation(VOID)
+VOID NtInitializeTimerImplementation(VOID)
 {
-   ASSERT(!ExTimerType)
    ExTimerType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
 
    RtlCreateUnicodeString(&ExTimerType->TypeName, L"Timer");
@@ -136,8 +140,6 @@ NtInitializeTimerImplementation(VOID)
    ExTimerType->OkayToClose = NULL;
    ExTimerType->Create = NtpCreateTimer;
    ExTimerType->DuplicationNotify = NULL;
-
-   ObpCreateTypeObject(ExTimerType);
 }
 
 
@@ -189,14 +191,10 @@ NtCreateTimer(OUT PHANDLE TimerHandle,
    NTSTATUS Status;
 
    DPRINT("NtCreateTimer()\n");
-   Status = ObCreateObject(ExGetPreviousMode(),
-			   ExTimerType,
+   Status = ObCreateObject(TimerHandle,
+			   DesiredAccess,
 			   ObjectAttributes,
-			   ExGetPreviousMode(),
-			   NULL,
-			   sizeof(NTTIMER),
-			   0,
-			   0,
+			   ExTimerType,
 			   (PVOID*)&Timer);
    if (!NT_SUCCESS(Status))
      return Status;
@@ -204,22 +202,15 @@ NtCreateTimer(OUT PHANDLE TimerHandle,
    KeInitializeTimerEx(&Timer->Timer,
 		       TimerType);
 
-   KeInitializeDpc(&Timer->Dpc,
-		   &NtpTimerDpcRoutine,
-		   Timer);
+   KeInitializeDpc (&Timer->Dpc,
+		    (PKDEFERRED_ROUTINE)NtpTimerDpcRoutine,
+		    (PVOID)Timer);
 
    Timer->Running = FALSE;
 
-   Status = ObInsertObject ((PVOID)Timer,
-			    NULL,
-			    DesiredAccess,
-			    0,
-			    NULL,
-			    TimerHandle);
-
    ObDereferenceObject(Timer);
 
-   return Status;
+   return(STATUS_SUCCESS);
 }
 
 
@@ -243,20 +234,20 @@ NtOpenTimer(OUT PHANDLE TimerHandle,
 
 NTSTATUS STDCALL
 NtQueryTimer(IN HANDLE TimerHandle,
-	     IN TIMER_INFORMATION_CLASS TimerInformationClass,
-	     OUT PVOID TimerInformation,
-	     IN ULONG TimerInformationLength,
-	     OUT PULONG ReturnLength  OPTIONAL)
+	     IN CINT TimerInformationClass,
+	     OUT PVOID UnsafeTimerInformation,
+	     IN ULONG Length,
+	     OUT PULONG UnsafeResultLength)
 {
   PNTTIMER Timer;
-  TIMER_BASIC_INFORMATION SafeTimerInformation;
+  TIMER_BASIC_INFORMATION TimerInformation;
   ULONG ResultLength;
   NTSTATUS Status;
 
   Status = ObReferenceObjectByHandle(TimerHandle,
 				     TIMER_QUERY_STATE,
 				     ExTimerType,
-				     (KPROCESSOR_MODE)KeGetPreviousMode(),
+				     KeGetPreviousMode(),
 				     (PVOID*)&Timer,
 				     NULL);
   if (!NT_SUCCESS(Status))
@@ -269,18 +260,18 @@ NtQueryTimer(IN HANDLE TimerHandle,
       ObDereferenceObject(Timer);
       return(STATUS_INVALID_INFO_CLASS);
     }
-  if (TimerInformationLength < sizeof(TIMER_BASIC_INFORMATION))
+  if (Length < sizeof(TIMER_BASIC_INFORMATION))
     {
       ObDereferenceObject(Timer);
       return(STATUS_INFO_LENGTH_MISMATCH);
     }
 
-  memcpy(&SafeTimerInformation.TimeRemaining, &Timer->Timer.DueTime,
+  memcpy(&TimerInformation.TimeRemaining, &Timer->Timer.DueTime,
 	 sizeof(LARGE_INTEGER));
-  SafeTimerInformation.SignalState = (BOOLEAN)Timer->Timer.Header.SignalState;
+  TimerInformation.SignalState = Timer->Timer.Header.SignalState;
   ResultLength = sizeof(TIMER_BASIC_INFORMATION);
 
-  Status = MmCopyToCaller(TimerInformation, &SafeTimerInformation,
+  Status = MmCopyToCaller(UnsafeTimerInformation, &TimerInformation,
 			  sizeof(TIMER_BASIC_INFORMATION));
   if (!NT_SUCCESS(Status))
     {
@@ -288,9 +279,9 @@ NtQueryTimer(IN HANDLE TimerHandle,
       return(Status);
     }
 
-  if (ReturnLength != NULL)
+  if (UnsafeResultLength != NULL)
     {
-      Status = MmCopyToCaller(ReturnLength, &ResultLength,
+      Status = MmCopyToCaller(UnsafeResultLength, &ResultLength,
 			      sizeof(ULONG));
       if (!NT_SUCCESS(Status))
 	{
@@ -306,15 +297,16 @@ NtQueryTimer(IN HANDLE TimerHandle,
 NTSTATUS STDCALL
 NtSetTimer(IN HANDLE TimerHandle,
 	   IN PLARGE_INTEGER DueTime,
-	   IN PTIMER_APC_ROUTINE TimerApcRoutine  OPTIONAL,
-	   IN PVOID TimerContext  OPTIONAL,
-	   IN BOOLEAN ResumeTimer,
-	   IN LONG Period  OPTIONAL,
-	   OUT PBOOLEAN PreviousState  OPTIONAL)
+	   IN PTIMERAPCROUTINE TimerApcRoutine,
+	   IN PVOID TimerContext,
+	   IN BOOL WakeTimer,
+	   IN ULONG Period OPTIONAL,
+	   OUT PBOOLEAN PreviousState OPTIONAL)
 {
    PNTTIMER Timer;
    NTSTATUS Status;
    BOOLEAN Result;
+   KIRQL OldIrql;
    BOOLEAN State;
 
    DPRINT("NtSetTimer()\n");
@@ -322,43 +314,38 @@ NtSetTimer(IN HANDLE TimerHandle,
    Status = ObReferenceObjectByHandle(TimerHandle,
 				      TIMER_ALL_ACCESS,
 				      ExTimerType,
-				      (KPROCESSOR_MODE)KeGetPreviousMode(),
+				      KeGetPreviousMode(),
 				      (PVOID*)&Timer,
 				      NULL);
    if (!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
+     return Status;
 
    State = KeReadStateTimer(&Timer->Timer);
 
    if (Timer->Running == TRUE)
      {
 	/* cancel running timer */
-	const KIRQL OldIrql = KeRaiseIrqlToDpcLevel();
+	OldIrql = KeRaiseIrqlToDpcLevel();
 	KeCancelTimer(&Timer->Timer);
 	KeRemoveQueueDpc(&Timer->Dpc);
 	KeRemoveQueueApc(&Timer->Apc);
 	Timer->Running = FALSE;
 	KeLowerIrql(OldIrql);
      }
+   if( TimerApcRoutine )
+      KeInitializeApc(&Timer->Apc,
+		      KeGetCurrentThread(),
+		      0,
+		      (PKKERNEL_ROUTINE)NtpTimerApcKernelRoutine,
+		      (PKRUNDOWN_ROUTINE)NULL,
+		      (PKNORMAL_ROUTINE)TimerApcRoutine,
+		      KeGetPreviousMode(),
+		      TimerContext);
 
-   if (TimerApcRoutine)
-     {
-       KeInitializeApc(&Timer->Apc,
-		       KeGetCurrentThread(),
-		       OriginalApcEnvironment,
-		       &NtpTimerApcKernelRoutine,
-		       (PKRUNDOWN_ROUTINE)NULL,
-		       (PKNORMAL_ROUTINE)TimerApcRoutine,
-		       (KPROCESSOR_MODE)KeGetPreviousMode(),
-		       TimerContext);
-     }
-
-   Result = KeSetTimerEx(&Timer->Timer,
-			 *DueTime,
-			 Period,
-			 TimerApcRoutine ? &Timer->Dpc : 0 );
+   Result = KeSetTimerEx (&Timer->Timer,
+			  *DueTime,
+			  Period,
+			  TimerApcRoutine ? &Timer->Dpc : 0 );
    if (Result == TRUE)
      {
 	ObDereferenceObject(Timer);

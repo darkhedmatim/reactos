@@ -1,4 +1,4 @@
-/* $Id: swprintf.c,v 1.18 2004/06/15 08:53:53 hbirr Exp $
+/* $Id: swprintf.c,v 1.12 2002/09/13 18:45:10 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -64,8 +64,8 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 {
 	wchar_t c, sign, tmp[66];
 	const wchar_t *digits;
-	const wchar_t *small_digits = L"0123456789abcdefghijklmnopqrstuvwxyz";
-	const wchar_t *large_digits = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	const wchar_t small_digits[] = L"0123456789abcdefghijklmnopqrstuvwxyz";
+	const wchar_t large_digits[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	int i;
 
 	digits = (type & LARGE) ? large_digits : small_digits;
@@ -167,7 +167,7 @@ string(wchar_t* buf, wchar_t* end, const char* s, int len, int field_width, int 
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -212,7 +212,7 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -243,14 +243,12 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 	return buf;
 }
 
-/*
- * @implemented
- */
+
 int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 {
 	int len;
 	unsigned long long num;
-	int base;
+	int i, base;
 	wchar_t * str, * end;
 	const char *s;
 	const wchar_t *sw;
@@ -320,10 +318,10 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 
 		/* get the conversion qualifier */
 		qualifier = -1;
-		if (*fmt == L'h' || *fmt == L'l' || *fmt == L'L' || *fmt == L'w') {
+		if (*fmt == 'h' || *fmt == 'l' || *fmt == 'L' || *fmt == 'w') {
 			qualifier = *fmt;
 			++fmt;
-		} else if (*fmt == L'I' && *(fmt+1) == L'6' && *(fmt+2) == L'4') {
+		} else if (*fmt == 'I' && *(fmt+1) == '6' && *(fmt+2) == '4') {
 			qualifier = *fmt;
 			fmt += 3;
 		}
@@ -485,15 +483,11 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 			continue;
 		}
 
-		if (qualifier == L'I')
+		if (qualifier == 'I')
 			num = va_arg(args, unsigned long long);
-		else if (qualifier == L'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
-		else if (qualifier == L'h') {
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
+		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
 			else
@@ -516,9 +510,6 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 }
 
 
-/*
- * @implemented
- */
 int swprintf(wchar_t *buf, const wchar_t *fmt, ...)
 {
 	va_list args;
@@ -531,9 +522,6 @@ int swprintf(wchar_t *buf, const wchar_t *fmt, ...)
 }
 
 
-/*
- * @implemented
- */
 int _snwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, ...)
 {
 	va_list args;

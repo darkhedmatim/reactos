@@ -1,8 +1,5 @@
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 size_t wcscspn(const wchar_t *str,const wchar_t *reject)
 {
 	wchar_t *s;

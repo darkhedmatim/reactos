@@ -17,9 +17,17 @@
  *        Unicode ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_PAUSE
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
+
 
 /*
  * Perform PAUSE command.
@@ -34,7 +42,7 @@
 INT cmd_pause (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("cmd_pause: \'%s\' : \'%s\')\n"), cmd, param);
+	DebugPrintf ("cmd_pause: \'%s\' : \'%s\'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))

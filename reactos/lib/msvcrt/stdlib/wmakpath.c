@@ -1,20 +1,16 @@
-/* $Id: wmakpath.c,v 1.3 2003/08/08 00:46:20 hbirr Exp $
+/* $Id: wmakpath.c,v 1.1 2002/11/24 18:42:25 robd Exp $
  */
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 
 
-/*
- * @implemented
- */
 void _wmakepath(wchar_t* path, const wchar_t* drive, const wchar_t* dir, const wchar_t* fname, const wchar_t* ext)
 {
     int dir_len;
 
     if ((drive != NULL) && (*drive)) {
-        path[0] = *drive;
-	path[1] = L':';
-	path[2] = 0;
+        wcscpy(path, drive);
+        wcscat(path, L":");
     } else {
         (*path) = 0;
     }

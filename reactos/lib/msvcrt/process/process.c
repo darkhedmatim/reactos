@@ -1,4 +1,4 @@
-#include "precomp.h"
+/* $Id: process.c,v 1.4 2003/03/23 15:18:01 hbirr Exp $ */
 #include <msvcrt/process.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
@@ -85,6 +85,7 @@ const char* find_exec(const char* path, char* rpath)
 		  }
 	       }
 	    }
+	    free(env);
 	}
     }
     
@@ -162,7 +163,7 @@ valisttos(const char* arg0, va_list alist, char delim)
 static int
 do_spawn(int mode, const char* cmdname, const char* args, const char* envp)
 {
-    STARTUPINFOA StartupInfo;
+    STARTUPINFO StartupInfo;
     PROCESS_INFORMATION ProcessInformation;
     char* fmode;
     HANDLE* hFile;
@@ -175,23 +176,23 @@ do_spawn(int mode, const char* cmdname, const char* args, const char* envp)
 
     if (mode != _P_NOWAIT && mode != _P_NOWAITO && mode != _P_WAIT && mode != _P_DETACH && mode != _P_OVERLAY)
     {
-       __set_errno ( EINVAL );
+       errno = EINVAL;
        return -1;
     }
 
     if (0 != _access(cmdname, F_OK))
     {
-	__set_errno ( ENOENT );
+	errno = ENOENT;
 	return -1;
     }
     if (0 == _access(cmdname, D_OK))
     {
-	__set_errno ( EISDIR );
+	errno = EISDIR;
 	return -1;
     }
 
-    memset (&StartupInfo, 0, sizeof(StartupInfo));
-    StartupInfo.cb = sizeof(StartupInfo);
+    memset (&StartupInfo, 0, sizeof(STARTUPINFO));
+    StartupInfo.cb = sizeof(STARTUPINFO);
 
     for (last = i = 0; i < maxfno; i++)
     {
@@ -207,7 +208,7 @@ do_spawn(int mode, const char* cmdname, const char* args, const char* envp)
 	StartupInfo.lpReserved2 = malloc(StartupInfo.cbReserved2);
 	if (StartupInfo.lpReserved2 == NULL)
 	{
-	    __set_errno ( ENOMEM );
+	    errno = ENOMEM;
 	    return -1;
 	} 
 
@@ -286,9 +287,6 @@ do_spawn(int mode, const char* cmdname, const char* args, const char* envp)
     return (int)ProcessInformation.hProcess;
 }
 
-/*
- * @implemented
- */
 int _spawnl(int mode, const char *cmdname, const char* arg0, ...)
 {
     va_list argp;
@@ -308,9 +306,6 @@ int _spawnl(int mode, const char *cmdname, const char* arg0, ...)
     return ret;
 }
 
-/*
- * @implemented
- */
 int _spawnv(int mode, const char *cmdname, char* const* argv)
 {
     char* args;
@@ -328,9 +323,6 @@ int _spawnv(int mode, const char *cmdname, char* const* argv)
     return ret;
 }
 
-/*
- * @implemented
- */
 int _spawnle(int mode, const char *cmdname, const char* arg0, ... /*, NULL, const char* const* envp*/)
 {
     va_list argp;
@@ -348,7 +340,6 @@ int _spawnle(int mode, const char *cmdname, const char* arg0, ... /*, NULL, cons
 	ptr = (char* const*)va_arg(argp, char*);
     }
     while (ptr != NULL);
-    ptr = (char* const*)va_arg(argp, char*);
     envs = argvtos(ptr, 0);
     if (args)
     {
@@ -363,9 +354,6 @@ int _spawnle(int mode, const char *cmdname, const char* arg0, ... /*, NULL, cons
     
 }
 
-/*
- * @implemented
- */
 int _spawnve(int mode, const char *cmdname, char* const* argv, char* const* envp)
 {
     char *args;
@@ -389,9 +377,6 @@ int _spawnve(int mode, const char *cmdname, char* const* argv, char* const* envp
     return ret;
 }
 
-/*
- * @implemented
- */
 int _spawnvp(int mode, const char* cmdname, char* const* argv)
 {
     char pathname[FILENAME_MAX];
@@ -401,9 +386,6 @@ int _spawnvp(int mode, const char* cmdname, char* const* argv)
     return _spawnv(mode, find_exec(cmdname, pathname), argv);
 }
 
-/*
- * @implemented
- */
 int _spawnlp(int mode, const char* cmdname, const char* arg0, .../*, NULL*/)
 {
     va_list argp;
@@ -424,9 +406,6 @@ int _spawnlp(int mode, const char* cmdname, const char* arg0, .../*, NULL*/)
 }
 
 
-/*
- * @implemented
- */
 int _spawnlpe(int mode, const char* cmdname, const char* arg0, .../*, NULL, const char* const* envp*/)
 {
     va_list argp;
@@ -445,7 +424,6 @@ int _spawnlpe(int mode, const char* cmdname, const char* arg0, .../*, NULL, cons
 	ptr = (char* const*)va_arg(argp, char*);
     }
     while (ptr != NULL);
-    ptr = (char* const*)va_arg(argp, char*);
     envs = argvtos(ptr, 0);
     if (args)
     {
@@ -459,9 +437,6 @@ int _spawnlpe(int mode, const char* cmdname, const char* arg0, .../*, NULL, cons
     return ret;
 }
 
-/*
- * @implemented
- */
 int _spawnvpe(int mode, const char* cmdname, char* const* argv, char* const* envp)
 {
     char pathname[FILENAME_MAX];
@@ -471,9 +446,6 @@ int _spawnvpe(int mode, const char* cmdname, char* const* argv, char* const* env
     return _spawnve(mode, find_exec(cmdname, pathname), argv, envp);
 }
 
-/*
- * @implemented
- */
 int _execl(const char* cmdname, const char* arg0, ...)
 {
     char* args;
@@ -493,18 +465,12 @@ int _execl(const char* cmdname, const char* arg0, ...)
     return ret;
 }
 
-/*
- * @implemented
- */
 int _execv(const char* cmdname, char* const* argv)
 {
     DPRINT("_execv('%s')\n", cmdname);
     return _spawnv(P_OVERLAY, cmdname, argv);
 }
 
-/*
- * @implemented
- */
 int _execle(const char* cmdname, const char* arg0, ... /*, NULL, char* const* envp */)
 {
     va_list argp;
@@ -522,8 +488,7 @@ int _execle(const char* cmdname, const char* arg0, ... /*, NULL, char* const* en
 	ptr = (char* const*)va_arg(argp, char*);
     }
     while (ptr != NULL);
-    ptr = (char* const*)va_arg(argp, char*);
-    envs = argvtos(ptr, 0);
+    envs = argvtos((char**)ptr, 0);
     if (args)
     {
 	ret = do_spawn(P_OVERLAY, cmdname, args, envs);
@@ -536,18 +501,12 @@ int _execle(const char* cmdname, const char* arg0, ... /*, NULL, char* const* en
     return ret;
 }
 
-/*
- * @implemented
- */
 int _execve(const char* cmdname, char* const* argv, char* const* envp)
 {
     DPRINT("_execve('%s')\n", cmdname);
     return _spawnve(P_OVERLAY, cmdname, argv, envp);
 }
 
-/*
- * @implemented
- */
 int _execlp(const char* cmdname, const char* arg0, ...)
 {
     char* args;
@@ -568,18 +527,12 @@ int _execlp(const char* cmdname, const char* arg0, ...)
     return ret;
 }
 
-/*
- * @implemented
- */
 int _execvp(const char* cmdname, char* const* argv)
 {
     DPRINT("_execvp('%s')\n", cmdname);
     return _spawnvp(P_OVERLAY, cmdname, argv);
 }
 
-/*
- * @implemented
- */
 int _execlpe(const char* cmdname, const char* arg0, ... /*, NULL, char* const* envp */)
 {
     va_list argp;
@@ -598,7 +551,6 @@ int _execlpe(const char* cmdname, const char* arg0, ... /*, NULL, char* const* e
 	ptr = (char* const*)va_arg(argp, char*);
     }
     while (ptr != NULL);
-    ptr = (char* const*)va_arg(argp, char*);
     envs = argvtos(ptr, 0);
     if (args)
     {
@@ -612,9 +564,6 @@ int _execlpe(const char* cmdname, const char* arg0, ... /*, NULL, char* const* e
     return ret;
 }
 
-/*
- * @implemented
- */
 int _execvpe(const char* cmdname, char* const* argv, char* const* envp)
 {
     DPRINT("_execvpe('%s')\n", cmdname);

@@ -24,8 +24,7 @@ static VOID SdWriteOffset(ULONG Offset)
    outl_p(PORT,Offset);
 }
 
-NTSTATUS STDCALL
-Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:

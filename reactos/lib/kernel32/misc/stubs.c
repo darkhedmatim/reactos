@@ -1,83 +1,75 @@
-/* $Id: stubs.c,v 1.101 2004/12/18 13:26:57 weiden Exp $
+/* $Id: stubs.c,v 1.47 2003/02/12 03:44:20 ekohl Exp $
  *
- * KERNEL32.DLL stubs (STUB functions)
+ * KERNEL32.DLL stubs (unimplemented functions)
  * Remove from this file, if you implement them.
  */
-
 #include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+//#define _OLE2NLS_IN_BUILD_
 
-
-#define STUB \
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED); \
-  DPRINT1("%s() is UNIMPLEMENTED!\n", __FUNCTION__)
-
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 BaseAttachCompleteThunk (VOID)
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseDumpAppcompatCache(VOID)
-{
-    STUB;
-}
 
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseFlushAppcompatCache(VOID)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseCheckAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-BaseUpdateAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 CmdBatNotification (
     DWORD   Unknown
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
+int
+STDCALL
+CompareStringA (
+    LCID    Locale,
+    DWORD   dwCmpFlags,
+    LPCSTR  lpString1,
+    int cchCount1,
+    LPCSTR  lpString2,
+    int cchCount2
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+CompareStringW (
+    LCID    Locale,
+    DWORD   dwCmpFlags,
+    LPCWSTR lpString1,
+    int cchCount1,
+    LPCWSTR lpString2,
+    int cchCount2
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+LCID
+STDCALL
+ConvertDefaultLocale (
+    LCID    Locale
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
 DWORD
 STDCALL
 CreateVirtualBuffer (
@@ -86,14 +78,141 @@ CreateVirtualBuffer (
     DWORD   Unknown2
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
+WINBOOL
+STDCALL
+EnumCalendarInfoW (
+    CALINFO_ENUMPROC lpCalInfoEnumProc,
+    LCID              Locale,
+    CALID             Calendar,
+    CALTYPE           CalType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumCalendarInfoA (
+    CALINFO_ENUMPROC    lpCalInfoEnumProc,
+    LCID            Locale,
+    CALID           Calendar,
+    CALTYPE         CalType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumDateFormatsW (
+    DATEFMT_ENUMPROC    lpDateFmtEnumProc,
+    LCID            Locale,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumDateFormatsA (
+    DATEFMT_ENUMPROC    lpDateFmtEnumProc,
+    LCID            Locale,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumSystemCodePagesW (
+    CODEPAGE_ENUMPROC   lpCodePageEnumProc,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumSystemCodePagesA (
+    CODEPAGE_ENUMPROC   lpCodePageEnumProc,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+WINBOOL
+STDCALL
+EnumSystemLocalesW (
+    LOCALE_ENUMPROC lpLocaleEnumProc,
+    DWORD       dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumSystemLocalesA (
+    LOCALE_ENUMPROC lpLocaleEnumProc,
+    DWORD       dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#endif
+
+WINBOOL
+STDCALL
+EnumTimeFormatsW (
+    TIMEFMT_ENUMPROC    lpTimeFmtEnumProc,
+    LCID            Locale,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+EnumTimeFormatsA (
+    TIMEFMT_ENUMPROC    lpTimeFmtEnumProc,
+    LCID            Locale,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
 DWORD
 STDCALL
 ExitVDM (
@@ -101,14 +220,11 @@ ExitVDM (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 ExtendVirtualBuffer (
@@ -116,14 +232,11 @@ ExtendVirtualBuffer (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 int
 STDCALL
 FoldStringW (
@@ -134,14 +247,11 @@ FoldStringW (
     int cchDest
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 int
 STDCALL
 FoldStringA (
@@ -152,56 +262,388 @@ FoldStringA (
     int cchDest
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 FreeVirtualBuffer (
     HANDLE  hVirtualBuffer
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+UINT
+STDCALL
+GetACP (VOID)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#endif
+
+WINBOOL
+STDCALL
+GetBinaryTypeW (
+    LPCWSTR lpApplicationName,
+    LPDWORD lpBinaryType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
+WINBOOL
+STDCALL
+GetBinaryTypeA (
+    LPCSTR  lpApplicationName,
+    LPDWORD lpBinaryType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+WINBOOL
+STDCALL
+GetCPInfo (
+    UINT        a0,
+    LPCPINFO    a1
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#endif
+
+int
+STDCALL
+GetCurrencyFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    LPCWSTR         lpValue,
+    CONST CURRENCYFMT   * lpFormat,
+    LPWSTR          lpCurrencyStr,
+    int         cchCurrency
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+GetCurrencyFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    LPCSTR          lpValue,
+    CONST CURRENCYFMT   * lpFormat,
+    LPSTR           lpCurrencyStr,
+    int         cchCurrency
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+int
+STDCALL
+GetDateFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpDate,
+    LPCWSTR         lpFormat,
+    LPWSTR          lpDateStr,
+    int         cchDate
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+GetDateFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpDate,
+    LPCSTR          lpFormat,
+    LPSTR           lpDateStr,
+    int         cchDate
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+GetLocaleInfoW (
+    LCID    Locale,
+    LCTYPE  LCType,
+    LPWSTR  lpLCData,
+    int cchData
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+GetLocaleInfoA (
+    LCID    Locale,
+    LCTYPE  LCType,
+    LPSTR   lpLCData,
+    int cchData
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
 DWORD
 STDCALL
 GetNextVDMCommand (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+int
 STDCALL
-GetSystemPowerStatus (
-    LPSYSTEM_POWER_STATUS PowerStatus
+GetNumberFormatW (
+    LCID        Locale,
+    DWORD       dwFlags,
+    LPCWSTR     lpValue,
+    CONST NUMBERFMT * lpFormat,
+    LPWSTR      lpNumberStr,
+    int     cchNumber
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
+int
+STDCALL
+GetNumberFormatA (
+    LCID        Locale,
+    DWORD       dwFlags,
+    LPCSTR      lpValue,
+    CONST NUMBERFMT * lpFormat,
+    LPSTR       lpNumberStr,
+    int     cchNumber
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+UINT
+STDCALL
+GetOEMCP (VOID)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 437; /* FIXME: call csrss.exe */
+}
+
+
+WINBOOL
+STDCALL
+GetStringTypeExW (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+GetStringTypeExA (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+GetStringTypeW (
+    DWORD   dwInfoType,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+GetStringTypeA (
+    LCID    Locale,
+    DWORD   dwInfoType,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPWORD  lpCharType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+LCID
+STDCALL
+GetSystemDefaultLCID (VOID)
+{
+    /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELCID(
+        LANG_ENGLISH,
+        SORT_DEFAULT
+        );
+}
+
+
+LANGID
+STDCALL
+GetSystemDefaultLangID (VOID)
+{
+     /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELANGID(
+        LANG_ENGLISH,
+        SUBLANG_ENGLISH_US
+        );
+}
+
+#endif
+
+WINBOOL
+STDCALL
+GetSystemPowerStatus (
+    DWORD   Unknown0
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+LCID
+STDCALL
+GetThreadLocale (VOID)
+{
+    /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELCID(
+        LANG_ENGLISH,
+        SORT_DEFAULT
+        );
+}
+
+#endif
+
+int
+STDCALL
+GetTimeFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpTime,
+    LPCWSTR         lpFormat,
+    LPWSTR          lpTimeStr,
+    int         cchTime
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+int
+STDCALL
+GetTimeFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpTime,
+    LPCSTR          lpFormat,
+    LPSTR           lpTimeStr,
+    int         cchTime
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+LCID
+STDCALL
+GetUserDefaultLCID (VOID)
+{
+    /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELCID(
+        LANG_ENGLISH,
+        SORT_DEFAULT
+        );
+}
+
+
+LANGID
+STDCALL
+GetUserDefaultLangID (VOID)
+{
+     /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELANGID(
+        LANG_ENGLISH,
+        SUBLANG_ENGLISH_US
+        );
+}
+
+#endif
+
 DWORD
 STDCALL
 GetVDMCurrentDirectories (
@@ -209,15 +651,104 @@ GetVDMCurrentDirectories (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+WINBOOL
+STDCALL
+IsDBCSLeadByte (
+    BYTE    TestChar
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+IsDBCSLeadByteEx (
+    UINT    CodePage,
+    BYTE    TestChar
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+IsValidCodePage (
+    UINT    CodePage
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+IsValidLocale (
+    LCID    Locale,
+    DWORD   dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+int
+STDCALL
+LCMapStringA (
+    LCID    Locale,
+    DWORD   dwMapFlags,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPSTR   lpDestStr,
+    int cchDest
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+int
+STDCALL
+LCMapStringW (
+    LCID    Locale,
+    DWORD   dwMapFlags,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWSTR  lpDestStr,
+    int cchDest
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#endif
+
+DWORD
+STDCALL
+LoadModule (
+    LPCSTR  lpModuleName,
+    LPVOID  lpParameterBlock
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+WINBOOL
 STDCALL
 RegisterConsoleVDM (
     DWORD   Unknown0,
@@ -233,85 +764,130 @@ RegisterConsoleVDM (
     DWORD   Unknown10
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 RegisterWowBaseHandlers (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 RegisterWowExec (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL STDCALL
-SetSystemPowerState (
-    BOOL fSuspend,
-    BOOL fForce
+WINBOOL
+STDCALL
+SetComputerNameA (
+    LPCSTR  lpComputerName
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
+STDCALL
+SetComputerNameW (
+    LPCWSTR lpComputerName
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+WINBOOL
+STDCALL
+SetLocaleInfoA (
+    LCID    Locale,
+    LCTYPE  LCType,
+    LPCSTR  lpLCData
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+SetLocaleInfoW (
+    LCID    Locale,
+    LCTYPE  LCType,
+    LPCWSTR lpLCData
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
+STDCALL
+SetThreadLocale (
+    LCID    Locale
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+#endif
+
+
+WINBOOL STDCALL
+SetSystemPowerState (
+    IN WINBOOL fSuspend,
+    IN WINBOOL fForce
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+WINBOOL
 STDCALL
 SetVDMCurrentDirectories (
     DWORD   Unknown0,
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 TrimVirtualBuffer (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 VDMConsoleOperation (
@@ -319,28 +895,24 @@ VDMConsoleOperation (
     DWORD   Unknown1
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 VDMOperationStarted (
     DWORD   Unknown0
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
+#ifndef _OLE2NLS_IN_BUILD_
+
 DWORD
 STDCALL
 VerLanguageNameA (
@@ -349,14 +921,11 @@ VerLanguageNameA (
     DWORD   nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 VerLanguageNameW (
@@ -365,14 +934,12 @@ VerLanguageNameW (
     DWORD   nSize
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
+#endif
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 VirtualBufferExceptionHandler (
@@ -381,1372 +948,34 @@ VirtualBufferExceptionHandler (
     DWORD   Unknown2
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
-/*
- * @unimplemented
- */
+
 BOOL
 STDCALL
-ActivateActCtx(
-    HANDLE hActCtx,
-    ULONG_PTR *lpCookie
+GetFileAttributesExA(
+    LPCSTR lpFileName,
+    GET_FILEEX_INFO_LEVELS fInfoLevelId,
+    LPVOID lpFileInformation
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-AddRefActCtx(
-    HANDLE hActCtx
-    )
-{
-    STUB;
-}
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
-AllocateUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+GetFileAttributesExW(
+    LPCWSTR lpFileName,
+    GET_FILEEX_INFO_LEVELS fInfoLevelId,
+    LPVOID lpFileInformation
     )
 {
-    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
 
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-BindIoCompletionCallback (
-    HANDLE FileHandle,
-    LPOVERLAPPED_COMPLETION_ROUTINE Function,
-    ULONG Flags
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-CancelDeviceWakeupRequest(
-    HANDLE hDevice
-    )
-{
-    STUB;
-    return 0;
-}
-
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-CreateActCtxA(
-    PCACTCTXA pActCtx
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-CreateActCtxW(
-    PCACTCTXW pActCtx
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-CreateJobSet (
-    ULONG NumJob,
-    PJOB_SET_ARRAY UserJobSet,
-    ULONG Flags)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DeactivateActCtx(
-    DWORD dwFlags,
-    ULONG_PTR ulCookie
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindActCtxSectionGuid(
-    DWORD dwFlags,
-    const GUID *lpExtensionGuid,
-    ULONG ulSectionId,
-    const GUID *lpGuidToFind,
-    PACTCTX_SECTION_KEYED_DATA ReturnedData
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindVolumeClose(
-    HANDLE hFindVolume
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindVolumeMountPointClose(
-    HANDLE hFindVolumeMountPoint
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FreeUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetCurrentActCtx(
-    HANDLE *lphActCtx)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetDevicePowerState(
-    HANDLE hDevice,
-    BOOL *pfOn
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-GetNativeSystemInfo(
-    LPSYSTEM_INFO lpSystemInfo
-    )
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetNumaHighestNodeNumber(
-    PULONG HighestNodeNumber
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetNumaNodeProcessorMask(
-    UCHAR Node,
-    PULONGLONG ProcessorMask
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetNumaProcessorNode(
-    UCHAR Processor,
-    PUCHAR NodeNumber
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetWriteWatch(
-    DWORD  dwFlags,
-    PVOID  lpBaseAddress,
-    SIZE_T dwRegionSize,
-    PVOID *lpAddresses,
-    PULONG_PTR lpdwCount,
-    PULONG lpdwGranularity
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-HeapQueryInformation (
-    HANDLE HeapHandle, 
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL,
-    PSIZE_T ReturnLength OPTIONAL
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-HeapSetInformation (
-    HANDLE HeapHandle, 
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IsSystemResumeAutomatic(
-    VOID
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IsWow64Process(
-    HANDLE hProcess,
-    PBOOL Wow64Process
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-MapUserPhysicalPages(
-    PVOID VirtualAddress,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-MapUserPhysicalPagesScatter(
-    PVOID *VirtualAddresses,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-QueryActCtxW(
-    DWORD dwFlags,
-    HANDLE hActCtx,
-    PVOID pvSubInstance,
-    ULONG ulInfoClass,
-    PVOID pvBuffer,
-    SIZE_T cbBuffer OPTIONAL,
-    SIZE_T *pcbWrittenOrRequired OPTIONAL
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-QueueUserWorkItem(
-    LPTHREAD_START_ROUTINE Function,
-    PVOID Context,
-    ULONG Flags
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ReadDirectoryChangesW(
-    HANDLE hDirectory,
-    LPVOID lpBuffer,
-    DWORD nBufferLength,
-    BOOL bWatchSubtree,
-    DWORD dwNotifyFilter,
-    LPDWORD lpBytesReturned,
-    LPOVERLAPPED lpOverlapped,
-    LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ReadFileScatter(
-    HANDLE hFile,
-    FILE_SEGMENT_ELEMENT aSegmentArray[],
-    DWORD nNumberOfBytesToRead,
-    LPDWORD lpReserved,
-    LPOVERLAPPED lpOverlapped
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RegisterWaitForSingleObject(
-    PHANDLE phNewWaitObject,
-    HANDLE hObject,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Context,
-    ULONG dwMilliseconds,
-    ULONG dwFlags
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-RegisterWaitForSingleObjectEx(
-    HANDLE hObject,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Context,
-    ULONG dwMilliseconds,
-    ULONG dwFlags
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-ReleaseActCtx(
-    HANDLE hActCtx
-    )
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-ULONG
-STDCALL
-RemoveVectoredExceptionHandler(
-    PVOID VectoredHandlerHandle
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RequestDeviceWakeup(
-    HANDLE hDevice
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RequestWakeupLatency(
-    LATENCY_TIME latency
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-ResetWriteWatch(
-    LPVOID lpBaseAddress,
-    SIZE_T dwRegionSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-RestoreLastError(
-    DWORD dwErrCode
-    )
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetMessageWaitingIndicator(
-    HANDLE hMsgIndicator,
-    ULONG ulMsgCount
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-EXECUTION_STATE
-STDCALL
-SetThreadExecutionState(
-    EXECUTION_STATE esFlags
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-TzSpecificLocalTimeToSystemTime(
-    LPTIME_ZONE_INFORMATION lpTimeZoneInformation,
-    LPSYSTEMTIME lpLocalTime,
-    LPSYSTEMTIME lpUniversalTime
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UnregisterWait(
-    HANDLE WaitHandle
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UnregisterWaitEx(
-    HANDLE WaitHandle,
-    HANDLE CompletionEvent
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-WriteFileGather(
-    HANDLE hFile,
-    FILE_SEGMENT_ELEMENT aSegmentArray[],
-    DWORD nNumberOfBytesToWrite,
-    LPDWORD lpReserved,
-    LPOVERLAPPED lpOverlapped
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ZombifyActCtx(
-    HANDLE hActCtx
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DeleteVolumeMountPointW(
-    LPCWSTR lpszVolumeMountPoint
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DnsHostnameToComputerNameW (
-    LPCWSTR Hostname,
-    LPWSTR ComputerName,
-    LPDWORD nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindActCtxSectionStringW(
-    DWORD dwFlags,
-    const GUID *lpExtensionGuid,
-    ULONG ulSectionId,
-    LPCWSTR lpStringToFind,
-    PACTCTX_SECTION_KEYED_DATA ReturnedData
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-FindFirstVolumeW(
-    LPCWSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-FindFirstVolumeMountPointW(
-    LPWSTR lpszRootPathName,
-    LPWSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindNextVolumeW(
-    HANDLE hFindVolume,
-    LPWSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindNextVolumeMountPointW(
-    HANDLE hFindVolumeMountPoint,
-    LPWSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetFirmwareEnvironmentVariableW(
-    LPCWSTR lpName,
-    LPCWSTR lpGuid,
-    PVOID   pBuffer,
-    DWORD    nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetLongPathNameW(
-    LPCWSTR lpszShortPath,
-    LPWSTR  lpszLongPath,
-    DWORD    cchBuffer
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetModuleHandleExW(
-    DWORD        dwFlags,
-    LPCWSTR     lpModuleName,
-    HMODULE*    phModule
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetSystemWow64DirectoryW(
-    LPWSTR lpBuffer,
-    UINT uSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumeNameForVolumeMountPointW(
-    LPCWSTR lpszVolumeMountPoint,
-    LPWSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumePathNameW(
-    LPCWSTR lpszFileName,
-    LPWSTR lpszVolumePathName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumePathNamesForVolumeNameW(
-    LPCWSTR lpszVolumeName,
-    LPWSTR lpszVolumePathNames,
-    DWORD cchBufferLength,
-    PDWORD lpcchReturnLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ReplaceFileW(
-    LPCWSTR lpReplacedFileName,
-    LPCWSTR lpReplacementFileName,
-    LPCWSTR lpBackupFileName,
-    DWORD   dwReplaceFlags,
-    LPVOID  lpExclude,
-    LPVOID  lpReserved
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetComputerNameExW (
-    COMPUTER_NAME_FORMAT NameType,
-    LPCWSTR lpBuffer
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetFirmwareEnvironmentVariableW(
-    LPCWSTR lpName,
-    LPCWSTR lpGuid,
-    PVOID    pValue,
-    DWORD    nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetVolumeMountPointW(
-    LPCWSTR lpszVolumeMountPoint,
-    LPCWSTR lpszVolumeName
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-VerifyVersionInfoW(
-    LPOSVERSIONINFOEXW lpVersionInformation,
-    DWORD dwTypeMask,
-    DWORDLONG dwlConditionMask
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DeleteVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DnsHostnameToComputerNameA (
-    LPCSTR Hostname,
-    LPSTR ComputerName,
-    LPDWORD nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindActCtxSectionStringA(
-    DWORD dwFlags,
-    const GUID *lpExtensionGuid,
-    ULONG ulSectionId,
-    LPCSTR lpStringToFind,
-    PACTCTX_SECTION_KEYED_DATA ReturnedData
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-FindFirstVolumeA(
-    LPCSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-FindFirstVolumeMountPointA(
-    LPSTR lpszRootPathName,
-    LPSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindNextVolumeA(
-    HANDLE hFindVolume,
-    LPCSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-FindNextVolumeMountPointA(
-    HANDLE hFindVolumeMountPoint,
-    LPSTR lpszVolumeMountPoint,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetFirmwareEnvironmentVariableA(
-    LPCSTR lpName,
-    LPCSTR lpGuid,
-    PVOID   pBuffer,
-    DWORD    nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetLongPathNameA(
-    LPCSTR lpszShortPath,
-    LPSTR  lpszLongPath,
-    DWORD    cchBuffer
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetModuleHandleExA(
-    DWORD        dwFlags,
-    LPCSTR     lpModuleName,
-    HMODULE*    phModule
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetSystemWow64DirectoryA(
-    LPSTR lpBuffer,
-    UINT uSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumeNameForVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint,
-    LPSTR lpszVolumeName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumePathNameA(
-    LPCSTR lpszFileName,
-    LPSTR lpszVolumePathName,
-    DWORD cchBufferLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetVolumePathNamesForVolumeNameA(
-    LPCSTR lpszVolumeName,
-    LPSTR lpszVolumePathNames,
-    DWORD cchBufferLength,
-    PDWORD lpcchReturnLength
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ReplaceFileA(
-    LPCSTR  lpReplacedFileName,
-    LPCSTR  lpReplacementFileName,
-    LPCSTR  lpBackupFileName,
-    DWORD   dwReplaceFlags,
-    LPVOID  lpExclude,
-    LPVOID  lpReserved
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetComputerNameExA (
-    COMPUTER_NAME_FORMAT NameType,
-    LPCSTR lpBuffer
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetFirmwareEnvironmentVariableA(
-    LPCSTR lpName,
-    LPCSTR lpGuid,
-    PVOID    pValue,
-    DWORD    nSize
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetVolumeMountPointA(
-    LPCSTR lpszVolumeMountPoint,
-    LPCSTR lpszVolumeName
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-VerifyVersionInfoA(
-    LPOSVERSIONINFOEXA lpVersionInformation,
-    DWORD dwTypeMask,
-    DWORDLONG dwlConditionMask
-    )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-ULONGLONG
-STDCALL
-VerSetConditionMask(
-        ULONGLONG   ConditionMask,
-        DWORD   TypeMask,
-        BYTE    Condition
-        )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL GetConsoleKeyboardLayoutNameA(LPSTR name)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL GetConsoleKeyboardLayoutNameW(LPWSTR name)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD STDCALL GetHandleContext(HANDLE hnd)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-HANDLE STDCALL CreateSocketHandle(VOID)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL SetHandleContext(HANDLE hnd,DWORD context)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
-                        LPSTR lpszInitName, LPSTR lpszProcName,
-                        FARPROC *ppfn32Thunk, FARPROC pfnUT32CallBack,
-                        LPVOID lpBuff )
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL UTUnRegister( HMODULE hModule )
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-#if 0
-FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PDelayLoadInfo pdli)
-#else
-FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PVOID pdli)
-#endif
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS STDCALL CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,ULONG Size,ULONG AccessMask)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL IsValidUILanguage(LANGID langid)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWSTR str, ULONG strsize2)
-{
-    STUB;
-}
-
-/*
- * @unimplemented
- */
-UINT STDCALL SetCPGlobal(UINT CodePage)
-{
-    STUB;
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetClientTimeZoneInformation(
-		       CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation
-		       )
-{
-    STUB;
-    return 0;
-}
+/* EOF */

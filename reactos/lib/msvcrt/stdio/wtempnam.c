@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _wtempnam(const wchar_t* dir, const wchar_t* prefix)
 {
     wchar_t* TempFileName = malloc(MAX_PATH);

@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/direct.h>
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 char *_getcwd(char* buffer, int maxlen)
 {
     char *cwd;

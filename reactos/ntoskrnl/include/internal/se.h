@@ -110,43 +110,25 @@ BOOLEAN SepInitSecurityIDs(VOID);
 BOOLEAN SepInitDACLs(VOID);
 BOOLEAN SepInitSDs(VOID);
 
-NTSTATUS STDCALL 
-SepCreateImpersonationTokenDacl(PACCESS_TOKEN Token, 
-                                PACCESS_TOKEN PrimaryToken,
-                                PACL *Dacl);
-
 VOID SepInitializeTokenImplementation(VOID);
 
 NTSTATUS SepCreateSystemProcessToken(struct _EPROCESS* Process);
 NTSTATUS SepInitializeNewProcess(struct _EPROCESS* NewProcess,
-				 struct _EPROCESS* ParentProcess);
+								 struct _EPROCESS* ParentProcess);
 
 NTSTATUS SeExchangePrimaryToken(struct _EPROCESS* Process,
 				PACCESS_TOKEN NewToken,
 				PACCESS_TOKEN* OldTokenP);
 
-NTSTATUS
-SeCaptureLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Src,
-				ULONG PrivilegeCount,
-				KPROCESSOR_MODE PreviousMode,
-				PLUID_AND_ATTRIBUTES AllocatedMem,
-				ULONG AllocatedLength,
-				POOL_TYPE PoolType,
-				ULONG d,
-				PLUID_AND_ATTRIBUTES* Dest,
-				PULONG Length);
-
-VOID
-SeReleaseLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Privilege,
-				KPROCESSOR_MODE PreviousMode,
-				ULONG a);
-
-BOOLEAN
-SepPrivilegeCheck(PACCESS_TOKEN Token,
-		  PLUID_AND_ATTRIBUTES Privileges,
-		  ULONG PrivilegeCount,
-		  ULONG PrivilegeControl,
-		  KPROCESSOR_MODE PreviousMode);
+NTSTATUS SeCaptureLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Src,
+					 ULONG PrivilegeCount,
+					 KPROCESSOR_MODE PreviousMode,
+					 PLUID_AND_ATTRIBUTES AllocatedMem,
+					 ULONG AllocatedLength,
+					 POOL_TYPE PoolType,
+					 ULONG d,
+					 PLUID_AND_ATTRIBUTES* Dest,
+					 PULONG Length);
 
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_SE_H */

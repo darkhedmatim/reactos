@@ -1,9 +1,5 @@
 #include <msvcrt/mbstring.h>
-/*
- * FIXME not correct
- *
- * @implemented
- */
+// not correct
 unsigned char * _mbspbrk(const unsigned char *s1, const unsigned char *s2)
 {
   const char *scanp;

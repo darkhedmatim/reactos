@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: logport.c,v 1.9 2004/01/06 16:08:46 ekohl Exp $
+/* $Id: logport.c,v 1.4 2002/09/08 10:23:44 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -31,8 +31,8 @@
 
 #define NTOS_MODE_USER
 #include <ntos.h>
+#include <napi/lpc.h>
 #include <windows.h>
-#include <string.h>
 
 #include "eventlog.h"
 
@@ -50,17 +50,17 @@ HANDLE MessagePortHandle = NULL;
 /* FUNCTIONS ****************************************************************/
 
 static NTSTATUS
-InitLogPort (VOID)
+InitLogPort(VOID)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING PortName;
-  LPC_MAX_MESSAGE Request;
+  LPC_MESSAGE Message;
   NTSTATUS Status;
 
   ConnectPortHandle = NULL;
   MessagePortHandle = NULL;
 
-  RtlInitUnicodeString(&PortName,
+  RtlInitUnicodeStringFromLiteral(&PortName,
 		       L"\\ErrorLogPort");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &PortName,
@@ -74,132 +74,80 @@ InitLogPort (VOID)
 			0x100,
 			0x2000);
   if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreatePort() failed (Status %lx)\n", Status);
-      goto ByeBye;
-    }
+    goto ByeBye;
+
+  Message.DataSize = sizeof(LPC_MESSAGE);
+  Message.MessageSize = 0;
 
   Status = NtListenPort(ConnectPortHandle,
-			&Request.Header);
+			&Message);
   if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtListenPort() failed (Status %lx)\n", Status);
-      goto ByeBye;
-    }
+    goto ByeBye;
 
   Status = NtAcceptConnectPort(&MessagePortHandle,
-			       ConnectPortHandle,
-			       NULL,
-			       TRUE,
-			       NULL,
-			       NULL);
-  if (!NT_SUCCESS (Status))
-    {
-      DPRINT1("NtAcceptConnectPort() failed (Status %lx)\n", Status);
-      goto ByeBye;
-    }
+			       0,
+			       &Message,
+			       1,
+			       0,
+			       0);
+  if (!NT_SUCCESS(Status))
+    goto ByeBye;
 
-  Status = NtCompleteConnectPort (MessagePortHandle);
-  if (!NT_SUCCESS (Status))
-    {
-      DPRINT1("NtCompleteConnectPort() failed (Status %lx)\n", Status);
-      goto ByeBye;
-    }
+  Status = NtCompleteConnectPort(MessagePortHandle);
+  if (!NT_SUCCESS(Status))
+    goto ByeBye;
 
 ByeBye:
-  if (!NT_SUCCESS (Status))
-    {
-      if (ConnectPortHandle != NULL)
-	NtClose (ConnectPortHandle);
+  if (ConnectPortHandle != NULL)
+    NtClose(ConnectPortHandle);
 
-      if (MessagePortHandle != NULL)
-	NtClose (MessagePortHandle);
-    }
+  if (MessagePortHandle != NULL)
+    NtClose(MessagePortHandle);
 
-  return Status;
+  return(Status);
 }
 
 
 static NTSTATUS
 ProcessPortMessage(VOID)
 {
-  LPC_MAX_MESSAGE Request;
-  PIO_ERROR_LOG_MESSAGE Message;
-//#ifndef NDEBUG
-  ULONG i;
-  PWSTR p;
-//#endif
+  PLPC_MAX_MESSAGE Request;
+  LPC_MESSAGE Reply;
+  BOOL ReplyReady = FALSE;
   NTSTATUS Status;
 
-
-  DPRINT1("ProcessPortMessage() called\n");
-
-  Status = STATUS_SUCCESS;
+  Request = HeapAlloc(GetProcessHeap(),
+		      HEAP_ZERO_MEMORY,
+		      sizeof(LPC_MAX_MESSAGE));
+  if (Request == NULL)
+    return(STATUS_NO_MEMORY);
 
   while (TRUE)
     {
       Status = NtReplyWaitReceivePort(MessagePortHandle,
 				      0,
-				      NULL,
-				      &Request.Header);
+				      (ReplyReady)? &Reply : NULL,
+				      (PLPC_MESSAGE)Request);
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT1("NtReplyWaitReceivePort() failed (Status %lx)\n", Status);
-	  break;
+	  HeapFree(GetProcessHeap(),
+		   0,
+		   Request);
+	  return(Status);
 	}
 
-      DPRINT ("Received message\n");
-
-      if (Request.Header.MessageType == LPC_PORT_CLOSED)
+      ReplyReady = FALSE;
+      if (Request->Header.MessageType == LPC_REQUEST)
 	{
-	  DPRINT ("Port closed\n");
+	  DPRINT1("Received request\n");
 
-	  return (STATUS_UNSUCCESSFUL);
+	  ReplyReady = FALSE;
 	}
-      if (Request.Header.MessageType == LPC_REQUEST)
+      else if (Request->Header.MessageType == LPC_DATAGRAM)
 	{
-	  DPRINT ("Received request\n");
-
-	}
-      else if (Request.Header.MessageType == LPC_DATAGRAM)
-	{
-	  DPRINT ("Received datagram\n");
-
-
-	  Message = (PIO_ERROR_LOG_MESSAGE)&Request.Data;
-
-	  DPRINT ("Message->Type %hx\n", Message->Type);
-	  DPRINT ("Message->Size %hu\n", Message->Size);
-
-//#ifndef NDEBUG
-	  DbgPrint ("\n Error mesage:\n");
-	  DbgPrint ("Error code: %lx\n", Message->EntryData.ErrorCode);
-	  DbgPrint ("Retry count: %u\n", Message->EntryData.RetryCount);
-	  DbgPrint ("Sequence number: %lu\n", Message->EntryData.SequenceNumber);
-
-	  if (Message->DriverNameLength != 0)
-	    {
-	      DbgPrint ("Driver name: %.*S\n",
-		        Message->DriverNameLength / sizeof(WCHAR),
-		        (PWCHAR)((ULONG_PTR)Message + Message->DriverNameOffset));
-	    }
-
-	  if (Message->EntryData.NumberOfStrings != 0)
-	    {
-	      p = (PWSTR)((ULONG_PTR)&Message->EntryData + Message->EntryData.StringOffset);
-	      for (i = 0; i < Message->EntryData.NumberOfStrings; i++)
-		{
-		  DbgPrint ("String %lu: %S\n", i, p);
-		  p += wcslen(p) + 1;
-		}
-	      DbgPrint("\n");
-	    }
-
-//#endif
+	  DPRINT1("Received datagram\n");
 	}
     }
-
-  return Status;
 }
 
 
@@ -212,16 +160,10 @@ PortThreadRoutine(PVOID Param)
   if (!NT_SUCCESS(Status))
     return(Status);
 
-  while (NT_SUCCESS(Status))
+  while (!NT_SUCCESS(Status))
     {
       Status = ProcessPortMessage();
     }
-
-  if (ConnectPortHandle != NULL)
-    NtClose (ConnectPortHandle);
-
-  if (MessagePortHandle != NULL)
-    NtClose (MessagePortHandle);
 
   return(Status);
 }
@@ -234,7 +176,7 @@ StartPortThread(VOID)
 
   PortThreadHandle = CreateThread(NULL,
 				  0x1000,
-				  (LPTHREAD_START_ROUTINE)PortThreadRoutine,
+				  PortThreadRoutine,
 				  NULL,
 				  0,
 				  &ThreadId);

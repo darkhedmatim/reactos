@@ -1,4 +1,4 @@
-/* $Id: time.c,v 1.35 2004/12/02 21:22:36 weiden Exp $
+/* $Id: time.c,v 1.20 2003/02/12 00:39:31 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,32 +15,29 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* TYPES *********************************************************************/
 
 typedef struct __DOSTIME
 {
-  WORD Second:5;
-  WORD Minute:6;
-  WORD Hour:5;
+   WORD	Second:5;
+   WORD	Minute:6;
+   WORD Hour:5;
 } DOSTIME, *PDOSTIME;
 
 typedef struct __DOSDATE
 {
-  WORD Day:5;
-  WORD Month:4;
-  WORD Year:5;
+   WORD	Day:5;
+   WORD	Month:4;
+   WORD Year:5;
 } DOSDATE, *PDOSDATE;
 
 #define TICKSPERMIN        600000000
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FileTimeToDosDateTime(
 		      CONST FILETIME *lpFileTime,
@@ -66,7 +63,7 @@ FileTimeToDosDateTime(
 		     &SystemTime
 		     );
 
-   pdtime->Second = SystemTime.wSecond / 2;
+   pdtime->Second = SystemTime.wSecond;
    pdtime->Minute = SystemTime.wMinute;
    pdtime->Hour = SystemTime.wHour;
 
@@ -77,11 +74,7 @@ FileTimeToDosDateTime(
    return TRUE; 
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DosDateTimeToFileTime(
 		      WORD wFatDate,
@@ -97,7 +90,7 @@ DosDateTimeToFileTime(
 		return FALSE;
 
    SystemTime.wMilliseconds = 0;
-   SystemTime.wSecond = pdtime->Second * 2;
+   SystemTime.wSecond = pdtime->Second;
    SystemTime.wMinute = pdtime->Minute;
    SystemTime.wHour = pdtime->Hour;
 
@@ -106,14 +99,10 @@ DosDateTimeToFileTime(
    SystemTime.wYear = 1980 + pddate->Year;
 
    SystemTimeToFileTime(&SystemTime,lpFileTime);
-
+   
    return TRUE;
 }
 
-
-/*
- * @implemented
- */
 LONG
 STDCALL
 CompareFileTime(
@@ -134,30 +123,18 @@ CompareFileTime(
   return 0;
 }
 
-
-/*
- * @implemented
- */
-VOID STDCALL
-GetSystemTimeAsFileTime (PFILETIME lpFileTime)
+VOID
+STDCALL 
+GetSystemTimeAsFileTime(PFILETIME lpFileTime)
 {
-  do
-    {
-      lpFileTime->dwHighDateTime = SharedUserData->SystemTime.High1Time;
-      lpFileTime->dwLowDateTime = SharedUserData->SystemTime.LowPart;
-    }
-  while (lpFileTime->dwHighDateTime != SharedUserData->SystemTime.High2Time);
+   NtQuerySystemTime ((TIME *)lpFileTime);
 }
 
-
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 SystemTimeToFileTime(
-    CONST SYSTEMTIME *  lpSystemTime,
-    LPFILETIME  lpFileTime
+    CONST SYSTEMTIME *  lpSystemTime,	
+    LPFILETIME  lpFileTime 	
    )
 
 {
@@ -181,11 +158,12 @@ SystemTimeToFileTime(
   return FALSE;
 }
 
+//   dwDayOfWeek = RtlLargeIntegerDivide(FileTime,LIDAY,&dwRemDay);
+//   lpSystemTime->wDayOfWeek = 1 + GET_LARGE_INTEGER_LOW_PART(dwDayOfWeek) % 7;
 
-/*
- * @implemented
- */
-BOOL
+  
+
+WINBOOL
 STDCALL
 FileTimeToSystemTime(
 		     CONST FILETIME *lpFileTime,
@@ -216,134 +194,95 @@ FileTimeToSystemTime(
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FileTimeToLocalFileTime(
 			CONST FILETIME *lpFileTime,
 			LPFILETIME lpLocalFileTime
 			)
 {
-  LARGE_INTEGER TimeZoneBias;
-
-  do
-    {
-      TimeZoneBias.HighPart = SharedUserData->TimeZoneBias.High1Time;
-      TimeZoneBias.LowPart = SharedUserData->TimeZoneBias.LowPart;
-    }
-  while (TimeZoneBias.HighPart != SharedUserData->TimeZoneBias.High2Time);
-
-  *((PLONGLONG)lpLocalFileTime) =
-    *((PLONGLONG)lpFileTime) - TimeZoneBias.QuadPart;
+  // FIXME: include time bias
+  *((PLONGLONG)lpLocalFileTime) = *((PLONGLONG)lpFileTime);
 
   return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 LocalFileTimeToFileTime(
 			CONST FILETIME *lpLocalFileTime,
 			LPFILETIME lpFileTime
 			)
 {
-  LARGE_INTEGER TimeZoneBias;
-
-  do
-    {
-      TimeZoneBias.HighPart = SharedUserData->TimeZoneBias.High1Time;
-      TimeZoneBias.LowPart = SharedUserData->TimeZoneBias.LowPart;
-    }
-  while (TimeZoneBias.HighPart != SharedUserData->TimeZoneBias.High2Time);
-
-  *((PLONGLONG)lpFileTime) =
-    *((PLONGLONG)lpLocalFileTime) + TimeZoneBias.QuadPart;
+  // FIXME: include time bias
+  *((PLONGLONG)lpFileTime) = *((PLONGLONG)lpLocalFileTime);
 
   return TRUE;
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 GetLocalTime(LPSYSTEMTIME lpSystemTime)
 {
   FILETIME FileTime;
   FILETIME LocalFileTime;
 
-  GetSystemTimeAsFileTime(&FileTime);
-  FileTimeToLocalFileTime(&FileTime, &LocalFileTime);
-  FileTimeToSystemTime(&LocalFileTime, lpSystemTime);
+  NtQuerySystemTime ((TIME*)&FileTime);
+  FileTimeToLocalFileTime (&FileTime, &LocalFileTime);
+  FileTimeToSystemTime (&LocalFileTime, lpSystemTime);
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 GetSystemTime(LPSYSTEMTIME lpSystemTime)
 {
   FILETIME FileTime;
 
-  GetSystemTimeAsFileTime(&FileTime);
-  FileTimeToSystemTime(&FileTime, lpSystemTime);
+  NtQuerySystemTime ((TIME*)&FileTime);
+  FileTimeToSystemTime (&FileTime, lpSystemTime);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetLocalTime(CONST SYSTEMTIME *lpSystemTime)
 {
   FILETIME LocalFileTime;
   LARGE_INTEGER FileTime;
-  NTSTATUS Status;
+  NTSTATUS errCode;
 
-  SystemTimeToFileTime(lpSystemTime, &LocalFileTime);
-  LocalFileTimeToFileTime(&LocalFileTime, (FILETIME *)&FileTime);
-  Status = NtSetSystemTime(&FileTime, &FileTime);
-  if (!NT_SUCCESS(Status))
+  SystemTimeToFileTime (lpSystemTime, &LocalFileTime);
+  LocalFileTimeToFileTime (&LocalFileTime, (FILETIME *)&FileTime);
+  errCode = NtSetSystemTime (&FileTime, &FileTime);
+  if (!NT_SUCCESS(errCode))
     return FALSE;
   return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetSystemTime(CONST SYSTEMTIME *lpSystemTime)
 {
   LARGE_INTEGER NewSystemTime;
-  NTSTATUS Status;
+  NTSTATUS errCode;
 
-  SystemTimeToFileTime(lpSystemTime, (PFILETIME)&NewSystemTime);
-  Status = NtSetSystemTime(&NewSystemTime, &NewSystemTime);
-  if (!NT_SUCCESS(Status))
+  SystemTimeToFileTime (lpSystemTime, (PFILETIME)&NewSystemTime);
+  errCode = NtSetSystemTime (&NewSystemTime, &NewSystemTime);
+  if (!NT_SUCCESS(errCode))
     return FALSE;
   return TRUE;
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 GetTimeZoneInformation(LPTIME_ZONE_INFORMATION lpTimeZoneInformation)
 {
+   TIME_ZONE_INFORMATION TimeZoneInformation;
    NTSTATUS Status;
 
    DPRINT("GetTimeZoneInformation()\n");
 
    Status = NtQuerySystemInformation(SystemCurrentTimeZoneInformation,
-				     lpTimeZoneInformation,
+				     &TimeZoneInformation,
 				     sizeof(TIME_ZONE_INFORMATION),
 				     NULL);
    if (!NT_SUCCESS(Status))
@@ -352,56 +291,56 @@ GetTimeZoneInformation(LPTIME_ZONE_INFORMATION lpTimeZoneInformation)
 	return TIME_ZONE_ID_INVALID;
      }
 
+   memcpy(lpTimeZoneInformation,
+	  &TimeZoneInformation,
+	  sizeof(TIME_ZONE_INFORMATION));
+
    return(SharedUserData->TimeZoneId);
 }
 
 
-/*
- * @implemented
- */
 BOOL STDCALL
 SetTimeZoneInformation(CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation)
 {
+   TIME_ZONE_INFORMATION TimeZoneInformation;
    NTSTATUS Status;
 
    DPRINT("SetTimeZoneInformation()\n");
 
-   Status = RtlSetTimeZoneInformation((PTIME_ZONE_INFORMATION)lpTimeZoneInformation);
+   memcpy(&TimeZoneInformation,
+	  lpTimeZoneInformation,
+	  sizeof(TIME_ZONE_INFORMATION));
+
+   Status = RtlSetTimeZoneInformation(&TimeZoneInformation);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT1("RtlSetTimeZoneInformation() failed (Status %lx)\n", Status);
 	SetLastErrorByStatus(Status);
 	return FALSE;
      }
 
-   Status = NtSetSystemInformation(SystemCurrentTimeZoneInformation,
-				   (PVOID)lpTimeZoneInformation,
-				   sizeof(TIME_ZONE_INFORMATION));
-   if (!NT_SUCCESS(Status))
-     {
-	DPRINT1("NtSetSystemInformation() failed (Status %lx)\n", Status);
-	SetLastErrorByStatus(Status);
-	return FALSE;
-     }
+   NtSetSystemTime(0,0);
 
    return TRUE;
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
-GetTickCount(VOID)
+GetCurrentTime(VOID)
 {
-  return (DWORD)((ULONGLONG)SharedUserData->TickCountLowDeprecated * SharedUserData->TickCountMultiplier / 16777216);
+  return GetTickCount();
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+DWORD STDCALL
+GetTickCount(VOID)
+{
+  ULONG UpTime;
+  NtGetTickCount(&UpTime);
+  return UpTime;
+}
+
+
+WINBOOL STDCALL
 SystemTimeToTzSpecificLocalTime(
                                 LPTIME_ZONE_INFORMATION lpTimeZoneInformation,
                                 LPSYSTEMTIME lpUniversalTime,
@@ -414,7 +353,7 @@ SystemTimeToTzSpecificLocalTime(
 
   if (!lpTimeZoneInformation)
   {
-    GetTimeZoneInformation(&TimeZoneInformation);
+    GetTimeZoneInformation (&TimeZoneInformation);
     lpTzInfo = &TimeZoneInformation;
   }
   else
@@ -426,21 +365,18 @@ SystemTimeToTzSpecificLocalTime(
   if (!lpLocalTime)
     return FALSE;
 
-  SystemTimeToFileTime(lpUniversalTime, (PFILETIME)&FileTime);
+  SystemTimeToFileTime (lpUniversalTime, (PFILETIME)&FileTime);
   FileTime.QuadPart -= (lpTzInfo->Bias * TICKSPERMIN);
-  FileTimeToSystemTime((PFILETIME)&FileTime, lpLocalTime);
+  FileTimeToSystemTime ((PFILETIME)&FileTime, lpLocalTime);
 
   return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetSystemTimeAdjustment(PDWORD lpTimeAdjustment,
 			PDWORD lpTimeIncrement,
-			PBOOL lpTimeAdjustmentDisabled)
+			PWINBOOL lpTimeAdjustmentDisabled)
 {
    SYSTEM_QUERY_TIME_ADJUSTMENT Buffer;
    NTSTATUS Status;
@@ -457,74 +393,30 @@ GetSystemTimeAdjustment(PDWORD lpTimeAdjustment,
    
    *lpTimeAdjustment = (DWORD)Buffer.TimeAdjustment;
    *lpTimeIncrement = (DWORD)Buffer.MaximumIncrement;
-   *lpTimeAdjustmentDisabled = (BOOL)Buffer.TimeSynchronization;
+   *lpTimeAdjustmentDisabled = (WINBOOL)Buffer.TimeSynchronization;
    
    return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetSystemTimeAdjustment(DWORD dwTimeAdjustment,
-			BOOL bTimeAdjustmentDisabled)
+			WINBOOL bTimeAdjustmentDisabled)
 {
    NTSTATUS Status;
-   SYSTEM_SET_TIME_ADJUSTMENT Buffer;
+   SYSTEM_TIME_ADJUSTMENT_INFO Buffer;
    
    Buffer.TimeAdjustment = (ULONG)dwTimeAdjustment;
    Buffer.TimeSynchronization = (BOOLEAN)bTimeAdjustmentDisabled;
    
    Status = NtSetSystemInformation(SystemTimeAdjustmentInformation,
 				   &Buffer,
-				   sizeof(SYSTEM_SET_TIME_ADJUSTMENT));
+				   sizeof(SYSTEM_TIME_ADJUSTMENT_INFO));
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);
 	return FALSE;
      }
-   
-   return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetSystemTimes(
-    LPFILETIME lpIdleTime,
-    LPFILETIME lpKernelTime,
-    LPFILETIME lpUserTime
-    )
-{
-   SYSTEM_PROCESSORTIME_INFO SysProcTime;
-   NTSTATUS Status;
-   
-   Status = ZwQuerySystemInformation(SystemProcessorPerformanceInformation,
-                                     &SysProcTime,
-                                     sizeof(SysProcTime),
-                                     NULL);
-                                     
-   if (!NT_SUCCESS(Status))
-     {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-     }   
-/*
-	Good only for one processor system.
- */
-
-   lpIdleTime->dwLowDateTime = SysProcTime.TotalProcessorRunTime.LowPart;
-   lpIdleTime->dwHighDateTime = SysProcTime.TotalProcessorRunTime.HighPart;
-
-   lpKernelTime->dwLowDateTime = SysProcTime.TotalProcessorTime.LowPart;
-   lpKernelTime->dwHighDateTime = SysProcTime.TotalProcessorTime.HighPart;
-
-   lpUserTime->dwLowDateTime = SysProcTime.TotalProcessorUserTime.LowPart;
-   lpUserTime->dwHighDateTime = SysProcTime.TotalProcessorUserTime.HighPart;
    
    return TRUE;
 }

@@ -1,4 +1,4 @@
-/* $Id: parttab.c,v 1.9 2004/11/27 13:04:06 navaraf Exp $
+/* $Id: parttab.c,v 1.4 2003/02/26 14:12:43 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -13,15 +13,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 		     ULONG SectorSize,
 		     BOOLEAN ReturnRecognizedPartitions,
@@ -34,7 +32,7 @@ IoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoSetPartitionInformation(PDEVICE_OBJECT DeviceObject,
 			  ULONG SectorSize,
 			  ULONG PartitionNumber,
@@ -47,7 +45,7 @@ IoSetPartitionInformation(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS FASTCALL
+NTSTATUS STDCALL
 IoWritePartitionTable(PDEVICE_OBJECT DeviceObject,
 		      ULONG SectorSize,
 		      ULONG SectorsPerTrack,

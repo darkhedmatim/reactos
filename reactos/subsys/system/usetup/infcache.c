@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: infcache.c,v 1.11 2004/08/15 22:29:50 chorns Exp $
+/* $Id: infcache.c,v 1.3 2003/03/15 19:36:10 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/infcache.c
@@ -27,12 +27,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include "usetup.h"
 #include "infcache.h"
 
-#define NDEBUG
-#include <debug.h>
 
 #define CONTROL_Z  '\x1a'
 #define MAX_SECTION_NAME_LEN  255
@@ -444,10 +442,7 @@ inline static int is_eof( struct parser *parser, const CHAR *ptr )
 /* check if the pointer points to an end of line */
 inline static int is_eol( struct parser *parser, const CHAR *ptr )
 {
-  return (ptr >= parser->end ||
-	  *ptr == CONTROL_Z ||
-	  *ptr == '\n' ||
-	  (*ptr == '\r' && *(ptr + 1) == '\n'));
+  return (ptr >= parser->end || *ptr == CONTROL_Z || *ptr == '\r' /*'\n'*/);
 }
 
 
@@ -508,6 +503,7 @@ static PVOID add_section_from_token( struct parser *parser )
 static struct field *add_field_from_token( struct parser *parser, int is_key )
 {
   PVOID field;
+  WCHAR *text;
 
   if (!parser->line)  /* need to start a new line */
     {
@@ -564,24 +560,20 @@ static const CHAR *line_start_state( struct parser *parser, const CHAR *pos )
     {
       switch(*p)
 	{
+//	  case '\n':
 	  case '\r':
-	    continue;
-
-	  case '\n':
+	    p++;
 	    parser->line_pos++;
 	    close_current_line( parser );
 	    break;
-
 	  case ';':
 	    push_state( parser, LINE_START );
 	    set_state( parser, COMMENT );
 	    return p + 1;
-
 	  case '[':
 	    parser->start = p + 1;
 	    set_state( parser, SECTION_NAME );
 	    return p + 1;
-
 	  default:
 	    if (!isspace(*p))
 	      {
@@ -735,23 +727,20 @@ static const CHAR *eol_backslash_state( struct parser *parser, const CHAR *pos )
     {
       switch(*p)
 	{
+//	  case '\n':
 	  case '\r':
-	    continue;
-
-	  case '\n':
 	    parser->line_pos++;
-	    parser->start = p + 1;
+//	    parser->start = p + 1;
+	    parser->start = p + 2;
 	    set_state( parser, LEADING_SPACES );
-	    return p + 1;
-
+//	    return p + 1;
+	    return p + 2;
 	  case '\\':
 	    continue;
-
 	  case ';':
 	    push_state( parser, EOL_BACKSLASH );
 	    set_state( parser, COMMENT );
 	    return p + 1;
-
 	  default:
 	    if (isspace(*p))
 	      continue;
@@ -895,75 +884,6 @@ InfpParseBuffer (PINFCACHE file,
 /* PUBLIC FUNCTIONS *********************************************************/
 
 NTSTATUS
-InfOpenBufferedFile(PHINF InfHandle,
-	    PVOID Buffer,
-      ULONG BufferSize,
-	    PULONG ErrorLine)
-{
-  NTSTATUS Status;
-  PINFCACHE Cache;
-  PCHAR FileBuffer;
-
-  *InfHandle = NULL;
-  *ErrorLine = (ULONG)-1;
-
-  /* Allocate file buffer */
-  FileBuffer = RtlAllocateHeap(ProcessHeap,
-			       0,
-			       BufferSize + 1);
-  if (FileBuffer == NULL)
-    {
-      DPRINT1("RtlAllocateHeap() failed\n");
-      return(STATUS_INSUFFICIENT_RESOURCES);
-    }
-
-  RtlCopyMemory(FileBuffer, Buffer, BufferSize);
-
-  /* Append string terminator */
-  FileBuffer[BufferSize] = 0;
-
-  /* Allocate infcache header */
-  Cache = (PINFCACHE)RtlAllocateHeap(ProcessHeap,
-				      0,
-				      sizeof(INFCACHE));
-  if (Cache == NULL)
-    {
-      DPRINT("RtlAllocateHeap() failed\n");
-      RtlFreeHeap(ProcessHeap,
-  		  0,
-  		  FileBuffer);
-      return(STATUS_INSUFFICIENT_RESOURCES);
-    }
-
-  /* Initialize inicache header */
-  RtlZeroMemory(Cache,
-		sizeof(INFCACHE));
-
-  /* Parse the inf buffer */
-  Status = InfpParseBuffer (Cache,
-			    FileBuffer,
-			    FileBuffer + BufferSize,
-			    ErrorLine);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeHeap(ProcessHeap,
-  		  0,
-  		  Cache);
-      Cache = NULL;
-    }
-
-  /* Free file buffer */
-  RtlFreeHeap(ProcessHeap,
-	      0,
-	      FileBuffer);
-
-  *InfHandle = (HINF)Cache;
-
-  return(Status);
-}
-
-
-NTSTATUS
 InfOpenFile(PHINF InfHandle,
 	    PUNICODE_STRING FileName,
 	    PULONG ErrorLine)
@@ -994,7 +914,7 @@ InfOpenFile(PHINF InfHandle,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,
-		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
+		      FILE_NON_DIRECTORY_FILE);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
@@ -1009,7 +929,12 @@ InfOpenFile(PHINF InfHandle,
 				  &FileInfo,
 				  sizeof(FILE_STANDARD_INFORMATION),
 				  FileStandardInformation);
-  if (!NT_SUCCESS(Status))
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtQueryInformationFile() returns STATUS_PENDING\n");
+
+    }
+  else if (!NT_SUCCESS(Status))
     {
       DPRINT("NtQueryInformationFile() failed (Status %lx)\n", Status);
       NtClose(FileHandle);
@@ -1042,6 +967,13 @@ InfOpenFile(PHINF InfHandle,
 		      FileLength,
 		      &FileOffset,
 		      NULL);
+
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtReadFile() returns STATUS_PENDING\n");
+
+      Status = IoStatusBlock.Status;
+    }
 
   /* Append string terminator */
   FileBuffer[FileLength] = 0;
@@ -1142,7 +1074,7 @@ InfFindFirstLine (HINF InfHandle,
 
   /* Iterate through list of sections */
   CacheSection = Cache->FirstSection;
-  while (CacheSection != NULL)
+  while (Section != NULL)
     {
       DPRINT("Comparing '%S' and '%S'\n", CacheSection->Name, Section);
 

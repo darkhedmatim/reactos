@@ -16,8 +16,9 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include <msvcrt/stdarg.h>
-#include <msvcrt/crttypes.h>
+//#include <stdarg.h>
+#include <msvcrt/stdarg.h> // robd
+#include <msvcrt/crttypes.h> // robd
 
 #include <msvcrt/errno.h>
 #include <limits.h>
@@ -28,13 +29,8 @@
 #include <msvcrt/wchar.h>
 #include <msvcrt/malloc.h>
 #include <msvcrt/mbstring.h>
-#include <msvcrt/internal/stdio.h>
-
-#ifdef __USE_W32API
-int __set_errno(int err);
-#else
 #include <msvcrt/internal/file.h>
-#endif
+#include <msvcrt/internal/stdio.h>
 
 /* The internal entry points for `strtoX' take an extra flag argument
    saying whether or not to parse locale-dependent number grouping.  */
@@ -68,7 +64,7 @@ unsigned long int __strtoul_internal  (const char *__nptr,  char **__endptr, int
 # define TYPEMOD	(LONG|LONGDBL|SHORT)
 
 
-# define UNGETC(c, s)	((void) (((wint_t)c) != ((wint_t)EOF) && --read_in), ungetc (c, s))
+# define ungetc(c, s)	((void) (c != EOF && --read_in), ungetc (c, s))
 # define inchar()	((c = getc (s)), (void) (c != EOF && ++read_in), c)
 # define encode_error()	do {						      \
 			  funlockfile (s);				      \
@@ -107,21 +103,25 @@ unsigned long int __strtoul_internal  (const char *__nptr,  char **__endptr, int
 # define flockfile(S) /* nothing */
 # define funlockfile(S) /* nothing */
 
-# define ADDW(Ch)							      \
-do{									      \
-  if (wpsize == wpmax)							      \
-    {									      \
-      char *old = wp;							      \
-      wpmax = UCHAR_MAX > 2 * wpmax ? UCHAR_MAX : 2 * wpmax;		      \
-      wp = (char *) malloc (wpmax);					      \
-      if (old != NULL)							      \
-	{								      \
-	  memcpy (wp, old, wpsize);					      \
-	  free(old);							      \
-	}								      \
-    }									      \
-  wp[wpsize++] = (Ch);							      \
-}while(0)
+  char *wp = NULL;		/* Workspace.  */
+  size_t wpmax = 0;		/* Maximal size of workspace.  */
+  size_t wpsize = 0;		/* Currently used bytes in workspace.  */
+
+
+void ADDW(int Ch)	\
+{
+  if (wpsize == wpmax)
+    {
+      char *old = wp;
+      wpmax = UCHAR_MAX > 2 * wpmax ? UCHAR_MAX : 2 * wpmax;
+      wp = (char *) malloc (wpmax);
+	  if (old != NULL) {					    
+	  memcpy (wp, old, wpsize);
+	  free(old);
+	}
+    }
+  wp[wpsize++] = (Ch);
+}
 
 
 int __vfscanf (FILE *s, const char *format, va_list argptr)
@@ -165,9 +165,6 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
      available anymore.  */
   int skip_space = 0;
   /* Workspace.  */
-  char *wp = NULL;		/* Workspace.  */
-  size_t wpmax = 0;		/* Maximal size of workspace.  */
-  size_t wpsize = 0;		/* Currently used bytes in workspace.  */
   char *tw;			/* Temporary pointer.  */
 
 #ifdef __va_copy
@@ -201,7 +198,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 		    input_error ();
 		  else if (c != *f++)
 		    {
-		      UNGETC (c, s);
+		      ungetc (c, s);
 		      conv_error ();
 		    }
 		}
@@ -232,14 +229,14 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	  if (skip_space)
 	    {
 	      while (isspace (c))
-		if (inchar () == EOF && *_errno() == EINTR)
+		if (inchar () == EOF && errno == EINTR)
 		  conv_error ();
 	      skip_space = 0;
 	    }
 
 	  if (c != fc)
 	    {
-	      UNGETC (c, s);
+	      ungetc (c, s);
 	      conv_error ();
 	    }
 
@@ -347,7 +344,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	conv_error ();
 
       /* We must take care for EINTR errors.  */
-      if (c == EOF && *_errno() == EINTR)
+      if (c == EOF && errno == EINTR)
 	input_error ();
 
       /* Find the conversion specifier.  */
@@ -356,10 +353,10 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	{
 	  /* Eat whitespace.  */
 	  do
-	    if (inchar () == EOF && *_errno() == EINTR)
+	    if (inchar () == EOF && errno == EINTR)
 	      input_error ();
 	  while (isspace (c));
-	  UNGETC (c, s);
+	  ungetc (c, s);
 	  skip_space = 0;
 	}
 
@@ -369,7 +366,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	  c = inchar ();
 	  if (c != fc)
 	    {
-	      UNGETC (c, s);
+	      ungetc (c, s);
 	      conv_error ();
 	    }
 	  break;
@@ -586,7 +583,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	    {
 	      if (isspace (c))
 		{
-		  UNGETC (c, s);
+		  ungetc (c, s);
 		  break;
 		}
 #define	STRING_ADD_CHAR(Str, c, Type)					      \
@@ -656,7 +653,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 		       not make a difference for white space characters
 		       we can simply push back a simple <SP> which is
 		       guaranteed to be in the [:space:] class.  */
-		    UNGETC (' ', s);
+		    ungetc (' ', s);
 		    break;
 		  }
 
@@ -754,7 +751,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	    }
 
 	  /* The just read character is not part of the number anymore.  */
-	  UNGETC (c, s);
+	  ungetc (c, s);
 
 	  if (wpsize == 0 ||
 	      (wpsize == 1 && (wp[0] == '+' || wp[0] == '-')))
@@ -856,7 +853,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 		{
 		  /* The last read character is not part of the number
 		     anymore.  */
-		  UNGETC (c, s);
+		  ungetc (c, s);
 		  break;
 		}
 	      if (width > 0)
@@ -954,7 +951,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 	  if (fc == '\0')
 	    {
 	      if (!(flags & LONG))
-		UNGETC (c, s);
+		ungetc (c, s);
 	      conv_error();
 	    }
 
@@ -976,7 +973,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 			 input we push it back only in case it is
 			 representable within one byte.  */
 		      if (val < 0x80)
-			UNGETC (val, s);
+			ungetc (val, s);
 		      break;
 		    }
 		  STRING_ADD_CHAR (wstr, val, wchar_t);
@@ -1002,7 +999,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
 		{
 		  if (wp[c] == not_in)
 		    {
-		      UNGETC (c, s);
+		      ungetc (c, s);
 		      break;
 		    }
 		  STRING_ADD_CHAR (str, c, char);
@@ -1039,7 +1036,7 @@ int __vfscanf (FILE *s, const char *format, va_list argptr)
       do
 	c = inchar ();
       while (isspace (c));
-      UNGETC (c, s);
+      ungetc (c, s);
     }
 
 

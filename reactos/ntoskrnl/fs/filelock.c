@@ -1,10 +1,12 @@
-/* $Id: filelock.c,v 1.18 2004/12/30 18:30:05 ion Exp $
+/* $Id: filelock.c,v 1.7 2003/01/25 15:52:43 hbirr Exp $
  *
  * reactos/ntoskrnl/fs/filelock.c
  *
  */
+#include <ddk/ntddk.h>
+#include <internal/ifs.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -13,53 +15,17 @@ NOTE:
 I'm not using resource syncronization here, since FsRtlFastCheckLockForRead/Write
 are allowed to be called at DISPATCH_LEVEL. Must therefore use nonpaged memory for
 the lists.
-UPDATE: I'm not sure about this! -Gunnar
 */
+
+#define LOCK_START_OFF(Lock)  ((Lock).StartingByte.QuadPart)
+#define LOCK_END_OFF(Lock)    (((Lock).StartingByte.QuadPart) + ((Lock).Length.QuadPart) - 1)
+#define REQUEST_START_OFF     (FileOffset->QuadPart)
+#define REQUEST_END_OFF       ((FileOffset->QuadPart) + (Length->QuadPart) - 1)
 
 FAST_MUTEX              LockTocMutex;
 NPAGED_LOOKASIDE_LIST   GrantedLookaside;
 NPAGED_LOOKASIDE_LIST   LockTocLookaside;
 PAGED_LOOKASIDE_LIST    LockLookaside;
-
-
-
-inline BOOLEAN 
-IsOverlappingLock(
-   PFILE_LOCK_INFO Lock,
-   PLARGE_INTEGER StartOffset,
-   PLARGE_INTEGER EndOffset
-   )
-{
-   if ((ULONGLONG)StartOffset->QuadPart > (ULONGLONG)Lock->EndingByte.QuadPart)
-   {
-      return FALSE; 
-   }
-   
-   if ((ULONGLONG)EndOffset->QuadPart < (ULONGLONG)Lock->StartingByte.QuadPart)
-   {
-      return FALSE; 
-   }
-   
-   return TRUE;   
-}
-
-
-inline BOOLEAN 
-IsSurroundingLock(
-   PFILE_LOCK_INFO Lock,
-   PLARGE_INTEGER StartOffset,
-   PLARGE_INTEGER EndOffset
-   )
-{
-   if ((ULONGLONG)StartOffset->QuadPart >= (ULONGLONG)Lock->StartingByte.QuadPart && 
-       (ULONGLONG)EndOffset->QuadPart <= (ULONGLONG)Lock->EndingByte.QuadPart)
-   {
-      return TRUE; 
-   }
-   
-   return FALSE;   
-}
-
 
 /**********************************************************************
  * NAME							PRIVATE
@@ -67,7 +33,7 @@ IsSurroundingLock(
  *
  */
 VOID
-STDCALL INIT_FUNCTION
+STDCALL
 FsRtlpInitFileLockingImplementation(VOID)
 {
    ExInitializeNPagedLookasideList( &LockTocLookaside,
@@ -98,7 +64,6 @@ FsRtlpInitFileLockingImplementation(VOID)
                                     );
 
    ExInitializeFastMutex(&LockTocMutex);
-   
 }
 
 /**********************************************************************
@@ -115,22 +80,28 @@ FsRtlpFileLockCancelRoutine(
 {
    KIRQL                         oldIrql;
    PKSPIN_LOCK                   SpinLock;
+   PCOMPLETE_LOCK_IRP_ROUTINE    CompleteLockIrpRoutine;
 
    //don't need this since we have our own sync. protecting irp cancellation
    IoReleaseCancelSpinLock(Irp->CancelIrql); 
 
-   SpinLock = Irp->Tail.Overlay.DriverContext[3];
+   SpinLock = &((PFILE_LOCK_TOC)Irp->Tail.Overlay.DriverContext[1])->SpinLock;
 
    KeAcquireSpinLock(SpinLock, &oldIrql);
-   
    RemoveEntryList(&Irp->Tail.Overlay.ListEntry);
-   
    KeReleaseSpinLock(SpinLock, oldIrql);
 
    Irp->IoStatus.Status = STATUS_CANCELLED;
-   Irp->IoStatus.Information = 0;
 
-   IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   CompleteLockIrpRoutine = ((PFILE_LOCK)Irp->Tail.Overlay.DriverContext[0])->CompleteLockIrpRoutine;
+   if (CompleteLockIrpRoutine)
+   {
+      CompleteLockIrpRoutine(Irp->Tail.Overlay.DriverContext[2], Irp);
+   }
+   else
+   {
+      IofCompleteRequest(Irp, IO_NO_INCREMENT);
+   }
    
 }
 
@@ -138,9 +109,6 @@ FsRtlpFileLockCancelRoutine(
  * NAME							PRIVATE
  *	FsRtlpCheckLockForReadOrWriteAccess
  *
- * Return: 
- *  TRUE: can read/write
- *  FALSE: can't read/write
  */
 BOOLEAN
 FASTCALL
@@ -158,10 +126,8 @@ FsRtlpCheckLockForReadOrWriteAccess(
    PFILE_LOCK_TOC       LockToc;
    PFILE_LOCK_GRANTED   Granted;
    PLIST_ENTRY          EnumEntry;
-   LARGE_INTEGER        EndOffset;
-   
-   ASSERT(FileLock);
-   
+
+   assert(FileLock);
    LockToc = FileLock->LockInformation;
 
    if (LockToc == NULL || Length->QuadPart == 0) 
@@ -169,16 +135,15 @@ FsRtlpCheckLockForReadOrWriteAccess(
       return TRUE;
    }
 
-   EndOffset.QuadPart = FileOffset->QuadPart + Length->QuadPart - 1;
-
    KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
 
-   LIST_FOR_EACH(EnumEntry, &LockToc->GrantedListHead)
+   EnumEntry = LockToc->GrantedListHead.Flink;
+   while ( EnumEntry != &LockToc->GrantedListHead)
    {
-      Granted = CONTAINING_RECORD(EnumEntry, FILE_LOCK_GRANTED, ListEntry);
-      
+      Granted = CONTAINING_RECORD(EnumEntry, FILE_LOCK_GRANTED , ListEntry );
       //if overlapping
-      if(IsOverlappingLock(&Granted->Lock, FileOffset, &EndOffset)) 
+      if(!(REQUEST_START_OFF > LOCK_END_OFF(Granted->Lock) || 
+         REQUEST_END_OFF < LOCK_START_OFF(Granted->Lock))) 
       {
          //No read conflict if (shared lock) OR (exclusive + our lock)
          //No write conflict if exclusive lock AND our lock
@@ -189,26 +154,30 @@ FsRtlpCheckLockForReadOrWriteAccess(
             Granted->Lock.Key == Key ) ) 
          {
             //AND if lock surround request region, stop searching and grant
-            if (IsSurroundingLock(&Granted->Lock, FileOffset, &EndOffset) )
+            if (REQUEST_START_OFF >= LOCK_START_OFF(Granted->Lock) && 
+               REQUEST_END_OFF <= LOCK_END_OFF(Granted->Lock))
             {
-               KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
-               return TRUE;
+               EnumEntry = &LockToc->GrantedListHead;//indicate no conflict
+               break;
             }
-            
             //else continue searching for conflicts
-            continue;
          }
-
-         //found conflict
-         KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
-         return FALSE;
+         else //conflict
+         {
+            break;
+         }
       }
-
+      EnumEntry = EnumEntry->Flink;
    }
 
-   //no conflict
    KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
-   return TRUE;
+
+   if (EnumEntry == &LockToc->GrantedListHead) 
+   { //no conflict
+      return TRUE;
+   }
+
+   return FALSE;
 }
 
 
@@ -216,7 +185,6 @@ FsRtlpCheckLockForReadOrWriteAccess(
  * NAME							EXPORTED
  *	FsRtlCheckLockForReadAccess
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -239,7 +207,7 @@ FsRtlCheckLockForReadAccess (
                                                 Stack->Parameters.Read.Key,
                                                 Stack->FileObject,
                                                 IoGetRequestorProcess(Irp),
-                                                TRUE /* Read */
+                                                TRUE//Read?
                                                 );
 }
 
@@ -248,7 +216,6 @@ FsRtlCheckLockForReadAccess (
  * NAME							EXPORTED
  *	FsRtlCheckLockForWriteAccess
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -271,7 +238,7 @@ FsRtlCheckLockForWriteAccess (
                                                 Stack->Parameters.Write.Key,
                                                 Stack->FileObject,
                                                 IoGetRequestorProcess(Irp),
-                                                FALSE /* Read */
+                                                FALSE//Read?
                                                 );
 
 }
@@ -283,7 +250,6 @@ FsRtlCheckLockForWriteAccess (
  * NAME							EXPORTED
  *	FsRtlFastCheckLockForRead
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -302,7 +268,7 @@ FsRtlFastCheckLockForRead (
                                                 Key,
                                                 FileObject,
                                                 Process,
-                                                TRUE /* Read */
+                                                TRUE//Read?
                                                 );
 }
 
@@ -311,7 +277,6 @@ FsRtlFastCheckLockForRead (
  * NAME							EXPORTED
  *	FsRtlFastCheckLockForWrite
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -330,7 +295,7 @@ FsRtlFastCheckLockForWrite (
                                                 Key,
                                                 FileObject,
                                                 Process,
-                                                FALSE /* Read */
+                                                FALSE//Read?
                                                 );
 }
 
@@ -347,8 +312,8 @@ FsRtlpFastUnlockAllByKey(
    IN PFILE_LOCK           FileLock,
    IN PFILE_OBJECT         FileObject,
    IN PEPROCESS            Process,
-   IN DWORD                Key,
-   IN BOOLEAN              UseKey,
+   IN DWORD                Key,      /* FIXME: guess */
+   IN BOOLEAN              UseKey,   /* FIXME: guess */
    IN PVOID                Context OPTIONAL
    )
 {
@@ -358,10 +323,9 @@ FsRtlpFastUnlockAllByKey(
    PFILE_LOCK_GRANTED	Granted;
    BOOLEAN				   Unlock = FALSE;
    //must make local copy since FILE_LOCK struct is allowed to be paged
-   BOOLEAN        		GotUnlockRoutine;
-   LIST_ENTRY           UnlockedListHead;
+   PUNLOCK_ROUTINE		GotUnlockRoutine;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    LockToc = FileLock->LockInformation;
 
    if (LockToc == NULL)
@@ -369,13 +333,15 @@ FsRtlpFastUnlockAllByKey(
       return STATUS_RANGE_NOT_LOCKED;
    }
 
-   InitializeListHead(&UnlockedListHead);
-   GotUnlockRoutine = FileLock->UnlockRoutine != NULL;
+   GotUnlockRoutine = FileLock->UnlockRoutine;
    KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
-   
-   LIST_FOR_EACH_SAFE(EnumEntry, &LockToc->GrantedListHead, Granted, FILE_LOCK_GRANTED, ListEntry)
+
+   EnumEntry = LockToc->GrantedListHead.Flink;
+   while (EnumEntry != &LockToc->GrantedListHead ) 
    {
-      
+      Granted = CONTAINING_RECORD(EnumEntry,FILE_LOCK_GRANTED, ListEntry);
+      EnumEntry = EnumEntry->Flink;
+
       if (Granted->Lock.Process == Process &&
          Granted->Lock.FileObject == FileObject &&
          (!UseKey || (UseKey && Granted->Lock.Key == Key)) )
@@ -389,7 +355,7 @@ FsRtlpFastUnlockAllByKey(
             Put on unlocked list and call unlock routine for them afterwards.
             This way we don't have to restart enum after each call
             */
-            InsertHeadList(&UnlockedListHead,&Granted->ListEntry);
+            InsertHeadList(&LockToc->UnlockedListHead,&Granted->ListEntry);
          }
          else 
          {
@@ -398,23 +364,21 @@ FsRtlpFastUnlockAllByKey(
       }
    }
 
-   KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
-   
    if (Unlock)
    {
       //call unlock routine for each unlocked lock (if any)
-      while (!IsListEmpty(&UnlockedListHead)) 
+      while (!IsListEmpty(&LockToc->UnlockedListHead)) 
       {
-         EnumEntry = RemoveTailList(&UnlockedListHead);
+         EnumEntry = RemoveTailList(&LockToc->UnlockedListHead);
          Granted = CONTAINING_RECORD(EnumEntry,FILE_LOCK_GRANTED, ListEntry);
-         
-         FileLock->UnlockRoutine(Granted->UnlockContext, &Granted->Lock);
+         KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
+         FileLock->UnlockRoutine(Context,&Granted->Lock);
          ExFreeToNPagedLookasideList(&GrantedLookaside,Granted);
+         KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
       }
 
       //NOTE: holding spinlock while calling this
-      KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
-      FsRtlpCompletePendingLocks(FileLock, LockToc, &oldirql, Context);
+      FsRtlpCompletePendingLocks(FileLock, LockToc, &oldirql);
 
       if (IsListEmpty(&LockToc->GrantedListHead)) 
       {
@@ -425,10 +389,10 @@ FsRtlpFastUnlockAllByKey(
       {
          KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
       }
-      
       return STATUS_SUCCESS;
    }
 
+   KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
    return STATUS_RANGE_NOT_LOCKED;
 }
 
@@ -436,7 +400,6 @@ FsRtlpFastUnlockAllByKey(
  * NAME							EXPORTED
  *	FsRtlFastUnlockAll
  *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -450,9 +413,9 @@ FsRtlFastUnlockAll /*ByProcess*/ (
    return FsRtlpFastUnlockAllByKey( FileLock,
                                     FileObject,
                                     Process,
-                                    0,     /* Key is ignored */
+                                    0,     /* Key */
                                     FALSE, /* Do NOT use Key */
-                                    Context 
+                                    Context
                                     );
 }
 
@@ -460,7 +423,6 @@ FsRtlFastUnlockAll /*ByProcess*/ (
  * NAME							EXPORTED
  *	FsRtlFastUnlockAllByKey
  *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -477,7 +439,7 @@ FsRtlFastUnlockAllByKey (
                                     Process,
                                     Key,
                                     TRUE, /* Use Key */
-                                    Context 
+                                    Context
                                     );
 }
 
@@ -489,7 +451,7 @@ FsRtlFastUnlockAllByKey (
  * NOTE
  *  Spinlock held at entry !!
  */
-BOOLEAN
+NTSTATUS
 FASTCALL
 FsRtlpAddLock(
    IN PFILE_LOCK_TOC		   LockToc,
@@ -498,60 +460,58 @@ FsRtlpAddLock(
    IN PLARGE_INTEGER       Length,
    IN PEPROCESS            Process,
    IN ULONG                Key,
-   IN BOOLEAN              ExclusiveLock,
-   IN PVOID                Context
+   IN BOOLEAN              ExclusiveLock
    )
 {
    PLIST_ENTRY          EnumEntry;
    PFILE_LOCK_GRANTED   Granted;
-   LARGE_INTEGER        EndOffset;
-     
-   EndOffset.QuadPart = FileOffset->QuadPart + Length->QuadPart - 1;
 
-   //loop and try to find conflicking locks
-   LIST_FOR_EACH(EnumEntry, &LockToc->GrantedListHead)
+   EnumEntry = LockToc->GrantedListHead.Flink;
+   while (EnumEntry != &LockToc->GrantedListHead) 
    {
       Granted = CONTAINING_RECORD(EnumEntry,FILE_LOCK_GRANTED, ListEntry);
-      
-      if (IsOverlappingLock(&Granted->Lock, FileOffset, &EndOffset))
+      //if overlapping
+      if(!(REQUEST_START_OFF > LOCK_END_OFF(Granted->Lock) || 
+         REQUEST_END_OFF < LOCK_START_OFF(Granted->Lock))) 
       {
-         //we found a locks that overlap with the new lock
-   
-         //if both locks are shared, we might have a fast path outa here...
+         //never conflict if shared lock and we want to add a shared lock
          if (!Granted->Lock.ExclusiveLock && !ExclusiveLock) 
          {
-            //if existing lock surround new lock, we know that no other exclusive lock
-            //may overlap with our new lock;-D
-            if (IsSurroundingLock(&Granted->Lock, FileOffset, &EndOffset))
+            //AND if lock surround region, stop searching and insert lock
+            if (REQUEST_START_OFF >= LOCK_START_OFF(Granted->Lock) && 
+               REQUEST_END_OFF <= LOCK_END_OFF(Granted->Lock))
             {
+               EnumEntry = &LockToc->GrantedListHead;
                break;
             }
-            
             //else keep locking for conflicts
-            continue;
          }
-         
-         //we found a conflict: 
-         //we want shared access to an excl. lock OR exlc. access to a shared lock
-         return FALSE;
+         else 
+         {//conflict if we want share access to excl. lock OR exlc. access to shared lock
+            break;//FAIL
+         }
       }
+      EnumEntry = EnumEntry->Flink;
    }
 
-   Granted = ExAllocateFromNPagedLookasideList(&GrantedLookaside);
+   if (EnumEntry == &LockToc->GrantedListHead) 
+   {//no conflict
+      Granted = ExAllocateFromNPagedLookasideList(&GrantedLookaside);
 
-   //starting offset
-   Granted->Lock.StartingByte = *FileOffset;
-   Granted->Lock.Length = *Length;
-   Granted->Lock.ExclusiveLock = ExclusiveLock;
-   Granted->Lock.Key = Key;
-   Granted->Lock.FileObject = FileObject;
-   Granted->Lock.Process = Process;
-   //ending offset
-   Granted->Lock.EndingByte = EndOffset;
-   Granted->UnlockContext = Context;
+      Granted->Lock.StartingByte = *FileOffset;
+      Granted->Lock.Length = *Length;
+      Granted->Lock.ExclusiveLock = ExclusiveLock;
+      Granted->Lock.Key = Key;
+      Granted->Lock.FileObject = FileObject;
+      Granted->Lock.Process = Process;
+      Granted->Lock.EndingByte.QuadPart = REQUEST_END_OFF;
 
-   InsertHeadList(&LockToc->GrantedListHead,&Granted->ListEntry);
-   return TRUE;
+      InsertHeadList(&LockToc->GrantedListHead,&Granted->ListEntry);
+      return TRUE;
+   }
+
+   return FALSE;
+
 }
 
 
@@ -568,20 +528,19 @@ FASTCALL
 FsRtlpCompletePendingLocks(
    IN       PFILE_LOCK     FileLock,
    IN       PFILE_LOCK_TOC LockToc,
-   IN OUT   PKIRQL         oldirql,
-   IN       PVOID          Context
+   IN OUT   PKIRQL         oldirql
    )
 {
    //walk pending list, FIFO order, try 2 complete locks
    PLIST_ENTRY                   EnumEntry;
    PIRP                          Irp;
    PIO_STACK_LOCATION            Stack;
-   LIST_ENTRY                    CompletedListHead;
-   
-   InitializeListHead(&CompletedListHead);
-   
-   LIST_FOR_EACH_SAFE(EnumEntry, &LockToc->PendingListHead, Irp, IRP, Tail.Overlay.ListEntry) 
+
+   EnumEntry = LockToc->PendingListHead.Blink;
+   while (EnumEntry != &LockToc->PendingListHead) 
    {
+      Irp = CONTAINING_RECORD(EnumEntry,IRP, Tail.Overlay.ListEntry);
+
       Stack = IoGetCurrentIrpStackLocation(Irp);
       if (FsRtlpAddLock(LockToc,
                         Stack->FileObject,
@@ -589,65 +548,55 @@ FsRtlpCompletePendingLocks(
                         Stack->Parameters.LockControl.Length,
                         IoGetRequestorProcess(Irp),
                         Stack->Parameters.LockControl.Key,
-                        Stack->Flags & SL_EXCLUSIVE_LOCK,
-                        Irp->Tail.Overlay.DriverContext[2] //Context
+                        Stack->Flags & SL_EXCLUSIVE_LOCK
                         ) ) 
       {
          RemoveEntryList(&Irp->Tail.Overlay.ListEntry);
 
          if (!IoSetCancelRoutine(Irp, NULL))
          {
-            //irp is canceled and cancelroutine will run when we release the lock
+            /*
+            Cancel routine WILL be called after we release the spinlock. It will try to remove 
+            the irp from the list and cancel/complete this irp. Since we allready removed it, 
+            make its ListEntry point to itself.
+            */
             InitializeListHead(&Irp->Tail.Overlay.ListEntry);
-            continue;
          }
+         else
+         {
+            /*
+            Cancel routine will NOT be called, canceled or not.
 
-         /*
-         Put on completed list and complete them all afterwards.
-         This way we don't have to restart enum after each completion.
-         */
-         InsertHeadList(&CompletedListHead, &Irp->Tail.Overlay.ListEntry);
+            Put on completed list and complete them all afterwards.
+            This way we don't have to restart enum after each completion.
+            */
+            Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = 0;
+            InsertHeadList(&LockToc->CompletedListHead,&Irp->Tail.Overlay.ListEntry);
+         }
       }
+      EnumEntry = EnumEntry->Blink;
    }
 
-   KeReleaseSpinLock(&LockToc->SpinLock, *oldirql);
-   
    //complete irp's (if any)
-   while (!IsListEmpty(&CompletedListHead)) 
+   while (!IsListEmpty(&LockToc->CompletedListHead)) 
    {
-      EnumEntry = RemoveTailList(&CompletedListHead);
-      
+      EnumEntry = RemoveTailList(&LockToc->CompletedListHead);
+      KeReleaseSpinLock(&LockToc->SpinLock, *oldirql);//fires cancel routine
       Irp = CONTAINING_RECORD(EnumEntry, IRP, Tail.Overlay.ListEntry);
-
-      Irp->IoStatus.Status = STATUS_SUCCESS;
-      Irp->IoStatus.Information = 0;
 
       if (FileLock->CompleteLockIrpRoutine)
       {
-         if (FileLock->CompleteLockIrpRoutine(Context, Irp)!=STATUS_SUCCESS)
-         {
-            Stack = IoGetCurrentIrpStackLocation(Irp);
-               
-            //revert  
-            FsRtlpUnlockSingle ( FileLock,
-                                    Stack->FileObject,
-                                    &Stack->Parameters.LockControl.ByteOffset,
-                                    Stack->Parameters.LockControl.Length,
-                                    IoGetRequestorProcess(Irp),
-                                    Stack->Parameters.LockControl.Key,
-                                    NULL, /* unused context */
-                                    FALSE /* don't call unlock copletion rout.*/
-                                    );
-         }
+         FileLock->CompleteLockIrpRoutine(Irp->Tail.Overlay.DriverContext[2], Irp);
       }
       else
       {
-         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         IofCompleteRequest(Irp, IO_NO_INCREMENT);
       }
 
+      KeAcquireSpinLock(&LockToc->SpinLock, oldirql);
    }
 
-   KeAcquireSpinLock(&LockToc->SpinLock, oldirql);
 }
 
 
@@ -667,6 +616,7 @@ FsRtlpUnlockSingle(
    IN PEPROCESS            Process,
    IN ULONG                Key,
    IN PVOID                Context OPTIONAL,
+   IN BOOLEAN              AlreadySynchronized,
    IN BOOLEAN              CallUnlockRoutine
    )
 {
@@ -675,19 +625,21 @@ FsRtlpUnlockSingle(
    PFILE_LOCK_GRANTED   Granted;
    PLIST_ENTRY          EnumEntry;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    LockToc = FileLock->LockInformation;
 
-   if (LockToc == NULL)
+   if (LockToc == NULL || Length->QuadPart == 0)
    {
       return STATUS_RANGE_NOT_LOCKED;
    }
 
    KeAcquireSpinLock(&LockToc->SpinLock, &oldirql );
 
-   LIST_FOR_EACH_SAFE(EnumEntry, &LockToc->GrantedListHead, Granted,FILE_LOCK_GRANTED,ListEntry) 
+   EnumEntry = LockToc->GrantedListHead.Flink;
+   while (EnumEntry != &LockToc->GrantedListHead) 
    {
-     
+      Granted = CONTAINING_RECORD(EnumEntry,FILE_LOCK_GRANTED,ListEntry);
+
       //must be exact match
       if (FileOffset->QuadPart == Granted->Lock.StartingByte.QuadPart &&
          Length->QuadPart == Granted->Lock.Length.QuadPart &&
@@ -696,13 +648,12 @@ FsRtlpUnlockSingle(
          Granted->Lock.Key == Key) 
       {
          RemoveEntryList(&Granted->ListEntry);
-         FsRtlpCompletePendingLocks(FileLock, LockToc, &oldirql, Context);
+         FsRtlpCompletePendingLocks(FileLock, LockToc, &oldirql);
 
          if (IsListEmpty(&LockToc->GrantedListHead))
          {
             KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
-            
-            FsRtlAreThereCurrentFileLocks(FileLock) = FALSE; //paged data
+            FsRtlAreThereCurrentFileLocks(FileLock) = FALSE;
          }
          else
          {
@@ -711,13 +662,14 @@ FsRtlpUnlockSingle(
 
          if (FileLock->UnlockRoutine && CallUnlockRoutine)
          {
-            FileLock->UnlockRoutine(Granted->UnlockContext, &Granted->Lock);
+            FileLock->UnlockRoutine(Context,&Granted->Lock);
          }
 
-         ExFreeToNPagedLookasideList(&GrantedLookaside, Granted);
+         ExFreeToNPagedLookasideList(&GrantedLookaside,Granted);
 
          return STATUS_SUCCESS;
       }
+      EnumEntry = EnumEntry->Flink;
    }
 
    KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
@@ -732,7 +684,6 @@ FsRtlpUnlockSingle(
  * NAME							EXPORTED
  *	FsRtlFastUnlockSingle
  *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -754,7 +705,8 @@ FsRtlFastUnlockSingle (
                               Process,
                               Key,
                               Context,
-                              TRUE /* call unlock copletion routine */
+                              AlreadySynchronized,
+                              TRUE//CallUnlockRoutine
                               );
 }
 
@@ -777,7 +729,7 @@ FsRtlpDumpFileLocks(
    PLIST_ENTRY          EnumEntry;
    PIO_STACK_LOCATION   Stack;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    LockToc = FileLock->LockInformation;
 
    if (LockToc == NULL) 
@@ -790,10 +742,11 @@ FsRtlpDumpFileLocks(
 
    KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
 
-   LIST_FOR_EACH(EnumEntry, &LockToc->GrantedListHead)
+   EnumEntry = LockToc->GrantedListHead.Blink;
+   while ( EnumEntry != &LockToc->GrantedListHead)
    {
-      Granted = CONTAINING_RECORD(EnumEntry, FILE_LOCK_GRANTED , ListEntry);
-      
+      Granted = CONTAINING_RECORD(EnumEntry, FILE_LOCK_GRANTED , ListEntry );
+
       DPRINT1("%s, start: %i, len: %i, end: %i, key: %i, proc: 0x%X, fob: 0x%X\n",
          Granted->Lock.ExclusiveLock ? "EXCL" : "SHRD",
          Granted->Lock.StartingByte.QuadPart,
@@ -804,13 +757,16 @@ FsRtlpDumpFileLocks(
          Granted->Lock.FileObject
          );
 
+      EnumEntry = EnumEntry->Blink;
    }
 
    DPRINT1("Dumping pending file locks, FIFO order\n");
 
-   LIST_FOR_EACH(EnumEntry, &LockToc->PendingListHead)
+   EnumEntry = LockToc->PendingListHead.Blink;
+   while ( EnumEntry != &LockToc->PendingListHead)
    {
-      Irp = CONTAINING_RECORD(EnumEntry, IRP , Tail.Overlay.ListEntry);
+      Irp = CONTAINING_RECORD(EnumEntry, IRP , Tail.Overlay.ListEntry );
+
       Stack = IoGetCurrentIrpStackLocation(Irp);
 
       DPRINT1("%s, start: %i, len: %i, end: %i, key: %i, proc: 0x%X, fob: 0x%X\n",
@@ -823,6 +779,7 @@ FsRtlpDumpFileLocks(
          Stack->FileObject
          );
 
+      EnumEntry = EnumEntry->Blink;
    }
 
    KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
@@ -837,7 +794,6 @@ FsRtlpDumpFileLocks(
  * RETURN VALUE
  *	NULL if no more locks.
  *
- * @implemented
  */
 PFILE_LOCK_INFO
 STDCALL
@@ -861,7 +817,7 @@ FsRtlGetNextFileLock (
    FILE_LOCK_INFO       LocalLastReturnedLockInfo;
    PVOID                LocalLastReturnedLock;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    LockToc = FileLock->LockInformation;
    if (LockToc == NULL)
    {
@@ -939,7 +895,6 @@ restart:;
  * NOTE
  *  Called when creating/allocating/initializing FCB
  *
- * @implemented
  */
 VOID
 STDCALL
@@ -962,7 +917,6 @@ FsRtlInitializeFileLock (
  * NAME							EXPORTED
  *	FsRtlPrivateLock
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -977,14 +931,14 @@ FsRtlPrivateLock (
    IN BOOLEAN              ExclusiveLock,
    OUT PIO_STATUS_BLOCK    IoStatus,
    IN PIRP                 Irp OPTIONAL,
-   IN PVOID                Context OPTIONAL,
+   IN PVOID                Context,
    IN BOOLEAN              AlreadySynchronized
    )
 {
    PFILE_LOCK_TOC       LockToc;
    KIRQL                oldirql;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    if (FileLock->LockInformation == NULL) 
    {
       ExAcquireFastMutex(&LockTocMutex);
@@ -996,6 +950,8 @@ FsRtlPrivateLock (
          KeInitializeSpinLock(&LockToc->SpinLock);
          InitializeListHead(&LockToc->GrantedListHead);
          InitializeListHead(&LockToc->PendingListHead);
+         InitializeListHead(&LockToc->CompletedListHead);
+         InitializeListHead(&LockToc->UnlockedListHead);
       }
       ExReleaseFastMutex(&LockTocMutex);
    }
@@ -1010,36 +966,43 @@ FsRtlPrivateLock (
                      Length,
                      Process,
                      Key,
-                     ExclusiveLock,
-                     Context 
+                     ExclusiveLock
                      ) ) 
    {
       IoStatus->Status = STATUS_SUCCESS;
    }
    else if (Irp && !FailImmediately) 
-   {	
-      //failed + irp + no fail = make. pending
-
-      Irp->Tail.Overlay.DriverContext[3] = &LockToc->SpinLock;
+   {	//failed + irp + no fail = mk. pending
+      //for our cancel routine
+      Irp->Tail.Overlay.DriverContext[0] = (PVOID)FileLock;
+      Irp->Tail.Overlay.DriverContext[1] = (PVOID)LockToc;
       Irp->Tail.Overlay.DriverContext[2] = Context;
-      
+
       IoSetCancelRoutine(Irp, FsRtlpFileLockCancelRoutine);
-      if (Irp->Cancel && IoSetCancelRoutine(Irp, NULL))
-      {              
-         //irp was canceled
-         KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
+
+      if (Irp->Cancel) 
+      {
+         //irp canceled even before we got to queue it
+         if (IoSetCancelRoutine(Irp, NULL))
+         {  //Cancel routine will NOT be called: cancel it here
+            IoStatus->Status = STATUS_CANCELLED; 
+         }
+         else
+         {  //Cancel routine WILL be called. When we release the lock it will complete the irp
+            //Return pending since we are not completing the irp here
+            Irp->IoStatus.Status = IoStatus->Status = STATUS_PENDING;
+            Irp->IoStatus.Information = 0;
+            InitializeListHead(&Irp->Tail.Overlay.ListEntry);
+         }
          
-         Irp->IoStatus.Status = STATUS_CANCELLED;
-         Irp->IoStatus.Information = 0;
-         IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-         return TRUE;
       }
-
-      IoMarkIrpPending(Irp);
+      else 
+      {  //not cancelled: queue irp
+         IoMarkIrpPending(Irp);
          Irp->IoStatus.Status = IoStatus->Status = STATUS_PENDING;
          Irp->IoStatus.Information = 0;
-      InsertHeadList(&LockToc->PendingListHead,&Irp->Tail.Overlay.ListEntry);
+         InsertHeadList(&LockToc->PendingListHead,&Irp->Tail.Overlay.ListEntry);
+      }
 
    }
    else 
@@ -1050,7 +1013,7 @@ FsRtlPrivateLock (
    KeReleaseSpinLock(&LockToc->SpinLock, oldirql);	//fires cancel routine
 
    //never pending if no irp;-)
-   ASSERT(!(IoStatus->Status == STATUS_PENDING && !Irp));
+   assert(!(IoStatus->Status == STATUS_PENDING && !Irp));
 
    if (IoStatus->Status != STATUS_PENDING) 
    {
@@ -1063,9 +1026,11 @@ FsRtlPrivateLock (
       {
          Irp->IoStatus.Status = IoStatus->Status;
          Irp->IoStatus.Information = 0;
+
          if (FileLock->CompleteLockIrpRoutine) 
-         {
-            if (FileLock->CompleteLockIrpRoutine(Context,Irp)!=STATUS_SUCCESS) 
+         { //complete irp routine
+
+            if (!NT_SUCCESS(FileLock->CompleteLockIrpRoutine(Context,Irp))) 
             {
                //CompleteLockIrpRoutine complain: revert changes
                FsRtlpUnlockSingle(  FileLock,
@@ -1074,14 +1039,15 @@ FsRtlPrivateLock (
                                     Length,
                                     Process,
                                     Key,
-                                    NULL, /* context */
-                                    FALSE  /* don't call unlock copletion routine */
+                                    Context,
+                                    AlreadySynchronized,
+                                    FALSE//CallUnlockRoutine
                                     );
             }
          }
          else 
-         {
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         {//std irp completion
+            IofCompleteRequest(Irp, IO_NO_INCREMENT);
          }
       }
    }
@@ -1097,7 +1063,6 @@ FsRtlPrivateLock (
  * NAME							EXPORTED
  *	FsRtlProcessFileLock
  *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -1111,7 +1076,7 @@ FsRtlProcessFileLock (
    NTSTATUS             Status;
    IO_STATUS_BLOCK      LocalIoStatus;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    Stack = IoGetCurrentIrpStackLocation(Irp);
    Irp->IoStatus.Information = 0;
 
@@ -1141,7 +1106,7 @@ FsRtlProcessFileLock (
                                           Stack->Parameters.LockControl.Length,
                                           IoGetRequestorProcess(Irp),
                                           Stack->Parameters.LockControl.Key,
-                                          Context, 
+                                          Context,
                                           FALSE);
          break;
 
@@ -1149,7 +1114,7 @@ FsRtlProcessFileLock (
          Status = FsRtlFastUnlockAll(  FileLock,
                                        Stack->FileObject,
                                        IoGetRequestorProcess(Irp),
-                                       Context );
+                                       Context);
          break;
 
       case IRP_MN_UNLOCK_ALL_BY_KEY:
@@ -1157,21 +1122,26 @@ FsRtlProcessFileLock (
                                              Stack->FileObject,
                                              IoGetRequestorProcess(Irp),
                                              Stack->Parameters.LockControl.Key,
-                                             Context );
+                                             Context);
 
          break;
 
       default:
          Irp->IoStatus.Status = Status = STATUS_INVALID_DEVICE_REQUEST;
-         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         IofCompleteRequest(Irp, IO_NO_INCREMENT);
          return Status;
    }
 
-
    Irp->IoStatus.Status = Status;
-   Irp->IoStatus.Information = 0;
-   
-   IoCompleteRequest(Irp,IO_NO_INCREMENT);
+
+   if (FileLock->CompleteLockIrpRoutine )
+   {
+      FileLock->CompleteLockIrpRoutine(Context,Irp);
+   }
+   else
+   {
+      IofCompleteRequest(Irp,IO_NO_INCREMENT);
+   }
 
    return Status;
 }
@@ -1181,7 +1151,6 @@ FsRtlProcessFileLock (
  * NAME							EXPORTED
  *	FsRtlUninitializeFileLock
  *
- * @implemented
  */
 VOID
 STDCALL
@@ -1195,7 +1164,7 @@ FsRtlUninitializeFileLock (
    PLIST_ENTRY          EnumEntry;
    KIRQL                oldirql;
 
-   ASSERT(FileLock);
+   assert(FileLock);
    if (FileLock->LockInformation == NULL)
    {
       return;
@@ -1223,17 +1192,28 @@ FsRtlUninitializeFileLock (
       {  
          //The cancel routine will be called. When we release the lock it will complete the irp.
          InitializeListHead(&Irp->Tail.Overlay.ListEntry);
-         continue;
       }
+      else
+      {
+         /*
+         Cancel routine will NOT be called, even though the irp might have been canceled.
+         Don't care since we'l complete it faster than the cancel routine would have.
+         */
+         KeReleaseSpinLock(&LockToc->SpinLock, oldirql);//fires cancel routine	
 
-      KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
+         Irp->IoStatus.Status = STATUS_RANGE_NOT_LOCKED;
+   
+         if (FileLock->CompleteLockIrpRoutine)
+         {
+            FileLock->CompleteLockIrpRoutine(Irp->Tail.Overlay.DriverContext[2], Irp);
+         }
+         else
+         {
+            IofCompleteRequest(Irp, IO_NO_INCREMENT);
+         }
 
-      Irp->IoStatus.Status = STATUS_RANGE_NOT_LOCKED;
-      Irp->IoStatus.Information = 0;
-      IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-      KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
-
+         KeAcquireSpinLock(&LockToc->SpinLock, &oldirql);
+      }
    }
 
    KeReleaseSpinLock(&LockToc->SpinLock, oldirql);
@@ -1254,7 +1234,6 @@ FsRtlUninitializeFileLock (
  * 	Only present in NT 5.0 or later.
  *	FCB FILE_LOCK struct should/is acording to DDK allocated from paged pool!
  *
- * @implemented
  */
 PFILE_LOCK
 STDCALL
@@ -1283,7 +1262,6 @@ FsRtlAllocateFileLock(
  * 	Only present in NT 5.0 or later.
  *	FCB FILE_LOCK struct should/is acording to DDK allocated from paged pool!
  *
- * @implemented
  */
 VOID
 STDCALL
@@ -1291,91 +1269,10 @@ FsRtlFreeFileLock(
    IN PFILE_LOCK FileLock
    )
 {
-   ASSERT(FileLock);
+   assert(FileLock);
 
    FsRtlUninitializeFileLock(FileLock);
    ExFreeToPagedLookasideList(&LockLookaside, FileLock);
 }
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlAcquireFileExclusive(
-    IN PFILE_OBJECT FileObject
-    )
-{
-    PFAST_IO_DISPATCH FastDispatch;
-    PDEVICE_OBJECT DeviceObject;
-    PFSRTL_COMMON_FCB_HEADER FcbHeader;
-    
-    /* Get the Device Object */
-    DeviceObject = IoGetBaseFileSystemDeviceObject(FileObject);
-    
-    /* Check if we have to do a Fast I/O Dispatch */
-    if ((FastDispatch = DeviceObject->DriverObject->FastIoDispatch)) {
-
-        /* Call the Fast I/O Routine */
-        if (FastDispatch->AcquireFileForNtCreateSection) {
-            FastDispatch->AcquireFileForNtCreateSection(FileObject);
-        }
-           
-        return;
-    }
-    
-    /* Do a normal acquire */
-    if ((FcbHeader = (PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext)) {
-    
-        /* Use a Resource Acquire */
-        ExAcquireResourceExclusive(FcbHeader->Resource, TRUE);
-           
-        return;
-    }
-    
-    /* Return...is there some kind of failure we should raise?? */
-    return;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlReleaseFile(
-    IN PFILE_OBJECT FileObject
-    )
-{
-    PFAST_IO_DISPATCH FastDispatch;
-    PDEVICE_OBJECT DeviceObject;
-    PFSRTL_COMMON_FCB_HEADER FcbHeader;
-    
-    /* Get the Device Object */
-    DeviceObject = IoGetBaseFileSystemDeviceObject(FileObject);
-    
-    /* Check if we have to do a Fast I/O Dispatch */
-    if ((FastDispatch = DeviceObject->DriverObject->FastIoDispatch)) {
-    
-        /* Use Fast I/O */
-        if (FastDispatch->ReleaseFileForNtCreateSection) {
-            FastDispatch->ReleaseFileForNtCreateSection(FileObject);
-        }
-           
-        return;
-    }
-    
-    /* Do a normal acquire */
-    if ((FcbHeader = (PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext)) {
-    
-        /* Use a Resource Release */
-        ExReleaseResource(FcbHeader->Resource);
-           
-        return;
-    }
-    
-    /* Return...is there some kind of failure we should raise?? */
-    return;
-}
-
 
 /* EOF */

@@ -27,13 +27,13 @@
 #ifndef __USETUP_H__
 #define __USETUP_H__
 
-#ifdef assert
-#undef assert
-#endif
-#define assert(x)
 
-#define ROUND_DOWN(N, S) (((N) / (S)) * (S))
-#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
+#define DPRINT1(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
+#define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
+
+#define DPRINT(args...)
+#define CHECKPOINT
+
 
 extern HANDLE ProcessHeap;
 

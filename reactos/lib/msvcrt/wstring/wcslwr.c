@@ -10,9 +10,6 @@
 
 #include <msvcrt/wchar.h>
 
-/*
- * @implemented
- */
 wchar_t * _wcslwr(wchar_t *x)
 {
 	wchar_t  *y=x;

@@ -24,7 +24,9 @@ typedef struct ARP_HEADER {
 #define ARP_OPCODE_REPLY   WH2N(0x0002) /* ARP reply */
 
 
-BOOLEAN ARPTransmit(PIP_ADDRESS Address, PIP_INTERFACE Interface);
+BOOLEAN ARPTransmit(
+    PIP_ADDRESS Address,
+    PNET_TABLE_ENTRY NTE);
 
 VOID ARPReceive(
     PVOID Context,

@@ -3,18 +3,12 @@
 #include <msvcrt/wchar.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 int
 fputc(int c, FILE *fp)
 {
   return putc(c, fp);
 }
 
-/*
- * @implemented
- */
 wint_t
 fputwc(wchar_t c, FILE *fp)
 {

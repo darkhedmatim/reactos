@@ -1,4 +1,4 @@
-/* $Id: _system.c,v 1.11 2004/08/27 03:08:23 navaraf Exp $
+/* $Id: _system.c,v 1.6 2002/11/25 17:41:39 robd Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,24 +8,20 @@
  * UPDATE HISTORY:
  *              04/03/99: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 #include <msvcrt/process.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 int system(const char *command)
 {
   char *szCmdLine = NULL;
   char *szComSpec = NULL;
 
   PROCESS_INFORMATION ProcessInformation;
-  STARTUPINFOA StartupInfo;
+  STARTUPINFO StartupInfo;
   char *s;
   BOOL result;
 
@@ -39,7 +35,10 @@ int system(const char *command)
       if (szComSpec == NULL)
 	return 0;
       else
+      {
+	free(szComSpec);
 	return -1;
+      }
     }
 
 // should return 127 or 0 ( MS ) if the shell is not found
@@ -78,8 +77,8 @@ int system(const char *command)
 
 //command file has invalid format ENOEXEC
 
-  memset (&StartupInfo, 0, sizeof(StartupInfo));
-  StartupInfo.cb = sizeof(StartupInfo);
+  memset (&StartupInfo, 0, sizeof(STARTUPINFO));
+  StartupInfo.cb = sizeof(STARTUPINFO);
   StartupInfo.lpReserved= NULL;
   StartupInfo.dwFlags = 0;
   StartupInfo.wShowWindow = SW_SHOWDEFAULT;
@@ -108,7 +107,7 @@ int system(const char *command)
 
   if (result == FALSE)
   {
-	_dosmaperr(GetLastError());
+     __set_errno(ENOEXEC);
      return -1;
   }
   

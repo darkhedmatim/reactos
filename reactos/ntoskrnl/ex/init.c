@@ -26,7 +26,9 @@
  *                  Created 11/09/99
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -34,24 +36,16 @@
 
 /* FUNCTIONS ****************************************************************/
 
-VOID INIT_FUNCTION
-ExInit2(VOID)
+VOID 
+ExInit (VOID)
 {
-  ExpInitLookasideLists();
-}
-
-VOID INIT_FUNCTION
-ExInit3 (VOID)
-{
+  ExInitTimeZoneInfo();
   ExInitializeWorkerThreads();
+  ExpInitLookasideLists();
   ExpWin32kInit();
-  ExpInitUuids();
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 ExIsProcessorFeaturePresent(IN ULONG ProcessorFeature)
 {

@@ -8,16 +8,46 @@ ObAssignSecurity(IN PACCESS_STATE AccessState,
 		 IN PVOID Object,
 		 IN POBJECT_TYPE Type);
 
+/*
+BOOLEAN STDCALL
+ObCheckCreateObjectAccess(IN PVOID Object,
+			  IN ACCESS_MASK DesiredAccess,
+			  ULONG Param3,
+			  ULONG Param4,
+			  ULONG Param5,
+			  IN KPROCESSOR_MODE AccessMode,
+			  OUT PNTSTATUS AccessStatus);
+*/
+
+/*
+BOOLEAN STDCALL
+ObCheckObjectAccess(IN PVOID Object,
+		    ULONG Param2,
+		    ULONG Param3,
+		    IN KPROCESSOR_MODE AccessMode,
+		    OUT PACCESS_MODE GrantedAccess);
+*/
+
 NTSTATUS STDCALL
-ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
-		IN POBJECT_TYPE ObjectType,
-		IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
-		IN KPROCESSOR_MODE AccessMode,
-		IN OUT PVOID ParseContext OPTIONAL,
-		IN ULONG ObjectSize,
-		IN ULONG PagedPoolCharge OPTIONAL,
-		IN ULONG NonPagedPoolCharge OPTIONAL,
-		OUT PVOID *Object);
+ObCreateObject(OUT PHANDLE Handle,
+	       IN ACCESS_MASK DesiredAccess,
+	       IN POBJECT_ATTRIBUTES ObjectAttributes,
+	       IN POBJECT_TYPE Type,
+	       OUT PVOID *Object);
+
+#if 0
+/* original implementation */
+NTSTATUS STDCALL
+ObCreateObject(IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
+	       IN POBJECT_TYPE Type,
+	       IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
+	       IN KPROCESSOR_MODE AccessMode,
+	       IN OUT PVOID ParseContext OPTIONAL,
+	       IN ULONG ObjectSize,
+	       IN ULONG PagedPoolCharge OPTIONAL,
+	       IN ULONG NonPagedPoolCharge OPTIONAL,
+	       OUT PVOID *Object);
+#endif
 
 VOID FASTCALL
 ObfDereferenceObject(IN PVOID Object);
@@ -30,6 +60,14 @@ ObfReferenceObject(IN PVOID Object);
 
 #define ObReferenceObject(Object) \
   ObfReferenceObject(Object)
+
+/*
+BOOLEAN STDCALL
+ObFindHandleForObject(ULONG Param1,
+		      ULONG Param2,
+		      ULONG Param3,
+		      ULONG Param4);
+*/
 
 ULONG STDCALL
 ObGetObjectPointerCount(IN PVOID Object);
@@ -138,12 +176,5 @@ ObSetSecurityDescriptorInfo(IN PVOID Object,
 			    IN POOL_TYPE PoolType,
 			    IN PGENERIC_MAPPING GenericMapping);
 */
-
-NTSTATUS STDCALL
-ObFindHandleForObject(IN PEPROCESS Process,
-                      IN PVOID Object,
-                      IN POBJECT_TYPE ObjectType,
-                      IN POBJECT_HANDLE_INFORMATION HandleInformation,
-                      OUT PHANDLE HandleReturn);
 
 #endif /* ndef _INCLUDE_DDK_OBFUNCS_H */

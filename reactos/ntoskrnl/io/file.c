@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.35 2004/10/22 20:25:53 ekohl Exp $
+/* $Id: file.c,v 1.23 2003/03/23 14:46:09 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -23,9 +26,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtQueryInformationFile(HANDLE FileHandle,
 		       PIO_STATUS_BLOCK IoStatusBlock,
@@ -39,21 +39,19 @@ NtQueryInformationFile(HANDLE FileHandle,
    PDEVICE_OBJECT DeviceObject;
    PIO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
-   KPROCESSOR_MODE PreviousMode;
+   IO_STATUS_BLOCK IoSB;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FileInformation != NULL);
    
    DPRINT("NtQueryInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,
 	  Length, FileInformationClass);
-
-   PreviousMode = ExGetPreviousMode();
-
+   
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_READ_ATTRIBUTES,
 				      IoFileObjectType,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID *)&FileObject,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -82,13 +80,9 @@ NtQueryInformationFile(HANDLE FileHandle,
 	return(STATUS_INSUFFICIENT_RESOURCES);
      }
    
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
    Irp->AssociatedIrp.SystemBuffer = SystemBuffer;
-   Irp->UserIosb = IoStatusBlock;
+   Irp->UserIosb = &IoSB;
    Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    KeResetEvent( &FileObject->Event );
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -105,15 +99,19 @@ NtQueryInformationFile(HANDLE FileHandle,
    
    Status = IoCallDriver(FileObject->DeviceObject,
 			 Irp);
-   if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
+   if (Status==STATUS_PENDING && !(FileObject->Flags & FO_SYNCHRONOUS_IO))
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      Executive,
-			      PreviousMode,
-			      FileObject->Flags & FO_ALERTABLE_IO,
+			      KernelMode,
+			      FALSE,
 			      NULL);
-	Status = IoStatusBlock->Status;
+	Status = IoSB.Status;
      }
+  if (IoStatusBlock)
+    {
+      *IoStatusBlock = IoSB;
+    }
 
   if (NT_SUCCESS(Status))
     {
@@ -122,179 +120,12 @@ NtQueryInformationFile(HANDLE FileHandle,
 		       SystemBuffer,
 		       IoStatusBlock->Information);
     }
-
-   ExFreePool(SystemBuffer);
-
-   return Status;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-NtQueryQuotaInformationFile(
-    IN HANDLE FileHandle,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    OUT PVOID Buffer,
-    IN ULONG Length,
-    IN BOOLEAN ReturnSingleEntry,
-    IN PVOID SidList OPTIONAL,
-    IN ULONG SidListLength,
-    IN PSID StartSid OPTIONAL,
-    IN BOOLEAN RestartScan
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-STDCALL
-NtSetQuotaInformationFile(
-	HANDLE FileHandle,
-    	PIO_STATUS_BLOCK IoStatusBlock,
-	PFILE_USER_QUOTA_INFORMATION Buffer,
-    	ULONG BufferLength)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
+   
+   ExFreePool(SystemBuffer);   
+   return(Status);
 }
 
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuerySetFileInformation(
-    IN FILE_INFORMATION_CLASS FileInformationClass,
-    IN ULONG Length,
-    IN BOOLEAN SetOperation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuerySetVolumeInformation(
-    IN FS_INFORMATION_CLASS FsInformationClass,
-    IN ULONG Length,
-    IN BOOLEAN SetOperation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuotaBufferValidity(
-    IN PFILE_QUOTA_INFORMATION QuotaBuffer,
-    IN ULONG QuotaLength,
-    OUT PULONG ErrorOffset
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCreateFileSpecifyDeviceObjectHint(
-    OUT PHANDLE FileHandle,
-    IN ACCESS_MASK DesiredAccess,
-    IN POBJECT_ATTRIBUTES ObjectAttributes,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    IN PLARGE_INTEGER AllocationSize OPTIONAL,
-    IN ULONG FileAttributes,
-    IN ULONG ShareAccess,
-    IN ULONG Disposition,
-    IN ULONG CreateOptions,
-    IN PVOID EaBuffer OPTIONAL,
-    IN ULONG EaLength,
-    IN CREATE_FILE_TYPE CreateFileType,
-    IN PVOID ExtraCreateParameters OPTIONAL,
-    IN ULONG Options,
-    IN PVOID DeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-PFILE_OBJECT
-STDCALL
-IoCreateStreamFileObjectEx(
-    IN PFILE_OBJECT FileObject OPTIONAL,
-    IN PDEVICE_OBJECT DeviceObject OPTIONAL,
-    OUT PHANDLE FileObjectHandle OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-/*
- * @unimplemented
- */
-PFILE_OBJECT
-STDCALL
-IoCreateStreamFileObjectLite(
-    IN PFILE_OBJECT FileObject OPTIONAL,
-    IN PDEVICE_OBJECT DeviceObject OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-IoIsFileOriginRemote(
-    IN PFILE_OBJECT FileObject
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoQueryFileDosDeviceName(
-    IN PFILE_OBJECT FileObject,
-    OUT POBJECT_NAME_INFORMATION *ObjectNameInformation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 IoQueryFileInformation(IN PFILE_OBJECT FileObject,
 		       IN FILE_INFORMATION_CLASS FileInformationClass,
@@ -308,7 +139,7 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
    PIO_STACK_LOCATION StackPtr;
    NTSTATUS Status;
    
-   ASSERT(FileInformation != NULL);
+   assert(FileInformation != NULL)
    
    Status = ObReferenceObjectByPointer(FileObject,
 				       FILE_READ_ATTRIBUTES,
@@ -330,14 +161,10 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
 	ObDereferenceObject(FileObject);
 	return STATUS_INSUFFICIENT_RESOURCES;
      }
-
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = KernelMode;
+   
    Irp->AssociatedIrp.SystemBuffer = FileInformation;
    Irp->UserIosb = &IoStatusBlock;
    Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    KeResetEvent( &FileObject->Event );
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -354,12 +181,12 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
    
    Status = IoCallDriver(FileObject->DeviceObject,
 			 Irp);
-   if (Status==STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
+   if (Status==STATUS_PENDING && !(FileObject->Flags & FO_SYNCHRONOUS_IO))
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      Executive,
 			      KernelMode,
-			      FileObject->Flags & FO_ALERTABLE_IO,
+			      FALSE,
 			      NULL);
 	Status = IoStatusBlock.Status;
      }
@@ -374,9 +201,6 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtSetInformationFile(HANDLE FileHandle,
 		     PIO_STATUS_BLOCK IoStatusBlock,
@@ -390,22 +214,20 @@ NtSetInformationFile(HANDLE FileHandle,
    PIRP Irp;
    NTSTATUS Status;
    PVOID SystemBuffer;
-   KPROCESSOR_MODE PreviousMode;
+   IO_STATUS_BLOCK IoSB;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL)
+   assert(FileInformation != NULL)
    
    DPRINT("NtSetInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,
 	  Length, FileInformationClass);
-
-   PreviousMode = ExGetPreviousMode();
-
+   
    /*  Get the file object from the file handle  */
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_WRITE_ATTRIBUTES,
 				      IoFileObjectType,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID *)&FileObject,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -415,7 +237,7 @@ NtSetInformationFile(HANDLE FileHandle,
    
    DPRINT("FileObject %x\n", FileObject);
 
-   /* io completion port? */
+   //io completion port?
    if (FileInformationClass == FileCompletionInformation)
    {
       PKQUEUE Queue;
@@ -429,12 +251,12 @@ NtSetInformationFile(HANDLE FileHandle,
          Status = ObReferenceObjectByHandle(((PFILE_COMPLETION_INFORMATION)FileInformation)->IoCompletionHandle,
                                             IO_COMPLETION_MODIFY_STATE,//???
                                             ExIoCompletionType,
-                                            PreviousMode,
+                                            UserMode,
                                             (PVOID*)&Queue,
                                             NULL);
          if (NT_SUCCESS(Status))
          {   
-            /* FIXME: maybe use lookaside list */
+            //FIXME: maybe use lookaside list
             FileObject->CompletionContext = ExAllocatePool(NonPagedPool, sizeof(IO_COMPLETION_CONTEXT));
             FileObject->CompletionContext->Key = ((PFILE_COMPLETION_INFORMATION)FileInformation)->CompletionKey;
             FileObject->CompletionContext->Port = Queue;
@@ -471,14 +293,10 @@ NtSetInformationFile(HANDLE FileHandle,
 		      FileInformation,
 		      Length);
    
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
    Irp->AssociatedIrp.SystemBuffer = SystemBuffer;
-   Irp->UserIosb = IoStatusBlock;
+   Irp->UserIosb = &IoSB;
    Irp->UserEvent = &FileObject->Event;
    KeResetEvent( &FileObject->Event );
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->MajorFunction = IRP_MJ_SET_INFORMATION;
@@ -499,35 +317,24 @@ NtSetInformationFile(HANDLE FileHandle,
    DPRINT("FileObject->DeviceObject %x\n", FileObject->DeviceObject);
    Status = IoCallDriver(FileObject->DeviceObject,
 			 Irp);
-   if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
+   if (Status == STATUS_PENDING && !(FileObject->Flags & FO_SYNCHRONOUS_IO))
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      Executive,
-			      PreviousMode,
-			      FileObject->Flags & FO_ALERTABLE_IO,
+			      KernelMode,
+			      FALSE,
 			      NULL);
-	Status = IoStatusBlock->Status;
+	Status = IoSB.Status;
      }
-
+   if (IoStatusBlock)
+     {
+       *IoStatusBlock = IoSB;
+     }
    ExFreePool(SystemBuffer);
-
+ 
    return Status;
 }
 
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoSetFileOrigin(
-    IN PFILE_OBJECT FileObject,
-    IN BOOLEAN Remote
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 NTSTATUS STDCALL
 NtQueryAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -603,9 +410,6 @@ NtQueryFullAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 NtQueryEaFile(IN HANDLE FileHandle,
 	      OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -622,9 +426,6 @@ NtQueryEaFile(IN HANDLE FileHandle,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 NtSetEaFile(IN HANDLE FileHandle,
 	    IN PIO_STATUS_BLOCK	IoStatusBlock,

@@ -16,9 +16,6 @@
 
 FILE *	__alloc_file(void);
 
-/*
- * @implemented
- */
 FILE *
 tmpfile(void)
 {

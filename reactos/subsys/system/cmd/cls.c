@@ -23,9 +23,16 @@
  *        Redirection ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_CLS
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+
 
 INT cmd_cls (LPTSTR cmd, LPTSTR param)
 {
@@ -39,17 +46,17 @@ INT cmd_cls (LPTSTR cmd, LPTSTR param)
 		return 0;
 	}
 
-	GetConsoleScreenBufferInfo (hConsole, &csbi);
+	GetConsoleScreenBufferInfo (hOut, &csbi);
 
 	coPos.X = 0;
 	coPos.Y = 0;
-	FillConsoleOutputAttribute (hConsole, wColor,
+	FillConsoleOutputAttribute (hOut, wColor,
 								(csbi.dwSize.X)*(csbi.dwSize.Y),
 								coPos, &dwWritten);
-	FillConsoleOutputCharacter (hConsole, _T(' '),
+	FillConsoleOutputCharacter (hOut, _T(' '),
 								(csbi.dwSize.X)*(csbi.dwSize.Y),
 								coPos, &dwWritten);
-	SetConsoleCursorPosition (hConsole, coPos);
+	SetConsoleCursorPosition (hOut, coPos);
 
 	bIgnoreEcho = TRUE;
 

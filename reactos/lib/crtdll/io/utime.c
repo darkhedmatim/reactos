@@ -5,9 +5,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 int _utime(const char* filename, struct _utimbuf* buf)
 {
   int fn;

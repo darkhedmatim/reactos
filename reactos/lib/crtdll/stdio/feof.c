@@ -8,9 +8,6 @@
 int feof(FILE *stream);
 #endif
 
-/*
- * @implemented
- */
 int feof(FILE *stream)
 {
   if (stream == NULL) {

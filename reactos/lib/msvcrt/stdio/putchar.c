@@ -15,24 +15,18 @@
 #undef putwc
 #undef putwchar
 
-/*
- * @implemented
- */
 int putchar(int c)
 {
   int r = putc(c, stdout);
-  if (stdout->_flag & _IO_LBF)
+  if (stdout->_flag & _IOLBF)
      fflush(stdout);
   return r;
 }
 
-/*
- * @implemented
- */
 wint_t putwchar(wint_t c)
 {
   wint_t r = putwc(c, stdout);
-  if (stdout->_flag & _IO_LBF)
+  if (stdout->_flag & _IOLBF)
      fflush(stdout);
   return r;
 }

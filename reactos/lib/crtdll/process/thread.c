@@ -1,16 +1,12 @@
-/* $Id: thread.c,v 1.8 2004/08/15 17:34:27 chorns Exp $
+/* $Id: thread.c,v 1.6 2002/11/29 15:59:01 robd Exp $
  *
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/process.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 unsigned long _beginthread(
     void (*pfuncStart)(void*),
 	unsigned unStackSize,
@@ -29,9 +25,6 @@ unsigned long _beginthread(
 	return (unsigned long)hThread;
 }
 
-/*
- * @unimplemented
- */
 void	_endthread(void)
 {
 	//fixme ExitThread

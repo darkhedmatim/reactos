@@ -1,9 +1,8 @@
 #ifndef __INCLUDE_INTERNAL_CC_H
 #define __INCLUDE_INTERNAL_CC_H
-
-/* $Id: cc.h,v 1.21 2004/08/25 15:08:29 navaraf Exp $ */
+/* $Id: cc.h,v 1.17 2003/01/11 15:21:09 hbirr Exp $ */
 #include <ddk/ntifs.h>
-#include <reactos/bugcodes.h>
+
 
 typedef struct _BCB
 {
@@ -32,8 +31,6 @@ typedef struct _CACHE_SEGMENT
   BOOLEAN Valid;
   /* Are the contents of the cache segment data newer than those on disk. */
   BOOLEAN Dirty;
-  /* Page out in progress */ 
-  BOOLEAN PageOut;
   ULONG MappedCount;
   /* Entry in the list of segments for this BCB. */
   LIST_ENTRY BcbSegmentListEntry;
@@ -59,15 +56,11 @@ typedef struct _INTERNAL_BCB
   PUBLIC_BCB PFCB;
   PCACHE_SEGMENT CacheSegment;
   BOOLEAN Dirty;
-  CSHORT RefCount; /* (At offset 0x34 on WinNT4) */
 } INTERNAL_BCB, *PINTERNAL_BCB;
 
 VOID STDCALL
 CcMdlReadCompleteDev (IN PMDL		MdlChain,
 		      IN PDEVICE_OBJECT	DeviceObject);
-
-NTSTATUS
-CcRosFlushCacheSegment(PCACHE_SEGMENT CacheSegment);
 
 NTSTATUS
 CcRosGetCacheSegment(PBCB Bcb,
@@ -93,8 +86,8 @@ VOID CcInit(VOID);
 NTSTATUS
 CcRosUnmapCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty);
 
-PCACHE_SEGMENT 
-CcRosLookupCacheSegment(PBCB Bcb, ULONG FileOffset);
+NTSTATUS
+CcRosSuggestFreeCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty);
 
 NTSTATUS
 CcRosGetCacheSegmentChain(PBCB Bcb,
@@ -134,16 +127,5 @@ CcRosRequestCacheSegment (BCB*		    Bcb,
 		          PBOOLEAN	    UptoDate,
 		          CACHE_SEGMENT**   CacheSeg);
 
-NTSTATUS 
-CcTryToInitializeFileCache(PFILE_OBJECT FileObject);
-
-/*
- * Macro for generic cache manage bugchecking. Note that this macro assumes
- * that the file name including extension is always longer than 4 characters.
- */
-#define KEBUGCHECKCC \
-    KEBUGCHECKEX(CACHE_MANAGER, \
-    (*(DWORD*)(__FILE__ + sizeof(__FILE__) - 4) << 16) | \
-    (__LINE__ & 0xFFFF), 0, 0, 0)
 
 #endif

@@ -1,9 +1,6 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 char* strtok(char *s, const char *delim)
 {
   const char *spanp;

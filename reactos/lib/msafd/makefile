@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.16 2004/09/23 20:05:32 chorns Exp $
+# $Id: makefile,v 1.8 2003/02/02 19:24:15 hyperion Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,9 +6,9 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = msafd
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSAFD)
+TARGET_BASE = 0x777a0000
 
-TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
+TARGET_SDKLIBS = ntdll.a kernel32.a
 
 TARGET_CFLAGS = \
  -I./include \
@@ -16,22 +16,27 @@ TARGET_CFLAGS = \
  -Werror \
  -fno-builtin \
  -DUNICODE \
- -D__USE_W32API
+ -DDBG
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
-MISC_OBJECTS = \
-  misc/dllmain.o misc/event.o misc/helpers.o \
-  misc/sndrcv.o misc/stubs.o
+TARGET_OBJECTS = $(TARGET_NAME).o 
 
-TARGET_OBJECTS = $(MISC_OBJECTS)
+TARGET_CLEAN = misc/*.o
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
 
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
 
-include $(TOOLS_PATH)/depend.mk
+
+MISC_OBJECTS = \
+  misc/dllmain.o misc/event.o misc/helpers.o \
+  misc/sndrcv.o misc/stubs.o
+
+OBJECTS = $(MISC_OBJECTS)
+
+$(TARGET_NAME).o: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o $(TARGET_NAME).o
 
 # EOF

@@ -11,20 +11,14 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 int _aexit_rtn_dll(int exitcode)
 {
-    _exit(exitcode);
+	_exit(exitcode);
 }
 
-/*
- * @implemented
- */
 void _amsg_exit(int errnum)
 {
-    fprintf(stderr,strerror(errnum));
-    _aexit_rtn_dll(-1);
+	fprintf(stderr,strerror(errnum));
+    _aexit_rtn_dll(-1);      
 }
 

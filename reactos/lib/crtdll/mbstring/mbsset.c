@@ -12,9 +12,6 @@
 
 size_t _mbclen2(const unsigned int s);
 
-/*
- * @implemented
- */
 unsigned char * _mbsset(unsigned char *src, unsigned int c)
 {
 	unsigned char *char_src = src;

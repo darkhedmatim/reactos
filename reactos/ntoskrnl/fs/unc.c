@@ -1,10 +1,10 @@
-/* $Id: unc.c,v 1.6 2004/08/15 16:39:02 chorns Exp $
+/* $Id: unc.c,v 1.4 2002/09/08 10:23:20 chorns Exp $
  *
  * reactos/ntoskrnl/fs/unc.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
 
 
 /**********************************************************************
@@ -17,7 +17,6 @@
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID STDCALL
 FsRtlDeregisterUncProvider(IN HANDLE Handle)
@@ -35,7 +34,6 @@ FsRtlDeregisterUncProvider(IN HANDLE Handle)
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 NTSTATUS STDCALL
 FsRtlRegisterUncProvider(IN OUT PHANDLE Handle,
