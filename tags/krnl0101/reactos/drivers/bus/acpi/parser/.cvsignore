@@ -1,0 +1,5 @@
+acpi.coff
+objects
+*.d
+*.o
+*.sym
