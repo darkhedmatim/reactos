@@ -1,0 +1,7 @@
+*.o
+*.sym
+*.coff
+*.exe
+*.ini
+*.bat
+ChangeLog
