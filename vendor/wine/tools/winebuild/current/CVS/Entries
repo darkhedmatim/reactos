@@ -1,0 +1,14 @@
+/.cvsignore/1.2/Mon Feb 14 16:13:00 2005//TWine-20050211
+/Makefile.in/1.17/Mon Feb 14 16:13:00 2005//TWine-20050211
+/build.h/1.54/Mon Feb 14 16:13:00 2005//TWine-20050211
+/import.c/1.72/Mon Feb 14 16:13:00 2005//TWine-20050211
+/main.c/1.59/Mon Feb 14 16:13:00 2005//TWine-20050211
+/parser.c/1.55/Mon Feb 14 16:13:00 2005//TWine-20050211
+/relay.c/1.35/Mon Feb 14 16:13:00 2005//TWine-20050211
+/res16.c/1.12/Mon Feb 14 16:13:00 2005//TWine-20050211
+/res32.c/1.16/Mon Feb 14 16:13:00 2005//TWine-20050211
+/spec16.c/1.49/Mon Feb 14 16:13:00 2005//TWine-20050211
+/spec32.c/1.85/Mon Feb 14 16:13:00 2005//TWine-20050211
+/utils.c/1.20/Mon Feb 14 16:13:00 2005//TWine-20050211
+/winebuild.man.in/1.28/Mon Feb 14 16:13:00 2005//TWine-20050211
+D
