@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: mouse.c,v 1.79 2004/12/12 17:56:52 weiden Exp $
  *
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Mouse
@@ -68,20 +68,16 @@ MouseSafetyOnDrawStart(SURFOBJ *SurfObj, LONG HazardX1,
       tmp = HazardY2; HazardY2 = HazardY1; HazardY1 = tmp;
     }
 
-  ppdev->SafetyRemoveCount++;
-
-  if (ppdev->SafetyRemoveLevel)
-    {
-      /* already hidden */
-      return FALSE;
-    } 
-
   if (pgp->Exclude.right >= HazardX1
       && pgp->Exclude.left <= HazardX2
       && pgp->Exclude.bottom >= HazardY1
       && pgp->Exclude.top <= HazardY2)
     {
-      ppdev->SafetyRemoveLevel = ppdev->SafetyRemoveCount;
+      if (0 != pgp->SafetyRemoveCount++)
+        {
+          return FALSE;
+        }
+      pgp->SafetySwitch = TRUE;
       if (pgp->MovePointer)
         pgp->MovePointer(SurfObj, -1, -1, NULL);
       else
@@ -117,16 +113,25 @@ MouseSafetyOnDrawEnd(SURFOBJ *SurfObj)
     return FALSE;
   }
 
-  if (--ppdev->SafetyRemoveCount >= ppdev->SafetyRemoveLevel)
-   {
-      return FALSE;
-   }
-  if (pgp->MovePointer)
-    pgp->MovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-  else
-    EngMovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-
-  ppdev->SafetyRemoveLevel = 0;
+  if (pgp->SafetySwitch)
+    {
+      if (1 < pgp->SafetyRemoveCount--)
+        {
+          /* Someone else removed it too, let them restore it */
+          return FALSE;
+        }
+      /* FIXME - this is wrong!!!!!! we must NOT access pgp->Pos from here, it's
+                 a private field for ENG/driver. This will paint the cursor to the
+                 wrong screen coordinates when a driver overrides DrvMovePointer()!
+                 We should store the coordinates before calling Drv/EngMovePointer()
+                 and Drv/EngSetPointerShape() separately in the GDIDEVICE structure
+                 or somewhere where ntuser can access it! */
+      if (pgp->MovePointer)
+        pgp->MovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
+      else
+        EngMovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
+     pgp->SafetySwitch = FALSE;
+    }
 
   return(TRUE);
 }
@@ -178,7 +183,7 @@ IntHideMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
         if((MaskSurface = EngLockSurface(pgp->MaskSurface)))
         {
           EngBitBlt(DestSurface, SaveSurface, MaskSurface, NULL, NULL,
-                    &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, ROP3_TO_ROP4(SRCCOPY));
+                    &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, SRCCOPY);
           EngUnlockSurface(MaskSurface);
         }
         EngUnlockSurface(SaveSurface);
@@ -231,7 +236,7 @@ IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
          DestSurface->sizlBitmap.cy - pt.y);
 
       EngBitBlt(SaveSurface, DestSurface, NULL, NULL, NULL,
-                &DestRect, &SrcPoint, NULL, NULL, NULL, ROP3_TO_ROP4(SRCCOPY));
+                &DestRect, &SrcPoint, NULL, NULL, NULL, SRCCOPY);
       EngUnlockSurface(SaveSurface);
    }
 
@@ -243,7 +248,7 @@ IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
       RECTL DestRect;
       POINTL SrcPoint;
       SURFOBJ *ColorSurf;
-      SURFOBJ *MaskSurf = NULL;
+      SURFOBJ *MaskSurf;
 
       DestRect.left = max(pt.x, 0);
       DestRect.top = max(pt.y, 0);
@@ -257,9 +262,7 @@ IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
       SrcPoint.x = max(-pt.x, 0);
       SrcPoint.y = max(-pt.y, 0);
 
-      if (pgp->MaskSurface)
-        MaskSurf = EngLockSurface(pgp->MaskSurface);
-
+      MaskSurf = EngLockSurface(pgp->MaskSurface);
       if (MaskSurf != NULL)
       {
         if (pgp->ColorSurface != NULL)
@@ -267,17 +270,17 @@ IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
            if((ColorSurf = EngLockSurface(pgp->ColorSurface)))
            {
              EngBitBlt(DestSurface, ColorSurf, MaskSurf, NULL, pgp->XlateObject,
-                       &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, R4_MASK);
+                       &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, 0xAACC);
              EngUnlockSurface(ColorSurf);
            }
         }
         else
         {
            EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, ROP3_TO_ROP4(SRCAND));
+                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCAND);
            SrcPoint.y += pgp->Size.cy;
            EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, ROP3_TO_ROP4(SRCINVERT));
+                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCINVERT);
         }
         EngUnlockSurface(MaskSurf);
       }
@@ -364,8 +367,6 @@ EngSetPointerShape(
    pgp->HotSpot.x = xHot;
    pgp->HotSpot.y = yHot;
 
-   /* Actually this should be set by 'the other side', but it would be
-    * done right after this. It helps IntShowMousePointer. */
    if (x != -1)
    {
      pgp->Pos.x = x;
@@ -470,13 +471,14 @@ EngSetPointerShape(
      
      if (prcl != NULL)
      {
-       prcl->left = x - pgp->HotSpot.x;
-       prcl->top = y - pgp->HotSpot.x;
+       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
+       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
        prcl->right = prcl->left + pgp->Size.cx;
        prcl->bottom = prcl->top + pgp->Size.cy;
      }
-   } else if (prcl != NULL)
-     prcl->left = prcl->top = prcl->right = prcl->bottom = -1;
+   }
+   
+   /* FIXME - touch prcl when x == -1? */
 
    return SPS_ACCEPT_EXCLUDE;
 }
@@ -506,21 +508,19 @@ EngMovePointer(
    IntHideMousePointer(ppdev, pso);
    if (x != -1)
    {
-     /* Actually this should be set by 'the other side', but it would be
-      * done right after this. It helps IntShowMousePointer. */
      pgp->Pos.x = x;
      pgp->Pos.y = y;
      IntShowMousePointer(ppdev, pso);
      if (prcl != NULL)
      {
-       prcl->left = x - pgp->HotSpot.x;
-       prcl->top = y - pgp->HotSpot.x;
+       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
+       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
        prcl->right = prcl->left + pgp->Size.cx;
        prcl->bottom = prcl->top + pgp->Size.cy;
      }
-   } else if (prcl != NULL)
-     prcl->left = prcl->top = prcl->right = prcl->bottom = -1;
+   }
    
+   /* FIXME - touch prcl when x == -1? */
 }
 
 /* EOF */

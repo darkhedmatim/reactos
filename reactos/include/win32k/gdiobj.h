@@ -19,16 +19,13 @@
 #define GDI_HANDLE_INDEX_MASK (GDI_HANDLE_COUNT - 1)
 #define GDI_HANDLE_TYPE_MASK  0x007f0000
 #define GDI_HANDLE_STOCK_MASK 0x00800000
-#define GDI_HANDLE_REUSE_MASK 0xff000000
-
-#define GDI_HANDLE_REUSECNT_SHIFT 24
 
 #define GDI_HANDLE_CREATE(i, t)    ((HANDLE)(((i) & GDI_HANDLE_INDEX_MASK) | ((t) & GDI_HANDLE_TYPE_MASK)))
-#define GDI_HANDLE_GET_INDEX(h)    (((ULONG_PTR)(h)) & GDI_HANDLE_INDEX_MASK)
-#define GDI_HANDLE_GET_TYPE(h)     (((ULONG_PTR)(h)) & GDI_HANDLE_TYPE_MASK)
-#define GDI_HANDLE_IS_TYPE(h, t)   ((t) == (((ULONG_PTR)(h)) & GDI_HANDLE_TYPE_MASK))
-#define GDI_HANDLE_IS_STOCKOBJ(h)  (0 != (((ULONG_PTR)(h)) & GDI_HANDLE_STOCK_MASK))
-#define GDI_HANDLE_SET_STOCKOBJ(h) ((h) = (HANDLE)(((ULONG_PTR)(h)) | GDI_HANDLE_STOCK_MASK))
+#define GDI_HANDLE_GET_INDEX(h)    (((DWORD)(h)) & GDI_HANDLE_INDEX_MASK)
+#define GDI_HANDLE_GET_TYPE(h)     (((DWORD)(h)) & GDI_HANDLE_TYPE_MASK)
+#define GDI_HANDLE_IS_TYPE(h, t)   ((t) == (((DWORD)(h)) & GDI_HANDLE_TYPE_MASK))
+#define GDI_HANDLE_IS_STOCKOBJ(h)  (0 != (((DWORD)(h)) & GDI_HANDLE_STOCK_MASK))
+#define GDI_HANDLE_SET_STOCKOBJ(h) ((h) = (HANDLE)(((DWORD)(h)) | GDI_HANDLE_STOCK_MASK))
 
 
 /*! \defgroup GDI object types
@@ -54,8 +51,6 @@
 #define GDI_OBJECT_TYPE_MEMDC       0x00750000
 #define GDI_OBJECT_TYPE_DCE         0x00770000
 #define GDI_OBJECT_TYPE_DONTCARE    0x007f0000
-/** Not really an object type. Forces GDI_FreeObj to be silent. */
-#define GDI_OBJECT_TYPE_SILENT      0x80000000
 /*@}*/
 
 typedef PVOID PGDIOBJ;
@@ -77,10 +72,20 @@ typedef struct _GDIOBJHDR
 #endif
 } GDIOBJHDR, *PGDIOBJHDR;
 
+typedef struct _GDIMULTILOCK
+{
+  HGDIOBJ hObj;
+  PGDIOBJ pObj;
+  DWORD	ObjectType;
+} GDIMULTILOCK, *PGDIMULTILOCK;
+
+BOOL    INTERNAL_CALL GDIOBJ_LockMultipleObj(PGDIMULTILOCK pList, INT nObj);
+BOOL    INTERNAL_CALL GDIOBJ_UnlockMultipleObj(PGDIMULTILOCK pList, INT nObj);
 BOOL    INTERNAL_CALL GDIOBJ_OwnedByCurrentProcess(HGDIOBJ ObjectHandle);
 void    INTERNAL_CALL GDIOBJ_SetOwnership(HGDIOBJ ObjectHandle, PEPROCESS Owner);
 void    INTERNAL_CALL GDIOBJ_CopyOwnership(HGDIOBJ CopyFrom, HGDIOBJ CopyTo);
 BOOL    INTERNAL_CALL GDIOBJ_ConvertToStockObj(HGDIOBJ *hObj);
+BOOL    INTERNAL_CALL GDIOBJ_LockMultipleObj(PGDIMULTILOCK pList, INT nObj);
 
 #define GDIOBJ_GetObjectType(Handle) \
   GDI_HANDLE_GET_TYPE(Handle)
@@ -111,6 +116,6 @@ BOOL    INTERNAL_CALL GDIOBJ_UnlockObj (HGDIOBJ hObj);
 #define GDIOBJFLAG_IGNOREPID 	(0x1)
 #define GDIOBJFLAG_IGNORELOCK 	(0x2)
 
-PVOID   INTERNAL_CALL GDI_MapHandleTable(PEPROCESS Process);
+PVOID   INTERNAL_CALL GDI_MapHandleTable(HANDLE hProcess);
 
 #endif

@@ -1400,6 +1400,8 @@ TOOLTIPS_GetCurrentToolA (HWND hwnd, WPARAM wParam, LPARAM lParam)
     }
     else
 	return (infoPtr->nCurrentTool != -1);
+
+    return FALSE;
 }
 
 
@@ -1436,6 +1438,8 @@ TOOLTIPS_GetCurrentToolW (HWND hwnd, WPARAM wParam, LPARAM lParam)
     }
     else
 	return (infoPtr->nCurrentTool != -1);
+
+    return FALSE;
 }
 
 
@@ -2798,6 +2802,7 @@ TOOLTIPS_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		     uMsg, wParam, lParam);
 	    return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 

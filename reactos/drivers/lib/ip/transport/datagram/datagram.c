@@ -59,7 +59,7 @@ VOID DGDeliverData(
   if (!IsListEmpty(&AddrFile->ReceiveQueue))
     {
       PLIST_ENTRY CurrentEntry;
-      PDATAGRAM_RECEIVE_REQUEST Current = NULL;
+      PDATAGRAM_RECEIVE_REQUEST Current;
       BOOLEAN Found;
       PTA_IP_ADDRESS RTAIPAddress;
   
@@ -86,17 +86,13 @@ VOID DGDeliverData(
       if (Found)
         {
           TI_DbgPrint(MAX_TRACE, ("Suitable receive request found.\n"));
-
-          TI_DbgPrint(MAX_TRACE, 
-                       ("Target Buffer: %x, Source Buffer: %x, Size %d\n",
-                        Current->Buffer, DataBuffer, DataSize));
     
           /* Copy the data into buffer provided by the user */
 	  RtlCopyMemory( Current->Buffer,
 			 DataBuffer,
 			 DataSize );
 
-	  RTAIPAddress = (PTA_IP_ADDRESS)Current->ReturnInfo->RemoteAddress;
+	  RTAIPAddress = (PTA_IP_ADDRESS)Current->ReturnInfo;
 	  RTAIPAddress->TAAddressCount = 1;
 	  RTAIPAddress->Address->AddressType = TDI_ADDRESS_TYPE_IP;
 	  RTAIPAddress->Address->Address->sin_port = SrcPort;

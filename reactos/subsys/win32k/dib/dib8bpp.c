@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: dib8bpp.c,v 1.29 2004/07/14 20:48:56 navaraf Exp $ */
 #include <w32k.h>
 
 VOID
@@ -38,7 +38,15 @@ DIB_8BPP_GetPixel(SURFOBJ *SurfObj, LONG x, LONG y)
 VOID
 DIB_8BPP_HLine(SURFOBJ *SurfObj, LONG x1, LONG x2, LONG y, ULONG c)
 {
-  memset(SurfObj->pvScan0 + y * SurfObj->lDelta + x1, (BYTE) c, x2 - x1);
+  PBYTE byteaddr = SurfObj->pvScan0 + y * SurfObj->lDelta;
+  PBYTE addr = byteaddr + x1;
+  LONG cx = x1;
+
+  while(cx < x2) {
+    *addr = c;
+    ++addr;
+    ++cx;
+  }
 }
 
 VOID
@@ -260,8 +268,8 @@ DIB_8BPP_BitBlt(PBLTINFO BltInfo)
    PULONG DestBits;
    LONG RoundedRight;
 
-   UsesSource = ROP4_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP4_USES_PATTERN(BltInfo->Rop4);
+   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
+   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);
 
    SourceY = BltInfo->SourcePoint.y;
    RoundedRight = BltInfo->DestRect.right -

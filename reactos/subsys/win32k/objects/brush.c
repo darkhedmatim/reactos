@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id$
+ * $Id: brush.c,v 1.43 2004/12/18 18:19:24 royce Exp $
  */
 #include <w32k.h>
 
@@ -239,7 +239,7 @@ IntPatBlt(
          NULL,
          &BrushInst.BrushObject,
          &BrushOrigin,
-         ROP3_TO_ROP4(ROP));
+         ROP);
    }
 
    BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);

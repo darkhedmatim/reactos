@@ -124,13 +124,9 @@ protected:
 #endif
 
 
-struct SDIMainFrame : public ExtContextMenuHandlerT<
-				ShellBrowserChildT<MainFrameBase>
-			>
+struct SDIMainFrame : public ShellBrowserChildT<MainFrameBase>
 {
-	typedef ExtContextMenuHandlerT<
-				ShellBrowserChildT<MainFrameBase>
-			> super;
+	typedef ShellBrowserChildT<MainFrameBase> super;
 
 	SDIMainFrame(HWND hwnd);
 

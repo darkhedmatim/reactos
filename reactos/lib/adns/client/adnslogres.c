@@ -31,7 +31,7 @@
  */
 
 static const char * const cvsid =
-	"$Id$";
+	"$Id: adnslogres.c,v 1.2 2004/09/02 19:03:45 arty Exp $";
 
 #ifdef ADNS_JGAA_WIN32
 # include "adns_win32.h"

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: winsta.c,v 1.17 2004/08/21 19:50:39 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll

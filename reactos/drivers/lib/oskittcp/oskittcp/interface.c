@@ -119,10 +119,6 @@ int OskitTCPSocket( void *context,
     if( !error ) {
 	so->so_connection = context;
 	so->so_state = SS_NBIO;
-	so->so_error = 0;
-        so->so_q = so->so_q0 = NULL;
-        so->so_qlen = 0;
-        so->so_head = NULL;
 	*aso = so;
     }
     return error;
@@ -141,8 +137,6 @@ int OskitTCPRecv( void *connection,
     int tocopy = 0;
 
     *OutLen = 0;
-
-    printf("so->so_state %x\n", ((struct socket *)connection)->so_state);
 
     if( Flags & OSK_MSG_OOB )      tcp_flags |= MSG_OOB;
     if( Flags & OSK_MSG_DONTWAIT ) tcp_flags |= MSG_DONTWAIT;
@@ -287,123 +281,16 @@ int OskitTCPSend( void *socket, OSK_PCHAR Data, OSK_UINT Len,
 }
 
 int OskitTCPAccept( void *socket, 
-		    void **new_socket,
 		    void *AddrOut, 
 		    OSK_UINT AddrLen,
-		    OSK_UINT *OutAddrLen,
-		    OSK_UINT FinishAccepting ) {
-    struct socket *head = (void *)socket;
-    struct sockaddr *name = (struct sockaddr *)AddrOut;
-    struct socket **newso = (struct socket **)new_socket;    
-    struct socket *so = socket;
-    struct sockaddr_in sa;
-    struct mbuf mnam;
-    struct inpcb *inp;
-    int namelen = 0, error = 0, s;
+		    OSK_UINT *OutAddrLen ) {
+    struct mbuf nam;
+    int error;
 
-    OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: Doing accept (Finish %d)\n",
-			       FinishAccepting));
-                        
-    *OutAddrLen = AddrLen;
+    nam.m_data = AddrOut;
+    nam.m_len  = AddrLen;
 
-    if (name) 
-	/* that's a copyin actually */
-	namelen = *OutAddrLen;
-
-    s = splnet();
-
-#if 0
-    if ((head->so_options & SO_ACCEPTCONN) == 0) {
-	splx(s);
-	OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: head->so_options = %x, wanted bit %x\n",
-				   head->so_options, SO_ACCEPTCONN));
-	error = EINVAL;
-	goto out;
-    }
-#endif
-
-    OS_DbgPrint(OSK_MID_TRACE,("head->so_q = %x, head->so_state = %x\n", 
-			       head->so_q, head->so_state));
-
-    if ((head->so_state & SS_NBIO) && head->so_q == NULL) {
-	splx(s);
-	error = EWOULDBLOCK;
-	goto out;
-    }
-	
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    while (head->so_q == NULL && head->so_error == 0) {
-	if (head->so_state & SS_CANTRCVMORE) {
-	    head->so_error = ECONNABORTED;
-	    break;
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	error = tsleep((caddr_t)&head->so_timeo, PSOCK | PCATCH,
-		       "accept", 0);
-	if (error) {
-	    splx(s);
-	    goto out;
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    }
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-
-#if 0
-    if (head->so_error) {
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	error = head->so_error;
-	head->so_error = 0;
-	splx(s);
-	goto out;
-    }
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-#endif
-
-    /*
-     * At this point we know that there is at least one connection
-     * ready to be accepted. Remove it from the queue.
-     */
-    so = head->so_q;
-
-    inp = so ? (struct inpcb *)so->so_pcb : NULL;
-    if( inp ) {
-        ((struct sockaddr_in *)AddrOut)->sin_addr.s_addr = 
-            inp->inp_faddr.s_addr;
-        ((struct sockaddr_in *)AddrOut)->sin_port = inp->inp_fport;
-    }
-
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    if( FinishAccepting ) {
-	head->so_q = so->so_q;
-	head->so_qlen--;
-	    
-	*newso = so;
-	    
-	/*so->so_state &= ~SS_COMP;*/
-
-	mnam.m_data = (char *)&sa;
-	mnam.m_len = sizeof(sa);
-	
-	(void) soaccept(so, &mnam);
-
-	so->so_state = SS_NBIO | SS_ISCONNECTED;
-        so->so_q = so->so_q0 = NULL;
-        so->so_qlen = 0;
-        so->so_head = 0;
-
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	if (name) {
-	    /* check sa_len before it is destroyed */
-	    memcpy( AddrOut, &sa, AddrLen < sizeof(sa) ? AddrLen : sizeof(sa) );
-	    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	    *OutAddrLen = namelen;	/* copyout actually */
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	splx(s);
-    }
-out:
-    OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: Returning %d\n", error));
-    return (error);
+    return soaccept( socket, &nam );
 }
 
 /* The story so far
@@ -452,7 +339,7 @@ void OskitTCPSetAddress( void *socket,
 			 OSK_UINT RemoteAddress,
 			 OSK_UI16 RemotePort ) {
     struct socket *so = socket;
-    struct inpcb *inp = (struct inpcb *)so->so_pcb;
+    struct inpcb *inp = so->so_pcb;
     inp->inp_laddr.s_addr = LocalAddress;
     inp->inp_lport = LocalPort;
     inp->inp_faddr.s_addr = RemoteAddress;
@@ -465,7 +352,7 @@ void OskitTCPGetAddress( void *socket,
 			 OSK_UINT *RemoteAddress,
 			 OSK_UI16 *RemotePort ) {
     struct socket *so = socket;
-    struct inpcb *inp = so ? (struct inpcb *)so->so_pcb : NULL;
+    struct inpcb *inp = so ? so->so_pcb : 0;
     if( inp ) {
 	*LocalAddress = inp->inp_laddr.s_addr;
 	*LocalPort = inp->inp_lport;
@@ -589,7 +476,7 @@ struct ifaddr *ifa_ifwithnet(addr)
 
     if( ifaddr )
     {
-       sin = (struct sockaddr_in *)&ifaddr->ifa_addr;
+       sin = (struct sockaddr *)&ifaddr->ifa_addr;
 
        OS_DbgPrint(OSK_MID_TRACE,("ifaddr->addr = %x\n", 
                                   sin->sin_addr.s_addr));

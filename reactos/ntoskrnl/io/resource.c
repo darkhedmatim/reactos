@@ -1,12 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: resource.c,v 1.20 2004/10/08 21:20:35 navaraf Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/resource.c
  * PURPOSE:         Hardware resource managment
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  *                  Alex Ionescu (alex@relsoft.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -836,7 +854,7 @@ IoReportHalResourceUsage(PUNICODE_STRING HalDescription,
 			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
 			     0,
 			     NULL);
-  Status = ZwCreateKey(&ResourcemapKey,
+  Status = NtCreateKey(&ResourcemapKey,
 		       KEY_ALL_ACCESS,
 		       &ObjectAttributes,
 		       0,
@@ -854,14 +872,14 @@ IoReportHalResourceUsage(PUNICODE_STRING HalDescription,
 			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
 			     ResourcemapKey,
 			     NULL);
-  Status = ZwCreateKey(&HalKey,
+  Status = NtCreateKey(&HalKey,
 		       KEY_ALL_ACCESS,
 		       &ObjectAttributes,
 		       0,
 		       NULL,
 		       REG_OPTION_VOLATILE,
 		       &Disposition);
-  ZwClose(ResourcemapKey);
+  NtClose(ResourcemapKey);
   if (!NT_SUCCESS(Status))
       return(Status);
 
@@ -871,21 +889,21 @@ IoReportHalResourceUsage(PUNICODE_STRING HalDescription,
 			     OBJ_CASE_INSENSITIVE,
 			     HalKey,
 			     NULL);
-  Status = ZwCreateKey(&DescriptionKey,
+  Status = NtCreateKey(&DescriptionKey,
 		       KEY_ALL_ACCESS,
 		       &ObjectAttributes,
 		       0,
 		       NULL,
 		       REG_OPTION_VOLATILE,
 		       &Disposition);
-  ZwClose(HalKey);
+  NtClose(HalKey);
   if (!NT_SUCCESS(Status))
     return(Status);
 
   /* Add '.Raw' value. */
   RtlRosInitUnicodeStringFromLiteral(&Name,
 		       L".Raw");
-  Status = ZwSetValueKey(DescriptionKey,
+  Status = NtSetValueKey(DescriptionKey,
 			 &Name,
 			 0,
 			 REG_RESOURCE_LIST,
@@ -893,20 +911,20 @@ IoReportHalResourceUsage(PUNICODE_STRING HalDescription,
 			 ListSize);
   if (!NT_SUCCESS(Status))
     {
-      ZwClose(DescriptionKey);
+      NtClose(DescriptionKey);
       return(Status);
     }
 
   /* Add '.Translated' value. */
   RtlRosInitUnicodeStringFromLiteral(&Name,
 		       L".Translated");
-  Status = ZwSetValueKey(DescriptionKey,
+  Status = NtSetValueKey(DescriptionKey,
 			 &Name,
 			 0,
 			 REG_RESOURCE_LIST,
 			 TranslatedList,
 			 ListSize);
-  ZwClose(DescriptionKey);
+  NtClose(DescriptionKey);
 
   return(Status);
 }

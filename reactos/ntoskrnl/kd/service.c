@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: service.c,v 1.10 2004/11/21 11:37:22 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/kd/service.c
  * PURPOSE:         Debug service dispatcher
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * UPDATE HISTORY:
+ *                  17/01/2000: Created
  */
 
 #include <ntoskrnl.h>

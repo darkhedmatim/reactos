@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: windc.c,v 1.70.2.1 2004/12/27 00:39:02 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -213,7 +213,7 @@ DceDeleteClipRgn(DCE* Dce)
     {
       Dce->DCXFlags &= ~DCX_KEEPCLIPRGN;
     }
-  else if (Dce->hClipRgn != NULL)
+  else if (Dce->hClipRgn > (HRGN) 1)
     {
       GDIOBJ_SetOwnership(Dce->hClipRgn, PsGetCurrentProcess());
       NtGdiDeleteObject(Dce->hClipRgn);
@@ -332,21 +332,10 @@ DceUpdateVisRgn(DCE *Dce, PWINDOW_OBJECT Window, ULONG Flags)
 noparent:
    if (Flags & DCX_INTERSECTRGN)
    {
-      if(Dce->hClipRgn != NULL)
-      {
-         NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_AND);
-      }
-      else
-      {
-         if(hRgnVisible != NULL)
-         {
-            NtGdiDeleteObject(hRgnVisible);
-         }
-         hRgnVisible = NtGdiCreateRectRgn(0, 0, 0, 0);
-      }
+      NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_AND);
    }
 
-   if (Flags & DCX_EXCLUDERGN && Dce->hClipRgn != NULL)
+   if (Flags & DCX_EXCLUDERGN)
    {
       NtGdiCombineRgn(hRgnVisible, hRgnVisible, Dce->hClipRgn, RGN_DIFF);
    }

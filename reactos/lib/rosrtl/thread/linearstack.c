@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: linearstack.c,v 1.1 2003/07/22 20:10:04 hyperion Exp $
 */
 /*
 */

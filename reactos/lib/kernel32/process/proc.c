@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: proc.c,v 1.72 2004/11/05 12:26:55 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -37,18 +37,7 @@ GetProcessAffinityMask (HANDLE hProcess,
 			LPDWORD lpSystemAffinityMask)
 {
   PROCESS_BASIC_INFORMATION ProcessInfo;
-  SYSTEM_BASIC_INFORMATION SystemInfo;
   NTSTATUS Status;
-  
-  Status = NtQuerySystemInformation(SystemBasicInformation,
-                                    &SystemInfo,
-                                    sizeof(SystemInfo),
-                                    NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return FALSE;
-    }
 
   Status = NtQueryInformationProcess (hProcess,
 				      ProcessBasicInformation,
@@ -62,7 +51,9 @@ GetProcessAffinityMask (HANDLE hProcess,
     }
 
   *lpProcessAffinityMask = (DWORD)ProcessInfo.AffinityMask;
-  *lpSystemAffinityMask = (DWORD)SystemInfo.ActiveProcessors;
+
+  /* FIXME */
+  *lpSystemAffinityMask  = 0x00000001;
 
   return TRUE;
 }
@@ -297,7 +288,7 @@ GetExitCodeProcess(HANDLE hProcess,
       return(FALSE);
      }
 
-  *lpExitCode = (DWORD)ProcessBasic.ExitStatus;
+  memcpy(lpExitCode, &ProcessBasic.ExitStatus, sizeof(DWORD));
 
   return(TRUE);
 }
@@ -324,7 +315,7 @@ GetProcessId(HANDLE Process)
     return 0;
   }
 
-  return (DWORD)ProcessBasic.UniqueProcessId;
+  return ProcessBasic.UniqueProcessId;
 }
 
 
@@ -435,6 +426,51 @@ WaitForInputIdle (
 	)
 {
 	return 0;
+}
+
+
+/*
+ * @implemented
+ */
+VOID STDCALL
+Sleep(DWORD dwMilliseconds)
+{
+  SleepEx(dwMilliseconds, FALSE);
+  return;
+}
+
+
+/*
+ * @implemented
+ */
+DWORD STDCALL
+SleepEx(DWORD dwMilliseconds,
+	BOOL bAlertable)
+{
+  TIME Interval;
+  NTSTATUS errCode;
+  
+  if (dwMilliseconds != INFINITE)
+    {
+      /*
+       * System time units are 100 nanoseconds (a nanosecond is a billionth of
+       * a second).
+       */
+      Interval.QuadPart = -((ULONGLONG)dwMilliseconds * 10000);
+    }  
+  else
+    {
+      /* Approximately 292000 years hence */
+      Interval.QuadPart = -0x7FFFFFFFFFFFFFFFLL;
+    }
+
+  errCode = NtDelayExecution (bAlertable, &Interval);
+  if (!NT_SUCCESS(errCode))
+    {
+      SetLastErrorByStatus (errCode);
+      return -1;
+    }
+  return 0;
 }
 
 
@@ -836,12 +872,12 @@ GetProcessPriorityBoost(HANDLE hProcess,
                         PBOOL pDisablePriorityBoost)
 {
   NTSTATUS Status;
-  ULONG PriorityBoost;
+  BOOL PriorityBoost;
 
   Status = NtQueryInformationProcess(hProcess,
 				     ProcessPriorityBoost,
 				     &PriorityBoost,
-				     sizeof(ULONG),
+				     sizeof(BOOL),
 				     NULL);
   if (NT_SUCCESS(Status))
     {
@@ -863,12 +899,12 @@ SetProcessPriorityBoost(HANDLE hProcess,
                         BOOL bDisablePriorityBoost)
 {
   NTSTATUS Status;
-  ULONG PriorityBoost = (bDisablePriorityBoost ? TRUE : FALSE); /* prevent setting values other than 1 and 0 */
+  BOOL PriorityBoost = (bDisablePriorityBoost ? TRUE : FALSE); /* prevent setting values other than 1 and 0 */
 
   Status = NtSetInformationProcess(hProcess,
 				   ProcessPriorityBoost,
 				   &PriorityBoost,
-				   sizeof(ULONG));
+				   sizeof(BOOL));
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);

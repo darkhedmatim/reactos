@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: time.c,v 1.35 2004/12/02 21:22:36 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

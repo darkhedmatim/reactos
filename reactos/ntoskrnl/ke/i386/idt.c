@@ -1,11 +1,11 @@
-/* $Id:$
- * 
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ke/i386/idt.c
+ * FILE:            ntoskrnl/ke/idt.c
  * PURPOSE:         IDT managment
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/

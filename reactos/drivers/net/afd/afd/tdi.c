@@ -369,7 +369,6 @@ NTSTATUS TdiListen
 ( PIRP *Irp,
   PFILE_OBJECT ConnectionObject,
   PTDI_CONNECTION_INFORMATION *RequestConnectionInfo,
-  PTDI_CONNECTION_INFORMATION *ReturnConnectionInfo,
   PIO_STATUS_BLOCK Iosb,
   PIO_COMPLETION_ROUTINE  CompletionRoutine,
   PVOID CompletionContext)
@@ -413,7 +412,7 @@ NTSTATUS TdiListen
                  CompletionContext,      /* Completion routine context */
                  0,                      /* Flags */
                  *RequestConnectionInfo, /* Request connection information */
-		 *ReturnConnectionInfo);  /* Return connection information */
+                 NULL /* ReturnConnectionInfo */);  /* Return connection information */
 
   Status = TdiCall(*Irp, DeviceObject, NULL /* Don't wait for completion */, Iosb);
   

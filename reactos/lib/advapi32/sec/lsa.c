@@ -1,4 +1,5 @@
-/*
+/* $Id: lsa.c,v 1.12 2004/08/15 17:03:15 chorns Exp $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/advapi32/sec/lsa.c
@@ -492,19 +493,3 @@ LsaStorePrivateData(
 {
   return STATUS_NOT_IMPLEMENTED;
 }
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaGetUserName(
-    PUNICODE_STRING *UserName,
-    PUNICODE_STRING *DomainName)
-{
-  DPRINT1("LsaGetUserName not implemented\n");
-
-  return STATUS_NOT_IMPLEMENTED;
-}
-
-/* EOF */

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: user.c,v 1.4 2004/07/12 20:09:34 gvg Exp $
  *
  * reactos/subsys/csrss/api/user.c
  *

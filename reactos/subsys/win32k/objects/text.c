@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: text.c,v 1.122 2004/12/18 21:35:35 royce Exp $ */
 #include <w32k.h>
 
 #include <ft2build.h>
@@ -694,119 +694,6 @@ NtGdiTranslateCharsetInfo(PDWORD Src,
   return (BOOL) Ret;
 }
 
-static void FASTCALL
-FillTM(TEXTMETRICW *TM, FT_Face Face, TT_OS2 *pOS2, TT_HoriHeader *pHori)
-{
-  FT_Fixed XScale, YScale;
-  int Ascent, Descent;
-
-  XScale = Face->size->metrics.x_scale;
-  YScale = Face->size->metrics.y_scale;
-
-  if (0 == pOS2->usWinAscent + pOS2->usWinDescent)
-    {
-      Ascent = pHori->Ascender;
-      Descent = -pHori->Descender;
-    }
-  else
-    {
-      Ascent = pOS2->usWinAscent;
-      Descent = pOS2->usWinDescent;
-    }
-
-#if 0 /* This (Wine) code doesn't seem to work correctly for us */
-  TM->tmAscent = (FT_MulFix(Ascent, YScale) + 32) >> 6;
-  TM->tmDescent = (FT_MulFix(Descent, YScale) + 32) >> 6;
-#else
-  TM->tmAscent = (Face->size->metrics.ascender + 32) >> 6; /* units above baseline */
-  TM->tmDescent = (32 - Face->size->metrics.descender) >> 6; /* units below baseline */
-#endif
-  TM->tmInternalLeading = (FT_MulFix(Ascent + Descent
-                                     - Face->units_per_EM, YScale) + 32) >> 6;
-
-  TM->tmHeight = TM->tmAscent + TM->tmDescent;
-
-  /* MSDN says:
-   *  el = MAX(0, LineGap - ((WinAscent + WinDescent) - (Ascender - Descender)))
-   */
-  TM->tmExternalLeading = max(0, (FT_MulFix(pHori->Line_Gap
-                                            - ((Ascent + Descent)
-                                               - (pHori->Ascender - pHori->Descender)),
-                                            YScale) + 32) >> 6);
-
-  TM->tmAveCharWidth = (FT_MulFix(pOS2->xAvgCharWidth, XScale) + 32) >> 6;
-  if (0 == TM->tmAveCharWidth)
-    {
-      TM->tmAveCharWidth = 1;
-    }
-  TM->tmMaxCharWidth = (FT_MulFix(Face->bbox.xMax - Face->bbox.xMin,
-                                  XScale) + 32) >> 6;
-  TM->tmWeight = pOS2->usWeightClass;
-  TM->tmOverhang = 0;
-  TM->tmDigitizedAspectX = 300;
-  TM->tmDigitizedAspectY = 300;
-  TM->tmFirstChar = pOS2->usFirstCharIndex;
-  TM->tmLastChar = pOS2->usLastCharIndex;
-  TM->tmDefaultChar = pOS2->usDefaultChar;
-  TM->tmBreakChar = L'\0' != pOS2->usBreakChar ? pOS2->usBreakChar : ' ';
-  TM->tmItalic = (Face->style_flags & FT_STYLE_FLAG_ITALIC) ? 255 : 0;
-  TM->tmUnderlined = 0; /* entry in OS2 table */
-  TM->tmStruckOut = 0; /* entry in OS2 table */
-
-  /* Yes TPMF_FIXED_PITCH is correct; braindead api */
-  if (! FT_IS_FIXED_WIDTH(Face))
-    {
-      TM->tmPitchAndFamily = TMPF_FIXED_PITCH;
-    }
-  else
-    {
-      TM->tmPitchAndFamily = 0;
-    }
-
-  switch (pOS2->panose[PAN_FAMILYTYPE_INDEX])
-    {
-      case PAN_FAMILY_SCRIPT:
-        TM->tmPitchAndFamily |= FF_SCRIPT;
-        break;
-      case PAN_FAMILY_DECORATIVE:
-      case PAN_FAMILY_PICTORIAL:
-        TM->tmPitchAndFamily |= FF_DECORATIVE;
-        break;
-      case PAN_FAMILY_TEXT_DISPLAY:
-        if (0 == TM->tmPitchAndFamily) /* fixed */
-          {
-            TM->tmPitchAndFamily = FF_MODERN;
-          }
-        else
-          {
-            switch (pOS2->panose[PAN_SERIFSTYLE_INDEX])
-              {
-                case PAN_SERIF_NORMAL_SANS:
-                case PAN_SERIF_OBTUSE_SANS:
-                case PAN_SERIF_PERP_SANS:
-                  TM->tmPitchAndFamily |= FF_SWISS;
-                  break;
-                default:
-                  TM->tmPitchAndFamily |= FF_ROMAN;
-                  break;
-              }
-          }
-        break;
-      default:
-        TM->tmPitchAndFamily |= FF_DONTCARE;
-    }
-
-  if (FT_IS_SCALABLE(Face))
-    {
-      TM->tmPitchAndFamily |= TMPF_VECTOR;
-    }
-  if (FT_IS_SFNT(Face))
-    {
-      TM->tmPitchAndFamily |= TMPF_TRUETYPE;
-    }
-
-  TM->tmCharSet = DEFAULT_CHARSET;
-}
 
 /*************************************************************
  * IntGetOutlineTextMetrics
@@ -824,6 +711,8 @@ IntGetOutlineTextMetrics(PFONTGDI FontGDI, UINT Size,
   ANSI_STRING FamilyNameA, StyleNameA;
   UNICODE_STRING FamilyNameW, StyleNameW, Regular;
   char *Cp;
+  int Ascent, Descent;
+  TEXTMETRICW *TM;
 
   Needed = sizeof(OUTLINETEXTMETRICW);
 
@@ -890,7 +779,107 @@ IntGetOutlineTextMetrics(PFONTGDI FontGDI, UINT Size,
 
   Otm->otmSize = Needed;
 
-  FillTM(&Otm->otmTextMetrics, FontGDI->face, pOS2, pHori);
+  if (0 == pOS2->usWinAscent + pOS2->usWinDescent)
+    {
+      Ascent = pHori->Ascender;
+      Descent = -pHori->Descender;
+    }
+  else
+    {
+      Ascent = pOS2->usWinAscent;
+      Descent = pOS2->usWinDescent;
+    }
+
+  TM = &Otm->otmTextMetrics;
+  TM->tmAscent = (FT_MulFix(Ascent, YScale) + 32) >> 6;
+  TM->tmDescent = (FT_MulFix(Descent, YScale) + 32) >> 6;
+  TM->tmInternalLeading = (FT_MulFix(Ascent + Descent
+                                     - FontGDI->face->units_per_EM, YScale) + 32) >> 6;
+
+  TM->tmHeight = TM->tmAscent + TM->tmDescent;
+
+  /* MSDN says:
+   *  el = MAX(0, LineGap - ((WinAscent + WinDescent) - (Ascender - Descender)))
+   */
+  TM->tmExternalLeading = max(0, (FT_MulFix(pHori->Line_Gap
+                                            - ((Ascent + Descent)
+                                               - (pHori->Ascender - pHori->Descender)),
+                                            YScale) + 32) >> 6);
+
+  TM->tmAveCharWidth = (FT_MulFix(pOS2->xAvgCharWidth, XScale) + 32) >> 6;
+  if (0 == TM->tmAveCharWidth)
+    {
+      TM->tmAveCharWidth = 1;
+    }
+  TM->tmMaxCharWidth = (FT_MulFix(FontGDI->face->bbox.xMax - FontGDI->face->bbox.xMin,
+                                 XScale) + 32) >> 6;
+  TM->tmWeight = pOS2->usWeightClass;
+  TM->tmOverhang = 0;
+  TM->tmDigitizedAspectX = 300;
+  TM->tmDigitizedAspectY = 300;
+  TM->tmFirstChar = pOS2->usFirstCharIndex;
+  TM->tmLastChar = pOS2->usLastCharIndex;
+  TM->tmDefaultChar = pOS2->usDefaultChar;
+  TM->tmBreakChar = L'\0' != pOS2->usBreakChar ? pOS2->usBreakChar : ' ';
+  TM->tmItalic = (FontGDI->face->style_flags & FT_STYLE_FLAG_ITALIC) ? 255 : 0;
+  TM->tmUnderlined = 0; /* entry in OS2 table */
+  TM->tmStruckOut = 0; /* entry in OS2 table */
+
+  /* Yes TPMF_FIXED_PITCH is correct; braindead api */
+  if (! FT_IS_FIXED_WIDTH(FontGDI->face))
+    {
+      TM->tmPitchAndFamily = TMPF_FIXED_PITCH;
+    }
+  else
+    {
+      TM->tmPitchAndFamily = 0;
+    }
+
+  switch (pOS2->panose[PAN_FAMILYTYPE_INDEX])
+    {
+      case PAN_FAMILY_SCRIPT:
+        TM->tmPitchAndFamily |= FF_SCRIPT;
+        break;
+      case PAN_FAMILY_DECORATIVE:
+      case PAN_FAMILY_PICTORIAL:
+        TM->tmPitchAndFamily |= FF_DECORATIVE;
+        break;
+      case PAN_FAMILY_TEXT_DISPLAY:
+        if (0 == TM->tmPitchAndFamily) /* fixed */
+          {
+            TM->tmPitchAndFamily = FF_MODERN;
+          }
+        else
+          {
+            switch (pOS2->panose[PAN_SERIFSTYLE_INDEX])
+              {
+                case PAN_SERIF_NORMAL_SANS:
+                case PAN_SERIF_OBTUSE_SANS:
+                case PAN_SERIF_PERP_SANS:
+                  TM->tmPitchAndFamily |= FF_SWISS;
+                  break;
+                default:
+                  TM->tmPitchAndFamily |= FF_ROMAN;
+                  break;
+              }
+          }
+        break;
+      default:
+        TM->tmPitchAndFamily |= FF_DONTCARE;
+    }
+
+  if (FT_IS_SCALABLE(FontGDI->face))
+    {
+      TM->tmPitchAndFamily |= TMPF_VECTOR;
+    }
+  if (FT_IS_SFNT(FontGDI->face))
+    {
+      TM->tmPitchAndFamily |= TMPF_TRUETYPE;
+    }
+
+#ifndef TODO
+  TM->tmCharSet = DEFAULT_CHARSET;
+#endif
 
   Otm->otmFiller = 0;
   memcpy(&Otm->otmPanoseNumber, pOS2->panose, PANOSE_COUNT);
@@ -1493,7 +1482,7 @@ NtGdiExtTextOut(
    LONGLONG TextLeft, RealXStart;
    ULONG TextTop, pitch, previous, BackgroundLeft;
    FT_Bool use_kerning;
-   RECTL DestRect, MaskRect, SpecifiedDestRect;
+   RECTL DestRect, MaskRect;
    POINTL SourcePoint, BrushOrigin;
    HBRUSH hBrushFg = NULL;
    PGDIBRUSHOBJ BrushFg = NULL;
@@ -1517,20 +1506,6 @@ NtGdiExtTextOut(
    NTSTATUS Status;
    INT *Dx = NULL;
    POINT Start;
-   BOOL DoBreak = FALSE;
-
-   // TODO: Write test-cases to exactly match real Windows in different
-   // bad parameters (e.g. does Windows check the DC or the RECT first?).
-   if (lprc && (fuOptions & (ETO_OPAQUE | ETO_CLIPPED)))
-   {
-      // At least one of the two flags were specified. Copy lprc. Once.
-      Status = MmCopyFromCaller(&SpecifiedDestRect, lprc, sizeof(RECT));
-      if (!NT_SUCCESS(Status))
-      {
-         SetLastWin32Error(ERROR_INVALID_PARAMETER);
-         return FALSE;
-      }
-   }
 
    dc = DC_LockDc(hDC);
    if (!dc)
@@ -1621,10 +1596,11 @@ NtGdiExtTextOut(
 
    if ((fuOptions & ETO_OPAQUE) && lprc)
    {
-      DestRect.left   = SpecifiedDestRect.left   + dc->w.DCOrgX;
-      DestRect.top    = SpecifiedDestRect.top    + dc->w.DCOrgY;
-      DestRect.right  = SpecifiedDestRect.right  + dc->w.DCOrgX;
-      DestRect.bottom = SpecifiedDestRect.bottom + dc->w.DCOrgY;
+      MmCopyFromCaller(&DestRect, lprc, sizeof(RECT));
+      DestRect.left += dc->w.DCOrgX;
+      DestRect.top += dc->w.DCOrgY;
+      DestRect.right += dc->w.DCOrgX;
+      DestRect.bottom += dc->w.DCOrgY;
       IntEngBitBlt(
          BitmapObj,
          NULL,
@@ -1636,7 +1612,7 @@ NtGdiExtTextOut(
          &SourcePoint,
          &BrushBgInst.BrushObject,
          &BrushOrigin,
-         ROP3_TO_ROP4(PATCOPY));
+         PATCOPY);
       fuOptions &= ~ETO_OPAQUE;
    }
    else
@@ -1854,7 +1830,7 @@ NtGdiExtTextOut(
             &SourcePoint,
             &BrushBgInst.BrushObject,
             &BrushOrigin,
-            ROP3_TO_ROP4(PATCOPY));
+            PATCOPY);
          BackgroundLeft = DestRect.right;
       }
 
@@ -1893,17 +1869,6 @@ NtGdiExtTextOut(
        * brush.
        */
 
-      if (lprc &&
-          (fuOptions & ETO_CLIPPED) &&
-          DestRect.right >= SpecifiedDestRect.right + dc->w.DCOrgX)
-      {
-         // We do the check '>=' instead of '>' to possibly save an iteration
-         // through this loop, since it's breaking after the drawing is done,
-         // and x is always incremented.
-         DestRect.right = SpecifiedDestRect.right + dc->w.DCOrgX;
-         DoBreak = TRUE;
-      }
-
       IntEngMaskBlt(
          SurfObj,
          SourceGlyphSurf,
@@ -1918,11 +1883,6 @@ NtGdiExtTextOut(
 
       EngUnlockSurface(SourceGlyphSurf);
       EngDeleteSurface((HSURF)HSourceGlyph);
-
-      if (DoBreak)
-      {
-         break;
-      }
 
       if (NULL == Dx)
       {
@@ -2588,7 +2548,7 @@ NtGdiGetTextFace(HDC hDC, INT Count, LPWSTR FaceName)
 BOOL
 STDCALL
 NtGdiGetTextMetrics(HDC hDC,
-                    LPTEXTMETRICW tm)
+                   LPTEXTMETRICW tm)
 {
   PDC dc;
   PTEXTOBJ TextObj;
@@ -2597,7 +2557,6 @@ NtGdiGetTextMetrics(HDC hDC,
   TEXTMETRICW SafeTm;
   FT_Face Face;
   TT_OS2 *pOS2;
-  TT_HoriHeader *pHori;
   ULONG Error;
 
   if (NULL == tm)
@@ -2614,7 +2573,7 @@ NtGdiGetTextMetrics(HDC hDC,
 
   TextObj = TEXTOBJ_LockText(dc->w.hFont);
   if (NULL != TextObj)
-    {
+  {
       FontGDI = ObjToGDI(TextObj->Font, FONT);
 
       Face = FontGDI->face;
@@ -2628,50 +2587,47 @@ NtGdiGetTextMetrics(HDC hDC,
       IntUnLockFreeType;
       if (0 != Error)
 	{
-          DPRINT1("Error in setting pixel sizes: %u\n", Error);
-          Status = STATUS_UNSUCCESSFUL;
+	DPRINT1("Error in setting pixel sizes: %u\n", Error);
+	Status = STATUS_UNSUCCESSFUL;
 	}
       else
 	{
-          memcpy(&SafeTm, &FontGDI->TextMetric, sizeof(TEXTMETRICW));
-
-          Status = STATUS_SUCCESS;
-          IntLockFreeType;
-          pOS2 = FT_Get_Sfnt_Table(FontGDI->face, ft_sfnt_os2);
-          if (NULL == pOS2)
-            {
-              DPRINT1("Can't find OS/2 table - not TT font?\n");
-              Status = STATUS_INTERNAL_ERROR;
-            }
-
-          pHori = FT_Get_Sfnt_Table(FontGDI->face, ft_sfnt_hhea);
-          if (NULL == pHori)
-            {
-              DPRINT1("Can't find HHEA table - not TT font?\n");
-              Status = STATUS_INTERNAL_ERROR;
-            }
-
-          IntUnLockFreeType;
-
-          if (NT_SUCCESS(Status))
-            {
-              FillTM(&SafeTm, FontGDI->face, pOS2, pHori);
-              Status = MmCopyToCaller(tm, &SafeTm, sizeof(TEXTMETRICW));
-            }
-	}
-      TEXTOBJ_UnlockText(dc->w.hFont);
-    }
-  else
+	memcpy(&SafeTm, &FontGDI->TextMetric, sizeof(TEXTMETRICW));
+        IntLockFreeType;
+        pOS2 = FT_Get_Sfnt_Table(Face, ft_sfnt_os2);
+        IntUnLockFreeType;
+        if (NULL == pOS2)
+          {
+            DPRINT1("Can't find OS/2 table - not TT font?\n");
+            Status = STATUS_UNSUCCESSFUL;
+          }
+        else
+          {
+            SafeTm.tmAveCharWidth = (pOS2->xAvgCharWidth + 32) >> 6;
+          }
+  	SafeTm.tmAscent = (Face->size->metrics.ascender + 32) >> 6; // units above baseline
+	SafeTm.tmDescent = (32 - Face->size->metrics.descender) >> 6; // units below baseline
+	SafeTm.tmHeight = SafeTm.tmAscent + SafeTm.tmDescent;
+    SafeTm.tmMaxCharWidth = (Face->size->metrics.max_advance + 32) >> 6;
+    if (FT_IS_SFNT(FontGDI->face))
     {
-      Status = STATUS_INVALID_HANDLE;
+      SafeTm.tmPitchAndFamily |= TMPF_TRUETYPE;
     }
+	Status = MmCopyToCaller(tm, &SafeTm, sizeof(TEXTMETRICW));
+	}
+    TEXTOBJ_UnlockText(dc->w.hFont);
+  }
+  else
+  {
+    Status = STATUS_INVALID_HANDLE;
+  }
   DC_UnlockDc(hDC);
 
   if(!NT_SUCCESS(Status))
-    {
-      SetLastNtError(Status);
-      return FALSE;
-    }
+  {
+    SetLastNtError(Status);
+    return FALSE;
+  }
 
   return TRUE;
 }
@@ -2690,7 +2646,7 @@ BOOL
 STDCALL
 NtGdiRemoveFontResource(LPCWSTR  FileName)
 {
-  DPRINT1("NtGdiRemoveFontResource is UNIMPLEMENTED\n");
+  UNIMPLEMENTED;
   return FALSE;
 }
 

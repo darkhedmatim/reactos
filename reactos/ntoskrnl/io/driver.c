@@ -1,12 +1,13 @@
-/* $Id$
+/* $Id: driver.c,v 1.56 2004/12/09 14:20:06 royce Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/driver.c
- * PURPOSE:         Loading and unloading of drivers
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
- *                  Filip Navara (xnavara@volny.cz)
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/driver.c
+ * PURPOSE:        Loading and unloading of drivers
+ * PROGRAMMER:     David Welch (welch@cwcom.net)
+ *                 Filip Navara (xnavara@volny.cz)
+ * UPDATE HISTORY:
+ *                 15/05/98: Created
  */
 
 /* INCLUDES *******************************************************************/
@@ -17,7 +18,6 @@
 
 /* ke/main.c */
 extern LOADER_PARAMETER_BLOCK EXPORTED KeLoaderBlock;
-extern ULONG KeTickCount;
 
 NTSTATUS
 LdrProcessModule(PVOID ModuleLoadBase,
@@ -96,8 +96,8 @@ IopInitDriverImplementation(VOID)
    IoDriverObjectType->Tag = TAG('D', 'R', 'V', 'R');
    IoDriverObjectType->TotalObjects = 0;
    IoDriverObjectType->TotalHandles = 0;
-   IoDriverObjectType->PeakObjects = 0;
-   IoDriverObjectType->PeakHandles = 0;
+   IoDriverObjectType->MaxObjects = ULONG_MAX;
+   IoDriverObjectType->MaxHandles = ULONG_MAX;
    IoDriverObjectType->PagedPoolCharge = 0;
    IoDriverObjectType->NonpagedPoolCharge = sizeof(DRIVER_OBJECT);
    IoDriverObjectType->Dump = NULL;
@@ -110,7 +110,7 @@ IopInitDriverImplementation(VOID)
    IoDriverObjectType->OkayToClose = NULL;
    IoDriverObjectType->Create = IopCreateDriver;
    IoDriverObjectType->DuplicationNotify = NULL;
-   RtlInitUnicodeString(&IoDriverObjectType->TypeName, L"Driver");
+   RtlRosInitUnicodeStringFromLiteral(&IoDriverObjectType->TypeName, L"Driver");
 
    ObpCreateTypeObject(IoDriverObjectType);
 
@@ -180,7 +180,6 @@ IopDeleteDriver(PVOID ObjectBody)
    DPRINT("IopDeleteDriver(ObjectBody %x)\n", ObjectBody);
 
    ExFreePool(Object->DriverExtension);
-   RtlFreeUnicodeString(&Object->DriverName);
 
    OldIrql = KeRaiseIrqlToDpcLevel();
 
@@ -208,7 +207,6 @@ IopCreateDriverObject(
    UNICODE_STRING DriverName;
    OBJECT_ATTRIBUTES ObjectAttributes;
    NTSTATUS Status;
-   PWSTR Buffer = NULL;
 
    DPRINT("IopCreateDriverObject(%p '%wZ' %x %p %x)\n",
       DriverObject, ServiceName, FileSystem, DriverImageStart, DriverImageSize);
@@ -226,10 +224,6 @@ IopCreateDriverObject(
 
       RtlInitUnicodeString(&DriverName, NameBuffer);
       DPRINT("Driver name: '%wZ'\n", &DriverName);
-      
-      Buffer = (PWSTR)ExAllocatePool(NonPagedPool, DriverName.Length);
-      /* If we don't success, it is not a problem. Our driver
-       * object will not have associated driver name... */
    }
    else
    {
@@ -263,12 +257,6 @@ IopCreateDriverObject(
 
    Object->DriverStart = DriverImageStart;
    Object->DriverSize = DriverImageSize;
-   if (Buffer)
-   {
-      Object->DriverName.Buffer = Buffer;
-      Object->DriverName.Length = Object->DriverName.MaximumLength = DriverName.Length;
-      RtlCopyMemory(Object->DriverName.Buffer, DriverName.Buffer, DriverName.Length);
-   }
 
    *DriverObject = Object;
 
@@ -459,8 +447,6 @@ IopLoadServiceModule(
                   &ServiceImagePath,
                   ModuleObject);
 
-	       KDB_SYMBOLFILE_HOOK(SearchName);
-
                break;
             }
          }
@@ -547,7 +533,7 @@ IopInitializeDriverModule(
    if (DeviceNode->ServiceName.Buffer)
    {
       RegistryKey.Length = DeviceNode->ServiceName.Length +
-         sizeof(ServicesKeyName) - sizeof(UNICODE_NULL);
+         sizeof(ServicesKeyName);
       RegistryKey.MaximumLength = RegistryKey.Length + sizeof(UNICODE_NULL);
       RegistryKey.Buffer = ExAllocatePool(PagedPool, RegistryKey.MaximumLength);
       wcscpy(RegistryKey.Buffer, ServicesKeyName);
@@ -794,7 +780,8 @@ IopCreateGroupListEntry(PWSTR ValueName,
 
       RtlZeroMemory(Group, sizeof(SERVICE_GROUP));
 
-      if (!RtlpCreateUnicodeString(&Group->GroupName, (PWSTR)ValueData, NonPagedPool))
+      if (!RtlCreateUnicodeString(&Group->GroupName,
+				  (PWSTR)ValueData))
 	{
 	  ExFreePool(Group);
 	  return(STATUS_INSUFFICIENT_RESOURCES);
@@ -959,7 +946,7 @@ IoCreateDriverList(VOID)
 			     NULL,
 			     NULL);
 
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     0x10001,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
@@ -971,14 +958,14 @@ IoCreateDriverList(VOID)
   KeyInfo = ExAllocatePool(NonPagedPool, KeyInfoLength);
   if (KeyInfo == NULL)
     {
-      ZwClose(KeyHandle);
+      NtClose(KeyHandle);
       return(STATUS_INSUFFICIENT_RESOURCES);
     }
 
   Index = 0;
   while (TRUE)
     {
-      Status = ZwEnumerateKey(KeyHandle,
+      Status = NtEnumerateKey(KeyHandle,
 			      Index,
 			      KeyBasicInformation,
 			      KeyInfo,
@@ -1006,7 +993,7 @@ IoCreateDriverList(VOID)
     }
 
   ExFreePool(KeyInfo);
-  ZwClose(KeyHandle);
+  NtClose(KeyHandle);
 
   DPRINT("IoCreateDriverList() done\n");
 
@@ -1139,16 +1126,13 @@ IopInitializeBuiltinDriver(
       FileNameWithoutPath);
    Status = LdrProcessModule(ModuleLoadBase, &DeviceNode->ServiceName,
       &ModuleObject);
-   if (!NT_SUCCESS(Status))
+   if (ModuleObject == NULL)
    {
       if (ModuleDeviceNode == NULL)
          IopFreeDeviceNode(DeviceNode);
       CPRINT("Driver load failed, status (%x)\n", Status);
-      return Status;
+      return STATUS_UNSUCCESSFUL;
    }
-
-   /* Load symbols */
-   KDB_SYMBOLFILE_HOOK(FileName);
 
    /*
     * Strip the file extension from ServiceName
@@ -1220,11 +1204,13 @@ IopInitializeBootDrivers(VOID)
       if (Extension == NULL)
          Extension = "";
 
-      if (!_stricmp(Extension, ".sym") || !_stricmp(Extension, ".dll"))
+      if (!_stricmp(Extension, ".sym"))
       {
-        /* Process symbols for *.exe and *.dll */
-        KDB_SYMBOLFILE_HOOK(ModuleName);
-
+         /* Pass symbol files to kernel debugger */
+         KDB_SYMBOLFILE_HOOK((PVOID)ModuleStart, ModuleName, ModuleSize);
+      }
+      else if (!_stricmp(Extension, ".exe") || !_stricmp(Extension, ".dll"))
+      {
         /* Log *.exe and *.dll files */
         RtlCreateUnicodeStringFromAsciiz(&DriverName, ModuleName);
         IopBootLog(&DriverName, TRUE);
@@ -1245,16 +1231,20 @@ IopInitializeBootDrivers(VOID)
          }
          BootDriverCount++;
       }
-   }
 
-   /*
-    * Free memory for all boot files, except ntoskrnl.exe.
-    */
-   for (i = 1; i < KeLoaderBlock.ModsCount; i++)
-   {
-
-       MiFreeBootDriverMemory((PVOID)KeLoaderModules[i].ModStart,
-                              KeLoaderModules[i].ModEnd - KeLoaderModules[i].ModStart);
+      /*
+       * Free memory for all boot files, except ntoskrnl.exe, hal.dll
+       * and symbol files, if the kernel debugger is active
+       */
+      if (_stricmp(Extension, ".exe") && _stricmp(Extension, ".dll")
+#if defined(DBG) || defined(KDBG)
+          && _stricmp(Extension, ".sym")
+#endif
+         )
+      {
+         MiFreeBootDriverMemory((PVOID)KeLoaderModules[i].ModStart,
+            KeLoaderModules[i].ModEnd - KeLoaderModules[i].ModStart);
+      }
    }
 
    if (BootDriverCount == 0)
@@ -1270,7 +1260,7 @@ IopLoadDriver(PSERVICE Service)
    NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
    IopDisplayLoadingMessage(Service->ServiceName.Buffer);
-   Status = ZwLoadDriver(&Service->RegistryPath);
+   Status = NtLoadDriver(&Service->RegistryPath);
    IopBootLog(&Service->ImagePath, NT_SUCCESS(Status) ? TRUE : FALSE);
    if (!NT_SUCCESS(Status))
    {
@@ -1594,7 +1584,7 @@ IopReinitializeDrivers(VOID)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 NTSTATUS
 STDCALL
@@ -1603,109 +1593,12 @@ IoCreateDriver (
 	IN PDRIVER_INITIALIZE InitializationFunction
 	)
 {
-    WCHAR NameBuffer[100];
-    USHORT NameLength;
-    UNICODE_STRING LocalDriverName; /* To reduce code if no name given */
-    NTSTATUS Status;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    ULONG ObjectSize;
-    PDRIVER_OBJECT DriverObject;
-    UNICODE_STRING ServiceKeyName;
-    HANDLE hDriver;
-    
-    /* First, create a unique name for the driver if we don't have one */
-    if (!DriverName) {
-       
-        /* Create a random name and set up the string*/
-        NameLength = swprintf(NameBuffer, L"\\Driver\\%08u", KeTickCount);
-        LocalDriverName.Length = NameLength * sizeof(WCHAR);
-        LocalDriverName.MaximumLength = LocalDriverName.Length + sizeof(UNICODE_NULL);
-        LocalDriverName.Buffer = NameBuffer;
-    
-    } else {
-        
-        /* So we can avoid another code path, use a local var */
-        LocalDriverName = *DriverName;
-    }
-    
-    /* Initialize the Attributes */
-    ObjectSize = sizeof(DRIVER_OBJECT) + sizeof(DRIVER_EXTENSION);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &LocalDriverName,
-                               OBJ_PERMANENT | OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-    
-    /* Create the Object */
-    Status = ObCreateObject(KernelMode,
-                            IoDriverObjectType,
-                            &ObjectAttributes,
-                            KernelMode,
-                            NULL,
-                            ObjectSize,
-                            0,
-                            0,
-                            (PVOID*)&DriverObject);
-    
-    /* Return on failure */
-    if (!NT_SUCCESS(Status)) return Status;
-    
-    /* Set up the Object */
-    RtlZeroMemory(DriverObject, ObjectSize);
-    DriverObject->Type = IO_TYPE_DRIVER;
-    DriverObject->Size = sizeof(DRIVER_OBJECT);
-    DriverObject->Flags = DRVO_BUILTIN_DRIVER;
-    DriverObject->DriverExtension = (PDRIVER_EXTENSION)(DriverObject + 1);
-    DriverObject->DriverExtension->DriverObject = DriverObject;
-    DriverObject->DriverInit = InitializationFunction;
-    /* FIXME: Invalidate all Major Functions b/c now they are NULL and might crash */
-               
-    /* Set up the Service Key Name */
-    ServiceKeyName.Buffer = ExAllocatePool(PagedPool, LocalDriverName.Length + sizeof(WCHAR));
-    ServiceKeyName.Length = LocalDriverName.Length;
-    ServiceKeyName.MaximumLength = LocalDriverName.MaximumLength;
-    RtlMoveMemory(ServiceKeyName.Buffer, LocalDriverName.Buffer, LocalDriverName.Length);
-    ServiceKeyName.Buffer[ServiceKeyName.Length / sizeof(WCHAR)] = L'\0';
-    DriverObject->DriverExtension->ServiceKeyName =  ServiceKeyName;
-    
-    /* Also store it in the Driver Object. This is a bit of a hack. */
-    RtlMoveMemory(&DriverObject->DriverName, &ServiceKeyName, sizeof(UNICODE_STRING));
-    
-    /* Add the Object and get its handle */
-    Status = ObInsertObject(DriverObject,
-                            NULL,
-                            FILE_READ_DATA,
-                            0,
-                            NULL,
-                            &hDriver);
-    
-    /* Return on Failure */
-    if (!NT_SUCCESS(Status)) return Status;
-    
-    /* Now reference it */
-    Status = ObReferenceObjectByHandle(hDriver,
-                                       0,
-                                       IoDriverObjectType,
-                                       KernelMode,
-                                       (PVOID*)&DriverObject,
-                                       NULL);
-    ZwClose(hDriver);
-    
-    /* Finally, call its init function */
-    Status = (*InitializationFunction)(DriverObject, NULL);
-    
-    if (!NT_SUCCESS(Status)) {
-        /* If it didn't work, then kill the object */
-        ObMakeTemporaryObject(DriverObject);
-        ObDereferenceObject(DriverObject);
-    }
-    
-    /* Return the Status */
-    return Status;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
@@ -1713,8 +1606,7 @@ IoDeleteDriver (
 	IN PDRIVER_OBJECT DriverObject
 	)
 {
-	/* Simply derefence the Object */
-    ObDereferenceObject(DriverObject);
+	UNIMPLEMENTED;
 }
 
 
@@ -1863,7 +1755,7 @@ NtLoadDriver(IN PUNICODE_STRING DriverServiceName)
       Start = DriverServiceName->Buffer;
    else
       Start++;
-   RtlpCreateUnicodeString(&DeviceNode->ServiceName, Start, NonPagedPool);
+   RtlCreateUnicodeString(&DeviceNode->ServiceName, Start);
 
    /*
     * Initialize the driver module

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: 3dnow_xform2.S,v 1.3 2004/10/05 14:19:11 blight Exp $ */
 
 /*
  * Mesa 3-D graphics library

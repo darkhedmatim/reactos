@@ -1,5 +1,5 @@
 
-/* $Id$
+/* $Id: mem.c,v 1.3 2004/11/25 19:25:06 ekohl Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -39,7 +39,7 @@
  *
  * @implemented
  */
-SIZE_T STDCALL
+ULONG STDCALL
 RtlCompareMemory(IN const VOID *Source1,
                  IN const VOID *Source2,
                  IN SIZE_T Length)

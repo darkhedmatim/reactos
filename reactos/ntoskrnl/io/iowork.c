@@ -1,12 +1,13 @@
-/* $Id$
+/* $Id: iowork.c,v 1.7 2004/08/15 16:39:03 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/iowork.c
- * PURPOSE:         Manage IO system work queues
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Robert Dickenson (odin@pnc.com.au)
+ * COPYRIGHT:          See COPYING in the top level directory
+ * PROJECT:            ReactOS kernel
+ * FILE:               reactos/ntoskrnl/io/iowork.c
+ * PURPOSE:            Manage IO system work queues
+ * PROGRAMMER:         David Welch (welch@mcmail.com)
+ *                     Robert Dickenson (odin@pnc.com.au)
+ * REVISION HISTORY:
+ *       28/09/2002:   (RDD) Created from copy of ex/work.c
  */
 
 /* INCLUDES ******************************************************************/

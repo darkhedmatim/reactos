@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: priv.c,v 1.11 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/priv.c
- * PURPOSE:         Security manager
- * 
- * PROGRAMMERS:     No programmer listed.
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              kernel/se/priv.c
+ * PROGRAMER:         ?
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
@@ -97,7 +98,7 @@ SepInitPrivileges (VOID)
 
 
 BOOLEAN
-SepPrivilegeCheck (PTOKEN Token,
+SepPrivilegeCheck (PACCESS_TOKEN Token,
 		   PLUID_AND_ATTRIBUTES Privileges,
 		   ULONG PrivilegeCount,
 		   ULONG PrivilegeControl,
@@ -108,8 +109,6 @@ SepPrivilegeCheck (PTOKEN Token,
   ULONG k;
 
   DPRINT ("SepPrivilegeCheck() called\n");
-  
-  PAGED_CODE();
 
   if (PreviousMode == KernelMode)
     {
@@ -169,8 +168,6 @@ SeCaptureLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Src,
 {
   PLUID_AND_ATTRIBUTES* NewMem;
   ULONG SrcLength;
-  
-  PAGED_CODE();
 
   if (PrivilegeCount == 0)
     {
@@ -216,8 +213,6 @@ SeReleaseLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Privilege,
 				 KPROCESSOR_MODE PreviousMode,
 				 ULONG a)
 {
-  PAGED_CODE();
-  
   ExFreePool (Privilege);
 }
 
@@ -228,13 +223,11 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
 		  IN PBOOLEAN Result)
 {
   PLUID_AND_ATTRIBUTES Privilege;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
   ULONG PrivilegeCount;
   ULONG PrivilegeControl;
   ULONG Length;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle (ClientToken,
 				      0,
@@ -259,10 +252,10 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
   Privilege = 0;
   Status = SeCaptureLuidAndAttributesArray (RequiredPrivileges->Privilege,
 					    PrivilegeCount,
-					    UserMode,
-					    NULL,
+					    1,
 					    0,
-					    PagedPool,
+					    0,
+					    1,
 					    1,
 					    &Privilege,
 					    &Length);
@@ -299,8 +292,6 @@ SePrivilegeCheck (PPRIVILEGE_SET Privileges,
 		  KPROCESSOR_MODE PreviousMode)
 {
   PACCESS_TOKEN Token = NULL;
-  
-  PAGED_CODE();
 
   if (SubjectContext->ClientToken == NULL)
     {
@@ -333,8 +324,6 @@ SeSinglePrivilegeCheck (IN LUID PrivilegeValue,
   SECURITY_SUBJECT_CONTEXT SubjectContext;
   PRIVILEGE_SET Priv;
   BOOLEAN Result;
-  
-  PAGED_CODE();
 
   SeCaptureSubjectContext (&SubjectContext);
 

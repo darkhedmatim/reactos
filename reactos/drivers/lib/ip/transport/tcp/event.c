@@ -10,17 +10,13 @@
 
 #include "precomp.h"
 
+extern VOID DrainSignals();
+
 int TCPSocketState(void *ClientData,
 		   void *WhichSocket, 
 		   void *WhichConnection,
 		   OSK_UINT NewState ) {
     PCONNECTION_ENDPOINT Connection = WhichConnection;
-
-    TI_DbgPrint(MID_TRACE,("Flags: %c%c%c%c\n",
-			   NewState & SEL_CONNECT ? 'C' : 'c',
-			   NewState & SEL_READ    ? 'R' : 'r',
-			   NewState & SEL_FIN     ? 'F' : 'f',
-			   NewState & SEL_ACCEPT  ? 'A' : 'a'));
 
     TI_DbgPrint(DEBUG_TCP,("Called: NewState %x (Conn %x) (Change %x)\n", 
 			   NewState, Connection,
@@ -30,18 +26,16 @@ int TCPSocketState(void *ClientData,
     if( !Connection ) {
 	TI_DbgPrint(DEBUG_TCP,("Socket closing.\n"));
 	Connection = FileFindConnectionByContext( WhichSocket );
-	if( !Connection )
+	if( !Connection ) {
+	    TcpipRecursiveMutexLeave( &TCPLock );
 	    return 0;
-	else 
+	} else 
 	    TI_DbgPrint(DEBUG_TCP,("Found socket %x\n", Connection));
     }
 
-    TI_DbgPrint(MID_TRACE,("Connection signalled: %d\n", 
-			   Connection->Signalled));
-
-    Connection->SignalState |= NewState;
     if( !Connection->Signalled ) {
 	Connection->Signalled = TRUE;
+	Connection->SignalState = NewState;
 	InsertTailList( &SignalledConnections, &Connection->SignalList );
     }
 

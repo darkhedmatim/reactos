@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: dir.c,v 1.36 2004/12/05 16:31:50 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -10,16 +10,21 @@
 
 */
 
+#include <ddk/ntddk.h>
+#include <wchar.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 
 // function like DosDateTimeToFileTime
-BOOLEAN
-FsdDosDateTimeToSystemTime (PDEVICE_EXTENSION DeviceExt, USHORT DosDate, USHORT DosTime, PLARGE_INTEGER SystemTime)
+BOOL
+FsdDosDateTimeToSystemTime (PDEVICE_EXTENSION DeviceExt, WORD wDosDate, WORD wDosTime, PLARGE_INTEGER SystemTime)
 {
-  PDOSTIME pdtime = (PDOSTIME) &DosTime;
-  PDOSDATE pddate = (PDOSDATE) &DosDate;
+  PDOSTIME pdtime = (PDOSTIME) & wDosTime;
+  PDOSDATE pddate = (PDOSDATE) & wDosDate;
   TIME_FIELDS TimeFields;
   LARGE_INTEGER LocalTime;
 
@@ -33,7 +38,7 @@ FsdDosDateTimeToSystemTime (PDEVICE_EXTENSION DeviceExt, USHORT DosDate, USHORT 
 
   TimeFields.Day = pddate->Day;
   TimeFields.Month = pddate->Month;
-  TimeFields.Year = (CSHORT)(DeviceExt->BaseDateYear + pddate->Year);
+  TimeFields.Year = DeviceExt->BaseDateYear + pddate->Year;
 
   RtlTimeFieldsToTime (&TimeFields, &LocalTime);
   ExLocalTimeToSystemTime(&LocalTime, SystemTime);
@@ -42,11 +47,11 @@ FsdDosDateTimeToSystemTime (PDEVICE_EXTENSION DeviceExt, USHORT DosDate, USHORT 
 }
 
 // function like FileTimeToDosDateTime
-BOOLEAN
-FsdSystemTimeToDosDateTime (PDEVICE_EXTENSION DeviceExt, PLARGE_INTEGER SystemTime, USHORT *pDosDate, USHORT *pDosTime)
+BOOL
+FsdSystemTimeToDosDateTime (PDEVICE_EXTENSION DeviceExt, PLARGE_INTEGER SystemTime, WORD * pwDosDate, WORD * pwDosTime)
 {
-  PDOSTIME pdtime = (PDOSTIME) pDosTime;
-  PDOSDATE pddate = (PDOSDATE) pDosDate;
+  PDOSTIME pdtime = (PDOSTIME) pwDosTime;
+  PDOSDATE pddate = (PDOSDATE) pwDosDate;
   TIME_FIELDS TimeFields;
   LARGE_INTEGER LocalTime;
 
@@ -67,13 +72,13 @@ FsdSystemTimeToDosDateTime (PDEVICE_EXTENSION DeviceExt, PLARGE_INTEGER SystemTi
     {
       pddate->Day = TimeFields.Day;
       pddate->Month = TimeFields.Month;
-      pddate->Year = (USHORT) (TimeFields.Year - DeviceExt->BaseDateYear);
+      pddate->Year = TimeFields.Year - DeviceExt->BaseDateYear;
     }
 
   return TRUE;
 }
 
-#define ULONG_ROUND_UP(x)   ROUND_UP((x), (sizeof(ULONG)))
+#define DWORD_ROUND_UP(x)   ROUND_UP((x), (sizeof(DWORD)))
 
 NTSTATUS
 VfatGetFileNameInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
@@ -83,7 +88,7 @@ VfatGetFileNameInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
     return STATUS_BUFFER_OVERFLOW;
   pInfo->FileNameLength = DirContext->LongNameU.Length;
   pInfo->NextEntryOffset =
-    ULONG_ROUND_UP (sizeof (FILE_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
+    DWORD_ROUND_UP (sizeof (FILE_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
   RtlCopyMemory (pInfo->FileName, DirContext->LongNameU.Buffer, DirContext->LongNameU.Length);
   return STATUS_SUCCESS;
 }
@@ -98,7 +103,7 @@ VfatGetFileDirectoryInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
     return STATUS_BUFFER_OVERFLOW;
   pInfo->FileNameLength = DirContext->LongNameU.Length;
   pInfo->NextEntryOffset =
-    ULONG_ROUND_UP (sizeof (FILE_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
+    DWORD_ROUND_UP (sizeof (FILE_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
   RtlCopyMemory (pInfo->FileName, DirContext->LongNameU.Buffer, DirContext->LongNameU.Length);
 //      pInfo->FileIndex=;
   if (DeviceExt->Flags & VCB_IS_FATX)
@@ -161,14 +166,14 @@ VfatGetFileDirectoryInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
 NTSTATUS
 VfatGetFileFullDirectoryInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
 				     PDEVICE_EXTENSION DeviceExt,
-				     PFILE_FULL_DIR_INFORMATION pInfo,
+				     PFILE_FULL_DIRECTORY_INFORMATION pInfo,
 				     ULONG BufferLength)
 {
-  if ((sizeof (FILE_FULL_DIR_INFORMATION) + DirContext->LongNameU.Length) > BufferLength)
+  if ((sizeof (FILE_FULL_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length) > BufferLength)
     return STATUS_BUFFER_OVERFLOW;
   pInfo->FileNameLength = DirContext->LongNameU.Length;
   pInfo->NextEntryOffset =
-    ULONG_ROUND_UP (sizeof (FILE_FULL_DIR_INFORMATION) + DirContext->LongNameU.Length);
+    DWORD_ROUND_UP (sizeof (FILE_FULL_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
   RtlCopyMemory (pInfo->FileName, DirContext->LongNameU.Buffer, DirContext->LongNameU.Length);
 //      pInfo->FileIndex=;
   if (DeviceExt->Flags & VCB_IS_FATX)
@@ -215,10 +220,10 @@ VfatGetFileFullDirectoryInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
 NTSTATUS
 VfatGetFileBothInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
 			    PDEVICE_EXTENSION DeviceExt,
-			    PFILE_BOTH_DIR_INFORMATION pInfo,
+			    PFILE_BOTH_DIRECTORY_INFORMATION pInfo,
 			    ULONG BufferLength)
 {
-  if ((sizeof (FILE_BOTH_DIR_INFORMATION) + DirContext->LongNameU.Length) > BufferLength)
+  if ((sizeof (FILE_BOTH_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length) > BufferLength)
     return STATUS_BUFFER_OVERFLOW;
   
   if (DeviceExt->Flags & VCB_IS_FATX)
@@ -226,7 +231,7 @@ VfatGetFileBothInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
     pInfo->FileNameLength = DirContext->LongNameU.Length;
     RtlCopyMemory(pInfo->FileName, DirContext->LongNameU.Buffer, DirContext->LongNameU.Length);
     pInfo->NextEntryOffset = 
-      ULONG_ROUND_UP (sizeof (FILE_BOTH_DIR_INFORMATION) + DirContext->LongNameU.Length);
+      DWORD_ROUND_UP (sizeof (FILE_BOTH_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
     pInfo->ShortName[0] = 0;
     pInfo->ShortNameLength = 0;
     //      pInfo->FileIndex=;
@@ -259,9 +264,9 @@ VfatGetFileBothInformation (PVFAT_DIRENTRY_CONTEXT DirContext,
   {
     pInfo->FileNameLength = DirContext->LongNameU.Length;
     pInfo->NextEntryOffset = 
-      ULONG_ROUND_UP (sizeof (FILE_BOTH_DIR_INFORMATION) + DirContext->LongNameU.Length);
+      DWORD_ROUND_UP (sizeof (FILE_BOTH_DIRECTORY_INFORMATION) + DirContext->LongNameU.Length);
     RtlCopyMemory(pInfo->ShortName, DirContext->ShortNameU.Buffer, DirContext->ShortNameU.Length);
-    pInfo->ShortNameLength = (CCHAR)DirContext->ShortNameU.Length;
+    pInfo->ShortNameLength = DirContext->ShortNameU.Length;
     RtlCopyMemory (pInfo->FileName, DirContext->LongNameU.Buffer, DirContext->LongNameU.Length);
   //      pInfo->FileIndex=;
     FsdDosDateTimeToSystemTime (DeviceExt, DirContext->DirEntry.Fat.CreationDate,
@@ -306,10 +311,10 @@ NTSTATUS DoQuery (PVFAT_IRP_CONTEXT IrpContext)
   BOOLEAN First = FALSE;
   BOOLEAN FirstCall;
   VFAT_DIRENTRY_CONTEXT DirContext;
-  WCHAR LongNameBuffer[LONGNAME_MAX_LENGTH + 1];
+  WCHAR LongNameBuffer[MAX_PATH];
   WCHAR ShortNameBuffer[13];
-
-  PIO_STACK_LOCATION Stack = IrpContext->Stack;
+  
+  PEXTENDED_IO_STACK_LOCATION Stack = (PEXTENDED_IO_STACK_LOCATION) IrpContext->Stack;
 
   pCcb = (PVFATCCB) IrpContext->FileObject->FsContext2;
   pFcb = (PVFATFCB) IrpContext->FileObject->FsContext;
@@ -339,13 +344,7 @@ NTSTATUS DoQuery (PVFAT_IRP_CONTEXT IrpContext)
     }
 
   /* Obtain the callers parameters */
-#ifdef _MSC_VER
-  /* HACKHACK: Bug in the MS ntifs.h header:
-   * FileName is really a PUNICODE_STRING, not a PSTRING */
-  pSearchPattern = (PUNICODE_STRING)Stack->Parameters.QueryDirectory.FileName;
-#else
   pSearchPattern = Stack->Parameters.QueryDirectory.FileName;
-#endif
   FileInformationClass =
     Stack->Parameters.QueryDirectory.FileInformationClass;
   FileIndex = Stack->Parameters.QueryDirectory.FileIndex;
@@ -428,13 +427,13 @@ NTSTATUS DoQuery (PVFAT_IRP_CONTEXT IrpContext)
              case FileFullDirectoryInformation:
                RC = VfatGetFileFullDirectoryInformation (&DirContext, 
 	                                                 IrpContext->DeviceExt,
-						         (PFILE_FULL_DIR_INFORMATION) Buffer, 
+						         (PFILE_FULL_DIRECTORY_INFORMATION) Buffer, 
 						         BufferLength);
                break;
              case FileBothDirectoryInformation:
                RC = VfatGetFileBothInformation (&DirContext, 
 	                                        IrpContext->DeviceExt,
-					        (PFILE_BOTH_DIR_INFORMATION) Buffer, 
+					        (PFILE_BOTH_DIRECTORY_INFORMATION) Buffer, 
 					        BufferLength);
                break;
              default:

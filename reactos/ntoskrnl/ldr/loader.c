@@ -1,14 +1,24 @@
-/* $Id$
+/* $Id: loader.c,v 1.151 2004/11/13 13:09:07 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ldr/loader.c
  * PURPOSE:         Loaders for PE executables
- *
  * PROGRAMMERS:     Jean Michault
  *                  Rex Jolliff (rex@lvcablemodem.com)
  *                  Jason Filby (jasonfilby@yahoo.com)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *   DW   22/05/98   Created
+ *   RJJ  10/12/98   Completed image loader function and added hooks for MZ/PE
+ *   RJJ  10/12/98   Built driver loader function and added hooks for PE/COFF
+ *   RJJ  10/12/98   Rolled in David's code to load COFF drivers
+ *   JM   14/12/98   Built initial PE user module loader
+ *   RJJ  06/03/99   Moved user PE loader into NTDLL
+ *   JF   26/01/2000 Recoded some parts to retrieve export details correctly
+ *   DW   27/06/2000 Removed redundant header files
+ *   CSH  11/04/2001 Added automatic loading of module symbols if they exist
+ *   KJK  02/04/2003 Nebbet-ized a couple of type names
  */
 
 
@@ -297,7 +307,7 @@ LdrLoadModule(PUNICODE_STRING Filename,
                              NULL,
                              NULL);
   CHECKPOINT;
-  Status = ZwOpenFile(&FileHandle,
+  Status = NtOpenFile(&FileHandle,
                       FILE_ALL_ACCESS,
                       &ObjectAttributes,
                       &IoStatusBlock,
@@ -312,7 +322,7 @@ LdrLoadModule(PUNICODE_STRING Filename,
   CHECKPOINT;
 
   /*  Get the size of the file  */
-  Status = ZwQueryInformationFile(FileHandle,
+  Status = NtQueryInformationFile(FileHandle,
                                   &IoStatusBlock,
                                   &FileStdInfo,
                                   sizeof(FileStdInfo),
@@ -338,7 +348,7 @@ LdrLoadModule(PUNICODE_STRING Filename,
   CHECKPOINT;
 
   /*  Load driver into memory chunk  */
-  Status = ZwReadFile(FileHandle,
+  Status = NtReadFile(FileHandle,
                       0, 0, 0,
                       &IoStatusBlock,
                       ModuleLoadBase,
@@ -353,7 +363,7 @@ LdrLoadModule(PUNICODE_STRING Filename,
     }
   CHECKPOINT;
 
-  ZwClose(FileHandle);
+  NtClose(FileHandle);
 
   Status = LdrProcessModule(ModuleLoadBase,
                             Filename,
@@ -418,7 +428,7 @@ LdrProcessModule(PVOID ModuleLoadBase,
 
   /*  If MZ header exists  */
   PEDosHeader = (PIMAGE_DOS_HEADER) ModuleLoadBase;
-  if (PEDosHeader->e_magic == IMAGE_DOS_SIGNATURE && PEDosHeader->e_lfanew != 0L)
+  if (PEDosHeader->e_magic == IMAGE_DOS_MAGIC && PEDosHeader->e_lfanew != 0L)
     {
       return LdrPEProcessModule(ModuleLoadBase,
 				ModuleName,
@@ -659,18 +669,18 @@ LdrLookupPageProtection(PVOID PageStart,
    for (Idx = 0; Idx < PEFileHeader->NumberOfSections && (!Write || !Execute); Idx++)
    {
       Characteristics = PESectionHeaders[Idx].Characteristics;
-      if (!(Characteristics & IMAGE_SCN_TYPE_NOLOAD))
+      if (!(Characteristics & IMAGE_SECTION_NOLOAD))
       {
          Length = max(PESectionHeaders[Idx].Misc.VirtualSize, PESectionHeaders[Idx].SizeOfRawData);
          BaseAddress = PESectionHeaders[Idx].VirtualAddress + (char*)DriverBase;
          if (BaseAddress < (PVOID)((ULONG_PTR)PageStart + PAGE_SIZE) &&
              PageStart < (PVOID)((ULONG_PTR)BaseAddress + Length))
          {
-            if (Characteristics & IMAGE_SCN_CNT_CODE)
+            if (Characteristics & IMAGE_SECTION_CHAR_CODE)
 	    {
 	       Execute = TRUE;
 	    }
-	    if (Characteristics & (IMAGE_SCN_MEM_WRITE|IMAGE_SCN_CNT_UNINITIALIZED_DATA))
+	    if (Characteristics & (IMAGE_SECTION_CHAR_WRITABLE|IMAGE_SECTION_CHAR_BSS))
 	    {
 	       Write = TRUE;
 	    }
@@ -720,7 +730,7 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
   CHECKPOINT;
 
   /*  Check file magic numbers  */
-  if (PEDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+  if (PEDosHeader->e_magic != IMAGE_DOS_MAGIC)
     {
       CPRINT("Incorrect MZ magic: %04x\n", PEDosHeader->e_magic);
       return STATUS_UNSUCCESSFUL;
@@ -730,7 +740,7 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
       CPRINT("Invalid lfanew offset: %08x\n", PEDosHeader->e_lfanew);
       return STATUS_UNSUCCESSFUL;
     }
-  if (PENtHeaders->Signature != IMAGE_NT_SIGNATURE)
+  if (PENtHeaders->Signature != IMAGE_PE_MAGIC)
     {
       CPRINT("Incorrect PE magic: %08x\n", PENtHeaders->Signature);
       return STATUS_UNSUCCESSFUL;
@@ -756,7 +766,7 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
   DriverSize = 0;
   for (Idx = 0; Idx < PENtHeaders->FileHeader.NumberOfSections; Idx++)
   {
-     if (!(PESectionHeaders[Idx].Characteristics & IMAGE_SCN_TYPE_NOLOAD))
+     if (!(PESectionHeaders[Idx].Characteristics & IMAGE_SECTION_NOLOAD))
      {
         CurrentSize = PESectionHeaders[Idx].VirtualAddress + PESectionHeaders[Idx].Misc.VirtualSize;
 	DriverSize = max(DriverSize, CurrentSize);
@@ -860,7 +870,6 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
      return Status;
   }
 
-  MmSetPageProtect(NULL, DriverBase, PAGE_READONLY);
   /* Set the protections for the various parts of the driver */
   for (Idx = 0; Idx < PENtHeaders->FileHeader.NumberOfSections; Idx++)
   {
@@ -889,9 +898,9 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
         MmSetPageProtect(NULL, PageAddress, Protect);
      }
      
-     if (Characteristics & IMAGE_SCN_CNT_CODE)
+     if (Characteristics & IMAGE_SECTION_CHAR_CODE)
      {
-        if (Characteristics & IMAGE_SCN_MEM_WRITE)
+        if (Characteristics & IMAGE_SECTION_CHAR_WRITABLE)
 	{
 	   Protect = PAGE_EXECUTE_READWRITE;
 	}
@@ -900,7 +909,7 @@ LdrPEProcessModule(PVOID ModuleLoadBase,
 	   Protect = PAGE_EXECUTE_READ;
 	}
      }
-     else if (Characteristics & (IMAGE_SCN_MEM_WRITE|IMAGE_SCN_CNT_UNINITIALIZED_DATA))
+     else if (Characteristics & (IMAGE_SECTION_CHAR_WRITABLE|IMAGE_SECTION_CHAR_BSS))
      {
         Protect = PAGE_READWRITE;
      }
@@ -986,7 +995,7 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
   CHECKPOINT;
 
   /*  Check file magic numbers  */
-  if (PEDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+  if (PEDosHeader->e_magic != IMAGE_DOS_MAGIC)
     {
       return NULL;
     }
@@ -994,7 +1003,7 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
     {
       return NULL;
     }
-  if (PENtHeaders->Signature != IMAGE_NT_SIGNATURE)
+  if (PENtHeaders->Signature != IMAGE_PE_MAGIC)
     {
       return NULL;
     }
@@ -1068,7 +1077,6 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
   }
 
   /*  Set the page protection for the virtual sections */
-  MmSetPageProtect(NULL, DriverBase, PAGE_READONLY);
   for (Idx = 0; Idx < PENtHeaders->FileHeader.NumberOfSections; Idx++)
   {
      ULONG Characteristics = PESectionHeaders[Idx].Characteristics;
@@ -1080,9 +1088,9 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
      BaseAddress = PESectionHeaders[Idx].VirtualAddress + (char*)DriverBase;
      PageAddress = (PVOID)PAGE_ROUND_DOWN(BaseAddress);
 
-     if (Characteristics & IMAGE_SCN_MEM_EXECUTE)
+     if (Characteristics & IMAGE_SECTION_CHAR_EXECUTABLE)
      {
-        if (Characteristics & IMAGE_SCN_MEM_WRITE)
+        if (Characteristics & IMAGE_SECTION_CHAR_WRITABLE)
 	{
 	   Protect = PAGE_EXECUTE_READWRITE;
 	}
@@ -1091,7 +1099,7 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
 	   Protect = PAGE_EXECUTE_READ;
 	}
      }
-     else if (Characteristics & IMAGE_SCN_MEM_WRITE)
+     else if (Characteristics & IMAGE_SECTION_CHAR_WRITABLE)
      {
         Protect = PAGE_READWRITE;
      }
@@ -1105,7 +1113,7 @@ LdrSafePEProcessModule(PVOID ModuleLoadBase,
 	PageAddress = (PVOID)((ULONG_PTR)PageAddress + PAGE_SIZE);
      }
      if (DriverBase == ModuleLoadBase &&
-	 Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA)
+	 Characteristics & IMAGE_SECTION_CHAR_BSS)
      {
         /* For ntoskrnl, we must stop after the bss section */
 	break;
@@ -1149,7 +1157,7 @@ LdrPEFixupForward(PCHAR ForwardName)
 	CPRINT("LdrPEFixupForward: failed to find module %s\n", NameBuffer);
 	return NULL;
      }
-  return LdrPEGetExportByName(ModuleObject->Base, (PUCHAR)(p+1), 0xffff);
+  return LdrPEGetExportByName(ModuleObject->Base, p+1, 0xffff);
 }
 
 static NTSTATUS
@@ -1369,7 +1377,7 @@ LdrPEGetExportByName(PVOID BaseAddress,
    if (Hint < ExportDir->NumberOfNames)
    {
       ExName = RVA(BaseAddress, ExNames[Hint]);
-      if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+      if (strcmp(ExName, SymbolName) == 0)
       {
          Ordinal = ExOrdinals[Hint];
          Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1404,7 +1412,7 @@ LdrPEGetExportByName(PVOID BaseAddress,
       mid = (minn + maxn) / 2;
 
       ExName = RVA(BaseAddress, ExNames[mid]);
-      res = strcmp(ExName, (PCHAR)SymbolName);
+      res = strcmp(ExName, SymbolName);
       if (res == 0)
       {
          Ordinal = ExOrdinals[mid];
@@ -1447,7 +1455,7 @@ LdrPEGetExportByName(PVOID BaseAddress,
    for (i = 0; i < ExportDir->NumberOfNames; i++)
    {
       ExName = RVA(BaseAddress, ExNames[i]);
-      if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+      if (strcmp(ExName,SymbolName) == 0)
       {
          Ordinal = ExOrdinals[i];
          Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1506,28 +1514,28 @@ LdrPEGetExportByOrdinal (PVOID   BaseAddress,
 static NTSTATUS
 LdrPEProcessImportDirectoryEntry(PVOID DriverBase,
 			         PMODULE_OBJECT ImportedModule,
-                                 PIMAGE_IMPORT_DESCRIPTOR ImportModuleDirectory)
+                                 PIMAGE_IMPORT_MODULE_DIRECTORY ImportModuleDirectory)
 {
    PVOID* ImportAddressList;
    PULONG FunctionNameList;
    ULONG Ordinal;
 
-   if (ImportModuleDirectory == NULL || ImportModuleDirectory->Name == 0)
+   if (ImportModuleDirectory == NULL || ImportModuleDirectory->dwRVAModuleName == 0)
      {
        return STATUS_UNSUCCESSFUL;
      }
 
    /* Get the import address list. */
-   ImportAddressList = (PVOID*)(DriverBase + (ULONG_PTR)ImportModuleDirectory->FirstThunk);
+   ImportAddressList = (PVOID*)(DriverBase + ImportModuleDirectory->dwRVAFunctionAddressList);
 
    /* Get the list of functions to import. */
-   if (ImportModuleDirectory->OriginalFirstThunk != 0)
+   if (ImportModuleDirectory->dwRVAFunctionNameList != 0)
      {
-       FunctionNameList = (PULONG) (DriverBase + (ULONG_PTR)ImportModuleDirectory->OriginalFirstThunk);
+       FunctionNameList = (PULONG) (DriverBase + ImportModuleDirectory->dwRVAFunctionNameList);
      }
    else
      {
-       FunctionNameList = (PULONG)(DriverBase + (ULONG_PTR)ImportModuleDirectory->FirstThunk);
+       FunctionNameList = (PULONG)(DriverBase + ImportModuleDirectory->dwRVAFunctionAddressList);
      }
 
    /* Walk through function list and fixup addresses. */
@@ -1563,28 +1571,22 @@ LdrPEProcessImportDirectoryEntry(PVOID DriverBase,
 static NTSTATUS
 LdrPEFixupImports(PMODULE_OBJECT Module)
 {
-   PIMAGE_IMPORT_DESCRIPTOR ImportModuleDirectory;
+   PIMAGE_IMPORT_MODULE_DIRECTORY ImportModuleDirectory;
    PCHAR ImportedName;
    PMODULE_OBJECT ImportedModule;
    NTSTATUS Status;
 
    /*  Process each import module  */
-   ImportModuleDirectory = (PIMAGE_IMPORT_DESCRIPTOR)
+   ImportModuleDirectory = (PIMAGE_IMPORT_MODULE_DIRECTORY)
                               RtlImageDirectoryEntryToData(Module->Base,
                                                            TRUE,
                                                            IMAGE_DIRECTORY_ENTRY_IMPORT,
                                                            NULL);
    DPRINT("Processeing import directory at %p\n", ImportModuleDirectory);
-   while (ImportModuleDirectory->Name)
+   while (ImportModuleDirectory->dwRVAModuleName)
    {
-      if (Module->Length <= ImportModuleDirectory->Name)
-      {
-         DPRINT1("Invalid import directory in %wZ\n", &Module->FullName);
-         return STATUS_SECTION_NOT_IMAGE;
-      }
-
       /*  Check to make sure that import lib is kernel  */
-      ImportedName = (PCHAR) Module->Base + ImportModuleDirectory->Name;
+      ImportedName = (PCHAR) Module->Base + ImportModuleDirectory->dwRVAModuleName;
 
       Status = LdrPEGetOrLoadModule(Module, ImportedName, &ImportedModule);
       if (!NT_SUCCESS(Status))

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: message.c,v 1.76 2004/12/11 19:39:18 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -81,7 +81,6 @@ static MSGMEMORY MsgMemory[] =
     { WM_SETTEXT, MMS_SIZE_LPARAMSZ, MMS_FLAG_READ },
     { WM_STYLECHANGED, sizeof(STYLESTRUCT), MMS_FLAG_READ },
     { WM_STYLECHANGING, sizeof(STYLESTRUCT), MMS_FLAG_READWRITE },
-    { WM_COPYDATA, MMS_SIZE_SPECIAL, MMS_FLAG_READ },
     { WM_WINDOWPOSCHANGED, sizeof(WINDOWPOS), MMS_FLAG_READ },
     { WM_WINDOWPOSCHANGING, sizeof(WINDOWPOS), MMS_FLAG_READWRITE },
   };
@@ -149,9 +148,6 @@ MsgMemorySize(PMSGMEMORY MsgMemoryEntry, WPARAM wParam, LPARAM lParam)
         case WM_NCCALCSIZE:
           return wParam ? sizeof(NCCALCSIZE_PARAMS) + sizeof(WINDOWPOS) : sizeof(RECT);
           break;
-
-        case WM_COPYDATA:
-          return sizeof(COPYDATASTRUCT) + ((PCOPYDATASTRUCT)lParam)->cbData;
 
         default:
           assert(FALSE);
@@ -525,9 +521,7 @@ IntTranslateMouseMessage(PUSER_MESSAGE_QUEUE ThreadQueue, LPMSG Msg, USHORT *Hit
             Msg->hwnd = Wnd->Self;
             if(!(Wnd->Status & WINDOWSTATUS_DESTROYING))
             {
-              MsqPostMessage(Wnd->MessageQueue, Msg, FALSE,
-                             Msg->message == WM_MOUSEMOVE ? QS_MOUSEMOVE :
-                             QS_MOUSEBUTTON);
+              MsqPostMessage(Wnd->MessageQueue, Msg, FALSE);
             }
             
             /* eat the message */
@@ -690,14 +684,7 @@ IntPeekMessage(PUSER_MESSAGE Msg,
     return TRUE;
   }
   
-  /* Check for WM_(SYS)TIMER messages */
-  Present = MsqGetTimerMessage(ThreadQueue, Wnd, MsgFilterMin, MsgFilterMax,
-                               &Msg->Msg, RemoveMessages);
-  if (Present)
-  {
-    Msg->FreeLParam = FALSE;
-    goto MessageFound;
-  }
+  /* FIXME - get WM_(SYS)TIMER messages */
   
   if(Present)
   {
@@ -835,7 +822,7 @@ NtUserPeekMessage(PNTUSERGETMESSAGEINFO UnsafeInfo,
             }
           Info.Msg.lParam = (LPARAM) UserMem;
         }
-      if (RemoveMsg && Msg.FreeLParam && 0 != Msg.Msg.lParam)
+      if (Msg.FreeLParam && 0 != Msg.Msg.lParam)
         {
           ExFreePool((void *) Msg.Msg.lParam);
         }
@@ -852,8 +839,8 @@ NtUserPeekMessage(PNTUSERGETMESSAGEINFO UnsafeInfo,
 
 static BOOL FASTCALL
 IntWaitMessage(HWND Wnd,
-               UINT MsgFilterMin,
-               UINT MsgFilterMax)
+                UINT MsgFilterMin,
+                UINT MsgFilterMax)
 {
   PUSER_MESSAGE_QUEUE ThreadQueue;
   NTSTATUS Status;
@@ -869,9 +856,9 @@ IntWaitMessage(HWND Wnd,
 	}
 
       /* Nothing found. Wait for new messages. */
-      Status = MsqWaitForNewMessages(ThreadQueue, Wnd, MsgFilterMin, MsgFilterMax);
+      Status = MsqWaitForNewMessages(ThreadQueue);
     }
-  while ((STATUS_WAIT_0 <= Status && Status <= STATUS_WAIT_63) || STATUS_TIMEOUT == Status);
+  while (STATUS_WAIT_0 <= Status && Status <= STATUS_WAIT_63);
 
   SetLastNtError(Status);
 
@@ -1123,6 +1110,7 @@ NtUserPostMessage(HWND Wnd,
     }
   else
     {
+      PSYSTEM_CURSORINFO CurInfo;
       Window = IntGetWindowObject(Wnd);
       if (NULL == Window)
         {
@@ -1148,13 +1136,13 @@ NtUserPostMessage(HWND Wnd,
           SetLastWin32Error(ERROR_INVALID_PARAMETER);
           return FALSE;
         }
-      IntGetCursorLocation(PsGetWin32Thread()->Desktop->WindowStation,
-                           &KernelModeMsg.pt);
+      CurInfo = IntGetSysCursorInfo(PsGetWin32Thread()->Desktop->WindowStation);
+      KernelModeMsg.pt.x = CurInfo->x;
+      KernelModeMsg.pt.y = CurInfo->y;
       KeQueryTickCount(&LargeTickCount);
       KernelModeMsg.time = LargeTickCount.u.LowPart;
       MsqPostMessage(Window->MessageQueue, &KernelModeMsg,
-                     NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam,
-                     QS_POSTMESSAGE);
+                     NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam);
       IntReleaseWindowObject(Window);
     }
 
@@ -1173,7 +1161,7 @@ NtUserPostThreadMessage(DWORD idThread,
   NTSTATUS Status;
   PMSGMEMORY MsgMemoryEntry;
 
-  Status = PsLookupThreadByThreadId((HANDLE)idThread,&peThread);
+  Status = PsLookupThreadByThreadId((void *)idThread,&peThread);
   
   if( Status == STATUS_SUCCESS ) {
     pThread = peThread->Tcb.Win32Thread;
@@ -1196,8 +1184,7 @@ NtUserPostThreadMessage(DWORD idThread,
         return FALSE;
       }
     MsqPostMessage(pThread->MessageQueue, &KernelModeMsg,
-                   NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam,
-                   QS_POSTMESSAGE);
+                   NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam);
     ObDereferenceObject( peThread );
     return TRUE;
   } else {
@@ -1623,7 +1610,7 @@ NtUserGetQueueStatus(BOOL ClearChanges)
 
    IntLockMessageQueue(Queue);
 
-   Result = MAKELONG(Queue->QueueBits, Queue->ChangedBits);
+   Result = MAKELONG(Queue->ChangedBits, Queue->WakeBits);
    if (ClearChanges)
    {
       Queue->ChangedBits = 0;

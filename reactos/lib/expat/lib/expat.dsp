@@ -133,15 +133,7 @@ SOURCE=.\expat.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\expat_external.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\iasciitab.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\internal.h
 # End Source File
 # Begin Source File
 

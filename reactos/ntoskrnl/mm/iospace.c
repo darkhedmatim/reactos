@@ -1,11 +1,29 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: iospace.c,v 1.30 2004/08/15 16:39:07 chorns Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/iospace.c
  * PURPOSE:         Mapping I/O space
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -109,7 +127,7 @@ MmMapIoSpace (IN PHYSICAL_ADDRESS PhysicalAddress,
          KEBUGCHECK(0);
       }
    }
-   return (PVOID)((ULONG_PTR)Result + Offset);
+   return ((PVOID)((char*)Result + Offset));
 }
 
 
@@ -142,17 +160,16 @@ MmUnmapIoSpace (IN PVOID BaseAddress,
                 IN ULONG NumberOfBytes)
 {
    ULONG Offset;
-   PVOID Address = BaseAddress;
-
-   Offset = (ULONG_PTR)Address % PAGE_SIZE;
-   Address -= Offset;
+   Offset = (ULONG_PTR)BaseAddress % PAGE_SIZE;
+   BaseAddress = (PVOID)((PUCHAR)BaseAddress - Offset);
    NumberOfBytes += Offset;
 
    MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryAreaByPtr(MmGetKernelAddressSpace(),
-                         Address,
-                         NULL,
-                         NULL);
+   MmFreeMemoryArea(MmGetKernelAddressSpace(),
+                    BaseAddress,
+                    NumberOfBytes,
+                    NULL,
+                    NULL);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 }
 

@@ -4,10 +4,8 @@
  * FILE:        transport/tcp/tcp.c
  * PURPOSE:     Transmission Control Protocol
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Art Yerkes (arty@users.sf.net)
  * REVISIONS:
- *   CSH 01/08-2000  Created
- *   arty 12/21/2004 Added accept
+ *   CSH 01/08-2000 Created
  */
 
 #include "precomp.h"
@@ -27,86 +25,46 @@ static VOID HandleSignalledConnection( PCONNECTION_ENDPOINT Connection,
     PTCP_COMPLETION_ROUTINE Complete;
     PTDI_BUCKET Bucket;
     PLIST_ENTRY Entry;
-    PIRP Irp;
-    PMDL Mdl;
+    BOOLEAN CompletedOne = FALSE;
 
-    TI_DbgPrint(MID_TRACE,("Handling signalled state on %x (%x)\n",
-                           Connection, Connection->SocketContext));
-                
     /* Things that can happen when we try the initial connection */
-    if( NewState & SEL_CONNECT ) {
+    if( ((NewState & SEL_CONNECT) || (NewState & SEL_FIN)) &&
+
+	!(Connection->State & (SEL_CONNECT | SEL_FIN)) ) {
 	while( !IsListEmpty( &Connection->ConnectRequest ) ) {
-            Connection->State |= NewState;
-            Entry = RemoveHeadList( &Connection->ConnectRequest );
-            TI_DbgPrint(DEBUG_TCP, ("Connect Event\n"));
-            
-            Bucket = CONTAINING_RECORD( Entry, TDI_BUCKET, Entry );
-            Complete = Bucket->Request.RequestNotifyObject;
-            TI_DbgPrint(DEBUG_TCP,
-                        ("Completing Request %x\n", Bucket->Request));
-            
-            if( (NewState & (SEL_CONNECT | SEL_FIN)) == 
-                (SEL_CONNECT | SEL_FIN) ) 
-                Status = STATUS_CONNECTION_REFUSED;
-            else
-                Status = STATUS_SUCCESS;
-            
-            Complete( Bucket->Request.RequestContext, Status, 0 );
-            
-            /* Frees the bucket allocated in TCPConnect */
-            PoolFreeBuffer( Bucket );
-        }
-    }
-
-    if( NewState & SEL_ACCEPT ) {
-	/* Handle readable on a listening socket -- 
-	 * TODO: Implement filtering 
-	 */
-
-	TI_DbgPrint(DEBUG_TCP,("Accepting new connection on %x (Queue: %s)\n",
-			       Connection,
-			       IsListEmpty(&Connection->ListenRequest) ? 
-			       "empty" : "nonempty"));
-
-	while( !IsListEmpty( &Connection->ListenRequest ) ) {
-	    PIO_STACK_LOCATION IrpSp;
-
-	    Entry = RemoveHeadList( &Connection->ListenRequest );
+	    Connection->State |= NewState & (SEL_CONNECT | SEL_FIN);
+	    Entry = RemoveHeadList( &Connection->ConnectRequest );
 	    Bucket = CONTAINING_RECORD( Entry, TDI_BUCKET, Entry );
 	    Complete = Bucket->Request.RequestNotifyObject;
-	    
-	    Irp = Bucket->Request.RequestContext;
-	    IrpSp = IoGetCurrentIrpStackLocation( Irp );
-	    
-	    TI_DbgPrint(DEBUG_TCP,("Getting the socket\n"));
-	    Status = TCPServiceListeningSocket
-		( Connection->AddressFile->Listener, 
-		  Bucket->AssociatedEndpoint, 
-		  (PTDI_REQUEST_KERNEL)&IrpSp->Parameters );
-
-	    TI_DbgPrint(DEBUG_TCP,("Socket: Status: %x\n"));
-
-	    if( Status == STATUS_PENDING ) {
-		InsertHeadList( &Connection->ListenRequest, &Bucket->Entry );
-		break;
-	    } else 
-		Complete( Bucket->Request.RequestContext, Status, 0 );
+	    TI_DbgPrint(DEBUG_TCP,
+			("Completing Connect Request %x\n", Bucket->Request));
+	    if( NewState & SEL_FIN ) Status = STATUS_CONNECTION_REFUSED;
+	    Complete( Bucket->Request.RequestContext, Status, 0 );
+	    /* Frees the bucket allocated in TCPConnect */
+	    PoolFreeBuffer( Bucket );
 	}
     }
 
     /* Things that happen after we're connected */
-    if( NewState & SEL_READ ) {
+    if( (NewState & SEL_READ) ) {
 	TI_DbgPrint(DEBUG_TCP,("Readable: irp list %s\n",
 			       IsListEmpty(&Connection->ReceiveRequest) ?
 			       "empty" : "nonempty"));
-	
+
 	while( !IsListEmpty( &Connection->ReceiveRequest ) ) {
+	    PIRP Irp;
 	    OSK_UINT RecvLen = 0, Received = 0;
 	    OSK_PCHAR RecvBuffer = 0;
+	    PMDL Mdl;
+	    NTSTATUS Status;
 
 	    Entry = RemoveHeadList( &Connection->ReceiveRequest );
 	    Bucket = CONTAINING_RECORD( Entry, TDI_BUCKET, Entry );
 	    Complete = Bucket->Request.RequestNotifyObject;
+
+	    TI_DbgPrint(DEBUG_TCP,
+			("Readable, Completing read request %x\n", 
+			 Bucket->Request));
 
 	    Irp = Bucket->Request.RequestContext;
 	    Mdl = Irp->MdlAddress;
@@ -139,21 +97,26 @@ static VOID HandleSignalledConnection( PCONNECTION_ENDPOINT Connection,
 		TI_DbgPrint(DEBUG_TCP,("Received %d bytes with status %x\n",
 				       Received, Status));
 		
+		TI_DbgPrint(DEBUG_TCP,
+			    ("Completing Receive Request: %x\n", 
+			     Bucket->Request));
+
 		Complete( Bucket->Request.RequestContext,
 			  STATUS_SUCCESS, Received );
+		CompletedOne = TRUE;
 	    } else if( Status == STATUS_PENDING ) {
-		InsertHeadList
-		    ( &Connection->ReceiveRequest, &Bucket->Entry );
+		InsertHeadList( &Connection->ReceiveRequest,
+				&Bucket->Entry );
 		break;
 	    } else {
 		TI_DbgPrint(DEBUG_TCP,
 			    ("Completing Receive request: %x %x\n",
 			     Bucket->Request, Status));
 		Complete( Bucket->Request.RequestContext, Status, 0 );
+		CompletedOne = TRUE;
 	    }
 	}
     }
-
     if( NewState & SEL_FIN ) {
 	TI_DbgPrint(DEBUG_TCP, ("EOF From socket\n"));
 	
@@ -528,6 +491,59 @@ NTSTATUS TCPClose
     return Status;
 }
 
+NTSTATUS TCPListen
+( PCONNECTION_ENDPOINT Connection,
+  UINT Backlog, 
+  PTCP_COMPLETION_ROUTINE Complete,
+  PVOID Context) {
+    NTSTATUS Status;
+    SOCKADDR_IN AddressToBind;
+
+    TI_DbgPrint(DEBUG_TCP,("TCPListen started\n"));
+
+    TI_DbgPrint(DEBUG_TCP,("Connection->SocketContext %x\n",
+	Connection->SocketContext));
+
+    ASSERT(Connection);
+    ASSERT_KM_POINTER(Connection->SocketContext);
+    ASSERT_KM_POINTER(Connection->AddressFile);
+
+    TcpipRecursiveMutexEnter( &TCPLock, TRUE );
+   
+    AddressToBind.sin_family = AF_INET;
+    memcpy( &AddressToBind.sin_addr, 
+	    &Connection->AddressFile->Address.Address.IPv4Address,
+	    sizeof(AddressToBind.sin_addr) );
+    AddressToBind.sin_port = Connection->AddressFile->Port;
+
+    TI_DbgPrint(DEBUG_TCP,("AddressToBind - %x:%x\n", AddressToBind.sin_addr, AddressToBind.sin_port));
+
+    OskitTCPBind( Connection->SocketContext,
+		  Connection,
+		  &AddressToBind,
+		  sizeof(AddressToBind) );
+   
+    Status = TCPTranslateError( OskitTCPListen( Connection->SocketContext,
+						Backlog ) );
+   
+    TcpipRecursiveMutexLeave( &TCPLock );
+
+    TI_DbgPrint(DEBUG_TCP,("TCPListen finished %x\n", Status));
+   
+    return Status;
+}
+
+NTSTATUS TCPAccept
+( PTDI_REQUEST Request,
+  VOID **NewSocketContext ) {
+   NTSTATUS Status;
+
+   TI_DbgPrint(DEBUG_TCP,("TCPAccept started\n"));
+   Status = STATUS_UNSUCCESSFUL;
+   TI_DbgPrint(DEBUG_TCP,("TCPAccept finished %x\n", Status));
+   return Status;
+}
+
 NTSTATUS TCPReceiveData
 ( PCONNECTION_ENDPOINT Connection,
   PNDIS_BUFFER Buffer,
@@ -541,8 +557,7 @@ NTSTATUS TCPReceiveData
     NTSTATUS Status;
     PTDI_BUCKET Bucket;
 
-    TI_DbgPrint(DEBUG_TCP,("Called for %d bytes (on socket %x)\n", 
-                           ReceiveLength, Connection->SocketContext));
+    TI_DbgPrint(DEBUG_TCP,("Called for %d bytes\n", ReceiveLength));
 
     ASSERT_KM_POINTER(Connection->SocketContext);
 
@@ -629,37 +644,12 @@ VOID TCPTimeout(VOID) {
 UINT TCPAllocatePort( UINT HintPort ) {
     if( HintPort ) {
 	if( AllocatePort( &TCPPorts, HintPort ) ) return HintPort; 
-	else {
-            TI_DbgPrint
-                (MID_TRACE,("We got a hint port but couldn't allocate it\n"));
-            return (UINT)-1;
-        }
+	else return (UINT)-1;
     } else return AllocatePortFromRange( &TCPPorts, 1024, 5000 );
 }
 
 VOID TCPFreePort( UINT Port ) {
     DeallocatePort( &TCPPorts, Port );
-}
-
-NTSTATUS TCPGetPeerAddress
-( PCONNECTION_ENDPOINT Connection,
-  PTRANSPORT_ADDRESS Address ) {
-    OSK_UINT LocalAddress, RemoteAddress;
-    OSK_UI16 LocalPort, RemotePort;
-    PTA_IP_ADDRESS AddressIP = (PTA_IP_ADDRESS)Address;
-
-    OskitTCPGetAddress
-        ( Connection->SocketContext,
-          &LocalAddress, &LocalPort,
-          &RemoteAddress, &RemotePort );
-
-    AddressIP->TAAddressCount = 1;
-    AddressIP->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
-    AddressIP->Address[0].AddressType = TDI_ADDRESS_TYPE_IP;
-    AddressIP->Address[0].Address[0].sin_port = RemotePort;
-    AddressIP->Address[0].Address[0].in_addr = RemoteAddress;
-    
-    return STATUS_SUCCESS;
 }
 
 /* EOF */

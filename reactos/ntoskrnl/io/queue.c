@@ -1,11 +1,10 @@
-/* $Id$
+/* $Id: queue.c,v 1.15 2004/08/15 16:39:03 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/queue.c
- * PURPOSE:         Implement device queueing
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * COPYRIGHT:                See COPYING in the top level directory
+ * PROJECT:                  ReactOS kernel
+ * FILE:                     ntoskrnl/io/queue.c
+ * PURPOSE:                  Implement device queueing
+ * PROGRAMMER:               David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES ******************************************************************/

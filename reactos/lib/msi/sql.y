@@ -62,9 +62,9 @@ static BOOL SQL_MarkPrimaryKeys( create_col_info *cols,
 
 static struct expr * EXPR_complex( struct expr *l, UINT op, struct expr *r );
 static struct expr * EXPR_column( LPWSTR );
-static struct expr * EXPR_ival( struct sql_str *, int sign);
+static struct expr * EXPR_ival( struct sql_str *);
 static struct expr * EXPR_sval( struct sql_str *);
-static struct expr * EXPR_wildcard();
+static struct expr * EXPR_wildcard(void);
 
 %}
 
@@ -499,17 +499,18 @@ constlist:
             }
             $$ = vals;
         }
-  | const_val TK_COMMA constlist
+  | constlist TK_COMMA const_val
         {
             value_list *vals;
 
             vals = HeapAlloc( GetProcessHeap(), 0, sizeof *vals );
             if( vals )
             {
-                vals->val = $1;
-                vals->next = $3;
+                vals->val = $3;
+                vals->next = NULL;
             }
-            $$ = vals;
+            $1->next = vals;
+            $$ = $1;
         }
     ;
 
@@ -542,11 +543,7 @@ column_assignment:
 const_val:
     TK_INTEGER
         {
-            $$ = EXPR_ival( &$1, 1 );
-        }
-  | TK_MINUS  TK_INTEGER
-        {
-            $$ = EXPR_ival( &$2, -1 );
+            $$ = EXPR_ival( &$1 );
         }
   | TK_STRING
         {
@@ -720,13 +717,13 @@ static struct expr * EXPR_column( LPWSTR str )
     return e;
 }
 
-static struct expr * EXPR_ival( struct sql_str *str , int sign)
+static struct expr * EXPR_ival( struct sql_str *str )
 {
     struct expr *e = HeapAlloc( GetProcessHeap(), 0, sizeof *e );
     if( e )
     {
         e->type = EXPR_IVAL;
-        e->u.ival = atoiW( str->data ) * sign;
+        e->u.ival = atoiW( str->data );
     }
     return e;
 }

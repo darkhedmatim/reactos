@@ -1,9 +1,9 @@
-; $Id$
+; $Id: videoprt.def,v 1.9 2004/09/16 10:25:11 gvg Exp $
 ;
 ; videoprt.def - export definition file for ReactOS
 ;
 EXPORTS
-VideoPortAcquireDeviceLock@4
+;VideoPortAcquireDeviceLock
 VideoPortAcquireSpinLock@12
 VideoPortAcquireSpinLockAtDpcLevel@8
 VideoPortAllocateBuffer@12
@@ -80,7 +80,7 @@ VideoPortReadRegisterBufferUlong@12=NTOSKRNL.READ_REGISTER_BUFFER_ULONG
 VideoPortRegisterBugcheckCallback@16
 VideoPortReleaseBuffer@8
 VideoPortReleaseCommonBuffer@28
-VideoPortReleaseDeviceLock@4
+;VideoPortReleaseDeviceLock
 VideoPortReleaseSpinLock@12
 VideoPortReleaseSpinLockFromDpcLevel@8
 VideoPortScanRom@16

@@ -202,15 +202,15 @@ extern void DrawStartMenuButton(HDC hdc, const RECT& rect, LPCTSTR title, HICON 
  */
 struct StartMenu :
 #ifdef _LIGHT_STARTMENU
-	public ExtContextMenuHandlerT<OwnerDrawParent<Window> >
+	public OwnerDrawParent<Window>
 #else
-	public ExtContextMenuHandlerT<OwnerDrawParent<DialogWindow> >
+	public OwnerDrawParent<DialogWindow>
 #endif
 {
 #ifdef _LIGHT_STARTMENU
-	typedef ExtContextMenuHandlerT<OwnerDrawParent<Window> > super;
+	typedef OwnerDrawParent<Window> super;
 #else
-	typedef ExtContextMenuHandlerT<OwnerDrawParent<DialogWindow> > super;
+	typedef OwnerDrawParent<DialogWindow> super;
 #endif
 
 	StartMenu(HWND hwnd);

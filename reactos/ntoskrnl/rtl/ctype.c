@@ -1,11 +1,14 @@
-/* $Id$
+/* $Id: ctype.c,v 1.13 2003/12/14 18:06:44 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/ctype.c
  * PURPOSE:         Character type and conversion functions
- * 
- * PROGRAMMERS:     Eric Kohl
+ * PROGRAMMERS:     ???
+ *                  Eric Kohl
+ * HISTORY:         ???: Created
+ *                  10/01/2000: Added missing functions and changed
+ *                              all functions to use ctype table
  */
 #undef __MSVCRT__
 #include <internal/ctype.h>

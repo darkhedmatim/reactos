@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: propvar.c,v 1.4 2003/07/11 13:50:23 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

@@ -1,11 +1,27 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ps/suspend.c
- * PURPOSE:         Thread managment
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: suspend.c,v 1.16 2004/10/24 20:37:27 weiden Exp $
+ *
+ * PROJECT:                ReactOS kernel
+ * FILE:                   ntoskrnl/ps/suspend.c
+ * PURPOSE:                Thread managment
+ * PROGRAMMER:             David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES ******************************************************************/
@@ -131,8 +147,6 @@ NtResumeThread(IN HANDLE ThreadHandle,
   PETHREAD Thread;
   NTSTATUS Status;
   ULONG Count;
-  
-  PAGED_CODE();
 
   DPRINT("NtResumeThead(ThreadHandle %lx  SuspendCount %p)\n",
 	 ThreadHandle, SuspendCount);
@@ -186,8 +200,6 @@ NtSuspendThread(IN HANDLE ThreadHandle,
   PETHREAD Thread;
   NTSTATUS Status;
   ULONG Count;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle(ThreadHandle,
 				     THREAD_SUSPEND_RESUME,

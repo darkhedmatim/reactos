@@ -375,8 +375,6 @@ HalEnableSystemInterrupt (ULONG Vector,
     return FALSE;
   }
 
-  /* FIXME: We must check if the requested and the assigned interrupt mode is the same */
-
   irq = VECTOR2IRQ (Vector);
   IOAPICUnmaskIrq (irq);
 

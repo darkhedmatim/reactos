@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: string.h,v 1.4 2004/08/10 11:54:43 weiden Exp $
  */
 
 #ifndef ROSRTL_STRING_H__

@@ -64,6 +64,7 @@ DNS_STATUS WINAPI DnsQuery_A
 			    adns_if_noserverwarn,
 			    0 );
     if( adns_error != adns_s_ok ) {
+      adns_finish( astate );
       return DnsIntTranslateAdnsToDNS_STATUS( adns_error );
     }
 

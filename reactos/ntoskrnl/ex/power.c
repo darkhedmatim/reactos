@@ -1,11 +1,12 @@
-/* $Id$
- * 
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/power.c
  * PURPOSE:         Power managment
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  Added reboot support 30/01/99
  */
 
 /* INCLUDES *****************************************************************/
@@ -14,96 +15,6 @@
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
-
-VOID STDCALL
-KeSetTargetProcessorDpc (IN	PKDPC	Dpc,
-			 IN	CCHAR	Number);
-
-VOID STDCALL
-KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
-			  IN PVOID DeferredContext,
-			  IN PVOID SystemArgument1,
-			  IN PVOID SystemArgument2)
-{
-   if (DeferredContext)
-     {
-       ExFreePool(DeferredContext);
-     }
-   while (TRUE)
-     {
-       KfRaiseIrql(SYNCH_LEVEL);
-       Ke386HaltProcessor();
-     }
-}
-
-VOID STDCALL
-ShutdownThreadMain(PVOID Context)
-{
-   SHUTDOWN_ACTION Action = (SHUTDOWN_ACTION)Context; 
-   LARGE_INTEGER Waittime;
-
-   /* Run the thread on the boot processor */
-   KeSetSystemAffinityThread(1);
-
-   CmShutdownRegistry();
-   IoShutdownRegisteredFileSystems();
-   IoShutdownRegisteredDevices();
-
-   PiShutdownProcessManager();
-   MiShutdownMemoryManager();
-   
-   Waittime.QuadPart = (LONGLONG)-10000000; /* 1sec */
-   KeDelayExecutionThread(KernelMode, FALSE, &Waittime);
-
-   if (Action == ShutdownNoReboot)
-     {
-
-#if 0
-        /* Switch off */
-        HalReturnToFirmware (FIRMWARE_OFF);
-#else
-#ifdef CONFIG_SMP
-        ULONG i;
-	KIRQL OldIrql;
-
-	OldIrql = KeRaiseIrqlToDpcLevel();
-        /* Halt all other processors */
-	for (i = 0; i < KeNumberProcessors; i++)
-	  {
-	    if (i != KeGetCurrentProcessorNumber())
-	      {
-	        PKDPC Dpc = ExAllocatePool(NonPagedPool, sizeof(KDPC));
-		if (Dpc == NULL)
-		  {
-                    KEBUGCHECK(0);
-		  }
-		KeInitializeDpc(Dpc, KiHaltProcessorDpcRoutine, (PVOID)Dpc);
-		KeSetTargetProcessorDpc(Dpc, i);
-		KeInsertQueueDpc(Dpc, NULL, NULL);
-		KiIpiSendRequest(1 << i, IPI_REQUEST_DPC);
-	      }
-	  }
-        KeLowerIrql(OldIrql);
-#endif /* CONFIG_SMP */
-        PopSetSystemPowerState(PowerSystemShutdown);
-
-	CHECKPOINT1;
-
-	KiHaltProcessorDpcRoutine(NULL, NULL, NULL, NULL);
-	/* KiHaltProcessor does never return */
-
-#endif
-     }
-   else if (Action == ShutdownReboot)
-     {
-        HalReturnToFirmware (FIRMWARE_REBOOT);
-     }
-   else
-     {
-        HalReturnToFirmware (FIRMWARE_HALT);
-     }
-}
-
 
 NTSTATUS STDCALL 
 NtSetSystemPowerState(IN POWER_ACTION SystemAction,
@@ -120,10 +31,6 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 NTSTATUS STDCALL 
 NtShutdownSystem(IN SHUTDOWN_ACTION Action)
 {
-   NTSTATUS Status;
-   HANDLE ThreadHandle;
-   PETHREAD ShutdownThread;
-
    static PCH FamousLastWords[] =
      {
        "So long, and thanks for all the fish\n",
@@ -154,8 +61,8 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
        "tell me..., in the future... will I be artificial intelligent enough to actually feel\n"
        "sad serving you this screen?\n",
        "Thank you for some well deserved rest.\n",
-       "It's been great, maybe we can boot me up again some time soon.\n",
-       "For what's it worth, I've enjoyed every single CPU cycle.\n",
+       "It’s been great, maybe we can boot me up again some time soon.\n",
+       "For what’s it worth, I’ve enjoyed every single CPU cycle.\n",
        "There are many questions when the end is near.\n"
        "What to expect, what will it be like...what should I look for?\n",
        "I've seen things you people wouldn't believe. Attack ships on fire\n"
@@ -167,10 +74,7 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
        "Until then, there must be no regrets, no fears, no anxieties.\n"
        "Just go forward in all your beliefs, and prove to me that I am not mistaken in mine.\n",
        "Lowest possible energy state reached! Switch off now to achive a Bose-Einstein condensate.\n",
-       "Hasta la vista, BABY!\n",
-       "They live, we sleep!\n",
-       "I have come here to chew bubble gum and kick ass.\n"
-       "And I'm all out of bubble gum!\n"
+       "Hasta la vista, BABY!\n"
     };
    LARGE_INTEGER Now;
 
@@ -180,39 +84,42 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
    ZwQuerySystemTime(&Now);
    Now.u.LowPart = Now.u.LowPart >> 8; /* Seems to give a somewhat better "random" number */
 
+   IoShutdownRegisteredDevices();
+   CmShutdownRegistry();
+   IoShutdownRegisteredFileSystems();
+
+   PiShutdownProcessManager();
+   MiShutdownMemoryManager();
+   
    if (Action == ShutdownNoReboot)
      {
         HalReleaseDisplayOwnership();
         HalDisplayString("\nYou can switch off your computer now\n\n");
         HalDisplayString(FamousLastWords[Now.u.LowPart % (sizeof(FamousLastWords) / sizeof(PCH))]);
+#if 0
+        /* Switch off */
+        HalReturnToFirmware (FIRMWARE_OFF);
+#else
+        PopSetSystemPowerState(PowerSystemShutdown);
+
+	while (TRUE)
+	  {
+	    Ke386DisableInterrupts();
+	    Ke386HaltProcessor();
+	  }
+#endif
      }
-   Status = PsCreateSystemThread(&ThreadHandle,
-                                 THREAD_ALL_ACCESS,
-                                 NULL,
-                                 NULL,
-                                 NULL,
-                                 ShutdownThreadMain,
-                                 (PVOID)Action);
-   if (!NT_SUCCESS(Status))
-   {
-      KEBUGCHECK(0);
-   }
-   Status = ObReferenceObjectByHandle(ThreadHandle,
-				      THREAD_ALL_ACCESS,
-				      PsThreadType,
-				      KernelMode,
-				      (PVOID*)&ShutdownThread,
-				      NULL);
-   NtClose(ThreadHandle);
-   if (!NT_SUCCESS(Status))
+   else if (Action == ShutdownReboot)
      {
-        KEBUGCHECK(0);
+        HalReturnToFirmware (FIRMWARE_REBOOT);
      }
-
-   KeSetPriorityThread(&ShutdownThread->Tcb, LOW_REALTIME_PRIORITY + 1);
-   ObDereferenceObject(ShutdownThread);
-
+   else
+     {
+        HalReturnToFirmware (FIRMWARE_HALT);
+     }
+   
    return STATUS_SUCCESS;
 }
 
 /* EOF */
+

@@ -45,15 +45,12 @@
 
 /* Eng objects */
 #define TAG_CLIPOBJ	TAG('C', 'L', 'P', 'O') /* clip object */
-#define TAG_DRIVEROBJ	TAG('D', 'R', 'V', 'O') /* driver object */
+#define TAG_XLATEOBJ	TAG('X', 'L', 'A', 'O') /* xlate object */
 #define TAG_FONT	TAG('F', 'N', 'T', 'E') /* font entry */
 #define TAG_FONTOBJ	TAG('F', 'N', 'T', 'O') /* font object */
-#define TAG_WNDOBJ	TAG('W', 'N', 'D', 'O') /* window object */
-#define TAG_XLATEOBJ	TAG('X', 'L', 'A', 'O') /* xlate object */
 
 /* misc */
 #define TAG_DRIVER	TAG('G', 'D', 'R', 'V') /* video drivers */
 #define TAG_FNTFILE	TAG('F', 'N', 'T', 'F') /* font file */
-#define TAG_SSECTPOOL   TAG('S', 'S', 'C', 'P') /* shared section pool */
 
 #endif /* _WIN32K_TAGS_H */

@@ -19,7 +19,7 @@ TDI_STATUS InfoCopyOut( PCHAR DataOut, UINT SizeOut,
     if( RememberedCBSize < SizeOut )
 	return TDI_BUFFER_TOO_SMALL;
     else {
-	CopyBufferToBufferChain( ClientBuf, 0, (PCHAR)DataOut, SizeOut );
+	CopyBufferToBufferChain( ClientBuf, 0, (PUCHAR)DataOut, SizeOut );
 	return TDI_SUCCESS;
     }
 }
@@ -99,7 +99,7 @@ TDI_STATUS InfoTdiQueryListEntities(PNDIS_BUFFER Buffer,
     for( Count = 0; Count < EntityCount; Count++ ) {
 	CopyBufferToBufferChain(Buffer, 
 				Count * sizeof(TDIEntityID), 
-				(PCHAR)&EntityList[Count], 
+				(PUCHAR)&EntityList[Count], 
 				sizeof(TDIEntityID));
     }
     
@@ -129,10 +129,10 @@ TDI_STATUS InfoTdiQueryInformationEx(
 {
     KIRQL OldIrql;
     UINT i;
-    PVOID context = NULL;
+    PVOID context;
     NTSTATUS Status = STATUS_SUCCESS;
     BOOL FoundEntity = FALSE;
-    InfoRequest_f InfoRequest = NULL;
+    InfoRequest_f InfoRequest;
 
     TI_DbgPrint(MAX_TRACE,
 		("InfoEx Req: %x %x %x!%04x:%d\n",

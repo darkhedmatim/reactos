@@ -1,11 +1,15 @@
-/* $Id$
+/* $Id: port.c,v 1.20 2004/10/31 20:27:08 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/port.c
  * PURPOSE:         Communication mechanism
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *
+ *	2000-06-04 (ea)
+ *		ntoskrnl/nt/port.c moved in ntoskrnl/lpc/port.c
  */
 
 /* INCLUDES *****************************************************************/
@@ -17,7 +21,7 @@
 
 /* GLOBALS *******************************************************************/
 
-POBJECT_TYPE	LpcPortObjectType = 0;
+POBJECT_TYPE	ExPortType = NULL;
 ULONG		LpcpNextMessageId = 0; /* 0 is not a valid ID */
 FAST_MUTEX	LpcpLock; /* global internal sync in LPC facility */
 
@@ -31,34 +35,32 @@ static GENERIC_MAPPING ExpPortMapping = {
 
 
 NTSTATUS INIT_FUNCTION
-LpcpInitSystem (VOID)
+NiInitPort (VOID)
 {
-   /* Allocate Memory for the LPC Object */
-   LpcPortObjectType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
-   RtlZeroMemory (LpcPortObjectType, sizeof (OBJECT_TYPE));
+   ExPortType = ExAllocatePoolWithTag(NonPagedPool,sizeof(OBJECT_TYPE),TAG_OBJECT_TYPE);
    
-   RtlInitUnicodeString(&LpcPortObjectType->TypeName,L"Port");
+   RtlRosInitUnicodeStringFromLiteral(&ExPortType->TypeName,L"Port");
    
-   LpcPortObjectType->Tag = TAG('L', 'P', 'R', 'T');
-   LpcPortObjectType->PeakObjects = 0;
-   LpcPortObjectType->PeakHandles = 0;
-   LpcPortObjectType->TotalObjects = 0;
-   LpcPortObjectType->TotalHandles = 0;
-   LpcPortObjectType->PagedPoolCharge = 0;
-   LpcPortObjectType->NonpagedPoolCharge = sizeof(EPORT);
-   LpcPortObjectType->Mapping = &ExpPortMapping;
-   LpcPortObjectType->Dump = NULL;
-   LpcPortObjectType->Open = NULL;
-   LpcPortObjectType->Close = NiClosePort;
-   LpcPortObjectType->Delete = NiDeletePort;
-   LpcPortObjectType->Parse = NULL;
-   LpcPortObjectType->Security = NULL;
-   LpcPortObjectType->QueryName = NULL;
-   LpcPortObjectType->OkayToClose = NULL;
-   LpcPortObjectType->Create = NiCreatePort;
-   LpcPortObjectType->DuplicationNotify = NULL;
+   ExPortType->Tag = TAG('L', 'P', 'R', 'T');
+   ExPortType->MaxObjects = ULONG_MAX;
+   ExPortType->MaxHandles = ULONG_MAX;
+   ExPortType->TotalObjects = 0;
+   ExPortType->TotalHandles = 0;
+   ExPortType->PagedPoolCharge = 0;
+   ExPortType->NonpagedPoolCharge = sizeof(EPORT);
+   ExPortType->Mapping = &ExpPortMapping;
+   ExPortType->Dump = NULL;
+   ExPortType->Open = NULL;
+   ExPortType->Close = NiClosePort;
+   ExPortType->Delete = NiDeletePort;
+   ExPortType->Parse = NULL;
+   ExPortType->Security = NULL;
+   ExPortType->QueryName = NULL;
+   ExPortType->OkayToClose = NULL;
+   ExPortType->Create = NiCreatePort;
+   ExPortType->DuplicationNotify = NULL;
 
-   ObpCreateTypeObject(LpcPortObjectType);
+   ObpCreateTypeObject(ExPortType);
    
    LpcpNextMessageId = 0;
 
@@ -87,7 +89,7 @@ LpcpInitSystem (VOID)
  *	otherwise.
  */
 NTSTATUS STDCALL
-LpcpInitializePort (IN OUT  PEPORT Port,
+NiInitializePort (IN OUT  PEPORT Port,
 		  IN      USHORT Type,
 		  IN      PEPORT Parent OPTIONAL)
 {

@@ -1,17 +1,54 @@
 #ifndef __INCLUDE_DDK_FSFUNCS_H
 #define __INCLUDE_DDK_FSFUNCS_H
-/* $Id$ */
+/* $Id: fsfuncs.h,v 1.30 2004/11/21 17:47:22 navaraf Exp $ */
 #define FlagOn(x,f) ((x) & (f))
 
 #include <ntos/fstypes.h>
 
-/* Some comments on the Prototypes that aren't in the IFS:
+/* Some comments on the Prototypes that aren't in the GNU IFS:
 
+The following come from alternate sources, or guessed from documentation:
+FsRtlNotifyFullChangeDirectory GOOGLE GROUPS
+FsRtlIsPagingFile OSR DOCUMENTATION
+FsRtlAcquireFileExclusive (GUESS: The function takes a single parameter. The function name is "AcquireFile". Logical assumption says this is a File Object. NTFSD ML Post confirms.)
+FsRtlReleaseFile (GUESS: The function takes a single parameter. The function name is "AcquireFile". Logical assumption says this is a File Object. NTFSD ML Post confirms.)
 FsRtlMdlReadCompleteDev (FsRtlMdlReadComplete is on GNU IFS. The Dev Suffix simply means an extra PDEVICE_OBJECT param)
 FsRtlMdlReadDev (FsRtlMdlReadDev is on GNU IFS. The Dev Suffix simply means an extra PDEVICE_OBJECT param)
 FsRtlMdlWriteCompleteDev FsRtlMdlWriteCompleteDev is on GNU IFS. The Dev Suffix simply means an extra PDEVICE_OBJECT param)
 FsRtlPrepareMdlWrite (Compared with CcMdlWrite, which is already documented)
 FsRtlPrepareMdlWriteDev (Same as above, and add a pointer to device object (Dev suffix)
+FsRtlGetNextMcbEntry(FsRtlGetNextLargeMcbEntry is documented and uses LONGLONGs. Logical assumption that this one only uses LONGS and non-large MCB (Documented))
+
+Stream Context. Going along with public OSR documenttion:
+
+FsRtlInsertPerStreamContext:
+"This call is used by the file system filter driver to associate a given context block 
+(allocated by the filter and initialized using FsRtlInitPerStreamContext) with the stream associated with the given file object."
+Notice we are told "given context block...initialized using FsRtlInitPerStreamContext". This function description tells us:
+" provide space for the FSRTL_PER_STREAM_CONTEXT block in the filter driver’s context structure"
+Therefore, one of the parameters is PFSRTL_PER_STREAM_CONTEXT.
+"with the stream associated with the given file object." The OSR Documentations then mentions:
+"Tracking per-file (or “per stream”) context information in FSRTL_ADVANCED_FCB_HEADER"
+So we are associating a FSRTL_PER_STREAM_CONTEXT block with the FSRTL_ADVANCED_FCB_HEADER associated with the file object.
+FSRTL_ADVANCED_FCB_HEADER is documented by a search through Google.
+FSRTL_PER_STREAM_CONTEXT is *NOT* documented anywhere else then in the IFS, so it has been removed.
+
+FsRtlLookupPerStreamContextInternal
+"FsRtlLookupPerStreamContext – this call is used by the file system filter driver to locate a given context
+block that is associated with the file object.  Typically, a file system filter driver will identify its 
+own context block using unique OwnerId and InstanceId parameters when creating the context block and subsequently
+when locating the associated information."
+OSR tells us here that the last two parameters are OwnerId and InstanceId. It also says it will find a given context block,
+so there's our Return Value. (Although, not being documented, we must put PVOID). It looks into a file object's stream, so we
+probably need that FCB header again.
+
+FsRtlRemovePerStreamContext
+OSR is vague, so all we know for sure is that we are sending an FCB Header. The return value isn't NTSTATUS, but seems to be a
+pointer. We don't know what the two other parameters are, so they have been marked as unknown.
+
+FsRtlTeardownPerStreamContexts
+OSR doens't tell a lot, but we only have one parameter. It must be the FCB Header. Furthermore, the CVS of Captive implements
+this function as a stub, and confirms the theory.
 
 */
 
@@ -23,7 +60,6 @@ extern PUCHAR IMPORTED FsRtlLegalAnsiCharacterArray;
 
 #define FSRTL_WILD_CHARACTER  0x08
 
-typedef signed char SCHAR;
 
 VOID
 STDCALL
@@ -107,10 +143,10 @@ FsRtlAreNamesEqual (
 	IN	BOOLEAN		IgnoreCase,
 	IN	PWCHAR		UpcaseTable	OPTIONAL
 	);
-NTSTATUS
+DWORD
 STDCALL
 FsRtlBalanceReads (
-	PDEVICE_OBJECT TargetDevice
+	DWORD	Unknown0
 	);
 BOOLEAN
 STDCALL
@@ -331,24 +367,30 @@ FsRtlInsertPerStreamContext (
     IN PFSRTL_PER_STREAM_CONTEXT Ptr
     );
 
-BOOLEAN STDCALL
-FsRtlIsDbcsInExpression(IN PANSI_STRING Expression,
-			IN PANSI_STRING Name);
-   
 BOOLEAN
 STDCALL
-FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName, 
-                    IN BOOLEAN WildCardsPermissible, 
-                    IN BOOLEAN PathNamePermissible, 
-                    IN BOOLEAN LeadingBackslashPermissible);
-
+FsRtlIsDbcsInExpression (
+	DWORD	Unknown0,
+	DWORD	Unknown1
+	);
 BOOLEAN
 STDCALL
-FsRtlIsHpfsDbcsLegal(IN ANSI_STRING DbcsName, 
-                     IN BOOLEAN WildCardsPermissible, 
-                     IN BOOLEAN PathNamePermissible, 
-                     IN BOOLEAN LeadingBackslashPermissible);
-
+FsRtlIsFatDbcsLegal (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4
+	);
+BOOLEAN
+STDCALL
+FsRtlIsHpfsDbcsLegal (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4
+	);
 BOOLEAN
 STDCALL
 FsRtlIsNameInExpression (
@@ -372,53 +414,8 @@ FsRtlIsTotalDeviceFailure(IN NTSTATUS NtStatus);
 #define FsRtlIsUnicodeCharacterWild(C) ( \
     (((C) >= 0x40) ? \
     FALSE : \
-    FlagOn((FsRtlLegalAnsiCharacterArray)[(C)], FSRTL_WILD_CHARACTER )) \
+    FlagOn((*FsRtlLegalAnsiCharacterArray)[(C)], FSRTL_WILD_CHARACTER )) \
     )
-
-#define FSRTL_FAT_LEGAL 0x01
-#define FSRTL_HPFS_LEGAL 0x02
-#define FSRTL_NTFS_LEGAL 0x04
-#define FSRTL_WILD_CHARACTER 0x08
-#define FSRTL_OLE_LEGAL 0x10
-#define FSRTL_NTFS_STREAM_LEGAL (FSRTL_NTFS_LEGAL | FSRTL_OLE_LEGAL)
-
-#define FsRtlIsAnsiCharacterWild(C) (                               \
-    FsRtlTestAnsiCharacter((C), FALSE, FALSE, FSRTL_WILD_CHARACTER) \
-    )
-
-#define FsRtlIsAnsiCharacterLegalFat(C,WILD_OK) (                 \
-    FsRtlTestAnsiCharacter((C), TRUE, (WILD_OK), FSRTL_FAT_LEGAL) \
-    )
-
-#define FsRtlIsAnsiCharacterLegalHpfs(C,WILD_OK) (                 \
-    FsRtlTestAnsiCharacter((C), TRUE, (WILD_OK), FSRTL_HPFS_LEGAL) \
-    )
-
-#define FsRtlIsAnsiCharacterLegalNtfs(C,WILD_OK) (                 \
-    FsRtlTestAnsiCharacter((C), TRUE, (WILD_OK), FSRTL_NTFS_LEGAL) \
-    )
-
-#define FsRtlIsAnsiCharacterLegalNtfsStream(C,WILD_OK) (                    \
-    FsRtlTestAnsiCharacter((C), TRUE, (WILD_OK), FSRTL_NTFS_STREAM_LEGAL)   \
-    )
-
-#define FsRtlIsAnsiCharacterLegal(C,FLAGS) (          \
-    FsRtlTestAnsiCharacter((C), TRUE, FALSE, (FLAGS)) \
-    )
-
-#define FsRtlTestAnsiCharacter(C, DEFAULT_RET, WILD_OK, FLAGS) (            \
-        ((SCHAR)(C) < 0) ? DEFAULT_RET :                                    \
-                           FlagOn(FsRtlLegalAnsiCharacterArray[(int)(C)],         \
-                                   (FLAGS) |                                \
-                                   ((WILD_OK) ? FSRTL_WILD_CHARACTER : 0) ) \
-    )
-
-#define FsRtlIsLeadDbcsCharacter(DBCS_CHAR) (                      \
-    (BOOLEAN)((UCHAR)(DBCS_CHAR) < 0x80 ? FALSE :                  \
-              (NLS_MB_CODE_PAGE_TAG &&                             \
-               (NLS_OEM_LEAD_BYTE_INFO[(UCHAR)(DBCS_CHAR)] != 0))) \
-    )
-    
 
 BOOLEAN STDCALL
 FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
@@ -617,7 +614,7 @@ FsRtlNotifyReportChange (
 	);
 
 VOID STDCALL
-FsRtlNotifyInitializeSync(IN OUT PNOTIFY_SYNC *NotifySync);
+FsRtlNotifyInitializeSync(IN OUT PNOTIFY_SYNC NotifySync);
 
 NTSTATUS STDCALL
 FsRtlNotifyVolumeEvent(IN PFILE_OBJECT FileObject,
@@ -666,15 +663,19 @@ FsRtlNumberOfRunsInMcb (IN PMCB Mcb);
 
 VOID
 STDCALL
-FsRtlPostPagingFileStackOverflow(IN PVOID Context, 
-                                 IN PKEVENT Event, 
-                                 IN PFSRTL_STACK_OVERFLOW_ROUTINE StackOverflowRoutine) ;
+FsRtlPostPagingFileStackOverflow (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	);
 
 VOID
 STDCALL
-FsRtlPostStackOverflow (IN PVOID Context, 
-                        IN PKEVENT Event, 
-                        IN PFSRTL_STACK_OVERFLOW_ROUTINE StackOverflowRoutine) ;
+FsRtlPostStackOverflow (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	);
 
 BOOLEAN
 STDCALL
@@ -703,8 +704,10 @@ FsRtlProcessFileLock (
 
 NTSTATUS
 STDCALL
-FsRtlRegisterFileSystemFilterCallbacks(IN PDRIVER_OBJECT FilterDriverObject,
-                                       IN PFS_FILTER_CALLBACKS Callbacks);
+FsRtlRegisterFileSystemFilterCallbacks (
+    IN PVOID		Unknown1,
+    IN PVOID		Unknown2
+    );
 
 NTSTATUS STDCALL
 FsRtlRegisterUncProvider(IN OUT PHANDLE Handle,
@@ -731,8 +734,8 @@ PFSRTL_PER_STREAM_CONTEXT
 STDCALL
 FsRtlRemovePerStreamContext (
     IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
+    IN PVOID Unknown1 OPTIONAL,
+    IN PVOID Unknown2 OPTIONAL
     );
 
 PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
@@ -758,9 +761,9 @@ FsRtlSplitLargeMcb(IN PLARGE_MCB Mcb,
 NTSTATUS
 STDCALL
 FsRtlSyncVolumes (
-	ULONG	Unknown0,
-	ULONG	Unknown1,
-	ULONG	Unknown2
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
 	);
 
 VOID

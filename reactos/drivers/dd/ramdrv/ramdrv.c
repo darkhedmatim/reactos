@@ -139,7 +139,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
 			      0 );
   allocsize.u.LowPart = allocsize.u.HighPart = 0;
 
-  Status = ZwOpenFile( &file,
+  Status = NtOpenFile( &file,
 			 GENERIC_READ,
 			 &objattr,
 			 &iosb,
@@ -157,7 +157,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
 			      0,
 			      0,
 			      0 );
-  Status = ZwCreateEvent( &event,
+  Status = NtCreateEvent( &event,
 			  0,
 			  &objattr,
 			  NotificationEvent,
@@ -168,7 +168,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
       goto cleanfile;
     }
 
-  Status = ZwQueryInformationFile( file,
+  Status = NtQueryInformationFile( file,
 				   &iosb,
 				   &finfo,
 				   sizeof( finfo ),
@@ -187,7 +187,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
       goto cleanevent;
     }
 
-  Status = ZwReadFile( file,
+  Status = NtReadFile( file,
 		       event,
 		       0,
 		       0,
@@ -202,7 +202,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
       DPRINT( "Failed to read floppy\n" );
       goto cleantbuff;
     }
-  Status = ZwWaitForSingleObject( event, FALSE, 0 );
+  Status = NtWaitForSingleObject( event, FALSE, 0 );
   if( Status != STATUS_WAIT_0 || !NT_SUCCESS( iosb.Status ) )
     {
       DPRINT( "Failed to read floppy\n" );
@@ -221,16 +221,16 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
   }
   else DbgPrint( "RAMDRV: Failed to decomparess image, error: %d\n", err );
   ExFreePool( tbuff );
-  ZwClose( file );
-  ZwClose( event );
+  NtClose( file );
+  NtClose( event );
   return STATUS_SUCCESS;
 
  cleantbuff:
   ExFreePool( tbuff );
  cleanevent:
-  ZwClose( event );
+  NtClose( event );
  cleanfile:
-  ZwClose( file );
+  NtClose( file );
  cleanbuffer:
   ExFreePool( devext->Buffer );
 

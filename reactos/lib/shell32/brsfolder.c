@@ -330,10 +330,7 @@ static LRESULT MsgNotify(HWND hWnd,  UINT CtlID, LPNMHDR lpnmh)
 	          if (SUCCEEDED(IShellFolder_BindToObject(lptvid->lpsfParent, lptvid->lpi,0,(REFIID)&IID_IShellFolder,(LPVOID *)&lpsf2)))
 	          { FillTreeView( lpsf2, lptvid->lpifq, pnmtv->itemNew.hItem, lptvid->pEnumIL);
 	          }
-	          /* My Computer is already sorted and trying to do a simple text
-	           * sort will only mess things up */
-	          if (!_ILIsMyComputer(lptvid->lpi))
-	            TreeView_SortChildren(hwndTreeView, pnmtv->itemNew.hItem, FALSE);
+	          TreeView_SortChildren(hwndTreeView, pnmtv->itemNew.hItem, FALSE);
 		}
 	        break;
 	      case TVN_SELCHANGEDA:
@@ -494,7 +491,10 @@ LPITEMIDLIST WINAPI SHBrowseForFolderA (LPBROWSEINFOA lpbi)
 	  WideCharToMultiByte(CP_ACP, 0, bi.pszDisplayName, -1, lpbi->pszDisplayName, MAX_PATH, 0, NULL);
 	  HeapFree(GetProcessHeap(), 0, bi.pszDisplayName);
 	}
-        HeapFree(GetProcessHeap(), 0, (LPVOID)bi.lpszTitle);
+	if (bi.lpszTitle)
+	{
+	  HeapFree(GetProcessHeap(), 0, (LPVOID)bi.lpszTitle);
+	}
 	lpbi->iImage = bi.iImage;
 	return lpid;
 }

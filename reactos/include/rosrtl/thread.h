@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: thread.h,v 1.5 2004/10/24 20:37:26 weiden Exp $
  */
 
 #ifdef __cplusplus

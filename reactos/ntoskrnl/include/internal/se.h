@@ -111,8 +111,8 @@ BOOLEAN SepInitDACLs(VOID);
 BOOLEAN SepInitSDs(VOID);
 
 NTSTATUS STDCALL 
-SepCreateImpersonationTokenDacl(PTOKEN Token, 
-                                PTOKEN PrimaryToken,
+SepCreateImpersonationTokenDacl(PACCESS_TOKEN Token, 
+                                PACCESS_TOKEN PrimaryToken,
                                 PACL *Dacl);
 
 VOID SepInitializeTokenImplementation(VOID);
@@ -142,7 +142,7 @@ SeReleaseLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Privilege,
 				ULONG a);
 
 BOOLEAN
-SepPrivilegeCheck(PTOKEN Token,
+SepPrivilegeCheck(PACCESS_TOKEN Token,
 		  PLUID_AND_ATTRIBUTES Privileges,
 		  ULONG PrivilegeCount,
 		  ULONG PrivilegeControl,

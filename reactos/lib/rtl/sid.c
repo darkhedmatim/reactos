@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: sid.c,v 1.4 2004/07/12 19:39:29 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -13,7 +13,6 @@
 
 #define __NTDRIVER__
 #include <ddk/ntddk.h>
-#include <ntdll/rtl.h>
 #include <string.h>
 
 
@@ -23,12 +22,8 @@
 /* FUNCTIONS ***************************************************************/
 
 BOOLEAN STDCALL
-RtlValidSid(IN PSID Sid_)
+RtlValidSid(IN PSID Sid)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   if ((Sid->Revision != SID_REVISION) ||
       (Sid->SubAuthorityCount > SID_MAX_SUB_AUTHORITIES))
     {
@@ -45,8 +40,6 @@ RtlValidSid(IN PSID Sid_)
 ULONG STDCALL
 RtlLengthRequiredSid(IN UCHAR SubAuthorityCount)
 {
-  PAGED_CODE_RTL();
-  
   return (sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG));
 }
 
@@ -55,14 +48,10 @@ RtlLengthRequiredSid(IN UCHAR SubAuthorityCount)
  * @implemented
  */
 NTSTATUS STDCALL
-RtlInitializeSid(IN PSID Sid_,
+RtlInitializeSid(IN PSID Sid,
                  IN PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
                  IN UCHAR SubAuthorityCount)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   Sid->Revision = SID_REVISION;
   Sid->SubAuthorityCount = SubAuthorityCount;
   memcpy(&Sid->IdentifierAuthority,
@@ -77,13 +66,9 @@ RtlInitializeSid(IN PSID Sid_,
  * @implemented
  */
 PULONG STDCALL
-RtlSubAuthoritySid(IN PSID Sid_,
+RtlSubAuthoritySid(IN PSID Sid,
                    IN ULONG SubAuthority)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   return &Sid->SubAuthority[SubAuthority];
 }
 
@@ -92,12 +77,8 @@ RtlSubAuthoritySid(IN PSID Sid_,
  * @implemented
  */
 PUCHAR STDCALL
-RtlSubAuthorityCountSid(IN PSID Sid_)
+RtlSubAuthorityCountSid(IN PSID Sid)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   return &Sid->SubAuthorityCount;
 }
 
@@ -106,14 +87,9 @@ RtlSubAuthorityCountSid(IN PSID Sid_)
  * @implemented
  */
 BOOLEAN STDCALL
-RtlEqualSid(IN PSID Sid1_,
-            IN PSID Sid2_)
+RtlEqualSid(IN PSID Sid1,
+            IN PSID Sid2)
 {
-  PISID Sid1 =  Sid1_;
-  PISID Sid2 =  Sid2_;
-  
-  PAGED_CODE_RTL();
-    
   if (Sid1->Revision != Sid2->Revision)
    {
       return(FALSE);
@@ -134,12 +110,8 @@ RtlEqualSid(IN PSID Sid1_,
  * @implemented
  */
 ULONG STDCALL
-RtlLengthSid(IN PSID Sid_)
+RtlLengthSid(IN PSID Sid)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   return (sizeof(SID) + (Sid->SubAuthorityCount-1) * sizeof(ULONG));
 }
 
@@ -152,8 +124,6 @@ RtlCopySid(ULONG BufferLength,
            PSID Dest,
            PSID Src)
 {
-  PAGED_CODE_RTL();
-  
   if (BufferLength < RtlLengthSid(Src))
     {
       return STATUS_UNSUCCESSFUL;
@@ -182,8 +152,6 @@ RtlCopySidAndAttributesArray(ULONG Count,
    ULONG SidLength;
    ULONG Length;
    ULONG i;
-   
-   PAGED_CODE_RTL();
 
    Length = SidAreaSize;
 
@@ -212,12 +180,8 @@ RtlCopySidAndAttributesArray(ULONG Count,
  * @implemented
  */
 PSID_IDENTIFIER_AUTHORITY STDCALL
-RtlIdentifierAuthoritySid(IN PSID Sid_)
+RtlIdentifierAuthoritySid(IN PSID Sid)
 {
-  PISID Sid =  Sid_;
-  
-  PAGED_CODE_RTL();
-  
   return &Sid->IdentifierAuthority;
 }
 
@@ -238,9 +202,7 @@ RtlAllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
 			    ULONG SubAuthority7,
 			    PSID *Sid)
 {
-  PISID pSid;
-  
-  PAGED_CODE_RTL();
+  PSID pSid;
 
   if (SubAuthorityCount > 8)
     return STATUS_INVALID_SID;
@@ -296,8 +258,6 @@ RtlAllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
 PVOID STDCALL
 RtlFreeSid(IN PSID Sid)
 {
-   PAGED_CODE_RTL();
-   
    ExFreePool(Sid);
    return NULL;
 }
@@ -307,14 +267,9 @@ RtlFreeSid(IN PSID Sid)
  * @implemented
  */
 BOOLEAN STDCALL
-RtlEqualPrefixSid(IN PSID Sid1_,
-                  IN PSID Sid2_)
+RtlEqualPrefixSid(IN PSID Sid1,
+                  IN PSID Sid2)
 {
-  PISID Sid1 =  Sid1_;
-  PISID Sid2 =  Sid2_;
-  
-  PAGED_CODE_RTL();
-    
    return(Sid1->SubAuthorityCount == Sid2->SubAuthorityCount &&
           !RtlCompareMemory(Sid1, Sid2,
                             (Sid1->SubAuthorityCount - 1) * sizeof(DWORD) + 8));
@@ -326,16 +281,13 @@ RtlEqualPrefixSid(IN PSID Sid1_,
  */
 NTSTATUS STDCALL
 RtlConvertSidToUnicodeString(PUNICODE_STRING String,
-                             PSID Sid_,
+                             PSID Sid,
                              BOOLEAN AllocateBuffer)
 {
    WCHAR Buffer[256];
    PWSTR wcs;
    ULONG Length;
    ULONG i;
-   PISID Sid =  Sid_;
-   
-   PAGED_CODE_RTL();
 
    if (RtlValidSid (Sid) == FALSE)
       return STATUS_INVALID_SID;

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: objdir.c,v 1.14 2004/08/05 12:11:49 ea Exp $
  *
  * DESCRIPTION: Object Manager Simple Explorer
  * PROGRAMMER:  David Welch
@@ -79,14 +79,10 @@ StatusToName (NTSTATUS Status)
 			return "STATUS_PATH_SYNTAX_BAD";
 		case STATUS_NO_MORE_ENTRIES:
 			return "STATUS_NO_MORE_ENTRIES";
-		case STATUS_MORE_ENTRIES:
-			return "STATUS_MORE_ENTRIES";
 		case STATUS_ACCESS_DENIED:
 			return "STATUS_ACCESS_DENIED";
 		case STATUS_UNSUCCESSFUL:
 			return "STATUS_UNSUCCESSFUL";
-		case STATUS_INVALID_HANDLE:
-			return "STATUS_INVALID_HANDLE";
 	}
 	sprintf (RawValue, "0x%08lx", Status);
 	return (const char *) RawValue;
@@ -177,9 +173,8 @@ ListDirectory (
 	OBJECT_ATTRIBUTES	ObjectAttributes;
 	NTSTATUS		Status;
 	HANDLE			DirectoryHandle;
-	BYTE			DirectoryEntry [512];
-	POBJECT_DIRECTORY_INFORMATION pDirectoryEntry = (POBJECT_DIRECTORY_INFORMATION) DirectoryEntry;
-	POBJECT_DIRECTORY_INFORMATION pDirectoryEntries = (POBJECT_DIRECTORY_INFORMATION) DirectoryEntry;
+	BYTE			DirectoryEntry [MAX_DIR_ENTRY * sizeof(DIRECTORY_BASIC_INFORMATION)];
+	PDIRECTORY_BASIC_INFORMATION pDirectoryEntry = (PDIRECTORY_BASIC_INFORMATION) DirectoryEntry;
 	ULONG			Context = 0;
 	ULONG			ReturnLength = 0;
 	ULONG			EntryCount = 0;
@@ -222,23 +217,25 @@ ListDirectory (
 		return (FALSE);
 	}
 	printf ("\n Directory of %s\n\n", DirectoryNameA);
-	
-        for(;;)
-        {
 	/*
 	 * Enumerate each item in the directory.
 	 */
 	Status = NtQueryDirectoryObject (
 			DirectoryHandle,
-			pDirectoryEntries,
+			pDirectoryEntry,
 			sizeof DirectoryEntry,
 			FALSE,/* ReturnSingleEntry */
-			FALSE, /* RestartScan */
+			TRUE, /* RestartScan */
 			& Context,
 			& ReturnLength
 			);
-	if (!NT_SUCCESS(Status) && Status != STATUS_NO_MORE_ENTRIES)
+	if (!NT_SUCCESS(Status))
 	{
+		if (STATUS_NO_MORE_ENTRIES == Status)
+		{
+			NtClose (DirectoryHandle);
+			return TRUE;
+		}
 		printf (
 			"Failed to query directory object (Status: %s)\n",
 			StatusToName (Status)
@@ -246,17 +243,12 @@ ListDirectory (
 		NtClose (DirectoryHandle);
 		return (FALSE);
 	}
-	if (Status == STATUS_NO_MORE_ENTRIES)
-	{
-          break;
-        }
-	pDirectoryEntry = pDirectoryEntries;
-	while (EntryCount < Context)
+	while (0 != pDirectoryEntry->ObjectTypeName.Length)
 	{
 		CHAR ObjectNameA [MAX_PATH];
 		CHAR TypeNameA [MAX_PATH];
 		CHAR TargetNameA [MAX_PATH];
-
+		
 		if (0 == wcscmp (L"SymbolicLink", pDirectoryEntry->ObjectTypeName.Buffer))
 		{
 			if (TRUE == ExpandSymbolicLink (
@@ -266,7 +258,7 @@ ListDirectory (
 					)
 				)
 			{
-
+				
 				printf (
 					"%-16s %s -> %s\n",
 					RawUszAsz (pDirectoryEntry->ObjectTypeName.Buffer, TypeNameA),
@@ -291,10 +283,9 @@ ListDirectory (
 				RawUszAsz (pDirectoryEntry->ObjectName.Buffer, ObjectNameA)
 				);
 		}
-		++ pDirectoryEntry;
 		++ EntryCount;
+		++ pDirectoryEntry;
 	}
-	};
 	printf ("\n\t%lu object(s)\n", EntryCount);
 	/*
 	 * Free any resource.
@@ -305,7 +296,7 @@ ListDirectory (
 	 */
 	if (FALSE != Recurse)
 	{
-		pDirectoryEntry = (POBJECT_DIRECTORY_INFORMATION) DirectoryEntry;
+		pDirectoryEntry = (PDIRECTORY_BASIC_INFORMATION) DirectoryEntry;
 		while (0 != pDirectoryEntry->ObjectTypeName.Length)
 		{
 			if (0 == wcscmp (L"Directory", pDirectoryEntry->ObjectTypeName.Buffer))

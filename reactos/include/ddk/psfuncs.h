@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: psfuncs.h,v 1.33 2004/09/22 14:53:26 weiden Exp $
  */
 #ifndef _INCLUDE_DDK_PSFUNCS_H
 #define _INCLUDE_DDK_PSFUNCS_H
@@ -395,7 +395,7 @@ BOOLEAN STDCALL PsGetVersion (PULONG		MajorVersion	OPTIONAL,
 LARGE_INTEGER STDCALL PsGetProcessExitTime(VOID);
 BOOLEAN STDCALL PsIsThreadTerminating(struct _ETHREAD* Thread);
 
-NTSTATUS STDCALL PsLookupProcessByProcessId(IN HANDLE ProcessId,
+NTSTATUS STDCALL PsLookupProcessByProcessId(IN PVOID ProcessId,
 					    OUT PEPROCESS *Process);
 
 NTSTATUS STDCALL PsLookupProcessThreadByCid(IN PCLIENT_ID Cid,
@@ -403,7 +403,7 @@ NTSTATUS STDCALL PsLookupProcessThreadByCid(IN PCLIENT_ID Cid,
 					    OUT struct _ETHREAD **Thread);
 					 /* OUT PETHREAD *Thread); */
 
-NTSTATUS STDCALL PsLookupThreadByThreadId(IN HANDLE ThreadId,
+NTSTATUS STDCALL PsLookupThreadByThreadId(IN PVOID ThreadId,
 					  OUT struct _ETHREAD **Thread);
 					/* OUT PETHREAD *Thread); */
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: hwprofiles.c,v 1.5 2004/10/12 11:56:04 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

@@ -188,21 +188,20 @@ VGADDI_BltBrush(SURFOBJ* Dest, SURFOBJ* Source, SURFOBJ* MaskSurf,
     }
 
   /* Punt pattern fills. */
-  if ((GET_OPINDEX_FROM_ROP4(Rop4) == GET_OPINDEX_FROM_ROP3(PATCOPY)
-       || GET_OPINDEX_FROM_ROP4(Rop4) == GET_OPINDEX_FROM_ROP3(PATINVERT)) && 
+  if ((Rop4 == PATCOPY || Rop4 == PATINVERT) && 
       Brush->iSolidColor == 0xFFFFFFFF)
     {
       return(FALSE);
     }
 
   /* Get the brush colour. */
-  switch (GET_OPINDEX_FROM_ROP4(Rop4))
+  switch (Rop4)
     {
-    case GET_OPINDEX_FROM_ROP3(PATCOPY): SolidColor = Brush->iSolidColor; break;
-    case GET_OPINDEX_FROM_ROP3(PATINVERT): SolidColor = Brush->iSolidColor; RasterOp = VGA_XOR; break;
-    case GET_OPINDEX_FROM_ROP3(WHITENESS): SolidColor = 0xF; break;
-    case GET_OPINDEX_FROM_ROP3(BLACKNESS): SolidColor = 0x0; break;
-    case GET_OPINDEX_FROM_ROP3(DSTINVERT): SolidColor = 0xF; RasterOp = VGA_XOR; break;
+    case PATCOPY: SolidColor = Brush->iSolidColor; break;
+    case PATINVERT: SolidColor = Brush->iSolidColor; RasterOp = VGA_XOR; break;
+    case WHITENESS: SolidColor = 0xF; break;
+    case BLACKNESS: SolidColor = 0x0; break;
+    case DSTINVERT: SolidColor = 0xF; RasterOp = VGA_XOR; break;
     }
 
   /* Select write mode 3. */
@@ -399,15 +398,15 @@ DrvBitBlt(SURFOBJ *Dest,
 
   switch (rop4)
     {
-    case ROP3_TO_ROP4(BLACKNESS):
-    case ROP3_TO_ROP4(PATCOPY):
-    case ROP3_TO_ROP4(WHITENESS):
-    case ROP3_TO_ROP4(PATINVERT):
-    case ROP3_TO_ROP4(DSTINVERT):
+    case BLACKNESS:
+    case PATCOPY:
+    case WHITENESS:
+    case PATINVERT:
+    case DSTINVERT:
       BltRectFunc = VGADDI_BltBrush;
       break;
 
-    case ROP3_TO_ROP4(SRCCOPY):
+    case SRCCOPY:
       if (BMF_4BPP == Source->iBitmapFormat && BMF_4BPP == Dest->iBitmapFormat)
 	{
 	  BltRectFunc = VGADDI_BltSrc;
@@ -418,7 +417,7 @@ DrvBitBlt(SURFOBJ *Dest,
 	}
       break;
 
-    case R4_MASK:
+    case 0xAACC:
       BltRectFunc = VGADDI_BltMask;
       break;
 

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: connect.c,v 1.27 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/connect.c
  * PURPOSE:         Communication mechanism
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -65,7 +66,7 @@ EiConnectPort(IN PEPORT* ConnectedPort,
    * Create a port to represent our side of the connection
    */
   Status = ObCreateObject (KernelMode,
-			   LpcPortObjectType,
+			   ExPortType,
 			   NULL,
 			   KernelMode,
 			   NULL,
@@ -77,7 +78,7 @@ EiConnectPort(IN PEPORT* ConnectedPort,
     {
       return (Status);
     }
-  LpcpInitializePort(OurPort, EPORT_TYPE_CLIENT_COMM_PORT, NamedPort);
+  NiInitializePort(OurPort, EPORT_TYPE_CLIENT_COMM_PORT, NamedPort);
 
   /*
    * Allocate a request message.
@@ -332,7 +333,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
                                     0,
                                     NULL,
                                     PORT_ALL_ACCESS,  /* DesiredAccess */
-                                    LpcPortObjectType,
+                                    ExPortType,
                                     UserMode,
                                     NULL,
                                     (PVOID*)&NamedPort);
@@ -546,7 +547,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
   
   Status = ObReferenceObjectByHandle(NamedPortHandle,
 				     PORT_ALL_ACCESS,
-				     LpcPortObjectType,
+				     ExPortType,
 				     UserMode,
 				     (PVOID*)&NamedPort,
 				     NULL);
@@ -562,7 +563,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
   if (AcceptIt)
     {
       Status = ObCreateObject(ExGetPreviousMode(),
-			      LpcPortObjectType,
+			      ExPortType,
 			      NULL,
 			      ExGetPreviousMode(),
 			      NULL,
@@ -591,7 +592,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
 	  return(Status);
 	}
 
-      LpcpInitializePort(OurPort, EPORT_TYPE_SERVER_COMM_PORT, NamedPort);
+      NiInitializePort(OurPort, EPORT_TYPE_SERVER_COMM_PORT, NamedPort);
     }
 
   /*

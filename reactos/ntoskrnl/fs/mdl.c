@@ -1,57 +1,50 @@
-/* $Id$
+/* $Id: mdl.c,v 1.8 2004/08/15 16:39:02 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/fs/mdl.c
- * PURPOSE:         No purpose listed.
+ * reactos/ntoskrnl/fs/mdl.c
  *
- * PROGRAMMERS:     No programmer listed.
  */
 
 #include <ntoskrnl.h>
 #include <internal/debug.h>
 
-extern ULONG CcFastReadResourceMiss;
-extern ULONG CcFastReadNoWait;
-
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadResourceMiss( VOID )
 {
-    CcFastReadResourceMiss++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadNotPossible( VOID )
 {
-    CcFastReadNotPossible++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadWait( VOID )
 {
-    CcFastReadWait++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadNoWait( VOID )
 {
-    CcFastReadNoWait++;
+  UNIMPLEMENTED;
 }
 
 

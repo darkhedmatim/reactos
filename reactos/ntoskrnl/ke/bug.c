@@ -1,12 +1,31 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: bug.c,v 1.48 2004/12/12 17:42:00 hbirr Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/bug.c
  * PURPOSE:         Graceful system shutdown if a bug is detected
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
- *                  Phillip Susi
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * PORTABILITY:     Unchecked
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  Phillip Susi: 12/8/99: Minor fix
  */
 
 /* INCLUDES *****************************************************************/
@@ -96,11 +115,6 @@ KeBugCheckWithTf(ULONG BugCheckCode,
 
   Ke386DisableInterrupts();
   DebugLogDumpMessages();
-
-  if (MmGetKernelAddressSpace()->Lock.Owner == KeGetCurrentThread())
-    {
-      MmUnlockAddressSpace(MmGetKernelAddressSpace());
-    }
 
   if (KeGetCurrentIrql() < DISPATCH_LEVEL)
     {

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: pin.c,v 1.18 2004/10/22 20:11:11 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/pin.c
  * PURPOSE:         Implements cache managers pinning interface
- *
- * PROGRAMMERS:     Hartmut Birr
+ * PROGRAMMER:      Hartmut Birr
+ * UPDATE HISTORY:
+ *                  Created 05.10.2001
  */
 
 /* INCLUDES ******************************************************************/
@@ -116,7 +117,7 @@ CcPinMappedData (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
 	IN	ULONG			Length,
-	IN	ULONG			Flags,
+	IN	BOOLEAN			Wait,
 	OUT	PVOID			* Bcb
 	)
 {
@@ -133,14 +134,14 @@ CcPinRead (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
 	IN	ULONG			Length,
-	IN	ULONG			Flags,
+	IN	BOOLEAN			Wait,
 	OUT	PVOID			* Bcb,
 	OUT	PVOID			* Buffer
 	)
 {
-  if (CcMapData(FileObject, FileOffset, Length, Flags, Bcb, Buffer))
+  if (CcMapData(FileObject, FileOffset, Length, Wait, Bcb, Buffer))
   {
-    if (CcPinMappedData(FileObject, FileOffset, Length, Flags, Bcb))
+    if (CcPinMappedData(FileObject, FileOffset, Length, Wait, Bcb))
       return TRUE;
     else
       CcUnpinData(Bcb);
@@ -158,7 +159,7 @@ CcPreparePinWrite (
 	IN	PLARGE_INTEGER		FileOffset,
 	IN	ULONG			Length,
 	IN	BOOLEAN			Zero,
-	IN	ULONG			Flags,
+	IN	BOOLEAN			Wait,
 	OUT	PVOID			* Bcb,
 	OUT	PVOID			* Buffer
 	)
@@ -171,7 +172,7 @@ CcPreparePinWrite (
          * For now calling CcPinRead is better than returning error or
          * just having UNIMPLEMENTED here.
          */
-        return CcPinRead(FileObject, FileOffset, Length, Flags, Bcb, Buffer);
+        return CcPinRead(FileObject, FileOffset, Length, Wait, Bcb, Buffer);
 }
 
 /*

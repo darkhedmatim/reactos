@@ -1,4 +1,4 @@
-/* $Id$ 
+/* $Id: privilege.c,v 1.9 2004/08/15 17:03:15 chorns Exp $ 
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

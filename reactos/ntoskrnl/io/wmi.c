@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: wmi.c,v 1.2 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/wmi.c
  * PURPOSE:         Windows Management Instrumentation
- * 
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
+ * UPDATE HISTORY:
+ *                  Created 23/06/04
  */
 
 /* INCLUDES *****************************************************************/

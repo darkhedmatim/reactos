@@ -11,9 +11,7 @@
 #ifndef __INCLUDE_NTDEF_H
 #define __INCLUDE_NTDEF_H
 
-#ifndef __USE_W32API
-#define MAXIMUM_WAIT_OBJECTS (64)
-#endif
+#define EX_MAXIMUM_WAIT_OBJECTS (64)
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1300) && defined(__cplusplus)
 # define TYPE_ALIGNMENT(t) __alignof(t)
@@ -32,54 +30,13 @@
 # define PROBE_ALIGNMENT(_s) TYPE_ALIGNMENT(DWORD)
 #endif
 
-
-#if defined(_MSC_VER)
-   #define Const64(a) (a##i64)
-   static __inline LARGE_INTEGER MK_LARGE_INTEGER(__int64 i)
-   {
-      LARGE_INTEGER li;
-      li.QuadPart = i;
-      return li;
-   }
-   #define INIT_LARGE_INTEGER(a) {{(ULONG)a, (LONG)(a>>32)}}   
-#elif defined (__GNUC__)
-   #define Const64(a) (a##LL)
-   #define MK_LARGE_INTEGER(a) ((LARGE_INTEGER)(LONGLONG)(a))
-   #define INIT_LARGE_INTEGER(a) MK_LARGE_INTEGER(Const64(a))    
-#endif
-
-#define LargeInteger0 MK_LARGE_INTEGER(0)
-
-
-/* Compile time asserts */
-#define C_ASSERT(e) do{extern char __C_ASSERT__[(e)?1:-1]; (void)__C_ASSERT__;}while(0)
-
-
 /* Helpers for easy conversion to system time units (100ns) */
 #define ABSOLUTE_TIME(wait) (wait)
 #define RELATIVE_TIME(wait) (-(wait))
-#define NANOS_TO_100NS(nanos) (((LONGLONG)(nanos)) / 100)
-#define MICROS_TO_100NS(micros) (((LONGLONG)(micros)) * NANOS_TO_100NS(1000))
-#define MILLIS_TO_100NS(milli) (((LONGLONG)(milli)) * MICROS_TO_100NS(1000))
-#define SECONDS_TO_100NS(seconds) (((LONGLONG)(seconds)) * MILLIS_TO_100NS(1000))
-#define MINUTES_TO_100NS(minutes) (((LONGLONG)(minutes)) * SECONDS_TO_100NS(60))
-#define HOURS_TO_100NS(hours) (((LONGLONG)(hours)) * MINUTES_TO_100NS(60))
-
-
-
-
-/* Helpers for enumarating lists */
-#define LIST_FOR_EACH(entry, head) \
-   for((entry) = (head)->Flink; (entry) != (head); (entry) = (entry)->Flink)
-
-/* 
-Safe version which saves pointer to the next entry so the current ptr->field entry
-can be unlinked without corrupting the list. NOTE: Never unlink tmp_entry!!!!!!!!!
-*/
-#define LIST_FOR_EACH_SAFE(tmp_entry, head, ptr, type, field) \
-   for ((tmp_entry)=(head)->Flink; (tmp_entry)!=(head) && \
-        ((ptr) = CONTAINING_RECORD(tmp_entry,type,field)) && \
-        ((tmp_entry) = (tmp_entry)->Flink); )
+#define NANOS_TO_100NS(nanos) (((LONGLONG)(nanos)) / 100L)
+#define MICROS_TO_100NS(micros) (((LONGLONG)(micros)) * NANOS_TO_100NS(1000L))
+#define MILLIS_TO_100NS(milli) (((LONGLONG)(milli)) * MICROS_TO_100NS(1000L))
+#define SECONDS_TO_100NS(seconds) (((LONGLONG)(seconds)) * MILLIS_TO_100NS(1000L))
 
 
 #ifndef __USE_W32API

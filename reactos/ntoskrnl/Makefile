@@ -10,6 +10,8 @@ TARGET_TYPE = kernel
 
 TARGET_NAME = ntoskrnl
 
+TARGET_BASE = 0xc0000000
+
 TARGET_BOOTSTRAP = yes
 
 CONFIG :=
@@ -24,9 +26,15 @@ endif
 LINKER_SCRIPT := ntoskrnl.lnk
 STRIP_FLAGS := -Wl,-s
 
+ifeq ($(OPTIMIZED), 1)
+CFLAGS_OPT := -O2 -Wno-strict-aliasing
+else
+CFLAGS_OPT :=
+endif
+
 ifeq ($(KDBG), 1)
 OBJECTS_KDBG := dbg/kdb.o dbg/kdb_serial.o dbg/kdb_keyboard.o dbg/rdebug.o \
-                dbg/i386/kdb_help.o \
+                dbg/i386/kdb_help.o dbg/profile.o \
 		../dk/w32/lib/libkjs.a dbg/i386/i386-dis.o
 CFLAGS_KDBG := -I../lib/kjs/include
 preall: all
@@ -37,7 +45,7 @@ else
 OBJECTS_KDBG :=
 endif
 ifeq ($(DBG_OR_KDBG), 1)
-OBJECTS_KDBG := $(OBJECTS_KDBG) dbg/kdb_symbols.o dbg/profile.o
+OBJECTS_KDBG := $(OBJECTS_KDBG) dbg/kdb_stabs.o dbg/kdb_symbols.o
 endif
 
 TARGET_ASFLAGS = -I./include
@@ -52,10 +60,6 @@ TARGET_CFLAGS += -D__3GB__
 TARGET_BASE = 0xC0000000
 else
 TARGET_BASE = 0x80000000
-endif
-
-ifneq ($(DBG), 0)
-TARGET_CFLAGS += -DDBG
 endif
 
 # enable thread event pair features (NT4 only!)
@@ -73,6 +77,22 @@ OBJECTS_PATH = objects
 #
 include Makefile.$(ARCH)
 
+# System API (Nt/Zw)
+OBJECTS_NT = \
+	nt/channel.o \
+	nt/efi.o \
+	nt/evtpair.o \
+	nt/mutant.o \
+	nt/misc.o \
+	nt/nt.o \
+	nt/ntevent.o \
+	nt/ntsem.o \
+	nt/nttimer.o \
+	nt/plugplay.o \
+	nt/profile.o \
+	nt/vdm.o \
+	nt/zw.o
+
 # Run-Time Library (Rtl)
 OBJECTS_RTL = \
 	rtl/atom.o \
@@ -80,7 +100,6 @@ OBJECTS_RTL = \
 	rtl/ctype.o \
 	rtl/handle.o \
 	rtl/message.o \
-	rtl/misc.o \
 	rtl/purecall.o \
 	rtl/regio.o \
 	rtl/sprintf.o \
@@ -100,7 +119,6 @@ OBJECTS_KE = \
 	ke/apc.o \
 	ke/bug.o \
 	ke/catch.o \
-	ke/clock.o \
 	ke/critical.o \
 	ke/dpc.o \
 	ke/device.o \
@@ -117,8 +135,7 @@ OBJECTS_KE = \
 	ke/sem.o \
 	ke/spinlock.o \
 	ke/timer.o \
-	ke/wait.o \
-	ke/alert.o
+	ke/wait.o
 
 # Memory Manager (Mm)
 OBJECTS_MM = \
@@ -127,8 +144,6 @@ OBJECTS_MM = \
 	mm/balance.o \
 	mm/cont.o \
 	mm/drvlck.o \
-	mm/elf32.o \
-	mm/elf64.o \
 	mm/freelist.o \
 	mm/iospace.o \
 	mm/kmap.o \
@@ -144,13 +159,13 @@ OBJECTS_MM = \
 	mm/pageop.o \
 	mm/pager.o \
 	mm/paging.o \
-	mm/pe.o \
 	mm/pool.o \
 	mm/ppool.o \
 	mm/physical.o \
 	mm/region.o \
 	mm/rmap.o \
 	mm/section.o \
+	mm/slab.o \
 	mm/verifier.o \
 	mm/virtual.o \
 	mm/wset.o
@@ -169,7 +184,6 @@ OBJECTS_IO = \
 	io/deviface.o \
 	io/dir.o \
 	io/driver.o \
-	io/efi.o \
 	io/errlog.o \
 	io/error.o \
 	io/event.o \
@@ -188,11 +202,10 @@ OBJECTS_IO = \
 	io/npipe.o \
 	io/page.o \
 	io/parttab.o \
-	io/plugplay.o \
 	io/process.o \
+	io/pnpnotify.o \
 	io/pnpdma.o \
 	io/pnpmgr.o \
-	io/pnpnotify.o \
 	io/pnpreport.o \
 	io/pnproot.o \
 	io/queue.o \
@@ -242,32 +255,25 @@ OBJECTS_PS = \
 OBJECTS_EX = \
 	ex/btree.o \
 	ex/callback.o \
-	ex/event.o \
-	ex/evtpair.o \
 	ex/fmutex.o \
 	ex/hashtab.o \
 	ex/init.o \
 	ex/interlck.o \
 	ex/list.o \
 	ex/lookas.o \
-	ex/mutant.o \
 	ex/napi.o \
 	ex/power.o \
-	ex/profile.o \
 	ex/resource.o \
 	ex/rundown.o \
 	ex/stree.o \
-	ex/sem.o \
 	ex/synch.o \
 	ex/sysinfo.o \
 	ex/time.o \
-	ex/timer.o \
 	ex/util.o \
 	ex/uuid.o \
 	ex/win32k.o \
 	ex/work.o \
-	ex/zone.o \
-	ex/zw.o
+	ex/zone.o
 
 # Installable File System Run-Time Library (FsRtl)
 OBJECTS_FS = \
@@ -303,6 +309,7 @@ OBJECTS_CM = \
 	cm/regfile.o \
 	cm/registry.o  \
 	cm/regobj.o \
+	cm/rtlfunc.o
 
 # Debugger Support (Dbg)
 OBJECTS_DBG = \
@@ -346,6 +353,7 @@ OBJECTS_CC = \
 	cc/fs.o \
 	cc/pin.o \
 	cc/mdl.o \
+	cc/misc.o \
 	cc/view.o
 
 # Kernel Debugger Support (Kd)
@@ -360,7 +368,7 @@ OBJECTS_KD = \
 OBJECTS_INBV = \
 	inbv/inbv.o
 
-DEP_OBJECTS := $(OBJECTS_MM) $(OBJECTS_ARCH) \
+DEP_OBJECTS := $(OBJECTS_NT) $(OBJECTS_MM) $(OBJECTS_ARCH) \
 	$(OBJECTS_IO) $(OBJECTS_KE) $(OBJECTS_OB) \
 	$(OBJECTS_PS) $(OBJECTS_EX) $(OBJECTS_CC) $(OBJECTS_FS) $(OBJECTS_SE) \
 	$(OBJECTS_DBG) $(OBJECTS_CM) $(OBJECTS_LDR) $(OBJECTS_LPC) \
@@ -464,6 +472,12 @@ $(OBJECTS_PATH)/lpc.o: $(OBJECTS_LPC)
 		-o $(OBJECTS_PATH)/lpc.o \
 		$(OBJECTS_LPC)
 
+$(OBJECTS_PATH)/nt.o: $(OBJECTS_NT)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/nt.o \
+		$(OBJECTS_NT)
+
 $(OBJECTS_PATH)/po.o: $(OBJECTS_PO)
 	$(LD) \
 		-r \
@@ -502,6 +516,7 @@ OBJECTS := \
 	$(OBJECTS_PATH)/kd.o \
 	$(OBJECTS_PATH)/ldr.o \
 	$(OBJECTS_PATH)/mm.o \
+	$(OBJECTS_PATH)/nt.o \
 	$(OBJECTS_PATH)/ob.o \
 	$(OBJECTS_PATH)/po.o \
 	$(OBJECTS_PATH)/ps.o \
@@ -517,11 +532,9 @@ TARGET_OBJECTS = $(EXTRA_OBJECTS) $(OBJECTS)
 TARGET_LIBS = \
 	$(DDK_PATH_LIB)/libhal.a \
 	$(SDK_PATH_LIB)/librtl.a \
-	$(SDK_PATH_LIB)/librossym.a \
 	$(SDK_PATH_LIB)/libstring.a \
 	$(SDK_PATH_LIB)/librosrtl.a \
 	$(SDK_PATH_LIB)/libpseh.a \
-	$(SDK_PATH_LIB)/libwdmguid.a \
 	$(PATH_TO_TOP)/drivers/lib/csq/csq.o
 
 TARGET_LFLAGS = \
@@ -530,10 +543,7 @@ TARGET_LFLAGS = \
 	-Wl,--image-base,$(TARGET_BASE) \
 	-Wl,--file-alignment,0x1000 \
 	-Wl,--section-alignment,0x1000 \
-	-Wl,--entry,_NtProcessStartup \
-	-nostdlib
-
-TARGET_GCCLIBS = gcc
+	-Wl,--entry,_NtProcessStartup
 
 TAGS: $(TAG_OBJECTS)
 	etags $(addprefix -i , $(TAG_OBJECTS))
@@ -548,9 +558,9 @@ $(PATH_TO_TOP)/include/reactos/bugcodes.h bugcodes.rc: ntoskrnl.mc
 
 TARGET_CLEAN = \
   $(PATH_TO_TOP)/include/reactos/bugcodes.h \
-  $(DEP_OBJECTS) $(DEP_FILES) MSG00409.bin bugcodes.rc
+  $(DEP_OBJECTS) $(DEP_FILES) MSG00409.bin bugcodes.rc 
 
-ex/napi.o: ex/zw.S $(PATH_TO_TOP)/include/ntdll/napi.h
+ex/napi.o: ex/napi.c $(PATH_TO_TOP)/include/ntdll/napi.h
 
 ke/main.o: ke/main.c $(PATH_TO_TOP)/include/reactos/buildno.h
 

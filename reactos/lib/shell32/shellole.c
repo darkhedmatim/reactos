@@ -556,11 +556,9 @@ static HRESULT WINAPI IDefClF_fnQueryInterface(
 static ULONG WINAPI IDefClF_fnAddRef(LPCLASSFACTORY iface)
 {
 	IDefClFImpl *This = (IDefClFImpl *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 
-	TRACE("(%p)->(count=%lu)\n", This, refCount - 1);
-
-	return refCount;
+	return InterlockedIncrement(&This->ref);
 }
 /******************************************************************************
  * IDefClF_fnRelease
@@ -568,11 +566,9 @@ static ULONG WINAPI IDefClF_fnAddRef(LPCLASSFACTORY iface)
 static ULONG WINAPI IDefClF_fnRelease(LPCLASSFACTORY iface)
 {
 	IDefClFImpl *This = (IDefClFImpl *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
-	
-	TRACE("(%p)->(count=%lu)\n", This, refCount + 1);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 
-	if (!refCount)
+	if (!InterlockedDecrement(&This->ref))
 	{
 	  if (This->pcRefDll) InterlockedDecrement(This->pcRefDll);
 
@@ -580,7 +576,7 @@ static ULONG WINAPI IDefClF_fnRelease(LPCLASSFACTORY iface)
 	  HeapFree(GetProcessHeap(),0,This);
 	  return 0;
 	}
-	return refCount;
+	return This->ref;
 }
 /******************************************************************************
  * IDefClF_fnCreateInstance
@@ -708,7 +704,7 @@ UINT WINAPI DragQueryFileA(
 
 	lpDrop = (LPSTR) lpDropFileStruct + lpDropFileStruct->pFiles;
 
-        if(lpDropFileStruct->fWide) {
+        if(lpDropFileStruct->fWide == TRUE) {
             LPWSTR lpszFileW = NULL;
 
             if(lpszFile) {

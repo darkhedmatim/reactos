@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: api.h,v 1.7 2004/11/14 18:47:10 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -36,7 +36,7 @@ typedef struct _CSRSS_PROCESS_DATA
   PCSRSS_CONSOLE Console;
   ULONG HandleTableSize;
   Object_t ** HandleTable;
-  HANDLE ProcessId;
+  ULONG ProcessId;
   ULONG ShutdownLevel;
   ULONG ShutdownFlags;
   HANDLE ConsoleEvent;
@@ -96,8 +96,7 @@ NTSTATUS FASTCALL CsrApiRegisterDefinitions(PCSRSS_API_DEFINITION NewDefinitions
 VOID FASTCALL CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
                                 PCSRSS_API_REQUEST Request,
                                 PCSRSS_API_REPLY Reply);
-VOID STDCALL ServerApiPortThread (PVOID PortHandle);
-VOID STDCALL ServerSbApiPortThread (PVOID PortHandle);
+VOID STDCALL ServerApiPortThead(PVOID PortHandle);
 VOID Console_Api( DWORD Ignored );
 
 extern HANDLE CsrssApiHeap;
@@ -107,9 +106,9 @@ VOID STDCALL CsrInitConsoleSupport(VOID);
 
 /* api/process.c */
 VOID STDCALL CsrInitProcessData(VOID);
-PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(HANDLE ProcessId);
-PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(HANDLE ProcessId);
-NTSTATUS STDCALL CsrFreeProcessData( HANDLE Pid );
+PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(ULONG ProcessId);
+PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(ULONG ProcessId);
+NTSTATUS STDCALL CsrFreeProcessData( ULONG Pid );
 
 /* api/handle.c */
 NTSTATUS FASTCALL CsrRegisterObjectDefinitions(PCSRSS_OBJECT_DEFINITION NewDefinitions);

@@ -201,8 +201,6 @@ TAB_DumpItemInternal(TAB_INFO *infoPtr, UINT iItem)
     }
 }
 
-/* RETURNS
- *   the index of the selected tab, or -1 if no tab is selected. */
 static LRESULT
 TAB_GetCurSel (HWND hwnd)
 {
@@ -211,21 +209,11 @@ TAB_GetCurSel (HWND hwnd)
     return infoPtr->iSelected;
 }
 
-/* RETURNS
- *   the index of the tab item that has the focus
- * NOTE
- *   we have not to return negative value
- * TODO
- *   test for windows */
 static LRESULT
 TAB_GetCurFocus (HWND hwnd)
 {
     TAB_INFO *infoPtr = TAB_GetInfoPtr(hwnd);
-    if (infoPtr->uFocus<0)
-    {
-        FIXME("we have not to return negative value");
-        return 0;
-    }
+
     return infoPtr->uFocus;
 }
 
@@ -267,10 +255,10 @@ TAB_SetCurFocus (HWND hwnd,WPARAM wParam)
     FIXME("Should set input focus\n");
   } else {
     int oldFocus = infoPtr->uFocus;
-    if (infoPtr->iSelected != iItem || oldFocus == -1 ) {
+    if (infoPtr->iSelected != iItem || infoPtr->uFocus == -1 ) {
       infoPtr->uFocus = iItem;
       if (oldFocus != -1) {
-        if (!TAB_SendSimpleNotify(hwnd, TCN_SELCHANGING))  {
+        if (TAB_SendSimpleNotify(hwnd, TCN_SELCHANGING)!=TRUE)  {
           infoPtr->iSelected = iItem;
           TAB_SendSimpleNotify(hwnd, TCN_SELCHANGE);
         }
@@ -623,7 +611,7 @@ TAB_LButtonDown (HWND hwnd, WPARAM wParam, LPARAM lParam)
 
   if ((newItem != -1) && (infoPtr->iSelected != newItem))
   {
-    if (!TAB_SendSimpleNotify(hwnd, TCN_SELCHANGING))
+    if (TAB_SendSimpleNotify(hwnd, TCN_SELCHANGING) != TRUE)
     {
       infoPtr->iSelected = newItem;
       infoPtr->uFocus    = newItem;
@@ -3270,6 +3258,8 @@ TAB_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	     uMsg, wParam, lParam);
       return DefWindowProcW(hwnd, uMsg, wParam, lParam);
     }
+
+    return 0;
 }
 
 

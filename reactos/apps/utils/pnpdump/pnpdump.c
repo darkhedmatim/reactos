@@ -290,7 +290,7 @@ GetPnpKey(PHKEY PnpKey)
 			       "Identifier",
 			       NULL,
 			       &dwType,
-			       (LPBYTE)szBuffer,
+			       szBuffer,
 			       &dwSize);
       if (lError != ERROR_SUCCESS)
 	{
@@ -547,7 +547,7 @@ PnpDecodeFixedMemory(unsigned char *Ptr)
 
 void PrintDeviceData (PCM_PNP_BIOS_DEVICE_NODE DeviceNode)
 {
-  char PnpId[8];
+  unsigned char PnpId[8];
   unsigned char *Ptr;
   unsigned int TagSize;
   unsigned int TagType;
@@ -706,7 +706,7 @@ int main (int argc, char *argv[])
     }
 
   /* Allocate buffer */
-  dwSize = 2048;
+  dwSize = 1024;
   lpBuffer = malloc(dwSize);
   if (lpBuffer == NULL)
     {
@@ -715,28 +715,19 @@ int main (int argc, char *argv[])
       return 0;
     }
 
-  do
-    {
-      lError = RegQueryValueEx(hPnpKey,
-			       "Configuration Data",
-			       NULL,
-			       &dwType,
-			       (LPBYTE)lpBuffer,
-			       &dwSize);
-      if (lError == ERROR_MORE_DATA)
-        {
-          lpBuffer = realloc(lpBuffer, dwSize);
-          if (lpBuffer == NULL)
-            {
-              printf("Error: realloc() of %u bytes failed\n", (unsigned) dwSize);
-              RegCloseKey(hPnpKey);
-              return 0;
-            }
-        }
-    }
-  while (lError == ERROR_MORE_DATA);
+  lError = RegQueryValueEx(hPnpKey,
+			   "Configuration Data",
+			   NULL,
+			   &dwType,
+			   (LPSTR)lpBuffer,
+			   &dwSize);
   if (lError != ERROR_SUCCESS)
     {
+      if (lError == ERROR_MORE_DATA)
+	{
+	  printf("Need to resize buffer to %lu\n", dwSize);
+	}
+
       printf("Failed to read 'Configuration Data' value\n");
       free(lpBuffer);
       RegCloseKey(hPnpKey);
@@ -762,13 +753,13 @@ int main (int argc, char *argv[])
 //  printf("ResourceSize: %lu\n", dwResourceSize);
 
   lpPnpInst = (PCM_PNP_BIOS_INSTALLATION_CHECK)
-	((ULONG_PTR)(&lpBuffer->PartialResourceList.PartialDescriptors[0]) +
+	((DWORD)(&lpBuffer->PartialResourceList.PartialDescriptors[0]) +
 	  sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
 
 //  printf("lpPnpInst %p\n", lpPnpInst);
 
   printf("Signature '%.4s'\n", lpPnpInst->Signature);
-  if (strncmp((PCHAR)lpPnpInst->Signature, "$PnP", 4))
+  if (strncmp(lpPnpInst->Signature, "$PnP", 4))
     {
       printf("Error: Invalid PnP signature\n");
       free(lpBuffer);

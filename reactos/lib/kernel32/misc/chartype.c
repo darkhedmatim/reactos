@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: chartype.c,v 1.1 2004/10/04 19:17:58 gvg Exp $
  *
  * KERNEL32.DLL locale functions
  *

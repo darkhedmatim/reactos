@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: menu.c,v 1.57 2004/12/13 15:38:19 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -717,16 +717,6 @@ IntSetMenuItemInfo(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, PROSMENUITEMINF
   }
   if(lpmii->fMask & (MIIM_FTYPE | MIIM_TYPE))
   {
-    /*
-     * Delete the menu item type when changing type from
-     * MF_STRING.
-     */
-    if (MenuItem->fType != lpmii->fType && 
-        MENU_ITEM_TYPE(MenuItem->fType) == MF_STRING)
-    {
-      FreeMenuText(MenuItem);
-      RtlInitUnicodeString(&MenuItem->Text, NULL);
-    }
     MenuItem->fType = lpmii->fType;
   }
   if(lpmii->fMask & MIIM_ID)
@@ -747,30 +737,19 @@ IntSetMenuItemInfo(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, PROSMENUITEMINF
   {
     MenuItem->hSubMenu = lpmii->hSubMenu;
     /* Make sure the submenu is marked as a popup menu */
-    if (MenuItem->hSubMenu)
+    if (0 != (MenuItem->fType & MF_POPUP))
     {
       SubMenuObject = IntGetMenuObject(MenuItem->hSubMenu);
-      if (SubMenuObject != NULL)
+      if (NULL != SubMenuObject)
       {
         SubMenuObject->MenuInfo.Flags |= MF_POPUP;
-        MenuItem->fType |= MF_POPUP;
         IntReleaseMenuObject(SubMenuObject);
       }
-      else
-      {
-        MenuItem->fType &= ~MF_POPUP;
-      }
-    }
-    else
-    {
-      MenuItem->fType &= ~MF_POPUP;
     }
   }
-  if ((lpmii->fMask & (MIIM_TYPE | MIIM_STRING)) && 
-      (MENU_ITEM_TYPE(lpmii->fType) == MF_STRING))
+  if((lpmii->fMask & (MIIM_TYPE | MIIM_STRING)) && 
+           (MENU_ITEM_TYPE(lpmii->fType) == MF_STRING))
   {
-    FreeMenuText(MenuItem);
-
     if(lpmii->dwTypeData && lpmii->cch)
     {
       UNICODE_STRING Source;
@@ -779,6 +758,7 @@ IntSetMenuItemInfo(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, PROSMENUITEMINF
       Source.MaximumLength = lpmii->cch * sizeof(WCHAR);
       Source.Buffer = lpmii->dwTypeData;
 
+      FreeMenuText(MenuItem);
       MenuItem->Text.Buffer = (PWSTR)ExAllocatePoolWithTag(
         PagedPool, Source.Length + sizeof(WCHAR), TAG_STRING);
       if(MenuItem->Text.Buffer != NULL)
@@ -790,7 +770,9 @@ IntSetMenuItemInfo(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, PROSMENUITEMINF
       }
       else
       {
-        RtlInitUnicodeString(&MenuItem->Text, NULL);
+        MenuItem->Text.Length = 0;
+        MenuItem->Text.MaximumLength = 0;
+        MenuItem->Text.Buffer = NULL;
       }
     }
     else
@@ -798,6 +780,10 @@ IntSetMenuItemInfo(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, PROSMENUITEMINF
       MenuItem->fType |= MF_SEPARATOR;
       RtlInitUnicodeString(&MenuItem->Text, NULL);
     }
+  }
+  else
+  {
+    RtlInitUnicodeString(&MenuItem->Text, NULL);
   }
 
   if (sizeof(ROSMENUITEMINFO) == lpmii->cbSize)
@@ -1353,7 +1339,7 @@ NtUserCreateMenu(BOOL PopupMenu)
   if (!NT_SUCCESS(Status))
   {
     DPRINT("Validation of window station handle (0x%X) failed\n",
-      PsGetCurrentProcess()->Win32WindowStation);
+      PROCESS_WINDOW_STATION());
     SetLastNtError(Status);
     return (HMENU)0;
   }

@@ -113,7 +113,7 @@ KIRQL STDCALL KeGetCurrentIrql (VOID);
 #ifndef __USE_W32API
 #define KeGetCurrentProcessorNumber() (KeGetCurrentKPCR()->ProcessorNumber)
 ULONG KeGetDcacheFillSize(VOID);
-KPROCESSOR_MODE STDCALL KeGetPreviousMode (VOID);
+ULONG STDCALL KeGetPreviousMode (VOID);
 #endif
 
 struct _KTHREAD* STDCALL KeGetCurrentThread (VOID);
@@ -149,17 +149,17 @@ VOID STDCALL KeInitializeEvent (PKEVENT		Event,
 				EVENT_TYPE	Type,
 				BOOLEAN		State);
 
-VOID STDCALL KeInitializeInterrupt(PKINTERRUPT InterruptObject,
-				   PKSERVICE_ROUTINE ServiceRoutine,
-				   PVOID ServiceContext,
-				   PKSPIN_LOCK SpinLock,
-				   ULONG Vector,
-				   KIRQL Irql,
-				   KIRQL SynchronizeIrql,
-				   KINTERRUPT_MODE InterruptMode,
-				   BOOLEAN ShareVector,
-				   CHAR ProcessorNumber,
-				   BOOLEAN FloatingSave);
+NTSTATUS STDCALL KeInitializeInterrupt(PKINTERRUPT InterruptObject,
+				       PKSERVICE_ROUTINE ServiceRoutine,
+				       PVOID ServiceContext,
+				       PKSPIN_LOCK SpinLock,
+				       ULONG Vector,
+				       KIRQL Irql,
+				       KIRQL SynchronizeIrql,
+				       KINTERRUPT_MODE InterruptMode,
+				       BOOLEAN ShareVector,
+				       KAFFINITY ProcessorEnableMask,
+				       BOOLEAN FloatingSave);
 
 VOID STDCALL KeInitializeMutant(IN PKMUTANT Mutant,
 				IN BOOLEAN InitialOwner);
@@ -218,9 +218,9 @@ VOID STDCALL KeLeaveCriticalRegion (VOID);
 
 VOID STDCALL KeLowerIrql (KIRQL	NewIrql);
 
-LONG STDCALL KePulseEvent (PKEVENT		Event,
-			   KPRIORITY	Increment,
-			   BOOLEAN		Wait);
+NTSTATUS STDCALL KePulseEvent (PKEVENT		Event,
+			       KPRIORITY	Increment,
+			       BOOLEAN		Wait);
 
 LARGE_INTEGER
 STDCALL
@@ -246,12 +246,6 @@ KeQueryTimeIncrement (
 	VOID
 	);
 
-ULONGLONG 
-STDCALL
-KeQueryInterruptTime(
-    VOID
-    );
-            
 VOID
 STDCALL
 KeRaiseIrql (
@@ -372,10 +366,6 @@ KeRosGetStackFrames ( PULONG Frames, ULONG FrameCount );
 
 BOOLEAN STDCALL
 KeRosPrintAddress(PVOID address);
-
-NTSTATUS STDCALL
-KeSetAffinityThread(PKTHREAD	Thread,
-		    KAFFINITY	Affinity);
 
 LONG STDCALL
 KeSetBasePriorityThread(struct _KTHREAD* Thread,

@@ -1,11 +1,10 @@
-/* $Id$
+/* $Id: exception.c,v 1.11 2004/07/01 02:40:23 hyperion Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/i386/exception.c
- * PURPOSE:         Kernel-mode exception support for IA-32
- *
- * PROGRAMMERS:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Kernel-mode exception support for IA-32
+ * FILE:              ntoskrnl/rtl/i386/exception.c
+ * PROGRAMER:         Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
 /* INCLUDES *****************************************************************/

@@ -17,8 +17,6 @@ typedef enum
 
 typedef struct _WINSTATION_OBJECT
 {
-  PVOID SharedHeap; /* points to kmode memory! */
-
   CSHORT Type;
   CSHORT Size;
   KSPIN_LOCK Lock;
@@ -46,8 +44,6 @@ typedef struct _WINSTATION_OBJECT
 
 typedef struct _DESKTOP_OBJECT
 {
-  PVOID DesktopHeap; /* points to kmode memory! */
-
   CSHORT Type;
   CSHORT Size;
   LIST_ENTRY ListEntry;
@@ -124,28 +120,5 @@ ExfpInterlockedExchange64(LONGLONG volatile * Destination,
 NTSTATUS
 ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation);
 
-NTSTATUS
-ExpAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId);
-
-#define InterlockedDecrementUL(Addend) \
-   (ULONG)InterlockedDecrement((PLONG)(Addend))
-
-#define InterlockedIncrementUL(Addend) \
-   (ULONG)InterlockedIncrement((PLONG)(Addend))
-
-#define InterlockedExchangeUL(Target, Value) \
-   (ULONG)InterlockedExchange((PLONG)(Target), (LONG)(Value))
-
-#define InterlockedExchangeAddUL(Addend, Value) \
-   (ULONG)InterlockedExchangeAdd((PLONG)(Addend), (LONG)(Value))
-
-#define InterlockedCompareExchangeUL(Destination, Exchange, Comperand) \
-   (ULONG)InterlockedCompareExchange((PLONG)(Destination), (LONG)(Exchange), (LONG)(Comperand))
-
-#define ExfInterlockedCompareExchange64UL(Destination, Exchange, Comperand) \
-   (ULONGLONG)ExfInterlockedCompareExchange64((PLONGLONG)(Destination), (PLONGLONG)(Exchange), (PLONGLONG)(Comperand))
-
-#define ExfpInterlockedExchange64UL(Target, Value) \
-   (ULONGLONG)ExfpInterlockedExchange64((PLONGLONG)(Target), (PLONGLONG)(Value))
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_EXECUTIVE_H */

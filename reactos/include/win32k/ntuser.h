@@ -156,14 +156,14 @@ NtUserCallNextHookEx(
   WPARAM wParam,
   LPARAM lParam);
 
-#define NOPARAM_ROUTINE_MSQCLEARWAKEMASK      0x3
-#define NOPARAM_ROUTINE_REGISTER_PRIMITIVE	  0xffff0001 /* Private ROS */
-#define NOPARAM_ROUTINE_DESTROY_CARET         0xffff0002
-#define NOPARAM_ROUTINE_UNINIT_MESSAGE_PUMP   0xffff0003
-#define NOPARAM_ROUTINE_INIT_MESSAGE_PUMP     0xffff0004
-#define NOPARAM_ROUTINE_GETMESSAGEEXTRAINFO   0xffff0005
-#define NOPARAM_ROUTINE_ANYPOPUP              0xffff0006
-#define NOPARAM_ROUTINE_CSRSS_INITIALIZED     0xffff0007
+#define NOPARAM_ROUTINE_REGISTER_PRIMITIVE	0xffff0001 /* Private ROS */
+#define NOPARAM_ROUTINE_DESTROY_CARET	0xffff0002
+#define NOPARAM_ROUTINE_UNINIT_MESSAGE_PUMP	0xffff0003
+#define NOPARAM_ROUTINE_INIT_MESSAGE_PUMP	0xffff0004
+#define NOPARAM_ROUTINE_GETMESSAGEEXTRAINFO	0xffff0005
+#define NOPARAM_ROUTINE_ANYPOPUP	0xffff0006
+#define NOPARAM_ROUTINE_CSRSS_INITIALIZED	0xffff0007
+#define NOPARAM_ROUTINE_GDI_QUERY_TABLE	0xffff0008
 DWORD
 STDCALL
 NtUserCallNoParam(
@@ -178,12 +178,11 @@ NtUserCallNoParam(
 #define ONEPARAM_ROUTINE_GETCARETINFO         0x07
 #define ONEPARAM_ROUTINE_SWITCHCARETSHOWING   0x08
 #define ONEPARAM_ROUTINE_ENUMCLIPBOARDFORMATS 0x09
+#define ONEPARAM_ROUTINE_GETWINDOWINSTANCE    0x10
 #define ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO  0x0a
 #define ONEPARAM_ROUTINE_GETCURSORPOSITION    0x0b
 #define ONEPARAM_ROUTINE_ISWINDOWINDESTROY    0x0c
 #define ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING 0x0d
-#define ONEPARAM_ROUTINE_GETWINDOWINSTANCE    0x10
-#define ONEPARAM_ROUTINE_MSQSETWAKEMASK       0x27
 DWORD
 STDCALL
 NtUserCallOneParam(
@@ -1813,7 +1812,7 @@ typedef struct tagKMDDELPARAM
 typedef struct _GDI_TABLE_ENTRY
 {
   PVOID KernelData; /* Points to the kernel mode structure */
-  HANDLE ProcessId; /* process id that created the object, 0 for stock objects */
+  LONG ProcessId;   /* process id that created the object, 0 for stock objects */
   LONG Type;        /* the first 16 bit is the object type including the stock obj flag, the last 16 bits is just the object type */
   PVOID UserData;   /* Points to the user mode structure, usually NULL though */
 } GDI_TABLE_ENTRY, *PGDI_TABLE_ENTRY;

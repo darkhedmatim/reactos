@@ -1,4 +1,4 @@
-# $Id$
+# $Id: makefile,v 1.1 2004/06/02 18:36:55 hyperion Exp $
 
 PATH_TO_TOP = ../..
 

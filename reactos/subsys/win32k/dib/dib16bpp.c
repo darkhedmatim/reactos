@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: dib16bpp.c,v 1.35 2004/07/14 20:48:56 navaraf Exp $ */
 #include <w32k.h>
 
 VOID
@@ -40,52 +40,15 @@ DIB_16BPP_GetPixel(SURFOBJ *SurfObj, LONG x, LONG y)
 VOID
 DIB_16BPP_HLine(SURFOBJ *SurfObj, LONG x1, LONG x2, LONG y, ULONG c)
 {
-  PDWORD addr = (PDWORD)((PWORD)(SurfObj->pvScan0 + y * SurfObj->lDelta) + x1);
-
-#ifdef _M_IX86
-  /* This is about 10% faster than the generic C code below */
-  LONG Count = x2 - x1;
-
-  __asm__(
-"  cld\n"
-"  andl $0xffff, %0\n"  /* If the pixel value is "abcd", put "abcdabcd" in %eax */
-"  mov  %0, %%eax\n"
-"  shl  $16, %%eax\n"
-"  or   %0, %%eax\n"
-"  test $0x01, %%edi\n" /* Align to fullword boundary */
-"  jz   .L1\n"
-"  stosw\n"
-"  dec  %1\n"
-"  jz   .L2\n"
-".L1:\n"
-"  mov  %1,%%ecx\n"     /* Setup count of fullwords to fill */
-"  shr  $1,%%ecx\n"
-"  rep stosl\n"         /* The actual fill */
-"  test $0x01, %1\n"    /* One left to do at the right side? */
-"  jz   .L2\n"
-"  stosw\n"
-".L2:\n"
-  : /* no output */
-  : "r"(c), "r"(Count), "D"(addr)
-  : "%eax", "%ecx");
-#else /* _M_IX86 */
+  PBYTE byteaddr = SurfObj->pvScan0 + y * SurfObj->lDelta;
+  PWORD addr = (PWORD)byteaddr + x1;
   LONG cx = x1;
-  DWORD cc;
 
-  if (0 != (cx & 0x01)) {
-    *((PWORD) addr) = c;
-    cx++;
-    addr = (PDWORD)((PWORD)(addr) + 1);
+  while(cx < x2) {
+    *addr = (WORD)c;
+    ++addr;
+    ++cx;
   }
-  cc = ((c & 0xffff) << 16) | (c & 0xffff);
-  while(cx + 1 < x2) {
-    *addr++ = cc;
-    cx += 2;
-  }
-  if (cx < x2) {
-    *((PWORD) addr) = c;
-  }
-#endif /* _M_IX86 */
 }
 
 VOID
@@ -309,8 +272,8 @@ DIB_16BPP_BitBlt(PBLTINFO BltInfo)
    PULONG DestBits;
    ULONG RoundedRight;
 
-   UsesSource = ROP4_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP4_USES_PATTERN(BltInfo->Rop4);  
+   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
+   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);  
       
    RoundedRight = BltInfo->DestRect.right -
                   ((BltInfo->DestRect.right - BltInfo->DestRect.left) & 0x1);

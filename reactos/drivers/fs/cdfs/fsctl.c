@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: fsctl.c,v 1.19 2004/03/16 08:30:28 arty Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -52,7 +52,7 @@ CdfsGetPVDData(PUCHAR Buffer,
 {
   PPVD Pvd;
   ULONG i;
-  PUCHAR pc;
+  PCHAR pc;
   PWCHAR pw;
 
   union
@@ -153,17 +153,17 @@ CdfsGetSVDData(PUCHAR Buffer,
 
   DPRINT("EscapeSequences: '%.32s'\n", Svd->EscapeSequences);
 
-  if (strncmp((PCHAR)Svd->EscapeSequences, "%/@", 3) == 0)
+  if (strncmp(Svd->EscapeSequences, "%/@", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 1)\n");
       JolietLevel = 1;
     }
-  else if (strncmp((PCHAR)Svd->EscapeSequences, "%/C", 3) == 0)
+  else if (strncmp(Svd->EscapeSequences, "%/C", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 2)\n");
       JolietLevel = 2;
     }
-  else if (strncmp((PCHAR)Svd->EscapeSequences, "%/E", 3) == 0)
+  else if (strncmp(Svd->EscapeSequences, "%/E", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 3)\n");
       JolietLevel = 3;
@@ -345,7 +345,6 @@ CdfsMountVolume(PDEVICE_OBJECT DeviceObject,
     goto ByeBye;
 
   NewDeviceObject->Flags = NewDeviceObject->Flags | DO_DIRECT_IO;
-  NewDeviceObject->Flags &= ~DO_VERIFY_VOLUME;
   DeviceExt = (PVOID)NewDeviceObject->DeviceExtension;
   RtlZeroMemory(DeviceExt,
 		sizeof(DEVICE_EXTENSION));
@@ -386,6 +385,7 @@ CdfsMountVolume(PDEVICE_OBJECT DeviceObject,
   RtlZeroMemory(Ccb,
 		sizeof(CCB));
 
+  DeviceExt->StreamFileObject->Flags = DeviceExt->StreamFileObject->Flags | FO_FCB_IS_VALID | FO_DIRECT_CACHE_PAGING_READ;
   DeviceExt->StreamFileObject->FsContext = Fcb;
   DeviceExt->StreamFileObject->FsContext2 = Ccb;
   DeviceExt->StreamFileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
@@ -402,7 +402,7 @@ CdfsMountVolume(PDEVICE_OBJECT DeviceObject,
 
   Fcb->Entry.ExtentLocationL = 0;
   Fcb->Entry.DataLengthL = (DeviceExt->CdInfo.VolumeSpaceSize + DeviceExt->CdInfo.VolumeOffset) * BLOCKSIZE;
-#ifdef USE_ROS_CC_AND_FS
+
   Status = CcRosInitializeFileCache(DeviceExt->StreamFileObject,
 				    PAGE_SIZE);
   if (!NT_SUCCESS (Status))
@@ -410,13 +410,7 @@ CdfsMountVolume(PDEVICE_OBJECT DeviceObject,
       DbgPrint("CcRosInitializeFileCache failed\n");
       goto ByeBye;
     }
-#else
-  CcInitializeCacheMap(DeviceExt->StreamFileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-		       TRUE,
-		       NULL,
-		       NULL);
-#endif
+
   ExInitializeResourceLite(&DeviceExt->VcbResource);
   ExInitializeResourceLite(&DeviceExt->DirResource);
 

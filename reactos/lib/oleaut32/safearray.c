@@ -154,7 +154,7 @@ static inline DWORD SAFEARRAY_GetHiddenDWORD(SAFEARRAY* psa)
 /* Get the number of cells in a SafeArray */
 static ULONG SAFEARRAY_GetCellCount(const SAFEARRAY *psa)
 {
-  const SAFEARRAYBOUND* psab = psa->rgsabound;
+  SAFEARRAYBOUND* psab = psa->rgsabound;
   USHORT cCount = psa->cDims;
   ULONG ulNumCells = 1;
 
@@ -1337,7 +1337,7 @@ HRESULT WINAPI SafeArrayDestroy(SAFEARRAY *psa)
   TRACE("(%p)\n", psa);
 
   if(!psa)
-    return S_OK;
+    return E_INVALIDARG;
 
   if(psa->cLocks > 0)
     return DISP_E_ARRAYISLOCKED;

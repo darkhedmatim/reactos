@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: display.c,v 1.14 2004/12/12 21:25:04 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/dde.c
@@ -200,15 +200,7 @@ EnumDisplaySettingsExA(
 {
   BOOL rc;
   UNICODE_STRING DeviceName;
-  LPDEVMODEW lpDevModeW;
-
-  lpDevModeW = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                         sizeof(DEVMODEW) + lpDevMode->dmDriverExtra);
-  if ( lpDevModeW == NULL )
-    {
-      SetLastError ( ERROR_OUTOFMEMORY );
-      return FALSE;
-    }
+  DEVMODEW DevModeW;
 
   if ( !RtlCreateUnicodeStringFromAsciiz ( &DeviceName, (PCSZ)lpszDeviceName ) )
     {
@@ -216,16 +208,12 @@ EnumDisplaySettingsExA(
       return FALSE;
     }
 
-  lpDevModeW->dmSize = sizeof(DEVMODEW);
-  lpDevModeW->dmDriverExtra = 0;
+  RosRtlDevModeA2W ( &DevModeW, lpDevMode );
 
-  rc = NtUserEnumDisplaySettings ( &DeviceName, iModeNum, lpDevModeW,
-                                   dwFlags );
-
-  RosRtlDevModeW2A ( lpDevMode, lpDevModeW );
+  rc = NtUserEnumDisplaySettings ( &DeviceName, iModeNum, &DevModeW, dwFlags );
 
   RtlFreeUnicodeString ( &DeviceName );
-  HeapFree ( GetProcessHeap(), 0, lpDevModeW );
+  RosRtlDevModeW2A ( lpDevMode, &DevModeW );
 
   return rc;
 }

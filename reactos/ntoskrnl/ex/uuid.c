@@ -1,11 +1,9 @@
-/* $Id$
+/* $Id: uuid.c,v 1.3 2004/12/19 12:52:42 ekohl Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ex/uuid.c
- * PURPOSE:         UUID generator
- *
- * PROGRAMMERS:     No programmer listed.
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           UUID generator
+ * FILE:              kernel/ex/uuid.c
  */
 
 /* INCLUDES *****************************************************************/
@@ -74,12 +72,12 @@ ExpLoadUuidSequence(PULONG Sequence)
 			     OBJ_CASE_INSENSITIVE,
 			     NULL,
 			     NULL);
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     KEY_QUERY_VALUE,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
   {
-    DPRINT("ZwOpenKey() failed (Status %lx)\n", Status);
+    DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
     return Status;
   }
 
@@ -87,16 +85,16 @@ ExpLoadUuidSequence(PULONG Sequence)
 		       L"UuidSequenceNumber");
 
   ValueInfo = (PKEY_VALUE_PARTIAL_INFORMATION)ValueBuffer;
-  Status = ZwQueryValueKey(KeyHandle,
+  Status = NtQueryValueKey(KeyHandle,
 			   &Name,
 			   KeyValuePartialInformation,
 			   ValueBuffer,
 			   VALUE_BUFFER_SIZE,
 			   &ValueLength);
-  ZwClose(KeyHandle);
+  NtClose(KeyHandle);
   if (!NT_SUCCESS(Status))
   {
-    DPRINT("ZwQueryValueKey() failed (Status %lx)\n", Status);
+    DPRINT("NtQueryValueKey() failed (Status %lx)\n", Status);
     return Status;
   }
 
@@ -124,27 +122,27 @@ ExpSaveUuidSequence(PULONG Sequence)
 			     OBJ_CASE_INSENSITIVE,
 			     NULL,
 			     NULL);
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     KEY_SET_VALUE,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
   {
-    DPRINT("ZwOpenKey() failed (Status %lx)\n", Status);
+    DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
     return Status;
   }
 
   RtlInitUnicodeString(&Name,
 		       L"UuidSequenceNumber");
-  Status = ZwSetValueKey(KeyHandle,
+  Status = NtSetValueKey(KeyHandle,
 			 &Name,
 			 0,
 			 REG_DWORD,
 			 Sequence,
 			 sizeof(ULONG));
-  ZwClose(KeyHandle);
+  NtClose(KeyHandle);
   if (!NT_SUCCESS(Status))
   {
-    DPRINT("ZwSetValueKey() failed (Status %lx)\n", Status);
+    DPRINT("NtSetValueKey() failed (Status %lx)\n", Status);
   }
 
   return Status;
@@ -154,16 +152,8 @@ ExpSaveUuidSequence(PULONG Sequence)
 static VOID
 ExpGetRandomUuidSequence(PULONG Sequence)
 {
-  LARGE_INTEGER Counter;
-  LARGE_INTEGER Frequency;
-  ULONG Value;
-
-  Counter = KeQueryPerformanceCounter(&Frequency);
-  Value = Counter.u.LowPart ^ Counter.u.HighPart;
-
-  *Sequence = *Sequence ^ Value;
-
-  DPRINT("Sequence %lx\n", *Sequence);
+  /* FIXME */
+  *Sequence = 0x70615243;
 }
 
 
@@ -223,19 +213,13 @@ NtAllocateUuids(OUT PULARGE_INTEGER Time,
   ULARGE_INTEGER IntTime;
   ULONG IntRange;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   ExAcquireFastMutex(&UuidMutex);
 
   if (!UuidSequenceInitialized)
   {
     Status = ExpLoadUuidSequence(&UuidSequence);
-    if (NT_SUCCESS(Status))
-    {
-      UuidSequence++;
-    }
-    else
+    if (!NT_SUCCESS(Status))
     {
       ExpGetRandomUuidSequence(&UuidSequence);
     }
@@ -280,8 +264,6 @@ NtAllocateUuids(OUT PULARGE_INTEGER Time,
 NTSTATUS STDCALL
 NtSetUuidSeed(IN PUCHAR Seed)
 {
-  PAGED_CODE();
-  
   RtlCopyMemory(UuidSeed,
                 Seed,
                 SEED_BUFFER_SIZE);

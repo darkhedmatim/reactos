@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: inbv.c,v 1.8 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
  * FILE:           ntoskrnl/inbv/inbv.c
  * PURPOSE:        Boot video support
- * 
- * PROGRAMMERS:    Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * PROGRAMMER:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *  12-07-2003 CSH Created
  */
 
 /* INCLUDES ******************************************************************/
@@ -59,7 +60,6 @@ InbvCheckBootVid(VOID)
   return(STATUS_SUCCESS);
 }
 
-
 VOID
 STDCALL
 InbvAcquireDisplayOwnership(VOID)
@@ -82,14 +82,12 @@ InbvDisplayString(IN PCHAR String)
   return FALSE;
 }
 
-
 BOOLEAN
 STDCALL
 InbvResetDisplayParameters(ULONG SizeX, ULONG SizeY)
 {
   return(InbvResetDisplay());
 }
-
 
 VOID
 STDCALL INIT_FUNCTION
@@ -150,7 +148,6 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
       BootVidDevice = NULL;
     }
 }
-
 
 BOOLEAN
 STDCALL
@@ -219,17 +216,4 @@ InbvSolidColorFill(IN ULONG Left,
   IN ULONG Height,
   IN ULONG Color)
 {
-}
-
-NTSTATUS
-STDCALL
-NtDisplayString(IN PUNICODE_STRING DisplayString)
-{
-  OEM_STRING OemString;
-
-  RtlUnicodeStringToOemString(&OemString, DisplayString, TRUE);
-  HalDisplayString(OemString.Buffer);
-  RtlFreeOemString(&OemString);
-
-  return STATUS_SUCCESS;
 }

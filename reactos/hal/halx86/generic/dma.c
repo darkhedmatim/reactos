@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: dma.c,v 1.2 2004/12/10 19:05:33 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -121,8 +121,7 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 	DWORD ChannelSelect;
 	DWORD Controller;
 	ULONG MaximumLength;
-	BOOLEAN ChannelSetup = FALSE;
-	DMA_MODE DmaMode;	
+	BOOLEAN ChannelSetup;
 
 	DPRINT("Entered Function\n");
   
@@ -255,20 +254,16 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 		switch (ChannelSelect) {
 		
 		case 0:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel0) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel0));
 			break;
 		case 1:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel1) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel1));
 			break;
 		case 2:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel2) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel2));
 			break;
 		case 3:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel3) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel3));
 			break;
 		}
 	
@@ -278,16 +273,13 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 		switch (ChannelSelect) {
 		
 		case 1:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel5) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel5));
 			break;
 		case 2:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel6) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel6));
 			break;
 		case 3:
-			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel7) +
-			                                   FIELD_OFFSET(EISA_CONTROL, DmaController1Pages));
+			AdapterObject->PagePort = (PUCHAR)(FIELD_OFFSET(DMA_PAGE, Channel7));
 			break;
 		}
 		
@@ -349,8 +341,7 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 				    	*((PUCHAR)&ExtendedMode));
 		}
 	}
-
-	/* Do 8/16-bit validation */
+			/* Do 8/16-bit validation */
 	DPRINT("Validating an Adapter Object\n");
 	if (!DeviceDescription->Master) {
 		if ((DeviceDescription->DmaWidth == Width8Bits) && (Controller != 1)) {
@@ -363,19 +354,18 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 			}
 		}
 	}
-
-	DPRINT("Final DMA Request Mode Setting of the Adapter Object\n");
-
+		UCHAR DmaMode;	
+			DPRINT("Final DMA Request Mode Setting of the Adapter Object\n");
 	/* Set the DMA Request Modes */
 	if (DeviceDescription->Master) {
 		/* This is a cascade request */
-		DmaMode.RequestMode = CASCADE_REQUEST_MODE;
+		((PDMA_MODE)&DmaMode)->RequestMode = CASCADE_REQUEST_MODE;
 		
 		/* Send the request */
 		if (AdapterObject->AdapterNumber == 1) {
 			/* Set the Request Data */
 			WRITE_PORT_UCHAR(&((PDMA1_CONTROL)AdapterObject->AdapterBaseVa)->Mode,
-				  	AdapterObject->AdapterModeByte);
+				  	AdapterObject->AdapterMode);
 					  
 			/* Unmask DMA Channel */
 			WRITE_PORT_UCHAR(&((PDMA1_CONTROL)AdapterObject->AdapterBaseVa)->SingleMask,
@@ -383,7 +373,7 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 		} else {
 			/* Set the Request Data */
 			WRITE_PORT_UCHAR(&((PDMA2_CONTROL)AdapterObject->AdapterBaseVa)->Mode,
-				  	AdapterObject->AdapterModeByte);
+				  	AdapterObject->AdapterMode);
 				  
 			/* Unmask DMA Channel */
 			WRITE_PORT_UCHAR(&((PDMA2_CONTROL)AdapterObject->AdapterBaseVa)->SingleMask,
@@ -391,14 +381,14 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 		}
 	} else if (DeviceDescription->DemandMode) {
 		/* This is a Demand request */
-		DmaMode.RequestMode = DEMAND_REQUEST_MODE;
+		((PDMA_MODE)&DmaMode)->RequestMode = DEMAND_REQUEST_MODE;
 	} else {
 		/* Normal Request */
-		DmaMode.RequestMode = SINGLE_REQUEST_MODE;
+		((PDMA_MODE)&DmaMode)->RequestMode = SINGLE_REQUEST_MODE;
 	}
 	
 	/* Auto Initialize Enabled or Not*/
-	DmaMode.AutoInitialize = DeviceDescription->AutoInitialize;
+	((PDMA_MODE)&DmaMode)->AutoInitialize = DeviceDescription->AutoInitialize;
 	AdapterObject->AdapterMode = DmaMode;
 	return AdapterObject;
 }

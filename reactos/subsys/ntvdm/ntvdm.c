@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ntvdm.c,v 1.4 2003/11/14 17:13:32 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

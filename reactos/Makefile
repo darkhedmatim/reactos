@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile,v 1.272 2004/12/18 22:28:41 gvg Exp $
 #
 # Global makefile
 #
@@ -23,9 +23,6 @@ else
 IMPLIB = implib
 endif
 
-# Boot loaders
-BOOT_LOADERS = freeldr
-
 # Required to run the system
 COMPONENTS = ntoskrnl
 
@@ -41,14 +38,11 @@ BUS = acpi isapnp pci
 # vfatlib
 LIB_FSLIB = vfatlib
 
-# libunicode, must be empty!
-LIBUNICODE = 
-
 # Static libraries
-LIB_STATIC = string rosrtl epsapi uuid libwine zlib rtl tgetopt pseh adns dxguid strmiids crt rossym wdmguid
+LIB_STATIC = string rosrtl epsapi uuid libwine zlib rtl tgetopt pseh adns dxguid 
 
 # Keyboard layout libraries
-DLLS_KBD = kbdda kbddv kbdes kbdfr kbdgr kbdse kbduk kbdus
+DLLS_KBD = kbdda kbddv kbdfr kbdgr kbdse kbduk kbdus 
 
 # Control Panels
 DLLS_CPL = cpl
@@ -58,12 +52,12 @@ DLLS_SHELLEXT = shellext
 
 # User mode libraries
 # libpcap packet epsapi
-DLLS = acledit aclui advapi32 advpack cabinet cards comctl32 crtdll comdlg32 d3d8thk dbghelp expat fmifs freetype \
+DLLS = acledit aclui advapi32 advpack cabinet cards comctl32 crtdll comdlg32 d3d8thk expat fmifs freetype \
 	gdi32 gdiplus glu32 hid imagehlp imm32 iphlpapi kernel32 lzexpand mesa32 midimap mmdrv mpr msacm msafd \
-	msgina msi msimg32 msvcrt20 msvideo mswsock netapi32 ntdll ole32 oleaut32 oledlg olepro32 opengl32 \
-	packet psapi riched20 richedit rpcrt4 samlib secur32 setupapi shell32 shlwapi smdll snmpapi syssetup \
-	twain user32 userenv version wininet winmm winspool ws2help ws2_32 wsock32 wshirda dnsapi \
-	urlmon shdocvw dinput dinput8 dxdiagn devenum dsound lsasrv $(DLLS_KBD) $(DLLS_CPL) $(DLLS_SHELLEXT)
+	msgina msimg32 msvcrt20 msvideo mswsock netapi32 ntdll ole32 oleaut32 oledlg olepro32 opengl32 \
+	packet psapi riched20 richedit rpcrt4 samlib secur32 setupapi shell32 shlwapi snmpapi syssetup twain \
+	unicode user32 userenv version wininet winmm winspool ws2help ws2_32 wsock32 wshirda dnsapi dinput \
+	dinput8 dsound $(DLLS_KBD) $(DLLS_CPL) $(DLLS_SHELLEXT)
 
 SUBSYS = smss win32k csrss ntvdm
 
@@ -103,12 +97,13 @@ STORAGE_DRIVERS = atapi cdrom class2 disk floppy scsiport diskdump
 
 # System applications
 # autochk cmd format services setup usetup welcome winlogon msiexec 
-SYS_APPS = autochk calc cmd explorer expand format ibrowser msiexec regsvr32 \
-  reporterror services setup taskmgr userinit usetup welcome vmwinst rundll32 \
-  winlogon regedit winefile notepad reactos lsass
+SYS_APPS = autochk calc cmd explorer expand format regedt32 regsvr32 \
+  services setup taskmgr userinit usetup welcome vmwinst winlogon \
+  regedit winefile notepad
 
 # System services
-SYS_SVC = rpcss eventlog umpnpmgr
+# rpcss eventlog
+SYS_SVC = rpcss eventlog
 
 APPS = testsets utils
 
@@ -124,35 +119,38 @@ EXT_MODULES =
 endif
 
 KERNEL_DRIVERS = $(DRIVERS_LIB) $(DEVICE_DRIVERS) $(INPUT_DRIVERS) $(FS_DRIVERS) \
-	$(NET_DRIVERS) $(NET_DEVICE_DRIVERS) $(STORAGE_DRIVERS) VIDEO_DRIVERS USB_DRIVERS
+	$(NET_DRIVERS) $(NET_DEVICE_DRIVERS) $(STORAGE_DRIVERS) VIDEO_DRIVERS
 
 # Regression tests
 REGTESTS = regtests
 
-all: bootstrap $(BOOT_LOADERS) $(COMPONENTS) $(REGTESTS) $(HALS) $(BUS) $(LIB_FSLIB) \
-     $(DLLS) $(SUBSYS) $(KERNEL_DRIVERS) $(SYS_APPS) $(SYS_SVC) $(APPS) $(EXT_MODULES)
+all: bootstrap $(COMPONENTS) $(REGTESTS) $(HALS) $(BUS) $(LIB_FSLIB) $(DLLS) $(SUBSYS) \
+     $(KERNEL_DRIVERS) $(SYS_APPS) $(SYS_SVC) \
+     $(APPS) $(EXT_MODULES)
 
-bootstrap: dk implib iface_native
+bootstrap: dk implib iface_native iface_additional
+
+#config: $(TOOLS:%=%_config)
 
 depends: $(LIB_STATIC:%=%_depends) $(LIB_FSLIB:%=%_depends) msvcrt_depends $(DLLS:%=%_depends) \
          $(SUBSYS:%=%_depends) $(SYS_SVC:%=%_depends) \
          $(EXT_MODULES:%=%_depends) $(POSIX_LIBS:%=%_depends)
 
-implib: hallib $(LIB_STATIC) $(LIB_FSLIB) $(COMPONENTS:%=%_implib) $(HALS:%=%_implib) \
-        $(BUS:%=%_implib) $(LIB_STATIC:%=%_implib) $(LIB_FSLIB:%=%_implib) \
-        msvcrt_implib $(DLLS:%=%_implib) $(KERNEL_DRIVERS:%=%_implib) \
-        $(SUBSYS:%=%_implib) $(SYS_APPS:%=%_implib) $(SYS_SVC:%=%_implib) \
-        $(EXT_MODULES:%=%_implib) $(REGTESTS:%=%_implib)
+implib: hallib $(LIB_STATIC) $(COMPONENTS:%=%_implib) $(HALS:%=%_implib) $(BUS:%=%_implib) \
+	      $(LIB_STATIC:%=%_implib) $(LIB_FSLIB:%=%_implib) msvcrt_implib $(DLLS:%=%_implib) \
+	      $(KERNEL_DRIVERS:%=%_implib) $(SUBSYS:%=%_implib) \
+	      $(SYS_APPS:%=%_implib) $(SYS_SVC:%=%_implib) $(EXT_MODULES:%=%_implib) \
+	      $(REGTESTS:%=%_implib)
 
-test: $(BOOT_LOADERS:%=%_test) $(COMPONENTS:%=%_test) $(HALS:%=%_test) $(BUS:%=%_test) \
+test: $(COMPONENTS:%=%_test) $(HALS:%=%_test) $(BUS:%=%_test) \
 	    $(LIB_STATIC:%=%_test) $(LIB_FSLIB:%=%_test) msvcrt_test $(DLLS:%=%_test) \
 	    $(KERNEL_DRIVERS:%=%_test) $(SUBSYS:%=%_test) \
 	    $(SYS_SVC:%=%_test) $(EXT_MODULES:%=%_test)
 
-clean: tools dk_clean iface_native_clean hallib_clean \
-       $(BOOT_LOADERS:%=%_clean) $(HALS:%=%_clean) $(COMPONENTS:%=%_clean) \
-       $(BUS:%=%_clean) $(LIB_STATIC:%=%_clean) $(LIB_FSLIB:%=%_clean) \
-       msvcrt_clean $(DLLS:%=%_clean) $(KERNEL_DRIVERS:%=%_clean) \
+clean: tools dk_clean iface_native_clean iface_additional_clean hallib_clean \
+       $(HALS:%=%_clean) $(COMPONENTS:%=%_clean) $(BUS:%=%_clean) \
+       $(LIB_STATIC:%=%_clean) $(LIB_FSLIB:%=%_clean) msvcrt_clean \
+       $(DLLS:%=%_clean) $(KERNEL_DRIVERS:%=%_clean) \
        $(SUBSYS:%=%_clean) $(SYS_APPS:%=%_clean) $(SYS_SVC:%=%_clean) \
        $(NET_APPS:%=%_clean) $(APPS:%=%_clean) $(EXT_MODULES:%=%_clean) \
        $(REGTESTS:%=%_clean) clean_after tools_clean
@@ -161,14 +159,18 @@ clean_after:
 	$(HALFVERBOSEECHO) [RM]      /include/roscfg.h
 	$(RM) $(PATH_TO_TOP)/include/roscfg.h
 
-fastinstall: tools install_dirs install_before $(COMPONENTS:%=%_install) $(HALS:%=%_install) \
-         $(BUS:%=%_install) $(LIB_STATIC:%=%_install) $(LIB_FSLIB:%=%_install) \
-         msvcrt_install $(DLLS:%=%_install) $(KERNEL_DRIVERS:%=%_install) \
-         $(SUBSYS:%=%_install) $(SYS_APPS:%=%_install) $(SYS_SVC:%=%_install) \
+fastinstall: tools install_dirs install_before \
+         $(COMPONENTS:%=%_install) $(HALS:%=%_install) $(BUS:%=%_install) \
+         $(LIB_STATIC:%=%_install) $(LIB_FSLIB:%=%_install) msvcrt_install $(DLLS:%=%_install) \
+         $(KERNEL_DRIVERS:%=%_install) $(SUBSYS:%=%_install) \
+         $(SYS_APPS:%=%_install) $(SYS_SVC:%=%_install) \
          $(APPS:%=%_install) $(EXT_MODULES:%=%_install) $(REGTESTS:%=%_install)
 install: fastinstall registry
 
-FREELDR_DIR = boot/freeldr
+FREELDR_DIR = ../freeldr
+
+freeldr:
+	$(MAKE) -C $(FREELDR_DIR)
 
 bootcd_directory_layout:
 	$(HALFVERBOSEECHO) [RMKDIR]  $(BOOTCD_DIR)
@@ -181,11 +183,26 @@ bootcd_directory_layout:
 	$(RMKDIR) $(BOOTCD_DIR)/reactos
 	$(HALFVERBOSEECHO) [RMKDIR]  $(BOOTCD_DIR)/reactos/system32
 	$(RMKDIR) $(BOOTCD_DIR)/reactos/system32
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/isoboot.bin to ${BOOTCD_DIR}/../isoboot.bin
+	$(CP) ${FREELDR_DIR}/bootsect/isoboot.bin ${BOOTCD_DIR}/../isoboot.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/dosmbr.bin to ${BOOTCD_DIR}/loader/dosmbr.bin
+	$(CP) ${FREELDR_DIR}/bootsect/dosmbr.bin ${BOOTCD_DIR}/loader/dosmbr.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/ext2.bin to ${BOOTCD_DIR}/loader/ext2.bin
+	$(CP) ${FREELDR_DIR}/bootsect/ext2.bin ${BOOTCD_DIR}/loader/ext2.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/fat.bin to ${BOOTCD_DIR}/loader/fat.bin
+	$(CP) ${FREELDR_DIR}/bootsect/fat.bin ${BOOTCD_DIR}/loader/fat.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/fat32.bin to ${BOOTCD_DIR}/loader/fat32.bin
+	$(CP) ${FREELDR_DIR}/bootsect/fat32.bin ${BOOTCD_DIR}/loader/fat32.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/isoboot.bin to ${BOOTCD_DIR}/loader/isoboot.bin
+	$(CP) ${FREELDR_DIR}/bootsect/isoboot.bin ${BOOTCD_DIR}/loader/isoboot.bin
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/freeldr/obj/i386/freeldr.sys to ${BOOTCD_DIR}/loader/freeldr.sys
+	$(CP) ${FREELDR_DIR}/freeldr/obj/i386/freeldr.sys ${BOOTCD_DIR}/loader/freeldr.sys
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/freeldr/obj/i386/setupldr.sys to ${BOOTCD_DIR}/loader/setupldr.sys
+	$(CP) ${FREELDR_DIR}/freeldr/obj/i386/setupldr.sys ${BOOTCD_DIR}/loader/setupldr.sys
 
-bootcd_bootstrap_files: $(BOOT_LOADERS:%=%_bootcd) $(COMPONENTS:%=%_bootcd) \
-	$(HALS:%=%_bootcd) $(BUS:%=%_bootcd) $(LIB_STATIC:%=%_bootcd) \
-	$(LIB_FSLIB:%=%_bootcd) msvcrt_bootcd $(DLLS:%=%_bootcd) \
-	$(KERNEL_DRIVERS:%=%_bootcd) $(SUBSYS:%=%_bootcd) $(SYS_APPS:%=%_bootcd)
+bootcd_bootstrap_files: $(COMPONENTS:%=%_bootcd) $(HALS:%=%_bootcd) $(BUS:%=%_bootcd) \
+	$(LIB_STATIC:%=%_bootcd) $(LIB_FSLIB:%=%_bootcd) msvcrt_bootcd $(DLLS:%=%_bootcd) \
+  $(KERNEL_DRIVERS:%=%_bootcd) $(SUBSYS:%=%_bootcd) $(SYS_APPS:%=%_bootcd)
 
 bootcd_install_before:
 	$(HALFVERBOSEECHO) [RLINE]   bootdata/autorun.inf to $(BOOTCD_DIR)/autorun.inf
@@ -206,8 +223,6 @@ bootcd_install_before:
 	$(CP) bootdata/icon.ico $(BOOTCD_DIR)/icon.ico
 	$(HALFVERBOSEECHO) [COPY]    subsys/system/welcome/welcome.exe  to $(BOOTCD_DIR)/reactos/welcome.exe
 	$(CP) subsys/system/welcome/welcome.exe $(BOOTCD_DIR)/reactos/welcome.exe
-	$(HALFVERBOSEECHO) [COPY]    subsys/system/reactos/reactos.exe  to $(BOOTCD_DIR)/reactos/reactos.exe
-	$(CP) subsys/system/reactos/reactos.exe $(BOOTCD_DIR)/reactos/reactos.exe
 	$(HALFVERBOSEECHO) [COPY]    media/nls/c_1252.nls to $(BOOTCD_DIR)/reactos/c_1252.nls
 	$(CP) media/nls/c_1252.nls $(BOOTCD_DIR)/reactos/c_1252.nls
 	$(HALFVERBOSEECHO) [COPY]    media/nls/c_437.nls to $(BOOTCD_DIR)/reactos/c_437.nls
@@ -245,8 +260,8 @@ livecd_directory_layout:
 	$(RMKDIR) $(LIVECD_DIR)/Profiles/Default\ User/My\ Documents
 	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/bootsect/isoboot.bin to ${LIVECD_DIR}/../isoboot.bin
 	$(CP) ${FREELDR_DIR}/bootsect/isoboot.bin ${LIVECD_DIR}/../isoboot.bin
-	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/freeldr/freeldr.sys to ${LIVECD_DIR}/loader/setupldr.sys
-	$(CP) ${FREELDR_DIR}/freeldr/freeldr.sys ${LIVECD_DIR}/loader/setupldr.sys
+	$(HALFVERBOSEECHO) [COPY]    ${FREELDR_DIR}/freeldr/obj/i386/freeldr.sys to ${LIVECD_DIR}/loader/setupldr.sys
+	$(CP) ${FREELDR_DIR}/freeldr/obj/i386/freeldr.sys ${LIVECD_DIR}/loader/setupldr.sys
 	$(HALFVERBOSEECHO) [RLINE]   bootdata/livecd.ini to $(LIVECD_DIR)/freeldr.ini
 	$(RLINE) bootdata/livecd.ini $(LIVECD_DIR)/freeldr.ini
 
@@ -271,27 +286,9 @@ livecd: livecd_basic livecd_makecd
 registry: tools
 	$(MKHIVE) bootdata $(INSTALL_DIR)/system32/config bootdata/hiveinst.inf
 
-.PHONY: all bootstrap depends implib test clean clean_before install bootcd_directory_layout \
+.PHONY: all bootstrap depends implib test clean clean_before install freeldr bootcd_directory_layout \
 bootcd_bootstrap_files bootcd_install_before bootcd_basic bootcd_makecd ubootcd_unattend bootcd
 
-
-#
-# Boot Loaders
-#
-$(BOOT_LOADERS): %:
-	$(MAKE) -C boot/$*
-
-$(BOOT_LOADERS:%=%_test): %_test:
-	$(MAKE) -C boot/$* test
-
-$(BOOT_LOADERS:%=%_clean): %_clean:
-	$(MAKE) -C boot/$* clean
-
-$(BOOT_LOADERS:%=%_bootcd): %_bootcd:
-	$(MAKE) -C boot/$* bootcd
-
-.PHONY: $(BOOT_LOADERS) $(BOOT_LOADERS:%=%_test) $(BOOT_LOADERS:%=%_clean) \
-        $(BOOT_LOADERS:%=%_bootcd)
 
 $(COMPONENTS): dk
 
@@ -464,21 +461,37 @@ dk_install:
 # Interfaces
 #
 iface_native:
-	$(MAKE) --silent -C tools/nci
+	$(MAKE) --silent -C iface/native
 
 iface_native_implib:
 	
 iface_native_test:
 	
 iface_native_clean:
-	$(MAKE) --silent -C tools/nci clean
+	$(MAKE) --silent -C iface/native clean
 
 iface_native_install:
 
 iface_native_bootcd:
 
+iface_additional:
+	$(MAKE) --silent -C iface/addsys
+
+iface_additional_implib:
+	
+iface_additional_test:
+	
+iface_additional_clean:
+	$(MAKE) --silent -C iface/addsys clean
+
+iface_additional_install:
+
+iface_additional_bootcd:
+
 .PHONY: iface_native iface_native_implib iface_native_test iface_native_clean \
-        iface_native_install iface_native_bootcd
+        iface_native_install iface_native_bootcd iface_additional \
+        iface_additional_implib iface_additional_test iface_additional_clean \
+        iface_additional_install iface_additional_bootcd
 
 
 #
@@ -579,30 +592,6 @@ VIDEO_DRIVERS_bootcd:
 
 .PHONY: VIDEO_DRIVERS VIDEO_DRIVERS_implib VIDEO_DRIVERS_test\
         VIDEO_DRIVERS_clean VIDEO_DRIVERS_install VIDEO_DRIVERS_bootcd
-
-#
-# USB device driver rules
-#
-USB_DRIVERS: $(IMPLIB)
-	$(MAKE) -C drivers/usb
-
-USB_DRIVERS_implib: dk
-	$(MAKE) --silent -C drivers/usb implib
-
-USB_DRIVERS_test:
-	$(MAKE) -C drivers/usb test
-
-USB_DRIVERS_clean:
-	$(MAKE) -C drivers/usb clean
-
-USB_DRIVERS_install:
-	$(MAKE) -C drivers/usb install
-
-USB_DRIVERS_bootcd:
-	$(MAKE) -C drivers/usb bootcd
-
-.PHONY: USB_DRIVERS USB_DRIVERS_implib USB_DRIVERS_test\
-        USB_DRIVERS_clean USB_DRIVERS_install USB_DRIVERS_bootcd
 
 
 #
@@ -784,7 +773,7 @@ hallib_bootcd:
 #
 # Hardware Abstraction Layers
 #
-ifeq ($(CONFIG_SMP),1)
+ifeq ($(MP),1)
 halx86: halx86/mp
 else
 halx86: halx86/up
@@ -983,6 +972,8 @@ install_clean:
 	$(RM) $(INSTALL_DIR)/system32/config/*.*
 	$(HALFVERBOSEECHO) [RM]      $(INSTALL_DIR)/system32/*.*
 	$(RM) $(INSTALL_DIR)/system32/*.*
+	$(HALFVERBOSEECHO) [RM]      $(INSTALL_DIR)/symbols/*.*
+	$(RM) $(INSTALL_DIR)/symbols/*.*
 	$(HALFVERBOSEECHO) [RM]      $(INSTALL_DIR)/media/fonts/*.*
 	$(RM) $(INSTALL_DIR)/media/fonts/*.*
 	$(HALFVERBOSEECHO) [RM]      $(INSTALL_DIR)/media/*.*
@@ -997,6 +988,8 @@ install_clean:
 	$(RMDIR) $(INSTALL_DIR)/system32/config
 	$(HALFVERBOSEECHO) [RMDIR]   $(INSTALL_DIR)/system32
 	$(RMDIR) $(INSTALL_DIR)/system32
+	$(HALFVERBOSEECHO) [RMDIR]   $(INSTALL_DIR)/symbols
+	$(RMDIR) $(INSTALL_DIR)/symbols
 	$(HALFVERBOSEECHO) [RMDIR]   $(INSTALL_DIR)/media/fonts
 	$(RMDIR) $(INSTALL_DIR)/media/fonts
 	$(HALFVERBOSEECHO) [RMDIR]   $(INSTALL_DIR)/media
@@ -1019,6 +1012,8 @@ install_dirs:
 	$(RMKDIR) $(INSTALL_DIR)/media
 	$(HALFVERBOSEECHO) [RMKDIR]  $(INSTALL_DIR)/media/fonts
 	$(RMKDIR) $(INSTALL_DIR)/media/fonts
+	$(HALFVERBOSEECHO) [RMKDIR]  $(INSTALL_DIR)/symbols
+	$(RMKDIR) $(INSTALL_DIR)/symbols
 	$(HALFVERBOSEECHO) [RMKDIR]  $(INSTALL_DIR)/system32
 	$(RMKDIR) $(INSTALL_DIR)/system32
 	$(HALFVERBOSEECHO) [RMKDIR]  $(INSTALL_DIR)/system32/config

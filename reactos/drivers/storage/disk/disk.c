@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: disk.c,v 1.47 2004/11/24 11:09:49 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -390,8 +390,6 @@ DiskClassCheckReadWrite(IN PDEVICE_OBJECT DeviceObject,
 {
   PDEVICE_EXTENSION DeviceExtension;
   PDISK_DATA DiskData;
-  PIO_STACK_LOCATION IrpStack;
-  ULARGE_INTEGER EndingOffset;
 
   DPRINT("DiskClassCheckReadWrite() called\n");
 
@@ -403,32 +401,6 @@ DiskClassCheckReadWrite(IN PDEVICE_OBJECT DeviceObject,
       Irp->IoStatus.Status = STATUS_DEVICE_NOT_READY;
       IoSetHardErrorOrVerifyDevice(Irp,
 				   DeviceObject);
-      return(STATUS_INVALID_PARAMETER);
-    }
-
-
-
-  IrpStack = IoGetCurrentIrpStackLocation(Irp);  
-  EndingOffset.QuadPart = IrpStack->Parameters.Read.ByteOffset.QuadPart +
-                          IrpStack->Parameters.Read.Length;
-
-
-  DPRINT("Ending %I64d, and RealEnding %I64d! PartSize %I64d\n",EndingOffset.QuadPart,
-          DeviceExtension->PartitionLength.QuadPart,
-	  DeviceExtension->PartitionLength.QuadPart /
-          DeviceExtension->DiskGeometry->BytesPerSector);
-
-  if ((DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) &&
-      (DeviceExtension->DiskGeometry->MediaType == RemovableMedia))
-    {
-/* Assume if removable media and if Partition length is 0, Partition not built yet! */
-	if (DeviceExtension->PartitionLength.QuadPart == 0)
-            return(STATUS_SUCCESS);
-    }
-
-  if (EndingOffset.QuadPart > DeviceExtension->PartitionLength.QuadPart)
-    {
-      Irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
       return(STATUS_INVALID_PARAMETER);
     }
 

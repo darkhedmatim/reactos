@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile,v 1.4 2004/12/13 02:20:09 blight Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -24,14 +24,14 @@ TARGET_TYPE = hal
 
 TARGET_DEFNAME = ../../hal/hal
 
-TARGET_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/ntoskrnl/include -D__ASM__ 
+TARGET_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/ntoskrnl/include -D__ASM__ -DUP
 
-TARGET_CFLAGS = -I../include -I$(PATH_TO_TOP)/ntoskrnl/include -Wall -Werror 
+TARGET_CFLAGS = -I../include -I$(PATH_TO_TOP)/ntoskrnl/include -Wall -Werror -DUP
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
-ifeq ($(CONFIG_SMP), 1)
+ifeq ($(MP), 1)
 TARGET_INSTALL = no
 else
 TARGET_BOOTSTRAP = yes

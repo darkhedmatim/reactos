@@ -358,7 +358,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetWindowsDirectory  GetWindowsDirectoryW
 #define SetCurrentDirectory  SetCurrentDirectoryW
 #define GetCurrentDirectory  GetCurrentDirectoryW
-#define NeedCurrentDirectoryForExePath  NeedCurrentDirectoryForExePathW
 #define GetDiskFreeSpace  GetDiskFreeSpaceW
 #define GetDiskFreeSpaceEx GetDiskFreeSpaceExW
 #define CreateDirectory  CreateDirectoryW
@@ -879,7 +878,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetWindowsDirectory  GetWindowsDirectoryA
 #define SetCurrentDirectory  SetCurrentDirectoryA
 #define GetCurrentDirectory  GetCurrentDirectoryA
-#define NeedCurrentDirectoryForExePath  NeedCurrentDirectoryForExePathA
 #define GetDiskFreeSpace  GetDiskFreeSpaceA
 #define GetDiskFreeSpaceEx GetDiskFreeSpaceExA
 #define CreateDirectory  CreateDirectoryA
@@ -2084,6 +2082,8 @@ VOID STDCALL WEP();
 DWORD STDCALL RtlDeleteSecurityObject(DWORD x1);
 DWORD     STDCALL RtlNewSecurityObject(DWORD x1,DWORD x2,DWORD x3,DWORD x4,DWORD x5,DWORD x6);
 NTSTATUS  STDCALL RtlWalkHeap( HANDLE heap, PVOID entry_ptr );
+NTSTATUS  STDCALL RtlpUnWaitCriticalSection(RTL_CRITICAL_SECTION *crit);
+NTSTATUS  STDCALL RtlpWaitForCriticalSection(RTL_CRITICAL_SECTION *crit);
 NTSTATUS STDCALL LdrLockLoaderLock(ULONG flags, ULONG *result, ULONG *magic);
 NTSTATUS STDCALL LdrUnlockLoaderLock(ULONG flags, ULONG magic);
 
@@ -4623,12 +4623,12 @@ InterlockedExchange(
 		    LONG Value
 		    );
 
-LONG
+PVOID
 STDCALL
 InterlockedCompareExchange(
-	    PLONG Destination,
-	    LONG Exchange,
-	    LONG Comperand
+	    PVOID *Destination,
+	    PVOID Exchange,
+	    PVOID Comperand
 	    );
 #endif
 

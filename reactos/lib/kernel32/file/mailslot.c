@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: mailslot.c,v 1.12 2004/10/08 23:20:57 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: create.c,v 1.42 2004/12/06 14:24:51 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

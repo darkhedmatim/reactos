@@ -71,9 +71,9 @@ typedef short SHORT;
 
 typedef INT32 INT, *PINT;
 typedef LONG32 LONG, *PLONG;
-typedef unsigned long DWORD, *PDWORD;
+typedef ULONG32 DWORD, *PDWORD;
 typedef UINT32 UINT, *PUINT;
-typedef unsigned long ULONG, *PULONG;
+typedef ULONG32 ULONG, *PULONG;
 
 #ifndef _WCHAR_T_
 #define _WCHAR_T_
@@ -517,9 +517,6 @@ typedef struct _LOADER_PARAMETER_BLOCK
    ULONG DrivesAddr;
    ULONG ConfigTable;
    ULONG BootLoaderName;
-   ULONG PageDirectoryStart;
-   ULONG PageDirectoryEnd;
-   ULONG KernelBase;
 } LOADER_PARAMETER_BLOCK, *PLOADER_PARAMETER_BLOCK;
 
 typedef enum _KAPC_ENVIRONMENT

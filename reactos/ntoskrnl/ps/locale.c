@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: locale.c,v 1.13 2004/11/15 14:38:37 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ps/locale.c
  * PURPOSE:         Locale support
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -64,7 +65,7 @@ PiInitDefaultLocale(VOID)
 			      OBJ_CASE_INSENSITIVE,
 			      NULL,
 			      NULL);
-   Status = ZwOpenKey(&KeyHandle,
+   Status = NtOpenKey(&KeyHandle,
 		      KEY_QUERY_VALUE,
 		      &ObjectAttributes);
    if (NT_SUCCESS(Status))
@@ -72,7 +73,7 @@ PiInitDefaultLocale(VOID)
 	/* Read system locale */
 	RtlRosInitUnicodeStringFromLiteral(&ValueName,
 					   L"Default");
-	Status = ZwQueryValueKey(KeyHandle,
+	Status = NtQueryValueKey(KeyHandle,
 				 &ValueName,
 				 KeyValuePartialInformation,
 				 ValueBuffer,
@@ -97,7 +98,7 @@ PiInitDefaultLocale(VOID)
 	/* Read install language id */
 	RtlRosInitUnicodeStringFromLiteral(&ValueName,
 					   L"InstallLanguage");
-	Status = ZwQueryValueKey(KeyHandle,
+	Status = NtQueryValueKey(KeyHandle,
 				 &ValueName,
 				 KeyValuePartialInformation,
 				 ValueBuffer,
@@ -119,7 +120,7 @@ PiInitDefaultLocale(VOID)
 	       }
 	  }
 
-	ZwClose(KeyHandle);
+	NtClose(KeyHandle);
      }
 }
 
@@ -160,12 +161,12 @@ PiInitThreadLocale(VOID)
 			      OBJ_CASE_INSENSITIVE,
 			      NULL,
 			      NULL);
-   Status = ZwOpenKey(&KeyHandle,
+   Status = NtOpenKey(&KeyHandle,
 		      KEY_QUERY_VALUE,
 		      &ObjectAttributes);
    if (NT_SUCCESS(Status))
      {
-	Status = ZwQueryValueKey(KeyHandle,
+	Status = NtQueryValueKey(KeyHandle,
 				 &ValueName,
 				 KeyValuePartialInformation,
 				 ValueBuffer,
@@ -186,7 +187,7 @@ PiInitThreadLocale(VOID)
 		  PsDefaultThreadLocaleId = (LCID)LocaleValue;
 	       }
 	  }
-	ZwClose(KeyHandle);
+	NtClose(KeyHandle);
      }
 
    PsDefaultThreadLocaleInitialized = TRUE;
@@ -207,8 +208,6 @@ NTSTATUS STDCALL
 NtQueryDefaultLocale(IN BOOLEAN UserProfile,
 		     OUT PLCID DefaultLocaleId)
 {
-  PAGED_CODE();
-
   if (DefaultLocaleId == NULL)
     return STATUS_UNSUCCESSFUL;
 
@@ -254,8 +253,6 @@ NtSetDefaultLocale(IN BOOLEAN UserProfile,
    WCHAR ValueBuffer[20];
    HANDLE UserKey = NULL;
    NTSTATUS Status;
-   
-   PAGED_CODE();
 
    if (UserProfile)
      {
@@ -283,14 +280,14 @@ NtSetDefaultLocale(IN BOOLEAN UserProfile,
 			      OBJ_CASE_INSENSITIVE,
 			      UserKey,
 			      NULL);
-   Status = ZwOpenKey(&KeyHandle,
+   Status = NtOpenKey(&KeyHandle,
 		      KEY_SET_VALUE,
 		      &ObjectAttributes);
    if (!NT_SUCCESS(Status))
      {
 	if (UserKey != NULL)
 	  {
-	     ZwClose(UserKey);
+	     NtClose(UserKey);
 	  }
 	return(Status);
      }
@@ -309,17 +306,17 @@ NtSetDefaultLocale(IN BOOLEAN UserProfile,
      }
    ValueLength = (ValueLength + 1) * sizeof(WCHAR);
 
-   Status = ZwSetValueKey(KeyHandle,
+   Status = NtSetValueKey(KeyHandle,
 			  &ValueName,
 			  0,
 			  REG_SZ,
 			  ValueBuffer,
 			  ValueLength);
 
-   ZwClose(KeyHandle);
+   NtClose(KeyHandle);
    if (UserKey != NULL)
      {
-	ZwClose(UserKey);
+	NtClose(UserKey);
      }
 
    if (!NT_SUCCESS(Status))
@@ -362,8 +359,6 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
   HANDLE UserKey;
   HANDLE KeyHandle;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = RtlOpenCurrentUser(KEY_READ,
 			      &UserKey);
@@ -383,7 +378,7 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 			     OBJ_CASE_INSENSITIVE,
 			     UserKey,
 			     NULL);
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     KEY_QUERY_VALUE,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
@@ -394,15 +389,15 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 
   ValueInfo = (PKEY_VALUE_PARTIAL_INFORMATION)ValueBuffer;
 
-  Status = ZwQueryValueKey(KeyHandle,
+  Status = NtQueryValueKey(KeyHandle,
 			   &ValueName,
 			   KeyValuePartialInformation,
 			   ValueBuffer,
 			   VALUE_BUFFER_SIZE,
 			   &ValueLength);
 
-  ZwClose(KeyHandle);
-  ZwClose(UserKey);
+  NtClose(KeyHandle);
+  NtClose(UserKey);
 
   if (!NT_SUCCESS(Status) || ValueInfo->Type != REG_SZ)
     {
@@ -437,8 +432,6 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 NTSTATUS STDCALL
 NtQueryInstallUILanguage(OUT PLANGID LanguageId)
 {
-  PAGED_CODE();
-  
   *LanguageId = PsInstallUILanguageId;
 
   return STATUS_SUCCESS;
@@ -459,8 +452,6 @@ NtSetDefaultUILanguage(IN LANGID LanguageId)
   HANDLE UserHandle;
   HANDLE KeyHandle;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = RtlOpenCurrentUser(KEY_WRITE,
 			      &UserHandle);
@@ -480,12 +471,12 @@ NtSetDefaultUILanguage(IN LANGID LanguageId)
 			     UserHandle,
 			     NULL);
 
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     KEY_SET_VALUE,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     {
-      ZwClose(UserHandle);
+      NtClose(UserHandle);
       return Status;
     }
 
@@ -494,15 +485,15 @@ NtSetDefaultUILanguage(IN LANGID LanguageId)
 			 (ULONG)LanguageId);
   ValueLength = (ValueLength + 1) * sizeof(WCHAR);
 
-  Status = ZwSetValueKey(KeyHandle,
+  Status = NtSetValueKey(KeyHandle,
 			 &ValueName,
 			 0,
 			 REG_SZ,
 			 ValueBuffer,
 			 ValueLength);
 
-  ZwClose(KeyHandle);
-  ZwClose(UserHandle);
+  NtClose(KeyHandle);
+  NtClose(UserHandle);
 
   return Status;
 }

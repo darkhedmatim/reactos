@@ -1,11 +1,29 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: mutex.c,v 1.19 2004/11/21 18:33:54 gdalsnes Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/mutex.c
  * PURPOSE:         Implements mutex
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -64,7 +82,7 @@ KeReleaseMutex(IN PKMUTEX Mutex,
       Mutex->OwnerThread = NULL;
       if (Mutex->MutantListEntry.Flink && Mutex->MutantListEntry.Blink)
 	RemoveEntryList(&Mutex->MutantListEntry);
-      KiDispatcherObjectWake(&Mutex->Header, IO_NO_INCREMENT);
+      KiDispatcherObjectWake(&Mutex->Header);
     }
 
   if (Wait == FALSE)
@@ -74,7 +92,7 @@ KeReleaseMutex(IN PKMUTEX Mutex,
   else
     {
       KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = TRUE;
+      Thread->WaitNext = Wait;
       Thread->WaitIrql = OldIrql;
     }
 
@@ -173,7 +191,7 @@ KeReleaseMutant(IN PKMUTANT Mutant,
       Mutant->OwnerThread = NULL;
       if (Mutant->MutantListEntry.Flink && Mutant->MutantListEntry.Blink)
 	RemoveEntryList(&Mutant->MutantListEntry);
-      KiDispatcherObjectWake(&Mutant->Header, Increment);
+      KiDispatcherObjectWake(&Mutant->Header);
     }
 
   if (Wait == FALSE)
@@ -183,7 +201,7 @@ KeReleaseMutant(IN PKMUTANT Mutant,
   else
     {
       KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = TRUE;
+      Thread->WaitNext = Wait;
       Thread->WaitIrql = OldIrql;
     }
 

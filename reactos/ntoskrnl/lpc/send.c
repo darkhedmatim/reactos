@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: send.c,v 1.20 2004/11/13 22:27:16 hbirr Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/send.c
  * PURPOSE:         Communication mechanism
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -29,7 +30,7 @@
  */
 NTSTATUS STDCALL 
 LpcSendTerminationPort (IN PEPORT Port,
-			IN LARGE_INTEGER CreationTime)
+			IN TIME	CreationTime)
 {
   NTSTATUS Status;
   LPC_TERMINATION_MESSAGE Msg;
@@ -179,7 +180,7 @@ NTSTATUS STDCALL NtRequestPort (IN	HANDLE		PortHandle,
    
    Status = ObReferenceObjectByHandle(PortHandle,
 				      PORT_ALL_ACCESS,
-				      LpcPortObjectType,
+				      ExPortType,
 				      UserMode,
 				      (PVOID*)&Port,
 				      NULL);
@@ -230,7 +231,7 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 
    Status = ObReferenceObjectByHandle(PortHandle,
 				      PORT_ALL_ACCESS, 
-				      LpcPortObjectType,
+				      ExPortType,
 				      UserMode,
 				      (PVOID*)&Port,
 				      NULL);

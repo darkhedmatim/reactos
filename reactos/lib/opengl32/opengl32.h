@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: opengl32.h,v 1.17 2004/07/17 02:26:33 blight Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel

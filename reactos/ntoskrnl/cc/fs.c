@@ -1,11 +1,10 @@
-/* $Id:$
- *
- * COPYRIGHT:       See COPYING in the top level directory
+/* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/fs.c
  * PURPOSE:         Implements cache managers functions useful for File Systems
- *
- * PROGRAMMERS:     Alex Ionescu
+ * PROGRAMMER:      Alex Ionescu
+ * UPDATE HISTORY:
+ *                  Created 20/06/04
  */
 
 /* INCLUDES ******************************************************************/

@@ -97,9 +97,6 @@ typedef struct
         LISTVIEW_SORT_INFO ListViewSortInfo;
 	ULONG			hNotify;	/* change notification handle */
 	HANDLE		hAccel;
-	DWORD		dwAspects;
-	DWORD		dwAdvf;
-	IAdviseSink    *pAdvSink;
 } IShellViewImpl;
 
 static struct IShellViewVtbl svvt;
@@ -1383,6 +1380,7 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 	      }
 	      return TRUE;
 	    }
+	    break;
 
 	  case LVN_ENDLABELEDITA:
 	    {
@@ -1413,6 +1411,7 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 	      }
 	      return FALSE;
 	    }
+	    break;
 
 	  case LVN_KEYDOWN:
 	    {
@@ -1456,9 +1455,6 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 
 		IShellFolder_QueryInterface(This->pSFParent, &IID_ISFHelper,
 		 	(LPVOID*)&psfhlp);
-
-		if (psfhlp == NULL)
-		  break;
 
 		if(!(i = ListView_GetSelectedCount(This->hWndList)))
 		  break;
@@ -1642,11 +1638,10 @@ static HRESULT WINAPI IShellView_fnQueryInterface(IShellView * iface,REFIID riid
 static ULONG WINAPI IShellView_fnAddRef(IShellView * iface)
 {
 	IShellViewImpl *This = (IShellViewImpl *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
 
-	TRACE("(%p)->(count=%lu)\n", This, refCount - 1);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 
-	return refCount;
+	return ++(This->ref);
 }
 /**********************************************************
 *  IShellView_Release
@@ -1654,11 +1649,10 @@ static ULONG WINAPI IShellView_fnAddRef(IShellView * iface)
 static ULONG WINAPI IShellView_fnRelease(IShellView * iface)
 {
 	IShellViewImpl *This = (IShellViewImpl *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
 
-	TRACE("(%p)->(count=%li)\n", This, refCount + 1);
+	TRACE("(%p)->()\n",This);
 
-	if (!refCount)
+	if (!--(This->ref))
 	{
 	  TRACE(" destroying IShellView(%p)\n",This);
 
@@ -1670,15 +1664,13 @@ static ULONG WINAPI IShellView_fnRelease(IShellView * iface)
 	  if(This->pSF2Parent)
 	    IShellFolder2_Release(This->pSF2Parent);
 
-	  if(This->apidl)
+	  if (This->apidl)
 	    SHFree(This->apidl);
 
-	  if(This->pAdvSink)
-	    IAdviseSink_Release(This->pAdvSink);
-
 	  HeapFree(GetProcessHeap(),0,This);
+	  return 0;
 	}
-	return refCount;
+	return This->ref;
 }
 
 /**********************************************************
@@ -1827,7 +1819,7 @@ static HRESULT WINAPI IShellView_fnCreateViewWindow(
 	{
 	  ZeroMemory(&wc, sizeof(wc));
 	  wc.style		= CS_HREDRAW | CS_VREDRAW;
-	  wc.lpfnWndProc	= ShellView_WndProc;
+	  wc.lpfnWndProc	= (WNDPROC) ShellView_WndProc;
 	  wc.cbClsExtra		= 0;
 	  wc.cbWndExtra		= 0;
 	  wc.hInstance		= shell32_hInstance;
@@ -2381,17 +2373,10 @@ static HRESULT WINAPI ISVViewObject_SetAdvise(
 
 	_ICOM_THIS_From_IViewObject(IShellViewImpl, iface);
 
-	FIXME("partial stub: %p %08lx %08lx %p\n",
-              This, aspects, advf, pAdvSink);
+	FIXME("Stub: This=%p\n",This);
 
-	/* FIXME: we set the AdviseSink, but never use it to send any advice */
-	This->pAdvSink = pAdvSink;
-	This->dwAspects = aspects;
-	This->dwAdvf = advf;
-
-	return S_OK;
+	return E_NOTIMPL;
 }
-
 static HRESULT WINAPI ISVViewObject_GetAdvise(
 	IViewObject 	*iface,
 	DWORD* pAspects,
@@ -2401,20 +2386,9 @@ static HRESULT WINAPI ISVViewObject_GetAdvise(
 
 	_ICOM_THIS_From_IViewObject(IShellViewImpl, iface);
 
-	TRACE("This=%p pAspects=%p pAdvf=%p ppAdvSink=%p\n",
-              This, pAspects, pAdvf, ppAdvSink);
+	FIXME("Stub: This=%p\n",This);
 
-	if( ppAdvSink )
-	{
-		IAdviseSink_AddRef( This->pAdvSink );
-		*ppAdvSink = This->pAdvSink;
-	}
-	if( pAspects )
-		*pAspects = This->dwAspects;
-	if( pAdvf )
-		*pAdvf = This->dwAdvf;
-
-	return S_OK;
+	return E_NOTIMPL;
 }
 
 

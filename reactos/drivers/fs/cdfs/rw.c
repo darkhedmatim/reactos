@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: rw.c,v 1.12 2003/11/13 15:25:08 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -86,15 +86,7 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
 
       if (FileObject->PrivateCacheMap == NULL)
 	{
-#ifdef ROS_USE_CC_AND_FS
 	  CcRosInitializeFileCache(FileObject, PAGE_SIZE);
-#else
-          CcInitializeCacheMap(FileObject,
-                               (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-		               FALSE,
-		               NULL,
-		               NULL);
-#endif
 	}
 
       FileOffset.QuadPart = (LONGLONG)ReadOffset;

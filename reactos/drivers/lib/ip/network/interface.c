@@ -24,7 +24,9 @@ NTSTATUS GetInterfaceIPv4Address( PIP_INTERFACE Interface,
 	break;
 
     case ADE_BROADCAST:
-	*Address = Interface->Broadcast.Address.IPv4Address;
+	*Address = 
+	    Interface->Unicast.Address.IPv4Address | 
+	    ~Interface->Netmask.Address.IPv4Address;
 	break;
 
     case ADE_POINTOPOINT:

@@ -3,18 +3,11 @@
 
 #define MAXCURICONHANDLES 4096
 
-typedef struct tagCURICON_PROCESS
-{
-  LIST_ENTRY ListEntry;
-  PW32PROCESS Process;
-} CURICON_PROCESS, *PCURICON_PROCESS;
-
 typedef struct _CURICON_OBJECT
 {
-  LIST_ENTRY ListEntry;
   HANDLE Self;
-  FAST_MUTEX Lock;
-  LIST_ENTRY ProcessList;
+  LIST_ENTRY ListEntry;
+  PW32PROCESS Process;
   HMODULE hModule;
   HRSRC hRsrc;
   HRSRC hGroupRsrc;
@@ -37,6 +30,7 @@ typedef struct _SYSTEM_CURSORINFO
   BOOL Enabled;
   BOOL SwapButtons;
   UINT ButtonsDown;
+  LONG x, y;
   FAST_MUTEX CursorMutex;
   CURSORCLIP_INFO CursorClipInfo;
   PCURICON_OBJECT CurrentCursorObject;
@@ -55,8 +49,6 @@ BOOL FASTCALL IntSetupCurIconHandles(PWINSTATION_OBJECT WinStaObject);
 PCURICON_OBJECT FASTCALL IntGetCurIconObject(PWINSTATION_OBJECT WinStaObject, HANDLE Handle);
 PCURICON_OBJECT FASTCALL IntCreateCurIconHandle(PWINSTATION_OBJECT WinStaObject);
 VOID FASTCALL IntCleanupCurIcons(struct _EPROCESS *Process, PW32PROCESS Win32Process);
-
-BOOL FASTCALL IntGetCursorLocation(PWINSTATION_OBJECT WinStaObject, POINT *loc);
 
 #define IntGetSysCursorInfo(WinStaObj) \
   (PSYSTEM_CURSORINFO)((WinStaObj)->SystemCursor)

@@ -18,14 +18,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "config.h"
-#include "wine/port.h"
-
 #include <stdarg.h>
 
 #include "windef.h"
 #include "winbase.h"
-#include "winnt.h"
 #include "winreg.h"
 #include "winternl.h"
 #include "wingdi.h"
@@ -33,38 +29,20 @@
 #include "winnls.h"
 #include "setupapi.h"
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 #include "rpc.h"
 #include "rpcdce.h"
-
-#include "setupapi_private.h"
 
 
 WINE_DEFAULT_DEBUG_CHANNEL(setupapi);
 
 /* Unicode constants */
-static const WCHAR ClassGUID[]  = {'C','l','a','s','s','G','U','I','D',0};
-static const WCHAR Class[]  = {'C','l','a','s','s',0};
-static const WCHAR ClassInstall32[]  = {'C','l','a','s','s','I','n','s','t','a','l','l','3','2',0};
-static const WCHAR NoDisplayClass[]  = {'N','o','D','i','s','p','l','a','y','C','l','a','s','s',0};
-static const WCHAR NoInstallClass[]  = {'N','o','I','s','t','a','l','l','C','l','a','s','s',0};
-static const WCHAR NoUseClass[]  = {'N','o','U','s','e','C','l','a','s','s',0};
 static const WCHAR NtExtension[]  = {'.','N','T',0};
 static const WCHAR NtPlatformExtension[]  = {'.','N','T','x','8','6',0};
-static const WCHAR Version[]  = {'V','e','r','s','i','o','n',0};
 static const WCHAR WinExtension[]  = {'.','W','i','n',0};
+static const WCHAR ClassInstall32[]  = {'C','l','a','s','s','I','n','s','t','a','l','l','3','2',0};
+static const WCHAR Class[]  = {'C','l','a','s','s',0};
 
-/* Registry key and value names */
-static const WCHAR ControlClass[] = {'S','y','s','t','e','m','\\',
-                                  'C','u','r','r','e','n','t','C','o','n','t','r','o','l','S','e','t','\\',
-                                  'C','o','n','t','r','o','l','\\',
-                                  'C','l','a','s','s',0};
-
-static const WCHAR DeviceClasses[] = {'S','y','s','t','e','m','\\',
-                                  'C','u','r','r','e','n','t','C','o','n','t','r','o','l','S','e','t','\\',
-                                  'C','o','n','t','r','o','l','\\',
-                                  'D','e','v','i','c','e','C','l','a','s','s','e','s',0};
 
 /***********************************************************************
  *              SetupDiBuildClassInfoList  (SETUPAPI.@)
@@ -75,7 +53,7 @@ BOOL WINAPI SetupDiBuildClassInfoList(
         DWORD ClassGuidListSize,
         PDWORD RequiredSize)
 {
-    TRACE("\n");
+    TRACE("SetupDiBuildClassInfoList() called\n");
     return SetupDiBuildClassInfoListExW(Flags, ClassGuidList,
                                         ClassGuidListSize, RequiredSize,
                                         NULL, NULL);
@@ -92,26 +70,8 @@ BOOL WINAPI SetupDiBuildClassInfoListExA(
         LPCSTR MachineName,
         PVOID Reserved)
 {
-    LPWSTR MachineNameW = NULL;
-    BOOL bResult;
-
-    TRACE("\n");
-
-    if (MachineName)
-    {
-        MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
-        if (MachineNameW == NULL)
-            return FALSE;
-    }
-
-    bResult = SetupDiBuildClassInfoListExW(Flags, ClassGuidList,
-                                           ClassGuidListSize, RequiredSize,
-                                           MachineNameW, Reserved);
-
-    if (MachineNameW)
-        MyFree(MachineNameW);
-
-    return bResult;
+  FIXME("\n");
+  return FALSE;
 }
 
 /***********************************************************************
@@ -133,7 +93,7 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
     LONG lError;
     DWORD dwGuidListIndex = 0;
 
-    TRACE("\n");
+    TRACE("SetupDiBuildClassInfoListExW() called\n");
 
     if (RequiredSize != NULL)
 	*RequiredSize = 0;
@@ -162,7 +122,7 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
 	TRACE("RegEnumKeyExW() returns %ld\n", lError);
 	if (lError == ERROR_SUCCESS || lError == ERROR_MORE_DATA)
 	{
-	    TRACE("Key name: %p\n", szKeyName);
+	    TRACE("Key name: %S\n", szKeyName);
 
 	    if (RegOpenKeyExW(hClassesKey,
 			      szKeyName,
@@ -175,7 +135,7 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
 	    }
 
 	    if (!RegQueryValueExW(hClassKey,
-				  NoUseClass,
+				 L"NoUseClass",
 				  NULL,
 				  NULL,
 				  NULL,
@@ -188,7 +148,7 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
 
 	    if ((Flags & DIBCI_NOINSTALLCLASS) &&
 		(!RegQueryValueExW(hClassKey,
-				   NoInstallClass,
+				   L"NoInstallClass",
 				   NULL,
 				   NULL,
 				   NULL,
@@ -201,7 +161,7 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
 
 	    if ((Flags & DIBCI_NODISPLAYCLASS) &&
 		(!RegQueryValueExW(hClassKey,
-				   NoDisplayClass,
+				   L"NoDisplayClass",
 				   NULL,
 				   NULL,
 				   NULL,
@@ -214,14 +174,14 @@ BOOL WINAPI SetupDiBuildClassInfoListExW(
 
 	    RegCloseKey(hClassKey);
 
-	    TRACE("Guid: %p\n", szKeyName);
+	    TRACE("Guid: %S\n", szKeyName);
 	    if (dwGuidListIndex < ClassGuidListSize)
 	    {
 		if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
 		{
 		    szKeyName[37] = 0;
 		}
-		TRACE("Guid: %p\n", &szKeyName[1]);
+		TRACE("Guid: %S\n", &szKeyName[1]);
 
 		UuidFromStringW(&szKeyName[1],
 				&ClassGuidList[dwGuidListIndex]);
@@ -257,9 +217,9 @@ BOOL WINAPI SetupDiClassGuidsFromNameA(
         DWORD ClassGuidListSize,
         PDWORD RequiredSize)
 {
-    return SetupDiClassGuidsFromNameExA(ClassName, ClassGuidList,
-                                        ClassGuidListSize, RequiredSize,
-                                        NULL, NULL);
+  return SetupDiClassGuidsFromNameExA(ClassName, ClassGuidList,
+                                      ClassGuidListSize, RequiredSize,
+                                      NULL, NULL);
 }
 
 /***********************************************************************
@@ -271,9 +231,9 @@ BOOL WINAPI SetupDiClassGuidsFromNameW(
         DWORD ClassGuidListSize,
         PDWORD RequiredSize)
 {
-    return SetupDiClassGuidsFromNameExW(ClassName, ClassGuidList,
-                                        ClassGuidListSize, RequiredSize,
-                                        NULL, NULL);
+  return SetupDiClassGuidsFromNameExW(ClassName, ClassGuidList,
+                                      ClassGuidListSize, RequiredSize,
+                                      NULL, NULL);
 }
 
 /***********************************************************************
@@ -287,36 +247,8 @@ BOOL WINAPI SetupDiClassGuidsFromNameExA(
         LPCSTR MachineName,
         PVOID Reserved)
 {
-    LPWSTR ClassNameW = NULL;
-    LPWSTR MachineNameW = NULL;
-    BOOL bResult;
-
-    FIXME("\n");
-
-    ClassNameW = MultiByteToUnicode(ClassName, CP_ACP);
-    if (ClassNameW == NULL)
-        return FALSE;
-
-    if (MachineNameW)
-    {
-        MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
-        if (MachineNameW == NULL)
-        {
-            MyFree(ClassNameW);
-            return FALSE;
-        }
-    }
-
-    bResult = SetupDiClassGuidsFromNameExW(ClassNameW, ClassGuidList,
-                                           ClassGuidListSize, RequiredSize,
-                                           MachineNameW, Reserved);
-
-    if (MachineNameW)
-        MyFree(MachineNameW);
-
-    MyFree(ClassNameW);
-
-    return bResult;
+  FIXME("\n");
+  return FALSE;
 }
 
 /***********************************************************************
@@ -366,7 +298,7 @@ BOOL WINAPI SetupDiClassGuidsFromNameExW(
 	TRACE("RegEnumKeyExW() returns %ld\n", lError);
 	if (lError == ERROR_SUCCESS || lError == ERROR_MORE_DATA)
 	{
-	    TRACE("Key name: %p\n", szKeyName);
+	    TRACE("Key name: %S\n", szKeyName);
 
 	    if (RegOpenKeyExW(hClassesKey,
 			      szKeyName,
@@ -386,20 +318,20 @@ BOOL WINAPI SetupDiClassGuidsFromNameExW(
 				  (LPBYTE)szClassName,
 				  &dwLength))
 	    {
-		TRACE("Class name: %p\n", szClassName);
+		TRACE("Class name: %S\n", szClassName);
 
-		if (strcmpiW(szClassName, ClassName) == 0)
+		if (_wcsicmp(szClassName, ClassName) == 0)
 		{
 		    TRACE("Found matching class name\n");
 
-		    TRACE("Guid: %p\n", szKeyName);
+		    TRACE("Guid: %S\n", szKeyName);
 		    if (dwGuidListIndex < ClassGuidListSize)
 		    {
 			if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
 			{
 			    szKeyName[37] = 0;
 			}
-			TRACE("Guid: %p\n", &szKeyName[1]);
+			TRACE("Guid: %S\n", &szKeyName[1]);
 
 			UuidFromStringW(&szKeyName[1],
 					&ClassGuidList[dwGuidListIndex]);
@@ -550,25 +482,8 @@ SetupDiCreateDeviceInfoListExA(const GUID *ClassGuid,
 			       PCSTR MachineName,
 			       PVOID Reserved)
 {
-    LPWSTR MachineNameW = NULL;
-    HDEVINFO hDevInfo;
-
-    TRACE("\n");
-
-    if (MachineName)
-    {
-        MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
-        if (MachineNameW == NULL)
-              return (HDEVINFO)INVALID_HANDLE_VALUE;
-    }
-
-    hDevInfo = SetupDiCreateDeviceInfoListExW(ClassGuid, hwndParent,
-                                              MachineNameW, Reserved);
-
-    if (MachineNameW)
-        MyFree(MachineNameW);
-
-    return hDevInfo;
+  FIXME("\n");
+  return (HDEVINFO)INVALID_HANDLE_VALUE;
 }
 
 /***********************************************************************
@@ -589,7 +504,7 @@ SetupDiCreateDeviceInfoListExW(const GUID *ClassGuid,
  */
 BOOL WINAPI SetupDiDestroyDeviceInfoList(HDEVINFO devinfo)
 {
-  FIXME("%p\n", devinfo);
+  FIXME("%04lx\n", (DWORD)devinfo);
   return FALSE;
 }
 
@@ -652,9 +567,16 @@ BOOL WINAPI SetupDiGetActualSectionToInstallW(
         PWSTR *Extension)
 {
     WCHAR szBuffer[MAX_PATH];
+    OSVERSIONINFO OsVersionInfo;
     DWORD dwLength;
     DWORD dwFullLength;
     LONG lLineCount = -1;
+
+    OsVersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    if (!GetVersionEx(&OsVersionInfo))
+    {
+	return FALSE;
+    }
 
     lstrcpyW(szBuffer, InfSectionName);
     dwLength = lstrlenW(szBuffer);
@@ -781,7 +703,7 @@ BOOL WINAPI SetupDiGetClassDescriptionExW(
                                      Reserved);
     if (hKey == INVALID_HANDLE_VALUE)
     {
-	WARN("SetupDiOpenClassRegKeyExW() failed (Error %lu)\n", GetLastError());
+	ERR("SetupDiOpenClassRegKeyExW() failed (Error %lu)\n", GetLastError());
 	return FALSE;
     }
 
@@ -929,8 +851,8 @@ static HKEY CreateClassKey(HINF hInf)
 
     if (!SetupGetLineTextW(NULL,
 			   hInf,
-			   Version,
-			   ClassGUID,
+			   L"Version",
+			   L"ClassGUID",
 			   Buffer,
 			   MAX_PATH,
 			   &RequiredSize))
@@ -938,7 +860,7 @@ static HKEY CreateClassKey(HINF hInf)
 	return INVALID_HANDLE_VALUE;
     }
 
-    lstrcpyW(FullBuffer, ControlClass);
+    lstrcpyW(FullBuffer, L"System\\CurrentControlSet\\Control\\Class\\");
     lstrcatW(FullBuffer, Buffer);
 
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
@@ -949,8 +871,8 @@ static HKEY CreateClassKey(HINF hInf)
     {
 	if (!SetupGetLineTextW(NULL,
 			       hInf,
-			       Version,
-			       Class,
+			       L"Version",
+			       L"Class",
 			       Buffer,
 			       MAX_PATH,
 			       &RequiredSize))
@@ -974,7 +896,7 @@ static HKEY CreateClassKey(HINF hInf)
     }
 
     if (RegSetValueExW(hClassKey,
-		       Class,
+		       L"Class",
 		       0,
 		       REG_SZ,
 		       (LPBYTE)Buffer,
@@ -1005,7 +927,7 @@ BOOL WINAPI SetupDiInstallClassW(
     HKEY hClassKey;
 
 
-    FIXME("\n");
+    FIXME("Incomplete function.\n");
 
     if ((Flags & DI_NOVCP) && (FileQueue == NULL || FileQueue == INVALID_HANDLE_VALUE))
     {
@@ -1075,6 +997,7 @@ BOOL WINAPI SetupDiInstallClassW(
 
     /* FIXME: More code! */
 
+ByeBye:
     if (bFileQueueCreated)
 	SetupCloseFileQueue(FileQueue);
 
@@ -1106,25 +1029,8 @@ HKEY WINAPI SetupDiOpenClassRegKeyExA(
         PCSTR MachineName,
         PVOID Reserved)
 {
-    PWSTR MachineNameW = NULL;
-    HKEY hKey;
-
-    TRACE("\n");
-
-    if (MachineName)
-    {
-        MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
-        if (MachineNameW == NULL)
-            return INVALID_HANDLE_VALUE;
-    }
-
-    hKey = SetupDiOpenClassRegKeyExW(ClassGuid, samDesired,
-                                     Flags, MachineNameW, Reserved);
-
-    if (MachineNameW)
-        MyFree(MachineNameW);
-
-    return hKey;
+    FIXME("\n");
+    return INVALID_HANDLE_VALUE;
 }
 
 
@@ -1141,7 +1047,7 @@ HKEY WINAPI SetupDiOpenClassRegKeyExW(
     LPWSTR lpGuidString;
     HKEY hClassesKey;
     HKEY hClassKey;
-    LPCWSTR lpKeyName;
+    LPWSTR lpKeyName;
 
     if (MachineName != NULL)
     {
@@ -1151,11 +1057,11 @@ HKEY WINAPI SetupDiOpenClassRegKeyExW(
 
     if (Flags == DIOCR_INSTALLER)
     {
-        lpKeyName = ControlClass;
+        lpKeyName = L"SYSTEM\\CurrentControlSet\\Control\\Class";
     }
     else if (Flags == DIOCR_INTERFACE)
     {
-        lpKeyName = DeviceClasses;
+        lpKeyName = L"SYSTEM\\CurrentControlSet\\Control\\DeviceClasses";
     }
     else
     {
@@ -1197,86 +1103,4 @@ HKEY WINAPI SetupDiOpenClassRegKeyExW(
     RegCloseKey(hClassesKey);
 
     return hClassKey;
-}
-
-/***********************************************************************
- *		SetupDiOpenDeviceInterfaceW (SETUPAPI.@)
- */
-BOOL WINAPI SetupDiOpenDeviceInterfaceW(
-       HDEVINFO DeviceInfoSet,
-       PCWSTR DevicePath,
-       DWORD OpenFlags,
-       PSP_DEVICE_INTERFACE_DATA DeviceInterfaceData)
-{
-    FIXME("%p %s %08lx %p\n",
-        DeviceInfoSet, debugstr_w(DevicePath), OpenFlags, DeviceInterfaceData);
-    return FALSE;
-}
-
-/***********************************************************************
- *		SetupDiOpenDeviceInterfaceA (SETUPAPI.@)
- */
-BOOL WINAPI SetupDiOpenDeviceInterfaceA(
-       HDEVINFO DeviceInfoSet,
-       PCSTR DevicePath,
-       DWORD OpenFlags,
-       PSP_DEVICE_INTERFACE_DATA DeviceInterfaceData)
-{
-    FIXME("%p %s %08lx %p\n", DeviceInfoSet,
-        debugstr_a(DevicePath), OpenFlags, DeviceInterfaceData);
-    return FALSE;
-}
-
-/***********************************************************************
- *		SetupDiSetClassInstallParamsA (SETUPAPI.@)
- */
-BOOL WINAPI SetupDiSetClassInstallParamsA(
-       HDEVINFO  DeviceInfoSet,
-       PSP_DEVINFO_DATA DeviceInfoData,
-       PSP_CLASSINSTALL_HEADER ClassInstallParams,
-       DWORD ClassInstallParamsSize)
-{
-    FIXME("%p %p %x %lu\n",DeviceInfoSet, DeviceInfoData,
-          ClassInstallParams->InstallFunction, ClassInstallParamsSize);
-    return FALSE;
-}
-
-/***********************************************************************
- *		SetupDiCallClassInstaller (SETUPAPI.@)
- */
-BOOL WINAPI SetupDiCallClassInstaller(
-       DWORD InstallFunction,
-       HDEVINFO DeviceInfoSet,
-       PSP_DEVINFO_DATA DeviceInfoData)
-{
-    FIXME("%ld %p %p\n", InstallFunction, DeviceInfoSet, DeviceInfoData);
-    return FALSE;
-}
-
-/***********************************************************************
- *		SetupDiGetDeviceInstallParamsA (SETUPAPI.@)
- */
-BOOL WINAPI SetupDiGetDeviceInstallParamsA(
-       HDEVINFO DeviceInfoSet,
-       PSP_DEVINFO_DATA DeviceInfoData,
-       PSP_DEVINSTALL_PARAMS_A DeviceInstallParams)
-{
-    FIXME("%p %p %p\n", DeviceInfoSet, DeviceInfoData, DeviceInstallParams);
-    return FALSE;
-}
-
-/***********************************************************************
- *		SetupDiOpenDevRegKey (SETUPAPI.@)
- */
-HKEY WINAPI SetupDiOpenDevRegKey(
-       HDEVINFO DeviceInfoSet,
-       PSP_DEVINFO_DATA DeviceInfoData,
-       DWORD Scope,
-       DWORD HwProfile,
-       DWORD KeyType,
-       REGSAM samDesired)
-{
-    FIXME("%p %p %ld %ld %ld %lx\n", DeviceInfoSet, DeviceInfoData,
-          Scope, HwProfile, KeyType, samDesired);
-    return INVALID_HANDLE_VALUE;
 }

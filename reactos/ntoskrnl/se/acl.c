@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: acl.c,v 1.22 2004/12/10 16:50:37 navaraf Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/acl.c
- * PURPOSE:         Security manager
- * 
- * PROGRAMMERS:     David Welch <welch@cwcom.net>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              kernel/se/acl.c
+ * PROGRAMER:         David Welch <welch@cwcom.net>
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
@@ -219,14 +220,12 @@ SepInitDACLs(VOID)
 }
 
 NTSTATUS STDCALL 
-SepCreateImpersonationTokenDacl(PTOKEN Token, 
-                                PTOKEN PrimaryToken,
+SepCreateImpersonationTokenDacl(PACCESS_TOKEN Token, 
+                                PACCESS_TOKEN PrimaryToken,
                                 PACL *Dacl)
 {
   ULONG AclLength;
   PVOID TokenDacl;
-  
-  PAGED_CODE();
 
   AclLength = sizeof(ACL) +
 	      (sizeof(ACE) + RtlLengthSid(SeAliasAdminsSid)) +

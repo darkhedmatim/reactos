@@ -113,7 +113,7 @@ SOFTWARE.
  * the y-x-banding that's so nice to have...
  */
 
-/* $Id$ */
+/* $Id: region.c,v 1.64 2004/12/12 01:40:38 weiden Exp $ */
 #include <w32k.h>
 #include <win32k/float.h>
 
@@ -707,43 +707,45 @@ empty:
 HRGN FASTCALL REGION_CropRgn(HRGN hDst, HRGN hSrc, const PRECT lpRect, PPOINT lpPt)
 {
   PROSRGNDATA objSrc, rgnDst;
-  HRGN hRet = NULL;
-  POINT pt = { 0, 0 };
+  HRGN hNewDst, hRet = NULL;
+  GDIMULTILOCK Lock[2] = {{hDst, 0, GDI_OBJECT_TYPE_REGION}, {hSrc, 0, GDI_OBJECT_TYPE_REGION}};
 
   if( !hDst )
     {
-      if( !( hDst = RGNDATA_AllocRgn(1) ) )
+      if( !( hNewDst = RGNDATA_AllocRgn(1) ) )
 	{
 	  return 0;
 	}
+      Lock[0].hObj = hNewDst;
     }
 
-  rgnDst = RGNDATA_LockRgn(hDst);
-  if(rgnDst == NULL)
-  {
-    return NULL;
-  }
-  
-  objSrc = RGNDATA_LockRgn(hSrc);
-  if(objSrc == NULL)
-  {
-    RGNDATA_UnlockRgn(hDst);
-    return NULL;
-  }
-  if(!lpPt)
-  	lpPt = &pt;
-
-    if(REGION_CropAndOffsetRegion(lpPt, lpRect, objSrc, rgnDst) == FALSE)
-  { // ve failed cleanup and return
-	hRet = NULL;
+  if ( !GDIOBJ_LockMultipleObj(Lock, sizeof(Lock)/sizeof(Lock[0])) )
+    {
+      DPRINT1("GDIOBJ_LockMultipleObj() failed\n" );
+      return 0;
     }
-    else{ // ve are fine. unlock the correct pointer and return correct handle
-	hRet = hDst;
-  }
+  rgnDst = Lock[0].pObj;
+  objSrc = Lock[1].pObj;
 
-  RGNDATA_UnlockRgn(hSrc);
-  RGNDATA_UnlockRgn(hDst);
-  
+  if( objSrc && rgnDst )
+  {
+    if(rgnDst)
+    {
+      POINT pt = { 0, 0 };
+
+	  if(!lpPt)
+	  	lpPt = &pt;
+
+      if(REGION_CropAndOffsetRegion(lpPt, lpRect, objSrc, rgnDst) == FALSE)
+	  { // ve failed cleanup and return
+		hRet = NULL;
+      }
+      else{ // ve are fine. unlock the correct pointer and return correct handle
+		hRet = Lock[0].hObj;
+	  }
+    }
+  }
+  GDIOBJ_UnlockMultipleObj(Lock, sizeof(Lock)/sizeof(Lock[0]));
   return hRet;
 }
 
@@ -1955,12 +1957,21 @@ NtGdiCombineRgn(HRGN  hDest,
                     INT  CombineMode)
 {
   INT result = ERROR;
+  GDIMULTILOCK Lock[3] = {{hDest, 0, GDI_OBJECT_TYPE_REGION}, {hSrc1, 0, GDI_OBJECT_TYPE_REGION}, {hSrc2, 0, GDI_OBJECT_TYPE_REGION}};
   PROSRGNDATA destRgn, src1Rgn, src2Rgn;
-  
-  destRgn = RGNDATA_LockRgn(hDest);
+
+  if ( !GDIOBJ_LockMultipleObj(Lock, sizeof(Lock)/sizeof(Lock[0])) )
+    {
+      DPRINT1("GDIOBJ_LockMultipleObj() failed\n" );
+      return ERROR;
+    }
+
+  destRgn = (PROSRGNDATA) Lock[0].pObj;
+  src1Rgn = (PROSRGNDATA) Lock[1].pObj;
+  src2Rgn = (PROSRGNDATA) Lock[2].pObj;
+
   if( destRgn )
     {
-      src1Rgn = RGNDATA_LockRgn(hSrc1);
       if( src1Rgn )
 	  {
 	    if (CombineMode == RGN_COPY)
@@ -1971,8 +1982,7 @@ NtGdiCombineRgn(HRGN  hDest,
 	      }
 	    else
 	    {
-              src2Rgn = RGNDATA_LockRgn(hSrc2);
-              if( src2Rgn )
+	      if( src2Rgn )
 		{
 		  switch (CombineMode)
 		    {
@@ -1989,26 +1999,17 @@ NtGdiCombineRgn(HRGN  hDest,
 			REGION_SubtractRegion(destRgn, src1Rgn, src2Rgn);
 			break;
 		    }
-		  RGNDATA_UnlockRgn(hSrc2);
 		  result = destRgn->rdh.iType;
 		}
-		else if(hSrc2 == NULL)
-                {
-                  DPRINT1("NtGdiCombineRgn requires hSrc2 != NULL for combine mode %d!\n", CombineMode);
-                }
 	    }
-
-            RGNDATA_UnlockRgn(hSrc1);
 	  }
-
-      RGNDATA_UnlockRgn(hDest);
     }
   else
     {
       DPRINT("NtGdiCombineRgn: hDest unavailable\n");
       result = ERROR;
     }
-
+  GDIOBJ_UnlockMultipleObj(Lock, sizeof(Lock)/sizeof(Lock[0]));
   return result;
 }
 
@@ -2223,57 +2224,12 @@ exit:
 
 HRGN
 STDCALL
-NtGdiExtCreateRegion(CONST XFORM *Xform,
-                          DWORD Count,
-                          CONST RGNDATA *RgnData)
+NtGdiExtCreateRegion(CONST PXFORM  Xform,
+                          DWORD  Count,
+                          CONST PROSRGNDATA  RgnData)
 {
-   HRGN hRgn;
-   RGNDATA SafeRgnData;
-   PROSRGNDATA Region;
-   NTSTATUS Status;
-
-   if (Count < FIELD_OFFSET(RGNDATA, Buffer))
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return NULL;
-   }
-
-   Status = MmCopyFromCaller(&SafeRgnData, RgnData, min(Count, sizeof(RGNDATA)));
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return NULL;
-   }
-
-   hRgn = RGNDATA_AllocRgn(SafeRgnData.rdh.nCount);
-   if (hRgn == NULL)
-   {
-      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-      return NULL;
-   }
-   
-   Region = RGNDATA_LockRgn(hRgn);
-   if (Region == NULL)
-   {
-      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-      return FALSE;
-   }
-
-   RtlCopyMemory(&Region->rdh, &SafeRgnData, FIELD_OFFSET(RGNDATA, Buffer));
-
-   Status = MmCopyFromCaller(Region->Buffer, RgnData->Buffer,
-                             Count - FIELD_OFFSET(RGNDATA, Buffer));
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      RGNDATA_UnlockRgn(hRgn);
-      NtGdiDeleteObject(hRgn);
-      return NULL;
-   }
-   
-   RGNDATA_UnlockRgn(hRgn);
-
-   return hRgn;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 BOOL

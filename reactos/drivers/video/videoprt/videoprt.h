@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id$
+ * $Id: videoprt.h,v 1.13 2004/12/19 15:51:51 navaraf Exp $
  */
 
 #ifndef VIDEOPRT_H
@@ -28,7 +28,6 @@
 #include <ddk/video.h>
 #include <ddk/ntddvdeo.h>
 #include <ddk/ntapi.h>
-#include <ddk/ntagp.h>
 #define NDEBUG
 #include <debug.h>
 
@@ -52,27 +51,13 @@ typedef struct _VIDEO_PORT_ADDRESS_MAPPING
 {
    LIST_ENTRY List;
    PVOID MappedAddress;
+   PVOID MappedUserAddress;
    ULONG NumberOfUchars;
    PHYSICAL_ADDRESS IoAddress;
    ULONG SystemIoBusNumber;
    UINT MappingCount;
+   UINT UserMappingCount;
 } VIDEO_PORT_ADDRESS_MAPPING, *PVIDEO_PORT_ADDRESS_MAPPING;
-
-struct _VIDEO_PORT_AGP_VIRTUAL_MAPPING;
-
-typedef struct _VIDEO_PORT_AGP_MAPPING
-{
-   ULONG NumberOfPages;
-   PVOID MapHandle;
-   PHYSICAL_ADDRESS PhysicalAddress;
-} VIDEO_PORT_AGP_MAPPING, *PVIDEO_PORT_AGP_MAPPING;
-
-typedef struct _VIDEO_PORT_AGP_VIRTUAL_MAPPING
-{
-   PVIDEO_PORT_AGP_MAPPING AgpMapping;
-   HANDLE ProcessHandle;
-   PVOID MappedAddress;
-} VIDEO_PORT_AGP_VIRTUAL_MAPPING, *PVIDEO_PORT_AGP_VIRTUAL_MAPPING;
 
 typedef struct _VIDEO_PORT_DRIVER_EXTENSION
 {
@@ -83,14 +68,12 @@ typedef struct _VIDEO_PORT_DRIVER_EXTENSION
 
 typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
 {
-   ULONG DeviceNumber;
    PDEVICE_OBJECT PhysicalDeviceObject;
    PDEVICE_OBJECT FunctionalDeviceObject;
    PDEVICE_OBJECT NextDeviceObject;
    UNICODE_STRING RegistryPath;
    PKINTERRUPT InterruptObject;
    KSPIN_LOCK InterruptSpinLock;
-   PCM_RESOURCE_LIST AllocatedResources;
    ULONG InterruptVector;
    ULONG InterruptLevel;
    ULONG AdapterInterfaceType;
@@ -100,8 +83,6 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
    KDPC DpcObject;
    VIDEO_PORT_DRIVER_EXTENSION *DriverExtension;
    ULONG DeviceOpened;
-   AGP_BUS_INTERFACE_STANDARD AgpInterface;
-   KMUTEX DeviceLock;
    CHAR MiniPortDeviceExtension[1];
 } VIDEO_PORT_DEVICE_EXTENSION, *PVIDEO_PORT_DEVICE_EXTENSION;
 
@@ -110,13 +91,6 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
       HwDeviceExtension, \
       VIDEO_PORT_DEVICE_EXTENSION, \
       MiniPortDeviceExtension)
-
-/* agp.c */
-
-NTSTATUS STDCALL
-IntAgpGetInterface(
-   IN PVOID HwDeviceExtension,
-   IN OUT PINTERFACE Interface);
 
 /* dispatch.c */
 
@@ -173,25 +147,10 @@ IntVideoPortSetupInterrupt(
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
    IN PVIDEO_PORT_CONFIG_INFO ConfigInfo);
 
-/* resource.c */
-
-NTSTATUS STDCALL
-IntVideoPortMapPhysicalMemory(
-   IN HANDLE Process,
-   IN PHYSICAL_ADDRESS PhysicalAddress,
-   IN ULONG SizeInBytes,
-   IN ULONG Protect,
-   IN OUT PVOID *VirtualAddress  OPTIONAL);
-
 /* videoprt.c */
 
 extern ULONG CsrssInitialized;
 extern PEPROCESS Csrss;
-
-VP_STATUS STDCALL
-VideoPortEnumerateChildren(
-   IN PVOID HwDeviceExtension,
-   IN PVOID Reserved);
 
 PVOID STDCALL
 VideoPortGetProcAddress(
@@ -205,17 +164,10 @@ VOID FASTCALL
 IntDetachFromCSRSS(PEPROCESS *CallingProcess, PEPROCESS *PrevAttachedProcess);
 
 NTSTATUS STDCALL
-IntVideoPortCreateAdapterDeviceObject(
-   IN PDRIVER_OBJECT DriverObject,
-   IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
-   IN PDEVICE_OBJECT PhysicalDeviceObject  OPTIONAL,
-   OUT PDEVICE_OBJECT *DeviceObject  OPTIONAL);
-
-NTSTATUS STDCALL
 IntVideoPortFindAdapter(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
-   IN PDEVICE_OBJECT DeviceObject);
+   IN PDEVICE_OBJECT PhysicalDeviceObject);
 
 /* int10.c */
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: processor_mp.c,v 1.1 2004/12/03 20:10:44 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -38,11 +38,8 @@
 
 typedef struct __attribute__((packed)) _COMMON_AREA_INFO
 {
-   ULONG Stack;		    /* Location of AP stack */
-   ULONG PageDirectory;	    /* Page directory for an AP */
-   ULONG NtProcessStartup;  /* Kernel entry point for an AP */
-   ULONG PaeModeEnabled;    /* PAE mode is enabled */
-   ULONG Debug[16];	    /* For debugging */
+   ULONG Stack;      /* Location of AP stack */
+   ULONG Debug[16];  /* For debugging */
 } COMMON_AREA_INFO, *PCOMMON_AREA_INFO;
 
 CPU_INFO CPUMap[MAX_CPU];          /* Map of all CPUs in the system */
@@ -84,7 +81,6 @@ extern VOID MpsIpiInterrupt(VOID);
    WRITE_PORT_UCHAR((PUCHAR)0x71, value); \
 })
 
-extern PVOID IMPORTED MmSystemRangeStart;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -130,7 +126,7 @@ VOID Enable8259AIrq(ULONG irq)
 
 /* Functions for handling I/O APICs */
 
-ULONG IOAPICRead(ULONG Apic, ULONG Offset)
+volatile ULONG IOAPICRead(ULONG Apic, ULONG Offset)
 {
   PULONG Base;
 
@@ -190,15 +186,10 @@ VOID IOAPICMaskIrq(ULONG Irq)
   IOAPIC_ROUTE_ENTRY Entry;
   ULONG Apic = IrqApicMap[Irq];
 
-  *(((PULONG)&Entry)+0) = IOAPICRead(Apic, IOAPIC_REDTBL+2*Irq);
-  *(((PULONG)&Entry)+1) = IOAPICRead(Apic, IOAPIC_REDTBL+2*Irq+1);
-  Entry.dest.logical.logical_dest &= ~(1 << KeGetCurrentProcessorNumber());
-  if (Entry.dest.logical.logical_dest == 0)
-  {
-     Entry.mask = 1;
-  }
-  IOAPICWrite(Apic, IOAPIC_REDTBL+2*Irq+1, *(((PULONG)&Entry)+1));
-  IOAPICWrite(Apic, IOAPIC_REDTBL+2*Irq, *(((PULONG)&Entry)+0));
+
+  *((PULONG)&Entry) = IOAPICRead(Apic, IOAPIC_REDTBL+2*Irq);
+  Entry.mask = 1;
+  IOAPICWrite(Apic, IOAPIC_REDTBL+2*Irq, *((PULONG)&Entry));
 }
 
 
@@ -208,12 +199,9 @@ VOID IOAPICUnmaskIrq(ULONG Irq)
   IOAPIC_ROUTE_ENTRY Entry;
   ULONG Apic = IrqApicMap[Irq];
 
-  *(((PULONG)&Entry)+0) = IOAPICRead(Apic, IOAPIC_REDTBL+2*Irq);
-  *(((PULONG)&Entry)+1) = IOAPICRead(Apic, IOAPIC_REDTBL+2*Irq+1);
-  Entry.dest.logical.logical_dest |= 1 << KeGetCurrentProcessorNumber();
+  *((PULONG)&Entry) = IOAPICRead(Apic, IOAPIC_REDTBL+2*IrqPinMap[Irq]);
   Entry.mask = 0;
-  IOAPICWrite(Apic, IOAPIC_REDTBL+2*Irq+1, *(((PULONG)&Entry)+1));
-  IOAPICWrite(Apic, IOAPIC_REDTBL+2*Irq, *(((PULONG)&Entry)+0));
+  IOAPICWrite(Apic, IOAPIC_REDTBL+2*IrqPinMap[Irq], *((PULONG)&Entry));
 }
 
 static VOID 
@@ -628,11 +616,18 @@ VOID IOAPICSetupIrqs(VOID)
 	  */
 	 memset(&entry,0,sizeof(entry));
 
-	 entry.delivery_mode = (APIC_DM_LOWEST >> 8);
+	 entry.delivery_mode = APIC_DM_LOWEST;
 	 entry.dest_mode = 1;  /* logical delivery */
 	 entry.mask = 1;       /* disable IRQ */
-         entry.dest.logical.logical_dest = 0;
-
+#if 0
+	 /*
+	  * FIXME:
+	  *   Some drivers are not able to deal with more than one cpu.
+	  */
+	 entry.dest.logical.logical_dest = OnlineCPUs;
+#else
+	 entry.dest.logical.logical_dest = 1 << 0;
+#endif
 	 idx = IOAPICGetIrqEntry(apic,pin,INT_VECTORED);
 	 if (idx == -1) 
 	 {
@@ -655,7 +650,11 @@ VOID IOAPICSetupIrqs(VOID)
 	 {
 	    entry.trigger = 1;
 	    entry.mask = 1; // disable
-	    entry.dest.logical.logical_dest = 0;
+#if 0
+	    entry.dest.logical.logical_dest = OnlineCPUs;
+#else
+	    entry.dest.logical.logical_dest = 1 << 0;
+#endif
 	 }
 
 	 irq = Pin2Irq(idx, apic, pin);
@@ -1098,15 +1097,6 @@ HalStartNextProcessor(ULONG Unknown1,
 
    /* Write the location of the AP stack */
    Common->Stack = (ULONG)ProcessorStack;
-   /* Write the page directory page */
-   Ke386GetPageTableDirectory(Common->PageDirectory);
-   /* Write the kernel entry point */
-   Common->NtProcessStartup = (ULONG_PTR)RtlImageNtHeader(MmSystemRangeStart)->OptionalHeader.AddressOfEntryPoint + (ULONG_PTR)MmSystemRangeStart;
-   /* Write the state of the mae mode */
-   Common->PaeModeEnabled = Ke386GetCr4() & X86_CR4_PAE ? 1 : 0;
-
-   DPRINT1("%x %x %x %x\n", Common->Stack, Common->PageDirectory, Common->NtProcessStartup, Common->PaeModeEnabled);
-
 
    DPRINT("CPU %d got stack at 0x%X\n", CPU, Common->Stack);
 #if 0
@@ -1233,7 +1223,7 @@ ULONG MPChecksum(PUCHAR Base,
 PCHAR HaliMPFamily(ULONG Family,
 		   ULONG Model)
 {
-   static CHAR str[64];
+   static CHAR str[32];
    static PCHAR CPUs[] =
    {
       "80486DX", "80486DX",

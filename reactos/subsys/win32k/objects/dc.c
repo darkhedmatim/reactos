@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: dc.c,v 1.153 2004/12/13 05:23:59 royce Exp $
  *
  * DC.C - Device context functions
  *
@@ -212,7 +212,6 @@ NtGdiCreateCompatableDC(HDC hDC)
   NewDC->w.textAlign = OrigDC->w.textAlign;
   NewDC->w.backgroundColor = OrigDC->w.backgroundColor;
   NewDC->w.backgroundMode = OrigDC->w.backgroundMode;
-  NewDC->w.ROPmode = OrigDC->w.ROPmode;
   DC_UnlockDc( hDC );
   if (NULL != DisplayDC)
     {
@@ -664,11 +663,6 @@ IntCreatePrimarySurface()
       SurfaceRect.bottom = SurfObj->sizlBitmap.cy;
       /* FIXME - why does EngEraseSurface() sometimes crash?
         EngEraseSurface(SurfObj, &SurfaceRect, 0); */
-
-      /* Put the pointer in the center of the screen */
-      GDIDEV(SurfObj)->Pointer.Pos.x = (SurfaceRect.right - SurfaceRect.left) / 2;
-      GDIDEV(SurfObj)->Pointer.Pos.y = (SurfaceRect.bottom - SurfaceRect.top) / 2;
-
       EngUnlockSurface(SurfObj);
       IntShowDesktop(IntGetActiveDesktop(), SurfSize.cx, SurfSize.cy);
       break;
@@ -733,7 +727,7 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
 
   if (Driver != NULL && Driver->Buffer != NULL)
   {
-    DPRINT("NAME: %ws\n", Driver); // FIXME: Should not crash if NULL
+    DPRINT("NAME: %S\n", Driver->Buffer); // FIXME: Should not crash if NULL
   }
 
   /*  Allocate a DC object  */
@@ -780,8 +774,8 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   NewDC->DMW.dmDisplayFrequency = 0;
 
   NewDC->w.bitsPerPixel = NewDC->DMW.dmBitsPerPel; // FIXME: set this here??
+
   NewDC->w.hPalette = NewDC->DevInfo->hpalDefault;
-  NewDC->w.ROPmode = R2_COPYPEN;
 
   DPRINT("Bits per pel: %u\n", NewDC->w.bitsPerPixel);
   

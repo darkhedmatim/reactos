@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: create.c,v 1.13 2004/11/06 13:41:58 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -44,6 +44,7 @@ CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
 			 PUNICODE_STRING AbsoluteFileName)
 {
   ULONG Length;
+//  PWSTR rcName;
   PFCB Fcb;
   NTSTATUS Status;
 
@@ -64,29 +65,42 @@ CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
            sizeof(WCHAR) +
            RelativeFileName->Length +
            sizeof(WCHAR);
+//  ASSERT(wcslen (Fcb->PathName) + 1 + wcslen (pRelativeFileName) + 1
+//          <= MAX_PATH);
+//  rcName = ExAllocatePool(NonPagedPool, MAX_PATH * sizeof(WCHAR));
+//  if (!rcName)
+//    {
+//      return(STATUS_INSUFFICIENT_RESOURCES);
+//    }
   AbsoluteFileName->Length = 0;
   AbsoluteFileName->MaximumLength = Length;
   AbsoluteFileName->Buffer = ExAllocatePool(NonPagedPool,
 					    Length);
   if (AbsoluteFileName->Buffer == NULL)
     {
+CHECKPOINT1;
       return STATUS_INSUFFICIENT_RESOURCES;
     }
 
+
+//  wcscpy(rcName, Fcb->PathName);
   Status = RtlAppendUnicodeToString(AbsoluteFileName,
 				    Fcb->PathName);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       RtlFreeUnicodeString(AbsoluteFileName);
       return Status;
     }
 
   if (!CdfsFCBIsRoot(Fcb))
     {
+//    wcscat (rcName, L"\\");
       Status = RtlAppendUnicodeToString(AbsoluteFileName,
 					L"\\");
       if (!NT_SUCCESS(Status))
 	{
+CHECKPOINT1;
 	  RtlFreeUnicodeString(AbsoluteFileName);
 	  return Status;
 	}
@@ -96,9 +110,13 @@ CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
 					  RelativeFileName);
   if (!NT_SUCCESS(Status))
     {
+CHECKPOINT1;
       RtlFreeUnicodeString(AbsoluteFileName);
       return Status;
     }
+
+//  wcscat (rcName, pRelativeFileName);
+//  *pAbsoluteFilename = rcName;
 
   return STATUS_SUCCESS;
 }
@@ -132,6 +150,10 @@ CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
 	}
 
       FileName = &AbsFileName;
+
+      RtlFreeUnicodeString(&AbsFileName);
+
+      return STATUS_UNSUCCESSFUL;
     }
 
   Status = CdfsDeviceIoControl (DeviceExt->StorageDevice,
@@ -140,9 +162,28 @@ CdfsOpenFile(PDEVICE_EXTENSION DeviceExt,
 				0,
 				NULL,
 				0,
-				FALSE);
+				TRUE);
   DPRINT ("Status %lx\n", Status);
-  if (!NT_SUCCESS(Status))
+  if (Status == STATUS_VERIFY_REQUIRED)
+    {
+      PDEVICE_OBJECT DeviceToVerify;
+
+      DPRINT1 ("Media change detected!\n");
+      DPRINT1 ("Device %p\n", DeviceExt->VolumeDevice);
+
+      DeviceToVerify = IoGetDeviceToVerify (PsGetCurrentThread ());
+      IoSetDeviceToVerify (PsGetCurrentThread (),
+			   NULL);
+
+      Status = IoVerifyVolume (DeviceToVerify,
+			       FALSE);
+      if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1 ("Status %lx\n", Status);
+	  return Status;
+	}
+    }
+  else if (!NT_SUCCESS(Status))
     {
       DPRINT1 ("Status %lx\n", Status);
       return Status;

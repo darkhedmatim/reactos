@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: stdlib.c,v 1.12 2004/08/15 16:39:11 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/stdlib.c
  * PURPOSE:         Standard library functions
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * UPDATE HISTORY:
+ *   1999/07/29  ekohl   Created
  */
 
 /* INCLUDES *****************************************************************/

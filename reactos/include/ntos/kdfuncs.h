@@ -1,6 +1,6 @@
 #ifndef __INCLUDE_DDK_KDFUNCS_H
 #define __INCLUDE_DDK_KDFUNCS_H
-/* $Id$ */
+/* $Id: kdfuncs.h,v 1.2 2003/12/30 18:34:58 fireball Exp $ */
 
 #ifndef __USE_W32API
 

@@ -1,13 +1,4 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/pagfault.c
- * PURPOSE:         No purpose listed.
- *
- * PROGRAMMERS:     No programmer listed.
- */
-
+/* $Id: pagfault.c,v 1.7 2004/08/15 16:39:08 chorns Exp $ */
 
 #include <ntoskrnl.h>
 

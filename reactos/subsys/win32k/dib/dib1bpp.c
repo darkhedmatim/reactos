@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: dib1bpp.c,v 1.32 2004/07/14 20:48:56 navaraf Exp $ */
 #include <w32k.h>
 
 VOID
@@ -349,8 +349,8 @@ DIB_1BPP_BitBlt(PBLTINFO BltInfo)
    ULONG RoundedRight;
 /*   BYTE NoBits;*/
 
-   UsesSource = ROP4_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP4_USES_PATTERN(BltInfo->Rop4);
+   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
+   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);
 
    RoundedRight = BltInfo->DestRect.right - 
                   ((BltInfo->DestRect.right - BltInfo->DestRect.left) & 31);

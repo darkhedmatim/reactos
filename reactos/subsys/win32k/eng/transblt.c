@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: transblt.c,v 1.22 2004/12/14 04:40:16 royce Exp $
  * 
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -268,6 +268,18 @@ IntEngTransparentBlt(BITMAPOBJ *DestObj,
   {
     Ret = EngTransparentBlt(DestSurf, SourceSurf, Clip, ColorTranslation,
                             &OutputRect, SourceRect, iTransColor, Reserved);
+  }
+  
+  if(Ret)
+  {
+    /* Dummy BitBlt to let driver know that something has changed.
+       0x00AA0029 is the Rop for D (no-op) */
+    if (DestObj->flHooks & HOOK_BITBLT)
+    {
+      GDIDEVFUNCS(DestSurf).BitBlt(
+                          DestSurf, NULL, NULL, Clip, ColorTranslation,
+                          &OutputRect, NULL, NULL, NULL, NULL, ROP_NOOP);
+    }
   }
   
   MouseSafetyOnDrawEnd(DestSurf);

@@ -1,6 +1,6 @@
 #ifndef _INC_REACTOS_CONFIG_H
 #define _INC_REACTOS_CONFIG_H 
-/* $Id$ */
+/* $Id: config.h,v 1.4 2003/08/25 01:37:47 sedwards Exp $ */
 /* ReactOS global configuration options */
 
 #define CONFIG_PROCESSOR_FAMILY_I386	386L

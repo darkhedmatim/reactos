@@ -1,12 +1,16 @@
-/* $Id$
+/* $Id: ioctrl.c,v 1.25 2004/10/10 14:01:50 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/ioctrl.c
  * PURPOSE:         Device IO control
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  *                  Eric Kohl (ekohl@rz-online.de)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  Filled in ZwDeviceIoControlFile 22/02/99
+ *                  Fixed IO method handling 08/03/99
+ *                  Added APC support 05/11/99
  */
 
 /* INCLUDES *****************************************************************/

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: env.c,v 1.26 2004/12/18 21:06:25 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -226,21 +226,21 @@ DWORD
 STDCALL
 GetVersion(VOID)
 {
-  PPEB pPeb = NtCurrentPeb();
-  DWORD nVersion;
+ PPEB pPeb = NtCurrentPeb();
+ DWORD nVersion;
 
-  nVersion = MAKEWORD(pPeb->OSMajorVersion, pPeb->OSMinorVersion);
+ nVersion = MAKEWORD(pPeb->OSMajorVersion, pPeb->OSMinorVersion);
 
-  /* behave consistently when posing as another operating system */
-  /* build number */
-  if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_WINDOWS)
-    nVersion |= ((DWORD)(pPeb->OSBuildNumber)) << 16;
+ /* behave consistently when posing as another operating system */
+ /* build number */
+ if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_WINDOWS)
+  nVersion |= ((DWORD)(pPeb->OSBuildNumber)) << 16;
  
-  /* non-NT platform flag */
-  if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_NT)
-    nVersion |= 0x80000000;
+ /* non-NT platform flag */
+ if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_NT)
+  nVersion |= 0x80000000;
 
-  return nVersion;
+ return nVersion;
 }
 
 
@@ -253,44 +253,67 @@ GetVersionExW(
     LPOSVERSIONINFOW lpVersionInformation
     )
 {
-  NTSTATUS Status;
-  
-  if(lpVersionInformation->dwOSVersionInfoSize != sizeof(OSVERSIONINFOW) &&
-     lpVersionInformation->dwOSVersionInfoSize != sizeof(OSVERSIONINFOEXW))
+ PPEB pPeb = NtCurrentPeb();
+ WCHAR *RosVersion;
+
+ /* TODO: move this into RtlGetVersion */
+ switch(lpVersionInformation->dwOSVersionInfoSize)
+ {
+  case sizeof(OSVERSIONINFOEXW):
   {
-    /* for some reason win sets ERROR_INSUFFICIENT_BUFFER even if it is large
-       enough but doesn't match the exact sizes supported, ERROR_INVALID_PARAMETER
-       would've been much more appropriate... */
-    SetLastError(ERROR_INSUFFICIENT_BUFFER);
-    return FALSE;
+   LPOSVERSIONINFOEXW lpVersionInformationEx =
+    (LPOSVERSIONINFOEXW)lpVersionInformation;
+
+   lpVersionInformationEx->wServicePackMajor = pPeb->SPMajorVersion;
+   lpVersionInformationEx->wServicePackMinor = pPeb->SPMinorVersion;
+   /* TODO: read from the KUSER_SHARED_DATA */
+   lpVersionInformationEx->wSuiteMask = 0;
+   /* TODO: call RtlGetNtProductType */
+   lpVersionInformationEx->wProductType = 0;
+   /* ??? */
+   lpVersionInformationEx->wReserved = 0;
+   /* fall through */
   }
 
-  Status = RtlGetVersion((PRTL_OSVERSIONINFOW)lpVersionInformation);
-  if(NT_SUCCESS(Status))
+  case sizeof(OSVERSIONINFOW):
   {
-    int ln, maxlen;
-    
-    /* append a reactos specific string to the szCSDVersion string */
+   lpVersionInformation->dwMajorVersion = pPeb->OSMajorVersion;
+   lpVersionInformation->dwMinorVersion = pPeb->OSMinorVersion;
+   lpVersionInformation->dwBuildNumber = pPeb->OSBuildNumber;
+   lpVersionInformation->dwPlatformId = pPeb->OSPlatformId;
 
-    /* FIXME - we shouldn't do this when there is a (ros-specific) compatibility
-               flag set so we don't screw applications that might depend on a
-               certain string */
+   /* First the Windows compatible string */
+   _snwprintf(lpVersionInformation->szCSDVersion,
+              sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR),
+              L"Service Pack %u", pPeb->SPMajorVersion);
+   /* Add the Reactos-specific string */
+   RosVersion = lpVersionInformation->szCSDVersion + wcslen(lpVersionInformation->szCSDVersion) + 1;
+   wcsncpy
+   (
+    RosVersion,
+    L"ReactOS " KERNEL_VERSION_STR L" (Build " KERNEL_VERSION_BUILD_STR L")",
+    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) -
+    ((RosVersion - lpVersionInformation->szCSDVersion) + 1)
+   );
 
-    ln = wcslen(lpVersionInformation->szCSDVersion) + 1;
-    maxlen = (sizeof(lpVersionInformation->szCSDVersion) / sizeof(lpVersionInformation->szCSDVersion[0]) - 1);
-    if(maxlen > ln)
-    {
-      PWCHAR szVer = lpVersionInformation->szCSDVersion + ln;
-      RtlZeroMemory(szVer, (maxlen - ln + 1) * sizeof(WCHAR));
-      wcsncpy(szVer,
-              L"ReactOS " KERNEL_VERSION_STR L" (Build " KERNEL_VERSION_BUILD_STR L")",
-              maxlen - ln);
-    }
-    
-    return TRUE;
+   /* null-terminate, just in case */
+   lpVersionInformation->szCSDVersion
+   [
+    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) - 1
+   ] = 0;
+
+   break;
   }
 
-  return FALSE;
+  default:
+  {
+   /* unknown version information revision */
+   SetLastError(ERROR_INSUFFICIENT_BUFFER);
+   return FALSE;
+  }
+ }
+ 
+ return TRUE;
 }
 
 
@@ -303,72 +326,111 @@ GetVersionExA(
     LPOSVERSIONINFOA lpVersionInformation
     )
 {
-  OSVERSIONINFOEXW viw;
-  
-  RtlZeroMemory(&viw, sizeof(viw));
-  
-  switch(lpVersionInformation->dwOSVersionInfoSize)
+ NTSTATUS nErrCode;
+ OSVERSIONINFOEXW oviVerInfo;
+ LPOSVERSIONINFOEXA lpVersionInformationEx;
+
+ /* UNICODE_STRING descriptor of the Unicode version string */
+ UNICODE_STRING wstrVerStr =
+ {
+  /*
+   gives extra work to RtlUnicodeStringToAnsiString, but spares us an
+   RtlInitUnicodeString round
+  */
+  0,
+  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion),
+  oviVerInfo.szCSDVersion
+ };
+
+ /* ANSI_STRING descriptor of the ANSI version string buffer */
+ ANSI_STRING strVerStr =
+ {
+  0,
+  sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion),
+  lpVersionInformation->szCSDVersion
+ };
+
+ switch(lpVersionInformation->dwOSVersionInfoSize)
+ {
+  case sizeof(OSVERSIONINFOEXA):
   {
-    case sizeof(OSVERSIONINFOA):
-      viw.dwOSVersionInfoSize = sizeof(OSVERSIONINFOW);
-      break;
-
-    case sizeof(OSVERSIONINFOEXA):
-      viw.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
-      break;
-
-    default:
-      /* for some reason win sets ERROR_INSUFFICIENT_BUFFER even if it is large
-         enough but doesn't match the exact sizes supported, ERROR_INVALID_PARAMETER
-         would've been much more appropriate... */
-      SetLastError(ERROR_INSUFFICIENT_BUFFER);
-      return FALSE;
+   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+   break;
   }
-  
-  if(GetVersionExW((LPOSVERSIONINFOW)&viw))
+
+  case sizeof(OSVERSIONINFOA):
   {
-    ANSI_STRING CSDVersionA;
-    UNICODE_STRING CSDVersionW;
-    
-    /* copy back fields that match both supported structures */
-    lpVersionInformation->dwMajorVersion = viw.dwMajorVersion;
-    lpVersionInformation->dwMinorVersion = viw.dwMinorVersion;
-    lpVersionInformation->dwBuildNumber = viw.dwBuildNumber;
-    lpVersionInformation->dwPlatformId = viw.dwPlatformId;
-    
-    /* convert the win version string */
-    RtlInitUnicodeString(&CSDVersionW, viw.szCSDVersion);
-    
-    CSDVersionA.Length = 0;
-    CSDVersionA.MaximumLength = sizeof(lpVersionInformation->szCSDVersion);
-    CSDVersionA.Buffer = lpVersionInformation->szCSDVersion;
-    
-    RtlUnicodeStringToAnsiString(&CSDVersionA, &CSDVersionW, FALSE);
-
-    /* convert the ReactOS version string */
-    CSDVersionW.Buffer = viw.szCSDVersion + CSDVersionW.Length / sizeof(WCHAR) + 1;
-    CSDVersionW.MaximumLength = sizeof(viw.szCSDVersion) - (CSDVersionW.Length + sizeof(WCHAR));
-    CSDVersionW.Length = wcslen(CSDVersionW.Buffer) * sizeof(WCHAR);
-    CSDVersionA.Buffer = lpVersionInformation->szCSDVersion + CSDVersionA.Length + 1;
-    CSDVersionA.MaximumLength = sizeof(lpVersionInformation->szCSDVersion) - (CSDVersionA.Length + 1);
-    CSDVersionA.Length = 0;
-
-    RtlUnicodeStringToAnsiString(&CSDVersionA, &CSDVersionW, FALSE);
-    
-    /* copy back the extended fields */
-    if(viw.dwOSVersionInfoSize == sizeof(OSVERSIONINFOEXW))
-    {
-      ((LPOSVERSIONINFOEXA)lpVersionInformation)->wServicePackMajor = viw.wServicePackMajor;
-      ((LPOSVERSIONINFOEXA)lpVersionInformation)->wServicePackMinor = viw.wServicePackMinor;
-      ((LPOSVERSIONINFOEXA)lpVersionInformation)->wSuiteMask = viw.wSuiteMask;
-      ((LPOSVERSIONINFOEXA)lpVersionInformation)->wProductType = viw.wProductType;
-      ((LPOSVERSIONINFOEXA)lpVersionInformation)->wReserved = viw.wReserved;
-    }
-    
-    return TRUE;
+   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOW);
+   break;
   }
-  
+
+  default:
+  {
+   /* unknown version information revision */
+   SetLastError(ERROR_INSUFFICIENT_BUFFER);
+   return FALSE;
+  }
+ }
+
+ if(!GetVersionExW((LPOSVERSIONINFOW)&oviVerInfo))
   return FALSE;
+
+ /* null-terminate, just in case */
+ oviVerInfo.szCSDVersion
+ [
+  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) /
+  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]) -
+  1
+ ] = 0;
+ wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
+
+ /* convert the win version string */
+ nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
+ 
+ if(!NT_SUCCESS(nErrCode))
+ {
+  /* failure */
+  SetLastErrorByStatus(nErrCode);
+  return FALSE;
+ }
+
+ wstrVerStr.Buffer = oviVerInfo.szCSDVersion + wstrVerStr.Length / sizeof(WCHAR) + 1;
+ wstrVerStr.MaximumLength = sizeof(oviVerInfo.szCSDVersion) - (wstrVerStr.Length + sizeof(WCHAR));
+ wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
+ strVerStr.Buffer = lpVersionInformation->szCSDVersion + strVerStr.Length + 1;
+ strVerStr.MaximumLength = sizeof(lpVersionInformation->szCSDVersion) - (strVerStr.Length + 1);
+ strVerStr.Length = 0;
+
+ /* convert the ReactOS version string */
+ nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
+ 
+ if(!NT_SUCCESS(nErrCode))
+ {
+  /* failure */
+  SetLastErrorByStatus(nErrCode);
+  return FALSE;
+ }
+
+ /* copy the fields */
+ lpVersionInformation->dwMajorVersion = oviVerInfo.dwMajorVersion;
+ lpVersionInformation->dwMinorVersion = oviVerInfo.dwMinorVersion;
+ lpVersionInformation->dwBuildNumber = oviVerInfo.dwBuildNumber;
+ lpVersionInformation->dwPlatformId = oviVerInfo.dwPlatformId;
+ 
+ if(lpVersionInformation->dwOSVersionInfoSize < sizeof(OSVERSIONINFOEXA))
+  /* success */
+  return TRUE;
+
+ /* copy the extended fields */
+ lpVersionInformationEx = (LPOSVERSIONINFOEXA)lpVersionInformation;
+ lpVersionInformationEx->wServicePackMajor = oviVerInfo.wServicePackMajor;
+ lpVersionInformationEx->wServicePackMinor = oviVerInfo.wServicePackMinor;
+ lpVersionInformationEx->wSuiteMask = oviVerInfo.wSuiteMask;
+ lpVersionInformationEx->wProductType = oviVerInfo.wProductType;
+ lpVersionInformationEx->wReserved = oviVerInfo.wReserved;
+
+ /* success */
+ return TRUE;
 }
 
 
@@ -519,7 +581,7 @@ ExpandEnvironmentStringsA (
 
 	Destination.Length = 0;
 	Destination.MaximumLength = nSize;
-	Destination.Buffer = lpDst;
+	Destination.Buffer = lpDst,
 
 	DestinationU.Length = 0;
 	DestinationU.MaximumLength = nSize * sizeof(WCHAR);
@@ -536,14 +598,11 @@ ExpandEnvironmentStringsA (
 
 	if (!NT_SUCCESS(Status))
 	{
+		RtlFreeHeap (RtlGetProcessHeap (),
+		             0,
+		             DestinationU.Buffer);
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-		{
-			RtlFreeHeap (RtlGetProcessHeap (),
-			             0,
-			             DestinationU.Buffer);
-			return 0;
-		}
+		return 0;
 	}
 
 	RtlUnicodeStringToAnsiString (&Destination,
@@ -588,8 +647,7 @@ ExpandEnvironmentStringsW (
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-			return 0;
+		return 0;
 	}
 
 	return (Length / sizeof(WCHAR));

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: apic.c,v 1.1 2004/12/03 20:10:44 gvg Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS kernel
@@ -261,7 +261,7 @@ VOID HaliInitBSP(VOID)
    APICCalibrateTimer(BootCPU);
 }
 
-inline ULONG _APICRead(ULONG Offset)
+volatile inline ULONG _APICRead(ULONG Offset)
 {
    PULONG p;
 
@@ -297,7 +297,7 @@ inline VOID APICWrite(ULONG Offset,
 
 
 #if 0
-inline ULONG APICRead(ULONG Offset)
+volatile inline ULONG APICRead(ULONG Offset)
 {
    PULONG p;
 
@@ -305,7 +305,7 @@ inline ULONG APICRead(ULONG Offset)
    return *p;
 }
 #else
-inline ULONG APICRead(ULONG Offset)
+volatile inline ULONG APICRead(ULONG Offset)
 {
    PULONG p;
    ULONG CPU = (_APICRead(APIC_ID) & APIC_ID_MASK) >> 24;
@@ -755,7 +755,7 @@ VOID MpsSpuriousHandler(VOID)
 {
   ULONG tmp;
 
-  DPRINT("Spurious interrupt on CPU(%d)\n", ThisCPU());
+  DPRINT1("Spurious interrupt on CPU(%d)\n", ThisCPU());
   
   tmp = APICRead(APIC_ISR + ((SPURIOUS_VECTOR & ~0x1f) >> 1));
   if (tmp & (1 << (SPURIOUS_VECTOR & 0x1f)))

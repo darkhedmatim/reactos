@@ -57,8 +57,7 @@ struct BrowserCallback
  /// Implementation of IShellBrowserImpl interface in explorer child windows
 struct ShellBrowser : public IShellBrowserImpl
 {
-	ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, ShellPathInfo& create_info,
-					HIMAGELIST himl, BrowserCallback* cb, CtxMenuInterfaces& cm_ifs);
+	ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, ShellPathInfo& create_info, HIMAGELIST himl, BrowserCallback* cb);
 	virtual ~ShellBrowser();
 
 	//IOleWindow
@@ -154,8 +153,6 @@ protected:
 	Root	_root;
 	ShellDirectory*	_cur_dir;
 
-	CtxMenuInterfaces& _cm_ifs;
-
 	void	InitializeTree(HIMAGELIST himl);
 	bool	InitDragDrop();
 
@@ -234,13 +231,9 @@ protected:
 
 #ifndef _NO_MDI
 
-struct MDIShellBrowserChild : public ExtContextMenuHandlerT<
-				ShellBrowserChildT<ChildWindow>
-			>
+struct MDIShellBrowserChild : public ShellBrowserChildT<ChildWindow>
 {
-	typedef ExtContextMenuHandlerT<
-				ShellBrowserChildT<ChildWindow>
-			> super;
+	typedef ShellBrowserChildT<ChildWindow> super;
 
 	MDIShellBrowserChild(HWND hwnd, const ShellChildWndInfo& info);
 

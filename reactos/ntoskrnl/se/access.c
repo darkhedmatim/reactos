@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: access.c,v 1.7 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/access.c
- * PURPOSE:         Access rights handling functions
- * 
- * PROGRAMMERS:     Eric Kohl <eric.kohl@t-online.de>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Access rights handling functions
+ * FILE:              ntoskrnl/se/access.c
+ * PROGRAMER:         Eric Kohl <ekohl@rz-online.de>
+ * REVISION HISTORY:
+ *                    07/04/2000: Created
  */
 
 /* INCLUDES *****************************************************************/
@@ -26,8 +27,6 @@ RtlAreAllAccessesGranted (
 	ACCESS_MASK	DesiredAccess
 	)
 {
-	PAGED_CODE_RTL();
-
 	return ((GrantedAccess & DesiredAccess) == DesiredAccess);
 }
 
@@ -42,8 +41,6 @@ RtlAreAnyAccessesGranted (
 	ACCESS_MASK	DesiredAccess
 	)
 {
-	PAGED_CODE_RTL();
-
 	return ((GrantedAccess & DesiredAccess) != 0);
 }
 
@@ -58,8 +55,6 @@ RtlMapGenericMask (
 	PGENERIC_MAPPING	GenericMapping
 	)
 {
-	PAGED_CODE_RTL();
-
 	if (*AccessMask & GENERIC_READ)
 		*AccessMask |= GenericMapping->GenericRead;
 

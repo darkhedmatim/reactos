@@ -1,11 +1,29 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998-2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: profile.c,v 1.10 2004/10/22 20:16:47 ekohl Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/dbg/profile.c
  * PURPOSE:         Kernel profiling
- * 
- * PROGRAMMERS:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *                  Created 12/01/2003
  */
 
 /* INCLUDES *****************************************************************/
@@ -136,6 +154,7 @@ KdbProfilerGetSymbolInfo(PVOID address, OUT PCH NameBuffer)
    extern LIST_ENTRY ModuleTextListHead;
    ULONG_PTR RelativeAddress;
    NTSTATUS Status;
+   ULONG LineNumber;
    CHAR FileName[256];
    CHAR FunctionName[256];
 
@@ -151,14 +170,14 @@ KdbProfilerGetSymbolInfo(PVOID address, OUT PCH NameBuffer)
 	    address < (PVOID)(current->Base + current->Length))
 	  {
             RelativeAddress = (ULONG_PTR) address - current->Base;
-            Status = KdbSymGetAddressInformation(current->RosSymInfo,
+            Status = KdbSymGetAddressInformation(&current->SymbolInfo,
               RelativeAddress,
-              NULL,
+              &LineNumber,
               FileName,
               FunctionName);
             if (NT_SUCCESS(Status))
               {
-                sprintf(NameBuffer, "%s (%s)", FunctionName, FileName);
+                sprintf(NameBuffer, "%s (%s)", FileName, FunctionName);
                 return(TRUE);
               }
 	     return(TRUE);
@@ -230,7 +249,7 @@ KdbProfilerWriteSampleGroups(PLIST_ENTRY SamplesListHead)
   PLIST_ENTRY Largest;
 
   KdbProfilerWriteString("\r\n\r\n");
-  KdbProfilerWriteString("Count     Symbol\r\n");
+  KdbProfilerWriteString("Count     Symbol\n");
   KdbProfilerWriteString("--------------------------------------------------\r\n");
 
   current = SamplesListHead->Flink;
@@ -285,7 +304,7 @@ KdbProfilerAnalyzeSamples()
   ULONG Index;
   ULONG_PTR Address;
 
-  if (!ExInitializeHashTable(&Hashtable, 12, KdbProfilerKeyCompare, TRUE))
+  if (!ExInitializeHashTable(&Hashtable, 17, KdbProfilerKeyCompare, TRUE))
     {
       DPRINT1("ExInitializeHashTable() failed.");
       KEBUGCHECK(0);
@@ -352,14 +371,14 @@ KdbProfilerThreadMain(PVOID Context)
 
       KeWaitForSingleObject(&KdbProfilerLock, Executive, KernelMode, FALSE, NULL);
 
-      KdbSuspendProfiling();
+	  KdbSuspendProfiling();
 
       KdbProfilerAnalyzeSamples();
 
-      KdbResumeProfiling();
+	  KdbResumeProfiling();
 
-      KeReleaseMutex(&KdbProfilerLock, FALSE);
-    }
+	  KeReleaseMutex(&KdbProfilerLock, FALSE);
+	}
 }
 
 VOID
@@ -428,16 +447,6 @@ KdbEnableProfiling()
 	      DPRINT1("Failed to create profiler log file\n");
 	      return;
 	    }
-      KeInitializeMutex(&KdbProfilerLock, 0);
-
-      KdbProfileDatabase = ExAllocatePool(NonPagedPool, sizeof(PROFILE_DATABASE));
-      ASSERT(KdbProfileDatabase);
-      InitializeListHead(&KdbProfileDatabase->ListHead);
-      KeInitializeDpc(&KdbProfilerCollectorDpc, KdbProfilerCollectorDpcRoutine, NULL);
-
-	  /* Initialize our periodic timer and its associated DPC object. When the timer
-	     expires, the KdbProfilerSessionEndDpc deferred procedure call (DPC) is queued */
-	  KeInitializeTimerEx(&KdbProfilerTimer, SynchronizationTimer);
 
 	  Status = PsCreateSystemThread(&KdbProfilerThreadHandle,
 		THREAD_ALL_ACCESS,
@@ -451,6 +460,17 @@ KdbEnableProfiling()
 	      DPRINT1("Failed to create profiler thread\n");
 	      return;
 	    }
+
+      KeInitializeMutex(&KdbProfilerLock, 0);
+
+      KdbProfileDatabase = ExAllocatePool(NonPagedPool, sizeof(PROFILE_DATABASE));
+      ASSERT(KdbProfileDatabase);
+      InitializeListHead(&KdbProfileDatabase->ListHead);
+      KeInitializeDpc(&KdbProfilerCollectorDpc, KdbProfilerCollectorDpcRoutine, NULL);
+
+	  /* Initialize our periodic timer and its associated DPC object. When the timer
+	     expires, the KdbProfilerSessionEndDpc deferred procedure call (DPC) is queued */
+	  KeInitializeTimerEx(&KdbProfilerTimer, SynchronizationTimer);
 
 	  /* Start the periodic timer with an initial and periodic
 	     relative expiration time of PROFILE_SESSION_LENGTH seconds */

@@ -1,11 +1,11 @@
-/* $Id$
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/i386/pfault.c
  * PURPOSE:         Paging file functions
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -20,8 +20,6 @@ extern VOID MmSafeCopyFromUserUnsafeStart(VOID);
 extern VOID MmSafeCopyFromUserRestart(VOID);
 extern VOID MmSafeCopyToUserUnsafeStart(VOID);
 extern VOID MmSafeCopyToUserRestart(VOID);
-extern VOID MmSafeReadPtrStart(VOID);
-extern VOID MmSafeReadPtrEnd(VOID);
 
 extern ULONG MmGlobalKernelPageDirectory[1024];
 
@@ -77,29 +75,20 @@ NTSTATUS MmPageFault(ULONG Cs,
       KeLowerIrql(oldIrql);
    }
    if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
-         ((*Eip) >= (ULONG_PTR)MmSafeCopyFromUserUnsafeStart) &&
-         ((*Eip) <= (ULONG_PTR)MmSafeCopyFromUserRestart))
+         ((*Eip) >= (ULONG)MmSafeCopyFromUserUnsafeStart) &&
+         ((*Eip) <= (ULONG)MmSafeCopyFromUserRestart))
    {
-      (*Eip) = (ULONG_PTR)MmSafeCopyFromUserRestart;
+      (*Eip) = (ULONG)MmSafeCopyFromUserRestart;
       (*Eax) = STATUS_ACCESS_VIOLATION;
       return(STATUS_SUCCESS);
    }
    if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
-         ((*Eip) >= (ULONG_PTR)MmSafeCopyToUserUnsafeStart) &&
-         ((*Eip) <= (ULONG_PTR)MmSafeCopyToUserRestart))
+         ((*Eip) >= (ULONG)MmSafeCopyToUserUnsafeStart) &&
+         ((*Eip) <= (ULONG)MmSafeCopyToUserRestart))
    {
-      (*Eip) = (ULONG_PTR)MmSafeCopyToUserRestart;
+      (*Eip) = (ULONG)MmSafeCopyToUserRestart;
       (*Eax) = STATUS_ACCESS_VIOLATION;
       return(STATUS_SUCCESS);
    }
-   if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
-         ((*Eip) >= (ULONG_PTR)MmSafeReadPtrStart) &&
-         ((*Eip) <= (ULONG_PTR)MmSafeReadPtrEnd))
-   {
-      (*Eip) = (ULONG_PTR)MmSafeReadPtrEnd;
-      (*Eax) = 0;
-      return(STATUS_SUCCESS);
-   }
-
    return(Status);
 }

@@ -14,9 +14,6 @@
 #include "mmdrv.h"
 #include "wave.h"
 
-#define NDEBUG
-#include <debug.h>
-
 /* ============================
  *  INTERNAL
  *  functions start here
@@ -147,23 +144,23 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
 {
     switch (dwMessage) {
         case WODM_GETNUMDEVS:
-            DPRINT("WODM_GETNUMDEVS");
+            printf("WODM_GETNUMDEVS");
             return GetDeviceCount(WaveOutDevice);
 
         case WODM_GETDEVCAPS:
-            DPRINT("WODM_GETDEVCAPS");
+            printf("WODM_GETDEVCAPS");
             return GetDeviceCapabilities(dwId, WaveOutDevice, (LPBYTE)dwParam1,
                                   (DWORD)dwParam2);
 
         case WODM_OPEN:
-            DPRINT("WODM_OPEN");
+            printf("WODM_OPEN");
             return OpenWaveDevice(WaveOutDevice, dwId, dwUser, dwParam1, dwParam2);
 
         case WODM_CLOSE:
 			{
 				MMRESULT Result;
 				PWAVEALLOC pTask = (PWAVEALLOC)dwUser;
-				DPRINT("WODM_CLOSE");
+				printf("WODM_CLOSE");
 
 				// 1. Check if the task is ready to complete
 				Result = ThreadCallWaveDevice(WaveThreadClose, pTask);
@@ -189,7 +186,7 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
 			{
 				LPWAVEHDR pWaveHdr = (LPWAVEHDR)dwParam1;
 
-				DPRINT("WODM_WRITE");
+				printf("WODM_WRITE");
 
 				if (dwParam1 != 0)
 					return MMSYSERR_INVALPARAM;
@@ -218,37 +215,37 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
 
 
         case WODM_PAUSE:
-            DPRINT("WODM_PAUSE");
+            printf("WODM_PAUSE");
             ((PWAVEALLOC)dwUser)->AuxParam.State = WAVE_DD_STOP;
             return ThreadCallWaveDevice(WaveThreadSetState, (PWAVEALLOC)dwUser);
 
         case WODM_RESTART:
-            DPRINT("WODM_RESTART");
+            printf("WODM_RESTART");
             ((PWAVEALLOC)dwUser)->AuxParam.State = WAVE_DD_PLAY;
             return ThreadCallWaveDevice(WaveThreadSetState, (PWAVEALLOC)dwUser);
 
         case WODM_RESET:
-            DPRINT("WODM_RESET");
+            printf("WODM_RESET");
             ((PWAVEALLOC)dwUser)->AuxParam.State = WAVE_DD_RESET;
             return ThreadCallWaveDevice(WaveThreadSetState, (PWAVEALLOC)dwUser);
 
         case WODM_BREAKLOOP:
-            DPRINT("WODM_BREAKLOOP");
+            printf("WODM_BREAKLOOP");
             return ThreadCallWaveDevice(WaveThreadBreakLoop, (PWAVEALLOC)dwUser);
 
         case WODM_GETPOS:
-            DPRINT("WODM_GETPOS");
+            printf("WODM_GETPOS");
             return GetPositionWaveDevice(((PWAVEALLOC)dwUser), (LPMMTIME)dwParam1, dwParam2);
 
         case WODM_SETPITCH:
-            DPRINT("WODM_SETPITCH");
+            printf("WODM_SETPITCH");
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.pData = (PBYTE)&dwParam1;
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.DataLen = sizeof(DWORD);
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.Function = IOCTL_WAVE_SET_PITCH;
             return ThreadCallWaveDevice(WaveThreadSetData, ((PWAVEALLOC)dwUser));
 
         case WODM_SETVOLUME:
-            DPRINT("WODM_SETVOLUME");
+            printf("WODM_SETVOLUME");
             {
                 WAVE_DD_VOLUME Vol;
                 Vol.Left = LOWORD(dwParam1) << 16;
@@ -259,21 +256,21 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
             }
 
         case WODM_SETPLAYBACKRATE:
-            DPRINT("WODM_SETPLAYBACKRATE");
+            printf("WODM_SETPLAYBACKRATE");
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.pData = (PBYTE)&dwParam1;
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.DataLen = sizeof(DWORD);
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.Function = IOCTL_WAVE_SET_PLAYBACK_RATE;
             return ThreadCallWaveDevice(WaveThreadSetData, (PWAVEALLOC)dwUser);
 
         case WODM_GETPITCH:
-            DPRINT("WODM_GETPITCH");
+            printf("WODM_GETPITCH");
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.pData = (PBYTE)dwParam1;
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.DataLen = sizeof(DWORD);
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.Function = IOCTL_WAVE_GET_PITCH;
             return ThreadCallWaveDevice(WaveThreadGetData, (PWAVEALLOC)dwUser);
 
         case WODM_GETVOLUME:
-            DPRINT("WODM_GETVOLUME");
+            printf("WODM_GETVOLUME");
             {
                 WAVE_DD_VOLUME Vol;
                 DWORD res;
@@ -288,7 +285,7 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
             }
 
         case WODM_GETPLAYBACKRATE:
-            DPRINT("WODM_GETPLAYBACKRATE");
+            printf("WODM_GETPLAYBACKRATE");
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.pData = (PBYTE)dwParam1;
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.DataLen = sizeof(DWORD);
             ((PWAVEALLOC)dwUser)->AuxParam.GetSetData.Function = IOCTL_WAVE_GET_PLAYBACK_RATE;
@@ -308,7 +305,7 @@ APIENTRY DWORD wodMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwPar
  */
 APIENTRY DWORD widMessage(DWORD dwId, DWORD dwMessage, DWORD dwUser, DWORD dwParam1, DWORD dwParam2)
 {
-    DPRINT("widMessage\n");
+    printf("widMessage\n");
 
     switch (dwMessage) {
         case WIDM_GETNUMDEVS:

@@ -32,8 +32,7 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 	INT   curplace = 0;
 	INT   start;
 	INT   count;
-	INT step;
-	INT c = 0;
+	INT step, c;
 	BOOL  found_dot = FALSE;
 	BOOL  perfectmatch = TRUE;
 	TCHAR path[MAX_PATH];

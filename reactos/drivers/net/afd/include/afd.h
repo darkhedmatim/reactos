@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: afd.h,v 1.28 2004/12/13 21:20:38 arty Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -44,7 +44,6 @@
 #define SOCKET_STATE_CONNECTED          3
 #define SOCKET_STATE_LISTENING          4
 #define SOCKET_STATE_MASK               0x0000ffff
-#define SOCKET_STATE_EOF_READ           0x20000000
 #define SOCKET_STATE_LOCKED             0x40000000
 #define SOCKET_STATE_NEW                0x80000000
 #define SOCKET_STATE_CLOSED             0x00000100
@@ -52,10 +51,8 @@
 #define FUNCTION_CONNECT                0
 #define FUNCTION_RECV                   1
 #define FUNCTION_SEND                   2
-#define FUNCTION_PREACCEPT              3
-#define FUNCTION_ACCEPT                 4
-#define FUNCTION_CLOSE                  5
-#define MAX_FUNCTIONS                   6
+#define FUNCTION_CLOSE                  3
+#define MAX_FUNCTIONS                   4
 
 #define IN_FLIGHT_REQUESTS              3
 
@@ -105,18 +102,10 @@ typedef struct _AFD_TDI_OBJECT {
     HANDLE Handle;
 } AFD_TDI_OBJECT, *PAFD_TDI_OBJECT;
 
-typedef struct _AFD_TDI_OBJECT_QELT {
-    LIST_ENTRY ListEntry;
-    UINT Seq;
-    PTDI_CONNECTION_INFORMATION ConnInfo;
-    AFD_TDI_OBJECT Object;
-} AFD_TDI_OBJECT_QELT, *PAFD_TDI_OBJECT_QELT;
-
 typedef struct _AFD_IN_FLIGHT_REQUEST {
     PIRP InFlightRequest;
     IO_STATUS_BLOCK Iosb;    
-    PTDI_CONNECTION_INFORMATION ConnectionCallInfo;
-    PTDI_CONNECTION_INFORMATION ConnectionReturnInfo;
+    PTDI_CONNECTION_INFORMATION ConnectionInfo;
 } AFD_IN_FLIGHT_REQUEST, *PAFD_IN_FLIGHT_REQUEST;
 
 typedef struct _AFD_DATA_WINDOW {
@@ -140,8 +129,7 @@ typedef struct _AFD_FCB {
     KSPIN_LOCK SpinLock;
     PFILE_OBJECT FileObject;
     PAFD_DEVICE_EXTENSION DeviceExt;
-    BOOLEAN DelayedAccept, NeedsNewListen;
-    UINT ConnSeq;
+    BOOLEAN DelayedAccept;
     PTRANSPORT_ADDRESS LocalAddress, RemoteAddress;
     PTDI_CONNECTION_INFORMATION AddressFrom;
     AFD_TDI_OBJECT AddressFile, Connection;
@@ -158,7 +146,6 @@ typedef struct _AFD_FCB {
     UINT ContextSize;
     LIST_ENTRY PendingIrpList[MAX_FUNCTIONS];
     LIST_ENTRY DatagramList;
-    LIST_ENTRY PendingConnections;
 } AFD_FCB, *PAFD_FCB;
 
 /* bind.c */
@@ -170,7 +157,6 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 /* connect.c */
 
-NTSTATUS MakeSocketIntoConnection( PAFD_FCB FCB );
 NTSTATUS WarmSocketForConnection( PAFD_FCB FCB );
 NTSTATUS STDCALL
 AfdStreamSocketConnect(PDEVICE_OBJECT DeviceObject, PIRP Irp,
@@ -192,18 +178,13 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    PIO_STACK_LOCATION IrpSp );
 
 NTSTATUS STDCALL
-AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-                      PIO_STACK_LOCATION IrpSp, BOOLEAN Local );
+AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
+		PIO_STACK_LOCATION IrpSp );
 
 /* listen.c */
-NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-			   PIO_STACK_LOCATION IrpSp );
 
 NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			 PIO_STACK_LOCATION IrpSp);
-
-NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-		    PIO_STACK_LOCATION IrpSp );
 
 /* lock.c */
 
@@ -263,8 +244,6 @@ NTSTATUS STDCALL
 AfdEnumEvents( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
 	       PIO_STACK_LOCATION IrpSp );
 VOID PollReeval( PAFD_DEVICE_EXTENSION DeviceObject, PFILE_OBJECT FileObject );
-VOID KillSelectsForFCB( PAFD_DEVICE_EXTENSION DeviceExt,
-                        PFILE_OBJECT FileObject, BOOLEAN ExclusiveOnly );
 
 /* tdi.c */
 
@@ -282,7 +261,6 @@ NTSTATUS TdiListen
 ( PIRP *Irp,
   PFILE_OBJECT ConnectionObject,
   PTDI_CONNECTION_INFORMATION *RequestConnectionInfo,
-  PTDI_CONNECTION_INFORMATION *ReturnConnectionInfo,
   PIO_STATUS_BLOCK Iosb,
   PIO_COMPLETION_ROUTINE  CompletionRoutine,
   PVOID CompletionContext);

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: reply.c,v 1.23 2004/10/31 20:27:08 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/reply.c
  * PURPOSE:         Communication mechanism
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES ******************************************************************/
@@ -55,7 +56,7 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
    MessageReply->Message.ClientId.UniqueProcess = PsGetCurrentProcessId();
    MessageReply->Message.ClientId.UniqueThread = PsGetCurrentThreadId();
    MessageReply->Message.MessageType = MessageType;
-   MessageReply->Message.MessageId = InterlockedIncrementUL(&LpcpNextMessageId);
+   MessageReply->Message.MessageId = InterlockedIncrement((LONG *)&LpcpNextMessageId);
    
    KeAcquireSpinLock(&Port->Lock, &oldIrql);
    EiEnqueueMessagePort(Port, MessageReply);
@@ -87,7 +88,7 @@ NtReplyPort (IN	HANDLE		PortHandle,
    
    Status = ObReferenceObjectByHandle(PortHandle,
 				      PORT_ALL_ACCESS,   /* AccessRequired */
-				      LpcPortObjectType,
+				      ExPortType,
 				      UserMode,
 				      (PVOID*)&Port,
 				      NULL);
@@ -153,7 +154,7 @@ NtReplyWaitReceivePortEx(IN  HANDLE		PortHandle,
    
    Status = ObReferenceObjectByHandle(PortHandle,
 				      PORT_ALL_ACCESS,
-				      LpcPortObjectType,
+				      ExPortType,
 				      UserMode,
 				      (PVOID*)&Port,
 				      NULL);

@@ -1,11 +1,28 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ex/win32k.c
+ * FILE:            kernel/ex/win32k.c
  * PURPOSE:         Executive Win32 subsystem support
- * 
- * PROGRAMMERS:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *      04-06-2001  CSH  Created
  */
 
 #include <ntoskrnl.h>
@@ -84,7 +101,7 @@ ExpWinStaObjectCreate(PVOID ObjectBody,
 
   DPRINT("Creating window station (0x%X)  Name (%wZ)\n", WinSta, &UnicodeString);
 
-  Status = RtlpCreateUnicodeString(&WinSta->Name, UnicodeString.Buffer, NonPagedPool);
+  Status = RtlCreateUnicodeString(&WinSta->Name, UnicodeString.Buffer);
   if (!NT_SUCCESS(Status))
   {
     return Status;
@@ -247,7 +264,7 @@ ExpDesktopObjectCreate(PVOID ObjectBody,
     &Desktop->ListEntry,
     &Desktop->WindowStation->Lock);
 
-  return RtlpCreateUnicodeString(&Desktop->Name, UnicodeString.Buffer, NonPagedPool);
+  return RtlCreateUnicodeString(&Desktop->Name, UnicodeString.Buffer);
 }
 
 VOID STDCALL
@@ -280,8 +297,8 @@ ExpWin32kInit(VOID)
   ExWindowStationObjectType->Tag = TAG('W', 'I', 'N', 'S');
   ExWindowStationObjectType->TotalObjects = 0;
   ExWindowStationObjectType->TotalHandles = 0;
-  ExWindowStationObjectType->PeakObjects = 0;
-  ExWindowStationObjectType->PeakHandles = 0;
+  ExWindowStationObjectType->MaxObjects = ULONG_MAX;
+  ExWindowStationObjectType->MaxHandles = ULONG_MAX;
   ExWindowStationObjectType->PagedPoolCharge = 0;
   ExWindowStationObjectType->NonpagedPoolCharge = sizeof(WINSTATION_OBJECT);
   ExWindowStationObjectType->Mapping = &ExpWindowStationMapping;
@@ -295,7 +312,7 @@ ExpWin32kInit(VOID)
   ExWindowStationObjectType->OkayToClose = NULL;
   ExWindowStationObjectType->Create = ExpWinStaObjectCreate;
   ExWindowStationObjectType->DuplicationNotify = NULL;
-  RtlInitUnicodeString(&ExWindowStationObjectType->TypeName, L"WindowStation");
+  RtlRosInitUnicodeStringFromLiteral(&ExWindowStationObjectType->TypeName, L"WindowStation");
 
   ObpCreateTypeObject(ExWindowStationObjectType);
 
@@ -310,8 +327,8 @@ ExpWin32kInit(VOID)
   ExDesktopObjectType->Tag = TAG('D', 'E', 'S', 'K');
   ExDesktopObjectType->TotalObjects = 0;
   ExDesktopObjectType->TotalHandles = 0;
-  ExDesktopObjectType->PeakObjects = 0;
-  ExDesktopObjectType->PeakHandles = 0;
+  ExDesktopObjectType->MaxObjects = ULONG_MAX;
+  ExDesktopObjectType->MaxHandles = ULONG_MAX;
   ExDesktopObjectType->PagedPoolCharge = 0;
   ExDesktopObjectType->NonpagedPoolCharge = sizeof(DESKTOP_OBJECT);
   ExDesktopObjectType->Mapping = &ExpDesktopMapping;
@@ -325,7 +342,7 @@ ExpWin32kInit(VOID)
   ExDesktopObjectType->OkayToClose = NULL;
   ExDesktopObjectType->Create = ExpDesktopObjectCreate;
   ExDesktopObjectType->DuplicationNotify = NULL;
-  RtlInitUnicodeString(&ExDesktopObjectType->TypeName, L"Desktop");
+  RtlRosInitUnicodeStringFromLiteral(&ExDesktopObjectType->TypeName, L"Desktop");
 
   ObpCreateTypeObject(ExDesktopObjectType);
 }

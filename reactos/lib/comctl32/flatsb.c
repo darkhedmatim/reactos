@@ -34,7 +34,9 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
+#include "wingdi.h"
 #include "winuser.h"
+#include "winnls.h"
 #include "commctrl.h"
 #include "wine/debug.h"
 
@@ -261,6 +263,7 @@ FlatSB_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     uMsg, wParam, lParam);
 	    return DefWindowProcA (hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 

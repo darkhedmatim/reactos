@@ -1,11 +1,13 @@
-/* $Id$
+/* $Id: buildirp.c,v 1.45 2004/08/21 20:42:10 tamlin Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/buildirp.c
  * PURPOSE:         Building various types of irp
- *
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  Fixed IO method handling 04/03/99
  */
 
 /* INCLUDES *****************************************************************/

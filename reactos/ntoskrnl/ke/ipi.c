@@ -1,12 +1,13 @@
-/* $Id$
+/* $Id: ipi.c,v 1.4 2004/11/27 16:32:10 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/ipi.c
  * PURPOSE:         IPI Routines (Inter-Processor Interrupts). NT5+
- *
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
  *                  Hartmut Birr    
+ * UPDATE HISTORY:
+ *                  Created 11/08/2004
  */
 
 /* INCLUDES *****************************************************************/
@@ -32,7 +33,7 @@ KiIpiSendRequest(ULONG TargetSet, ULONG IpiRequest)
       if (TargetSet & (1 << i))
       {
          Pcr = (PKPCR)(KPCR_BASE + i * PAGE_SIZE);
-	 Ke386TestAndSetBit(IpiRequest, &Pcr->PrcbData.IpiFrozen);
+	 Pcr->PrcbData.IpiFrozen |= IpiRequest;
 	 HalRequestIpi(i);
       }
    }
@@ -50,6 +51,8 @@ KiIpiServiceRoutine(IN PKTRAP_FRAME TrapFrame,
    LARGE_INTEGER StartTime, CurrentTime, Frequency;
    ULONG Count = 5;
 #endif   
+   ULONG TargetSet, Processor;
+
    PKPCR Pcr;
 
    ASSERT(KeGetCurrentIrql() == IPI_LEVEL);
@@ -58,57 +61,64 @@ KiIpiServiceRoutine(IN PKTRAP_FRAME TrapFrame,
 
    Pcr = KeGetCurrentKPCR();
 
-   if (Ke386TestAndClearBit(IPI_REQUEST_APC, &Pcr->PrcbData.IpiFrozen))
+   if (Pcr->PrcbData.IpiFrozen & IPI_REQUEST_APC)
    {
+      Pcr->PrcbData.IpiFrozen &= ~IPI_REQUEST_APC;
       HalRequestSoftwareInterrupt(APC_LEVEL);
    }
 
-   if (Ke386TestAndClearBit(IPI_REQUEST_DPC, &Pcr->PrcbData.IpiFrozen))
+   if (Pcr->PrcbData.IpiFrozen & IPI_REQUEST_DPC)
    {
+      Pcr->PrcbData.IpiFrozen &= ~IPI_REQUEST_DPC;
       Pcr->PrcbData.DpcInterruptRequested = TRUE;
       HalRequestSoftwareInterrupt(DISPATCH_LEVEL);
    }
 
-   if (Ke386TestAndClearBit(IPI_REQUEST_FUNCTIONCALL, &Pcr->PrcbData.IpiFrozen))
+   if (Pcr->PrcbData.IpiFrozen & IPI_REQUEST_FUNCTIONCALL)
    {
-      InterlockedDecrementUL(&Pcr->PrcbData.SignalDone->CurrentPacket[1]);
-      if (InterlockedCompareExchangeUL(&Pcr->PrcbData.SignalDone->CurrentPacket[2], 0, 0))
+      InterlockedDecrement((PLONG)&Pcr->PrcbData.SignalDone->CurrentPacket[1]);
+      if (Pcr->PrcbData.SignalDone->CurrentPacket[2])
       {
 #ifdef DBG      	
          StartTime = KeQueryPerformanceCounter(&Frequency);
 #endif         
-         while (0 != InterlockedCompareExchangeUL(&Pcr->PrcbData.SignalDone->CurrentPacket[1], 0, 0))
+         while (0 != InterlockedCompareExchange((PLONG)&Pcr->PrcbData.SignalDone->CurrentPacket[1], 0, 0))
 	 {
 #ifdef DBG	 	
             CurrentTime = KeQueryPerformanceCounter(NULL);
 	    if (CurrentTime.QuadPart > StartTime.QuadPart + Count * Frequency.QuadPart)
 	    {
-	       DbgPrint("(%s:%d) CPU%d, waiting longer than %d seconds to start the ipi routine\n", __FILE__,__LINE__, KeGetCurrentProcessorNumber(), Count);
+	       DPRINT1("Waiting longer than %d seconds to start the ipi routine\n", Count);
 	       KEBUGCHECK(0);
 	    }
 #endif	 
          }
       }
       ((VOID STDCALL(*)(PVOID))(Pcr->PrcbData.SignalDone->WorkerRoutine))(Pcr->PrcbData.SignalDone->CurrentPacket[0]);
-      Ke386TestAndClearBit(KeGetCurrentProcessorNumber(), &Pcr->PrcbData.SignalDone->TargetSet);
-      if (InterlockedCompareExchangeUL(&Pcr->PrcbData.SignalDone->CurrentPacket[2], 0, 0))
+      do
+      {
+         Processor = 1 << KeGetCurrentProcessorNumber();
+	 TargetSet = Pcr->PrcbData.SignalDone->TargetSet;
+      } while (Processor & InterlockedCompareExchange(&Pcr->PrcbData.SignalDone->TargetSet, TargetSet & ~Processor, TargetSet)); 
+      if (Pcr->PrcbData.SignalDone->CurrentPacket[2])
       {
 #ifdef DBG      	
          StartTime = KeQueryPerformanceCounter(&Frequency);
 #endif         
-         while (0 != InterlockedCompareExchangeUL(&Pcr->PrcbData.SignalDone->TargetSet, 0, 0))
+         while (0 != InterlockedCompareExchange(&Pcr->PrcbData.SignalDone->TargetSet, 0, 0))
          {
 #ifdef DBG         	
 	    CurrentTime = KeQueryPerformanceCounter(NULL);
 	    if (CurrentTime.QuadPart > StartTime.QuadPart + Count * Frequency.QuadPart)
 	    {
-	       DbgPrint("(%s:%d) CPU%d, waiting longer than %d seconds after executing the ipi routine\n", __FILE__,__LINE__, KeGetCurrentProcessorNumber(), Count);
+	       DPRINT1("Waiting longer than %d seconds after executing the ipi routine\n", Count);
 	       KEBUGCHECK(0);
 	    }
 #endif	 
          }
       }
       InterlockedExchangePointer(&Pcr->PrcbData.SignalDone, NULL);
+      Pcr->PrcbData.IpiFrozen &= ~IPI_REQUEST_FUNCTIONCALL;
    }
    DPRINT("KiIpiServiceRoutine done\n");
    return TRUE;
@@ -126,11 +136,11 @@ KiIpiSendPacket(ULONG TargetSet, VOID STDCALL (*WorkerRoutine)(PVOID), PVOID Arg
     ASSERT(KeGetCurrentIrql() == SYNCH_LEVEL);
 
     CurrentPcr = KeGetCurrentKPCR();
-    InterlockedExchangeUL(&CurrentPcr->PrcbData.TargetSet, TargetSet);
-    InterlockedExchangeUL(&CurrentPcr->PrcbData.WorkerRoutine, (ULONG_PTR)WorkerRoutine);
-    InterlockedExchangePointer(&CurrentPcr->PrcbData.CurrentPacket[0], Argument);
-    InterlockedExchangeUL(&CurrentPcr->PrcbData.CurrentPacket[1], Count);
-    InterlockedExchangeUL(&CurrentPcr->PrcbData.CurrentPacket[2], Synchronize ? 1 : 0);
+    CurrentPcr->PrcbData.TargetSet = TargetSet;
+    CurrentPcr->PrcbData.WorkerRoutine = (ULONG_PTR)WorkerRoutine;
+    CurrentPcr->PrcbData.CurrentPacket[0] = Argument;
+    CurrentPcr->PrcbData.CurrentPacket[1] = (PVOID)Count;
+    CurrentPcr->PrcbData.CurrentPacket[2] = (PVOID)(ULONG)Synchronize;
 
     CurrentProcessor = 1 << KeGetCurrentProcessorNumber();
 
@@ -139,8 +149,8 @@ KiIpiSendPacket(ULONG TargetSet, VOID STDCALL (*WorkerRoutine)(PVOID), PVOID Arg
        if (TargetSet & Processor)
        {
           Pcr = (PKPCR)(KPCR_BASE + i * PAGE_SIZE);
-          while(0 != InterlockedCompareExchangeUL(&Pcr->PrcbData.SignalDone, (LONG)&CurrentPcr->PrcbData, 0));
-	  Ke386TestAndSetBit(IPI_REQUEST_FUNCTIONCALL, &Pcr->PrcbData.IpiFrozen);
+          while(0 != InterlockedCompareExchange((PLONG)&Pcr->PrcbData.SignalDone, (LONG)&CurrentPcr->PrcbData, 0));
+	  Pcr->PrcbData.IpiFrozen |= IPI_REQUEST_FUNCTIONCALL;
 	  if (Processor != CurrentProcessor)
 	  {
 	     HalRequestIpi(i);
@@ -156,7 +166,7 @@ KiIpiSendPacket(ULONG TargetSet, VOID STDCALL (*WorkerRoutine)(PVOID), PVOID Arg
 }
 
 VOID
-KeIpiGenericCall(VOID (STDCALL *Function)(PVOID), PVOID Argument)
+KeIpiGenericCall(VOID STDCALL (*Function)(PVOID), PVOID Argument)
 {
    KIRQL oldIrql;
    ULONG TargetSet;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: class2.c,v 1.55 2004/08/12 05:59:25 arty Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -1027,46 +1027,6 @@ ScsiClassInternalIoControl(IN PDEVICE_OBJECT DeviceObject,
 
 
 /*
- * Implements part of the directives on:
- * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/kmarch/hh/kmarch/other_c694d732-fa95-4841-8d61-2a55ee787905.xml.asp
- */
-static VOID
-ScsiClassInvalidateMedia(IN PDEVICE_OBJECT DeviceObject,
-			 OUT NTSTATUS *Status)
-{
-  PDEVICE_EXTENSION DeviceExtension;
-  PDEVICE_EXTENSION PhysicalExtension;
-
-  DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  PhysicalExtension = (PDEVICE_EXTENSION)DeviceExtension->PhysicalDevice->DeviceExtension;
-
-  if (DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA)
-    {
-      DPRINT("Invalidate: test char yields TRUE\n");
-    }
-  else
-    {
-      DPRINT("Invalidate: test char yields FALSE\n");
-    }
-
-  if ((DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) &&
-      (DeviceObject->Vpb->Flags & VPB_MOUNTED))
-    {
-      DPRINT("Set DO_VERIFY_VOLUME\n");
-      DeviceObject->Flags |= DO_VERIFY_VOLUME;
-      *Status = STATUS_VERIFY_REQUIRED;
-    }
-  else
-    {
-      *Status = STATUS_IO_DEVICE_ERROR;
-    }
-
-  /* Increment the media change count */
-  PhysicalExtension->MediaChangeCount++;
-}
-
-
-/*
  * @implemented
  */
 BOOLEAN STDCALL
@@ -1146,12 +1106,9 @@ ScsiClassInterpretSenseInfo(IN PDEVICE_OBJECT DeviceObject,
 
 		case SCSI_ADSENSE_NO_MEDIA_IN_DEVICE:
 		  DPRINT("SCSI_ADSENSE_NO_MEDIA_IN_DEVICE\n");
-		  ScsiClassInvalidateMedia(DeviceObject,
-					   Status);
-
-		  *Status = STATUS_NO_MEDIA_IN_DEVICE;
+	   	  *Status = STATUS_NO_MEDIA_IN_DEVICE;
 		  Retry = FALSE;
-
+		  
 		  if((DeviceExtension->MediaChangeEvent != NULL) &&
 		    (!DeviceExtension->MediaChangeEvent))
 		    {
@@ -1243,9 +1200,22 @@ ScsiClassInterpretSenseInfo(IN PDEVICE_OBJECT DeviceObject,
 		  break;
 	      }
 
-	    ScsiClassInvalidateMedia(DeviceObject,
-				     Status);
-	    Retry = FALSE;
+	    if ((DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) &&
+		(DeviceObject->Vpb->Flags & VPB_MOUNTED))
+	      {
+	    DPRINT("SCSI_SENSE_UNIT_ATTENTION set DoVerifyVol\n");
+
+		DeviceObject->Flags |= DO_VERIFY_VOLUME;
+		*Status = STATUS_VERIFY_REQUIRED;
+		Retry = FALSE;
+	      }
+	    else
+	      {
+		*Status = STATUS_IO_DEVICE_ERROR;
+	      }
+
+	    /* Increment the media change count */
+	    PhysicalExtension->MediaChangeCount++;
 	    break;
 
 	  case SCSI_SENSE_DATA_PROTECT:

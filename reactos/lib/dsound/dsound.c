@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: dsound.c,v 1.2 2004/07/18 17:16:57 navaraf Exp $
  */
 
 #include <windows.h>

@@ -147,6 +147,8 @@ typedef struct _ROS_TEST
   TestRoutine Routine;
 } ROS_TEST, *PROS_TEST;
 
+extern LIST_ENTRY AllTests;
+
 extern VOID InitializeTests();
 extern VOID RegisterTests();
 extern VOID PerformTests(TestOutputRoutine OutputRoutine, LPSTR TestName);
@@ -206,7 +208,7 @@ static inline PVOID
 FrameworkGetFunction(PAPI_DESCRIPTION ApiDescription)
 {
   HANDLE hModule;
-  PVOID function = NULL;
+  PVOID function;
   PCHAR exportedFunctionName;
 
   exportedFunctionName = FrameworkGetExportedFunctionNameInternal(ApiDescription);

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: timezone.c,v 1.1 2004/05/31 19:29:02 gdalsnes Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -14,7 +14,6 @@
 #include <ddk/ntddk.h>
 #include <ntos/registry.h>
 #include <ntos/time.h>
-#include <ntdll/rtl.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -34,8 +33,6 @@ RtlQueryTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
    NTSTATUS Status;
 
    DPRINT("RtlQueryTimeZoneInformation()\n");
-   
-   PAGED_CODE_RTL();
 
    RtlZeroMemory(QueryTable,
                  sizeof(QueryTable));
@@ -96,8 +93,6 @@ RtlSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
    NTSTATUS Status;
 
    DPRINT("RtlSetTimeZoneInformation()\n");
-   
-   PAGED_CODE_RTL();
 
    Status = RtlWriteRegistryValue(RTL_REGISTRY_CONTROL,
                                   L"TimeZoneInformation",

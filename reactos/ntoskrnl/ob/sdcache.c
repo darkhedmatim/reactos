@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: sdcache.c,v 1.3 2004/08/15 16:39:10 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ob/sdcache.c
- * PURPOSE:         No purpose listed.
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * FILE:            ntoskrnl/ps/kill.c
+ * PURPOSE:         Terminating a thread
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -28,10 +29,12 @@ typedef struct _SD_CACHE_ENTRY
 
 /* GLOBALS ******************************************************************/
 
-#define SD_CACHE_ENTRIES 0x100
+PLIST_ENTRY ObpSdCache;
+KSPIN_LOCK ObpSdCacheSpinLock;
+KIRQL ObpSdCacheIrql;
 
-LIST_ENTRY ObpSdCache[SD_CACHE_ENTRIES];
-FAST_MUTEX ObpSdCacheMutex;
+
+#define SD_CACHE_ENTRIES 0x100
 
 /* FUNCTIONS ****************************************************************/
 
@@ -40,36 +43,37 @@ ObpInitSdCache(VOID)
 {
   ULONG i;
 
-  for (i = 0; i < (sizeof(ObpSdCache) / sizeof(ObpSdCache[0])); i++)
+  ObpSdCache = ExAllocatePool(NonPagedPool,
+			      SD_CACHE_ENTRIES * sizeof(LIST_ENTRY));
+  if (ObpSdCache == NULL)
+    {
+      return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+  for (i = 0; i < SD_CACHE_ENTRIES; i++)
     {
       InitializeListHead(&ObpSdCache[i]);
     }
 
-  ExInitializeFastMutex(&ObpSdCacheMutex);
+  KeInitializeSpinLock(&ObpSdCacheSpinLock);
 
   return STATUS_SUCCESS;
 }
 
 
-static inline VOID
+static VOID
 ObpSdCacheLock(VOID)
 {
-  /* can't acquire a fast mutex in the early boot process... */
-  if(KeGetCurrentThread() != NULL)
-  {
-    ExAcquireFastMutex(&ObpSdCacheMutex);
-  }
+  KeAcquireSpinLock(&ObpSdCacheSpinLock,
+		    &ObpSdCacheIrql);
 }
 
 
-static inline VOID
+static VOID
 ObpSdCacheUnlock(VOID)
 {
-  /* can't acquire a fast mutex in the early boot process... */
-  if(KeGetCurrentThread() != NULL)
-  {
-    ExReleaseFastMutex(&ObpSdCacheMutex);
-  }
+  KeReleaseSpinLock(&ObpSdCacheSpinLock,
+		    ObpSdCacheIrql);
 }
 
 

@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/ksrc/iostream.c,v $
- * $Id$
+ * $Id: iostream.c,v 1.2 2004/05/29 21:21:06 navaraf Exp $
  */
 
 #include "jsint.h"

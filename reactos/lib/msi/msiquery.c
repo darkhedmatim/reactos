@@ -38,6 +38,30 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(msi);
 
+#if 0
+typedef struct tagMSIQUERY
+{
+    MSIOBJECTHDR hdr;
+    MSIVIEW *view;
+    UINT row;
+    MSIDATABASE *db;
+} MSIQUERY;
+#endif
+
+UINT WINAPI MsiDatabaseIsTablePersistentA(
+              MSIHANDLE hDatabase, LPSTR szTableName)
+{
+    FIXME("%lx %s\n", hDatabase, debugstr_a(szTableName));
+    return ERROR_CALL_NOT_IMPLEMENTED;
+}
+
+UINT WINAPI MsiDatabaseIsTablePersistentW(
+              MSIHANDLE hDatabase, LPWSTR szTableName)
+{
+    FIXME("%lx %s\n", hDatabase, debugstr_w(szTableName));
+    return ERROR_CALL_NOT_IMPLEMENTED;
+}
+
 void MSI_CloseView( MSIOBJECTHDR *arg )
 {
     MSIQUERY *query = (MSIQUERY*) arg;
@@ -131,87 +155,6 @@ UINT MSI_DatabaseOpenViewW(MSIDATABASE *db,
     }
 
     msiobj_release( &query->hdr );
-    return r;
-}
-
-UINT MSI_OpenQuery( MSIDATABASE *db, MSIQUERY **view, LPCWSTR fmt, ... )
-{
-    LPWSTR szQuery;
-    LPCWSTR p;
-    UINT sz, rc;
-    va_list va;
-
-    /* figure out how much space we need to allocate */
-    va_start(va, fmt);
-    sz = strlenW(fmt) + 1;
-    p = fmt;
-    while (*p)
-    {
-        p = strchrW(p, '%');
-        if (!p)
-            break;
-        p++;
-        switch (*p)
-        {
-        case 's':  /* a string */
-            sz += strlenW(va_arg(va,LPCWSTR));
-            break;
-        case 'd':
-        case 'i':  /* an integer -2147483648 seems to be longest */
-            sz += 3*sizeof(int);
-            (void)va_arg(va,int);
-            break;
-        case '%':  /* a single % - leave it alone */
-            break;
-        default:
-            FIXME("Unhandled character type %c\n",*p);
-        }
-        p++;
-    }
-    va_end(va);
-
-    /* construct the string */
-    szQuery = HeapAlloc(GetProcessHeap(), 0, sz*sizeof(WCHAR));
-    va_start(va, fmt);
-    vsnprintfW(szQuery, sz, fmt, va);
-    va_end(va);
-
-    /* perform the query */
-    rc = MSI_DatabaseOpenViewW(db, szQuery, view);
-    HeapFree(GetProcessHeap(), 0, szQuery);
-    return rc;
-}
-
-UINT MSI_IterateRecords( MSIQUERY *view, DWORD *count,
-                         record_func func, LPVOID param )
-{
-    MSIRECORD *rec = NULL;
-    UINT r, n = 0, max = 0;
-
-    r = MSI_ViewExecute( view, NULL );
-    if( r != ERROR_SUCCESS )
-        return r;
-
-    if( count )
-        max = *count;
-
-    /* iterate a query */
-    for( n = 0; (max == 0) || (n < max); n++ )
-    {
-        r = MSI_ViewFetch( view, &rec );
-        if( r != ERROR_SUCCESS )
-            break;
-        r = func( rec, param );
-        msiobj_release( &rec->hdr );
-        if( r != ERROR_SUCCESS )
-            break;
-    }
-
-    MSI_ViewClose( view );
-
-    if( count )
-        *count = n;
-
     return r;
 }
 
@@ -415,10 +358,7 @@ UINT WINAPI MsiViewExecute(MSIHANDLE hView, MSIHANDLE hRec)
         }
     }
 
-    msiobj_lock( &rec->hdr );
     ret = MSI_ViewExecute( query, rec );
-    msiobj_unlock( &rec->hdr );
-
 out:
     if( query )
         msiobj_release( &query->hdr );
@@ -430,10 +370,10 @@ out:
 
 UINT WINAPI MsiViewGetColumnInfo(MSIHANDLE hView, MSICOLINFO info, MSIHANDLE *hRec)
 {
-    MSIVIEW *view = NULL;
-    MSIQUERY *query = NULL;
-    MSIRECORD *rec = NULL;
-    UINT r = ERROR_FUNCTION_FAILED, i, count = 0, type;
+    MSIVIEW *view;
+    MSIQUERY *query;
+    MSIHANDLE handle;
+    UINT ret, i, count = 0, type;
     LPWSTR name;
 
     TRACE("%ld %d %p\n", hView, info, hRec);
@@ -444,82 +384,34 @@ UINT WINAPI MsiViewGetColumnInfo(MSIHANDLE hView, MSICOLINFO info, MSIHANDLE *hR
 
     view = query->view;
     if( !view )
-        goto out;
+        return ERROR_FUNCTION_FAILED;
 
     if( !view->ops->get_dimensions )
-        goto out;
+        return ERROR_FUNCTION_FAILED;
 
-    r = view->ops->get_dimensions( view, NULL, &count );
-    if( r )
-        goto out;
+    ret = view->ops->get_dimensions( view, NULL, &count );
+    if( ret )
+        return ret;
     if( !count )
-    {
-        r = ERROR_INVALID_PARAMETER;
-        goto out;
-    }
+        return ERROR_INVALID_PARAMETER;
 
-    rec = MSI_CreateRecord( count );
-    if( !rec )
+    handle = MsiCreateRecord( count );
+    if( !handle )
         return ERROR_FUNCTION_FAILED;
 
     for( i=0; i<count; i++ )
     {
         name = NULL;
-        r = view->ops->get_column_info( view, i+1, &name, &type );
-        if( r != ERROR_SUCCESS )
+        ret = view->ops->get_column_info( view, i+1, &name, &type );
+        if( ret != ERROR_SUCCESS )
             continue;
-        MSI_RecordSetStringW( rec, i+1, name );
+        MsiRecordSetStringW( handle, i+1, name );
         HeapFree( GetProcessHeap(), 0, name );
     }
 
-    *hRec = alloc_msihandle( &rec->hdr );
+    *hRec = handle;
 
-out:
-    if( query )
-        msiobj_release( &query->hdr );
-    if( rec )
-        msiobj_release( &rec->hdr );
-
-    return r;
-}
-
-UINT WINAPI MsiViewModify( MSIHANDLE hView, MSIMODIFY eModifyMode,
-                MSIHANDLE hRecord)
-{
-    MSIVIEW *view = NULL;
-    MSIQUERY *query = NULL;
-    MSIRECORD *rec = NULL;
-    UINT r = ERROR_FUNCTION_FAILED;
-
-    TRACE("%ld %x %ld\n", hView, eModifyMode, hRecord);
-
-    query = msihandle2msiinfo( hView, MSIHANDLETYPE_VIEW );
-    if( !query )
-        return ERROR_INVALID_HANDLE;
-
-    view = query->view;
-    if( !view )
-        goto out;
-
-    if( !view->ops->modify )
-        goto out;
-
-    rec = msihandle2msiinfo( hRecord, MSIHANDLETYPE_RECORD );
-    if( !rec )
-    {
-        r = ERROR_INVALID_HANDLE;
-        goto out;
-    }
-
-    r = view->ops->modify( view, eModifyMode, rec );
-
-out:
-    if( query )
-        msiobj_release( &query->hdr );
-    if( rec )
-        msiobj_release( &rec->hdr );
-
-    return r;
+    return ERROR_SUCCESS;
 }
 
 UINT WINAPI MsiDatabaseApplyTransformA( MSIHANDLE hdb, 
@@ -569,8 +461,6 @@ UINT WINAPI MsiDatabaseCommit( MSIHANDLE hdb )
 
     /* FIXME: unlock the database */
 
-    msiobj_release( &db->hdr );
-
     return r;
 }
 
@@ -588,16 +478,9 @@ UINT WINAPI MsiDatabaseGetPrimaryKeysW(MSIHANDLE hdb,
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-UINT WINAPI MsiDatabaseIsTablePersistentA(
-              MSIHANDLE hDatabase, LPSTR szTableName)
+UINT WINAPI MsiViewModify(MSIHANDLE hView, MSIMODIFY eModifyMode, MSIHANDLE
+hRecord)
 {
-    FIXME("%lx %s\n", hDatabase, debugstr_a(szTableName));
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-UINT WINAPI MsiDatabaseIsTablePersistentW(
-              MSIHANDLE hDatabase, LPWSTR szTableName)
-{
-    FIXME("%lx %s\n", hDatabase, debugstr_w(szTableName));
+    FIXME("%ld %x %ld\n",hView, eModifyMode, hRecord);
     return ERROR_CALL_NOT_IMPLEMENTED;
 }

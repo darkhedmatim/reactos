@@ -25,8 +25,8 @@ HPEN STDCALL
 NtGdiExtCreatePen(
    DWORD PenStyle,
    DWORD Width,
-   CONST LOGBRUSH *LogBrush,
+   CONST PLOGBRUSH LogBrush,
    DWORD StyleCount,
-   CONST DWORD *Style);
+   CONST PDWORD Style);
 
 #endif

@@ -20,7 +20,6 @@ typedef interface IPropertyPageSite *LPPROPERTYPAGESITE;
 typedef interface IFont *LPFONT;
 typedef interface IFontDisp *LPFONTDISP;
 typedef interface IOleUndoManager *LPOLEUNDOMANAGER;
-typedef interface IQuickActivate *LPQUICKACTIVATE;
 
 #ifndef OLE2ANSI
 typedef TEXTMETRICW TEXTMETRICOLE;

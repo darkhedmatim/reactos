@@ -12,7 +12,7 @@ TARGET_SDKLIBS = kernel32.a
 
 TARGET_OBJECTS = tickcount.o
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API
+TARGET_CFLAGS = -Wall -Werror
 
 include $(PATH_TO_TOP)/rules.mak
 

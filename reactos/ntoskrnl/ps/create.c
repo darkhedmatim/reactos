@@ -1,13 +1,14 @@
-/* $Id$
+/* $Id: create.c,v 1.89 2004/12/18 15:52:51 hbirr Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ps/create.c
- * PURPOSE:         Thread managment
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Phillip Susi
- *                  Skywing
+ * COPYRIGHT:              See COPYING in the top level directory
+ * PROJECT:                ReactOS kernel
+ * FILE:                   ntoskrnl/ps/thread.c
+ * PURPOSE:                Thread managment
+ * PROGRAMMER:             David Welch (welch@mcmail.com)
+ * REVISION HISTORY: 
+ *               23/06/98: Created
+ *               12/10/99: Phillip Susi:  Thread priorities, and APC work
+ *               09/08/03: Skywing:       ThreadEventPair support (delete)
  */
 
 /*
@@ -57,7 +58,7 @@ PsAssignImpersonationToken(PETHREAD Thread,
 	  {
 	     return(Status);
 	  }
-	ImpersonationLevel = SeTokenImpersonationLevel(Token);
+	ImpersonationLevel = Token->ImpersonationLevel;
      }
    else
      {
@@ -133,7 +134,7 @@ PsImpersonateClient (IN PETHREAD Thread,
 						  sizeof(PS_IMPERSONATION_INFORMATION));
     }
 
-  Thread->ImpersonationInfo->ImpersonationLevel = ImpersonationLevel;
+  Thread->ImpersonationInfo->Level = ImpersonationLevel;
   Thread->ImpersonationInfo->CopyOnOpen = CopyOnOpen;
   Thread->ImpersonationInfo->EffectiveOnly = EffectiveOnly;
   Thread->ImpersonationInfo->Token = Token;
@@ -166,7 +167,7 @@ PsReferenceEffectiveToken(PETHREAD Thread,
 	Token = Thread->ImpersonationInfo->Token;
 	*TokenType = TokenImpersonation;
 	*EffectiveOnly = Thread->ImpersonationInfo->EffectiveOnly;
-	*Level = Thread->ImpersonationInfo->ImpersonationLevel;
+	*Level = Thread->ImpersonationInfo->Level;
      }
    return(Token);
 }
@@ -177,75 +178,56 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
 		    IN HANDLE ThreadToImpersonateHandle,
 		    IN PSECURITY_QUALITY_OF_SERVICE SecurityQualityOfService)
 {
-  SECURITY_QUALITY_OF_SERVICE SafeServiceQoS;
   SECURITY_CLIENT_CONTEXT ClientContext;
   PETHREAD Thread;
   PETHREAD ThreadToImpersonate;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForRead(SecurityQualityOfService,
-                   sizeof(SECURITY_QUALITY_OF_SERVICE),
-                   sizeof(ULONG));
-      SafeServiceQoS = *SecurityQualityOfService;
-      SecurityQualityOfService = &SafeServiceQoS;
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
+  NTSTATUS Status;
+
+  Status = ObReferenceObjectByHandle (ThreadHandle,
+				      0,
+				      PsThreadType,
+				      UserMode,
+				      (PVOID*)&Thread,
+				      NULL);
+  if (!NT_SUCCESS (Status))
     {
       return Status;
     }
-  }
 
-  Status = ObReferenceObjectByHandle(ThreadHandle,
-				     THREAD_IMPERSONATE,
-				     PsThreadType,
-				     PreviousMode,
-				     (PVOID*)&Thread,
-				     NULL);
-  if(NT_SUCCESS(Status))
-  {
-    Status = ObReferenceObjectByHandle(ThreadToImpersonateHandle,
-				       THREAD_DIRECT_IMPERSONATION,
-				       PsThreadType,
-				       PreviousMode,
-				       (PVOID*)&ThreadToImpersonate,
-				       NULL);
-    if(NT_SUCCESS(Status))
-    {
-      Status = SeCreateClientSecurity(ThreadToImpersonate,
-				      SecurityQualityOfService,
+  Status = ObReferenceObjectByHandle (ThreadToImpersonateHandle,
 				      0,
-				     &ClientContext);
-      if(NT_SUCCESS(Status))
-      {
-        SeImpersonateClient(&ClientContext,
-		            Thread);
-        if(ClientContext.ClientToken != NULL)
-        {
-          ObDereferenceObject (ClientContext.ClientToken);
-        }
-      }
-
-      ObDereferenceObject(ThreadToImpersonate);
+				      PsThreadType,
+				      UserMode,
+				      (PVOID*)&ThreadToImpersonate,
+				      NULL);
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject (Thread);
+      return Status;
     }
-    ObDereferenceObject(Thread);
-  }
 
-  return Status;
+  Status = SeCreateClientSecurity (ThreadToImpersonate,
+				   SecurityQualityOfService,
+				   0,
+				   &ClientContext);
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject (ThreadToImpersonate);
+      ObDereferenceObject (Thread);
+      return Status;
+     }
+
+  SeImpersonateClient (&ClientContext,
+		       Thread);
+  if (ClientContext.Token != NULL)
+    {
+      ObDereferenceObject (ClientContext.Token);
+    }
+
+  ObDereferenceObject (ThreadToImpersonate);
+  ObDereferenceObject (Thread);
+
+  return STATUS_SUCCESS;
 }
 
 /*
@@ -262,7 +244,7 @@ PsReferenceImpersonationToken(IN PETHREAD Thread,
       return NULL;
     }
 
-  *ImpersonationLevel = Thread->ImpersonationInfo->ImpersonationLevel;
+  *ImpersonationLevel = Thread->ImpersonationInfo->Level;
   *CopyOnOpen = Thread->ImpersonationInfo->CopyOnOpen;
   *EffectiveOnly = Thread->ImpersonationInfo->EffectiveOnly;
   ObReferenceObjectByPointer (Thread->ImpersonationInfo->Token,
@@ -273,11 +255,8 @@ PsReferenceImpersonationToken(IN PETHREAD Thread,
   return Thread->ImpersonationInfo->Token;
 }
 
-#ifdef PsDereferencePrimaryToken
-#undef PsDereferenceImpersonationToken
-#endif
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
@@ -285,16 +264,11 @@ PsDereferenceImpersonationToken(
     IN PACCESS_TOKEN ImpersonationToken
     )
 {
-    if (ImpersonationToken) {
-        ObDereferenceObject(ImpersonationToken);
-    }
+	UNIMPLEMENTED;	
 }
 
-#ifdef PsDereferencePrimaryToken
-#undef PsDereferencePrimaryToken
-#endif
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
@@ -302,7 +276,7 @@ PsDereferencePrimaryToken(
     IN PACCESS_TOKEN PrimaryToken
     )
 {
-    ObDereferenceObject(PrimaryToken);
+	UNIMPLEMENTED;	
 }
 
 /*
@@ -331,7 +305,7 @@ PsDisableImpersonation(
    ImpersonationState->Token = Thread->ImpersonationInfo->Token;
    ImpersonationState->CopyOnOpen = Thread->ImpersonationInfo->CopyOnOpen;
    ImpersonationState->EffectiveOnly = Thread->ImpersonationInfo->EffectiveOnly;
-   ImpersonationState->Level = Thread->ImpersonationInfo->ImpersonationLevel;
+   ImpersonationState->Level = Thread->ImpersonationInfo->Level;
 
 /* FIXME */
 /*   ExfReleasePushLock(&Thread->ThreadLock); */
@@ -423,7 +397,7 @@ PsInitializeThread(PEPROCESS Process,
    Status = ObCreateObject(UserMode,
 			   PsThreadType,
 			   ThreadAttributes,
-			   KernelMode,
+			   UserMode,
 			   NULL,
 			   sizeof(ETHREAD),
 			   0,
@@ -445,6 +419,19 @@ PsInitializeThread(PEPROCESS Process,
     }
   Thread->ThreadsProcess = Process;
   Thread->Cid.UniqueProcess = (HANDLE)Thread->ThreadsProcess->UniqueProcessId;
+  
+  Status = ObInsertObject ((PVOID)Thread,
+			   NULL,
+			   DesiredAccess,
+			   0,
+			   NULL,
+			   ThreadHandle);
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject (Thread);
+      ObDereferenceObject (Process);
+      return Status;
+    }
 
    DPRINT("Thread = %x\n",Thread);
 
@@ -477,14 +464,8 @@ PsInitializeThread(PEPROCESS Process,
    KeReleaseDispatcherDatabaseLock(oldIrql);
 
    *ThreadPtr = Thread;
-   
-   Status = ObInsertObject((PVOID)Thread,
-			   NULL,
-			   DesiredAccess,
-			   0,
-			   NULL,
-			   ThreadHandle);
-   return(Status);
+
+   return(STATUS_SUCCESS);
 }
 
 
@@ -501,8 +482,6 @@ PsCreateTeb(HANDLE ProcessHandle,
    ULONG TebSize;
    PVOID TebBase;
    TEB Teb;
-   
-   PAGED_CODE();
 
    TebSize = PAGE_SIZE;
 
@@ -660,66 +639,17 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
 	       IN ACCESS_MASK DesiredAccess,
 	       IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
 	       IN HANDLE ProcessHandle,
-	       OUT PCLIENT_ID ClientId,
+	       OUT PCLIENT_ID Client,
 	       IN PCONTEXT ThreadContext,
 	       IN PINITIAL_TEB InitialTeb,
 	       IN BOOLEAN CreateSuspended)
 {
-  HANDLE hThread;
-  CONTEXT SafeContext;
-  INITIAL_TEB SafeInitialTeb;
   PEPROCESS Process;
   PETHREAD Thread;
   PTEB TebBase;
+  NTSTATUS Status;
   PKAPC LdrInitApc;
   KIRQL oldIrql;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  if(ThreadContext == NULL)
-  {
-    return STATUS_INVALID_PARAMETER;
-  }
-  
-  PreviousMode = ExGetPreviousMode();
-
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(ThreadHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-      if(ClientId != NULL)
-      {
-        ProbeForWrite(ClientId,
-                      sizeof(CLIENT_ID),
-                      sizeof(ULONG));
-      }
-      ProbeForRead(ThreadContext,
-                   sizeof(CONTEXT),
-                   sizeof(ULONG));
-      SafeContext = *ThreadContext;
-      ThreadContext = &SafeContext;
-      ProbeForRead(InitialTeb,
-                   sizeof(INITIAL_TEB),
-                   sizeof(ULONG));
-      SafeInitialTeb = *InitialTeb;
-      InitialTeb = &SafeInitialTeb;
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
 
   DPRINT("NtCreateThread(ThreadHandle %x, PCONTEXT %x)\n",
 	 ThreadHandle,ThreadContext);
@@ -727,7 +657,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
   Status = ObReferenceObjectByHandle(ProcessHandle,
                                      PROCESS_CREATE_THREAD,
                                      PsProcessType,
-                                     PreviousMode,
+                                     UserMode,
                                      (PVOID*)&Process,
                                      NULL);
   if(!NT_SUCCESS(Status))
@@ -737,7 +667,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
 
   Status = PsInitializeThread(Process,
 			      &Thread,
-			      &hThread,
+			      ThreadHandle,
 			      DesiredAccess,
 			      ObjectAttributes,
 			      FALSE);
@@ -766,6 +696,11 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
   Thread->Tcb.Teb = TebBase;
 
   Thread->StartAddress = NULL;
+
+  if (Client != NULL)
+    {
+      *Client = Thread->Cid;
+    }
 
   /*
    * Maybe send a message to the process's debugger
@@ -805,24 +740,11 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
   Thread->Tcb.Alerted[KernelMode] = TRUE;
 
   oldIrql = KeAcquireDispatcherDatabaseLock ();
-  PsUnblockThread(Thread, NULL, 0);
+  PsUnblockThread(Thread, NULL);
   KeReleaseDispatcherDatabaseLock(oldIrql);
 
-  _SEH_TRY
-  {
-    if(ClientId != NULL)
-    {
-      *ClientId = Thread->Cid;
-    }
-    *ThreadHandle = hThread;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
 
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -858,8 +780,6 @@ PsCreateSystemThread(PHANDLE ThreadHandle,
    NTSTATUS Status;
    KIRQL oldIrql;
    
-   PAGED_CODE();
-   
    DPRINT("PsCreateSystemThread(ThreadHandle %x, ProcessHandle %x)\n",
 	    ThreadHandle,ProcessHandle);
    
@@ -886,9 +806,9 @@ PsCreateSystemThread(PHANDLE ThreadHandle,
 	*ClientId=Thread->Cid;
      }
 
-   oldIrql = KeAcquireDispatcherDatabaseLock ();
-   PsUnblockThread(Thread, NULL, 0);
-   KeReleaseDispatcherDatabaseLock(oldIrql);
+  oldIrql = KeAcquireDispatcherDatabaseLock ();
+  PsUnblockThread(Thread, NULL);
+  KeReleaseDispatcherDatabaseLock(oldIrql);
    
    return(STATUS_SUCCESS);
 }

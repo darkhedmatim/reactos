@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: hook.c,v 1.10 2004/11/20 16:46:06 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -460,7 +460,7 @@ NtUserSetWindowsHookEx(
         }
       Mod = NULL;
       Global = FALSE;
-      if (! NT_SUCCESS(PsLookupThreadByThreadId((HANDLE) ThreadId, &Thread)))
+      if (! NT_SUCCESS(PsLookupThreadByThreadId((PVOID) ThreadId, &Thread)))
         {
           DPRINT1("Invalid thread id 0x%x\n", ThreadId);
           SetLastWin32Error(ERROR_INVALID_PARAMETER);

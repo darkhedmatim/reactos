@@ -543,6 +543,21 @@ DWORD WINAPI SHGetFileInfoA(LPCSTR path,DWORD dwFileAttributes,
 }
 
 /*************************************************************************
+ * SHGetFileInfo			[SHELL32.@]
+ */
+DWORD WINAPI SHGetFileInfoAW(
+	LPCVOID path,
+	DWORD dwFileAttributes,
+	LPVOID psfi,
+	UINT sizeofpsfi,
+	UINT flags)
+{
+	if(SHELL_OsIsUnicode())
+	  return SHGetFileInfoW(path, dwFileAttributes, psfi, sizeofpsfi, flags );
+	return SHGetFileInfoA(path, dwFileAttributes, psfi, sizeofpsfi, flags );
+}
+
+/*************************************************************************
  * DuplicateIcon			[SHELL32.@]
  */
 HICON WINAPI DuplicateIcon( HINSTANCE hInstance, HICON hIcon)
@@ -812,8 +827,8 @@ BOOL WINAPI ShellAboutA( HWND hWnd, LPCSTR szApp, LPCSTR szOtherStuff, HICON hIc
 
     ret = ShellAboutW(hWnd, appW, otherW, hIcon);
 
-    HeapFree(GetProcessHeap(), 0, otherW);
-    HeapFree(GetProcessHeap(), 0, appW);
+    if (otherW) HeapFree(GetProcessHeap(), 0, otherW);
+    if (appW) HeapFree(GetProcessHeap(), 0, appW);
     return ret;
 }
 
@@ -829,12 +844,10 @@ BOOL WINAPI ShellAboutW( HWND hWnd, LPCWSTR szApp, LPCWSTR szOtherStuff,
     HRSRC hRes;
     LPVOID template;
     BOOL bRet;
-    static const WCHAR wszSHELL_ABOUT_MSGBOX[] =
-        {'S','H','E','L','L','_','A','B','O','U','T','_','M','S','G','B','O','X',0};
 
     TRACE("\n");
 
-    if(!(hRes = FindResourceW(shell32_hInstance, wszSHELL_ABOUT_MSGBOX, (LPWSTR)RT_DIALOG)))
+    if(!(hRes = FindResourceA(shell32_hInstance, "SHELL_ABOUT_MSGBOX", (LPSTR)RT_DIALOG)))
         return FALSE;
     if(!(template = (LPVOID)LoadResource(shell32_hInstance, hRes)))
         return FALSE;

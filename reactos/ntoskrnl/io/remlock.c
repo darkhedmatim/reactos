@@ -1,16 +1,15 @@
-/* $Id:$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/remlock.c
- * PURPOSE:         Remove Lock functions
- * 
- * PROGRAMMERS:     Filip Navara (xnavara@volny.cz)
+/*
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/pnpmgr/remlock.c
+ * PURPOSE:        Remove Lock functions
+ * PROGRAMMER:     Filip Navara (xnavara@volny.cz)
+ * UPDATE HISTORY:
+ *  22/09/2003 FiN Created
  */
 
 /* INCLUDES ******************************************************************/
 
-#define NDEBUG
 #include <ntoskrnl.h>
 #include <internal/debug.h>
 
@@ -28,7 +27,7 @@ IoInitializeRemoveLockEx(
   IN ULONG HighWatermark,
   IN ULONG RemlockSize)
 {
-  DPRINT("IoInitializeRemoveLockEx called\n");
+  DPRINT("IoInitializeRemoveLockEx called");
   RtlZeroMemory(RemoveLock, RemlockSize);
   RemoveLock->Common.IoCount = 1;
   KeInitializeEvent(&RemoveLock->Common.RemoveEvent, NotificationEvent, FALSE);
@@ -46,7 +45,7 @@ IoAcquireRemoveLockEx(
   IN ULONG Line,
   IN ULONG RemlockSize)
 {
-  DPRINT("IoAcquireRemoveLockEx called\n");
+  DPRINT("IoAcquireRemoveLockEx called");
   InterlockedIncrement(&RemoveLock->Common.IoCount);
   if (RemoveLock->Common.Removed)
   {
@@ -71,7 +70,7 @@ IoReleaseRemoveLockEx(
 {
   LONG IoCount;
 
-  DPRINT("IoReleaseRemoveLockEx called\n");
+  DPRINT("IoReleaseRemoveLockEx called");
   IoCount = InterlockedDecrement(&RemoveLock->Common.IoCount);
   if (IoCount == 0)
   {
@@ -89,7 +88,7 @@ IoReleaseRemoveLockAndWaitEx(
   IN PVOID Tag,
   IN ULONG RemlockSize)
 {
-  DPRINT("IoReleaseRemoveLockAndWaitEx called\n");
+  DPRINT("IoReleaseRemoveLockAndWaitEx called");
   RemoveLock->Common.Removed = TRUE;
   InterlockedDecrement(&RemoveLock->Common.IoCount);
   IoReleaseRemoveLockEx(RemoveLock, Tag, RemlockSize);

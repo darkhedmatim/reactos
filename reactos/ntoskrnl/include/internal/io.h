@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: io.h,v 1.50 2004/11/25 22:18:16 ion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -426,11 +426,6 @@ IopBootLog(PUNICODE_STRING DriverName, BOOLEAN Success);
 VOID
 IopSaveBootLogToFile(VOID);
 
-/* cancel.c */
-
-VOID STDCALL
-IoCancelThreadIo(PETHREAD Thread);
-
 /* errlog.c */
 
 NTSTATUS
@@ -505,17 +500,6 @@ IopMarkLastReinitializeDriver(VOID);
 VOID FASTCALL
 IopReinitializeDrivers(VOID);
 
-
-/* plugplay.c */
-
-NTSTATUS INIT_FUNCTION
-IopInitPlugPlayEvents(VOID);
-
-NTSTATUS
-IopQueueTargetDeviceEvent(const GUID *Guid,
-                          PUNICODE_STRING DeviceIds);
-
-
 /* pnpmgr.c */
 
 NTSTATUS
@@ -538,11 +522,6 @@ STDCALL
 IopRemoveTimerFromTimerList(
 	IN PIO_TIMER Timer
 );
-
-/* iocomp.c */
-VOID
-FASTCALL
-IopInitIoCompletionImplementation(VOID);
 
 #define CM_RESOURCE_LIST_SIZE(ResList) \
   (ResList->Count == 1) ? \

@@ -1,11 +1,12 @@
-/* $Id:$
- * 
+/* $Id: kdebug.c,v 1.58 2004/12/14 10:18:57 gvg Exp $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/kd/kdebug.c
  * PURPOSE:         Kernel debugger
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * UPDATE HISTORY:
+ *                  21/10/99: Created
  */
 
 #include <ntoskrnl.h>
@@ -60,8 +61,7 @@ PrintString(char* fmt,...)
   va_list ap;
 
   va_start(ap, fmt);
-  _vsnprintf(buffer, sizeof(buffer) - 1, fmt, ap);
-  buffer[sizeof(buffer) - 1] = 0;
+  vsprintf(buffer, fmt, ap);
   va_end(ap);
 
   HalDisplayString(buffer);
@@ -243,7 +243,7 @@ KdInitSystem(ULONG BootPhase,
 		}
 	    }
 	}
-#if defined(KDBG) || defined(DBG)
+#ifdef KDBG
     else if (!_strnicmp(p2, "PROFILE", 7)  && BootPhase > 0)
       {
         KdbInitProfiling();

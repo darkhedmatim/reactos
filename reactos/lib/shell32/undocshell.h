@@ -559,7 +559,7 @@ HRESULT WINAPI SHCreateDefClassObject(
 	LPDWORD lpdwUsage,
 	REFIID riidObject);
 
-void WINAPI SHFreeUnusedLibraries(void);
+void WINAPI SHFreeUnusedLibraries();
 
 /* SHCreateLinks flags */
 #define SHCLF_PREFIXNAME       0x01

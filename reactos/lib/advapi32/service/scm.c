@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: scm.c,v 1.24 2004/09/26 20:28:22 gvg Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

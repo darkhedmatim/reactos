@@ -25,7 +25,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/jsdas/extract-op-names.js,v $
- * $Id$
+ * $Id: extract-op-names.js,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 source = "../src/operands.def";

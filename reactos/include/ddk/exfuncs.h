@@ -344,7 +344,8 @@ ExInitializeRundownProtection (
 	ASSERT_IRQL(DISPATCH_LEVEL); \
 	(Item)->WorkerRoutine = (Routine); \
 	(Item)->Parameter = (RoutineContext); \
-	(Item)->List.Flink = NULL;
+	(Item)->List.Flink = NULL; \
+	(Item)->List.Blink = NULL;
 
 NTSTATUS
 STDCALL
@@ -699,7 +700,7 @@ ExSetResourceOwnerPointer (
 	IN	PVOID		OwnerPointer
 	);
 
-ULONG
+VOID
 STDCALL
 ExSetTimerResolution (
     IN ULONG DesiredTime,

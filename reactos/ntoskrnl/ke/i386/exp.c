@@ -1,17 +1,36 @@
-/* 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ke/i386/exp.c
- * PURPOSE:         Handling exceptions
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
- *                  Skywing (skywing@valhallalegends.com)
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
+ * PROJECT:              ReactOS kernel
+ * FILE:                 ntoskrnl/ke/i386/exp.c
+ * PURPOSE:              Handling exceptions
+ * PROGRAMMERS:          David Welch (welch@cwcom.net)
+ *                       Skywing (skywing@valhallalegends.com)
+ * REVISION HISTORY:
+ *              ??/??/??: Created
+ *              09/12/03: KeRaiseUserException added (Skywing).
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-
+#include <pseh.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -26,7 +45,7 @@
 # define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 #endif
 
-extern void KiSystemService(void);
+extern void interrupt_handler2e(void);
 extern void interrupt_handler2d(void);
 
 extern VOID KiTrap0(VOID);
@@ -80,7 +99,7 @@ static char *ExceptionTypeStrings[] =
     "SIMD Fault"
   };
 
-NTSTATUS ExceptionToNtStatus[] =
+static NTSTATUS ExceptionToNtStatus[] =
   {
     STATUS_INTEGER_DIVIDE_BY_ZERO,
     STATUS_SINGLE_STEP,
@@ -89,7 +108,7 @@ NTSTATUS ExceptionToNtStatus[] =
     STATUS_INTEGER_OVERFLOW,
     STATUS_ARRAY_BOUNDS_EXCEEDED,
     STATUS_ILLEGAL_INSTRUCTION,
-    STATUS_FLOAT_INVALID_OPERATION,
+    STATUS_ACCESS_VIOLATION, /* STATUS_FLT_INVALID_OPERATION */
     STATUS_ACCESS_VIOLATION,
     STATUS_ACCESS_VIOLATION,
     STATUS_ACCESS_VIOLATION,
@@ -98,10 +117,10 @@ NTSTATUS ExceptionToNtStatus[] =
     STATUS_ACCESS_VIOLATION,
     STATUS_ACCESS_VIOLATION,
     STATUS_ACCESS_VIOLATION, /* RESERVED */
-    STATUS_FLOAT_INVALID_OPERATION, /* Should not be used, the FPU can give more specific info */
+    STATUS_ACCESS_VIOLATION, /* STATUS_FLT_INVALID_OPERATION */
     STATUS_DATATYPE_MISALIGNMENT,
     STATUS_ACCESS_VIOLATION,
-    STATUS_FLOAT_MULTIPLE_TRAPS,
+    STATUS_ACCESS_VIOLATION  /* STATUS_FLT_MULTIPLE_TRAPS? */
   };
 
 /* FUNCTIONS ****************************************************************/
@@ -171,8 +190,9 @@ KiKernelTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
       Er.NumberParameters = 0;
     }
 
-  /* FIXME: Which exceptions are noncontinuable? */
-  Er.ExceptionFlags = 0;
+  Er.ExceptionFlags = ((NTSTATUS) STATUS_SINGLE_STEP == (NTSTATUS) Er.ExceptionCode
+    || (NTSTATUS) STATUS_BREAKPOINT == (NTSTATUS) Er.ExceptionCode) ?
+    EXCEPTION_NONCONTINUABLE : 0;
 
   KiDispatchException(&Er, 0, Tf, KernelMode, TRUE);
 
@@ -285,8 +305,8 @@ KiDoubleFaultHandler(VOID)
 	}
       else
 	{
-	  StackLimit = (ULONG)init_stack_top;
-	  StackBase = (ULONG)init_stack;
+	  StackLimit = (ULONG)&init_stack_top;
+	  StackBase = (ULONG)&init_stack;
 	}
 
       /*
@@ -300,7 +320,7 @@ KiDoubleFaultHandler(VOID)
 	{
 	  KeRosPrintAddress((PVOID)Frame[1]);
 	  Frame = (PULONG)Frame[0];
-          DbgPrint("\n");
+          DbgPrint(" ");
 	}
 #else
       DbgPrint("Frames: ");
@@ -392,7 +412,9 @@ VOID
 KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
 {
   ULONG cr3_;
+  ULONG i;
   ULONG StackLimit;
+  PULONG Frame;
   ULONG Esp0;
   ULONG ExceptionNr = (ULONG)Tf->DebugArgMark;
   ULONG cr2 = (ULONG)Tf->DebugPointer;
@@ -453,13 +475,52 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
      }
    else
      {
-       StackLimit = (ULONG)init_stack_top;
+       StackLimit = (ULONG)&init_stack_top;
      }
 
    /*
     * Dump the stack frames
     */
-   KeDumpStackFrames((PULONG)Tf->Ebp);
+   DbgPrint("Frames: ");
+   /* Change to an #if 0 if no frames are printed because of fpo. */
+#if 1
+   i = 1;
+   Frame = (PULONG)Tf->Ebp;
+   while (Frame != NULL)
+     {
+       NTSTATUS Status;
+       PVOID Eip;
+       Status = MmSafeCopyFromUser(&Eip, Frame + 1, sizeof(Eip));
+       if (!NT_SUCCESS(Status))
+	 {
+	   DbgPrint("<INVALID>");
+	   break;
+	 }
+       if (!KeRosPrintAddress(Eip))
+	 {
+	   DbgPrint("<%X>", Eip);
+	 }
+       Status = MmSafeCopyFromUser(&Frame, Frame, sizeof(Frame));
+       if (!NT_SUCCESS(Status))
+	 {
+	   break;
+	 }
+       i++;
+       DbgPrint(" ");
+     }
+#else
+   i = 1;
+   Frame = (PULONG)((ULONG_PTR)Esp0 + KTRAP_FRAME_EFLAGS);
+   while (Frame < (PULONG)PsGetCurrentThread()->Tcb.StackBase && i < 50)
+     {
+	 ULONG Address = *Frame;
+	 if (KeRosPrintAddress((PVOID)Address))
+	   {
+	     i++;
+	   }
+	 Frame++;
+     }
+#endif
 }
 
 ULONG
@@ -574,7 +635,7 @@ KeDumpStackFrames(PULONG Frame)
 	ULONG ResultLength = sizeof(mbi);
 	NTSTATUS Status;
 
-	DbgPrint("Frames:\n");
+	DbgPrint("Frames: ");
 	_SEH_TRY
 	{
 		Status = MiQueryVirtualMemory (
@@ -602,7 +663,7 @@ KeDumpStackFrames(PULONG Frame)
 				break;
 			StackBase = Frame;
 			Frame = (PULONG)Frame[0];
-			DbgPrint("\n");
+			DbgPrint(" ");
 		}
 	}
 	_SEH_HANDLE
@@ -790,55 +851,51 @@ KeInitExceptions(VOID)
      }
 
    set_system_call_gate(0x2d,(int)interrupt_handler2d);
-   set_system_call_gate(0x2e,(int)KiSystemService);
+   set_system_call_gate(0x2e,(int)interrupt_handler2e);
 }
+
+/*
+ * @implemented
+ */
+
+NTSTATUS STDCALL
+KeRaiseUserException(IN NTSTATUS ExceptionCode)
+{
+   /* FIXME: This needs SEH */
+   ULONG OldEip;
+   PKTHREAD Thread = KeGetCurrentThread();
+
+   ProbeForWrite(&Thread->Teb->ExceptionCode, sizeof(NTSTATUS), sizeof(NTSTATUS)); /* NT doesn't check this -- bad? */
+   OldEip = Thread->TrapFrame->Eip;
+   Thread->TrapFrame->Eip = (ULONG_PTR)LdrpGetSystemDllRaiseExceptionDispatcher();
+   Thread->Teb->ExceptionCode = ExceptionCode;
+   return((NTSTATUS)OldEip);
+}
+
+VOID
+FASTCALL
+KeRosTrapReturn ( PKTRAP_FRAME TrapFrame, PKTRAP_FRAME PrevTrapFrame );
 
 /*
  * @implemented
  */
 NTSTATUS STDCALL
-KeRaiseUserException(IN NTSTATUS ExceptionCode)
-{
-   ULONG OldEip;
-   PKTHREAD Thread = KeGetCurrentThread();
-
-    _SEH_TRY {
-        Thread->Teb->ExceptionCode = ExceptionCode;
-    } _SEH_HANDLE {
-        return(ExceptionCode);
-    } _SEH_END;
-            
-   OldEip = Thread->TrapFrame->Eip;
-   Thread->TrapFrame->Eip = (ULONG_PTR)LdrpGetSystemDllRaiseExceptionDispatcher();
-   return((NTSTATUS)OldEip);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
 NtRaiseException (
-    IN PEXCEPTION_RECORD ExceptionRecord,
-    IN PCONTEXT Context,
-    IN BOOLEAN SearchFrames)
+	IN PEXCEPTION_RECORD ExceptionRecord,
+	IN PCONTEXT Context,
+	IN BOOLEAN SearchFrames)
 {
-    PKTHREAD Thread = KeGetCurrentThread();
-    PKTRAP_FRAME TrapFrame = Thread->TrapFrame;
-    PKTRAP_FRAME PrevTrapFrame = (PKTRAP_FRAME)TrapFrame->Edx;
+	PKTRAP_FRAME TrapFrame = KeGetCurrentThread()->TrapFrame;
+	PKTRAP_FRAME PrevTrapFrame = (PKTRAP_FRAME)TrapFrame->Edx;
 
-    KeGetCurrentKPCR()->Tib.ExceptionList = TrapFrame->ExceptionList;
+	KeGetCurrentKPCR()->Tib.ExceptionList = TrapFrame->ExceptionList;
 
-    KiDispatchException(ExceptionRecord,
-                        Context,
-                        TrapFrame,
-                        KeGetPreviousMode(),
-                        SearchFrames);
+	KiDispatchException(ExceptionRecord,
+		Context,
+		PsGetCurrentThread()->Tcb.TrapFrame,
+		(KPROCESSOR_MODE)ExGetPreviousMode(),
+		SearchFrames);
 
-    /* Restore the user context */
-    Thread->TrapFrame = PrevTrapFrame;
-    __asm__("mov %%ebx, %%esp;\n" "jmp _KiServiceExit": : "b" (TrapFrame));
-    
-    /* We never get here */
-    return(STATUS_SUCCESS);
+	KeRosTrapReturn ( TrapFrame, PrevTrapFrame );
+	return(STATUS_SUCCESS);
 }

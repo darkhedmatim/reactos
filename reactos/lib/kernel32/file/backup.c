@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: backup.c,v 1.7 2004/10/30 22:18:17 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

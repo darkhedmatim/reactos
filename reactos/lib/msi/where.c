@@ -137,7 +137,7 @@ static const WCHAR *STRING_evaluate( string_table *st,
 
     switch( expr->type )
     {
-    case EXPR_COL_NUMBER_STRING:
+    case EXPR_COL_NUMBER:
         r = table->ops->fetch_int( table, row, expr->u.col_number, &val );
         if( r != ERROR_SUCCESS )
             return NULL;
@@ -190,7 +190,6 @@ static UINT WHERE_evaluate( MSIDATABASE *db, MSIVIEW *table, UINT row,
 
     switch( cond->type )
     {
-    case EXPR_COL_NUMBER_STRING:
     case EXPR_COL_NUMBER:
         return table->ops->fetch_int( table, row, cond->u.col_number, val );
 
@@ -269,7 +268,8 @@ static UINT WHERE_close( struct tagMSIVIEW *view )
     if( !wv->table )
          return ERROR_FUNCTION_FAILED;
 
-    HeapFree( GetProcessHeap(), 0, wv->reorder );
+    if( wv->reorder )
+        HeapFree( GetProcessHeap(), 0, wv->reorder );
     wv->reorder = NULL;
 
     return wv->table->ops->close( wv->table );
@@ -307,17 +307,16 @@ static UINT WHERE_get_column_info( struct tagMSIVIEW *view,
     return wv->table->ops->get_column_info( wv->table, n, name, type );
 }
 
-static UINT WHERE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                MSIRECORD *rec )
+static UINT WHERE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIHANDLE hrec)
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
 
-    TRACE("%p %d %p\n", wv, eModifyMode, rec );
+    TRACE("%p %d %ld\n", wv, eModifyMode, hrec );
 
     if( !wv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return wv->table->ops->modify( wv->table, eModifyMode, rec );
+    return wv->table->ops->modify( wv->table, eModifyMode, hrec );
 }
 
 static UINT WHERE_delete( struct tagMSIVIEW *view )
@@ -329,7 +328,8 @@ static UINT WHERE_delete( struct tagMSIVIEW *view )
     if( wv->table )
         wv->table->ops->delete( wv->table );
 
-    HeapFree( GetProcessHeap(), 0, wv->reorder );
+    if( wv->reorder )
+        HeapFree( GetProcessHeap(), 0, wv->reorder );
     wv->reorder = NULL;
     wv->row_count = 0;
 
@@ -368,19 +368,9 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
         r = VIEW_find_column( table, cond->u.column, &val );
         if( r == ERROR_SUCCESS )
         {
-            UINT type = 0;
-            r = table->ops->get_column_info( table, val, NULL, &type );
-            if( r == ERROR_SUCCESS )
-            {
-                if (type&MSITYPE_STRING)
-                    cond->type = EXPR_COL_NUMBER_STRING;
-                else
-                    cond->type = EXPR_COL_NUMBER;
-                cond->u.col_number = val;
-                *valid = 1;
-            }
-            else
-                *valid = 0;
+            *valid = 1;
+            cond->type = EXPR_COL_NUMBER;
+            cond->u.col_number = val;
         }
         else
         {
@@ -400,9 +390,7 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
 
         /* check the type of the comparison */
         if( ( cond->u.expr.left->type == EXPR_SVAL ) ||
-            ( cond->u.expr.left->type == EXPR_COL_NUMBER_STRING ) ||
-            ( cond->u.expr.right->type == EXPR_SVAL ) ||
-            ( cond->u.expr.right->type == EXPR_COL_NUMBER_STRING ) )
+            ( cond->u.expr.right->type == EXPR_SVAL ) )
         {
             switch( cond->u.expr.op )
             {

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: security.c,v 1.3 2004/12/14 00:41:24 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -28,9 +28,7 @@ RtlImpersonateSelf(IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel)
    HANDLE ImpersonationToken;
    NTSTATUS Status;
    OBJECT_ATTRIBUTES ObjAttr;
-   SECURITY_QUALITY_OF_SERVICE Sqos;
-
-   PAGED_CODE_RTL();
+   SECURITY_QUALITY_OF_SERVICE Sqos;   
    
    Status = NtOpenProcessToken(NtCurrentProcess(),
                                TOKEN_DUPLICATE,
@@ -99,8 +97,6 @@ RtlAdjustPrivilege(IN ULONG Privilege,
    ULONG ReturnLength;
    HANDLE TokenHandle;
    NTSTATUS Status;
-   
-   PAGED_CODE_RTL();
 
    DPRINT ("RtlAdjustPrivilege() called\n");
 

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: create.c,v 1.18 2004/10/31 20:27:08 ea Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/create.c
  * PURPOSE:         Communication mechanism
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -133,7 +134,7 @@ NtCreatePort (PHANDLE		      PortHandle,
 
   /* Ask Ob to create the object */
   Status = ObCreateObject (ExGetPreviousMode(),
-			   LpcPortObjectType,
+			   ExPortType,
 			   ObjectAttributes,
 			   ExGetPreviousMode(),
 			   NULL,
@@ -158,7 +159,7 @@ NtCreatePort (PHANDLE		      PortHandle,
       return (Status);
     }
 
-  Status = LpcpInitializePort (Port, EPORT_TYPE_SERVER_RQST_PORT, NULL);
+  Status = NiInitializePort (Port, EPORT_TYPE_SERVER_RQST_PORT, NULL);
   Port->MaxConnectInfoLength = PORT_MAX_DATA_LENGTH;
   Port->MaxDataLength = PORT_MAX_MESSAGE_LENGTH;
   Port->MaxPoolUsage = MaxPoolUsage;

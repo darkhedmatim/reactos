@@ -1,11 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: process.c,v 1.32 2004/11/27 16:42:50 hbirr Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/process.c
  * PURPOSE:         Microkernel process management
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * PORTABILITY:     No.
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -216,7 +235,7 @@ KeUnstackDetachProcess (
 {
 	KIRQL OldIrql;
 	PKTHREAD Thread;
-
+	   
 	/* If the special "We tried to attach to the process already being attached to" flag is there, don't do anything */
 	if (ApcState->Process == (PKPROCESS)1) return;
 	
@@ -231,64 +250,24 @@ KeUnstackDetachProcess (
 	
 	/* Restore the Old APC State if a Process was present */
 	if (ApcState->Process) {
-		KiMoveApcState(ApcState, &Thread->ApcState);
+		RtlMoveMemory(ApcState, &Thread->ApcState, sizeof(KAPC_STATE));
 	} else {
 		/* The ApcState parameter is useless, so use the saved data and reset it */
-		KiMoveApcState(&Thread->SavedApcState, &Thread->ApcState);
+		RtlMoveMemory(&Thread->SavedApcState, &Thread->ApcState, sizeof(KAPC_STATE));
 		Thread->SavedApcState.Process = NULL;
 		Thread->ApcStateIndex = OriginalApcEnvironment;
 		Thread->ApcStatePointer[OriginalApcEnvironment] = &Thread->ApcState;
 		Thread->ApcStatePointer[AttachedApcEnvironment] = &Thread->SavedApcState;
 	}
 
+	/* Restore the APC State */
+	KiMoveApcState(&Thread->SavedApcState, &Thread->ApcState);
+	
 	/* Swap Processes */
 	KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
-
+	
 	/* Return to old IRQL*/
 	KeReleaseDispatcherDatabaseLock(OldIrql);
 }
 
-/* This function should be used by win32k.sys to add its own user32/gdi32 services
- * TableIndex is 0 based
- * ServiceCountTable its not used at the moment
- */
-/*
- * @implemented
- */
-BOOLEAN STDCALL
-KeAddSystemServiceTable (
-	PSSDT	SSDT,
-	PULONG	ServiceCounterTable,
-	ULONG	NumberOfServices,
-	PSSPT	SSPT,
-	ULONG	TableIndex
-	)
-{
-    /* check if descriptor table entry is free */
-    if ((TableIndex > SSDT_MAX_ENTRIES - 1) ||    
-        (KeServiceDescriptorTable[TableIndex].SSDT != NULL) ||
-        (KeServiceDescriptorTableShadow[TableIndex].SSDT != NULL))
-        return FALSE;
-
-    /* initialize the shadow service descriptor table */
-    KeServiceDescriptorTableShadow[TableIndex].SSDT = SSDT;
-    KeServiceDescriptorTableShadow[TableIndex].SSPT = SSPT;
-    KeServiceDescriptorTableShadow[TableIndex].NumberOfServices = NumberOfServices;
-    KeServiceDescriptorTableShadow[TableIndex].ServiceCounterTable = ServiceCounterTable;
-    
-    return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-KeRemoveSystemServiceTable(
-    IN PUCHAR Number
-)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
 /* EOF */

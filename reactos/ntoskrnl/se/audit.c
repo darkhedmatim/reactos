@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: audit.c,v 1.6 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/audit.c
- * PURPOSE:         Audit functions
- * 
- * PROGRAMMERS:     Eric Kohl <eric.kohl@t-online.de>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Audit functions
+ * FILE:              kernel/se/audit.c
+ * PROGRAMER:         Eric Kohl (ekohl@rz-online.de)
+ * REVISION HISTORY:
+ *                    20/07/2003: Created
  */
 
 /* INCLUDES *****************************************************************/

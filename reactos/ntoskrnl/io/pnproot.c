@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: pnproot.c,v 1.24 2004/10/24 09:13:18 navaraf Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/pnproot.c
- * PURPOSE:         PnP manager root device
- * 
- * PROGRAMMERS:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/pnpmgr/pnproot.c
+ * PURPOSE:        PnP manager root device
+ * PROGRAMMER:     Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *  16/04/2001 CSH Created
  */
 
 /* INCLUDES ******************************************************************/
@@ -20,8 +21,7 @@
 
 /* DATA **********************************************************************/
 
-typedef struct _PNPROOT_DEVICE
-{
+typedef struct _PNPROOT_DEVICE {
   // Entry on device list
   LIST_ENTRY ListEntry;
   // Physical Device Object of device
@@ -36,8 +36,7 @@ typedef struct _PNPROOT_DEVICE
   UNICODE_STRING DeviceDescription;
 } PNPROOT_DEVICE, *PPNPROOT_DEVICE;
 
-typedef enum
-{
+typedef enum {
   dsStopped,
   dsStarted,
   dsPaused,
@@ -287,6 +286,10 @@ PdoQueryResourceRequirements(
 }
 
 
+NTSTATUS
+PnpRootPdoPnpControl(
+  PDEVICE_OBJECT DeviceObject,
+  PIRP Irp)
 /*
  * FUNCTION: Handle Plug and Play IRPs for the child device
  * ARGUMENTS:
@@ -295,10 +298,6 @@ PdoQueryResourceRequirements(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-PnpRootPdoPnpControl(
-  PDEVICE_OBJECT DeviceObject,
-  PIRP Irp)
 {
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
@@ -355,7 +354,10 @@ PnpRootPdoPnpControl(
   return Status;
 }
 
-
+NTSTATUS
+PnpRootPdoPowerControl(
+  PDEVICE_OBJECT DeviceObject,
+  PIRP Irp)
 /*
  * FUNCTION: Handle power management IRPs for the child device
  * ARGUMENTS:
@@ -364,10 +366,6 @@ PnpRootPdoPnpControl(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-PnpRootPdoPowerControl(
-  PDEVICE_OBJECT DeviceObject,
-  PIRP Irp)
 {
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
@@ -411,8 +409,7 @@ PnpRootFdoReadDeviceInfo(
 
   DeviceDesc = &Device->DeviceDescription;
 
-  wcscpy(KeyName, L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
-  wcscat(KeyName, ENUM_NAME_ROOT);
+  wcscpy(KeyName, ENUM_NAME_ROOT);
   wcscat(KeyName, L"\\");
   wcscat(KeyName, Device->ServiceName.Buffer);
   wcscat(KeyName, L"\\");
@@ -429,7 +426,7 @@ PnpRootFdoReadDeviceInfo(
   QueryTable[0].EntryContext = DeviceDesc;
 
   Status = RtlQueryRegistryValues(
-    RTL_REGISTRY_ABSOLUTE,
+    RTL_REGISTRY_ENUM,
     KeyName,
     QueryTable,
     NULL,
@@ -487,10 +484,10 @@ PnpRootFdoEnumerateDevices(
 		NULL,
 		NULL);
 
-  Status = ZwOpenKey(&KeyHandle, KEY_ALL_ACCESS, &ObjectAttributes);
+  Status = NtOpenKey(&KeyHandle, KEY_ALL_ACCESS, &ObjectAttributes);
   if (!NT_SUCCESS(Status))
   {
-    DPRINT("ZwOpenKey() failed (Status %x)\n", Status);
+    DPRINT("NtOpenKey() failed (Status %x)\n", Status);
     ExFreePool(KeyInfo);
     return Status;
   }
@@ -573,7 +570,7 @@ PnpRootFdoEnumerateDevices(
 
   DPRINT("Entries found: %d\n", Index);
 
-  ZwClose(KeyHandle);
+  NtClose(KeyHandle);
 
   ExFreePool(KeyInfo);
 
@@ -671,8 +668,8 @@ PnpRootQueryBusRelations(
         /* FIXME: */
       }
 
-      DPRINT1("DeviceID: %wZ  PDO %p\n",
-        &PdoDeviceExtension->DeviceID,
+      DPRINT("DeviceID: %S  PDO %x\n",
+        PdoDeviceExtension->DeviceID.Buffer,
         Device->Pdo);
 
       if (!IopCreateUnicodeString(
@@ -684,9 +681,6 @@ PnpRootQueryBusRelations(
         /* FIXME: */
       }
 
-      DPRINT1("InstanceID: %wZ  PDO %p\n",
-        &PdoDeviceExtension->InstanceID,
-        Device->Pdo);
     }
 
     /* Reference the physical device object. The PnP manager
@@ -736,6 +730,11 @@ PnpRootQueryDeviceRelations(
 }
 
 
+NTSTATUS
+STDCALL
+PnpRootFdoPnpControl(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP Irp)
 /*
  * FUNCTION: Handle Plug and Play IRPs for the root bus device object
  * ARGUMENTS:
@@ -744,11 +743,6 @@ PnpRootQueryDeviceRelations(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-STDCALL
-PnpRootFdoPnpControl(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp)
 {
   PPNPROOT_FDO_DEVICE_EXTENSION DeviceExtension;
   PIO_STACK_LOCATION IrpSp;
@@ -794,6 +788,11 @@ PnpRootFdoPnpControl(
 }
 
 
+NTSTATUS
+STDCALL
+PnpRootFdoPowerControl(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP Irp)
 /*
  * FUNCTION: Handle power management IRPs for the root bus device object
  * ARGUMENTS:
@@ -802,11 +801,6 @@ PnpRootFdoPnpControl(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-STDCALL
-PnpRootFdoPowerControl(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp)
 {
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
@@ -833,6 +827,11 @@ PnpRootFdoPowerControl(
 }
 
 
+NTSTATUS
+STDCALL
+PnpRootPnpControl(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP Irp)
 /*
  * FUNCTION: Handle Plug and Play IRPs
  * ARGUMENTS:
@@ -841,11 +840,6 @@ PnpRootFdoPowerControl(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-STDCALL
-PnpRootPnpControl(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp)
 {
   PPNPROOT_COMMON_DEVICE_EXTENSION DeviceExtension;
   NTSTATUS Status;
@@ -867,6 +861,11 @@ PnpRootPnpControl(
 }
 
 
+NTSTATUS
+STDCALL
+PnpRootPowerControl(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN PIRP Irp)
 /*
  * FUNCTION: Handle power management IRPs
  * ARGUMENTS:
@@ -875,11 +874,6 @@ PnpRootPnpControl(
  * RETURNS:
  *     Status
  */
-NTSTATUS
-STDCALL
-PnpRootPowerControl(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp)
 {
   PPNPROOT_COMMON_DEVICE_EXTENSION DeviceExtension;
   NTSTATUS Status;

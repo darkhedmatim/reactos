@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: rw.c,v 1.56 2004/10/10 18:23:09 ekohl Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/rw.c
- * PURPOSE:         Implements read/write APIs
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/rw.c
+ * PURPOSE:        Implements read/write APIs
+ * PROGRAMMER:     David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                 30/05/98: Created
  */
 
 /* INCLUDES ****************************************************************/

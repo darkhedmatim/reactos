@@ -79,9 +79,9 @@ NtGdiEqualRgn(HRGN  hSrcRgn1,
 
 HRGN
 STDCALL
-NtGdiExtCreateRegion(CONST XFORM *Xform,
-                          DWORD Count,
-                          CONST RGNDATA *RgnData);
+NtGdiExtCreateRegion(CONST PXFORM  Xform,
+                          DWORD  Count,
+                          CONST PROSRGNDATA  RgnData);
 
 BOOL
 STDCALL

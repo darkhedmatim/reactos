@@ -1,12 +1,28 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 2000  ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ke/catch.c
- * PURPOSE:         Exception handling
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: catch.c,v 1.56 2004/12/18 19:22:10 blight Exp $
+ *
+ * PROJECT:              ReactOS kernel
+ * FILE:                 ntoskrnl/ke/catch.c
+ * PURPOSE:              Exception handling
+ * PROGRAMMER:           David Welch (welch@mcmail.com)
+ *                       Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
 /* INCLUDES *****************************************************************/
@@ -33,7 +49,6 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
   KD_CONTINUE_TYPE Action = kdHandleException;
 
   DPRINT("KiDispatchException() called\n");
-
 
   /* PCR->KeExceptionDispatchCount++; */
 
@@ -80,12 +95,8 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 	      NTSTATUS StatusOfCopy;
 
 #ifdef KDBG
-	      Action = KdbEnterDebuggerException (ExceptionRecord, PreviousMode,
-	                                          Context, Tf, FALSE);
-              if (Action == kdContinue)
-                {
-                  return;
-                }
+	      KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
+					 Context, Tf, FALSE);
 #endif
 
 	      /* FIXME: Forward exception to user mode debugger */
@@ -130,12 +141,8 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 	  /* FIXME: Forward the exception to the process exception port */
 
 #ifdef KDBG
-	  Action = KdbEnterDebuggerException (ExceptionRecord, PreviousMode,
-	                                      Context, Tf, TRUE);
-          if (Action == kdContinue)
-            {
-              return;
-            }
+	  KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
+				     Context, Tf, TRUE);
 #endif
 
 	  /* Terminate the offending thread */
@@ -146,12 +153,8 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
 	{
 	  /* PreviousMode == KernelMode */
 #ifdef KDBG
-	  Action = KdbEnterDebuggerException (ExceptionRecord, PreviousMode,
-	                                      Context, Tf, FALSE);
-          if (Action == kdContinue)
-            {
-              return;
-            }
+	  KdbEnterDebuggerException (ExceptionRecord, PreviousMode, 
+				     Context, Tf, FALSE);
 #endif
 
 	  Value = RtlpDispatchException (ExceptionRecord, Context);

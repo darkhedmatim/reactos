@@ -34,7 +34,7 @@ static void STATIC_PaintEtchedfn( HWND hwnd, HDC hdc, DWORD style );
 static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
-static COLORREF color_3dshadow, color_3ddkshadow, color_3dhighlight;
+static COLORREF color_windowframe, color_background, color_window;
 
 /* offsets for GetWindowLong for static private information */
 #define HFONT_GWL_OFFSET    0
@@ -104,7 +104,7 @@ static HICON STATIC_SetIcon( HWND hwnd, HICON hicon, DWORD style )
 
     if ((style & SS_TYPEMASK) != SS_ICON) return 0;
     prevIcon = (HICON)SetWindowLongA( hwnd, HICON_GWL_OFFSET, (LONG)hicon );
-    if (hicon && !(style & SS_CENTERIMAGE))
+    if (hicon)
     {
         ICONINFO info;
         BITMAP bm;
@@ -118,7 +118,7 @@ static HICON STATIC_SetIcon( HWND hwnd, HICON hicon, DWORD style )
             return 0;
         }
         SetWindowPos( hwnd, 0, 0, 0, bm.bmWidth, bm.bmHeight,
-                      SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER );
+                        SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER );
     }
     return prevIcon;
 #else
@@ -131,7 +131,7 @@ static HICON STATIC_SetIcon( HWND hwnd, HICON hicon, DWORD style )
     	return 0;
     }
     prevIcon = (HICON)SetWindowLongA( hwnd, HICON_GWL_OFFSET, (LONG)hicon );
-    if (hicon && !(style & SS_CENTERIMAGE))
+    if (hicon)
     {
         SetWindowPos( hwnd, 0, 0, 0, info->nWidth, info->nHeight,
                         SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER );
@@ -153,14 +153,14 @@ static HBITMAP STATIC_SetBitmap( HWND hwnd, HBITMAP hBitmap, DWORD style )
     if ((style & SS_TYPEMASK) != SS_BITMAP) return 0;
     if (hBitmap && GetObjectType(hBitmap) != OBJ_BITMAP) {
 #ifdef __REACTOS__
-	OutputDebugStringA("huh? hBitmap!=0, but not bitmap\n");
+  OutputDebugStringA("huh? hBitmap!=0, but not bitmap\n");
 #else
 	ERR("huh? hBitmap!=0, but not bitmap\n");
 #endif
     	return 0;
     }
     hOldBitmap = (HBITMAP)SetWindowLongA( hwnd, HICON_GWL_OFFSET, (LONG)hBitmap );
-    if (hBitmap && !(style & SS_CENTERIMAGE))
+    if (hBitmap)
     {
         BITMAP bm;
         GetObjectW(hBitmap, sizeof(bm), &bm);
@@ -244,13 +244,6 @@ static VOID STATIC_TryPaintFcn(HWND hwnd, LONG full_style)
     }
 }
 
-static VOID STATIC_InitColours()
-{
-    color_3ddkshadow  = GetSysColor(COLOR_3DDKSHADOW);
-    color_3dshadow    = GetSysColor(COLOR_3DSHADOW);
-    color_3dhighlight = GetSysColor(COLOR_3DHIGHLIGHT);
-}
-
 /***********************************************************************
  *           StaticWndProc_common
  */
@@ -273,7 +266,10 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 #endif
             return -1;
         }
-        STATIC_InitColours();
+        /* initialise colours */
+        color_windowframe  = GetSysColor(COLOR_WINDOWFRAME);
+        color_background   = GetSysColor(COLOR_BACKGROUND);
+        color_window       = GetSysColor(COLOR_WINDOW);
         break;
 
     case WM_NCDESTROY:
@@ -306,7 +302,9 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
         break;
 
     case WM_SYSCOLORCHANGE:
-        STATIC_InitColours();
+        color_windowframe  = GetSysColor(COLOR_WINDOWFRAME);
+        color_background   = GetSysColor(COLOR_BACKGROUND);
+        color_window       = GetSysColor(COLOR_WINDOW);
         InvalidateRect(hwnd, NULL, TRUE);
         break;
 
@@ -330,7 +328,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 	    else
 		hIcon = STATIC_LoadIconA(hwnd, (LPCSTR)lParam);
             /* FIXME : should we also return the previous hIcon here ??? */
-            STATIC_SetIcon(hwnd, hIcon, full_style);
+            STATIC_SetIcon(hwnd, hIcon, style);
 	    break;
 	}
         case SS_BITMAP:
@@ -340,7 +338,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 		hBitmap = STATIC_LoadBitmapW(hwnd, (LPCWSTR)lParam);
 	    else
 		hBitmap = STATIC_LoadBitmapA(hwnd, (LPCSTR)lParam);
-            STATIC_SetBitmap(hwnd, hBitmap, full_style);
+            STATIC_SetBitmap(hwnd, hBitmap, style);
 	    break;
 	}
 	case SS_LEFT:
@@ -416,10 +414,10 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case STM_SETIMAGE:
         switch(wParam) {
 	case IMAGE_BITMAP:
-	    lResult = (LRESULT)STATIC_SetBitmap( hwnd, (HBITMAP)lParam, full_style );
+	    lResult = (LRESULT)STATIC_SetBitmap( hwnd, (HBITMAP)lParam, style );
 	    break;
 	case IMAGE_ICON:
-	    lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)lParam, full_style );
+	    lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)lParam, style );
 	    break;
 	default:
 #ifndef __REACTOS__
@@ -434,7 +432,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case STM_SETICON16:
 #endif
     case STM_SETICON:
-        lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)wParam, full_style );
+        lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)wParam, style );
         InvalidateRect( hwnd, NULL, TRUE );
         break;
 
@@ -521,8 +519,6 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style )
 
     if (style & SS_NOPREFIX)
 	wFormat |= DT_NOPREFIX;
-    if (style & SS_CENTERIMAGE)
-	wFormat |= DT_VCENTER;
 
     if ((hFont = (HFONT)GetWindowLongA( hwnd, HFONT_GWL_OFFSET ))) SelectObject( hdc, hFont );
 
@@ -554,27 +550,27 @@ static void STATIC_PaintRectfn( HWND hwnd, HDC hdc, DWORD style )
     switch (style & SS_TYPEMASK)
     {
     case SS_BLACKRECT:
-	hBrush = CreateSolidBrush(color_3ddkshadow);
+	hBrush = CreateSolidBrush(color_windowframe);
         FillRect( hdc, &rc, hBrush );
 	break;
     case SS_GRAYRECT:
-	hBrush = CreateSolidBrush(color_3dshadow);
+	hBrush = CreateSolidBrush(color_background);
         FillRect( hdc, &rc, hBrush );
 	break;
     case SS_WHITERECT:
-	hBrush = CreateSolidBrush(color_3dhighlight);
+	hBrush = CreateSolidBrush(color_window);
         FillRect( hdc, &rc, hBrush );
 	break;
     case SS_BLACKFRAME:
-	hBrush = CreateSolidBrush(color_3ddkshadow);
+	hBrush = CreateSolidBrush(color_windowframe);
         FrameRect( hdc, &rc, hBrush );
 	break;
     case SS_GRAYFRAME:
-	hBrush = CreateSolidBrush(color_3dshadow);
+	hBrush = CreateSolidBrush(color_background);
         FrameRect( hdc, &rc, hBrush );
 	break;
     case SS_WHITEFRAME:
-	hBrush = CreateSolidBrush(color_3dhighlight);
+	hBrush = CreateSolidBrush(color_window);
         FrameRect( hdc, &rc, hBrush );
 	break;
     default:
@@ -589,38 +585,13 @@ static void STATIC_PaintIconfn( HWND hwnd, HDC hdc, DWORD style )
     RECT rc;
     HBRUSH hbrush;
     HICON hIcon;
-    INT x, y;
 
     GetClientRect( hwnd, &rc );
     hbrush = (HBRUSH)SendMessageW( GetParent(hwnd), WM_CTLCOLORSTATIC,
 				   (WPARAM)hdc, (LPARAM)hwnd );
     FillRect( hdc, &rc, hbrush );
-    hIcon = (HICON)GetWindowLongPtrW( hwnd, HICON_GWL_OFFSET );
-    if (style & SS_CENTERIMAGE)
-    {
-#ifndef __REACTOS__
-        CURSORICONINFO *info = hIcon ? (CURSORICONINFO *)GlobalLock16(HICON_16(hIcon)) : NULL;
-        x = (rc.right - rc.left)/2 - (info ? info->nWidth/2 : 0);
-        y = (rc.bottom - rc.top)/2 - (info ? info->nHeight/2 : 0);
-#else
-        ICONINFO info;
-        BITMAP bm;
-
-        if (!GetIconInfo(hIcon, &info))
-            return;
-        if (!GetObjectW(info.hbmColor, sizeof(BITMAP), &bm))
-            return;
-        x = (rc.right - rc.left)/2 - bm.bmWidth/2;
-        y = (rc.bottom - rc.top)/2 - bm.bmHeight/2;
-#endif
-    }
-    else
-    {
-        x = rc.left;
-        y = rc.top;
-    }
-    if (hIcon)
-        DrawIcon( hdc, x, y, hIcon );
+    if ((hIcon = (HICON)GetWindowLongA( hwnd, HICON_GWL_OFFSET )))
+        DrawIcon( hdc, rc.left, rc.top, hIcon );
 }
 
 static void STATIC_PaintBitmapfn(HWND hwnd, HDC hdc, DWORD style )
@@ -635,25 +606,12 @@ static void STATIC_PaintBitmapfn(HWND hwnd, HDC hdc, DWORD style )
     if ((hBitmap = (HBITMAP)GetWindowLongA( hwnd, HICON_GWL_OFFSET )))
     {
         BITMAP bm;
-        INT x, y;
 
         if(GetObjectType(hBitmap) != OBJ_BITMAP) return;
         if (!(hMemDC = CreateCompatibleDC( hdc ))) return;
 	GetObjectW(hBitmap, sizeof(bm), &bm);
 	oldbitmap = SelectObject(hMemDC, hBitmap);
-        if (style & SS_CENTERIMAGE)
-        {
-            RECT rcClient;
-            GetClientRect(hwnd, &rcClient);
-            x = (rcClient.right - rcClient.left)/2 - bm.bmWidth/2;
-            y = (rcClient.bottom - rcClient.top)/2 - bm.bmHeight/2;
-        }
-        else
-        {
-            x = 0;
-            y = 0;
-        }
-        BitBlt(hdc, x, y, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0,
+	BitBlt(hdc, 0, 0, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0,
 	       SRCCOPY);
 	SelectObject(hMemDC, oldbitmap);
 	DeleteDC(hMemDC);

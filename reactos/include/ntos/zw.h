@@ -1,4 +1,5 @@
-/* $Id$
+
+/* $Id: zw.h,v 1.38 2004/12/14 00:41:23 gdalsnes Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -108,12 +109,12 @@ typedef struct _FILE_USER_QUOTA_INFORMATION {
 
 #ifndef __USE_NT_LPC__
 NTSTATUS STDCALL
-NtAcceptConnectPort (OUT PHANDLE PortHandle,
-		     IN  PVOID Context,
-		     IN  PLPC_MESSAGE ServerReply,
-		     IN  BOOLEAN AcceptIt,
-		     IN  PLPC_SECTION_WRITE WriteMap,
-		     IN  PLPC_SECTION_READ ReadMap);
+NtAcceptConnectPort (PHANDLE PortHandle,
+		     HANDLE NamedPortHandle,
+		     PLPC_MESSAGE ServerReply,
+		     BOOLEAN AcceptIt,
+		     PLPC_SECTION_WRITE WriteMap,
+		     PLPC_SECTION_READ ReadMap);
 #else
 NTSTATUS STDCALL
 NtAcceptConnectPort (PHANDLE PortHandle,
@@ -829,9 +830,9 @@ NtCreateNamedPipeFile (OUT PHANDLE NamedPipeFileHandle,
 		       IN ULONG ShareAccess,
 		       IN ULONG CreateDisposition,
 		       IN ULONG CreateOptions,
-		       IN ULONG NamedPipeType,
-		       IN ULONG ReadMode,
-		       IN ULONG CompletionMode,
+		       IN BOOLEAN WriteModeMessage,
+		       IN BOOLEAN ReadModeMessage,
+		       IN BOOLEAN NonBlocking,
 		       IN ULONG MaxInstances,
 		       IN ULONG InBufferSize,
 		       IN ULONG OutBufferSize,
@@ -845,9 +846,9 @@ ZwCreateNamedPipeFile (OUT PHANDLE NamedPipeFileHandle,
 		       IN ULONG ShareAccess,
 		       IN ULONG CreateDisposition,
 		       IN ULONG CreateOptions,
-		       IN ULONG NamedPipeType,
-		       IN ULONG ReadMode,
-		       IN ULONG CompletionMode,
+		       IN BOOLEAN WriteModeMessage,
+		       IN BOOLEAN ReadModeMessage,
+		       IN BOOLEAN NonBlocking,
 		       IN ULONG MaxInstances,
 		       IN ULONG InBufferSize,
 		       IN ULONG OutBufferSize,
@@ -1485,14 +1486,14 @@ NTSTATUS STDCALL ZwFreeVirtualMemory(IN HANDLE ProcessHandle,
  *	  IoStatusBlock = Caller should supply storage for 
  *        IoControlCode = Contains the File System Control command. This is an 
  *			index to the structures in InputBuffer and OutputBuffer.
- *		FSCTL_GET_RETRIEVAL_POINTERS  [Input/Output] RETRIEVAL_POINTERS_BUFFER
- *		FSCTL_GET_VOLUME_BITMAP       [Input]        STARTING_LCN_INPUT_BUFFER
- *		FSCTL_GET_VOLUME_BITMAP       [Output]       VOLUME_BITMAP_BUFFER
- *		FSCTL_MOVE_FILE               [Input]        MOVE_FILE_DATA
+ *		FSCTL_GET_RETRIEVAL_POINTERS  	MAPPING_PAIR
+ *		FSCTL_GET_RETRIEVAL_POINTERS  	GET_RETRIEVAL_DESCRIPTOR
+ *		FSCTL_GET_VOLUME_BITMAP  	BITMAP_DESCRIPTOR
+ *		FSCTL_MOVE_FILE  		MOVEFILE_DESCRIPTOR
  *
- *	  InputBuffer = Caller should supply storage for input buffer if FSCTL expects one.
+ *	  InputBuffer = Caller should supply storage for input buffer if FCTL expects one.
  * 	  InputBufferSize = Size of the input bufffer
- *        OutputBuffer = Caller should supply storage for output buffer if FSCTL expects one.
+ *        OutputBuffer = Caller should supply storage for output buffer if FCTL expects one.
  *        OutputBufferSize  = Size of the input bufffer
  * RETURNS: Status [ STATUS_SUCCESS | STATUS_PENDING | STATUS_ACCESS_DENIED | STATUS_INSUFFICIENT_RESOURCES |
  *		STATUS_INVALID_PARAMETER | STATUS_INVALID_DEVICE_REQUEST ]
@@ -1887,10 +1888,10 @@ NtNotifyChangeKey(
 	IN PVOID ApcContext OPTIONAL, 
 	OUT PIO_STATUS_BLOCK IoStatusBlock,
 	IN ULONG CompletionFilter,
-	IN BOOLEAN WatchSubtree,
-	OUT PVOID Buffer,
+	IN BOOLEAN Asynchroneous, 
+	OUT PVOID ChangeBuffer,
 	IN ULONG Length,
-	IN BOOLEAN Asynchronous
+	IN BOOLEAN WatchSubtree
 	);
 
 NTSTATUS
@@ -1902,10 +1903,10 @@ ZwNotifyChangeKey(
 	IN PVOID ApcContext OPTIONAL, 
 	OUT PIO_STATUS_BLOCK IoStatusBlock,
 	IN ULONG CompletionFilter,
-	IN BOOLEAN WatchSubtree,
-	OUT PVOID Buffer,
+	IN BOOLEAN Asynchroneous, 
+	OUT PVOID ChangeBuffer,
 	IN ULONG Length,
-	IN BOOLEAN Asynchronous
+	IN BOOLEAN WatchSubtree
 	);
 
 /*
@@ -2205,14 +2206,14 @@ ZwOpenSection(
 NTSTATUS
 STDCALL
 NtOpenSemaphore(
-	OUT PHANDLE SemaphoreHandle,
+	IN HANDLE SemaphoreHandle,
 	IN ACCESS_MASK DesiredAcces,
 	IN POBJECT_ATTRIBUTES ObjectAttributes
 	);
 NTSTATUS
 STDCALL
 ZwOpenSemaphore(
-	OUT PHANDLE SemaphoreHandle,
+	IN HANDLE SemaphoreHandle,
 	IN ACCESS_MASK DesiredAcces,
 	IN POBJECT_ATTRIBUTES ObjectAttributes
 	);
@@ -2702,7 +2703,7 @@ ZwQueryFullAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
 	  FileNamesInformation			FILE_NAMES_INFORMATION
 	  FileDispositionInformation		FILE_DISPOSITION_INFORMATION
 	  FilePositionInformation		FILE_POSITION_INFORMATION
-	  FileFullEaInformation			FILE_FULL_EA_INFORMATION
+	  FileFullEaInformation			FILE_FULL_EA_INFORMATION		
 	  FileModeInformation			FILE_MODE_INFORMATION
 	  FileAlignmentInformation		FILE_ALIGNMENT_INFORMATION
 	  FileAllInformation			FILE_ALL_INFORMATION
@@ -2715,7 +2716,7 @@ ZwQueryFullAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
 	  FilePipeRemoteInformation		
 	  FileMailslotQueryInformation		
 	  FileMailslotSetInformation		
-	  FileCompressionInformation		FILE_COMPRESSION_INFORMATION
+	  FileCompressionInformation		FILE_COMPRESSION_INFORMATION		
 	  FileCopyOnWriteInformation		
 	  FileCompletionInformation 		IO_COMPLETION_CONTEXT
 	  FileMoveClusterInformation		
@@ -2728,7 +2729,7 @@ ZwQueryFullAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
 	  FileContentIndexInformation		
 	  FileInheritContentIndexInformation	
 	  FileOleInformation			
-	  FileMaximumInformation		
+	  FileMaximumInformation			
 
  * REMARK:
  *	  This procedure maps to the win32 GetShortPathName, GetLongPathName,
@@ -3014,8 +3015,8 @@ ZwQueryMutant(
 /*
  * FUNCTION: Queries the system ( high-resolution ) performance counter.
  * ARGUMENTS: 
- *        PerformanceCounter = Performance counter
- *	  PerformanceFrequency = Performance frequency
+ *        Counter = Performance counter
+ *	  Frequency = Performance frequency
  * REMARKS:
 	This procedure queries a tick count faster than 10ms ( The resolution for  Intel®-based CPUs is about 0.8 microseconds.)
 	This procedure maps to the win32 QueryPerformanceCounter, QueryPerformanceFrequency 
@@ -3025,15 +3026,15 @@ ZwQueryMutant(
 NTSTATUS
 STDCALL
 NtQueryPerformanceCounter(
-	OUT PLARGE_INTEGER PerformanceCounter,
-	OUT PLARGE_INTEGER PerformanceFrequency  OPTIONAL
+	IN PLARGE_INTEGER Counter,
+	IN PLARGE_INTEGER Frequency
 	);
 
 NTSTATUS
 STDCALL
 ZwQueryPerformanceCounter(
-	OUT PLARGE_INTEGER PerformanceCounter,
-	OUT PLARGE_INTEGER PerformanceFrequency  OPTIONAL
+	IN PLARGE_INTEGER Counter,
+	IN PLARGE_INTEGER Frequency
 	);
 
 /*
@@ -3107,19 +3108,19 @@ ZwQuerySymbolicLinkObject(
 NTSTATUS
 STDCALL
 NtQuerySystemEnvironmentValue(
-	IN PUNICODE_STRING VariableName,
-	OUT PWCHAR ValueBuffer,
-	IN ULONG ValueBufferLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	IN PUNICODE_STRING Name,
+	OUT PVOID Value,
+	ULONG Length,
+	PULONG ReturnLength
 	);
 
 NTSTATUS
 STDCALL
 ZwQuerySystemEnvironmentValue(
-	IN PUNICODE_STRING VariableName,
-	OUT PWCHAR ValueBuffer,
-	IN ULONG ValueBufferLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	IN PUNICODE_STRING Name,
+	OUT PVOID Value,
+	ULONG Length,
+	PULONG ReturnLength
 	);
 
 
@@ -4423,28 +4424,28 @@ ZwShutdownSystem(
 /*
  * FUNCTION: Signals an object and wait for an other one.
  * ARGUMENTS: 
- *        ObjectHandleToSignal = Handle to the object that should be signaled
- *        WaitableObjectHandle = Handle to the object that should be waited for
+ *        SignalObject = Handle to the object that should be signaled
+ *        WaitObject = Handle to the object that should be waited for
  *        Alertable = True if the wait is alertable
- *        TimeOut = The time to wait
+ *        Time = The time to wait
  * RETURNS: Status
  */
 NTSTATUS
 STDCALL
 NtSignalAndWaitForSingleObject(
-	IN	HANDLE		ObjectHandleToSignal,
-	IN	HANDLE		WaitableObjectHandle,
+	IN	HANDLE		SignalObject,
+	IN	HANDLE		WaitObject,
 	IN	BOOLEAN		Alertable,
-	IN	PLARGE_INTEGER	TimeOut  OPTIONAL
+	IN	PLARGE_INTEGER	Time
 	);
 
 NTSTATUS
 STDCALL
 NtSignalAndWaitForSingleObject(
-	IN	HANDLE		ObjectHandleToSignal,
-	IN	HANDLE		WaitableObjectHandle,
+	IN	HANDLE		SignalObject,
+	IN	HANDLE		WaitObject,
 	IN	BOOLEAN		Alertable,
-	IN	PLARGE_INTEGER	TimeOut  OPTIONAL
+	IN	PLARGE_INTEGER	Time
 	);
 
 /*
@@ -4651,9 +4652,9 @@ ZwWriteVirtualMemory(
 /*
  * FUNCTION: Waits for an object to become signalled.
  * ARGUMENTS: 
- *       ObjectHandle = The object handle
+ *       Object = The object handle
  *       Alertable = If true the wait is alertable.
- *       TimeOut = The maximum wait time.
+ *       Time = The maximum wait time.
  * REMARKS:
  *       This function maps to the win32 WaitForSingleObjectEx.
  * RETURNS: Status
@@ -4661,17 +4662,17 @@ ZwWriteVirtualMemory(
 NTSTATUS
 STDCALL
 NtWaitForSingleObject (
-	IN HANDLE ObjectHandle,
+	IN HANDLE Object,
 	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER TimeOut  OPTIONAL
+	IN PLARGE_INTEGER Time
 	);
 
 NTSTATUS
 STDCALL
 ZwWaitForSingleObject (
-	IN HANDLE ObjectHandle,
+	IN HANDLE Object,
 	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER TimeOut  OPTIONAL
+	IN PLARGE_INTEGER Time
 	);
 
 /* --- EVENT PAIR OBJECT --- */
@@ -4929,6 +4930,21 @@ ZwYieldExecution(
 	VOID
 	);
 
+/* --- PLUG AND PLAY --- */
+
+NTSTATUS
+STDCALL
+NtPlugPlayControl (DWORD Unknown1,
+                   DWORD Unknown2,
+                   DWORD Unknown3);
+
+NTSTATUS
+STDCALL
+NtGetPlugPlayEvent (ULONG Reserved1,
+                    ULONG Reserved2,
+                    PVOID Buffer,
+                    ULONG BufferLength);
+
 /* --- POWER MANAGEMENT --- */
 
 #ifndef __USE_W32API
@@ -5011,6 +5027,12 @@ NtSetLdtEntries (ULONG Selector1,
 		 LDT_ENTRY LdtEntry1,
 		 ULONG Selector2,
 		 LDT_ENTRY LdtEntry2);
+
+NTSTATUS
+STDCALL
+NtQueryOleDirectoryFile (
+	VOID
+	);
 
 /*
  * FUNCTION: Checks a clients access rights to a object
@@ -5219,8 +5241,8 @@ NtCreateThread(
 NTSTATUS
 STDCALL
 NtDelayExecution(
-	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER DelayInterval
+	IN ULONG Alertable,
+	IN TIME *Interval
 	);
 
 /*
@@ -5420,10 +5442,10 @@ NTSTATUS
 STDCALL
 NtQuerySection(
 	IN HANDLE SectionHandle,
-	IN SECTION_INFORMATION_CLASS SectionInformationClass,
+	IN CINT SectionInformationClass,
 	OUT PVOID SectionInformation,
-	IN ULONG SectionInformationLength,
-	OUT PULONG ResultLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 
 /*
@@ -5457,11 +5479,11 @@ NtQueryVirtualMemory(
  * FUNCTION: Raises a hard error (stops the system)
  * ARGUMENTS:
  *	  Status = Status code of the hard error
- *	  NumberOfParameters = Number of (optional) parameters in Parameters
- *	  UnicodeStringParameterMask = (optional) string parameter, one per error code
- *	  Parameters = An Array of pointers for use in the error message string
- *	  ResponseOption = Specifies the type of the message box
- *	  Response = Specifies the user's response
+ *	  Unknown2 = ??
+ *	  Unknown3 = ??
+ *	  Unknown4 = ??
+ *	  Unknown5 = ??
+ *	  Unknown6 = ??
  * RETURNS: Status
  *
  */
@@ -5469,12 +5491,12 @@ NtQueryVirtualMemory(
 NTSTATUS
 STDCALL
 NtRaiseHardError(
-	IN NTSTATUS ErrorStatus,
-	IN ULONG NumberOfParameters,
-	IN PUNICODE_STRING UnicodeStringParameterMask  OPTIONAL,
-	IN PVOID *Parameters,
-	IN HARDERROR_RESPONSE_OPTION ResponseOption,
-	OUT PHARDERROR_RESPONSE Response
+	IN NTSTATUS Status,
+	ULONG Unknown2,
+	ULONG Unknown3,
+	ULONG Unknown4,
+	ULONG Unknown5,
+	ULONG Unknown6
 	);
 
 /*
@@ -5583,11 +5605,11 @@ NtUnlockVirtualMemory(
 /*
  * FUNCTION: Waits for multiple objects to become signalled.
  * ARGUMENTS: 
- *       ObjectCount = The number of objects
- *       ObjectsArray = The array of object handles
+ *       Count = The number of objects
+ *       Object = The array of object handles
  *       WaitType = Can be one of the values UserMode or KernelMode
  *       Alertable = If true the wait is alertable.
- *       TimeOut = The maximum wait time.
+ *       Time = The maximum wait time.
  * REMARKS:
  *       This function maps to the win32 WaitForMultipleObjectEx.
  * RETURNS: Status
@@ -5595,11 +5617,11 @@ NtUnlockVirtualMemory(
 NTSTATUS
 STDCALL
 NtWaitForMultipleObjects (
-	IN ULONG ObjectCount,
-	IN PHANDLE ObjectsArray,
+	IN ULONG Count,
+	IN HANDLE Object[],
 	IN WAIT_TYPE WaitType,
 	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER TimeOut  OPTIONAL
+	IN PLARGE_INTEGER Time
 	);
 
 
@@ -6186,24 +6208,23 @@ ZwQueryVirtualMemory(
  * FUNCTION: Raises a hard error (stops the system)
  * ARGUMENTS:
  *	  Status = Status code of the hard error
- *	  NumberOfParameters = Number of (optional) parameters in Parameters
- *	  UnicodeStringParameterMask = (optional) string parameter, one per error code
- *	  Parameters = An Array of pointers for use in the error message string
- *	  ResponseOption = Specifies the type of the message box
- *	  Response = Specifies the user's response
+ *	  Unknown2 = ??
+ *	  Unknown3 = ??
+ *	  Unknown4 = ??
+ *	  Unknown5 = ??
+ *	  Unknown6 = ??
  * RETURNS: Status
  *
  */
-
 NTSTATUS
 STDCALL
 ZwRaiseHardError(
-	IN NTSTATUS ErrorStatus,
-	IN ULONG NumberOfParameters,
-	IN PUNICODE_STRING UnicodeStringParameterMask  OPTIONAL,
-	IN PVOID *Parameters,
-	IN HARDERROR_RESPONSE_OPTION ResponseOption,
-	OUT PHARDERROR_RESPONSE Response
+	IN NTSTATUS Status,
+	ULONG Unknown2,
+	ULONG Unknown3,
+	ULONG Unknown4,
+	ULONG Unknown5,
+	ULONG Unknown6
 	);
 
 /*
@@ -6357,11 +6378,11 @@ ZwUnlockVirtualMemory(
 /*
  * FUNCTION: Waits for multiple objects to become signalled.
  * ARGUMENTS: 
- *       ObjectCount = The number of objects
- *       ObjectsArray = The array of object handles
+ *       Count = The number of objects
+ *       Object = The array of object handles
  *       WaitType = Can be one of the values UserMode or KernelMode
  *       Alertable = If true the wait is alertable.
- *       TimeOut = The maximum wait time.
+ *       Time = The maximum wait time.
  * REMARKS:
  *       This function maps to the win32 WaitForMultipleObjectEx.
  * RETURNS: Status
@@ -6369,11 +6390,11 @@ ZwUnlockVirtualMemory(
 NTSTATUS
 STDCALL
 ZwWaitForMultipleObjects (
-	IN ULONG ObjectCount,
-	IN PHANDLE ObjectsArray,
+	IN ULONG Count,
+	IN HANDLE Object[],
 	IN WAIT_TYPE WaitType,
 	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER TimeOut  OPTIONAL
+	IN PLARGE_INTEGER Time
 	);
 
 /*
@@ -6419,7 +6440,7 @@ NTSTATUS
 STDCALL
 ZwDelayExecution(
 	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER DelayInterval
+	IN TIME *Interval
 	);
 
 /*
@@ -6451,18 +6472,18 @@ NTSTATUS
 STDCALL
 ZwQuerySection(
 	IN HANDLE SectionHandle,
-	IN SECTION_INFORMATION_CLASS SectionInformationClass,
+	IN CINT SectionInformationClass,
 	OUT PVOID SectionInformation,
-	IN ULONG SectionInformationLength,
-	OUT PULONG ResultLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 
 typedef struct _SECTION_IMAGE_INFORMATION
 {
-  ULONG_PTR EntryPoint;
+  PVOID EntryPoint;
   ULONG Unknown1;
-  ULONG_PTR StackReserve;
-  ULONG_PTR StackCommit;
+  ULONG StackReserve;
+  ULONG StackCommit;
   ULONG Subsystem;
   USHORT MinorSubsystemVersion;
   USHORT MajorSubsystemVersion;

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: tdiconn.c,v 1.6 2004/12/11 14:59:31 navaraf Exp $
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/net/afd/afd/tdiconn.c
@@ -80,8 +80,7 @@ NTSTATUS TdiBuildNullConnectionInfoInPlace
  */
 {
   ULONG TdiAddressSize;
-  PTRANSPORT_ADDRESS TransportAddress;
-
+  
   TdiAddressSize = TdiAddressSizeFromType(Type);
 
   RtlZeroMemory(ConnInfo,
@@ -89,11 +88,8 @@ NTSTATUS TdiBuildNullConnectionInfoInPlace
 		TdiAddressSize);
 
   ConnInfo->OptionsLength = sizeof(ULONG);
-  ConnInfo->RemoteAddressLength = TdiAddressSize;
-  ConnInfo->RemoteAddress = TransportAddress = 
-      (PTRANSPORT_ADDRESS)&ConnInfo[1];
-  TransportAddress->TAAddressCount = 1;
-  TransportAddress->Address[0].AddressType = Type;
+  ConnInfo->RemoteAddressLength = 0;
+  ConnInfo->RemoteAddress = NULL;
 
   return STATUS_SUCCESS;
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: ea.c,v 1.4 2003/10/11 17:51:56 hbirr Exp $
  *
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/fs/vfat/ea.c
@@ -27,7 +27,13 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+#include <wchar.h>
+#include <limits.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS *****************************************************************/

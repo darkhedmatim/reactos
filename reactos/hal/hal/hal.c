@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: hal.c,v 1.8 2004/11/21 21:53:06 ion Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -384,8 +384,6 @@ HalReadDmaCounter(
   PADAPTER_OBJECT AdapterObject)
 {
   UNIMPLEMENTED;
-  
-  return 0;
 }
 
 
@@ -684,8 +682,6 @@ STDCALL
 KdPortDisableInterrupts()
 {
   UNIMPLEMENTED;
-
-  return FALSE;
 }
 
 
@@ -694,8 +690,6 @@ STDCALL
 KdPortEnableInterrupts()
 {
   UNIMPLEMENTED;
-
-  return FALSE;
 }
 
 
@@ -715,8 +709,6 @@ KeAcquireSpinLockRaiseToSynch(
   PKSPIN_LOCK SpinLock)
 {
   UNIMPLEMENTED;
-
-  return 0;
 }
 
 

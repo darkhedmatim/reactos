@@ -1336,7 +1336,7 @@ static LRESULT
 TRACKBAR_Create (HWND hwnd, LPCREATESTRUCTW lpcs)
 {
     TRACKBAR_INFO *infoPtr;
-    DWORD dwStyle;
+    DWORD oldStyle, newStyle;
 
     infoPtr = (TRACKBAR_INFO *)Alloc (sizeof(TRACKBAR_INFO));
     if (!infoPtr) return -1;
@@ -1359,10 +1359,19 @@ TRACKBAR_Create (HWND hwnd, LPCREATESTRUCTW lpcs)
 
     TRACKBAR_InitializeThumb (infoPtr);
 
-    dwStyle = GetWindowLongW (hwnd, GWL_STYLE);
+    oldStyle = newStyle = GetWindowLongW (hwnd, GWL_STYLE);
+    if (oldStyle & TBS_VERT) {
+	if (! (oldStyle & (TBS_LEFT | TBS_RIGHT | TBS_BOTH)) )
+	    newStyle |= TBS_RIGHT;
+    } else {
+	if (! (oldStyle & (TBS_TOP | TBS_BOTTOM | TBS_BOTH)) )
+	    newStyle |= TBS_BOTTOM;
+    }
+    if (newStyle != oldStyle)
+	SetWindowLongW (hwnd, GWL_STYLE, newStyle);
 
     /* Create tooltip control */
-    if (dwStyle & TBS_TOOLTIPS) {
+    if (newStyle & TBS_TOOLTIPS) {
 
     	infoPtr->hwndToolTip =
             CreateWindowExW (0, TOOLTIPS_CLASSW, NULL, 0,
@@ -1801,6 +1810,7 @@ TRACKBAR_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             ERR("unknown msg %04x wp=%08x lp=%08lx\n", uMsg, wParam, lParam);
         return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 

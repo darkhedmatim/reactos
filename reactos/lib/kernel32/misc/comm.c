@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: comm.c,v 1.11 2004/01/23 21:16:03 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

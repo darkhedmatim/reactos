@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: volume.c,v 1.44 2004/11/21 10:39:11 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

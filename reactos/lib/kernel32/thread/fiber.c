@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: fiber.c,v 1.13 2004/11/05 12:26:36 ekohl Exp $
  *
  * FILE: lib/kernel32/thread/fiber.c
  *

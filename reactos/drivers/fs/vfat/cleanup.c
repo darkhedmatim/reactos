@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: cleanup.c,v 1.16 2004/12/05 16:31:50 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -10,7 +10,11 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS ****************************************************************/
@@ -46,22 +50,12 @@ VfatCleanupFile(PVFAT_IRP_CONTEXT IrpContext)
 	 VfatUpdateEntry (pFcb);
        }
 
-     if (pFcb->Flags & FCB_DELETE_PENDING &&
-         pFcb->OpenHandleCount == 1)
+     /* Uninitialize file cache if initialized for this file object. */
+     if (FileObject->PrivateCacheMap)
        {
-#if 0
-         /* FIXME:
-	  *  CcPurgeCacheSection is unimplemented.
-	  */
-         CcPurgeCacheSection(FileObject->SectionObjectPointer, NULL, 0, FALSE);
-#endif
+         CcRosReleaseFileCache (FileObject);
        }
-     /* Uninitialize file cache if. */
-#ifdef USE_ROS_CC_AND_FS
-     CcRosReleaseFileCache (FileObject);
-#else
-     CcUninitializeCacheMap (FileObject, NULL, NULL);
-#endif
+
      pFcb->OpenHandleCount--;
      IoRemoveShareAccess(FileObject, &pFcb->FCBShareAccess);
     }

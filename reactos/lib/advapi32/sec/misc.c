@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: misc.c,v 1.34 2004/12/14 22:11:16 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

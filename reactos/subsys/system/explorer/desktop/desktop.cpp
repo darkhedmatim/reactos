@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004, 2005 Martin Fuchs
+ * Copyright 2003, 2004 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -522,11 +522,11 @@ bool DesktopShellView::InitDragDrop()
 	return true;
 }
 
-LRESULT DesktopShellView::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT	DesktopShellView::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
 	  case WM_CONTEXTMENU:
-		if (!DoContextMenu(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), _cm_ifs))
+		if (!DoContextMenu(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)))
 			DoDesktopContextMenu(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
 		break;
 
@@ -558,7 +558,7 @@ int DesktopShellView::Notify(int id, NMHDR* pnmh)
 	return super::Notify(id, pnmh);
 }
 
-bool DesktopShellView::DoContextMenu(int x, int y, CtxMenuInterfaces& cm_ifs)
+bool DesktopShellView::DoContextMenu(int x, int y)
 {
 	IDataObject* selection;
 
@@ -588,7 +588,7 @@ bool DesktopShellView::DoContextMenu(int x, int y, CtxMenuInterfaces& cm_ifs)
 	for(int i=pida->cidl; i>0; --i)
 		apidl[i-1] = (LPCITEMIDLIST) ((LPBYTE)pida+pida->aoffset[i]);
 
-	hr = ShellFolderContextMenu(ShellFolder(parent_pidl), _hwnd, pida->cidl, apidl, x, y, cm_ifs);
+	hr = ShellFolderContextMenu(ShellFolder(parent_pidl), _hwnd, pida->cidl, apidl, x, y);
 
 	selection->Release();
 
@@ -604,40 +604,17 @@ HRESULT DesktopShellView::DoDesktopContextMenu(int x, int y)
 	HRESULT hr = DesktopFolder()->GetUIObjectOf(_hwnd, 0, NULL, IID_IContextMenu, NULL, (LPVOID*)&pcm);
 
 	if (SUCCEEDED(hr)) {
-		pcm = _cm_ifs.query_interfaces(pcm);
-
 		HMENU hmenu = CreatePopupMenu();
 
 		if (hmenu) {
 			hr = pcm->QueryContextMenu(hmenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST-1, CMF_NORMAL|CMF_EXPLORE);
 
 			if (SUCCEEDED(hr)) {
-				AppendMenu(hmenu, 0, FCIDM_SHVIEWLAST-3, ResString(IDS_PROPERTIES_EXPLORER));
 				AppendMenu(hmenu, MF_SEPARATOR, 0, NULL);
 				AppendMenu(hmenu, 0, FCIDM_SHVIEWLAST-1, ResString(IDS_ABOUT_EXPLORER));
 
 				UINT idCmd = TrackPopupMenu(hmenu, TPM_LEFTALIGN|TPM_RETURNCMD|TPM_RIGHTBUTTON, x, y, 0, _hwnd, NULL);
 
-				_cm_ifs.reset();
-
-				if (idCmd == FCIDM_SHVIEWLAST-3) {
-					ShellExecute (_hwnd, _T("open"), _T("c:\\reactos\\system32\\rundll32.exe shell32.dll,Control_RunDLL desk.cpl,,0"), NULL, NULL, SW_SHOWNORMAL);
-
-
-					//explorer_about(_hwnd);
-					//system("c:\\reactos\\system32\\cmd.exe");
-					
-					//ShellExecute (_hwnd, _T("open"), _T("%SystemRoot%\\system32\\cmd.exe"), NULL, NULL, SW_SHOWNORMAL);
-					
-					  //ShellExecute(NULL,"open","c:\\windows\\system32\\cmd.exe",NULL,NULL,SW_SHOWNORMAL);
-					//WCHAR* pFile="%SystemRoot%\system32\cmd.exe";
-					//int rcode;
-					 //TCHAR pFile[256];
-					 //strcopy("%SystemRoot%\\system32\\cmd.exe",pFile);
-					 //ShellExecute(NULL, NULL, pFile, NULL, "C:\\", SW_SHOW);
-					//HINSTANCE rcode=ShellExecute(NULL, "open", pFile, NULL, "C:\\", SW_SHOW);
-					//ShellExecute(hwnd, __TEXT("open"), __TEXT("%SystemRoot%\system32\cmd.exe"), __TEXT("c:\"), SH_SHOW); 
-				}
 				if (idCmd == FCIDM_SHVIEWLAST-1) {
 					explorer_about(_hwnd);
 				} else if (idCmd) {

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: input.c,v 1.40 2004/12/12 17:56:52 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -324,12 +324,6 @@ KeyboardThreadMain(PVOID StartContext)
 	      /* Context mode. 1 if ALT if pressed while the key is pressed */
 	      lParam |= (1 << 29);
 	    }
-
-	  if (! KeyEvent.bKeyDown)
-	    {
-	      /* Transition state. 1 for KEY_UP etc, 0 for KEY_DOWN */
-	      lParam |= (1 << 31);
-	    }
 	  
 	  if (GetHotKey(InputWindowStation,
 			fsModifiers,
@@ -540,7 +534,7 @@ IntMouseInput(MOUSEINPUT *mi)
   const UINT SwapBtnMsg[2][2] = {{WM_LBUTTONDOWN, WM_RBUTTONDOWN},
                                  {WM_LBUTTONUP, WM_RBUTTONUP}};
   const WPARAM SwapBtn[2] = {MK_LBUTTON, MK_RBUTTON};
-  POINT MousePos, OrgPos;
+  POINT MousePos;
   PSYSTEM_CURSORINFO CurInfo;
   PWINSTATION_OBJECT WinSta;
   BOOL DoMove, SwapButtons;
@@ -586,10 +580,8 @@ IntMouseInput(MOUSEINPUT *mi)
   DoMove = FALSE;
 
   ExAcquireFastMutex(&CurInfo->CursorMutex);
-  IntGetCursorLocation(WinSta, &MousePos);
-  OrgPos.x = MousePos.x;
-  OrgPos.y = MousePos.y;
-
+  MousePos.x = CurInfo->x;
+  MousePos.y = CurInfo->y;
   if(mi->dwFlags & MOUSEEVENTF_MOVE)
   {
     if(mi->dwFlags & MOUSEEVENTF_ABSOLUTE)
@@ -633,7 +625,12 @@ IntMouseInput(MOUSEINPUT *mi)
         MousePos.y = (LONG)CurInfo->CursorClipInfo.Top;
     }
     
-    DoMove = (MousePos.x != OrgPos.x || MousePos.y != OrgPos.y);
+    DoMove = (MousePos.x != CurInfo->x || MousePos.y != CurInfo->y);
+    if(DoMove)
+    {
+      CurInfo->x = MousePos.x;
+      CurInfo->y = MousePos.y;
+    }
   }
 
   ExReleaseFastMutex(&CurInfo->CursorMutex);
@@ -654,13 +651,12 @@ IntMouseInput(MOUSEINPUT *mi)
         if (GDIDEV(SurfObj)->Pointer.MovePointer)
         {
           GDIDEV(SurfObj)->Pointer.MovePointer(SurfObj, MousePos.x, MousePos.y, &(GDIDEV(SurfObj)->Pointer.Exclude));
-        } else {
-	  EngMovePointer(SurfObj, MousePos.x, MousePos.y, &(GDIDEV(SurfObj)->Pointer.Exclude));
-	}
-        /* Only now, update the info in the GDIDEVICE, so EngMovePointer can
-	 * use the old values to move the pointer image */
-	GDIDEV(SurfObj)->Pointer.Pos.x = MousePos.x;
-	GDIDEV(SurfObj)->Pointer.Pos.y = MousePos.y;
+        }
+        /* FIXME - That's a bad thing! We should't access private gdi pointer fields
+                   from here. However it is required so MouseSafetyOnDrawEnd() can
+                   properly paint the mouse cursor to the screen again. See the
+                   comment in MouseSafetyOnDrawEnd() to fix this problem! */
+        GDIDEV(SurfObj)->Pointer.Pos = MousePos;
 
         BITMAPOBJ_UnlockBitmap(hBitmap);
       }

@@ -216,11 +216,10 @@ HRESULT WINAPI IShellBrowserImpl_QueryInterface(IShellBrowser *iface,
 ULONG WINAPI IShellBrowserImpl_AddRef(IShellBrowser * iface)
 {
     IShellBrowserImpl *This = (IShellBrowserImpl *)iface;
-    ULONG ref = InterlockedIncrement(&This->ref);
 
-    TRACE("(%p,%lu)\n", This, ref - 1);
+    TRACE("(%p,%lu)\n", This, This->ref);
 
-    return ref;
+    return ++(This->ref);
 }
 
 /**************************************************************************
@@ -229,17 +228,16 @@ ULONG WINAPI IShellBrowserImpl_AddRef(IShellBrowser * iface)
 ULONG WINAPI IShellBrowserImpl_Release(IShellBrowser * iface)
 {
     IShellBrowserImpl *This = (IShellBrowserImpl *)iface;
-    ULONG ref = InterlockedDecrement(&This->ref);
 
-    TRACE("(%p,%lu)\n", This, ref + 1);
+    TRACE("(%p,%lu)\n", This, This->ref);
 
-    if (!ref)
+    if (!--(This->ref))
     {
       COMDLG32_SHFree(This);
       TRACE("-- destroyed\n");
       return 0;
     }
-    return ref;
+    return This->ref;
 }
 
 /*

@@ -12,7 +12,7 @@
 #define NDEBUG
 
 #ifndef NDEBUG
-DWORD DebugTraceLevel = DEBUG_ULTRA & ~(DEBUG_LOCK | DEBUG_PBUFFER);
+DWORD DebugTraceLevel = DEBUG_ULTRA;
 #else
 DWORD DebugTraceLevel = 0;
 #endif /* NDEBUG */
@@ -480,7 +480,6 @@ TiDispatchInternal(
 
   case TDI_LISTEN:
     Status = DispTdiListen(Irp);
-    Complete = FALSE;
     break;
 
   case TDI_CONNECT:

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: except.c,v 1.21 2004/12/13 13:32:23 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,52 +15,25 @@
 #define NDEBUG
 #include "../include/debug.h"
 
+UINT GlobalErrMode = 0;
 LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = UnhandledExceptionFilter;
 
-UINT
-STDCALL
-GetErrorMode(VOID)
+UINT GetErrorMode(void)
 {
-  NTSTATUS Status;
-  UINT ErrMode;
-  
-  Status = NtQueryInformationProcess(NtCurrentProcess(),
-                                     ProcessDefaultHardErrorMode,
-                                     (PVOID)&ErrMode,
-                                     sizeof(ErrMode),
-                                     NULL);
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastErrorByStatus(Status);
-    return 0;
-  }
-  
-  return ErrMode;
+	return GlobalErrMode;
 }
+
 
 /*
  * @implemented
  */
 UINT 
 STDCALL
-SetErrorMode(UINT uMode)
+SetErrorMode(  UINT uMode  )
 {
-   UINT PrevErrMode;
-   NTSTATUS Status;
-   
-   PrevErrMode = GetErrorMode();
-   
-   Status = NtSetInformationProcess(NtCurrentProcess(),
-                                    ProcessDefaultHardErrorMode,
-                                    (PVOID)&uMode,
-                                    sizeof(uMode));
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastErrorByStatus(Status);
-     return 0;
-   }
-
-   return PrevErrMode;
+	UINT OldErrMode = GetErrorMode();
+	GlobalErrMode = uMode;
+	return OldErrMode;
 }
 
 

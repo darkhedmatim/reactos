@@ -38,7 +38,6 @@
 #include "cderr.h"
 #include "winreg.h"
 #include "winternl.h"
-#include "shlwapi.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 
@@ -306,9 +305,9 @@ LONG FD31_WMDrawItem(HWND hWnd, WPARAM wParam, LPARAM lParam,
 void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
 {
     int lenstr2;
-    LPOPENFILENAMEW ofnW = lfs->ofnW;
+    LPOPENFILENAMEW ofnW = &lfs->ofnW;
     WCHAR tmpstr2[BUFFILE];
-    WCHAR *p;
+    WCHAR *bs;
 
     TRACE("%s\n", debugstr_w(tmpstr));
     if(ofnW->Flags & OFN_NOVALIDATE)
@@ -321,18 +320,17 @@ void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
     lstrcpynW(tmpstr2+lenstr2, tmpstr, BUFFILE-lenstr2);
     if (ofnW->lpstrFile)
         lstrcpynW(ofnW->lpstrFile, tmpstr2, ofnW->nMaxFile);
-
-    /* set filename offset */
-    p = PathFindFileNameW(ofnW->lpstrFile);
-    ofnW->nFileOffset = (p - ofnW->lpstrFile);
-
-    /* set extension offset */
-    p = PathFindExtensionW(ofnW->lpstrFile);
-    ofnW->nFileExtension = (*p) ? (p - ofnW->lpstrFile) + 1 : 0;
-
-    TRACE("file %s, file offset %d, ext offset %d\n",
-          debugstr_w(ofnW->lpstrFile), ofnW->nFileOffset, ofnW->nFileExtension);
-
+    if((bs = strrchrW(tmpstr2, '\\')) != NULL)
+        ofnW->nFileOffset = bs - tmpstr2 +1;
+    else
+        ofnW->nFileOffset = 0;
+    ofnW->nFileExtension = 0;
+    while(tmpstr2[ofnW->nFileExtension] != '.' && tmpstr2[ofnW->nFileExtension] != '\0')
+        ofnW->nFileExtension++;
+    if (tmpstr2[ofnW->nFileExtension] == '\0')
+        ofnW->nFileExtension = 0;
+    else
+        ofnW->nFileExtension++;
     /* update the real client structures if any */
     lfs->callbacks->UpdateResult(lfs);
 }
@@ -344,7 +342,7 @@ void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
 void FD31_UpdateFileTitle(PFD31_DATA lfs)
 {
   LONG lRet;
-  LPOPENFILENAMEW ofnW = lfs->ofnW;
+  LPOPENFILENAMEW ofnW = &lfs->ofnW;
   if (ofnW->lpstrFileTitle != NULL)
   {
     lRet = SendDlgItemMessageW(lfs->hwnd, lst1, LB_GETCURSEL, 0, 0);
@@ -449,14 +447,14 @@ static LRESULT FD31_TestPath( PFD31_DATA lfs, LPWSTR path )
 	else
 	{
 	    strcpyW(tmpstr2, path);
-            if(!(lfs->ofnW->Flags & OFN_NOVALIDATE))
+            if(!(lfs->ofnW.Flags & OFN_NOVALIDATE))
                 *path = 0;
         }
 
         TRACE("path=%s, tmpstr2=%s\n", debugstr_w(path), debugstr_w(tmpstr2));
         SetDlgItemTextW( hWnd, edt1, tmpstr2 );
         FD31_ScanDir(hWnd, path);
-        return (lfs->ofnW->Flags & OFN_NOVALIDATE) ? TRUE : FALSE;
+        return (lfs->ofnW.Flags & OFN_NOVALIDATE) ? TRUE : FALSE;
     }
 
     /* no wildcards, we might have a directory or a filename */
@@ -503,7 +501,7 @@ static LRESULT FD31_Validate( PFD31_DATA lfs, LPWSTR path, UINT control, INT ite
     LONG lRet;
     HWND hWnd = lfs->hwnd;
     OPENFILENAMEW ofnsav;
-    LPOPENFILENAMEW ofnW = lfs->ofnW;
+    LPOPENFILENAMEW ofnW = &lfs->ofnW;
     WCHAR filename[BUFFILE];
 
     ofnsav = *ofnW; /* for later restoring */
@@ -588,7 +586,10 @@ static LRESULT FD31_DiskChange( PFD31_DATA lfs )
 static LRESULT FD31_FileTypeChange( PFD31_DATA lfs )
 {
     LONG lRet;
+    WCHAR diskname[BUFFILE];
     LPWSTR pstr;
+
+    diskname[0] = 0;
 
     lRet = SendDlgItemMessageW(lfs->hwnd, cmb1, CB_GETCURSEL, 0, 0);
     if (lRet == LB_ERR)
@@ -612,7 +613,9 @@ LRESULT FD31_WMCommand(HWND hWnd, LPARAM lParam, UINT notification,
         FD31_StripEditControl(hWnd);
         if (notification == LBN_DBLCLK)
         {
-            return SendMessageW(hWnd, WM_COMMAND, IDOK, 0);
+            if (FD31_Validate( lfs, NULL, control, 0, FALSE ))
+                EndDialog(hWnd, TRUE);
+            return TRUE;
         }
         else if (notification == LBN_SELCHANGE)
             return FD31_FileListSelect( lfs );
@@ -700,8 +703,9 @@ static LPWSTR FD31_DupToW(LPCSTR str, DWORD size)
  *                              FD31_MapOfnStructA          [internal]
  *      map a 32 bits Ansi structure to an Unicode one
  */
-void FD31_MapOfnStructA(const LPOPENFILENAMEA ofnA, LPOPENFILENAMEW ofnW, BOOL open)
+void FD31_MapOfnStructA(LPOPENFILENAMEA ofnA, LPOPENFILENAMEW ofnW, BOOL open)
 {
+    LPCSTR str;
     UNICODE_STRING usBuffer;
 
     ofnW->lStructSize = sizeof(OPENFILENAMEW);
@@ -723,18 +727,13 @@ void FD31_MapOfnStructA(const LPOPENFILENAMEA ofnA, LPOPENFILENAMEW ofnW, BOOL o
         RtlCreateUnicodeStringFromAsciiz (&usBuffer,ofnA->lpstrInitialDir);
         ofnW->lpstrInitialDir = usBuffer.Buffer;
     }
-    if (ofnA->lpstrTitle) {
-        RtlCreateUnicodeStringFromAsciiz (&usBuffer, ofnA->lpstrTitle);
-        ofnW->lpstrTitle = usBuffer.Buffer;
-    } else {
-        WCHAR buf[16];
-        int len;
-        LoadStringW(COMDLG32_hInstance, open ? IDS_OPEN_FILE : IDS_SAVE_AS,
-                    buf, sizeof(buf)/sizeof(WCHAR));
-        len = lstrlenW(buf)+1;
-        ofnW->lpstrTitle = HeapAlloc(GetProcessHeap(), 0, len*sizeof(WCHAR));
-        memcpy((void*)ofnW->lpstrTitle, buf, len*sizeof(WCHAR));
-    }
+    if (ofnA->lpstrTitle)
+        str = ofnA->lpstrTitle;
+    else
+        /* Allocates default title (FIXME : get it from resource) */
+        str = open ? "Open File" : "Save as";
+    RtlCreateUnicodeStringFromAsciiz (&usBuffer,str);
+    ofnW->lpstrTitle = usBuffer.Buffer;
     ofnW->Flags = ofnA->Flags;
     ofnW->nFileOffset = ofnA->nFileOffset;
     ofnW->nFileExtension = ofnA->nFileExtension;
@@ -758,12 +757,12 @@ void FD31_MapOfnStructA(const LPOPENFILENAMEA ofnA, LPOPENFILENAMEW ofnW, BOOL o
  */
 void FD31_FreeOfnW(LPOPENFILENAMEW ofnW)
 {
-   HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrFilter);
-   HeapFree(GetProcessHeap(), 0, ofnW->lpstrCustomFilter);
-   HeapFree(GetProcessHeap(), 0, ofnW->lpstrFile);
-   HeapFree(GetProcessHeap(), 0, ofnW->lpstrFileTitle);
-   HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrInitialDir);
-   HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrTitle);
+   if (ofnW->lpstrFilter) HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrFilter);
+   if (ofnW->lpstrCustomFilter) HeapFree(GetProcessHeap(), 0, ofnW->lpstrCustomFilter);
+   if (ofnW->lpstrFile) HeapFree(GetProcessHeap(), 0, ofnW->lpstrFile);
+   if (ofnW->lpstrFileTitle) HeapFree(GetProcessHeap(), 0, ofnW->lpstrFileTitle);
+   if (ofnW->lpstrInitialDir) HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrInitialDir);
+   if (ofnW->lpstrTitle) HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpstrTitle);
    if ((ofnW->lpTemplateName) && (HIWORD(ofnW->lpTemplateName)))
        HeapFree(GetProcessHeap(), 0, (LPWSTR) ofnW->lpTemplateName);
 }
@@ -828,7 +827,7 @@ LONG FD31_WMInitDialog(HWND hWnd, WPARAM wParam, LPARAM lParam)
   if (!lfs) return FALSE;
   SetPropA(hWnd, FD31_OFN_PROP, (HANDLE)lfs);
   lfs->hwnd = hWnd;
-  ofn = lfs->ofnW;
+  ofn = &lfs->ofnW;
 
   TRACE("flags=%lx initialdir=%s\n", ofn->Flags, debugstr_w(ofn->lpstrInitialDir));
 

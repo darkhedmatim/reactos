@@ -198,7 +198,8 @@ static void _tryLoadProvider(PCWSTR provider)
                     {
                         WARN("Provider %s didn't export NPGetCaps\n",
                          debugstr_w(provider));
-                        HeapFree(GetProcessHeap(), 0, name);
+                        if (name)
+                            HeapFree(GetProcessHeap(), 0, name);
                         FreeLibrary(hLib);
                     }
                 }
@@ -311,7 +312,8 @@ void wnetFree(void)
             HeapFree(GetProcessHeap(), 0, providerTable->table[i].name);
             FreeModule(providerTable->table[i].hLib);
         }
-        HeapFree(GetProcessHeap(), 0, providerTable->entireNetwork);
+        if (providerTable->entireNetwork)
+            HeapFree(GetProcessHeap(), 0, providerTable->entireNetwork);
         HeapFree(GetProcessHeap(), 0, providerTable);
         providerTable = NULL;
     }
@@ -370,7 +372,8 @@ static void _freeEnumNetResource(LPNETRESOURCEW lpNet)
 {
     if (lpNet)
     {
-        HeapFree(GetProcessHeap(), 0, lpNet->lpRemoteName);
+        if (lpNet->lpRemoteName)
+            HeapFree(GetProcessHeap(), 0, lpNet->lpRemoteName);
         HeapFree(GetProcessHeap(), 0, lpNet);
     }
 }

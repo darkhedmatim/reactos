@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004, 2005 Martin Fuchs
+ * Copyright 2003, 2004 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -57,9 +57,9 @@ struct QuickLaunchMap : public map<int, QuickLaunchEntry>
 
 
  /// quick launch bar window
-struct QuickLaunchBar : public ExtContextMenuHandlerT<SubclassedWindow>
+struct QuickLaunchBar : public SubclassedWindow
 {
-	typedef ExtContextMenuHandlerT<SubclassedWindow> super;
+	typedef SubclassedWindow super;
 
 	QuickLaunchBar(HWND hwnd);
 	~QuickLaunchBar();

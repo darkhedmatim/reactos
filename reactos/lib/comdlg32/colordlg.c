@@ -1057,10 +1057,11 @@ LRESULT CC_WMCommand( HWND hDlg, WPARAM wParam, LPARAM lParam, WORD notifyCode, 
  */
 LRESULT CC_WMPaint( HWND hDlg, WPARAM wParam, LPARAM lParam )
 {
+    HDC hdc;
     PAINTSTRUCT ps;
     LCCPRIV lpp = (LCCPRIV)GetWindowLongA(hDlg, DWL_USER);
 
-    BeginPaint(hDlg, &ps);
+    hdc = BeginPaint(hDlg, &ps);
     /* we have to paint dialog children except text and buttons */
     CC_PaintPredefColorArray(hDlg, 6, 8);
     CC_PaintUserColorArray(hDlg, 2, 8, lpp->lpcc->lpCustColors);
@@ -1071,7 +1072,7 @@ LRESULT CC_WMPaint( HWND hDlg, WPARAM wParam, LPARAM lParam )
     CC_PaintColorGraph(hDlg);
     EndPaint(hDlg, &ps);
 
-    return TRUE;
+ return TRUE;
 }
 
 /***********************************************************************
@@ -1288,8 +1289,7 @@ BOOL WINAPI ChooseColorW( LPCHOOSECOLORW lpChCol )
     {
 	HRSRC hResInfo;
 	HGLOBAL hDlgTmpl;
-	static const WCHAR wszCHOOSE_COLOR[] = {'C','H','O','O','S','E','_','C','O','L','O','R',0};
-	if (!(hResInfo = FindResourceW(COMDLG32_hInstance, wszCHOOSE_COLOR, (LPWSTR)RT_DIALOG)))
+	if (!(hResInfo = FindResourceA(COMDLG32_hInstance, "CHOOSE_COLOR", (LPSTR)RT_DIALOG)))
 	{
 	    COMDLG32_SetCommDlgExtendedError(CDERR_FINDRESFAILURE);
 	    return FALSE;

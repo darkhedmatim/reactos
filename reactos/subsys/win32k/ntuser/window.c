@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: window.c,v 1.257 2004/12/13 00:11:59 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -267,6 +267,8 @@ static LRESULT IntDestroyWindow(PWINDOW_OBJECT Window,
   BOOLEAN BelongsToThreadData;
   
   ASSERT(Window);
+
+  RemoveTimersWindow(Window->Self);
   
   IntLockThreadWindows(Window->OwnerThread->Tcb.Win32Thread);
   if(Window->Status & WINDOWSTATUS_DESTROYING)
@@ -324,7 +326,6 @@ static LRESULT IntDestroyWindow(PWINDOW_OBJECT Window,
     if(BelongsToThreadData)
       IntSendMessage(Window->Self, WM_NCDESTROY, 0, 0);
   }
-  MsqRemoveTimersWindow(ThreadData->MessageQueue, Window->Self);
   
   /* flush the message queue */
   MsqRemoveWindowMessagesFromQueue(Window);
@@ -1163,7 +1164,7 @@ NtUserBuildHwndList(
     PLIST_ENTRY Current;
     PWINDOW_OBJECT Window;
     
-    Status = PsLookupThreadByThreadId((HANDLE)dwThreadId, &Thread);
+    Status = PsLookupThreadByThreadId((PVOID)dwThreadId, &Thread);
     if(!NT_SUCCESS(Status))
     {
       SetLastWin32Error(ERROR_INVALID_PARAMETER);
@@ -1172,7 +1173,7 @@ NtUserBuildHwndList(
     if(!(W32Thread = Thread->Tcb.Win32Thread))
     {
       ObDereferenceObject(Thread);
-      DPRINT("Thread is not a GUI Thread!\n");
+      DPRINT1("Thread is not a GUI Thread!\n");
       SetLastWin32Error(ERROR_INVALID_PARAMETER);
       return 0;
     }
@@ -2272,7 +2273,7 @@ NtUserFillWindow(DWORD Unknown0,
 HWND FASTCALL
 IntFindWindow(PWINDOW_OBJECT Parent,
               PWINDOW_OBJECT ChildAfter,
-              RTL_ATOM ClassAtom,
+              PWNDCLASS_OBJECT ClassObject,
               PUNICODE_STRING WindowName)
 {
   BOOL CheckWindowName;
@@ -2304,8 +2305,11 @@ IntFindWindow(PWINDOW_OBJECT Parent,
       /* Do not send WM_GETTEXT messages in the kernel mode version!
          The user mode version however calls GetWindowText() which will
          send WM_GETTEXT messages to windows belonging to its processes */
-      if((!CheckWindowName || !RtlCompareUnicodeString(WindowName, &(Child->WindowName), FALSE)) &&
-         (!ClassAtom || Child->Class->Atom == ClassAtom))
+      if(((!CheckWindowName || (CheckWindowName && !RtlCompareUnicodeString(WindowName, &(Child->WindowName), FALSE))) &&
+          (!ClassObject || (ClassObject && (Child->Class == ClassObject))))
+         ||
+         ((!CheckWindowName || (CheckWindowName && !RtlCompareUnicodeString(WindowName, &(Child->WindowName), FALSE))) &&
+          (!ClassObject || (ClassObject && (Child->Class == ClassObject)))))
       {
         Ret = Child->Self;
         IntReleaseWindowObject(Child);
@@ -2354,7 +2358,8 @@ NtUserFindWindowEx(HWND hwndParent,
   UNICODE_STRING ClassName, WindowName;
   NTSTATUS Status;
   HWND Desktop, Ret = NULL;
-  RTL_ATOM ClassAtom;
+  PWNDCLASS_OBJECT ClassObject = NULL;
+  BOOL ClassFound;
   
   Desktop = IntGetCurrentThreadDesktopWindow();
   
@@ -2422,38 +2427,25 @@ NtUserFindWindowEx(HWND hwndParent,
   
   /* find the class object */
   if(ClassName.Buffer)
+  {
+    /* this expects the string in ClassName to be NULL-terminated! */
+    ClassFound = ClassReferenceClassByNameOrAtom(&ClassObject, ClassName.Buffer, NULL);
+    if(!ClassFound)
     {
-      PWINSTATION_OBJECT WinStaObject;
-
-      if (PsGetWin32Thread()->Desktop == NULL)
-        {
-          SetLastWin32Error(ERROR_INVALID_HANDLE);
-          goto Cleanup;
-        }
-
-      WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
-
-      Status = RtlLookupAtomInAtomTable(
-         WinStaObject->AtomTable,
-         ClassName.Buffer,
-         &ClassAtom);
-
-      if (!NT_SUCCESS(Status))
-        {
-          DPRINT1("Failed to lookup class atom!\n");
-          SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
-          goto Cleanup;
-        }
+      if (IS_ATOM(ClassName.Buffer))
+        DPRINT1("Window class not found (%lx)\n", (ULONG_PTR)ClassName.Buffer);
+      else
+        DPRINT1("Window class not found (%S)\n", ClassName.Buffer);
+      SetLastWin32Error(ERROR_FILE_NOT_FOUND);
+      goto Cleanup;
+    }
   }
   
   if(Parent->Self == Desktop)
   {
     HWND *List, *phWnd;
     PWINDOW_OBJECT TopLevelWindow;
-    BOOLEAN CheckWindowName;
-    BOOLEAN CheckClassName;
-    BOOLEAN WindowMatches;
-    BOOLEAN ClassMatches;
+    BOOL CheckWindowName;
     
     /* windows searches through all top-level windows if the parent is the desktop
        window */
@@ -2469,7 +2461,6 @@ NtUserFindWindowEx(HWND hwndParent,
       }
       
       CheckWindowName = WindowName.Length > 0;
-      CheckClassName = ClassName.Buffer != NULL;
       
       /* search children */
       while(*phWnd)
@@ -2482,19 +2473,18 @@ NtUserFindWindowEx(HWND hwndParent,
         /* Do not send WM_GETTEXT messages in the kernel mode version!
            The user mode version however calls GetWindowText() which will
            send WM_GETTEXT messages to windows belonging to its processes */
-        WindowMatches = !CheckWindowName || !RtlCompareUnicodeString(
-                        &WindowName, &TopLevelWindow->WindowName, FALSE);
-        ClassMatches = !CheckClassName ||
-                       ClassAtom == TopLevelWindow->Class->Atom;
-
-        if (WindowMatches && ClassMatches)
+        if(((!CheckWindowName || (CheckWindowName && !RtlCompareUnicodeString(&WindowName, &(TopLevelWindow->WindowName), FALSE))) &&
+            (!ClassObject || (ClassObject && (TopLevelWindow->Class == ClassObject))))
+           ||
+           ((!CheckWindowName || (CheckWindowName && !RtlCompareUnicodeString(&WindowName, &(TopLevelWindow->WindowName), FALSE))) &&
+            (!ClassObject || (ClassObject && (TopLevelWindow->Class == ClassObject)))))
         {
           Ret = TopLevelWindow->Self;
           IntReleaseWindowObject(TopLevelWindow);
           break;
         }
         
-        if (IntFindWindow(TopLevelWindow, NULL, ClassAtom, &WindowName))
+        if(IntFindWindow(TopLevelWindow, NULL, ClassObject, &WindowName))
         {
           /* window returns the handle of the top-level window, in case it found
              the child window */
@@ -2509,7 +2499,7 @@ NtUserFindWindowEx(HWND hwndParent,
     }
   }
   else
-    Ret = IntFindWindow(Parent, ChildAfter, ClassAtom, &WindowName);
+    Ret = IntFindWindow(Parent, ChildAfter, ClassObject, &WindowName);
   
 #if 0
   if(Ret == NULL && hwndParent == NULL && hwndChildAfter == NULL)
@@ -2521,11 +2511,16 @@ NtUserFindWindowEx(HWND hwndParent,
     
     if((MsgWindows = IntGetWindowObject(IntGetMessageWindow())))
     {
-      Ret = IntFindWindow(MsgWindows, ChildAfter, ClassAtom, &WindowName);
+      Ret = IntFindWindow(MsgWindows, ChildAfter, ClassObject, &WindowName);
       IntReleaseWindowObject(MsgWindows);
     }
   }
 #endif
+  
+  if (ClassObject != NULL)
+  {
+    ClassDereferenceObject(ClassObject);
+  }
   
   Cleanup:
   if(ClassName.Length > 0 && ClassName.Buffer)

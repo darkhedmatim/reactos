@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ntsecapi.h,v 1.1 2000/08/12 19:33:18 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

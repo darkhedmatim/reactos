@@ -12,8 +12,6 @@
 
 #include "mmdrv.h"
 
-#define NDEBUG
-#include <debug.h>
 
 APIENTRY DWORD auxMessage(UINT uDevice,
                   UINT uMessage,
@@ -22,7 +20,7 @@ APIENTRY DWORD auxMessage(UINT uDevice,
                   DWORD dwParam2)
 
 {
-    DPRINT("auxMessage\n");
+    printf("auxMessage\n");
 
 	// the following cases are documented by DDK
 	switch (uMessage)

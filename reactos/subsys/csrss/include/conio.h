@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: conio.h,v 1.5 2004/09/10 22:14:52 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -139,7 +139,6 @@ CSR_API(CsrGetConsoleCodePage);
 CSR_API(CsrSetConsoleCodePage);
 CSR_API(CsrGetConsoleOutputCodePage);
 CSR_API(CsrSetConsoleOutputCodePage);
-CSR_API(CsrGetProcessList);
 
 #define ConioInitScreenBuffer(Console, Buff) (Console)->Vtbl->InitScreenBuffer((Console), (Buff))
 #define ConioDrawRegion(Console, Region) (Console)->Vtbl->DrawRegion((Console), (Region))

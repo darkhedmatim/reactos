@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: close.c,v 1.21 2003/10/11 17:51:56 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -10,7 +10,11 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS ****************************************************************/

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: print.c,v 1.25 2004/12/12 21:58:42 royce Exp $ */
 #include <w32k.h>
 
 INT
@@ -93,7 +93,7 @@ IntEngExtEscape(
    if (Escape == 0x1101)
       return 0;
 
-   DPRINT1("IntEngExtEscape is nimplemented. - Keep going and have a nice day\n");
+   UNIMPLEMENTED;
    return -1;
 }
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: cnotify.c,v 1.11 2004/10/08 21:29:40 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

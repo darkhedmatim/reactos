@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: defwnd.c,v 1.149 2004/12/13 15:39:52 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -418,7 +418,7 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
 {
   HRGN DesktopRgn;
   MSG msg;
-  RECT sizingRect, mouseRect, origRect, clipRect, unmodRect;
+  RECT sizingRect, mouseRect, origRect, clipRect;
   HDC hdc;
   LONG hittest = (LONG)(wParam & 0x0f);
   HCURSOR hDragCursor = 0, hOldCursor = 0;
@@ -487,7 +487,6 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
   
   WinPosGetMinMaxInfo(hwnd, NULL, NULL, &minTrack, &maxTrack);
   GetWindowRect(hwnd, &sizingRect);
-  unmodRect = sizingRect;
   if (Style & WS_CHILD)
     {
       MapWindowPoints( 0, hWndParent, (LPPOINT)&sizingRect, 2 );
@@ -624,7 +623,7 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
 	  if (msg.message == WM_KEYDOWN) SetCursorPos( pt.x, pt.y );
 	  else
 	    {
-	      RECT newRect = unmodRect;
+	      RECT newRect = sizingRect;
 	      WPARAM wpSizingHit = 0;
 	      
 	      if (hittest == HTCAPTION) OffsetRect( &newRect, dx, dy );
@@ -638,7 +637,6 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
 	      /* determine the hit location */
 	      if (hittest >= HTLEFT && hittest <= HTBOTTOMRIGHT)
 		wpSizingHit = WMSZ_LEFT + (hittest - HTLEFT);
-	      unmodRect	= newRect;
 	      SendMessageA( hwnd, WM_SIZING, wpSizingHit, (LPARAM)&newRect );
 	      
 	      if (!iconic)

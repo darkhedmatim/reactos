@@ -48,7 +48,6 @@
 #include "wine/wingdi16.h"
 #include "wine/winuser16.h"
 #include "ole32_main.h"
-#include "compobj_private.h"
 
 #include "wine/debug.h"
 
@@ -130,8 +129,8 @@ static void OLEUTL_ReadRegistryDWORDValue(HKEY regKey, DWORD* pdwValue);
 /******************************************************************************
  * These are the prototypes of the utility methods used to manage a shared menu
  */
-static void OLEMenu_Initialize(void);
-static void OLEMenu_UnInitialize(void);
+static void OLEMenu_Initialize();
+static void OLEMenu_UnInitialize();
 BOOL OLEMenu_InstallHooks( DWORD tid );
 BOOL OLEMenu_UnInstallHooks( DWORD tid );
 OleMenuHookItem * OLEMenu_IsHookInstalled( DWORD tid );
@@ -143,14 +142,14 @@ LRESULT CALLBACK OLEMenu_GetMsgProc(INT code, WPARAM wParam, LPARAM lParam);
 /******************************************************************************
  * These are the prototypes of the OLE Clipboard initialization methods (in clipboard.c)
  */
-void OLEClipbrd_UnInitialize(void);
-void OLEClipbrd_Initialize(void);
+void OLEClipbrd_UnInitialize();
+void OLEClipbrd_Initialize();
 
 /******************************************************************************
  * These are the prototypes of the utility methods used for OLE Drag n Drop
  */
-static void            OLEDD_Initialize(void);
-static void            OLEDD_UnInitialize(void);
+static void            OLEDD_Initialize();
+static void            OLEDD_UnInitialize();
 static void            OLEDD_InsertDropTarget(
 			 DropTargetNode* nodeToAdd);
 static DropTargetNode* OLEDD_ExtractDropTarget(
@@ -170,7 +169,7 @@ static void OLEDD_TrackStateChange(
                          TrackerWindowInfo* trackerInfo,
 			 POINT            mousePos,
 			 DWORD              keyState);
-static DWORD OLEDD_GetButtonState(void);
+static DWORD OLEDD_GetButtonState();
 
 
 /******************************************************************************
@@ -245,6 +244,18 @@ HRESULT WINAPI OleInitialize(LPVOID reserved)
 }
 
 /******************************************************************************
+ *		CoGetCurrentProcess	[COMPOBJ.34]
+ *		CoGetCurrentProcess	[OLE32.@]
+ *
+ * NOTES
+ *   Is DWORD really the correct return type for this function?
+ */
+DWORD WINAPI CoGetCurrentProcess(void)
+{
+	return GetCurrentProcessId();
+}
+
+/******************************************************************************
  *		OleUninitialize	[OLE2.3]
  *		OleUninitialize	[OLE32.@]
  */
@@ -287,6 +298,20 @@ void WINAPI OleUninitialize(void)
    * Then, uninitialize the COM libraries.
    */
   CoUninitialize();
+}
+
+/******************************************************************************
+ *		CoRegisterMessageFilter	[OLE32.@]
+ */
+HRESULT WINAPI CoRegisterMessageFilter(
+    LPMESSAGEFILTER lpMessageFilter,	/* [in] Pointer to interface */
+    LPMESSAGEFILTER *lplpMessageFilter	/* [out] Indirect pointer to prior instance if non-NULL */
+) {
+    FIXME("stub\n");
+    if (lplpMessageFilter) {
+	*lplpMessageFilter = NULL;
+    }
+    return S_OK;
 }
 
 /******************************************************************************
@@ -960,7 +985,8 @@ BOOL OLEMenu_UnInstallHooks( DWORD tid )
 
 CLEANUP:
   /* Release the hook table entry */
-  HeapFree(pHookItem->hHeap, 0, pHookItem );
+  if (pHookItem)
+    HeapFree(pHookItem->hHeap, 0, pHookItem );
 
   return FALSE;
 }
@@ -1576,7 +1602,7 @@ static void OLEDD_Initialize()
 
     ZeroMemory (&wndClass, sizeof(WNDCLASSA));
     wndClass.style         = CS_GLOBALCLASS;
-    wndClass.lpfnWndProc   = OLEDD_DragTrackerWindowProc;
+    wndClass.lpfnWndProc   = (WNDPROC)OLEDD_DragTrackerWindowProc;
     wndClass.cbClsExtra    = 0;
     wndClass.cbWndExtra    = sizeof(TrackerWindowInfo*);
     wndClass.hCursor       = 0;
@@ -2286,44 +2312,6 @@ HRESULT WINAPI OleCreate(
 
     TRACE("-- %p \n", pUnk);
     return hres;
-}
-
-/******************************************************************************
- *              OleSetAutoConvert        [OLE32.@]
- */
-/* FIXME: convert to Unicode */
-HRESULT WINAPI OleSetAutoConvert(REFCLSID clsidOld, REFCLSID clsidNew)
-{
-    HKEY hkey = 0;
-    char buf[200], szClsidNew[200];
-    HRESULT res = S_OK;
-
-    TRACE("(%s,%s)\n", debugstr_guid(clsidOld), debugstr_guid(clsidNew));
-    sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
-    WINE_StringFromCLSID(clsidNew, szClsidNew);
-    if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
-    {
-        res = REGDB_E_CLASSNOTREG;
-	goto done;
-    }
-    if (RegSetValueA(hkey, "AutoConvertTo", REG_SZ, szClsidNew, strlen(szClsidNew)+1))
-    {
-        res = REGDB_E_WRITEREGDB;
-	goto done;
-    }
-
-done:
-    if (hkey) RegCloseKey(hkey);
-    return res;
-}
-
-/******************************************************************************
- *              OleDoAutoConvert        [OLE32.@]
- */
-HRESULT WINAPI OleDoAutoConvert(IStorage *pStg, LPCLSID pClsidNew)
-{
-    FIXME("(%p,%p) : stub\n",pStg,pClsidNew);
-    return E_NOTIMPL;
 }
 
 /***********************************************************************

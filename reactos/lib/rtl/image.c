@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: image.c,v 1.1 2004/06/20 23:27:21 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

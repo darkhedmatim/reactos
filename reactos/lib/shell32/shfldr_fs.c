@@ -173,21 +173,19 @@ static HRESULT WINAPI IUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, 
 static ULONG WINAPI IUnknown_fnAddRef (IUnknown * iface)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount - 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    return refCount;
+    return ++(This->ref);
 }
 
 static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    ULONG refCount = InterlockedDecrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount + 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    if (!refCount) {
+    if (!--(This->ref)) {
 	TRACE ("-- destroying IShellFolder(%p)\n", This);
 
 	if (This->pidlRoot)
@@ -195,8 +193,9 @@ static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
 	if (This->sPathTarget)
 	    SHFree (This->sPathTarget);
 	LocalFree ((HLOCAL) This);
+	return 0;
     }
-    return refCount;
+    return This->ref;
 }
 
 static IUnknownVtbl unkvt =

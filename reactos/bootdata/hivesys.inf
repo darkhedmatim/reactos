@@ -54,8 +54,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\IDConfigDB\Hardware Profiles\0000","Frien
 ; Keyboard Layouts
 HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\00000406","Layout File",0x00000000,"kbdda.dll"
 HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\00000406","Layout Text",0x00000000,"DA"
-HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\0000040A","Layout File",0x00000000,"kbdes.dll"
-HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\0000040A","Layout Text",0x00000000,"ES"
 HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\00000407","Layout File",0x00000000,"kbdgr.dll"
 HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\00000407","Layout Text",0x00000000,"GR"
 HKLM,"SYSTEM\CurrentControlSet\Control\KeyboardLayouts\00000409","Layout File",0x00000000,"kbdus.dll"
@@ -201,7 +199,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\ServiceGroupOrder","List",0x00010000, \
  "NDIS", \
  "PNP_TDI", \
  "TDI", \
- "PlugPlay", \
  "Extended Base"
 
 ; Group order, the first DWORD is the count of entries, 
@@ -253,15 +250,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\KnownDlls","kernel32",0x0
 ; Pagefile settings
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management","PagingFiles",0x00010000, \
  "C:\reactos\pagefile.sys"
-
-; Subsystems
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Debug",0x00020000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Kmode",0x00020000,"%SystemRoot%\system32\win32k.sys"
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Optional",0x00070001,50,00,6f,00,73,00,69,00,78,00,00,00,4f,00,73,00,32,00,00,00,00,00
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Os2",0x00020000,"%SystemRoot%\system32\os2ss.exe"
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Posix",0x00020000,"%SystemRoot%\system32\psxss.exe"
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Required",0x00070001,44,00,65,00,62,00,75,00,67,00,00,00,57,00,69,00,6e,00,64,00,6f,00,77,00,73,00,00,00,00,00
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Windows",0x00020000,"%SystemRoot%\system32\csrss.exe"
 
 ; 3Com 3c905 Driver
 HKLM,"SYSTEM\CurrentControlSet\Services\3c90x","ErrorControl",0x00010001,0x00000000
@@ -370,13 +358,6 @@ HKLM,"SYSTEM\CurrentControlSet\Services\hpt3xxPCI","ImagePath",0x00020000,"syste
 HKLM,"SYSTEM\CurrentControlSet\Services\hpt3xxPCI","Start",0x00010001,0x00000004
 HKLM,"SYSTEM\CurrentControlSet\Services\hpt3xxPCI","Type",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\hpt3xxPCI","Tag",0x00010001,0x00000090
-
-; ACPI driver
-HKLM,"SYSTEM\CurrentControlSet\Services\ACPI","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\ACPI","Group",0x00000000,"Boot Bus Extender"
-HKLM,"SYSTEM\CurrentControlSet\Services\ACPI","ImagePath",0x00020000,"system32\drivers\acpi.sys"
-HKLM,"SYSTEM\CurrentControlSet\Services\ACPI","Start",0x00010001,0x00000000
-HKLM,"SYSTEM\CurrentControlSet\Services\ACPI","Type",0x00010001,0x00000001
 
 ; Beep device driver
 HKLM,"SYSTEM\CurrentControlSet\Services\Beep","ErrorControl",0x00010001,0x00000000
@@ -577,35 +558,6 @@ HKLM,"SYSTEM\CurrentControlSet\Enum\Root\PCI\0000","Service",0x00000000,"Pci"
 HKLM,"SYSTEM\CurrentControlSet\Enum\Root\PCI\0000","Class",0x00000000,"Computer"
 HKLM,"SYSTEM\CurrentControlSet\Enum\Root\PCI\0000","ClassGUID",0x00000000,"{4D36E966-E325-11CE-BFC1-08002BE10318}"
 
-;USB UHCI Driver
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","Type",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","Start",0x00010001,0x00000003
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","Group",0x00000000,"Base"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","ImagePath",0x00020000,"System32\DRIVERS\usbuhci.sys"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","Tag",0x00010001,0x0000000f
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci","DisplayName",0x00000000,"ReactOS USB UHCI controller miniport driver"
-;hard coded values for VMWARE
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci\Enum","0",0x00000000,"PCI\VEN_8086&DEV_7112&SUBSYS_197615AD&REV_00\0000"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci\Enum","Count",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbuhci\Enum","NextInstance",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_8086&DEV_7112&SUBSYS_197615AD&REV_00\0000","Service",0x0000000,"usbuhci"
-
-;USB OHCI Driver (Cromwell), especially the same name as windows OHCI miniport
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","Type",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","Start",0x00010001,0x00000003
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","Group",0x00000000,"Base"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","ImagePath",0x00020000,"System32\drivers\ohci.sys"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","Tag",0x00010001,0x0000000f
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci","DisplayName",0x00000000,"ReactOS USB OHCI cromwell-type driver"
-;hard coded values for Virtual PC 6/7 (Mac)
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci\Enum","0",0x00000000,"PCI\VEN_2955&DEV_6E61&SUBSYS_6E612955&REV_11\0000"
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci\Enum","Count",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\usbohci\Enum","NextInstance",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_2955&DEV_6E61&SUBSYS_6E612955&REV_11\0000","Service",0x0000000,"usbohci"
-
-
 ; ReactOS PCNet NIC driver 
 ; To use the AMD supplied driver change the driver name to pcntn5m.sys
 ;
@@ -701,13 +653,6 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Pice","Type",0x00010001,0x00000001
 ;HKLM,"SYSTEM\CurrentControlSet\Services\ntice","Start",0x00010001,0x00000000
 ;HKLM,"SYSTEM\CurrentControlSet\Services\ntice","Type",0x00010001,0x00000001
 
-; Plug and Play manager
-HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","ErrorControl",0x00010001,0x00000000
-HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","Group",0x00000000,"PlugPlay"
-HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","ImagePath",0x00020000,"%SystemRoot%\system32\umpnpmgr.exe"
-HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","Start",0x00010001,0x00000002
-HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","Type",0x00010001,0x00000010
-
 ; PS/2 mouse port driver
 HKLM,"SYSTEM\CurrentControlSet\Services\Psaux","ErrorControl",0x00010001,0x00000000
 HKLM,"SYSTEM\CurrentControlSet\Services\Psaux","Group",0x00000000,"Pointer Port"
@@ -765,7 +710,7 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","UseDelayedAcc
 HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","MaxSockAddrLength",0x00010001,0x00000010
 HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","MinSockAddrLength",0x00010001,0x00000010
 HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","HelperDllName",0x00000000,"%SystemRoot%\System32\wshtcpip.dll"
-HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","Mapping",0x00000001,0c,00,00,00,03,00,00,00,02,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,01,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,02,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,03,00,00,00,00,00,00,00,02,00,00,00,03,00,00,00,01,00,00
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","Mapping",0x00000001,0b,00,00,00,03,00,00,00,02,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,01,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,02,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,03,00,00,00,00,00,00,00
 HKLM,"SYSTEM\CurrentControlSet\Services\Winsock\Parameters","Transports",0x00010000,"Tcpip"
 
 ; Virtual FAT filesystem driver

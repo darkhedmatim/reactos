@@ -45,6 +45,7 @@
 #include "shell32_main.h"
 #include "shresdef.h"
 #include "shlwapi.h"
+#include "shellfolder.h"
 #include "wine/debug.h"
 #include "debughlp.h"
 #include "shfldr.h"
@@ -160,27 +161,26 @@ static HRESULT WINAPI ISF_MyComputer_fnQueryInterface (IShellFolder2 * iface, RE
 static ULONG WINAPI ISF_MyComputer_fnAddRef (IShellFolder2 * iface)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount - 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    return refCount;
+    return ++(This->ref);
 }
 
 static ULONG WINAPI ISF_MyComputer_fnRelease (IShellFolder2 * iface)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    ULONG refCount = InterlockedDecrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount + 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    if (!refCount) {
+    if (!--(This->ref)) {
         TRACE ("-- destroying IShellFolder(%p)\n", This);
         if (This->pidlRoot)
             SHFree (This->pidlRoot);
         LocalFree ((HLOCAL) This);
+        return 0;
     }
-    return refCount;
+    return This->ref;
 }
 
 /**************************************************************************

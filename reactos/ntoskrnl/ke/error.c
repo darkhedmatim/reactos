@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ke/error.c
- * PURPOSE:         Error reason setting/getting
- *
- * PROGRAMMERS:     David Welch
+ * COPYRIGHT:  See COPYING in the top directory
+ * PROJECT:    ReactOS kernel v0.0.2
+ * FILE:       ntoskrnl/ke/error.c
+ * PURPOSE:    Error reason setting/getting
+ * PROGRAMMER: David Welch
+ * UPDATE HISTORY:
+ *             16/4/98: Created
  */
 
 /* INCLUDE *****************************************************************/
@@ -14,10 +15,6 @@
 #include <internal/debug.h>
 
 /* FUNCTIONS ***************************************************************/
-
-BOOLEAN ExReadyForErrors = FALSE;
-PEPORT ExpDefaultErrorPort = NULL;
-PEPROCESS ExpDefaultErrorPortProcess = NULL;
 
 /*
  * @unimplemented
@@ -44,55 +41,22 @@ KiUnexpectedInterrupt(
 }
 
 NTSTATUS STDCALL 
-NtRaiseHardError(IN NTSTATUS ErrorStatus,
-                 IN ULONG NumberOfParameters,
-                 IN PUNICODE_STRING UnicodeStringParameterMask  OPTIONAL,
-                 IN PVOID *Parameters,
-                 IN HARDERROR_RESPONSE_OPTION ResponseOption,
-                 OUT PHARDERROR_RESPONSE Response)
+NtRaiseHardError(IN NTSTATUS Status,
+		 ULONG Unknown2,
+		 ULONG Unknown3,
+		 ULONG Unknown4,
+		 ULONG Unknown5,
+		 ULONG Unknown6)
 {
-  DPRINT1("Hard error %x\n", ErrorStatus);
+  DPRINT1("Hard error %x\n", Status);
   return(STATUS_SUCCESS);
 }
 
 NTSTATUS STDCALL 
 NtSetDefaultHardErrorPort(IN HANDLE PortHandle)
 {
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status;
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(!SeSinglePrivilegeCheck(SeTcbPrivilege,
-                             PreviousMode))
-  {
-    DPRINT1("NtSetDefaultHardErrorPort: Caller requires the SeTcbPrivilege privilege!\n");
-    return STATUS_PRIVILEGE_NOT_HELD;
-  }
-  
-  /* serialization shouldn't be required here as it usually is just called once
-     during startup */
-  
-  if(!ExReadyForErrors)
-  {
-    Status = ObReferenceObjectByHandle(PortHandle,
-                                       0,
-                                       LpcPortObjectType,
-                                       PreviousMode,
-                                       (PVOID*)&ExpDefaultErrorPort,
-                                       NULL);
-    if(NT_SUCCESS(Status))
-    {
-      ExpDefaultErrorPortProcess = PsGetCurrentProcess();
-      ExReadyForErrors = TRUE;
-    }
-  }
-  else
-  {
-    Status = STATUS_UNSUCCESSFUL;
-  }
-  
-  return Status;
+   UNIMPLEMENTED;
+   return(STATUS_NOT_IMPLEMENTED);
 }
 
 /* EOF */

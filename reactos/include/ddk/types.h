@@ -8,10 +8,11 @@ typedef ULONG KAFFINITY, *PKAFFINITY;
 /*
  * Various other types (all quite pointless)
  */
-typedef UCHAR KPROCESSOR_MODE;
+typedef CCHAR KPROCESSOR_MODE;
 typedef UCHAR KIRQL;
 typedef KIRQL* PKIRQL;
 typedef ULONG IO_ALLOCATION_ACTION;
+typedef ULONG POOL_TYPE;
 typedef ULONG TIMER_TYPE;
 typedef ULONG MM_SYSTEM_SIZE;
 typedef ULONG LOCK_OPERATION;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: dib4bpp.c,v 1.38 2004/07/14 20:48:56 navaraf Exp $ */
 #include <w32k.h>
 
 VOID
@@ -251,8 +251,8 @@ DIB_4BPP_BitBlt(PBLTINFO BltInfo)
       0xFFFFFFFF /* 15 */,
    };
 
-   UsesSource = ROP4_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP4_USES_PATTERN(BltInfo->Rop4);
+   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
+   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);
 
    SourceY = BltInfo->SourcePoint.y;
    RoundedRight = BltInfo->DestRect.right -

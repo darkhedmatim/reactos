@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.2 2004/09/28 16:04:15 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS devmgr.dll

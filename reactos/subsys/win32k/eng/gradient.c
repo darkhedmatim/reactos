@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: gradient.c,v 1.13.2.1 2004/12/24 06:01:13 royce Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -541,7 +541,7 @@ IntEngGradientFill(
 	  pco->rclBounds.top, 
       pco->rclBounds.right,
 	  pco->rclBounds.bottom);
-  if(pboDest->flHooks & HOOK_GRADIENTFILL)
+  if((psoDest->iType != STYPE_BITMAP) && (pboDest->flHooks & HOOK_GRADIENTFILL))
   {
     Ret = GDIDEVFUNCS(psoDest).GradientFill(
       psoDest, pco, pxlo, pVertex, nVertex, pMesh, nMesh, 
@@ -551,6 +551,19 @@ IntEngGradientFill(
   }
   Ret = EngGradientFill(psoDest, pco, pxlo, pVertex, nVertex, pMesh, nMesh, prclExtents, 
                         pptlDitherOrg, ulMode);
+  if(Ret)
+  {
+    /* Dummy BitBlt to let driver know that something has changed.
+       0x00AA0029 is the Rop for D (no-op) */
+    if(pboDest->flHooks & HOOK_BITBLT)
+    {
+      GDIDEVFUNCS(psoDest).BitBlt(
+                      psoDest, NULL, NULL, pco, pxlo,
+                      prclExtents, pptlDitherOrg, NULL, NULL, NULL, ROP_NOOP);
+      MouseSafetyOnDrawEnd(psoDest);
+      return TRUE;
+    }
+  }
   MouseSafetyOnDrawEnd(psoDest);
   return Ret;
 }

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: sas.c,v 1.3 2004/09/26 15:55:53 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

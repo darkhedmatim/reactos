@@ -179,7 +179,7 @@ INT cmd_move (LPTSTR cmd, LPTSTR param)
 			{
 				/* source is file */
 
-				if (IsExistingFile (szDestPath))
+				if (IsValidFileName (szDestPath))
 				{
 					/* destination exists */
 					if (GetFileAttributes (szDestPath) & FILE_ATTRIBUTE_DIRECTORY)

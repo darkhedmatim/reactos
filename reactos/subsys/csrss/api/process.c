@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: process.c,v 1.37 2004/12/18 19:23:05 gvg Exp $
  *
  * reactos/subsys/csrss/api/process.c
  *
@@ -25,7 +25,7 @@
 
 static ULONG NrProcess;
 static PCSRSS_PROCESS_DATA ProcessData[256];
-RTL_CRITICAL_SECTION ProcessDataLock;
+CRITICAL_SECTION ProcessDataLock;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -36,12 +36,12 @@ VOID STDCALL CsrInitProcessData(VOID)
    RtlInitializeCriticalSection( &ProcessDataLock );
 }
 
-PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(HANDLE ProcessId)
+PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(ULONG ProcessId)
 {
    ULONG hash;
    PCSRSS_PROCESS_DATA pProcessData;
 
-   hash = (ULONG_PTR)ProcessId % (sizeof(ProcessData) / sizeof(*ProcessData));
+   hash = ProcessId % (sizeof(ProcessData) / sizeof(*ProcessData));
    
    LOCK;
 
@@ -55,12 +55,12 @@ PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(HANDLE ProcessId)
    return pProcessData;
 }
 
-PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(HANDLE ProcessId)
+PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(ULONG ProcessId)
 {
    ULONG hash;
    PCSRSS_PROCESS_DATA pProcessData;
 
-   hash = (ULONG_PTR)ProcessId % (sizeof(ProcessData) / sizeof(*ProcessData));
+   hash = ProcessId % (sizeof(ProcessData) / sizeof(*ProcessData));
    
    LOCK;
 
@@ -94,13 +94,13 @@ PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(HANDLE ProcessId)
    return pProcessData;
 }
 
-NTSTATUS STDCALL CsrFreeProcessData(HANDLE Pid)
+NTSTATUS STDCALL CsrFreeProcessData(ULONG Pid)
 {
   ULONG hash;
   int c;
   PCSRSS_PROCESS_DATA pProcessData, pPrevProcessData = NULL;
    
-  hash = (ULONG_PTR)Pid % (sizeof(ProcessData) / sizeof(*ProcessData));
+  hash = Pid % (sizeof(ProcessData) / sizeof(*ProcessData));
    
   LOCK;
 
@@ -260,6 +260,8 @@ CSR_API(CsrCreateProcess)
 
 CSR_API(CsrTerminateProcess)
 {
+   NTSTATUS Status;
+
    Reply->Header.MessageSize = sizeof(CSRSS_API_REPLY) - LPC_MESSAGE_BASE_SIZE;
    Reply->Header.DataSize = sizeof(CSRSS_API_REPLY);
 
@@ -268,8 +270,10 @@ CSR_API(CsrTerminateProcess)
       return(Reply->Status = STATUS_INVALID_PARAMETER);
    }
 
-   Reply->Status = STATUS_SUCCESS;
-   return STATUS_SUCCESS;
+   Status = CsrFreeProcessData(ProcessData->ProcessId);
+
+   Reply->Status = Status;
+   return Status;
 }
 
 CSR_API(CsrConnectProcess)

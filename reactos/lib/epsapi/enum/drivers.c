@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: drivers.c,v 1.4 2004/11/08 00:34:45 weiden Exp $
 */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -67,7 +67,7 @@ NTSTATUS NTAPI
 PsaCaptureSystemModules(OUT PSYSTEM_MODULE_INFORMATION *SystemModules)
 {
   SIZE_T nSize = 0;
-  PSYSTEM_MODULE_INFORMATION psmModules = NULL;
+  PSYSTEM_MODULE_INFORMATION psmModules;
   NTSTATUS Status;
 
 #if 0
@@ -94,7 +94,7 @@ PsaCaptureSystemModules(OUT PSYSTEM_MODULE_INFORMATION *SystemModules)
      pool/heap, we try to determine the buffer size in advance, knowing that
      the number of elements is unlikely to change */
   nSize = sizeof(SYSTEM_MODULE_INFORMATION) +
-          (nSize * sizeof(SYSTEM_MODULE_INFORMATION));
+          ((psmModules->Count - 1) * sizeof(SYSTEM_MODULE_INFORMATION));
 
   psmModules = NULL;
 

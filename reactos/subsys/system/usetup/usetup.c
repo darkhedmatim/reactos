@@ -31,7 +31,6 @@
 
 #include <ntos/minmax.h>
 #include <reactos/resource.h>
-#include <rosrtl/string.h>
 
 #include "usetup.h"
 #include "console.h"
@@ -1710,8 +1709,8 @@ ShowPartitionSizeInputBox(SHORT Left,
 				strlen (Buffer),
 				coPos);
 
-  sprintf(Buffer, "%d", MaxSize);
-  Index = strlen(Buffer);
+  Buffer[0] = 0;
+  Index = 0;
   DrawInputField (PARTITION_SIZE_INPUT_FIELD_LENGTH,
 		  iLeft,
 		  iTop,
@@ -2301,7 +2300,6 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 #ifndef NDEBUG
   ULONG Line;
   ULONG i;
-  PLIST_ENTRY Entry;
 #endif
 
 
@@ -2762,24 +2760,27 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
 
 
 static BOOLEAN
-AddSectionToCopyQueue(HINF InfFile,
-		       PWCHAR SectionName,
+PrepareCopyPageInfFile(HINF InfFile,
 		       PWCHAR SourceCabinet,
 		       PINPUT_RECORD Ir)
 {
+  WCHAR PathBuffer[MAX_PATH];
   INFCONTEXT FilesContext;
   INFCONTEXT DirContext;
+  PWCHAR KeyValue;
+  ULONG Length;
+  NTSTATUS Status;
   PWCHAR FileKeyName;
   PWCHAR FileKeyValue;
   PWCHAR DirKeyValue;
   PWCHAR TargetFileName;
-  
-  /* Search for the SectionName section */
-  if (!InfFindFirstLine (InfFile, SectionName, NULL, &FilesContext))
+
+  /* Search for the 'SourceFiles' section */
+  if (!InfFindFirstLine (InfFile, L"SourceFiles", NULL, &FilesContext))
     {
-      char Buffer[128];
-      sprintf(Buffer, "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n", SectionName);
-      PopupError(Buffer, "ENTER = Reboot computer");
+      PopupError("Setup failed to find the 'SourceFiles' section\n"
+		 "in TXTSETUP.SIF.\n",  // FIXME
+		 "ENTER = Reboot computer");
 
       while(TRUE)
 	{
@@ -2793,7 +2794,7 @@ AddSectionToCopyQueue(HINF InfFile,
     }
 
   /*
-   * Enumerate the files in the section
+   * Enumerate the files in the 'SourceFiles' section
    * and add them to the file queue.
    */
   do
@@ -2840,38 +2841,8 @@ AddSectionToCopyQueue(HINF InfFile,
 	}
     }
   while (InfFindNextLine(&FilesContext, &FilesContext));
-  
-  return TRUE;
-}
 
-static BOOLEAN
-PrepareCopyPageInfFile(HINF InfFile,
-		       PWCHAR SourceCabinet,
-		       PINPUT_RECORD Ir)
-{
-  WCHAR PathBuffer[MAX_PATH];
-  INFCONTEXT DirContext;
-  PWCHAR AdditionalSectionName;
-  PWCHAR KeyValue;
-  ULONG Length;
-  NTSTATUS Status;
 
-  /* Add common files */
-  if (!AddSectionToCopyQueue(InfFile, L"SourceFiles", SourceCabinet, Ir))
-    return FALSE;
-  
-  /* Add specific files depending of computer type */
-  if (SourceCabinet == NULL)
-  {
-    if (!ProcessComputerFiles(InfFile, ComputerList, &AdditionalSectionName))
-      return FALSE;
-    if (AdditionalSectionName)
-    {
-      if (!AddSectionToCopyQueue(InfFile, AdditionalSectionName, SourceCabinet, Ir))
-        return FALSE;
-    }
-  }
-  
   /* Create directories */
 
   /*
@@ -3720,43 +3691,6 @@ FlushPage(PINPUT_RECORD Ir)
 }
 
 
-static VOID
-SignalInitEvent()
-{
-  NTSTATUS Status;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING UnicodeString;
-  HANDLE ReactOSInitEvent;
-
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString, L"\\ReactOSInitDone");
-  InitializeObjectAttributes(&ObjectAttributes,
-    &UnicodeString,
-    EVENT_ALL_ACCESS,
-    0,
-    NULL);
-  Status = NtOpenEvent(&ReactOSInitEvent,
-    EVENT_ALL_ACCESS,
-    &ObjectAttributes);
-  if (NT_SUCCESS(Status))
-    {
-      LARGE_INTEGER Timeout;
-      /* This will cause the boot screen image to go away (if displayed) */
-      NtPulseEvent(ReactOSInitEvent, NULL);
-
-      /* Wait for the display mode to be changed (if in graphics mode) */
-      Timeout.QuadPart = -50000000LL;  /* 5 second timeout */
-      NtWaitForSingleObject(ReactOSInitEvent, FALSE, &Timeout);
-
-      NtClose(ReactOSInitEvent);
-    }
-  else
-    {
-      /* We don't really care if this fails */
-      DPRINT1("USETUP: Failed to open ReactOS init notification event\n");
-    }
-}
-
-
 VOID STDCALL
 NtProcessStartup(PPEB Peb)
 {
@@ -3767,8 +3701,6 @@ NtProcessStartup(PPEB Peb)
   RtlNormalizeProcessParams(Peb->ProcessParameters);
 
   ProcessHeap = Peb->ProcessHeap;
-
-  SignalInitEvent();
 
   Status = AllocConsole();
   if (!NT_SUCCESS(Status))

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: input.c,v 1.26 2004/12/11 18:43:06 sedwards Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -392,7 +392,7 @@ SwapMouseButton(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAscii(UINT uVirtKey,
@@ -401,12 +401,13 @@ ToAscii(UINT uVirtKey,
 	LPWORD lpChar,
 	UINT uFlags)
 {
-  return ToAsciiEx(uVirtKey, uScanCode, lpKeyState, lpChar, uFlags, 0);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAsciiEx(UINT uVirtKey,
@@ -416,14 +417,8 @@ ToAsciiEx(UINT uVirtKey,
 	  UINT uFlags,
 	  HKL dwhkl)
 {
-  WCHAR UniChars[2];
-  int Ret, CharCount;
-
-  Ret = ToUnicodeEx(uVirtKey, uScanCode, lpKeyState, UniChars, 2, uFlags, dwhkl);
-  CharCount = (Ret < 0 ? 1 : Ret);
-  WideCharToMultiByte(CP_ACP, 0, UniChars, CharCount, (LPSTR) lpChar, 2, NULL, NULL);
-
-  return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 

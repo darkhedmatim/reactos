@@ -1,6 +1,6 @@
 /*
  *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 ReactOS Team
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: dllmain.c,v 1.83 2004/12/12 01:40:37 weiden Exp $
  *
  *  Entry Point for win32k.sys
  */
@@ -51,8 +51,6 @@ extern SSDT Win32kSSDT[];
 extern SSPT Win32kSSPT[];
 extern ULONG Win32kNumberOfSysCalls;
 
-PSHARED_SECTION_POOL SessionSharedSectionPool = NULL;
-
 NTSTATUS STDCALL
 Win32kProcessCallback (struct _EPROCESS *Process,
 		     BOOLEAN Create)
@@ -73,16 +71,10 @@ Win32kProcessCallback (struct _EPROCESS *Process,
       InitializeListHead(&Win32Process->PrivateFontListHead);
       ExInitializeFastMutex(&Win32Process->PrivateFontListLock);
       
-      InitializeListHead(&Win32Process->DriverObjListHead);
-      ExInitializeFastMutex(&Win32Process->DriverObjListLock);
+      InitializeListHead(&Win32Process->CursorIconListHead);
+      ExInitializeFastMutex(&Win32Process->CursorIconListLock);
 
       Win32Process->KeyboardLayout = W32kGetDefaultKeyLayout();
-      
-      if(Process->Peb != NULL)
-      {
-        /* map the gdi handle table to user land */
-        Process->Peb->GdiSharedHandleTable = GDI_MapHandleTable(Process);
-      }
       
       /* setup process flags */
       Win32Process->Flags = 0;
@@ -93,9 +85,7 @@ Win32kProcessCallback (struct _EPROCESS *Process,
       IntRemoveProcessWndProcHandles((HANDLE)Process->UniqueProcessId);
       IntCleanupMenus(Process, Win32Process);
       IntCleanupCurIcons(Process, Win32Process);
-      IntEngCleanupDriverObjs(Process, Win32Process);
       CleanupMonitorImpl();
-
 
       GDI_CleanupForProcess(Process);
 
@@ -186,6 +176,7 @@ Win32kThreadCallback (struct _ETHREAD *Thread,
       InitializeListHead(&Win32Thread->WindowListHead);
       ExInitializeFastMutex(&Win32Thread->WindowListLock);
       InitializeListHead(&Win32Thread->W32CallbackListHead);
+      ExInitializeFastMutex(&Win32Thread->W32CallbackListLock);
     }
   else
     {
@@ -193,6 +184,7 @@ Win32kThreadCallback (struct _ETHREAD *Thread,
 
       Win32Thread->IsExiting = TRUE;
       HOOK_DestroyThreadHooks(Thread);
+      RemoveTimersThread(Win32Thread->MessageQueue);
       UnregisterThreadHotKeys(Thread);
       DestroyThreadWindows(Thread);
       IntBlockInput(Win32Thread, FALSE);
@@ -244,13 +236,6 @@ DllMain (
 			    0,
 			    sizeof(W32THREAD),
 			    sizeof(W32PROCESS));
-  
-  Status = IntUserCreateSharedSectionPool(48 * 1024 * 1024, /* 48 MB by default */
-                                          &SessionSharedSectionPool);
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize the shared section pool: Status 0x%x\n", Status);
-  }
   
   Status = InitWindowStationImpl();
   if (!NT_SUCCESS(Status))

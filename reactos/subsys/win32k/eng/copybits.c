@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: copybits.c,v 1.27 2004/12/14 04:22:00 royce Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -98,7 +98,7 @@ EngCopyBits(SURFOBJ *Dest,
     /* FIXME: Remove the typecast! */
     ret = IntEngBitBlt((BITMAPOBJ*)Dest, (BITMAPOBJ*)Source,
                        NULL, Clip, ColorTranslation, DestRect, SourcePoint,
-                       NULL, NULL, NULL, ROP3_TO_ROP4(SRCCOPY));
+                       NULL, NULL, NULL, 0);
 
     MouseSafetyOnDrawEnd(Dest);
     MouseSafetyOnDrawEnd(Source);

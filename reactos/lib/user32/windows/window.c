@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: window.c,v 1.121 2004/12/16 03:57:35 rcampbell Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll

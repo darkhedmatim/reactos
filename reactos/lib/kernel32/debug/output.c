@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: output.c,v 1.4 2003/11/17 02:12:50 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

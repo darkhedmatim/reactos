@@ -1,11 +1,10 @@
-/* $Id$
+/* $Id: bootlog.c,v 1.6 2004/12/12 21:25:04 weiden Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/bootlog.c
- * PURPOSE:         Boot log file support
- * 
- * PROGRAMMERS:     Eric Kohl
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/bootlog.c
+ * PURPOSE:        Boot log file support
+ * PROGRAMMER:     Eric Kohl
  */
 
 /* INCLUDES *****************************************************************/
@@ -86,12 +85,12 @@ IopBootLog(PUNICODE_STRING DriverName,
 			     OBJ_CASE_INSENSITIVE,
 			     NULL,
 			     NULL);
-  Status = ZwOpenKey(&ControlSetKey,
+  Status = NtOpenKey(&ControlSetKey,
 		     KEY_ALL_ACCESS,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwOpenKey() failed (Status %lx)\n", Status);
+      DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
       ExReleaseResourceLite(&IopBootLogResource);
       return;
     }
@@ -102,7 +101,7 @@ IopBootLog(PUNICODE_STRING DriverName,
 			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
 			     ControlSetKey,
 			     NULL);
-  Status = ZwCreateKey(&BootLogKey,
+  Status = NtCreateKey(&BootLogKey,
 		       KEY_ALL_ACCESS,
 		       &ObjectAttributes,
 		       0,
@@ -111,21 +110,21 @@ IopBootLog(PUNICODE_STRING DriverName,
 		       NULL);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwCreateKey() failed (Status %lx)\n", Status);
-      ZwClose(ControlSetKey);
+      DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
+      NtClose(ControlSetKey);
       ExReleaseResourceLite(&IopBootLogResource);
       return;
     }
 
   RtlInitUnicodeString(&ValueName, ValueNameBuffer);
-  Status = ZwSetValueKey(BootLogKey,
+  Status = NtSetValueKey(BootLogKey,
 			 &ValueName,
 			 0,
 			 REG_SZ,
 			 (PVOID)Buffer,
 			 (wcslen(Buffer) + 1) * sizeof(WCHAR));
-  ZwClose(BootLogKey);
-  ZwClose(ControlSetKey);
+  NtClose(BootLogKey);
+  NtClose(ControlSetKey);
 
   if (!NT_SUCCESS(Status))
     {
@@ -160,7 +159,7 @@ IopWriteLogFile(PWSTR LogText)
 			     NULL,
 			     NULL);
 
-  Status = ZwCreateFile(&FileHandle,
+  Status = NtCreateFile(&FileHandle,
 			FILE_APPEND_DATA,
 			&ObjectAttributes,
 			&IoStatusBlock,
@@ -173,13 +172,13 @@ IopWriteLogFile(PWSTR LogText)
 			0);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwCreateFile() failed (Status %lx)\n", Status);
+      DPRINT1("NtCreateFile() failed (Status %lx)\n", Status);
       return Status;
     }
 
   if (LogText != NULL)
     {
-      Status = ZwWriteFile(FileHandle,
+      Status = NtWriteFile(FileHandle,
 			   NULL,
 			   NULL,
 			   NULL,
@@ -190,14 +189,14 @@ IopWriteLogFile(PWSTR LogText)
 			   NULL);
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT1("ZwWriteFile() failed (Status %lx)\n", Status);
-	  ZwClose(FileHandle);
+	  DPRINT1("NtWriteFile() failed (Status %lx)\n", Status);
+	  NtClose(FileHandle);
 	  return Status;
 	}
     }
 
   /* L"\r\n" */
-  Status = ZwWriteFile(FileHandle,
+  Status = NtWriteFile(FileHandle,
 		       NULL,
 		       NULL,
 		       NULL,
@@ -207,11 +206,11 @@ IopWriteLogFile(PWSTR LogText)
 		       NULL,
 		       NULL);
 
-  ZwClose(FileHandle);
+  NtClose(FileHandle);
 
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwWriteFile() failed (Status %lx)\n", Status);
+      DPRINT1("NtWriteFile() failed (Status %lx)\n", Status);
     }
 
   return Status;
@@ -241,7 +240,7 @@ IopCreateLogFile(VOID)
 			     NULL,
 			     NULL);
 
-  Status = ZwCreateFile(&FileHandle,
+  Status = NtCreateFile(&FileHandle,
 			FILE_ALL_ACCESS,
 			&ObjectAttributes,
 			&IoStatusBlock,
@@ -254,14 +253,14 @@ IopCreateLogFile(VOID)
 			0);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwCreateFile() failed (Status %lx)\n", Status);
+      DPRINT1("NtCreateFile() failed (Status %lx)\n", Status);
       return Status;
     }
 
   ByteOffset.QuadPart = (LONGLONG)0;
 
   Signature = 0xFEFF;
-  Status = ZwWriteFile(FileHandle,
+  Status = NtWriteFile(FileHandle,
 		       NULL,
 		       NULL,
 		       NULL,
@@ -272,10 +271,10 @@ IopCreateLogFile(VOID)
 		       NULL);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwWriteKey() failed (Status %lx)\n", Status);
+      DPRINT1("NtWriteKey() failed (Status %lx)\n", Status);
     }
 
-  ZwClose(FileHandle);
+  NtClose(FileHandle);
 
   return Status;
 }
@@ -344,7 +343,7 @@ IopSaveBootLogToFile(VOID)
 			     OBJ_CASE_INSENSITIVE,
 			     NULL,
 			     NULL);
-  Status = ZwOpenKey(&KeyHandle,
+  Status = NtOpenKey(&KeyHandle,
 		     KEY_ALL_ACCESS,
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
@@ -363,7 +362,7 @@ IopSaveBootLogToFile(VOID)
       RtlInitUnicodeString(&ValueName,
 			   ValueNameBuffer);
 
-      Status = ZwQueryValueKey(KeyHandle,
+      Status = NtQueryValueKey(KeyHandle,
 			       &ValueName,
 			       KeyValuePartialInformation,
 			       KeyInfo,
@@ -377,7 +376,7 @@ IopSaveBootLogToFile(VOID)
       if (!NT_SUCCESS(Status))
 	{
 	  CHECKPOINT1;
-	  ZwClose(KeyHandle);
+	  NtClose(KeyHandle);
 	  ExFreePool(KeyInfo);
 	  ExReleaseResourceLite(&IopBootLogResource);
 	  return;
@@ -387,18 +386,18 @@ IopSaveBootLogToFile(VOID)
       if (!NT_SUCCESS(Status))
 	{
 	  CHECKPOINT1;
-	  ZwClose(KeyHandle);
+	  NtClose(KeyHandle);
 	  ExFreePool(KeyInfo);
 	  ExReleaseResourceLite(&IopBootLogResource);
 	  return;
 	}
 
       /* Delete keys */
-      ZwDeleteValueKey(KeyHandle,
+      NtDeleteValueKey(KeyHandle,
 		       &ValueName);
     }
 
-  ZwClose(KeyHandle);
+  NtClose(KeyHandle);
 
   ExFreePool(KeyInfo);
 

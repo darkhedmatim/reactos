@@ -1,12 +1,13 @@
-/* $Id$
+/* $Id: xhaldrv.c,v 1.50 2004/11/21 06:51:18 ion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/xhaldrv.c
  * PURPOSE:         Hal drive routines
- *
- * PROGRAMMERS:     Eric Kohl (ekohl@rz-online.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *                  Created 19/06/2000
  */
 
 /* INCLUDES *****************************************************************/
@@ -446,7 +447,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
 				 NULL,
 				 NULL);
 
-      Status = ZwOpenFile(&FileHandle,
+      Status = NtOpenFile(&FileHandle,
 			  0x10001,
 			  &ObjectAttributes,
 			  &StatusBlock,
@@ -454,7 +455,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
 			  FILE_SYNCHRONOUS_IO_NONALERT);
       if (NT_SUCCESS(Status))
 	{
-	  ZwClose(FileHandle);
+	  NtClose(FileHandle);
 
 	  swprintf(Buffer2,
 		   L"\\??\\PhysicalDrive%d",

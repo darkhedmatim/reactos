@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/ksrc/b_func.c,v $
- * $Id$
+ * $Id: b_func.c,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 #include "jsint.h"

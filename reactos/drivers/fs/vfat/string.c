@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: string.c,v 1.13 2004/08/31 16:08:38 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+#include <wchar.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS ****************************************************************/

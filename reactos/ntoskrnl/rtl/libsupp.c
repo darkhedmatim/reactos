@@ -1,22 +1,22 @@
-/* $Id$
+/*
  *
  * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/libsupp.c
+ * PROJECT:         ReactOS system libraries
+ * FILE:            lib/ntoskrnl/rtl/libsup.c
  * PURPOSE:         Rtl library support routines
+ * UPDATE HISTORY:
  *
- * PROGRAMMERS:     No programmer listed.
  */
 
 /* INCLUDES ******************************************************************/
 
 #include <ntoskrnl.h>
-#include <internal/ps.h>
 #define NDEBUG
 #include <internal/debug.h>
 
-//FIXME: sort this out somehow. IAI: Sorted in new header branch
-#define PRTL_CRITICAL_SECTION PVOID
+//FIXME: sort this out somehow
+#define PCRITICAL_SECTION PVOID
+#define LPCRITICAL_SECTION PVOID
 
 /* FUNCTIONS *****************************************************************/
 
@@ -24,102 +24,73 @@
  * @implemented
  */
 VOID STDCALL
-RtlAcquirePebLock(VOID)
+RtlDeleteCriticalSection(PCRITICAL_SECTION CriticalSection)
 {
-
 }
 
 /*
  * @implemented
  */
-VOID STDCALL
-RtlReleasePebLock(VOID)
-{
-
-}
-
-PPEB
-STDCALL
-RtlpCurrentPeb(VOID)
-{
-    return ((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->Peb;
-}
-
-NTSTATUS 
-STDCALL
-RtlDeleteCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection)
-{
-    return STATUS_SUCCESS;
-}
-
-DWORD
-STDCALL
+DWORD STDCALL
 RtlSetCriticalSectionSpinCount(
-   PRTL_CRITICAL_SECTION CriticalSection,
+   LPCRITICAL_SECTION CriticalSection,
    DWORD SpinCount
    )
 {
    return 0;
 }
 
-NTSTATUS
-STDCALL
-RtlEnterCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection)
+
+/*
+ * @implemented
+ */
+VOID STDCALL
+RtlEnterCriticalSection(PCRITICAL_SECTION CriticalSection)
 {
-    ExAcquireFastMutex((PFAST_MUTEX) CriticalSection);
-    return STATUS_SUCCESS;
+   ExAcquireFastMutex((PFAST_MUTEX) CriticalSection );
 }
 
-NTSTATUS
-STDCALL
-RtlInitializeCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection)
+
+/*
+ * @implemented
+ */
+NTSTATUS STDCALL
+RtlInitializeCriticalSection(PCRITICAL_SECTION CriticalSection)
 {
    ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
    return STATUS_SUCCESS;
 }
 
-NTSTATUS
-STDCALL
-RtlLeaveCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection)
+
+/*
+ * @implemented
+ */
+VOID STDCALL
+RtlLeaveCriticalSection(PCRITICAL_SECTION CriticalSection)
 {
-    ExReleaseFastMutex((PFAST_MUTEX) CriticalSection );
-    return STATUS_SUCCESS;
+   ExReleaseFastMutex((PFAST_MUTEX) CriticalSection );
 }
 
-BOOLEAN 
-STDCALL
-RtlTryEnterCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection)
+/*
+ * @implemented
+ */
+BOOLEAN STDCALL
+RtlTryEnterCriticalSection(PCRITICAL_SECTION CriticalSection)
 {
-    return ExTryToAcquireFastMutex((PFAST_MUTEX) CriticalSection );
-}
-
-
-NTSTATUS
-STDCALL
-RtlInitializeCriticalSectionAndSpinCount(
-    PRTL_CRITICAL_SECTION CriticalSection,
-    ULONG SpinCount)
-{
-    ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
-    return STATUS_SUCCESS;
+  return ExTryToAcquireFastMutex((PFAST_MUTEX) CriticalSection );
 }
 
 
-#ifdef DBG
-VOID FASTCALL
-CHECK_PAGED_CODE_RTL(char *file, int line)
+/*
+ * @implemented
+ */
+NTSTATUS STDCALL
+RtlInitializeCriticalSectionAndSpinCount (
+   PCRITICAL_SECTION CriticalSection,
+	ULONG SpinCount)
 {
-  if(KeGetCurrentIrql() > APC_LEVEL)
-  {
-    DbgPrint("%s:%i: Pagable code called at IRQL > APC_LEVEL (%d)\n", file, line, KeGetCurrentIrql());
-    KEBUGCHECK(0);
-  }
+   ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
+   return STATUS_SUCCESS;
 }
-#endif
 
 /* EOF */

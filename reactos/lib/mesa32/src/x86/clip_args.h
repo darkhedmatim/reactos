@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: clip_args.h,v 1.3 2004/10/05 14:19:11 blight Exp $ */
 
 /*
  * Mesa 3-D graphics library

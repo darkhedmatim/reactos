@@ -1,10 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top directory
- * PROJECT:         ReactOS kernel 
- * FILE:            ntoskrnl/mm/mm.c
- * PURPOSE:         Kernel memory managment functions
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: mm.c,v 1.80 2004/11/13 13:09:07 weiden Exp $
+ *
+ * COPYRIGHT:   See COPYING in the top directory
+ * PROJECT:     ReactOS kernel 
+ * FILE:        ntoskrnl/mm/mm.c
+ * PURPOSE:     kernel memory managment functions
+ * PROGRAMMER:  David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *              Created 9/4/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -18,7 +38,7 @@
 extern MODULE_OBJECT NtoskrnlModuleObject;
 extern MODULE_OBJECT HalModuleObject;
 
-ULONG EXPORTED MmUserProbeAddress = 0;
+PVOID EXPORTED MmUserProbeAddress = NULL;
 PVOID EXPORTED MmHighestUserAddress = NULL;
 PBOOLEAN EXPORTED Mm64BitPhysicalAddress = FALSE;
 PVOID EXPORTED MmSystemRangeStart = NULL;
@@ -35,7 +55,7 @@ MmCopyToCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
 
   if (ExGetPreviousMode() == UserMode)
     {
-      if ((ULONG_PTR)Dest >= KERNEL_BASE)
+      if ((ULONG)Dest >= KERNEL_BASE)
    {
      return(STATUS_ACCESS_VIOLATION);
    }
@@ -56,7 +76,7 @@ MmCopyFromCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
 
   if (ExGetPreviousMode() == UserMode)
     {
-      if ((ULONG_PTR)Src >= KERNEL_BASE)
+      if ((ULONG)Src >= KERNEL_BASE)
    {
      return(STATUS_ACCESS_VIOLATION);
    }
@@ -79,13 +99,13 @@ NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
    DPRINT("MmReleaseMemoryArea(Process %x, Marea %x)\n",Process,Marea);
 
    DPRINT("Releasing %x between %x %x (type %d)\n",
-          Marea, Marea->StartingAddress, Marea->EndingAddress,
+          Marea, Marea->BaseAddress, (char*)Marea->BaseAddress + Marea->Length,
           Marea->Type);
 
    switch (Marea->Type)
    {
       case MEMORY_AREA_SECTION_VIEW:
-         Status = MmUnmapViewOfSection(Process, (PVOID)Marea->StartingAddress);
+         Status = MmUnmapViewOfSection(Process, Marea->BaseAddress);
          ASSERT(Status == STATUS_SUCCESS);
          return(STATUS_SUCCESS);
 
@@ -96,7 +116,8 @@ NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
       case MEMORY_AREA_SHARED_DATA:
       case MEMORY_AREA_NO_ACCESS:
          Status = MmFreeMemoryArea(&Process->AddressSpace,
-                                   Marea,
+                                   Marea->BaseAddress,
+                                   0,
                                    NULL,
                                    NULL);
          break;
@@ -114,13 +135,20 @@ NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
 
 NTSTATUS MmReleaseMmInfo(PEPROCESS Process)
 {
+   PLIST_ENTRY CurrentEntry;
+   PMEMORY_AREA Current;
+
    DPRINT("MmReleaseMmInfo(Process %x (%s))\n", Process,
           Process->ImageFileName);
 
    MmLockAddressSpace(&Process->AddressSpace);
 
-   while (Process->AddressSpace.MemoryAreaRoot != NULL)
-      MmReleaseMemoryArea(Process, Process->AddressSpace.MemoryAreaRoot);
+   while(!IsListEmpty(&Process->AddressSpace.MAreaListHead))
+   {
+      CurrentEntry = Process->AddressSpace.MAreaListHead.Flink;
+      Current = CONTAINING_RECORD(CurrentEntry, MEMORY_AREA, Entry);
+      MmReleaseMemoryArea(Process, Current);
+   }
 
    Mmi386ReleaseMmInfo(Process);
 
@@ -157,7 +185,7 @@ BOOLEAN STDCALL MmIsAddressValid(PVOID VirtualAddress)
    MEMORY_AREA* MemoryArea;
    PMADDRESS_SPACE AddressSpace;
 
-   if ((ULONG_PTR)VirtualAddress >= KERNEL_BASE)
+   if ((ULONG)VirtualAddress >= KERNEL_BASE)
    {
       AddressSpace = MmGetKernelAddressSpace();
    }
@@ -167,8 +195,8 @@ BOOLEAN STDCALL MmIsAddressValid(PVOID VirtualAddress)
    }
 
    MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace,
-                                            VirtualAddress);
+   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
+                                          VirtualAddress);
 
    if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
    {
@@ -180,7 +208,7 @@ BOOLEAN STDCALL MmIsAddressValid(PVOID VirtualAddress)
 }
 
 NTSTATUS MmAccessFault(KPROCESSOR_MODE Mode,
-                       ULONG_PTR Address,
+                       ULONG Address,
                        BOOLEAN FromMdl)
 {
    PMADDRESS_SPACE AddressSpace;
@@ -227,7 +255,7 @@ NTSTATUS MmAccessFault(KPROCESSOR_MODE Mode,
    }
    do
    {
-      MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, (PVOID)Address);
+      MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, (PVOID)Address);
       if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
       {
          if (!FromMdl)
@@ -302,7 +330,7 @@ NTSTATUS MmCommitPagedPoolAddress(PVOID Address, BOOLEAN Locked)
 }
 
 NTSTATUS MmNotPresentFault(KPROCESSOR_MODE Mode,
-                           ULONG_PTR Address,
+                           ULONG Address,
                            BOOLEAN FromMdl)
 {
    PMADDRESS_SPACE AddressSpace;
@@ -354,7 +382,7 @@ NTSTATUS MmNotPresentFault(KPROCESSOR_MODE Mode,
     */
    do
    {
-      MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, (PVOID)Address);
+      MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, (PVOID)Address);
       if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
       {
          if (!FromMdl)
@@ -462,8 +490,8 @@ MmGrowKernelStack (
 BOOLEAN
 STDCALL
 MmSetAddressRangeModified (
-    IN PVOID    Address,
-    IN ULONG    Length
+   DWORD Unknown0,
+   DWORD Unknown1
 )
 {
    UNIMPLEMENTED;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: bthread.S,v 1.11 2004/11/20 23:46:36 blight Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -143,4 +143,4 @@ _PsBeginThreadWithContextInternal:
 
 	/* Load the rest of the thread's user mode context. */
 	movl	$0, %eax
-	jmp	_KiServiceExit
+	jmp	KeReturnFromSystemCallWithHook

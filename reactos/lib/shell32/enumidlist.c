@@ -28,9 +28,13 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
+#include "undocshell.h"
 #include "shlwapi.h"
+#include "winerror.h"
+#include "objbase.h"
 
 #include "pidl.h"
+#include "shlguid.h"
 #include "enumidlist.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
@@ -240,11 +244,8 @@ static ULONG WINAPI IEnumIDList_fnAddRef(
 	IEnumIDList * iface)
 {
 	IEnumIDListImpl *This = (IEnumIDListImpl *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
-
-	TRACE("(%p)->(%lu)\n", This, refCount - 1);
-
-	return refCount;
+	TRACE("(%p)->(%lu)\n",This,This->ref);
+	return ++(This->ref);
 }
 /******************************************************************************
  * IEnumIDList_fnRelease
@@ -253,16 +254,16 @@ static ULONG WINAPI IEnumIDList_fnRelease(
 	IEnumIDList * iface)
 {
 	IEnumIDListImpl *This = (IEnumIDListImpl *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
 
-	TRACE("(%p)->(%lu)\n", This, refCount + 1);
+	TRACE("(%p)->(%lu)\n",This,This->ref);
 
-	if (!refCount) {
+	if (!--(This->ref)) {
 	  TRACE(" destroying IEnumIDList(%p)\n",This);
 	  DeleteList((IEnumIDList*)This);
 	  HeapFree(GetProcessHeap(),0,This);
+	  return 0;
 	}
-	return refCount;
+	return This->ref;
 }
 
 /**************************************************************************

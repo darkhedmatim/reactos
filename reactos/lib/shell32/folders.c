@@ -34,8 +34,10 @@
 #include "undocshell.h"
 #include "shlguid.h"
 #include "winreg.h"
+#include "shlwapi.h"
 
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
 #include "pidl.h"
 #include "shell32_main.h"
@@ -130,11 +132,10 @@ static HRESULT WINAPI IExtractIconW_fnQueryInterface(IExtractIconW *iface, REFII
 static ULONG WINAPI IExtractIconW_fnAddRef(IExtractIconW * iface)
 {
 	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
 
-	TRACE("(%p)->(count=%lu)\n", This, refCount - 1);
+	TRACE("(%p)->(count=%lu)\n",This, This->ref );
 
-	return refCount;
+	return ++(This->ref);
 }
 /**************************************************************************
 *  IExtractIconW_Release
@@ -142,18 +143,17 @@ static ULONG WINAPI IExtractIconW_fnAddRef(IExtractIconW * iface)
 static ULONG WINAPI IExtractIconW_fnRelease(IExtractIconW * iface)
 {
 	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
 
-	TRACE("(%p)->(count=%lu)\n", This, refCount + 1);
+	TRACE("(%p)->()\n",This);
 
-	if (!refCount)
+	if (!--(This->ref))
 	{
 	  TRACE(" destroying IExtractIcon(%p)\n",This);
 	  SHFree(This->pidl);
 	  HeapFree(GetProcessHeap(),0,This);
 	  return 0;
 	}
-	return refCount;
+	return This->ref;
 }
 
 static HRESULT getIconLocationForFolder(IExtractIconW *iface, UINT uFlags,

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: acl.c,v 1.5 2004/11/27 16:33:21 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -12,7 +12,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ntdll/rtl.h>
+#include <ntos/rtl.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -26,8 +26,6 @@ RtlFirstFreeAce(PACL Acl,
    PACE Current;
    PVOID AclEnd;
    ULONG i;
-   
-   PAGED_CODE_RTL();
 
    Current = (PACE)(Acl + 1);
    *Ace = NULL;
@@ -72,8 +70,6 @@ RtlGetAce(PACL Acl,
           PACE *Ace)
 {
    ULONG i;
-   
-   PAGED_CODE_RTL();
 
    *Ace = (PACE)(Acl + 1);
 
@@ -115,8 +111,6 @@ RtlpAddKnownAce (PACL Acl,
                  ULONG Type)
 {
    PACE Ace;
-   
-   PAGED_CODE_RTL();
 
    if (!RtlValidSid(Sid))
    {
@@ -164,8 +158,6 @@ RtlAddAccessAllowedAce (IN OUT PACL Acl,
                         IN ACCESS_MASK AccessMask,
                         IN PSID Sid)
 {
-   PAGED_CODE_RTL();
-   
    return RtlpAddKnownAce (Acl,
                            Revision,
                            0,
@@ -185,8 +177,6 @@ RtlAddAccessAllowedAceEx (IN OUT PACL Acl,
                           IN ACCESS_MASK AccessMask,
                           IN PSID Sid)
 {
-   PAGED_CODE_RTL();
-   
    return RtlpAddKnownAce (Acl,
                            Revision,
                            Flags,
@@ -205,8 +195,6 @@ RtlAddAccessDeniedAce (PACL Acl,
                        ACCESS_MASK AccessMask,
                        PSID Sid)
 {
-   PAGED_CODE_RTL();
-   
    return RtlpAddKnownAce (Acl,
                            Revision,
                            0,
@@ -226,8 +214,6 @@ RtlAddAccessDeniedAceEx (IN OUT PACL Acl,
                          IN ACCESS_MASK AccessMask,
                          IN PSID Sid)
 {
-   PAGED_CODE_RTL();
-   
    return RtlpAddKnownAce (Acl,
                            Revision,
                            Flags,
@@ -273,8 +259,6 @@ RtlAddAce(PACL Acl,
    ULONG i;
    PACE Current;
    ULONG j;
-   
-   PAGED_CODE_RTL();
 
    if (Acl->AclRevision < MIN_ACL_REVISION ||
        Acl->AclRevision > MAX_ACL_REVISION)
@@ -355,8 +339,6 @@ RtlAddAuditAccessAce(PACL Acl,
 {
    PACE Ace;
    ULONG Flags = 0;
-   
-   PAGED_CODE_RTL();
 
    if (Success != FALSE)
    {
@@ -426,8 +408,6 @@ RtlAddAuditAccessAceEx(PACL Acl,
                        BOOLEAN Failure)
 {
   PACE Ace;
-  
-  PAGED_CODE_RTL();
 
   if (Success != FALSE)
   {
@@ -514,8 +494,6 @@ RtlDeleteAce(PACL Acl,
 {
    PACE Ace;
    PACE Current;
-   
-   PAGED_CODE_RTL();
 
    if (Acl->AclRevision < MIN_ACL_REVISION ||
        Acl->AclRevision > MAX_ACL_REVISION)
@@ -557,8 +535,6 @@ RtlCreateAcl(PACL Acl,
              ULONG AclSize,
              ULONG AclRevision)
 {
-   PAGED_CODE_RTL();
-   
    if (AclSize < 8)
    {
       return(STATUS_BUFFER_TOO_SMALL);
@@ -596,8 +572,6 @@ RtlQueryInformationAcl(PACL Acl,
                        ACL_INFORMATION_CLASS InformationClass)
 {
    PACE Ace;
-   
-   PAGED_CODE_RTL();
 
    if (Acl->AclRevision < MIN_ACL_REVISION ||
        Acl->AclRevision > MAX_ACL_REVISION)
@@ -664,8 +638,6 @@ RtlSetInformationAcl(PACL Acl,
                      ULONG InformationLength,
                      ACL_INFORMATION_CLASS InformationClass)
 {
-   PAGED_CODE_RTL();
-   
    if (Acl->AclRevision < MIN_ACL_REVISION ||
        Acl->AclRevision > MAX_ACL_REVISION)
    {
@@ -708,8 +680,6 @@ RtlValidAcl (PACL Acl)
 {
    PACE Ace;
    USHORT Size;
-   
-   PAGED_CODE_RTL();
 
    Size = ROUND_UP(Acl->AclSize, 4);
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: rtl.h,v 1.40 2004/12/16 15:10:00 gdalsnes Exp $
  * 
  */
 #ifndef __DDK_RTL_H
@@ -112,7 +112,7 @@ static __inline VOID
 InsertHeadList(
 	IN PLIST_ENTRY  ListHead,
 	IN PLIST_ENTRY  Entry)
-{
+{ 
 	PLIST_ENTRY OldFlink;
 	OldFlink = ListHead->Flink;
 	Entry->Flink = OldFlink;
@@ -140,7 +140,7 @@ static __inline VOID
 InsertTailList(
 	IN PLIST_ENTRY  ListHead,
 	IN PLIST_ENTRY  Entry)
-{
+{ 
 	PLIST_ENTRY OldBlink;
 	OldBlink = ListHead->Blink;
 	Entry->Flink = ListHead;
@@ -375,13 +375,12 @@ RemoveTailList(
   
 #define IsLastEntry(ListHead, Entry) ((ListHead)->Blink == Entry)
   
-#define RtlEqualMemory(Destination,Source,Length)   (!memcmp((Destination), (Source), (Length)))
 
 NTSTATUS
 STDCALL
 RtlAppendUnicodeToString (
 	PUNICODE_STRING	Destination,
-	PCWSTR		Source
+	PWSTR		Source
 	);
 
 SIZE_T STDCALL
@@ -458,7 +457,8 @@ RtlZeroMemory (PVOID Destination, ULONG Length);
 #define RTL_REGISTRY_WINDOWS_NT 3
 #define RTL_REGISTRY_DEVICEMAP  4
 #define RTL_REGISTRY_USER       5
-#define RTL_REGISTRY_MAXIMUM    6
+#define RTL_REGISTRY_ENUM       6   /* ReactOS specific: Used internally in kernel only */
+#define RTL_REGISTRY_MAXIMUM    7
 
 #define RTL_REGISTRY_HANDLE     0x40000000
 #define RTL_REGISTRY_OPTIONAL   0x80000000
@@ -521,7 +521,7 @@ PushEntryList (
 
 NTSTATUS STDCALL
 RtlAbsoluteToSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD,
-			     PSECURITY_DESCRIPTOR_RELATIVE RelSD,
+			     PSECURITY_DESCRIPTOR RelSD,
 			     PULONG BufferLength);
 
 NTSTATUS STDCALL
@@ -852,10 +852,6 @@ NTSTATUS STDCALL
 RtlCreateSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			     ULONG Revision);
 
-NTSTATUS STDCALL
-RtlCreateSecurityDescriptorRelative (PSECURITY_DESCRIPTOR_RELATIVE SecurityDescriptor,
-			             ULONG Revision);
-
 NTSTATUS
 STDCALL
 RtlCreateSystemVolumeInformationFolder(
@@ -864,7 +860,7 @@ RtlCreateSystemVolumeInformationFolder(
 
 BOOLEAN STDCALL
 RtlCreateUnicodeString (OUT PUNICODE_STRING Destination,
-			IN PCWSTR Source);
+			IN PWSTR Source);
 
 BOOLEAN STDCALL
 RtlCreateUnicodeStringFromAsciiz (OUT PUNICODE_STRING Destination,
@@ -880,12 +876,6 @@ RtlCustomCPToUnicodeN (
 	PCHAR		CustomString,
 	ULONG		CustomSize
 	);
-
-BOOLEAN STDCALL
-RtlCutoverTimeToSystemTime(IN PTIME_FIELDS CutoverTimeFields,
-                           OUT PLARGE_INTEGER SystemTime,
-                           IN PLARGE_INTEGER CurrentTime,
-                           IN BOOLEAN ThisYearsCutoverOnly);
 
 NTSTATUS STDCALL
 RtlDecompressBuffer(IN USHORT CompressionFormat,
@@ -1320,12 +1310,6 @@ RtlGetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			       PBOOLEAN GroupDefaulted);
 
 NTSTATUS STDCALL
-RtlGetLastNtStatus(VOID);
-
-ULONG STDCALL
-RtlGetLastWin32Error(VOID);
-
-NTSTATUS STDCALL
 RtlGetNextRange (IN OUT PRTL_RANGE_LIST_ITERATOR Iterator,
 		 OUT PRTL_RANGE *Range,
 		 IN BOOLEAN MoveForwards);
@@ -1346,10 +1330,6 @@ RtlGetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			      PBOOLEAN SaclPresent,
 			      PACL* Sacl,
 			      PBOOLEAN SaclDefaulted);
-
-BOOLEAN STDCALL
-RtlGetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
-				  PUCHAR RMControl);
 
 NTSTATUS
 STDCALL
@@ -2009,7 +1989,7 @@ RtlLookupElementGenericTableFullAvl (
 
 NTSTATUS STDCALL
 RtlMakeSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD,
-		       PSECURITY_DESCRIPTOR_RELATIVE RelSD,
+		       PSECURITY_DESCRIPTOR RelSD,
 		       PULONG BufferLength);
 
 VOID STDCALL
@@ -2224,9 +2204,6 @@ RtlReserveChunk (
 VOID STDCALL
 RtlResetRtlTranslations (IN PNLSTABLEINFO NlsTable);
 
-VOID STDCALL
-RtlRestoreLastWin32Error(IN ULONG Error);
-
 /*
  * VOID
  * RtlRetrieveUlong (
@@ -2235,7 +2212,7 @@ RtlRestoreLastWin32Error(IN ULONG Error);
  *	);
  */
 #define RtlRetrieveUlong(DestAddress,SrcAddress) \
-	if ((ULONG_PTR)(SrcAddress) & LONG_MASK) \
+	if ((ULONG)(SrcAddress) & LONG_MASK) \
 	{ \
 		((PUCHAR)(DestAddress))[0]=((PUCHAR)(SrcAddress))[0]; \
 		((PUCHAR)(DestAddress))[1]=((PUCHAR)(SrcAddress))[1]; \
@@ -2255,7 +2232,7 @@ RtlRestoreLastWin32Error(IN ULONG Error);
  *	);
  */
 #define RtlRetrieveUshort(DestAddress,SrcAddress) \
-	if ((ULONG_PTR)(SrcAddress) & SHORT_MASK) \
+	if ((ULONG)(SrcAddress) & SHORT_MASK) \
 	{ \
 		((PUCHAR)(DestAddress))[0]=((PUCHAR)(SrcAddress))[0]; \
 		((PUCHAR)(DestAddress))[1]=((PUCHAR)(SrcAddress))[1]; \
@@ -2274,7 +2251,7 @@ RtlSecondsSince1980ToTime (ULONG SecondsSince1980,
 			   PLARGE_INTEGER Time);
 
 NTSTATUS STDCALL
-RtlSelfRelativeToAbsoluteSD (PSECURITY_DESCRIPTOR_RELATIVE RelSD,
+RtlSelfRelativeToAbsoluteSD (PSECURITY_DESCRIPTOR RelSD,
 			     PSECURITY_DESCRIPTOR AbsSD,
 			     PULONG AbsSDSize,
 			     PACL Dacl,
@@ -2289,17 +2266,12 @@ RtlSelfRelativeToAbsoluteSD (PSECURITY_DESCRIPTOR_RELATIVE RelSD,
 NTSTATUS
 STDCALL
 RtlSelfRelativeToAbsoluteSD2(
-	PSECURITY_DESCRIPTOR_RELATIVE SelfRelativeSecurityDescriptor,
+	PSECURITY_DESCRIPTOR SelfRelativeSecurityDescriptor,
 	PULONG BufferSize
 	);
 
 VOID STDCALL
 RtlSetAllBits (IN PRTL_BITMAP BitMapHeader);
-
-NTSTATUS STDCALL
-RtlSetAttributesSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-				   IN SECURITY_DESCRIPTOR_CONTROL Control,
-				   OUT PULONG Revision);
 
 VOID
 STDCALL
@@ -2317,11 +2289,6 @@ RtlSetBits (
 	);
 
 NTSTATUS STDCALL
-RtlSetControlSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-				IN SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
-				IN SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet);
-
-NTSTATUS STDCALL
 RtlSetDaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			      BOOLEAN DaclPresent,
 			      PACL Dacl,
@@ -2331,18 +2298,6 @@ NTSTATUS STDCALL
 RtlSetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			       PSID Group,
 			       BOOLEAN GroupDefaulted);
-
-NTSTATUS STDCALL
-RtlSetInformationAcl (PACL Acl,
-		      PVOID Information,
-		      ULONG InformationLength,
-		      ACL_INFORMATION_CLASS InformationClass);
-
-VOID STDCALL
-RtlSetLastWin32Error(IN ULONG Error);
-
-VOID STDCALL
-RtlSetLastWin32ErrorAndNtStatusFromNtStatus(IN NTSTATUS Status);
 
 NTSTATUS STDCALL
 RtlSetOwnerSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
@@ -2355,9 +2310,11 @@ RtlSetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
 			      PACL Sacl,
 			      BOOLEAN SaclDefaulted);
 
-VOID STDCALL
-RtlSetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
-				  PUCHAR RMControl);
+NTSTATUS STDCALL
+RtlSetInformationAcl (PACL Acl,
+		      PVOID Information,
+		      ULONG InformationLength,
+		      ACL_INFORMATION_CLASS InformationClass);
 
 NTSTATUS STDCALL
 RtlSetTimeZoneInformation (IN OUT PTIME_ZONE_INFORMATION TimeZoneInformation);
@@ -2383,10 +2340,10 @@ RtlSplay (
  *	);
  */
 #define RtlStoreUlong(Address,Value) \
-	if ((ULONG_PTR)(Address) & LONG_MASK) \
+	if ((ULONG)(Address) & LONG_MASK) \
 	{ \
 		((PUCHAR)(Address))[LONG_LEAST_SIGNIFICANT_BIT]=(UCHAR)(FIRSTBYTE(Value)); \
-		((PUCHAR)(Address))[LONG_3RD_MOST_SIGNIFICANT_BIT]=(UCHAR)(SECONDBYTE(Value)); \
+		((PUCHAR)(Address))[LONG_3RD_MOST_SIGNIFICANT_BIT]=(UCHAR)(FIRSTBYTE(Value)); \
 		((PUCHAR)(Address))[LONG_2ND_MOST_SIGNIFICANT_BIT]=(UCHAR)(THIRDBYTE(Value)); \
 		((PUCHAR)(Address))[LONG_MOST_SIGNIFICANT_BIT]=(UCHAR)(FOURTHBYTE(Value)); \
 	} \
@@ -2403,7 +2360,7 @@ RtlSplay (
  *	);
  */
 #define RtlStoreUshort(Address,Value) \
-	if ((ULONG_PTR)(Address) & SHORT_MASK) \
+	if ((ULONG)(Address) & SHORT_MASK) \
 	{ \
 		((PUCHAR)(Address))[SHORT_LEAST_SIGNIFICANT_BIT]=(UCHAR)(FIRSTBYTE(Value)); \
 		((PUCHAR)(Address))[SHORT_MOST_SIGNIFICANT_BIT]=(UCHAR)(SECONDBYTE(Value)); \
@@ -2683,7 +2640,7 @@ RtlValidateHeap (
 BOOLEAN
 STDCALL
 RtlValidRelativeSecurityDescriptor (
-	IN PSECURITY_DESCRIPTOR_RELATIVE SecurityDescriptorInput,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptorInput,
 	IN ULONG SecurityDescriptorLength,
 	IN SECURITY_INFORMATION RequiredInformation
 	);
@@ -2833,7 +2790,7 @@ BOOLEAN
 FASTCALL
 RtlpCreateUnicodeString(
    IN OUT PUNICODE_STRING UniDest,
-   IN PCWSTR  Source,
+   IN PWSTR  Source,
    IN POOL_TYPE PoolType);   
 
 NTSTATUS

@@ -1,11 +1,14 @@
-/* $Id$
+/* $Id: parttab.c,v 1.9 2004/11/27 13:04:06 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/parttab.c
  * PURPOSE:         Handling fixed disks (partition table functions)
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ * 2000-03-25 (ea)
+ * 	Moved here from ntoskrnl/io/fdisk.c
  */
 
 /* INCLUDES *****************************************************************/

@@ -1,11 +1,9 @@
-/* $Id:$
- * 
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/irq.c
  * PURPOSE:         IRQ handling
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES *****************************************************************/
@@ -64,70 +62,43 @@ IoConnectInterrupt(PKINTERRUPT* InterruptObject,
  */
 {
    PKINTERRUPT Interrupt;
-   ULONG i, count;
+   NTSTATUS Status = STATUS_SUCCESS;
    
    ASSERT_IRQL(PASSIVE_LEVEL);
    
    DPRINT("IoConnectInterrupt(Vector %x)\n",Vector);
    
-   ProcessorEnableMask &= ((1 << KeNumberProcessors) - 1);
-
-   if (ProcessorEnableMask == 0)
-     {
-       return STATUS_INVALID_PARAMETER;
-     }
-  
-   for (i = 0, count = 0; i < KeNumberProcessors; i++)
-     {
-       if (ProcessorEnableMask & (1 << i))
-         {
-	   count++;
-	 }
-     }
    /*
     * Initialize interrupt object
     */
-   Interrupt=ExAllocatePoolWithTag(NonPagedPool,count*sizeof(KINTERRUPT),
+   Interrupt=ExAllocatePoolWithTag(NonPagedPool,sizeof(KINTERRUPT),
 				   TAG_KINTERRUPT);
    if (Interrupt==NULL)
      {
 	return(STATUS_INSUFFICIENT_RESOURCES);
      }
 
-   if (SpinLock == NULL)
+   Status = KeInitializeInterrupt(Interrupt,
+				  ServiceRoutine,
+				  ServiceContext,
+				  SpinLock,
+				  Vector,
+				  Irql,
+				  SynchronizeIrql,
+				  InterruptMode,
+				  ShareVector,
+				  ProcessorEnableMask,
+				  FloatingSave);
+   if (!NT_SUCCESS(Status))
      {
-       SpinLock = &Interrupt[0].SpinLock;
-       KeInitializeSpinLock(SpinLock);
+	ExFreePool(Interrupt);
+	return Status;
      }
 
-   Interrupt[0].ProcessorEnableMask = ProcessorEnableMask;
-
-   for (i = 0, count = 0; i < KeNumberProcessors; i++)
+   if (!KeConnectInterrupt(Interrupt))
      {
-       if (ProcessorEnableMask & (1 << i))
-         {
-           KeInitializeInterrupt(&Interrupt[count],
-				 ServiceRoutine,
-				 ServiceContext,
-				 SpinLock,
-				 Vector,
-				 Irql,
-				 SynchronizeIrql,
-				 InterruptMode,
-				 ShareVector,
-				 i,
-				 FloatingSave);
-           if (!KeConnectInterrupt(&Interrupt[count]))
-             {
-	       for (i = 0; i < count; i++)
-	         {
-		   KeDisconnectInterrupt(&Interrupt[i]);
-		 }
-	       ExFreePool(Interrupt);
-	       return STATUS_INVALID_PARAMETER;
-	     }
-	   count++;
-	 }
+	ExFreePool(Interrupt);
+	return STATUS_INVALID_PARAMETER;
      }
 
    *InterruptObject = Interrupt;
@@ -147,16 +118,7 @@ IoDisconnectInterrupt(PKINTERRUPT InterruptObject)
  *        InterruptObject = isr to release
  */
 {
-  ULONG i, count;
-
-  for (i = 0, count = 0; i < KeNumberProcessors; i++)
-    {
-      if (InterruptObject[0].ProcessorEnableMask & (1 << i))
-        {
-          KeDisconnectInterrupt(&InterruptObject[count]);
-	  count++;
-	}
-    }
+  KeDisconnectInterrupt(InterruptObject);
   ExFreePool(InterruptObject);
 }
 

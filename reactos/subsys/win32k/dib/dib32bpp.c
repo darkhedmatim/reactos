@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: dib32bpp.c,v 1.31 2004/07/15 18:13:22 navaraf Exp $ */
 #include <w32k.h>
 
 VOID
@@ -293,8 +293,8 @@ DIB_32BPP_BitBlt(PBLTINFO BltInfo)
    BOOL UsesPattern;
    PULONG DestBits;
 
-   UsesSource = ROP4_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP4_USES_PATTERN(BltInfo->Rop4);
+   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
+   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);
 
    SourceY = BltInfo->SourcePoint.y;
    DestBits = (PULONG)(

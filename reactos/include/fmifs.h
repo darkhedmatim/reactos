@@ -1,6 +1,6 @@
 #ifndef _FMIFS_H
 #define _FMIFS_H
-/* $Id$
+/* $Id: fmifs.h,v 1.4 2004/09/15 17:06:34 weiden Exp $
  *
  * fmifs.h
  *

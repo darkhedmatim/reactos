@@ -1,13 +1,14 @@
-/* $Id$
+/* $Id: list.c,v 1.16 2004/10/18 20:56:22 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/list.c
  * PURPOSE:         Manages double linked lists, single linked lists and
  *                  sequenced lists
- *
  * PROGRAMMERS:     David Welch (welch@mcmail.com)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * UPDATE HISTORY:
+ *   02-07-2001 CSH Implemented sequenced lists
  */
 
 /* INCLUDES *****************************************************************/
@@ -15,6 +16,8 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
+
+static KSPIN_LOCK ExpGlobalListLock = { 0, };
 
 /* FUNCTIONS *************************************************************/
 
@@ -444,26 +447,8 @@ PSLIST_ENTRY
 FASTCALL
 InterlockedPopEntrySList(IN PSLIST_HEADER ListHead)
 {
-  SLIST_HEADER newslh, oldslh;
-  PSLIST_ENTRY le;
-  
-  do
-  {
-    oldslh = *ListHead;
-    le = oldslh.Next.Next;
-    if(le == NULL)
-    {
-      /* nothing to do */
-      return NULL;
-    }
-    newslh.Sequence = oldslh.Sequence + 1;
-    newslh.Depth = oldslh.Depth - 1;
-    newslh.Next.Next = MmSafeReadPtr(&le->Next);
-  } while(ExfInterlockedCompareExchange64(&ListHead->Alignment,
-                                          &newslh.Alignment,
-                                          &oldslh.Alignment) != oldslh.Alignment);
-
-  return le;
+  return (PSLIST_ENTRY) ExInterlockedPopEntrySList(ListHead,
+    &ExpGlobalListLock);
 }
 
 
@@ -473,23 +458,11 @@ InterlockedPopEntrySList(IN PSLIST_HEADER ListHead)
 PSLIST_ENTRY
 FASTCALL
 InterlockedPushEntrySList(IN PSLIST_HEADER ListHead,
-                          IN PSLIST_ENTRY ListEntry)
+  IN PSLIST_ENTRY ListEntry)
 {
-  SLIST_HEADER newslh, oldslh;
-  
-  newslh.Next.Next = ListEntry;
-  
-  do
-  {
-    oldslh = *ListHead;
-    newslh.Depth = oldslh.Depth + 1;
-    newslh.Sequence = oldslh.Sequence + 1;
-    ListEntry->Next = oldslh.Next.Next;
-  } while(ExfInterlockedCompareExchange64(&ListHead->Alignment,
-                                          &newslh.Alignment,
-                                          &oldslh.Alignment) != oldslh.Alignment);
-
-  return oldslh.Next.Next;
+  return (PSLIST_ENTRY) ExInterlockedPushEntrySList(ListHead,
+    ListEntry,
+    &ExpGlobalListLock);
 }
 
 /* EOF */

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: pager.c,v 1.18 2004/08/15 16:39:08 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/pager.c
- * PURPOSE:         Moves infrequently used data out of memory
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * COPYRIGHT:    See COPYING in the top level directory
+ * PROJECT:      ReactOS kernel
+ * FILE:         ntoskrnl/mm/pager.c
+ * PURPOSE:      Moves infrequently used data out of memory
+ * PROGRAMMER:   David Welch (welch@cwcom.net)
+ * UPDATE HISTORY: 
+ *               27/05/98: Created
  */
 
 /* INCLUDES ****************************************************************/

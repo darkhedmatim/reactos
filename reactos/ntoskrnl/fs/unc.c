@@ -1,11 +1,7 @@
-/* $Id$
+/* $Id: unc.c,v 1.6 2004/08/15 16:39:02 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/fs/unc.c
- * PURPOSE:         No purpose listed.
+ * reactos/ntoskrnl/fs/unc.c
  *
- * PROGRAMMERS:     No programmer listed.
  */
 
 #include <ntoskrnl.h>

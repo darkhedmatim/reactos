@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: fcb.c,v 1.20 2004/11/06 13:41:58 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -234,6 +234,8 @@ CdfsFCBInitializeCache(PVCB Vcb,
   RtlZeroMemory(newCCB,
 		sizeof(CCB));
 
+  FileObject->Flags = FileObject->Flags | FO_FCB_IS_VALID |
+      FO_DIRECT_CACHE_PAGING_READ;
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
@@ -241,7 +243,6 @@ CdfsFCBInitializeCache(PVCB Vcb,
   Fcb->FileObject = FileObject;
   Fcb->DevExt = Vcb;
 
-#ifdef USE_ROS_AND_FS
   Status = CcRosInitializeFileCache(FileObject,
 				    PAGE_SIZE);
   if (!NT_SUCCESS(Status))
@@ -249,14 +250,6 @@ CdfsFCBInitializeCache(PVCB Vcb,
       DbgPrint("CcRosInitializeFileCache failed\n");
       KEBUGCHECK(0);
     }
-#else
-  Status = STATUS_SUCCESS;
-  CcInitializeCacheMap(FileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-		       FALSE,
-		       NULL,
-		       NULL);
-#endif
 
   ObDereferenceObject(FileObject);
   Fcb->Flags |= FCB_CACHE_INITIALIZED;
@@ -420,6 +413,7 @@ CdfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 			  PFCB Fcb,
 			  PFILE_OBJECT FileObject)
 {
+  NTSTATUS Status;
   PCCB  newCCB;
 
   newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(CCB), TAG_CCB);
@@ -429,16 +423,16 @@ CdfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
     }
   memset(newCCB, 0, sizeof(CCB));
 
+  FileObject->Flags = FileObject->Flags | FO_FCB_IS_VALID |
+      FO_DIRECT_CACHE_PAGING_READ;
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
   newCCB->PtrFileObject = FileObject;
   Fcb->DevExt = Vcb;
- 
+
   if (CdfsFCBIsDirectory(Fcb))
     {
-#ifdef USE_ROS_CC_AND_FS
-      NTSTATUS Status;
       Status = CcRosInitializeFileCache(FileObject,
 					PAGE_SIZE);
       if (!NT_SUCCESS(Status))
@@ -446,13 +440,6 @@ CdfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 	  DbgPrint("CcRosInitializeFileCache failed\n");
 	  KEBUGCHECK(0);
 	}
-#else
-  CcInitializeCacheMap(FileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-		       FALSE,
-		       NULL,
-		       NULL);
-#endif
       Fcb->Flags |= FCB_CACHE_INITIALIZED;
     }
 

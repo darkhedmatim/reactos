@@ -31,15 +31,13 @@
 #include "../explorer_intres.h"
 
 
-ShellBrowser::ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, ShellPathInfo& create_info,
-							HIMAGELIST himl, BrowserCallback* cb, CtxMenuInterfaces& cm_ifs)
+ShellBrowser::ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, ShellPathInfo& create_info, HIMAGELIST himl, BrowserCallback* cb)
  :	_hwnd(hwnd),
 	_left_hwnd(left_hwnd),
 	_right_hwnd(right_hwnd),
 	_create_info(create_info),
 	_himl(himl),
-	_callback(cb),
-	_cm_ifs(cm_ifs)
+	_callback(cb)
 {
 	_pShellView = NULL;
 	_pDropTarget = NULL;
@@ -206,7 +204,7 @@ void ShellBrowser::OnTreeItemRClick(int idCtrl, LPNMHDR pnmh)
 			Entry* entry = (Entry*)itemData;
 			ClientToScreen(_left_hwnd, &tvhti.pt);
 
-			CHECKERROR(entry->do_context_menu(_hwnd, tvhti.pt, _cm_ifs));
+			CHECKERROR(entry->do_context_menu(_hwnd, tvhti.pt));
 		}
 	}
 }
@@ -576,7 +574,7 @@ void MDIShellBrowserChild::update_shell_browser()
 	}
 
 	_shellBrowser = auto_ptr<ShellBrowser>(new ShellBrowser(_hwnd, _left_hwnd, _right_hwnd,
-												_shellpath_info, _himlSmall, this, _cm_ifs));
+												_shellpath_info, _himlSmall, this));
 
 	_shellBrowser->Init(_hwndFrame);
 }

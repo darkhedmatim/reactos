@@ -23,6 +23,7 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -31,7 +32,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "winglue.h"
+#include "windef.h"
+#include "winbase.h"
 #include "build.h"
 
 int current_line = 0;
@@ -787,10 +789,6 @@ static int parse_def_export( char *name, DLLSPEC *spec )
         odp->link_name = xstrdup( token );
         remove_stdcall_decoration( odp->link_name );
         token = GetToken(1);
-    }
-    else
-    {
-      odp->link_name = xstrdup( name );
     }
 
     /* check for optional ordinal */

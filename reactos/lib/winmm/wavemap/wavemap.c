@@ -37,7 +37,6 @@
 #include "mmddk.h"
 #include "mmreg.h"
 #include "msacm.h"
-#include "wine/unicode.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(wavemap);
@@ -270,8 +269,8 @@ error:
         WARN("ret = WAVERR_BADFORMAT\n");
         return WAVERR_BADFORMAT;
     }
-    WARN("ret = 0x%08lx\n", res);
-    return res;
+    WARN("ret = MMSYSERR_ERROR\n");
+    return MMSYSERR_ERROR;
 }
 
 static	DWORD	wodClose(WAVEMAPDATA* wom)
@@ -423,15 +422,13 @@ static	DWORD	wodGetPosition(WAVEMAPDATA* wom, LPMMTIME lpTime, DWORD dwParam2)
     return val;
 }
 
-static	DWORD	wodGetDevCaps(UINT wDevID, WAVEMAPDATA* wom, LPWAVEOUTCAPSW lpWaveCaps, DWORD dwParam2)
+static	DWORD	wodGetDevCaps(UINT wDevID, WAVEMAPDATA* wom, LPWAVEOUTCAPSA lpWaveCaps, DWORD dwParam2)
 {
-    static const WCHAR name[] = {'W','i','n','e',' ','w','a','v','e',' ','o','u','t',' ','m','a','p','p','e','r',0};
-
     TRACE("(%04x %p %p %08lx)\n",wDevID, wom, lpWaveCaps, dwParam2);
 
     /* if opened low driver, forward message */
     if (WAVEMAP_IsData(wom))
-	return waveOutGetDevCapsW((UINT)wom->u.out.hInnerWave, lpWaveCaps, dwParam2);
+	return waveOutGetDevCapsA((UINT)wom->u.out.hInnerWave, lpWaveCaps, dwParam2);
     /* else if no drivers, nothing to map so return bad device */
     if (waveOutGetNumDevs() == 0) {
         WARN("bad device id\n");
@@ -439,11 +436,11 @@ static	DWORD	wodGetDevCaps(UINT wDevID, WAVEMAPDATA* wom, LPWAVEOUTCAPSW lpWaveC
     }
     /* otherwise, return caps of mapper itself */
     if (wDevID == (UINT)-1 || wDevID == (UINT16)-1) {
-	WAVEOUTCAPSW woc;
+        WAVEOUTCAPSA woc;
 	woc.wMid = 0x00FF;
 	woc.wPid = 0x0001;
 	woc.vDriverVersion = 0x0100;
-	lstrcpyW(woc.szPname, name);
+	strcpy(woc.szPname, "Wine wave out mapper");
 	woc.dwFormats =
             WAVE_FORMAT_96M08 | WAVE_FORMAT_96S08 | WAVE_FORMAT_96M16 | WAVE_FORMAT_96S16 |
             WAVE_FORMAT_48M08 | WAVE_FORMAT_48S08 | WAVE_FORMAT_48M16 | WAVE_FORMAT_48S16 |
@@ -559,7 +556,7 @@ DWORD WINAPI WAVEMAP_wodMessage(UINT wDevID, UINT wMsg, DWORD dwUser,
     case WODM_BREAKLOOP: 	return wodBreakLoop	((WAVEMAPDATA*)dwUser);
     case WODM_PREPARE:	 	return wodPrepare	((WAVEMAPDATA*)dwUser, (LPWAVEHDR)dwParam1, 	dwParam2);
     case WODM_UNPREPARE: 	return wodUnprepare	((WAVEMAPDATA*)dwUser, (LPWAVEHDR)dwParam1, 	dwParam2);
-    case WODM_GETDEVCAPS:	return wodGetDevCaps	(wDevID, (WAVEMAPDATA*)dwUser, (LPWAVEOUTCAPSW)dwParam1,dwParam2);
+    case WODM_GETDEVCAPS:	return wodGetDevCaps	(wDevID, (WAVEMAPDATA*)dwUser, (LPWAVEOUTCAPSA)dwParam1,dwParam2);
     case WODM_GETNUMDEVS:	return 1;
     case WODM_GETPITCH:	 	return MMSYSERR_NOTSUPPORTED;
     case WODM_SETPITCH:	 	return MMSYSERR_NOTSUPPORTED;
@@ -781,8 +778,8 @@ error:
         WARN("ret = WAVERR_BADFORMAT\n");
         return WAVERR_BADFORMAT;
     }
-    WARN("ret = 0x%08lx\n", res);
-    return res;
+    WARN("ret = MMSYSERR_ERROR\n");
+    return MMSYSERR_ERROR;
 }
 
 static	DWORD	widClose(WAVEMAPDATA* wim)
@@ -919,13 +916,13 @@ static	DWORD	widGetPosition(WAVEMAPDATA* wim, LPMMTIME lpTime, DWORD dwParam2)
     return val;
 }
 
-static	DWORD	widGetDevCaps(UINT wDevID, WAVEMAPDATA* wim, LPWAVEINCAPSW lpWaveCaps, DWORD dwParam2)
+static	DWORD	widGetDevCaps(UINT wDevID, WAVEMAPDATA* wim, LPWAVEINCAPSA lpWaveCaps, DWORD dwParam2)
 {
     TRACE("(%04x, %p %p %08lx)\n", wDevID, wim, lpWaveCaps, dwParam2);
 
     /* if opened low driver, forward message */
     if (WAVEMAP_IsData(wim))
-	return waveInGetDevCapsW((UINT)wim->u.in.hInnerWave, lpWaveCaps, dwParam2);
+	return waveInGetDevCapsA((UINT)wim->u.in.hInnerWave, lpWaveCaps, dwParam2);
     /* else if no drivers, nothing to map so return bad device */
     if (waveInGetNumDevs() == 0) {
         WARN("bad device id\n");
@@ -933,12 +930,11 @@ static	DWORD	widGetDevCaps(UINT wDevID, WAVEMAPDATA* wim, LPWAVEINCAPSW lpWaveCa
     }
     /* otherwise, return caps of mapper itself */
     if (wDevID == (UINT)-1 || wDevID == (UINT16)-1) {
-        WAVEINCAPSW wic;
-        static const WCHAR init[] = {'W','i','n','e',' ','w','a','v','e',' ','i','n',' ','m','a','p','p','e','r',0};
+        WAVEINCAPSA wic;
 	wic.wMid = 0x00FF;
 	wic.wPid = 0x0001;
 	wic.vDriverVersion = 0x0001;
-	strcpyW(wic.szPname, init);
+	strcpy(wic.szPname, "Wine wave in mapper");
 	wic.dwFormats =
             WAVE_FORMAT_96M08 | WAVE_FORMAT_96S08 | WAVE_FORMAT_96M16 | WAVE_FORMAT_96S16 |
             WAVE_FORMAT_48M08 | WAVE_FORMAT_48S08 | WAVE_FORMAT_48M16 | WAVE_FORMAT_48S16 |
@@ -1027,7 +1023,7 @@ DWORD WINAPI WAVEMAP_widMessage(WORD wDevID, WORD wMsg, DWORD dwUser,
     case WIDM_ADDBUFFER:	return widAddBuffer     ((WAVEMAPDATA*)dwUser, (LPWAVEHDR)dwParam1, 	dwParam2);
     case WIDM_PREPARE:		return widPrepare       ((WAVEMAPDATA*)dwUser, (LPWAVEHDR)dwParam1, 	dwParam2);
     case WIDM_UNPREPARE:	return widUnprepare     ((WAVEMAPDATA*)dwUser, (LPWAVEHDR)dwParam1, 	dwParam2);
-    case WIDM_GETDEVCAPS:	return widGetDevCaps    (wDevID, (WAVEMAPDATA*)dwUser, (LPWAVEINCAPSW)dwParam1, dwParam2);
+    case WIDM_GETDEVCAPS:	return widGetDevCaps    (wDevID, (WAVEMAPDATA*)dwUser, (LPWAVEINCAPSA)dwParam1, dwParam2);
     case WIDM_GETNUMDEVS:	return 1;
     case WIDM_GETPOS:		return widGetPosition   ((WAVEMAPDATA*)dwUser, (LPMMTIME)dwParam1, 	dwParam2);
     case WIDM_RESET:		return widReset         ((WAVEMAPDATA*)dwUser);

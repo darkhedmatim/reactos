@@ -1,17 +1,20 @@
-#ifndef __CPL_DESK_H__
-#define __CPL_DESK_H__
+#ifndef __CPL_APPWIZ_H
+#define __CPL_APPWIZ_H
+
+typedef LONG (CALLBACK *CPLAPPLET_PROC)(VOID);
 
 typedef struct
 {
-    int idIcon;
-    int idName;
-    int idDescription;
-    
-    APPLET_PROC AppletProc;
-    
+  int idIcon;
+  int idName;
+  int idDescription;
+  CPLAPPLET_PROC AppletProc;
 } APPLET, *PAPPLET;
 
 extern HINSTANCE hApplet;
 
-#endif /* __CPL_DESK_H__ */
+void ShowLastWin32Error(HWND hWndOwner);
 
+#endif /* __CPL_APPWIZ_H */
+
+/* EOF */

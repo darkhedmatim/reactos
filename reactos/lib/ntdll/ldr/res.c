@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: res.c,v 1.7 2004/09/11 17:06:33 gvg Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -110,14 +110,12 @@ LdrFindResource_U(PVOID BaseAddress,
     int j, pos = 0;
     LCID UserLCID, SystemLCID;
     LANGID UserLangID, SystemLangID;
-    BOOLEAN MappedAsDataFile;
 
-    MappedAsDataFile = LdrMappedAsDataFile(&BaseAddress);
     DPRINT("LdrFindResource_U(%08x, %08x, %d, %08x)\n", BaseAddress, ResourceInfo, Level, ResourceDataEntry);
 
     /* Get the pointer to the resource directory */
     ResDir = (PIMAGE_RESOURCE_DIRECTORY)RtlImageDirectoryEntryToData(BaseAddress,
-                      ! MappedAsDataFile, IMAGE_DIRECTORY_ENTRY_RESOURCE, &i);
+                      TRUE, IMAGE_DIRECTORY_ENTRY_RESOURCE, &i);
     if (ResDir == NULL) {
         return STATUS_RESOURCE_DATA_NOT_FOUND;
     }
@@ -280,20 +278,18 @@ LdrAccessResource(IN  PVOID BaseAddress,
     ULONG DataSize;
     ULONG Offset = 0;
     ULONG Data;
-    BOOLEAN MappedAsDataFile;
 
     if(!ResourceDataEntry)
         return STATUS_RESOURCE_DATA_NOT_FOUND;
 
-    MappedAsDataFile = LdrMappedAsDataFile(&BaseAddress);
     Data = (ULONG)RtlImageDirectoryEntryToData(BaseAddress,
                            TRUE, IMAGE_DIRECTORY_ENTRY_RESOURCE, &DataSize);
     if (Data == 0) {
         return STATUS_RESOURCE_DATA_NOT_FOUND;
     }
-    if (MappedAsDataFile) {
+    if ((ULONG)BaseAddress & 1) {
         /* loaded as ordinary file */
-        NtHeader = RtlImageNtHeader(BaseAddress);
+        NtHeader = RtlImageNtHeader((PVOID)((ULONG)BaseAddress & ~1UL));
         Offset = (ULONG)BaseAddress - Data + NtHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress;
         Section = RtlImageRvaToSection(NtHeader, BaseAddress, NtHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress);
         if (Section == NULL) {

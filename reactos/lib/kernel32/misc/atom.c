@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: atom.c,v 1.21 2004/11/28 21:16:15 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

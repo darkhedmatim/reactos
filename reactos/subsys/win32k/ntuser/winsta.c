@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id$
+ *  $Id: winsta.c,v 1.68 2004/12/12 01:40:38 weiden Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -199,9 +199,6 @@ IntInitializeDesktopGraphics(VOID)
   
   NtUserAcquireOrReleaseInputOwnership(FALSE);
 
-  /* Setup the cursor */
-  IntLoadDefaultCursors();
-
   return TRUE;
 }
 
@@ -327,7 +324,7 @@ NtUserCreateWindowStation(
    DPRINT("Creating window station (%wZ)\n", &WindowStationName);
 
    Status = ObCreateObject(
-      KernelMode,
+      ExGetPreviousMode(),
       ExWindowStationObjectType,
       &ObjectAttributes,
       ExGetPreviousMode(),
@@ -339,7 +336,7 @@ NtUserCreateWindowStation(
 
    if (!NT_SUCCESS(Status))
    {
-      DPRINT1("Failed creating window station (%wZ)\n", &WindowStationName);
+      DPRINT("Failed creating window station (%wZ)\n", &WindowStationName);
       ExFreePool(WindowStationName.Buffer);
       SetLastNtError(STATUS_INSUFFICIENT_RESOURCES);
       return 0;
@@ -392,6 +389,8 @@ NtUserCreateWindowStation(
    ExInitializeFastMutex(&CurInfo->CursorMutex);
    CurInfo->Enabled = FALSE;
    CurInfo->ButtonsDown = 0;
+   CurInfo->x = (LONG)0;
+   CurInfo->y = (LONG)0;
    CurInfo->CursorClipInfo.IsClipped = FALSE;
    CurInfo->LastBtnDown = 0;
    CurInfo->CurrentCursorObject = NULL;
@@ -813,15 +812,11 @@ IntGetWinStaObj(VOID)
                                                      KernelMode,
                                                      0,
                                                      &WinStaObj);
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastNtError(Status);
-      return NULL;
-    }
-  }
-  else
-  {
-    WinStaObj = NULL;
+   if(!NT_SUCCESS(Status))
+   {
+     SetLastNtError(Status);
+     return NULL;
+   }
   }
   
   return WinStaObj;
@@ -1009,7 +1004,7 @@ BuildWindowStationNameList(
    char InitialBuffer[256], *Buffer;
    ULONG Context, ReturnLength, BufferSize;
    DWORD EntryCount;
-   POBJECT_DIRECTORY_INFORMATION DirEntry;
+   PDIRECTORY_BASIC_INFORMATION DirEntry;
    WCHAR NullWchar;
 	
    /*
@@ -1095,7 +1090,7 @@ BuildWindowStationNameList(
     */
    ReturnLength = sizeof(DWORD);
    EntryCount = 0;
-   for (DirEntry = (POBJECT_DIRECTORY_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
+   for (DirEntry = (PDIRECTORY_BASIC_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
         DirEntry++)
    {
       ReturnLength += DirEntry->ObjectName.Length + sizeof(WCHAR);
@@ -1142,7 +1137,7 @@ BuildWindowStationNameList(
    lpBuffer = (PVOID) ((PCHAR) lpBuffer + sizeof(DWORD));
 
    NullWchar = L'\0';
-   for (DirEntry = (POBJECT_DIRECTORY_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
+   for (DirEntry = (PDIRECTORY_BASIC_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
         DirEntry++)
    {
       Status = MmCopyToCaller(lpBuffer, DirEntry->ObjectName.Buffer, DirEntry->ObjectName.Length);

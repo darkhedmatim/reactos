@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: misc.c,v 1.1 2004/09/06 21:15:45 weiden Exp $
  *
  * PROJECT:         ReactOS gdi32.dll
  * FILE:            lib/gdi32/misc/misc.c
@@ -29,7 +29,6 @@
 #include "precomp.h"
 
 PGDI_TABLE_ENTRY GdiHandleTable = NULL;
-HANDLE CurrentProcessId = NULL;
 
 /*
  * @implemented
@@ -39,33 +38,4 @@ STDCALL
 GdiQueryTable(VOID)
 {
   return (PVOID)GdiHandleTable;
-}
-
-BOOL GdiIsHandleValid(HGDIOBJ hGdiObj)
-{
-  PGDI_TABLE_ENTRY Entry = GdiHandleTable + GDI_HANDLE_GET_INDEX(hGdiObj);
-  if(Entry->KernelData != NULL && (Entry->Type & GDI_HANDLE_TYPE_MASK) == GDI_HANDLE_GET_TYPE(hGdiObj))
-  {
-    HANDLE pid = (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1);
-    if(pid == NULL || pid == CurrentProcessId)
-    {
-      return TRUE;
-    }
-  }
-  return FALSE;
-}
-
-BOOL GdiGetHandleUserData(HGDIOBJ hGdiObj, PVOID *UserData)
-{
-  PGDI_TABLE_ENTRY Entry = GdiHandleTable + GDI_HANDLE_GET_INDEX(hGdiObj);
-  if(Entry->KernelData != NULL && (Entry->Type & GDI_HANDLE_TYPE_MASK) == GDI_HANDLE_GET_TYPE(hGdiObj))
-  {
-    HANDLE pid = (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1);
-    if(pid == NULL || pid == CurrentProcessId)
-    {
-      *UserData = Entry->UserData;
-      return TRUE;
-    }
-  }
-  return FALSE;
 }

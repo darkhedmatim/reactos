@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: vpb.c,v 1.26 2004/10/22 20:25:54 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/vpb.c
  * PURPOSE:         Volume Parameter Block managment
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -280,7 +281,7 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    PDEVICE_OBJECT DeviceObject;
    PIRP Irp;
    NTSTATUS Status;
-   PIO_STACK_LOCATION StackPtr;
+   PEXTENDED_IO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
 
@@ -332,7 +333,7 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    Irp->UserIosb = IoStatusBlock;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
-   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
    StackPtr->MajorFunction = IRP_MJ_SET_VOLUME_INFORMATION;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;

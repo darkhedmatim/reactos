@@ -1,4 +1,4 @@
-# $Id$
+# $Id: makefile,v 1.111 2004/11/07 18:45:52 hyperion Exp $
 
 PATH_TO_TOP = ../..
 
@@ -12,10 +12,6 @@ TARGET_CFLAGS = -g -D__NTDLL__ -Werror -Wall
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
-
-ifneq ($(DBG), 0)
-TARGET_CFLAGS += -DDBG
-endif
 
 TARGET_ASFLAGS = -I $(PATH_TO_TOP)/include
 
@@ -81,6 +77,7 @@ RTL_OBJECTS = \
 	rtl/process.o \
 	rtl/propvar.o \
 	rtl/rangelist.o \
+	rtl/registry.o \
 	rtl/resource.o \
 	rtl/teb.o \
 	rtl/thread.o \

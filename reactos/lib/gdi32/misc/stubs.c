@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.65 2004/09/06 21:15:45 weiden Exp $
  *
  * reactos/lib/gdi32/misc/stubs.c
  *
@@ -150,15 +150,25 @@ EnumObjects(
 	return 0;
 }
 
+
 /*
  * @unimplemented
  */
 int
 STDCALL
-Escape(HDC hdc, INT escape, INT in_count, LPCSTR in_data, LPVOID out_data)
+Escape(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	LPCSTR		a3,
+	LPVOID		a4
+	)
 {
-    return NtGdiEscape(hdc,escape,in_count,in_data,out_data);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
+
 
 /*
  * @unimplemented
@@ -263,9 +273,13 @@ GetRasterizerCaps(
  */
 UINT
 STDCALL
-GetSystemPaletteUse(HDC hDc)
+GetSystemPaletteUse(
+	HDC	hDc
+	)
 {
-    return NtGdiGetSystemPaletteUse(hDc);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -1075,6 +1089,25 @@ WidenPath(
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HPEN
+STDCALL
+ExtCreatePen(
+	DWORD		a0,
+	DWORD		a1,
+	CONST LOGBRUSH	*a2,
+	DWORD		a3,
+	CONST DWORD	*a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 

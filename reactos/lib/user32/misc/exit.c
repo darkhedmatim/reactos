@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: exit.c,v 1.6 2004/08/15 21:36:28 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -104,7 +104,7 @@ RegisterServicesProcess(DWORD ServicesProcessId)
   NTSTATUS Status;
 
   Request.Type = CSRSS_REGISTER_SERVICES_PROCESS;
-  Request.Data.RegisterServicesProcessRequest.ProcessId = (HANDLE)ServicesProcessId;
+  Request.Data.RegisterServicesProcessRequest.ProcessId = ServicesProcessId;
 
   Status = CsrClientCallServer(&Request,
 			       &Reply,

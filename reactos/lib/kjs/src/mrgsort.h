@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/src/mrgsort.h,v $
- * $Id$
+ * $Id: mrgsort.h,v 1.1 2004/01/10 20:38:18 arty Exp $
  */
 
 #ifndef MERGESORT_H

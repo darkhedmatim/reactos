@@ -1840,6 +1840,7 @@ COMBOEX_EditWndProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	    return CallWindowProcW (infoPtr->prevEditWndProc,
 				   hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 
@@ -2242,6 +2243,7 @@ COMBOEX_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		ERR("unknown msg %04x wp=%08x lp=%08lx\n",uMsg,wParam,lParam);
 	    return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 

@@ -75,11 +75,10 @@ static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVO
 static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 {
 	ISHRegStream *This = (ISHRegStream *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
-	
-	TRACE("(%p)->(ref before=%lu)\n",This, refCount - 1);
 
-	return refCount;
+	TRACE("(%p)->(count=%lu)\n",This, This->ref);
+
+	return InterlockedIncrement(&This->ref);
 }
 
 /**************************************************************************
@@ -88,15 +87,15 @@ static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 static ULONG WINAPI IStream_fnRelease(IStream *iface)
 {
 	ISHRegStream *This = (ISHRegStream *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
 
-	TRACE("(%p)->(ref before=%lu)\n",This, refCount + 1);
+	TRACE("(%p)->()\n",This);
 
-	if (!refCount)
+	if (!InterlockedDecrement(&This->ref))
 	{
 	  TRACE(" destroying SHReg IStream (%p)\n",This);
 
-          HeapFree(GetProcessHeap(),0,This->pbBuffer);
+	  if (This->pbBuffer)
+	    HeapFree(GetProcessHeap(),0,This->pbBuffer);
 
 	  if (This->hKey)
 	    RegCloseKey(This->hKey);
@@ -104,8 +103,7 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
 	  HeapFree(GetProcessHeap(),0,This);
 	  return 0;
 	}
-
-	return refCount;
+	return This->ref;
 }
 
 /**************************************************************************
@@ -390,7 +388,8 @@ IStream * WINAPI SHOpenRegStream2A(HKEY hKey, LPCSTR pszSubkey,
       dwType == REG_BINARY)
     return IStream_Create(hStrKey, lpBuff, dwLength);
 
-  HeapFree (GetProcessHeap(), 0, lpBuff);
+  if (lpBuff)
+    HeapFree (GetProcessHeap(), 0, lpBuff);
   if (hStrKey)
     RegCloseKey(hStrKey);
   return NULL;
@@ -419,7 +418,8 @@ IStream * WINAPI SHOpenRegStream2W(HKEY hKey, LPCWSTR pszSubkey,
       dwType == REG_BINARY)
     return IStream_Create(hStrKey, lpBuff, dwLength);
 
-  HeapFree (GetProcessHeap(), 0, lpBuff);
+  if (lpBuff)
+    HeapFree (GetProcessHeap(), 0, lpBuff);
   if (hStrKey)
     RegCloseKey(hStrKey);
   return NULL;

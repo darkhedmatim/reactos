@@ -1,11 +1,29 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: main.c,v 1.211 2004/12/12 20:14:01 hbirr Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/main.c
  * PURPOSE:         Initalizes the kernel
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                28/05/98: Created
  */
 
 /* INCLUDES *****************************************************************/
@@ -31,10 +49,6 @@
 
 /* GLOBALS *******************************************************************/
 
-#define BUILD_OSCSDVERSION(major, minor) (((major & 0xFF) << 8) | (minor & 0xFF))
-ULONG NtMajorVersion = 4;
-ULONG NtMinorVersion = 0;
-ULONG NtOSCSDVersion = BUILD_OSCSDVERSION(6, 0);
 #ifdef  __GNUC__
 ULONG EXPORTED NtBuildNumber = KERNEL_VERSION_BUILD;
 ULONG EXPORTED NtGlobalFlag = 0;
@@ -59,28 +73,19 @@ EXPORTED ULONG InitSafeBootMode = 0; /* KB83764 */
 #endif	/* __GNUC__ */
 
 static LOADER_MODULE KeLoaderModules[64];
-static CHAR KeLoaderModuleStrings[64][256];
-static CHAR KeLoaderCommandLine[256];
+static UCHAR KeLoaderModuleStrings[64][256];
+static UCHAR KeLoaderCommandLine[256];
 static ADDRESS_RANGE KeMemoryMap[64];
 static ULONG KeMemoryMapRangeCount;
-static ULONG_PTR FirstKrnlPhysAddr;
-static ULONG_PTR LastKrnlPhysAddr;
-static ULONG_PTR LastKernelAddress;
+static ULONG FirstKrnlPhysAddr;
+static ULONG LastKrnlPhysAddr;
+static ULONG LastKernelAddress;
 volatile BOOLEAN Initialized = FALSE;
 extern ULONG MmCoreDumpType;
 extern CHAR KiTimerSystemAuditing;
 
 extern PVOID Ki386InitialStackArray[MAXIMUM_PROCESSORS];
 
-/* We allocate 4 pages, but we only use 3. The 4th is to guarantee page alignment */
-ULONG kernel_stack[4096];
-ULONG double_trap_stack[4096];
-
-/* These point to the aligned 3 pages */
-ULONG init_stack;
-ULONG init_stack_top;
-ULONG trap_stack;
-ULONG trap_stack_top;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -456,10 +461,10 @@ ExpInitializeExecutive(VOID)
 
   KeInit2();
   
-#if 0
+#if 1
   if (KeMemoryMapRangeCount > 0)
     {
-      DPRINT1("MemoryMap:\n");
+      DPRINT("MemoryMap:\n");
       for (i = 0; i < KeMemoryMapRangeCount; i++)
         {
           switch(KeMemoryMap[i].Type)
@@ -479,7 +484,7 @@ ExpInitializeExecutive(VOID)
 	      default:
 	        sprintf(str, "type %lu", KeMemoryMap[i].Type);
             }
-          DPRINT1("%08x - %08x %s\n", KeMemoryMap[i].BaseAddrLow, KeMemoryMap[i].BaseAddrLow + KeMemoryMap[i].LengthLow, str);
+          DPRINT("%08x - %08x %s\n", KeMemoryMap[i].BaseAddrLow, KeMemoryMap[i].BaseAddrLow + KeMemoryMap[i].LengthLow, str);
 	}
     }
 #endif
@@ -496,8 +501,6 @@ ExpInitializeExecutive(VOID)
   if (!SeInit2())
     KEBUGCHECK(SECURITY1_INITIALIZATION_FAILED);
 
-  KeNumberProcessors = 1;
-
   PiInitProcessManager();
 
   if (KdPollBreakIn ())
@@ -506,6 +509,8 @@ ExpInitializeExecutive(VOID)
     }
 
   /* Initialize all processors */
+  KeNumberProcessors = 1;
+
   while (!HalAllProcessorsStarted())
     {
       PVOID ProcessorStack;
@@ -514,7 +519,11 @@ ExpInitializeExecutive(VOID)
       PsPrepareForApplicationProcessorInit(KeNumberProcessors);
 
       /* Allocate a stack for use when booting the processor */
-      ProcessorStack = Ki386InitialStackArray[((int)KeNumberProcessors)] + MM_STACK_SIZE;
+      /* FIXME: The nonpaged memory for the stack is not released after use */
+      ProcessorStack = 
+	(char*)ExAllocatePool(NonPagedPool, MM_STACK_SIZE) + MM_STACK_SIZE;
+      Ki386InitialStackArray[((int)KeNumberProcessors)] = 
+	(PVOID)((char*)ProcessorStack - MM_STACK_SIZE);
 
       HalStartNextProcessor(0, (ULONG)ProcessorStack - 2*sizeof(FX_SAVE_AREA));
       KeNumberProcessors++;
@@ -530,6 +539,7 @@ ExpInitializeExecutive(VOID)
   IoInit();
   PoInit();
   CmInitializeRegistry();
+  NtInit();
   MmInit3();
   CcInit();
   KdInit2();
@@ -686,9 +696,8 @@ ExpInitializeExecutive(VOID)
   IoCreateArcNames();
 
   /* Create the SystemRoot symbolic link */
-  CPRINT("CommandLine: %s\n", (PCHAR)KeLoaderBlock.CommandLine);
-  DPRINT1("MmSystemRangeStart: 0x%x PageDir: 0x%x\n", MmSystemRangeStart, KeLoaderBlock.PageDirectoryStart);
-  Status = IoCreateSystemRootLink((PCHAR)KeLoaderBlock.CommandLine);
+  CPRINT("CommandLine: %s\n", (PUCHAR)KeLoaderBlock.CommandLine);
+  Status = IoCreateSystemRootLink((PUCHAR)KeLoaderBlock.CommandLine);
   if (!NT_SUCCESS(Status))
   {
     DbgPrint ( "IoCreateSystemRootLink FAILED: (0x%x) - ", Status );
@@ -696,7 +705,7 @@ ExpInitializeExecutive(VOID)
     KEBUGCHECK(INACCESSIBLE_BOOT_DEVICE);
   }
 
-#if defined(KDBG) || defined(DBG)
+#ifdef KDBG
   KdbInitProfiling2();
 #endif /* KDBG */
 
@@ -736,7 +745,7 @@ ExpInitializeExecutive(VOID)
    * Initialize shared user page:
    *  - set dos system path, dos device map, etc.
    */
-  InitSystemSharedUserPage ((PCHAR)KeLoaderBlock.CommandLine);
+  InitSystemSharedUserPage ((PUCHAR)KeLoaderBlock.CommandLine);
 
   /* Create 'ReactOSInitDone' event */
   RtlInitUnicodeString(&Name, L"\\ReactOSInitDone");
@@ -745,7 +754,7 @@ ExpInitializeExecutive(VOID)
     0,
     NULL,
     NULL);
-  Status = ZwCreateEvent(&InitDoneEventHandle,
+  Status = NtCreateEvent(&InitDoneEventHandle,
     EVENT_ALL_ACCESS,
     &ObjectAttributes,
     SynchronizationEvent,
@@ -775,7 +784,7 @@ ExpInitializeExecutive(VOID)
 
       /* Wait for the system to be initialized */
       Timeout.QuadPart = (LONGLONG)-1200000000;  /* 120 second timeout */
-      Status = ZwWaitForMultipleObjects(((LONG) sizeof(Handles) / sizeof(HANDLE)),
+      Status = NtWaitForMultipleObjects(((LONG) sizeof(Handles) / sizeof(HANDLE)),
         Handles,
         WaitAny,
         FALSE,    /* Non-alertable */
@@ -801,9 +810,9 @@ ExpInitializeExecutive(VOID)
           InbvEnableBootDriver(FALSE);
         }
 
-      ZwSetEvent(InitDoneEventHandle, NULL);
+      NtSetEvent(InitDoneEventHandle, NULL);
 
-      ZwClose(InitDoneEventHandle);
+      NtClose(InitDoneEventHandle);
     }
   else
     {
@@ -817,7 +826,7 @@ ExpInitializeExecutive(VOID)
        * Crash the system if the initial process terminates within 5 seconds.
        */
       Timeout.QuadPart = (LONGLONG)-50000000;  /* 5 second timeout */
-      Status = ZwWaitForSingleObject(ProcessHandle,
+      Status = NtWaitForSingleObject(ProcessHandle,
     				 FALSE,
     				 &Timeout);
       if (Status != STATUS_TIMEOUT)
@@ -831,14 +840,13 @@ ExpInitializeExecutive(VOID)
 
   KiTimerSystemAuditing = 1;
 
-  ZwClose(ThreadHandle);
-  ZwClose(ProcessHandle);
+  NtClose(ThreadHandle);
+  NtClose(ProcessHandle);
 }
 
 VOID __attribute((noinline))
 KiSystemStartup(BOOLEAN BootProcessor)
 {
-  DPRINT1("KiSystemStartup(%d)\n", BootProcessor);
   if (BootProcessor)
   {
   }
@@ -880,16 +888,11 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
 {
   ULONG i;
   ULONG size;
+  extern ULONG _bss_end__;
   ULONG HalBase;
   ULONG DriverBase;
   ULONG DriverSize;
 
-  /* Set up the Stacks */
-  trap_stack = PAGE_ROUND_UP(&double_trap_stack);
-  trap_stack_top = trap_stack + 3 * PAGE_SIZE;
-  init_stack = PAGE_ROUND_UP(&kernel_stack);
-  init_stack_top = init_stack + 3 * PAGE_SIZE;
-            
   /*
    * Copy the parameters to a local buffer because lowmem will go away
    */
@@ -899,9 +902,6 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
   KeLoaderBlock.ModsCount++;
   KeLoaderBlock.ModsAddr = (ULONG)&KeLoaderModules;
 
-  /* Save the Base Address */
-  MmSystemRangeStart = (PVOID)KeLoaderBlock.KernelBase;
-  
   /*
    * Convert a path specification in the grub format to one understood by the
    * rest of the kernel.
@@ -917,10 +917,10 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
       if (((PUCHAR)_LoaderBlock->CommandLine)[1] == 'h' &&
 	  ((PUCHAR)_LoaderBlock->CommandLine)[2] == 'd')
 	{
-	  DiskNumber = ((PCHAR)_LoaderBlock->CommandLine)[3] - '0';
-	  PartNumber = ((PCHAR)_LoaderBlock->CommandLine)[5] - '0';
+	  DiskNumber = ((PUCHAR)_LoaderBlock->CommandLine)[3] - '0';
+	  PartNumber = ((PUCHAR)_LoaderBlock->CommandLine)[5] - '0';
 	}
-      strcpy(Temp, &((PCHAR)_LoaderBlock->CommandLine)[7]);
+      strcpy(Temp, &((PUCHAR)_LoaderBlock->CommandLine)[7]);
       if ((options = strchr(Temp, ' ')) != NULL)
 	{
 	  *options = 0;
@@ -955,28 +955,36 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
     }
   else
     {
-      strcpy(KeLoaderCommandLine, (PCHAR)_LoaderBlock->CommandLine);
+      strcpy(KeLoaderCommandLine, (PUCHAR)_LoaderBlock->CommandLine);
     }
   KeLoaderBlock.CommandLine = (ULONG)KeLoaderCommandLine;
   
   strcpy(KeLoaderModuleStrings[0], "ntoskrnl.exe");
   KeLoaderModules[0].String = (ULONG)KeLoaderModuleStrings[0];
   KeLoaderModules[0].ModStart = KERNEL_BASE;
+#ifdef  __GNUC__
+  KeLoaderModules[0].ModEnd = PAGE_ROUND_UP((ULONG)&_bss_end__);
+#else
   /* Take this value from the PE... */
+  {
     PIMAGE_NT_HEADERS      NtHeader = RtlImageNtHeader((PVOID)KeLoaderModules[0].ModStart);
     PIMAGE_OPTIONAL_HEADER OptHead  = &NtHeader->OptionalHeader;
-    KeLoaderModules[0].ModEnd = KeLoaderModules[0].ModStart + PAGE_ROUND_UP((ULONG)OptHead->SizeOfImage);
+    KeLoaderModules[0].ModEnd =
+      KeLoaderModules[0].ModStart + PAGE_ROUND_UP((ULONG)OptHead->SizeOfImage);
+  }
+#endif
   for (i = 1; i < KeLoaderBlock.ModsCount; i++)
     {      
       CHAR* s;
-      if ((s = strrchr((PCHAR)KeLoaderModules[i].String, '/')) != 0)
+      if ((s = strrchr((PUCHAR)KeLoaderModules[i].String, '/')) != 0)
 	{
 	  strcpy(KeLoaderModuleStrings[i], s + 1);
 	}
       else
 	{
-	  strcpy(KeLoaderModuleStrings[i], (PCHAR)KeLoaderModules[i].String);
+	  strcpy(KeLoaderModuleStrings[i], (PUCHAR)KeLoaderModules[i].String);
 	}
+      /* TODO: Fix this hardcoded load address stuff... */
       KeLoaderModules[i].ModStart -= 0x200000;
       KeLoaderModules[i].ModStart += KERNEL_BASE;
       KeLoaderModules[i].ModEnd -= 0x200000;
@@ -1038,9 +1046,6 @@ _main (ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock)
 
   KdInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
   HalInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
-
-  DPRINT1("_main (%x, %x)\n", MultiBootMagic, _LoaderBlock);
-
 
   KiSystemStartup(1);
 }

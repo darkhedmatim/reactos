@@ -33,6 +33,7 @@
 #include "winuser.h"
 #include "winnls.h"
 #include "commctrl.h"
+#include "comctl32.h"
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
@@ -115,8 +116,14 @@ static VOID SYSLINK_FreeDocItem (PDOC_ITEM DocItem)
 {
     if(DocItem->Type == slLink)
     {
-        SYSLINK_Free(DocItem->u.Link.szID);
-        SYSLINK_Free(DocItem->u.Link.szUrl);
+        if(DocItem->u.Link.szID != NULL)
+        {
+            SYSLINK_Free(DocItem->u.Link.szID);
+        }
+        if(DocItem->u.Link.szUrl != NULL)
+        {
+            SYSLINK_Free(DocItem->u.Link.szUrl);
+        }
     }
 
     if(DocItem->Type == slLink && DocItem->u.Link.hRgn != NULL)
@@ -1630,8 +1637,6 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
     case WM_DESTROY:
         TRACE("SysLink Ctrl destruction, hwnd=%p\n", hwnd);
         SYSLINK_ClearDoc(infoPtr);
-        if(infoPtr->Font != 0) DeleteObject(infoPtr->Font);
-        if(infoPtr->LinkFont != 0) DeleteObject(infoPtr->LinkFont);
         SYSLINK_Free (infoPtr);
         SetWindowLongPtrW(hwnd, 0, 0);
         return 0;

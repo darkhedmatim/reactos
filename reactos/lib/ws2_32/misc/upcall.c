@@ -173,6 +173,23 @@ WPUOpenCurrentThread(
 /*
  * @unimplemented
  */
+BOOL
+WSPAPI
+WPUPostMessage(
+    IN  HWND hWnd,
+    IN  UINT Msg,
+    IN  WPARAM wParam,
+    IN  LPARAM lParam)
+{
+    UNIMPLEMENTED
+
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
 INT
 WSPAPI
 WPUQueryBlockingCallback(

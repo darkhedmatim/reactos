@@ -1,11 +1,11 @@
-/* $Id:$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/cleanup.c
- * PURPOSE:         IRP cleanup
- *
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+/*
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/cleanup.c
+ * PURPOSE:        IRP cleanup
+ * PROGRAMMER:     David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                 30/05/98: Created
  */
 
 /* INCLUDES ****************************************************************/
@@ -26,9 +26,9 @@ VOID IoDeviceControlCompletion(PDEVICE_OBJECT DeviceObject,
    if (IoStack->MajorFunction == IRP_MJ_FILE_SYSTEM_CONTROL)
      {
        IoControlCode = 
-	 IoStack->Parameters.FileSystemControl.FsControlCode;
+	 ((PEXTENDED_IO_STACK_LOCATION)IoStack)->Parameters.FileSystemControl.FsControlCode;
        OutputBufferLength = 
-	 IoStack->Parameters.FileSystemControl.OutputBufferLength;
+	 ((PEXTENDED_IO_STACK_LOCATION)IoStack)->Parameters.FileSystemControl.OutputBufferLength;
      }
    else
      {
@@ -298,20 +298,6 @@ IoSecondStageCompletion(
 
       return;
 
-   }
-
-   if (NULL != IoStack->FileObject
-       && NULL != IoStack->FileObject->CompletionContext
-       && (0 != (Irp->Flags & IRP_SYNCHRONOUS_API)
-           || 0 == (IoStack->FileObject->Flags & FO_SYNCHRONOUS_IO)))
-   {
-      PFILE_OBJECT FileObject = IoStack->FileObject;
-      IoSetIoCompletion(FileObject->CompletionContext->Port,
-                        FileObject->CompletionContext->Key,
-                        Irp->Overlay.AsynchronousParameters.UserApcContext,
-                        Irp->IoStatus.Status,
-                        Irp->IoStatus.Information,
-                        FALSE);
    }
 
    IoFreeIrp(Irp);

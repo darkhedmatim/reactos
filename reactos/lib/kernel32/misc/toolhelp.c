@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: toolhelp.c,v 1.10 2004/11/19 01:30:35 weiden Exp $
  *
  * KERNEL32.DLL toolhelp functions
  *
@@ -550,7 +550,7 @@ Heap32ListFirst(HANDLE hSnapshot, LPHEAPLIST32 lphl)
   {
     BOOL Ret;
 
-    if(Snapshot->HeapListCount > 0)
+    if(Snapshot->ModuleListCount > 0)
     {
       LPHEAPLIST32 Entries = (LPHEAPLIST32)OffsetToPtr(Snapshot, Snapshot->HeapListOffset);
       Snapshot->HeapListIndex = 1;

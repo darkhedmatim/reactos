@@ -44,8 +44,7 @@ typedef struct tagFD31_DATA
     LPARAM lParam; /* save original lparam */
     LPCVOID template; /* template for 32 bits resource */
     BOOL open; /* TRUE if open dialog, FALSE if save dialog */
-    LPOPENFILENAMEW ofnW; /* pointer either to the original structure or
-                             a W copy for A/16 API */
+    OPENFILENAMEW ofnW; /* copy of original structure or work struct */
     LPVOID private1632; /* 16/32 bit caller private data */
     PFD31_CALLBACKS callbacks; /* callbacks to handle 16/32 bit differences */
 } FD31_DATA;

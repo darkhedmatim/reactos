@@ -92,8 +92,8 @@ BOOLEAN LanShouldComplete( PLAN_ADAPTER Adapter, PNDIS_PACKET NdisPacket ) {
     }
     KeReleaseSpinLock( &LanSendCompleteLock, OldIrql );
 
-    DbgPrint("NDIS completed the same send packet twice "
-	     "(Adapter %x Packet %x)!!\n", Adapter, NdisPacket);
+    TI_DbgPrint(MID_TRACE,("NDIS completed the same send packet twice "
+			   "(Adapter %x Packet %x)!!\n", Adapter, NdisPacket));
 #ifdef BREAK_ON_DOUBLE_COMPLETE
     KeBugCheck(0);
 #endif
@@ -356,8 +356,7 @@ VOID LanSubmitReceiveWork(
     if( !LanReceiveWorkerBusy ) {
 	LanReceiveWorkerBusy = TRUE;
 	ExQueueWorkItem( &LanWorkItem, CriticalWorkQueue );
-	TI_DbgPrint(DEBUG_DATALINK,
-		    ("Work item inserted %x %x\n", &LanWorkItem, WQItem));
+	DbgPrint("Work item inserted %x %x\n", &LanWorkItem, WQItem);
     } else {
 	DbgPrint("LAN WORKER BUSY %x %x\n", &LanWorkItem, WQItem);
     }
@@ -907,14 +906,6 @@ VOID BindAdapter(
     if(NT_SUCCESS(Status)) 
 	Status = ReadIPAddressFromRegistry( RegHandle, L"SubnetMask",
 					    &IF->Netmask );
-
-    IF->Broadcast.Type = IP_ADDRESS_V4;
-    IF->Broadcast.Address.IPv4Address = 
-        IF->Unicast.Address.IPv4Address | 
-        ~IF->Netmask.Address.IPv4Address;
-
-    TI_DbgPrint(MID_TRACE,("BCAST(IF) %s\n", A2S(&IF->Broadcast)));
-
     if(NT_SUCCESS(Status)) {
 	Status = ReadStringFromRegistry( RegHandle, L"DeviceDesc",
 					 &IF->Name );

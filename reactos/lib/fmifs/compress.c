@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: compress.c,v 1.3 2004/09/15 13:32:26 weiden Exp $
  *
  * COPYING:	See the top level directory
  * PROJECT:	ReactOS 

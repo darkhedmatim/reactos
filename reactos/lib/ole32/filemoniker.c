@@ -325,7 +325,8 @@ HRESULT WINAPI FileMonikerImpl_Load(IMoniker* iface,IStream* pStm)
         return E_FAIL;
     }
 
-    HeapFree(GetProcessHeap(),0,This->filePathName);
+    if (This->filePathName!=NULL)
+        HeapFree(GetProcessHeap(),0,This->filePathName);
 
     This->filePathName=filePathW;
 
@@ -539,7 +540,9 @@ HRESULT WINAPI FileMonikerImpl_Destroy(FileMonikerImpl* This)
 {
     TRACE("(%p)\n",This);
 
-    HeapFree(GetProcessHeap(),0,This->filePathName);
+    if (This->filePathName!=NULL)
+            HeapFree(GetProcessHeap(),0,This->filePathName);
+
     HeapFree(GetProcessHeap(),0,This);
 
     return S_OK;

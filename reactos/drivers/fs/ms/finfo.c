@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: finfo.c,v 1.5 2002/09/08 10:22:10 chorns Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: logon.c,v 1.11 2004/08/15 17:03:14 chorns Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -30,7 +30,6 @@ CreateProcessAsUserA (HANDLE hToken,
 		      LPSTARTUPINFOA lpStartupInfo,
 		      LPPROCESS_INFORMATION lpProcessInformation)
 {
-  PROCESS_ACCESS_TOKEN AccessToken;
   NTSTATUS Status;
 
   /* Create the process with a suspended main thread */
@@ -48,14 +47,11 @@ CreateProcessAsUserA (HANDLE hToken,
       return FALSE;
     }
 
-  AccessToken.Token = hToken;
-  AccessToken.Thread = NULL;
-
   /* Set the new process token */
   Status = NtSetInformationProcess (lpProcessInformation->hProcess,
 				    ProcessAccessToken,
-				    (PVOID)&AccessToken,
-				    sizeof (AccessToken));
+				    (PVOID)&hToken,
+				    sizeof (HANDLE));
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -88,7 +84,6 @@ CreateProcessAsUserW (HANDLE hToken,
 		      LPSTARTUPINFOW lpStartupInfo,
 		      LPPROCESS_INFORMATION lpProcessInformation)
 {
-  PROCESS_ACCESS_TOKEN AccessToken;
   NTSTATUS Status;
 
   /* Create the process with a suspended main thread */
@@ -106,14 +101,11 @@ CreateProcessAsUserW (HANDLE hToken,
       return FALSE;
     }
 
-  AccessToken.Token = hToken;
-  AccessToken.Thread = NULL;
-
   /* Set the new process token */
   Status = NtSetInformationProcess (lpProcessInformation->hProcess,
 				    ProcessAccessToken,
-				    (PVOID)&AccessToken,
-				    sizeof (AccessToken));
+				    (PVOID)&hToken,
+				    sizeof (HANDLE));
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));

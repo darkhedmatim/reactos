@@ -42,12 +42,15 @@
 #include "shlguid.h"
 #include "wingdi.h"
 #include "shlobj.h"
+#include "olectl.h"
 #include "shellapi.h"
 #include "commdlg.h"
 #include "wine/unicode.h"
+#include "servprov.h"
 #include "winreg.h"
 #include "wine/debug.h"
 #include "shlwapi.h"
+#include "winnt.h"
 
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
@@ -608,7 +611,7 @@ HRESULT WINAPI GetAcceptLanguagesA( LPSTR langbuf, LPDWORD buflen)
                                   *buflen, NULL, NULL);
     *buflen = buflenW ? convlen : 0;
 
-    HeapFree(GetProcessHeap(), 0, langbufW);
+    if(langbufW) HeapFree(GetProcessHeap(), 0, langbufW);
     return retval;
 }
 
@@ -618,9 +621,9 @@ HRESULT WINAPI GetAcceptLanguagesA( LPSTR langbuf, LPDWORD buflen)
  * Convert a GUID to a string.
  *
  * PARAMS
- *  guid     [I] GUID to convert
- *  lpszDest [O] Destination for string
- *  cchMax   [I] Length of output buffer
+ *  guid [I] GUID to convert
+ *  str  [O] Destination for string
+ *  cmax [I] Length of output buffer
  *
  * RETURNS
  *  The length of the string created.
@@ -648,36 +651,84 @@ INT WINAPI SHStringFromGUIDA(REFGUID guid, LPSTR lpszDest, INT cchMax)
 /*************************************************************************
  *      @	[SHLWAPI.24]
  *
- * Convert a GUID to a string.
- *
- * PARAMS
- *  guid [I] GUID to convert
- *  str  [O] Destination for string
- *  cmax [I] Length of output buffer
- *
- * RETURNS
- *  The length of the string created.
+ * Unicode version of SHStringFromGUIDA.
  */
 INT WINAPI SHStringFromGUIDW(REFGUID guid, LPWSTR lpszDest, INT cchMax)
 {
-  WCHAR xguid[40];
-  INT iLen;
-  static const WCHAR wszFormat[] = {'{','%','0','8','l','X','-','%','0','4','X','-','%','0','4','X','-',
-      '%','0','2','X','%','0','2','X','-','%','0','2','X','%','0','2','X','%','0','2','X','%','0','2',
-      'X','%','0','2','X','%','0','2','X','}',0};
+  char xguid[40];
+  INT iLen = SHStringFromGUIDA(guid, xguid, cchMax);
 
-  TRACE("(%s,%p,%d)\n", debugstr_guid(guid), lpszDest, cchMax);
-
-  sprintfW(xguid, wszFormat, guid->Data1, guid->Data2, guid->Data3,
-          guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3],
-          guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
-
-  iLen = strlenW(xguid) + 1;
-
-  if (iLen > cchMax)
-    return 0;
-  memcpy(lpszDest, xguid, iLen*sizeof(WCHAR));
+  if (iLen)
+    MultiByteToWideChar(CP_ACP, 0, xguid, -1, lpszDest, cchMax);
   return iLen;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.25]
+ *
+ * Determine if a Unicode character is alphabetic.
+ *
+ * PARAMS
+ *  wc [I] Character to check.
+ *
+ * RETURNS
+ *  TRUE, if wc is alphabetic,
+ *  FALSE otherwise.
+ */
+BOOL WINAPI IsCharAlphaWrapW(WCHAR wc)
+{
+    return (get_char_typeW(wc) & C1_ALPHA) != 0;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.26]
+ *
+ * Determine if a Unicode character is upper-case.
+ *
+ * PARAMS
+ *  wc [I] Character to check.
+ *
+ * RETURNS
+ *  TRUE, if wc is upper-case,
+ *  FALSE otherwise.
+ */
+BOOL WINAPI IsCharUpperWrapW(WCHAR wc)
+{
+    return (get_char_typeW(wc) & C1_UPPER) != 0;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.27]
+ *
+ * Determine if a Unicode character is lower-case.
+ *
+ * PARAMS
+ *  wc [I] Character to check.
+ *
+ * RETURNS
+ *  TRUE, if wc is lower-case,
+ *  FALSE otherwise.
+ */
+BOOL WINAPI IsCharLowerWrapW(WCHAR wc)
+{
+    return (get_char_typeW(wc) & C1_LOWER) != 0;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.28]
+ *
+ * Determine if a Unicode character is alphabetic or a digit.
+ *
+ * PARAMS
+ *  wc [I] Character to check.
+ *
+ * RETURNS
+ *  TRUE, if wc is alphabetic or a digit,
+ *  FALSE otherwise.
+ */
+BOOL WINAPI IsCharAlphaNumericWrapW(WCHAR wc)
+{
+    return (get_char_typeW(wc) & (C1_ALPHA|C1_DIGIT)) != 0;
 }
 
 /*************************************************************************
@@ -694,9 +745,7 @@ INT WINAPI SHStringFromGUIDW(REFGUID guid, LPWSTR lpszDest, INT cchMax)
  */
 BOOL WINAPI IsCharSpaceW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_SPACE);
+    return (get_char_typeW(wc) & C1_SPACE) != 0;
 }
 
 /*************************************************************************
@@ -714,9 +763,7 @@ BOOL WINAPI IsCharSpaceW(WCHAR wc)
  */
 BOOL WINAPI IsCharBlankW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_BLANK);
+    return (get_char_typeW(wc) & C1_BLANK) != 0;
 }
 
 /*************************************************************************
@@ -733,9 +780,7 @@ BOOL WINAPI IsCharBlankW(WCHAR wc)
  */
 BOOL WINAPI IsCharPunctW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_PUNCT);
+    return (get_char_typeW(wc) & C1_PUNCT) != 0;
 }
 
 /*************************************************************************
@@ -752,9 +797,7 @@ BOOL WINAPI IsCharPunctW(WCHAR wc)
  */
 BOOL WINAPI IsCharCntrlW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_CNTRL);
+    return (get_char_typeW(wc) & C1_CNTRL) != 0;
 }
 
 /*************************************************************************
@@ -771,9 +814,7 @@ BOOL WINAPI IsCharCntrlW(WCHAR wc)
  */
 BOOL WINAPI IsCharDigitW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_DIGIT);
+    return (get_char_typeW(wc) & C1_DIGIT) != 0;
 }
 
 /*************************************************************************
@@ -790,9 +831,7 @@ BOOL WINAPI IsCharDigitW(WCHAR wc)
  */
 BOOL WINAPI IsCharXDigitW(WCHAR wc)
 {
-    WORD CharType;
-
-    return GetStringTypeW(CT_CTYPE1, &wc, 1, &CharType) && (CharType & C1_XDIGIT);
+    return (get_char_typeW(wc) & C1_XDIGIT) != 0;
 }
 
 /*************************************************************************
@@ -1901,7 +1940,7 @@ HMENU WINAPI SHGetMenuFromID(HMENU hMenu, UINT uID)
   mi.fMask = MIIM_SUBMENU;
 
   if (!GetMenuItemInfoA(hMenu, uID, 0, &mi))
-    return NULL;
+    return (HMENU)NULL;
 
   return mi.hSubMenu;
 }
@@ -2383,8 +2422,8 @@ HWND WINAPI SHCreateWorkerWindowA(LONG wndProc, HWND hWndParent, DWORD dwExStyle
   wc.cbClsExtra    = 0;
   wc.cbWndExtra    = 4;
   wc.hInstance     = shlwapi_hInstance;
-  wc.hIcon         = NULL;
-  wc.hCursor       = LoadCursorA(NULL, (LPSTR)IDC_ARROW);
+  wc.hIcon         = (HICON)0;
+  wc.hCursor       = LoadCursorA((HINSTANCE)0, (LPSTR)IDC_ARROW);
   wc.hbrBackground = (HBRUSH)COLOR_BTNSHADOW;
   wc.lpszMenuName  = NULL;
   wc.lpszClassName = szClass;
@@ -2670,8 +2709,8 @@ HWND WINAPI SHCreateWorkerWindowW(LONG wndProc, HWND hWndParent, DWORD dwExStyle
   wc.cbClsExtra    = 0;
   wc.cbWndExtra    = 4;
   wc.hInstance     = shlwapi_hInstance;
-  wc.hIcon         = NULL;
-  wc.hCursor       = LoadCursorW(NULL, (LPWSTR)IDC_ARROW);
+  wc.hIcon         = (HICON)0;
+  wc.hCursor       = LoadCursorA((HINSTANCE)0, (LPSTR)IDC_ARROW);
   wc.hbrBackground = (HBRUSH)COLOR_BTNSHADOW;
   wc.lpszMenuName  = NULL;
   wc.lpszClassName = szClass;
@@ -2684,10 +2723,10 @@ HWND WINAPI SHCreateWorkerWindowW(LONG wndProc, HWND hWndParent, DWORD dwExStyle
                          hWndParent, hMenu, shlwapi_hInstance, 0);
   if (hWnd)
   {
-    SetWindowLongW(hWnd, DWL_MSGRESULT, z);
+    SetWindowLongA(hWnd, DWL_MSGRESULT, z);
 
     if (wndProc)
-      SetWindowLongPtrW(hWnd, GWLP_WNDPROC, wndProc);
+      SetWindowLongPtrA(hWnd, GWLP_WNDPROC, wndProc);
   }
   return hWnd;
 }

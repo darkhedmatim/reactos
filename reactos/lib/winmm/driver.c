@@ -1,3 +1,5 @@
+/* -*- tab-width: 8; c-basic-offset: 4 -*- */
+
 /*
  * WINE Drivers functions
  *
@@ -31,16 +33,15 @@
 #include "mmddk.h"
 #include "winemm.h"
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(driver);
 
+#define HKLM_BASE "Software\\Microsoft\\Windows NT\\CurrentVersion"
+
 static LPWINE_DRIVER   lpDrvItemList  /* = NULL */;
-static const WCHAR HKLM_BASE[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\',
-                                  'W','i','n','d','o','w','s',' ','N','T','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n',0};
 
 WINE_MMTHREAD*  (*pFnGetMMThread16)(UINT16 h) /* = NULL */;
-LPWINE_DRIVER   (*pFnOpenDriver16)(LPCWSTR,LPCWSTR,LPARAM) /* = NULL */;
+LPWINE_DRIVER   (*pFnOpenDriver16)(LPCSTR,LPCSTR,LPARAM) /* = NULL */;
 LRESULT         (*pFnCloseDriver16)(UINT16,LPARAM,LPARAM) /* = NULL */;
 LRESULT         (*pFnSendMessage16)(UINT16,UINT,LPARAM,LPARAM) /* = NULL */;
 
@@ -206,19 +207,16 @@ static	BOOL	DRIVER_AddToList(LPWINE_DRIVER lpNewDrv, LPARAM lParam1, LPARAM lPar
  *				DRIVER_GetLibName		[internal]
  *
  */
-BOOL	DRIVER_GetLibName(LPCWSTR keyName, LPCWSTR sectName, LPWSTR buf, int sz)
+BOOL	DRIVER_GetLibName(LPCSTR keyName, LPCSTR sectName, LPSTR buf, int sz)
 {
     HKEY	hKey, hSecKey;
     DWORD	bufLen, lRet;
-    static const WCHAR wszSystemIni[] = {'S','Y','S','T','E','M','.','I','N','I',0};
-    WCHAR       wsznull = '\0';
 
-    lRet = RegOpenKeyExW(HKEY_LOCAL_MACHINE, HKLM_BASE, 0, KEY_QUERY_VALUE, &hKey);
+    lRet = RegOpenKeyExA(HKEY_LOCAL_MACHINE, HKLM_BASE, 0, KEY_QUERY_VALUE, &hKey);
     if (lRet == ERROR_SUCCESS) {
-	lRet = RegOpenKeyExW(hKey, sectName, 0, KEY_QUERY_VALUE, &hSecKey);
+	lRet = RegOpenKeyExA(hKey, sectName, 0, KEY_QUERY_VALUE, &hSecKey);
 	if (lRet == ERROR_SUCCESS) {
-            bufLen = sz;
-	    lRet = RegQueryValueExW(hSecKey, keyName, 0, 0, (void*)buf, &bufLen);
+	    lRet = RegQueryValueExA(hSecKey, keyName, 0, 0, buf, &bufLen);
 	    RegCloseKey( hSecKey );
 	}
         RegCloseKey( hKey );
@@ -226,7 +224,7 @@ BOOL	DRIVER_GetLibName(LPCWSTR keyName, LPCWSTR sectName, LPWSTR buf, int sz)
     if (lRet == ERROR_SUCCESS) return TRUE;
     /* default to system.ini if we can't find it in the registry,
      * to support native installations where system.ini is still used */
-    return GetPrivateProfileStringW(sectName, keyName, &wsznull, buf, sz, wszSystemIni);
+    return GetPrivateProfileStringA(sectName, keyName, "", buf, sz, "SYSTEM.INI");
 }
 
 /**************************************************************************
@@ -234,16 +232,16 @@ BOOL	DRIVER_GetLibName(LPCWSTR keyName, LPCWSTR sectName, LPWSTR buf, int sz)
  *
  * Tries to load a 32 bit driver whose DLL's (module) name is fn
  */
-LPWINE_DRIVER	DRIVER_TryOpenDriver32(LPCWSTR fn, LPARAM lParam2)
+LPWINE_DRIVER	DRIVER_TryOpenDriver32(LPCSTR fn, LPARAM lParam2)
 {
     LPWINE_DRIVER 	lpDrv = NULL;
     HMODULE		hModule = 0;
-    LPWSTR		ptr;
+    LPSTR		ptr;
     LPCSTR		cause = 0;
 
-    TRACE("(%s, %08lX);\n", debugstr_w(fn), lParam2);
+    TRACE("(%s, %08lX);\n", debugstr_a(fn), lParam2);
 
-    if ((ptr = strchrW(fn, ' ')) != NULL) {
+    if ((ptr = strchr(fn, ' ')) != NULL) {
 	*ptr++ = '\0';
 	while (*ptr == ' ') ptr++;
 	if (*ptr == '\0') ptr = NULL;
@@ -252,7 +250,7 @@ LPWINE_DRIVER	DRIVER_TryOpenDriver32(LPCWSTR fn, LPARAM lParam2)
     lpDrv = HeapAlloc(GetProcessHeap(), 0, sizeof(WINE_DRIVER));
     if (lpDrv == NULL) {cause = "OOM"; goto exit;}
 
-    if ((hModule = LoadLibraryW(fn)) == 0) {cause = "Not a 32 bit lib"; goto exit;}
+    if ((hModule = LoadLibraryA(fn)) == 0) {cause = "Not a 32 bit lib"; goto exit;}
 
     lpDrv->d.d32.lpDrvProc = (DRIVERPROC)GetProcAddress(hModule, "DriverProc");
     if (lpDrv->d.d32.lpDrvProc == NULL) {cause = "no DriverProc"; goto exit;}
@@ -292,7 +290,7 @@ LPWINE_DRIVER	DRIVER_TryOpenDriver32(LPCWSTR fn, LPARAM lParam2)
  exit:
     FreeLibrary(hModule);
     HeapFree(GetProcessHeap(), 0, lpDrv);
-    TRACE("Unable to load 32 bit module %s: %s\n", debugstr_w(fn), cause);
+    TRACE("Unable to load 32 bit module %s: %s\n", debugstr_a(fn), cause);
     return NULL;
 }
 
@@ -303,59 +301,23 @@ LPWINE_DRIVER	DRIVER_TryOpenDriver32(LPCWSTR fn, LPARAM lParam2)
  * (0,1,DRV_ENABLE,0       ,0)
  * (0,1,DRV_OPEN  ,buf[256],0)
  */
-HDRVR WINAPI OpenDriverA(LPCSTR lpDriverName, LPCSTR lpSectionName, LPARAM lParam)
-{
-    INT                 len;
-    LPWSTR 		dn = NULL;
-    LPWSTR 		sn = NULL;
-    HDRVR		ret;
-
-    if (lpDriverName)
-    {
-        len = MultiByteToWideChar( CP_ACP, 0, lpDriverName, -1, NULL, 0 );
-        dn = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) );
-        if (!dn) return 0;
-        MultiByteToWideChar( CP_ACP, 0, lpDriverName, -1, dn, len );
-    }
-
-    if (lpSectionName)
-    {
-        len = MultiByteToWideChar( CP_ACP, 0, lpSectionName, -1, NULL, 0 );
-        sn = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) );
-        if (!sn) return 0;
-        MultiByteToWideChar( CP_ACP, 0, lpSectionName, -1, sn, len );
-    }
-
-    ret = OpenDriver(dn, sn, lParam);
-
-    if (dn) HeapFree(GetProcessHeap(), 0, dn);
-    if (sn) HeapFree(GetProcessHeap(), 0, sn);
-    return ret;
-}
-
-/**************************************************************************
- *				OpenDriver 		        [WINMM.@]
- *				DrvOpen				[WINMM.@]
- */
-HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lParam)
+HDRVR WINAPI OpenDriverA(LPCSTR lpDriverName, LPCSTR lpSectionName, LPARAM lParam2)
 {
     LPWINE_DRIVER	lpDrv = NULL;
-    WCHAR 		libName[128];
-    LPCWSTR		lsn = lpSectionName;
+    char 		libName[128];
+    LPCSTR		lsn = lpSectionName;
 
-    TRACE("(%s, %s, 0x%08lx);\n", 
-          debugstr_w(lpDriverName), debugstr_w(lpSectionName), lParam);
+    TRACE("(%s, %s, 0x%08lx);\n", debugstr_a(lpDriverName), debugstr_a(lpSectionName), lParam2);
 
     if (lsn == NULL) {
-        static const WCHAR wszDrivers32[] = {'D','r','i','v','e','r','s','3','2',0};
-	lstrcpynW(libName, lpDriverName, sizeof(libName) / sizeof(WCHAR));
+	lstrcpynA(libName, lpDriverName, sizeof(libName));
 
-	if ((lpDrv = DRIVER_TryOpenDriver32(libName, lParam)))
+	if ((lpDrv = DRIVER_TryOpenDriver32(libName, lParam2)))
 	    goto the_end;
-	lsn = wszDrivers32;
+	lsn = "Drivers32";
     }
     if (DRIVER_GetLibName(lpDriverName, lsn, libName, sizeof(libName)) &&
-	(lpDrv = DRIVER_TryOpenDriver32(libName, lParam)))
+	(lpDrv = DRIVER_TryOpenDriver32(libName, lParam2)))
 	goto the_end;
 
     /* now we will try a 16 bit driver (and add all the glue to make it work... which
@@ -364,18 +326,51 @@ HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lPar
      */
     WINMM_CheckForMMSystem();
     if (pFnOpenDriver16 &&
-        (lpDrv = pFnOpenDriver16(lpDriverName, lpSectionName, lParam)))
+        (lpDrv = pFnOpenDriver16(lpDriverName, lpSectionName, lParam2)))
     {
-        if (DRIVER_AddToList(lpDrv, 0, lParam)) goto the_end;
+        if (DRIVER_AddToList(lpDrv, 0, lParam2)) goto the_end;
         HeapFree(GetProcessHeap(), 0, lpDrv);
     }
-    TRACE("Failed to open driver %s from system.ini file, section %s\n", 
-          debugstr_w(lpDriverName), debugstr_w(lpSectionName));
+    TRACE("Failed to open driver %s from system.ini file, section %s\n", debugstr_a(lpDriverName), debugstr_a(lpSectionName));
     return 0;
 
  the_end:
     if (lpDrv)	TRACE("=> %08lx\n", (DWORD)lpDrv);
     return (HDRVR)lpDrv;
+}
+
+/**************************************************************************
+ *				OpenDriver 		        [WINMM.@]
+ *				DrvOpen				[WINMM.@]
+ */
+HDRVR WINAPI OpenDriverW(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lParam)
+{
+    INT                 len;
+    LPSTR 		dn = NULL;
+    LPSTR 		sn = NULL;
+    HDRVR		ret;
+
+    if (lpDriverName)
+    {
+        len = WideCharToMultiByte( CP_ACP, 0, lpDriverName, -1, NULL, 0, NULL, NULL );
+        dn = HeapAlloc( GetProcessHeap(), 0, len );
+        if (!dn) return 0;
+        WideCharToMultiByte( CP_ACP, 0, lpDriverName, -1, dn, len, NULL, NULL );
+    }
+
+    if (lpSectionName)
+    {
+        len = WideCharToMultiByte( CP_ACP, 0, lpSectionName, -1, NULL, 0, NULL, NULL );
+        sn = HeapAlloc( GetProcessHeap(), 0, len );
+        if (!sn) return 0;
+        WideCharToMultiByte( CP_ACP, 0, lpSectionName, -1, sn, len, NULL, NULL );
+    }
+
+    ret = OpenDriverA(dn, sn, lParam);
+
+    if (dn) HeapFree(GetProcessHeap(), 0, dn);
+    if (sn) HeapFree(GetProcessHeap(), 0, sn);
+    return ret;
 }
 
 /**************************************************************************

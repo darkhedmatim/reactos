@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: format.c,v 1.5 2004/09/15 13:32:27 weiden Exp $
  *
  * COPYING:	See the top level directory
  * PROJECT:	ReactOS 

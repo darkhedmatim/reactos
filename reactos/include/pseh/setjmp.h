@@ -37,7 +37,6 @@ _SEHJmpBuf_t[1];
 #endif
 
 extern __declspec(noreturn) void __stdcall _SEHLongJmp(_SEHJmpBuf_t, int);
-extern __declspec(noreturn) void __stdcall _SEHLongJmp_KeepEsp(_SEHJmpBuf_t, int);
 extern int __stdcall _SEHSetJmp(_SEHJmpBuf_t);
 
 #endif

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: aspace.c,v 1.19 2004/09/09 20:42:33 hbirr Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/aspace.c
  * PURPOSE:         Manages address spaces
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -67,7 +68,7 @@ NTSTATUS
 MmInitializeAddressSpace(PEPROCESS Process,
                          PMADDRESS_SPACE AddressSpace)
 {
-   AddressSpace->MemoryAreaRoot = NULL;
+   InitializeListHead(&AddressSpace->MAreaListHead);
    ExInitializeFastMutex(&AddressSpace->Lock);
    if (Process != NULL)
    {
@@ -75,7 +76,7 @@ MmInitializeAddressSpace(PEPROCESS Process,
    }
    else
    {
-      AddressSpace->LowestAddress = (PVOID)KERNEL_BASE;
+      AddressSpace->LowestAddress = KERNEL_BASE;
    }
    AddressSpace->Process = Process;
    if (Process != NULL)

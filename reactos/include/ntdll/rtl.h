@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: rtl.h,v 1.53 2004/11/29 00:05:31 gdalsnes Exp $
  *
  */
 
@@ -14,21 +14,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#ifdef DBG
-extern VOID FASTCALL CHECK_PAGED_CODE_RTL(char *file, int line);
-#define PAGED_CODE_RTL() CHECK_PAGED_CODE_RTL(__FILE__, __LINE__)
-#else
-#define PAGED_CODE_RTL()
-#endif
 
 #ifndef __USE_W32API
-
-#define RTL_CONSTANT_STRING(__SOURCE_STRING__) \
-{ \
- sizeof(__SOURCE_STRING__) - sizeof((__SOURCE_STRING__)[0]), \
- sizeof(__SOURCE_STRING__), \
- (__SOURCE_STRING__) \
-}
 
 typedef struct _DEBUG_BUFFER
 {
@@ -112,7 +99,8 @@ typedef struct _CRITICAL_SECTION_DEBUG
   LIST_ENTRY ProcessLocksList;
   ULONG EntryCount;
   ULONG ContentionCount;
-  PVOID Spare[2];
+  ULONG Depth;
+  PVOID OwnerBackTrace[ 5 ];
 } CRITICAL_SECTION_DEBUG, *PCRITICAL_SECTION_DEBUG;
 
 
@@ -126,13 +114,9 @@ typedef struct _CRITICAL_SECTION
   ULONG_PTR SpinCount;
 } CRITICAL_SECTION, *PCRITICAL_SECTION, *LPCRITICAL_SECTION;
 
-#define RTL_CRITSECT_TYPE 0
-
 typedef CRITICAL_SECTION RTL_CRITICAL_SECTION;
 typedef PCRITICAL_SECTION PRTL_CRITICAL_SECTION;
 typedef LPCRITICAL_SECTION LPRTL_CRITICAL_SECTION;
-typedef CRITICAL_SECTION_DEBUG RTL_CRITICAL_SECTION_DEBUG;
-typedef PCRITICAL_SECTION_DEBUG PRTL_CRITICAL_SECTION_DEBUG;
 
 #endif /* !__USE_W32API */
 
@@ -182,41 +166,6 @@ typedef struct _RTL_HANDLE_TABLE
 #define PDI_HEAP_BLOCKS 0x10	/* The heap blocks */
 #define PDI_LOCKS       0x20	/* The locks created by the process */
 
-NTSTATUS
-STDCALL
-RtlpWaitForCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
-
-VOID
-STDCALL
-RtlpUnWaitCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
-
-VOID
-STDCALL
-RtlpCreateCriticalSectionSem(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
-
-VOID
-STDCALL
-RtlpInitDeferedCriticalSection(
-    VOID
-);
-
-VOID
-STDCALL
-RtlpFreeDebugInfo(
-    PRTL_CRITICAL_SECTION_DEBUG DebugInfo
-);
-
-PRTL_CRITICAL_SECTION_DEBUG
-STDCALL
-RtlpAllocateDebugInfo(
-    VOID
-);
 
 NTSTATUS STDCALL
 RtlAddAccessAllowedAceEx (IN OUT PACL Acl,
@@ -241,20 +190,20 @@ RtlAddAuditAccessAceEx(IN OUT PACL Acl,
                        IN BOOLEAN Success,
                        IN BOOLEAN Failure);
 
-NTSTATUS STDCALL
-RtlDeleteCriticalSection (PRTL_CRITICAL_SECTION CriticalSection);
+VOID STDCALL
+RtlDeleteCriticalSection (PCRITICAL_SECTION CriticalSection);
 
 WCHAR STDCALL
 RtlDowncaseUnicodeChar(IN WCHAR Source);
 
-NTSTATUS STDCALL
-RtlEnterCriticalSection (PRTL_CRITICAL_SECTION CriticalSection);
+VOID STDCALL
+RtlEnterCriticalSection (PCRITICAL_SECTION CriticalSection);
 
 NTSTATUS STDCALL
-RtlInitializeCriticalSection (PRTL_CRITICAL_SECTION CriticalSection);
+RtlInitializeCriticalSection (PCRITICAL_SECTION CriticalSection);
 
 NTSTATUS STDCALL
-RtlInitializeCriticalSectionAndSpinCount (PRTL_CRITICAL_SECTION CriticalSection,
+RtlInitializeCriticalSectionAndSpinCount (PCRITICAL_SECTION CriticalSection,
 					  ULONG SpinCount);
 
 NTSTATUS STDCALL
@@ -262,11 +211,11 @@ RtlInt64ToUnicodeString (IN ULONGLONG Value,
 			 IN ULONG Base,
 			 PUNICODE_STRING String);
 
-NTSTATUS STDCALL
-RtlLeaveCriticalSection (PRTL_CRITICAL_SECTION CriticalSection);
+VOID STDCALL
+RtlLeaveCriticalSection (PCRITICAL_SECTION CriticalSection);
 
 BOOLEAN STDCALL
-RtlTryEnterCriticalSection (PRTL_CRITICAL_SECTION CriticalSection);
+RtlTryEnterCriticalSection (PCRITICAL_SECTION CriticalSection);
 
 DWORD STDCALL
 RtlCompactHeap (
@@ -368,7 +317,7 @@ RtlGetCurrentDirectory_U (
 ULONG
 STDCALL
 RtlGetFullPathName_U (
-   const WCHAR *dosname,
+	WCHAR *dosname,
 	ULONG size,
 	WCHAR *buf,
 	WCHAR **shortname
@@ -795,12 +744,12 @@ InterlockedExchange (
 	LONG Value
 	);
 
-LONG
+PVOID
 STDCALL
 InterlockedCompareExchange (
-	PLONG Destination,
-	LONG Exchange,
-	LONG Comperand
+	PVOID *Destination,
+	PVOID Exchange,
+	PVOID Comperand
 	);
 
 LONG
@@ -809,26 +758,6 @@ InterlockedExchangeAdd (
 	PLONG Addend,
 	LONG Increment
 	);
-
-#ifndef InterlockedExchangePointer
-   #ifdef _WIN64
-      #define InterlockedExchangePointer(Target, Value) \
-             (PVOID)InterlockedExchange64((PLONGLONG)(Target), (LONGLONG)(Value))
-   #else
-      #define InterlockedExchangePointer(Target, Value) \
-             (PVOID)InterlockedExchange((PLONG)(Target), (LONG)(Value))
-   #endif
-#endif
-
-#ifndef InterlockedCompareExchangePointer
-   #ifdef _WIN64
-      #define InterlockedCompareExchangePointer(Target, Exchange, Comperand) \
-             (PVOID)InterlockedCompareExchange64((PLONGLONG)(Target), (LONGLONG)(Exchange), (LONGLONG)(Comperand))
-   #else
-      #define InterlockedCompareExchangePointer(Target, Exchange, Comperand) \
-             (PVOID)InterlockedCompareExchange((PLONG)Target, (LONG)Exchange, (LONG)Comperand)
-   #endif
-#endif
 
 #endif /* __INTERLOCKED_DECLARED */
 

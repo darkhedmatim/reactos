@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: pagefile.c,v 1.52 2004/10/30 23:48:56 navaraf Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/pagefile.c
@@ -45,14 +45,14 @@ typedef struct _PAGINGFILE
    PULONG AllocMap;
    KSPIN_LOCK AllocMapLock;
    ULONG AllocMapSize;
-   PRETRIEVAL_POINTERS_BUFFER RetrievalPointers;
+   PGET_RETRIEVAL_DESCRIPTOR RetrievalPointers;
 }
 PAGINGFILE, *PPAGINGFILE;
 
 typedef struct _RETRIEVEL_DESCRIPTOR_LIST
 {
    struct _RETRIEVEL_DESCRIPTOR_LIST* Next;
-   RETRIEVAL_POINTERS_BUFFER RetrievalPointers;
+   GET_RETRIEVAL_DESCRIPTOR RetrievalPointers;
 }
 RETRIEVEL_DESCRIPTOR_LIST, *PRETRIEVEL_DESCRIPTOR_LIST;
 
@@ -128,27 +128,27 @@ MmShowOutOfSpaceMessagePagingFile(VOID)
 }
 
 LARGE_INTEGER STATIC
-MmGetOffsetPageFile(PRETRIEVAL_POINTERS_BUFFER RetrievalPointers, LARGE_INTEGER Offset)
+MmGetOffsetPageFile(PGET_RETRIEVAL_DESCRIPTOR RetrievalPointers, LARGE_INTEGER Offset)
 {
    /* Simple binary search */
    ULONG first, last, mid;
    first = 0;
-   last = RetrievalPointers->ExtentCount - 1;
+   last = RetrievalPointers->NumberOfPairs - 1;
    while (first <= last)
    {
       mid = (last - first) / 2 + first;
-      if (Offset.QuadPart < RetrievalPointers->Extents[mid].NextVcn.QuadPart)
+      if ((ULONGLONG) Offset.QuadPart < RetrievalPointers->Pair[mid].Vcn)
       {
          if (mid == 0)
          {
-            Offset.QuadPart += RetrievalPointers->Extents[0].Lcn.QuadPart - RetrievalPointers->StartingVcn.QuadPart;
+            Offset.QuadPart += RetrievalPointers->Pair[0].Lcn - RetrievalPointers->StartVcn;
             return Offset;
          }
          else
          {
-            if (Offset.QuadPart >= RetrievalPointers->Extents[mid-1].NextVcn.QuadPart)
+            if ((ULONGLONG) Offset.QuadPart >= RetrievalPointers->Pair[mid-1].Vcn)
             {
-               Offset.QuadPart += RetrievalPointers->Extents[mid].Lcn.QuadPart - RetrievalPointers->Extents[mid-1].NextVcn.QuadPart;
+               Offset.QuadPart += RetrievalPointers->Pair[mid].Lcn  - RetrievalPointers->Pair[mid-1].Vcn;
                return Offset;
             }
             last = mid - 1;
@@ -156,13 +156,13 @@ MmGetOffsetPageFile(PRETRIEVAL_POINTERS_BUFFER RetrievalPointers, LARGE_INTEGER 
       }
       else
       {
-         if (mid == RetrievalPointers->ExtentCount - 1)
+         if (mid == RetrievalPointers->NumberOfPairs - 1)
          {
             break;
          }
-         if (Offset.QuadPart < RetrievalPointers->Extents[mid+1].NextVcn.QuadPart)
+         if ((ULONGLONG) Offset.QuadPart < RetrievalPointers->Pair[mid+1].Vcn)
          {
-            Offset.QuadPart += RetrievalPointers->Extents[mid+1].Lcn.QuadPart  - RetrievalPointers->Extents[mid].NextVcn.QuadPart;
+            Offset.QuadPart += RetrievalPointers->Pair[mid+1].Lcn  - RetrievalPointers->Pair[mid].Vcn;
             return Offset;
          }
          first = mid + 1;
@@ -471,7 +471,7 @@ MmAllocRetrievelDescriptorList(ULONG Pairs)
    ULONG Size;
    PRETRIEVEL_DESCRIPTOR_LIST RetDescList;
 
-   Size = sizeof(RETRIEVEL_DESCRIPTOR_LIST) + Pairs * 2 * sizeof(LARGE_INTEGER);
+   Size = sizeof(RETRIEVEL_DESCRIPTOR_LIST) + Pairs * sizeof(MAPPING_PAIR);
    RetDescList = ExAllocatePool(NonPagedPool, Size);
    if (RetDescList)
    {
@@ -498,7 +498,7 @@ MmDumpToPagingFile(ULONG BugCode,
    PULONG MdlMap;
    LONGLONG NextOffset = 0;
    ULONG i;
-   PRETRIEVAL_POINTERS_BUFFER RetrievalPointers;
+   PGET_RETRIEVAL_DESCRIPTOR RetrievalPointers;
    LARGE_INTEGER DiskOffset;
 
    if (MmCoreDumpPageFile == 0xFFFFFFFF)
@@ -532,7 +532,7 @@ MmDumpToPagingFile(ULONG BugCode,
    Headers->BugCheckParameters[3] = BugCodeParameter4;
    Headers->FaultingStackBase = (PVOID)Thread->Tcb.StackLimit;
    Headers->FaultingStackSize =
-   StackSize = (ULONG_PTR)Thread->Tcb.StackBase - (ULONG_PTR)Thread->Tcb.StackLimit;
+   StackSize = (ULONG_PTR)(Thread->Tcb.StackBase - Thread->Tcb.StackLimit);
    Headers->PhysicalMemorySize = MmStats.NrTotalPages * PAGE_SIZE;
 
    /* Initialize the dump device. */
@@ -759,12 +759,9 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
    ULONG BytesPerAllocationUnit;
    LARGE_INTEGER Vcn;
    ULONG ExtentCount;
-   LARGE_INTEGER MaxVcn;
+   ULONG MaxVcn;
    ULONG Count;
    ULONG Size;
-   KPROCESSOR_MODE PreviousMode;
-   UNICODE_STRING CapturedFileName;
-   LARGE_INTEGER SafeInitialSize, SafeMaximumSize;
 
    DPRINT("NtCreatePagingFile(FileName %wZ, InitialSize %I64d)\n",
           FileName, InitialSize->QuadPart);
@@ -774,52 +771,8 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
       return(STATUS_TOO_MANY_PAGING_FILES);
    }
 
-   PreviousMode = ExGetPreviousMode();
-   
-   Status = RtlCaptureUnicodeString(&CapturedFileName,
-                                    PreviousMode,
-                                    PagedPool,
-                                    FALSE,
-                                    FileName);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-   if (PreviousMode == UserMode)
-   {
-      _SEH_TRY
-      {
-         ProbeForRead(InitialSize,
-                      sizeof(LARGE_INTEGER),
-                      sizeof(ULONG));
-         SafeInitialSize = *InitialSize;
-         ProbeForRead(MaximumSize,
-                      sizeof(LARGE_INTEGER),
-                      sizeof(ULONG));
-         SafeMaximumSize = *MaximumSize;
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-    
-      if (!NT_SUCCESS(Status))
-      {
-         RtlReleaseCapturedUnicodeString(&CapturedFileName,
-                                         PreviousMode,
-                                         FALSE);
-         return Status;
-      }
-   }
-   else
-   {
-      SafeInitialSize = *InitialSize;
-      SafeMaximumSize = *MaximumSize;
-   }
-
    InitializeObjectAttributes(&ObjectAttributes,
-                              &CapturedFileName,
+                              FileName,
                               0,
                               NULL,
                               NULL);
@@ -837,54 +790,50 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
                          0,
                          CreateFileTypeNone,
                          NULL,
-                         SL_OPEN_PAGING_FILE | IO_NO_PARAMETER_CHECKING);
-
-   RtlReleaseCapturedUnicodeString(&CapturedFileName,
-                                   PreviousMode,
-                                   FALSE);
+                         SL_OPEN_PAGING_FILE);
    if (!NT_SUCCESS(Status))
    {
       return(Status);
    }
 
-   Status = ZwQueryVolumeInformationFile(FileHandle,
+   Status = NtQueryVolumeInformationFile(FileHandle,
                                          &IoStatus,
                                          &FsSizeInformation,
                                          sizeof(FILE_FS_SIZE_INFORMATION),
                                          FileFsSizeInformation);
    if (!NT_SUCCESS(Status))
    {
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return Status;
    }
 
    BytesPerAllocationUnit = FsSizeInformation.SectorsPerAllocationUnit * FsSizeInformation.BytesPerSector;
    if (BytesPerAllocationUnit % PAGE_SIZE)
    {
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return STATUS_UNSUCCESSFUL;
    }
 
-   Status = ZwSetInformationFile(FileHandle,
+   Status = NtSetInformationFile(FileHandle,
                                  &IoStatus,
-                                 &SafeInitialSize,
+                                 InitialSize,
                                  sizeof(LARGE_INTEGER),
                                  FileAllocationInformation);
    if (!NT_SUCCESS(Status))
    {
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(Status);
    }
 
    Status = ObReferenceObjectByHandle(FileHandle,
                                       FILE_ALL_ACCESS,
                                       IoFileObjectType,
-                                      PreviousMode,
+                                      UserMode,
                                       (PVOID*)&FileObject,
                                       NULL);
    if (!NT_SUCCESS(Status))
    {
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(Status);
    }
 
@@ -893,7 +842,7 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
    if (CurrentRetDescList == NULL)
    {
       ObDereferenceObject(FileObject);
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(STATUS_NO_MEMORY);
    }
 
@@ -905,10 +854,10 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
 #endif
 
    ExtentCount = 0;
-   MaxVcn.QuadPart = (SafeInitialSize.QuadPart + BytesPerAllocationUnit - 1) / BytesPerAllocationUnit;
+   MaxVcn = (ULONG)((InitialSize->QuadPart + BytesPerAllocationUnit - 1) / BytesPerAllocationUnit);
    while(1)
    {
-      Status = ZwFsControlFile(FileHandle,
+      Status = NtFsControlFile(FileHandle,
                                0,
                                NULL,
                                NULL,
@@ -917,7 +866,7 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
                                &Vcn,
                                sizeof(LARGE_INTEGER),
                                &CurrentRetDescList->RetrievalPointers,
-                               sizeof(RETRIEVAL_POINTERS_BUFFER) + PAIRS_PER_RUN * 2 * sizeof(LARGE_INTEGER));
+                               sizeof(GET_RETRIEVAL_DESCRIPTOR) + PAIRS_PER_RUN * sizeof(MAPPING_PAIR));
       if (!NT_SUCCESS(Status))
       {
          while (RetDescList)
@@ -927,11 +876,11 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
             ExFreePool(CurrentRetDescList);
          }
          ObDereferenceObject(FileObject);
-         ZwClose(FileHandle);
+         NtClose(FileHandle);
          return(Status);
       }
-      ExtentCount += CurrentRetDescList->RetrievalPointers.ExtentCount;
-      if (CurrentRetDescList->RetrievalPointers.Extents[CurrentRetDescList->RetrievalPointers.ExtentCount-1].NextVcn.QuadPart < MaxVcn.QuadPart)
+      ExtentCount += CurrentRetDescList->RetrievalPointers.NumberOfPairs;
+      if ((ULONG)CurrentRetDescList->RetrievalPointers.Pair[CurrentRetDescList->RetrievalPointers.NumberOfPairs-1].Vcn < MaxVcn)
       {
          CurrentRetDescList->Next = MmAllocRetrievelDescriptorList(PAIRS_PER_RUN);
          if (CurrentRetDescList->Next == NULL)
@@ -943,10 +892,10 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
                ExFreePool(CurrentRetDescList);
             }
             ObDereferenceObject(FileObject);
-            ZwClose(FileHandle);
+            NtClose(FileHandle);
             return(STATUS_NO_MEMORY);
          }
-         Vcn = CurrentRetDescList->RetrievalPointers.Extents[CurrentRetDescList->RetrievalPointers.ExtentCount-1].NextVcn;
+         Vcn.QuadPart = CurrentRetDescList->RetrievalPointers.Pair[CurrentRetDescList->RetrievalPointers.NumberOfPairs-1].Vcn;
          CurrentRetDescList = CurrentRetDescList->Next;
       }
       else
@@ -965,16 +914,16 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
          ExFreePool(CurrentRetDescList);
       }
       ObDereferenceObject(FileObject);
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(STATUS_NO_MEMORY);
    }
 
    RtlZeroMemory(PagingFile, sizeof(*PagingFile));
 
    PagingFile->FileObject = FileObject;
-   PagingFile->MaximumSize.QuadPart = SafeMaximumSize.QuadPart;
-   PagingFile->CurrentSize.QuadPart = SafeInitialSize.QuadPart;
-   PagingFile->FreePages = (ULONG)(SafeInitialSize.QuadPart / PAGE_SIZE);
+   PagingFile->MaximumSize.QuadPart = MaximumSize->QuadPart;
+   PagingFile->CurrentSize.QuadPart = InitialSize->QuadPart;
+   PagingFile->FreePages = (ULONG)(InitialSize->QuadPart / PAGE_SIZE);
    PagingFile->UsedPages = 0;
    KeInitializeSpinLock(&PagingFile->AllocMapLock);
 
@@ -997,7 +946,7 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
       return(STATUS_NO_MEMORY);
    }
    DPRINT("ExtentCount: %d\n", ExtentCount);
-   Size = sizeof(RETRIEVAL_POINTERS_BUFFER) + ExtentCount * 2 * sizeof(LARGE_INTEGER);
+   Size = sizeof(GET_RETRIEVAL_DESCRIPTOR) + ExtentCount * sizeof(MAPPING_PAIR);
    PagingFile->RetrievalPointers = ExAllocatePool(NonPagedPool, Size);
    if (PagingFile->RetrievalPointers == NULL)
    {
@@ -1010,7 +959,7 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
       ExFreePool(PagingFile->AllocMap);
       ExFreePool(PagingFile);
       ObDereferenceObject(FileObject);
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(STATUS_NO_MEMORY);
    }
 
@@ -1018,39 +967,39 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
    RtlZeroMemory(PagingFile->RetrievalPointers, Size);
 
    Count = 0;
-   PagingFile->RetrievalPointers->ExtentCount = ExtentCount;
-   PagingFile->RetrievalPointers->StartingVcn = RetDescList->RetrievalPointers.StartingVcn;
+   PagingFile->RetrievalPointers->NumberOfPairs = ExtentCount;
+   PagingFile->RetrievalPointers->StartVcn = RetDescList->RetrievalPointers.StartVcn;
    CurrentRetDescList = RetDescList;
    while (CurrentRetDescList)
    {
-      memcpy(&PagingFile->RetrievalPointers->Extents[Count],
-             CurrentRetDescList->RetrievalPointers.Extents,
-             CurrentRetDescList->RetrievalPointers.ExtentCount * 2 * sizeof(LARGE_INTEGER));
-      Count += CurrentRetDescList->RetrievalPointers.ExtentCount;
+      memcpy(&PagingFile->RetrievalPointers->Pair[Count],
+             CurrentRetDescList->RetrievalPointers.Pair,
+             CurrentRetDescList->RetrievalPointers.NumberOfPairs * sizeof(MAPPING_PAIR));
+      Count += CurrentRetDescList->RetrievalPointers.NumberOfPairs;
       RetDescList = CurrentRetDescList;
       CurrentRetDescList = CurrentRetDescList->Next;
       ExFreePool(RetDescList);
    }
 
-   if (PagingFile->RetrievalPointers->ExtentCount != ExtentCount ||
-         PagingFile->RetrievalPointers->Extents[ExtentCount - 1].NextVcn.QuadPart != MaxVcn.QuadPart)
+   if (PagingFile->RetrievalPointers->NumberOfPairs != ExtentCount ||
+         (ULONG)PagingFile->RetrievalPointers->Pair[ExtentCount - 1].Vcn != MaxVcn)
    {
       ExFreePool(PagingFile->RetrievalPointers);
       ExFreePool(PagingFile->AllocMap);
       ExFreePool(PagingFile);
       ObDereferenceObject(FileObject);
-      ZwClose(FileHandle);
+      NtClose(FileHandle);
       return(STATUS_UNSUCCESSFUL);
    }
 
    /*
     * Change the entries from lcn's to volume offset's.
     */
-   PagingFile->RetrievalPointers->StartingVcn.QuadPart *= BytesPerAllocationUnit;
+   PagingFile->RetrievalPointers->StartVcn *= BytesPerAllocationUnit;
    for (i = 0; i < ExtentCount; i++)
    {
-      PagingFile->RetrievalPointers->Extents[i].Lcn.QuadPart *= BytesPerAllocationUnit;
-      PagingFile->RetrievalPointers->Extents[i].NextVcn.QuadPart *= BytesPerAllocationUnit;
+      PagingFile->RetrievalPointers->Pair[i].Lcn *= BytesPerAllocationUnit;
+      PagingFile->RetrievalPointers->Pair[i].Vcn *= BytesPerAllocationUnit;
    }
 
    KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
@@ -1073,7 +1022,7 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
    {
       MmInitializeCrashDump(FileHandle, i);
    }
-   ZwClose(FileHandle);
+   NtClose(FileHandle);
 
    MmSwapSpaceMessage = FALSE;
 

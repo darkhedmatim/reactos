@@ -1,11 +1,11 @@
-/* $Id$
+/* $Id: fsctrl.c,v 1.16 2004/10/11 12:37:04 ekohl Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/fs/np/fsctrl.c
+ * FILE:       services/fs/np/fsctrl.c
  * PURPOSE:    Named pipe filesystem
  * PROGRAMMER: David Welch <welch@cwcom.net>
- *             Eric Kohl
+ *             Eric Kohl <ekohl@rz-online.de>
  */
 
 /* INCLUDES ******************************************************************/
@@ -18,66 +18,8 @@
 
 /* FUNCTIONS *****************************************************************/
 
-static VOID
-NpfsListeningCancelRoutine(IN PDEVICE_OBJECT DeviceObject,
-                           IN PIRP Irp)
-{
-  PNPFS_WAITER_ENTRY Waiter;
-
-  DPRINT1("NpfsListeningCancelRoutine() called\n");
-  /* FIXME: Not tested. */
-
-  Waiter = Irp->Tail.Overlay.DriverContext[0];
-
-  RemoveEntryList(&Waiter->Entry);
-  ExFreePool(Waiter);
-
-  IoReleaseCancelSpinLock(Irp->CancelIrql);
-
-  Irp->IoStatus.Status = STATUS_CANCELLED;
-  Irp->IoStatus.Information = 0;
-  IoCompleteRequest(Irp, IO_NO_INCREMENT);
-}
-
-
 static NTSTATUS
-NpfsAddListeningServerInstance(PIRP Irp,
-			       PNPFS_FCB Fcb)
-{
-  PNPFS_WAITER_ENTRY Entry;
-  KIRQL OldIrql;
-
-  Entry = ExAllocatePool(NonPagedPool, sizeof(NPFS_WAITER_ENTRY));
-  if (Entry == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  Entry->Irp = Irp;
-  Entry->Fcb = Fcb;
-  InsertTailList(&Fcb->Pipe->WaiterListHead, &Entry->Entry);
-
-  IoAcquireCancelSpinLock(&OldIrql);
-  if (!Irp->Cancel)
-    {
-      Irp->Tail.Overlay.DriverContext[0] = Entry;
-      IoMarkIrpPending(Irp);
-      IoSetCancelRoutine(Irp, NpfsListeningCancelRoutine);
-      IoReleaseCancelSpinLock(OldIrql);
-      return STATUS_PENDING;
-    }
-  /* IRP has already been cancelled */
-  IoReleaseCancelSpinLock(OldIrql);
-
-  DPRINT1("FIXME: Remove waiter entry!\n");
-  RemoveEntryList(&Entry->Entry);
-  ExFreePool(Entry);
-
-  return STATUS_CANCELLED;
-}
-
-
-static NTSTATUS
-NpfsConnectPipe(PIRP Irp,
-                PNPFS_FCB Fcb)
+NpfsConnectPipe(PNPFS_FCB Fcb)
 {
   PNPFS_PIPE Pipe;
   PLIST_ENTRY current_entry;
@@ -109,15 +51,6 @@ NpfsConnectPipe(PIRP Irp,
 				    NPFS_FCB,
 				    FcbListEntry);
 
-      if (ClientFcb->PipeState == 0)
-	{
-	  /* found a passive (waiting) client fcb */
-	  DPRINT("Passive (waiting) client fcb found -- wake the client\n");
-	  KeSetEvent(&ClientFcb->ConnectEvent, IO_NO_INCREMENT, FALSE);
-	  break;
-	}
-
-#if 0
       if (ClientFcb->PipeState == FILE_PIPE_LISTENING_STATE)
 	{
 	  /* found a listening client fcb */
@@ -141,23 +74,33 @@ NpfsConnectPipe(PIRP Irp,
 
 	  return STATUS_PIPE_CONNECTED;
 	}
-#endif
 
       current_entry = current_entry->Flink;
     }
+
+  KeUnlockMutex(&Pipe->FcbListLock);
 
   /* no listening client fcb found */
   DPRINT("No listening client fcb found -- waiting for client\n");
 
   Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
 
-  Status = NpfsAddListeningServerInstance(Irp, Fcb);
+  Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
+				 UserRequest,
+				 KernelMode,
+				 FALSE,
+				 NULL);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("KeWaitForSingleObject() failed (Status %lx)\n", Status);
+      return Status;
+    }
 
-  KeUnlockMutex(&Pipe->FcbListLock);
+  Fcb->PipeState = FILE_PIPE_CONNECTED_STATE;
 
-  DPRINT("NpfsConnectPipe() done (Status %lx)\n", Status);
+  DPRINT("Client Fcb: %p\n", Fcb->OtherSide);
 
-  return Status;
+  return STATUS_PIPE_CONNECTED;
 }
 
 
@@ -167,7 +110,7 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
   DPRINT("NpfsDisconnectPipe()\n");
 
   if (Fcb->PipeState == FILE_PIPE_DISCONNECTED_STATE)
-    return STATUS_SUCCESS;
+    return(STATUS_SUCCESS);
 
   if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
     {
@@ -181,7 +124,7 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
       Fcb->OtherSide = NULL;
 
       DPRINT("Pipe disconnected\n");
-      return STATUS_SUCCESS;
+      return(STATUS_SUCCESS);
     }
 
   if (Fcb->PipeState == FILE_PIPE_CLOSING_STATE)
@@ -192,10 +135,10 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
       /* FIXME: remove data queue(s) */
 
       DPRINT("Pipe disconnected\n");
-      return STATUS_SUCCESS;
+      return(STATUS_SUCCESS);
     }
 
-  return STATUS_UNSUCCESSFUL;
+  return(STATUS_UNSUCCESSFUL);
 }
 
 
@@ -213,12 +156,6 @@ NpfsWaitPipe(PIRP Irp,
 
   WaitPipe = (PNPFS_WAIT_PIPE)Irp->AssociatedIrp.SystemBuffer;
   Pipe = Fcb->Pipe;
-
-  if (Fcb->PipeState != 0)
-    {
-      DPRINT("Pipe is not in passive (waiting) state!\n");
-      return STATUS_UNSUCCESSFUL;
-    }
 
   /* search for listening server */
   current_entry = Pipe->ServerFcbListHead.Flink;
@@ -240,6 +177,8 @@ NpfsWaitPipe(PIRP Irp,
     }
 
   /* no listening server fcb found -- wait for one */
+  Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
+
   Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
 				 UserRequest,
 				 KernelMode,
@@ -252,6 +191,10 @@ NpfsWaitPipe(PIRP Irp,
 }
 
 
+static NTSTATUS
+NpfsGetState(
+  PIRP Irp,
+  PIO_STACK_LOCATION IrpSp)
 /*
  * FUNCTION: Return current state of a pipe
  * ARGUMENTS:
@@ -260,38 +203,72 @@ NpfsWaitPipe(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsGetState(PIRP Irp,
-	     PIO_STACK_LOCATION IrpSp)
 {
+  ULONG OutputBufferLength;
   PNPFS_GET_STATE Reply;
+  NTSTATUS Status;
   PNPFS_PIPE Pipe;
   PNPFS_FCB Fcb;
 
+  OutputBufferLength = IrpSp->Parameters.DeviceIoControl.OutputBufferLength;
+
   /* Validate parameters */
-  if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength < sizeof(NPFS_GET_STATE))
+  if (OutputBufferLength >= sizeof(NPFS_GET_STATE))
+  {
+    Fcb = IrpSp->FileObject->FsContext;
+    Reply = (PNPFS_GET_STATE)Irp->AssociatedIrp.SystemBuffer;
+    Pipe = Fcb->Pipe;
+
+    if (Pipe->PipeWriteMode == FILE_PIPE_MESSAGE_MODE)
     {
-      DPRINT("Status (0x%X).\n", STATUS_INVALID_PARAMETER);
-      return STATUS_INVALID_PARAMETER;
+      Reply->WriteModeMessage = TRUE;
+    }
+    else
+    {
+      Reply->WriteModeMessage = FALSE;
     }
 
-  Fcb = IrpSp->FileObject->FsContext;
-  Reply = (PNPFS_GET_STATE)Irp->AssociatedIrp.SystemBuffer;
-  Pipe = Fcb->Pipe;
+    if (Pipe->PipeReadMode == FILE_PIPE_MESSAGE_MODE)
+    {
+      Reply->ReadModeMessage = TRUE;
+    }
+    else
+    {
+      Reply->ReadModeMessage = FALSE;
+    }
 
-  Reply->WriteModeMessage = (Pipe->WriteMode == FILE_PIPE_MESSAGE_MODE);
-  Reply->ReadModeMessage = (Pipe->ReadMode == FILE_PIPE_MESSAGE_MODE);
-  Reply->NonBlocking = (Pipe->CompletionMode == FILE_PIPE_QUEUE_OPERATION);
-  Reply->InBufferSize = Pipe->InboundQuota;
-  Reply->OutBufferSize = Pipe->OutboundQuota;
-  Reply->Timeout = Pipe->TimeOut;
+    if (Pipe->PipeBlockMode == FILE_PIPE_QUEUE_OPERATION)
+    {
+      Reply->NonBlocking = TRUE;
+    }
+    else
+    {
+      Reply->NonBlocking = FALSE;
+    }
 
-  DPRINT("Status (0x%X).\n", STATUS_SUCCESS);
+    Reply->InBufferSize = Pipe->InboundQuota;
 
-  return STATUS_SUCCESS;
+    Reply->OutBufferSize = Pipe->OutboundQuota;
+
+    Reply->Timeout = Pipe->TimeOut;
+
+    Status = STATUS_SUCCESS;
+  }
+  else
+  {
+    Status = STATUS_INVALID_PARAMETER;
+  }
+
+  DPRINT("Status (0x%X).\n", Status);
+
+  return Status;
 }
 
 
+static NTSTATUS
+NpfsSetState(
+  PIRP Irp,
+  PIO_STACK_LOCATION IrpSp)
 /*
  * FUNCTION: Set state of a pipe
  * ARGUMENTS:
@@ -300,41 +277,71 @@ NpfsGetState(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsSetState(PIRP Irp,
-	     PIO_STACK_LOCATION IrpSp)
 {
+  ULONG InputBufferLength;
   PNPFS_SET_STATE Request;
   PNPFS_PIPE Pipe;
+  NTSTATUS Status;
   PNPFS_FCB Fcb;
 
+  InputBufferLength  = IrpSp->Parameters.DeviceIoControl.InputBufferLength;
+
   /* Validate parameters */
-  if (IrpSp->Parameters.DeviceIoControl.InputBufferLength < sizeof(NPFS_SET_STATE))
+  if (InputBufferLength >= sizeof(NPFS_SET_STATE))
+  {
+    Fcb = IrpSp->FileObject->FsContext;
+    Request = (PNPFS_SET_STATE)Irp->AssociatedIrp.SystemBuffer;
+    Pipe = Fcb->Pipe;
+
+    if (Request->WriteModeMessage)
     {
-      DPRINT("Status (0x%X).\n", STATUS_INVALID_PARAMETER);
-      return STATUS_INVALID_PARAMETER;
+      Pipe->PipeWriteMode = FILE_PIPE_MESSAGE_MODE;
+    }
+    else
+    {
+      Pipe->PipeWriteMode = FILE_PIPE_BYTE_STREAM_MODE;
     }
 
-  Fcb = IrpSp->FileObject->FsContext;
-  Request = (PNPFS_SET_STATE)Irp->AssociatedIrp.SystemBuffer;
-  Pipe = Fcb->Pipe;
+    if (Request->ReadModeMessage)
+    {
+      Pipe->PipeReadMode = FILE_PIPE_MESSAGE_MODE;
+    }
+    else
+    {
+      Pipe->PipeReadMode = FILE_PIPE_BYTE_STREAM_MODE;
+    }
 
-  Pipe->WriteMode =
-    Request->WriteModeMessage ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
-  Pipe->ReadMode =
-    Request->WriteModeMessage ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
-  Pipe->CompletionMode =
-    Request->NonBlocking ? FILE_PIPE_QUEUE_OPERATION : FILE_PIPE_COMPLETE_OPERATION;
-  Pipe->InboundQuota = Request->InBufferSize;
-  Pipe->OutboundQuota = Request->OutBufferSize;
-  Pipe->TimeOut = Request->Timeout;
+    if (Request->NonBlocking)
+    {
+      Pipe->PipeBlockMode = FILE_PIPE_QUEUE_OPERATION;
+    }
+    else
+    {
+      Pipe->PipeBlockMode = FILE_PIPE_COMPLETE_OPERATION;
+    }
 
-  DPRINT("Status (0x%X).\n", STATUS_SUCCESS);
+    Pipe->InboundQuota = Request->InBufferSize;
 
-  return STATUS_SUCCESS;
+    Pipe->OutboundQuota = Request->OutBufferSize;
+
+    Pipe->TimeOut = Request->Timeout;
+
+    Status = STATUS_SUCCESS;
+  }
+  else
+  {
+    Status = STATUS_INVALID_PARAMETER;
+  }
+
+  DPRINT("Status (0x%X).\n", Status);
+
+  return Status;
 }
 
 
+static NTSTATUS
+NpfsPeekPipe(PIRP Irp,
+	     PIO_STACK_LOCATION IoStack)
 /*
  * FUNCTION: Peek at a pipe (get information about messages)
  * ARGUMENTS:
@@ -343,9 +350,6 @@ NpfsSetState(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsPeekPipe(PIRP Irp,
-	     PIO_STACK_LOCATION IoStack)
 {
   ULONG OutputBufferLength;
   PNPFS_PIPE Pipe;
@@ -361,7 +365,7 @@ NpfsPeekPipe(PIRP Irp,
   if (OutputBufferLength < sizeof(FILE_PIPE_PEEK_BUFFER))
     {
       DPRINT("Buffer too small\n");
-      return STATUS_INVALID_PARAMETER;
+      return(STATUS_INVALID_PARAMETER);
     }
 
   Fcb = IoStack->FileObject->FsContext;
@@ -370,15 +374,16 @@ NpfsPeekPipe(PIRP Irp,
 
   Status = STATUS_NOT_IMPLEMENTED;
 
-  return Status;
+  return(Status);
 }
+
 
 
 NTSTATUS STDCALL
 NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp)
 {
-  PIO_STACK_LOCATION IoStack;
+  PEXTENDED_IO_STACK_LOCATION IoStack;
   PFILE_OBJECT FileObject;
   NTSTATUS Status;
   PNPFS_DEVICE_EXTENSION DeviceExt;
@@ -388,7 +393,7 @@ NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
   DPRINT("NpfsFileSystemContol(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
 
   DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  IoStack = IoGetCurrentIrpStackLocation(Irp);
+  IoStack = (PEXTENDED_IO_STACK_LOCATION) IoGetCurrentIrpStackLocation(Irp);
   DPRINT("IoStack: %p\n", IoStack);
   FileObject = IoStack->FileObject;
   DPRINT("FileObject: %p\n", FileObject);
@@ -412,7 +417,7 @@ NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 
       case FSCTL_PIPE_LISTEN:
 	DPRINT("Connecting pipe %wZ\n", &Pipe->PipeName);
-	Status = NpfsConnectPipe(Irp, Fcb);
+	Status = NpfsConnectPipe(Fcb);
 	break;
 
       case FSCTL_PIPE_PEEK:
@@ -485,15 +490,12 @@ NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 	Status = STATUS_UNSUCCESSFUL;
     }
 
-  if (Status != STATUS_PENDING)
-    {
-      Irp->IoStatus.Status = Status;
-      Irp->IoStatus.Information = 0;
- 
-      IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    }
+  Irp->IoStatus.Status = Status;
+  Irp->IoStatus.Information = 0;
 
-  return Status;
+  IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
+  return(Status);
 }
 
 

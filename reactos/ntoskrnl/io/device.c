@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: device.c,v 1.85 2004/11/18 11:46:07 ekohl Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/device.c
- * PURPOSE:         Manage devices
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/device.c
+ * PURPOSE:        Manage devices
+ * PROGRAMMER:     David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                 15/05/98: Created
  */
 
 /* INCLUDES *******************************************************************/
@@ -82,9 +83,21 @@ IopInitializeDevice(
           return Status;
       }
 
-#ifdef ACPI
-      if (Fdo->DeviceType == FILE_DEVICE_ACPI)
+      if (Fdo->DeviceType == FILE_DEVICE_BUS_EXTENDER)
       {
+         DPRINT("Bus extender found\n");
+
+         Status = IopInvalidateDeviceRelations(DeviceNode, BusRelations);
+
+         if (!NT_SUCCESS(Status))
+         {
+            ObDereferenceObject(Fdo);
+            return Status;
+         }
+      }
+      else if (Fdo->DeviceType == FILE_DEVICE_ACPI)
+      {
+#ifdef ACPI
          static BOOLEAN SystemPowerDeviceNodeCreated = FALSE;
 
          /* There can be only one system power device */
@@ -93,20 +106,7 @@ IopInitializeDevice(
             PopSystemPowerDeviceNode = DeviceNode;
             SystemPowerDeviceNodeCreated = TRUE;
          }
-      }
 #endif /* ACPI */
-
-      if (Fdo->DeviceType == FILE_DEVICE_BUS_EXTENDER ||
-          Fdo->DeviceType == FILE_DEVICE_ACPI)
-      {
-         DPRINT("Bus extender found\n");
-
-         Status = IopInvalidateDeviceRelations(DeviceNode, BusRelations);
-         if (!NT_SUCCESS(Status))
-         {
-            ObDereferenceObject(Fdo);
-            return Status;
-         }
       }
 
       ObDereferenceObject(Fdo);
@@ -339,7 +339,7 @@ IoGetDeviceObjectPointer(
       NULL,
       NULL);
 
-   Status = ZwOpenFile(
+   Status = NtOpenFile(
       &FileHandle,
       DesiredAccess,
       &ObjectAttributes,
@@ -364,7 +364,7 @@ IoGetDeviceObjectPointer(
       *FileObject = LocalFileObject;
    }
 
-   ZwClose(FileHandle);
+   NtClose(FileHandle);
 
    return Status;
 }
@@ -557,7 +557,7 @@ IoCreateDevice(
    {
       swprintf(AutoNameBuffer,
                L"\\Device\\%08lx",
-               InterlockedIncrementUL(&IopDeviceObjectNumber));
+               InterlockedIncrement(&IopDeviceObjectNumber));
       RtlInitUnicodeString(&AutoName,
                            AutoNameBuffer);
       DeviceName = &AutoName;

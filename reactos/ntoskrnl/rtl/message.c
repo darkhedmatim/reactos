@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: message.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/message.c
- * PURPOSE:         Message table functions
- *
- * PROGRAMMERS:     Eric Kohl <ekohl@zr-online.de>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Message table functions
+ * FILE:              ntoskrnl/rtl/message.c
+ * PROGRAMER:         Eric Kohl <ekohl@zr-online.de>
+ * REVISION HISTORY:
+ *                    29/05/2001: Created
  */
 
 /* INCLUDES *****************************************************************/

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: volume.c,v 1.28 2004/12/05 16:31:51 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+#include <wchar.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS ****************************************************************/
@@ -164,7 +169,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
   PDIR_ENTRY Entry;
   PVFATFCB pRootFcb;
   LARGE_INTEGER FileOffset;
-  BOOLEAN LabelFound = FALSE;
+  BOOL LabelFound = FALSE;
   DIR_ENTRY VolumeLabelDirEntry;
   ULONG VolumeLabelDirIndex;
   ULONG LabelLen;
@@ -204,7 +209,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
   LabelLen = FsLabelInfo->VolumeLabelLength / sizeof(WCHAR);
   RtlZeroMemory(&VolumeLabelDirEntry, SizeDirEntry);
   StringW.Buffer = FsLabelInfo->VolumeLabel;
-  StringW.Length = StringW.MaximumLength = (USHORT)FsLabelInfo->VolumeLabelLength;
+  StringW.Length = StringW.MaximumLength = FsLabelInfo->VolumeLabelLength;
   StringO.Buffer = cString;
   StringO.Length = 0;
   StringO.MaximumLength = 42;
@@ -228,7 +233,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
    
   /* Search existing volume entry on disk */
   FileOffset.QuadPart = 0;
-  if (CcPinRead(pRootFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
+  if (CcMapData(pRootFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
   {
     while (TRUE)
     {
@@ -251,7 +256,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
       {
 	     CcUnpinData(Context);
 	     FileOffset.u.LowPart += PAGE_SIZE;
-	     if (!CcPinRead(pRootFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
+	     if (!CcMapData(pRootFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
 	     {
 	       Context = NULL;
 	       break;
@@ -272,7 +277,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
     {
       FileOffset.u.HighPart = 0;
       FileOffset.u.LowPart = VolumeLabelDirIndex * SizeDirEntry;
-      CcPinRead(pRootFcb->FileObject, &FileOffset, SizeDirEntry,
+      CcMapData(pRootFcb->FileObject, &FileOffset, SizeDirEntry,
                  TRUE, &Context, (PVOID*)&Entry);
       RtlCopyMemory(Entry, &VolumeLabelDirEntry, SizeDirEntry);
       CcSetDirtyPinnedData(Context, NULL);
@@ -288,7 +293,7 @@ FsdSetFsLabelInformation(PDEVICE_OBJECT DeviceObject,
   }
   
   /* Update volume label in memory */
-  DeviceObject->Vpb->VolumeLabelLength = (USHORT)FsLabelInfo->VolumeLabelLength;
+  DeviceObject->Vpb->VolumeLabelLength = FsLabelInfo->VolumeLabelLength;
   RtlCopyMemory(DeviceObject->Vpb->VolumeLabel, FsLabelInfo->VolumeLabel, DeviceObject->Vpb->VolumeLabelLength);
   
   return Status;
@@ -377,7 +382,7 @@ NTSTATUS VfatSetVolumeInformation(PVFAT_IRP_CONTEXT IrpContext)
   NTSTATUS Status = STATUS_SUCCESS;
   PVOID SystemBuffer;
   ULONG BufferLength;
-  PIO_STACK_LOCATION Stack = IrpContext->Stack;
+  PEXTENDED_IO_STACK_LOCATION Stack = (PEXTENDED_IO_STACK_LOCATION) IrpContext->Stack;
 
   /* PRECONDITION */
   ASSERT(IrpContext);

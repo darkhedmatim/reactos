@@ -173,7 +173,7 @@ static void concat_W( WCHAR *buffer, const WCHAR *src1, const WCHAR *src2, const
  */
 static BOOL build_filepathsW( const struct file_op *op, FILEPATHS_W *paths )
 {
-    unsigned int src_len = 1, dst_len = 1;
+    int src_len = 1, dst_len = 1;
     WCHAR *source = (PWSTR)paths->Source, *target = (PWSTR)paths->Target;
 
     if (op->src_root) src_len += strlenW(op->src_root) + 1;
@@ -978,8 +978,8 @@ BOOL static do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style)
         if ((GetFileAttributesW(target) != INVALID_FILE_ATTRIBUTES) &&
             (GetFileAttributesW(source) != INVALID_FILE_ATTRIBUTES))
         {
-            VersionSizeSource = GetFileVersionInfoSizeW(source,&zero);
-            VersionSizeTarget = GetFileVersionInfoSizeW(target,&zero);
+            VersionSizeSource = GetFileVersionInfoSizeW((LPWSTR)source,&zero);
+            VersionSizeTarget = GetFileVersionInfoSizeW((LPWSTR)target,&zero);
         }
 
         TRACE("SizeTarget %li ... SizeSource %li\n",VersionSizeTarget,
@@ -991,16 +991,16 @@ BOOL static do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style)
             LPVOID VersionTarget;
             VS_FIXEDFILEINFO *TargetInfo;
             VS_FIXEDFILEINFO *SourceInfo;
-            UINT length;
+            INT length;
             WCHAR  SubBlock[2]={'\\',0};
             DWORD  ret;
 
             VersionSource = HeapAlloc(GetProcessHeap(),0,VersionSizeSource);
             VersionTarget = HeapAlloc(GetProcessHeap(),0,VersionSizeTarget);
 
-            ret = GetFileVersionInfoW(source,0,VersionSizeSource,VersionSource);
+            ret = GetFileVersionInfoW((LPWSTR)source,0,VersionSizeSource,VersionSource);
             if (ret)
-              ret = GetFileVersionInfoW(target, 0, VersionSizeTarget,
+              ret = GetFileVersionInfoW((LPWSTR)target, 0, VersionSizeTarget,
                     VersionTarget);
 
             if (ret)
@@ -1370,57 +1370,6 @@ UINT WINAPI SetupDefaultQueueCallbackA( PVOID context, UINT notification,
 UINT WINAPI SetupDefaultQueueCallbackW( PVOID context, UINT notification,
                                         UINT_PTR param1, UINT_PTR param2 )
 {
-    FILEPATHS_W *paths = (FILEPATHS_W *)param1;
-
-    switch(notification)
-    {
-    case SPFILENOTIFY_STARTQUEUE:
-        TRACE( "start queue\n" );
-        return TRUE;
-    case SPFILENOTIFY_ENDQUEUE:
-        TRACE( "end queue\n" );
-        return 0;
-    case SPFILENOTIFY_STARTSUBQUEUE:
-        TRACE( "start subqueue %d count %d\n", param1, param2 );
-        return TRUE;
-    case SPFILENOTIFY_ENDSUBQUEUE:
-        TRACE( "end subqueue %d\n", param1 );
-        return 0;
-    case SPFILENOTIFY_STARTDELETE:
-        TRACE( "start delete %s\n", debugstr_w(paths->Target) );
-        return FILEOP_DOIT;
-    case SPFILENOTIFY_ENDDELETE:
-        TRACE( "end delete %s\n", debugstr_w(paths->Target) );
-        return 0;
-    case SPFILENOTIFY_DELETEERROR:
-        ERR( "delete error %d %s\n", paths->Win32Error, debugstr_w(paths->Target) );
-        return FILEOP_SKIP;
-    case SPFILENOTIFY_STARTRENAME:
-        TRACE( "start rename %s -> %s\n", debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return FILEOP_DOIT;
-    case SPFILENOTIFY_ENDRENAME:
-        TRACE( "end rename %s -> %s\n", debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return 0;
-    case SPFILENOTIFY_RENAMEERROR:
-        ERR( "rename error %d %s -> %s\n", paths->Win32Error,
-             debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return FILEOP_SKIP;
-    case SPFILENOTIFY_STARTCOPY:
-        TRACE( "start copy %s -> %s\n", debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return FILEOP_DOIT;
-    case SPFILENOTIFY_ENDCOPY:
-        TRACE( "end copy %s -> %s\n", debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return 0;
-    case SPFILENOTIFY_COPYERROR:
-        ERR( "copy error %d %s -> %s\n", paths->Win32Error,
-             debugstr_w(paths->Source), debugstr_w(paths->Target) );
-        return FILEOP_SKIP;
-    case SPFILENOTIFY_NEEDMEDIA:
-        TRACE( "need media\n" );
-        return FILEOP_SKIP;
-    default:
-        FIXME( "notification %d params %x,%x\n", notification, param1, param2 );
-        break;
-    }
-    return 0;
+    FIXME( "notification %d params %x,%x\n", notification, param1, param2 );
+    return FILEOP_SKIP;
 }

@@ -280,7 +280,7 @@ typedef enum {
 /* Prototypes */
 
 VOID HalpInitMPS(VOID);
-ULONG IOAPICRead(ULONG Apic, ULONG Offset);
+volatile ULONG IOAPICRead(ULONG Apic, ULONG Offset);
 VOID IOAPICWrite(ULONG Apic, ULONG Offset, ULONG Value);
 VOID IOAPICMaskIrq(ULONG Irq);
 VOID IOAPICUnmaskIrq(ULONG Irq);

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: time.c,v 1.28 2004/12/05 00:20:22 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/time.c
  * PURPOSE:         Time
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -141,63 +142,28 @@ ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
  * RETURNS: Status
  */
 NTSTATUS STDCALL
-NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
-		OUT PLARGE_INTEGER PreviousTime OPTIONAL)
+NtSetSystemTime(IN PLARGE_INTEGER UnsafeNewSystemTime,
+		OUT PLARGE_INTEGER UnsafeOldSystemTime OPTIONAL)
 {
   LARGE_INTEGER OldSystemTime;
   LARGE_INTEGER NewSystemTime;
   LARGE_INTEGER LocalTime;
   TIME_FIELDS TimeFields;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForRead(SystemTime,
-                   sizeof(LARGE_INTEGER),
-                   sizeof(ULONG));
-      NewSystemTime = *SystemTime;
-      if(PreviousTime != NULL)
-      {
-        ProbeForWrite(PreviousTime,
-                      sizeof(LARGE_INTEGER),
-                      sizeof(ULONG));
-      }
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
+  NTSTATUS Status;
+
+  /* FIXME: Check for SeSystemTimePrivilege */
+
+  Status = MmCopyFromCaller(&NewSystemTime, UnsafeNewSystemTime,
+			    sizeof(NewSystemTime));
+  if (!NT_SUCCESS(Status))
     {
       return Status;
     }
-  }
-  else
-  {
-    NewSystemTime = *SystemTime;
-  }
-  
-  if(!SeSinglePrivilegeCheck(SeSystemtimePrivilege,
-                             PreviousMode))
-  {
-    DPRINT1("NtSetSystemTime: Caller requires the SeSystemtimePrivilege privilege!\n");
-    return STATUS_PRIVILEGE_NOT_HELD;
-  }
-  
-  if(PreviousTime != NULL)
-  {
-    KeQuerySystemTime(&OldSystemTime);
-  }
 
+  if (UnsafeOldSystemTime != NULL)
+    {
+      KeQuerySystemTime(&OldSystemTime);
+    }
   ExSystemTimeToLocalTime(&NewSystemTime,
 			  &LocalTime);
   RtlTimeToTimeFields(&LocalTime,
@@ -207,18 +173,15 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
   /* Set system time */
   KiSetSystemTime(&NewSystemTime);
 
-  if(PreviousTime != NULL)
-  {
-    _SEH_TRY
+  if (UnsafeOldSystemTime != NULL)
     {
-      *PreviousTime = OldSystemTime;
+      Status = MmCopyToCaller(UnsafeOldSystemTime, &OldSystemTime,
+			      sizeof(OldSystemTime));
+      if (!NT_SUCCESS(Status))
+	{
+          return Status;
+	}
     }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-  }
 
   return STATUS_SUCCESS;
 }
@@ -231,40 +194,19 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
  *          time of day in the standard time format.
  */
 NTSTATUS STDCALL
-NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
+NtQuerySystemTime(OUT PLARGE_INTEGER UnsafeCurrentTime)
 {
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
+  LARGE_INTEGER CurrentTime;
+  NTSTATUS Status;
 
-  PreviousMode = ExGetPreviousMode();
-
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
+  KeQuerySystemTime(&CurrentTime);
+  Status = MmCopyToCaller(UnsafeCurrentTime, &CurrentTime,
+			  sizeof(CurrentTime));
+  if (!NT_SUCCESS(Status))
     {
-      ProbeForRead(SystemTime,
-                   sizeof(LARGE_INTEGER),
-                   sizeof(ULONG));
-
-      /* it's safe to pass the pointer directly to KeQuerySystemTime as it's just
-         a basic copy to these pointer, if it raises an exception nothing dangerous
-         can happen! */
-      KeQuerySystemTime(SystemTime);
+      return(Status);
     }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-  }
-  else
-  {
-    KeQuerySystemTime(SystemTime);
-  }
-  
-  return Status;
+  return STATUS_SUCCESS;
 }
 
 
@@ -286,7 +228,7 @@ ExLocalTimeToSystemTime (
 /*
  * @unimplemented
  */
-ULONG
+VOID
 STDCALL
 ExSetTimerResolution (
     IN ULONG DesiredTime,
@@ -294,8 +236,6 @@ ExSetTimerResolution (
     )
 {
 	UNIMPLEMENTED;
-
-    return 0;
 }
 
 

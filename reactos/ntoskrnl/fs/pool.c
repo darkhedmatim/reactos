@@ -1,11 +1,7 @@
-/* $Id$
+/* $Id: pool.c,v 1.6 2004/08/15 16:39:02 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/fs/pool.c
- * PURPOSE:         No purpose listed.
+ * reactos/ntoskrnl/fs/pool.c
  *
- * PROGRAMMERS:     No programmer listed.
  */
 
 #include <ntoskrnl.h>

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: RPoolMgr.h,v 1.2.2.1 2004/12/22 03:44:52 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -13,16 +13,16 @@
 
 typedef unsigned long rulong;
 
-#define R_IS_POOL_PTR(pool,ptr) (void*)(ptr) >= pool->UserBase && (ULONG_PTR)(ptr) < ((ULONG_PTR)pool->UserBase + pool->UserSize)
+#define R_IS_POOL_PTR(pool,ptr) (void*)(ptr) >= pool->UserBase && (char*)(ptr) < ((char*)pool->UserBase+pool->UserSize)
 #define R_ASSERT_PTR(pool,ptr) ASSERT( R_IS_POOL_PTR(pool,ptr) )
 #define R_ASSERT_SIZE(pool,sz) ASSERT( sz > (sizeof(R_USED)+2*R_RZ) && sz >= sizeof(R_FREE) && sz < pool->UserSize )
 
 #ifndef R_ROUND_UP
-#define R_ROUND_UP(x,s)    ((PVOID)(((ULONG_PTR)(x)+(s)-1) & ~((ULONG_PTR)(s)-1)))
+#define R_ROUND_UP(x,s)    ((PVOID)(((rulong)(x)+(s)-1) & ~((s)-1)))
 #endif//R_ROUND_UP
 
 #ifndef R_ROUND_DOWN
-#define R_ROUND_DOWN(x,s)  ((PVOID)(((ULONG_PTR)(x)) & ~((ULONG_PTR)(s)-1)))
+#define R_ROUND_DOWN(x,s)  ((PVOID)(((rulong)(x)) & ~((s)-1)))
 #endif//R_ROUND_DOWN
 
 #ifndef R_QUEMIN
@@ -79,7 +79,7 @@ typedef struct _R_FREE
 	rulong Status : 2;
 	rulong Size;
 #if R_STACK
-	ULONG_PTR LastOwnerStack[R_STACK];
+	rulong LastOwnerStack[R_STACK];
 #endif//R_STACK
 	struct _R_FREE* NextFree;
 	struct _R_FREE* PrevFree;
@@ -95,7 +95,7 @@ typedef struct _R_USED
 	rulong Status : 2;
 	rulong Size;
 #if R_STACK
-	ULONG_PTR LastOwnerStack[R_STACK];
+	rulong LastOwnerStack[R_STACK];
 #endif//R_STACK
 	struct _R_USED* NextUsed;
 #if R_RZ
@@ -245,7 +245,7 @@ RPoolRemoveFree ( PR_POOL pool, PR_FREE Item )
 		pool->FirstFree = Item->NextFree;
 	}
 #if defined(DBG) || defined(KDBG)
-	Item->NextFree = Item->PrevFree = (PR_FREE)(ULONG_PTR)0xDEADBEEF;
+	Item->NextFree = Item->PrevFree = (PR_FREE)0xDEADBEEF;
 #endif//DBG || KDBG
 }
 
@@ -281,7 +281,7 @@ RFreeInit ( void* memory )
 	block->Status = 0;
 	RFreeFillStack ( block );
 #if defined(DBG) || defined(KDBG)
-	block->PrevFree = block->NextFree = (PR_FREE)(ULONG_PTR)0xDEADBEEF;
+	block->PrevFree = block->NextFree = (PR_FREE)0xDEADBEEF;
 #endif//DBG || KDBG
 	return block;
 }
@@ -354,8 +354,8 @@ RiBadBlock ( PR_USED pUsed, char* Addr, const char* violation, const char* file,
 
 	if ( printzone )
 	{
-		unsigned char* HiZone = (unsigned char*)Addr + pUsed->UserSize;
-		unsigned char* LoZone = (unsigned char*)Addr - R_RZ; // this is to simplify indexing below...
+		unsigned char* HiZone = Addr + pUsed->UserSize;
+		unsigned char* LoZone = Addr - R_RZ; // this is to simplify indexing below...
 		R_DEBUG ( ", LoZone " );
 		for ( i = 0; i < R_RZ; i++ )
 			R_DEBUG ( "%02x", LoZone[i] );
@@ -369,39 +369,6 @@ RiBadBlock ( PR_USED pUsed, char* Addr, const char* violation, const char* file,
 	RiPrintLastOwner ( pUsed );
 	R_DEBUG ( "\n" );
 
-	R_DEBUG ( "Contents of Block:\n" );
-	for ( i = 0; i < 8*16 && i < pUsed->UserSize; i += 16 )
-	{
-		int j;
-		R_DEBUG ( "%04X ", i );
-		for ( j = 0; j < 16; j++ )
-		{
-			if ( i+j < pUsed->UserSize )
-			{
-				R_DEBUG ( "%02X ", (unsigned)(unsigned char)Addr[i+j] );
-			}
-			else
-			{
-				R_DEBUG ( "   " );
-			}
-		}
-		R_DEBUG(" ");
-		for ( j = 0; j < 16; j++ )
-		{
-			if ( i+j < pUsed->UserSize )
-			{
-				char c = Addr[i+j];
-				if ( c < 0x20 || c > 0x7E )
-					c = '.';
-				R_DEBUG ( "%c", c );
-			}
-			else
-			{
-				R_DEBUG ( " " );
-			}
-		}
-		R_DEBUG("\n");
-	}
 	R_PANIC();
 }
 static void
@@ -447,8 +414,8 @@ RUsedRedZoneCheck ( PR_POOL pool, PR_USED pUsed, char* Addr, const char* file, i
 	{
 		RiBadBlock ( pUsed, Addr, "invalid user size", file, line, 0 );
 	}
-	HiZone = (unsigned char*)Addr + pUsed->UserSize;
-	LoZone = (unsigned char*)Addr - R_RZ; // this is to simplify indexing below...
+	HiZone = Addr + pUsed->UserSize;
+	LoZone = Addr - R_RZ; // this is to simplify indexing below...
 	for ( i = 0; i < R_RZ && bLow && bHigh; i++ )
 	{
 		bLow = bLow && ( LoZone[i] == R_RZ_LOVALUE );
@@ -456,11 +423,11 @@ RUsedRedZoneCheck ( PR_POOL pool, PR_USED pUsed, char* Addr, const char* file, i
 	}
 	if ( !bLow || !bHigh )
 	{
-		const char* violation = "High and Low-side redzone overwrite";
+		const char* violation = "High and Low-side redzone";
 		if ( bHigh ) // high is okay, so it was just low failed
-			violation = "Low-side redzone overwrite";
+			violation = "Low-side redzone";
 		else if ( bLow ) // low side is okay, so it was just high failed
-			violation = "High-side redzone overwrite";
+			violation = "High-side redzone";
 		RiBadBlock ( pUsed, Addr, violation, file, line, 1 );
 	}
 }
@@ -644,7 +611,7 @@ RiUsedInit ( PR_USED Block, rulong Tag )
 
 	// now add the block to the used block list
 #if defined(DBG) || defined(KDBG)
-	Block->NextUsed = (PR_USED)(ULONG_PTR)0xDEADBEEF;
+	Block->NextUsed = (PR_USED)0xDEADBEEF;
 #endif//R_USED_LIST
 
 	Block->Tag = Tag;

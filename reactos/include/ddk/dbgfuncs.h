@@ -1,6 +1,6 @@
 #ifndef __INCLUDE_DDK_DBGFUNCS_H
 #define __INCLUDE_DDK_DBGFUNCS_H
-/* $Id$ */
+/* $Id: dbgfuncs.h,v 1.9 2004/08/13 05:00:35 ion Exp $ */
 
 VOID STDCALL DbgBreakPointWithStatus (ULONG Status);
 VOID STDCALL DbgBreakPoint(VOID);

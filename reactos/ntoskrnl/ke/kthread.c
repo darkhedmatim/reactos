@@ -1,11 +1,28 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 2000  ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: kthread.c,v 1.61 2004/12/12 23:18:55 navaraf Exp $
+ *
  * FILE:            ntoskrnl/ke/kthread.c
  * PURPOSE:         Microkernel thread support
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -15,21 +32,6 @@
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
-
-VOID
-KiServiceCheck (VOID)
-{
-  PETHREAD Thread;
-
-  Thread = PsGetCurrentThread();
-
-  if (Thread->Tcb.ServiceTable != KeServiceDescriptorTableShadow)
-    {
-      PsInitWin32Thread (Thread);
-
-      Thread->Tcb.ServiceTable = KeServiceDescriptorTableShadow;
-    }
-}
 
 /*
  * @unimplemented
@@ -72,23 +74,6 @@ KeQueryPriorityThread (
 	return Thread->Priority;
 }
 
-/*
- * @implemented
- */
-ULONG
-STDCALL
-KeQueryRuntimeThread(
-	IN PKTHREAD Thread,
-	OUT PULONG UserTime
-	)
-{
-	/* Return the User Time */
-	*UserTime = Thread->UserTime;
-	
-	/* Return the Kernel Time */
-	return Thread->KernelTime;
-}
-
 NTSTATUS 
 KeReleaseThread(PKTHREAD Thread)
 /*
@@ -102,13 +87,14 @@ KeReleaseThread(PKTHREAD Thread)
   /* FIXME - lock the process */
   RemoveEntryList(&Thread->ThreadListEntry);
   
-  if (Thread->StackLimit != (ULONG_PTR)init_stack)
+  if (Thread->StackLimit != (ULONG_PTR)&init_stack)
     {       
       MmLockAddressSpace(MmGetKernelAddressSpace());
-      MmFreeMemoryAreaByPtr(MmGetKernelAddressSpace(),
-                            (PVOID)Thread->StackLimit,
-                            KeFreeStackPage,
-                            NULL);
+      MmFreeMemoryArea(MmGetKernelAddressSpace(),
+		       (PVOID)Thread->StackLimit,
+		       MM_STACK_SIZE,
+		       KeFreeStackPage,
+		       NULL);
       MmUnlockAddressSpace(MmGetKernelAddressSpace());
     }
   Thread->StackLimit = 0;
@@ -210,10 +196,10 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
     }
   else
     {
-      Thread->InitialStack = (PCHAR)init_stack_top;
-      Thread->StackBase = (PCHAR)init_stack_top;
-      Thread->StackLimit = (ULONG_PTR)init_stack;
-      Thread->KernelStack = (PCHAR)init_stack_top;
+      Thread->InitialStack = (PCHAR)&init_stack_top;
+      Thread->StackBase = (PCHAR)&init_stack_top;
+      Thread->StackLimit = (ULONG_PTR)&init_stack;
+      Thread->KernelStack = (PCHAR)&init_stack_top;
     }
 
   /* 
@@ -251,9 +237,9 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   Thread->ApcState.UserApcPending = 0;
   Thread->ContextSwitches = 0;
   Thread->WaitStatus = STATUS_SUCCESS;
-  Thread->WaitIrql = PASSIVE_LEVEL;
+  Thread->WaitIrql = 0;
   Thread->WaitMode = 0;
-  Thread->WaitNext = FALSE;
+  Thread->WaitNext = 0;
   Thread->WaitBlockList = NULL;
   Thread->WaitListEntry.Flink = NULL;
   Thread->WaitListEntry.Blink = NULL;
@@ -324,7 +310,6 @@ VOID
 STDCALL
 KeRevertToUserAffinityThread(VOID)
 {
-#ifdef CONFIG_SMP
 	PKTHREAD CurrentThread;
 	KIRQL oldIrql;
 
@@ -350,7 +335,6 @@ KeRevertToUserAffinityThread(VOID)
            PsDispatchThreadNoLock(THREAD_STATE_READY);
            KeLowerIrql(oldIrql);
 	}
-#endif
 }
 
 /*
@@ -381,7 +365,6 @@ VOID
 STDCALL
 KeSetSystemAffinityThread(IN KAFFINITY Affinity)
 {
-#ifdef CONFIG_SMP
 	PKTHREAD CurrentThread;
 	KIRQL oldIrql;
 
@@ -389,6 +372,7 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
 
 	CurrentThread = KeGetCurrentThread();
 
+	ASSERT(CurrentThread->SystemAffinityActive == FALSE);
 	ASSERT(Affinity & ((1 << KeNumberProcessors) - 1));
 	
         /* Set the System Affinity Specified */
@@ -407,7 +391,6 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
            PsDispatchThreadNoLock(THREAD_STATE_READY);
            KeLowerIrql(oldIrql);
 	}
-#endif
 }
 
 /*
@@ -421,46 +404,4 @@ KeTerminateThread(IN KPRIORITY Increment)
 	
 	/* Call our own internal routine */
 	PsTerminateCurrentThread(0);
-}
-
-
-NTSTATUS 
-STDCALL
-NtDelayExecution(IN BOOLEAN Alertable,
-                 IN PLARGE_INTEGER DelayInterval)
-{
-   KPROCESSOR_MODE PreviousMode;
-   LARGE_INTEGER SafeInterval;
-   
-   PreviousMode = ExGetPreviousMode();
-   
-   if(PreviousMode != KernelMode)
-   {
-     NTSTATUS Status = STATUS_SUCCESS;
-     
-     _SEH_TRY
-     {
-       ProbeForRead(DelayInterval,
-                    sizeof(LARGE_INTEGER),
-                    sizeof(ULONG));
-       /* make a copy on the kernel stack and let DelayInterval point to it so
-          we don't need to wrap KeDelayExecutionThread in SEH! */
-       SafeInterval = *DelayInterval;
-       DelayInterval = &SafeInterval;
-     }
-     _SEH_HANDLE
-     {
-       Status = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-     
-     if(!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
-   }
-
-   return KeDelayExecutionThread(PreviousMode,
-                                 Alertable,
-                                 DelayInterval);
 }

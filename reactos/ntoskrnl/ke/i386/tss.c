@@ -1,11 +1,28 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 2000  ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/tss.c
  * PURPOSE:         TSS managment
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -25,8 +42,7 @@ KTSS KiBootTss;
 static KTSSNOIOPM KiBootTrapTss;
 
 extern USHORT KiBootGdt[];
-extern ULONG init_stack;
-extern ULONG init_stack_top;
+
 extern VOID KiTrap8(VOID);
 
 /* FUNCTIONS *****************************************************************/
@@ -183,6 +199,7 @@ VOID INIT_FUNCTION
 Ki386BootInitializeTSS(VOID)
 {
   ULONG cr3_;
+  extern unsigned int init_stack, init_stack_top;
   extern unsigned int trap_stack, trap_stack_top;
   unsigned int base, length;
 
@@ -190,11 +207,11 @@ Ki386BootInitializeTSS(VOID)
 
   Ki386TssArray[0] = &KiBootTss;
   Ki386TrapTssArray[0] = &KiBootTrapTss;
-  Ki386TrapStackArray[0] = (PVOID)trap_stack;
-  Ki386InitialStackArray[0] = (PVOID)init_stack;
+  Ki386TrapStackArray[0] = (PVOID)&trap_stack;
+  Ki386InitialStackArray[0] = (PVOID)&init_stack;
 
   /* Initialize the boot TSS. */
-  KiBootTss.Esp0 = (ULONG)init_stack_top - sizeof(FX_SAVE_AREA);
+  KiBootTss.Esp0 = (ULONG)&init_stack_top - sizeof(FX_SAVE_AREA);
   KiBootTss.Ss0 = KERNEL_DS;
   //   KiBootTss.IoMapBase = FIELD_OFFSET(KTSS, IoBitmap);
   KiBootTss.IoMapBase = 0xFFFF; /* No i/o bitmap */
@@ -215,9 +232,9 @@ Ki386BootInitializeTSS(VOID)
 
   /* Initialize the TSS used for handling double faults. */
   KiBootTrapTss.Eflags = 0;
-  KiBootTrapTss.Esp0 = (ULONG)trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  KiBootTrapTss.Esp0 = (ULONG)&trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
   KiBootTrapTss.Ss0 = KERNEL_DS;
-  KiBootTrapTss.Esp = (ULONG)trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
+  KiBootTrapTss.Esp = (ULONG)&trap_stack_top; /* FIXME: - sizeof(FX_SAVE_AREA)? */
   KiBootTrapTss.Cs = KERNEL_CS;
   KiBootTrapTss.Eip = (ULONG)KiTrap8;
   KiBootTrapTss.Ss = KERNEL_DS;

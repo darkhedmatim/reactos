@@ -1,15 +1,12 @@
-/* $Id$
+/* $Id: swprintf.c,v 1.16 2004/08/15 16:39:11 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/swprintf.c
- * PURPOSE:         Unicode sprintf functions
- * 
+ * PURPOSE:         unicode sprintf functions
  * PROGRAMMERS:     David Welch
  *                  Eric Kohl
- */
-
-/*
+ *
  * TODO:
  *   - Verify the implementation of '%Z'.
  */

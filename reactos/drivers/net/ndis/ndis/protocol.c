@@ -367,6 +367,7 @@ ProSend(
           NdisStatus = (*Adapter->Miniport->Chars.SendHandler)(Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
           NDIS_DbgPrint(MAX_TRACE, ("back from miniport's send handler\n"));
 	  if( NdisStatus != NDIS_STATUS_PENDING ) {
+	      NdisMSendComplete( Adapter, Packet, NdisStatus );
 	      Adapter->MiniportBusy = FALSE;
 	  }
           KeLowerIrql(RaiseOldIrql);
@@ -855,7 +856,7 @@ NdisRegisterProtocol(
         }
 
       wcscpy(RegistryPathStr, SERVICES_KEY);
-      wcscat(RegistryPathStr, DataPtr + 8 );
+      wcscat(RegistryPathStr, (((WCHAR *)(KeyInformation->Data)) +8 ));
       wcscat(RegistryPathStr, PARAMETERS_KEY);
       wcsncat(RegistryPathStr, ProtocolCharacteristics->Name.Buffer, ProtocolCharacteristics->Name.Length / sizeof(WCHAR) );
 

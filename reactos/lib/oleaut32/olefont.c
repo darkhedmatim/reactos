@@ -454,7 +454,8 @@ static void OLEFontImpl_Destroy(OLEFontImpl* fontDesc)
 {
   TRACE("(%p)\n", fontDesc);
 
-  HeapFree(GetProcessHeap(), 0, fontDesc->description.lpstrName);
+  if (fontDesc->description.lpstrName!=0)
+    HeapFree(GetProcessHeap(), 0, fontDesc->description.lpstrName);
 
   if (fontDesc->gdiFont!=0)
     DeleteObject(fontDesc->gdiFont);
@@ -1214,7 +1215,7 @@ static HRESULT WINAPI OLEFontImpl_GetTypeInfo(
     return E_FAIL;
   hres = LoadTypeLib(stdole32tlb, &tl);
   if (FAILED(hres)) {
-    ERR("Could not load the stdole32.tlb?\n");
+    FIXME("Could not load the stdole32.tlb?\n");
     return hres;
   }
   hres = ITypeLib_GetTypeInfoOfGuid(tl, &IID_IDispatch, ppTInfo);
@@ -1593,7 +1594,8 @@ static HRESULT WINAPI OLEFontImpl_Load(
   if (cbRead!=bStringSize)
     return E_FAIL;
 
-  HeapFree(GetProcessHeap(), 0, this->description.lpstrName);
+  if (this->description.lpstrName!=0)
+    HeapFree(GetProcessHeap(), 0, this->description.lpstrName);
 
   len = MultiByteToWideChar( CP_ACP, 0, readBuffer, bStringSize, NULL, 0 );
   this->description.lpstrName = HeapAlloc( GetProcessHeap(), 0, (len+1) * sizeof(WCHAR) );

@@ -1,11 +1,26 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998 - 2004 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/rundown.c
  * PURPOSE:         Rundown Protection Functions
- * 
- * PROGRAMMERS:     No programmer listed.
+ * PORTABILITY:     Checked
  */
 
 /* INCLUDES *****************************************************************/
@@ -41,8 +56,6 @@ ExAcquireRundownProtectionEx (
 {
     ULONG_PTR PrevCount, Current;
     
-    PAGED_CODE();
-    
     Count <<= EX_RUNDOWN_COUNT_SHIFT;
     
     /* Loop until successfully incremented the counter */
@@ -76,8 +89,6 @@ ExInitializeRundownProtection (
     IN PEX_RUNDOWN_REF RunRef
     )
 {
-    PAGED_CODE();
-    
     /* Set the count to zero */
     RunRef->Count = 0;
 }
@@ -91,8 +102,6 @@ ExReInitializeRundownProtection (
     IN PEX_RUNDOWN_REF RunRef
     )
 {
-    PAGED_CODE();
-    
     /* Reset the count */
 #ifdef _WIN64
     InterlockedExchangeAdd64((LONGLONG*)&RunRef->Count, 0LL);
@@ -112,8 +121,6 @@ ExReleaseRundownProtectionEx (
     IN ULONG Count
     )
 {
-    PAGED_CODE();
-
     Count <<= EX_RUNDOWN_COUNT_SHIFT;
     
     for (;;)
@@ -124,33 +131,25 @@ ExReleaseRundownProtectionEx (
         if (Current & EX_RUNDOWN_ACTIVE)
         {
             /* Get Pointer */
-            PRUNDOWN_DESCRIPTOR RundownDescriptor = (PRUNDOWN_DESCRIPTOR)(Current & ~EX_RUNDOWN_ACTIVE);
-            
-            if (RundownDescriptor == NULL)
-            {
-                /* the rundown was completed and there's no one to notify */
-                break;
-            }
-            
-            Current = RundownDescriptor->References;
+            PRUNDOWN_DESCRIPTOR RundownDescriptor = (PRUNDOWN_DESCRIPTOR)((ULONG_PTR)RunRef->Ptr & ~EX_RUNDOWN_ACTIVE);
 
-            /* Decrease RundownDescriptor->References by Count references */
+            /* Decrease Reference Count by RundownDescriptor->References */
             for (;;)
             {
                 ULONG_PTR PrevCount, NewCount;
 
-                if ((Count >> EX_RUNDOWN_COUNT_SHIFT) == Current)
+                if ((Current >> EX_RUNDOWN_COUNT_SHIFT) == RundownDescriptor->References)
                 {
                     NewCount = 0;
                 }
                 else
                 {
-                    NewCount = ((RundownDescriptor->References - (Count >> EX_RUNDOWN_COUNT_SHIFT)) << EX_RUNDOWN_COUNT_SHIFT) | EX_RUNDOWN_ACTIVE;
+                    NewCount = (((Current >> EX_RUNDOWN_COUNT_SHIFT) - RundownDescriptor->References) << EX_RUNDOWN_COUNT_SHIFT) | EX_RUNDOWN_ACTIVE;
                 }
 #ifdef _WIN64
-                PrevCount = (ULONG_PTR)InterlockedCompareExchange64((LONGLONG*)&RundownDescriptor->References, (LONGLONG)NewCount, (LONGLONG)Current);
+                PrevCount = (ULONG_PTR)InterlockedCompareExchange64((LONGLONG*)&RunRef->Count, (LONGLONG)NewCount, (LONGLONG)Current);
 #else
-                PrevCount = (ULONG_PTR)InterlockedCompareExchange((LONG*)&RundownDescriptor->References, (LONG)NewCount, (LONG)Current);
+                PrevCount = (ULONG_PTR)InterlockedCompareExchange((LONG*)&RunRef->Count, (LONG)NewCount, (LONG)Current);
 #endif
                 if (PrevCount == Current)
                 {
@@ -208,9 +207,7 @@ ExRundownCompleted (
     IN PEX_RUNDOWN_REF RunRef
     )
 {
-    PAGED_CODE();
-    
-    /* mark the counter as active */
+    /* mark the  */
 #ifdef _WIN64
     InterlockedExchange64((LONGLONG*)&RunRef->Count, (LONGLONG)EX_RUNDOWN_ACTIVE);
 #else
@@ -230,47 +227,40 @@ ExWaitForRundownProtectionRelease (
     ULONG_PTR PrevCount, NewPtr, PrevPtr;
     RUNDOWN_DESCRIPTOR RundownDescriptor;
     
-    PAGED_CODE();
-    
-    PrevCount = RunRef->Count;
-    
-    if (PrevCount != 0 && !(PrevCount & EX_RUNDOWN_ACTIVE))
-    {
-        /* save the reference counter */
-        RundownDescriptor.References = PrevCount >> EX_RUNDOWN_COUNT_SHIFT;
-
-        /* Pending references... wait on them to be closed with an event */
-        KeInitializeEvent(&RundownDescriptor.RundownEvent, NotificationEvent, FALSE);
-        
-        ASSERT(!((ULONG_PTR)&RundownDescriptor & EX_RUNDOWN_ACTIVE));
-        
-        NewPtr = (ULONG_PTR)&RundownDescriptor | EX_RUNDOWN_ACTIVE;
-        
-        for (;;)
-        {
 #ifdef _WIN64
-            PrevPtr = (ULONG_PTR)InterlockedCompareExchange64((LONGLONG*)&RunRef->Ptr, (LONGLONG)NewPtr, (LONGLONG)PrevCount);
+    PrevCount = (ULONG_PTR)InterlockedCompareExchange64((LONGLONG*)&RunRef->Ptr, (LONGLONG)EX_RUNDOWN_ACTIVE, 0LL);
 #else
-            PrevPtr = (ULONG_PTR)InterlockedCompareExchange((LONG*)&RunRef->Ptr, (LONG)NewPtr, (LONG)PrevCount);
+    PrevCount = (ULONG_PTR)InterlockedCompareExchange((LONG*)&RunRef->Ptr, EX_RUNDOWN_ACTIVE, 0);
 #endif
-            if (PrevPtr == PrevCount)
-            {
-                /* Wait for whoever needs to release to notify us */
-                KeWaitForSingleObject(&RundownDescriptor.RundownEvent, Executive, KernelMode, FALSE, NULL);
-                break;
-            }
-            else if (PrevPtr == 0 || (PrevPtr & EX_RUNDOWN_ACTIVE))
-            {
-                /* some one else was faster, let's just bail */
-                break;
-            }
-            
-            PrevCount = PrevPtr;
-            
-            /* save the changed reference counter and try again */
-            RundownDescriptor.References = PrevCount >> EX_RUNDOWN_COUNT_SHIFT;
-        }
+
+    if (PrevCount == 0 ||
+        PrevCount & EX_RUNDOWN_ACTIVE)
+    {
+        return;
     }
+    
+    /* save the reference counter */
+    RundownDescriptor.References = PrevCount >> EX_RUNDOWN_COUNT_SHIFT;
+    
+    /* Pending references... wait on them to be closed with an event */
+    KeInitializeEvent(&RundownDescriptor.RundownEvent, NotificationEvent, FALSE);
+    
+    NewPtr = (ULONG_PTR)&RundownDescriptor | EX_RUNDOWN_ACTIVE;
+    PrevCount = EX_RUNDOWN_ACTIVE;
+    
+    do
+    {
+#ifdef _WIN64
+        PrevPtr = (ULONG_PTR)InterlockedCompareExchange64((LONGLONG*)&RunRef->Ptr, (LONGLONG)NewPtr, (LONGLONG)PrevCount);
+#else
+        PrevPtr = (ULONG_PTR)InterlockedCompareExchange((LONG*)&RunRef->Ptr, (LONG)NewPtr, (LONG)PrevCount);
+#endif
+
+        PrevCount = PrevPtr;
+    } while (PrevPtr != PrevCount);
+    
+    /* Wait for whoever needs to release to notify us */
+    KeWaitForSingleObject(&RundownDescriptor.RundownEvent, Executive, KernelMode, FALSE, NULL);
 }
 
 /* EOF */

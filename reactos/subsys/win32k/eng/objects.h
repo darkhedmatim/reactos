@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: objects.h,v 1.33 2004/12/12 01:40:36 weiden Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -50,12 +50,6 @@ typedef struct _CLIPGDI {
   ULONG EnumMax;
   ENUMRECTS EnumRects;
 } CLIPGDI, *PCLIPGDI;
-
-typedef struct _DRIVERGDI {
-  DRIVEROBJ    DriverObj;
-  LIST_ENTRY   ListEntry;
-  FAST_MUTEX   Lock;
-} DRIVERGDI, *PDRIVERGDI;
 
 /*ei What is this for? */
 typedef struct _DRVFUNCTIONSGDI {
@@ -127,14 +121,6 @@ typedef HBITMAP STDCALL (*PFN_CreateDeviceBitmap)(DHPDEV, SIZEL, ULONG);
 typedef BOOL STDCALL (*PFN_SetPalette)(DHPDEV, PALOBJ*, ULONG, ULONG, ULONG);
 
 typedef BOOL STDCALL (*PFN_GradientFill)(SURFOBJ*, CLIPOBJ*, XLATEOBJ*, TRIVERTEX*, ULONG, PVOID, ULONG, RECTL*, POINTL*, ULONG);
-
-typedef struct _WNDGDI {
-  WNDOBJ            WndObj;
-  CLIPOBJ           *ClientClipObj;
-  WNDOBJCHANGEPROC  ChangeProc;
-  FLONG             Flags;
-  int               PixelFormat;
-} WNDGDI, *PWNDGDI;
 
 typedef struct _XFORMGDI {
   ULONG Dummy;

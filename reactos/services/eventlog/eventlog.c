@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: eventlog.c,v 1.7 2003/11/20 11:09:49 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -52,10 +52,10 @@
 VOID CALLBACK
 ServiceMain(DWORD argc, LPTSTR *argv)
 {
-  DPRINT("ServiceMain() called\n");
+  DPRINT1("ServiceMain() called\n");
 
 
-  DPRINT("ServiceMain() done\n");
+  DPRINT1("ServiceMain() done\n");
 }
 
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: misc.c,v 1.9 2004/07/03 17:40:25 navaraf Exp $ */
 #include <w32k.h>
 
 BOOL STDCALL
@@ -121,20 +121,6 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     Translate->x = 0;
     Translate->y = 0;
     *OutputObj = DestObj;
-    }
-
-  if (NULL != *OutputObj
-      && 0 != (((BITMAPOBJ*) *OutputObj)->flHooks & HOOK_SYNCHRONIZE))
-    {
-      if (NULL != GDIDEVFUNCS(*OutputObj).SynchronizeSurface)
-        {
-          GDIDEVFUNCS(*OutputObj).SynchronizeSurface(*OutputObj, DestRect, 0);
-        }
-      else if (STYPE_BITMAP == (*OutputObj)->iType
-               && NULL != GDIDEVFUNCS(*OutputObj).Synchronize)
-        {
-          GDIDEVFUNCS(*OutputObj).Synchronize((*OutputObj)->dhpdev, DestRect);
-        }
     }
 
   EnterLeave->DestObj = DestObj;

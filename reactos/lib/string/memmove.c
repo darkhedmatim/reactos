@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: memmove.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
 #include <string.h>

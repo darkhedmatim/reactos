@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ftol.c,v 1.1 2003/04/23 22:58:02 gvg Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel

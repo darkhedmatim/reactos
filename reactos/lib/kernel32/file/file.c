@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: file.c,v 1.61 2004/12/06 14:45:47 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -694,7 +694,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
   NTSTATUS Status;
   WIN32_FILE_ATTRIBUTE_DATA* FileAttributeData;
 
-  DPRINT("GetFileAttributesExW(%S) called\n", lpFileName);
+  DPRINT ("GetFileAttributesExW(%S) called\n", lpFileName);
 
 
   if (fInfoLevelId != GetFileExInfoStandard || lpFileInformation == NULL)
@@ -709,7 +709,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
 				     NULL,
 				     NULL))
     {
-      DPRINT1 ("Invalid path\n");
+      DPRINT ("Invalid path\n");
       SetLastError (ERROR_BAD_PATHNAME);
       return FALSE;
     }
@@ -731,7 +731,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
   RtlFreeUnicodeString (&FileName);
   if (!NT_SUCCESS (Status))
     {
-      DPRINT ("NtOpenFile() failed  %x (Status %lx)\n", &ObjectAttributes, Status);
+      DPRINT ("NtOpenFile() failed (Status %lx)\n", Status);
       SetLastErrorByStatus (Status);
       return FALSE;
     }
@@ -746,7 +746,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
 
   if (!NT_SUCCESS (Status))
     {
-      DPRINT1 ("NtQueryInformationFile() failed (Status %lx)\n", Status);
+      DPRINT ("NtQueryInformationFile() failed (Status %lx)\n", Status);
       SetLastErrorByStatus (Status);
       return FALSE;
     }

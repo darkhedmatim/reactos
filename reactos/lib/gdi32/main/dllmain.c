@@ -2,8 +2,8 @@
  * dllmain.c
  *
  * $Revision: 1.11 $
- * $Author$
- * $Date$
+ * $Author: weiden $
+ * $Date: 2004/09/06 21:15:45 $
  *
  */
 
@@ -32,8 +32,7 @@ GdiProcessSetup (VOID)
 	hProcessHeap = GetProcessHeap();
 
         /* map the gdi handle table to user space */
-	GdiHandleTable = NtCurrentTeb()->Peb->GdiSharedHandleTable;
-	CurrentProcessId = NtCurrentTeb()->Cid.UniqueProcess;
+	GdiHandleTable = NtGdiQueryTable();
 }
 
 

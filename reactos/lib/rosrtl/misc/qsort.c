@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: qsort.c,v 1.1 2003/07/11 20:55:43 gvg Exp $
  * 
  * FILE: ntoskrnl/rtl/qsort.c
  * NOTE: Adapted from CygWin newlib 2000-03-12.

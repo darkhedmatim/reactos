@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: except.s,v 1.1 2004/06/25 01:41:19 hyperion Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -68,7 +68,6 @@ _do_debug:
 _RtlpCaptureContext:
 	pushl   %ebp
     movl	%esp, %ebp
-    pushl   %ebx
 	movl	RCC_CONTEXT(%ebp), %edx		// EDX = Address of context structure
 
 	cld
@@ -118,7 +117,6 @@ _RtlpCaptureContext:
 	addl	$8, %ebx
 	movl	%ebx, CONTEXT_ESP(%edx)	// ESP = EBP of caller of caller + 8
 
-    popl    %ebx
     movl	%ebp, %esp
     popl	%ebp
     ret

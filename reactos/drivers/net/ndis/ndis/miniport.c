@@ -603,7 +603,7 @@ MiniQueryInformation(
           Adapter->NdisMiniportBlock.MiniportAdapterContext,
           Oid,
           Adapter->QueryBuffer,
-          Adapter->QueryBufferLength,
+          Size,
           BytesWritten,
           &BytesNeeded);
     }
@@ -1256,8 +1256,7 @@ NdisIForwardIrpAndWait(PLOGICAL_ADAPTER Adapter, PIRP Irp)
 
   KeInitializeEvent(&Event, NotificationEvent, FALSE);
   IoCopyCurrentIrpStackLocationToNext(Irp);
-  IoSetCompletionRoutine(Irp, NdisIForwardIrpAndWaitCompletionRoutine, &Event,
-                         TRUE, TRUE, TRUE);
+  IoSetCompletionRoutine(Irp, NdisIForwardIrpAndWaitCompletionRoutine, &Event, TRUE, TRUE, TRUE);
   Status = IoCallDriver(Adapter->NdisMiniportBlock.NextDeviceObject, Irp);
   if (Status == STATUS_PENDING)
     {
@@ -1290,14 +1289,14 @@ NdisIPnPStartDevice(
   NTSTATUS Status;
   UINT SelectedMediumIndex = 0;
   NDIS_OID AddressOID;
-  BOOLEAN Success = FALSE;
+  BOOLEAN Success;
   ULONG ResourceCount;
   ULONG ResourceListSize;
   UNICODE_STRING ParamName;
   PNDIS_CONFIGURATION_PARAMETER ConfigParam;
   NDIS_HANDLE ConfigHandle;
   ULONG Size;
-/* FIXME - KIRQL OldIrql; */
+  KIRQL OldIrql;
 
   /*
    * Prepare wrapper context used by HW and configuration routines.
@@ -1461,7 +1460,7 @@ NdisIPnPStartDevice(
         /* FIXME: Support other types of media */
         NDIS_DbgPrint(MIN_TRACE, ("error: unsupported media\n"));
         ASSERT(FALSE);
-/* FIXME - KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql); */
+        KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -1564,8 +1563,6 @@ NdisIDispatchPnp(
         break;
 
       case IRP_MN_STOP_DEVICE:
-        /* FIXME */
-        Status = STATUS_UNSUCCESSFUL;
         break;
         Status = NdisIForwardIrpAndWait(Adapter, Irp);
         if (NT_SUCCESS(Status) && NT_SUCCESS(Irp->IoStatus.Status))
@@ -1578,8 +1575,7 @@ NdisIDispatchPnp(
 
       default:
         IoSkipCurrentIrpStackLocation(Irp);
-        Status = IoCallDriver(Adapter->NdisMiniportBlock.NextDeviceObject, Irp);
-        break;
+        return IoCallDriver(Adapter->NdisMiniportBlock.NextDeviceObject, Irp);
     }
 
   return Status;
@@ -1936,7 +1932,7 @@ NdisMSetAttributes(
  */
 {
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-  NdisMSetAttributesEx(MiniportAdapterHandle, MiniportAdapterContext, 0,
+  NdisMSetAttributesEx(MiniportAdapterContext, MiniportAdapterContext, 0,
                        BusMaster ? NDIS_ATTRIBUTE_BUS_MASTER : 0,
                        AdapterType);
 }

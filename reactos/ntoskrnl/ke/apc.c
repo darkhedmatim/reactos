@@ -1,12 +1,31 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/apc.c
  * PURPOSE:         NT Implementation of APCs
- * 
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
- *                  Phillip Susi
+ * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
+ * PORTABILITY:     Unchecked
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  12/11/99:  Phillip Susi: Reworked the APC code
+ *                  11/11/04: Alex Ionescu - Total Rewrite
  */
 
 /* INCLUDES *****************************************************************/
@@ -243,6 +262,37 @@ KeRemoveQueueApc (PKAPC Apc)
 	return(TRUE);
 }
 
+BOOLEAN
+STDCALL
+KeTestAlertThread(IN KPROCESSOR_MODE AlertMode)
+/*
+ * FUNCTION: Tests whether there are any pending APCs for the current thread
+ * and if so the APCs will be delivered on exit from kernel mode
+ */
+{
+	KIRQL OldIrql;
+	PKTHREAD Thread = KeGetCurrentThread();
+	BOOLEAN OldState;
+   
+   ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+	
+	OldIrql = KeAcquireDispatcherDatabaseLock();
+	KiAcquireSpinLock(&Thread->ApcQueueLock);
+	
+	OldState = Thread->Alerted[(int)AlertMode];
+	
+	/* If the Thread is Alerted, Clear it */
+	if (OldState) {
+		Thread->Alerted[(int)AlertMode] = FALSE;	
+	} else if ((AlertMode == UserMode) && (!IsListEmpty(&Thread->ApcState.ApcListHead[UserMode]))) {
+		/* If the mode is User and the Queue isn't empty, set Pending */
+		Thread->ApcState.UserApcPending = TRUE;
+	}
+	
+	KiReleaseSpinLock(&Thread->ApcQueueLock);
+	KeReleaseDispatcherDatabaseLock(OldIrql);
+	return OldState;
+}
 
 /*
  * @implemented
@@ -517,16 +567,13 @@ NtQueueApcThread(HANDLE			ThreadHandle,
 
 	PKAPC Apc;
 	PETHREAD Thread;
-	KPROCESSOR_MODE PreviousMode;
 	NTSTATUS Status;
-	
-	PreviousMode = ExGetPreviousMode();
 
 	/* Get ETHREAD from Handle */
 	Status = ObReferenceObjectByHandle(ThreadHandle,
 					   THREAD_SET_CONTEXT,
 					   PsThreadType,
-					   PreviousMode,
+					   KeGetPreviousMode(),
 					   (PVOID)&Thread,
 					   NULL);
 	
@@ -548,7 +595,7 @@ NtQueueApcThread(HANDLE			ThreadHandle,
 		return(STATUS_NO_MEMORY);
 	}
    
-	/* Initialize and Queue a user mode apc (always!) */
+	/* Initialize and Queue */
 	KeInitializeApc(Apc,
 			&Thread->Tcb,
 			OriginalApcEnvironment,
@@ -568,6 +615,17 @@ NtQueueApcThread(HANDLE			ThreadHandle,
 	return Status;
 }
 
+NTSTATUS
+STDCALL
+NtTestAlert(VOID)
+{
+	/* Check and Alert Thread if needed */
+	if (KeTestAlertThread(KeGetPreviousMode())) {
+		return STATUS_ALERTED;
+	} else {
+		return STATUS_SUCCESS;
+	}
+}
 
 static inline VOID RepairList(PLIST_ENTRY Original, 
 			      PLIST_ENTRY Copy,

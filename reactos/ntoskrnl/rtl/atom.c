@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: atom.c,v 1.12 2004/10/30 14:02:04 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/atom.c
+ * FILE:            ntoskrnl/nt/atom.c
  * PURPOSE:         Atom managment
- * 
- * PROGRAMMERS:     No programmer listed.
+ * PROGRAMMER:      Nobody
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -377,8 +378,8 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
      }
 
    InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
-   RtlpCreateUnicodeString (&Entry->Name,
-            AtomName, NonPagedPool);
+   RtlCreateUnicodeString (&Entry->Name,
+			   AtomName);
    Entry->RefCount = 1;
    Entry->Locked = FALSE;
 

@@ -1,6 +1,6 @@
 #ifndef __INCLUDE_DDK_FSTYPES_H
 #define __INCLUDE_DDK_FSTYPES_H
-/* $Id$ */
+/* $Id: fstypes.h,v 1.16 2004/06/23 00:41:55 ion Exp $ */
 
 #ifndef __USE_W32API
 
@@ -30,12 +30,6 @@ typedef NTSTATUS (*PCOMPLETE_LOCK_IRP_ROUTINE) (
     IN PIRP     Irp
 );
 
-typedef VOID (*PFSRTL_STACK_OVERFLOW_ROUTINE) (
-    IN PVOID Context,
-    IN PKEVENT Event
-);
-
-    
 typedef VOID (*PUNLOCK_ROUTINE) (
     IN PVOID            Context,
     IN PFILE_LOCK_INFO  FileLockInfo

@@ -1,12 +1,13 @@
-/* $Id$
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS project
- * FILE:            ntoskrnl/ke/wait.c
- * PURPOSE:         Manages non-busy waiting
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Phillip Susi
+/*
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PROJECT:              ReactOS project
+ * FILE:                 ntoskrnl/ke/wait.c
+ * PURPOSE:              Manages non-busy waiting
+ * PROGRAMMER:           David Welch (welch@mcmail.com)
+ * REVISION HISTORY:
+ *           21/07/98: Created
+ *	     12/1/99:  Phillip Susi: Fixed wake code in KeDispatcherObjectWake
+ *		   so that things like KeWaitForXXX() return the correct value
  */
 
 /* NOTES ********************************************************************
@@ -24,11 +25,11 @@
 
 static KSPIN_LOCK DispatcherDatabaseLock;
 
-#define KeDispatcherObjectWakeOne(hdr, increment) KeDispatcherObjectWakeOneOrAll(hdr, increment, FALSE)
-#define KeDispatcherObjectWakeAll(hdr, increment) KeDispatcherObjectWakeOneOrAll(hdr, increment, TRUE)
+#define KeDispatcherObjectWakeOne(hdr) KeDispatcherObjectWakeOneOrAll(hdr, FALSE)
+#define KeDispatcherObjectWakeAll(hdr) KeDispatcherObjectWakeOneOrAll(hdr, TRUE)
 
 extern POBJECT_TYPE EXPORTED ExMutantObjectType;
-extern POBJECT_TYPE EXPORTED ExSemaphoreObjectType;
+extern POBJECT_TYPE EXPORTED ExSemaphoreType;
 extern POBJECT_TYPE EXPORTED ExTimerType;
 
 /* FUNCTIONS *****************************************************************/
@@ -226,14 +227,13 @@ BOOLEAN KiAbortWaitThread(PKTHREAD Thread, NTSTATUS WaitStatus)
 
    if (WasWaiting)
    {
-	   PsUnblockThread((PETHREAD)Thread, &WaitStatus, 0);
+	   PsUnblockThread((PETHREAD)Thread, &WaitStatus);
    }
    return WasWaiting;
 }
 
 static BOOLEAN
 KeDispatcherObjectWakeOneOrAll(DISPATCHER_HEADER * hdr,
-                               KPRIORITY increment,
                                BOOLEAN WakeAll)
 {
    PKWAIT_BLOCK Waiter;
@@ -332,8 +332,7 @@ KeDispatcherObjectWakeOneOrAll(DISPATCHER_HEADER * hdr,
 
          WakedAny = TRUE;
          DPRINT("Waking %x status = %x\n", WaiterHead->Thread, Status);
-         PsUnblockThread(CONTAINING_RECORD(WaiterHead->Thread, ETHREAD, Tcb),
-                         &Status, increment);
+         PsUnblockThread(CONTAINING_RECORD(WaiterHead->Thread, ETHREAD, Tcb), &Status);
       }
    }
 
@@ -341,7 +340,7 @@ KeDispatcherObjectWakeOneOrAll(DISPATCHER_HEADER * hdr,
 }
 
 
-BOOLEAN KiDispatcherObjectWake(DISPATCHER_HEADER* hdr, KPRIORITY increment)
+BOOLEAN KiDispatcherObjectWake(DISPATCHER_HEADER* hdr)
 /*
  * FUNCTION: Wake threads waiting on a dispatcher object
  * NOTE: The exact semantics of waking are dependant on the type of object
@@ -356,19 +355,19 @@ BOOLEAN KiDispatcherObjectWake(DISPATCHER_HEADER* hdr, KPRIORITY increment)
    switch (hdr->Type)
      {
       case InternalNotificationEvent:
-	return(KeDispatcherObjectWakeAll(hdr, increment));
+	return(KeDispatcherObjectWakeAll(hdr));
 
       case InternalNotificationTimer:
-	return(KeDispatcherObjectWakeAll(hdr, increment));
+	return(KeDispatcherObjectWakeAll(hdr));
 
       case InternalSynchronizationEvent:
-	return(KeDispatcherObjectWakeOne(hdr, increment));
+	return(KeDispatcherObjectWakeOne(hdr));
 
       case InternalSynchronizationTimer:
-	return(KeDispatcherObjectWakeOne(hdr, increment));
+	return(KeDispatcherObjectWakeOne(hdr));
 
       case InternalQueueType:
-	return(KeDispatcherObjectWakeOne(hdr, increment));
+   return(KeDispatcherObjectWakeOne(hdr));      
       
       case InternalSemaphoreType:
 	DPRINT("hdr->SignalState %d\n", hdr->SignalState);
@@ -377,52 +376,26 @@ BOOLEAN KiDispatcherObjectWake(DISPATCHER_HEADER* hdr, KPRIORITY increment)
 	    do
 	      {
 		DPRINT("Waking one semaphore waiter\n");
-		Ret = KeDispatcherObjectWakeOne(hdr, increment);
+		Ret = KeDispatcherObjectWakeOne(hdr);
 	      } while(hdr->SignalState > 0 &&  Ret) ;
 	    return(Ret);
 	  }
 	else return FALSE;
 
      case InternalProcessType:
-	return(KeDispatcherObjectWakeAll(hdr, increment));
+	return(KeDispatcherObjectWakeAll(hdr));
 
      case InternalThreadType:
-       return(KeDispatcherObjectWakeAll(hdr, increment));
+       return(KeDispatcherObjectWakeAll(hdr));
 
      case InternalMutexType:
-       return(KeDispatcherObjectWakeOne(hdr, increment));
+       return(KeDispatcherObjectWakeOne(hdr));
      }
    DbgPrint("Dispatcher object %x has unknown type %d\n", hdr, hdr->Type);
    KEBUGCHECK(0);
    return(FALSE);
 }
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-KeDelayExecutionThread (KPROCESSOR_MODE	WaitMode,
-			BOOLEAN		Alertable,
-			PLARGE_INTEGER	Interval)
-/*
- * FUNCTION: Puts the current thread into an alertable or nonalertable 
- * wait state for a given internal
- * ARGUMENTS:
- *          WaitMode = Processor mode in which the caller is waiting
- *          Altertable = Specifies if the wait is alertable
- *          Interval = Specifies the interval to wait
- * RETURNS: Status
- */
-{
-   PKTHREAD Thread = KeGetCurrentThread();
-
-   KeSetTimer(&Thread->Timer, *Interval, NULL);
-   return (KeWaitForSingleObject(&Thread->Timer,
-				 (WaitMode == KernelMode) ? Executive : UserRequest, /* TMN: Was unconditionally Executive */
-				 WaitMode, /* TMN: Was UserMode */
-				 Alertable,
-				 NULL));
-}
 
 /*
  * @implemented
@@ -480,7 +453,7 @@ KiIsObjectWaitable(PVOID Object)
     if (Header->ObjectType == ExEventObjectType ||
 	Header->ObjectType == ExIoCompletionType ||
 	Header->ObjectType == ExMutantObjectType ||
-	Header->ObjectType == ExSemaphoreObjectType ||
+	Header->ObjectType == ExSemaphoreType ||
 	Header->ObjectType == ExTimerType ||
 	Header->ObjectType == PsProcessType ||
 	Header->ObjectType == PsThreadType ||
@@ -515,12 +488,11 @@ KeWaitForMultipleObjects(ULONG Count,
    NTSTATUS Status;
    KIRQL OldIrql;
    BOOLEAN Abandoned;
-   NTSTATUS WaitStatus;
 
    DPRINT("Entering KeWaitForMultipleObjects(Count %lu Object[] %p) "
           "PsGetCurrentThread() %x\n", Count, Object, PsGetCurrentThread());
 
-   ASSERT(0 < Count && Count <= MAXIMUM_WAIT_OBJECTS);
+   ASSERT(0 < Count && Count <= EX_MAXIMUM_WAIT_OBJECTS);
 
    CurrentThread = KeGetCurrentThread();
 
@@ -538,7 +510,7 @@ KeWaitForMultipleObjects(ULONG Count,
    }
    else
    {
-      if (Count > MAXIMUM_WAIT_OBJECTS)
+      if (Count > EX_MAXIMUM_WAIT_OBJECTS)
       {
          DPRINT("(%s:%d) Too many objects!\n", __FILE__, __LINE__);
          return (STATUS_UNSUCCESSFUL);
@@ -567,32 +539,40 @@ KeWaitForMultipleObjects(ULONG Count,
          OldIrql = KeAcquireDispatcherDatabaseLock ();
       }
 
-    /* Get the current Wait Status */
-    WaitStatus = CurrentThread->WaitStatus;
-   
-    if (Alertable) {
-    
-        /* If the Thread is Alerted, set the Wait Status accordingly */    
-        if (CurrentThread->Alerted[(int)WaitMode]) {
-            
-            CurrentThread->Alerted[(int)WaitMode] = FALSE;
-            DPRINT("Thread was Alerted\n");
-            WaitStatus = STATUS_ALERTED;
-            
-        /* If there are User APCs Pending, then we can't really be alertable */
-        } else if ((!IsListEmpty(&CurrentThread->ApcState.ApcListHead[UserMode])) && 
-                   (WaitMode == UserMode)) {
-            
-            DPRINT1("APCs are Pending\n");
-            CurrentThread->ApcState.UserApcPending = TRUE;
-            WaitStatus = STATUS_USER_APC;
-        }
-        
-    /* If there are User APCs Pending and we are waiting in usermode, then we must notify the caller */
-    } else if ((CurrentThread->ApcState.UserApcPending) && (WaitMode == UserMode)) {
-            DPRINT1("APCs are Pending\n");
-            WaitStatus = STATUS_USER_APC;
-    }
+      /* Alertability 101 
+       * ----------------
+       * A Wait can either be Alertable, or Non-Alertable.
+       * An Alertable Wait means that APCs can "Wake" the Thread, also called UnWaiting
+       * If an APC is Pending however, we must refuse an Alertable Wait. Such a wait would
+       * be pointless since an APC is just about to be delivered.
+       *
+       * There are many ways to check if it's safe to be alertable, and these are the ones
+       * that I could think of:
+       *         - The Thread is already Alerted. So someone beat us to the punch and we bail out.
+       *         - The Thread is Waiting in User-Mode, the APC Queue is not-empty.
+       *           It's defintely clear that we have incoming APCs, so we need to bail out and let the system
+       *           know that there are Pending User APCs (so they can be Delivered and maybe we can try again)
+       *
+       * Furthermore, wether or not we want to be Alertable, if the Thread is waiting in User-Mode, and there
+       * are Pending User APCs, we should bail out, since APCs will be delivered any second.
+       */
+	if (Alertable) {
+		if (CurrentThread->Alerted[(int)WaitMode]) {
+			CurrentThread->Alerted[(int)WaitMode] = FALSE;
+			DPRINT("Alertability failed\n");
+        		KeReleaseDispatcherDatabaseLock(OldIrql);
+			return (STATUS_ALERTED);
+		} else if ((!IsListEmpty(&CurrentThread->ApcState.ApcListHead[UserMode])) && (WaitMode == UserMode)) {
+			DPRINT1("Alertability failed\n");
+			CurrentThread->ApcState.UserApcPending = TRUE;
+        		KeReleaseDispatcherDatabaseLock(OldIrql);
+        		return (STATUS_USER_APC);
+		}
+	} else if ((CurrentThread->ApcState.UserApcPending) && (WaitMode != KernelMode)) {
+		DPRINT1("Alertability failed\n");
+        	KeReleaseDispatcherDatabaseLock(OldIrql);
+        	return (STATUS_USER_APC);
+	}
 
       /*
        * Check if the wait is (already) satisfied
@@ -611,12 +591,12 @@ KeWaitForMultipleObjects(ULONG Count,
             {
                Abandoned = KiSideEffectsBeforeWake(hdr, CurrentThread) ? TRUE : Abandoned;
 
-               KeReleaseDispatcherDatabaseLock(OldIrql);               
-               
                if (Timeout != NULL && Timeout->QuadPart != 0)
                {
                   KeCancelTimer(&CurrentThread->Timer);
                }
+
+               KeReleaseDispatcherDatabaseLock(OldIrql);
 
                DPRINT("One object is (already) signaled!\n");
                if (Abandoned == TRUE)
@@ -638,13 +618,12 @@ KeWaitForMultipleObjects(ULONG Count,
             Abandoned = KiSideEffectsBeforeWake(hdr, CurrentThread) ? TRUE : Abandoned;
          }
 
-         KeReleaseDispatcherDatabaseLock(OldIrql);
-         
          if (Timeout != NULL && Timeout->QuadPart != 0)
          {
             KeCancelTimer(&CurrentThread->Timer);
          }
 
+         KeReleaseDispatcherDatabaseLock(OldIrql);
          DPRINT("All objects are (already) signaled!\n");
 
          if (Abandoned == TRUE)
@@ -668,8 +647,8 @@ KeWaitForMultipleObjects(ULONG Count,
       if (Timeout != NULL && KiIsObjectSignalled(&CurrentThread->Timer.Header, CurrentThread))
       {
          KiSideEffectsBeforeWake(&CurrentThread->Timer.Header, CurrentThread);
-         KeReleaseDispatcherDatabaseLock(OldIrql);
          KeCancelTimer(&CurrentThread->Timer);
+         KeReleaseDispatcherDatabaseLock(OldIrql);
          return (STATUS_TIMEOUT);
       }
 
@@ -679,7 +658,7 @@ KeWaitForMultipleObjects(ULONG Count,
       /*
        * Set up the wait
        */
-      CurrentThread->WaitStatus = WaitStatus;;
+      CurrentThread->WaitStatus = STATUS_UNSUCCESSFUL;
 
       for (i = 0; i < Count; i++)
       {
@@ -744,28 +723,20 @@ KeWaitForMultipleObjects(ULONG Count,
          if (CurrentThread->Queue->CurrentCount < CurrentThread->Queue->MaximumCount &&
              !IsListEmpty(&CurrentThread->Queue->EntryListHead))
          {
-            KiDispatcherObjectWake(&CurrentThread->Queue->Header, IO_NO_INCREMENT);
+            KiDispatcherObjectWake(&CurrentThread->Queue->Header);
          }
       }
 
       PsBlockThread(&Status, Alertable, WaitMode, TRUE, OldIrql, (UCHAR)WaitReason);
 
       //kernel queues
-      OldIrql = KeAcquireDispatcherDatabaseLock ();
+      //FIXME: dispatcher lock not held here!
       if (CurrentThread->Queue && WaitReason != WrQueue)
       {
          DPRINT("queue: wake from something else\n");
          CurrentThread->Queue->CurrentCount++;
       }
-      if (Status == STATUS_KERNEL_APC)
-      {
-         CurrentThread->WaitNext = TRUE;
-         CurrentThread->WaitIrql = OldIrql;
-      }
-      else
-      {
-         KeReleaseDispatcherDatabaseLock(OldIrql);
-      }
+      
       
    } while (Status == STATUS_KERNEL_APC);
    
@@ -785,71 +756,45 @@ VOID KeInitializeDispatcher(VOID)
 }
 
 NTSTATUS STDCALL
-NtWaitForMultipleObjects(IN ULONG ObjectCount,
-			 IN PHANDLE ObjectsArray,
+NtWaitForMultipleObjects(IN ULONG Count,
+			 IN HANDLE Object [],
 			 IN WAIT_TYPE WaitType,
 			 IN BOOLEAN Alertable,
-			 IN PLARGE_INTEGER TimeOut  OPTIONAL)
+			 IN PLARGE_INTEGER UnsafeTime)
 {
-   KWAIT_BLOCK WaitBlockArray[MAXIMUM_WAIT_OBJECTS];
-   HANDLE SafeObjectsArray[MAXIMUM_WAIT_OBJECTS];
-   PVOID ObjectPtrArray[MAXIMUM_WAIT_OBJECTS];
+   KWAIT_BLOCK WaitBlockArray[EX_MAXIMUM_WAIT_OBJECTS];
+   PVOID ObjectPtrArray[EX_MAXIMUM_WAIT_OBJECTS];
+   NTSTATUS Status;
    ULONG i, j;
-   KPROCESSOR_MODE PreviousMode;
-   LARGE_INTEGER SafeTimeOut;
-   NTSTATUS Status = STATUS_SUCCESS;
+   KPROCESSOR_MODE WaitMode;
+   LARGE_INTEGER Time;
 
-   DPRINT("NtWaitForMultipleObjects(ObjectCount %lu ObjectsArray[] %x, Alertable %d, "
-	  "TimeOut %x)\n", ObjectCount,ObjectsArray,Alertable,TimeOut);
+   DPRINT("NtWaitForMultipleObjects(Count %lu Object[] %x, Alertable %d, "
+	  "Time %x)\n", Count,Object,Alertable,Time);
 
-   PreviousMode = ExGetPreviousMode();
-
-   if (ObjectCount > MAXIMUM_WAIT_OBJECTS)
+   if (Count > EX_MAXIMUM_WAIT_OBJECTS)
      return STATUS_UNSUCCESSFUL;
-   if (0 == ObjectCount)
+   if (0 == Count)
      return STATUS_INVALID_PARAMETER;
 
-   if(PreviousMode != KernelMode)
-   {
-     _SEH_TRY
+   if (UnsafeTime)
      {
-       ProbeForRead(ObjectsArray,
-                    ObjectCount * sizeof(ObjectsArray[0]),
-                    sizeof(ULONG));
-       /* make a copy so we don't have to guard with SEH later and keep track of
-          what objects we referenced in case dereferencing pointers suddenly fails */
-       RtlCopyMemory(SafeObjectsArray, ObjectsArray, ObjectCount * sizeof(ObjectsArray[0]));
-       ObjectsArray = SafeObjectsArray;
-       
-       if(TimeOut != NULL)
-       {
-         ProbeForRead(TimeOut,
-                      sizeof(LARGE_INTEGER),
-                      sizeof(ULONG));
-         /* make a local copy of the timeout on the stack */
-         SafeTimeOut = *TimeOut;
-         TimeOut = &SafeTimeOut;
-       }
+       Status = MmCopyFromCaller(&Time, UnsafeTime, sizeof(LARGE_INTEGER));
+       if (!NT_SUCCESS(Status))
+         {
+           return(Status);
+         }
      }
-     _SEH_HANDLE
-     {
-       Status = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-     
-     if(!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
-   }
+
+   WaitMode = ExGetPreviousMode();
 
    /* reference all objects */
-   for (i = 0; i < ObjectCount; i++)
+   for (i = 0; i < Count; i++)
      {
-        Status = ObReferenceObjectByHandle(ObjectsArray[i],
+        Status = ObReferenceObjectByHandle(Object[i],
                                            SYNCHRONIZE,
                                            NULL,
-                                           PreviousMode,
+                                           WaitMode,
                                            &ObjectPtrArray[i],
                                            NULL);
         if (!NT_SUCCESS(Status) || !KiIsObjectWaitable(ObjectPtrArray[i]))
@@ -871,17 +816,17 @@ NtWaitForMultipleObjects(IN ULONG ObjectCount,
           }
      }
 
-   Status = KeWaitForMultipleObjects(ObjectCount,
+   Status = KeWaitForMultipleObjects(Count,
                                      ObjectPtrArray,
                                      WaitType,
                                      UserRequest,
-                                     PreviousMode,
+                                     WaitMode,
                                      Alertable,
-				     TimeOut,
+				     UnsafeTime ? &Time : NULL,
                                      WaitBlockArray);
 
    /* dereference all objects */
-   for (i = 0; i < ObjectCount; i++)
+   for (i = 0; i < Count; i++)
      {
         ObDereferenceObject(ObjectPtrArray[i]);
      }
@@ -894,47 +839,33 @@ NtWaitForMultipleObjects(IN ULONG ObjectCount,
  * @implemented
  */
 NTSTATUS STDCALL
-NtWaitForSingleObject(IN HANDLE ObjectHandle,
+NtWaitForSingleObject(IN HANDLE Object,
 		      IN BOOLEAN Alertable,
-		      IN PLARGE_INTEGER TimeOut  OPTIONAL)
+		      IN PLARGE_INTEGER UnsafeTime)
 {
    PVOID ObjectPtr;
-   KPROCESSOR_MODE PreviousMode;
-   LARGE_INTEGER SafeTimeOut;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
+   KPROCESSOR_MODE WaitMode;
+   LARGE_INTEGER Time;
 
-   DPRINT("NtWaitForSingleObject(ObjectHandle %x, Alertable %d, TimeOut %x)\n",
-	  ObjectHandle,Alertable,TimeOut);
+   DPRINT("NtWaitForSingleObject(Object %x, Alertable %d, Time %x)\n",
+	  Object,Alertable,Time);
 
-   PreviousMode = ExGetPreviousMode();
-   
-   if(TimeOut != NULL && PreviousMode != KernelMode)
-   {
-     _SEH_TRY
+   if (UnsafeTime)
      {
-       ProbeForRead(TimeOut,
-                    sizeof(LARGE_INTEGER),
-                    sizeof(ULONG));
-       /* make a copy on the stack */
-       SafeTimeOut = *TimeOut;
-       TimeOut = &SafeTimeOut;
+       Status = MmCopyFromCaller(&Time, UnsafeTime, sizeof(LARGE_INTEGER));
+       if (!NT_SUCCESS(Status))
+         {
+           return(Status);
+         }
      }
-     _SEH_HANDLE
-     {
-       Status = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-     
-     if(!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
-   }
 
-   Status = ObReferenceObjectByHandle(ObjectHandle,
+   WaitMode = ExGetPreviousMode();
+
+   Status = ObReferenceObjectByHandle(Object,
 				      SYNCHRONIZE,
 				      NULL,
-				      PreviousMode,
+				      WaitMode,
 				      &ObjectPtr,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -951,9 +882,9 @@ NtWaitForSingleObject(IN HANDLE ObjectHandle,
      {
        Status = KeWaitForSingleObject(ObjectPtr,
 				      UserRequest,
-				      PreviousMode,
+				      WaitMode,
 				      Alertable,
-				      TimeOut);
+				      UnsafeTime ? &Time : NULL);
      }
 
    ObDereferenceObject(ObjectPtr);
@@ -963,47 +894,22 @@ NtWaitForSingleObject(IN HANDLE ObjectHandle,
 
 
 NTSTATUS STDCALL
-NtSignalAndWaitForSingleObject(IN HANDLE ObjectHandleToSignal,
-			       IN HANDLE WaitableObjectHandle,
+NtSignalAndWaitForSingleObject(IN HANDLE SignalObject,
+			       IN HANDLE WaitObject,
 			       IN BOOLEAN Alertable,
-			       IN PLARGE_INTEGER TimeOut  OPTIONAL)
+			       IN PLARGE_INTEGER Time)
 {
-   KPROCESSOR_MODE PreviousMode;
+   KPROCESSOR_MODE WaitMode;
    DISPATCHER_HEADER* hdr;
    PVOID SignalObj;
    PVOID WaitObj;
-   LARGE_INTEGER SafeTimeOut;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
 
-   PreviousMode = ExGetPreviousMode();
-   
-   if(TimeOut != NULL && PreviousMode != KernelMode)
-   {
-     _SEH_TRY
-     {
-       ProbeForRead(TimeOut,
-                    sizeof(LARGE_INTEGER),
-                    sizeof(ULONG));
-       /* make a copy on the stack */
-       SafeTimeOut = *TimeOut;
-       TimeOut = &SafeTimeOut;
-     }
-     _SEH_HANDLE
-     {
-       Status = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-     
-     if(!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
-   }
-   
-   Status = ObReferenceObjectByHandle(ObjectHandleToSignal,
+   WaitMode = ExGetPreviousMode();
+   Status = ObReferenceObjectByHandle(SignalObject,
 				      0,
 				      NULL,
-				      PreviousMode,
+				      WaitMode,
 				      &SignalObj,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -1011,10 +917,10 @@ NtSignalAndWaitForSingleObject(IN HANDLE ObjectHandleToSignal,
 	return Status;
      }
 
-   Status = ObReferenceObjectByHandle(WaitableObjectHandle,
+   Status = ObReferenceObjectByHandle(WaitObject,
 				      SYNCHRONIZE,
 				      NULL,
-				      PreviousMode,
+				      WaitMode,
 				      &WaitObj,
 				      NULL);
    if (!NT_SUCCESS(Status))
@@ -1053,9 +959,9 @@ NtSignalAndWaitForSingleObject(IN HANDLE ObjectHandleToSignal,
 
    Status = KeWaitForSingleObject(WaitObj,
 				  UserRequest,
-				  PreviousMode,
+				  WaitMode,
 				  Alertable,
-				  TimeOut);
+				  Time);
 
    ObDereferenceObject(SignalObj);
    ObDereferenceObject(WaitObj);

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: exception.c,v 1.9 2004/06/25 16:39:41 weiden Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel

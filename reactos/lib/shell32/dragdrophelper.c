@@ -113,26 +113,24 @@ static HRESULT WINAPI IDropTargetHelper_fnQueryInterface (IDropTargetHelper * if
 static ULONG WINAPI IDropTargetHelper_fnAddRef (IDropTargetHelper * iface)
 {
     IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
-    ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount - 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    return refCount;
+    return ++(This->ref);
 }
 
 static ULONG WINAPI IDropTargetHelper_fnRelease (IDropTargetHelper * iface)
 {
     IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
-    ULONG refCount = InterlockedDecrement(&This->ref);
 
-    TRACE ("(%p)->(count=%lu)\n", This, refCount + 1);
+    TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
-    if (!refCount) {
+    if (!--(This->ref)) {
         TRACE("-- destroying (%p)\n", This);
         LocalFree ((HLOCAL) This);
         return 0;
     }
-    return refCount;
+    return This->ref;
 }
 
 static HRESULT WINAPI IDropTargetHelper_fnDragEnter (

@@ -181,7 +181,7 @@ term:
         }
   | value_s
         {
-            $$ = $1[0] ? MSICONDITION_TRUE : MSICONDITION_FALSE;
+            $$ = atoiW($1);
         }
   | value_i comp_op_i value_i
         {
@@ -448,22 +448,14 @@ symbol_s:
         {
             DWORD sz;
             COND_input* cond = (COND_input*) info;
+            $$ = HeapAlloc( GetProcessHeap(), 0, 0x100*sizeof (WCHAR) );
 
-            sz = 0;
-            MSI_GetPropertyW(cond->package, $1, NULL, &sz);
-            if (sz == 0)
+            /* Lookup the identifier */
+
+            sz=0x100;
+            if (MSI_GetPropertyW(cond->package,$1,$$,&sz) != ERROR_SUCCESS)
             {
-                $$ = HeapAlloc( GetProcessHeap(), 0 ,sizeof(WCHAR));
-                $$[0] = 0;
-            }
-            else
-            {
-                sz ++;
-                $$ = HeapAlloc( GetProcessHeap(), 0, sz*sizeof (WCHAR) );
-
-                /* Lookup the identifier */
-
-                MSI_GetPropertyW(cond->package,$1,$$,&sz);
+                $$[0]=0;
             }
             HeapFree( GetProcessHeap(), 0, $1 );
         }
@@ -739,7 +731,7 @@ MSICONDITION MSI_EvaluateConditionW( MSIPACKAGE *package, LPCWSTR szCondition )
     
     TRACE("Evaluating %s\n",debugstr_w(szCondition));    
 
-    if( szCondition && !COND_parse( &cond ) )
+    if( !COND_parse( &cond ) )
         r = cond.result;
     else
         r = MSICONDITION_ERROR;
@@ -775,7 +767,8 @@ MSICONDITION WINAPI MsiEvaluateConditionA( MSIHANDLE hInstall, LPCSTR szConditio
 
     r = MsiEvaluateConditionW( hInstall, szwCond );
 
-    HeapFree( GetProcessHeap(), 0, szwCond );
+    if( szwCond )
+        HeapFree( GetProcessHeap(), 0, szwCond );
 
     return r;
 }

@@ -1,11 +1,11 @@
-/* $Id:$
- * 
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/lock.c
- * PURPOSE:         No purpose listed.
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * FILE:            ntoskrnl/ke/bug.c
+ * PURPOSE:         Graceful system shutdown if a bug is detected
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -53,7 +53,7 @@ NtLockFile (
   PLARGE_INTEGER LocalLength = NULL;
   PKEVENT Event = NULL;
   PIRP Irp = NULL;
-  PIO_STACK_LOCATION StackPtr;
+  PEXTENDED_IO_STACK_LOCATION StackPtr;
   PDEVICE_OBJECT DeviceObject;
   KPROCESSOR_MODE PreviousMode;
   NTSTATUS Status;
@@ -118,7 +118,7 @@ NtLockFile (
   Irp->UserIosb = IoStatusBlock;
   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
+  StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
   StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
   StackPtr->MinorFunction = IRP_MN_LOCK;
   StackPtr->FileObject = FileObject;
@@ -209,7 +209,7 @@ NtUnlockFile (
   PFILE_OBJECT FileObject = NULL;
   PLARGE_INTEGER LocalLength = NULL;
   PIRP Irp = NULL;
-  PIO_STACK_LOCATION StackPtr;
+  PEXTENDED_IO_STACK_LOCATION StackPtr;
   PDEVICE_OBJECT DeviceObject;
   KPROCESSOR_MODE PreviousMode;
   NTSTATUS Status;
@@ -254,7 +254,7 @@ NtUnlockFile (
   Irp->UserIosb = IoStatusBlock;
   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
+  StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
   StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
   StackPtr->MinorFunction = IRP_MN_UNLOCK_SINGLE;
   StackPtr->DeviceObject = DeviceObject;

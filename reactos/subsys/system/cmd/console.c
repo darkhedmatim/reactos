@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: console.c,v 1.10 2004/11/08 02:16:06 weiden Exp $
  *
  *  CONSOLE.C - console input/output functions.
  *

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.3 2004/01/11 20:46:06 navaraf Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS WinSock DLL
@@ -251,6 +251,24 @@ SetServiceW(DWORD NameSpace,
   return SOCKET_ERROR;
 }
 
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+TransmitFile(SOCKET Socket,
+             HANDLE File,
+             DWORD NumberOfBytesToWrite,
+             DWORD NumberOfBytesPerSend,
+             LPOVERLAPPED Overlapped,
+             LPTRANSMIT_FILE_BUFFERS TransmitBuffers,
+             DWORD Flags)
+{
+  OutputDebugStringW(L"w32sock TransmitFile stub called\n");
+
+  return FALSE;
+}
 
 /*
  * @unimplemented

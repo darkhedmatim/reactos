@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: isapnp.c,v 1.10 2004/07/03 17:40:20 navaraf Exp $
  *
  * PROJECT:         ReactOS ISA PnP Bus driver
  * FILE:            isapnp.c

@@ -1,4 +1,4 @@
-# $Id$
+# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -19,7 +19,6 @@ TARGET_OBJECTS = \
   direntry.o \
   dirwr.o \
   fat.o \
-  fastio.o \
   fcb.o \
   finfo.o \
   iface.o \
@@ -39,9 +38,9 @@ TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
 include $(PATH_TO_TOP)/config
 
 ifeq ($(DBG), 1)
-TARGET_CFLAGS = -D__USE_W32API -Wall -Werror -g
+TARGET_CFLAGS = -Wall -Werror -g
 else
-TARGET_CFLAGS = -D__USE_W32API -Wall -Werror -O3 -fno-strict-aliasing 
+TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
 endif
 
 include $(PATH_TO_TOP)/rules.mak

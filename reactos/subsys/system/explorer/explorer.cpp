@@ -635,10 +635,10 @@ static void InitInstance(HINSTANCE hInstance)
 	 // register frame window class
 	g_Globals._hframeClass = IconWindowClass(CLASSNAME_FRAME,IDI_EXPLORER);
 
-	 // register child window class
+	 // register child windows class
 	WindowClass(CLASSNAME_CHILDWND, CS_CLASSDC|CS_DBLCLKS|CS_VREDRAW).Register();
 
-	 // register tree window class
+	 // register tree windows class
 	WindowClass(CLASSNAME_WINEFILETREE, CS_CLASSDC|CS_DBLCLKS|CS_VREDRAW).Register();
 
 	g_Globals._cfStrFName = RegisterClipboardFormat(CFSTR_FILENAME);
@@ -694,9 +694,6 @@ int main(int argc, char* argv[])
 	LPWSTR cmdline = GetCommandLineW();
 
 	while(*cmdline && !_istspace(*cmdline))
-		++cmdline;
-
-	while(_istspace(*cmdline))
 		++cmdline;
 
 	return wWinMain(GetModuleHandle(NULL), 0, cmdline, nShowCmd);

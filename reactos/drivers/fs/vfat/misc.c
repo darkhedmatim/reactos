@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: misc.c,v 1.15 2004/12/05 16:31:51 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -10,43 +10,13 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+#include <wchar.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
-
-/* GLOBALS ******************************************************************/
-
-const char* MajorFunctionNames[] =
-{
-     "IRP_MJ_CREATE",
-     "IRP_MJ_CREATE_NAMED_PIPE",
-     "IRP_MJ_CLOSE",
-     "IRP_MJ_READ",
-     "IRP_MJ_WRITE",
-     "IRP_MJ_QUERY_INFORMATION",
-     "IRP_MJ_SET_INFORMATION",
-     "IRP_MJ_QUERY_EA",
-     "IRP_MJ_SET_EA",
-     "IRP_MJ_FLUSH_BUFFERS",
-     "IRP_MJ_QUERY_VOLUME_INFORMATION",
-     "IRP_MJ_SET_VOLUME_INFORMATION",
-     "IRP_MJ_DIRECTORY_CONTROL",
-     "IRP_MJ_FILE_SYSTEM_CONTROL",
-     "IRP_MJ_DEVICE_CONTROL",
-     "IRP_MJ_INTERNAL_DEVICE_CONTROL",
-     "IRP_MJ_SHUTDOWN",
-     "IRP_MJ_LOCK_CONTROL",
-     "IRP_MJ_CLEANUP",
-     "IRP_MJ_CREATE_MAILSLOT",
-     "IRP_MJ_QUERY_SECURITY",
-     "IRP_MJ_SET_SECURITY",
-     "IRP_MJ_POWER",
-     "IRP_MJ_SYSTEM_CONTROL",
-     "IRP_MJ_DEVICE_CHANGE",
-     "IRP_MJ_QUERY_QUOTA",
-     "IRP_MJ_SET_QUOTA",
-     "IRP_MJ_PNP",
-     "IRP_MJ_MAXIMUM_FUNCTION"
-};
 
 /* FUNCTIONS ****************************************************************/
 
@@ -92,11 +62,10 @@ Fail:;
    return Status;
 }
 
-NTSTATUS 
-VfatDispatchRequest (IN PVFAT_IRP_CONTEXT IrpContext)
+NTSTATUS VfatDispatchRequest (
+        IN PVFAT_IRP_CONTEXT IrpContext)
 {
-    DPRINT ("VfatDispatchRequest (IrpContext %x), is called for %s\n", IrpContext, 
-	    IrpContext->MajorFunction >= IRP_MJ_MAXIMUM_FUNCTION ? "????" : MajorFunctionNames[IrpContext->MajorFunction]);
+   DPRINT ("VfatDispatchRequest (IrpContext %x), MajorFunction %x\n", IrpContext, IrpContext->MajorFunction);
 
    ASSERT(IrpContext);
 
@@ -254,9 +223,7 @@ PVOID VfatGetUserBuffer(IN PIRP Irp)
 
    if (Irp->MdlAddress)
    {
-      /* This call may be in the paging path, so use maximum priority */
-      /* FIXME: call with normal priority in the non-paging path */
-      return MmGetSystemAddressForMdlSafe(Irp->MdlAddress, HighPagePriority);
+      return MmGetSystemAddressForMdl(Irp->MdlAddress);
    }
    else
    {

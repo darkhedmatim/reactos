@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: cmdline.c,v 1.19 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

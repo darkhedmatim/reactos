@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: sid.c,v 1.15 2004/08/23 21:16:26 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

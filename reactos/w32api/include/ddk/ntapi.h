@@ -297,8 +297,8 @@ typedef struct _SYSTEM_PROCESSES {
 	LARGE_INTEGER  KernelTime;
 	UNICODE_STRING  ProcessName;
 	KPRIORITY  BasePriority;
-	HANDLE  ProcessId;
-	HANDLE  InheritedFromProcessId;
+	ULONG  ProcessId;
+	ULONG  InheritedFromProcessId;
 	ULONG  HandleCount;
 	ULONG  Reserved2[2];
 	VM_COUNTERS  VmCounters;
@@ -735,16 +735,16 @@ NTOSAPI
 NTSTATUS
 NTAPI
 ZwQuerySystemEnvironmentValue(
-	IN PUNICODE_STRING VariableName,
-	OUT PWSTR ValueBuffer,
-	IN ULONG ValueBufferLength,
-	OUT PULONG ReturnLength  OPTIONAL);
+	IN PUNICODE_STRING  Name,
+	OUT PVOID  Value,
+	IN ULONG  ValueLength,
+	OUT PULONG  ReturnLength  OPTIONAL);
 
 NTOSAPI
 NTSTATUS
 NTAPI
 ZwSetSystemEnvironmentValue(
-	IN PUNICODE_STRING  VariableName,
+	IN PUNICODE_STRING  Name,
 	IN PUNICODE_STRING  Value);
 
 typedef enum _SHUTDOWN_ACTION {
@@ -943,10 +943,10 @@ ZwQueryDirectoryObject(
   IN OUT PULONG  Context,
   OUT PULONG  ReturnLength  OPTIONAL);
 
-typedef struct _OBJECT_DIRECTORY_INFORMATION {
+typedef struct _DIRECTORY_BASIC_INFORMATION {
   UNICODE_STRING  ObjectName;
   UNICODE_STRING  ObjectTypeName;
-} OBJECT_DIRECTORY_INFORMATION, *POBJECT_DIRECTORY_INFORMATION;
+} DIRECTORY_BASIC_INFORMATION, *PDIRECTORY_BASIC_INFORMATION;
 
 NTOSAPI
 NTSTATUS
@@ -1266,13 +1266,6 @@ ZwTerminateThread(
 NTOSAPI
 NTSTATUS
 NTAPI
-NtTerminateThread(
-	IN HANDLE  ThreadHandle  OPTIONAL,
-	IN NTSTATUS  ExitStatus);
-
-NTOSAPI
-NTSTATUS
-NTAPI
 NtQueryInformationThread(
   IN HANDLE  ThreadHandle,
   IN THREADINFOCLASS  ThreadInformationClass,
@@ -1468,8 +1461,8 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 	PPEB  PebBaseAddress;
 	KAFFINITY  AffinityMask;
 	KPRIORITY  BasePriority;
-	HANDLE  UniqueProcessId;
-	HANDLE  InheritedFromUniqueProcessId;
+	ULONG  UniqueProcessId;
+	ULONG  InheritedFromUniqueProcessId;
 } PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
 
 typedef struct _PROCESS_ACCESS_TOKEN {

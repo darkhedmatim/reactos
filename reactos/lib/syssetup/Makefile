@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile,v 1.13 2004/11/22 11:01:45 gvg Exp $
 
 PATH_TO_TOP = ../..
 
@@ -9,9 +9,7 @@ TARGET_NAME = syssetup
 TARGET_BASE = $(TARGET_BASE_LIB_SYSSETUP)
 
 TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a gdi32.a user32.a samlib.a userenv.a \
-                 comctl32.a setupapi.a ole32.a shell32.a shlwapi.a
-
-TARGET_GCCLIBS = uuid
+                 comctl32.a setupapi.a
 
 TARGET_CFLAGS = -Wall -Werror -fno-builtin
 

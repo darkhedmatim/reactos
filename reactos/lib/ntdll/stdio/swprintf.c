@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: swprintf.c,v 1.18 2004/06/15 08:53:53 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: message.c,v 1.7 2004/08/11 09:30:04 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel

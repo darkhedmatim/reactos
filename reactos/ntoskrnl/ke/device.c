@@ -1,11 +1,10 @@
-/* $Id$
+/* $Id: device.c,v 1.5 2004/10/22 20:07:13 navaraf Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ke/device.c
+ * FILE:            ntoskrnl/ke/profile.c
  * PURPOSE:         Kernel Device/Settings Functions
- * 
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
+ * UPDATE HISTORY:
+ *                  Created 23/06/04
  */
 
 #include <ntoskrnl.h>

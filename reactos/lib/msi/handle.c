@@ -41,23 +41,7 @@ static CRITICAL_SECTION_DEBUG MSI_handle_cs_debug =
 };
 static CRITICAL_SECTION MSI_handle_cs = { &MSI_handle_cs_debug, -1, 0, 0, 0, 0 };
 
-static CRITICAL_SECTION MSI_object_cs;
-static CRITICAL_SECTION_DEBUG MSI_object_cs_debug =
-{
-    0, 0, &MSI_object_cs,
-    { &MSI_object_cs_debug.ProcessLocksList, 
-      &MSI_object_cs_debug.ProcessLocksList },
-      0, 0, { 0, (DWORD)(__FILE__ ": MSI_object_cs") }
-};
-static CRITICAL_SECTION MSI_object_cs = { &MSI_object_cs_debug, -1, 0, 0, 0, 0 };
-
-typedef struct msi_handle_info_t
-{
-    MSIOBJECTHDR *obj;
-    DWORD dwThreadId;
-} msi_handle_info;
-
-static msi_handle_info msihandletable[MSIMAXHANDLES];
+MSIOBJECTHDR *msihandletable[MSIMAXHANDLES];
 
 MSIHANDLE alloc_msihandle( MSIOBJECTHDR *obj )
 {
@@ -68,14 +52,13 @@ MSIHANDLE alloc_msihandle( MSIOBJECTHDR *obj )
 
     /* find a slot */
     for(i=0; i<MSIMAXHANDLES; i++)
-        if( !msihandletable[i].obj )
+        if( !msihandletable[i] )
             break;
-    if( (i>=MSIMAXHANDLES) || msihandletable[i].obj )
+    if( (i>=MSIMAXHANDLES) || msihandletable[i] )
         goto out;
 
     msiobj_addref( obj );
-    msihandletable[i].obj = obj;
-    msihandletable[i].dwThreadId = GetCurrentThreadId();
+    msihandletable[i] = obj;
     ret = (MSIHANDLE) (i+1);
 out:
     TRACE("%p -> %ld\n", obj, ret );
@@ -94,13 +77,13 @@ void *msihandle2msiinfo(MSIHANDLE handle, UINT type)
         goto out;
     if( handle>=MSIMAXHANDLES )
         goto out;
-    if( !msihandletable[handle].obj )
+    if( !msihandletable[handle] )
         goto out;
-    if( msihandletable[handle].obj->magic != MSIHANDLE_MAGIC )
+    if( msihandletable[handle]->magic != MSIHANDLE_MAGIC )
         goto out;
-    if( type && (msihandletable[handle].obj->type != type) )
+    if( type && (msihandletable[handle]->type != type) )
         goto out;
-    ret = msihandletable[handle].obj;
+    ret = msihandletable[handle];
     msiobj_addref( ret );
     
 out:
@@ -118,7 +101,7 @@ MSIHANDLE msiobj_findhandle( MSIOBJECTHDR *hdr )
 
     EnterCriticalSection( &MSI_handle_cs );
     for(i=0; (i<MSIMAXHANDLES) && !ret; i++)
-        if( msihandletable[i].obj == hdr )
+        if( msihandletable[i] == hdr )
             ret = i+1;
     LeaveCriticalSection( &MSI_handle_cs );
 
@@ -157,17 +140,7 @@ void msiobj_addref( MSIOBJECTHDR *info )
         return;
     }
 
-    InterlockedIncrement(&info->refcount);
-}
-
-void msiobj_lock( MSIOBJECTHDR *info )
-{
-    EnterCriticalSection( &MSI_object_cs );
-}
-
-void msiobj_unlock( MSIOBJECTHDR *info )
-{
-    LeaveCriticalSection( &MSI_object_cs );
+    info->refcount++;
 }
 
 int msiobj_release( MSIOBJECTHDR *info )
@@ -185,21 +158,18 @@ int msiobj_release( MSIOBJECTHDR *info )
         return -1;
     }
 
-    ret = InterlockedDecrement( &info->refcount );
-    if( ret==0 )
+    ret = info->refcount--;
+    if (info->refcount == 0)
     {
-        if( info->destructor )
+    if( info->destructor )
             info->destructor( info );
-        HeapFree( GetProcessHeap(), 0, info );
+    HeapFree( GetProcessHeap(), 0, info );
         TRACE("object %p destroyed\n", info);
     }
 
     return ret;
 }
 
-/***********************************************************
- *   MsiCloseHandle   [MSI.@]
- */
 UINT WINAPI MsiCloseHandle(MSIHANDLE handle)
 {
     MSIOBJECTHDR *info;
@@ -220,7 +190,7 @@ UINT WINAPI MsiCloseHandle(MSIHANDLE handle)
     }
 
     msiobj_release( info );
-    msihandletable[handle-1].obj = NULL;
+    msihandletable[handle-1] = NULL;
     ret = ERROR_SUCCESS;
 
     TRACE("handle %lx Destroyed\n", handle);
@@ -232,28 +202,14 @@ out:
     return ret;
 }
 
-/***********************************************************
- *   MsiCloseAllHandles   [MSI.@]
- *
- *  Closes all handles owned by the current thread
- *
- *  RETURNS:
- *   The number of handles closed
- */
 UINT WINAPI MsiCloseAllHandles(void)
 {
-    UINT i, n=0;
+    UINT i;
 
     TRACE("\n");
 
     for(i=0; i<MSIMAXHANDLES; i++)
-    {
-        if(msihandletable[i].dwThreadId == GetCurrentThreadId())
-        {
-            MsiCloseHandle( i+1 );
-            n++;
-        }
-    }
+        MsiCloseHandle( i+1 );
 
-    return n;
+    return 0;
 }

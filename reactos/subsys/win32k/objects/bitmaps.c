@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: bitmaps.c,v 1.84 2004/12/12 23:08:12 navaraf Exp $ */
 #include <w32k.h>
 
 #define IN_RECT(r,x,y) \
@@ -49,8 +49,8 @@ NtGdiBitBlt(
 	HPALETTE SourcePalette = 0, DestPalette = 0;
 	PGDIBRUSHOBJ BrushObj;
 	GDIBRUSHINST BrushInst;
-	BOOL UsesSource = ROP3_USES_SOURCE(ROP);
-	BOOL UsesPattern = ROP3_USES_PATTERN(ROP);
+	BOOL UsesSource = ROP_USES_SOURCE(ROP);
+	BOOL UsesPattern = ROP_USES_PATTERN(ROP);
 
 	DCDest = DC_LockDc(hDCDest);
 	if (NULL == DCDest)
@@ -201,8 +201,7 @@ NtGdiBitBlt(
 
 	/* Perform the bitblt operation */
 	Status = IntEngBitBlt(BitmapDest, BitmapSrc, NULL, DCDest->CombinedClip, XlateObj,
-	                      &DestRect, &SourcePoint, NULL, BrushObj ? &BrushInst.BrushObject : NULL,
-	                      &BrushOrigin, ROP3_TO_ROP4(ROP));
+		&DestRect, &SourcePoint, NULL, BrushObj ? &BrushInst.BrushObject : NULL, &BrushOrigin, ROP);
 
 	if (UsesSource && XlateObj != NULL)
 		EngDeleteXlate(XlateObj);
@@ -389,7 +388,7 @@ NtGdiCreateBitmap(
    /* Create the bitmap object. */
    hBitmap = IntCreateBitmap(Size, BITMAPOBJ_GetWidthBytes(Width, BitsPerPel),
                              BitmapFormat(BitsPerPel, BI_RGB),
-                             (Height < 0 ? BMF_TOPDOWN : 0) |
+                             (Height > 0 ? 0 : BMF_TOPDOWN) |
                              (Bits == NULL ? 0 : BMF_NOZEROINIT), NULL);
    if (!hBitmap)
    {
@@ -894,9 +893,9 @@ NtGdiSetBitmapBits(
 
 	/* Only get entire lines */
 	height = Bytes / abs(bmp->SurfObj.lDelta);
-	if (height > bmp->SurfObj.sizlBitmap.cy)
+	if (height > bmp->SurfObj.sizlBitmap.cx)
 	{
-		height = bmp->SurfObj.sizlBitmap.cy;
+		height = bmp->SurfObj.sizlBitmap.cx;
 	}
 	Bytes = height * abs(bmp->SurfObj.lDelta);
 	DPRINT ("(%08x, bytes:%ld, bits:%p) %dx%d %d colors fetched height: %ld\n",
@@ -1258,32 +1257,22 @@ BITMAPOBJ_CopyBitmap(HBITMAP  hBitmap)
 {
 	HBITMAP  res;
 	BITMAP  bm;
-	BITMAPOBJ *Bitmap;
 
-        if (hBitmap == NULL)
+	if (IntGdiGetObject(hBitmap, sizeof(BITMAP), &bm) == 0)
+	{
 		return 0;
-
-	Bitmap = GDIOBJ_LockObj(hBitmap, GDI_OBJECT_TYPE_BITMAP);
-        if (Bitmap == NULL)
-		return 0;
-
-	BITMAP_GetObject(Bitmap, sizeof(BITMAP), &bm);
+	}
 	bm.bmBits = NULL;
-	if (Bitmap->SurfObj.lDelta >= 0)
-		bm.bmHeight = -bm.bmHeight;
-
 	res = NtGdiCreateBitmapIndirect(&bm);
 	if(res)
 	{
 		char *buf;
 
-		buf = ExAllocatePoolWithTag (PagedPool, bm.bmWidthBytes * abs(bm.bmHeight), TAG_BITMAP);
-		NtGdiGetBitmapBits (hBitmap, bm.bmWidthBytes * abs(bm.bmHeight), buf);
-		NtGdiSetBitmapBits (res, bm.bmWidthBytes * abs(bm.bmHeight), buf);
+		buf = ExAllocatePoolWithTag (PagedPool, bm.bmWidthBytes * bm.bmHeight, TAG_BITMAP);
+		NtGdiGetBitmapBits (hBitmap, bm.bmWidthBytes * bm.bmHeight, buf);
+		NtGdiSetBitmapBits (res, bm.bmWidthBytes * bm.bmHeight, buf);
 		ExFreePool (buf);
 	}
-
-	GDIOBJ_UnlockObj(hBitmap);
 
 	return  res;
 }

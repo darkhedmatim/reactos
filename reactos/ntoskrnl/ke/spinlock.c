@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: spinlock.c,v 1.24 2004/10/22 20:30:48 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/spinlock.c
  * PURPOSE:         Implements spinlocks
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  3/6/98: Created
  */
 
 /*
@@ -16,7 +17,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <ntoskrnl.h>
-#define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS ***************************************************************/
@@ -42,17 +42,19 @@ KeSynchronizeExecution (PKINTERRUPT		Interrupt,
    KIRQL oldlvl;
    BOOLEAN ret;
    
-   oldlvl = KeAcquireInterruptSpinLock(Interrupt);
+   KeRaiseIrql(Interrupt->SynchLevel, &oldlvl);
+   KiAcquireSpinLock(Interrupt->IrqLock);
    
    ret = SynchronizeRoutine(SynchronizeContext);
    
-   KeReleaseInterruptSpinLock(Interrupt, oldlvl);
+   KiReleaseSpinLock(Interrupt->IrqLock);
+   KeLowerIrql(oldlvl);
    
    return(ret);
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 KIRQL
 STDCALL
@@ -60,11 +62,8 @@ KeAcquireInterruptSpinLock(
     IN PKINTERRUPT Interrupt
     )
 {
-   KIRQL oldIrql;
-        
-   KeRaiseIrql(Interrupt->SynchLevel, &oldIrql);
-   KiAcquireSpinLock(Interrupt->ActualLock);
-   return oldIrql;
+	UNIMPLEMENTED;
+	return 0;
 }
 
 /*
@@ -184,28 +183,19 @@ KiAcquireSpinLock(PKSPIN_LOCK SpinLock)
     KEBUGCHECK(0);
   }
    
-  while ((i = InterlockedExchangeUL(SpinLock, 1)) == 1)
+  while ((i = InterlockedExchange((LONG *)SpinLock, 1)) == 1)
   {
-#ifdef CONFIG_SMP
-    /* Avoid reading the value again too fast */
-#if 1
-    __asm__ __volatile__ ("1:\n\t"
-	                  "cmpl	$0,(%0)\n\t"
-			  "jne	1b\n\t"
-			  :
-                          : "r" (SpinLock));
-#else	                  
-    while (0 != *(volatile KSPIN_LOCK*)SpinLock);
-#endif
-#else
+#ifndef MP
     DbgPrint("Spinning on spinlock %x current value %x\n", SpinLock, i);
     KEBUGCHECK(0);
-#endif /* CONFIG_SMP */
+#else /* not MP */
+       /* Avoid reading the value again too fast */
+#endif /* MP */
   }
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
@@ -214,8 +204,7 @@ KeReleaseInterruptSpinLock(
 	IN KIRQL OldIrql
 	)
 {
-   KiReleaseSpinLock(Interrupt->ActualLock);
-   KeLowerIrql(OldIrql);
+	UNIMPLEMENTED;
 }
 
 /*
@@ -229,7 +218,7 @@ KiReleaseSpinLock(PKSPIN_LOCK SpinLock)
     DbgPrint("Releasing unacquired spinlock %x\n", SpinLock);
     KEBUGCHECK(0);
   }
-  (void)InterlockedExchangeUL(SpinLock, 0);
+  (void)InterlockedExchange((LONG *)SpinLock, 0);
 }
 
 /* EOF */

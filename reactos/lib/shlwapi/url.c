@@ -444,7 +444,6 @@ HRESULT WINAPI UrlCanonicalizeW(LPCWSTR pszUrl, LPWSTR pszCanonicalized,
 		break;
 	    default:
 		FIXME("how did we get here - state=%d\n", state);
-                HeapFree(GetProcessHeap(), 0, lpszUrlCpy);
 		return E_INVALIDARG;
 	    }
 	}
@@ -1417,7 +1416,7 @@ HRESULT WINAPI UrlHashW(LPCWSTR pszUrl, unsigned char *lpDest, DWORD nDestLen)
    * return the same digests for the same URL.
    */
   WideCharToMultiByte(0, 0, pszUrl, -1, szUrl, MAX_PATH, 0, 0);
-  HashData((const BYTE*)szUrl, (int)strlen(szUrl), lpDest, nDestLen);
+  HashData((PBYTE)szUrl, (int)strlen(szUrl), lpDest, nDestLen);
   return S_OK;
 }
 
@@ -1632,8 +1631,6 @@ BOOL WINAPI UrlIsA(LPCSTR pszUrl, URLIS Urlis)
     DWORD res1;
     LPCSTR last;
 
-    TRACE("(%s %d)\n", debugstr_a(pszUrl), Urlis);
-
     switch (Urlis) {
 
     case URLIS_OPAQUE:
@@ -1653,8 +1650,6 @@ BOOL WINAPI UrlIsA(LPCSTR pszUrl, URLIS Urlis)
         return (last >= pszUrl && (*last == '/' || *last == '\\' ));
 
     case URLIS_URL:
-        return PathIsURLA(pszUrl);
-
     case URLIS_NOHISTORY:
     case URLIS_APPLIABLE:
     case URLIS_HASQUERY:
@@ -1676,8 +1671,6 @@ BOOL WINAPI UrlIsW(LPCWSTR pszUrl, URLIS Urlis)
     DWORD res1;
     LPCWSTR last;
 
-    TRACE("(%s %d)\n", debugstr_w(pszUrl), Urlis);
-
     switch (Urlis) {
 
     case URLIS_OPAQUE:
@@ -1697,8 +1690,6 @@ BOOL WINAPI UrlIsW(LPCWSTR pszUrl, URLIS Urlis)
         return (last >= pszUrl && (*last == '/' || *last == '\\'));
 
     case URLIS_URL:
-        return PathIsURLW(pszUrl);
-
     case URLIS_NOHISTORY:
     case URLIS_APPLIABLE:
     case URLIS_HASQUERY:

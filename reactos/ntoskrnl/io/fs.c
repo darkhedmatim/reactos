@@ -1,11 +1,11 @@
-/* $Id$
- * 
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/fs.c
  * PURPOSE:         Filesystem functions
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -27,7 +27,7 @@ typedef struct _FS_CHANGE_NOTIFY_ENTRY
 {
   LIST_ENTRY FsChangeNotifyList;
   PDRIVER_OBJECT DriverObject;
-  PDRIVER_FS_NOTIFICATION FSDNotificationProc;
+  PFSDNOTIFICATIONPROC FSDNotificationProc;
 } FS_CHANGE_NOTIFY_ENTRY, *PFS_CHANGE_NOTIFY_ENTRY;
 
 /* GLOBALS ******************************************************************/
@@ -35,7 +35,7 @@ typedef struct _FS_CHANGE_NOTIFY_ENTRY
 static ERESOURCE FileSystemListLock;
 static LIST_ENTRY FileSystemListHead;
 
-static FAST_MUTEX FsChangeNotifyListLock;
+static KSPIN_LOCK FsChangeNotifyListLock;
 static LIST_ENTRY FsChangeNotifyListHead;
 
 #define TAG_FILE_SYSTEM       TAG('F', 'S', 'Y', 'S')
@@ -83,7 +83,7 @@ NtFsControlFile (
   PFILE_OBJECT FileObject;
   PDEVICE_OBJECT DeviceObject;
   PIRP Irp;
-  PIO_STACK_LOCATION StackPtr;
+  PEXTENDED_IO_STACK_LOCATION StackPtr;
   PKEVENT ptrEvent;
   KPROCESSOR_MODE PreviousMode;
 
@@ -148,7 +148,7 @@ NtFsControlFile (
   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
+  StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
   StackPtr->FileObject = FileObject;
   StackPtr->DeviceObject = DeviceObject;
   StackPtr->Parameters.FileSystemControl.InputBufferLength = InputBufferSize;
@@ -178,7 +178,7 @@ IoInitFileSystemImplementation(VOID)
   ExInitializeResourceLite(&FileSystemListLock);
 
   InitializeListHead(&FsChangeNotifyListHead);
-  ExInitializeFastMutex(&FsChangeNotifyListLock);
+  KeInitializeSpinLock(&FsChangeNotifyListLock);
 }
 
 
@@ -709,8 +709,9 @@ IopNotifyFileSystemChange(PDEVICE_OBJECT DeviceObject,
 {
   PFS_CHANGE_NOTIFY_ENTRY ChangeEntry;
   PLIST_ENTRY Entry;
+  KIRQL oldlvl;
 
-  ExAcquireFastMutex(&FsChangeNotifyListLock);
+  KeAcquireSpinLock(&FsChangeNotifyListLock,&oldlvl);
   Entry = FsChangeNotifyListHead.Flink;
   while (Entry != &FsChangeNotifyListHead)
     {
@@ -720,7 +721,7 @@ IopNotifyFileSystemChange(PDEVICE_OBJECT DeviceObject,
 
       Entry = Entry->Flink;
     }
-  ExReleaseFastMutex(&FsChangeNotifyListLock);
+  KeReleaseSpinLock(&FsChangeNotifyListLock,oldlvl);
 }
 
 
@@ -729,7 +730,7 @@ IopNotifyFileSystemChange(PDEVICE_OBJECT DeviceObject,
  */
 NTSTATUS STDCALL
 IoRegisterFsRegistrationChange(IN PDRIVER_OBJECT DriverObject,
-			       IN PDRIVER_FS_NOTIFICATION FSDNotificationProc)
+			       IN PFSDNOTIFICATIONPROC FSDNotificationProc)
 {
   PFS_CHANGE_NOTIFY_ENTRY Entry;
 
@@ -742,10 +743,9 @@ IoRegisterFsRegistrationChange(IN PDRIVER_OBJECT DriverObject,
   Entry->DriverObject = DriverObject;
   Entry->FSDNotificationProc = FSDNotificationProc;
 
-  ExAcquireFastMutex(&FsChangeNotifyListLock);
-  InsertHeadList(&FsChangeNotifyListHead,
-			      &Entry->FsChangeNotifyList);
-  ExReleaseFastMutex(&FsChangeNotifyListLock);
+  ExInterlockedInsertHeadList(&FsChangeNotifyListHead,
+			      &Entry->FsChangeNotifyList,
+			      &FsChangeNotifyListLock);
 
   return(STATUS_SUCCESS);
 }
@@ -756,10 +756,11 @@ IoRegisterFsRegistrationChange(IN PDRIVER_OBJECT DriverObject,
  */
 VOID STDCALL
 IoUnregisterFsRegistrationChange(IN PDRIVER_OBJECT DriverObject,
-				 IN PDRIVER_FS_NOTIFICATION FSDNotificationProc)
+				 IN PFSDNOTIFICATIONPROC FSDNotificationProc)
 {
   PFS_CHANGE_NOTIFY_ENTRY ChangeEntry;
   PLIST_ENTRY Entry;
+  KIRQL oldlvl;
 
   Entry = FsChangeNotifyListHead.Flink;
   while (Entry != &FsChangeNotifyListHead)
@@ -768,9 +769,9 @@ IoUnregisterFsRegistrationChange(IN PDRIVER_OBJECT DriverObject,
       if (ChangeEntry->DriverObject == DriverObject &&
 	  ChangeEntry->FSDNotificationProc == FSDNotificationProc)
 	{
-	  ExAcquireFastMutex(&FsChangeNotifyListLock);
+	  KeAcquireSpinLock(&FsChangeNotifyListLock,&oldlvl);
 	  RemoveEntryList(Entry);
-	  ExReleaseFastMutex(&FsChangeNotifyListLock);
+	  KeReleaseSpinLock(&FsChangeNotifyListLock,oldlvl);
 
 	  ExFreePool(Entry);
 	  return;

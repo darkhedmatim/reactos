@@ -11,15 +11,15 @@ int xconv[640];
 int bit8[640];
 int startmasks[8];
 int endmasks[8];
-PBYTE vidmem;
+char* vidmem;
 static ULONG UnpackPixel[256];
 
 static unsigned char leftMask;
 static int byteCounter;
 static unsigned char rightMask;
 
-#define READ_REGISTER_UCHAR(p) (*((volatile UCHAR *)(p)))
-#define WRITE_REGISTER_UCHAR(p,c) (*((volatile CHAR *)(p))) = (c)
+#define READ_REGISTER_UCHAR(p) (*((PUCHAR)(p)))
+#define WRITE_REGISTER_UCHAR(p,c) (*((PCHAR)(p))) = (c)
 
 INT abs(INT nm)
 {

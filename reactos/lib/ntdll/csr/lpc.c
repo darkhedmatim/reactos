@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: lpc.c,v 1.13 2004/07/03 17:13:09 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -71,10 +71,7 @@ CsrCaptureParameterBuffer(PVOID ParameterBuffer,
     {
       return(STATUS_NO_MEMORY);
     }
-  if(ParameterBuffer != NULL)
-  {
-    memcpy(Block, ParameterBuffer, ParameterBufferSize);
-  }
+  memcpy(Block, ParameterBuffer, ParameterBufferSize);
   *ClientAddress = Block;
   *ServerAddress = Block - CsrSectionMapBase + CsrSectionMapServerBase;
   return(STATUS_SUCCESS);
@@ -171,7 +168,7 @@ CsrClientConnectToServer(VOID)
    CsrSectionMapServerBase = LpcWrite.TargetViewBase;
 
    /* Create the heap for communication for csrss. */
-   CsrCommHeap = RtlCreateHeap(0,
+   CsrCommHeap = RtlCreateHeap(HEAP_NO_VALLOC,
 			       CsrSectionMapBase,
 			       CsrSectionViewSize.u.LowPart,
 			       CsrSectionViewSize.u.LowPart,

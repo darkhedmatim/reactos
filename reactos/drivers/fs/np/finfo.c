@@ -1,10 +1,10 @@
-/* $Id$
+/* $Id: finfo.c,v 1.6 2004/04/12 13:03:29 navaraf Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/fs/np/finfo.c
+ * FILE:       services/fs/np/finfo.c
  * PURPOSE:    Named pipe filesystem
- * PROGRAMMER: Eric Kohl
+ * PROGRAMMER: Eric Kohl <ekohl@rz-online.de>
  */
 
 /* INCLUDES ******************************************************************/
@@ -36,7 +36,7 @@ NpfsQueryPipeInformation(PDEVICE_OBJECT DeviceObject,
 //  Info->CompletionMode = 
 
   *BufferLength -= sizeof(FILE_PIPE_INFORMATION);
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -76,7 +76,7 @@ NpfsQueryLocalPipeInformation(PDEVICE_OBJECT DeviceObject,
     }
 
   *BufferLength -= sizeof(FILE_PIPE_LOCAL_INFORMATION);
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -93,24 +93,24 @@ NpfsQueryInformation(PDEVICE_OBJECT DeviceObject,
   PVOID SystemBuffer;
   ULONG BufferLength;
   NTSTATUS Status;
-
+  
   DPRINT("NpfsQueryInformation(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
-
+  
   IoStack = IoGetCurrentIrpStackLocation (Irp);
   FileInformationClass = IoStack->Parameters.QueryFile.FileInformationClass;
   DeviceExtension = DeviceObject->DeviceExtension;
   FileObject = IoStack->FileObject;
   Fcb = (PNPFS_FCB)FileObject->FsContext;
   Pipe = Fcb->Pipe;
-
+  
   SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
   BufferLength = IoStack->Parameters.QueryFile.Length;
-
+  
   DPRINT("Pipe name: %wZ\n", &Pipe->PipeName);
   DPRINT("FileInformationClass %d\n", FileInformationClass);
   DPRINT("SystemBuffer %p\n", SystemBuffer);
   DPRINT("BufferLength %lu\n", BufferLength);
-
+  
   switch (FileInformationClass)
     {
       case FilePipeInformation:
@@ -134,7 +134,7 @@ NpfsQueryInformation(PDEVICE_OBJECT DeviceObject,
       default:
 	Status = STATUS_NOT_SUPPORTED;
     }
-
+  
   Irp->IoStatus.Status = Status;
   if (NT_SUCCESS(Status))
     Irp->IoStatus.Information =
@@ -142,8 +142,8 @@ NpfsQueryInformation(PDEVICE_OBJECT DeviceObject,
   else
     Irp->IoStatus.Information = 0;
   IoCompleteRequest (Irp, IO_NO_INCREMENT);
-
-  return Status;
+  
+  return(Status);
 }
 
 
@@ -196,7 +196,7 @@ NpfsSetInformation(PDEVICE_OBJECT DeviceObject,
   IoCompleteRequest(Irp,
 		    IO_NO_INCREMENT);
 
-  return Status;
+  return(Status);
 }
 
 /* EOF */

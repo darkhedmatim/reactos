@@ -11,8 +11,6 @@
 
 #include "mmdrv.h"
 
-#define NDEBUG
-#include <debug.h>
 
 typedef struct _DEVICE_LIST
 {
@@ -61,7 +59,7 @@ DWORD TranslateStatus(void)
 MMRESULT OpenDevice(UINT DeviceType, DWORD ID, PHANDLE pDeviceHandle,
                     DWORD Access)
 {
-    DPRINT("OpenDevice()\n");
+    printf("OpenDevice()\n");
     WCHAR DeviceName[SOUND_MAX_DEVICE_NAME];
     *pDeviceHandle = INVALID_HANDLE_VALUE;
 
@@ -86,13 +84,13 @@ MMRESULT OpenDevice(UINT DeviceType, DWORD ID, PHANDLE pDeviceHandle,
             wsprintf(DeviceName, L"\\\\.%ls%d", AUX_DEVICE_NAME_U + strlen("\\Device"), ID);
     };
 
-    DPRINT("Attempting to open %S\n", DeviceName);
+    printf("Attempting to open %S\n", DeviceName);
 
     *pDeviceHandle = CreateFile(DeviceName, Access, FILE_SHARE_WRITE, NULL,
                                 OPEN_EXISTING, Access != GENERIC_READ ? FILE_FLAG_OVERLAPPED : 0,
                                 NULL);
 
-    DPRINT("DeviceHandle == 0x%x\n", (int)*pDeviceHandle);
+    printf("DeviceHandle == 0x%x\n", (int)*pDeviceHandle);
 
     if (pDeviceHandle == INVALID_HANDLE_VALUE)
         return TranslateStatus();
@@ -109,7 +107,7 @@ BOOL AddDeviceToList(PDEVICE_LIST* pList, DWORD DeviceType, DWORD CardIndex,
 {
     PDEVICE_LIST pNewDevice;
 
-    DPRINT("AddDeviceToList()\n");
+    printf("AddDeviceToList()\n");
 
     pNewDevice = (PDEVICE_LIST) HeapAlloc(Heap, 0,
         sizeof(DEVICE_LIST) + lstrlen(Name) * sizeof(WCHAR));
@@ -127,7 +125,7 @@ BOOL AddDeviceToList(PDEVICE_LIST* pList, DWORD DeviceType, DWORD CardIndex,
     pNewDevice->Next = *pList;
     *pList = pNewDevice;
     
-    DPRINT("Success!\n");
+    printf("Success!\n");
 
     return TRUE;
 }
@@ -137,7 +135,7 @@ VOID FreeDeviceList()
 {
     PDEVICE_LIST pDevice;
 
-    DPRINT("FreeDeviceList()\n");
+    printf("FreeDeviceList()\n");
     
     while (DeviceList)
     {
@@ -157,7 +155,7 @@ MMRESULT FindDevices()
 //    DWORD Index;
 //    HKEY DriverKey;
 
-    DPRINT("Finding devices\n");
+    printf("Finding devices\n");
     
 //    DriverKey = OpenParametersKey();
 //  see drvutil.c of MS DDK for how this SHOULD be done...

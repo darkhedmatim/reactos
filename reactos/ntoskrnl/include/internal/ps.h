@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: ps.h,v 1.77 2004/12/05 15:42:41 weiden Exp $
  *
  * FILE:            ntoskrnl/ke/kthread.c
  * PURPOSE:         Process manager definitions
@@ -73,7 +73,7 @@ typedef struct _KTHREAD
    
    /* Thread state (one of THREAD_STATE_xxx constants below) */
    UCHAR             State;               /* 2D */
-   BOOLEAN           Alerted[2];          /* 2E */
+   UCHAR             Alerted[2];          /* 2E */
    UCHAR             Iopl;                /* 30 */
    UCHAR             NpxState;            /* 31 */
    CHAR              Saturation;          /* 32 */
@@ -147,10 +147,10 @@ typedef struct _KTHREAD
 #ifndef __USE_W32API
 typedef struct
 {
-    PACCESS_TOKEN                   Token;
-    BOOLEAN                         CopyOnOpen;
-    BOOLEAN                         EffectiveOnly;
-    SECURITY_IMPERSONATION_LEVEL    ImpersonationLevel;
+  PACCESS_TOKEN Token;
+  BOOLEAN CopyOnOpen;
+  BOOLEAN EffectiveOnly;
+  SECURITY_IMPERSONATION_LEVEL Level;
 } PS_IMPERSONATION_INFORMATION, *PPS_IMPERSONATION_INFORMATION;
 #endif
 
@@ -160,11 +160,11 @@ typedef struct _ETHREAD
 {
   KTHREAD Tcb;
   union {
-  	LARGE_INTEGER CreateTime;
+  	TIME CreateTime;
   	UCHAR NestedFaultCount:2;
   	UCHAR ApcNeeded:1;
   };
-  LARGE_INTEGER ExitTime;
+  TIME ExitTime;
   LIST_ENTRY LpcReplyChain;
   NTSTATUS ExitStatus;
   PVOID OfsChain;
@@ -316,14 +316,18 @@ struct _EPROCESS
   ULONG                 LockCount;                    /* 07C */
 
   /* Time of process creation. */
-  LARGE_INTEGER         CreateTime;                   /* 080 */
+#ifdef __USE_W32API
+  LARGE_INTEGER                  CreateTime;                   /* 080 */
+#else
+  TIME                  CreateTime;                   /* 080 */
+#endif
 
   /* Time of process exit. */
-  LARGE_INTEGER         ExitTime;                     /* 088 */
+  TIME                  ExitTime;                     /* 088 */
   /* Unknown. */
   PKTHREAD              LockOwner;                    /* 090 */
   /* Process id. */
-  HANDLE                UniqueProcessId;              /* 094 */
+  ULONG                 UniqueProcessId;              /* 094 */
   /* Unknown. */
   LIST_ENTRY            ActiveProcessLinks;           /* 098 */
   /* Unknown. */
@@ -528,7 +532,7 @@ VOID
 PsBlockThread(PNTSTATUS Status, UCHAR Alertable, ULONG WaitMode, 
 	      BOOLEAN DispatcherLock, KIRQL WaitIrql, UCHAR WaitReason);
 VOID
-PsUnblockThread(PETHREAD Thread, PNTSTATUS WaitStatus, KPRIORITY Increment);
+PsUnblockThread(PETHREAD Thread, PNTSTATUS WaitStatus);
 VOID
 PsApplicationProcessorInit(VOID);
 VOID

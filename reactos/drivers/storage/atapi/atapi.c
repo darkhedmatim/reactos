@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2001, 2002, 2003, 2004, 2005 ReactOS Team
+ *  Copyright (C) 2001, 2002, 2003, 2004 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,8 +114,7 @@ typedef struct _ATAPI_MINIPORT_EXTENSION
 #define DEVICE_DWORD_IO          0x00000008
 #define DEVICE_48BIT_ADDRESS     0x00000010
 #define DEVICE_MEDIA_STATUS      0x00000020
-#define DEVICE_DMA_CMD           0x00000040
-#define DEVICE_NO_FLUSH          0x00000080
+#define DEVICE_DMA_CMD		 0x00000040
 
 
 typedef struct _UNIT_EXTENSION
@@ -126,7 +125,7 @@ typedef struct _UNIT_EXTENSION
 PCI_SLOT_NUMBER LastSlotNumber;
 
 #ifdef ENABLE_NATIVE_PCI
-typedef struct _PCI_NATIVE_CONTROLLER
+typedef struct _PCI_NATIVE_CONTROLLER 
 {
   USHORT VendorID;
   USHORT DeviceID;
@@ -1327,8 +1326,6 @@ AtapiIdentifyDevice(IN ULONG CommandPort,
          DrvParms->TMSectorCountHi,
          DrvParms->TMSectorCountLo,
          (ULONG)((DrvParms->TMSectorCountHi << 16) + DrvParms->TMSectorCountLo));
-  DPRINT("SupportedFeatures83: %x, EnabledFeatures86 %x\n", DrvParms->SupportedFeatures83, DrvParms->EnabledFeatures86);
-  DPRINT("Max48BitAddress: %I64d\n", *(PULONGLONG)DrvParms->Max48BitAddress);
   if (DrvParms->TMFieldsValid & 0x0004)
     {
       if ((DrvParms->UltraDmaModes >> 8) && (DrvParms->UltraDmaModes & 0xff))
@@ -1898,12 +1895,6 @@ AtapiInquiry(PATAPI_MINIPORT_EXTENSION DeviceExtension,
       /* get it from the ATAPI configuration word */
       InquiryData->DeviceType = (DeviceParams->ConfigBits >> 8) & 0x1F;
       DPRINT("Device class: %u\n", InquiryData->DeviceType);
-
-      /* Don't flush CD/DVD drives */
-      if (InquiryData->DeviceType == READ_ONLY_DIRECT_ACCESS_DEVICE)
-	{
-	  DeviceExtension->DeviceFlags[Srb->TargetId] |= DEVICE_NO_FLUSH;
-	}
     }
   else
     {
@@ -1940,7 +1931,7 @@ AtapiInquiry(PATAPI_MINIPORT_EXTENSION DeviceExtension,
     }
 
   InquiryData->AdditionalLength = 31;
-
+  
   DPRINT("VendorId: '%.20s'\n", InquiryData->VendorId);
 
   Srb->SrbStatus = SRB_STATUS_SUCCESS;
@@ -1954,7 +1945,7 @@ AtapiReadCapacity(PATAPI_MINIPORT_EXTENSION DeviceExtension,
 {
   PREAD_CAPACITY_DATA CapacityData;
   PIDE_DRIVE_IDENTIFY DeviceParams;
-  LARGE_INTEGER LastSector;
+  ULONG LastSector;
 
   DPRINT("SCSIOP_READ_CAPACITY: TargetId: %lu\n", Srb->TargetId);
   CapacityData = (PREAD_CAPACITY_DATA)Srb->DataBuffer;
@@ -1966,33 +1957,14 @@ AtapiReadCapacity(PATAPI_MINIPORT_EXTENSION DeviceExtension,
   /* Calculate last sector (big-endian). */
   if (DeviceParams->Capabilities & IDE_DRID_LBA_SUPPORTED)
     {
-      if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
-        {
-	  ((PUSHORT)&LastSector)[0] = DeviceParams->Max48BitAddress[0]; 
-	  ((PUSHORT)&LastSector)[1] = DeviceParams->Max48BitAddress[1]; 
-	  ((PUSHORT)&LastSector)[2] = DeviceParams->Max48BitAddress[2]; 
-	  ((PUSHORT)&LastSector)[3] = DeviceParams->Max48BitAddress[3]; 
-	  LastSector.QuadPart -= 1;
-
-	}
-      else
-        {
-	  LastSector.u.HighPart = 0;
-          LastSector.u.LowPart = (ULONG)((DeviceParams->TMSectorCountHi << 16) +
-			                 DeviceParams->TMSectorCountLo)-1;
-	}
+      LastSector = (ULONG)((DeviceParams->TMSectorCountHi << 16) +
+			    DeviceParams->TMSectorCountLo) - 1;
     }
   else
     {
-      LastSector.u.HighPart = 0;
-      LastSector.u.LowPart = (ULONG)(DeviceParams->LogicalCyls *
-			             DeviceParams->LogicalHeads *
-			             DeviceParams->SectorsPerTrack)-1;
-    }
-  if (LastSector.u.HighPart)
-    {
-      DPRINT1("Disk is too large for our implementation (%I64d sectors\n", LastSector.QuadPart);
-      KEBUGCHECK(0);
+      LastSector = (ULONG)(DeviceParams->LogicalCyls *
+			   DeviceParams->LogicalHeads *
+			   DeviceParams->SectorsPerTrack)-1;
     }
 
   CapacityData->LogicalBlockAddress = (((PUCHAR)&LastSector)[0] << 24) |
@@ -2017,10 +1989,10 @@ AtapiReadWrite(PATAPI_MINIPORT_EXTENSION DeviceExtension,
   PIDE_DRIVE_IDENTIFY DeviceParams;
   ULONG StartingSector;
   ULONG SectorCount;
-  UCHAR CylinderHigh[2];
-  UCHAR CylinderLow[2];
+  UCHAR CylinderHigh;
+  UCHAR CylinderLow;
   UCHAR DrvHead;
-  UCHAR SectorNumber[2];
+  UCHAR SectorNumber;
   UCHAR Command;
   ULONG Retries;
   UCHAR Status;
@@ -2046,61 +2018,47 @@ AtapiReadWrite(PATAPI_MINIPORT_EXTENSION DeviceExtension,
 	 Srb->DataTransferLength,
 	 SectorCount);
 
-  if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
+  if (DeviceParams->Capabilities & IDE_DRID_LBA_SUPPORTED)
     {
-      SectorNumber[0] = StartingSector & 0xff;
-      CylinderLow[0] = (StartingSector >> 8) & 0xff;
-      CylinderHigh[0] = (StartingSector >> 16) & 0xff;
-      SectorNumber[1] = (StartingSector >> 24) & 0xff;
-      CylinderLow[1] = 0;
-      CylinderHigh[1] = 0;
-      DrvHead = (Srb->TargetId ? IDE_DH_DRV1 : 0) | IDE_DH_LBA;
-
-      DPRINT("%s:BUS=%04x:DRV=%d:LBA48=1:BLK=%08d:SC=%02x:CM=%02x\n",
-	     (Srb->SrbFlags & SRB_FLAGS_DATA_IN) ? "READ" : "WRITE",
-	     DeviceExtension->CommandPortBase,
-	     DrvHead & IDE_DH_DRV1 ? 1 : 0,
-	     (SectorNumber[1] << 24) +
-	     (CylinderHigh[0] << 16) + (CylinderLow[0] << 8) + DectorNumberLow[0],
-	     SectorCount,
-	     Command);
-    }
-  else if (DeviceParams->Capabilities & IDE_DRID_LBA_SUPPORTED)
-    {
-      SectorNumber[0] = StartingSector & 0xff;
-      CylinderLow[0] = (StartingSector >> 8) & 0xff;
-      CylinderHigh[0] = (StartingSector >> 16) & 0xff;
+      SectorNumber = StartingSector & 0xff;
+      CylinderLow = (StartingSector >> 8) & 0xff;
+      CylinderHigh = (StartingSector >> 16) & 0xff;
       DrvHead = ((StartingSector >> 24) & 0x0f) | 
-                 (Srb->TargetId ? IDE_DH_DRV1 : 0) |
-		 IDE_DH_LBA;
+          (Srb->TargetId ? IDE_DH_DRV1 : 0) |
+          IDE_DH_LBA;
+    }
+  else
+    {
+      SectorNumber = (StartingSector % DeviceParams->SectorsPerTrack) + 1;
+      StartingSector /= DeviceParams->SectorsPerTrack;
+      DrvHead = (StartingSector % DeviceParams->LogicalHeads) | 
+          (Srb->TargetId ? IDE_DH_DRV1 : 0);
+      StartingSector /= DeviceParams->LogicalHeads;
+      CylinderLow = StartingSector & 0xff;
+      CylinderHigh = StartingSector >> 8;
+    }
 
+  if (DrvHead & IDE_DH_LBA)
+    {
       DPRINT("%s:BUS=%04x:DRV=%d:LBA=1:BLK=%08d:SC=%02x:CM=%02x\n",
 	     (Srb->SrbFlags & SRB_FLAGS_DATA_IN) ? "READ" : "WRITE",
 	     DeviceExtension->CommandPortBase,
 	     DrvHead & IDE_DH_DRV1 ? 1 : 0,
 	     ((DrvHead & 0x0f) << 24) +
-	     (CylinderHigh[0] << 16) + (CylinderLow[0] << 8) + SectorNumber[0],
+	       (CylinderHigh << 16) + (CylinderLow << 8) + SectorNumber,
 	     SectorCount,
 	     Command);
     }
   else
     {
-      SectorNumber[0] = (StartingSector % DeviceParams->SectorsPerTrack) + 1;
-      StartingSector /= DeviceParams->SectorsPerTrack;
-      DrvHead = (StartingSector % DeviceParams->LogicalHeads) | 
-          (Srb->TargetId ? IDE_DH_DRV1 : 0);
-      StartingSector /= DeviceParams->LogicalHeads;
-      CylinderLow[0] = StartingSector & 0xff;
-      CylinderHigh[0] = StartingSector >> 8;
-
       DPRINT("%s:BUS=%04x:DRV=%d:LBA=0:CH=%02x:CL=%02x:HD=%01x:SN=%02x:SC=%02x:CM=%02x\n",
              (Srb->SrbFlags & SRB_FLAGS_DATA_IN) ? "READ" : "WRITE",
              DeviceExtension->CommandPortBase,
              DrvHead & IDE_DH_DRV1 ? 1 : 0, 
-             CylinderHigh[0],
-             CylinderLow[0],
+             CylinderHigh,
+             CylinderLow,
              DrvHead & 0x0f,
-             SectorNumber[0],
+             SectorNumber,
              SectorCount,
              Command);
     }
@@ -2154,21 +2112,11 @@ AtapiReadWrite(PATAPI_MINIPORT_EXTENSION DeviceExtension,
 #endif
 
   /* Setup command parameters */
-  if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
-    {
-      IDEWritePrecomp(DeviceExtension->CommandPortBase, 0);
-      IDEWriteSectorCount(DeviceExtension->CommandPortBase, SectorCount >> 8);
-      IDEWriteSectorNum(DeviceExtension->CommandPortBase, SectorNumber[1]);
-      IDEWriteCylinderLow(DeviceExtension->CommandPortBase, CylinderLow[1]);
-      IDEWriteCylinderHigh(DeviceExtension->CommandPortBase, CylinderHigh[1]);
-    }
-
   IDEWritePrecomp(DeviceExtension->CommandPortBase, 0);
-  IDEWriteSectorCount(DeviceExtension->CommandPortBase, SectorCount & 0xff);
-  IDEWriteSectorNum(DeviceExtension->CommandPortBase, SectorNumber[0]);
-  IDEWriteCylinderLow(DeviceExtension->CommandPortBase, CylinderLow[0]);
-  IDEWriteCylinderHigh(DeviceExtension->CommandPortBase, CylinderHigh[0]);
-
+  IDEWriteSectorCount(DeviceExtension->CommandPortBase, SectorCount);
+  IDEWriteSectorNum(DeviceExtension->CommandPortBase, SectorNumber);
+  IDEWriteCylinderHigh(DeviceExtension->CommandPortBase, CylinderHigh);
+  IDEWriteCylinderLow(DeviceExtension->CommandPortBase, CylinderLow);
   IDEWriteDriveHead(DeviceExtension->CommandPortBase, IDE_DH_FIXED | DrvHead);
 
 #ifdef ENABLE_DMA
@@ -2180,14 +2128,7 @@ AtapiReadWrite(PATAPI_MINIPORT_EXTENSION DeviceExtension,
   if (DeviceExtension->UseDma)
     {
       Handler = AtapiDmaInterrupt;
-      if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
-        {
-	  Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_DMA_EXT : IDE_CMD_WRITE_DMA_EXT;
-	}
-      else
-        {
-          Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_DMA : IDE_CMD_WRITE_DMA;
-	}
+      Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_DMA : IDE_CMD_WRITE_DMA;
     }
   else
 #endif
@@ -2195,25 +2136,11 @@ AtapiReadWrite(PATAPI_MINIPORT_EXTENSION DeviceExtension,
       Handler = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? AtapiReadInterrupt : AtapiWriteInterrupt;
       if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_MULTI_SECTOR_CMD)
         {
-          if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
-	    {
-              Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_MULTIPLE_EXT : IDE_CMD_WRITE_MULTIPLE_EXT;
-	    }
-	  else
-	    {
-              Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_MULTIPLE : IDE_CMD_WRITE_MULTIPLE;
-	    }
+          Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_MULTIPLE : IDE_CMD_WRITE_MULTIPLE;
 	}
       else
         {
-          if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS)
-	    {
-	      Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ_EXT : IDE_CMD_WRITE_EXT;
-	    }
-	  else
-	    {
-	      Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ : IDE_CMD_WRITE;
-	    }
+          Command = Srb->SrbFlags & SRB_FLAGS_DATA_IN ? IDE_CMD_READ : IDE_CMD_WRITE;
 	}
     }
 
@@ -2297,25 +2224,17 @@ AtapiFlushCache(PATAPI_MINIPORT_EXTENSION DeviceExtension,
   DPRINT("SCSIOP_SYNCRONIZE_CACHE: TargetId: %lu\n",
 	 Srb->TargetId);
 
-  if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_NO_FLUSH)
+  if (DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_ATAPI)
     {
-      /*
-       * NOTE: Don't flush the cache for CD/DVD drives. Although
+      /* NOTE: Don't flush the cache for ATAPI devices. Although
        * the ATAPI-6 standard allows that, it has been experimentally
        * proved that it can damage some broken LG drives. Afterall
-       * it doesn't make sense to flush cache on devices we don't
+       * it doesn't make sense to flush cache on devices we don't 
        * write to.
        */
-      return SRB_STATUS_INVALID_REQUEST;
+      return STATUS_SUCCESS;
     }
 
-  if (!(DeviceExtension->DeviceParams[Srb->TargetId].SupportedFeatures83 & 0x1000))
-    {
-      /* The device states it doesn't support the command */
-      DPRINT("The drive doesn't support FLUSH_CACHE\n");
-      return SRB_STATUS_INVALID_REQUEST;
-    }
- 
   /* Wait for BUSY to clear */
   for (Retries = 0; Retries < IDE_MAX_BUSY_RETRIES; Retries++)
     {
@@ -2340,9 +2259,7 @@ AtapiFlushCache(PATAPI_MINIPORT_EXTENSION DeviceExtension,
   ScsiPortStallExecution(10);
 
   /* Issue command to drive */
-  AtapiExecuteCommand(DeviceExtension, 
-	              DeviceExtension->DeviceFlags[Srb->TargetId] & DEVICE_48BIT_ADDRESS ? IDE_CMD_FLUSH_CACHE_EXT : IDE_CMD_FLUSH_CACHE, 
-		      AtapiNoDataInterrupt); 
+  AtapiExecuteCommand(DeviceExtension, IDE_CMD_FLUSH_CACHE, AtapiNoDataInterrupt); 
 
   /* Wait for controller ready */
   for (Retries = 0; Retries < IDE_MAX_WRITE_RETRIES; Retries++)

@@ -1,5 +1,5 @@
 
-/* $Id$
+/* $Id: stubs.c,v 1.9 2004/03/02 18:18:14 navaraf Exp $
  *
  */
 #include <ddk/ntddk.h>

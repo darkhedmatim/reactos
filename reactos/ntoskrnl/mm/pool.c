@@ -1,16 +1,16 @@
-/* $Id$
+/* $Id: pool.c,v 1.36 2004/12/11 00:13:37 royce Exp $
  * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/pool.c
- * PURPOSE:         Implements the kernel memory pool
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * COPYRIGHT:    See COPYING in the top level directory
+ * PROJECT:      ReactOS kernel
+ * FILE:         ntoskrnl/mm/pool.c
+ * PURPOSE:      Implements the kernel memory pool
+ * PROGRAMMER:   David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES ****************************************************************/
 
 #include <ntoskrnl.h>
+#include <pseh.h>
 
 #define NDEBUG
 #include <internal/debug.h>
@@ -121,7 +121,7 @@ ExAllocatePool (POOL_TYPE PoolType, ULONG NumberOfBytes)
  * @implemented
  */
 PVOID STDCALL
-ExAllocatePoolWithTag (POOL_TYPE PoolType, ULONG NumberOfBytes, ULONG Tag)
+ExAllocatePoolWithTag (ULONG PoolType, ULONG NumberOfBytes, ULONG Tag)
 {
    PVOID Block;
 

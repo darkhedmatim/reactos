@@ -20,7 +20,7 @@
  * NOTES:
  *
  * The errorinfo is a per-thread object. The reference is stored in the
- * TEB at offset 0xf80.
+ * TEB at offset 0xf80
  */
 
 #include <stdarg.h>
@@ -149,13 +149,13 @@ static ISupportErrorInfoVtbl	ISupportErrorInfoImpl_VTable;
  converts a objectpointer to This
  */
 #define _IErrorInfo_Offset ((int)(&(((ErrorInfoImpl*)0)->lpvtei)))
-#define _ICOM_THIS_From_IErrorInfo(class, name) class* This = (class*)(((char*)name)-_IErrorInfo_Offset)
+#define _ICOM_THIS_From_IErrorInfo(class, name) class* This = (class*)(((char*)name)-_IErrorInfo_Offset);
 
 #define _ICreateErrorInfo_Offset ((int)(&(((ErrorInfoImpl*)0)->lpvtcei)))
-#define _ICOM_THIS_From_ICreateErrorInfo(class, name) class* This = (class*)(((char*)name)-_ICreateErrorInfo_Offset)
+#define _ICOM_THIS_From_ICreateErrorInfo(class, name) class* This = (class*)(((char*)name)-_ICreateErrorInfo_Offset);
 
 #define _ISupportErrorInfo_Offset ((int)(&(((ErrorInfoImpl*)0)->lpvtsei)))
-#define _ICOM_THIS_From_ISupportErrorInfo(class, name) class* This = (class*)(((char*)name)-_ISupportErrorInfo_Offset)
+#define _ICOM_THIS_From_ISupportErrorInfo(class, name) class* This = (class*)(((char*)name)-_ISupportErrorInfo_Offset);
 
 /*
  converts This to a objectpointer
@@ -227,17 +227,15 @@ static ULONG WINAPI IErrorInfoImpl_Release(
 	IErrorInfo* iface)
 {
 	_ICOM_THIS_From_IErrorInfo(ErrorInfoImpl, iface);
-        ULONG ref = InterlockedDecrement(&This->ref);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 
-	TRACE("(%p)->(count=%lu)\n",This,ref+1);
-
-	if (!ref)
+	if (!InterlockedDecrement(&This->ref))
 	{
 	  TRACE("-- destroying IErrorInfo(%p)\n",This);
 	  HeapFree(GetProcessHeap(),0,This);
 	  return 0;
 	}
-	return ref;
+	return This->ref;
 }
 
 static HRESULT WINAPI IErrorInfoImpl_GetGUID(
@@ -485,20 +483,20 @@ HRESULT WINAPI CreateErrorInfo(ICreateErrorInfo **pperrinfo)
  */
 HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 {
-	TRACE("(%ld, %p, %p)\n", dwReserved, pperrinfo, COM_CurrentInfo()->errorinfo);
+	APARTMENT * apt = COM_CurrentInfo();
+
+	TRACE("(%ld, %p, %p)\n", dwReserved, pperrinfo, COM_CurrentInfo()->ErrorInfo);
 
 	if(!pperrinfo) return E_INVALIDARG;
-        
-	if (!COM_CurrentInfo()->errorinfo)
+	if (!apt || !apt->ErrorInfo)
 	{
 	   *pperrinfo = NULL;
 	   return S_FALSE;
 	}
 
-	*pperrinfo = COM_CurrentInfo()->errorinfo;
-        
+	*pperrinfo = (IErrorInfo*)(apt->ErrorInfo);
 	/* clear thread error state */
-	COM_CurrentInfo()->errorinfo = NULL;
+	apt->ErrorInfo = NULL;
 	return S_OK;
 }
 
@@ -508,16 +506,18 @@ HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 HRESULT WINAPI SetErrorInfo(ULONG dwReserved, IErrorInfo *perrinfo)
 {
 	IErrorInfo * pei;
+	APARTMENT * apt = COM_CurrentInfo();
 
 	TRACE("(%ld, %p)\n", dwReserved, perrinfo);
 	
+	if (!apt) apt = COM_CreateApartment(COINIT_UNINITIALIZED);
+
 	/* release old errorinfo */
-	pei = COM_CurrentInfo()->errorinfo;
-	if (pei) IErrorInfo_Release(pei);
+	pei = (IErrorInfo*)apt->ErrorInfo;
+	if(pei) IErrorInfo_Release(pei);
 
 	/* set to new value */
-	COM_CurrentInfo()->errorinfo = perrinfo;
-	if (perrinfo) IErrorInfo_AddRef(perrinfo);
-        
+	apt->ErrorInfo = perrinfo;
+	if(perrinfo) IErrorInfo_AddRef(perrinfo);
 	return S_OK;
 }

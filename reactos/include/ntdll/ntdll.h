@@ -17,7 +17,7 @@
 
 #ifdef NDEBUG
 #if defined(__GNUC__)
-#define TRACE_LDR(args...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); }
+#define TRACE_LDR(args...) if (NtGlobalFlag & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); }
 #define DPRINT(args...)
 #else
 #define DPRINT
@@ -42,10 +42,3 @@
 #define  MAGIC(c1,c2,c3,c4)  ((c1) + ((c2)<<8) + ((c3)<<16) + ((c4)<<24))
 
 #define  MAGIC_HEAP        MAGIC( 'H','E','A','P' )
-
-#ifdef DBG
-extern VOID FASTCALL CHECK_PAGED_CODE_RTL(char *file, int line);
-#define PAGED_CODE_RTL() CHECK_PAGED_CODE_RTL(__FILE__, __LINE__)
-#else
-#define PAGED_CODE_RTL()
-#endif

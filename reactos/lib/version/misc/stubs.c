@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.5 2003/12/29 22:50:59 sedwards Exp $
  *
  * version.dll stubs: remove from this file if
  * you implement one of these functions.

@@ -1,6 +1,6 @@
-/* $Id$
+/* $Id: lsass.c,v 1.2 2004/02/25 22:36:53 sedwards Exp $
  *
- * reactos/subsys/system/lsass/lsass.c
+ * reactos/services/lsass/lsass.c
  * 
  * ReactOS Operating System
  * 
@@ -27,38 +27,46 @@
  * 		Compiled successfully with egcs 1.1.2
  */
 #include <ddk/ntddk.h>
-#include <windows.h>
-#include <ddk/ntapi.h>
-#include <lsass/lsasrv.h>
+#include <wchar.h>
 
-#define NDEBUG
-#include <debug.h>
+BOOL InitLsa(VOID); /* ./init.c */
 
 
-int STDCALL
-WinMain(HINSTANCE hInstance,
-        HINSTANCE hPrevInstance,
-        LPSTR lpCmdLine,
-        int nShowCmd)
+void
+DisplayString( LPCWSTR lpwString )
 {
-  NTSTATUS Status = STATUS_SUCCESS;
+	UNICODE_STRING us;
 
-  DPRINT("Local Security Authority Subsystem\n");
-  DPRINT("  Initializing...\n");
-
-  Status = LsapInitLsa();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("LsapInitLsa() failed (Status 0x%08lX)\n", Status);
-    goto ByeBye;
-  }
-
-  /* FIXME: More initialization */
-
-ByeBye:
-  NtTerminateThread(NtCurrentThread(), Status);
-
-  return 0;
+	us.Buffer = (LPWSTR) lpwString;
+	us.Length = wcslen(lpwString) * sizeof (WCHAR);
+	us.MaximumLength = us.Length + sizeof (WCHAR);
+	NtDisplayString( & us );
 }
+
+
+/* Native image's entry point */
+
+VOID STDCALL
+NtProcessStartup(PPEB Peb)
+{
+	DisplayString( L"Local Security Authority Subsystem:\n" );
+	DisplayString( L"\tInitializing...\n" );
+
+	if (TRUE == InitLsa())
+	{
+		DisplayString( L"\tInitialization OK\n" );
+		/* FIXME: do nothing loop */
+		while (TRUE)
+		{
+			NtYieldExecution();
+		}
+	}
+	else
+	{
+		DisplayString( L"\tInitialization failed!\n" );
+	}
+	NtTerminateProcess( NtCurrentProcess(), 0 );
+}
+
 
 /* EOF */

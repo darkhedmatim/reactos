@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: create.c,v 1.75 2004/10/22 20:25:52 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/create.c
  * PURPOSE:         Handling file create/open apis
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  24/05/98: Created
  */
 
 /* INCLUDES ***************************************************************/
@@ -85,10 +86,8 @@ IopCreateFile(PVOID			ObjectBody,
   if (ParentObjectType != IoDeviceObjectType &&
       ParentObjectType != IoFileObjectType)
     {
-      DPRINT("Parent [%wZ] is a %S which is neither a file type nor a device type ; remaining path = %S\n",
-        &BODY_TO_HEADER(Parent)->Name,
-        BODY_TO_HEADER(Parent)->ObjectType->TypeName.Buffer,
-        RemainingPath);
+      CPRINT("Parent is a %S which is neither a file type nor a device type\n",
+	     BODY_TO_HEADER(Parent)->ObjectType->TypeName.Buffer);
       return(STATUS_UNSUCCESSFUL);
     }
 
@@ -147,8 +146,8 @@ IopCreateFile(PVOID			ObjectBody,
 	      DeviceObject = DeviceObject->Vpb->DeviceObject;
 	      DPRINT("FsDeviceObject %lx\n", DeviceObject);
 	    }
-	  RtlpCreateUnicodeString(&(FileObject->FileName),
-             RemainingPath, NonPagedPool);
+	  RtlCreateUnicodeString(&(FileObject->FileName),
+				 RemainingPath);
 	}
     }
   else
@@ -165,8 +164,8 @@ IopCreateFile(PVOID			ObjectBody,
 
       FileObject->RelatedFileObject = (PFILE_OBJECT)Parent;
 
-      RtlpCreateUnicodeString(&(FileObject->FileName),
-              RemainingPath, NonPagedPool);
+      RtlCreateUnicodeString(&(FileObject->FileName),
+			     RemainingPath);
     }
 
   DPRINT("FileObject->FileName %wZ\n",
@@ -245,7 +244,6 @@ IoCreateStreamFileObject(PFILE_OBJECT FileObject,
 
   // shouldn't we initialize the lock event, and several other things here too?
   KeInitializeEvent(&CreatedFileObject->Event, NotificationEvent, FALSE);
-  KeInitializeEvent(&CreatedFileObject->Lock, SynchronizationEvent, TRUE);
 
   return CreatedFileObject;
 }
@@ -321,7 +319,7 @@ IoCreateStreamFileObject(PFILE_OBJECT FileObject,
  * @implemented
  */
 NTSTATUS STDCALL
-IoCreateFile(OUT PHANDLE		FileHandle,
+IoCreateFile(OUT	PHANDLE			FileHandle,
 	     IN	ACCESS_MASK		DesiredAccess,
 	     IN	POBJECT_ATTRIBUTES	ObjectAttributes,
 	     OUT PIO_STATUS_BLOCK	IoStatusBlock,
@@ -337,15 +335,11 @@ IoCreateFile(OUT PHANDLE		FileHandle,
 	     IN	ULONG			Options)
 {
    PFILE_OBJECT		FileObject;
+   NTSTATUS		Status;
    PIRP			Irp;
    PIO_STACK_LOCATION	StackLoc;
    IO_SECURITY_CONTEXT  SecurityContext;
-   KPROCESSOR_MODE      AccessMode;
-   HANDLE               LocalFileHandle;
-   IO_STATUS_BLOCK      LocalIoStatusBlock;
-   LARGE_INTEGER        SafeAllocationSize;
-   PVOID                SystemEaBuffer = NULL;
-   NTSTATUS		Status = STATUS_SUCCESS;
+   KPROCESSOR_MODE PreviousMode;
    
    DPRINT("IoCreateFile(FileHandle %x, DesiredAccess %x, "
 	  "ObjectAttributes %x ObjectAttributes->ObjectName->Buffer %S)\n",
@@ -354,89 +348,17 @@ IoCreateFile(OUT PHANDLE		FileHandle,
    
    ASSERT_IRQL(PASSIVE_LEVEL);
 
-   if (IoStatusBlock == NULL || FileHandle == NULL)
-     return STATUS_ACCESS_VIOLATION;
+  if (IoStatusBlock == NULL)
+    return STATUS_ACCESS_VIOLATION;
 
-   LocalFileHandle = 0;
+   *FileHandle = 0;
 
-   if(Options & IO_NO_PARAMETER_CHECKING)
-     AccessMode = KernelMode;
-   else
-     AccessMode = ExGetPreviousMode();
-   
-   if(AccessMode != KernelMode)
-   {
-     _SEH_TRY
-     {
-       ProbeForWrite(FileHandle,
-                     sizeof(HANDLE),
-                     sizeof(ULONG));
-       ProbeForWrite(IoStatusBlock,
-                     sizeof(IO_STATUS_BLOCK),
-                     sizeof(ULONG));
-       if(AllocationSize != NULL)
-       {
-         ProbeForRead(AllocationSize,
-                      sizeof(LARGE_INTEGER),
-                      sizeof(ULONG));
-         SafeAllocationSize = *AllocationSize;
-       }
-       else
-         SafeAllocationSize.QuadPart = 0;
+   PreviousMode = ExGetPreviousMode();
 
-       if(EaBuffer != NULL && EaLength > 0)
-       {
-         ProbeForRead(EaBuffer,
-                      EaLength,
-                      sizeof(ULONG));
-
-         /* marshal EaBuffer */
-         SystemEaBuffer = ExAllocatePool(NonPagedPool,
-                                         EaLength);
-         if(SystemEaBuffer == NULL)
-         {
-           Status = STATUS_INSUFFICIENT_RESOURCES;
-           _SEH_LEAVE;
-         }
-
-         RtlCopyMemory(SystemEaBuffer,
-                       EaBuffer,
-                       EaLength);
-       }
-     }
-     _SEH_HANDLE
-     {
-       Status = _SEH_GetExceptionCode();
-     }
-     _SEH_END;
-     
-     if(!NT_SUCCESS(Status))
-     {
-       return Status;
-     }
-   }
-   else
-   {
-     if(AllocationSize != NULL)
-       SafeAllocationSize = *AllocationSize;
-     else
-       SafeAllocationSize.QuadPart = 0;
-
-     if(EaBuffer != NULL && EaLength > 0)
-     {
-       SystemEaBuffer = EaBuffer;
-     }
-   }
-
-   if(Options & IO_CHECK_CREATE_PARAMETERS)
-   {
-     DPRINT1("FIXME: IO_CHECK_CREATE_PARAMETERS not yet supported!\n");
-   }
-
-   Status = ObCreateObject(AccessMode,
+   Status = ObCreateObject(PreviousMode,
 			   IoFileObjectType,
 			   ObjectAttributes,
-			   AccessMode,
+			   PreviousMode,
 			   NULL,
 			   sizeof(FILE_OBJECT),
 			   0,
@@ -445,7 +367,7 @@ IoCreateFile(OUT PHANDLE		FileHandle,
    if (!NT_SUCCESS(Status))
      {
 	DPRINT("ObCreateObject() failed! (Status %lx)\n", Status);
-	return Status;
+	return(Status);
      }
 
    RtlMapGenericMask(&DesiredAccess,
@@ -456,12 +378,12 @@ IoCreateFile(OUT PHANDLE		FileHandle,
 			    DesiredAccess,
 			    0,
 			    NULL,
-			    &LocalFileHandle);
+			    FileHandle);
    if (!NT_SUCCESS(Status))
      {
 	DPRINT("ObInsertObject() failed! (Status %lx)\n", Status);
 	ObDereferenceObject (FileObject);
-	return Status;
+	return(Status);
      }
 
    if (CreateOptions & FILE_SYNCHRONOUS_IO_ALERT)
@@ -473,7 +395,7 @@ IoCreateFile(OUT PHANDLE		FileHandle,
 	FileObject->Flags |= FO_SYNCHRONOUS_IO;
      }
 
-   if (CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING)
+   if( CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING )
      FileObject->Flags |= FO_NO_INTERMEDIATE_BUFFERING;
 
    SecurityContext.SecurityQos = NULL; /* ?? */
@@ -494,65 +416,57 @@ IoCreateFile(OUT PHANDLE		FileHandle,
    Irp = IoAllocateIrp(FileObject->DeviceObject->StackSize, FALSE);
    if (Irp == NULL)
      {
-	ZwClose(LocalFileHandle);
-	return STATUS_UNSUCCESSFUL;
+	ZwClose(*FileHandle);
+	return (STATUS_UNSUCCESSFUL);
      }
 
    //trigger FileObject/Event dereferencing
    Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = AccessMode;
-   Irp->UserIosb = &LocalIoStatusBlock;
-   Irp->AssociatedIrp.SystemBuffer = SystemEaBuffer;
-   Irp->Tail.Overlay.AuxiliaryBuffer = NULL;
+   Irp->RequestorMode = PreviousMode;
+   Irp->UserIosb = IoStatusBlock;
+   Irp->AssociatedIrp.SystemBuffer = EaBuffer;
+   Irp->Tail.Overlay.AuxiliaryBuffer = (PCHAR)ExtraCreateParameters;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    Irp->UserEvent = &FileObject->Event;
-   Irp->Overlay.AllocationSize = SafeAllocationSize;
+   if (AllocationSize)
+   {
+      Irp->Overlay.AllocationSize = *AllocationSize;
+   }
    
    /*
     * Get the stack location for the new
     * IRP and prepare it.
     */
    StackLoc = IoGetNextIrpStackLocation(Irp);
-   StackLoc->MinorFunction = 0;
-   StackLoc->Flags = (UCHAR)Options;
-   StackLoc->Control = 0;
-   StackLoc->DeviceObject = FileObject->DeviceObject;
-   StackLoc->FileObject = FileObject;
-
    switch (CreateFileType)
      {
 	default:
 	case CreateFileTypeNone:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE;
-	  StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.Create.FileAttributes = (USHORT)FileAttributes;
-	  StackLoc->Parameters.Create.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.Create.EaLength = SystemEaBuffer != NULL ? EaLength : 0;
 	  break;
 	
 	case CreateFileTypeNamedPipe:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_NAMED_PIPE;
-	  StackLoc->Parameters.CreatePipe.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreatePipe.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreatePipe.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreatePipe.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreatePipe.Parameters = ExtraCreateParameters;
 	  break;
 
 	case CreateFileTypeMailslot:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_MAILSLOT;
-	  StackLoc->Parameters.CreateMailslot.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreateMailslot.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreateMailslot.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreateMailslot.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreateMailslot.Parameters = ExtraCreateParameters;
 	  break;
      }
-
+   StackLoc->MinorFunction = 0;
+   StackLoc->Flags = (UCHAR)Options;
+   StackLoc->Control = 0;
+   StackLoc->DeviceObject = FileObject->DeviceObject;
+   StackLoc->FileObject = FileObject;
+   StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
+   StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
+   StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
+   StackLoc->Parameters.Create.FileAttributes = (USHORT)FileAttributes;
+   StackLoc->Parameters.Create.ShareAccess = (USHORT)ShareAccess;
+   StackLoc->Parameters.Create.EaLength = EaLength;
+   
    /*
-    * Now call the driver and
+    * Now call the driver and 
     * possibly wait if it can
     * not complete the request
     * immediately.
@@ -563,10 +477,10 @@ IoCreateFile(OUT PHANDLE		FileHandle,
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      Executive,
-			      AccessMode,
+			      PreviousMode,
 			      FALSE,
 			      NULL);
-	Status = LocalIoStatusBlock.Status;
+	Status = IoStatusBlock->Status;
      }
    if (!NT_SUCCESS(Status))
      {
@@ -574,33 +488,14 @@ IoCreateFile(OUT PHANDLE		FileHandle,
         FileObject->DeviceObject = NULL;
         FileObject->Vpb = NULL;
 
-	ZwClose(LocalFileHandle);
+	ZwClose(*FileHandle);
      }
-   else
-     {
-	 _SEH_TRY
-	   {
-	      *FileHandle = LocalFileHandle;
-	      *IoStatusBlock = LocalIoStatusBlock;
-	   }
-	 _SEH_HANDLE
-	   {
-	      Status = _SEH_GetExceptionCode();
-	   }
-	 _SEH_END;
-     }
-
-   /* cleanup EABuffer if captured */
-   if(AccessMode != KernelMode && SystemEaBuffer != NULL)
-   {
-     ExFreePool(SystemEaBuffer);
-   }
 
    ASSERT_IRQL(PASSIVE_LEVEL);
 
    DPRINT("Finished IoCreateFile() (*FileHandle) %x\n", (*FileHandle));
 
-   return Status;
+   return (Status);
 }
 
 

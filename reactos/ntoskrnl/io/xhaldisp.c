@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: xhaldisp.c,v 1.12 2004/11/21 06:51:18 ion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/xhaldisp.c
  * PURPOSE:         Hal dispatch tables
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@rz-online.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
+ * UPDATE HISTORY:
+ *                  Created 19/06/2000
  */
 
 /* INCLUDES *****************************************************************/

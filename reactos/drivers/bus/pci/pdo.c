@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: pdo.c,v 1.12 2004/11/17 20:39:27 navaraf Exp $
  *
  * PROJECT:         ReactOS PCI bus driver
  * FILE:            pdo.c

@@ -19,6 +19,7 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -36,7 +37,8 @@
 #include <sys/mman.h>
 #endif
 
-#include "winglue.h"
+#include "windef.h"
+#include "winbase.h"
 #include "build.h"
 
 #define ALIGNMENT 2 /* alignment for resource data */

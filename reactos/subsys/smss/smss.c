@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: smss.c,v 1.15 2003/08/11 18:50:12 chorns Exp $
  *
  * smss.c - Session Manager
  * 
@@ -22,51 +22,60 @@
  * MA 02139, USA.  
  *
  * --------------------------------------------------------------------
+ * 
+ * 	19990529 (Emanuele Aliberti)
+ * 		Compiled successfully with egcs 1.1.2
  */
+#include <ddk/ntddk.h>
+
 #include "smss.h"
-#include <rosrtl/string.h>
-#include <reactos/buildno.h>
 
 #define NDEBUG
 #include <debug.h>
 
-HANDLE SmSsProcessId = 0;
+
+void
+DisplayString(LPCWSTR lpwString)
+{
+  UNICODE_STRING us;
+
+  RtlInitUnicodeString(&us, lpwString);
+  NtDisplayString(&us);
+}
+
+
+void
+PrintString(char* fmt,...)
+{
+  char buffer[512];
+  va_list ap;
+  UNICODE_STRING UnicodeString;
+  ANSI_STRING AnsiString;
+
+  va_start(ap, fmt);
+  vsprintf(buffer, fmt, ap);
+  va_end(ap);
+
+  RtlInitAnsiString(&AnsiString, buffer);
+  RtlAnsiStringToUnicodeString(&UnicodeString,
+			       &AnsiString,
+			       TRUE);
+  NtDisplayString(&UnicodeString);
+  RtlFreeUnicodeString(&UnicodeString);
+}
+
 
 /* Native image's entry point */
 
 VOID STDCALL
 NtProcessStartup(PPEB Peb)
 {
+  HANDLE Children[2]; /* csrss, winlogon */
   NTSTATUS Status;
-  PROCESS_BASIC_INFORMATION PBI = {0};
-  
-  DisplayString(L"SMSS\n");
-  PrintString("ReactOS Session Manager %s (Build %s)\n",
-	     KERNEL_RELEASE_STR,
-	     KERNEL_VERSION_BUILD_STR);
 
-  /* Lookup yourself */
-  Status = NtQueryInformationProcess (NtCurrentProcess(),
-		    		      ProcessBasicInformation,
-				      & PBI,
-				      sizeof PBI,
-      				      NULL);
-  if(NT_SUCCESS(Status))
-  {
-	  SmSsProcessId = PBI.UniqueProcessId;
-  }
-  /* Initialize the system */
-  Status = InitSessionManager();
+  Status = InitSessionManager(Children);
   if (!NT_SUCCESS(Status))
     {
-      int i;
-      for (i=0; i < (sizeof Children / sizeof Children[0]); i++)
-      {
-        if (Children[i])
-        {
-          NtTerminateProcess(Children[i],0);
-        }
-      }
       DPRINT1("SM: Initialization failed!\n");
       goto ByeBye;
     }
@@ -78,7 +87,7 @@ NtProcessStartup(PPEB Peb)
 				    NULL);	/* NULL for infinite */
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("SM: NtWaitForMultipleObjects failed! (Status=0x%08lx)\n", Status);
+      DPRINT1("SM: NtWaitForMultipleObjects failed!\n");
     }
   else
     {

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: luid.c,v 1.10 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/luid.c
- * PURPOSE:         Security manager
- * 
- * PROGRAMMERS:     No programmer listed.
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              ntoskrnl/se/luid.c
+ * PROGRAMER:         ?
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
@@ -15,41 +16,20 @@
 
 /* GLOBALS *******************************************************************/
 
+static KSPIN_LOCK LuidLock;
 static LARGE_INTEGER LuidIncrement;
 static LARGE_INTEGER LuidValue;
+
+#define SYSTEM_LUID   0x3E7;
 
 /* FUNCTIONS *****************************************************************/
 
 VOID INIT_FUNCTION
 SepInitLuid(VOID)
 {
-  LUID DummyLuidValue = SYSTEM_LUID;
-  
-  LuidValue.u.HighPart = DummyLuidValue.HighPart;
-  LuidValue.u.LowPart = DummyLuidValue.LowPart;
+  KeInitializeSpinLock(&LuidLock);
+  LuidValue.QuadPart = SYSTEM_LUID;
   LuidIncrement.QuadPart = 1;
-}
-
-
-NTSTATUS
-ExpAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
-{
-  LARGE_INTEGER NewLuid, PrevLuid;
-  
-  /* atomically increment the luid */
-  do
-  {
-    PrevLuid = (volatile LARGE_INTEGER)LuidValue;
-    NewLuid = RtlLargeIntegerAdd(PrevLuid,
-                                 LuidIncrement);
-  } while(ExfInterlockedCompareExchange64(&LuidValue.QuadPart,
-                                          &NewLuid.QuadPart,
-                                          &PrevLuid.QuadPart) != PrevLuid.QuadPart);
-
-  LocallyUniqueId->LowPart = NewLuid.u.LowPart;
-  LocallyUniqueId->HighPart = NewLuid.u.HighPart;
-  
-  return STATUS_SUCCESS;
 }
 
 
@@ -59,47 +39,21 @@ ExpAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 NTSTATUS STDCALL
 NtAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 {
-  LUID NewLuid;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(LocallyUniqueId,
-                    sizeof(LUID),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
+  LARGE_INTEGER ReturnedLuid;
+  KIRQL Irql;
 
-  Status = ExpAllocateLocallyUniqueId(&NewLuid);
+  KeAcquireSpinLock(&LuidLock,
+		    &Irql);
+  ReturnedLuid = LuidValue;
+  LuidValue = RtlLargeIntegerAdd(LuidValue,
+				 LuidIncrement);
+  KeReleaseSpinLock(&LuidLock,
+		    Irql);
 
-  _SEH_TRY
-  {
-    *LocallyUniqueId = NewLuid;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  LocallyUniqueId->LowPart = ReturnedLuid.u.LowPart;
+  LocallyUniqueId->HighPart = ReturnedLuid.u.HighPart;
 
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -110,8 +64,6 @@ VOID STDCALL
 RtlCopyLuid(IN PLUID LuidDest,
 	    IN PLUID LuidSrc)
 {
-  PAGED_CODE_RTL();
-
   LuidDest->LowPart = LuidSrc->LowPart;
   LuidDest->HighPart = LuidSrc->HighPart;
 }
@@ -124,8 +76,6 @@ BOOLEAN STDCALL
 RtlEqualLuid(IN PLUID Luid1,
 	     IN PLUID Luid2)
 {
-  PAGED_CODE_RTL();
-  
   return (Luid1->LowPart == Luid2->LowPart &&
 	  Luid1->HighPart == Luid2->HighPart);
 }

@@ -20,6 +20,7 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -30,7 +31,8 @@
 # include <unistd.h>
 #endif
 
-#include "winglue.h"
+#include "windef.h"
+#include "winbase.h"
 #include "build.h"
 
 struct import
@@ -510,7 +512,7 @@ static int check_unused( const struct import* imp, const DLLSPEC *spec )
 static const char *ldcombine_files( char **argv )
 {
     int i, len = 0;
-    char *cmd;
+    char *cmd, *ldcmd;
     int fd, err;
 
     if (output_file_name && output_file_name[0])
@@ -525,12 +527,14 @@ static const char *ldcombine_files( char **argv )
     close( fd );
     atexit( remove_ld_tmp_file );
 
+    ldcmd = getenv("LD");
+    if (!ldcmd) ldcmd = "ld";
     for (i = 0; argv[i]; i++) len += strlen(argv[i]) + 1;
-    cmd = xmalloc( len + strlen(ld_tmp_file) + 8 + strlen(ld_command)  );
-    sprintf( cmd, "%s -r -o %s", ld_command, ld_tmp_file );
+    cmd = xmalloc( len + strlen(ld_tmp_file) + 8 + strlen(ldcmd)  );
+    sprintf( cmd, "%s -r -o %s", ldcmd, ld_tmp_file );
     for (i = 0; argv[i]; i++) sprintf( cmd + strlen(cmd), " %s", argv[i] );
     err = system( cmd );
-    if (err) fatal_error( "%s -r failed with status %d\n", ld_command, err );
+    if (err) fatal_error( "ld -r failed with status %d\n", err );
     free( cmd );
     return ld_tmp_file;
 }
@@ -541,7 +545,7 @@ void read_undef_symbols( char **argv )
     static const char name_prefix[] = __ASM_NAME("");
     static const int prefix_len = sizeof(name_prefix) - 1;
     FILE *f;
-    char *cmd, buffer[1024];
+    char buffer[1024];
     int err;
     const char *name;
 
@@ -553,10 +557,9 @@ void read_undef_symbols( char **argv )
     if (argv[1]) name = ldcombine_files( argv );
     else name = argv[0];
 
-    cmd = xmalloc( strlen(nm_command) + strlen(name) + 5 );
-    sprintf( cmd, "%s -u %s", nm_command, name );
-    if (!(f = popen( cmd, "r" )))
-        fatal_error( "Cannot execute '%s'\n", cmd );
+    sprintf( buffer, "nm -u %s", name );
+    if (!(f = popen( buffer, "r" )))
+        fatal_error( "Cannot execute '%s'\n", buffer );
 
     while (fgets( buffer, sizeof(buffer), f ))
     {
@@ -569,8 +572,7 @@ void read_undef_symbols( char **argv )
         if (prefix_len && !strncmp( p, name_prefix, prefix_len )) p += prefix_len;
         add_undef_symbol( p );
     }
-    if ((err = pclose( f ))) warning( "%s failed with status %d\n", cmd, err );
-    free( cmd );
+    if ((err = pclose( f ))) warning( "nm -u %s error %d\n", name, err );
 }
 
 static void remove_ignored_symbols(void)
@@ -687,15 +689,14 @@ static int output_immediate_imports( FILE *outfile )
     /* thunks for imported functions */
 
     fprintf( outfile, "#ifndef __GNUC__\nstatic void __asm__dummy_import(void) {\n#endif\n\n" );
-    pos = (sizeof(void *) + 2*sizeof(unsigned int) + sizeof(const char *) + sizeof(void *)) *
-            (nb_imm + 1);  /* offset of imports.data from start of imports */
-    fprintf( outfile, "asm(\".text\\n\\t.align %d\\n\"\n", get_alignment(8) );
+    pos = 20 * (nb_imm + 1);  /* offset of imports.data from start of imports */
+    fprintf( outfile, "asm(\".data\\n\\t.align %d\\n\"\n", get_alignment(8) );
     fprintf( outfile, "    \"" __ASM_NAME("%s") ":\\n\"\n", import_thunks);
 
     for (i = 0; i < nb_imports; i++)
     {
         if (dll_imports[i]->delay) continue;
-        for (j = 0; j < dll_imports[i]->nb_imports; j++, pos += sizeof(const char *))
+        for (j = 0; j < dll_imports[i]->nb_imports; j++, pos += 4)
         {
             ORDDEF *odp = dll_imports[i]->imports[j];
             const char *name = odp->name ? odp->name : odp->export_name;
@@ -747,10 +748,6 @@ static int output_immediate_imports( FILE *outfile )
             fprintf(outfile, "\t\"\\tlwz  %s, 0(%s)\\n\"\n",   ppc_reg[9], ppc_reg[1]);
             fprintf(outfile, "\t\"\\taddi %s, %s, 0x4\\n\"\n", ppc_reg[1], ppc_reg[1]);
             fprintf(outfile, "\t\"\\tbctr\\n");
-#elif defined(__ALPHA__)
-            fprintf( outfile, "\tlda $0,imports\\n\"\n" );
-            fprintf( outfile, "\t\"\\tlda $0,%d($0)\\n\"\n", pos);
-            fprintf( outfile, "\t\"\\tjmp $31,($0)\\n" );
 #else
 #error You need to define import thunks for your architecture!
 #endif
@@ -954,9 +951,6 @@ static int output_delayed_imports( FILE *outfile, const DLLSPEC *spec )
 
     /* branch to ctr register. */
     fprintf( outfile, "    \"bctr\\n\"\n");
-#elif defined(__ALPHA__)
-    fprintf( outfile, "    \"\\tjsr $26,__wine_delay_load\\n\"\n" );
-    fprintf( outfile, "    \"\\tjmp $31,($0)\\n\"\n" );
 #else
 #error You need to defined delayed import thunks for your architecture!
 #endif
@@ -1002,10 +996,6 @@ static int output_delayed_imports( FILE *outfile, const DLLSPEC *spec )
             fprintf( outfile, "    \"\\taddic %s, %s, 0x4\\n\"\n", ppc_reg[1], ppc_reg[1]);
             fprintf( outfile, "    \"\\tb " __ASM_NAME("__wine_delay_load_asm") "\\n\"\n");
 #endif /* __APPLE__ */
-#elif defined(__ALPHA__)
-            fprintf( outfile, "    \"\\tlda $0,%d($31)\\n\"\n", j);
-            fprintf( outfile, "    \"\\tldah $0,%d($0)\\n\"\n", idx);
-            fprintf( outfile, "    \"\\tjmp $31,__wine_delay_load_asm\\n\"\n" );
 #else
 #error You need to defined delayed import thunks for your architecture!
 #endif
@@ -1015,7 +1005,7 @@ static int output_delayed_imports( FILE *outfile, const DLLSPEC *spec )
     }
     output_function_size( outfile, delayed_import_loaders );
 
-    fprintf( outfile, "\n    \".align %d\\n\"\n", get_alignment(8) );
+    fprintf( outfile, "\n    \".data\\n\\t.align %d\\n\"\n", get_alignment(8) );
     fprintf( outfile, "    \"" __ASM_NAME("%s") ":\\n\"\n", delayed_import_thunks);
     pos = nb_delayed * 32;
     for (i = 0; i < nb_imports; i++)
@@ -1073,10 +1063,6 @@ static int output_delayed_imports( FILE *outfile, const DLLSPEC *spec )
             fprintf( outfile, "\t\"\\tlwz  %s, 0(%s)\\n\"\n",   ppc_reg[9], ppc_reg[1]);
             fprintf( outfile, "\t\"\\taddi %s, %s, 0x4\\n\"\n", ppc_reg[1], ppc_reg[1]);
             fprintf( outfile, "\t\"\\tbctr\\n\"");
-#elif defined(__ALPHA__)
-            fprintf( outfile, "\t\"lda $0,delay_imports\\n\"\n" );
-            fprintf( outfile, "\t\"\\tlda $0,%d($0)\\n\"\n", pos);
-            fprintf( outfile, "\t\"\\tjmp $31,($0)\\n\"" );
 #else
 #error You need to define delayed import thunks for your architecture!
 #endif
@@ -1085,7 +1071,7 @@ static int output_delayed_imports( FILE *outfile, const DLLSPEC *spec )
         }
     }
     output_function_size( outfile, delayed_import_thunks );
-    fprintf( outfile, ");\n" );
+    fprintf( outfile, "\".text\");\n" );
     fprintf( outfile, "#ifndef __GNUC__\n" );
     fprintf( outfile, "}\n" );
     fprintf( outfile, "#endif\n" );

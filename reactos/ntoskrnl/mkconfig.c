@@ -1,13 +1,3 @@
-/* $Id:$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mkconfig.c
- * PURPOSE:         No purpose listed.
- *
- * PROGRAMMERS:     No programmer listed.
- */
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -467,11 +467,10 @@ static HRESULT WINAPI IQueryAssociations_fnQueryInterface(
 static ULONG WINAPI IQueryAssociations_fnAddRef(IQueryAssociations *iface)
 {
   IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
-  ULONG refCount = InterlockedIncrement(&This->ref);
-  
-  TRACE("(%p)->(ref before=%lu)\n",This, refCount - 1);
 
-  return refCount;
+  TRACE("(%p)->(ref before=%lu)\n",This, This->ref);
+
+  return InterlockedIncrement(&This->ref);
 }
 
 /**************************************************************************
@@ -482,17 +481,16 @@ static ULONG WINAPI IQueryAssociations_fnAddRef(IQueryAssociations *iface)
 static ULONG WINAPI IQueryAssociations_fnRelease(IQueryAssociations *iface)
 {
   IQueryAssociationsImpl *This = (IQueryAssociationsImpl *)iface;
-  ULONG refCount = InterlockedDecrement(&This->ref);
+  ULONG ulRet;
 
-  TRACE("(%p)->(ref before=%lu)\n",This, refCount + 1);
+  TRACE("(%p)->(ref before=%lu)\n",This, This->ref);
 
-  if (!refCount)
+  if (!(ulRet = InterlockedDecrement(&This->ref)))
   {
     TRACE("Destroying IQueryAssociations (%p)\n", This);
     HeapFree(GetProcessHeap(), 0, This);
   }
-  
-  return refCount;
+  return ulRet;
 }
 
 /**************************************************************************

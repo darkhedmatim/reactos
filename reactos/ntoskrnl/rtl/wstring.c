@@ -1,11 +1,14 @@
-/* $Id$
+/* $Id: wstring.c,v 1.21 2004/08/15 16:39:11 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/wstring.c
  * PURPOSE:         Wide string functions
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *   1998/12/04  RJJ    Cleaned up and added i386 def checks.
+ *   1999/07/29  ekohl  Added missing functions.
  */
 
 /* INCLUDES *****************************************************************/

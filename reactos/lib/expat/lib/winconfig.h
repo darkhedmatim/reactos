@@ -17,7 +17,7 @@
 #include <memory.h>
 #include <string.h>
 
-//MF #define XML_NS 1
+#define XML_NS 1
 #define XML_DTD 1
 #define XML_CONTEXT_BYTES 1024
 

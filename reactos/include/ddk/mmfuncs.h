@@ -1,14 +1,14 @@
 #ifndef _INCLUDE_DDK_MMFUNCS_H
 #define _INCLUDE_DDK_MMFUNCS_H
-/* $Id$ */
+/* $Id: mmfuncs.h,v 1.24 2004/10/22 20:51:44 ekohl Exp $ */
 /* MEMORY MANAGMENT ******************************************************/
 
 
 #ifdef __NTOSKRNL__
-extern ULONG EXPORTED MmUserProbeAddress;
+extern PVOID EXPORTED MmUserProbeAddress;
 extern PVOID EXPORTED MmHighestUserAddress;
 #else
-extern ULONG IMPORTED MmUserProbeAddress;
+extern PVOID IMPORTED MmUserProbeAddress;
 extern PVOID IMPORTED MmHighestUserAddress;
 #endif
 
@@ -26,9 +26,21 @@ extern POBJECT_TYPE IMPORTED MmSectionObjectType;
  *          Size = Size of range
  * RETURNS: The number of pages
  */
+#if 0
+extern inline unsigned int ADDRESS_AND_SIZE_TO_SPAN_PAGES(PVOID Va,
+							  ULONG Size)
+{
+   ULONG HighestAddr;
+   ULONG LowestAddr;
+   
+   HighestAddr = PAGE_ROUND_UP(Size + ((ULONG)Va));
+   LowestAddr = PAGE_ROUND_DOWN((ULONG)Va);
+   return((HighestAddr - LowestAddr) / PAGE_SIZE);
+}
+#endif
 #define ADDRESS_AND_SIZE_TO_SPAN_PAGES(Va, Size) \
-       (ULONG)((PAGE_ROUND_UP((Size) + ((ULONG_PTR)(Va))) - \
-                PAGE_ROUND_DOWN((ULONG_PTR)(Va))) / PAGE_SIZE)
+       (ULONG)((PAGE_ROUND_UP((Size) + ((ULONG)(Va))) - \
+                PAGE_ROUND_DOWN((ULONG)(Va))) / PAGE_SIZE)
 
 /*
  * FUNCTION: Returns FALSE is the pointer is NULL, TRUE otherwise
@@ -38,7 +50,7 @@ extern POBJECT_TYPE IMPORTED MmSectionObjectType;
 /*
  * FUNCTION: Returns the byte offset of the address within its page
  */
-#define BYTE_OFFSET(va) (((ULONG_PTR)va)%PAGE_SIZE)
+#define BYTE_OFFSET(va) (((ULONG)va)%PAGE_SIZE)
 #define PAGE_OFFSET(va) BYTE_OFFSET(va)
 
 
@@ -47,9 +59,10 @@ extern POBJECT_TYPE IMPORTED MmSectionObjectType;
  * required to hold it
  */
 #define BYTES_TO_PAGES(Size) \
-	(((Size) >> PAGE_SHIFT) + (((Size) & (PAGE_SIZE - 1)) != 0))
+  ((ULONG) ((ULONG_PTR) (Size) >> PAGE_SHIFT) + (((ULONG) (Size) & (PAGE_SIZE - 1)) != 0))
   
-#define PAGE_ALIGN(va) ( (PVOID) (((ULONG_PTR)(va)) & (~(PAGE_SIZE-1))) )
+  
+#define PAGE_ALIGN(va) ( (PVOID) (((ULONG)(va)) & (~(PAGE_SIZE-1))) )
 #define PAGE_BASE(va) PAGE_ALIGN(va)
 
 NTSTATUS
@@ -183,9 +196,9 @@ MmFlushImageSection (
 BOOLEAN
 STDCALL
 MmForceSectionClosed (
-    IN PSECTION_OBJECT_POINTERS SectionObjectPointer,
-    IN BOOLEAN                  DelayClose
-    );
+	DWORD	Unknown0,
+	DWORD	Unknown1
+	);
 VOID
 STDCALL
 MmFreeContiguousMemory (
@@ -318,10 +331,10 @@ MmGrowKernelStack (
 { \
 	(MemoryDescriptorList)->Next = (PMDL)NULL; \
 	(MemoryDescriptorList)->Size = (CSHORT)(sizeof(MDL) + \
-		(ADDRESS_AND_SIZE_TO_SPAN_PAGES((BaseVa),(Length)) * sizeof(PFN_NUMBER))); \
+		(ADDRESS_AND_SIZE_TO_SPAN_PAGES((BaseVa),(Length)) * sizeof(ULONG))); \
 	(MemoryDescriptorList)->MdlFlags = 0; \
-	(MemoryDescriptorList)->StartVa = PAGE_ALIGN(BaseVa); \
-	(MemoryDescriptorList)->ByteOffset = BYTE_OFFSET(BaseVa); \
+	(MemoryDescriptorList)->StartVa = (PVOID)PAGE_BASE(BaseVa); \
+	(MemoryDescriptorList)->ByteOffset = (ULONG)PAGE_OFFSET(BaseVa); \
 	(MemoryDescriptorList)->ByteCount = (Length); \
 }
 
@@ -619,8 +632,8 @@ MmSecureVirtualMemory (
 BOOLEAN
 STDCALL
 MmSetAddressRangeModified (
-    IN PVOID    Address,
-    IN ULONG    Length
+	DWORD	Unknown0,
+	DWORD	Unknown1
 	);
 NTSTATUS
 STDCALL
@@ -725,12 +738,12 @@ MmUnsecureVirtualMemory (
 	);
 
 VOID STDCALL
-ProbeForRead (IN CONST VOID *Address,
+ProbeForRead (IN PVOID Address,
 	      IN ULONG Length,
 	      IN ULONG Alignment);
 
 VOID STDCALL
-ProbeForWrite (IN CONST VOID *Address,
+ProbeForWrite (IN PVOID Address,
 	       IN ULONG Length,
 	       IN ULONG Alignment);
 

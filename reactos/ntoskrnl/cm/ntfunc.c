@@ -1,12 +1,10 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/cm/ntfunc.c
- * PURPOSE:         Ntxxx function for registry access
- *
- * PROGRAMMERS:     No programmer listed.
- */
+/*
+ * COPYRIGHT:        See COPYING in the top level directory
+ * PROJECT:          ReactOS kernel
+ * FILE:             ntoskrnl/cm/ntfunc.c
+ * PURPOSE:          Ntxxx function for registry access
+ * UPDATE HISTORY:
+*/
 
 /* INCLUDES *****************************************************************/
 
@@ -24,154 +22,31 @@ extern PREGISTRY_HIVE  CmiVolatileHive;
 
 static BOOLEAN CmiRegistryInitialized = FALSE;
 
-LIST_ENTRY CmiCallbackHead;
-FAST_MUTEX CmiCallbackLock;
 
 /* FUNCTIONS ****************************************************************/
 
 /*
- * @implemented
+ * @unimplemented
  */
 NTSTATUS STDCALL
 CmRegisterCallback(IN PEX_CALLBACK_FUNCTION Function,
-                   IN PVOID Context,
-                   IN OUT PLARGE_INTEGER Cookie)
+                   IN PVOID                 Context,
+                   IN OUT PLARGE_INTEGER    Cookie
+                    )
 {
-  PREGISTRY_CALLBACK Callback;
-  
-  PAGED_CODE();
-  
-  ASSERT(Function && Cookie);
-  
-  Callback = ExAllocatePoolWithTag(PagedPool,
-                                   sizeof(REGISTRY_CALLBACK),
-                                   TAG('C', 'M', 'c', 'b'));
-  if(Callback != NULL)
-  {
-    /* initialize the callback */
-    ExInitializeRundownProtection(&Callback->RundownRef);
-    Callback->Function = Function;
-    Callback->Context = Context;
-    Callback->PendingDelete = FALSE;
-    
-    /* add it to the callback list and receive a cookie for the callback */
-    ExAcquireFastMutex(&CmiCallbackLock);
-    /* FIXME - to receive a unique cookie we'll just return the pointer to the
-       callback object */
-    Callback->Cookie.QuadPart = (ULONG_PTR)Callback;
-    InsertTailList(&CmiCallbackHead, &Callback->ListEntry);
-
-    ExReleaseFastMutex(&CmiCallbackLock);
-    
-    *Cookie = Callback->Cookie;
-    return STATUS_SUCCESS;
-  }
-
-  return STATUS_INSUFFICIENT_RESOURCES;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
-
 
 /*
- * @implemented
+ * @unimplemented
  */
+
 NTSTATUS STDCALL
-CmUnRegisterCallback(IN LARGE_INTEGER Cookie)
+CmUnRegisterCallback(IN LARGE_INTEGER    Cookie)
 {
-  PLIST_ENTRY CurrentEntry;
-  
-  PAGED_CODE();
-
-  ExAcquireFastMutex(&CmiCallbackLock);
-
-  for(CurrentEntry = CmiCallbackHead.Flink;
-      CurrentEntry != &CmiCallbackHead;
-      CurrentEntry = CurrentEntry->Flink)
-  {
-    PREGISTRY_CALLBACK CurrentCallback;
-
-    CurrentCallback = CONTAINING_RECORD(CurrentEntry, REGISTRY_CALLBACK, ListEntry);
-    if(CurrentCallback->Cookie.QuadPart == Cookie.QuadPart)
-    {
-      if(!CurrentCallback->PendingDelete)
-      {
-        /* found the callback, don't unlink it from the list yet so we don't screw
-           the calling loop */
-        CurrentCallback->PendingDelete = TRUE;
-        ExReleaseFastMutex(&CmiCallbackLock);
-
-        /* if the callback is currently executing, wait until it finished */
-        ExWaitForRundownProtectionRelease(&CurrentCallback->RundownRef);
-
-        /* time to unlink it. It's now safe because every attempt to acquire a
-           runtime protection on this callback will fail */
-        ExAcquireFastMutex(&CmiCallbackLock);
-        RemoveEntryList(&CurrentCallback->ListEntry);
-        ExReleaseFastMutex(&CmiCallbackLock);
-
-        /* free the callback */
-        ExFreePool(CurrentCallback);
-        return STATUS_SUCCESS;
-      }
-      else
-      {
-        /* pending delete, pretend like it already is deleted */
-        ExReleaseFastMutex(&CmiCallbackLock);
-        return STATUS_UNSUCCESSFUL;
-      }
-    }
-  }
-  
-  ExReleaseFastMutex(&CmiCallbackLock);
-
-  return STATUS_UNSUCCESSFUL;
-}
-
-
-NTSTATUS
-CmiCallRegisteredCallbacks(IN REG_NOTIFY_CLASS Argument1,
-                           IN PVOID Argument2)
-{
-  PLIST_ENTRY CurrentEntry;
-  
-  PAGED_CODE();
-  
-  ExAcquireFastMutex(&CmiCallbackLock);
-
-  for(CurrentEntry = CmiCallbackHead.Flink;
-      CurrentEntry != &CmiCallbackHead;
-      CurrentEntry = CurrentEntry->Flink)
-  {
-    PREGISTRY_CALLBACK CurrentCallback;
-
-    CurrentCallback = CONTAINING_RECORD(CurrentEntry, REGISTRY_CALLBACK, ListEntry);
-    if(!CurrentCallback->PendingDelete &&
-       ExAcquireRundownProtectionEx(&CurrentCallback->RundownRef, 1))
-    {
-      NTSTATUS Status;
-      
-      /* don't hold locks during the callbacks! */
-      ExReleaseFastMutex(&CmiCallbackLock);
-      
-      Status = CurrentCallback->Function(CurrentCallback->Context,
-                                         Argument1,
-                                         Argument2);
-      if(!NT_SUCCESS(Status))
-      {
-        /* one callback returned failure, don't call any more callbacks */
-        return Status;
-      }
-
-      ExAcquireFastMutex(&CmiCallbackLock);
-      /* don't release the rundown protection before holding the callback lock
-         so the pointer to the next callback isn't cleared in case this callback
-         get's deleted */
-      ExReleaseRundownProtectionEx(&CurrentCallback->RundownRef, 1);
-    }
-  }
-  
-  ExReleaseFastMutex(&CmiCallbackLock);
-  
-  return STATUS_SUCCESS;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -188,10 +63,8 @@ NtCreateKey(OUT PHANDLE KeyHandle,
   PKEY_OBJECT KeyObject;
   NTSTATUS Status;
   PVOID Object;
+  PWSTR End;
   PWSTR Start;
-  unsigned i;
-  
-  PAGED_CODE();
 
   DPRINT("NtCreateKey (Name %wZ  KeyHandle %x  Root %x)\n",
 	 ObjectAttributes->ObjectName,
@@ -204,20 +77,18 @@ NtCreateKey(OUT PHANDLE KeyHandle,
 			CmiKeyType);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT("ObFindObject failed, Status: 0x%x\n", Status);
       return(Status);
     }
 
   DPRINT("RemainingPath %wZ\n", &RemainingPath);
 
-  if (RemainingPath.Length == 0)
+  if ((RemainingPath.Buffer == NULL) || (RemainingPath.Buffer[0] == 0))
     {
       /* Fail if the key has been deleted */
       if (((PKEY_OBJECT) Object)->Flags & KO_MARKED_FOR_DELETE)
 	{
 	  ObDereferenceObject(Object);
 	  RtlFreeUnicodeString(&RemainingPath);
-	  DPRINT("Object marked for delete!\n");
 	  return(STATUS_UNSUCCESSFUL);
 	}
 
@@ -230,27 +101,24 @@ NtCreateKey(OUT PHANDLE KeyHandle,
 			      TRUE,
 			      KeyHandle);
 
-      DPRINT("ObCreateHandle failed Status 0x%x\n", Status);
+      DPRINT("Status %x\n", Status);
       ObDereferenceObject(Object);
       RtlFreeUnicodeString(&RemainingPath);
       return Status;
     }
 
   /* If RemainingPath contains \ we must return error
-     because NtCreateKey doesn't create trees */
+     because NtCreateKey don't create trees */
   Start = RemainingPath.Buffer;
   if (*Start == L'\\')
     Start++;
 
-  for (i = 1; i < RemainingPath.Length / sizeof(WCHAR); i++)
+  End = wcschr(Start, L'\\');
+  if (End != NULL)
     {
-      if (L'\\' == RemainingPath.Buffer[i])
-        {
-          ObDereferenceObject(Object);
-          DPRINT1("NtCreateKey() doesn't create trees! (found \'\\\' in remaining path: \"%wZ\"!)\n", &RemainingPath);
-          RtlFreeUnicodeString(&RemainingPath);
-          return STATUS_OBJECT_NAME_NOT_FOUND;
-        }
+      ObDereferenceObject(Object);
+      RtlFreeUnicodeString(&RemainingPath);
+      return STATUS_OBJECT_NAME_NOT_FOUND;
     }
 
   DPRINT("RemainingPath %S  ParentObject %x\n", RemainingPath.Buffer, Object);
@@ -266,7 +134,6 @@ NtCreateKey(OUT PHANDLE KeyHandle,
 			  (PVOID*)&KeyObject);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ObCreateObject() failed!\n");
       return(Status);
     }
 
@@ -280,7 +147,6 @@ NtCreateKey(OUT PHANDLE KeyHandle,
     {
       ObDereferenceObject(KeyObject);
       RtlFreeUnicodeString(&RemainingPath);
-      DPRINT1("ObInsertObject() failed!\n");
       return(Status);
     }
 
@@ -326,7 +192,8 @@ NtCreateKey(OUT PHANDLE KeyHandle,
     }
   else
     {
-      RtlpCreateUnicodeString(&KeyObject->Name, Start, NonPagedPool);
+      RtlCreateUnicodeString(&KeyObject->Name,
+			     Start);
       RtlFreeUnicodeString(&RemainingPath);
     }
 
@@ -370,21 +237,16 @@ NtCreateKey(OUT PHANDLE KeyHandle,
 NTSTATUS STDCALL
 NtDeleteKey(IN HANDLE KeyHandle)
 {
-  KPROCESSOR_MODE PreviousMode;
   PKEY_OBJECT KeyObject;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT1("NtDeleteKey(KeyHandle %x) called\n", KeyHandle);
-  
-  PreviousMode = ExGetPreviousMode();
 
   /* Verify that the handle is valid and is a registry key */
   Status = ObReferenceObjectByHandle(KeyHandle,
 				     DELETE,
 				     CmiKeyType,
-				     PreviousMode,
+				     UserMode,
 				     (PVOID *)&KeyObject,
 				     NULL);
   if (!NT_SUCCESS(Status))
@@ -455,8 +317,6 @@ NtEnumerateKey(IN HANDLE KeyHandle,
   PDATA_CELL ClassCell;
   ULONG NameSize, ClassSize;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT("KH %x  I %d  KIC %x KI %x  L %d  RL %x\n",
 	 KeyHandle,
@@ -804,8 +664,6 @@ NtEnumerateValueKey(IN HANDLE KeyHandle,
   PKEY_VALUE_BASIC_INFORMATION  ValueBasicInformation;
   PKEY_VALUE_PARTIAL_INFORMATION  ValuePartialInformation;
   PKEY_VALUE_FULL_INFORMATION  ValueFullInformation;
-  
-  PAGED_CODE();
 
   DPRINT("KH %x  I %d  KVIC %x  KVI %x  L %d  RL %x\n",
 	 KeyHandle,
@@ -1041,19 +899,14 @@ NtFlushKey(IN HANDLE KeyHandle)
   NTSTATUS Status;
   PKEY_OBJECT  KeyObject;
   PREGISTRY_HIVE  RegistryHive;
-  KPROCESSOR_MODE  PreviousMode;
-  
-  PAGED_CODE();
 
   DPRINT("NtFlushKey (KeyHandle %lx) called\n", KeyHandle);
-  
-  PreviousMode = ExGetPreviousMode();
 
   /* Verify that the handle is valid and is a registry key */
   Status = ObReferenceObjectByHandle(KeyHandle,
 				     KEY_QUERY_VALUE,
 				     CmiKeyType,
-				     PreviousMode,
+				     UserMode,
 				     (PVOID *)&KeyObject,
 				     NULL);
   if (!NT_SUCCESS(Status))
@@ -1094,40 +947,14 @@ NtOpenKey(OUT PHANDLE KeyHandle,
 	  IN POBJECT_ATTRIBUTES ObjectAttributes)
 {
   UNICODE_STRING RemainingPath;
-  KPROCESSOR_MODE PreviousMode;
+  NTSTATUS Status;
   PVOID Object;
-  HANDLE hKey;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
 
   DPRINT("NtOpenKey(KH %x  DA %x  OA %x  OA->ON '%wZ'\n",
 	 KeyHandle,
 	 DesiredAccess,
 	 ObjectAttributes,
 	 ObjectAttributes ? ObjectAttributes->ObjectName : NULL);
-
-  PreviousMode = ExGetPreviousMode();
-
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(KeyHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
 
   RemainingPath.Buffer = NULL;
   Status = ObFindObject(ObjectAttributes,
@@ -1163,7 +990,7 @@ NtOpenKey(OUT PHANDLE KeyHandle,
 			  Object,
 			  DesiredAccess,
 			  TRUE,
-			  &hKey);
+			  KeyHandle);
   ObDereferenceObject(Object);
 
   if (!NT_SUCCESS(Status))
@@ -1171,17 +998,7 @@ NtOpenKey(OUT PHANDLE KeyHandle,
       return(Status);
     }
 
-  _SEH_TRY
-  {
-    *KeyHandle = hKey;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -1201,8 +1018,6 @@ NtQueryKey(IN HANDLE KeyHandle,
   PKEY_CELL KeyCell;
   ULONG NameSize, ClassSize;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT("NtQueryKey(KH %x  KIC %x  KI %x  L %d  RL %x)\n",
 	 KeyHandle,
@@ -1404,8 +1219,6 @@ NtQueryValueKey(IN HANDLE KeyHandle,
   PKEY_VALUE_BASIC_INFORMATION  ValueBasicInformation;
   PKEY_VALUE_PARTIAL_INFORMATION  ValuePartialInformation;
   PKEY_VALUE_FULL_INFORMATION  ValueFullInformation;
-  
-  PAGED_CODE();
 
   DPRINT("NtQueryValueKey(KeyHandle %x  ValueName %S  Length %x)\n",
     KeyHandle, ValueName->Buffer, Length);
@@ -1646,8 +1459,6 @@ NtSetValueKey(IN HANDLE KeyHandle,
   PDATA_CELL NewDataCell;
   PHBIN pBin;
   ULONG DesiredAccess;
-  
-  PAGED_CODE();
 
   DPRINT("NtSetValueKey(KeyHandle %x  ValueName '%wZ'  Type %d)\n",
 	 KeyHandle, ValueName, Type);
@@ -1782,7 +1593,7 @@ NtSetValueKey(IN HANDLE KeyHandle,
       KeyCell->Flags |= REG_KEY_LINK_CELL;
     }
 
-  KeQuerySystemTime (&KeyCell->LastWriteTime);
+  NtQuerySystemTime (&KeyCell->LastWriteTime);
   CmiMarkBlockDirty (RegistryHive, KeyObject->KeyCellOffset);
 
   ExReleaseResourceLite(&CmiRegistryLock);
@@ -1803,8 +1614,6 @@ NtDeleteValueKey (IN HANDLE KeyHandle,
 {
   PKEY_OBJECT KeyObject;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   /* Verify that the handle is valid and is a registry key */
   Status = ObReferenceObjectByHandle(KeyHandle,
@@ -1829,7 +1638,7 @@ NtDeleteValueKey (IN HANDLE KeyHandle,
 				 KeyObject->KeyCellOffset,
 				 ValueName);
 
-  KeQuerySystemTime (&KeyObject->KeyCell->LastWriteTime);
+  NtQuerySystemTime (&KeyObject->KeyCell->LastWriteTime);
   CmiMarkBlockDirty (KeyObject->RegistryHive, KeyObject->KeyCellOffset);
 
   /* Release hive lock */
@@ -1876,8 +1685,6 @@ NtLoadKey2 (IN POBJECT_ATTRIBUTES KeyObjectAttributes,
   ULONG BufferSize;
   ULONG Length;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT ("NtLoadKey2() called\n");
 
@@ -1895,7 +1702,7 @@ NtLoadKey2 (IN POBJECT_ATTRIBUTES KeyObjectAttributes,
       if (Buffer == NULL)
 	return STATUS_INSUFFICIENT_RESOURCES;
 
-      Status = ZwQueryObject (FileObjectAttributes->RootDirectory,
+      Status = NtQueryObject (FileObjectAttributes->RootDirectory,
 			      ObjectNameInformation,
 			      Buffer,
 			      BufferSize,
@@ -1989,10 +1796,10 @@ NtNotifyChangeKey (IN HANDLE KeyHandle,
 		   IN PVOID ApcContext OPTIONAL,
 		   OUT PIO_STATUS_BLOCK IoStatusBlock,
 		   IN ULONG CompletionFilter,
-		   IN BOOLEAN WatchSubtree,
-		   OUT PVOID Buffer,
+		   IN BOOLEAN Asynchroneous,
+		   OUT PVOID ChangeBuffer,
 		   IN ULONG Length,
-		   IN BOOLEAN Asynchronous)
+		   IN BOOLEAN WatchSubtree)
 {
 	UNIMPLEMENTED;
 	return(STATUS_NOT_IMPLEMENTED);
@@ -2016,8 +1823,6 @@ NtQueryMultipleValueKey (IN HANDLE KeyHandle,
   NTSTATUS Status;
   PUCHAR DataPtr;
   ULONG i;
-  
-  PAGED_CODE();
 
   /* Verify that the handle is valid and is a registry key */
   Status = ObReferenceObjectByHandle(KeyHandle,
@@ -2146,8 +1951,6 @@ NtSaveKey (IN HANDLE KeyHandle,
   PREGISTRY_HIVE TempHive;
   PKEY_OBJECT KeyObject;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT ("NtSaveKey() called\n");
 
@@ -2250,13 +2053,11 @@ NtSetInformationKey (IN HANDLE KeyHandle,
 {
   PKEY_OBJECT KeyObject;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
-  if (KeyInformationClass != KeyWriteTimeInformation)
+  if (KeyInformationClass != KeyLastWriteTimeInformation)
     return STATUS_INVALID_INFO_CLASS;
 
-  if (KeyInformationLength != sizeof (KEY_WRITE_TIME_INFORMATION))
+  if (KeyInformationLength != sizeof (KEY_LAST_WRITE_TIME_INFORMATION))
     return STATUS_INFO_LENGTH_MISMATCH;
 
   /* Verify that the handle is valid and is a registry key */
@@ -2279,7 +2080,7 @@ NtSetInformationKey (IN HANDLE KeyHandle,
   VERIFY_KEY_OBJECT(KeyObject);
 
   KeyObject->KeyCell->LastWriteTime.QuadPart =
-    ((PKEY_WRITE_TIME_INFORMATION)KeyInformation)->LastWriteTime.QuadPart;
+    ((PKEY_LAST_WRITE_TIME_INFORMATION)KeyInformation)->LastWriteTime.QuadPart;
 
   CmiMarkBlockDirty (KeyObject->RegistryHive,
 		     KeyObject->KeyCellOffset);
@@ -2308,8 +2109,6 @@ NtUnloadKey (IN POBJECT_ATTRIBUTES KeyObjectAttributes)
 {
   PREGISTRY_HIVE RegistryHive;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT ("NtUnloadKey() called\n");
 
@@ -2356,8 +2155,6 @@ NTSTATUS STDCALL
 NtInitializeRegistry (IN BOOLEAN SetUpBoot)
 {
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   if (CmiRegistryInitialized == TRUE)
     return STATUS_ACCESS_DENIED;

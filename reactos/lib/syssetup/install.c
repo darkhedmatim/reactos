@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: install.c,v 1.20 2004/11/24 23:09:46 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
@@ -39,14 +39,12 @@
 #include <userenv.h>
 #include <setupapi.h>
 
-#include <shlobj.h>
-#include <objidl.h>
-#include <shlwapi.h>
-
 #include "globals.h"
 #include "resource.h"
 
 #define VMWINST
+
+VOID WINAPI CreateCmdLink(VOID);
 
 
 /* GLOBALS ******************************************************************/
@@ -97,80 +95,6 @@ RunVMWInstall(VOID)
   return FALSE;
 }
 #endif
-
-
-HRESULT CreateShellLink(LPCTSTR linkPath, LPCTSTR cmd, LPCTSTR arg, LPCTSTR dir, LPCTSTR iconPath, int icon_nr, LPCTSTR comment)
-{
-  IShellLink* psl;
-  IPersistFile* ppf;
-#ifndef _UNICODE
-  WCHAR buffer[MAX_PATH];
-#endif /* _UNICODE */
-
-  HRESULT hr = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLink, (LPVOID*)&psl);
-
-  if (SUCCEEDED(hr))
-    {
-      hr = psl->lpVtbl->SetPath(psl, cmd);
-
-      if (arg)
-        {
-          hr = psl->lpVtbl->SetArguments(psl, arg);
-        }
-
-      if (dir)
-        {
-          hr = psl->lpVtbl->SetWorkingDirectory(psl, dir);
-        }
-
-      if (iconPath)
-        {
-          hr = psl->lpVtbl->SetIconLocation(psl, iconPath, icon_nr);
-        }
-
-      if (comment)
-        {
-          hr = psl->lpVtbl->SetDescription(psl, comment);
-        }
-
-      hr = psl->lpVtbl->QueryInterface(psl, &IID_IPersistFile, (LPVOID*)&ppf);
-
-      if (SUCCEEDED(hr))
-        {
-#ifdef _UNICODE
-          hr = ppf->lpVtbl->Save(ppf, linkPath, TRUE);
-#else /* _UNICODE */
-          MultiByteToWideChar(CP_ACP, 0, linkPath, -1, buffer, MAX_PATH);
-
-          hr = ppf->lpVtbl->Save(ppf, buffer, TRUE);
-#endif /* _UNICODE */
-
-          ppf->lpVtbl->Release(ppf);
-        }
-
-      psl->lpVtbl->Release(psl);
-    }
-
-  return hr;
-}
-
-
-static VOID
-CreateCmdLink(VOID)
-{
-  TCHAR path[MAX_PATH];
-  LPTSTR p;
-
-  CoInitialize(NULL);
-
-  SHGetSpecialFolderPath(0, path, CSIDL_DESKTOP, TRUE);
-  p = PathAddBackslash(path);
-
-  _tcscpy(p, _T("Command Prompt.lnk"));
-  CreateShellLink(path, _T("cmd.exe"), _T(""), NULL, NULL, 0, _T("Open command prompt"));
-
-  CoUninitialize();
-}
 
 
 static VOID
@@ -396,8 +320,6 @@ InstallReactOS (HINSTANCE hInstance)
       return 0;
     }
 
-  CreateCmdLink();
-
   /* Create the semi-random Domain-SID */
   CreateRandomSid (&DomainSid);
   if (DomainSid == NULL)
@@ -446,8 +368,7 @@ InstallReactOS (HINSTANCE hInstance)
      * and not completing it, let it restart instead
      */
     LastError = GetLastError();
-    if (LastError != ERROR_USER_EXISTS)
-    {
+    if (LastError != ERROR_USER_EXISTS) {
       DebugPrint("SamCreateUser() failed!\n");
       RtlFreeSid(AdminSid);
       RtlFreeSid(DomainSid);

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: reginf.c,v 1.7 2004/06/04 23:47:04 navaraf Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/reginf.h
@@ -308,7 +308,7 @@ do_reg_operation(HKEY KeyHandle,
 	}
       else
 	{
-	  DPRINT("setting value %s to %s\n", ValueName, Str);
+	  DPRINT ("setting value %s to %s\n", ValueName, Str);
 
 	  if (Str)
 	    {

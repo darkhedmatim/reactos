@@ -35,8 +35,7 @@ C_SRCS = \
 	rpc.c \
 	stg_bigblockfile.c \
 	stg_stream.c \
-	storage32.c \
-	stubmanager.c
+	storage32.c
 
 C_SRCS16 = \
 	memlockbytes16.c \

@@ -1,17 +1,15 @@
-/* $Id$
+/* $Id: lookas.c,v 1.14 2004/08/15 16:39:01 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/lookas.c
  * PURPOSE:         Lookaside lists
- * 
  * PROGRAMMERS:     David Welch (welch@mcmail.com)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
- */
-
-
-/*
  * TODO:            Use InterlockedXxxEntrySList for binary compatibility
+ * UPDATE HISTORY:
+ *   22-05-1998 DW  Created
+ *   02-07-2001 CSH Implemented lookaside lists
  */
 
 /* INCLUDES *****************************************************************/

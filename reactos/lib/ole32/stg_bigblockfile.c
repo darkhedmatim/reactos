@@ -423,7 +423,6 @@ void BIGBLOCKFILE_SetSize(LPBIGBLOCKFILE This, ULARGE_INTEGER newSize)
   if (This->fileBased)
   {
     char buf[10];
-    DWORD w;
 
     /*
      * close file-mapping object, must be done before call to SetEndFile
@@ -446,7 +445,7 @@ void BIGBLOCKFILE_SetSize(LPBIGBLOCKFILE This, ULARGE_INTEGER newSize)
      */
     memset(buf, '0', 10);
     SetFilePointer(This->hfile, newSize.u.LowPart, NULL, FILE_BEGIN);
-    WriteFile(This->hfile, buf, 10, &w, NULL);
+    WriteFile(This->hfile, buf, 10, NULL, NULL);
     /*
      * END HACK
      */

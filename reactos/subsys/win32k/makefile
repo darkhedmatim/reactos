@@ -1,4 +1,4 @@
-# $Id$
+# $Id: makefile,v 1.107.2.2 2004/12/22 03:44:52 royce Exp $
 
 PATH_TO_TOP = ../..
 
@@ -29,6 +29,12 @@ else
 CFLAGS_DBG :=
 endif
 
+ifeq ($(OPTIMIZED), 1)
+CFLAGS_OPT := -O2 -Wno-strict-aliasing
+else
+CFLAGS_OPT :=
+endif
+
 TARGET_CFLAGS =\
  $(CFLAGS_DBG) \
  -I. \
@@ -49,11 +55,11 @@ ENG_OBJECTS= eng/debug.o eng/error.o eng/mem.o eng/brush.o eng/bitblt.o \
     eng/clip.o eng/copybits.o eng/device.o eng/lineto.o \
     eng/paint.o eng/palette.o eng/perfcnt.o eng/semaphor.o eng/surface.o \
     eng/xlate.o eng/transblt.o eng/mouse.o eng/misc.o eng/sort.o \
-    eng/gradient.o eng/event.o eng/float.o eng/driverobj.o eng/window.o
+    eng/gradient.o eng/event.o eng/float.o
 
 MAIN_OBJECTS = main/dllmain.o main/svctabm.o
 
-MISC_OBJECTS = misc/driver.o misc/error.o misc/math.o misc/object.o misc/ssec.o
+MISC_OBJECTS = misc/driver.o misc/error.o misc/math.o misc/object.o
 
 LDR_OBJECTS = ldr/loader.o
 

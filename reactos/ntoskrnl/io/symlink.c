@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: symlink.c,v 1.35 2004/10/22 20:25:54 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/symlink.c
  * PURPOSE:         Implements symbolic links
- *
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -51,17 +52,17 @@ IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName,
 			     NULL,
 			     SePublicDefaultSd);
 
-  Status = ZwCreateSymbolicLinkObject(&Handle,
+  Status = NtCreateSymbolicLinkObject(&Handle,
 				      SYMBOLIC_LINK_ALL_ACCESS,
 				      &ObjectAttributes,
 				      DeviceName);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
+      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
       return(Status);
     }
 
-  ZwClose(Handle);
+  NtClose(Handle);
 
   return(STATUS_SUCCESS);
 }
@@ -120,17 +121,17 @@ IoCreateUnprotectedSymbolicLink(PUNICODE_STRING SymbolicLinkName,
 			     NULL,
 			     &SecurityDescriptor);
 
-  Status = ZwCreateSymbolicLinkObject(&Handle,
+  Status = NtCreateSymbolicLinkObject(&Handle,
 				      SYMBOLIC_LINK_ALL_ACCESS,
 				      &ObjectAttributes,
 				      DeviceName);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ZwCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
+      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
       return(Status);
     }
 
-  ZwClose(Handle);
+  NtClose(Handle);
 
   return(STATUS_SUCCESS);
 }
@@ -168,14 +169,14 @@ IoDeleteSymbolicLink(PUNICODE_STRING SymbolicLinkName)
 			     NULL,
 			     NULL);
 
-  Status = ZwOpenSymbolicLinkObject(&Handle,
+  Status = NtOpenSymbolicLinkObject(&Handle,
 				    SYMBOLIC_LINK_ALL_ACCESS,
 				    &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     return(Status);
 
-  Status = ZwMakeTemporaryObject(Handle);
-  ZwClose(Handle);
+  Status = NtMakeTemporaryObject(Handle);
+  NtClose(Handle);
 
   return(Status);
 }

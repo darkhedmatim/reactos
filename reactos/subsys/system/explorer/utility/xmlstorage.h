@@ -1533,8 +1533,6 @@ struct XMLReaderBase
 		return out.str();
 	}
 
-	std::string get_instructions() const {return _instructions;}
-
 	XML_Error	get_error_code() {return XML_GetErrorCode(_parser);}
 	std::string get_error_string() const;
 
@@ -1543,7 +1541,6 @@ protected:
 	XML_Parser	_parser;
 	std::string _xml_version;
 	std::string _encoding;
-	std::string	_instructions;
 
 	std::string _content;
 	enum {TAG_NONE, TAG_START, TAG_END} _last_tag;
@@ -1595,14 +1592,11 @@ struct XMLHeader
 
 		if (!_doctype.empty())
 			out << _doctype << '\n';
-		if (!_additional.empty())
-			out << _additional << '\n';
 	}
 
 	std::string _version;
 	std::string _encoding;
 	std::string _doctype;
-	std::string _additional;
 };
 
 
@@ -1646,8 +1640,6 @@ struct XMLDoc : public XMLNode
 	{
 		XML_Status status = reader.read();
 
-		_header._additional = reader.get_instructions();
-
 		if (status == XML_STATUS_ERROR) {
 			std::ostringstream out;
 
@@ -1664,8 +1656,6 @@ struct XMLDoc : public XMLNode
 	{
 		XML_Status status = reader.read();
 
-		_header._additional = reader.get_instructions();
-
 		if (status == XML_STATUS_ERROR) {
 			std::ostringstream out;
 
@@ -1679,9 +1669,9 @@ struct XMLDoc : public XMLNode
 	}
 
 	 /// write XML stream preserving previous white space and comments
-	std::ostream& write(std::ostream& out, WRITE_MODE mode=FORMAT_SMART) const
+	std::ostream& write(std::ostream& out, WRITE_MODE mode=FORMAT_SMART, const XMLHeader& header=XMLHeader()) const
 	{
-		_header.print(out);
+		header.print(out);
 
 		if (!_children.empty())
 			_children.front()->write(out);
@@ -1695,11 +1685,11 @@ struct XMLDoc : public XMLNode
 		return write(out, FORMAT_PRETTY);
 	}
 
-	void write(LPCTSTR path, WRITE_MODE mode=FORMAT_SMART) const
+	void write(LPCTSTR path, WRITE_MODE mode=FORMAT_SMART, const XMLHeader& header=XMLHeader()) const
 	{
 		tofstream out(path);
 
-		write(out, mode);
+		write(out, mode, header);
 	}
 
 	void write_formating(LPCTSTR path) const
@@ -1709,7 +1699,6 @@ struct XMLDoc : public XMLNode
 		write_formating(out);
 	}
 
-	XMLHeader	_header;
 	XML_Error	_last_error;
 	std::string _last_error_msg;
 };

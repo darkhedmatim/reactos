@@ -20,8 +20,6 @@ VOID PortsStartup( PPORT_SET PortSet,
     RtlInitializeBitMap( &PortSet->ProtoBitmap, 
 			 PortSet->ProtoBitBuffer,
 			 PortSet->PortsToOversee );
-    RtlClearBits( &PortSet->ProtoBitmap, 
-                  PortSet->StartingPort, PortsToManage );
     ExInitializeFastMutex( &PortSet->Mutex );
 }
 

@@ -1,34 +1,10 @@
-/* $Id$ */
+/* $Id: extypes.h,v 1.25 2004/10/22 22:49:00 weiden Exp $ */
 
 #ifndef __INCLUDE_DDK_EXTYPES_H
 #define __INCLUDE_DDK_EXTYPES_H
 
 typedef ULONG INTERLOCKED_RESULT;
-
-typedef enum _POOL_TYPE {
-    NonPagedPool,
-    PagedPool,
-    NonPagedPoolMustSucceed,
-    DontUseThisType,
-    NonPagedPoolCacheAligned,
-    PagedPoolCacheAligned,
-    NonPagedPoolCacheAlignedMustS,
-    MaxPoolType,
-    NonPagedPoolSession = 32,
-    PagedPoolSession,
-    NonPagedPoolMustSucceedSession,
-    DontUseThisTypeSession,
-    NonPagedPoolCacheAlignedSession,
-    PagedPoolCacheAlignedSession,
-    NonPagedPoolCacheAlignedMustSSession
-} POOL_TYPE;
-
-typedef enum _WORK_QUEUE_TYPE {
-    CriticalWorkQueue,
-    DelayedWorkQueue,
-    HyperCriticalWorkQueue,
-    MaximumWorkQueue
-} WORK_QUEUE_TYPE;
+typedef ULONG WORK_QUEUE_TYPE;
 
 typedef ULONG_PTR ERESOURCE_THREAD, *PERESOURCE_THREAD;
 
@@ -129,7 +105,7 @@ typedef union _SLIST_HEADER
    ULONGLONG Alignment;
    struct
      {
-	SLIST_ENTRY Next;
+	SINGLE_LIST_ENTRY Next;
 	USHORT Depth;
 	USHORT Sequence;	
      }; /* now anonymous */

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: complete.c,v 1.12 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/complete.c
  * PURPOSE:         Communication mechanism
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES ******************************************************************/
@@ -45,7 +46,7 @@ NtCompleteConnectPort (HANDLE hServerSideCommPort)
    */
   Status = ObReferenceObjectByHandle (hServerSideCommPort,
 				      PORT_ALL_ACCESS,
-				      LpcPortObjectType,
+				      ExPortType,
 				      UserMode,
 				      (PVOID*)&ReplyPort,
 				      NULL);

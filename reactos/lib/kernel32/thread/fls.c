@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: fls.c,v 1.4 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS system libraries

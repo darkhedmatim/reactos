@@ -1,11 +1,29 @@
-/* $Id:$
+/* $Id: fpu.c,v 1.19 2004/11/27 23:50:26 hbirr Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/fpu.c
  * PURPOSE:         Handles the FPU
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -16,6 +34,16 @@
 #include <internal/debug.h>
 
 /* DEFINES *******************************************************************/
+
+#define EXCEPTION_FLT_DENORMAL_OPERAND          (0xc000008dL)
+#define EXCEPTION_FLT_DIVIDE_BY_ZERO            (0xc000008eL)
+#define EXCEPTION_FLT_INEXACT_RESULT            (0xc000008fL)
+#define EXCEPTION_FLT_INVALID_OPERATION         (0xc0000090L)
+#define EXCEPTION_FLT_OVERFLOW                  (0xc0000091L)
+#define EXCEPTION_FLT_STACK_CHECK               (0xc0000092L)
+#define EXCEPTION_FLT_UNDERFLOW                 (0xc0000093L)
+#define EXCEPTION_FLT_MULTIPLE_FAULTS           (0xC00002B4L)
+#define EXCEPTION_FLT_MULTIPLE_TRAPS            (0xC00002B5L)
 
 /* x87 Status Word exception flags */
 #define X87_SW_IE       (1<<0)   /* Invalid Operation */
@@ -41,7 +69,7 @@
 
 ULONG HardwareMathSupport = 0;
 static ULONG MxcsrFeatureMask = 0, XmmSupport = 0;
-ULONG FxsrSupport = 0; /* used by Ki386ContextSwitch for SMP */
+ULONG FxsrSupport = 0; /* used by Ki386ContextSwitch for MP */
 
 /* FUNCTIONS *****************************************************************/
 
@@ -385,7 +413,7 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
       PKTHREAD CurrentThread;
       PFX_SAVE_AREA FxSaveArea;
       KIRQL oldIrql;
-#ifndef CONFIG_SMP
+#ifndef MP
       PKTHREAD NpxThread;
 #endif
       
@@ -400,14 +428,14 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
       asm volatile("clts");
 
       CurrentThread = KeGetCurrentThread();
-#ifndef CONFIG_SMP
+#ifndef MP
       NpxThread = KeGetCurrentKPCR()->PrcbData.NpxThread;
 #endif
 
       ASSERT(CurrentThread != NULL);
       DPRINT("Device not present exception happened! (Cr0 = 0x%x, NpxState = 0x%x)\n", cr0, CurrentThread->NpxState);
 
-#ifndef CONFIG_SMP
+#ifndef MP
       /* check if the current thread already owns the FPU */
       if (NpxThread != CurrentThread) /* FIXME: maybe this could be an assertation */
         {
@@ -428,7 +456,7 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
                 }
               NpxThread->NpxState = NPX_STATE_VALID;
             }
-#endif /* !CONFIG_SMP */
+#endif /* !MP */
 
           /* restore the state of the current thread */
           ASSERT((CurrentThread->NpxState & NPX_STATE_DIRTY) == 0);
@@ -464,7 +492,7 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
                 }
             }
           KeGetCurrentKPCR()->PrcbData.NpxThread = CurrentThread;
-#ifndef CONFIG_SMP
+#ifndef MP
         }
 #endif
 
@@ -538,19 +566,19 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
           DPRINT("FpuStatusWord = 0x%04x\n", FpuStatusWord);
 
           if (FpuStatusWord & X87_SW_IE)
-            Er.ExceptionCode = STATUS_FLOAT_INVALID_OPERATION;
+            Er.ExceptionCode = EXCEPTION_FLT_INVALID_OPERATION;
           else if (FpuStatusWord & X87_SW_DE)
-            Er.ExceptionCode = STATUS_FLOAT_DENORMAL_OPERAND;
+            Er.ExceptionCode = EXCEPTION_FLT_DENORMAL_OPERAND;
           else if (FpuStatusWord & X87_SW_ZE)
-            Er.ExceptionCode = STATUS_FLOAT_DIVIDE_BY_ZERO;
+            Er.ExceptionCode = EXCEPTION_FLT_DIVIDE_BY_ZERO;
           else if (FpuStatusWord & X87_SW_OE)
-            Er.ExceptionCode = STATUS_FLOAT_OVERFLOW;
+            Er.ExceptionCode = EXCEPTION_FLT_OVERFLOW;
           else if (FpuStatusWord & X87_SW_UE)
-            Er.ExceptionCode = STATUS_FLOAT_UNDERFLOW;
+            Er.ExceptionCode = EXCEPTION_FLT_UNDERFLOW;
           else if (FpuStatusWord & X87_SW_PE)
-            Er.ExceptionCode = STATUS_FLOAT_INEXACT_RESULT;
+            Er.ExceptionCode = EXCEPTION_FLT_INEXACT_RESULT;
           else if (FpuStatusWord & X87_SW_SE)
-            Er.ExceptionCode = STATUS_FLOAT_STACK_CHECK;
+            Er.ExceptionCode = EXCEPTION_FLT_STACK_CHECK;
           else
             ASSERT(0); /* not reached */
           /* FIXME: is this the right way to get the correct EIP of the faulting instruction? */
@@ -558,8 +586,8 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
         }
       else /* ExceptionNr == 19 */
         {
-          /* FIXME: When should we use STATUS_FLOAT_MULTIPLE_FAULTS? */
-          Er.ExceptionCode = STATUS_FLOAT_MULTIPLE_TRAPS;
+          /* FIXME: When should we use EXCEPTION_FLT_MULTIPLE_FAULTS? */
+          Er.ExceptionCode = EXCEPTION_FLT_MULTIPLE_TRAPS;
           Er.ExceptionAddress = (PVOID)Tf->Eip;
         }
 

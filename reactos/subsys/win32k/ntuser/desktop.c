@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id$
+ *  $Id: desktop.c,v 1.28 2004/12/12 01:40:37 weiden Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -596,7 +596,7 @@ NtUserCreateDesktop(
    */
 
   Status = ObCreateObject(
-    KernelMode,
+    ExGetPreviousMode(),
     ExDesktopObjectType,
     &ObjectAttributes,
     ExGetPreviousMode(),
@@ -1138,7 +1138,7 @@ NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
     return 0;
   }
   
-  Status = PsLookupThreadByThreadId((HANDLE)dwThreadId, &Thread);
+  Status = PsLookupThreadByThreadId((PVOID)dwThreadId, &Thread);
   if(!NT_SUCCESS(Status))
   {
     SetLastWin32Error(ERROR_INVALID_PARAMETER);

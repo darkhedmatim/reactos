@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: wizard.c,v 1.18.2.1 2004/12/21 08:34:49 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
@@ -1121,62 +1121,6 @@ SetAutoDaylightInfo(HWND hwnd)
 }
 
 
-static BOOL
-SetSystemLocalTime(HWND hwnd, PSETUPDATA SetupData)
-{
-  HANDLE hToken;
-  TOKEN_PRIVILEGES priv, previouspriv;
-  BOOL Ret = FALSE;
-  
-  /*
-   * enable the SeSystemtimePrivilege privilege
-   */
-  
-  if(OpenProcessToken(GetCurrentProcess(),
-                      TOKEN_ADJUST_PRIVILEGES,
-                      &hToken))
-  {
-    priv.PrivilegeCount = 1;
-    priv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-    if(LookupPrivilegeValue(NULL,
-                            SE_SYSTEMTIME_NAME,
-                            &priv.Privileges[0].Luid))
-    {
-      if(AdjustTokenPrivileges(hToken,
-                               FALSE,
-                               &priv,
-                               sizeof(previouspriv),
-                               &previouspriv,
-                               0) &&
-         GetLastError() == ERROR_SUCCESS)
-      {
-        /*
-         * we successfully enabled it, we're permitted to change the system time
-         */
-        Ret = SetLocalTime(&SetupData->SystemTime);
-        
-        /*
-         * for the sake of security, restore the previous status again
-         */
-        if(previouspriv.PrivilegeCount > 0)
-        {
-          AdjustTokenPrivileges(hToken,
-                                FALSE,
-                                &previouspriv,
-                                0,
-                                NULL,
-                                0);
-        }
-      }
-    }
-    CloseHandle(hToken);
-  }
-  
-  return Ret;
-}
-
-
 INT_PTR CALLBACK
 DateTimePageDlgProc(HWND hwndDlg,
                     UINT uMsg,
@@ -1223,13 +1167,7 @@ DateTimePageDlgProc(HWND hwndDlg,
                   SetLocalTimeZone(GetDlgItem(hwndDlg, IDC_TIMEZONELIST),
                                    SetupData);
                   SetAutoDaylightInfo(GetDlgItem(hwndDlg, IDC_AUTODAYLIGHT));
-                  if(!SetSystemLocalTime(hwndDlg, SetupData))
-                  {
-                    MessageBox(hwndDlg,
-                               _T("Setup was unable to set the local time."),
-                               _T("ReactOS Setup"),
-                               MB_ICONWARNING | MB_OK);
-                  }
+                  SetLocalTime(&SetupData->SystemTime);
                 }
                 break;
 
@@ -1430,12 +1368,14 @@ InstallWizard(VOID)
 
 
   /* Create the Locale page */
+#if 0
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
   psp.pszHeaderTitle = MAKEINTRESOURCE(IDS_LOCALETITLE);
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_LOCALESUBTITLE);
   psp.pfnDlgProc = LocalePageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_LOCALEPAGE);
   ahpsp[4] = CreatePropertySheetPage(&psp);
+#endif
 
 
   /* Create the DateTime page */
@@ -1444,30 +1384,32 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_DATETIMESUBTITLE);
   psp.pfnDlgProc = DateTimePageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_DATETIMEPAGE);
-  ahpsp[5] = CreatePropertySheetPage(&psp);
+  ahpsp[4] = CreatePropertySheetPage(&psp);
 
 
-  /* Create the Process page 
+  /* Create the Process page */
+#if 0
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
   psp.pszHeaderTitle = MAKEINTRESOURCE(IDS_PROCESSTITLE);
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_PROCESSSUBTITLE);
   psp.pfnDlgProc = ProcessPageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_PROCESSPAGE);
-  ahpsp[6] = CreatePropertySheetPage(&psp); */
+  ahpsp[6] = CreatePropertySheetPage(&psp);
+#endif
 
 
   /* Create the Finish page */
   psp.dwFlags = PSP_DEFAULT | PSP_HIDEHEADER;
   psp.pfnDlgProc = FinishDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_FINISHPAGE);
-  ahpsp[6] = CreatePropertySheetPage(&psp);
+  ahpsp[5] = CreatePropertySheetPage(&psp);
 
   /* Create the property sheet */
   psh.dwSize = sizeof(PROPSHEETHEADER);
   psh.dwFlags = PSH_WIZARD97 | PSH_WATERMARK | PSH_HEADER;
   psh.hInstance = hDllInstance;
   psh.hwndParent = NULL;
-  psh.nPages = 7;
+  psh.nPages = 6;
   psh.nStartPage = 0;
   psh.phpage = ahpsp;
   psh.pszbmWatermark = MAKEINTRESOURCE(IDB_WATERMARK);

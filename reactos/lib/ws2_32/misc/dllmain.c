@@ -552,17 +552,6 @@ WSAAccept(
     WSASetLastError(Errno);
   }
 
-  if( addr ) {
-#ifdef DBG
-      LPSOCKADDR_IN sa = (LPSOCKADDR_IN)addr;
-      WS_DbgPrint(MAX_TRACE,("Returned address: %d %s:%d (len %d)\n", 
-                             sa->sin_family,
-                             inet_ntoa(sa->sin_addr), 
-                             ntohs(sa->sin_port),
-                             *addrlen));
-#endif
-  }
-
   return Socket;
 }
 
@@ -721,7 +710,7 @@ DllMain(HANDLE hInstDll,
     UpcallTable.lpWPUFDIsSet            = WPUFDIsSet;
     UpcallTable.lpWPUGetProviderPath    = WPUGetProviderPath;
     UpcallTable.lpWPUModifyIFSHandle    = WPUModifyIFSHandle;
-    UpcallTable.lpWPUPostMessage        = PostMessageW;
+    UpcallTable.lpWPUPostMessage        = WPUPostMessage;
     UpcallTable.lpWPUQueryBlockingCallback    = WPUQueryBlockingCallback;
     UpcallTable.lpWPUQuerySocketHandleContext = WPUQuerySocketHandleContext;
     UpcallTable.lpWPUQueueApc           = WPUQueueApc;

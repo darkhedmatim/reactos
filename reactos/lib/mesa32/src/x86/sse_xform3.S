@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: sse_xform3.S,v 1.3 2004/10/05 14:19:12 blight Exp $ */
 
 /*
  * Mesa 3-D graphics library

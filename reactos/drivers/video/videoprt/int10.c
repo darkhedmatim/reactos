@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id$
+ * $Id: int10.c,v 1.7 2004/07/19 17:55:33 weiden Exp $
  */
 
 #include "videoprt.h"
@@ -212,11 +212,6 @@ VideoPortInt10(
 
    DPRINT("VideoPortInt10\n");
 
-   if (!CsrssInitialized)
-   {
-      return ERROR_INVALID_PARAMETER;
-   }
-   
    IntAttachToCSRSS(&CallingProcess, &PrevAttachedProcess);
 
    memset(&Regs, 0, sizeof(Regs));

@@ -1,14 +1,16 @@
-# $Id: Makefile 13593 2005-02-16 14:01:34Z weiden $
+# $Id: Makefile,v 1.4 2004/12/03 23:37:40 blight Exp $
 
 PATH_TO_TOP = ../..
 
-include $(PATH_TO_TOP)/config
-
 TARGET_NAME = expat
 
-TARGET_TYPE = library
+TARGET_TYPE = dynlink
+TARGET_BASE = $(TARGET_BASE_LIB_EXPAT)
+TARGET_NORC = yes
+TARGET_DEFONLY = yes
+TARGET_DEFNAME = lib/libexpat
 
-TARGET_CFLAGS = -D__USE_W32API -DHAVE_EXPAT_CONFIG_H -Wall -Wmissing-prototypes -Wstrict-prototypes -fexceptions -Ilib
+TARGET_CFLAGS = -D__USE_W32API -DHAVE_EXPAT_CONFIG_H -O2 -Wall -Wmissing-prototypes -Wstrict-prototypes -fexceptions
 TARGET_LFLAGS = -nostartfiles
 
 LIB_OBJECTS = \

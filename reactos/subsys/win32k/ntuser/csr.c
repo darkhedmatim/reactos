@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: csr.c,v 1.3 2004/11/20 16:46:06 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel

@@ -178,7 +178,8 @@ static UINT DISTINCT_close( struct tagMSIVIEW *view )
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    HeapFree( GetProcessHeap(), 0, dv->translation );
+    if( dv->translation )
+        HeapFree( GetProcessHeap(), 0, dv->translation );
     dv->translation = NULL;
     dv->row_count = 0;
 
@@ -217,17 +218,16 @@ static UINT DISTINCT_get_column_info( struct tagMSIVIEW *view,
     return dv->table->ops->get_column_info( dv->table, n, name, type );
 }
 
-static UINT DISTINCT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                MSIRECORD *rec )
+static UINT DISTINCT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIHANDLE hrec)
 {
     MSIDISTINCTVIEW *dv = (MSIDISTINCTVIEW*)view;
 
-    TRACE("%p %d %p\n", dv, eModifyMode, rec );
+    TRACE("%p %d %ld\n", dv, eModifyMode, hrec );
 
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return dv->table->ops->modify( dv->table, eModifyMode, rec );
+    return dv->table->ops->modify( dv->table, eModifyMode, hrec );
 }
 
 static UINT DISTINCT_delete( struct tagMSIVIEW *view )
@@ -239,7 +239,8 @@ static UINT DISTINCT_delete( struct tagMSIVIEW *view )
     if( dv->table )
         dv->table->ops->delete( dv->table );
 
-    HeapFree( GetProcessHeap(), 0, dv->translation );
+    if( dv->translation )
+        HeapFree( GetProcessHeap(), 0, dv->translation );
     msiobj_release( &dv->db->hdr );
     HeapFree( GetProcessHeap(), 0, dv );
 

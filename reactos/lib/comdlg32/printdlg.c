@@ -71,11 +71,6 @@ static struct pd_flags psd_flags[] = {
   {-1, NULL}
 };
 
-/* address of wndproc for subclassed Static control */
-static WNDPROC lpfnStaticWndProc;
-/* the text of the fake document to render for the Page Setup dialog */
-static WCHAR wszFakeDocumentText[1024];
-
 /***********************************************************************
  *    PRINTDLG_OpenDefaultPrinter
  *
@@ -484,8 +479,8 @@ static BOOL PRINTDLG_PaperSizeA(
 out:
     GlobalUnlock(pdlga->hDevNames);
     GlobalUnlock(pdlga->hDevMode);
-    HeapFree(GetProcessHeap(),0,Names);
-    HeapFree(GetProcessHeap(),0,points);
+    if (Names) HeapFree(GetProcessHeap(),0,Names);
+    if (points) HeapFree(GetProcessHeap(),0,points);
     return retval;
 }
 
@@ -542,8 +537,8 @@ static BOOL PRINTDLG_PaperSizeW(
 out:
     GlobalUnlock(pdlga->hDevNames);
     GlobalUnlock(pdlga->hDevMode);
-    HeapFree(GetProcessHeap(),0,Names);
-    HeapFree(GetProcessHeap(),0,points);
+    if (Names) HeapFree(GetProcessHeap(),0,Names);
+    if (points) HeapFree(GetProcessHeap(),0,points);
     return retval;
 }
 
@@ -865,8 +860,10 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
     DWORD needed;
     HANDLE hprn;
 
-    HeapFree(GetProcessHeap(),0, PrintStructures->lpPrinterInfo);
-    HeapFree(GetProcessHeap(),0, PrintStructures->lpDriverInfo);
+    if(PrintStructures->lpPrinterInfo)
+        HeapFree(GetProcessHeap(),0, PrintStructures->lpPrinterInfo);
+    if(PrintStructures->lpDriverInfo)
+        HeapFree(GetProcessHeap(),0, PrintStructures->lpDriverInfo);
     if(!OpenPrinterA(name, &hprn, NULL)) {
         ERR("Can't open printer %s\n", name);
 	return FALSE;
@@ -886,8 +883,10 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
 
     PRINTDLG_UpdatePrinterInfoTextsA(hDlg, PrintStructures->lpPrinterInfo);
 
-    HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
-    PrintStructures->lpDevMode = NULL;
+    if(PrintStructures->lpDevMode) {
+        HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
+	PrintStructures->lpDevMode = NULL;
+    }
 
     dmSize = DocumentPropertiesA(0, 0, name, NULL, NULL, 0);
     if(dmSize == -1) {
@@ -928,6 +927,15 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
 	} else {
 	    if (lppd->Flags & PD_PAGENUMS)
 	        CheckRadioButton(hDlg, rad1, rad3, rad3);
+	}
+	/* "All xxx pages"... */
+	{
+	    char        resourcestr[64];
+	    char        result[64];
+	    LoadStringA(COMDLG32_hInstance, PD32_PRINT_ALL_X_PAGES,
+			resourcestr, 49);
+	    sprintf(result,resourcestr,lppd->nMaxPage - lppd->nMinPage + 1);
+	    SendDlgItemMessageA(hDlg, rad1, WM_SETTEXT, 0, (LPARAM) result);
 	}
 
 	/* Collate pages
@@ -1014,8 +1022,10 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
     DWORD needed;
     HANDLE hprn;
 
-    HeapFree(GetProcessHeap(),0, PrintStructures->lpPrinterInfo);
-    HeapFree(GetProcessHeap(),0, PrintStructures->lpDriverInfo);
+    if(PrintStructures->lpPrinterInfo)
+        HeapFree(GetProcessHeap(),0, PrintStructures->lpPrinterInfo);
+    if(PrintStructures->lpDriverInfo)
+        HeapFree(GetProcessHeap(),0, PrintStructures->lpDriverInfo);
     if(!OpenPrinterW(name, &hprn, NULL)) {
         ERR("Can't open printer %s\n", debugstr_w(name));
 	return FALSE;
@@ -1035,8 +1045,10 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
 
     PRINTDLG_UpdatePrinterInfoTextsW(hDlg, PrintStructures->lpPrinterInfo);
 
-    HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
-    PrintStructures->lpDevMode = NULL;
+    if(PrintStructures->lpDevMode) {
+        HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
+	PrintStructures->lpDevMode = NULL;
+    }
 
     dmSize = DocumentPropertiesW(0, 0, name, NULL, NULL, 0);
     if(dmSize == -1) {
@@ -1077,6 +1089,15 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
 	} else {
 	    if (lppd->Flags & PD_PAGENUMS)
 	        CheckRadioButton(hDlg, rad1, rad3, rad3);
+	}
+	/* "All xxx pages"... */
+	{
+	    WCHAR        resourcestr[64];
+	    WCHAR        result[64];
+	    LoadStringW(COMDLG32_hInstance, PD32_PRINT_ALL_X_PAGES,
+			resourcestr, 49);
+	    wsprintfW(result,resourcestr,lppd->nMaxPage - lppd->nMinPage + 1);
+	    SendDlgItemMessageW(hDlg, rad1, WM_SETTEXT, 0, (LPARAM) result);
 	}
 
 	/* Collate pages
@@ -1391,7 +1412,7 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
     switch (LOWORD(wParam))  {
     case IDOK:
         TRACE(" OK button was hit\n");
-        if (!PRINTDLG_UpdatePrintDlgA(hDlg, PrintStructures)) {
+        if (PRINTDLG_UpdatePrintDlgA(hDlg, PrintStructures)!=TRUE) {
 	    FIXME("Update printdlg was not successful!\n");
 	    return(FALSE);
 	}
@@ -1568,7 +1589,7 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
     switch (LOWORD(wParam))  {
     case IDOK:
         TRACE(" OK button was hit\n");
-        if (!PRINTDLG_UpdatePrintDlgW(hDlg, PrintStructures)) {
+        if (PRINTDLG_UpdatePrintDlgW(hDlg, PrintStructures)!=TRUE) {
 	    FIXME("Update printdlg was not successful!\n");
 	    return(FALSE);
 	}
@@ -2556,8 +2577,6 @@ static BOOL
 PRINTDLG_PS_WMCommandA(
     HWND hDlg, WPARAM wParam, LPARAM lParam, PageSetupDataA *pda
 ) {
-    TRACE("loword (lparam) %d, wparam 0x%x, lparam %08lx\n",
-	    LOWORD(lParam),wParam,lParam);
     switch (LOWORD(wParam))  {
     case IDOK:
         if (!PRINTDLG_PS_UpdateDlgStructA(hDlg, pda))
@@ -2577,6 +2596,9 @@ PRINTDLG_PS_WMCommandA(
 	return TRUE;
     }
     }
+    FIXME("loword (lparam) %d, wparam 0x%x, lparam %08lx, STUB mostly.\n",
+	    LOWORD(lParam),wParam,lParam
+    );
     return FALSE;
 }
 
@@ -2584,8 +2606,6 @@ static BOOL
 PRINTDLG_PS_WMCommandW(
     HWND hDlg, WPARAM wParam, LPARAM lParam, PageSetupDataW *pda
 ) {
-    TRACE("loword (lparam) %d, wparam 0x%x, lparam %08lx\n",
-	    LOWORD(lParam),wParam,lParam);
     switch (LOWORD(wParam))  {
     case IDOK:
         if (!PRINTDLG_PS_UpdateDlgStructW(hDlg, pda))
@@ -2605,113 +2625,12 @@ PRINTDLG_PS_WMCommandW(
 	return TRUE;
     }
     }
+    FIXME("loword (lparam) %d, wparam 0x%x, lparam %08lx, STUB mostly.\n",
+	    LOWORD(lParam),wParam,lParam
+    );
     return FALSE;
 }
 
-
-static LRESULT CALLBACK
-PagePaintProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    if (uMsg == WM_PAINT)
-    {
-        PAINTSTRUCT ps;
-        RECT rcClient;
-        HPEN hpen, holdpen;
-        HDC hdc;
-        HFONT hfont, holdfont;
-        LOGFONTW lf;
-        HBRUSH hbrush, holdbrush;
-        INT oldbkmode;
-
-        hdc = BeginPaint(hWnd, &ps);
-
-        GetClientRect(hWnd, &rcClient);
-
-        /* fill background */
-        hbrush = GetSysColorBrush(COLOR_3DHIGHLIGHT);
-        FillRect(hdc, &rcClient, hbrush);
-        holdbrush = SelectObject(hdc, hbrush);
-
-        hpen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_3DSHADOW));
-        holdpen = SelectObject(hdc, hpen);
-
-        /* paint left edge */
-        MoveToEx(hdc, rcClient.left, rcClient.top, NULL);
-        LineTo(hdc, rcClient.left, rcClient.bottom-1);
-
-        /* paint top edge */
-        MoveToEx(hdc, rcClient.left, rcClient.top, NULL);
-        LineTo(hdc, rcClient.right, rcClient.top);
-
-        hpen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_3DDKSHADOW));
-        DeleteObject(SelectObject(hdc, hpen));
-
-        /* paint right edge */
-        MoveToEx(hdc, rcClient.right-1, rcClient.top, NULL);
-        LineTo(hdc, rcClient.right-1, rcClient.bottom);
-
-        /* paint bottom edge */
-        MoveToEx(hdc, rcClient.left, rcClient.bottom-1, NULL);
-        LineTo(hdc, rcClient.right, rcClient.bottom-1);
-
-        hpen = CreatePen(PS_DASH, 1, GetSysColor(COLOR_3DSHADOW));
-        DeleteObject(SelectObject(hdc, hpen));
-
-        /* draw dashed rectangle showing margins */
-
-        /* FIXME: use real margin values */
-        rcClient.left += 5;
-        rcClient.top += 5;
-        rcClient.right -= 5;
-        rcClient.bottom -= 5;
-
-        /* if the space is too small then we make sure to not draw anything */
-        rcClient.left = min(rcClient.left,rcClient.right);
-        rcClient.top = min(rcClient.top,rcClient.bottom);
-
-        Rectangle(hdc, rcClient.left, rcClient.top, rcClient.right, rcClient.bottom);
-
-        DeleteObject(SelectObject(hdc, holdpen));
-
-        /* draw the fake document */
-
-        /* give text a bit of a space from the frame */
-        rcClient.left += 2;
-        rcClient.top += 2;
-        rcClient.right -= 2;
-        rcClient.bottom -= 2;
-
-        /* if the space is too small then we make sure to not draw anything */
-        rcClient.left = min(rcClient.left,rcClient.right);
-        rcClient.top = min(rcClient.top,rcClient.bottom);
-
-        /* select a nice scalable font, because we want the text really small */
-        SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(lf), &lf, 0);
-        lf.lfHeight = 6; /* value chosen based on visual effect */
-        hfont = CreateFontIndirectW(&lf);
-        holdfont = SelectObject(hdc, hfont);
-
-        /* if text not loaded, then do so now */
-        if (wszFakeDocumentText[0] == '\0')
-            LoadStringW(COMDLG32_hInstance,
-                        IDS_FAKEDOCTEXT,
-                        wszFakeDocumentText,
-                        sizeof(wszFakeDocumentText)/sizeof(wszFakeDocumentText[0]));
-
-        oldbkmode = SetBkMode(hdc, TRANSPARENT);
-        DrawTextW(hdc, wszFakeDocumentText, -1, &rcClient, DT_TOP|DT_LEFT|DT_NOPREFIX|DT_WORDBREAK);
-        SetBkMode(hdc, oldbkmode);
-
-        DeleteObject(SelectObject(hdc, holdfont));
-
-        SelectObject(hdc, holdbrush);
-
-        EndPaint(hWnd, &ps);
-        return 0;
-    }
-    else
-        return CallWindowProcW(lpfnStaticWndProc, hWnd, uMsg, wParam, lParam);
-}
 
 static INT_PTR CALLBACK
 PageDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -2720,10 +2639,6 @@ PageDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     INT_PTR		res = FALSE;
 
     if (uMsg==WM_INITDIALOG) {
-        lpfnStaticWndProc = (WNDPROC)SetWindowLongPtrW(
-            GetDlgItem(hDlg, rct1),
-            GWLP_WNDPROC,
-            (ULONG_PTR)PagePaintProc);
 	res = TRUE;
         pda = (PageSetupDataA*)lParam;
 	SetPropA(hDlg,"__WINE_PAGESETUPDLGDATA",pda);

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: cont.c,v 1.35 2004/10/22 20:38:22 ekohl Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/cont.c
  * PURPOSE:         Manages continuous memory
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -41,7 +42,7 @@ MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
 {
    PMEMORY_AREA MArea;
    NTSTATUS Status;
-   PVOID BaseAddress = NULL;
+   PVOID BaseAddress = 0;
    PFN_TYPE PBase;
    ULONG Attributes;
    ULONG i;
@@ -82,7 +83,8 @@ MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
    {
       MmLockAddressSpace(MmGetKernelAddressSpace());
       MmFreeMemoryArea(MmGetKernelAddressSpace(),
-                       MArea,
+                       BaseAddress,
+                       0,
                        NULL,
                        NULL);
       MmUnlockAddressSpace(MmGetKernelAddressSpace());
@@ -172,10 +174,11 @@ VOID STDCALL
 MmFreeContiguousMemory(IN PVOID BaseAddress)
 {
    MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryAreaByPtr(MmGetKernelAddressSpace(),
-                         BaseAddress,
-                         MmFreeContinuousPage,
-                         NULL);
+   MmFreeMemoryArea(MmGetKernelAddressSpace(),
+                    BaseAddress,
+                    0,
+                    MmFreeContinuousPage,
+                    NULL);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 }
 
@@ -257,10 +260,11 @@ MmFreeContiguousMemorySpecifyCache(IN PVOID BaseAddress,
                                    IN MEMORY_CACHING_TYPE CacheType)
 {
    MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryAreaByPtr(MmGetKernelAddressSpace(),
-                         BaseAddress,
-                         MmFreeContinuousPage,
-                         NULL);
+   MmFreeMemoryArea(MmGetKernelAddressSpace(),
+                    BaseAddress,
+                    NumberOfBytes,
+                    MmFreeContinuousPage,
+                    NULL);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 }
 

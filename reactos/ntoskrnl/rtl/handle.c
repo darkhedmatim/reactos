@@ -1,11 +1,10 @@
-/* $Id$
+/* $Id: handle.c,v 1.6 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/handle.c
- * PURPOSE:         Handle table
- * 
- * PROGRAMMERS:     Eric Kohl <ekohl@rz-online.de>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Handle table
+ * FILE:              lib/ntdll/rtl/handle.c
+ * PROGRAMER:         Eric Kohl <ekohl@rz-online.de>
  */
 
 /* INCLUDES ******************************************************************/

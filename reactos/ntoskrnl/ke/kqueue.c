@@ -1,11 +1,11 @@
-/* $Id:$
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PURPOSE:         ReactOS kernel
- * FILE:            ntoskrnl/ke/kqueue.c
- * PURPOSE:         Implement device queues
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+/*
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PURPOSE:              ReactOS kernel
+ * FILE:                 ntoskrnl/ke/kqueue.c
+ * PURPOSE:              Implement device queues
+ * PROGRAMMER:           David Welch (welch@mcmail.com)
+ * REVISION HISTORY:
+ *               08/07/98: Created
  */
 
 /* INCLUDES ****************************************************************/

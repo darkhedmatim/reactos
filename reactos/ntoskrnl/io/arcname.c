@@ -1,11 +1,28 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 2002 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: arcname.c,v 1.19 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/arcname.c
- * PURPOSE:         Creates ARC names for boot devices
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@rz-online.de)
+ * PURPOSE:         creates ARC names for boot devices
+ * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
  */
 
 
@@ -207,32 +224,32 @@ IopCheckCdromDevices(PULONG DeviceNumber)
 				 NULL,
 				 NULL);
 
-      Status = ZwOpenFile(&Handle,
+      Status = NtOpenFile(&Handle,
 			  FILE_ALL_ACCESS,
 			  &ObjectAttributes,
 			  &IoStatusBlock,
 			  0,
 			  0);
-      DPRINT("ZwOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
+      DPRINT("NtOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
       if (NT_SUCCESS(Status))
 	{
-	  Status = ZwQueryVolumeInformationFile(Handle,
+	  Status = NtQueryVolumeInformationFile(Handle,
 						&IoStatusBlock,
 						FileFsVolume,
 						FS_VOLUME_BUFFER_SIZE,
 						FileFsVolumeInformation);
-	  DPRINT("ZwQueryVolumeInformationFile()  Status %lx\n", Status);
+	  DPRINT("NtQueryVolumeInformationFile()  Status %lx\n", Status);
 	  if (NT_SUCCESS(Status))
 	    {
 	      DPRINT("VolumeLabel: '%S'\n", FileFsVolume->VolumeLabel);
 	      if (_wcsicmp(FileFsVolume->VolumeLabel, L"REACTOS") == 0)
 		{
-		  ZwClose(Handle);
+		  NtClose(Handle);
 		  *DeviceNumber = i;
 		  return(STATUS_SUCCESS);
 		}
 	    }
-	  ZwClose(Handle);
+	  NtClose(Handle);
 	}
 #endif
 
@@ -252,17 +269,17 @@ IopCheckCdromDevices(PULONG DeviceNumber)
 				 NULL,
 				 NULL);
 
-      Status = ZwOpenFile(&Handle,
+      Status = NtOpenFile(&Handle,
 			  FILE_ALL_ACCESS,
 			  &ObjectAttributes,
 			  &IoStatusBlock,
 			  0,
 			  0);
-      DPRINT("ZwOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
+      DPRINT("NtOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
       if (NT_SUCCESS(Status))
 	{
 	  DPRINT("Found ntoskrnl.exe on Cdrom%lu\n", i);
-	  ZwClose(Handle);
+	  NtClose(Handle);
 	  *DeviceNumber = i;
 	  return(STATUS_SUCCESS);
 	}
@@ -283,17 +300,17 @@ IopCheckCdromDevices(PULONG DeviceNumber)
 				 NULL,
 				 NULL);
 
-      Status = ZwOpenFile(&Handle,
+      Status = NtOpenFile(&Handle,
 			  FILE_ALL_ACCESS,
 			  &ObjectAttributes,
 			  &IoStatusBlock,
 			  0,
 			  0);
-      DPRINT("ZwOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
+      DPRINT("NtOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
       if (NT_SUCCESS(Status))
 	{
 	  DPRINT("Found ntoskrnl.exe on Cdrom%lu\n", i);
-	  ZwClose(Handle);
+	  NtClose(Handle);
 	  *DeviceNumber = i;
 	  return(STATUS_SUCCESS);
 	}
@@ -407,14 +424,14 @@ IoCreateSystemRootLink(PCHAR ParameterLine)
 			     NULL,
 			     NULL);
 
-  Status = ZwOpenSymbolicLinkObject(&Handle,
+  Status = NtOpenSymbolicLinkObject(&Handle,
 				    SYMBOLIC_LINK_ALL_ACCESS,
 				    &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     {
       RtlFreeUnicodeString(&BootPath);
       RtlFreeUnicodeString(&DeviceName);
-      CPRINT("ZwOpenSymbolicLinkObject() '%wZ' failed (Status %x)\n",
+      CPRINT("NtOpenSymbolicLinkObject() '%wZ' failed (Status %x)\n",
 	     &ArcName,
 	     Status);
       RtlFreeUnicodeString(&ArcName);
@@ -423,15 +440,15 @@ IoCreateSystemRootLink(PCHAR ParameterLine)
     }
   RtlFreeUnicodeString(&ArcName);
 
-  Status = ZwQuerySymbolicLinkObject(Handle,
+  Status = NtQuerySymbolicLinkObject(Handle,
 				     &DeviceName,
 				     &Length);
-  ZwClose (Handle);
+  NtClose (Handle);
   if (!NT_SUCCESS(Status))
     {
       RtlFreeUnicodeString(&BootPath);
       RtlFreeUnicodeString(&DeviceName);
-      CPRINT("ZwQuerySymbolicObject() failed (Status %x)\n",
+      CPRINT("NtQuerySymbolicObject() failed (Status %x)\n",
 	     Status);
 
       return(Status);
@@ -466,7 +483,7 @@ IoCreateSystemRootLink(PCHAR ParameterLine)
 			     NULL,
 			     NULL);
 
-  Status = ZwOpenFile(&Handle,
+  Status = NtOpenFile(&Handle,
 		      FILE_ALL_ACCESS,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
@@ -474,12 +491,12 @@ IoCreateSystemRootLink(PCHAR ParameterLine)
 		      0);
   if (!NT_SUCCESS(Status))
     {
-      CPRINT("ZwOpenFile() failed to open '\\SystemRoot' (Status %x)\n",
+      CPRINT("NtOpenFile() failed to open '\\SystemRoot' (Status %x)\n",
 	     Status);
       return(Status);
     }
 
-  ZwClose(Handle);
+  NtClose(Handle);
 
   return(STATUS_SUCCESS);
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: fcb.c,v 1.12 2004/11/24 11:02:15 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -155,11 +155,7 @@ NtfsReleaseFCB(PDEVICE_EXTENSION Vcb,
   if (Fcb->RefCount <= 0 && !NtfsFCBIsDirectory(Fcb))
     {
       RemoveEntryList(&Fcb->FcbListEntry);
-#ifdef USE_ROS_CC_AND_FS
       CcRosReleaseFileCache(Fcb->FileObject);
-#else
-      CcUninitializeCacheMap (Fcb->FileObject, NULL, NULL);
-#endif
       NtfsDestroyFCB(Fcb);
     }
   KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
@@ -239,13 +235,15 @@ NtfsFCBInitializeCache(PVCB Vcb,
   RtlZeroMemory(newCCB,
 		sizeof(CCB));
 
+  FileObject->Flags = FileObject->Flags | FO_FCB_IS_VALID |
+      FO_DIRECT_CACHE_PAGING_READ;
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
   newCCB->PtrFileObject = FileObject;
   Fcb->FileObject = FileObject;
   Fcb->DevExt = Vcb;
-#ifdef ROS_USE_CC_AND_FS
+
   Status = CcRosInitializeFileCache(FileObject,
 				    CACHEPAGESIZE(Vcb));
   if (!NT_SUCCESS(Status))
@@ -253,14 +251,7 @@ NtfsFCBInitializeCache(PVCB Vcb,
       DbgPrint("CcRosInitializeFileCache failed\n");
       KEBUGCHECK(0);
     }
-#else
-  Status = STATUS_SUCCESS;
-  CcInitializeCacheMap(FileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-                       FALSE,
-                       NULL,
-                       NULL);
-#endif
+
   ObDereferenceObject(FileObject);
   Fcb->Flags |= FCB_CACHE_INITIALIZED;
 
@@ -405,6 +396,7 @@ NtfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 			  PFCB Fcb,
 			  PFILE_OBJECT FileObject)
 {
+  NTSTATUS Status;
   PCCB  newCCB;
 
   newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(CCB), TAG_CCB);
@@ -414,6 +406,8 @@ NtfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
     }
   memset(newCCB, 0, sizeof(CCB));
 
+  FileObject->Flags = FileObject->Flags | FO_FCB_IS_VALID |
+      FO_DIRECT_CACHE_PAGING_READ;
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
@@ -422,8 +416,6 @@ NtfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 
   if (!(Fcb->Flags & FCB_CACHE_INITIALIZED))
     {
-#ifdef ROS_USE_CC_AND_FS
-      NTSTATUS Status;
       Status = CcRosInitializeFileCache(FileObject,
 					CACHEPAGESIZE(Vcb));
       if (!NT_SUCCESS(Status))
@@ -431,13 +423,6 @@ NtfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 	  DbgPrint("CcRosInitializeFileCache failed\n");
 	  KEBUGCHECK(0);
 	}
-#else
-  CcInitializeCacheMap(FileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-                       FALSE,
-                       NULL,
-                       NULL);
-#endif
       Fcb->Flags |= FCB_CACHE_INITIALIZED;
     }
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: regcontrol.h,v 1.8 2004/05/16 19:31:06 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32

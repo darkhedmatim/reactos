@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: generictable.c,v 1.1 2004/08/05 19:03:24 ion Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
@@ -28,7 +28,6 @@
 
 #define NDEBUG
 #include <debug.h>
-
 /* FUNCTIONS *****************************************************************/
 
 /*
@@ -178,27 +177,21 @@ RtlInitializeGenericTable (
 	UNIMPLEMENTED;
 }
 
-
 /*
- * @implemented
- */
-VOID STDCALL
-RtlInitializeGenericTableAvl(IN OUT PRTL_AVL_TABLE Table,
-                             IN PRTL_AVL_COMPARE_ROUTINE CompareRoutine,
-                             IN PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine,
-                             IN PRTL_AVL_FREE_ROUTINE FreeRoutine,
-                             IN PVOID TableContext)
+* @unimplemented
+*/
+VOID
+STDCALL
+RtlInitializeGenericTableAvl (
+	PRTL_AVL_TABLE Table,
+	PRTL_AVL_COMPARE_ROUTINE CompareRoutine,
+	PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine,
+	PRTL_AVL_FREE_ROUTINE FreeRoutine,
+	PVOID TableContext
+	)
 {
-  RtlZeroMemory(Table,
-                sizeof(RTL_AVL_TABLE));
-  Table->BalancedRoot.Parent = &Table->BalancedRoot;
-
-  Table->CompareRoutine = CompareRoutine;
-  Table->AllocateRoutine = AllocateRoutine;
-  Table->FreeRoutine = FreeRoutine;
-  Table->TableContext = TableContext;
+	UNIMPLEMENTED;
 }
-
 
 /*
 * @unimplemented
@@ -358,22 +351,29 @@ RtlLookupElementGenericTableFullAvl (
 
 
 /*
- * @implemented
- */
-ULONG STDCALL
-RtlNumberGenericTableElements(IN PRTL_GENERIC_TABLE Table)
+* @unimplemented
+*/
+ULONG
+STDCALL
+RtlNumberGenericTableElements(
+	PRTL_GENERIC_TABLE Table
+	)
 {
-  return Table->NumberGenericTableElements;
+	UNIMPLEMENTED;
+	return 0;
 }
 
-
 /*
- * @implemented
- */
-ULONG STDCALL
-RtlNumberGenericTableElementsAvl(IN PRTL_AVL_TABLE Table)
+* @unimplemented
+*/
+ULONG
+STDCALL
+RtlNumberGenericTableElementsAvl (
+	PRTL_AVL_TABLE Table
+	)
 {
-  return Table->NumberGenericTableElements;
+	UNIMPLEMENTED;
+	return 0;
 }
 
 /* EOF */

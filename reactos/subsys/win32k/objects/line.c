@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$ */
+/* $Id: line.c,v 1.38 2004/12/12 01:40:38 weiden Exp $ */
 #include <w32k.h>
 
 // Some code from the WINE project source (www.winehq.com)
@@ -110,7 +110,7 @@ IntGdiLineTo(DC  *dc,
                            Points[0].x, Points[0].y,
                            Points[1].x, Points[1].y,
                            &Bounds,
-                           ROP2_TO_MIX(dc->w.ROPmode));
+                           dc->w.ROPmode);
       }
 
       BITMAPOBJ_UnlockBitmap ( dc->w.hBitmap );
@@ -228,7 +228,7 @@ IntGdiPolyline(DC      *dc,
          IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
          Ret = IntEngPolyline(BitmapObj, dc->CombinedClip,
      			   &PenBrushInst.BrushObject, Points, Count,
-     			   ROP2_TO_MIX(dc->w.ROPmode));
+     			   dc->w.ROPmode);
 
          BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
          EngFreeMem(Points);

@@ -85,9 +85,9 @@ struct WebChildWndInfo : public FileChildWndInfo
 
 
  /// MDI child window displaying file lists
-struct FileChildWindow : public ExtContextMenuHandlerT<ChildWindow>
+struct FileChildWindow : public ChildWindow
 {
-	typedef ExtContextMenuHandlerT<ChildWindow> super;
+	typedef ChildWindow super;
 
 	FileChildWindow(HWND hwnd, const FileChildWndInfo& info);
 

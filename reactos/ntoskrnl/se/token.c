@@ -1,16 +1,23 @@
-/* $Id$
+/* $Id: token.c,v 1.45 2004/12/19 16:16:58 navaraf Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/token.c
- * PURPOSE:         Security manager
- * 
- * PROGRAMMERS:     David Welch <welch@cwcom.net>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              kernel/se/token.c
+ * PROGRAMER:         David Welch <welch@cwcom.net>
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/se.h>
+#include <internal/safe.h>
 
 #define NDEBUG
 #include <internal/debug.h>
@@ -23,6 +30,8 @@ static GENERIC_MAPPING SepTokenMapping = {TOKEN_READ,
 					  TOKEN_WRITE,
 					  TOKEN_EXECUTE,
 					  TOKEN_ALL_ACCESS};
+
+//#define SYSTEM_LUID                      0x3E7;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -38,13 +47,10 @@ NTSTATUS SepCopyProxyData(PVOID* Dest, PVOID Src)
 }
 
 NTSTATUS SeExchangePrimaryToken(PEPROCESS Process,
-				PACCESS_TOKEN NewTokenP,
+				PACCESS_TOKEN NewToken,
 				PACCESS_TOKEN* OldTokenP)
 {
-   PTOKEN OldToken;
-   PTOKEN NewToken = (PTOKEN)NewTokenP;
-   
-   PAGED_CODE();
+   PACCESS_TOKEN OldToken;
    
    if (NewToken->TokenType != TokenPrimary)
      {
@@ -62,7 +68,7 @@ NTSTATUS SeExchangePrimaryToken(PEPROCESS Process,
 			      SepTokenObjectType,
 			      KernelMode);
    OldToken->TokenInUse = 0;
-   *OldTokenP = (PACCESS_TOKEN)OldToken;
+   *OldTokenP = OldToken;
    return(STATUS_SUCCESS);
 }
 
@@ -72,8 +78,6 @@ RtlLengthSidAndAttributes(ULONG Count,
 {
   ULONG i;
   ULONG uLength;
-  
-  PAGED_CODE();
 
   uLength = Count * sizeof(SID_AND_ATTRIBUTES);
   for (i = 0; i < Count; i++)
@@ -84,7 +88,7 @@ RtlLengthSidAndAttributes(ULONG Count,
 
 
 NTSTATUS
-SepFindPrimaryGroupAndDefaultOwner(PTOKEN Token,
+SepFindPrimaryGroupAndDefaultOwner(PACCESS_TOKEN Token,
 				   PSID PrimaryGroup,
 				   PSID DefaultOwner)
 {
@@ -127,26 +131,28 @@ SepFindPrimaryGroupAndDefaultOwner(PTOKEN Token,
 
 
 NTSTATUS
-SepDuplicateToken(PTOKEN Token,
+SepDuplicateToken(PACCESS_TOKEN Token,
 		  POBJECT_ATTRIBUTES ObjectAttributes,
 		  BOOLEAN EffectiveOnly,
 		  TOKEN_TYPE TokenType,
 		  SECURITY_IMPERSONATION_LEVEL Level,
 		  KPROCESSOR_MODE PreviousMode,
-		  PTOKEN* NewAccessToken)
+		  PACCESS_TOKEN* NewAccessToken)
 {
+  NTSTATUS Status;
   ULONG uLength;
   ULONG i;
+  
   PVOID EndMem;
-  PTOKEN AccessToken;
-  NTSTATUS Status;
+
+  PACCESS_TOKEN AccessToken;
 
   Status = ObCreateObject(PreviousMode,
 			  SepTokenObjectType,
 			  ObjectAttributes,
 			  PreviousMode,
 			  NULL,
-			  sizeof(TOKEN),
+			  sizeof(ACCESS_TOKEN),
 			  0,
 			  0,
 			  (PVOID*)&AccessToken);
@@ -260,8 +266,8 @@ SepInitializeNewProcess(struct _EPROCESS* NewProcess,
 			struct _EPROCESS* ParentProcess)
 {
   NTSTATUS Status;
-  PTOKEN pNewToken;
-  PTOKEN pParentToken;
+  PACCESS_TOKEN pNewToken;
+  PACCESS_TOKEN pParentToken;
   
   OBJECT_ATTRIBUTES ObjectAttributes;
 
@@ -310,8 +316,6 @@ SeCopyClientToken(PACCESS_TOKEN Token,
 {
    NTSTATUS Status;
    OBJECT_ATTRIBUTES ObjectAttributes;
-   
-   PAGED_CODE();
      
    InitializeObjectAttributes(&ObjectAttributes,
 			      NULL,
@@ -324,8 +328,7 @@ SeCopyClientToken(PACCESS_TOKEN Token,
 				TokenImpersonation,
 				Level,
 				PreviousMode,
-			        (PTOKEN*)NewToken);
-   
+				NewToken);
    return(Status);
 }
 
@@ -345,8 +348,6 @@ SeCreateClientSecurity(IN struct _ETHREAD *Thread,
    PACCESS_TOKEN Token;
    ULONG g;
    PACCESS_TOKEN NewToken;
-   
-   PAGED_CODE();
    
    Token = PsReferenceEffectiveToken(Thread,
 				     &TokenType,
@@ -418,7 +419,7 @@ SeCreateClientSecurity(IN struct _ETHREAD *Thread,
   ClientContext->SecurityQos.ContextTrackingMode = Qos->ContextTrackingMode;
   ClientContext->SecurityQos.EffectiveOnly = Qos->EffectiveOnly;
   ClientContext->ServerIsRemote = RemoteClient;
-  ClientContext->ClientToken = NewToken;
+  ClientContext->Token = NewToken;
 
   return(STATUS_SUCCESS);
 }
@@ -493,8 +494,6 @@ SeImpersonateClient(IN PSECURITY_CLIENT_CONTEXT ClientContext,
 {
   UCHAR b;
   
-  PAGED_CODE();
-  
   if (ClientContext->DirectlyAccessClientToken == FALSE)
     {
       b = ClientContext->SecurityQos.EffectiveOnly;
@@ -508,7 +507,7 @@ SeImpersonateClient(IN PSECURITY_CLIENT_CONTEXT ClientContext,
       ServerThread = PsGetCurrentThread();
     }
   PsImpersonateClient(ServerThread,
-		      ClientContext->ClientToken,
+		      ClientContext->Token,
 		      1,
 		      (ULONG)b,
 		      ClientContext->SecurityQos.ImpersonationLevel);
@@ -518,7 +517,7 @@ SeImpersonateClient(IN PSECURITY_CLIENT_CONTEXT ClientContext,
 VOID STDCALL
 SepDeleteToken(PVOID ObjectBody)
 {
-  PTOKEN AccessToken = (PTOKEN)ObjectBody;
+  PACCESS_TOKEN AccessToken = (PACCESS_TOKEN)ObjectBody;
 
   if (AccessToken->UserAndGroups)
     ExFreePool(AccessToken->UserAndGroups);
@@ -537,12 +536,12 @@ SepInitializeTokenImplementation(VOID)
   SepTokenObjectType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
 
   SepTokenObjectType->Tag = TAG('T', 'O', 'K', 'T');
-  SepTokenObjectType->PeakObjects = 0;
-  SepTokenObjectType->PeakHandles = 0;
+  SepTokenObjectType->MaxObjects = ULONG_MAX;
+  SepTokenObjectType->MaxHandles = ULONG_MAX;
   SepTokenObjectType->TotalObjects = 0;
   SepTokenObjectType->TotalHandles = 0;
   SepTokenObjectType->PagedPoolCharge = 0;
-  SepTokenObjectType->NonpagedPoolCharge = sizeof(TOKEN);
+  SepTokenObjectType->NonpagedPoolCharge = sizeof(ACCESS_TOKEN);
   SepTokenObjectType->Mapping = &SepTokenMapping;
   SepTokenObjectType->Dump = NULL;
   SepTokenObjectType->Open = NULL;
@@ -555,8 +554,8 @@ SepInitializeTokenImplementation(VOID)
   SepTokenObjectType->Create = NULL;
   SepTokenObjectType->DuplicationNotify = NULL;
 
-  RtlpCreateUnicodeString(&SepTokenObjectType->TypeName,
-          L"Token", NonPagedPool);
+  RtlCreateUnicodeString(&SepTokenObjectType->TypeName,
+			 L"Token");
   ObpCreateTypeObject (SepTokenObjectType);
 }
 
@@ -574,13 +573,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
   NTSTATUS Status, LengthStatus;
   PVOID UnusedInfo;
   PVOID EndMem;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
   ULONG Length;
   PTOKEN_GROUPS PtrTokenGroups;
   PTOKEN_DEFAULT_DACL PtrDefaultDacl;
   PTOKEN_STATISTICS PtrTokenStatistics;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle(TokenHandle,
 				     (TokenInformationClass == TokenSource) ? TOKEN_QUERY_SOURCE : TOKEN_QUERY,
@@ -847,18 +844,8 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
 	break;
 
       case TokenSessionId:
-	DPRINT("NtQueryInformationToken(TokenSessionId)\n");
-	if (TokenInformationLength < sizeof(ULONG))
-	  {
-	    Length = sizeof(ULONG);
-	    Status = MmCopyToCaller(ReturnLength, &Length, sizeof(ULONG));
-	    if (NT_SUCCESS(Status))
-	      Status = STATUS_BUFFER_TOO_SMALL;
-	  }
-	else
-	  {
-	    Status = MmCopyToCaller(TokenInformation, &Token->SessionId, sizeof(ULONG));
-	  }
+	DPRINT1("NtQueryInformationToken(TokenSessionId) not implemented\n");
+	Status = STATUS_NOT_IMPLEMENTED;
 	break;
 
       default:
@@ -914,12 +901,10 @@ NtSetInformationToken(IN HANDLE TokenHandle,
 		      IN ULONG TokenInformationLength)
 {
   NTSTATUS Status;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
   TOKEN_OWNER TokenOwnerSet = { 0 };
   TOKEN_PRIMARY_GROUP TokenPrimaryGroupSet = { 0 };
   DWORD NeededAccess = 0;
-  
-  PAGED_CODE();
 
   switch (TokenInformationClass) 
     {
@@ -1041,7 +1026,6 @@ NtSetInformationToken(IN HANDLE TokenHandle,
  * NOTE: Some sources claim 4th param is ImpersonationLevel, but on W2K
  * this is certainly NOT true, thou i can't say for sure that EffectiveOnly
  * is correct either. -Gunnar
- * This is true. EffectiveOnly overrides SQOS.EffectiveOnly. - IAI
  */
 NTSTATUS STDCALL
 NtDuplicateToken(IN HANDLE ExistingTokenHandle,
@@ -1052,35 +1036,11 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
 		 OUT PHANDLE NewTokenHandle)
 {
   KPROCESSOR_MODE PreviousMode;
-  HANDLE hToken;
-  PTOKEN Token;
-  PTOKEN NewToken;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
+  PACCESS_TOKEN Token;
+  PACCESS_TOKEN NewToken;
+  NTSTATUS Status;
 
   PreviousMode = KeGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(NewTokenHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-  
   Status = ObReferenceObjectByHandle(ExistingTokenHandle,
 				     TOKEN_DUPLICATE,
 				     SepTokenObjectType,
@@ -1098,7 +1058,7 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
 			     EffectiveOnly,
 			     TokenType,
               ObjectAttributes->SecurityQualityOfService ? 
-                  ((PSECURITY_QUALITY_OF_SERVICE)(ObjectAttributes->SecurityQualityOfService))->ImpersonationLevel : 
+                  ObjectAttributes->SecurityQualityOfService->ImpersonationLevel : 
                   0 /*SecurityAnonymous*/,
 			     PreviousMode,
 			     &NewToken);
@@ -1116,24 +1076,17 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
 			  DesiredAccess,
 			  0,
 			  NULL,
-			  &hToken);
+			  NewTokenHandle);
 
   ObDereferenceObject(NewToken);
 
-  if (NT_SUCCESS(Status))
+  if (!NT_SUCCESS(Status))
     {
-      _SEH_TRY
-      {
-        *NewTokenHandle = hToken;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      DPRINT1("Failed to create token handle (Status %lx)\n");
+      return Status;
     }
 
-  return Status;
+  return STATUS_SUCCESS;
 }
 
 
@@ -1166,8 +1119,6 @@ NtAdjustGroupsToken(IN HANDLE TokenHandle,
    ULONG a;
    ULONG b;
    ULONG c;
-   
-   PAGED_CODE();
    
    Status = ObReferenceObjectByHandle(TokenHandle,
 				      ?,
@@ -1262,7 +1213,7 @@ NtAdjustPrivilegesToken (IN HANDLE TokenHandle,
 //  PLUID_AND_ATTRIBUTES Privileges;
   KPROCESSOR_MODE PreviousMode;
 //  ULONG PrivilegeCount;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
 //  ULONG Length;
   ULONG i;
   ULONG j;
@@ -1274,8 +1225,6 @@ NtAdjustPrivilegesToken (IN HANDLE TokenHandle,
    ULONG c;
 #endif
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT ("NtAdjustPrivilegesToken() called\n");
 
@@ -1414,7 +1363,7 @@ SepCreateSystemProcessToken(struct _EPROCESS* Process)
   ULONG uAuthUserLength    = RtlLengthSid(SeAuthenticatedUserSid);
   ULONG uAdminsLength      = RtlLengthSid(SeAliasAdminsSid);
 
-  PTOKEN AccessToken;
+  PACCESS_TOKEN AccessToken;
 
   PVOID SidArea;
 
@@ -1426,7 +1375,7 @@ SepCreateSystemProcessToken(struct _EPROCESS* Process)
 			  NULL,
 			  KernelMode,
 			  NULL,
-			  sizeof(TOKEN),
+			  sizeof(ACCESS_TOKEN),
 			  0,
 			  0,
 			  (PVOID*)&AccessToken);
@@ -1435,21 +1384,21 @@ SepCreateSystemProcessToken(struct _EPROCESS* Process)
       return(Status);
     }
 
-  Status = ExpAllocateLocallyUniqueId(&AccessToken->TokenId);
+  Status = NtAllocateLocallyUniqueId(&AccessToken->TokenId);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject(AccessToken);
       return(Status);
     }
 
-  Status = ExpAllocateLocallyUniqueId(&AccessToken->ModifiedId);
+  Status = NtAllocateLocallyUniqueId(&AccessToken->ModifiedId);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject(AccessToken);
       return(Status);
     }
 
-  Status = ExpAllocateLocallyUniqueId(&AccessToken->AuthenticationId);
+  Status = NtAllocateLocallyUniqueId(&AccessToken->AuthenticationId);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject(AccessToken);
@@ -1608,9 +1557,9 @@ SepCreateSystemProcessToken(struct _EPROCESS* Process)
 
 
 NTSTATUS STDCALL
-NtCreateToken(OUT PHANDLE TokenHandle,
+NtCreateToken(OUT PHANDLE UnsafeTokenHandle,
 	      IN ACCESS_MASK DesiredAccess,
-	      IN POBJECT_ATTRIBUTES ObjectAttributes,
+	      IN POBJECT_ATTRIBUTES UnsafeObjectAttributes,
 	      IN TOKEN_TYPE TokenType,
 	      IN PLUID AuthenticationId,
 	      IN PLARGE_INTEGER ExpirationTime,
@@ -1622,66 +1571,24 @@ NtCreateToken(OUT PHANDLE TokenHandle,
 	      IN PTOKEN_DEFAULT_DACL TokenDefaultDacl,
 	      IN PTOKEN_SOURCE TokenSource)
 {
-  HANDLE hToken;
-  PTOKEN AccessToken;
+  HANDLE TokenHandle;
+  PACCESS_TOKEN AccessToken;
+  NTSTATUS Status;
+  OBJECT_ATTRIBUTES SafeObjectAttributes;
+  POBJECT_ATTRIBUTES ObjectAttributes;
   LUID TokenId;
   LUID ModifiedId;
   PVOID EndMem;
   ULONG uLength;
   ULONG i;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(TokenHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-      ProbeForRead(AuthenticationId,
-                   sizeof(LUID),
-                   sizeof(ULONG));
-      ProbeForRead(ExpirationTime,
-                   sizeof(LARGE_INTEGER),
-                   sizeof(ULONG));
-      ProbeForRead(TokenUser,
-                   sizeof(TOKEN_USER),
-                   sizeof(ULONG));
-      ProbeForRead(TokenGroups,
-                   sizeof(TOKEN_GROUPS),
-                   sizeof(ULONG));
-      ProbeForRead(TokenPrivileges,
-                   sizeof(TOKEN_PRIVILEGES),
-                   sizeof(ULONG));
-      ProbeForRead(TokenOwner,
-                   sizeof(TOKEN_OWNER),
-                   sizeof(ULONG));
-      ProbeForRead(TokenPrimaryGroup,
-                   sizeof(TOKEN_PRIMARY_GROUP),
-                   sizeof(ULONG));
-      ProbeForRead(TokenDefaultDacl,
-                   sizeof(TOKEN_DEFAULT_DACL),
-                   sizeof(ULONG));
-      ProbeForRead(TokenSource,
-                   sizeof(TOKEN_SOURCE),
-                   sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
+
+  Status = MmCopyFromCaller(&SafeObjectAttributes,
+			    UnsafeObjectAttributes,
+			    sizeof(OBJECT_ATTRIBUTES));
+  if (!NT_SUCCESS(Status))
+    return(Status);
+
+  ObjectAttributes = &SafeObjectAttributes;
 
   Status = ZwAllocateLocallyUniqueId(&TokenId);
   if (!NT_SUCCESS(Status))
@@ -1691,12 +1598,12 @@ NtCreateToken(OUT PHANDLE TokenHandle,
   if (!NT_SUCCESS(Status))
     return(Status);
 
-  Status = ObCreateObject(PreviousMode,
+  Status = ObCreateObject(ExGetPreviousMode(),
 			  SepTokenObjectType,
 			  ObjectAttributes,
-			  PreviousMode,
+			  ExGetPreviousMode(),
 			  NULL,
-			  sizeof(TOKEN),
+			  sizeof(ACCESS_TOKEN),
 			  0,
 			  0,
 			  (PVOID*)&AccessToken);
@@ -1704,6 +1611,19 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     {
       DPRINT1("ObCreateObject() failed (Status %lx)\n");
       return(Status);
+    }
+
+  Status = ObInsertObject ((PVOID)AccessToken,
+			   NULL,
+			   DesiredAccess,
+			   0,
+			   NULL,
+			   &TokenHandle);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("ObInsertObject() failed (Status %lx)\n");
+      ObDereferenceObject (AccessToken);
+      return Status;
     }
 
   RtlCopyLuid(&AccessToken->TokenSource.SourceIdentifier,
@@ -1723,8 +1643,7 @@ NtCreateToken(OUT PHANDLE TokenHandle,
   AccessToken->Privileges        = 0;
 
   AccessToken->TokenType = TokenType;
-  AccessToken->ImpersonationLevel = ((PSECURITY_QUALITY_OF_SERVICE)
-                                     (ObjectAttributes->SecurityQualityOfService))->ImpersonationLevel;
+  AccessToken->ImpersonationLevel = ObjectAttributes->SecurityQualityOfService->ImpersonationLevel;
 
   /*
    * Normally we would just point these members into the variable information
@@ -1799,33 +1718,22 @@ NtCreateToken(OUT PHANDLE TokenHandle,
 	     TokenDefaultDacl->DefaultDacl->AclSize);
     }
 
-  Status = ObInsertObject ((PVOID)AccessToken,
-			   NULL,
-			   DesiredAccess,
-			   0,
-			   NULL,
-			   &hToken);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("ObInsertObject() failed (Status %lx)\n", Status);
-    }
-
   ObDereferenceObject(AccessToken);
 
   if (NT_SUCCESS(Status))
     {
-      _SEH_TRY
-      {
-        *TokenHandle = hToken;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      Status = MmCopyToCaller(UnsafeTokenHandle,
+			      &TokenHandle,
+			      sizeof(HANDLE));
     }
 
-  return Status;
+  if (!NT_SUCCESS(Status))
+    {
+      ZwClose(TokenHandle);
+      return(Status);
+    }
+
+  return(STATUS_SUCCESS);
 }
 
 
@@ -1836,9 +1744,8 @@ NTSTATUS STDCALL
 SeQueryAuthenticationIdToken(IN PACCESS_TOKEN Token,
 			     OUT PLUID LogonId)
 {
-  PAGED_CODE();
-  
-  *LogonId = ((PTOKEN)Token)->AuthenticationId;
+  LogonId->LowPart = Token->AuthenticationId.LowPart;
+  LogonId->HighPart = Token->AuthenticationId.HighPart;
 
   return STATUS_SUCCESS;
 }
@@ -1847,13 +1754,10 @@ SeQueryAuthenticationIdToken(IN PACCESS_TOKEN Token,
 /*
  * @implemented
  */
-SECURITY_IMPERSONATION_LEVEL
-STDCALL
+SECURITY_IMPERSONATION_LEVEL STDCALL
 SeTokenImpersonationLevel(IN PACCESS_TOKEN Token)
 {
-  PAGED_CODE();
-  
-  return ((PTOKEN)Token)->ImpersonationLevel;
+  return Token->ImpersonationLevel;
 }
 
 
@@ -1863,9 +1767,7 @@ SeTokenImpersonationLevel(IN PACCESS_TOKEN Token)
 TOKEN_TYPE STDCALL
 SeTokenType(IN PACCESS_TOKEN Token)
 {
-  PAGED_CODE();
-  
-  return ((PTOKEN)Token)->TokenType;
+  return Token->TokenType;
 }
 
 
@@ -1921,40 +1823,14 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
                     OUT PHANDLE TokenHandle)
 {
   PETHREAD Thread;
-  HANDLE hToken;
-  PTOKEN Token, NewToken, PrimaryToken;
+  PACCESS_TOKEN Token, NewToken, PrimaryToken;
   BOOLEAN CopyOnOpen, EffectiveOnly;
   SECURITY_IMPERSONATION_LEVEL ImpersonationLevel;
   SE_IMPERSONATION_STATE ImpersonationState;
   OBJECT_ATTRIBUTES ObjectAttributes;
   SECURITY_DESCRIPTOR SecurityDescriptor;
   PACL Dacl = NULL;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(TokenHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
+  NTSTATUS Status;
 
   /*
    * At first open the thread token for information access and verify
@@ -1962,7 +1838,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
    */
 
   Status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION,
-                                     PsThreadType, PreviousMode, (PVOID*)&Thread,
+                                     PsThreadType, UserMode, (PVOID*)&Thread,
                                      NULL);
   if (!NT_SUCCESS(Status))
     {
@@ -1997,7 +1873,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
   if (CopyOnOpen)
     {
       Status = ObReferenceObjectByHandle(ThreadHandle, THREAD_ALL_ACCESS,
-                                         PsThreadType, PreviousMode,
+                                         PsThreadType, UserMode,
                                          (PVOID*)&Thread, NULL);
       if (!NT_SUCCESS(Status))
         {
@@ -2046,7 +1922,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
         }
 
       Status = ObInsertObject(NewToken, NULL, DesiredAccess, 0, NULL,
-                              &hToken);
+                              TokenHandle);
 
       ObfDereferenceObject(NewToken);
     }
@@ -2054,7 +1930,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
     {
       Status = ObOpenObjectByPointer(Token, HandleAttributes,
                                      NULL, DesiredAccess, SepTokenObjectType,
-                                     PreviousMode, &hToken);
+                                     ExGetPreviousMode(), TokenHandle);
     }
 
   ObfDereferenceObject(Token);
@@ -2063,19 +1939,6 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
     {
       PsRestoreImpersonation(PsGetCurrentThread(), &ImpersonationState);
     }
-
-  if(NT_SUCCESS(Status))
-  {
-    _SEH_TRY
-    {
-      *TokenHandle = hToken;
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-  }
 
   return Status;
 }

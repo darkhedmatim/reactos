@@ -1,14 +1,35 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 2000, 1999, 1998 David Welch <welch@cwcom.net>,
+ *                                 Philip Susi <phreak@iag.net>,
+ *                                 Eric Kohl <ekohl@abo.rhein-zeitung.de>
+ *                                 Alex Ionescu <alex@relsoft.net>
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: dpc.c,v 1.49 2004/11/27 19:27:31 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/dpc.c
  * PURPOSE:         Handle DPCs (Delayed Procedure Calls)
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Philip Susi (phreak@iag.net)
- *                  Eric Kohl (ekohl@abo.rhein-zeitung.de)
- *                  Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                28/05/98: Created
+ *                12/3/99:  Phillip Susi: Fixed IRQL problem
+ *                12/11/04: Alex Ionescu - Major rewrite.
  */
 
 /*
@@ -172,7 +193,7 @@ KeInsertQueueDpc (PKDPC	Dpc,
 	//	KeLowerIrql(OldIrql);
 	//}
 
-#ifdef CONFIG_SMP
+#ifdef MP
 	/* Get the right PCR for this CPU */
 	if (Dpc->Number >= MAXIMUM_PROCESSORS) {
 		ASSERT (Dpc->Number - MAXIMUM_PROCESSORS < KeNumberProcessors);
@@ -188,9 +209,9 @@ KeInsertQueueDpc (PKDPC	Dpc,
 #endif
 
 	/* Get the DPC Data */
-	if (InterlockedCompareExchangeUL(&Dpc->DpcData, &Pcr->PrcbData.DpcData[0].DpcLock, 0)) {
+	if (InterlockedCompareExchange((LONG*)&Dpc->DpcData, (LONG)&Pcr->PrcbData.DpcData[0].DpcLock, 0)) {
 		DPRINT("DPC Already Inserted");
-#ifdef CONFIG_SMP
+#ifdef MP
 		KiReleaseSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 #endif
 		KeLowerIrql(OldIrql);
@@ -221,7 +242,7 @@ KeInsertQueueDpc (PKDPC	Dpc,
 	/* Make sure a DPC isn't executing already and respect rules outlined above. */
 	if ((!Pcr->PrcbData.DpcRoutineActive) && (!Pcr->PrcbData.DpcInterruptRequested)) {
 		
-#ifdef CONFIG_SMP	
+#ifdef MP	
 		/* Check if this is the same CPU */
 		if (Pcr != KeGetCurrentKPCR()) {
 			/* Send IPI if High Importance */
@@ -259,7 +280,7 @@ KeInsertQueueDpc (PKDPC	Dpc,
 		}
 #endif
 	}
-#ifdef CONFIG_SMP
+#ifdef MP
 	KiReleaseSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 #endif
 	/* Lower IRQL */	
@@ -288,7 +309,7 @@ KeRemoveQueueDpc (PKDPC	Dpc)
 	/* Raise IRQL */
 	DPRINT("Removing DPC: %x\n", Dpc);
 	KeRaiseIrql(HIGH_LEVEL, &OldIrql);
-#ifdef CONFIG_SMP
+#ifdef MP
 	KiAcquireSpinLock(&((PKDPC_DATA)Dpc->DpcData)->DpcLock);
 #endif
 	
@@ -301,7 +322,7 @@ KeRemoveQueueDpc (PKDPC	Dpc)
 		RemoveEntryList(&Dpc->DpcListEntry);
 
 	}
-#ifdef CONFIG_SMP
+#ifdef MP
         KiReleaseSpinLock(&((PKDPC_DATA)Dpc->DpcData)->DpcLock);
 #endif
 
@@ -390,7 +411,7 @@ KiQuantumEnd(VOID)
  *          Called when deleting a Driver.
  */
 {
-	PKPRCB Prcb;
+	KPRCB Prcb;
 	PKTHREAD CurrentThread;
 	KIRQL OldIrql;
 	PKPROCESS Process;
@@ -398,7 +419,7 @@ KiQuantumEnd(VOID)
 	KPRIORITY NewPriority;
 	
 	/* Lock dispatcher, get current thread */
-	Prcb = &KeGetCurrentKPCR()->PrcbData;
+	Prcb = KeGetCurrentKPCR()->PrcbData;
 	CurrentThread = KeGetCurrentThread();
 	OldIrql = KeRaiseIrqlToSynchLevel();
 	
@@ -406,8 +427,8 @@ KiQuantumEnd(VOID)
 	Process = CurrentThread->ApcState.Process;
 	
 	/* Set DPC Event if requested */
-	if (Prcb->DpcSetEventRequest) {
-		KeSetEvent(Prcb->DpcEvent, 0, 0);
+	if (Prcb.DpcSetEventRequest) {
+		KeSetEvent(Prcb.DpcEvent, 0, 0);
 	}
 	
 	/* Check if Quantum expired */
@@ -428,7 +449,7 @@ KiQuantumEnd(VOID)
 				CurrentThread->Priority = NewPriority;
 			} else {
 				/* Queue new thread if none is already */
-				if (Prcb->NextThread == NULL) {
+				if (Prcb.NextThread == NULL) {
 					/* FIXME: Schedule a New Thread, when ROS will have NT Scheduler */
 				} else {
 					/* Make the current thread non-premeptive if a new thread is queued */
@@ -473,7 +494,7 @@ KiDispatchInterrupt(VOID)
 	if (Pcr->PrcbData.DpcData[0].DpcQueueDepth > 0) {
 		/* Raise IRQL */
 		KeRaiseIrql(HIGH_LEVEL, &OldIrql);
-#ifdef CONFIG_SMP		
+#ifdef MP		
 		KiAcquireSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 #endif
 	        Pcr->PrcbData.DpcRoutineActive = TRUE;
@@ -490,7 +511,7 @@ KiDispatchInterrupt(VOID)
 			DPRINT("Dpc->DpcListEntry.Flink %x\n", Dpc->DpcListEntry.Flink);
 			Dpc->DpcData = NULL;
 			Pcr->PrcbData.DpcData[0].DpcQueueDepth--;
-#ifdef CONFIG_SMP
+#ifdef MP
 			KiReleaseSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 #endif
 			/* Disable/Enabled Interrupts and Call the DPC */
@@ -502,7 +523,7 @@ KiDispatchInterrupt(VOID)
 					     Dpc->SystemArgument2);
 			KeRaiseIrql(HIGH_LEVEL, &OldIrql);
 			
-#ifdef CONFIG_SMP
+#ifdef MP
 			KiAcquireSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 			/* 
 			 * If the dpc routine drops the irql below DISPATCH_LEVEL,
@@ -521,7 +542,7 @@ KiDispatchInterrupt(VOID)
 		/* Clear DPC Flags */
 		Pcr->PrcbData.DpcRoutineActive = FALSE;
 		Pcr->PrcbData.DpcInterruptRequested = FALSE;
-#ifdef CONFIG_SMP
+#ifdef MP
 		KiReleaseSpinLock(&Pcr->PrcbData.DpcData[0].DpcLock);
 #endif
 		

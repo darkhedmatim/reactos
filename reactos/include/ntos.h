@@ -1,6 +1,6 @@
 #ifndef _NTOS_H
 #define _NTOS_H
-/* $Id$ */
+/* $Id: ntos.h,v 1.21 2004/04/10 23:19:42 ekohl Exp $ */
 
 #if defined(NTOS_MODE_USER)
 /* 
@@ -20,6 +20,7 @@
 #include "ntos/gditypes.h"
 #include "ntos/fstypes.h"   /* AG */
 #include "ntos/heap.h"
+#include "ntos/kdbgsyms.h"
 #include "ntos/keyboard.h"
 #include "ntos/minmax.h"
 #include "ntos/mm.h"
@@ -60,6 +61,7 @@
 #include "ntos/file.h"
 #include "ntos/gditypes.h"
 #include "ntos/heap.h"
+#include "ntos/kdbgsyms.h"
 #include "ntos/keyboard.h"
 #include "ntos/minmax.h"
 #include "ntos/mm.h"

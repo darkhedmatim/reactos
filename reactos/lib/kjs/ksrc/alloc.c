@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/ksrc/alloc.c,v $
- * $Id$
+ * $Id: alloc.c,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 #include "ddk/ntddk.h"

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: echo.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
  *
  *  ECHO.C - internal echo commands.
  *

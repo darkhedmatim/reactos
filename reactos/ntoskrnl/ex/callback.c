@@ -1,17 +1,34 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: callback.c,v 1.13 2004/10/30 14:02:04 navaraf Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/callback.c
  * PURPOSE:         Executive callbacks
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  *                  Alex Ionescu (alex@relsoft.net)
- */
-
-
-/*
- * NOTE:            These funtions are not implemented in NT4, but
+ * PORTABILITY:     Checked.
+ * UPDATE HISTORY:
+ *                  Added all functions 30/05/04
+ *                  Created 22/05/98
+ * NOTE:
+ *                  These funtions are not implemented in NT4, but
  *                  they are implemented in Win2k.
  */
 
@@ -49,14 +66,14 @@ ExpInitializeCallbacks(VOID)
    ExCallbackObjectType = ExAllocatePoolWithTag(NonPagedPool, sizeof(OBJECT_TYPE), CALLBACK_TAG);
 
    /* Initialize name */
-   RtlInitUnicodeString(&ExCallbackObjectType->TypeName, L"Callback");
+   RtlRosInitUnicodeStringFromLiteral(&ExCallbackObjectType->TypeName,L"Callback");
 
    /* Create the Object Type */
    ExCallbackObjectType->Tag = CALLBACK_TAG;
    ExCallbackObjectType->TotalObjects = 0;
    ExCallbackObjectType->TotalHandles = 0;
-   ExCallbackObjectType->PeakObjects = 0;
-   ExCallbackObjectType->PeakHandles = 0;
+   ExCallbackObjectType->MaxObjects = 0xFFFFFFFF;
+   ExCallbackObjectType->MaxHandles = 0xFFFFFFFF;
    ExCallbackObjectType->PagedPoolCharge = 0;
    ExCallbackObjectType->Dump = NULL;
    ExCallbackObjectType->Open = NULL;
@@ -171,8 +188,6 @@ ExCreateCallback(
    PINT_CALLBACK_OBJECT Callback;
    NTSTATUS    Status;
    HANDLE     Handle;
-   
-   PAGED_CODE();
 
    /* Open a handle to the callback if it exists */
    if (ObjectAttributes->ObjectName)
@@ -348,8 +363,6 @@ ExRegisterCallback(
    PINT_CALLBACK_OBJECT CallbackObject = (PINT_CALLBACK_OBJECT)OpaqueCallbackObject;
    PCALLBACK_REGISTRATION  CallbackRegistration = NULL;
    KIRQL     OldIrql;
-   
-   PAGED_CODE();
 
    /* Create reference to Callback Object */
    ObReferenceObject (CallbackObject);
@@ -415,8 +428,6 @@ ExUnregisterCallback(
    PCALLBACK_REGISTRATION  CallbackRegistration;
    PINT_CALLBACK_OBJECT    CallbackObject;
    KIRQL                   OldIrql;
-   
-   PAGED_CODE();
 
    /* Convert Handle to valid Structure Pointer */
    CallbackRegistration = (PCALLBACK_REGISTRATION) CallbackRegistrationHandle;

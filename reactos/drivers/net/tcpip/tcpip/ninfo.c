@@ -121,7 +121,7 @@ TDI_STATUS InfoTdiQueryGetRouteTable( PNDIS_BUFFER Buffer, PUINT BufferSize ) {
 		 EntityList[RtCurrent->Index - 1].context;
 	     RtCurrent->Index-- );
 	
-        RtCurrent->Index = EntityList[RtCurrent->Index - 1].tei_instance;
+	RtCurrent->Index = EntityList[RtCurrent->Index].tei_instance;
 	TcpipReleaseSpinLock(&EntityListLock, OldIrql);
 	
 	RtCurrent++; RCacheCur++;
@@ -220,7 +220,7 @@ TDI_STATUS InfoNetworkLayerTdiSetEx( UINT InfoClass,
 
     TI_DbgPrint(MID_TRACE,("Called\n"));
 
-    OskitDumpBuffer( (OSK_PCHAR)Buffer, BufferSize );
+    OskitDumpBuffer( Buffer, BufferSize );
 
     if( InfoClass == INFO_CLASS_PROTOCOL &&
 	InfoType == INFO_TYPE_PROVIDER &&

@@ -18,6 +18,8 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+; DON'T USE THE "cpu" DIRECTIVE BECAUSE NASM 0.98 DOESN'T SUPPORT IT
+; cpu 486
 segment .text use32
 
 ; Note: the undecorated names are for Borland C++ (and possibly other compilers
@@ -59,27 +61,6 @@ __SEHLongJmp@8:
  ; restore the saved context
  mov ebp, [ecx+0]
  mov esp, [ecx+4]
- mov edx, [ecx+8]
- mov ebx, [ecx+12]
- mov esi, [ecx+16]
- mov edi, [ecx+20]
- jmp edx
-
-
-global SEHLongJmp_KeepEsp
-global __SEHLongJmp_KeepEsp@8
-SEHLongJmp_KeepEsp:
-__SEHLongJmp_KeepEsp@8:
- ; return value
- mov eax, [esp+8]
-
- ; jump buffer
- mov ecx, [esp+4]
-
- ; restore the saved context
- mov ebp, [ecx+0]
-; don't restore esp 
-; mov esp, [ecx+4]
  mov edx, [ecx+8]
  mov ebx, [ecx+12]
  mov esi, [ecx+16]

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: iomgr.c,v 1.54 2004/11/21 21:53:07 ion Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/iomgr.c
- * PURPOSE:         Initializes the io manager
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PROJECT:              ReactOS kernel
+ * FILE:                 ntoskrnl/io/iomgr.c
+ * PURPOSE:              Initializes the io manager
+ * PROGRAMMER:           David Welch (welch@mcmail.com)
+ * REVISION HISTORY:
+ *             29/07/98: Created
  */
 
 /* INCLUDES ****************************************************************/
@@ -105,24 +106,15 @@ IopDeleteFile(PVOID ObjectBody)
 			        UserMode);
 #endif   
      KeResetEvent( &FileObject->Event );
-
-     Irp = IoAllocateIrp(FileObject->DeviceObject->StackSize, TRUE);
-     if (Irp == NULL)
-     {
-        /*
-         * FIXME: This case should eventually be handled. We should wait
-         * until enough memory is available to allocate the IRP.
-         */
-        ASSERT(FALSE);
-     }
-   
-     Irp->UserEvent = &FileObject->Event;
-     Irp->Tail.Overlay.Thread = PsGetCurrentThread();
+     Irp = IoBuildSynchronousFsdRequest(IRP_MJ_CLOSE,
+				        FileObject->DeviceObject,
+				        NULL,
+				        0,
+				        NULL,
+				        &FileObject->Event,
+				        NULL);
      Irp->Flags |= IRP_CLOSE_OPERATION;
-   
      StackPtr = IoGetNextIrpStackLocation(Irp);
-     StackPtr->MajorFunction = IRP_MJ_CLOSE;
-     StackPtr->DeviceObject = FileObject->DeviceObject;
      StackPtr->FileObject = FileObject;
    
      Status = IoCallDriver(FileObject->DeviceObject, Irp);
@@ -403,8 +395,8 @@ IoInit (VOID)
   IoDeviceObjectType->Tag = TAG_DEVICE_TYPE;
   IoDeviceObjectType->TotalObjects = 0;
   IoDeviceObjectType->TotalHandles = 0;
-  IoDeviceObjectType->PeakObjects = 0;
-  IoDeviceObjectType->PeakHandles = 0;
+  IoDeviceObjectType->MaxObjects = ULONG_MAX;
+  IoDeviceObjectType->MaxHandles = ULONG_MAX;
   IoDeviceObjectType->PagedPoolCharge = 0;
   IoDeviceObjectType->NonpagedPoolCharge = sizeof (DEVICE_OBJECT);
   IoDeviceObjectType->Mapping = &IopFileMapping;
@@ -419,7 +411,7 @@ IoInit (VOID)
   IoDeviceObjectType->Create = IopCreateDevice;
   IoDeviceObjectType->DuplicationNotify = NULL;
   
-  RtlInitUnicodeString(&IoDeviceObjectType->TypeName, L"Device");
+  RtlRosInitUnicodeStringFromLiteral(&IoDeviceObjectType->TypeName, L"Device");
 
   ObpCreateTypeObject(IoDeviceObjectType);
 
@@ -432,8 +424,8 @@ IoInit (VOID)
   IoFileObjectType->Tag = TAG_FILE_TYPE;
   IoFileObjectType->TotalObjects = 0;
   IoFileObjectType->TotalHandles = 0;
-  IoFileObjectType->PeakObjects = 0;
-  IoFileObjectType->PeakHandles = 0;
+  IoFileObjectType->MaxObjects = ULONG_MAX;
+  IoFileObjectType->MaxHandles = ULONG_MAX;
   IoFileObjectType->PagedPoolCharge = 0;
   IoFileObjectType->NonpagedPoolCharge = sizeof(FILE_OBJECT);
   IoFileObjectType->Mapping = &IopFileMapping;
@@ -448,7 +440,7 @@ IoInit (VOID)
   IoFileObjectType->Create = IopCreateFile;
   IoFileObjectType->DuplicationNotify = NULL;
   
-  RtlInitUnicodeString(&IoFileObjectType->TypeName, L"File");
+  RtlRosInitUnicodeStringFromLiteral(&IoFileObjectType->TypeName, L"File");
 
   ObpCreateTypeObject(IoFileObjectType);
   
@@ -459,10 +451,10 @@ IoInit (VOID)
 				       sizeof (OBJECT_TYPE));
   RtlZeroMemory(IoAdapterObjectType, sizeof(OBJECT_TYPE));
   IoAdapterObjectType->Tag = TAG_ADAPTER_TYPE;
-  IoAdapterObjectType->PeakObjects = 0;
-  IoAdapterObjectType->PeakHandles = 0;
+  IoAdapterObjectType->MaxObjects = ULONG_MAX;
+  IoAdapterObjectType->MaxHandles = ULONG_MAX;
   IoDeviceObjectType->Mapping = &IopFileMapping;
-  RtlInitUnicodeString(&IoAdapterObjectType->TypeName, L"Adapter");
+  RtlRosInitUnicodeStringFromLiteral(&IoAdapterObjectType->TypeName, L"Adapter");
   ObpCreateTypeObject(IoAdapterObjectType);
 
   /*
@@ -474,7 +466,7 @@ IoInit (VOID)
 			     0,
 			     NULL,
 			     NULL);
-  ZwCreateDirectoryObject(&Handle,
+  NtCreateDirectoryObject(&Handle,
 			  0,
 			  &ObjectAttributes);
 
@@ -488,7 +480,7 @@ IoInit (VOID)
 			     0,
 			     NULL,
 			     NULL);
-  ZwCreateDirectoryObject(&Handle,
+  NtCreateDirectoryObject(&Handle,
 			  0,
 			  &ObjectAttributes);
 
@@ -543,7 +535,6 @@ IoInit (VOID)
   IoInitShutdownNotification();
   IopInitErrorLog();
   IopInitTimerImplementation();
-  IopInitIoCompletionImplementation();
 
   /*
    * Create link from '\DosDevices' to '\??' directory

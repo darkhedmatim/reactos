@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ipi_mp.c,v 1.1 2004/12/03 20:10:44 gvg Exp $
  *
  * COPYRIGHT:             See COPYING in the top level directory
  * PROJECT:               ReactOS kernel

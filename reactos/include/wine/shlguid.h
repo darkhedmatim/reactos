@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: shlguid.h,v 1.6 2004/09/21 19:34:21 gvg Exp $
  *
  * Compatibility header
  *

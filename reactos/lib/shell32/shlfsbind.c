@@ -33,6 +33,7 @@
 #include "shlobj.h"
 #include "shell32_main.h"
 
+#include "debughlp.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(pidl);
@@ -179,26 +180,22 @@ static HRESULT WINAPI IFileSystemBindData_fnQueryInterface(IFileSystemBindData *
 static ULONG WINAPI IFileSystemBindData_fnAddRef(IFileSystemBindData *iface)
 {
 	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
-	ULONG refCount = InterlockedIncrement(&This->ref);
-
-	TRACE("(%p)->(count=%li)\n", This, refCount - 1);
-
-	return refCount;
+	TRACE("(%p)\n", This);
+	return InterlockedIncrement(&This->ref);
 }
 
 static ULONG WINAPI IFileSystemBindData_fnRelease(IFileSystemBindData *iface)
 {
 	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
-	ULONG refCount = InterlockedDecrement(&This->ref);
-	
-	TRACE("(%p)->(count=%li)\n", This, refCount + 1);
+	TRACE("(%p)\n", This);
 
-	if (!refCount)
+	if (!InterlockedDecrement(&This->ref))
 	{
 	  TRACE(" destroying ISFBindPidl(%p)\n",This);
 	  HeapFree(GetProcessHeap(), 0, This);
+	  return 0;
 	}
-	return refCount;
+	return This->ref;
 }
 
 static HRESULT WINAPI IFileSystemBindData_fnGetFindData(IFileSystemBindData *iface, WIN32_FIND_DATAW *pfd)

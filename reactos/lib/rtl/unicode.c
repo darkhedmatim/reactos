@@ -2195,14 +2195,11 @@ RtlCopyString(
       return;
    }
 
-   copylen = min (DestinationString->MaximumLength,
+   copylen = min (DestinationString->MaximumLength - sizeof(CHAR),
                   SourceString->Length);
 
    memcpy(DestinationString->Buffer, SourceString->Buffer, copylen);
-   if (DestinationString->MaximumLength >= copylen + sizeof(CHAR))
-   {
-      DestinationString->Buffer[copylen] = 0;
-   }
+   DestinationString->Buffer[copylen] = 0;
    DestinationString->Length = copylen;
 }
 
@@ -2225,13 +2222,10 @@ RtlCopyUnicodeString(
       return;
    }
 
-   copylen = min (DestinationString->MaximumLength,
+   copylen = min (DestinationString->MaximumLength - sizeof(WCHAR),
                   SourceString->Length);
    memcpy(DestinationString->Buffer, SourceString->Buffer, copylen);
-   if (DestinationString->MaximumLength >= copylen + sizeof(WCHAR))
-   {
-     DestinationString->Buffer[copylen / sizeof(WCHAR)] = 0;
-   }
+   DestinationString->Buffer[copylen / sizeof(WCHAR)] = 0;
    DestinationString->Length = copylen;
 }
 
@@ -2246,7 +2240,7 @@ BOOLEAN
 STDCALL
 RtlCreateUnicodeString(
    IN OUT PUNICODE_STRING UniDest,
-   IN PCWSTR  Source)
+   IN PWSTR  Source)
 {
 
    DPRINT("RtlCreateUnicodeString\n");
@@ -2261,7 +2255,7 @@ BOOLEAN
 FASTCALL
 RtlpCreateUnicodeString(
    IN OUT PUNICODE_STRING UniDest,
-   IN PCWSTR  Source,
+   IN PWSTR  Source,
    IN POOL_TYPE PoolType)
 {
    ULONG Length;
@@ -2398,7 +2392,7 @@ RtlpDowncaseUnicodeString(
  */
 NTSTATUS STDCALL
 RtlAppendUnicodeToString(IN OUT PUNICODE_STRING Destination,
-                         IN PCWSTR Source)
+                         IN PWSTR Source)
 {
    ULONG slen;
 

@@ -1,11 +1,27 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/anonmem.c
- * PURPOSE:         Implementing anonymous memory.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
  *
- * PROGRAMMERS:     David Welch
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: anonmem.c,v 1.34 2004/12/19 16:16:57 navaraf Exp $
+ *
+ * PROJECT:     ReactOS kernel
+ * FILE:        ntoskrnl/mm/anonmem.c
+ * PURPOSE:     Implementing anonymous memory.
+ * PROGRAMMER:  David Welch
  */
 
 /* INCLUDE *****************************************************************/
@@ -245,7 +261,7 @@ MmNotPresentFaultVirtualMemory(PMADDRESS_SPACE AddressSpace,
    /*
     * Get the segment corresponding to the virtual address
     */
-   Region = MmFindRegion(MemoryArea->StartingAddress,
+   Region = MmFindRegion(MemoryArea->BaseAddress,
                          &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                          Address, NULL);
    if (Region->Type == MEM_RESERVE || Region->Protect == PAGE_NOACCESS)
@@ -256,7 +272,7 @@ MmNotPresentFaultVirtualMemory(PMADDRESS_SPACE AddressSpace,
    /*
     * Get or create a page operation
     */
-   PageOp = MmGetPageOp(MemoryArea, MemoryArea->Process->UniqueProcessId,
+   PageOp = MmGetPageOp(MemoryArea, (ULONG)MemoryArea->Process->UniqueProcessId,
                         (PVOID)PAGE_ROUND_DOWN(Address), NULL, 0,
                         MM_PAGEOP_PAGEIN, FALSE);
    if (PageOp == NULL)
@@ -509,7 +525,6 @@ NtAllocateVirtualMemory(IN HANDLE ProcessHandle,
 {
    PEPROCESS Process;
    MEMORY_AREA* MemoryArea;
-   ULONG_PTR MemoryAreaLength;
    ULONG Type;
    NTSTATUS Status;
    PMADDRESS_SPACE AddressSpace;
@@ -564,45 +579,42 @@ NtAllocateVirtualMemory(IN HANDLE ProcessHandle,
 
    if (PBaseAddress != 0)
    {
-      MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, BaseAddress);
+      MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
+                                             BaseAddress);
 
-      if (MemoryArea != NULL)
+      if (MemoryArea != NULL &&
+            MemoryArea->Type == MEMORY_AREA_VIRTUAL_MEMORY &&
+            MemoryArea->Length >= RegionSize)
       {
-         MemoryAreaLength = (ULONG_PTR)MemoryArea->EndingAddress -
-                            (ULONG_PTR)MemoryArea->StartingAddress;
-         if (MemoryArea->Type == MEMORY_AREA_VIRTUAL_MEMORY &&
-             MemoryAreaLength >= RegionSize)
-         {
-            Status =
-               MmAlterRegion(AddressSpace,
-                             MemoryArea->StartingAddress,
-                             &MemoryArea->Data.VirtualMemoryData.RegionListHead,
-                             BaseAddress, RegionSize,
-                             Type, Protect, MmModifyAttributes);
-            MmUnlockAddressSpace(AddressSpace);
-            ObDereferenceObject(Process);
-            DPRINT("NtAllocateVirtualMemory() = %x\n",Status);
-            return(Status);
-         }
-         else if (MemoryAreaLength >= RegionSize)
-         {
-            Status =
-               MmAlterRegion(AddressSpace,
-                             MemoryArea->StartingAddress,
-                             &MemoryArea->Data.SectionData.RegionListHead,
-                             BaseAddress, RegionSize,
-                             Type, Protect, MmModifyAttributes);
-            MmUnlockAddressSpace(AddressSpace);
-            ObDereferenceObject(Process);
-            DPRINT("NtAllocateVirtualMemory() = %x\n",Status);
-            return(Status);
-         }
-         else
-         {
-            MmUnlockAddressSpace(AddressSpace);
-            ObDereferenceObject(Process);
-            return(STATUS_UNSUCCESSFUL);
-         }
+         Status =
+            MmAlterRegion(AddressSpace,
+                          MemoryArea->BaseAddress,
+                          &MemoryArea->Data.VirtualMemoryData.RegionListHead,
+                          BaseAddress, RegionSize,
+                          Type, Protect, MmModifyAttributes);
+         MmUnlockAddressSpace(AddressSpace);
+         ObDereferenceObject(Process);
+         DPRINT("NtAllocateVirtualMemory() = %x\n",Status);
+         return(Status);
+      }
+      else if (MemoryArea != NULL && MemoryArea->Length >= RegionSize)
+      {
+         Status =
+            MmAlterRegion(AddressSpace,
+                          MemoryArea->BaseAddress,
+                          &MemoryArea->Data.SectionData.RegionListHead,
+                          BaseAddress, RegionSize,
+                          Type, Protect, MmModifyAttributes);
+         MmUnlockAddressSpace(AddressSpace);
+         ObDereferenceObject(Process);
+         DPRINT("NtAllocateVirtualMemory() = %x\n",Status);
+         return(Status);
+      }
+      else if (MemoryArea != NULL)
+      {
+         MmUnlockAddressSpace(AddressSpace);
+         ObDereferenceObject(Process);
+         return(STATUS_UNSUCCESSFUL);
       }
    }
 
@@ -614,7 +626,7 @@ NtAllocateVirtualMemory(IN HANDLE ProcessHandle,
                                Protect,
                                &MemoryArea,
                                PBaseAddress != 0,
-                               (AllocationType & MEM_TOP_DOWN) == MEM_TOP_DOWN,
+                               (AllocationType & MEM_TOP_DOWN),
                                BoundaryAddressMultiple);
    if (!NT_SUCCESS(Status))
    {
@@ -623,22 +635,18 @@ NtAllocateVirtualMemory(IN HANDLE ProcessHandle,
       DPRINT("NtAllocateVirtualMemory() = %x\n",Status);
       return(Status);
    }
-
-   MemoryAreaLength = (ULONG_PTR)MemoryArea->EndingAddress -
-                      (ULONG_PTR)MemoryArea->StartingAddress;
-   
    MmInitialiseRegion(&MemoryArea->Data.VirtualMemoryData.RegionListHead,
-                      MemoryAreaLength, Type, Protect);
+                      MemoryArea->Length, Type, Protect);
 
    if ((AllocationType & MEM_COMMIT) &&
          ((Protect & PAGE_READWRITE) ||
           (Protect & PAGE_EXECUTE_READWRITE)))
    {
-      MmReserveSwapPages(MemoryAreaLength);
+      MmReserveSwapPages(MemoryArea->Length);
    }
 
    *UBaseAddress = BaseAddress;
-   *URegionSize = MemoryAreaLength;
+   *URegionSize = MemoryArea->Length;
    DPRINT("*UBaseAddress %x  *URegionSize %x\n", BaseAddress, RegionSize);
 
    MmUnlockAddressSpace(AddressSpace);
@@ -694,11 +702,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
     */
    if (MemoryArea->PageOpCount > 0)
    {
-      ULONG_PTR MemoryAreaLength = (ULONG_PTR)MemoryArea->EndingAddress -
-                                   (ULONG_PTR)MemoryArea->StartingAddress;
-
-      /* FiN TODO: Optimize loop counter! */
-      for (i = 0; i < PAGE_ROUND_UP(MemoryAreaLength) / PAGE_SIZE; i++)
+      for (i = 0; i < PAGE_ROUND_UP(MemoryArea->Length) / PAGE_SIZE; i++)
       {
          PMM_PAGEOP PageOp;
 
@@ -708,7 +712,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
          }
 
          PageOp = MmCheckForPageOp(MemoryArea, Process->UniqueProcessId,
-                                   (PVOID)((ULONG_PTR)MemoryArea->StartingAddress + (i * PAGE_SIZE)),
+                                   (char*)MemoryArea->BaseAddress + (i * PAGE_SIZE),
                                    NULL, 0);
          if (PageOp != NULL)
          {
@@ -741,7 +745,8 @@ MmFreeVirtualMemory(PEPROCESS Process,
 
    /* Actually free the memory area. */
    MmFreeMemoryArea(&Process->AddressSpace,
-                    MemoryArea,
+                    MemoryArea->BaseAddress,
+                    0,
                     MmFreeVirtualMemoryPage,
                     (PVOID)Process);
 }
@@ -796,7 +801,8 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
    AddressSpace = &Process->AddressSpace;
 
    MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, BaseAddress);
+   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
+                                          BaseAddress);
    if (MemoryArea == NULL)
    {
       MmUnlockAddressSpace(AddressSpace);
@@ -808,7 +814,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
    {
       case MEM_RELEASE:
          /* We can only free a memory area in one step. */
-         if (MemoryArea->StartingAddress != BaseAddress ||
+         if (MemoryArea->BaseAddress != BaseAddress ||
              MemoryArea->Type != MEMORY_AREA_VIRTUAL_MEMORY)
          {
             MmUnlockAddressSpace(AddressSpace);
@@ -823,7 +829,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
       case MEM_DECOMMIT:
          Status =
             MmAlterRegion(AddressSpace,
-                          MemoryArea->StartingAddress,
+                          MemoryArea->BaseAddress,
                           &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                           BaseAddress,
                           RegionSize,
@@ -850,11 +856,11 @@ MmProtectAnonMem(PMADDRESS_SPACE AddressSpace,
    PMM_REGION Region;
    NTSTATUS Status;
 
-   Region = MmFindRegion(MemoryArea->StartingAddress,
+   Region = MmFindRegion(MemoryArea->BaseAddress,
                          &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                          BaseAddress, NULL);
    *OldProtect = Region->Protect;
-   Status = MmAlterRegion(AddressSpace, MemoryArea->StartingAddress,
+   Status = MmAlterRegion(AddressSpace, MemoryArea->BaseAddress,
                           &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                           BaseAddress, Length, Region->Type, Protect,
                           MmModifyAttributes);
@@ -872,11 +878,11 @@ MmQueryAnonMem(PMEMORY_AREA MemoryArea,
 
    Info->BaseAddress = (PVOID)PAGE_ROUND_DOWN(Address);
 
-   Region = MmFindRegion(MemoryArea->StartingAddress,
+   Region = MmFindRegion(MemoryArea->BaseAddress,
                          &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                          Address, &RegionBase);
    Info->BaseAddress = RegionBase;
-   Info->AllocationBase = MemoryArea->StartingAddress;
+   Info->AllocationBase = MemoryArea->BaseAddress;
    Info->AllocationProtect = MemoryArea->Attributes;
    Info->RegionSize = (char*)RegionBase + Region->Length - (char*)Info->BaseAddress;
    Info->State = Region->Type;

@@ -151,12 +151,11 @@ static UINT UPDATE_get_column_info( struct tagMSIVIEW *view,
     return wv->ops->get_column_info( wv, n, name, type );
 }
 
-static UINT UPDATE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                MSIRECORD *rec )
+static UINT UPDATE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIHANDLE hrec)
 {
     MSIUPDATEVIEW *uv = (MSIUPDATEVIEW*)view;
 
-    TRACE("%p %d %p\n", uv, eModifyMode, rec );
+    TRACE("%p %d %ld\n", uv, eModifyMode, hrec );
 
     return ERROR_FUNCTION_FAILED;
 }

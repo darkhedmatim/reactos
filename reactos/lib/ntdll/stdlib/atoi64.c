@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: atoi64.c,v 1.5 2004/07/03 17:40:23 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: create.c,v 1.91 2004/12/18 13:26:57 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include <pseh/framebased.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -1011,40 +1010,6 @@ CreateProcessW
 	         lpProcessInformation);
    }
 /////////////////////////////////////////
-
-   /*
-    * Get some information about the executable
-    */
-   Status = ZwQuerySection(hSection,
-			   SectionImageInformation,
-			   &Sii,
-			   sizeof(Sii),
-			   &i);
-   if (! NT_SUCCESS(Status))
-   {
-     NtClose(hSection);
-     DPRINT("Unable to get SectionImageInformation, status 0x%x\n", Status);
-     SetLastErrorByStatus(Status);
-     return FALSE;
-   }
-
-   if (0 != (Sii.Characteristics & IMAGE_FILE_DLL))
-   {
-     NtClose(hSection);
-     DPRINT("Can't execute a DLL\n");
-     SetLastError(ERROR_BAD_EXE_FORMAT);
-     return FALSE;
-   }
-
-   if (IMAGE_SUBSYSTEM_WINDOWS_GUI != Sii.Subsystem
-       && IMAGE_SUBSYSTEM_WINDOWS_CUI != Sii.Subsystem)
-   {
-     NtClose(hSection);
-     DPRINT("Invalid subsystem %d\n", Sii.Subsystem);
-     SetLastError(ERROR_CHILD_NOT_COMPLETE);
-     return FALSE;
-   }
-
    /*
     * Initialize the process object attributes
     */
@@ -1167,6 +1132,16 @@ CreateProcessW
 			 DUPLICATE_SAME_ACCESS);
       /* FIXME - handle failure!!!!! */
    }
+
+   /*
+    * Get some information about the executable
+    */
+   Status = ZwQuerySection(hSection,
+			   SectionImageInformation,
+			   &Sii,
+			   sizeof(Sii),
+			   &i);
+   /* FIXME - handle failure!!!!! */
    
    /*
     * Close the section
@@ -1181,9 +1156,9 @@ CreateProcessW
 			     &ProcessBasicInfo,
 			     sizeof(ProcessBasicInfo),
 			     &retlen);
-   DPRINT("ProcessBasicInfo.UniqueProcessId 0x%x\n",
+   DPRINT("ProcessBasicInfo.UniqueProcessId %d\n",
 	  ProcessBasicInfo.UniqueProcessId);
-   lpProcessInformation->dwProcessId = (DWORD)ProcessBasicInfo.UniqueProcessId;
+   lpProcessInformation->dwProcessId = ProcessBasicInfo.UniqueProcessId;
 
    /*
     * Tell the csrss server we are creating a new process
@@ -1410,11 +1385,11 @@ CreateProcessW
     * Create the thread for the kernel
     */
    DPRINT("Creating thread for process (EntryPoint = 0x%.08x)\n",
-    (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint));
+    ImageBaseAddress + (ULONG)Sii.EntryPoint);
    hThread =  KlCreateFirstThread(hProcess,
 				  lpThreadAttributes,
           &Sii,
-          (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint),
+          ImageBaseAddress + (ULONG)Sii.EntryPoint,
 				  dwCreationFlags,
 				  &lpProcessInformation->dwThreadId);
    if (hThread == INVALID_HANDLE_VALUE)

@@ -254,7 +254,7 @@ typedef struct tagLISTVIEW_INFO
   BOOL bRedraw;  		/* Turns on/off repaints & invalidations */
   BOOL bAutoarrange;		/* Autoarrange flag when NOT in LVS_AUTOARRANGE */
   BOOL bFocus;
-  BOOL bDoChangeNotify;         /* send change notification messages? */
+  BOOL bDoChangeNotify;                /* send change notification messages? */
   INT nFocusedItem;
   RECT rcFocus;
   DWORD dwStyle;		/* the cached window GWL_STYLE */
@@ -4145,7 +4145,7 @@ static BOOL LISTVIEW_DeleteAllItems(LISTVIEW_INFO *infoPtr)
 
     for (i = infoPtr->nItemCount - 1; i >= 0; i--)
     {
-        /* send LVN_DELETEITEM notification, if not suppressed */
+        /* send LVN_DELETEITEM notification, if not supressed */
 	if (!bSuppress) notify_deleteitem(infoPtr, i);
 	if (!(infoPtr->dwStyle & LVS_OWNERDATA))
 	{
@@ -6296,11 +6296,11 @@ static void column_fill_hditem(LISTVIEW_INFO *infoPtr, HDITEMW *lphdi, INT nColu
 	lphdi->mask |= HDI_FORMAT;
 
 	/* set text alignment (leftmost column must be left-aligned) */
-        if (nColumn == 0 || (lpColumn->fmt & LVCFMT_JUSTIFYMASK) == LVCFMT_LEFT)
+        if (nColumn == 0 || lpColumn->fmt & LVCFMT_LEFT)
             lphdi->fmt |= HDF_LEFT;
-        else if ((lpColumn->fmt & LVCFMT_JUSTIFYMASK) == LVCFMT_RIGHT)
+        else if (lpColumn->fmt & LVCFMT_RIGHT)
             lphdi->fmt |= HDF_RIGHT;
-        else if ((lpColumn->fmt & LVCFMT_JUSTIFYMASK) == LVCFMT_CENTER)
+        else if (lpColumn->fmt & LVCFMT_CENTER)
             lphdi->fmt |= HDF_CENTER;
 
         if (lpColumn->fmt & LVCFMT_BITMAP_ON_RIGHT)
@@ -7254,11 +7254,9 @@ static INT WINAPI LISTVIEW_CallBackCompare(LPVOID first, LPVOID second, LPARAM l
   LISTVIEW_INFO *infoPtr = (LISTVIEW_INFO *)lParam;
   ITEM_INFO* lv_first = (ITEM_INFO*) DPA_GetPtr( (HDPA)first, 0 );
   ITEM_INFO* lv_second = (ITEM_INFO*) DPA_GetPtr( (HDPA)second, 0 );
-  PFNLVCOMPARE CompareFunction = infoPtr->pfnCompare;
 
   /* Forward the call to the client defined callback */
-  
-  return (CompareFunction)( lv_first->lParam , lv_second->lParam, infoPtr->lParamSort );
+  return (infoPtr->pfnCompare)( lv_first->lParam , lv_second->lParam, infoPtr->lParamSort );
 }
 
 /***
@@ -8350,36 +8348,6 @@ static LRESULT LISTVIEW_Paint(LISTVIEW_INFO *infoPtr, HDC hdc)
     return 0;
 }
 
-
-/***
- * DESCRIPTION:
- * Paints/Repaints the listview control.
- *
- * PARAMETER(S):
- * [I] infoPtr : valid pointer to the listview structure
- * [I] hdc : device context handle
- * [I] options : drawing options
- *
- * RETURN:
- * Zero
- */
-static LRESULT LISTVIEW_PrintClient(LISTVIEW_INFO *infoPtr, HDC hdc, DWORD options)
-{
-    FIXME("Partial Stub: (hdc=%p options=0x%08lx)\n", hdc, options);
-
-    if ((options & PRF_CHECKVISIBLE) && !IsWindowVisible(infoPtr->hwndSelf))
-        return 0;
-
-    if (options & PRF_ERASEBKGND)
-        LISTVIEW_EraseBkgnd(infoPtr, hdc);
-
-    if (options & PRF_CLIENT)
-        LISTVIEW_Paint(infoPtr, hdc);
-
-    return 0;
-}
-
-
 /***
  * DESCRIPTION:
  * Processes double click messages (right mouse button).
@@ -9227,9 +9195,6 @@ LISTVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   case WM_NOTIFYFORMAT:
     return LISTVIEW_NotifyFormat(infoPtr, (HWND)wParam, (INT)lParam);
 
-  case WM_PRINTCLIENT:
-    return LISTVIEW_PrintClient(infoPtr, (HDC)wParam, (DWORD)lParam);
-
   case WM_PAINT:
     return LISTVIEW_Paint(infoPtr, (HDC)wParam);
 
@@ -9297,6 +9262,7 @@ LISTVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DefWindowProcW(hwnd, uMsg, wParam, lParam);
   }
 
+  return 0;
 }
 
 /***

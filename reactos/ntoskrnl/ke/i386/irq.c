@@ -1,12 +1,29 @@
-/* $Id$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: irq.c,v 1.56 2004/11/27 19:24:15 hbirr Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/irq.c
  * PURPOSE:         IRQ handling
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Hartmut Birr
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *             29/05/98: Created
  */
 
 /*
@@ -19,7 +36,7 @@
 /* INCLUDES ****************************************************************/
 
 #include <ntoskrnl.h>
-#if defined(KDBG) || defined(DBG)
+#ifdef KDBG
 #include <../dbg/kdb.h>
 #endif /* KDBG */
 
@@ -30,7 +47,7 @@
 
 /* GLOBALS *****************************************************************/
 
-#ifdef CONFIG_SMP
+#ifdef MP
 
 #define __STR(x) #x
 #define STR(x) __STR(x)
@@ -118,7 +135,7 @@ static ULONG irq_handler[ROUND_UP(NR_IRQS, 16)] = {
 #undef L
 #undef L16
 
-#else /* CONFIG_SMP */
+#else /* MP */
 
  void irq_handler_0(void);
  void irq_handler_1(void);
@@ -157,7 +174,7 @@ static unsigned int irq_handler[NR_IRQS]=
                 (int)&irq_handler_15,
         };
 
-#endif /* CONFIG_SMP */
+#endif /* MP */
 
 /*
  * PURPOSE: Object describing each isr 
@@ -165,19 +182,9 @@ static unsigned int irq_handler[NR_IRQS]=
  * be accessed at any irq level.
  */
 
-typedef struct
-{
-   LIST_ENTRY ListHead;
-   KSPIN_LOCK Lock;
-   ULONG Count;
-}
-ISR_TABLE, *PISR_TABLE;
-
-#ifdef CONFIG_SMP
-static ISR_TABLE IsrTable[NR_IRQS][MAXIMUM_PROCESSORS];
-#else
-static ISR_TABLE IsrTable[NR_IRQS][1];
-#endif
+static LIST_ENTRY isr_table[NR_IRQS];
+static KSPIN_LOCK isr_lock[NR_IRQS];
+static KSPIN_LOCK isr_table_lock;
 
 #define TAG_ISR_LOCK     TAG('I', 'S', 'R', 'L')
 
@@ -189,8 +196,7 @@ static ISR_TABLE IsrTable[NR_IRQS][1];
 VOID INIT_FUNCTION
 KeInitInterrupts (VOID)
 {
-   int i, j;
-
+   int i;
 
    /*
     * Setup the IDT entries to point to the interrupt handlers
@@ -200,17 +206,10 @@ KeInitInterrupts (VOID)
 	KiIdt[IRQ_BASE+i].a=(irq_handler[i]&0xffff)+(KERNEL_CS<<16);
 	KiIdt[IRQ_BASE+i].b=(irq_handler[i]&0xffff0000)+PRESENT+
 	                    I486_INTERRUPT_GATE;
-#ifdef CONFIG_SMP
-	for (j = 0; j < MAXIMUM_PROCESSORS; j++)
-#else
-	j = 0;
-#endif
-	  {
-	    InitializeListHead(&IsrTable[i][j].ListHead);
-            KeInitializeSpinLock(&IsrTable[i][j].Lock);
-	    IsrTable[i][j].Count = 0;
-	  }
+	InitializeListHead(&isr_table[i]);
+	KeInitializeSpinLock(&isr_lock[i]);
      }
+   KeInitializeSpinLock(&isr_table_lock);
 }
 
 STATIC VOID 
@@ -267,34 +266,21 @@ KiInterruptDispatch2 (ULONG vector, KIRQL old_level)
 {
   PKINTERRUPT isr;
   PLIST_ENTRY current;
-  KIRQL oldlvl;
-  PISR_TABLE CurrentIsr;
 
   DPRINT("I(0x%.08x, 0x%.08x)\n", vector, old_level);
 
   /*
    * Iterate the list until one of the isr tells us its device interrupted
    */
-  CurrentIsr = &IsrTable[vector - IRQ_BASE][(ULONG)KeGetCurrentProcessorNumber()];
+  current = isr_table[vector - IRQ_BASE].Flink;
+  isr = CONTAINING_RECORD(current,KINTERRUPT,Entry);
 
-  KiAcquireSpinLock(&CurrentIsr->Lock);
-
-  CurrentIsr->Count++;
-  current = CurrentIsr->ListHead.Flink;
-
-  while (current != &CurrentIsr->ListHead)
+  while (current != &isr_table[vector - IRQ_BASE] && 
+         !isr->ServiceRoutine(isr, isr->ServiceContext))
     {
-      isr = CONTAINING_RECORD(current,KINTERRUPT,Entry);
-      oldlvl = KeAcquireInterruptSpinLock(isr);
-      if (isr->ServiceRoutine(isr, isr->ServiceContext))
-        {
-          KeReleaseInterruptSpinLock(isr, oldlvl);
-	  break;
-	}
-      KeReleaseInterruptSpinLock(isr, oldlvl);
       current = current->Flink;
+      isr = CONTAINING_RECORD(current,KINTERRUPT,Entry);
     }
-  KiReleaseSpinLock(&CurrentIsr->Lock);
 }
 
 VOID 
@@ -335,12 +321,12 @@ KiInterruptDispatch (ULONG vector, PKIRQ_TRAPFRAME Trapframe)
     */
    Ke386EnableInterrupts();
 
-#ifndef CONFIG_SMP
+#ifndef MP
    if (VECTOR2IRQ(vector) == 0)
    {
       KeIRQTrapFrameToTrapFrame(Trapframe, &KernelTrapFrame);
       KeUpdateSystemTime(&KernelTrapFrame, old_level);
-#if defined(KDBG) || defined(DBG)
+#ifdef KDBG
       KdbProfileInterrupt(Trapframe->Eip);
 #endif /* KDBG */
    }
@@ -396,35 +382,19 @@ KeDumpIrqList(VOID)
 {
    PKINTERRUPT current;
    PLIST_ENTRY current_entry;
-   ULONG i, j;
-   KIRQL oldlvl;
-   BOOLEAN printed;
+   unsigned int i;
    
    for (i=0;i<NR_IRQS;i++)
      {
-	printed = FALSE;
-        KeRaiseIrql(VECTOR2IRQL(i + IRQ_BASE),&oldlvl);
-
-	for (j=0; j < KeNumberProcessors; j++)
+	DPRINT("For irq %x:\n",i);
+	current_entry = isr_table[i].Flink;
+	current = CONTAINING_RECORD(current_entry,KINTERRUPT,Entry);
+	while (current_entry!=(&isr_table[i]))
 	  {
-	    KiAcquireSpinLock(&IsrTable[i][j].Lock);
-
-	    current_entry = IsrTable[i][j].ListHead.Flink;
-	    current = CONTAINING_RECORD(current_entry,KINTERRUPT,Entry);
-	    while (current_entry!=&(IsrTable[i][j].ListHead))
-	      {
-	        if (printed == FALSE)
-		  {
-		    printed = TRUE;
-		    DPRINT("For irq %x:\n",i);
-		  }
-	        DPRINT("   Isr %x\n",current);
-	        current_entry = current_entry->Flink;
-	        current = CONTAINING_RECORD(current_entry,KINTERRUPT,Entry);
-	      }
-	    KiReleaseSpinLock(&IsrTable[i][j].Lock);
+	     DPRINT("   Isr %x\n",current);
+	     current_entry = current_entry->Flink;
+	     current = CONTAINING_RECORD(current_entry,KINTERRUPT,Entry);
 	  }
-        KeLowerIrql(oldlvl);
      }
 }
 
@@ -434,69 +404,59 @@ KeDumpIrqList(VOID)
 BOOLEAN STDCALL
 KeConnectInterrupt(PKINTERRUPT InterruptObject)
 {
-   KIRQL oldlvl,synch_oldlvl;
+   KIRQL oldlvl;
+   KIRQL synch_oldlvl;
    PKINTERRUPT ListHead;
    ULONG Vector;
-   PISR_TABLE CurrentIsr;
-   BOOLEAN Result;
 
    DPRINT("KeConnectInterrupt()\n");
 
    Vector = InterruptObject->Vector;
 
-   if (Vector < IRQ_BASE || Vector >= IRQ_BASE + NR_IRQS)
+   if (Vector < IRQ_BASE && Vector >= IRQ_BASE + NR_IRQS)
       return FALSE;
 
    Vector -= IRQ_BASE;
 
-   ASSERT (InterruptObject->ProcessorNumber < KeNumberProcessors);
-
-   KeSetSystemAffinityThread(1 << InterruptObject->ProcessorNumber);
-
-   CurrentIsr = &IsrTable[Vector][(ULONG)InterruptObject->ProcessorNumber];
-
-   KeRaiseIrql(VECTOR2IRQL(Vector + IRQ_BASE),&oldlvl);
-   KiAcquireSpinLock(&CurrentIsr->Lock);
-
+   /*
+    * Acquire the table spinlock
+    */
+   KeAcquireSpinLock(&isr_table_lock,&oldlvl);
+   
    /*
     * Check if the vector is already in use that we can share it
     */
-   if (!IsListEmpty(&CurrentIsr->ListHead))
+   ListHead = CONTAINING_RECORD(isr_table[Vector].Flink,KINTERRUPT,Entry);
+   if (!IsListEmpty(&isr_table[Vector]) && 
+       (InterruptObject->Shareable == FALSE || ListHead->Shareable==FALSE))
    {
-      ListHead = CONTAINING_RECORD(CurrentIsr->ListHead.Flink,KINTERRUPT,Entry);
-      if (InterruptObject->Shareable == FALSE || ListHead->Shareable==FALSE)
-      {
-         KiReleaseSpinLock(&CurrentIsr->Lock);
-         KeLowerIrql(oldlvl);
-         KeRevertToUserAffinityThread();
-         return FALSE;
-      }
+      KeReleaseSpinLock(&isr_table_lock,oldlvl);
+      return FALSE;
    }
 
-   synch_oldlvl = KeAcquireInterruptSpinLock(InterruptObject);
+   InterruptObject->IrqLock = &isr_lock[Vector];
 
-   DPRINT("%x %x\n",CurrentIsr->ListHead.Flink, CurrentIsr->ListHead.Blink);
-
-   Result = HalEnableSystemInterrupt(Vector + IRQ_BASE, InterruptObject->Irql, InterruptObject->InterruptMode);
-   if (Result)
+   KeRaiseIrql(InterruptObject->SynchLevel,&synch_oldlvl);
+   KiAcquireSpinLock(InterruptObject->IrqLock);
+   DPRINT("%x %x\n",isr_table[Vector].Flink,isr_table[Vector].Blink);
+   if (IsListEmpty(&isr_table[Vector]))
    {
-      InsertTailList(&CurrentIsr->ListHead,&InterruptObject->Entry);
-      DPRINT("%x %x\n",InterruptObject->Entry.Flink, InterruptObject->Entry.Blink);
+      HalEnableSystemInterrupt(Vector + IRQ_BASE, 0, 0);
    }
-
-   KeReleaseInterruptSpinLock(InterruptObject, synch_oldlvl);
-
+   InsertTailList(&isr_table[Vector],&InterruptObject->Entry);
+   DPRINT("%x %x\n",InterruptObject->Entry.Flink,
+          InterruptObject->Entry.Blink);
+   KiReleaseSpinLock(InterruptObject->IrqLock);
+   KeLowerIrql(synch_oldlvl);
+   
    /*
     * Release the table spinlock
     */
-   KiReleaseSpinLock(&CurrentIsr->Lock);
-   KeLowerIrql(oldlvl);
+   KeReleaseSpinLock(&isr_table_lock,oldlvl);
    
    KeDumpIrqList();
 
-   KeRevertToUserAffinityThread();
-
-   return Result;
+   return TRUE;
 }
 
 
@@ -511,43 +471,24 @@ KeDisconnectInterrupt(PKINTERRUPT InterruptObject)
  *        InterruptObject = isr to release
  */
 {
-   KIRQL oldlvl,synch_oldlvl;
-   PISR_TABLE CurrentIsr;
-
-   DPRINT("KeDisconnectInterrupt\n");
+   KIRQL oldlvl;
    
-   ASSERT (InterruptObject->ProcessorNumber < KeNumberProcessors);
-
-   KeSetSystemAffinityThread(1 << InterruptObject->ProcessorNumber);
-
-   CurrentIsr = &IsrTable[InterruptObject->Vector - IRQ_BASE][(ULONG)InterruptObject->ProcessorNumber];
-
-   KeRaiseIrql(VECTOR2IRQL(InterruptObject->Vector),&oldlvl);
-   KiAcquireSpinLock(&CurrentIsr->Lock);
-
-   synch_oldlvl = KeAcquireInterruptSpinLock(InterruptObject);
-
+   KeRaiseIrql(InterruptObject->SynchLevel,&oldlvl);
+   KiAcquireSpinLock(InterruptObject->IrqLock);
    RemoveEntryList(&InterruptObject->Entry);
-   if (IsListEmpty(&CurrentIsr->ListHead))
+   if (IsListEmpty(&isr_table[InterruptObject->Vector - IRQ_BASE]))
    {
       HalDisableSystemInterrupt(InterruptObject->Vector, 0);
    }
-   KeReleaseInterruptSpinLock(InterruptObject, synch_oldlvl);
-
-   /*
-    * Release the table spinlock
-    */
-   KiReleaseSpinLock(&CurrentIsr->Lock);
+   KiReleaseSpinLock(InterruptObject->IrqLock);
    KeLowerIrql(oldlvl);
-   
-   KeRevertToUserAffinityThread();
 }
 
 
 /*
  * @implemented
  */
-VOID
+NTSTATUS
 STDCALL
 KeInitializeInterrupt(PKINTERRUPT InterruptObject,
 		      PKSERVICE_ROUTINE ServiceRoutine,
@@ -558,37 +499,18 @@ KeInitializeInterrupt(PKINTERRUPT InterruptObject,
 		      KIRQL SynchronizeIrql,
 		      KINTERRUPT_MODE InterruptMode,
 		      BOOLEAN ShareVector,
-		      CHAR ProcessorNumber,
+		      KAFFINITY ProcessorEnableMask,
 		      BOOLEAN FloatingSave)
 {
-   InterruptObject->ServiceRoutine = ServiceRoutine;
    InterruptObject->ServiceContext = ServiceContext;
-   InterruptObject->ActualLock = SpinLock;
+   InterruptObject->ServiceRoutine = ServiceRoutine;
    InterruptObject->Vector = Vector;
-   InterruptObject->Irql = Irql;
+   InterruptObject->ProcessorEnableMask = ProcessorEnableMask;
    InterruptObject->SynchLevel = SynchronizeIrql;
-   InterruptObject->InterruptMode = InterruptMode;
    InterruptObject->Shareable = ShareVector;
-   InterruptObject->ProcessorNumber = ProcessorNumber;
    InterruptObject->FloatingSave = FloatingSave;
+
+   return STATUS_SUCCESS;
 }
-
-VOID KePrintInterruptStatistic(VOID)
-{
-   ULONG i, j;
-
-   for (j = 0; j < KeNumberProcessors; j++)
-   {
-      DPRINT1("CPU%d:\n", j);
-      for (i = 0; i < NR_IRQS; i++)
-      {
-         if (IsrTable[i][j].Count)
-	 {
-	     DPRINT1("  Irq %x(%d): %d\n", i, VECTOR2IRQ(i + IRQ_BASE), IsrTable[i][j].Count);
-	 }
-      }
-   }
-}
-
 
 /* EOF */

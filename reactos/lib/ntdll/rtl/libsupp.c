@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: libsupp.c,v 1.1 2004/05/31 19:33:59 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -55,12 +55,3 @@ ExFreePool(IN PVOID Mem)
       0,
       Mem);
 }
-
-
-#ifdef DBG
-VOID FASTCALL
-CHECK_PAGED_CODE_RTL(char *file, int line)
-{
-  /* meaningless in user mode */
-}
-#endif

@@ -5,6 +5,7 @@ include $(PATH_TO_TOP)/rules.mak
 CFLAGS += -Wall -Werror
 
 TOOLS = \
+	buildno$(EXE_POSTFIX) \
 	regtests$(EXE_POSTFIX) \
 	rcopy$(EXE_POSTFIX) \
 	rdel$(EXE_POSTFIX) \
@@ -16,13 +17,14 @@ TOOLS = \
 	mkflpimg$(EXE_POSTFIX) \
 	depends$(EXE_POSTFIX)
 
-LIBS = lib_unicode lib_wpp
-
 CLEAN_FILES = $(TOOLS)
 
-all: $(TOOLS) $(LIBS) zlib_target wmc_target cabman_target cdmake_target mkhive_target rgenstat_target \
-	wine2ros_target pipetools_target winebuild_target bin2res_target wrc_target widl_target \
-	buildno_target
+all: $(TOOLS) zlib_target wmc_target cabman_target cdmake_target mkhive_target rgenstat_target \
+	wine2ros_target pipetools_target winebuild_target bin2res_target
+
+buildno$(EXE_POSTFIX): buildno.c ../include/reactos/version.h
+	@$(HOST_CC) $(CFLAGS) -o buildno$(EXE_POSTFIX) buildno.c
+	@$(EXE_PREFIX)buildno$(EXE_POSTFIX)
 
 regtests$(EXE_POSTFIX): regtests.c
 	@$(HOST_CC) $(CFLAGS) -o regtests$(EXE_POSTFIX) regtests.c
@@ -128,30 +130,11 @@ winebuild_target:
 bin2res_target:
 	$(MAKE) --silent -C bin2res bin2res$(EXE_POSTFIX)
 
-wrc_target: $(LIBS)
-	$(MAKE) --silent -C wrc wrc$(EXE_POSTFIX)
-
-widl_target: lib_wpp
-	$(MAKE) --silent -C widl widl$(EXE_POSTFIX)
-
-buildno_target:
-	$(MAKE) --silent -C buildno buildno$(EXE_POSTFIX)
-
-lib_unicode:
-	$(MAKE) -C unicode
-
-lib_wpp:
-	$(MAKE) -C wpp
-
-.PHONY: wmc_target cdmake_target mkhive_target rgenstat_target pipetools_target wrc_target \
-        widl_target buildno_target lib_unicode lib_wpp
+.PHONY: wmc_target cdmake_target mkhive_target rgenstat_target pipetools_target
 
 
 ifeq ($(HOST),mingw32-linux)
 clean:
-	$(MAKE) --silent -C buildno clean
-	$(MAKE) --silent -C widl clean
-	$(MAKE) --silent -C wrc clean
 	$(MAKE) --silent -C cabman clean
 	$(MAKE) --silent -C cdmake clean
 	$(MAKE) --silent -C mkhive clean
@@ -161,16 +144,12 @@ clean:
 	$(MAKE) --silent -C winebuild clean
 	$(MAKE) --silent -C bin2res clean
 	$(MAKE) --silent -C ../lib/zlib -f Makefile.host clean
-	$(MAKE) -C wpp clean
-	$(MAKE) -C unicode clean
+	@rm ../include/reactos/buildno.h
 	@rm mkconfig
 	@rm $(TOOLS)
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	$(MAKE) --silent -C buildno clean
-	$(MAKE) --silent -C widl clean
-	$(MAKE) --silent -C wrc clean
 	$(MAKE) --silent -C cabman clean
 	$(MAKE) --silent -C cdmake clean
 	$(MAKE) --silent -C mkhive clean
@@ -181,8 +160,7 @@ clean:
 	$(MAKE) --silent -C winebuild clean
 	$(MAKE) --silent -C bin2res clean
 	$(MAKE) --silent -C ../lib/zlib -f Makefile.host clean
-	$(MAKE) -C wpp clean
-	$(MAKE) -C unicode clean
+	-@del ..\include\reactos\buildno.h
 	-@del *$(EXE_POSTFIX)
 endif
 

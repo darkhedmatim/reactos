@@ -1,11 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: view.c,v 1.79 2004/10/22 20:11:12 ekohl Exp $
+ *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/view.c
  * PURPOSE:         Cache manager
- *
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * PORTABILITY:     Checked
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* NOTES **********************************************************************
@@ -81,7 +100,7 @@ static CLIENT_ID LazyCloseThreadId;
 static volatile BOOLEAN LazyCloseThreadShouldTerminate;
 
 #if defined(__GNUC__)
-/* void * alloca(size_t size); */
+void * alloca(size_t size);
 #elif defined(_MSC_VER)
 void* _alloca(size_t size);
 #else
@@ -794,7 +813,8 @@ CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg)
 #else
   MmLockAddressSpace(MmGetKernelAddressSpace());
   MmFreeMemoryArea(MmGetKernelAddressSpace(),
-		   CacheSeg->MemoryArea,
+		   CacheSeg->BaseAddress,
+		   CacheSeg->Bcb->CacheSegmentSize,
 		   CcFreeCachePage,
 		   NULL);
   MmUnlockAddressSpace(MmGetKernelAddressSpace());

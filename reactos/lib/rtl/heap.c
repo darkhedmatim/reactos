@@ -30,7 +30,7 @@
 #endif
 
 
-static RTL_CRITICAL_SECTION RtlpProcessHeapsListLock;
+static CRITICAL_SECTION RtlpProcessHeapsListLock;
 
 
 typedef struct tagARENA_INUSE
@@ -98,7 +98,7 @@ typedef struct tagHEAP
    SUBHEAP          subheap;       /* First sub-heap */
    struct tagHEAP  *next;          /* Next heap for this process */
    FREE_LIST_ENTRY  freeList[HEAP_NB_FREE_LISTS];  /* Free lists */
-   RTL_CRITICAL_SECTION critSection;   /* Critical section for serialization */
+   CRITICAL_SECTION critSection;   /* Critical section for serialization */
    ULONG            flags;         /* Heap flags */
    ULONG            magic;         /* Magic number */
    UCHAR            filler[4];     /* Make multiple of 8 bytes */
@@ -306,21 +306,23 @@ HEAP_Commit(SUBHEAP *subheap,
    address = (PVOID)((char *)subheap + subheap->commitSize);
    commitsize = size - subheap->commitSize;
 
-   Status = NtAllocateVirtualMemory(NtCurrentProcess(),
-                                    &address,
-                                    0,
-                                    &commitsize,
-                                    MEM_COMMIT,
-                                    PAGE_EXECUTE_READWRITE);
-   if (!NT_SUCCESS(Status))
+   if (!(flags & HEAP_NO_VALLOC))
    {
-      DPRINT( "Could not commit %08lx bytes at %p for heap %p\n",
-              size - subheap->commitSize,
-              ((char *)subheap + subheap->commitSize),
-              subheap->heap );
-      return FALSE;
+      Status = NtAllocateVirtualMemory(NtCurrentProcess(),
+                                       &address,
+                                       0,
+                                       &commitsize,
+                                       MEM_COMMIT,
+                                       PAGE_EXECUTE_READWRITE);
+      if (!NT_SUCCESS(Status))
+      {
+         DPRINT( "Could not commit %08lx bytes at %p for heap %p\n",
+                 size - subheap->commitSize,
+                 ((char *)subheap + subheap->commitSize),
+                 subheap->heap );
+         return FALSE;
+      }
    }
-
    subheap->commitSize += commitsize;
    return TRUE;
 }
@@ -345,19 +347,22 @@ static inline BOOLEAN HEAP_Decommit( SUBHEAP *subheap, PVOID ptr, ULONG flags )
    address = (PVOID)((char *)subheap + size);
    decommitsize = subheap->commitSize - size;
 
-   Status = ZwFreeVirtualMemory(NtCurrentProcess(),
-                                &address,
-                                &decommitsize,
-                                MEM_DECOMMIT);
-   if (!NT_SUCCESS(Status))
+   if (!(flags & HEAP_NO_VALLOC))
    {
-      DPRINT( "Could not decommit %08lx bytes at %p for heap %p\n",
-              subheap->commitSize - size,
-              ((char *)subheap + size),
-              subheap->heap );
-      return FALSE;
+      Status = ZwFreeVirtualMemory(NtCurrentProcess(),
+                                   &address,
+                                   &decommitsize,
+                                   MEM_DECOMMIT);
+      if (!NT_SUCCESS(Status))
+         ;
+      {
+         DPRINT( "Could not decommit %08lx bytes at %p for heap %p\n",
+                 subheap->commitSize - size,
+                 ((char *)subheap + size),
+                 subheap->heap );
+         return FALSE;
+      }
    }
-      
    subheap->commitSize -= decommitsize;
    return TRUE;
 }
@@ -433,7 +438,6 @@ static VOID HEAP_MakeInUseBlockFree( SUBHEAP *subheap, ARENA_INUSE *pArena,
 {
    ARENA_FREE *pFree;
    ULONG size = (pArena->size & ARENA_SIZE_MASK) + sizeof(*pArena);
-   ULONG dummySize = 0;
 
    /* Check if we can merge with previous block */
 
@@ -471,10 +475,14 @@ static VOID HEAP_MakeInUseBlockFree( SUBHEAP *subheap, ARENA_INUSE *pArena,
          pPrev->next = subheap->next;
       /* Free the memory */
       subheap->magic = 0;
-      ZwFreeVirtualMemory(NtCurrentProcess(),
-                          (PVOID*)&subheap,
-                          &dummySize,
-                          MEM_RELEASE);
+      if (!(flags & HEAP_NO_VALLOC))
+      {
+         ULONG dummySize = 0;
+         ZwFreeVirtualMemory(NtCurrentProcess(),
+                             (PVOID*)&subheap,
+                             &dummySize,
+                             MEM_RELEASE);
+      }
       return;
    }
 
@@ -517,17 +525,20 @@ static BOOLEAN HEAP_InitSubHeap( HEAP *heap, PVOID address, ULONG flags,
    NTSTATUS Status;
 
    /* Commit memory */
-   Status = ZwAllocateVirtualMemory(NtCurrentProcess(),
-                                    &address,
-                                    0,
-                                    (PULONG)&commitSize,
-                                    MEM_COMMIT,
-                                    PAGE_EXECUTE_READWRITE);
-   if (!NT_SUCCESS(Status))
+   if (!(flags & HEAP_NO_VALLOC))
    {
-      DPRINT("Could not commit %08lx bytes for sub-heap %p\n",
-             commitSize, address);
-      return FALSE;
+      Status = ZwAllocateVirtualMemory(NtCurrentProcess(),
+                                       &address,
+                                       0,
+                                       (PULONG)&commitSize,
+                                       MEM_COMMIT,
+                                       PAGE_EXECUTE_READWRITE);
+      if (!NT_SUCCESS(Status))
+      {
+         DPRINT("Could not commit %08lx bytes for sub-heap %p\n",
+                commitSize, address);
+         return FALSE;
+      }
    }
 
    /* Fill the sub-heap structure */
@@ -608,7 +619,7 @@ HEAP_CreateSubHeap(PVOID BaseAddress,
 
    /* Allocate the memory block */
    address = BaseAddress;
-   if (!address)
+   if (!(flags & HEAP_NO_VALLOC))
    {
       Status = ZwAllocateVirtualMemory(NtCurrentProcess(),
                                        &address,
@@ -629,7 +640,7 @@ HEAP_CreateSubHeap(PVOID BaseAddress,
    if (!HEAP_InitSubHeap( heap? heap : (HEAP *)address,
                           address, flags, commitSize, totalSize ))
    {
-      if (!BaseAddress)
+      if (address && !(flags & HEAP_NO_VALLOC))
       {
          ULONG dummySize = 0;
          ZwFreeVirtualMemory(NtCurrentProcess(),
@@ -1139,11 +1150,15 @@ RtlDestroyHeap(HANDLE heap) /* [in] Handle of heap */
    while (subheap)
    {
       SUBHEAP *next = subheap->next;
-      ULONG dummySize = 0;
-      ZwFreeVirtualMemory(NtCurrentProcess(),
-                          (PVOID*)&subheap,
-                          &dummySize,
-                          MEM_RELEASE);
+
+      if (!(flags & HEAP_NO_VALLOC))
+      {
+         ULONG dummySize = 0;
+         ZwFreeVirtualMemory(NtCurrentProcess(),
+                             (PVOID*)&subheap,
+                             &dummySize,
+                             MEM_RELEASE);
+      }
       subheap = next;
    }
    return (HANDLE)NULL;
@@ -1715,8 +1730,8 @@ RtlInitializeHeapManager(VOID)
  * @implemented
  */
 NTSTATUS STDCALL
-RtlEnumProcessHeaps(PHEAP_ENUMERATION_ROUTINE HeapEnumerationRoutine,
-                    PVOID lParam)
+RtlEnumProcessHeaps(NTSTATUS STDCALL_FUNC(*func)(PVOID, LONG),
+                    LONG lParam)
 {
    NTSTATUS Status = STATUS_SUCCESS;
    HEAP** pptr;
@@ -1725,7 +1740,7 @@ RtlEnumProcessHeaps(PHEAP_ENUMERATION_ROUTINE HeapEnumerationRoutine,
 
    for (pptr = (HEAP**)&NtCurrentPeb()->ProcessHeaps; *pptr; pptr = &(*pptr)->next)
    {
-      Status = HeapEnumerationRoutine(*pptr,lParam);
+      Status = func(*pptr,lParam);
       if (!NT_SUCCESS(Status))
          break;
    }

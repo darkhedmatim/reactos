@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/src/xmd5.c,v $
- * $Id$
+ * $Id: xmd5.c,v 1.1 2004/01/10 20:38:18 arty Exp $
  */
 
 #include "jsint.h"

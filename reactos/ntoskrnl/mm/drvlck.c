@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: drvlck.c,v 1.6 2004/08/15 16:39:06 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/drvlck.c
+ * FILE:            ntoskrnl/io/drvlck.c
  * PURPOSE:         Managing driver managing
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -49,7 +50,7 @@ PVOID
 MmLockPagableCodeSection(IN PVOID AddressWithinSection)
 {
    PVOID Handle;
-   Handle = MmLocateMemoryAreaByAddress(NULL,AddressWithinSection);
+   Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
    MmLockPagableSectionByHandle(Handle);
    return(Handle);
 }
@@ -63,7 +64,7 @@ PVOID STDCALL
 MmLockPagableDataSection(IN PVOID AddressWithinSection)
 {
    PVOID Handle;
-   Handle = MmLocateMemoryAreaByAddress(NULL, AddressWithinSection);
+   Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
    MmLockPagableSectionByHandle(Handle);
    return(Handle);
 }

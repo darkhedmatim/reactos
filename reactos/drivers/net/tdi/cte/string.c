@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: string.c,v 1.5 2004/01/28 20:55:18 ekohl Exp $
  *
  */
 #include <ddk/ntddk.h>

@@ -64,7 +64,7 @@
  *     enablebtn.exe, getbmp.exe, getbtn.exe, getflags.exe, hidebtn.exe,
  *     indetbtn.exe, insbtn.exe, pressbtn.exe, setbtnsz.exe, setcmdid.exe,
  *     setparnt.exe, setrows.exe, toolwnd.exe.
- *   - Microsoft's controlspy examples.
+ *   - Microsofts controlspy examples.
  *   - Charles Petzold's 'Programming Windows': gadgets.exe
  */
 
@@ -4269,7 +4269,7 @@ TOOLBAR_ReplaceBitmap (HWND hwnd, WPARAM wParam, LPARAM lParam)
     LPTBREPLACEBITMAP lpReplace = (LPTBREPLACEBITMAP) lParam;
     HBITMAP hBitmap;
     int i = 0, nOldButtons = 0, pos = 0;
-    int nOldBitmaps, nNewBitmaps = 0;
+    int nOldBitmaps, nNewBitmaps;
     HIMAGELIST himlDef = 0;
 
     TRACE("hInstOld %p nIDOld %x hInstNew %p nIDNew %x nButtons %x\n",
@@ -4322,7 +4322,6 @@ TOOLBAR_ReplaceBitmap (HWND hwnd, WPARAM wParam, LPARAM lParam)
     for (i = pos + nOldBitmaps - 1; i >= pos; i--)
         ImageList_Remove(himlDef, i);
 
-    if (hBitmap)
     {
        BITMAP  bmp;
        HBITMAP hOldBitmapBitmap, hOldBitmapLoad, hbmLoad;
@@ -5523,7 +5522,8 @@ TOOLBAR_Destroy (HWND hwnd, WPARAM wParam, LPARAM lParam)
 	DestroyWindow (infoPtr->hwndToolTip);
 
     /* delete temporary buffer for tooltip text */
-    HeapFree(GetProcessHeap(), 0, infoPtr->pszTooltipText);
+    if (infoPtr->pszTooltipText)
+        HeapFree(GetProcessHeap(), 0, infoPtr->pszTooltipText);
 
     /* delete button data */
     if (infoPtr->buttons)
@@ -6080,26 +6080,24 @@ TOOLBAR_MouseMove (HWND hwnd, WPARAM wParam, LPARAM lParam)
     TRACKMOUSEEVENT trackinfo;
     INT   nHit;
     TBUTTON_INFO *btnPtr;
-    
-    if (infoPtr->dwStyle & TBSTYLE_FLAT) {
-        /* fill in the TRACKMOUSEEVENT struct */
-        trackinfo.cbSize = sizeof(TRACKMOUSEEVENT);
-        trackinfo.dwFlags = TME_QUERY;
-        trackinfo.hwndTrack = hwnd;
-        trackinfo.dwHoverTime = HOVER_DEFAULT;
 
-        /* call _TrackMouseEvent to see if we are currently tracking for this hwnd */
+    /* fill in the TRACKMOUSEEVENT struct */
+    trackinfo.cbSize = sizeof(TRACKMOUSEEVENT);
+    trackinfo.dwFlags = TME_QUERY;
+    trackinfo.hwndTrack = hwnd;
+    trackinfo.dwHoverTime = HOVER_DEFAULT;
+
+    /* call _TrackMouseEvent to see if we are currently tracking for this hwnd */
+    _TrackMouseEvent(&trackinfo);
+
+    /* Make sure tracking is enabled so we receive a WM_MOUSELEAVE message */
+    if(!(trackinfo.dwFlags & TME_LEAVE)) {
+        trackinfo.dwFlags = TME_LEAVE; /* notify upon leaving */
+
+        /* call TRACKMOUSEEVENT so we receive a WM_MOUSELEAVE message */
+        /* and can properly deactivate the hot toolbar button */
         _TrackMouseEvent(&trackinfo);
-
-        /* Make sure tracking is enabled so we receive a WM_MOUSELEAVE message */
-        if(!(trackinfo.dwFlags & TME_LEAVE)) {
-            trackinfo.dwFlags = TME_LEAVE; /* notify upon leaving */
-
-            /* call TRACKMOUSEEVENT so we receive a WM_MOUSELEAVE message */
-            /* and can properly deactivate the hot toolbar button */
-            _TrackMouseEvent(&trackinfo);
-       }
-    }
+   }
 
     if (infoPtr->hwndToolTip)
 	TOOLBAR_RelayEvent (infoPtr->hwndToolTip, hwnd,
@@ -6110,7 +6108,7 @@ TOOLBAR_MouseMove (HWND hwnd, WPARAM wParam, LPARAM lParam)
 
     nHit = TOOLBAR_InternalHitTest (hwnd, &pt);
 
-    if ((infoPtr->dwStyle & TBSTYLE_FLAT) && (!infoPtr->bAnchor || (nHit >= 0)))
+    if (!infoPtr->bAnchor || (nHit >= 0))
         TOOLBAR_SetHotItemEx(infoPtr, nHit, HICF_MOUSE);
 
     if (infoPtr->nOldHit != nHit)
@@ -6277,8 +6275,11 @@ static LRESULT TOOLBAR_TTGetDispInfo (TOOLBAR_INFO *infoPtr, NMTTDISPINFOW *lpnm
 
     TRACE("button index = %d\n", index);
 
-    HeapFree(GetProcessHeap(), 0, infoPtr->pszTooltipText);
-    infoPtr->pszTooltipText = NULL;
+    if (infoPtr->pszTooltipText)
+    {
+        HeapFree(GetProcessHeap(), 0, infoPtr->pszTooltipText);
+        infoPtr->pszTooltipText = NULL;
+    }
 
     if (index < 0)
         return 0;
@@ -7100,6 +7101,7 @@ ToolbarWindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		     uMsg, wParam, lParam);
 	    return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
+    return 0;
 }
 
 

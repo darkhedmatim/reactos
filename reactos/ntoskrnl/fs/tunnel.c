@@ -1,11 +1,7 @@
-/* $Id$
+/* $Id: tunnel.c,v 1.7 2004/08/15 16:39:02 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/fs/tunnel.c
- * PURPOSE:         No purpose listed.
+ * reactos/ntoskrnl/fs/tunnel.c
  *
- * PROGRAMMERS:     No programmer listed.
  */
 
 #include <ntoskrnl.h>

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: fsctl.c,v 1.10 2004/06/05 08:28:37 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -108,7 +108,7 @@ NtfsHasFileSystem(PDEVICE_OBJECT DeviceToMount)
   if (NT_SUCCESS(Status))
     {
       DPRINT1("NTFS-identifier: [%.8s]\n", BootSector->OemName);
-      if (RtlCompareMemory(BootSector->OemName, "NTFS    ", 8) != 8)
+      if (strncmp(BootSector->OemName, "NTFS    ", 8) != 0)
 	{
 	  Status = STATUS_UNRECOGNIZED_VOLUME;
 	}
@@ -370,6 +370,7 @@ NtfsMountVolume(PDEVICE_OBJECT DeviceObject,
   RtlZeroMemory(Ccb,
 		sizeof(CCB));
 
+  DeviceExt->StreamFileObject->Flags = DeviceExt->StreamFileObject->Flags | FO_FCB_IS_VALID | FO_DIRECT_CACHE_PAGING_READ;
   DeviceExt->StreamFileObject->FsContext = Fcb;
   DeviceExt->StreamFileObject->FsContext2 = Ccb;
   DeviceExt->StreamFileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
@@ -387,7 +388,7 @@ NtfsMountVolume(PDEVICE_OBJECT DeviceObject,
 
 //  Fcb->Entry.ExtentLocationL = 0;
 //  Fcb->Entry.DataLengthL = DeviceExt->CdInfo.VolumeSpaceSize * BLOCKSIZE;
-#ifdef ROS_USE_CC_AND_FS
+
   Status = CcRosInitializeFileCache(DeviceExt->StreamFileObject,
 				    CACHEPAGESIZE(DeviceExt));
   if (!NT_SUCCESS (Status))
@@ -395,13 +396,7 @@ NtfsMountVolume(PDEVICE_OBJECT DeviceObject,
       DbgPrint("CcRosInitializeFileCache() failed (Status %lx)\n", Status);
       goto ByeBye;
     }
-#else
-  CcInitializeCacheMap(DeviceExt->StreamFileObject,
-                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-                       FALSE,
-                       NULL,
-                       NULL);
-#endif
+
   ExInitializeResourceLite(&DeviceExt->DirResource);
 //  ExInitializeResourceLite(&DeviceExt->FatResource);
 

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: ncache.c,v 1.31 2004/10/22 20:38:22 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/mm/ncache.c
+ * FILE:            ntoskrnl/mm/cont.c
  * PURPOSE:         Manages non-cached memory
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -128,10 +129,11 @@ VOID STDCALL MmFreeNonCachedMemory (IN PVOID BaseAddress,
                                     IN ULONG NumberOfBytes)
 {
    MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryAreaByPtr(MmGetKernelAddressSpace(),
-                         BaseAddress,
-                         MmFreeNonCachedPage,
-                         NULL);
+   MmFreeMemoryArea (MmGetKernelAddressSpace(),
+                     BaseAddress,
+                     NumberOfBytes,
+                     MmFreeNonCachedPage,
+                     NULL);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 }
 

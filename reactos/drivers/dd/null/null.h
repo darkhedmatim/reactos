@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: null.h,v 1.1 2002/04/29 23:06:42 hyperion Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: flush.c,v 1.6 2004/11/06 13:44:57 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -9,8 +9,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#define NDEBUG
+#include <ddk/ntddk.h>
 #include "vfat.h"
+
+#define NDEBUG
+#include <debug.h>
 
 /* FUNCTIONS ****************************************************************/
 

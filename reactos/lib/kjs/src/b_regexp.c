@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/src/b_regexp.c,v $
- * $Id$
+ * $Id: b_regexp.c,v 1.1 2004/01/10 20:38:18 arty Exp $
  */
 
 #include "jsint.h"

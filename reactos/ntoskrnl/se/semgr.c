@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: semgr.c,v 1.51 2004/11/21 18:35:05 gdalsnes Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/semgr.c
- * PURPOSE:         Security manager
- * 
- * PROGRAMMERS:     No programmer listed.
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              kernel/se/semgr.c
+ * PROGRAMER:         ?
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
@@ -83,7 +84,7 @@ SeInitSRM(VOID)
 			     OBJ_PERMANENT,
 			     0,
 			     NULL);
-  Status = ZwCreateDirectoryObject(&DirectoryHandle,
+  Status = NtCreateDirectoryObject(&DirectoryHandle,
 				   DIRECTORY_ALL_ACCESS,
 				   &ObjectAttributes);
   if (!NT_SUCCESS(Status))
@@ -100,7 +101,7 @@ SeInitSRM(VOID)
 			     OBJ_PERMANENT,
 			     DirectoryHandle,
 			     SePublicDefaultSd);
-  Status = ZwCreateEvent(&EventHandle,
+  Status = NtCreateEvent(&EventHandle,
 			 EVENT_ALL_ACCESS,
 			 &ObjectAttributes,
 			 SynchronizationEvent,
@@ -112,8 +113,8 @@ SeInitSRM(VOID)
       return FALSE;
     }
 
-  ZwClose(EventHandle);
-  ZwClose(DirectoryHandle);
+  NtClose(EventHandle);
+  NtClose(DirectoryHandle);
 
   /* FIXME: Create SRM port and listener thread */
 
@@ -198,8 +199,6 @@ SeCaptureSubjectContext(OUT PSECURITY_SUBJECT_CONTEXT SubjectContext)
   PETHREAD Thread;
   BOOLEAN CopyOnOpen;
   BOOLEAN EffectiveOnly;
-  
-  PAGED_CODE();
 
   Thread = PsGetCurrentThread();
   if (Thread == NULL)
@@ -228,8 +227,6 @@ SeCaptureSubjectContext(OUT PSECURITY_SUBJECT_CONTEXT SubjectContext)
 VOID STDCALL
 SeLockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 {
-  PAGED_CODE();
-  
   KeEnterCriticalRegion();
   ExAcquireResourceExclusiveLite(&SepSubjectContextLock, TRUE);
 }
@@ -241,8 +238,6 @@ SeLockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 VOID STDCALL
 SeUnlockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 {
-  PAGED_CODE();
-  
   ExReleaseResourceLite(&SepSubjectContextLock);
   KeLeaveCriticalRegion();
 }
@@ -254,8 +249,6 @@ SeUnlockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 VOID STDCALL
 SeReleaseSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 {
-  PAGED_CODE();
-  
   if (SubjectContext->PrimaryToken != NULL)
     {
       ObDereferenceObject(SubjectContext->PrimaryToken);
@@ -274,8 +267,6 @@ SeReleaseSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 NTSTATUS STDCALL
 SeDeassignSecurity(PSECURITY_DESCRIPTOR *SecurityDescriptor)
 {
-  PAGED_CODE();
-  
   if (*SecurityDescriptor != NULL)
     {
       ExFreePool(*SecurityDescriptor);
@@ -329,7 +320,7 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 		 POOL_TYPE PoolType)
 {
   PSECURITY_DESCRIPTOR Descriptor;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
   ULONG OwnerLength = 0;
   ULONG GroupLength = 0;
   ULONG DaclLength = 0;
@@ -341,8 +332,6 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
   PSID Group = NULL;
   PACL Dacl = NULL;
   PACL Sacl = NULL;
-  
-  PAGED_CODE();
 
   /* Lock subject context */
   SeLockSubjectContext(SubjectContext);
@@ -568,13 +557,10 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 
 
 static BOOLEAN
-SepSidInToken(PACCESS_TOKEN _Token,
+SepSidInToken(PACCESS_TOKEN Token,
 	      PSID Sid)
 {
   ULONG i;
-  PTOKEN Token = (PTOKEN)_Token;
-  
-  PAGED_CODE();
 
   if (Token->UserAndGroupCount == 0)
   {
@@ -638,8 +624,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
   PACE CurrentAce;
   PSID Sid;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   CurrentAccess = PreviouslyGrantedAccess;
 
@@ -809,10 +793,8 @@ NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 {
   SECURITY_SUBJECT_CONTEXT SubjectSecurityContext;
   KPROCESSOR_MODE PreviousMode;
-  PTOKEN Token;
+  PACCESS_TOKEN Token;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   DPRINT("NtAccessCheck() called\n");
 

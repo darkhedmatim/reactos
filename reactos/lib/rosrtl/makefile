@@ -1,4 +1,4 @@
-# $Id$
+# $Id: makefile,v 1.17 2004/09/25 21:32:17 arty Exp $
 
 PATH_TO_TOP = ../..
 
@@ -30,8 +30,7 @@ MISC_OBJECTS = \
  misc/qsort.o
 
 FILE_OBJECTS = \
- file/sparse.o \
- file/path.o
+ file/sparse.o
 
 RECMUTEX_OBJECTS = recmutex/recmutex.o
 

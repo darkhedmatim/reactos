@@ -68,8 +68,9 @@ BOOL WINAPI SetupDiGetDeviceInfoListDetailW(HDEVINFO devinfo, PSP_DEVINFO_LIST_D
   return FALSE;
 }
 
+
 /***********************************************************************
- *		  (SETUPAPI.@)
+ *		SetupDiGetClassDevsExA  (SETUPAPI.@)
  *
  * NO WINAPI in description given
  */
@@ -80,7 +81,7 @@ HDEVINFO WINAPI SetupDiGetClassDevsExA(const GUID *class, PCSTR filter, HWND par
 }
 
 /***********************************************************************
- *		  (SETUPAPI.@)
+ *		SetupDiGetClassDevsExW  (SETUPAPI.@)
  *
  * NO WINAPI in description given
  */
@@ -90,6 +91,26 @@ HDEVINFO WINAPI SetupDiGetClassDevsExW(const GUID *class, PCWSTR filter, HWND pa
   return FALSE;
 }
 
+/***********************************************************************
+ *		CM_Connect_MachineW  (SETUPAPI.@)
+ */
+DWORD WINAPI CM_Connect_MachineW(LPCWSTR name, void * machine)
+{
+#define  CR_SUCCESS       0x00000000
+#define  CR_ACCESS_DENIED 0x00000033
+  FIXME("\n");
+  return  CR_ACCESS_DENIED;
+}
+
+/***********************************************************************
+ *		CM_Disconnect_Machine  (SETUPAPI.@)
+ */
+DWORD WINAPI CM_Disconnect_Machine(DWORD handle)
+{
+  FIXME("\n");
+  return  CR_SUCCESS;
+
+}
 
 /***********************************************************************
  *		SetupCopyOEMInfA  (SETUPAPI.@)

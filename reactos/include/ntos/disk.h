@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: disk.h,v 1.16 2004/08/19 18:12:28 navaraf Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: dir.c,v 1.25 2004/08/24 17:08:18 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/dir.c
  * PURPOSE:         Directory functions
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -39,7 +40,7 @@ NtNotifyChangeDirectoryFile (
    PDEVICE_OBJECT DeviceObject;
    PFILE_OBJECT FileObject;
    NTSTATUS Status;
-   PIO_STACK_LOCATION IoStack;
+   PEXTENDED_IO_STACK_LOCATION IoStack;
    KPROCESSOR_MODE PreviousMode;
    
    DPRINT("NtNotifyChangeDirectoryFile()\n");
@@ -82,7 +83,7 @@ NtNotifyChangeDirectoryFile (
    Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
    Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
    
-   IoStack = IoGetNextIrpStackLocation(Irp);
+   IoStack = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
    
    IoStack->MajorFunction = IRP_MJ_DIRECTORY_CONTROL;
    IoStack->MinorFunction = IRP_MN_NOTIFY_CHANGE_DIRECTORY;
@@ -103,7 +104,7 @@ NtNotifyChangeDirectoryFile (
 
    /* FIXME: Should we wait here or not for synchronously opened files? */
 
-   return Status;
+   return(Status);
 }
 
 
@@ -156,7 +157,7 @@ NtQueryDirectoryFile(
    PDEVICE_OBJECT DeviceObject;
    PFILE_OBJECT FileObject;
    NTSTATUS Status;
-   PIO_STACK_LOCATION IoStack;
+   PEXTENDED_IO_STACK_LOCATION IoStack;
    KPROCESSOR_MODE PreviousMode;
    
    DPRINT("NtQueryDirectoryFile()\n");
@@ -194,7 +195,7 @@ NtQueryDirectoryFile(
    Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
    Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
    
-   IoStack = IoGetNextIrpStackLocation(Irp);
+   IoStack = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
    
    IoStack->MajorFunction = IRP_MJ_DIRECTORY_CONTROL;
    IoStack->MinorFunction = IRP_MN_QUERY_DIRECTORY;
@@ -234,5 +235,12 @@ NtQueryDirectoryFile(
 
    return(Status);
 }
+
+NTSTATUS STDCALL NtQueryOleDirectoryFile(VOID)
+{
+   UNIMPLEMENTED;
+   return(STATUS_NOT_IMPLEMENTED);
+}
+
 
 /* EOF */

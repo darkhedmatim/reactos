@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: desktop.c,v 1.36 2004/12/13 15:39:52 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -177,7 +177,7 @@ SystemParametersInfoA(UINT uiAction,
           }
         }
 
-        RedrawWindow(GetShellWindow(), NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+        RedrawWindow(GetDesktopWindow(), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 
         return Ret;
       }
@@ -280,7 +280,7 @@ SystemParametersInfoW(UINT uiAction,
         }
       }
 
-      RedrawWindow(GetShellWindow(), NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+      RedrawWindow(GetDesktopWindow(), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 
       return Ret;
     }

@@ -1,11 +1,11 @@
-/* $Id$
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/event.c
  * PURPOSE:         Implements events
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -87,9 +87,9 @@ LONG STDCALL KeSetEvent (PKEVENT		Event,
 
   OldIrql = KeAcquireDispatcherDatabaseLock();
 
-  ret = InterlockedExchange(&Event->Header.SignalState,1);
+  ret = InterlockedExchange(&(Event->Header.SignalState),1);
 
-  KiDispatcherObjectWake(&Event->Header, Increment);
+  KiDispatcherObjectWake((DISPATCHER_HEADER *)Event);
 
   if (Wait == FALSE)
     {
@@ -98,7 +98,7 @@ LONG STDCALL KeSetEvent (PKEVENT		Event,
   else
     {
       KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = TRUE;
+      Thread->WaitNext = Wait;
       Thread->WaitIrql = OldIrql;
     }
 
@@ -108,18 +108,17 @@ LONG STDCALL KeSetEvent (PKEVENT		Event,
 /*
  * @implemented
  */
-LONG STDCALL
-KePulseEvent (IN PKEVENT	Event,
-              IN KPRIORITY	Increment,
-              IN BOOLEAN	Wait)
+NTSTATUS STDCALL KePulseEvent (PKEVENT		Event,
+			       KPRIORITY	Increment,
+			       BOOLEAN		Wait)
 {
    KIRQL OldIrql;
-   LONG Ret;
+   int ret;
 
    DPRINT("KePulseEvent(Event %x, Wait %x)\n",Event,Wait);
    OldIrql = KeAcquireDispatcherDatabaseLock();
-   Ret = InterlockedExchange(&Event->Header.SignalState,1);
-   KiDispatcherObjectWake(&Event->Header, Increment);
+   ret = InterlockedExchange(&(Event->Header.SignalState),1);
+   KiDispatcherObjectWake((DISPATCHER_HEADER *)Event);
    InterlockedExchange(&(Event->Header.SignalState),0);
 
   if (Wait == FALSE)
@@ -129,11 +128,11 @@ KePulseEvent (IN PKEVENT	Event,
   else
     {
       KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = TRUE;
+      Thread->WaitNext = Wait;
       Thread->WaitIrql = OldIrql;
     }
 
-   return Ret;
+   return ((NTSTATUS)ret);
 }
 
 /*

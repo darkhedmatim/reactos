@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: copy.c,v 1.31 2004/08/25 15:08:28 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/copy.c
  * PURPOSE:         Implements cache managers copy interface
- *
- * PROGRAMMERS:     Hartmut Birr
+ * PROGRAMMER:      Hartmut Birr
+ * UPDATE HISTORY:
+ *                  Created 05.10.2001
  */
 
 /* INCLUDES ******************************************************************/
@@ -24,7 +25,7 @@ static PFN_TYPE CcZeroPage = 0;
 #define MAX_RW_LENGTH	(256 * 1024)
 
 #if defined(__GNUC__)
-/* void * alloca(size_t size); */
+void * alloca(size_t size);
 #elif defined(_MSC_VER)
 void* _alloca(size_t size);
 #else
@@ -34,9 +35,6 @@ void* _alloca(size_t size);
 ULONG EXPORTED CcFastMdlReadWait;
 ULONG EXPORTED CcFastReadNotPossible;
 ULONG EXPORTED CcFastReadWait;
-ULONG CcFastReadNoWait;
-ULONG CcFastReadResourceMiss;
-
 
 /* FUNCTIONS *****************************************************************/
 
@@ -555,31 +553,34 @@ CcDeferWrite (
 /*
  * @unimplemented
  */
-VOID
+BOOLEAN
 STDCALL
 CcFastCopyRead (
-    IN  PFILE_OBJECT FileObject,
-    IN  ULONG FileOffset,
-    IN  ULONG Length,
-    IN  ULONG PageCount,
-    OUT PVOID Buffer,
-    OUT PIO_STATUS_BLOCK IoStatus
+	IN	PFILE_OBJECT		FileObject,
+	IN	ULONG			FileOffset,
+	IN	ULONG			Length,
+	IN	ULONG			PageCount,
+	OUT	PVOID			Buffer,
+	OUT	PIO_STATUS_BLOCK	IoStatus
 	)
 {
 	UNIMPLEMENTED;
+	return FALSE;
 }
 /*
  * @unimplemented
  */
-VOID
+BOOLEAN
 STDCALL
-CcFastCopyWrite(
-    IN  PFILE_OBJECT FileObject,
-    IN  ULONG FileOffset,
-    IN  ULONG Length,
-    IN  PVOID Buffer)
+CcFastCopyWrite (
+	IN	PFILE_OBJECT		FileObject,
+	IN	PLARGE_INTEGER		FileOffset,
+	IN	ULONG			Length,
+	IN	PVOID			Buffer
+	)
 {
 	UNIMPLEMENTED;
+	return FALSE;
 }
 
 /*

@@ -16,7 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* $Id$
+/* $Id: slayer.c,v 1.4 2004/09/28 16:05:24 weiden Exp $
  *
  * PROJECT:         ReactOS Compatibility Layer Shell Extension
  * FILE:            lib/shellext/cplsample/cplsample.c
@@ -860,7 +860,7 @@ RegisterPropSheetHandler(LPTSTR szType, LPWSTR szGuid)
 HRESULT STDCALL
 DllRegisterServer(VOID)
 {
-  LONG e = E_ACCESSDENIED;
+  LONG e;
   HKEY hk;
   WCHAR szGuid[40];
   WCHAR szDescription[255];

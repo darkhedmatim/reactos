@@ -188,12 +188,11 @@ static UINT CREATE_get_column_info( struct tagMSIVIEW *view,
     return ERROR_FUNCTION_FAILED;
 }
 
-static UINT CREATE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                MSIRECORD *rec)
+static UINT CREATE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIHANDLE hrec)
 {
     MSICREATEVIEW *cv = (MSICREATEVIEW*)view;
 
-    TRACE("%p %d %p\n", cv, eModifyMode, rec );
+    TRACE("%p %d %ld\n", cv, eModifyMode, hrec );
 
     return ERROR_FUNCTION_FAILED;
 }

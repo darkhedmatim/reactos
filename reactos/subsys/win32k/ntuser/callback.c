@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: callback.c,v 1.26 2004/12/14 23:14:15 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -63,7 +63,9 @@ IntCbAllocateMemory(ULONG Size)
   
   /* insert the callback memory into the thread's callback list */
   
+  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
   InsertTailList(&W32Thread->W32CallbackListHead, &Mem->ListEntry);
+  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
   
   return (Mem + 1);
 }
@@ -82,7 +84,9 @@ IntCbFreeMemory(PVOID Data)
   ASSERT(W32Thread);
   
   /* remove the memory block from the thread's callback list */
+  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
   RemoveEntryList(&Mem->ListEntry);
+  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
   
   /* free memory */
   ExFreePool(Mem);
@@ -94,6 +98,7 @@ IntCleanupThreadCallbacks(PW32THREAD W32Thread)
   PLIST_ENTRY CurrentEntry;
   PINT_CALLBACK_HEADER Mem;
   
+  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
   while (!IsListEmpty(&W32Thread->W32CallbackListHead))
   {
     CurrentEntry = RemoveHeadList(&W32Thread->W32CallbackListHead);
@@ -103,6 +108,7 @@ IntCleanupThreadCallbacks(PW32THREAD W32Thread)
     /* free memory */
     ExFreePool(Mem);
   }
+  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
 }
 
 /* FUNCTIONS *****************************************************************/

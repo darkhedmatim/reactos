@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: capture.c,v 1.6 2003/07/11 13:50:22 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

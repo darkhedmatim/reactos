@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: shutdown.c,v 1.2 2004/09/16 12:46:43 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS shutdown/logoff utility
@@ -146,6 +146,7 @@ _tmain(int argc, TCHAR *argv[])
       if (! AdjustTokenPrivileges(hToken, FALSE, &npr, 0, 0, 0)
           || ERROR_SUCCESS != GetLastError())
         {
+          CloseHandle(hToken);
           if (ERROR_NOT_ALL_ASSIGNED == GetLastError())
             {
               _ftprintf(stderr, _T("You are not authorized to shutdown the system\n"));
@@ -154,7 +155,6 @@ _tmain(int argc, TCHAR *argv[])
             {
               _ftprintf(stderr, _T("AdjustTokenPrivileges failed with error %d\n"), (int) GetLastError());
             }
-          CloseHandle(hToken);
           exit(1);
         }
       CloseHandle(hToken);

@@ -1,5 +1,5 @@
-#include <search.h>
-#include <stdlib.h>
+#include <msvcrt/search.h>
+#include <msvcrt/stdlib.h>
 
 
 /*

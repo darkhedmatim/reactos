@@ -13,7 +13,7 @@
 #define PF_PAE_ENABLED                      9
 #define PF_XMMI64_INSTRUCTIONS_AVAILABLE   10
 
-#ifndef __ASM__
+#define PROCESSOR_FEATURES_MAX             64
 
 typedef enum _ALTERNATIVE_ARCHITECTURE_TYPE
 {
@@ -64,14 +64,12 @@ typedef struct _KUSER_SHARED_DATA {
     BOOLEAN SafeBootMode;
     ULONG TraceLogging;
     ULONGLONG Fill0;
-    UCHAR SystemCall[16];
+    ULONGLONG SystemCall[4];
     union {
         volatile KSYSTEM_TIME TickCount;
         volatile ULONG64 TickCountQuad;
     };
 } KUSER_SHARED_DATA, *PKUSER_SHARED_DATA;
-
-#endif
 
 /* Values for DosDeviceDriveType */
 #define DOSDEVICE_DRIVE_UNKNOWN		0
@@ -106,7 +104,5 @@ typedef struct _KUSER_SHARED_DATA {
 #define SharedUserData		((KUSER_SHARED_DATA * const)USER_SHARED_DATA)
 #endif
 
-#define KUSER_SHARED_SYSCALL     0x7FFE0300
-#define KUSER_SHARED_SYSCALL_RET 0x7FFE0304
 
 #endif /* __INCLUDE_NAPI_SHARED_DATA_H */

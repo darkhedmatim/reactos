@@ -23,9 +23,13 @@
 #endif
 
 
-#ifndef __ASM__
+#ifdef __3GB__
+#define KERNEL_BASE        (0xC0000000)
+#else
+#define KERNEL_BASE        (0x80000000)
+#endif
 
-#define KERNEL_BASE        (ULONG)MmSystemRangeStart
+#ifndef __ASM__
 
 #if defined(__GNUC__)
 
@@ -54,6 +58,7 @@
 
 struct _EPROCESS;
 PULONG MmGetPageDirectory(VOID);
+VOID MiEnablePAE(PVOID* LastKernelAddress);
 
 
 

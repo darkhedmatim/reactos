@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: sec.c,v 1.22 2004/08/15 17:03:15 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -124,7 +124,7 @@ GetSecurityDescriptorOwner (
 	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
 	PSID			*pOwner,
 	LPBOOL			lpbOwnerDefaulted
-	)
+)
 {
 	BOOLEAN OwnerDefaulted;
 	NTSTATUS Status;
@@ -141,23 +141,6 @@ GetSecurityDescriptorOwner (
 	}
 
 	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetSecurityDescriptorRMControl (
-	PSECURITY_DESCRIPTOR	SecurityDescriptor,
-	PUCHAR			RMControl)
-{
-  if (!RtlGetSecurityDescriptorRMControl(SecurityDescriptor,
-					 RMControl))
-    return ERROR_INVALID_DATA;
-
-  return ERROR_SUCCESS;
 }
 
 
@@ -258,7 +241,7 @@ MakeAbsoluteSD (
 {
 	NTSTATUS Status;
 
-	Status = RtlSelfRelativeToAbsoluteSD ((PSECURITY_DESCRIPTOR_RELATIVE)pSelfRelativeSecurityDescriptor,
+	Status = RtlSelfRelativeToAbsoluteSD (pSelfRelativeSecurityDescriptor,
 	                                      pAbsoluteSecurityDescriptor,
 	                                      lpdwAbsoluteSecurityDescriptorSize,
 	                                      pDacl,
@@ -293,33 +276,8 @@ MakeSelfRelativeSD (
 	NTSTATUS Status;
 
 	Status = RtlAbsoluteToSelfRelativeSD (pAbsoluteSecurityDescriptor,
-	                                      (PSECURITY_DESCRIPTOR_RELATIVE)pSelfRelativeSecurityDescriptor,
+	                                      pSelfRelativeSecurityDescriptor,
 	                                      (PULONG)lpdwBufferLength);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastError (RtlNtStatusToDosError (Status));
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetSecurityDescriptorControl (
-	PSECURITY_DESCRIPTOR		pSecurityDescriptor,
-	SECURITY_DESCRIPTOR_CONTROL	ControlBitsOfInterest,
-	SECURITY_DESCRIPTOR_CONTROL	ControlBitsToSet)
-{
-	NTSTATUS Status;
-
-	Status = RtlSetControlSecurityDescriptor(pSecurityDescriptor,
-	                                         ControlBitsOfInterest,
-	                                         ControlBitsToSet);
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastError (RtlNtStatusToDosError (Status));
@@ -407,22 +365,6 @@ SetSecurityDescriptorOwner (
 	}
 
 	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-SetSecurityDescriptorRMControl (
-	PSECURITY_DESCRIPTOR	SecurityDescriptor,
-	PUCHAR			RMControl)
-{
-  RtlSetSecurityDescriptorRMControl(SecurityDescriptor,
-				    RMControl);
-
-  return ERROR_SUCCESS;
 }
 
 

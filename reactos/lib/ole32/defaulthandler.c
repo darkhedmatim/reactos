@@ -514,10 +514,17 @@ static void DefaultHandler_Destroy(
   /*
    * Free the strings idenfitying the object
    */
-  HeapFree( GetProcessHeap(), 0, ptrToDestroy->containerApp );
-  ptrToDestroy->containerApp = NULL;
-  HeapFree( GetProcessHeap(), 0, ptrToDestroy->containerObj );
-  ptrToDestroy->containerObj = NULL;
+  if (ptrToDestroy->containerApp!=NULL)
+  {
+    HeapFree( GetProcessHeap(), 0, ptrToDestroy->containerApp );
+    ptrToDestroy->containerApp = NULL;
+  }
+
+  if (ptrToDestroy->containerObj!=NULL)
+  {
+    HeapFree( GetProcessHeap(), 0, ptrToDestroy->containerObj );
+    ptrToDestroy->containerObj = NULL;
+  }
 
   /*
    * Release our reference to the data cache.
@@ -815,10 +822,17 @@ static HRESULT WINAPI DefaultHandler_SetHostNames(
   /*
    * Be sure to cleanup before re-assinging the strings.
    */
-  HeapFree( GetProcessHeap(), 0, this->containerApp );
-  this->containerApp = NULL;
-  HeapFree( GetProcessHeap(), 0, this->containerObj );
-  this->containerObj = NULL;
+  if (this->containerApp!=NULL)
+  {
+    HeapFree( GetProcessHeap(), 0, this->containerApp );
+    this->containerApp = NULL;
+  }
+
+  if (this->containerObj!=NULL)
+  {
+    HeapFree( GetProcessHeap(), 0, this->containerObj );
+    this->containerObj = NULL;
+  }
 
   /*
    * Copy the string supplied.

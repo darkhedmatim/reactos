@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: errlog.c,v 1.20 2004/09/28 12:51:14 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/errlog.c
  * PURPOSE:         Error logging
- *
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -135,7 +136,7 @@ IopConnectLogPort (VOID)
   RtlInitUnicodeString (&PortName,
 			L"\\ErrorLogPort");
 
-  Status = ZwConnectPort (&IopLogPort,
+  Status = NtConnectPort (&IopLogPort,
 			  &PortName,
 			  NULL,
 			  NULL,
@@ -145,7 +146,7 @@ IopConnectLogPort (VOID)
 			  NULL);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT ("ZwConnectPort() failed (Status %lx)\n", Status);
+      DPRINT ("NtConnectPort() failed (Status %lx)\n", Status);
       return FALSE;
     }
 
@@ -290,7 +291,7 @@ IopLogWorker (PVOID Parameter)
 	Request->Header.DataSize + sizeof(LPC_MESSAGE);
 
       /* Send the error message to the log port */
-      Status = ZwRequestPort (IopLogPort,
+      Status = NtRequestPort (IopLogPort,
 			      &Request->Header);
 
       /* Release request buffer */
@@ -298,7 +299,7 @@ IopLogWorker (PVOID Parameter)
 
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT ("ZwRequestPort() failed (Status %lx)\n", Status);
+	  DPRINT ("NtRequestPort() failed (Status %lx)\n", Status);
 
 	  /* Requeue log message and restart the worker */
 	  ExInterlockedInsertTailList (&IopLogListHead,

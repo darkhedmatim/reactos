@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: sb16.c,v 1.1 2004/01/20 00:29:48 sedwards Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: shutdown.c,v 1.9 2004/12/05 16:31:51 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -9,38 +9,14 @@
 
 /* INCLUDES *****************************************************************/
 
+#include <ddk/ntddk.h>
+
 #define NDEBUG
+#include <debug.h>
+
 #include "vfat.h"
 
 /* FUNCTIONS ****************************************************************/
-
-NTSTATUS
-VfatDiskShutDown(PVCB Vcb)
-{
-   PIRP Irp;
-   KEVENT Event;
-   NTSTATUS Status;
-   IO_STATUS_BLOCK IoStatus;
-
-   KeInitializeEvent(&Event, NotificationEvent, FALSE);
-   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_SHUTDOWN, Vcb->StorageDevice,
-                                      NULL, 0, NULL, &Event, &IoStatus);
-   if (Irp)
-   {
-      Status = IoCallDriver(Vcb->StorageDevice, Irp);
-      if (Status == STATUS_PENDING)
-      {
-         KeWaitForSingleObject(&Event, Executive, KernelMode, FALSE, NULL);
-         Status = IoStatus.Status;
-      }
-   }
-   else
-   {
-      Status = IoStatus.Status;
-   }
-
-   return Status;
-}
 
 NTSTATUS STDCALL
 VfatShutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
@@ -65,24 +41,15 @@ VfatShutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	 ExAcquireResourceExclusiveLite(&DeviceExt->DirResource, TRUE);
          Status = VfatFlushVolume(DeviceExt, DeviceExt->VolumeFcb);
-         if (NT_SUCCESS(Status))
-         {
-            Status = VfatDiskShutDown(DeviceExt);
-            if (!NT_SUCCESS(Status))
-	       DPRINT1("VfatDiskShutDown failed, status = %x\n", Status);
-         }
-         else
-         {
-	    DPRINT1("VfatFlushVolume failed, status = %x\n", Status);
-	 }
          ExReleaseResourceLite(&DeviceExt->DirResource);
-
+	 if (!NT_SUCCESS(Status))
+	 {
+	    DPRINT1("VfatFlushVolume failed, status = %x\n", Status);
+	    Irp->IoStatus.Status = Status;
+	 }
          /* FIXME: Unmount the logical volume */
-
-         if (!NT_SUCCESS(Status))
-            Irp->IoStatus.Status = Status;
       }
-      ExReleaseResourceLite(&VfatGlobalData->VolumeListLock);
+	 ExReleaseResourceLite(&VfatGlobalData->VolumeListLock);
       
       /* FIXME: Free all global acquired resources */
 
@@ -90,13 +57,13 @@ VfatShutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    }
    else
    {
-      Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
       Status = STATUS_INVALID_DEVICE_REQUEST;
    }
 
+   Irp->IoStatus.Status = Status;
    Irp->IoStatus.Information = 0;
-   IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
+   IoCompleteRequest(Irp, IO_NO_INCREMENT);
    return(Status);
 }
 

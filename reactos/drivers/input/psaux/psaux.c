@@ -156,7 +156,7 @@ VOID PS2MouseIsrDpc(PKDPC Dpc, PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Cont
    ULONG Queue;
 
    Queue = DeviceExtension->ActiveQueue % 2;
-   InterlockedIncrement((PLONG)&DeviceExtension->ActiveQueue);
+   InterlockedIncrement(&DeviceExtension->ActiveQueue);
    (*(PSERVICE_CALLBACK_ROUTINE)DeviceExtension->ClassInformation.CallBack)(
 			DeviceExtension->ClassInformation.DeviceObject,
 			DeviceExtension->MouseInputData[Queue],
@@ -177,6 +177,7 @@ AllocatePointerDevice(PDRIVER_OBJECT DriverObject)
 	PDEVICE_OBJECT DeviceObject;
 	UNICODE_STRING DeviceName;
 	UNICODE_STRING SuffixString;
+	UNICODE_STRING SymlinkName;
 	PDEVICE_EXTENSION DeviceExtension;
 	ULONG Suffix;
 	NTSTATUS Status;
@@ -212,15 +213,24 @@ AllocatePointerDevice(PDRIVER_OBJECT DriverObject)
 	}
  
 	ExFreePool(DeviceName.Buffer);
-	ExFreePool(SuffixString.Buffer);
 
 	/* Couldn't create device */
 	if (!NT_SUCCESS(Status))
 	{
+		ExFreePool(SuffixString.Buffer);
 		return NULL;
 	}
 
 	DeviceObject->Flags = DeviceObject->Flags | DO_BUFFERED_IO;
+
+	/* Create symlink */
+	RtlInitUnicodeString(&SymlinkName, NULL);
+	SymlinkName.MaximumLength = sizeof(L"\\??\\Mouse") + SUFFIX_MAXIMUM_SIZE + sizeof(UNICODE_NULL);
+	SymlinkName.Buffer = ExAllocatePool(PagedPool, SymlinkName.MaximumLength);
+	RtlAppendUnicodeToString(&SymlinkName, L"\\??\\Mouse");
+	RtlAppendUnicodeToString(&DeviceName, SuffixString.Buffer);
+	IoCreateSymbolicLink(&SymlinkName, &DeviceName);
+	ExFreePool(SuffixString.Buffer);
 
 	DeviceExtension = DeviceObject->DeviceExtension;
 	KeInitializeDpc(&DeviceExtension->IsrDpc, (PKDEFERRED_ROUTINE)PS2MouseIsrDpc, DeviceObject);

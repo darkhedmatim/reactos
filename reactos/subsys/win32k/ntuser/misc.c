@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: misc.c,v 1.92 2004/12/12 23:08:11 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -37,14 +37,14 @@ PUSER_MESSAGE_QUEUE W32kGetPrimitiveMessageQueue() {
 }
 
 BOOL FASTCALL
-IntRegisterLogonProcess(HANDLE ProcessId, BOOL Register)
+IntRegisterLogonProcess(DWORD ProcessId, BOOL Register)
 {
   PEPROCESS Process;
   NTSTATUS Status;
   CSRSS_API_REQUEST Request;
   CSRSS_API_REPLY Reply;
 
-  Status = PsLookupProcessByProcessId(ProcessId,
+  Status = PsLookupProcessByProcessId((PVOID)ProcessId,
 				      &Process);
   if (!NT_SUCCESS(Status))
   {
@@ -131,9 +131,10 @@ NtUserCallNoParam(DWORD Routine)
       Result = (DWORD)CsrInit();
       break;
     
-    case NOPARAM_ROUTINE_MSQCLEARWAKEMASK:
-      return (DWORD)IntMsqClearWakeMask();
-
+    case NOPARAM_ROUTINE_GDI_QUERY_TABLE:
+      Result = (DWORD)GDI_MapHandleTable(NtCurrentProcess());
+      break;
+    
     default:
       DPRINT1("Calling invalid routine number 0x%x in NtUserCallNoParam\n", Routine);
       SetLastWin32Error(ERROR_INVALID_PARAMETER);
@@ -259,6 +260,7 @@ NtUserCallOneParam(
     
     case ONEPARAM_ROUTINE_GETCURSORPOSITION:
     {
+      PSYSTEM_CURSORINFO CurInfo;
       PWINSTATION_OBJECT WinStaObject;
       NTSTATUS Status;
       POINT Pos;
@@ -272,8 +274,10 @@ NtUserCallOneParam(
       if (!NT_SUCCESS(Status))
         return (DWORD)FALSE;
       
+      CurInfo = IntGetSysCursorInfo(WinStaObject);
       /* FIXME - check if process has WINSTA_READATTRIBUTES */
-      IntGetCursorLocation(WinStaObject, &Pos);
+      Pos.x = CurInfo->x;
+      Pos.y = CurInfo->y;
       
       Status = MmCopyToCaller((PPOINT)Param, &Pos, sizeof(POINT));
       if(!NT_SUCCESS(Status))
@@ -329,9 +333,6 @@ NtUserCallOneParam(
       
       return FALSE;
     }
-
-    case ONEPARAM_ROUTINE_MSQSETWAKEMASK:
-      return (DWORD)IntMsqSetWakeMask(Param);
   }
   DPRINT1("Calling invalid routine number 0x%x in NtUserCallOneParam(), Param=0x%x\n", 
           Routine, Param);
@@ -512,7 +513,7 @@ NtUserCallTwoParam(
     }
     
     case TWOPARAM_ROUTINE_REGISTERLOGONPROC:
-      return (DWORD)IntRegisterLogonProcess((HANDLE)Param1, (BOOL)Param2);
+      return (DWORD)IntRegisterLogonProcess(Param1, (BOOL)Param2);
 
     case TWOPARAM_ROUTINE_SETSYSCOLORS:
     {
@@ -1175,7 +1176,7 @@ NtUserGetGUIThreadInfo(
   
   if(idThread)
   {
-    Status = PsLookupThreadByThreadId((HANDLE)idThread, &Thread);
+    Status = PsLookupThreadByThreadId((PVOID)idThread, &Thread);
     if(!NT_SUCCESS(Status))
     {
       SetLastWin32Error(ERROR_ACCESS_DENIED);

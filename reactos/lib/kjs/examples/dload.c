@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/examples/dload.c,v $
- * $Id$
+ * $Id: dload.c,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 #include <js.h>

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: info.c,v 1.6 2004/12/11 14:59:31 navaraf Exp $
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/net/afd/afd/info.c
@@ -62,14 +62,12 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 }
 
 NTSTATUS STDCALL
-AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-                      PIO_STACK_LOCATION IrpSp, BOOLEAN Local ) {
+AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
+		PIO_STACK_LOCATION IrpSp ) {
     NTSTATUS Status = STATUS_SUCCESS;
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
-    PMDL Mdl = NULL, SysMdl = NULL;
-    PTDI_CONNECTION_INFORMATION ConnInfo = NULL;
-    PTRANSPORT_ADDRESS TransAddr = NULL;
+    PMDL Mdl;
 
     AFD_DbgPrint(MID_TRACE,("Called on %x\n", FCB));
 
@@ -96,50 +94,12 @@ AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	} _SEH_END;
 
 	if( NT_SUCCESS(Status) ) {
-            if( Local ) {
-                Status = TdiQueryInformation
-                    ( FCB->AddressFile.Object,
-                      TDI_QUERY_ADDRESS_INFO,
-                      Mdl );
-            } else {
-                if( !NT_SUCCESS
-                    ( Status = TdiBuildNullConnectionInfo
-                      ( &ConnInfo, 
-                        FCB->LocalAddress->Address[0].AddressType ) ) ) {
-                    SysMdl = IoAllocateMdl
-                        ( ConnInfo, 
-                          sizeof( TDI_CONNECTION_INFORMATION ) +
-                          TaLengthOfTransportAddress
-                          ( ConnInfo->RemoteAddress ),
-                          FALSE,
-                          FALSE,
-                          NULL );
-                }
-
-                if( SysMdl ) {
-                    MmBuildMdlForNonPagedPool( SysMdl );
-                    Status = TdiQueryInformation
-                        ( FCB->AddressFile.Object,
-                          TDI_QUERY_CONNECTION_INFO,
-                          SysMdl );
-                } else Status = STATUS_NO_MEMORY;
-                
-                if( NT_SUCCESS(Status) ) {
-                    TransAddr = 
-                        (PTRANSPORT_ADDRESS)MmMapLockedPages
-                        ( Mdl, IoModifyAccess );
-                }
-                
-                if( TransAddr ) 
-                    RtlCopyMemory( TransAddr, ConnInfo->RemoteAddress,
-                                   TaLengthOfTransportAddress
-                                   ( ConnInfo->RemoteAddress ) );
-                
-                if( ConnInfo ) ExFreePool( ConnInfo );
-                if( SysMdl ) IoFreeMdl( SysMdl );
-            }
+	    Status = TdiQueryInformation
+		( FCB->AddressFile.Object,
+		  TDI_QUERY_ADDRESS_INFO,
+		  Mdl );
 	}
-        
+
 	/* MmUnlockPages( Mdl ); */
 	IoFreeMdl( Mdl );
     } else {

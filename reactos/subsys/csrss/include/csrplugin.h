@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: csrplugin.h,v 1.2 2004/05/28 21:33:41 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

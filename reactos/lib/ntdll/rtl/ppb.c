@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: ppb.c,v 1.20 2004/11/19 01:30:35 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

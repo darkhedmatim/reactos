@@ -21,7 +21,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: menu.c,v 1.76 2004/12/13 15:38:18 navaraf Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/menu.c
@@ -1884,56 +1884,46 @@ MenuMoveSelection(HWND WndOwner, PROSMENUINFO MenuInfo, INT Offset)
 {
   INT i;
   ROSMENUITEMINFO ItemInfo;
-  INT OrigPos;
 
   DPRINT("hwnd=%x menu=%x off=0x%04x\n", WndOwner, MenuInfo, Offset);
 
-  /* Prevent looping */
-  if (0 == MenuInfo->MenuItemCount || 0 == Offset)
-    return;
-  else if (Offset < -1)
-    Offset = -1;
-  else if (Offset > 1)
-    Offset = 1;
-
   MenuInitRosMenuItemInfo(&ItemInfo);
-
-  OrigPos = MenuInfo->FocusedItem;
-  if (OrigPos == NO_SELECTED_ITEM) /* NO_SELECTED_ITEM is not -1 ! */
+  if (NO_SELECTED_ITEM != MenuInfo->FocusedItem)
     {
-       OrigPos = 0;
-       i = -1;
-    }
-  else
-    { 
-      i = MenuInfo->FocusedItem; 
+      if (1 == MenuInfo->MenuItemCount)
+        {
+          MenuCleanupRosMenuItemInfo(&ItemInfo);
+          return;
+        }
+      else
+        {
+          for (i = MenuInfo->FocusedItem + Offset;
+               0 <= i && i < MenuInfo->MenuItemCount;
+               i += Offset)
+            {
+              if (MenuGetRosMenuItemInfo(MenuInfo->Self, i, &ItemInfo) &&
+                  0 == (ItemInfo.fType & MF_SEPARATOR))
+                {
+                  MenuSelectItem(WndOwner, MenuInfo, i, TRUE, NULL);
+                  MenuCleanupRosMenuItemInfo(&ItemInfo);
+                  return;
+                }
+            }
+        }
     }
 
-  do
+  for (i = (0 < Offset) ? 0 : MenuInfo->MenuItemCount - 1;
+       0 <= i && i < MenuInfo->MenuItemCount; i += Offset)
     {
-      /* Step */
-      i += Offset;
-      /* Clip and wrap around */
-      if (i < 0)
-        {
-          i = MenuInfo->MenuItemCount - 1;
-        }
-      else if (i >= MenuInfo->MenuItemCount)
-        {
-          i = 0;
-        }
-      /* If this is a good candidate; */
       if (MenuGetRosMenuItemInfo(MenuInfo->Self, i, &ItemInfo) &&
-          0 == (ItemInfo.fType & MF_SEPARATOR) &&
-          0 == (ItemInfo.fState & (MFS_DISABLED | MFS_GRAYED)) )
+          0 == (ItemInfo.fType & MF_SEPARATOR))
         {
           MenuSelectItem(WndOwner, MenuInfo, i, TRUE, NULL);
           MenuCleanupRosMenuItemInfo(&ItemInfo);
           return;
         }
-    } while (i != OrigPos);
+    }
 
-  /* Not found */
   MenuCleanupRosMenuItemInfo(&ItemInfo);
 }
 
@@ -2286,19 +2276,15 @@ MenuButtonDown(MTRACKER* Mt, HMENU PtMenu, UINT Flags)
           return FALSE;
         }
 
-      if (!(Item.fType & MF_SEPARATOR) &&
-          !(Item.fState & (MFS_DISABLED | MFS_GRAYED)) )
-	{
-          if (MenuInfo.FocusedItem != Index)
-            {
-              MenuSwitchTracking(Mt, &MenuInfo, Index);
-            }
+      if (MenuInfo.FocusedItem != Index)
+        {
+          MenuSwitchTracking(Mt, &MenuInfo, Index);
+        }
 
-          /* If the popup menu is not already "popped" */
-          if (0 == (Item.fState & MF_MOUSESELECT))
-            {
-              Mt->CurrentMenu = MenuShowSubPopup(Mt->OwnerWnd, &MenuInfo, FALSE, Flags);
-            }
+      /* If the popup menu is not already "popped" */
+      if (0 == (Item.fState & MF_MOUSESELECT))
+        {
+          Mt->CurrentMenu = MenuShowSubPopup(Mt->OwnerWnd, &MenuInfo, FALSE, Flags);
         }
 
       MenuCleanupRosMenuItemInfo(&Item);
@@ -2436,7 +2422,6 @@ MenuMouseMove(MTRACKER *Mt, HMENU PtMenu, UINT Flags)
 {
   UINT Index;
   ROSMENUINFO MenuInfo;
-  ROSMENUITEMINFO ItemInfo;
 
   if (NULL != PtMenu)
     {
@@ -2469,15 +2454,8 @@ MenuMouseMove(MTRACKER *Mt, HMENU PtMenu, UINT Flags)
     }
   else if (MenuInfo.FocusedItem != Index)
     {
-	MenuInitRosMenuItemInfo(&ItemInfo);
-	if (MenuGetRosMenuItemInfo(MenuInfo.Self, Index, &ItemInfo) &&
-           !(ItemInfo.fType & MF_SEPARATOR) &&
-           !(ItemInfo.fState & (MFS_DISABLED | MFS_GRAYED)) )
-	{
-	    MenuSwitchTracking(Mt, &MenuInfo, Index);
-	    Mt->CurrentMenu = MenuShowSubPopup(Mt->OwnerWnd, &MenuInfo, FALSE, Flags);
-	}
-	MenuCleanupRosMenuItemInfo(&ItemInfo);
+      MenuSwitchTracking(Mt, &MenuInfo, Index);
+      Mt->CurrentMenu = MenuShowSubPopup(Mt->OwnerWnd, &MenuInfo, FALSE, Flags);
     }
 
   return TRUE;
@@ -4048,9 +4026,9 @@ InsertMenuItemW(
   BOOL res = FALSE;
   mi.hbmpItem = (HBITMAP)0;
 
-  /* while we could just pass 'lpmii' to win32k, we make a copy so that
-     if a bad user passes bad data, we crash his process instead of the
-     entire kernel */
+  // while we could just pass 'lpmii' to win32k, we make a copy so that
+  // if a bad user passes bad data, we crash his process instead of the
+  // entire kernel
 
   if((lpmii->cbSize == sizeof(MENUITEMINFOW)) || 
      (lpmii->cbSize == sizeof(MENUITEMINFOW) - sizeof(HBITMAP)))

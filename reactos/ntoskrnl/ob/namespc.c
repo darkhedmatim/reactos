@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: namespc.c,v 1.50 2004/11/21 10:59:10 weiden Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
  * FILE:           ntoskrnl/ob/namespc.c
  * PURPOSE:        Manages the system namespace
- * 
- * PROGRAMMERS:    David Welch (welch@mcmail.com)
+ * PROGRAMMER:     David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                 22/05/98: Created
  */
 
 /* INCLUDES ***************************************************************/
@@ -55,8 +56,6 @@ ObReferenceObjectByName(PUNICODE_STRING ObjectPath,
    UNICODE_STRING RemainingPath;
    OBJECT_ATTRIBUTES ObjectAttributes;
    NTSTATUS Status;
-   
-   PAGED_CODE();
 
    InitializeObjectAttributes(&ObjectAttributes,
 			      ObjectPath,
@@ -128,8 +127,6 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
    UNICODE_STRING RemainingPath;
    PVOID Object = NULL;
    NTSTATUS Status;
-   
-   PAGED_CODE();
 
    DPRINT("ObOpenObjectByName(...)\n");
 
@@ -199,7 +196,7 @@ ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
 {
   KIRQL oldlvl;
 
-  RtlpCreateUnicodeString(&Header->Name, Name, NonPagedPool);
+  RtlCreateUnicodeString(&Header->Name, Name);
   Header->Parent = Parent;
 
   KeAcquireSpinLock(&Parent->Lock, &oldlvl);
@@ -379,8 +376,8 @@ ObInit(VOID)
   ObDirectoryType->Tag = TAG('D', 'I', 'R', 'T');
   ObDirectoryType->TotalObjects = 0;
   ObDirectoryType->TotalHandles = 0;
-  ObDirectoryType->PeakObjects = 0;
-  ObDirectoryType->PeakHandles = 0;
+  ObDirectoryType->MaxObjects = ULONG_MAX;
+  ObDirectoryType->MaxHandles = ULONG_MAX;
   ObDirectoryType->PagedPoolCharge = 0;
   ObDirectoryType->NonpagedPoolCharge = sizeof(DIRECTORY_OBJECT);
   ObDirectoryType->Mapping = &ObpDirectoryMapping;
@@ -395,7 +392,7 @@ ObInit(VOID)
   ObDirectoryType->Create = ObpCreateDirectory;
   ObDirectoryType->DuplicationNotify = NULL;
 
-  RtlInitUnicodeString(&ObDirectoryType->TypeName,
+  RtlRosInitUnicodeStringFromLiteral(&ObDirectoryType->TypeName,
 		       L"Directory");
 
   /* create 'type' object type*/
@@ -404,8 +401,8 @@ ObInit(VOID)
   ObTypeObjectType->Tag = TAG('T', 'y', 'p', 'T');
   ObTypeObjectType->TotalObjects = 0;
   ObTypeObjectType->TotalHandles = 0;
-  ObTypeObjectType->PeakObjects = 0;
-  ObTypeObjectType->PeakHandles = 0;
+  ObTypeObjectType->MaxObjects = ULONG_MAX;
+  ObTypeObjectType->MaxHandles = ULONG_MAX;
   ObTypeObjectType->PagedPoolCharge = 0;
   ObTypeObjectType->NonpagedPoolCharge = sizeof(TYPE_OBJECT);
   ObTypeObjectType->Mapping = &ObpTypeMapping;
@@ -420,7 +417,7 @@ ObInit(VOID)
   ObTypeObjectType->Create = NULL;
   ObTypeObjectType->DuplicationNotify = NULL;
 
-  RtlInitUnicodeString(&ObTypeObjectType->TypeName,
+  RtlRosInitUnicodeStringFromLiteral(&ObTypeObjectType->TypeName,
 		       L"ObjectType");
 
   /* Create security descriptor */

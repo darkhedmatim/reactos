@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: cid.c,v 1.3 2004/11/27 19:41:55 hbirr Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ps/cid.c
- * PURPOSE:         Client ID (CID) management
- *
- * PROGRAMMERS:     Thomas Weidenmueller <w3seek@reactos.com>
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * FILE:              ntoskrnl/ps/clientid.c
+ * PURPOSE:           Client ID (CID) management
+ * PROGRAMMER:        Thomas Weidenmueller <w3seek@reactos.com>
+ * REVISION HISTORY:
+ *              9/20/2004: Created
  */
 
 /* INCLUDES ******************************************************************/
@@ -69,7 +70,7 @@ PsCreateCidHandle(PVOID Object, POBJECT_TYPE ObjectType, PHANDLE Handle)
     cido->Obj.Object = Object;
 
     KeAcquireSpinLock(&CidLock, &oldIrql);
-    cido->Handle = (HANDLE)((ULONG_PTR)(++CidCounter) << 2);
+    cido->Handle = (HANDLE)(++CidCounter);
     InsertTailList(&CidHead, &cido->Entry);
     KeReleaseSpinLock(&CidLock, oldIrql);
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: random.c,v 1.3 2004/08/07 19:13:25 ion Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -27,10 +27,11 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ntdll/rtl.h>
 
 #define NDEBUG
 #include <debug.h>
+
+#define MAXLONG (0x7fffffff)
 
 static ULONG SavedValue[128] =
    {
@@ -89,8 +90,6 @@ RtlRandom (IN OUT PULONG Seed)
    ULONG Rand;
    int Pos;
    ULONG Result;
-   
-   PAGED_CODE_RTL();
 
    Rand = (*Seed * 0x7fffffed + 0x7fffffc3) % 0x7fffffff;
    *Seed = (Rand * 0x7fffffed + 0x7fffffc3) % 0x7fffffff;

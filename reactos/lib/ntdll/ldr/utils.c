@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: utils.c,v 1.102 2004/12/15 03:00:33 royce Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -51,20 +51,20 @@ static ULONG LdrpTlsSize = 0;
 static HANDLE LdrpKnownDllsDirHandle = NULL;
 static UNICODE_STRING LdrpKnownDllPath = {0, 0, NULL};
 static PLDR_MODULE LdrpLastModule = NULL;
+extern ULONG NtGlobalFlag;
 extern PLDR_MODULE ExeModule;
 
 /* PROTOTYPES ****************************************************************/
 
-static NTSTATUS LdrFindEntryForName(PUNICODE_STRING Name, PLDR_MODULE *Module, BOOLEAN Ref);
+static NTSTATUS LdrFindEntryForName(PUNICODE_STRING Name, PLDR_MODULE *Module, BOOL Ref);
 static PVOID LdrFixupForward(PCHAR ForwardName);
 static PVOID LdrGetExportByName(PVOID BaseAddress, PUCHAR SymbolName, USHORT Hint);
 static NTSTATUS LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
                                IN ULONG LoadFlags,
                                IN PUNICODE_STRING Name,
-                               OUT PLDR_MODULE *Module,
-                               OUT PVOID *BaseAddress OPTIONAL);
+                               OUT PLDR_MODULE *Module);
 static NTSTATUS LdrpAttachProcess(VOID);
-static VOID LdrpDetachProcess(BOOLEAN UnloadAll);
+static VOID LdrpDetachProcess(BOOL UnloadAll);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -84,19 +84,7 @@ LdrpLoadUserModuleSymbols(PLDR_MODULE LdrModule)
 
 #endif /* DBG || KDBG */
 
-BOOLEAN
-LdrMappedAsDataFile(PVOID *BaseAddress)
-{
-  if (0 != ((DWORD_PTR) *BaseAddress & (PAGE_SIZE - 1)))
-    {
-      *BaseAddress = (PVOID) ((DWORD_PTR) *BaseAddress & ~ ((DWORD_PTR) PAGE_SIZE - 1));
-      return TRUE;
-    }
-
-   return FALSE;
-}
-
-static inline LONG LdrpDecrementLoadCount(PLDR_MODULE Module, BOOLEAN Locked)
+static inline LONG LdrpDecrementLoadCount(PLDR_MODULE Module, BOOL Locked)
 {
    LONG LoadCount;
    if (!Locked)
@@ -115,7 +103,7 @@ static inline LONG LdrpDecrementLoadCount(PLDR_MODULE Module, BOOLEAN Locked)
    return LoadCount;
 }
 
-static inline LONG LdrpIncrementLoadCount(PLDR_MODULE Module, BOOLEAN Locked)
+static inline LONG LdrpIncrementLoadCount(PLDR_MODULE Module, BOOL Locked)
 {
    LONG LoadCount;
    if (!Locked)
@@ -134,7 +122,7 @@ static inline LONG LdrpIncrementLoadCount(PLDR_MODULE Module, BOOLEAN Locked)
    return LoadCount;
 }
 
-static inline VOID LdrpAcquireTlsSlot(PLDR_MODULE Module, ULONG Size, BOOLEAN Locked)
+static inline VOID LdrpAcquireTlsSlot(PLDR_MODULE Module, ULONG Size, BOOL Locked)
 {
    if (!Locked)
      {
@@ -168,7 +156,7 @@ static inline VOID LdrpTlsCallback(PLDR_MODULE Module, ULONG dwReason)
      }
 }
 
-static BOOLEAN LdrpCallDllEntry(PLDR_MODULE Module, DWORD dwReason, PVOID lpReserved)
+static BOOL LdrpCallDllEntry(PLDR_MODULE Module, DWORD dwReason, PVOID lpReserved)
 {
    if (!(Module->Flags & IMAGE_DLL) ||
        Module->EntryPoint == 0)
@@ -468,7 +456,7 @@ LdrAddModuleEntry(PVOID ImageBase,
   Module->EntryPoint = NTHeaders->OptionalHeader.AddressOfEntryPoint;
   if (Module->EntryPoint != 0)
     Module->EntryPoint += (ULONG)Module->BaseAddress;
-  Module->ResidentSize = LdrpGetResidentSize(NTHeaders);
+  Module->SizeOfImage = NTHeaders->OptionalHeader.SizeOfImage;
   if (NtCurrentPeb()->Ldr->Initialized == TRUE)
     {
       /* loading while app is running */
@@ -561,7 +549,6 @@ static NTSTATUS
 LdrpMapDllImageFile(IN PWSTR SearchPath OPTIONAL,
                     IN PUNICODE_STRING DllName,
                     OUT PUNICODE_STRING FullDosName,
-                    IN BOOLEAN MapAsDataFile,
                     OUT PHANDLE SectionHandle)
 {
   WCHAR                 SearchPathBuffer[MAX_PATH];
@@ -572,6 +559,8 @@ LdrpMapDllImageFile(IN PWSTR SearchPath OPTIONAL,
   char                  BlockBuffer [1024];
   PIMAGE_DOS_HEADER     DosHeader;
   PIMAGE_NT_HEADERS     NTHeaders;
+  PVOID                 ImageBase;
+  ULONG                 ImageSize;
   IO_STATUS_BLOCK       IoStatusBlock;
   NTSTATUS              Status;
   ULONG                 len;
@@ -630,7 +619,7 @@ LdrpMapDllImageFile(IN PWSTR SearchPath OPTIONAL,
                       GENERIC_READ|SYNCHRONIZE,
                       &FileObjectAttributes,
                       &IoStatusBlock,
-                      FILE_SHARE_READ,
+                      0,
                       FILE_SYNCHRONOUS_IO_NONALERT);
   if (!NT_SUCCESS(Status))
     {
@@ -675,6 +664,11 @@ LdrpMapDllImageFile(IN PWSTR SearchPath OPTIONAL,
       return STATUS_UNSUCCESSFUL;
     }
 
+  ImageBase = (PVOID) NTHeaders->OptionalHeader.ImageBase;
+  ImageSize = NTHeaders->OptionalHeader.SizeOfImage;
+
+  DPRINT("ImageBase 0x%08x\n", ImageBase);
+
   /*
    * Create a section for dll.
    */
@@ -683,7 +677,7 @@ LdrpMapDllImageFile(IN PWSTR SearchPath OPTIONAL,
                            NULL,
                            NULL,
                            PAGE_READWRITE,
-                           SEC_COMMIT | (MapAsDataFile ? 0 : SEC_IMAGE),
+                           SEC_COMMIT | SEC_IMAGE,
                            FileHandle);
   NtClose(FileHandle);
 
@@ -739,8 +733,8 @@ LdrLoadDll (IN PWSTR SearchPath OPTIONAL,
 
   *BaseAddress = NULL;
 
-  Status = LdrpLoadModule(SearchPath, LoadFlags, Name, &Module, BaseAddress);
-  if (NT_SUCCESS(Status) && 0 == (LoadFlags & LOAD_LIBRARY_AS_DATAFILE))
+  Status = LdrpLoadModule(SearchPath, LoadFlags, Name, &Module);
+  if (NT_SUCCESS(Status))
     {
       RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
       Status = LdrpAttachProcess();
@@ -799,7 +793,7 @@ LdrFindEntryForAddress(PVOID Address,
       DPRINT("Scanning %wZ at %p\n", &ModulePtr->BaseDllName, ModulePtr->BaseAddress);
 
       if ((Address >= ModulePtr->BaseAddress) &&
-          (Address <= (ModulePtr->BaseAddress + ModulePtr->ResidentSize)))
+          (Address <= (ModulePtr->BaseAddress + ModulePtr->SizeOfImage)))
         {
           *Module = ModulePtr;
           RtlLeaveCriticalSection(NtCurrentPeb()->LoaderLock);
@@ -834,7 +828,7 @@ LdrFindEntryForAddress(PVOID Address,
 static NTSTATUS
 LdrFindEntryForName(PUNICODE_STRING Name,
                     PLDR_MODULE *Module,
-                    BOOLEAN Ref)
+                    BOOL Ref)
 {
   PLIST_ENTRY ModuleListHead;
   PLIST_ENTRY Entry;
@@ -980,7 +974,7 @@ LdrFixupForward(PCHAR ForwardName)
 
         DPRINT("BaseAddress: %p\n", Module->BaseAddress);
 
-        return LdrGetExportByName(Module->BaseAddress, (PUCHAR)(p+1), -1);
+        return LdrGetExportByName(Module->BaseAddress, p+1, -1);
      }
 
    return NULL;
@@ -1116,7 +1110,7 @@ LdrGetExportByName(PVOID BaseAddress,
    if (Hint < ExportDir->NumberOfNames)
      {
         ExName = RVA(BaseAddress, ExNames[Hint]);
-        if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+        if (strcmp(ExName, SymbolName) == 0)
           {
              Ordinal = ExOrdinals[Hint];
              Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1149,7 +1143,7 @@ LdrGetExportByName(PVOID BaseAddress,
         mid = (minn + maxn) / 2;
 
         ExName = RVA(BaseAddress, ExNames[mid]);
-        res = strcmp(ExName, (PCHAR)SymbolName);
+        res = strcmp(ExName, SymbolName);
         if (res == 0)
           {
              Ordinal = ExOrdinals[mid];
@@ -1190,7 +1184,7 @@ LdrGetExportByName(PVOID BaseAddress,
    for (i = 0; i < ExportDir->NumberOfNames; i++)
      {
         ExName = RVA(BaseAddress, ExNames[i]);
-        if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+        if (strcmp(ExName,SymbolName) == 0)
           {
              Ordinal = ExOrdinals[i];
              Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1338,7 +1332,7 @@ static NTSTATUS
 LdrpGetOrLoadModule(PWCHAR SerachPath,
                     PCHAR Name,
                     PLDR_MODULE* Module,
-                    BOOLEAN Load)
+                    BOOL Load)
 {
    UNICODE_STRING DllName;
    NTSTATUS Status;
@@ -1353,8 +1347,7 @@ LdrpGetOrLoadModule(PWCHAR SerachPath,
        Status = LdrpLoadModule(SerachPath,
                                NtCurrentPeb()->Ldr->Initialized ? 0 : LDRP_PROCESS_CREATION_TIME,
                                &DllName,
-                               Module,
-                               NULL);
+                               Module);
        if (NT_SUCCESS(Status))
          {
            Status = LdrFindEntryForName (&DllName, Module, FALSE);
@@ -1511,7 +1504,7 @@ LdrpProcessImportDirectory(
 static NTSTATUS
 LdrpAdjustImportDirectory(PLDR_MODULE Module,
                           PLDR_MODULE ImportedModule,
-                          PCHAR ImportedName)
+                          PUCHAR ImportedName)
 {
    PIMAGE_IMPORT_MODULE_DIRECTORY ImportModuleDirectory;
    NTSTATUS Status;
@@ -1542,7 +1535,7 @@ LdrpAdjustImportDirectory(PLDR_MODULE Module,
    while (ImportModuleDirectory->dwRVAModuleName)
      {
        Name = (PCHAR)Module->BaseAddress + ImportModuleDirectory->dwRVAModuleName;
-       if (0 == _stricmp(Name, (PCHAR)ImportedName))
+       if (0 == _stricmp(Name, ImportedName))
          {
 
            /* Get the import address list. */
@@ -1581,7 +1574,7 @@ LdrpAdjustImportDirectory(PLDR_MODULE Module,
 
            NTHeaders = RtlImageNtHeader (ImportedModule->BaseAddress);
            Start = (PVOID)NTHeaders->OptionalHeader.ImageBase;
-           End = Start + ImportedModule->ResidentSize;
+           End = Start + ImportedModule->SizeOfImage;
            Offset = ImportedModule->BaseAddress - Start;
 
            /* Walk through function list and fixup addresses. */
@@ -1717,7 +1710,7 @@ LdrFixupImports(IN PWSTR SearchPath OPTIONAL,
              }
            else
              {
-               BOOLEAN WrongForwarder;
+               BOOL WrongForwarder;
                WrongForwarder = FALSE;
                if (ImportedModule->Flags & IMAGE_NOT_AT_BASE)
                  {
@@ -1734,7 +1727,7 @@ LdrFixupImports(IN PWSTR SearchPath OPTIONAL,
                    PIMAGE_BOUND_FORWARDER_REF BoundForwarderRef;
                    ULONG i;
                    PLDR_MODULE ForwarderModule;
-                   PCHAR ForwarderName;
+                   PUCHAR ForwarderName;
 
                    BoundForwarderRef = (PIMAGE_BOUND_FORWARDER_REF)(BoundImportDescriptorCurrent + 1);
                    for (i = 0; i < BoundImportDescriptorCurrent->NumberOfModuleForwarderRefs; i++, BoundForwarderRef++)
@@ -1986,8 +1979,7 @@ static NTSTATUS
 LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
                IN ULONG LoadFlags,
                IN PUNICODE_STRING Name,
-               PLDR_MODULE *Module,
-               PVOID *BaseAddress OPTIONAL)
+               PLDR_MODULE *Module)
 {
     UNICODE_STRING AdjustedName;
     UNICODE_STRING FullDosName;
@@ -1997,7 +1989,6 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
     ULONG ViewSize;
     PVOID ImageBase;
     PIMAGE_NT_HEADERS NtHeaders;
-    BOOLEAN MappedAsDataFile;
 
     if (Module == NULL)
       {
@@ -2008,16 +1999,11 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
 
     DPRINT("%wZ\n", &AdjustedName);
 
-    MappedAsDataFile = FALSE;
     /* Test if dll is already loaded */
     Status = LdrFindEntryForName(&AdjustedName, Module, TRUE);
     if (NT_SUCCESS(Status))
       {
         RtlFreeUnicodeString(&AdjustedName);
-        if (NULL != BaseAddress)
-          {
-            *BaseAddress = (*Module)->BaseAddress;
-          }
       }
     else
       {
@@ -2025,14 +2011,13 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
         Status = LdrpMapKnownDll(&AdjustedName, &FullDosName, &SectionHandle);
         if (!NT_SUCCESS(Status))
           {
-            MappedAsDataFile = (0 != (LoadFlags & LOAD_LIBRARY_AS_DATAFILE));
-            Status = LdrpMapDllImageFile(SearchPath, &AdjustedName, &FullDosName,
-                                         MappedAsDataFile, &SectionHandle);
+            Status = LdrpMapDllImageFile(SearchPath, &AdjustedName, &FullDosName, &SectionHandle);
           }
         if (!NT_SUCCESS(Status))
           {
             DPRINT1("Failed to create or open dll section of '%wZ' (Status %lx)\n", &AdjustedName, Status);
             RtlFreeUnicodeString(&AdjustedName);
+            RtlFreeUnicodeString(&FullDosName);
             return Status;
           }
         RtlFreeUnicodeString(&AdjustedName);
@@ -2056,10 +2041,6 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             NtClose(SectionHandle);
             return(Status);
           }
-        if (NULL != BaseAddress)
-          {
-            *BaseAddress = ImageBase;
-          }
         /* Get and check the NT headers */
         NtHeaders = RtlImageNtHeader(ImageBase);
         if (NtHeaders == NULL)
@@ -2069,19 +2050,6 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             NtClose (SectionHandle);
             RtlFreeUnicodeString(&FullDosName);
             return STATUS_UNSUCCESSFUL;
-          }
-        DPRINT("Mapped %wZ at %x\n", &FullDosName, ImageBase);
-        if (MappedAsDataFile)
-          {
-            assert(NULL != BaseAddress);
-            if (NULL != BaseAddress)
-              {
-                *BaseAddress = (PVOID) ((char *) *BaseAddress + 1);
-              }
-            *Module = NULL;
-            RtlFreeUnicodeString(&FullDosName);
-            NtClose(SectionHandle);
-            return STATUS_SUCCESS;
           }
         /* If the base address is different from the
          * one the DLL is actually loaded, perform any
@@ -2130,7 +2098,7 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
 
 static NTSTATUS
 LdrpUnloadModule(PLDR_MODULE Module,
-                 BOOLEAN Unload)
+                 BOOL Unload)
 {
    PIMAGE_IMPORT_MODULE_DIRECTORY ImportModuleDirectory;
    PIMAGE_BOUND_IMPORT_DESCRIPTOR BoundImportDescriptor;
@@ -2246,20 +2214,12 @@ LdrUnloadDll (IN PVOID BaseAddress)
    if (BaseAddress == NULL)
      return STATUS_SUCCESS;
 
-   if (LdrMappedAsDataFile(&BaseAddress))
+   Status = LdrFindEntryForAddress(BaseAddress, &Module);
+   if (NT_SUCCESS(Status))
      {
-       Status = NtUnmapViewOfSection(NtCurrentProcess(), BaseAddress);
+       TRACE_LDR("LdrUnloadDll, , unloading %wZ\n", &Module->BaseDllName);
+       Status = LdrpUnloadModule(Module, TRUE);
      }
-   else
-     {
-       Status = LdrFindEntryForAddress(BaseAddress, &Module);
-       if (NT_SUCCESS(Status))
-         {
-           TRACE_LDR("LdrUnloadDll, , unloading %wZ\n", &Module->BaseDllName);
-           Status = LdrpUnloadModule(Module, TRUE);
-         }
-     }
-
    return Status;
 }
 
@@ -2360,7 +2320,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
    if (Name && Name->Length)
      {
        /* by name */
-       *ProcedureAddress = LdrGetExportByName(BaseAddress, (PUCHAR)Name->Buffer, 0xffff);
+       *ProcedureAddress = LdrGetExportByName(BaseAddress, Name->Buffer, 0xffff);
        if (*ProcedureAddress != NULL)
          {
            return STATUS_SUCCESS;
@@ -2400,7 +2360,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
  *      The loader lock must be held on enty.
  */
 static VOID
-LdrpDetachProcess(BOOLEAN UnloadAll)
+LdrpDetachProcess(BOOL UnloadAll)
 {
    PLIST_ENTRY ModuleListHead;
    PLIST_ENTRY Entry;
@@ -2499,7 +2459,7 @@ LdrpAttachProcess(VOID)
    PLIST_ENTRY ModuleListHead;
    PLIST_ENTRY Entry;
    PLDR_MODULE Module;
-   BOOLEAN Result;
+   BOOL Result;
    NTSTATUS Status = STATUS_SUCCESS;
 
    DPRINT("LdrpAttachProcess() called for %wZ\n",
@@ -2708,7 +2668,7 @@ LdrQueryProcessModuleInformation(IN PMODULE_INFORMATION ModuleInformation OPTION
         {
           ModulePtr->Reserved[0] = ModulePtr->Reserved[1] = 0;      // FIXME: ??
           ModulePtr->Base = Module->BaseAddress;
-          ModulePtr->Size = Module->ResidentSize;
+          ModulePtr->Size = Module->SizeOfImage;
           ModulePtr->Flags = Module->Flags;
           ModulePtr->Index = 0;      // FIXME: index ??
           ModulePtr->Unknown = 0;      // FIXME: ??
@@ -2812,33 +2772,6 @@ LdrpCheckImageChecksum (IN PVOID BaseAddress,
   CalcSum += ImageSize;
 
   return (BOOLEAN)(CalcSum == HeaderSum);
-}
-
-/*
- * Compute size of an image as it is actually present in virt memory
- * (i.e. excluding NEVER_LOAD sections)
- */
-ULONG
-LdrpGetResidentSize(PIMAGE_NT_HEADERS NTHeaders)
-{
-  PIMAGE_SECTION_HEADER SectionHeader;
-  unsigned SectionIndex;
-  ULONG ResidentSize;
-
-  SectionHeader = (PIMAGE_SECTION_HEADER)((char *) &NTHeaders->OptionalHeader
-                                          + NTHeaders->FileHeader.SizeOfOptionalHeader);
-  ResidentSize = 0;
-  for (SectionIndex = 0; SectionIndex < NTHeaders->FileHeader.NumberOfSections; SectionIndex++)
-    {
-      if (0 == (SectionHeader->Characteristics & IMAGE_SCN_LNK_REMOVE)
-          && ResidentSize < SectionHeader->VirtualAddress + SectionHeader->Misc.VirtualSize)
-        {
-          ResidentSize = SectionHeader->VirtualAddress + SectionHeader->Misc.VirtualSize;
-        }
-      SectionHeader++;
-    }
-
-  return ResidentSize;
 }
 
 

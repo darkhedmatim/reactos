@@ -337,6 +337,7 @@ static void MONTHCAL_DrawDay(MONTHCAL_INFO *infoPtr, HDC hdc, int day, int month
   RECT r;
   static int haveBoldFont, haveSelectedDay = FALSE;
   HBRUSH hbr;
+  HPEN hNewPen, hOldPen = 0;
   COLORREF oldCol = 0;
   COLORREF oldBk = 0;
 
@@ -393,8 +394,12 @@ static void MONTHCAL_DrawDay(MONTHCAL_INFO *infoPtr, HDC hdc, int day, int month
   DrawTextA(hdc, buf, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE );
 
   /* draw a rectangle around the currently selected days text */
-  if((day==infoPtr->curSelDay) && (month==infoPtr->currentMonth))
-    DrawFocusRect(hdc, &r);
+  if((day==infoPtr->curSelDay) && (month==infoPtr->currentMonth)) {
+    hNewPen = CreatePen(PS_ALTERNATE, 0, GetSysColor(COLOR_WINDOWTEXT) );
+    hbr = GetSysColorBrush(COLOR_WINDOWTEXT);
+    FrameRect(hdc, &r, hbr);
+    SelectObject(hdc, hOldPen);
+  }
 }
 
 
@@ -2011,6 +2016,7 @@ MONTHCAL_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       ERR( "unknown msg %04x wp=%08x lp=%08lx\n", uMsg, wParam, lParam);
     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
   }
+  return 0;
 }
 
 

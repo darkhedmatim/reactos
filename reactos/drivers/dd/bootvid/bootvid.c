@@ -18,7 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
- * $Id$
+ * $Id: bootvid.c,v 1.13 2004/10/17 18:51:09 gvg Exp $
  */
 
 /* INCLUDES ******************************************************************/
@@ -66,6 +66,7 @@ PUCHAR VideoMemory;
 /* Must be 4 bytes per entry */
 long maskbit[640];
 
+static HANDLE BitmapThreadHandle;
 static CLIENT_ID BitmapThreadId;
 static PUCHAR BootimageBitmap;
 
@@ -555,7 +556,6 @@ STATIC BOOLEAN STDCALL
 VidInitialize(VOID)
 {
    NTSTATUS Status;
-   HANDLE BitmapThreadHandle;
 
    InbvMapVideoMemory();
    InbvInitVGAMode();
@@ -574,7 +574,7 @@ VidInitialize(VOID)
       return FALSE;
    }
 
-   ZwClose(BitmapThreadHandle);
+   NtClose(BitmapThreadHandle);
 
    return TRUE;
 }

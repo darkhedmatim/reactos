@@ -771,7 +771,6 @@ extern "C" {
 #define DS_SETFONT	(0x40L)
 #define DS_SETFOREGROUND	(0x200L)
 #define DS_SYSMODAL	(0x2L)
-#define DS_SHELLFONT	(DS_SETFONT | DS_FIXEDSYS)
 
 /* CreateWindowEx */
 #define WS_EX_ACCEPTFILES	(0x10L)
@@ -2244,6 +2243,7 @@ extern "C" {
 #define WAIT_IO_COMPLETION	(0xc0L)
 #define WAIT_ABANDONED	(0x80L)
 #define WAIT_FAILED	(0xffffffffL)
+#define MAXIMUM_WAIT_OBJECTS	(0x40)
 #define MAXIMUM_SUSPEND_COUNT	(0x7f)
 
 /* MultiByteToWideChar */

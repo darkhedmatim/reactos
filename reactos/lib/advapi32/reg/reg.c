@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: reg.c,v 1.65.2.1 2004/12/26 23:35:27 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -24,7 +24,7 @@
 
 /* GLOBALS ******************************************************************/
 
-static RTL_CRITICAL_SECTION HandleTableCS;
+static CRITICAL_SECTION HandleTableCS;
 static HANDLE DefaultHandleTable[MAX_DEFAULT_HANDLES];
 static HANDLE ProcessHeap;
 
@@ -2216,7 +2216,7 @@ RegQueryMultipleValuesA (HKEY hKey,
 					val_list[i].ve_valuename,
 					NULL,
 					&val_list[i].ve_type,
-					(LPBYTE)bufptr,
+					bufptr,
 					&val_list[i].ve_valuelen);
 	  if (ErrorCode != ERROR_SUCCESS)
 	    {
@@ -2280,7 +2280,7 @@ RegQueryMultipleValuesW (HKEY hKey,
 					val_list[i].ve_valuename,
 					NULL,
 					&val_list[i].ve_type,
-					(LPBYTE)bufptr,
+					bufptr,
 					&val_list[i].ve_valuelen);
 	  if (ErrorCode != ERROR_SUCCESS)
 	    {
@@ -2496,7 +2496,7 @@ RegQueryValueExA (HKEY hKey,
 	  if (ErrorCode == ERROR_SUCCESS && ValueData.Buffer != NULL)
 	    {
 	      RtlInitAnsiString(&AnsiString, NULL);
-	      AnsiString.Buffer = (LPSTR)lpData;
+	      AnsiString.Buffer = lpData;
 	      AnsiString.MaximumLength = *lpcbData;
 	      ValueData.Length = Length;
 	      ValueData.MaximumLength = ValueData.Length + sizeof(WCHAR);

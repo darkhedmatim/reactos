@@ -836,6 +836,16 @@ PAGER_Create (HWND hwnd, WPARAM wParam, LPARAM lParam)
 
     if (dwStyle & PGS_DRAGNDROP)
         FIXME("[%p] Drag and Drop style is not implemented yet.\n", hwnd);
+    /*
+	 * If neither horizontal nor vertical style specified, default to vertical.
+	 * This is probably not necessary, since the style may be set later on as
+	 * the control is initialized, but just in case it isn't, set it here.
+	 */
+    if (!(dwStyle & PGS_HORZ) && !(dwStyle & PGS_VERT))
+    {
+        dwStyle |= PGS_VERT;
+        SetWindowLongA(hwnd, GWL_STYLE, dwStyle);
+    }
 
     return 0;
 }
@@ -1358,6 +1368,8 @@ PAGER_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         default:
             return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
+
+    return 0;
 }
 
 

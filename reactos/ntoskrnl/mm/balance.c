@@ -1,11 +1,29 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel 
- * FILE:            ntoskrnl/mm/balance.c
- * PURPOSE:         kernel memory managment functions
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: balance.c,v 1.33 2004/08/15 16:39:06 chorns Exp $
+ *
+ * PROJECT:     ReactOS kernel 
+ * FILE:        ntoskrnl/mm/balance.c
+ * PURPOSE:     kernel memory managment functions
+ * PROGRAMMER:  David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *              Created 27/12/01
  */
 
 /* INCLUDES *****************************************************************/
@@ -92,7 +110,7 @@ MmReleasePageMemoryConsumer(ULONG Consumer, PFN_TYPE Page)
    KeAcquireSpinLock(&AllocationListLock, &oldIrql);
    if (MmGetReferenceCountPage(Page) == 1)
    {
-      InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+      InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
       if (IsListEmpty(&AllocationListHead) || MmStats.NrFreePages < MiMinimumAvailablePages)
       {
          KeReleaseSpinLock(&AllocationListLock, oldIrql);
@@ -178,13 +196,13 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
    /*
     * Make sure we don't exceed our individual target.
     */
-   OldUsed = InterlockedIncrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+   OldUsed = InterlockedIncrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
    if (OldUsed >= (MiMemoryConsumers[Consumer].PagesTarget - 1) &&
          !MiIsBalancerThread())
    {
       if (!CanWait)
       {
-         InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+         InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
          return(STATUS_NO_MEMORY);
       }
       MiTrimMemoryConsumer(Consumer);
@@ -218,7 +236,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
 
       if (!CanWait)
       {
-         InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+         InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
          return(STATUS_NO_MEMORY);
       }
 
@@ -226,7 +244,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
       Request.Page = 0;
 
       KeInitializeEvent(&Request.Event, NotificationEvent, FALSE);
-      InterlockedIncrementUL(&MiPagesRequired);
+      InterlockedIncrement((LONG *)&MiPagesRequired);
 
       KeAcquireSpinLock(&AllocationListLock, &oldIrql);
 
@@ -250,7 +268,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
       }
       MmTransferOwnershipPage(Page, Consumer);
       *AllocatedPage = Page;
-      InterlockedDecrementUL(&MiPagesRequired);
+      InterlockedDecrement((LONG *)&MiPagesRequired);
       return(STATUS_SUCCESS);
    }
 

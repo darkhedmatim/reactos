@@ -1,12 +1,13 @@
-/* $Id$
+/* $Id: ppool.c,v 1.38.2.1 2004/12/22 03:44:52 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/ppool.c
  * PURPOSE:         Implements the paged pool
- *
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Royce Mitchell III
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  Complete Rewrite Dec 2004 by Royce Mitchell III
  */
 
 /* INCLUDES *****************************************************************/

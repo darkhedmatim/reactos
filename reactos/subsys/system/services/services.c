@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: services.c,v 1.18 2004/04/12 17:20:47 navaraf Exp $
  *
  * service control manager
  * 
@@ -32,7 +32,6 @@
 #define NTOS_MODE_USER
 #include <ntos.h>
 #include <stdio.h>
-#include <tchar.h>
 #include <windows.h>
 
 #include "services.h"

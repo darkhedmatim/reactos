@@ -1,11 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
- * COPYRIGHT:       See COPYING in the top directory
- * PROJECT:         ReactOS kernel 
- * FILE:            ntoskrnl/mm/rmap.c
- * PURPOSE:         Kernel memory managment functions
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: rmap.c,v 1.31 2004/10/02 10:16:10 hbirr Exp $
+ *
+ * COPYRIGHT:   See COPYING in the top directory
+ * PROJECT:     ReactOS kernel 
+ * FILE:        ntoskrnl/mm/rmap.c
+ * PURPOSE:     kernel memory managment functions
+ * PROGRAMMER:  David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *              Created 27/12/01
  */
 
 /* INCLUDES *****************************************************************/
@@ -72,7 +91,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    }
    Process = entry->Process;
    Address = entry->Address;
-   if ((((ULONG_PTR)Address) & 0xFFF) != 0)
+   if ((((ULONG)Address) & 0xFFF) != 0)
    {
       KEBUGCHECK(0);
    }
@@ -98,7 +117,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
     * freed or paged out after we read the rmap entry.) 
     */
    MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, Address);
+   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, Address);
    if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
    {
       MmUnlockAddressSpace(AddressSpace);
@@ -112,12 +131,12 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    Type = MemoryArea->Type;
    if (Type == MEMORY_AREA_SECTION_VIEW)
    {
-      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress;
+      Offset = (ULONG)((char*)Address - (ULONG)MemoryArea->BaseAddress);
 
       /*
        * Get or create a pageop
        */
-      PageOp = MmGetPageOp(MemoryArea, NULL, 0,
+      PageOp = MmGetPageOp(MemoryArea, 0, 0,
                            MemoryArea->Data.SectionData.Segment,
                            Offset, MM_PAGEOP_PAGEOUT, TRUE);
 
@@ -144,7 +163,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    }
    else if (Type == MEMORY_AREA_VIRTUAL_MEMORY)
    {
-      PageOp = MmGetPageOp(MemoryArea, Address < (PVOID)KERNEL_BASE ? Process->UniqueProcessId : NULL,
+      PageOp = MmGetPageOp(MemoryArea, Address < (PVOID)KERNEL_BASE ? Process->UniqueProcessId : 0,
                            Address, NULL, 0, MM_PAGEOP_PAGEOUT, TRUE);
 
       if (PageOp == NULL)
@@ -201,7 +220,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    }
    Process = entry->Process;
    Address = entry->Address;
-   if ((((ULONG_PTR)Address) & 0xFFF) != 0)
+   if ((((ULONG)Address) & 0xFFF) != 0)
    {
       KEBUGCHECK(0);
    }
@@ -223,7 +242,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    }
 
    MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, Address);
+   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, Address);
    if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
    {
       MmUnlockAddressSpace(AddressSpace);
@@ -236,12 +255,12 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    Type = MemoryArea->Type;
    if (Type == MEMORY_AREA_SECTION_VIEW)
    {
-      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress;
+      Offset = (ULONG)((char*)Address - (ULONG)MemoryArea->BaseAddress);
 
       /*
        * Get or create a pageop
        */
-      PageOp = MmGetPageOp(MemoryArea, NULL, 0,
+      PageOp = MmGetPageOp(MemoryArea, 0, 0,
                            MemoryArea->Data.SectionData.Segment,
                            Offset, MM_PAGEOP_PAGEOUT, TRUE);
       if (PageOp == NULL)
@@ -267,7 +286,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    }
    else if (Type == MEMORY_AREA_VIRTUAL_MEMORY)
    {
-      PageOp = MmGetPageOp(MemoryArea, Address < (PVOID)KERNEL_BASE ? Process->UniqueProcessId : NULL,
+      PageOp = MmGetPageOp(MemoryArea, Address < (PVOID)KERNEL_BASE ? Process->UniqueProcessId : 0,
                            Address, NULL, 0, MM_PAGEOP_PAGEOUT, TRUE);
       if (PageOp == NULL)
       {
@@ -404,7 +423,7 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
    }
    if (Process)
    {
-      PrevSize = InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, PAGE_SIZE);
+      PrevSize = InterlockedExchangeAdd(&Process->Vm.WorkingSetSize, PAGE_SIZE);
       if (PrevSize >= Process->Vm.PeakWorkingSetSize)
       {
          Process->Vm.PeakWorkingSetSize = PrevSize + PAGE_SIZE;
@@ -446,7 +465,7 @@ MmDeleteAllRmaps(PFN_TYPE Page, PVOID Context,
       }
       if (Process)
       {
-         InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
+         InterlockedExchangeAdd(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
       }
    }
    ExReleaseFastMutex(&RmapListLock);
@@ -482,7 +501,7 @@ MmDeleteRmap(PFN_TYPE Page, PEPROCESS Process,
 	 }
 	 if (Process)
 	 {
-            InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
+            InterlockedExchangeAdd(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
 	 }
          return;
       }

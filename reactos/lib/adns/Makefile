@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile,v 1.2 2004/10/09 17:14:11 navaraf Exp $
 
 PATH_TO_TOP = ../..
 
@@ -7,8 +7,8 @@ TARGET_TYPE = library
 TARGET_NAME = adns
 
 TARGET_CFLAGS = \
- -O3 -Wall -Wwrite-strings -Wpointer-arith \
- -Wstrict-prototypes -Wmissing-prototypes -Wall -DADNS_JGAA_WIN32 -D__USE_W32API -D__REACTOS__
+ -O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
+ -Wstrict-prototypes -Wmissing-prototypes -Wall -DADNS_JGAA_WIN32
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -Isrc -Iadns_win32

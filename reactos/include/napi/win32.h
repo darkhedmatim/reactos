@@ -8,6 +8,7 @@ typedef struct _W32THREAD
   PVOID MessageQueue;
   FAST_MUTEX WindowListLock;
   LIST_ENTRY WindowListHead;
+  FAST_MUTEX W32CallbackListLock;
   LIST_ENTRY W32CallbackListHead;
   struct _KBDTABLES* KeyboardLayout;
   struct _DESKTOP_OBJECT* Desktop;
@@ -27,8 +28,8 @@ typedef struct _W32PROCESS
   LIST_ENTRY MenuListHead;
   FAST_MUTEX PrivateFontListLock;
   LIST_ENTRY PrivateFontListHead;
-  FAST_MUTEX DriverObjListLock;
-  LIST_ENTRY DriverObjListHead;
+  FAST_MUTEX CursorIconListLock;
+  LIST_ENTRY CursorIconListHead;
   struct _KBDTABLES* KeyboardLayout;
   ULONG Flags;
   LONG GDIObjects;

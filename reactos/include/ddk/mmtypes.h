@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: mmtypes.h,v 1.20 2004/11/20 16:46:04 weiden Exp $ */
 
 #ifndef _INCLUDE_DDK_MMTYPES_H
 #define _INCLUDE_DDK_MMTYPES_H
@@ -15,7 +15,7 @@
  * PURPOSE: Returns the byte offset of a field within a structure
  */
 #ifndef FIELD_OFFSET
-#define FIELD_OFFSET(Type,Field) ((ULONG_PTR)(&(((Type *)(0))->Field)))
+#define FIELD_OFFSET(Type,Field) ((LONG)(&(((Type *)(0))->Field)))
 #endif
 
 /*
@@ -27,16 +27,9 @@
  *          Field = Name of the field whose address is none
  */
 #ifndef CONTAINING_RECORD
-#define CONTAINING_RECORD(Address,Type,Field) ((Type *)(((ULONG_PTR)Address) - FIELD_OFFSET(Type,Field)))
+#define CONTAINING_RECORD(Address,Type,Field) ((Type *)(((LONG)Address) - FIELD_OFFSET(Type,Field)))
 #endif
 
-#ifdef _M_IX86
-typedef ULONG PFN_NUMBER, *PPFN_NUMBER;
-#elif _M_IA64
-typedef ULONG64 PFN_NUMBER, *PPFN_NUMBER;
-#else
-#error Unknown architecture
-#endif
 
 #define   MDL_MAPPED_TO_SYSTEM_VA      (0x1)
 #define   MDL_PAGES_LOCKED             (0x2)
@@ -55,11 +48,6 @@ typedef ULONG64 PFN_NUMBER, *PPFN_NUMBER;
 #define   MDL_ALLOCATED_MUST_SUCCEED   (0x4000)
 #define   MDL_64_BIT_VA                (0x8000)
 
-typedef enum _MM_PAGE_PRIORITY {
-  LowPagePriority,
-  NormalPagePriority = 16,
-  HighPagePriority = 32
-} MM_PAGE_PRIORITY;
 
 typedef struct _MDL
 /*
@@ -88,10 +76,10 @@ typedef union _FILE_SEGMENT_ELEMENT {
 }FILE_SEGMENT_ELEMENT, *PFILE_SEGMENT_ELEMENT;
 
 typedef struct _READ_LIST {
-	struct _FILE_OBJECT* FileObject;
+	struct FILE_OBJECT* FileObject;
     ULONG NumberOfEntries;
     ULONG IsImage;
-    FILE_SEGMENT_ELEMENT List[1];
+    FILE_SEGMENT_ELEMENT List[];
 } READ_LIST, *PREAD_LIST;
 
 #define MmSmallSystem (0)

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: pnpdma.c,v 1.9 2004/10/23 17:32:51 navaraf Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/pnpdma.c
- * PURPOSE:         PnP manager DMA routines
- * 
- * PROGRAMMERS:     Filip Navara (xnavara@volny.cz)
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/pnpmgr.c
+ * PURPOSE:        PnP manager DMA routines
+ * PROGRAMMER:     Filip Navara (xnavara@volny.cz)
+ * UPDATE HISTORY:
+ *   22/09/2003 FiN Created
  */
 
 /* INCLUDES ******************************************************************/
@@ -13,6 +14,11 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
+#ifdef __USE_W32API
+#include <initguid.h>
+#else
+#include <ole32/guiddef.h>
+#endif
 #include <ddk/wdmguid.h>
 
 typedef struct _DMA_ADAPTER_INTERNAL {
@@ -25,7 +31,6 @@ typedef struct _DMA_ADAPTER_INTERNAL {
 /* FUNCTIONS *****************************************************************/
 
 VOID
-STDCALL
 IopPutDmaAdapter(
   PDMA_ADAPTER DmaAdapter)
 {
@@ -35,7 +40,6 @@ IopPutDmaAdapter(
 
 
 PVOID
-STDCALL
 IopAllocateCommonBuffer(
   IN PDMA_ADAPTER DmaAdapter,
   IN ULONG Length,
@@ -50,7 +54,6 @@ IopAllocateCommonBuffer(
 
 
 VOID
-STDCALL
 IopFreeCommonBuffer(
   IN PDMA_ADAPTER DmaAdapter,
   IN ULONG Length,
@@ -66,7 +69,6 @@ IopFreeCommonBuffer(
 
 
 NTSTATUS
-STDCALL
 IopAllocateAdapterChannel(
   IN PDMA_ADAPTER DmaAdapter,
   IN PDEVICE_OBJECT DeviceObject,
@@ -82,7 +84,6 @@ IopAllocateAdapterChannel(
 
 
 BOOLEAN
-STDCALL
 IopFlushAdapterBuffers(
   IN PDMA_ADAPTER DmaAdapter,
   IN PMDL Mdl,
@@ -99,7 +100,6 @@ IopFlushAdapterBuffers(
 
 
 VOID
-STDCALL
 IopFreeAdapterChannel(
   IN PDMA_ADAPTER DmaAdapter)
 {
@@ -109,7 +109,6 @@ IopFreeAdapterChannel(
 
 
 VOID
-STDCALL
 IopFreeMapRegisters(
   IN PDMA_ADAPTER DmaAdapter,
   PVOID MapRegisterBase,
@@ -123,7 +122,6 @@ IopFreeMapRegisters(
 
 
 PHYSICAL_ADDRESS
-STDCALL
 IopMapTransfer(
   IN PDMA_ADAPTER DmaAdapter,
   IN PMDL Mdl,
@@ -140,7 +138,6 @@ IopMapTransfer(
 
 
 ULONG
-STDCALL
 IopGetDmaAlignment(
   IN PDMA_ADAPTER DmaAdapter)
 {
@@ -151,7 +148,6 @@ IopGetDmaAlignment(
 
 
 ULONG
-STDCALL
 IopReadDmaCounter(
   IN PDMA_ADAPTER DmaAdapter)
 {
@@ -161,7 +157,6 @@ IopReadDmaCounter(
 
 
 NTSTATUS
-STDCALL
 IopGetScatterGatherList(
   IN PDMA_ADAPTER DmaAdapter,
   IN PDEVICE_OBJECT DeviceObject,
@@ -179,15 +174,14 @@ IopGetScatterGatherList(
 
 
 VOID
-STDCALL
 IopPutScatterGatherList(
   IN PDMA_ADAPTER DmaAdapter,
   IN PSCATTER_GATHER_LIST ScatterGather,
   IN BOOLEAN WriteToDevice)
 {
-  DPRINT("IopPutScatterGatherList\n");
   /* FIXME */
 }
+
 
 /*
  * @implemented

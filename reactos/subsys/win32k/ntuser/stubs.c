@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.49 2004/12/12 01:40:37 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -108,9 +108,9 @@ NtUserChangeDisplaySettings(
   DWORD dwflags,
   LPVOID lParam)
 {
-  // UNIMPLEMENTED
-  DbgPrint("(%s:%i) WIN32K: %s UNIMPLEMENTED\n", __FILE__, __LINE__, __FUNCTION__ );
-  return DISP_CHANGE_BADMODE;
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 DWORD

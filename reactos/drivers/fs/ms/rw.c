@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: rw.c,v 1.4 2002/09/08 10:22:10 chorns Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel

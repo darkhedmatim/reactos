@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: print.c,v 1.7 2003/07/11 13:50:23 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -27,35 +27,6 @@ __asm__ ("\n\t.global _DbgService\n\t"
          "ret\n\t");
 
 /*
- * @unimplemented
- */
-ULONG
-DbgPrintEx(
-    IN ULONG ComponentId,
-    IN ULONG Level,
-    IN PCH Format,
-    ...
-    )
-{
-   ANSI_STRING DebugString;
-   CHAR Buffer[4096];
-   va_list ap;
-
-   /* init ansi string */
-   DebugString.Buffer = Buffer;
-   DebugString.MaximumLength = sizeof(Buffer);
-
-   va_start (ap, Format);
-   DebugString.Length = _vsnprintf (Buffer, sizeof(Buffer), Format, ap);
-   va_end (ap);
-
-   DbgService (1, &DebugString, NULL);
-
-   return (ULONG)DebugString.Length;
-}
-
-
-/*
  * @implemented
  */
 ULONG
@@ -73,8 +44,9 @@ DbgPrint(PCH Format, ...)
    DebugString.Length = _vsnprintf (Buffer, sizeof(Buffer), Format, ap);
    va_end (ap);
 
+   DbgService (1, &DebugString, NULL);
 
-   return DbgPrintEx (0, 0, DebugString.Buffer);
+   return (ULONG)DebugString.Length;
 }
 
 

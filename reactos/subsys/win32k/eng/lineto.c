@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id$
+ * $Id: lineto.c,v 1.36 2004/12/14 04:30:58 royce Exp $
  */
 #include <w32k.h>
 
@@ -488,7 +488,7 @@ IntEngLineTo(BITMAPOBJ *DestObj,
 	     LONG x2,
 	     LONG y2,
 	     RECTL *RectBounds,
-	     MIX Mix)
+	     MIX mix)
 {
   BOOLEAN ret;
   SURFOBJ *DestSurf;
@@ -524,7 +524,7 @@ IntEngLineTo(BITMAPOBJ *DestObj,
     {
     /* Call the driver's DrvLineTo */
     ret = GDIDEVFUNCS(DestSurf).LineTo(
-      DestSurf, Clip, Brush, x1, y1, x2, y2, /*RectBounds*/&b, Mix);
+      DestSurf, Clip, Brush, x1, y1, x2, y2, /*RectBounds*/&b, mix);
     }
 
 #if 0
@@ -536,7 +536,7 @@ IntEngLineTo(BITMAPOBJ *DestObj,
 
   if (! ret)
     {
-      ret = EngLineTo(DestSurf, Clip, Brush, x1, y1, x2, y2, RectBounds, Mix);
+      ret = EngLineTo(DestSurf, Clip, Brush, x1, y1, x2, y2, RectBounds, mix);
     }
 
   MouseSafetyOnDrawEnd(DestSurf);
@@ -550,7 +550,7 @@ IntEngPolyline(BITMAPOBJ *DestObj,
 	       BRUSHOBJ *Brush,
 	       CONST LPPOINT  pt,
                LONG dCount,
-	       MIX Mix)
+	       MIX mix)
 {
   LONG i;
   RECTL rect;
@@ -571,7 +571,7 @@ IntEngPolyline(BITMAPOBJ *DestObj,
 	                 pt[i].x,
 	                 pt[i].y,
 	                 &rect,
-	                 Mix);
+	                 mix);
       if (!ret)
 	{
 	  break;

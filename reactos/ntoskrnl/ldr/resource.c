@@ -1,10 +1,9 @@
-/* $Id$
+/* $Id: resource.c,v 1.8 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ldr/resource.c
  * PURPOSE:         Resource loader
- *
  * PROGRAMMERS:     Eric Kohl (ekohl@rz-online.de)
  */
 

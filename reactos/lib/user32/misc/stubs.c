@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: stubs.c,v 1.70 2004/12/16 03:57:35 rcampbell Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -106,6 +106,40 @@ LockWorkStation(VOID)
 {
   UNIMPLEMENTED;
   return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+MsgWaitForMultipleObjects(
+  DWORD nCount,
+  CONST HANDLE *pHandles,
+  BOOL fWaitAll,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+RealMsgWaitForMultipleObjectsEx(
+  DWORD nCount,
+  LPHANDLE pHandles,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 

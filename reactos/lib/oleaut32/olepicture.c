@@ -301,7 +301,7 @@ static void OLEPictureImpl_Destroy(OLEPictureImpl* Obj)
       break;
     }
   }
-  HeapFree(GetProcessHeap(), 0, Obj->data);
+  if (Obj->data) HeapFree(GetProcessHeap(), 0, Obj->data);
   HeapFree(GetProcessHeap(), 0, Obj);
 }
 
@@ -409,11 +409,8 @@ static ULONG WINAPI OLEPictureImpl_AddRef(
   IPicture* iface)
 {
   OLEPictureImpl *This = (OLEPictureImpl *)iface;
-  ULONG refCount = InterlockedIncrement(&This->ref);
-
-  TRACE("(%p)->(ref before=%ld)\n", This, refCount - 1);
-
-  return refCount;
+  TRACE("(%p)->(ref=%ld)\n", This, This->ref);
+  return InterlockedIncrement(&This->ref);
 }
 
 /************************************************************************
@@ -425,16 +422,20 @@ static ULONG WINAPI OLEPictureImpl_Release(
       IPicture* iface)
 {
   OLEPictureImpl *This = (OLEPictureImpl *)iface;
-  ULONG refCount = InterlockedDecrement(&This->ref);
+  ULONG ret;
+  TRACE("(%p)->(ref=%ld)\n", This, This->ref);
 
-  TRACE("(%p)->(ref before=%ld)\n", This, refCount + 1);
+  /*
+   * Decrease the reference count on this object.
+   */
+  ret = InterlockedDecrement(&This->ref);
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (!refCount) OLEPictureImpl_Destroy(This);
+  if (ret==0) OLEPictureImpl_Destroy(This);
 
-  return refCount;
+  return ret;
 }
 
 
@@ -1171,6 +1172,7 @@ static HRESULT WINAPI OLEPictureImpl_Load(IPersistStream* iface,IStream*pStm) {
     FIXME("Trying to load GIF, but no support for libgif/libungif compiled in.\n");
     return E_FAIL;
 #endif
+    break;
   }
   case 0xd8ff: { /* JPEG */
 #ifdef HAVE_JPEGLIB_H

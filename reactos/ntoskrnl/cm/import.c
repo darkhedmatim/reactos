@@ -1,10 +1,9 @@
-/* $Id$
+/* $Id: import.c,v 1.31 2004/12/12 22:36:10 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cm/import.c
  * PURPOSE:         Registry-Hive import functions
- *
  * PROGRAMMERS:     Eric Kohl
  */
 
@@ -196,12 +195,12 @@ CmImportSystemHive(PCHAR ChunkBase,
     }
 
   /* Set the hive filename */
-  RtlpCreateUnicodeString (&RegistryHive->HiveFileName,
-           SYSTEM_REG_FILE, NonPagedPool);
+  RtlCreateUnicodeString (&RegistryHive->HiveFileName,
+			  SYSTEM_REG_FILE);
 
   /* Set the log filename */
-  RtlpCreateUnicodeString (&RegistryHive->LogFileName,
-           SYSTEM_LOG_FILE, NonPagedPool);
+  RtlCreateUnicodeString (&RegistryHive->LogFileName,
+			  SYSTEM_LOG_FILE);
 
   return TRUE;
 }
@@ -234,7 +233,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 				  OBJ_CASE_INSENSITIVE,
 				  NULL,
 				  NULL);
-      Status = ZwCreateKey (&HardwareKey,
+      Status = NtCreateKey (&HardwareKey,
 			    KEY_ALL_ACCESS,
 			    &ObjectAttributes,
 			    0,
@@ -243,10 +242,9 @@ CmImportHardwareHive(PCHAR ChunkBase,
 			    &Disposition);
       if (!NT_SUCCESS(Status))
 	{
-          DPRINT1("NtCreateKey() failed, status: 0x%x\n", Status);
-          return FALSE;
+	  return FALSE;
 	}
-      ZwClose (HardwareKey);
+      NtClose (HardwareKey);
 
       /* Create '\Registry\Machine\HARDWARE\DESCRIPTION' key. */
       RtlInitUnicodeString(&KeyName,
@@ -256,7 +254,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 				  OBJ_CASE_INSENSITIVE,
 				  NULL,
 				  NULL);
-      Status = ZwCreateKey (&HardwareKey,
+      Status = NtCreateKey (&HardwareKey,
 			    KEY_ALL_ACCESS,
 			    &ObjectAttributes,
 			    0,
@@ -265,10 +263,9 @@ CmImportHardwareHive(PCHAR ChunkBase,
 			    &Disposition);
       if (!NT_SUCCESS(Status))
 	{
-          DPRINT1("NtCreateKey() failed, status: 0x%x\n", Status);
-          return FALSE;
+	  return FALSE;
 	}
-      ZwClose (HardwareKey);
+      NtClose (HardwareKey);
 
       /* Create '\Registry\Machine\HARDWARE\DEVICEMAP' key. */
       RtlInitUnicodeString (&KeyName,
@@ -278,7 +275,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 				  OBJ_CASE_INSENSITIVE,
 				  NULL,
 				  NULL);
-      Status = ZwCreateKey (&HardwareKey,
+      Status = NtCreateKey (&HardwareKey,
 			    KEY_ALL_ACCESS,
 			    &ObjectAttributes,
 			    0,
@@ -287,10 +284,9 @@ CmImportHardwareHive(PCHAR ChunkBase,
 			    &Disposition);
       if (!NT_SUCCESS(Status))
 	{
-          DPRINT1("NtCreateKey() failed, status: 0x%x\n", Status);
-          return FALSE;
+	  return FALSE;
 	}
-      ZwClose (HardwareKey);
+      NtClose (HardwareKey);
 
       /* Create '\Registry\Machine\HARDWARE\RESOURCEMAP' key. */
       RtlInitUnicodeString(&KeyName,
@@ -300,7 +296,7 @@ CmImportHardwareHive(PCHAR ChunkBase,
 				  OBJ_CASE_INSENSITIVE,
 				  NULL,
 				  NULL);
-      Status = ZwCreateKey (&HardwareKey,
+      Status = NtCreateKey (&HardwareKey,
 			    KEY_ALL_ACCESS,
 			    &ObjectAttributes,
 			    0,
@@ -309,10 +305,9 @@ CmImportHardwareHive(PCHAR ChunkBase,
 			    &Disposition);
       if (!NT_SUCCESS(Status))
 	{
-          DPRINT1("NtCreateKey() failed, status: 0x%x\n", Status);
-          return FALSE;
+	  return FALSE;
 	}
-      ZwClose (HardwareKey);
+      NtClose (HardwareKey);
 
       return TRUE;
     }

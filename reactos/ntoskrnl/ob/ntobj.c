@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: ntobj.c,v 1.24 2004/10/24 20:37:26 weiden Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ob/ntobj.c
- * PURPOSE:         User mode interface to object manager
- * 
- * PROGRAMMERS:     David Welch (welch@cwcom.net)
+ * COPYRIGHT:     See COPYING in the top level directory
+ * PROJECT:       ReactOS kernel
+ * FILE:          ntoskrnl/ob/ntobj.c
+ * PURPOSE:       User mode interface to object manager
+ * PROGRAMMER:    David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *               10/06/98: Created
  */
 
 /* INCLUDES *****************************************************************/
@@ -37,8 +38,6 @@ NtSetInformationObject (IN HANDLE ObjectHandle,
 {
   PVOID Object;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   if (ObjectInformationClass != ObjectHandleInformation)
     return STATUS_INVALID_INFO_CLASS;
@@ -90,8 +89,6 @@ NtQueryObject (IN HANDLE ObjectHandle,
   ULONG InfoLength;
   PVOID Object;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle (ObjectHandle,
 				      0,
@@ -210,25 +207,8 @@ NtQueryObject (IN HANDLE ObjectHandle,
 
 
 /**********************************************************************
- * NAME							PRIVATE
- *	ObpSetPermanentObject/2
- *
- * DESCRIPTION
- *	Fast general purpose routine to set an object's permanent
- *	attribute, given a  pointer to the object's body.
- */
-VOID FASTCALL
-ObpSetPermanentObject (IN PVOID ObjectBody, IN BOOLEAN Permanent)
-{
-  POBJECT_HEADER ObjectHeader;
-
-  ObjectHeader = BODY_TO_HEADER(ObjectBody);
-  ObjectHeader->Permanent = Permanent;
-}
-
-/**********************************************************************
  * NAME							EXPORTED
- *	ObMakeTemporaryObject/1
+ *	ObMakeTemporaryObject
  *
  * DESCRIPTION
  *
@@ -243,7 +223,10 @@ ObpSetPermanentObject (IN PVOID ObjectBody, IN BOOLEAN Permanent)
 VOID STDCALL
 ObMakeTemporaryObject(IN PVOID ObjectBody)
 {
-  ObpSetPermanentObject (ObjectBody, FALSE);
+  POBJECT_HEADER ObjectHeader;
+
+  ObjectHeader = BODY_TO_HEADER(ObjectBody);
+  ObjectHeader->Permanent = FALSE;
 }
 
 
@@ -262,25 +245,25 @@ ObMakeTemporaryObject(IN PVOID ObjectBody)
 NTSTATUS STDCALL
 NtMakeTemporaryObject(IN HANDLE ObjectHandle)
 {
-  PVOID ObjectBody;
+  POBJECT_HEADER ObjectHeader;
+  PVOID Object;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle(ObjectHandle,
 				     0,
 				     NULL,
 				     (KPROCESSOR_MODE)KeGetPreviousMode(),
-				     &ObjectBody,
+				     &Object,
 				     NULL);
   if (Status != STATUS_SUCCESS)
     {
       return Status;
     }
 
-  ObpSetPermanentObject (ObjectBody, FALSE);
+  ObjectHeader = BODY_TO_HEADER(Object);
+  ObjectHeader->Permanent = FALSE;
 
-  ObDereferenceObject(ObjectBody);
+  ObDereferenceObject(Object);
 
   return STATUS_SUCCESS;
 }
@@ -288,7 +271,7 @@ NtMakeTemporaryObject(IN HANDLE ObjectHandle)
 
 /**********************************************************************
  * NAME							EXPORTED
- *	NtMakePermanentObject/1
+ *	NtMakePermanentObject
  *
  * DESCRIPTION
  *
@@ -303,25 +286,25 @@ NtMakeTemporaryObject(IN HANDLE ObjectHandle)
 NTSTATUS STDCALL
 NtMakePermanentObject(IN HANDLE ObjectHandle)
 {
-  PVOID ObjectBody;
+  POBJECT_HEADER ObjectHeader;
+  PVOID Object;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
   Status = ObReferenceObjectByHandle(ObjectHandle,
 				     0,
 				     NULL,
 				     (KPROCESSOR_MODE)KeGetPreviousMode(),
-				     &ObjectBody,
+				     &Object,
 				     NULL);
   if (Status != STATUS_SUCCESS)
     {
       return Status;
     }
 
-  ObpSetPermanentObject (ObjectBody, TRUE);
+  ObjectHeader = BODY_TO_HEADER(Object);
+  ObjectHeader->Permanent = TRUE;
 
-  ObDereferenceObject(ObjectBody);
+  ObDereferenceObject(Object);
 
   return STATUS_SUCCESS;
 }

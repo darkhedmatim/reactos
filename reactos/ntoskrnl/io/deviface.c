@@ -1,23 +1,23 @@
-/* $Id:$
- * 
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/deviface.c
- * PURPOSE:         Device interface functions
- * 
- * PROGRAMMERS:     Filip Navara (xnavara@volny.cz)
- *                  Matthew Brace (ismarc@austin.rr.com)
+/*
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/pnpmgr/devintrf.c
+ * PURPOSE:        Device interface functions
+ * PROGRAMMER:     Filip Navara (xnavara@volny.cz)
+ *                 Matthew Brace (ismarc@austin.rr.com)
+ * UPDATE HISTORY:
+ *    22/09/2003 FiN Created
  */
 
 /* INCLUDES ******************************************************************/
 
 #include <ntoskrnl.h>
-
+#include <ole32/guiddef.h>
+#ifdef DEFINE_GUID
+DEFINE_GUID(GUID_SERENUM_BUS_ENUMERATOR, 0x4D36E978L, 0xE325, 0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
+#endif
 #define NDEBUG
 #include <internal/debug.h>
-
-DEFINE_GUID(GUID_SERENUM_BUS_ENUMERATOR, 
-            0x4D36E978L, 0xE325, 0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -574,7 +574,7 @@ IoRegisterDeviceInterface(
    PWCHAR KeyNameString = L"\\Device\\Serenum";
 
    DPRINT("IoRegisterDeviceInterface called (UNIMPLEMENTED)\n");
-   if (!memcmp(InterfaceClassGuid, (LPGUID)&GUID_SERENUM_BUS_ENUMERATOR, sizeof(GUID)))
+   if (IsEqualGUID(InterfaceClassGuid, (LPGUID)&GUID_SERENUM_BUS_ENUMERATOR))
    {
       RtlInitUnicodeString(SymbolicLinkName, KeyNameString);
       return STATUS_SUCCESS;

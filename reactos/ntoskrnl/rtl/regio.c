@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: regio.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/rtl/regio.c
- * PURPOSE:         Register io functions
- * 
- * PROGRAMMERS:     Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PROJECT:              ReactOS kernel
+ * FILE:                 ntoskrnl/rtl/regio.c
+ * PURPOSE:              Register io functions
+ * PROGRAMMER:           Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * REVISION HISTORY:
+ *                       29/12/1999 Created
  */
 
 #include <ntoskrnl.h>

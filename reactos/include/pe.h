@@ -40,7 +40,6 @@
 #define IMAGE_FILE_EXECUTABLE_IMAGE          0x0002  // File is executable  (i.e. no unresolved externel references).
 #define IMAGE_FILE_LINE_NUMS_STRIPPED        0x0004  // Line nunbers stripped from file.
 #define IMAGE_FILE_LOCAL_SYMS_STRIPPED       0x0008  // Local symbols stripped from file.
-#define IMAGE_FILE_LARGE_ADDRESS_AWARE       0x0020  // Application supports addresses >2GB
 #define IMAGE_FILE_BYTES_REVERSED_LO         0x0080  // Bytes of machine word are reversed.
 #define IMAGE_FILE_32BIT_MACHINE             0x0100  // 32 bit word machine.
 #define IMAGE_FILE_DEBUG_STRIPPED            0x0200  // Debugging info stripped from file in .DBG file
@@ -58,12 +57,6 @@
 #define IMAGE_FILE_MACHINE_R10000            0x168   // MIPS little-endian
 #define IMAGE_FILE_MACHINE_ALPHA             0x184   // Alpha_AXP
 #define IMAGE_FILE_MACHINE_POWERPC           0x1F0   // IBM PowerPC Little-Endian
-#define IMAGE_FILE_MACHINE_ARM               0x01c0  // ARM little-endian
-#define IMAGE_FILE_MACHINE_IA64              0x0200  // Intel IA64
-#define IMAGE_FILE_MACHINE_AXP64             IMAGE_FILE_MACHINE_ALPHA64
-#define IMAGE_FILE_MACHINE_ALPHA64           0x0284  // Alpha AXP, full 64-bit support
-#define IMAGE_FILE_MACHINE_AMD64             0x8664  // AMD x86-64
-#define IMAGE_FILE_MACHINE_M32R              0x9041  // M32R little-endian
 
 #pragma pack(push,4)
 typedef struct _IMAGE_FILE_HEADER {
@@ -111,46 +104,7 @@ typedef struct _IMAGE_OPTIONAL_HEADER {
 	DWORD LoaderFlags;
 	DWORD NumberOfRvaAndSizes;
 	IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
-} IMAGE_OPTIONAL_HEADER32,*PIMAGE_OPTIONAL_HEADER32;
-typedef struct _IMAGE_OPTIONAL_HEADER64 {
-	WORD Magic;
-	BYTE MajorLinkerVersion;
-	BYTE MinorLinkerVersion;
-	DWORD SizeOfCode;
-	DWORD SizeOfInitializedData;
-	DWORD SizeOfUninitializedData;
-	DWORD AddressOfEntryPoint;
-	DWORD BaseOfCode;
-	ULONGLONG ImageBase;
-	DWORD SectionAlignment;
-	DWORD FileAlignment;
-	WORD MajorOperatingSystemVersion;
-	WORD MinorOperatingSystemVersion;
-	WORD MajorImageVersion;
-	WORD MinorImageVersion;
-	WORD MajorSubsystemVersion;
-	WORD MinorSubsystemVersion;
-	DWORD Reserved1;
-	DWORD SizeOfImage;
-	DWORD SizeOfHeaders;
-	DWORD CheckSum;
-	WORD Subsystem;
-	WORD DllCharacteristics;
-	ULONGLONG SizeOfStackReserve;
-	ULONGLONG SizeOfStackCommit;
-	ULONGLONG SizeOfHeapReserve;
-	ULONGLONG SizeOfHeapCommit;
-	DWORD LoaderFlags;
-	DWORD NumberOfRvaAndSizes;
-	IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
-} IMAGE_OPTIONAL_HEADER64,*PIMAGE_OPTIONAL_HEADER64;
-#ifdef _WIN64
-typedef IMAGE_OPTIONAL_HEADER64 IMAGE_OPTIONAL_HEADER;
-typedef PIMAGE_OPTIONAL_HEADER64 PIMAGE_OPTIONAL_HEADER;
-#else
-typedef IMAGE_OPTIONAL_HEADER32 IMAGE_OPTIONAL_HEADER;
-typedef PIMAGE_OPTIONAL_HEADER32 PIMAGE_OPTIONAL_HEADER;
-#endif
+} IMAGE_OPTIONAL_HEADER,*PIMAGE_OPTIONAL_HEADER;
 typedef struct _IMAGE_ROM_OPTIONAL_HEADER {
 	WORD Magic;
 	BYTE MajorLinkerVersion;
@@ -226,20 +180,8 @@ typedef struct _IMAGE_OS2_HEADER {
 typedef struct _IMAGE_NT_HEADERS {
 	DWORD Signature;
 	IMAGE_FILE_HEADER FileHeader;
-	IMAGE_OPTIONAL_HEADER32 OptionalHeader;
-} IMAGE_NT_HEADERS32,*PIMAGE_NT_HEADERS32;
-typedef struct _IMAGE_NT_HEADERS64 {
-	DWORD Signature;
-	IMAGE_FILE_HEADER FileHeader;
-	IMAGE_OPTIONAL_HEADER64 OptionalHeader;
-} IMAGE_NT_HEADERS64,*PIMAGE_NT_HEADERS64;
-#ifdef _WIN64
-typedef IMAGE_NT_HEADERS64  IMAGE_NT_HEADERS;
-typedef PIMAGE_NT_HEADERS64 PIMAGE_NT_HEADERS;
-#else
-typedef IMAGE_NT_HEADERS32  IMAGE_NT_HEADERS;
-typedef PIMAGE_NT_HEADERS32 PIMAGE_NT_HEADERS;
-#endif
+	IMAGE_OPTIONAL_HEADER OptionalHeader;
+} IMAGE_NT_HEADERS,*PIMAGE_NT_HEADERS;
 typedef struct _IMAGE_ROM_HEADERS {
 	IMAGE_FILE_HEADER FileHeader;
 	IMAGE_ROM_OPTIONAL_HEADER OptionalHeader;
@@ -379,10 +321,10 @@ typedef struct _IMAGE_THUNK_DATA {
 	} u1;
 } IMAGE_THUNK_DATA,*PIMAGE_THUNK_DATA;
 typedef struct _IMAGE_IMPORT_DESCRIPTOR {
-	union {
+	_ANONYMOUS_UNION union {
 		DWORD Characteristics;
 		PIMAGE_THUNK_DATA OriginalFirstThunk;
-	} ;
+	} DUMMYUNIONNAME;
 	DWORD TimeDateStamp;
 	DWORD ForwarderChain;
 	DWORD Name;
@@ -552,12 +494,6 @@ typedef struct _IMAGE_RESOURCE_DIRECTORY {
 } IMAGE_RESOURCE_DIRECTORY, *PIMAGE_RESOURCE_DIRECTORY;
 */
 
-#ifdef _WIN64
-#define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR64_MAGIC
-#else
-#define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR32_MAGIC
-#endif
-
 #endif /* !__USE_W32API */
 
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
@@ -619,8 +555,7 @@ typedef struct _IMAGE_RESOURCE_DIRECTORY {
 #define IMAGE_SIZEOF_FILE_HEADER	20
 #define IMAGE_FILE_MACHINE_UNKNOWN	0
 #define IMAGE_NT_SIGNATURE 0x00004550
-#define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x10b
-#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x20b
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC 0x10b
 #define IMAGE_ROM_OPTIONAL_HDR_MAGIC 0x107
 #define IMAGE_SEPARATE_DEBUG_SIGNATURE 0x4944
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
@@ -635,8 +570,6 @@ typedef struct _IMAGE_RESOURCE_DIRECTORY {
 #define IMAGE_SIZEOF_ARCHIVE_MEMBER_HDR 60
 #define SIZEOF_RFPO_DATA 16
 #define IMAGE_FIRST_SECTION(h) ((PIMAGE_SECTION_HEADER) ((DWORD)h+FIELD_OFFSET(IMAGE_NT_HEADERS,OptionalHeader)+((PIMAGE_NT_HEADERS)(h))->FileHeader.SizeOfOptionalHeader))
-/* Temporarily adding this here. This file will die soon. */
-#define IMAGE_SCN_TYPE_NOLOAD 0x2L
 #define IMAGE_SCN_TYPE_NO_PAD 8
 #define IMAGE_SCN_CNT_CODE 32
 #define IMAGE_SCN_CNT_INITIALIZED_DATA 64

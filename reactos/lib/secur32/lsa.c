@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: lsa.c,v 1.10 2004/01/06 16:08:25 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

@@ -1,11 +1,11 @@
-/* $Id:$
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/pnpnotify.c
- * PURPOSE:         Plug & Play notification functions
- * 
- * PROGRAMMERS:     Filip Navara (xnavara@volny.cz)
+/*
+ * COPYRIGHT:      See COPYING in the top level directory
+ * PROJECT:        ReactOS kernel
+ * FILE:           ntoskrnl/io/pnpmgr/remlock.c
+ * PURPOSE:        Plug & Play notification functions
+ * PROGRAMMER:     Filip Navara (xnavara@volny.cz)
+ * UPDATE HISTORY:
+ *  22/09/2003 FiN Created
  */
 
 /* INCLUDES ******************************************************************/

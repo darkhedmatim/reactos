@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: init.c,v 1.30 2004/11/14 18:47:10 hbirr Exp $
  * 
  * reactos/subsys/csrss/init.c
  *
@@ -17,7 +17,6 @@
 #include <ntdll/ldr.h>
 #include <win32k/win32k.h>
 #include <rosrtl/string.h>
-#include <sm/helper.h>
 
 #include "api.h"
 #include "csrplugin.h"
@@ -219,37 +218,6 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     { 0, 0, 0, NULL }
   };
 
-/**********************************************************************
- * NAME
- * 	CsrpRegisterSubsystem/0
- *
- * DESCRIPTION
- * 	Register CSRSS in the SM to manage IMAGE_SUBSYSTEM_WINDOWS_CUI 
- * 	processes (environment subsystem server).
- *
- * RETURN VALUE
- * 	STATUS_SUCCESS on success.
- */
-static NTSTATUS FASTCALL
-CsrpRegisterSubsystem(PHANDLE hSmApiPort)
-{
-	NTSTATUS Status = STATUS_SUCCESS;
-	UNICODE_STRING SbApiPortName;
-
-	RtlInitUnicodeString (& SbApiPortName, L"\\Windows\\SbApiPort");
-	Status = SmConnectApiPort (& SbApiPortName,
-				   (HANDLE)-1, //unused
-				   IMAGE_SUBSYSTEM_WINDOWS_CUI,
-				   hSmApiPort);
-	if(!NT_SUCCESS(Status))
-	{
-		DPRINT("CSR: unable to connect to the SM (Status=0x%lx)\n", Status);
-		return Status;
-	}
-	DisplayString(L"CSR: registered with SM\n");
-	return Status;	
-}
-
 
 /**********************************************************************
  * NAME
@@ -270,20 +238,9 @@ CsrServerInitialization (
 	)
 {
   NTSTATUS Status;
-  HANDLE hSmApiPort = (HANDLE) 0;
   OBJECT_ATTRIBUTES ObAttributes;
   UNICODE_STRING PortName;
   HANDLE ApiPortHandle;
-//  HANDLE hSbApiPort = (HANDLE) 0;
-
-DisplayString(L"CSR: CsrServerInitialization\n");
-
-  Status = CsrpRegisterSubsystem(& hSmApiPort);
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to register subsystem (Status: %x)\n", Status);
-      return FALSE;
-    }
 
   Status = CsrParseCommandLine (ArgumentCount, ArgumentArray);
   if (! NT_SUCCESS(Status))
@@ -312,7 +269,7 @@ DisplayString(L"CSR: CsrServerInitialization\n");
       return Status;
     }
 
-  /* NEW NAMED PORT: \Windows\ApiPort */
+  /* NEW NAMED PORT: \ApiPort */
   RtlRosInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
   InitializeObjectAttributes(&ObAttributes,
                              &PortName,
@@ -326,7 +283,7 @@ DisplayString(L"CSR: CsrServerInitialization\n");
                         0);
   if (! NT_SUCCESS(Status))
     {
-      DPRINT1("CSR: Unable to create \\Windows\\ApiPort (Status %x)\n", Status);
+      DPRINT1("CSR: Unable to create \\ApiPort (Status %x)\n", Status);
       return FALSE;
     }
   Status = RtlCreateUserThread(NtCurrentProcess(),
@@ -335,7 +292,7 @@ DisplayString(L"CSR: CsrServerInitialization\n");
                                0,
                                NULL,
                                NULL,
-                               (PTHREAD_START_ROUTINE)ServerApiPortThread,
+                               (PTHREAD_START_ROUTINE)ServerApiPortThead,
                                ApiPortHandle,
                                NULL,
                                NULL);
@@ -345,9 +302,6 @@ DisplayString(L"CSR: CsrServerInitialization\n");
       NtClose(ApiPortHandle);
       return FALSE;
     }
-
-  /* TODO: create \Windows\SbApiPort */
-  
   Status = CsrClientConnectToServer();
   if (!NT_SUCCESS(Status))
     {
@@ -361,15 +315,7 @@ DisplayString(L"CSR: CsrServerInitialization\n");
       return FALSE;
     }
 
-  if (CallInitComplete())
-  {
-#if 0
-	  Status = SmCompleteSession (hSmApiPort,hSbApiPort,ApiPortHandle);
-#endif
-	  NtClose (hSmApiPort);
-	  return TRUE;
-  }
-  return FALSE;
+  return CallInitComplete();
 }
 
 /* EOF */

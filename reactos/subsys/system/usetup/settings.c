@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: settings.c,v 1.6 2004/11/15 14:41:25 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/settings.c
@@ -29,7 +29,6 @@
 #include "precomp.h"
 #include <ntdll/rtl.h>
 #include <ntos/minmax.h>
-#include <rosrtl/string.h>
 
 #include "usetup.h"
 #include "infcache.h"
@@ -351,28 +350,6 @@ CreateDisplayDriverList(HINF InfFile)
 #endif
 
   return List;
-}
-
-BOOLEAN
-ProcessComputerFiles(HINF InfFile, PGENERIC_LIST List, PWCHAR* AdditionalSectionName)
-{
-	PGENERIC_LIST_ENTRY Entry;
-	static WCHAR SectionName[128];
-	
-	DPRINT("ProcessComputerFiles() called\n");
-	
-	Entry = GetGenericListEntry(List);
-	if (Entry == NULL)
-	{
-		DPRINT("GetGenericListEntry() failed\n");
-		return FALSE;
-	}
-	
-	wcscpy(SectionName, L"Files.");
-	wcscat(SectionName, Entry->UserData);
-	*AdditionalSectionName = SectionName;
-	
-	return TRUE;
 }
 
 

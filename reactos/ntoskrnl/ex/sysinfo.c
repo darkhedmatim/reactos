@@ -1,12 +1,15 @@
-/* $Id$
+/* $Id: sysinfo.c,v 1.62 2004/12/16 22:36:09 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/sysinfo.c
  * PURPOSE:         System information functions
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
- *                  Aleksey Bragin (aleksey@studiocerebral.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *                  20/03/2003: implemented querying SystemProcessInformation,
+ *                              no more copying to-from the caller (Aleksey
+ *                              Bragin <aleksey@studiocerebral.com>)
  */
 
 /* INCLUDES *****************************************************************/
@@ -87,231 +90,237 @@ ExGetCurrentProcessorCounts (
 }
 
 NTSTATUS STDCALL
-NtQuerySystemEnvironmentValue (IN	PUNICODE_STRING	VariableName,
-			       OUT	PWCHAR		ValueBuffer,
-			       IN	ULONG		ValueBufferLength,
-			       IN OUT	PULONG		ReturnLength  OPTIONAL)
+NtQuerySystemEnvironmentValue (IN	PUNICODE_STRING	UnsafeName,
+			       OUT	PVOID		UnsafeValue,
+			       IN	ULONG		Length,
+			       IN OUT	PULONG		UnsafeReturnLength)
 {
+  NTSTATUS Status;
   ANSI_STRING AName;
   UNICODE_STRING WName;
   BOOLEAN Result;
   PCH Value;
   ANSI_STRING AValue;
   UNICODE_STRING WValue;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForRead(VariableName,
-                   sizeof(UNICODE_STRING),
-                   sizeof(ULONG));
-      ProbeForWrite(ValueBuffer,
-                    ValueBufferLength,
-                    sizeof(WCHAR));
-      if(ReturnLength != NULL)
-      {
-        ProbeForWrite(ReturnLength,
-                      sizeof(ULONG),
-                      sizeof(ULONG));
-      }
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
+  ULONG ReturnLength;
 
   /*
    * Copy the name to kernel space if necessary and convert it to ANSI.
    */
-  Status = RtlCaptureUnicodeString(&WName,
-                                   PreviousMode,
-                                   NonPagedPool,
-                                   FALSE,
-                                   VariableName);
-  if(NT_SUCCESS(Status))
-  {
-    /*
-     * according to ntinternals the SeSystemEnvironmentName privilege is required!
-     */
-    if(!SeSinglePrivilegeCheck(SeSystemEnvironmentPrivilege,
-                               PreviousMode))
+  if (ExGetPreviousMode() != KernelMode)
     {
-      RtlReleaseCapturedUnicodeString(&WName,
-                                     PreviousMode,
-                                     FALSE);
-      DPRINT1("NtQuerySystemEnvironmentValue: Caller requires the SeSystemEnvironmentPrivilege privilege!\n");
-      return STATUS_PRIVILEGE_NOT_HELD;
+      Status = RtlCaptureUnicodeString(&WName, UnsafeName);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}
+      Status = RtlUnicodeStringToAnsiString(&AName, UnsafeName, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}
     }
-    
-    /*
-     * convert the value name to ansi
-     */
-    Status = RtlUnicodeStringToAnsiString(&AName, &WName, TRUE);
-    RtlReleaseCapturedUnicodeString(&WName,
-                                   PreviousMode,
-                                   FALSE);
-    if(!NT_SUCCESS(Status))
+  else
     {
-      return Status;
+      Status = RtlUnicodeStringToAnsiString(&AName, UnsafeName, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}
     }
-    
+
   /*
    * Create a temporary buffer for the value
    */
-    Value = ExAllocatePool(NonPagedPool, ValueBufferLength);
-    if (Value == NULL)
+  Value = ExAllocatePool(NonPagedPool, Length);
+  if (Value == NULL)
     {
       RtlFreeAnsiString(&AName);
-      return STATUS_INSUFFICIENT_RESOURCES;
+      if (ExGetPreviousMode() != KernelMode)
+	{
+	  RtlFreeUnicodeString(&WName);
+	}
+      return(STATUS_NO_MEMORY);
     }
-    
-    /*
-     * Get the environment variable
-     */
-    Result = HalGetEnvironmentVariable(AName.Buffer, Value, ValueBufferLength);
-    if(!Result)
+
+  /*
+   * Get the environment variable
+   */
+  Result = HalGetEnvironmentVariable(AName.Buffer, Value, Length);
+  if (!Result)
     {
       RtlFreeAnsiString(&AName);
+      if (ExGetPreviousMode() != KernelMode)
+	{
+	  RtlFreeUnicodeString(&WName);
+	}
       ExFreePool(Value);
-      return STATUS_UNSUCCESSFUL;
+      return(STATUS_UNSUCCESSFUL);
     }
-    
-    /*
-     * Convert the result to UNICODE, protect with SEH in case the value buffer
-     * isn't NULL-terminated!
-     */
-    _SEH_TRY
-    {
-      RtlInitAnsiString(&AValue, Value);
-      Status = RtlAnsiStringToUnicodeString(&WValue, &AValue, TRUE);
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
 
-    if(NT_SUCCESS(Status))
+  /*
+   * Convert the result to UNICODE.
+   */
+  RtlInitAnsiString(&AValue, Value);
+  Status = RtlAnsiStringToUnicodeString(&WValue, &AValue, TRUE);
+  if (!NT_SUCCESS(Status))
     {
-      /*
-       * Copy the result back to the caller.
-       */
-      _SEH_TRY
-      {
-        RtlCopyMemory(ValueBuffer, WValue.Buffer, WValue.Length);
-        ValueBuffer[WValue.Length / sizeof(WCHAR)] = L'\0';
-        if(ReturnLength != NULL)
-        {
-          *ReturnLength = WValue.Length + sizeof(WCHAR);
-        }
-
-        Status = STATUS_SUCCESS;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      RtlFreeAnsiString(&AName);
+      if (ExGetPreviousMode() != KernelMode)
+	{
+	  RtlFreeUnicodeString(&WName);
+	}
+      ExFreePool(Value);
+      return(Status);
     }
-    
-    /*
-     * Cleanup allocated resources.
-     */
-    RtlFreeAnsiString(&AName);
-    ExFreePool(Value);
-  }
+  ReturnLength = WValue.Length;
 
-  return Status;
+  /*
+   * Copy the result back to the caller.
+   */
+  if (ExGetPreviousMode() != KernelMode)
+    {
+      Status = MmCopyToCaller(UnsafeValue, WValue.Buffer, ReturnLength);
+      if (!NT_SUCCESS(Status))
+	{
+	  RtlFreeAnsiString(&AName);
+	  if (ExGetPreviousMode() != KernelMode)
+	    {
+	      RtlFreeUnicodeString(&WName);
+	    }
+	  ExFreePool(Value);
+	  RtlFreeUnicodeString(&WValue);
+	  return(Status);
+	}
+
+      Status = MmCopyToCaller(UnsafeReturnLength, &ReturnLength, 
+			      sizeof(ULONG));
+      if (!NT_SUCCESS(Status))
+	{
+	  RtlFreeAnsiString(&AName);
+	  if (ExGetPreviousMode() != KernelMode)
+	    {
+	      RtlFreeUnicodeString(&WName);
+	    }
+	  ExFreePool(Value);
+	  RtlFreeUnicodeString(&WValue);
+	  return(Status);
+	}
+    }
+  else
+    {
+      memcpy(UnsafeValue, WValue.Buffer, ReturnLength);
+      memcpy(UnsafeReturnLength, &ReturnLength, sizeof(ULONG));
+    }
+
+  /*
+   * Free temporary buffers.
+   */
+  RtlFreeAnsiString(&AName);
+  if (ExGetPreviousMode() != KernelMode)
+    {
+      RtlFreeUnicodeString(&WName);
+    }
+  ExFreePool(Value);
+  RtlFreeUnicodeString(&WValue);
+
+  return(STATUS_SUCCESS);
 }
 
 
 NTSTATUS STDCALL
-NtSetSystemEnvironmentValue (IN	PUNICODE_STRING	VariableName,
-			     IN	PUNICODE_STRING	Value)
+NtSetSystemEnvironmentValue (IN	PUNICODE_STRING	UnsafeName,
+			     IN	PUNICODE_STRING	UnsafeValue)
 {
-  UNICODE_STRING CapturedName, CapturedValue;
-  ANSI_STRING AName, AValue;
-  KPROCESSOR_MODE PreviousMode;
+  UNICODE_STRING WName;
+  ANSI_STRING AName;
+  UNICODE_STRING WValue;
+  ANSI_STRING AValue;
+  BOOLEAN Result;
   NTSTATUS Status;
-  
-  PAGED_CODE();
 
-  PreviousMode = ExGetPreviousMode();
-  
   /*
-   * Copy the strings to kernel space if necessary
+   * Check for required privilege.
    */
-  Status = RtlCaptureUnicodeString(&CapturedName,
-                                   PreviousMode,
-                                   NonPagedPool,
-                                   FALSE,
-                                   VariableName);
-  if(NT_SUCCESS(Status))
-  {
-    Status = RtlCaptureUnicodeString(&CapturedValue,
-                                     PreviousMode,
-                                     NonPagedPool,
-                                     FALSE,
-                                     Value);
-    if(NT_SUCCESS(Status))
-    {
-      /*
-       * according to ntinternals the SeSystemEnvironmentName privilege is required!
-       */
-      if(SeSinglePrivilegeCheck(SeSystemEnvironmentPrivilege,
-                                PreviousMode))
-      {
-        /*
-         * convert the strings to ANSI
-         */
-        Status = RtlUnicodeStringToAnsiString(&AName,
-                                              &CapturedName,
-                                              TRUE);
-        if(NT_SUCCESS(Status))
-        {
-          Status = RtlUnicodeStringToAnsiString(&AValue,
-                                                &CapturedValue,
-                                                TRUE);
-          if(NT_SUCCESS(Status))
-          {
-            BOOLEAN Result = HalSetEnvironmentVariable(AName.Buffer,
-                                                       AValue.Buffer);
+  /* FIXME: Not implemented. */
 
-            Status = (Result ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
-          }
-        }
-      }
-      else
-      {
-        DPRINT1("NtSetSystemEnvironmentValue: Caller requires the SeSystemEnvironmentPrivilege privilege!\n");
-        Status = STATUS_PRIVILEGE_NOT_HELD;
-      }
-      
-      RtlReleaseCapturedUnicodeString(&CapturedValue,
-                                     PreviousMode,
-                                     FALSE);
+  /*
+   * Copy the name to kernel space if necessary and convert it to ANSI.
+   */
+  if (ExGetPreviousMode() != KernelMode)
+    {
+      Status = RtlCaptureUnicodeString(&WName, UnsafeName);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}
+      Status = RtlUnicodeStringToAnsiString(&AName, UnsafeName, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}      
+    }
+  else
+    {
+      Status = RtlUnicodeStringToAnsiString(&AName, UnsafeName, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  return(Status);
+	}
     }
 
-    RtlReleaseCapturedUnicodeString(&CapturedName,
-                                   PreviousMode,
-                                   FALSE);
-  }
-  
-  return Status;
+  /*
+   * Copy the value to kernel space and convert to ANSI.
+   */
+  if (ExGetPreviousMode() != KernelMode)
+    {
+      Status = RtlCaptureUnicodeString(&WValue, UnsafeValue);
+      if (!NT_SUCCESS(Status))
+	{
+	  RtlFreeUnicodeString(&WName);
+	  RtlFreeAnsiString(&AName);
+	  return(Status);
+	}
+      Status = RtlUnicodeStringToAnsiString(&AValue, UnsafeValue, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  RtlFreeUnicodeString(&WName);
+	  RtlFreeAnsiString(&AName);
+	  RtlFreeUnicodeString(&WValue);
+	  return(Status);
+	}      
+    }
+  else
+    {
+      Status = RtlUnicodeStringToAnsiString(&AValue, UnsafeValue, TRUE);
+      if (!NT_SUCCESS(Status))
+	{
+	  RtlFreeAnsiString(&AName);
+	  return(Status);
+	}
+    }
+
+  /*
+   * Set the environment variable
+   */
+  Result = HalSetEnvironmentVariable(AName.Buffer, AValue.Buffer);
+
+  /*
+   * Free everything and return status.
+   */
+  RtlFreeAnsiString(&AName);
+  RtlFreeAnsiString(&AValue);
+  if (ExGetPreviousMode() != KernelMode)
+    {
+      RtlFreeUnicodeString(&WName);
+      RtlFreeUnicodeString(&WValue);
+    }
+
+  if (!Result)
+    {
+      return(STATUS_UNSUCCESSFUL);
+    }
+  return(STATUS_SUCCESS);
 }
 
 
@@ -402,7 +411,7 @@ QSI_DEF(SystemPerformanceInformation)
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 	
-	TheIdleProcess = PsInitialSystemProcess; /* FIXME */
+	PsLookupProcessByProcessId((PVOID) 1, &TheIdleProcess);
 	
 	Spi->IdleTime.QuadPart = TheIdleProcess->Pcb.KernelTime * 100000LL;
 
@@ -506,6 +515,8 @@ QSI_DEF(SystemPerformanceInformation)
 	Spi->SecondLevelTbFills = 0; /* FIXME */
 	Spi->SystemCalls = 0; /* FIXME */
 
+	ObDereferenceObject(TheIdleProcess);
+
 	return (STATUS_SUCCESS);
 }
 
@@ -608,7 +619,7 @@ QSI_DEF(SystemProcessInformation)
 
 		SpiCur->BasePriority = pr->Pcb.BasePriority;
 		SpiCur->ProcessId = pr->UniqueProcessId;
-		SpiCur->InheritedFromProcessId = pr->InheritedFromUniqueProcessId;
+		SpiCur->InheritedFromProcessId = (DWORD)(pr->InheritedFromUniqueProcessId);
 		SpiCur->HandleCount = ObpGetHandleCountByHandleTable(&pr->HandleTable);
 		SpiCur->VmCounters.PeakVirtualSize = pr->PeakVirtualSize;
 		SpiCur->VmCounters.VirtualSize = pr->VirtualSize.QuadPart;
@@ -712,7 +723,7 @@ QSI_DEF(SystemProcessorPerformanceInformation)
 		= (PSYSTEM_PROCESSORTIME_INFO) Buffer;
 
         ULONG i;
-	LARGE_INTEGER CurrentTime;
+	TIME CurrentTime;
 	PKPCR Pcr;
 
 	*ReqSize = KeNumberProcessors * sizeof (SYSTEM_PROCESSORTIME_INFO);
@@ -811,106 +822,13 @@ QSI_DEF(SystemNonPagedPoolInformation)
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
-
-VOID
-ObpGetNextHandleByProcessCount(PSYSTEM_HANDLE_TABLE_ENTRY_INFO pshi,
-                               PEPROCESS Process,
-                               int Count);
-
 /* Class 16 - Handle Information */
 QSI_DEF(SystemHandleInformation)
 {
-        PSYSTEM_HANDLE_INFORMATION Shi = 
-        	(PSYSTEM_HANDLE_INFORMATION) Buffer;
-
-        DPRINT("NtQuerySystemInformation - SystemHandleInformation\n");
-
-	if (Size < sizeof (SYSTEM_HANDLE_INFORMATION))
-        {
-		* ReqSize = sizeof (SYSTEM_HANDLE_INFORMATION);
-		return (STATUS_INFO_LENGTH_MISMATCH);
-	}
-
-	DPRINT("SystemHandleInformation 1\n");
-
-	PEPROCESS pr, syspr;
-	int curSize, i = 0;
-	ULONG hCount = 0;
-		
-        /* First Calc Size from Count. */
-        syspr = PsGetNextProcess(NULL);
-	pr = syspr;
-
-        do
-	  {
-            hCount = hCount + ObpGetHandleCountByHandleTable(&pr->HandleTable);
-            pr = PsGetNextProcess(pr);
-
-	    if ((pr == syspr) || (pr == NULL))
-		break;
-        } while ((pr != syspr) && (pr != NULL));
-
-	DPRINT("SystemHandleInformation 2\n");
-
-	if (pr != NULL)
-	  {
-	    ObDereferenceObject(pr);
-	  }
-
-        curSize = sizeof(SYSTEM_HANDLE_INFORMATION)+
-                  (  (sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO) * hCount) - 
-                     (sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO) ));
-
-        Shi->NumberOfHandles = hCount;
-
-        if (curSize > Size)
-          {
-            *ReqSize = curSize;
-             return (STATUS_INFO_LENGTH_MISMATCH);
-          }
-
-	DPRINT("SystemHandleInformation 3\n");
-
-        /* Now get Handles from all processs. */
-        syspr = PsGetNextProcess(NULL);
-	pr = syspr;
-
-	 do
-	  {
-            int Count = 0, HandleCount = 0;
-
-            HandleCount = ObpGetHandleCountByHandleTable(&pr->HandleTable);
-
-            for (Count = 0; HandleCount > 0 ; HandleCount--)
-               {
-                 ObpGetNextHandleByProcessCount( &Shi->Handles[i], pr, Count);
-                 Count++;
-                 i++;
-               }
-
-	    pr = PsGetNextProcess(pr);
-
-	    if ((pr == syspr) || (pr == NULL))
-		break;
-	   } while ((pr != syspr) && (pr != NULL));
-
-
-	if (pr != NULL)
-	  {
-	    ObDereferenceObject(pr);
-	  }
-
-	DPRINT("SystemHandleInformation 4\n");
-	return (STATUS_SUCCESS);
-
+	/* FIXME */
+	DPRINT1("NtQuerySystemInformation - SystemHandleInformation not implemented\n");
+	return (STATUS_NOT_IMPLEMENTED);
 }
-/*
-SSI_DEF(SystemHandleInformation)
-{
-	
-	return (STATUS_SUCCESS);
-}
-*/
 
 /* Class 17 -  Information */
 QSI_DEF(SystemObjectInformation)
@@ -1041,7 +959,7 @@ QSI_DEF(SystemFullMemoryInformation)
 	}
 	DPRINT("SystemFullMemoryInformation\n");
 
-	TheIdleProcess = PsInitialSystemProcess; /* FIXME */
+	PsLookupProcessByProcessId((PVOID) 1, &TheIdleProcess);
 
         DPRINT("PID: %d, KernelTime: %u PFFree: %d PFUsed: %d\n",
                TheIdleProcess->UniqueProcessId,
@@ -1054,6 +972,8 @@ QSI_DEF(SystemFullMemoryInformation)
 #endif
 	
 	*Spi = MiMemoryConsumers[MC_USER].PagesUsed;
+
+	ObDereferenceObject(TheIdleProcess);
 
 	return (STATUS_SUCCESS);
 }
@@ -1468,8 +1388,6 @@ NtQuerySystemInformation (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
   PVOID SystemInformation;
   NTSTATUS Status;
   NTSTATUS FStatus;
-  
-  PAGED_CODE();
 
 /*	DPRINT("NtQuerySystemInformation Start. Class:%d\n",
 					SystemInformationClass );
@@ -1547,8 +1465,6 @@ NtSetSystemInformation (
 	IN	ULONG				SystemInformationLength
 	)
 {
-        PAGED_CODE();
-        
 	/*
 	 * If called from user mode, check 
 	 * possible unsafe arguments.
@@ -1597,8 +1513,6 @@ NtFlushInstructionCache (
 	IN	UINT	NumberOfBytesToFlush
 	)
 {
-        PAGED_CODE();
-        
 	__asm__("wbinvd\n");
 	return STATUS_SUCCESS;
 }

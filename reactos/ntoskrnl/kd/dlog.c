@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: dlog.c,v 1.16 2004/09/01 00:15:08 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/kd/kdebug.c
  * PURPOSE:         Kernel debugger
- *
- * PROGRAMMERS:     Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * PROGRAMMER:      Eric Kohl (ekohl@abo.rhein-zeitung.de)
+ * UPDATE HISTORY:
+ *                  21/10/99: Created
  */
 
 /* INCLUDES ******************************************************************/

@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: page.c,v 1.23 2004/08/18 02:21:53 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/page.c
- * PURPOSE:         No purpose listed.
- * 
- * PROGRAMMERS:     No programmer listed.
+ * PURPOSE:         
+ * PROGRAMMER:      
+ * UPDATE HISTORY:
+ *                  
  */
 
 /* INCLUDES *****************************************************************/

@@ -1,12 +1,12 @@
-/* $Id$
+/* $Id: sprintf.c,v 1.18 2004/08/15 16:39:11 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/sprintf.c
  * PURPOSE:         Single byte sprintf functions
- * 
  * PROGRAMMERS:     David Welch
  *                  Eric Kohl
+ *
  */
 
 /*

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: halinit.c,v 1.3 2004/12/04 22:52:59 gvg Exp $
  *
  * COPYRIGHT:     See COPYING in the top level directory
  * PROJECT:       ReactOS kernel

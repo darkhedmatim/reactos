@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: symlink.c,v 1.12 2004/10/25 14:22:21 blight Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ob/symlink.c
  * PURPOSE:         Implements symbolic links
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -164,8 +165,8 @@ ObInitSymbolicLinkImplementation (VOID)
   ObSymbolicLinkType->Tag = TAG('S', 'Y', 'M', 'T');
   ObSymbolicLinkType->TotalObjects = 0;
   ObSymbolicLinkType->TotalHandles = 0;
-  ObSymbolicLinkType->PeakObjects = 0;
-  ObSymbolicLinkType->PeakHandles = 0;
+  ObSymbolicLinkType->MaxObjects = ULONG_MAX;
+  ObSymbolicLinkType->MaxHandles = ULONG_MAX;
   ObSymbolicLinkType->PagedPoolCharge = 0;
   ObSymbolicLinkType->NonpagedPoolCharge = sizeof(SYMLINK_OBJECT);
   ObSymbolicLinkType->Mapping = &ObpSymbolicLinkMapping;
@@ -180,8 +181,8 @@ ObInitSymbolicLinkImplementation (VOID)
   ObSymbolicLinkType->Create = ObpCreateSymbolicLink;
   ObSymbolicLinkType->DuplicationNotify = NULL;
 
-  RtlInitUnicodeString(&ObSymbolicLinkType->TypeName,
-		       L"SymbolicLink");
+  RtlRosInitUnicodeStringFromLiteral(&ObSymbolicLinkType->TypeName,
+				  L"SymbolicLink");
 
   ObpCreateTypeObject(ObSymbolicLinkType);
 }
@@ -206,104 +207,61 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
 			   IN POBJECT_ATTRIBUTES ObjectAttributes,
 			   IN PUNICODE_STRING LinkTarget)
 {
-  HANDLE hLink;
   PSYMLINK_OBJECT SymbolicLink;
-  UNICODE_STRING CapturedLinkTarget;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(LinkHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-  
-  Status = RtlCaptureUnicodeString(&CapturedLinkTarget,
-                                   PreviousMode,
-                                   PagedPool,
-                                   FALSE,
-                                   LinkTarget);
-  if(!NT_SUCCESS(Status))
-  {
-    DPRINT1("NtCreateSymbolicLinkObject: Capturing the target link failed!\n");
-    return Status;
-  }
+  ASSERT_IRQL(PASSIVE_LEVEL);
 
   DPRINT("NtCreateSymbolicLinkObject(LinkHandle %p, DesiredAccess %ul, ObjectAttributes %p, LinkTarget %wZ)\n",
 	 LinkHandle,
 	 DesiredAccess,
 	 ObjectAttributes,
-	 &CapturedLinkTarget);
+	 LinkTarget);
 
   Status = ObCreateObject(ExGetPreviousMode(),
 			  ObSymbolicLinkType,
 			  ObjectAttributes,
-			  PreviousMode,
+			  ExGetPreviousMode(),
 			  NULL,
 			  sizeof(SYMLINK_OBJECT),
 			  0,
 			  0,
 			  (PVOID*)&SymbolicLink);
-  if (NT_SUCCESS(Status))
-  {
-    SymbolicLink->TargetName.Length = 0;
-    SymbolicLink->TargetName.MaximumLength =
-      ((wcslen(LinkTarget->Buffer) + 1) * sizeof(WCHAR));
-    SymbolicLink->TargetName.Buffer =
-      ExAllocatePoolWithTag(NonPagedPool,
-			    SymbolicLink->TargetName.MaximumLength,
-			    TAG_SYMLINK_TARGET);
-    RtlCopyUnicodeString(&SymbolicLink->TargetName,
-		         &CapturedLinkTarget);
-
-    DPRINT("DeviceName %S\n", SymbolicLink->TargetName.Buffer);
-
-    ZwQuerySystemTime (&SymbolicLink->CreateTime);
-
-    Status = ObInsertObject ((PVOID)SymbolicLink,
-			     NULL,
-			     DesiredAccess,
-			     0,
-			     NULL,
-			     &hLink);
-    if (NT_SUCCESS(Status))
+  if (!NT_SUCCESS(Status))
     {
-      _SEH_TRY
-      {
-        *LinkHandle = hLink;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      return(Status);
     }
-    ObDereferenceObject(SymbolicLink);
-  }
-  
-  RtlReleaseCapturedUnicodeString(&CapturedLinkTarget,
-                                  PreviousMode,
-                                  FALSE);
 
-  return Status;
+  Status = ObInsertObject ((PVOID)SymbolicLink,
+			   NULL,
+			   DesiredAccess,
+			   0,
+			   NULL,
+			   LinkHandle);
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject (SymbolicLink);
+      return Status;
+    }
+
+  SymbolicLink->TargetName.Length = 0;
+  SymbolicLink->TargetName.MaximumLength = 
+    ((wcslen(LinkTarget->Buffer) + 1) * sizeof(WCHAR));
+  SymbolicLink->TargetName.Buffer = 
+    ExAllocatePoolWithTag(NonPagedPool,
+			  SymbolicLink->TargetName.MaximumLength,
+			  TAG_SYMLINK_TARGET);
+  RtlCopyUnicodeString(&SymbolicLink->TargetName,
+		       LinkTarget);
+
+  DPRINT("DeviceName %S\n", SymbolicLink->TargetName.Buffer);
+
+  NtQuerySystemTime (&SymbolicLink->CreateTime);
+
+  DPRINT("%s() = STATUS_SUCCESS\n",__FUNCTION__);
+  ObDereferenceObject(SymbolicLink);
+
+  return(STATUS_SUCCESS);
 }
 
 
@@ -325,58 +283,16 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
 			 IN ACCESS_MASK DesiredAccess,
 			 IN POBJECT_ATTRIBUTES ObjectAttributes)
 {
-  HANDLE hLink;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      ProbeForWrite(LinkHandle,
-                    sizeof(HANDLE),
-                    sizeof(ULONG));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-
   DPRINT("NtOpenSymbolicLinkObject (Name %wZ)\n",
 	 ObjectAttributes->ObjectName);
 
-  Status = ObOpenObjectByName(ObjectAttributes,
-			      ObSymbolicLinkType,
-			      NULL,
-			      PreviousMode,
-			      DesiredAccess,
-			      NULL,
-			      &hLink);
-  if(NT_SUCCESS(Status))
-  {
-    _SEH_TRY
-    {
-      *LinkHandle = hLink;
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-  }
-  
-  return Status;
+  return(ObOpenObjectByName(ObjectAttributes,
+			    ObSymbolicLinkType,
+			    NULL,
+			    (KPROCESSOR_MODE)KeGetPreviousMode(),
+			    DesiredAccess,
+			    NULL,
+			    LinkHandle));
 }
 
 
@@ -398,92 +314,37 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
 			  OUT PUNICODE_STRING LinkTarget,
 			  OUT PULONG ResultLength  OPTIONAL)
 {
-  UNICODE_STRING SafeLinkTarget;
   PSYMLINK_OBJECT SymlinkObject;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PAGED_CODE();
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if(PreviousMode != KernelMode)
-  {
-    _SEH_TRY
-    {
-      /* probe the unicode string and buffers supplied */
-      ProbeForWrite(LinkTarget,
-                    sizeof(UNICODE_STRING),
-                    sizeof(ULONG));
-      SafeLinkTarget = *LinkTarget;
-      ProbeForWrite(SafeLinkTarget.Buffer,
-                    SafeLinkTarget.MaximumLength,
-                    sizeof(WCHAR));
-
-      if(ResultLength != NULL)
-      {
-        ProbeForWrite(ResultLength,
-                      sizeof(ULONG),
-                      sizeof(ULONG));
-      }
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-    
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-  else
-  {
-    SafeLinkTarget = *LinkTarget;
-  }
+  NTSTATUS Status;
 
   Status = ObReferenceObjectByHandle(LinkHandle,
 				     SYMBOLIC_LINK_QUERY,
 				     ObSymbolicLinkType,
-				     PreviousMode,
+				     (KPROCESSOR_MODE)KeGetPreviousMode(),
 				     (PVOID *)&SymlinkObject,
 				     NULL);
-  if (NT_SUCCESS(Status))
-  {
-    ULONG LengthRequired = SymlinkObject->TargetName.Length + sizeof(WCHAR);
-    
-    _SEH_TRY
+  if (!NT_SUCCESS(Status))
     {
-      if(SafeLinkTarget.MaximumLength >= LengthRequired)
-      {
-        /* don't pass TargetLink to RtlCopyUnicodeString here because the caller
-           might have modified the structure which could lead to a copy into
-           kernel memory! */
-        RtlCopyUnicodeString(&SafeLinkTarget,
-                             &SymlinkObject->TargetName);
-        SafeLinkTarget.Buffer[SafeLinkTarget.Length / sizeof(WCHAR)] = L'\0';
-        /* copy back the new UNICODE_STRING structure */
-        *LinkTarget = SafeLinkTarget;
-      }
-      else
-      {
-        Status = STATUS_BUFFER_TOO_SMALL;
-      }
-      
-      if(ResultLength != NULL)
-      {
-        *ResultLength = LengthRequired;
-      }
+      return Status;
     }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
 
-    ObDereferenceObject(SymlinkObject);
-  }
+  if (ResultLength != NULL)
+    {
+      *ResultLength = (ULONG)SymlinkObject->TargetName.Length + sizeof(WCHAR);
+    }
+
+  if (LinkTarget->MaximumLength >= SymlinkObject->TargetName.Length + sizeof(WCHAR))
+    {
+      RtlCopyUnicodeString(LinkTarget,
+			   &SymlinkObject->TargetName);
+      Status = STATUS_SUCCESS;
+    }
+  else
+    {
+      Status = STATUS_BUFFER_TOO_SMALL;
+    }
+
+  ObDereferenceObject(SymlinkObject);
 
   return Status;
 }

@@ -1,9 +1,15 @@
-/* $Id$ */
+/* $Id: npfs.h,v 1.17 2004/05/10 19:58:10 navaraf Exp $ */
 
-#ifndef __DRIVERS_FS_NP_NPFS_H
-#define __DRIVERS_FS_NP_NPFS_H
+#ifndef __SERVICES_FS_NP_NPFS_H
+#define __SERVICES_FS_NP_NPFS_H
 
-typedef struct _NPFS_DEVICE_EXTENSION
+/*
+ * Hacky support for delayed closing of pipes. We need this to support
+ * reading from pipe the was closed on one end.
+ */
+#define FIN_WORKAROUND_READCLOSE
+
+typedef struct
 {
   LIST_ENTRY PipeListHead;
   KMUTEX PipeListLock;
@@ -12,18 +18,17 @@ typedef struct _NPFS_DEVICE_EXTENSION
   ULONG MaxQuota;
 } NPFS_DEVICE_EXTENSION, *PNPFS_DEVICE_EXTENSION;
 
-typedef struct _NPFS_PIPE
+typedef struct
 {
   UNICODE_STRING PipeName;
   LIST_ENTRY PipeListEntry;
   KMUTEX FcbListLock;
   LIST_ENTRY ServerFcbListHead;
   LIST_ENTRY ClientFcbListHead;
-  LIST_ENTRY WaiterListHead;
   ULONG PipeType;
-  ULONG ReadMode;
-  ULONG WriteMode;
-  ULONG CompletionMode;
+  ULONG PipeReadMode;
+  ULONG PipeWriteMode;
+  ULONG PipeBlockMode;
   ULONG PipeConfiguration;
   ULONG MaximumInstances;
   ULONG CurrentInstances;
@@ -36,7 +41,6 @@ typedef struct _NPFS_FCB
 {
   LIST_ENTRY FcbListEntry;
   struct _NPFS_FCB* OtherSide;
-  struct ETHREAD *Thread;
   PNPFS_PIPE Pipe;
   KEVENT ConnectEvent;
   KEVENT Event;
@@ -53,14 +57,6 @@ typedef struct _NPFS_FCB
   KSPIN_LOCK DataListLock;	/* Data queue lock */
 } NPFS_FCB, *PNPFS_FCB;
 
-typedef struct _NPFS_WAITER_ENTRY
-{
-  LIST_ENTRY Entry;
-  PIRP Irp;
-  PNPFS_PIPE Pipe;
-  PNPFS_FCB Fcb;
-} NPFS_WAITER_ENTRY, *PNPFS_WAITER_ENTRY;
-
 
 extern NPAGED_LOOKASIDE_LIST NpfsPipeDataLookasideList;
 
@@ -72,6 +68,8 @@ extern NPAGED_LOOKASIDE_LIST NpfsPipeDataLookasideList;
                                              NULL);
 
 #define KeUnlockMutex(x) KeReleaseMutex(x, FALSE);
+
+#define CP DPRINT("\n");
 
 
 NTSTATUS STDCALL NpfsCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp);
@@ -90,4 +88,4 @@ NTSTATUS STDCALL NpfsSetInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS STDCALL NpfsQueryVolumeInformation (PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
-#endif /* __DRIVERS_FS_NP_NPFS_H */
+#endif /* __SERVICES_FS_NP_NPFS_H */

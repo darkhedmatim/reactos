@@ -1,8 +1,8 @@
-/* $Id$
+/* $Id: wapi.c,v 1.37 2004/07/03 17:15:02 hbirr Exp $
  * 
  * reactos/subsys/csrss/api/wapi.c
  *
- * CSRSS port message processing
+ * Initialize the CSRSS subsystem server process.
  *
  * ReactOS Operating System
  *
@@ -123,18 +123,18 @@ ClientConnectionThread(HANDLE ServerPort)
 	
       if (LpcRequest.Header.MessageType == LPC_PORT_CLOSED)
         {
-          CsrFreeProcessData( LpcRequest.Header.ClientId.UniqueProcess );
+          CsrFreeProcessData( (ULONG)LpcRequest.Header.ClientId.UniqueProcess );
           break;
         }
 
       Request = (PCSRSS_API_REQUEST)&LpcRequest;
       Reply = (PCSRSS_API_REPLY)&LpcReply;
 	
-      ProcessData = CsrGetProcessData(LpcRequest.Header.ClientId.UniqueProcess);
+      ProcessData = CsrGetProcessData((ULONG)LpcRequest.Header.ClientId.UniqueProcess);
       if (ProcessData == NULL)
         {
-          DPRINT1("CSR: Message %d: Unable to find data for process 0x%x\n",
-	          LpcRequest.Header.MessageType, LpcRequest.Header.ClientId.UniqueProcess);
+          DPRINT1("CSR: Message %d: Unable to find data for process %d\n",
+	          LpcRequest.Header.MessageType, (ULONG)LpcRequest.Header.ClientId.UniqueProcess);
 	  break;
         }	          
 
@@ -147,14 +147,14 @@ ClientConnectionThread(HANDLE ServerPort)
 
 /**********************************************************************
  * NAME
- *	ServerApiPortThread/1
+ *	Thread_Api
  *
  * DESCRIPTION
  * 	Handle connection requests from clients to the port
  * 	"\Windows\ApiPort".
  */
 void STDCALL
-ServerApiPortThread (PVOID PortHandle)
+ServerApiPortThead(PVOID PortHandle)
 {
    NTSTATUS Status;
    LPC_MAX_MESSAGE Request;
@@ -178,7 +178,7 @@ ServerApiPortThread (PVOID PortHandle)
 	Status = NtAcceptConnectPort(&ServerPort,
 				     PortHandle,
 				     NULL,
-				     TRUE,
+				     1,
 				     0,
 				     &LpcRead);
 	if (!NT_SUCCESS(Status))
@@ -187,11 +187,11 @@ ServerApiPortThread (PVOID PortHandle)
 	     break;
 	  }
 
-	ProcessData = CsrCreateProcessData(Request.Header.ClientId.UniqueProcess);
+	ProcessData = CsrCreateProcessData((ULONG)Request.Header.ClientId.UniqueProcess);
 	if (ProcessData == NULL)
 	  {
-	     DPRINT1("Unable to allocate or find data for process 0x%x\n",
-	             Request.Header.ClientId.UniqueProcess);
+	     DPRINT1("Unable to allocate or find data for process %d\n",
+	             (ULONG)Request.Header.ClientId.UniqueProcess);
 	     Status = STATUS_UNSUCCESSFUL;
 	     break;
 	  }
@@ -230,53 +230,6 @@ ServerApiPortThread (PVOID PortHandle)
      }
    NtClose(PortHandle);
    NtTerminateThread(NtCurrentThread(), Status);
-}
-
-/**********************************************************************
- * NAME
- *	ServerSbApiPortThread/1
- *
- * DESCRIPTION
- * 	Handle connection requests from SM to the port
- * 	"\Windows\SbApiPort".
- */
-VOID STDCALL
-ServerSbApiPortThread (PVOID PortHandle)
-{
-	HANDLE          hSbApiPortListen = (HANDLE) PortHandle;
-	HANDLE          hConnectedPort = (HANDLE) 0;
-	LPC_MAX_MESSAGE Request = {{0}};
-	NTSTATUS        Status = STATUS_SUCCESS;
-
-	while (TRUE)
-	{
-		Status = NtListenPort (hSbApiPortListen, & Request.Header);
-		if (!NT_SUCCESS(Status))
-		{
-			DPRINT1("CSR: %s: NtListenPort(SB) failed\n", __FUNCTION__);
-			break;
-		}
-		Status = NtAcceptConnectPort (& hConnectedPort,
-						hSbApiPortListen,
-	   					NULL,
-	   					TRUE,
-	   					NULL,
-	   					NULL);
-		if(!NT_SUCCESS(Status))
-		{
-			DPRINT1("CSR: %s: NtAcceptConnectPort() failed\n", __FUNCTION__);
-			break;
-		}
-		Status = NtCompleteConnectPort (hConnectedPort);
-		if(!NT_SUCCESS(Status))
-		{
-			DPRINT1("CSR: %s: NtCompleteConnectPort() failed\n", __FUNCTION__);
-			break;
-		}
-		/* TODO: create thread for the connected port */
-	}
-	NtClose (hSbApiPortListen);
-	NtTerminateThread (NtCurrentThread(), Status);
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: exitros.c,v 1.1 2004/07/12 20:09:34 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS CSRSS subsystem
@@ -17,7 +17,7 @@
 #include <debug.h>
 
 static HWND LogonNotifyWindow = NULL;
-static HANDLE LogonProcess = NULL;
+static DWORD LogonProcess = 0;
 
 CSR_API(CsrRegisterLogonProcess)
 {
@@ -35,7 +35,7 @@ CSR_API(CsrRegisterLogonProcess)
     }
   else
     {
-      if (Request->Header.ClientId.UniqueProcess != LogonProcess)
+      if ((DWORD) Request->Header.ClientId.UniqueProcess != LogonProcess)
         {
           DPRINT1("Current logon process 0x%x, can't deregister from process 0x%x\n",
                   LogonProcess, Request->Header.ClientId.UniqueProcess);
@@ -64,7 +64,7 @@ CSR_API(CsrSetLogonNotifyWindow)
       Reply->Status = STATUS_INVALID_HANDLE;
       return Reply->Status;
     }
-  if (WindowCreator != (DWORD)LogonProcess)
+  if (WindowCreator != LogonProcess)
     {
       DPRINT1("Trying to register window not created by winlogon as notify window\n");
       Reply->Status = STATUS_ACCESS_DENIED;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: timedate.c,v 1.6 2004/11/14 12:28:21 ekohl Exp $
  *
  * PROJECT:         ReactOS Timedate Control Panel
  * FILE:            lib/cpl/timedate/timedate.c
@@ -102,35 +102,14 @@ SetTimeZoneName(HWND hwnd)
 {
   TIME_ZONE_INFORMATION TimeZoneInfo;
   WCHAR TimeZoneString[128];
-  WCHAR TimeZoneText[128];
-  WCHAR TimeZoneName[128];
   DWORD TimeZoneId;
 
   TimeZoneId = GetTimeZoneInformation(&TimeZoneInfo);
 
-  LoadString(hApplet, IDS_TIMEZONETEXT, TimeZoneText, 128);
+  wsprintf(TimeZoneString,
+	   L"Current time zone: %s\n",
+	   (TimeZoneId == TIME_ZONE_ID_DAYLIGHT) ? TimeZoneInfo.DaylightName : TimeZoneInfo.StandardName);
 
-  switch (TimeZoneId)
-  {
-    case TIME_ZONE_ID_STANDARD:
-      wcscpy(TimeZoneName, TimeZoneInfo.StandardName);
-      break;
-
-    case TIME_ZONE_ID_DAYLIGHT:
-      wcscpy(TimeZoneName, TimeZoneInfo.DaylightName);
-      break;
-
-    case TIME_ZONE_ID_UNKNOWN:
-      LoadString(hApplet, IDS_TIMEZONEUNKNOWN, TimeZoneName, 128);
-      break;
-
-    case TIME_ZONE_ID_INVALID:
-    default:
-      LoadString(hApplet, IDS_TIMEZONEINVALID, TimeZoneName, 128);
-      break;
-  }
-
-  wsprintf(TimeZoneString, TimeZoneText, TimeZoneName);
   SendDlgItemMessageW(hwnd, IDC_TIMEZONE, WM_SETTEXT, 0, (LPARAM)TimeZoneString);
 }
 

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: fiber.S,v 1.4 2004/03/07 20:07:05 hyperion Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS system libraries

@@ -1,11 +1,30 @@
-/* $Id$
+/*
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: share.c,v 1.12 2004/08/25 15:01:48 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/share.c
- * PURPOSE:         No purpose listed.
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PURPOSE:         
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
@@ -327,73 +346,8 @@ IoSetInformation(IN PFILE_OBJECT FileObject,
 		 IN ULONG Length,
 		 OUT PVOID FileInformation)
 {
-   IO_STATUS_BLOCK IoStatusBlock;
-   PIRP Irp;
-   PDEVICE_OBJECT DeviceObject;
-   PIO_STACK_LOCATION StackPtr;
-   NTSTATUS Status;
-
-   ASSERT(FileInformation != NULL);
-
-   if (FileInformationClass == FileCompletionInformation)
-   {
-      return STATUS_NOT_IMPLEMENTED;
-   }
-
-
-
-   Status = ObReferenceObjectByPointer(FileObject,
-				       FILE_WRITE_ATTRIBUTES,
-				       IoFileObjectType,
-				       KernelMode);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   DPRINT("FileObject %x\n", FileObject);
-   
-   DeviceObject = FileObject->DeviceObject;
-
-   Irp = IoAllocateIrp(DeviceObject->StackSize,
-		       TRUE);
-   if (Irp == NULL)
-   {
-      ObDereferenceObject(FileObject);
-      return STATUS_INSUFFICIENT_RESOURCES;
-   }
-
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = KernelMode;
-   Irp->AssociatedIrp.SystemBuffer = FileInformation;
-   Irp->UserIosb = &IoStatusBlock;
-   Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-   KeResetEvent( &FileObject->Event );
-
-   StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = IRP_MJ_SET_INFORMATION;
-   StackPtr->MinorFunction = 0;
-   StackPtr->Flags = 0;
-   StackPtr->Control = 0;
-   StackPtr->DeviceObject = DeviceObject;
-   StackPtr->FileObject = FileObject;
-   StackPtr->Parameters.SetFile.FileInformationClass = FileInformationClass;
-   StackPtr->Parameters.SetFile.Length = Length;
-
-   Status = IoCallDriver(FileObject->DeviceObject, Irp);
-   if (Status==STATUS_PENDING)
-   {
-      KeWaitForSingleObject(&FileObject->Event,
-			    Executive,
-			    KernelMode,
-			    FileObject->Flags & FO_ALERTABLE_IO,
-			    NULL);
-      Status = IoStatusBlock.Status;
-   }
-   
-   return Status;
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
 

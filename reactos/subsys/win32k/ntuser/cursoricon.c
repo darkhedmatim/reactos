@@ -16,65 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
-/*
- * We handle two types of cursors/icons:
- * - Private
- *   Loaded without LR_SHARED flag
- *   Private to a process
- *   Can be deleted by calling NtDestroyCursorIcon()
- *   CurIcon->hModule, CurIcon->hRsrc and CurIcon->hGroupRsrc set to NULL
- * - Shared
- *   Loaded with LR_SHARED flag
- *   Possibly shared by multiple processes
- *   Immune to NtDestroyCursorIcon()
- *   CurIcon->hModule, CurIcon->hRsrc and CurIcon->hGroupRsrc are valid
- * There's a M:N relationship between processes and (shared) cursor/icons.
- * A process can have multiple cursor/icons and a cursor/icon can be used
- * by multiple processes. To keep track of this we keep a list of all
- * cursor/icons (CurIconList) and per cursor/icon we keep a list of
- * CURICON_PROCESS structs starting at CurIcon->ProcessList.
- */
-
+/* $Id: cursoricon.c,v 1.3.2.1 2004/12/20 21:40:55 gvg Exp $ */
 #include <w32k.h>
-
-static PAGED_LOOKASIDE_LIST ProcessLookasideList;
-static LIST_ENTRY CurIconList;
-static FAST_MUTEX CurIconListLock;
-
-/* Look up the location of the cursor in the GDIDEVICE structure
- * when all we know is the window station object
- * Actually doesn't use the window station, but should... */
-BOOL FASTCALL
-IntGetCursorLocation(PWINSTATION_OBJECT WinStaObject, POINT *loc)
-{
-  HDC hDC;
-  PDC dc;
-  HBITMAP hBitmap;
-  BITMAPOBJ *BitmapObj;
-  SURFOBJ *SurfObj;
-
-#if 1
-  /* FIXME - get the screen dc from the window station or desktop */
-  if (!(hDC = IntGetScreenDC())) 
-    return FALSE;
-#endif
-
-  if (!(dc = DC_LockDc(hDC)))
-    return FALSE;
-    
-  hBitmap = dc->w.hBitmap;
-  DC_UnlockDc(hDC);                                                                                 
-  if (!(BitmapObj = BITMAPOBJ_LockBitmap(hBitmap)))
-    return FALSE;
-
-  SurfObj = &BitmapObj->SurfObj;
-  loc->x = GDIDEV(SurfObj)->Pointer.Pos.x;
-  loc->y = GDIDEV(SurfObj)->Pointer.Pos.y;
-
-  BITMAPOBJ_UnlockBitmap(hBitmap);
-  return TRUE;
-}
 
 PCURICON_OBJECT FASTCALL
 IntGetCurIconObject(PWINSTATION_OBJECT WinStaObject, HANDLE Handle)
@@ -150,9 +93,10 @@ IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor,
       {
          /* Remove the cursor if it was displayed */
          if (GDIDEV(SurfObj)->Pointer.MovePointer)
-           GDIDEV(SurfObj)->Pointer.MovePointer(SurfObj, -1, -1, &GDIDEV(SurfObj)->Pointer.Exclude);
+           GDIDEV(SurfObj)->Pointer.MovePointer(SurfObj, -1, -1, NULL);
          else
-           EngMovePointer(SurfObj, -1, -1, &GDIDEV(SurfObj)->Pointer.Exclude);
+           EngMovePointer(SurfObj, -1, -1, NULL);
+         GDIDEV(SurfObj)->Pointer.Exclude.right = -1;
       }
 
       GDIDEV(SurfObj)->Pointer.Status = SPS_ACCEPT_NOEXCLUDE;
@@ -251,9 +195,9 @@ IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor,
                                                         SurfObj, soMask, soColor, XlateObj,
                                                         NewCursor->IconInfo.xHotspot,
                                                         NewCursor->IconInfo.yHotspot,
-                                                        GDIDEV(SurfObj)->Pointer.Pos.x,
-                                                        GDIDEV(SurfObj)->Pointer.Pos.y,
-                                                        &(GDIDEV(SurfObj)->Pointer.Exclude),
+                                                        CurInfo->x, 
+                                                        CurInfo->y, 
+                                                        NULL,
                                                         SPS_CHANGE);
       DPRINT("SetCursor: DrvSetPointerShape() returned %x\n",
          GDIDEV(SurfObj)->Pointer.Status);
@@ -269,9 +213,9 @@ IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor,
                          SurfObj, soMask, soColor, XlateObj,
                          NewCursor->IconInfo.xHotspot,
                          NewCursor->IconInfo.yHotspot,
-                         GDIDEV(SurfObj)->Pointer.Pos.x, 
-                         GDIDEV(SurfObj)->Pointer.Pos.y, 
-                         &(GDIDEV(SurfObj)->Pointer.Exclude),
+                         CurInfo->x, 
+                         CurInfo->y, 
+                         NULL,
                          SPS_CHANGE);
       GDIDEV(SurfObj)->Pointer.MovePointer = EngMovePointer;
     }
@@ -304,61 +248,6 @@ IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor,
 BOOL FASTCALL
 IntSetupCurIconHandles(PWINSTATION_OBJECT WinStaObject)
 {
-  ExInitializePagedLookasideList(&ProcessLookasideList,
-				 NULL,
-				 NULL,
-				 0,
-				 sizeof(CURICON_PROCESS),
-				 0,
-				 128);
-  InitializeListHead(&CurIconList);
-  ExInitializeFastMutex(&CurIconListLock);
-
-  return TRUE;
-}
-
-/*
- * We have to register that this object is in use by the current
- * process. The only way to do that seems to be to walk the list
- * of cursor/icon objects starting at W32Process->CursorIconListHead.
- * If the object is already present in the list, we don't have to do
- * anything, if it's not present we add it and inc the ProcessCount
- * in the object. Having to walk the list kind of sucks, but that's
- * life...
- */
-static BOOLEAN FASTCALL
-ReferenceCurIconByProcess(PCURICON_OBJECT Object)
-{
-  PW32PROCESS Win32Process;
-  PLIST_ENTRY Search;
-  PCURICON_PROCESS Current;
-
-  Win32Process = PsGetWin32Process();
-  
-  ExAcquireFastMutex(&Object->Lock);
-  Search = Object->ProcessList.Flink;
-  while (Search != &Object->ProcessList)
-    {
-      Current = CONTAINING_RECORD(Search, CURICON_PROCESS, ListEntry);
-      if (Current->Process == Win32Process)
-        {
-          /* Already registered for this process */
-          ExReleaseFastMutex(&Object->Lock);
-          return TRUE;
-        }
-      Search = Search->Flink;
-    }
-
-  /* Not registered yet */
-  Current = ExAllocateFromPagedLookasideList(&ProcessLookasideList);
-  if (NULL == Current)
-    {
-      return FALSE;
-    }
-  InsertHeadList(&Object->ProcessList, &Current->ListEntry);
-  Current->Process = Win32Process;
-
-  ExReleaseFastMutex(&Object->Lock);
   return TRUE;
 }
 
@@ -366,39 +255,41 @@ PCURICON_OBJECT FASTCALL
 IntFindExistingCurIconObject(PWINSTATION_OBJECT WinStaObject, HMODULE hModule, 
                              HRSRC hRsrc, LONG cx, LONG cy)
 {
+  PUSER_HANDLE_TABLE HandleTable;
   PLIST_ENTRY CurrentEntry;
+  PUSER_HANDLE_BLOCK Current;
   PCURICON_OBJECT Object;
-
-  ExAcquireFastMutex(&CurIconListLock);  
-
-  CurrentEntry = CurIconList.Flink;
-  while (CurrentEntry != &CurIconList)
+  ULONG i;
+  
+  HandleTable = (PUSER_HANDLE_TABLE)WinStaObject->HandleTable;
+  ObmpLockHandleTable(HandleTable);
+  
+  CurrentEntry = HandleTable->ListHead.Flink;
+  while(CurrentEntry != &HandleTable->ListHead)
   {
-    Object = CONTAINING_RECORD(CurrentEntry, CURICON_OBJECT, ListEntry);
-    CurrentEntry = CurrentEntry->Flink;
-    if(NT_SUCCESS(ObmReferenceObjectByPointer(Object, otCursorIcon)))
+    Current = CONTAINING_RECORD(CurrentEntry, USER_HANDLE_BLOCK, ListEntry);
+    for(i = 0; i < HANDLE_BLOCK_ENTRIES; i++)
     {
-      if((Object->hModule == hModule) && (Object->hRsrc == hRsrc))
+      Object = (PCURICON_OBJECT)Current->Handles[i].ObjectBody;
+      if(Object && (ObmReferenceObjectByPointer(Object, otCursorIcon) == STATUS_SUCCESS))
       {
-        if(cx && ((cx != Object->Size.cx) || (cy != Object->Size.cy)))
+        if((Object->hModule == hModule) && (Object->hRsrc == hRsrc))
         {
-          ObmDereferenceObject(Object);
-          continue;
+          if(cx && ((cx != Object->Size.cx) || (cy != Object->Size.cy)))
+          {
+	    ObmDereferenceObject(Object);
+	    continue;
+          }
+          ObmpUnlockHandleTable(HandleTable);
+          return Object;
         }
-        if (! ReferenceCurIconByProcess(Object))
-        {
-          ExReleaseFastMutex(&CurIconListLock);
-          return NULL;
-        }
-        ExReleaseFastMutex(&CurIconListLock);
-        return Object;
+        ObmDereferenceObject(Object);
       }
     }
-    ObmDereferenceObject(Object);
+    CurrentEntry = CurrentEntry->Flink;
   }
   
-  ExReleaseFastMutex(&CurIconListLock);
-
+  ObmpUnlockHandleTable(HandleTable);
   return NULL;
 }
 
@@ -407,6 +298,7 @@ IntCreateCurIconHandle(PWINSTATION_OBJECT WinStaObject)
 {
   PCURICON_OBJECT Object;
   HANDLE Handle;
+  PW32PROCESS Win32Process;
   
   Object = ObmCreateObject(WinStaObject->HandleTable, &Handle, otCursorIcon, sizeof(CURICON_OBJECT));
   
@@ -416,89 +308,38 @@ IntCreateCurIconHandle(PWINSTATION_OBJECT WinStaObject)
     return FALSE;
   }
   
+  Win32Process = PsGetWin32Process();
+  
+  IntLockProcessCursorIcons(Win32Process);
+  InsertTailList(&Win32Process->CursorIconListHead, &Object->ListEntry);
+  IntUnLockProcessCursorIcons(Win32Process);
+  
   Object->Self = Handle;
-  ExInitializeFastMutex(&Object->Lock);
-  InitializeListHead(&Object->ProcessList);
-
-  if (! ReferenceCurIconByProcess(Object))
-  {
-    DPRINT1("Failed to add process\n");
-    ObmCloseHandle(WinStaObject->HandleTable, Handle);
-    ObmDereferenceObject(Object);
-    return NULL;
-  }
-
-  ExAcquireFastMutex(&CurIconListLock);
-  InsertHeadList(&CurIconList, &Object->ListEntry);
-  ExReleaseFastMutex(&CurIconListLock);
-
-  ObmDereferenceObject(Object);
-
+  Object->Process = PsGetWin32Process();
+  
   return Object;
 }
 
-BOOLEAN FASTCALL
-IntDestroyCurIconObject(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT Object, BOOL ProcessCleanup)
+BOOL FASTCALL
+IntDestroyCurIconObject(PWINSTATION_OBJECT WinStaObject, HANDLE Handle, BOOL RemoveFromProcess)
 {
   PSYSTEM_CURSORINFO CurInfo;
+  PCURICON_OBJECT Object;
   HBITMAP bmpMask, bmpColor;
-  BOOLEAN Ret;
-  PLIST_ENTRY Search;
-  PCURICON_PROCESS Current = NULL;
-  PW32PROCESS W32Process = PsGetWin32Process();
-
-  ExAcquireFastMutex(&Object->Lock);
-
-  /* Private objects can only be destroyed by their own process */
-  if (NULL == Object->hModule)
-    {
-    ASSERT(Object->ProcessList.Flink->Flink == &Object->ProcessList);
-    Current = CONTAINING_RECORD(Object->ProcessList.Flink, CURICON_PROCESS, ListEntry);
-    if (Current->Process != W32Process)
-      {
-        ExReleaseFastMutex(&Object->Lock);
-        DPRINT1("Trying to destroy private icon/cursor of another process\n");
-        return FALSE;
-      }
-    }
-  else if (! ProcessCleanup)
-    {
-      ExReleaseFastMutex(&Object->Lock);
-      DPRINT("Trying to destroy shared icon/cursor\n");
-      return FALSE;
-    }
-
-  /* Now find this process in the list of processes referencing this object and
-     remove it from that list */
-  Search = Object->ProcessList.Flink;
-  while (Search != &Object->ProcessList)
-    {
-    Current = CONTAINING_RECORD(Search, CURICON_PROCESS, ListEntry);
-    if (Current->Process == W32Process)
-      {
-      break;
-      }
-    Search = Search->Flink;
-    }
-  ASSERT(Search != &Object->ProcessList);
-  RemoveEntryList(Search);
-  ExFreeToPagedLookasideList(&ProcessLookasideList, Current);
-
-  /* If there are still processes referencing this object we can't destroy it yet */
-  if (! IsListEmpty(&Object->ProcessList))
-    {
-    ExReleaseFastMutex(&Object->Lock);
-    return TRUE;
-    }
-    
-  ExReleaseFastMutex(&Object->Lock);
-
-  if (! ProcessCleanup)
-    {
-    ExAcquireFastMutex(&CurIconListLock);
-    RemoveEntryList(&Object->ListEntry);
-    ExReleaseFastMutex(&CurIconListLock);
-    }
+  NTSTATUS Status;
+  BOOL Ret;
+  
+  Status = ObmReferenceObjectByHandle(WinStaObject->HandleTable, Handle, otCursorIcon, (PVOID*)&Object);
+  if(!NT_SUCCESS(Status))
+  {
+    return FALSE;
+  }
+  
+  if (Object->Process != PsGetWin32Process())
+  {
+    ObmDereferenceObject(Object);
+    return FALSE;
+  }
 
   CurInfo = IntGetSysCursorInfo(WinStaObject);
 
@@ -510,8 +351,15 @@ IntDestroyCurIconObject(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT Object,
   
   bmpMask = Object->IconInfo.hbmMask;
   bmpColor = Object->IconInfo.hbmColor;
+
+  if (Object->Process && RemoveFromProcess)
+  {
+    IntLockProcessCursorIcons(Object->Process);
+    RemoveEntryList(&Object->ListEntry);
+    IntUnLockProcessCursorIcons(Object->Process);
+  }
   
-  Ret = NT_SUCCESS(ObmCloseHandle(WinStaObject->HandleTable, Object->Self));
+  Ret = NT_SUCCESS(ObmCloseHandle(WinStaObject->HandleTable, Handle));
   
   /* delete bitmaps */
   if(bmpMask)
@@ -524,6 +372,8 @@ IntDestroyCurIconObject(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT Object,
     GDIOBJ_SetOwnership(bmpColor, PsGetCurrentProcess());
     NtGdiDeleteObject(bmpColor);
   }
+
+  ObmDereferenceObject(Object);
   
   return Ret;
 }
@@ -532,50 +382,23 @@ VOID FASTCALL
 IntCleanupCurIcons(struct _EPROCESS *Process, PW32PROCESS Win32Process)
 {
   PWINSTATION_OBJECT WinStaObject;
-  PLIST_ENTRY CurrentEntry;
-  PCURICON_OBJECT Object;
-  PLIST_ENTRY ProcessEntry;
-  PCURICON_PROCESS ProcessData;
-
-  WinStaObject = IntGetWinStaObj();
-  if(WinStaObject == NULL)
-  {
-    return;
-  }
-
-  ExAcquireFastMutex(&CurIconListLock);  
-
-  CurrentEntry = CurIconList.Flink;
-  while (CurrentEntry != &CurIconList)
-  {
-    Object = CONTAINING_RECORD(CurrentEntry, CURICON_OBJECT, ListEntry);
-    CurrentEntry = CurrentEntry->Flink;
-    if(NT_SUCCESS(ObmReferenceObjectByPointer(Object, otCursorIcon)))
-      {
-      ExAcquireFastMutex(&Object->Lock);
-      ProcessEntry = Object->ProcessList.Flink;
-      while (ProcessEntry != &Object->ProcessList)
-      {
-        ProcessData = CONTAINING_RECORD(ProcessEntry, CURICON_PROCESS, ListEntry);
-        if (Win32Process == ProcessData->Process)
-        {
-          ExReleaseFastMutex(&Object->Lock);
-          RemoveEntryList(&Object->ListEntry);
-          IntDestroyCurIconObject(WinStaObject, Object, TRUE);
-          break;
-        }
-        ProcessEntry = ProcessEntry->Flink;
-      }
-      if (ProcessEntry == &Object->ProcessList)
-      {
-        ExReleaseFastMutex(&Object->Lock);
-      }
-      ObmDereferenceObject(Object);
-    }
-  }
+  PCURICON_OBJECT Current;
+  PLIST_ENTRY CurrentEntry, NextEntry;
   
-  ExReleaseFastMutex(&CurIconListLock);
-  ObDereferenceObject(WinStaObject);
+  WinStaObject = IntGetWinStaObj();
+  if(WinStaObject != NULL)
+  {
+    CurrentEntry = Win32Process->CursorIconListHead.Flink;
+    while(CurrentEntry != &Win32Process->CursorIconListHead)
+    {
+      NextEntry = CurrentEntry->Flink;
+      Current = CONTAINING_RECORD(CurrentEntry, CURICON_OBJECT, ListEntry);
+      RemoveEntryList(&Current->ListEntry);
+      IntDestroyCurIconObject(WinStaObject, Current->Self, FALSE);
+      CurrentEntry = NextEntry;
+    }
+    ObDereferenceObject(WinStaObject);
+  }
 }
 
 /*
@@ -623,11 +446,8 @@ NtUserCreateCursorIconHandle(PICONINFO IconInfo, BOOL Indirect)
         if(CurIconObject->IconInfo.hbmMask && 
           (bmp = BITMAPOBJ_LockBitmap(CurIconObject->IconInfo.hbmMask)))
         {
-          if (CurIconObject->IconInfo.hbmColor == NULL)
-          {
-            CurIconObject->Size.cx = bmp->SurfObj.sizlBitmap.cx;
-            CurIconObject->Size.cy = bmp->SurfObj.sizlBitmap.cy / 2;
-          }
+          CurIconObject->Size.cx = bmp->SurfObj.sizlBitmap.cx;
+          CurIconObject->Size.cy = bmp->SurfObj.sizlBitmap.cy / 2;
           BITMAPOBJ_UnlockBitmap(CurIconObject->IconInfo.hbmMask);
           GDIOBJ_SetOwnership(CurIconObject->IconInfo.hbmMask, NULL);
         }
@@ -793,16 +613,6 @@ NtUserGetCursorInfo(
   PWINSTATION_OBJECT WinStaObject;
   NTSTATUS Status;
   PCURICON_OBJECT CursorObject;
-
-#if 1
-  HDC hDC;
-
-  /* FIXME - get the screen dc from the window station or desktop */
-  if (!(hDC = IntGetScreenDC()))
-  {
-    return FALSE;
-  }
-#endif
   
   Status = MmCopyFromCaller(&SafeCi.cbSize, pci, sizeof(DWORD));
   if(!NT_SUCCESS(Status))
@@ -828,9 +638,9 @@ NtUserGetCursorInfo(
   
   SafeCi.flags = ((CurInfo->ShowingCursor && CursorObject) ? CURSOR_SHOWING : 0);
   SafeCi.hCursor = (CursorObject ? (HCURSOR)CursorObject->Self : (HCURSOR)0);
-
-  IntGetCursorLocation(WinStaObject, &SafeCi.ptScreenPos);
-
+  SafeCi.ptScreenPos.x = CurInfo->x;
+  SafeCi.ptScreenPos.y = CurInfo->y;
+  
   Status = MmCopyToCaller(pci, &SafeCi, sizeof(CURSORINFO));
   if(!NT_SUCCESS(Status))
   {
@@ -858,7 +668,6 @@ NtUserClipCursor(
   PSYSTEM_CURSORINFO CurInfo;
   RECT Rect;
   PWINDOW_OBJECT DesktopWindow = NULL;
-  POINT MousePos;
 
   WinStaObject = IntGetWinStaObj();
   if (WinStaObject == NULL)
@@ -874,8 +683,6 @@ NtUserClipCursor(
   }
   
   CurInfo = IntGetSysCursorInfo(WinStaObject);
-  IntGetCursorLocation(WinStaObject, &MousePos);
-
   if(WinStaObject->ActiveDesktop)
     DesktopWindow = IntGetWindowObject(WinStaObject->ActiveDesktop->DesktopWindow);
   
@@ -891,8 +698,8 @@ NtUserClipCursor(
     CurInfo->CursorClipInfo.Bottom = min(Rect.bottom - 1, DesktopWindow->WindowRect.bottom - 1);
     IntReleaseWindowObject(DesktopWindow);
     
-    mi.dx = MousePos.x;
-    mi.dy = MousePos.y;
+    mi.dx = CurInfo->x;
+    mi.dy = CurInfo->y;
     mi.mouseData = 0;
     mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
     mi.time = 0;
@@ -919,8 +726,6 @@ NtUserDestroyCursorIcon(
   DWORD Unknown)
 {
   PWINSTATION_OBJECT WinStaObject;
-  PCURICON_OBJECT Object;
-  NTSTATUS Status;
   
   WinStaObject = IntGetWinStaObj();
   if(WinStaObject == NULL)
@@ -928,24 +733,14 @@ NtUserDestroyCursorIcon(
     return FALSE;
   }
   
-  Status = ObmReferenceObjectByHandle(WinStaObject->HandleTable, Handle, otCursorIcon, (PVOID*)&Object);
-  if(!NT_SUCCESS(Status))
+  if(IntDestroyCurIconObject(WinStaObject, Handle, TRUE))
   {
-    ObDereferenceObject(WinStaObject);
-    SetLastNtError(Status);
-    return FALSE;
-  }
-
-  if(IntDestroyCurIconObject(WinStaObject, Object, FALSE))
-  {
-    ObmDereferenceObject(Object);
     ObDereferenceObject(WinStaObject);
     return TRUE;
   }
 
-  ObmDereferenceObject(Object);
-  ObDereferenceObject(WinStaObject);
   SetLastWin32Error(ERROR_INVALID_CURSOR_HANDLE);
+  ObDereferenceObject(WinStaObject);
   return FALSE;
 }
 
@@ -1007,6 +802,8 @@ NtUserGetClipCursor(
   WinStaObject = IntGetWinStaObj();
   if (WinStaObject == NULL)
   {
+    DPRINT("Validation of window station handle (0x%X) failed\n",
+      PROCESS_WINDOW_STATION());
     return FALSE;
   }
   

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: handle.c,v 1.20 2004/11/06 10:10:02 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id$
+/* $Id: autochk.c,v 1.6 2004/11/21 11:03:17 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -76,8 +76,8 @@ NtProcessStartup(PPEB Peb)
   
   Status = NtQueryInformationProcess(NtCurrentProcess(),
                                      ProcessDeviceMap,
-                                     &DeviceMap.Query,
-                                     sizeof(DeviceMap.Query),
+                                     &DeviceMap,
+                                     sizeof(DeviceMap),
                                      NULL);
   if(NT_SUCCESS(Status))
   {

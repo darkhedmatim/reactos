@@ -1,11 +1,12 @@
-/* $Id$
+/* $Id: irp.c,v 1.70 2004/11/10 02:50:59 ion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/irp.c
  * PURPOSE:         Handle IRPs
- * 
- * PROGRAMMERS:     David Welch (welch@mcmail.com)
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
+ * UPDATE HISTORY: 
+ *                  24/05/98: Created 
  */
 
 /* NOTES *******************************************************************
@@ -211,9 +212,7 @@ IofCallDriver(PDEVICE_OBJECT DeviceObject,
   return DriverObject->MajorFunction[Param->MajorFunction](DeviceObject, Irp);
 }
 
-#ifdef IoCallDriver
-#undef IoCallDriver
-#endif
+
 /*
  * @implemented
  */
@@ -268,6 +267,7 @@ IoAllocateIrp(CCHAR StackSize,
       return(NULL);
     }
 
+  RtlZeroMemory(Irp, IoSizeOfIrp(StackSize));
   IoInitializeIrp(Irp,
 		  IoSizeOfIrp(StackSize),
 		  StackSize);
@@ -277,9 +277,7 @@ IoAllocateIrp(CCHAR StackSize,
   return(Irp);
 }
 
-#ifdef IoCompleteRequest
-#undef IoCompleteRequest
-#endif
+
 /*
  * @implemented
  */
@@ -328,7 +326,7 @@ IofCompleteRequest(PIRP Irp,
       */
       if (Irp->CurrentLocation < Irp->StackCount - 1)
       {
-         IoSkipCurrentIrpStackLocation(Irp);
+         IoSetPreviousIrpStackLocation(Irp);
          DeviceObject = IoGetCurrentIrpStackLocation(Irp)->DeviceObject;
       }
       else
@@ -363,9 +361,6 @@ IofCompleteRequest(PIRP Irp,
       ULONG MasterIrpCount;
       PIRP MasterIrp = Irp->AssociatedIrp.MasterIrp;
 
-      /* This should never happen! */
-      ASSERT(IsListEmpty(&Irp->ThreadListEntry));
-
       MasterIrpCount = InterlockedDecrement(&MasterIrp->AssociatedIrp.IrpCount);
       while ((Mdl = Irp->MdlAddress))
       {
@@ -388,9 +383,6 @@ IofCompleteRequest(PIRP Irp,
    /* Windows NT File System Internals, page 165 */
    if (Irp->Flags & (IRP_PAGING_IO|IRP_CLOSE_OPERATION))
    {
-      /* This should never happen! */
-      ASSERT(IsListEmpty(&Irp->ThreadListEntry));
-
       /* 
        * If MDL_IO_PAGE_READ is set, then the caller is responsible 
        * for deallocating of the mdl. 
@@ -587,19 +579,19 @@ IoGetTopLevelIrp(VOID)
 VOID STDCALL
 IoQueueThreadIrp(IN PIRP Irp)
 {
-   KIRQL OldIrql;
+/* undefine this when (if ever) implementing irp cancellation */
+#if 0
+  KIRQL oldIrql;
   
-   OldIrql = KfRaiseIrql(APC_LEVEL);
+  oldIrql = KfRaiseIrql(APC_LEVEL);
   
-   /*
-    * Synchronous irp's are queued to requestor thread. If they are not
-    * completed when the thread exits, they are canceled (cleaned up).
-    * - Gunnar
-    */
-
-   InsertTailList(&Irp->Tail.Overlay.Thread->IrpList, &Irp->ThreadListEntry);
+  /* Synchronous irp's are queued to requestor thread. If they are not completed
+  when the thread exits, they are canceled (cleaned up).
+  -Gunnar */
+  InsertTailList(&PsGetCurrentThread()->IrpList, &Irp->ThreadListEntry);
     
-   KfLowerIrql(OldIrql);
+  KfLowerIrql(oldIrql);    
+#endif
 }
 
 

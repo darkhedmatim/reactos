@@ -125,11 +125,9 @@ void	printf __P((const char *, ...));
 #include <oskitfreebsd.h>
 #include <oskitdebug.h>
 
-
 int __cdecl vprintf(const char *, va_list);
 
-#define log bsd_log
-static inline int bsd_log ( int blah, const char* fmt, ... )
+static inline int log ( int blah, const char* fmt, ... )
 {
 	va_list arg;
 	int i;
