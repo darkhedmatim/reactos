@@ -1,37 +1,87 @@
-# $Id: makefile,v 1.16 2004/09/23 20:05:32 chorns Exp $
+# Makefile for ReactOS Ancillary Function Driver DLL
 
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = dynlink
+CFLAGS = -I./include -DUNICODE -DDBG
 
-TARGET_NAME = msafd
+TARGETNAME=msafd
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSAFD)
+MISC_OBJECTS = misc/dllmain.o misc/event.o misc/helpers.o \
+               misc/sndrcv.o misc/stubs.o
 
-TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
+RESOURCE_OBJECT = $(TARGETNAME).coff
 
-TARGET_CFLAGS = \
- -I./include \
- -Wall \
- -Werror \
- -fno-builtin \
- -DUNICODE \
- -D__USE_W32API
+OBJECTS = $(MISC_OBJECTS) $(RESOURCE_OBJECT)
 
-TARGET_LFLAGS = -nostartfiles -nostdlib
+LIBS = ../ntdll/ntdll.a \
+       ../kernel32/kernel32.a
 
-MISC_OBJECTS = \
-  misc/dllmain.o misc/event.o misc/helpers.o \
-  misc/sndrcv.o misc/stubs.o
+CLEAN_FILES = misc/*.o \
+              $(TARGETNAME).o $(TARGETNAME).a junk.tmp base.tmp temp.exp \
+	          $(TARGETNAME).dll $(TARGETNAME).sym $(TARGETNAME).coff
 
-TARGET_OBJECTS = $(MISC_OBJECTS)
+all: $(TARGETNAME).dll
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+$(TARGETNAME).coff: $(TARGETNAME).rc ../../include/reactos/resource.h
 
-include $(PATH_TO_TOP)/rules.mak
+$(TARGETNAME).a: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).a
 
-include $(TOOLS_PATH)/helper.mk
+$(TARGETNAME).dll: $(LIBS) $(OBJECTS) $(TARGETNAME).def
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).o
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--def $(TARGETNAME).def \
+		--kill-at \
+		--output-lib $(TARGETNAME).a
+	$(CC) \
+		$(TARGETNAME).o \
+        $(LIBS) \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf
+	- $(RM) base.tmp
+	$(CC) \
+		$(TARGETNAME).o \
+        $(LIBS) \
+		-mdll \
+		-o $(TARGETNAME).dll \
+		-Wl,--image-base,0x777A0000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGETNAME).dll > $(TARGETNAME).sym
 
-include $(TOOLS_PATH)/depend.mk
 
-# EOF
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+$(FLOPPY_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGETNAME).dll $(FLOPPY_DIR)\dlls\$(TARGETNAME).dll
+else
+	$(CP) $(TARGETNAME).dll $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+endif
+
+dist: $(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+$(DIST_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGETNAME).dll ..\..\$(DIST_DIR)\dlls\$(TARGETNAME).dll
+else
+	$(CP) $(TARGETNAME).dll ../../$(DIST_DIR)/dlls/$(TARGETNAME).dll
+endif
+
+include ../../rules.mak
+

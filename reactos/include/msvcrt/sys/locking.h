@@ -15,35 +15,24 @@
  *
  *  This code is distributed in the hope that it will be useful but
  *  WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
- *  DISCLAIMED. This includes but is not limited to warranties of
+ *  DISCLAMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.4 $
- * $Author: robd $
- * $Date: 2002/11/24 18:06:01 $
+ * $Revision: 1.1 $
+ * $Author: ekohl $
+ * $Date: 2001/07/03 13:07:12 $
  *
  */
 
-#ifndef __STRICT_ANSI__
+#ifndef	__STRICT_ANSI__
 
-#ifndef _LOCKING_H_
-#define _LOCKING_H_
+#ifndef	_LOCKING_H_
+#define	_LOCKING_H_
 
+/*
+ * TODO: Define LK_... constants.
+ */
 
-#define _LK_UNLCK   0   /* Unlock */
-#define _LK_LOCK    1   /* Lock */
-#define _LK_NBLCK   2   /* Non-blocking lock */
-#define _LK_RLCK    3   /* Lock for read only */
-#define _LK_NBRLCK  4   /* Non-blocking lock for read only */
+#endif	/* Not _LOCKING_H_ */
 
-#ifndef NO_OLDNAMES
-#define LK_UNLCK    _LK_UNLCK
-#define LK_LOCK     _LK_LOCK
-#define LK_NBLCK    _LK_NBLCK
-#define LK_RLCK     _LK_RLCK
-#define LK_NBRLCK   _LK_NBRLCK
-#endif  /* Not NO_OLDNAMES */
-
-#endif  /* Not _LOCKING_H_ */
-
-#endif  /* Not __STRICT_ANSI__ */
+#endif	/* Not __STRICT_ANSI__ */

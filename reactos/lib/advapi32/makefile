@@ -1,74 +1,118 @@
-# $Id: makefile,v 1.46 2004/12/14 00:00:40 weiden Exp $
-
+# $Id: makefile,v 1.18 2001/07/15 21:18:54 rex Exp $
+#
+# Makefile for ReactOS advapi32.dll
+#
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = dynlink
+BASE_CFLAGS = -I../../include
 
-TARGET_NAME = advapi32
+TARGETNAME=advapi32
 
-TARGET_PCH = advapi32.h
+DLLTARGET=$(TARGETNAME).dll
 
-TARGET_CFLAGS = -Wall -Werror -fno-builtin \
-                -D__USE_W32API \
-                -D_WIN32_IE=0x0500 \
-                -D_WIN32_WINNT=0x501 \
-                -DWINVER=0x600 \
 
-TARGET_LFLAGS = -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = ntdll.a kernel32.a
+MISC_OBJECTS=\
+	misc/dllmain.o	\
+	misc/shutdown.o	\
+	misc/sysfunc.o 
 
-TARGET_BASE = $(TARGET_BASE_LIB_ADVAPI32)
-
-CRYPT_OBJECTS = \
-	crypt/crypt_des.o \
-	crypt/crypt_lmhash.o \
-	crypt/crypt_md4.o \
-	crypt/crypt_md5.o \
-	crypt/crypt_sha.o \
-	crypt/crypt.o
-
-MISC_OBJECTS = \
-	misc/dllmain.o \
-	misc/hwprofiles.o \
-	misc/logon.o \
-	misc/shutdown.o \
-	misc/sysfunc.o \
-
-REGISTRY_OBJECTS = \
+REGISTRY_OBJECTS=\
 	reg/reg.o
 
-SECURITY_OBJECTS = \
-	sec/ac.o \
-	sec/audit.o \
-	sec/lsa.o \
-	sec/misc.o \
-	sec/sec.o \
-	sec/sid.o \
-	sec/trustee.o
+SECURITY_OBJECTS=\
+	sec/lsa.o	\
+	sec/sec.o	\
+	sec/ac.o	\
+	sec/sid.o
 
-SERVICE_OBJECTS = \
-	service/eventlog.o \
-	service/scm.o \
-	service/sctrl.o \
+SERVICE_OBJECTS=\
+	service/scm.o	\
+	service/sctrl.o	\
 	service/undoc.o
 
-TOKEN_OBJECTS = \
-	token/privilege.o \
+TOKEN_OBJECTS=\
+	token/privilege.o	\
 	token/token.o
 
-TARGET_OBJECTS = \
-	$(CRYPT_OBJECTS) \
-	$(MISC_OBJECTS) \
-	$(REGISTRY_OBJECTS) \
-	$(SECURITY_OBJECTS) \
-	$(SERVICE_OBJECTS) \
-	$(TOKEN_OBJECTS)
+RESOURCE_OBJECT=\
+	$(TARGETNAME).coff
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+OBJECTS=\
+	$(MISC_OBJECTS)		\
+	$(REGISTRY_OBJECTS)	\
+	$(SECURITY_OBJECTS)	\
+	$(SERVICE_OBJECTS)	\
+	$(TOKEN_OBJECTS)	\
+	$(RESOURCE_OBJECT)
 
-include $(PATH_TO_TOP)/rules.mak
+CLEAN_FILES = misc/*.o reg/*.o sec/*.o service/*.o token/*.o \
+              $(TARGETNAME).o $(TARGETNAME).a junk.tmp base.tmp temp.exp \
+	      $(TARGETNAME).dll $(TARGETNAME).sym $(TARGETNAME).coff
 
-include $(TOOLS_PATH)/helper.mk
+all: $(DLLTARGET)
 
-include $(TOOLS_PATH)/depend.mk
+$(TARGETNAME).coff: $(TARGETNAME).rc ../../include/reactos/resource.h
+
+$(TARGETNAME).a: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).a
+
+$(TARGETNAME).dll: $(DLLMAIN) $(OBJECTS) $(TARGETNAME).def
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).o
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--def $(TARGETNAME).def \
+		--kill-at \
+		--output-lib $(TARGETNAME).a
+	$(CC) \
+		$(TARGETNAME).o \
+		../ntdll/ntdll.a \
+		../kernel32/kernel32.a \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--entry=_DllMain@12\
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf
+	- $(RM) base.tmp
+	$(CC) \
+		$(TARGETNAME).o \
+		../ntdll/ntdll.a \
+		../kernel32/kernel32.a \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o $(TARGETNAME).dll \
+		-Wl,--entry=_DllMain@12\
+		-Wl,--image-base,0x77dc0000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGETNAME).dll > $(TARGETNAME).sym
+
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+$(FLOPPY_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+
+dist: $(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+$(DIST_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll ../../$(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+
+include ../../rules.mak

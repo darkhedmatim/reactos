@@ -16,8 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: ps.h,v 1.77 2004/12/05 15:42:41 weiden Exp $
- *
+/*
  * FILE:            ntoskrnl/ke/kthread.c
  * PURPOSE:         Process manager definitions
  * PROGRAMMER:      David Welch (welch@cwcom.net)
@@ -28,30 +27,86 @@
 #ifndef __INCLUDE_INTERNAL_PS_H
 #define __INCLUDE_INTERNAL_PS_H
 
-#ifndef __ASM__
+/*
+ * Defines for accessing KPCR and KTHREAD structure members
+ */
+#define KTHREAD_INITIAL_STACK     0x18
+#define KTHREAD_TEB               0x20
+#define KTHREAD_KERNEL_STACK      0x28
+#define KTHREAD_PREVIOUS_MODE     0x137
+#define KTHREAD_TRAP_FRAME        0x128
 
-/* Forward declarations. */
-struct _KTHREAD;
-struct _KTRAPFRAME;
-struct _EJOB;
+#define ETHREAD_THREADS_PROCESS   0x258
 
-#endif /* __ASM__ */
+#define KPROCESS_DIRECTORY_TABLE_BASE 0x18
 
-#include <internal/arch/ps.h>
+#define KPCR_BASE                 0xFF000000
+
+#define KPCR_EXCEPTION_LIST       0x0
+#define KPCR_SELF                 0x18
+#define KPCR_TSS                  0x28
+#define KPCR_CURRENT_THREAD       0x124	
 
 #ifndef __ASM__
 
 #include <internal/mm.h>
-#include <napi/teb.h>
 
-#ifndef KeGetCurrentProcessorNumber
+struct _KTHREAD;
+struct _KTRAPFRAME;
+
+/* FIXME: This does not work if we have more than 24 IRQs (ie. more than one I/O APIC) */
+#define VECTOR2IRQ(vector) (((vector) - 0x31) / 8)
+#define VECTOR2IRQL(vector) (4 + VECTOR2IRQ(vector))
+
+/*
+ * Processor Control Region
+ */
+typedef struct _KPCR
+{
+  PVOID ExceptionList;               /* 00 */
+  PVOID StackBase;                   /* 04 */
+  PVOID StackLimit;                  /* 08 */
+  PVOID SubSystemTib;                /* 0C */
+  PVOID Reserved1;                   /* 10 */
+  PVOID ArbitraryUserPointer;        /* 14 */
+  struct _KPCR* Self;                /* 18 */
+  UCHAR ProcessorNumber;             /* 1C */
+  KIRQL Irql;                        /* 1D */
+  UCHAR Reserved2[0x2];              /* 1E */
+  PUSHORT IDT;                       /* 20 */
+  PUSHORT GDT;                       /* 24 */
+  KTSS* TSS;                         /* 28 */
+  UCHAR Reserved3[0xF8];             /* 2C */
+  struct _KTHREAD* CurrentThread;    /* 124 */
+} __attribute__((packed)) KPCR, *PKPCR;
+
+static inline PKPCR KeGetCurrentKPCR(VOID)
+{
+  ULONG value;
+
+  __asm__ __volatile__ ("movl %%fs:0x18, %0\n\t"
+	  : "=r" (value)
+    : /* no inputs */
+    );
+  return((PKPCR)value);
+}
+
 #define KeGetCurrentProcessorNumber() (KeGetCurrentKPCR()->ProcessorNumber)
-#endif
+
+extern HANDLE SystemProcessHandle;
 
 extern LCID PsDefaultThreadLocaleId;
 extern LCID PsDefaultSystemLocaleId;
 
-#include <pshpack1.h>
+
+typedef struct _KAPC_STATE
+{
+   LIST_ENTRY ApcListHead[2];
+   struct _KPROCESS* Process;
+   UCHAR KernelApcInProgress;
+   UCHAR KernelApcPending;
+   USHORT UserApcPending;
+} __attribute__((packed)) KAPC_STATE, *PKAPC_STATE;
 
 typedef struct _KTHREAD
 {
@@ -61,10 +116,10 @@ typedef struct _KTHREAD
    /* List of mutants owned by the thread */
    LIST_ENTRY        MutantListHead;      /* 10 */
    PVOID             InitialStack;        /* 18 */
-   ULONG_PTR         StackLimit;          /* 1C */
+   ULONG             StackLimit;          /* 1C */
    
    /* Pointer to the thread's environment block in user memory */
-   PTEB              Teb;                 /* 20 */
+   NT_TEB*           Teb;                 /* 20 */
    
    /* Pointer to the thread's TLS array */
    PVOID             TlsArray;            /* 24 */
@@ -76,13 +131,13 @@ typedef struct _KTHREAD
    UCHAR             Alerted[2];          /* 2E */
    UCHAR             Iopl;                /* 30 */
    UCHAR             NpxState;            /* 31 */
-   CHAR              Saturation;          /* 32 */
+   UCHAR             Saturation;          /* 32 */
    CHAR              Priority;            /* 33 */
    KAPC_STATE        ApcState;            /* 34 */
    ULONG             ContextSwitches;     /* 4C */
-   LONG              WaitStatus;          /* 50 */
+   ULONG             WaitStatus;          /* 50 */
    KIRQL             WaitIrql;            /* 54 */
-   CHAR              WaitMode;            /* 55 */
+   UCHAR             WaitMode;            /* 55 */
    UCHAR             WaitNext;            /* 56 */
    UCHAR             WaitReason;          /* 57 */
    PKWAIT_BLOCK      WaitBlockList;       /* 58 */
@@ -91,16 +146,13 @@ typedef struct _KTHREAD
    CHAR              BasePriority;        /* 68 */
    UCHAR             DecrementCount;      /* 69 */
    UCHAR             PriorityDecrement;   /* 6A */
-   CHAR              Quantum;             /* 6B */
+   UCHAR             Quantum;             /* 6B */
    KWAIT_BLOCK       WaitBlock[4];        /* 6C */
    PVOID             LegoData;            /* CC */
-   ULONG             KernelApcDisable;    /* D0 */
+   LONG              KernelApcDisable;    /* D0 */
    KAFFINITY         UserAffinity;        /* D4 */
    UCHAR             SystemAffinityActive;/* D8 */
-   UCHAR             PowerState;          /* D9 */
-   UCHAR             NpxIrql;             /* DA */
-   UCHAR             Pad[1];              /* DB */
-   SSDT_ENTRY        *ServiceTable;       /* DC */
+   UCHAR             Pad[7];              /* D9 */
    PKQUEUE           Queue;               /* E0 */
    KSPIN_LOCK        ApcQueueLock;        /* E4 */
    KTIMER            Timer;               /* E8 */
@@ -111,9 +163,9 @@ typedef struct _KTHREAD
    UCHAR             KernelStackResident; /* 11E */
    UCHAR             NextProcessor;       /* 11F */
    PVOID             CallbackStack;       /* 120 */
-   struct _W32THREAD *Win32Thread;        /* 124 */
-   struct _KTRAP_FRAME *TrapFrame;        /* 128 */
-   PKAPC_STATE       ApcStatePointer[2];  /* 12C */
+   BOOL              Win32Thread;         /* 124 */
+   struct _KTRAP_FRAME*      TrapFrame;   /* 128 */
+   PVOID             ApcStatePointer[2];  /* 12C */
    UCHAR             EnableStackSwap;     /* 134 */
    UCHAR             LargeStack;          /* 135 */
    UCHAR             ResourceIndex;       /* 136 */
@@ -133,84 +185,112 @@ typedef struct _KTHREAD
    UCHAR             SuspendCount;        /* 1AD */
    UCHAR             IdealProcessor;      /* 1AE */
    UCHAR             DisableBoost;        /* 1AF */
-} KTHREAD;
+   
+   /*
+    * Below here are thread structure members that are specific to ReactOS
+    */
+   
+   /* Added by Phillip Susi for list of threads in a process */
+   LIST_ENTRY        ProcessThreadListEntry;         /* 1B0 */
 
-#include <poppack.h>
+   /* Added by Phillip Susi for internal KeAddThreadTimeout() implementation */
+   KDPC              TimerDpc;		             /* 1B8 */
 
-/* Top level irp definitions. */
-#define	FSRTL_FSP_TOP_LEVEL_IRP			(0x01)
-#define	FSRTL_CACHE_TOP_LEVEL_IRP		(0x02)
-#define	FSRTL_MOD_WRITE_TOP_LEVEL_IRP		(0x03)
-#define	FSRTL_FAST_IO_TOP_LEVEL_IRP		(0x04)
-#define	FSRTL_MAX_TOP_LEVEL_IRP_FLAG		(0x04)
+   /* Record the last EIP value when the thread is suspended */
+   ULONG             LastEip;                        /* 1D8 */
+} __attribute__((packed)) KTHREAD, *PKTHREAD;
 
-#ifndef __USE_W32API
+// According to documentation the stack should have a commited [ 1 page ] and
+// a reserved part [ 1 M ] but can be specified otherwise in the image file.
+
+
+
+
+
+
+
+// TopLevelIrp can be one of the following values:
+// FIXME I belong somewhere else
+
+#define 	FSRTL_FSP_TOP_LEVEL_IRP			(0x01)
+#define 	FSRTL_CACHE_TOP_LEVEL_IRP		(0x02)
+#define 	FSRTL_MOD_WRITE_TOP_LEVEL_IRP		(0x03)
+#define		FSRTL_FAST_IO_TOP_LEVEL_IRP		(0x04)
+#define		FSRTL_MAX_TOP_LEVEL_IRP_FLAG		(0x04)
+
+typedef struct _TOP_LEVEL_IRP
+{
+	PIRP TopLevelIrp;
+	ULONG TopLevelIrpConst;
+} TOP_LEVEL_IRP;
+
 typedef struct
 {
-  PACCESS_TOKEN Token;
-  BOOLEAN CopyOnOpen;
-  BOOLEAN EffectiveOnly;
-  SECURITY_IMPERSONATION_LEVEL Level;
-} PS_IMPERSONATION_INFORMATION, *PPS_IMPERSONATION_INFORMATION;
-#endif
+   PACCESS_TOKEN Token;                              // 0x0
+   UCHAR Unknown1;                                   // 0x4
+   UCHAR Unknown2;                                   // 0x5
+   UCHAR Pad[2];                                     // 0x6
+   SECURITY_IMPERSONATION_LEVEL Level;               // 0x8
+} PS_IMPERSONATION_INFO, *PPS_IMPERSONATION_INFO;
 
-#include <pshpack1.h>
+
+typedef struct _W32THREAD
+{
+  PVOID MessageQueue;
+} __attribute__((packed)) W32THREAD, *PW32THREAD;
+
 
 typedef struct _ETHREAD
 {
-  KTHREAD Tcb;
-  union {
-  	TIME CreateTime;
-  	UCHAR NestedFaultCount:2;
-  	UCHAR ApcNeeded:1;
-  };
-  TIME ExitTime;
-  LIST_ENTRY LpcReplyChain;
-  NTSTATUS ExitStatus;
-  PVOID OfsChain;
-  LIST_ENTRY PostBlockList;
-  LIST_ENTRY TerminationPortList;
-  KSPIN_LOCK ActiveTimerListLock;
-  LIST_ENTRY ActiveTimerListHead;
-  CLIENT_ID Cid;
-  KSEMAPHORE LpcReplySemaphore;
-  PVOID LpcReplyMessage;
-  ULONG LpcReplyMessageId;
-  ULONG PerformanceCountLow;
-  PPS_IMPERSONATION_INFORMATION ImpersonationInfo;
-  LIST_ENTRY IrpList;
-  PIRP TopLevelIrp;
-  PDEVICE_OBJECT DeviceToVerify;
-  ULONG ReadClusterSize;
-  UCHAR ForwardClusterOnly;
-  UCHAR DisablePageFaultClustering;
-  UCHAR DeadThread;
-  UCHAR HideFromDebugger;
-  ULONG HasTerminated;
-#ifdef _ENABLE_THRDEVTPAIR
-  PVOID EventPair;
-#endif /* _ENABLE_THRDEVTPAIR */
-  ACCESS_MASK GrantedAccess;
-  struct _EPROCESS *ThreadsProcess;
-  PKSTART_ROUTINE StartAddress;
-  LPTHREAD_START_ROUTINE Win32StartAddress;
-  ULONG LpcReceivedMessageId;
-  UCHAR LpcExitThreadCalled;
-  UCHAR HardErrorsAreDisabled;
-  UCHAR LpcReceivedMsgIdValid;
-  UCHAR ActiveImpersonationInfo;
-  ULONG PerformanceCountHigh;
-  LIST_ENTRY ThreadListEntry;
-} ETHREAD;
+  KTHREAD Tcb;                                      /* 000 */
+  TIME CreateTime;                                  /* 1B0/1DC */
+  union
+  {
+    TIME ExitTime;                                  /* 1B8/1E4 */
+    LIST_ENTRY LpcReplyChain;                       /* 1B8/1E4 */
+  } u1;
+  NTSTATUS ExitStatus;                              /* 1C0/1EC */
+  LIST_ENTRY PostBlockList;                         /* 1C4/1F0 */
+  LIST_ENTRY TerminationPortList;                   /* 1CC/1F8 */
+  KSPIN_LOCK ActiveTimerListLock;                   /* 1D4/200 */
+  LIST_ENTRY ActiveTimerListHead;                   /* 1D8/204 */
+  CLIENT_ID Cid;                                    /* 1E0/20C */
+  KSEMAPHORE LpcReplySemaphore;                     /* 1E8/214 */
+  PVOID LpcReplyMessage;                            /* 1FC/228 */
+  PLARGE_INTEGER LpcReplyMessageId;                 /* 200/22C */
+  ULONG PerformanceCounterLow;                      /* 204/230 */
+  PPS_IMPERSONATION_INFO ImpersonationInfo;         /* 208/234 */
+  LIST_ENTRY IrpList;                               /* 20C/238 */
+  TOP_LEVEL_IRP* TopLevelIrp;                       /* 214/240 */
+  PDEVICE_OBJECT DeviceToVerify;                    /* 218/244 */
+  ULONG ReadClusterSize;                            /* 21C/248 */
+  UCHAR ForwardClusterOnly;                         /* 220/24C */
+  UCHAR DisablePageFaultClustering;                 /* 221/24D */
+  UCHAR DeadThread;                                 /* 222/24E */
+  UCHAR HasTerminated;                              /* 223/24F */
+  PVOID EventPair;                                  /* 224/250 */
+  ACCESS_MASK GrantedAccess;                        /* 228/254 */
+  struct _EPROCESS* ThreadsProcess;                 /* 22C/258 */
+  PKSTART_ROUTINE StartAddress;                     /* 230/25C */
+  union
+  {
+    LPTHREAD_START_ROUTINE Win32StartAddress;       /* 234/260 */
+    ULONG LpcReceiveMessageId;                      /* 234/260 */
+  } u2;
+  UCHAR LpcExitThreadCalled;                        /* 238/264 */
+  UCHAR HardErrorsAreDisabled;                      /* 239/265 */
+  UCHAR LpcReceivedMsgIdValid;                      /* 23A/266 */
+  UCHAR ActiveImpersonationInfo;                    /* 23B/267 */
+  ULONG PerformanceCountHigh;                       /* 23C/268 */
 
-#include <poppack.h>
+  /*
+   * Added by David Welch (welch@cwcom.net)
+   */
+  struct _EPROCESS* OldProcess;                     /* 240/26C */
 
-
-#ifndef __USE_W32API
-
-typedef struct _ETHREAD *PETHREAD;
-
-#endif /* __USE_W32API */
+  PW32THREAD Win32Thread;
+  
+} __attribute__((packed)) ETHREAD, *PETHREAD;
 
 
 typedef struct _KPROCESS 
@@ -226,17 +306,17 @@ typedef struct _KPROCESS
    * We use the first member of this array to hold the physical address of
    * the page directory for this process.
    */
-  PHYSICAL_ADDRESS      DirectoryTableBase;           /* 018 */
+  PVOID                 DirectoryTableBase[2];        /* 018 */
   /*
    * Presumably a descriptor for the process's LDT, currently unused.
    */
   ULONG                 LdtDescriptor[2];             /* 020 */
   /*
-   * Virtual Dos Machine flag.
+   * Presumably for processing int 0x21 from V86 mode DOS, currently
+   * unused.
    */
-  ULONG                 NtVdmFlag;                    /* 028 */
-  ULONG                 VdmUnused;                    /* 02C */
-  /* Is the i/o permission map enabled for the process. */
+  ULONG                 Int21Descriptor[2];           /* 028 */
+  /* Don't know. */
   USHORT                IopmOffset;                   /* 030 */
   /* 
    * Presumably I/O privilege level to be used for this process, currently
@@ -275,34 +355,13 @@ typedef struct _KPROCESS
   UCHAR		        ThreadSeed;                   /* 066 */
   /* Disable priority boosts? */
   UCHAR		        DisableBoost;                 /* 067 */
-} KPROCESS;
+} KPROCESS, *PKPROCESS;
 
-#ifndef __USE_W32API
 
-typedef struct _KPROCESS *PKPROCESS;
-
-typedef struct _HARDWARE_PTE_X86 {
-    ULONG Valid             : 1;
-    ULONG Write             : 1;
-    ULONG Owner             : 1;
-    ULONG WriteThrough      : 1;
-    ULONG CacheDisable      : 1;
-    ULONG Accessed          : 1;
-    ULONG Dirty             : 1;
-    ULONG LargePage         : 1;
-    ULONG Global            : 1;
-    ULONG CopyOnWrite       : 1;
-    ULONG Prototype         : 1;
-    ULONG reserved          : 1;
-    ULONG PageFrameNumber   : 20;
-} HARDWARE_PTE_X86, *PHARDWARE_PTE_X86;
-
-typedef struct _WOW64_PROCESS
+typedef struct _W32PROCESS
 {
-  PVOID Wow64;
-} WOW64_PROCESS, *PWOW64_PROCESS;
+} __attribute__((packed)) W32PROCESS, *PW32PROCESS;
 
-#endif /* __USE_W32API */
 
 struct _EPROCESS
 {
@@ -314,18 +373,12 @@ struct _EPROCESS
   KEVENT                LockEvent;                    /* 06C */
   /* Unknown. */
   ULONG                 LockCount;                    /* 07C */
-
   /* Time of process creation. */
-#ifdef __USE_W32API
-  LARGE_INTEGER                  CreateTime;                   /* 080 */
-#else
   TIME                  CreateTime;                   /* 080 */
-#endif
-
   /* Time of process exit. */
   TIME                  ExitTime;                     /* 088 */
   /* Unknown. */
-  PKTHREAD              LockOwner;                    /* 090 */
+  PVOID                 LockOwner;                    /* 090 */
   /* Process id. */
   ULONG                 UniqueProcessId;              /* 094 */
   /* Unknown. */
@@ -344,15 +397,30 @@ struct _EPROCESS
   ULONG                 PeakVirtualSize;              /* 0BC */
   /* Unknown. */
   LARGE_INTEGER         VirtualSize;                  /* 0C0 */
-
-  MMSUPPORT             Vm;
-  LIST_ENTRY            SessionProcessLinks;
-  struct _EPORT         *DebugPort;
-  struct _EPORT         *ExceptionPort;
-  HANDLE_TABLE          HandleTable;
+  struct
+  {
+    ULONG               LastTrimTime;
+    ULONG               LastTrimFaultCount;
+    ULONG               PageFaultCount;
+    ULONG               PeakWorkingSetSize;
+    ULONG               WorkingSetSize;
+    ULONG               MinimumWorkingSetSize;
+    ULONG               MaximumWorkingSetSize;
+    ULONG               VmWorkingSetList;
+    LIST_ENTRY          WorkingSetExpansionList;
+    UCHAR               AllowWorkingSetAdjustment;
+    UCHAR               AddressSpaceBeingDeleted;
+    UCHAR               ForegroundPrioritySwitch;
+    UCHAR               MemoryPriority;
+  } Vm;
+  PVOID                 LastProtoPteFault;
+  struct _EPORT*        DebugPort;
+  struct _EPORT*        ExceptionPort;
+  PVOID                 ObjectTable;
   PVOID                 Token;
-  FAST_MUTEX            WorkingSetLock;
-  ULONG                 WorkingSetPage;
+  //  FAST_MUTEX            WorkingSetLock;
+  KMUTEX                WorkingSetLock;
+  PVOID                 WorkingSetPage;
   UCHAR                 ProcessOutswapEnabled;
   UCHAR                 ProcessOutswapped;
   UCHAR                 AddressSpaceInitialized;
@@ -364,36 +432,29 @@ struct _EPROCESS
   UCHAR                 ForkWasSuccessful;
   UCHAR                 MmAgressiveWsTrimMask;
   PKEVENT               VmOperationEvent;
-  PVOID                 PaeTop;
+  PVOID                 PageDirectoryPte;
   ULONG                 LastFaultCount;
-  ULONG                 ModifiedPageCount;
   PVOID                 VadRoot;
   PVOID                 VadHint;
   PVOID                 CloneRoot;
   ULONG                 NumberOfPrivatePages;
   ULONG                 NumberOfLockedPages;
-  USHORT                NextPageColor;
+  USHORT                NextProcessColour;
   UCHAR                 ExitProcessCalled;
   UCHAR                 CreateProcessReported;
   HANDLE                SectionHandle;
   PPEB                  Peb;
   PVOID                 SectionBaseAddress;
-  PEPROCESS_QUOTA_BLOCK QuotaBlock;
+  PVOID                 QuotaBlock;
   NTSTATUS              LastThreadExitStatus;
-  PPAGEFAULT_HISTORY    WorkingSetWatch;
-  HANDLE                Win32WindowStation;
+  PVOID                 WorkingSetWatch;
   HANDLE                InheritedFromUniqueProcessId;
-  ULONG                 GrantedAccess;
+  ACCESS_MASK           GrantedAccess;
   ULONG                 DefaultHardErrorProcessing;
   PVOID                 LdtInformation;
-  PVOID                 VadFreeHint;
+  ULONG                 VadFreeHint;
   PVOID                 VdmObjects;
-  PVOID                 DeviceObjects;
-  ULONG                 SessionId;
-  LIST_ENTRY            PhysicalVadList;
-  HARDWARE_PTE_X86      PageDirectoryPte;
-  ULONGLONG             Filler;
-  ULONG                 PaePageDirectoryPage;
+  KMUTANT               ProcessMutant;
   CHAR                  ImageFileName[16];
   ULONG                 VmTrimFaultValue;
   UCHAR                 SetTimerResolution;
@@ -401,34 +462,20 @@ struct _EPROCESS
   UCHAR                 SubSystemMinorVersion;
   UCHAR                 SubSystemMajorVersion;
   USHORT                SubSystemVersion;
-  struct _W32PROCESS    *Win32Process;
-  struct _EJOB          *Job;
-  ULONG                 JobStatus;
-  LIST_ENTRY            JobLinks;
-  PVOID                 LockedPagesList;
-  struct _EPORT         *SecurityPort;
-  PWOW64_PROCESS        Wow64;
-  LARGE_INTEGER         ReadOperationCount;
-  LARGE_INTEGER         WriteOperationCount;
-  LARGE_INTEGER         OtherOperationCount;
-  LARGE_INTEGER         ReadTransferCount;
-  LARGE_INTEGER         WriteTransferCount;
-  LARGE_INTEGER         OtherTransferCount;
-  ULONG                 CommitChargeLimit;
-  ULONG                 CommitChargePeak;
-  LIST_ENTRY            ThreadListHead;
-  PRTL_BITMAP           VadPhysicalPagesBitMap;
-  ULONG                 VadPhysicalPages;
-  KSPIN_LOCK            AweLock;
-
-  /*
-   * FIXME - ReactOS specified - remove the following fields ASAP!!!
-   */
-  MADDRESS_SPACE        AddressSpace;
-  LIST_ENTRY            ProcessListEntry;
-  FAST_MUTEX            TebLock;
-  PVOID                 TebBlock;
-  PVOID                 TebLastAllocated;
+  PW32PROCESS           Win32Process;
+  HANDLE                Win32WindowStation;
+   
+   /*
+    * Added by David Welch (welch@mcmail.com)
+    */
+   MADDRESS_SPACE       AddressSpace;
+   HANDLE_TABLE         HandleTable;
+   LIST_ENTRY           ProcessListEntry;
+   
+   /*
+    * Added by Philip Susi for list of threads in process
+    */
+   LIST_ENTRY           ThreadListHead;
 };
 
 #define PROCESS_STATE_TERMINATED (1)
@@ -440,22 +487,24 @@ VOID PiShutdownProcessManager(VOID);
 VOID PsInitThreadManagment(VOID);
 VOID PsInitProcessManagment(VOID);
 VOID PsInitIdleThread(VOID);
+VOID PsDispatchThread(ULONG NewThreadStatus);
 VOID PsDispatchThreadNoLock(ULONG NewThreadStatus);
 VOID PiTerminateProcessThreads(PEPROCESS Process, NTSTATUS ExitStatus);
-VOID PsTerminateCurrentThread(NTSTATUS ExitStatus);
 VOID PsTerminateOtherThread(PETHREAD Thread, NTSTATUS ExitStatus);
 VOID PsReleaseThread(PETHREAD Thread);
 VOID PsBeginThread(PKSTART_ROUTINE StartRoutine, PVOID StartContext);
 VOID PsBeginThreadWithContextInternal(VOID);
 VOID PiKillMostProcesses(VOID);
 NTSTATUS STDCALL PiTerminateProcess(PEPROCESS Process, NTSTATUS ExitStatus);
+ULONG PsUnfreezeThread(PETHREAD Thread, PNTSTATUS WaitStatus);
+ULONG PsFreezeThread(PETHREAD Thread, PNTSTATUS WaitStatus,
+		     UCHAR Alertable, ULONG WaitMode);
 VOID PiInitApcManagement(VOID);
-VOID STDCALL PiDeleteThread(PVOID ObjectBody);
+VOID PiDeleteThread(PVOID ObjectBody);
+VOID PiCloseThread(PVOID ObjectBody, ULONG HandleCount);
 VOID PsReapThreads(VOID);
-VOID PsInitializeThreadReaper(VOID);
-VOID PsQueueThreadReap(PETHREAD Thread);
 NTSTATUS 
-PsInitializeThread(PEPROCESS Process,
+PsInitializeThread(HANDLE ProcessHandle,
 		   PETHREAD* ThreadPtr,
 		   PHANDLE ThreadHandle,
 		   ACCESS_MASK DesiredAccess,
@@ -473,14 +522,9 @@ NTSTATUS PsOpenTokenOfProcess(HANDLE ProcessHandle,
 NTSTATUS PsSuspendThread(PETHREAD Thread, PULONG PreviousCount);
 NTSTATUS PsResumeThread(PETHREAD Thread, PULONG PreviousCount);
 
-VOID STDCALL PsExitSpecialApc(PKAPC Apc, 
-		      PKNORMAL_ROUTINE *NormalRoutine,
-		      PVOID *NormalContext,
-		      PVOID *SystemArgument1,
-		      PVOID *SystemArgument2);
 
-#define THREAD_STATE_INITIALIZED  (0)
-#define THREAD_STATE_READY        (1)
+#define THREAD_STATE_INVALID      (0)
+#define THREAD_STATE_RUNNABLE     (1)
 #define THREAD_STATE_RUNNING      (2)
 #define THREAD_STATE_SUSPENDED    (3)
 #define THREAD_STATE_FROZEN       (4)
@@ -492,9 +536,9 @@ VOID STDCALL PsExitSpecialApc(PKAPC Apc,
 
 /*
  * Internal thread priorities, added by Phillip Susi
- * TODO: rebalence these to make use of all priorities... the ones above 16 
- * can not all be used right now
+ * TODO: rebalence these to make use of all priorities... the ones above 16 can not all be used right now
  */
+
 #define PROCESS_PRIO_IDLE			3
 #define PROCESS_PRIO_NORMAL			8
 #define PROCESS_PRIO_HIGH			13
@@ -503,174 +547,34 @@ VOID STDCALL PsExitSpecialApc(PKAPC Apc,
 
 VOID 
 KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First);
-NTSTATUS KeReleaseThread(PKTHREAD Thread);
 
-VOID
-STDCALL
-KeStackAttachProcess (
-    IN PKPROCESS Process,
-    OUT PKAPC_STATE ApcState
-    );
-
-VOID
-STDCALL
-KeUnstackDetachProcess (
-    IN PKAPC_STATE ApcState
-    );
-
-VOID STDCALL PiDeleteProcess(PVOID ObjectBody);
+VOID HalInitFirstTask(PETHREAD thread);
+NTSTATUS 
+Ke386InitThread(PKTHREAD thread, PKSTART_ROUTINE fn, PVOID StartContext);
+VOID HalTaskSwitch(PKTHREAD thread);
+NTSTATUS 
+Ke386InitThreadWithContext(PKTHREAD Thread, PCONTEXT Context);
+NTSTATUS HalReleaseTask(PETHREAD Thread);
+VOID PiDeleteProcess(PVOID ObjectBody);
 VOID PsReapThreads(VOID);
-VOID PsInitializeThreadReaper(VOID);
-VOID PsQueueThreadReap(PETHREAD Thread);
 VOID PsUnfreezeOtherThread(PETHREAD Thread);
 VOID PsFreezeOtherThread(PETHREAD Thread);
 VOID PsFreezeProcessThreads(PEPROCESS Process);
 VOID PsUnfreezeProcessThreads(PEPROCESS Process);
-ULONG PsEnumThreadsByProcess(PEPROCESS Process);
 PEPROCESS PsGetNextProcess(PEPROCESS OldProcess);
 VOID
+Ki386ContextSwitch(PKTHREAD NewThread, PKTHREAD OldThread);
+VOID
 PsBlockThread(PNTSTATUS Status, UCHAR Alertable, ULONG WaitMode, 
-	      BOOLEAN DispatcherLock, KIRQL WaitIrql, UCHAR WaitReason);
+	      BOOLEAN DispatcherLock, KIRQL WaitIrql);
 VOID
 PsUnblockThread(PETHREAD Thread, PNTSTATUS WaitStatus);
 VOID
 PsApplicationProcessorInit(VOID);
 VOID
 PsPrepareForApplicationProcessorInit(ULONG Id);
-VOID STDCALL
-PsIdleThreadMain(PVOID Context);
-
-VOID STDCALL
-PiSuspendThreadRundownRoutine(PKAPC Apc);
-VOID STDCALL
-PiSuspendThreadKernelRoutine(PKAPC Apc,
-			     PKNORMAL_ROUTINE* NormalRoutine,
-			     PVOID* NormalContext,
-			     PVOID* SystemArgument1,
-			     PVOID* SystemArguemnt2);
-VOID STDCALL
-PiSuspendThreadNormalRoutine(PVOID NormalContext,
-			     PVOID SystemArgument1,
-			     PVOID SystemArgument2);
-VOID STDCALL
-PsDispatchThread(ULONG NewThreadStatus);
-VOID
-PsInitialiseSuspendImplementation(VOID);
-
-extern LONG PiNrThreadsAwaitingReaping;
-
 NTSTATUS
-PsInitWin32Thread (PETHREAD Thread);
-
-VOID
-PsTerminateWin32Process (PEPROCESS Process);
-
-VOID
-PsTerminateWin32Thread (PETHREAD Thread);
-
-VOID
-PsInitialiseW32Call(VOID);
-
-VOID
-STDCALL
-PspRunCreateThreadNotifyRoutines(PETHREAD, BOOLEAN);
-
-VOID
-STDCALL
-PspRunCreateProcessNotifyRoutines(PEPROCESS, BOOLEAN);
-
-#include <pshpack1.h>
-typedef struct _PS_JOB_TOKEN_FILTER
-{
-  UINT CapturedSidCount;
-  PSID_AND_ATTRIBUTES CapturedSids;
-  UINT CapturedSidsLength;
-  UINT CapturedGroupCount;
-  PSID_AND_ATTRIBUTES CapturedGroups;
-  UINT CapturedGroupsLength;
-  UINT CapturedPrivilegeCount;
-  PLUID_AND_ATTRIBUTES CapturedPrivileges;
-  UINT CapturedPrivilegesLength;
-} PS_JOB_TOKEN_FILTER, *PPS_JOB_TOKEN_FILTER;
-#include <poppack.h>
-
-#include <pshpack1.h>
-typedef struct _EJOB
-{
-  KEVENT Event;
-  LIST_ENTRY JobLinks;
-  LIST_ENTRY ProcessListHead;
-  ERESOURCE JobLock;
-  LARGE_INTEGER TotalUserTime;
-  LARGE_INTEGER TotalKernelTime;
-  LARGE_INTEGER ThisPeriodTotalUserTime;
-  LARGE_INTEGER ThisPeriodTotalKernelTime;
-  UINT TotalPageFaultCount;
-  UINT TotalProcesses;
-  UINT ActiveProcesses;
-  UINT TotalTerminatedProcesses;
-  LARGE_INTEGER PerProcessUserTimeLimit;
-  LARGE_INTEGER PerJobUserTimeLimit;
-  UINT LimitFlags;
-  UINT MinimumWorkingSetSize;
-  UINT MaximumWorkingSetSize;
-  UINT ActiveProcessLimit;
-  UINT Affinity;
-  BYTE PriorityClass;
-  UINT UIRestrictionsClass;
-  UINT SecurityLimitFlags;
-  PVOID Token;
-  PPS_JOB_TOKEN_FILTER Filter;
-  UINT EndOfJobTimeAction;
-  PVOID CompletionPort;
-  PVOID CompletionKey;
-  UINT SessionId;
-  UINT SchedulingClass;
-  ULONGLONG ReadOperationCount;
-  ULONGLONG WriteOperationCount;
-  ULONGLONG OtherOperationCount;
-  ULONGLONG ReadTransferCount;
-  ULONGLONG WriteTransferCount;
-  ULONGLONG OtherTransferCount;
-  IO_COUNTERS IoInfo;
-  UINT ProcessMemoryLimit;
-  UINT JobMemoryLimit;
-  UINT PeakProcessMemoryUsed;
-  UINT PeakJobMemoryUsed;
-  UINT CurrentJobMemoryUsed;
-  FAST_MUTEX MemoryLimitsLock;
-} EJOB;
-#include <poppack.h>
-
-VOID INIT_FUNCTION PsInitJobManagment(VOID);
-
-/* CID */
-
-typedef struct _CID_OBJECT
-{
-  LONG ref;
-  HANDLE Handle;
-  LIST_ENTRY Entry;
-  FAST_MUTEX Lock;
-  union
-  {
-    struct _EPROCESS *Process;
-    struct _ETHREAD *Thread;
-    PVOID Object;
-  } Obj;
-} CID_OBJECT, *PCID_OBJECT;
-
-NTSTATUS PsCreateCidHandle(PVOID Object, POBJECT_TYPE ObjectType, PHANDLE Handle);
-NTSTATUS PsDeleteCidHandle(HANDLE CidHandle, POBJECT_TYPE ObjectType);
-PCID_OBJECT PsLockCidHandle(HANDLE CidHandle, POBJECT_TYPE ObjectType);
-VOID PsUnlockCidObject(PCID_OBJECT CidObject);
-NTSTATUS PsLockProcess(PEPROCESS Process, BOOL Timeout);
-VOID PsUnlockProcess(PEPROCESS Process);
-
-#define ETHREAD_TO_KTHREAD(pEThread) (&(pEThread)->Tcb)
-#define KTHREAD_TO_ETHREAD(pKThread) (CONTAINING_RECORD((pKThread), ETHREAD, Tcb))
-#define EPROCESS_TO_KPROCESS(pEProcess) (&(pEProcess)->Pcb)
-#define KPROCESS_TO_EPROCESS(pKProcess) (CONTAINING_RECORD((pKProcess), EPROCESS, Pcb))
+PsIdleThreadMain(PVOID Context);
 
 #endif /* ASSEMBLER */
 

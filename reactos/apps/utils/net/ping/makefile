@@ -1,19 +1,37 @@
-PATH_TO_TOP = ../../../..
+#
+# ReactOS Ping Utility
+#
+PATH_TO_TOP = ../../..
 
-TARGET_TYPE = program
+TARGETNAME=ping
+CFLAGS = -I../../../include
 
-TARGET_APPTYPE = console
+OBJECTS = $(TARGETNAME).o $(TARGETNAME).coff
+PROGS = $(TARGETNAME).exe
+LIBS = ../../../lib/ntdll/ntdll.a \
+       ../../../lib/ws2_32/ws2_32.a
 
-TARGET_NAME = ping
+CLEAN_FILES = $(TARGETNAME).o $(TARGETNAME).exe $(TARGETNAME).sym
 
-TARGET_INSTALLDIR = system32
+all: $(TARGETNAME).exe
 
-TARGET_CFLAGS = -D__USE_W32_SOCKETS
+clean: 
+	- $(RM) $(CLEAN_FILES)
 
-TARGET_SDKLIBS = ws2_32.a
+.phony: clean 
 
-TARGET_OBJECTS = $(TARGET_NAME).o
+install: $(PROGS:%=$(FLOPPY_DIR)/apps/%)
 
-include $(PATH_TO_TOP)/rules.mak
+$(PROGS:%=$(FLOPPY_DIR)/apps/%): $(FLOPPY_DIR)/apps/%: %
+	$(CP) $* $(FLOPPY_DIR)/apps/$*
 
-include $(TOOLS_PATH)/helper.mk
+dist: $(PROGS:%=../../$(DIST_DIR)/apps/%)
+
+$(PROGS:%=../../$(DIST_DIR)/apps/%): ../../$(DIST_DIR)/apps/%: %
+	$(CP) $* ../../$(DIST_DIR)/apps/$*
+
+$(TARGETNAME).exe: $(OBJECTS) $(LIBS)
+	$(CC) $(OBJECTS) $(LIBS) -o $(TARGETNAME).exe
+	$(NM) --numeric-sort $(TARGETNAME).exe > $(TARGETNAME).sym
+
+include ../../../rules.mak

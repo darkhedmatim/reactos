@@ -1,4 +1,4 @@
-/* $Id: csrss.c,v 1.15 2003/11/17 02:12:51 hyperion Exp $
+/* $Id: csrss.c,v 1.8 2000/05/26 05:40:20 phreak Exp $
  *
  * csrss.c - Client/Server Runtime subsystem
  * 
@@ -34,13 +34,14 @@
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 #include <csrss/csrss.h>
-#include <rosrtl/string.h>
 
 #include "api.h"
 
+VOID PrintString (char* fmt, ...);
+
 /* Native process' entry point */
 
-VOID STDCALL NtProcessStartup(PPEB Peb)
+VOID NtProcessStartup(PPEB Peb)
 {
    PRTL_USER_PROCESS_PARAMETERS ProcParams;
    PWSTR ArgBuffer;
@@ -52,6 +53,8 @@ VOID STDCALL NtProcessStartup(PPEB Peb)
    HANDLE CsrssInitEvent;
    UNICODE_STRING UnicodeString;
    NTSTATUS Status;
+   
+   DisplayString(L"Client/Server Runtime Subsystem\n");
 
    ProcParams = RtlNormalizeProcessParams (Peb->ProcessParameters);
 
@@ -89,7 +92,7 @@ VOID STDCALL NtProcessStartup(PPEB Peb)
 	argv[argc-1] = &(ArgBuffer[afterlastspace]);
      }
    
-   RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+   RtlInitUnicodeString(&UnicodeString,
 			L"\\CsrssInitDone");
    InitializeObjectAttributes(&ObjectAttributes,
 			      &UnicodeString,
@@ -105,6 +108,7 @@ VOID STDCALL NtProcessStartup(PPEB Peb)
      }
    if (CsrServerInitialization (argc, argv) == TRUE)
      {
+	DisplayString( L"CSR: Subsystem initialized.\n" );
 
 	NtSetEvent(CsrssInitEvent,
 		   NULL);

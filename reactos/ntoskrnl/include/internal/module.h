@@ -3,7 +3,7 @@
 #define __MODULE_H
 
 #include <ddk/ntddk.h>
-#include <roscfg.h>
+#include <internal/config.h>
 #include <pe.h>
 #include <ntos/kdbgsyms.h>
 
@@ -13,10 +13,11 @@ typedef struct _MODULE_TEXT_SECTION
   ULONG Length;
   LIST_ENTRY ListEntry;
   PWCH Name;
-  PIMAGE_OPTIONAL_HEADER OptionalHeader;
-#if defined(DBG) || defined(KDBG)
-  IMAGE_SYMBOL_INFO SymbolInfo;
+#ifdef KDBG
+  SYMBOL_TABLE Symbols;
 #endif /* KDBG */
+  PVOID SymbolsBase;
+  ULONG SymbolsLength;
 } MODULE_TEXT_SECTION, *PMODULE_TEXT_SECTION;
 
 typedef struct _MODULE_OBJECT

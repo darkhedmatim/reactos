@@ -1,43 +1,79 @@
-# $Id: makefile,v 1.16 2004/12/03 23:37:43 blight Exp $
-
+# $Id: makefile,v 1.7 2001/07/15 21:18:56 rex Exp $
+#
+# Makefile for ReactOS version.dll
+#
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = dynlink
+TARGET=version
 
-TARGET_NAME = version
+BASE_CFLAGS = -I../../include
 
-TARGET_BASE = $(TARGET_BASE_LIB_VERSION)
+DLLTARGET=$(TARGET).dll
 
-TARGET_CFLAGS = -fno-builtin -Wall
+all: $(DLLTARGET)
 
-# require os code to explicitly request A/W version of structs/functions
-DEFINES = \
-	-D_DISABLE_TIDENTS \
-	-D__USE_W32API \
-	-D__REACTOS__ \
-	-D_WIN32_IE=0x600 \
-	-D_WIN32_WINNT=0x501 \
-	-DWINVER=0x501 
-	
-TARGET_CFLAGS += \
-	$(DEFINES) \
-	-I$(PATH_TO_TOP)/include/wine
+MISC_OBJECTS = misc/libmain.o misc/stubs.o
 
-TARGET_RCFLAGS += -D__REACTOS__	-D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501
+RESOURCE_OBJECTS = $(TARGET).coff
 
-TARGET_LFLAGS = -nostdlib -nostartfiles
+OBJECTS = $(MISC_OBJECTS) $(RESOURCE_OBJECTS)
 
-TARGET_SDKLIBS = wine.a kernel32.a ntdll.a
+$(TARGET).a: $(OBJECTS)
+	$(AR) csr $(TARGET).a $(OBJECTS)
 
-TARGET_OBJECTS = \
-	misc/libmain.o \
-	misc/stubs.o \
-	info.o \
-	install.o \
-	resource.o
+$(TARGET).coff: $(TARGET).rc ../../include/reactos/resource.h
 
-include $(PATH_TO_TOP)/rules.mak
+$(TARGET).dll: $(DLLMAIN) $(OBJECTS) $(TARGET).def
+	$(LD) -r $(OBJECTS) -o $(TARGET).o
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--def $(TARGET).def \
+		--kill-at \
+		--output-lib $(TARGET).a
+	$(CC) $(TARGET).o \
+		../kernel32/kernel32.a \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--entry,_DllMain@12 \
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGET).edf
+	- $(RM) base.tmp
+	$(CC) $(TARGET).o \
+		../kernel32/kernel32.a \
+		-specs=$(TARGET)_specs \
+		-mdll \
+		-o $(TARGET).dll \
+		-Wl,--entry,_DllMain@12 \
+		-Wl,--image-base,0x77a90000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).dll > $(TARGET).sym
 
-include $(TOOLS_PATH)/helper.mk
+CLEAN_FILES = *.o *.a *.coff *.sym *.tmp *.dll main/*.o misc/*.o
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/dlls/$(TARGET).dll
+
+$(FLOPPY_DIR)/dlls/$(TARGET).dll: $(TARGET).dll
+	$(CP) $(TARGET).dll $(FLOPPY_DIR)/dlls/$(TARGET).dll
+
+dist: $(DIST_DIR)/dlls/$(TARGET).dll
+
+$(DIST_DIR)/dlls/$(TARGET).dll: $(TARGET).dll
+	$(CP) $(TARGET).dll ../../$(DIST_DIR)/dlls/$(TARGET).dll
+
+include ../../rules.mak
 
 # EOF

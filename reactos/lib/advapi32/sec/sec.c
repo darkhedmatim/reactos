@@ -1,22 +1,18 @@
-/* $Id: sec.c,v 1.22 2004/08/15 17:03:15 chorns Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/advapi32/sec/sec.c
- * PURPOSE:         Security descriptor functions
+ * PURPOSE:         Registry functions
  * PROGRAMMER:      Ariadne ( ariadne@xs4all.nl)
- *                  Steven Edwards ( Steven_Ed4153@yahoo.com )
- *                  Andrew Greenwood ( silverblade_uk@hotmail.com )
  * UPDATE HISTORY:
  *                  Created 01/11/98
  */
 
-#include "advapi32.h"
-#include <debug.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
-/*
- * @implemented
- */
+
 BOOL
 STDCALL
 GetSecurityDescriptorControl (
@@ -40,9 +36,6 @@ GetSecurityDescriptorControl (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 GetSecurityDescriptorDacl (
@@ -73,9 +66,6 @@ GetSecurityDescriptorDacl (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 GetSecurityDescriptorGroup (
@@ -102,9 +92,6 @@ GetSecurityDescriptorGroup (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetSecurityDescriptorLength (
@@ -115,9 +102,6 @@ GetSecurityDescriptorLength (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 GetSecurityDescriptorOwner (
@@ -144,9 +128,6 @@ GetSecurityDescriptorOwner (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 GetSecurityDescriptorSacl (
@@ -177,9 +158,6 @@ GetSecurityDescriptorSacl (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 InitializeSecurityDescriptor (
@@ -200,10 +178,6 @@ InitializeSecurityDescriptor (
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 IsValidSecurityDescriptor (
@@ -220,10 +194,7 @@ IsValidSecurityDescriptor (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 MakeAbsoluteSD (
 	PSECURITY_DESCRIPTOR	pSelfRelativeSecurityDescriptor,
@@ -262,10 +233,7 @@ MakeAbsoluteSD (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 MakeSelfRelativeSD (
 	PSECURITY_DESCRIPTOR	pAbsoluteSecurityDescriptor,
@@ -288,9 +256,6 @@ MakeSelfRelativeSD (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 SetSecurityDescriptorDacl (
@@ -316,9 +281,6 @@ SetSecurityDescriptorDacl (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 SetSecurityDescriptorGroup (
@@ -342,9 +304,6 @@ SetSecurityDescriptorGroup (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 SetSecurityDescriptorOwner (
@@ -355,7 +314,7 @@ SetSecurityDescriptorOwner (
 {
 	NTSTATUS Status;
 
-	Status = RtlSetOwnerSecurityDescriptor (pSecurityDescriptor,
+	Status = RtlSetGroupSecurityDescriptor (pSecurityDescriptor,
 	                                        pOwner,
 	                                        bOwnerDefaulted);
 	if (!NT_SUCCESS(Status))
@@ -368,9 +327,6 @@ SetSecurityDescriptorOwner (
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 SetSecurityDescriptorSacl (

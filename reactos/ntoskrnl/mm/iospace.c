@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: iospace.c,v 1.30 2004/08/15 16:39:07 chorns Exp $
+/* $Id: iospace.c,v 1.11 2001/05/01 23:08:20 chorns Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/iospace.c
@@ -28,175 +28,141 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
 /**********************************************************************
- * NAME       EXPORTED
- * MmMapIoSpace@16
+ * NAME							EXPORTED
+ *	MmMapIoSpace@16
  * 
  * DESCRIPTION
- *  Maps a physical memory range into system space.
- *  
+ * 	Maps a physical memory range into system space.
+ * 	
  * ARGUMENTS
- * PhysicalAddress
- *  First physical address to map;
- *  
- * NumberOfBytes
- *  Number of bytes to map;
- *  
- * CacheEnable
- *  Type of memory caching.
+ *	PhysicalAddress
+ *		First physical address to map;
+ *		
+ *	NumberOfBytes
+ *		Number of bytes to map;
+ *		
+ *	CacheEnable
+ *		TRUE if the range can be cached.
  *
  * RETURN VALUE
- * The base virtual address which maps the region.
+ *	The base virtual address which maps the region.
  *
  * NOTE
- *  Description moved here from include/ddk/mmfuncs.h.
- *  Code taken from ntoskrnl/mm/special.c.
+ * 	Description moved here from include/ddk/mmfuncs.h.
+ * 	Code taken from ntoskrnl/mm/special.c.
  *
  * REVISIONS
  *
- * @implemented
  */
-PVOID STDCALL
+PVOID STDCALL 
 MmMapIoSpace (IN PHYSICAL_ADDRESS PhysicalAddress,
-              IN ULONG NumberOfBytes,
-              IN MEMORY_CACHING_TYPE CacheEnable)
+	      IN ULONG NumberOfBytes,
+	      IN BOOLEAN CacheEnable)
 {
    PVOID Result;
-   ULONG Offset;
    MEMORY_AREA* marea;
    NTSTATUS Status;
    ULONG i;
    ULONG Attributes;
-   PHYSICAL_ADDRESS BoundaryAddressMultiple;
-   PFN_TYPE Pfn;
-
-   DPRINT("MmMapIoSpace(%lx, %d, %d)\n", PhysicalAddress, NumberOfBytes, CacheEnable);
-
-   if (CacheEnable != MmNonCached &&
-       CacheEnable != MmCached &&
-       CacheEnable != MmWriteCombined)
-   {
-      return NULL;
-   }
-
-   BoundaryAddressMultiple.QuadPart = 0;
+   
    Result = NULL;
-   Offset = PhysicalAddress.u.LowPart % PAGE_SIZE;
-   NumberOfBytes += Offset;
-   PhysicalAddress.QuadPart -= Offset;
-
-   MmLockAddressSpace(MmGetKernelAddressSpace());
    Status = MmCreateMemoryArea (NULL,
-                                MmGetKernelAddressSpace(),
-                                MEMORY_AREA_IO_MAPPING,
-                                &Result,
-                                NumberOfBytes,
-                                0,
-                                &marea,
-                                FALSE,
-                                FALSE,
-                                BoundaryAddressMultiple);
-   MmUnlockAddressSpace(MmGetKernelAddressSpace());
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("MmMapIoSpace failed (%lx)\n", Status);
-      return (NULL);
-   }
+				MmGetKernelAddressSpace(),
+				MEMORY_AREA_IO_MAPPING,
+				&Result,
+				NumberOfBytes,
+				0,
+				&marea,
+				FALSE);
+   if (!NT_SUCCESS(STATUS_SUCCESS))
+     {
+	return (NULL);
+     }
    Attributes = PAGE_EXECUTE_READWRITE | PAGE_SYSTEM;
-   if (CacheEnable != MmCached)
-   {
-      Attributes |= (PAGE_NOCACHE | PAGE_WRITETHROUGH);
-   }
-   Pfn = PhysicalAddress.QuadPart >> PAGE_SHIFT;
-   for (i = 0; i < PAGE_ROUND_UP(NumberOfBytes); i += PAGE_SIZE, Pfn++)
-   {
-      Status = MmCreateVirtualMappingForKernel((char*)Result + i,
-                                               Attributes,
-                                               &Pfn,
-					       1);
-      if (!NT_SUCCESS(Status))
-      {
-         DbgPrint("Unable to create virtual mapping\n");
-         KEBUGCHECK(0);
-      }
-   }
-   return ((PVOID)((char*)Result + Offset));
+   if (!CacheEnable)
+     {
+	Attributes |= (PAGE_NOCACHE | PAGE_WRITETHROUGH);
+     }
+   for (i = 0; (i < ((NumberOfBytes + PAGESIZE - 1) / PAGESIZE)); i++)
+     {
+	Status = 
+	  MmCreateVirtualMappingForKernel (
+          (Result + (i * PAGESIZE)),
+				  Attributes,
+				  PhysicalAddress.u.LowPart + (i * PAGESIZE));
+	if (!NT_SUCCESS(Status))
+	  {
+	     DbgPrint("Unable to create virtual mapping\n");
+	     KeBugCheck(0);
+	  }
+     }
+   return ((PVOID)(Result + PhysicalAddress.QuadPart % PAGESIZE));
 }
-
+ 
 
 /**********************************************************************
- * NAME       EXPORTED
- * MmUnmapIoSpace@8
+ * NAME							EXPORTED
+ *	MmUnmapIoSpace@8
  * 
  * DESCRIPTION
- *  Unmaps a physical memory range from system space.
- *  
+ * 	Unmaps a physical memory range from system space.
+ * 	
  * ARGUMENTS
- * BaseAddress
- *  The base virtual address which maps the region; 
- *  
- * NumberOfBytes
- *  Number of bytes to unmap.
+ *	BaseAddress
+ *		The base virtual address which maps the region;	
+ *		
+ *	NumberOfBytes
+ *		Number of bytes to unmap.
  *
  * RETURN VALUE
- * None.
+ *	None.
  *
  * NOTE
- *  Code taken from ntoskrnl/mm/special.c.
+ * 	Code taken from ntoskrnl/mm/special.c.
  *
  * REVISIONS
  *
- * @implemented
  */
-VOID STDCALL
+VOID STDCALL 
 MmUnmapIoSpace (IN PVOID BaseAddress,
-                IN ULONG NumberOfBytes)
+		IN ULONG NumberOfBytes)
 {
-   ULONG Offset;
-   Offset = (ULONG_PTR)BaseAddress % PAGE_SIZE;
-   BaseAddress = (PVOID)((PUCHAR)BaseAddress - Offset);
-   NumberOfBytes += Offset;
-
-   MmLockAddressSpace(MmGetKernelAddressSpace());
-   MmFreeMemoryArea(MmGetKernelAddressSpace(),
-                    BaseAddress,
-                    NumberOfBytes,
-                    NULL,
-                    NULL);
-   MmUnlockAddressSpace(MmGetKernelAddressSpace());
+   (VOID)MmFreeMemoryArea(&PsGetCurrentProcess()->AddressSpace,
+			  (PVOID)(((ULONG)BaseAddress / PAGESIZE) * PAGESIZE),
+			  NumberOfBytes,
+			  NULL,
+			  NULL);
 }
 
 
 /**********************************************************************
- * NAME       EXPORTED
- * MmMapVideoDisplay@16
- *
- * @implemented
+ * NAME							EXPORTED
+ *	MmMapVideoDisplay@16
  */
 PVOID STDCALL
-MmMapVideoDisplay (IN PHYSICAL_ADDRESS PhysicalAddress,
-                   IN ULONG   NumberOfBytes,
-                   IN MEMORY_CACHING_TYPE CacheType)
+MmMapVideoDisplay (IN	PHYSICAL_ADDRESS	PhysicalAddress,
+		   IN	ULONG			NumberOfBytes,
+		   IN	MEMORY_CACHING_TYPE	CacheType)
 {
-   return MmMapIoSpace (PhysicalAddress, NumberOfBytes, (BOOLEAN)CacheType);
+  return MmMapIoSpace (PhysicalAddress, NumberOfBytes, CacheType);
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
-MmUnmapVideoDisplay (IN PVOID BaseAddress,
-                     IN ULONG NumberOfBytes)
+MmUnmapVideoDisplay (IN	PVOID	BaseAddress,
+		     IN	ULONG	NumberOfBytes)
 {
-   MmUnmapIoSpace (BaseAddress, NumberOfBytes);
+  MmUnmapIoSpace (BaseAddress, NumberOfBytes);
 }
 
 

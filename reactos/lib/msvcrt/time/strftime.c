@@ -4,7 +4,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/wchar.h>
 
-
 #define TM_YEAR_BASE 1900
 
 static const char *afmt[] = {
@@ -26,8 +25,8 @@ static const char *Bfmt[] = {
 static size_t gsize;
 static char *pt;
 
-
-static int _add(const char* str)
+static int
+_add(const char *str)
 {
   for (;; ++pt, --gsize)
   {
@@ -38,7 +37,8 @@ static int _add(const char* str)
   }
 }
 
-static int _conv(int n, int digits, char pad)
+static int
+_conv(int n, int digits, char pad)
 {
   static char buf[10];
   char *p;
@@ -50,14 +50,16 @@ static int _conv(int n, int digits, char pad)
   return _add(++p);
 }
 
-static size_t _fmt(const char* format, const struct tm* t)
+static size_t
+_fmt(const char *format, const struct tm *t)
 {
   for (; *format; ++format)
   {
     if (*format == '%') {
 	if (*(format+1) == '#' ) {format++;}
 
-    switch(*++format) {
+      switch(*++format)
+      {
       case '\0':
 	--format;
 	break;
@@ -111,7 +113,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'I':
-	if (!_conv(t->tm_hour % 12 ? t->tm_hour % 12 : 12, 2, '0'))
+	if (!_conv(t->tm_hour % 12 ?
+		   t->tm_hour % 12 : 12, 2, '0'))
 	  return 0;
 	continue;
       case 'j':
@@ -123,7 +126,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'l':
-	if (!_conv(t->tm_hour % 12 ? t->tm_hour % 12 : 12, 2, ' '))
+	if (!_conv(t->tm_hour % 12 ?
+		   t->tm_hour % 12 : 12, 2, ' '))
 	  return 0;
 	continue;
       case 'M':
@@ -164,11 +168,14 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'U':
-	if (!_conv((t->tm_yday + 7 - t->tm_wday) / 7, 2, '0'))
+	if (!_conv((t->tm_yday + 7 - t->tm_wday) / 7,
+		   2, '0'))
 	  return 0;
 	continue;
       case 'W':
-	if (!_conv((t->tm_yday + 7 - (t->tm_wday ? (t->tm_wday - 1) : 6)) / 7, 2, '0'))
+	if (!_conv((t->tm_yday + 7 -
+		    (t->tm_wday ? (t->tm_wday - 1) : 6))
+		   / 7, 2, '0'))
 	  return 0;
 	continue;
       case 'w':
@@ -180,7 +187,8 @@ static size_t _fmt(const char* format, const struct tm* t)
 	  return 0;
 	continue;
       case 'y':
-	if (!_conv((t->tm_year + TM_YEAR_BASE) % 100, 2, '0'))
+	if (!_conv((t->tm_year + TM_YEAR_BASE)
+		   % 100, 2, '0'))
 	  return 0;
 	continue;
       case 'Y':
@@ -208,9 +216,6 @@ static size_t _fmt(const char* format, const struct tm* t)
   return gsize;
 }
 
-/*
- * @implemented
- */
 size_t
 strftime(char *s, size_t maxsize, const char *format, const struct tm *t)
 {
@@ -225,10 +230,8 @@ strftime(char *s, size_t maxsize, const char *format, const struct tm *t)
   return 0;
 }
 
-/*
- * @implemented
- */
-size_t wcsftime(wchar_t* s, size_t maxsize, const wchar_t* format, const struct tm* t)
+size_t
+wcsftime(wchar_t *s, size_t maxsize, const wchar_t *format, const struct tm *t)
 {
   char *x;
   char *f;
@@ -242,7 +245,8 @@ size_t wcsftime(wchar_t* s, size_t maxsize, const wchar_t* format, const struct 
   pt = x;
   if ((gsize = maxsize) < 1)
     return 0;
-  if (_fmt(f, t)) {
+  if (_fmt(f, t))
+  {
     *pt = '\0';
     free(f);
     for(i=0;i<maxsize;i++)

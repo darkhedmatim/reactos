@@ -1,17 +1,37 @@
-# $Id: makefile,v 1.20 2004/12/03 23:37:39 blight Exp $
-
+# $Id: makefile,v 1.13 2001/07/24 16:27:01 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
+TARGET = null
+
+OBJECTS = $(TARGET).o $(TARGET).coff
+
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
+
+CFLAGS = -D__NTDRIVER__
+
+all: $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+$(TARGET).coff: $(PATH_TO_TOP)/include/reactos/buildno.h $(TARGET).rc
+
 include $(PATH_TO_TOP)/rules.mak
-
-TARGET_TYPE = driver
-
-TARGET_NAME = null
-
-TARGET_OBJECTS = null.o
-
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API
-
-TARGET_LIBS = $(SDK_PATH_LIB)/libpseh.a
-
-include $(TOOLS_PATH)/helper.mk

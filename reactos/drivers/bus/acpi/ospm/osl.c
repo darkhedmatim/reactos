@@ -27,30 +27,20 @@
 #define NDEBUG
 #include <debug.h>
 
+
+typedef struct _ACPI_OS_DPC
+{
+  OSD_EXECUTION_CALLBACK Routine;
+  PVOID Context;
+} ACPI_OS_DPC, *PACPI_OS_DPC;
+
 static PKINTERRUPT AcpiInterrupt;
 static BOOLEAN AcpiInterruptHandlerRegistered = FALSE;
 static OSD_HANDLER AcpiIrqHandler = NULL;
 static PVOID AcpiIrqContext = NULL;
 static ULONG AcpiIrqNumber = 0;
-static KDPC AcpiDpc;
 static PVOID IVTVirtualAddress = NULL;
-
-
-VOID STDCALL
-OslDpcStub(
-  IN PKDPC Dpc,
-  IN PVOID DeferredContext,
-  IN PVOID SystemArgument1,
-  IN PVOID SystemArgument2)
-{
-  OSD_EXECUTION_CALLBACK Routine = (OSD_EXECUTION_CALLBACK)SystemArgument1;
-
-  DPRINT("OslDpcStub()\n");
-
-  DPRINT("Calling [%p]([%p])\n", Routine, SystemArgument2);
-
-  (*Routine)(SystemArgument2);
-}
+static PVOID BDAVirtualAddress = NULL;
 
 
 ACPI_STATUS
@@ -63,8 +53,6 @@ ACPI_STATUS
 acpi_os_initialize(void)
 {
   DPRINT("acpi_os_initialize()\n");
-
-  KeInitializeDpc(&AcpiDpc, OslDpcStub, NULL);
 
 	return AE_OK;
 }
@@ -147,11 +135,15 @@ acpi_os_map_memory(ACPI_PHYSICAL_ADDRESS phys, u32 size, void **virt)
     }
   }
 
-  Address.QuadPart = (ULONG)phys;
-  *virt = MmMapIoSpace(Address, size, MmNonCached);
-  if (!*virt)
-    return AE_ERROR;
- 
+  if ((ULONG)phys >= 0x100000) {
+    Address.QuadPart = (ULONG)phys;
+    *virt = MmMapIoSpace(Address, size, FALSE);
+    if (!*virt)
+      return AE_ERROR;
+  } else {
+    *virt = (PVOID)((ULONG)phys);
+  }
+
   return AE_OK;
 }
 
@@ -166,7 +158,9 @@ acpi_os_unmap_memory(void *virt, u32 size)
     IVTVirtualAddress = NULL;
     return;
   }
-  MmUnmapIoSpace(virt, size);
+  /* FIXME: Causes "Memory area is NULL" bugcheck in marea.c */
+  //if ((ULONG)virt >= 0x100000)
+    //MmUnmapIoSpace(virt, size);
 }
 
 ACPI_STATUS
@@ -186,7 +180,7 @@ acpi_os_get_physical_address(void *virt, ACPI_PHYSICAL_ADDRESS *phys)
   return AE_OK;
 }
 
-BOOLEAN STDCALL
+BOOLEAN
 OslIsrStub(
   PKINTERRUPT Interrupt,
   PVOID ServiceContext)
@@ -221,18 +215,18 @@ acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
 
   Status = IoConnectInterrupt(
     &AcpiInterrupt,
-    OslIsrStub,
+	  OslIsrStub,
     NULL,
     NULL,
     Vector,
     DIrql,
     DIrql,
     LevelSensitive, /* FIXME: LevelSensitive or Latched? */
-    TRUE,
+    FALSE,
     Affinity,
     FALSE);
   if (!NT_SUCCESS(Status)) {
-    DPRINT("Could not connect to interrupt %d\n", Vector);
+	  DPRINT("Could not connect to interrupt %d\n", Vector);
     return AE_ERROR;
   }
 
@@ -450,12 +444,32 @@ acpi_os_unload_module (
   return AE_OK;
 }
 
+VOID
+OslDpcStub(
+  IN PKDPC Dpc,
+  IN PVOID DeferredContext,
+  IN PVOID SystemArgument1,
+  IN PVOID SystemArgument2)
+{
+  PACPI_OS_DPC DpcContext = (PACPI_OS_DPC)DeferredContext;
+
+  DPRINT("OslDpcStub()\n");
+
+  DPRINT("Calling [%p]([%p])\n", DpcContext->Routine, DpcContext->Context);
+
+  (*DpcContext->Routine)(DpcContext->Context);
+
+  ExFreePool(Dpc);
+}
+
 ACPI_STATUS
 acpi_os_queue_for_execution(
 	u32                     priority,
 	OSD_EXECUTION_CALLBACK  function,
 	void                    *context)
 {
+  PKDPC Dpc;
+  PACPI_OS_DPC DpcContext;
   ACPI_STATUS Status = AE_OK;
 
   DPRINT("acpi_os_queue_for_execution()\n");
@@ -465,20 +479,27 @@ acpi_os_queue_for_execution(
 
   DPRINT("Scheduling task [%p](%p) for execution.\n", function, context);
 
+  Dpc = ExAllocatePool(NonPagedPool, sizeof(KDPC) + sizeof(ACPI_OS_DPC));
+  if (!Dpc)
+    return AE_NO_MEMORY;
+
+  DpcContext = (PACPI_OS_DPC)((ULONG)Dpc + sizeof(KDPC));
+
+  DpcContext->Routine = function;
+  DpcContext->Context = context;
+
+  KeInitializeDpc(Dpc, OslDpcStub, DpcContext);
 #if 0
   switch (priority) {
   case OSD_PRIORITY_MED:
-    KeSetImportanceDpc(&AcpiDpc, MediumImportance);
+    KeSetImportanceDpc(Dpc, MediumImportance);
   case OSD_PRIORITY_LO:
-    KeSetImportanceDpc(&AcpiDpc, LowImportance);
+    KeSetImportanceDpc(Dpc, LowImportance);
   case OSD_PRIORITY_HIGH:
   default:
-    KeSetImportanceDpc(&AcpiDpc, HighImportance);
+    KeSetImportanceDpc(Dpc, HighImportance);
   }
 #endif
-
-  KeInsertQueueDpc(&AcpiDpc, (PVOID)function, (PVOID)context);
-
   return Status;
 }
 
@@ -524,6 +545,7 @@ acpi_os_wait_semaphore(
 	u32                     units,
 	u32                     timeout)
 {
+  ACPI_STATUS Status = AE_OK;
   PFAST_MUTEX Mutex = (PFAST_MUTEX)handle;
 
   if (!Mutex || (units < 1)) {
@@ -584,14 +606,14 @@ acpi_os_get_line(NATIVE_CHAR *buffer)
 	return 0;
 }
 
-u8
+BOOLEAN
 acpi_os_readable(void *ptr, u32 len)
 {
   /* Always readable */
 	return TRUE;
 }
 
-u8
+BOOLEAN
 acpi_os_writable(void *ptr, u32 len)
 {
   /* Always writable */

@@ -1,16 +1,5 @@
-#undef __USE_W32API
 #include <windows.h>
 #include <debug.h>
-#include <ddk/ntddk.h>
-#include <user32/callback.h>
-#include <user32/accel.h>
-#include <window.h>
-#include <menu.h>
-#include <message.h>
-#define _WIN32K_KAPI_H
-#include <user32.h>
-#include <strpool.h>
-#include <roscfg.h>
 
 #ifdef DBG
 
@@ -19,102 +8,62 @@ DWORD DebugTraceLevel = MIN_TRACE;
 
 #endif /* DBG */
 
-extern CRITICAL_SECTION gcsMPH;
-static ULONG User32TlsIndex;
-HINSTANCE User32Instance;
+/* To make the linker happy */
+VOID STDCALL KeBugCheck (ULONG	BugCheckCode) {}
 
+HANDLE ProcessHeap;
 HWINSTA ProcessWindowStation;
 
-PUSER32_THREAD_DATA
-User32GetThreadData()
-{
-  return((PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex));
-}
-
-VOID
-InitThread(VOID)
-{
-  PUSER32_THREAD_DATA ThreadData;
-
-  ThreadData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 
-			 sizeof(USER32_THREAD_DATA));
-  TlsSetValue(User32TlsIndex, ThreadData);
-}
-
-VOID
-CleanupThread(VOID)
-{
-  PUSER32_THREAD_DATA ThreadData;
-
-  ThreadData = (PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex);
-  HeapFree(GetProcessHeap(), HEAP_ZERO_MEMORY, ThreadData);
-  TlsSetValue(User32TlsIndex, 0);
-}
-
-VOID
+DWORD
 Init(VOID)
 {
-  /* Set up the kernel callbacks. */
-  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
-    (PVOID)User32CallWindowProcFromKernel;
-  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
-    (PVOID)User32CallSendAsyncProcForKernel;
-  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
-    (PVOID)User32LoadSysMenuTemplateForKernel;
-  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
-    (PVOID)User32SetupDefaultCursors;
-  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
-    (PVOID)User32CallHookProcFromKernel;
+  DWORD Status;
 
-  /* Allocate an index for user32 thread local data. */
-  User32TlsIndex = TlsAlloc();
+  ProcessHeap = RtlGetProcessHeap();
 
-  MenuInit();
-  MessageInit();
+  //ProcessWindowStation = CreateWindowStationW(L"WinStaName",0,GENERIC_ALL,NULL);
+  //Desktop = CreateDesktopA(NULL,NULL,NULL,0,0,NULL);
 
-  InitializeCriticalSection(&U32AccelCacheLock);
-  InitializeCriticalSection(&gcsMPH);
+  //GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
 
-  GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
-  InitStockObjects();
+  return Status;
 }
 
-VOID
+DWORD
 Cleanup(VOID)
 {
-  GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
+  DWORD Status;
 
-  TlsFree(User32TlsIndex);
+  //CloseWindowStation(ProcessWindowStation);
+
+  //GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
+
+  return Status;
 }
 
-
-
-INT STDCALL
+INT
+STDCALL
 DllMain(
-	PVOID  hinstDll,
-	ULONG  dwReason,
-	PVOID  reserved
+	PVOID	hinstDll,
+	ULONG	dwReason,
+	PVOID	reserved
 	)
 {
-  switch (dwReason)
-    {
-    case DLL_PROCESS_ATTACH:
-      User32Instance = hinstDll;
-      hProcessHeap = RtlGetProcessHeap();
+  D(MAX_TRACE, ("hinstDll (0x%X)  dwReason (0x%X)\n", hinstDll, dwReason));
+
+	switch (dwReason)
+	{
+		case DLL_PROCESS_ATTACH:
       Init();
-      InitThread();
-      break;
-    case DLL_THREAD_ATTACH:
-      InitThread();
-      break;
-    case DLL_THREAD_DETACH:
-      CleanupThread();
-      break;
-    case DLL_PROCESS_DETACH:
-      DeleteFrameBrushes();
-      CleanupThread();
+			break;
+		case DLL_THREAD_ATTACH:
+			break;
+		case DLL_THREAD_DETACH:
+			break;
+		case DLL_PROCESS_DETACH:
       Cleanup();
-      break;
-    }
-  return(1);
+			break;
+	}
+	return(1);
 }
+

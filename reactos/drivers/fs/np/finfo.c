@@ -1,4 +1,4 @@
-/* $Id: finfo.c,v 1.6 2004/04/12 13:03:29 navaraf Exp $
+/* $Id: finfo.c,v 1.2 2001/07/29 16:40:20 ekohl Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -12,43 +12,23 @@
 #include <ddk/ntddk.h>
 #include "npfs.h"
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
+
+
+
 
 /* FUNCTIONS *****************************************************************/
 
 static NTSTATUS
-NpfsQueryPipeInformation(PDEVICE_OBJECT DeviceObject,
-			 PNPFS_FCB Fcb,
-			 PFILE_PIPE_INFORMATION Info,
-			 PULONG BufferLength)
+NpfsQueryLocalInformation(PDEVICE_OBJECT DeviceObject,
+			  PNPFS_FCB Fcb,
+			  PFILE_PIPE_LOCAL_INFORMATION Info,
+			  PULONG BufferLength)
 {
   PNPFS_PIPE Pipe;
 
-  DPRINT("NpfsQueryPipeInformation()\n");
-
-  Pipe = Fcb->Pipe;
-
-  RtlZeroMemory(Info,
-		sizeof(FILE_PIPE_INFORMATION));
-
-//  Info->PipeMode = 
-//  Info->CompletionMode = 
-
-  *BufferLength -= sizeof(FILE_PIPE_INFORMATION);
-  return(STATUS_SUCCESS);
-}
-
-
-static NTSTATUS
-NpfsQueryLocalPipeInformation(PDEVICE_OBJECT DeviceObject,
-			      PNPFS_FCB Fcb,
-			      PFILE_PIPE_LOCAL_INFORMATION Info,
-			      PULONG BufferLength)
-{
-  PNPFS_PIPE Pipe;
-
-  DPRINT("NpfsQueryLocalPipeInformation()\n");
+  DPRINT("NpfsQueryLocalInformation()\n");
 
   Pipe = Fcb->Pipe;
 
@@ -84,66 +64,63 @@ NTSTATUS STDCALL
 NpfsQueryInformation(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp)
 {
-  PIO_STACK_LOCATION IoStack;
-  FILE_INFORMATION_CLASS FileInformationClass;
-  PFILE_OBJECT FileObject;
-  PNPFS_DEVICE_EXTENSION DeviceExtension;
-  PNPFS_FCB Fcb;
-  PNPFS_PIPE Pipe;
-  PVOID SystemBuffer;
-  ULONG BufferLength;
-  NTSTATUS Status;
-  
-  DPRINT("NpfsQueryInformation(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
-  
-  IoStack = IoGetCurrentIrpStackLocation (Irp);
-  FileInformationClass = IoStack->Parameters.QueryFile.FileInformationClass;
-  DeviceExtension = DeviceObject->DeviceExtension;
-  FileObject = IoStack->FileObject;
-  Fcb = (PNPFS_FCB)FileObject->FsContext;
-  Pipe = Fcb->Pipe;
-  
-  SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
-  BufferLength = IoStack->Parameters.QueryFile.Length;
-  
-  DPRINT("Pipe name: %wZ\n", &Pipe->PipeName);
-  DPRINT("FileInformationClass %d\n", FileInformationClass);
-  DPRINT("SystemBuffer %p\n", SystemBuffer);
-  DPRINT("BufferLength %lu\n", BufferLength);
-  
-  switch (FileInformationClass)
-    {
-      case FilePipeInformation:
-	Status = NpfsQueryPipeInformation(DeviceObject,
-					  Fcb,
-					  SystemBuffer,
-					  &BufferLength);
-	break;
-
-      case FilePipeLocalInformation:
-	Status = NpfsQueryLocalPipeInformation(DeviceObject,
-					       Fcb,
-					       SystemBuffer,
-					       &BufferLength);
-	break;
-
-      case FilePipeRemoteInformation:
+   PIO_STACK_LOCATION IoStack;
+   FILE_INFORMATION_CLASS FileInformationClass;
+   PFILE_OBJECT FileObject;
+   PNPFS_DEVICE_EXTENSION DeviceExtension;
+   PNPFS_FCB Fcb;
+   PNPFS_PIPE Pipe;
+   PVOID SystemBuffer;
+   ULONG BufferLength;
+   NTSTATUS Status;
+   
+   DPRINT("NpfsQueryInformation(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
+   
+   IoStack = IoGetCurrentIrpStackLocation (Irp);
+   FileInformationClass = IoStack->Parameters.QueryFile.FileInformationClass;
+   DeviceExtension = DeviceObject->DeviceExtension;
+   FileObject = IoStack->FileObject;
+   Fcb = (PNPFS_FCB)FileObject->FsContext;
+   Pipe = Fcb->Pipe;
+   
+   SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
+   BufferLength = IoStack->Parameters.QueryFile.Length;
+   
+   DPRINT("Pipe name: %wZ\n", &Pipe->PipeName);
+   DPRINT("FileInformationClass %d\n", FileInformationClass);
+   DPRINT("SystemBuffer %x\n", SystemBuffer);
+   DPRINT("BufferLength %lu\n", BufferLength);
+   
+   switch (FileInformationClass)
+     {
+     case FilePipeInformation:
 	Status = STATUS_NOT_IMPLEMENTED;
 	break;
 
-      default:
+     case FilePipeLocalInformation:
+	Status = NpfsQueryLocalInformation(DeviceObject,
+					   Fcb,
+					   SystemBuffer,
+					   &BufferLength);
+	break;
+
+     case FilePipeRemoteInformation:
+	Status = STATUS_NOT_IMPLEMENTED;
+	break;
+
+     default:
 	Status = STATUS_NOT_SUPPORTED;
-    }
-  
-  Irp->IoStatus.Status = Status;
-  if (NT_SUCCESS(Status))
-    Irp->IoStatus.Information =
-      IoStack->Parameters.QueryFile.Length - BufferLength;
-  else
-    Irp->IoStatus.Information = 0;
-  IoCompleteRequest (Irp, IO_NO_INCREMENT);
-  
-  return(Status);
+     }
+   
+   Irp->IoStatus.Status = Status;
+   if (NT_SUCCESS(Status))
+     Irp->IoStatus.Information =
+       IoStack->Parameters.QueryFile.Length - BufferLength;
+   else
+     Irp->IoStatus.Information = 0;
+   IoCompleteRequest (Irp, IO_NO_INCREMENT);
+   
+   return(Status);
 }
 
 
@@ -151,52 +128,52 @@ NTSTATUS STDCALL
 NpfsSetInformation(PDEVICE_OBJECT DeviceObject,
 		   PIRP Irp)
 {
-  PIO_STACK_LOCATION IoStack;
-  FILE_INFORMATION_CLASS FileInformationClass;
-  PFILE_OBJECT FileObject;
-  PNPFS_FCB Fcb;
-  PNPFS_PIPE Pipe;
-  PVOID SystemBuffer;
-  ULONG BufferLength;
-  NTSTATUS Status;
-
-  DPRINT("NpfsSetInformation(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
-
-  IoStack = IoGetCurrentIrpStackLocation (Irp);
-  FileInformationClass = IoStack->Parameters.QueryFile.FileInformationClass;
-  FileObject = IoStack->FileObject;
-  Fcb = (PNPFS_FCB)FileObject->FsContext;
-  Pipe = Fcb->Pipe;
-
-  SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
-  BufferLength = IoStack->Parameters.QueryFile.Length;
-
-  DPRINT("Pipe name: %wZ\n", &Pipe->PipeName);
-  DPRINT("FileInformationClass %d\n", FileInformationClass);
-  DPRINT("SystemBuffer %p\n", SystemBuffer);
-  DPRINT("BufferLength %lu\n", BufferLength);
-
-  switch (FileInformationClass)
-    {
-      case FilePipeInformation:
+   PIO_STACK_LOCATION IoStack;
+   FILE_INFORMATION_CLASS FileInformationClass;
+   PFILE_OBJECT FileObject;
+   PNPFS_FCB Fcb;
+   PNPFS_PIPE Pipe;
+   PVOID SystemBuffer;
+   ULONG BufferLength;
+   NTSTATUS Status;
+   
+   DPRINT("NpfsSetInformation(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
+   
+   IoStack = IoGetCurrentIrpStackLocation (Irp);
+   FileInformationClass = IoStack->Parameters.QueryFile.FileInformationClass;
+   FileObject = IoStack->FileObject;
+   Fcb = (PNPFS_FCB)FileObject->FsContext;
+   Pipe = Fcb->Pipe;
+   
+   SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
+   BufferLength = IoStack->Parameters.QueryFile.Length;
+   
+   DPRINT("Pipe name: %wZ\n", &Pipe->PipeName);
+   DPRINT("FileInformationClass %d\n", FileInformationClass);
+   DPRINT("SystemBuffer %x\n", SystemBuffer);
+   DPRINT("BufferLength %lu\n", BufferLength);
+   
+   switch (FileInformationClass)
+     {
+     case FilePipeInformation:
 	Status = STATUS_NOT_IMPLEMENTED;
 	break;
-      case FilePipeLocalInformation:
+     case FilePipeLocalInformation:
 	Status = STATUS_NOT_IMPLEMENTED;
 	break;
-      case FilePipeRemoteInformation:
+     case FilePipeRemoteInformation:
 	Status = STATUS_NOT_IMPLEMENTED;
 	break;
-      default:
+     default:
 	Status = STATUS_NOT_SUPPORTED;
-    }
-
-  Irp->IoStatus.Status = Status;
-  Irp->IoStatus.Information = 0;
-  IoCompleteRequest(Irp,
-		    IO_NO_INCREMENT);
-
-  return(Status);
+     }
+   
+   Irp->IoStatus.Status = Status;
+   Irp->IoStatus.Information = 0;
+   IoCompleteRequest(Irp,
+		     IO_NO_INCREMENT);
+   
+   return(Status);
 }
 
 /* EOF */

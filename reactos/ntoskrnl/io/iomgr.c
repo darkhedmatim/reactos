@@ -1,4 +1,4 @@
-/* $Id: iomgr.c,v 1.55 2004/12/21 18:37:28 gvg Exp $
+/* $Id: iomgr.c,v 1.19 2001/05/01 23:08:19 chorns Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/io.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,20 +24,17 @@
 
 #define TAG_DEVICE_TYPE     TAG('D', 'E', 'V', 'T')
 #define TAG_FILE_TYPE       TAG('F', 'I', 'L', 'E')
-#define TAG_ADAPTER_TYPE    TAG('A', 'D', 'P', 'T')
 
 /* DATA ********************************************************************/
 
 
 POBJECT_TYPE EXPORTED IoDeviceObjectType = NULL;
 POBJECT_TYPE EXPORTED IoFileObjectType = NULL;
-ULONG        EXPORTED IoReadOperationCount = 0;
-ULONGLONG    EXPORTED IoReadTransferCount = 0;
-ULONG        EXPORTED IoWriteOperationCount = 0;
-ULONGLONG    EXPORTED IoWriteTransferCount = 0;
-ULONG                 IoOtherOperationCount = 0;
-ULONGLONG             IoOtherTransferCount = 0;
-KSPIN_LOCK   EXPORTED IoStatisticsLock = 0;
+ULONG        EXPORTED IoReadOperationCount = 0;	/* FIXME: unknown type */
+ULONG        EXPORTED IoReadTransferCount = 0;	/* FIXME: unknown type */
+ULONG        EXPORTED IoWriteOperationCount = 0; /* FIXME: unknown type */
+ULONG        EXPORTED IoWriteTransferCount = 0;	/* FIXME: unknown type */
+ULONG        EXPORTED IoStatisticsLock = 0;	/* FIXME: unknown type */
 
 static GENERIC_MAPPING IopFileMapping = {FILE_GENERIC_READ,
 					 FILE_GENERIC_WRITE,
@@ -41,9 +43,7 @@ static GENERIC_MAPPING IopFileMapping = {FILE_GENERIC_READ,
 
 /* FUNCTIONS ****************************************************************/
 
-VOID STDCALL
-IopCloseFile(PVOID ObjectBody,
-	     ULONG HandleCount)
+VOID IopCloseFile(PVOID ObjectBody, ULONG HandleCount)
 {
    PFILE_OBJECT FileObject = (PFILE_OBJECT)ObjectBody;
    PIRP Irp;
@@ -52,41 +52,30 @@ IopCloseFile(PVOID ObjectBody,
    
    DPRINT("IopCloseFile()\n");
    
-   if (HandleCount > 0 || FileObject->DeviceObject == NULL)
+   if (HandleCount > 0)
      {
 	return;
      }
-
-#if 0
-//NOTE: Allmost certain that the latest changes to I/O Mgr makes this redundant (OriginalFileObject case)
+   
    ObReferenceObjectByPointer(FileObject,
 			      STANDARD_RIGHTS_REQUIRED,
 			      IoFileObjectType,
 			      UserMode);
-#endif
-
-   KeResetEvent( &FileObject->Event );
-  
+   
    Irp = IoBuildSynchronousFsdRequest(IRP_MJ_CLEANUP,
 				      FileObject->DeviceObject,
 				      NULL,
 				      0,
 				      NULL,
-				      &FileObject->Event,
+				      NULL,
 				      NULL);
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = FileObject;
    
    Status = IoCallDriver(FileObject->DeviceObject, Irp);
-   if (Status == STATUS_PENDING)
-   {
-      KeWaitForSingleObject(&FileObject->Event, Executive, KernelMode, FALSE, NULL);
-   }
 }
 
-
-VOID STDCALL
-IopDeleteFile(PVOID ObjectBody)
+VOID IopDeleteFile(PVOID ObjectBody)
 {
    PFILE_OBJECT FileObject = (PFILE_OBJECT)ObjectBody;
    PIRP Irp;
@@ -94,35 +83,23 @@ IopDeleteFile(PVOID ObjectBody)
    NTSTATUS Status;
    
    DPRINT("IopDeleteFile()\n");
-
-   if (FileObject->DeviceObject)
-   {
-#if 0
-//NOTE: Allmost certain that the latest changes to I/O Mgr makes this redundant (OriginalFileObject case)
-     
-     ObReferenceObjectByPointer(ObjectBody,
-			        STANDARD_RIGHTS_REQUIRED,
-			        IoFileObjectType,
-			        UserMode);
-#endif   
-     KeResetEvent( &FileObject->Event );
-     Irp = IoBuildSynchronousFsdRequest(IRP_MJ_CLOSE,
-				        FileObject->DeviceObject,
-				        NULL,
-				        0,
-				        NULL,
-				        &FileObject->Event,
-				        NULL);
-     Irp->Flags |= IRP_CLOSE_OPERATION;
-     StackPtr = IoGetNextIrpStackLocation(Irp);
-     StackPtr->FileObject = FileObject;
    
-     Status = IoCallDriver(FileObject->DeviceObject, Irp);
-     if (Status == STATUS_PENDING)
-     {
-        KeWaitForSingleObject(&FileObject->Event, Executive, KernelMode, FALSE, NULL);
-     }
-   }
+   ObReferenceObjectByPointer(ObjectBody,
+			      STANDARD_RIGHTS_REQUIRED,
+			      IoFileObjectType,
+			      UserMode);
+   
+   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_CLOSE,
+				      FileObject->DeviceObject,
+				      NULL,
+				      0,
+				      NULL,
+				      NULL,
+				      NULL);
+   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr->FileObject = FileObject;
+   
+   Status = IoCallDriver(FileObject->DeviceObject, Irp);
    
    if (FileObject->FileName.Buffer != NULL)
      {
@@ -132,420 +109,151 @@ IopDeleteFile(PVOID ObjectBody)
 }
 
 
-static NTSTATUS
-IopSetDefaultSecurityDescriptor(SECURITY_INFORMATION SecurityInformation,
-				PSECURITY_DESCRIPTOR SecurityDescriptor,
-				PULONG BufferLength)
+VOID IoInit (VOID)
 {
-  ULONG_PTR Current;
-  ULONG SidSize;
-  ULONG SdSize;
-  NTSTATUS Status;
+	OBJECT_ATTRIBUTES	attr;
+	HANDLE			handle;
+	UNICODE_STRING		UnicodeString;
+	UNICODE_STRING		DeviceName;
 
-  DPRINT("IopSetDefaultSecurityDescriptor() called\n");
+	/*
+	 * Register iomgr types: DeviceObjectType
+	 */
+	IoDeviceObjectType = ExAllocatePool (NonPagedPool, 
+					     sizeof (OBJECT_TYPE));
 
-  if (SecurityInformation == 0)
-    {
-      return STATUS_ACCESS_DENIED;
-    }
+	IoDeviceObjectType->Tag = TAG_DEVICE_TYPE;
+	IoDeviceObjectType->TotalObjects = 0;
+	IoDeviceObjectType->TotalHandles = 0;
+	IoDeviceObjectType->MaxObjects = ULONG_MAX;
+	IoDeviceObjectType->MaxHandles = ULONG_MAX;
+	IoDeviceObjectType->PagedPoolCharge = 0;
+	IoDeviceObjectType->NonpagedPoolCharge = sizeof (DEVICE_OBJECT);
+	IoDeviceObjectType->Mapping = &IopFileMapping;
+	IoDeviceObjectType->Dump = NULL;
+	IoDeviceObjectType->Open = NULL;
+	IoDeviceObjectType->Close = NULL;
+	IoDeviceObjectType->Delete = NULL;
+	IoDeviceObjectType->Parse = NULL;
+	IoDeviceObjectType->Security = NULL;
+	IoDeviceObjectType->QueryName = NULL;
+	IoDeviceObjectType->OkayToClose = NULL;
+	IoDeviceObjectType->Create = IopCreateDevice;
 
-  SidSize = RtlLengthSid(SeWorldSid);
-  SdSize = sizeof(SECURITY_DESCRIPTOR) + (2 * SidSize);
+	RtlInitUnicodeString (
+		& IoDeviceObjectType->TypeName,
+		L"Device"
+		);
 
-  if (*BufferLength < SdSize)
-    {
-      *BufferLength = SdSize;
-      return STATUS_BUFFER_TOO_SMALL;
-    }
+	/*
+	 * Register iomgr types: FileObjectType
+	 * (alias DriverObjectType)
+	 */
+	IoFileObjectType = ExAllocatePool (
+				NonPagedPool,
+				sizeof (OBJECT_TYPE)
+				);
 
-  *BufferLength = SdSize;
+	IoFileObjectType->Tag = TAG_FILE_TYPE;
+	IoFileObjectType->TotalObjects = 0;
+	IoFileObjectType->TotalHandles = 0;
+	IoFileObjectType->MaxObjects = ULONG_MAX;
+	IoFileObjectType->MaxHandles = ULONG_MAX;
+	IoFileObjectType->PagedPoolCharge = 0;
+	IoFileObjectType->NonpagedPoolCharge = sizeof(FILE_OBJECT);
+	IoFileObjectType->Mapping = &IopFileMapping;
+	IoFileObjectType->Dump = NULL;
+	IoFileObjectType->Open = NULL;
+	IoFileObjectType->Close = IopCloseFile;
+	IoFileObjectType->Delete = IopDeleteFile;
+	IoFileObjectType->Parse = NULL;
+	IoFileObjectType->Security = NULL;
+	IoFileObjectType->QueryName = NULL;
+	IoFileObjectType->OkayToClose = NULL;
+	IoFileObjectType->Create = IopCreateFile;
 
-  Status = RtlCreateSecurityDescriptor(SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
+	RtlInitUnicodeString (
+		& IoFileObjectType->TypeName,
+		L"File"
+		);
 
-  SecurityDescriptor->Control |= SE_SELF_RELATIVE;
-  Current = (ULONG_PTR)SecurityDescriptor + sizeof(SECURITY_DESCRIPTOR);
+	/*
+	 * Create the '\Device' directory
+	 */
+	RtlInitUnicodeString (
+		& UnicodeString,
+		L"\\Device"
+		);
+	InitializeObjectAttributes (
+		& attr,
+		& UnicodeString,
+		0,
+		NULL,
+		NULL
+		);
+	ZwCreateDirectoryObject (
+		& handle,
+		0,
+		& attr
+		);
 
-  if (SecurityInformation & OWNER_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Owner = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
+	/*
+	 * Create the '\??' directory
+	 */
+	RtlInitUnicodeString (
+		& UnicodeString,
+		L"\\??"
+		);
+	InitializeObjectAttributes (
+		& attr,
+		& UnicodeString,
+		0,
+		NULL,
+		NULL
+		);
+	ZwCreateDirectoryObject (
+		& handle,
+		0,
+		& attr
+		);
 
-  if (SecurityInformation & GROUP_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Group = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
+	/*
+	 * Create the '\ArcName' directory
+	 */
+	RtlInitUnicodeString (
+		& UnicodeString,
+		L"\\ArcName");
+	InitializeObjectAttributes (
+		& attr,
+		& UnicodeString,
+		0,
+		NULL,
+		NULL
+		);
+	ZwCreateDirectoryObject (
+		& handle,
+		0,
+		& attr
+		);
 
-  if (SecurityInformation & DACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_DACL_PRESENT;
-    }
+	/*
+	 * Initialize remaining subsubsystem
+	 */
+	IoInitCancelHandling ();
+	IoInitSymbolicLinkImplementation ();
+	IoInitFileSystemImplementation ();
+	IoInitVpbImplementation ();
+	IoInitShutdownNotification ();
 
-  if (SecurityInformation & SACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_SACL_PRESENT;
-    }
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS STDCALL
-IopSecurityFile(PVOID ObjectBody,
-		SECURITY_OPERATION_CODE OperationCode,
-		SECURITY_INFORMATION SecurityInformation,
-		PSECURITY_DESCRIPTOR SecurityDescriptor,
-		PULONG BufferLength)
-{
-  IO_STATUS_BLOCK IoStatusBlock;
-  PIO_STACK_LOCATION StackPtr;
-  PFILE_OBJECT FileObject;
-  PIRP Irp;
-  NTSTATUS Status;
-
-  DPRINT("IopSecurityFile() called\n");
-
-  FileObject = (PFILE_OBJECT)ObjectBody;
-
-  switch (OperationCode)
-    {
-      case SetSecurityDescriptor:
-	DPRINT("Set security descriptor\n");
-	KeResetEvent(&FileObject->Event);
-	Irp = IoBuildSynchronousFsdRequest(IRP_MJ_SET_SECURITY,
-					   FileObject->DeviceObject,
-					   NULL,
-					   0,
-					   NULL,
-					   &FileObject->Event,
-					   &IoStatusBlock);
-
-	StackPtr = IoGetNextIrpStackLocation(Irp);
-	StackPtr->FileObject = FileObject;
-
-	StackPtr->Parameters.SetSecurity.SecurityInformation = SecurityInformation;
-	StackPtr->Parameters.SetSecurity.SecurityDescriptor = SecurityDescriptor;
-
-	Status = IoCallDriver(FileObject->DeviceObject, Irp);
-	if (Status == STATUS_PENDING)
-	  {
-	    KeWaitForSingleObject(&FileObject->Event,
-				  Executive,
-				  KernelMode,
-				  FALSE,
-				  NULL);
-	    Status = IoStatusBlock.Status;
-	  }
-
-	if (Status == STATUS_INVALID_DEVICE_REQUEST)
-	  {
-	    Status = STATUS_SUCCESS;
-	  }
-	return Status;
-
-      case QuerySecurityDescriptor:
-	DPRINT("Query security descriptor\n");
-	KeResetEvent(&FileObject->Event);
-	Irp = IoBuildSynchronousFsdRequest(IRP_MJ_QUERY_SECURITY,
-					   FileObject->DeviceObject,
-					   NULL,
-					   0,
-					   NULL,
-					   &FileObject->Event,
-					   &IoStatusBlock);
-
-	Irp->UserBuffer = SecurityDescriptor;
-
-	StackPtr = IoGetNextIrpStackLocation(Irp);
-	StackPtr->FileObject = FileObject;
-
-	StackPtr->Parameters.QuerySecurity.SecurityInformation = SecurityInformation;
-	StackPtr->Parameters.QuerySecurity.Length = *BufferLength;
-
-	Status = IoCallDriver(FileObject->DeviceObject, Irp);
-	if (Status == STATUS_PENDING)
-	  {
-	    KeWaitForSingleObject(&FileObject->Event,
-				  Executive,
-				  KernelMode,
-				  FALSE,
-				  NULL);
-	    Status = IoStatusBlock.Status;
-	  }
-
-	if (Status == STATUS_INVALID_DEVICE_REQUEST)
-	  {
-	    Status = IopSetDefaultSecurityDescriptor(SecurityInformation,
-						     SecurityDescriptor,
-						     BufferLength);
-	  }
-	else
-	  {
-	    /* FIXME: Is this correct?? */
-	    *BufferLength = IoStatusBlock.Information;
-	  }
-	return Status;
-
-      case DeleteSecurityDescriptor:
-	DPRINT("Delete security descriptor\n");
-	return STATUS_SUCCESS;
-
-      case AssignSecurityDescriptor:
-	DPRINT("Assign security descriptor\n");
-	return STATUS_SUCCESS;
-    }
-
-  return STATUS_UNSUCCESSFUL;
-}
-
-
-NTSTATUS STDCALL
-IopQueryNameFile(PVOID ObjectBody,
-		 POBJECT_NAME_INFORMATION ObjectNameInfo,
-		 ULONG Length,
-		 PULONG ReturnLength)
-{
-  POBJECT_NAME_INFORMATION LocalInfo;
-  PFILE_NAME_INFORMATION FileNameInfo;
-  PFILE_OBJECT FileObject;
-  ULONG LocalReturnLength;
-  NTSTATUS Status;
-
-  DPRINT ("IopQueryNameFile() called\n");
-
-  FileObject = (PFILE_OBJECT)ObjectBody;
-
-  LocalInfo = ExAllocatePool (NonPagedPool,
-			      sizeof(OBJECT_NAME_INFORMATION) +
-				MAX_PATH * sizeof(WCHAR));
-  if (LocalInfo == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  Status = ObQueryNameString (FileObject->DeviceObject->Vpb->RealDevice,
-			      LocalInfo,
-			      MAX_PATH * sizeof(WCHAR),
-			      &LocalReturnLength);
-  if (!NT_SUCCESS (Status))
-    {
-      ExFreePool (LocalInfo);
-      return Status;
-    }
-  DPRINT ("Device path: %wZ\n", &LocalInfo->Name);
-
-  Status = RtlAppendUnicodeStringToString (&ObjectNameInfo->Name,
-					   &LocalInfo->Name);
-
-  ExFreePool (LocalInfo);
-
-  FileNameInfo = ExAllocatePool (NonPagedPool,
-				 MAX_PATH * sizeof(WCHAR) + sizeof(ULONG));
-  if (FileNameInfo == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  Status = IoQueryFileInformation (FileObject,
-				   FileNameInformation,
-				   MAX_PATH * sizeof(WCHAR) + sizeof(ULONG),
-				   FileNameInfo,
-				   NULL);
-  if (Status != STATUS_SUCCESS)
-    {
-      ExFreePool (FileNameInfo);
-      return Status;
-    }
-
-  Status = RtlAppendUnicodeToString (&ObjectNameInfo->Name,
-				     FileNameInfo->FileName);
-
-  DPRINT ("Total path: %wZ\n", &ObjectNameInfo->Name);
-
-  ExFreePool (FileNameInfo);
-
-  return Status;
-}
-
-
-VOID INIT_FUNCTION
-IoInit (VOID)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING DirName;
-  UNICODE_STRING LinkName;
-  HANDLE Handle;
-
-  IopInitDriverImplementation();
-  
-  /*
-   * Register iomgr types: DeviceObjectType
-   */
-  IoDeviceObjectType = ExAllocatePool (NonPagedPool,
-				       sizeof (OBJECT_TYPE));
-  
-  IoDeviceObjectType->Tag = TAG_DEVICE_TYPE;
-  IoDeviceObjectType->TotalObjects = 0;
-  IoDeviceObjectType->TotalHandles = 0;
-  IoDeviceObjectType->MaxObjects = ULONG_MAX;
-  IoDeviceObjectType->MaxHandles = ULONG_MAX;
-  IoDeviceObjectType->PagedPoolCharge = 0;
-  IoDeviceObjectType->NonpagedPoolCharge = sizeof (DEVICE_OBJECT);
-  IoDeviceObjectType->Mapping = &IopFileMapping;
-  IoDeviceObjectType->Dump = NULL;
-  IoDeviceObjectType->Open = NULL;
-  IoDeviceObjectType->Close = NULL;
-  IoDeviceObjectType->Delete = NULL;
-  IoDeviceObjectType->Parse = NULL;
-  IoDeviceObjectType->Security = NULL;
-  IoDeviceObjectType->QueryName = NULL;
-  IoDeviceObjectType->OkayToClose = NULL;
-  IoDeviceObjectType->Create = IopCreateDevice;
-  IoDeviceObjectType->DuplicationNotify = NULL;
-  
-  RtlRosInitUnicodeStringFromLiteral(&IoDeviceObjectType->TypeName, L"Device");
-
-  ObpCreateTypeObject(IoDeviceObjectType);
-
-  /*
-   * Register iomgr types: FileObjectType
-   * (alias DriverObjectType)
-   */
-  IoFileObjectType = ExAllocatePool (NonPagedPool, sizeof (OBJECT_TYPE));
-  
-  IoFileObjectType->Tag = TAG_FILE_TYPE;
-  IoFileObjectType->TotalObjects = 0;
-  IoFileObjectType->TotalHandles = 0;
-  IoFileObjectType->MaxObjects = ULONG_MAX;
-  IoFileObjectType->MaxHandles = ULONG_MAX;
-  IoFileObjectType->PagedPoolCharge = 0;
-  IoFileObjectType->NonpagedPoolCharge = sizeof(FILE_OBJECT);
-  IoFileObjectType->Mapping = &IopFileMapping;
-  IoFileObjectType->Dump = NULL;
-  IoFileObjectType->Open = NULL;
-  IoFileObjectType->Close = IopCloseFile;
-  IoFileObjectType->Delete = IopDeleteFile;
-  IoFileObjectType->Parse = NULL;
-  IoFileObjectType->Security = IopSecurityFile;
-  IoFileObjectType->QueryName = IopQueryNameFile;
-  IoFileObjectType->OkayToClose = NULL;
-  IoFileObjectType->Create = IopCreateFile;
-  IoFileObjectType->DuplicationNotify = NULL;
-  
-  RtlRosInitUnicodeStringFromLiteral(&IoFileObjectType->TypeName, L"File");
-
-  ObpCreateTypeObject(IoFileObjectType);
-  
-    /*
-   * Register iomgr types: AdapterObjectType
-   */
-  IoAdapterObjectType = ExAllocatePool (NonPagedPool,
-				       sizeof (OBJECT_TYPE));
-  RtlZeroMemory(IoAdapterObjectType, sizeof(OBJECT_TYPE));
-  IoAdapterObjectType->Tag = TAG_ADAPTER_TYPE;
-  IoAdapterObjectType->MaxObjects = ULONG_MAX;
-  IoAdapterObjectType->MaxHandles = ULONG_MAX;
-  IoDeviceObjectType->Mapping = &IopFileMapping;
-  RtlRosInitUnicodeStringFromLiteral(&IoAdapterObjectType->TypeName, L"Adapter");
-  ObpCreateTypeObject(IoAdapterObjectType);
-
-  /*
-   * Create the '\Driver' object directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&DirName, L"\\Driver");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &DirName,
-			     0,
-			     NULL,
-			     NULL);
-  NtCreateDirectoryObject(&Handle,
-			  0,
-			  &ObjectAttributes);
-
-  /*
-   * Create the '\FileSystem' object directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&DirName,
-		       L"\\FileSystem");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &DirName,
-			     0,
-			     NULL,
-			     NULL);
-  NtCreateDirectoryObject(&Handle,
-			  0,
-			  &ObjectAttributes);
-
-  /*
-   * Create the '\Device' directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&DirName,
-		       L"\\Device");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &DirName,
-			     0,
-			     NULL,
-			     NULL);
-  ZwCreateDirectoryObject(&Handle,
-			  0,
-			  &ObjectAttributes);
-
-  /*
-   * Create the '\??' directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&DirName,
-		       L"\\??");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &DirName,
-			     0,
-			     NULL,
-			     NULL);
-  ZwCreateDirectoryObject(&Handle,
-			  0,
-			  &ObjectAttributes);
-
-  /*
-   * Create the '\ArcName' directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&DirName,
-		       L"\\ArcName");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &DirName,
-			     0,
-			     NULL,
-			     NULL);
-  ZwCreateDirectoryObject(&Handle,
-			  0,
-			  &ObjectAttributes);
-
-  /*
-   * Initialize remaining subsubsystem
-   */
-  IoInitCancelHandling();
-  IoInitFileSystemImplementation();
-  IoInitVpbImplementation();
-  IoInitShutdownNotification();
-  IopInitErrorLog();
-  IopInitTimerImplementation();
-  IopInitIoCompletionImplementation();
-
-  /*
-   * Create link from '\DosDevices' to '\??' directory
-   */
-  RtlRosInitUnicodeStringFromLiteral(&LinkName,
-		       L"\\DosDevices");
-  RtlRosInitUnicodeStringFromLiteral(&DirName,
-		       L"\\??");
-  IoCreateSymbolicLink(&LinkName,
-		       &DirName);
+	/*
+	 * Create link from '\DosDevices' to '\??' directory
+	 */
+	RtlInitUnicodeString (&UnicodeString,
+	                      L"\\DosDevices");
+	RtlInitUnicodeString (&DeviceName,
+	                      L"\\??");
+	IoCreateSymbolicLink (&UnicodeString,
+	                      &DeviceName);
 
   /*
    * Initialize PnP manager
@@ -554,67 +262,10 @@ IoInit (VOID)
 }
 
 
-VOID INIT_FUNCTION
-IoInit2(VOID)
-{
-  PDEVICE_NODE DeviceNode;
-  PDRIVER_OBJECT DriverObject;
-  MODULE_OBJECT ModuleObject;
-  NTSTATUS Status;
-
-  KeInitializeSpinLock (&IoStatisticsLock);
-
-  /* Initialize raw filesystem driver */
-
-  /* Use IopRootDeviceNode for now */
-  Status = IopCreateDeviceNode(IopRootDeviceNode,
-    NULL,
-    &DeviceNode);
-  if (!NT_SUCCESS(Status))
-    {
-      CPRINT("IopCreateDeviceNode() failed with status (%x)\n", Status);
-      return;
-    }
-
-  ModuleObject.Base = NULL;
-  ModuleObject.Length = 0;
-  ModuleObject.EntryPoint = RawFsDriverEntry;
-
-  Status = IopInitializeDriverModule(
-    DeviceNode,
-    &ModuleObject,
-    TRUE,
-    &DriverObject);
-  if (!NT_SUCCESS(Status))
-    {
-      IopFreeDeviceNode(DeviceNode);
-      CPRINT("IopInitializeDriver() failed with status (%x)\n", Status);
-      return;
-    }
-
-  Status = IopInitializeDevice(DeviceNode, DriverObject);
-  if (!NT_SUCCESS(Status))
-    {
-      IopFreeDeviceNode(DeviceNode);
-      CPRINT("IopInitializeDevice() failed with status (%x)\n", Status);
-      return;
-    }
-
-  /*
-   * Initialize PnP root releations
-   */
-  IopInvalidateDeviceRelations(
-    IopRootDeviceNode,
-    BusRelations);
-}
-
-/*
- * @implemented
- */
 PGENERIC_MAPPING STDCALL
 IoGetFileObjectGenericMapping(VOID)
 {
-  return(&IopFileMapping);
+   return &IopFileMapping;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: ppb.c,v 1.20 2004/11/19 01:30:35 weiden Exp $
+/* $Id: ppb.c,v 1.9 2000/12/28 20:38:27 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <windows.h>
 #include <ntdll/ldr.h>
 #include <napi/teb.h>
 #include <ntdll/base.h>
@@ -23,16 +22,13 @@
 
 /* MACROS ****************************************************************/
 
-#define NORMALIZE(x,addr)   {if(x) x=(PVOID)((ULONG_PTR)(x)+(ULONG_PTR)(addr));}
-#define DENORMALIZE(x,addr) {if(x) x=(PVOID)((ULONG_PTR)(x)-(ULONG_PTR)(addr));}
+#define NORMALIZE(x,addr)   {if(x) x=(VOID*)((ULONG)(x)+(ULONG)(addr));}
+#define DENORMALIZE(x,addr) {if(x) x=(VOID*)((ULONG)(x)-(ULONG)(addr));}
 #define ALIGN(x,align)      (((ULONG)(x)+(align)-1UL)&(~((align)-1UL)))
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlAcquirePebLock(VOID)
 {
@@ -41,9 +37,6 @@ RtlAcquirePebLock(VOID)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlReleasePebLock(VOID)
 {
@@ -63,13 +56,10 @@ RtlpCopyParameterString(PWCHAR *Ptr,
    if (Source->Length)
      memmove (Destination->Buffer, Source->Buffer, Source->Length);
    Destination->Buffer[Destination->Length / sizeof(WCHAR)] = 0;
-   *Ptr += Destination->MaximumLength/sizeof(WCHAR);
+   *Ptr += Destination->MaximumLength;
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 			   PUNICODE_STRING ImagePathName,
@@ -107,10 +97,10 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 	if (Environment == NULL)
 	  Environment  = NtCurrentPeb()->ProcessParameters->Environment;
 	if (CurrentDirectory == NULL)
-	  CurrentDirectory = &NtCurrentPeb()->ProcessParameters->CurrentDirectoryName;
-	CurrentDirectoryHandle = NtCurrentPeb()->ProcessParameters->CurrentDirectoryHandle;
-	ConsoleHandle = NtCurrentPeb()->ProcessParameters->hConsole;
-	ConsoleFlags = NtCurrentPeb()->ProcessParameters->ProcessGroup;
+	  CurrentDirectory = &NtCurrentPeb()->ProcessParameters->CurrentDirectory.DosPath;
+	CurrentDirectoryHandle = NtCurrentPeb()->ProcessParameters->CurrentDirectory.Handle;
+	ConsoleHandle = NtCurrentPeb()->ProcessParameters->ConsoleHandle;
+	ConsoleFlags = NtCurrentPeb()->ProcessParameters->ConsoleFlags;
      }
    else
      {
@@ -142,21 +132,21 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 
    /* add string lengths */
    Length += ALIGN(DllPath->MaximumLength, sizeof(ULONG));
-   Length += ALIGN(ImagePathName->Length + sizeof(WCHAR), sizeof(ULONG));
-   Length += ALIGN(CommandLine->Length + sizeof(WCHAR), sizeof(ULONG));
+   Length += ALIGN(ImagePathName->Length, sizeof(ULONG));
+   Length += ALIGN(CommandLine->Length, sizeof(ULONG));
    Length += ALIGN(WindowTitle->MaximumLength, sizeof(ULONG));
    Length += ALIGN(DesktopInfo->MaximumLength, sizeof(ULONG));
    Length += ALIGN(ShellInfo->MaximumLength, sizeof(ULONG));
    Length += ALIGN(RuntimeInfo->MaximumLength, sizeof(ULONG));
 
    /* Calculate the required block size */
-   RegionSize = ROUNDUP(Length, PAGE_SIZE);
+   RegionSize = ROUNDUP(Length, PAGESIZE);
 
    Status = NtAllocateVirtualMemory(NtCurrentProcess(),
 				    (PVOID*)&Param,
 				    0,
 				    &RegionSize,
-				    MEM_RESERVE | MEM_COMMIT,
+				    MEM_COMMIT,
 				    PAGE_READWRITE);
    if (!NT_SUCCESS(Status))
      {
@@ -166,33 +156,33 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 
    DPRINT ("Process parameters allocated\n");
 
-   Param->AllocationSize = RegionSize;
-   Param->Size = Length;
+   Param->MaximumLength = RegionSize;
+   Param->Length = Length;
    Param->Flags = PPF_NORMALIZED;
    Param->Environment = Environment;
-   Param->CurrentDirectoryHandle = CurrentDirectoryHandle;
-   Param->hConsole = ConsoleHandle;
-   Param->ProcessGroup = ConsoleFlags;
+   Param->CurrentDirectory.Handle = CurrentDirectoryHandle;
+   Param->ConsoleHandle = ConsoleHandle;
+   Param->ConsoleFlags = ConsoleFlags;
 
    Dest = (PWCHAR)(((PBYTE)Param) + sizeof(RTL_USER_PROCESS_PARAMETERS));
 
    /* copy current directory */
    RtlpCopyParameterString(&Dest,
-			   &Param->CurrentDirectoryName,
+			   &Param->CurrentDirectory.DosPath,
 			   CurrentDirectory,
 			   MAX_PATH * sizeof(WCHAR));
 
    /* make sure the current directory has a trailing backslash */
-   if (Param->CurrentDirectoryName.Length > 0)
+   if (Param->CurrentDirectory.DosPath.Length > 0)
      {
 	ULONG Length;
 
-	Length = Param->CurrentDirectoryName.Length / sizeof(WCHAR);
-	if (Param->CurrentDirectoryName.Buffer[Length-1] != L'\\')
+	Length = Param->CurrentDirectory.DosPath.Length / sizeof(WCHAR);
+	if (Param->CurrentDirectory.DosPath.Buffer[Length-1] != L'\\')
 	  {
-	     Param->CurrentDirectoryName.Buffer[Length] = L'\\';
-	     Param->CurrentDirectoryName.Buffer[Length + 1] = 0;
-	     Param->CurrentDirectoryName.Length += sizeof(WCHAR);
+	     Param->CurrentDirectory.DosPath.Buffer[Length] = L'\\';
+	     Param->CurrentDirectory.DosPath.Buffer[Length + 1] = 0;
+	     Param->CurrentDirectory.DosPath.Length += sizeof(WCHAR);
 	  }
      }
 
@@ -245,15 +235,12 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
    return STATUS_SUCCESS;
 }
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
+VOID STDCALL
 RtlDestroyProcessParameters(PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
 {
    ULONG RegionSize = 0;
 
-   return NtFreeVirtualMemory (NtCurrentProcess (),
+   NtFreeVirtualMemory (NtCurrentProcess (),
 			(PVOID)ProcessParameters,
 			&RegionSize,
 			MEM_RELEASE);
@@ -261,15 +248,13 @@ RtlDestroyProcessParameters(PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
 
 /*
  * denormalize process parameters (Pointer-->Offset)
- *
- * @implemented
  */
 PRTL_USER_PROCESS_PARAMETERS STDCALL
 RtlDeNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)
 {
    if (Params && (Params->Flags & PPF_NORMALIZED))
      {
-	DENORMALIZE(Params->CurrentDirectoryName.Buffer, Params);
+	DENORMALIZE(Params->CurrentDirectory.DosPath.Buffer, Params);
 	DENORMALIZE(Params->DllPath.Buffer, Params);
 	DENORMALIZE(Params->ImagePathName.Buffer, Params);
 	DENORMALIZE(Params->CommandLine.Buffer, Params);
@@ -286,15 +271,13 @@ RtlDeNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)
 
 /*
  * normalize process parameters (Offset-->Pointer)
- *
- * @implemented
  */
 PRTL_USER_PROCESS_PARAMETERS STDCALL
 RtlNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)
 {
    if (Params && !(Params->Flags & PPF_NORMALIZED))
      {
-	NORMALIZE(Params->CurrentDirectoryName.Buffer, Params);
+	NORMALIZE(Params->CurrentDirectory.DosPath.Buffer, Params);
 	NORMALIZE(Params->DllPath.Buffer, Params);
 	NORMALIZE(Params->ImagePathName.Buffer, Params);
 	NORMALIZE(Params->CommandLine.Buffer, Params);

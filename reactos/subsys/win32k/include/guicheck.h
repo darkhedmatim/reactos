@@ -1,15 +1,12 @@
-#ifndef _WIN32K_GUICHECK_H
-#define _WIN32K_GUICHECK_H
+#ifndef __WIN32K_GUICHECK_H
+#define __WIN32K_GUICHECK_H
 
 #include <windows.h>
 #include <ddk/ntddk.h>
 
-BOOL FASTCALL IntGraphicsCheck(BOOL Create);
-BOOL FASTCALL IntCreatePrimarySurface();
-VOID FASTCALL IntDestroyPrimarySurface();
+VOID
+GuiCheck(VOID);
 
-NTSTATUS FASTCALL InitGuiCheckImpl (VOID);
-
-#endif /* _WIN32K_GUICHECK_H */
+#endif /* __WIN32K_GUICHECK_H */
 
 /* EOF */

@@ -1,78 +1,119 @@
-# $Id: makefile,v 1.34 2004/12/25 21:30:19 arty Exp $
-
+# TCPIP.SYS - TCP/IP protocol driver
+#
 PATH_TO_TOP = ../../..
 
-TARGET_REGTESTS = yes
+TARGETNAME=tcpip
 
-TARGET_TYPE = export_driver
+CFLAGS = -D__NTDRIVER__ -I./include -O2 -DDBG
 
-TARGET_NAME = tcpip
+RESOURCE_OBJECT  = $(TARGETNAME).coff
+TCPIP_OBJECTS    = tcpip/main.o tcpip/address.o tcpip/checksum.o \
+                   tcpip/dispatch.o tcpip/fileobjs.o tcpip/info.o \
+                   tcpip/pool.o tcpip/routines.o
+DATALINK_OBJECTS = datalink/arp.o datalink/lan.o datalink/loopback.o
+NETWORK_OBJECTS  = network/icmp.o network/ip.o network/neighbor.o \
+                   network/receive.o network/route.o network/router.o \
+                   network/transmit.o
+DATAGRAM_OBJECTS = transport/datagram/datagram.o
+RAWIP_OBJECTS    = transport/rawip/rawip.o
+TCP_OBJECTS      = transport/tcp/tcp.o
+UDP_OBJECTS      = transport/udp/udp.o
 
-TARGET_PCH = include/precomp.h
+all: objects $(TARGETNAME).sys
 
-# -DMEMTRACK
-TARGET_CFLAGS = \
-	-D__USE_W32API \
-	-D_SEH_NO_NATIVE_NLG \
-	-DNDIS40 \
-	-Wall -Werror \
-	-I./include \
-	-I$(PATH_TO_TOP)/drivers/lib/oskittcp/include \
-	-I$(PATH_TO_TOP)/w32api/include \
-	-I$(PATH_TO_TOP)/include
+objects:
+	mkdir objects
 
-TARGET_LIBS = \
-	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-	$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a \
-	$(PATH_TO_TOP)/dk/w32/lib/librosrtl.a \
-	$(PATH_TO_TOP)/dk/w32/lib/libpseh.a \
-	$(PATH_TO_TOP)/dk/nkm/lib/libndis.a
+objects/tcpip.o: $(TCPIP_OBJECTS)
+	$(LD) -r -o objects/tcpip.o $(TCPIP_OBJECTS)
 
-TARGET_CLEAN = tcpip/*.o datalink/*.o \
-	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-	$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a
+objects/datalink.o: $(DATALINK_OBJECTS)
+	$(LD) -r -o objects/datalink.o $(DATALINK_OBJECTS)
 
-TCPIP_OBJECTS    = tcpip/buffer.o \
-		   tcpip/dispatch.o \
-		   tcpip/fileobjs.o \
-		   tcpip/irp.o \
-		   tcpip/main.o \
-                   tcpip/pool.o \
-		   tcpip/proto.o \
-		   tcpip/lock.o \
-		   tcpip/wait.o \
-		   tcpip/bug.o
-INFO_OBJECTS     = tcpip/info.o tcpip/ninfo.o tcpip/tinfo.o tcpip/iinfo.o
-DATALINK_OBJECTS = datalink/lan.o
-MOCKOBJS         = tcpip/mockbuffer.o \
-		   tcpip/mockwait.o \
-		   tcpip/mocklock.o \
-		   tcpip/mockpool.o \
-		   tcpip/mockbug.o
+objects/network.o: $(NETWORK_OBJECTS)
+	$(LD) -r -o objects/network.o $(NETWORK_OBJECTS)
 
-TARGET_OBJECTS = \
-  $(TCPIP_OBJECTS) \
-  $(INFO_OBJECTS) \
-  $(DATALINK_OBJECTS)
+objects/datagram.o: $(DATAGRAM_OBJECTS)
+	$(LD) -r -o objects/datagram.o $(DATAGRAM_OBJECTS)
 
-preall: preclean
-	$(MAKE) -C ../../lib/ip
-	$(MAKE) -C ../../lib/oskittcp
-	$(MAKE) all
-	$(MAKE) $(MOCKOBJS)
+objects/rawip.o: $(RAWIP_OBJECTS)
+	$(LD) -r -o objects/rawip.o $(RAWIP_OBJECTS)
 
-preclean:
-	$(RM) 	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-		$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a
+objects/tcp.o: $(TCP_OBJECTS)
+	$(LD) -r -o objects/tcp.o $(TCP_OBJECTS)
 
-$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a:
-	$(MAKE) -C $(PATH_TO_TOP)/drivers/lib/oskittcp
+objects/udp.o: $(UDP_OBJECTS)
+	$(LD) -r -o objects/udp.o $(UDP_OBJECTS)
 
-$(PATH_TO_TOP)/dk/w32/lib/libip.a:
-	$(MAKE) -C $(PATH_TO_TOP)/drivers/lib/ip
+OBJECTS = objects/tcpip.o objects/datalink.o objects/network.o \
+          objects/datagram.o objects/rawip.o objects/tcp.o objects/udp.o \
+          $(RESOURCE_OBJECT) \
+          ../../../ntoskrnl/ntoskrnl.a ../ndis/ndis.a
 
-$(TARGET_OBJECTS):: makefile
+$(TARGETNAME).coff: $(TARGETNAME).rc ../../../include/reactos/resource.h
 
-include $(PATH_TO_TOP)/rules.mak
+CLEAN_FILES = \
+		*.o objects/*.o tcpip/*.o datalink/*.o network/*.o \
+        transport/datagram/*.o transport/rawip/*.o \
+        transport/tcp/*.o transport/udp/*.o $(TARGETNAME).coff \
+        $(TARGETNAME).a junk.tmp base.tmp temp.exp \
+		$(TARGETNAME).sys $(TARGETNAME).sym
 
-include $(TOOLS_PATH)/helper.mk
+
+$(TARGETNAME).sys: $(OBJECTS)
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).sys \
+		--def $(TARGETNAME).def \
+		--kill-at \
+		--output-lib $(TARGETNAME).a
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+        -Wl,-e,_DriverEntry@8 \
+        -Wl,--base-file,base.tmp \
+        -Wl,--defsym,_end=end \
+        -Wl,--defsym,_edata=__data_end__ \
+        -Wl,--defsym,_etext=etext \
+		$(OBJECTS) \
+        -o junk.tmp
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+        --dllname $(TARGETNAME).sys \
+        --base-file base.tmp \
+        --output-exp temp.exp \
+        --def $(TARGETNAME).edf
+	- $(RM) base.tmp
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+        -Wl,--image-base,0x10000 \
+        -Wl,-e,_DriverEntry@8 \
+        -Wl,temp.exp \
+		$(OBJECTS) \
+        -o $(TARGETNAME).sys
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGETNAME).sys > $(TARGETNAME).sym
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/drivers/$(TARGETNAME).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGETNAME).sys: $(TARGETNAME).sys
+	$(CP) $(TARGETNAME).sys $(FLOPPY_DIR)/drivers/$(TARGETNAME).sys
+
+dist: $(DIST_DIR)/drivers/$(TARGETNAME).sys
+
+$(DIST_DIR)/drivers/$(TARGETNAME).sys: $(TARGETNAME).sys
+	$(CP) $(TARGETNAME).sys ../../../$(DIST_DIR)/drivers/$(TARGETNAME).sys
+
+#WITH_DEBUGGING      = yes
+#WIN32_LEAN_AND_MEAN = yes
+#WARNINGS_ARE_ERRORS = yes
+include ../../../rules.mak

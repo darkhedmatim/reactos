@@ -1,8 +1,5 @@
-#include <msvcrt/stdlib.h>
+#include <crtdll/stdlib.h>
 
-/*
- * @unimplemented
- */
 void **__pxcptinfoptrs (void)
 {
         return NULL;

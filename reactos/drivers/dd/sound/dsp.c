@@ -1,19 +1,3 @@
-/*
- * COPYRIGHT:        See COPYING in the top level directory
- * PROJECT:          ReactOS kernel
- * FILE:             drivers/dd/sound/dsp.c
- * PURPOSE:          Digital Signal Processing ?
- * PROGRAMMER:       Snatched from ?
- * 
- * UPDATE HISTORY: 
- *              ??/??/??: Created
- * 		10/23/02: Steven Edwards (Steven_Ed4153@yahoo.com)
- *			  Minor build fix            
- */
-
-#include "dsp.h"
-#include "sb16.h"
-
 /************************************
  * unsigned char read_dsp(void)
  *
@@ -23,8 +7,8 @@
  ************************************/
 unsigned char read_dsp(unsigned short base)
 {
-//	while((inb(base+0x0e)&0x80)==0);	//Wait until there is something to read
-//	return	inb(base+0x0a);
+	while((inb(base+0x0e)&0x80)==0);	//Wait until there is something to read
+	return	inb(base+0x0a);
 }
 
 /************************************'
@@ -54,24 +38,24 @@ sb_status detect_dsp(SB16* sb16)
  **************************************/
 sb_status reset_dsp(unsigned short base_address)
 {
-//	int delay;
+	int delay;
 
-//	outb(base_address+DSP_RESET_PORT,1);
-//	for(delay=0;delay<0xffff;delay++);
+	outb(base_address+DSP_RESET_PORT,1);
+	for(delay=0;delay<0xffff;delay++);
 
-//	outb(base_address+DSP_RESET_PORT,0);
-//	for(delay=0;delay<0xffff;delay++);
+	outb(base_address+DSP_RESET_PORT,0);
+	for(delay=0;delay<0xffff;delay++);
 
-//	if((inb(base_address+DSP_READ_STATUS_PORT)&0x80)==0) return SB_FALSE;
+	if((inb(base_address+DSP_READ_STATUS_PORT)&0x80)==0) return SB_FALSE;
 
-//	if(inb(base_address+DSP_READ_DATA_PORT)!=0xAA) return SB_FALSE;
+	if(inb(base_address+DSP_READ_DATA_PORT)!=0xAA) return SB_FALSE;
 
 	return SB_TRUE;
 }
 	
 void write_dsp(unsigned short base,unsigned char data)
 {
-//  while ((inb(base+DSP_WRITE_PORT) & 0x80) != 0);
-//  outb(base+DSP_WRITE_PORT, data);
+  while ((inb(base+DSP_WRITE_PORT) & 0x80) != 0);
+  outb(base+DSP_WRITE_PORT, data);
 }
   

@@ -1,10 +1,7 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdlib.h>
-#include <msvcrt/string.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/string.h>
 
-/*
- * @implemented
- */
 void *
 calloc(size_t size, size_t nelem)
 {

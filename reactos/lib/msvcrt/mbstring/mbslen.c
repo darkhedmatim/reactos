@@ -2,9 +2,6 @@
 
 size_t _mbclen2(const unsigned int s);
 
-/*
- * @implemented
- */
 size_t _mbslen(const unsigned char *str)
 {
 	int i = 0;

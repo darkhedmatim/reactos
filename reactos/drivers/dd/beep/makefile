@@ -1,15 +1,36 @@
-# $Id: makefile,v 1.14 2003/11/13 14:20:44 ekohl Exp $
-
+# $Id: makefile,v 1.12 2001/07/25 06:19:24 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = driver
+TARGET = beep
 
-TARGET_NAME = beep
+CFLAGS = -D__NTDRIVER__
 
-TARGET_OBJECTS = beep.o
+OBJECTS = beep.o beep.coff 
 
-TARGET_CFLAGS = -Wall -Werror
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
+all: $(TARGET).sys $(TARGET).sys.unstripped
+
+.PHONY: all
+
+clean:
+	- $(RM) *.o *.sym beep.coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+WARNINGS_ARE_ERRORS = yes
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk

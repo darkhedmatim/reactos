@@ -1,10 +1,11 @@
-/* $Id: pool.c,v 1.6 2004/08/15 16:39:02 chorns Exp $
+/* $Id: pool.c,v 1.2 2001/04/24 18:36:39 ea Exp $
  *
  * reactos/ntoskrnl/fs/pool.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ntos.h>
+#include <ddk/ntifs.h>
+#include <internal/ifs.h>
 
 
 /**********************************************************************
@@ -20,7 +21,6 @@
  * NOTE
  * 	IFS_POOL_TAG is "FSrt" in mem view.
  *
- * @implemented
  */
 PVOID
 STDCALL
@@ -56,8 +56,6 @@ FsRtlAllocatePool (
  *
  * NOTE
  * 	IFS_POOL_TAG is "FSrt" in mem view.
- *
- * @implemented
  */
 PVOID
 STDCALL
@@ -91,7 +89,6 @@ FsRtlAllocatePoolWithQuota (
  *
  * RETURN VALUE
  *
- * @implemented
  */
 PVOID
 STDCALL
@@ -126,7 +123,6 @@ FsRtlAllocatePoolWithQuotaTag (
  *
  * RETURN VALUE
  *
- * @implemented
  */
 PVOID
 STDCALL

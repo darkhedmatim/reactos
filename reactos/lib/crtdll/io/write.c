@@ -7,14 +7,11 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
+#include <crtdll/io.h>
+#include <windows.h>
 
-#include "precomp.h"
-#include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 size_t _write(int _fd, const void *_buf, size_t _nbyte)
 {
    DWORD _wbyte;

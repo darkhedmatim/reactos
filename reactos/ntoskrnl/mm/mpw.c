@@ -1,23 +1,6 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+/* $Id: mpw.c,v 1.5 2001/03/16 18:11:23 dwelch Exp $
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: mpw.c,v 1.20 2004/08/15 16:39:08 chorns Exp $
- *
+ * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
  * FILE:         ntoskrnl/mm/mpw.c
  * PURPOSE:      Writes data that has been modified in memory but not on
@@ -29,7 +12,10 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -38,104 +24,129 @@
 static HANDLE MpwThreadHandle;
 static CLIENT_ID MpwThreadId;
 static KEVENT MpwThreadEvent;
+static PEPROCESS LastProcess;
 static volatile BOOLEAN MpwThreadShouldTerminate;
+static ULONG CountToWrite;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS STDCALL
-MmWriteDirtyPages(ULONG Target, PULONG Actual)
+VOID MmStartWritingPages(VOID)
 {
-   PFN_TYPE Page;
-   PFN_TYPE NextPage;
-   NTSTATUS Status;
-
-   Page = MmGetLRUFirstUserPage();
-   while (Page != 0 && Target > 0)
-   {
-      /*
-       * FIXME: While the current page is write back it is possible
-       *        that the next page is freed and not longer a user page.
-       */
-      NextPage = MmGetLRUNextUserPage(Page);
-      if (MmIsDirtyPageRmap(Page))
-      {
-         Status = MmWritePagePhysicalAddress(Page);
-         if (NT_SUCCESS(Status))
-         {
-            Target--;
-         }
-      }
-      Page = NextPage;
-   }
-   *Actual = Target;
-   return(STATUS_SUCCESS);
+   CountToWrite = CountToWrite + MmStats.NrDirtyPages;
 }
 
-NTSTATUS STDCALL
-MmMpwThreadMain(PVOID Ignored)
+ULONG MmWritePage(PMADDRESS_SPACE AddressSpace,
+		  PVOID Address)
+{
+   PMEMORY_AREA MArea;
+   NTSTATUS Status;
+   
+   MArea = MmOpenMemoryAreaByAddress(AddressSpace, Address);
+   
+   switch(MArea->Type)
+     {
+      case MEMORY_AREA_SYSTEM:
+	return(STATUS_UNSUCCESSFUL);
+	     
+      case MEMORY_AREA_SECTION_VIEW_COMMIT:
+	Status = MmWritePageSectionView(AddressSpace,
+					MArea,
+					Address);
+	return(Status);
+		  
+      case MEMORY_AREA_VIRTUAL_MEMORY:
+	Status = MmWritePageVirtualMemory(AddressSpace,
+					  MArea,
+					  Address);
+	return(Status);
+	
+     }
+   return(STATUS_UNSUCCESSFUL);
+}
+
+VOID MmWritePagesInProcess(PEPROCESS Process)
+{
+   PVOID Address;
+   NTSTATUS Status;
+   
+   MmLockAddressSpace(&Process->AddressSpace);
+   
+   while ((Address = MmGetDirtyPagesFromWorkingSet(Process)) != NULL)
+     {
+	Status = MmWritePage(&Process->AddressSpace, Address);
+	if (NT_SUCCESS(Status))
+	  {
+	     CountToWrite = CountToWrite - 1;
+	     if (CountToWrite == 0)
+	       {
+		  MmUnlockAddressSpace(&Process->AddressSpace);
+		  return;
+	       }	     
+	  }
+     }
+   
+   MmUnlockAddressSpace(&Process->AddressSpace);
+}
+
+NTSTATUS MmMpwThreadMain(PVOID Ignored)
 {
    NTSTATUS Status;
-   ULONG PagesWritten;
-   LARGE_INTEGER Timeout;
-
-   Timeout.QuadPart = -50000000;
-
+      
    for(;;)
-   {
-      Status = KeWaitForSingleObject(&MpwThreadEvent,
-                                     0,
-                                     KernelMode,
-                                     FALSE,
-                                     &Timeout);
-      if (!NT_SUCCESS(Status))
-      {
-         DbgPrint("MpwThread: Wait failed\n");
-         KEBUGCHECK(0);
-         return(STATUS_UNSUCCESSFUL);
-      }
-      if (MpwThreadShouldTerminate)
-      {
-         DbgPrint("MpwThread: Terminating\n");
-         return(STATUS_SUCCESS);
-      }
-
-      PagesWritten = 0;
-#if 0
-      /*
-       *  FIXME: MmWriteDirtyPages doesn't work correctly.
-       */
-      MmWriteDirtyPages(128, &PagesWritten);
-#endif
-
-      CcRosFlushDirtyPages(128, &PagesWritten);
-   }
+     {
+	Status = KeWaitForSingleObject(&MpwThreadEvent,
+				       0,
+				       KernelMode,
+				       FALSE,
+				       NULL);
+	if (!NT_SUCCESS(Status))
+	  {
+	     DbgPrint("MpwThread: Wait failed\n");
+	     KeBugCheck(0);
+	     return(STATUS_UNSUCCESSFUL);
+	  }
+	if (MpwThreadShouldTerminate)
+	  {
+	     DbgPrint("MpwThread: Terminating\n");
+	     return(STATUS_SUCCESS);
+	  }
+	
+	do
+	  {
+	     KeAttachProcess(LastProcess);
+	     MmWritePagesInProcess(LastProcess);
+	     KeDetachProcess();
+	     if (CountToWrite != 0)
+	       {
+		  LastProcess = PsGetNextProcess(LastProcess);
+	       }
+	  } while (CountToWrite > 0 &&
+		   LastProcess != PsInitialSystemProcess);
+     }
 }
 
 NTSTATUS MmInitMpwThread(VOID)
 {
-   KPRIORITY Priority;
    NTSTATUS Status;
-
+   
+   CountToWrite = 0;
+   LastProcess = PsInitialSystemProcess;
    MpwThreadShouldTerminate = FALSE;
-   KeInitializeEvent(&MpwThreadEvent, SynchronizationEvent, FALSE);
-
+   KeInitializeEvent(&MpwThreadEvent,
+		     SynchronizationEvent,
+		     FALSE);
+   
    Status = PsCreateSystemThread(&MpwThreadHandle,
-                                 THREAD_ALL_ACCESS,
-                                 NULL,
-                                 NULL,
-                                 &MpwThreadId,
-                                 (PKSTART_ROUTINE) MmMpwThreadMain,
-                                 NULL);
+				 THREAD_ALL_ACCESS,
+				 NULL,
+				 NULL,
+				 &MpwThreadId,
+				 MmMpwThreadMain,
+				 NULL);
    if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   Priority = 1;
-   NtSetInformationThread(MpwThreadHandle,
-                          ThreadPriority,
-                          &Priority,
-                          sizeof(Priority));
-
+     {
+	return(Status);
+     }
+   
    return(STATUS_SUCCESS);
 }

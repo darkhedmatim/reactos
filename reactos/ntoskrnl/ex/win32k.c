@@ -24,64 +24,40 @@
  * UPDATE HISTORY:
  *      04-06-2001  CSH  Created
  */
+#include <limits.h>
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
+#include <internal/ob.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
 /* DATA **********************************************************************/
 
-#define WINSTA_ACCESSCLIPBOARD	(0x4L)
-#define WINSTA_ACCESSGLOBALATOMS	(0x20L)
-#define WINSTA_CREATEDESKTOP	(0x8L)
-#define WINSTA_ENUMDESKTOPS	(0x1L)
-#define WINSTA_ENUMERATE	(0x100L)
-#define WINSTA_EXITWINDOWS	(0x40L)
-#define WINSTA_READATTRIBUTES	(0x2L)
-#define WINSTA_READSCREEN	(0x200L)
-#define WINSTA_WRITEATTRIBUTES	(0x10L)
-
-#define DF_ALLOWOTHERACCOUNTHOOK	(0x1L)
-#define DESKTOP_CREATEMENU	(0x4L)
-#define DESKTOP_CREATEWINDOW	(0x2L)
-#define DESKTOP_ENUMERATE	(0x40L)
-#define DESKTOP_HOOKCONTROL	(0x8L)
-#define DESKTOP_JOURNALPLAYBACK	(0x20L)
-#define DESKTOP_JOURNALRECORD	(0x10L)
-#define DESKTOP_READOBJECTS	(0x1L)
-#define DESKTOP_SWITCHDESKTOP	(0x100L)
-#define DESKTOP_WRITEOBJECTS	(0x80L)
-
 POBJECT_TYPE EXPORTED ExWindowStationObjectType = NULL;
 POBJECT_TYPE EXPORTED ExDesktopObjectType = NULL;
 
 static GENERIC_MAPPING ExpWindowStationMapping = {
-  STANDARD_RIGHTS_READ | WINSTA_ENUMDESKTOPS | WINSTA_ENUMERATE |  WINSTA_READATTRIBUTES | WINSTA_READSCREEN,
-  STANDARD_RIGHTS_WRITE | WINSTA_ACCESSCLIPBOARD | WINSTA_CREATEDESKTOP | WINSTA_WRITEATTRIBUTES,
-  STANDARD_RIGHTS_EXECUTE | WINSTA_ACCESSGLOBALATOMS | WINSTA_EXITWINDOWS,
-  STANDARD_RIGHTS_REQUIRED | WINSTA_ACCESSCLIPBOARD | WINSTA_ACCESSGLOBALATOMS | WINSTA_CREATEDESKTOP |
-                             WINSTA_ENUMDESKTOPS | WINSTA_ENUMERATE | WINSTA_EXITWINDOWS |
-                             WINSTA_READATTRIBUTES | WINSTA_READSCREEN | WINSTA_WRITEATTRIBUTES
-};
+    FILE_GENERIC_READ,
+	  FILE_GENERIC_WRITE,
+	  FILE_GENERIC_EXECUTE,
+	  FILE_ALL_ACCESS };
 
 static GENERIC_MAPPING ExpDesktopMapping = {
-  STANDARD_RIGHTS_READ | DESKTOP_ENUMERATE | DESKTOP_READOBJECTS,
-  STANDARD_RIGHTS_WRITE | DESKTOP_CREATEMENU | DESKTOP_CREATEWINDOW | DESKTOP_HOOKCONTROL |
-                          DESKTOP_JOURNALPLAYBACK | DESKTOP_JOURNALRECORD | DESKTOP_WRITEOBJECTS,
-  STANDARD_RIGHTS_EXECUTE | DESKTOP_SWITCHDESKTOP,
-  STANDARD_RIGHTS_REQUIRED | DESKTOP_CREATEMENU | DESKTOP_CREATEWINDOW | DESKTOP_ENUMERATE |
-                             DESKTOP_HOOKCONTROL | DESKTOP_JOURNALPLAYBACK | DESKTOP_JOURNALRECORD |
-                             DESKTOP_READOBJECTS | DESKTOP_SWITCHDESKTOP | DESKTOP_WRITEOBJECTS
-};
+    FILE_GENERIC_READ,
+	  FILE_GENERIC_WRITE,
+	  FILE_GENERIC_EXECUTE,
+	  FILE_ALL_ACCESS };
 
 /* FUNCTIONS ****************************************************************/
 
 
-NTSTATUS STDCALL
-ExpWinStaObjectCreate(PVOID ObjectBody,
-		      PVOID Parent,
-		      PWSTR RemainingPath,
-		      struct _OBJECT_ATTRIBUTES* ObjectAttributes)
+NTSTATUS
+ExpWinStaObjectCreate(
+  PVOID ObjectBody,
+	PVOID Parent,
+	PWSTR RemainingPath,
+	struct _OBJECT_ATTRIBUTES* ObjectAttributes)
 {
   PWINSTATION_OBJECT WinSta = (PWINSTATION_OBJECT)ObjectBody;
   UNICODE_STRING UnicodeString;
@@ -122,15 +98,32 @@ ExpWinStaObjectCreate(PVOID ObjectBody,
     return Status;
   }
 
-  WinSta->SystemMenuTemplate = (HANDLE)0;
+	Status = ObReferenceObjectByPointer(
+	  Parent,
+		STANDARD_RIGHTS_REQUIRED,
+		ObDirectoryType,
+		UserMode);
+	if (!NT_SUCCESS(Status))
+	{
+    RtlDestroyAtomTable(WinSta->AtomTable);
+    RtlFreeUnicodeString(&WinSta->Name);
+		return Status;
+	}
+
+	ObAddEntryDirectory(
+    Parent,
+		ObjectBody,
+		(RemainingPath + 1));
+  ObDereferenceObject(Parent);
 
   DPRINT("Window station successfully created. Name (%wZ)\n", &WinSta->Name);
 
   return STATUS_SUCCESS;
 }
 
-VOID STDCALL
-ExpWinStaObjectDelete(PVOID DeletedObject)
+VOID
+ExpWinStaObjectDelete(
+  PVOID DeletedObject)
 {
   PWINSTATION_OBJECT WinSta = (PWINSTATION_OBJECT)DeletedObject;
 
@@ -142,9 +135,10 @@ ExpWinStaObjectDelete(PVOID DeletedObject)
 }
 
 PVOID
-ExpWinStaObjectFind(PWINSTATION_OBJECT WinStaObject,
-		    PWSTR Name,
-		    ULONG Attributes)
+ExpWinStaObjectFind(
+  PWINSTATION_OBJECT WinStaObject,
+	PWSTR Name,
+  ULONG Attributes)
 {
   PLIST_ENTRY Current;
   PDESKTOP_OBJECT CurrentObject;
@@ -185,12 +179,14 @@ ExpWinStaObjectFind(PWINSTATION_OBJECT WinStaObject,
   return NULL;
 }
 
-NTSTATUS STDCALL
-ExpWinStaObjectParse(PVOID Object,
-		     PVOID *NextObject,
-		     PUNICODE_STRING FullPath,
-		     PWSTR *Path,
-		     ULONG Attributes)
+NTSTATUS
+ExpWinStaObjectParse(
+  PVOID Object,
+	PVOID *NextObject,
+	PUNICODE_STRING FullPath,
+	PWSTR *Path,
+	POBJECT_TYPE ObjectType,
+	ULONG Attributes)
 {
   PVOID FoundObject;
   NTSTATUS Status;
@@ -225,17 +221,17 @@ ExpWinStaObjectParse(PVOID Object,
     NULL,
     UserMode);
 
-  *NextObject = FoundObject;
   *Path = NULL;
 
   return Status;
 }
 
-NTSTATUS STDCALL
-ExpDesktopObjectCreate(PVOID ObjectBody,
-		       PVOID Parent,
-		       PWSTR RemainingPath,
-		       struct _OBJECT_ATTRIBUTES* ObjectAttributes)
+NTSTATUS
+ExpDesktopObjectCreate(
+  PVOID ObjectBody,
+	PVOID Parent,
+	PWSTR RemainingPath,
+	struct _OBJECT_ATTRIBUTES* ObjectAttributes)
 {
   PDESKTOP_OBJECT Desktop = (PDESKTOP_OBJECT)ObjectBody;
   UNICODE_STRING UnicodeString;
@@ -267,8 +263,9 @@ ExpDesktopObjectCreate(PVOID ObjectBody,
   return RtlCreateUnicodeString(&Desktop->Name, UnicodeString.Buffer);
 }
 
-VOID STDCALL
-ExpDesktopObjectDelete(PVOID DeletedObject)
+VOID
+ExpDesktopObjectDelete(
+  PVOID DeletedObject)
 {
   PDESKTOP_OBJECT Desktop = (PDESKTOP_OBJECT)DeletedObject;
   KIRQL OldIrql;
@@ -283,7 +280,7 @@ ExpDesktopObjectDelete(PVOID DeletedObject)
   RtlFreeUnicodeString(&Desktop->Name);
 }
 
-VOID INIT_FUNCTION
+VOID
 ExpWin32kInit(VOID)
 {
   /* Create window station object type */
@@ -291,7 +288,7 @@ ExpWin32kInit(VOID)
   if (ExWindowStationObjectType == NULL)
   {
     CPRINT("Could not create window station object type\n");
-    KEBUGCHECK(0);
+    KeBugCheck(0);
   }
 
   ExWindowStationObjectType->Tag = TAG('W', 'I', 'N', 'S');
@@ -311,17 +308,14 @@ ExpWin32kInit(VOID)
   ExWindowStationObjectType->QueryName = NULL;
   ExWindowStationObjectType->OkayToClose = NULL;
   ExWindowStationObjectType->Create = ExpWinStaObjectCreate;
-  ExWindowStationObjectType->DuplicationNotify = NULL;
-  RtlRosInitUnicodeStringFromLiteral(&ExWindowStationObjectType->TypeName, L"WindowStation");
-
-  ObpCreateTypeObject(ExWindowStationObjectType);
+  RtlInitUnicodeString(&ExWindowStationObjectType->TypeName, L"WindowStation");
 
   /* Create desktop object type */
   ExDesktopObjectType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
   if (ExDesktopObjectType == NULL)
   {
     CPRINT("Could not create desktop object type\n");
-    KEBUGCHECK(0);
+    KeBugCheck(0);
   }
 
   ExDesktopObjectType->Tag = TAG('D', 'E', 'S', 'K');
@@ -341,10 +335,7 @@ ExpWin32kInit(VOID)
   ExDesktopObjectType->QueryName = NULL;
   ExDesktopObjectType->OkayToClose = NULL;
   ExDesktopObjectType->Create = ExpDesktopObjectCreate;
-  ExDesktopObjectType->DuplicationNotify = NULL;
-  RtlRosInitUnicodeStringFromLiteral(&ExDesktopObjectType->TypeName, L"Desktop");
-
-  ObpCreateTypeObject(ExDesktopObjectType);
+  RtlInitUnicodeString(&ExDesktopObjectType->TypeName, L"Desktop");
 }
 
 /* EOF */

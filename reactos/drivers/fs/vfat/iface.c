@@ -1,34 +1,32 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+/* $Id: iface.c,v 1.57 2001/07/20 08:00:20 ekohl Exp $
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: iface.c,v 1.74 2004/02/10 16:22:56 navaraf Exp $
- *
+ * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/iface.c
+ * FILE:             services/fs/vfat/iface.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
+ * UPDATE HISTORY:
+ *    ??           Created
+ *   24-10-1998   Fixed bugs in long filename support
+ *                Fixed a bug that prevented unsuccessful file open requests 
+ *                being reported
+ *                Now works with long filenames that span over a sector 
+ *                boundary
+ *   28-10-1998   Reads entire FAT into memory
+ *                VFatReadSector modified to read in more than one sector at a
+ *                time
+ *   7-11-1998    Fixed bug that assumed that directory data could be 
+ *                fragmented
+ *   8-12-1998    Added FAT32 support
+ *                Added initial writability functions
+ *                WARNING: DO NOT ATTEMPT TO TEST WRITABILITY FUNCTIONS!!!
+ *   12-12-1998   Added basic support for FILE_STANDARD_INFORMATION request
+ *
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -37,12 +35,290 @@
 
 /* GLOBALS *****************************************************************/
 
-PVFAT_GLOBAL_DATA VfatGlobalData;
+#define  CACHEPAGESIZE(pDeviceExt) ((pDeviceExt)->BytesPerCluster > PAGESIZE ? \
+		   (pDeviceExt)->BytesPerCluster : PAGESIZE)
+
+static PDRIVER_OBJECT VfatDriverObject;
 
 /* FUNCTIONS ****************************************************************/
 
+static NTSTATUS
+VfatHasFileSystem(PDEVICE_OBJECT DeviceToMount,
+		  PBOOLEAN RecognizedFS)
+/*
+ * FUNCTION: Tests if the device contains a filesystem that can be mounted 
+ *           by this fsd
+ */
+{
+   BootSector *Boot;
+   NTSTATUS Status;
+
+   Boot = ExAllocatePool(NonPagedPool, 512);
+
+   Status = VfatReadSectors(DeviceToMount, 0, 1, (UCHAR *) Boot);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+
+   DPRINT("Boot->SysType %.5s\n", Boot->SysType);
+   if (strncmp(Boot->SysType, "FAT12", 5) == 0 ||
+       strncmp(Boot->SysType, "FAT16", 5) == 0 ||
+       strncmp(((struct _BootSector32 *) (Boot))->SysType, "FAT32", 5) == 0)
+     {
+	*RecognizedFS = TRUE;
+     }
+   else
+     {
+	*RecognizedFS = FALSE;
+     }
+
+   ExFreePool(Boot);
+
+   return(STATUS_SUCCESS);
+}
+
+
+static NTSTATUS
+VfatMountDevice(PDEVICE_EXTENSION DeviceExt,
+		PDEVICE_OBJECT DeviceToMount)
+/*
+ * FUNCTION: Mounts the device
+ */
+{
+   NTSTATUS Status;
+
+   DPRINT("Mounting VFAT device...");
+   DPRINT("DeviceExt %x\n", DeviceExt);
+
+   DeviceExt->Boot = ExAllocatePool(NonPagedPool, 512);
+
+   Status = VfatReadSectors(DeviceToMount, 0, 1, (UCHAR *) DeviceExt->Boot);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+
+   DeviceExt->FATStart = DeviceExt->Boot->ReservedSectors;
+   DeviceExt->rootDirectorySectors =
+     (DeviceExt->Boot->RootEntries * 32) / DeviceExt->Boot->BytesPerSector;
+   DeviceExt->rootStart =
+     DeviceExt->FATStart +
+     DeviceExt->Boot->FATCount * DeviceExt->Boot->FATSectors;
+   DeviceExt->dataStart =
+     DeviceExt->rootStart + DeviceExt->rootDirectorySectors;
+   DeviceExt->BytesPerSector = DeviceExt->Boot->BytesPerSector;
+   DeviceExt->FATEntriesPerSector = DeviceExt->Boot->BytesPerSector / 32;
+   DeviceExt->BytesPerCluster = DeviceExt->Boot->SectorsPerCluster *
+     DeviceExt->Boot->BytesPerSector;
+
+   if (DeviceExt->BytesPerCluster >= PAGESIZE && 
+       (DeviceExt->BytesPerCluster % PAGESIZE) != 0)
+     {
+	DbgPrint("Invalid cluster size\n");
+	KeBugCheck(0);
+     }
+   else if (DeviceExt->BytesPerCluster < PAGESIZE &&
+	    (PAGESIZE % DeviceExt->BytesPerCluster) != 0)
+     {
+	DbgPrint("Invalid cluster size2\n");
+	KeBugCheck(0);
+     }
+
+   if (strncmp (DeviceExt->Boot->SysType, "FAT12", 5) == 0)
+     {
+	DbgPrint("FAT12\n");
+	DeviceExt->FatType = FAT12;
+     }
+   else if (strncmp
+	    (((struct _BootSector32 *) (DeviceExt->Boot))->SysType, "FAT32",
+	    5) == 0)
+     {
+	DbgPrint("FAT32\n");
+	DeviceExt->FatType = FAT32;
+	DeviceExt->rootDirectorySectors = DeviceExt->Boot->SectorsPerCluster;
+	DeviceExt->dataStart = DeviceExt->FATStart + DeviceExt->Boot->FATCount
+	  * ((struct _BootSector32 *) (DeviceExt->Boot))->FATSectors32;
+	DeviceExt->rootStart = ClusterToSector (DeviceExt,
+	  ((struct _BootSector32 *)(DeviceExt->Boot))->RootCluster);
+     }
+   else
+     {
+	DbgPrint("FAT16\n");
+	DeviceExt->FatType = FAT16;
+     }
+
+   return(STATUS_SUCCESS);
+}
+
+
+static NTSTATUS
+VfatMount (PDEVICE_OBJECT DeviceToMount)
+/*
+ * FUNCTION: Mount the filesystem
+ */
+{
+  PDEVICE_OBJECT DeviceObject;
+  PDEVICE_EXTENSION DeviceExt;
+  BOOLEAN RecognizedFS;
+  NTSTATUS Status;
+
+  Status = VfatHasFileSystem (DeviceToMount, &RecognizedFS);
+  if (!NT_SUCCESS(Status))
+    {
+      return(Status);
+    }
+
+  if (RecognizedFS == FALSE)
+    {
+      DPRINT("VFAT: Unrecognized Volume\n");
+      return(STATUS_UNRECOGNIZED_VOLUME);
+    }
+
+  DPRINT("VFAT: Recognized volume\n");
+
+  Status = IoCreateDevice(VfatDriverObject,
+			  sizeof (DEVICE_EXTENSION),
+			  NULL,
+			  FILE_DEVICE_FILE_SYSTEM,
+			  0,
+			  FALSE,
+			  &DeviceObject);
+  if (!NT_SUCCESS(Status))
+    {
+      return(Status);
+    }
+
+  DeviceObject->Flags = DeviceObject->Flags | DO_DIRECT_IO;
+  DeviceExt = (PVOID) DeviceObject->DeviceExtension;
+  /* use same vpb as device disk */
+  DeviceObject->Vpb = DeviceToMount->Vpb;
+  Status = VfatMountDevice(DeviceExt,
+			   DeviceToMount);
+  if (!NT_SUCCESS(Status))
+    {
+      /* FIXME: delete device object */
+      return(Status);
+    }
+
+#if 1
+  DbgPrint("BytesPerSector:     %d\n", DeviceExt->Boot->BytesPerSector);
+  DbgPrint("SectorsPerCluster:  %d\n", DeviceExt->Boot->SectorsPerCluster);
+  DbgPrint("ReservedSectors:    %d\n", DeviceExt->Boot->ReservedSectors);
+  DbgPrint("FATCount:           %d\n", DeviceExt->Boot->FATCount);
+  DbgPrint("RootEntries:        %d\n", DeviceExt->Boot->RootEntries);
+  DbgPrint("Sectors:            %d\n", DeviceExt->Boot->Sectors);
+  DbgPrint("FATSectors:         %d\n", DeviceExt->Boot->FATSectors);
+  DbgPrint("SectorsPerTrack:    %d\n", DeviceExt->Boot->SectorsPerTrack);
+  DbgPrint("Heads:              %d\n", DeviceExt->Boot->Heads);
+  DbgPrint("HiddenSectors:      %d\n", DeviceExt->Boot->HiddenSectors);
+  DbgPrint("SectorsHuge:        %d\n", DeviceExt->Boot->SectorsHuge);
+  DbgPrint("RootStart:          %d\n", DeviceExt->rootStart);
+  DbgPrint("DataStart:          %d\n", DeviceExt->dataStart);
+  if (DeviceExt->FatType == FAT32)
+    {
+      DbgPrint("FATSectors32:       %d\n",
+	       ((struct _BootSector32*)(DeviceExt->Boot))->FATSectors32);
+      DbgPrint("RootCluster:        %d\n",
+	       ((struct _BootSector32*)(DeviceExt->Boot))->RootCluster);
+      DbgPrint("FSInfoSector:       %d\n",
+	       ((struct _BootSector32*)(DeviceExt->Boot))->FSInfoSector);
+      DbgPrint("BootBackup:         %d\n",
+	       ((struct _BootSector32*)(DeviceExt->Boot))->BootBackup);
+    }
+#endif
+
+  DeviceObject->Vpb->Flags |= VPB_MOUNTED;
+  DeviceExt->StorageDevice = IoAttachDeviceToDeviceStack(DeviceObject,
+							 DeviceToMount);
+  DeviceExt->StreamStorageDevice = IoCreateStreamFileObject(NULL,
+							    DeviceExt->StorageDevice);
+  Status = CcRosInitializeFileCache(DeviceExt->StreamStorageDevice,
+				    &DeviceExt->StorageBcb,
+				    CACHEPAGESIZE(DeviceExt));
+  if (!NT_SUCCESS(Status))
+    {
+      /* FIXME: delete device object */
+      return(Status);
+    }
+
+  if (DeviceExt->FatType == FAT12)
+    {
+      DeviceExt->Fat12StorageDevice =
+	IoCreateStreamFileObject(NULL, DeviceExt->StorageDevice);
+      Status = CcRosInitializeFileCache(DeviceExt->Fat12StorageDevice,
+				        &DeviceExt->Fat12StorageBcb,
+				        PAGESIZE * 3);
+      if (!NT_SUCCESS(Status))
+	{
+	  /* FIXME: delete device object */
+	  return(Status);
+	}
+    }
+  ExInitializeResourceLite(&DeviceExt->DirResource);
+  ExInitializeResourceLite(&DeviceExt->FatResource);
+
+  KeInitializeSpinLock(&DeviceExt->FcbListLock);
+  InitializeListHead(&DeviceExt->FcbListHead);
+
+  /* read serial number */
+  if (DeviceExt->FatType == FAT12 || DeviceExt->FatType == FAT16)
+    DeviceObject->Vpb->SerialNumber =
+      ((struct _BootSector *) (DeviceExt->Boot))->VolumeID;
+  else if (DeviceExt->FatType == FAT32)
+    DeviceObject->Vpb->SerialNumber =
+      ((struct _BootSector32 *) (DeviceExt->Boot))->VolumeID;
+
+  /* read volume label */
+  ReadVolumeLabel(DeviceExt,
+		  DeviceObject->Vpb);
+
+  return(STATUS_SUCCESS);
+}
+
+
 NTSTATUS STDCALL
-DriverEntry(PDRIVER_OBJECT DriverObject,
+VfatFileSystemControl(PDEVICE_OBJECT DeviceObject,
+		      PIRP Irp)
+/*
+ * FUNCTION: File system control
+ */
+{
+   PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation (Irp);
+   NTSTATUS Status;
+
+   switch (Stack->MinorFunction)
+     {
+	case IRP_MN_USER_FS_REQUEST:
+	   DPRINT1("VFAT FSC: IRP_MN_USER_FS_REQUEST\n");
+	   Status = STATUS_INVALID_DEVICE_REQUEST;
+	   break;
+
+	case IRP_MN_MOUNT_VOLUME:
+	   Status = VfatMount(Stack->Parameters.Mount.DeviceObject);
+	   break;
+
+	case IRP_MN_VERIFY_VOLUME:
+	   DPRINT1("VFAT FSC: IRP_MN_VERIFY_VOLUME\n");
+	   Status = STATUS_INVALID_DEVICE_REQUEST;
+	   break;
+
+	default:
+	   DPRINT1("VFAT FSC: MinorFunction %d\n", Stack->MinorFunction);
+	   Status = STATUS_INVALID_DEVICE_REQUEST;
+	   break;
+     }
+
+   Irp->IoStatus.Status = Status;
+   Irp->IoStatus.Information = 0;
+
+   IoCompleteRequest (Irp, IO_NO_INCREMENT);
+   return (Status);
+}
+
+
+NTSTATUS STDCALL
+DriverEntry(PDRIVER_OBJECT _DriverObject,
 	    PUNICODE_STRING RegistryPath)
 /*
  * FUNCTION: Called by the system to initalize the driver
@@ -53,13 +329,19 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Fat");
+   UNICODE_STRING DeviceName;
    NTSTATUS Status;
 
-   Status = IoCreateDevice(DriverObject,
-			   sizeof(VFAT_GLOBAL_DATA),
+   DbgPrint("VFAT 0.0.6\n");
+
+   VfatDriverObject = _DriverObject;
+
+   RtlInitUnicodeString(&DeviceName,
+			L"\\Device\\Vfat");
+   Status = IoCreateDevice(VfatDriverObject,
+			   0,
 			   &DeviceName,
-			   FILE_DEVICE_DISK_FILE_SYSTEM,
+			   FILE_DEVICE_FILE_SYSTEM,
 			   0,
 			   FALSE,
 			   &DeviceObject);
@@ -67,43 +349,32 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
      {
 	return (Status);
      }
-   VfatGlobalData = DeviceObject->DeviceExtension;
-   RtlZeroMemory (VfatGlobalData, sizeof(VFAT_GLOBAL_DATA));
-   VfatGlobalData->DriverObject = DriverObject;
-   VfatGlobalData->DeviceObject = DeviceObject;
 
    DeviceObject->Flags = DO_DIRECT_IO;
-   DriverObject->MajorFunction[IRP_MJ_CLOSE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_CREATE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_READ] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_WRITE] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] = 
-     VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] = 
-     VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = VfatShutdown;
-   DriverObject->MajorFunction[IRP_MJ_LOCK_CONTROL] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = VfatBuildRequest;
+   VfatDriverObject->MajorFunction[IRP_MJ_CLOSE] = VfatClose;
+   VfatDriverObject->MajorFunction[IRP_MJ_CREATE] = VfatCreate;
+   VfatDriverObject->MajorFunction[IRP_MJ_READ] = VfatRead;
+   VfatDriverObject->MajorFunction[IRP_MJ_WRITE] = VfatWrite;
+   VfatDriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] =
+     VfatFileSystemControl;
+   VfatDriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] =
+     VfatQueryInformation;
+   VfatDriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] =
+     VfatSetInformation;
+   VfatDriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] =
+     VfatDirectoryControl;
+   VfatDriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
+     VfatQueryVolumeInformation;
+   VfatDriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
+     VfatSetVolumeInformation;
+   VfatDriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = VfatShutdown;
+   VfatDriverObject->MajorFunction[IRP_MJ_CLEANUP] = VfatCleanup;
 
-   DriverObject->DriverUnload = NULL;
+   VfatDriverObject->DriverUnload = NULL;
 
-   ExInitializeNPagedLookasideList(&VfatGlobalData->FcbLookasideList, 
-                                   NULL, NULL, 0, sizeof(VFATFCB), TAG_FCB, 0);
-   ExInitializeNPagedLookasideList(&VfatGlobalData->CcbLookasideList, 
-                                   NULL, NULL, 0, sizeof(VFATCCB), TAG_CCB, 0);
-   ExInitializeNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList, 
-                                   NULL, NULL, 0, sizeof(VFAT_IRP_CONTEXT), TAG_IRP, 0);
-
-   ExInitializeResourceLite(&VfatGlobalData->VolumeListLock);
-   InitializeListHead(&VfatGlobalData->VolumeListHead);
    IoRegisterFileSystem(DeviceObject);
-   return(STATUS_SUCCESS);
+
+   return STATUS_SUCCESS;
 }
 
 /* EOF */
-

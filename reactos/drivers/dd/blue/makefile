@@ -1,20 +1,36 @@
-# $Id: makefile,v 1.24 2004/01/20 20:00:45 weiden Exp $
-
+# $Id: makefile,v 1.18 2001/07/25 06:19:34 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
-TARGET_BOOTSTRAP = yes
+TARGET = blue
 
-TARGET_TYPE = driver
+CFLAGS = -D__NTDRIVER__
 
-TARGET_NAME = blue
+OBJECTS = $(TARGET).o $(TARGET).coff 
 
-TARGET_OBJECTS = blue.o
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_CFLAGS = -Wall -Werror
+all: $(TARGET).sys $(TARGET).sys.unstripped
 
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp blue.sys blue.sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+WARNINGS_ARE_ERRORS = yes
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-DEP_OBJECTS := $(TARGET_OBJECTS)
-include $(PATH_TO_TOP)/tools/depend.mk

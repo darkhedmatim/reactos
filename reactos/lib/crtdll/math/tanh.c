@@ -1,10 +1,6 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
+#include <crtdll/math.h>
 
-#include <msvcrt/math.h>
-
-/*
- * @implemented
- */
 double tanh(double x)
 {
   if (x > 50)
@@ -18,3 +14,4 @@ double tanh(double x)
     return (ebig - esmall) / (ebig + esmall);
   }
 }
+

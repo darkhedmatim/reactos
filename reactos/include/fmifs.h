@@ -1,6 +1,6 @@
 #ifndef _FMIFS_H
 #define _FMIFS_H
-/* $Id: fmifs.h,v 1.4 2004/09/15 17:06:34 weiden Exp $
+/* $Id: fmifs.h,v 1.2 2000/04/25 23:22:48 ea Exp $
  *
  * fmifs.h
  *
@@ -17,12 +17,15 @@
  * 	Normalized function names.
  *
  */
+#ifndef _INC_WINDOWS_
+#include <windows.h>
+#endif
 
 /* Output command */
 typedef
 struct
 {
-	ULONG Lines;
+	DWORD Lines;
 	PCHAR Output;
 	
 } TEXTOUTPUT, *PTEXTOUTPUT;
@@ -54,10 +57,10 @@ enum
 
 /* FMIFS callback definition */
 typedef
-BOOLEAN
+BOOL
 (STDCALL * PFMIFSCALLBACK) (
 	CALLBACKCOMMAND	Command,
-	ULONG		SubAction,
+	DWORD		SubAction,
 	PVOID		ActionInfo
 	);
 
@@ -65,13 +68,13 @@ BOOLEAN
 VOID
 STDCALL
 Chkdsk(
-	PWCHAR		DriveRoot,
+	PWCHAR		DriveRoot, 
 	PWCHAR		Format,
-	BOOLEAN		CorrectErrors,
-	BOOLEAN		Verbose,
-	BOOLEAN		CheckOnlyIfDirty,
-	BOOLEAN		ScanDrive,
-	PVOID		Unused2,
+	BOOL		CorrectErrors, 
+	BOOL		Verbose, 
+	BOOL		CheckOnlyIfDirty,
+	BOOL		ScanDrive, 
+	PVOID		Unused2, 
 	PVOID		Unused3,
 	PFMIFSCALLBACK	Callback
 	);
@@ -80,13 +83,13 @@ Chkdsk(
 VOID
 STDCALL
 ChkDskEx(
-	PWCHAR		DriveRoot,
+	PWCHAR		DriveRoot, 
 	PWCHAR		Format,
-	BOOLEAN		CorrectErrors,
-	BOOLEAN		Verbose,
-	BOOLEAN		CheckOnlyIfDirty,
-	BOOLEAN		ScanDrive,
-	PVOID		Unused2,
+	BOOL		CorrectErrors, 
+	BOOL		Verbose, 
+	BOOL		CheckOnlyIfDirty,
+	BOOL		ScanDrive, 
+	PVOID		Unused2, 
 	PVOID		Unused3,
 	PFMIFSCALLBACK	Callback
 	);
@@ -102,7 +105,7 @@ BOOL
 STDCALL
 EnableVolumeCompression(
 	PWCHAR	DriveRoot,
-	USHORT Compression
+	BOOL	Enable
 	);
 
 /* Format command in FMIFS */
@@ -115,11 +118,11 @@ VOID
 STDCALL
 FormatEx(
 	PWCHAR		DriveRoot,
-	ULONG		MediaFlag,
+	DWORD		MediaFlag,
 	PWCHAR		Format,
 	PWCHAR		Label,
-	BOOLEAN		QuickFormat,
-	ULONG		ClusterSize,
+	BOOL		QuickFormat,
+	DWORD		ClusterSize,
 	PFMIFSCALLBACK	Callback
 	);
 

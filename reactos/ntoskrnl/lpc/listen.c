@@ -1,4 +1,4 @@
-/* $Id: listen.c,v 1.9 2004/08/15 16:39:06 chorns Exp $
+/* $Id: listen.c,v 1.2 2000/10/22 16:36:51 ekohl Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -9,13 +9,16 @@
  *                  Created 22/05/98
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -38,36 +41,44 @@
  *	request message queued by NtConnectPort() in PortHandle.
  *
  * NOTE
+ * 	
  */
-/*EXPORTED*/ NTSTATUS STDCALL
-NtListenPort (IN	HANDLE		PortHandle,
-	      IN	PLPC_MESSAGE	ConnectMsg)
+EXPORTED
+NTSTATUS
+STDCALL
+NtListenPort (
+	IN	HANDLE		PortHandle,
+	IN	PLPC_MESSAGE	ConnectMsg
+	)
 {
-  NTSTATUS	Status;
-  
-  /*
-   * Wait forever for a connection request.
-   */
-  for (;;)
-    {
-      Status = NtReplyWaitReceivePort(PortHandle,
-				      NULL,
-				      NULL,
-				      ConnectMsg);
-      /*
-       * Accept only LPC_CONNECTION_REQUEST requests.
-       * Drop any other message.
-       */
-      if (!NT_SUCCESS(Status) || 
-	  LPC_CONNECTION_REQUEST == ConnectMsg->MessageType)
+	NTSTATUS	Status;
+
+	/*
+	 * Wait forever for a connection request.
+	 */
+	for (;;)
 	{
-	  DPRINT("Got message (type %x)\n", LPC_CONNECTION_REQUEST);
-	  break;
+		Status = NtReplyWaitReceivePort (
+				PortHandle,
+				NULL,
+				NULL,
+				ConnectMsg
+				);
+		/*
+		 * Accept only LPC_CONNECTION_REQUEST requests.
+		 * Drop any other message.
+		 */
+		if (	!NT_SUCCESS(Status)
+			|| (LPC_CONNECTION_REQUEST == ConnectMsg->MessageType)
+			)
+		{
+			DPRINT("Got message (type %x)\n", LPC_CONNECTION_REQUEST);
+			break;
+		}
+		DPRINT("Got message (type %x)\n", ConnectMsg->MessageType);
 	}
-      DPRINT("Got message (type %x)\n", ConnectMsg->MessageType);
-    }
-  
-  return (Status);
+
+	return (Status);
 }
 
 

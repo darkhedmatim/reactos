@@ -14,6 +14,5 @@
 #define InternalMutexType                     (InternalBaseType + 9)
 #define InternalNotificationTimer             (InternalBaseType + 10)
 #define InternalSynchronizationTimer          (InternalBaseType + 11)
-#define InternalQueueType                     (InternalBaseType + 12)
 
 

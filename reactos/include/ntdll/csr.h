@@ -1,4 +1,4 @@
-/* $Id: csr.h,v 1.9 2004/07/03 17:13:09 hbirr Exp $
+/* $Id: csr.h,v 1.6 2001/06/17 20:05:09 ea Exp $
  *
  */
 
@@ -25,13 +25,6 @@ VOID STDCALL CsrProbeForRead(IN CONST PVOID Address,
 VOID STDCALL CsrProbeForWrite(IN CONST PVOID Address,
 			      IN ULONG Length,
 			      IN ULONG Alignment);
-NTSTATUS STDCALL
-CsrCaptureParameterBuffer(PVOID ParameterBuffer,
-			  ULONG ParameterBufferSize,
-			  PVOID* ClientAddress,
-			  PVOID* ServerAddress);
-NTSTATUS STDCALL
-CsrReleaseParameterBuffer(PVOID ClientAddress);
 
 #endif /* __INCLUDE_NTDLL_CSR_H */
 

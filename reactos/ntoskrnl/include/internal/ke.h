@@ -17,178 +17,197 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __NTOSKRNL_INCLUDE_INTERNAL_KE_H
-#define __NTOSKRNL_INCLUDE_INTERNAL_KE_H
+#ifndef __NTOSKRNL_INCLUDE_INTERNAL_KERNEL_H
+#define __NTOSKRNL_INCLUDE_INTERNAL_KERNEL_H
 
 /* INCLUDES *****************************************************************/
 
 #ifndef __ASM__
-#include <ddk/ntifs.h>
+#include <ddk/ntddk.h>
+
 #include <stdarg.h>
 #endif /* not __ASM__ */
 
-#include "arch/ke.h"
-
 /* INTERNAL KERNEL FUNCTIONS ************************************************/
-
-#ifdef __USE_W32API
-struct _KPROCESS* KeGetCurrentProcess(VOID);
-VOID KeSetGdtSelector(ULONG Entry, ULONG Value1, ULONG Value2);
-#endif
 
 #ifndef __ASM__
 
 struct _KTHREAD;
-struct _KIRQ_TRAPFRAME;
-struct _KPCR;
-struct _KEXCEPTION_FRAME;
 
-#define IPI_REQUEST_FUNCTIONCALL    1
-#define IPI_REQUEST_APC		    2
-#define IPI_REQUEST_DPC		    4
+#endif /* not __ASM__ */
 
-/* ipi.c ********************************************************************/
+#define KTRAP_FRAME_DEBUGEBP     (0x0)
+#define KTRAP_FRAME_DEBUGEIP     (0x4)
+#define KTRAP_FRAME_DEBUGARGMARK (0x8)
+#define KTRAP_FRAME_DEBUGPOINTER (0xC)
+#define KTRAP_FRAME_TEMPCS       (0x10)
+#define KTRAP_FRAME_TEMPEIP      (0x14)
+#define KTRAP_FRAME_DR0          (0x18)
+#define KTRAP_FRAME_DR1          (0x1C)
+#define KTRAP_FRAME_DR2          (0x20)
+#define KTRAP_FRAME_DR3          (0x24)
+#define KTRAP_FRAME_DR6          (0x28)
+#define KTRAP_FRAME_DR7          (0x2C)
+#define KTRAP_FRAME_GS           (0x30)
+#define KTRAP_FRAME_RESERVED1    (0x32)
+#define KTRAP_FRAME_ES           (0x34)
+#define KTRAP_FRAME_RESERVED2    (0x36)
+#define KTRAP_FRAME_DS           (0x38)
+#define KTRAP_FRAME_RESERVED3    (0x3A)
+#define KTRAP_FRAME_EDX          (0x3C)
+#define KTRAP_FRAME_ECX          (0x40)
+#define KTRAP_FRAME_EAX          (0x44)
+#define KTRAP_FRAME_PREVIOUS_MODE (0x48)
+#define KTRAP_FRAME_EXCEPTION_LIST (0x4C)
+#define KTRAP_FRAME_FS             (0x50)
+#define KTRAP_FRAME_RESERVED4      (0x52)
+#define KTRAP_FRAME_EDI            (0x54)
+#define KTRAP_FRAME_ESI            (0x58)
+#define KTRAP_FRAME_EBX            (0x5C)
+#define KTRAP_FRAME_EBP            (0x60)
+#define KTRAP_FRAME_ERROR_CODE     (0x64)
+#define KTRAP_FRAME_EIP            (0x68)
+#define KTRAP_FRAME_CS             (0x6C)
+#define KTRAP_FRAME_EFLAGS         (0x70)
+#define KTRAP_FRAME_ESP            (0x74)
+#define KTRAP_FRAME_SS             (0x78)
+#define KTRAP_FRAME_RESERVED5      (0x7A)
+#define KTRAP_FRAME_V86_ES         (0x7C)
+#define KTRAP_FRAME_RESERVED6      (0x7E)
+#define KTRAP_FRAME_V86_DS         (0x80)
+#define KTRAP_FRAME_RESERVED7      (0x82)
+#define KTRAP_FRAME_V86_FS         (0x84)
+#define KTRAP_FRAME_RESERVED8      (0x86)
+#define KTRAP_FRAME_V86_GS         (0x88)
+#define KTRAP_FRAME_RESERVED9      (0x8A)
+#define KTRAP_FRAME_SIZE           (0x8C)
 
-BOOLEAN STDCALL 
-KiIpiServiceRoutine(IN PKTRAP_FRAME TrapFrame, 
-		    IN struct _KEXCEPTION_FRAME* ExceptionFrame);
+#ifndef __ASM__
 
-VOID  
-KiIpiSendRequest(ULONG TargetSet, 
-		 ULONG IpiRequest);
+typedef struct _KTRAP_FRAME
+{
+   PVOID DebugEbp;
+   PVOID DebugEip;
+   PVOID DebugArgMark;
+   PVOID DebugPointer;
+   PVOID TempCs;
+   PVOID TempEip;
+   PVOID Dr0;
+   PVOID Dr1;
+   PVOID Dr2;
+   PVOID Dr3;
+   PVOID Dr6;
+   PVOID Dr7;
+   USHORT Gs;
+   USHORT Reserved1;
+   USHORT Es;
+   USHORT Reserved2;
+   USHORT Ds;
+   USHORT Reserved3;
+   ULONG Edx;
+   ULONG Ecx;
+   ULONG Eax;
+   ULONG PreviousMode;
+   PVOID ExceptionList;
+   USHORT Fs;
+   USHORT Reserved4;
+   ULONG Edi;
+   ULONG Esi;
+   ULONG Ebx;
+   ULONG Ebp;
+   ULONG ErrorCode;
+   ULONG Eip;
+   ULONG Cs;
+   ULONG Eflags;
+   ULONG Esp;
+   USHORT Ss;
+   USHORT Reserved5;
+   USHORT V86_Es;
+   USHORT Reserved6;
+   USHORT V86_Ds;
+   USHORT Reserved7;
+   USHORT V86_Fs;
+   USHORT Reserved8;
+   USHORT V86_Gs;
+   USHORT Reserved9;
+} KTRAP_FRAME, *PKTRAP_FRAME;
 
-VOID  
-KeIpiGenericCall(VOID STDCALL (*WorkerRoutine)(PVOID), 
-		 PVOID Argument);
+VOID KiUpdateSystemTime (KIRQL oldIrql, ULONG Eip);
 
-/* next file ***************************************************************/
+VOID KeAcquireDispatcherDatabaseLock(BOOLEAN Wait);
+VOID KeReleaseDispatcherDatabaseLock(BOOLEAN Wait);
+BOOLEAN KeDispatcherObjectWake(DISPATCHER_HEADER* hdr);
 
-
-
-VOID STDCALL 
-DbgBreakPointNoBugCheck(VOID);
-
-VOID
-STDCALL
-KeProfileInterrupt(
-    PKTRAP_FRAME TrapFrame
-);
-
-VOID
-STDCALL
-KeProfileInterruptWithSource(
-	IN PKTRAP_FRAME   		TrapFrame,
-	IN KPROFILE_SOURCE		Source
-);
-
-VOID STDCALL KeUpdateSystemTime(PKTRAP_FRAME TrapFrame, KIRQL Irql);
-VOID STDCALL KeUpdateRunTime(PKTRAP_FRAME TrapFrame, KIRQL Irql);
-
-KIRQL KeAcquireDispatcherDatabaseLock(VOID);
-VOID KeAcquireDispatcherDatabaseLockAtDpcLevel(VOID);
-VOID KeReleaseDispatcherDatabaseLock(KIRQL Irql);
-VOID KeReleaseDispatcherDatabaseLockFromDpcLevel(VOID);
-
-BOOLEAN KiDispatcherObjectWake(DISPATCHER_HEADER* hdr);
-VOID STDCALL KeExpireTimers(PKDPC Apc,
-			    PVOID Arg1,
-			    PVOID Arg2,
-			    PVOID Arg3);
+#if 0
+VOID KiInterruptDispatch(ULONG irq);
+#endif
+VOID KeExpireTimers( PKDPC Apc,
+		     PVOID Arg1,
+		     PVOID Arg2,
+		     PVOID Arg3 );
 VOID KeInitializeDispatcherHeader(DISPATCHER_HEADER* Header, ULONG Type,
 				  ULONG Size, ULONG SignalState);
+
 VOID KeDumpStackFrames(PULONG Frame);
+ULONG KeAllocateGdtSelector(ULONG Desc[2]);
+VOID KeFreeGdtSelector(ULONG Entry);
 BOOLEAN KiTestAlert(VOID);
-
-BOOLEAN KiAbortWaitThread(struct _KTHREAD* Thread, NTSTATUS WaitStatus);
-
+VOID KeRemoveAllWaitsThread(struct _ETHREAD* Thread, NTSTATUS WaitStatus);
 PULONG KeGetStackTopThread(struct _ETHREAD* Thread);
-VOID KeContextToTrapFrame(PCONTEXT Context, PKTRAP_FRAME TrapFrame);
-VOID STDCALL KiDeliverApc(KPROCESSOR_MODE PreviousMode,
-                  PVOID Reserved,
-                  PKTRAP_FRAME TrapFrame);
-		  
-VOID KiInitializeUserApc(IN PVOID Reserved,
-			 IN PKTRAP_FRAME TrapFrame,
-			 IN PKNORMAL_ROUTINE NormalRoutine,
-			 IN PVOID NormalContext,
-			 IN PVOID SystemArgument1,
-			 IN PVOID SystemArgument2);
-
-VOID STDCALL KiAttachProcess(struct _KTHREAD *Thread, struct _KPROCESS *Process, KIRQL ApcLock, struct _KAPC_STATE *SavedApcState);
-
-VOID STDCALL KiSwapProcess(struct _KPROCESS *NewProcess, struct _KPROCESS *OldProcess);
-
-BOOLEAN
-STDCALL
-KeTestAlertThread(IN KPROCESSOR_MODE AlertMode);
+VOID KeContextToTrapFrame(PCONTEXT Context,
+			  PKTRAP_FRAME TrapFrame);
+VOID KeReleaseDispatcherDatabaseLockAtDpcLevel(BOOLEAN Wait);
+VOID
+KiDeliverNormalApc(VOID);
 
 BOOLEAN STDCALL KeRemoveQueueApc (PKAPC Apc);
-PLIST_ENTRY STDCALL KeRundownQueue(IN PKQUEUE Queue);
-
-extern LARGE_INTEGER SystemBootTime;
 
 /* INITIALIZATION FUNCTIONS *************************************************/
 
 VOID KeInitExceptions(VOID);
 VOID KeInitInterrupts(VOID);
 VOID KeInitTimer(VOID);
-VOID KeInitDpc(struct _KPCR* Pcr);
+VOID KeInitDpc(VOID);
 VOID KeInitDispatcher(VOID);
 VOID KeInitializeDispatcher(VOID);
 VOID KeInitializeTimerImpl(VOID);
 VOID KeInitializeBugCheck(VOID);
 VOID Phase1Initialization(PVOID Context);
 
-VOID KeInit1(PCHAR CommandLine, PULONG LastKernelAddress);
+VOID KeInit1(VOID);
 VOID KeInit2(VOID);
 
 BOOLEAN KiDeliverUserApc(PKTRAP_FRAME TrapFrame);
-
 VOID
-STDCALL
-KiMoveApcState (PKAPC_STATE OldState,
-		PKAPC_STATE NewState);
-
+NtEarlyInitVdm(VOID);
 VOID
-KiAddProfileEvent(KPROFILE_SOURCE Source, ULONG Pc);
+KiAddProfileEvent(KPROFILE_SOURCE Source, ULONG Eip);
 VOID 
-KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
+KiDispatchException(PEXCEPTION_RECORD Er,
 		    PCONTEXT Context,
 		    PKTRAP_FRAME Tf,
 		    KPROCESSOR_MODE PreviousMode,
 		    BOOLEAN SearchFrames);
 VOID KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
 			  PCONTEXT Context);
+struct _KPCR;
 VOID
-KeApplicationProcessorInit(VOID);
+KiInitializeGdt(struct _KPCR* Pcr);
+VOID
+KeApplicationProcessorInit();
+VOID
+Ki386ApplicationProcessorInitializeTSS(VOID);
+VOID
+Ki386BootInitializeTSS(VOID);
+VOID
+KiGdtPrepareForApplicationProcessorInit(ULONG Id);
 VOID
 KePrepareForApplicationProcessorInit(ULONG id);
-ULONG
-KiUserTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2);
-VOID STDCALL
-KePushAndStackSwitchAndSysRet(ULONG Push, PVOID NewStack);
-VOID STDCALL
-KeStackSwitchAndRet(PVOID NewStack);
-VOID STDCALL
-KeBugCheckWithTf(ULONG BugCheckCode,
-		 ULONG BugCheckParameter1,
-		 ULONG BugCheckParameter2,
-		 ULONG BugCheckParameter3,
-		 ULONG BugCheckParameter4,
-		 PKTRAP_FRAME Tf);
-#define KEBUGCHECKWITHTF(a,b,c,d,e,f) DbgPrint("KeBugCheckWithTf at %s:%i\n",__FILE__,__LINE__), KeBugCheckWithTf(a,b,c,d,e,f)
 VOID
-KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG ExceptionNr, ULONG cr2);
-
-VOID
-STDCALL
-KeFlushCurrentTb(VOID);
-
-VOID
-KiSetSystemTime(PLARGE_INTEGER NewSystemTime);
+Ki386InitializeLdt(VOID);
 
 #endif /* not __ASM__ */
 
 #define MAXIMUM_PROCESSORS      32
 
-#endif /* __NTOSKRNL_INCLUDE_INTERNAL_KE_H */
+#endif

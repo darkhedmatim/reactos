@@ -13,10 +13,6 @@
 #include <string.h>
 #include <ntos/keyboard.h>
 #include <ntos/minmax.h>
-#include <rosrtl/string.h>
-
-#include <ddk/ntddkbd.h>
-#include <ddk/ntdd8042.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -411,11 +407,10 @@ static WORD ScanToVirtual(BYTE scanCode)
  * Keyboard IRQ handler
  */
 
-static VOID STDCALL
-KbdDpcRoutine(PKDPC Dpc,
-	      PVOID DeferredContext,
-	      PVOID SystemArgument1,
-	      PVOID SystemArgument2)
+static VOID KbdDpcRoutine(PKDPC Dpc,
+			  PVOID DeferredContext,
+			  PVOID SystemArgument1,
+			  PVOID SystemArgument2)
 {
    PIRP Irp = (PIRP)SystemArgument2;
    PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)SystemArgument1;
@@ -436,17 +431,13 @@ KbdDpcRoutine(PKDPC Dpc,
    IoStartNextPacket(DeviceObject,FALSE);
 }
 
-static BOOLEAN STDCALL
-KeyboardHandler(PKINTERRUPT Interrupt,
-		PVOID Context)
+static BOOLEAN KeyboardHandler(PKINTERRUPT Interrupt, PVOID Context)
 {
    BYTE thisKey;
    BOOL isDown;
    static BYTE lastKey;
    CHAR Status;
-   PDEVICE_OBJECT deviceObject = (PDEVICE_OBJECT) Context;
-   PDEVICE_EXTENSION deviceExtension = (PDEVICE_EXTENSION) deviceObject->DeviceExtension;
-   		
+
    CHECKPOINT;
 
    /*
@@ -460,27 +451,6 @@ KeyboardHandler(PKINTERRUPT Interrupt,
 
    // Read scan code
    thisKey=READ_PORT_UCHAR((PUCHAR)KBD_DATA_PORT);
-
-	// Call hook routine. May change scancode value.
-   if (deviceExtension->IsrHookCallback) {
-   	BOOLEAN cont = FALSE, ret;
-	//BUG BUG: rewrite to have valid CurrentScanState!!!
-	ret = (*deviceExtension->IsrHookCallback)(
-                	deviceObject,
-                	NULL,//&deviceExtension->CurrentInput,
-                	NULL,//&deviceExtension->CurrentOutput,
-                	Status,
-                	&thisKey, //&scanCode,
-                	&cont,
-                	NULL //&deviceExtension->CurrentScanState
-                	);
-
-    	if (!cont) {
-        	return ret;
-    	}
-	}       
-
-
    if ((thisKey==0xE0)||(thisKey==0xE1))   // Extended key
    {
       extKey=1;         // Wait for next byte
@@ -527,11 +497,11 @@ KeyboardHandler(PKINTERRUPT Interrupt,
 
 //   DbgPrint("Key: %c\n",VirtualToAscii(ScanToVirtual(thisKey),isDown));
 //   DbgPrint("Key: %x\n",ScanToVirtual(thisKey));
-   if (ScanToVirtual(thisKey) == VK_TAB && isDown)
+   if (ScanToVirtual(thisKey) == VK_PRINT && isDown)
      {
        InSysRq = TRUE;
      }
-   else if (ScanToVirtual(thisKey) == VK_TAB && !isDown)
+   else if (ScanToVirtual(thisKey) == VK_PRINT && !isDown)
      {
        InSysRq = FALSE;
      }
@@ -547,6 +517,7 @@ KeyboardHandler(PKINTERRUPT Interrupt,
      {
 	KEY_EVENT_RECORD* rec = (KEY_EVENT_RECORD *)
 	  CurrentIrp->AssociatedIrp.SystemBuffer;
+	PIO_STACK_LOCATION stk = IoGetCurrentIrpStackLocation(CurrentIrp);
 	
 	CHECKPOINT;
 	
@@ -559,14 +530,12 @@ KeyboardHandler(PKINTERRUPT Interrupt,
 	if (extKey)
 	  {
 	     rec[KeysRead].dwControlKeyState|=ENHANCED_KEY;
-	     extKey = 0;
 	  }
 	KeysRead++;
 	DPRINT("KeysRequired %d KeysRead %x\n",KeysRequired,KeysRead);
 	if (KeysRead==KeysRequired)
 	  {
-	  	 PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT) Context;
-	     KeInsertQueueDpc(&KbdDpc,DeviceObject,CurrentIrp);
+	     KeInsertQueueDpc(&KbdDpc,stk->DeviceObject,CurrentIrp);
 	     CurrentIrp=NULL;
 	  }
 	CHECKPOINT;
@@ -587,7 +556,7 @@ KeyboardHandler(PKINTERRUPT Interrupt,
    // kbdBuffer[bufHead].uChar.AsciiChar=TranslateScanCode(thisKey);
    kbdBuffer[bufHead].uChar.AsciiChar=VirtualToAscii(kbdBuffer[bufHead].wVirtualKeyCode,isDown);
    kbdBuffer[bufHead].dwControlKeyState=ctrlKeyState;
-   if (extKey) 
+   if (extKey)
       kbdBuffer[bufHead].dwControlKeyState|=ENHANCED_KEY;
    bufHead++;
    bufHead&=KBD_WRAP_MASK;    // Modulo KBD_BUFFER_SIZE
@@ -600,7 +569,7 @@ KeyboardHandler(PKINTERRUPT Interrupt,
 //
 // Initialize keyboard
 //
-static void KeyboardConnectInterrupt(PDEVICE_OBJECT DeviceObject)
+static void KeyboardConnectInterrupt(void)
 {
    ULONG MappedIrq;
    KIRQL Dirql;
@@ -615,7 +584,7 @@ static void KeyboardConnectInterrupt(PDEVICE_OBJECT DeviceObject)
 				     &Affinity);
    Status = IoConnectInterrupt(&KbdInterrupt,
 			       KeyboardHandler,
-			       (PVOID)DeviceObject,
+			       NULL,
 			       NULL,
 			       MappedIrq,
 			       Dirql,
@@ -643,7 +612,7 @@ KbdClearInput(VOID)
     }
 }
 
-static int InitializeKeyboard(PDEVICE_OBJECT DeviceObject)
+static int InitializeKeyboard(void)
 {
    // Initialize variables
    bufHead=0;
@@ -657,7 +626,7 @@ static int InitializeKeyboard(PDEVICE_OBJECT DeviceObject)
    extKey=0;
 
    KbdClearInput();
-   KeyboardConnectInterrupt(DeviceObject);
+   KeyboardConnectInterrupt();
    KeInitializeDpc(&KbdDpc,KbdDpcRoutine,NULL);
    return 0;
 }
@@ -665,8 +634,7 @@ static int InitializeKeyboard(PDEVICE_OBJECT DeviceObject)
 /*
  * Read data from keyboard buffer
  */
-BOOLEAN STDCALL
-KbdSynchronizeRoutine(PVOID Context)
+BOOLEAN KbdSynchronizeRoutine(PVOID Context)
 {
    PIRP Irp = (PIRP)Context;
    KEY_EVENT_RECORD* rec = (KEY_EVENT_RECORD *)Irp->AssociatedIrp.SystemBuffer;
@@ -709,80 +677,15 @@ VOID STDCALL KbdStartIo(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    
    if (KeSynchronizeExecution(KbdInterrupt, KbdSynchronizeRoutine, Irp))
      {
-        KIRQL oldIrql;
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	oldIrql = KeGetCurrentIrql();
-        if (oldIrql < DISPATCH_LEVEL)
-          {
-            KeRaiseIrql (DISPATCH_LEVEL, &oldIrql);
-            IoStartNextPacket (DeviceObject, FALSE);
-            KeLowerIrql(oldIrql);
-	  }
-        else
-          {
-            IoStartNextPacket (DeviceObject, FALSE);
-	  }
+	IoStartNextPacket(DeviceObject, FALSE);
      }
    
    DPRINT("stk->Parameters.Read.Length %d\n",stk->Parameters.Read.Length);
    DPRINT("KeysRequired %d\n",KeysRequired);     
 }
-
-NTSTATUS STDCALL KbdInternalDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
-    PIO_STACK_LOCATION                  stk;
-	PINTERNAL_I8042_HOOK_KEYBOARD      	hookKeyboard;
-    PDEVICE_EXTENSION					DevExt = (PDEVICE_EXTENSION) DeviceObject->DeviceExtension;
-	NTSTATUS                    		status = STATUS_INVALID_DEVICE_REQUEST;
-
-	Irp->IoStatus.Information = 0;
-    stk = IoGetCurrentIrpStackLocation(Irp);
-    
-	switch (stk->Parameters.DeviceIoControl.IoControlCode) 
-	{
-		/*-----------------11/29/2001 4:12PM----------------
-		 * This internal ioctrl belongs in i8042 driver. Should be
-		 * moved to the appropriate driver later.
-		 * --------------------------------------------------*/
-    	case IOCTL_INTERNAL_I8042_HOOK_KEYBOARD:
-        	
-			if (stk->Parameters.DeviceIoControl.InputBufferLength < sizeof(INTERNAL_I8042_HOOK_KEYBOARD)) 
-			{
-				DPRINT(("Keyboard IOCTL_INTERNAL_I8042_HOOK_KEYBOARD invalid buffer size\n"));
-            	status = STATUS_INVALID_PARAMETER;
-        	}
-        	else {
-            	//
-            	// Copy the values if they are filled in
-            	//
-            	hookKeyboard = (PINTERNAL_I8042_HOOK_KEYBOARD)
-                	stk->Parameters.DeviceIoControl.Type3InputBuffer;
-
-            	DevExt->HookContext = hookKeyboard->Context;
-            	if (hookKeyboard->InitializationRoutine) {
-					DbgPrint("Keyboard: InitializationHookCallback NOT IMPLEMENTED\n");
-                	DevExt->InitializationHookCallback =
-                    	hookKeyboard->InitializationRoutine;
-            	}
-    
-            	if (hookKeyboard->IsrRoutine) {
-                	DevExt->IsrHookCallback = hookKeyboard->IsrRoutine;
-            	}
-    
-            	status = STATUS_SUCCESS;
-        	}
-        	break;
-		default:
-        	status = STATUS_INVALID_DEVICE_REQUEST;
-			break;
-	}
-    
-	Irp->IoStatus.Status = status;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	return status;
-}			   
 
 NTSTATUS STDCALL KbdDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
@@ -843,32 +746,28 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Keyboard");
-   UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\Keyboard");
+   UNICODE_STRING DeviceName;
+   UNICODE_STRING SymlinkName;
    
-   DPRINT("Keyboard Driver 0.0.4\n");
+   DbgPrint("Keyboard Driver 0.0.4\n");
+   InitializeKeyboard();
 
    DriverObject->MajorFunction[IRP_MJ_CREATE] = KbdDispatch;
    DriverObject->MajorFunction[IRP_MJ_CLOSE] = KbdDispatch;
    DriverObject->MajorFunction[IRP_MJ_READ] = KbdDispatch;
-   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = 
-         KbdInternalDeviceControl;  
-
    DriverObject->DriverStartIo = KbdStartIo;
-
+   
+   RtlInitUnicodeString(&DeviceName, L"\\Device\\Keyboard");
    IoCreateDevice(DriverObject,
-		  sizeof(DEVICE_EXTENSION),
+		  0,
 		  &DeviceName,
 		  FILE_DEVICE_KEYBOARD,
 		  0,
 		  TRUE,
 		  &DeviceObject);
-	
-   RtlZeroMemory(DeviceObject->DeviceExtension, sizeof(DEVICE_EXTENSION));
-
    DeviceObject->Flags = DeviceObject->Flags | DO_BUFFERED_IO;
-   InitializeKeyboard( DeviceObject );
    
+   RtlInitUnicodeString(&SymlinkName, L"\\??\\Keyboard");
    IoCreateSymbolicLink(&SymlinkName, &DeviceName);
    
    return(STATUS_SUCCESS);

@@ -1,23 +1,43 @@
-# $Id: makefile,v 1.6 2003/11/14 17:13:33 weiden Exp $
+# $Id: makefile,v 1.2 2001/07/15 21:18:53 rex Exp $
+#
+# Services: Service control manager (SCM)
+#
+# ReactOS Operating System
+#
+TARGET = services
+PROGS = services.exe
 
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = program
+OBJECTS = services.o services.coff
+LIBS = ../../../lib/kernel32/kernel32.a ../../../lib/ntdll/ntdll.a
+CLEAN_FILES = services.o services.coff services.exe services.sym
 
-TARGET_APPTYPE = console
+BASE_CFLAGS = -I../../../include
 
-TARGET_NAME = services
+all: services.exe
 
-TARGET_INSTALLDIR = system32
+$(TARGET).coff: $(TARGET).rc
+	$(RC) $(TARGET).rc $(TARGET).coff
 
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a
+$(TARGET).exe: $(OBJECTS) $(LIBS)
+	$(CC) $(OBJECTS) $(LIBS) -o $(TARGET).exe
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
 
-TARGET_OBJECTS = $(TARGET_NAME).o database.o
+clean: 
+	- $(RM) $(CLEAN_FILES)
 
-TARGET_CFLAGS = -Wall -Werror
+.phony: clean 
+
+install: $(PROGS:%=$(FLOPPY_DIR)/apps/%)
+
+$(PROGS:%=$(FLOPPY_DIR)/apps/%): $(FLOPPY_DIR)/apps/%: %
+	$(CP) $* $(FLOPPY_DIR)/apps/$*
+
+dist: $(PROGS:%=../../../$(DIST_DIR)/apps/%)
+
+$(PROGS:%=../../../$(DIST_DIR)/apps/%): ../../../$(DIST_DIR)/apps/%: %
+	$(CP) $* ../../../$(DIST_DIR)/apps/$*
+
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-# EOF

@@ -1,4 +1,4 @@
-/* $Id: services.c,v 1.18 2004/04/12 17:20:47 navaraf Exp $
+/* $Id: services.c,v 1.3 2001/03/26 20:46:52 dwelch Exp $
  *
  * service control manager
  * 
@@ -31,328 +31,130 @@
 
 #define NTOS_MODE_USER
 #include <ntos.h>
-#include <stdio.h>
 #include <windows.h>
 
-#include "services.h"
-
-#define NDEBUG
-#include <debug.h>
-
-
+#include <services/services.h>
 
 /* GLOBALS ******************************************************************/
 
-#define PIPE_BUFSIZE 1024
-#define PIPE_TIMEOUT 1000
 
 
 /* FUNCTIONS *****************************************************************/
 
-void
-PrintString(char* fmt,...)
+void PrintString (char* fmt,...)
 {
-#ifdef DBG
-    char buffer[512];
-    va_list ap;
+   char buffer[512];
+   va_list ap;
 
-    va_start(ap, fmt);
-    vsprintf(buffer, fmt, ap);
-    va_end(ap);
+   va_start(ap, fmt);
+   vsprintf(buffer, fmt, ap);
+   va_end(ap);
 
-    OutputDebugStringA(buffer);
-#endif
+   OutputDebugString(buffer);
 }
 
 
-BOOL
-ScmCreateStartEvent(PHANDLE StartEvent)
+BOOL ScmCreateStartEvent(PHANDLE StartEvent)
 {
-    HANDLE hEvent;
+   HANDLE hEvent;
 
-    hEvent = CreateEvent(NULL,
-                         TRUE,
-                         FALSE,
-                         _T("SvcctrlStartEvent_A3725DX"));
-    if (hEvent == NULL) {
-        if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            hEvent = OpenEvent(EVENT_ALL_ACCESS,
-                               FALSE,
-                               _T("SvcctrlStartEvent_A3725DX"));
-            if (hEvent == NULL) {
-                return FALSE;
-            }
-        } else {
-            return FALSE;
-        }
-    }
-    *StartEvent = hEvent;
-    return TRUE;
+   hEvent = CreateEvent(NULL,
+			TRUE,
+			FALSE,
+			_T("SvcctrlStartEvent_A3725DX"));
+   if (hEvent == NULL)
+     {
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	  {
+	     hEvent = OpenEvent(EVENT_ALL_ACCESS,
+				FALSE,
+				"SvcctrlStartEvent_A3725DX");
+	     if (hEvent == NULL)
+	       {
+		  return FALSE;
+	       }
+	  }
+	else
+	  {
+	     return FALSE;
+	  }
+     }
+
+   *StartEvent = hEvent;
+
+   return TRUE;
 }
 
-
-BOOL
-ScmNamedPipeHandleRequest(
-    PVOID Request,
-    DWORD RequestSize,
-    PVOID Reply,
-    LPDWORD ReplySize)
-{
-    DbgPrint("SCM READ: %s\n", Request);
-
-    *ReplySize = 0;
-    return FALSE;
-}
-
-
-DWORD
-WINAPI
-ScmNamedPipeThread(LPVOID Context)
-{
-    CHAR chRequest[PIPE_BUFSIZE];
-    CHAR chReply[PIPE_BUFSIZE];
-    DWORD cbReplyBytes;
-    DWORD cbBytesRead;
-    DWORD cbWritten;
-    BOOL fSuccess;
-    HANDLE hPipe;
-
-    hPipe = (HANDLE)Context;
-
-    DPRINT("ScmNamedPipeThread(%x) - Accepting SCM commands through named pipe\n", hPipe);
-    
-    for (;;) {
-        fSuccess = ReadFile(hPipe,
-                            &chRequest,
-                            PIPE_BUFSIZE,
-                            &cbBytesRead,
-                            NULL);
-        if (!fSuccess || cbBytesRead == 0) {
-            break;
-        }
-        if (ScmNamedPipeHandleRequest(&chRequest, cbBytesRead, &chReply, &cbReplyBytes)) {
-            fSuccess = WriteFile(hPipe,
-                                 &chReply,
-                                 cbReplyBytes,
-                                 &cbWritten,
-                                 NULL);
-            if (!fSuccess || cbReplyBytes != cbWritten) {
-                break;
-            }
-        }
-    }
-    DPRINT("ScmNamedPipeThread(%x) - Disconnecting named pipe connection\n", hPipe);
-    FlushFileBuffers(hPipe);
-    DisconnectNamedPipe(hPipe);
-    CloseHandle(hPipe);
-    DPRINT("ScmNamedPipeThread(%x) - Done.\n", hPipe);
-    return ERROR_SUCCESS;
-}
-
-BOOL ScmCreateNamedPipe(VOID)
-{
-    DWORD dwThreadId;
-    BOOL fConnected;
-    HANDLE hThread;
-    HANDLE hPipe;
-
-    DPRINT("ScmCreateNamedPipe() - CreateNamedPipe(\"\\\\.\\pipe\\Ntsvcs\")\n");
-
-    hPipe = CreateNamedPipe("\\\\.\\pipe\\Ntsvcs",
-              PIPE_ACCESS_DUPLEX,
-              PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-              PIPE_UNLIMITED_INSTANCES,
-              PIPE_BUFSIZE,
-              PIPE_BUFSIZE,
-              PIPE_TIMEOUT,
-              NULL);
-    if (hPipe == INVALID_HANDLE_VALUE) {
-        DPRINT("CreateNamedPipe() failed (%d)\n", GetLastError());
-        return FALSE;
-    }
-
-    DPRINT("CreateNamedPipe() - calling ConnectNamedPipe(%x)\n", hPipe);
-    fConnected = ConnectNamedPipe(hPipe,
-                   NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
-    DPRINT("CreateNamedPipe() - ConnectNamedPipe() returned %d\n", fConnected);
-
-    if (fConnected) {
-        DPRINT("Pipe connected\n");
-        hThread = CreateThread(NULL,
-                               0,
-                               ScmNamedPipeThread,
-                               (LPVOID)hPipe,
-                               0,
-                               &dwThreadId);
-        if (!hThread) {
-            DPRINT("Could not create thread (%d)\n", GetLastError());
-            DisconnectNamedPipe(hPipe);
-            CloseHandle(hPipe);
-            DPRINT("CreateNamedPipe() - returning FALSE\n");
-           return FALSE;
-        }
-    } else {
-        DPRINT("Pipe not connected\n");
-        CloseHandle(hPipe);
-        DPRINT("CreateNamedPipe() - returning FALSE\n");
-        return FALSE;
-    }
-    DPRINT("CreateNamedPipe() - returning TRUE\n");
-    return TRUE;
-}
-
-DWORD
-WINAPI
-ScmNamedPipeListenerThread(LPVOID Context)
-{
-//    HANDLE hPipe;
-    DPRINT("ScmNamedPipeListenerThread(%x) - aka SCM.\n", Context);
-
-//    hPipe = (HANDLE)Context;
-    for (;;) {
-        DPRINT("SCM: Waiting for new connection on named pipe...\n");
-        /* Create named pipe */
-        if (!ScmCreateNamedPipe()) {
-            DPRINT1("\nSCM: Failed to create named pipe\n");
-            break;
-            //ExitThread(0);
-        }
-        DPRINT("\nSCM: named pipe session created.\n");
-        Sleep(10);
-    }
-    DPRINT("\n\nWARNING: ScmNamedPipeListenerThread(%x) - Aborted.\n\n", Context);
-    return ERROR_SUCCESS;
-}
-
-BOOL StartScmNamedPipeThreadListener(void)
-{
-    DWORD dwThreadId;
-    HANDLE hThread;
-
-    hThread = CreateThread(NULL,
-                 0,
-                 ScmNamedPipeListenerThread,
-                 NULL, /*(LPVOID)hPipe,*/
-                 0,
-                 &dwThreadId);
-
-    if (!hThread) {
-        DPRINT1("SERVICES: Could not create thread (Status %lx)\n", GetLastError());
-        return FALSE;
-    }
-    return TRUE;
-}
-
-VOID FASTCALL
-AcquireLoadDriverPrivilege(VOID)
-{
-    HANDLE hToken; 
-    TOKEN_PRIVILEGES tkp; 
-
-    /* Get a token for this process.  */
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-        /* Get the LUID for the debug privilege.  */
-        LookupPrivilegeValue(NULL, SE_LOAD_DRIVER_NAME, &tkp.Privileges[0].Luid); 
-
-        tkp.PrivilegeCount = 1;  /* one privilege to set */
-        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; 
-
-        /* Get the debug privilege for this process. */
-        AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0); 
-    }
-}
 
 int STDCALL
 WinMain(HINSTANCE hInstance,
-    HINSTANCE hPrevInstance,
-    LPSTR lpCmdLine,
-    int nShowCmd)
+	HINSTANCE hPrevInstance,
+	LPSTR lpCmdLine,
+	int nShowCmd)
 {
-  HANDLE hScmStartEvent;
-  HANDLE hEvent;
-  NTSTATUS Status;
-
-  DPRINT("SERVICES: Service Control Manager\n");
-
-  /* Acquire privileges to load drivers */
-  AcquireLoadDriverPrivilege();
-
-  /* Create start event */
-  if (!ScmCreateStartEvent(&hScmStartEvent))
-    {
-      DPRINT1("SERVICES: Failed to create start event\n");
-      ExitThread(0);
-    }
-
-  DPRINT("SERVICES: created start event with handle %x.\n", hScmStartEvent);
-
-  /* FIXME: more initialization */
+   HANDLE hScmStartEvent;
+   HANDLE hEvent;
+   
+   PrintString("Service Control Manager\n");
+   
+   /* Create start event */
+   if (!ScmCreateStartEvent(&hScmStartEvent))
+     {
+	PrintString("SERVICES: Failed to create start event\n");
+	ExitThread(0);
+     }
+   
 
 
-  /* Create the service database */
-  Status = ScmCreateServiceDataBase();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("SERVICES: failed to create SCM database (Status %lx)\n", Status);
-      ExitThread(0);
-    }
 
-  /* Update service database */
-  ScmGetBootAndSystemDriverState();
+   /* FIXME: more initialization */
 
-#if 0
-    DPRINT("SERVICES: Attempting to create named pipe...\n");
-    /* Create named pipe */
-    if (!ScmCreateNamedPipe()) {
-        DPRINT1("SERVICES: Failed to create named pipe\n");
-        ExitThread(0);
-    }
-    DPRINT("SERVICES: named pipe created successfully.\n");
-#else
-    DPRINT("SERVICES: Attempting to create named pipe listener...\n");
-    if (!StartScmNamedPipeThreadListener()) {
-        DPRINT1("SERVICES: Failed to create named pipe listener thread.\n");
-        ExitThread(0);
-    }
-    DPRINT("SERVICES: named pipe listener thread created.\n");
-#endif
+   /* FIXME: create service database */
+//   ScmCreateServiceDB();
+
+   /* FIXME: update service database */
+//   ScmGetBootAndSystemDriverState();
+
+   /* FIXME: create pipe "\Pipe\Ntsvcs" */
+
    /* FIXME: create listener thread for pipe */
 
+   /* FIXME: register process as service process */
+//   RegisterServiceProcess();
 
-  /* Register service process with CSRSS */
-  RegisterServicesProcess(GetCurrentProcessId());
+   PrintString("SERVICES: Initialized.\n");
 
-  DPRINT("SERVICES: Initialized.\n");
+   /* Signal start event */
+   SetEvent(hScmStartEvent);
 
-  /* Signal start event */
-  SetEvent(hScmStartEvent);
-
-  /* FIXME: register event handler (used for system shutdown) */
-//  SetConsoleCtrlHandler(...);
-
-
-  /* Start auto-start services */
-  ScmAutoStartServices();
-
-  /* FIXME: more to do ? */
+   /* FIXME: register event handler (used for system shutdown) */
+//   SetConsoleCtrlHandler(...);
 
 
-  DPRINT("SERVICES: Running.\n");
+   /* FIXME: start auto-start services */
+//   ScmAutoStartServices();
 
-#if 1
-  hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-  WaitForSingleObject(hEvent, INFINITE);
-#else
+   /* FIXME: more to do ? */
+
+
+   PrintString("SERVICES: Running.\n");
+   
+   hEvent = CreateEvent(NULL,
+			TRUE,
+			FALSE,
+			NULL);
+   WaitForSingleObject(hEvent, INFINITE);
+#if 0
     for (;;)
       {
-    NtYieldExecution();
+	NtYieldExecution();
       }
 #endif
 
-  DPRINT("SERVICES: Finished.\n");
+   PrintString("SERVICES: Finished.\n");
 
-  ExitThread(0);
-  return(0);
+   ExitThread (0);
+   return 0;
 }
 
 /* EOF */

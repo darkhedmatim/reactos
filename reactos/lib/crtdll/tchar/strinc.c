@@ -1,8 +1,5 @@
-#include <msvcrt/string.h>
+#include <crtdll/tchar.h>
 
-/*
- * @implemented
- */
 char * _strinc(const char *str) 
 { 
 	return (char *)(++str); 

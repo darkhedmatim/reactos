@@ -1,11 +1,8 @@
 /* Copyright (C) 1998 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/string.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdio.h>
+#include <crtdll/string.h>
 
-/*
- * @implemented
- */
 char *
 _gcvt (double value, int ndigits, char *buf)
 {

@@ -3,12 +3,8 @@
 #include <msvcrt/ctype.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 long
 strtol(const char *nptr, char **endptr, int base)
 {

@@ -9,9 +9,6 @@
  */
 #include <ws2_32.h>
 
-/*
- * @implemented
- */
 ULONG
 EXPORT
 htonl(
@@ -20,10 +17,6 @@ htonl(
   return DH2N(hostlong);
 }
 
-
-/*
- * @implemented
- */
 USHORT
 EXPORT
 htons(
@@ -32,10 +25,6 @@ htons(
   return WH2N(hostshort);
 }
 
-
-/*
- * @implemented
- */
 ULONG
 EXPORT
 ntohl(
@@ -44,10 +33,6 @@ ntohl(
   return DN2H(netlong);
 }
 
-
-/*
- * @implemented
- */
 USHORT
 EXPORT
 ntohs(

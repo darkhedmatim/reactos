@@ -10,7 +10,6 @@
 /* This reads the controller status port, and does the appropriate
    action. It requires that we hold the keyboard controller spinlock. */
 
-int controller_read_data(void);
 unsigned handle_event(void)
 {
   unsigned status = controller_read_status();
@@ -62,7 +61,7 @@ void controller_wait(void)
   unsigned long timeout;
   LARGE_INTEGER Millisecond_Timeout;
 
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   for(timeout = 0; timeout < CONTROLLER_TIMEOUT; timeout++)
   {
@@ -87,7 +86,7 @@ int controller_wait_for_input(void)
   int timeout;
   LARGE_INTEGER Millisecond_Timeout;
 
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   for(timeout = KEYBOARD_INIT_TIMEOUT; timeout > 0; timeout--)
   {

@@ -25,9 +25,6 @@ Cambridge, MA 02139, USA.  */
 
 /* Read formatted input from stdin according to the format string FORMAT.  */
 /* VARARGS1 */
-/*
- * @implemented
- */
 int scanf(const char *format, ...)
 {
   va_list arg;
@@ -40,9 +37,6 @@ int scanf(const char *format, ...)
   return done;
 }
 
-/*
- * @implemented
- */
 int
 wscanf(const wchar_t *fmt, ...)
 {

@@ -1,5 +1,6 @@
-#include "precomp.h"
-#include <msvcrt/stdlib.h>
+/* tls.c */
+
+#include <windows.h>
 #include <msvcrt/internal/tls.h>
 #include <msvcrt/internal/rterror.h>
 
@@ -9,8 +10,8 @@ static unsigned long TlsIndex = (unsigned long)-1;
 
 static void InitThreadData(PTHREADDATA ThreadData)
 {
-   ThreadData->terrno = 0;
-   ThreadData->tdoserrno = 0;
+//   ThreadData->terrno = 0;
+//   ThreadData->tdoserrno = 0;
 
    ThreadData->fpecode = 0;
 
@@ -97,4 +98,3 @@ PTHREADDATA GetThreadData(void)
 }
 
 /* EOF */
-

@@ -1,4 +1,4 @@
-/* $Id: npfs.c,v 1.10 2004/04/12 13:03:29 navaraf Exp $
+/* $Id: npfs.c,v 1.1 2001/07/29 16:40:20 ekohl Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -12,8 +12,9 @@
 #include <ddk/ntddk.h>
 #include "npfs.h"
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -26,8 +27,9 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
    UNICODE_STRING DeviceName;
    NTSTATUS Status;
    
-   DPRINT("Named Pipe FSD 0.0.2\n");
+   DbgPrint("Named Pipe FSD 0.0.2\n");
    
+   DeviceObject->Flags = 0;
    DriverObject->MajorFunction[IRP_MJ_CREATE] = NpfsCreate;
    DriverObject->MajorFunction[IRP_MJ_CREATE_NAMED_PIPE] =
      NpfsCreateNamedPipe;
@@ -41,7 +43,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
    DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] = 
      NpfsQueryVolumeInformation;
 //   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = NpfsCleanup;
-   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = NpfsFlushBuffers;
+//   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = NpfsFlushBuffers;
 //   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] =
 //     NpfsDirectoryControl;
    DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] =
@@ -67,20 +69,12 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 	return(Status);
      }
    
-   /* initialize the device object */
-   DeviceObject->Flags = DO_DIRECT_IO;
-   
    /* initialize the device extension */
    DeviceExtension = DeviceObject->DeviceExtension;
    InitializeListHead(&DeviceExtension->PipeListHead);
    KeInitializeMutex(&DeviceExtension->PipeListLock,
 		     0);
-
-   /* set the size quotas */
-   DeviceExtension->MinQuota = PAGE_SIZE;
-   DeviceExtension->DefaultQuota = 8 * PAGE_SIZE;
-   DeviceExtension->MaxQuota = 64 * PAGE_SIZE;
-
+   
    return(STATUS_SUCCESS);
 }
 

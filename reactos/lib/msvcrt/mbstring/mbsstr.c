@@ -1,9 +1,6 @@
 #include <msvcrt/mbstring.h>
 #include <msvcrt/stdlib.h>
 
-/*
- * @implemented
- */
 unsigned char *_mbsstr(const unsigned char *src1,const unsigned char *src2)
 {
   int len;
@@ -11,7 +8,7 @@ unsigned char *_mbsstr(const unsigned char *src1,const unsigned char *src2)
   if (src2 ==NULL || *src2 == 0)
     return (unsigned char *)src1;
 
-  len = _mbslen(src2);
+  len = _mbstrlen(src2);
 
   while(*src1)
     {

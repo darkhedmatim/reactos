@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/mbsncoll.c
+ * FILE:        lib/crtdll/mbstring/mbsncoll.c
  * PURPOSE:     
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -11,9 +11,6 @@
 
 int colldif(unsigned short c1, unsigned short c2);
 
-/*
- * @implemented
- */
 int _mbsncoll(const unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;
@@ -60,9 +57,6 @@ int _mbsncoll(const unsigned char *str1, const unsigned char *str2, size_t n)
 	return 0;
 }
 
-/*
- * @implemented
- */
 int _mbsnbcoll(const unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;

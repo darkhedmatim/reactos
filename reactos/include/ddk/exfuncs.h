@@ -3,18 +3,6 @@
 
 /* EXECUTIVE ROUTINES ******************************************************/
 
-#ifdef __NTOSKRNL__
-extern POBJECT_TYPE EXPORTED ExDesktopObjectType;
-extern POBJECT_TYPE EXPORTED ExEventObjectType;
-extern POBJECT_TYPE EXPORTED ExWindowStationObjectType;
-extern POBJECT_TYPE EXPORTED ExIoCompletionType;
-#else
-extern POBJECT_TYPE IMPORTED ExDesktopObjectType;
-extern POBJECT_TYPE IMPORTED ExEventObjectType;
-extern POBJECT_TYPE IMPORTED ExWindowStationObjectType;
-extern POBJECT_TYPE IMPORTED ExIoCompletionType;
-#endif
-
 #define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 VOID
@@ -44,32 +32,6 @@ STDCALL
 ExAcquireResourceSharedLite (
 	PERESOURCE	Resource,
 	BOOLEAN		Wait
-	);
-BOOLEAN
-FASTCALL
-ExAcquireRundownProtection (
-    IN PEX_RUNDOWN_REF RunRef
-    );
-BOOLEAN
-FASTCALL
-ExAcquireRundownProtectionEx (
-    IN PEX_RUNDOWN_REF RunRef,
-    IN ULONG Count
-    );
-PVOID
-FASTCALL
-ExfAcquirePushLockExclusive (
-	PVOID		Lock
-	);
-PVOID
-FASTCALL
-ExfAcquirePushLockShared (
-	PVOID		Lock
-	);
-PVOID
-FASTCALL
-ExfReleasePushLock (
-	PVOID		Lock
 	);
 BOOLEAN
 STDCALL
@@ -146,15 +108,6 @@ ExAllocatePoolWithTag (
 	IN	ULONG		Tag
 	);
 
-PVOID
-NTAPI
-ExAllocatePoolWithTagPriority(
-    IN POOL_TYPE PoolType,
-    IN SIZE_T NumberOfBytes,
-    IN ULONG Tag,
-    IN EX_POOL_PRIORITY Priority
-    );
-
 VOID
 STDCALL
 ExConvertExclusiveToSharedLite (
@@ -185,15 +138,6 @@ VOID
 STDCALL
 ExDisableResourceBoostLite (
 	PERESOURCE	Resource
-	);
-
-VOID
-STDCALL
-ExEnumHandleTable (
-	PULONG	HandleTable,
-	PVOID	Callback,
-	PVOID	Param,
-	PHANDLE	Handle OPTIONAL
 	);
 
 NTSTATUS
@@ -241,29 +185,7 @@ ExFreePool (
  *	);
  */
 #define ExGetCurrentResourceThread() \
-	((ERESOURCE_THREAD)KeGetCurrentThread())
-
-LONGLONG
-FASTCALL
-ExfInterlockedCompareExchange64(
-    IN OUT LONGLONG volatile *Destination,
-    IN PLONGLONG ExChange,
-    IN PLONGLONG Comperand
-    );
-
-VOID
-STDCALL
-ExGetCurrentProcessorCounts (
-	PULONG	ThreadKernelTime,
-	PULONG	TotalCpuTime,
-	PULONG	ProcessorNumber
-);
-
-VOID
-STDCALL
-ExGetCurrentProcessorCpuUsage (
-	PULONG	CpuUsage
-	);
+	((ERESOURCE_THREAD)PsGetCurrentThread())
 
 ULONG
 STDCALL
@@ -271,7 +193,7 @@ ExGetExclusiveWaiterCount (
 	PERESOURCE	Resource
 	);
 
-KPROCESSOR_MODE
+ULONG
 STDCALL
 ExGetPreviousMode (
 	VOID
@@ -308,12 +230,6 @@ ExInitializeResourceLite (
 	PERESOURCE	Resource
 	);
 
-VOID
-FASTCALL
-ExInitializeRundownProtection (
-    IN PEX_RUNDOWN_REF RunRef
-    );
-
 /*
  * VOID
  * ExInitializeSListHead (
@@ -340,11 +256,12 @@ ExInitializeRundownProtection (
  *	Routine = Routine to be called by the worker thread
  *	Context = Parameter to be passed to the callback
  */
-#define ExInitializeWorkItem(Item, Routine, RoutineContext) \
+#define ExInitializeWorkItem(Item, WorkerRoutine, RoutineContext) \
 	ASSERT_IRQL(DISPATCH_LEVEL); \
-	(Item)->WorkerRoutine = (Routine); \
-	(Item)->Parameter = (RoutineContext); \
-	(Item)->List.Flink = NULL;
+	(Item)->Routine = (WorkerRoutine); \
+	(Item)->Context = (RoutineContext); \
+	(Item)->Entry.Flink = NULL; \
+	(Item)->Entry.Blink = NULL;
 
 NTSTATUS
 STDCALL
@@ -404,7 +321,6 @@ ExInterlockedDecrementLong (
 	PLONG		Addend,
 	PKSPIN_LOCK	Lock
 	);
-
 ULONG
 STDCALL
 ExInterlockedExchangeUlong (
@@ -412,7 +328,6 @@ ExInterlockedExchangeUlong (
 	ULONG		Value,
 	PKSPIN_LOCK	Lock
 	);
-
 NTSTATUS
 STDCALL
 ExInterlockedExtendZone (
@@ -421,12 +336,6 @@ ExInterlockedExtendZone (
 	ULONG		SegmentSize,
 	PKSPIN_LOCK	Lock
 	);
-
-PSLIST_ENTRY
-FASTCALL
-ExInterlockedFlushSList (
-    IN PSLIST_HEADER ListHead
-    );
 
 /*
  * PVOID
@@ -485,6 +394,14 @@ ExInterlockedPushEntrySList (
 	PSINGLE_LIST_ENTRY	ListEntry,
 	PKSPIN_LOCK		Lock
 	);
+
+VOID
+ExInterlockedRemoveEntryList (
+	PLIST_ENTRY	ListHead,
+	PLIST_ENTRY	Entry,
+	PKSPIN_LOCK	Lock
+	);
+
 PLIST_ENTRY
 STDCALL
 ExInterlockedRemoveHeadList (
@@ -524,8 +441,7 @@ ExIsResourceAcquiredExclusiveLite (
 	PERESOURCE	Resource
 	);
 
-/* was ULONG */
-USHORT
+ULONG
 STDCALL
 ExIsResourceAcquiredSharedLite (
 	PERESOURCE	Resource
@@ -541,7 +457,7 @@ ExLocalTimeToSystemTime (
 VOID
 STDCALL
 ExNotifyCallback (
-	IN	PCALLBACK_OBJECT	CallbackObject,
+	IN	PVOID	CallbackObject,
 	IN	PVOID	Argument1,
 	IN	PVOID	Argument2
 	);
@@ -561,7 +477,7 @@ ExPostSystemEvent (
  *	);
  */
 #define ExQueryDepthSList(ListHead) \
-	(USHORT)(ListHead)->Depth
+	(USHORT)(ListHead)->s.Depth
 
 VOID
 STDCALL
@@ -569,14 +485,6 @@ ExQueueWorkItem (
 	PWORK_QUEUE_ITEM	WorkItem,
 	WORK_QUEUE_TYPE		QueueType
 	);
-
-SIZE_T
-STDCALL
-ExQueryPoolBlockSize (                          
-    IN PVOID PoolBlock,                         
-    OUT PBOOLEAN QuotaCharged                   
-    );  
-
 VOID
 STDCALL
 ExRaiseAccessViolation (
@@ -592,21 +500,6 @@ STDCALL
 ExRaiseStatus (
 	NTSTATUS	Status
 	);
-VOID
-STDCALL
-ExRaiseException (
-	PEXCEPTION_RECORD pExcptRec
-	);
-VOID
-STDCALL
-ExRaiseHardError (
-	IN NTSTATUS ErrorStatus,
-	IN ULONG NumberOfParameters, 
-	IN PUNICODE_STRING UnicodeStringParameterMask OPTIONAL,
-	IN PVOID *Parameters, 
-	IN HARDERROR_RESPONSE_OPTION ResponseOption, 
-	OUT PHARDERROR_RESPONSE Response 
-	);
 
 PVOID
 STDCALL
@@ -621,12 +514,6 @@ STDCALL
 ExReinitializeResourceLite (
 	PERESOURCE	Resource
 	);
-VOID
-FASTCALL
-ExReInitializeRundownProtection (
-    IN PEX_RUNDOWN_REF RunRef
-    );
-
 /* ReactOS Specific: begin */
 VOID
 FASTCALL
@@ -666,55 +553,13 @@ ExReleaseResourceForThreadLite (
 	PERESOURCE		Resource,
 	ERESOURCE_THREAD	ResourceThreadId
 	);
-VOID
-FASTCALL
-ExReleaseRundownProtection (
-    IN PEX_RUNDOWN_REF RunRef
-    );
-VOID
-FASTCALL
-ExReleaseRundownProtectionEx (
-    IN PEX_RUNDOWN_REF RunRef,
-    IN ULONG Count
-    );
-/* ReactOS Specific: begin */
-VOID STDCALL
-ExRosDumpPagedPoolByTag (
-    IN ULONG Tag
-    );
-ULONG STDCALL
-ExRosQueryPoolTag (
-    IN PVOID Block
-    );
-/* ReactOS Specific: end */
-VOID
-FASTCALL
-ExRundownCompleted (
-    IN PEX_RUNDOWN_REF RunRef
-    );
+
 VOID
 STDCALL
 ExSetResourceOwnerPointer (
 	IN	PERESOURCE	Resource,
 	IN	PVOID		OwnerPointer
 	);
-
-VOID
-STDCALL
-ExSetTimerResolution (
-    IN ULONG DesiredTime,
-    IN BOOLEAN SetResolution
-    );
-
-BOOLEAN
-STDCALL
-ExVerifySuite(
-    SUITE_TYPE SuiteType
-    );
-
-BOOLEAN
-STDCALL
-ExSystemExceptionFilter();
 
 VOID
 STDCALL
@@ -741,32 +586,6 @@ ExUnregisterCallback (
 	IN	PVOID	CallbackRegistration
 	);
 
-typedef GUID UUID;
-
-NTSTATUS
-STDCALL
-ExUuidCreate(
-    OUT UUID *Uuid
-    );
-
-VOID
-FASTCALL
-ExWaitForRundownProtectionRelease (
-    IN PEX_RUNDOWN_REF RunRef
-    );
-
-PSLIST_ENTRY
-FASTCALL
-InterlockedPopEntrySList (
-  IN PSLIST_HEADER ListHead
-  );
-
-PSLIST_ENTRY
-FASTCALL
-InterlockedPushEntrySList(
-  IN PSLIST_HEADER ListHead,
-  IN PSLIST_ENTRY ListEntry
-  );
 
 /*
  * PVOID
@@ -795,7 +614,7 @@ ExAllocateFromNPagedLookasideList (
 
 	Lookaside->TotalAllocates++;
 	Entry = ExInterlockedPopEntrySList (&Lookaside->ListHead,
-	                                    &Lookaside->Obsoleted);
+	                                    &Lookaside->Lock);
 	if (Entry == NULL)
 	{
 		Lookaside->AllocateMisses++;
@@ -807,21 +626,11 @@ ExAllocateFromNPagedLookasideList (
   return Entry;
 }
 
-static inline PVOID
-ExAllocateFromPagedLookasideList(
-  IN PPAGED_LOOKASIDE_LIST  Lookaside)
-{
-  PVOID Entry;
-
-  Lookaside->TotalAllocates++;
-  Entry = InterlockedPopEntrySList(&Lookaside->ListHead);
-  if (Entry == NULL) {
-    Lookaside->AllocateMisses++;
-    Entry = (Lookaside->Allocate)(Lookaside->Type,
-      Lookaside->Size, Lookaside->Tag);
-  }
-  return Entry;
-}
+PVOID
+STDCALL
+ExAllocateFromPagedLookasideList (
+	PPAGED_LOOKASIDE_LIST	LookSide
+	);
 
 VOID
 STDCALL
@@ -860,7 +669,7 @@ ExFreeToNPagedLookasideList (
 	)
 {
 	Lookaside->TotalFrees++;
-	if (ExQueryDepthSList (&Lookaside->ListHead) >= Lookaside->Depth)
+	if (ExQueryDepthSList (&Lookaside->ListHead) >= Lookaside->MinimumDepth)
 	{
 		Lookaside->FreeMisses++;
 		(Lookaside->Free)(Entry);
@@ -869,23 +678,16 @@ ExFreeToNPagedLookasideList (
 	{
 		ExInterlockedPushEntrySList (&Lookaside->ListHead,
 		                             (PSINGLE_LIST_ENTRY)Entry,
-		                             &Lookaside->Obsoleted);
+		                             &Lookaside->Lock);
 	}
 }
 
-static inline VOID
-ExFreeToPagedLookasideList(
-  IN PPAGED_LOOKASIDE_LIST  Lookaside,
-  IN PVOID  Entry)
-{
-  Lookaside->TotalFrees++;
-  if (ExQueryDepthSList(&Lookaside->ListHead) >= Lookaside->Depth) {
-    Lookaside->FreeMisses++;
-    (Lookaside->Free)(Entry);
-  } else {
-    InterlockedPushEntrySList(&Lookaside->ListHead, (PSLIST_ENTRY)Entry);
-  }
-}
+VOID
+STDCALL
+ExFreeToPagedLookasideList (
+	PPAGED_LOOKASIDE_LIST	Lookaside,
+	PVOID			Entry
+	);
 
 VOID
 STDCALL
@@ -898,7 +700,6 @@ ExInitializeNPagedLookasideList (
 	ULONG			Tag,
 	USHORT			Depth
 	);
-
 VOID
 STDCALL
 ExInitializePagedLookasideList (
@@ -911,63 +712,69 @@ ExInitializePagedLookasideList (
 	USHORT			Depth
 	);
 
-ULONG FASTCALL
-ExfInterlockedAddUlong(IN PULONG Addend,
-		       IN ULONG Increment,
-		       IN PKSPIN_LOCK Lock);
 
-PLIST_ENTRY FASTCALL
-ExfInterlockedInsertHeadList(IN PLIST_ENTRY ListHead,
-			     IN PLIST_ENTRY ListEntry,
-			     IN PKSPIN_LOCK Lock);
+ULONG
+FASTCALL
+ExfInterlockedAddUlong (
+	IN	PULONG		Addend,
+	IN	ULONG		Increment,
+	IN	PKSPIN_LOCK	Lock
+	);
 
-PLIST_ENTRY FASTCALL
-ExfInterlockedInsertTailList(IN PLIST_ENTRY ListHead,
-			     IN PLIST_ENTRY ListEntry,
-			     IN PKSPIN_LOCK Lock);
+INTERLOCKED_RESULT
+FASTCALL
+Exfi386InterlockedIncrementLong (
+	IN	PLONG	Addend
+	);
 
-PSINGLE_LIST_ENTRY FASTCALL
-ExfInterlockedPopEntryList(IN PSINGLE_LIST_ENTRY ListHead,
-			   IN PKSPIN_LOCK Lock);
+INTERLOCKED_RESULT
+FASTCALL
+Exfi386InterlockedDecrementLong (
+	IN	PLONG	Addend
+	);
 
-PSINGLE_LIST_ENTRY FASTCALL
-ExfInterlockedPushEntryList(IN PSINGLE_LIST_ENTRY ListHead,
-			    IN PSINGLE_LIST_ENTRY ListEntry,
-			    IN PKSPIN_LOCK Lock);
+ULONG
+FASTCALL
+Exfi386InterlockedExchangeUlong (
+	IN	PULONG	Target,
+	IN	ULONG	Value
+	);
 
-PLIST_ENTRY FASTCALL
-ExfInterlockedRemoveHeadList(IN PLIST_ENTRY Head,
-			     IN PKSPIN_LOCK Lock);
+INTERLOCKED_RESULT
+STDCALL
+Exi386InterlockedIncrementLong (
+	IN	PLONG	Addend
+	);
 
-INTERLOCKED_RESULT FASTCALL
-Exfi386InterlockedIncrementLong(IN PLONG Addend);
+INTERLOCKED_RESULT
+STDCALL
+Exi386InterlockedDecrementLong (
+	IN	PLONG	Addend
+	);
 
-INTERLOCKED_RESULT FASTCALL
-Exfi386InterlockedDecrementLong(IN PLONG Addend);
+ULONG
+STDCALL
+Exi386InterlockedExchangeUlong (
+	IN	PULONG	Target,
+	IN	ULONG	Value
+	);
 
-ULONG FASTCALL
-Exfi386InterlockedExchangeUlong(IN PULONG Target,
-				IN ULONG Value);
-
-INTERLOCKED_RESULT STDCALL
-Exi386InterlockedIncrementLong(IN PLONG Addend);
-
-INTERLOCKED_RESULT STDCALL
-Exi386InterlockedDecrementLong(IN PLONG Addend);
-
-ULONG STDCALL
-Exi386InterlockedExchangeUlong(IN PULONG Target,
-			       IN ULONG Value);
-
-
+/*
 LONG
 FASTCALL
 InterlockedCompareExchange (
-	PLONG	Destination,
-	LONG	Exchange,
-	LONG	Comperand
+	PLONG	Target,
+	LONG	Value,
+	LONG	Reference
 	);
-
+*/
+PVOID
+FASTCALL
+InterlockedCompareExchange (
+	PVOID	* Destination,
+	PVOID	Exchange,
+	PVOID	Comperand
+	);
 #ifdef _GNU_H_WINDOWS_H
 #ifdef InterlockedDecrement
 #undef InterlockedDecrement
@@ -999,31 +806,11 @@ InterlockedIncrement (
 	PLONG	Addend
 	);
 
-#ifndef InterlockedExchangePointer
-# ifdef _WIN64
-#  define InterlockedExchangePointer(__T__, __V__) \
-             (PVOID)InterlockedExchange64((PLONGLONG)(__T__), (LONGLONG)(__V__))
-# else
-#  define InterlockedExchangePointer(__T__, __V__) \
-             (PVOID)InterlockedExchange((PLONG)(__T__), (LONG)(__V__))
-# endif
-#endif
-
-#ifndef InterlockedCompareExchangePointer
-# ifdef _WIN64
-#  define InterlockedCompareExchangePointer(__T__, __V__, __C__) \
-             (PVOID)InterlockedCompareExchange64((PLONGLONG)(__T__), (LONGLONG)(__V__), (LONGLONG)(__C__))
-# else
-#  define InterlockedCompareExchangePointer(__T__, __V__, __C__) \
-             (PVOID)InterlockedCompareExchange((PLONG)(__T__), (LONG)(__V__), (LONG)(__C__))
-# endif
-#endif
-
 /*---*/
 
 typedef
 unsigned int
-(*exception_hook) (
+(exception_hook) (
 	CONTEXT		* c,
 	unsigned int	exp
 	);

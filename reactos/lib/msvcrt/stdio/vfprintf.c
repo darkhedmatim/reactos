@@ -1,12 +1,8 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <stdarg.h>
 #include <msvcrt/stdio.h>
+#include <msvcrt/stdarg.h>
 #include <msvcrt/malloc.h>
 #include <msvcrt/internal/file.h>
-
-#ifdef __USE_W32API
-#include <ntdef.h>
-#endif
 
 int _isnanl(double x);
 int _isinfl(double x);
@@ -15,37 +11,30 @@ int _isinf(double x);
 
 
 
-int __vfprintf(FILE*, const char*, va_list);
+int
+__vfprintf (FILE *fp, const char *fmt0, va_list argp);
 
-
-/*
- * @implemented
- */
-int vfprintf(FILE* f, const char* fmt, va_list ap)
+int
+vfprintf(FILE *f, const char *fmt, va_list ap)
 {
-    int len;
-    char localbuf[BUFSIZ];
+  int len;
+  char localbuf[BUFSIZ];
 
-#if 0
-    __fileno_lock(fileno(f));
-#endif
-    if (f->_flag & _IONBF) {
-        f->_flag &= ~_IONBF;
-        f->_ptr = f->_base = localbuf;
-        f->_bufsiz = BUFSIZ;
-        len = __vfprintf(f, fmt, ap);
-        (void)fflush(f);
-        f->_flag |= _IONBF;
-        f->_base = NULL;
-        f->_bufsiz = 0;
-        f->_cnt = 0;
-    } else {
-        len = __vfprintf(f,fmt, ap);
-    }
-#if 0
-    __fileno_unlock(fileno(f));
-#endif
-    return (ferror(f) ? EOF : len);
+  if (f->_flag & _IONBF)
+  {
+    f->_flag &= ~_IONBF;
+    f->_ptr = f->_base = localbuf;
+    f->_bufsiz = BUFSIZ;
+    len = __vfprintf(f,fmt, ap);
+    (void)fflush(f);
+    f->_flag |= _IONBF;
+    f->_base = NULL;
+    f->_bufsiz = 0;
+    f->_cnt = 0;
+  }
+  else
+    len = __vfprintf(f,fmt, ap);
+  return (ferror(f) ? EOF : len);
 }
 
 
@@ -94,26 +83,26 @@ static int skip_atoi(const char **s)
 }
 
 
-static int do_div(LONGLONG *n,int base)
+static int do_div(long long *n,int base)
 {
-	int __res = ((ULONGLONG) *n) % (unsigned) base;
-	*n = ((ULONGLONG) *n) / (unsigned) base;
+	int __res = ((unsigned long long) *n) % (unsigned) base;
+	*n = ((unsigned long long) *n) / (unsigned) base;
 	return __res;
 }
 
 
-static int number(FILE * f, LONGLONG num, int base, int size, int precision ,int type)
+static void number(FILE * f, long long num, int base, int size, int precision ,int type)
 {
 	char c,sign,tmp[66];
 	const char *digits="0123456789abcdefghijklmnopqrstuvwxyz";
-	int i, done = 0;
+	int i;
 
 	if (type & LARGE)
 		digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	if (type & LEFT)
 		type &= ~ZEROPAD;
 	if (base < 2 || base > 36)
-		return done;
+		return;
 	c = (type & ZEROPAD) ? '0' : ' ';
 	sign = 0;
 	if (type & SIGN) {
@@ -145,62 +134,32 @@ static int number(FILE * f, LONGLONG num, int base, int size, int precision ,int
 	size -= precision;
 	if (!(type&(ZEROPAD+LEFT)))
 		while(size-->0)
-		{
-			if (putc(' ',f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(' ',f);
 	if (sign)
-	{
-		if (putc(sign,f) == EOF)
-			return -1;
-		done++;
-	}
+		putc(sign,f);
 	if (type & SPECIAL) {
 		if (base==8) {
-			if (putc('0',f) == EOF)
-				return -1;
-			done++;
+			putc('0',f);
 		}
 		else if (base==16) {
-			if (putc('0', f) == EOF)
-				return -1;
-			done++;
-			if (putc(digits[33],f) == EOF)
-				return -1;
-			done++;
+			putc('0', f);
+			putc(digits[33],f);
 		}
 	}
 	if (!(type & LEFT))
 		while (size-- > 0)
-		{
-			if (putc(c,f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(c,f);
 	while (i < precision--)
-	{
-		if (putc('0', f) == EOF)
-			return -1;
-		done++;
-	}
+		putc('0', f);
 	while (i-- > 0)
-	{
-		if (putc(tmp[i],f) == EOF)
-			return -1;
-		done++;
-	}
+		putc(tmp[i],f);
 	while (size-- > 0)
-	{
-		if (putc(' ', f) == EOF)
-			return -1;
-		done++;
-	}
-	return done;
+		putc(' ', f);
+	return;
 }
 
 
-static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision, int type)
+static void numberf(FILE * f, double __n, char exp_sign,  int size, int precision, int type)
 {
 	double exponent = 0.0;
 	double e;
@@ -217,18 +176,11 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 	char sign;
 	char c;
 	char ro = 0;
-	int result, done = 0;
 
-	union
-	{
-		double*  __n;
-		double_t*  n;
-	} n;
-	
-	n.__n = &__n;
+	double_t *n = (double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3ff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3ff);
 		exponent = ie/3.321928;
 	}
 
@@ -245,24 +197,16 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 		else if (  frac < -0.5  )
 			e--;
 
-		result = numberf(f,__n/pow(10.0L,e),'f',size-4, precision, type);
-		if (result < 0)
-			return -1;
-		done += result;
-		if (putc( exp_sign,f) == EOF)
-			return -1;
-		done++;
+		numberf(f,__n/pow(10.0L,e),'f',size-4, precision, type);
+		putc( exp_sign,f);
 		size--;
 		ie = (long)e;
 		type = LEFT | PLUS;
 		if ( ie < 0 )
 			type |= SIGN;
 
-		result = number(f,ie, 10,2, 2,type );
-		if (result < 0)
-			return -1;
-		done += result;
-		return done;
+		number(f,ie, 10,2, 2,type );
+		return;
 	}
 
 	if ( exp_sign == 'f' ) {
@@ -320,11 +264,10 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 		}
 		else {
 			while ( intr > 0.0 ) {
-			        p = intr;
 				intr/=10.0L;
-				modf(intr, &intr);
+				p = modf(intr, &intr);
 
-				p -= 10.0*intr;
+				p *=10;
 
 				buf[i++] = (int)p + '0';
 				size--;
@@ -350,35 +293,19 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 		size -= precision;
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putc(' ',f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ',f);
 		if (sign)
-		{
-			if (putc( sign,f) == EOF)
-				return -1;
-			done++;
-		}
+			putc( sign,f);
 
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putc(' ',f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ',f);
 		if (type & SPECIAL) {
 		}
 
 		if (!(type & LEFT))
 			while (size-- > 0)
-			{
-				if (putc(c,f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(c,f);
 
 		tmp = buf;
 		if ( type & ZEROTRUNC && ((type & SPECIAL) != SPECIAL) ) {
@@ -392,23 +319,14 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 //			while (i < precision--)
 //				putc('0', f);
 		while (i-- > 0)
-		{
-			if (putc(tmp[i],f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(tmp[i],f);
 		while (size-- > 0)
-		{
-			if (putc(' ', f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(' ', f);
 	}
-	return done;
 }
 
 
-static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int precision, int type)
+static void numberfl(FILE * f, long double __n, char exp_sign,  int size, int precision, int type)
 {
 	long double exponent = 0.0;
 	long double e;
@@ -426,18 +344,10 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 	char c;
 	char ro = 0;
 
-	int result, done = 0;
-
-	union
-	{
-	    long double*   __n;
-	    long_double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	long_double_t *n = (long_double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3fff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3fff);
 		exponent = ie/3.321928;
 	}
 
@@ -454,24 +364,16 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 		else if ( frac < -0.5 )
 			e--;
 
-		result = numberf(f,__n/powl(10.0L,e),'f',size-4, precision, type);
-		if (result < 0)
-			return -1;
-		done += result;
-		if (putc( exp_sign,f) == EOF)
-			return -1;
-		done++;
+		numberf(f,__n/powl(10.0L,e),'f',size-4, precision, type);
+		putc( exp_sign,f);
 		size--;
 		ie = (long)e;
 		type = LEFT | PLUS;
 		if ( ie < 0 )
 			type |= SIGN;
 
-		result = number(f,ie, 10,2, 2,type );
-		if (result < 0)
-			return -1;
-		done += result;
-		return done;
+		number(f,ie, 10,2, 2,type );
+		return;
 	}
 
 	if ( exp_sign == 'f' ) {
@@ -502,7 +404,7 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 		// # flags forces a . and prevents trucation of trailing zero's
 		if ( precision > 0 ) {
 			//frac = modfl(__n,&intr);
-
+	
 			i = precision-1;
 			while ( i >= 0  ) {
 				frac*=10.0L;
@@ -530,11 +432,10 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 		}
 		else {
 			while ( intr > 0.0 ) {
-			        p=intr;
 				intr/=10.0L;
-				modfl(intr, &intr);
+				p = modfl(intr, &intr);
 
-				p -= 10.0L*intr;
+				p *=10;
 
 				buf[i++] = (int)p + '0';
 				size--;
@@ -560,35 +461,20 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 		size -= precision;
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putc(' ',f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ',f);
 		if (sign)
-		{
-			if (putc(sign,f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(sign,f);
 
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putc(' ',f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ',f);
 		if (type & SPECIAL) {
 		}
 
 		if (!(type & LEFT))
 			while (size-- > 0)
-			{
-				if (putc(c,f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(c,f);
+
 		tmp = buf;
 		if ( type & ZEROTRUNC && ((type & SPECIAL) != SPECIAL) ) {
 			j = 0;
@@ -601,130 +487,22 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 //			while (i < precision--)
 //				    putc( '0', f);
 		while (i-- > 0)
-		{
-			if ( putc(tmp[i],f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(tmp[i],f);
 		while (size-- > 0)
-		{
-			if (putc(' ', f) == EOF)
-				return -1;
-			done++;
-		}
+			putc(' ', f);
 	}
-	return done;
 }
 
-static int string(FILE *f, const char* s, int len, int field_width, int precision, int flags)
-{
-	int i, done = 0;
-	if (s == NULL)
-	{
-		s = "<NULL>";
-		len = 6;
-	}
-	else
-	{
-		if (len == -1)
-		{
-			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
-				len++;
-		}
-		else
-		{
-			if ((unsigned int)len > (unsigned int)precision)
-				len = precision;
-		}
-	}
-	if (!(flags & LEFT))
-		while (len < field_width--)
-		{
-			if (putc(' ', f) == EOF)
-				return -1;
-			done++;
-		}
-	for (i = 0; i < len; ++i)
-	{
-		if (putc(*s++, f) == EOF)
-			return -1;
-		done++;
-	}
-	while (len < field_width--)
-	{
-		if (putc(' ', f) == EOF)
-			return -1;
-		done++;
-	}
-	return done;
-}
-
-static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int precision, int flags)
-{
-	int i, done = 0;
-	if (sw == NULL)
-	{
-		sw = L"<NULL>";
-		len = 6;
-	}
-	else
-	{
-		if (len == -1)
-		{
-			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
-				len++;
-		}
-		else
-		{
-			if ((unsigned int)len > (unsigned int)precision)
-				len = precision;
-		}
-	}
-	if (!(flags & LEFT))
-		while (len < field_width--)
-		{
-			if (putc(' ', f) == EOF)
-				return -1;
-			done++;
-		}
-	for (i = 0; i < len; ++i)
-	{
-#define MB_CUR_MAX 1
-		char mb[MB_CUR_MAX];
-		int mbcount, j;
-		mbcount = wctomb(mb, *sw++);
-		if (mbcount <= 0)
-		{
-			break;
-		}
-		for (j = 0; j < mbcount; j++)
-		{
-			if (putc(mb[j], f) == EOF)
-				return -1;
-			done++;
-		}
-	}
-	while (len < field_width--)
-	{
-		if (putc(' ', f) == EOF)
-			return -1;
-		done++;
-	}
-	return done;
-}
 
 int __vfprintf(FILE *f, const char *fmt, va_list args)
 {
 	int len;
-	ULONGLONG num;
-	int base;
+	unsigned long long num;
+	int i, base;
 	long double _ldouble;
 	double _double;
 	const char *s;
-	const wchar_t *sw;
-	int result, done = 0;
+	const short int* sw;
 
 	int flags;		/* flags to number() */
 
@@ -735,9 +513,7 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 
 	for (; *fmt ; ++fmt) {
 		if (*fmt != '%') {
-			if (putc(*fmt,f) == EOF)
-				return -1;
-			done++;
+			putc(*fmt,f);
 			continue;
 		}
 
@@ -783,7 +559,6 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 		}
 
 		/* get the conversion qualifier */
-		qualifier = 0;
 		// %Z can be just stand alone or as size_t qualifier
 		if ( *fmt == 'Z' ) {
 			qualifier = *fmt;
@@ -821,117 +596,130 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 		case 'c':
 			if (!(flags & LEFT))
 				while (--field_width > 0)
-				{
-					if (putc(' ', f) == EOF)
-						return -1;
-					done++;
-				}
+					putc(' ', f);
 			if (qualifier == 'l' || qualifier == 'w')
-			{
-				if (putc((unsigned char)(wchar_t) va_arg(args, int), f) == EOF)
-					return -1;
-				done++;
-			}
+				putc((unsigned char)(wchar_t) va_arg(args, int), f);
 			else
-			{
-				if (putc((unsigned char) va_arg(args, int), f) == EOF)
-					return -1;
-				done++;
-			}
+				putc((unsigned char) va_arg(args, int), f);
 			while (--field_width > 0)
-			{
-				if (putc(' ', f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ', f);
 			continue;
 
 		case 'C':
 			if (!(flags & LEFT))
 				while (--field_width > 0)
-				{
-					if (putc(' ', f) == EOF)
-						return -1;
-					done++;
-				}
+					putc(' ', f);
 			if (qualifier == 'h')
-			{
-				if (putc((unsigned char) va_arg(args, int), f) == EOF)
-					return -1;
-				done++;
-			}
+				putc((unsigned char) va_arg(args, int), f);
 			else
-			{
-				if (putc((unsigned char)(wchar_t) va_arg(args, int), f) == EOF)
-					return -1;
-				done++;
-			}
+				putc((unsigned char)(wchar_t) va_arg(args, int), f);
 			while (--field_width > 0)
-			{
-				if (putc(' ', f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(' ', f);
 			continue;
 
 		case 's':
 			if (qualifier == 'l' || qualifier == 'w') {
 				/* print unicode string */
 				sw = va_arg(args, wchar_t *);
-				result = stringw(f, sw, -1, field_width, precision, flags);
+				if (sw == NULL)
+					sw = L"<NULL>";
+
+				len = wcslen (sw);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putc(' ', f);
+				for (i = 0; i < len; ++i)
+					putc((unsigned char)(*sw++), f);
+				while (len < field_width--)
+					putc(' ', f);
 			} else {
 				/* print ascii string */
 				s = va_arg(args, char *);
-				result = string(f, s, -1, field_width, precision, flags);
+				if (s == NULL)
+					s = "<NULL>";
+
+				len = strlen (s);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putc(' ', f);
+				for (i = 0; i < len; ++i)
+					putc(*s++, f);
+				while (len < field_width--)
+					putc(' ', f);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
 
 		case 'S':
 			if (qualifier == 'h') {
 				/* print ascii string */
 				s = va_arg(args, char *);
-				result = string(f, s, -1, field_width, precision, flags);
+				if (s == NULL)
+					s = "<NULL>";
+
+				len = strlen (s);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putc(' ', f);
+				for (i = 0; i < len; ++i)
+					putc(*s++, f);
+				while (len < field_width--)
+					putc(' ', f);
 			} else {
 				/* print unicode string */
 				sw = va_arg(args, wchar_t *);
-				result = stringw(f, sw, -1, field_width, precision, flags);
+				if (sw == NULL)
+					sw = L"<NULL>";
+
+				len = wcslen (sw);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putc(' ', f);
+				for (i = 0; i < len; ++i)
+					putc((unsigned char)(*sw++), f);
+				while (len < field_width--)
+					putc(' ', f);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
 
+#if 0
 		case 'Z':
 			if (qualifier == 'w') {
 				/* print counted unicode string */
 				PUNICODE_STRING pus = va_arg(args, PUNICODE_STRING);
-				if ((pus == NULL) || (pus->Buffer == NULL)) {
-					sw = NULL;
-					len = -1;
+				if ((pus == NULL) || (pus->Buffer)) {
+					s = "<NULL>";
+					while ((*s) != 0)
+						putc(*s++, f);
 				} else {
-					sw = pus->Buffer;
-					len = pus->Length / sizeof(WCHAR);
+					for (i = 0; pus->Buffer[i] && i < pus->Length; i++)
+						putc((unsigned char)(pus->Buffer[i]), f);
 				}
-				result = stringw(f, sw, len, field_width, precision, flags);
 			} else {
 				/* print counted ascii string */
-				PANSI_STRING pas = va_arg(args, PANSI_STRING);
-				if ((pas == NULL) || (pas->Buffer == NULL)) {
-					s = NULL;
-					len = -1;
+				PANSI_STRING pus = va_arg(args, PANSI_STRING);
+				if ((pus == NULL) || (pus->Buffer)) {
+					s = "<NULL>";
+					while ((*s) != 0)
+						putc(*s++, f);
 				} else {
-					s = pas->Buffer;
-					len = pas->Length;
+					for (i = 0; pus->Buffer[i] && i < pus->Length; i++)
+						putc(pus->Buffer[i], f);
 				}
-				result = string(f, s, -1, field_width, precision, flags);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
+#endif
 
 		case 'e':
 		case 'E':
@@ -945,9 +733,7 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 					s = "Nan";
 					len = 3;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				}
@@ -955,9 +741,7 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 					s = "-Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				}
@@ -965,18 +749,13 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 					s = "+Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				} else {
 					if ( precision == -1 )
 						precision = 6;
-					result = numberfl(f,_ldouble,*fmt,field_width,precision,flags);
-					if (result < 0)
-						return -1;
-					done += result;
+					numberfl(f,_ldouble,*fmt,field_width,precision,flags);
 				}
 			} else {
 				_double = (double)va_arg(args, double);
@@ -985,36 +764,27 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 					s = "Nan";
 					len = 3;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				} else if ( _isinf(_double) < 0 ) {
 					s = "-Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				} else if ( _isinf(_double) > 0 ) {
 					s = "+Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putc(*s++,f) == EOF)
-							return -1;
-						done++;
+						putc(*s++,f);
 						len --;
 					}
 				} else {
 					if ( precision == -1 )
 						precision = 6;
-					result = numberf(f,_double,*fmt,field_width,precision,flags);
-					if (result < 0)
-						return -1;
-					done += result;
+					numberf(f,_double,*fmt,field_width,precision,flags);
 				}
 			}
 			continue;
@@ -1024,12 +794,9 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 				field_width = 2*sizeof(void *);
 				flags |= ZEROPAD;
 			}
-			result = number(f,
-				        (unsigned long) va_arg(args, void *), 16,
-					field_width, precision, flags);
-			if (result < 0)
-				return -1;
-			done += result;
+			number(f,
+				(unsigned long) va_arg(args, void *), 16,
+				field_width, precision, flags);
 			continue;
 
 		case 'n':
@@ -1065,30 +832,18 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 
 		default:
 			if (*fmt != '%')
-			{
-				if (putc('%', f) == EOF)
-					return -1;
-				done++;
-			}
+				putc('%', f);
 			if (*fmt)
-			{
-				if (putc(*fmt, f) == EOF)
-					return -1;
-				done++;
-			}
+				putc(*fmt, f);
 			else
 				--fmt;
 			continue;
 		}
 
 		if (qualifier == 'I')
-			num = va_arg(args, ULONGLONG);
-		else if (qualifier == 'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+			num = va_arg(args, unsigned long long);
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
@@ -1099,13 +854,10 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 			num = va_arg(args, int);
 		else
 			num = va_arg(args, unsigned int);
-		result = number(f, num, base, field_width, precision, flags);
-		if (result < 0)
-			return -1;
-		done += result;
+		number(f, num, base, field_width, precision, flags);
 	}
 	//putc('\0',f);
-	return done;
+	return 0;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.8 2004/08/15 17:03:14 chorns Exp $
+/* $Id: dllmain.c,v 1.3 2001/06/17 20:20:21 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,18 +9,20 @@
  *                  Created ???
  */
 
-#include "advapi32.h"
+#include <ddk/ntddk.h>
+#include <windows.h>
+
 #define NDEBUG
 #include <debug.h>
 
-extern BOOL RegInitialize(VOID);
-extern BOOL RegCleanup(VOID);
 
 INT STDCALL
 DllMain(PVOID hinstDll,
 	ULONG dwReason,
 	PVOID reserved)
 {
+   DPRINT("ADVAPI32: DllMain() called\n");
+
    switch (dwReason)
      {
      case DLL_PROCESS_ATTACH:
@@ -32,6 +34,8 @@ DllMain(PVOID hinstDll,
 	RegCleanup();
 	break;
      }
+
+   DPRINT1("ADVAPI32: DllMain() done\n");
 
    return TRUE;
 }

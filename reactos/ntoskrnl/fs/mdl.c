@@ -1,55 +1,11 @@
-/* $Id: mdl.c,v 1.9 2004/12/30 18:30:05 ion Exp $
+/* $Id: mdl.c,v 1.1 2000/03/05 19:17:42 ea Exp $
  *
  * reactos/ntoskrnl/fs/mdl.c
  *
  */
-
-#include <ntoskrnl.h>
-#include <internal/debug.h>
-
-extern ULONG CcFastReadResourceMiss;
-extern ULONG CcFastReadNoWait;
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadResourceMiss( VOID )
-{
-    CcFastReadResourceMiss++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadNotPossible( VOID )
-{
-    CcFastReadNotPossible++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadWait( VOID )
-{
-    CcFastReadWait++;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-FsRtlIncrementCcFastReadNoWait( VOID )
-{
-    CcFastReadNoWait++;
-}
-
+#include <ntos.h>
+#include <internal/cc.h>
+#include <ddk/ntifs.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -61,17 +17,16 @@ FsRtlIncrementCcFastReadNoWait( VOID )
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
 FsRtlMdlRead (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	ULONG			LockKey,
-	OUT	PMDL			*MdlChain,
-	OUT	PIO_STATUS_BLOCK	IoStatus
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5
 	)
 {
 	return FALSE; /* FIXME: call FsRtlMdlReadDev ? */
@@ -88,11 +43,13 @@ FsRtlMdlRead (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-BOOLEAN STDCALL
-FsRtlMdlReadComplete(IN PFILE_OBJECT FileObject,
-		     IN OUT PMDL Mdl)
+BOOLEAN
+STDCALL
+FsRtlMdlReadComplete (
+	IN	PFILE_OBJECT	FileObject,
+	IN OUT	PMDL		Mdl
+	)
 {
 	PDEVICE_OBJECT	DeviceObject [2] = {NULL};
 	PDRIVER_OBJECT	DriverObject = NULL;
@@ -171,8 +128,6 @@ FsRtlMdlReadComplete(IN PFILE_OBJECT FileObject,
  * NOTE
  * 	From Bo Branten's ntifs.h v13.
  * 	(CcMdlReadCompleteDev declared in internal/cc.h)
- *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -198,18 +153,17 @@ FsRtlMdlReadCompleteDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
 FsRtlMdlReadDev (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	ULONG			LockKey,
-	OUT	PMDL			*MdlChain,
-	OUT	PIO_STATUS_BLOCK	IoStatus,
-	IN	PDEVICE_OBJECT		DeviceObject
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5,
+	DWORD	Unknown6
 	)
 {
 	return FALSE;
@@ -226,7 +180,6 @@ FsRtlMdlReadDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -250,7 +203,6 @@ FsRtlMdlWriteComplete (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -275,17 +227,16 @@ FsRtlMdlWriteCompleteDev (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
 FsRtlPrepareMdlWrite (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	ULONG			LockKey,
-	OUT	PMDL			*MdlChain,
-	OUT	PIO_STATUS_BLOCK	IoStatus
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5
 	)
 {
 	return FALSE; /* call FsRtlPrepareMdlWriteDev ? */
@@ -302,18 +253,17 @@ FsRtlPrepareMdlWrite (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
 FsRtlPrepareMdlWriteDev (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	ULONG			LockKey,
-	OUT	PMDL			*MdlChain,
-	OUT	PIO_STATUS_BLOCK	IoStatus,
-	IN	PDEVICE_OBJECT		DeviceObject
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5,
+	DWORD	Unknown6
 	)
 {
 	return FALSE;

@@ -1,9 +1,6 @@
-#include <msvcrt/mbstring.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/mbstring.h>
+#include <crtdll/stdlib.h>
 
-/*
- * @implemented
- */
 unsigned char *_mbsstr(const unsigned char *src1,const unsigned char *src2)
 {
         int len;

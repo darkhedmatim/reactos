@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.11 2004/12/13 23:11:13 navaraf Exp $
+/* $Id: misc.c,v 1.2 2000/08/15 12:41:13 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,9 +11,39 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <windows.h>
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
+#include <napi/shared_data.h>
+
+/* GLOBALS ******************************************************************/
+
+extern ULONG NtGlobalFlag;
+
+/* FUNCTIONS ****************************************************************/
+
+/**********************************************************************
+ * NAME							EXPORTED
+ * 	RtlGetNtGlobalFlags
+ *
+ * DESCRIPTION
+ *	Retrieves the global os flags.
+ *
+ * ARGUMENTS
+ *	None
+ *
+ * RETURN VALUE
+ *	global flags
+ *
+ * REVISIONS
+ * 	2000-08-10 ekohl
+ */
+
+ULONG STDCALL
+RtlGetNtGlobalFlags(VOID)
+{
+   return (NtGlobalFlag);
+}
+
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -36,63 +66,13 @@
  *
  * REVISIONS
  * 	2000-08-10 ekohl
- *
- * @implemented
  */
 
 BOOLEAN STDCALL
 RtlGetNtProductType(PNT_PRODUCT_TYPE ProductType)
 {
-  *ProductType = SharedUserData->NtProductType;
-  return(TRUE);
+   *ProductType = ((PKUSER_SHARED_DATA)USER_SHARED_DATA_BASE)->NtProductType;
+   return TRUE;
 }
 
-/**********************************************************************
- * NAME							EXPORTED
- *	RtlGetNtVersionNumbers
- *
- * DESCRIPTION
- *	Get the version numbers of the run time library.
- *
- * ARGUMENTS
- *	major [OUT]	Destination for the Major version
- *	minor [OUT]	Destination for the Minor version
- *	build [OUT]	Destination for the Build version
- *
- * RETURN VALUE
- *	Nothing.
- *
- * NOTE
- *	Introduced in Windows XP (NT5.1)
- *
- * @implemented
- */
-
-void STDCALL
-RtlGetNtVersionNumbers(LPDWORD major, LPDWORD minor, LPDWORD build)
-{
-	PPEB pPeb = NtCurrentPeb();
-
-	if (major)
-	{
-		/* msvcrt.dll as released with XP Home fails in DLLMain() if the
-		 * major version is not 5. So, we should never set a version < 5 ...
-		 * This makes sense since this call didn't exist before XP anyway.
-		 */
-		*major = pPeb->OSMajorVersion < 5 ? 5 : pPeb->OSMajorVersion;
-	}
-
-	if (minor)
-	{
-		if (pPeb->OSMinorVersion <= 5)
-			*minor = pPeb->OSMinorVersion < 1 ? 1 : pPeb->OSMinorVersion;
-		else
-			*minor = pPeb->OSMinorVersion;
-	}
-
-	if (build)
-	{
-		/* FIXME: Does anybody know the real formula? */
-		*build = (0xF0000000 | pPeb->OSBuildNumber);
-	}
-}
+/* EOF */

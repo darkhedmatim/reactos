@@ -1,10 +1,6 @@
 #include <msvcrt/string.h>
 #include <msvcrt/stdlib.h>
-#include <msvcrt/crttypes.h>
 
-/*
- * @implemented
- */
 char* _strnset (char* szToFill, int szFill, size_t sizeMaxFill)
 {
 	char *t = szToFill;
@@ -19,9 +15,6 @@ char* _strnset (char* szToFill, int szFill, size_t sizeMaxFill)
 	return t;
 }
 
-/*
- * @implemented
- */
 char* _strset (char* szToFill, int szFill)
 {
 	char *t = szToFill;

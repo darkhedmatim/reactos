@@ -2,7 +2,7 @@
  * COPYRIGHT:   See COPYING in the top level directory
  * 		Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details 
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/conio/ungetch.c
+ * FILE:        lib/crtdll/conio/ungetch.c
  * PURPOSE:     Ungets a character from stdin
  * PROGRAMER:   DJ Delorie
 		Boudewijn Dekker [ Adapted from djgpp libc ]
@@ -19,9 +19,6 @@ int char_avail = 0;
 int ungot_char = 0;
 
 
-/*
- * @implemented
- */
 int _ungetch(int c)
 {
   if (char_avail)

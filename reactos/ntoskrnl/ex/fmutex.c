@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fmutex.c,v 1.23 2004/12/24 17:06:58 navaraf Exp $
+/* $Id: fmutex.c,v 1.10 2001/06/20 12:57:32 ekohl Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/fmutex.c
@@ -29,44 +29,39 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
+
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 VOID FASTCALL
 ExAcquireFastMutexUnsafe(PFAST_MUTEX FastMutex)
 {
-  ASSERT(FastMutex->Owner != KeGetCurrentThread());
-  InterlockedIncrementUL(&FastMutex->Contention);
-  while (InterlockedExchange(&FastMutex->Count, 0) == 0)
+   if (InterlockedDecrement(&FastMutex->Count) == 0)
      {
-       KeWaitForSingleObject(&FastMutex->Event,
-			     Executive,
-			     KernelMode,
-			     FALSE,
-			     NULL);
+	return;
      }
-  InterlockedDecrementUL(&FastMutex->Contention);
-  FastMutex->Owner = KeGetCurrentThread();
+   FastMutex->Contention++;
+   KeWaitForSingleObject(&FastMutex->Event,
+			 Executive,
+			 KernelMode,
+			 FALSE,
+			 NULL);
+   FastMutex->Owner = KeGetCurrentThread();
 }
 
-/*
- * @implemented
- */
 VOID FASTCALL
 ExReleaseFastMutexUnsafe(PFAST_MUTEX FastMutex)
 {
-  ASSERT(FastMutex->Owner == KeGetCurrentThread());
-  FastMutex->Owner = NULL;
-  InterlockedExchange(&FastMutex->Count, 1);
-  if (FastMutex->Contention > 0)
-    {
-      KeSetEvent(&FastMutex->Event, 0, FALSE);
-    }
+   assert(FastMutex->Owner == KeGetCurrentThread());
+   if (InterlockedIncrement(&FastMutex->Count) <= 0)
+     {
+	return;
+     }
+   FastMutex->Owner = NULL;
+   KeSetEvent(&FastMutex->Event, 0, FALSE);
 }
 
 /* EOF */

@@ -1,24 +1,51 @@
-# $Id: makefile,v 1.11 2003/11/14 17:13:32 weiden Exp $
-
+# $Id: makefile,v 1.8 2001/07/15 21:19:02 rex Exp $
+#
+# Session Manager
+#
+# ReactOS Operating System
+#
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = program
+TARGET=smss
 
-TARGET_APPTYPE = native
+CFLAGS = -D__NTAPP__
 
-TARGET_NAME = smss
+OBJECTS = $(TARGET).o init.o smapi.o $(TARGET).coff
 
-TARGET_INSTALLDIR = system32
+LIBS = ../../lib/ntdll/ntdll.a
 
-TARGET_CFLAGS = -D__NTAPP__
+CLEAN_FILES = *.o $(TARGET).exe $(TARGET).sym $(TARGET).coff
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror
+all: $(TARGET).exe
 
-TARGET_OBJECTS = $(TARGET_NAME).o init.o smapi.o
+.phony: all
 
-include $(PATH_TO_TOP)/rules.mak
 
-include $(TOOLS_PATH)/helper.mk
+$(TARGET).coff: $(TARGET).rc
 
-# EOF
+$(TARGET).exe: $(OBJECTS) $(LIBS)
+	$(LD) \
+		$(OBJECTS) \
+		$(LIBS) \
+		-o $(TARGET).exe \
+		--subsystem native
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
+
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/subsys/$(TARGET).exe
+
+$(FLOPPY_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+	$(CP) $(TARGET).exe $(FLOPPY_DIR)/subsys/$(TARGET).exe
+
+
+dist: $(DIST_DIR)/subsys/$(TARGET).exe
+
+$(DIST_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+	$(CP) $(TARGET).exe ../../$(DIST_DIR)/subsys/$(TARGET).exe
+
+include ../../rules.mak

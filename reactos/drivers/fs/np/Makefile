@@ -1,25 +1,38 @@
-# $Id: Makefile,v 1.14 2003/11/13 15:26:07 ekohl Exp $
+# $Id: Makefile,v 1.11 2001/07/29 16:40:20 ekohl Exp $
+#
+# Named Pipes File System
+#
+PATH_TO_TOP=../../..
 
-PATH_TO_TOP = ../../..
+TARGET = npfs
 
-TARGET_TYPE = driver
+CFLAGS = -D__NTDRIVER__
 
-TARGET_NAME = npfs
+OBJECTS = create.o finfo.o fsctrl.o npfs.o rw.o volume.o npfs.coff
 
-TARGET_OBJECTS = \
-  create.o \
-  finfo.o \
-  fsctrl.o \
-  npfs.o \
-  rw.o \
-  volume.o
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_CFLAGS = -Werror -Wall
+all: $(TARGET).sys.unstripped $(TARGET).sys
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+npfs.coff: $(PATH_TO_TOP)/include/reactos/buildno.h npfs.rc
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk

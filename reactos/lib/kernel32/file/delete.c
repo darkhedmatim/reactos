@@ -1,4 +1,4 @@
-/* $Id: delete.c,v 1.18 2004/11/29 17:31:21 gdalsnes Exp $
+/* $Id: delete.c,v 1.8 2000/06/29 23:35:23 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,18 +11,18 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DeleteFileA (
 	LPCSTR	lpFileName
@@ -30,7 +30,7 @@ DeleteFileA (
 {
 	UNICODE_STRING FileNameU;
 	ANSI_STRING FileName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&FileName,
 	                   (LPSTR)lpFileName);
@@ -55,10 +55,7 @@ DeleteFileA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DeleteFileW (
 	LPCWSTR	lpFileName
@@ -77,10 +74,7 @@ DeleteFileW (
 	                                   &NtPathU,
 	                                   NULL,
 	                                   NULL))
-   {
-      SetLastError(ERROR_PATH_NOT_FOUND);
 		return FALSE;
-   }
 
 	DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
@@ -99,11 +93,9 @@ DeleteFileW (
 	                       FILE_ATTRIBUTE_NORMAL,
 	                       0,
 	                       FILE_OPEN,
-                               FILE_NON_DIRECTORY_FILE,
+	                       FILE_DIRECTORY_FILE,
 	                       NULL,
 	                       0);
-
-	RtlFreeUnicodeString(&NtPathU);
 
 	if (!NT_SUCCESS(Status))
 	{
@@ -112,7 +104,7 @@ DeleteFileW (
 		return FALSE;
 	}
 
-	FileDispInfo.DeleteFile = TRUE;
+	FileDispInfo.DoDeleteFile = TRUE;
 
 	Status = NtSetInformationFile (FileHandle,
 	                               &IoStatusBlock,

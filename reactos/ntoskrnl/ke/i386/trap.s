@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: trap.s,v 1.21 2004/11/20 23:46:36 blight Exp $
+/* $Id: trap.s,v 1.10 2001/03/28 14:24:05 dwelch Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/trap.s
@@ -40,21 +40,16 @@ _KiTrapEpilog:
 	cmpl	$1, %eax       /* Check for v86 recovery */
 	jne     _KiTrapRet
 	jmp	_KiV86Complete
-_KiTrapRet:				
+_KiTrapRet:		
+	/* Get a pointer to the current thread */
+        movl	%fs:0x124, %esi
+	
+        /* Restore the old trap frame pointer */
+        movl	0x3c(%esp), %ebx
+	movl	%ebx, KTHREAD_TRAP_FRAME(%esi)
+	
 	/* Skip debug information and unsaved registers */
-	addl	$0x18, %esp
-	popl	%eax		/* Dr0 */
-	movl	%eax, %dr0
-	popl	%eax		/* Dr1 */
-	movl	%eax, %dr1
-	popl	%eax		/* Dr2 */
-	movl	%eax, %dr2
-	popl	%eax		/* Dr3 */
-	movl	%eax, %dr3
-	popl	%eax		/* Dr6 */
-	movl	%eax, %dr6
-	popl	%eax		/* Dr7 */
-	movl	%eax, %dr7
+	addl	$0x30, %esp
 	popl	%gs
 	popl	%es
 	popl	%ds
@@ -99,6 +94,9 @@ _KiTrapProlog:
 	movl    %fs:KPCR_EXCEPTION_LIST, %ebx
 	pushl	%ebx
 	
+	/* Put the exception handler chain terminator */
+	movl    $0xffffffff, %fs:KPCR_EXCEPTION_LIST
+	
 	/* Get a pointer to the current thread */
 	movl    %fs:KPCR_CURRENT_THREAD, %edi
 
@@ -113,7 +111,6 @@ _KiTrapProlog:
 	
         /* Set the new previous mode based on the saved CS selector */
 	movl	 0x24(%esp), %ebx
-	andl     $0x0000FFFF, %ebx
 	cmpl     $KERNEL_CS, %ebx
 	jne      .L1
 	movb     $KernelMode, %ss:KTHREAD_PREVIOUS_MODE(%edi)
@@ -129,72 +126,37 @@ _KiTrapProlog:
 	pushl	%ds
 	pushl	%es
 	pushl	%gs
-	movl	%dr7, %eax
-	pushl	%eax		/* Dr7 */
-	/* Clear all breakpoint enables in dr7. */
-	andl	$0xFFFF0000, %eax
-	movl	%eax, %dr7
-	movl	%dr6, %eax
-	pushl	%eax		/* Dr6 */
-	movl	%dr3, %eax
-	pushl	%eax		/* Dr3 */
-	movl	%dr2, %eax
-	pushl	%eax		/* Dr2 */
-	movl	%dr1, %eax
-	pushl	%eax		/* Dr1 */
-	movl	%dr0, %eax
-	pushl	%eax		/* Dr0 */
+	pushl	$0     /* DR7 */
+	pushl	$0     /* DR6 */
+	pushl	$0     /* DR3 */
+	pushl	$0     /* DR2 */
+	pushl	$0     /* DR1 */
+	pushl	$0     /* DR0 */
 	pushl	$0     /* XXX: TempESP */
 	pushl	$0     /* XXX: TempCS */
 	pushl	$0     /* XXX: DebugPointer */
 	pushl	$0     /* XXX: DebugArgMark */
-	movl    0x60(%esp), %ebx
-	pushl	%ebx   /* XXX: DebugEIP */
-	pushl	%ebp   /* XXX: DebugEBP */	
-		
-	/* Load the segment registers */
+	pushl	$0     /* XXX: DebugEIP */
+	pushl	$0     /* XXX: DebugEBP */
+
+        /* Load the segment registers */
 	movl	$KERNEL_DS, %ebx
 	movl	%ebx, %ds
 	movl	%ebx, %es
 	movl	%ebx, %gs
-	
-	/*  Set ES to kernel segment  */
-	movw	$KERNEL_DS,%bx
-	movw	%bx,%es
 
-	movl	%esp, %ebx
-	movl	%esp, %ebp		
+        /*  Set ES to kernel segment  */
+        movw	$KERNEL_DS,%bx
+        movw	%bx,%es
 
-	/* Save the old trap frame. */
-	cmpl	$0, %edi
-	je	.L7
-	movl	%ss:KTHREAD_TRAP_FRAME(%edi), %edx
-	pushl	%edx
-	jmp	.L8
-.L7:
-	pushl	$0
-.L8:	
-
-	/* Save a pointer to the trap frame in the current KTHREAD */
-	cmpl	$0, %edi
-	je	.L6
-	movl	%ebx, %ss:KTHREAD_TRAP_FRAME(%edi)
-.L6:	
-	
 	/* Call the C exception handler */
+	movl	%esp, %ebx
 	pushl	%esi
 	pushl	%ebx
 	call	_KiTrapHandler
 	addl	$4, %esp
 	addl	$4, %esp
 
-	/* Get a pointer to the current thread */
-        movl	%fs:KPCR_CURRENT_THREAD, %esi
-	
-        /* Restore the old trap frame pointer */
-	popl	%ebx
-	movl	%ebx, KTHREAD_TRAP_FRAME(%esi)
-	
 	/* Return to the caller */
 	jmp	_KiTrapEpilog
 
@@ -206,7 +168,7 @@ _KiTrapProlog:
 .L4:
 	pushl	$0	
 	jmp	.L3	
-					
+				
 .globl _KiTrap0
 _KiTrap0:
 	/* No error code */
@@ -337,7 +299,6 @@ _KiTrap14:
 
 .globl _KiTrap15
 _KiTrap15:
-	pushl	$0
 	pushl	%ebp
 	pushl	%ebx
 	pushl	%esi
@@ -346,40 +307,12 @@ _KiTrap15:
 
 .globl _KiTrap16
 _KiTrap16:
-	pushl	$0
 	pushl	%ebp
 	pushl	%ebx
 	pushl	%esi
 	movl	$16, %esi
 	jmp	_KiTrapProlog
 	 
-.globl _KiTrap17
-_KiTrap17:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$17, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap18
-_KiTrap18:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$18, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap19
-_KiTrap19:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$19, %esi
-	jmp	_KiTrapProlog
-
 .globl _KiTrapUnknown
 _KiTrapUnknown:
         pushl	$0

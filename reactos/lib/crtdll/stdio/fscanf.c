@@ -17,18 +17,15 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
 
-#include <msvcrt/stdarg.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/wchar.h>
-#include <msvcrt/alloc.h>
-#include <msvcrt/internal/stdio.h>
+#include <stdarg.h>
+#include <crtdll/stdio.h>
+#include <crtdll/wchar.h>
+#include <crtdll/alloc.h>
 
 
+int __vfscanf (FILE *s, const char *format, va_list argptr);
 /* Read formatted input from STREAM according to the format string FORMAT.  */
 /* VARARGS2 */
-/*
- * @implemented
- */
 int fscanf(FILE *stream,const char *format, ...)
 {
   va_list arg;
@@ -41,9 +38,6 @@ int fscanf(FILE *stream,const char *format, ...)
   return done;
 }
 
-/*
- * @implemented
- */
 int
 fwscanf(FILE *stream, const wchar_t *fmt, ...)
 {
@@ -63,3 +57,4 @@ fwscanf(FILE *stream, const wchar_t *fmt, ...)
   free(cf);
   return done;
 }
+

@@ -1,15 +1,37 @@
-# $Id: makefile,v 1.8 2003/11/14 17:13:26 weiden Exp $
+# $Id: makefile,v 1.6 2001/07/24 18:38:04 ekohl Exp $
+#
+#
+TARGET = mouclass
 
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = driver
+OBJECTS = $(TARGET).o $(TARGET).coff
 
-TARGET_NAME = mouclass
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_CFLAGS = -Wall -Werror
+CFLAGS = -D__NTDRIVER__ -O2 -I.
 
-TARGET_OBJECTS = $(TARGET_NAME).o
+all: $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+$(TARGET).coff: $(PATH_TO_TOP)/include/reactos/buildno.h $(TARGET).rc
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk

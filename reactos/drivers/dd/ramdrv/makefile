@@ -1,21 +1,38 @@
-# $Id: makefile,v 1.9 2002/09/08 10:22:05 chorns Exp $
-
-# $Id: makefile,v 1.9 2002/09/08 10:22:05 chorns Exp $
-
+# $Id: makefile,v 1.4 2001/07/25 06:20:17 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = driver
+TARGET = ramdrv
 
-TARGET_NAME = ramdrv
+OBJECTS = ramdrv.o
 
-TARGET_OBJECTS = ramdrv.o
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_DDKLIBS = unbzip2.a
+CFLAGS = -D__NTDRIVER__ -I.
 
-TARGET_NORC = yes
+all: $(TARGET).sys
 
-TARGET_CFLAGS=-I../../../ntoskrnl/include -g
+ramdrv.o: ramdrv.h
 
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym *.coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+WITH_DEBUGGING=yes
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk

@@ -20,13 +20,7 @@ SECTIONS
      __text_end__ = .;
     *(.gcc_except_table)
   }
-  init BLOCK(__section_alignment__) :
-  {
-    __init_start__ = . ;
-    *(init)
-    __init_end__ = . ;
-  }
-   /* The Cygwin32 library uses a section to avoid copying certain data
+  /* The Cygwin32 library uses a section to avoid copying certain data
      on fork.  This used to be named ".data".  The linker used
      to include this between __data_start__ and __data_end__, but that
      breaks building the cygwin32 dll.  Instead, we name the section
@@ -57,15 +51,14 @@ SECTIONS
     *(.debug$F)
     *(.drectve)
   }
-
-  .idata BLOCK(__section_alignment__) :
+  /DISCARD/ :
   {
     /* This cannot currently be handled with grouped sections.
 	See pe.em:sort_sections.  */
     SORT(*)(.idata$2)
     SORT(*)(.idata$3)
     /* These zeroes mark the end of the import list.  */
-    LONG (0); LONG (0); LONG (0); LONG (0); LONG (0);
+/*    LONG (0); LONG (0); LONG (0); LONG (0); LONG (0);*/
     SORT(*)(.idata$4)	
     SORT(*)(.idata$5)
     SORT(*)(.idata$6)
@@ -87,12 +80,10 @@ SECTIONS
     *(COMMON)
     __bss_end__ = . ;
   }
-  .reloc BLOCK(__section_alignment__) :
-  { 					
+  /DISCARD/ :
+  {
     *(.reloc)
-     /* These zeroes mark the end of the reloc section.  */
-     LONG (0); LONG (0); LONG (0); LONG (0); LONG (0);
-  }
+  }  
   .stab BLOCK(__section_alignment__) (NOLOAD) :
   {
     [ .stab ]

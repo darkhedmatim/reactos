@@ -1,4 +1,4 @@
-/* $Id: queue.c,v 1.10 2004/08/15 16:39:06 chorns Exp $
+/* $Id: queue.c,v 1.3 2000/12/28 03:38:07 dwelch Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,11 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
 
 VOID STDCALL
 EiEnqueueMessagePort (IN OUT	PEPORT		Port,
@@ -26,14 +29,6 @@ EiEnqueueMessagePort (IN OUT	PEPORT		Port,
   Port->QueueLength++;
 }
 
-VOID STDCALL
-EiEnqueueMessageAtHeadPort (IN OUT	PEPORT		Port,
-			    IN	PQUEUEDMESSAGE	Message)
-{
-  InsertTailList (&Port->QueueListHead,
-		  &Message->QueueListEntry);
-  Port->QueueLength++;
-}
 
 PQUEUEDMESSAGE STDCALL
 EiDequeueMessagePort (IN OUT	PEPORT	Port)

@@ -10,28 +10,18 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS
-STDCALL
-NtPlugPlayControl (DWORD Unknown1,
-                   DWORD Unknown2,
-                   DWORD Unknown3)
+NTSTATUS STDCALL NtGetPlugPlayEvent(VOID)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
 
-NTSTATUS
-STDCALL
-NtGetPlugPlayEvent (ULONG Reserved1,
-                    ULONG Reserved2,
-                    PVOID Buffer,
-                    ULONG BufferLength)
+NTSTATUS STDCALL NtPlugPlayControl(VOID)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }

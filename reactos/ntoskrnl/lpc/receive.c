@@ -1,4 +1,4 @@
-/* $Id: receive.c,v 1.9 2004/08/15 16:39:06 chorns Exp $
+/* $Id: receive.c,v 1.2 2000/10/22 16:36:51 ekohl Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,11 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
 
 /**********************************************************************
  * NAME							SYSTEM
@@ -25,17 +28,20 @@
  * ARGUMENTS
  *
  * RETURN VALUE
+ *
  */
-NTSTATUS STDCALL
-NtReadRequestData (HANDLE		PortHandle,
-		   PLPC_MESSAGE	Message,
-		   ULONG		Index,
-		   PVOID		Buffer,
-		   ULONG		BufferLength,
-		   PULONG		Returnlength)
+NTSTATUS
+STDCALL
+NtReadRequestData (
+	HANDLE		PortHandle,
+	PLPC_MESSAGE	Message,
+	ULONG		Index,
+	PVOID		Buffer,
+	ULONG		BufferLength,
+	PULONG		Returnlength
+	)
 {
 	UNIMPLEMENTED;
-	return(STATUS_NOT_IMPLEMENTED);
 }
 
 

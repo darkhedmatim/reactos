@@ -1,28 +1,54 @@
-# $Id: makefile,v 1.11 2004/07/12 20:09:35 gvg Exp $
+# $Id: makefile,v 1.4 2001/07/15 21:18:53 rex Exp $
+#
+# Logon/login Application
+#
+# ReactOS Operating System
+#
+TARGET = winlogon
+PROGS = winlogon.exe
 
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = program
+BASE_CFLAGS = -I../../include
 
-TARGET_APPTYPE = console
+OBJECTS = winlogon.o $(TARGET).coff
 
-TARGET_NAME = winlogon
+LIBS = $(PATH_TO_TOP)/lib/kernel32/kernel32.a \
+       $(PATH_TO_TOP)/lib/ntdll/ntdll.a \
+       $(PATH_TO_TOP)/lib/user32/user32.a
 
-TARGET_INSTALLDIR = system32
+all: $(TARGET).exe
 
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a advapi32.a userenv.a secur32.a
+.phony: all
 
-TARGET_OBJECTS = setup.o winlogon.o wlx.o sas.o
+clean:
+	- $(RM) *.o $(TARGET).exe $(TARGET).sym $(TARGET).coff
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API -DUNICODE -D_UNICODE -I./
+.phony: clean
+
+$(TARGET).exe: $(OBJECTS)
+	$(CC) \
+		$(OBJECTS) \
+		$(LIBS) \
+		-o $(TARGET).exe 
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
+
+clean: $(CLEAN_FILES:%=%_clean)
+
+$(CLEAN_FILES:%=%_clean): %_clean:
+	- $(RM) $*
+
+.phony: clean $(CLEAN_FILES:%=%_clean)
+
+install: $(PROGS:%=$(FLOPPY_DIR)/apps/%)
+
+$(PROGS:%=$(FLOPPY_DIR)/apps/%): $(FLOPPY_DIR)/apps/%: %
+	$(CP) $* $(FLOPPY_DIR)/apps/$*
+
+dist: $(PROGS:%=../../../$(DIST_DIR)/apps/%)
+
+$(PROGS:%=../../../$(DIST_DIR)/apps/%): ../../../$(DIST_DIR)/apps/%: %
+	$(CP) $* ../../../$(DIST_DIR)/apps/$*
+
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-# Automatic dependency tracking
-DEP_OBJECTS := $(TARGET_OBJECTS)
-
-include $(PATH_TO_TOP)/tools/depend.mk
-
-# EOF

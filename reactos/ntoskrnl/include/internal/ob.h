@@ -9,14 +9,11 @@
 #ifndef __INCLUDE_INTERNAL_OBJMGR_H
 #define __INCLUDE_INTERNAL_OBJMGR_H
 
-#define NTOS_MODE_KERNEL
-#include <ntos.h>
-
-#define TAG_OBJECT_TYPE TAG('O', 'b', 'j', 'T')
+#include <ddk/types.h>
 
 struct _EPROCESS;
 
-typedef struct
+typedef struct 
 {
    CSHORT Type;
    CSHORT Size;
@@ -25,7 +22,7 @@ typedef struct
 typedef PVOID POBJECT;
 
 typedef struct _DIRECTORY_OBJECT
-{
+{   
    CSHORT Type;
    CSHORT Size;
    
@@ -35,24 +32,6 @@ typedef struct _DIRECTORY_OBJECT
    LIST_ENTRY head;
    KSPIN_LOCK Lock;
 } DIRECTORY_OBJECT, *PDIRECTORY_OBJECT;
-
-typedef struct _SYMLINK_OBJECT
-{
-  CSHORT Type;
-  CSHORT Size;
-  UNICODE_STRING TargetName;
-  LARGE_INTEGER CreateTime;
-} SYMLINK_OBJECT, *PSYMLINK_OBJECT;
-
-
-typedef struct _TYPE_OBJECT
-{
-  CSHORT Type;
-  CSHORT Size;
-  
-  /* pointer to object type data */
-  POBJECT_TYPE ObjectType;
-} TYPE_OBJECT, *PTYPE_OBJECT;
 
 
 /*
@@ -72,26 +51,43 @@ enum
    OBJTYP_MAX,
 };
 
+BOOL ObAddObjectToNameSpace(PUNICODE_STRING path, POBJECT_HEADER Object);
 
-#define OBJECT_ALLOC_SIZE(ObjectSize) ((ObjectSize)+sizeof(OBJECT_HEADER)-sizeof(COMMON_BODY_HEADER))
+VOID ObRegisterType(CSHORT id, OBJECT_TYPE* type);
+NTSTATUS ObLookupObject(HANDLE rootdir, PWSTR string, PVOID* Object,
+			 PWSTR* UnparsedSection, ULONG Attributes);
+VOID ObRemoveEntry(POBJECT_HEADER Header);
+NTSTATUS ObPerformRetentionChecks(POBJECT_HEADER Header);
 
-
-extern PDIRECTORY_OBJECT NameSpaceRoot;
-extern POBJECT_TYPE ObSymbolicLinkType;
-
+/*
+ * FUNCTION: Creates an entry within a directory
+ * ARGUMENTS:
+ *        parent = Parent directory
+ *        object = Header of the object to add
+ */
+VOID ObCreateEntry(PDIRECTORY_OBJECT parent, POBJECT_HEADER object);
 
 POBJECT_HEADER BODY_TO_HEADER(PVOID body);
 PVOID HEADER_TO_BODY(POBJECT_HEADER obj);
 
-VOID ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
-			  POBJECT_HEADER Header,
-			  PWSTR Name);
-VOID ObpRemoveEntryDirectory(POBJECT_HEADER Header);
+#define OBJECT_ALLOC_SIZE(type) (type->NonpagedPoolCharge+sizeof(OBJECT_HEADER)-sizeof(COMMON_BODY_HEADER))
 
-VOID
-ObInitSymbolicLinkImplementation(VOID);
+/*
+ * PURPOSE: Defines a handle
+ */
+typedef struct
+{
+   PVOID ObjectBody;
+   ACCESS_MASK GrantedAccess;
+   BOOLEAN Inherit;
+} HANDLE_REP, *PHANDLE_REP;
 
+PHANDLE_REP ObTranslateHandle(struct _EPROCESS* Process, HANDLE h);
+extern PDIRECTORY_OBJECT NameSpaceRoot;
 
+VOID STDCALL ObAddEntryDirectory(PDIRECTORY_OBJECT Parent,
+				 POBJECT Object,
+				 PWSTR Name);
 NTSTATUS ObCreateHandle(struct _EPROCESS* Process,
 			PVOID ObjectBody,
 			ACCESS_MASK GrantedAccess,
@@ -104,60 +100,18 @@ NTSTATUS ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
 		      PVOID* ReturnedObject,
 		      PUNICODE_STRING RemainingPath,
 		      POBJECT_TYPE ObjectType);
+ULONG ObGetReferenceCount(PVOID Object);
+ULONG ObGetHandleCount(PVOID Object);
 VOID ObCloseAllHandles(struct _EPROCESS* Process);
 VOID ObDeleteHandleTable(struct _EPROCESS* Process);
-
-NTSTATUS
-ObDeleteHandle(PEPROCESS Process,
-	       HANDLE Handle,
-	       PVOID *ObjectBody);
-
-NTSTATUS
-ObpQueryHandleAttributes(HANDLE Handle,
-			 POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo);
-
-NTSTATUS
-ObpSetHandleAttributes(HANDLE Handle,
-		       POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo);
-
-NTSTATUS
-ObpCreateTypeObject(POBJECT_TYPE ObjectType);
-
-ULONG
-ObGetObjectHandleCount(PVOID Object);
-NTSTATUS
-ObDuplicateObject(PEPROCESS SourceProcess,
-		  PEPROCESS TargetProcess,
-		  HANDLE SourceHandle,
-		  PHANDLE TargetHandle,
-		  ACCESS_MASK DesiredAccess,
-		  BOOLEAN InheritHandle,
-		  ULONG	Options);
-
-ULONG
-ObpGetHandleCountByHandleTable(PHANDLE_TABLE HandleTable);
-
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process, PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo);
-
-/* Security descriptor cache functions */
-
-NTSTATUS
-ObpInitSdCache(VOID);
-
-NTSTATUS
-ObpAddSecurityDescriptor(IN PSECURITY_DESCRIPTOR SourceSD,
-			 OUT PSECURITY_DESCRIPTOR *DestinationSD);
-
-NTSTATUS
-ObpRemoveSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-VOID
-ObpReferenceCachedSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-VOID
-ObpDereferenceCachedSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
+PVOID ObDeleteHandle(struct _EPROCESS* Process, 
+		     HANDLE Handle);
+NTSTATUS STDCALL 
+ObInsertObject(PVOID Object,
+	       PACCESS_STATE PassedAccessState,
+	       ACCESS_MASK DesiredAccess,
+	       ULONG AdditionalReferences,
+	       PVOID* ReferencedObject,
+	       PHANDLE Handle);
 
 #endif /* __INCLUDE_INTERNAL_OBJMGR_H */

@@ -1,15 +1,12 @@
-#include <msvcrt/stdio.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/string.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/string.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
 
 
 // carriage return line feed conversion is done in filbuf and  flsbuf
 #if 0
-/*
- * @unimplemented
- */
 size_t
 fread(void *p, size_t size, size_t count, FILE *iop)
 {

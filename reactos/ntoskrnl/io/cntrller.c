@@ -1,4 +1,4 @@
-/* $Id: cntrller.c,v 1.12 2004/10/22 20:25:52 ekohl Exp $
+/* $Id: cntrller.c,v 1.7 2001/04/13 16:12:25 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -35,9 +37,6 @@ typedef struct
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
@@ -60,12 +59,12 @@ IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
    PCONTROLLER_QUEUE_ENTRY entry;
    IO_ALLOCATION_ACTION Result;
 
-   ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
+   assert(KeGetCurrentIrql() == DISPATCH_LEVEL);
 
    entry = 
      ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_QUEUE_ENTRY),
 			   TAG_CQE);
-   ASSERT(entry!=NULL);
+   assert(entry!=NULL);
    
    entry->DeviceObject = DeviceObject;
    entry->ExecutionRoutine = ExecutionRoutine;
@@ -84,9 +83,6 @@ IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
    ExFreePool(entry);
 }
 
-/*
- * @implemented
- */
 PCONTROLLER_OBJECT
 STDCALL
 IoCreateController(ULONG Size)
@@ -99,7 +95,7 @@ IoCreateController(ULONG Size)
 {
    PCONTROLLER_OBJECT controller;
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
    controller = 
      ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_OBJECT),
@@ -121,9 +117,6 @@ IoCreateController(ULONG Size)
    return(controller);
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 IoDeleteController(PCONTROLLER_OBJECT ControllerObject)
@@ -133,15 +126,12 @@ IoDeleteController(PCONTROLLER_OBJECT ControllerObject)
  *        ControllerObject = Controller object to be released
  */
 {
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
 
    ExFreePool(ControllerObject->ControllerExtension);
    ExFreePool(ControllerObject);
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 IoFreeController(PCONTROLLER_OBJECT ControllerObject)
@@ -166,7 +156,7 @@ IoFreeController(PCONTROLLER_OBJECT ControllerObject)
 	  }
 	Result = Entry->ExecutionRoutine(Entry->DeviceObject,
 					 Entry->DeviceObject->CurrentIrp,
-					 NULL,
+					 NULL,					 
 					 Entry->Context);
 	ExFreePool(Entry);
      } while (Result == DeallocateObject);

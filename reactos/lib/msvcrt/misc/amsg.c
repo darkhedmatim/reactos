@@ -8,7 +8,6 @@
  *              28/12/98: Created
  */
 
-#include <msvcrt/stdlib.h>
 #include <msvcrt/stdio.h>
 
 
@@ -34,21 +33,15 @@ static char *__rt_err_msg[] =
 };
 
 
-/*
- * @implemented
- */
 int _aexit_rtn(int exitcode)
 {
-    _exit(exitcode);
-    return 0;
+   _exit(exitcode);
 }
 
-/*
- * @implemented
- */
-void _amsg_exit(int errnum)
+void _amsg_exit (int errnum)
 {
-    fprintf(stderr, "runtime error - %s\n", __rt_err_msg[errnum]);
-    _aexit_rtn(-1);
+   fprintf(stderr, "runtime error - %s\n", __rt_err_msg[errnum]);
+   _aexit_rtn(-1);
 }
 
+/* EOF */

@@ -1,11 +1,10 @@
-#include "precomp.h"
-#include <msvcrt/process.h>
+#include <windows.h>
+#include <crtdll/process.h>
 
-/*
- * @implemented
- */
 int _getpid (void)
 {
-   return (int)GetCurrentProcessId();
+	//fixme GetCurrentProcessId
+        //return (int)GetCurrentProcessId();
+	return 1;
 }
 

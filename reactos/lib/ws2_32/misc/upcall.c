@@ -7,14 +7,9 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
-#include <roscfg.h>
 #include <ws2_32.h>
 #include <catalog.h>
-#include <handle.h>
 
-/*
- * @implemented
- */
 BOOL
 WSPAPI
 WPUCloseEvent(
@@ -27,9 +22,6 @@ WPUCloseEvent(
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUCloseSocketHandle(
@@ -42,9 +34,6 @@ WPUCloseSocketHandle(
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUCloseThread(
@@ -57,9 +46,6 @@ WPUCloseThread(
 }
 
 
-/*
- * @unimplemented
- */
 WSAEVENT
 WSPAPI
 WPUCreateEvent(
@@ -71,9 +57,6 @@ WPUCreateEvent(
 }
 
 
-/*
- * @unimplemented
- */
 SOCKET
 WSPAPI
 WPUCreateSocketHandle(
@@ -87,9 +70,6 @@ WPUCreateSocketHandle(
 }
 
 
-/*
- * @unimplemented
- */
 SOCKET
 WSPAPI
 WPUFDIsSet(
@@ -102,9 +82,6 @@ WPUFDIsSet(
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUGetProviderPath(
@@ -119,9 +96,6 @@ WPUGetProviderPath(
 }
 
 
-/*
- * @implemented
- */
 SOCKET
 WSPAPI
 WPUModifyIFSHandle(
@@ -132,32 +106,27 @@ WPUModifyIFSHandle(
   PCATALOG_ENTRY Provider;
   SOCKET Socket;
 
-  WS_DbgPrint(MID_TRACE, ("dwCatalogEntryId (%d)  ProposedHandle (0x%X).\n",
+  WS_DbgPrint(MAX_TRACE, ("dwCatalogEntryId (%d)  ProposedHandle (0x%X).\n",
     dwCatalogEntryId, ProposedHandle));
 
   Provider = LocateProviderById(dwCatalogEntryId);
   if (!Provider) {
     WS_DbgPrint(MIN_TRACE, ("Provider with catalog entry id (%d) was not found.\n",
       dwCatalogEntryId));
-    if( lpErrno ) *lpErrno = WSAEINVAL;
-    WS_DbgPrint(MID_TRACE, ("Returning invalid socket\n"));
+    *lpErrno = WSAEINVAL;
     return INVALID_SOCKET;
   }
 
   Socket = (SOCKET)CreateProviderHandle(
-    (HANDLE)ProposedHandle,
+    ProposedHandle,
     Provider);
 
-  if( lpErrno ) *lpErrno = NO_ERROR;
+  *lpErrno = NO_ERROR;
 
-  WS_DbgPrint(MID_TRACE, ("Socket: %x\n", Socket));
   return Socket;
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUOpenCurrentThread(
@@ -170,9 +139,20 @@ WPUOpenCurrentThread(
 }
 
 
-/*
- * @unimplemented
- */
+BOOL
+WSPAPI
+WPUPostMessage(
+    IN  HWND hWnd,
+    IN  UINT Msg,
+    IN  WPARAM wParam,
+    IN  LPARAM lParam)
+{
+    UNIMPLEMENTED
+
+    return FALSE;
+}
+
+
 INT
 WSPAPI
 WPUQueryBlockingCallback(
@@ -187,9 +167,6 @@ WPUQueryBlockingCallback(
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUQuerySocketHandleContext(
@@ -203,9 +180,6 @@ WPUQuerySocketHandleContext(
 }
 
 
-/*
- * @unimplemented
- */
 INT
 WSPAPI
 WPUQueueApc(
@@ -220,9 +194,6 @@ WPUQueueApc(
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 WSPAPI
 WPUResetEvent(
@@ -235,9 +206,6 @@ WPUResetEvent(
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 WSPAPI
 WPUSetEvent(

@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/mbsncmp.c
+ * FILE:        lib/crtdll/mbstring/mbsncmp.c
  * PURPOSE:     Compares two strings to a maximum of n bytes or characters
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -10,9 +10,6 @@
 
 #include <msvcrt/mbstring.h>
 
-/*
- * @implemented
- */
 int _mbsncmp(const unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;
@@ -59,9 +56,6 @@ int _mbsncmp(const unsigned char *str1, const unsigned char *str2, size_t n)
 	return 0;
 }
 
-/*
- * @implemented
- */
 int _mbsnbcmp(const unsigned char *str1, const unsigned char *str2, size_t n)
 {
 	unsigned char *s1 = (unsigned char *)str1;

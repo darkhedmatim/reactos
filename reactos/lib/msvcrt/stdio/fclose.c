@@ -11,9 +11,6 @@
 // changed check for writable stream
 
 
-/*
- * @implemented
- */
 int
 fclose(FILE *f)
 {

@@ -11,104 +11,40 @@ typedef enum _IO_QUERY_DEVICE_DESCRIPTION
 
 typedef enum _CONFIGURATION_TYPE
 {
-   ArcSystem,
-   CentralProcessor,
-   FloatingPointProcessor,
-   PrimaryIcache,
-   PrimaryDcache,
-   SecondaryIcache,
-   SecondaryDcache,
-   SecondaryCache,
-   EisaAdapter,
-   TcAdapter,
-   ScsiAdapter,
-   DtiAdapter,
-   MultiFunctionAdapter,
    DiskController,
-   TapeController,
-   CdromController,
-   WorkController,
-   SerialController,
-   NetworkController,
-   DisplayController,
    ParallelController,
-   PointerController,
-   KeyboardController,
-   AudioController,
-   OtherController,
-   DiskPeripheral,
-   FloppyDiskPeripheral,
-   TapePeripheral,
-   ModemPeripheral,
-   MonitorPeripheral,
-   PrinterPeripheral,
-   PointerPeripheral,
-   KeyboardPeripheral,
-   TerminalPeripheral,
-   OtherPeripheral,
-   LinePeripheral,
-   NetworkPeripheral,
-   SystemMemory,
-   DockingInformation,
-   RealModeIrqRoutingTable,
-   RealModePCIEnumeration,
-   MaximumType
+   MaximumType,
 } CONFIGURATION_TYPE, *PCONFIGURATION_TYPE;
 
-
-typedef int CM_RESOURCE_TYPE;
-
-#define CmResourceTypeNull           0
-#define CmResourceTypePort           1
-#define CmResourceTypeInterrupt      2
-#define CmResourceTypeMemory         3
-#define CmResourceTypeDma            4
-#define CmResourceTypeDeviceSpecific 5
-#define CmResourceTypeBusNumber      6
-#define CmResourceTypeMaximum        7
-
+typedef enum _CM_RESOURCE_TYPE
+{
+   CmResourceTypePort = 1,
+   CmResourceTypeInterrupt,
+   CmResourceTypeMemory,
+   CmResourceTypeDma,
+   CmResourceTypeDeviceSpecific,
+   CmResourceTypeMaximum,
+} CM_RESOURCE_TYPE;
 
 typedef enum _CM_SHARE_DISPOSITION
 {
-  CmResourceShareUndetermined = 0,
-  CmResourceShareDeviceExclusive,
-  CmResourceShareDriverExclusive,
-  CmResourceShareShared,
+   CmResourceShareDeviceExclusive = 1,
+   CmResourceShareDriverExclusive,
+   CmResourceShareShared,
+   CmResourceShareMaximum,
 } CM_SHARE_DISPOSITION;
 
+enum
+{
+   CM_RESOURCE_INTERRUPT_LEVEL_SENSITIVE,
+   CM_RESOURCE_INTERRUPT_LATCHED,
+};
 
-#define CM_RESOURCE_INTERRUPT_LEVEL_SENSITIVE 0
-#define CM_RESOURCE_INTERRUPT_LATCHED         1
-
-
-#define CM_RESOURCE_MEMORY_READ_WRITE    0x0000
-#define CM_RESOURCE_MEMORY_READ_ONLY     0x0001
-#define CM_RESOURCE_MEMORY_WRITE_ONLY    0x0002
-#define CM_RESOURCE_MEMORY_PREFETCHABLE  0x0004
-#define CM_RESOURCE_MEMORY_COMBINEDWRITE 0x0008
-#define CM_RESOURCE_MEMORY_24            0x0010
-
-
-#define CM_RESOURCE_PORT_MEMORY                         0x0000
-#define CM_RESOURCE_PORT_IO                             0x0001
-#define CM_RESOURCE_PORT_FORWARD_FIRST_256_OF_EACH_1024 0x0002
-#define CM_RESOURCE_PORT_10_BIT_DECODE                  0x0004
-#define CM_RESOURCE_PORT_12_BIT_DECODE                  0x0008
-#define CM_RESOURCE_PORT_16_BIT_DECODE                  0x0010
-#define CM_RESOURCE_PORT_POSITIVE_DECODE                0x0020
-#define CM_RESOURCE_PORT_PASSIVE_DECODE                 0x0040
-#define CM_RESOURCE_PORT_WINDOW_DECODE                  0x0080
-
-
-#define CM_RESOURCE_DMA_8          0x0000
-#define CM_RESOURCE_DMA_16         0x0001
-#define CM_RESOURCE_DMA_32         0x0002
-#define CM_RESOURCE_DMA_8_AND_16   0x0004
-#define CM_RESOURCE_DMA_BUS_MASTER 0x0008
-#define CM_RESOURCE_DMA_TYPE_A     0x0010
-#define CM_RESOURCE_DMA_TYPE_B     0x0020
-#define CM_RESOURCE_DMA_TYPE_F     0x0040
-
+enum
+{
+   CM_RESOURCE_PORT_MEMORY,
+   CM_RESOURCE_PORT_IO,
+};
 
 /*
  * PURPOSE: Irp flags
@@ -183,50 +119,50 @@ enum
 /*
  * Possible device types
  */
-#define FILE_DEVICE_BEEP                0x00000001
-#define FILE_DEVICE_CD_ROM              0x00000002
-#define FILE_DEVICE_CD_ROM_FILE_SYSTEM  0x00000003
-#define FILE_DEVICE_CONTROLLER          0x00000004
-#define FILE_DEVICE_DATALINK            0x00000005
-#define FILE_DEVICE_DFS                 0x00000006
-#define FILE_DEVICE_DISK                0x00000007
-#define FILE_DEVICE_DISK_FILE_SYSTEM    0x00000008
-#define FILE_DEVICE_FILE_SYSTEM         0x00000009
-#define FILE_DEVICE_INPORT_PORT         0x0000000a
-#define FILE_DEVICE_KEYBOARD            0x0000000b
-#define FILE_DEVICE_MAILSLOT            0x0000000c
-#define FILE_DEVICE_MIDI_IN             0x0000000d
-#define FILE_DEVICE_MIDI_OUT            0x0000000e
-#define FILE_DEVICE_MOUSE               0x0000000f
-#define FILE_DEVICE_MULTI_UNC_PROVIDER  0x00000010
-#define FILE_DEVICE_NAMED_PIPE          0x00000011
-#define FILE_DEVICE_NETWORK             0x00000012
-#define FILE_DEVICE_NETWORK_BROWSER     0x00000013
-#define FILE_DEVICE_NETWORK_FILE_SYSTEM 0x00000014
-#define FILE_DEVICE_NULL                0x00000015
-#define FILE_DEVICE_PARALLEL_PORT       0x00000016
-#define FILE_DEVICE_PHYSICAL_NETCARD    0x00000017
-#define FILE_DEVICE_PRINTER             0x00000018
-#define FILE_DEVICE_SCANNER             0x00000019
-#define FILE_DEVICE_SERIAL_MOUSE_PORT   0x0000001a
-#define FILE_DEVICE_SERIAL_PORT         0x0000001b
-#define FILE_DEVICE_SCREEN              0x0000001c
-#define FILE_DEVICE_SOUND               0x0000001d
-#define FILE_DEVICE_STREAMS             0x0000001e
-#define FILE_DEVICE_TAPE                0x0000001f
-#define FILE_DEVICE_TAPE_FILE_SYSTEM    0x00000020
-#define FILE_DEVICE_TRANSPORT           0x00000021
-#define FILE_DEVICE_UNKNOWN             0x00000022
-#define FILE_DEVICE_VIDEO               0x00000023
-#define FILE_DEVICE_VIRTUAL_DISK        0x00000024
-#define FILE_DEVICE_WAVE_IN             0x00000025
-#define FILE_DEVICE_WAVE_OUT            0x00000026
-#define FILE_DEVICE_8042_PORT           0x00000027
-#define FILE_DEVICE_NETWORK_REDIRECTOR  0x00000028
-#define FILE_DEVICE_BATTERY             0x00000029
-#define FILE_DEVICE_BUS_EXTENDER        0x0000002a
-#define FILE_DEVICE_MODEM               0x0000002b
-#define FILE_DEVICE_VDM                 0x0000002c
+#define	FILE_DEVICE_BEEP		            0x00000001
+#define	FILE_DEVICE_CD_ROM           	  0x00000002
+#define	FILE_DEVICE_CD_ROM_FILE_SYSTEM  0x00000003
+#define	FILE_DEVICE_CONTROLLER       	  0x00000004
+#define	FILE_DEVICE_DATALINK         	  0x00000005
+#define	FILE_DEVICE_DFS              	  0x00000006
+#define	FILE_DEVICE_DISK             	  0x00000007
+#define	FILE_DEVICE_DISK_FILE_SYSTEM 	  0x00000008
+#define	FILE_DEVICE_FILE_SYSTEM      	  0x00000009
+#define	FILE_DEVICE_INPORT_PORT      	  0x0000000a
+#define	FILE_DEVICE_KEYBOARD         	  0x0000000b
+#define	FILE_DEVICE_MAILSLOT         	  0x0000000c
+#define	FILE_DEVICE_MIDI_IN          	  0x0000000d
+#define	FILE_DEVICE_MIDI_OUT         	  0x0000000e
+#define	FILE_DEVICE_MOUSE            	  0x0000000f
+#define	FILE_DEVICE_MULTI_UNC_PROVIDER  0x00000010
+#define	FILE_DEVICE_NAMED_PIPE       	  0x00000011
+#define	FILE_DEVICE_NETWORK          	  0x00000012
+#define	FILE_DEVICE_NETWORK_BROWSER  	  0x00000013
+#define	FILE_DEVICE_NETWORK_FILE_SYSTEM 0x00000014
+#define	FILE_DEVICE_NULL             	  0x00000015
+#define	FILE_DEVICE_PARALLEL_PORT    	  0x00000016
+#define	FILE_DEVICE_PHYSICAL_NETCARD 	  0x00000017
+#define	FILE_DEVICE_PRINTER          	  0x00000018
+#define	FILE_DEVICE_SCANNER          	  0x00000019
+#define	FILE_DEVICE_SERIAL_MOUSE_PORT   0x0000001a
+#define	FILE_DEVICE_SERIAL_PORT      	  0x0000001b
+#define	FILE_DEVICE_SCREEN           	  0x0000001c
+#define	FILE_DEVICE_SOUND            	  0x0000001d
+#define	FILE_DEVICE_STREAMS          	  0x0000001e
+#define	FILE_DEVICE_TAPE             	  0x0000001f
+#define	FILE_DEVICE_TAPE_FILE_SYSTEM 	  0x00000020
+#define	FILE_DEVICE_TRANSPORT        	  0x00000021
+#define	FILE_DEVICE_UNKNOWN          	  0x00000022
+#define	FILE_DEVICE_VIDEO            	  0x00000023
+#define	FILE_DEVICE_VIRTUAL_DISK     	  0x00000024
+#define	FILE_DEVICE_WAVE_IN          	  0x00000025
+#define	FILE_DEVICE_WAVE_OUT         	  0x00000026
+#define	FILE_DEVICE_8042_PORT        	  0x00000027
+#define	FILE_DEVICE_NETWORK_REDIRECTOR  0x00000028
+#define	FILE_DEVICE_BATTERY          	  0x00000029
+#define	FILE_DEVICE_BUS_EXTENDER     	  0x0000002a
+#define	FILE_DEVICE_MODEM            	  0x0000002b
+#define	FILE_DEVICE_VDM              	  0x0000002c
 #define FILE_DEVICE_MASS_STORAGE        0x0000002d
 #define FILE_DEVICE_SMB                 0x0000002e
 #define FILE_DEVICE_KS                  0x0000002f
@@ -310,16 +246,6 @@ enum
      IRP_MJ_MAXIMUM_FUNCTION,
 };
 
-#define IRP_MJ_SCSI  IRP_MJ_INTERNAL_DEVICE_CONTROL
-
-/*
- * Minor function numbers for IRP_MJ_LOCK_CONTROL
- */
-#define IRP_MN_LOCK                     0x01
-#define IRP_MN_UNLOCK_SINGLE            0x02
-#define IRP_MN_UNLOCK_ALL               0x03
-#define IRP_MN_UNLOCK_ALL_BY_KEY        0x04
-
 /*
  * Minor function numbers for IRP_MJ_FILE_SYSTEM_CONTROL
  */
@@ -327,11 +253,6 @@ enum
 #define IRP_MN_MOUNT_VOLUME             0x01
 #define IRP_MN_VERIFY_VOLUME            0x02
 #define IRP_MN_LOAD_FILE_SYSTEM         0x03
-
-/*
- * Minor function numbers for IRP_MJ_SCSI
- */
-#define IRP_MN_SCSI_CLASS                   0x01
 
 /*
  * Minor function codes for IRP_MJ_POWER
@@ -386,7 +307,6 @@ enum
 #define IO_SERIAL_INCREMENT             2
 #define IO_SOUND_INCREMENT              8
 #define IO_VIDEO_INCREMENT              1
-#define MUTANT_INCREMENT                1
 #define SEMAPHORE_INCREMENT             1
 
 #define FILE_BYTE_ALIGNMENT             0x00000000
@@ -426,7 +346,7 @@ enum
 
 #define FILE_COMPLETE_IF_OPLOCKED               0x00000100
 #define FILE_NO_EA_KNOWLEDGE                    0x00000200
-#define FILE_OPEN_FOR_RECOVERY                  0x00000400
+
 #define FILE_RANDOM_ACCESS                      0x00000800
 
 #define FILE_DELETE_ON_CLOSE                    0x00001000
@@ -443,15 +363,8 @@ enum
 #define FILE_VALID_MAILSLOT_OPTION_FLAGS        0x00000032
 #define FILE_VALID_SET_FLAGS                    0x00001036
 
-#define FILE_OPEN_REPARSE_POINT                 0x00200000
 
-/*
- * special ByteOffset values
- */
-#define FILE_WRITE_TO_END_OF_FILE               0xffffffff
-#define FILE_USE_FILE_POINTER_POSITION          0xfffffffe
-
-typedef ULONG FS_INFORMATION_CLASS, *PFS_INFORMATION_CLASS;
+typedef ULONG FS_INFORMATION_CLASS;
 
 /*
  * file system information class values
@@ -469,41 +382,4 @@ typedef ULONG FS_INFORMATION_CLASS, *PFS_INFORMATION_CLASS;
 #define IRP_MN_QUERY_DIRECTORY          0x01
 #define IRP_MN_NOTIFY_CHANGE_DIRECTORY  0x02
 
-
-typedef struct _FILE_QUOTA_INFORMATION {
-    ULONG NextEntryOffset;
-    ULONG SidLength;
-    LARGE_INTEGER ChangeTime;
-    LARGE_INTEGER QuotaUsed;
-    LARGE_INTEGER QuotaThreshold;
-    LARGE_INTEGER QuotaLimit;
-    LARGE_INTEGER Sid;
-} FILE_QUOTA_INFORMATION, *PFILE_QUOTA_INFORMATION;
-
-/*
- * Floppy device data type
- */
-typedef struct _CM_FLOPPY_DEVICE_DATA
-{
-   USHORT Version;
-   USHORT Revision;
-   CHAR Size[8];
-   ULONG MaxDensity;
-   ULONG MountDensity;
-   UCHAR StepRateHeadUnloadTime;
-   UCHAR HeadLoadTime;
-   UCHAR MotorOffTime;
-   UCHAR SectorLengthCode;
-   UCHAR SectorPerTrack;
-   UCHAR ReadWriteGapLength;
-   UCHAR DataTransferLength;
-   UCHAR FormatGapLength;
-   UCHAR FormatFillCharacter;
-   UCHAR HeadSettleTime;
-   UCHAR MotorSettleTime;
-   UCHAR MaximumTrackValue;
-   UCHAR DataTransferRate;
-} CM_FLOPPY_DEVICE_DATA, *PCM_FLOPPY_DEVICE_DATA;
-
 #endif
-

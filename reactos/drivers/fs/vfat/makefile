@@ -1,51 +1,112 @@
-# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
-
+# $Id: makefile,v 1.34 2001/07/24 16:32:16 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
-TARGET_BOOTSTRAP = yes
+TARGET = vfatfs
 
-TARGET_TYPE = driver
+OBJECTS = blockdev.o cleanup.o close.o create.o dir.o direntry.o dirwr.o  \
+          fat.o fcb.o finfo.o iface.o rw.o shutdown.o string.o volume.o  \
+          $(TARGET).coff
 
-TARGET_NAME = vfatfs
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_GCCLIBS = gcc
+CFLAGS = -D__NTDRIVER__ -g -Wall -Werror
 
-TARGET_OBJECTS = \
-  blockdev.o \
-  cleanup.o \
-  close.o \
-  create.o \
-  dir.o \
-  direntry.o \
-  dirwr.o \
-  fat.o \
-  fcb.o \
-  finfo.o \
-  iface.o \
-  rw.o \
-  shutdown.o \
-  string.o \
-  volume.o \
-  misc.o \
-  fsctl.o \
-  ea.o \
-  flush.o
+all: $(TARGET).sys $(TARGET).sys.unstripped
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+.phony: all
 
-TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
 
-include $(PATH_TO_TOP)/config
+.phony: clean
 
-ifeq ($(DBG), 1)
-TARGET_CFLAGS = -Wall -Werror -g
-else
-TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
-endif
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+#$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+
+$(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
+	$(LD) -r -o vfat.o $(OBJECTS)
+	$(CC) \
+		-nostartfiles \
+		-nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,--base-file,base.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		vfat.o $(LIBS) \
+		-o junk.tmp
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def vfatfs.def
+	- $(RM) base.tmp
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+	 	-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-o $(TARGET).sys.unstripped \
+		vfat.o $(LIBS)
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).sys.unstripped >$(TARGET).sym
+
+
+$(TARGET).sys: $(OBJECTS) $(LIBS)
+	$(LD) -r -o vfat.o $(OBJECTS)
+	$(STRIP) --strip-debug vfat.o
+	$(CC) \
+		-nostartfiles \
+		-nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,--base-file,base.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		vfat.o $(LIBS) \
+		-o junk.tmp
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def vfatfs.def
+	- $(RM) base.tmp
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+	 	-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-o $(TARGET).sys \
+		vfat.o $(LIBS)
+	- $(RM) temp.exp
+
+$(TARGET).coff: $(PATH_TO_TOP)/include/reactos/buildno.h vfatfs.rc
+
+WITH_DEBUGGING=yes
+WARNINGS_ARE_ERRORS = yes
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
-

@@ -1,4 +1,4 @@
-/* $Id: procmem.c,v 1.9 2004/10/30 22:18:17 weiden Exp $
+/* $Id: procmem.c,v 1.2 2000/07/01 17:07:00 ea Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -9,17 +9,13 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <ddk/ntddk.h>
+#include <kernel32/error.h>
+#include <windows.h>
 
 /* FUNCTIONS *****************************************************************/
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 ReadProcessMemory (
 	HANDLE	hProcess,
@@ -45,22 +41,19 @@ ReadProcessMemory (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 WriteProcessMemory (
-	HANDLE hProcess,
-	LPVOID lpBaseAddress,
-	LPCVOID lpBuffer,
-	SIZE_T nSize,
-	SIZE_T *lpNumberOfBytesWritten
+	HANDLE	hProcess,
+	LPVOID	lpBaseAddress,
+	LPVOID	lpBuffer,
+	DWORD	nSize,
+	LPDWORD	lpNumberOfBytesWritten
 	)
 {
 	NTSTATUS Status;
 
-	Status = NtWriteVirtualMemory( hProcess, lpBaseAddress, (LPVOID)lpBuffer, nSize,
+	Status = NtWriteVirtualMemory( hProcess, lpBaseAddress,lpBuffer, nSize,
 		(PULONG)lpNumberOfBytesWritten
 		);
 
@@ -71,5 +64,6 @@ WriteProcessMemory (
      	}
 	return TRUE;
 }
+
 
 /* EOF */

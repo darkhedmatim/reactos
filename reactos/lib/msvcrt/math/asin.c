@@ -20,8 +20,7 @@
 
 #include <msvcrt/math.h>
 
-
-double asin(double __x)
+double asin (double __x)
 {
-    return atan2(__x, sqrt(1.0 - __x * __x));
+  return atan2 (__x, sqrt (1.0 - __x * __x));
 }

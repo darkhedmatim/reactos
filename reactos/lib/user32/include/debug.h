@@ -20,10 +20,6 @@
 #define DEBUG_WINDOW   0x00000400
 #define DEBUG_ULTRA    0xFFFFFFFF
 
-#ifdef ASSERT
-#undef ASSERT
-#endif
-
 #ifdef DBG
 
 extern DWORD DebugTraceLevel;
@@ -35,10 +31,14 @@ extern DWORD DebugTraceLevel;
 		    DbgPrint _x_; \
     }
 
+#ifdef ASSERT
+#undef ASSERT
+#endif
+
 #ifdef NASSERT
 #define ASSERT(x)
 #else /* NASSERT */
-#define ASSERT(x) if (!(x)) { D(MIN_TRACE, ("Assertion "#x" failed at %s:%d\n", __FILE__, __LINE__)); }
+#define ASSERT(x) if (!(x)) { D(MIN_TRACE, ("Assertion "#x" failed at %s:%d\n", __FILE__, __LINE__)); KeBugCheck(0); }
 #endif /* NASSERT */
 
 #define ASSERT_IRQL(x) ASSERT(KeGetCurrentIrql() <= (x))
@@ -52,9 +52,7 @@ extern DWORD DebugTraceLevel;
 
 #endif /* DBG */
 
-#ifdef assert
-#undef assert
-#endif
+
 #define assert(x) ASSERT(x)
 #define assert_irql(x) ASSERT_IRQL(x)
 
@@ -64,8 +62,6 @@ extern DWORD DebugTraceLevel;
 
 #define CHECKPOINT \
     D(DEBUG_CHECK, ("\n"));
-
-#define DPRINT(X...) D(DEBUG_CHECK, (X))
 
 #define CP CHECKPOINT
 

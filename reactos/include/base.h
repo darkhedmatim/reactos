@@ -56,20 +56,30 @@ typedef long LONG;
 
 #define CONST const
 
+#ifdef i386
+#define STDCALL     __attribute__ ((stdcall))
+#define CDECL       __attribute((cdecl))
+#define CALLBACK    WINAPI
+#define PASCAL      WINAPI
+#else
+#define STDCALL
+#define CDECL
+#define CALLBACK
+#define PASCAL
+#endif
 #define WINAPI      STDCALL
 #define APIENTRY    STDCALL
 #define WINGDIAPI
 
+   
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
-typedef wchar_t *LPTCH;
-typedef wchar_t *LPTSTR;
+typedef unsigned short *LPTCH;
+typedef unsigned short *LPTSTR;
 #else
 typedef char *LPTCH;
 typedef char *LPTSTR;
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 #ifndef RC_INVOKED
 
@@ -92,11 +102,7 @@ typedef unsigned long COLORREF;
 typedef CTRYID;
 typedef DLGPROC;
 */
-#ifdef __GNUC__
-typedef unsigned long long DWORDLONG, *PDWORDLONG;
-#else
-typedef unsigned __int64 DWORDLONG, *PDWORDLONG;
-#endif
+typedef double DWORDLONG, *PDWORDLONG;
 /*
 typedef EDITWORDBREAKPROC;
 typedef ENHMFENUMPROC;
@@ -121,7 +127,6 @@ typedef HANDLE HDROP;
 typedef HANDLE HDWP;
 typedef HANDLE HENHMETAFILE;
 typedef HANDLE HENV;
-typedef USHORT COLOR16;
 typedef int HFILE;
 typedef HANDLE HFONT;
 typedef HANDLE HGDIOBJ;
@@ -133,9 +138,6 @@ typedef HANDLE HIMAGELIST;
 typedef HANDLE HINSTANCE;
 typedef HANDLE HKEY, *PHKEY;
 typedef HANDLE HKL;
-typedef LONG    GEOID;
-typedef DWORD   GEOTYPE;
-typedef DWORD   GEOCLASS;
 typedef HANDLE HLOCAL;
 typedef HANDLE HMENU;
 typedef HANDLE HMETAFILE;
@@ -143,7 +145,6 @@ typedef HANDLE HMODULE;
 typedef HANDLE HPALETTE;
 typedef HANDLE HPEN;
 typedef HANDLE HRASCONN;
-typedef DWORD LGRPID;
 typedef long HRESULT;
 typedef HANDLE HRGN;
 typedef HANDLE HRSRC;
@@ -151,12 +152,8 @@ typedef HANDLE HSTMT;
 typedef HANDLE HSZ;
 typedef HANDLE HWINSTA;
 typedef HANDLE HWND;
-typedef HANDLE HRAWINPUT;
-typedef HANDLE HTASK;
-typedef HANDLE HWINEVENTHOOK;
-typedef VOID (CALLBACK *WINEVENTPROC)(HWINEVENTHOOK hWinEventHook,DWORD event,HWND hwnd,LONG idObject,LONG idChild,DWORD idEventThread,DWORD dwmsEventTime);
-//typedef unsigned short LANGID;
-/*typedef DWORD LCID; */
+typedef unsigned short LANGID;
+//typedef DWORD LCID;
 typedef DWORD LCTYPE;
 /* typedef LOCALHANDLE */
 typedef unsigned short *LP;
@@ -166,41 +163,30 @@ typedef WINBOOL *LPBOOL;
 typedef CONST CHAR *LPCCH;
 typedef CHAR *LPCH;
 typedef COLORREF *LPCOLORREF;
-
-#ifndef _DISABLE_TIDENTS
+   
 #ifdef UNICODE
-typedef const wchar_t *LPCTSTR;
+typedef const unsigned short *LPCTSTR;
 #else
 typedef const char *LPCTSTR;
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
-typedef const wchar_t *LPCWCH;
+typedef const unsigned short *LPCWCH;
 typedef DWORD *LPDWORD;
 /* typedef LPFRHOOKPROC; */
 typedef HANDLE *LPHANDLE;
-typedef DWORD FULLSCREENCONTROL;
-typedef DWORD UNIVERSAL_FONT_ID;
-typedef UNIVERSAL_FONT_ID *PUNIVERSAL_FONT_ID;
-typedef DWORD REALIZATION_INFO;
-typedef REALIZATION_INFO *PREALIZATION_INFO;
-typedef DWORD SHAREDHANDLETABLE;
-typedef SHAREDHANDLETABLE *PSHAREDHANDLETABLE;
-typedef DWORD CHWIDTHINFO;
-typedef CHWIDTHINFO *PCHWIDTHINFO;
 /* typedef LPHANDLER_FUNCTION; */
 typedef PINT LPINT;
 typedef PLONG LPLONG;
 
 typedef long LRESULT;
-typedef wchar_t *LPWCH;
+typedef unsigned short *LPWCH;
 typedef unsigned short *LPWORD;
 /* typedef NPSTR; */
-typedef wchar_t *NWPSTR;
+typedef unsigned short *NWPSTR;
 typedef WINBOOL *PWINBOOL;
 typedef const CHAR *PCCH;
 typedef const char *PCSTR;
-typedef const wchar_t *PCWCH;
+typedef const unsigned short *PCWCH;
 /* typedef PHKEY; */
 /* typedef LCID *PLCID; */
 typedef short *PSHORT;
@@ -208,19 +194,17 @@ typedef short *PSHORT;
 typedef char *PSTR;
 typedef char *PSZ;
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
-typedef wchar_t *PTBYTE;
-typedef wchar_t *PTCH;
-typedef wchar_t *PTCHAR;
-typedef wchar_t *PTSTR;
+typedef unsigned short *PTBYTE;
+typedef unsigned short *PTCH;
+typedef unsigned short *PTCHAR;
+typedef unsigned short *PTSTR;
 #else
 typedef unsigned char *PTBYTE;
 typedef char *PTCH;
 typedef char *PTCHAR;
 typedef char *PTSTR;
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 /*
  typedef PWSTR;
@@ -236,14 +220,13 @@ typedef SC_HANDLE *LPSC_HANDLE;
 typedef DWORD SERVICE_STATUS_HANDLE;
 /* typedef SPHANDLE; */
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
-typedef wchar_t TBYTE;
+typedef unsigned short TBYTE;
 #ifndef _TCHAR_DEFINED
 #define _TCHAR_DEFINED
-typedef wchar_t TCHAR;
+typedef unsigned short TCHAR;
 #endif /* _TCHAR_DEFINED */
-typedef wchar_t BCHAR;
+typedef unsigned short BCHAR;
 #else
 typedef unsigned char TBYTE;
 #ifndef _TCHAR_DEFINED
@@ -252,7 +235,6 @@ typedef char TCHAR;
 #endif /* _TCHAR_DEFINED */
 typedef BYTE BCHAR;
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 typedef unsigned int WPARAM;
 /* typedef YIELDPROC; */
@@ -264,35 +246,6 @@ typedef unsigned int WPARAM;
 /*
   Enumerations
 */
-
-
-#define GEOID_NOT_AVAILABLE (-1)
-/*
-  GEO information types for clients to query
-*/
-
-enum SYSGEOTYPE {
-    GEO_NATION            = 0x01,
-    GEO_LATITUDE          = 0x02,
-    GEO_LONGITUDE         = 0x03,
-    GEO_ISO2              = 0x04,
-    GEO_ISO3              = 0x05,
-    GEO_RFC1766           = 0x06,
-    GEO_LCID              = 0x07,
-    GEO_FRIENDLYNAME      = 0x08,
-    GEO_OFFICIALNAME      = 0x09,
-    GEO_TIMEZONES         = 0x0A,
-    GEO_OFFICIALLANGUAGES = 0x0B,
-};
-
-/*
-  More GEOCLASS defines will be listed here
-*/
-
-enum SYSGEOCLASS {
-    GEOCLASS_NATION       = 16,
-    GEOCLASS_REGION       = 14,
-};
  
  
 #define RASCS_DONE 0x2000
@@ -365,10 +318,8 @@ typedef enum _SID_NAME_USE {
 
 #define HIBYTE(w)   ((BYTE) (((WORD) (w) >> 8) & 0xFF)) 
 #define HIWORD(l)   ((WORD) (((DWORD) (l) >> 16) & 0xFFFF)) 
-#define SHIWORD(l)   ((INT16) (((DWORD) (l) >> 16) & 0xFFFF)) 
 #define LOBYTE(w)   ((BYTE) (w)) 
 #define LOWORD(l)   ((WORD) (l)) 
-#define SLOWORD(l)   ((INT16) (l)) 
 #define MAKELONG(a, b) ((LONG) (((WORD) (a)) | ((DWORD) ((WORD) (b))) << 16)) 
 #define MAKEWORD(a, b) ((WORD) (((BYTE) (a)) | ((WORD) ((BYTE) (b))) << 8)) 
 
@@ -381,12 +332,7 @@ typedef enum _SID_NAME_USE {
 #define INDEXTOSTATEIMAGEMASK(i) ((i) << 12) 
 
 #define MAKEINTATOM(i)   (LPTSTR) ((DWORD) ((WORD) (i))) 
-#ifndef _DISABLE_TIDENTS
-#define MAKEINTRESOURCE(i)   (LPTSTR) ((ULONG_PTR) ((WORD) (i)))
-#endif /* _DISABLE_TIDENTS */
-#define MAKEINTRESOURCEA(i)  (LPSTR)  ((ULONG_PTR) ((WORD) (i)))
-#define MAKEINTRESOURCEW(i)  (LPWSTR) ((ULONG_PTR) ((WORD) (i)))
-#define IS_INTRESOURCE(n)    ((((ULONG_PTR) (n)) >> 16) == 0)
+#define MAKEINTRESOURCE(i)  (LPTSTR) ((DWORD) ((WORD) (i)))
 
 #define MAKELANGID(p, s) ((((WORD) (s)) << 10) | (WORD) (p)) 
 #define PRIMARYLANGID(lgid)    ((WORD  )(lgid) & 0x3ff) 
@@ -410,203 +356,65 @@ typedef enum _SID_NAME_USE {
 #define INDEXTOOVERLAYMASK(i) ((i) << 8)  
 #define INDEXTOSTATEIMAGEMASK(i) ((i) << 12)  
 
-#ifndef _DISABLE_TIDENTS
-#  ifdef UNICODE
-#    ifndef _T
-#      define _T(quote)   L##quote 
-#    endif /* _T */
-#    ifndef _TEXT
-#      define TEXT(quote) L##quote 
-#    endif /* _TEXT */
-#  else /* UNICODE */
-#    ifndef _T
-#      define _T(quote)   quote 
-#    endif /* _T */
-#    ifndef _TEXT
-#      define TEXT(quote) quote
-#    endif /* _TEXT */
-#  endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
+#ifdef UNICODE
+#define _T(quote)   L##quote 
+#define TEXT(quote) L##quote 
+#else
+#define _T(quote)   quote 
+#define TEXT(quote) quote
+#endif
 
 #ifndef RC_INVOKED
 
 /*
    Definitions for callback procedures
 */
-typedef enum {
-
-    WinNullSid                                  = 0,
-    WinWorldSid                                 = 1,
-    WinLocalSid                                 = 2,
-    WinCreatorOwnerSid                          = 3,
-    WinCreatorGroupSid                          = 4,
-    WinCreatorOwnerServerSid                    = 5,
-    WinCreatorGroupServerSid                    = 6,
-    WinNtAuthoritySid                           = 7,
-    WinDialupSid                                = 8,
-    WinNetworkSid                               = 9,
-    WinBatchSid                                 = 10,
-    WinInteractiveSid                           = 11,
-    WinServiceSid                               = 12,
-    WinAnonymousSid                             = 13,
-    WinProxySid                                 = 14,
-    WinEnterpriseControllersSid                 = 15,
-    WinSelfSid                                  = 16,
-    WinAuthenticatedUserSid                     = 17,
-    WinRestrictedCodeSid                        = 18,
-    WinTerminalServerSid                        = 19,
-    WinRemoteLogonIdSid                         = 20,
-    WinLogonIdsSid                              = 21,
-    WinLocalSystemSid                           = 22,
-    WinLocalServiceSid                          = 23,
-    WinNetworkServiceSid                        = 24,
-    WinBuiltinDomainSid                         = 25,
-    WinBuiltinAdministratorsSid                 = 26,
-    WinBuiltinUsersSid                          = 27,
-    WinBuiltinGuestsSid                         = 28,
-    WinBuiltinPowerUsersSid                     = 29,
-    WinBuiltinAccountOperatorsSid               = 30,
-    WinBuiltinSystemOperatorsSid                = 31,
-    WinBuiltinPrintOperatorsSid                 = 32,
-    WinBuiltinBackupOperatorsSid                = 33,
-    WinBuiltinReplicatorSid                     = 34,
-    WinBuiltinPreWindows2000CompatibleAccessSid = 35,
-    WinBuiltinRemoteDesktopUsersSid             = 36,
-    WinBuiltinNetworkConfigurationOperatorsSid  = 37,
-    WinAccountAdministratorSid                  = 38,
-    WinAccountGuestSid                          = 39,
-    WinAccountKrbtgtSid                         = 40,
-    WinAccountDomainAdminsSid                   = 41,
-    WinAccountDomainUsersSid                    = 42,
-    WinAccountDomainGuestsSid                   = 43,
-    WinAccountComputersSid                      = 44,
-    WinAccountControllersSid                    = 45,
-    WinAccountCertAdminsSid                     = 46,
-    WinAccountSchemaAdminsSid                   = 47,
-    WinAccountEnterpriseAdminsSid               = 48,
-    WinAccountPolicyAdminsSid                   = 49,
-    WinAccountRasAndIasServersSid               = 50,
-    WinNTLMAuthenticationSid                    = 51,
-    WinDigestAuthenticationSid                  = 52,
-    WinSChannelAuthenticationSid                = 53,
-    WinThisOrganizationSid                      = 54,
-    WinOtherOrganizationSid                     = 55,
-    WinBuiltinIncomingForestTrustBuildersSid    = 56,
-    WinBuiltinPerfMonitoringUsersSid            = 57,
-    WinBuiltinPerfLoggingUsersSid               = 58,
-    WinBuiltinAuthorizationAccessSid            = 59,
-    WinBuiltinTerminalServerLicenseServersSid   = 60,
-
-} WELL_KNOWN_SID_TYPE;
-typedef enum _AUDIT_EVENT_TYPE {
-    AuditEventObjectAccess,
-    AuditEventDirectoryServiceAccess
-} AUDIT_EVENT_TYPE, *PAUDIT_EVENT_TYPE;
-typedef int (CALLBACK *BFFCALLBACK) (HWND, UINT, LPARAM, LPARAM);
-typedef UINT (CALLBACK *LPCCHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef UINT (CALLBACK *LPCFHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef DWORD (CALLBACK *EDITSTREAMCALLBACK) (DWORD, LPBYTE, LONG, LONG);
-typedef UINT (CALLBACK *LPFRHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef UINT (CALLBACK *LPOFNHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef UINT (CALLBACK *LPPRINTHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef UINT (CALLBACK *LPSETUPHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef WINBOOL (CALLBACK *DLGPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef int (CALLBACK *PFNPROPSHEETCALLBACK) (HWND, UINT, LPARAM);
-typedef VOID (CALLBACK *LPSERVICE_MAIN_FUNCTIONA) (DWORD, LPSTR*);
-typedef VOID (CALLBACK *LPSERVICE_MAIN_FUNCTIONW) (DWORD, LPWSTR*);
-typedef int (CALLBACK *PFNTVCOMPARE) (LPARAM, LPARAM, LPARAM);
-typedef LRESULT (CALLBACK *WNDPROC) (HWND, UINT, WPARAM, LPARAM);
-typedef int (CALLBACK *FARPROC)(void);
+typedef int CALLBACK (*BFFCALLBACK) (HWND, UINT, LPARAM, LPARAM);
+typedef UINT CALLBACK (*LPCCHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef UINT CALLBACK (*LPCFHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef DWORD CALLBACK (*EDITSTREAMCALLBACK) (DWORD, LPBYTE, LONG, LONG);
+typedef UINT CALLBACK (*LPFRHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef UINT CALLBACK (*LPOFNHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef UINT CALLBACK (*LPPRINTHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef UINT CALLBACK (*LPSETUPHOOKPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef WINBOOL CALLBACK (*DLGPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef int CALLBACK (*PFNPROPSHEETCALLBACK) (HWND, UINT, LPARAM);
+typedef VOID CALLBACK (*LPSERVICE_MAIN_FUNCTION) (DWORD, LPTSTR);
+typedef int CALLBACK (*PFNTVCOMPARE) (LPARAM, LPARAM, LPARAM);
+typedef LRESULT CALLBACK (*WNDPROC) (HWND, UINT, WPARAM, LPARAM);
+typedef int CALLBACK (*FARPROC)(void);
 typedef FARPROC PROC;
-typedef WINBOOL (CALLBACK *ENUMRESTYPEPROCA) (HANDLE, LPSTR, LONG);
-typedef WINBOOL (CALLBACK *ENUMRESTYPEPROCW) (HANDLE, LPWSTR, LONG);
-typedef WINBOOL (CALLBACK *ENUMRESNAMEPROCA) (HANDLE, LPCSTR, LPSTR, LONG);
-typedef WINBOOL (CALLBACK *ENUMRESNAMEPROCW) (HANDLE, LPCWSTR, LPWSTR, LONG);
-typedef WINBOOL (CALLBACK *ENUMRESLANGPROCA) (HANDLE, LPCSTR, LPCSTR, WORD, LONG);
-typedef WINBOOL (CALLBACK *ENUMRESLANGPROCW) (HANDLE, LPCWSTR, LPCWSTR, WORD, LONG);
-typedef WINBOOL (CALLBACK *DESKTOPENUMPROCA) (LPSTR,  LPARAM);
-typedef WINBOOL (CALLBACK *DESKTOPENUMPROCW) (LPWSTR, LPARAM);
-typedef WINBOOL (CALLBACK *ENUMWINDOWSPROC) (HWND, LPARAM);
-typedef WINBOOL (CALLBACK *ENUMWINDOWSTATIONPROCA) (LPSTR, LPARAM);
-typedef WINBOOL (CALLBACK *ENUMWINDOWSTATIONPROCW) (LPWSTR, LPARAM);
-typedef VOID (CALLBACK *SENDASYNCPROC) (HWND, UINT, DWORD, LRESULT);
-typedef VOID (CALLBACK *TIMERPROC) (HWND, UINT, UINT, DWORD);
-typedef WINBOOL (CALLBACK *GRAYSTRINGPROC) (HDC, LPARAM, int);
-typedef WINBOOL (CALLBACK *DRAWSTATEPROC) (HDC, LPARAM, WPARAM, int, int);
-typedef WINBOOL (CALLBACK *PROPENUMPROCEXA) (HWND, LPCSTR, HANDLE, DWORD);
-typedef WINBOOL (CALLBACK *PROPENUMPROCEXW) (HWND, LPCWSTR, HANDLE, DWORD);
-typedef WINBOOL (CALLBACK *PROPENUMPROCA) (HWND, LPCSTR, HANDLE);
-typedef WINBOOL (CALLBACK *PROPENUMPROCW) (HWND, LPCWSTR, HANDLE);
-typedef LRESULT (CALLBACK *HOOKPROC) (int, WPARAM, LPARAM);
-typedef VOID (CALLBACK *ENUMOBJECTSPROC) (LPVOID, LPARAM);
-typedef VOID (CALLBACK *LINEDDAPROC) (int, int, LPARAM);
-typedef WINBOOL (CALLBACK *ABORTPROC) (HDC, int);
-typedef UINT (CALLBACK *LPPAGEPAINTHOOK) (HWND, UINT, WPARAM, LPARAM );
-typedef UINT (CALLBACK *LPPAGESETUPHOOK) (HWND, UINT, WPARAM, LPARAM );
-typedef int (CALLBACK *ICMENUMPROCA) (LPSTR, LPARAM);
-typedef int (CALLBACK *ICMENUMPROCW) (LPWSTR, LPARAM);
+typedef WINBOOL CALLBACK (*ENUMRESTYPEPROC) (HANDLE, LPTSTR, LONG);
+typedef WINBOOL CALLBACK (*ENUMRESNAMEPROC) (HANDLE, LPCTSTR, LPTSTR, LONG);
+typedef WINBOOL CALLBACK (*ENUMRESLANGPROC) (HANDLE, LPCTSTR, LPCTSTR, WORD, LONG);
+typedef FARPROC DESKTOPENUMPROC;
+typedef WINBOOL CALLBACK (*ENUMWINDOWSPROC) (HWND, LPARAM);
+typedef WINBOOL CALLBACK (*ENUMWINDOWSTATIONPROC) (LPTSTR, LPARAM);
+typedef VOID CALLBACK (*SENDASYNCPROC) (HWND, UINT, DWORD, LRESULT);
+typedef VOID CALLBACK (*TIMERPROC) (HWND, UINT, UINT, DWORD);
+typedef FARPROC GRAYSTRINGPROC;
+typedef WINBOOL CALLBACK (*DRAWSTATEPROC) (HDC, LPARAM, WPARAM, int, int);
+typedef WINBOOL CALLBACK (*PROPENUMPROCEX) (HWND, LPCTSTR, HANDLE, DWORD);
+typedef WINBOOL CALLBACK (*PROPENUMPROC) (HWND, LPCTSTR, HANDLE);
+typedef LRESULT CALLBACK (*HOOKPROC) (int, WPARAM, LPARAM);
+typedef VOID CALLBACK (*ENUMOBJECTSPROC) (LPVOID, LPARAM);
+typedef VOID CALLBACK (*LINEDDAPROC) (int, int, LPARAM);
+typedef WINBOOL CALLBACK (*ABORTPROC) (HDC, int);
+typedef UINT CALLBACK (*LPPAGEPAINTHOOK) (HWND, UINT, WPARAM, LPARAM );
+typedef UINT CALLBACK (*LPPAGESETUPHOOK) (HWND, UINT, WPARAM, LPARAM );
+typedef int CALLBACK (*ICMENUMPROC) (LPTSTR, LPARAM);
 typedef LONG (*EDITWORDBREAKPROCEX) (char *, LONG, BYTE, INT);
-typedef int (CALLBACK *PFNLVCOMPARE) (LPARAM, LPARAM, LPARAM);
-typedef WINBOOL (CALLBACK *LOCALE_ENUMPROCA) (LPSTR);
-typedef WINBOOL (CALLBACK *LOCALE_ENUMPROCW) (LPWSTR);
-typedef WINBOOL (CALLBACK *CODEPAGE_ENUMPROCA) (LPSTR);
-typedef WINBOOL (CALLBACK *CODEPAGE_ENUMPROCW) (LPWSTR);
-typedef WINBOOL (CALLBACK *DATEFMT_ENUMPROCA) (LPSTR);
-typedef WINBOOL (CALLBACK *DATEFMT_ENUMPROCW) (LPWSTR);
-typedef WINBOOL (CALLBACK *TIMEFMT_ENUMPROCA) (LPSTR);
-typedef WINBOOL (CALLBACK *TIMEFMT_ENUMPROCW) (LPWSTR);
-typedef WINBOOL (CALLBACK *CALINFO_ENUMPROCA) (LPSTR);
-typedef int (CALLBACK *EMFPLAYPROC)( HDC hdc, INT iFunction, HANDLE hPageQuery );
-typedef WINBOOL (CALLBACK *CALINFO_ENUMPROCW) (LPWSTR);
-typedef WINBOOL (CALLBACK *PHANDLER_ROUTINE) (DWORD);
-typedef VOID (CALLBACK *LPHANDLER_FUNCTION) (DWORD);
-typedef DWORD (CALLBACK *LPHANDLER_FUNCTION_EX)(DWORD,DWORD,LPVOID,LPVOID);
-typedef UINT (CALLBACK *PFNGETPROFILEPATHA) (LPCSTR, LPSTR, UINT);
-typedef UINT (CALLBACK *PFNGETPROFILEPATHW) (LPCWSTR, LPWSTR, UINT);
-typedef UINT (CALLBACK *PFNRECONCILEPROFILEA) (LPCSTR, LPCSTR, DWORD);
-typedef UINT (CALLBACK *PFNRECONCILEPROFILEW) (LPCWSTR, LPCWSTR, DWORD);
-typedef WINBOOL (CALLBACK *PFNPROCESSPOLICIESA) (HWND, LPCSTR, LPCSTR, LPCSTR, DWORD);
-typedef WINBOOL (CALLBACK *PFNPROCESSPOLICIESW) (HWND, LPCWSTR, LPCWSTR, LPCWSTR, DWORD);
-
-#ifndef _DISABLE_TIDENTS
-#ifdef UNICODE
-#define LPSERVICE_MAIN_FUNCTION LPSERVICE_MAIN_FUNCTIONW
-#define ENUMRESTYPEPROC ENUMRESTYPEPROCW
-#define ENUMRESNAMEPROC ENUMRESNAMEPROCW
-#define ENUMRESLANGPROC ENUMRESLANGPROCW
-#define DESKTOPENUMPROC DESKTOPENUMPROCW
-#define ENUMWINDOWSTATIONPROC ENUMWINDOWSTATIONPROCW
-#define PROPENUMPROCEX PROPENUMPROCEXW
-#define PROPENUMPROC PROPENUMPROCW
-#define ICMENUMPROC ICMENUMPROCW
-#define LOCALE_ENUMPROC LOCALE_ENUMPROCW
-#define CODEPAGE_ENUMPROC CODEPAGE_ENUMPROCW
-#define DATEFMT_ENUMPROC DATEFMT_ENUMPROCW
-#define TIMEFMT_ENUMPROC TIMEFMT_ENUMPROCW
-#define CALINFO_ENUMPROC CALINFO_ENUMPROCW
-#define PFNGETPROFILEPATH PFNGETPROFILEPATHW
-#define PFNRECONCILEPROFILE PFNRECONCILEPROFILEW
-#define PFNPROCESSPOLICIES PFNPROCESSPOLICIESW
-#else /* UNICODE */
-#define LPSERVICE_MAIN_FUNCTION LPSERVICE_MAIN_FUNCTIONA
-#define ENUMRESTYPEPROC ENUMRESTYPEPROCA
-#define ENUMRESNAMEPROC ENUMRESNAMEPROCA
-#define ENUMRESLANGPROC ENUMRESLANGPROCA
-#define DESKTOPENUMPROC DESKTOPENUMPROCA
-#define ENUMWINDOWSTATIONPROC ENUMWINDOWSTATIONPROCA
-#define PROPENUMPROCEX PROPENUMPROCEXA
-#define PROPENUMPROC PROPENUMPROCA
-#define ICMENUMPROC ICMENUMPROCA
-#define LOCALE_ENUMPROC LOCALE_ENUMPROCA
-#define CODEPAGE_ENUMPROC CODEPAGE_ENUMPROCA
-#define DATEFMT_ENUMPROC DATEFMT_ENUMPROCA
-#define TIMEFMT_ENUMPROC TIMEFMT_ENUMPROCA
-#define CALINFO_ENUMPROC CALINFO_ENUMPROCA
-#define PFNGETPROFILEPATH PFNGETPROFILEPATHA
-#define PFNRECONCILEPROFILE PFNRECONCILEPROFILEA
-#define PFNPROCESSPOLICIES PFNPROCESSPOLICIESA
-#endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
+typedef int CALLBACK (*PFNLVCOMPARE) (LPARAM, LPARAM, LPARAM);
+typedef WINBOOL CALLBACK (*LOCALE_ENUMPROC) (LPTSTR);
+typedef WINBOOL CALLBACK (*CODEPAGE_ENUMPROC) (LPTSTR);
+typedef WINBOOL CALLBACK (*DATEFMT_ENUMPROC) (LPTSTR);
+typedef WINBOOL CALLBACK (*TIMEFMT_ENUMPROC) (LPTSTR);
+typedef WINBOOL CALLBACK (*CALINFO_ENUMPROC) (LPTSTR);
+typedef WINBOOL CALLBACK (*PHANDLER_ROUTINE) (DWORD);
+typedef WINBOOL CALLBACK (*LPHANDLER_FUNCTION) (DWORD);
+typedef UINT CALLBACK (*PFNGETPROFILEPATH) (LPCTSTR, LPSTR, UINT);
+typedef UINT CALLBACK (*PFNRECONCILEPROFILE) (LPCTSTR, LPCTSTR, DWORD);
+typedef WINBOOL CALLBACK (*PFNPROCESSPOLICIES) (HWND, LPCTSTR, LPCTSTR, LPCTSTR, DWORD);
 
 #define SECURITY_NULL_SID_AUTHORITY     {0,0,0,0,0,0}
 #define SECURITY_WORLD_SID_AUTHORITY    {0,0,0,0,0,1}
@@ -640,19 +448,6 @@ typedef WINBOOL (CALLBACK *PFNPROCESSPOLICIESW) (HWND, LPCWSTR, LPCWSTR, LPCWSTR
 #define SE_CHANGE_NOTIFY_NAME             TEXT("SeChangeNotifyPrivilege")
 #define SE_REMOTE_SHUTDOWN_NAME           TEXT("SeRemoteShutdownPrivilege")
 
-typedef BOOL (CALLBACK *LANGUAGEGROUP_ENUMPROCA)(LGRPID, LPSTR, LPSTR, DWORD, LONG_PTR);
-typedef BOOL (CALLBACK *LANGGROUPLOCALE_ENUMPROCA)(LGRPID, LCID, LPSTR, LONG_PTR);
-typedef BOOL (CALLBACK *UILANGUAGE_ENUMPROCA)(LPSTR, LONG_PTR);
-typedef BOOL (CALLBACK *DATEFMT_ENUMPROCEXA)(LPSTR, CALID);
-typedef BOOL (CALLBACK *CALINFO_ENUMPROCEXA)(LPSTR, CALID);
-
-typedef BOOL (CALLBACK *LANGUAGEGROUP_ENUMPROCW)(LGRPID, LPWSTR, LPWSTR, DWORD, LONG_PTR);
-typedef BOOL (CALLBACK *LANGGROUPLOCALE_ENUMPROCW)(LGRPID, LCID, LPWSTR, LONG_PTR);
-typedef BOOL (CALLBACK *UILANGUAGE_ENUMPROCW)(LPWSTR, LONG_PTR);
-typedef BOOL (CALLBACK *DATEFMT_ENUMPROCEXW)(LPWSTR, CALID);
-typedef BOOL (CALLBACK *CALINFO_ENUMPROCEXW)(LPWSTR, CALID);
-typedef BOOL (CALLBACK *GEO_ENUMPROC)(GEOID);
-
 #define SERVICES_ACTIVE_DATABASEW      L"ServicesActive"
 #define SERVICES_FAILED_DATABASEW      L"ServicesFailed"
 #define SERVICES_ACTIVE_DATABASEA      "ServicesActive"
@@ -660,7 +455,6 @@ typedef BOOL (CALLBACK *GEO_ENUMPROC)(GEOID);
 #define SC_GROUP_IDENTIFIERW           L'+'
 #define SC_GROUP_IDENTIFIERA           '+'
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define SERVICES_ACTIVE_DATABASE       SERVICES_ACTIVE_DATABASEW
 #define SERVICES_FAILED_DATABASE       SERVICES_FAILED_DATABASEW
@@ -670,9 +464,6 @@ typedef BOOL (CALLBACK *GEO_ENUMPROC)(GEOID);
 #define SERVICES_FAILED_DATABASE       SERVICES_FAILED_DATABASEA
 #define SC_GROUP_IDENTIFIER            SC_GROUP_IDENTIFIERA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
-
-#define MM_MAX_NUMAXES      16
 
 /* ---------------------------------- */
 /* From ddeml.h in old Cygnus headers */
@@ -680,60 +471,6 @@ typedef BOOL (CALLBACK *GEO_ENUMPROC)(GEOID);
 typedef void (*CALLB) (void);
 typedef CALLB PFNCALLBACK;
 
-
-typedef enum _COMPUTER_NAME_FORMAT {
-    ComputerNameNetBIOS,
-    ComputerNameDnsHostname,
-    ComputerNameDnsDomain,
-    ComputerNameDnsFullyQualified,
-    ComputerNamePhysicalNetBIOS,
-    ComputerNamePhysicalDnsHostname,
-    ComputerNamePhysicalDnsDomain,
-    ComputerNamePhysicalDnsFullyQualified,
-    ComputerNameMax
-} COMPUTER_NAME_FORMAT ;
-
-typedef enum _HEAP_INFORMATION_CLASS {
-
-    HeapCompatibilityInformation
-
-} HEAP_INFORMATION_CLASS;
-
-typedef enum {
-    LT_DONT_CARE,
-    LT_LOWEST_LATENCY
-} LATENCY_TIME;
-
-typedef LONG (CALLBACK *PVECTORED_EXCEPTION_HANDLER)(
-    struct _EXCEPTION_POINTERS *ExceptionInfo
-    );
-
-typedef
-VOID
-(CALLBACK *PAPCFUNC)(
-    ULONG_PTR dwParam
-    );
-
-#ifdef __cplusplus
-#define REFGUID const GUID &
-#else
-#define REFGUID const GUID *
-#endif
-
-typedef DWORD (CALLBACK *PFE_EXPORT_FUNC)(PBYTE pbData,PVOID pvCallbackContext,ULONG ulLength);
-
-typedef DWORD (CALLBACK *PFE_IMPORT_FUNC)(PBYTE pbData,PVOID pvCallbackContext,PULONG ulLength);
-typedef VOID (CALLBACK *PFIBER_START_ROUTINE)(
-    LPVOID lpFiberParameter
-    );
-typedef PFIBER_START_ROUTINE LPFIBER_START_ROUTINE;
-
-typedef enum _MEMORY_RESOURCE_NOTIFICATION_TYPE {
-    LowMemoryResourceNotification,
-    HighMemoryResourceNotification
-} MEMORY_RESOURCE_NOTIFICATION_TYPE;
-
-typedef VOID (CALLBACK *WAITORTIMERCALLBACK) (PVOID, BOOLEAN );
 
 /* End of stuff from ddeml.h in old Cygnus headers */
 /* ----------------------------------------------- */
@@ -744,7 +481,6 @@ typedef FARPROC ENHMFENUMPROC;
 typedef DWORD CCSTYLE, *PCCSTYLE, *LPCCSTYLE;
 typedef DWORD CCSTYLEFLAGA, *PCCSTYLEFLAGA, *LPCCSTYLEFLAGA;
 #define DECLARE_HANDLE(s) typedef HANDLE s
-//typedef LANGID *PLANGID;
 
 #endif /* ! defined (RC_INVOKED) */
 

@@ -11,7 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <napi/teb.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -52,7 +59,7 @@ NTSTATUS LdrpMapImage(HANDLE ProcessHandle,
 			      PAGE_READWRITE);
   if (!NT_SUCCESS(Status))
     {
-      CPRINT("Image map view of section failed (Status %x)", Status);
+      DbgPrint("Image map view of section failed (Status %x)", Status);
       return(Status);
     }
   

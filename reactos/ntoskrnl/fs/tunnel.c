@@ -1,10 +1,10 @@
-/* $Id: tunnel.c,v 1.7 2004/08/15 16:39:02 chorns Exp $
+/* $Id: tunnel.c,v 1.1 2000/03/11 00:51:36 ea Exp $
  *
  * reactos/ntoskrnl/fs/tunnel.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
 
 /**********************************************************************
@@ -17,19 +17,19 @@
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
 FsRtlAddToTunnelCache (
-    IN PTUNNEL          Cache,
-    IN ULONGLONG        DirectoryKey,
-    IN PUNICODE_STRING  ShortName,
-    IN PUNICODE_STRING  LongName,
-    IN BOOLEAN          KeyByShortName,
-    IN ULONG            DataLength,
-    IN PVOID            Data
-    )
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5,
+	DWORD	Unknown6,
+	DWORD	Unknown7
+	)
 {
 }
 
@@ -44,14 +44,14 @@ FsRtlAddToTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
 FsRtlDeleteKeyFromTunnelCache (
-    IN PTUNNEL      Cache,
-    IN ULONGLONG    DirectoryKey
-    )
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	)
 {
 }
 
@@ -66,13 +66,12 @@ FsRtlDeleteKeyFromTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
 FsRtlDeleteTunnelCache (
-    IN PTUNNEL Cache
-    )
+	IN OUT	PVOID	lpTunnel
+	)
 {
 }
 
@@ -87,21 +86,20 @@ FsRtlDeleteTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-BOOLEAN
+VOID
 STDCALL
 FsRtlFindInTunnelCache (
-    IN PTUNNEL          Cache,
-    IN ULONGLONG        DirectoryKey,
-    IN PUNICODE_STRING  Name,
-    OUT PUNICODE_STRING ShortName,
-    OUT PUNICODE_STRING LongName,
-    IN OUT PULONG       DataLength,
-    OUT PVOID           Data
-    )
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4,
+	DWORD	Unknown5,
+	DWORD	Unknown6,
+	DWORD	Unknown7
+	)
 {
-    return FALSE;
 }
 
 
@@ -115,13 +113,12 @@ FsRtlFindInTunnelCache (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
 FsRtlInitializeTunnelCache (
-    IN PTUNNEL Cache
-    )
+	IN OUT	PVOID	lpTunnel
+	)
 {
 }
 

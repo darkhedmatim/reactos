@@ -1,9 +1,6 @@
-#include <msvcrt/mbstring.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/mbstring.h>
+#include <crtdll/stdlib.h>
 
-/*
- * @implemented
- */
 size_t _mbstrlen( const char *string )
 {
 	char *s = (char *)string;

@@ -1,14 +1,13 @@
-# $Id: makefile,v 1.11 2004/08/01 23:27:55 navaraf Exp $
-
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = driver
+TARGET=acpi
 
-TARGET_NAME = acpi
+CFLAGS = -D__NTDRIVER__ -I./include -I./ospm/include
 
-TARGET_CFLAGS = -I./include -I./ospm/include
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_DDKLIBS = ntoskrnl.a
+OBJECTS_PATH = objects
+
 
 OBJECTS_OSPM_BUSMGR = \
   ospm/busmgr/bm.o \
@@ -25,9 +24,7 @@ OBJECTS_OSPM = \
   ospm/acpienum.o \
   ospm/acpisys.o \
   ospm/bn.o \
-  ospm/fdo.o \
-  ospm/osl.o \
-  ospm/pdo.o
+  ospm/osl.o
 
 OBJECTS_DISPATCHER = \
   dispatcher/dsfield.o \
@@ -140,12 +137,154 @@ OBJECTS_UTILS = \
   utils/cmutils.o \
   utils/cmxface.o
 
-TARGET_OBJECTS = \
-  $(OBJECTS_OSPM) $(OBJECTS_DISPATCHER) $(OBJECTS_EVENTS) \
-  $(OBJECTS_EXECUTER) $(OBJECTS_HARDWARE) $(OBJECTS_NAMESPACE) \
-  $(OBJECTS_PARSER) $(OBJECTS_RESOURCE) $(OBJECTS_TABLES) \
-  $(OBJECTS_UTILS)
+
+all: $(TARGET).sys
+
+.phony: all
+
+
+$(OBJECTS_PATH):
+	mkdir $(OBJECTS_PATH)
+
+
+#
+# Build intermediate objects
+#
+$(OBJECTS_PATH)/ospm.o: $(OBJECTS_PATH) $(OBJECTS_OSPM)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/ospm.o \
+		$(OBJECTS_OSPM)
+
+$(OBJECTS_PATH)/dispatcher.o: $(OBJECTS_PATH) $(OBJECTS_DISPATCHER)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/dispatcher.o \
+		$(OBJECTS_DISPATCHER)
+
+$(OBJECTS_PATH)/events.o: $(OBJECTS_PATH) $(OBJECTS_EVENTS)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/events.o \
+		$(OBJECTS_EVENTS)
+
+$(OBJECTS_PATH)/executer.o: $(OBJECTS_PATH) $(OBJECTS_EXECUTER)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/executer.o \
+		$(OBJECTS_EXECUTER)
+
+$(OBJECTS_PATH)/hardware.o: $(OBJECTS_PATH) $(OBJECTS_HARDWARE)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/hardware.o \
+		$(OBJECTS_HARDWARE)
+
+$(OBJECTS_PATH)/namespace.o: $(OBJECTS_PATH) $(OBJECTS_NAMESPACE)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/namespace.o \
+		$(OBJECTS_NAMESPACE)
+
+$(OBJECTS_PATH)/parser.o: $(OBJECTS_PATH) $(OBJECTS_PARSER)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/parser.o \
+		$(OBJECTS_PARSER)
+
+$(OBJECTS_PATH)/resource.o: $(OBJECTS_PATH) $(OBJECTS_RESOURCE)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/resource.o \
+		$(OBJECTS_RESOURCE)
+
+$(OBJECTS_PATH)/tables.o: $(OBJECTS_PATH) $(OBJECTS_TABLES)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/tables.o \
+		$(OBJECTS_TABLES)
+
+$(OBJECTS_PATH)/utils.o: $(OBJECTS_PATH) $(OBJECTS_UTILS)
+	$(LD) \
+		-r \
+		-o $(OBJECTS_PATH)/utils.o \
+		$(OBJECTS_UTILS)
+
+
+OBJECTS := \
+  $(OBJECTS_PATH)/ospm.o \
+	$(OBJECTS_PATH)/dispatcher.o \
+	$(OBJECTS_PATH)/events.o \
+	$(OBJECTS_PATH)/executer.o \
+	$(OBJECTS_PATH)/hardware.o \
+	$(OBJECTS_PATH)/namespace.o \
+	$(OBJECTS_PATH)/parser.o \
+	$(OBJECTS_PATH)/resource.o \
+	$(OBJECTS_PATH)/tables.o \
+	$(OBJECTS_PATH)/utils.o \
+	$(TARGET).coff
+
+
+$(TARGET).coff: $(TARGET).rc $(PATH_TO_TOP)/include/reactos/resource.h
+
+$(TARGET).sys: $(OBJECTS_PATH) $(OBJECTS) $(LIBS)
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+    -Wl,-e,_DriverEntry@8 \
+    -Wl,--base-file,base.tmp \
+    -Wl,--defsym,_end=end \
+    -Wl,--defsym,_edata=__data_end__ \
+    -Wl,--defsym,_etext=etext \
+    $(OBJECTS) $(LIBS) \
+    -o junk.tmp
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+    --dllname $(TARGET).sys \
+    --base-file base.tmp \
+    --output-exp temp.exp \
+    --kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		-nostartfiles -nostdlib \
+		--subsystem=native \
+		-mdll \
+		--dll \
+    -Wl,--image-base,0x10000 \
+    -Wl,-e,_DriverEntry@8 \
+    -Wl,temp.exp \
+    -o $(TARGET).sys \
+    $(OBJECTS) $(LIBS)
+	- $(RM) temp.exp
+	- $(NM) --numeric-sort $(TARGET).sys > $(TARGET).sym
+
+#	$(STRIP) --strip-debug $(TARGET).sys
+
+
+CLEAN_FILES = $(OBJECTS_PATH)/*.o dispatcher/*.o events/*.o executer/*.o hardware/*.o \
+              namespace/*.o ospm/*.o ospm/busmgr/*.o parser/*.o resource/*.o tables/*.o \
+              utils/*.o \
+              $(TARGET).o $(TARGET).a junk.tmp base.tmp temp.exp \
+              $(TARGET).sys $(TARGET).sym $(TARGET).coff
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+WITH_DEBUGGING=yes
+WARNINGS_ARE_ERRORS = yes
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk

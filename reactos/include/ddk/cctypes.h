@@ -15,9 +15,7 @@ typedef struct _CC_FILE_SIZES
 } CC_FILE_SIZES, *PCC_FILE_SIZES;
 
 
-typedef VOID STDCALL_FUNC
-(*PCC_POST_DEFERRED_WRITE)(IN PVOID Context1,
-			   IN PVOID Context2);
+typedef VOID (*PCC_POST_DEFERRED_WRITE)(IN PVOID Context1, IN PVOID Context2);
 
 typedef struct _PUBLIC_BCB
 {
@@ -37,19 +35,23 @@ typedef VOID (*PDIRTY_PAGE_ROUTINE) (
     IN PVOID            Context2
 );
 
-typedef BOOLEAN STDCALL_FUNC
-(*PACQUIRE_FOR_LAZY_WRITE)(IN PVOID Context,
-			   IN BOOLEAN Wait);
+typedef BOOLEAN (*PACQUIRE_FOR_LAZY_WRITE) (
+    IN PVOID    Context,
+    IN BOOLEAN  Wait
+);
 
-typedef VOID STDCALL_FUNC
-(*PRELEASE_FROM_LAZY_WRITE)(IN PVOID Context);
+typedef VOID (*PRELEASE_FROM_LAZY_WRITE) (
+    IN PVOID Context
+);
 
-typedef BOOLEAN STDCALL_FUNC
-(*PACQUIRE_FOR_READ_AHEAD)(IN PVOID Context,
-			   IN BOOLEAN Wait);
+typedef BOOLEAN (*PACQUIRE_FOR_READ_AHEAD) (
+    IN PVOID    Context,
+    IN BOOLEAN  Wait
+);
 
-typedef VOID STDCALL_FUNC
-(*PRELEASE_FROM_READ_AHEAD)(IN PVOID Context);
+typedef VOID (*PRELEASE_FROM_READ_AHEAD) (
+    IN PVOID Context
+);
 
 typedef struct _CACHE_MANAGER_CALLBACKS
 {
@@ -69,22 +71,16 @@ typedef struct _SECTION_OBJECT_POINTERS
 } SECTION_OBJECT_POINTERS, *PSECTION_OBJECT_POINTERS;
 */
 
-typedef VOID STDCALL_FUNC
-(*PFLUSH_TO_LSN)(IN PVOID LogHandle,
-		 IN LARGE_INTEGER Lsn);
+typedef VOID (*PFLUSH_TO_LSN)(IN PVOID LogHandle, IN LARGE_INTEGER Lsn);
 
-typedef struct _FSRTL_COMMON_FCB_HEADER {
-    CSHORT          NodeTypeCode;
-    CSHORT          NodeByteSize;
-    UCHAR           Flags;
-    UCHAR           IsFastIoPossible;
-    UCHAR           Flags2;
-    UCHAR           Reserved;
-    PERESOURCE      Resource;
-    PERESOURCE      PagingIoResource;
-    LARGE_INTEGER   AllocationSize;
-    LARGE_INTEGER   FileSize;
-    LARGE_INTEGER   ValidDataLength;
-} FSRTL_COMMON_FCB_HEADER, *PFSRTL_COMMON_FCB_HEADER;
+typedef struct _REACTOS_COMMON_FCB_HEADER
+{
+  CSHORT NodeTypeCode;
+  CSHORT NodeByteSize;
+  struct _BCB* Bcb;
+  LARGE_INTEGER AllocationSize;
+  LARGE_INTEGER FileSize;
+  LARGE_INTEGER ValidDataLength;
+} REACTOS_COMMON_FCB_HEADER, *PREACTOS_COMMON_FCB_HEADER;
 
 #endif /* __INCLUDE_DDK_CCTYPES_H */

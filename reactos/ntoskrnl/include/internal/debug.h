@@ -19,101 +19,52 @@
 #define __INTERNAL_DEBUG
 
 #include <internal/ntoskrnl.h>
+#include <internal/config.h>
 #include <internal/dbg.h>
-#include <roscfg.h>
 
-#if defined(_MSC_VER) && (_MSC_VER < 1300)
-/* TODO: Verify which version the MS compiler learned the __FUNCTION__ macro */
-#define __FUNCTION__ "<unknown>"
-#endif
-#define UNIMPLEMENTED do {DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__); for(;;);  } while(0)
+#define UNIMPLEMENTED do {DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__); for(;;);  } while(0);
 
-
-#ifdef assert
-#undef assert
-#endif
 
 #ifdef DBG
 
 /* Assert only on "checked" version */
 #ifndef NASSERT
 #define assert(x) if (!(x)) {DbgPrint("Assertion "#x" failed at %s:%d\n", __FILE__,__LINE__); KeBugCheck(0); }
-#define ASSERT(x) if (!(x)) {DbgPrint("Assertion "#x" failed at %s:%d\n", __FILE__,__LINE__); KeBugCheck(0); }
-
-#define assertmsg(_c_, _m_) \
-  if (!(_c_)) { \
-      DbgPrint("(%s:%d)(%s) ", __FILE__, __LINE__, __FUNCTION__); \
-      DbgPrint _m_ ; \
-      KeBugCheck(0); \
-  }
-
-#define ASSERTMSG(_c_, _m_) \
-  if (!(_c_)) { \
-      DbgPrint("(%s:%d)(%s) ", __FILE__, __LINE__, __FUNCTION__); \
-      DbgPrint _m_ ; \
-      KeBugCheck(0); \
-  }
-
 #else
-
 #define assert(x)
-#define ASSERT(x)
-#define assertmsg(_c_, _m_)
-#define ASSERTMSG(_c_, _m_)
-
 #endif
 
 /* Print if using a "checked" version */
-#ifdef __GNUC__ /* using GNU C/C99 macro ellipsis */
-#define CPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0)
-#else
-#define CPRINT DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint
-#endif
+#define CPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
 
 #else /* DBG */
 
 #define CPRINT(args...)
 #define assert(x)
-#define ASSERT(x)
-#define assertmsg(_c_, _m_)
-#define ASSERTMSG(_c_, _m_)
 
 #endif /* DBG */
 
-#ifdef __GNUC__ /* using GNU C/C99 macro ellipsis */
-#define DPRINT1(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0)
-#else
-#define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint
-#endif
+#define DPRINT1(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
+#define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
-#define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0)
-
-#if defined(KDBG) && defined(NDEBUG) && defined(__NTOSKRNL__)
+#if defined(KDBG) && defined(NDEBUG)
 
 #define DPRINT(args...) do { \
   if (DbgShouldPrint(__FILE__)) { \
     DbgPrint("(%s:%d) ",__FILE__,__LINE__); \
     DbgPrint(args); \
   } \
-} while(0)
+} while(0);
 
 #define CHECKPOINT
 
-#else /* KDBG && NDEBUG && __NTOSKRNL__ */
+#else /* KDBG && NDEBUG */
 
 #ifndef NDEBUG
-#ifdef __GNUC__ /* using GNU C/C99 macro ellipsis */
-#define DPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0)
-#else
-#define DPRINT DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint
-#endif
-#define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0)
+#define DPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
+#define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); ExAllocatePool(NonPagedPool,0); } while(0);
 #else /* NDEBUG */
-#ifdef __GNUC__ /* using GNU C/C99 macro ellipsis */
 #define DPRINT(args...)
-#else
-#define DPRINT
-#endif
 #define CHECKPOINT
 #endif /* NDEBUG */
 
@@ -124,10 +75,7 @@
  * ARGUMENTS:
  *        x = Maximum irql
  */
-#define ASSERT_IRQL_LESS_OR_EQUAL(x) ASSERT(KeGetCurrentIrql()<=(x))
-#define ASSERT_IRQL(x) ASSERT_IRQL_LESS_OR_EQUAL(x)
-#define ASSERT_IRQL_EQUAL(x) ASSERT(KeGetCurrentIrql()==(x))
-#define ASSERT_IRQL_LESS(x) ASSERT(KeGetCurrentIrql()<(x))
+#define ASSERT_IRQL(x) assert(KeGetCurrentIrql()<=(x))
 #define assert_irql(x) assert(KeGetCurrentIrql()<=(x))
 
 #endif /* __INTERNAL_DEBUG */

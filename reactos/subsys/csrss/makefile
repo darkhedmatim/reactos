@@ -1,49 +1,61 @@
-# $Id: makefile,v 1.31 2004/09/10 23:29:28 sedwards Exp $
-
+# $Id: makefile,v 1.14 2001/07/15 21:19:02 rex Exp $
+#
+# CSRSS: Client/server runtime subsystem
+#
+# ReactOS Operating System
+#
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = program
-#TARGET_TYPE = proglib
+TARGET=csrss
 
-TARGET_APPTYPE = native
+CFLAGS = -D__NTAPP__ -I.
 
-TARGET_NAME = csrss
+OBJECTS_API = api/process.o api/wapi.o api/conio.o api/handle.o
 
-TARGET_SDKLIBS = rosrtl.a ntdll.a 
+OBJECTS_SBAPI =
 
-TARGET_INSTALLDIR = system32
+OBJECTS_MISC = $(TARGET).o init.o print.o video.o $(TARGET).coff 
 
-TARGET_CFLAGS = -D__NTAPP__ -D__USE_W32API -Wall -Werror -Iinclude
+OBJECTS = $(OBJECTS_API) $(OBJECTS_SBAPI) $(OBJECTS_MISC)
 
-TARGET_LFLAGS = -nostdlib
+CLEAN_FILES = $(OBJECTS) $(TARGET).exe
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D__USE_W32API -DWINVER=0x0600 -D_WIN32_WINNT=0x0501
+LIBS = ../../lib/ntdll/ntdll.a
 
-SUBDIRS = win32csr
+all: $(TARGET).exe
 
-OBJECTS_API = \
-  api/process.o \
-  api/wapi.o \
-  api/handle.o \
-  api/user.o
+.phony: all
 
-OBJECTS_MISC = \
-  $(TARGET_NAME).o \
-  init.o \
-  print.o \
-  video.o
+clean:
+	- $(RM) $(CLEAN_FILES)
 
-TARGET_OBJECTS = \
-  $(OBJECTS_API) \
-  $(OBJECTS_MISC)
+.phony: clean
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+$(TARGET).coff: $(TARGET).rc
+	$(RC) $(TARGET).rc $(TARGET).coff
 
-include $(PATH_TO_TOP)/rules.mak
+$(TARGET).exe: $(OBJECTS) $(LIBS)
+	$(LD) \
+		$(OBJECTS) \
+		$(LIBS) \
+		-o $(TARGET).exe \
+		--subsystem native
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
 
-include $(TOOLS_PATH)/helper.mk
 
-include $(TOOLS_PATH)/depend.mk
+install: $(FLOPPY_DIR)/subsys/$(TARGET).exe
+
+$(FLOPPY_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+	$(CP) $(TARGET).exe $(FLOPPY_DIR)/subsys/$(TARGET).exe
+
+
+dist: $(DIST_DIR)/subsys/$(TARGET).exe
+
+$(DIST_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+	$(CP) $(TARGET).exe ../../$(DIST_DIR)/subsys/$(TARGET).exe
+
+
+WITH_DEBUGGING = yes
+include ../../rules.mak
 
 # EOF

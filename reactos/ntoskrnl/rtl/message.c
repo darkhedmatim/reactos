@@ -1,4 +1,4 @@
-/* $Id: message.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
+/* $Id: message.c,v 1.1 2001/06/01 17:13:24 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,16 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlFindMessage(PVOID BaseAddress,
 	       ULONG Type,
@@ -32,7 +30,7 @@ RtlFindMessage(PVOID BaseAddress,
    PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry;
    PRTL_MESSAGE_RESOURCE_DATA MessageTable;
    NTSTATUS Status;
-   ULONG EntryOffset = 0, IdOffset = 0;
+   ULONG EntryOffset, IdOffset;
    PRTL_MESSAGE_RESOURCE_ENTRY MessageEntry;
 
    ULONG i;
@@ -90,7 +88,7 @@ RtlFindMessage(PVOID BaseAddress,
 	  }
      }
 
-   MessageEntry = (PRTL_MESSAGE_RESOURCE_ENTRY)((PUCHAR)MessageTable + MessageTable->Blocks[i].OffsetToEntries);
+   MessageEntry = (PRTL_MESSAGE_RESOURCE_ENTRY)((ULONG)MessageTable + MessageTable->Blocks[i].OffsetToEntries);
 
    DPRINT("EntryOffset 0x%08lx\n", EntryOffset);
    DPRINT("IdOffset 0x%08lx\n", IdOffset);
@@ -98,12 +96,8 @@ RtlFindMessage(PVOID BaseAddress,
    DPRINT("MessageEntry: %p\n", MessageEntry);
    for (i = 0; i < IdOffset; i++)
      {
-	DPRINT("MessageEntry %d: %p\n", i, MessageEntry);
-	MessageEntry = (PRTL_MESSAGE_RESOURCE_ENTRY)((PUCHAR)MessageEntry + (ULONG)MessageEntry->Length);
+	MessageEntry = (PRTL_MESSAGE_RESOURCE_ENTRY)(MessageEntry + (ULONG)MessageEntry->Length);
      }
-   DPRINT("MessageEntry: %p\n", MessageEntry);
-   DPRINT("Flags: %hx\n", MessageEntry->Flags);
-   DPRINT("Length: %hu\n", MessageEntry->Length);
 
    if (MessageEntry->Flags == 0)
      {

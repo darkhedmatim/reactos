@@ -1,8 +1,5 @@
 #include <msvcrt/mbstring.h>
 
-/*
- * @implemented
- */
 unsigned short _mbcjistojms(unsigned short c)
 {
   int c1, c2;

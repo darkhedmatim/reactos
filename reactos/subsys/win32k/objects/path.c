@@ -1,168 +1,135 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: path.c,v 1.24 2004/07/14 20:48:58 navaraf Exp $ */
-#include <w32k.h>
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/brush.h>
+#include <win32k/dc.h>
+#include <win32k/path.h>
+#include <win32k/math.h>
 #include <win32k/float.h>
+#include <win32k/coord.h>
+#include <win32k/line.h>
+
+#include <math.h>
+#include <float.h>
+
+// #define NDEBUG
+#include <win32k/debug1.h>
 
 #define NUM_ENTRIES_INITIAL 16  /* Initial size of points / flags arrays  */
 #define GROW_FACTOR_NUMER    2  /* Numerator of grow factor for the array */
 #define GROW_FACTOR_DENOM    1  /* Denominator of grow factor             */
 
-BOOL FASTCALL PATH_AddEntry (GdiPath *pPath, const POINT *pPoint, BYTE flags);
-BOOL FASTCALL PATH_AddFlatBezier (GdiPath *pPath, POINT *pt, BOOL closed);
-BOOL FASTCALL PATH_DoArcPart (GdiPath *pPath, FLOAT_POINT corners[], double angleStart, double angleEnd, BOOL addMoveTo);
-BOOL FASTCALL PATH_FlattenPath (GdiPath *pPath);
-VOID FASTCALL PATH_GetPathFromDC (PDC dc, GdiPath **ppPath);
-VOID FASTCALL PATH_NormalizePoint (FLOAT_POINT corners[], const FLOAT_POINT *pPoint, double *pX, double *pY);
-BOOL FASTCALL PATH_PathToRegion(const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn);
-BOOL FASTCALL PATH_ReserveEntries (GdiPath *pPath, INT numEntries);
-VOID FASTCALL PATH_ScaleNormalizedPoint (FLOAT_POINT corners[], double x, double y, POINT *pPoint);
 
-
-INT FASTCALL
-IntGdiGetArcDirection(DC *dc);
+static BOOL PATH_PathToRegion(const GdiPath *pPath, INT nPolyFillMode,
+   HRGN *pHrgn);
+static void   PATH_EmptyPath(GdiPath *pPath);
+static BOOL PATH_AddEntry(GdiPath *pPath, const POINT *pPoint,
+   BYTE flags);
+static BOOL PATH_ReserveEntries(GdiPath *pPath, INT numEntries);
+static BOOL PATH_GetPathFromHDC(HDC hdc, GdiPath **ppPath);
+static BOOL PATH_DoArcPart(GdiPath *pPath, FLOAT_POINT corners[],
+   double angleStart, double angleEnd, BOOL addMoveTo);
+static void PATH_ScaleNormalizedPoint(FLOAT_POINT corners[], double x,
+   double y, POINT *pPoint);
+static void PATH_NormalizePoint(FLOAT_POINT corners[], const FLOAT_POINT
+   *pPoint, double *pX, double *pY);
 
 BOOL
 STDCALL
-NtGdiAbortPath(HDC  hDC)
+W32kAbortPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiBeginPath(HDC  hDC)
+W32kBeginPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
-FASTCALL
-IntCloseFigure ( PDC dc )
+STDCALL
+W32kCloseFigure(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiCloseFigure ( HDC hDC )
-{
-  PDC dc = DC_LockDc ( hDC );
-  BOOL ret = FALSE; // default to failure
-
-  if ( dc )
-  {
-    ret = IntCloseFigure ( dc );
-    DC_UnlockDc ( hDC );
-  }
-
-  return ret;
-}
-
-BOOL
-STDCALL
-NtGdiEndPath(HDC  hDC)
+W32kEndPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiFillPath(HDC  hDC)
+W32kFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiFlattenPath(HDC  hDC)
+W32kFlattenPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 
 BOOL
 STDCALL
-NtGdiGetMiterLimit(HDC  hDC,
+W32kGetMiterLimit(HDC  hDC,
                         PFLOAT  Limit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 INT
 STDCALL
-NtGdiGetPath(HDC  hDC,
+W32kGetPath(HDC  hDC,
                  LPPOINT  Points,
                  LPBYTE  Types,
                  INT  nSize)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HRGN
 STDCALL
-NtGdiPathToRegion(HDC  hDC)
+W32kPathToRegion(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
 STDCALL
-NtGdiSetMiterLimit(HDC  hDC,
+W32kSetMiterLimit(HDC  hDC,
                         FLOAT  NewLimit,
                         PFLOAT  OldLimit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiStrokeAndFillPath(HDC  hDC)
+W32kStrokeAndFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiStrokePath(HDC  hDC)
+W32kStrokePath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiWidenPath(HDC  hDC)
+W32kWidenPath(HDC  hDC)
 {
    UNIMPLEMENTED;
-   return FALSE;
 }
 
 /***********************************************************************
@@ -173,9 +140,7 @@ NtGdiWidenPath(HDC  hDC)
  *
  * Initializes the GdiPath structure.
  */
-VOID
-FASTCALL
-PATH_InitGdiPath ( GdiPath *pPath )
+void PATH_InitGdiPath(GdiPath *pPath)
 {
   assert(pPath!=NULL);
 
@@ -190,9 +155,7 @@ PATH_InitGdiPath ( GdiPath *pPath )
  *
  * Destroys a GdiPath structure (frees the memory in the arrays).
  */
-VOID
-FASTCALL
-PATH_DestroyGdiPath ( GdiPath *pPath )
+void PATH_DestroyGdiPath(GdiPath *pPath)
 {
   assert(pPath!=NULL);
 
@@ -210,14 +173,12 @@ PATH_DestroyGdiPath ( GdiPath *pPath )
  * not a copy constructor).
  * Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_AssignGdiPath ( GdiPath *pPathDest, const GdiPath *pPathSrc )
+BOOL PATH_AssignGdiPath(GdiPath *pPathDest, const GdiPath *pPathSrc)
 {
   assert(pPathDest!=NULL && pPathSrc!=NULL);
 
   /* Make sure destination arrays are big enough */
-  if ( !PATH_ReserveEntries(pPathDest, pPathSrc->numEntriesUsed) )
+  if(!PATH_ReserveEntries(pPathDest, pPathSrc->numEntriesUsed))
     return FALSE;
 
   /* Perform the copy operation */
@@ -239,22 +200,21 @@ PATH_AssignGdiPath ( GdiPath *pPathDest, const GdiPath *pPathSrc )
  * open path. This starts a new stroke. Returns TRUE if successful, else
  * FALSE.
  */
-BOOL
-FASTCALL
-PATH_MoveTo ( PDC dc )
+BOOL PATH_MoveTo(HDC hdc)
 {
   GdiPath *pPath;
-
+   
   /* Get pointer to path */
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     /* FIXME: Do we have to call SetLastError? */
     return FALSE;
 
   /* Start a new stroke */
-  pPath->newStroke = TRUE;
+  pPath->newStroke=TRUE;
 
   return TRUE;
 }
@@ -266,35 +226,36 @@ PATH_MoveTo ( PDC dc )
  * a PT_MOVETO entry, if this is the first LineTo in a stroke).
  * Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_LineTo ( PDC dc, INT x, INT y )
+BOOL PATH_LineTo(HDC hdc, INT x, INT y)
 {
   GdiPath *pPath;
   POINT point, pointCurPos;
-
+   
   /* Get pointer to path */
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
   /* Convert point to device coordinates */
   point.x=x;
   point.y=y;
-  CoordLPtoDP ( dc, &point );
-
+  if(!W32kLPtoDP(hdc, &point, 1))
+    return FALSE;
+   
   /* Add a PT_MOVETO if necessary */
-  if ( pPath->newStroke )
+  if(pPath->newStroke)
   {
-    pPath->newStroke = FALSE;
-    IntGetCurrentPositionEx ( dc, &pointCurPos );
-    CoordLPtoDP ( dc, &pointCurPos );
-    if ( !PATH_AddEntry(pPath, &pointCurPos, PT_MOVETO) )
+    pPath->newStroke=FALSE;
+    if(!W32kGetCurrentPositionEx(hdc, &pointCurPos) ||
+       !W32kLPtoDP(hdc, &pointCurPos, 1))
+      return FALSE;
+    if(!PATH_AddEntry(pPath, &pointCurPos, PT_MOVETO))
       return FALSE;
   }
-
+   
   /* Add a PT_LINETO entry */
   return PATH_AddEntry(pPath, &point, PT_LINETO);
 }
@@ -304,19 +265,18 @@ PATH_LineTo ( PDC dc, INT x, INT y )
  * Should be called when a call to Rectangle is performed on a DC that has
  * an open path. Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_Rectangle ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
+BOOL PATH_Rectangle(HDC hdc, INT x1, INT y1, INT x2, INT y2)
 {
   GdiPath *pPath;
   POINT corners[2], pointTemp;
   INT   temp;
 
   /* Get pointer to path */
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
   /* Convert points to device coordinates */
@@ -324,33 +284,34 @@ PATH_Rectangle ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
   corners[0].y=y1;
   corners[1].x=x2;
   corners[1].y=y2;
-  IntLPtoDP ( dc, corners, 2 );
-
+  if(!W32kLPtoDP(hdc, corners, 2))
+    return FALSE;
+   
   /* Make sure first corner is top left and second corner is bottom right */
-  if ( corners[0].x > corners[1].x )
+  if(corners[0].x>corners[1].x)
   {
     temp=corners[0].x;
     corners[0].x=corners[1].x;
     corners[1].x=temp;
   }
-  if ( corners[0].y > corners[1].y )
+  if(corners[0].y>corners[1].y)
   {
     temp=corners[0].y;
     corners[0].y=corners[1].y;
     corners[1].y=temp;
   }
-
+   
   /* In GM_COMPATIBLE, don't include bottom and right edges */
-  if ( IntGetGraphicsMode(dc) == GM_COMPATIBLE )
+  if(W32kGetGraphicsMode(hdc)==GM_COMPATIBLE)
   {
     corners[1].x--;
     corners[1].y--;
   }
 
   /* Close any previous figure */
-  if ( !IntCloseFigure ( dc ) )
+  if(!W32kCloseFigure(hdc))
   {
-    /* The NtGdiCloseFigure call shouldn't have failed */
+    /* The W32kCloseFigure call shouldn't have failed */
     assert(FALSE);
     return FALSE;
   }
@@ -358,21 +319,21 @@ PATH_Rectangle ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
   /* Add four points to the path */
   pointTemp.x=corners[1].x;
   pointTemp.y=corners[0].y;
-  if ( !PATH_AddEntry(pPath, &pointTemp, PT_MOVETO) )
+  if(!PATH_AddEntry(pPath, &pointTemp, PT_MOVETO))
     return FALSE;
-  if ( !PATH_AddEntry(pPath, corners, PT_LINETO) )
+  if(!PATH_AddEntry(pPath, corners, PT_LINETO))
     return FALSE;
   pointTemp.x=corners[0].x;
   pointTemp.y=corners[1].y;
-  if ( !PATH_AddEntry(pPath, &pointTemp, PT_LINETO) )
+  if(!PATH_AddEntry(pPath, &pointTemp, PT_LINETO))
     return FALSE;
-  if ( !PATH_AddEntry(pPath, corners+1, PT_LINETO) )
+  if(!PATH_AddEntry(pPath, corners+1, PT_LINETO))
     return FALSE;
 
   /* Close the rectangle figure */
-  if ( !IntCloseFigure ( dc ) )
+  if(!W32kCloseFigure(hdc))
   {
-    /* The IntCloseFigure call shouldn't have failed */
+    /* The W32kCloseFigure call shouldn't have failed */
     assert(FALSE);
     return FALSE;
   }
@@ -380,27 +341,17 @@ PATH_Rectangle ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
   return TRUE;
 }
 
-BOOL
-FASTCALL
-PATH_RoundRect (PDC dc, INT x1, INT y1, INT x2, INT y2, INT xradius, INT yradius)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
 /* PATH_Ellipse
- *
+ * 
  * Should be called when a call to Ellipse is performed on a DC that has
  * an open path. This adds four Bezier splines representing the ellipse
  * to the path. Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_Ellipse ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
+BOOL PATH_Ellipse(HDC hdc, INT x1, INT y1, INT x2, INT y2)
 {
   /* TODO: This should probably be revised to call PATH_AngleArc */
   /* (once it exists) */
-  return PATH_Arc ( dc, x1, y1, x2, y2, x1, (y1+y2)/2, x1, (y1+y2)/2 );
+  return PATH_Arc(hdc, x1, y1, x2, y2, x1, (y1+y2)/2, x1, (y1+y2)/2);
 }
 
 /* PATH_Arc
@@ -409,41 +360,41 @@ PATH_Ellipse ( PDC dc, INT x1, INT y1, INT x2, INT y2 )
  * an open path. This adds up to five Bezier splines representing the arc
  * to the path. Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
+BOOL PATH_Arc(HDC hdc, INT x1, INT y1, INT x2, INT y2,
    INT xStart, INT yStart, INT xEnd, INT yEnd)
 {
   GdiPath *pPath;
+  DC      *pDC;
   double  angleStart, angleEnd, angleStartQuadrant, angleEndQuadrant=0.0;
           /* Initialize angleEndQuadrant to silence gcc's warning */
   double  x, y;
   FLOAT_POINT corners[2], pointStart, pointEnd;
   BOOL    start, end;
   INT     temp;
-  BOOL    clockwise;
 
   /* FIXME: This function should check for all possible error returns */
   /* FIXME: Do we have to respect newStroke? */
-
-  ASSERT ( dc );
-
-  clockwise = ( IntGdiGetArcDirection(dc) == AD_CLOCKWISE );
+   
+  /* Get pointer to DC */
+  pDC=DC_HandleToPtr(hdc);
+  if(pDC==NULL)
+    return FALSE;
 
   /* Get pointer to path */
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
   /* FIXME: Do we have to close the current figure? */
-
+   
   /* Check for zero height / width */
   /* FIXME: Only in GM_COMPATIBLE? */
-  if ( x1==x2 || y1==y2 )
+  if(x1==x2 || y1==y2)
     return TRUE;
-
+   
   /* Convert points to device coordinates */
   corners[0].x=(FLOAT)x1;
   corners[0].y=(FLOAT)y1;
@@ -453,19 +404,19 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
   pointStart.y=(FLOAT)yStart;
   pointEnd.x=(FLOAT)xEnd;
   pointEnd.y=(FLOAT)yEnd;
-  INTERNAL_LPTODP_FLOAT(dc, corners);
-  INTERNAL_LPTODP_FLOAT(dc, corners+1);
-  INTERNAL_LPTODP_FLOAT(dc, &pointStart);
-  INTERNAL_LPTODP_FLOAT(dc, &pointEnd);
+  INTERNAL_LPTODP_FLOAT(pDC, corners);
+  INTERNAL_LPTODP_FLOAT(pDC, corners+1);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointStart);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointEnd);
 
   /* Make sure first corner is top left and second corner is bottom right */
-  if ( corners[0].x > corners[1].x )
+  if(corners[0].x>corners[1].x)
   {
     temp=corners[0].x;
     corners[0].x=corners[1].x;
     corners[1].x=temp;
   }
-  if ( corners[0].y > corners[1].y )
+  if(corners[0].y>corners[1].y)
   {
     temp=corners[0].y;
     corners[0].y=corners[1].y;
@@ -479,9 +430,9 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
   angleEnd=atan2(y, x);
 
   /* Make sure the end angle is "on the right side" of the start angle */
-  if ( clockwise )
+  if(W32kGetArcDirection(hdc)==AD_CLOCKWISE)
   {
-    if ( angleEnd <= angleStart )
+    if(angleEnd<=angleStart)
     {
       angleEnd+=2*M_PI;
       assert(angleEnd>=angleStart);
@@ -497,12 +448,12 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
   }
 
   /* In GM_COMPATIBLE, don't include bottom and right edges */
-  if ( IntGetGraphicsMode(dc) == GM_COMPATIBLE )
+  if(W32kGetGraphicsMode(hdc)==GM_COMPATIBLE)
   {
     corners[1].x--;
     corners[1].y--;
   }
-
+   
   /* Add the arc to the path with one Bezier spline per quadrant that the
    * arc spans */
   start=TRUE;
@@ -513,7 +464,7 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
     if(start)
     {
       angleStartQuadrant=angleStart;
-      if ( clockwise )
+      if(W32kGetArcDirection(hdc)==AD_CLOCKWISE)
         angleEndQuadrant=(floor(angleStart/M_PI_2)+1.0)*M_PI_2;
       else
         angleEndQuadrant=(ceil(angleStart/M_PI_2)-1.0)*M_PI_2;
@@ -521,154 +472,136 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
     else
     {
       angleStartQuadrant=angleEndQuadrant;
-      if ( clockwise )
+      if(W32kGetArcDirection(hdc)==AD_CLOCKWISE)
         angleEndQuadrant+=M_PI_2;
       else
         angleEndQuadrant-=M_PI_2;
     }
 
     /* Have we reached the last part of the arc? */
-    if ( (clockwise && angleEnd<angleEndQuadrant)
-      || (!clockwise && angleEnd>angleEndQuadrant)
-      )
+    if((W32kGetArcDirection(hdc)==AD_CLOCKWISE &&
+        angleEnd<angleEndQuadrant) ||
+        (W32kGetArcDirection(hdc)==AD_COUNTERCLOCKWISE &&
+        angleEnd>angleEndQuadrant))
     {
       /* Adjust the end angle for this quadrant */
-     angleEndQuadrant = angleEnd;
-     end = TRUE;
+     angleEndQuadrant=angleEnd;
+     end=TRUE;
     }
 
     /* Add the Bezier spline to the path */
-    PATH_DoArcPart ( pPath, corners, angleStartQuadrant, angleEndQuadrant, start );
-    start = FALSE;
-  } while(!end);
+    PATH_DoArcPart(pPath, corners, angleStartQuadrant, angleEndQuadrant, start);
+    start=FALSE;
+  }  while(!end);
 
   return TRUE;
 }
 
-BOOL
-FASTCALL
-PATH_PolyBezierTo ( PDC dc, const POINT *pts, DWORD cbPoints )
+BOOL PATH_PolyBezierTo(HDC hdc, const POINT *pts, DWORD cbPoints)
 {
   GdiPath *pPath;
   POINT pt;
-  ULONG i;
+  INT i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( cbPoints );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
   /* Add a PT_MOVETO if necessary */
-  if ( pPath->newStroke )
+  if(pPath->newStroke)
   {
     pPath->newStroke=FALSE;
-    IntGetCurrentPositionEx ( dc, &pt );
-    CoordLPtoDP ( dc, &pt );
-    if ( !PATH_AddEntry(pPath, &pt, PT_MOVETO) )
+    if(!W32kGetCurrentPositionEx(hdc, &pt) ||
+       !W32kLPtoDP(hdc, &pt, 1))
+        return FALSE;
+    if(!PATH_AddEntry(pPath, &pt, PT_MOVETO))
         return FALSE;
   }
 
-  for(i = 0; i < cbPoints; i++)
-  {
+  for(i = 0; i < cbPoints; i++) {
     pt = pts[i];
-    CoordLPtoDP ( dc, &pt );
+    if(!W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
     PATH_AddEntry(pPath, &pt, PT_BEZIERTO);
   }
   return TRUE;
 }
-
-BOOL
-FASTCALL
-PATH_PolyBezier ( PDC dc, const POINT *pts, DWORD cbPoints )
+   
+BOOL PATH_PolyBezier(HDC hdc, const POINT *pts, DWORD cbPoints)
 {
   GdiPath *pPath;
   POINT   pt;
-  ULONG   i;
+  INT     i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( cbPoints );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
    /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
-  for ( i = 0; i < cbPoints; i++ )
-  {
+  for(i = 0; i < cbPoints; i++) {
     pt = pts[i];
-    CoordLPtoDP ( dc, &pt );
-    PATH_AddEntry ( pPath, &pt, (i == 0) ? PT_MOVETO : PT_BEZIERTO );
+    if(!W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
+    PATH_AddEntry(pPath, &pt, (i == 0) ? PT_MOVETO : PT_BEZIERTO);
   }
-
   return TRUE;
 }
 
-BOOL
-FASTCALL
-PATH_Polyline ( PDC dc, const POINT *pts, DWORD cbPoints )
+BOOL PATH_Polyline(HDC hdc, const POINT *pts, DWORD cbPoints)
 {
   GdiPath *pPath;
   POINT   pt;
-  ULONG   i;
+  INT     i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( cbPoints );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
-  for ( i = 0; i < cbPoints; i++ )
-  {
+  for(i = 0; i < cbPoints; i++) {
     pt = pts[i];
-    CoordLPtoDP ( dc, &pt );
+    if(!W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
     PATH_AddEntry(pPath, &pt, (i == 0) ? PT_MOVETO : PT_LINETO);
   }
   return TRUE;
 }
-
-BOOL
-FASTCALL
-PATH_PolylineTo ( PDC dc, const POINT *pts, DWORD cbPoints )
+   
+BOOL PATH_PolylineTo(HDC hdc, const POINT *pts, DWORD cbPoints)
 {
   GdiPath *pPath;
   POINT   pt;
-  ULONG   i;
+  INT     i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( cbPoints );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
   /* Add a PT_MOVETO if necessary */
-  if ( pPath->newStroke )
+  if(pPath->newStroke)
   {
-    pPath->newStroke = FALSE;
-    IntGetCurrentPositionEx ( dc, &pt );
-    CoordLPtoDP ( dc, &pt );
-    if ( !PATH_AddEntry(pPath, &pt, PT_MOVETO) )
+    pPath->newStroke=FALSE;
+    if(!W32kGetCurrentPositionEx(hdc, &pt) ||
+       !W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
+    if(!PATH_AddEntry(pPath, &pt, PT_MOVETO))
       return FALSE;
   }
 
-  for(i = 0; i < cbPoints; i++)
-  {
+  for(i = 0; i < cbPoints; i++) {
     pt = pts[i];
-    CoordLPtoDP ( dc, &pt );
+    if(!W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
     PATH_AddEntry(pPath, &pt, PT_LINETO);
   }
 
@@ -676,27 +609,23 @@ PATH_PolylineTo ( PDC dc, const POINT *pts, DWORD cbPoints )
 }
 
 
-BOOL
-FASTCALL
-PATH_Polygon ( PDC dc, const POINT *pts, DWORD cbPoints )
+BOOL PATH_Polygon(HDC hdc, const POINT *pts, DWORD cbPoints)
 {
   GdiPath *pPath;
   POINT   pt;
-  ULONG   i;
+  INT     i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
-  for(i = 0; i < cbPoints; i++)
-  {
+  for(i = 0; i < cbPoints; i++) {
     pt = pts[i];
-    CoordLPtoDP ( dc, &pt );
+    if(!W32kLPtoDP(hdc, &pt, 1))
+      return FALSE;
     PATH_AddEntry(pPath, &pt, (i == 0) ? PT_MOVETO :
       ((i == cbPoints-1) ? PT_LINETO | PT_CLOSEFIGURE :
       PT_LINETO));
@@ -704,31 +633,25 @@ PATH_Polygon ( PDC dc, const POINT *pts, DWORD cbPoints )
   return TRUE;
 }
 
-BOOL
-FASTCALL
-PATH_PolyPolygon ( PDC dc, const POINT* pts, const INT* counts, UINT polygons )
+BOOL PATH_PolyPolygon( HDC hdc, const POINT* pts, const INT* counts,
+		       UINT polygons )
 {
   GdiPath *pPath;
   POINT   pt, startpt;
-  ULONG   poly, point, i;
+  INT     poly, point, i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( counts );
-  ASSERT ( polygons );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open );
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
-  for(i = 0, poly = 0; poly < polygons; poly++)
-  {
-    for(point = 0; point < (ULONG) counts[poly]; point++, i++)
-    {
+  for(i = 0, poly = 0; poly < polygons; poly++) {
+    for(point = 0; point < counts[poly]; point++, i++) {
       pt = pts[i];
-      CoordLPtoDP ( dc, &pt );
+      if(!W32kLPtoDP(hdc, &pt, 1))
+         return FALSE;
       if(point == 0) startpt = pt;
         PATH_AddEntry(pPath, &pt, (point == 0) ? PT_MOVETO : PT_LINETO);
     }
@@ -738,37 +661,31 @@ PATH_PolyPolygon ( PDC dc, const POINT* pts, const INT* counts, UINT polygons )
   return TRUE;
 }
 
-BOOL
-FASTCALL
-PATH_PolyPolyline ( PDC dc, const POINT* pts, const DWORD* counts, DWORD polylines )
+BOOL PATH_PolyPolyline( HDC hdc, const POINT* pts, const DWORD* counts,
+			DWORD polylines )
 {
   GdiPath *pPath;
   POINT   pt;
-  ULONG   poly, point, i;
+  INT     poly, point, i;
 
-  ASSERT ( dc );
-  ASSERT ( pts );
-  ASSERT ( counts );
-  ASSERT ( polylines );
-
-  PATH_GetPathFromDC ( dc, &pPath );
-
+  if(!PATH_GetPathFromHDC(hdc, &pPath))
+    return FALSE;
+   
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
 
-  for(i = 0, poly = 0; poly < polylines; poly++)
-  {
-    for(point = 0; point < counts[poly]; point++, i++)
-    {
+  for(i = 0, poly = 0; poly < polylines; poly++) {
+    for(point = 0; point < counts[poly]; point++, i++) {
       pt = pts[i];
-      CoordLPtoDP ( dc, &pt );
+      if(!W32kLPtoDP(hdc, &pt, 1))
+        return FALSE;
       PATH_AddEntry(pPath, &pt, (point == 0) ? PT_MOVETO : PT_LINETO);
     }
   }
   return TRUE;
 }
-
+   
 /***********************************************************************
  * Internal functions
  */
@@ -777,15 +694,13 @@ PATH_PolyPolyline ( PDC dc, const POINT* pts, const DWORD* counts, DWORD polylin
 /* PATH_AddFlatBezier
  *
  */
-BOOL
-FASTCALL
-PATH_AddFlatBezier ( GdiPath *pPath, POINT *pt, BOOL closed )
+static BOOL PATH_AddFlatBezier(GdiPath *pPath, POINT *pt, BOOL closed)
 {
   POINT *pts;
   INT no, i;
 
   pts = GDI_Bezier( pt, 4, &no );
-  if ( !pts ) return FALSE;
+  if(!pts) return FALSE;
 
   for(i = 1; i < no; i++)
     PATH_AddEntry(pPath, &pts[i],  (i == no-1 && closed) ? PT_LINETO | PT_CLOSEFIGURE : PT_LINETO);
@@ -799,9 +714,7 @@ PATH_AddFlatBezier ( GdiPath *pPath, POINT *pt, BOOL closed )
  * Replaces Beziers with line segments
  *
  */
-BOOL
-FASTCALL
-PATH_FlattenPath(GdiPath *pPath)
+static BOOL PATH_FlattenPath(GdiPath *pPath)
 {
   GdiPath newPath;
   INT srcpt;
@@ -825,7 +738,7 @@ PATH_FlattenPath(GdiPath *pPath)
   PATH_EmptyPath(&newPath);
   return TRUE;
 }
-
+	  
 /* PATH_PathToRegion
  *
  * Creates a region from the specified path using the specified polygon
@@ -834,27 +747,20 @@ PATH_FlattenPath(GdiPath *pPath)
  * error occurs, SetLastError is called with the appropriate value and
  * FALSE is returned.
  */
-#if 0
-// FIXME - don't reenable this function until you deal with the
-// const pPath being given to PATH_FlattenPath() - which is
-// expecting a non-const*. Since this function isn't being called
-// at the moment, I'm commenting it out until the issue needs to
-// be addressed.
-BOOL 
-FASTCALL
-PATH_PathToRegion ( const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn )
+static BOOL PATH_PathToRegion(const GdiPath *pPath, INT nPolyFillMode,
+   HRGN *pHrgn)
 {
   int    numStrokes, iStroke, i;
   INT  *pNumPointsInStroke;
   HRGN hrgn;
 
-  assert ( pPath!=NULL );
-  assert ( pHrgn!=NULL );
+  assert(pPath!=NULL);
+  assert(pHrgn!=NULL);
 
-  PATH_FlattenPath ( pPath );
+  PATH_FlattenPath(pPath);
 
   /* FIXME: What happens when number of points is zero? */
-
+   
   /* First pass: Find out how many strokes there are in the path */
   /* FIXME: We could eliminate this with some bookkeeping in GdiPath */
   numStrokes=0;
@@ -863,13 +769,13 @@ PATH_PathToRegion ( const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn )
       numStrokes++;
 
   /* Allocate memory for number-of-points-in-stroke array */
-  pNumPointsInStroke=(int *)ExAllocatePoolWithTag(PagedPool, sizeof(int) * numStrokes, TAG_PATH);
+  pNumPointsInStroke=(int *)ExAllocatePool(NonPagedPool, sizeof(int) * numStrokes);
   if(!pNumPointsInStroke)
   {
 //    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
     return FALSE;
   }
-
+   
   /* Second pass: remember number of points in each polygon */
   iStroke=-1;  /* Will get incremented to 0 at beginning of first stroke */
   for(i=0; i<pPath->numEntriesUsed; i++)
@@ -900,15 +806,12 @@ PATH_PathToRegion ( const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn )
   *pHrgn=hrgn;
   return TRUE;
 }
-#endif
 
 /* PATH_EmptyPath
  *
  * Removes all entries from the path and sets the path state to PATH_Null.
  */
-VOID
-FASTCALL
-PATH_EmptyPath ( GdiPath *pPath )
+static void PATH_EmptyPath(GdiPath *pPath)
 {
   assert(pPath!=NULL);
 
@@ -922,22 +825,20 @@ PATH_EmptyPath ( GdiPath *pPath )
  * or PT_BEZIERTO, optionally ORed with PT_CLOSEFIGURE. Returns TRUE if
  * successful, FALSE otherwise (e.g. if not enough memory was available).
  */
-BOOL
-FASTCALL
-PATH_AddEntry ( GdiPath *pPath, const POINT *pPoint, BYTE flags )
+BOOL PATH_AddEntry(GdiPath *pPath, const POINT *pPoint, BYTE flags)
 {
   assert(pPath!=NULL);
-
+   
   /* FIXME: If newStroke is true, perhaps we want to check that we're
    * getting a PT_MOVETO
    */
 
   /* Check that path is open */
-  if ( pPath->state != PATH_Open )
+  if(pPath->state!=PATH_Open)
     return FALSE;
-
+   
   /* Reserve enough memory for an extra path entry */
-  if ( !PATH_ReserveEntries(pPath, pPath->numEntriesUsed+1) )
+  if(!PATH_ReserveEntries(pPath, pPath->numEntriesUsed+1))
     return FALSE;
 
   /* Store information in path entry */
@@ -960,14 +861,12 @@ PATH_AddEntry ( GdiPath *pPath, const POINT *pPoint, BYTE flags )
  * been allocated; allocates larger arrays and copies the existing entries
  * to those arrays, if necessary. Returns TRUE if successful, else FALSE.
  */
-BOOL
-FASTCALL
-PATH_ReserveEntries ( GdiPath *pPath, INT numEntries )
+static BOOL PATH_ReserveEntries(GdiPath *pPath, INT numEntries)
 {
   INT   numEntriesToAllocate;
   POINT *pPointsNew;
   BYTE    *pFlagsNew;
-
+   
   assert(pPath!=NULL);
   assert(numEntries>=0);
 
@@ -986,10 +885,10 @@ PATH_ReserveEntries ( GdiPath *pPath, INT numEntries )
        numEntriesToAllocate=numEntries;
 
     /* Allocate new arrays */
-    pPointsNew=(POINT *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(POINT), TAG_PATH);
+    pPointsNew=(POINT *)ExAllocatePool(NonPagedPool, numEntriesToAllocate * sizeof(POINT));
     if(!pPointsNew)
       return FALSE;
-    pFlagsNew=(BYTE *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(BYTE), TAG_PATH);
+    pFlagsNew=(BYTE *)ExAllocatePool(NonPagedPool, numEntriesToAllocate * sizeof(BYTE));
     if(!pFlagsNew)
     {
       ExFreePool(pPointsNew);
@@ -1015,18 +914,22 @@ PATH_ReserveEntries ( GdiPath *pPath, INT numEntries )
   return TRUE;
 }
 
-/* PATH_GetPathFromDC
+/* PATH_GetPathFromHDC
  *
  * Retrieves a pointer to the GdiPath structure contained in an HDC and
  * places it in *ppPath. TRUE is returned if successful, FALSE otherwise.
  */
-VOID
-FASTCALL
-PATH_GetPathFromDC ( PDC dc, GdiPath **ppPath )
+static BOOL PATH_GetPathFromHDC(HDC hdc, GdiPath **ppPath)
 {
-  ASSERT ( dc );
-  ASSERT ( ppPath );
-  *ppPath = &dc->w.path;
+  DC *pDC;
+
+  pDC=DC_HandleToPtr(hdc);
+  if(pDC)
+  {
+    *ppPath=&pDC->w.path;
+    return TRUE;
+  } else
+    return FALSE;
 }
 
 /* PATH_DoArcPart
@@ -1038,10 +941,8 @@ PATH_GetPathFromDC ( PDC dc, GdiPath **ppPath )
  * point is added to the path; otherwise, it is assumed that the current
  * position is equal to the first control point.
  */
-BOOL
-FASTCALL
-PATH_DoArcPart ( GdiPath *pPath, FLOAT_POINT corners[],
-   double angleStart, double angleEnd, BOOL addMoveTo )
+static BOOL PATH_DoArcPart(GdiPath *pPath, FLOAT_POINT corners[],
+   double angleStart, double angleEnd, BOOL addMoveTo)
 {
   double  halfAngle, a;
   double  xNorm[4], yNorm[4];
@@ -1071,7 +972,7 @@ PATH_DoArcPart ( GdiPath *pPath, FLOAT_POINT corners[],
       xNorm[i]=cos(angleStart);
       yNorm[i]=sin(angleStart);
     }
-
+   
   /* Add starting point to path if desired */
   if(addMoveTo)
   {
@@ -1098,13 +999,9 @@ PATH_DoArcPart ( GdiPath *pPath, FLOAT_POINT corners[],
  * coordinates (-1.0, -1.0) correspond to corners[0], the coordinates
  * (1.0, 1.0) correspond to corners[1].
  */
-VOID
-FASTCALL
-PATH_ScaleNormalizedPoint ( FLOAT_POINT corners[], double x,
-   double y, POINT *pPoint )
+static void PATH_ScaleNormalizedPoint(FLOAT_POINT corners[], double x,
+   double y, POINT *pPoint)
 {
-  ASSERT ( corners );
-  ASSERT ( pPoint );
   pPoint->x=GDI_ROUND( (double)corners[0].x + (double)(corners[1].x-corners[0].x)*0.5*(x+1.0) );
   pPoint->y=GDI_ROUND( (double)corners[0].y + (double)(corners[1].y-corners[0].y)*0.5*(y+1.0) );
 }
@@ -1114,17 +1011,10 @@ PATH_ScaleNormalizedPoint ( FLOAT_POINT corners[], double x,
  * Normalizes a point with respect to the box whose corners are passed in
  * corners. The normalized coordinates are stored in *pX and *pY.
  */
-VOID
-FASTCALL
-PATH_NormalizePoint ( FLOAT_POINT corners[],
+static void PATH_NormalizePoint(FLOAT_POINT corners[],
    const FLOAT_POINT *pPoint,
    double *pX, double *pY)
 {
-  ASSERT ( corners );
-  ASSERT ( pPoint );
-  ASSERT ( pX );
-  ASSERT ( pY );
   *pX=(double)(pPoint->x-corners[0].x)/(double)(corners[1].x-corners[0].x) * 2.0 - 1.0;
   *pY=(double)(pPoint->y-corners[0].y)/(double)(corners[1].y-corners[0].y) * 2.0 - 1.0;
 }
-/* EOF */

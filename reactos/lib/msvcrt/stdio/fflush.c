@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/stdio/fflush.c
+ * FILE:        lib/crtdll/conio/kbhit.c
  * PURPOSE:     Checks for keyboard hits
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -20,9 +20,6 @@
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 int fflush(FILE *f)
 {
   char *base;
@@ -32,11 +29,11 @@ int fflush(FILE *f)
 
   if (f == NULL)
   {
-     int e = *_errno();
+     int e = errno;
 
      __set_errno(0);
     _fwalk((void (*)(FILE *))fflush);
-    if (*_errno())
+    if (_errno)
       return EOF;
     __set_errno(e);
     return 0;
@@ -81,26 +78,24 @@ int fflush(FILE *f)
     f->_flag &= ~_IOAHEAD;
 
 
-    f->_cnt = (f->_flag&(_IO_LBF|_IONBF)) ? 0 : f->_bufsiz;
+    f->_cnt = (f->_flag&(_IOLBF|_IONBF)) ? 0 : f->_bufsiz;
 
 // how can write return less than rn without being on error ???
 
 // possibly commit the flushed data
 // better open the file in write through mode
 
-    while (rn > 0) {
+    do {
       n = _write(fileno(f), base, rn);
       if (n <= 0) {
-	    f->_flag |= _IOERR;
-	    return EOF;
+	f->_flag |= _IOERR;
+	return EOF;
       }
       rn -= n;
       base += n;
-    };
+    } while (rn > 0);
     f->_flag &= ~_IODIRTY;
 
-// commit flushed data
-//    _commit(fileno(f));
   }
   if (OPEN4READING(f) && OPEN4WRITING(f) )
   {
@@ -110,9 +105,6 @@ int fflush(FILE *f)
   return 0;
 }
 
-/*
- * @implemented
- */
 int _flushall( void )
 {
 	return fflush(NULL);

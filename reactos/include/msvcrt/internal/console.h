@@ -9,4 +9,3 @@ extern int ungot_char;
 #endif /* __MSVCRT_INTERNAL_CONSOLE_H */
 
 /* EOF */
-

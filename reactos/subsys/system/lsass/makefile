@@ -1,19 +1,35 @@
-# $Id: makefile,v 1.2 2001/08/21 20:13:04 chorns Exp $
+# $Id: makefile,v 1.1 2001/07/24 10:18:05 ekohl Exp $
+#
+# Local Security Authority Subsystem
+#
+# ReactOS Operating System
+#
+TARGET=lsass
 
-PATH_TO_TOP = ../../..
+BASE_CFLAGS = -I../../include
 
-TARGET_TYPE = program
+OBJECTS = $(TARGET).o init.o $(TARGET).coff
 
-TARGET_APPTYPE = native
+LIBS = ../../lib/ntdll/ntdll.a
 
-TARGET_NAME = lsass
+all: $(TARGET).exe
 
-TARGET_INSTALLDIR = system32
+.phony: all
 
-TARGET_OBJECTS = $(TARGET_NAME).o init.o
+clean:
+	- $(RM) $(TARGET).o $(TARGET).exe $(TARGET).sym $(TARGET).coff
 
-include $(PATH_TO_TOP)/rules.mak
+.phony: clean
 
-include $(TOOLS_PATH)/helper.mk
+$(TARGET).coff: $(TARGET).rc
+	$(RC) $(TARGET).rc $(TARGET).coff
 
-# EOF
+$(TARGET).exe: $(OBJECTS) $(LIBS)
+	$(LD) \
+		$(OBJECTS) \
+		$(LIBS) \
+		-o $(TARGET).exe \
+		--subsystem native
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
+
+include ../../rules.mak

@@ -1,19 +1,73 @@
-# $Id: makefile,v 1.11 2004/01/11 20:46:05 navaraf Exp $
+# Makefile for ReactOS WinSock Helper DLL for TCP/IP
 
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = dynlink
+CFLAGS = -D__NTDRIVER__ -I./ -DUNICODE
 
-TARGET_NAME = wshtcpip
+TARGETNAME=wshtcpip
 
-TARGET_BASE = 0x777c0000
+MAIN_OBJECTS = $(TARGETNAME).o
 
-TARGET_CFLAGS = -DUNICODE -D__USE_W32API -Werror -Wall
+RESOURCE_OBJECT = $(TARGETNAME).coff
 
-TARGET_SDKLIBS = ntdll.a kernel32.a ws2_32.a
+OBJECTS = $(MAIN_OBJECTS) $(RESOURCE_OBJECT)
 
-TARGET_OBJECTS = $(TARGET_NAME).o
+LIBS = ../../../lib/ntdll/ntdll.a \
+       ../../../lib/kernel32/kernel32.a \
+       ../../../lib/ws2_32/ws2_32.a
 
-include $(PATH_TO_TOP)/rules.mak
+CLEAN_FILES = $(TARGETNAME).o $(TARGETNAME).a junk.tmp base.tmp temp.exp \
+	          $(TARGETNAME).dll $(TARGETNAME).sym $(TARGETNAME).coff
 
-include $(TOOLS_PATH)/helper.mk
+all: $(TARGETNAME).dll
+
+$(TARGETNAME).coff: $(TARGETNAME).rc ../../../include/reactos/resource.h
+
+$(TARGETNAME).dll: $(LIBS) $(OBJECTS) $(TARGETNAME).def
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--def $(TARGETNAME).def \
+		--kill-at \
+		--output-lib $(TARGETNAME).a
+	$(CC) \
+		$(TARGETNAME).o \
+        $(LIBS) \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf
+	- $(RM) base.tmp
+	$(CC) \
+		$(OBJECTS) $(LIBS) \
+		-mdll \
+		-o $(TARGETNAME).dll \
+		-Wl,--image-base,0x777C0000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGETNAME).dll > $(TARGETNAME).sym
+
+
+clean: 
+	- $(RM) $(CLEAN_FILES)
+
+.PHONY: clean 
+
+install: $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+$(FLOPPY_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+dist: $(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+$(DIST_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll ../../../$(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+include ../../../rules.mak
+

@@ -7,9 +7,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 FILE *freopen(const char *file, const char *mode, FILE *f)
 {
   int fd, rw, oflags=0;
@@ -67,9 +64,6 @@ FILE *freopen(const char *file, const char *mode, FILE *f)
   return f;
 }
 
-/*
- * @implemented
- */
 FILE *_wfreopen(const wchar_t *file, const wchar_t *mode, FILE *f)
 {
   int fd, rw, oflags=0;

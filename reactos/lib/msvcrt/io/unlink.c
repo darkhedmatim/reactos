@@ -7,23 +7,20 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 
-#define NDEBUG
-#include <msvcrt/msvcrtdbg.h>
 
-
-/*
- * @implemented
- */
-int _unlink(const char* filename)
+int _unlink(const char *filename)
 {
-    DPRINT("_unlink('%s')\n", filename);
-    if (!DeleteFileA(filename)) {
-		_dosmaperr(GetLastError());
-        return -1;
-	}
-    return 0;
+  if (!DeleteFileA(filename))
+    return -1;
+  return 0;
+}
+
+int _wunlink(const wchar_t *filename)
+{
+  if (!DeleteFileW(filename))
+    return -1;
+  return 0;
 }

@@ -1,4 +1,4 @@
-/* $Id: evtpair.c,v 1.23 2004/09/28 15:02:29 weiden Exp $
+/* $Id: evtpair.c,v 1.8 2001/06/16 14:10:08 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,25 +7,17 @@
  * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
- *                  Updated 09/08/2003 by Skywing (skywing@valhallalegends.com)
- *                   to correctly maintain ownership of the dispatcher lock
- *                   between KeSetEvent and KeWaitForSingleObject calls.
- *                   Additionally, implemented the thread-eventpair routines.
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <ntos/synch.h>
+#include <limits.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-#ifndef NTSYSAPI
-#define NTSYSAPI
-#endif
-
-#ifndef NTAPI
-#define NTAPI STDCALL
-#endif
 
 
 /* GLOBALS *******************************************************************/
@@ -38,34 +30,34 @@ static GENERIC_MAPPING ExEventPairMapping = {
 	STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE,
 	EVENT_PAIR_ALL_ACCESS};
 
-static KSPIN_LOCK ExThreadEventPairSpinLock;
-
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS STDCALL
-NtpCreateEventPair(PVOID ObjectBody,
-		   PVOID Parent,
-		   PWSTR RemainingPath,
-		   POBJECT_ATTRIBUTES ObjectAttributes)
+NTSTATUS NtpCreateEventPair(PVOID ObjectBody,
+			    PVOID Parent,
+			    PWSTR RemainingPath,
+			    POBJECT_ATTRIBUTES ObjectAttributes)
 {
-  DPRINT("NtpCreateEventPair(ObjectBody %x, Parent %x, RemainingPath %S)\n",
-	 ObjectBody, Parent, RemainingPath);
-
-  if (RemainingPath != NULL && wcschr(RemainingPath+1, '\\') != NULL)
-    {
-      return(STATUS_UNSUCCESSFUL);
-    }
-  
-  return(STATUS_SUCCESS);
+   DPRINT("NtpCreateEventPair(ObjectBody %x, Parent %x, RemainingPath %S)\n",
+	  ObjectBody, Parent, RemainingPath);
+   
+   if (RemainingPath != NULL && wcschr(RemainingPath+1, '\\') != NULL)
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   
+   if (Parent != NULL && RemainingPath != NULL)
+     {
+	ObAddEntryDirectory(Parent, ObjectBody, RemainingPath+1);
+     }
+   return(STATUS_SUCCESS);
 }
 
-VOID INIT_FUNCTION
-NtInitializeEventPairImplementation(VOID)
+VOID NtInitializeEventPairImplementation(VOID)
 {
    ExEventPairObjectType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
    
    RtlCreateUnicodeString(&ExEventPairObjectType->TypeName, L"EventPair");
-   ExEventPairObjectType->Tag = TAG('E', 'v', 'P', 'a');
+   
    ExEventPairObjectType->MaxObjects = ULONG_MAX;
    ExEventPairObjectType->MaxHandles = ULONG_MAX;
    ExEventPairObjectType->TotalObjects = 0;
@@ -82,10 +74,6 @@ NtInitializeEventPairImplementation(VOID)
    ExEventPairObjectType->QueryName = NULL;
    ExEventPairObjectType->OkayToClose = NULL;
    ExEventPairObjectType->Create = NtpCreateEventPair;
-   ExEventPairObjectType->DuplicationNotify = NULL;
-
-   KeInitializeSpinLock(&ExThreadEventPairSpinLock);
-   ObpCreateTypeObject(ExEventPairObjectType);
 }
 
 
@@ -98,37 +86,23 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
    NTSTATUS Status;
 
    DPRINT("NtCreateEventPair()\n");
-   Status = ObCreateObject(ExGetPreviousMode(),
-			   ExEventPairObjectType,
+   Status = ObCreateObject(EventPairHandle,
+			   DesiredAccess,
 			   ObjectAttributes,
-			   ExGetPreviousMode(),
-			   NULL,
-			   sizeof(KEVENT_PAIR),
-			   0,
-			   0,
+			   ExEventPairObjectType,
 			   (PVOID*)&EventPair);
    if (!NT_SUCCESS(Status))
      {
 	return(Status);
      }
-
    KeInitializeEvent(&EventPair->LowEvent,
 		     SynchronizationEvent,
 		     FALSE);
    KeInitializeEvent(&EventPair->HighEvent,
 		     SynchronizationEvent,
 		     FALSE);
-
-   Status = ObInsertObject ((PVOID)EventPair,
-			    NULL,
-			    DesiredAccess,
-			    0,
-			    NULL,
-			    EventPairHandle);
-
    ObDereferenceObject(EventPair);
-
-   return Status;
+   return(STATUS_SUCCESS);
 }
 
 
@@ -200,7 +174,7 @@ NtSetHighWaitLowEventPair(IN HANDLE EventPairHandle)
 
    KeSetEvent(&EventPair->HighEvent,
 	      EVENT_INCREMENT,
-	      TRUE);
+	      FALSE);
 
    KeWaitForSingleObject(&EventPair->LowEvent,
 			 WrEventPair,
@@ -260,7 +234,7 @@ NtSetLowWaitHighEventPair(IN HANDLE EventPairHandle)
 
    KeSetEvent(&EventPair->LowEvent,
 	      EVENT_INCREMENT,
-	      TRUE);
+	      FALSE);
 
    KeWaitForSingleObject(&EventPair->HighEvent,
 			 WrEventPair,
@@ -329,168 +303,5 @@ NtWaitHighEventPair(IN HANDLE EventPairHandle)
    ObDereferenceObject(EventPair);
    return(STATUS_SUCCESS);
 }
-
-#ifdef _ENABLE_THRDEVTPAIR
-
-/*
- * Author: Skywing (skywing@valhallalegends.com), 09/08/2003
- * Note that the eventpair spinlock must be acquired when setting the thread
- * eventpair via NtSetInformationThread.
- * @implemented
- */
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetLowWaitHighThread(
-	VOID
-	)
-{
-	PETHREAD Thread;
-	PKEVENT_PAIR EventPair;
-	NTSTATUS Status;
-	KIRQL Irql;
-
-	Thread = PsGetCurrentThread();
-
-	if(!Thread->EventPair)
-		return STATUS_NO_EVENT_PAIR;
-
-	KeAcquireSpinLock(&ExThreadEventPairSpinLock, &Irql);
-
-	EventPair = Thread->EventPair;
-
-	if(EventPair)
-		ObReferenceObjectByPointer(EventPair,
-					   EVENT_PAIR_ALL_ACCESS,
-					   ExEventPairObjectType,
-					   UserMode);
-	
-	KeReleaseSpinLock(&ExThreadEventPairSpinLock, Irql);
-
-	if(EventPair == NULL)
-		return STATUS_NO_EVENT_PAIR;
-
-	KeSetEvent(&EventPair->LowEvent,
-		EVENT_INCREMENT,
-		TRUE);
-
-	Status = KeWaitForSingleObject(&EventPair->HighEvent,
-				       WrEventPair,
-				       UserMode,
-				       FALSE,
-				       NULL);
-
-	ObDereferenceObject(EventPair);
-
-	return Status;
-}
-
-
-/*
- * Author: Skywing (skywing@valhallalegends.com), 09/08/2003
- * Note that the eventpair spinlock must be acquired when setting the thread
- * eventpair via NtSetInformationThread.
- * @implemented
- */
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetHighWaitLowThread(
-	VOID
-	)
-{
-	PETHREAD Thread;
-	PKEVENT_PAIR EventPair;
-	NTSTATUS Status;
-	KIRQL Irql;
-
-	Thread = PsGetCurrentThread();
-
-	if(!Thread->EventPair)
-		return STATUS_NO_EVENT_PAIR;
-
-	KeAcquireSpinLock(&ExThreadEventPairSpinLock, &Irql);
-
-	EventPair = PsGetCurrentThread()->EventPair;
-
-	if(EventPair)
-		ObReferenceObjectByPointer(EventPair,
-					   EVENT_PAIR_ALL_ACCESS,
-					   ExEventPairObjectType,
-					   UserMode);
-	
-	KeReleaseSpinLock(&ExThreadEventPairSpinLock, Irql);
-
-	if(EventPair == NULL)
-		return STATUS_NO_EVENT_PAIR;
-
-	KeSetEvent(&EventPair->HighEvent,
-		EVENT_INCREMENT,
-		TRUE);
-
-	Status = KeWaitForSingleObject(&EventPair->LowEvent,
-				       WrEventPair,
-				       UserMode,
-				       FALSE,
-				       NULL);
-
-	ObDereferenceObject(EventPair);
-
-	return Status;
-}
-
-/*
- * Author: Skywing (skywing@valhallalegends.com), 09/08/2003
- * Note that the eventpair spinlock must be acquired when waiting on the
- * eventpair via NtSetLow/HighWaitHigh/LowThread.  Additionally, when
- * deleting a thread object, NtpSwapThreadEventPair(Thread, NULL) should
- * be called to release any preexisting eventpair object associated with
- * the thread.  The Microsoft name for this function is not known.
- */
-VOID
-ExpSwapThreadEventPair(
-	IN PETHREAD Thread,
-	IN PKEVENT_PAIR EventPair
-	)
-{
-	PKEVENT_PAIR OriginalEventPair;
-	KIRQL Irql;
-
-	KeAcquireSpinLock(&ExThreadEventPairSpinLock, &Irql);
-
-	OriginalEventPair = Thread->EventPair;
-	Thread->EventPair = EventPair;
-
-	if(OriginalEventPair)
-		ObDereferenceObject(OriginalEventPair);
-
-	KeReleaseSpinLock(&ExThreadEventPairSpinLock, Irql);
-}
-
-#else /* !_ENABLE_THRDEVTPAIR */
-
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetLowWaitHighThread(
-	VOID
-	)
-{
-        DPRINT1("NtSetLowWaitHighThread() not supported anymore (NT4 only)!\n");
-        return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetHighWaitLowThread(
-	VOID
-	)
-{
-        DPRINT1("NtSetHighWaitLowThread() not supported anymore (NT4 only)!\n");
-        return STATUS_NOT_IMPLEMENTED;
-}
-
-#endif /* _ENABLE_THRDEVTPAIR */
 
 /* EOF */

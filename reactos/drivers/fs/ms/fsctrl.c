@@ -1,4 +1,4 @@
-/* $Id: fsctrl.c,v 1.5 2004/12/23 12:37:04 ekohl Exp $
+/* $Id: fsctrl.c,v 1.1 2001/05/05 15:11:57 ekohl Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -37,7 +37,7 @@ MsfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
    
    DPRINT1("Mailslot name: %wZ\n", &Mailslot->Name);
    
-   switch (IoStack->Parameters.FileSystemControl.FsControlCode)
+   switch (IoStack->Parameters.FileSystemControl.IoControlCode)
      {
 #if 0
       case FSCTL_WAIT_PIPE:

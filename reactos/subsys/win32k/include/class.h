@@ -1,81 +1,42 @@
-#ifndef _WIN32K_CLASS_H
-#define _WIN32K_CLASS_H
+#ifndef __WIN32K_CLASS_H
+#define __WIN32K_CLASS_H
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <ddk/ntapi.h>
-#include <napi/win32.h>
 
 #define IS_ATOM(x) \
   (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
 
+
 typedef struct _WNDCLASS_OBJECT
 {
-  UINT    cbSize;
-  UINT    style;
-  WNDPROC lpfnWndProcA;
-  WNDPROC lpfnWndProcW;
-  int     cbClsExtra;
-  int     cbWndExtra;
-  HANDLE  hInstance;
-  HICON   hIcon;
-  HCURSOR hCursor;
-  HBRUSH  hbrBackground;
-  UNICODE_STRING lpszMenuName;
-  RTL_ATOM Atom;
-  HICON   hIconSm;
+  WNDCLASSEX Class;
   BOOL Unicode;
-  BOOL Global;
   LIST_ENTRY ListEntry;
-  PCHAR   ExtraData;
-  /* list of windows */
-  FAST_MUTEX ClassWindowsListLock;
-  LIST_ENTRY ClassWindowsListHead;
 } WNDCLASS_OBJECT, *PWNDCLASS_OBJECT;
 
-NTSTATUS FASTCALL
+
+NTSTATUS
 InitClassImpl(VOID);
 
-NTSTATUS FASTCALL
+NTSTATUS
 CleanupClassImpl(VOID);
 
-#define IntLockProcessClasses(W32Process) \
-  ExAcquireFastMutex(&(W32Process)->ClassListLock)
-
-#define IntUnLockProcessClasses(W32Process) \
-  ExReleaseFastMutex(&(W32Process)->ClassListLock)
-
-#define IntLockClassWindows(ClassObj) \
-  ExAcquireFastMutex(&(ClassObj)->ClassWindowsListLock)
-
-#define IntUnLockClassWindows(ClassObj) \
-  ExReleaseFastMutex(&(ClassObj)->ClassWindowsListLock)
-
-#define ClassDereferenceObject(ClassObj) \
-  ObmDereferenceObject(ClassObj)
-
-BOOL FASTCALL
-ClassReferenceClassByAtom(
-   PWNDCLASS_OBJECT* Class,
-   RTL_ATOM Atom,
-   HINSTANCE hInstance);
-
-BOOL FASTCALL
+NTSTATUS
 ClassReferenceClassByName(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassName,
-   HINSTANCE hInstance);
+  PWNDCLASS_OBJECT *Class,
+  LPWSTR ClassName);
 
-BOOL FASTCALL
+NTSTATUS
+ClassReferenceClassByAtom(
+  PWNDCLASS_OBJECT *Class,
+  RTL_ATOM ClassAtom);
+
+NTSTATUS
 ClassReferenceClassByNameOrAtom(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassNameOrAtom,
-   HINSTANCE hInstance);
+  PWNDCLASS_OBJECT *Class,
+  LPWSTR ClassNameOrAtom);
 
-struct _WINDOW_OBJECT;
-ULONG FASTCALL
-IntGetClassLong(struct _WINDOW_OBJECT *WindowObject, ULONG Offset, BOOL Ansi);
-
-#endif /* _WIN32K_CLASS_H */
+#endif /* __WIN32K_CLASS_H */
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: adapter.c,v 1.11 2004/08/15 16:39:03 chorns Exp $
+/* $Id: adapter.c,v 1.5 2001/03/31 15:58:24 phreak Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,20 +11,18 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* DATA **********************************************************************/
 
 POBJECT_TYPE EXPORTED IoAdapterObjectType = NULL;	/* FIXME */
 POBJECT_TYPE EXPORTED IoDeviceHandlerObjectType = NULL;	/* FIXME */
-ULONG        EXPORTED IoDeviceHandlerObjectSize = 0;    /* FIXME */
+USHORT       EXPORTED IoDeviceHandlerObjectSize = 0;	/* FIXME */
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 IoAllocateAdapterChannel (PADAPTER_OBJECT	AdapterObject,
 			  PDEVICE_OBJECT	DeviceObject,
@@ -32,13 +30,11 @@ IoAllocateAdapterChannel (PADAPTER_OBJECT	AdapterObject,
 			  PDRIVER_CONTROL	ExecutionRoutine,
 			  PVOID		Context)
 {
-  DeviceObject->Queue.Wcb.DeviceObject = DeviceObject;
-  DeviceObject->Queue.Wcb.DeviceContext = Context;
-
   return HalAllocateAdapterChannel( AdapterObject,
-				    &DeviceObject->Queue.Wcb,
+				    DeviceObject,
 				    NumberOfMapRegisters,
-				    ExecutionRoutine);
+				    ExecutionRoutine,
+				    Context );
 }
 
 

@@ -3,7 +3,7 @@
 #
 
 # Defines $(OBJECTS_HAL)
-# include hal/x86/sources
+include hal/x86/sources
 
 OBJECTS_BOOT := ke/i386/multiboot.o
 
@@ -30,32 +30,11 @@ OBJECTS_KE_I386 := \
 	ke/i386/brkpoint.o \
 	ke/i386/kernel.o \
 	ke/i386/fpu.o \
-	ke/i386/tlbflush.o \
-	ke/i386/tss.o \
-	ke/i386/usertrap.o \
-	ke/i386/stkswitch.o
+	ke/i386/tss.o
 
 OBJECTS_MM_I386 := \
 	mm/i386/memsafe.o \
 	mm/i386/page.o \
 	mm/i386/pfault.o
 
-OBJECTS_RTL_I386 := \
-	rtl/i386/alldiv.o \
-	rtl/i386/allmul.o \
-	rtl/i386/allrem.o \
-	rtl/i386/allshl.o \
-	rtl/i386/allshr.o \
-	rtl/i386/aulldiv.o \
-	rtl/i386/aullrem.o \
-	rtl/i386/aullshr.o \
-	rtl/i386/exception.o \
-	rtl/i386/seh.o
-
-OBJECTS_PS_I386 := \
-	ps/i386/continue.o
-
-RTL_EXCLUDE_FILTER := 
-
-OBJECTS_ARCH = $(OBJECTS_BOOT) $(OBJECTS_EX_I386) $(OBJECTS_KE_I386) $(OBJECTS_MM_I386) \
-  $(OBJECTS_RTL_I386) $(OBJECTS_PS_I386)
+OBJECTS_ARCH = $(OBJECTS_BOOT) $(OBJECTS_EX_I386) $(OBJECTS_KE_I386) $(OBJECTS_MM_I386)

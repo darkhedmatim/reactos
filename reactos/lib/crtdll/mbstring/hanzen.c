@@ -9,7 +9,7 @@
  *              12/04/99: Created
  */
 
-#include <msvcrt/mbctype.h>
+#include <crtdll/mbctype.h>
 
 static unsigned short han_to_zen_ascii_table[0x5f] = {
   0x8140, 0x8149, 0x8168, 0x8194, 0x8190, 0x8193, 0x8195, 0x8166,
@@ -61,9 +61,6 @@ static unsigned char zen_to_han_symbol_table_2[ZTOH_SYMBOLS] = {
 #define JTOKANA(c) ((c) <= 0x82dd ? (c) + 0xa1 : (c) + 0xa2)
 
  
-/*
- * @implemented
- */
 unsigned short _mbbtombc(unsigned short c)
 {
   if (c >= 0x20 && c <= 0x7e) {
@@ -75,9 +72,6 @@ unsigned short _mbbtombc(unsigned short c)
 }
 
 
-/*
- * @implemented
- */
 unsigned short _mbctombb(unsigned short c)
 {
   int i;

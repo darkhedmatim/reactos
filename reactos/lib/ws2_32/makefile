@@ -1,44 +1,81 @@
-# $Id: makefile,v 1.22 2004/12/26 14:43:00 gvg Exp $
+# Makefile for ReactOS WinSock 2 DLL
 
 PATH_TO_TOP = ../..
 
-TARGET_REGTESTS = yes
+CFLAGS = -Iinclude -DUNICODE -DDBG -DLE
 
-TARGET_TYPE = dynlink
+TARGETNAME=ws2_32
 
-TARGET_NAME = ws2_32
+MISC_OBJECTS = misc/bsd.o misc/catalog.o misc/dllmain.o \
+               misc/event.o misc/handle.o misc/ns.o \
+               misc/sndrcv.o misc/stubs.o misc/upcall.o
 
-TARGET_PCH = include/ws2_32.h
+RESOURCE_OBJECT = $(TARGETNAME).coff
 
-TARGET_BASE = $(TARGET_BASE_LIB_W2_32)
+OBJECTS = $(MISC_OBJECTS) $(RESOURCE_OBJECT)
 
-TARGET_CFLAGS = \
- -I./include \
- -Wall \
- -Werror \
- -fno-builtin \
- -DUNICODE \
- -DLE \
- -D__USE_W32API \
- -D_WIN32_WINNT=0x0500
+LIBS = ../ntdll/ntdll.a \
+       ../kernel32/kernel32.a \
+       ../advapi32/advapi32.a
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
+CLEAN_FILES = misc/*.o \
+              $(TARGETNAME).o $(TARGETNAME).a junk.tmp base.tmp temp.exp \
+	          $(TARGETNAME).dll $(TARGETNAME).sym $(TARGETNAME).coff
 
-TARGET_LFLAGS = -nostartfiles -nostdlib
+all: $(TARGETNAME).dll
 
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a advapi32.a dnsapi.a
+$(TARGETNAME).coff: $(TARGETNAME).rc ../../include/reactos/resource.h
 
-TARGET_OBJECTS = misc/bsd.o misc/catalog.o misc/dllmain.o \
-  misc/event.o misc/handle.o misc/ns.o \
-  misc/sndrcv.o misc/stubs.o misc/upcall.o
+$(TARGETNAME).a: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).a
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+$(TARGETNAME).dll: $(LIBS) $(OBJECTS) $(TARGETNAME).def
+	$(LD) -r $(OBJECTS) -o $(TARGETNAME).o
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--def $(TARGETNAME).def \
+		--kill-at \
+		--output-lib $(TARGETNAME).a
+	$(CC) \
+		$(TARGETNAME).o \
+        $(LIBS) \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGETNAME).edf
+	- $(RM) base.tmp
+	$(CC) \
+		$(TARGETNAME).o \
+        $(LIBS) \
+		-mdll \
+		-o $(TARGETNAME).dll \
+		-Wl,--image-base,0x77780000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGETNAME).dll > $(TARGETNAME).sym
 
-include $(PATH_TO_TOP)/rules.mak
 
-include $(TOOLS_PATH)/helper.mk
+clean: 
+	- $(RM) $(CLEAN_FILES)
 
-include $(TOOLS_PATH)/depend.mk
+.PHONY: clean 
 
-# EOF
+install: $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+$(FLOPPY_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll $(FLOPPY_DIR)/dlls/$(TARGETNAME).dll
+
+dist: $(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+$(DIST_DIR)/dlls/$(TARGETNAME).dll: $(TARGETNAME).dll
+	$(CP) $(TARGETNAME).dll ../../$(DIST_DIR)/dlls/$(TARGETNAME).dll
+
+include ../../rules.mak
+

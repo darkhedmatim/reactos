@@ -1,12 +1,9 @@
 #ifndef _WIN32K_CLIPRGN_H
 #define _WIN32K_CLIPRGN_H
 
-HRGN WINAPI SaveVisRgn(HDC hdc);
-INT WINAPI SelectVisRgn(HDC hdc, HRGN hrgn);
-
 int
 STDCALL
-NtGdiExcludeClipRect (
+W32kExcludeClipRect (
 	HDC	hDC,
 	int	LeftRect,
 	int	TopRect,
@@ -15,26 +12,26 @@ NtGdiExcludeClipRect (
 	);
 int
 STDCALL
-NtGdiExtSelectClipRgn (
+W32kExtSelectClipRgn (
 	HDC	hDC,
 	HRGN	hrgn,
 	int	fnMode
 	);
 int
 STDCALL
-NtGdiGetClipBox (
+W32kGetClipBox (
 	HDC	hDC,
 	LPRECT	rc
 	);
 int
 STDCALL
-NtGdiGetMetaRgn (
+W32kGetMetaRgn (
 	HDC	hDC,
 	HRGN	hrgn
 	);
 int
 STDCALL
-NtGdiIntersectClipRect (
+W32kIntersectClipRect (
 	HDC	hDC,
 	int	LeftRect,
 	int	TopRect,
@@ -43,39 +40,39 @@ NtGdiIntersectClipRect (
 	);
 int
 STDCALL
-NtGdiOffsetClipRgn (
+W32kOffsetClipRgn (
 	HDC	hDC,
 	int	XOffset,
 	int	YOffset
 	);
 BOOL
 STDCALL
-NtGdiPtVisible (
+W32kPtVisible (
 	HDC	hDC,
 	int	X,
 	int	Y
 	);
 BOOL
 STDCALL
-NtGdiRectVisible (
+W32kRectVisible (
 	HDC		hDC,
 	CONST PRECT	rc
 	);
 BOOL
 STDCALL
-NtGdiSelectClipPath (
+W32kSelectClipPath (
 	HDC	hDC,
 	int	Mode
 	);
 int
 STDCALL
-NtGdiSelectClipRgn (
+W32kSelectClipRgn (
 	HDC	hDC,
 	HRGN	hrgn
 	);
 int
 STDCALL
-NtGdiSetMetaRgn (
+W32kSetMetaRgn (
 	HDC	hDC
 	);
 #endif

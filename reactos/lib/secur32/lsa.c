@@ -1,4 +1,4 @@
-/* $Id: lsa.c,v 1.10 2004/01/06 16:08:25 ekohl Exp $
+/* $Id: lsa.c,v 1.2 2001/06/25 12:32:56 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,7 @@
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
+#include <napi/lpc.h>
 #include <lsass/lsass.h>
 #include <string.h>
 
@@ -22,9 +22,6 @@ extern HANDLE Secur32Heap;
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaDeregisterLogonProcess(HANDLE LsaHandle)
 {
@@ -51,18 +48,12 @@ LsaDeregisterLogonProcess(HANDLE LsaHandle)
    return(Status);
 }
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 LsaConnectUntrusted(PHANDLE LsaHandle)
 {
   return(STATUS_UNSUCCESSFUL);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaCallAuthenticationPackage(HANDLE LsaHandle,
 			     ULONG AuthenticationPackage,
@@ -83,9 +74,9 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
    Reply = (PLSASS_REPLY)RawReply;
    
    Request->Header.DataSize = sizeof(LSASS_REQUEST) + SubmitBufferLength -
-     sizeof(LPC_MESSAGE);
+     sizeof(LPC_MESSAGE_HEADER);
    Request->Header.MessageSize = 
-     Request->Header.DataSize + sizeof(LPC_MESSAGE);
+     Request->Header.DataSize + sizeof(LPC_MESSAGE_HEADER);
    Request->Type = LSASS_REQUEST_CALL_AUTHENTICATION_PACKAGE;
    Request->d.CallAuthenticationPackageRequest.AuthenticationPackage =
      AuthenticationPackage;
@@ -120,20 +111,12 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
    return(Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaFreeReturnBuffer(PVOID Buffer)
 {
    return(RtlFreeHeap(Secur32Heap, 0, Buffer));
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 			       PLSA_STRING PackageName,
@@ -146,9 +129,9 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
    
    Request = (PLSASS_REQUEST)RawRequest;
    Request->Header.DataSize = sizeof(LSASS_REQUEST) + PackageName->Length -
-     sizeof(LPC_MESSAGE);
+     sizeof(LPC_MESSAGE_HEADER);
    Request->Header.MessageSize = Request->Header.DataSize +
-     sizeof(LPC_MESSAGE);
+     sizeof(LPC_MESSAGE_HEADER);
    Request->Type = LSASS_REQUEST_LOOKUP_AUTHENTICATION_PACKAGE;
    
    Status = NtRequestWaitReplyPort(LsaHandle,
@@ -168,10 +151,6 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
    return(Reply.Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaLogonUser(HANDLE LsaHandle,
 	     PLSA_STRING OriginName,
@@ -196,7 +175,7 @@ LsaLogonUser(HANDLE LsaHandle,
    UCHAR RawReply[MAX_MESSAGE_DATA];
    NTSTATUS Status;
    
-   RequestLength = sizeof(LSASS_REQUEST) - sizeof(LPC_MESSAGE);
+   RequestLength = sizeof(LSASS_REQUEST) - sizeof(LPC_MESSAGE_HEADER);
    RequestLength = RequestLength + (OriginName->Length * sizeof(WCHAR));
    RequestLength = RequestLength + AuthenticationInformationLength;
    RequestLength = RequestLength + 
@@ -236,8 +215,8 @@ LsaLogonUser(HANDLE LsaHandle,
    Request->d.LogonUserRequest.SourceContext = *SourceContext;
    
    Request->Type = LSASS_REQUEST_LOGON_USER;
-   Request->Header.DataSize = RequestLength - sizeof(LPC_MESSAGE);
-   Request->Header.MessageSize = RequestLength + sizeof(LPC_MESSAGE);
+   Request->Header.DataSize = RequestLength - sizeof(LPC_MESSAGE_HEADER);
+   Request->Header.MessageSize = RequestLength + sizeof(LPC_MESSAGE_HEADER);
    
    Reply = (PLSASS_REPLY)RawReply;
    
@@ -272,21 +251,18 @@ LsaLogonUser(HANDLE LsaHandle,
    return(Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 			PHANDLE Handle,
 			PLSA_OPERATIONAL_MODE OperationalMode)
 {
-   UNICODE_STRING Portname = ROS_STRING_INITIALIZER(L"\\SeLsaCommandPort");
+   UNICODE_STRING Portname;
    ULONG ConnectInfoLength;
    NTSTATUS Status;
    LSASS_REQUEST Request;
    LSASS_REPLY Reply;
-
+   
+   RtlInitUnicodeString(&Portname, L"\\SeLsaCommandPort");
    ConnectInfoLength = 0;
    Status = NtConnectPort(Handle,
 			  &Portname,
@@ -303,7 +279,7 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
    
    Request.Type = LSASS_REQUEST_REGISTER_LOGON_PROCESS;
    Request.Header.DataSize = sizeof(LSASS_REQUEST) - 
-     sizeof(LPC_MESSAGE);
+     sizeof(LPC_MESSAGE_HEADER);
    Request.Header.MessageSize = sizeof(LSASS_REQUEST);
    
    Request.d.RegisterLogonProcessRequest.Length = LsaLogonProcessName->Length;
@@ -332,54 +308,3 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
    return(Reply.Status);
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaEnumerateLogonSessions(
-PULONG LogonSessionCount,
-PLUID * LogonSessionList
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaGetLogonSessionData(
-PLUID LogonId,
-PSECURITY_LOGON_SESSION_DATA * ppLogonSessionData
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaRegisterPolicyChangeNotification(
-POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
-HANDLE NotificationEventHandle
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaUnregisterPolicyChangeNotification(
-POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
-HANDLE NotificationEventHandle
-)
-{
-  return(FALSE);
-}

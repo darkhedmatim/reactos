@@ -3,9 +3,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 void setbuf(FILE *f, char *buf)
 {
   if (buf)

@@ -7,9 +7,45 @@
 #include <win32k/gdiobj.h>
 #include <win32k/path.h>
 
+/*  (RJJ) Taken from WINE  */
+typedef struct _DEVICECAPS
+{
+  WORD   version;       /*   0: driver version */
+  WORD   technology;    /*   2: device technology */
+  WORD   horzSize;      /*   4: width of display in mm */
+  WORD   vertSize;      /*   6: height of display in mm */
+  WORD   horzRes;       /*   8: width of display in pixels */
+  WORD   vertRes;       /*  10: width of display in pixels */
+  WORD   bitsPixel;     /*  12: bits per pixel */
+  WORD   planes;        /*  14: color planes */
+  WORD   numBrushes;    /*  16: device-specific brushes */
+  WORD   numPens;       /*  18: device-specific pens */
+  WORD   numMarkers;    /*  20: device-specific markers */
+  WORD   numFonts;      /*  22: device-specific fonts */
+  WORD   numColors;     /*  24: size of color table */
+  WORD   pdeviceSize;   /*  26: size of PDEVICE structure */
+  WORD   curveCaps;     /*  28: curve capabilities */
+  WORD   lineCaps;      /*  30: line capabilities */
+  WORD   polygonalCaps; /*  32: polygon capabilities */
+  WORD   textCaps;      /*  34: text capabilities */
+  WORD   clipCaps;      /*  36: clipping capabilities */
+  WORD   rasterCaps;    /*  38: raster capabilities */
+  WORD   aspectX;       /*  40: relative width of device pixel */
+  WORD   aspectY;       /*  42: relative height of device pixel */
+  WORD   aspectXY;      /*  44: relative diagonal width of device pixel */
+  WORD   pad1[21];      /*  46-86: reserved */
+  WORD   logPixelsX;    /*  88: pixels / logical X inch */
+  WORD   logPixelsY;    /*  90: pixels / logical Y inch */
+  WORD   pad2[6];       /*  92-102: reserved */
+  WORD   sizePalette;   /* 104: entries in system palette */
+  WORD   numReserved;   /* 106: reserved entries */
+  WORD   colorRes;      /* 108: color resolution */    
+} DEVICECAPS, *PDEVICECAPS;
+
 typedef struct _WIN_DC_INFO
 {
   int  flags;
+  const PDEVICECAPS  devCaps;
   HRGN  hClipRgn;     /* Clip region (may be 0) */
   HRGN  hVisRgn;      /* Visible region (must never be 0) */
   HRGN  hGCClipRgn;   /* GC clip region (ClipRgn AND VisRgn) */
@@ -19,12 +55,12 @@ typedef struct _WIN_DC_INFO
   HBITMAP  hBitmap;
   HBITMAP  hFirstBitmap; /* Bitmap selected at creation of the DC */
 
-/* #if 0 */
+// #if 0
     HANDLE      hDevice;
     HPALETTE    hPalette;
-
+    
     GdiPath       path;
-/* #endif */
+// #endif
 
   WORD  ROPmode;
   WORD  polyFillMode;
@@ -33,62 +69,61 @@ typedef struct _WIN_DC_INFO
   WORD  backgroundMode;
   COLORREF  backgroundColor;
   COLORREF  textColor;
-
+  
   short  brushOrgX;
   short  brushOrgY;
-
+  
   WORD  textAlign;         /* Text alignment from SetTextAlign() */
   short  charExtra;         /* Spacing from SetTextCharacterExtra() */
   short  breakTotalExtra;   /* Total extra space for justification */
   short  breakCount;        /* Break char. count */
   short  breakExtra;        /* breakTotalExtra / breakCount */
   short  breakRem;          /* breakTotalExtra % breakCount */
-
+  
   RECT   totalExtent;
   BYTE   bitsPerPixel;
-
+  
   INT  MapMode;
   INT  GraphicsMode;      /* Graphics mode */
   INT  DCOrgX;            /* DC origin */
   INT  DCOrgY;
-
+  
 #if 0
     FARPROC     lpfnPrint;         /* AbortProc for Printing */
 #endif
-
+  
   INT  CursPosX;          /* Current position */
   INT  CursPosY;
   INT  ArcDirection;
-
+  
   XFORM  xformWorld2Wnd;    /* World-to-window transformation */
   XFORM  xformWorld2Vport;  /* World-to-viewport transformation */
   XFORM  xformVport2World;  /* Inverse of the above transformation */
-  BOOL  vport2WorldValid;  /* Is xformVport2World valid? */
+  BOOL  vport2WorldValid;  /* Is xformVport2World valid? */  
 } WIN_DC_INFO;
 
   /* DC flags */
 #define DC_MEMORY     0x0001   /* It is a memory DC */
 #define DC_SAVED      0x0002   /* It is a saved DC */
 #define DC_DIRTY      0x0004   /* hVisRgn has to be updated */
-#define DC_THUNKHOOK  0x0008   /* DC hook is in the 16-bit code */
+#define DC_THUNKHOOK  0x0008   /* DC hook is in the 16-bit code */ 
 
 #define  GDI_DC_TYPE  (1)
 
 typedef struct _DC
 {
   HDC  hSelf;
-  HDC  hNext;
-  DHPDEV  PDev;
+  DHPDEV  PDev;  
   DEVMODEW  DMW;
   HSURF  FillPatternSurfaces[HS_DDI_MAX];
-  PGDIINFO  GDIInfo;
-  PDEVINFO  DevInfo;
-  HDEV   GDIDevice;
+  GDIINFO  GDIInfo;
+  DEVINFO  DevInfo;
+  HSURF  Surface;
 
   DRIVER_FUNCTIONS  DriverFunctions;
-  UNICODE_STRING    DriverName;
+  PWSTR  DriverName;
   HANDLE  DeviceDriver;
-
+  
   INT  wndOrgX;          /* Window origin */
   INT  wndOrgY;
   INT  wndExtX;          /* Window extent */
@@ -98,136 +133,89 @@ typedef struct _DC
   INT  vportExtX;        /* Viewport extent */
   INT  vportExtY;
 
-  CLIPOBJ *CombinedClip;
-
-  XLATEOBJ *XlateBrush;
-  XLATEOBJ *XlatePen;
-
   INT  saveLevel;
 
   WIN_DC_INFO  w;
 } DC, *PDC;
 
-typedef struct _GDIPOINTER /* should stay private to ENG */
-{
-  /* private GDI pointer handling information, required for software emulation */
-  BOOL Enabled;
-  POINTL Pos;
-  SIZEL Size;
-  POINTL HotSpot;
-  XLATEOBJ *XlateObject;
-  HSURF ColorSurface;
-  HSURF MaskSurface;
-  HSURF SaveSurface;
-  
-  /* public pointer information */
-  RECTL Exclude; /* required publicly for SPS_ACCEPT_EXCLUDE */
-  PGD_MOVEPOINTER MovePointer;
-  ULONG Status;
-  BOOL SafetySwitch;
-  UINT SafetyRemoveCount;
-} GDIPOINTER, *PGDIPOINTER;
-
-typedef struct
-{
-  HANDLE Handle;
-  DHPDEV PDev;
-  DEVMODEW DMW;
-  HSURF FillPatterns[HS_DDI_MAX];
-  GDIINFO GDIInfo;
-  DEVINFO DevInfo;
-  DRIVER_FUNCTIONS DriverFunctions;
-  PFILE_OBJECT VideoFileObject;
-
-  GDIPOINTER Pointer;
-} GDIDEVICE;
-
 /*  Internal functions  */
 
-#define  DC_LockDc(hDC)  \
-  ((PDC) GDIOBJ_LockObj ((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC))
-#define  DC_UnlockDc(hDC)  \
-  GDIOBJ_UnlockObj ((HGDIOBJ) hDC)
-
-HDC  FASTCALL RetrieveDisplayHDC(VOID);
-HDC  FASTCALL DC_AllocDC(PUNICODE_STRING  Driver);
-VOID FASTCALL DC_InitDC(HDC  DCToInit);
-HDC  FASTCALL DC_FindOpenDC(PUNICODE_STRING  Driver);
-VOID FASTCALL DC_FreeDC(HDC  DCToFree);
-BOOL INTERNAL_CALL DC_Cleanup(PVOID ObjectBody);
-HDC  FASTCALL DC_GetNextDC (PDC pDC);
-VOID FASTCALL DC_SetNextDC (PDC pDC, HDC hNextDC);
-VOID FASTCALL DC_SetOwnership(HDC DC, PEPROCESS Owner);
-
-VOID FASTCALL DC_UpdateXforms(PDC  dc);
-BOOL FASTCALL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
+#define  DC_PtrToHandle(pDC)  \
+  ((HDC) GDIOBJ_PtrToHandle ((PGDIOBJ) pDC, GO_DC_MAGIC))
+#define  DC_HandleToPtr(hDC)  \
+  ((PDC) GDIOBJ_HandleToPtr ((HGDIOBJ) hDC, GO_DC_MAGIC))
+#define  DC_LockDC(hDC)  GDIOBJ_LockObject ((HGDIOBJ) hDC)
+#define  DC_UnlockDC(hDC)  GDIOBJ_UnlockObject ((HGDIOBJ) hDC)
+HDC RetrieveDisplayHDC(VOID);
+PDC  DC_AllocDC(LPCWSTR  Driver);
+void  DC_InitDC(PDC  DCToInit);
+PDC  DC_FindOpenDC(LPCWSTR  Driver);
+void  DC_FreeDC(PDC  DCToFree);
+void DC_UpdateXforms(PDC  dc);
+BOOL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
 
 /*  User entry points */
 
-BOOL STDCALL  NtGdiCancelDC(HDC  hDC);
-HDC STDCALL  NtGdiCreateCompatableDC(HDC  hDC);
-HDC STDCALL  NtGdiCreateDC(PUNICODE_STRING Driver,
-                           PUNICODE_STRING Device,
-                           PUNICODE_STRING Output,
-                           CONST PDEVMODEW  InitData);
-HDC STDCALL NtGdiCreateIC(PUNICODE_STRING Driver,
-                          PUNICODE_STRING Device,
-                          PUNICODE_STRING Output,
-                          CONST PDEVMODEW  DevMode);
-BOOL STDCALL  NtGdiDeleteDC(HDC  hDC);
-BOOL STDCALL  NtGdiDeleteObject(HGDIOBJ hObject);
-INT STDCALL  NtGdiDrawEscape(HDC  hDC,
+BOOL STDCALL  W32kCancelDC(HDC  hDC);
+HDC STDCALL  W32kCreateCompatableDC(HDC  hDC);
+HDC STDCALL  W32kCreateDC(LPCWSTR  Driver,
+                          LPCWSTR  Device,
+                          LPCWSTR  Output,
+                          CONST PDEVMODEW  InitData);
+HDC STDCALL W32kCreateIC(LPCWSTR  Driver,
+                         LPCWSTR  Device,
+                         LPCWSTR  Output,
+                         CONST PDEVMODEW  DevMode);
+BOOL STDCALL  W32kDeleteDC(HDC  hDC);
+BOOL STDCALL  W32kDeleteObject(HGDIOBJ hObject);
+INT STDCALL  W32kDrawEscape(HDC  hDC,
                             INT  nEscape,
                             INT  cbInput,
                             LPCSTR  lpszInData);
 
-#ifndef __USE_W32API
 /* FIXME: this typedef should go somewhere else...  */
 typedef VOID (*GOBJENUMPROC)(PVOID, LPARAM);
-#endif
 
-INT STDCALL  NtGdiEnumObjects(HDC  hDC,
+INT STDCALL  W32kEnumObjects(HDC  hDC,
                              INT  ObjectType,
                              GOBJENUMPROC  ObjectFunc,
                              LPARAM  lParam);
 
-COLORREF STDCALL  NtGdiGetBkColor(HDC  hDC);
-INT STDCALL  NtGdiGetBkMode(HDC  hDC);
-BOOL STDCALL  NtGdiGetBrushOrgEx(HDC  hDC, LPPOINT brushOrg);
-HRGN STDCALL  NtGdiGetClipRgn(HDC  hDC);
-HGDIOBJ STDCALL  NtGdiGetCurrentObject(HDC  hDC, UINT  ObjectType);
-VOID FASTCALL IntGetCurrentPositionEx (PDC  dc,  LPPOINT currentPosition);
-BOOL STDCALL  NtGdiGetCurrentPositionEx(HDC  hDC, LPPOINT currentPosition);
-BOOL STDCALL  NtGdiGetDCOrgEx(HDC  hDC, LPPOINT  Point);
-HDC STDCALL  NtGdiGetDCState(HDC  hDC);
-INT STDCALL  NtGdiGetDeviceCaps(HDC  hDC, INT  Index);
-INT STDCALL  NtGdiGetMapMode(HDC  hDC);
-INT STDCALL  NtGdiGetObject(HGDIOBJ  hGDIObj,
+COLORREF STDCALL  W32kGetBkColor(HDC  hDC);
+INT STDCALL  W32kGetBkMode(HDC  hDC);
+BOOL STDCALL  W32kGetBrushOrgEx(HDC  hDC, LPPOINT brushOrg);
+HRGN STDCALL  W32kGetClipRgn(HDC  hDC);
+HGDIOBJ STDCALL  W32kGetCurrentObject(HDC  hDC, UINT  ObjectType);
+BOOL STDCALL  W32kGetCurrentPositionEx(HDC  hDC, LPPOINT currentPosition);
+BOOL STDCALL  W32kGetDCOrgEx(HDC  hDC, LPPOINT  Point);
+HDC STDCALL  W32kGetDCState16(HDC  hDC);
+INT STDCALL  W32kGetDeviceCaps(HDC  hDC, INT  Index);
+INT STDCALL  W32kGetMapMode(HDC  hDC);
+INT STDCALL  W32kGetObject(HGDIOBJ  hGDIObj,
                            INT  BufSize,
                            LPVOID  Object);
-DWORD STDCALL  NtGdiGetObjectType(HGDIOBJ  hGDIObj);
-INT STDCALL  NtGdiGetPolyFillMode(HDC  hDC);
-INT STDCALL  NtGdiGetRelAbs(HDC  hDC);
-INT STDCALL  NtGdiGetROP2(HDC  hDC);
-HGDIOBJ STDCALL  NtGdiGetStockObject(INT  Object);
-INT STDCALL  NtGdiGetStretchBltMode(HDC  hDC);
-COLORREF STDCALL  NtGdiGetTextColor(HDC  hDC);
-UINT STDCALL  NtGdiGetTextAlign(HDC  hDC);
-BOOL STDCALL  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
-BOOL STDCALL  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
-BOOL STDCALL  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
-BOOL STDCALL  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
-HDC STDCALL  NtGdiResetDC(HDC  hDC, CONST DEVMODEW  *InitData);
-BOOL STDCALL  NtGdiRestoreDC(HDC  hDC, INT  SavedDC);
-INT STDCALL  NtGdiSaveDC(HDC  hDC);
-HGDIOBJ STDCALL  NtGdiSelectObject(HDC  hDC, HGDIOBJ  hGDIObj);
-INT STDCALL  NtGdiSetBkMode(HDC  hDC, INT  backgroundMode);
-VOID STDCALL NtGdiSetDCState ( HDC hDC, HDC hDCSave );
-WORD STDCALL NtGdiSetHookFlags(HDC hDC, WORD Flags);
-INT STDCALL  NtGdiSetPolyFillMode(HDC  hDC, INT polyFillMode);
-INT STDCALL  NtGdiSetRelAbs(HDC  hDC, INT  relAbsMode);
-INT STDCALL  NtGdiSetROP2(HDC  hDC, INT  ROPmode);
-INT STDCALL  NtGdiSetStretchBltMode(HDC  hDC, INT  stretchBltMode);
-COLORREF STDCALL  NtGdiSetTextColor(HDC hDC, COLORREF color);
+DWORD STDCALL  W32kGetObjectType(HGDIOBJ  hGDIObj);
+INT STDCALL  W32kGetPolyFillMode(HDC  hDC);
+INT STDCALL  W32kGetRelAbs(HDC  hDC);
+INT STDCALL  W32kGetROP2(HDC  hDC);
+HGDIOBJ STDCALL  W32kGetStockObject(INT  Object);
+INT STDCALL  W32kGetStretchBltMode(HDC  hDC);
+COLORREF STDCALL  W32kGetTextColor(HDC  hDC);
+UINT STDCALL  W32kGetTextAlign(HDC  hDC);
+BOOL STDCALL  W32kGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
+BOOL STDCALL  W32kGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
+BOOL STDCALL  W32kGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
+BOOL STDCALL  W32kGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
+HDC STDCALL  W32kResetDC(HDC  hDC, CONST DEVMODEW  *InitData);
+BOOL STDCALL  W32kRestoreDC(HDC  hDC, INT  SavedDC);
+INT STDCALL  W32kSaveDC(HDC  hDC);
+HGDIOBJ STDCALL  W32kSelectObject(HDC  hDC, HGDIOBJ  hGDIObj);
+INT STDCALL  W32kSetBkMode(HDC  hDC, INT  backgroundMode);
+INT STDCALL  W32kSetPolyFillMode(HDC  hDC, INT polyFillMode);
+INT STDCALL  W32kSetRelAbs(HDC  hDC, INT  relAbsMode);
+INT STDCALL  W32kSetROP2(HDC  hDC, INT  ROPmode);
+INT STDCALL  W32kSetStretchBltMode(HDC  hDC, INT  stretchBltMode);
+COLORREF STDCALL  W32kSetTextColor(HDC hDC, COLORREF color);
 
 #endif
+

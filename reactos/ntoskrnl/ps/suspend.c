@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: suspend.c,v 1.16 2004/10/24 20:37:27 weiden Exp $
+/* $Id: suspend.c,v 1.5 2001/03/18 19:35:14 dwelch Exp $
  *
  * PROJECT:                ReactOS kernel
  * FILE:                   ntoskrnl/ps/suspend.c
@@ -26,7 +26,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -34,19 +39,14 @@
  *
  */
 
-/* GLOBALS *******************************************************************/
-
-static FAST_MUTEX SuspendMutex;
-
 /* FUNCTIONS *****************************************************************/
 
-VOID STDCALL
+VOID
 PiSuspendThreadRundownRoutine(PKAPC Apc)
 {
 }
 
-
-VOID STDCALL
+VOID
 PiSuspendThreadKernelRoutine(PKAPC Apc,
 			     PKNORMAL_ROUTINE* NormalRoutine,
 			     PVOID* NormalContext,
@@ -55,87 +55,48 @@ PiSuspendThreadKernelRoutine(PKAPC Apc,
 {
 }
 
-
-VOID STDCALL
+VOID
 PiSuspendThreadNormalRoutine(PVOID NormalContext,
 			     PVOID SystemArgument1,
 			     PVOID SystemArgument2)
 {
-  PETHREAD CurrentThread = PsGetCurrentThread();
-  while (CurrentThread->Tcb.SuspendCount > 0)
-    {
-      KeWaitForSingleObject(&CurrentThread->Tcb.SuspendSemaphore,
-			    0,
-			    UserMode,
-			    TRUE,
-			    NULL);
-    }
+   KeWaitForSingleObject(&PsGetCurrentThread()->Tcb.SuspendSemaphore,
+			 0,
+			 UserMode,
+			 TRUE,
+			 NULL);
 }
 
-
 NTSTATUS
-PsResumeThread (PETHREAD Thread,
-		PULONG SuspendCount)
+PsResumeThread(PETHREAD Thread, PULONG SuspendCount)
 {
-  DPRINT("PsResumeThread (Thread %p  SuspendCount %p) called\n");
-
-  ExAcquireFastMutex (&SuspendMutex);
-
-  if (SuspendCount != NULL)
-    {
-      *SuspendCount = Thread->Tcb.SuspendCount;
-    }
-
-  if (Thread->Tcb.SuspendCount > 0)
-    {
-      Thread->Tcb.SuspendCount--;
-      if (Thread->Tcb.SuspendCount == 0)
-	{
-	  KeReleaseSemaphore (&Thread->Tcb.SuspendSemaphore,
-			      IO_NO_INCREMENT,
-			      1,
-			      FALSE);
-	}
-    }
-
-  ExReleaseFastMutex (&SuspendMutex);
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-PsSuspendThread(PETHREAD Thread, PULONG PreviousSuspendCount)
-{
-  ULONG OldValue;
-
-  ExAcquireFastMutex(&SuspendMutex);
-  OldValue = Thread->Tcb.SuspendCount;
-  Thread->Tcb.SuspendCount++;
-  if (!Thread->Tcb.SuspendApc.Inserted)
-    {
-      if (!KeInsertQueueApc(&Thread->Tcb.SuspendApc,
-			    NULL,
-			    NULL,
-			    IO_NO_INCREMENT))
-	{
-	  Thread->Tcb.SuspendCount--;
-	  ExReleaseFastMutex(&SuspendMutex);
-	  return(STATUS_THREAD_IS_TERMINATING);
-	}
-    }
-  ExReleaseFastMutex(&SuspendMutex);
-  if (PreviousSuspendCount != NULL)
-    {
-      *PreviousSuspendCount = OldValue;
-    }
+  KeReleaseSemaphore(&Thread->Tcb.SuspendSemaphore, IO_NO_INCREMENT, 1, FALSE);
   return(STATUS_SUCCESS);
 }
 
+NTSTATUS 
+PsSuspendThread(PETHREAD Thread, PULONG PreviousSuspendCount)
+{
+   ULONG OldValue;
 
-NTSTATUS STDCALL
-NtResumeThread(IN HANDLE ThreadHandle,
-	       IN PULONG SuspendCount  OPTIONAL)
+   OldValue = InterlockedIncrement((PULONG)&Thread->Tcb.SuspendCount);
+   if (OldValue == 0)
+     {
+       KeInsertQueueApc(&Thread->Tcb.SuspendApc,
+			NULL,
+			NULL,
+			0);
+     }
+   else
+     {
+       InterlockedDecrement(&Thread->Tcb.SuspendSemaphore.Header.SignalState);
+     }
+   return(STATUS_SUCCESS);
+}
+
+NTSTATUS STDCALL 
+NtResumeThread (IN	HANDLE	ThreadHandle,
+		IN	PULONG	SuspendCount)
 /*
  * FUNCTION: Decrements a thread's resume count
  * ARGUMENTS: 
@@ -144,45 +105,36 @@ NtResumeThread(IN HANDLE ThreadHandle,
  * RETURNS: Status
  */
 {
-  PETHREAD Thread;
-  NTSTATUS Status;
-  ULONG Count;
+   PETHREAD Thread;
+   NTSTATUS Status;
+   ULONG Count;
 
-  DPRINT("NtResumeThead(ThreadHandle %lx  SuspendCount %p)\n",
-	 ThreadHandle, SuspendCount);
-
-  Status = ObReferenceObjectByHandle (ThreadHandle,
+   Status = ObReferenceObjectByHandle(ThreadHandle,
 				      THREAD_SUSPEND_RESUME,
 				      PsThreadType,
 				      UserMode,
 				      (PVOID*)&Thread,
 				      NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
 
-  Status = PsResumeThread (Thread, &Count);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject ((PVOID)Thread);
-      return Status;
-    }
+   Status = PsResumeThread(Thread, &Count);
+   if (SuspendCount != NULL)
+     {
+	*SuspendCount = Count;
+     }
 
-  if (SuspendCount != NULL)
-    {
-      *SuspendCount = Count;
-    }
+   ObDereferenceObject((PVOID)Thread);
 
-  ObDereferenceObject ((PVOID)Thread);
-
-  return STATUS_SUCCESS;
+   return STATUS_SUCCESS;
 }
 
 
-NTSTATUS STDCALL
-NtSuspendThread(IN HANDLE ThreadHandle,
-		IN PULONG PreviousSuspendCount  OPTIONAL)
+NTSTATUS STDCALL 
+NtSuspendThread (IN HANDLE ThreadHandle,
+		 IN PULONG PreviousSuspendCount)
 /*
  * FUNCTION: Increments a thread's suspend count
  * ARGUMENTS: 
@@ -195,44 +147,35 @@ NtSuspendThread(IN HANDLE ThreadHandle,
  *        The suspend count is not increased if it is greater than 
  *        MAXIMUM_SUSPEND_COUNT.
  * RETURNS: Status
- */
+ */ 
 {
-  PETHREAD Thread;
-  NTSTATUS Status;
-  ULONG Count;
+   PETHREAD Thread;
+   NTSTATUS Status;
+   ULONG Count;
 
-  Status = ObReferenceObjectByHandle(ThreadHandle,
-				     THREAD_SUSPEND_RESUME,
-				     PsThreadType,
-				     UserMode,
-				     (PVOID*)&Thread,
-				     NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return(Status);
-    }
+   Status = ObReferenceObjectByHandle(ThreadHandle,
+				      THREAD_SUSPEND_RESUME,
+				      PsThreadType,
+				      UserMode,
+				      (PVOID*)&Thread,
+				      NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
 
-  Status = PsSuspendThread(Thread, &Count);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject ((PVOID)Thread);
-      return Status;
-    }
+   Status = PsSuspendThread(Thread, &Count);
+   if (PreviousSuspendCount != NULL)
+     {
+	*PreviousSuspendCount = Count;
+     }
 
-  if (PreviousSuspendCount != NULL)
-    {
-      *PreviousSuspendCount = Count;
-    }
+   ObDereferenceObject((PVOID)Thread);
 
-  ObDereferenceObject ((PVOID)Thread);
-
-  return STATUS_SUCCESS;
+   return STATUS_SUCCESS;
 }
 
-VOID INIT_FUNCTION
-PsInitialiseSuspendImplementation(VOID)
-{
-  ExInitializeFastMutex(&SuspendMutex);
-}
 
-/* EOF */
+
+
+

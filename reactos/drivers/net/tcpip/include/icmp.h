@@ -50,19 +50,18 @@ typedef struct ICMP_HEADER {
 
 
 VOID ICMPReceive(
-    PIP_INTERFACE Interface,
+    PNET_TABLE_ENTRY NTE,
     PIP_PACKET IPPacket);
 
 VOID ICMPTransmit(
-    PIP_PACKET IPPacket,
-    PIP_TRANSMIT_COMPLETE Complete,
-    PVOID Context);
+    PNET_TABLE_ENTRY NTE,
+    PIP_PACKET IPPacket);
 
 VOID ICMPReply(
-    PIP_INTERFACE Interface,
+    PNET_TABLE_ENTRY NTE,
     PIP_PACKET IPPacket,
-    UCHAR Type,
-    UCHAR Code);
+	UCHAR Type,
+	UCHAR Code);
 
 #endif /* __ICMP_H */
 

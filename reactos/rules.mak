@@ -1,209 +1,145 @@
-# Default to half-verbose mode
-ifeq ($(VERBOSE),no)
-  Q = @
-  HALFVERBOSEECHO = @:
-  # Do not print "Entering directory ..."
-  export MAKEFLAGS += --no-print-directory
-  # Be silent
-  export MAKEFLAGS += --silent
-else
-ifeq ($(VERBOSE),yes)
-  Q =
-  HALFVERBOSEECHO = @:
-else
-  Q = @
-  # the following is a hack to get the target name for wine dlls
-  # it's disabled because it produces warnings about overriden rules for author.c
-  #ifeq ($(TARGET_TYPE),winedll)
-  #  export TOOLS_PATH = $(PATH_TO_TOP)/tools
-  #  -include Makefile.ros
-  #endif
-  ifeq ($(TARGET_NAME),)
-    HALFVERBOSEECHO = @echo
-  else
-    HALFVERBOSEECHO = @echo $(TARGET_NAME):
-  endif
-  # Do not print "Entering directory ..."
-  export MAKEFLAGS += --no-print-directory
-  # Be silent
-  export MAKEFLAGS += --silent
-endif
-endif
+#
+# Important
+#
+.EXPORT_ALL_VARIABLES:
 
-export MAKE := @$(MAKE)
-
-ifeq ($(VERBOSE),no)
-endif
-
-# Windows is default host environment
-ifeq ($(HOST),)
-export HOST = mingw32-windows
-endif
-
-# Default to building map files which includes source and asm code
-# Other options are: yes
-ifeq ($(BUILD_MAP),)
-export BUILD_MAP = full
-endif
-
-# Default to dumping .sym files out of .nostrip files
-ifeq ($(BUILD_SYM),)
-export BUILD_SYM = yes
-endif
-
-# Default to minimal dependencies, making components not
-# depend on all import libraries
-ifeq ($(MINIMALDEPENDENCIES),)
-export MINIMALDEPENDENCIES = yes
-endif
-
-# Default to no PCH support
-ifeq ($(ROS_USE_PCH),)
-export ROS_USE_PCH = no
-endif
+HOST = mingw32-windows
 
 # uncomment if you use bochs and it displays only 30 rows
 # BOCHS_30ROWS = yes
+
+ifeq ($(HOST),mingw32-linux)
+TOPDIR := $(shell if [ "$$PWD" != "" ]; then echo $$PWD; else pwd; fi)
+endif
 
 #
 # Choose various options
 #
 ifeq ($(HOST),mingw32-linux)
-export NASM_FORMAT = win32
-export PREFIX = mingw32-
-export EXE_POSTFIX :=
-export EXE_PREFIX := ./
-export DLLTOOL = $(PREFIX)dlltool --as=$(PREFIX)as
-#
-# Do not change NASM_CMD to NASM because older versions of 
-# nasm doesn't like an environment variable NASM
-#
-export NASM_CMD = nasm
-export DOSCLI =
-export FLOPPY_DIR = /mnt/floppy
-export SEP := /
-export PIPE :=
+NASM_FORMAT = win32
+PREFIX = /usr/mingw32-cvs-000216/bin/mingw32-pc-
+#PREFIX = i586-mingw32-
+#PREFIX = /usr/mingw32-cvs-000207/bin/mingw32-cvs-000207-
+EXE_POSTFIX := 
+EXE_PREFIX := ./
+#CP = cp
+CP = $(PATH_TO_TOP)/rcopy
+DLLTOOL = $(PREFIX)dlltool --as=$(PREFIX)as
+NASM_CMD = nasm
+FLOPPY_DIR = /a
+# DIST_DIR should be relative from the top of the tree
+DIST_DIR = dist
+#DOT := \\.
+#DSEP := /
+#ENABLE_DEPENDENCY_TRACKING := 1
 endif
 
 ifeq ($(HOST),mingw32-windows)
-export NASM_FORMAT = win32
-export PREFIX =
-export EXE_PREFIX :=
-export EXE_POSTFIX := .exe
-export DLLTOOL = $(Q)$(PREFIX)dlltool --as=$(PREFIX)as
-#
-# Do not change NASM_CMD to NASM because older versions of 
-# nasm doesn't like an environment variable NASM
-#
-export NASM_CMD = $(Q)nasmw
-export DOSCLI = yes
-export FLOPPY_DIR = A:
-export SEP := \$(EMPTY_VAR)
-export PIPE := -pipe
+NASM_FORMAT = win32
+PREFIX = 
+EXE_PREFIX := 
+EXE_POSTFIX := .exe
+#CP = copy /B
+CP = $(PATH_TO_TOP)/rcopy
+DLLTOOL = $(PREFIX)dlltool --as=$(PREFIX)as
+NASM_CMD = nasmw
+RM = $(PATH_TO_TOP)/rdel
+RMDIR = rmdir
+DOSCLI = yes
+FLOPPY_DIR = A:
+# DIST_DIR should be relative from the top of the tree
+DIST_DIR = dist
+#DOT := \.
+#DSEP := \\
+#ENABLE_DEPENDENCY_TRACKING := 1
 endif
 
-# TOPDIR is used by make bootcd but not defined anywhere.  Usurp pointed out
-# that it has the same meaning as PATH_TO_TOP.
-export TOPDIR = $(PATH_TO_TOP)
+CC = $(PREFIX)gcc
+CXX = $(PREFIX)g++
+HOST_CC = gcc
+HOST_NM = nm
+CFLAGS := $(CFLAGS) -I$(PATH_TO_TOP)/include -pipe -m386
+CXXFLAGS = $(CFLAGS)
+NFLAGS = -i$(PATH_TO_TOP)/include/ -f$(NASM_FORMAT) -d$(NASM_FORMAT)
+LD = $(PREFIX)ld
+NM = $(PREFIX)nm
+OBJCOPY = $(PREFIX)objcopy
+STRIP = $(PREFIX)strip
+ASFLAGS := $(ASFLAGS) -I$(PATH_TO_TOP)/include -D__ASM__
+AS = $(PREFIX)gcc -c -x assembler-with-cpp 
+CPP = $(PREFIX)cpp
+AR = $(PREFIX)ar
+RC = $(PREFIX)windres
+RCINC = --include-dir $(PATH_TO_TOP)/include
+OBJCOPY = $(PREFIX)objcopy
 
-# Directory to build a bootable CD image in
-export BOOTCD_DIR=$(TOPDIR)/../bootcd/disk
-export LIVECD_DIR=$(TOPDIR)/../livecd/disk
+%.o: %.cc
+	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.S
+	$(AS) $(ASFLAGS) -c $< -o $@
+%.o: %.s
+	$(AS) $(ASFLAGS) -c $< -o $@	
+%.o: %.asm
+	$(NASM_CMD) $(NFLAGS) $< -o $@
+%.coff: %.rc
+	$(RC) $(RCINC) $< $@
 
-ifeq ($(LIVECD_INSTALL),yes)
-export INSTALL_DIR=$(LIVECD_DIR)/reactos
-else
-# Use environment var ROS_INSTALL to override default install dir
-ifeq ($(ROS_INSTALL),)
-ifeq ($(HOST),mingw32-windows)
-export INSTALL_DIR = C:/reactos
-else
-export INSTALL_DIR = $(PATH_TO_TOP)/reactos
-endif
-else
-export INSTALL_DIR = $(ROS_INSTALL)
-endif
-endif
+%.sys: %.o
+	$(CC) \
+		-nostartfiles -nostdlib -e _DriverEntry@8\
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp $^
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $@ \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-nostartfiles -nostdlib -e _DriverEntry@8 \
+		-mdll \
+		-o $@.unstripped \
+		$^
+	- $(RM) temp.exp
+	- $(NM) --numeric-sort $@.unstripped > $@.sym
+	$(STRIP) --strip-debug $<
+	$(CC) \
+		-nostartfiles -nostdlib -e _DriverEntry@8 \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp $^
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $@ \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--subsystem,native \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-nostartfiles -nostdlib -e _DriverEntry@8 \
+		-mdll \
+		-o $@ \
+		$^
+	- $(RM) temp.exp
 
-
-export CC = $(Q)$(PREFIX)gcc
-export CXX = $(Q)$(PREFIX)g++
-export HOST_CC = $(Q)gcc
-export HOST_CXX = $(Q)g++
-export HOST_AR = $(Q)ar
-export HOST_NM = $(Q)nm
-export LD = $(Q)$(PREFIX)ld
-export NM = $(Q)$(PREFIX)nm
-export OBJCOPY = $(Q)$(PREFIX)objcopy
-export STRIP = $(Q)$(PREFIX)strip
-export AS = $(Q)$(PREFIX)gcc -c -x assembler-with-cpp
-export CPP = $(Q)$(PREFIX)cpp
-export AR = $(Q)$(PREFIX)ar
-export RC = $(Q)$(PREFIX)windres
-export WRC = $(Q)$(WINE_TOP)/tools/wrc/wrc
-export OBJCOPY = $(Q)$(PREFIX)objcopy
-export OBJDUMP =$(Q)$(PREFIX)objdump
-export TOOLS_PATH = $(PATH_TO_TOP)/tools
-export W32API_PATH = $(PATH_TO_TOP)/w32api
-export CP = $(Q)$(TOOLS_PATH)/rcopy
-export RM = $(Q)$(TOOLS_PATH)/rdel
-export RLINE = $(Q)$(TOOLS_PATH)/rline
-export RMDIR = $(Q)$(TOOLS_PATH)/rrmdir
-export RMKDIR = $(Q)$(TOOLS_PATH)/rmkdir
-export RSYM = $(Q)$(TOOLS_PATH)/rsym
-export RTOUCH = $(Q)$(TOOLS_PATH)/rtouch
-export REGTESTS = $(Q)$(TOOLS_PATH)/regtests
-export MC = $(Q)$(TOOLS_PATH)/wmc/wmc
-export CABMAN = $(Q)$(TOOLS_PATH)/cabman/cabman
-export WINEBUILD = $(Q)$(TOOLS_PATH)/winebuild/winebuild
-export WINE2ROS = $(Q)$(TOOLS_PATH)/wine2ros/wine2ros
-export MKHIVE = $(Q)$(TOOLS_PATH)/mkhive/mkhive
-export CDMAKE = $(Q)$(TOOLS_PATH)/cdmake/cdmake
-export BIN2RES = $(Q)$(TOOLS_PATH)/bin2res/bin2res
-export XSLTPROC = $(Q)xsltproc
-export MS2PS = $(Q)$(TOOLS_PATH)/ms2ps/ms2ps
-
-export STD_CFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -pipe -march=$(OARCH) -D_M_IX86
-export STD_CPPFLAGS = $(STD_CFLAGS)
-# Check for 3GB 
-ifeq ($(3GB), 1)
-export STD_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -D__ASM__ -D_M_IX86 -D__3GB__
-else
-export STD_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -D__ASM__ -D_M_IX86
-endif
-export STD_RCFLAGS = --include-dir $(PATH_TO_TOP)/include --include-dir $(W32API_PATH)/include
-export STD_NFLAGS = -f win32
-
-# Developer Kits
-export DK_PATH=$(PATH_TO_TOP)/dk
-# Native and kernel mode
-export DDK_PATH=$(DK_PATH)/nkm
-export DDK_PATH_LIB=$(DDK_PATH)/lib
-export DDK_PATH_INC=$(PATH_TO_TOP)/include
-# Win32
-export SDK_PATH=$(DK_PATH)/w32
-export SDK_PATH_LIB=$(SDK_PATH)/lib
-export SDK_PATH_INC=$(PATH_TO_TOP)/include
-# POSIX+
-export XDK_PATH=$(DK_PATH)/psx
-export XDK_PATH_LIB=$(XDK_PATH)/lib
-export XDK_PATH_INC=$(XDK_PATH)/include
-
-# Wine Integration
-export WINE_PATH=$(PATH_TO_TOP)/../wine
-export WINE_PATH_LIB=$(WINE_PATH)/lib
-export WINE_PATH_INC=$(WINE_PATH)/include
-
-# Posix+ Integration
-export POSIX_PATH=$(PATH_TO_TOP)/../posix
-export POSIX_PATH_LIB=$(POSIX_PATH)/lib
-export POSIX_PATH_INC=$(POSIX_PATH)/include
-
-# OS/2 Integration
-export OS2_PATH=$(PATH_TO_TOP)/../os2
-export OS2_PATH_LIB=$(OS2_PATH)/lib
-export OS2_PATH_INC=$(OS2_PATH)/include
-
-# Other systems integration
-export REGTESTS_PATH=$(PATH_TO_TOP)/regtests
-export REGTESTS_PATH_INC=$(PATH_TO_TOP)/regtests/shared
+RULES_MAK_INCLUDED = 1

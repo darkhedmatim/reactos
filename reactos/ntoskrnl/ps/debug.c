@@ -17,7 +17,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: debug.c,v 1.15 2004/11/20 23:46:37 blight Exp $
+/* $Id: debug.c,v 1.3 2001/03/16 18:11:24 dwelch Exp $
  *
  * PROJECT:                ReactOS kernel
  * FILE:                   ntoskrnl/ps/debug.c
@@ -38,17 +38,22 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <string.h>
+#include <internal/ps.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS ***************************************************************/
 
-VOID
-KeContextToTrapFrame(PCONTEXT Context,
-		     PKTRAP_FRAME TrapFrame)
+VOID KeContextToTrapFrame(PCONTEXT Context,
+			  PKTRAP_FRAME TrapFrame)
 {
-   if ((Context->ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
+   if (Context->ContextFlags & CONTEXT_CONTROL)
      {
 	TrapFrame->Esp = Context->Esp;
 	TrapFrame->Ss = Context->SegSs;
@@ -57,32 +62,33 @@ KeContextToTrapFrame(PCONTEXT Context,
 	TrapFrame->Eflags = Context->EFlags;	
 	TrapFrame->Ebp = Context->Ebp;
      }
-   if ((Context->ContextFlags & CONTEXT_INTEGER) == CONTEXT_INTEGER)
+   if (Context->ContextFlags & CONTEXT_INTEGER)
      {
 	TrapFrame->Eax = Context->Eax;
 	TrapFrame->Ebx = Context->Ebx;
 	TrapFrame->Ecx = Context->Ecx;
-	TrapFrame->Edx = Context->Edx;
+	/*
+	 * Edx is used in the TrapFrame to hold the old trap frame pointer
+	 * so we don't want to overwrite it here
+	 */
+/*	TrapFrame->Edx = Context->Edx; */
 	TrapFrame->Esi = Context->Esi;
-	TrapFrame->Edi = Context->Edi;
+	TrapFrame->Edx = Context->Edi;
      }
-   if ((Context->ContextFlags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS)
+   if (Context->ContextFlags & CONTEXT_SEGMENTS)
      {
 	TrapFrame->Ds = Context->SegDs;
 	TrapFrame->Es = Context->SegEs;
 	TrapFrame->Fs = Context->SegFs;
 	TrapFrame->Gs = Context->SegGs;
      }
-   if ((Context->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT)
+   if (Context->ContextFlags & CONTEXT_FLOATING_POINT)
      {
 	/*
 	 * Not handled
-	 *
-	 * This should be handled separately I think.
-	 *  - blight
 	 */
      }
-   if ((Context->ContextFlags & CONTEXT_DEBUG_REGISTERS) == CONTEXT_DEBUG_REGISTERS)
+   if (Context->ContextFlags & CONTEXT_DEBUG_REGISTERS)
      {
 	/*
 	 * Not handled
@@ -90,11 +96,10 @@ KeContextToTrapFrame(PCONTEXT Context,
      }
 }
 
-VOID
-KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
-		     PCONTEXT Context)
+VOID KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
+			  PCONTEXT Context)
 {
-   if ((Context->ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
+   if (Context->ContextFlags & CONTEXT_CONTROL)
      {
 	Context->SegSs = TrapFrame->Ss;
 	Context->Esp = TrapFrame->Esp;
@@ -103,7 +108,7 @@ KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
 	Context->EFlags = TrapFrame->Eflags;
 	Context->Ebp = TrapFrame->Ebp;
      }
-   if ((Context->ContextFlags & CONTEXT_INTEGER) == CONTEXT_INTEGER)
+   if (Context->ContextFlags & CONTEXT_INTEGER)
      {
 	Context->Eax = TrapFrame->Eax;
 	Context->Ebx = TrapFrame->Ebx;
@@ -120,266 +125,145 @@ KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
 	Context->Esi = TrapFrame->Esi;
 	Context->Edi = TrapFrame->Edi;
      }
-   if ((Context->ContextFlags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS)
+   if (Context->ContextFlags & CONTEXT_SEGMENTS)
      {
 	Context->SegDs = TrapFrame->Ds;
 	Context->SegEs = TrapFrame->Es;
 	Context->SegFs = TrapFrame->Fs;
 	Context->SegGs = TrapFrame->Gs;
      }
-   if ((Context->ContextFlags & CONTEXT_DEBUG_REGISTERS) == CONTEXT_DEBUG_REGISTERS)
+   if (Context->ContextFlags & CONTEXT_DEBUG_REGISTERS)
      {
 	/*
 	 * FIXME: Implement this case
 	 */	
-	Context->ContextFlags &= (~CONTEXT_DEBUG_REGISTERS) | CONTEXT_i386;
      }
-   if ((Context->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT)
+   if (Context->ContextFlags & CONTEXT_FLOATING_POINT)
      {
 	/*
 	 * FIXME: Implement this case
-	 *
-	 * I think this should only be filled for FPU exceptions, otherwise I
-         * would not know where to get it from as it can be the current state
-	 * of the FPU or already saved in the thread's FPU save area.
-	 *  -blight
 	 */
-	Context->ContextFlags &= (~CONTEXT_FLOATING_POINT) | CONTEXT_i386;
      }
-#if 0
-   if ((Context->ContextFlags & CONTEXT_EXTENDED_REGISTERS) == CONTEXT_EXTENDED_REGISTERS)
+#if 0   
+   if (Context->ContextFlags & CONTEXT_EXTENDED_REGISTERS)
      {
 	/*
 	 * FIXME: Investigate this
-	 *
-	 * This is the XMM state (first 512 bytes of FXSAVE_FORMAT/FX_SAVE_AREA)
-	 * This should only be filled in case of a SIMD exception I think, so
-	 * this is not the right place (like for FPU the state could already be
-	 * saved in the thread's FX_SAVE_AREA or still be in the CPU)
-	 *  -blight
 	 */
-        Context->ContextFlags &= ~CONTEXT_EXTENDED_REGISTERS;
      }
 #endif
 }
 
-VOID STDCALL
-KeGetSetContextRundownRoutine(PKAPC Apc)
+VOID KeGetContextRundownRoutine(PKAPC Apc)
 {
-  PKEVENT Event;
-  PNTSTATUS Status;
-
-  Event = (PKEVENT)Apc->SystemArgument1;   
-  Status = (PNTSTATUS)Apc->SystemArgument2;
-  (*Status) = STATUS_THREAD_IS_TERMINATING;
-  KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
+   PKEVENT Event;
+   PNTSTATUS Status;
+   
+   Event = (PKEVENT)Apc->SystemArgument1;
+   Status = (PNTSTATUS)Apc->SystemArgument2;
+   (*Status) = STATUS_THREAD_IS_TERMINATING;
+   KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
 }
 
-VOID STDCALL
-KeGetContextKernelRoutine(PKAPC Apc,
-			  PKNORMAL_ROUTINE* NormalRoutine,
-			  PVOID* NormalContext,
-			  PVOID* SystemArgument1,
-			  PVOID* SystemArgument2)
+VOID KeGetContextKernelRoutine(PKAPC Apc,
+			       PKNORMAL_ROUTINE* NormalRoutine,
+			       PVOID* NormalContext,
+			       PVOID* SystemArgument1,
+			       PVOID* SystemArgument2)
 /*
  * FUNCTION: This routine is called by an APC sent by NtGetContextThread to
  * copy the context of a thread into a buffer.
  */
 {
-  PKEVENT Event;
-  PCONTEXT Context;
-  PNTSTATUS Status;
+   PKEVENT Event;
+   PCONTEXT Context;
+   PNTSTATUS Status;
    
-  Context = (PCONTEXT)(*NormalContext);
-  Event = (PKEVENT)(*SystemArgument1);
-  Status = (PNTSTATUS)(*SystemArgument2);
+   Context = (PCONTEXT)(*NormalContext);
+   Event = (PKEVENT)(*SystemArgument1);
+   Status = (PNTSTATUS)(*SystemArgument2);
    
-  KeTrapFrameToContext(KeGetCurrentThread()->TrapFrame, Context);
+   KeTrapFrameToContext(KeGetCurrentThread()->TrapFrame, Context);
    
-  *Status = STATUS_SUCCESS;
-  KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
+   *Status = STATUS_SUCCESS;
+   KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
 }
 
-NTSTATUS STDCALL
-NtGetContextThread(IN HANDLE ThreadHandle,
-		   OUT PCONTEXT ThreadContext)
+NTSTATUS STDCALL NtGetContextThread (IN	HANDLE ThreadHandle, 
+				     OUT PCONTEXT Context)
 {
-  PETHREAD Thread;
-  NTSTATUS Status;
-  CONTEXT Context;
-  KAPC Apc;
-  KEVENT Event;
-  NTSTATUS AStatus;
-
-  Status = MmCopyFromCaller(&Context, ThreadContext, sizeof(CONTEXT));
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  Status = ObReferenceObjectByHandle(ThreadHandle,
-                                     THREAD_GET_CONTEXT,
-                                     PsThreadType,
-                                     UserMode,
-                                     (PVOID*)&Thread,
-                                     NULL);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  if (Thread == PsGetCurrentThread())
-    {
-      /*
-       * I don't know if trying to get your own context makes much
-       * sense but we can handle it more efficently.
-       */
+   PETHREAD Thread;
+   NTSTATUS Status;
+   
+   Status = ObReferenceObjectByHandle(ThreadHandle,
+				      THREAD_GET_CONTEXT,
+				      PsThreadType,
+				      UserMode,
+				      (PVOID*)&Thread,
+				      NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+   if (Thread == PsGetCurrentThread())
+     {
+	/*
+	 * I don't know if trying to get your own context makes much
+	 * sense but we can handle it more efficently.
+	 */
 	
-      KeTrapFrameToContext(Thread->Tcb.TrapFrame, &Context);
-      Status = STATUS_SUCCESS;
-    }
-  else
-    {
-      KeInitializeEvent(&Event,
-                        NotificationEvent,
-                        FALSE);	
-      AStatus = STATUS_SUCCESS;
+	KeTrapFrameToContext(Thread->Tcb.TrapFrame, Context);
+	ObDereferenceObject(Thread);
+	return(STATUS_SUCCESS);
+     }
+   else
+     {
+	KAPC Apc;
+	KEVENT Event;
+	NTSTATUS AStatus;
+	CONTEXT KContext;
 	
-      KeInitializeApc(&Apc,
-                      &Thread->Tcb,
-                      OriginalApcEnvironment,
-                      KeGetContextKernelRoutine,
-                      KeGetSetContextRundownRoutine,
-                      NULL,
-                      KernelMode,
-                      (PVOID)&Context);
-      if (!KeInsertQueueApc(&Apc,
-			    (PVOID)&Event,
-			    (PVOID)&AStatus,
-			    IO_NO_INCREMENT))
-	{
-	  Status = STATUS_THREAD_IS_TERMINATING;
-	}
-      else
-	{
-	  Status = KeWaitForSingleObject(&Event,
-					 0,
-					 UserMode,
-					 FALSE,
-					 NULL);
-	  if (NT_SUCCESS(Status) && !NT_SUCCESS(AStatus))
-	    {
-	      Status = AStatus;
-	    }
-	}
-    }
-  if (NT_SUCCESS(Status))
-    {
-      Status = MmCopyToCaller(ThreadContext, &Context, sizeof(Context));
-    }
-
-  ObDereferenceObject(Thread);
-  return Status;
+	KContext.ContextFlags = Context->ContextFlags;
+	KeInitializeEvent(&Event,
+			  NotificationEvent,
+			  FALSE);	
+	AStatus = STATUS_SUCCESS;
+	
+	KeInitializeApc(&Apc,
+			&Thread->Tcb,
+			0,
+			KeGetContextKernelRoutine,
+			KeGetContextRundownRoutine,
+			NULL,
+			KernelMode,
+			(PVOID)&KContext);
+	KeInsertQueueApc(&Apc,
+			 (PVOID)&Event,
+			 (PVOID)&AStatus,
+			 0);
+	Status = KeWaitForSingleObject(&Event,
+				       0,
+				       UserMode,
+				       FALSE,
+				       NULL);
+	if (!NT_SUCCESS(Status))
+	  {
+	     return(Status);
+	  }
+	if (!NT_SUCCESS(AStatus))
+	  {
+	     return(AStatus);
+	  }
+	memcpy(Context, &KContext, sizeof(CONTEXT));
+	ObDereferenceObject(Thread);
+	return(STATUS_SUCCESS);
+     }
 }
 
-VOID STDCALL
-KeSetContextKernelRoutine(PKAPC Apc,
-			  PKNORMAL_ROUTINE* NormalRoutine,
-			  PVOID* NormalContext,
-			  PVOID* SystemArgument1,
-			  PVOID* SystemArgument2)
-/*
- * FUNCTION: This routine is called by an APC sent by NtSetContextThread to
- * set the context of a thread from a buffer.
- */
+NTSTATUS STDCALL NtSetContextThread (IN	HANDLE		ThreadHandle,
+				     IN	PCONTEXT	Context)
 {
-  PKEVENT Event;
-  PCONTEXT Context;
-  PNTSTATUS Status;
-   
-  Context = (PCONTEXT)(*NormalContext);
-  Event = (PKEVENT)(*SystemArgument1);
-  Status = (PNTSTATUS)(*SystemArgument2);
-   
-  KeContextToTrapFrame(Context, KeGetCurrentThread()->TrapFrame);
-   
-  *Status = STATUS_SUCCESS;
-  KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
-}
-
-NTSTATUS STDCALL
-NtSetContextThread(IN HANDLE ThreadHandle,
-		   IN PCONTEXT ThreadContext)
-{
-  PETHREAD Thread;
-  NTSTATUS Status;
-  KAPC Apc;
-  KEVENT Event;
-  NTSTATUS AStatus;
-  CONTEXT Context;
-
-  Status = MmCopyFromCaller(&Context, ThreadContext, sizeof(CONTEXT));
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  Status = ObReferenceObjectByHandle(ThreadHandle,
-                                     THREAD_SET_CONTEXT,
-                                     PsThreadType,
-                                     UserMode,
-                                     (PVOID*)&Thread,
-                                     NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  if (Thread == PsGetCurrentThread())
-    {
-      /*
-       * I don't know if trying to set your own context makes much
-       * sense but we can handle it more efficently.
-       */
-	
-      KeContextToTrapFrame(&Context, Thread->Tcb.TrapFrame);
-      Status = STATUS_SUCCESS;
-    }
-  else
-    {
-      KeInitializeEvent(&Event,
-                        NotificationEvent,
-                        FALSE);	
-      AStatus = STATUS_SUCCESS;
-	
-      KeInitializeApc(&Apc,
-                      &Thread->Tcb,
-                      OriginalApcEnvironment,
-                      KeSetContextKernelRoutine,
-                      KeGetSetContextRundownRoutine,
-                      NULL,
-                      KernelMode,
-                      (PVOID)&Context);
-      if (!KeInsertQueueApc(&Apc,
-			    (PVOID)&Event,
-			    (PVOID)&AStatus,
-			    IO_NO_INCREMENT))
-	{
-	  Status = STATUS_THREAD_IS_TERMINATING;
-	}
-      else
-	{
-	  Status = KeWaitForSingleObject(&Event,
-					 0,
-					 UserMode,
-					 FALSE,
-                                     NULL);
-	  if (NT_SUCCESS(Status) && !NT_SUCCESS(AStatus))
-	    {
-	      Status = AStatus;
-	    }
-	}
-    }
-
-  ObDereferenceObject(Thread);
-  return Status;
+   UNIMPLEMENTED;
 }
 
 /* EOF */

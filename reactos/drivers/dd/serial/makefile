@@ -1,15 +1,35 @@
-# $Id: makefile,v 1.17 2003/11/16 22:41:10 sedwards Exp $
-
+# $Id: makefile,v 1.14 2001/07/25 08:28:52 ekohl Exp $
+#
+#
 PATH_TO_TOP = ../../..
 
-TARGET_TYPE = driver
+TARGET = serial
 
-TARGET_NAME = serial
+OBJECTS = $(TARGET).o $(TARGET).coff
 
-TARGET_OBJECTS = serial.o
+LIBS = $(PATH_TO_TOP)/ntoskrnl/ntoskrnl.a
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API 
+CFLAGS = -D__NTDRIVER__
+
+all: $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: all
+
+clean:
+	- $(RM) *.o *.sym $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sys.unstripped
+
+.phony: clean
+
+install: $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+
+dist: $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+	$(CP) $(TARGET).sys $(PATH_TO_TOP)/$(DIST_DIR)/drivers/$(TARGET).sys
+
+$(TARGET).sys $(TARGET).sys.unstripped: $(OBJECTS) $(LIBS)
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk

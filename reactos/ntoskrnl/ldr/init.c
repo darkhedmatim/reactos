@@ -1,25 +1,7 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: init.c,v 1.50 2004/12/05 15:42:42 weiden Exp $
- *
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ldr/init.c
+ * FILE:            ntoskrnl/ldr/loader.c
  * PURPOSE:         Loaders for PE executables
  * PROGRAMMERS:     Jean Michault
  *                  Rex Jolliff (rex@lvcablemodem.com)
@@ -32,545 +14,224 @@
  *   RJJ  06/03/99  Moved user PE loader into NTDLL
  *   EA   19990717  LdrGetSystemDirectory()
  *   EK   20000618  Using SystemRoot link instead of LdrGetSystemDirectory()
- *   EK   20021119  Create a process parameter block for the initial process.
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/i386/segment.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+#include <napi/teb.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
-
-/* MACROS ******************************************************************/
-
-#define DENORMALIZE(x,addr) {if(x) x=(VOID*)((ULONG)(x)-(ULONG)(addr));}
-#define ALIGN(x,align)      (((ULONG)(x)+(align)-1UL)&(~((align)-1UL)))
-
-
 /* FUNCTIONS *****************************************************************/
 
-static NTSTATUS
-LdrpMapProcessImage(PHANDLE SectionHandle,
-		    PUNICODE_STRING ImagePath)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  IO_STATUS_BLOCK IoStatusBlock;
-  HANDLE FileHandle;
-  NTSTATUS Status;
-
-  /* Open image file */
-  InitializeObjectAttributes(&ObjectAttributes,
-			     ImagePath,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-
-  DPRINT("Opening image file %S\n", ObjectAttributes.ObjectName->Buffer);
-  Status = NtOpenFile(&FileHandle,
-		      FILE_ALL_ACCESS,
-		      &ObjectAttributes,
-		      &IoStatusBlock,
-		      0,
-		      FILE_SYNCHRONOUS_IO_ALERT);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Create a section for the image */
-  DPRINT("Creating section\n");
-  Status = NtCreateSection(SectionHandle,
-			   SECTION_ALL_ACCESS,
-			   NULL,
-			   NULL,
-			   PAGE_READWRITE,
-			   SEC_COMMIT | SEC_IMAGE,
-			   FileHandle);
-  NtClose(FileHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtCreateSection() failed (Status %lx)\n", Status);
-    }
-
-  return(Status);
-}
-
-
-static NTSTATUS
-LdrpCreateProcessEnvironment(HANDLE ProcessHandle,
-			     PUNICODE_STRING ImagePath,
-			     PVOID* ImageBaseAddress)
-{
-  PRTL_USER_PROCESS_PARAMETERS LocalPpb;
-  PRTL_USER_PROCESS_PARAMETERS ProcessPpb;
-  ULONG BytesWritten;
-  ULONG Offset;
-  ULONG Size;
-  ULONG RegionSize;
-  NTSTATUS Status;
-
-  /* Calculate the PPB size */
-  Size = sizeof(RTL_USER_PROCESS_PARAMETERS);
-  Size += ALIGN(ImagePath->Length + sizeof(WCHAR), sizeof(ULONG));
-  RegionSize = ROUND_UP(Size, PAGE_SIZE);
-  DPRINT("Size %lu  RegionSize %lu\n", Size, RegionSize);
-
-  /* Allocate the local PPB */
-  LocalPpb = NULL;
-  Status = NtAllocateVirtualMemory(NtCurrentProcess(),
-				   (PVOID*)&LocalPpb,
-				   0,
-				   &RegionSize,
-				   MEM_RESERVE | MEM_COMMIT,
-				   PAGE_READWRITE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtAllocateVirtualMemory() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  DPRINT("LocalPpb %p  AllocationSize %lu\n", LocalPpb, RegionSize);
-
-  /* Initialize the local PPB */
-  RtlZeroMemory(LocalPpb,
-		RegionSize);
-  LocalPpb->AllocationSize = RegionSize;
-  LocalPpb->Size = Size;
-  LocalPpb->ImagePathName.Length = ImagePath->Length;
-  LocalPpb->ImagePathName.MaximumLength = ImagePath->Length + sizeof(WCHAR);
-  LocalPpb->ImagePathName.Buffer = (PWCHAR)(LocalPpb + 1);
-
-  /* Copy image path */
-  RtlCopyMemory(LocalPpb->ImagePathName.Buffer,
-		ImagePath->Buffer,
-		ImagePath->Length);
-  LocalPpb->ImagePathName.Buffer[ImagePath->Length / sizeof(WCHAR)] = L'\0';
-
-  /* Denormalize the process parameter block */
-  DENORMALIZE(LocalPpb->ImagePathName.Buffer, LocalPpb);
-  LocalPpb->Flags &= ~PPF_NORMALIZED;
-
-  /* Create the process PPB */
-  ProcessPpb = NULL;
-  Status = NtAllocateVirtualMemory(ProcessHandle,
-				   (PVOID*)&ProcessPpb,
-				   0,
-				   &RegionSize,
-				   MEM_RESERVE | MEM_COMMIT,
-				   PAGE_READWRITE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtAllocateVirtualMemory() failed (Status %lx)\n", Status);
-
-      /* Release the local PPB */
-      RegionSize = 0;
-      NtFreeVirtualMemory(NtCurrentProcess(),
-			  (PVOID*)&LocalPpb,
-			  &RegionSize,
-			  MEM_RELEASE);
-      return(Status);
-    }
-
-  /* Copy local PPB into the process PPB */
-  NtWriteVirtualMemory(ProcessHandle,
-		       ProcessPpb,
-		       LocalPpb,
-		       LocalPpb->AllocationSize,
-		       &BytesWritten);
-
-  /* Update pointer to process PPB in the process PEB */
-  Offset = FIELD_OFFSET(PEB, ProcessParameters);
-  NtWriteVirtualMemory(ProcessHandle,
-		       (PVOID)(PEB_BASE + Offset),
-		       &ProcessPpb,
-		       sizeof(ProcessPpb),
-		       &BytesWritten);
-
-  /* Release local PPB */
-  RegionSize = 0;
-  NtFreeVirtualMemory(NtCurrentProcess(),
-		      (PVOID*)&LocalPpb,
-		      &RegionSize,
-		      MEM_RELEASE);
-
-  /* Read image base address. */
-  Offset = FIELD_OFFSET(PEB, ImageBaseAddress);
-  NtReadVirtualMemory(ProcessHandle,
-		      (PVOID)(PEB_BASE + Offset),
-		      ImageBaseAddress,
-		      sizeof(PVOID),
-		      &BytesWritten);
-
-  return(STATUS_SUCCESS);
-}
-
 /*
- FIXME: this sucks. Sucks sucks sucks. This code was duplicated, if you can
- believe it, in four different places - excluding this, and twice in the two
- DLLs that contained it (kernel32.dll and ntdll.dll). As much as I'd like to
- rip the whole RTL out of ntdll.dll and ntoskrnl.exe and into its own static
- library, ntoskrnl.exe is built separatedly from the rest of ReactOS, coming
- with its own linker scripts and specifications, and, save for changes and fixes
- to make it at least compile, I'm not going to touch any of it. If you feel
- brave enough, you're welcome [KJK::Hyperion]
-*/
-static NTSTATUS LdrpCreateStack
-(
- HANDLE ProcessHandle,
- PINITIAL_TEB InitialTeb,
- PULONG_PTR StackReserve,
- PULONG_PTR StackCommit
-)
+ * FIXME: The location of the initial process should be configurable,
+ * from command line or registry
+ */
+NTSTATUS LdrLoadInitialProcess (VOID)
 {
- PVOID pStackLowest = NULL;
- ULONG_PTR nSize = 0;
- NTSTATUS nErrCode;
+   NTSTATUS Status;
+   HANDLE ProcessHandle;
+   UNICODE_STRING ProcessName;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   HANDLE FileHandle;
+   HANDLE SectionHandle;
+   PVOID LdrStartupAddr;
+   PVOID StackBase;
+   ULONG StackSize;
+   PIMAGE_NT_HEADERS NTHeaders;
+   PPEB Peb;
+   PEPROCESS Process;
+   CONTEXT Context;
+   HANDLE ThreadHandle;
+   
+   /*
+    * Get the absolute path to smss.exe using the
+    * SystemRoot link.
+    */
+   RtlInitUnicodeString(&ProcessName,
+			L"\\SystemRoot\\system32\\smss.exe");
+   
+   /*
+    * Open process image to determine ImageBase
+    * and StackBase/Size.
+    */
+   InitializeObjectAttributes(&ObjectAttributes,
+			      &ProcessName,
+			      0,
+			      NULL,
+			      NULL);
+   DPRINT("Opening image file %S\n", ObjectAttributes.ObjectName->Buffer);
+   Status = ZwOpenFile(&FileHandle,
+		       FILE_ALL_ACCESS,
+		       &ObjectAttributes,
+		       NULL,
+		       0,
+		       0);
+   if (!NT_SUCCESS(Status))
+     {
+	DPRINT("Image open failed (Status was %x)\n", Status);
+	return Status;
+     }
+   
+   /*
+    * Create a section for the image
+    */
+   DPRINT("Creating section\n");
+   Status = ZwCreateSection(&SectionHandle,
+			    SECTION_ALL_ACCESS,
+			    NULL,
+			    NULL,
+			    PAGE_READWRITE,
+			    SEC_COMMIT | SEC_IMAGE,
+			    FileHandle);
+   if (!NT_SUCCESS(Status))
+     {
+	DbgPrint("ZwCreateSection failed (Status %x)\n", Status);
+	ZwClose(FileHandle);
+	return(Status);
+     }
+   ZwClose(FileHandle);
+   
+   DPRINT("Creating process\n");
+   Status = ZwCreateProcess(&ProcessHandle,
+			    PROCESS_ALL_ACCESS,
+			    NULL,
+			    SystemProcessHandle,
+			    FALSE,
+			    SectionHandle,
+			    NULL,
+			    NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	DbgPrint("Could not create process\n");
+	return Status;
+     }
 
- if(StackReserve == NULL || StackCommit == NULL)
-  return STATUS_INVALID_PARAMETER;
+   /*
+    * Create initial stack and thread
+    */
+   
+   /*
+    * Aargh!
+    */
+   LdrStartupAddr = (PVOID)LdrpGetSystemDllEntryPoint();
+   DPRINT("LdrStartupAddr %x\n", LdrStartupAddr);
+   
+   /*
+    * Create page backed section for stack
+    */
+   DPRINT("Allocating stack\n");
+   
+   DPRINT("Referencing process\n");
+   Status = ObReferenceObjectByHandle(ProcessHandle,
+				      PROCESS_ALL_ACCESS,
+				      PsProcessType,
+				      KernelMode,
+				      (PVOID*)&Process,
+				      NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	DbgPrint("ObReferenceObjectByProcess() failed (Status %x)\n", Status);
+	return(Status);
+     }
+   
+   DPRINT("Attaching to process\n");
+   KeAttachProcess(Process);
+   Peb = (PPEB)PEB_BASE;
+   DPRINT("Peb %x\n", Peb);
+   DPRINT("CurrentProcess %x Peb->ImageBaseAddress %x\n", 
+	  PsGetCurrentProcess(),
+	  Peb->ImageBaseAddress);
+   NTHeaders = RtlImageNtHeader(Peb->ImageBaseAddress);
+   DPRINT("NTHeaders %x\n", NTHeaders);
+   StackSize = NTHeaders->OptionalHeader.SizeOfStackReserve;
+   DPRINT("StackSize %x\n", StackSize);
+   KeDetachProcess();
+   DPRINT("Dereferencing process\n");
+//   ObDereferenceObject(Process);
+   
+   StackBase = (PVOID)NULL;
+   DPRINT("StackBase %x StackSize %x\n", StackBase, StackSize);
+   DPRINT("Allocating virtual memory\n");
+   Status = ZwAllocateVirtualMemory(ProcessHandle,
+				    (PVOID*)&StackBase,
+				    0,
+				    &StackSize,
+				    MEM_COMMIT,
+				    PAGE_READWRITE);
+   if (!NT_SUCCESS(Status))
+     {
+	DPRINT("Stack allocation failed (Status %x)", Status);
+	return Status;
+     }
+   
+   DPRINT("Attaching to process\n");
+   KeAttachProcess(Process);
+   Peb = (PPEB)PEB_BASE;
+   DPRINT("Peb %x\n", Peb);
+   DPRINT("CurrentProcess %x Peb->ImageBaseAddress %x\n", 
+	  PsGetCurrentProcess(),
+	  Peb->ImageBaseAddress);
+   KeDetachProcess();
 
- /* FIXME: no SEH, no guard pages */
- *StackCommit = *StackReserve;
+   /*
+    * Initialize context to point to LdrStartup
+    */
+   memset(&Context,0,sizeof(CONTEXT));
+   Context.SegSs = USER_DS;
+   Context.Esp = (ULONG)StackBase + StackSize - 20;
+   Context.EFlags = 0x202;
+   Context.SegCs = USER_CS;
+   Context.Eip = (ULONG)LdrStartupAddr;
+   Context.SegDs = USER_DS;
+   Context.SegEs = USER_DS;
+   Context.SegFs = TEB_SELECTOR;
+   Context.SegGs = USER_DS;
 
- InitialTeb->StackBase = NULL;
- InitialTeb->StackLimit =  NULL;
- InitialTeb->StackCommit = NULL;
- InitialTeb->StackCommitMax = NULL;
- InitialTeb->StackReserved = NULL;
-
- /* FIXME: this code assumes a stack growing downwards */
- /* fixed stack */
- if(*StackCommit == *StackReserve)
- {
-  DPRINT("Fixed stack\n");
-
-  InitialTeb->StackLimit = NULL;
-
-  /* allocate the stack */
-  nErrCode = NtAllocateVirtualMemory
-  (
-   ProcessHandle,
-   &(InitialTeb->StackLimit),
-   0,
-   StackReserve,
-   MEM_RESERVE | MEM_COMMIT,
-   PAGE_READWRITE
-  );
-
-  /* failure */
-  if(!NT_SUCCESS(nErrCode)) return nErrCode;
-
-  /* store the highest (first) address of the stack */
-  InitialTeb->StackBase =
-   (PUCHAR)(InitialTeb->StackLimit) + *StackReserve;
- }
- /* expandable stack */
- else
- {
-  ULONG_PTR nGuardSize = PAGE_SIZE;
-  PVOID pGuardBase;
-
-  DPRINT("Expandable stack\n");
-
-  InitialTeb->StackLimit = NULL;
-  InitialTeb->StackBase = NULL;
-  InitialTeb->StackReserved = NULL;
-
-  /* reserve the stack */
-  nErrCode = NtAllocateVirtualMemory
-  (
-   ProcessHandle,
-   &(InitialTeb->StackReserved),
-   0,
-   StackReserve,
-   MEM_RESERVE,
-   PAGE_READWRITE
-  );
-
-  /* failure */
-  if(!NT_SUCCESS(nErrCode)) return nErrCode;
-
-  DPRINT("Reserved %08X bytes\n", *StackReserve);
-
-  /* expandable stack base - the highest address of the stack */
-  InitialTeb->StackCommit =
-   (PUCHAR)(InitialTeb->StackReserved) + *StackReserve;
-
-  /* expandable stack limit - the lowest committed address of the stack */
-  InitialTeb->StackCommitMax =
-   (PUCHAR)(InitialTeb->StackCommit) - *StackCommit;
-
-  DPRINT("Stack commit     %p\n", InitialTeb->StackCommit);
-  DPRINT("Stack commit max %p\n", InitialTeb->StackCommitMax);
-
-  /* commit as much stack as requested */
-  nErrCode = NtAllocateVirtualMemory
-  (
-   ProcessHandle,
-   &(InitialTeb->StackCommitMax),
-   0,
-   StackCommit,
-   MEM_COMMIT,
-   PAGE_READWRITE
-  );
-
-  /* failure */
-  if(!NT_SUCCESS(nErrCode)) goto l_Cleanup;
-
-  DPRINT("Stack commit max %p\n", InitialTeb->StackCommitMax);
-
-  pGuardBase = (PUCHAR)(InitialTeb->StackCommitMax) - PAGE_SIZE;
-
-  DPRINT("Guard base %p\n", InitialTeb->StackCommit);
-
-  /* set up the guard page */
-  nErrCode = NtAllocateVirtualMemory
-  (
-   ProcessHandle,
-   &pGuardBase,
-   0,
-   &nGuardSize,
-   MEM_COMMIT,
-   PAGE_READWRITE | PAGE_GUARD
-  );
-
-  /* failure */
-  if(!NT_SUCCESS(nErrCode)) goto l_Cleanup;
-
-  DPRINT("Guard base %p\n", InitialTeb->StackCommit);
- }
-
- return STATUS_SUCCESS;
-
- /* cleanup in case of failure */
-l_Cleanup:
-  if(InitialTeb->StackLimit)
-  pStackLowest = InitialTeb->StackLimit;
- else if(InitialTeb->StackReserved)
-  pStackLowest = InitialTeb->StackReserved;
-
- /* free the stack, if it was allocated */
- if(pStackLowest != NULL)
-  NtFreeVirtualMemory(ProcessHandle, &pStackLowest, &nSize, MEM_RELEASE);
-
- return nErrCode;
-}
-
-
-NTSTATUS INIT_FUNCTION
-LdrLoadInitialProcess(PHANDLE ProcessHandle,
-		      PHANDLE ThreadHandle)
-{
-  SECTION_IMAGE_INFORMATION Sii;
-  UNICODE_STRING ImagePath;
-  HANDLE SectionHandle;
-  CONTEXT Context;
-  INITIAL_TEB InitialTeb;
-  ULONG_PTR nStackReserve = 0;
-  ULONG_PTR nStackCommit = 0;
-  PVOID pStackLowest;
-  PVOID pStackBase;
-  ULONG ResultLength;
-  PVOID ImageBaseAddress;
-  ULONG InitialStack[5];
-  HANDLE SystemProcessHandle;
-  NTSTATUS Status;
-
-  /* Get the absolute path to smss.exe. */
-  RtlRosInitUnicodeStringFromLiteral(&ImagePath,
-				  L"\\SystemRoot\\system32\\smss.exe");
-
-  /* Map process image */
-  Status = LdrpMapProcessImage(&SectionHandle,
-			       &ImagePath);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("LdrpMapImage() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Get information about the process image. */
-   Status = NtQuerySection(SectionHandle,
-			   SectionImageInformation,
-			   &Sii,
-			   sizeof(Sii),
-			   &ResultLength);
-  if (!NT_SUCCESS(Status) || ResultLength != sizeof(Sii))
-    {
-      DPRINT("ZwQuerySection failed (Status %X)\n", Status);
-      NtClose(ProcessHandle);
-      NtClose(SectionHandle);
-      return(Status);
-    }
-
-  Status = ObCreateHandle(PsGetCurrentProcess(),
-                          PsInitialSystemProcess,
-                          PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                          FALSE,
-                          &SystemProcessHandle);
-  if(!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to create a handle for the system process!\n");
-    return Status;
-  }
-
-  DPRINT("Creating process\n");
-  Status = NtCreateProcess(ProcessHandle,
-			   PROCESS_ALL_ACCESS,
+   DPRINT("LdrStartupAddr %x\n",LdrStartupAddr);
+   
+   /*
+    * FIXME: Create process and let 'er rip
+    */
+   DPRINT("Creating thread for initial process\n");
+   Status = ZwCreateThread(&ThreadHandle,
+			   THREAD_ALL_ACCESS,
 			   NULL,
-			   SystemProcessHandle,
-			   FALSE,
-			   SectionHandle,
+			   ProcessHandle,
 			   NULL,
-			   NULL);
-  NtClose(SectionHandle);
-  NtClose(SystemProcessHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtCreateProcess() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  /* Create process environment */
-  DPRINT("Creating the process environment\n");
-  Status = LdrpCreateProcessEnvironment(*ProcessHandle,
-					&ImagePath,
-					&ImageBaseAddress);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("LdrpCreateProcessEnvironment() failed (Status %lx)\n", Status);
-      NtClose(*ProcessHandle);
-      return(Status);
-    }
-  DPRINT("ImageBaseAddress: %p\n", ImageBaseAddress);
-
-
-  /* Calculate initial stack sizes */
-  if (Sii.StackReserve > 0x100000)
-    nStackReserve = Sii.StackReserve;
-  else
-    nStackReserve = 0x100000; /* 1MByte */
-
-  /* FIXME */
-#if 0
-  if (Sii.StackCommit > PAGE_SIZE)
-    nStackCommit =  Sii.StackCommit;
-  else
-    nStackCommit = PAGE_SIZE;
-#endif
-  nStackCommit = nStackReserve - PAGE_SIZE;
-
-  DPRINT("StackReserve 0x%lX  StackCommit 0x%lX\n",
-	 nStackReserve, nStackCommit);
-
-
-  /* Create the process stack */
-  Status = LdrpCreateStack
-  (
-   *ProcessHandle,
-   &InitialTeb,
-   &nStackReserve,
-   &nStackCommit
-  );
-
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("Failed to write initial stack.\n");
-      NtClose(ProcessHandle);
-      return(Status);
-    }
-
-  if(InitialTeb.StackBase && InitialTeb.StackLimit)
-  {
-   pStackBase = InitialTeb.StackBase;
-   pStackLowest = InitialTeb.StackLimit;
-  }
-  else
-  {
-   pStackBase = InitialTeb.StackCommit;
-   pStackLowest = InitialTeb.StackReserved;
-  }
-
-  DPRINT("pStackBase = %p\n", pStackBase);
-  DPRINT("pStackLowest = %p\n", pStackLowest);
-
-  /*
-   * Initialize context to point to LdrStartup
-   */
-#if defined(_M_IX86)
-  memset(&Context,0,sizeof(CONTEXT));
-  Context.ContextFlags = CONTEXT_FULL;
-  Context.FloatSave.ControlWord = 0xffff037f;
-  Context.FloatSave.StatusWord = 0xffff0000;
-  Context.FloatSave.TagWord = 0xffffffff;
-  Context.FloatSave.DataSelector = 0xffff0000;
-  Context.Eip = (ULONG_PTR)((char*)ImageBaseAddress + (ULONG_PTR)Sii.EntryPoint);
-  Context.SegCs = USER_CS;
-  Context.SegDs = USER_DS;
-  Context.SegEs = USER_DS;
-  Context.SegFs = TEB_SELECTOR;
-  Context.SegGs = USER_DS;
-  Context.SegSs = USER_DS;
-  Context.EFlags = 0x202;
-  Context.Esp = (ULONG_PTR)pStackBase - 20;
-#else
-#error Unsupported architecture
-#endif
-
-  /*
-   * Write in the initial stack.
-   */
-  InitialStack[0] = 0;
-  InitialStack[1] = PEB_BASE;
-  Status = NtWriteVirtualMemory(*ProcessHandle,
-				(PVOID)Context.Esp,
-				InitialStack,
-				sizeof(InitialStack),
-				&ResultLength);
-  if (!NT_SUCCESS(Status))
-    {
-      ULONG_PTR nSize = 0;
-
-      DPRINT("Failed to write initial stack.\n");
-
-      NtFreeVirtualMemory(*ProcessHandle,
-			  pStackLowest,
-			  &nSize,
-			  MEM_RELEASE);
-      NtClose(*ProcessHandle);
-      return(Status);
-    }
-
-  /* Create initial thread */
-  DPRINT("Creating thread for initial process\n");
-  Status = NtCreateThread(ThreadHandle,
-			  THREAD_ALL_ACCESS,
-			  NULL,
-			  *ProcessHandle,
-			  NULL,
-			  &Context,
-			  &InitialTeb,
-			  FALSE);
-  if (!NT_SUCCESS(Status))
-    {
-      ULONG_PTR nSize = 0;
-
-      DPRINT("NtCreateThread() failed (Status %lx)\n", Status);
-
-      NtFreeVirtualMemory(*ProcessHandle,
-			  pStackLowest,
-			  &nSize,
-			  MEM_RELEASE);
-
-      NtClose(*ProcessHandle);
-      return(Status);
-    }
-
-  DPRINT("Process created successfully\n");
-
-  return(STATUS_SUCCESS);
+			   &Context,
+			   NULL,
+			   FALSE);
+   if (!NT_SUCCESS(Status))
+     {
+	DPRINT("Thread creation failed (Status %x)\n", Status);
+	
+	/* FIXME: destroy the stack memory block here  */
+	/* FIXME: unmap the section here  */
+	/* FIXME: destroy the section here  */
+	
+	return Status;
+     }
+   
+   DPRINT("Attaching to process\n");
+   KeAttachProcess(Process);
+   Peb = (PPEB)PEB_BASE;
+   DPRINT("Peb %x\n", Peb);
+   DPRINT("CurrentProcess %x Peb->ImageBaseAddress %x\n", 
+	  PsGetCurrentProcess(),
+	  Peb->ImageBaseAddress);
+   KeDetachProcess();
+   
+   return STATUS_SUCCESS;
 }
 
 /* EOF */

@@ -1,42 +1,86 @@
-# $Id: makefile,v 1.23 2004/09/15 13:32:27 weiden Exp $
-
+# $Id: makefile,v 1.13 2001/07/15 21:18:54 rex Exp $
+#
+# Makefile for fmifs.dll
+#
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = dynlink
+TARGET=fmifs
+DLLTARGET=$(TARGET).dll
 
-TARGET_NAME = fmifs
 
-TARGET_BASE = $(TARGET_BASE_LIB_FMIFS)
+BASE_CFLAGS = -I../../include
 
-TARGET_ENTRY = _InitializeFmIfs@12
+all: $(DLLTARGET)
 
-TARGET_CFLAGS = -fno-builtin -Werror -Wall -D__USE_W32API
+IFS_OBJECTS = chkdsk.o compress.o diskcopy.o extend.o \
+	format.o init.o label.o media.o 
+	
+MISC_OBJECTS = dllmain.o $(TARGET).coff
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
+OBJECTS = $(IFS_OBJECTS) $(MISC_OBJECTS)
 
-TARGET_LFLAGS = -nostartfiles
+CLEAN_FILES = *.o *.a *.tmp *.dll *.sym *.coff
 
-TARGET_SDKLIBS = vfatlib.a ntdll.a kernel32.a
+$(TARGET).coff: $(TARGET).rc ../../include/reactos/resource.h
 
-TARGET_OBJECTS = \
-	chkdsk.o \
-	compress.o \
-	diskcopy.o \
-	extend.o \
-	format.o \
-	init.o \
-	label.o \
-	media.o 
+$(TARGET).a: $(OBJECTS)
+	$(AR) csr $(TARGET).a $(OBJECTS)
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+$(TARGET).dll: $(DLLMAIN) $(OBJECTS) $(TARGET).def
+	$(LD) -r $(OBJECTS) -o $(TARGET).o
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--def $(TARGET).def \
+		--kill-at \
+		--output-lib $(TARGET).a
+	$(CC) \
+		$(TARGET).o \
+		../ntdll/ntdll.a \
+		../kernel32/kernel32.a \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--entry=_DllMain@12\
+		-Wl,--base-file,base.tmp 
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).dll \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGET).edf
+	- $(RM) base.tmp
+	$(CC) \
+		$(TARGET).o \
+		../ntdll/ntdll.a \
+		../kernel32/kernel32.a \
+		-nostartfiles \
+		-nostdlib \
+		-mdll \
+		-o $(TARGET).dll \
+		-Wl,--entry=_DllMain@12\
+		-Wl,--image-base,0x76df0000 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,temp.exp
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).dll > $(TARGET).sym
 
-include $(PATH_TO_TOP)/rules.mak
+clean: 
+	- $(RM) $(CLEAN_FILES)
 
-include $(TOOLS_PATH)/helper.mk
+.PHONY: clean 
 
-include $(TOOLS_PATH)/depend.mk
+install: $(FLOPPY_DIR)/dlls/$(TARGET).dll
 
-TARGET_FILES = misc/*.o
+$(FLOPPY_DIR)/dlls/$(TARGET).dll: $(TARGET).dll
+	$(CP) $(TARGET).dll $(FLOPPY_DIR)/dlls/$(TARGET).dll
+
+dist: $(DIST_DIR)/dlls/$(TARGET).dll
+
+$(DIST_DIR)/dlls/$(TARGET).dll: $(TARGET).dll
+	$(CP) $(TARGET).dll ../../$(DIST_DIR)/dlls/$(TARGET).dll
+
+include ../../rules.mak
 
 # EOF

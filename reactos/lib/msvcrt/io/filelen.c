@@ -1,20 +1,16 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
 
-
-/*
- * @implemented
- */
 long _filelength(int _fd)
 {
-    DWORD len = GetFileSize(_get_osfhandle(_fd), NULL);
-    if (len == INVALID_FILE_SIZE) {
-    	DWORD oserror = GetLastError();
-    	if (oserror != 0) {
-    		_dosmaperr(oserror);
-    		return -1L;
-    	}
-    }
-    return (long)len;
+  return GetFileSize(_get_osfhandle(_fd),NULL);
+}
+
+__int64 _filelengthi64(int _fd)
+{
+  long lo_length, hi_length;
+
+  lo_length = GetFileSize(_get_osfhandle(_fd), &hi_length);
+
+  return((((__int64)hi_length) << 32) + lo_length);
 }
