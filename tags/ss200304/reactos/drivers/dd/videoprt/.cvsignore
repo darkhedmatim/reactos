@@ -1,0 +1,4 @@
+videoprt.coff
+*.o
+*.sym
+*.sys
