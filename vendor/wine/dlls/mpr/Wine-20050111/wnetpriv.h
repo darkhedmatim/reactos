@@ -1,5 +1,5 @@
 /*
- * MPR dll resources
+ * WNet private definitions
  *
  * Copyright (C) 2004 Juan Lang
  *
@@ -17,18 +17,11 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include "windef.h"
-#include "winbase.h"
-#include "winuser.h"
-#include "mprres.h"
 
-#include "version.rc"
+#ifndef __WNET_PRIV_H__
+#define __WNET_PRIV_H__
 
-#include "mpr_Cs.rc"
-#include "mpr_De.rc"
-#include "mpr_En.rc"
-#include "mpr_Nl.rc"
-#include "mpr_Es.rc"
-#include "mpr_It.rc"
-#include "mpr_Ja.rc"
-#include "mpr_Pt.rc"
+void wnetInit(HINSTANCE hInstDll);
+void wnetFree(void);
+
+#endif /* ndef __WNET_PRIV_H__ */
