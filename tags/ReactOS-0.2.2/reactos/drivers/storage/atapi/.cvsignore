@@ -1,0 +1,8 @@
+base.tmp
+junk.tmp
+temp.exp
+atapi.coff
+*.o
+*.sym
+*.sys
+*.map
