@@ -1,178 +1,138 @@
-/* $Id: lfile.c,v 1.11 2004/10/30 22:18:17 weiden Exp $
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * FILE:            lib/kernel32/file/lfile.c
- * PURPOSE:         Find functions
- * PROGRAMMER:      Ariadne ( ariadne@xs4all.nl)
- * UPDATE HISTORY:
- *                  Created 01/11/98
- */
-
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
-
-
 /*
- * @implemented
- */
-long
-STDCALL
-_hread(
-	HFILE	hFile,
-	LPVOID	lpBuffer,
-	long	lBytes
-	)
+* created:	Boudewijn Dekker
+* org. source:	WINE
+* date:		june 1998
+* todo:		check the _lopen for correctness
+*/
+
+#include <windows.h>
+#include <string.h>
+#include <wstring.h>
+
+
+
+
+long _hread(
+    HFILE  hFile,	
+    LPVOID  lpBuffer,	
+    long  lBytes 	
+   )
 {
-	DWORD	NumberOfBytesRead;
-	
-	if (ReadFile(
-		(HANDLE) hFile,
-		(LPVOID) lpBuffer,
-		(DWORD) lBytes,
-		& NumberOfBytesRead,
-		NULL
-		) == FALSE)
-	{
+	DWORD  NumberOfBytesRead;
+	if ( ReadFile((HANDLE)hFile,(LPCVOID)lpBuffer,(DWORD)lBytes,&NumberOfBytesRead, NULL) == FALSE )
 		return -1;
-	}
-	return NumberOfBytesRead;
+	else
+		return NumberOfBytesRead;
+
+}
+
+long 
+_lread(HFILE fd,LPVOID buffer,long count)
+{
+    return _hread(fd,buffer, count);
 }
 
 
-/*
- * @implemented
- */
-long
-STDCALL
-_hwrite (
-	HFILE	hFile,
-	LPCSTR	lpBuffer,
-	long	lBytes
-	)
+long _hwrite(
+    HFILE  hFile,	
+    LPCSTR  lpBuffer,	
+    long  lBytes 	
+   )
 {
-	DWORD	NumberOfBytesWritten;
-	
-	if (lBytes == 0)
-	{
+
+	DWORD  NumberOfBytesWritten;
+	if ( lBytes == 0 ) {
 		if ( SetEndOfFile((HANDLE) hFile ) == FALSE )
-		{
 			return -1;
-		}
-		return 0;
+		else
+			return 0;
 	}
-	if ( WriteFile(
-		(HANDLE) hFile,
-		(LPVOID) lpBuffer,
-		(DWORD) lBytes,
-		& NumberOfBytesWritten,
-		NULL
-		) == FALSE )
-	{
+	if ( WriteFile((HANDLE)hFile,(LPCVOID)lpBuffer,(DWORD)lBytes, &NumberOfBytesWritten,NULL) == FALSE )
 		return -1;
-	}
-	return NumberOfBytesWritten;
+	else
+		return NumberOfBytesWritten;
+
 }
 
 
-/*
- * @implemented
- */
-HFILE
-STDCALL
-_lopen (
-	LPCSTR	lpPathName,
-	int	iReadWrite
-	)
+long _lwrite(
+    HFILE  hFile,	
+    LPCSTR  lpBuffer,	
+    long  lBytes 	
+   )
 {
-	DWORD dwAccessMask = 0;
-	DWORD dwShareMode = 0;
+	return _hwrite(hFile,lpBuffer,lBytes);
+}
+
+#define OF_OPENMASK	(OF_READ|OF_READWRITE|OF_WRITE|OF_CREATE)
+#define OF_FILEMASK	(OF_DELETE|OF_PARSE)
+#define OF_MASK		(OF_OPENMASK|OF_FILEMASK)
+
+HFILE _open( LPCSTR  lpPathName, int  iReadWrite 	 )
+{
+
+
 	
-	if ( (iReadWrite & OF_READWRITE ) == OF_READWRITE )
-		dwAccessMask = GENERIC_READ | GENERIC_WRITE;
-	else if ( (iReadWrite & OF_READ ) == OF_READ )
-		dwAccessMask = GENERIC_READ;
-	else if ( (iReadWrite & OF_WRITE ) == OF_WRITE )
-		dwAccessMask = GENERIC_WRITE;
+	HFILE fd;
+	int nFunction;
+	
 
-	if ((iReadWrite & OF_SHARE_COMPAT) == OF_SHARE_COMPAT )
-		dwShareMode = FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE;
-	else if ((iReadWrite & OF_SHARE_DENY_NONE) == OF_SHARE_DENY_NONE)
-		dwShareMode = FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE;
-	else if ((iReadWrite & OF_SHARE_DENY_READ) == OF_SHARE_DENY_READ)
-		dwShareMode = FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-	else if ((iReadWrite & OF_SHARE_DENY_WRITE) == OF_SHARE_DENY_WRITE )
-		dwShareMode = FILE_SHARE_READ | FILE_SHARE_DELETE;
-	else if ((iReadWrite & OF_SHARE_EXCLUSIVE) == OF_SHARE_EXCLUSIVE)
-		dwShareMode = 0;
 
-	return (HFILE) CreateFileA(
-			lpPathName,
-			dwAccessMask,
-			dwShareMode,
-			NULL,
-			OPEN_EXISTING,
-			FILE_ATTRIBUTE_NORMAL,
-			NULL);
+   	
+	/* Don't assume a 1:1 relationship between OF_* modes and O_* modes */
+	/* Here we translate the read/write permission bits (which had better */
+	/* be the low 2 bits.  If not, we're in trouble.  Other bits are  */
+	/* passed through unchanged */
+	
+	nFunction = wFunction & 3;
+   	
+	switch (wFunction & 3) {
+		case OF_READ:
+			nFunction |= O_RDONLY;
+   			break;
+   		case OF_READWRITE:
+   			nFunction |= O_RDWR;
+   			break;
+   		case OF_WRITE:
+   			nFunction |= O_WRONLY;
+   			break;
+   		default:
+   			//ERRSTR((LF_ERROR, "_lopen: bad file open mode %x\n", wFunction));
+   			return HFILE_ERROR;
+   	}
+	SetLastError(0);
+	fd = CreateFileA( filename,nFunction,OPEN_EXISTING,
+			NULL,OPEN_EXISTING,NULL,NULL);	
+	if (fd == INVALID_HANDLE_VALUE )
+		 return HFILE_ERROR;
+	return fd;
+}
+
+int _creat(const char *filename, int pmode)
+{
+	SetLastError(0);
+	return CreateFileA( filename,GENERIC_READ & GENERIC_WRITE,FILE_SHARE_WRITE,
+			NULL,CREATE_ALWAYS,pmode & 0x00003FB7,NULL);	
 }
 
 
-/*
- * @implemented
- */
-HFILE
-STDCALL
-_lcreat (
-	LPCSTR	lpPathName,
-	int	iAttribute
-	)
+int _lclose(
+    HFILE  hFile 	
+   )
 {
-	return (HFILE) CreateFileA(
-			lpPathName,
-			GENERIC_ALL,
-			(FILE_SHARE_READ | FILE_SHARE_WRITE),
-			NULL,
-			CREATE_ALWAYS,
-			iAttribute & FILE_ATTRIBUTE_VALID_FLAGS,
-			NULL);
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-_lclose (
-	HFILE	hFile
-	)
-{
-	if (CloseHandle ((HANDLE)hFile))
-	{
+	if ( CloseHandle((HANDLE)hFile) )
 		return 0;
-	}
-	return -1;
+	else
+		rerturn -1; 
 }
 
-
-/*
- * @implemented
- */
-LONG
-STDCALL
-_llseek(
-	HFILE	hFile,
-	LONG	lOffset,
-	int	iOrigin
-	)
+LONG _llseek(
+    HFILE  hFile,
+    LONG  lOffset, 
+    int  iOrigin 
+   )
 {
-	return SetFilePointer (
-			(HANDLE) hFile,
-			lOffset,
-			NULL,
-			(DWORD) iOrigin);
+	return  SetFilePointer((HANDLE)  hFile,  lOffset, NULL,(DWORD)iOrigin );
 }
 
-/* EOF */
+
