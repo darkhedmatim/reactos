@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.42 2004/12/06 14:24:51 gdalsnes Exp $
+/* $Id: create.c,v 1.22 2001/09/09 12:21:37 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,23 +9,21 @@
  * UPDATE HISTORY:
  *                  Created 01/11/98
  *                  Removed use of SearchPath (not used by Windows)
- *                  18/08/2002: CreateFileW mess cleaned up (KJK::Hyperion)
- *                  24/08/2002: removed superfluous DPRINTs (KJK::Hyperion)
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
@@ -69,9 +67,6 @@ HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 }
 
 
-/*
- * @implemented
- */
 HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
@@ -86,20 +81,7 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
    HANDLE FileHandle;
    NTSTATUS Status;
    ULONG Flags = 0;
-   CSRSS_API_REQUEST Request;
-   CSRSS_API_REPLY Reply;
 
-   DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
-
-   if(hTemplateFile != NULL && hTemplateFile != INVALID_HANDLE_VALUE)
-   {
-    /* FIXME */
-    DPRINT1("Template file feature not supported yet\n");
-    SetLastError(ERROR_NOT_SUPPORTED);
-    return INVALID_HANDLE_VALUE;
-   }
-
-   /* validate & translate the creation disposition */
    switch (dwCreationDisposition)
      {
       case CREATE_NEW:
@@ -115,147 +97,41 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 	break;
 	
       case OPEN_ALWAYS:
-	dwCreationDisposition = FILE_OPEN_IF;
+	dwCreationDisposition = OPEN_ALWAYS;
 	break;
 
       case TRUNCATE_EXISTING:
 	dwCreationDisposition = FILE_OVERWRITE;
-        break;
-      
-      default:
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return (INVALID_HANDLE_VALUE);
      }
-
-   /* validate & translate the filename */
+   
+   DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
+   
+   if (dwDesiredAccess & GENERIC_READ)
+     dwDesiredAccess |= FILE_GENERIC_READ;
+   
+   if (dwDesiredAccess & GENERIC_WRITE)
+     dwDesiredAccess |= FILE_GENERIC_WRITE;
+   
+   if (!(dwFlagsAndAttributes & FILE_FLAG_OVERLAPPED))
+     {
+	Flags |= FILE_SYNCHRONOUS_IO_ALERT;
+     }
+   
    if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpFileName,
 				      &NtPathU,
 				      NULL,
 				      NULL))
-   {
-     DPRINT("Invalid path\n");
-     SetLastError(ERROR_PATH_NOT_FOUND);
      return INVALID_HANDLE_VALUE;
-   }
    
    DPRINT("NtPathU \'%S\'\n", NtPathU.Buffer);
-
-  /* validate & translate the flags */
-
-   /* translate the flags that need no validation */
-  if (!(dwFlagsAndAttributes & FILE_FLAG_OVERLAPPED)){
-    /* yes, nonalert is correct! apc's are not delivered
-    while waiting for file io to complete */
-    Flags |= FILE_SYNCHRONOUS_IO_NONALERT;
-  }
    
-   if(dwFlagsAndAttributes & FILE_FLAG_WRITE_THROUGH)
-    Flags |= FILE_WRITE_THROUGH;
-
-   if(dwFlagsAndAttributes & FILE_FLAG_NO_BUFFERING)
-    Flags |= FILE_NO_INTERMEDIATE_BUFFERING;
-
-   if(dwFlagsAndAttributes & FILE_FLAG_RANDOM_ACCESS)
-    Flags |= FILE_RANDOM_ACCESS;
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = NULL;
+   ObjectAttributes.ObjectName = &NtPathU;
+   ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
    
-   if(dwFlagsAndAttributes & FILE_FLAG_SEQUENTIAL_SCAN)
-    Flags |= FILE_SEQUENTIAL_ONLY;
-   
-   if(dwFlagsAndAttributes & FILE_FLAG_DELETE_ON_CLOSE)
-    Flags |= FILE_DELETE_ON_CLOSE;
-   
-   if(dwFlagsAndAttributes & FILE_FLAG_BACKUP_SEMANTICS)
-   {
-    if(dwDesiredAccess & GENERIC_ALL)
-      Flags |= FILE_OPEN_FOR_BACKUP_INTENT | FILE_OPEN_FOR_RECOVERY;
-    else
-    {
-      if(dwDesiredAccess & GENERIC_READ)
-        Flags |= FILE_OPEN_FOR_BACKUP_INTENT;
-      
-      if(dwDesiredAccess & GENERIC_WRITE)
-        Flags |= FILE_OPEN_FOR_RECOVERY;
-    }
-   }
-   else
-    Flags |= FILE_NON_DIRECTORY_FILE;
-    
-    
-  /* handle may allways be waited on and querying attributes are allways allowed */
-  dwDesiredAccess |= SYNCHRONIZE|FILE_READ_ATTRIBUTES; 
-
-   /* FILE_FLAG_POSIX_SEMANTICS is handled later */
-
-#if 0
-   /* FIXME: Win32 constants to be defined */
-   if(dwFlagsAndAttributes & FILE_FLAG_OPEN_REPARSE_POINT)
-    Flags |= FILE_OPEN_REPARSE_POINT;
-   
-   if(dwFlagsAndAttributes & FILE_FLAG_OPEN_NO_RECALL)
-    Flags |= FILE_OPEN_NO_RECALL;
-#endif
-
-   /* check for console output */
-   if (0 == _wcsicmp(L"CONOUT$", lpFileName))
-   {
-      /* FIXME: Send required access rights to Csrss */
-      Request.Type = CSRSS_GET_OUTPUT_HANDLE;
-      Status = CsrClientCallServer(&Request,
-			           &Reply,
-			           sizeof(CSRSS_API_REQUEST),
-			           sizeof(CSRSS_API_REPLY));
-      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Reply.Status))
-      {
-         SetLastErrorByStatus(Status);
-	 return INVALID_HANDLE_VALUE;
-      }
-      else
-      {
-         return Reply.Data.GetOutputHandleReply.OutputHandle;
-      }
-   }
-
-   /* check for console input */
-   if (0 == _wcsicmp(L"CONIN$", lpFileName))
-   {
-      /* FIXME: Send required access rights to Csrss */
-      Request.Type = CSRSS_GET_INPUT_HANDLE;
-      Status = CsrClientCallServer(&Request,
-			           &Reply,
-			           sizeof(CSRSS_API_REQUEST),
-			           sizeof(CSRSS_API_REPLY));
-      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Reply.Status))
-      {
-         SetLastErrorByStatus(Status);
-	 return INVALID_HANDLE_VALUE;
-      }
-      else
-      {
-         return Reply.Data.GetInputHandleReply.InputHandle;
-      }
-   }
-
-   /* build the object attributes */
-   InitializeObjectAttributes(
-    &ObjectAttributes,
-    &NtPathU,
-    0,
-    NULL,
-    NULL
-   );
-
-   if (lpSecurityAttributes)
-   {
-      if(lpSecurityAttributes->bInheritHandle)
-         ObjectAttributes.Attributes |= OBJ_INHERIT;
-
-      ObjectAttributes.SecurityDescriptor = lpSecurityAttributes->lpSecurityDescriptor;
-   }
-   
-   if(!(dwFlagsAndAttributes & FILE_FLAG_POSIX_SEMANTICS))
-    ObjectAttributes.Attributes |= OBJ_CASE_INSENSITIVE;
-
-   /* perform the call */
    Status = NtCreateFile (&FileHandle,
 			  dwDesiredAccess,
 			  &ObjectAttributes,
@@ -267,44 +143,13 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			  Flags,
 			  NULL,
 			  0);
-
-   RtlFreeUnicodeString(&NtPathU);
-
-   /* error */
    if (!NT_SUCCESS(Status))
-   {
-      /* In the case file creation was rejected due to CREATE_NEW flag
-       * was specified and file with that name already exists, correct
-       * last error is ERROR_FILE_EXISTS and not ERROR_ALREADY_EXISTS.
-       * Note: RtlNtStatusToDosError is not the subject to blame here.
-       */
-      if (Status == STATUS_OBJECT_NAME_COLLISION &&
-          dwCreationDisposition == FILE_CREATE)
-      {
-         SetLastError( ERROR_FILE_EXISTS );
-      }
-      else
-      {
-         SetLastErrorByStatus (Status);
-      }
-     
-      return INVALID_HANDLE_VALUE;
-   }
+     {
+	SetLastErrorByStatus (Status);
+	return INVALID_HANDLE_VALUE;
+     }
    
-  /*
-  create with OPEN_ALWAYS (FILE_OPEN_IF) returns info = FILE_OPENED or FILE_CREATED
-  create with CREATE_ALWAYS (FILE_OVERWRITE_IF) returns info = FILE_OVERWRITTEN or FILE_CREATED
-  */    
-  if (dwCreationDisposition == FILE_OPEN_IF)
-  {
-    SetLastError(IoStatusBlock.Information == FILE_OPENED ? ERROR_ALREADY_EXISTS : 0);
-  }
-  else if (dwCreationDisposition == FILE_OVERWRITE_IF)
-  {
-    SetLastError(IoStatusBlock.Information == FILE_OVERWRITTEN ? ERROR_ALREADY_EXISTS : 0);
-  }
-
-  return FileHandle;
+   return FileHandle;
 }
 
 /* EOF */

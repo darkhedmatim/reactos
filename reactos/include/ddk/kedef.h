@@ -44,7 +44,6 @@ typedef enum _KWAIT_REASON
    WrExecutive,
    WrFreePage,
    WrPageIn,
-   WrPoolAllocation,
    WrDelayExecution,
    WrSuspended,
    WrUserRequest,

@@ -1,4 +1,4 @@
-/* $Id: stddef.h,v 1.5 2003/01/05 18:27:19 robd Exp $
+/* $Id: stddef.h,v 1.2 2002/02/20 09:17:54 hyperion Exp $
  */
 /*
  * stddef.h
@@ -32,20 +32,7 @@
 
 /* TYPES */
 typedef signed long int ptrdiff_t;
-
-#ifndef _WCHAR_T_
-#define _WCHAR_T_
-#define _WCHAR_T
-#define _WCHAR_T_DEFINED
-#ifndef __WCHAR_TYPE__
-#define __WCHAR_TYPE__      short unsigned int
-#endif
-#ifndef __cplusplus
-typedef __WCHAR_TYPE__      wchar_t;
-#endif  /* C++ */
-#endif  /* _WCHAR_T_ */
-
-//typedef unsigned short int wchar_t;
+typedef unsigned short int wchar_t;
 
 /* CONSTANTS */
 #ifndef NULL

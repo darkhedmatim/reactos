@@ -1,4 +1,4 @@
-/* $Id: kill.c,v 1.4 2002/10/29 04:45:38 rex Exp $
+/* $Id: kill.c,v 1.2 2002/02/20 09:17:57 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory

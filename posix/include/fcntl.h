@@ -1,4 +1,4 @@
-/* $Id: fcntl.h,v 1.6 2002/10/29 04:45:08 rex Exp $
+/* $Id: fcntl.h,v 1.2 2002/02/20 09:17:54 hyperion Exp $
  */
 /*
  * fcntl.h
@@ -54,10 +54,10 @@ enum __fcntl_cmd
 {
  F_DUPFD,  /* duplicate file descriptor */
  F_GETFD,  /* get file descriptor flags */
- F_GETLK,  /* get record locking information */
  F_SETFD,  /* set file descriptor flags */
  F_GETFL,  /* get file status flags and file access modes */
- F_SETFL,  /* set file status flags */
+ F_SETFL,  /* Set file status flags */
+ F_GETLK,  /* get record locking information */
  F_SETLK,  /* set record locking information */
  F_SETLKW, /* set record locking information; wait if blocked */
 /* ReactOS-specific */
@@ -93,45 +93,45 @@ enum __fcntl_cmd
   file flags used for open()
  */
 /* Create file if it does not exist. */
-#define O_CREAT  (0x00000100)
-/* Truncate flag. */
-#define O_TRUNC  (0x00000200)
+#define O_CREAT  (0x00000001)
 /* Exclusive use flag. */
-#define O_EXCL   (0x00000400)
+#define O_EXCL   (0x00000002)
 /* Do not assign controlling terminal. */
-#define O_NOCTTY (0x00000800)
+#define O_NOCTTY (0x00000004)
+/* Truncate flag. */
+#define O_TRUNC  (0x00000008)
 /* ReactOS-specific */
 /* File must be a directory */
-#define _O_DIRFILE (0x00100000)
+#define _O_DIRFILE (0x00000010)
 
 /*
   file status flags used for open() and fcntl()
  */
 /* Set append mode. */
-#define O_APPEND   (0x00000008)
-/* Non-blocking mode. */
-#define O_NONBLOCK (0x00001000)
+#define O_APPEND   (0x00000100)
 /* Write according to synchronised I/O data integrity completion. */
-#define O_DSYNC    (0x00002000)
+#define O_DSYNC    (0x00000200)
+/* Non-blocking mode. */
+#define O_NONBLOCK (0x00000400)
 /* Synchronised read I/O operations. */
-#define O_RSYNC    (0x00004000)
+#define O_RSYNC    (0x00000800)
 /* Write according to synchronised I/O file integrity completion. */
-#define O_SYNC     (0x00008000)
+#define O_SYNC     (0x00001000)
 
 /* 
   file access modes used for open() and fcntl()
  */
 /* Open for reading only. */
-#define O_RDONLY (0x00000000)
-/* Open for writing only. */
-#define O_WRONLY (0x00000001)
+#define O_RDONLY (0x01000000)
 /* Open for reading and writing. */
-#define O_RDWR   (0x00000002)
+#define O_RDWR   (0x02000000)
+/* Open for writing only. */
+#define O_WRONLY (0x04000000)
 
 /* 
   mask for use with file access modes
  */
-#define O_ACCMODE (0x00000007)
+#define O_ACCMODE (O_RDONLY | O_RDWR | O_WRONLY)
 
 /* PROTOTYPES */
 int  creat(const char *, mode_t);

@@ -1,4 +1,4 @@
-/* $Id: readdir.c,v 1.7 2002/10/29 04:45:28 rex Exp $
+/* $Id: readdir.c,v 1.2 2002/02/20 09:17:56 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -136,6 +136,7 @@ struct _Wdirent *_Wreaddir(DIR *dirp)
 
  INFO("this entry: %ls", pidData->info.FileName);
 
+#if 0
  /* file inodes are not returned by NtQueryDirectoryFile, we have to open every file */
  /* set file's object attributes */
  wstrFileName.Length = pidData->info.FileNameLength;
@@ -143,7 +144,7 @@ struct _Wdirent *_Wreaddir(DIR *dirp)
  wstrFileName.Buffer = &pidData->info.FileName[0];
 
  oaFileAttribs.Length = sizeof(OBJECT_ATTRIBUTES);
- oaFileAttribs.RootDirectory = hDir;
+ oaFileAttribs.RootDirectory = pidData->dirhandle;
  oaFileAttribs.ObjectName = &wstrFileName;
  oaFileAttribs.Attributes = 0;
  oaFileAttribs.SecurityDescriptor = NULL;
@@ -153,7 +154,7 @@ struct _Wdirent *_Wreaddir(DIR *dirp)
  nErrCode = NtOpenFile
  (
   &hFile,
-  FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+  FILE_READ_ATTRIBUTES,
   &oaFileAttribs,
   &isbStatus,
   0,
@@ -191,6 +192,10 @@ struct _Wdirent *_Wreaddir(DIR *dirp)
 
  /* return file inode */
  pidData->ent.de_unicode.d_ino = (ino_t)fiiInfo.IndexNumber.QuadPart;
+#endif
+
+ FIXME("file inodes currently hardcoded to 0");
+ pidData->ent.de_unicode.d_ino = 0;
 
  /* return file name */
  pidData->ent.de_unicode.d_name = &pidData->info.FileName[0];

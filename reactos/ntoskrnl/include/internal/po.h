@@ -1,4 +1,4 @@
-/* $Id: po.h,v 1.3 2002/09/08 10:23:23 chorns Exp $
+/* $Id: po.h,v 1.1 2001/05/01 23:08:19 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel

@@ -32,12 +32,6 @@
 #ifndef _GNU_H_WINDOWS32_MESSAGES
 #define _GNU_H_WINDOWS32_MESSAGES
 
-#ifdef __USE_W32API
-
-#include <winuser.h>
-
-#else /* __USE_W32API */
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -50,13 +44,11 @@ extern "C" {
 /* Animation Control */
 #define ACM_OPENW	(1127)
 #define ACM_OPENA	(1124)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define ACM_OPEN ACM_OPENW
 #else
 #define ACM_OPEN ACM_OPENA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define ACM_PLAY	(1125)
 #define ACM_STOP	(1126)
 #define ACN_START	(1)
@@ -258,7 +250,6 @@ extern "C" {
 #define HDM_GETITEMA	(4611)
 #define HDM_INSERTITEMA	(4609)
 #define HDM_SETITEMA	(4612)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define HDM_GETITEM HDM_GETITEMW
 #define HDM_INSERTITEM HDM_INSERTITEMW
@@ -268,7 +259,6 @@ extern "C" {
 #define HDM_INSERTITEM HDM_INSERTITEMA
 #define HDM_SETITEM HDM_SETITEMA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define HDM_GETITEMCOUNT	(4608)
 #define HDM_HITTEST	(4614)
 #define HDM_LAYOUT	(4613)
@@ -290,7 +280,6 @@ extern "C" {
 #define HDN_ITEMCLICKA	(-302)
 #define HDN_ITEMDBLCLICKA	(-303)
 #define HDN_TRACKA	(-308)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define HDN_BEGINTRACK HDN_BEGINTRACKW
 #define HDN_DIVIDERDBLCLICK HDN_DIVIDERDBLCLICKW
@@ -310,7 +299,6 @@ extern "C" {
 #define HDN_ITEMDBLCLICK HDN_ITEMDBLCLICKA
 #define HDN_TRACK HDN_TRACKA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 /* Hot key control */
 #define HKM_GETHOTKEY	(1026)
@@ -404,7 +392,6 @@ extern "C" {
 #define LVM_SETCOLUMNA	(4122)
 #define LVM_SETITEMA	(4102)
 #define LVM_SETITEMTEXTA	(4142)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define LVM_EDITLABEL LVM_EDITLABELW
 #define LVM_FINDITEM LVM_FINDITEMW
@@ -432,7 +419,6 @@ extern "C" {
 #define LVM_SETITEM LVM_SETITEMA
 #define LVM_SETITEMTEXT LVM_SETITEMTEXTA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define LVM_GETITEMCOUNT	(4100)
 #define LVM_GETITEMPOSITION	(4112)
 #define LVM_GETITEMRECT	(4110)
@@ -475,7 +461,6 @@ extern "C" {
 #define LVN_ENDLABELEDITA	(-106)
 #define LVN_GETDISPINFOA	(-150)
 #define LVN_SETDISPINFOA	(-151)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define LVN_BEGINLABELEDIT LVN_BEGINLABELEDITW
 #define LVN_ENDLABELEDIT LVN_ENDLABELEDITW
@@ -487,7 +472,6 @@ extern "C" {
 #define LVN_GETDISPINFO LVN_GETDISPINFOA
 #define LVN_SETDISPINFO LVN_SETDISPINFOA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define LVN_INSERTITEM	(-102)
 #define LVN_ITEMCHANGED	(-101)
 #define LVN_ITEMCHANGING	(-100)
@@ -531,7 +515,6 @@ extern "C" {
 #define PSM_SETTITLEW	(1144)
 #define PSM_SETFINISHTEXTA	(1139)
 #define PSM_SETTITLEA	(1135)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define PSM_SETFINISHTEXT PSM_SETFINISHTEXTW
 #define PSM_SETTITLE PSM_SETTITLEW
@@ -539,7 +522,6 @@ extern "C" {
 #define PSM_SETFINISHTEXT PSM_SETFINISHTEXTA
 #define PSM_SETTITLE PSM_SETTITLEA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define PSM_SETWIZBUTTONS	(1136)
 #define PSM_UNCHANGED	(1133)
 
@@ -564,7 +546,6 @@ extern "C" {
 #define SB_GETTEXTA	(1026)
 #define SB_GETTEXTLENGTHA	(1027)
 #define SB_SETTEXTA	(1025)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define SB_GETTEXT SB_GETTEXTW
 #define SB_GETTEXTLENGTH SB_GETTEXTLENGTHW
@@ -574,7 +555,6 @@ extern "C" {
 #define SB_GETTEXTLENGTH SB_GETTEXTLENGTHA
 #define SB_SETTEXT SB_SETTEXTA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define SB_SETMINHEIGHT	(1032)
 #define SB_SETPARTS	(1028)
 #define SB_SIMPLE	(1033)
@@ -622,7 +602,6 @@ extern "C" {
 #define TB_ADDSTRINGA	(1052)
 #define TB_GETBUTTONTEXTA	(1069)
 #define TB_SAVERESTOREA	(1050)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TB_ADDSTRING TB_ADDSTRINGW
 #define TB_GETBUTTONTEXT TB_GETBUTTONTEXTW
@@ -632,7 +611,6 @@ extern "C" {
 #define TB_GETBUTTONTEXT TB_GETBUTTONTEXTA
 #define TB_SAVERESTORE TB_SAVERESTOREA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TB_GETITEMRECT	(1053)
 #define TB_GETROWS	(1064)
 #define TB_GETSTATE	(1042)
@@ -692,13 +670,11 @@ extern "C" {
 #define TBN_ENDDRAG	(-702)
 #define TBN_GETBUTTONINFOW	(-720)
 #define TBN_GETBUTTONINFOA	(-700)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TBN_GETBUTTONINFO TBN_GETBUTTONINFOW
 #else
 #define TBN_GETBUTTONINFO TBN_GETBUTTONINFOA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TBN_QUERYDELETE	(-707)
 #define TBN_QUERYINSERT	(-706)
 #define TBN_RESET	(-705)
@@ -717,7 +693,6 @@ extern "C" {
 #define TCM_GETITEMA	(4869)
 #define TCM_INSERTITEMA	(4871)
 #define TCM_SETITEMA	(4870)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TCM_GETITEM TCM_GETITEM
 #define TCM_INSERTITEM TCM_INSERTITEMW
@@ -727,7 +702,6 @@ extern "C" {
 #define TCM_INSERTITEM TCM_INSERTITEMA
 #define TCM_SETITEM TCM_SETITEMA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TCM_GETITEMCOUNT	(4868)
 #define TCM_GETITEMRECT	(4874)
 #define TCM_GETROWCOUNT	(4908)
@@ -769,7 +743,6 @@ extern "C" {
 #define TTM_NEWTOOLRECTA	(1030)
 #define TTM_SETTOOLINFOA	(1033)
 #define TTM_UPDATETIPTEXTA	(1036)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TTM_ADDTOOL TTM_ADDTOOLW
 #define TTM_DELTOOL TTM_DELTOOLW
@@ -793,7 +766,6 @@ extern "C" {
 #define TTM_SETTOOLINFO TTM_SETTOOLINFOA
 #define TTM_UPDATETIPTEXT TTM_UPDATETIPTEXTA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TTM_GETTOOLCOUNT	(1037)
 #define TTM_RELAYEVENT	(1031)
 #define TTM_SETDELAYTIME	(1027)
@@ -802,13 +774,11 @@ extern "C" {
 /* Tool tip control notification */
 #define TTN_NEEDTEXTW	(-530)
 #define TTN_NEEDTEXTA	(-520)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TTN_NEEDTEXT TTN_NEEDTEXTW
 #else
 #define TTN_NEEDTEXT TTN_NEEDTEXTA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TTN_POP	(-522)
 #define TTN_SHOW	(-521)
 
@@ -836,7 +806,6 @@ extern "C" {
 #define TVM_GETITEMA	(4364)
 #define TVM_INSERTITEMA	(4352)
 #define TVM_SETITEMA	(4365)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TVM_EDITLABEL TVM_EDITLABELW
 #define TVM_GETISEARCHSTRING TVM_GETISEARCHSTRINGW
@@ -850,7 +819,6 @@ extern "C" {
 #define TVM_INSERTITEM TVM_INSERTITEMA
 #define TVM_SETITEM TVM_SETITEMA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 #define TVM_SELECTITEM	(4363)
 #define TVM_SETIMAGELIST	(4361)
 #define TVM_SETINDENT	(4359)
@@ -881,7 +849,6 @@ extern "C" {
 #define TVN_SELCHANGEDA	(-402)
 #define TVN_SELCHANGINGA	(-401)
 #define TVN_SETDISPINFOA	(-404)
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define TVN_BEGINDRAG TVN_BEGINDRAGW
 #define TVN_BEGINLABELEDIT TVN_BEGINLABELEDITW
@@ -907,7 +874,6 @@ extern "C" {
 #define TVN_SELCHANGING TVN_SELCHANGINGA
 #define TVN_SETDISPINFO TVN_SETDISPINFOA
 #endif /* UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 /* Up/down control */
 #define UDM_GETACCEL	(1132)
@@ -966,7 +932,6 @@ extern "C" {
 #define WM_DRAWCLIPBOARD	(776)
 #define WM_DRAWITEM	(43)
 #define WM_DROPFILES	(563)
-#define WM_DROPOBJECT   (544)
 #define WM_ENABLE	(10)
 #define WM_ENDSESSION	(22)
 #define WM_ENTERIDLE	(289)
@@ -1007,7 +972,6 @@ extern "C" {
 #define WM_KEYDOWN	(256)
 #define WM_KEYUP	(257)
 #define WM_KILLFOCUS	(8)
-#define WM_SETVISIBLE   (9)
 #define WM_LBUTTONDBLCLK	(515)
 #define WM_LBUTTONDOWN	(513)
 #define WM_LBUTTONUP	(514)
@@ -1031,7 +995,6 @@ extern "C" {
 #define WM_MENUSELECT	(287)
 #define WM_MOUSEACTIVATE	(33)
 #define WM_MOUSEMOVE	(512)
-#define WM_MOUSEWHEEL   (522)
 #define WM_MOVE	(3)
 #define WM_MOVING	(534)
 #define WM_NCACTIVATE	(134)
@@ -1050,11 +1013,7 @@ extern "C" {
 #define WM_NCRBUTTONDBLCLK	(166)
 #define WM_NCRBUTTONDOWN	(164)
 #define WM_NCRBUTTONUP	(165)
-#define WM_NCXBUTTONDOWN	(171)
-#define WM_NCXBUTTONUP	(172)
-#define WM_NCXBUTTONDBLCLK	(173)
 #define WM_NEXTDLGCTL	(40)
-#define WM_NEXTMENU	(531)
 #define WM_NOTIFY	(78)
 #define WM_NOTIFYFORMAT	(85)
 #define WM_NULL         (0)
@@ -1079,7 +1038,6 @@ extern "C" {
 #define WM_PSD_PAGESETUPDLG	(1024)
 #define WM_PSD_YAFULLPAGERECT	(1030)
 #define WM_QUERYDRAGICON	(55)
-#define WM_QUERYDROPOBJECT      (555)
 #define WM_QUERYENDSESSION	(17)
 #define WM_QUERYNEWPALETTE	(783)
 #define WM_QUERYOPEN	(19)
@@ -1105,7 +1063,6 @@ extern "C" {
 #define WM_SPOOLERSTATUS	(42)
 #define WM_STYLECHANGED	(125)
 #define WM_STYLECHANGING	(124)
-#define WM_SYNCPAINT    (136)
 #define WM_SYSCHAR	(262)
 #define WM_SYSCOLORCHANGE	(21)
 #define WM_SYSCOMMAND	(274)
@@ -1115,7 +1072,6 @@ extern "C" {
 #define WM_TCARD	(82)
 #define WM_TIMECHANGE	(30)
 #define WM_TIMER	(275)
-#define WM_SYSTIMER	(280)
 #define WM_UNDO	(772)
 #define WM_USER	(1024)
 #define WM_USERCHANGED	(84)
@@ -1125,20 +1081,15 @@ extern "C" {
 #define WM_WINDOWPOSCHANGED	(71)
 #define WM_WINDOWPOSCHANGING	(70)
 #define WM_WININICHANGE	(26)
-#define WM_XBUTTONDOWN  (523)
-#define WM_XBUTTONUP    (524)
-#define WM_XBUTTONDBLCLK    (525)
 
 /* Window message ranges */
 #define WM_KEYFIRST	(256)
 #define WM_KEYLAST	(264)
 #define WM_MOUSEFIRST	(512)
-#define WM_MOUSELAST	(525)
+#define WM_MOUSELAST	(521)
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#endif /* __USE_W32API */
 
 #endif /* _GNU_H_WINDOWS32_MESSAGES */

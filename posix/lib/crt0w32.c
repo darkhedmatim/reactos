@@ -1,10 +1,10 @@
-/* $Id: crt0w32.c,v 1.4 2002/10/29 04:45:26 rex Exp $
+/* $Id: crt0w32.c,v 1.1 2002/01/20 21:24:49 ea Exp $
  * 
  * PROJECT    : ReactOS / POSIX+ personality
- * FILE       : subsys/psx/lib/crt0w32.c
+ * FILE       : subsys/psx/lib/cr0w32.c
  * DESCRIPTION: startup code for POSIX+ applications.
  * DATE       : 2002-01-18
- * AUTHOR     : Emanuele Aliberti <eal@users.sf.net>
+ * AUTHOR     : Emanuele Aliberti <ea@iol.it>
  */
 
 extern void __stdcall __PdxInitializeData(int*,char***);

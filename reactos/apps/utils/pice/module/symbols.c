@@ -97,7 +97,6 @@ ULONG ulNumStructMembers;
 
 BOOLEAN Expression(PVRET pvr);
 
-LIST_ENTRY *pModuleListHead = NULL;
 extern PDIRECTORY_OBJECT *pNameSpaceRoot;
 extern PDEBUG_MODULE pdebug_module_tail;
 extern PDEBUG_MODULE pdebug_module_head;
@@ -165,7 +164,7 @@ BOOLEAN InitModuleList( PDEBUG_MODULE *ppmodule, ULONG len )
 
 BOOLEAN ListUserModules( PPEB peb )
 {
-	PLIST_ENTRY UserModuleListHead;
+	PLIST_ENTRY ModuleListHead;
 	PLIST_ENTRY Entry;
 	PLDR_MODULE Module;
 	PPEB_LDR_DATA Ldr;
@@ -174,10 +173,10 @@ BOOLEAN ListUserModules( PPEB peb )
 
 	Ldr = peb->Ldr;
 	if( Ldr && IsAddressValid((ULONG)Ldr)){
-		UserModuleListHead = &Ldr->InLoadOrderModuleList;
-		ASSERT(IsAddressValid((ULONG)UserModuleListHead));
-		Entry = UserModuleListHead->Flink;
-		while (Entry != UserModuleListHead)
+		ModuleListHead = &Ldr->InLoadOrderModuleList;
+		ASSERT(IsAddressValid((ULONG)ModuleListHead));
+		Entry = ModuleListHead->Flink;
+		while (Entry != ModuleListHead)
 		{
 			Module = CONTAINING_RECORD(Entry, LDR_MODULE, InLoadOrderModuleList);
 			//DbgPrint("Module: %x, BaseAddress: %x\n", Module, Module->BaseAddress);
@@ -215,8 +214,8 @@ POBJECT FindDriverObjectDirectory( void )
 	   	 	DPRINT((0,"Scanning %S\n",current_obj->Name.Buffer));
 			if (_wcsicmp(current_obj->Name.Buffer, L"Modules")==0)
 			{
+				DPRINT((0,"Found it %x\n",HEADER_TO_BODY(current_obj)));
 				pd=HEADER_TO_BODY(current_obj);
-				DPRINT((0,"Found it %x\n",pd));
 				return pd;
 			}
 		  	current = current->Flink;
@@ -228,35 +227,37 @@ POBJECT FindDriverObjectDirectory( void )
 
 BOOLEAN ListDriverModules( void )
 {
-    PLIST_ENTRY current_entry;
-	PMODULE_OBJECT current;
+    PLIST_ENTRY current;
     POBJECT_HEADER current_obj;
+	PDIRECTORY_OBJECT pd;
+	PMODULE pm;
 
 	ENTER_FUNC();
 
-	ASSERT( pModuleListHead );
-
-	current_entry = pModuleListHead->Flink;
-
-  	while (current_entry != (pModuleListHead)){
-
-		current = CONTAINING_RECORD(current_entry,MODULE_OBJECT,ListEntry);
-
-		DPRINT((0,"FullName: %S, BaseName: %S, Length: %ld, EntryPoint: %x\n", current->FullName.Buffer,
-				current->BaseName.Buffer, current->Length, current->EntryPoint ));
-
-		pdebug_module_tail->BaseAddress = current->Base;
-		pdebug_module_tail->size = current->Length;
-		PICE_wcscpy( pdebug_module_tail->name, current->BaseName.Buffer);
-		pdebug_module_tail->EntryPoint = current->EntryPoint;
-
-		pdebug_module_tail = pdebug_module_tail->next;
-
-		if (current && _wcsicmp(current->BaseName.Buffer, L"ntoskrnl")==0)
+	if( pd = (PDIRECTORY_OBJECT) FindDriverObjectDirectory() ){
+		current = pd->head.Flink;
+		while (current!=(&(pd->head)))
 		{
-		   kernel_end = (ULONG)current->Base + current->Length;
+			current_obj = CONTAINING_RECORD(current,OBJECT_HEADER,Entry);
+	   	 	DPRINT((0,"Modules %S\n",current_obj->Name.Buffer));
+			pm = HEADER_TO_BODY(current_obj);
+			DPRINT((0,"FullName: %S, BaseName: %S, Length: %ld, EntryPoint: %x\n", pm->FullName.Buffer,
+					pm->BaseName.Buffer, pm->Length, pm->EntryPoint ));
+
+			pdebug_module_tail->size = pm->Length;
+			pdebug_module_tail->BaseAddress = pm->Base;
+			pdebug_module_tail->EntryPoint = pm->EntryPoint;
+			PICE_wcscpy( pdebug_module_tail->name, pm->BaseName.Buffer);
+			pdebug_module_tail = pdebug_module_tail->next;
+
+
+			if (_wcsicmp(pm->BaseName.Buffer, L"ntoskrnl")==0 && pm)
+			{
+			   kernel_end = (ULONG)pm->Base + pm->Length;
+		    }
+
+			current = current->Flink;
 		}
-		current_entry = current_entry->Flink;
 	}
 
 	LEAVE_FUNC();
@@ -270,10 +271,12 @@ BOOLEAN BuildModuleList( void )
 	ENTER_FUNC();
 
 	pdebug_module_tail = pdebug_module_head;
+
 	tsk = IoGetCurrentProcess();
 	ASSERT(IsAddressValid((ULONG)tsk));
 	if( tsk  ){
 		peb = tsk->Peb;
+		ASSERT(IsAddressValid((ULONG)peb));
 		if( peb ){
 			if( !ListUserModules( peb ) ){
 				LEAVE_FUNC();
@@ -483,7 +486,6 @@ PICE_SYMBOLFILE_HEADER* FindModuleSymbols(ULONG addr)
                     DPRINT((0,"FindModuleSymbols(): address matches %S %x-%x\n",pd->name,start,end));
                     for(i=0;i<ulNumSymbolsLoaded;i++)
                     {
-						DPRINT((0,"%S -", apSymbols[i]->name ));
                         if(PICE_wcsicmp(pd->name,apSymbols[i]->name) == 0)
 						{
 							if(ValidityCheckSymbols(apSymbols[i]))
@@ -815,8 +817,8 @@ LPSTR FindFunctionByAddress(ULONG ulValue,PULONG pulstart,PULONG pulend)
 
 					while( pSym < pSymEnd )
 					{
-						//symbol is a function is it's type is 0x20, and section>0
-						if(( (pSym->Type == 0x20) &&
+						//symbol is a function is it's type is 0x20, storage class is external and section>0
+						if(( (pSym->Type == 0x20)  && (pSym->StorageClass==IMAGE_SYM_CLASS_EXTERNAL) &&
 						   (pSym->SectionNumber > 0 )))
 						{
 							ULONG ulCurrAddr;
@@ -1033,9 +1035,7 @@ ULONG ExtractTypeNumber(LPSTR p)
 	ULONG ulTypeNumber = 0;
 
     DPRINT((0,"ExtractTypeNumber(%s)\n",p));
-
 	pTypeNumber = PICE_strchr(p,'(');
-
 	if(pTypeNumber)
 	{
 		pTypeNumber++;
@@ -1203,84 +1203,84 @@ LPSTR FindTypeDefinition(PICE_SYMBOLFILE_HEADER* pSymbols,ULONG ulTypeNumber,ULO
 
         switch(pStab->n_type)
         {
-	case N_UNDF:
-	  nOffset += nNextOffset;
-	  nNextOffset = pStab->n_value;
-	  break;
-	case N_SO:
-	  if((strLen = PICE_strlen(pName)))
-	    {
-	      if(pName[strLen-1]!='/')
-		{
-		  ulCurrentFileNumber++;
-		  if(PICE_strlen(szCurrentPath))
-		    {
-		      PICE_strcat(szCurrentPath,pName);
-		      DPRINT((0,"FindTypeDefinition()1: cha %s, %u\n",szCurrentPath, ulCurrentFileNumber));
-		    }
-		  else
-		    {
-		      DPRINT((0,"FindTypeDefinition(): cha %s, %u\n",pName, ulCurrentFileNumber));
-		    }
-		}
-	      else
-		PICE_strcpy(szCurrentPath,pName);
-	    }
-	  else
-	    {
-	      szCurrentPath[0]=0;
-	    }
-	  break;
-	case N_LSYM:
+            case N_UNDF:
+                nOffset += nNextOffset;
+                nNextOffset = pStab->n_value;
+                break;
+            case N_SO:
+                if((strLen = PICE_strlen(pName)))
+                {
+                    if(pName[strLen-1]!='/')
+                    {
+						ulCurrentFileNumber++;
+                        if(PICE_strlen(szCurrentPath))
+                        {
+                            PICE_strcat(szCurrentPath,pName);
+                            DPRINT((0,"FindTypeDefinition()1: cha %s, %u\n",szCurrentPath, ulCurrentFileNumber));
+                        }
+                        else
+                        {
+                            DPRINT((0,"FindTypeDefinition(): cha %s, %u\n",pName, ulCurrentFileNumber));
+                        }
+                    }
+                    else
+                        PICE_strcpy(szCurrentPath,pName);
+                }
+                else
+				{
+                    szCurrentPath[0]=0;
+				}
+				break;
+			case N_LSYM:
 				// stab has no value -> must be type definition
 				//ei File number count is not reliable
-	  if(pStab->n_value == 0 /*&& ulCurrentFileNumber==ulFileNumber*/)
-	    {
-	      DPRINT((0,"FindTypeDefinition(): pre type definition %s\n",pName));
-	      // handle multi-line symbols
-	      if(strrchr(pName,'\\'))
-		{
-		  if(PICE_strlen(szAccumulatedName))
-		    {
-		      PICE_strcat(szAccumulatedName,pName);
-		      DPRINT((0,"FindTypeDefinition(): [1] accum. %s\n",szAccumulatedName));
-		    }
-		  else
-		    {
-		      PICE_strcpy(szAccumulatedName,pName);
-		      DPRINT((0,"FindTypeDefinition(): [2] accum. %s\n",szAccumulatedName));
-		    }
-		  szAccumulatedName[PICE_strlen(szAccumulatedName)-1]=0;
-		}
-	      else
-		{
-		  DPRINT((0,"FindTypeDefinition(): [3] accum. %s, pname: %s\n",szAccumulatedName, pName));
-		  if(PICE_strlen(szAccumulatedName)==0)
-		    {
-		      PICE_strcpy(szAccumulatedName,pName);
-		    }
-		  else
-		    {
-		      PICE_strcat(szAccumulatedName,pName);
-		    }
-		  pTypeString = szAccumulatedName;
+				if(pStab->n_value == 0 /*&& ulCurrentFileNumber==ulFileNumber*/)
+				{
+                    DPRINT((0,"FindTypeDefinition(): pre type definition %s\n",pName));
+					// handle multi-line symbols
+					if(strrchr(pName,'\\'))
+					{
+						if(PICE_strlen(szAccumulatedName))
+						{
+							PICE_strcat(szAccumulatedName,pName);
+                            DPRINT((0,"FindTypeDefinition(): [1] accum. %s\n",szAccumulatedName));
+						}
+						else
+						{
+							PICE_strcpy(szAccumulatedName,pName);
+                            DPRINT((0,"FindTypeDefinition(): [2] accum. %s\n",szAccumulatedName));
+						}
+                        szAccumulatedName[PICE_strlen(szAccumulatedName)-1]=0;
+					}
+					else
+					{
+                        DPRINT((0,"FindTypeDefinition(): [3] accum. %s, pname: %s\n",szAccumulatedName, pName));
+						if(PICE_strlen(szAccumulatedName)==0)
+                        {
+                            PICE_strcpy(szAccumulatedName,pName);
+                        }
+                        else
+                        {
+                            PICE_strcat(szAccumulatedName,pName);
+                        }
+                        pTypeString = szAccumulatedName;
 
-		  pTypeSymbol = PICE_strchr(pTypeString,':');
-		  if(pTypeSymbol && (*(pTypeSymbol+1)=='t' || *(pTypeSymbol+1)=='T'))
-		    {
-		      // parse it
-		      ulCurrentTypeNumber = ExtractTypeNumber(pTypeString);
-		      DPRINT((0,"FindTypeDefinition(): ulCurrType: %u, LSYM is type %s\n",ulCurrentTypeNumber,pName));
-		      if(ulCurrentTypeNumber == ulTypeNumber)
-			{
-			  DPRINT((0,"FindTypeDefinition(): type definition %s\n",pTypeString));
-			  return pTypeString;
-			}
-		    }
-		  *szAccumulatedName=0;
-		}
-	    }
-	  break;
+                        pTypeSymbol = PICE_strchr(pTypeString,':');
+						if(pTypeSymbol && (*(pTypeSymbol+1)=='t' || *(pTypeSymbol+1)=='T'))
+						{
+							// parse it
+							ulCurrentTypeNumber = ExtractTypeNumber(pTypeString);
+                            DPRINT((0,"FindTypeDefinition(): ulCurrType: %u, LSYM is type %s\n",ulCurrentTypeNumber,pName));
+							if(ulCurrentTypeNumber == ulTypeNumber)
+							{
+                                DPRINT((0,"FindTypeDefinition(): type definition %s\n",pTypeString));
+								return pTypeString;
+							}
+						}
+                        *szAccumulatedName=0;
+					}
+				}
+				break;
         }
         pStab++;
     }
@@ -1914,7 +1914,7 @@ BOOLEAN LoadExports(void)
 	ENTER_FUNC();
 
     Print(OUTPUT_WINDOW,"pICE: loading exports...\n");
-	hf = PICE_open(L"\\SystemRoot\\symbols\\ntoskrnl.map",OF_READ);
+	hf = PICE_open(L"\\SystemRoot\\symbols\\ntoskrnl.sym",OF_READ);
 	/*
 	if(hf)
     {
@@ -2288,108 +2288,103 @@ void SkipSpaces(void)
 //*************************************************************************
 BOOLEAN FindGlobalStabSymbol(LPSTR pExpression,PULONG pValue,PULONG pulTypeNumber,PULONG pulFileNumber)
 {
-  ULONG i;
-  PSTAB_ENTRY pStab;
-  LPSTR pStr,pName;
-  int nStabLen;
-  int nOffset=0,nNextOffset=0,nLen,strLen;
-  PICE_SYMBOLFILE_HEADER* pSymbols;
-  ULONG ulTypeNumber;
-  static char SymbolName[1024];
-  static char szCurrentPath[256];
-  ULONG ulCurrentFileNumber=0;
-  LPSTR pTypeDefIncluded;
-  ULONG addr;
+    ULONG i;
+    PSTAB_ENTRY pStab;
+    LPSTR pStr,pName;
+    int nStabLen;
+    int nOffset=0,nNextOffset=0,nLen,strLen;
+    PICE_SYMBOLFILE_HEADER* pSymbols;
+	ULONG ulTypeNumber;
+	static char SymbolName[1024];
+    static char szCurrentPath[256];
+	ULONG ulCurrentFileNumber=0;
+    LPSTR pTypeDefIncluded;
+    ULONG addr;
 
-  // must have a current module
-  if(pCurrentMod)
-    {
-      // in case we query for the kernel we need to use the fake kernel module
-      addr = (ULONG)pCurrentMod->BaseAddress;
-
-      // find the symbols for the module
-      pSymbols = FindModuleSymbols(addr);
-      if(pSymbols)
+    // must have a current module
+	if(pCurrentMod)
 	{
-	  // prepare table access
-	  pStab = (PSTAB_ENTRY )((ULONG)pSymbols + pSymbols->ulOffsetToStabs);
-	  nStabLen = pSymbols->ulSizeOfStabs;
-	  pStr = (LPSTR)((ULONG)pSymbols + pSymbols->ulOffsetToStabsStrings);
-	  // starting at file 0
-	  *pulFileNumber = 0;
+        // in case we query for the kernel we need to use the fake kernel module
+        addr = (ULONG)pCurrentMod->BaseAddress;
 
-	  // go through stabs
-	  for(i=0;i<(nStabLen/sizeof(STAB_ENTRY));i++)
-	    {
-	      pName = &pStr[pStab->n_strx + nOffset];
-
-	      switch(pStab->n_type)
+        // find the symbols for the module
+		pSymbols = FindModuleSymbols(addr);
+		if(pSymbols)
 		{
-		  // an N_UNDF symbol marks a change of string table offset
-		case N_UNDF:
-		  nOffset += nNextOffset;
-		  nNextOffset = pStab->n_value;
-		  break;
-		  // a source file symbol
-		case N_SO:
-		  if((strLen = PICE_strlen(pName)))
-		    {
-		      if(pName[strLen-1]!='/')
-			{
-			  ulCurrentFileNumber++;
-			  if(PICE_strlen(szCurrentPath))
-			    {
-			      PICE_strcat(szCurrentPath,pName);
-			      DPRINT((0,"changing source file %s\n",szCurrentPath));
-			    }
-			  else
-			    {
-			      DPRINT((0,"changing source file %s\n",pName));
-			    }
-			}
-		      else
-			PICE_strcpy(szCurrentPath,pName);
-		    }
-		  else
-		    {
-		      szCurrentPath[0]=0;
-		    }
-		  break;
-		case N_GSYM:
-		case N_LSYM:
-		case N_PSYM:
-		  // symbol-name:type-identifier type-number =
-		  nLen = StrLenUpToWhiteChar(pName,":");
-		  PICE_strncpy(SymbolName,pName,nLen);
-		  SymbolName[nLen] = 0;
-		  if(PICE_strcmpi(SymbolName,pExpression)==0)
-		    {
-		      DPRINT((0,"global symbol %s\n",pName));
-		      // extract type-number from stab
-		      ulTypeNumber = ExtractTypeNumber(pName);
-		      DPRINT((0,"type number = %x, from %s\n",ulTypeNumber, pName));
-		      *pulTypeNumber = ulTypeNumber;
-		      // look for symbols address in external symbols
-		      if( pStab->n_type == N_LSYM || pStab->n_type == N_PSYM )
-			*pValue = CurrentEBP + pStab->n_value;
-		      else *pValue = FindFunctionInModuleByName(SymbolName,pCurrentMod);
+            // prepare table access
+			pStab = (PSTAB_ENTRY )((ULONG)pSymbols + pSymbols->ulOffsetToStabs);
+			nStabLen = pSymbols->ulSizeOfStabs;
+			pStr = (LPSTR)((ULONG)pSymbols + pSymbols->ulOffsetToStabsStrings);
+            // starting at file 0
+			*pulFileNumber = 0;
 
-		      DPRINT((0,"value = %x\n",*pValue));
-		      *pulFileNumber = ulCurrentFileNumber;
-		      DPRINT((0,"file = %x\n",ulCurrentFileNumber));
-		      if((pTypeDefIncluded = PICE_strchr(pName,'=')) )
+            // go through stabs
+			for(i=0;i<(nStabLen/sizeof(STAB_ENTRY));i++)
 			{
-			  DPRINT((0,"symbol includes type definition (%s)\n",pTypeDefIncluded));
+				pName = &pStr[pStab->n_strx + nOffset];
+
+				switch(pStab->n_type)
+				{
+                    // an N_UNDF symbol marks a change of string table offset
+					case N_UNDF:
+						nOffset += nNextOffset;
+						nNextOffset = pStab->n_value;
+						break;
+                    // a source file symbol
+					case N_SO:
+						if((strLen = PICE_strlen(pName)))
+						{
+							if(pName[strLen-1]!='/')
+							{
+								ulCurrentFileNumber++;
+								if(PICE_strlen(szCurrentPath))
+								{
+									PICE_strcat(szCurrentPath,pName);
+									DPRINT((0,"changing source file %s\n",szCurrentPath));
+								}
+								else
+								{
+									DPRINT((0,"changing source file %s\n",pName));
+								}
+							}
+							else
+								PICE_strcpy(szCurrentPath,pName);
+						}
+						else
+						{
+							szCurrentPath[0]=0;
+						}
+						break;
+					case N_GSYM:
+                        // symbol-name:type-identifier type-number =
+						nLen = StrLenUpToWhiteChar(pName,":");
+						PICE_strncpy(SymbolName,pName,nLen);
+						SymbolName[nLen] = 0;
+						if(PICE_strcmpi(SymbolName,pExpression)==0)
+						{
+                            DPRINT((0,"global symbol %s\n",pName));
+                            // extract type-number from stab
+							ulTypeNumber = ExtractTypeNumber(pName);
+							DPRINT((0,"type number = %x\n",ulTypeNumber));
+							*pulTypeNumber = ulTypeNumber;
+                            // look for symbols address in external symbols
+							*pValue = FindFunctionInModuleByName(SymbolName,pCurrentMod);
+							DPRINT((0,"value = %x\n",*pValue));
+							*pulFileNumber = ulCurrentFileNumber;
+							DPRINT((0,"file = %x\n",ulCurrentFileNumber));
+                            if((pTypeDefIncluded = PICE_strchr(pName,'=')) )
+                            {
+                                DPRINT((0,"symbol includes type definition (%s)\n",pTypeDefIncluded));
+                            }
+    						return TRUE;
+						}
+						break;
+				}
+				pStab++;
 			}
-		      return TRUE;
-		    }
-		  break;
 		}
-	      pStab++;
-	    }
 	}
-    }
-  return FALSE;
+	return FALSE;
 }
 
 //*************************************************************************
@@ -2414,14 +2409,14 @@ LPSTR ExtractTypeName(LPSTR p)
     static char temp[1024];
     ULONG i;
 
-    DPRINT((1,"ExtractTypeName(%s)\n",p));
+    DPRINT((0,"ExtractTypeName(%s)\n",p));
 
     for(i=0;IsAddressValid((ULONG)p) && *p!=0 && *p!=':';i++,p++)
         temp[i] = *p;
 
     if(!IsAddressValid((ULONG)p) )
     {
-        DPRINT((1,"hit invalid page %x!\n",(ULONG)p));
+        DPRINT((0,"hit invalid page %x!\n",(ULONG)p));
     }
 
     temp[i]=0;
@@ -2442,7 +2437,7 @@ LONG ExtractNumber(LPSTR p)
 
     if(!IsAddressValid((ULONG)p) )
     {
-        DPRINT((1,"ExtractNumber(): [1] invalid page %x hit!\n",p));
+        DPRINT((0,"ExtractNumber(): [1] invalid page %x hit!\n",p));
         return 0;
     }
 
@@ -2454,7 +2449,7 @@ LONG ExtractNumber(LPSTR p)
 
     if(!IsAddressValid((ULONG)p) )
     {
-        DPRINT((1,"ExtractNumber(): [2] invalid page %x hit!\n",p));
+        DPRINT((0,"ExtractNumber(): [2] invalid page %x hit!\n",p));
         return 0;
     }
 
@@ -2465,7 +2460,7 @@ LONG ExtractNumber(LPSTR p)
 
     if(!IsAddressValid((ULONG)p) )
     {
-        DPRINT((1,"ExtractNumber(): [3] invalid page %x hit!\n",p));
+        DPRINT((0,"ExtractNumber(): [3] invalid page %x hit!\n",p));
         return 0;
     }
 
@@ -2476,7 +2471,7 @@ LONG ExtractNumber(LPSTR p)
         p++;
         if(!IsAddressValid((ULONG)p) )
         {
-            DPRINT((1,"ExtractNumber(): [4] invalid page %x hit!\n",p));
+            DPRINT((0,"ExtractNumber(): [4] invalid page %x hit!\n",p));
             return 0;
         }
     }
@@ -2494,7 +2489,7 @@ BOOLEAN ExtractArray(PVRET pvr,LPSTR p)
     ULONG lower_bound,upper_bound;
     LPSTR pTypeDef;
 
-    DPRINT((1,"ExtractArray(%s)\n",p));
+    DPRINT((0,"ExtractArray(%s)\n",p));
 
     // index-type index-type-number;lower;upper;element-type-number
     pvr->bArrayType = TRUE;
@@ -2518,7 +2513,7 @@ BOOLEAN ExtractArray(PVRET pvr,LPSTR p)
 
                 type_number = ExtractTypeNumber(p);
 
-                DPRINT((1,"ExtractArray(): %x %x %x %x\n",index_typenumber,lower_bound,upper_bound,type_number));
+                DPRINT((0,"ExtractArray(): %x %x %x %x\n",index_typenumber,lower_bound,upper_bound,type_number));
 
                 pTypeDef = FindTypeDefinition(pvr->pSymbols,type_number,pvr->file);
                 if(pTypeDef)
@@ -2545,7 +2540,7 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
     static VRET vr;
     LPSTR pTypeDef,pEqual;
 
-    DPRINT((1,"ExtractStructMembers(): %s\n",p));
+    DPRINT((0,"ExtractStructMembers(): %s\n",p));
 
     PICE_memset(&vr,0,sizeof(vr));
 
@@ -2556,14 +2551,14 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
         // extract member name
 	    PICE_strncpy(member_name,p,len);
         member_name[len]=0;
-        DPRINT((1,"ExtractStructMembers(): member_name = %s\n",member_name));
+        DPRINT((0,"ExtractStructMembers(): member_name = %s\n",member_name));
 
         // go to char following ':'
         p += (len+1);
         if(IsAddressValid((ULONG)p) )
         {
             type_number = ExtractTypeNumber(p);
-            DPRINT((1,"ExtractStructMembers(): type_number = %x\n",type_number));
+            DPRINT((0,"ExtractStructMembers(): type_number = %x\n",type_number));
 
             vr.type = type_number;
 
@@ -2577,7 +2572,7 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
                     p++;
                     if(*p == 'a')
                     {
-                        DPRINT((1,"ExtractStructMembers(): member is array\n"));
+                        DPRINT((0,"ExtractStructMembers(): member is array\n"));
                         vr.bArrayType = TRUE;
                         p = PICE_strchr(p,';');
                         p = PICE_strchr(p,';');
@@ -2590,15 +2585,15 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
                     }
                     else if(*p == '*')
                     {
-                        DPRINT((1,"ExtractStructMembers(): member is ptr\n"));
+                        DPRINT((0,"ExtractStructMembers(): member is ptr\n"));
                         vr.bPtrType = TRUE;
                         type_number = ExtractTypeNumber(p);
-                        DPRINT((1,"ExtractStructMembers(): type_number = %x\n",type_number));
+                        DPRINT((0,"ExtractStructMembers(): type_number = %x\n",type_number));
                         vr.father_type = type_number;
                     }
                     else if(*p == 'u')
                     {
-                        DPRINT((1,"ExtractStructMembers(): member is union\n"));
+                        DPRINT((0,"ExtractStructMembers(): member is union\n"));
                         while(*p!=';' && *(p+1)!=';' && *p!=0)p++;
                     }
                 }
@@ -2609,14 +2604,14 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
             {
                 p++;
                 bit_offset = ExtractNumber(p);
-                DPRINT((1,"ExtractStructMembers(): bit_offset = %x\n",bit_offset));
+                DPRINT((0,"ExtractStructMembers(): bit_offset = %x\n",bit_offset));
                 p = PICE_strchr(p,',');
                 if(p)
                 {
                     p++;
 
                     bit_size = ExtractNumber(p);
-                    DPRINT((1,"ExtractStructMembers(): bit_size = %x\n",bit_size));
+                    DPRINT((0,"ExtractStructMembers(): bit_size = %x\n",bit_size));
 
                     vr.address = pvr->value + bit_offset/8;
                     vr.file = pvr->file;
@@ -2642,19 +2637,19 @@ PVRET ExtractStructMembers(PVRET pvr,LPSTR p)
                         }
                     }
 
-                    DPRINT((1,"ExtractStructMembers(): member %s type %x bit_offset %x bit_size%x\n",member_name,type_number,bit_offset,bit_size));
+                    DPRINT((0,"ExtractStructMembers(): member %s type %x bit_offset %x bit_size%x\n",member_name,type_number,bit_offset,bit_size));
 
                     pTypeDef = FindTypeDefinition(pvr->pSymbols,type_number,pvr->file);
                     if(pTypeDef)
                     {
-                        DPRINT((1,"ExtractStructMembers(): pTypedef= %s\n",pTypeDef));
+                        DPRINT((0,"ExtractStructMembers(): pTypedef= %s\n",pTypeDef));
                         PICE_strcpy(vr.type_name,ExtractTypeName(pTypeDef));
                         pTypeDef = PICE_strchr(pTypeDef,':');
                         if(pTypeDef)
                         {
                             pTypeDef++;
                             type_number = ExtractTypeNumber(pTypeDef);
-                            DPRINT((1,"ExtractStructMembers(): type_number = %x\n",type_number));
+                            DPRINT((0,"ExtractStructMembers(): type_number = %x\n",type_number));
                             vr.father_type = type_number;
                         }
                     }
@@ -2678,22 +2673,23 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
     LONG lLowerRange,lUpperRange,lDelta;
     static char type_def[2048];
 
-    DPRINT((1,"EvaluateSymbol(%s)\n",pToken));
+    DPRINT((0,"EvaluateSymbol(%s)\n",pToken));
 
 	if(FindGlobalStabSymbol(pToken,&pvr->value,&pvr->type,&pvr->file))
     {
-        DPRINT((1,"EvaluateSymbol(%s) pvr->value = %x pvr->type = %x\n",pToken,pvr->value,pvr->type));
+        DPRINT((0,"EvaluateSymbol(%s) pvr->value = %x pvr->type = %x\n",pToken,pvr->value,pvr->type));
         while(!bDone)
         {
             if(!(pTypeDef = FindTypeDefinition(pvr->pSymbols,pvr->type,pvr->file)))
                 break;
+
             PICE_strcpy(type_def,pTypeDef);
 
             pTypeDef = type_def;
 
             pTypeName = ExtractTypeName(pTypeDef);
 
-            DPRINT((1,"%s %s\n",pTypeName,pToken));
+            DPRINT((0,"%s %s\n",pTypeName,pToken));
 
             PICE_strcpy(pvr->type_name,pTypeName);
 
@@ -2708,16 +2704,16 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
             {
                 case '(': // type reference
                     ulType = ExtractTypeNumber(pTypeBase);
-                    DPRINT((1,"%x is a type reference to %x\n",pvr->type,ulType));
+                    DPRINT((0,"%x is a type reference to %x\n",pvr->type,ulType));
                     pvr->type = ulType;
                     break;
                 case 'r': // subrange
                     pTypeBase++;
                     ulType = ExtractTypeNumber(pTypeBase);
-                    DPRINT((1,"%x is sub range of %x\n",pvr->type,ulType));
+                    DPRINT((0,"%x is sub range of %x\n",pvr->type,ulType));
                     if(pvr->type == ulType)
                     {
-                        DPRINT((1,"%x is a self reference\n",pvr->type));
+                        DPRINT((0,"%x is a self reference\n",pvr->type));
                         pSemiColon = PICE_strchr(pTypeBase,';');
                         pSemiColon++;
                         lLowerRange = ExtractNumber(pSemiColon);
@@ -2725,7 +2721,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                         pSemiColon++;
                         lUpperRange = ExtractNumber(pSemiColon);
                         lDelta = lUpperRange-lLowerRange;
-                        DPRINT((1,"bounds %x-%x range %x\n",lLowerRange,lUpperRange,lDelta));
+                        DPRINT((0,"bounds %x-%x range %x\n",lLowerRange,lUpperRange,lDelta));
                         ulBits=0;
                         do
                         {
@@ -2735,7 +2731,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                         ulBytes = (ulBits+1)/8;
                         if(!ulBytes)
                             ulBytes = 4;
-                        DPRINT((1,"# of bytes = %x\n",ulBytes));
+                        DPRINT((0,"# of bytes = %x\n",ulBytes));
                         pvr->address = pvr->value;
                         if(IsRangeValid(pvr->value,ulBytes))
                         {
@@ -2758,7 +2754,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                         pvr->type = ulType;
                     break;
                 case 'a': // array type
-                    DPRINT((1,"%x array\n",pvr->type));
+                    DPRINT((0,"%x array\n",pvr->type));
                     pTypeBase++;
                     if(!ExtractArray(pvr,pTypeBase))
                     {
@@ -2767,7 +2763,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                     }
                     break;
                 case '*': // ptr type
-                    DPRINT((1,"%x is ptr to\n",pvr->type));
+                    DPRINT((0,"%x is ptr to\n",pvr->type));
                     bDone = TRUE; // meanwhile
                     break;
                 case 's': // struct type [name:T(#,#)=s#membername1:(#,#),#,#;membername1:(#,#),#,#;;]
@@ -2776,7 +2772,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
 
                     // extract the the struct size
                     lLowerRange = ExtractNumber(pTypeBase);
-                    DPRINT((1,"%x struct size = %x\n",pvr->type,lLowerRange));
+                    DPRINT((0,"%x struct size = %x\n",pvr->type,lLowerRange));
 
                     // skip over the digits
                     while(PICE_isdigit(*pTypeBase))
@@ -2791,7 +2787,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
 
                     while(pStructMembers && *pStructMembers && *pStructMembers!=';' && ulNumStructMembers<DIM(vrStructMembers))
                     {
-                        DPRINT((1,"EvaluateSymbol(): member #%u\n",ulNumStructMembers));
+                        DPRINT((0,"EvaluateSymbol(): member #%u\n",ulNumStructMembers));
                         // put this into our array
                         vrStructMembers[ulNumStructMembers] = *ExtractStructMembers(pvr,pStructMembers);
 
@@ -2800,15 +2796,15 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                             ULONG i;
                             PVRET pvrThis = &vrStructMembers[ulNumStructMembers];
 
-                            DPRINT((1,"EvaluateSymbol(): no type name\n"));
+                            DPRINT((0,"EvaluateSymbol(): no type name\n"));
                             for(i=0;i<ulNumStructMembers;i++)
                             {
-                                DPRINT((1,"EvaluateSymbol(): vr[i].type_name = %s\n",vrStructMembers[i].type_name));
-                                DPRINT((1,"EvaluateSymbol(): vr[i].name = %s\n",vrStructMembers[i].name));
-                                DPRINT((1,"EvaluateSymbol(): vr[i].address = %.8X\n",vrStructMembers[i].address));
-                                DPRINT((1,"EvaluateSymbol(): vr[i].value = %.8X\n",vrStructMembers[i].value));
-                                DPRINT((1,"EvaluateSymbol(): vr[i].size = %.8X\n",vrStructMembers[i].size));
-                                DPRINT((1,"EvaluateSymbol(): vr[i].type = %.8X\n",vrStructMembers[i].type));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].type_name = %s\n",vrStructMembers[i].type_name));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].name = %s\n",vrStructMembers[i].name));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].address = %.8X\n",vrStructMembers[i].address));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].value = %.8X\n",vrStructMembers[i].value));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].size = %.8X\n",vrStructMembers[i].size));
+                                DPRINT((0,"EvaluateSymbol(): vr[i].type = %.8X\n",vrStructMembers[i].type));
                                 if(pvrThis->type == vrStructMembers[i].type)
                                 {
                                     PICE_strcpy(pvrThis->type_name,vrStructMembers[i].type_name);
@@ -2820,12 +2816,12 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                             }
                         }
 
-                        DPRINT((1,"EvaluateSymbol(): vr.type_name = %s\n",vrStructMembers[ulNumStructMembers].type_name));
-                        DPRINT((1,"EvaluateSymbol(): vr.name = %s\n",vrStructMembers[ulNumStructMembers].name));
-                        DPRINT((1,"EvaluateSymbol(): vr.address = %.8X\n",vrStructMembers[ulNumStructMembers].address));
-                        DPRINT((1,"EvaluateSymbol(): vr.value = %.8X\n",vrStructMembers[ulNumStructMembers].value));
-                        DPRINT((1,"EvaluateSymbol(): vr.size = %.8X\n",vrStructMembers[ulNumStructMembers].size));
-                        DPRINT((1,"EvaluateSymbol(): vr.type = %.8X\n",vrStructMembers[ulNumStructMembers].type));
+                        DPRINT((0,"EvaluateSymbol(): vr.type_name = %s\n",vrStructMembers[ulNumStructMembers].type_name));
+                        DPRINT((0,"EvaluateSymbol(): vr.name = %s\n",vrStructMembers[ulNumStructMembers].name));
+                        DPRINT((0,"EvaluateSymbol(): vr.address = %.8X\n",vrStructMembers[ulNumStructMembers].address));
+                        DPRINT((0,"EvaluateSymbol(): vr.value = %.8X\n",vrStructMembers[ulNumStructMembers].value));
+                        DPRINT((0,"EvaluateSymbol(): vr.size = %.8X\n",vrStructMembers[ulNumStructMembers].size));
+                        DPRINT((0,"EvaluateSymbol(): vr.type = %.8X\n",vrStructMembers[ulNumStructMembers].type));
 
                         ulNumStructMembers++;
 
@@ -2834,7 +2830,7 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                         pStructMembers = PICE_strchr(pStructMembers,':');
                         if(pStructMembers)
                         {
-                            DPRINT((1,"EvaluateSymbol(): ptr is now %s\n",pStructMembers));
+                            DPRINT((0,"EvaluateSymbol(): ptr is now %s\n",pStructMembers));
                             // go back to where member name starts
                             while(*pStructMembers!=';')
                                 pStructMembers--;
@@ -2847,31 +2843,15 @@ BOOLEAN EvaluateSymbol(PVRET pvr,LPSTR pToken)
                     bDone = TRUE; // meanwhile
                     break;
                 case 'u': // union type
-                    DPRINT((1,"%x union\n",pvr->type));
+                    DPRINT((0,"%x union\n",pvr->type));
                     bDone = TRUE; // meanwhile
                     break;
                 case 'e': // enum type
-                    DPRINT((1,"%x enum\n",pvr->type));
+                    DPRINT((0,"%x enum\n",pvr->type));
                     bDone = TRUE; // meanwhile
                     break;
                 default:
-                    DPRINT((1,"DEFAULT %x, base: %c\n",pvr->type, *pTypeBase));
-		    pvr->address = pvr->value;
-		    if(IsRangeValid(pvr->value,ulBytes))
-		      {
-			switch(ulBytes)
-			  {
-			  case 1:
-			    pvr->value = *(PUCHAR)pvr->value;
-			    break;
-			  case 2:
-			    pvr->value = *(PUSHORT)pvr->value;
-			    break;
-			  case 4:
-			    pvr->value = *(PULONG)pvr->value;
-			    break;
-			  }
-		      }
+                    DPRINT((0,"DEFAULT %x\n",pvr->type));
                     bDone = TRUE;
                     break;
             }
@@ -2893,7 +2873,7 @@ BOOLEAN Symbol(PVRET pvr)
 
 	ExtractToken(SymbolToken);
 
-	DPRINT((1,"SymbolToken = %s\n",SymbolToken));
+	DPRINT((0,"SymbolToken = %s\n",SymbolToken));
 
     return EvaluateSymbol(pvr,SymbolToken);
 }
@@ -2927,8 +2907,8 @@ void Evaluate(PICE_SYMBOLFILE_HEADER* pSymbols,LPSTR p)
     ulNumStructMembers=0;
 	if(Expression(&vr))
 	{
-		DPRINT((1,"\nOK!\n"));
-		DPRINT((1,"value = %x type = %x\n",vr.value,vr.type));
+		DPRINT((0,"\nOK!\n"));
+		DPRINT((0,"value = %x type = %x\n",vr.value,vr.type));
         if(vr.bStructType)
         {
             PICE_sprintf(tempSym,"struct %s %s @ %x\n",vr.type_name,p,vr.address);
@@ -2979,6 +2959,6 @@ void Evaluate(PICE_SYMBOLFILE_HEADER* pSymbols,LPSTR p)
 	}
 	else
 	{
-		DPRINT((1,"\nERROR: code %x\n",vr.error));
+		DPRINT((0,"\nERROR: code %x\n",vr.error));
 	}
 }

@@ -1,19 +1,17 @@
 
-/* $Id: rw.c,v 1.72 2004/12/05 16:31:51 gvg Exp $
+/* $Id: rw.c,v 1.38 2002/01/27 03:25:44 dwelch Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/rw.c
+ * FILE:             services/fs/vfat/rw.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
  *
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ntos/kefuncs.h>
 #include <wchar.h>
 #include <ntos/minmax.h>
 
@@ -22,19 +20,16 @@
 
 #include "vfat.h"
 
-/*
- * Uncomment to enable strict verification of cluster/offset pair
- * caching. If this option is enabled you lose all the benefits of
- * the caching and the read/write operations will actually be
- * slower. It's meant only for debugging!!!
- * - Filip Navara, 26/07/2004
- */
-/* #define DEBUG_VERIFY_OFFSET_CACHING */
+/* GLOBALS *******************************************************************/
+
+#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
+#define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
 
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS
 NextCluster(PDEVICE_EXTENSION DeviceExt,
+	    PVFATFCB Fcb,
 	    ULONG FirstCluster,
 	    PULONG CurrentCluster,
 	    BOOLEAN Extend)
@@ -43,22 +38,120 @@ NextCluster(PDEVICE_EXTENSION DeviceExt,
       * necessary
       */
 {
- if (FirstCluster == 1)
+  if (Fcb != NULL && Fcb->Flags & FCB_IS_PAGE_FILE)
     {
-      (*CurrentCluster) += DeviceExt->FatInfo.SectorsPerCluster;
+      ULONG i;
+      PULONG FatChain;
+      NTSTATUS Status;
+      DPRINT("NextCluster(Fcb %x, FirstCluster %x, Extend %d)\n", Fcb, 
+	     FirstCluster, Extend);
+      if (Fcb->FatChainSize == 0)
+	{
+	  /* Paging file with zero length. */
+	  *CurrentCluster = 0xffffffff;
+	  if (Extend)
+	    {
+	      Fcb->FatChain = ExAllocatePool(NonPagedPool, sizeof(ULONG));
+	      if (!Fcb->FatChain)
+		{
+		  return STATUS_NO_MEMORY;
+		}
+	      Status = GetNextCluster(DeviceExt, 0, CurrentCluster, TRUE);
+	      if (!NT_SUCCESS(Status))
+		{
+		  ExFreePool(Fcb->FatChain);
+		  return Status;
+		}
+	      Fcb->FatChain[0] = *CurrentCluster;
+	      Fcb->FatChainSize = 1;
+	      return Status;
+	    }
+	  else
+	    {
+	      return STATUS_UNSUCCESSFUL;
+	    }
+	}
+      else
+	{
+	  for (i = 0; i < Fcb->FatChainSize; i++)
+	    {
+	      if (Fcb->FatChain[i] == *CurrentCluster)
+		break;
+	    }
+	  if (i >= Fcb->FatChainSize)
+	    {
+	      return STATUS_UNSUCCESSFUL;
+	    }
+	  if (i == Fcb->FatChainSize - 1)
+	    {
+	      if (Extend)
+		{
+		  FatChain = ExAllocatePool(NonPagedPool, 
+					    (i + 2) * sizeof(ULONG));
+		  if (!FatChain)
+		    {
+		      *CurrentCluster = 0xffffffff;
+		      return STATUS_NO_MEMORY;
+		    }
+		  Status = GetNextCluster(DeviceExt, *CurrentCluster, 
+					  CurrentCluster, TRUE);
+		  if (NT_SUCCESS(Status) && *CurrentCluster != 0xffffffff)
+		    {
+		      memcpy(FatChain, Fcb->FatChain, (i + 1) * sizeof(ULONG));
+		      FatChain[i + 1] = *CurrentCluster;
+		      ExFreePool(Fcb->FatChain);
+		      Fcb->FatChain = FatChain;
+		      Fcb->FatChainSize = i + 2;
+		    }
+		  else
+		    {
+		      ExFreePool(FatChain);
+		    }
+		  return Status;
+		}
+	      else
+		{
+		  *CurrentCluster = 0xffffffff;
+		  return STATUS_UNSUCCESSFUL;
+		}
+	    }
+	  *CurrentCluster = Fcb->FatChain[i + 1];
+	  return STATUS_SUCCESS;
+	}
+    }
+  if (FirstCluster == 1)
+    {
+      (*CurrentCluster) += DeviceExt->Boot->SectorsPerCluster;
       return(STATUS_SUCCESS);
     }
   else
     {
-      if (Extend)
-        return GetNextClusterExtend(DeviceExt, (*CurrentCluster), CurrentCluster);
+      /* 
+       * CN: FIXME: Real bug here or in dirwr, where CurrentCluster isn't 
+       * initialized when 0
+       */
+      if (FirstCluster == 0)
+	{
+	  NTSTATUS Status;
+	  
+	  Status = GetNextCluster(DeviceExt, 0, CurrentCluster,
+				  Extend);
+	  return(Status);
+	}
       else
-        return GetNextCluster(DeviceExt, (*CurrentCluster), CurrentCluster);
+	{
+	  NTSTATUS Status;
+	  
+	  Status = GetNextCluster(DeviceExt, (*CurrentCluster), CurrentCluster,
+				  Extend);
+	  return(Status);
+	}
     }
 }
 
 NTSTATUS
 OffsetToCluster(PDEVICE_EXTENSION DeviceExt,
+		PVFATFCB Fcb,
 		ULONG FirstCluster,
 		ULONG FileOffset,
 		PULONG Cluster,
@@ -71,56 +164,142 @@ OffsetToCluster(PDEVICE_EXTENSION DeviceExt,
   ULONG CurrentCluster;
   ULONG i;
   NTSTATUS Status;
-/*
   DPRINT("OffsetToCluster(DeviceExt %x, Fcb %x, FirstCluster %x,"
          " FileOffset %x, Cluster %x, Extend %d)\n", DeviceExt, 
          Fcb, FirstCluster, FileOffset, Cluster, Extend);
-*/
   if (FirstCluster == 0)
   {
     DbgPrint("OffsetToCluster is called with FirstCluster = 0!\n");
-    KEBUGCHECK(0);
+    KeBugCheck(0);
   }
 
+  if (Fcb != NULL && Fcb->Flags & FCB_IS_PAGE_FILE)
+    {
+      ULONG NCluster;
+      ULONG Offset = FileOffset / DeviceExt->BytesPerCluster;
+      PULONG FatChain;
+      int i;
+      if (Fcb->FatChainSize == 0)
+      {
+        DbgPrint("OffsetToCluster is called with FirstCluster = %x"
+                 " and Fcb->FatChainSize = 0!\n", FirstCluster);
+        KeBugCheck(0);
+      }
+      if (Offset < Fcb->FatChainSize)
+      {
+        *Cluster = Fcb->FatChain[Offset];
+        return STATUS_SUCCESS;
+      }
+      else
+      {
+        if (!Extend)
+        {
+          *Cluster = 0xffffffff;
+          return STATUS_UNSUCCESSFUL;
+        }
+        else
+	{
+          FatChain = ExAllocatePool(NonPagedPool, (Offset + 1) * sizeof(ULONG));
+          if (!FatChain)
+          {
+            *Cluster = 0xffffffff;
+            return STATUS_UNSUCCESSFUL;
+          }
+		  
+          CurrentCluster = Fcb->FatChain[Fcb->FatChainSize - 1];
+          FatChain[Fcb->FatChainSize - 1] = CurrentCluster;
+          for (i = Fcb->FatChainSize; i < Offset + 1; i++)
+          {
+            Status = GetNextCluster(DeviceExt, CurrentCluster, &CurrentCluster, TRUE);
+            if (!NT_SUCCESS(Status) || CurrentCluster == 0xFFFFFFFF)
+            {
+              while (i >= Fcb->FatChainSize)
+              {
+                WriteCluster(DeviceExt, FatChain[i - 1], 0xFFFFFFFF);
+                i--;
+              }
+              *Cluster = 0xffffffff;
+              ExFreePool(FatChain);
+              if (!NT_SUCCESS(Status))
+                 return Status;
+              return STATUS_UNSUCCESSFUL;
+            }
+            FatChain[i] = CurrentCluster;
+          }
+          memcpy (FatChain, Fcb->FatChain, Fcb->FatChainSize * sizeof(ULONG));
+          ExFreePool(Fcb->FatChain);
+          Fcb->FatChain = FatChain;
+          Fcb->FatChainSize = Offset + 1;
+        }
+      }
+      *Cluster = CurrentCluster;
+      return(STATUS_SUCCESS);
+    }
   if (FirstCluster == 1)
     {
       /* root of FAT16 or FAT12 */
-      *Cluster = DeviceExt->FatInfo.rootStart + FileOffset
-	/ (DeviceExt->FatInfo.BytesPerCluster) * DeviceExt->FatInfo.SectorsPerCluster;
+      *Cluster = DeviceExt->rootStart + FileOffset
+	/ (DeviceExt->BytesPerCluster) * DeviceExt->Boot->SectorsPerCluster;
       return(STATUS_SUCCESS);
     }
   else
     {
       CurrentCluster = FirstCluster;
-      if (Extend)
-        {
-          for (i = 0; i < FileOffset / DeviceExt->FatInfo.BytesPerCluster; i++)
-            {
-              Status = GetNextClusterExtend (DeviceExt, CurrentCluster, &CurrentCluster);
-              if (!NT_SUCCESS(Status))
-                return(Status);
-    	    }
-          *Cluster = CurrentCluster;
-       }
-     else
-        {
-          for (i = 0; i < FileOffset / DeviceExt->FatInfo.BytesPerCluster; i++)
-            {
-              Status = GetNextCluster (DeviceExt, CurrentCluster, &CurrentCluster);
-              if (!NT_SUCCESS(Status))
-                return(Status);
-    	    }
-          *Cluster = CurrentCluster;
-       }
-     return(STATUS_SUCCESS);
-   }    
+      for (i = 0; i < FileOffset / DeviceExt->BytesPerCluster; i++)
+	{
+	  Status = GetNextCluster (DeviceExt, CurrentCluster, &CurrentCluster,
+				   Extend);
+	  if (!NT_SUCCESS(Status))
+	    {
+	      return(Status);
+	    }
+	}
+      *Cluster = CurrentCluster;
+      return(STATUS_SUCCESS);
+    }
 }
 
 NTSTATUS
-VfatReadFileData (PVFAT_IRP_CONTEXT IrpContext, 
-                  ULONG Length, 
-		  LARGE_INTEGER ReadOffset, 
-		  PULONG LengthRead)
+VfatReadCluster(PDEVICE_EXTENSION DeviceExt,
+		PVFATFCB Fcb,
+		ULONG FirstCluster,
+		PULONG CurrentCluster,
+		PVOID Destination,
+		ULONG InternalOffset,
+		ULONG InternalLength)
+{
+  PVOID BaseAddress = NULL;
+  NTSTATUS Status;
+
+  if (InternalLength == DeviceExt->BytesPerCluster)
+  {
+    Status = VfatRawReadCluster(DeviceExt, FirstCluster,
+                                Destination, *CurrentCluster, 1);
+  }
+  else
+  {
+    BaseAddress = ExAllocatePool(NonPagedPool, DeviceExt->BytesPerCluster);
+    if (BaseAddress == NULL)
+    {
+      return(STATUS_NO_MEMORY);
+    }
+    Status = VfatRawReadCluster(DeviceExt, FirstCluster,
+                                BaseAddress, *CurrentCluster, 1);
+    memcpy(Destination, BaseAddress + InternalOffset, InternalLength);
+    ExFreePool(BaseAddress);
+  }
+  if (!NT_SUCCESS(Status))
+  {
+     return(Status);
+  }
+  Status = NextCluster(DeviceExt, Fcb, FirstCluster, CurrentCluster, FALSE);
+  return(Status);
+}
+
+NTSTATUS
+VfatReadFile (PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
+	      PVOID Buffer, ULONG Length, ULONG ReadOffset,
+	      PULONG LengthRead, ULONG NoCache)
 /*
  * FUNCTION: Reads data from a file
  */
@@ -129,957 +308,759 @@ VfatReadFileData (PVFAT_IRP_CONTEXT IrpContext,
   ULONG FirstCluster;
   ULONG StartCluster;
   ULONG ClusterCount;
-  LARGE_INTEGER StartOffset;
-  PDEVICE_EXTENSION DeviceExt;
-  BOOLEAN First = TRUE;
   PVFATFCB Fcb;
   PVFATCCB Ccb;
   NTSTATUS Status;
+  ULONG TempLength;
+  LARGE_INTEGER FileOffset;
+  IO_STATUS_BLOCK IoStatus;
   ULONG BytesDone;
-  ULONG BytesPerSector;
-  ULONG BytesPerCluster;
-  ULONG LastCluster;
-  ULONG LastOffset;
 
   /* PRECONDITION */
-  ASSERT(IrpContext);
-  DeviceExt = IrpContext->DeviceExt;
-  ASSERT(DeviceExt);
-  ASSERT(DeviceExt->FatInfo.BytesPerCluster);
-  ASSERT(IrpContext->FileObject);
-  ASSERT(IrpContext->FileObject->FsContext2 != NULL);
+  assert (DeviceExt != NULL);
+  assert (DeviceExt->BytesPerCluster != 0);
+  assert (FileObject != NULL);
+  assert (FileObject->FsContext2 != NULL);
 
-  DPRINT("VfatReadFileData(DeviceExt %x, FileObject %x, "
-	 "Length %d, ReadOffset 0x%I64x)\n", DeviceExt,
-	 IrpContext->FileObject, Length, ReadOffset.QuadPart);
+  DPRINT("VfatReadFile(DeviceExt %x, FileObject %x, Buffer %x, "
+	 "Length %d, ReadOffset 0x%x)\n", DeviceExt, FileObject, Buffer,
+	 Length, ReadOffset);
 
   *LengthRead = 0;
 
-  Ccb = (PVFATCCB)IrpContext->FileObject->FsContext2;
-  Fcb = IrpContext->FileObject->FsContext;
-  BytesPerSector = DeviceExt->FatInfo.BytesPerSector;
-  BytesPerCluster = DeviceExt->FatInfo.BytesPerCluster;
-
-  ASSERT(ReadOffset.QuadPart + Length <= ROUND_UP(Fcb->RFCB.FileSize.QuadPart, BytesPerSector));
-  ASSERT(ReadOffset.u.LowPart % BytesPerSector == 0);
-  ASSERT(Length % BytesPerSector == 0);
+  Ccb = (PVFATCCB)FileObject->FsContext2;
+  Fcb = Ccb->pFcb;
 
   /* Is this a read of the FAT? */
   if (Fcb->Flags & FCB_IS_FAT)
-  {
-    ReadOffset.QuadPart += DeviceExt->FatInfo.FATStart * BytesPerSector;
-    Status = VfatReadDiskPartial(IrpContext, &ReadOffset, Length, 0, TRUE);
+    {
+      if (!NoCache)
+	{
+	  DbgPrint ("Cached FAT read outside from VFATFS.SYS\n");
+	  KeBugCheck (0);
+	}
+      if (ReadOffset >= Fcb->RFCB.FileSize.QuadPart || 
+	  ReadOffset % BLOCKSIZE != 0 || Length % BLOCKSIZE != 0)
+	{
+	  DbgPrint ("Start or end of FAT read is not on a sector boundary\n");
+	  KeBugCheck (0);
+	}
+      if (ReadOffset + Length > Fcb->RFCB.FileSize.QuadPart)
+	{
+	  Length = Fcb->RFCB.FileSize.QuadPart - ReadOffset;
+	}
 
-    if (NT_SUCCESS(Status))
-    {
-      *LengthRead = Length;
+      Status = VfatReadSectors(DeviceExt->StorageDevice,
+			       DeviceExt->FATStart + ReadOffset / BLOCKSIZE, 
+			       Length / BLOCKSIZE, Buffer);
+      if (NT_SUCCESS(Status))
+	{
+	  *LengthRead = Length;
+	}
+      else
+	{
+	  DPRINT1("FAT reading failed, Status %x\n", Status);
+	}
+      return Status;
     }
-    else
-    {
-      DPRINT1("FAT reading failed, Status %x\n", Status);
-    }
-    return Status;
-  }
-  /* Is this a read of the Volume ? */
-  if (Fcb->Flags & FCB_IS_VOLUME)
-  {
-    Status = VfatReadDiskPartial(IrpContext, &ReadOffset, Length, 0, TRUE);
-    if (NT_SUCCESS(Status))
-    {
-      *LengthRead = Length;
-    }
-    else
-    {
-      DPRINT1("Volume reading failed, Status %x\n", Status);
-    }
-    return Status;
-  }
 
   /*
    * Find the first cluster
    */
-  FirstCluster = CurrentCluster =
+  FirstCluster = CurrentCluster = 
     vfatDirEntryGetFirstCluster (DeviceExt, &Fcb->entry);
 
-  if (FirstCluster == 1)
-  {
-    // Directory of FAT12/16 needs a special handling
-    CHECKPOINT;
-    if (ReadOffset.u.LowPart + Length > DeviceExt->FatInfo.rootDirectorySectors * BytesPerSector)
+  /*
+   * Truncate the read if necessary
+   */
+  if (!(Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY))
     {
-      Length = DeviceExt->FatInfo.rootDirectorySectors * BytesPerSector - ReadOffset.u.LowPart;
+      if (ReadOffset >= Fcb->entry.FileSize)
+	{
+	  return (STATUS_END_OF_FILE);
+	}
+      if ((ReadOffset + Length) > Fcb->entry.FileSize)
+	{
+	  Length = Fcb->entry.FileSize - ReadOffset;
+	}
     }
-    ReadOffset.u.LowPart += DeviceExt->FatInfo.rootStart * BytesPerSector;
 
-    // Fire up the read command
-    
-    Status = VfatReadDiskPartial (IrpContext, &ReadOffset, Length, 0, TRUE);
-    if (NT_SUCCESS(Status))
+  if (FirstCluster == 1)
     {
-      *LengthRead = Length;
-    }
-    return Status;
+      /* root directory of FAT12 or FAT16 */
+      if (ReadOffset + Length > DeviceExt->rootDirectorySectors * BLOCKSIZE)
+	{
+	  Length = DeviceExt->rootDirectorySectors * BLOCKSIZE - ReadOffset;
+	}
   }
 
-  ExAcquireFastMutex(&Fcb->LastMutex);
-  LastCluster = Fcb->LastCluster;
-  LastOffset = Fcb->LastOffset;
-  ExReleaseFastMutex(&Fcb->LastMutex);
-  
+  /* Using the Cc-interface if possible. */
+  if (!NoCache)
+    {
+      FileOffset.QuadPart = ReadOffset;
+      CcCopyRead(FileObject, &FileOffset, Length, TRUE, Buffer, &IoStatus);
+      *LengthRead = IoStatus.Information;
+      return IoStatus.Status;
+    }
+
   /*
    * Find the cluster to start the read from
    */
-  if (LastCluster > 0 && ReadOffset.u.LowPart >= LastOffset)
-  {
-    Status = OffsetToCluster(DeviceExt, LastCluster,
-                             ROUND_DOWN(ReadOffset.u.LowPart, BytesPerCluster) -
-                             LastOffset,
-                             &CurrentCluster, FALSE);
-#ifdef DEBUG_VERIFY_OFFSET_CACHING
-    /* DEBUG VERIFICATION */
+  if (Ccb->LastCluster > 0 && ReadOffset > Ccb->LastOffset)
     {
-      ULONG CorrectCluster;
-      OffsetToCluster(DeviceExt, FirstCluster,
-                      ROUND_DOWN(ReadOffset.u.LowPart, BytesPerCluster),
-                      &CorrectCluster, FALSE);
-      if (CorrectCluster != CurrentCluster)
-        KEBUGCHECK(FAT_FILE_SYSTEM);
+      CurrentCluster = Ccb->LastCluster;
     }
-#endif
-  }
-  else
-  {
-    Status = OffsetToCluster(DeviceExt, FirstCluster,
-                             ROUND_DOWN(ReadOffset.u.LowPart, BytesPerCluster),
-                             &CurrentCluster, FALSE);
-  }
+  Status = OffsetToCluster(DeviceExt,
+			   Fcb,
+			   FirstCluster,
+			   ROUND_DOWN(ReadOffset, DeviceExt->BytesPerCluster),
+			   &CurrentCluster,
+			   FALSE);
   if (!NT_SUCCESS(Status))
-  {
-    return(Status);
-  }
-
-  ExAcquireFastMutex(&Fcb->LastMutex);
-  Fcb->LastCluster = CurrentCluster;
-  Fcb->LastOffset = ROUND_DOWN (ReadOffset.u.LowPart, BytesPerCluster);
-  ExReleaseFastMutex(&Fcb->LastMutex);
-
-  KeInitializeEvent(&IrpContext->Event, NotificationEvent, FALSE);
-  IrpContext->RefCount = 1;
-
-  while (Length > 0 && CurrentCluster != 0xffffffff)
-  {
-    StartCluster = CurrentCluster;
-    StartOffset.QuadPart = ClusterToSector(DeviceExt, StartCluster) * BytesPerSector;
-    BytesDone = 0;
-    ClusterCount = 0;
-
-    do
     {
-      ClusterCount++;
-      if (First)
-      {
-        BytesDone =  min (Length, BytesPerCluster - (ReadOffset.u.LowPart % BytesPerCluster));
-      	StartOffset.QuadPart += ReadOffset.u.LowPart % BytesPerCluster;
-      	First = FALSE;
-      }
-      else
-      {
-      	if (Length - BytesDone > BytesPerCluster)
-      	{
-      	  BytesDone += BytesPerCluster;
-      	}
-      	else
-      	{
-      	  BytesDone = Length;
-      	}
-      }
-      Status = NextCluster(DeviceExt, FirstCluster, &CurrentCluster, FALSE);
+      return(Status);
     }
-    while (StartCluster + ClusterCount == CurrentCluster && NT_SUCCESS(Status) && Length > BytesDone);
-    DPRINT("start %08x, next %08x, count %d\n",
-           StartCluster, CurrentCluster, ClusterCount);
-
-    ExAcquireFastMutex(&Fcb->LastMutex);
-    Fcb->LastCluster = StartCluster + (ClusterCount - 1);
-    Fcb->LastOffset = ROUND_DOWN(ReadOffset.u.LowPart, BytesPerCluster) + (ClusterCount - 1) * BytesPerCluster;
-    ExReleaseFastMutex(&Fcb->LastMutex);
-
-    // Fire up the read command
-    Status = VfatReadDiskPartial (IrpContext, &StartOffset, BytesDone, *LengthRead, FALSE);
-    if (!NT_SUCCESS(Status) && Status != STATUS_PENDING)
-      {
-        break;
-      }
-    *LengthRead += BytesDone;
-    Length -= BytesDone;
-    ReadOffset.u.LowPart += BytesDone;
-  }
-  if (0 != InterlockedDecrement((PLONG)&IrpContext->RefCount))
+  /*
+   * If the read doesn't begin on a chunk boundary then we need special
+   * handling
+   */
+  if ((ReadOffset % DeviceExt->BytesPerCluster) != 0 )
     {
-      KeWaitForSingleObject(&IrpContext->Event, Executive, KernelMode, FALSE, NULL);
-    }
-  if (NT_SUCCESS(Status) || Status == STATUS_PENDING)
-    {
-      if (Length > 0)
-        {
-	  Status = STATUS_UNSUCCESSFUL;
+      TempLength = min (Length, DeviceExt->BytesPerCluster - 
+			(ReadOffset % DeviceExt->BytesPerCluster));
+      Ccb->LastCluster = CurrentCluster;
+      Ccb->LastOffset = ROUND_DOWN(ReadOffset, DeviceExt->BytesPerCluster);
+      Status = VfatReadCluster(DeviceExt, Fcb, FirstCluster, &CurrentCluster, 
+			       Buffer, 
+			       ReadOffset % DeviceExt->BytesPerCluster, 
+			       TempLength);
+      if (NT_SUCCESS(Status))
+	{
+	  (*LengthRead) = (*LengthRead) + TempLength;
+	  Length = Length - TempLength;
+	  Buffer = Buffer + TempLength;
+	  ReadOffset = ReadOffset + TempLength;
 	}
-      else
-        {
-          Status = IrpContext->Irp->IoStatus.Status;
+  }
+
+  while (Length >= DeviceExt->BytesPerCluster && 
+	 CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
+    {
+      StartCluster = CurrentCluster;
+      ClusterCount = 0;
+      BytesDone = 0;
+      /* Search for continous clusters. */
+      do
+	{
+	  ClusterCount++;
+	  BytesDone += DeviceExt->BytesPerCluster;
+	  Status = NextCluster(DeviceExt, Fcb, FirstCluster, &CurrentCluster, 
+			       FALSE);
+	}
+      while (StartCluster + ClusterCount == CurrentCluster && 
+	     NT_SUCCESS(Status) &&
+	     Length - BytesDone >= DeviceExt->BytesPerCluster);
+
+      DPRINT("Count %d, Start %x Next %x\n", ClusterCount, StartCluster, 
+	     CurrentCluster);
+      Ccb->LastCluster = StartCluster + (ClusterCount - 1);
+      Ccb->LastOffset = ReadOffset + 
+	(ClusterCount - 1) * DeviceExt->BytesPerCluster;
+      
+      Status = VfatRawReadCluster(DeviceExt, FirstCluster, Buffer, 
+				  StartCluster, ClusterCount);
+      if (NT_SUCCESS(Status))
+	{
+	  ClusterCount *=  DeviceExt->BytesPerCluster;
+	  (*LengthRead) = (*LengthRead) + ClusterCount;
+	  Buffer += ClusterCount;
+	  Length -= ClusterCount;
+	  ReadOffset += ClusterCount;
+	}
+    }
+  /*
+   * If the read doesn't end on a chunk boundary then we need special
+   * handling
+   */
+  if (Length > 0 && CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
+    {
+      Ccb->LastCluster = CurrentCluster;
+      Ccb->LastOffset = ReadOffset + DeviceExt->BytesPerCluster;
+
+      Status = VfatReadCluster(DeviceExt, Fcb, FirstCluster, &CurrentCluster,
+			       Buffer, 0, Length);
+      if (NT_SUCCESS(Status))
+	{
+	  (*LengthRead) = (*LengthRead) + Length;
 	}
     }
   return Status;
 }
 
-NTSTATUS 
-VfatWriteFileData(PVFAT_IRP_CONTEXT IrpContext,
-		  ULONG Length,
-		  LARGE_INTEGER WriteOffset)
+NTSTATUS
+VfatWriteCluster(PDEVICE_EXTENSION DeviceExt,
+		 PVFATFCB Fcb,
+		    ULONG StartOffset,
+		    ULONG FirstCluster,
+		    PULONG CurrentCluster,
+		    PVOID Source,
+		    ULONG InternalOffset,
+		    ULONG InternalLength)
 {
-   PDEVICE_EXTENSION DeviceExt;
-   PVFATFCB Fcb;
-   PVFATCCB Ccb;
-   ULONG Count;
-   ULONG FirstCluster;
-   ULONG CurrentCluster;
-   ULONG BytesDone;
-   ULONG StartCluster;
-   ULONG ClusterCount;
-   NTSTATUS Status = STATUS_SUCCESS;
-   BOOLEAN First = TRUE;
-   ULONG BytesPerSector;
-   ULONG BytesPerCluster;
-   LARGE_INTEGER StartOffset;
-   ULONG BufferOffset;
-   ULONG LastCluster;
-   ULONG LastOffset;
+  PVOID BaseAddress;
+  NTSTATUS Status;
 
-   /* PRECONDITION */
-   ASSERT(IrpContext);
-   DeviceExt = IrpContext->DeviceExt;
-   ASSERT(DeviceExt);
-   ASSERT(DeviceExt->FatInfo.BytesPerCluster);
-   ASSERT(IrpContext->FileObject);
-   ASSERT(IrpContext->FileObject->FsContext2 != NULL);
-
-   Ccb = (PVFATCCB)IrpContext->FileObject->FsContext2;
-   Fcb = IrpContext->FileObject->FsContext;
-   BytesPerCluster = DeviceExt->FatInfo.BytesPerCluster;
-   BytesPerSector = DeviceExt->FatInfo.BytesPerSector;
-
-   DPRINT("VfatWriteFileData(DeviceExt %x, FileObject %x, "
-	  "Length %d, WriteOffset 0x%I64x), '%wZ'\n", DeviceExt,
-	  IrpContext->FileObject, Length, WriteOffset,
-	  &Fcb->PathNameU);
-
-   ASSERT(WriteOffset.QuadPart + Length <= Fcb->RFCB.AllocationSize.QuadPart);
-   ASSERT(WriteOffset.u.LowPart % BytesPerSector == 0);
-   ASSERT(Length % BytesPerSector == 0)
-
-   // Is this a write of the volume ?
-   if (Fcb->Flags & FCB_IS_VOLUME)
-   {
-      Status = VfatWriteDiskPartial(IrpContext, &WriteOffset, Length, 0, TRUE);
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT1("Volume writing failed, Status %x\n", Status);
-      }
-      return Status;
-   }
-
-   // Is this a write to the FAT ?
-   if (Fcb->Flags & FCB_IS_FAT)
-   {
-      WriteOffset.u.LowPart += DeviceExt->FatInfo.FATStart * BytesPerSector;
-      IrpContext->RefCount = 1;
-      for (Count = 0; Count < DeviceExt->FatInfo.FATCount; Count++)
-      {
-         Status = VfatWriteDiskPartial(IrpContext, &WriteOffset, Length, 0, FALSE);
-         if (!NT_SUCCESS(Status) && Status != STATUS_PENDING)
-         {
-            DPRINT1("FAT writing failed, Status %x\n", Status);
-	    break;
-         }
-	 WriteOffset.u.LowPart += Fcb->RFCB.FileSize.u.LowPart;
-      }
-      if (0 != InterlockedDecrement((PLONG)&IrpContext->RefCount))
-        {
-	  KeWaitForSingleObject(&IrpContext->Event, Executive, KernelMode, FALSE, NULL);
-	}
-      if (NT_SUCCESS(Status) || Status == STATUS_PENDING)
-        {
-	  Status = IrpContext->Irp->IoStatus.Status;
-	}
-      return Status;
-   }
-
-   /*
-    * Find the first cluster
-    */
-   FirstCluster = CurrentCluster =
-      vfatDirEntryGetFirstCluster (DeviceExt, &Fcb->entry);
-
-   if (FirstCluster == 1)
-   {
-      ASSERT(WriteOffset.u.LowPart + Length <= DeviceExt->FatInfo.rootDirectorySectors * BytesPerSector);
-      // Directory of FAT12/16 needs a special handling
-      WriteOffset.u.LowPart += DeviceExt->FatInfo.rootStart * BytesPerSector;
-      // Fire up the write command
-      Status = VfatWriteDiskPartial (IrpContext, &WriteOffset, Length, 0, TRUE);
-      return Status;
-   }
-
-   ExAcquireFastMutex(&Fcb->LastMutex);
-   LastCluster = Fcb->LastCluster;
-   LastOffset = Fcb->LastOffset;
-   ExReleaseFastMutex(&Fcb->LastMutex);
-
-   /*
-    * Find the cluster to start the write from
-    */
-   if (LastCluster > 0 && WriteOffset.u.LowPart >= LastOffset)
-   {
-      Status = OffsetToCluster(DeviceExt, LastCluster,
-                               ROUND_DOWN(WriteOffset.u.LowPart, BytesPerCluster) -
-                               LastOffset,
-                               &CurrentCluster, FALSE);
-#ifdef DEBUG_VERIFY_OFFSET_CACHING
-      /* DEBUG VERIFICATION */
-      {
-         ULONG CorrectCluster;
-         OffsetToCluster(DeviceExt, FirstCluster,
-                         ROUND_DOWN(WriteOffset.u.LowPart, BytesPerCluster),
-                         &CorrectCluster, FALSE);
-         if (CorrectCluster != CurrentCluster)
-            KEBUGCHECK(FAT_FILE_SYSTEM);
-      }
-#endif
-   }
-   else
-   {
-      Status = OffsetToCluster(DeviceExt, FirstCluster,
-                               ROUND_DOWN(WriteOffset.u.LowPart, BytesPerCluster),
-                               &CurrentCluster, FALSE);
-   }
-
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   ExAcquireFastMutex(&Fcb->LastMutex);
-   Fcb->LastCluster = CurrentCluster;
-   Fcb->LastOffset = ROUND_DOWN (WriteOffset.u.LowPart, BytesPerCluster);
-   ExReleaseFastMutex(&Fcb->LastMutex);
-
-   IrpContext->RefCount = 1;
-   BufferOffset = 0;
-
-   while (Length > 0 && CurrentCluster != 0xffffffff)
-   {
-      StartCluster = CurrentCluster;
-      StartOffset.QuadPart = ClusterToSector(DeviceExt, StartCluster) * BytesPerSector;
-      BytesDone = 0;
-      ClusterCount = 0;
-
-      do
-      {
-         ClusterCount++;
-         if (First)
-         {
-            BytesDone =  min (Length, BytesPerCluster - (WriteOffset.u.LowPart % BytesPerCluster));
-	    StartOffset.QuadPart += WriteOffset.u.LowPart % BytesPerCluster;
-      	    First = FALSE;
-         }
-         else
-         {
-      	    if (Length - BytesDone > BytesPerCluster)
-      	    {
-      	       BytesDone += BytesPerCluster;
-      	    }
-      	    else
-      	    {
-      	       BytesDone = Length;
-      	    }
-         }
-         Status = NextCluster(DeviceExt, FirstCluster, &CurrentCluster, FALSE);
-      }
-      while (StartCluster + ClusterCount == CurrentCluster && NT_SUCCESS(Status) && Length > BytesDone);
-      DPRINT("start %08x, next %08x, count %d\n",
-             StartCluster, CurrentCluster, ClusterCount);
-
-      ExAcquireFastMutex(&Fcb->LastMutex);
-      Fcb->LastCluster = StartCluster + (ClusterCount - 1);
-      Fcb->LastOffset = ROUND_DOWN(WriteOffset.u.LowPart, BytesPerCluster) + (ClusterCount - 1) * BytesPerCluster;
-      ExReleaseFastMutex(&Fcb->LastMutex);
-
-      // Fire up the write command
-      Status = VfatWriteDiskPartial (IrpContext, &StartOffset, BytesDone, BufferOffset, FALSE);
-      if (!NT_SUCCESS(Status) && Status != STATUS_PENDING)
-        {
-	  break;
-	}
-      BufferOffset += BytesDone;
-      Length -= BytesDone;
-      WriteOffset.u.LowPart += BytesDone;
-   }
-   if (0 != InterlockedDecrement((PLONG)&IrpContext->RefCount))
+  if (InternalLength != DeviceExt->BytesPerCluster)
+  {
+     BaseAddress = ExAllocatePool(NonPagedPool, DeviceExt->BytesPerCluster);
+     if (BaseAddress == NULL)
      {
-       KeWaitForSingleObject(&IrpContext->Event, Executive, KernelMode, FALSE, NULL);
+       return(STATUS_NO_MEMORY);
      }
-   if (NT_SUCCESS(Status) || Status == STATUS_PENDING)
+  }
+  else
+    BaseAddress = Source;
+  if (InternalLength != DeviceExt->BytesPerCluster)
+  {
+    /*
+     * If the data in the cache isn't valid or we are bypassing the
+     * cache and not writing a cluster aligned, cluster sized region
+     * then read data in to base address
+     */
+     Status = VfatRawReadCluster(DeviceExt, FirstCluster, BaseAddress,
+				*CurrentCluster, 1);
+     if (!NT_SUCCESS(Status))
      {
-       if (Length > 0)
-         {
-	   Status = STATUS_UNSUCCESSFUL;
-	 }
-       else
-         {
-	   Status = IrpContext->Irp->IoStatus.Status;
-	 }
+        if (InternalLength != DeviceExt->BytesPerCluster)
+        {
+          ExFreePool(BaseAddress);
+        }
+        return(Status);
      }
-   return Status;
+     memcpy(BaseAddress + InternalOffset, Source, InternalLength);
+  }
+  /*
+   * Write the data back to disk
+   */
+  DPRINT("Writing 0x%x\n", *CurrentCluster);
+  Status = VfatRawWriteCluster(DeviceExt, FirstCluster, BaseAddress,
+			       *CurrentCluster, 1);
+  if (InternalLength != DeviceExt->BytesPerCluster)
+  {
+    ExFreePool(BaseAddress);
+  }
+  if (!NT_SUCCESS(Status))
+  {
+    return Status;
+  }
+  Status = NextCluster(DeviceExt, Fcb, FirstCluster, CurrentCluster, FALSE);
+  return(Status);
 }
 
 NTSTATUS
-VfatRead(PVFAT_IRP_CONTEXT IrpContext)
+VfatWriteFile (PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
+	       PVOID Buffer, ULONG Length, ULONG WriteOffset,
+	       BOOLEAN NoCache, BOOLEAN PageIo)
+/*
+ * FUNCTION: Writes data to file
+ */
 {
-   NTSTATUS Status;
-   PVFATFCB Fcb;
-   ULONG Length = 0;
-   ULONG ReturnedLength = 0;
-   PERESOURCE Resource = NULL;
-   LARGE_INTEGER ByteOffset;
-   PVOID Buffer;
-   PDEVICE_OBJECT DeviceToVerify;
-   ULONG BytesPerSector;
+  ULONG CurrentCluster;
+  ULONG FirstCluster;
+  ULONG StartCluster;
+  ULONG Count;
+  PVFATFCB Fcb;
+  PVFATCCB pCcb;
+  ULONG TempLength;
+  LARGE_INTEGER SystemTime, LocalTime;
+  NTSTATUS Status;
+  BOOLEAN Extend;
+  LARGE_INTEGER FileOffset;
 
-   ASSERT(IrpContext);
+  DPRINT ("VfatWriteFile(FileObject %x, Buffer %x, Length %x, "
+	      "WriteOffset %x\n", FileObject, Buffer, Length, WriteOffset);
 
-   DPRINT("VfatRead(IrpContext %x)\n", IrpContext);
+  assert (FileObject);
+  pCcb = (PVFATCCB) (FileObject->FsContext2);
+  assert (pCcb);
+  Fcb = pCcb->pFcb;
+  assert (Fcb);
 
-   ASSERT(IrpContext->DeviceObject);
+//  DPRINT1("%S\n", Fcb->PathName);
 
-   // This request is not allowed on the main device object
-   if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
-   {
-      DPRINT("VfatRead is called with the main device object.\n");
-      Status = STATUS_INVALID_DEVICE_REQUEST;
-      goto ByeBye;
-   }
+  if (Length == 0)
+  {
+    return STATUS_SUCCESS;
+  }
 
-   ASSERT(IrpContext->DeviceExt);
-   ASSERT(IrpContext->FileObject);
-   Fcb = IrpContext->FileObject->FsContext;
-   ASSERT(Fcb);
+  // Is this a write to the FAT ?
+  if (Fcb->Flags & FCB_IS_FAT)
+  {
+    if (!NoCache && !PageIo)
+    {
+      DbgPrint ("Cached FAT write outside from VFATFS.SYS\n");
+      KeBugCheck (0);
+    }
+    if (WriteOffset >= Fcb->RFCB.FileSize.QuadPart || WriteOffset % BLOCKSIZE != 0 || Length % BLOCKSIZE != 0)
+    {
+      DbgPrint ("Start or end of FAT write is not on a sector boundary\n");
+      KeBugCheck (0);
+    }
+    if (WriteOffset + Length > (ULONG)Fcb->RFCB.FileSize.QuadPart)
+    {
+      Length = (ULONG)Fcb->RFCB.FileSize.QuadPart - WriteOffset;
+    }
 
-   DPRINT("<%wZ>\n", &Fcb->PathNameU);
-
-   if (Fcb->Flags & FCB_IS_PAGE_FILE)
-   {
-      PFATINFO FatInfo = &IrpContext->DeviceExt->FatInfo;
-      IrpContext->Stack->Parameters.Read.ByteOffset.QuadPart += FatInfo->dataStart * FatInfo->BytesPerSector;
-      IoSkipCurrentIrpStackLocation(IrpContext->Irp);
-      DPRINT("Read from page file, disk offset %I64x\n", IrpContext->Stack->Parameters.Read.ByteOffset.QuadPart);
-      Status = IoCallDriver(IrpContext->DeviceExt->StorageDevice, IrpContext->Irp);
-      VfatFreeIrpContext(IrpContext);
-      return Status;
-   }
-
-   ByteOffset = IrpContext->Stack->Parameters.Read.ByteOffset;
-   Length = IrpContext->Stack->Parameters.Read.Length;
-   BytesPerSector = IrpContext->DeviceExt->FatInfo.BytesPerSector;
-
-   /* fail if file is a directory and no paged read */
-   if (*Fcb->Attributes & FILE_ATTRIBUTE_DIRECTORY && !(IrpContext->Irp->Flags & IRP_PAGING_IO))
-   {
-      Status = STATUS_INVALID_PARAMETER;
-      goto ByeBye;
-   }
-
-
-   DPRINT("'%wZ', Offset: %d, Length %d\n", &Fcb->PathNameU, ByteOffset.u.LowPart, Length);
-
-   if (ByteOffset.u.HighPart && !(Fcb->Flags & FCB_IS_VOLUME))
-   {
-      Status = STATUS_INVALID_PARAMETER;
-      goto ByeBye;
-   }
-   if (ByteOffset.QuadPart >= Fcb->RFCB.FileSize.QuadPart)
-   {
-      IrpContext->Irp->IoStatus.Information = 0;
-      Status = STATUS_END_OF_FILE;
-      goto ByeBye;
-   }
-   if (IrpContext->Irp->Flags & (IRP_PAGING_IO | IRP_NOCACHE) || (Fcb->Flags & FCB_IS_VOLUME))
-   {
-      if (ByteOffset.u.LowPart % BytesPerSector != 0 || Length % BytesPerSector != 0)
-      {
-         DPRINT("%d %d\n", ByteOffset.u.LowPart, Length);
-         // non cached read must be sector aligned
-         Status = STATUS_INVALID_PARAMETER;
-         goto ByeBye;
-      }
-   }
-   if (Length == 0)
-   {
-      IrpContext->Irp->IoStatus.Information = 0;
-      Status = STATUS_SUCCESS;
-      goto ByeBye;
-   }
-   
-   if (Fcb->Flags & FCB_IS_VOLUME)
-   {
-      Resource = &IrpContext->DeviceExt->DirResource;
-   }
-   else if (IrpContext->Irp->Flags & IRP_PAGING_IO)
-   {
-      Resource = &Fcb->PagingIoResource;
-   }
-   else
-   {
-      Resource = &Fcb->MainResource;
-   }
-   if (!ExAcquireResourceSharedLite(Resource,
-                                    (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT)))
-   {
-      Resource = NULL;
-      Status = STATUS_PENDING;
-      goto ByeBye;
-   }
-
-   if (!(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
-      FsRtlAreThereCurrentFileLocks(&Fcb->FileLock))
-   {
-      if (!FsRtlCheckLockForReadAccess(&Fcb->FileLock, IrpContext->Irp)) 
-      {
-         Status = STATUS_FILE_LOCK_CONFLICT;
-         goto ByeBye;
-      }
-   }
-
-   Buffer = VfatGetUserBuffer(IrpContext->Irp);
-   if (!Buffer)
-     {
-       Status = STATUS_INVALID_USER_BUFFER;
-       goto ByeBye;
-     }
-
-   if (!(IrpContext->Irp->Flags & (IRP_NOCACHE|IRP_PAGING_IO)) &&
-     !(Fcb->Flags & (FCB_IS_PAGE_FILE|FCB_IS_VOLUME)))
-   {
-      // cached read
-      CHECKPOINT;
-      Status = STATUS_SUCCESS;
-      if (ByteOffset.u.LowPart + Length > Fcb->RFCB.FileSize.u.LowPart)
-      {
-         Length = Fcb->RFCB.FileSize.u.LowPart - ByteOffset.u.LowPart;
-         Status = /*STATUS_END_OF_FILE*/STATUS_SUCCESS;
-      }
-
-      CHECKPOINT;
-      if (IrpContext->FileObject->PrivateCacheMap == NULL)
-      {
-	  ULONG CacheSize;
-	  CacheSize = max(IrpContext->DeviceExt->FatInfo.BytesPerCluster,
-	                  8 * PAGE_SIZE);
-	  CcRosInitializeFileCache(IrpContext->FileObject, CacheSize);
-      }
-      if (!CcCopyRead(IrpContext->FileObject, &ByteOffset, Length,
-                      (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT), Buffer,
-                      &IrpContext->Irp->IoStatus))
-      {
-         Status = STATUS_PENDING;
-         goto ByeBye;
-      }
-      CHECKPOINT;
-      if (!NT_SUCCESS(IrpContext->Irp->IoStatus.Status))
-      {
-        Status = IrpContext->Irp->IoStatus.Status;
-      }
-   }
-   else
-   {
-      // non cached read
-      CHECKPOINT;
-      if (ByteOffset.QuadPart + Length > ROUND_UP(Fcb->RFCB.FileSize.QuadPart, BytesPerSector))
-      {
-         Length = ROUND_UP(Fcb->RFCB.FileSize.QuadPart, BytesPerSector) - ByteOffset.QuadPart;
-      }
-
-      Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoWriteAccess);
+    for (Count = 0; Count < DeviceExt->Boot->FATCount; Count++)
+    {
+      Status = VfatWriteSectors(DeviceExt->StorageDevice,
+                 DeviceExt->FATStart + (Count * (ULONG)Fcb->RFCB.FileSize.QuadPart + WriteOffset) / BLOCKSIZE,
+                 Length / BLOCKSIZE, Buffer);
       if (!NT_SUCCESS(Status))
-        {
-          goto ByeBye;
-        }
-
-      Status = VfatReadFileData(IrpContext, Length, ByteOffset, &ReturnedLength);
-/**/
-      if (Status == STATUS_VERIFY_REQUIRED)
       {
-         DPRINT("VfatReadFile returned STATUS_VERIFY_REQUIRED\n");
-         DeviceToVerify = IoGetDeviceToVerify((struct _ETHREAD*)KeGetCurrentThread());
-         IoSetDeviceToVerify((struct _ETHREAD*)KeGetCurrentThread(), NULL);
-         Status = IoVerifyVolume (DeviceToVerify, FALSE);
-
-         if (NT_SUCCESS(Status))
-         {
-            Status = VfatReadFileData(IrpContext, Length,
-                                      ByteOffset, &ReturnedLength);
-         }
-
+        DPRINT1("FAT writing failed, Status %x\n", Status);
       }
-/**/
+    }
+    return Status;
+  }
+
+  /* Locate the first cluster of the file */
+  FirstCluster = CurrentCluster = vfatDirEntryGetFirstCluster (DeviceExt, &Fcb->entry);
+
+  if (PageIo)
+  {
+    if (FirstCluster == 0)
+    {
+      return STATUS_UNSUCCESSFUL;
+    }
+  }
+  else
+  {
+    if (FirstCluster == 1)
+    {
+      // root directory of FAT12 od FAT16
+      if (WriteOffset + Length > DeviceExt->rootDirectorySectors * BLOCKSIZE)
+      {
+        DPRINT("Writing over the end of the root directory on FAT12/16\n");
+        return STATUS_END_OF_FILE;
+      }
+    }
+
+    Status = vfatExtendSpace(DeviceExt, FileObject, WriteOffset + Length);
+    if (!NT_SUCCESS (Status))
+    {
+      return Status;
+    }
+  }
+
+  if (NoCache || PageIo)
+  {
+
+    FirstCluster = CurrentCluster = vfatDirEntryGetFirstCluster (DeviceExt, &Fcb->entry);
+    if (pCcb->LastCluster > 0 && WriteOffset > pCcb->LastOffset)
+    {
+      CurrentCluster = pCcb->LastCluster;
+    }
+    Status = OffsetToCluster(DeviceExt,
+			     Fcb,
+			   FirstCluster,
+			   ROUND_DOWN(WriteOffset, DeviceExt->BytesPerCluster),
+			   &CurrentCluster,
+			   FALSE);
+    if (!NT_SUCCESS(Status) || CurrentCluster == 0xffffffff)
+    {
+      DPRINT1("????\n");
+      return(Status);
+    }
+    pCcb->LastCluster = CurrentCluster;
+    pCcb->LastOffset = ROUND_DOWN(WriteOffset, DeviceExt->BytesPerCluster);
+
+    /*
+     * If the offset in the cluster doesn't fall on the cluster boundary
+     * then we have to write only from the specified offset
+     */
+    Status = STATUS_SUCCESS;
+    if ((WriteOffset % DeviceExt->BytesPerCluster) != 0)
+    {
+      TempLength = min (Length, DeviceExt->BytesPerCluster - (WriteOffset % DeviceExt->BytesPerCluster));
+      Status = VfatWriteCluster(DeviceExt,
+				Fcb,
+			      ROUND_DOWN(WriteOffset, DeviceExt->BytesPerCluster),
+			      FirstCluster,
+			      &CurrentCluster,
+			      Buffer,
+			      WriteOffset % DeviceExt->BytesPerCluster,
+			      TempLength);
       if (NT_SUCCESS(Status))
       {
-         IrpContext->Irp->IoStatus.Information = ReturnedLength;
+        Buffer = Buffer + TempLength;
+        Length = Length - TempLength;
+        WriteOffset = WriteOffset + TempLength;
       }
-   }
+    }
 
-ByeBye:
-   if (Resource)
-   {
-      ExReleaseResourceLite(Resource);
-   }
+    while (Length >= DeviceExt->BytesPerCluster && CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
+    {
+      StartCluster = CurrentCluster;
+      Count = 0;
+      // search for continous clusters
+      do
+      {
+        Count++;
+        Status = NextCluster(DeviceExt, Fcb, FirstCluster, &CurrentCluster, FALSE);
+      }
+      while (StartCluster + Count == CurrentCluster && NT_SUCCESS(Status) &&
+        Length - Count * DeviceExt->BytesPerCluster >= DeviceExt->BytesPerCluster);
 
-   if (Status == STATUS_PENDING)
-   {
-      Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoWriteAccess);
+      pCcb->LastCluster = StartCluster + (Count - 1);
+      pCcb->LastOffset = WriteOffset + (Count - 1) * DeviceExt->BytesPerCluster;
+
+      Status = VfatRawWriteCluster(DeviceExt, FirstCluster, Buffer, StartCluster, Count);
       if (NT_SUCCESS(Status))
       {
-         Status = VfatQueueRequest(IrpContext);
+        Count *=  DeviceExt->BytesPerCluster;
+        Buffer += Count;
+        Length -= Count;
+        WriteOffset += Count;
       }
-      else
-      {
-         IrpContext->Irp->IoStatus.Status = Status;
-         IoCompleteRequest(IrpContext->Irp, IO_NO_INCREMENT);
-         VfatFreeIrpContext(IrpContext);
-      }
-   }
-   else
-   {
-      IrpContext->Irp->IoStatus.Status = Status;
-      if (IrpContext->FileObject->Flags & FO_SYNCHRONOUS_IO &&
-          !(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
-          (NT_SUCCESS(Status) || Status==STATUS_END_OF_FILE))
-      {
-         IrpContext->FileObject->CurrentByteOffset.QuadPart =
-           ByteOffset.QuadPart + IrpContext->Irp->IoStatus.Information;
-      }
+    }
 
-      IoCompleteRequest(IrpContext->Irp,
-                        (CCHAR)(NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
-      VfatFreeIrpContext(IrpContext);
-   }
-   DPRINT("%x\n", Status);
-   return Status;
+    /* Write the remainder */
+    if (Length > 0 && CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
+    {
+      Status = VfatWriteCluster(DeviceExt,
+				Fcb,
+			     WriteOffset,
+			     FirstCluster,
+			     &CurrentCluster,
+			     Buffer,
+			     0,
+		         Length);
+      if (NT_SUCCESS(Status))
+      {
+        Length = 0;
+      }
+    }
+    if (NT_SUCCESS(Status) && Length)
+    {
+      if (WriteOffset < Fcb->RFCB.AllocationSize.QuadPart)
+      {
+        DPRINT1("%d %d\n", WriteOffset, (ULONG)Fcb->RFCB.AllocationSize.QuadPart);
+        Status = STATUS_DISK_FULL; // ???????????
+      }
+    }
+  }
+  else
+  {
+    // using the Cc-interface if possible
+    FileOffset.QuadPart = WriteOffset;
+    if(CcCopyWrite(FileObject, &FileOffset, Length, TRUE, Buffer))
+    {
+      Status = STATUS_SUCCESS;
+    }
+    else
+    {
+      Status = STATUS_UNSUCCESSFUL;
+    }
+  }
+
+
+  if (!PageIo)
+  {
+    if(!(Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY))
+    {
+      /* set dates and times */
+      KeQuerySystemTime (&SystemTime);
+      ExSystemTimeToLocalTime (&SystemTime, &LocalTime);
+      FsdFileTimeToDosDateTime ((TIME*)&LocalTime,
+		        &Fcb->entry.UpdateDate,
+		    	&Fcb->entry.UpdateTime);
+      Fcb->entry.AccessDate = Fcb->entry.UpdateDate;
+      // update dates/times and length
+      updEntry (DeviceExt, FileObject);
+    }
+  }
+
+  return Status;
 }
 
-NTSTATUS VfatWrite (PVFAT_IRP_CONTEXT IrpContext)
+NTSTATUS vfatExtendSpace (PDEVICE_EXTENSION pDeviceExt, PFILE_OBJECT pFileObject, ULONG NewSize)
+{
+  ULONG FirstCluster;
+  ULONG CurrentCluster;
+  ULONG NewCluster;
+  NTSTATUS Status;
+  PVFATFCB pFcb;
+
+
+  pFcb = ((PVFATCCB) (pFileObject->FsContext2))->pFcb;
+
+  DPRINT ("New Size %d,  AllocationSize %d,  BytesPerCluster %d\n",  NewSize,
+    (ULONG)pFcb->RFCB.AllocationSize.QuadPart, pDeviceExt->BytesPerCluster);
+
+  FirstCluster = CurrentCluster = vfatDirEntryGetFirstCluster (pDeviceExt, &pFcb->entry);
+
+  if (NewSize > pFcb->RFCB.AllocationSize.QuadPart || FirstCluster==0)
+  {
+    // size on disk must be extended
+    if (FirstCluster == 0)
+    {
+      // file of size zero
+      Status = NextCluster (pDeviceExt, pFcb, FirstCluster, &CurrentCluster, TRUE);
+      if (!NT_SUCCESS(Status))
+      {
+        DPRINT1("NextCluster failed, Status %x\n", Status);
+        return Status;
+      }
+      NewCluster = FirstCluster = CurrentCluster;
+    }
+    else
+    {
+      Status = OffsetToCluster(pDeviceExt, pFcb, FirstCluster,
+                 pFcb->RFCB.AllocationSize.QuadPart - pDeviceExt->BytesPerCluster,
+                 &CurrentCluster, FALSE);
+      if (!NT_SUCCESS(Status))
+      {
+        DPRINT1("OffsetToCluster failed, Status %x\n", Status);
+        return Status;
+      }
+      if (CurrentCluster == 0xffffffff)
+      {
+        DPRINT1("Not enough disk space.\n");
+        return STATUS_DISK_FULL;
+      }
+      // CurrentCluster zeigt jetzt auf den letzten Cluster in der Kette
+      NewCluster = CurrentCluster;
+      Status = NextCluster(pDeviceExt, pFcb, FirstCluster, &NewCluster, FALSE);
+      if (NewCluster != 0xffffffff)
+      {
+        DPRINT1("Difference between size from direntry and the FAT.\n");
+      }
+    }
+
+    Status = OffsetToCluster(pDeviceExt, pFcb, FirstCluster,
+               ROUND_DOWN(NewSize-1, pDeviceExt->BytesPerCluster),
+               &NewCluster, TRUE);
+    if (!NT_SUCCESS(Status) || NewCluster == 0xffffffff)
+    {
+      DPRINT1("Not enough free space on disk\n");
+      if (pFcb->RFCB.AllocationSize.QuadPart > 0)
+      {
+        NewCluster = CurrentCluster;
+        // FIXME: check status
+        NextCluster(pDeviceExt, pFcb, FirstCluster, &NewCluster, FALSE);
+        WriteCluster(pDeviceExt, CurrentCluster, 0xffffffff);
+      }
+      // free the allocated space
+      while (NewCluster != 0xffffffff)
+      {
+        CurrentCluster = NewCluster;
+        // FIXME: check status
+        NextCluster (pDeviceExt, pFcb, FirstCluster, &NewCluster, FALSE);
+        WriteCluster (pDeviceExt, CurrentCluster, 0);
+      }
+      return STATUS_DISK_FULL;
+    }
+    if (pFcb->RFCB.AllocationSize.QuadPart == 0)
+    {
+      pFcb->entry.FirstCluster = FirstCluster;
+      if(pDeviceExt->FatType == FAT32)
+        pFcb->entry.FirstClusterHigh = FirstCluster >> 16;
+    }
+    pFcb->RFCB.AllocationSize.QuadPart = ROUND_UP(NewSize, pDeviceExt->BytesPerCluster);
+    if (pFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY)
+    {
+      pFcb->RFCB.FileSize.QuadPart = pFcb->RFCB.AllocationSize.QuadPart;
+      pFcb->RFCB.ValidDataLength.QuadPart = pFcb->RFCB.AllocationSize.QuadPart;
+    }
+    else
+    {
+      pFcb->entry.FileSize = NewSize;
+      pFcb->RFCB.FileSize.QuadPart = NewSize;
+      pFcb->RFCB.ValidDataLength.QuadPart = NewSize;
+    }
+    CcSetFileSizes(pFileObject, (PCC_FILE_SIZES)&pFcb->RFCB.AllocationSize);
+  }
+  else
+  {
+    if (NewSize > pFcb->RFCB.FileSize.QuadPart)
+    {
+      // size on disk must not be extended
+      if (!(pFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY))
+      {
+        pFcb->entry.FileSize = NewSize;
+        pFcb->RFCB.FileSize.QuadPart = NewSize;
+        CcSetFileSizes(pFileObject, (PCC_FILE_SIZES)&pFcb->RFCB.AllocationSize);
+      }
+    }
+    else
+    {
+      // nothing to do
+    }
+  }
+  return STATUS_SUCCESS;
+}
+
+NTSTATUS 
+VfatRead(PVFAT_IRP_CONTEXT IrpContext)
+{
+  PVFATFCB Fcb;
+  PVFATCCB Ccb;
+  NTSTATUS Status = STATUS_SUCCESS;
+  ULONG ReadLength;
+  ULONG ReturnedReadLength = 0;
+  LARGE_INTEGER ReadOffset;
+  PVOID Buffer;
+  
+  DPRINT ("VfatRead(IrpContext %x)\n", IrpContext);
+  assert (IrpContext);
+  Ccb = (PVFATCCB) IrpContext->FileObject->FsContext2;
+  assert (Ccb);
+  Fcb = Ccb->pFcb;
+  assert (Fcb);
+  
+  if (IrpContext->Irp->Flags & IRP_PAGING_IO)
+    {
+      if (!ExAcquireResourceSharedLite(&Fcb->PagingIoResource, 
+				       IrpContext->Flags & IRPCONTEXT_CANWAIT))
+      {
+	return VfatQueueRequest (IrpContext);
+      }
+    }
+  else
+    {
+      if (!ExAcquireResourceSharedLite(&Fcb->MainResource, 
+				       IrpContext->Flags & IRPCONTEXT_CANWAIT))
+	{
+	  return VfatQueueRequest (IrpContext);
+	}
+   }
+  
+  ReadLength = IrpContext->Stack->Parameters.Read.Length;
+  ReadOffset = IrpContext->Stack->Parameters.Read.ByteOffset;
+  Buffer = MmGetSystemAddressForMdl (IrpContext->Irp->MdlAddress);
+  
+  /* fail if file is a directory and no paged read */
+  if (Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY && 
+      !(IrpContext->Irp->Flags & IRP_PAGING_IO))
+   {
+     Status = STATUS_FILE_IS_A_DIRECTORY;
+   }
+  else
+    {
+      BOOLEAN NoCache;
+      NoCache = IrpContext->FileObject->Flags & FO_NO_INTERMEDIATE_BUFFERING
+	|| IrpContext->Irp->Flags & IRP_PAGING_IO;
+      Status = VfatReadFile (IrpContext->DeviceExt, IrpContext->FileObject,
+			     Buffer, ReadLength, ReadOffset.u.LowPart, 
+			     &ReturnedReadLength,
+			     NoCache);
+    }
+
+  if (IrpContext->Irp->Flags & IRP_PAGING_IO)
+    {
+      ExReleaseResourceLite(&Fcb->PagingIoResource);
+    }
+  else
+    {
+      ExReleaseResourceLite(&Fcb->MainResource);
+    }
+  
+  if (NT_SUCCESS(Status))
+   {
+     if (IrpContext->FileObject->Flags & FO_SYNCHRONOUS_IO && 
+	 !(IrpContext->Irp->Flags & IRP_PAGING_IO))
+      {
+	IrpContext->FileObject->CurrentByteOffset.QuadPart = 
+	  ReadOffset.QuadPart + ReturnedReadLength;
+      }
+     IrpContext->Irp->IoStatus.Information = ReturnedReadLength;
+   }
+  else
+    {
+      IrpContext->Irp->IoStatus.Information = 0;
+    }
+
+  IrpContext->Irp->IoStatus.Status = Status;
+  IoCompleteRequest (IrpContext->Irp, IO_NO_INCREMENT);
+  VfatFreeIrpContext (IrpContext);
+  
+  return Status;
+}
+
+NTSTATUS VfatWrite(PVFAT_IRP_CONTEXT IrpContext)
 {
    PVFATFCB Fcb;
-   PERESOURCE Resource = NULL;
-   LARGE_INTEGER ByteOffset;
-   LARGE_INTEGER OldFileSize;
+   PVFATCCB Ccb;
    NTSTATUS Status = STATUS_SUCCESS;
-   ULONG Length = 0;
-   ULONG OldAllocationSize;
+   ULONG WriteLength;
+   LARGE_INTEGER WriteOffset;
    PVOID Buffer;
-   ULONG BytesPerSector;
 
-   ASSERT(IrpContext);
+   DPRINT ("VfatWrite(), %S\n", ((PVFATCCB) IrpContext->FileObject->FsContext2)->pFcb->FileName);
+   assert (IrpContext);
+   Ccb = (PVFATCCB) IrpContext->FileObject->FsContext2;
+   assert (Ccb);
+   Fcb = Ccb->pFcb;
+   assert (Fcb);
 
-   DPRINT("VfatWrite(IrpContext %x)\n", IrpContext);
-
-   ASSERT(IrpContext->DeviceObject);
-
-   // This request is not allowed on the main device object
-   if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
+   if (IrpContext->Irp->Flags & IRP_PAGING_IO)
    {
-      DPRINT("VfatWrite is called with the main device object.\n");
-      Status = STATUS_INVALID_DEVICE_REQUEST;
-      goto ByeBye;
-   }
-
-   ASSERT(IrpContext->DeviceExt);
-   ASSERT(IrpContext->FileObject);
-   Fcb = IrpContext->FileObject->FsContext;
-   ASSERT(Fcb);
-
-   DPRINT("<%wZ>\n", &Fcb->PathNameU);
-
-   if (Fcb->Flags & FCB_IS_PAGE_FILE)
-   {
-      PFATINFO FatInfo = &IrpContext->DeviceExt->FatInfo;
-      IrpContext->Stack->Parameters.Write.ByteOffset.QuadPart += FatInfo->dataStart * FatInfo->BytesPerSector;
-      IoSkipCurrentIrpStackLocation(IrpContext->Irp);
-      DPRINT("Write to page file, disk offset %I64x\n", IrpContext->Stack->Parameters.Write.ByteOffset.QuadPart);
-      Status = IoCallDriver(IrpContext->DeviceExt->StorageDevice, IrpContext->Irp);
-      VfatFreeIrpContext(IrpContext);
-      return Status;
-   }
-
-  /* fail if file is a directory and no paged read */
-   if (*Fcb->Attributes & FILE_ATTRIBUTE_DIRECTORY && !(IrpContext->Irp->Flags & IRP_PAGING_IO))
-   {
-      Status = STATUS_INVALID_PARAMETER;
-      goto ByeBye;
-   }
-
-   ByteOffset = IrpContext->Stack->Parameters.Write.ByteOffset;
-   if (ByteOffset.u.LowPart == FILE_WRITE_TO_END_OF_FILE &&
-       ByteOffset.u.HighPart == 0xffffffff)
-   {
-      ByteOffset.QuadPart = Fcb->RFCB.FileSize.QuadPart;
-   }
-   Length = IrpContext->Stack->Parameters.Write.Length;
-   BytesPerSector = IrpContext->DeviceExt->FatInfo.BytesPerSector;
-
-   if (ByteOffset.u.HighPart && !(Fcb->Flags & FCB_IS_VOLUME))
-   {
-      Status = STATUS_INVALID_PARAMETER;
-      goto ByeBye;
-   }
-
-   if (Fcb->Flags & (FCB_IS_FAT | FCB_IS_VOLUME) ||
-       1 == vfatDirEntryGetFirstCluster (IrpContext->DeviceExt, &Fcb->entry))
-   {
-      if (ByteOffset.QuadPart + Length > Fcb->RFCB.FileSize.QuadPart)
+      if (!ExAcquireResourceExclusiveLite(&Fcb->PagingIoResource, IrpContext->Flags & IRPCONTEXT_CANWAIT))
       {
-         // we can't extend the FAT, the volume or the root on FAT12/FAT16
-         Status = STATUS_END_OF_FILE;
-         goto ByeBye;
+         return VfatQueueRequest (IrpContext);
+      }
+   }
+   else
+   {
+      if (!ExAcquireResourceExclusiveLite(&Fcb->MainResource, IrpContext->Flags & IRPCONTEXT_CANWAIT))
+      {
+         return VfatQueueRequest (IrpContext);
       }
    }
 
-   if (IrpContext->Irp->Flags & (IRP_PAGING_IO|IRP_NOCACHE) || (Fcb->Flags & FCB_IS_VOLUME))
-   {
-      if (ByteOffset.u.LowPart % BytesPerSector != 0 || Length % BytesPerSector != 0)
-      {
-         // non cached write must be sector aligned
-         Status = STATUS_INVALID_PARAMETER;
-         goto ByeBye;
-      }
-   }
+   WriteLength = IrpContext->Stack->Parameters.Write.Length;
+   WriteOffset = IrpContext->Stack->Parameters.Write.ByteOffset;
+   Buffer = MmGetSystemAddressForMdl (IrpContext->Irp->MdlAddress);
 
-   if (Length == 0)
+   /* fail if file is a directory and no paged read */
+   if (Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY && !(IrpContext->Irp->Flags & IRP_PAGING_IO))
    {
-      /* FIXME:
-       *   Update last write time
-       */
-      IrpContext->Irp->IoStatus.Information = 0;
-      Status = STATUS_SUCCESS;
-      goto ByeBye;
+      Status = STATUS_FILE_IS_A_DIRECTORY;
+   }
+   else
+   {
+      Status = VfatWriteFile (IrpContext->DeviceExt, IrpContext->FileObject,
+	          Buffer, WriteLength, WriteOffset.u.LowPart,
+	          IrpContext->FileObject->Flags & FO_NO_INTERMEDIATE_BUFFERING,
+                  IrpContext->Irp->Flags & IRP_PAGING_IO);
    }
 
    if (IrpContext->Irp->Flags & IRP_PAGING_IO)
    {
-      if (ByteOffset.u.LowPart + Length > Fcb->RFCB.AllocationSize.u.LowPart)
-      {
-         Status = STATUS_INVALID_PARAMETER;
-         goto ByeBye;
-      }
-      if (ByteOffset.u.LowPart + Length > ROUND_UP(Fcb->RFCB.AllocationSize.u.LowPart, BytesPerSector))
-      {
-         Length =  ROUND_UP(Fcb->RFCB.FileSize.u.LowPart, BytesPerSector) - ByteOffset.u.LowPart;
-      }
-   }
-
-   if (Fcb->Flags & FCB_IS_VOLUME)
-   {
-      Resource = &IrpContext->DeviceExt->DirResource;
-   }
-   else if (IrpContext->Irp->Flags & IRP_PAGING_IO)
-   {
-      Resource = &Fcb->PagingIoResource;
+      ExReleaseResourceLite(&Fcb->PagingIoResource);
    }
    else
    {
-      Resource = &Fcb->MainResource;
+      ExReleaseResourceLite(&Fcb->MainResource);
    }
 
-   if (Fcb->Flags & FCB_IS_PAGE_FILE)
+   if (NT_SUCCESS(Status))
    {
-      if (!ExAcquireResourceSharedLite(Resource,
-                                       (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT)))
+      if (IrpContext->FileObject->Flags & FO_SYNCHRONOUS_IO && !(IrpContext->Irp->Flags & IRP_PAGING_IO))
       {
-         Resource = NULL;
-         Status = STATUS_PENDING;
-         goto ByeBye;
+         IrpContext->FileObject->CurrentByteOffset.QuadPart = WriteOffset.QuadPart + WriteLength;
       }
+      IrpContext->Irp->IoStatus.Information = WriteLength;
    }
    else
    {
-      if (!ExAcquireResourceExclusiveLite(Resource,
-                                          (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT)))
-      {
-         Resource = NULL;
-         Status = STATUS_PENDING;
-         goto ByeBye;
-      }
+      IrpContext->Irp->IoStatus.Information = 0;
    }
 
-   if (!(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
-      FsRtlAreThereCurrentFileLocks(&Fcb->FileLock))
-   {
-      if (!FsRtlCheckLockForWriteAccess(&Fcb->FileLock, IrpContext->Irp)) 
-      {
-         Status = STATUS_FILE_LOCK_CONFLICT;
-         goto ByeBye;
-       }
-    }
-
-   if (!(IrpContext->Flags & IRPCONTEXT_CANWAIT) && !(Fcb->Flags & FCB_IS_VOLUME))
-   {
-      if (ByteOffset.u.LowPart + Length > Fcb->RFCB.AllocationSize.u.LowPart)
-      {
-        Status = STATUS_PENDING;
-        goto ByeBye;
-      }
-   }
-
-   OldFileSize = Fcb->RFCB.FileSize;
-   OldAllocationSize = Fcb->RFCB.AllocationSize.u.LowPart;
-
-   Buffer = VfatGetUserBuffer(IrpContext->Irp);
-   if (!Buffer)
-     {
-       Status = STATUS_INVALID_USER_BUFFER;
-       goto ByeBye;
-     }
-
-
-   if (!(Fcb->Flags & (FCB_IS_FAT|FCB_IS_VOLUME)) && 
-       !(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
-       ByteOffset.u.LowPart + Length > Fcb->RFCB.FileSize.u.LowPart)
-   {
-      LARGE_INTEGER AllocationSize;
-      AllocationSize.QuadPart = ByteOffset.u.LowPart + Length;
-      Status = VfatSetAllocationSizeInformation(IrpContext->FileObject, Fcb,
-	                                        IrpContext->DeviceExt, &AllocationSize);
-      if (!NT_SUCCESS (Status))
-      {
-         CHECKPOINT;
-         goto ByeBye;
-      }
-   }
-
-   if (!(IrpContext->Irp->Flags & (IRP_NOCACHE|IRP_PAGING_IO)) &&
-      !(Fcb->Flags & (FCB_IS_PAGE_FILE|FCB_IS_VOLUME)))
-   {
-      // cached write
-      CHECKPOINT;
-
-      if (IrpContext->FileObject->PrivateCacheMap == NULL)
-      {
-	  ULONG CacheSize;
-	  CacheSize = max(IrpContext->DeviceExt->FatInfo.BytesPerCluster,
-	                  8 * PAGE_SIZE);
-	  CcRosInitializeFileCache(IrpContext->FileObject, CacheSize);
-      }
-      if (ByteOffset.QuadPart > OldFileSize.QuadPart)
-      {
-          CcZeroData(IrpContext->FileObject, &OldFileSize, &ByteOffset, TRUE);
-      }
-      if (CcCopyWrite(IrpContext->FileObject, &ByteOffset, Length,
-                      1 /*IrpContext->Flags & IRPCONTEXT_CANWAIT*/, Buffer))
-      {
-      	 IrpContext->Irp->IoStatus.Information = Length;
-         Status = STATUS_SUCCESS;
-      }
-      else
-      {
-         Status = STATUS_UNSUCCESSFUL;
-      }
-      CHECKPOINT;
-   }
-   else
-   {
-      // non cached write
-      CHECKPOINT;
-
-      if (ByteOffset.QuadPart > OldFileSize.QuadPart)
-      {
-         CcZeroData(IrpContext->FileObject, &OldFileSize, &ByteOffset, TRUE);
-      }
-
-      Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoReadAccess);
-      if (!NT_SUCCESS(Status))
-        {
-	  goto ByeBye;
-	}
-
-      Status = VfatWriteFileData(IrpContext, Length, ByteOffset);
-      if (NT_SUCCESS(Status))
-      {
-         IrpContext->Irp->IoStatus.Information = Length;
-      }
-   }
-
-   if (!(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
-      !(Fcb->Flags & (FCB_IS_FAT|FCB_IS_VOLUME)))
-   {
-      if(!(*Fcb->Attributes & FILE_ATTRIBUTE_DIRECTORY))
-      {
-         LARGE_INTEGER SystemTime;
-         // set dates and times
-         KeQuerySystemTime (&SystemTime);
-         if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-         {
-            FsdSystemTimeToDosDateTime (IrpContext->DeviceExt,
-                                     &SystemTime, &Fcb->entry.FatX.UpdateDate,
-                                     &Fcb->entry.FatX.UpdateTime);
-            Fcb->entry.FatX.AccessDate = Fcb->entry.FatX.UpdateDate;
-            Fcb->entry.FatX.AccessTime = Fcb->entry.FatX.UpdateTime;
-         }
-         else
-         {
-            FsdSystemTimeToDosDateTime (IrpContext->DeviceExt,
-                                     &SystemTime, &Fcb->entry.Fat.UpdateDate,
-                                     &Fcb->entry.Fat.UpdateTime);
-            Fcb->entry.Fat.AccessDate = Fcb->entry.Fat.UpdateDate;
-         }
-         /* set date and times to dirty */
-	 Fcb->Flags |= FCB_IS_DIRTY;
-      }
-   }
-
-ByeBye:
-   if (Resource)
-   {
-      ExReleaseResourceLite(Resource);
-   }
-
-   if (Status == STATUS_PENDING)
-   {
-      Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoReadAccess);
-      if (NT_SUCCESS(Status))
-      {
-         Status = VfatQueueRequest(IrpContext);
-      }
-      else
-      {
-         IrpContext->Irp->IoStatus.Status = Status;
-         IoCompleteRequest(IrpContext->Irp, IO_NO_INCREMENT);
-         VfatFreeIrpContext(IrpContext);
-      }
-   }
-   else
-   {
-      IrpContext->Irp->IoStatus.Status = Status;
-      if (IrpContext->FileObject->Flags & FO_SYNCHRONOUS_IO &&
-          !(IrpContext->Irp->Flags & IRP_PAGING_IO) && NT_SUCCESS(Status))
-      {
-         IrpContext->FileObject->CurrentByteOffset.QuadPart =
-           ByteOffset.QuadPart + IrpContext->Irp->IoStatus.Information;
-      }
-
-      IoCompleteRequest(IrpContext->Irp,
-                        (CCHAR)(NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
-      VfatFreeIrpContext(IrpContext);
-   }
-   DPRINT("%x\n", Status);
+   IrpContext->Irp->IoStatus.Status = Status;
+   IoCompleteRequest (IrpContext->Irp, IO_NO_INCREMENT);
+   VfatFreeIrpContext (IrpContext);
    return Status;
 }
 

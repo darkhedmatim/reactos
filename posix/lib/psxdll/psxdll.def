@@ -1,33 +1,10 @@
-; $Id: psxdll.def,v 1.11 2003/08/22 13:55:15 ea Exp $
+; $Id: psxdll.def,v 1.2 2002/02/20 09:17:56 hyperion Exp $
 ;
 ; ReactOS POSIX+ Client Library
 ;
 
 LIBRARY PSXDLL.DLL
 EXPORTS
-
-;ctype
-isalnum
-isalpha
-iscntrl
-isdigit
-isgraph
-islower
-isprint
-ispunct
-isspace
-isupper
-iswalpha
-iswctype
-iswdigit
-iswlower
-iswspace
-iswxdigit
-isxdigit
-tolower
-toupper
-towlower
-towupper
 
 ;dirent
 opendir
@@ -51,45 +28,22 @@ fcntl
 ;libgen
 basename
 
-;math
-atan
-ceil
-cos
-fabs
-floor
-log
-pow
-sin
-sqrt
-tan
-
 ;misc
-;misc/fdtable
+;path
+__PdxPosixPathGetNextComponent_A
+__PdxPosixPathGetNextComponent_U
+__PdxPosixPathResolve_A
+__PdxPosixPathResolve_U
+__PdxPosixPathNameToNtPathName
+;fdtable
 __fdtable_init
 __fdtable_free
 __fdtable_entry_nextavail
 __fdtable_entry_add
 __fdtable_entry_remove
 __fdtable_entry_get
-;misc/heap
-;for Microsoft POSIX and Interix compatibility
-GetProcessHeap@0
-HeapAlloc
-HeapFree
-HeapReAlloc
-HeapSize
-;misc/init
-__PdxInitializeData@8
-;misc/path
-__PdxPosixPathGetNextComponent_A
-__PdxPosixPathGetNextComponent_U
-__PdxPosixPathResolve_A
-__PdxPosixPathResolve_U
-__PdxPosixPathNameToNtPathName
-;misc/safeobj
+;safeobj
 __safeobj_validate
-;misc/spawn
-__PdxSpawnPosixProcess@24
 
 ;pthread
 pthread_create
@@ -121,23 +75,16 @@ pthread_kill
 raise
 
 ;stdio
-;temporary forward exports, soon to be changed
 printf
 gets
 
 ;stdlib
-abs
 abort
-atoi
-atol
 malloc
-mbstowcs
 realloc
 free
 calloc
 exit
-;FIXME: should the two calls be distinct?
-_exit
 
 ;string
 ;forward-exports to NTDLL
@@ -162,33 +109,16 @@ strstr
 ;implemented internally
 strdup
 
-;sys/stat
-chmod
-fchmod
-fstat
-lstat
-mkdir
-mkfifo
-mknod
-stat
-umask
-
 ;sys/utsname
 uname
 
 ;unistd
-access
 close
 dup
 dup2
-fork
 getcwd
 getpid
 getppid
-pread
-read
-sleep
-write
 
 ;wchar
 ;forward-exports to NTDLL
@@ -209,21 +139,5 @@ wcstol
 wcstombs
 wcstoul
 ;implemented internally
-
-;others (FIXME: cathegorize these calls)
-RtlAnsiCharToUnicodeChar
-RtlFillMemory
-RtlMoveMemory
-RtlMultiByteToUnicodeN
-RtlNtStatusToPsxErrno
-RtlUnicodeToMultiByteN
-RtlUnicodeToMultiByteSize
-RtlUnwind
-RtlUpcaseUnicodeChar
-RtlUpcaseUnicodeToMultiByteN
-RtlZeroMemory
-
-;WARNING: PRELIMINARY CODE FOR DEBUGGING PURPOSES ONLY - DO NOT CHANGE
-__PdxGetProcessData
 
 ;EOF

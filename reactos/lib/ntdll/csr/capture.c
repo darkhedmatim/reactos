@@ -1,4 +1,4 @@
-/* $Id: capture.c,v 1.6 2003/07/11 13:50:22 royce Exp $
+/* $Id: capture.c,v 1.3 2001/06/17 20:05:09 ea Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -23,9 +23,6 @@ static HANDLE hCaptureHeap = INVALID_HANDLE_VALUE; /* FIXME: use the general NTD
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @unimplemented
- */
 PVOID
 STDCALL CsrAllocateCaptureBuffer (
 		DWORD	Unknown0,
@@ -37,9 +34,6 @@ STDCALL CsrAllocateCaptureBuffer (
 	return NULL;	
 }
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 CsrCaptureMessageString (DWORD Unknown0,
 			 DWORD Unknown1,
@@ -49,9 +43,6 @@ CsrCaptureMessageString (DWORD Unknown0,
 {
 }
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 CsrAllocateCapturePointer(ULONG Unknown0,
 			  ULONG Unknown1,
@@ -60,18 +51,12 @@ CsrAllocateCapturePointer(ULONG Unknown0,
 
 }
 
-/*
- * @unimplemented
- */
 VOID STDCALL CsrAllocateMessagePointer (DWORD Unknown0,
 					DWORD Unknown1,
 					DWORD Unknown2)
 {
 }
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 CsrCaptureMessageBuffer(ULONG Unknown0,
 			ULONG Unknown1,
@@ -81,18 +66,12 @@ CsrCaptureMessageBuffer(ULONG Unknown0,
 
 }
 
-/*
- * @unimplemented
- */
 BOOLEAN STDCALL CsrFreeCaptureBuffer (PVOID CaptureBuffer)
 {
     /* FIXME: use NTDLL own heap */
     return RtlFreeHeap (hCaptureHeap, 0, CaptureBuffer);
 }
 
-/*
- * @implemented
- */
 PLARGE_INTEGER STDCALL
 CsrCaptureTimeout(LONG Milliseconds,
 		  PLARGE_INTEGER Timeout)

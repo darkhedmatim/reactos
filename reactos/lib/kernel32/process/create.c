@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.92 2004/12/30 08:05:11 hyperion Exp $
+/* $Id: create.c,v 1.43 2002/02/04 13:08:58 sedwards Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,106 +11,37 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
-#include <pseh/framebased.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <kernel32/proc.h>
+#include <kernel32/thread.h>
+#include <wchar.h>
+#include <string.h>
+#include <napi/i386/segment.h>
+#include <ntdll/ldr.h>
+#include <napi/teb.h>
+#include <ntdll/base.h>
+#include <ntdll/rtl.h>
+#include <csrss/csrss.h>
+#include <ntdll/csr.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 /* FUNCTIONS ****************************************************************/
 
-extern __declspec(noreturn) 
-VOID CALLBACK ConsoleControlDispatcher(DWORD CodeAndFlag);
-
-__declspec(dllimport)
-PRTL_BASE_PROCESS_START_ROUTINE RtlBaseProcessStartRoutine;
-
-typedef NTSTATUS STDCALL (K32_MBSTR_TO_WCSTR)
-(
- UNICODE_STRING *,
- ANSI_STRING *,
- BOOLEAN
-);
-
-NTSTATUS STDCALL K32MbStrToWcStr
-(
- IN K32_MBSTR_TO_WCSTR * True,
- UNICODE_STRING * DestStr,
- ANSI_STRING * SourceStr,
- BOOLEAN Allocate
-)
-{
- if(SourceStr->Buffer == NULL)
- {
-  DestStr->Length = DestStr->MaximumLength = 0;
-  DestStr->Buffer = NULL;
-  return STATUS_SUCCESS;
- }
-
- return True(DestStr, SourceStr, Allocate);
-}
-
-VOID STDCALL RtlRosR32AttribsToNativeAttribs
-(
- OUT OBJECT_ATTRIBUTES * NativeAttribs,
- IN SECURITY_ATTRIBUTES * Ros32Attribs OPTIONAL
-)
-{
- NativeAttribs->Length = sizeof(*NativeAttribs);
- NativeAttribs->ObjectName = NULL;
- NativeAttribs->RootDirectory = NULL;
- NativeAttribs->Attributes = 0;
- NativeAttribs->SecurityQualityOfService = NULL;
- 
-
- if(Ros32Attribs != NULL && Ros32Attribs->nLength >= sizeof(*Ros32Attribs))
- {
-  NativeAttribs->SecurityDescriptor = Ros32Attribs->lpSecurityDescriptor;
-  
-  if(Ros32Attribs->bInheritHandle)
-   NativeAttribs->Attributes |= OBJ_INHERIT;
- }
- else
-  NativeAttribs->SecurityDescriptor = NULL;
-}
-
-VOID STDCALL RtlRosR32AttribsToNativeAttribsNamed
-(
- OUT OBJECT_ATTRIBUTES * NativeAttribs,
- IN SECURITY_ATTRIBUTES * Ros32Attribs OPTIONAL,
- OUT UNICODE_STRING * NativeName OPTIONAL,
- IN WCHAR * Ros32Name OPTIONAL,
- IN HANDLE Ros32NameRoot OPTIONAL
-)
-{
- if(!NativeAttribs) return;
-
- RtlRosR32AttribsToNativeAttribs(NativeAttribs, Ros32Attribs);
-
- if(Ros32Name != NULL && NativeName != NULL)
- {
-  RtlInitUnicodeString(NativeName, Ros32Name);
-
-  NativeAttribs->ObjectName = NativeName;
-  NativeAttribs->RootDirectory = Ros32NameRoot;
-  NativeAttribs->Attributes |= OBJ_CASE_INSENSITIVE;
- }
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL CreateProcessA(LPCSTR lpApplicationName,
-			    LPSTR lpCommandLine,
-			    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-			    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-			    BOOL bInheritHandles,
-			    DWORD dwCreationFlags,
-			    LPVOID lpEnvironment,
-			    LPCSTR lpCurrentDirectory,
-			    LPSTARTUPINFOA lpStartupInfo,
-                            LPPROCESS_INFORMATION lpProcessInformation)
+WINBOOL STDCALL
+CreateProcessA (LPCSTR			lpApplicationName,
+		LPSTR			lpCommandLine,
+		LPSECURITY_ATTRIBUTES	lpProcessAttributes,
+		LPSECURITY_ATTRIBUTES	lpThreadAttributes,
+		WINBOOL			bInheritHandles,
+		DWORD			dwCreationFlags,
+		LPVOID			lpEnvironment,
+		LPCSTR			lpCurrentDirectory,
+		LPSTARTUPINFOA		lpStartupInfo,
+		LPPROCESS_INFORMATION	lpProcessInformation)
 /*
  * FUNCTION: The CreateProcess function creates a new process and its
  * primary thread. The new process executes the specified executable file
@@ -128,320 +59,232 @@ BOOL STDCALL CreateProcessA(LPCSTR lpApplicationName,
  *     lpProcessInformation = Pointer to process information
  */
 {
-   UNICODE_STRING wstrApplicationName;
-   UNICODE_STRING wstrCurrentDirectory;
-   UNICODE_STRING wstrCommandLine;
-   UNICODE_STRING wstrReserved;
-   UNICODE_STRING wstrDesktop;
-   UNICODE_STRING wstrTitle;
-   UNICODE_STRING wstrEnvVar;
-   ANSI_STRING strApplicationName;
-   ANSI_STRING strCurrentDirectory;
-   ANSI_STRING strCommandLine;
-   ANSI_STRING strReserved;
-   ANSI_STRING strDesktop;
-   ANSI_STRING strTitle;
-   BOOL bRetVal;
-   STARTUPINFOW wsiStartupInfo;
+	UNICODE_STRING ApplicationNameU;
+	UNICODE_STRING CurrentDirectoryU;
+	UNICODE_STRING CommandLineU;
+	ANSI_STRING ApplicationName;
+	ANSI_STRING CurrentDirectory;
+	ANSI_STRING CommandLine;
+	WINBOOL Result;
+	CHAR TempCurrentDirectoryA[256];
 
-   NTSTATUS STDCALL_FUNC (*pTrue)
-   (
-      UNICODE_STRING *,
-      ANSI_STRING *,
-      BOOLEAN
-   );
+	DPRINT("CreateProcessA\n");
 
-   ULONG STDCALL_FUNC (*pRtlMbStringToUnicodeSize)(ANSI_STRING *);
+	RtlInitAnsiString (&CommandLine,
+	                   lpCommandLine);
+	RtlInitAnsiString (&ApplicationName,
+	                   (LPSTR)lpApplicationName);
+	if (lpCurrentDirectory != NULL)
+	  {
+	    RtlInitAnsiString (&CurrentDirectory,
+			       (LPSTR)lpCurrentDirectory);
+	  }
+	else
+	  {
+	    GetCurrentDirectoryA(256, TempCurrentDirectoryA);
+	    RtlInitAnsiString (&CurrentDirectory,
+			       TempCurrentDirectoryA);
+	  }
 
-   DPRINT("dwCreationFlags %x, lpEnvironment %x, lpCurrentDirectory %x, "
-          "lpStartupInfo %x, lpProcessInformation %x\n",
-	  dwCreationFlags, lpEnvironment, lpCurrentDirectory,
-          lpStartupInfo, lpProcessInformation);
+	/* convert ansi (or oem) strings to unicode */
+	if (bIsFileApiAnsi)
+	{
+		RtlAnsiStringToUnicodeString (&CommandLineU,
+		                              &CommandLine,
+		                              TRUE);
+		RtlAnsiStringToUnicodeString (&ApplicationNameU,
+		                              &ApplicationName,
+		                              TRUE);
+		RtlAnsiStringToUnicodeString (&CurrentDirectoryU,
+		                              &CurrentDirectory,
+		                              TRUE);
+	}
+	else
+	{
+		RtlOemStringToUnicodeString (&CommandLineU,
+		                             &CommandLine,
+		                             TRUE);
+		RtlOemStringToUnicodeString (&ApplicationNameU,
+		                             &ApplicationName,
+		                             TRUE);
+		RtlOemStringToUnicodeString (&CurrentDirectoryU,
+		                             &CurrentDirectory,
+		                             TRUE);
+	}
 
-   /* multibyte strings are ANSI */
-   if(bIsFileApiAnsi)
-   {
-      pTrue = RtlAnsiStringToUnicodeString;
-      pRtlMbStringToUnicodeSize = RtlAnsiStringToUnicodeSize;
-   }
-   /* multibyte strings are OEM */
-   else
-   {
-      pTrue = RtlOemStringToUnicodeString;
-      pRtlMbStringToUnicodeSize = RtlOemStringToUnicodeSize;
-   }
+	Result = CreateProcessW (ApplicationNameU.Buffer,
+	                         CommandLineU.Buffer,
+	                         lpProcessAttributes,
+	                         lpThreadAttributes,
+	                         bInheritHandles,
+	                         dwCreationFlags,
+	                         lpEnvironment,
+	                         (lpCurrentDirectory == NULL) ? NULL : CurrentDirectoryU.Buffer,
+	                         (LPSTARTUPINFOW)lpStartupInfo,
+	                         lpProcessInformation);
 
-   /* invalid parameter */
-   if(lpStartupInfo == NULL)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-   }
+	RtlFreeUnicodeString (&ApplicationNameU);
+	RtlFreeUnicodeString (&CommandLineU);
+	RtlFreeUnicodeString (&CurrentDirectoryU);
 
-   /* convert the environment */
-   if(lpEnvironment && !(dwCreationFlags & CREATE_UNICODE_ENVIRONMENT))
-   {
-      PCHAR pcScan;
-      SIZE_T nEnvLen = 0;
-      ANSI_STRING strEnvVar;
-      NTSTATUS Status;
-
-      /* scan the environment to calculate its Unicode size */
-      pcScan = lpEnvironment;
-      do
-      {
-         pcScan += strlen(pcScan) + 1;
-      }
-      while (*pcScan);
-
-      nEnvLen = (ULONG_PTR)pcScan - (ULONG_PTR)lpEnvironment + 1;
-  
-      /* environment too large */
-      if(nEnvLen > ~((USHORT)0))
-      {
-         SetLastError(ERROR_OUTOFMEMORY);
-         return FALSE;
-      }
-
-      strEnvVar.Buffer = lpEnvironment;
-      strEnvVar.MaximumLength = strEnvVar.Length = nEnvLen;
-
-      Status = K32MbStrToWcStr(pTrue, &wstrEnvVar, &strEnvVar, TRUE);
-
-      /* failure */
-      if (!NT_SUCCESS(Status))
-      {
-         SetLastError(ERROR_OUTOFMEMORY);
-         return FALSE;
-      }
-   }
-   
-
-   /* convert the strings */
-   RtlInitAnsiString(&strCommandLine, lpCommandLine);
-   RtlInitAnsiString(&strApplicationName, (LPSTR)lpApplicationName);
-   RtlInitAnsiString(&strCurrentDirectory, (LPSTR)lpCurrentDirectory);
-   RtlInitAnsiString(&strReserved, (LPSTR)lpStartupInfo->lpReserved);
-   RtlInitAnsiString(&strDesktop, (LPSTR)lpStartupInfo->lpDesktop);
-   RtlInitAnsiString(&strTitle, (LPSTR)lpStartupInfo->lpTitle);
-
-   K32MbStrToWcStr(pTrue, &wstrCommandLine, &strCommandLine, TRUE);
-   K32MbStrToWcStr(pTrue, &wstrApplicationName, &strApplicationName, TRUE);
-   K32MbStrToWcStr(pTrue, &wstrCurrentDirectory, &strCurrentDirectory, TRUE);
-   K32MbStrToWcStr(pTrue, &wstrReserved, &strReserved, TRUE);
-   K32MbStrToWcStr(pTrue, &wstrDesktop, &strDesktop, TRUE);
-   K32MbStrToWcStr(pTrue, &wstrTitle, &strTitle, TRUE);
-
-   /* convert the startup information */
-   memcpy(&wsiStartupInfo, lpStartupInfo, sizeof(wsiStartupInfo));
-
-   wsiStartupInfo.lpReserved = wstrReserved.Buffer;
-   wsiStartupInfo.lpDesktop = wstrDesktop.Buffer;
-   wsiStartupInfo.lpTitle = wstrTitle.Buffer;
-
-   DPRINT("wstrApplicationName  %wZ\n", &wstrApplicationName);
-   DPRINT("wstrCommandLine      %wZ\n", &wstrCommandLine);
-   DPRINT("wstrCurrentDirectory %wZ\n", &wstrCurrentDirectory);
-   DPRINT("wstrReserved         %wZ\n", &wstrReserved);
-   DPRINT("wstrDesktop          %wZ\n", &wstrDesktop);
-   DPRINT("wstrTitle            %wZ\n", &wstrTitle);
-
-   DPRINT("wstrApplicationName.Buffer  %p\n", wstrApplicationName.Buffer);
-   DPRINT("wstrCommandLine.Buffer      %p\n", wstrCommandLine.Buffer);
-   DPRINT("wstrCurrentDirectory.Buffer %p\n", wstrCurrentDirectory.Buffer);
-   DPRINT("wstrReserved.Buffer         %p\n", wstrReserved.Buffer);
-   DPRINT("wstrDesktop.Buffer          %p\n", wstrDesktop.Buffer);
-   DPRINT("wstrTitle.Buffer            %p\n", wstrTitle.Buffer);
-
-   DPRINT("sizeof(STARTUPINFOA) %lu\n", sizeof(STARTUPINFOA));
-   DPRINT("sizeof(STARTUPINFOW) %lu\n", sizeof(STARTUPINFOW));
-
-   /* call the Unicode function */
-   bRetVal = CreateProcessW(wstrApplicationName.Buffer,
-                            wstrCommandLine.Buffer,
-			    lpProcessAttributes,
-			    lpThreadAttributes,
-			    bInheritHandles,
-			    dwCreationFlags,
-			    !lpEnvironment || (dwCreationFlags & CREATE_UNICODE_ENVIRONMENT) ? lpEnvironment : wstrEnvVar.Buffer,
-			    wstrCurrentDirectory.Buffer,
-			    &wsiStartupInfo,
-			    lpProcessInformation);
-
-   RtlFreeUnicodeString(&wstrApplicationName);
-   RtlFreeUnicodeString(&wstrCommandLine);
-   RtlFreeUnicodeString(&wstrCurrentDirectory);
-   RtlFreeUnicodeString(&wstrReserved);
-   RtlFreeUnicodeString(&wstrDesktop);
-   RtlFreeUnicodeString(&wstrTitle);
-
-   if (lpEnvironment && !(dwCreationFlags & CREATE_UNICODE_ENVIRONMENT))
-   {
-      RtlFreeUnicodeString(&wstrEnvVar);
-   }
-
-   return bRetVal;
+	return Result;
 }
 
 
-static EXCEPTION_DISPOSITION __cdecl
-_except_handler(EXCEPTION_RECORD *ExceptionRecord,
-		void * EstablisherFrame,
-		CONTEXT *ContextRecord,
-		void * DispatcherContext)
+HANDLE STDCALL 
+KlCreateFirstThread(HANDLE ProcessHandle,
+		    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+		    ULONG StackReserve,
+		    ULONG StackCommit,
+		    LPTHREAD_START_ROUTINE lpStartAddress,
+		    DWORD dwCreationFlags,
+		    LPDWORD lpThreadId)
 {
-   EXCEPTION_POINTERS ExceptionInfo;
-   EXCEPTION_DISPOSITION ExceptionDisposition;
+  NTSTATUS Status;
+  HANDLE ThreadHandle;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  CLIENT_ID ClientId;
+  CONTEXT ThreadContext;
+  INITIAL_TEB InitialTeb;
+  BOOLEAN CreateSuspended = FALSE;
+  ULONG OldPageProtection;
 
-   ExceptionInfo.ExceptionRecord = ExceptionRecord;
-   ExceptionInfo.ContextRecord = ContextRecord;
+  ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+  ObjectAttributes.RootDirectory = NULL;
+  ObjectAttributes.ObjectName = NULL;
+  ObjectAttributes.Attributes = 0;
+  if (lpThreadAttributes != NULL) 
+    {
+      if (lpThreadAttributes->bInheritHandle) 
+	ObjectAttributes.Attributes = OBJ_INHERIT;
+      ObjectAttributes.SecurityDescriptor = 
+	lpThreadAttributes->lpSecurityDescriptor;
+    }
+  ObjectAttributes.SecurityQualityOfService = NULL;
 
-   if (GlobalTopLevelExceptionFilter != NULL)
-   {
-      _SEH_TRY
-      {
-         ExceptionDisposition = GlobalTopLevelExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_HANDLE
-      {
-         ExceptionDisposition = UnhandledExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_END;
-   }
-   else 
-   {
-      ExceptionDisposition = EXCEPTION_EXECUTE_HANDLER;
-   }
+  if ((dwCreationFlags & CREATE_SUSPENDED) == CREATE_SUSPENDED)
+    CreateSuspended = TRUE;
+  else
+    CreateSuspended = FALSE;
 
-   if (ExceptionDisposition == EXCEPTION_EXECUTE_HANDLER)
-      ExitProcess(ExceptionRecord->ExceptionCode);
+  InitialTeb.StackReserve = (StackReserve < 0x100000) ? 0x100000 : StackReserve;
+  /* FIXME: use correct commit size */
+#if 0
+  InitialTeb.StackCommit = (StackCommit < PAGESIZE) ? PAGESIZE : StackCommit;
+#endif
+  InitialTeb.StackCommit = InitialTeb.StackReserve - PAGESIZE;
 
-   /* translate EXCEPTION_XXX defines into EXCEPTION_DISPOSITION enum values */
-   if (ExceptionDisposition == EXCEPTION_CONTINUE_EXECUTION)
-     return ExceptionContinueExecution;
-   else if (ExceptionDisposition == EXCEPTION_CONTINUE_SEARCH)
-     return ExceptionContinueSearch;
+  /* size of guard page */
+  InitialTeb.StackCommit += PAGESIZE;
 
-   return -1; /* unknown return from UnhandledExceptionFilter */
+  /* Reserve stack */
+  InitialTeb.StackAllocate = NULL;
+  Status = NtAllocateVirtualMemory(ProcessHandle,
+				   &InitialTeb.StackAllocate,
+				   0,
+				   &InitialTeb.StackReserve,
+				   MEM_RESERVE,
+				   PAGE_READWRITE);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("Error reserving stack space!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  DPRINT("StackDeallocation: %p ReserveSize: 0x%lX\n",
+	 InitialTeb.StackDeallocation, InitialTeb.StackReserve);
+
+  InitialTeb.StackBase = (PVOID)((ULONG)InitialTeb.StackAllocate + InitialTeb.StackReserve);
+  InitialTeb.StackLimit = (PVOID)((ULONG)InitialTeb.StackBase - InitialTeb.StackCommit);
+
+  DPRINT("StackBase: %p\nStackCommit: %p\n",
+	 InitialTeb.StackBase, InitialTeb.StackCommit);
+
+  /* Commit stack page(s) */
+  Status = NtAllocateVirtualMemory(ProcessHandle,
+				   &InitialTeb.StackLimit,
+				   0,
+				   &InitialTeb.StackCommit,
+				   MEM_COMMIT,
+				   PAGE_READWRITE);
+  if (!NT_SUCCESS(Status))
+    {
+      /* release the stack space */
+      NtFreeVirtualMemory(ProcessHandle,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
+
+      DPRINT("Error comitting stack page(s)!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  DPRINT("StackLimit: %p\n",
+	 InitialTeb.StackLimit);
+
+  /* Protect guard page */
+  Status = NtProtectVirtualMemory(ProcessHandle,
+				  InitialTeb.StackLimit,
+				  PAGESIZE,
+				  PAGE_GUARD | PAGE_READWRITE,
+				  &OldPageProtection);
+  if (!NT_SUCCESS(Status))
+    {
+      /* release the stack space */
+      NtFreeVirtualMemory(ProcessHandle,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
+
+      DPRINT("Error comitting guard page!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  memset(&ThreadContext,0,sizeof(CONTEXT));
+  ThreadContext.Eip = (ULONG)lpStartAddress;
+  ThreadContext.SegGs = USER_DS;
+  ThreadContext.SegFs = USER_DS;
+  ThreadContext.SegEs = USER_DS;
+  ThreadContext.SegDs = USER_DS;
+  ThreadContext.SegCs = USER_CS;
+  ThreadContext.SegSs = USER_DS;
+  ThreadContext.Esp = (ULONG)InitialTeb.StackBase - 20;
+  ThreadContext.EFlags = (1<<1) + (1<<9);
+
+  DPRINT("ThreadContext.Eip %x\n",ThreadContext.Eip);
+
+  Status = NtCreateThread(&ThreadHandle,
+			  THREAD_ALL_ACCESS,
+			  &ObjectAttributes,
+			  ProcessHandle,
+			  &ClientId,
+			  &ThreadContext,
+			  &InitialTeb,
+			  CreateSuspended);
+  if (!NT_SUCCESS(Status))
+    {
+      NtFreeVirtualMemory(ProcessHandle,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  if (lpThreadId != NULL)
+    {
+      memcpy(lpThreadId, &ClientId.UniqueThread,sizeof(ULONG));
+    }
+
+  return(ThreadHandle);
 }
 
-
-VOID STDCALL
-BaseProcessStart(LPTHREAD_START_ROUTINE lpStartAddress,
-		 DWORD lpParameter)
-{
-   UINT uExitCode = 0;
-
-   DPRINT("BaseProcessStart(..) - setting up exception frame.\n");
-
-   __try1(_except_handler)
-   {
-      uExitCode = (lpStartAddress)((PVOID)lpParameter);
-   } __except1
-
-   ExitProcess(uExitCode);
-}
-
-
-HANDLE STDCALL KlCreateFirstThread
-(
- HANDLE ProcessHandle,
- LPSECURITY_ATTRIBUTES lpThreadAttributes,
- PSECTION_IMAGE_INFORMATION Sii,
- LPTHREAD_START_ROUTINE lpStartAddress,
- DWORD dwCreationFlags,
- LPDWORD lpThreadId
-)
-{
- OBJECT_ATTRIBUTES oaThreadAttribs;
- CLIENT_ID cidClientId;
- PVOID pTrueStartAddress;
- NTSTATUS nErrCode;
- HANDLE hThread;
-
- /* convert the thread attributes */
- RtlRosR32AttribsToNativeAttribs(&oaThreadAttribs, lpThreadAttributes);
-
- /* native image */
- if(Sii->Subsystem != IMAGE_SUBSYSTEM_NATIVE)
-  pTrueStartAddress = (PVOID)BaseProcessStart;
- /* Win32 image */
- else
-  pTrueStartAddress = (PVOID)RtlBaseProcessStartRoutine;
-
- DPRINT
- (
-  "RtlRosCreateUserThreadVa\n"
-  "(\n"
-  " ProcessHandle    %p,\n"
-  " ObjectAttributes %p,\n"
-  " CreateSuspended  %d,\n"
-  " StackZeroBits    %d,\n"
-  " StackReserve     %lu,\n"
-  " StackCommit      %lu,\n"
-  " StartAddress     %p,\n"
-  " ThreadHandle     %p,\n"
-  " ClientId         %p,\n"
-  " ParameterCount   %u,\n"
-  " Parameters[0]    %p,\n"
-  " Parameters[1]    %p\n"
-  ")\n",
-  ProcessHandle,
-  &oaThreadAttribs,
-  dwCreationFlags & CREATE_SUSPENDED,
-  0,
-  Sii->StackReserve,
-  Sii->StackCommit,
-  pTrueStartAddress,
-  &hThread,
-  &cidClientId,
-  2,
-  lpStartAddress,
-  PEB_BASE
- );
-
- /* create the first thread */
- nErrCode = RtlRosCreateUserThreadVa
- (
-  ProcessHandle,
-  &oaThreadAttribs,
-  dwCreationFlags & CREATE_SUSPENDED,
-  0,
-  &(Sii->StackReserve),
-  &(Sii->StackCommit),
-  pTrueStartAddress,
-  &hThread,
-  &cidClientId,
-  2,
-  (ULONG_PTR)lpStartAddress,
-  (ULONG_PTR)PEB_BASE
- );
-
- /* failure */
- if(!NT_SUCCESS(nErrCode))
- {
-  SetLastErrorByStatus(nErrCode);
-  return NULL;
- }
- 
- DPRINT
- (
-  "StackReserve          %p\n"
-  "StackCommit           %p\n"
-  "ThreadHandle          %p\n"
-  "ClientId.UniqueThread %p\n",
-  Sii->StackReserve,
-  Sii->StackCommit,
-  hThread,
-  cidClientId.UniqueThread
- );
-
- /* success */
- if(lpThreadId) *lpThreadId = (DWORD)cidClientId.UniqueThread;
- return hThread;
-}
-
-HANDLE KlMapFile(LPCWSTR lpApplicationName)
+HANDLE 
+KlMapFile(LPCWSTR lpApplicationName,
+	  LPCWSTR lpCommandLine)
 {
    HANDLE hFile;
    IO_STATUS_BLOCK IoStatusBlock;
@@ -510,40 +353,28 @@ HANDLE KlMapFile(LPCWSTR lpApplicationName)
    return(hSection);
 }
 
-static NTSTATUS KlInitPeb
-(
- HANDLE ProcessHandle,
- PRTL_USER_PROCESS_PARAMETERS Ppb,
- PVOID * ImageBaseAddress,
- ULONG ImageSubSystem
-)
+static NTSTATUS 
+KlInitPeb (HANDLE ProcessHandle,
+	   PRTL_USER_PROCESS_PARAMETERS	Ppb)
 {
- NTSTATUS Status;
- PVOID PpbBase;
- ULONG PpbSize;
- ULONG BytesWritten;
- ULONG Offset;
- PVOID ParentEnv = NULL;
- PVOID EnvPtr = NULL;
- PWCHAR ptr;
- ULONG EnvSize = 0, EnvSize1 = 0;
+   NTSTATUS Status;
+   PVOID PpbBase;
+   ULONG PpbSize;
+   ULONG BytesWritten;
+   ULONG Offset;
+   PVOID ParentEnv = NULL;
+   PVOID EnvPtr = NULL;
+   ULONG EnvSize = 0;
 
    /* create the Environment */
    if (Ppb->Environment != NULL)
-   {
-      ParentEnv = Ppb->Environment;
-      ptr = ParentEnv;
-      while (*ptr)
-      {
-	  while(*ptr++);
-      }
-      ptr++;
-      EnvSize = (PVOID)ptr - ParentEnv;
-   }
+	ParentEnv = Ppb->Environment;
    else if (NtCurrentPeb()->ProcessParameters->Environment != NULL)
-   {
-      MEMORY_BASIC_INFORMATION MemInfo;
-      ParentEnv = NtCurrentPeb()->ProcessParameters->Environment;
+	ParentEnv = NtCurrentPeb()->ProcessParameters->Environment;
+
+   if (ParentEnv != NULL)
+     {
+	MEMORY_BASIC_INFORMATION MemInfo;
 
 	Status = NtQueryVirtualMemory (NtCurrentProcess (),
 	                               ParentEnv,
@@ -562,11 +393,10 @@ static NTSTATUS KlInitPeb
    /* allocate and initialize new environment block */
    if (EnvSize != 0)
      {
-	EnvSize1 = EnvSize;
 	Status = NtAllocateVirtualMemory(ProcessHandle,
 					 &EnvPtr,
 					 0,
-					 &EnvSize1,
+					 &EnvSize,
 					 MEM_RESERVE | MEM_COMMIT,
 					 PAGE_READWRITE);
 	if (!NT_SUCCESS(Status))
@@ -583,7 +413,7 @@ static NTSTATUS KlInitPeb
 
    /* create the PPB */
    PpbBase = NULL;
-   PpbSize = Ppb->AllocationSize;
+   PpbSize = Ppb->MaximumLength;
    Status = NtAllocateVirtualMemory(ProcessHandle,
 				    &PpbBase,
 				    0,
@@ -595,11 +425,11 @@ static NTSTATUS KlInitPeb
 	return(Status);
      }
 
-   //DPRINT("Ppb->MaximumLength %x\n", Ppb->MaximumLength);
+   DPRINT("Ppb->MaximumLength %x\n", Ppb->MaximumLength);
    NtWriteVirtualMemory(ProcessHandle,
 			PpbBase,
 			Ppb,
-			Ppb->AllocationSize,
+			Ppb->MaximumLength,
 			&BytesWritten);
 
    /* write pointer to environment */
@@ -618,158 +448,26 @@ static NTSTATUS KlInitPeb
 			sizeof(PpbBase),
 			&BytesWritten);
 
-   /* Write image subsystem */
-   Offset = FIELD_OFFSET(PEB, ImageSubSystem);
-   NtWriteVirtualMemory(ProcessHandle,
-			(PVOID)(PEB_BASE + Offset),
-			&ImageSubSystem,
-			sizeof(ImageSubSystem),
-			&BytesWritten);
-
-   /* Read image base address. */
-   Offset = FIELD_OFFSET(PEB, ImageBaseAddress);
-   NtReadVirtualMemory(ProcessHandle,
-		       (PVOID)(PEB_BASE + Offset),
-		       ImageBaseAddress,
-		       sizeof(PVOID),
-		       &BytesWritten);
-
    return(STATUS_SUCCESS);
 }
 
 
-/*************************************************************************
- *               GetFileName
- *
- * Helper for CreateProcessW: retrieve the file name to load from the
- * app name and command line. Store the file name in buffer, and
- * return a possibly modified command line.
- *
- * FIXME: use CurDir to search for the executable file in the new working directory
- */
-static LPWSTR FASTCALL
-GetFileName(LPCWSTR CurDir, LPCWSTR AppName, LPWSTR CmdLine, LPWSTR Buffer,
-            unsigned BufLen)
-{
-  WCHAR *Name, *Pos, *Ret = NULL;
-  const WCHAR *p;
-
-  /* if we have an app name, everything is easy */
-
-  if (NULL != AppName)
-    {
-      /* use the unmodified app name as file name */
-      wcsncpy(Buffer, AppName, BufLen );
-      Ret = CmdLine;
-      if (NULL == Ret || L'\0' == CmdLine[0])
-        {
-          /* no command-line, create one */
-          Ret = RtlAllocateHeap(GetProcessHeap(), 0, (wcslen(AppName) + 3) * sizeof(WCHAR));
-          if (NULL != Ret)
-            {
-              Ret[0] = L'"';
-              wcscpy(Ret + 1, AppName);
-              wcscat(Ret, L"\"");
-            }
-        }
-        return Ret;
-    }
-
-  if (NULL == CmdLine)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return NULL;
-    }
-
-  /* first check for a quoted file name */
-  if (L'"' == CmdLine[0] && NULL != (p = wcschr(CmdLine + 1, L'"')))
-    {
-      int Len = p - CmdLine - 1;
-      /* extract the quoted portion as file name */
-      Name = RtlAllocateHeap(GetProcessHeap(), 0, (Len + 1) * sizeof(WCHAR));
-      if (NULL == Name)
-        {
-          return NULL;
-        }
-      memcpy(Name, CmdLine + 1, Len * sizeof(WCHAR));
-      Name[Len] = L'\0';
-
-      if (SearchPathW(NULL, Name, L".exe", BufLen, Buffer, NULL))
-        {
-          Ret = CmdLine;  /* no change necessary */
-        }
-
-      RtlFreeHeap(GetProcessHeap(), 0, Name);
-      return Ret;
-    }
-
-  /* now try the command-line word by word */
-  Name = RtlAllocateHeap(GetProcessHeap(), 0, (wcslen(CmdLine) + 1) * sizeof(WCHAR));
-  if (NULL == Name)
-    {
-      return NULL;
-    }
-  Pos = Name;
-  p = CmdLine;
-
-  while (L'\0' != *p)
-    {
-      do
-        {
-          *Pos++ = *p++;
-        }
-      while (L'\0' != *p && L' ' != *p);
-      *Pos = 0;
-      if (SearchPathW(NULL, Name, L".exe", BufLen, Buffer, NULL))
-        {
-          Ret = CmdLine;
-          break;
-        }
-    }
-
-  if (NULL == Ret || NULL == wcschr(Name, L' '))
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, Name); /* no change necessary */
-      return Ret;
-    }
-
-  /* now build a new command-line with quotes */
-  Ret = RtlAllocateHeap(GetProcessHeap(), 0, (wcslen(CmdLine) + 3) * sizeof(WCHAR));
-  if (NULL == Ret)
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, Name); /* no change necessary */
-      return NULL;
-    }
-  Ret[0] = L'"';
-  wcscpy(Ret + 1, Name);
-  wcscat(Ret, L"\"");
-  wcscat(Ret, p);
-
-  RtlFreeHeap(GetProcessHeap(), 0, Name);
-  return Ret;
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL 
-CreateProcessW
-(
- LPCWSTR lpApplicationName,
- LPWSTR lpCommandLine,
- LPSECURITY_ATTRIBUTES lpProcessAttributes,
- LPSECURITY_ATTRIBUTES lpThreadAttributes,
- BOOL bInheritHandles,
- DWORD dwCreationFlags,
- LPVOID lpEnvironment,
- LPCWSTR lpCurrentDirectory,
- LPSTARTUPINFOW lpStartupInfo,
- LPPROCESS_INFORMATION lpProcessInformation
-)
+WINBOOL STDCALL 
+CreateProcessW(LPCWSTR lpApplicationName,
+	       LPWSTR lpCommandLine,
+	       LPSECURITY_ATTRIBUTES lpProcessAttributes,
+	       LPSECURITY_ATTRIBUTES lpThreadAttributes,
+	       WINBOOL bInheritHandles,
+	       DWORD dwCreationFlags,
+	       LPVOID lpEnvironment,
+	       LPCWSTR lpCurrentDirectory,
+	       LPSTARTUPINFOW lpStartupInfo,
+	       LPPROCESS_INFORMATION lpProcessInformation)
 {
    HANDLE hSection, hProcess, hThread;
    NTSTATUS Status;
+   LPTHREAD_START_ROUTINE  lpStartAddress = NULL;
+   WCHAR TempCommandLine[256];
    WCHAR ImagePathName[256];
    UNICODE_STRING ImagePathName_U;
    PROCESS_BASIC_INFORMATION ProcessBasicInfo;
@@ -778,361 +476,115 @@ CreateProcessW
    UNICODE_STRING CommandLine_U;
    CSRSS_API_REQUEST CsrRequest;
    CSRSS_API_REPLY CsrReply;
-   PWCHAR s, e;
+   CHAR ImageFileName[8];
+   PWCHAR s;
+   PWCHAR e;
    ULONG i;
-   UNICODE_STRING CurrentDirectory_U;
+   ANSI_STRING ProcedureName;
+   UNICODE_STRING CurrentDirectoryW;
    SECTION_IMAGE_INFORMATION Sii;
    WCHAR TempCurrentDirectoryW[256];
-   WCHAR TempApplicationNameW[256];
-   WCHAR TempCommandLineNameW[256];
-   UNICODE_STRING RuntimeInfo_U;
-   PVOID ImageBaseAddress;
-   BOOL InputSet, OutputSet, ErrorSet;
-   BOOL InputDup = FALSE, OutputDup = FALSE, ErrorDup = FALSE;
-   WCHAR Name[MAX_PATH];
-   WCHAR *TidyCmdLine;
-   BOOL IsBatchFile = FALSE;
-   PROCESS_PRIORITY_CLASS PriorityClass;
-   OBJECT_ATTRIBUTES ProcObjectAttributes;
-   ULONG ProcAttributes = 0;
-   PVOID ProcSecurity = NULL;
    
    DPRINT("CreateProcessW(lpApplicationName '%S', lpCommandLine '%S')\n",
-	   lpApplicationName, lpCommandLine);
+	   lpApplicationName,lpCommandLine);
 
-   TidyCmdLine = GetFileName(lpCurrentDirectory, lpApplicationName, lpCommandLine, Name,
-                             sizeof(Name) / sizeof(WCHAR));
-   if (NULL == TidyCmdLine)
+   /*
+    * Store the image file name for the process
+    */
+   s = wcsrchr(lpApplicationName, '\\');
+   if (s == NULL)
      {
-        return FALSE;
-     }
-   DPRINT("TidyCmdLine '%S'\n", TidyCmdLine);
-
-   if (lpApplicationName != NULL && lpApplicationName[0] != 0)
-     {
-        wcscpy (TempApplicationNameW, lpApplicationName);
-        i = wcslen(TempApplicationNameW);
-        if (TempApplicationNameW[i - 1] == L'.')
-          {
-            TempApplicationNameW[i - 1] = 0;
-          }
-        else
-          {
-            s = max(wcsrchr(TempApplicationNameW, L'\\'), wcsrchr(TempApplicationNameW, L'/'));
-            if (s == NULL)
-              {
-                s = TempApplicationNameW;
-              }
-            else
-              {
-                s++;
-              }
-            e = wcsrchr(s, L'.');
-            if (e == NULL)
-              {
-                wcscat(s, L".exe");
-                e = wcsrchr(s, L'.');
-              }
-          }
-     }
-   else if (L'"' == TidyCmdLine[0])
-     {
-        wcscpy(TempApplicationNameW, TidyCmdLine + 1);
-        s = wcschr(TempApplicationNameW, L'"');
-        if (NULL == s)
-          {
-            return FALSE;
-          }
-        *s = L'\0';
+	s = (PWCHAR)lpApplicationName;
      }
    else
      {
-        wcscpy(TempApplicationNameW, TidyCmdLine);
-        s = wcschr(TempApplicationNameW, L' ');
-        if (NULL != s)
-          {
-            *s = L'\0';
-          }
+	s++;
      }
-   s = max(wcsrchr(TempApplicationNameW, L'\\'), wcsrchr(TempApplicationNameW, L'/'));
-   if (NULL == s)
+   e = wcschr(s, '.');
+   if (e != NULL)
      {
-        s = TempApplicationNameW;
+	*e = 0;
      }
-   s = wcsrchr(s, L'.');
-   if (NULL == s)
+   for (i = 0; i < 8; i++)
      {
-        wcscat(TempApplicationNameW, L".exe");
+	ImageFileName[i] = (CHAR)(s[i]);
      }
-
-   if (!SearchPathW(NULL, TempApplicationNameW, NULL, sizeof(ImagePathName)/sizeof(WCHAR), ImagePathName, &s))
-   {
-     return FALSE;
-   }
-
-   e = wcsrchr(s, L'.');
-   if (e != NULL && (!_wcsicmp(e, L".bat") || !_wcsicmp(e, L".cmd")))
-   {
-       // the command is a batch file
-       IsBatchFile = TRUE;
-       if (lpApplicationName != NULL && lpApplicationName[0])
-       {
-	  // FIXME: use COMSPEC for the command interpreter
-	  wcscpy(TempCommandLineNameW, L"cmd /c ");
-	  wcscat(TempCommandLineNameW, lpApplicationName);
-	  lpCommandLine = TempCommandLineNameW;
-	  wcscpy(TempApplicationNameW, L"cmd.exe");
-          if (!SearchPathW(NULL, TempApplicationNameW, NULL, sizeof(ImagePathName)/sizeof(WCHAR), ImagePathName, &s))
-	  {
-	     return FALSE;
-	  }
-       }
-       else
-       {
-	  return FALSE;
-       }
-   }
+   if (e != NULL)
+     {
+	*e = '.';
+     }
    
    /*
     * Process the application name and command line
     */
-   RtlInitUnicodeString(&ImagePathName_U, ImagePathName);
-   RtlInitUnicodeString(&CommandLine_U, IsBatchFile ? lpCommandLine : TidyCmdLine);
 
-   DPRINT("ImagePathName_U '%S'\n", ImagePathName_U.Buffer);
-   DPRINT("lpCommandLine '%S'\n", lpCommandLine);
-   DPRINT("TidyCmdLine '%S'\n", TidyCmdLine);
+   RtlGetFullPathName_U ((LPWSTR)lpApplicationName,
+                         256 * sizeof(WCHAR),
+                         TempCommandLine,
+                         NULL);
+   wcscpy(ImagePathName, TempCommandLine);
+   RtlInitUnicodeString(&ImagePathName_U, ImagePathName);
+
+   if (lpCommandLine != NULL)
+     {
+	wcscat(TempCommandLine, L" ");
+	wcscat(TempCommandLine, lpCommandLine);
+     }
 
    /* Initialize the current directory string */
    if (lpCurrentDirectory != NULL)
      {
-       RtlInitUnicodeString(&CurrentDirectory_U,
+       RtlInitUnicodeString(&CurrentDirectoryW,
 			    lpCurrentDirectory);
      }
    else
      {
        GetCurrentDirectoryW(256, TempCurrentDirectoryW);
-       RtlInitUnicodeString(&CurrentDirectory_U,
+       RtlInitUnicodeString(&CurrentDirectoryW,
 			    TempCurrentDirectoryW);
      }
 
    /*
-    * Create a section for the executable
-    */
-   
-   hSection = KlMapFile (ImagePathName);
-   if (hSection == NULL)
-   {
-/////////////////////////////////////////
-        /*
-         * Inspect the image to determine executable flavour
-         */
-        IO_STATUS_BLOCK IoStatusBlock;
-        UNICODE_STRING ApplicationNameString;
-        OBJECT_ATTRIBUTES ObjectAttributes;
-        PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
-        IMAGE_DOS_HEADER DosHeader;
-        IO_STATUS_BLOCK Iosb;
-        LARGE_INTEGER Offset;
-        HANDLE hFile = NULL;
-
-        DPRINT("Inspecting Image Header for image type id\n");
-
-        // Find the application name
-        if (!RtlDosPathNameToNtPathName_U((LPWSTR)lpApplicationName,
-                &ApplicationNameString, NULL, NULL)) {
-            return FALSE;
-        }
-        DPRINT("ApplicationName %S\n",ApplicationNameString.Buffer);
-
-        InitializeObjectAttributes(&ObjectAttributes,
-			      &ApplicationNameString,
-			      OBJ_CASE_INSENSITIVE,
-			      NULL,
-			      SecurityDescriptor);
-
-        // Try to open the executable
-        Status = NtOpenFile(&hFile,
-			SYNCHRONIZE|FILE_EXECUTE|FILE_READ_DATA,
-			&ObjectAttributes,
-			&IoStatusBlock,
-			FILE_SHARE_DELETE|FILE_SHARE_READ,
-			FILE_SYNCHRONOUS_IO_NONALERT|FILE_NON_DIRECTORY_FILE);
-
-        RtlFreeUnicodeString(&ApplicationNameString);
-
-        if (!NT_SUCCESS(Status)) {
-            DPRINT("Failed to open file\n");
-            SetLastErrorByStatus(Status);
-            return FALSE;
-        }
-
-        // Read the dos header
-        Offset.QuadPart = 0;
-        Status = ZwReadFile(hFile,
-		      NULL,
-		      NULL,
-		      NULL,
-		      &Iosb,
-		      &DosHeader,
-		      sizeof(DosHeader),
-		      &Offset,
-		      0);
-
-        if (!NT_SUCCESS(Status)) {
-            DPRINT("Failed to read from file\n");
-            SetLastErrorByStatus(Status);
-            return FALSE;
-        }
-        if (Iosb.Information != sizeof(DosHeader)) {
-            DPRINT("Failed to read dos header from file\n");
-            SetLastErrorByStatus(STATUS_INVALID_IMAGE_FORMAT);
-            return FALSE;
-        }
-
-        // Check the DOS signature
-        if (DosHeader.e_magic != IMAGE_DOS_SIGNATURE) {
-            DPRINT("Failed dos magic check\n");
-            SetLastErrorByStatus(STATUS_INVALID_IMAGE_FORMAT);
-            return FALSE;
-        }
-        NtClose(hFile);
-
-        DPRINT("Launching VDM...\n");
-        return CreateProcessW(L"ntvdm.exe",
-	         (LPWSTR)lpApplicationName,
-	         lpProcessAttributes,
-	         lpThreadAttributes,
-	         bInheritHandles,
-	         dwCreationFlags,
-	         lpEnvironment,
-	         lpCurrentDirectory,
-	         lpStartupInfo,
-	         lpProcessInformation);
-   }
-/////////////////////////////////////////
-   /*
-    * Initialize the process object attributes
-    */
-
-   if(lpProcessAttributes != NULL)
-   {
-     if(lpProcessAttributes->bInheritHandle)
-     {
-       ProcAttributes |= OBJ_INHERIT;
-     }
-     ProcSecurity = lpProcessAttributes->lpSecurityDescriptor;
-   }
-
-   InitializeObjectAttributes(&ProcObjectAttributes,
-			      NULL,
-			      ProcAttributes,
-			      NULL,
-			      ProcSecurity);
-   /*
-    * initialize the process priority class structure
-    */
-   PriorityClass.Foreground = FALSE;
-   
-   if(dwCreationFlags & IDLE_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_IDLE;
-   }
-   else if(dwCreationFlags & BELOW_NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_BELOW_NORMAL;
-   }
-   else if(dwCreationFlags & NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_NORMAL;
-   }
-   else if(dwCreationFlags & ABOVE_NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_ABOVE_NORMAL;
-   }
-   else if(dwCreationFlags & HIGH_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_HIGH;
-   }
-   else if(dwCreationFlags & REALTIME_PRIORITY_CLASS)
-   {
-     /* FIXME - This is a privileged operation. If we don't have the privilege we should
-                rather use PROCESS_PRIORITY_CLASS_HIGH. */
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_REALTIME;
-   }
-   else
-   {
-     /* FIXME - what to do in this case? */
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_NORMAL;
-   }
-
-   /*
-    * Create a new process
-    */
-   Status = NtCreateProcess(&hProcess,
-			    PROCESS_ALL_ACCESS,
-			    &ProcObjectAttributes,
-			    NtCurrentProcess(),
-			    bInheritHandles,
-			    hSection,
-			    NULL,
-			    NULL);
-   /* FIXME - handle failure!!!!! */
-   
-   Status = NtSetInformationProcess(hProcess,
-                                    ProcessPriorityClass,
-                                    &PriorityClass,
-                                    sizeof(PROCESS_PRIORITY_CLASS));
-   /* FIXME - handle failure!!!!! */
-   
-   if (lpStartupInfo)
-   {
-      if (lpStartupInfo->lpReserved2)
-      {
-         /* FIXME:
-	  *    ROUND_UP(xxx,2) + 2 is a dirty hack. RtlCreateProcessParameters assumes that
-	  *    the runtimeinfo is a unicode string and use RtlCopyUnicodeString for duplication.
-	  *    If is possible that this function overwrite the last information in runtimeinfo
-	  *    with the null terminator for the unicode string.
-	  */
-	 RuntimeInfo_U.Length = RuntimeInfo_U.MaximumLength = ROUND_UP(lpStartupInfo->cbReserved2, 2) + 2;
-	 RuntimeInfo_U.Buffer = RtlAllocateHeap(GetProcessHeap(), 0, RuntimeInfo_U.Length);
-	 memcpy(RuntimeInfo_U.Buffer, lpStartupInfo->lpReserved2, lpStartupInfo->cbReserved2);
-      }
-   }
-
-   /*
     * Create the PPB
     */
+   
+   RtlInitUnicodeString(&CommandLine_U, lpCommandLine);
+
+   DPRINT("CommandLine_U %S\n", CommandLine_U.Buffer);
+
    RtlCreateProcessParameters(&Ppb,
 			      &ImagePathName_U,
 			      NULL,
-			      lpCurrentDirectory ? &CurrentDirectory_U : NULL,
+			      (lpCurrentDirectory == NULL) ? NULL : &CurrentDirectoryW,
 			      &CommandLine_U,
 			      lpEnvironment,
 			      NULL,
 			      NULL,
 			      NULL,
-			      lpStartupInfo && lpStartupInfo->lpReserved2 ? &RuntimeInfo_U : NULL);
-
-   if (lpStartupInfo && lpStartupInfo->lpReserved2)
-	RtlFreeHeap(GetProcessHeap(), 0, RuntimeInfo_U.Buffer);
-
-
+			      NULL);
+   
    /*
-    * Translate some handles for the new process
+    * Create a section for the executable
     */
-   if (Ppb->CurrentDirectoryHandle)
+   
+   hSection = KlMapFile (lpApplicationName, lpCommandLine);
+   if (hSection == NULL)
    {
-      Status = NtDuplicateObject (NtCurrentProcess(),
-	                 Ppb->CurrentDirectoryHandle,
-			 hProcess,
-			 &Ppb->CurrentDirectoryHandle,
-			 0,
-			 TRUE,
-			 DUPLICATE_SAME_ACCESS);
-      /* FIXME - handle failure!!!!! */
+	RtlDestroyProcessParameters (Ppb);
+	return FALSE;
    }
+   
+   /*
+    * Create a new process
+    */
+   Status = NtCreateProcess(&hProcess,
+			    PROCESS_ALL_ACCESS,
+			    NULL,
+			    NtCurrentProcess(),
+			    bInheritHandles,
+			    hSection,
+			    NULL,
+			    NULL);
 
    /*
     * Get some information about the executable
@@ -1142,8 +594,7 @@ CreateProcessW
 			   &Sii,
 			   sizeof(Sii),
 			   &i);
-   /* FIXME - handle failure!!!!! */
-   
+
    /*
     * Close the section
     */
@@ -1152,7 +603,7 @@ CreateProcessW
    /*
     * Get some information about the process
     */
-   NtQueryInformationProcess(hProcess,
+   ZwQueryInformationProcess(hProcess,
 			     ProcessBasicInformation,
 			     &ProcessBasicInfo,
 			     sizeof(ProcessBasicInfo),
@@ -1160,28 +611,14 @@ CreateProcessW
    DPRINT("ProcessBasicInfo.UniqueProcessId %d\n",
 	  ProcessBasicInfo.UniqueProcessId);
    lpProcessInformation->dwProcessId = ProcessBasicInfo.UniqueProcessId;
-
+   
    /*
     * Tell the csrss server we are creating a new process
     */
    CsrRequest.Type = CSRSS_CREATE_PROCESS;
    CsrRequest.Data.CreateProcessRequest.NewProcessId = 
      ProcessBasicInfo.UniqueProcessId;
-   if (Sii.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI)
-     {
-        /* Do not create a console for GUI applications */
-        dwCreationFlags &= ~CREATE_NEW_CONSOLE;
-        dwCreationFlags |= DETACHED_PROCESS;
-     }
-   else if (Sii.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI)
-     {
-        if (NULL == Ppb->hConsole)
-          {
-            dwCreationFlags |= CREATE_NEW_CONSOLE;
-          }
-     }
    CsrRequest.Data.CreateProcessRequest.Flags = dwCreationFlags;
-   CsrRequest.Data.CreateProcessRequest.CtrlDispatcher = ConsoleControlDispatcher;
    Status = CsrClientCallServer(&CsrRequest, 
 				&CsrReply,
 				sizeof(CSRSS_API_REQUEST),
@@ -1190,210 +627,53 @@ CreateProcessW
      {
 	DbgPrint("Failed to tell csrss about new process. Expect trouble.\n");
      }
-
-   Ppb->hConsole = CsrReply.Data.CreateProcessReply.Console;
-
-   InputSet = FALSE;
-   OutputSet = FALSE;
-   ErrorSet = FALSE;
-
-   /* Set the child console handles */
-
-   /* First check if handles were passed in startup info */
-   if (lpStartupInfo && (lpStartupInfo->dwFlags & STARTF_USESTDHANDLES))
-   {
-      if (lpStartupInfo->hStdInput)
-      {
-	 Ppb->hStdInput = lpStartupInfo->hStdInput;
-         InputSet = TRUE;
-         InputDup = TRUE;
-      }
-      if (lpStartupInfo->hStdOutput)
-      {
-	 Ppb->hStdOutput = lpStartupInfo->hStdOutput;
-         OutputSet = TRUE;
-         OutputDup = TRUE;
-      }
-      if (lpStartupInfo->hStdError)
-      {
-	 Ppb->hStdError = lpStartupInfo->hStdError;
-         ErrorSet = TRUE;
-         ErrorDup = TRUE;
-      }
-   }
-
-   /* Check if new console was created, use it for input and output if
-      not overridden */
-   if (0 != (dwCreationFlags & CREATE_NEW_CONSOLE)
-       && NT_SUCCESS(Status) && NT_SUCCESS(CsrReply.Status))
-   {
-      if (! InputSet)
-      {
-         Ppb->hStdInput = CsrReply.Data.CreateProcessReply.InputHandle;
-         InputSet = TRUE;
-         InputDup = FALSE;
-      }
-      if (! OutputSet)
-      {
-         Ppb->hStdOutput = CsrReply.Data.CreateProcessReply.OutputHandle;
-         OutputSet = TRUE;
-         OutputDup = FALSE;
-      }
-      if (! ErrorSet)
-      {
-         Ppb->hStdError = CsrReply.Data.CreateProcessReply.OutputHandle;
-         ErrorSet = TRUE;
-         ErrorDup = FALSE;
-      }
-   }
-
-   /* Use existing handles otherwise */
-   if (! InputSet)
-   {
-      Ppb->hStdInput = NtCurrentPeb()->ProcessParameters->hStdInput;
-      InputDup = TRUE;
-   }
-   if (! OutputSet)
-   {
-      Ppb->hStdOutput = NtCurrentPeb()->ProcessParameters->hStdOutput;
-      OutputDup = TRUE;
-   }
-   if (! ErrorSet)
-   {
-      Ppb->hStdError = NtCurrentPeb()->ProcessParameters->hStdError;
-      ErrorDup = TRUE;
-   }
-
-   /* Now duplicate handles if required */
-   if (InputDup)
-   {
-      if (IsConsoleHandle(Ppb->hStdInput))
-      {
-         Ppb->hStdInput = CsrReply.Data.CreateProcessReply.InputHandle;
-      }
-      else
-      {
-         DPRINT("Duplicate input handle\n");
-         Status = NtDuplicateObject (NtCurrentProcess(), 
-                                     Ppb->hStdInput,
-                                     hProcess,
-                                     &Ppb->hStdInput,
-                                     0,
-                                     TRUE,
-                                     DUPLICATE_SAME_ACCESS);
-         if(!NT_SUCCESS(Status))
-         {
-	    DPRINT("NtDuplicateObject failed, status %x\n", Status);
-         }
-      }
-   }
-
-   if (OutputDup)
-   {
-      if (IsConsoleHandle(Ppb->hStdOutput))
-      {
-         Ppb->hStdOutput = CsrReply.Data.CreateProcessReply.OutputHandle;
-      }
-      else
-      {
-         DPRINT("Duplicate output handle\n");
-         Status = NtDuplicateObject (NtCurrentProcess(), 
-                                     Ppb->hStdOutput,
-                                     hProcess,
-                                     &Ppb->hStdOutput,
-                                     0,
-                                     TRUE,
-                                     DUPLICATE_SAME_ACCESS);
-         if(!NT_SUCCESS(Status))
-         {
-	    DPRINT("NtDuplicateObject failed, status %x\n", Status);
-         }
-      }
-   }
-
-   if (ErrorDup)
-   {
-      if (IsConsoleHandle(Ppb->hStdError))
-      {
-         CsrRequest.Type = CSRSS_DUPLICATE_HANDLE;
-         CsrRequest.Data.DuplicateHandleRequest.ProcessId = ProcessBasicInfo.UniqueProcessId;
-         CsrRequest.Data.DuplicateHandleRequest.Handle = CsrReply.Data.CreateProcessReply.OutputHandle;
-         Status = CsrClientCallServer(&CsrRequest, 
-                                      &CsrReply,
-                                      sizeof(CSRSS_API_REQUEST),
-                                      sizeof(CSRSS_API_REPLY));
-         if (!NT_SUCCESS(Status) || !NT_SUCCESS(CsrReply.Status))
-         {
-            Ppb->hStdError = INVALID_HANDLE_VALUE;
-         }
-         else
-         {
-            Ppb->hStdError = CsrReply.Data.DuplicateHandleReply.Handle;
-         }
-      }
-      else
-      {
-         DPRINT("Duplicate error handle\n");
-         Status = NtDuplicateObject (NtCurrentProcess(), 
-                                     Ppb->hStdError,
-                                     hProcess,
-                                     &Ppb->hStdError,
-                                     0,
-                                     TRUE,
-                                     DUPLICATE_SAME_ACCESS);
-         if(!NT_SUCCESS(Status))
-         {
-	    DPRINT("NtDuplicateObject failed, status %x\n", Status);
-         }
-      }
-   }
-
-   /*
-    * Initialize some other fields in the PPB
-    */
-   if (lpStartupInfo)
-     {
-       Ppb->dwFlags = lpStartupInfo->dwFlags;
-       if (Ppb->dwFlags & STARTF_USESHOWWINDOW)
-	 {
-	   Ppb->wShowWindow = lpStartupInfo->wShowWindow;
-	 }
-       else
-	 {
-	   Ppb->wShowWindow = SW_SHOWDEFAULT;
-	 }
-       Ppb->dwX = lpStartupInfo->dwX;
-       Ppb->dwY = lpStartupInfo->dwY;
-       Ppb->dwXSize = lpStartupInfo->dwXSize;
-       Ppb->dwYSize = lpStartupInfo->dwYSize;
-       Ppb->dwFillAttribute = lpStartupInfo->dwFillAttribute;
-     }
-   else
-     {
-       Ppb->Flags = 0;
-     }
    
    /*
     * Create Process Environment Block
     */
    DPRINT("Creating peb\n");
-
-   KlInitPeb(hProcess, Ppb, &ImageBaseAddress, Sii.Subsystem);
+   
+   Ppb->InputHandle = CsrReply.Data.CreateProcessReply.InputHandle;
+   Ppb->OutputHandle = CsrReply.Data.CreateProcessReply.OutputHandle;;
+   Ppb->ErrorHandle = Ppb->OutputHandle;
+   KlInitPeb(hProcess, Ppb);
 
    RtlDestroyProcessParameters (Ppb);
-   
+
+   Status = NtSetInformationProcess(hProcess,
+				    ProcessImageFileName,
+				    ImageFileName,
+				    8);
+   /*
+    * Retrieve the start address
+    */
+   DPRINT("Retrieving entry point address\n");
+   RtlInitAnsiString (&ProcedureName, "LdrInitializeThunk");
+   Status = LdrGetProcedureAddress ((PVOID)NTDLL_BASE,
+				    &ProcedureName,
+				    0,
+				    (PVOID*)&lpStartAddress);
+   if (!NT_SUCCESS(Status))
+     {
+	DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
+	return (Status);
+     }
+   DPRINT("lpStartAddress 0x%08lx\n", (ULONG)lpStartAddress);
+
    /*
     * Create the thread for the kernel
     */
-   DPRINT("Creating thread for process (EntryPoint = 0x%.08x)\n",
-    (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint));
+   DPRINT("Creating thread for process\n");
    hThread =  KlCreateFirstThread(hProcess,
 				  lpThreadAttributes,
-          &Sii,
-          (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint),
+				  //Sii.StackReserve,
+				  0x200000,
+				  //Sii.StackCommit,
+				  0x1000,
+				  lpStartAddress,
 				  dwCreationFlags,
 				  &lpProcessInformation->dwThreadId);
-   if (hThread == INVALID_HANDLE_VALUE)
+   if (hThread == NULL)
      {
 	return FALSE;
      }

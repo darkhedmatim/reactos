@@ -1,0 +1,8 @@
+*.exe
+buildno
+depends
+rcopy
+rmkdir
+rrmdir
+mkconfig
+rdel

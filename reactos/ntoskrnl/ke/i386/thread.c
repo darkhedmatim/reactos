@@ -27,14 +27,25 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+#include <internal/ke.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
+/* FUNCTIONS **************************************************************/
+
+#define FLAG_NT (1<<14)
+#define FLAG_VM (1<<17)
+#define FLAG_IF (1<<9)
+#define FLAG_IOPL ((1<<12)+(1<<13))
 
 NTSTATUS 
-Ki386ValidateUserContext(PCONTEXT Context)
+KeValidateUserContext(PCONTEXT Context)
 /*
  * FUNCTION: Validates a processor context
  * ARGUMENTS:
@@ -70,10 +81,10 @@ Ki386ValidateUserContext(PCONTEXT Context)
      {
 	return(STATUS_UNSUCCESSFUL);
      }
-   if ((Context->EFlags & X86_EFLAGS_IOPL) != 0 ||
-       (Context->EFlags & X86_EFLAGS_NT) ||
-       (Context->EFlags & X86_EFLAGS_VM) ||
-       (!(Context->EFlags & X86_EFLAGS_IF)))
+   if ((Context->EFlags & FLAG_IOPL) != 0 ||
+       (Context->EFlags & FLAG_NT) ||
+       (Context->EFlags & FLAG_VM) ||
+       (!(Context->EFlags & FLAG_IF)))
      {
         return(STATUS_UNSUCCESSFUL);
      }
@@ -83,81 +94,21 @@ Ki386ValidateUserContext(PCONTEXT Context)
 NTSTATUS
 Ke386InitThreadWithContext(PKTHREAD Thread, PCONTEXT Context)
 {
-  PULONG KernelStack;
-  ULONG InitSize;
-  PKTRAP_FRAME TrapFrame;
-  PFX_SAVE_AREA FxSaveArea;
+   PULONG KernelStack;
 
   /*
    * Setup a stack frame for exit from the task switching routine
    */
   
-  InitSize = 6 * sizeof(DWORD) + sizeof(DWORD) + 6 * sizeof(DWORD) +
-           + sizeof(KTRAP_FRAME) + sizeof (FX_SAVE_AREA);
-  KernelStack = (PULONG)((char*)Thread->KernelStack - InitSize);
-
-  /* Set up the initial frame for the return from the dispatcher. */
-  KernelStack[0] = (ULONG)Thread->InitialStack - sizeof(FX_SAVE_AREA);  /* TSS->Esp0 */
-  KernelStack[1] = 0;      /* EDI */
-  KernelStack[2] = 0;      /* ESI */
-  KernelStack[3] = 0;      /* EBX */
-  KernelStack[4] = 0;      /* EBP */
-  KernelStack[5] = (ULONG)&PsBeginThreadWithContextInternal;   /* EIP */
-
-  /* Save the context flags. */
-  KernelStack[6] = Context->ContextFlags;
-
-  /* Set up the initial values of the debugging registers. */
-  KernelStack[7] = Context->Dr0;
-  KernelStack[8] = Context->Dr1;
-  KernelStack[9] = Context->Dr2;
-  KernelStack[10] = Context->Dr3;
-  KernelStack[11] = Context->Dr6;
-  KernelStack[12] = Context->Dr7;
-
-  /* Set up a trap frame from the context. */
-  TrapFrame = (PKTRAP_FRAME)(&KernelStack[13]);
-  TrapFrame->DebugEbp = (PVOID)Context->Ebp;
-  TrapFrame->DebugEip = (PVOID)Context->Eip;
-  TrapFrame->DebugArgMark = 0;
-  TrapFrame->DebugPointer = 0;
-  TrapFrame->TempCs = 0;
-  TrapFrame->TempEip = 0;
-  TrapFrame->Gs = (USHORT)Context->SegGs;
-  TrapFrame->Es = (USHORT)Context->SegEs;
-  TrapFrame->Ds = (USHORT)Context->SegDs;
-  TrapFrame->Edx = Context->Edx;
-  TrapFrame->Ecx = Context->Ecx;
-  TrapFrame->Eax = Context->Eax;
-  TrapFrame->PreviousMode = UserMode;
-  TrapFrame->ExceptionList = (PVOID)0xFFFFFFFF;
-  TrapFrame->Fs = TEB_SELECTOR;
-  TrapFrame->Edi = Context->Edi;
-  TrapFrame->Esi = Context->Esi;
-  TrapFrame->Ebx = Context->Ebx;
-  TrapFrame->Ebp = Context->Ebp;
-  TrapFrame->ErrorCode = 0;
-  TrapFrame->Cs = Context->SegCs;
-  TrapFrame->Eip = Context->Eip;
-  TrapFrame->Eflags = Context->EFlags | X86_EFLAGS_IF;
-  TrapFrame->Eflags &= ~(X86_EFLAGS_VM | X86_EFLAGS_NT | X86_EFLAGS_IOPL);
-  TrapFrame->Esp = Context->Esp;
-  TrapFrame->Ss = (USHORT)Context->SegSs;
-  /* FIXME: Should check for a v86 mode context here. */
-
-  /* Set up the initial floating point state. */
-  /* FIXME: Do we have to zero the FxSaveArea or is it already? */
-  FxSaveArea = (PFX_SAVE_AREA)((ULONG_PTR)KernelStack + InitSize - sizeof(FX_SAVE_AREA));
-  if (KiContextToFxSaveArea(FxSaveArea, Context))
-    {
-      Thread->NpxState = NPX_STATE_VALID;
-    }
-  else
-    {
-      Thread->NpxState = NPX_STATE_INVALID;
-    }
-
-  /* Save back the new value of the kernel stack. */
+  KernelStack = (PULONG)(Thread->KernelStack - ((4 * 5) + sizeof(CONTEXT)));
+  /* FIXME: Add initial floating point information */
+  /* FIXME: Add initial debugging information */
+  KernelStack[0] = 0;      /* EDI */
+  KernelStack[1] = 0;      /* ESI */
+  KernelStack[2] = 0;      /* EBX */
+  KernelStack[3] = 0;      /* EBP */
+  KernelStack[4] = (ULONG)PsBeginThreadWithContextInternal;   /* EIP */
+  memcpy((PVOID)&KernelStack[5], (PVOID)Context, sizeof(CONTEXT));
   Thread->KernelStack = (PVOID)KernelStack;
 
   return(STATUS_SUCCESS);
@@ -176,26 +127,21 @@ Ke386InitThread(PKTHREAD Thread,
   /*
    * Setup a stack frame for exit from the task switching routine
    */
-
-  KernelStack = (PULONG)((char*)Thread->KernelStack - (9 * sizeof(DWORD)) - sizeof(FX_SAVE_AREA));
-  KernelStack[0] = (ULONG)Thread->InitialStack - sizeof(FX_SAVE_AREA);  /* TSS->Esp0 */
-  KernelStack[1] = 0;      /* EDI */
-  KernelStack[2] = 0;      /* ESI */
-  KernelStack[3] = 0;      /* EBX */
-  KernelStack[4] = 0;      /* EBP */
-  KernelStack[5] = (ULONG)&PsBeginThread;   /* EIP */
-  KernelStack[6] = 0;     /* Return EIP */
-  KernelStack[7] = (ULONG)StartRoutine; /* First argument to PsBeginThread */
-  KernelStack[8] = (ULONG)StartContext; /* Second argument to PsBeginThread */
+  
+  KernelStack = (PULONG)(Thread->KernelStack - (8*4));
+  /* FIXME: Add initial floating point information */
+  /* FIXME: Add initial debugging information */
+  KernelStack[0] = 0;      /* EDI */
+  KernelStack[1] = 0;      /* ESI */
+  KernelStack[2] = 0;      /* EBX */
+  KernelStack[3] = 0;      /* EBP */
+  KernelStack[4] = (ULONG)PsBeginThread;   /* EIP */
+  KernelStack[5] = 0;     /* Return EIP */
+  KernelStack[6] = (ULONG)StartRoutine; /* First argument to PsBeginThread */
+  KernelStack[7] = (ULONG)StartContext; /* Second argument to PsBeginThread */
   Thread->KernelStack = (VOID*)KernelStack;
-
-  /*
-   * Setup FPU state
-   */
-  Thread->NpxState = NPX_STATE_INVALID;
 
   return(STATUS_SUCCESS);
 }
 
 /* EOF */
-

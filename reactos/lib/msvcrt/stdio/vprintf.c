@@ -21,63 +21,27 @@ Cambridge, MA 02139, USA.  */
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 
-
 #undef	vprintf
 #undef	vwprintf
 
-//#define _USE_VARARG_
-
-#ifndef _USE_VARARG_
-
-/*
- * @implemented
- */
-int vprintf(const char* format, va_list arg)
+/* Write formatted output to stdout according to the
+   format string FORMAT, using the argument list in ARG.  */
+int
+vprintf (format, arg)
+     const char *format;
+     va_list arg;
 {
-    int ret;
-
-    ret = vfprintf(stdout, format, arg);
-    fflush(stdout);
-    return ret;
+  int ret = vfprintf (stdout, format, arg);
+  fflush(stdout);
+  return ret;
 }
 
-/*
- * @implemented
- */
-int vwprintf(const wchar_t* format, va_list arg)
+int
+vwprintf (format, arg)
+     const wchar_t *format;
+     va_list arg;
 {
-    int ret;
-
-    ret = vfwprintf(stdout, format, arg);
-    fflush(stdout);
-    return ret;
+  int ret = vfwprintf (stdout, format, arg);
+  fflush(stdout);
+  return ret;
 }
-
-#else
-
-int vprintf(const char* format, ...)
-{
-    va_list arg;
-    int ret;
-
-    va_start(arg, format);
-    ret = vfprintf(stdout, format, arg);
-    va_end(arg);
-
-    fflush(stdout);
-    return ret;
-}
-
-int vwprintf(const wchar_t* format, ...)
-{
-    va_list arg;
-    int ret;
-
-    va_start(arg, format);
-    ret = vfwprintf(stdout, format, arg);
-    va_end(arg);
-    fflush(stdout);
-    return ret;
-}
-
-#endif

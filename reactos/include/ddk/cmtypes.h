@@ -1,10 +1,11 @@
-#ifndef __INCLUDE_DDK_CMTYPES_H
-#define __INCLUDE_DDK_CMTYPES_H
+
 /*
- * Configuration Manager structures and typedefs
+ * Object Manager structures and typedefs
  */
 
-/* key query information class */
+/*
+ * key query information class 
+ */
 
 typedef enum _KEY_INFORMATION_CLASS
 {
@@ -46,19 +47,10 @@ typedef struct _KEY_NODE_INFORMATION
   WCHAR  Name[1];
 } KEY_NODE_INFORMATION, *PKEY_NODE_INFORMATION;
 
-
 /* key set information class */
-
-typedef enum _KEY_SET_INFORMATION_CLASS
-{
-  KeyLastWriteTimeInformation
-} KEY_SET_INFORMATION_CLASS;
-
-typedef struct _KEY_LAST_WRITE_TIME_INFORMATION
-{
-  LARGE_INTEGER  LastWriteTime;
-} KEY_LAST_WRITE_TIME_INFORMATION, *PKEY_LAST_WRITE_TIME_INFORMATION;
-
+/*
+ * KeyWriteTimeInformation
+ */
 
 /* key value information class */
 
@@ -95,6 +87,9 @@ typedef struct _KEY_VALUE_PARTIAL_INFORMATION
   UCHAR  Data[1];
 } KEY_VALUE_PARTIAL_INFORMATION, *PKEY_VALUE_PARTIAL_INFORMATION;
 
+#define  REG_OPTION_CREATE_LINK     0x00000002
+#define  REG_OPTION_BACKUP_RESTORE  0x00000004
+
 
 /* used by [Nt/Zw]QueryMultipleValueKey */
 
@@ -106,5 +101,3 @@ typedef struct _KEY_VALUE_ENTRY
   ULONG  Type;
 } KEY_VALUE_ENTRY, *PKEY_VALUE_ENTRY;
 
-
-#endif /* __INCLUDE_DDK_CMTYPES_H */

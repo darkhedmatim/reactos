@@ -20,31 +20,35 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 
-
-/*
- * @implemented
- */
-int printf(const char* format, ...)
+/* Write formatted output to stdout from the format string FORMAT.  */
+/* VARARGS1 */
+int
+printf (const char *format, ...)
 {
-    va_list arg;
-    int done;
+  va_list arg;
+  int done;
 
-    va_start(arg, format);
-    done = vprintf(format, arg);
-    va_end(arg);
-    return done;
+  va_start (arg, format);
+  done = vprintf (format, arg);
+  va_end (arg);
+  return done;
 }
 
-/*
- * @implemented
- */
-int wprintf(const wchar_t* format, ...)
+int
+wprintf (const wchar_t *format, ...)
 {
-    va_list arg;
-    int done;
+  va_list arg;
+  int done;
 
-    va_start(arg, format);
-    done = vwprintf(format, arg);
-    va_end(arg);
-    return done;
+  va_start (arg, format);
+  done = vwprintf (format, arg);
+  va_end (arg);
+  return done;
 }
+
+#ifdef USE_IN_LIBIO
+# undef _IO_printf
+/* This is for libg++.  */
+strong_alias (printf, _IO_printf);
+#endif
+

@@ -33,8 +33,8 @@
 #define DRIVER_NDIS_MAJOR_VERSION 3
 #define DRIVER_NDIS_MINOR_VERSION 0
 
-#define DRIVER_DEFAULT_IO_BASE_ADDRESS      0x280  /* bochs default */
-#define DRIVER_DEFAULT_INTERRUPT_NUMBER     9      /* bochs default */
+#define DRIVER_DEFAULT_IO_BASE_ADDRESS      0x300
+#define DRIVER_DEFAULT_INTERRUPT_NUMBER     10
 
 #define DRIVER_MAX_MULTICAST_LIST_SIZE  8
 
@@ -54,7 +54,6 @@
 
 /* Default number of transmit buffers */
 #define DRIVER_DEFAULT_TX_BUFFER_COUNT 12
-#define BUFFERS_PER_TX_BUF 1
 
 /* Interrupt Mask Register value */
 #define DRIVER_INTERRUPT_MASK   IMR_ALLE - IMR_RDCE

@@ -9,8 +9,6 @@
  *
  * Ignores `locale' stuff.  Assumes that the upper and lower case
  * alphabets and digits are each contiguous.
- *
- * @implemented
  */
 unsigned long
 wcstoul(const wchar_t *nptr, wchar_t **endptr, int base)

@@ -1,4 +1,4 @@
-/* $Id: fcntl.c,v 1.7 2002/10/29 04:45:31 rex Exp $
+/* $Id: fcntl.c,v 1.2 2002/02/20 09:17:57 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -15,7 +15,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <stdarg.h>
 #include <psx/errno.h>
 #include <psx/stdlib.h>
@@ -35,29 +34,19 @@ int fcntl(int fildes, int cmd, ...)
 
  /* lock the environment */
  __PdxAcquirePdataLock();
- INFO("environment locked");
 
  /* get the file descriptors table */
- pftFdTable = &__PdxGetProcessData()->FdTable;
- INFO("file descriptors table at 0x%08X", pftFdTable);
+ pftFdTable = __PdxGetProcessData()->FdTable;
 
- /* fildes is an invalid descriptor, or it's a closed or uninitialized
-    descriptor and the requested operation is not the creation of a new
-    descriptor */
+ /* fildes is an invalid, closed or uninitialized descriptor */
  if
  (
   fildes < 0 ||
   fildes >= OPEN_MAX ||
-  (
-   (cmd != F_NEWFD) &&
-   (
-    __fdtable_entry_isavail(pftFdTable, fildes) == 0 ||
-    __fdtable_entry_get(pftFdTable, fildes) == 0
-   )
-  )
+  __fdtable_entry_isavail(pftFdTable, fildes) == 0 ||
+  __fdtable_entry_get(pftFdTable, fildes) == 0
  )
  {
-  INFO("invalid file descriptor");
   errno = EBADF;
   __PdxReleasePdataLock();
   return (-1);
@@ -65,7 +54,6 @@ int fcntl(int fildes, int cmd, ...)
 
  /* get the file descriptor referenced by fildes */
  pfdDescriptor = __fdtable_entry_get(pftFdTable, fildes);
- INFO("file descriptor %d at 0x%08X", fildes, pftFdTable);
  
  /* get third argument as integer */
  va_start(vlArgs, cmd);
@@ -84,19 +72,15 @@ int fcntl(int fildes, int cmd, ...)
  {
   case F_DUPFD:
   {
+   va_list     vlArgs;
    int         nDupFileNo;
    __fildes_t *pfdDupDescriptor;
-   
-   INFO("requested operation: F_DUPFD");
 
    /* allocate the duplicated descriptor */
    nDupFileNo = __fdtable_entry_add(pftFdTable, nThirdArg, 0, &pfdDupDescriptor);
 
    if(nDupFileNo)
-   {
-    ERR("__fdtable_entry_add() failed, errno %d", errno);
     break;
-   }
 
    /* copy the open flags */
    pfdDupDescriptor->OpenFlags = pfdDescriptor->OpenFlags;
@@ -163,14 +147,12 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETFD:
   {
-   INFO("requested operation: F_GETFD");
    nRetVal = pfdDescriptor->FdFlags;
    break;
   }
 
   case F_SETFD:
   {
-   INFO("requested operation: F_SETFD");
    pfdDescriptor->FdFlags = nThirdArg;
    nRetVal = 0;
    break;
@@ -178,14 +160,12 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETFL:
   {
-   INFO("requested operation: F_GETFL");
    nRetVal = pfdDescriptor->OpenFlags;
    break;
   }
 
   case F_SETFL:
   {
-   INFO("requested operation: F_SETFL");
    pfdDescriptor->OpenFlags = nThirdArg;
    nRetVal = 0;
    break;
@@ -193,28 +173,24 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETLK:
   {
-   INFO("requested operation: F_GETLK");
    errno = EINVAL;
    break;
   }
 
   case F_SETLK:
   {
-   INFO("requested operation: F_SETLK");
    errno = EINVAL;
    break;
   }
 
   case F_SETLKW:
   {
-   INFO("requested operation: F_SETLKW");
    errno = EINVAL;
    break;
   }
 
   case F_NEWFD:
   {
-   INFO("requested operation: F_NEWFD");
    /* allocate a new descriptor */
    nRetVal = __fdtable_entry_add(pftFdTable, fildes, (__fildes_t *)pThirdArg, 0);
    break;
@@ -222,7 +198,6 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_DELFD:
   {
-   INFO("requested operation: F_DELFD");
    /* invalid return pointer */
    if(pThirdArg == 0)
    {
@@ -239,7 +214,6 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETALL:
   {
-   INFO("requested operation: F_GETALL");
    /* invalid return pointer */
    if(pThirdArg == 0)
    {
@@ -250,13 +224,10 @@ int fcntl(int fildes, int cmd, ...)
    /* return a copy of the file descriptor */
    memcpy((__fildes_t *)pThirdArg, pfdDescriptor, sizeof(*pfdDescriptor));
    nRetVal = 0;
-   
-   break;
   }
 
   case F_SETALL:
   {
-   INFO("requested operation: F_SETALL");
    /* invalid file descriptor to copy attributes from */
    if(pThirdArg == 0)
    {
@@ -267,13 +238,10 @@ int fcntl(int fildes, int cmd, ...)
    /* copy the attributes of file descriptor from the provided descriptor */
    memcpy(pfdDescriptor, pThirdArg, sizeof(*pfdDescriptor));
    nRetVal = 0;
-   
-   break;
   }
 
   case F_GETXP:
   {
-   INFO("requested operation: F_GETXP");
    /* invalid return pointer */
    if(pThirdArg == 0)
    {
@@ -284,13 +252,11 @@ int fcntl(int fildes, int cmd, ...)
    /* return a pointer to the extra data associated to the descriptor */
    *((void **)pThirdArg) = pfdDescriptor->ExtraData;
    nRetVal = 0;
-   
    break;
   }
 
   case F_SETXP:
   {
-   INFO("requested operation: F_SETXP");
    /* set the pointer to the extra data associated */
    pfdDescriptor->ExtraData = pThirdArg;
    nRetVal = 0;
@@ -299,14 +265,12 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETXS:
   {
-   INFO("requested operation: F_GETXS");
    nRetVal = pfdDescriptor->ExtraDataSize;
    break;
   }
 
   case F_SETXS:
   {
-   INFO("requested operation: F_SETXS");
    pfdDescriptor->ExtraDataSize = nThirdArg;
    nRetVal = 0;
    break;
@@ -314,7 +278,6 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_GETFH:
   {
-   INFO("requested operation: F_GETFH");
    /* invalid return pointer */
    if(pThirdArg == 0)
    {
@@ -330,20 +293,17 @@ int fcntl(int fildes, int cmd, ...)
 
   case F_SETFH:
   {
-   INFO("requested operation: F_SETFH");
    pfdDescriptor->FileHandle = pThirdArg;
    nRetVal = 0;
    break;
   }
 
   default:
-   INFO("invalid operation requested");
    errno = EINVAL;
  }
 
  /* unlock the environment */
  __PdxReleasePdataLock();
- INFO("environment unlocked");
 
  return (nRetVal);
 }

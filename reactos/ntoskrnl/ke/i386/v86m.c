@@ -25,7 +25,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/v86m.h>
+#include <internal/trap.h>
+#include <internal/mm.h>
+#include <internal/i386/segment.h>
+#include <string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -130,14 +136,14 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 		{
 		  Tf->Esp = Tf->Esp - 2;
 		  sp = sp - 1;
-		  sp[0] = (USHORT)(Tf->Eflags & 0xFFFF);
+		  sp[0] = Tf->Eflags & 0xFFFF;
 		  if (VTf->regs->Vif == 1)
 		    {
-		      sp[0] = (USHORT)(sp[0] | INTERRUPT_FLAG);
+		      sp[0] = sp[0] | INTERRUPT_FLAG;
 		    }
 		  else
 		    {
-		      sp[0] = (USHORT)(sp[0] & (~INTERRUPT_FLAG));
+		      sp[0] = sp[0] & (~INTERRUPT_FLAG);
 		    }
 		}
 	      else
@@ -241,9 +247,8 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    }
 	  if (VTf->regs->Flags & KV86M_ALLOW_IO_PORT_ACCESS)
 	    {
-	      DPRINT("outb %d, %x\n", (ULONG)ip[i + 1], Tf->Eax & 0xFF);
 	      WRITE_PORT_UCHAR((PUCHAR)(ULONG)ip[i + 1], 
-			       (UCHAR)(Tf->Eax & 0xFF));
+			       Tf->Eax & 0xFF);
 	      Tf->Eip = Tf->Eip + 2;
 	      return(0);
 	    }
@@ -261,12 +266,10 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    {
 	      if (!BigDataPrefix)
 		{
-		  DPRINT("outw %d, %x\n", (ULONG)ip[i + 1], Tf->Eax & 0xFFFF);
-		  WRITE_PORT_USHORT((PUSHORT)(ULONG)ip[1], (USHORT)(Tf->Eax & 0xFFFF));
+		  WRITE_PORT_USHORT((PUSHORT)(ULONG)ip[1], Tf->Eax & 0xFFFF);
 		}
 	      else
 		{
-		  DPRINT("outl %d, %x\n", (ULONG)ip[i + 1], Tf->Eax);
 		  WRITE_PORT_ULONG((PULONG)(ULONG)ip[1], Tf->Eax);
 		}
 	      Tf->Eip = Tf->Eip + 2;
@@ -284,8 +287,7 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    }
 	  if (VTf->regs->Flags & KV86M_ALLOW_IO_PORT_ACCESS)
 	    {
-	      DPRINT("outb %d, %x\n", Tf->Edx & 0xFFFF, Tf->Eax & 0xFF);
-	      WRITE_PORT_UCHAR((PUCHAR)(Tf->Edx & 0xFFFF), (UCHAR)(Tf->Eax & 0xFF));
+	      WRITE_PORT_UCHAR((PUCHAR)(Tf->Edx & 0xFFFF), Tf->Eax & 0xFF);
 	      Tf->Eip = Tf->Eip + 1;
 	      return(0);
 	    }
@@ -303,13 +305,11 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    {
 	      if (!BigDataPrefix)
 		{
-		  DPRINT("outw %d, %x\n", Tf->Edx & 0xFFFF, Tf->Eax & 0xFFFF);
 		  WRITE_PORT_USHORT((PUSHORT)(Tf->Edx & 0xFFFF), 
-				    (USHORT)(Tf->Eax & 0xFFFF));
+				    Tf->Eax & 0xFFFF);
 		}
 	      else
 		{
-		  DPRINT("outl %d, %x\n", Tf->Edx & 0xFFFF, Tf->Eax);
 		  WRITE_PORT_ULONG((PULONG)(Tf->Edx & 0xFFFF), 
 				   Tf->Eax);
 		}
@@ -331,7 +331,6 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	      UCHAR v;
 	      
 	      v = READ_PORT_UCHAR((PUCHAR)(ULONG)ip[1]);
-	      DPRINT("inb %d\t%X\n", (ULONG)ip[1], v);
 	      Tf->Eax = Tf->Eax & (~0xFF);
 	      Tf->Eax = Tf->Eax | v;
 	      Tf->Eip = Tf->Eip + 2;
@@ -348,22 +347,12 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	      return(1);
 	    }
 	  if (VTf->regs->Flags & KV86M_ALLOW_IO_PORT_ACCESS)
-	    {	     
-	      if (!BigDataPrefix)
-		{
-		  USHORT v;
-		  v = READ_PORT_USHORT((PUSHORT)(ULONG)ip[1]);
-		  DPRINT("inw %d\t%X\n", (ULONG)ip[1], v);
-		  Tf->Eax = Tf->Eax & (~0xFFFF);
-		  Tf->Eax = Tf->Eax | v;
-		}
-	      else
-		{
-		  ULONG v;
-		  v = READ_PORT_ULONG((PULONG)(ULONG)ip[1]);
-		  DPRINT("inl %d\t%X\n", (ULONG)ip[1], v);
-		  Tf->Eax = v;
-		}
+	    {
+	      USHORT v;
+	      
+	      v = READ_PORT_USHORT((PUSHORT)(ULONG)ip[1]);
+	      Tf->Eax = Tf->Eax & (~0xFFFF);
+	      Tf->Eax = Tf->Eax | v;
 	      Tf->Eip = Tf->Eip + 2;
 	      return(0);
 	    }
@@ -380,9 +369,8 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	  if (VTf->regs->Flags & KV86M_ALLOW_IO_PORT_ACCESS)
 	    {
 	      UCHAR v;
-	      
+
 	      v = READ_PORT_UCHAR((PUCHAR)(Tf->Edx & 0xFFFF));
-	      DPRINT("inb %d\t%X\n", Tf->Edx & 0xFFFF, v);
 	      Tf->Eax = Tf->Eax & (~0xFF);
 	      Tf->Eax = Tf->Eax | v;
 	      Tf->Eip = Tf->Eip + 1;
@@ -400,23 +388,11 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    }
 	  if (VTf->regs->Flags & KV86M_ALLOW_IO_PORT_ACCESS)
 	    {
-	      if (!BigDataPrefix)
-		{
-		  USHORT v;
+	      USHORT v;
 
-		  v = READ_PORT_USHORT((PUSHORT)(Tf->Edx & 0xFFFF));
-		  DPRINT("inw %d\t%X\n", Tf->Edx & 0xFFFF, v);
-		  Tf->Eax = Tf->Eax & (~0xFFFF);
-		  Tf->Eax = Tf->Eax | v;
-		}
-	      else
-		{
-		  ULONG v;
-
-		  v = READ_PORT_ULONG((PULONG)(Tf->Edx & 0xFFFF));
-		  DPRINT("inl %d\t%X\n", Tf->Edx & 0xFFFF, v);
-		  Tf->Eax = v;
-		}
+	      v = READ_PORT_USHORT((PUSHORT)(Tf->Edx & 0xFFFF));
+	      Tf->Eax = Tf->Eax & (~0xFFFF);
+	      Tf->Eax = Tf->Eax | v;
 	      Tf->Eip = Tf->Eip + 1;
 	      return(0);
 	    }
@@ -473,8 +449,8 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    {
 	      ULONG Count;
 	      PUCHAR Port;
-	      PUSHORT BufferS = NULL;
-	      PULONG BufferL = NULL;
+	      PUSHORT BufferS;
+	      PULONG BufferL;
 	      ULONG Offset;
 	      
 	      Count = 1;
@@ -590,8 +566,8 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    {
 	      ULONG Count;
 	      PUCHAR Port;
-	      PUSHORT BufferS = NULL;
-	      PULONG BufferL = NULL;
+	      PUSHORT BufferS;
+	      PULONG BufferL;
 	      ULONG Offset;
 	      
 	      Count = 1;
@@ -669,12 +645,12 @@ KeV86GPF(PKV86M_TRAP_FRAME VTf, PKTRAP_FRAME Tf)
 	    Tf->Esp = Tf->Esp - 6;
 	    sp = sp - 3;
 	    
-	    sp[0] = (USHORT)((Tf->Eip & 0xFFFF) + 2);
-	    sp[1] = (USHORT)(Tf->Cs & 0xFFFF);
-	    sp[2] = (USHORT)(Tf->Eflags & 0xFFFF);
+	    sp[0] = (Tf->Eip & 0xFFFF) + 2;
+	    sp[1] = Tf->Cs & 0xFFFF;
+	    sp[2] = Tf->Eflags & 0xFFFF;
 	    if (VTf->regs->Vif == 1)
 	      {
-		sp[2] = (USHORT)(sp[2] | INTERRUPT_FLAG);
+		sp[2] = sp[2] | INTERRUPT_FLAG;
 	      }
 	    DPRINT("sp[0] %x sp[1] %x sp[2] %x\n", sp[0], sp[1], sp[2]);
 	    Tf->Eip = entry & 0xFFFF;
@@ -702,12 +678,6 @@ KeV86Exception(ULONG ExceptionNr, PKTRAP_FRAME Tf, ULONG address)
   PKV86M_TRAP_FRAME VTf;
 
   VTf = (PKV86M_TRAP_FRAME)Tf;
-
-  if(KeGetCurrentProcess()->NtVdmFlag)
-  {
-    VTf->regs->PStatus = (PNTSTATUS) ExceptionNr;
-    if(ExceptionNr != 14) return 1;
-  }
 
   /*
    * Check if we have reached the recovery instruction
@@ -814,13 +784,7 @@ KeV86Exception(ULONG ExceptionNr, PKTRAP_FRAME Tf, ULONG address)
 			     Tf->ErrorCode);
 	if (!NT_SUCCESS(Status))
 	  {
-            if(KeGetCurrentProcess()->NtVdmFlag)
-            {
-              VTf->regs->PStatus = (PNTSTATUS) STATUS_NONCONTINUABLE_EXCEPTION;
-              return 1;
-            }
-
-            DPRINT("V86Exception, halting due to page fault\n");
+	    DPRINT("V86Exception, halting due to page fault\n");
 	    *VTf->regs->PStatus = STATUS_NONCONTINUABLE_EXCEPTION;
 	    return(1);
 	  }

@@ -1,12 +1,10 @@
-# $Id: makefile,v 1.8 2003/11/14 17:13:26 weiden Exp $
+# $Id: makefile,v 1.7 2001/08/21 20:13:14 chorns Exp $
 
 PATH_TO_TOP = ../../..
 
 TARGET_TYPE = driver
 
 TARGET_NAME = mouclass
-
-TARGET_CFLAGS = -Wall -Werror
 
 TARGET_OBJECTS = $(TARGET_NAME).o
 

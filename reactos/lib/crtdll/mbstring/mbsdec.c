@@ -1,8 +1,5 @@
-#include <msvcrt/mbstring.h>
+#include <crtdll/mbstring.h>
 
-/*
- * @implemented
- */
 unsigned char * _mbsdec(const unsigned char *str, const unsigned char *cur)
 {
 	unsigned char *s = (unsigned char *)cur;

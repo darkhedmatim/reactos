@@ -1,10 +1,7 @@
-#include <msvcrt/math.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/internal/ieee.h>
+#include <crtdll/math.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/ieee.h>
 
-/*
- * @implemented
- */
 double
 frexp(double __x, int *exptr)
 {

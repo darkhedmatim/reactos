@@ -7,9 +7,7 @@
  * REVISIONS:
  *   CSH 27/08-2000 Created
  */
-#include <roscfg.h>
 #include <ne2000.h>
-#include <debug.h>
 
 
 #ifdef DBG
@@ -71,7 +69,7 @@ BOOLEAN MiniportCheckForHang(
 }
 
 
-VOID STDCALL MiniportDisableInterrupt(
+VOID MiniportDisableInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Disables interrupts from an adapter
@@ -86,7 +84,7 @@ VOID STDCALL MiniportDisableInterrupt(
 }
 
 
-VOID STDCALL MiniportEnableInterrupt(
+VOID MiniportEnableInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Enables interrupts from an adapter
@@ -101,7 +99,7 @@ VOID STDCALL MiniportEnableInterrupt(
 }
 
 
-VOID STDCALL MiniportHalt(
+VOID MiniportHalt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Deallocates resources for and halts an adapter
@@ -132,16 +130,14 @@ VOID STDCALL MiniportHalt(
             Adapter->IOBase);
 
     /* Remove adapter from global adapter list */
-    if ((&Adapter->ListEntry)->Blink != NULL) {
-        RemoveEntryList(&Adapter->ListEntry);
-	}
+    RemoveEntryList(&Adapter->ListEntry);
 
     /* Free adapter context area */
     NdisFreeMemory(Adapter, sizeof(NIC_ADAPTER), 0);
 }
 
 
-NDIS_STATUS STDCALL MiniportInitialize(
+NDIS_STATUS MiniportInitialize(
     OUT PNDIS_STATUS    OpenErrorStatus,
     OUT PUINT           SelectedMediumIndex,
     IN  PNDIS_MEDIUM    MediumArray,
@@ -165,7 +161,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
     NDIS_STATUS Status;
     PNIC_ADAPTER Adapter;
 
-    NDIS_DbgPrint(MAX_TRACE, ("Called (Adapter %X).\n", MiniportAdapterHandle));
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
     /* Search for 802.3 media which is the only one we support */
     for (i = 0; i < MediumArraySize; i++) {
@@ -174,7 +170,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
     }
 
     if (i == MediumArraySize) {
-        NDIS_DbgPrint(MIN_TRACE, ("No supported media.\n"));
+        NDIS_DbgPrint(MIN_TRACE, ("No supported medias.\n"));
         return NDIS_STATUS_UNSUPPORTED_MEDIA;
     }
 
@@ -196,63 +192,6 @@ NDIS_STATUS STDCALL MiniportInitialize(
     Adapter->MaxMulticastListSize   = DRIVER_MAX_MULTICAST_LIST_SIZE;
     Adapter->InterruptMask          = DRIVER_INTERRUPT_MASK;
     Adapter->LookaheadSize          = DRIVER_MAXIMUM_LOOKAHEAD;
-
-     /* get the port, irq, and MAC address from registry */
-    do
-    {
-        PNDIS_CONFIGURATION_PARAMETER ConfigurationParameter;
-        NDIS_HANDLE ConfigurationHandle;
-        UNICODE_STRING Keyword;
-        UINT *RegNetworkAddress = 0;
-        UINT RegNetworkAddressLength = 0;
-
-        NdisOpenConfiguration(&Status, &ConfigurationHandle, WrapperConfigurationContext);
-        if(Status != NDIS_STATUS_SUCCESS)
-        {
-            NDIS_DbgPrint(MIN_TRACE,("NdisOpenConfiguration returned error 0x%x\n", Status));
-            break;
-        }
-
-        NdisInitUnicodeString(&Keyword, L"Irq");
-        NdisReadConfiguration(&Status, &ConfigurationParameter, ConfigurationHandle, &Keyword, NdisParameterInteger);
-        if(Status == NDIS_STATUS_SUCCESS)
-        {
-            NDIS_DbgPrint(MID_TRACE,("NdisReadConfiguration for Irq returned successfully, irq 0x%x\n",
-                    ConfigurationParameter->ParameterData.IntegerData));
-            Adapter->InterruptNumber = ConfigurationParameter->ParameterData.IntegerData;
-        }
-
-        NdisInitUnicodeString(&Keyword, L"Port");
-        NdisReadConfiguration(&Status, &ConfigurationParameter, ConfigurationHandle, &Keyword, NdisParameterInteger);
-        if(Status == NDIS_STATUS_SUCCESS)
-        {
-            NDIS_DbgPrint(MID_TRACE,("NdisReadConfiguration for Port returned successfully, port 0x%x\n",
-                    ConfigurationParameter->ParameterData.IntegerData));
-            Adapter->IoBaseAddress = ConfigurationParameter->ParameterData.IntegerData;
-        }
-
-        /* the returned copy of the data is owned by NDIS and will be released on NdisCloseConfiguration */
-        NdisReadNetworkAddress(&Status, (PVOID *)&RegNetworkAddress, &RegNetworkAddressLength, ConfigurationHandle);
-        if(Status == NDIS_STATUS_SUCCESS && RegNetworkAddressLength == DRIVER_LENGTH_OF_ADDRESS)
-        {
-            int i;
-            NDIS_DbgPrint(MID_TRACE,("NdisReadNetworkAddress returned successfully, address %x:%x:%x:%x:%x:%x\n",
-                    RegNetworkAddress[0], RegNetworkAddress[1], RegNetworkAddress[2], RegNetworkAddress[3],
-                    RegNetworkAddress[4], RegNetworkAddress[5]));
-            for(i = 0; i < DRIVER_LENGTH_OF_ADDRESS; i++)
-                Adapter->StationAddress[i] = RegNetworkAddress[i];
-        }
-
-        NdisCloseConfiguration(ConfigurationHandle);
-    } while(0);
-
-     /* find the nic */
-    if (!NICCheck(Adapter)) {
-        NDIS_DbgPrint(MID_TRACE, ("No adapter found at (0x%X).\n", Adapter->IOBase));
-        return NDIS_STATUS_ADAPTER_NOT_FOUND;
-    } else
-        NDIS_DbgPrint(MID_TRACE, ("Adapter found at (0x%X).\n", Adapter->IOBase));
-
 
     NdisMSetAttributes(
         MiniportAdapterHandle,
@@ -278,17 +217,17 @@ NDIS_STATUS STDCALL MiniportInitialize(
 #ifndef NOCARD
     Status = NICInitialize(Adapter);
     if (Status != NDIS_STATUS_SUCCESS) {
-        NDIS_DbgPrint(MIN_TRACE,("No NE2000 or compatible network adapter found at address 0x%X.\n",
-            Adapter->IOBase));
+        DbgPrint("No NE2000 or compatible network adapter found at address 0x%X.\n",
+            Adapter->IOBase);
 
         NDIS_DbgPrint(MID_TRACE, ("Status (0x%X).\n", Status));
         MiniportHalt((NDIS_HANDLE)Adapter);
         return Status;
     }
 
-    NDIS_DbgPrint(MID_TRACE, ("BOARDDATA:\n"));
+    NDIS_DbgPrint(MAX_TRACE, ("BOARDDATA:\n"));
     for (i = 0; i < 4; i++) {
-        NDIS_DbgPrint(MID_TRACE, ("%02X %02X %02X %02X\n",
+        NDIS_DbgPrint(MAX_TRACE, ("%02X %02X %02X %02X\n",
             Adapter->SAPROM[i*4+0],
             Adapter->SAPROM[i*4+1],
             Adapter->SAPROM[i*4+2],
@@ -310,12 +249,12 @@ NDIS_STATUS STDCALL MiniportInitialize(
     /* Setup the NIC */
     NICSetup(Adapter);
 
-    NDIS_DbgPrint(MID_TRACE, ("TXStart (0x%X)  TXCount (0x%X)  PageStart (0x%X)\n",
+    NDIS_DbgPrint(MAX_TRACE, ("TXStart (0x%X)  TXCount (0x%X)  PageStart (0x%X)\n",
         Adapter->TXStart,
         Adapter->TXCount,
         Adapter->PageStart));
 
-    NDIS_DbgPrint(MID_TRACE, ("PageStop (0x%X)  CurrentPage (0x%X)  NextPacket (0x%X).\n",
+    NDIS_DbgPrint(MAX_TRACE, ("PageStop (0x%X)  CurrentPage (0x%X)  NextPacket (0x%X).\n",
         Adapter->PageStop,
         Adapter->CurrentPage,
         Adapter->NextPacket));
@@ -349,7 +288,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
 }
 
 
-VOID STDCALL MiniportISR(
+VOID MiniportISR(
     OUT PBOOLEAN    InterruptRecognized,
     OUT PBOOLEAN    QueueMiniportHandleInterrupt,
     IN  NDIS_HANDLE MiniportAdapterContext)
@@ -374,7 +313,7 @@ VOID STDCALL MiniportISR(
 }
 
 
-NDIS_STATUS STDCALL MiniportQueryInformation(
+NDIS_STATUS MiniportQueryInformation(
     IN  NDIS_HANDLE MiniportAdapterContext,
     IN  NDIS_OID    Oid,
     IN  PVOID       InformationBuffer,
@@ -474,7 +413,7 @@ NDIS_STATUS STDCALL MiniportQueryInformation(
         GenericULONG = DRIVER_FRAME_SIZE;
         break;
     case OID_GEN_PROTOCOL_OPTIONS:
-        NDIS_DbgPrint(MID_TRACE, ("OID_GEN_PROTOCOL_OPTIONS.\n"));
+        NDIS_DbgPrint(MAX_TRACE, ("OID_GEN_PROTOCOL_OPTIONS.\n"));
         Status = NDIS_STATUS_NOT_SUPPORTED;
         break;
     case OID_GEN_MAC_OPTIONS:
@@ -498,14 +437,14 @@ NDIS_STATUS STDCALL MiniportQueryInformation(
         CopySize = DRIVER_LENGTH_OF_ADDRESS;
         break;
     case OID_802_3_MULTICAST_LIST:
-        NDIS_DbgPrint(MID_TRACE, ("OID_802_3_MULTICAST_LIST.\n"));
+        NDIS_DbgPrint(MAX_TRACE, ("OID_802_3_MULTICAST_LIST.\n"));
         Status = NDIS_STATUS_NOT_SUPPORTED;
         break;
     case OID_802_3_MAXIMUM_LIST_SIZE:
         GenericULONG = Adapter->MaxMulticastListSize;
         break;
     case OID_802_3_MAC_OPTIONS:
-        NDIS_DbgPrint(MID_TRACE, ("OID_802_3_MAC_OPTIONS.\n"));
+        NDIS_DbgPrint(MAX_TRACE, ("OID_802_3_MAC_OPTIONS.\n"));
         Status = NDIS_STATUS_NOT_SUPPORTED;
         break;
     default:
@@ -532,7 +471,7 @@ NDIS_STATUS STDCALL MiniportQueryInformation(
 }
 
 
-NDIS_STATUS STDCALL MiniportReconfigure(
+NDIS_STATUS MiniportReconfigure(
     OUT PNDIS_STATUS    OpenErrorStatus,
     IN  NDIS_HANDLE     MiniportAdapterContext,
     IN  NDIS_HANDLE     WrapperConfigurationContext)
@@ -555,7 +494,7 @@ NDIS_STATUS STDCALL MiniportReconfigure(
 
 
 
-NDIS_STATUS STDCALL MiniportReset(
+NDIS_STATUS MiniportReset(
     OUT PBOOLEAN    AddressingReset,
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
@@ -575,7 +514,7 @@ NDIS_STATUS STDCALL MiniportReset(
 }
 
 
-NDIS_STATUS STDCALL MiniportSend(
+NDIS_STATUS MiniportSend(
     IN  NDIS_HANDLE     MiniportAdapterContext,
     IN  PNDIS_PACKET    Packet,
     IN  UINT            Flags)
@@ -592,7 +531,7 @@ NDIS_STATUS STDCALL MiniportSend(
 {
     PNIC_ADAPTER Adapter = (PNIC_ADAPTER)MiniportAdapterContext;
 
-    NDIS_DbgPrint(MID_TRACE, ("Queueing packet.\n"));
+    NDIS_DbgPrint(MAX_TRACE, ("Queueing packet.\n"));
 
 #ifdef NOCARD
     NdisMSendComplete(Adapter->MiniportAdapterHandle,
@@ -616,7 +555,7 @@ NDIS_STATUS STDCALL MiniportSend(
 }
 
 
-NDIS_STATUS STDCALL MiniportSetInformation(
+NDIS_STATUS MiniportSetInformation(
     IN  NDIS_HANDLE MiniportAdapterContext,
     IN  NDIS_OID    Oid,
     IN  PVOID       InformationBuffer,
@@ -722,7 +661,7 @@ NDIS_STATUS STDCALL MiniportSetInformation(
 }
 
 
-NDIS_STATUS STDCALL MiniportTransferData(
+NDIS_STATUS MiniportTransferData(
     OUT PNDIS_PACKET    Packet,
     OUT PUINT           BytesTransferred,
     IN  NDIS_HANDLE     MiniportAdapterContext,
@@ -764,25 +703,23 @@ NDIS_STATUS STDCALL MiniportTransferData(
     NdisQueryPacket(Packet, NULL, NULL, &DstBuffer, NULL);
     NdisQueryBuffer(DstBuffer, (PVOID)&DstData, &DstSize);
 
-    SrcData = Adapter->PacketOffset + sizeof(DISCARD_HEADER) + ByteOffset;
-    if (ByteOffset + sizeof(DISCARD_HEADER) + BytesToTransfer > 
-	Adapter->PacketHeader.PacketLength)
-        BytesToTransfer = Adapter->PacketHeader.PacketLength - 
-	    sizeof(DISCARD_HEADER) - ByteOffset;
+    SrcData = Adapter->PacketOffset + sizeof(PACKET_HEADER) + ByteOffset;
+    if (ByteOffset + sizeof(PACKET_HEADER) + BytesToTransfer > Adapter->PacketHeader.PacketLength)
+        BytesToTransfer = Adapter->PacketHeader.PacketLength- sizeof(PACKET_HEADER) - ByteOffset;
 
     /* Start copying the data */
     BytesCopied = 0;
     for (;;) {
-        BytesToCopy = (DstSize < BytesToTransfer) ? DstSize : BytesToTransfer;
+        BytesToCopy = (DstSize < BytesToTransfer)? DstSize : BytesToTransfer;
         if (SrcData + BytesToCopy > RecvStop)
             BytesToCopy = (RecvStop - SrcData);
 
         NICReadData(Adapter, DstData, SrcData, BytesToCopy);
 
-        BytesCopied     += BytesToCopy;
-        SrcData         += BytesToCopy;
-        DstData          = (PUCHAR)((ULONG_PTR) DstData + BytesToCopy);
-        BytesToTransfer -= BytesToCopy;
+        BytesCopied        += BytesToCopy;
+        SrcData            += BytesToCopy;
+        (ULONG_PTR)DstData += BytesToCopy;
+        BytesToTransfer    -= BytesToCopy;
         if (BytesToTransfer == 0)
             break;
 
@@ -801,7 +738,7 @@ NDIS_STATUS STDCALL MiniportTransferData(
             SrcData = RecvStart;
     }
 
-    NDIS_DbgPrint(MID_TRACE, ("Transferred (%d) bytes.\n", BytesToTransfer));
+    NDIS_DbgPrint(MAX_TRACE, ("Transferred (%d) bytes.\n", BytesToTransfer));
 
     *BytesTransferred = BytesCopied;
 
@@ -869,81 +806,4 @@ DriverEntry(
     return STATUS_SUCCESS;
 }
 
-#if 0
-        /* while i'm here - some basic registry sanity checks */
-        {
-            /* write tests */
-            NDIS_CONFIGURATION_PARAMETER ParameterValue;
-
-            ParameterValue.ParameterType = NdisParameterInteger;
-            ParameterValue.ParameterData.IntegerData = 0x12345678;
-            NdisInitUnicodeString(&Keyword, L"DwordTest");
-            NdisWriteConfiguration(&Status, ConfigurationHandle, &Keyword, &ParameterValue);
-
-            if(Status != NDIS_STATUS_SUCCESS)
-            {
-                DbgPrint("ne2000!MiniportInitialize: failed to set DwordTest: 0x%x\n", Status);
-                KeBugCheck(0);
-            }
-            
-            DbgPrint("ne2000!MiniportInitialize: DwordTest successfully set\n");
-            
-            NdisInitUnicodeString(&Keyword, L"StringTest");
-            ParameterValue.ParameterType = NdisParameterString;
-            NdisInitUnicodeString(&ParameterValue.ParameterData.StringData, L"Testing123");
-
-            NdisWriteConfiguration(&Status, ConfigurationHandle, &Keyword, &ParameterValue);
-
-            if(Status != NDIS_STATUS_SUCCESS)
-            {
-                DbgPrint("ne2000!MiniportInitialize: failed to set StringTest: 0x%x\n", Status);
-                KeBugCheck(0);
-            }
-            
-            DbgPrint("ne2000!MiniportInitialize: StringTest successfully set\n");
-        }
-
-        {
-            /* read back the test values */
-            NDIS_CONFIGURATION_PARAMETER *ParameterValue = 0;
-
-            NdisInitUnicodeString(&Keyword, L"DwordTest");
-            NdisReadConfiguration(&Status, &ParameterValue, ConfigurationHandle, &Keyword, NdisParameterInteger);
-
-            if(Status != NDIS_STATUS_SUCCESS)
-            {
-                DbgPrint("ne2000!MiniportInitialize: failed to read DwordTest: 0x%x\n", Status);
-                KeBugCheck(0);
-            }
-
-            if(ParameterValue->ParameterData.IntegerData != 0x12345678)
-            {
-                DbgPrint("ne2000!MiniportInitialize: DwordTest value is wrong: 0x%x\n",
-                    ParameterValue->ParameterData.IntegerData);
-                KeBugCheck(0);
-            }
-
-            DbgPrint("ne2000!MiniportInitialize: DwordTest value was correctly read\n");
-
-            NdisInitUnicodeString(&Keyword, L"StringTest");
-            NdisReadConfiguration(&Status, &ParameterValue, ConfigurationHandle, &Keyword, NdisParameterString);
-
-            if(Status != NDIS_STATUS_SUCCESS)
-            {
-                DbgPrint("ne2000!MiniportInitialize: failed to read StringTest: 0x%x\n", Status);
-                KeBugCheck(0);
-            }
-
-            if(wcsncmp(ParameterValue->ParameterData.StringData.Buffer, L"Testing123",
-                    wcslen(L"Testing123")))
-            {
-                DbgPrint("ne2000!MiniportInitialize: StringTest value is wrong: %wZ\n",
-                    &ParameterValue->ParameterData.StringData);
-                KeBugCheck(0);
-            }
-
-            DbgPrint("ne2000!MiniportInitialize: StringTest value was correctly read\n");
-        }
-
-#endif
 /* EOF */

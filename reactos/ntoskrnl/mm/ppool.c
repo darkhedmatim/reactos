@@ -1,4 +1,4 @@
-/* $Id: ppool.c,v 1.39 2004/12/21 04:05:18 royce Exp $
+/* $Id: ppool.c,v 1.7 2002/02/14 00:07:23 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,65 +7,53 @@
  * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
- *                  Complete Rewrite Dec 2004 by Royce Mitchell III
  */
 
 /* INCLUDES *****************************************************************/
 
-#ifdef PPOOL_UMODE_TEST
-#include "ppool_umode.h"
-#else//PPOOL_UMODE_TEST
-#include <ntoskrnl.h>
-#define NDEBUG
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+#include <internal/mm.h>
+
 #include <internal/debug.h>
-#endif//PPOOL_UMODE_TEST
-
-#undef ASSERT
-#define ASSERT(x) if (!(x)) {DbgPrint("Assertion "#x" failed at %s:%d\n", __FILE__,__LINE__); KeBugCheck(0); }
-
-// enable "magic"
-//#define R_MAGIC
-#define R_MUTEX FAST_MUTEX
-#define R_ACQUIRE_MUTEX(pool) /*DPRINT1("Acquiring PPool Mutex\n");*/ ExAcquireFastMutex(&pool->Mutex)
-#define R_RELEASE_MUTEX(pool) /*DPRINT1("Releasing PPool Mutex\n");*/ ExReleaseFastMutex(&pool->Mutex)
-#define R_PRINT_ADDRESS(addr) KeRosPrintAddress(addr)
-#define R_PANIC() KeBugCheck(0)
-#define R_DEBUG DbgPrint
-#define R_EXTRA_STACK_UP 2
-#define R_GET_STACK_FRAMES(ptr,cnt) KeRosGetStackFrames(ptr,cnt)
-
-#include "RPoolMgr.h"
 
 /* GLOBALS *******************************************************************/
 
+typedef struct _MM_PPOOL_FREE_BLOCK_HEADER
+{
+  ULONG Size;
+  struct _MM_PPOOL_FREE_BLOCK_HEADER* NextFree;
+} MM_PPOOL_FREE_BLOCK_HEADER, *PMM_PPOOL_FREE_BLOCK_HEADER;
+
+typedef struct _MM_PPOOL_USED_BLOCK_HEADER
+{
+  ULONG Size;
+} MM_PPOOL_USED_BLOCK_HEADER, *PMM_PPOOL_USED_BLOCK_HEADER;
+
 PVOID MmPagedPoolBase;
 ULONG MmPagedPoolSize;
-ULONG MmTotalPagedPoolQuota = 0; // TODO FIXME commented out until we use it
-static PR_POOL MmPagedPool = NULL;
+static FAST_MUTEX MmPagedPoolLock;
+static PMM_PPOOL_FREE_BLOCK_HEADER MmPagedPoolFirstFreeBlock;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
-MmInitializePagedPool()
+VOID MmInitializePagedPool(VOID)
 {
-	/*
-	 * We are still at a high IRQL level at this point so explicitly commit
-	 * the first page of the paged pool before writing the first block header.
-	 */
-	MmCommitPagedPoolAddress ( (PVOID)MmPagedPoolBase, FALSE );
+  MmPagedPoolFirstFreeBlock = (PMM_PPOOL_FREE_BLOCK_HEADER)MmPagedPoolBase;
+  /*
+   * We are still at a high IRQL level at this point so explicitly commit
+   * the first page of the paged pool before writing the first block header.
+   */
+  MmCommitPagedPoolAddress((PVOID)MmPagedPoolFirstFreeBlock);
+  MmPagedPoolFirstFreeBlock->Size = MmPagedPoolSize;
+  MmPagedPoolFirstFreeBlock->NextFree = NULL;
 
-	MmPagedPool = RPoolInit ( MmPagedPoolBase,
-		MmPagedPoolSize,
-		MM_POOL_ALIGNMENT,
-		MM_CACHE_LINE_SIZE,
-		PAGE_SIZE );
-
-	ExInitializeFastMutex(&MmPagedPool->Mutex);
+  ExInitializeFastMutex(&MmPagedPoolLock);
 }
 
 /**********************************************************************
- * NAME       INTERNAL
- * ExAllocatePagedPoolWithTag@12
+ * NAME							INTERNAL
+ *	ExAllocatePagedPoolWithTag@12
  *
  * DESCRIPTION
  *
@@ -74,173 +62,204 @@ MmInitializePagedPool()
  * RETURN VALUE
  */
 PVOID STDCALL
-ExAllocatePagedPoolWithTag (IN POOL_TYPE PoolType,
-                            IN ULONG  NumberOfBytes,
-                            IN ULONG  Tag)
+ExAllocatePagedPoolWithTag (IN	POOL_TYPE	PoolType,
+			    IN	ULONG		NumberOfBytes,
+			    IN	ULONG		Tag)
 {
-	int align;
+  PMM_PPOOL_FREE_BLOCK_HEADER BestBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER CurrentBlock;
+  ULONG BlockSize;
+  PMM_PPOOL_USED_BLOCK_HEADER NewBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER NextBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER PreviousBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER BestPreviousBlock;
+  PVOID BlockAddress;
 
-	if ( NumberOfBytes >= PAGE_SIZE )
-		align = 2;
-	else if ( PoolType == PagedPoolCacheAligned )
-		align = 1;
-	else
-		align = 0;
+  /*
+   * Don't bother allocating anything for a zero-byte block.
+   */
+  if (NumberOfBytes == 0)
+    {
+      return(NULL);
+    }
 
-	ASSERT_IRQL(APC_LEVEL);
+  /*
+   * Calculate the total number of bytes we will need.
+   */
+  BlockSize = NumberOfBytes + sizeof(MM_PPOOL_USED_BLOCK_HEADER);
+  if (BlockSize < sizeof(MM_PPOOL_FREE_BLOCK_HEADER))
+  {
+    /* At least we need the size of the free block header. */
+    BlockSize = sizeof(MM_PPOOL_FREE_BLOCK_HEADER);
+  }
 
-	return RPoolAlloc ( MmPagedPool, NumberOfBytes, Tag, align );
+  ExAcquireFastMutex(&MmPagedPoolLock);
+
+  /*
+   * Find the best fitting block.
+   */
+  PreviousBlock = NULL;
+  BestPreviousBlock = BestBlock = NULL;
+  CurrentBlock = MmPagedPoolFirstFreeBlock;
+  while (CurrentBlock != NULL)
+    {
+      if (CurrentBlock->Size >= BlockSize &&
+	  (BestBlock == NULL || 
+	   (BestBlock->Size - BlockSize) > (CurrentBlock->Size - BlockSize)))
+	{
+	  BestPreviousBlock = PreviousBlock;
+	  BestBlock = CurrentBlock;
+	}
+
+      PreviousBlock = CurrentBlock;
+      CurrentBlock = CurrentBlock->NextFree;
+    }
+
+  /*
+   * We didn't find anything suitable at all.
+   */
+  if (BestBlock == NULL)
+    {
+      ExReleaseFastMutex(&MmPagedPoolLock);
+      return(NULL);
+    }
+
+  /*
+   * Is there enough space to create a second block from the unused portion.
+   */
+  if ((BestBlock->Size - BlockSize) > sizeof(MM_PPOOL_FREE_BLOCK_HEADER))
+    {
+      ULONG NewSize = BestBlock->Size - BlockSize;
+
+      /*
+       * Create the new free block.
+       */
+      NextBlock = (PMM_PPOOL_FREE_BLOCK_HEADER)((PVOID)BestBlock + BlockSize);
+      NextBlock->Size = NewSize;
+      NextBlock->NextFree = BestBlock->NextFree;
+
+      /*
+       * Replace the old free block with it.
+       */
+      if (BestPreviousBlock == NULL)
+	{
+	  MmPagedPoolFirstFreeBlock = NextBlock;
+	}
+      else
+	{
+	  BestPreviousBlock->NextFree = NextBlock;
+	}
+
+      /*
+       * Create the new used block header.
+       */
+      NewBlock = (PMM_PPOOL_USED_BLOCK_HEADER)BestBlock;
+      NewBlock->Size = BlockSize;
+    }
+  else
+    {
+      ULONG NewSize = BestBlock->Size;
+
+      /*
+       * Remove the selected block from the list of free blocks.
+       */
+      if (BestPreviousBlock == NULL)
+	{
+	  MmPagedPoolFirstFreeBlock = BestBlock->NextFree;
+	}
+      else
+	{
+	  BestPreviousBlock->NextFree = BestBlock->NextFree;
+	}
+
+      /*
+       * Set up the header of the new block
+       */
+      NewBlock = (PMM_PPOOL_USED_BLOCK_HEADER)BestBlock;
+      NewBlock->Size = NewSize;
+    }
+
+  ExReleaseFastMutex(&MmPagedPoolLock);
+
+  BlockAddress = (PVOID)NewBlock + sizeof(MM_PPOOL_USED_BLOCK_HEADER);
+
+  memset(BlockAddress, 0, NumberOfBytes);
+
+  return(BlockAddress);
 }
 
 VOID STDCALL
 ExFreePagedPool(IN PVOID Block)
 {
-	ASSERT_IRQL(APC_LEVEL);
-	RPoolFree ( MmPagedPool, Block );
+  PMM_PPOOL_FREE_BLOCK_HEADER PreviousBlock;
+  PMM_PPOOL_USED_BLOCK_HEADER UsedBlock = 
+    (PMM_PPOOL_USED_BLOCK_HEADER)(Block - sizeof(MM_PPOOL_USED_BLOCK_HEADER));
+  ULONG UsedSize = UsedBlock->Size;
+  PMM_PPOOL_FREE_BLOCK_HEADER FreeBlock = 
+    (PMM_PPOOL_FREE_BLOCK_HEADER)UsedBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER NextBlock;
+  PMM_PPOOL_FREE_BLOCK_HEADER NextNextBlock;
+
+  ExAcquireFastMutex(&MmPagedPoolLock);
+
+  /*
+   * Begin setting up the newly freed block's header.
+   */
+  FreeBlock->Size = UsedSize;
+
+  /*
+   * Find the blocks immediately before and after the newly freed block on the free list.
+   */
+  PreviousBlock = NULL;
+  NextBlock = MmPagedPoolFirstFreeBlock;
+  while (NextBlock != NULL && NextBlock < FreeBlock)
+    {
+      PreviousBlock = NextBlock;
+      NextBlock = NextBlock->NextFree;
+    }
+
+  /*
+   * Insert the freed block on the free list.
+   */
+  if (PreviousBlock == NULL)
+    {
+      FreeBlock->NextFree = MmPagedPoolFirstFreeBlock;
+      MmPagedPoolFirstFreeBlock = FreeBlock;
+    }
+  else
+    {
+      PreviousBlock->NextFree = FreeBlock;
+      FreeBlock->NextFree = NextBlock;
+    }
+
+  /*
+   * If the next block is immediately adjacent to the newly freed one then
+   * merge them.
+   */
+  if (NextBlock != NULL && 
+      ((PVOID)FreeBlock + FreeBlock->Size) == (PVOID)NextBlock)
+    {
+      FreeBlock->Size = FreeBlock->Size + NextBlock->Size;
+      FreeBlock->NextFree = NextBlock->NextFree;
+      NextNextBlock = NextBlock->NextFree;
+    }
+  else
+    {
+      NextNextBlock = NextBlock;
+    }
+
+  /*
+   * If the previous block is adjacent to the newly freed one then
+   * merge them.
+   */
+  if (PreviousBlock != NULL && 
+      ((PVOID)PreviousBlock + PreviousBlock->Size) == (PVOID)FreeBlock)
+    {
+      PreviousBlock->Size = PreviousBlock->Size + FreeBlock->Size;
+      PreviousBlock->NextFree = NextNextBlock;
+    }
+
+  ExReleaseFastMutex(&MmPagedPoolLock);
 }
-
-VOID STDCALL
-ExRosDumpPagedPoolByTag ( ULONG Tag )
-{
-	// TODO FIXME - should we ASSERT_IRQL?
-	RPoolDumpByTag ( MmPagedPool, Tag );
-}
-
-ULONG STDCALL
-ExRosQueryPagedPoolTag ( PVOID Addr )
-{
-	// TODO FIXME - should we ASSERT_IRQL?
-	return RPoolQueryTag ( Addr );
-}
-
-#ifdef PPOOL_UMODE_TEST
-
-PVOID TestAlloc ( ULONG Bytes )
-{
-	PVOID ret;
-
-	//printf ( "Allocating block: " ); RPoolStats ( MmPagedPool );
-	//RPoolRedZoneCheck ( MmPagedPool, __FILE__, __LINE__ );
-
-	ret = ExAllocatePagedPoolWithTag ( PagedPool, Bytes, 0 );
-
-	//printf ( "Block %x allocated: ", ret ); RPoolStats ( MmPagedPool );
-	//RPoolRedZoneCheck ( MmPagedPool, __FILE__, __LINE__ );
-
-	return ret;
-}
-
-void TestFree ( PVOID ptr )
-{
-	//printf ( "Freeing block %x: ", ptr ); RPoolStats ( MmPagedPool );
-	//RPoolRedZoneCheck ( MmPagedPool, __FILE__, __LINE__ );
-	ExFreePagedPool(ptr);
-	//printf ( "Block %x freed: ", ptr ); RPoolStats ( MmPagedPool );
-	//RPoolRedZoneCheck ( MmPagedPool, __FILE__, __LINE__ );
-}
-
-int main()
-{
-#define COUNT 100
-	int i, j;
-	char* keepers[COUNT];
-	char* trash[COUNT];
-	int AllocSize[] = { 15, 31, 63, 127, 255, 511, 1023, 2047 };
-	const int ALLOCS = sizeof(AllocSize) / sizeof(0[AllocSize]);
-	DWORD dwStart;
-
-	MmPagedPoolSize = 1*1024*1024;
-	MmPagedPoolBase = malloc ( MmPagedPoolSize );
-	MmInitializePagedPool();
-
-	dwStart = GetTickCount();
-
-	printf ( "test #1 phase #1\n" );
-	for ( i = 0; i < COUNT; i++ )
-	{
-		//printf ( "keeper %i) ", i );
-		keepers[i] = TestAlloc ( AllocSize[i%ALLOCS] );
-		if ( !keepers[i] ) printf ( "allocation failed\n" );
-		//printf ( "trash %i) ", i );
-		trash[i] = TestAlloc ( AllocSize[i%ALLOCS] );
-		if ( !trash[i] ) printf ( "allocation failed\n" );
-	}
-
-	printf ( "test #1 phase #2\n" );
-	for ( i = 0; i < COUNT; i++ )
-	{
-		if ( i == 6 )
-			i = i;
-		//printf ( "%i) ", i );
-		TestFree ( trash[i] );
-	}
-
-	printf ( "test #1 phase #3\n" );
-	for ( i = 0; i < 4; i++ )
-	{
-		//printf ( "%i) ", i );
-		keepers[i] = TestAlloc ( 4096 );
-		if ( !keepers[i] ) printf ( "allocation failed\n" );
-	}
-
-	printf ( "test #1 phase #4\n" );
-	for ( i = 0; i < 4; i++ )
-	{
-		//printf ( "%i) ", i );
-		TestFree ( keepers[i] );
-	}
-
-	printf ( "test #1 phase #5\n" );
-	srand(1);
-	for ( i = 0; i < COUNT; i++ )
-	{
-		//printf ( "%i) ", i );
-		trash[i] = TestAlloc ( rand()%1024+1 );
-		if ( !trash[i] ) printf ( "allocation failed\n" );
-	}
-	printf ( "test #1 phase #6\n" );
-	for ( i = 0; i < 10000; i++ )
-	{
-		TestFree ( trash[i%COUNT] );
-		trash[i%COUNT] = TestAlloc ( rand()%1024+1 );
-		if ( !trash[i%COUNT] ) printf ( "allocation failed\n" );
-	}
-	printf ( "test #1 phase #7\n" );
-	j = 0;
-	for ( i = 0; i < COUNT; i++ )
-	{
-		if ( trash[i] )
-		{
-			TestFree ( trash[i] );
-			++j;
-		}
-	}
-	printf ( "test #1 phase #8 ( freed %i of %i trash )\n", j, COUNT );
-	if ( !TestAlloc ( 2048 ) )
-		printf ( "Couldn't allocate 2048 bytes after freeing up a whole bunch of blocks\n" );
-
-	free ( MmPagedPoolBase );
-
-	printf ( "test time: %lu\n", GetTickCount() - dwStart );
-
-	printf ( "test #2\n" );
-
-	MmPagedPoolSize = 1024;
-	MmPagedPoolBase = malloc ( MmPagedPoolSize );
-	MmInitializePagedPool();
-
-	TestAlloc ( 512 );
-	i = RPoolLargestAllocPossible ( MmPagedPool, 0 );
-	if ( !TestAlloc ( i ) )
-	{
-		printf ( "allocating last available block failed\n" );
-	}
-
-	free ( MmPagedPoolBase );
-
-	printf ( "done!\n" );
-	return 0;
-}
-#endif//PPOOL_UMODE_TEST
 
 /* EOF */

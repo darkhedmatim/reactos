@@ -1,8 +1,5 @@
-#include <msvcrt/string.h>
+#include <crtdll/tchar.h>
 
-/*
- * @implemented
- */
 int _strnextc(const char *str) 
 { 
 	return *(++str); 

@@ -2,15 +2,13 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
 #include <msvcrt/stdio.h>
+//#include <crtdll/unistd.h>
 #include <msvcrt/fcntl.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 long ftell(FILE *f)
 {
   long tres;
@@ -24,14 +22,14 @@ long ftell(FILE *f)
 
   if (f->_cnt < 0)
     f->_cnt = 0;
+  else if (f->_flag&_IOREAD)
+    {
+      adjust = - f->_cnt;
+    }
   else if (f->_flag&(_IOWRT))
     {
       if (f->_base && (f->_flag&_IONBF)==0)
         adjust = f->_ptr - f->_base;
-    }
-  else if (f->_flag&_IOREAD)
-    {
-      adjust = - f->_cnt;
     }
   else
     return -1;

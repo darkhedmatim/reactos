@@ -1,12 +1,8 @@
-/* $Id: video.c,v 1.10 2004/04/09 20:03:15 navaraf Exp $
+/* $Id: video.c,v 1.3 2001/08/14 12:57:16 ea Exp $
  *
  * ReactOS Project
  */
-
-#include <windows.h>
 #include <ddk/ntddk.h>
-#include <ddk/ntapi.h>
-#include <rosrtl/string.h>
 
 ULONG
 InitializeVideoAddressSpace(VOID)
@@ -16,22 +12,22 @@ InitializeVideoAddressSpace(VOID)
    NTSTATUS Status;
    HANDLE PhysMemHandle;
    PVOID BaseAddress;
-   PVOID NullAddress;
    LARGE_INTEGER Offset;
    ULONG ViewSize;
+   PUCHAR TextMap;
    CHAR IVT[1024];
    CHAR BDA[256];
 
    /*
     * Open the physical memory section
     */
-   RtlRosInitUnicodeStringFromLiteral(&PhysMemName, L"\\Device\\PhysicalMemory");
+   RtlInitUnicodeString(&PhysMemName, L"\\Device\\PhysicalMemory");
    InitializeObjectAttributes(&ObjectAttributes,
 			      &PhysMemName,
 			      0,
 			      NULL,
 			      NULL);
-   Status = ZwOpenSection(&PhysMemHandle, SECTION_ALL_ACCESS, 
+   Status = NtOpenSection(&PhysMemHandle, SECTION_ALL_ACCESS, 
 			  &ObjectAttributes);
    if (!NT_SUCCESS(Status))
      {
@@ -106,8 +102,7 @@ InitializeVideoAddressSpace(VOID)
    /*
     * Copy the real mode IVT into the right place
     */
-   NullAddress = (PVOID)0x0; /* Workaround for GCC 3.4 */
-   memcpy(NullAddress, IVT, 1024);
+   memcpy((PVOID)0x0, IVT, 1024);
    
    /*
     * Get the BDA from the kernel

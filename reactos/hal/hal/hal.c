@@ -1,4 +1,4 @@
-/* $Id: hal.c,v 1.8 2004/11/21 21:53:06 ion Exp $
+/* $Id: hal.c,v 1.2 2002/01/23 23:39:24 chorns Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -97,9 +97,10 @@ NTSTATUS
 STDCALL
 HalAllocateAdapterChannel(
   PADAPTER_OBJECT AdapterObject,
-  PWAIT_CONTEXT_BLOCK WaitContextBlock,
+  PDEVICE_OBJECT DeviceObject,
   ULONG NumberOfMapRegisters,
-  PDRIVER_CONTROL ExecutionRoutine)
+  PDRIVER_CONTROL ExecutionRoutine,
+  PVOID Context)
 {
   UNIMPLEMENTED;
 
@@ -139,11 +140,12 @@ HalAssignSlotResources(
 }
 
 
-BOOLEAN 
+BOOLEAN
 STDCALL 
-HalBeginSystemInterrupt (ULONG Vector,
-			 KIRQL Irql,
-			 PKIRQL OldIrql)
+HalBeginSystemInterrupt(
+  ULONG Vector,
+  KIRQL Irql,
+  PKIRQL OldIrql)
 {
   UNIMPLEMENTED;
 
@@ -164,7 +166,7 @@ BOOLEAN
 STDCALL
 HalDisableSystemInterrupt(
   ULONG Vector,
-  KIRQL Irql)
+  ULONG Unknown2)
 {
   UNIMPLEMENTED;
 
@@ -185,8 +187,8 @@ BOOLEAN
 STDCALL
 HalEnableSystemInterrupt(
   ULONG Vector,
-  KIRQL Irql,
-  KINTERRUPT_MODE InterruptMode)
+  ULONG Unknown2,
+  ULONG Unknown3)
 {
   UNIMPLEMENTED;
 
@@ -596,18 +598,6 @@ KdPortGetByte(
 
 BOOLEAN
 STDCALL
-KdPortGetByteEx(
-  PKD_PORT_INFORMATION PortInformation,
-  PUCHAR  ByteRecieved)
-{
-  UNIMPLEMENTED;
-
-  return TRUE;
-}
-
-
-BOOLEAN
-STDCALL
 KdPortInitialize(
   PKD_PORT_INFORMATION PortInformation,
   DWORD Unknown1,
@@ -630,31 +620,9 @@ KdPortPollByte(
 }
 
 
-BOOLEAN
-STDCALL
-KdPortPollByteEx(
-  PKD_PORT_INFORMATION PortInformation,
-  PUCHAR  ByteRecieved)
-{
-  UNIMPLEMENTED;
-
-  return TRUE;
-}
-
-
 VOID
 STDCALL
 KdPortPutByte(
-  UCHAR ByteToSend)
-{
-  UNIMPLEMENTED;
-}
-
-
-VOID
-STDCALL
-KdPortPutByteEx(
-  PKD_PORT_INFORMATION PortInformation,
   UCHAR ByteToSend)
 {
   UNIMPLEMENTED;

@@ -1,12 +1,9 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/stdarg.h>
+#include <crtdll/stdio.h>
+#include <stdarg.h>
 #include <limits.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/internal/file.h>
 
-/*
- * @implemented
- */
 int
 vsprintf(char *str, const char *fmt, va_list ap)
 {
@@ -22,9 +19,6 @@ vsprintf(char *str, const char *fmt, va_list ap)
   return len;
 }
 
-/*
- * @implemented
- */
 int
 vswprintf(wchar_t *str, const wchar_t *fmt, va_list ap)
 {
@@ -41,9 +35,6 @@ vswprintf(wchar_t *str, const wchar_t *fmt, va_list ap)
 }
 
 
-/*
- * @implemented
- */
 int
 _vsnprintf(char *str, size_t maxlen, const char *fmt, va_list ap)
 {
@@ -59,9 +50,6 @@ _vsnprintf(char *str, size_t maxlen, const char *fmt, va_list ap)
   return len;
 }
 
-/*
- * @implemented
- */
 int
 _vsnwprintf(wchar_t *str, size_t maxlen, const wchar_t *fmt, va_list ap)
 {

@@ -1,22 +1,4 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: guicheck.c,v 1.22 2004/12/24 17:45:58 weiden Exp $
+/* $Id: guicheck.c,v 1.4 2002/01/27 01:11:24 dwelch Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -33,107 +15,38 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <napi/teb.h>
+#include <win32k/win32k.h>
+#include <include/guicheck.h>
+#include <include/msgqueue.h>
+#include <include/object.h>
+#include <napi/win32.h>
 
 #define NDEBUG
 #include <debug.h>
 
-/* GLOBALS *******************************************************************/
-
-static LONG NrGuiAppsRunning = 0;
-static FAST_MUTEX GuiSwitchLock;
-
 /* FUNCTIONS *****************************************************************/
 
-static BOOL FASTCALL
-AddGuiApp(PW32PROCESS W32Data)
+VOID
+W32kGuiCheck(VOID)
 {
-  W32Data->Flags |= W32PF_CREATEDWINORDC;
-  if (InterlockedIncrement(&NrGuiAppsRunning) == 1)
+  if (PsGetWin32Process() == NULL)
     {
-      BOOL Initialized;
-      
-      ExAcquireFastMutex(&GuiSwitchLock);
-      Initialized = IntInitializeDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
-      
-      if (!Initialized)
-        {
-          W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-          InterlockedDecrement(&NrGuiAppsRunning);
-          return FALSE;
-        }
-    }
-  return TRUE;
-}
+      PsCreateWin32Process(PsGetCurrentProcess());
 
-static void FASTCALL
-RemoveGuiApp(PW32PROCESS W32Data)
-{
-  W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-  if (InterlockedDecrement(&NrGuiAppsRunning) == 0)
-    {
-      ExAcquireFastMutex(&GuiSwitchLock);
-      IntEndDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
-    }
-}
-
-BOOL FASTCALL
-IntGraphicsCheck(BOOL Create)
-{
-  PW32PROCESS W32Data;
-
-  W32Data = PsGetWin32Process();
-  if (Create)
-    {
-      if (! (W32Data->Flags & W32PF_CREATEDWINORDC) && ! (W32Data->Flags & W32PF_MANUALGUICHECK))
-        {
-          return AddGuiApp(W32Data);
-        }
-    }
-  else
-    {
-      if ((W32Data->Flags & W32PF_CREATEDWINORDC) && ! (W32Data->Flags & W32PF_MANUALGUICHECK))
-        {
-          RemoveGuiApp(W32Data);
-        }
+      InitializeListHead(&PsGetWin32Process()->ClassListHead);
+      ExInitializeFastMutex(&PsGetWin32Process()->ClassListLock);
+      InitializeListHead(&PsGetWin32Process()->WindowListHead);
+      ExInitializeFastMutex(&PsGetWin32Process()->WindowListLock);
+      PsGetWin32Process()->HandleTable = ObmCreateHandleTable();
     }
 
-  return TRUE;
-}
-
-VOID STDCALL
-NtUserManualGuiCheck(LONG Check)
-{
-  PW32PROCESS W32Data;
-
-  W32Data = PsGetWin32Process();
-  if (0 == Check)
+  if (PsGetWin32Thread() == NULL)
     {
-      W32Data->Flags |= W32PF_MANUALGUICHECK;
+      PsCreateWin32Thread(PsGetCurrentThread());
+      PsGetWin32Thread()->MessageQueue = MsqCreateMessageQueue();
     }
-  else if (0 < Check)
-    {
-      if (! (W32Data->Flags & W32PF_CREATEDWINORDC))
-        {
-          AddGuiApp(W32Data);
-        }
-    }
-  else
-    {
-      if (W32Data->Flags & W32PF_CREATEDWINORDC)
-        {
-          RemoveGuiApp(W32Data);
-        }
-    }
-}
-
-NTSTATUS FASTCALL
-InitGuiCheckImpl (VOID)
-{
-  ExInitializeFastMutex(&GuiSwitchLock);
-  return STATUS_SUCCESS;
 }
 
 /* EOF */

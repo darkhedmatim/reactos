@@ -63,14 +63,14 @@ ULONG HandleInDebuggerFault(FRAME* ptr,ULONG address)
 
     ENTER_FUNC();
 
-	DPRINT((0,"HandleInDebuggerFault(): ###### page fault @ %.8X while inside debugger, eip: %x\n",address, ptr->eip));
+	DPRINT((2,"HandleInDebuggerFault(): ###### page fault @ %.8X while inside debugger, eip: %x\n",address, ptr->eip));
 
 	// fault in this page fault handler
 	if(bInPageFaultHandler)
 	{
-    	DPRINT((0,"HandleInDebuggerFault(): ###### page fault @ %.8X while in page fault handler\n",address));
+    	DPRINT((2,"HandleInDebuggerFault(): ###### page fault @ %.8X while in page fault handler\n",address));
 
-        DPRINT((0,"!!! machine is halted !!!\n"));
+        DPRINT((2,"!!! machine is halted !!!\n"));
         __asm__ __volatile__ ("hlt");
 
         LEAVE_FUNC();
@@ -83,7 +83,7 @@ ULONG HandleInDebuggerFault(FRAME* ptr,ULONG address)
     // so the current task is different as well
     tsk = IoGetCurrentProcess();
 
-    DPRINT((0,"%.8X (%.4X:%.8X %.8X %s %s %s task=%.8X )\n",
+    DPRINT((2,"%.8X (%.4X:%.8X %.8X %s %s %s task=%.8X )\n",
         address,
         ptr->cs,
         ptr->eip,
@@ -163,7 +163,7 @@ ULONG HandlePageFault(FRAME* ptr)
     // there's something terribly wrong if we get a fault in our command handler
     if(bInDebuggerShell)
     {
-		DPRINT((0,"return handleindebuggerfault\n"));
+		DPRINT((2,"return handleindebuggerfault\n"));
 		return HandleInDebuggerFault(ptr,(ULONG)address);
     }
 
@@ -181,9 +181,8 @@ ULONG HandlePageFault(FRAME* ptr)
 */
 	// current process
     tsk = IoGetCurrentProcess();
-	DPRINT((0,"tsk: %x\t", tsk));
 	if( !tsk || !(IsAddressValid((ULONG)tsk))){
-		DPRINT((0,"tsk address not valid: tsk: %x\n", tsk));
+		DPRINT((2,"tsk address not valid: tsk: %x\n", tsk));
 		return 0;
 	}
 
@@ -208,24 +207,25 @@ ULONG HandlePageFault(FRAME* ptr)
 						MEMORY_AREA,
 						Entry);
 
+		DPRINT((0,"address: %x    %x - %x Attrib: %x, Type: %x\n", address, current->BaseAddress, current->BaseAddress + current->Length, current->Attributes, current->Type));
 
 		if( (address >= current->BaseAddress) && (address <= current->BaseAddress + current->Length ))
 		{
-			DPRINT((0,"address: %x    %x - %x Attrib: %x, Type: %x\n", address, current->BaseAddress, current->BaseAddress + current->Length, current->Attributes, current->Type));
 			//page not present
 			if( !(error_code & 1) ){
 				//check it is in pageable area
-				if( current->Type == MEMORY_AREA_SECTION_VIEW ||
+				if( current->Type == MEMORY_AREA_SECTION_VIEW_COMMIT ||
+					current->Type == MEMORY_AREA_SECTION_VIEW_RESERVE ||
 					current->Type == MEMORY_AREA_VIRTUAL_MEMORY ||
 					current->Type == MEMORY_AREA_PAGED_POOL ||
 					current->Type == MEMORY_AREA_SHARED_DATA
 						){
 	                //ei too much output Print(OUTPUT_WINDOW,"pICE: VMA Pageable Section.\n");
-					//ei DPRINT((0,"return 0 1\n"));
+					//ei DPRINT((2,"return 0 1\n"));
 					return 0; //let the system handle this
 				}
 				Print(OUTPUT_WINDOW,"pICE: VMA Page not present in non-pageable Section!\n");
-				//ei DPRINT((0,"Type: currenttype: %x return 1 2\n", current->Type));
+				//ei DPRINT((2,"Type: currenttype: %x return 1 2\n", current->Type));
 				return 0;
 			}
 			else{ //access violation
@@ -235,10 +235,10 @@ ULONG HandlePageFault(FRAME* ptr)
 					if( (ULONG)address >= KERNEL_BASE )
 					{
 						Print(OUTPUT_WINDOW,"pICE: User mode program trying to access kernel memory!\n");
-						//DPRINT((0,"return 0 3\n"));
+						//DPRINT((2,"return 0 3\n"));
 						return 1;
 					}
-					//DPRINT((0,"return 0 4\n"));
+					//DPRINT((2,"return 0 4\n"));
 					return 0;
 				}
 				/*
@@ -290,71 +290,71 @@ ULONG HandlePageFault(FRAME* ptr)
 // NewIntEHandler()
 //
 //*************************************************************************
-__asm__ ("\n\t \
-NewIntEHandler:\n\t \
-		pushfl\n\t \
-        cli\n\t \
-        cld\n\t \
-        pushal\n\t \
-	    pushl %ds\n\t \
-\n\t \
-	    // setup default data selectors\n\t \
-	    movw %ss,%ax\n\t \
-	    movw %ax,%ds\n\t \
-\n\t \
-		/*\n\t \
-		 * Load the PCR selector.\n\t \
-		 */\n\t \
-		movl 	%fs, %eax\n\t \
-		movl	%eax, _OLD_PCR\n\t \
-	 	movl	_PCR_SEL, %eax\n\t \
-		movl	%eax, %fs\n\t \
-\n\t \
-        // get frame ptr\n\t \
-        lea 40(%esp),%eax\n\t \
-        pushl %eax\n\t \
-        call _HandlePageFault\n\t \
-        addl $4,%esp\n\t \
-\n\t \
-		pushl 	%eax\n\t \
-	 	movl	_OLD_PCR, %eax\n\t \
-		movl	%eax, %fs\n\t \
-		popl	%eax\n\t \
-\n\t \
-        cmpl $0,%eax\n\t \
-        je call_old_inte_handler\n\t \
-\n\t \
-        cmpl $2,%eax\n\t \
-        je call_handler_unknown_reason\n\t \
-\n\t \
-	    popl %ds\n\t \
-        popal\n\t \
-		popfl\n\t \
-        // remove error code. will be restored later when we call\n\t \
-        // original handler again.\n\t \
-        addl $4,%esp\n\t \
-		// call debugger loop\n\t \
-        pushl $" STR(REASON_PAGEFAULT) "\n\t \
-		jmp NewInt31Handler\n\t \
-\n\t \
-call_old_inte_handler:\n\t \
-	    popl %ds\n\t \
-        popal\n\t \
-		popfl\n\t \
-		// chain to old handler\n\t \
-		.byte 0x2e\n\t \
-		jmp *_OldIntEHandler\n\t \
-\n\t \
-call_handler_unknown_reason:\n\t \
-	    popl %ds\n\t \
-        popal\n\t \
-		popfl\n\t \
-        // remove error code. will be restored later when we call\n\t \
-        // original handler again.\n\t \
-        addl $4,%esp\n\t \
-		// call debugger loop\n\t \
-        pushl $" STR(REASON_INTERNAL_ERROR) "\n\t \
-		jmp NewInt31Handler\n\t \
+__asm__ ("
+NewIntEHandler:
+		pushfl
+        cli
+        cld
+        pushal
+	    pushl %ds
+
+	    // setup default data selectors
+	    movw %ss,%ax
+	    movw %ax,%ds
+
+		/*
+		 * Load the PCR selector.
+		 */
+		movl 	%fs, %eax
+		movl	%eax, _OLD_PCR
+	 	movl	_PCR_SEL, %eax
+		movl	%eax, %fs
+
+        // get frame ptr
+        lea 40(%esp),%eax
+        pushl %eax
+        call _HandlePageFault
+        addl $4,%esp
+
+		pushl 	%eax
+	 	movl	_OLD_PCR, %eax
+		movl	%eax, %fs
+		popl	%eax
+
+        cmpl $0,%eax
+        je call_old_inte_handler
+
+        cmpl $2,%eax
+        je call_handler_unknown_reason
+
+	    popl %ds
+        popal
+		popfl
+        // remove error code. will be restored later when we call
+        // original handler again.
+        addl $4,%esp
+		// call debugger loop
+        pushl $" STR(REASON_PAGEFAULT) "
+		jmp NewInt31Handler
+
+call_old_inte_handler:
+	    popl %ds
+        popal
+		popfl
+		// chain to old handler
+		.byte 0x2e
+		jmp *_OldIntEHandler
+
+call_handler_unknown_reason:
+	    popl %ds
+        popal
+		popfl
+        // remove error code. will be restored later when we call
+        // original handler again.
+        addl $4,%esp
+		// call debugger loop
+        pushl $" STR(REASON_INTERNAL_ERROR) "
+		jmp NewInt31Handler
         ");
 
 

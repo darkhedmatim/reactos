@@ -1,27 +1,42 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 
-#define NDEBUG
-#include <msvcrt/msvcrtdbg.h>
 
-/* misc/environ.c */
-int SetEnv(const wchar_t *option);
+extern int BlockEnvToEnviron(); // defined in misc/dllmain.c
 
-/*
- * @implemented
- */
-int _putenv(const char* val)
+int _putenv(const char *val)
 {
-   int size, result;
-   wchar_t *woption;
-      
-   size = MultiByteToWideChar(CP_ACP, 0, val, -1, NULL, 0);
-   woption = malloc(size* sizeof(wchar_t));
-   if (woption == NULL)
-      return -1;
-   MultiByteToWideChar(CP_ACP, 0, val, -1, woption, size);
-   result = SetEnv(woption);
-   free(woption);
-   return result;
+  char buffer[1024];
+  char *epos;
+  int res;
+
+  strcpy(buffer,val);
+  epos = strchr(buffer, '=');
+  if ( epos == NULL )
+	return -1;
+
+  *epos = 0;
+
+  res = SetEnvironmentVariableA(buffer,epos+1);
+  if (BlockEnvToEnviron() ) return 0;
+  return  res;
+}
+
+int _wputenv(const wchar_t *val)
+{
+  wchar_t buffer[1024];
+  wchar_t *epos;
+  int res;
+
+  wcscpy(buffer,val);
+  epos = wcschr(buffer, L'=');
+  if ( epos == NULL )
+	return -1;
+
+  *epos = 0;
+
+  res = SetEnvironmentVariableW(buffer,epos+1);
+  if (BlockEnvToEnviron() ) return 0;
+  return  res;
 }

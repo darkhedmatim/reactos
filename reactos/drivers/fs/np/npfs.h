@@ -1,30 +1,29 @@
-/* $Id: npfs.h,v 1.17 2004/05/10 19:58:10 navaraf Exp $ */
-
 #ifndef __SERVICES_FS_NP_NPFS_H
 #define __SERVICES_FS_NP_NPFS_H
 
-/*
- * Hacky support for delayed closing of pipes. We need this to support
- * reading from pipe the was closed on one end.
- */
-#define FIN_WORKAROUND_READCLOSE
 
 typedef struct
 {
   LIST_ENTRY PipeListHead;
   KMUTEX PipeListLock;
-  ULONG MinQuota;
-  ULONG DefaultQuota;
-  ULONG MaxQuota;
 } NPFS_DEVICE_EXTENSION, *PNPFS_DEVICE_EXTENSION;
+
+typedef struct
+{
+  LIST_ENTRY ListEntry;
+  ULONG Size;
+  PVOID Data;
+  ULONG Offset;
+} NPFS_PIPE_DATA, *PNPFS_PIPE_DATA;
 
 typedef struct
 {
   UNICODE_STRING PipeName;
   LIST_ENTRY PipeListEntry;
-  KMUTEX FcbListLock;
+  KSPIN_LOCK FcbListLock;
   LIST_ENTRY ServerFcbListHead;
   LIST_ENTRY ClientFcbListHead;
+  ULONG ReferenceCount;
   ULONG PipeType;
   ULONG PipeReadMode;
   ULONG PipeWriteMode;
@@ -43,17 +42,13 @@ typedef struct _NPFS_FCB
   struct _NPFS_FCB* OtherSide;
   PNPFS_PIPE Pipe;
   KEVENT ConnectEvent;
-  KEVENT Event;
+  KEVENT ReadEvent;
   ULONG PipeEnd;
   ULONG PipeState;
   ULONG ReadDataAvailable;
   ULONG WriteQuotaAvailable;
 
-  PVOID Data;
-  PVOID ReadPtr;
-  PVOID WritePtr;
-  ULONG MaxDataLength;
-
+  LIST_ENTRY DataListHead;	/* Data queue */
   KSPIN_LOCK DataListLock;	/* Data queue lock */
 } NPFS_FCB, *PNPFS_FCB;
 
@@ -71,15 +66,12 @@ extern NPAGED_LOOKASIDE_LIST NpfsPipeDataLookasideList;
 
 #define CP DPRINT("\n");
 
-
 NTSTATUS STDCALL NpfsCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS STDCALL NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS STDCALL NpfsClose(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS STDCALL NpfsRead(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS STDCALL NpfsWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-NTSTATUS STDCALL NpfsFlushBuffers(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS STDCALL NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 

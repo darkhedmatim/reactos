@@ -1,4 +1,4 @@
-/* $Id: acpisys.c,v 1.7 2004/12/27 14:24:00 ekohl Exp $
+/* $Id: acpisys.c,v 1.4 2001/08/27 01:24:36 ekohl Exp $
  *
  * PROJECT:         ReactOS ACPI bus driver
  * FILE:            acpi/ospm/acpisys.c
@@ -83,7 +83,7 @@ ACPIPnpControl(
   if (DeviceExtension->IsFDO) {
     Status = FdoPnpControl(DeviceObject, Irp);
   } else {
-    Status = PdoPnpControl(DeviceObject, Irp);
+    Status = FdoPnpControl(DeviceObject, Irp);
   }
 
   return Status;
@@ -125,15 +125,9 @@ ACPIAddDevice(
 
   DPRINT("Called\n");
 
-  Status = IoCreateDevice(DriverObject,
-                          sizeof(FDO_DEVICE_EXTENSION),
-                          NULL,
-                          FILE_DEVICE_ACPI,
-                          FILE_DEVICE_SECURE_OPEN,
-                          TRUE,
-                          &Fdo);
-  if (!NT_SUCCESS(Status))
-  {
+  Status = IoCreateDevice(DriverObject, sizeof(FDO_DEVICE_EXTENSION),
+    NULL, FILE_DEVICE_ACPI, FILE_DEVICE_SECURE_OPEN, TRUE, &Fdo);
+  if (!NT_SUCCESS(Status)) {
     DPRINT("IoCreateDevice() failed with status 0x%X\n", Status);
     return Status;
   }
@@ -141,9 +135,8 @@ ACPIAddDevice(
   DeviceExtension = (PFDO_DEVICE_EXTENSION)Fdo->DeviceExtension;
 
   DeviceExtension->Pdo = PhysicalDeviceObject;
-  DeviceExtension->Common.IsFDO = TRUE;
 
-  DeviceExtension->Common.Ldo =
+  DeviceExtension->Ldo =
     IoAttachDeviceToDeviceStack(Fdo, PhysicalDeviceObject);
 
   DeviceExtension->State = dsStopped;
@@ -164,9 +157,9 @@ DriverEntry(
 {
   DbgPrint("Advanced Configuration and Power Interface Bus Driver\n");
 
-  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = (PDRIVER_DISPATCH) ACPIDispatchDeviceControl;
-  DriverObject->MajorFunction[IRP_MJ_PNP] = (PDRIVER_DISPATCH) ACPIPnpControl;
-  DriverObject->MajorFunction[IRP_MJ_POWER] = (PDRIVER_DISPATCH) ACPIPowerControl;
+  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = ACPIDispatchDeviceControl;
+  DriverObject->MajorFunction[IRP_MJ_PNP] = ACPIPnpControl;
+  DriverObject->MajorFunction[IRP_MJ_POWER] = ACPIPowerControl;
   DriverObject->DriverExtension->AddDevice = ACPIAddDevice;
 
   return STATUS_SUCCESS;

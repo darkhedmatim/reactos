@@ -1,33 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
-#ifdef _MSC_VER
-#include <direct.h>
-#else
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#endif
-
-#ifdef UNIX_PATHS
-#define DIR_SEPARATOR_CHAR '/'
-#define DIR_SEPARATOR_STRING "/"
-#else
-#ifdef DOS_PATHS
-#define DIR_SEPARATOR_CHAR '\\'
-#define DIR_SEPARATOR_STRING "\\"
-#endif	
-#endif	
 
 char* convert_path(char* origpath)
 {
    char* newpath;
    int i;
    
-   //newpath = strdup(origpath);
-	 newpath=malloc(strlen(origpath)+1);
-	 strcpy(newpath,origpath);
+   newpath = strdup(origpath);
    
    i = 0;
    while (newpath[i] != 0)
@@ -83,8 +63,10 @@ int mkdir_p(char* path)
 int main(int argc, char* argv[])
 {
    char* path1;
+   FILE* in;
+   FILE* out;
    char* csec;
-   char buf[256];
+   int is_abs_path;
    
    if (argc != 2)
      {
@@ -94,27 +76,26 @@ int main(int argc, char* argv[])
    
    path1 = convert_path(argv[1]);
    
-   if (isalpha(path1[0]) && path1[1] == ':' && path1[2] == DIR_SEPARATOR_CHAR)
+   if (isalpha(path1[0]) && path1[1] == ':' && path1[2] == '/')
      {
-	csec = strtok(path1, DIR_SEPARATOR_STRING);
-  sprintf(buf, "%s\\", csec);
-	chdir(buf);
-	csec = strtok(NULL, DIR_SEPARATOR_STRING);
+	csec = strtok(path1, "/");
+	chdir(csec);
+	csec = strtok(NULL, "/");
      }
-   else if (path1[0] == DIR_SEPARATOR_CHAR)
+   else if (path1[0] == '/')
      {
-	chdir(DIR_SEPARATOR_STRING);
-	csec = strtok(path1, DIR_SEPARATOR_STRING);
+	chdir("/");
+	csec = strtok(path1, "/");
      }
    else
      {
-	csec = strtok(path1, DIR_SEPARATOR_STRING);
+	csec = strtok(path1, "/");
      }
    
    while (csec != NULL)
      {
 	mkdir_p(csec);
-	csec = strtok(NULL, DIR_SEPARATOR_STRING);
+	csec = strtok(NULL, "/");
      }
    
    exit(0);

@@ -1,23 +1,4 @@
 /*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: surface.c,v 1.48 2004/12/27 16:45:19 navaraf Exp $
- * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
  * PURPOSE:           GDI Driver Surace Functions
@@ -30,16 +11,12 @@
  * - Create a GDI bitmap with all formats, perform all drawing operations on them, render to VGA surface
  *   refer to \test\microwin\src\engine\devdraw.c for info on correct pixel plotting for various formats
  */
-#include <w32k.h>
 
-enum Rle_EscapeCodes
-{
-  RLE_EOL   = 0, /* End of line */
-  RLE_END   = 1, /* End of bitmap */
-  RLE_DELTA = 2  /* Delta */
-};
+#include <ddk/winddi.h>
+#include <win32k/dc.h>
+#include "objects.h"
 
-INT FASTCALL BitsPerFormat(ULONG Format)
+INT BitsPerFormat(ULONG Format)
 {
   switch(Format)
   {
@@ -55,12 +32,11 @@ INT FASTCALL BitsPerFormat(ULONG Format)
   }
 }
 
-ULONG FASTCALL BitmapFormat(WORD Bits, DWORD Compression)
+ULONG BitmapFormat(WORD Bits, DWORD Compression)
 {
   switch(Compression)
   {
     case BI_RGB:
-    case BI_BITFIELDS:
       switch(Bits)
       {
         case 1: return BMF_1BPP;
@@ -70,7 +46,6 @@ ULONG FASTCALL BitmapFormat(WORD Bits, DWORD Compression)
         case 24: return BMF_24BPP;
         case 32: return BMF_32BPP;
       }
-      return 0;
 
     case BI_RLE4: return BMF_4RLE;
     case BI_RLE8: return BMF_8RLE;
@@ -79,305 +54,102 @@ ULONG FASTCALL BitmapFormat(WORD Bits, DWORD Compression)
   }
 }
 
-/*
- * @implemented
- */
-HBITMAP STDCALL
-EngCreateDeviceBitmap(IN DHSURF dhsurf,
-		      IN SIZEL Size,
-		      IN ULONG Format)
+VOID InitializeHooks(SURFGDI *SurfGDI)
+{
+  SurfGDI->BitBlt   = NULL;
+  SurfGDI->CopyBits = NULL;
+  SurfGDI->CreateDeviceBitmap = NULL;
+  SurfGDI->SetPalette = NULL;
+  SurfGDI->TransparentBlt = NULL;
+}
+
+HBITMAP EngCreateDeviceBitmap(DHSURF dhsurf, SIZEL Size, ULONG Format)
 {
   HBITMAP NewBitmap;
   SURFOBJ *SurfObj;
 
   NewBitmap = EngCreateBitmap(Size, DIB_GetDIBWidthBytes(Size.cx, BitsPerFormat(Format)), Format, 0, NULL);
-  SurfObj = EngLockSurface((HSURF)NewBitmap);
-  SurfObj->dhsurf = dhsurf;
-  EngUnlockSurface(SurfObj);
+  SurfObj = (PVOID)AccessUserObject(NewBitmap);
+  SurfObj->dhpdev = dhsurf;
 
   return NewBitmap;
 }
 
-VOID Decompress4bpp(SIZEL Size, BYTE *CompressedBits, BYTE *UncompressedBits, LONG Delta) 
-{
-	int x = 0;
-	int y = Size.cy - 1;
-	int c;
-	int length;
-	int width = ((Size.cx+1)/2);
-	int height = Size.cy - 1;
-	BYTE *begin = CompressedBits;
-	BYTE *bits = CompressedBits;
-	BYTE *temp;
-	while (y >= 0)
-	{
-		length = *bits++ / 2;
-		if (length)
-		{
-			c = *bits++;
-			while (length--)
-			{
-				if (x >= width) break;
-				temp = UncompressedBits + (((height - y) * Delta) + x);
-				x++;
-				*temp = c;
-			}
-		} else {
-			length = *bits++;
-			switch (length)
-			{
-			case RLE_EOL:
-				x = 0;
-				y--;
-				break;
-			case RLE_END:
-				return;
-			case RLE_DELTA:
-				x += (*bits++)/2;
-				y -= (*bits++)/2;
-				break;
-			default:
-				length /= 2;
-				while (length--)
-				{
-					c = *bits++;
-					if (x < width)
-					{
-						temp = UncompressedBits + (((height - y) * Delta) + x);
-						x++;
-						*temp = c;
-					}
-				}
-				if ((bits - begin) & 1)
-					bits++;
-			}
-		}
-	}
-}
-
-VOID Decompress8bpp(SIZEL Size, BYTE *CompressedBits, BYTE *UncompressedBits, LONG Delta) 
-{
-	int x = 0;
-	int y = Size.cy - 1;
-	int c;
-	int length;
-	int width = Size.cx;
-	int height = Size.cy - 1;
-	BYTE *begin = CompressedBits;
-	BYTE *bits = CompressedBits;
-	BYTE *temp;
-	while (y >= 0)
-	{
-		length = *bits++;
-		if (length)
-		{
-			c = *bits++;
-			while (length--)
-			{
-				if (x >= width) break;
-				temp = UncompressedBits + (((height - y) * Delta) + x);
-				x++;
-				*temp = c;
-			}
-		} else {
-			length = *bits++;
-			switch (length)
-			{
-			case RLE_EOL:
-				x = 0;
-				y--;
-				break;
-			case RLE_END:
-				return;
-			case RLE_DELTA:
-				x += *bits++;
-				y -= *bits++;
-				break;
-			default:
-				while (length--)
-				{
-					c = *bits++;
-					if (x < width)
-					{
-						temp = UncompressedBits + (((height - y) * Delta) + x);
-						x++;
-						*temp = c;
-					}
-				}
-				if ((bits - begin) & 1)
-					bits++;
-			}
-		}
-	}
-}
-
-HBITMAP FASTCALL
-IntCreateBitmap(IN SIZEL Size,
-		IN LONG Width,
-		IN ULONG Format,
-		IN ULONG Flags,
-		IN PVOID Bits)
+HBITMAP EngCreateBitmap(IN SIZEL  Size,
+                        IN LONG  Width,
+                        IN ULONG  Format,
+                        IN ULONG  Flags,
+                        IN PVOID  Bits)
 {
   HBITMAP NewBitmap;
   SURFOBJ *SurfObj;
-  BITMAPOBJ *BitmapObj;
-  PVOID UncompressedBits;
-  ULONG UncompressedFormat;
+  SURFGDI *SurfGDI;
 
-  if (Format == 0)
-	return 0;
+  SurfObj = EngAllocMem(FL_ZERO_MEMORY, sizeof(SURFOBJ), 0);
+  SurfGDI = EngAllocMem(FL_ZERO_MEMORY, sizeof(SURFGDI), 0);
 
-  NewBitmap = BITMAPOBJ_AllocBitmap();
-  if (NewBitmap == NULL)
-	return 0;
+  NewBitmap = (PVOID)CreateGDIHandle(SurfGDI, SurfObj);
 
-  BitmapObj = BITMAPOBJ_LockBitmap(NewBitmap);
-  SurfObj = &BitmapObj->SurfObj;
+  InitializeHooks(SurfGDI);
 
-  if (Format == BMF_4RLE)
+  SurfGDI->BitsPerPixel = BitsPerFormat(Format);
+  SurfObj->lDelta = Width;
+  SurfObj->cjBits = SurfObj->lDelta * Size.cy;
+
+  if(Bits!=NULL)
+  {
+    SurfObj->pvBits = Bits;
+  } else
+  {
+    if(Flags & BMF_USERMEM)
     {
-      SurfObj->lDelta = DIB_GetDIBWidthBytes(Size.cx, BitsPerFormat(BMF_4BPP));
-      SurfObj->cjBits = SurfObj->lDelta * Size.cy;
-      UncompressedFormat = BMF_4BPP;
-      UncompressedBits = EngAllocMem(FL_ZERO_MEMORY, SurfObj->cjBits, 0);
-      Decompress4bpp(Size, (BYTE *)Bits, (BYTE *)UncompressedBits, SurfObj->lDelta);
+      SurfObj->pvBits = EngAllocUserMem(SurfObj->cjBits, 0);
+    } else {
+      if(Flags & BMF_NOZEROINIT)
+      {
+        SurfObj->pvBits = EngAllocMem(0, SurfObj->cjBits, 0);
+      } else {
+        SurfObj->pvBits = EngAllocMem(FL_ZERO_MEMORY, SurfObj->cjBits, 0);
+      }
     }
-  else if (Format == BMF_8RLE)
-    {
-      SurfObj->lDelta = DIB_GetDIBWidthBytes(Size.cx, BitsPerFormat(BMF_8BPP));
-      SurfObj->cjBits = SurfObj->lDelta * Size.cy;
-      UncompressedFormat = BMF_8BPP;
-      UncompressedBits = EngAllocMem(FL_ZERO_MEMORY, SurfObj->cjBits, 0);
-      Decompress8bpp(Size, (BYTE *)Bits, (BYTE *)UncompressedBits, SurfObj->lDelta);
-    }
-  else
-    {
-      SurfObj->lDelta = abs(Width);
-      SurfObj->cjBits = SurfObj->lDelta * Size.cy;
-      UncompressedBits = Bits;
-      UncompressedFormat = Format;
-    }
+  }
 
-  if (UncompressedBits != NULL)
-    {
-      SurfObj->pvBits = UncompressedBits;
-    }
-  else
-    {
-      if (SurfObj->cjBits == 0)
-        {
-          SurfObj->pvBits = NULL;
-        }
-      else
-        {
-          if (0 != (Flags & BMF_USERMEM))
-            {
-              SurfObj->pvBits = EngAllocUserMem(SurfObj->cjBits, 0);
-            }
-          else
-            {
-              SurfObj->pvBits = EngAllocMem(0 != (Flags & BMF_NOZEROINIT) ? 0 : FL_ZERO_MEMORY,
-                                            SurfObj->cjBits, 0);
-            }
-          if (SurfObj->pvBits == NULL)
-            {
-              BITMAPOBJ_UnlockBitmap(NewBitmap);
-              BITMAPOBJ_FreeBitmap(NewBitmap);
-              return 0;
-            }
-        }
-     }
-
-
-  if (0 == (Flags & BMF_TOPDOWN))
-    {
-      SurfObj->pvScan0 = (PVOID) ((ULONG_PTR) SurfObj->pvBits + SurfObj->cjBits - SurfObj->lDelta);
-      SurfObj->lDelta = - SurfObj->lDelta;
-    }
-  else
-    {
-      SurfObj->pvScan0 = SurfObj->pvBits;
-    }
-
-  SurfObj->dhsurf = 0; /* device managed surface */
-  SurfObj->hsurf = (HSURF)NewBitmap;
-  SurfObj->dhpdev = NULL;
-  SurfObj->hdev = NULL;
+  SurfObj->dhsurf = 0; // device managed surface
+  SurfObj->hsurf  = 0;
   SurfObj->sizlBitmap = Size;
-  SurfObj->iBitmapFormat = UncompressedFormat;
+  SurfObj->iBitmapFormat = Format;
   SurfObj->iType = STYPE_BITMAP;
-  SurfObj->fjBitmap = Flags & (BMF_TOPDOWN | BMF_NOZEROINIT);
-  SurfObj->iUniq = 0;
 
-  BitmapObj->flHooks = 0;
-  BitmapObj->flFlags = 0;
-  BitmapObj->dimension.cx = 0;
-  BitmapObj->dimension.cy = 0;
-  BitmapObj->dib = NULL;
-
-  BITMAPOBJ_UnlockBitmap(NewBitmap);
+  // Use flags to determine bitmap type -- TOP_DOWN or whatever
 
   return NewBitmap;
 }
 
-/*
- * @implemented
- */
-HBITMAP STDCALL
-EngCreateBitmap(IN SIZEL Size,
-		IN LONG Width,
-		IN ULONG Format,
-		IN ULONG Flags,
-		IN PVOID Bits)
+HSURF EngCreateDeviceSurface(DHSURF dhsurf, SIZEL Size, ULONG Format)
 {
-  HBITMAP NewBitmap;
-  
-  NewBitmap = IntCreateBitmap(Size, Width, Format, Flags, Bits);
-  if ( !NewBitmap )
-	  return 0;
-
-  GDIOBJ_SetOwnership(NewBitmap, NULL);
-
-  return NewBitmap;
-}
-
-/*
- * @unimplemented
- */
-HSURF STDCALL
-EngCreateDeviceSurface(IN DHSURF dhsurf,
-		       IN SIZEL Size,
-		       IN ULONG Format)
-{
-  HSURF NewSurface;
+  HSURF   NewSurface;
   SURFOBJ *SurfObj;
-  BITMAPOBJ *BitmapObj;
+  SURFGDI *SurfGDI;
 
-  NewSurface = (HSURF)BITMAPOBJ_AllocBitmap();
-  if (NewSurface == NULL)
-	return 0;
+  SurfObj = EngAllocMem(FL_ZERO_MEMORY, sizeof(SURFOBJ), 0);
+  SurfGDI = EngAllocMem(FL_ZERO_MEMORY, sizeof(SURFGDI), 0);
 
-  GDIOBJ_SetOwnership(NewSurface, NULL);
+  NewSurface = (HSURF)CreateGDIHandle(SurfGDI, SurfObj);
 
-  BitmapObj = BITMAPOBJ_LockBitmap(NewSurface);
-  SurfObj = &BitmapObj->SurfObj;
+  InitializeHooks(SurfGDI);
 
+  SurfGDI->BitsPerPixel = BitsPerFormat(Format);
   SurfObj->dhsurf = dhsurf;
-  SurfObj->hsurf = NewSurface;
+  SurfObj->hsurf  = dhsurf; // FIXME: Is this correct??
   SurfObj->sizlBitmap = Size;
   SurfObj->iBitmapFormat = Format;
   SurfObj->lDelta = DIB_GetDIBWidthBytes(Size.cx, BitsPerFormat(Format));
   SurfObj->iType = STYPE_DEVICE;
-  SurfObj->iUniq = 0;
-
-  BitmapObj->flHooks = 0;
-
-  BITMAPOBJ_UnlockBitmap(NewSurface);
 
   return NewSurface;
 }
 
-PFN FASTCALL DriverFunction(DRVENABLEDATA *DED, ULONG DriverFunc)
+PFN DriverFunction(DRVENABLEDATA *DED, ULONG DriverFunc)
 {
   ULONG i;
 
@@ -389,120 +161,58 @@ PFN FASTCALL DriverFunction(DRVENABLEDATA *DED, ULONG DriverFunc)
   return NULL;
 }
 
-/*
- * @implemented
- */
-BOOL STDCALL
-EngAssociateSurface(IN HSURF Surface,
-		    IN HDEV Dev,
-		    IN ULONG Hooks)
+BOOL EngAssociateSurface(HSURF Surface, HDEV Dev, ULONG Hooks)
 {
   SURFOBJ *SurfObj;
-  BITMAPOBJ *BitmapObj;
-  GDIDEVICE* Device;
+  SURFGDI *SurfGDI;
 
-  Device = (GDIDEVICE*)Dev;
+  PDC Dc = (PDC)Dev;
 
-  BitmapObj = BITMAPOBJ_LockBitmap(Surface);
-  ASSERT(BitmapObj);
-  SurfObj = &BitmapObj->SurfObj;
+  SurfGDI = (PVOID)AccessInternalObject(Surface);
+  SurfObj = (PVOID)AccessUserObject(Surface);
 
-  /* Associate the hdev */
+  // Associate the hdev
   SurfObj->hdev = Dev;
-  SurfObj->dhpdev = Device->PDev;
 
-  /* Hook up specified functions */
-  BitmapObj->flHooks = Hooks;
+  // Hook up specified functions
+  if(Hooks & HOOK_BITBLT)            SurfGDI->BitBlt            = Dc->DriverFunctions.BitBlt;
+  if(Hooks & HOOK_TRANSPARENTBLT)    SurfGDI->TransparentBlt	= Dc->DriverFunctions.TransparentBlt;
+  if(Hooks & HOOK_STRETCHBLT)        SurfGDI->StretchBlt        = (PFN_StretchBlt)Dc->DriverFunctions.StretchBlt;
+  if(Hooks & HOOK_TEXTOUT)           SurfGDI->TextOut           = Dc->DriverFunctions.TextOut;
+  if(Hooks & HOOK_PAINT)             SurfGDI->Paint             = Dc->DriverFunctions.Paint;
+  if(Hooks & HOOK_STROKEPATH)        SurfGDI->StrokePath        = Dc->DriverFunctions.StrokePath;
+  if(Hooks & HOOK_FILLPATH)          SurfGDI->FillPath          = Dc->DriverFunctions.FillPath;
+  if(Hooks & HOOK_STROKEANDFILLPATH) SurfGDI->StrokeAndFillPath = Dc->DriverFunctions.StrokeAndFillPath;
+  if(Hooks & HOOK_LINETO)            SurfGDI->LineTo            = Dc->DriverFunctions.LineTo;
+  if(Hooks & HOOK_COPYBITS)          SurfGDI->CopyBits          = Dc->DriverFunctions.CopyBits;
+  if(Hooks & HOOK_SYNCHRONIZE)       SurfGDI->Synchronize       = Dc->DriverFunctions.Synchronize;
+  if(Hooks & HOOK_SYNCHRONIZEACCESS) SurfGDI->SynchronizeAccess = TRUE;
 
-  BITMAPOBJ_UnlockBitmap(Surface);
+  SurfGDI->CreateDeviceBitmap = Dc->DriverFunctions.CreateDeviceBitmap;
+  SurfGDI->SetPalette = Dc->DriverFunctions.SetPalette;
+  SurfGDI->MovePointer = Dc->DriverFunctions.MovePointer;
+  SurfGDI->SetPointerShape = (PFN_SetPointerShape)Dc->DriverFunctions.SetPointerShape;
 
   return TRUE;
 }
 
-/*
- * @implemented
- */
-BOOL STDCALL
-EngModifySurface(
-   IN HSURF hsurf,
-   IN HDEV hdev,
-   IN FLONG flHooks,
-   IN FLONG flSurface,
-   IN DHSURF dhsurf,
-   OUT VOID *pvScan0,
-   IN LONG lDelta,
-   IN VOID *pvReserved)
+BOOL EngDeleteSurface(HSURF Surface)
 {
-   SURFOBJ *pso;
+  SURFOBJ *SurfObj;
+  SURFGDI *SurfGDI;
 
-   pso = EngLockSurface(hsurf);
-   if (pso == NULL)
-   {
-      return FALSE;
-   }
+  SurfGDI = (SURFGDI*)AccessInternalObject(Surface);
+  SurfObj = (SURFOBJ*)AccessUserObject(Surface);
 
-   if (!EngAssociateSurface(hsurf, hdev, flHooks))
-   {
-      EngUnlockSurface(pso);
+  EngFreeMem(SurfGDI);
+  EngFreeMem(SurfObj);
+  FreeGDIHandle(Surface);
 
-      return FALSE;
-   }
-
-   pso->dhsurf = dhsurf;
-   pso->lDelta = lDelta;
-   pso->pvScan0 = pvScan0;
-
-   EngUnlockSurface(pso);
-
-   return TRUE;
+  return TRUE;
 }
 
-/*
- * @implemented
- */
-BOOL STDCALL
-EngDeleteSurface(IN HSURF Surface)
+SURFOBJ *EngLockSurface(HSURF Surface)
 {
-   GDIOBJ_SetOwnership(Surface, PsGetCurrentProcess());
-   BITMAPOBJ_FreeBitmap(Surface);
-   return TRUE;
+  // FIXME: Call GDI_LockObject (see subsys/win32k/objects/gdi.c)
+  return (SURFOBJ*)AccessUserObject(Surface);
 }
-
-/*
- * @implemented
- */
-BOOL STDCALL
-EngEraseSurface(SURFOBJ *Surface,
-		RECTL *Rect,
-		ULONG iColor)
-{
-  ASSERT(Surface);
-  ASSERT(Rect);
-  return FillSolid(Surface, Rect, iColor);
-}
-
-/*
- * @implemented
- */
-SURFOBJ * STDCALL
-EngLockSurface(IN HSURF Surface)
-{
-  BITMAPOBJ *bmp = (BITMAPOBJ*)BITMAPOBJ_LockBitmap(Surface);
-  if(bmp != NULL)
-  {
-    return &bmp->SurfObj;
-  }
-  
-  return NULL;
-}
-
-/*
- * @implemented
- */
-VOID STDCALL
-EngUnlockSurface(IN SURFOBJ *Surface)
-{
-  ASSERT (Surface);
-  BITMAPOBJ_UnlockBitmap (Surface->hsurf);
-}
-/* EOF */

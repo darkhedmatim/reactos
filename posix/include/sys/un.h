@@ -1,4 +1,4 @@
-/* $Id: un.h,v 1.4 2002/10/29 04:45:23 rex Exp $
+/* $Id: un.h,v 1.2 2002/02/20 09:17:56 hyperion Exp $
  */
 /*
  * sys/un.h

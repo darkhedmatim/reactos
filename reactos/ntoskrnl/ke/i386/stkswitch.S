@@ -28,36 +28,30 @@
 
 #include <internal/i386/segment.h>
 #include <internal/ps.h>
-#include <ntos/tss.h>
-
+#include <ddk/i386/tss.h>
+			
 /* FUNCTIONS ****************************************************************/
 
-/*
- * FUNCTION:	 KeStackSwitchAndRet
- * PURPOSE:	 Switch to a new stack and return from the first frame on
- *               the new stack which was assumed to a stdcall function with
- *               8 bytes of arguments and which saved edi, esi and ebx.
- */
 .globl _KeStackSwitchAndRet@4
 _KeStackSwitchAndRet@4:
 	pushl	%ebp
 	movl	%esp, %ebp
-
+	
 	cli
 
 	movl	8(%ebp), %esp
 
 	sti
-
+	
 	popl	%edi
 	popl	%esi
 	popl	%ebx
 
 	popl	%ebp
-	ret	$8
-
-.globl _KePushAndStackSwitchAndSysRet@8
-_KePushAndStackSwitchAndSysRet@8:
+	ret	$28
+		
+.globl _KePushAndStackSwitchAndSysRet@28
+_KePushAndStackSwitchAndSysRet@28:
 	pushl	%ebp
 	movl	%esp, %ebp
 
@@ -68,10 +62,15 @@ _KePushAndStackSwitchAndSysRet@8:
 	cli
 
 	pushl	8(%ebp)
+	pushl	12(%ebp)
+	pushl	16(%ebp)
+	pushl	20(%ebp)
+	pushl	24(%ebp)
+	pushl	28(%ebp)
 
-	movl	%fs:KPCR_CURRENT_THREAD, %ebx
+	movl	%ebx, %fs:KPCR_CURRENT_THREAD
 	movl	%esp, KTHREAD_CALLBACK_STACK(%ebx)
-	movl	12(%ebp), %esp
+	movl	32(%ebp), %esp
 
 	sti
 
@@ -79,4 +78,4 @@ _KePushAndStackSwitchAndSysRet@8:
 	call	_KeLowerIrql@4
 
 	jmp	KeReturnFromSystemCall
-
+			

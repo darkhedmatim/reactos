@@ -2,7 +2,6 @@
 #include <msvcrt/math.h>
 #include <msvcrt/internal/ieee.h>
 
-
 #define _FPCLASS_SNAN	0x0001	/* signaling NaN */
 #define _FPCLASS_QNAN	0x0002	/* quiet NaN */
 #define _FPCLASS_NINF	0x0004	/* negative infinity */
@@ -27,45 +26,40 @@
 
 typedef int fpclass_t;
 
-/*
- * @implemented
- */
 fpclass_t _fpclass(double __d)
-{	
-	union
-	{
-		double*	  __d;
-		double_t*   d;
-	} d;
-	d.__d = &__d;
+{
+	double_t *d = (double_t *)&__d;
 
-	if ( d.d->exponent == 0 ) {
-		if ( d.d->mantissah == 0 &&  d.d->mantissal == 0 ) {
-			if ( d.d->sign ==0 )
+	if ( d->exponent == 0 ) {
+		if ( d->mantissah == 0 &&  d->mantissal == 0 ) {
+			if ( d->sign ==0 )
 				return FP_NZERO;
 			else
 				return FP_PZERO;
 		} else {
-			if ( d.d->sign ==0 )
+			if ( d->sign ==0 )
 				return FP_NDENORM;
 			else
 				return FP_PDENORM;
 		}
 	}
-	if (d.d->exponent == 0x7ff ) {
-		if ( d.d->mantissah == 0 &&  d.d->mantissal == 0 ) {
-			if ( d.d->sign ==0 )
+	if (d->exponent == 0x7ff ) {
+		if ( d->mantissah == 0 &&  d->mantissal == 0 ) {
+			if ( d->sign ==0 )
 				return FP_NINF;
 			else
 				return FP_PINF;
 		} 
-		else if ( d.d->mantissah == 0 &&  d.d->mantissal != 0 ) {
+		else if ( d->mantissah == 0 &&  d->mantissal != 0 ) {
 			return FP_QNAN;
 		}
-		else if ( d.d->mantissah == 0 &&  d.d->mantissal != 0 ) {
+		else if ( d->mantissah == 0 &&  d->mantissal != 0 ) {
 			return FP_SNAN;
 		}
 	
 	}
+
 	return 0;
 }
+
+

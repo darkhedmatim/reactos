@@ -1,4 +1,4 @@
-/* $Id: csrss.c,v 1.15 2003/11/17 02:12:51 hyperion Exp $
+/* $Id: csrss.c,v 1.10 2002/02/08 02:57:10 chorns Exp $
  *
  * csrss.c - Client/Server Runtime subsystem
  * 
@@ -34,13 +34,12 @@
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 #include <csrss/csrss.h>
-#include <rosrtl/string.h>
 
 #include "api.h"
 
 /* Native process' entry point */
 
-VOID STDCALL NtProcessStartup(PPEB Peb)
+VOID NtProcessStartup(PPEB Peb)
 {
    PRTL_USER_PROCESS_PARAMETERS ProcParams;
    PWSTR ArgBuffer;
@@ -89,7 +88,7 @@ VOID STDCALL NtProcessStartup(PPEB Peb)
 	argv[argc-1] = &(ArgBuffer[afterlastspace]);
      }
    
-   RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+   RtlInitUnicodeString(&UnicodeString,
 			L"\\CsrssInitDone");
    InitializeObjectAttributes(&ObjectAttributes,
 			      &UnicodeString,

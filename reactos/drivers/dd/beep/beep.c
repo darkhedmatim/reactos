@@ -1,4 +1,4 @@
-/* $Id: beep.c,v 1.18 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: beep.c,v 1.10 2001/08/27 01:25:17 ekohl Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -14,10 +14,10 @@
 
 #include <ddk/ntddk.h>
 #include <ddk/ntddbeep.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
+
 
 /* TYEPEDEFS ***************************************************************/
 
@@ -31,6 +31,7 @@ typedef struct _BEEP_DEVICE_EXTENSION
 
 
 /* FUNCTIONS ***************************************************************/
+
 
 static VOID STDCALL
 BeepDPC(PKDPC Dpc,
@@ -46,16 +47,15 @@ BeepDPC(PKDPC Dpc,
   DeviceExtension->BeepOn = FALSE;
   KeSetEvent(&DeviceExtension->Event,
 	     0,
-	     FALSE);
+	     TRUE);
 
   DPRINT("BeepDPC() finished!\n");
 }
 
 
 static NTSTATUS STDCALL
-BeepCreate(
-   PDEVICE_OBJECT DeviceObject,
-	 PIRP Irp)
+BeepCreate(PDEVICE_OBJECT DeviceObject,
+	   PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:
@@ -220,10 +220,11 @@ BeepDeviceControl(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID STDCALL
+static NTSTATUS STDCALL
 BeepUnload(PDRIVER_OBJECT DriverObject)
 {
   DPRINT("BeepUnload() called!\n");
+  return(STATUS_SUCCESS);
 }
 
 
@@ -240,28 +241,17 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_EXTENSION DeviceExtension;
   PDEVICE_OBJECT DeviceObject;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Beep");
-  UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\Beep");
+  UNICODE_STRING DeviceName;
+  UNICODE_STRING SymlinkName;
   NTSTATUS Status;
 
-  DPRINT("Beep Device Driver 0.0.3\n");
+  DbgPrint("Beep Device Driver 0.0.3\n");
 
-  DriverObject->Flags = 0;
   DriverObject->MajorFunction[IRP_MJ_CREATE] = BeepCreate;
   DriverObject->MajorFunction[IRP_MJ_CLOSE] = BeepClose;
   DriverObject->MajorFunction[IRP_MJ_CLEANUP] = BeepCleanup;
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = BeepDeviceControl;
   DriverObject->DriverUnload = BeepUnload;
-
-  Status = IoCreateDevice(DriverObject,
-			  sizeof(DEVICE_EXTENSION),
-			  &DeviceName,
-			  FILE_DEVICE_BEEP,
-			  0,
-			  FALSE,
-			  &DeviceObject);
-  if (!NT_SUCCESS(Status))
-    return Status;
 
   /* set up device extension */
   DeviceExtension = DeviceObject->DeviceExtension;
@@ -275,7 +265,20 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 		    SynchronizationEvent,
 		    FALSE);
 
-  /* Create the dos device link */
+  RtlInitUnicodeString(&DeviceName,
+		       L"\\Device\\Beep");
+  Status = IoCreateDevice(DriverObject,
+			  sizeof(DEVICE_EXTENSION),
+			  &DeviceName,
+			  FILE_DEVICE_BEEP,
+			  0,
+			  FALSE,
+			  &DeviceObject);
+  if (!NT_SUCCESS(Status))
+    return Status;
+
+  RtlInitUnicodeString(&SymlinkName,
+		       L"\\??\\Beep");
   IoCreateSymbolicLink(&SymlinkName,
 		       &DeviceName);
 

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.14 2004/07/21 18:17:50 chorns Exp $
+# $Id: makefile,v 1.10 2001/07/15 21:18:54 rex Exp $
 #
 # ReactOS Operating System
 #
@@ -24,8 +24,6 @@ CLEAN_FILES = $(TARGETNAME)$(EXE_POSTFIX) $(SVC_FILES)
 
 BASE_CFLAGS = -I../../include
 
-CFLAGS += -Wall -Werror
-
 all: $(SVC_FILES)
 
 $(TARGETNAME)$(EXE_POSTFIX): $(TARGETNAME).c
@@ -35,8 +33,15 @@ $(TARGETNAME)$(EXE_POSTFIX): $(TARGETNAME).c
 		-O2 \
 		$(TARGETNAME).c
 
+#$(SVC_FILES): $(SVC_DB) $(TARGETNAME)$(EXE_POSTFIX)
+#	./$(TARGETNAME)$(EXE_POSTFIX) \
+#		$(SVC_DB) \
+#		$(SVC_MASK) \
+#		$(SVC_CLIENT_STUBS) \
+#		$(SVC_SERVICE_TABLE)
+
 $(SVC_FILES): $(SVC_DB) $(TARGETNAME)$(EXE_POSTFIX)
-	@./$(TARGETNAME)$(EXE_POSTFIX) \
+	./$(TARGETNAME)$(EXE_POSTFIX) \
 		$(SVC_DB) \
 		$(SVC_SERVICE_TABLE) \
 		$(SVC_GDI_STUBS) \

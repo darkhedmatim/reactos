@@ -1,5 +1,4 @@
-/* $Id: dllmain.c,v 1.6 2004/08/15 17:34:27 chorns Exp $
- *
+/*
  * dllmain.c
  *
  * A stub DllMain function which will be called by DLLs which do not
@@ -18,36 +17,33 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.6 $
- * $Author: chorns $
- * $Date: 2004/08/15 17:34:27 $
+ * $Revision: 1.4 $
+ * $Author: ekohl $
+ * $Date: 1999/04/29 23:34:23 $
  *
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <stdarg.h>
-#include <msvcrt/stdio.h>
+#include <stdio.h>
 #include <string.h>
 
+void debug_printf(char* fmt, ...)
+{
+   va_list args;
+   char buffer[255];
+   HANDLE OutputHandle;
+   
+   AllocConsole();
+   OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+   va_start(args,fmt);
+   vsprintf(buffer,fmt,args);
+   WriteConsoleA(OutputHandle, buffer, strlen(buffer), NULL, NULL);
+   va_end(args);
+}
 
-/* EXTERNAL PROTOTYPES ********************************************************/
-
-void debug_printf(char* fmt, ...);
-
-
-/* LIBRARY GLOBAL VARIABLES ***************************************************/
-
-int __mb_cur_max_dll = 1;
-int _commode_dll = _IOCOMMIT;
-
-
-/* LIBRARY ENTRY POINT ********************************************************/
-
-BOOL
-WINAPI
-DllMain(HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
+BOOL WINAPI DllMain (HANDLE hDll, DWORD dwReason, LPVOID lpReserved)
 {
 	return TRUE;
 }
 
-/* EOF */

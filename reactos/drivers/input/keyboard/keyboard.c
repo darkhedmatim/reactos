@@ -13,7 +13,6 @@
 #include <string.h>
 #include <ntos/keyboard.h>
 #include <ntos/minmax.h>
-#include <rosrtl/string.h>
 
 #include <ddk/ntddkbd.h>
 #include <ddk/ntdd8042.h>
@@ -547,6 +546,7 @@ KeyboardHandler(PKINTERRUPT Interrupt,
      {
 	KEY_EVENT_RECORD* rec = (KEY_EVENT_RECORD *)
 	  CurrentIrp->AssociatedIrp.SystemBuffer;
+	PIO_STACK_LOCATION stk = IoGetCurrentIrpStackLocation(CurrentIrp);
 	
 	CHECKPOINT;
 	
@@ -559,7 +559,6 @@ KeyboardHandler(PKINTERRUPT Interrupt,
 	if (extKey)
 	  {
 	     rec[KeysRead].dwControlKeyState|=ENHANCED_KEY;
-	     extKey = 0;
 	  }
 	KeysRead++;
 	DPRINT("KeysRequired %d KeysRead %x\n",KeysRequired,KeysRead);
@@ -587,7 +586,7 @@ KeyboardHandler(PKINTERRUPT Interrupt,
    // kbdBuffer[bufHead].uChar.AsciiChar=TranslateScanCode(thisKey);
    kbdBuffer[bufHead].uChar.AsciiChar=VirtualToAscii(kbdBuffer[bufHead].wVirtualKeyCode,isDown);
    kbdBuffer[bufHead].dwControlKeyState=ctrlKeyState;
-   if (extKey) 
+   if (extKey)
       kbdBuffer[bufHead].dwControlKeyState|=ENHANCED_KEY;
    bufHead++;
    bufHead&=KBD_WRAP_MASK;    // Modulo KBD_BUFFER_SIZE
@@ -709,28 +708,17 @@ VOID STDCALL KbdStartIo(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    
    if (KeSynchronizeExecution(KbdInterrupt, KbdSynchronizeRoutine, Irp))
      {
-        KIRQL oldIrql;
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	oldIrql = KeGetCurrentIrql();
-        if (oldIrql < DISPATCH_LEVEL)
-          {
-            KeRaiseIrql (DISPATCH_LEVEL, &oldIrql);
-            IoStartNextPacket (DeviceObject, FALSE);
-            KeLowerIrql(oldIrql);
-	  }
-        else
-          {
-            IoStartNextPacket (DeviceObject, FALSE);
-	  }
+	IoStartNextPacket(DeviceObject, FALSE);
      }
    
    DPRINT("stk->Parameters.Read.Length %d\n",stk->Parameters.Read.Length);
    DPRINT("KeysRequired %d\n",KeysRequired);     
 }
 
-NTSTATUS STDCALL KbdInternalDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS KbdInternalDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
     PIO_STACK_LOCATION                  stk;
 	PINTERNAL_I8042_HOOK_KEYBOARD      	hookKeyboard;
@@ -843,19 +831,19 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Keyboard");
-   UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\Keyboard");
+   UNICODE_STRING DeviceName;
+   UNICODE_STRING SymlinkName;
    
    DPRINT("Keyboard Driver 0.0.4\n");
 
    DriverObject->MajorFunction[IRP_MJ_CREATE] = KbdDispatch;
    DriverObject->MajorFunction[IRP_MJ_CLOSE] = KbdDispatch;
    DriverObject->MajorFunction[IRP_MJ_READ] = KbdDispatch;
-   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = 
-         KbdInternalDeviceControl;  
+   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = KbdInternalDeviceControl;  
 
    DriverObject->DriverStartIo = KbdStartIo;
-
+   
+   RtlInitUnicodeString(&DeviceName, L"\\Device\\Keyboard");
    IoCreateDevice(DriverObject,
 		  sizeof(DEVICE_EXTENSION),
 		  &DeviceName,
@@ -869,6 +857,8 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject,
    DeviceObject->Flags = DeviceObject->Flags | DO_BUFFERED_IO;
    InitializeKeyboard( DeviceObject );
    
+   
+   RtlInitUnicodeString(&SymlinkName, L"\\??\\Keyboard");
    IoCreateSymbolicLink(&SymlinkName, &DeviceName);
    
    return(STATUS_SUCCESS);

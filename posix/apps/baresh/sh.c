@@ -1,4 +1,4 @@
-/* $Id: sh.c,v 1.3 2002/10/29 04:44:59 rex Exp $
+/* $Id: sh.c,v 1.1 2002/01/20 21:22:29 ea Exp $
  *
  * baresh - Bare Shell for the PSX subsystem.
  * Copyright (c) 2002 Emanuele Aliberti

@@ -1,4 +1,4 @@
-/* $Id: interlck.c,v 1.17 2004/10/17 13:08:26 navaraf Exp $
+/* $Id: interlck.c,v 1.7 2001/07/12 17:18:49 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,17 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
+#include <ddk/ntddk.h>
+
 
 /* FUNCTIONS *****************************************************************/
 
-#undef ExInterlockedDecrementLong
-
-/*
- * @implemented
- */
 INTERLOCKED_RESULT STDCALL
 ExInterlockedDecrementLong (PLONG		Addend,
 			    PKSPIN_LOCK	Lock)
@@ -42,11 +36,7 @@ ExInterlockedDecrementLong (PLONG		Addend,
         return oldval;
 }
 
-#undef ExInterlockedExchangeUlong
 
-/*
- * @implemented
- */
 ULONG STDCALL
 ExInterlockedExchangeUlong (PULONG		Target,
 			    ULONG		Value,
@@ -69,11 +59,6 @@ ExInterlockedExchangeUlong (PULONG		Target,
 }
 
 
-#undef ExInterlockedAddUlong
-
-/*
- * @implemented
- */
 ULONG STDCALL
 ExInterlockedAddUlong (PULONG		Addend,
 		       ULONG		Increment,
@@ -107,9 +92,6 @@ ExInterlockedAddUlong (PULONG		Addend,
         return oldval;
 }
 
-/*
- * @implemented
- */
 LARGE_INTEGER STDCALL
 ExInterlockedAddLargeInteger (PLARGE_INTEGER Addend,
 			      LARGE_INTEGER Increment,
@@ -143,11 +125,6 @@ ExInterlockedAddLargeInteger (PLARGE_INTEGER Addend,
         return oldval;
 }
 
-#undef ExInterlockedIncrementLong
-
-/*
- * @implemented
- */
 INTERLOCKED_RESULT STDCALL
 ExInterlockedIncrementLong (PLONG		Addend,
 			    PKSPIN_LOCK	Lock)
@@ -168,9 +145,6 @@ ExInterlockedIncrementLong (PLONG		Addend,
         return oldval;
 }
 
-/*
- * @implemented
- */
 VOID FASTCALL
 ExInterlockedAddLargeStatistic (IN	PLARGE_INTEGER	Addend,
 				IN	ULONG		Increment)
@@ -181,9 +155,6 @@ ExInterlockedAddLargeStatistic (IN	PLARGE_INTEGER	Addend,
 	Addend->QuadPart += Increment;
 }
 
-/*
- * @implemented
- */
 LONGLONG FASTCALL
 ExInterlockedCompareExchange64 (IN OUT	PLONGLONG	Destination,
 				IN	PLONGLONG	Exchange,
@@ -209,9 +180,6 @@ ExInterlockedCompareExchange64 (IN OUT	PLONGLONG	Destination,
 	return oldval;
 }
 
-/*
- * @implemented
- */
 ULONG FASTCALL
 ExfInterlockedAddUlong(PULONG Addend,
 		       ULONG Increment,

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: io.h,v 1.51 2004/12/21 18:37:28 gvg Exp $
+/* $Id: io.h,v 1.15 2001/10/10 21:57:00 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -32,120 +32,34 @@
 
 #include <ddk/ntddk.h>
 #include <internal/ob.h>
-#include <internal/module.h>
-
-
-#ifndef __USE_W32API
-#define DEVICE_TYPE_FROM_CTL_CODE(ctlCode) (((ULONG)(ctlCode&0xffff0000))>>16)
-#endif
-
-#define IO_METHOD_FROM_CTL_CODE(ctlCode) (ctlCode&0x00000003)
-
-
-typedef struct _IO_COMPLETION_PACKET{
-   PVOID             Key;
-   PVOID             Context;
-   IO_STATUS_BLOCK   IoStatus;
-   LIST_ENTRY        ListEntry;
-} IO_COMPLETION_PACKET, *PIO_COMPLETION_PACKET;
-
-typedef struct _DEVOBJ_EXTENSION {
-   CSHORT Type;
-   USHORT Size;
-   PDEVICE_OBJECT DeviceObject;
-   ULONG Unknown[3];
-   struct _DEVICE_NODE *DeviceNode;
-} DEVOBJ_EXTENSION, *PDEVOBJ_EXTENSION;
-
-typedef struct _PRIVATE_DRIVER_EXTENSIONS {
-   struct _PRIVATE_DRIVER_EXTENSIONS *Link;
-   PVOID ClientIdentificationAddress;
-   CHAR Extension[1];
-} PRIVATE_DRIVER_EXTENSIONS, *PPRIVATE_DRIVER_EXTENSIONS;
 
 typedef struct _DEVICE_NODE
 {
-  /* A tree structure. */
   struct _DEVICE_NODE *Parent;
   struct _DEVICE_NODE *PrevSibling;
   struct _DEVICE_NODE *NextSibling;
   struct _DEVICE_NODE *Child;
-  /* The level of deepness in the tree. */
-  UINT Level;
-  /* */
-//  PPO_DEVICE_NOTIFY Notify;
-  /* State machine. */
-//  PNP_DEVNODE_STATE State;
-//  PNP_DEVNODE_STATE PreviousState;
-//  PNP_DEVNODE_STATE StateHistory[20];
-//  UINT StateHistoryEntry;
-  /* ? */
-  INT CompletionStatus;
-  /* ? */
-  PIRP PendingIrp;
-  /* See DNF_* flags below (WinDBG documentation has WRONG values) */
-  ULONG Flags;
-  /* See DNUF_* flags below (and IRP_MN_QUERY_PNP_DEVICE_STATE) */
-  ULONG UserFlags;
-  /* See CM_PROB_* values are defined in cfg.h */
-  ULONG Problem;
-  /* Pointer to the PDO corresponding to the device node. */
-  PDEVICE_OBJECT PhysicalDeviceObject;
-  /* Resource list as assigned by the PnP arbiter. See IRP_MN_START_DEVICE
-     and ARBITER_INTERFACE (not documented in DDK, but present in headers). */
-  PCM_RESOURCE_LIST ResourceList;
-  /* Resource list as assigned by the PnP arbiter (translated version). */
-  PCM_RESOURCE_LIST ResourceListTranslated;
-  /* Instance path relative to the Enum key in registry. */
+  PDRIVER_OBJECT DriverObject;
+  PDEVICE_OBJECT Pdo;
   UNICODE_STRING InstancePath;
-  /* Name of the driver service. */
   UNICODE_STRING ServiceName;
-  /* ? */
-  PDEVICE_OBJECT DuplicatePDO;
-  /* See IRP_MN_QUERY_RESOURCE_REQUIREMENTS. */
-  PIO_RESOURCE_REQUIREMENTS_LIST ResourceRequirements;
-  /* Information about bus for bus drivers. */
-  INTERFACE_TYPE InterfaceType;
-  ULONG BusNumber;
-  /* Information about underlying bus for child devices. */
-  INTERFACE_TYPE ChildInterfaceType;
-  ULONG ChildBusNumber;
-  USHORT ChildBusTypeIndex;
-  /* ? */
-  UCHAR RemovalPolicy;
-  UCHAR HardwareRemovalPolicy;
-  LIST_ENTRY TargetDeviceNotify;
-  LIST_ENTRY DeviceArbiterList;
-  LIST_ENTRY DeviceTranslatorList;
-  USHORT NoTranslatorMask;
-  USHORT QueryTranslatorMask;
-  USHORT NoArbiterMask;
-  USHORT QueryArbiterMask;
-  union {
-    struct _DEVICE_NODE *LegacyDeviceNode;
-    PDEVICE_RELATIONS PendingDeviceRelations;
-  } OverUsed1;
-  union {
-    struct _DEVICE_NODE *NextResourceDeviceNode;
-  } OverUsed2;
-  /* See IRP_MN_QUERY_RESOURCES/IRP_MN_FILTER_RESOURCES. */
-  PCM_RESOURCE_LIST BootResources;
-  /* See the bitfields in DEVICE_CAPABILITIES structure. */
-  ULONG CapabilityFlags;
-  struct
-  {
-    ULONG DockStatus;
-    LIST_ENTRY ListEntry;
-    WCHAR *SerialNumber;
-  } DockInfo;
+  //TargetDeviceNotifyList?
+  PDEVICE_CAPABILITIES CapabilityFlags;
+  ULONG Flags;
+  ULONG UserFlags;
   ULONG DisableableDepends;
-  LIST_ENTRY PendedSetInterfaceState;
-  LIST_ENTRY LegacyBusListEntry;
-  ULONG DriverUnloadRetryCount;
-
+  ULONG Problem;
+  PCM_RESOURCE_LIST CmResourceList;
+  PCM_RESOURCE_LIST BootResourcesList;
+  PIO_RESOURCE_REQUIREMENTS_LIST ResourceRequirementsList;
   /* Not NT's */
-  GUID BusTypeGuid;
-  ULONG Address;
+  UNICODE_STRING DeviceID;
+  UNICODE_STRING InstanceID;
+  UNICODE_STRING HardwareIDs;
+  UNICODE_STRING CompatibleIDs;
+  UNICODE_STRING DeviceText;
+  UNICODE_STRING DeviceTextLocation;
+  PPNP_BUS_INFORMATION BusInformation;
 } DEVICE_NODE, *PDEVICE_NODE;
 
 /* For Flags field */
@@ -313,14 +227,11 @@ typedef struct _DEVICETREE_TRAVERSE_CONTEXT
 
 
 extern PDEVICE_NODE IopRootDeviceNode;
-extern ULONG IoOtherOperationCount;
-extern ULONGLONG IoOtherTransferCount;
+
+extern POBJECT_TYPE IoSymbolicLinkType;
 
 VOID
 PnpInit(VOID);
-
-VOID
-IopInitDriverImplementation(VOID);
 
 NTSTATUS
 IopGetSystemPowerDeviceObject(PDEVICE_OBJECT *DeviceObject);
@@ -330,27 +241,39 @@ IopCreateDeviceNode(PDEVICE_NODE ParentNode,
                     PDEVICE_NODE *DeviceNode);
 NTSTATUS
 IopFreeDeviceNode(PDEVICE_NODE DeviceNode);
-
+NTSTATUS
+IopInterrogateBusExtender(PDEVICE_NODE DeviceNode,
+                          PDEVICE_OBJECT Pdo,
+                          BOOLEAN BootDriversOnly);
 VOID
-IoInitCancelHandling(VOID);
-VOID
-IoInitFileSystemImplementation(VOID);
-VOID
-IoInitVpbImplementation(VOID);
+IopLoadBootStartDrivers(VOID);
 
 NTSTATUS
-IoMountVolume(IN PDEVICE_OBJECT DeviceObject,
-	      IN BOOLEAN AllowRawMount);
+IopCreateDriverObject(PDRIVER_OBJECT *DriverObject);
+NTSTATUS
+IopInitializeDeviceNodeService(PDEVICE_NODE DeviceNode);
+NTSTATUS
+IopInitializeDriver(PDRIVER_INITIALIZE DriverEntry,
+                    PDEVICE_NODE DeviceNode);
+VOID 
+IoInitCancelHandling(VOID);
+VOID 
+IoInitSymbolicLinkImplementation(VOID);
+VOID 
+IoInitFileSystemImplementation(VOID);
+VOID 
+IoInitVpbImplementation (VOID);
+
+NTSTATUS IoTryToMountStorageDevice(PDEVICE_OBJECT DeviceObject);
 POBJECT IoOpenSymlink(POBJECT SymbolicLink);
 POBJECT IoOpenFileOnDevice(POBJECT SymbolicLink, PWCHAR Name);
 
-VOID STDCALL
-IoSecondStageCompletion(
-   PKAPC Apc,
-   PKNORMAL_ROUTINE* NormalRoutine,
-   PVOID* NormalContext,
-   PVOID* SystemArgument1,
-   PVOID* SystemArgument2);
+PIRP IoBuildFilesystemControlRequest(ULONG MinorFunction,
+				     PDEVICE_OBJECT DeviceObject,
+				     PKEVENT UserEvent,
+				     PIO_STATUS_BLOCK IoStatusBlock,
+				     PDEVICE_OBJECT DeviceToMount);
+VOID IoSecondStageCompletion(PIRP Irp, CCHAR PriorityBoost);
 
 NTSTATUS STDCALL
 IopCreateFile(PVOID ObjectBody,
@@ -370,24 +293,23 @@ PIRP IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
 					 PLARGE_INTEGER StartingOffset,
 					 PKEVENT Event,
 					 PIO_STATUS_BLOCK IoStatusBlock,
-					 BOOLEAN PagingIo);
+					 ULONG PagingIo);
 
 VOID IoInitShutdownNotification(VOID);
 VOID IoShutdownRegisteredDevices(VOID);
 VOID IoShutdownRegisteredFileSystems(VOID);
 
-NTSTATUS STDCALL
-IoPageWrite(PFILE_OBJECT	FileObject,
-	    PMDL		Mdl,
-	    PLARGE_INTEGER	Offset,
-	    PKEVENT		Event,
-	    PIO_STATUS_BLOCK	StatusBlock);
-
-NTSTATUS
-IoCreateArcNames(VOID);
-
-NTSTATUS
-IoCreateSystemRootLink(PCHAR ParameterLine);
+NTSTATUS STDCALL 
+IoPageRead (PFILE_OBJECT		FileObject,
+	    PMDL			Mdl,
+	    PLARGE_INTEGER		Offset,
+	    PIO_STATUS_BLOCK	StatusBlock,
+	    BOOLEAN PagingIo);
+NTSTATUS STDCALL IoPageWrite (PFILE_OBJECT		FileObject,
+			      PMDL			Mdl,
+			      PLARGE_INTEGER		Offset,
+			      PIO_STATUS_BLOCK	StatusBlock,
+                  BOOLEAN PagingIo);
 
 NTSTATUS
 IopInitiatePnpIrp(
@@ -403,45 +325,6 @@ IopCreateUnicodeString(
   POOL_TYPE PoolType);
 
 
-NTSTATUS
-IoCreateDriverList(VOID);
-
-NTSTATUS
-IoDestroyDriverList(VOID);
-
-/* bootlog.c */
-
-VOID
-IopInitBootLog(VOID);
-
-VOID
-IopStartBootLog(VOID);
-
-VOID
-IopStopBootLog(VOID);
-
-VOID
-IopBootLog(PUNICODE_STRING DriverName, BOOLEAN Success);
-
-VOID
-IopSaveBootLogToFile(VOID);
-
-/* errlog.c */
-
-NTSTATUS
-IopInitErrorLog(VOID);
-
-
-/* rawfs.c */
-
-BOOLEAN
-RawFsIsRawFileSystemDeviceObject(IN PDEVICE_OBJECT DeviceObject);
-
-NTSTATUS STDCALL
-RawFsDriverEntry(PDRIVER_OBJECT DriverObject,
-  PUNICODE_STRING RegistryPath);
-
-
 /* pnproot.c */
 
 NTSTATUS
@@ -453,86 +336,5 @@ PnpRootDriverEntry(
 NTSTATUS
 PnpRootCreateDevice(
   PDEVICE_OBJECT *PhysicalDeviceObject);
-
-/* device.c */
-
-NTSTATUS FASTCALL
-IopInitializeDevice(
-   PDEVICE_NODE DeviceNode,
-   PDRIVER_OBJECT DriverObject);
-
-/* driver.c */
-
-VOID FASTCALL
-IopInitializeBootDrivers(VOID);
-
-VOID FASTCALL
-IopInitializeSystemDrivers(VOID);
-
-NTSTATUS FASTCALL
-IopCreateDriverObject(
-   PDRIVER_OBJECT *DriverObject,
-   PUNICODE_STRING ServiceName,
-   BOOLEAN FileSystemDriver,
-   PVOID DriverImageStart,
-   ULONG DriverImageSize);
-
-NTSTATUS FASTCALL
-IopLoadServiceModule(
-   IN PUNICODE_STRING ServiceName,
-   OUT PMODULE_OBJECT *ModuleObject);
-
-NTSTATUS FASTCALL
-IopInitializeDriverModule(
-   IN PDEVICE_NODE DeviceNode,
-   IN PMODULE_OBJECT ModuleObject,
-   IN BOOLEAN FileSystemDriver,
-   OUT PDRIVER_OBJECT *DriverObject);
-
-NTSTATUS FASTCALL
-IopAttachFilterDrivers(
-   PDEVICE_NODE DeviceNode,
-   BOOLEAN Lower);
-
-VOID FASTCALL
-IopMarkLastReinitializeDriver(VOID);
-
-VOID FASTCALL
-IopReinitializeDrivers(VOID);
-
-/* pnpmgr.c */
-
-NTSTATUS
-IopInitializePnpServices(
-   IN PDEVICE_NODE DeviceNode,
-   IN BOOLEAN BootDrivers);
-
-NTSTATUS
-IopInvalidateDeviceRelations(
-   IN PDEVICE_NODE DeviceNode,
-   IN DEVICE_RELATION_TYPE Type);
-
-/* timer.c */
-VOID
-FASTCALL
-IopInitTimerImplementation(VOID);
-
-VOID
-STDCALL
-IopRemoveTimerFromTimerList(
-	IN PIO_TIMER Timer
-);
-
-/* iocomp.c */
-VOID
-FASTCALL
-IopInitIoCompletionImplementation(VOID);
-
-#define CM_RESOURCE_LIST_SIZE(ResList) \
-  (ResList->Count == 1) ? \
-    FIELD_OFFSET(CM_RESOURCE_LIST, List[0].PartialResourceList. \
-                 PartialDescriptors[(ResList)->List[0].PartialResourceList.Count]) \
-                        : \
-    FIELD_OFFSET(CM_RESOURCE_LIST, List)
 
 #endif

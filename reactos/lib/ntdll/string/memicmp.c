@@ -2,9 +2,6 @@
 #include <string.h>
 #include <ctype.h>
 
-/*
- * @implemented
- */
 int
 _memicmp(const void *s1, const void *s2, size_t n)
 {

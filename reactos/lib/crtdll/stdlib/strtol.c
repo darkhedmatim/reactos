@@ -1,13 +1,10 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <limits.h>
-#include <msvcrt/ctype.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/stdlib.h>
+#include <crtdll/ctype.h>
+#include <crtdll/errno.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/file.h>
 
-
-/*
- * @implemented
- */
 long
 strtol(const char *nptr, char **endptr, int base)
 {

@@ -1,9 +1,9 @@
-PATH_TO_TOP = ../../../..
+PATH_TO_TOP = ../../..
 
 TARGET_TYPE = driver
 
 TARGET_NAME = pice
-TARGET_CFLAGS := -g -I../../../../ntoskrnl/include  -DDEBUG
+TARGET_CFLAGS := -g -I../../../ntoskrnl/include  -I../../../ntoskrnl/include -DDEBUG
 TARGET_SDK_LIBS :=
 
 TARGET_OBJECTS = \
@@ -27,7 +27,6 @@ TARGET_OBJECTS = \
   syscall.o \
   trace.o \
   vga.o \
-  vga_utils.o \
   utils.o
 
 include $(PATH_TO_TOP)/rules.mak

@@ -1,4 +1,4 @@
-/* $Id: pin.c,v 1.18 2004/10/22 20:11:11 ekohl Exp $
+/* $Id: pin.c,v 1.2 2001/12/29 14:32:21 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,14 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
+#include <internal/mm.h>
+#include <internal/cc.h>
+#include <internal/pool.h>
+#include <internal/io.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,249 +26,97 @@
 
 #define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
 
-extern NPAGED_LOOKASIDE_LIST iBcbLookasideList;
-
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-BOOLEAN STDCALL
-CcMapData (IN PFILE_OBJECT FileObject,
-	   IN PLARGE_INTEGER FileOffset,
-	   IN ULONG Length,
-	   IN BOOLEAN Wait,
-	   OUT PVOID *pBcb,
-	   OUT PVOID *pBuffer)
+typedef struct _INTERNAL_BCB
 {
-  ULONG ReadOffset;
-  BOOLEAN Valid;
-  PBCB Bcb;
-  PCACHE_SEGMENT CacheSeg;
-  NTSTATUS Status;
-  PINTERNAL_BCB iBcb;
-  ULONG ROffset;
-  
-  DPRINT("CcMapData(FileObject %x, FileOffset %d, Length %d, Wait %d,"
-	 " pBcb %x, pBuffer %x)\n", FileObject, (ULONG)FileOffset->QuadPart,
-	 Length, Wait, pBcb, pBuffer);
-  
-  ReadOffset = (ULONG)FileOffset->QuadPart;
-  Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
-  ASSERT(Bcb);
+  PUBLIC_BCB PFCB;
+  PCACHE_SEGMENT CacheSegment;
+}
+INTERNAL_BCB, *PINTERNAL_BCB;
 
-  DPRINT("AllocationSize %d, FileSize %d\n",
+BOOLEAN STDCALL
+CcMapData (
+   IN PFILE_OBJECT FileObject,
+   IN PLARGE_INTEGER FileOffset,
+   IN ULONG Length,
+   IN BOOLEAN Wait,
+   OUT PVOID *pBcb,
+   OUT PVOID *pBuffer)
+{
+   ULONG ReadOffset;
+   BOOLEAN Valid;
+   PBCB Bcb;
+   PCACHE_SEGMENT CacheSeg;
+   NTSTATUS Status;
+   PINTERNAL_BCB iBcb;
+
+   DPRINT("CcMapData(FileObject %x, FileOffset %d, Length %d, Wait %d,"
+           " pBcb %x, pBuffer %x)\n", FileObject, (ULONG)FileOffset->QuadPart,
+           Length, Wait, pBcb, pBuffer);
+
+   ReadOffset = FileOffset->QuadPart;
+   Bcb = ((REACTOS_COMMON_FCB_HEADER*)FileObject->FsContext)->Bcb;
+
+   DPRINT("AllocationSize %d, FileSize %d\n",
          (ULONG)Bcb->AllocationSize.QuadPart,
          (ULONG)Bcb->FileSize.QuadPart);
-  
-  if (ReadOffset % Bcb->CacheSegmentSize + Length > Bcb->CacheSegmentSize)
-    {
-      return(FALSE);
-    }
-  ROffset = ROUND_DOWN (ReadOffset, Bcb->CacheSegmentSize);
-  Status = CcRosRequestCacheSegment(Bcb,
-				    ROffset,
-				    pBuffer,
-				    &Valid,
-				    &CacheSeg);
-  if (!NT_SUCCESS(Status))
-    {
-      return(FALSE);
-    }
-  if (!Valid)
-    {
-      if (!Wait)
-	{
-          CcRosReleaseCacheSegment(Bcb, CacheSeg, FALSE, FALSE, FALSE);
-	  return(FALSE);
-	}
-      if (!NT_SUCCESS(ReadCacheSegment(CacheSeg)))
-	{
-          CcRosReleaseCacheSegment(Bcb, CacheSeg, FALSE, FALSE, FALSE);
-	  return(FALSE);
-	}
-    }
-#if defined(__GNUC__)
-  *pBuffer += ReadOffset % Bcb->CacheSegmentSize;
-#else
-  {
-    char* pTemp = *pBuffer;
-    pTemp += ReadOffset % Bcb->CacheSegmentSize;
-    *pBuffer = pTemp;
-  }
-#endif
-  iBcb = ExAllocateFromNPagedLookasideList(&iBcbLookasideList);
-  if (iBcb == NULL)
-    {
-      CcRosReleaseCacheSegment(Bcb, CacheSeg, TRUE, FALSE, FALSE);
+
+   if (ReadOffset % Bcb->CacheSegmentSize + Length > Bcb->CacheSegmentSize)
+   {
       return FALSE;
-    }
-  memset(iBcb, 0, sizeof(INTERNAL_BCB));
-  iBcb->PFCB.NodeTypeCode = 0xDE45; /* Undocumented (CAPTIVE_PUBLIC_BCB_NODETYPECODE) */
-  iBcb->PFCB.NodeByteSize = sizeof(PUBLIC_BCB);
-  iBcb->PFCB.MappedLength = Length;
-  iBcb->PFCB.MappedFileOffset = *FileOffset;
-  iBcb->CacheSegment = CacheSeg;
-  iBcb->Dirty = FALSE;
-  iBcb->RefCount = 1;
-  *pBcb = (PVOID)iBcb;
-  return(TRUE);
+   }
+   Status = CcRosRequestCacheSegment(Bcb,
+               ROUND_DOWN (ReadOffset, Bcb->CacheSegmentSize),
+               pBuffer,
+               &Valid,
+               &CacheSeg);
+   if (!NT_SUCCESS(Status))
+   {
+      return FALSE;
+   }
+   if (!Valid)
+   {
+      if (!Wait)
+      {
+          CcRosReleaseCacheSegment(Bcb, CacheSeg, FALSE, FALSE, FALSE);
+	      return FALSE;
+      }
+      if (!NT_SUCCESS(ReadCacheSegment(CacheSeg)))
+      {
+        return FALSE;
+      }
+   }
+   *pBuffer += ReadOffset % Bcb->CacheSegmentSize;
+   iBcb = ExAllocatePool (NonPagedPool, sizeof(INTERNAL_BCB));
+   if (iBcb == NULL)
+   {
+     CcRosReleaseCacheSegment(Bcb, CacheSeg, TRUE, FALSE, FALSE);
+     return FALSE;
+   }
+   iBcb->CacheSegment = CacheSeg;
+   iBcb->PFCB.MappedLength = Length;
+   iBcb->PFCB.MappedFileOffset.QuadPart = FileOffset->QuadPart;
+   *pBcb = (PVOID)iBcb;
+   return TRUE;
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-CcPinMappedData (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	BOOLEAN			Wait,
-	OUT	PVOID			* Bcb
-	)
-{
-  /* no-op for current implementation. */
-  return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-CcPinRead (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	BOOLEAN			Wait,
-	OUT	PVOID			* Bcb,
-	OUT	PVOID			* Buffer
-	)
-{
-  if (CcMapData(FileObject, FileOffset, Length, Wait, Bcb, Buffer))
-  {
-    if (CcPinMappedData(FileObject, FileOffset, Length, Wait, Bcb))
-      return TRUE;
-    else
-      CcUnpinData(Bcb);
-  }
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-CcPreparePinWrite (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	BOOLEAN			Zero,
-	IN	BOOLEAN			Wait,
-	OUT	PVOID			* Bcb,
-	OUT	PVOID			* Buffer
-	)
-{
-        /*
-         * FIXME: This is function is similar to CcPinRead, but doesn't
-         * read the data if they're not present. Instead it should just
-         * prepare the cache segments and zero them out if Zero == TRUE.
-         *
-         * For now calling CcPinRead is better than returning error or
-         * just having UNIMPLEMENTED here.
-         */
-        return CcPinRead(FileObject, FileOffset, Length, Wait, Bcb, Buffer);
-}
-
-/*
- * @implemented
- */
 VOID STDCALL
-CcSetDirtyPinnedData (IN PVOID Bcb,
-		      IN PLARGE_INTEGER Lsn)
+CcUnpinData (
+   IN PVOID Bcb)
 {
    PINTERNAL_BCB iBcb = Bcb;
-   iBcb->Dirty = TRUE;
+   CcRosReleaseCacheSegment(iBcb->CacheSegment->Bcb, iBcb->CacheSegment, TRUE, FALSE, FALSE);
+   ExFreePool(iBcb);
 }
 
-
-/*
- * @implemented
- */
 VOID STDCALL
-CcUnpinData (IN PVOID Bcb)
+CcSetDirtyPinnedData (
+    IN PVOID Bcb,
+    IN PLARGE_INTEGER Lsn)
 {
-  PINTERNAL_BCB iBcb = Bcb;
-  CcRosReleaseCacheSegment(iBcb->CacheSegment->Bcb, iBcb->CacheSegment, TRUE, 
-                           iBcb->Dirty, FALSE);
-  if (--iBcb->RefCount == 0)
-  {
-    ExFreeToNPagedLookasideList(&iBcbLookasideList, iBcb);
-  }
+   PINTERNAL_BCB iBcb = Bcb;
+   // FIXME: write only the modifyed 4-pages back
+   WriteCacheSegment(iBcb->CacheSegment);
 }
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-CcUnpinDataForThread (
-	IN	PVOID			Bcb,
-	IN	ERESOURCE_THREAD	ResourceThreadId
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-CcRepinBcb (
-	IN	PVOID	Bcb
-	)
-{
-  PINTERNAL_BCB iBcb = Bcb;
-  iBcb->RefCount++;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-CcUnpinRepinnedBcb (
-	IN	PVOID			Bcb,
-	IN	BOOLEAN			WriteThrough,
-	IN	PIO_STATUS_BLOCK	IoStatus
-	)
-{
-  PINTERNAL_BCB iBcb = Bcb;
-
-  if (--iBcb->RefCount == 0)
-    {
-      IoStatus->Information = 0;
-      if (WriteThrough)
-        {
-          ExAcquireFastMutex(&iBcb->CacheSegment->Lock);
-          if (iBcb->CacheSegment->Dirty)
-            {
-              IoStatus->Status = CcRosFlushCacheSegment(iBcb->CacheSegment);
-            }
-          else
-            {
-              IoStatus->Status = STATUS_SUCCESS;
-            }
-          ExReleaseFastMutex(&iBcb->CacheSegment->Lock);
-        }
-      else
-        {
-          IoStatus->Status = STATUS_SUCCESS;
-        }
-
-      ExFreeToNPagedLookasideList(&iBcbLookasideList, iBcb);
-    }
-}

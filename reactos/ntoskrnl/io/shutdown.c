@@ -1,4 +1,4 @@
-/* $Id: shutdown.c,v 1.10 2004/08/15 16:39:03 chorns Exp $
+/* $Id: shutdown.c,v 1.5 2001/05/01 23:08:19 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -30,8 +32,7 @@ static KSPIN_LOCK ShutdownListLock;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
-IoInitShutdownNotification (VOID)
+VOID IoInitShutdownNotification (VOID)
 {
    InitializeListHead(&ShutdownListHead);
    KeInitializeSpinLock(&ShutdownListLock);
@@ -78,9 +79,6 @@ VOID IoShutdownRegisteredDevices(VOID)
      }
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL IoRegisterShutdownNotification(PDEVICE_OBJECT DeviceObject)
 {
    PSHUTDOWN_ENTRY Entry;
@@ -101,9 +99,6 @@ NTSTATUS STDCALL IoRegisterShutdownNotification(PDEVICE_OBJECT DeviceObject)
    return STATUS_SUCCESS;
 }
 
-/*
- * @implemented
- */
 VOID STDCALL IoUnregisterShutdownNotification(PDEVICE_OBJECT DeviceObject)
 {
    PSHUTDOWN_ENTRY ShutdownEntry;

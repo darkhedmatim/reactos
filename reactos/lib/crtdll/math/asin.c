@@ -18,10 +18,9 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include <msvcrt/math.h>
+#include <crtdll/math.h>
 
-
-double asin(double __x)
+double asin (double __x)
 {
-    return atan2(__x, sqrt(1.0 - __x * __x));
+  return atan2 (__x, sqrt (1.0 - __x * __x));
 }

@@ -1,4 +1,4 @@
-/* $Id: mailslot.c,v 1.12 2004/10/08 23:20:57 weiden Exp $
+/* $Id: mailslot.c,v 1.4 2001/05/05 15:21:05 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -10,16 +10,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
+#include <windows.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
+#include <kernel32/error.h>
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 HANDLE STDCALL
 CreateMailslotA(LPCSTR lpName,
 		DWORD nMaxMessageSize,
@@ -44,9 +43,6 @@ CreateMailslotA(LPCSTR lpName,
 }
 
 
-/*
- * @implemented
- */
 HANDLE STDCALL
 CreateMailslotW(LPCWSTR lpName,
 		DWORD nMaxMessageSize,
@@ -60,8 +56,6 @@ CreateMailslotW(LPCWSTR lpName,
    BOOLEAN Result;
    LARGE_INTEGER DefaultTimeOut;
    IO_STATUS_BLOCK Iosb;
-   ULONG Attributes = OBJ_CASE_INSENSITIVE;
-   PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
    
    Result = RtlDosPathNameToNtPathName_U((LPWSTR)lpName,
 					 &MailslotName,
@@ -75,18 +69,11 @@ CreateMailslotW(LPCWSTR lpName,
    
    DPRINT("Mailslot name: %wZ\n", &MailslotName);
    
-   if(lpSecurityAttributes)
-     {
-       SecurityDescriptor = lpSecurityAttributes->lpSecurityDescriptor;
-       if(lpSecurityAttributes->bInheritHandle)
-          Attributes |= OBJ_INHERIT;
-     }
-   
    InitializeObjectAttributes(&ObjectAttributes,
 			      &MailslotName,
-			      Attributes,
+			      OBJ_CASE_INSENSITIVE,
 			      NULL,
-			      SecurityDescriptor);
+			      NULL);
    
    DefaultTimeOut.QuadPart = lReadTimeout * 10000;
    
@@ -112,10 +99,7 @@ CreateMailslotW(LPCWSTR lpName,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetMailslotInfo(HANDLE hMailslot,
 		LPDWORD lpMaxMessageSize,
 		LPDWORD lpNextSize,
@@ -140,29 +124,26 @@ GetMailslotInfo(HANDLE hMailslot,
    
    if (lpMaxMessageSize != NULL)
      {
-	*lpMaxMessageSize = Buffer.MaximumMessageSize;
+	*lpMaxMessageSize = Buffer.MaxMessageSize;
      }
    if (lpNextSize != NULL)
      {
-	*lpNextSize = Buffer.NextMessageSize;
+	*lpNextSize = Buffer.NextSize;
      }
    if (lpMessageCount != NULL)
      {
-	*lpMessageCount = Buffer.MessagesAvailable;
+	*lpMessageCount = Buffer.MessageCount;
      }
    if (lpReadTimeout != NULL)
      {
-	*lpReadTimeout = (DWORD)(Buffer.ReadTimeout.QuadPart / -10000);
+	*lpReadTimeout = (DWORD)(Buffer.Timeout.QuadPart / -10000);
      }
    
    return(TRUE);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetMailslotInfo(HANDLE hMailslot,
 		DWORD lReadTimeout)
 {
@@ -170,7 +151,7 @@ SetMailslotInfo(HANDLE hMailslot,
    IO_STATUS_BLOCK Iosb;
    NTSTATUS Status;
    
-   Buffer.ReadTimeout.QuadPart = lReadTimeout * -10000;
+   Buffer.Timeout.QuadPart = lReadTimeout * -10000;
    
    Status = NtSetInformationFile(hMailslot,
 				 &Iosb,

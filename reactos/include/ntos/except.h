@@ -14,7 +14,7 @@ typedef enum {
 	ExceptionContinueSearch,
 	ExceptionNestedException,
 	ExceptionCollidedUnwind,
-	ExceptionDismiss = 0 /* assuming this is the same thing as DISPOSITION_DISMISS */
+  ExceptionDismiss  // ???
 } EXCEPTION_DISPOSITION;
 
 
@@ -25,21 +25,12 @@ struct _EXCEPTION_REGISTRATION;
  * The type of function that is expected as an exception handler to be
  * installed with _try1.
  */
-#ifdef __GNUC__
-typedef EXCEPTION_DISPOSITION (CDECL *PEXCEPTION_HANDLER)(
+typedef EXCEPTION_DISPOSITION CDECL (*PEXCEPTION_HANDLER)(
   struct _EXCEPTION_RECORD* ExceptionRecord,
   struct _EXCEPTION_REGISTRATION* ExceptionRegistration,
   PCONTEXT Context,
   PVOID DispatcherContext);
-#else
-typedef EXCEPTION_DISPOSITION (CDECL *PEXCEPTION_HANDLER)(
-  struct _EXCEPTION_RECORD* ExceptionRecord,
-  struct _EXCEPTION_REGISTRATION* ExceptionRegistration,
-  PCONTEXT Context,
-  PVOID DispatcherContext);
-#endif /*__GNUC__*/
 
-#ifndef __USE_W32API
 
 #define EXCEPTION_MAXIMUM_PARAMETERS	(15)
 
@@ -52,20 +43,22 @@ typedef struct _EXCEPTION_RECORD {
   DWORD ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS];
 } EXCEPTION_RECORD, *PEXCEPTION_RECORD, *LPEXCEPTION_RECORD;
 
-#endif /* !__USE_W32API */
-
 /* ExceptionFlags */
 #ifndef _GNU_H_WINDOWS32_DEFINES
 #ifdef __NTOSKRNL__
-#ifndef EXCEPTION_NONCONTINUABLE
 #define	EXCEPTION_NONCONTINUABLE	0x01
-#endif
 #endif /* __NTOSKRNL__ */
 #endif /* _GNU_H_WINDOWS32_DEFINES */
 #define	EXCEPTION_UNWINDING       0x02
 #define	EXCEPTION_EXIT_UNWIND		  0x04
 #define	EXCEPTION_STACK_INVALID	  0x08
 #define	EXCEPTION_NESTED_CALL		  0x10
+
+
+typedef struct _EXCEPTION_POINTERS { 
+  PEXCEPTION_RECORD ExceptionRecord; 
+  PCONTEXT ContextRecord; 
+} EXCEPTION_POINTERS, *PEXCEPTION_POINTERS, *LPEXCEPTION_POINTERS; 
 
 
 typedef struct _EXCEPTION_REGISTRATION
@@ -107,24 +100,19 @@ typedef PEXCEPTION_REGISTRATION PEXCEPTION_REGISTRATION_RECORD;
 
 #if 1
 
-/* Runtime DLL structures */
+// Runtime DLL structures
 
 #ifndef _GNU_H_WINDOWS32_DEFINES
 #ifdef __NTOSKRNL__
 #define EXCEPTION_EXECUTE_HANDLER     1
 #define EXCEPTION_CONTINUE_SEARCH     0
-/* #define EXCEPTION_CONTINUE_EXECUTION -1 */
+#define EXCEPTION_CONTINUE_EXECUTION -1
 #endif /* __NTOSKRNL__ */
 #endif /* _GNU_H_WINDOWS32_DEFINES */
 
-/* Functions of the following prototype return one of the above constants */
-#ifdef __GNUC__
+// Functions of the following prototype return one of the above constants
 typedef DWORD CDECL (*PSCOPE_EXCEPTION_FILTER)(VOID);
 typedef VOID CDECL (*PSCOPE_EXCEPTION_HANDLER)(VOID);
-#else
-typedef DWORD (CDECL *PSCOPE_EXCEPTION_FILTER)(VOID);
-typedef VOID (CDECL *PSCOPE_EXCEPTION_HANDLER)(VOID);
-#endif /*__GNUC__*/
 
 typedef struct _SCOPETABLE_ENTRY
 {
@@ -153,16 +141,5 @@ typedef RTL_EXCEPTION_REGISTRATION_I386 RTL_EXCEPTION_REGISTRATION;
 typedef PRTL_EXCEPTION_REGISTRATION_I386 PRTL_EXCEPTION_REGISTRATION;
 
 #endif
-
-#ifndef __USE_W32API
-
-#define EXCEPTION_MAXIMUM_PARAMETERS	(15)
-
-typedef struct _EXCEPTION_POINTERS { 
-  PEXCEPTION_RECORD ExceptionRecord; 
-  PCONTEXT ContextRecord; 
-} EXCEPTION_POINTERS, *PEXCEPTION_POINTERS, *LPEXCEPTION_POINTERS; 
-
-#endif /* !__USE_W32API */
 
 #endif /* __INCLUDE_EXCEPT_H */

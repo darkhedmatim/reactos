@@ -34,6 +34,7 @@ static PVOID AcpiIrqContext = NULL;
 static ULONG AcpiIrqNumber = 0;
 static KDPC AcpiDpc;
 static PVOID IVTVirtualAddress = NULL;
+static PVOID BDAVirtualAddress = NULL;
 
 
 VOID STDCALL
@@ -147,11 +148,15 @@ acpi_os_map_memory(ACPI_PHYSICAL_ADDRESS phys, u32 size, void **virt)
     }
   }
 
-  Address.QuadPart = (ULONG)phys;
-  *virt = MmMapIoSpace(Address, size, MmNonCached);
-  if (!*virt)
-    return AE_ERROR;
- 
+  if ((ULONG)phys >= 0x100000) {
+    Address.QuadPart = (ULONG)phys;
+    *virt = MmMapIoSpace(Address, size, FALSE);
+    if (!*virt)
+      return AE_ERROR;
+  } else {
+    *virt = (PVOID)((ULONG)phys);
+  }
+
   return AE_OK;
 }
 
@@ -166,7 +171,9 @@ acpi_os_unmap_memory(void *virt, u32 size)
     IVTVirtualAddress = NULL;
     return;
   }
-  MmUnmapIoSpace(virt, size);
+  /* FIXME: Causes "Memory area is NULL" bugcheck in marea.c */
+  //if ((ULONG)virt >= 0x100000)
+    //MmUnmapIoSpace(virt, size);
 }
 
 ACPI_STATUS
@@ -228,11 +235,11 @@ acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
     DIrql,
     DIrql,
     LevelSensitive, /* FIXME: LevelSensitive or Latched? */
-    TRUE,
+    FALSE,
     Affinity,
     FALSE);
   if (!NT_SUCCESS(Status)) {
-    DPRINT("Could not connect to interrupt %d\n", Vector);
+	  DPRINT("Could not connect to interrupt %d\n", Vector);
     return AE_ERROR;
   }
 
@@ -524,6 +531,7 @@ acpi_os_wait_semaphore(
 	u32                     units,
 	u32                     timeout)
 {
+  ACPI_STATUS Status = AE_OK;
   PFAST_MUTEX Mutex = (PFAST_MUTEX)handle;
 
   if (!Mutex || (units < 1)) {
@@ -584,14 +592,14 @@ acpi_os_get_line(NATIVE_CHAR *buffer)
 	return 0;
 }
 
-u8
+BOOLEAN
 acpi_os_readable(void *ptr, u32 len)
 {
   /* Always readable */
 	return TRUE;
 }
 
-u8
+BOOLEAN
 acpi_os_writable(void *ptr, u32 len)
 {
   /* Always writable */

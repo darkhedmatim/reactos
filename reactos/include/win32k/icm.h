@@ -4,75 +4,75 @@
 
 BOOL
 STDCALL
-NtGdiCheckColorsInGamut(HDC  hDC,
+W32kCheckColorsInGamut(HDC  hDC,
                              LPVOID  RGBTriples,
                              LPVOID  Buffer,
                              UINT  Count);
 
 BOOL
 STDCALL
-NtGdiColorMatchToTarget(HDC  hDC,
+W32kColorMatchToTarget(HDC  hDC,
                              HDC  hDCTarget, 
                              DWORD  Action);
 
 HCOLORSPACE
 STDCALL
-NtGdiCreateColorSpace(LPLOGCOLORSPACEW  LogColorSpace);
+W32kCreateColorSpace(LPLOGCOLORSPACE  LogColorSpace);
 
 BOOL
 STDCALL
-NtGdiDeleteColorSpace(HCOLORSPACE  hColorSpace);
+W32kDeleteColorSpace(HCOLORSPACE  hColorSpace);
 
 INT
 STDCALL
-NtGdiEnumICMProfiles(HDC    hDC,
-                    LPWSTR lpstrBuffer,
-                    UINT   cch );
+W32kEnumICMProfiles(HDC  hDC,  
+                         ICMENUMPROC  EnumICMProfilesFunc,
+                         LPARAM lParam);
 
 HCOLORSPACE
 STDCALL
-NtGdiGetColorSpace(HDC  hDC);
+W32kGetColorSpace(HDC  hDC);
 
 BOOL
 STDCALL
-NtGdiGetDeviceGammaRamp(HDC  hDC,
+W32kGetDeviceGammaRamp(HDC  hDC,  
                              LPVOID  Ramp);
 
 BOOL
 STDCALL
-NtGdiGetICMProfile(HDC  hDC,  
-                        LPDWORD  NameSize,
+W32kGetICMProfile(HDC  hDC,  
+                        LPDWORD  NameSize,  
                         LPWSTR  Filename);
 
 BOOL
 STDCALL
-NtGdiGetLogColorSpace(HCOLORSPACE  hColorSpace,
-                           LPLOGCOLORSPACEW  Buffer,
+W32kGetLogColorSpace(HCOLORSPACE  hColorSpace,
+                           LPLOGCOLORSPACE  Buffer,  
                            DWORD  Size);
 
 HCOLORSPACE
 STDCALL
-NtGdiSetColorSpace(HDC  hDC,  
+W32kSetColorSpace(HDC  hDC,  
                                HCOLORSPACE  hColorSpace);
 
 BOOL
 STDCALL
-NtGdiSetDeviceGammaRamp(HDC  hDC,
+W32kSetDeviceGammaRamp(HDC  hDC,
                              LPVOID  Ramp);
 
 INT
 STDCALL
-NtGdiSetICMMode(HDC  hDC,
+W32kSetICMMode(HDC  hDC,
                     INT  EnableICM);
 
 BOOL
 STDCALL
-NtGdiSetICMProfile(HDC  hDC,
+W32kSetICMProfile(HDC  hDC,
                         LPWSTR  Filename);
 
 BOOL
 STDCALL
-NtGdiUpdateICMRegKey(DWORD  Reserved,  
+W32kUpdateICMRegKey(DWORD  Reserved,  
                           LPWSTR  CMID, 
                           LPWSTR  Filename,
                           UINT  Command);

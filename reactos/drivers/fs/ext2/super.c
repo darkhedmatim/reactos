@@ -10,7 +10,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 //#define NDEBUG
 #include <debug.h>
@@ -105,20 +104,14 @@ NTSTATUS Ext2Mount(PDEVICE_OBJECT DeviceToMount)
    DeviceObject->Flags = DeviceObject->Flags | DO_DIRECT_IO;
    DeviceExt = (PVOID)DeviceObject->DeviceExtension;
    DPRINT("DeviceExt %x\n",DeviceExt);
-
-  DeviceExt->StorageDevice = DeviceToMount;
-  DeviceExt->StorageDevice->Vpb->DeviceObject = DeviceObject;
-  DeviceExt->StorageDevice->Vpb->RealDevice = DeviceExt->StorageDevice;
-  DeviceExt->StorageDevice->Vpb->Flags |= VPB_MOUNTED;
-  DeviceObject->StackSize = DeviceExt->StorageDevice->StackSize + 1;
-  DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
-
+   DeviceExt->StorageDevice = IoAttachDeviceToDeviceStack(DeviceObject,
+							  DeviceToMount);
    DPRINT("DeviceExt->StorageDevice %x\n", DeviceExt->StorageDevice);
    DeviceExt->FileObject = IoCreateStreamFileObject(NULL, DeviceObject);
    DeviceExt->superblock = superblock;
    CcRosInitializeFileCache(DeviceExt->FileObject,
 			    &DeviceExt->Bcb,
-			    PAGE_SIZE * 3);
+			    PAGESIZE * 3);
    
    DPRINT("Ext2Mount() = STATUS_SUCCESS\n");
    
@@ -155,12 +148,14 @@ DriverEntry(PDRIVER_OBJECT _DriverObject,
 {
    PDEVICE_OBJECT DeviceObject;
    NTSTATUS ret;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Ext2Fsd");
+   UNICODE_STRING DeviceName;
    
    DbgPrint("Ext2 FSD 0.0.1\n");
    
    DriverObject = _DriverObject;
    
+   RtlInitUnicodeString(&DeviceName,
+			L"\\Device\\Ext2Fsd");
    ret = IoCreateDevice(DriverObject,
 			0,
 			&DeviceName,

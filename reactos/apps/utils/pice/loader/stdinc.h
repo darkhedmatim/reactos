@@ -12,13 +12,13 @@
 //#include <sys/wait.h>
 //#include <sys/ioctl.h>
 //#include <sys/signal.h>
-#include <sys/stat.h>
+#include <SYS/STAT.H>
 #include <errno.h>
 #include <fcntl.h>
 //#include <unistd.h>
 //#include <linux/unistd.h>
 
-#include "../../../../include/pe.h"
+#include "../../../include/pe.h"
 #include "stab_gnu.h"
 //#include "retypes.h"
 //#include "terminal.h"

@@ -5,6 +5,8 @@
 #ifndef __NTOSKRNL_INCLUDE_INTERNAL_I386_MM_H
 #define __NTOSKRNL_INCLUDE_INTERNAL_I386_MM_H
 
+struct _EPROCESS;
+
 #if 0
 /*
  * Page access attributes (or these together)
@@ -22,49 +24,52 @@
 #define PA_SYSTEM          (0)
 #endif
 
+#define PAGESIZE (4096)
 
-#ifdef __3GB__
-#define KERNEL_BASE        (0xC0000000)
-#else
-#define KERNEL_BASE        (0x80000000)
-#endif
+PULONG MmGetPageEntry(PVOID Address);
 
-#ifndef __ASM__
+#define KERNEL_BASE        (0xc0000000)
 
-#if defined(__GNUC__)
+#define FLUSH_TLB    __asm__("movl %cr3,%eax\n\tmovl %eax,%cr3\n\t")
 
-#define FLUSH_TLB   {				\
-			unsigned int tmp;	\
-			__asm__ __volatile__(	\
-			    "movl %%cr3,%0\n\t"	\
-			    "movl %0,%%cr3\n\t"	\
-			    : "=r" (tmp)	\
-			    :: "memory");	\
-		    }
-
-#define FLUSH_TLB_ONE(addr) __asm__ __volatile__(		\
-			    "invlpg %0"				\
-			    :					\
-			    : "m" (*(volatile long *) (addr)))
-
-
-
-#elif defined(_MSC_VER)
-/* TODO: Need some way to tell the compiler this is a memory barrier. */
-#define FLUSH_TLB __asm mov eax, cr3  __asm mov cr3, eax;
-#else
-#error Unknown compiler for inline assembler
-#endif
-
-struct _EPROCESS;
 PULONG MmGetPageDirectory(VOID);
-VOID MiEnablePAE(PVOID* LastKernelAddress);
+
+#if 0
+extern inline PULONG get_page_directory(void)
+{
+        unsigned int page_dir=0;
+        __asm__("movl %%cr3,%0\n\t"
+                : "=r" (page_dir));
+        return((PULONG)page_dir);
+}
+#endif
 
 
+/*
+ * Amount of memory that can be mapped by a page table
+ */
+#define PAGE_TABLE_SIZE (4*1024*1024)
 
-#define PAGE_MASK(x)		((x)&(~0xfff))
-#define PAE_PAGE_MASK(x)	((x)&(~0xfffLL))
+#define PAGE_MASK(x) (x&(~0xfff))
+#define VADDR_TO_PT_OFFSET(x)  (((x/1024)%4096))
+#define VADDR_TO_PD_OFFSET(x)  ((x)/(4*1024*1024))
 
-#endif /* ASSEMBLER */
+NTSTATUS MmCreateVirtualMapping(struct _EPROCESS* Process,
+				PVOID Address, 
+				ULONG flProtect,
+				ULONG PhysicalAddress,
+				BOOLEAN MayWait);
+NTSTATUS 
+MmCreateVirtualMappingUnsafe(struct _EPROCESS* Process,
+			     PVOID Address, 
+			     ULONG flProtect,
+			     ULONG PhysicalAddress,
+			     BOOLEAN MayWait);
+
+VOID MmSetPageProtect(struct _EPROCESS* Process,
+		      PVOID Address,
+		      ULONG flProtect);
+BOOLEAN MmIsPagePresent(struct _EPROCESS* Process, 
+			PVOID Address);
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_I386_MM_H */

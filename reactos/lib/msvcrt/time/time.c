@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/time/time.c
+ * FILE:        lib/crtdll/conio/time.c
  * PURPOSE:     Get system time
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -15,26 +15,19 @@
  * Copyright 1996 Alexandre Julliard
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/time.h>
 #include <msvcrt/internal/file.h>
 
+VOID STDCALL GetSystemTimeAsFileTime(LPFILETIME  lpSystemTimeAsFileTime );
 
-VOID STDCALL GetSystemTimeAsFileTime(LPFILETIME lpSystemTimeAsFileTime);
-
-/*
- * @implemented
- */
-time_t time(time_t* t)
+time_t
+time(time_t *t)
 {
 	FILETIME  SystemTime;
 	DWORD Remainder;
-	time_t tt;
 	GetSystemTimeAsFileTime(&SystemTime);
-	tt = FileTimeToUnixTime(&SystemTime,&Remainder);
-	if (t)
-		*t = tt;
-	return tt;
+	return FileTimeToUnixTime( &SystemTime,&Remainder ); 
 }
 
 /***********************************************************************

@@ -1,4 +1,4 @@
-/* $Id: interlock.h,v 1.4 2002/10/29 04:45:13 rex Exp $
+/* $Id: interlock.h,v 1.2 2002/02/20 09:17:55 hyperion Exp $
  */
 /*
  * psx/interlock.h

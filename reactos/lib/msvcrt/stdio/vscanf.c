@@ -31,4 +31,3 @@ int __vscanf (const char *format, va_list arg)
 {
   return __vfscanf(stdin, format, arg);
 }
-

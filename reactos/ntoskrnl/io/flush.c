@@ -10,7 +10,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -21,8 +23,8 @@ NTSTATUS
 STDCALL
 NtFlushWriteBuffer(VOID)
 {
-  KeFlushWriteBuffer();
-  return STATUS_SUCCESS;
+	KeFlushWriteBuffer();
+	return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -45,48 +47,42 @@ NtFlushBuffersFile (
    PFILE_OBJECT FileObject = NULL;
    PIRP Irp;
    PIO_STACK_LOCATION StackPtr;
+   KEVENT Event;
    NTSTATUS Status;
-   KPROCESSOR_MODE PreviousMode;
-
-   PreviousMode = ExGetPreviousMode();
-
+   IO_STATUS_BLOCK IoSB;
+      
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_WRITE_DATA,
 				      NULL,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID*)&FileObject,
 				      NULL);
    if (Status != STATUS_SUCCESS)
      {
 	return(Status);
      }
-   KeResetEvent( &FileObject->Event );
+   
+   KeInitializeEvent(&Event,NotificationEvent,FALSE);
    Irp = IoBuildSynchronousFsdRequest(IRP_MJ_FLUSH_BUFFERS,
 				      FileObject->DeviceObject,
 				      NULL,
 				      0,
 				      NULL,
-				      &FileObject->Event,
-				      IoStatusBlock);
-
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-
-   Irp->RequestorMode = PreviousMode;
+				      &Event,
+				      &IoSB);
 
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = FileObject;
 
    Status = IoCallDriver(FileObject->DeviceObject,Irp);
-   if (Status == STATUS_PENDING)
+   if (Status==STATUS_PENDING)
      {
-	KeWaitForSingleObject(&FileObject->Event,
-			      Executive,
-			      PreviousMode,
-			      FileObject->Flags & FO_ALERTABLE_IO,
-			      NULL);
-	Status = IoStatusBlock->Status;
+	KeWaitForSingleObject(&Event,Executive,KernelMode,FALSE,NULL);
+	Status = IoSB.Status;
      }
-
+   if (IoStatusBlock)
+     {
+       *IoStatusBlock = IoSB;
+     }
    return(Status);
 }

@@ -11,9 +11,6 @@
 #include <string.h>
 #include <ctype.h>
 
-/*
- * @implemented
- */
 char * _strlwr(char *x)
 {
 	char  *y=x;

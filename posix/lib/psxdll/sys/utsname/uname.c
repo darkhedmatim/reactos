@@ -1,4 +1,4 @@
-/* $Id: uname.c,v 1.4 2002/10/29 04:45:46 rex Exp $
+/* $Id: uname.c,v 1.2 2002/02/20 09:17:58 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory

@@ -7,12 +7,17 @@
  *                  Rex Jolliff (rex@lvcablemodem.com)
  * UPDATE HISTORY:
  *   DW   26/01/00  Created
- *   Skywing 09/11/2003 Added support for KiRaiseUserExceptionDispatcher
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -22,7 +27,6 @@ static PVOID SystemDllEntryPoint = NULL;
 static PVOID SystemDllApcDispatcher = NULL;
 static PVOID SystemDllCallbackDispatcher = NULL;
 static PVOID SystemDllExceptionDispatcher = NULL;
-static PVOID SystemDllRaiseExceptionDispatcher = NULL;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -44,11 +48,6 @@ PVOID LdrpGetSystemDllEntryPoint(VOID)
 PVOID LdrpGetSystemDllApcDispatcher(VOID)
 {
    return(SystemDllApcDispatcher);
-}
-
-PVOID LdrpGetSystemDllRaiseExceptionDispatcher(VOID)
-{
-   return(SystemDllRaiseExceptionDispatcher);
 }
 
 NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
@@ -74,18 +73,19 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
    OBJECT_ATTRIBUTES	FileObjectAttributes;
    HANDLE			FileHandle;
    HANDLE			NTDllSectionHandle;
-   UNICODE_STRING DllPathname = ROS_STRING_INITIALIZER(L"\\SystemRoot\\system32\\ntdll.dll");
+   UNICODE_STRING		DllPathname;
    PIMAGE_DOS_HEADER	DosHeader;
    PIMAGE_NT_HEADERS	NTHeaders;
-   PEPROCESS Process, CurrentProcess;
+   PEPROCESS Process;
    ANSI_STRING ProcedureName;
    ULONG ViewSize;
-   IO_STATUS_BLOCK Iosb;
 
    /*
     * Locate and open NTDLL to determine ImageBase
     * and LdrStartup
     */
+   RtlInitUnicodeString(&DllPathname,
+			L"\\SystemRoot\\system32\\ntdll.dll");
    InitializeObjectAttributes(&FileObjectAttributes,
 			      &DllPathname,
 			      0,
@@ -95,9 +95,9 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
    Status = ZwOpenFile(&FileHandle,
 		       FILE_ALL_ACCESS,
 		       &FileObjectAttributes,
-		       &Iosb,
-		       FILE_SHARE_READ,
-		       FILE_SYNCHRONOUS_IO_NONALERT);
+		       NULL,
+		       0,
+		       0);
    if (!NT_SUCCESS(Status))
      {
 	DbgPrint("NTDLL open failed (Status %x)\n", Status);
@@ -107,12 +107,12 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
 		       0,
 		       0,
 		       0,
-		       &Iosb,
+		       0,
 		       BlockBuffer,
 		       sizeof(BlockBuffer),
 		       0,
 		       0);
-   if (!NT_SUCCESS(Status) || Iosb.Information != sizeof(BlockBuffer))
+   if (!NT_SUCCESS(Status))
      {
 	DbgPrint("NTDLL header read failed (Status %x)\n", Status);
 	ZwClose(FileHandle);
@@ -190,12 +190,8 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
 	return(Status);
      }
 
-   CurrentProcess = PsGetCurrentProcess();
-   if (Process != CurrentProcess)
-     {
-       DPRINT("Attaching to Process\n");
-       KeAttachProcess(&Process->Pcb);
-     }
+   DPRINT("Attaching to Process\n");
+   KeAttachProcess(Process);
 
    /*
     * retrieve ntdll's startup address
@@ -211,10 +207,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -236,10 +229,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -260,10 +250,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -284,44 +271,14 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
-	   ObDereferenceObject(Process);
-	   ZwClose(NTDllSectionHandle);
-	   return (Status);
-	 }
-     }
-
-   /*
-    * Retrieve the offset of the raise exception dispatcher from NTDLL
-    */
-   if (SystemDllRaiseExceptionDispatcher == NULL)
-     {
-       RtlInitAnsiString (&ProcedureName,
-			  "KiRaiseUserExceptionDispatcher");
-       Status = LdrGetProcedureAddress ((PVOID)ImageBase,
-					&ProcedureName,
-					0,
-					&SystemDllRaiseExceptionDispatcher);
-       if (!NT_SUCCESS(Status))
-	 {
-	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
 	 }
      }
    
-   if (Process != CurrentProcess)
-     {
-       KeDetachProcess();
-     }
+   KeDetachProcess();
    ObDereferenceObject(Process);
 
    ZwClose(NTDllSectionHandle);

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bug.c,v 1.48 2004/12/12 17:42:00 hbirr Exp $
+/* $Id: bug.c,v 1.20 2002/02/09 18:41:24 chorns Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/bug.c
@@ -30,45 +30,34 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <ntos/bootvid.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+
 #include <internal/debug.h>
-#include "../../hal/halx86/include/hal.h"
 
 /* GLOBALS ******************************************************************/
 
 static LIST_ENTRY BugcheckCallbackListHead = {NULL,NULL};
 static ULONG InBugCheck;
 
+VOID PsDumpThreads(VOID);
+
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 KeInitializeBugCheck(VOID)
 {
   InitializeListHead(&BugcheckCallbackListHead);
   InBugCheck = 0;
 }
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 KeDeregisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord)
 {
-	/* Check the Current State */
-	if (CallbackRecord->State == BufferInserted) {
-		CallbackRecord->State = BufferEmpty;
-		RemoveEntryList(&CallbackRecord->Entry);
-		return TRUE;
-	}
-	
-	/* The callback wasn't registered */
-	return FALSE;
+  UNIMPLEMENTED;
 }
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 KeRegisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord,
 			   PKBUGCHECK_CALLBACK_ROUTINE	CallbackRoutine,
@@ -76,50 +65,34 @@ KeRegisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord,
 			   ULONG Length,
 			   PUCHAR Component)
 {
-
-	/* Check the Current State first so we don't double-register */
-	if (CallbackRecord->State == BufferEmpty) {
-		CallbackRecord->Length = Length;
-		CallbackRecord->Buffer = Buffer;
-		CallbackRecord->Component = Component;
-		CallbackRecord->CallbackRoutine = CallbackRoutine;
-		CallbackRecord->State = BufferInserted;
-		InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
-		
-		return TRUE;
-	}
-  
-	/* The Callback was already registered */
-	return(FALSE);
+  InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
+  CallbackRecord->Length = Length;
+  CallbackRecord->Buffer = Buffer;
+  CallbackRecord->Component = Component;
+  CallbackRecord->CallbackRoutine = CallbackRoutine;
+  return(TRUE);
 }
 
 VOID STDCALL
-KeBugCheckWithTf(ULONG BugCheckCode, 	     
-		 ULONG BugCheckParameter1,
-		 ULONG BugCheckParameter2,
-		 ULONG BugCheckParameter3,
-		 ULONG BugCheckParameter4,
-		 PKTRAP_FRAME Tf)
+KeBugCheckEx(ULONG BugCheckCode,
+	     ULONG BugCheckParameter1,
+	     ULONG BugCheckParameter2,
+	     ULONG BugCheckParameter3,
+	     ULONG BugCheckParameter4)
+/*
+ * FUNCTION: Brings the system down in a controlled manner when an 
+ * inconsistency that might otherwise cause corruption has been detected
+ * ARGUMENTS:
+ *           BugCheckCode = Specifies the reason for the bug check
+ *           BugCheckParameter[1-4] = Additional information about bug
+ * RETURNS: Doesn't
+ */
 {
   PRTL_MESSAGE_RESOURCE_ENTRY Message;
   NTSTATUS Status;
-  ULONG Mask;
-  KIRQL OldIrql;
-
-  /* Make sure we're switching back to the blue screen and print messages on it */
-  HalReleaseDisplayOwnership();
-  if (0 == (KdDebugState & KD_DEBUG_GDB))
-    {
-      KdDebugState |= KD_DEBUG_SCREEN;
-    }
-
-  Ke386DisableInterrupts();
-  DebugLogDumpMessages();
-
-  if (KeGetCurrentIrql() < DISPATCH_LEVEL)
-    {
-      KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
-    }
+  
+  /* PJS: disable interrupts first, then do the rest */
+  __asm__("cli\n\t");
   DbgPrint("Bug detected (code %x param %x %x %x %x)\n",
 	   BugCheckCode,
 	   BugCheckParameter1,
@@ -143,87 +116,43 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     {
       DbgPrint("  No message text found!\n\n");
     }
-  Mask = 1 << KeGetCurrentProcessorNumber();
-  if (InBugCheck & Mask)
-    {
-#ifdef MP
-      DbgPrint("Recursive bug check on CPU%d, halting now\n", KeGetCurrentProcessorNumber());
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
-#else
-      DbgPrint("Recursive bug check halting now\n");
-#endif
-      Ke386HaltProcessor();
-    }
-  /* 
-   * FIXME:
-   *   Use InterlockedOr or InterlockedBitSet.
-   */
-  InBugCheck |= Mask;
-  if (Tf != NULL)
-    {
-      KiDumpTrapFrame(Tf, BugCheckParameter1, BugCheckParameter2);
-    }
-  else
-    {
-#if defined(__GNUC__)
-      KeDumpStackFrames((PULONG)__builtin_frame_address(0));
-#elif defined(_MSC_VER)
-      __asm push ebp
-      __asm call KeDumpStackFrames
-      __asm add esp, 4
-#else
-#error Unknown compiler for inline assembler
-#endif
-    }
-  MmDumpToPagingFile(BugCheckCode, BugCheckParameter1, 
-		     BugCheckParameter2, BugCheckParameter3,
-		     BugCheckParameter4, Tf);
 
+  if (InBugCheck == 1)
+    {
+      DbgPrint("Recursive bug check halting now\n");
+      for (;;)
+	{
+	  __asm__("hlt\n\t");
+	}
+    }
+  InBugCheck = 1;
+  if (PsGetCurrentProcess() != NULL)
+    {
+      DbgPrint("Pid: %x <", PsGetCurrentProcess()->UniqueProcessId);
+      DbgPrint("%.8s> ", PsGetCurrentProcess()->ImageFileName);
+    }
+  if (PsGetCurrentThread() != NULL)
+    {
+      DbgPrint("Thrd: %x Tid: %x\n",
+	       PsGetCurrentThread(),
+	       PsGetCurrentThread()->Cid.UniqueThread);
+    }
+//   PsDumpThreads();
+  KeDumpStackFrames((PULONG)__builtin_frame_address(0));
+  
   if (KdDebuggerEnabled)
     {
-      Ke386EnableInterrupts();
-      DbgBreakPointNoBugCheck();
-      Ke386DisableInterrupts();
+      __asm__("sti\n\t");
+      DbgBreakPoint();
     }
 
-  for (;;)
+  for(;;)
     {
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
-      Ke386HaltProcessor();
+      /* PJS: use HLT instruction, rather than busy wait */
+      __asm__("hlt\n\t");
     }
 }
 
-/*
- * @implemented
- */
-VOID STDCALL
-KeBugCheckEx(ULONG BugCheckCode,
-	     ULONG BugCheckParameter1,
-	     ULONG BugCheckParameter2,
-	     ULONG BugCheckParameter3,
-	     ULONG BugCheckParameter4)
-/*
- * FUNCTION: Brings the system down in a controlled manner when an 
- * inconsistency that might otherwise cause corruption has been detected
- * ARGUMENTS:
- *           BugCheckCode = Specifies the reason for the bug check
- *           BugCheckParameter[1-4] = Additional information about bug
- * RETURNS: Doesn't
- */
-{
-  KeBugCheckWithTf(BugCheckCode, BugCheckParameter1, BugCheckParameter2,
-		   BugCheckParameter3, BugCheckParameter4, NULL);
-}
-
-/*
- * @implemented
- */
 VOID STDCALL
 KeBugCheck(ULONG BugCheckCode)
 /*

@@ -3,9 +3,6 @@
 #include <msvcrt/wchar.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 int
 fprintf(register FILE *iop, const char *fmt, ...)
 {
@@ -32,9 +29,6 @@ fprintf(register FILE *iop, const char *fmt, ...)
   return ferror(iop) ? EOF : len;
 }
 
-/*
- * @implemented
- */
 int
 fwprintf(register FILE *iop, const wchar_t *fmt, ...)
 {

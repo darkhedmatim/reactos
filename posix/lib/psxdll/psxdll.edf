@@ -1,33 +1,10 @@
-; $Id: psxdll.edf,v 1.10 2003/08/22 13:55:15 ea Exp $
+; $Id: psxdll.edf,v 1.2 2002/02/20 09:17:56 hyperion Exp $
 ;
 ; ReactOS POSIX+ Client Library
 ;
 
 LIBRARY PSXDLL.DLL
 EXPORTS
-
-;ctype
-isalnum=NTDLL.isalnum
-isalpha=NTDLL.isalpha
-iscntrl=NTDLL.iscntrl
-isdigit=NTDLL.isdigit
-isgraph=NTDLL.isgraph
-islower=NTDLL.islower
-isprint=NTDLL.isprint
-ispunct=NTDLL.ispunct
-isspace=NTDLL.isspace
-isupper=NTDLL.isupper
-iswalpha=NTDLL.iswalpha
-iswctype=NTDLL.iswctype
-iswdigit=NTDLL.iswdigit
-iswlower=NTDLL.iswlower
-iswspace=NTDLL.iswspace
-iswxdigit=NTDLL.iswxdigit
-isxdigit=NTDLL.isxdigit
-tolower=NTDLL.tolower
-toupper=NTDLL.toupper
-towlower=NTDLL.towlower
-towupper=NTDLL.towupper
 
 ;dirent
 opendir=opendir
@@ -51,45 +28,22 @@ fcntl=fcntl
 ;libgen
 basename=basename
 
-;math
-atan=NTDLL.atan
-ceil=NTDLL.ceil
-cos=NTDLL.cos
-fabs=NTDLL.fabs
-floor=NTDLL.floor
-log=NTDLL.log
-pow=NTDLL.pow
-sin=NTDLL.sin
-sqrt=NTDLL.sqrt
-tan=NTDLL.tan
-
 ;misc
-;misc/fdtable
+;path
+__PdxPosixPathGetNextComponent_A=__PdxPosixPathGetNextComponent_A
+__PdxPosixPathGetNextComponent_U=__PdxPosixPathGetNextComponent_U
+__PdxPosixPathResolve_A=__PdxPosixPathResolve_A
+__PdxPosixPathResolve_U=__PdxPosixPathResolve_U
+__PdxPosixPathNameToNtPathName=__PdxPosixPathNameToNtPathName
+;fdtable
 __fdtable_init=__fdtable_init
 __fdtable_free=__fdtable_free
 __fdtable_entry_nextavail=__fdtable_entry_nextavail
 __fdtable_entry_add=__fdtable_entry_add
 __fdtable_entry_remove=__fdtable_entry_remove
 __fdtable_entry_get=__fdtable_entry_get
-;misc/heap
-;for Microsoft POSIX and Interix compatibility
-GetProcessHeap=GetProcessHeap@0
-HeapAlloc=NTDLL.RtlAllocateHeap
-HeapFree=NTDLL.RtlFreeHeap
-HeapReAlloc=NTDLL.ReAllocateHeap
-HeapSize=NTDLL.RtlSizeHeap
-;misc/init
-__PdxInitializeData=__PdxInitializeData@8
-;misc/path
-__PdxPosixPathGetNextComponent_A=__PdxPosixPathGetNextComponent_A
-__PdxPosixPathGetNextComponent_U=__PdxPosixPathGetNextComponent_U
-__PdxPosixPathResolve_A=__PdxPosixPathResolve_A
-__PdxPosixPathResolve_U=__PdxPosixPathResolve_U
-__PdxPosixPathNameToNtPathName=__PdxPosixPathNameToNtPathName
-;misc/safeobj
+;safeobj
 __safeobj_validate=__safeobj_validate
-;misc/spawn
-__PdxSpawnPosixProcess=__PdxSpawnPosixProcess@24
 
 ;pthread
 pthread_create=pthread_create
@@ -121,23 +75,16 @@ pthread_kill=pthread_kill
 raise=raise
 
 ;stdio
-;temporary forward exports, soon to be changed
 printf=MSVCRT.printf
 gets=MSVCRT.gets
 
 ;stdlib
-abs=NTDLL.abs
 abort=abort
-atoi=NTDLL.atoi
-atol=NTDLL.atol
 malloc=malloc
-mbstowcs=NTDLL.mbstowcs
 realloc=realloc
 free=free
 calloc=calloc
 exit=exit
-;FIXME: should the two calls be distinct?
-_exit=exit
 
 ;string
 ;forward-exports to NTDLL
@@ -162,33 +109,16 @@ strstr=NTDLL.strstr
 ;implemented internally
 strdup
 
-;sys/stat
-chmod=chmod
-fchmod=fchmod
-fstat=fstat
-lstat=lstat
-mkdir=mkdir
-mkfifo=mkfifo
-mknod=mknod
-stat=stat
-umask=umask
-
 ;sys/utsname
 uname=uname
 
 ;unistd
-access=access
 close=close
 dup=dup
 dup2=dup2
-fork=fork
 getcwd=getcwd
 getpid=getpid
 getppid=getppid
-pread=pread
-read=read
-sleep=sleep
-write=write
 
 ;wchar
 ;forward-exports to NTDLL
@@ -209,21 +139,5 @@ wcstol=NTDLL.wcstol
 wcstombs=NTDLL.wcstombs
 wcstoul=NTDLL.wcstoul
 ;implemented internally
-
-;others (FIXME: cathegorize these calls)
-RtlAnsiCharToUnicodeChar=NTDLL.RtlAnsiCharToUnicodeChar
-RtlFillMemory=NTDLL.RtlFillMemory
-RtlMoveMemory=NTDLL.RtlMoveMemory
-RtlMultiByteToUnicodeN=NTDLL.RtlMultiByteToUnicodeN
-RtlNtStatusToPsxErrno=RtlNtStatusToPsxErrno@4
-RtlUnicodeToMultiByteN=NTDLL.RtlUnicodeToMultiByteN
-RtlUnicodeToMultiByteSize=NTDLL.RtlUnicodeToMultiByteSize
-RtlUnwind=NTDLL.RtlUnwind
-RtlUpcaseUnicodeChar=NTDLL.RtlUpcaseUnicodeChar
-RtlUpcaseUnicodeToMultiByteN=NTDLL.RtlUpcaseUnicodeToMultiByteN
-RtlZeroMemory=NTDLL.RtlZeroMemory
-
-;WARNING: PRELIMINARY CODE FOR DEBUGGING PURPOSES ONLY - DO NOT CHANGE
-__PdxGetProcessData=__PdxGetProcessData
 
 ;EOF

@@ -1,4 +1,4 @@
-/* $Id: pci.c,v 1.9 2004/08/20 13:33:51 ekohl Exp $
+/* $Id: pci.c,v 1.1 2001/09/16 13:18:24 chorns Exp $
  *
  * PROJECT:         ReactOS PCI Bus driver
  * FILE:            pci.c
@@ -7,11 +7,7 @@
  * UPDATE HISTORY:
  *      10-09-2001  CSH  Created
  */
-
-#include <ddk/ntddk.h>
-
-#include "pcidef.h"
-#include "pci.h"
+#include <pci.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -28,8 +24,407 @@
 
 /*** PUBLIC ******************************************************************/
 
+PCI_BUS_TYPE PciBusConfigType = pbtUnknown;
+
 
 /*** PRIVATE *****************************************************************/
+
+static NTSTATUS
+PciReadConfigUchar(UCHAR Bus,
+		   UCHAR Slot,
+		   UCHAR Offset,
+		   PUCHAR Value)
+{
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	*Value = READ_PORT_UCHAR((PUCHAR)0xCFC + (Offset & 3));
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	*Value = READ_PORT_UCHAR((PUCHAR)(IOADDR(Slot, Offset)));
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+static NTSTATUS
+PciReadConfigUshort(UCHAR Bus,
+		    UCHAR Slot,
+		    UCHAR Offset,
+		    PUSHORT Value)
+{
+   if ((Offset & 1) != 0)
+     {
+	return STATUS_INVALID_PARAMETER;
+     }
+
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	*Value = READ_PORT_USHORT((PUSHORT)0xCFC + (Offset & 1));
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	*Value = READ_PORT_USHORT((PUSHORT)(IOADDR(Slot, Offset)));
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+static NTSTATUS
+PciReadConfigUlong(UCHAR Bus,
+		   UCHAR Slot,
+		   UCHAR Offset,
+		   PULONG Value)
+{
+   if ((Offset & 3) != 0)
+     {
+	return STATUS_INVALID_PARAMETER;
+     }
+
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	*Value = READ_PORT_ULONG((PULONG)0xCFC);
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	*Value = READ_PORT_ULONG((PULONG)(IOADDR(Slot, Offset)));
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+static NTSTATUS
+PciWriteConfigUchar(UCHAR Bus,
+		    UCHAR Slot,
+		    UCHAR Offset,
+		    UCHAR Value)
+{
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFC + (Offset&3), Value);
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	WRITE_PORT_UCHAR((PUCHAR)(IOADDR(Slot,Offset)), Value);
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+static NTSTATUS
+PciWriteConfigUshort(UCHAR Bus,
+		     UCHAR Slot,
+		     UCHAR Offset,
+		     USHORT Value)
+{
+   if ((Offset & 1) != 0)
+     {
+	return STATUS_INVALID_PARAMETER;
+     }
+
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	WRITE_PORT_USHORT((PUSHORT)0xCFC + (Offset & 1), Value);
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	WRITE_PORT_USHORT((PUSHORT)(IOADDR(Slot, Offset)), Value);
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+static NTSTATUS
+PciWriteConfigUlong(UCHAR Bus,
+		    UCHAR Slot,
+		    UCHAR Offset,
+		    ULONG Value)
+{
+   if ((Offset & 3) != 0)
+     {
+	return STATUS_INVALID_PARAMETER;
+     }
+
+   switch (PciBusConfigType)
+     {
+     case pbtType1:
+	WRITE_PORT_ULONG((PULONG)0xCF8, CONFIG_CMD(Bus, Slot, Offset));
+	WRITE_PORT_ULONG((PULONG)0xCFC, Value);
+	return STATUS_SUCCESS;
+
+     case pbtType2:
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, FUNC(Slot));
+	WRITE_PORT_UCHAR((PUCHAR)0xCFA, Bus);
+	WRITE_PORT_ULONG((PULONG)(IOADDR(Slot, Offset)), Value);
+	WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0);
+	return STATUS_SUCCESS;
+     }
+   return STATUS_UNSUCCESSFUL;
+}
+
+
+ULONG
+PciGetBusData(ULONG BusNumber,
+	       ULONG SlotNumber,
+	       PVOID Buffer,
+	       ULONG Offset,
+	       ULONG Length)
+{
+   PVOID Ptr = Buffer;
+   ULONG Address = Offset;
+   ULONG Len = Length;
+   ULONG Vendor;
+   UCHAR HeaderType;
+
+#if 0
+   DPRINT("  BusNumber %lu\n", BusNumber);
+   DPRINT("  SlotNumber %lu\n", SlotNumber);
+   DPRINT("  Offset 0x%lx\n", Offset);
+   DPRINT("  Length 0x%lx\n", Length);
+#endif
+
+   if ((Length == 0) || (PciBusConfigType == 0))
+     return 0;
+
+   /* 0E=PCI_HEADER_TYPE */
+   PciReadConfigUchar(BusNumber,
+		      SlotNumber & 0xF8,
+		      0x0E,
+		      &HeaderType);
+   if (((HeaderType & 0x80) == 0) && ((SlotNumber & 0x07) != 0))
+     return 0;
+
+   PciReadConfigUlong(BusNumber,
+		      SlotNumber,
+		      0x00,
+		      &Vendor);
+   /* some broken boards return 0 if a slot is empty: */
+   if (Vendor == 0xFFFFFFFF || Vendor == 0)
+     return 0;
+
+   if ((Address & 1) && (Len >= 1))
+     {
+	PciReadConfigUchar(BusNumber,
+			   SlotNumber,
+			   Address,
+			   Ptr);
+	Ptr = Ptr + 1;
+	Address++;
+	Len--;
+     }
+
+   if ((Address & 2) && (Len >= 2))
+     {
+	PciReadConfigUshort(BusNumber,
+			    SlotNumber,
+			    Address,
+			    Ptr);
+	Ptr = Ptr + 2;
+	Address += 2;
+	Len -= 2;
+     }
+
+   while (Len >= 4)
+     {
+	PciReadConfigUlong(BusNumber,
+			   SlotNumber,
+			   Address,
+			   Ptr);
+	Ptr = Ptr + 4;
+	Address += 4;
+	Len -= 4;
+     }
+
+   if (Len >= 2)
+     {
+	PciReadConfigUshort(BusNumber,
+			    SlotNumber,
+			    Address,
+			    Ptr);
+	Ptr = Ptr + 2;
+	Address += 2;
+	Len -= 2;
+     }
+
+   if (Len >= 1)
+     {
+	PciReadConfigUchar(BusNumber,
+			   SlotNumber,
+			   Address,
+			   Ptr);
+	Ptr = Ptr + 1;
+	Address++;
+	Len--;
+     }
+
+   return Length - Len;
+}
+
+
+ULONG
+PciSetBusData(ULONG BusNumber,
+	       ULONG SlotNumber,
+	       PVOID Buffer,
+	       ULONG Offset,
+	       ULONG Length)
+{
+   PVOID Ptr = Buffer;
+   ULONG Address = Offset;
+   ULONG Len = Length;
+   ULONG Vendor;
+   UCHAR HeaderType;
+
+#if 0
+   DPRINT("  BusNumber %lu\n", BusNumber);
+   DPRINT("  SlotNumber %lu\n", SlotNumber);
+   DPRINT("  Offset 0x%lx\n", Offset);
+   DPRINT("  Length 0x%lx\n", Length);
+#endif
+
+   if ((Length == 0) || (PciBusConfigType == 0))
+     return 0;
+
+   /* 0E=PCI_HEADER_TYPE */
+   PciReadConfigUchar(BusNumber,
+		      SlotNumber & 0xF8,
+		      0x0E,
+		      &HeaderType);
+   if (((HeaderType & 0x80) == 0) && ((SlotNumber & 0x07) != 0))
+     return 0;
+
+   PciReadConfigUlong(BusNumber,
+		      SlotNumber,
+		      0x00,
+		      &Vendor);
+   /* some broken boards return 0 if a slot is empty: */
+   if (Vendor == 0xFFFFFFFF || Vendor == 0)
+     return 0;
+
+   if ((Address & 1) && (Len >= 1))
+     {
+	PciWriteConfigUchar(BusNumber,
+			    SlotNumber,
+			    Address,
+			    *(PUCHAR)Ptr);
+	Ptr = Ptr + 1;
+	Address++;
+	Len--;
+     }
+
+   if ((Address & 2) && (Len >= 2))
+     {
+	PciWriteConfigUshort(BusNumber,
+			     SlotNumber,
+			     Address,
+			     *(PUSHORT)Ptr);
+	Ptr = Ptr + 2;
+	Address += 2;
+	Len -= 2;
+     }
+
+   while (Len >= 4)
+     {
+	PciWriteConfigUlong(BusNumber,
+			    SlotNumber,
+			    Address,
+			    *(PULONG)Ptr);
+	Ptr = Ptr + 4;
+	Address += 4;
+	Len -= 4;
+     }
+
+   if (Len >= 2)
+     {
+	PciWriteConfigUshort(BusNumber,
+			     SlotNumber,
+			     Address,
+			     *(PUSHORT)Ptr);
+	Ptr = Ptr + 2;
+	Address += 2;
+	Len -= 2;
+     }
+
+   if (Len >= 1)
+     {
+	PciWriteConfigUchar(BusNumber,
+			    SlotNumber,
+			    Address,
+			    *(PUCHAR)Ptr);
+	Ptr = Ptr + 1;
+	Address++;
+	Len--;
+     }
+
+   return Length - Len;
+}
+
+
+PCI_BUS_TYPE
+PciGetBusConfigType(VOID)
+{
+   ULONG Value;
+
+   DPRINT("Called\n");
+
+   DPRINT("Checking configuration type 1:\n");
+   WRITE_PORT_UCHAR((PUCHAR)0xCFB, 0x01);
+   Value = READ_PORT_ULONG((PULONG)0xCF8);
+   WRITE_PORT_ULONG((PULONG)0xCF8, 0x80000000);
+   if (READ_PORT_ULONG((PULONG)0xCF8) == 0x80000000)
+     {
+	WRITE_PORT_ULONG((PULONG)0xCF8, Value);
+	DPRINT("  Success!\n");
+	return pbtType1;
+     }
+   WRITE_PORT_ULONG((PULONG)0xCF8, Value);
+   DPRINT("  Unsuccessful!\n");
+
+   DPRINT("Checking configuration type 2:\n");
+   WRITE_PORT_UCHAR((PUCHAR)0xCFB, 0x00);
+   WRITE_PORT_UCHAR((PUCHAR)0xCF8, 0x00);
+   WRITE_PORT_UCHAR((PUCHAR)0xCFA, 0x00);
+   if (READ_PORT_UCHAR((PUCHAR)0xCF8) == 0x00 &&
+       READ_PORT_UCHAR((PUCHAR)0xCFB) == 0x00)
+     {
+	DPRINT("  Success!\n");
+	return pbtType2;
+     }
+   DPRINT("  Unsuccessful!\n");
+
+   DPRINT("No pci bus found!\n");
+   return pbtUnknown;
+}
+
 
 NTSTATUS
 STDCALL
@@ -149,7 +544,7 @@ PciAddDevice(
 
   RtlZeroMemory(DeviceExtension, sizeof(FDO_DEVICE_EXTENSION));
 
-  DeviceExtension->Common.IsFDO = TRUE;
+  DeviceExtension->IsFDO = TRUE;
 
   DeviceExtension->Ldo =
     IoAttachDeviceToDeviceStack(Fdo, PhysicalDeviceObject);
@@ -185,7 +580,7 @@ DriverEntry(
 
 BOOLEAN
 PciCreateUnicodeString(
-  PUNICODE_STRING Destination,
+  PUNICODE_STRING	Destination,
   PWSTR Source,
   POOL_TYPE PoolType)
 {
@@ -211,526 +606,6 @@ PciCreateUnicodeString(
   Destination->MaximumLength = Length;
 
   Destination->Length = Length - sizeof(WCHAR);
-
-  return TRUE;
-}
-
-
-NTSTATUS
-PciDuplicateUnicodeString(
-  PUNICODE_STRING Destination,
-  PUNICODE_STRING Source,
-  POOL_TYPE PoolType)
-{
-  if (Source == NULL)
-  {
-    RtlInitUnicodeString(Destination, NULL);
-    return STATUS_SUCCESS;
-  }
-
-  Destination->Buffer = ExAllocatePool(PoolType, Source->MaximumLength);
-  if (Destination->Buffer == NULL)
-  {
-    return STATUS_INSUFFICIENT_RESOURCES;
-  }
-
-  Destination->MaximumLength = Source->MaximumLength;
-  Destination->Length = Source->Length;
-  RtlCopyMemory(Destination->Buffer, Source->Buffer, Source->MaximumLength);
-
-  return STATUS_SUCCESS;
-}
-
-
-BOOLEAN
-PciCreateDeviceIDString(PUNICODE_STRING DeviceID,
-                        PPCI_DEVICE Device)
-{
-  WCHAR Buffer[256];
-
-  swprintf(Buffer,
-           L"PCI\\VEN_%04X&DEV_%04X&SUBSYS_%08X&REV_%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           (Device->PciConfig.u.type0.SubSystemID << 16) +
-           Device->PciConfig.u.type0.SubVendorID,
-           Device->PciConfig.RevisionID);
-
-  if (!PciCreateUnicodeString(DeviceID, Buffer, PagedPool))
-  {
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-BOOLEAN
-PciCreateInstanceIDString(PUNICODE_STRING InstanceID,
-                          PPCI_DEVICE Device)
-{
-#if 0
-  WCHAR Buffer[32];
-  ULONG Length;
-  ULONG Index;
-
-  Index = swprintf(Buffer,
-                   L"%lX&%02lX",
-                   Device->BusNumber,
-                   (Device->SlotNumber.u.bits.DeviceNumber << 3) +
-                   Device->SlotNumber.u.bits.FunctionNumber);
-  Index++;
-  Buffer[Index] = UNICODE_NULL;
-
-  Length = (Index + 1) * sizeof(WCHAR);
-  InstanceID->Buffer = ExAllocatePool(PagedPool, Length);
-  if (InstanceID->Buffer == NULL)
-  {
-    return FALSE;
-  }
-
-  InstanceID->Length = Length - sizeof(WCHAR);
-  InstanceID->MaximumLength = Length;
-  RtlCopyMemory(InstanceID->Buffer, Buffer, Length);
-
-  return TRUE;
-#endif
-  return PciCreateUnicodeString(InstanceID, L"0000", PagedPool);
-}
-
-
-BOOLEAN
-PciCreateHardwareIDsString(PUNICODE_STRING HardwareIDs,
-                           PPCI_DEVICE Device)
-{
-  WCHAR Buffer[256];
-  ULONG Length;
-  ULONG Index;
-
-  Index = 0;
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&DEV_%04X&SUBSYS_%08X&REV_%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           (Device->PciConfig.u.type0.SubSystemID << 16) +
-           Device->PciConfig.u.type0.SubVendorID,
-           Device->PciConfig.RevisionID);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&DEV_%04X&SUBSYS_%08X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           (Device->PciConfig.u.type0.SubSystemID << 16) +
-           Device->PciConfig.u.type0.SubVendorID);
-  Index++;
-
-  Buffer[Index] = UNICODE_NULL;
-
-  Length = (Index + 1) * sizeof(WCHAR);
-  HardwareIDs->Buffer = ExAllocatePool(PagedPool, Length);
-  if (HardwareIDs->Buffer == NULL)
-  {
-    return FALSE;
-  }
-
-  HardwareIDs->Length = Length - sizeof(WCHAR);
-  HardwareIDs->MaximumLength = Length;
-  RtlCopyMemory(HardwareIDs->Buffer, Buffer, Length);
-
-  return TRUE;
-}
-
-
-BOOLEAN
-PciCreateCompatibleIDsString(PUNICODE_STRING CompatibleIDs,
-                             PPCI_DEVICE Device)
-{
-  WCHAR Buffer[256];
-  ULONG Length;
-  ULONG Index;
-
-  Index = 0;
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&DEV_%04X&REV_%02X&CC_%02X%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           Device->PciConfig.RevisionID,
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&DEV_%04X&CC_%02X%02X%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass,
-           Device->PciConfig.ProgIf);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&DEV_%04X&CC_%02X%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.DeviceID,
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&CC_%02X%02X%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass,
-           Device->PciConfig.ProgIf);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X&CC_%02X%02X",
-           Device->PciConfig.VendorID,
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\VEN_%04X",
-           Device->PciConfig.VendorID);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\CC_%02X%02X%02X",
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass,
-           Device->PciConfig.ProgIf);
-  Index++;
-
-  Index += swprintf(&Buffer[Index],
-           L"PCI\\CC_%02X%02X",
-           Device->PciConfig.BaseClass,
-           Device->PciConfig.SubClass);
-  Index++;
-
-  Buffer[Index] = UNICODE_NULL;
-
-  Length = (Index + 1) * sizeof(WCHAR);
-  CompatibleIDs->Buffer = ExAllocatePool(PagedPool, Length);
-  if (CompatibleIDs->Buffer == NULL)
-  {
-    return FALSE;
-  }
-
-  CompatibleIDs->Length = Length - sizeof(WCHAR);
-  CompatibleIDs->MaximumLength = Length;
-  RtlCopyMemory(CompatibleIDs->Buffer, Buffer, Length);
-
-  return TRUE;
-}
-
-
-BOOLEAN
-PciCreateDeviceDescriptionString(PUNICODE_STRING DeviceDescription,
-                                 PPCI_DEVICE Device)
-{
-  PWSTR Description;
-  ULONG Length;
-
-  switch (Device->PciConfig.BaseClass)
-  {
-    case PCI_CLASS_PRE_20:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_PRE_20_VGA:
-          Description = L"VGA device";
-          break;
-
-        default:
-        case PCI_SUBCLASS_PRE_20_NON_VGA:
-          Description = L"PCI device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_MASS_STORAGE_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_MSC_SCSI_BUS_CTLR:
-          Description = L"SCSI controller";
-          break;
-
-        case PCI_SUBCLASS_MSC_IDE_CTLR:
-          Description = L"IDE controller";
-          break;
-
-        case PCI_SUBCLASS_MSC_FLOPPY_CTLR:
-          Description = L"Floppy disk controller";
-          break;
-
-        case PCI_SUBCLASS_MSC_IPI_CTLR:
-          Description = L"IPI controller";
-          break;
-
-        case PCI_SUBCLASS_MSC_RAID_CTLR:
-          Description = L"RAID controller";
-          break;
-
-        default:
-          Description = L"Mass storage controller";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_NETWORK_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_NET_ETHERNET_CTLR:
-          Description = L"Ethernet controller";
-          break;
-
-        case PCI_SUBCLASS_NET_TOKEN_RING_CTLR:
-          Description = L"Token-Ring controller";
-          break;
-
-        case PCI_SUBCLASS_NET_FDDI_CTLR:
-          Description = L"FDDI controller";
-          break;
-
-        case PCI_SUBCLASS_NET_ATM_CTLR:
-          Description = L"ATM controller";
-          break;
-
-        default:
-          Description = L"Network controller";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_DISPLAY_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_VID_VGA_CTLR:
-          Description = L"VGA display controller";
-          break;
-
-        case PCI_SUBCLASS_VID_XGA_CTLR:
-          Description = L"XGA display controller";
-          break;
-
-        case PCI_SUBLCASS_VID_3D_CTLR:
-          Description = L"Multimedia display controller";
-          break;
-
-        default:
-          Description = L"Other display controller";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_MULTIMEDIA_DEV:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_MM_VIDEO_DEV:
-          Description = L"Multimedia video device";
-          break;
-
-        case PCI_SUBCLASS_MM_AUDIO_DEV:
-          Description = L"Multimedia audio device";
-          break;
-
-        case PCI_SUBCLASS_MM_TELEPHONY_DEV:
-          Description = L"Multimedia telephony device";
-          break;
-
-        default:
-          Description = L"Other multimedia device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_MEMORY_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_MEM_RAM:
-          Description = L"PCI Memory";
-          break;
-
-        case PCI_SUBCLASS_MEM_FLASH:
-          Description = L"PCI Flash Memory";
-          break;
-
-        default:
-          Description = L"Other memory controller";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_BRIDGE_DEV:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_BR_HOST:
-          Description = L"PCI-Host bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_ISA:
-          Description = L"PCI-ISA bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_EISA:
-          Description = L"PCI-EISA bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_MCA:
-          Description = L"PCI-Micro Channel bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_PCI_TO_PCI:
-          Description = L"PCI-PCI bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_PCMCIA:
-          Description = L"PCI-PCMCIA bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_NUBUS:
-          Description = L"PCI-NUBUS bridge";
-          break;
-
-        case PCI_SUBCLASS_BR_CARDBUS:
-          Description = L"PCI-CARDBUS bridge";
-          break;
-
-        default:
-          Description = L"Other bridge device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_SIMPLE_COMMS_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-
-        default:
-          Description = L"Communication device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_BASE_SYSTEM_DEV:
-      switch (Device->PciConfig.SubClass)
-      {
-
-        default:
-          Description = L"System device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_INPUT_DEV:
-      switch (Device->PciConfig.SubClass)
-      {
-
-        default:
-          Description = L"Input device";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_DOCKING_STATION:
-      switch (Device->PciConfig.SubClass)
-      {
-
-        default:
-          Description = L"Docking station";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_PROCESSOR:
-      switch (Device->PciConfig.SubClass)
-      {
-
-        default:
-          Description = L"Processor";
-          break;
-      }
-      break;
-
-    case PCI_CLASS_SERIAL_BUS_CTLR:
-      switch (Device->PciConfig.SubClass)
-      {
-        case PCI_SUBCLASS_SB_IEEE1394:
-          Description = L"FireWire controller";
-          break;
-
-        case PCI_SUBCLASS_SB_ACCESS:
-          Description = L"ACCESS bus controller";
-          break;
-
-        case PCI_SUBCLASS_SB_SSA:
-          Description = L"SSA controller";
-          break;
-
-        case PCI_SUBCLASS_SB_USB:
-          Description = L"USB controller";
-          break;
-
-        case PCI_SUBCLASS_SB_FIBRE_CHANNEL:
-          Description = L"Fibre Channel controller";
-          break;
-
-        default:
-          Description = L"Other serial bus controller";
-          break;
-      }
-      break;
-
-    default:
-      Description = L"Other PCI Device";
-      break;
-  }
-
-  Length = (wcslen(Description) + 1) * sizeof(WCHAR);
-  DeviceDescription->Buffer = ExAllocatePool(PagedPool, Length);
-  if (DeviceDescription->Buffer == NULL)
-  {
-    return FALSE;
-  }
-
-  DeviceDescription->Length = Length - sizeof(WCHAR);
-  DeviceDescription->MaximumLength = Length;
-  RtlCopyMemory(DeviceDescription->Buffer, Description, Length);
-
-  return TRUE;
-}
-
-
-BOOLEAN
-PciCreateDeviceLocationString(PUNICODE_STRING DeviceLocation,
-                              PPCI_DEVICE Device)
-{
-  WCHAR Buffer[256];
-  ULONG Length;
-  ULONG Index;
-
-  Index = 0;
-  Index += swprintf(&Buffer[Index],
-                    L"PCI-Bus %lu, Device %u, Function %u",
-                    Device->BusNumber,
-                    Device->SlotNumber.u.bits.DeviceNumber,
-                    Device->SlotNumber.u.bits.FunctionNumber);
-  Index++;
-
-  Buffer[Index] = UNICODE_NULL;
-
-  Length = (Index + 1) * sizeof(WCHAR);
-  DeviceLocation->Buffer = ExAllocatePool(PagedPool, Length);
-  if (DeviceLocation->Buffer == NULL)
-  {
-    return FALSE;
-  }
-
-  DeviceLocation->Length = Length - sizeof(WCHAR);
-  DeviceLocation->MaximumLength = Length;
-  RtlCopyMemory(DeviceLocation->Buffer, Buffer, Length);
 
   return TRUE;
 }

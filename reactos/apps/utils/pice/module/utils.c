@@ -613,25 +613,29 @@ BOOLEAN IsAddressValid(ULONG address)
 	PULONG pPGD;
 	PULONG pPTE;
 	BOOLEAN bResult = FALSE;
+	PEPROCESS my_current = IoGetCurrentProcess();
 
 	address &= (~(_PAGE_SIZE-1));
 
-	pPGD = ADDR_TO_PDE(address);
-    if(pPGD && ((*pPGD)&_PAGE_PRESENT))
-    {
-        // not large page
-        if(!((*pPGD)&_PAGE_4M))
-		{
-			pPTE = ADDR_TO_PTE(address);
-			if(pPTE)
+	if(my_current)
+	{
+		pPGD = ADDR_TO_PDE(address);
+        if(pPGD && ((*pPGD)&_PAGE_PRESENT))
+        {
+            // not large page
+            if(!((*pPGD)&_PAGE_4M))
 			{
-				bResult = (*pPTE)&(_PAGE_PRESENT | _PAGE_PSE);
+				pPTE = ADDR_TO_PTE(address);
+				if(pPTE)
+				{
+					bResult = (*pPTE)&(_PAGE_PRESENT | _PAGE_PSE);
+				}
 			}
-		}
-		// large page
-		else
-		{
-			bResult = TRUE;
+			// large page
+			else
+			{
+				bResult = TRUE;
+			}
 		}
 	}
 
@@ -651,30 +655,35 @@ BOOLEAN IsAddressWriteable(ULONG address)
 {
 	PULONG pPGD;
 	PULONG pPTE;
+	PEPROCESS my_current = IoGetCurrentProcess();
 
 	//address &= (~(_PAGE_SIZE-1));
-	pPGD = ADDR_TO_PDE(address);
-    if(pPGD && ((*pPGD)&_PAGE_PRESENT))
-    {
-        // not large page
-        if(!((*pPGD)&_PAGE_4M))
-		{
-		    if(!((*pPGD) & _PAGE_RW))
-					return FALSE;
 
-			pPTE = ADDR_TO_PTE(address);
-			if(pPTE)
+	if(my_current)
+	{
+		pPGD = ADDR_TO_PDE(address);
+        if(pPGD && ((*pPGD)&_PAGE_PRESENT))
+        {
+            // not large page
+            if(!((*pPGD)&_PAGE_4M))
 			{
-				if( ((*pPTE)&(_PAGE_PRESENT | _PAGE_PSE)) &&
-							 ((*pPTE) & _PAGE_RW))
-					return TRUE;
-				else
-					return FALSE;
+		        if(!((*pPGD) & _PAGE_RW))
+						return FALSE;
+
+				pPTE = ADDR_TO_PTE(address);
+				if(pPTE)
+				{
+					if( ((*pPTE)&(_PAGE_PRESENT | _PAGE_PSE)) &&
+								 ((*pPTE) & _PAGE_RW))
+					 	return TRUE;
+					else
+					 	return FALSE;
+				}
 			}
+			// large page
+			else
+				return ((*pPGD) & _PAGE_RW);
 		}
-		// large page
-		else
-			return ((*pPGD) & _PAGE_RW);
 	}
 
 	return FALSE;
@@ -689,40 +698,43 @@ BOOLEAN SetAddressWriteable(ULONG address,BOOLEAN bSet)
 {
 	PULONG pPGD;
 	PULONG pPTE;
+	PEPROCESS my_current = IoGetCurrentProcess();
 
 	//address &= (~(_PAGE_SIZE-1));
-
-	pPGD = ADDR_TO_PDE(address);
-    if(pPGD && ((*pPGD)&_PAGE_PRESENT))
-    {
-        // not large page
-        if(!((*pPGD)&_PAGE_4M))
-		{
-			pPTE = ADDR_TO_PTE(address);
-			if(pPTE)
+	if(my_current)
+	{
+		pPGD = ADDR_TO_PDE(address);
+        if(pPGD && ((*pPGD)&_PAGE_PRESENT))
+        {
+            // not large page
+            if(!((*pPGD)&_PAGE_4M))
 			{
-				if( (*pPTE)&(_PAGE_PRESENT | _PAGE_PSE) )
+				pPTE = ADDR_TO_PTE(address);
+				if(pPTE)
 				{
-                    if( bSet ){
-						*pPTE |= _PAGE_RW;
-					}
-                    else{
-						*pPTE &= ~_PAGE_RW;
-					}
-					FLUSH_TLB;
-					return TRUE;
-                }
+					if( (*pPTE)&(_PAGE_PRESENT | _PAGE_PSE) )
+					{
+                        if( bSet ){
+							*pPTE |= _PAGE_RW;
+						}
+                        else{
+							*pPTE &= ~_PAGE_RW;
+						}
+						FLUSH_TLB;
+						return TRUE;
+                    }
+				}
 			}
-		}
-		// large page
-		else
-		{
-            if( bSet )
-                *pPGD |= _PAGE_RW;
-            else
-                *pPGD &= ~_PAGE_RW;
-			FLUSH_TLB;
-            return TRUE;
+			// large page
+			else
+			{
+                if( bSet )
+                    *pPGD |= _PAGE_RW;
+                else
+                    *pPGD &= ~_PAGE_RW;
+				FLUSH_TLB;
+                return TRUE;
+			}
 		}
 	}
 	return FALSE;
@@ -800,8 +812,8 @@ ULONG GetLinearAddress(USHORT Segment,ULONG Offset)
 	{
 		DPRINT((0,"GetLinearAddress(): Segment is in LDT\n"));
 		// get LDT selector
-		__asm__("\n\t \
-			sldt %%ax\n\t \
+		__asm__("
+			sldt %%ax
 			mov %%ax,%0"
 			:"=m" (Segment));
 		if(Segment)
@@ -888,12 +900,12 @@ void SetHardwareBreakPoint(ULONG ulAddress,ULONG ulReg)
     DPRINT((0,"mask = %x\n",mask));
 
 	__asm__ __volatile__
-	("\n\t \
-		xorl %%eax,%%eax\n\t \
-		mov %%eax,%%dr6\n\t \
-        mov %%dr7,%%eax\n\t \
-        orl %0,%%eax\n\t \
-		mov %%eax,%%dr7\n\t \
+	("
+		xorl %%eax,%%eax
+		mov %%eax,%%dr6
+        mov %%dr7,%%eax
+        orl %0,%%eax
+		mov %%eax,%%dr7
 	"
 	:
 	:"m" (mask)
@@ -903,9 +915,9 @@ void SetHardwareBreakPoint(ULONG ulAddress,ULONG ulReg)
     {
         case 0:
             __asm__ __volatile__
-            ("\n\t \
-        		mov %0,%%eax\n\t \
-		        mov %%eax,%%dr0\n\t \
+            ("
+        		mov %0,%%eax
+		        mov %%eax,%%dr0
              "
              :
              :"m" (ulAddress)
@@ -913,9 +925,9 @@ void SetHardwareBreakPoint(ULONG ulAddress,ULONG ulReg)
              break;
         case 1:
             __asm__ __volatile__
-            ("\n\t \
-        		mov %0,%%eax\n\t \
-		        mov %%eax,%%dr1\n\t \
+            ("
+        		mov %0,%%eax
+		        mov %%eax,%%dr1
              "
              :
              :"m" (ulAddress)
@@ -923,9 +935,9 @@ void SetHardwareBreakPoint(ULONG ulAddress,ULONG ulReg)
              break;
         case 2:
             __asm__ __volatile__
-            ("\n\t \
-        		mov %0,%%eax\n\t \
-		        mov %%eax,%%dr2\n\t \
+            ("
+        		mov %0,%%eax
+		        mov %%eax,%%dr2
              "
              :
              :"m" (ulAddress)
@@ -933,9 +945,9 @@ void SetHardwareBreakPoint(ULONG ulAddress,ULONG ulReg)
              break;
         case 3:
             __asm__ __volatile__
-            ("\n\t \
-        		mov %0,%%eax\n\t \
-		        mov %%eax,%%dr3\n\t \
+            ("
+        		mov %0,%%eax
+		        mov %%eax,%%dr3
              "
              :
              :"m" (ulAddress)
@@ -959,11 +971,11 @@ PULONG LinAddr[4]={&LinAddr0,&LinAddr1,&LinAddr2,&LinAddr3};
     ENTER_FUNC();
 
 	// cancel all debug activity
-	__asm__("\n\t \
-		pushl %eax\n\t \
-		xorl %eax,%eax\n\t \
-		mov %eax,%dr6\n\t \
-		mov %eax,%dr7\n\t \
+	__asm__("
+		pushl %eax
+		xorl %eax,%eax
+		mov %eax,%dr6
+		mov %eax,%dr7
 		popl %eax");
 	// build DR7 mask
 	for(mask=0,i=0;i<4;i++)
@@ -978,20 +990,20 @@ PULONG LinAddr[4]={&LinAddr0,&LinAddr1,&LinAddr2,&LinAddr3};
 	}
 	if(mask)
 	{
-		__asm__("\n\t \
-			pushl %%eax\n\t \
-			movl %0,%%eax\n\t \
-			andl $0x000000FF,%%eax\n\t \
-			orl $0x300,%%eax\n\t \
-			mov %%eax,%%dr7\n\t \
-			mov %1,%%eax\n\t \
-			mov %%eax,%%dr0\n\t \
-			mov %2,%%eax\n\t \
-			mov %%eax,%%dr1\n\t \
-			mov %3,%%eax\n\t \
-			mov %%eax,%%dr2\n\t \
-			mov %4,%%eax\n\t \
-			mov %%eax,%%dr3\n\t \
+		__asm__("
+			pushl %%eax
+			movl %0,%%eax
+			andl $0x000000FF,%%eax
+			orl $0x300,%%eax
+			mov %%eax,%%dr7
+			mov %1,%%eax
+			mov %%eax,%%dr0
+			mov %2,%%eax
+			mov %%eax,%%dr1
+			mov %3,%%eax
+			mov %%eax,%%dr2
+			mov %4,%%eax
+			mov %%eax,%%dr3
 			popl %%eax"
 			:
 			:"m" (mask),"m" (LinAddr0),"m" (LinAddr1),"m" (LinAddr2),"m" (LinAddr3));
@@ -1618,8 +1630,8 @@ void InvalidateLB(void)
 	ENTER_FUNC();
     __asm__ __volatile__
 	(
-		"wbinvd\n\t \
-		mov %%cr3,%%ecx\n\t \
+		"wbinvd
+		mov %%cr3,%%ecx
         mov %%ecx,%%cr3"
         :::"ecx"
     );
@@ -2252,8 +2264,7 @@ HANDLE PICE_open (LPCWSTR	lpPathName,	int	iReadWrite)
 	DWORD dwAccessMask = 0;
 	DWORD dwShareMode = 0;
 	UNICODE_STRING TmpFileName;
-	OBJECT_ATTRIBUTES ObjectAttributes;
-	IO_STATUS_BLOCK StatusBlock;
+ 	OBJECT_ATTRIBUTES ObjectAttributes;
 	HANDLE hfile;
 	NTSTATUS status;
 
@@ -2288,7 +2299,7 @@ HANDLE PICE_open (LPCWSTR	lpPathName,	int	iReadWrite)
 	status = NtOpenFile( &hfile,
                       dwAccessMask,
                       &ObjectAttributes,
-                      &StatusBlock, dwShareMode, FILE_NO_INTERMEDIATE_BUFFERING);
+                      NULL, dwShareMode, FILE_NO_INTERMEDIATE_BUFFERING);
 	//BUG BUG check status!!!
 	if( !NT_SUCCESS( status ) ){
 		DPRINT((0,"PICE_open: NtOpenFile error: %x\n", status));

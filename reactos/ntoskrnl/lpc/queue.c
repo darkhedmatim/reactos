@@ -1,4 +1,4 @@
-/* $Id: queue.c,v 1.10 2004/08/15 16:39:06 chorns Exp $
+/* $Id: queue.c,v 1.5 2001/12/02 23:34:42 dwelch Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 

@@ -1,5 +1,5 @@
 //
-//  ATAPI.H - defines and typedefs for the IDE Driver module.
+//  IDE.H - defines and typedefs for the IDE Driver module.
 //
 
 #ifndef __ATAPI_H
@@ -58,28 +58,15 @@ extern "C" {
 #define  IDE_REG_STATUS           0x0007
 #define    IDE_SR_BUSY              0x80
 #define    IDE_SR_DRDY              0x40
-#define    IDE_SR_WERR              0x20
 #define    IDE_SR_DRQ               0x08
 #define    IDE_SR_ERR               0x01
 #define  IDE_REG_COMMAND          0x0007
-
-/* IDE/ATA commands */
-#define    IDE_CMD_RESET            0x08
 #define    IDE_CMD_READ             0x20
 #define    IDE_CMD_READ_RETRY       0x21
 #define    IDE_CMD_WRITE            0x30
 #define    IDE_CMD_WRITE_RETRY      0x31
-#define    IDE_CMD_PACKET           0xA0
-#define    IDE_CMD_READ_MULTIPLE    0xC4
-#define    IDE_CMD_WRITE_MULTIPLE   0xC5
-#define    IDE_CMD_READ_DMA         0xC8
-#define    IDE_CMD_WRITE_DMA        0xCA
-#define    IDE_CMD_FLUSH_CACHE      0xE7
-#define    IDE_CMD_FLUSH_CACHE_EXT  0xEA
 #define    IDE_CMD_IDENT_ATA_DRV    0xEC
 #define    IDE_CMD_IDENT_ATAPI_DRV  0xA1
-#define    IDE_CMD_GET_MEDIA_STATUS 0xDA
-
 //
 //  Access macros for command registers
 //  Each macro takes an address of the command port block, and data
@@ -112,16 +99,6 @@ extern "C" {
   (ScsiPortReadPortUchar((PUCHAR)((Address) + IDE_REG_STATUS)))
 #define IDEWriteCommand(Address, Data) \
   (ScsiPortWritePortUchar((PUCHAR)((Address) + IDE_REG_COMMAND), (Data)))
-#define IDEReadDMACommand(Address) \
-  (ScsiPortReadPortUchar((PUCHAR)((Address))))
-#define IDEWriteDMACommand(Address, Data) \
-  (ScsiPortWritePortUchar((PUCHAR)((Address)), (Data)))
-#define IDEReadDMAStatus(Address) \
-  (ScsiPortReadPortUchar((PUCHAR)((Address) + 2)))
-#define IDEWriteDMAStatus(Address, Data) \
-  (ScsiPortWritePortUchar((PUCHAR)((Address) + 2), (Data)))
-#define IDEWritePRDTable(Address, Data) \
-  (ScsiPortWritePortUlong((PULONG)((Address) + 4), (Data)))  
 
 
 //
@@ -132,14 +109,6 @@ extern "C" {
 #define IDEWriteBlock(Address, Buffer, Count) \
   (ScsiPortWritePortBufferUshort((PUSHORT)((Address) + IDE_REG_DATA_PORT), (PUSHORT)(Buffer), (Count) / 2))
 
-#define IDEReadBlock32(Address, Buffer, Count) \
-  (ScsiPortReadPortBufferUlong((PULONG)((Address) + IDE_REG_DATA_PORT), (PULONG)(Buffer), (Count) / 4))
-#define IDEWriteBlock32(Address, Buffer, Count) \
-  (ScsiPortWritePortBufferUlong((PULONG)((Address) + IDE_REG_DATA_PORT), (PULONG)(Buffer), (Count) / 4))
-
-#define IDEReadWord(Address) \
-  (ScsiPortReadPortUshort((PUSHORT)((Address) + IDE_REG_DATA_PORT)))
-
 //
 //  Access macros for control registers
 //  Each macro takes an address of the control port blank and data
@@ -148,6 +117,90 @@ extern "C" {
   (ScsiPortReadPortUchar((PUCHAR)((Address) + IDE_REG_ALT_STATUS)))
 #define IDEWriteDriveControl(Address, Data) \
   (ScsiPortWritePortUchar((PUCHAR)((Address) + IDE_REG_DEV_CNTRL), (Data)))
+
+//    IDE_DEVICE_EXTENSION
+//
+//  DESCRIPTION:
+//    Extension to be placed in each device object
+//
+//  ACCESS:
+//    Allocated from NON-PAGED POOL
+//    Available at any IRQL
+//
+
+typedef struct _IDE_DEVICE_EXTENSION
+{
+  PDEVICE_OBJECT         DeviceObject;
+  PCONTROLLER_OBJECT     ControllerObject;
+  struct _IDE_DEVICE_EXTESION *DiskExtension;
+  PARTITION_INFORMATION  PartitionInfo;
+  int                    UnitNumber;
+  BOOLEAN                LBASupported;
+  BOOLEAN                DMASupported;
+  int                    BytesPerSector;
+  int                    LogicalHeads;
+  int                    LogicalCylinders;
+  int                    SectorsPerLogCyl;
+  int                    SectorsPerLogTrk;
+  int                    Offset;
+  int                    Size;
+
+  int                    Operation;
+  ULONG                  BytesRequested;
+  ULONG                  BytesToTransfer;
+  ULONG                  BytesRemaining;
+  ULONG                  StartingSector;
+  int                    SectorsTransferred;
+  BYTE                  *TargetAddress;
+
+} IDE_DEVICE_EXTENSION, *PIDE_DEVICE_EXTENSION;
+
+
+//    IDE_TIMER_STATES
+//
+//  DESCRIPTION:
+//    An enumeration containing the states in the timer DFA
+//
+
+typedef enum _IDE_TIMER_STATES {
+  IDETimerIdle,
+  IDETimerCmdWait,
+  IDETimerResetWaitForBusyNegate,
+  IDETimerResetWaitForDrdyAssert
+} IDE_TIMER_STATES;
+
+//    IDE_CONTROLLER_EXTENSION
+//
+//  DESCRIPTION:
+//    Driver-defined structure used to hold miscellaneous controller information.
+//
+//  ACCESS:
+//    Allocated from NON-PAGED POOL
+//    Available at any IRQL
+//
+
+typedef struct _IDE_CONTROLLER_EXTENSION
+{
+  KSPIN_LOCK             SpinLock;
+  int                    Number;
+  int                    Vector;
+  int                    CommandPortBase;
+  int                    ControlPortBase;
+  BOOLEAN                DMASupported;
+  BOOLEAN                ControllerInterruptBug;
+  PKINTERRUPT            Interrupt;
+
+  BOOLEAN                OperationInProgress;
+  BYTE                   DeviceStatus;
+  PIDE_DEVICE_EXTENSION  DeviceForOperation;
+  PIRP                   CurrentIrp;
+  int                    Retries;
+
+  IDE_TIMER_STATES       TimerState;
+  LONG                   TimerCount;
+  PDEVICE_OBJECT         TimerDevice;
+
+} IDE_CONTROLLER_EXTENSION, *PIDE_CONTROLLER_EXTENSION;
 
 
 
@@ -174,7 +227,7 @@ typedef struct _IDE_DRIVE_IDENTIFY
   char   FirmwareRev[8];      /*23*/
   char   ModelNumber[40];     /*27*/
   WORD  RWMultImplemented;   /*47*/
-  WORD  DWordIo;	     /*48*/
+  WORD  Reserved48;          /*48*/
   WORD  Capabilities;        /*49*/
 #define IDE_DRID_STBY_SUPPORTED   0x2000
 #define IDE_DRID_IORDY_SUPPORTED  0x0800
@@ -190,67 +243,13 @@ typedef struct _IDE_DRIVE_IDENTIFY
   WORD  TMSectorsPerTrk;     /*56*/
   WORD  TMCapacityLo;        /*57*/
   WORD  TMCapacityHi;        /*58*/
-  WORD  RWMultCurrent;       /*59*/
+  WORD  Reserved59;          /*59*/
   WORD  TMSectorCountLo;     /*60*/
   WORD  TMSectorCountHi;     /*61*/
-  WORD  DmaModes;            /*62*/
-  WORD  MultiDmaModes;       /*63*/
-  WORD  Reserved64[5];       /*64*/
-  WORD  Reserved69[2];       /*69*/
-  WORD  Reserved71[4];       /*71*/
-  WORD  MaxQueueDepth;       /*75*/
-  WORD  Reserved76[4];       /*76*/
-  WORD  MajorRevision;       /*80*/
-  WORD  MinorRevision;       /*81*/
-  WORD  SupportedFeatures82; /*82*/
-  WORD  SupportedFeatures83; /*83*/
-  WORD  SupportedFeatures84; /*84*/
-  WORD  EnabledFeatures85;   /*85*/
-  WORD  EnabledFeatures86;   /*86*/
-  WORD  EnabledFeatures87;   /*87*/
-  WORD  UltraDmaModes;       /*88*/
-  WORD  Reserved89[11];      /*89*/
-  WORD  Max48BitAddress[4];  /*100*/
-  WORD  Reserved104[151];    /*104*/
+  WORD  Reserved62[193];     /*62*/
   WORD  Checksum;            /*255*/
 } IDE_DRIVE_IDENTIFY, *PIDE_DRIVE_IDENTIFY;
 
-
-/* Special ATAPI commands */
-
-#define ATAPI_FORMAT_UNIT	0x24
-#define ATAPI_MODE_SELECT	0x55
-#define ATAPI_MODE_SENSE	0x5A
-
-
-/* Special ATAPI_MODE_SELECT (12 bytes) command block */
-
-typedef struct _ATAPI_MODE_SELECT12
-{
-  UCHAR OperationCode;
-  UCHAR Reserved1:4;
-  UCHAR PFBit:1;
-  UCHAR Reserved2:3;
-  UCHAR Reserved3[5];
-  UCHAR ParameterListLengthMsb;
-  UCHAR ParameterListLengthLsb;
-  UCHAR Reserved4[3];
-} ATAPI_MODE_SELECT12, *PATAPI_MODE_SELECT12;
-
-
-/* Special ATAPI_MODE_SENSE (12 bytes) command block */
-
-typedef struct _ATAPI_MODE_SENSE12
-{
-  UCHAR OperationCode;
-  UCHAR Reserved1;
-  UCHAR PageCode:6;
-  UCHAR Pc:2;
-  UCHAR Reserved2[4];
-  UCHAR ParameterListLengthMsb;
-  UCHAR ParameterListLengthLsb;
-  UCHAR Reserved3[3];
-} ATAPI_MODE_SENSE12, *PATAPI_MODE_SENSE12;
 
 #ifdef __cplusplus
 }

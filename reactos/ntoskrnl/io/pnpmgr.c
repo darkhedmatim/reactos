@@ -1,8 +1,8 @@
-/* $Id: pnpmgr.c,v 1.52 2004/11/19 21:31:02 navaraf Exp $
+/* $Id: pnpmgr.c,v 1.4 2001/09/16 13:19:32 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
- * FILE:           ntoskrnl/io/pnpmgr/pnpmgr.c
+ * FILE:           ntoskrnl/io/pnpmgr.c
  * PURPOSE:        Initializes the PnP manager
  * PROGRAMMER:     Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -11,8 +11,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
-#include <ole32/guiddef.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/po.h>
+#include <internal/ldr.h>
+#include <internal/registry.h>
+#include <internal/module.h>
 
 #define NDEBUG
 #include <internal/debug.h>
@@ -28,28 +32,76 @@ PDRIVER_OBJECT IopRootDriverObject;
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
-IoInvalidateDeviceRelations(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN DEVICE_RELATION_TYPE Type)
+IoInitializeRemoveLockEx(
+  IN PIO_REMOVE_LOCK Lock,
+  IN ULONG AllocateTag,
+  IN ULONG MaxLockedMinutes,
+  IN ULONG HighWatermark,
+  IN ULONG RemlockSize)
 {
-  CHECKPOINT1;
 }
 
-PDEVICE_NODE FASTCALL
-IopGetDeviceNode(
-  PDEVICE_OBJECT DeviceObject)
+NTSTATUS
+STDCALL
+IoAcquireRemoveLockEx(
+  IN PIO_REMOVE_LOCK RemoveLock,
+  IN OPTIONAL PVOID Tag,
+  IN LPCSTR File,
+  IN ULONG Line,
+  IN ULONG RemlockSize)
 {
-  return DeviceObject->DeviceObjectExtension->DeviceNode;
+  return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
+VOID
+STDCALL
+IoReleaseRemoveLockEx(
+  IN PIO_REMOVE_LOCK RemoveLock,
+  IN PVOID Tag,
+  IN ULONG RemlockSize)
+{
+}
+
+VOID
+STDCALL
+IoReleaseRemoveLockAndWaitEx(
+  IN PIO_REMOVE_LOCK RemoveLock,
+  IN PVOID Tag,
+  IN ULONG RemlockSize)
+{
+}
+
+VOID
+STDCALL
+IoAdjustPagingPathCount(
+  IN PLONG Count,
+  IN BOOLEAN Increment)
+{
+}
+
+NTSTATUS
+STDCALL
+IoGetDeviceInterfaceAlias(
+  IN PUNICODE_STRING SymbolicLinkName,
+  IN CONST GUID *AliasInterfaceClassGuid,
+  OUT PUNICODE_STRING AliasSymbolicLinkName)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoGetDeviceInterfaces(
+  IN CONST GUID *InterfaceClassGuid,
+  IN PDEVICE_OBJECT PhysicalDeviceObject  OPTIONAL,
+  IN ULONG Flags,
+  OUT PWSTR *SymbolicLinkList)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
 NTSTATUS
 STDCALL
 IoGetDeviceProperty(
@@ -59,216 +111,17 @@ IoGetDeviceProperty(
   OUT PVOID PropertyBuffer,
   OUT PULONG ResultLength)
 {
-  PDEVICE_NODE DeviceNode = IopGetDeviceNode(DeviceObject);
-  ULONG Length;
-  PVOID Data;
-  PWSTR Ptr;
-
-  DPRINT("IoGetDeviceProperty(%x %d)\n", DeviceObject, DeviceProperty);
-
-  if (DeviceNode == NULL)
-    return STATUS_INVALID_DEVICE_REQUEST;
-
-  switch (DeviceProperty)
-  {
-    case DevicePropertyBusNumber:
-      Length = sizeof(ULONG);
-      Data = &DeviceNode->ChildBusNumber;
-      break;
-
-    /* Complete, untested */
-    case DevicePropertyBusTypeGuid:
-      *ResultLength = 39 * sizeof(WCHAR);
-      if (BufferLength < (39 * sizeof(WCHAR)))
-        return STATUS_BUFFER_TOO_SMALL;
-      swprintf((PWSTR)PropertyBuffer,
-        L"{%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-        DeviceNode->BusTypeGuid.Data1,
-        DeviceNode->BusTypeGuid.Data2,
-        DeviceNode->BusTypeGuid.Data3,
-        DeviceNode->BusTypeGuid.Data4[0],
-        DeviceNode->BusTypeGuid.Data4[1],
-        DeviceNode->BusTypeGuid.Data4[2],
-        DeviceNode->BusTypeGuid.Data4[3],
-        DeviceNode->BusTypeGuid.Data4[4],
-        DeviceNode->BusTypeGuid.Data4[5],
-        DeviceNode->BusTypeGuid.Data4[6],
-        DeviceNode->BusTypeGuid.Data4[7]);
-      return STATUS_SUCCESS;
-
-    case DevicePropertyLegacyBusType:
-      Length = sizeof(INTERFACE_TYPE);
-      Data = &DeviceNode->ChildInterfaceType;
-      break;
-
-    case DevicePropertyAddress:
-      Length = sizeof(ULONG);
-      Data = &DeviceNode->Address;
-      break;
-
-//    case DevicePropertyUINumber:
-//      if (DeviceNode->CapabilityFlags == NULL)
-//         return STATUS_INVALID_DEVICE_REQUEST;
-//      Length = sizeof(ULONG);
-//      Data = &DeviceNode->CapabilityFlags->UINumber;
-//      break;
-
-    case DevicePropertyClassName:
-    case DevicePropertyClassGuid:
-    case DevicePropertyDriverKeyName:
-    case DevicePropertyManufacturer:
-    case DevicePropertyFriendlyName:
-    case DevicePropertyHardwareID:
-    case DevicePropertyCompatibleIDs:
-    case DevicePropertyDeviceDescription:
-    case DevicePropertyLocationInformation:
-    case DevicePropertyUINumber:
-      {
-        LPWSTR RegistryPropertyName, KeyNameBuffer;
-        UNICODE_STRING KeyName, ValueName;
-        OBJECT_ATTRIBUTES ObjectAttributes;
-        KEY_VALUE_PARTIAL_INFORMATION *ValueInformation;
-        ULONG ValueInformationLength;
-        HANDLE KeyHandle;
-        NTSTATUS Status;
-
-        switch (DeviceProperty)
-        {
-          case DevicePropertyClassName:
-            RegistryPropertyName = L"Class"; break;
-          case DevicePropertyClassGuid:
-            RegistryPropertyName = L"ClassGuid"; break;
-          case DevicePropertyDriverKeyName:
-            RegistryPropertyName = L"Driver"; break;
-          case DevicePropertyManufacturer:
-            RegistryPropertyName = L"Mfg"; break;
-          case DevicePropertyFriendlyName:
-            RegistryPropertyName = L"FriendlyName"; break;
-          case DevicePropertyHardwareID:
-            RegistryPropertyName = L"HardwareID"; break;
-          case DevicePropertyCompatibleIDs:
-            RegistryPropertyName = L"CompatibleIDs"; break;
-          case DevicePropertyDeviceDescription:
-            RegistryPropertyName = L"DeviceDesc"; break;
-          case DevicePropertyLocationInformation:
-            RegistryPropertyName = L"LocationInformation"; break;
-          case DevicePropertyUINumber:
-            RegistryPropertyName = L"UINumber"; break;
-          default:
-            RegistryPropertyName = NULL; break;
-        }
-
-        KeyNameBuffer = ExAllocatePool(PagedPool,
-          (49 * sizeof(WCHAR)) + DeviceNode->InstancePath.Length);
-	
-	DPRINT("KeyNameBuffer: %x, value %S\n", 
-		KeyNameBuffer, RegistryPropertyName);
-
-        if (KeyNameBuffer == NULL)
-          return STATUS_INSUFFICIENT_RESOURCES;
-
-        wcscpy(KeyNameBuffer, L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
-        wcscat(KeyNameBuffer, DeviceNode->InstancePath.Buffer);
-        RtlInitUnicodeString(&KeyName, KeyNameBuffer);
-        InitializeObjectAttributes(&ObjectAttributes, &KeyName,
-                                   OBJ_CASE_INSENSITIVE, NULL, NULL);
-
-        Status = ZwOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
-        ExFreePool(KeyNameBuffer);
-        if (!NT_SUCCESS(Status))
-          return Status;
-
-        RtlInitUnicodeString(&ValueName, RegistryPropertyName);
-        ValueInformationLength = FIELD_OFFSET(KEY_VALUE_PARTIAL_INFORMATION,
-                                 Data[0]) + BufferLength;
-        ValueInformation = ExAllocatePool(PagedPool, ValueInformationLength);
-        if (ValueInformation == NULL)
-        {
-          ZwClose(KeyHandle);
-          return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        Status = ZwQueryValueKey(KeyHandle, &ValueName,
-                                 KeyValuePartialInformation, ValueInformation,
-                                 ValueInformationLength,
-                                 &ValueInformationLength);
-        *ResultLength = ValueInformation->DataLength;
-        ZwClose(KeyHandle);
-
-        if (ValueInformation->DataLength > BufferLength)
-          Status = STATUS_BUFFER_TOO_SMALL;
-
-        if (!NT_SUCCESS(Status))
-        {
-          ExFreePool(ValueInformation);
-          return Status;
-        }
-
-        /* FIXME: Verify the value (NULL-terminated, correct format). */
-
-        RtlCopyMemory(PropertyBuffer, ValueInformation->Data,
-                      ValueInformation->DataLength);
-        ExFreePool(ValueInformation);
-
-        return STATUS_SUCCESS;
-      }
-
-    case DevicePropertyBootConfiguration:
-      Length = 0;
-      if (DeviceNode->BootResources->Count != 0)
-      {
-	Length = CM_RESOURCE_LIST_SIZE(DeviceNode->BootResources);
-      }
-      Data = &DeviceNode->BootResources;
-      break;
-
-    /* FIXME: use a translated boot configuration instead */
-    case DevicePropertyBootConfigurationTranslated:
-      Length = 0;
-      if (DeviceNode->BootResources->Count != 0)
-      {
-	Length = CM_RESOURCE_LIST_SIZE(DeviceNode->BootResources);
-      }
-      Data = &DeviceNode->BootResources;
-      break;
-
-    case DevicePropertyEnumeratorName:
-      Ptr = wcschr(DeviceNode->InstancePath.Buffer, L'\\');
-      if (Ptr != NULL)
-      {
-	Length = (ULONG)((ULONG_PTR)Ptr - (ULONG_PTR)DeviceNode->InstancePath.Buffer) + sizeof(WCHAR);
-      }
-      else
-      {
-	Length = 0;
-	Data = NULL;
-      }
-
-    case DevicePropertyPhysicalDeviceObjectName:
-      return STATUS_NOT_IMPLEMENTED;
-
-    default:
-      return STATUS_INVALID_PARAMETER_2;
-  }
-
-  *ResultLength = Length;
-  if (BufferLength < Length)
-    return STATUS_BUFFER_TOO_SMALL;
-  RtlCopyMemory(PropertyBuffer, Data, Length);
-
-  /* Terminate the string */
-  if (DeviceProperty == DevicePropertyEnumeratorName)
-  {
-    Ptr = (PWSTR)PropertyBuffer;
-    Ptr[(Length / sizeof(WCHAR)) - 1] = 0;
-  }
-
-  return STATUS_SUCCESS;
+  return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
+VOID
+STDCALL
+IoInvalidateDeviceRelations(
+  IN PDEVICE_OBJECT DeviceObject,
+  IN DEVICE_RELATION_TYPE Type)
+{
+}
+
 VOID
 STDCALL
 IoInvalidateDeviceState(
@@ -276,161 +129,123 @@ IoInvalidateDeviceState(
 {
 }
 
-/**
- * @name IoOpenDeviceRegistryKey
- *
- * Open a registry key unique for a specified driver or device instance.
- *
- * @param DeviceObject   Device to get the registry key for.
- * @param DevInstKeyType Type of the key to return.
- * @param DesiredAccess  Access mask (eg. KEY_READ | KEY_WRITE).
- * @param DevInstRegKey  Handle to the opened registry key on 
- *                       successful return.
- *
- * @return Status.
- *
- * @implemented
- */
+NTSTATUS
+STDCALL
+IoOpenDeviceInterfaceRegistryKey(
+  IN PUNICODE_STRING SymbolicLinkName,
+  IN ACCESS_MASK DesiredAccess,
+  OUT PHANDLE DeviceInterfaceKey)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
 NTSTATUS
 STDCALL
 IoOpenDeviceRegistryKey(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN ULONG DevInstKeyType,
-   IN ACCESS_MASK DesiredAccess,
-   OUT PHANDLE DevInstRegKey)
+  IN PDEVICE_OBJECT DeviceObject,
+  IN ULONG DevInstKeyType,
+  IN ACCESS_MASK DesiredAccess,
+  OUT PHANDLE DevInstRegKey)
 {
-   static WCHAR RootKeyName[] =
-      L"\\Registry\\Machine\\System\\CurrentControlSet\\";
-   static WCHAR ProfileKeyName[] =
-      L"Hardware Profiles\\Current\\System\\CurrentControlSet\\";
-   static WCHAR ClassKeyName[] = L"Control\\Class\\";
-   static WCHAR EnumKeyName[] = L"Enum\\";
-   static WCHAR DeviceParametersKeyName[] = L"Device Parameters\\";
-   ULONG KeyNameLength;
-   LPWSTR KeyNameBuffer;
-   UNICODE_STRING KeyName;
-   ULONG DriverKeyLength;
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   PDEVICE_NODE DeviceNode = NULL;
-   NTSTATUS Status;
-
-   if ((DevInstKeyType & (PLUGPLAY_REGKEY_DEVICE | PLUGPLAY_REGKEY_DRIVER)) == 0)
-      return STATUS_INVALID_PARAMETER;
-
-   /*
-    * Calculate the length of the base key name. This is the full
-    * name for driver key or the name excluding "Device Parameters"
-    * subkey for device key.
-    */
-
-   KeyNameLength = sizeof(RootKeyName);
-   if (DevInstKeyType & PLUGPLAY_REGKEY_CURRENT_HWPROFILE)
-      KeyNameLength += sizeof(ProfileKeyName) - sizeof(UNICODE_NULL);
-   if (DevInstKeyType & PLUGPLAY_REGKEY_DRIVER)
-   {
-      KeyNameLength += sizeof(ClassKeyName) - sizeof(UNICODE_NULL);
-      Status = IoGetDeviceProperty(DeviceObject, DevicePropertyDriverKeyName,
-                                   0, NULL, &DriverKeyLength);
-      if (Status != STATUS_BUFFER_TOO_SMALL)
-         return Status;
-      KeyNameLength += DriverKeyLength;
-   }
-   else
-   {
-      DeviceNode = IopGetDeviceNode(DeviceObject);
-      KeyNameLength += sizeof(EnumKeyName) - sizeof(UNICODE_NULL) +
-                       DeviceNode->InstancePath.Length;
-   }
-
-   /*
-    * Now allocate the buffer for the key name...
-    */
-
-   KeyNameBuffer = ExAllocatePool(PagedPool, KeyNameLength);
-   if (KeyNameBuffer == NULL)
-      return STATUS_INSUFFICIENT_RESOURCES;
-
-   KeyName.Length = 0;
-   KeyName.MaximumLength = KeyNameLength;
-   KeyName.Buffer = KeyNameBuffer;
-
-   /*
-    * ...and build the key name.
-    */
-
-   KeyName.Length += sizeof(RootKeyName) - sizeof(UNICODE_NULL);
-   RtlCopyMemory(KeyNameBuffer, RootKeyName, KeyName.Length);
-
-   if (DevInstKeyType & PLUGPLAY_REGKEY_CURRENT_HWPROFILE)
-      RtlAppendUnicodeToString(&KeyName, ProfileKeyName);
-  
-   if (DevInstKeyType & PLUGPLAY_REGKEY_DRIVER)
-   {
-      RtlAppendUnicodeToString(&KeyName, ClassKeyName);
-      Status = IoGetDeviceProperty(DeviceObject, DevicePropertyDriverKeyName,
-                                   DriverKeyLength, KeyNameBuffer +
-                                   (KeyName.Length / sizeof(WCHAR)),
-                                   &DriverKeyLength);
-      if (!NT_SUCCESS(Status))
-      {
-         ExFreePool(KeyNameBuffer);
-         return Status;
-      }
-      KeyName.Length += DriverKeyLength - sizeof(UNICODE_NULL);
-   }
-   else
-   {
-      RtlAppendUnicodeToString(&KeyName, EnumKeyName);
-      Status = RtlAppendUnicodeStringToString(&KeyName, &DeviceNode->InstancePath);
-      if (DeviceNode->InstancePath.Length == 0)
-      {
-         ExFreePool(KeyNameBuffer);
-         return Status;
-      }
-   }
-
-   /*
-    * Open the base key.
-    */
-
-   InitializeObjectAttributes(&ObjectAttributes, &KeyName,
-                              OBJ_CASE_INSENSITIVE, NULL, NULL);
-   Status = ZwOpenKey(DevInstRegKey, DesiredAccess, &ObjectAttributes);
-   ExFreePool(KeyNameBuffer);
-
-   /*
-    * For driver key we're done now. Also if the base key doesn't
-    * exist we can bail out with error...
-    */
-
-   if ((DevInstKeyType & PLUGPLAY_REGKEY_DRIVER) || !NT_SUCCESS(Status))
-      return Status;
-
-   /*
-    * Let's go further. For device key we must open "Device Parameters"
-    * subkey and create it if it doesn't exist yet.
-    */
-
-   RtlInitUnicodeString(&KeyName, DeviceParametersKeyName);
-   InitializeObjectAttributes(&ObjectAttributes, &KeyName,
-                              OBJ_CASE_INSENSITIVE, *DevInstRegKey, NULL);
-   Status = ZwCreateKey(DevInstRegKey, DesiredAccess, &ObjectAttributes,
-                        0, NULL, REG_OPTION_NON_VOLATILE, NULL);
-   ZwClose(ObjectAttributes.RootDirectory);
-
-   return Status;
+  return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
+NTSTATUS
+STDCALL
+IoRegisterDeviceInterface(
+  IN PDEVICE_OBJECT PhysicalDeviceObject,
+  IN CONST GUID *InterfaceClassGuid,
+  IN PUNICODE_STRING ReferenceString  OPTIONAL,
+  OUT PUNICODE_STRING SymbolicLinkName)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoRegisterPlugPlayNotification(
+  IN IO_NOTIFICATION_EVENT_CATEGORY EventCategory,
+  IN ULONG EventCategoryFlags,
+  IN PVOID EventCategoryData  OPTIONAL,
+  IN PDRIVER_OBJECT DriverObject,
+  IN PDRIVER_NOTIFICATION_CALLBACK_ROUTINE CallbackRoutine,
+  IN PVOID Context,
+  OUT PVOID *NotificationEntry)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoReportDetectedDevice(
+  IN PDRIVER_OBJECT DriverObject,
+  IN INTERFACE_TYPE LegacyBusType,
+  IN ULONG BusNumber,
+  IN ULONG SlotNumber,
+  IN PCM_RESOURCE_LIST ResourceList,
+  IN PIO_RESOURCE_REQUIREMENTS_LIST ResourceRequirements  OPTIONAL,
+  IN BOOLEAN ResourceAssigned,
+  IN OUT PDEVICE_OBJECT *DeviceObject)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoReportResourceForDetection(
+  IN PDRIVER_OBJECT DriverObject,
+  IN PCM_RESOURCE_LIST DriverList   OPTIONAL,
+  IN ULONG DriverListSize    OPTIONAL,
+  IN PDEVICE_OBJECT DeviceObject    OPTIONAL,
+  IN PCM_RESOURCE_LIST DeviceList   OPTIONAL,
+  IN ULONG DeviceListSize   OPTIONAL,
+  OUT PBOOLEAN ConflictDetected)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoReportTargetDeviceChange(
+  IN PDEVICE_OBJECT PhysicalDeviceObject,
+  IN PVOID NotificationStructure)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoReportTargetDeviceChangeAsynchronous(
+  IN PDEVICE_OBJECT PhysicalDeviceObject,
+  IN PVOID NotificationStructure,
+  IN PDEVICE_CHANGE_COMPLETE_CALLBACK Callback  OPTIONAL,
+  IN PVOID Context  OPTIONAL)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
 VOID
 STDCALL
 IoRequestDeviceEject(
-    IN PDEVICE_OBJECT PhysicalDeviceObject
-    )
+  IN PDEVICE_OBJECT PhysicalDeviceObject)
 {
-	UNIMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoSetDeviceInterfaceState(
+  IN PUNICODE_STRING SymbolicLinkName,
+  IN BOOLEAN Enable)
+{
+  return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+STDCALL
+IoUnregisterPlugPlayNotification(
+  IN PVOID NotificationEntry)
+{
+  return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -471,16 +286,13 @@ IopGetSystemPowerDeviceObject(PDEVICE_OBJECT *DeviceObject)
 {
   KIRQL OldIrql;
 
-  if (PopSystemPowerDeviceNode)
-  {
-    KeAcquireSpinLock(&IopDeviceTreeLock, &OldIrql);
-    *DeviceObject = PopSystemPowerDeviceNode->PhysicalDeviceObject;
-    KeReleaseSpinLock(&IopDeviceTreeLock, OldIrql);
+  assert(PopSystemPowerDeviceNode);
 
-    return STATUS_SUCCESS;
-  }
+  KeAcquireSpinLock(&IopDeviceTreeLock, &OldIrql);
+  *DeviceObject = PopSystemPowerDeviceNode->Pdo;
+  KeReleaseSpinLock(&IopDeviceTreeLock, OldIrql);
 
-  return STATUS_UNSUCCESSFUL;
+  return STATUS_SUCCESS;
 }
 
 /**********************************************************************
@@ -531,19 +343,14 @@ IopCreateDeviceNode(PDEVICE_NODE ParentNode,
       IopDeviceNodeSetFlag(Node, DNF_LEGACY_DRIVER);
     }
 
-  Node->PhysicalDeviceObject = PhysicalDeviceObject;
-
-  PhysicalDeviceObject->DeviceObjectExtension->DeviceNode = Node;
+  Node->Pdo = PhysicalDeviceObject;
 
   if (ParentNode)
     {
       KeAcquireSpinLock(&IopDeviceTreeLock, &OldIrql);
       Node->Parent = ParentNode;
       Node->NextSibling = ParentNode->Child;
-      if (ParentNode->Child != NULL)
-	{
-	  ParentNode->Child->PrevSibling = Node;
-	}
+      ParentNode->Child->PrevSibling = Node;
       ParentNode->Child = Node;
       KeReleaseSpinLock(&IopDeviceTreeLock, OldIrql);
     }
@@ -559,32 +366,32 @@ IopFreeDeviceNode(PDEVICE_NODE DeviceNode)
   KIRQL OldIrql;
 
   /* All children must be deleted before a parent is deleted */
-  ASSERT(!DeviceNode->Child);
+  assert(!DeviceNode->Child);
 
   KeAcquireSpinLock(&IopDeviceTreeLock, &OldIrql);
 
-  ASSERT(DeviceNode->PhysicalDeviceObject);
+  assert(DeviceNode->Pdo);
 
-  ObDereferenceObject(DeviceNode->PhysicalDeviceObject);
+  ObDereferenceObject(DeviceNode->Pdo);
 
   /* Unlink from parent if it exists */
 
   if ((DeviceNode->Parent) && (DeviceNode->Parent->Child == DeviceNode))
-  {
-    DeviceNode->Parent->Child = DeviceNode->NextSibling;
-  }
+    {
+      DeviceNode->Parent->Child = DeviceNode->NextSibling;
+    }
 
   /* Unlink from sibling list */
 
   if (DeviceNode->PrevSibling)
-  {
-    DeviceNode->PrevSibling->NextSibling = DeviceNode->NextSibling;
-  }
+    {
+      DeviceNode->PrevSibling->NextSibling = DeviceNode->NextSibling;
+    }
 
   if (DeviceNode->NextSibling)
-  {
-    DeviceNode->NextSibling->PrevSibling = DeviceNode->PrevSibling;
-  }
+    {
+  DeviceNode->NextSibling->PrevSibling = DeviceNode->PrevSibling;
+    }
 
   KeReleaseSpinLock(&IopDeviceTreeLock, OldIrql);
 
@@ -592,25 +399,42 @@ IopFreeDeviceNode(PDEVICE_NODE DeviceNode)
 
   RtlFreeUnicodeString(&DeviceNode->ServiceName);
 
-  if (DeviceNode->ResourceList)
-  {
-    ExFreePool(DeviceNode->ResourceList);
-  }
+  if (DeviceNode->CapabilityFlags)
+    {
+  ExFreePool(DeviceNode->CapabilityFlags);
+    }
 
-  if (DeviceNode->ResourceListTranslated)
-  {
-    ExFreePool(DeviceNode->ResourceListTranslated);
-  }
+  if (DeviceNode->CmResourceList)
+    {
+  ExFreePool(DeviceNode->CmResourceList);
+    }
 
-  if (DeviceNode->ResourceRequirements)
-  {
-    ExFreePool(DeviceNode->ResourceRequirements);
-  }
+  if (DeviceNode->BootResourcesList)
+    {
+  ExFreePool(DeviceNode->BootResourcesList);
+    }
 
-  if (DeviceNode->BootResources)
-  {
-    ExFreePool(DeviceNode->BootResources);
-  }
+  if (DeviceNode->ResourceRequirementsList)
+    {
+  ExFreePool(DeviceNode->ResourceRequirementsList);
+    }
+
+  RtlFreeUnicodeString(&DeviceNode->DeviceID);
+
+  RtlFreeUnicodeString(&DeviceNode->InstanceID);
+
+  RtlFreeUnicodeString(&DeviceNode->HardwareIDs);
+
+  RtlFreeUnicodeString(&DeviceNode->CompatibleIDs);
+
+  RtlFreeUnicodeString(&DeviceNode->DeviceText);
+
+  RtlFreeUnicodeString(&DeviceNode->DeviceTextLocation);
+
+  if (DeviceNode->BusInformation)
+    {
+  ExFreePool(DeviceNode->BusInformation);
+    }
 
   ExFreePool(DeviceNode);
 
@@ -635,22 +459,22 @@ IopInitiatePnpIrp(
 
   KeInitializeEvent(
     &Event,
-    NotificationEvent,
-    FALSE);
+	  NotificationEvent,
+	  FALSE);
+
+  /* PNP IRPs are always initialized with a status code of
+     STATUS_NOT_IMPLEMENTED */
+  IoStatusBlock->Status = STATUS_NOT_IMPLEMENTED;
+  IoStatusBlock->Information = 0;
 
   Irp = IoBuildSynchronousFsdRequest(
     IRP_MJ_PNP,
     TopDeviceObject,
-    NULL,
-    0,
-    NULL,
-    &Event,
-    IoStatusBlock);
-
-  /* PNP IRPs are always initialized with a status code of
-     STATUS_NOT_IMPLEMENTED */
-  Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
-  Irp->IoStatus.Information = 0;
+	  NULL,
+	  0,
+	  NULL,
+	  &Event,
+	  IoStatusBlock);
 
   IrpSp = IoGetNextIrpStackLocation(Irp);
   IrpSp->MinorFunction = MinorFunction;
@@ -663,19 +487,65 @@ IopInitiatePnpIrp(
       sizeof(Stack->Parameters));
   }
 
-  Status = IoCallDriver(TopDeviceObject, Irp);
-  if (Status == STATUS_PENDING)
-    {
-      KeWaitForSingleObject(
+	Status = IoCallDriver(TopDeviceObject, Irp);
+	if (Status == STATUS_PENDING)
+	  {
+		  KeWaitForSingleObject(
         &Event,
         Executive,
-        KernelMode,
-        FALSE,
-        NULL);
+		    KernelMode,
+		    FALSE,
+		    NULL);
       Status = IoStatusBlock->Status;
     }
 
   ObDereferenceObject(TopDeviceObject);
+
+  return Status;
+}
+
+
+NTSTATUS
+IopQueryCapabilities(
+  PDEVICE_OBJECT Pdo,
+  PDEVICE_CAPABILITIES *Capabilities)
+{
+  IO_STATUS_BLOCK	IoStatusBlock;
+  PDEVICE_CAPABILITIES Caps;
+  IO_STACK_LOCATION Stack;
+  NTSTATUS Status;
+
+  DPRINT("Sending IRP_MN_QUERY_CAPABILITIES to device stack\n");
+
+  *Capabilities = NULL;
+
+  Caps = ExAllocatePool(PagedPool, sizeof(DEVICE_CAPABILITIES));
+  if (!Caps)
+  {
+    return STATUS_INSUFFICIENT_RESOURCES;
+  }
+
+  RtlZeroMemory(Caps, sizeof(DEVICE_CAPABILITIES));
+  Caps->Size = sizeof(DEVICE_CAPABILITIES);
+  Caps->Version = 1;
+  Caps->Address = -1;
+  Caps->UINumber = -1;
+
+  Stack.Parameters.DeviceCapabilities.Capabilities = Caps;
+
+  Status = IopInitiatePnpIrp(
+    Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_CAPABILITIES,
+    &Stack);
+  if (NT_SUCCESS(Status))
+  {
+    *Capabilities = Caps;
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+  }
 
   return Status;
 }
@@ -745,1052 +615,591 @@ IopTraverseDeviceTree(
 }
 
 
-static NTSTATUS
-IopCreateDeviceKeyPath(PWSTR Path,
-		       PHANDLE Handle)
+NTSTATUS
+IopActionInterrogateDeviceStack(
+  PDEVICE_NODE DeviceNode,
+  PVOID Context)
+/*
+ * FUNCTION: Retrieve information for all (direct) child nodes of a parent node
+ * ARGUMENTS:
+ *   DeviceNode = Pointer to device node
+ *   Context    = Pointer to parent node to retrieve child node information for
+ * NOTES:
+ *   We only return a status code indicating an error (STATUS_UNSUCCESSFUL)
+ *   when we reach a device node which is not a direct child of the device node
+ *   for which we retrieve information of child nodes for. Any errors that occur
+ *   is logged instead so that all child services have a chance of beeing
+ *   interrogated.
+ */
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  WCHAR KeyBuffer[MAX_PATH];
-  UNICODE_STRING KeyName;
-  HANDLE KeyHandle;
-  NTSTATUS Status;
-  PWCHAR Current;
-  PWCHAR Next;
-
-  *Handle = NULL;
-
-  if (_wcsnicmp(Path, L"\\Registry\\", 10) != 0)
-    {
-      return STATUS_INVALID_PARAMETER;
-    }
-
-  wcsncpy (KeyBuffer, Path, MAX_PATH-1);
-  RtlInitUnicodeString (&KeyName, KeyBuffer);
-
-  /* Skip \\Registry\\ */
-  Current = KeyName.Buffer;
-  Current = wcschr (Current, '\\') + 1;
-  Current = wcschr (Current, '\\') + 1;
-
-  while (TRUE)
-    {
-      Next = wcschr (Current, '\\');
-      if (Next == NULL)
-	{
-	  /* The end */
-	}
-      else
-	{
-	  *Next = 0;
-	}
-
-      InitializeObjectAttributes (&ObjectAttributes,
-				  &KeyName,
-				  OBJ_CASE_INSENSITIVE,
-				  NULL,
-				  NULL);
-
-      DPRINT("Create '%S'\n", KeyName.Buffer);
-
-      Status = NtCreateKey (&KeyHandle,
-			    KEY_ALL_ACCESS,
-			    &ObjectAttributes,
-			    0,
-			    NULL,
-			    0,
-			    NULL);
-      if (!NT_SUCCESS (Status))
-	{
-	  DPRINT ("NtCreateKey() failed with status %x\n", Status);
-	  return Status;
-	}
-
-      if (Next == NULL)
-	{
-	  *Handle = KeyHandle;
-	  return STATUS_SUCCESS;
-	}
-      else
-	{
-	  NtClose (KeyHandle);
-	  *Next = L'\\';
-	}
-
-      Current = Next + 1;
-    }
-
-  return STATUS_UNSUCCESSFUL;
-}
-
-
-static NTSTATUS
-IopSetDeviceInstanceData(HANDLE InstanceKey,
-			 PDEVICE_NODE DeviceNode)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING KeyName;
-  HANDLE LogConfKey;
-  ULONG ResCount;
-  ULONG ListSize;
+  IO_STATUS_BLOCK	IoStatusBlock;
+  PDEVICE_NODE ParentDeviceNode;
+  WCHAR InstancePath[MAX_PATH];
+  IO_STACK_LOCATION Stack;
   NTSTATUS Status;
 
-  DPRINT("IopSetDeviceInstanceData() called\n");
+  DPRINT("DeviceNode %x  Context %x\n", DeviceNode, Context);
 
-  /* Create the 'LogConf' key */
-  RtlInitUnicodeString(&KeyName,
-		       L"LogConf");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     InstanceKey,
-			     NULL);
-  Status = NtCreateKey(&LogConfKey,
-		       KEY_ALL_ACCESS,
-		       &ObjectAttributes,
-		       0,
-		       NULL,
-		       0,
-		       NULL);
-  if (NT_SUCCESS(Status))
+  DPRINT("PDO %x\n", DeviceNode->Pdo);
+
+
+  ParentDeviceNode = (PDEVICE_NODE)Context;
+
+  /* We are called for the parent too, but we don't need to do special
+     handling for this node */
+  if (DeviceNode == ParentDeviceNode)
   {
-    /* Set 'BootConfig' value */
-    if (DeviceNode->BootResources != NULL)
-    {
-      ResCount = DeviceNode->BootResources->Count;
-      if (ResCount != 0)
-      {
-	ListSize = CM_RESOURCE_LIST_SIZE(DeviceNode->BootResources);
-
-	RtlInitUnicodeString(&KeyName,
-			     L"BootConfig");
-	Status = NtSetValueKey(LogConfKey,
-			       &KeyName,
-			       0,
-			       REG_RESOURCE_LIST,
-			       &DeviceNode->BootResources,
-			       ListSize);
-      }
-    }
-
-    /* Set 'BasicConfigVector' value */
-    if (DeviceNode->ResourceRequirements != NULL &&
-	DeviceNode->ResourceRequirements->ListSize != 0)
-    {
-      RtlInitUnicodeString(&KeyName,
-			   L"BasicConfigVector");
-      Status = NtSetValueKey(LogConfKey,
-			     &KeyName,
-			     0,
-			     REG_RESOURCE_REQUIREMENTS_LIST,
-			     &DeviceNode->ResourceRequirements,
-			     DeviceNode->ResourceRequirements->ListSize);
-    }
-
-    NtClose(LogConfKey);
+    DPRINT("Success\n");
+    return STATUS_SUCCESS;
   }
 
-  DPRINT("IopSetDeviceInstanceData() done\n");
+  /* Make sure this device node is a direct child of the parent device node
+     that is given as an argument */
+  if (DeviceNode->Parent != ParentDeviceNode)
+  {
+    /* Stop the traversal immediately and indicate successful operation */
+    DPRINT("Stop\n");
+    return STATUS_UNSUCCESSFUL;
+  }
+
+
+  /* FIXME: For critical errors, cleanup and disable device, but always return STATUS_SUCCESS */
+
+
+  DPRINT("Sending IRP_MN_QUERY_ID.BusQueryDeviceID to device stack\n");
+
+  Stack.Parameters.QueryId.IdType = BusQueryDeviceID;
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_ID,
+    &Stack);
+  if (NT_SUCCESS(Status))
+  {
+    RtlInitUnicodeString(
+      &DeviceNode->DeviceID,
+      (LPWSTR)IoStatusBlock.Information);
+
+    /* FIXME: Check for valid characters, if there is invalid characters then bugcheck */
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    RtlInitUnicodeString(&DeviceNode->DeviceID, NULL);
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_ID.BusQueryInstanceID to device stack\n");
+
+  Stack.Parameters.QueryId.IdType = BusQueryInstanceID;
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_ID,
+    &Stack);
+  if (NT_SUCCESS(Status))
+  {
+    RtlInitUnicodeString(
+      &DeviceNode->InstanceID,
+      (LPWSTR)IoStatusBlock.Information);
+
+    /* FIXME: Check for valid characters, if there is invalid characters then bugcheck */
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    RtlInitUnicodeString(&DeviceNode->InstanceID, NULL);
+  }
+
+
+  /* FIXME: SEND IRP_QUERY_ID.BusQueryHardwareIDs */
+  /* FIXME: SEND IRP_QUERY_ID.BusQueryCompatibleIDs */
+
+
+  Status = IopQueryCapabilities(DeviceNode->Pdo, &DeviceNode->CapabilityFlags);
+  if (NT_SUCCESS(Status))
+  {
+  }
+  else
+  {
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_DEVICE_TEXT.DeviceTextDescription to device stack\n");
+
+  Stack.Parameters.QueryDeviceText.DeviceTextType = DeviceTextDescription;
+  Stack.Parameters.QueryDeviceText.LocaleId = 0; // FIXME
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_DEVICE_TEXT,
+    &Stack);
+  if (NT_SUCCESS(Status))
+  {
+    RtlInitUnicodeString(
+      &DeviceNode->DeviceText,
+      (LPWSTR)IoStatusBlock.Information);
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    RtlInitUnicodeString(&DeviceNode->DeviceText, NULL);
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_DEVICE_TEXT.DeviceTextLocation to device stack\n");
+
+  Stack.Parameters.QueryDeviceText.DeviceTextType = DeviceTextLocationInformation;
+  Stack.Parameters.QueryDeviceText.LocaleId = 0; // FIXME
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_DEVICE_TEXT,
+    &Stack);
+  if (NT_SUCCESS(Status))
+  {
+    RtlInitUnicodeString(
+      &DeviceNode->DeviceTextLocation,
+      (LPWSTR)IoStatusBlock.Information);
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    RtlInitUnicodeString(&DeviceNode->DeviceTextLocation, NULL);
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_BUS_INFORMATION to device stack\n");
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_BUS_INFORMATION,
+    NULL);
+  if (NT_SUCCESS(Status))
+  {
+    DeviceNode->BusInformation =
+      (PPNP_BUS_INFORMATION)IoStatusBlock.Information;
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    DeviceNode->BusInformation = NULL;
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_RESOURCES to device stack\n");
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_RESOURCES,
+    NULL);
+  if (NT_SUCCESS(Status))
+  {
+    DeviceNode->BootResourcesList =
+      (PCM_RESOURCE_LIST)IoStatusBlock.Information;
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    DeviceNode->BootResourcesList = NULL;
+  }
+
+
+  DPRINT("Sending IRP_MN_QUERY_RESOURCE_REQUIREMENTS to device stack\n");
+
+  Status = IopInitiatePnpIrp(
+    DeviceNode->Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_RESOURCE_REQUIREMENTS,
+    NULL);
+  if (NT_SUCCESS(Status))
+  {
+    DeviceNode->ResourceRequirementsList =
+      (PIO_RESOURCE_REQUIREMENTS_LIST)IoStatusBlock.Information;
+  }
+  else
+  {
+    DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
+    DeviceNode->ResourceRequirementsList = NULL;
+  }
+
+
+  /* Assemble the instance path for the device */
+
+  wcscpy(InstancePath, DeviceNode->DeviceID.Buffer);
+  wcscat(InstancePath, L"\\");
+  wcscat(InstancePath, DeviceNode->InstanceID.Buffer);
+
+  if (!DeviceNode->CapabilityFlags->UniqueID)
+  {
+    DPRINT("Instance ID is not unique\n");
+    /* FIXME: Add information from parent bus driver to InstancePath */
+  }
+
+  if (!IopCreateUnicodeString(&DeviceNode->InstancePath, InstancePath, PagedPool)) {
+    DPRINT("No resources\n");
+    /* FIXME: Cleanup and disable device */
+  }
+
+  DPRINT("InstancePath is %S\n", DeviceNode->InstancePath.Buffer);
 
   return STATUS_SUCCESS;
 }
 
 
-/*
- * IopActionInterrogateDeviceStack
- *
- * Retrieve information for all (direct) child nodes of a parent node.
- *
- * Parameters
- *    DeviceNode
- *       Pointer to device node.
- *    Context
- *       Pointer to parent node to retrieve child node information for.
- *
- * Remarks
- *    We only return a status code indicating an error (STATUS_UNSUCCESSFUL)
- *    when we reach a device node which is not a direct child of the device
- *    node for which we retrieve information of child nodes for. Any errors
- *    that occur is logged instead so that all child services have a chance
- *    of being interrogated.
- */
-
-NTSTATUS
-IopActionInterrogateDeviceStack(
-   PDEVICE_NODE DeviceNode,
-   PVOID Context)
-{
-   IO_STATUS_BLOCK IoStatusBlock;
-   PDEVICE_NODE ParentDeviceNode;
-   WCHAR InstancePath[MAX_PATH];
-   IO_STACK_LOCATION Stack;
-   NTSTATUS Status;
-   PWSTR KeyBuffer;
-   PWSTR Ptr;
-   USHORT Length;
-   USHORT TotalLength;
-   HANDLE InstanceKey = NULL;
-   UNICODE_STRING ValueName;
-   DEVICE_CAPABILITIES DeviceCapabilities;
-
-   DPRINT("IopActionInterrogateDeviceStack(%p, %p)\n", DeviceNode, Context);
-   DPRINT("PDO %x\n", DeviceNode->PhysicalDeviceObject);
-
-   ParentDeviceNode = (PDEVICE_NODE)Context;
-
-   /*
-    * We are called for the parent too, but we don't need to do special
-    * handling for this node
-    */
-
-   if (DeviceNode == ParentDeviceNode)
-   {
-      DPRINT("Success\n");
-      return STATUS_SUCCESS;
-   }
-
-   /*
-    * Make sure this device node is a direct child of the parent device node
-    * that is given as an argument
-    */
-
-   if (DeviceNode->Parent != ParentDeviceNode)
-   {
-      /* Stop the traversal immediately and indicate successful operation */
-      DPRINT("Stop\n");
-      return STATUS_UNSUCCESSFUL;
-   }
-
-   /*
-    * FIXME: For critical errors, cleanup and disable device, but always
-    * return STATUS_SUCCESS.
-    */
-
-   DPRINT("Sending IRP_MN_QUERY_ID.BusQueryDeviceID to device stack\n");
-
-   Stack.Parameters.QueryId.IdType = BusQueryDeviceID;
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_ID,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      /* Copy the device id string */
-      wcscpy(InstancePath, (PWSTR)IoStatusBlock.Information);
-
-      /*
-       * FIXME: Check for valid characters, if there is invalid characters
-       * then bugcheck.
-       */
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_ID.BusQueryInstanceID to device stack\n");
-
-   Stack.Parameters.QueryId.IdType = BusQueryInstanceID;
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_ID,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      /* Append the instance id string */
-      wcscat(InstancePath, L"\\");
-      wcscat(InstancePath, (PWSTR)IoStatusBlock.Information);
-
-      /*
-       * FIXME: Check for valid characters, if there is invalid characters
-       * then bugcheck
-       */
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   RtlZeroMemory(&DeviceCapabilities, sizeof(DEVICE_CAPABILITIES));
-   DeviceCapabilities.Size = sizeof(DEVICE_CAPABILITIES);
-   DeviceCapabilities.Version = 1;
-   DeviceCapabilities.Address = -1;
-   DeviceCapabilities.UINumber = -1;
-
-   Stack.Parameters.DeviceCapabilities.Capabilities = &DeviceCapabilities;
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_CAPABILITIES,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   DeviceNode->CapabilityFlags = *(PULONG)((ULONG_PTR)&DeviceCapabilities + 4);
-   DeviceNode->Address = DeviceCapabilities.Address;
-
-   if (!DeviceCapabilities.UniqueID)
-   {
-      DPRINT("Instance ID is not unique\n");
-      /* FIXME: Add information from parent bus driver to InstancePath */
-   }
-
-   if (!IopCreateUnicodeString(&DeviceNode->InstancePath, InstancePath, PagedPool))
-   {
-      DPRINT("No resources\n");
-      /* FIXME: Cleanup and disable device */
-   }
-
-   DPRINT("InstancePath is %S\n", DeviceNode->InstancePath.Buffer);
-
-   /*
-    * Create registry key for the instance id, if it doesn't exist yet
-    */
-   KeyBuffer = ExAllocatePool(
-      PagedPool,
-      (49 * sizeof(WCHAR)) + DeviceNode->InstancePath.Length);
-   wcscpy(KeyBuffer, L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
-   wcscat(KeyBuffer, DeviceNode->InstancePath.Buffer);
-   Status = IopCreateDeviceKeyPath(KeyBuffer,
-				   &InstanceKey);
-   ExFreePool(KeyBuffer);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed to create the instance key! (Status %lx)\n", Status);
-   }
-
-
-   {
-      /* Set 'Capabilities' value */
-      RtlInitUnicodeString(&ValueName,
-			   L"Capabilities");
-      Status = NtSetValueKey(InstanceKey,
-			     &ValueName,
-			     0,
-			     REG_DWORD,
-			     (PVOID)&DeviceNode->CapabilityFlags,
-			     sizeof(ULONG));
-
-      /* Set 'UINumber' value */
-      if (DeviceCapabilities.UINumber != (ULONG)-1)
-      {
-         RtlInitUnicodeString(&ValueName,
-			      L"UINumber");
-         Status = NtSetValueKey(InstanceKey,
-				&ValueName,
-				0,
-				REG_DWORD,
-				&DeviceCapabilities.UINumber,
-				sizeof(ULONG));
-      }
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_ID.BusQueryHardwareIDs to device stack\n");
-
-   Stack.Parameters.QueryId.IdType = BusQueryHardwareIDs;
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_ID,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      /*
-       * FIXME: Check for valid characters, if there is invalid characters
-       * then bugcheck.
-       */
-      TotalLength = 0;
-      Ptr = (PWSTR)IoStatusBlock.Information;
-      DPRINT("Hardware IDs:\n");
-      while (*Ptr)
-      {
-	DPRINT("  %S\n", Ptr);
-	Length = wcslen(Ptr) + 1;
-
-	Ptr += Length;
-	TotalLength += Length;
-      }
-      DPRINT("TotalLength: %hu\n", TotalLength);
-      DPRINT("\n");
-
-      RtlInitUnicodeString(&ValueName,
-			   L"HardwareID");
-      Status = NtSetValueKey(InstanceKey,
-			     &ValueName,
-			     0,
-			     REG_MULTI_SZ,
-			     (PVOID)IoStatusBlock.Information,
-			     (TotalLength + 1) * sizeof(WCHAR));
-      if (!NT_SUCCESS(Status))
-	{
-	   DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-	}
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_ID.BusQueryCompatibleIDs to device stack\n");
-
-   Stack.Parameters.QueryId.IdType = BusQueryCompatibleIDs;
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_ID,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      /*
-       * FIXME: Check for valid characters, if there is invalid characters
-       * then bugcheck.
-       */
-      TotalLength = 0;
-      Ptr = (PWSTR)IoStatusBlock.Information;
-      DPRINT("Compatible IDs:\n");
-      while (*Ptr)
-      {
-	DPRINT("  %S\n", Ptr);
-	Length = wcslen(Ptr) + 1;
-
-	Ptr += Length;
-	TotalLength += Length;
-      }
-      DPRINT("TotalLength: %hu\n", TotalLength);
-      DPRINT("\n");
-
-      RtlInitUnicodeString(&ValueName,
-			   L"CompatibleIDs");
-      Status = NtSetValueKey(InstanceKey,
-			     &ValueName,
-			     0,
-			     REG_MULTI_SZ,
-			     (PVOID)IoStatusBlock.Information,
-			     (TotalLength + 1) * sizeof(WCHAR));
-      if (!NT_SUCCESS(Status))
-	{
-	   DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-	}
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-
-   DPRINT("Sending IRP_MN_QUERY_DEVICE_TEXT.DeviceTextDescription to device stack\n");
-
-   Stack.Parameters.QueryDeviceText.DeviceTextType = DeviceTextDescription;
-   Stack.Parameters.QueryDeviceText.LocaleId = 0; /* FIXME */
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_DEVICE_TEXT,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      RtlInitUnicodeString(&ValueName,
-			   L"DeviceDesc");
-      Status = NtSetValueKey(InstanceKey,
-			     &ValueName,
-			     0,
-			     REG_SZ,
-			     (PVOID)IoStatusBlock.Information,
-			     (wcslen((PWSTR)IoStatusBlock.Information) + 1) * sizeof(WCHAR));
-      if (!NT_SUCCESS(Status))
-	{
-	   DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-	}
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_DEVICE_TEXT.DeviceTextLocation to device stack\n");
-
-   Stack.Parameters.QueryDeviceText.DeviceTextType = DeviceTextLocationInformation;
-   Stack.Parameters.QueryDeviceText.LocaleId = 0; // FIXME
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_DEVICE_TEXT,
-      &Stack);
-   if (NT_SUCCESS(Status))
-   {
-      DPRINT("LocationInformation: %S\n", (PWSTR)IoStatusBlock.Information);
-      RtlInitUnicodeString(&ValueName,
-			   L"LocationInformation");
-      Status = NtSetValueKey(InstanceKey,
-			     &ValueName,
-			     0,
-			     REG_SZ,
-			     (PVOID)IoStatusBlock.Information,
-			     (wcslen((PWSTR)IoStatusBlock.Information) + 1) * sizeof(WCHAR));
-      if (!NT_SUCCESS(Status))
-	{
-	   DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-	}
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_BUS_INFORMATION to device stack\n");
-
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_BUS_INFORMATION,
-      NULL);
-   if (NT_SUCCESS(Status))
-   {
-      PPNP_BUS_INFORMATION BusInformation =
-         (PPNP_BUS_INFORMATION)IoStatusBlock.Information;
-
-      DeviceNode->ChildBusNumber = BusInformation->BusNumber;
-      DeviceNode->ChildInterfaceType = BusInformation->LegacyBusType;
-      memcpy(&DeviceNode->BusTypeGuid,
-             &BusInformation->BusTypeGuid,
-             sizeof(GUID));
-      ExFreePool(BusInformation);
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-
-      DeviceNode->ChildBusNumber = -1;
-      DeviceNode->ChildInterfaceType = -1;
-      memset(&DeviceNode->BusTypeGuid,
-             0,
-             sizeof(GUID));
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_RESOURCES to device stack\n");
-
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_RESOURCES,
-      NULL);
-   if (NT_SUCCESS(Status))
-   {
-      DeviceNode->BootResources =
-         (PCM_RESOURCE_LIST)IoStatusBlock.Information;
-      DeviceNode->Flags |= DNF_HAS_BOOT_CONFIG;
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-      DeviceNode->BootResources = NULL;
-   }
-
-   DPRINT("Sending IRP_MN_QUERY_RESOURCE_REQUIREMENTS to device stack\n");
-
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_RESOURCE_REQUIREMENTS,
-      NULL);
-   if (NT_SUCCESS(Status))
-   {
-      DeviceNode->ResourceRequirements =
-         (PIO_RESOURCE_REQUIREMENTS_LIST)IoStatusBlock.Information;
-   }
-   else
-   {
-      DPRINT("IopInitiatePnpIrp() failed (Status %x)\n", Status);
-      DeviceNode->ResourceRequirements = NULL;
-   }
-
-
-   if (InstanceKey != NULL)
-   {
-      IopSetDeviceInstanceData(InstanceKey, DeviceNode);
-   }
-
-   NtClose(InstanceKey);
-
-   DeviceNode->Flags |= DNF_PROCESSED;
-
-   return STATUS_SUCCESS;
-}
-
-/*
- * IopActionConfigureChildServices
- *
- * Retrieve configuration for all (direct) child nodes of a parent node.
- *
- * Parameters
- *    DeviceNode
- *       Pointer to device node.
- *    Context
- *       Pointer to parent node to retrieve child node configuration for.
- *
- * Remarks
- *    We only return a status code indicating an error (STATUS_UNSUCCESSFUL)
- *    when we reach a device node which is not a direct child of the device
- *    node for which we configure child services for. Any errors that occur is
- *    logged instead so that all child services have a chance of beeing
- *    configured.
- */
-
 NTSTATUS
 IopActionConfigureChildServices(
   PDEVICE_NODE DeviceNode,
   PVOID Context)
+/*
+ * FUNCTION: Retrieve configuration for all (direct) child nodes of a parent node
+ * ARGUMENTS:
+ *   DeviceNode = Pointer to device node
+ *   Context    = Pointer to parent node to retrieve child node configuration for
+ * NOTES:
+ *   We only return a status code indicating an error (STATUS_UNSUCCESSFUL)
+ *   when we reach a device node which is not a direct child of the device
+ *   node for which we configure child services for. Any errors that occur is
+ *   logged instead so that all child services have a chance of beeing
+ *   configured.
+ */
 {
-   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
-   PDEVICE_NODE ParentDeviceNode;
-   PUNICODE_STRING Service;
-   NTSTATUS Status;
+  RTL_QUERY_REGISTRY_TABLE QueryTable[2];
+  PDEVICE_NODE ParentDeviceNode;
+  PUNICODE_STRING Service;
+  HANDLE KeyHandle;
+  NTSTATUS Status;
 
-   DPRINT("IopActionConfigureChildServices(%p, %p)\n", DeviceNode, Context);
+  DPRINT("DeviceNode %x  Context %x\n", DeviceNode, Context);
 
-   ParentDeviceNode = (PDEVICE_NODE)Context;
+  ParentDeviceNode = (PDEVICE_NODE)Context;
 
-   /*
-    * We are called for the parent too, but we don't need to do special
-    * handling for this node
-    */
-   if (DeviceNode == ParentDeviceNode)
-   {
-      DPRINT("Success\n");
-      return STATUS_SUCCESS;
-   }
+  /* We are called for the parent too, but we don't need to do special
+     handling for this node */
+  if (DeviceNode == ParentDeviceNode)
+  {
+    DPRINT("Success\n");
+    return STATUS_SUCCESS;
+  }
 
-   /*
-    * Make sure this device node is a direct child of the parent device node
-    * that is given as an argument
-    */
-   if (DeviceNode->Parent != ParentDeviceNode)
-   {
-      /* Stop the traversal immediately and indicate successful operation */
-      DPRINT("Stop\n");
-      return STATUS_UNSUCCESSFUL;
-   }
+  /* Make sure this device node is a direct child of the parent device node
+     that is given as an argument */
+  if (DeviceNode->Parent != ParentDeviceNode)
+  {
+    /* Stop the traversal immediately and indicate successful operation */
+    DPRINT("Stop\n");
+    return STATUS_UNSUCCESSFUL;
+  }
 
-   if (!IopDeviceNodeHasFlag(DeviceNode, DNF_DISABLED))
-   {
-      /*
-       * Retrieve configuration from Enum key
-       */
+  /* Retrieve configuration from Enum key */
 
-      Service = &DeviceNode->ServiceName;
+  Service = &DeviceNode->ServiceName;
 
-      RtlZeroMemory(QueryTable, sizeof(QueryTable));
-      RtlInitUnicodeString(Service, NULL);
+  Status = RtlpGetRegistryHandle(
+    RTL_REGISTRY_ENUM,
+	  DeviceNode->InstancePath.Buffer,
+		TRUE,
+		&KeyHandle);
+  if (!NT_SUCCESS(Status))
+  {
+    DPRINT("RtlpGetRegistryHandle() failed (Status %x)\n", Status);
+    return Status;
+  }
 
-      QueryTable[0].Name = L"Service";
-      QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
-      QueryTable[0].EntryContext = Service;
+  RtlZeroMemory(QueryTable, sizeof(QueryTable));
 
-      Status = RtlQueryRegistryValues(RTL_REGISTRY_ENUM,
-         DeviceNode->InstancePath.Buffer, QueryTable, NULL, NULL);
+  RtlInitUnicodeString(Service, NULL);
 
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT("RtlQueryRegistryValues() failed (Status %x)\n", Status);
-         /* FIXME: Log the error */
-         CPRINT("Could not retrieve configuration for device %S (Status %x)\n",
-            DeviceNode->InstancePath.Buffer, Status);
-         IopDeviceNodeSetFlag(DeviceNode, DNF_DISABLED);
-         return STATUS_SUCCESS;
-      }
+  QueryTable[0].Name = L"Service";
+  QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
+  QueryTable[0].EntryContext = Service;
 
-      if (Service->Buffer == NULL)
-      {
-         IopDeviceNodeSetFlag(DeviceNode, DNF_DISABLED);
-         return STATUS_SUCCESS;
-      }
+  Status = RtlQueryRegistryValues(
+    RTL_REGISTRY_HANDLE,
+	 	(PWSTR)KeyHandle,
+	 	QueryTable,
+	 	NULL,
+	 	NULL);
+  NtClose(KeyHandle);
 
-      DPRINT("Got Service %S\n", Service->Buffer);
-   }
+  DPRINT("RtlQueryRegistryValues() returned status %x\n", Status);
 
-   return STATUS_SUCCESS;
+  if (!NT_SUCCESS(Status))
+  {
+    /* FIXME: Log the error */
+    CPRINT("Could not retrieve configuration for device %S (Status %x)\n",
+      DeviceNode->InstancePath.Buffer, Status);
+    IopDeviceNodeSetFlag(DeviceNode, DNF_DISABLED);
+    return STATUS_SUCCESS;
+  }
+
+  DPRINT("Got Service %S\n", Service->Buffer);
+
+  return STATUS_SUCCESS;
 }
 
-/*
- * IopActionInitChildServices
- *
- * Initialize the service for all (direct) child nodes of a parent node
- *
- * Parameters
- *    DeviceNode
- *       Pointer to device node.
- *    Context
- *       Pointer to parent node to initialize child node services for.
- *    BootDrivers
- *       Load only driver marked as boot start.
- *
- * Remarks
- *    If the driver image for a service is not loaded and initialized
- *    it is done here too. We only return a status code indicating an
- *    error (STATUS_UNSUCCESSFUL) when we reach a device node which is
- *    not a direct child of the device node for which we initialize
- *    child services for. Any errors that occur is logged instead so
- *    that all child services have a chance of being initialized.
- */
 
 NTSTATUS
 IopActionInitChildServices(
-   PDEVICE_NODE DeviceNode,
-   PVOID Context,
-   BOOLEAN BootDrivers)
-{
-   PDEVICE_NODE ParentDeviceNode;
-   NTSTATUS Status;
-
-   DPRINT("IopActionInitChildServices(%p, %p, %d)\n", DeviceNode, Context,
-      BootDrivers);
-
-   ParentDeviceNode = (PDEVICE_NODE)Context;
-
-   /*
-    * We are called for the parent too, but we don't need to do special
-    * handling for this node
-    */
-   if (DeviceNode == ParentDeviceNode)
-   {
-      DPRINT("Success\n");
-      return STATUS_SUCCESS;
-   }
-
-   /*
-    * Make sure this device node is a direct child of the parent device node
-    * that is given as an argument
-    */
-#if 0
-   if (DeviceNode->Parent != ParentDeviceNode)
-   {
-      /*
-       * Stop the traversal immediately and indicate unsuccessful operation
-       */
-      DPRINT("Stop\n");
-      return STATUS_UNSUCCESSFUL;
-   }
-#endif
-
-   if (!IopDeviceNodeHasFlag(DeviceNode, DNF_DISABLED) &&
-       !IopDeviceNodeHasFlag(DeviceNode, DNF_ADDED) &&
-       !IopDeviceNodeHasFlag(DeviceNode, DNF_STARTED))
-   {
-      PMODULE_OBJECT ModuleObject;
-      PDRIVER_OBJECT DriverObject;
-
-      Status = IopLoadServiceModule(&DeviceNode->ServiceName, &ModuleObject);
-      if (NT_SUCCESS(Status))
-      {
-         Status = IopInitializeDriverModule(DeviceNode, ModuleObject, FALSE, &DriverObject);
-         if (NT_SUCCESS(Status))
-         {
-            /* Attach lower level filter drivers. */
-            IopAttachFilterDrivers(DeviceNode, TRUE);
-            /* Initialize the function driver for the device node */
-            Status = IopInitializeDevice(DeviceNode, DriverObject);
-            if (NT_SUCCESS(Status))
-            {
-               IopDeviceNodeSetFlag(DeviceNode, DNF_STARTED);
-               /* Attach upper level filter drivers. */
-               IopAttachFilterDrivers(DeviceNode, FALSE);
-            }
-         }
-      }
-      else
-      {
-         /*
-          * Don't disable when trying to load only boot drivers
-          */
-         if (!BootDrivers)
-         {
-            IopDeviceNodeSetFlag(DeviceNode, DNF_DISABLED);
-            IopDeviceNodeSetFlag(DeviceNode, DNF_START_FAILED);
-         }
-         /* FIXME: Log the error (possibly in IopInitializeDeviceNodeService) */
-         CPRINT("Initialization of service %S failed (Status %x)\n",
-           DeviceNode->ServiceName.Buffer, Status);
-      }
-   } else
-   {
-      DPRINT("Service %S is disabled or already initialized\n",
-         DeviceNode->ServiceName.Buffer);
-   }
-
-   return STATUS_SUCCESS;
-}
-
-/*
- * IopActionInitAllServices
- *
- * Initialize the service for all (direct) child nodes of a parent node. This
- * function just calls IopActionInitChildServices with BootDrivers = FALSE.
- */
-
-NTSTATUS
-IopActionInitAllServices(
   PDEVICE_NODE DeviceNode,
   PVOID Context)
-{
-   return IopActionInitChildServices(DeviceNode, Context, FALSE);
-}
-
 /*
- * IopActionInitBootServices
- *
- * Initialize the boot start services for all (direct) child nodes of a
- * parent node. This function just calls IopActionInitChildServices with
- * BootDrivers = TRUE.
+ * FUNCTION: Initialize the service for all (direct) child nodes of a parent node
+ * ARGUMENTS:
+ *   DeviceNode = Pointer to device node
+ *   Context    = Pointer to parent node to initialize child node services for
+ * NOTES:
+ *   If the driver image for a service is not loaded and initialized
+ *   it is done here too.
+ *   We only return a status code indicating an error (STATUS_UNSUCCESSFUL)
+ *   when we reach a device node which is not a direct child of the device
+ *   node for which we initialize child services for. Any errors that occur is
+ *   logged instead so that all child services have a chance of beeing
+ *   initialized.
  */
-
-NTSTATUS
-IopActionInitBootServices(
-   PDEVICE_NODE DeviceNode,
-   PVOID Context)
 {
-   return IopActionInitChildServices(DeviceNode, Context, TRUE);
+  PDEVICE_NODE ParentDeviceNode;
+  NTSTATUS Status;
+
+  DPRINT("DeviceNode %x  Context %x\n", DeviceNode, Context);
+
+  ParentDeviceNode = (PDEVICE_NODE)Context;
+
+  /* We are called for the parent too, but we don't need to do special
+     handling for this node */
+  if (DeviceNode == ParentDeviceNode)
+  {
+    DPRINT("Success\n");
+    return STATUS_SUCCESS;
+  }
+
+  /* Make sure this device node is a direct child of the parent device node
+     that is given as an argument */
+  if (DeviceNode->Parent != ParentDeviceNode)
+  {
+    /* Stop the traversal immediately and indicate successful operation */
+    DPRINT("Stop\n");
+    return STATUS_UNSUCCESSFUL;
+  }
+
+  if (!IopDeviceNodeHasFlag(DeviceNode, DNF_DISABLED) &&
+    !IopDeviceNodeHasFlag(DeviceNode, DNF_ADDED) &&
+    !IopDeviceNodeHasFlag(DeviceNode, DNF_STARTED))
+  {
+    Status = IopInitializeDeviceNodeService(DeviceNode);
+    if (NT_SUCCESS(Status))
+    {
+      IopDeviceNodeSetFlag(DeviceNode, DNF_STARTED);
+    }
+    else
+    {
+      IopDeviceNodeSetFlag(DeviceNode, DNF_DISABLED);
+
+      /* FIXME: Log the error (possibly in IopInitializeDeviceNodeService) */
+      CPRINT("Initialization of service %S failed (Status %x)\n",
+        DeviceNode->ServiceName.Buffer, Status);
+    }
+  }
+  else
+  {
+    DPRINT("Service %S is disabled or already initialized\n",
+        DeviceNode->ServiceName.Buffer);
+  }
+
+  return STATUS_SUCCESS;
 }
 
-/*
- * IopInitializePnpServices
- *
- * Initialize services for discovered children
- *
- * Parameters
- *    DeviceNode
- *       Top device node to start initializing services.
- *
- *    BootDrivers
- *       When set to TRUE, only drivers marked as boot start will
- *       be loaded. Otherwise, all drivers will be loaded.
- *
- * Return Value
- *    Status
- */
 
 NTSTATUS
-IopInitializePnpServices(
-   IN PDEVICE_NODE DeviceNode,
-   IN BOOLEAN BootDrivers)
+IopInterrogateBusExtender(
+  PDEVICE_NODE DeviceNode,
+  PDEVICE_OBJECT Pdo,
+  BOOLEAN BootDriversOnly)
 {
-   DEVICETREE_TRAVERSE_CONTEXT Context;
+  DEVICETREE_TRAVERSE_CONTEXT Context;
+  PDEVICE_RELATIONS DeviceRelations;
+	IO_STATUS_BLOCK	IoStatusBlock;
+  PDEVICE_NODE ChildDeviceNode;
+  IO_STACK_LOCATION Stack;
+  NTSTATUS Status;
+  ULONG i;
 
-   DPRINT("IopInitializePnpServices(%p, %d)\n", DeviceNode, BootDrivers);
+  DPRINT("DeviceNode %x  Pdo %x  BootDriversOnly %d\n", DeviceNode, Pdo, BootDriversOnly);
 
-   if (BootDrivers)
-   {
-      IopInitDeviceTreeTraverseContext(
-         &Context,
-         DeviceNode,
-         IopActionInitBootServices,
-         DeviceNode);
-   } else
-   {
-      IopInitDeviceTreeTraverseContext(
-         &Context,
-         DeviceNode,
-         IopActionInitAllServices,
-         DeviceNode);
-   }
+  DPRINT("Sending IRP_MN_QUERY_DEVICE_RELATIONS to device stack\n");
 
-   return IopTraverseDeviceTree(&Context);
-}
+  Stack.Parameters.QueryDeviceRelations.Type = BusRelations;
 
+  Status = IopInitiatePnpIrp(
+    Pdo,
+    &IoStatusBlock,
+    IRP_MN_QUERY_DEVICE_RELATIONS,
+    &Stack);
+  if (!NT_SUCCESS(Status))
+  {
+    DPRINT("IopInitiatePnpIrp() failed\n");
+    return Status;
+  }
 
-NTSTATUS
-IopInvalidateDeviceRelations(
-   IN PDEVICE_NODE DeviceNode,
-   IN DEVICE_RELATION_TYPE Type)
-{
-   DEVICETREE_TRAVERSE_CONTEXT Context;
-   PDEVICE_RELATIONS DeviceRelations;
-   IO_STATUS_BLOCK IoStatusBlock;
-   PDEVICE_NODE ChildDeviceNode;
-   IO_STACK_LOCATION Stack;
-   BOOL BootDrivers;
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   UNICODE_STRING LinkName;
-   HANDLE Handle;
-   NTSTATUS Status;
-   ULONG i;
+  DeviceRelations = (PDEVICE_RELATIONS)IoStatusBlock.Information;
 
-   DPRINT("DeviceNode %x\n", DeviceNode);
+  if ((!DeviceRelations) || (DeviceRelations->Count <= 0))
+  {
+    DPRINT("No PDOs\n");
+    if (DeviceRelations)
+    {
+      ExFreePool(DeviceRelations);
+    }
+    return STATUS_SUCCESS;
+  }
 
-   DPRINT("Sending IRP_MN_QUERY_DEVICE_RELATIONS to device stack\n");
+  DPRINT("Got %d PDOs\n", DeviceRelations->Count);
 
-   Stack.Parameters.QueryDeviceRelations.Type = Type/*BusRelations*/;
+#ifdef DBG
+  {
+    ULONG i;
 
-   Status = IopInitiatePnpIrp(
-      DeviceNode->PhysicalDeviceObject,
-      &IoStatusBlock,
-      IRP_MN_QUERY_DEVICE_RELATIONS,
-      &Stack);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("IopInitiatePnpIrp() failed\n");
-      return Status;
-   }
+    DPRINT("DeviceRelations %x\n", DeviceRelations);
+    DPRINT("Count %x\n", DeviceRelations->Count);
+    for (i = 0; i < DeviceRelations->Count; i++)
+      DPRINT("Object(PDO) %x\n", DeviceRelations->Objects[i]);
+  }
+#endif
 
-   DeviceRelations = (PDEVICE_RELATIONS)IoStatusBlock.Information;
-
-   if ((!DeviceRelations) || (DeviceRelations->Count <= 0))
-   {
-      DPRINT("No PDOs\n");
-      if (DeviceRelations)
-      {
-         ExFreePool(DeviceRelations);
-      }
-      return STATUS_SUCCESS;
-   }
-
-   DPRINT("Got %d PDOs\n", DeviceRelations->Count);
-
-   /*
-    * Create device nodes for all discovered devices
-    */
-
-   for (i = 0; i < DeviceRelations->Count; i++)
-   {
-      Status = IopCreateDeviceNode(
-         DeviceNode,
-         DeviceRelations->Objects[i],
-         &ChildDeviceNode);
-      DeviceNode->Flags |= DNF_ENUMERATED;
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT("No resources\n");
-         for (i = 0; i < DeviceRelations->Count; i++)
-            ObDereferenceObject(DeviceRelations->Objects[i]);
-         ExFreePool(DeviceRelations);
-         return STATUS_INSUFFICIENT_RESOURCES;
-      }
-   }
-   ExFreePool(DeviceRelations);
-
-   /*
-    * Retrieve information about all discovered children from the bus driver
-    */
-
-   IopInitDeviceTreeTraverseContext(
-      &Context,
+  /* Create device nodes for all discovered devices */
+  for (i = 0; i < DeviceRelations->Count; i++)
+  {
+    Status = IopCreateDeviceNode(
       DeviceNode,
-      IopActionInterrogateDeviceStack,
-      DeviceNode);
+      DeviceRelations->Objects[i],
+      &ChildDeviceNode);
+    if (!NT_SUCCESS(Status))
+    {
+      DPRINT("No resources\n");
+      for (i = 0; i < DeviceRelations->Count; i++)
+        ObDereferenceObject(DeviceRelations->Objects[i]);
+      ExFreePool(DeviceRelations);
+      return STATUS_INSUFFICIENT_RESOURCES;
+    }
+  }
 
-   Status = IopTraverseDeviceTree(&Context);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("IopTraverseDeviceTree() failed with status (%x)\n", Status);
-      return Status;
-   }
+  ExFreePool(DeviceRelations);
 
-   /*
-    * Retrieve configuration from the registry for discovered children
-    */
 
-   IopInitDeviceTreeTraverseContext(
-      &Context,
-      DeviceNode,
-      IopActionConfigureChildServices,
-      DeviceNode);
+  /* Retrieve information about all discovered children from the bus driver */
 
-   Status = IopTraverseDeviceTree(&Context);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("IopTraverseDeviceTree() failed with status (%x)\n", Status);
-      return Status;
-   }
+  IopInitDeviceTreeTraverseContext(
+    &Context,
+    DeviceNode,
+    IopActionInterrogateDeviceStack,
+    DeviceNode);
 
-   /*
-    * Get the state of the system boot. If the \\SystemRoot link isn't
-    * created yet, we will assume that it's possible to load only boot
-    * drivers.
-    */
+  Status = IopTraverseDeviceTree(&Context);
+  if (!NT_SUCCESS(Status))
+  {
+	  DPRINT("IopTraverseDeviceTree() failed with status (%x)\n", Status);
+    return Status;
+  }
 
-   RtlInitUnicodeString(&LinkName, L"\\SystemRoot");
 
-   InitializeObjectAttributes(
-      &ObjectAttributes,
-      &LinkName,
-      0,
-      NULL,
-      NULL);
+  /* Retrieve configuration from the registry for discovered children */
 
-   Status = NtOpenFile(
-      &Handle,
-      FILE_ALL_ACCESS,
-      &ObjectAttributes,
-      &IoStatusBlock,
-      0,
-      0);
- 
-   BootDrivers = NT_SUCCESS(Status) ? FALSE : TRUE;
+  IopInitDeviceTreeTraverseContext(
+    &Context,
+    DeviceNode,
+    IopActionConfigureChildServices,
+    DeviceNode);
 
-   NtClose(Handle);
+  Status = IopTraverseDeviceTree(&Context);
+  if (!NT_SUCCESS(Status))
+  {
+	  DPRINT("IopTraverseDeviceTree() failed with status (%x)\n", Status);
+    return Status;
+  }
 
-   /*
-    * Initialize services for discovered children. Only boot drivers will
-    * be loaded from boot driver!
-    */
 
-   Status = IopInitializePnpServices(DeviceNode, BootDrivers);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("IopInitializePnpServices() failed with status (%x)\n", Status);
-      return Status;
-   }
+  /* Initialize services for discovered children */
 
-   return STATUS_SUCCESS;
+  IopInitDeviceTreeTraverseContext(
+    &Context,
+    DeviceNode,
+    IopActionInitChildServices,
+    DeviceNode);
+
+  Status = IopTraverseDeviceTree(&Context);
+  if (!NT_SUCCESS(Status))
+  {
+	  DPRINT("IopTraverseDeviceTree() failed with status (%x)\n", Status);
+    return Status;
+  }
+
+  return Status;
 }
 
 
-VOID INIT_FUNCTION
-PnpInit(VOID)
+VOID IopLoadBootStartDrivers(VOID)
 {
-   PDEVICE_OBJECT Pdo;
-   NTSTATUS Status;
+  IopInterrogateBusExtender(
+    IopRootDeviceNode,
+    IopRootDeviceNode->Pdo,
+    TRUE);
+}
 
-   DPRINT("PnpInit()\n");
+VOID PnpInit(VOID)
+{
+  PDEVICE_OBJECT Pdo;
+  NTSTATUS Status;
 
-   KeInitializeSpinLock(&IopDeviceTreeLock);
+  DPRINT("Called\n");
 
-   /*
-    * Create root device node
-    */
+  KeInitializeSpinLock(&IopDeviceTreeLock);
 
-   Status = IopCreateDriverObject(&IopRootDriverObject, NULL, FALSE, NULL, 0);
-   if (!NT_SUCCESS(Status))
-   {
-      CPRINT("IoCreateDriverObject() failed\n");
-      KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
-   }
+  Status = IopCreateDriverObject(&IopRootDriverObject);
+  if (!NT_SUCCESS(Status))
+  {
+    CPRINT("IoCreateDriverObject() failed\n");
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
+  }
 
-   Status = IoCreateDevice(IopRootDriverObject, 0, NULL, FILE_DEVICE_CONTROLLER,
-      0, FALSE, &Pdo);
-   if (!NT_SUCCESS(Status))
-   {
-      CPRINT("IoCreateDevice() failed\n");
-      KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
-   }
+  Status = IoCreateDevice(
+    IopRootDriverObject,
+    0,
+    NULL,
+    FILE_DEVICE_CONTROLLER,
+    0,
+    FALSE,
+    &Pdo);
+  if (!NT_SUCCESS(Status))
+  {
+    CPRINT("IoCreateDevice() failed\n");
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
+  }
 
-   Status = IopCreateDeviceNode(NULL, Pdo, &IopRootDeviceNode);
-   if (!NT_SUCCESS(Status))
-   {
-      CPRINT("Insufficient resources\n");
-      KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
-   }
+  Status = IopCreateDeviceNode(
+    NULL,
+    Pdo,
+    &IopRootDeviceNode);
+  if (!NT_SUCCESS(Status))
+  {
+    CPRINT("Insufficient resources\n");
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
+  }
 
-   IopRootDeviceNode->PhysicalDeviceObject->Flags |= DO_BUS_ENUMERATED_DEVICE;
-   PnpRootDriverEntry(IopRootDriverObject, NULL);
-   IopRootDriverObject->DriverExtension->AddDevice(
-      IopRootDriverObject,
-      IopRootDeviceNode->PhysicalDeviceObject);
+  IopRootDeviceNode->Pdo->Flags |= DO_BUS_ENUMERATED_DEVICE;
+
+  IopRootDeviceNode->DriverObject = IopRootDriverObject;
+
+  PnpRootDriverEntry(IopRootDriverObject, NULL);
+
+  IopRootDriverObject->DriverExtension->AddDevice(
+    IopRootDriverObject,
+    IopRootDeviceNode->Pdo);
 }
 
 /* EOF */

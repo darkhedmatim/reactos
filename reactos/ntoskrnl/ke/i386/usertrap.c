@@ -27,56 +27,118 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ke.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+#include <internal/module.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+#include <internal/trap.h>
+#include <ntdll/ldr.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
+/* GLOBALS *****************************************************************/
+
+static char *ExceptionTypeStrings[] = 
+  {
+    "Divide Error",
+    "Debug Trap",
+    "NMI",
+    "Breakpoint",
+    "Overflow",
+    "BOUND range exceeded",
+    "Invalid Opcode",
+    "No Math Coprocessor",
+    "Double Fault",
+    "Unknown(9)",
+    "Invalid TSS",
+    "Segment Not Present",
+    "Stack Segment Fault",
+    "General Protection",
+    "Page Fault",
+    "Math Fault",
+    "Alignment Check",
+    "Machine Check"
+  };
+
 /* FUNCTIONS ****************************************************************/
 
-BOOLEAN 
+STATIC BOOLEAN 
 print_user_address(PVOID address)
 {
+#ifdef KDBG
+   ULONG Offset;
+   PSYMBOL Symbol, NextSymbol;
+   BOOLEAN Printed = FALSE;
+   ULONG NextAddress;
+#endif /* KDBG */
    PLIST_ENTRY current_entry;
    PLDR_MODULE current;
    PEPROCESS CurrentProcess;
    PPEB Peb = NULL;
-   ULONG_PTR RelativeAddress;
-   PPEB_LDR_DATA Ldr;
-   NTSTATUS Status;
 
    CurrentProcess = PsGetCurrentProcess();
    if (NULL != CurrentProcess)
-     {
-       Peb = CurrentProcess->Peb;
-     }
-   
+    {
+      Peb = CurrentProcess->Peb;
+    }
+
    if (NULL == Peb)
-     {
+	   {
        DbgPrint("<%x>", address);
        return(TRUE);
      }
 
-   Status = MmSafeCopyFromUser(&Ldr, &Peb->Ldr, sizeof(PPEB_LDR_DATA));
-   if (!NT_SUCCESS(Status))
-     {
-       DbgPrint("<%x>", address);
-       return(TRUE);
-     }
-   current_entry = Ldr->InLoadOrderModuleList.Flink;
+   current_entry = Peb->Ldr->InLoadOrderModuleList.Flink;
    
-   while (current_entry != &Ldr->InLoadOrderModuleList &&
+   while (current_entry != &Peb->Ldr->InLoadOrderModuleList &&
 	  current_entry != NULL)
      {
 	current = 
 	  CONTAINING_RECORD(current_entry, LDR_MODULE, InLoadOrderModuleList);
 	
 	if (address >= (PVOID)current->BaseAddress &&
-	    address < (PVOID)((char*)current->BaseAddress + current->SizeOfImage))
+	    address < (PVOID)(current->BaseAddress + current->SizeOfImage))
 	  {
-            RelativeAddress = 
-	      (ULONG_PTR) address - (ULONG_PTR)current->BaseAddress;
-	    DbgPrint("<%wZ: %x>", &current->BaseDllName, RelativeAddress);
-	    return(TRUE);
+#ifdef KDBG
+
+      Offset = (ULONG)(address - current->BaseAddress);
+      Symbol = current->Symbols.Symbols;
+      while (Symbol != NULL)
+        {
+          NextSymbol = Symbol->Next;
+          if (NextSymbol != NULL)
+            NextAddress = NextSymbol->RelativeAddress;
+          else
+            NextAddress = current->SizeOfImage;
+
+          if ((Offset >= Symbol->RelativeAddress) &&
+              (Offset < NextAddress))
+            {
+              DbgPrint("<%wZ: %x (%wZ)>",
+                &current->BaseDllName, Offset, &Symbol->Name);
+              Printed = TRUE;
+              break;
+            }
+          Symbol = NextSymbol;
+        }
+      if (!Printed)
+        DbgPrint("<%wZ: %x>", &current->BaseDllName, Offset);
+
+#else /* KDBG */
+
+	     DbgPrint("<%wZ: %x>", &current->BaseDllName, 
+		      address - current->BaseAddress);
+
+#endif /* KDBG */
+
+	     return(TRUE);
 	  }
 
 	current_entry = current_entry->Flink;
@@ -84,6 +146,10 @@ print_user_address(PVOID address)
    return(FALSE);
 }
 
+#if 0
+/*
+ * Disabled until SEH support is implemented.
+ */
 ULONG
 KiUserTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
 {
@@ -132,10 +198,107 @@ KiUserTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
     }
   
 
-  Er.ExceptionFlags = ((NTSTATUS) STATUS_SINGLE_STEP == (NTSTATUS) Er.ExceptionCode ||
-    (NTSTATUS) STATUS_BREAKPOINT == (NTSTATUS) Er.ExceptionCode) ?
-    EXCEPTION_NONCONTINUABLE : 0;
-
   KiDispatchException(&Er, 0, Tf, UserMode, TRUE);
   return(0);
 }
+#else
+ULONG
+KiUserTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
+{
+  PULONG Frame;
+  ULONG cr3;
+  ULONG i;
+  ULONG ReturnAddress;
+  ULONG NextFrame;
+  NTSTATUS Status;
+
+  /*
+   * Get the PDBR
+   */
+  __asm__("movl %%cr3,%0\n\t" : "=d" (cr3));
+
+   /*
+    * Print out the CPU registers
+    */
+  if (ExceptionNr < 19)
+    {
+      DbgPrint("%s Exception: %d(%x)\n", ExceptionTypeStrings[ExceptionNr],
+	       ExceptionNr, Tf->ErrorCode&0xffff);
+    }
+  else
+    {
+      DbgPrint("Exception: %d(%x)\n", ExceptionNr, Tf->ErrorCode&0xffff);
+    }
+  DbgPrint("CS:EIP %x:%x ", Tf->Cs&0xffff, Tf->Eip);
+  print_user_address((PVOID)Tf->Eip);
+  DbgPrint("\n");
+  __asm__("movl %%cr3,%0\n\t" : "=d" (cr3));
+  DbgPrint("CR2 %x CR3 %x ", Cr2, cr3);
+  DbgPrint("Process: %x ",PsGetCurrentProcess());
+  if (PsGetCurrentProcess() != NULL)
+    {
+      DbgPrint("Pid: %x <", PsGetCurrentProcess()->UniqueProcessId);
+	DbgPrint("%.8s> ", PsGetCurrentProcess()->ImageFileName);
+    }
+  if (PsGetCurrentThread() != NULL)
+    {
+      DbgPrint("Thrd: %x Tid: %x",
+	       PsGetCurrentThread(),
+	       PsGetCurrentThread()->Cid.UniqueThread);
+    }
+  DbgPrint("\n");
+  DbgPrint("DS %x ES %x FS %x GS %x\n", Tf->Ds&0xffff, Tf->Es&0xffff,
+	   Tf->Fs&0xffff, Tf->Gs&0xfff);
+  DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", Tf->Eax, Tf->Ebx, Tf->Ecx);
+  DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x\n", Tf->Edx, Tf->Ebp, Tf->Esi);
+  DbgPrint("EDI: %.8x   EFLAGS: %.8x ", Tf->Edi, Tf->Eflags);
+  DbgPrint("SS:ESP %x:%x\n", Tf->Ss, Tf->Esp);
+
+  /*
+   * Dump the stack frames
+   */
+  DbgPrint("Frames:   ");
+  i = 1;
+  Frame = (PULONG)Tf->Ebp;
+  while (Frame != NULL && i < 50)
+    {
+      Status = MmSafeCopyFromUser(&ReturnAddress, &Frame[1], sizeof(ULONG));
+      if (!NT_SUCCESS(Status))
+	{
+	  DbgPrint("????????\n");
+	  break;
+	}
+      print_user_address((PVOID)ReturnAddress);
+      Status = MmSafeCopyFromUser(&NextFrame, &Frame[0], sizeof(ULONG));
+      if (!NT_SUCCESS(Status))
+	{
+	  DbgPrint("Frame is inaccessible.\n");
+	  break;
+	}
+      if ((NextFrame + sizeof(ULONG)) >= KERNEL_BASE)
+	{
+	  DbgPrint("Next frame is in kernel space!\n");
+	  break;
+	}
+      if (NextFrame != 0 && NextFrame <= (ULONG)Frame)
+	{
+	  DbgPrint("Next frame is not above current frame!\n");
+	  break;
+	}
+      Frame = (PULONG)NextFrame;
+      i++;
+    }
+
+  /*
+   * Kill the faulting process
+   */
+  __asm__("sti\n\t");
+  ZwTerminateProcess(NtCurrentProcess(), STATUS_NONCONTINUABLE_EXCEPTION);
+
+  /*
+   * If terminating the process fails then bugcheck
+   */
+  KeBugCheck(0);
+  return(0);
+}
+#endif

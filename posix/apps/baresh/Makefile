@@ -1,30 +1,33 @@
-# $Id: Makefile,v 1.9 2003/01/05 18:27:19 robd Exp $
+# $Id: Makefile,v 1.1 2002/01/20 21:22:29 ea Exp $
 #
-# To run it in Win32 console mode, undefine __SUBSYSTEM_WINDOWS__
+# Tu run it in Win32 console mode, undefine __SUBSYSTEM_WINDOWS__
 # and pass "console" in the ld's --subsystem option.
 # 
 #
+PATH_TO_TOP=../../../..
 
-PATH_TO_TOP = ../../../reactos
+PATH_TO_PSX_TOP=../..
 
-PATH_TO_PSX_TOP = ../..
+TARGET_NAME=sh
 
-TARGET_TYPE = program
+CFLAGS=-D__SUBSYSTEM_WINDOWS__
 
-#TARGET_APPTYPE = console
-TARGET_APPTYPE = windows
+OBJECTS=$(TARGET_NAME).o
 
-TARGET_NAME = baresh
+LIBRARIES=\
+	$(PATH_TO_PSX_TOP)/lib/crt0w32.o \
+	$(PATH_TO_PSX_TOP)/lib/psxdll/psxdll.a
 
-TARGET_CFLAGS = -D__SUBSYSTEM_WINDOWS__
-
-TARGET_LIBS = $(PATH_TO_PSX_TOP)/lib/crt0w32.o \
-	      $(PATH_TO_TOP)/dk/psx/lib/psxdll.a
-
-TARGET_OBJECTS = sh.o
+$(TARGET_NAME): $(OBJECTS) $(LIBRARIES)
+	$(CC) \
+		$(CFLAGS) \
+		$(OBJECTS) \
+		$(LIBRARIES)\
+		-o $@ \
+		-Wl,--subsystem,windows\
+		-nostartfiles \
+		-nostdlib
 
 include $(PATH_TO_TOP)/rules.mak
-
-include $(TOOLS_PATH)/helper.mk
 
 # EOF

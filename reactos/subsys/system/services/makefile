@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.6 2003/11/14 17:13:33 weiden Exp $
+# $Id: makefile,v 1.3 2001/08/21 20:13:04 chorns Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -10,11 +10,9 @@ TARGET_NAME = services
 
 TARGET_INSTALLDIR = system32
 
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a
+TARGET_SDKLIBS = ntdll.a kernel32.a
 
-TARGET_OBJECTS = $(TARGET_NAME).o database.o
-
-TARGET_CFLAGS = -Wall -Werror
+TARGET_OBJECTS = $(TARGET_NAME).o
 
 include $(PATH_TO_TOP)/rules.mak
 

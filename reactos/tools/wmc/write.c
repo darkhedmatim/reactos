@@ -3,19 +3,6 @@
  *
  * Copyright 2000 Bertho A. Stultiens (BS)
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <windows.h>
@@ -102,7 +89,6 @@ static char *dup_u2c(int cp, const WCHAR *uc)
 //		internal_error(__FILE__, __LINE__, "Codepage %d not found (vanished?)", cp);
 //	if((len = cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, cptr, len+1, NULL, NULL)) < 0)
 	if((len = WideCharToMultiByte(cp, 0, uc, unistrlen(uc)+1, cptr, len+1, NULL, NULL)) < 0)
-
 		internal_error(__FILE__, __LINE__, "Buffer overflow? code %d.", len);
 	return cptr;
 }
@@ -348,7 +334,7 @@ static char *make_string(WCHAR *uc, int len, int codepage)
 					case '\\': *cptr++ = '\\'; *cptr++ = '\\'; b += 2; break;
 					case '"':  *cptr++ = '\\'; *cptr++ = '"'; b += 2; break;
 					default:
-						n = sprintf(cptr, "\\x%04x", (unsigned)*uc & 0xffff);
+						n = sprintf(cptr, "\\x%04x", *uc & 0xffff);
 						cptr += n;
 						b += n;
 					}
@@ -356,7 +342,7 @@ static char *make_string(WCHAR *uc, int len, int codepage)
 			}
 			else
 			{
-				n = sprintf(cptr, "\\x%04x", (unsigned)*uc & 0xffff);
+				n = sprintf(cptr, "\\x%04x", *uc & 0xffff);
 				cptr += n;
 				b += n;
 			}
@@ -393,7 +379,6 @@ static char *make_string(WCHAR *uc, int len, int codepage)
 //		assert(cpdef != NULL);
 //		if((i = cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, tmp, 2*len+1, NULL, NULL)) < 0)
 		if((i = WideCharToMultiByte(codepage, 0, uc, unistrlen(uc)+1, tmp, 2*len+1, NULL, NULL)) < 0)
-
 			internal_error(__FILE__, __LINE__, "Buffer overflow? code %d.", i);
 		*cptr++ = ' ';
 		*cptr++ = '"';
@@ -451,7 +436,6 @@ static char *make_string(WCHAR *uc, int len, int codepage)
 
 
 static char *make_bin_string(WCHAR *uc, int len, int *retlen, int codepage)
-
 {
 	char *str = xmalloc(7 * len + 1);
 	int i;

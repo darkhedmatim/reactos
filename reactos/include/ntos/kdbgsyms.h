@@ -1,18 +1,22 @@
+
 #ifndef __KDBGSYMS_H
 #define __KDBGSYMS_H
 
 #include <ddk/ntddk.h>
 
-typedef struct _IMAGE_SYMBOL_INFO
+typedef struct _SYMBOL
 {
-  ULONG_PTR ImageBase;
-  ULONG_PTR ImageSize;
-  PVOID FileBuffer;
-  PVOID SymbolsBase;
-  ULONG SymbolsLength;
-  PVOID SymbolStringsBase;
-  ULONG SymbolStringsLength;
-} IMAGE_SYMBOL_INFO, *PIMAGE_SYMBOL_INFO;
+  struct _SYMBOL *Next;
+  /* Address relative to module base address */
+  ULONG RelativeAddress;
+  UNICODE_STRING Name;
+} SYMBOL, *PSYMBOL;
 
-#endif /* __KDBGSYMS_H */
+typedef struct _SYMBOL_TABLE
+{
+  ULONG SymbolCount;
+  PSYMBOL Symbols;
+} SYMBOL_TABLE, *PSYMBOL_TABLE;
+
+#endif
 

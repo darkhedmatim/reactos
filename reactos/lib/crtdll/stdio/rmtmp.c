@@ -9,9 +9,9 @@
  * NOTE		    Not tested.
  */
 
-#include <msvcrt/stdio.h>
-#include <msvcrt/string.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/string.h>
 
 #ifndef F_OK
  #define F_OK	0x01

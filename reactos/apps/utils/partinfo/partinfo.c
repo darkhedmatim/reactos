@@ -4,7 +4,6 @@
 
 #include <windows.h>
 //#include <winioctl.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -55,13 +54,6 @@ void HexDump(char *buffer, ULONG size)
 }
 #endif
 
-
-void Usage(void)
-{
-  puts("Usage: partinfo <drive number>");
-}
-
-
 int main (int argc, char *argv[])
 {
   HANDLE hDisk;
@@ -70,53 +62,8 @@ int main (int argc, char *argv[])
   char *Buffer;
   DRIVE_LAYOUT_INFORMATION *LayoutBuffer;
   DISK_GEOMETRY DiskGeometry;
-  ULONG ulDrive;
-  CHAR DriveName[40];
-  SYSTEM_DEVICE_INFORMATION DeviceInfo;
-  NTSTATUS Status;
 
-  if (argc != 2)
-    {
-      Usage();
-      return(0);
-    }
-
-  ulDrive = strtoul(argv[1], NULL, 10);
-  if (errno != 0)
-    {
-      printf("Error: Malformed drive number\n");
-      return(0);
-    }
-
-  /* Check drive number */
-  Status = NtQuerySystemInformation(SystemDeviceInformation,
-				    &DeviceInfo,
-				    sizeof(SYSTEM_DEVICE_INFORMATION),
-				    &i);
-  if (!NT_SUCCESS(Status))
-    {
-      printf("NtQuerySystemInformation() failed (Status %lx)\n", Status);
-      return(0);
-    }
-
-  if (DeviceInfo.NumberOfDisks == 0)
-    {
-      printf("No disk drive installed!\n");
-      return(0);
-    }
-
-  if (ulDrive >= DeviceInfo.NumberOfDisks)
-    {
-      printf("Invalid disk drive number! Valid drive numbers [0-%lu]\n",
-	     DeviceInfo.NumberOfDisks-1);
-      return(0);
-    }
-
-  /* Build full drive name */
-  sprintf(DriveName, "\\\\.\\PHYSICALDRIVE%lu", ulDrive);
-
-  /* Open drive */
-  hDisk = CreateFile(DriveName,
+  hDisk = CreateFile("\\\\.\\PHYSICALDRIVE0",
 		     GENERIC_READ,
 		     FILE_SHARE_READ | FILE_SHARE_WRITE,
 		     NULL,
@@ -129,7 +76,8 @@ int main (int argc, char *argv[])
       return 0;
     }
 
-  /* Get drive geometry */
+
+  /* get drive geometry */
   if (!DeviceIoControl(hDisk,
 		       IOCTL_DISK_GET_DRIVE_GEOMETRY,
 		       NULL,
@@ -140,16 +88,16 @@ int main (int argc, char *argv[])
 		       NULL))
     {
       CloseHandle(hDisk);
-      printf("DeviceIoControl failed! Error: %lu\n",
+      printf("DeviceIoControl failed! Error: %u\n",
 	     GetLastError());
+      free(Buffer);
       return 0;
     }
 
 #ifdef DUMP_DATA
   HexDump((char*)&DiskGeometry, dwRead);
 #endif
-  printf("Drive number: %lu\n", ulDrive);
-  printf("Cylinders: %I64u\nMediaType: %x\nTracksPerCylinder: %lu\n"
+  printf("Cylinders: %I64u\nMediaType: %lx\nTracksPerCylinder: %lu\n"
 	 "SectorsPerTrack: %lu\nBytesPerSector: %lu\n\n",
 	 DiskGeometry.Cylinders.QuadPart,
 	 DiskGeometry.MediaType,
@@ -177,7 +125,7 @@ int main (int argc, char *argv[])
 		       NULL))
     {
       CloseHandle(hDisk);
-      printf("DeviceIoControl(IOCTL_DISK_GET_DRIVE_LAYOUT) failed! Error: %lu\n",
+      printf("DeviceIoControl failed! Error: %u\n",
 	     GetLastError());
       free(Buffer);
       return 0;
@@ -191,13 +139,13 @@ int main (int argc, char *argv[])
 
   LayoutBuffer = (DRIVE_LAYOUT_INFORMATION*)Buffer;
 
-  printf("Partitions %lu  Signature %lx\n",
+  printf("Partitions %u  Signature %x\n",
 	 LayoutBuffer->PartitionCount,
 	 LayoutBuffer->Signature);
 
   for (i = 0; i < LayoutBuffer->PartitionCount; i++)
     {
-      printf(" %ld: nr: %ld boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
+      printf(" %d: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
 	     i,
 	     LayoutBuffer->PartitionEntry[i].PartitionNumber,
 	     LayoutBuffer->PartitionEntry[i].BootIndicator,
@@ -205,6 +153,10 @@ int main (int argc, char *argv[])
 	     LayoutBuffer->PartitionEntry[i].StartingOffset.QuadPart,
 	     LayoutBuffer->PartitionEntry[i].PartitionLength.QuadPart);
     }
+
+#ifdef DUMP_SIZE_INFO
+  printf("\nsizeof(PARTITION_INFORMATION): %lu\n", sizeof(PARTITION_INFORMATION));
+#endif
 
   free(Buffer);
 

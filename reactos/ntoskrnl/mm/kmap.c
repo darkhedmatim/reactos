@@ -1,4 +1,4 @@
-/* $Id: kmap.c,v 1.35 2004/08/15 16:39:07 chorns Exp $
+/* $Id: kmap.c,v 1.14 2002/01/01 00:21:56 dwelch Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -9,143 +9,150 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ntoskrnl.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *****************************************************************/
 
-#define ALLOC_MAP_SIZE (MM_KERNEL_MAP_SIZE / PAGE_SIZE)
+#define ALLOC_MAP_SIZE (NONPAGED_POOL_SIZE / PAGESIZE)
 
 /*
  * One bit for each page in the kmalloc region
  *      If set then the page is used by a kmalloc block
  */
-static UCHAR AllocMapBuffer[ROUND_UP(ALLOC_MAP_SIZE, 32) / 8];
-static RTL_BITMAP AllocMap;
+static unsigned int AllocMap[ALLOC_MAP_SIZE/32]={0,};
 static KSPIN_LOCK AllocMapLock;
-static ULONG AllocMapHint = 0;
+
+static PVOID NonPagedPoolBase;
 
 /* FUNCTIONS ***************************************************************/
 
-VOID
+VOID 
 ExUnmapPage(PVOID Addr)
 {
    KIRQL oldIrql;
-   ULONG Base = ((char*)Addr - (char*)MM_KERNEL_MAP_BASE) / PAGE_SIZE;
-
+   ULONG i = (Addr - NonPagedPoolBase) / PAGESIZE;
+   
    DPRINT("ExUnmapPage(Addr %x)\n",Addr);
-
-   MmDeleteVirtualMapping(NULL, (PVOID)Addr, FALSE, NULL, NULL);
+   DPRINT("i %x\n",i);
+   
    KeAcquireSpinLock(&AllocMapLock, &oldIrql);
-   RtlClearBits(&AllocMap, Base, 1);
-   AllocMapHint = min(AllocMapHint, Base);
+   MmDeleteVirtualMapping(NULL, (PVOID)Addr, FALSE, NULL, NULL);
+   AllocMap[i / 32] &= (~(1 << (i % 32)));
    KeReleaseSpinLock(&AllocMapLock, oldIrql);
 }
 
-PVOID
+PVOID 
 ExAllocatePage(VOID)
 {
-   PFN_TYPE Page;
-   NTSTATUS Status;
+  ULONG PhysPage;
+  NTSTATUS Status;
 
-   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, &Page);
-   if (!NT_SUCCESS(Status))
-   {
+  Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, (PVOID*)&PhysPage);
+  if (!NT_SUCCESS(Status))
+    {
       return(NULL);
-   }
+    }
 
-   return(ExAllocatePageWithPhysPage(Page));
+  return(ExAllocatePageWithPhysPage(PhysPage));
 }
 
 NTSTATUS
-MiZeroPage(PFN_TYPE Page)
+MiZeroPage(ULONG PhysPage)
 {
-   PVOID TempAddress;
+  PVOID TempAddress;
 
-   TempAddress = ExAllocatePageWithPhysPage(Page);
-   if (TempAddress == NULL)
-   {
+  TempAddress = ExAllocatePageWithPhysPage(PhysPage);
+  if (TempAddress == NULL)
+    {
       return(STATUS_NO_MEMORY);
-   }
-   memset(TempAddress, 0, PAGE_SIZE);
-   ExUnmapPage(TempAddress);
-   return(STATUS_SUCCESS);
+    }
+  memset(TempAddress, 0, PAGESIZE);
+  ExUnmapPage(TempAddress);
+  return(STATUS_SUCCESS);
 }
 
 NTSTATUS
-MiCopyFromUserPage(PFN_TYPE DestPage, PVOID SourceAddress)
+MiCopyFromUserPage(ULONG DestPhysPage, PVOID SourceAddress)
 {
-   PVOID TempAddress;
+  PVOID TempAddress;
 
-   TempAddress = ExAllocatePageWithPhysPage(DestPage);
-   if (TempAddress == NULL)
-   {
+  TempAddress = ExAllocatePageWithPhysPage(DestPhysPage);
+  if (TempAddress == NULL)
+    {
       return(STATUS_NO_MEMORY);
-   }
-   memcpy(TempAddress, SourceAddress, PAGE_SIZE);
-   ExUnmapPage(TempAddress);
-   return(STATUS_SUCCESS);
+    }
+  memcpy(TempAddress, SourceAddress, PAGESIZE);
+  ExUnmapPage(TempAddress);
+  return(STATUS_SUCCESS);
 }
 
 PVOID
-ExAllocatePageWithPhysPage(PFN_TYPE Page)
+ExAllocatePageWithPhysPage(ULONG PhysPage)
 {
    KIRQL oldlvl;
-   PVOID Addr;
-   ULONG Base;
+   ULONG addr;
+   ULONG i;
    NTSTATUS Status;
 
    KeAcquireSpinLock(&AllocMapLock, &oldlvl);
-   Base = RtlFindClearBitsAndSet(&AllocMap, 1, AllocMapHint);
-   if (Base != 0xFFFFFFFF)
-   {
-      AllocMapHint = Base + 1;
-      KeReleaseSpinLock(&AllocMapLock, oldlvl);
-      Addr = (char*)MM_KERNEL_MAP_BASE + Base * PAGE_SIZE;
-      Status = MmCreateVirtualMapping(NULL,
-                                      Addr,
-                                      PAGE_READWRITE | PAGE_SYSTEM,
-                                      &Page,
-                                      1);
-      if (!NT_SUCCESS(Status))
-      {
-         DbgPrint("Unable to create virtual mapping\n");
-         KEBUGCHECK(0);
-      }
-      return Addr;
-   }
+   for (i = 1; i < ALLOC_MAP_SIZE; i++)
+     {
+       if (!(AllocMap[i / 32] & (1 << (i % 32))))
+	 {
+	    DPRINT("i %x\n",i);
+	    AllocMap[i / 32] |= (1 << (i % 32));
+	    addr = (ULONG)(NonPagedPoolBase + (i*PAGESIZE));
+	    Status = MmCreateVirtualMapping(NULL, 
+					    (PVOID)addr, 
+					    PAGE_READWRITE | PAGE_SYSTEM, 
+					    PhysPage,
+					    FALSE);
+	    if (!NT_SUCCESS(Status))
+	      {
+		DbgPrint("Unable to create virtual mapping\n");
+		KeBugCheck(0);
+	      }
+	    KeReleaseSpinLock(&AllocMapLock, oldlvl);
+	    return((PVOID)addr);
+	 }
+     }
    KeReleaseSpinLock(&AllocMapLock, oldlvl);
-   return NULL;
+   return(NULL);
 }
 
-VOID INIT_FUNCTION
-MiInitKernelMap(VOID)
+VOID 
+MmInitKernelMap(PVOID BaseAddress)
 {
+   NonPagedPoolBase = BaseAddress;
    KeInitializeSpinLock(&AllocMapLock);
-   RtlInitializeBitMap(&AllocMap, (PULONG)AllocMapBuffer, ALLOC_MAP_SIZE);
-   RtlClearAllBits(&AllocMap);
 }
 
 VOID
 MiFreeNonPagedPoolRegion(PVOID Addr, ULONG Count, BOOLEAN Free)
 {
-   ULONG i;
-   ULONG Base = ((char*)Addr - (char*)MM_KERNEL_MAP_BASE) / PAGE_SIZE;
-   KIRQL oldlvl;
-
-   for (i = 0; i < Count; i++)
-   {
-      MmDeleteVirtualMapping(NULL,
-                             (char*)Addr + (i * PAGE_SIZE),
-                             Free,
-                             NULL,
-                             NULL);
-   }
-   KeAcquireSpinLock(&AllocMapLock, &oldlvl);
-   RtlClearBits(&AllocMap, Base, Count);
-   AllocMapHint = min(AllocMapHint, Base);
-   KeReleaseSpinLock(&AllocMapLock, oldlvl);
+  ULONG i;
+  ULONG Base = (Addr - NonPagedPoolBase) / PAGESIZE;
+  ULONG Offset;
+  KIRQL oldlvl;
+  
+  KeAcquireSpinLock(&AllocMapLock, &oldlvl);
+  for (i = 0; i < Count; i++)
+    {
+      Offset = Base + i;
+      AllocMap[Offset / 32] &= (~(1 << (Offset % 32))); 
+      MmDeleteVirtualMapping(NULL, 
+			     Addr + (i * PAGESIZE), 
+			     Free, 
+			     NULL, 
+			     NULL);
+    }
+  KeReleaseSpinLock(&AllocMapLock, oldlvl);
 }
 
 PVOID
@@ -154,23 +161,43 @@ MiAllocNonPagedPoolRegion(ULONG nr_pages)
  * FUNCTION: Allocates a region of pages within the nonpaged pool area
  */
 {
-   ULONG Base;
+   unsigned int start = 0;
+   unsigned int length = 0;
+   unsigned int i,j;
    KIRQL oldlvl;
 
    KeAcquireSpinLock(&AllocMapLock, &oldlvl);
-   Base = RtlFindClearBitsAndSet(&AllocMap, nr_pages, AllocMapHint);
-   if (Base == 0xFFFFFFFF)
-   {
-      DbgPrint("CRITICAL: Out of non-paged pool space\n");
-      KEBUGCHECK(0);
-   }
-   if (AllocMapHint == Base)
-   {
-      AllocMapHint += nr_pages;
-   }
-   KeReleaseSpinLock(&AllocMapLock, oldlvl);
-   //DPRINT("returning %x\n",NonPagedPoolBase + Base * PAGE_SIZE);
-   return (char*)MM_KERNEL_MAP_BASE + Base * PAGE_SIZE;
+   for (i=1; i<ALLOC_MAP_SIZE;i++)
+     {
+       if (!(AllocMap[i/32] & (1 << (i % 32))))
+	  {
+	     if (length == 0)
+	       {
+		  start=i;
+		  length = 1;
+	       }
+	     else
+	       {
+		  length++;
+	       }
+	     if (length==nr_pages)
+	       {
+		  for (j=start;j<(start+length);j++)
+		    {
+		      AllocMap[j / 32] |= (1 << (j % 32));
+		    }
+		  DPRINT("returning %x\n",((start*PAGESIZE)+NonPagedPoolBase));
+		  KeReleaseSpinLock(&AllocMapLock, oldlvl);
+		  return(((start*PAGESIZE)+NonPagedPoolBase));
+	       }
+	  }
+	else
+	  {
+	     start=0;
+	     length=0;
+	  }
+     }
+   DbgPrint("CRITICAL: Out of non-paged pool space\n");
+   for(;;);
+   return(0);
 }
-
-

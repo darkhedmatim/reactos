@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cancel.c,v 1.13 2004/08/15 16:39:03 chorns Exp $
+/* $Id: cancel.c,v 1.6 2001/04/09 02:45:03 dwelch Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/cancel.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -43,12 +44,8 @@ NtCancelIoFile (IN	HANDLE			FileHandle,
 		OUT	PIO_STATUS_BLOCK	IoStatusBlock)
 {
   UNIMPLEMENTED;
-  return(STATUS_NOT_IMPLEMENTED);
 }
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL 
 IoCancelIrp(PIRP Irp)
 {
@@ -59,33 +56,26 @@ IoCancelIrp(PIRP Irp)
    IoAcquireCancelSpinLock(&oldlvl);
    Irp->Cancel = TRUE;
    if (Irp->CancelRoutine == NULL)
-   {
-      IoReleaseCancelSpinLock(oldlvl);
-      return(FALSE);
-   }
-   Irp->CancelIrql = oldlvl;
-   Irp->CancelRoutine(IoGetCurrentIrpStackLocation(Irp)->DeviceObject, Irp);
+     {
+	return(FALSE);
+     }
+   Irp->CancelRoutine(Irp->Stack[0].DeviceObject, Irp);
+   IoReleaseCancelSpinLock(oldlvl);
    return(TRUE);
 }
 
-VOID INIT_FUNCTION
+VOID 
 IoInitCancelHandling(VOID)
 {
    KeInitializeSpinLock(&CancelSpinLock);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL 
 IoAcquireCancelSpinLock(PKIRQL Irql)
 {
    KeAcquireSpinLock(&CancelSpinLock,Irql);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL 
 IoReleaseCancelSpinLock(KIRQL Irql)
 {

@@ -1,10 +1,11 @@
-#include "precomp.h"
-#include <msvcrt/stdlib.h>
-#include <msvcrt/string.h>
+#include <windows.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/string.h>
 
 
 
-int putenv(const char *val)
+int
+putenv(const char *val)
 {
   
   char buffer[1024];
@@ -21,3 +22,9 @@ int putenv(const char *val)
 
   return SetEnvironmentVariableA(buffer,epos+1);
 }
+
+  
+  
+
+  
+  

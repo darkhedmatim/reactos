@@ -1,4 +1,4 @@
-/* $Id: genw32k.c,v 1.10 2004/04/12 22:07:45 hyperion Exp $
+/* $Id: genw32k.c,v 1.1 2000/02/21 22:34:26 ekohl Exp $
  *
  * COPYRIGHT:             See COPYING in the top level directory
  * PROJECT:               ReactOS version of ntdll
@@ -22,6 +22,8 @@
 
 #define PARAMETERIZED_LIBS
 
+#define VERBOSE
+
 #define INPUT_BUFFER_SIZE 255
 
 #define INDEX  0x1000		/* SSDT index 1 */
@@ -29,82 +31,14 @@
 
 /* FUNCTIONS ****************************************************************/
 
-void write_stub_header(FILE * out)
-{
- fputs
- (
-  "/* Machine generated, don't edit */\n"
-  "\n"
-  "#ifdef __cplusplus\n"
-  "#define EXTERN_C extern \"C\"\n"
-  "#else\n"
-  "#define EXTERN_C\n"
-  "#endif\n"
-  "\n"
-  "EXTERN_C static __inline__ __attribute__((regparm(2)))"
-  "void*ZwRosSystemServiceThunk(long n,void*a)"
-  "{"
-   "void*ret;"
-   "__asm__"
-   "("
-    "\"int $0x2E\":"
-    "\"=a\"(ret):"
-    "\"a\"(n),\"d\"(a)"
-   ");"
-   "return ret;"
-  "}\n",
-  out
- );
-}
-
-void write_syscall_stub_func(FILE* out, char* name, unsigned nr_args,
-                             unsigned int sys_call_idx)
-{
- unsigned i;
-
- fprintf(out, "EXTERN_C void*__stdcall %s(", name);
- 
- if(nr_args == 0)
-  fputs("void", out);
- else
-  for(i = 0; i < nr_args; ++ i)
-  {
-   if(i > 0)
-    fputs(",", out);
-
-   fprintf(out, "void*a%u", i);
-  }
- 
- fputs("){", out);
-
- if(nr_args > 1)
-  for(i = 1; i < nr_args; ++ i)
-   fprintf(out, "(void)a%u;", i);
-
- fprintf(out, "return ZwRosSystemServiceThunk(%u,", sys_call_idx);
- 
- if(nr_args == 0)
-  fputs("0", out);
- else
-  fputs("&a0", out);
- 
- fputs(");}\n", out);
-}
-
-void write_syscall_stub(FILE* out1, FILE* out2, char* name,
-			unsigned nr_args, unsigned int sys_call_idx)
-{
-  write_syscall_stub_func(out1, name, nr_args, sys_call_idx);
-  write_syscall_stub_func(out2, name, nr_args, sys_call_idx);
-}
-
 int makeSystemServiceTable(FILE *in, FILE *out)
 {
 char    line [INPUT_BUFFER_SIZE];
 char    *s;
 char    *name;
 int     sys_call_idx;
-char    *snr_args;
+char    *nr_args;
+char    *stmp;
 
 	/*
 	 * Main SSDT Header
@@ -135,7 +69,15 @@ char    *snr_args;
 		{
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
-
+			/* Extract the stack size */
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx | INDEX,name);
 #endif
@@ -148,7 +90,7 @@ char    *snr_args;
 			 * Now write the current system call's name
 			 * in the service table.
 			 */
-			fprintf(out,"\t\t(PVOID (NTAPI *)(VOID))%s",name);
+			fprintf(out,"\t\t{ (ULONG)%s }",name);
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -183,8 +125,14 @@ char    *snr_args;
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
 			/* Extract the stack size */
-			snr_args = (char *)strtok(NULL," \t");
-
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx|INDEX,name);
 #endif
@@ -197,7 +145,7 @@ char    *snr_args;
 			 * Now write the current system call's ID
 			 * in the service table along with its Parameters Size.
 			 */
-			fprintf(out,"\t\t%lu * sizeof(void*)", strtoul(snr_args, NULL, 0));
+			fprintf(out,"\t\t{ %d }",atoi(nr_args) * sizeof(void*));
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -214,7 +162,6 @@ char    *snr_args;
 	fprintf(out, "\n\n#define MIN_SYSCALL_NUMBER    0\n");
 	fprintf(out, "#define MAX_SYSCALL_NUMBER    %d\n", sys_call_idx-1);
 	fprintf(out, "#define NUMBER_OF_SYSCALLS    %d\n", sys_call_idx);
-	fprintf(out, "ULONG Win32kNumberOfSysCalls = %d;\n", sys_call_idx);
 
 	return(0);
 }
@@ -231,18 +178,21 @@ process(
 	char		* s;
 	char		* name;		/* NtXXX name */
 	int		sys_call_idx;	/* NtXXX index number in the service table */
-	char		* snr_args;	/* stack_size / machine_word_size */
+	char		* nr_args;	/* stack_size / machine_word_size */
+	char		* stmp;
+	int		stacksize;
 
 	/*
 	 * GDI32 stubs file header
 	 */
-	write_stub_header(out1);
+	fprintf(out1,"// Machine generated, don't edit\n");
+	fprintf(out1,"\n\n");
 
 	/*
 	 * USER32 stubs file header
 	 */
-	write_stub_header(out2);
-
+	fprintf(out2,"// Machine generated, don't edit\n");
+	fprintf(out2,"\n\n");
 	/*
 	 * Scan the database. DB is a text file; each line
 	 * is a record, which contains data for one system
@@ -280,13 +230,48 @@ process(
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
 			/* Extract the stack size */
-			snr_args = (char *)strtok(NULL," \t");
-
+			nr_args = (char *)strtok(NULL," \t");
+			stacksize = atoi(nr_args)*sizeof(void*);
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx | INDEX,name);
 #endif
 
-                        write_syscall_stub(out1, out2, name, strtoul(snr_args, NULL, 0), sys_call_idx | INDEX);
+			/*
+			 * Write the GDI32 stub for the current system call.
+			 */
+#ifdef PARAMETERIZED_LIBS
+			fprintf(out1,"__asm__(\"\\n\\t.global _%s@%d\\n\\t\"\n",name,stacksize);
+			fprintf(out1,"\"_%s@%d:\\n\\t\"\n",name,stacksize);
+#else
+			fprintf(out1,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+			fprintf(out1,"\"_%s:\\n\\t\"\n",name);
+#endif
+			fprintf(out1,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx | INDEX);
+			fprintf(out1,"\t\"lea\t4(%%esp),%%edx\\n\\t\"\n");
+			fprintf(out1,"\t\"int\t$0x2E\\n\\t\"\n");
+			fprintf(out1,"\t\"ret\t$%d\\n\\t\");\n\n",stacksize);
+
+			/*
+			 * Write the USER32 stub for the current system call
+			 */
+#ifdef PARAMETERIZED_LIBS
+			fprintf(out2,"__asm__(\"\\n\\t.global _%s@%d\\n\\t\"\n",name,stacksize);
+			fprintf(out2,"\"_%s@%d:\\n\\t\"\n",name,stacksize);
+#else
+			fprintf(out2,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+			fprintf(out2,"\"_%s:\\n\\t\"\n",name);
+#endif
+			fprintf(out2,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx | INDEX);
+			fprintf(out2,"\t\"lea\t4(%%esp),%%edx\\n\\t\"\n");
+			fprintf(out2,"\t\"int\t$0x2E\\n\\t\"\n");
+			fprintf(out2,"\t\"ret\t$%d\\n\\t\");\n\n",stacksize);
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -298,8 +283,7 @@ process(
 
 void usage(char * argv0)
 {
-	printf("Usage: %s w32ksvc.db w32k.lst ssdt.h win32k.c win32k.c\n"
-	       "  w32ksvc.db    input file(system calls database)\n"
+	printf("Usage: %s w32k.lst ssdt.h win32k.c win32k.c\n"
 	       "  w32k.lst      system functions database\n"
 	       "  ssdt.h        WIN32K service table\n"
 	       "  win32k.c      GDI32 stubs\n"

@@ -1,4 +1,4 @@
-/* $Id: open.c,v 1.5 2002/10/29 04:45:31 rex Exp $
+/* $Id: open.c,v 1.2 2002/02/20 09:17:57 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -52,6 +52,7 @@ int _Wopen(const wchar_t *path, int oflag, ...)
  mode_t            mFileMode;
 #endif
  int               nFileNo;
+ __fdtable_t      *pftTable;
  __fildes_t        fdDescriptor;
 
  /* translate file access flag */
@@ -130,9 +131,9 @@ int _Wopen(const wchar_t *path, int oflag, ...)
   0,
   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
   nCreateDisposition,
-  nCreateOptions | FILE_SYNCHRONOUS_IO_NONALERT,
+  FILE_SYNCHRONOUS_IO_NONALERT,
   NULL,
-  0
+  nCreateOptions
  );
 
  /* failure */

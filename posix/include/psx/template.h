@@ -1,13 +1,13 @@
-/* $Id: template.h,v 1.6 2002/10/29 04:45:15 rex Exp $
+/* $Id: template.h,v 1.2 2002/02/20 09:17:55 hyperion Exp $
  How to create a new header file from this template:
   - copy the template in the new file (never edit this file directly, unless
     that's what you want)
   - search for the string "EDITME" in the file, and follow the instructions
-  - remove this comment block, all blocks containing REMOVEME, and all EDITME
+  - remove this comment block, all blocks containing DELETEME, and all EDITME
     instructions
   - save your file, and Have Fun! (TM)
  */
-/* $*Id*$ (EDITME: remove asterisks from "$*Id*$")
+/* $ Id $ (EDITME: replace "$ Id $" with "$Id: template.h,v 1.2 2002/02/20 09:17:55 hyperion Exp $")
  */
 /*
  * psx/template.h (EDITME: replace with the real name of the header)

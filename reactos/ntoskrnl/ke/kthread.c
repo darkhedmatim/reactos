@@ -16,8 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: kthread.c,v 1.61 2004/12/12 23:18:55 navaraf Exp $
- *
+/*
  * FILE:            ntoskrnl/ke/kthread.c
  * PURPOSE:         Microkernel thread support
  * PROGRAMMER:      David Welch (welch@cwcom.net)
@@ -27,55 +26,35 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/id.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
+/* EXTERN ********************************************************************/
+
+//extern VOID 
+//PiTimeoutThread(struct _KDPC Dpc, PVOID Context, PVOID Arg1, PVOID Arg2);
+
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @unimplemented
- */
 VOID
-STDCALL
-KeCapturePersistentThreadState(
-	IN PVOID	CurrentThread,
-	IN ULONG	Setting1,
-	IN ULONG	Setting2,
-	IN ULONG	Setting3,
-	IN ULONG	Setting4,
-	IN ULONG	Setting5,
-	IN PVOID	ThreadState
-)
+KeFreeStackPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address, ULONG PhysAddr,
+		SWAPENTRY SwapEntry, BOOLEAN Dirty)
 {
-	UNIMPLEMENTED;
-}
-
-VOID
-KeFreeStackPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address, 
-		PFN_TYPE Page, SWAPENTRY SwapEntry, BOOLEAN Dirty)
-{
-  ASSERT(SwapEntry == 0);
-  if (Page != 0)
+  assert(SwapEntry == 0);
+  if (PhysAddr != 0)
     {
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Page);
+      MmDereferencePage((PVOID)PhysAddr);
     }
 }
 
-/*
- * @implemented
- */
-KPRIORITY
-STDCALL
-KeQueryPriorityThread (
-    IN PKTHREAD Thread
-    )
-{
-	return Thread->Priority;
-}
-
 NTSTATUS 
-KeReleaseThread(PKTHREAD Thread)
+KeReleaseThread(PETHREAD Thread)
 /*
  * FUNCTION: Releases the resource allocated for a thread by
  * KeInitializeThread
@@ -84,51 +63,22 @@ KeReleaseThread(PKTHREAD Thread)
 {
   extern unsigned int init_stack;
 
-  /* FIXME - lock the process */
-  RemoveEntryList(&Thread->ThreadListEntry);
-  
-  if (Thread->StackLimit != (ULONG_PTR)&init_stack)
+  if (Thread->Tcb.StackLimit != (ULONG)&init_stack)
     {       
-      MmLockAddressSpace(MmGetKernelAddressSpace());
       MmFreeMemoryArea(MmGetKernelAddressSpace(),
-		       (PVOID)Thread->StackLimit,
+		       (PVOID)Thread->Tcb.StackLimit,
 		       MM_STACK_SIZE,
 		       KeFreeStackPage,
 		       NULL);
-      MmUnlockAddressSpace(MmGetKernelAddressSpace());
     }
-  Thread->StackLimit = 0;
-  Thread->InitialStack = NULL;
-  Thread->StackBase = NULL;
-  Thread->KernelStack = NULL;
+  Thread->Tcb.StackLimit = 0;
+  Thread->Tcb.InitialStack = NULL;
+  Thread->Tcb.StackBase = NULL;
+  Thread->Tcb.KernelStack = NULL;
   return(STATUS_SUCCESS);
 }
 
-/*
- * @implemented
- */
-BOOLEAN
-STDCALL
-KeSetKernelStackSwapEnable(
-	IN BOOLEAN Enable
-	)
-{
-	PKTHREAD Thread;
-	BOOLEAN PreviousState;
-	
-	Thread = KeGetCurrentThread();
-	
-	/* Save Old State */
-	PreviousState = Thread->EnableStackSwap;
-	
-	/* Set New State */
-	Thread->EnableStackSwap = Enable;
-
-	/* Return Old State */
-	return PreviousState;
-}
-
-VOID
+VOID 
 KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
 /*
  * FUNCTION: Initialize the microkernel state of the thread
@@ -140,9 +90,6 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   extern unsigned int init_stack;
   PMEMORY_AREA StackArea;
   ULONG i;
-  PHYSICAL_ADDRESS BoundaryAddressMultiple;
-  
-  BoundaryAddressMultiple.QuadPart = 0;
   
   KeInitializeDispatcherHeader(&Thread->DispatcherHeader,
 			       InternalThreadType,
@@ -151,7 +98,6 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   InitializeListHead(&Thread->MutantListHead);
   if (!First)
     {
-      PFN_TYPE Page[MM_STACK_SIZE / PAGE_SIZE];
       KernelStack = NULL;
       
       MmLockAddressSpace(MmGetKernelAddressSpace());
@@ -162,63 +108,48 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
 				  MM_STACK_SIZE,
 				  0,
 				  &StackArea,
-				  FALSE,
-				  FALSE,
-				  BoundaryAddressMultiple);
+				  FALSE);
       MmUnlockAddressSpace(MmGetKernelAddressSpace());
       
       if (!NT_SUCCESS(Status))
 	{
 	  DPRINT1("Failed to create thread stack\n");
-	  KEBUGCHECK(0);
+	  KeBugCheck(0);
 	}
-      for (i = 0; i < (MM_STACK_SIZE / PAGE_SIZE); i++)
+      for (i = 0; i < (MM_STACK_SIZE / PAGESIZE); i++)
 	{
-	  Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Page[i]);
+	  PVOID Page;
+	  Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Page);
 	  if (!NT_SUCCESS(Status))
 	    {
-	      KEBUGCHECK(0);
+	      KeBugCheck(0);
 	    }
+	  Status = MmCreateVirtualMapping(NULL,
+					  KernelStack + (i * PAGESIZE),
+					  PAGE_EXECUTE_READWRITE,
+					  (ULONG)Page,
+					  TRUE);
 	}
-      Status = MmCreateVirtualMapping(NULL,
-				      KernelStack,
-				      PAGE_READWRITE,
-				      Page,
-				      MM_STACK_SIZE / PAGE_SIZE);
-      if (!NT_SUCCESS(Status))
-        {
-          KEBUGCHECK(0);
-	}
-      Thread->InitialStack = (PCHAR)KernelStack + MM_STACK_SIZE;
-      Thread->StackBase    = (PCHAR)KernelStack + MM_STACK_SIZE;
-      Thread->StackLimit   = (ULONG_PTR)KernelStack;
-      Thread->KernelStack  = (PCHAR)KernelStack + MM_STACK_SIZE;
+      Thread->InitialStack = KernelStack + MM_STACK_SIZE;
+      Thread->StackBase = KernelStack + MM_STACK_SIZE;
+      Thread->StackLimit = (ULONG)KernelStack;
+      Thread->KernelStack = KernelStack + MM_STACK_SIZE;
     }
   else
     {
-      Thread->InitialStack = (PCHAR)&init_stack_top;
-      Thread->StackBase = (PCHAR)&init_stack_top;
-      Thread->StackLimit = (ULONG_PTR)&init_stack;
-      Thread->KernelStack = (PCHAR)&init_stack_top;
+      Thread->InitialStack = (PVOID)&init_stack_top;
+      Thread->StackBase = (PVOID)&init_stack_top;
+      Thread->StackLimit = (ULONG)&init_stack;
+      Thread->KernelStack = (PVOID)&init_stack_top;
     }
-
-  /* 
-   * Establish the pde's for the new stack and the thread structure within the 
-   * address space of the new process. They are accessed while taskswitching or
-   * while handling page faults. At this point it isn't possible to call the 
-   * page fault handler for the missing pde's. 
-   */
   
-  MmUpdatePageDir((PEPROCESS)Process, (PVOID)Thread->StackLimit, MM_STACK_SIZE);
-  MmUpdatePageDir((PEPROCESS)Process, (PVOID)Thread, sizeof(ETHREAD));
-
   /* 
    * The Native API function will initialize the TEB field later 
    */
   Thread->Teb = NULL;
   Thread->TlsArray = NULL;
   Thread->DebugActive = 0;
-  Thread->State = THREAD_STATE_INITIALIZED;
+  Thread->State = THREAD_STATE_BLOCKED;
   Thread->Alerted[0] = 0;
   Thread->Alerted[1] = 0;
   Thread->Iopl = 0;
@@ -228,7 +159,7 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   Thread->NpxState = 0;
   
   Thread->Saturation = 0;
-  Thread->Priority = Process->BasePriority; 
+  Thread->Priority = 0; 
   InitializeListHead(&Thread->ApcState.ApcListHead[0]);
   InitializeListHead(&Thread->ApcState.ApcListHead[1]);
   Thread->ApcState.Process = Process;
@@ -244,21 +175,21 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   Thread->WaitListEntry.Flink = NULL;
   Thread->WaitListEntry.Blink = NULL;
   Thread->WaitTime = 0;
-  Thread->BasePriority = Process->BasePriority;
+  Thread->BasePriority = 0; 
   Thread->DecrementCount = 0;
   Thread->PriorityDecrement = 0;
-  Thread->Quantum = Process->ThreadQuantum;
+  Thread->Quantum = 0;
   memset(Thread->WaitBlock, 0, sizeof(KWAIT_BLOCK)*4);
-  Thread->LegoData = 0; 
+  Thread->LegoData = 0;
+  /*
+   * FIXME: Why this?
+   */
+  Thread->KernelApcDisable = 1;
   Thread->UserAffinity = Process->Affinity;
   Thread->SystemAffinityActive = 0;
-  Thread->PowerState = 0;
-  Thread->NpxIrql = 0;
-  Thread->ServiceTable = KeServiceDescriptorTable;
   Thread->Queue = NULL;
   KeInitializeSpinLock(&Thread->ApcQueueLock);
   memset(&Thread->Timer, 0, sizeof(KTIMER));
-  KeInitializeTimer(&Thread->Timer);
   Thread->QueueListEntry.Flink = NULL;
   Thread->QueueListEntry.Blink = NULL;
   Thread->Affinity = Process->Affinity;
@@ -267,10 +198,10 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   Thread->KernelStackResident = 1;
   Thread->NextProcessor = 0;
   Thread->CallbackStack = NULL;
-  Thread->Win32Thread = NULL;
+  Thread->Win32Thread = 0;
   Thread->TrapFrame = NULL;
-  Thread->ApcStatePointer[OriginalApcEnvironment] = &Thread->ApcState;
-  Thread->ApcStatePointer[AttachedApcEnvironment] = &Thread->SavedApcState;
+  Thread->ApcStatePointer[0] = NULL;
+  Thread->ApcStatePointer[1] = NULL;
   Thread->EnableStackSwap = 0;
   Thread->LargeStack = 0;
   Thread->ResourceIndex = 0;
@@ -278,130 +209,36 @@ KeInitializeThread(PKPROCESS Process, PKTHREAD Thread, BOOLEAN First)
   Thread->KernelTime = 0;
   Thread->UserTime = 0;
   memset(&Thread->SavedApcState, 0, sizeof(KAPC_STATE));
-   
-  Thread->ApcStateIndex = OriginalApcEnvironment;
-  Thread->ApcQueueable = TRUE;
-  Thread->AutoAlignment = Process->AutoAlignment;
-  
+  Thread->Alertable = 1;
+  Thread->ApcStateIndex = 0;
+  Thread->ApcQueueable = 0;
+  Thread->AutoAlignment = 0;
   KeInitializeApc(&Thread->SuspendApc,
 		  Thread,
-		  OriginalApcEnvironment,
+		  0,
 		  PiSuspendThreadKernelRoutine,
 		  PiSuspendThreadRundownRoutine,
 		  PiSuspendThreadNormalRoutine,
 		  KernelMode,
 		  NULL);
-  KeInitializeSemaphore(&Thread->SuspendSemaphore, 0, 128);
-  
-  InsertTailList(&Process->ThreadListHead,
-                 &Thread->ThreadListEntry);
+  KeInitializeSemaphore(&Thread->SuspendSemaphore, 0, 255);
+  Thread->ThreadListEntry.Flink = NULL;
+  Thread->ThreadListEntry.Blink = NULL;
   Thread->FreezeCount = 0;
   Thread->SuspendCount = 0;
+  
+  /*
+   * Initialize ReactOS specific members
+   */
+   Thread->ProcessThreadListEntry.Flink = NULL;
+   Thread->ProcessThreadListEntry.Blink = NULL;
+   KeInitializeDpc(&Thread->TimerDpc,
+		   (PKDEFERRED_ROUTINE)PiTimeoutThread,
+		   Thread);
+   Thread->LastEip = 0;
    
    /*
     * Do x86 specific part
     */
 }
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-KeRevertToUserAffinityThread(VOID)
-{
-	PKTHREAD CurrentThread;
-	KIRQL oldIrql;
-
-        oldIrql = KeAcquireDispatcherDatabaseLock();
-
-	CurrentThread = KeGetCurrentThread();
-
-	ASSERT(CurrentThread->SystemAffinityActive != FALSE);
-
-	/* Return to User Affinity */
-	CurrentThread->Affinity = CurrentThread->UserAffinity;
-	
-	/* Disable System Affinity */
-	CurrentThread->SystemAffinityActive = FALSE;
-
-	if (CurrentThread->Affinity & (1 << KeGetCurrentProcessorNumber()))
-	{
-	   KeReleaseDispatcherDatabaseLock(oldIrql);
-	}
-	else
-	{
-	   CurrentThread->WaitIrql = oldIrql;
-           PsDispatchThreadNoLock(THREAD_STATE_READY);
-           KeLowerIrql(oldIrql);
-	}
-}
-
-/*
- * @implemented
- */
-CCHAR
-STDCALL
-KeSetIdealProcessorThread (
-	IN PKTHREAD Thread,
-	IN CCHAR Processor)
-{
-	CCHAR PreviousIdealProcessor;
-
-	/* Save Old Ideal Processor */
-	PreviousIdealProcessor = Thread->IdealProcessor;
-	
-	/* Set New Ideal Processor */
-	Thread->IdealProcessor = Processor;
-	
-	/* Return Old Ideal Processor */
-	return PreviousIdealProcessor;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-KeSetSystemAffinityThread(IN KAFFINITY Affinity)
-{
-	PKTHREAD CurrentThread;
-	KIRQL oldIrql;
-
-        oldIrql = KeAcquireDispatcherDatabaseLock();
-
-	CurrentThread = KeGetCurrentThread();
-
-	ASSERT(CurrentThread->SystemAffinityActive == FALSE);
-	ASSERT(Affinity & ((1 << KeNumberProcessors) - 1));
-	
-        /* Set the System Affinity Specified */
-	CurrentThread->Affinity = Affinity;
-	
-	/* Enable System Affinity */
-	CurrentThread->SystemAffinityActive = TRUE;
-
-	if (Affinity & (1 << KeGetCurrentProcessorNumber()))
-	{
-	   KeReleaseDispatcherDatabaseLock(oldIrql);
-	}
-	else
-	{
-	   CurrentThread->WaitIrql = oldIrql;
-           PsDispatchThreadNoLock(THREAD_STATE_READY);
-           KeLowerIrql(oldIrql);
-	}
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-KeTerminateThread(IN KPRIORITY Increment)
-{
-	/* The Increment Argument seems to be ignored by NT and always 0 when called */
-	
-	/* Call our own internal routine */
-	PsTerminateCurrentThread(0);
-}

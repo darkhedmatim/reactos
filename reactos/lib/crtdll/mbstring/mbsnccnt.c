@@ -1,8 +1,5 @@
-#include <msvcrt/mbstring.h>
+#include <crtdll/mbstring.h>
 
-/*
- * @implemented
- */
 size_t _mbsnccnt(const unsigned char *str, size_t n)
 {
 	unsigned char *s = (unsigned char *)str;
@@ -19,9 +16,6 @@ size_t _mbsnccnt(const unsigned char *str, size_t n)
 	return cnt;
 }
 
-/*
- * @implemented
- */
 size_t _mbsnbcnt(const unsigned char *str, size_t n)
 {
 	unsigned char *s = (unsigned char *)str;

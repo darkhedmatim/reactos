@@ -1,4 +1,4 @@
-/* $Id: fdtable.c,v 1.6 2002/10/29 04:45:31 rex Exp $
+/* $Id: fdtable.c,v 1.2 2002/02/20 09:17:57 hyperion Exp $
  */
 /*
  * COPYRIGHT:   See COPYING in the top level directory
@@ -155,14 +155,11 @@ int __fdtable_entry_add(__fdtable_t * fdtable, int fileno, __fildes_t * fildes, 
   );
 
   /* ... try to increase the size of the table */
-  if(fdtable->AllocatedDescriptors * sizeof(*fdtable->Descriptors) == 0)
-   pTemp = __malloc((nFileNo + 1) * sizeof(*fdtable->Descriptors));
-  else
-   pTemp = __realloc
-   (
-    fdtable->Descriptors,
-    (nFileNo + 1) * sizeof(*fdtable->Descriptors)
-   );
+  pTemp = __realloc
+  (
+   fdtable->Descriptors,
+   (nFileNo + 1) * sizeof(*fdtable->Descriptors)
+  );
 
   /* reallocation failed */
   if(pTemp == 0)
@@ -230,7 +227,6 @@ __fildes_t *__fdtable_entry_get(__fdtable_t * fdtable, int fileno)
  if(fileno >= fdtable->AllocatedDescriptors)
   return (0);
 
- /* TODO: check the fileno against the bitmap */
  return (&fdtable->Descriptors[fileno]);
 }
 

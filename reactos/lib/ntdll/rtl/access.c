@@ -1,4 +1,4 @@
-/* $Id: access.c,v 1.4 2003/07/11 13:50:23 royce Exp $
+/* $Id: access.c,v 1.1 2000/04/06 02:29:16 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -28,9 +28,6 @@ RtlAreAllAccessesGranted (
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN
 STDCALL
 RtlAreAnyAccessesGranted (
@@ -42,9 +39,6 @@ RtlAreAnyAccessesGranted (
 }
 
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 RtlMapGenericMask (

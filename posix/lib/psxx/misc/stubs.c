@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.3 2002/10/29 04:45:50 rex Exp $
+/* $Id: stubs.c,v 1.1 2001/09/08 22:13:16 ea Exp $
  *
  * ReactOS - POSIX+ - X/11 over W32k
  */

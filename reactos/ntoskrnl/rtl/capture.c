@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: capture.c,v 1.6 2004/08/15 16:39:11 chorns Exp $
+/* $Id: capture.c,v 1.2 2001/09/02 19:48:19 chorns Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/rtl/capture.c
@@ -28,7 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -112,34 +114,6 @@ RtlCaptureAnsiString(PANSI_STRING Dest,
     }
 
   return(STATUS_SUCCESS);
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-RtlCaptureContext (
-	OUT PCONTEXT ContextRecord
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-USHORT
-STDCALL
-RtlCaptureStackBackTrace (
-	IN ULONG FramesToSkip,
-	IN ULONG FramesToCapture,
-	OUT PVOID *BackTrace,
-	OUT PULONG BackTraceHash OPTIONAL
-	)
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 /* EOF */

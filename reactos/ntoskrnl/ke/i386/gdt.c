@@ -27,7 +27,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -50,17 +54,11 @@ USHORT KiBootGdt[11 * 4] =
  0x0, 0x0, 0x0, 0x0               /* Trap TSS */
 };
 
-
-#include <pshpack1.h>
-
-struct LocalGdtDescriptor_t
+struct
 {
   USHORT Length;
   ULONG Base;
-} KiGdtDescriptor = { 11 * 8, (ULONG)KiBootGdt };
-
-#include <poppack.h>
-
+} __attribute__((packed)) KiGdtDescriptor = { 11 * 8, (ULONG)KiBootGdt };
 
 static KSPIN_LOCK GdtLock;
 
@@ -76,7 +74,11 @@ VOID
 KiInitializeGdt(PKPCR Pcr)
 {
   PUSHORT Gdt;
-  struct LocalGdtDescriptor_t Descriptor;
+  struct
+  {
+    USHORT Length;
+    ULONG Base;
+  } __attribute__((packed)) Descriptor;
   ULONG Entry;
   ULONG Base;  
 
@@ -93,7 +95,7 @@ KiInitializeGdt(PKPCR Pcr)
   if (Gdt == NULL)
     {
       DbgPrint("No GDT (%d)\n", Pcr->ProcessorNumber);
-      KEBUGCHECK(0);
+      KeBugCheck(0);
     }
 
   /*
@@ -110,20 +112,19 @@ KiInitializeGdt(PKPCR Pcr)
    */
   Base = (ULONG)Pcr;
   Entry = PCR_SELECTOR / 2;
-  Gdt[Entry + 1] = (USHORT)(((ULONG)Base) & 0xffff);
+  Gdt[Entry + 1] = ((ULONG)Base) & 0xffff;
   
   Gdt[Entry + 2] = Gdt[Entry + 2] & ~(0xff);
-  Gdt[Entry + 2] = (USHORT)(Gdt[Entry + 2] | ((((ULONG)Base) & 0xff0000) >> 16));
+  Gdt[Entry + 2] = Gdt[Entry + 2] | ((((ULONG)Base) & 0xff0000) >> 16);
    
   Gdt[Entry + 3] = Gdt[Entry + 3] & ~(0xff00);
-  Gdt[Entry + 3] = (USHORT)(Gdt[Entry + 3] | ((((ULONG)Base) & 0xff000000) >> 16));
+  Gdt[Entry + 3] = Gdt[Entry + 3] | ((((ULONG)Base) & 0xff000000) >> 16);
 
   /*
    * Load the GDT
    */
   Descriptor.Length = 8 * 11;
   Descriptor.Base = (ULONG)Gdt;
-#if defined(__GNUC__)
   __asm__ ("lgdt %0\n\t" : /* no output */ : "m" (Descriptor));
   
   /*
@@ -134,72 +135,13 @@ KiInitializeGdt(PKPCR Pcr)
 	   "movl %1, %%fs\n\t"
 	   "movl %0, %%gs\n\t"
 	   : /* no output */
-	   : "a" (KERNEL_DS), "d" (PCR_SELECTOR));
+	   : "a" (KERNEL_DS), "b" (PCR_SELECTOR));
   __asm__ ("pushl %0\n\t"
 	   "pushl $.l4\n\t"
 	   "lret\n\t"
 	   ".l4:\n\t"
 	   : /* no output */
 	   : "a" (KERNEL_CS));
-#elif defined(_MSC_VER)
-  __asm
-  {
-    lgdt Descriptor;
-    mov ax, KERNEL_DS;
-    mov dx, PCR_SELECTOR;
-    mov ds, ax;
-    mov es, ax;
-    mov fs, dx;
-    mov gs, ax;
-    push KERNEL_CS;
-    push offset l4 ;
-    retf
-l4:
-  }
-#else
-#error Unknown compiler for inline assembler
-#endif
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-KeI386FlatToGdtSelector(
-	IN ULONG	Base,
-	IN USHORT	Length,
-	IN USHORT	Selector
-)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-KeI386ReleaseGdtSelectors(
-	OUT PULONG SelArray,
-	IN ULONG NumOfSelectors
-)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-KeI386AllocateGdtSelectors(
-	OUT PULONG SelArray,
-    IN ULONG NumOfSelectors
-)
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 VOID 
@@ -207,57 +149,30 @@ KeSetBaseGdtSelector(ULONG Entry,
 		     PVOID Base)
 {
    KIRQL oldIrql;
-   PUSHORT Gdt;
+   PUSHORT Gdt = KeGetCurrentKPCR()->GDT;
    
    DPRINT("KeSetBaseGdtSelector(Entry %x, Base %x)\n",
 	   Entry, Base);
    
    KeAcquireSpinLock(&GdtLock, &oldIrql);
    
-   Gdt = KeGetCurrentKPCR()->GDT;
    Entry = (Entry & (~0x3)) / 2;
    
-   Gdt[Entry + 1] = (USHORT)(((ULONG)Base) & 0xffff);
+   Gdt[Entry + 1] = ((ULONG)Base) & 0xffff;
    
    Gdt[Entry + 2] = Gdt[Entry + 2] & ~(0xff);
-   Gdt[Entry + 2] = (USHORT)(Gdt[Entry + 2] |
-     ((((ULONG)Base) & 0xff0000) >> 16));
+   Gdt[Entry + 2] = Gdt[Entry + 2] |
+     ((((ULONG)Base) & 0xff0000) >> 16);
    
    Gdt[Entry + 3] = Gdt[Entry + 3] & ~(0xff00);
-   Gdt[Entry + 3] = (USHORT)(Gdt[Entry + 3] |
-     ((((ULONG)Base) & 0xff000000) >> 16));
+   Gdt[Entry + 3] = Gdt[Entry + 3] |
+     ((((ULONG)Base) & 0xff000000) >> 16);
    
    DPRINT("%x %x %x %x\n", 
 	   Gdt[Entry + 0],
 	   Gdt[Entry + 1],
 	   Gdt[Entry + 2],
 	   Gdt[Entry + 3]);
-   
-   KeReleaseSpinLock(&GdtLock, oldIrql);
-}
-
-VOID 
-KeSetGdtSelector(ULONG Entry,
-                 ULONG Value1,
-                 ULONG Value2)
-{
-   KIRQL oldIrql;
-   PULONG Gdt; 
-   
-   DPRINT("KeSetGdtSelector(Entry %x, Value1 %x, Value2 %x)\n",
-	   Entry, Value1, Value2);
-   
-   KeAcquireSpinLock(&GdtLock, &oldIrql);
-   
-   Gdt = (PULONG) KeGetCurrentKPCR()->GDT;;
-   Entry = (Entry & (~0x3)) / 4;
-
-   Gdt[Entry] = Value1;
-   Gdt[Entry + 1] = Value2;
-
-   DPRINT("%x %x\n", 
-	   Gdt[Entry + 0],
-	   Gdt[Entry + 1]);
    
    KeReleaseSpinLock(&GdtLock, oldIrql);
 }

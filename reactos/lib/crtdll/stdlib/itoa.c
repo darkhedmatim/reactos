@@ -9,19 +9,12 @@
  *              1998: Added ltoa Boudewijn Dekker
  */
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
+#include <crtdll/errno.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/file.h>
 
-#include <msvcrt/errno.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
-
-
-/*
- * @implemented
- *
- * this function is now forwarded to NTDLL._itoa to reduce code duplication
- */
-#if 0
-char* _itoa(int value, char* string, int radix)
+char *
+itoa(int value, char *string, int radix)
 {
   char tmp[33];
   char *tp = tmp;
@@ -62,15 +55,10 @@ char* _itoa(int value, char* string, int radix)
   *sp = 0;
   return string;
 }
-#endif
 
-/*
- * @implemented
- *
- * this function is now forwarded to NTDLL._ltoa to reduce code duplication
- */
-#if 0
-char* _ltoa(long value, char* string, int radix)
+
+char *
+ltoa(long value, char *string, int radix)
 {
   char tmp[33];
   char *tp = tmp;
@@ -111,15 +99,9 @@ char* _ltoa(long value, char* string, int radix)
   *sp = 0;
   return string;
 }
-#endif
 
-/*
- * @implemented
- *
- * this function is now forwarded to NTDLL._ultoa to reduce code duplication
- */
-#if 0
-char* _ultoa(unsigned long value, char* string, int radix)
+char *
+_ultoa(unsigned long value, char *string, int radix)
 {
   char tmp[33];
   char *tp = tmp;
@@ -133,6 +115,7 @@ char* _ultoa(unsigned long value, char* string, int radix)
     return 0;
   }
 
+ 
   while (v || tp == tmp)
   {
     i = v % radix;
@@ -147,9 +130,9 @@ char* _ultoa(unsigned long value, char* string, int radix)
     string = (char *)malloc((tp-tmp)+1);
   sp = string;
 
+ 
   while (tp > tmp)
     *sp++ = *--tp;
   *sp = 0;
   return string;
 }
-#endif
