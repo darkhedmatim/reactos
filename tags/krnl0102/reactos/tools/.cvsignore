@@ -1,0 +1,12 @@
+*.exe
+buildno
+depends
+rcopy
+rline
+rmkdir
+rrmdir
+mkconfig
+mkflpimg
+rdel
+rsym
+rtouch
