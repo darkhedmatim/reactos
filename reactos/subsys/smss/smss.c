@@ -1,4 +1,4 @@
-/* $Id: smss.c,v 1.15 2003/08/11 18:50:12 chorns Exp $
+/* $Id: smss.c,v 1.14 2002/10/25 22:08:20 chorns Exp $
  *
  * smss.c - Session Manager
  * 
@@ -29,9 +29,6 @@
 #include <ddk/ntddk.h>
 
 #include "smss.h"
-
-#define NDEBUG
-#include <debug.h>
 
 
 void
@@ -76,7 +73,7 @@ NtProcessStartup(PPEB Peb)
   Status = InitSessionManager(Children);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("SM: Initialization failed!\n");
+      PrintString("SM: Initialization failed!\n");
       goto ByeBye;
     }
 
@@ -87,11 +84,11 @@ NtProcessStartup(PPEB Peb)
 				    NULL);	/* NULL for infinite */
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("SM: NtWaitForMultipleObjects failed!\n");
+      PrintString("SM: NtWaitForMultipleObjects failed!\n");
     }
   else
     {
-      DPRINT1("SM: Process terminated!\n");
+      PrintString("SM: Process terminated!\n");
     }
 
 ByeBye:

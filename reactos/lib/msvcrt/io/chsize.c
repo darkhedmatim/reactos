@@ -4,9 +4,6 @@
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
 
-/*
- * @implemented
- */
 int _chsize(int _fd, long size)
 {
   DPRINT("_chsize(fd %d, size %d)\n", _fd, size);

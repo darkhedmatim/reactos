@@ -21,6 +21,7 @@
 
 #include <msvcrt/errno.h>
 #include <msvcrt/wchar.h>
+#include <msvcrt/internal/file.h>
 
 #ifndef EILSEQ
 #define EILSEQ EINVAL
@@ -45,17 +46,13 @@ static const unsigned char encoding_byte[] =
 size_t
 __wcrtomb (char *s, wchar_t wc);
 
-/*
- * Convert WCHAR into its multibyte character representation,
- * putting this in S and returning its length.
- *
- * Attention: this function should NEVER be intentionally used.
- * The interface is completely stupid.  The state is shared between
- * all conversion functions.  You should use instead the restartable
- * version `wcrtomb'.
- *
- * @implemented
- */
+/* Convert WCHAR into its multibyte character representation,
+   putting this in S and returning its length.
+
+   Attention: this function should NEVER be intentionally used.
+   The interface is completely stupid.  The state is shared between
+   all conversion functions.  You should use instead the restartable
+   version `wcrtomb'.  */
 int
 wctomb (char *s, wchar_t wchar)
 {
@@ -78,10 +75,20 @@ __wcrtomb (char *s, wchar_t wc)
   char fake[1];
   size_t written = 0;
 
+ 
+
   if (s == NULL)
     {
       s = fake;
       wc = L'\0';
+    }
+
+  /* Store the UTF8 representation of WC.  */
+  if (wc < 0 || wc > 0x7fffffff)
+    {
+      /* This is no correct ISO 10646 character.  */
+      __set_errno (EILSEQ);
+      return (size_t) -1;
     }
 
   if (wc < 0x80)

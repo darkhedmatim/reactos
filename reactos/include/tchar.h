@@ -29,16 +29,14 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.14 $
- * $Author: navaraf $
- * $Date: 2004/08/02 15:04:24 $
+ * $Revision: 1.5 $
+ * $Author: robd $
+ * $Date: 2003/01/01 06:19:37 $
  *
  */
 
-#ifndef	_ROS_TCHAR_H_
-#define _ROS_TCHAR_H_
-
-#include <msvcrt/string.h>
+#ifndef	_TCHAR_H_
+#define _TCHAR_H_
 
 /*
  * NOTE: This tests _UNICODE, which is different from the UNICODE define
@@ -53,13 +51,7 @@
  */
 #ifndef _TCHAR_DEFINED
 #ifndef RC_INVOKED
-typedef wchar_t _TCHAR;
-typedef wchar_t _TSCHAR;
-typedef wchar_t _TUCHAR;
-typedef wchar_t _TXCHAR;
-/* #if !__STDC__ */
-typedef wchar_t TCHAR;
-/* #endif */
+typedef	wchar_t	TCHAR;
 #endif	/* Not RC_INVOKED */
 #define _TCHAR_DEFINED
 #endif
@@ -79,8 +71,6 @@ typedef wchar_t TCHAR;
 /*
  * Unicode functions
  */
-
-#define _tmain _wmain
 
 #define	_tprintf		wprintf
 #define	_ftprintf		fwprintf
@@ -116,7 +106,6 @@ typedef wchar_t TCHAR;
 #define	_tcsncat		wcsncat
 #define	_tcsncmp	wcsncmp
 #define	_tcsncpy	wcsncpy
-#define _tcsnlen        wcsnlen
 #define	_tcspbrk		wcspbrk
 #define	_tcsrchr		wcsrchr
 #define	_tcsspn		wcsspn
@@ -149,9 +138,6 @@ typedef wchar_t TCHAR;
 #define	_totlower	towlower
 #define	_ttoi		_wtoi
 #define	_tcsftime	wcsftime
-#define	_tsplitpath	_wsplitpath
-#define	_tmakepath	_wmakepath
-#define	_tfopen		_wfopen
 
 #else	/* Not _UNICODE */
 
@@ -160,15 +146,7 @@ typedef wchar_t TCHAR;
  */
 #ifndef _TCHAR_DEFINED
 #ifndef RC_INVOKED
-typedef char _TCHAR;
-typedef signed char _TSCHAR;
-typedef unsigned char _TUCHAR;
-typedef char _TXCHAR;
-
-/*#if !__STDC__*/
-typedef char TCHAR;
-/*#endif*/
-
+typedef char	TCHAR;
 #endif
 #define _TCHAR_DEFINED
 #endif
@@ -176,19 +154,13 @@ typedef char TCHAR;
 /*
  * Enclose constant strings and characters in the _TEXT and _T macro.
  */
-#ifndef _TEXT
 #define	_TEXT(x)	x
-#endif
-#ifndef _T
 #define	_T(x)		x
-#endif
 
 
 /*
  * Non-unicode (standard) functions
  */
-
-#define _tmain main
 
 #define	_tprintf	printf
 #define _ftprintf	fprintf
@@ -224,7 +196,6 @@ typedef char TCHAR;
 #define	_tcsncat	strncat
 #define	_tcsncmp	strncmp
 #define	_tcsncpy	strncpy
-#define _tcsnlen        strnlen
 #define	_tcspbrk	strpbrk
 #define	_tcsrchr	strrchr
 #define _tcsspn		strspn
@@ -257,10 +228,8 @@ typedef char TCHAR;
 #define	_totlower	tolower
 #define	_ttoi		atoi
 #define _tcsftime	strftime
-#define	_tsplitpath	_splitpath
-#define	_tmakepath	_makepath
-#define	_tfopen		fopen
 
 #endif	/* Not _UNICODE */
 
 #endif	/* Not _TCHAR_H_ */
+

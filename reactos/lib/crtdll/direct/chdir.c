@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/ctype.h>
 #include <msvcrt/direct.h>
 
 
-/*
- * @implemented
- */
 int _chdir(const char* _path)
 {
     if (_path[1] == ':')

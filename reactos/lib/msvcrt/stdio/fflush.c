@@ -20,9 +20,6 @@
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 int fflush(FILE *f)
 {
   char *base;
@@ -32,11 +29,11 @@ int fflush(FILE *f)
 
   if (f == NULL)
   {
-     int e = *_errno();
+     int e = errno;
 
      __set_errno(0);
     _fwalk((void (*)(FILE *))fflush);
-    if (*_errno())
+    if (errno)
       return EOF;
     __set_errno(e);
     return 0;
@@ -81,7 +78,7 @@ int fflush(FILE *f)
     f->_flag &= ~_IOAHEAD;
 
 
-    f->_cnt = (f->_flag&(_IO_LBF|_IONBF)) ? 0 : f->_bufsiz;
+    f->_cnt = (f->_flag&(_IOLBF|_IONBF)) ? 0 : f->_bufsiz;
 
 // how can write return less than rn without being on error ???
 
@@ -99,8 +96,6 @@ int fflush(FILE *f)
     };
     f->_flag &= ~_IODIRTY;
 
-// commit flushed data
-//    _commit(fileno(f));
   }
   if (OPEN4READING(f) && OPEN4WRITING(f) )
   {
@@ -110,9 +105,6 @@ int fflush(FILE *f)
   return 0;
 }
 
-/*
- * @implemented
- */
 int _flushall( void )
 {
 	return fflush(NULL);

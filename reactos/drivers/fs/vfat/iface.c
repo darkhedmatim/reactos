@@ -16,19 +16,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: iface.c,v 1.74 2004/02/10 16:22:56 navaraf Exp $
+/* $Id: iface.c,v 1.67 2003/01/25 15:55:07 hbirr Exp $
  *
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/iface.c
+ * FILE:             services/fs/vfat/iface.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -53,7 +51,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Fat");
+   UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Fat");
    NTSTATUS Status;
 
    Status = IoCreateDevice(DriverObject,
@@ -88,7 +86,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
    DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = VfatShutdown;
    DriverObject->MajorFunction[IRP_MJ_LOCK_CONTROL] = VfatBuildRequest;
    DriverObject->MajorFunction[IRP_MJ_CLEANUP] = VfatBuildRequest;
-   DriverObject->MajorFunction[IRP_MJ_FLUSH_BUFFERS] = VfatBuildRequest;
 
    DriverObject->DriverUnload = NULL;
 
@@ -98,9 +95,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
                                    NULL, NULL, 0, sizeof(VFATCCB), TAG_CCB, 0);
    ExInitializeNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList, 
                                    NULL, NULL, 0, sizeof(VFAT_IRP_CONTEXT), TAG_IRP, 0);
-
-   ExInitializeResourceLite(&VfatGlobalData->VolumeListLock);
-   InitializeListHead(&VfatGlobalData->VolumeListHead);
    IoRegisterFileSystem(DeviceObject);
    return(STATUS_SUCCESS);
 }

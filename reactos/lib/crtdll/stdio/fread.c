@@ -7,9 +7,6 @@
 
 // carriage return line feed conversion is done in filbuf and  flsbuf
 #if 0
-/*
- * @unimplemented
- */
 size_t
 fread(void *p, size_t size, size_t count, FILE *iop)
 {

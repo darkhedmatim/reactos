@@ -1,4 +1,4 @@
-/* $Id: shutdown.c,v 1.12 2004/08/15 17:03:14 chorns Exp $
+/* $Id: shutdown.c,v 1.7 2003/01/07 17:32:59 robd Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -10,18 +10,22 @@
  *      19990515 EA
  */
 
-#include "advapi32.h"
+#include <windows.h>
+
+#define NTOS_MODE_USER
+#include <ntos.h>
 
 #define USZ {0,0,0}
 
 /**********************************************************************
  *      AbortSystemShutdownW
- *
- * @unimplemented
  */
-BOOL STDCALL
+WINBOOL
+STDCALL
 AbortSystemShutdownW(LPCWSTR lpMachineName)
 {
+    NTSTATUS Status;
+
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
 }
@@ -29,10 +33,9 @@ AbortSystemShutdownW(LPCWSTR lpMachineName)
 
 /**********************************************************************
  *      AbortSystemShutdownA
- *
- * @unimplemented
  */
-BOOL STDCALL
+BOOL
+STDCALL
 AbortSystemShutdownA(LPCSTR lpMachineName)
 {
     ANSI_STRING MachineNameA;
@@ -40,7 +43,7 @@ AbortSystemShutdownA(LPCSTR lpMachineName)
     NTSTATUS Status;
     BOOL rv;
 
-    RtlInitAnsiString(&MachineNameA, (LPSTR)lpMachineName);
+    RtlInitAnsiString(&MachineNameA, lpMachineName);
     Status = RtlAnsiStringToUnicodeString(&MachineNameW, &MachineNameA, TRUE);
     if (STATUS_SUCCESS != Status) {
             SetLastError(RtlNtStatusToDosError(Status));
@@ -56,10 +59,9 @@ AbortSystemShutdownA(LPCSTR lpMachineName)
 
 /**********************************************************************
  *      InitiateSystemShutdownW
- *
- * @unimplemented
  */
-BOOL STDCALL
+BOOL
+STDCALL
 InitiateSystemShutdownW(
     LPWSTR  lpMachineName,
     LPWSTR  lpMessage,
@@ -85,9 +87,7 @@ InitiateSystemShutdownW(
 
 /**********************************************************************
  *      InitiateSystemShutdownA
- *
- * @unimplemented
- */
+*/
 BOOL
 STDCALL
 InitiateSystemShutdownA(

@@ -1,4 +1,4 @@
-/* $Id: _system.c,v 1.9 2004/08/15 17:34:27 chorns Exp $
+/* $Id: _system.c,v 1.6 2002/11/24 18:42:15 robd Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,15 +8,11 @@
  * UPDATE HISTORY:
  *              04/03/99: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 #include <msvcrt/process.h>
 
-/*
- * @implemented
- */
 int system(const char *command)
 {
 	char szCmdLine[MAX_PATH];
@@ -24,7 +20,7 @@ int system(const char *command)
 	
 
 	PROCESS_INFORMATION ProcessInformation;
-	STARTUPINFOA StartupInfo;
+	STARTUPINFO StartupInfo;
 
 	int nStatus;
 
@@ -58,7 +54,7 @@ int system(const char *command)
 //command file has invalid format ENOEXEC
 
 
-	StartupInfo.cb = sizeof(StartupInfo);
+	StartupInfo.cb = sizeof(STARTUPINFO);
 	StartupInfo.lpReserved= NULL;
 	StartupInfo.dwFlags = 0;
 	StartupInfo.wShowWindow = SW_SHOWDEFAULT; 

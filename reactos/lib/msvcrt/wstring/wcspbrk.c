@@ -1,8 +1,5 @@
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 wchar_t *wcspbrk(const wchar_t *s1, const wchar_t *s2)
 {
   const wchar_t *scanp;

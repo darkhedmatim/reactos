@@ -8,29 +8,20 @@
  *              04/03/99: Created
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/process.h>
 
 
-/*
- * @implemented
- */
 void* _loaddll(char* name)
 {
 	return LoadLibraryA(name);
 }
 
-/*
- * @implemented
- */
 int _unloaddll(void* handle)
 {
 	return FreeLibrary(handle);
 }
 
-/*
- * @implemented
- */
 FARPROC _getdllprocaddr(void* hModule, char* lpProcName, int iOrdinal)
 {
 	if (lpProcName != NULL) 

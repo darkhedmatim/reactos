@@ -13,9 +13,6 @@
 
 size_t _mbclen2(const unsigned int s);
 
-/*
- * @implemented
- */
 unsigned char * _mbsncat(unsigned char *dst, const unsigned char *src, size_t n)
 {
 	char *d = (char *)dst;
@@ -38,9 +35,6 @@ unsigned char * _mbsncat(unsigned char *dst, const unsigned char *src, size_t n)
 	return dst;
 }
 
-/*
- * @implemented
- */
 unsigned char * _mbsnbcat(unsigned char *dst, const unsigned char *src, size_t n)
 {
 	char *d; 

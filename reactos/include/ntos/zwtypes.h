@@ -1,52 +1,13 @@
-#ifndef __INCLUDE_NTOS_ZWTYPES_H
-#define __INCLUDE_NTOS_ZWTYPES_H
+#ifndef __INCLUDE_DDK_ZWTYPES_H
+#define __INCLUDE_DDK_ZWTYPES_H
 
 #ifndef __USE_W32API
-
-typedef unsigned short LANGID;
-typedef LANGID *PLANGID;
-
-typedef struct _LDT_ENTRY {
-  WORD LimitLow;
-  WORD BaseLow;
-  union {
-    struct {
-      BYTE BaseMid;
-      BYTE Flags1;
-      BYTE Flags2;
-      BYTE BaseHi;
-    } Bytes;
-    struct {
-      DWORD BaseMid : 8;
-      DWORD Type : 5;
-      DWORD Dpl : 2;
-      DWORD Pres : 1;
-      DWORD LimitHi : 4;
-      DWORD Sys : 1;
-      DWORD Reserved_0 : 1;
-      DWORD Default_Big : 1;
-      DWORD Granularity : 1;
-      DWORD BaseHi : 8;
-    } Bits;
-  } HighWord;
-} LDT_ENTRY, *PLDT_ENTRY, *LPLDT_ENTRY;
-
-typedef enum _THREAD_STATE {
-	StateInitialized,
-	StateReady,
-	StateRunning,
-	StateStandby,
-	StateTerminated,
-	StateWait,
-	StateTransition,
-	StateUnknown
-} THREAD_STATE;
 
 typedef enum _DEBUG_CONTROL_CODE
 {
   DebugGetTraceInformation = 1,
   DebugSetInternalBreakpoint,
-  DebugSetSpecialCall,
+  DebugSetSpecialCalls,
   DebugClearSpecialCalls,
   DebugQuerySpecialCalls,
   DebugDbgBreakPoint,
@@ -230,200 +191,155 @@ enum _SYSTEM_INFORMATION_CLASS
 } SYSTEM_INFORMATION_CLASS;
 
 // SystemBasicInformation (0)
-// Modified by Andrew Greenwood (15th July 2003) to match Win 32 API headers
 typedef
 struct _SYSTEM_BASIC_INFORMATION
 {
-	ULONG		Unknown;
-	ULONG		MaximumIncrement;
-	ULONG		PhysicalPageSize;
+	ULONG		Reserved;
+	ULONG		TimerResolution;
+	ULONG		PageSize;
 	ULONG		NumberOfPhysicalPages;
-	ULONG		LowestPhysicalPage;
-	ULONG		HighestPhysicalPage;
+	ULONG		LowestPhysicalPageNumber;
+	ULONG		HighestPhysicalPageNumber;
 	ULONG		AllocationGranularity;
-	ULONG		LowestUserAddress;
-	ULONG		HighestUserAddress;
-	KAFFINITY	ActiveProcessors;
-	CCHAR		NumberProcessors;
+	ULONG		MinimumUserModeAddress;
+	ULONG		MaximumUserModeAddress;
+	KAFFINITY	ActiveProcessorsAffinityMask;
+	CCHAR		NumberOfProcessors;
 } SYSTEM_BASIC_INFORMATION, *PSYSTEM_BASIC_INFORMATION;
 
 // SystemProcessorInformation (1)
-// Modified by Andrew Greenwood (15th July 2003) to match Win 32 API headers
-typedef struct _SYSTEM_PROCESSOR_INFORMATION {
-	USHORT  ProcessorArchitecture;
-	USHORT  ProcessorLevel;
-	USHORT  ProcessorRevision;
-	USHORT  Unknown;
-	ULONG  FeatureBits;
+typedef
+struct _SYSTEM_PROCESSOR_INFORMATION
+{
+	USHORT	ProcessorArchitecture;
+	USHORT	ProcessorLevel;
+	USHORT	ProcessorRevision;
+	USHORT	Reserved;
+	ULONG	ProcessorFeatureBits;
 } SYSTEM_PROCESSOR_INFORMATION, *PSYSTEM_PROCESSOR_INFORMATION;
 
 // SystemPerformanceInfo (2)
-// Modified by Andrew Greenwood (15th July 2003) to match Win 32 API headers
-typedef struct _SYSTEM_PERFORMANCE_INFORMATION {
-	LARGE_INTEGER  IdleTime;
-	LARGE_INTEGER  ReadTransferCount;
-	LARGE_INTEGER  WriteTransferCount;
-	LARGE_INTEGER  OtherTransferCount;
-	ULONG  ReadOperationCount;
-	ULONG  WriteOperationCount;
-	ULONG  OtherOperationCount;
-	ULONG  AvailablePages;
-	ULONG  TotalCommittedPages;
-	ULONG  TotalCommitLimit;
-	ULONG  PeakCommitment;
-	ULONG  PageFaults;
-	ULONG  WriteCopyFaults;
-	ULONG  TransitionFaults;
-	ULONG  CacheTransitionFaults;
-	ULONG  DemandZeroFaults;
-	ULONG  PagesRead;
-	ULONG  PageReadIos;
-	ULONG	 CacheReads;
-	ULONG	 CacheIos;
-	ULONG  PagefilePagesWritten;
-	ULONG  PagefilePageWriteIos;
-	ULONG  MappedFilePagesWritten;
-	ULONG  MappedFilePageWriteIos;
-	ULONG  PagedPoolUsage;
-	ULONG  NonPagedPoolUsage;
-	ULONG  PagedPoolAllocs;
-	ULONG  PagedPoolFrees;
-	ULONG  NonPagedPoolAllocs;
-	ULONG  NonPagedPoolFrees;
-	ULONG  TotalFreeSystemPtes;
-	ULONG  SystemCodePage;
-	ULONG  TotalSystemDriverPages;
-	ULONG  TotalSystemCodePages;
-	ULONG  SmallNonPagedLookasideListAllocateHits;
-	ULONG  SmallPagedLookasideListAllocateHits;
-	ULONG  Reserved3;
-	ULONG  MmSystemCachePage;
-	ULONG  PagedPoolPage;
-	ULONG  SystemDriverPage;
-	ULONG  FastReadNoWait;
-	ULONG  FastReadWait;
-	ULONG  FastReadResourceMiss;
-	ULONG  FastReadNotPossible;
-	ULONG  FastMdlReadNoWait;
-	ULONG  FastMdlReadWait;
-	ULONG  FastMdlReadResourceMiss;
-	ULONG  FastMdlReadNotPossible;
-	ULONG  MapDataNoWait;
-	ULONG  MapDataWait;
-	ULONG  MapDataNoWaitMiss;
-	ULONG  MapDataWaitMiss;
-	ULONG  PinMappedDataCount;
-	ULONG  PinReadNoWait;
-	ULONG  PinReadWait;
-	ULONG  PinReadNoWaitMiss;
-	ULONG  PinReadWaitMiss;
-	ULONG  CopyReadNoWait;
-	ULONG  CopyReadWait;
-	ULONG  CopyReadNoWaitMiss;
-	ULONG  CopyReadWaitMiss;
-	ULONG  MdlReadNoWait;
-	ULONG  MdlReadWait;
-	ULONG  MdlReadNoWaitMiss;
-	ULONG  MdlReadWaitMiss;
-	ULONG  ReadAheadIos;
-	ULONG  LazyWriteIos;
-	ULONG  LazyWritePages;
-	ULONG  DataFlushes;
-	ULONG  DataPages;
-	ULONG  ContextSwitches;
-	ULONG  FirstLevelTbFills;
-	ULONG  SecondLevelTbFills;
-	ULONG  SystemCalls;
-} SYSTEM_PERFORMANCE_INFORMATION, *PSYSTEM_PERFORMANCE_INFORMATION;
-
-// SystemProcessThreadInfo (5)
-typedef struct _SYSTEM_THREAD_INFORMATION
+typedef
+struct _SYSTEM_PERFORMANCE_INFORMATION
 {
-	TIME		KernelTime;
-	TIME		UserTime;
-	TIME		CreateTime;
-	ULONG		WaitTime;
-	PVOID		StartAddress;
-	CLIENT_ID	ClientId;
-	KPRIORITY	Priority;
-	LONG		BasePriority;
+	LARGE_INTEGER	IdleProcessorTime;
+	LARGE_INTEGER	IoReadTransferCount;
+	LARGE_INTEGER	IoWriteTransferCount;
+	LARGE_INTEGER	IoOtherTransferCount;
+	ULONG		IoReadOperationCount;
+	ULONG		IoWriteOperationCount;
+	ULONG		IoOtherOperationCount;
+	ULONG		AvailablePages;
+	ULONG		CommitedPages;
+	ULONG		CommitLimit;
+	ULONG		PeakCommitment;
+	ULONG		PageFaultCount;
+	ULONG		CopyOnWriteCount;
+	ULONG		TransitionCount;
+	ULONG		CacheTransitionCount;
+	ULONG		DemandZeroCount;
+	ULONG		PageReadCount;
+	ULONG		PageReadIoCount;
+	ULONG		CacheReadCount;
+	ULONG		CacheIoCount;
+	ULONG		DirtyPagesWriteCount;
+	ULONG		DirtyWriteIoCount;
+	ULONG		MappedPagesWriteCount;
+	ULONG		MappedWriteIoCount;
+	ULONG		PagedPoolPages;
+	ULONG		NonPagedPoolPages;
+	ULONG		Unknown6;
+	ULONG		Unknown7;
+	ULONG		Unknown8;
+	ULONG		Unknown9;
+	ULONG		MmTotalSystemFreePtes;
+	ULONG		MmSystemCodepage;
+	ULONG		MmTotalSystemDriverPages;
+	ULONG		MmTotalSystemCodePages;
+	ULONG		Unknown10;
+	ULONG		Unknown11;
+	ULONG		Unknown12;
+	ULONG		MmSystemCachePage;
+	ULONG		MmPagedPoolPage;
+	ULONG		MmSystemDriverPage;
+	ULONG		CcFastReadNoWait;
+	ULONG		CcFastReadWait;
+	ULONG		CcFastReadResourceMiss;
+	ULONG		CcFastReadNotPossible;
+	ULONG		CcFastMdlReadNoWait;
+	ULONG		CcFastMdlReadWait;
+	ULONG		CcFastMdlReadResourceMiss;
+	ULONG		CcFastMdlReadNotPossible;
+	ULONG		CcMapDataNoWait;
+	ULONG		CcMapDataWait;
+	ULONG		CcMapDataNoWaitMiss;
+	ULONG		CcMapDataWaitMiss;
+	ULONG		CcPinMappedDataCount;
+	ULONG		CcPinReadNoWait;
+	ULONG		CcPinReadWait;
+	ULONG		CcPinReadNoWaitMiss;
+	ULONG		CcPinReadWaitMiss;
+	ULONG		CcCopyReadNoWait;
+	ULONG		CcCopyReadWait;
+	ULONG		CcCopyReadNoWaitMiss;
+	ULONG		CcCopyReadWaitMiss;
+	ULONG		CcMdlReadNoWait;
+	ULONG		CcMdlReadWait;
+	ULONG		CcMdlReadNoWaitMiss;
+	ULONG		CcMdlReadWaitMiss;
+	ULONG		CcReadaheadIos;
+	ULONG		CcLazyWriteIos;
+	ULONG		CcLazyWritePages;
+	ULONG		CcDataFlushes;
+	ULONG		CcDataPages;
 	ULONG		ContextSwitches;
-	ULONG		ThreadState;
-	KWAIT_REASON	WaitReason;
-} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
+	ULONG		Unknown13;
+	ULONG		Unknown14;
+	ULONG		SystemCalls;
 
-typedef struct SYSTEM_PROCESS_INFORMATION
-{
-	ULONG				NextEntryOffset;
-	ULONG				NumberOfThreads;
-	LARGE_INTEGER			SpareLi1;
-	LARGE_INTEGER			SpareLi2;
-	LARGE_INTEGER			SpareLi3;
-	TIME				CreateTime;
-	TIME				UserTime;
-	TIME				KernelTime;
-	UNICODE_STRING			ImageName;
-	ULONG				BasePriority;
-	HANDLE				UniqueProcessId;
-	HANDLE				InheritedFromUniqueProcessId;
-	ULONG				HandleCount;
-	ULONG				SessionId;
-	ULONG				SpareUl3;
-	ULONG				PeakVirtualSize;
-	ULONG				VirtualSize;
-	ULONG				PageFaultCount;
-	ULONG				PeakWorkingSetSize;
-	ULONG				WorkingSetSize;
-	ULONG				QuotaPeakPagedPoolUsage;
-	ULONG				QuotaPagedPoolUsage;
-	ULONG				QuotaPeakNonPagedPoolUsage;
-	ULONG				QuotaNonPagedPoolUsage;
-	ULONG				PagefileUsage;
-	ULONG				PeakPagefileUsage;
-	ULONG				PrivatePageCount;
-} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
+} SYSTEM_PERFORMANCE_INFO, *PSYSTEM_PERFORMANCE_INFO;
 
 // SystemModuleInformation (11)
-typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY {
-	ULONG	 Unknown1;
-	ULONG	 Unknown2;
-	PVOID  Base;
-	ULONG  Size;
-	ULONG  Flags;
-	USHORT  Index;
-  /* Length of module name not including the path, this
-     field contains valid value only for NTOSKRNL module */
-	USHORT	NameLength;
-	USHORT  LoadCount;
-	USHORT  PathLength;
-	CHAR  ImageName[256];
-} SYSTEM_MODULE_INFORMATION_ENTRY, *PSYSTEM_MODULE_INFORMATION_ENTRY;
+typedef
+struct _SYSTEM_MODULE_ENTRY
+{
+	ULONG	Unknown1;
+	ULONG	Unknown2;
+	PVOID	BaseAddress;
+	ULONG	Size;
+	ULONG	Flags;
+	ULONG	EntryIndex;
+	USHORT	NameLength; /* Length of module name not including the path, this field contains valid value only for NTOSKRNL module*/
+	USHORT	PathLength; /* Length of 'directory path' part of modulename*/
+	CHAR	Name [256];
+} SYSTEM_MODULE_ENTRY, * PSYSTEM_MODULE_ENTRY;
 
-typedef struct _SYSTEM_MODULE_INFORMATION {
-	ULONG  Count;
-  SYSTEM_MODULE_INFORMATION_ENTRY Module[1];
+typedef
+struct _SYSTEM_MODULE_INFORMATION
+{
+	ULONG			Count;
+	SYSTEM_MODULE_ENTRY	Module [1];
 } SYSTEM_MODULE_INFORMATION, *PSYSTEM_MODULE_INFORMATION;
 
 // SystemHandleInformation (16)
 // (see ontypes.h)
 typedef
-struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO
+struct _SYSTEM_HANDLE_ENTRY
 {
-	USHORT	UniqueProcessId;
-	USHORT	CreatorBackTraceIndex;
-	UCHAR	ObjectTypeIndex;
-	UCHAR	HandleAttributes;
+	ULONG	OwnerPid;
+	BYTE	ObjectType;
+	BYTE	HandleFlags;
 	USHORT	HandleValue;
-	PVOID	Object;
-	ULONG	GrantedAccess;
+	PVOID	ObjectPointer;
+	ULONG	AccessMask;
 	
-} SYSTEM_HANDLE_TABLE_ENTRY_INFO, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO;
+} SYSTEM_HANDLE_ENTRY, *PSYSTEM_HANDLE_ENTRY;
 
 typedef
 struct _SYSTEM_HANDLE_INFORMATION
 {
-	ULONG	NumberOfHandles;
-	SYSTEM_HANDLE_TABLE_ENTRY_INFO	Handles[1];
+	ULONG			Count;
+	SYSTEM_HANDLE_ENTRY	Handle [1];
 	
 } SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
 
@@ -466,12 +382,12 @@ struct _SYSTEM_OBJECT_INFORMATION
 typedef
 struct _SYSTEM_PAGEFILE_INFORMATION
 {
-	ULONG	NextEntryOffset;
-	ULONG	TotalSize;
-	ULONG	TotalInUse;
-	ULONG	PeakUsage;
-	UNICODE_STRING	PageFileName;
-
+	ULONG		RelativeOffset;
+	ULONG		CurrentSizePages;
+	ULONG		TotalUsedPages;
+	ULONG		PeakUsedPages;
+	UNICODE_STRING	PagefileFileName;
+	
 } SYSTEM_PAGEFILE_INFORMATION, *PSYSTEM_PAGEFILE_INFORMATION;
 
 // SystemCacheInformation (21)
@@ -483,9 +399,7 @@ struct _SYSTEM_CACHE_INFORMATION
 	ULONG	PageFaultCount;
 	ULONG	MinimumWorkingSet;
 	ULONG	MaximumWorkingSet;
-	ULONG   TransitionSharedPages;
-	ULONG   TransitionSharedPagesPeak;
-	ULONG	Unused[2];
+	ULONG	Unused[4];
 
 } SYSTEM_CACHE_INFORMATION;
 
@@ -533,7 +447,7 @@ struct _SYSTEM_SET_TIME_ADJUSTMENT
 	ULONG	TimeAdjustment;
 	BOOLEAN	TimeSynchronization;
 	
-} SYSTEM_SET_TIME_ADJUSTMENT, *PSYSTEM_SET_TIME_ADJUSTMENT;
+} SYSTEM_TIME_ADJUSTMENT_INFO, *PSYSTEM_TIME_ADJUSTMENT_INFO;
 
 // atom information
 
@@ -556,14 +470,6 @@ typedef struct _SYSTEM_LOAD_AND_CALL_IMAGE
 {
   UNICODE_STRING ModuleName;
 } SYSTEM_LOAD_AND_CALL_IMAGE, *PSYSTEM_LOAD_AND_CALL_IMAGE;
-
-// SystemRegistryQuotaInformation (37)
-typedef struct _SYSTEM_REGISTRY_QUOTA_INFORMATION {
-  ULONG  RegistryQuotaAllowed;
-  ULONG  RegistryQuotaUsed;
-  PVOID  Reserved1;
-} SYSTEM_REGISTRY_QUOTA_INFORMATION, *PSYSTEM_REGISTRY_QUOTA_INFORMATION;
-
 
 // SystemTimeZoneInformation (44)
 typedef
@@ -665,17 +571,17 @@ typedef struct _MEMORY_WORKING_SET_LIST { // Information Class 1
 } MEMORY_WORKING_SET_LIST, *PMEMORY_WORKING_SET_LIST;
 
 // Information Class 2
-/*#define _MEMORY_SECTION_NAME_STATIC(__bufsize__) \
+#define _MEMORY_SECTION_NAME_STATIC(__bufsize__) \
  { \
  UNICODE_STRING SectionFileName; \
  WCHAR          NameBuffer[(__bufsize__)]; \
-}*/
+} 
 
-typedef struct
-{
-	UNICODE_STRING SectionFileName;
-	WCHAR          NameBuffer[ANYSIZE_ARRAY];
-} MEMORY_SECTION_NAME, *PMEMORY_SECTION_NAME;
+#define MEMORY_SECTION_NAME_STATIC(__bufsize__) \
+ struct _MEMORY_SECTION_NAME_STATIC((__bufsize__) 
+
+typedef struct _MEMORY_SECTION_NAME_STATIC(ANYSIZE_ARRAY)
+ MEMORY_SECTION_NAME, *PMEMORY_SECTION_NAME;
 
 // Information class 0
 typedef struct _PROCESS_BASIC_INFORMATION
@@ -693,8 +599,8 @@ typedef struct _QUOTA_LIMITS
 {
 	ULONG PagedPoolLimit;
 	ULONG NonPagedPoolLimit;
-	SIZE_T MinimumWorkingSetSize;
-	SIZE_T MaximumWorkingSetSize;
+	ULONG MinimumWorkingSetSize;
+	ULONG MaximumWorkingSetSize;
 	ULONG PagefileLimit;
 	TIME TimeLimit;
 } QUOTA_LIMITS, *PQUOTA_LIMITS;
@@ -702,9 +608,9 @@ typedef struct _QUOTA_LIMITS
 // Information class 2
 typedef struct _IO_COUNTERS
 {
-	LARGE_INTEGER ReadOperationCount;
-	LARGE_INTEGER WriteOperationCount;
-	LARGE_INTEGER OtherOperationCount;
+	ULONG ReadOperationCount;
+	ULONG WriteOperationCount;
+	ULONG OtherOperationCount;
 	LARGE_INTEGER ReadTransferCount;
 	LARGE_INTEGER WriteTransferCount;
 	LARGE_INTEGER OtherTransferCount;
@@ -782,7 +688,7 @@ typedef struct _PROCESS_DEVICEMAP_INFORMATION
 			UCHAR DriveType[32];
 		} Query;
 	};
-} PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
+} PROCESS_DEVICEMAP_INFORMATION, *pPROCESS_DEVICEMAP_INFORMATION;
 
 // Information class 24
 typedef struct _PROCESS_SESSION_INFORMATION
@@ -804,15 +710,21 @@ typedef struct _THREAD_BASIC_INFORMATION
   KPRIORITY BasePriority;
 } THREAD_BASIC_INFORMATION, *PTHREAD_BASIC_INFORMATION;
 
+// object information
+
+typedef struct _OBJECT_NAME_INFORMATION
+{
+	UNICODE_STRING	Name;
+} OBJECT_NAME_INFORMATION, *POBJECT_NAME_INFORMATION;
 
 // file information
 
 typedef struct _FILE_BASIC_INFORMATION
 {
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	ULONG FileAttributes;
 } FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;
 
@@ -847,10 +759,10 @@ typedef struct _FILE_END_OF_FILE_INFORMATION
 
 typedef struct _FILE_NETWORK_OPEN_INFORMATION
 {
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER AllocationSize;
 	LARGE_INTEGER EndOfFile;
 	ULONG FileAttributes;
@@ -862,7 +774,7 @@ typedef struct _FILE_FULL_EA_INFORMATION
 	UCHAR Flags;
 	UCHAR EaNameLength;
 	USHORT EaValueLength;
-	CHAR  EaName[1];
+	CHAR  EaName[0];
 } FILE_FULL_EA_INFORMATION, *PFILE_FULL_EA_INFORMATION;
 
 
@@ -969,11 +881,6 @@ typedef struct _FILE_COMPRESSION_INFORMATION {
 	UCHAR Reserved[3];
 } FILE_COMPRESSION_INFORMATION, *PFILE_COMPRESSION_INFORMATION;
 
-typedef struct _FILE_COMPLETION_INFORMATION { // Information Class 30
-   HANDLE IoCompletionHandle;
-   PVOID CompletionKey;
-} FILE_COMPLETION_INFORMATION, *PFILE_COMPLETION_INFORMATION;
-
 typedef struct _FILE_ALL_INFORMATION {
 	FILE_BASIC_INFORMATION BasicInformation;
 	FILE_STANDARD_INFORMATION StandardInformation;
@@ -1033,14 +940,21 @@ typedef struct _FILE_FS_LABEL_INFORMATION {
 	WCHAR VolumeLabel[0];
 } FILE_FS_LABEL_INFORMATION, *PFILE_FS_LABEL_INFORMATION;
 
+// read file scatter / write file scatter
+//FIXME I am a win32 struct aswell
+
+typedef union _FILE_SEGMENT_ELEMENT {
+	PVOID Buffer;
+	ULONG Alignment;
+}FILE_SEGMENT_ELEMENT, *PFILE_SEGMENT_ELEMENT;
 
 typedef struct _FILE_DIRECTORY_INFORMATION {
 	ULONG	NextEntryOffset;
 	ULONG	FileIndex;
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER EndOfFile;
 	LARGE_INTEGER AllocationSize;
 	ULONG FileAttributes;
@@ -1051,10 +965,10 @@ typedef struct _FILE_DIRECTORY_INFORMATION {
 typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
 	ULONG	NextEntryOffset;
 	ULONG	FileIndex;
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER EndOfFile;
 	LARGE_INTEGER AllocationSize;
 	ULONG FileAttributes;
@@ -1068,12 +982,12 @@ typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
 typedef struct _FILE_BOTH_DIRECTORY_INFORMATION {
 	ULONG		NextEntryOffset;
 	ULONG		FileIndex;
-	LARGE_INTEGER	CreationTime;
-	LARGE_INTEGER	LastAccessTime;
-	LARGE_INTEGER	LastWriteTime;
-	LARGE_INTEGER	ChangeTime;
-	LARGE_INTEGER	EndOfFile;
-	LARGE_INTEGER	AllocationSize;
+	TIME 		CreationTime;
+	TIME 		LastAccessTime;
+	TIME 		LastWriteTime;
+	TIME 		ChangeTime;
+	LARGE_INTEGER 	EndOfFile;
+	LARGE_INTEGER 	AllocationSize;
 	ULONG 		FileAttributes;
 	ULONG 		FileNameLength;
 	ULONG 		EaSize;
@@ -1155,45 +1069,23 @@ typedef enum SHUTDOWN_ACTION_TAG {
   ShutdownPowerOff
 } SHUTDOWN_ACTION;
 
-typedef enum _IO_COMPLETION_INFORMATION_CLASS {
-   IoCompletionBasicInformation
-} IO_COMPLETION_INFORMATION_CLASS;
-
-typedef struct _IO_COMPLETION_BASIC_INFORMATION {
-   LONG Depth;
-} IO_COMPLETION_BASIC_INFORMATION, *PIO_COMPLETION_BASIC_INFORMATION;
-
 #else /* __USE_W32API */
 
 #define DebugDbgLoadSymbols ((DEBUG_CONTROL_CODE)0xffffffff)
 
 #endif /* __USE_W32API */
 
-#ifdef __USE_W32API
-#include <ddk/ntddk.h>
-#endif /* __USE_W32API */
-#ifndef NtCurrentProcess
 #define NtCurrentProcess() ( (HANDLE) 0xFFFFFFFF )
-#endif /* NtCurrentProcess */
-#ifndef NtCurrentThread
 #define NtCurrentThread() ( (HANDLE) 0xFFFFFFFE )
-#endif /* NtCurrentThread */
-
-#ifdef __GNUC__
+#if 1
+extern ULONG NtBuildNumber;
+#else
 #ifdef __NTOSKRNL__
-extern ULONG EXPORTED NtBuildNumber;
+extern ULONG NtBuildNumber;
 #else
-extern ULONG IMPORTED NtBuildNumber;
+extern ULONG NtBuildNumber;
 #endif
-#else
-/* Microsoft-style declarations */
-#ifdef __NTOSKRNL__
-extern EXPORTED ULONG NtBuildNumber;
-#else
-extern IMPORTED ULONG NtBuildNumber;
 #endif
-#endif	/* __GNUC__ */
-
 
 // event access mask
 
@@ -1231,7 +1123,8 @@ extern IMPORTED ULONG NtBuildNumber;
 #define ProcessWow64Information			26
 /* ReactOS private. */
 #define ProcessImageFileName			27
-#define MaxProcessInfoClass			28
+#define ProcessDesktop                          28
+#define MaxProcessInfoClass			29
 
 /*
  * thread query / set information class
@@ -1256,6 +1149,13 @@ extern IMPORTED ULONG NtBuildNumber;
 #define ThreadHideFromDebugger			17
 #define MaxThreadInfoClass			17
 
+// object handle information
+
+#define ObjectBasicInformation			0
+#define ObjectNameInformation			1
+#define ObjectTypeInformation			2
+#define ObjectAllInformation			3
+#define ObjectDataInformation			4
 
 typedef struct _ATOM_TABLE_INFORMATION
 {
@@ -1300,68 +1200,53 @@ struct _SYSTEM_PATH_INFORMATION
 } SYSTEM_PATH_INFORMATION, * PSYSTEM_PATH_INFORMATION;
 
 // SystemProcessInformation (5)
-
-#ifndef __USE_W32API
-
-typedef struct _SYSTEM_THREADS {
-	LARGE_INTEGER  KernelTime;
-	LARGE_INTEGER  UserTime;
-	LARGE_INTEGER  CreateTime;
-	ULONG  WaitTime;
-	PVOID  StartAddress;
-	CLIENT_ID  ClientId;
-	KPRIORITY  Priority;
-	KPRIORITY  BasePriority;
-	ULONG  ContextSwitchCount;
-	THREAD_STATE  State;
-	KWAIT_REASON  WaitReason;
-} SYSTEM_THREADS, *PSYSTEM_THREADS;
-
-#endif /* __USE_W32API */
-
-typedef struct _SYSTEM_PROCESSES_NT4
+typedef
+struct _SYSTEM_THREAD_INFORMATION
 {
- SIZE_T         NextEntryDelta;
- ULONG          ThreadCount;
- ULONG          Reserved1[6];
- TIME           CreateTime;
- TIME           UserTime;
- TIME           KernelTime;
- UNICODE_STRING ProcessName;
- KPRIORITY      BasePriority;
- ULONG          ProcessId;
- ULONG          InheritedFromProcessId;
- ULONG          HandleCount;
- ULONG          Reserved2[2];
- VM_COUNTERS    VmCounters;
- SYSTEM_THREADS Threads[ANYSIZE_ARRAY];
-} SYSTEM_PROCESSES_NT4, *PSYSTEM_PROCESSES_NT4;
+	TIME		KernelTime;
+	TIME		UserTime;
+	TIME		CreateTime;
+	ULONG		TickCount;
+	ULONG		StartEIP;
+	CLIENT_ID	ClientId;
+	ULONG		DynamicPriority;
+	ULONG		BasePriority;
+	ULONG		nSwitches;
+	DWORD		State;
+	KWAIT_REASON	WaitReason;
+	
+} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
 
-typedef struct _SYSTEM_PROCESSES_NT5
+typedef
+struct SYSTEM_PROCESS_INFORMATION
 {
- SIZE_T         NextEntryDelta;
- ULONG          ThreadCount;
- ULONG          Reserved1[6];
- TIME           CreateTime;
- TIME           UserTime;
- TIME           KernelTime;
- UNICODE_STRING ProcessName;
- KPRIORITY      BasePriority;
- ULONG          ProcessId;
- ULONG          InheritedFromProcessId;
- ULONG          HandleCount;
- ULONG          Reserved2[2];
- VM_COUNTERS    VmCounters;
- IO_COUNTERS    IoCounters;
- SYSTEM_THREADS Threads[ANYSIZE_ARRAY];
-} SYSTEM_PROCESSES_NT5, *PSYSTEM_PROCESSES_NT5;
-
-#ifndef __USE_W32API
-
-/* Not sure. What version are we emulating? */
-typedef SYSTEM_PROCESSES_NT5 SYSTEM_PROCESSES, *PSYSTEM_PROCESSES;
-
-#endif /* __USE_W32API */
+	ULONG				RelativeOffset;
+	ULONG				ThreadCount;
+	ULONG				Unused1 [6];
+	TIME				CreateTime;
+	TIME				UserTime;
+	TIME				KernelTime;
+	UNICODE_STRING			Name;
+	ULONG				BasePriority;
+	ULONG				ProcessId;
+	ULONG				ParentProcessId;
+	ULONG				HandleCount;
+	ULONG				Unused2[2];
+	ULONG				PeakVirtualSizeBytes;
+	ULONG				TotalVirtualSizeBytes;
+	ULONG				PageFaultCount;
+	ULONG				PeakWorkingSetSizeBytes;
+	ULONG				TotalWorkingSetSizeBytes;
+	ULONG				PeakPagedPoolUsagePages;
+	ULONG				TotalPagedPoolUsagePages;
+	ULONG				PeakNonPagedPoolUsagePages;
+	ULONG				TotalNonPagedPoolUsagePages;
+	ULONG				TotalPageFileUsageBytes;
+	ULONG				PeakPageFileUsageBytes;
+	ULONG				TotalPrivateBytes;
+	SYSTEM_THREAD_INFORMATION	ThreadSysInfo [1];
+	
+} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
 
 // SystemCallCountInformation (6)
 typedef
@@ -1621,19 +1506,22 @@ struct _SYSTEM_QUOTA_INFORMATION
 #define THREAD_WAIT_OBJECTS			3
 //#define MAXIMUM_WAIT_OBJECTS			64
 
-// object type access rights
+// key restore flags
+
+#define REG_WHOLE_HIVE_VOLATILE			1
+#define REG_REFRESH_HIVE			2
+
+// object type  access rights
 
 #define OBJECT_TYPE_CREATE		0x0001
 #define OBJECT_TYPE_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0x1)
 
 // directory access rights
 
-#ifndef __USE_W32API
 #define DIRECTORY_QUERY				0x0001
 #define DIRECTORY_TRAVERSE			0x0002
 #define DIRECTORY_CREATE_OBJECT			0x0004
 #define DIRECTORY_CREATE_SUBDIRECTORY		0x0008
-#endif
 
 #define DIRECTORY_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0xF)
 
@@ -1643,47 +1531,30 @@ struct _SYSTEM_QUOTA_INFORMATION
 #define SYMBOLIC_LINK_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0x1)
 
 
-/* object information class */
-
-#ifndef __USE_W32API
-
-typedef enum _OBJECT_INFORMATION_CLASS
+typedef struct _OBJECT_DATA_INFORMATION
 {
-  ObjectBasicInformation,
-  ObjectNameInformation,
-  ObjectTypeInformation,
-  ObjectAllTypesInformation,
-  ObjectHandleInformation
-} OBJECT_INFORMATION_CLASS;
+	BOOLEAN bInheritHandle;
+	BOOLEAN bProtectFromClose;
+} OBJECT_DATA_INFORMATION, *POBJECT_DATA_INFORMATION;
+
+
+typedef struct _OBJECT_TYPE_INFORMATION
+{
+	UNICODE_STRING	Name;
+	UNICODE_STRING Type;
+	ULONG TotalHandles;
+	ULONG ReferenceCount;
+} OBJECT_TYPE_INFORMATION, *POBJECT_TYPE_INFORMATION;
 
 
 // directory information
 
-typedef struct _DIRECTORY_BASIC_INFORMATION
-{
+typedef struct _OBJDIR_INFORMATION {
 	UNICODE_STRING ObjectName;
 	UNICODE_STRING ObjectTypeName; // Directory, Device ...
-} DIRECTORY_BASIC_INFORMATION, *PDIRECTORY_BASIC_INFORMATION;
+	UCHAR          Data[0];
+} OBJDIR_INFORMATION, *POBJDIR_INFORMATION;
 
-
-// power information levels
-typedef enum _POWER_INFORMATION_LEVEL {
-	SystemPowerPolicyAc,
-	SystemPowerPolicyDc,
-	VerifySystemPolicyAc,
-	VerifySystemPolicyDc,
-	SystemPowerCapabilities,
-	SystemBatteryState,
-	SystemPowerStateHandler,
-	ProcessorStateHandler,
-	SystemPowerPolicyCurrent,
-	AdministratorPowerPolicy,
-	SystemReserveHiberFile,
-	ProcessorInformation,
-	SystemPowerInformationData
-} POWER_INFORMATION_LEVEL;
-
-#endif /* __USE_W32API */
 
 /*
 	 Action is one of the following values:
@@ -1729,72 +1600,8 @@ typedef enum _TIMER_INFORMATION_CLASS
   TimerBasicInformation
 } TIMER_INFORMATION_CLASS;
 
-#ifndef __USE_W32API
-
-typedef enum
-{
-    UNUSED_MSG_TYPE        = 0x0, /* ReactOS */
-    LPC_NEW_MESSAGE        = 0x0, /* NT */
-    LPC_REQUEST            = 0x1,
-    LPC_REPLY              = 0x2,
-    LPC_DATAGRAM           = 0x3,
-    LPC_LOST_REPLY         = 0x4,
-    LPC_PORT_CLOSED        = 0x5,
-    LPC_CLIENT_DIED        = 0x6,
-    LPC_EXCEPTION          = 0x7,
-    LPC_DEBUG_EVENT        = 0x8,
-    LPC_ERROR_EVENT        = 0x9,
-    LPC_CONNECTION_REQUEST = 0xa,
-    LPC_CONNECTION_REFUSED = 0xb
-
-} LPC_TYPE, *PLPC_TYPE;
-
-typedef struct _LPC_SECTION_WRITE
-{
-   ULONG Length;
-   HANDLE SectionHandle;
-   ULONG SectionOffset;
-   ULONG ViewSize;
-   PVOID ViewBase;
-   PVOID TargetViewBase;
-} LPC_SECTION_WRITE, *PLPC_SECTION_WRITE;
-
-typedef struct _LPC_SECTION_READ
-{
-   ULONG Length;
-   ULONG ViewSize;
-   PVOID ViewBase;
-} LPC_SECTION_READ, *PLPC_SECTION_READ;
-
-typedef struct _LPC_MESSAGE
-{
-   USHORT DataSize;
-   USHORT MessageSize;
-   USHORT MessageType;
-   USHORT VirtualRangesOffset;
-   CLIENT_ID ClientId;
-   ULONG MessageId;
-   ULONG SectionSize; /* CallbackID */
-} LPC_MESSAGE, *PLPC_MESSAGE;
-
-#define LPC_MESSAGE_BASE_SIZE sizeof(LPC_MESSAGE)
-
-#define PORT_MESSAGE_TYPE(m) (LPC_TYPE)((m).Header.MessageType)
-
-#define PORT_MAX_DATA_LENGTH    0x104
-#define PORT_MAX_MESSAGE_LENGTH 0x148
-
-#endif /* __USE_W32API */
-
-#define MAX_MESSAGE_DATA   (0x130)
-
-typedef struct _LPC_MAX_MESSAGE
-{
-   LPC_MESSAGE Header;
-   BYTE Data[MAX_MESSAGE_DATA];
-} LPC_MAX_MESSAGE, *PLPC_MAX_MESSAGE;
-
-typedef struct _LPC_PORT_BASIC_INFORMATION
+typedef
+struct _LPC_PORT_BASIC_INFORMATION
 {
 	DWORD	Unknown0;
 	DWORD	Unknown1;
@@ -1812,107 +1619,5 @@ typedef struct _LPC_PORT_BASIC_INFORMATION
 	DWORD	Unknown13;
 
 } LPC_PORT_BASIC_INFORMATION, * PLPC_PORT_BASIC_INFORMATION;
-
-
-typedef struct _KINTERRUPT
-{
-   ULONG Vector;
-   KAFFINITY ProcessorEnableMask;
-   PKSPIN_LOCK IrqLock;
-   BOOLEAN Shareable;
-   BOOLEAN FloatingSave;
-   PKSERVICE_ROUTINE ServiceRoutine;
-   PVOID ServiceContext;
-   LIST_ENTRY Entry;
-   KIRQL SynchLevel;
-} KINTERRUPT;
-
-#ifndef __USE_W32API
-
-typedef struct _KINTERRUPT *PKINTERRUPT;
-
-typedef VOID STDCALL_FUNC
-(*PTIMER_APC_ROUTINE)(
-  IN PVOID  TimerContext,
-  IN ULONG  TimerLowValue,
-  IN LONG  TimerHighValue);
-
-#endif /* __USE_W32API */
-
-/* BEGIN REACTOS ONLY */
-
-typedef enum _TRAVERSE_METHOD {
-  TraverseMethodPreorder,
-  TraverseMethodInorder,
-  TraverseMethodPostorder
-} TRAVERSE_METHOD;
-
-typedef LONG STDCALL_FUNC
-(*PKEY_COMPARATOR)(IN PVOID  Key1,
-  IN PVOID  Key2);
-
-typedef BOOLEAN STDCALL_FUNC
-(*PTRAVERSE_ROUTINE)(IN PVOID  Context,
-  IN PVOID  Key,
-  IN PVOID  Value);
-
-struct _BINARY_TREE_NODE;
-
-typedef struct _BINARY_TREE
-{
-  struct _BINARY_TREE_NODE  * RootNode;
-  PKEY_COMPARATOR  Compare;
-  BOOLEAN  UseNonPagedPool;
-  union {
-    NPAGED_LOOKASIDE_LIST  NonPaged;
-    PAGED_LOOKASIDE_LIST  Paged;
-  } List;
-  union {
-    KSPIN_LOCK  NonPaged;
-    FAST_MUTEX  Paged;
-  } Lock;
-} BINARY_TREE, *PBINARY_TREE;
-
-
-struct _SPLAY_TREE_NODE;
-
-typedef struct _SPLAY_TREE
-{
-  struct _SPLAY_TREE_NODE  * RootNode;
-  PKEY_COMPARATOR  Compare;
-  BOOLEAN  Weighted;
-  BOOLEAN  UseNonPagedPool;
-  union {
-    NPAGED_LOOKASIDE_LIST  NonPaged;
-    PAGED_LOOKASIDE_LIST  Paged;
-  } List;
-  union {
-    KSPIN_LOCK  NonPaged;
-    FAST_MUTEX  Paged;
-  } Lock;
-  PVOID  Reserved[4];
-} SPLAY_TREE, *PSPLAY_TREE;
-
-
-typedef struct _HASH_TABLE
-{
-  // Size of hash table in number of bits
-  ULONG  HashTableSize;
-
-  // Use non-paged pool memory?
-  BOOLEAN  UseNonPagedPool;
-
-  // Lock for this structure
-  union {
-    KSPIN_LOCK  NonPaged;
-    FAST_MUTEX  Paged;
-  } Lock;
-
-  // Pointer to array of hash buckets with splay trees
-  PSPLAY_TREE  HashTrees;
-} HASH_TABLE, *PHASH_TABLE;
-
-
-/* END REACTOS ONLY */
 
 #endif

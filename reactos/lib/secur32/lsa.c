@@ -1,4 +1,4 @@
-/* $Id: lsa.c,v 1.10 2004/01/06 16:08:25 ekohl Exp $
+/* $Id: lsa.c,v 1.6 2002/11/03 20:01:06 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,7 @@
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
+#include <napi/lpc.h>
 #include <lsass/lsass.h>
 #include <string.h>
 
@@ -22,9 +22,6 @@ extern HANDLE Secur32Heap;
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaDeregisterLogonProcess(HANDLE LsaHandle)
 {
@@ -51,18 +48,12 @@ LsaDeregisterLogonProcess(HANDLE LsaHandle)
    return(Status);
 }
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 LsaConnectUntrusted(PHANDLE LsaHandle)
 {
   return(STATUS_UNSUCCESSFUL);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaCallAuthenticationPackage(HANDLE LsaHandle,
 			     ULONG AuthenticationPackage,
@@ -120,20 +111,12 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
    return(Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaFreeReturnBuffer(PVOID Buffer)
 {
    return(RtlFreeHeap(Secur32Heap, 0, Buffer));
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 			       PLSA_STRING PackageName,
@@ -168,10 +151,6 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
    return(Reply.Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaLogonUser(HANDLE LsaHandle,
 	     PLSA_STRING OriginName,
@@ -272,16 +251,12 @@ LsaLogonUser(HANDLE LsaHandle,
    return(Status);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 			PHANDLE Handle,
 			PLSA_OPERATIONAL_MODE OperationalMode)
 {
-   UNICODE_STRING Portname = ROS_STRING_INITIALIZER(L"\\SeLsaCommandPort");
+   UNICODE_STRING Portname = UNICODE_STRING_INITIALIZER(L"\\SeLsaCommandPort");
    ULONG ConnectInfoLength;
    NTSTATUS Status;
    LSASS_REQUEST Request;
@@ -332,54 +307,3 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
    return(Reply.Status);
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaEnumerateLogonSessions(
-PULONG LogonSessionCount,
-PLUID * LogonSessionList
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaGetLogonSessionData(
-PLUID LogonId,
-PSECURITY_LOGON_SESSION_DATA * ppLogonSessionData
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaRegisterPolicyChangeNotification(
-POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
-HANDLE NotificationEventHandle
-)
-{
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-LsaUnregisterPolicyChangeNotification(
-POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
-HANDLE NotificationEventHandle
-)
-{
-  return(FALSE);
-}

@@ -19,7 +19,7 @@
 
 #ifdef DBG
 
-extern ULONG DebugTraceLevel;
+extern DWORD DebugTraceLevel;
 
 #ifdef _MSC_VER
 
@@ -50,6 +50,7 @@ extern ULONG DebugTraceLevel;
 #else /* NASSERT */
 #define ASSERT(x) if (!(x)) { TDI_DbgPrint(MIN_TRACE, ("Assertion "#x" failed at %s:%d\n", __FILE__, __LINE__)); KeBugCheck(0); }
 #endif /* NASSERT */
+
 #define ASSERT_IRQL(x) ASSERT(KeGetCurrentIrql() <= (x))
 
 #else /* DBG */

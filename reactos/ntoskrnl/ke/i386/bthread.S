@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bthread.S,v 1.11 2004/11/20 23:46:36 blight Exp $
+/* $Id: bthread.S,v 1.7 2002/09/17 23:41:44 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -26,7 +26,7 @@
  */
 
 /* INCLUDES ******************************************************************/
-
+	
 #include <ddk/status.h>
 #include <internal/i386/segment.h>
 #include <internal/ps.h>
@@ -34,25 +34,13 @@
 
 /* Values for contextflags */
 #define CONTEXT_i386    0x10000
-#ifndef CONTEXT_CONTROL
-#define CONTEXT_CONTROL         (CONTEXT_i386 | 1)
-#endif
-#ifndef CONTEXT_INTEGER
-#define CONTEXT_INTEGER         (CONTEXT_i386 | 2)
-#endif
-#ifndef CONTEXT_SEGMENTS
-#define CONTEXT_SEGMENTS        (CONTEXT_i386 | 4)
-#endif
-#ifndef CONTEXT_FLOATING_POINT
-#define CONTEXT_FLOATING_POINT  (CONTEXT_i386 | 8)
-#endif
-#ifndef CONTEXT_DEBUG_REGISTERS
+#define CONTEXT_CONTROL         (CONTEXT_i386 | 1)	
+#define CONTEXT_INTEGER         (CONTEXT_i386 | 2)	
+#define CONTEXT_SEGMENTS        (CONTEXT_i386 | 4)	
+#define CONTEXT_FLOATING_POINT  (CONTEXT_i386 | 8)	
 #define CONTEXT_DEBUG_REGISTERS (CONTEXT_i386 | 0x10)
-#endif
-#ifndef CONTEXT_FULL
 #define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
-#endif
-
+	
 /* FUNCTIONS *****************************************************************/
 
 /*
@@ -94,7 +82,7 @@ _PsBeginThread:
 	 */
 	pushl	$0
 	call	_KeBugCheck@4
-	addl	$4, %esp
+	addl    $4, %esp
 
 	/*
 	 * And if that fails then loop
@@ -118,11 +106,11 @@ _PsBeginThreadWithContextInternal:
 	 * Load the context flags.
 	 */
 	popl	%ebx
-
+	
 	/*
 	 * Load the debugging registers
 	 */
-	testl	$(CONTEXT_DEBUG_REGISTERS & ~CONTEXT_i386), %ebx
+	testl	$CONTEXT_DEBUG_REGISTERS, %ebx
 	jz	.L1
 	popl	%eax		/* Dr0 */
 	movl	%eax, %dr0
@@ -139,8 +127,20 @@ _PsBeginThreadWithContextInternal:
 	jmp	.L3
 .L1:
 	addl	$24, %esp
-.L3:
+.L3:	
+	
+	/*
+	 * Load the floating point registers
+	 */
+	movl	(_HardwareMathSupport), %eax
+	jz	.L2
+	testl	$CONTEXT_FLOATING_POINT, %ebx
+	jz	.L2
+	frstor	(%esp)
+.L2:
+	addl	$112, %esp
 
 	/* Load the rest of the thread's user mode context. */
 	movl	$0, %eax
 	jmp	KeReturnFromSystemCallWithHook
+

@@ -4,9 +4,6 @@
 #include <msvcrt/stdlib.h>
 #include <stdarg.h>
 
-/*
- * @implemented
- */
 int _spawnlp(int nMode, const char* szPath, const char* szArgv0, ...)
 {
   char *szArg[100];

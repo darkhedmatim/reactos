@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @unimplemented
- */
 char *_tempnam(const char *dir,const char *prefix )
 {
     char *TempFileName = malloc(MAX_PATH);

@@ -631,13 +631,7 @@ Language=English
 MAILSLOT_FILE_SYSTEM
 .
 
-MessageId=0x53
-Severity=Success
-Facility=System
-SymbolicName=NO_BOOT_DEVICE
-Language=English
-NO_BOOT_DEVICE
-.
+
 
 MessageId=0x54
 Severity=Success
@@ -979,13 +973,8 @@ Language=English
 SPIN_LOCK_INIT_FAILURE
 .
 
-MessageId=0x96
-Severity=Success
-Facility=System
-SymbolicName=INVALID_WORK_QUEUE_ITEM
-Language=English
-INVALID_WORK_QUEUE_ITEM
-.
+
+
 
 MessageId=0x9A
 Severity=Informational
@@ -1035,14 +1024,6 @@ Language=English
 \n\nReactOS is free software, covered by the GNU General Public License,
  and you\n are welcome to change it and/or distribute copies of it under
  certain\n conditions. There is absolutely no warranty for ReactOS.\n
-.
-
-MessageId=0xFC
-Severity=Success
-Facility=System
-SymbolicName=ATTEMPTED_EXECUTE_OF_NOEXECUTE_MEMORY
-Language=English
-ATTEMPTED_EXECUTE_OF_NOEXECUTE_MEMORY
 .
 
 ; EOF

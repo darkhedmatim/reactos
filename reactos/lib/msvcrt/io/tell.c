@@ -3,9 +3,6 @@
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 off_t _tell(int _file)
 {
     return _lseek(_file, 0, SEEK_CUR);

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: handle.c,v 1.63 2004/10/22 20:57:39 ekohl Exp $
+/* $Id: handle.c,v 1.42 2002/11/27 20:52:29 hbirr Exp $
  *
  * COPYRIGHT:          See COPYING in the top level directory
  * PROJECT:            ReactOS kernel
@@ -29,7 +29,12 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -38,36 +43,23 @@
 /*
  * PURPOSE: Defines a handle
  */
-typedef struct _HANDLE_ENTRY
+typedef struct
 {
-  PVOID ObjectBody;
-  ACCESS_MASK GrantedAccess;
-} HANDLE_ENTRY, *PHANDLE_ENTRY;
+   PVOID ObjectBody;
+   ACCESS_MASK GrantedAccess;
+   BOOLEAN Inherit;
+} HANDLE_REP, *PHANDLE_REP;
 
-#define HANDLE_BLOCK_ENTRIES \
-	(((4 * PAGE_SIZE) - \
-	  (sizeof(LIST_ENTRY) + sizeof(ULONG))) / sizeof(HANDLE_ENTRY))
+#define HANDLE_BLOCK_ENTRIES ((PAGE_SIZE-sizeof(LIST_ENTRY))/sizeof(HANDLE_REP))
 
-#define OB_HANDLE_FLAG_MASK    0x00000007
-#define OB_HANDLE_FLAG_AUDIT   0x00000004
-#define OB_HANDLE_FLAG_PROTECT 0x00000002
-#define OB_HANDLE_FLAG_INHERIT 0x00000001
-
-#define OB_POINTER_TO_ENTRY(Pointer) \
-  (PVOID)((ULONG_PTR)(Pointer) & ~OB_HANDLE_FLAG_MASK)
-
-#define OB_ENTRY_TO_POINTER(Entry) \
-  (PVOID)((ULONG_PTR)(Entry) & ~OB_HANDLE_FLAG_MASK)
 
 /*
- * PURPOSE: Defines a 4 page's worth of handles
+ * PURPOSE: Defines a page's worth of handles
  */
 typedef struct
 {
    LIST_ENTRY entry;
-   ULONG allocation_hint;
-   ULONG allocation_count;
-   HANDLE_ENTRY handles[HANDLE_BLOCK_ENTRIES];
+   HANDLE_REP handles[HANDLE_BLOCK_ENTRIES];
 } HANDLE_BLOCK, *PHANDLE_BLOCK;
 
 
@@ -78,6 +70,7 @@ typedef struct
 /* FUNCTIONS ***************************************************************/
 
 
+static PHANDLE_REP ObpGetObjectByHandle(PHANDLE_TABLE HandleTable, HANDLE h)
 /*
  * FUNCTION: Get the data structure for a handle
  * ARGUMENTS:
@@ -86,14 +79,10 @@ typedef struct
  * ARGUMENTS: A pointer to the information about the handle on success,
  *            NULL on failure
  */
-static PHANDLE_ENTRY
-ObpGetObjectByHandle(PHANDLE_TABLE HandleTable,
-		     HANDLE h,
-		     HANDLE_BLOCK **Block)
 {
    PLIST_ENTRY current;
    unsigned int handle = (((unsigned int)h) >> 2) - 1;
-   unsigned int count = handle / HANDLE_BLOCK_ENTRIES;
+   unsigned int count=handle/HANDLE_BLOCK_ENTRIES;
    HANDLE_BLOCK* blk = NULL;
    unsigned int i;
    
@@ -102,7 +91,7 @@ ObpGetObjectByHandle(PHANDLE_TABLE HandleTable,
    current = HandleTable->ListHead.Flink;
    DPRINT("current %x\n",current);
    
-   for (i = 0; i < count; i++)
+   for (i=0;i<count;i++)
      {
 	current = current->Flink;
 	if (current == (&(HandleTable->ListHead)))
@@ -112,85 +101,9 @@ ObpGetObjectByHandle(PHANDLE_TABLE HandleTable,
      }
    
    blk = CONTAINING_RECORD(current,HANDLE_BLOCK,entry);
-   if (Block)
-      *Block = blk;
    DPRINT("object: %p\n",&(blk->handles[handle%HANDLE_BLOCK_ENTRIES]));
    return(&(blk->handles[handle%HANDLE_BLOCK_ENTRIES]));
 }
-
-
-NTSTATUS
-ObpQueryHandleAttributes(HANDLE Handle,
-			 POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo)
-{
-  PEPROCESS Process;
-  KIRQL oldIrql;
-  PHANDLE_ENTRY HandleEntry;
-
-  DPRINT("ObpQueryHandleAttributes(Handle %x)\n", Handle);
-
-  Process = PsGetCurrentProcess();
-
-  KeAcquireSpinLock(&Process->HandleTable.ListLock, &oldIrql);
-  HandleEntry = ObpGetObjectByHandle(&Process->HandleTable,
-				     Handle,
-				     NULL);
-  if (HandleEntry == NULL)
-    {
-      KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-      return STATUS_INVALID_HANDLE;
-    }
-
-  HandleInfo->Inherit =
-    ((ULONG_PTR)HandleEntry->ObjectBody & OB_HANDLE_FLAG_INHERIT);
-  HandleInfo->ProtectFromClose =
-    ((ULONG_PTR)HandleEntry->ObjectBody & OB_HANDLE_FLAG_PROTECT);
-
-  KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-ObpSetHandleAttributes(HANDLE Handle,
-		       POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo)
-{
-  PHANDLE_ENTRY HandleEntry;
-  PEPROCESS Process;
-  KIRQL oldIrql;
-
-  DPRINT("ObpQueryHandleAttributes(Handle %x)\n", Handle);
-
-  Process = PsGetCurrentProcess();
-
-  KeAcquireSpinLock(&Process->HandleTable.ListLock, &oldIrql);
-  HandleEntry = ObpGetObjectByHandle(&Process->HandleTable,
-				     Handle,
-				     NULL);
-  if (HandleEntry == NULL)
-    {
-      KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-      return STATUS_INVALID_HANDLE;
-    }
-
-  if (HandleInfo->Inherit)
-    HandleEntry->ObjectBody = (PVOID)((ULONG_PTR)HandleEntry->ObjectBody | OB_HANDLE_FLAG_INHERIT);
-  else
-    HandleEntry->ObjectBody = (PVOID)((ULONG_PTR)HandleEntry->ObjectBody & ~OB_HANDLE_FLAG_INHERIT);
-
-  if (HandleInfo->ProtectFromClose)
-    HandleEntry->ObjectBody = (PVOID)((ULONG_PTR)HandleEntry->ObjectBody | OB_HANDLE_FLAG_PROTECT);
-  else
-    HandleEntry->ObjectBody = (PVOID)((ULONG_PTR)HandleEntry->ObjectBody & ~OB_HANDLE_FLAG_PROTECT);
-
-  /* FIXME: Do we need to set anything in the object header??? */
-
-  KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-
-  return STATUS_SUCCESS;
-}
-
 
 NTSTATUS
 ObDuplicateObject(PEPROCESS SourceProcess,
@@ -199,23 +112,21 @@ ObDuplicateObject(PEPROCESS SourceProcess,
 		  PHANDLE TargetHandle,
 		  ACCESS_MASK DesiredAccess,
 		  BOOLEAN InheritHandle,
-		  ULONG Options)
+		  ULONG	Options)
 {
   KIRQL oldIrql;
-  PHANDLE_ENTRY SourceHandleEntry;
+  PHANDLE_REP SourceHandleRep;
   PVOID ObjectBody;
 
   KeAcquireSpinLock(&SourceProcess->HandleTable.ListLock, &oldIrql);
-  SourceHandleEntry = ObpGetObjectByHandle(&SourceProcess->HandleTable,
-					   SourceHandle,
-					   NULL);
-  if (SourceHandleEntry == NULL)
+  SourceHandleRep = ObpGetObjectByHandle(&SourceProcess->HandleTable,
+					 SourceHandle);
+  if (SourceHandleRep == NULL)
     {
       KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
-      return STATUS_INVALID_HANDLE;
+      return(STATUS_INVALID_HANDLE);
     }
-
-  ObjectBody = OB_ENTRY_TO_POINTER(SourceHandleEntry->ObjectBody);
+  ObjectBody = SourceHandleRep->ObjectBody;
   ObReferenceObjectByPointer(ObjectBody,
 			     0,
 			     NULL,
@@ -223,9 +134,9 @@ ObDuplicateObject(PEPROCESS SourceProcess,
   
   if (Options & DUPLICATE_SAME_ACCESS)
     {
-      DesiredAccess = SourceHandleEntry->GrantedAccess;
+      DesiredAccess = SourceHandleRep->GrantedAccess;
     }
-
+  
   KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
   ObCreateHandle(TargetProcess,
 		 ObjectBody,
@@ -237,15 +148,11 @@ ObDuplicateObject(PEPROCESS SourceProcess,
     {
       ZwClose(SourceHandle);
     }
-
+  
   ObDereferenceObject(ObjectBody);
-
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL 
 NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
 		   IN	HANDLE		SourceHandle,
@@ -281,7 +188,7 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
 {
    PEPROCESS SourceProcess;
    PEPROCESS TargetProcess;
-   PHANDLE_ENTRY SourceHandleEntry;
+   PHANDLE_REP SourceHandleRep;
    KIRQL oldIrql;
    PVOID ObjectBody;
    HANDLE TargetHandle;
@@ -299,7 +206,6 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
      {
        return(Status);
      }
-
    Status = ObReferenceObjectByHandle(TargetProcessHandle,
 				      PROCESS_DUP_HANDLE,
 				      NULL,
@@ -311,61 +217,40 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
        ObDereferenceObject(SourceProcess);
        return(Status);
      }
-
-   /* Check for magic handle first */
-   if (SourceHandle == NtCurrentThread())
+   KeAcquireSpinLock(&SourceProcess->HandleTable.ListLock, &oldIrql);
+   SourceHandleRep = ObpGetObjectByHandle(&SourceProcess->HandleTable,
+					  SourceHandle);
+   if (SourceHandleRep == NULL)
      {
-       ObReferenceObjectByHandle(SourceHandle,
-                                 PROCESS_DUP_HANDLE,
-                                 NULL,
-                                 UserMode,
-                                 &ObjectBody,
-                                 NULL);
-
-       ObCreateHandle(TargetProcess,
-                      ObjectBody,
-                      THREAD_ALL_ACCESS,
-                      InheritHandle,
-                      &TargetHandle);
+	KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
+	ObDereferenceObject(SourceProcess);
+	ObDereferenceObject(TargetProcess);
+	return(STATUS_INVALID_HANDLE);
      }
-   else
+   ObjectBody = SourceHandleRep->ObjectBody;
+   ObReferenceObjectByPointer(ObjectBody,
+			      0,
+			      NULL,
+			      UserMode);
+   
+   if (Options & DUPLICATE_SAME_ACCESS)
      {
-       KeAcquireSpinLock(&SourceProcess->HandleTable.ListLock, &oldIrql);
-       SourceHandleEntry = ObpGetObjectByHandle(&SourceProcess->HandleTable,
-						SourceHandle,
-						NULL);
-       if (SourceHandleEntry == NULL)
-	 {
-	   KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
-	   ObDereferenceObject(SourceProcess);
-	   ObDereferenceObject(TargetProcess);
-	   return(STATUS_INVALID_HANDLE);
-	 }
-       ObjectBody = OB_ENTRY_TO_POINTER(SourceHandleEntry->ObjectBody);
-       ObReferenceObjectByPointer(ObjectBody,
-			          0,
-			          NULL,
-			          UserMode);
-
-       if (Options & DUPLICATE_SAME_ACCESS)
-	 {
-	   DesiredAccess = SourceHandleEntry->GrantedAccess;
-	 }
-
-       KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
-       if (!((ULONG_PTR)SourceHandleEntry->ObjectBody & OB_HANDLE_FLAG_INHERIT))
-         {
-	   ObDereferenceObject(TargetProcess);
-	   ObDereferenceObject(SourceProcess);
-	   ObDereferenceObject(ObjectBody);
-	   return STATUS_INVALID_HANDLE;
-	 }
-       ObCreateHandle(TargetProcess,
-		      ObjectBody,
-		      DesiredAccess,
-		      InheritHandle,
-		      &TargetHandle);
+	DesiredAccess = SourceHandleRep->GrantedAccess;
      }
+   
+   KeReleaseSpinLock(&SourceProcess->HandleTable.ListLock, oldIrql);
+   if (!SourceHandleRep->Inherit)
+     {
+       ObDereferenceObject(TargetProcess);
+       ObDereferenceObject(SourceProcess);
+       ObDereferenceObject(ObjectBody);
+       return STATUS_INVALID_HANDLE;
+     }
+   ObCreateHandle(TargetProcess,
+		  ObjectBody,
+		  DesiredAccess,
+		  InheritHandle,
+		  &TargetHandle);
    
    if (Options & DUPLICATE_CLOSE_SOURCE)
      {
@@ -393,6 +278,7 @@ VOID ObCloseAllHandles(PEPROCESS Process)
    PHANDLE_BLOCK current;
    ULONG i;
    PVOID ObjectBody;
+   BOOLEAN IsProcessHandle;
    
    DPRINT("ObCloseAllHandles(Process %x)\n", Process);
    
@@ -408,19 +294,17 @@ VOID ObCloseAllHandles(PEPROCESS Process)
 	
 	for (i = 0; i < HANDLE_BLOCK_ENTRIES; i++)
 	  {
-	     ObjectBody = OB_ENTRY_TO_POINTER(current->handles[i].ObjectBody);
+	     ObjectBody = current->handles[i].ObjectBody;
 	     
 	     if (ObjectBody != NULL)
 	       {
 		  POBJECT_HEADER Header = BODY_TO_HEADER(ObjectBody);
 		  
-#if 0
-                  if (Header->ObjectType == PsProcessType ||
+		  if (Header->ObjectType == PsProcessType ||
 		      Header->ObjectType == PsThreadType)
 		    {
 		       DPRINT("Deleting handle to %x\n", ObjectBody);
 		    }
-#endif
 		  
 		  ObReferenceObjectByPointer(ObjectBody,
 					     0,
@@ -430,14 +314,28 @@ VOID ObCloseAllHandles(PEPROCESS Process)
 		  current->handles[i].ObjectBody = NULL;
 		  
 		  KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
+		  
+	          if (Header->ObjectType == PsProcessType)
+		  {
+		     IsProcessHandle = TRUE;
+		     KeDetachProcess();
+		  }
+		  else
+		  {
+		     IsProcessHandle = FALSE;
+		  }
 		  if ((Header->ObjectType != NULL) &&
 		      (Header->ObjectType->Close != NULL))
 		    {
-		       Header->ObjectType->Close(ObjectBody,
+		       Header->ObjectType->Close(ObjectBody, 
 						 Header->HandleCount);
 		    }
 		  
 		  ObDereferenceObject(ObjectBody);
+		  if (IsProcessHandle)
+		  {
+		     KeAttachProcess(Process);
+		  }
 		  KeAcquireSpinLock(&HandleTable->ListLock, &oldIrql);
 		  current_entry = &HandleTable->ListHead;
 		  break;
@@ -518,7 +416,7 @@ VOID ObCreateHandleTable(PEPROCESS Parent,
 	     new_block = ExAllocatePoolWithTag(NonPagedPool,
 		                               sizeof(HANDLE_BLOCK),
 					       TAG_HANDLE_TABLE);
-	     if (new_block == NULL)
+             if (new_block == NULL)
 	     {
 		break;
 	     }
@@ -528,100 +426,82 @@ VOID ObCreateHandleTable(PEPROCESS Parent,
 	     {
 		if (current_block->handles[i].ObjectBody)
 		{
-		   if ((ULONG_PTR)current_block->handles[i].ObjectBody & OB_HANDLE_FLAG_INHERIT)
+		   if (current_block->handles[i].Inherit && Inherit)
 		   {
 		      new_block->handles[i].ObjectBody = 
 			current_block->handles[i].ObjectBody;
 		      new_block->handles[i].GrantedAccess = 
 			current_block->handles[i].GrantedAccess;
-		      InterlockedIncrement(&(BODY_TO_HEADER(OB_ENTRY_TO_POINTER(current_block->handles[i].ObjectBody))->HandleCount));
+		      new_block->handles[i].Inherit = TRUE;
+		      InterlockedIncrement(&(BODY_TO_HEADER(current_block->handles[i].ObjectBody)->HandleCount));
 		   }
 		}
 	     }
-	     InsertTailList(&Process->HandleTable.ListHead, &new_block->entry);
+             InsertTailList(&Process->HandleTable.ListHead, &new_block->entry);
 	     parent_current = parent_current->Flink;
 	  }
-	KeReleaseSpinLockFromDpcLevel(&Process->HandleTable.ListLock);
+        KeReleaseSpinLockFromDpcLevel(&Process->HandleTable.ListLock);
 	KeReleaseSpinLock(&Parent->HandleTable.ListLock, oldIrql);
      }
 }
 
 
-NTSTATUS
-ObDeleteHandle(PEPROCESS Process,
-	       HANDLE Handle,
-	       PVOID *ObjectBody)
+PVOID ObDeleteHandle(PEPROCESS Process, HANDLE Handle)
 {
-   PHANDLE_ENTRY HandleEntry;
-   PVOID Body;
+   PHANDLE_REP Rep;
+   PVOID ObjectBody;
    KIRQL oldIrql;
    PHANDLE_TABLE HandleTable;
    POBJECT_HEADER Header;
-   HANDLE_BLOCK *Block;
-
+   
    DPRINT("ObDeleteHandle(Handle %x)\n",Handle);
-
+   
    HandleTable = &Process->HandleTable;
-
+   
    KeAcquireSpinLock(&HandleTable->ListLock, &oldIrql);
-
-   HandleEntry = ObpGetObjectByHandle(HandleTable, Handle, &Block);
-   if (HandleEntry == NULL)
+   
+   Rep = ObpGetObjectByHandle(HandleTable, Handle);
+   if (Rep == NULL)
+     {
+	KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);	
+	return(NULL);
+     }
+   
+   ObjectBody = Rep->ObjectBody;
+   DPRINT("ObjectBody %x\n", ObjectBody);
+   if (ObjectBody != NULL)
+     {
+	Header = BODY_TO_HEADER(ObjectBody);
+	InterlockedDecrement(&(BODY_TO_HEADER(ObjectBody)->HandleCount));
+	ObReferenceObjectByPointer(ObjectBody,
+				   0,
+				   NULL,
+				   UserMode);
+	Rep->ObjectBody = NULL;
+   
+	KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
+   
+	if ((Header->ObjectType != NULL) &&
+	    (Header->ObjectType->Close != NULL))
+	  {
+	     Header->ObjectType->Close(ObjectBody, Header->HandleCount);
+	  }
+     }
+   else
      {
 	KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
-	*ObjectBody = NULL;
-	return STATUS_INVALID_HANDLE;
      }
-
-   if ((ULONG_PTR)HandleEntry->ObjectBody & OB_HANDLE_FLAG_PROTECT)
-     {
-	KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
-	*ObjectBody = NULL;
-	return STATUS_HANDLE_NOT_CLOSABLE;
-     }
-
-   Body = OB_ENTRY_TO_POINTER(HandleEntry->ObjectBody);
-   DPRINT("ObjectBody %x\n", Body);
-   if (Body == NULL)
-     {
-	KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
-	*ObjectBody = NULL;
-	return STATUS_UNSUCCESSFUL;
-     }
-
-   Header = BODY_TO_HEADER(Body);
-   ObReferenceObjectByPointer(Body,
-			      0,
-			      NULL,
-			      UserMode);
-   InterlockedDecrement(&Header->HandleCount);
-   HandleEntry->ObjectBody = NULL;
-
-   Block->allocation_count--;
-   Block->allocation_hint = (ULONG_PTR)Handle % HANDLE_BLOCK_ENTRIES;
-
-   KeReleaseSpinLock(&HandleTable->ListLock, oldIrql);
-
-   if ((Header->ObjectType != NULL) &&
-       (Header->ObjectType->Close != NULL))
-     {
-	Header->ObjectType->Close(Body, Header->HandleCount);
-     }
-
-   *ObjectBody = Body;
-
+   
    DPRINT("Finished ObDeleteHandle()\n");
-
-   return STATUS_SUCCESS;
+   return(ObjectBody);
 }
 
 
-NTSTATUS
-ObCreateHandle(PEPROCESS Process,
-	       PVOID ObjectBody,
-	       ACCESS_MASK GrantedAccess,
-	       BOOLEAN Inherit,
-	       PHANDLE HandleReturn)
+NTSTATUS ObCreateHandle(PEPROCESS Process,
+			PVOID ObjectBody,
+			ACCESS_MASK GrantedAccess,
+			BOOLEAN Inherit,
+			PHANDLE HandleReturn)
 /*
  * FUNCTION: Add a handle referencing an object
  * ARGUMENTS:
@@ -632,14 +512,14 @@ ObCreateHandle(PEPROCESS Process,
 {
    LIST_ENTRY* current;
    unsigned int handle=1;
-   unsigned int Loop, Index, MaxIndex;
+   unsigned int i;
    HANDLE_BLOCK* new_blk = NULL;
    PHANDLE_TABLE HandleTable;
    KIRQL oldlvl;
 
    DPRINT("ObCreateHandle(Process %x, obj %x)\n",Process,ObjectBody);
 
-   ASSERT(Process);
+   assert(Process);
 
    if (ObjectBody != NULL)
      {
@@ -658,35 +538,18 @@ ObCreateHandle(PEPROCESS Process,
 
 	DPRINT("Current %x\n",current);
 
-	if (blk->allocation_count == HANDLE_BLOCK_ENTRIES)
+	for (i=0;i<HANDLE_BLOCK_ENTRIES;i++)
 	  {
-            handle = handle + HANDLE_BLOCK_ENTRIES;
-            current = current->Flink;
-            continue;
-	  }
-
-	Index = blk->allocation_hint;
-	MaxIndex = HANDLE_BLOCK_ENTRIES;
-	for (Loop = 0; Loop < 2; Loop++)
-	  {
-            for (Index = 0; Index < MaxIndex; Index++)
-              {
-                DPRINT("Considering slot %d containing %x\n", Index, blk->handles[Index]);
-                if (blk->handles[Index].ObjectBody == NULL)
-                  {
-                    blk->handles[Index].ObjectBody = OB_POINTER_TO_ENTRY(ObjectBody);
-                    if (Inherit)
-                      blk->handles[Index].ObjectBody = (PVOID)((ULONG_PTR)blk->handles[Index].ObjectBody | OB_HANDLE_FLAG_INHERIT);
-                    blk->handles[Index].GrantedAccess = GrantedAccess;
-                    blk->allocation_hint = Index + 1;
-                    blk->allocation_count++;
-                    KeReleaseSpinLock(&HandleTable->ListLock, oldlvl);
-                    *HandleReturn = (HANDLE)((handle + Index) << 2);
-                    return(STATUS_SUCCESS);
-                  }
-              }
-            Index = 0;
-            MaxIndex = blk->allocation_hint;
+	     DPRINT("Considering slot %d containing %x\n",i,blk->handles[i]);
+	     if (blk->handles[i].ObjectBody==NULL)
+	       {
+		  blk->handles[i].ObjectBody = ObjectBody;
+		  blk->handles[i].GrantedAccess = GrantedAccess;
+		  blk->handles[i].Inherit = Inherit;
+		  KeReleaseSpinLock(&HandleTable->ListLock, oldlvl);
+		  *HandleReturn = (HANDLE)((handle + i) << 2);
+		  return(STATUS_SUCCESS);
+	       }
 	  }
 	
 	handle = handle + HANDLE_BLOCK_ENTRIES;
@@ -707,51 +570,22 @@ ObCreateHandle(PEPROCESS Process,
    RtlZeroMemory(new_blk,sizeof(HANDLE_BLOCK));
    InsertTailList(&(Process->HandleTable.ListHead),
 		  &new_blk->entry);
-   new_blk->handles[0].ObjectBody = OB_POINTER_TO_ENTRY(ObjectBody);
-   if (Inherit)
-     new_blk->handles[0].ObjectBody = (PVOID)((ULONG_PTR)new_blk->handles[0].ObjectBody | OB_HANDLE_FLAG_INHERIT);
+   new_blk->handles[0].ObjectBody = ObjectBody;
    new_blk->handles[0].GrantedAccess = GrantedAccess;
-   new_blk->allocation_hint = 1;
-   new_blk->allocation_count++;
+   new_blk->handles[0].Inherit = Inherit;
    KeReleaseSpinLock(&HandleTable->ListLock, oldlvl);
    *HandleReturn = (HANDLE)(handle << 2);
    return(STATUS_SUCCESS);
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
-ObQueryObjectAuditingByHandle(IN HANDLE Handle,
-			      OUT PBOOLEAN GenerateOnClose)
-{
-  PEPROCESS Process;
-  KIRQL oldIrql;
-  PHANDLE_ENTRY HandleEntry;
-
-  DPRINT("ObQueryObjectAuditingByHandle(Handle %x)\n", Handle);
-
-  Process = PsGetCurrentProcess();
-
-  KeAcquireSpinLock(&Process->HandleTable.ListLock, &oldIrql);
-  HandleEntry = ObpGetObjectByHandle(&Process->HandleTable,
-				     Handle,
-				     NULL);
-  if (HandleEntry == NULL)
-    {
-      KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-      return STATUS_INVALID_HANDLE;
-    }
-
-  *GenerateOnClose = (BOOLEAN)((ULONG_PTR)HandleEntry->ObjectBody | OB_HANDLE_FLAG_AUDIT);
-
-  KeReleaseSpinLock(&Process->HandleTable.ListLock, oldIrql);
-
-  return STATUS_SUCCESS;
-}
-
-
+ObReferenceObjectByHandle(HANDLE Handle,
+			  ACCESS_MASK DesiredAccess,
+			  POBJECT_TYPE ObjectType,
+			  KPROCESSOR_MODE AccessMode,
+			  PVOID* Object,
+			  POBJECT_HANDLE_INFORMATION HandleInformationPtr)
 /*
  * FUNCTION: Increments the reference count for an object and returns a 
  * pointer to its body
@@ -764,24 +598,13 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
  *         HandleInformation (OUT) = Contains information about the handle 
  *                                   on return
  * RETURNS: Status
- *
- * @implemented
  */
-NTSTATUS STDCALL
-ObReferenceObjectByHandle(HANDLE Handle,
-			  ACCESS_MASK DesiredAccess,
-			  POBJECT_TYPE ObjectType,
-			  KPROCESSOR_MODE AccessMode,
-			  PVOID* Object,
-			  POBJECT_HANDLE_INFORMATION HandleInformation)
 {
-   PHANDLE_ENTRY HandleEntry;
+   PHANDLE_REP HandleRep;
    POBJECT_HEADER ObjectHeader;
    KIRQL oldIrql;
    PVOID ObjectBody;
    ACCESS_MASK GrantedAccess;
-   ULONG Attributes;
-   NTSTATUS Status;
    
    ASSERT_IRQL(PASSIVE_LEVEL);
    
@@ -789,6 +612,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
 	   "ObjectType %x, AccessMode %d, Object %x)\n",Handle,DesiredAccess,
 	   ObjectType,AccessMode,Object);
 
+   
    /*
     * Handle special handle names
     */
@@ -797,52 +621,29 @@ ObReferenceObjectByHandle(HANDLE Handle,
      {
 	DPRINT("Reference from %x\n", ((PULONG)&Handle)[-1]);
 	
-	Status = ObReferenceObjectByPointer(PsGetCurrentProcess(),
-	                                    PROCESS_ALL_ACCESS,
-	                                    PsProcessType,
-	                                    UserMode);
-	if (! NT_SUCCESS(Status))
-	  {
-	    return Status;
-	  }
-
-	if (HandleInformation != NULL)
-	  {
-	    HandleInformation->HandleAttributes = 0; /* FIXME? */
-	    HandleInformation->GrantedAccess = PROCESS_ALL_ACCESS;
-	  }
-
+	ObReferenceObjectByPointer(PsGetCurrentProcess(),
+				   PROCESS_ALL_ACCESS,
+				   PsProcessType,
+				   UserMode);
 	*Object = PsGetCurrentProcess();
 	DPRINT("Referencing current process %x\n", PsGetCurrentProcess());
-	return STATUS_SUCCESS;
+	return(STATUS_SUCCESS);
      }
    else if (Handle == NtCurrentProcess())
      {
 	CHECKPOINT;
 	return(STATUS_OBJECT_TYPE_MISMATCH);
      }
-
    if (Handle == NtCurrentThread() && 
        (ObjectType == PsThreadType || ObjectType == NULL))
      {
-	Status = ObReferenceObjectByPointer(PsGetCurrentThread(),
-	                                    THREAD_ALL_ACCESS,
-	                                    PsThreadType,
-	                                    UserMode);
-	if (! NT_SUCCESS(Status))
-	  {
-	    return Status;
-	  }
-
-	if (HandleInformation != NULL)
-	  {
-	    HandleInformation->HandleAttributes = 0; /* FIXME? */
-	    HandleInformation->GrantedAccess = THREAD_ALL_ACCESS;
-	  }
-
+	ObReferenceObjectByPointer(PsGetCurrentThread(),
+				   THREAD_ALL_ACCESS,
+				   PsThreadType,
+				   UserMode);
 	*Object = PsGetCurrentThread();
 	CHECKPOINT;
-	return STATUS_SUCCESS;
+	return(STATUS_SUCCESS);
      }
    else if (Handle == NtCurrentThread())
      {
@@ -852,16 +653,15 @@ ObReferenceObjectByHandle(HANDLE Handle,
    
    KeAcquireSpinLock(&PsGetCurrentProcess()->HandleTable.ListLock,
 		     &oldIrql);
-   HandleEntry = ObpGetObjectByHandle(&PsGetCurrentProcess()->HandleTable,
-				      Handle,
-				      NULL);
-   if (HandleEntry == NULL || HandleEntry->ObjectBody == 0)
+   HandleRep = ObpGetObjectByHandle(&PsGetCurrentProcess()->HandleTable,
+				    Handle);
+   if (HandleRep == NULL || HandleRep->ObjectBody == NULL)
      {
 	KeReleaseSpinLock(&PsGetCurrentProcess()->HandleTable.ListLock,
 			  oldIrql);
 	return(STATUS_INVALID_HANDLE);
      }
-   ObjectBody = OB_ENTRY_TO_POINTER(HandleEntry->ObjectBody);
+   ObjectBody = HandleRep->ObjectBody;
    DPRINT("ObjectBody %p\n",ObjectBody);
    ObjectHeader = BODY_TO_HEADER(ObjectBody);
    DPRINT("ObjectHeader->RefCount %lu\n",ObjectHeader->RefCount);
@@ -869,8 +669,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
 			      0,
 			      NULL,
 			      UserMode);
-   Attributes = (ULONG_PTR)HandleEntry->ObjectBody & OB_HANDLE_FLAG_MASK;
-   GrantedAccess = HandleEntry->GrantedAccess;
+   GrantedAccess = HandleRep->GrantedAccess;
    KeReleaseSpinLock(&PsGetCurrentProcess()->HandleTable.ListLock,
 		     oldIrql);
    
@@ -888,7 +687,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
 	DPRINT("Reference from %x\n", ((PULONG)&Handle)[-1]);
      }
    
-   if (DesiredAccess && AccessMode == UserMode)
+   if (AccessMode == UserMode)
      {
 	RtlMapGenericMask(&DesiredAccess, ObjectHeader->ObjectType->Mapping);
 
@@ -899,13 +698,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
 	     return(STATUS_ACCESS_DENIED);
 	  }
      }
-
-   if (HandleInformation != NULL)
-     {
-	HandleInformation->HandleAttributes = Attributes;
-	HandleInformation->GrantedAccess = GrantedAccess;
-     }
-
+   
    *Object = ObjectBody;
    
    CHECKPOINT;
@@ -926,28 +719,20 @@ ObReferenceObjectByHandle(HANDLE Handle,
  *		
  * RETURN VALUE
  * 	Status.
- *
- * @implemented
  */
-NTSTATUS STDCALL
-NtClose(IN HANDLE Handle)
+NTSTATUS STDCALL NtClose(HANDLE Handle)
 {
    PVOID		ObjectBody;
    POBJECT_HEADER	Header;
-   NTSTATUS Status;
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
    DPRINT("NtClose(Handle %x)\n",Handle);
    
-   Status = ObDeleteHandle(PsGetCurrentProcess(),
-			   Handle,
-			   &ObjectBody);
-   if (!NT_SUCCESS(Status))
+   ObjectBody = ObDeleteHandle(PsGetCurrentProcess(), Handle);
+   if (ObjectBody == NULL)
      {
-        if(((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->ExceptionPort)
-           KeRaiseUserException(Status);
-	return Status;
+	return(STATUS_INVALID_HANDLE);
      }
    
    Header = BODY_TO_HEADER(ObjectBody);
@@ -958,122 +743,19 @@ NtClose(IN HANDLE Handle)
    return(STATUS_SUCCESS);
 }
 
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
-ObInsertObject(IN PVOID Object,
-	       IN PACCESS_STATE PassedAccessState OPTIONAL,
-	       IN ACCESS_MASK DesiredAccess,
-	       IN ULONG AdditionalReferences,
-	       OUT PVOID* ReferencedObject OPTIONAL,
-	       OUT PHANDLE Handle)
+ObInsertObject(PVOID Object,
+	       PACCESS_STATE PassedAccessState,
+	       ACCESS_MASK DesiredAccess,
+	       ULONG AdditionalReferences,
+	       PVOID* ReferencedObject,
+	       PHANDLE Handle)
 {
-  POBJECT_HEADER ObjectHeader;
-  ACCESS_MASK Access;
-
-  Access = DesiredAccess;
-  ObjectHeader = BODY_TO_HEADER(Object);
-
-  RtlMapGenericMask(&Access,
-		    ObjectHeader->ObjectType->Mapping);
-
   return(ObCreateHandle(PsGetCurrentProcess(),
 			Object,
-			Access,
-			ObjectHeader->Inherit,
+			DesiredAccess,
+			FALSE,
 			Handle));
-}
-
-
-ULONG
-ObpGetHandleCountByHandleTable(PHANDLE_TABLE HandleTable)
-{
-  PHANDLE_BLOCK blk;
-  POBJECT_HEADER Header;
-  PVOID ObjectBody;
-  KIRQL OldIrql;
-  PLIST_ENTRY current;
-  ULONG i;
-  ULONG Count=0;
-
-  KeAcquireSpinLock(&HandleTable->ListLock, &OldIrql);
-
-  current = HandleTable->ListHead.Flink;
-  while (current != &HandleTable->ListHead)
-    {
-      blk = CONTAINING_RECORD(current, HANDLE_BLOCK, entry);
-
-      for (i = 0; i < HANDLE_BLOCK_ENTRIES; i++)
-	{
-	  ObjectBody = OB_ENTRY_TO_POINTER(blk->handles[i].ObjectBody);
-	  if (ObjectBody != NULL)
-	    {
-	      Header = BODY_TO_HEADER(ObjectBody);
-
-	      /* Make sure this is real. */
-	      if (Header->ObjectType != NULL)
-		Count++;
-	    }
-	}
-
-      current = current->Flink;
-    }
-
-  KeReleaseSpinLock(&HandleTable->ListLock,
-		    OldIrql);
-
-  return Count;
-}
-
-/*
- * FUNCTION: Searches the handle table of a specified process whether it contains a
- *           valid handle to the Object we're looking for. If not, it'll create one.
- *
- * NOTES:
- * The parameters of this function is basically a mixture of some of the parameters
- * of ObReferenceObjectByHandle() and ObReferenceObjectByPointer(). A little thinking
- * about what this function does (by it's name) makes clear what parameters it requires.
- * For example the AccessMode parameter of ObReferenceObjectByHandle/Pointer() is not
- * required at all as it only has influence on the object security. This function doesn't
- * want to get access to an object, it just looks for a valid handle and if it can't find
- * one, it'll just create one. It wouldn't make sense to check for security again as the
- * caller already has a pointer to the object.
- *
- * A test on an XP machine shows that this prototype appears to be correct.
- *
- * ARGUMENTS:
- * Process = This parameter simply describes in which handle table we're looking
- *           for a handle to the object.
- * Object = The object pointer that we're looking for
- * ObjectType = Just a sanity check as ObReferenceObjectByHandle() and
- *              ObReferenceObjectByPointer() provides.
- * HandleInformation = This one has to be the opposite meaning of the usage in
- *                     ObReferenceObjectByHandle(). If we actually found a valid
- *                     handle in the table, we need to check against the information
- *                     provided so we make sure this handle has all access rights
- *                     (and attributes?!) we need. If they don't match, we can't
- *                     use this handle and keep looking because the caller is likely
- *                     to depend on these access rights.
- * HandleReturn = The last parameter is the same as in ObCreateHandle(). If we could
- *                find a suitable handle in the handle table, return this handle, if
- *                not, we'll just create one using ObCreateHandle() with all access
- *                rights the caller needs.
- *
- * RETURNS: Status
- *
- * @unimplemented
- */
-NTSTATUS STDCALL
-ObFindHandleForObject(IN PEPROCESS Process,
-                      IN PVOID Object,
-                      IN POBJECT_TYPE ObjectType,
-                      IN POBJECT_HANDLE_INFORMATION HandleInformation,
-                      OUT PHANDLE HandleReturn)
-{
-  UNIMPLEMENTED;
-  return STATUS_UNSUCCESSFUL;
 }
 
 /* EOF */

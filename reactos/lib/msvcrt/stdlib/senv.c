@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 
@@ -6,9 +6,6 @@
 #include <msvcrt/msvcrtdbg.h>
 
 
-/*
- * @implemented
- */
 void _searchenv(const char* file,const char* var,char* path)
 {
     char* env = getenv(var);

@@ -1,493 +1,247 @@
-/*
- * ReactOS Win32 Subsystem
- *
- * Copyright (C) 1998 - 2004 ReactOS Team
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: brush.c,v 1.43 2004/12/18 18:19:24 royce Exp $
+/* $Id: brush.c,v 1.18 2003/01/18 20:46:31 ei Exp $
  */
-#include <w32k.h>
 
-static const USHORT HatchBrushes[NB_HATCH_STYLES][8] =
-{
-  {0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00}, /* HS_HORIZONTAL */
-  {0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08}, /* HS_VERTICAL   */
-  {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80}, /* HS_FDIAGONAL  */
-  {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}, /* HS_BDIAGONAL  */
-  {0x08, 0x08, 0x08, 0xff, 0x08, 0x08, 0x08, 0x08}, /* HS_CROSS      */
-  {0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81}  /* HS_DIAGCROSS  */
-};
 
-BOOL INTERNAL_CALL
-BRUSH_Cleanup(PVOID ObjectBody)
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/bitmaps.h>
+#include <win32k/brush.h>
+//#include <win32k/debug.h>
+#include <include/object.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
+
+HBRUSH STDCALL W32kCreateBrushIndirect(CONST LOGBRUSH  *lb)
 {
-  PGDIBRUSHOBJ pBrush = (PGDIBRUSHOBJ)ObjectBody;
-  if(pBrush->flAttrs & (GDIBRUSH_IS_HATCH | GDIBRUSH_IS_BITMAP))
+  PBRUSHOBJ  brushPtr;
+  HBRUSH  hBrush;
+
+  hBrush = BRUSHOBJ_AllocBrush();
+  if (hBrush == NULL)
   {
-    ASSERT(pBrush->hbmPattern);
-    GDIOBJ_SetOwnership(pBrush->hbmPattern, PsGetCurrentProcess());
-    NtGdiDeleteObject(pBrush->hbmPattern);
+    return 0;
   }
-  
-  return TRUE;
+
+  brushPtr = BRUSHOBJ_LockBrush (hBrush);
+  ASSERT( brushPtr ); //I want to know if this ever occurs
+
+  if( brushPtr ){
+  	brushPtr->iSolidColor = lb->lbColor;
+  	brushPtr->logbrush.lbStyle = lb->lbStyle;
+  	brushPtr->logbrush.lbColor = lb->lbColor;
+  	brushPtr->logbrush.lbHatch = lb->lbHatch;
+
+  	BRUSHOBJ_UnlockBrush( hBrush );
+  	return  hBrush;
+  }
+  return NULL;
 }
 
-XLATEOBJ* FASTCALL
-IntGdiCreateBrushXlate(PDC Dc, GDIBRUSHOBJ *BrushObj, BOOLEAN *Failed)
+HBRUSH STDCALL W32kCreateDIBPatternBrush(HGLOBAL  hDIBPacked,
+                                  UINT  ColorSpec)
 {
-   XLATEOBJ *Result = NULL;
+  UNIMPLEMENTED;
+#if 0
+  LOGBRUSH  logbrush;
+  PBITMAPINFO  info, newInfo;
+  INT  size;
 
-   if (BrushObj->flAttrs & GDIBRUSH_IS_NULL)
-   {
-      Result = NULL;
-      *Failed = FALSE;
-   }
-   else if (BrushObj->flAttrs & GDIBRUSH_IS_SOLID)
-   {
-      Result = IntEngCreateXlate(0, PAL_RGB, Dc->w.hPalette, NULL);
-      *Failed = FALSE;
-   }
-   else
-   {
-      BITMAPOBJ *Pattern = BITMAPOBJ_LockBitmap(BrushObj->hbmPattern);
-      if (Pattern == NULL)
-         return NULL;
+  DPRINT("%04x\n", hbitmap );
 
-      /* Special case: 1bpp pattern */
-      if (Pattern->SurfObj.iBitmapFormat == BMF_1BPP)
-      {
-         if (Dc->w.bitsPerPixel != 1)
-            Result = IntEngCreateSrcMonoXlate(Dc->w.hPalette, Dc->w.textColor, Dc->w.backgroundColor);
-      }
+  logbrush.lbStyle = BS_DIBPATTERN;
+  logbrush.lbColor = coloruse;
+  logbrush.lbHatch = 0;
 
-      BITMAPOBJ_UnlockBitmap(BrushObj->hbmPattern);
-      *Failed = FALSE;
-   }
+  /* Make a copy of the bitmap */
+  if (!(info = (BITMAPINFO *)GlobalLock( hbitmap )))
+  {
+    return 0;
+  }
 
-   return Result;
+
+  if (info->bmiHeader.biCompression) size = info->bmiHeader.biSizeImage;
+  else
+    size = DIB_GetDIBImageBytes(info->bmiHeader.biWidth, info->bmiHeader.biHeight, info->bmiHeader.biBitCount);
+  size += DIB_BitmapInfoSize(info, coloruse);
+
+  if (!(logbrush.lbHatch = (INT)GlobalAlloc16( GMEM_MOVEABLE, size )))
+  {
+    GlobalUnlock16( hbitmap );
+    return 0;
+  }
+  newInfo = (BITMAPINFO *) GlobalLock16((HGLOBAL16)logbrush.lbHatch);
+  memcpy(newInfo, info, size);
+  GlobalUnlock16((HGLOBAL16)logbrush.lbHatch);
+  GlobalUnlock(hbitmap);
+  return W32kCreateBrushIndirect(&logbrush);
+#endif
 }
 
-VOID FASTCALL
-IntGdiInitBrushInstance(GDIBRUSHINST *BrushInst, PGDIBRUSHOBJ BrushObj, XLATEOBJ *XlateObj)
+HBRUSH STDCALL W32kCreateDIBPatternBrushPt(CONST VOID  *PackedDIB,
+                                    UINT  Usage)
 {
-   ASSERT(BrushInst);
-   ASSERT(BrushObj);
-   if (BrushObj->flAttrs & GDIBRUSH_IS_NULL)
-      BrushInst->BrushObject.iSolidColor = 0;
-   else if (BrushObj->flAttrs & GDIBRUSH_IS_SOLID)
-      BrushInst->BrushObject.iSolidColor = XLATEOBJ_iXlate(XlateObj, BrushObj->BrushAttr.lbColor);
-   else
-      BrushInst->BrushObject.iSolidColor = 0xFFFFFFFF;
-   BrushInst->BrushObject.pvRbrush = BrushObj->ulRealization;
-   BrushInst->BrushObject.flColorType = 0;
-   BrushInst->GdiBrushObject = BrushObj;
-   BrushInst->XlateObject = XlateObj;
+  INT  size;
+  LOGBRUSH  logbrush;
+  PBITMAPINFO  info;
+  PBITMAPINFO  newInfo;
+
+  info = (BITMAPINFO *) PackedDIB;
+  if (info == NULL)
+  {
+    return 0;
+  }
+  DPRINT ("%p %ldx%ld %dbpp\n",
+          info,
+          info->bmiHeader.biWidth,
+          info->bmiHeader.biHeight,
+          info->bmiHeader.biBitCount);
+
+  logbrush.lbStyle = BS_DIBPATTERN;
+  logbrush.lbColor = Usage;
+  logbrush.lbHatch = 0;
+
+  /* Make a copy of the bitmap */
+
+  if (info->bmiHeader.biCompression)
+  {
+    size = info->bmiHeader.biSizeImage;
+  }
+  else
+    {
+    size = DIB_GetDIBImageBytes (info->bmiHeader.biWidth, info->bmiHeader.biHeight, info->bmiHeader.biBitCount);
+  }
+  size += DIB_BitmapInfoSize (info, Usage);
+
+  logbrush.lbHatch = (LONG) GDIOBJ_AllocObj(size, GO_MAGIC_DONTCARE);
+  if (logbrush.lbHatch == 0)
+  {
+    return 0;
+  }
+  newInfo = (PBITMAPINFO) GDIOBJ_LockObj ((HGDIOBJ) logbrush.lbHatch, GO_MAGIC_DONTCARE);
+  ASSERT(newInfo);
+  memcpy(newInfo, info, size);
+  GDIOBJ_UnlockObj( (HGDIOBJ) logbrush.lbHatch, GO_MAGIC_DONTCARE );
+
+  return  W32kCreateBrushIndirect (&logbrush);
 }
 
-HBRUSH FASTCALL
-IntGdiCreateBrushIndirect(PLOGBRUSH LogBrush)
+HBRUSH STDCALL W32kCreateHatchBrush(INT  Style,
+                             COLORREF  Color)
 {
-   PGDIBRUSHOBJ BrushObject;
-   HBRUSH hBrush;
-   HBITMAP hPattern = 0;
-   
-   switch (LogBrush->lbStyle)
-   {
-      case BS_HATCHED:
-         hPattern = NtGdiCreateBitmap(8, 8, 1, 1, HatchBrushes[LogBrush->lbHatch]);
-         if (hPattern == NULL)
-         {
-            SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-            return NULL;
-         }
-         break;
-     
-      case BS_PATTERN:
-         hPattern = BITMAPOBJ_CopyBitmap((HBITMAP)LogBrush->lbHatch);
-         if (hPattern == NULL)
-         {
-            SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-            return NULL;
-         }
-         break;
-   }
-   
-   hBrush = BRUSHOBJ_AllocBrush();
-   if (hBrush == NULL)
-   {
-      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-      return NULL;
-   }
+  LOGBRUSH  logbrush;
 
-   BrushObject = BRUSHOBJ_LockBrush(hBrush);
-   if(BrushObject != NULL)
-   {
-     switch (LogBrush->lbStyle)
-     {
-        case BS_NULL:
-           BrushObject->flAttrs |= GDIBRUSH_IS_NULL;
-           break;
+  DPRINT("%d %06lx\n", Style, Color);
 
-        case BS_SOLID:
-           BrushObject->flAttrs |= GDIBRUSH_IS_SOLID;
-           BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
-           /* FIXME: Fill in the rest of fields!!! */
-           break;
+  if (Style < 0 || Style >= NB_HATCH_STYLES)
+  {
+    return 0;
+  }
+  logbrush.lbStyle = BS_HATCHED;
+  logbrush.lbColor = Color;
+  logbrush.lbHatch = Style;
 
-        case BS_HATCHED:
-           BrushObject->flAttrs |= GDIBRUSH_IS_HATCH;
-           BrushObject->hbmPattern = hPattern;
-           BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
-           break;
-
-        case BS_PATTERN:
-           BrushObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-           BrushObject->hbmPattern = hPattern;
-           /* FIXME: Fill in the rest of fields!!! */
-           break;
-
-        default:
-           DPRINT1("Brush Style: %d\n", LogBrush->lbStyle);
-           UNIMPLEMENTED;
-           break;
-     }
-     
-     BRUSHOBJ_UnlockBrush(hBrush);
-   }
-
-   if (hPattern != 0)
-      GDIOBJ_SetOwnership(hPattern, NULL);
-   
-   return hBrush;
+  return  W32kCreateBrushIndirect (&logbrush);
 }
 
-BOOL FASTCALL
-IntPatBlt(
-   PDC dc,
-   INT XLeft,
-   INT YLeft,
-   INT Width,
-   INT Height,
-   DWORD ROP,
-   PGDIBRUSHOBJ BrushObj)
+HBRUSH STDCALL W32kCreatePatternBrush(HBITMAP  hBitmap)
 {
-   RECTL DestRect;
-   BITMAPOBJ *BitmapObj;
-   GDIBRUSHINST BrushInst;
-   POINTL BrushOrigin;
-   BOOL ret = TRUE;
+  LOGBRUSH  logbrush = { BS_PATTERN, 0, 0 };
 
-   ASSERT(BrushObj);
+  DPRINT ("%04x\n", hBitmap);
+  logbrush.lbHatch = (INT) BITMAPOBJ_CopyBitmap (hBitmap);
+  if(!logbrush.lbHatch)
+  {
+    return 0;
+  }
+  else
+  {
+    return W32kCreateBrushIndirect( &logbrush );
+  }
+}
 
-   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   if (BitmapObj == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return FALSE;
-   }
+HBRUSH STDCALL W32kCreateSolidBrush(COLORREF  Color)
+{
+  LOGBRUSH logbrush;
 
-   if (!(BrushObj->flAttrs & GDIBRUSH_IS_NULL))
-   {
+  logbrush.lbStyle = BS_SOLID;
+  logbrush.lbColor = Color;
+  logbrush.lbHatch = 0;
+
+  return W32kCreateBrushIndirect(&logbrush);
+}
+
+BOOL STDCALL W32kFixBrushOrgEx(VOID)
+{
+  return FALSE;
+}
+
+BOOL STDCALL W32kPatBlt(HDC  hDC,
+			INT  XLeft,
+			INT  YLeft,
+			INT  Width,
+			INT  Height,
+			DWORD  ROP)
+{
+  RECT DestRect;
+  PBRUSHOBJ BrushObj;
+  PSURFOBJ SurfObj;
+  DC *dc = DC_HandleToPtr(hDC);
+  BOOL ret;
+
+  if (dc == NULL)
+    {
+      return(FALSE);
+    }
+
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
+
+  BrushObj = (BRUSHOBJ*) GDIOBJ_LockObj(dc->w.hBrush, GO_BRUSH_MAGIC);
+  assert(BrushObj);
+  if (BrushObj->logbrush.lbStyle != BS_NULL)
+    {
       if (Width > 0)
-      {
-         DestRect.left = XLeft + dc->w.DCOrgX;
-         DestRect.right = XLeft + Width + dc->w.DCOrgX;
-      }
+	{
+	  DestRect.left = XLeft + dc->w.DCOrgX;
+	  DestRect.right = XLeft + Width + dc->w.DCOrgX;
+	}
       else
-      {
-         DestRect.left = XLeft + Width + 1 + dc->w.DCOrgX;
-         DestRect.right = XLeft + dc->w.DCOrgX + 1;
-      }
-
+	{
+	  DestRect.left = XLeft + Width + dc->w.DCOrgX;
+	  DestRect.right = XLeft + dc->w.DCOrgX;
+	}
       if (Height > 0)
-      {
-         DestRect.top = YLeft + dc->w.DCOrgY;
-         DestRect.bottom = YLeft + Height + dc->w.DCOrgY;
-      }
+	{
+	  DestRect.top = YLeft + dc->w.DCOrgY;
+	  DestRect.bottom = YLeft + Height + dc->w.DCOrgY;
+	}
       else
-      {
-         DestRect.top = YLeft + Height + dc->w.DCOrgY + 1;
-         DestRect.bottom = YLeft + dc->w.DCOrgY + 1;
-      }
-      
-      BrushOrigin.x = BrushObj->ptOrigin.x + dc->w.DCOrgX;
-      BrushOrigin.y = BrushObj->ptOrigin.y + dc->w.DCOrgY;
-
-      IntGdiInitBrushInstance(&BrushInst, BrushObj, dc->XlateBrush);
-
-      ret = IntEngBitBlt(
-         BitmapObj,
-         NULL,
-         NULL,
-         dc->CombinedClip,
-         NULL,
-         &DestRect,
-         NULL,
-         NULL,
-         &BrushInst.BrushObject,
-         &BrushOrigin,
-         ROP);
-   }
-
-   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-
-   return ret;
+	{
+	  DestRect.top = YLeft + Height + dc->w.DCOrgY;
+	  DestRect.bottom = YLeft + dc->w.DCOrgY;
+	}
+      ret = EngBitBlt(SurfObj,
+		      NULL,
+		      NULL,
+		      NULL,
+		      NULL,
+		      &DestRect,
+		      NULL,
+		      NULL,
+		      BrushObj,
+		      NULL,
+		      PATCOPY);
+    }
+  GDIOBJ_UnlockObj( dc->w.hBrush, GO_BRUSH_MAGIC );
+  DC_ReleasePtr( hDC );
+  return(ret);
 }
 
-BOOL FASTCALL
-IntGdiPolyPatBlt(
-   HDC hDC,
-   DWORD dwRop,
-   PPATRECT pRects,
-   int cRects,
-   ULONG Reserved)
+BOOL STDCALL W32kSetBrushOrgEx(HDC  hDC,
+                        INT  XOrg,
+                        INT  YOrg,
+                        LPPOINT  Point)
 {
-   int i;
-   PPATRECT r;
-   PGDIBRUSHOBJ BrushObj;
-   DC *dc;
-	
-   dc = DC_LockDc(hDC);
-   if (dc == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return FALSE;
-   }
-	
-   for (r = pRects, i = 0; i < cRects; i++)
-   {
-      BrushObj = BRUSHOBJ_LockBrush(r->hBrush);
-      if(BrushObj != NULL)
-      {
-        IntPatBlt(
-           dc,
-           r->r.left,
-           r->r.top,
-           r->r.right,
-           r->r.bottom,
-           dwRop,
-           BrushObj);
-        BRUSHOBJ_UnlockBrush(r->hBrush);
-      }
-      r++;
-   }
-
-   DC_UnlockDc( hDC );
-	
-   return TRUE;
+  UNIMPLEMENTED;
 }
-
-/* PUBLIC FUNCTIONS ***********************************************************/
-
-HBRUSH STDCALL
-NtGdiCreateBrushIndirect(CONST LOGBRUSH *LogBrush)
-{
-   LOGBRUSH SafeLogBrush;
-   NTSTATUS Status;
-  
-   Status = MmCopyFromCaller(&SafeLogBrush, LogBrush, sizeof(LOGBRUSH));
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastNtError(Status);
-      return 0;
-   }
-  
-   return IntGdiCreateBrushIndirect(&SafeLogBrush);
-}
-
-HBRUSH STDCALL
-NtGdiCreateDIBPatternBrush(HGLOBAL hDIBPacked, UINT ColorSpec)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-
-HBRUSH STDCALL
-NtGdiCreateDIBPatternBrushPt(CONST VOID *PackedDIB, UINT Usage)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-
-HBRUSH STDCALL
-NtGdiCreateHatchBrush(INT Style, COLORREF Color)
-{
-   LOGBRUSH LogBrush;
-
-   if (Style < 0 || Style >= NB_HATCH_STYLES)
-   {
-      return 0;
-   }
-
-   LogBrush.lbStyle = BS_HATCHED;
-   LogBrush.lbColor = Color;
-   LogBrush.lbHatch = Style;
-
-   return IntGdiCreateBrushIndirect(&LogBrush);
-}
-
-HBRUSH STDCALL
-NtGdiCreatePatternBrush(HBITMAP hBitmap)
-{
-   LOGBRUSH LogBrush;
-
-   LogBrush.lbStyle = BS_PATTERN;
-   LogBrush.lbColor = 0;
-   LogBrush.lbHatch = (ULONG)hBitmap;
-
-   return IntGdiCreateBrushIndirect(&LogBrush);
-}
-
-HBRUSH STDCALL
-NtGdiCreateSolidBrush(COLORREF Color)
-{
-   LOGBRUSH LogBrush;
-
-   LogBrush.lbStyle = BS_SOLID;
-   LogBrush.lbColor = Color;
-   LogBrush.lbHatch = 0;
-
-   return IntGdiCreateBrushIndirect(&LogBrush);
-}
-
-BOOL STDCALL
-NtGdiFixBrushOrgEx(VOID)
-{
-   return FALSE;
-}
-
-/*
- * NtGdiSetBrushOrgEx
- *
- * The NtGdiSetBrushOrgEx function sets the brush origin that GDI assigns to
- * the next brush an application selects into the specified device context. 
- *
- * Status
- *    @implemented
- */
-
-BOOL STDCALL
-NtGdiSetBrushOrgEx(HDC hDC, INT XOrg, INT YOrg, LPPOINT Point)
-{
-   PDC dc = DC_LockDc(hDC);
-   if (dc == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return FALSE;
-   }
-
-   if (Point != NULL)
-   {
-      NTSTATUS Status;
-      POINT SafePoint;
-      SafePoint.x = dc->w.brushOrgX;
-      SafePoint.y = dc->w.brushOrgY;
-      Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
-      if(!NT_SUCCESS(Status))
-      {
-        DC_UnlockDc(hDC);
-        SetLastNtError(Status);
-        return FALSE;
-      }
-   }
-
-   dc->w.brushOrgX = XOrg;
-   dc->w.brushOrgY = YOrg;
-   DC_UnlockDc(hDC);
-
-   return TRUE;
-}
-
-BOOL STDCALL
-NtGdiPolyPatBlt(
-   HDC hDC,
-   DWORD dwRop,
-   PPATRECT pRects,
-   INT cRects,
-   ULONG Reserved)
-{
-   PPATRECT rb = NULL;
-   NTSTATUS Status;
-   BOOL Ret;
-    
-   if (cRects > 0)
-   {
-      rb = ExAllocatePoolWithTag(PagedPool, sizeof(PATRECT) * cRects, TAG_PATBLT);
-      if (!rb)
-      {
-         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-         return FALSE;
-      }
-      Status = MmCopyFromCaller(rb, pRects, sizeof(PATRECT) * cRects);
-      if (!NT_SUCCESS(Status))
-      {
-         ExFreePool(rb);
-         SetLastNtError(Status);
-         return FALSE;
-      }
-   }
-    
-   Ret = IntGdiPolyPatBlt(hDC, dwRop, pRects, cRects, Reserved);
-	
-   if (cRects > 0)
-      ExFreePool(rb);
-
-   return Ret;
-}
-
-BOOL STDCALL
-NtGdiPatBlt(
-   HDC hDC,
-   INT XLeft,
-   INT YLeft,
-   INT Width,
-   INT Height,
-   DWORD ROP)
-{
-   PGDIBRUSHOBJ BrushObj;
-   DC *dc = DC_LockDc(hDC);
-   BOOL ret;
-
-   if (dc == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return FALSE;
-   }
-
-   BrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-   if (BrushObj == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      DC_UnlockDc(hDC);
-      return FALSE;
-   }
-
-   ret = IntPatBlt(
-      dc,
-      XLeft,
-      YLeft,
-      Width,
-      Height,
-      ROP,
-      BrushObj);
-
-   BRUSHOBJ_UnlockBrush(dc->w.hBrush);
-   DC_UnlockDc(hDC);
-
-   return ret;
-}
-
-/* EOF */

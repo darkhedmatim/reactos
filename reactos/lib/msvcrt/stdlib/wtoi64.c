@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 __int64 _wtoi64(const wchar_t* nptr)
 {
     wchar_t* s = (wchar_t*)nptr;

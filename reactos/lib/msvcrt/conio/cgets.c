@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 char *_cgets(char *string)
 {
   unsigned len = 0;

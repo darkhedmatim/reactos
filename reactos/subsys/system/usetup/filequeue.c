@@ -16,26 +16,23 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: filequeue.c,v 1.4 2004/08/15 22:29:50 chorns Exp $
+/* $Id: filequeue.c,v 1.1 2002/11/23 01:55:27 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/filequeue.c
  * PURPOSE:         File queue functions
  * PROGRAMMER:      Eric Kohl
- *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 
 #include "usetup.h"
 #include "filesup.h"
 #include "filequeue.h"
 
-#define NDEBUG
-#include <debug.h>
 
 /* INCLUDES *****************************************************************/
 
@@ -45,7 +42,6 @@ typedef struct _QUEUEENTRY
   struct _QUEUEENTRY *Prev;
   struct _QUEUEENTRY *Next;
 
-  PWSTR SourceCabinet;          /* May be NULL if file is not in a cabinet */
   PWSTR SourceRootPath;
   PWSTR SourcePath;
   PWSTR SourceFilename;
@@ -102,8 +98,6 @@ SetupCloseFileQueue(HSPFILEQ QueueHandle)
   while (Entry != NULL)
     {
       /* Delete all strings */
-      if (Entry->SourceCabinet != NULL)
-	RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
       if (Entry->SourceRootPath != NULL)
 	RtlFreeHeap(ProcessHeap, 0, Entry->SourceRootPath);
       if (Entry->SourcePath != NULL)
@@ -145,7 +139,6 @@ SetupCloseFileQueue(HSPFILEQ QueueHandle)
 
 BOOL
 SetupQueueCopy(HSPFILEQ QueueHandle,
-         PCWSTR SourceCabinet,
 	       PCWSTR SourceRootPath,
 	       PCWSTR SourcePath,
 	       PCWSTR SourceFilename,
@@ -156,7 +149,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
   PQUEUEENTRY Entry;
   ULONG Length;
 
-  /* SourceCabinet may be NULL */
   if (QueueHandle == NULL ||
       SourceRootPath == NULL ||
       SourceFilename == NULL ||
@@ -175,26 +167,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
   RtlZeroMemory(Entry,
 		sizeof(QUEUEENTRY));
 
-  /* Copy source cabinet if available */
-  if (SourceCabinet != NULL)
-    {
-      Length = wcslen(SourceCabinet);
-      Entry->SourceCabinet = RtlAllocateHeap(ProcessHeap,
-    					  0,
-    					  (Length + 1) * sizeof(WCHAR));
-      if (Entry->SourceCabinet == NULL)
-      {
-        RtlFreeHeap(ProcessHeap, 0, Entry);
-        return(FALSE);
-      }
-      wcsncpy(Entry->SourceCabinet, SourceCabinet, Length);
-      Entry->SourceCabinet[Length] = (WCHAR)0;
-    }
-  else
-    {
-      Entry->SourceCabinet = NULL;
-    }
-
   /* Copy source root path */
   Length = wcslen(SourceRootPath);
   Entry->SourceRootPath = RtlAllocateHeap(ProcessHeap,
@@ -202,10 +174,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
 					  (Length + 1) * sizeof(WCHAR));
   if (Entry->SourceRootPath == NULL)
   {
-    if (Entry->SourceCabinet != NULL)
-      {
-        RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
-      }
     RtlFreeHeap(ProcessHeap, 0, Entry);
     return(FALSE);
   }
@@ -221,10 +189,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
 					(Length + 1) * sizeof(WCHAR));
     if (Entry->SourcePath == NULL)
     {
-      if (Entry->SourceCabinet != NULL)
-        {
-          RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
-        }
       RtlFreeHeap(ProcessHeap, 0, Entry->SourceRootPath);
       RtlFreeHeap(ProcessHeap, 0, Entry);
       return(FALSE);
@@ -240,10 +204,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
 					  (Length + 1) * sizeof(WCHAR));
   if (Entry->SourceFilename == NULL)
   {
-    if (Entry->SourceCabinet != NULL)
-      {
-        RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
-      }
     RtlFreeHeap(ProcessHeap, 0, Entry->SourceRootPath);
     RtlFreeHeap(ProcessHeap, 0, Entry->SourcePath);
     RtlFreeHeap(ProcessHeap, 0, Entry);
@@ -261,10 +221,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
 					   (Length + 1) * sizeof(WCHAR));
   if (Entry->TargetDirectory == NULL)
   {
-    if (Entry->SourceCabinet != NULL)
-      {
-        RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
-      }
     RtlFreeHeap(ProcessHeap, 0, Entry->SourceRootPath);
     RtlFreeHeap(ProcessHeap, 0, Entry->SourcePath);
     RtlFreeHeap(ProcessHeap, 0, Entry->SourceFilename);
@@ -283,10 +239,6 @@ SetupQueueCopy(HSPFILEQ QueueHandle,
 					    (Length + 1) * sizeof(WCHAR));
     if (Entry->TargetFilename == NULL)
     {
-      if (Entry->SourceCabinet != NULL)
-        {
-          RtlFreeHeap(ProcessHeap, 0, Entry->SourceCabinet);
-        }
       RtlFreeHeap(ProcessHeap, 0, Entry->SourceRootPath);
       RtlFreeHeap(ProcessHeap, 0, Entry->SourcePath);
       RtlFreeHeap(ProcessHeap, 0, Entry->SourceFilename);
@@ -326,7 +278,6 @@ SetupCommitFileQueue(HSPFILEQ QueueHandle,
 		     PSP_FILE_CALLBACK MsgHandler,
 		     PVOID Context)
 {
-  WCHAR CabinetName[MAX_PATH];
   PFILEQUEUEHEADER QueueHeader;
   PQUEUEENTRY Entry;
   NTSTATUS Status;
@@ -353,6 +304,7 @@ SetupCommitFileQueue(HSPFILEQ QueueHandle,
   Entry = QueueHeader->CopyHead;
   while (Entry != NULL)
   {
+    /* Build the full source path */
     wcscpy(FileSrcPath, Entry->SourceRootPath);
     if (Entry->SourcePath != NULL)
       wcscat(FileSrcPath, Entry->SourcePath);
@@ -376,16 +328,11 @@ SetupCommitFileQueue(HSPFILEQ QueueHandle,
       wcscat(FileDstPath, L"\\");
       wcscat(FileDstPath, Entry->TargetDirectory);
     }
-
-    /* Use only the destination path if the file is in a cabinet */
-    if (Entry->SourceCabinet == NULL)
-      {
-        wcscat(FileDstPath, L"\\");
-        if (Entry->TargetFilename != NULL)
-          wcscat(FileDstPath, Entry->TargetFilename);
-        else
-          wcscat(FileDstPath, Entry->SourceFilename);
-      }
+    wcscat(FileDstPath, L"\\");
+    if (Entry->TargetFilename != NULL)
+      wcscat(FileDstPath, Entry->TargetFilename);
+    else
+      wcscat(FileDstPath, Entry->SourceFilename);
 
     /* FIXME: Do it! */
     DPRINT("'%S' ==> '%S'\n",
@@ -397,21 +344,8 @@ SetupCommitFileQueue(HSPFILEQ QueueHandle,
 	       (PVOID)Entry->SourceFilename,
 	       (PVOID)FILEOP_COPY);
 
-    if (Entry->SourceCabinet != NULL)
-      {
-        /* Extract the file */
-        wcscpy(CabinetName, Entry->SourceRootPath);
-        if (Entry->SourcePath != NULL)
-          wcscat(CabinetName, Entry->SourcePath);
-        wcscat(CabinetName, L"\\");
-        wcscat(CabinetName, Entry->SourceCabinet);
-        Status = SetupExtractFile(CabinetName, Entry->SourceFilename, FileDstPath);
-      }
-    else
-      {
-        /* Copy the file */
-        Status = SetupCopyFile(FileSrcPath, FileDstPath);
-      }
+    /* Copy the file */
+    Status = SetupCopyFile(FileSrcPath, FileDstPath);
     if (!NT_SUCCESS(Status))
     {
       MsgHandler(Context,

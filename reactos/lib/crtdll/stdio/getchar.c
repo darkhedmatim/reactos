@@ -3,9 +3,6 @@
 #include <msvcrt/internal/file.h>
 
 #undef getchar
-/*
- * @implemented
- */
 int
 getchar(void)
 {

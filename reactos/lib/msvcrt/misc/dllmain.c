@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.24 2004/08/27 03:08:23 navaraf Exp $
+/* $Id: dllmain.c,v 1.17 2002/11/24 18:42:23 robd Exp $
  *
  * dllmain.c
  *
@@ -14,16 +14,15 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.24 $
- * $Author: navaraf $
- * $Date: 2004/08/27 03:08:23 $
+ * $Revision: 1.17 $
+ * $Author: robd $
+ * $Date: 2002/11/24 18:42:23 $
  *
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/internal/tls.h>
 #include <msvcrt/stdlib.h>
-#include "../wine/msvcrt.h"
 
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
@@ -33,25 +32,21 @@
 
 //void __fileno_init(void);
 extern BOOL __fileno_init(void);
-extern int BlockEnvToEnvironA(void);
-extern int BlockEnvToEnvironW(void);
-extern void FreeEnvironment(char **environment);
+extern int BlockEnvToEnviron(void);
 
 extern unsigned int _osver;
 extern unsigned int _winminor;
 extern unsigned int _winmajor;
 extern unsigned int _winver;
 
-extern char* _acmdln;        /* pointer to ascii command line */
-extern wchar_t* _wcmdln;     /* pointer to wide character command line */
+extern char* _acmdln;       /* pointer to ascii command line */
 #undef _environ
-extern char** _environ;      /* pointer to environment block */
-extern char** __initenv;     /* pointer to initial environment block */
-extern wchar_t** _wenviron;  /* pointer to environment block */
-extern wchar_t** __winitenv; /* pointer to initial environment block */
+extern char** _environ;     /* pointer to environment block */
 
 
 /* LIBRARY GLOBAL VARIABLES ***************************************************/
+
+static int nAttachCount = 0;
 
 HANDLE hHeap = NULL;        /* handle for heap */
 
@@ -65,6 +60,8 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH://1
+#if 0
+#else
         /* initialize version info */
         DPRINT("Attach %d\n", nAttachCount);
         _osver = GetVersion();
@@ -72,34 +69,38 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         _winminor = _osver & 0xFF;
         _winver = (_winmajor << 8) + _winminor;
         _osver = (_osver >> 16) & 0xFFFF;
-        hHeap = HeapCreate(0, 100000, 0);
-        if (hHeap == NULL)
-            return FALSE;
-        if (!__fileno_init()) 
-            return FALSE;
+        if (hHeap == NULL || hHeap == INVALID_HANDLE_VALUE)
+        {
+            hHeap = HeapCreate(0, 100000, 0);
+            if (hHeap == NULL || hHeap == INVALID_HANDLE_VALUE)
+            {
+                return FALSE;
+            }
+        }
+        if (nAttachCount==0)
+        {
+            if (!__fileno_init()) {
+                HeapDestroy(hHeap);
+                hHeap = NULL;
+                return FALSE;
+            }
+        }
 
         /* create tls stuff */
         if (!CreateThreadData())
             return FALSE;
 
-        if (BlockEnvToEnvironA() < 0)
-            return FALSE;
+        _acmdln = (char *)GetCommandLineA();
 
-        if (BlockEnvToEnvironW() < 0)
-        {
-            FreeEnvironment((char**)_wenviron);
-            return FALSE;
-        }
-
-        _acmdln = strdup(GetCommandLineA());
-        _wcmdln = wcsdup(GetCommandLineW());
+        /* FIXME: This crashes all applications */
+        if (BlockEnvToEnviron() < 0)
+          return FALSE;
 
         /* FIXME: more initializations... */
 
-        /* FIXME: Initialization of the WINE code */
-        msvcrt_init_mt_locks();
-
+        nAttachCount++;
         DPRINT("Attach done\n");
+#endif
         break;
 
     case DLL_THREAD_ATTACH://2
@@ -111,26 +112,33 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 
     case DLL_PROCESS_DETACH://0
         DPRINT("Detach %d\n", nAttachCount);
-        /* FIXME: more cleanup... */
-        _fcloseall();
+        if (nAttachCount > 0)
+        {
+            nAttachCount--;
 
-        /* destroy tls stuff */
-        DestroyThreadData();
+            /* FIXME: more cleanup... */
+            _fcloseall();
 
-	if (__winitenv && __winitenv != _wenviron)
-            FreeEnvironment((char**)__winitenv);
-        if (_wenviron)
-            FreeEnvironment((char**)_wenviron);
+            /* destroy tls stuff */
+            DestroyThreadData();
 
-	if (__initenv && __initenv != _environ)
-            FreeEnvironment(__initenv);
-        if (_environ)
-            FreeEnvironment(_environ);
+            /* destroy heap */
+            if (nAttachCount == 0)
+            {
 
-        /* destroy heap */
-        HeapDestroy(hHeap);
-
+                if (_environ)
+                {
+                    FreeEnvironmentStringsA(_environ[0]);
+                    free(_environ);
+                    _environ = NULL;
+                }
+#if 1
+                HeapDestroy(hHeap);
+                hHeap = NULL;
+#endif
+            }
         DPRINT("Detach done\n");
+        }
         break;
     }
 

@@ -1,4 +1,4 @@
-/* $Id: scsi.h,v 1.4 2003/08/25 01:37:47 sedwards Exp $
+/* $Id: scsi.h,v 1.2 2002/10/03 18:33:47 sedwards Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -559,26 +559,26 @@ typedef union _CDB
 #define SCSIOP_MECHANISM_STATUS    0xBD
 #define SCSIOP_READ_CD             0xBE
 
-/*
- * If the IMMED bit is 1, status is returned as soon
- * as the operation is initiated. If the IMMED bit
- * is 0, status is not returned until the operation
- * is completed.
- */
+//
+// If the IMMED bit is 1, status is returned as soon
+// as the operation is initiated. If the IMMED bit
+// is 0, status is not returned until the operation
+// is completed.
+//
 
 #define CDB_RETURN_ON_COMPLETION   0
 #define CDB_RETURN_IMMEDIATE       1
 
 
-/*
- * CDB Force media access used in extended read and write commands.
- */
+//
+// CDB Force media access used in extended read and write commands.
+//
 
 #define CDB_FORCE_MEDIA_ACCESS 0x08
 
-/*
- * Denon CD ROM operation codes
- */
+//
+// Denon CD ROM operation codes
+//
 
 #define SCSIOP_DENON_EJECT_DISC    0xE6
 #define SCSIOP_DENON_STOP_AUDIO    0xE7
@@ -586,9 +586,9 @@ typedef union _CDB
 #define SCSIOP_DENON_READ_TOC      0xE9
 #define SCSIOP_DENON_READ_SUBCODE  0xEB
 
-/*
- * SCSI Bus Messages
- */
+//
+// SCSI Bus Messages
+//
 
 #define SCSIMESS_ABORT                0x06
 #define SCSIMESS_ABORT_WITH_TAG       0x0D
@@ -615,25 +615,25 @@ typedef union _CDB
 #define SCSIMESS_SAVE_DATA_POINTER    0X02
 #define SCSIMESS_TERMINATE_IO_PROCESS 0X11
 
-/*
- * SCSI Extended Message operation codes
- */
+//
+// SCSI Extended Message operation codes
+//
 
 #define SCSIMESS_MODIFY_DATA_POINTER  0X00
 #define SCSIMESS_SYNCHRONOUS_DATA_REQ 0X01
 #define SCSIMESS_WIDE_DATA_REQUEST    0X03
 
-/*
- * SCSI Extended Message Lengths
- */
+//
+// SCSI Extended Message Lengths
+//
 
 #define SCSIMESS_MODIFY_DATA_LENGTH   5
 #define SCSIMESS_SYNCH_DATA_LENGTH    3
 #define SCSIMESS_WIDE_DATA_LENGTH     2
 
-/*
- * SCSI extended message structure
- */
+//
+// SCSI extended message structure
+//
 
 #pragma pack (1)
 typedef struct _SCSI_EXTENDED_MESSAGE
@@ -675,16 +675,16 @@ typedef struct _SCSI_EXTENDED_MESSAGE
 #define SCSISTAT_COMMAND_TERMINATED    0x22
 #define SCSISTAT_QUEUE_FULL            0x28
 
-/*
- * Enable Vital Product Data Flag (EVPD)
- * used with INQUIRY command.
- */
+//
+// Enable Vital Product Data Flag (EVPD)
+// used with INQUIRY command.
+//
 
 #define CDB_INQUIRY_EVPD           0x01
 
-/*
- * Defines for format CDB
- */
+//
+// Defines for format CDB
+//
 
 #define LUN0_FORMAT_SAVING_DEFECT_LIST 0
 #define USE_DEFAULTMSB  0
@@ -814,14 +814,14 @@ typedef struct _SENSE_DATA
 
 /* Additional Sense codes */
 
-#define SCSI_ADSENSE_NO_SENSE        0x00
-#define SCSI_ADSENSE_LUN_NOT_READY   0x04
+#define SCSI_ADSENSE_NO_SENSE       0x00
+#define SCSI_ADSENSE_LUN_NOT_READY  0x04
 #define SCSI_ADSENSE_ILLEGAL_COMMAND 0x20
-#define SCSI_ADSENSE_ILLEGAL_BLOCK   0x21
-#define SCSI_ADSENSE_INVALID_LUN     0x25
-#define SCSI_ADSENSE_INVALID_CDB     0x24
-#define SCSI_ADSENSE_MUSIC_AREA      0xA0
-#define SCSI_ADSENSE_DATA_AREA       0xA1
+#define SCSI_ADSENSE_ILLEGAL_BLOCK  0x21
+#define SCSI_ADSENSE_INVALID_LUN    0x25
+#define SCSI_ADSENSE_INVALID_CDB    0x24
+#define SCSI_ADSENSE_MUSIC_AREA     0xA0
+#define SCSI_ADSENSE_DATA_AREA      0xA1
 #define SCSI_ADSENSE_VOLUME_OVERFLOW 0xA7
 
 #define SCSI_ADSENSE_NO_MEDIA_IN_DEVICE 0x3a

@@ -11,9 +11,6 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 #include <stdlib.h>
 
-/*
- * @implemented
- */
 wchar_t *
 _i64tow(__int64 value, wchar_t *string, int radix)
 {
@@ -54,45 +51,6 @@ _i64tow(__int64 value, wchar_t *string, int radix)
 }
 
 
-/*
- * @implemented
- */
-wchar_t *
-_ui64tow(unsigned __int64 value, wchar_t *string, int radix)
-{
-  wchar_t tmp[65];
-  wchar_t *tp = tmp;
-  __int64 i;
-  unsigned __int64 v;
-  wchar_t *sp;
-
-  if (radix > 36 || radix <= 1)
-  {
-    return 0;
-  }
-
-  v = (unsigned __int64)value;
-  while (v || tp == tmp)
-  {
-    i = v % radix;
-    v = v / radix;
-    if (i < 10)
-      *tp++ = i+L'0';
-    else
-      *tp++ = i + L'a' - 10;
-  }
-
-  sp = string;
-  while (tp > tmp)
-    *sp++ = *--tp;
-  *sp = 0;
-  return string;
-}
-
-
-/*
- * @implemented
- */
 wchar_t *
 _itow(int value, wchar_t *string, int radix)
 {
@@ -133,9 +91,6 @@ _itow(int value, wchar_t *string, int radix)
 }
 
 
-/*
- * @implemented
- */
 wchar_t *
 _ltow(long value, wchar_t *string, int radix)
 {
@@ -176,9 +131,6 @@ _ltow(long value, wchar_t *string, int radix)
 }
 
 
-/*
- * @implemented
- */
 wchar_t *
 _ultow(unsigned long value, wchar_t *string, int radix)
 {

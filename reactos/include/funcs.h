@@ -63,7 +63,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 
 /* Define the approprate declaration based upon UNICODE or ASCII */
 
-#ifndef _DISABLE_TIDENTS
 /* UNICODE */
 #ifdef UNICODE
 
@@ -86,10 +85,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define RegRestoreKey  RegRestoreKeyW
 #define RegSaveKey  RegSaveKeyW
 #define RegSetValue  RegSetValueW
-#define ChangeServiceConfig2 ChangeServiceConfig2W
-#define EnumServicesStatusEx EnumServicesStatusExW
-#define QueryServiceConfig2 QueryServiceConfig2W
-#define RegisterServiceCtrlHandlerEx RegisterServiceCtrlHandlerExW
 #define RegSetValueEx  RegSetValueExW
 #define AbortSystemShutdown  AbortSystemShutdownW
 #define InitiateSystemShutdown  InitiateSystemShutdownW
@@ -107,15 +102,12 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define MessageBoxIndirect  MessageBoxIndirectW
 #define GetWindowLong  GetWindowLongW
 #define SetWindowLong  SetWindowLongW
-#define GetWindowLongPtr  GetWindowLongW
-#define SetWindowLongPtr  SetWindowLongW
 #define GetClassLong  GetClassLongW
 #define SetClassLong  SetClassLongW
 #define FindWindow  FindWindowW
 #define FindWindowEx  FindWindowExW
 #define GetClassName  GetClassNameW
 #define SetWindowsHookEx  SetWindowsHookExW
-#define SetWindowsHook  SetWindowsHookW
 #define LoadBitmap  LoadBitmapW
 #define LoadCursor  LoadCursorW
 #define LoadCursorFromFile  LoadCursorFromFileW
@@ -214,6 +206,7 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetDlgItemText  GetDlgItemTextW
 #define SendDlgItemMessage  SendDlgItemMessageW
 #define DefDlgProc  DefDlgProcW
+#define CallMsgFilter  CallMsgFilterW
 #define GetClipboardFormatName  GetClipboardFormatNameW
 #define CharToOem  CharToOemW
 #define OemToChar  OemToCharW
@@ -234,8 +227,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define VkKeyScanEx  VkKeyScanExW
 #define MapVirtualKey  MapVirtualKeyW
 #define MapVirtualKeyEx  MapVirtualKeyExW
-#define FindFirstVolumeMountPoint FindFirstVolumeMountPointW
-#define FindNextVolume FindNextVolumeW
 #define LoadAccelerators  LoadAcceleratorsW
 #define CreateAcceleratorTable  CreateAcceleratorTableW
 #define CopyAcceleratorTable  CopyAcceleratorTableW
@@ -253,7 +244,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define DrawText  DrawTextW
 #define DrawTextEx  DrawTextExW
 #define GrayString  GrayStringW
-#define CreateJobObject CreateJobObjectW
 #define DrawState  DrawStateW
 #define TabbedTextOut  TabbedTextOutW
 #define GetTabbedTextExtent  GetTabbedTextExtentW
@@ -287,8 +277,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetEnvironmentStrings  GetEnvironmentStringsW
 #define FreeEnvironmentStrings  FreeEnvironmentStringsW
 #define lstrcmp  lstrcmpW
-#define GetRawInputDeviceInfo GetRawInputDeviceInfoW
-#define BroadcastSystemMessageEx BroadcastSystemMessageExW
 #define lstrcmpi  lstrcmpiW
 #define lstrcpyn  lstrcpynW
 #define lstrcpy  lstrcpyW
@@ -297,8 +285,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetBinaryType  GetBinaryTypeW
 #define GetShortPathName  GetShortPathNameW
 #define SetFileSecurity  SetFileSecurityW
-#define CheckNameLegalDOS8Dot3 CheckNameLegalDOS8Dot3W
-#define CreateHardLink CreateHardLinkW
 #define GetFileSecurity  GetFileSecurityW
 #define FindFirstChangeNotification  FindFirstChangeNotificationW
 #define AccessCheckAndAuditAlarm  AccessCheckAndAuditAlarmW
@@ -313,8 +299,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define ReportEvent  ReportEventW
 #define CreateProcess  CreateProcessW
 #define FatalAppExit  FatalAppExitW
-#define CallMessageFilter CallMessageFilterW
-#define GetAltTabInfo GetAltTabInfoW
 #define GetStartupInfo  GetStartupInfoW
 #define GetEnvironmentVariable  GetEnvironmentVariableW
 #define GetCommandLine  GetCommandLineW
@@ -324,24 +308,20 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define FindResource  FindResourceW
 #define FindResourceEx  FindResourceExW
 #define EnumResourceTypes  EnumResourceTypesW
-#define CreateActCtx CreateActCtxW
 #define EnumResourceNames  EnumResourceNamesW
 #define EnumResourceLanguages  EnumResourceLanguagesW
 #define BeginUpdateResource  BeginUpdateResourceW
 #define UpdateResource  UpdateResourceW
-#define PrivateExtractIcons  PrivateExtractIconsW
 #define EndUpdateResource  EndUpdateResourceW
 #define GlobalAddAtom  GlobalAddAtomW
 #define GlobalFindAtom  GlobalFindAtomW
 #define GlobalGetAtomName  GlobalGetAtomNameW
 #define AddAtom  AddAtomW
-#define RemoveFontResourceEx RemoveFontResourceExW
 #define FindAtom  FindAtomW
 #define GetAtomName  GetAtomNameW
 #define GetProfileInt  GetProfileIntW
 #define GetProfileString  GetProfileStringW
 #define WriteProfileString  WriteProfileStringW
-#define ReadEventLog ReadEventLogW
 #define GetProfileSection  GetProfileSectionW
 #define WriteProfileSection  WriteProfileSectionW
 #define GetPrivateProfileInt  GetPrivateProfileIntW
@@ -351,8 +331,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define WritePrivateProfileSection  WritePrivateProfileSectionW
 #define GetDriveType  GetDriveTypeW
 #define GetSystemDirectory  GetSystemDirectoryW
-#define FindFirstFileEx FindFirstFileExW
-#define FindFirstVolume FindFirstVolumeW
 #define GetTempPath  GetTempPathW
 #define GetTempFileName  GetTempFileNameW
 #define GetWindowsDirectory  GetWindowsDirectoryW
@@ -363,24 +341,15 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define CreateDirectory  CreateDirectoryW
 #define CreateDirectoryEx  CreateDirectoryExW
 #define RemoveDirectory  RemoveDirectoryW
-#define GetLongPathName GetLongPathNameW
-#define GetModuleHandleEx GetModuleHandleExW
 #define GetFullPathName  GetFullPathNameW
 #define DefineDosDevice  DefineDosDeviceW
 #define QueryDosDevice  QueryDosDeviceW
-#define EnumLanguageGroupLocales EnumLanguageGroupLocalesW
-#define EnumSystemLanguageGroups EnumSystemLanguageGroupsW
 #define CreateFile  CreateFileW
 #define SetFileAttributes  SetFileAttributesW
 #define GetFileAttributes  GetFileAttributesW
-#define EncryptFile EncryptFileW
-#define FileEncryptionStatus FileEncryptionStatusW
-#define GetFileAttributesEx  GetFileAttributesExW
 #define GetCompressedFileSize  GetCompressedFileSizeW
 #define DeleteFile  DeleteFileW
 #define FindFirstFileEx  FindFirstFileExW
-#define SetFileShortName SetFileShortNameW
-#define SetFirmwareEnvironmentVariable SetFirmwareEnvironmentVariableW
 #define FindFirstFile  FindFirstFileW
 #define FindNextFile  FindNextFileW
 #define SearchPath  SearchPathW
@@ -389,11 +358,9 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define MoveFile  MoveFileW
 #define MoveFileEx  MoveFileExW
 #define MoveFileWithProgress  MoveFileWithProgressW
-#define CreateFontIndirectEx CreateFontIndirectExW
 #define CreateNamedPipe  CreateNamedPipeW
 #define GetNamedPipeHandleState  GetNamedPipeHandleStateW
 #define CallNamedPipe  CallNamedPipeW
-#define IMPGetIME IMPGetIMEW
 #define WaitNamedPipe  WaitNamedPipeW
 #define SetVolumeLabel  SetVolumeLabelW
 #define GetVolumeInformation  GetVolumeInformationW
@@ -410,8 +377,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetLogicalDriveStrings  GetLogicalDriveStringsW
 #define LoadLibrary  LoadLibraryW
 #define LoadLibraryEx  LoadLibraryExW
-#define FindNextVolumeMountPoint FindNextVolumeMountPointW
-#define GetComputerNameEx GetComputerNameExW
 #define GetModuleFileName  GetModuleFileNameW
 #define GetModuleHandle  GetModuleHandleW
 #define GetUserObjectInformation  GetUserObjectInformationW
@@ -419,33 +384,22 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define RegisterWindowMessage  RegisterWindowMessageW
 #define GetMessage  GetMessageW
 #define DispatchMessage  DispatchMessageW
-#define SendIMEMessageEx SendIMEMessageExW
 #define PeekMessage  PeekMessageW
 #define SendMessage  SendMessageW
 #define SendMessageTimeout  SendMessageTimeoutW
-#define IMPSetIME IMPSetIMEW
-#define IMPQueryIME IMPQueryIMEW
 #define SendNotifyMessage  SendNotifyMessageW
 #define SendMessageCallback  SendMessageCallbackW
-#define BackupEventLog BackupEventLogW
-#define ClearEventLog ClearEventLogW
 #define PostMessage  PostMessageW
 #define PostThreadMessage  PostThreadMessageW
-#define OpenBackupEventLog OpenBackupEventLogW
-#define OpenEncryptedFileRaw OpenEncryptedFileRawW
 #define VerFindFile  VerFindFileW
 #define VerInstallFile  VerInstallFileW
 #define GetFileVersionInfoSize  GetFileVersionInfoSizeW
-#define GetStringBitmap GetStringBitmapW
-#define GetGlyphIndices GetGlyphIndicesW
 #define GetFileVersionInfo  GetFileVersionInfoW
 #define VerLanguageName  VerLanguageNameW
 #define VerQueryValue  VerQueryValueW
 #define CompareString  CompareStringW
 #define LCMapString  LCMapStringW
 #define GetLocaleInfo  GetLocaleInfoW
-#define GetDllDirectory GetDllDirectoryW
-#define GetFirmwareEnvironmentVariable GetFirmwareEnvironmentVariableW
 #define SetLocaleInfo  SetLocaleInfoW
 #define GetTimeFormat  GetTimeFormatW
 #define GetDateFormat  GetDateFormatW
@@ -453,8 +407,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetCurrencyFormat  GetCurrencyFormatW
 #define EnumCalendarInfo  EnumCalendarInfoW
 #define EnumTimeFormats  EnumTimeFormatsW
-#define CreateProcessAsUser CreateProcessAsUserW
-#define DecryptFile DecryptFileW
 #define FoldString  FoldStringW
 #define EnumSystemCodePages  EnumSystemCodePagesW
 #define EnumSystemLocales  EnumSystemLocalesW
@@ -474,13 +426,7 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define WriteConsoleOutputCharacter  WriteConsoleOutputCharacterW
 #define FillConsoleOutputCharacter  FillConsoleOutputCharacterW
 #define WNetGetProviderName  WNetGetProviderNameW
-#define SetCalendarInfo SetCalendarInfoW
-#define EnumUILanguages EnumUILanguagesW
-#define GetSystemWow64Directory GetSystemWow64DirectoryW
-#define GetVolumeNameForVolumeMountPoint GetVolumeNameForVolumeMountPointW
 #define WNetGetNetworkInformation  WNetGetNetworkInformationW
-#define GetCurrentHwProfile GetCurrentHwProfileW
-#define LogonUser LogonUserW
 #define WNetGetLastError  WNetGetLastErrorW
 #define MultinetGetConnectionPerformance  MultinetGetConnectionPerformanceW
 #define WNetConnectionDialog1  WNetConnectionDialog1W
@@ -492,87 +438,54 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define WNetAddConnection  WNetAddConnectionW
 #define WNetAddConnection2  WNetAddConnection2W
 #define WNetAddConnection3  WNetAddConnection3W
-#define DnsHostnameToComputerName DnsHostnameToComputerNameW
-#define FindActCtxSectionString FindActCtxSectionStringW
 #define WNetCancelConnection  WNetCancelConnectionW
-#define OpenEventLog OpenEventLogW
 #define WNetCancelConnection2  WNetCancelConnection2W
 #define WNetGetConnection  WNetGetConnectionW
 #define WNetUseConnection  WNetUseConnectionW
 #define WNetSetConnection  WNetSetConnectionW
 #define CreateService  CreateServiceW
 #define ChangeServiceConfig  ChangeServiceConfigW
-#define LogonUserEx LogonUserExW
 #define EnumDependentServices  EnumDependentServicesW
 #define EnumServicesStatus  EnumServicesStatusW
 #define GetServiceKeyName  GetServiceKeyNameW
-#define GetVolumePathName GetVolumePathNameW
-#define GetVolumePathNamesForVolumeName GetVolumePathNamesForVolumeNameW
 #define GetServiceDisplayName  GetServiceDisplayNameW
 #define OpenSCManager  OpenSCManagerW
-#define SetVolumeMountPoint SetVolumeMountPointW
-#define VerifyVersionInfo VerifyVersionInfoW
-#define RegisterDeviceNotification RegisterDeviceNotificationW
 #define OpenService  OpenServiceW
 #define QueryServiceConfig  QueryServiceConfigW
 #define QueryServiceLockStatus  QueryServiceLockStatusW
-#define GetGeoInfo GetGeoInfoW
-#define EnumDateFormatsEx EnumDateFormatsExW
 #define RegisterServiceCtrlHandler  RegisterServiceCtrlHandlerW
 #define StartServiceCtrlDispatcher  StartServiceCtrlDispatcherW
-#define EnumCalendarInfoEx EnumCalendarInfoExW
-#define GetCalendarInfo GetCalendarInfoW
 #define StartService  StartServiceW
 #define DragQueryFile DragQueryFileW
-#define GetCPInfoEx GetCPInfoExW
 #define ExtractAssociatedIcon ExtractAssociatedIconW
 #define ExtractIcon ExtractIconW
 #define FindExecutable FindExecutableW
-#define RegSaveKeyEx RegSaveKeyExW
-#define InitiateSystemShutdownEx InitiateSystemShutdownExW
 #define ShellAbout ShellAboutW
-#define DeleteVolumeMountPoint DeleteVolumeMountPointW
 #define ShellExecute ShellExecuteW
 #define DdeCreateStringHandle DdeCreateStringHandleW
 #define DdeInitialize DdeInitializeW
 #define DdeQueryString DdeQueryStringW
-#define OpenJobObject OpenJobObjectW
-#define ReplaceFile ReplaceFileW
+#define LogonUser LogonUserW
 #define CreateProcessAsUser CreateProcessAsUserW
-#define SHGetFileInfo SHGetFileInfoW
-#define SetComputerNameEx SetComputerNameExW
-#define SetDllDirectory SetDllDirectoryW
-#define SHGetPathFromIDList SHGetPathFromIDListW
 
 /* ASCII */
 #else
 
 #define RegConnectRegistry  RegConnectRegistryA
 #define RegCreateKey  RegCreateKeyA
-#define InitiateSystemShutdownEx InitiateSystemShutdownExA
 #define RegCreateKeyEx  RegCreateKeyExA
 #define RegDeleteKey  RegDeleteKeyA
 #define RegDeleteValue  RegDeleteValueA
-#define EnumSystemLanguageGroups EnumSystemLanguageGroupsA
-#define GetGeoInfo GetGeoInfoA
 #define RegEnumKey  RegEnumKeyA
 #define RegEnumKeyEx  RegEnumKeyExA
-#define GetCalendarInfo GetCalendarInfoA
-#define LogonUser LogonUserA
-#define GetCPInfoEx GetCPInfoExA
 #define RegEnumValue  RegEnumValueA
 #define RegLoadKey  RegLoadKeyA
 #define RegOpenKey  RegOpenKeyA
 #define RegOpenKeyEx  RegOpenKeyExA
-#define FileEncryptionStatus FileEncryptionStatusA
-#define GetCurrentHwProfile GetCurrentHwProfileA
-#define LogonUserEx LogonUserExA
 #define RegQueryInfoKey  RegQueryInfoKeyA
 #define RegQueryValue  RegQueryValueA
 #define RegQueryMultipleValues  RegQueryMultipleValuesA
 #define RegQueryValueEx  RegQueryValueExA
-#define GetFirmwareEnvironmentVariable GetFirmwareEnvironmentVariableA
-#define GetLongPathName GetLongPathNameA
 #define RegReplaceKey  RegReplaceKeyA
 #define RegRestoreKey  RegRestoreKeyA
 #define RegSaveKey  RegSaveKeyA
@@ -591,24 +504,7 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define DlgDirSelectComboBoxEx  DlgDirSelectComboBoxExA
 #define DefFrameProc  DefFrameProcA
 #define DefMDIChildProc  DefMDIChildProcA
-#define EnumUILanguages EnumUILanguagesA
-#define EnumLanguageGroupLocales EnumLanguageGroupLocalesA
 #define CreateMDIWindow  CreateMDIWindowA
-#define FindNextVolume FindNextVolumeA
-#define FindNextVolumeMountPoint FindNextVolumeMountPointA
-#define GetComputerNameEx GetComputerNameExA
-#define OpenEncryptedFileRaw OpenEncryptedFileRawA
-#define OpenEventLog OpenEventLogA
-#define VerifyVersionInfo VerifyVersionInfoA
-#define SetFirmwareEnvironmentVariable SetFirmwareEnvironmentVariableA
-#define SetVolumeMountPoint SetVolumeMountPointA
-#define GetModuleHandleEx GetModuleHandleExA
-#define GetSystemWow64Directory GetSystemWow64DirectoryA
-#define GetVolumeNameForVolumeMountPoint GetVolumeNameForVolumeMountPointA
-#define GetVolumePathNamesForVolumeName GetVolumePathNamesForVolumeNameA
-#define OpenJobObject OpenJobObjectA
-#define GetVolumePathName GetVolumePathNameA
-#define GetDllDirectory GetDllDirectoryA
 #define WinHelp  WinHelpA
 #define ChangeDisplaySettings  ChangeDisplaySettingsA
 #define EnumDisplaySettings  EnumDisplaySettingsA
@@ -621,24 +517,14 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define FindWindowEx  FindWindowExA
 #define GetClassName  GetClassNameA
 #define SetWindowsHookEx  SetWindowsHookExA
-#define SetWindowsHook  SetWindowsHookA
 #define LoadBitmap  LoadBitmapA
 #define LoadCursor  LoadCursorA
 #define LoadCursorFromFile  LoadCursorFromFileA
-#define ReadEventLog ReadEventLogA
-#define ReplaceFile ReplaceFileA
-#define SetDllDirectory SetDllDirectoryA
-#define EnumDateFormatsEx EnumDateFormatsExA
-#define EnumCalendarInfoEx EnumCalendarInfoExA
-#define SetFileShortName SetFileShortNameA
-#define SetComputerNameEx SetComputerNameExA
 #define SetProp  SetPropA
 #define GetProp  GetPropA
 #define RemoveProp  RemovePropA
 #define EnumPropsEx  EnumPropsExA
 #define EnumProps  EnumPropsA
-#define CreateHardLink CreateHardLinkA
-#define CreateJobObject CreateJobObjectA
 #define SetWindowText  SetWindowTextA
 #define GetWindowText  GetWindowTextA
 #define GetWindowTextLength  GetWindowTextLengthA
@@ -660,8 +546,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetCharWidth  GetCharWidthA
 #define GetCharWidth32  GetCharWidth32A
 #define GetCharWidthFloat  GetCharWidthFloatA
-#define FindFirstVolume FindFirstVolumeA
-#define FindFirstVolumeMountPoint FindFirstVolumeMountPointA
 #define GetCharABCWidths  GetCharABCWidthsA
 #define GetCharABCWidthsFloat  GetCharABCWidthsFloatA
 #define GetGlyphOutline  GetGlyphOutlineA
@@ -688,8 +572,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetLogColorSpace  GetLogColorSpaceA
 #define CreateColorSpace  CreateColorSpaceA
 #define GetICMProfile  GetICMProfileA
-#define DecryptFile DecryptFileA
-#define EncryptFile EncryptFileA
 #define SetICMProfile  SetICMProfileA
 #define UpdateICMRegKey  UpdateICMRegKeyA
 #define EnumICMProfiles  EnumICMProfilesA
@@ -701,7 +583,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetOpenFileName  GetOpenFileNameA
 #define GetSaveFileName  GetSaveFileNameA
 #define GetFileTitle  GetFileTitleA
-#define IMPSetIME IMPSetIMEA
 #define ChooseColor  ChooseColorA
 #define FindText  FindTextA
 #define ReplaceText  ReplaceTextA
@@ -710,12 +591,9 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define PageSetupDlg  PageSetupDlgA
 #define DefWindowProc  DefWindowProcA
 #define CallWindowProc  CallWindowProcA
-#define GetGlyphIndices GetGlyphIndicesA
-#define CreateFontIndirectEx CreateFontIndirectExA
 #define RegisterClass  RegisterClassA
 #define UnregisterClass  UnregisterClassA
 #define GetClassInfo  GetClassInfoA
-#define CreateActCtx CreateActCtxA
 #define RegisterClassEx  RegisterClassExA
 #define GetClassInfoEx  GetClassInfoExA
 #define CreateWindowEx  CreateWindowExA
@@ -728,14 +606,13 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define DialogBoxParam  DialogBoxParamA
 #define DialogBoxIndirectParam  DialogBoxIndirectParamA
 #define DialogBox  DialogBoxA
-#define ClearEventLog ClearEventLogA
-#define CreateProcessAsUser CreateProcessAsUserA
 #define DialogBoxIndirect  DialogBoxIndirectA
 #define RegisterClipboardFormat  RegisterClipboardFormatA
 #define SetDlgItemText  SetDlgItemTextA
 #define GetDlgItemText  GetDlgItemTextA
 #define SendDlgItemMessage  SendDlgItemMessageA
 #define DefDlgProc  DefDlgProcA
+#define CallMsgFilter  CallMsgFilterA
 #define GetClipboardFormatName  GetClipboardFormatNameA
 #define CharToOem  CharToOemA
 #define OemToChar  OemToCharA
@@ -753,8 +630,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define IsCharLower  IsCharLowerA
 #define GetKeyNameText  GetKeyNameTextA
 #define VkKeyScan  VkKeyScanA
-#define RegisterDeviceNotification RegisterDeviceNotificationA
-#define GetRawInputDeviceInfo GetRawInputDeviceInfoA
 #define VkKeyScanEx  VkKeyScanExA
 #define MapVirtualKey  MapVirtualKeyA
 #define MapVirtualKeyEx  MapVirtualKeyExA
@@ -773,7 +648,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetMenuItemInfo  GetMenuItemInfoA
 #define SetMenuItemInfo  SetMenuItemInfoA
 #define DrawText  DrawTextA
-#define BroadcastSystemMessageEx BroadcastSystemMessageExA
 #define DrawTextEx  DrawTextExA
 #define GrayString  GrayStringA
 #define DrawState  DrawStateA
@@ -782,9 +656,7 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetVersionEx  GetVersionExA
 #define wvsprintf  wvsprintfA
 #define wsprintf  wsprintfA
-#define FindActCtxSectionString FindActCtxSectionStringA
 #define LoadKeyboardLayout  LoadKeyboardLayoutA
-#define FindFirstFileEx FindFirstFileExA
 #define GetKeyboardLayoutName  GetKeyboardLayoutNameA
 #define CreateDesktop  CreateDesktopA
 #define OpenDesktop  OpenDesktopA
@@ -807,11 +679,7 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define SetComputerName  SetComputerNameA
 #define GetUserName  GetUserNameA
 #define CreateMailslot  CreateMailslotA
-#define CallMessageFilter CallMessageFilterA
-#define GetAltTabInfo GetAltTabInfoA
-#define BackupEventLog BackupEventLogA
 #define FormatMessage  FormatMessageA
-#define CheckNameLegalDOS8Dot3 CheckNameLegalDOS8Dot3A
 #define GetEnvironmentStrings  GetEnvironmentStringsA
 #define FreeEnvironmentStrings  FreeEnvironmentStringsA
 #define lstrcmp  lstrcmpA
@@ -821,7 +689,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define lstrcat  lstrcatA
 #define lstrlen  lstrlenA
 #define GetBinaryType  GetBinaryTypeA
-#define GetStringBitmap GetStringBitmapA
 #define GetShortPathName  GetShortPathNameA
 #define SetFileSecurity  SetFileSecurityA
 #define GetFileSecurity  GetFileSecurityA
@@ -831,8 +698,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define ObjectPrivilegeAuditAlarm  ObjectPrivilegeAuditAlarmA
 #define ObjectCloseAuditAlarm  ObjectCloseAuditAlarmA
 #define PrivilegedServiceAuditAlarm  PrivilegedServiceAuditAlarmA
-#define DeleteVolumeMountPoint DeleteVolumeMountPointA
-#define DnsHostnameToComputerName DnsHostnameToComputerNameA
 #define OpenEventLog  OpenEventLogA
 #define RegisterEventSource  RegisterEventSourceA
 #define OpenBackupEventLog  OpenBackupEventLogA
@@ -840,7 +705,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define ReportEvent  ReportEventA
 #define CreateProcess  CreateProcessA
 #define FatalAppExit  FatalAppExitA
-#define RemoveFontResourceEx RemoveFontResourceExA
 #define GetStartupInfo  GetStartupInfoA
 #define GetCommandLine  GetCommandLineA
 #define GetEnvironmentVariable  GetEnvironmentVariableA
@@ -889,7 +753,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define CreateFile  CreateFileA
 #define SetFileAttributes  SetFileAttributesA
 #define GetFileAttributes  GetFileAttributesA
-#define GetFileAttributesEx GetFileAttributesExA
 #define GetCompressedFileSize  GetCompressedFileSizeA
 #define DeleteFile  DeleteFileA
 #define FindFirstFileEx  FindFirstFileExA
@@ -923,7 +786,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define GetModuleFileName  GetModuleFileNameA
 #define GetModuleHandle  GetModuleHandleA
 #define GetUserObjectInformation  GetUserObjectInformationA
-#define PrivateExtractIcons  PrivateExtractIconsA
 #define SetUserObjectInformation  SetUserObjectInformationA
 #define RegisterWindowMessage  RegisterWindowMessageA
 #define GetMessage  GetMessageA
@@ -955,19 +817,11 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define EnumSystemCodePages  EnumSystemCodePagesA
 #define EnumSystemLocales  EnumSystemLocalesA
 #define GetStringTypeEx  GetStringTypeExA
-#define SetCalendarInfo SetCalendarInfoA
 #define EnumDateFormats  EnumDateFormatsA
 #define GetConsoleTitle  GetConsoleTitleA
 #define ScrollConsoleScreenBuffer  ScrollConsoleScreenBufferA
 #define SetConsoleTitle  SetConsoleTitleA
 #define ReadConsole  ReadConsoleA
-#define RegisterServiceCtrlHandlerEx RegisterServiceCtrlHandlerExA
-#define QueryServiceConfig2 QueryServiceConfig2A
-#define EnumServicesStatusEx EnumServicesStatusExA
-#define ChangeServiceConfig2 ChangeServiceConfig2A
-#define SendIMEMessageEx SendIMEMessageExA
-#define IMPQueryIME IMPQueryIMEA
-#define IMPGetIME IMPGetIMEA
 #define WriteConsole  WriteConsoleA
 #define PeekConsoleInput  PeekConsoleInputA
 #define ReadConsoleInput  ReadConsoleInputA
@@ -1010,3598 +864,48 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define OpenSCManager  OpenSCManagerA
 #define DragQueryFile DragQueryFileA
 #define ExtractAssociatedIcon ExtractAssociatedIconA
-#define RegSaveKeyEx RegSaveKeyExA
 #define ExtractIcon ExtractIconA
-#define FindFirstVolumeMountPoint FindFirstVolumeMountPointA
 #define FindExecutable FindExecutableA
 #define ShellAbout ShellAboutA
 #define ShellExecute ShellExecuteA
 #define DdeCreateStringHandle DdeCreateStringHandleA
 #define DdeInitialize DdeInitializeA
 #define DdeQueryString DdeQueryStringA
+#define LogonUser LogonUserA
 #define CreateProcessAsUser CreateProcessAsUserA
-#define OpenBackupEventLog OpenBackupEventLogA
-#define SHGetFileInfo SHGetFileInfoA
-#define SHGetPathFromIDList SHGetPathFromIDListA
 
 #endif /* UNICODE and ASCII defines */
-#endif /* _DISABLE_TIDENTS */
 
-NTSTATUS STDCALL CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,ULONG Size,ULONG AccessMask);
-
-BOOL STDCALL GetConsoleInputExeNameA(ULONG length,LPCSTR name);
-
-BOOL STDCALL GetConsoleInputExeNameW(ULONG length,LPCWSTR name);
-
-BOOL STDCALL IsValidUILanguage(LANGID langid);
-
-VOID STDCALL NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWSTR str, ULONG strsize2);
-
-UINT STDCALL SetCPGlobal(UINT CodePage);
-
-BOOL
-STDCALL
-SetClientTimeZoneInformation(
-		       CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation
-		       );
-
-NTSTATUS STDCALL DbgUiDebugActiveProcess(HANDLE process);
-
-NTSTATUS STDCALL DbgUiStopDebugging(HANDLE process);
-
-VOID
-STDCALL
-RtlInitializeSListHead (
-    PSLIST_HEADER ListHead
-    );
-PSLIST_ENTRY
-STDCALL
-RtlInterlockedFlushSList (
-    PSLIST_HEADER ListHead
-    );
-PSLIST_ENTRY
-STDCALL
-RtlInterlockedPopEntrySList (
-    PSLIST_HEADER ListHead
-    );
-PSLIST_ENTRY
-STDCALL
-RtlInterlockedPushEntrySList (
-    PSLIST_HEADER ListHead,
-    PSLIST_ENTRY ListEntry
-    );
-USHORT
-STDCALL
-RtlQueryDepthSList (
-    PSLIST_HEADER ListHead
-    );
-
-NTSTATUS
-STDCALL
-RtlRegisterWait(PHANDLE hOutput, HANDLE hObject,WAITORTIMERCALLBACK Callback,PVOID Context,ULONG dwMilliseconds,ULONG dwFlags);
-
-NTSTATUS
-STDCALL
-RtlDeregisterWait(
-    HANDLE WaitHandle
-    );
-
-NTSTATUS
-STDCALL
-RtlDeregisterWaitEx(
-    HANDLE WaitHandle,
-    HANDLE CompletionEvent
-    );
-
-NTSTATUS
-STDCALL
-RtlSetHeapInformation(
-    HANDLE HeapHandle,
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL
-    );
-
-NTSTATUS
-STDCALL
-RtlQueryHeapInformation(
-    HANDLE HeapHandle, 
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL,
-    PSIZE_T ReturnLength OPTIONAL
-    );
-
-NTSTATUS
-STDCALL
-NtCreateJobSet(
-    ULONG NumJob,
-    PJOB_SET_ARRAY UserJobSet,
-    ULONG Flags);
-
-NTSTATUS
-STDCALL
-ZwCreateJobSet(
-    ULONG NumJob,
-    PJOB_SET_ARRAY UserJobSet,
-    ULONG Flags);
-
-VOID
-STDCALL
-RtlReleaseActivationContext(
-    HANDLE hActCtx
-    );
-
-NTSTATUS
-STDCALL
-RtlQueryInformationActivationContext(
-    DWORD dwFlags,
-    HANDLE hActCtx,
-    PVOID pvSubInstance,
-    ULONG ulInfoClass,
-    PVOID pvBuffer,
-    SIZE_T cbBuffer OPTIONAL,
-    SIZE_T *pcbWrittenOrRequired OPTIONAL
-    );
-
-VOID
-STDCALL
-RtlAddRefActivationContext(
-    HANDLE hActCtx
-    );
-
-NTSTATUS
-STDCALL
-RtlGetActiveActivationContext(
-    HANDLE *lphActCtx);
-
-NTSTATUS
-STDCALL
-RtlZombifyActivationContext(
-    HANDLE hActCtx
-    );
-
-NTSTATUS
-STDCALL
-RtlDeactivateActivationContext(
-    DWORD dwFlags,
-    ULONG_PTR ulCookie
-    );
-
-ULONG 
-STDCALL
-RtlCreateTagHeap(	
-	IN HANDLE HeapHandle,
-	IN ULONG Flags,
-	IN PCWSTR TagName,
-	IN PCWSTR TagSubName
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlDelete(
-	IN PRTL_SPLAY_LINKS Links
-	);
-
-BOOLEAN
-STDCALL
-RtlDeleteElementGenericTable(
-	IN PRTL_GENERIC_TABLE Table,
-	IN PVOID Buffer
-	);
-
-VOID
-STDCALL
-RtlDeleteNoSplay(
-	IN PRTL_SPLAY_LINKS Links,
-	OUT PRTL_SPLAY_LINKS *Root
-	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTable(
-	IN PRTL_GENERIC_TABLE Table,
-	IN BOOLEAN Restart
-	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTableWithoutSplaying(
-	IN PRTL_GENERIC_TABLE Table,
-	IN PVOID *RestartKey
-	);
-
-PVOID
-STDCALL
-RtlLookupElementGenericTable(
-	IN PRTL_GENERIC_TABLE Table,
-	IN PVOID Buffer
-	);
-
-PVOID
-STDCALL
-RtlProtectHeap(
-	IN HANDLE Heap,
-	IN BOOLEAN ReadOnly
-	);
-
-PCWSTR 
-STDCALL
-RtlQueryTagHeap(
-	IN HANDLE HeapHandle,
-	IN ULONG Flags,
-	IN USHORT TagNumber,
-	IN BOOLEAN ZeroInternalTagInfo,
-	OUT PRTL_HEAP_TAG_INFO HeapTagInfo OPTIONAL
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlRealPredecessor(
-	IN PRTL_SPLAY_LINKS Links
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlRealSuccessor(
-	IN PRTL_SPLAY_LINKS Links
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlSplay(
-	IN PRTL_SPLAY_LINKS Links
-	);
-
-NTSTATUS
-STDCALL
-NtAccessCheckByType(
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN HANDLE TokenHandle,
-	IN ULONG DesiredAccess,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN PPRIVILEGE_SET PrivilegeSet,
-	IN PULONG PrivilegeSetLength,
-	OUT PACCESS_MASK GrantedAccess,
-	OUT PULONG AccessStatus
-	);
-
-NTSTATUS
-STDCALL
-NtAccessCheckByTypeAndAuditAlarm(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccess,
-	OUT PULONG AccessStatus,
-	OUT PBOOLEAN GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-NtAccessCheckByTypeResultList(
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN HANDLE TokenHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN PPRIVILEGE_SET PrivilegeSet,
-	IN PULONG PrivilegeSetLength,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList
-	);
-
-NTSTATUS
-STDCALL
-NtAccessCheckByTypeResultListAndAuditAlarm(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList,
-	OUT PULONG GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-NtAccessCheckByTypeResultListAndAuditAlarmByHandle(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN HANDLE TokenHandle,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList,
-	OUT PULONG GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-NtAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
-	);
-
-NTSTATUS
-STDCALL
-NtAreMappedFilesTheSame(
-	IN PVOID Address1,
-	IN PVOID Address2
-	);
-
-NTSTATUS
-STDCALL
-NtCreateJobObject(
-	OUT PHANDLE JobHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes
-	);
-
-NTSTATUS
-STDCALL
-NtCreateKeyedEvent(
-	OUT PHANDLE KeyedEventHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	ULONG Reserved
-	);
-
-NTSTATUS
-STDCALL
-NtFilterToken(
-	IN HANDLE ExistingTokenHandle,
-	IN ULONG Flags,
-	IN PTOKEN_GROUPS SidsToDisable,
-	IN PTOKEN_PRIVILEGES PrivilegesToDelete,
-	IN PTOKEN_GROUPS SidsToRestricted,
-	OUT PHANDLE NewTokenHandle
-	);
-
-NTSTATUS
-STDCALL
-NtFreeUserPhysicalPages(
-	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
-	);
-
-NTSTATUS
-STDCALL
-NtGetWriteWatch(
-	IN HANDLE ProcessHandle,
-	IN ULONG Flags,
-	IN PVOID BaseAddress,
-	IN ULONG RegionSize,
-	OUT PULONG Buffer,
-	IN OUT PULONG BufferEntries,
-	OUT PULONG Granularity
-	);
-
-NTSTATUS
-STDCALL
-NtImpersonateAnonymousToken(
-	IN HANDLE ThreadHandle
-	);
-
-NTSTATUS
-STDCALL
-NtIsProcessInJob(
-	IN HANDLE JobHandle,
-	IN HANDLE ProcessHandle
-	);
-
-NTSTATUS
-STDCALL
-NtMakePermanentObject(
-	IN HANDLE ObjectHandle
-	);
-
-NTSTATUS
-STDCALL
-NtMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-NtMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-NtOpenJobObject(
-	OUT PHANDLE JobHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes
-	);
-
-NTSTATUS
-STDCALL
-NtOpenKeyedEvent(
-	OUT PHANDLE KeyedEventHandle,
-	IN PACCESS_MASK DesiredAccess,
-	IN PUNICODE_STRING KeyedEventName
-	);
-
-NTSTATUS
-STDCALL
-NtOpenProcessTokenEx(
-	IN HANDLE ProcessHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN ULONG HandleAttributes,
-	OUT PHANDLE TokenHandle
-	);
-
-NTSTATUS
-STDCALL
-NtOpenThreadTokenEx(
-	IN HANDLE ThreadHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN BOOLEAN OpenAsSelf,
-	IN ULONG HandleAttributes,
-	OUT PHANDLE TokenHandle
-	);
-
-NTSTATUS
-STDCALL
-NtQueryInformationJobObject(
-	IN HANDLE JobHandle,
-	IN JOBOBJECTINFOCLASS JobInformationClass,
-	OUT PVOID JobInformation,
-	IN ULONG JobInformationLength,
-	OUT PULONG ReturnLength OPTIONAL
-	);
-
-
-ULONG
-STDCALL
-NtQueryPortInformationProcess(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-NtReleaseKeyedEvent(
-	IN HANDLE KeyedEventHandle,
-	IN ULONG Requested,
-	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER Timeout OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-NtReplyWaitReceivePortEx(
-	IN HANDLE PortHandle,
-	OUT PULONG PortIdentifier OPTIONAL,
-	IN PPORT_MESSAGE ReplyMessage OPTIONAL,
-	OUT PPORT_MESSAGE Message,
-	IN PLARGE_INTEGER Timeout
-	);
-
-NTSTATUS
-STDCALL
-NtResetWriteWatch(
-	IN HANDLE ProcessHandle,
-	IN PVOID BaseAddress,
-	IN ULONG RegionSize
-	);
-
-NTSTATUS
-STDCALL
-NtResumeProcess(
-	IN HANDLE Process
-	);
-
-NTSTATUS
-STDCALL
-NtSecureConnectPort(
-	OUT PHANDLE PortHandle,
-	IN PUNICODE_STRING PortName,
-	IN PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-	IN OUT PPORT_SECTION_WRITE WriteSection OPTIONAL,
-	IN PSID ServerSid OPTIONAL,
-	IN OUT PPORT_SECTION_READ ReadSection OPTIONAL,
-	OUT PULONG MaxMessageSize OPTIONAL,
-	IN OUT PVOID ConnectData OPTIONAL,
-	IN OUT PULONG ConnectDataLength OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-NtSetHighWaitLowThread(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-NtSetLowWaitHighThread(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-NtSetQuotaInformationFile(
-	IN HANDLE FileHandle,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
-	IN PFILE_USER_QUOTA_INFORMATION Buffer,
-	IN ULONG BufferLength
-	);
-
-NTSTATUS
-STDCALL
-NtSetUuidSeed(
-	IN PUCHAR UuidSeed
-	);
-
-NTSTATUS
-STDCALL
-NtSuspendProcess(
-	IN HANDLE Process
-	);
-
-NTSTATUS
-STDCALL
-NtTerminateJobObject(
-	IN HANDLE JobHandle,
-	IN NTSTATUS ExitStatus
-	);
-
-NTSTATUS
-STDCALL
-NtWaitForKeyedEvent(
-	IN HANDLE KeyedEventHandle,
-	IN ULONG Requested,
-	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER Timeout OPTIONAL
-	);
-
-BOOLEAN
-STDCALL
-RtlDllShutdownInProgress(
-	VOID
-	);
-
-PPEB
-STDCALL
-RtlGetCurrentPeb(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-RtlGetLastNtStatus(
-	VOID
-	);
-
-ULONG
-STDCALL
-RtlGetLastWin32Error(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-RtlGetNativeSystemInformation(
-	IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-	IN OUT PVOID SystemInformation,
-	IN ULONG SystemInformationLength,
-	OUT PULONG ReturnLength OPTIONAL
-	);
-
-USHORT
-STDCALL
-RtlLogStackBackTrace(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-RtlQueueWorkItem(
-	LPTHREAD_START_ROUTINE Function,
-	PVOID Context,
-	ULONG Flags
-	);
-
-VOID
-STDCALL
-RtlRestoreLastWin32Error(
-	IN ULONG Win32Error
-	);
-
-ULONG
-STDCALL
-RtlSetCriticalSectionSpinCount(
-   IN PRTL_CRITICAL_SECTION CriticalSection
-   );
-
-typedef
-VOID
-(CALLBACK *POVERLAPPED_COMPLETION_ROUTINE)(
-    DWORD dwErrorCode,
-    DWORD dwNumberOfBytesTransfered,
-    LPOVERLAPPED lpOverlapped
-    );
-
-
-NTSTATUS
-STDCALL
-RtlSetIoCompletionCallback(
-	IN HANDLE FileHandle,
-	IN POVERLAPPED_COMPLETION_ROUTINE CompletionRoutine,
-	IN ULONG Flags
-	);
-
-VOID
-STDCALL
-RtlSetLastWin32Error(
-	IN ULONG Win32Error
-	);
-
-VOID
-STDCALL
-RtlSetLastWin32ErrorAndNtStatusFromNtStatus(
-	IN NTSTATUS NtStatus
-	);
-
-NTSTATUS
-STDCALL
-ZwAccessCheckByType(
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN HANDLE TokenHandle,
-	IN ULONG DesiredAccess,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN PPRIVILEGE_SET PrivilegeSet,
-	IN PULONG PrivilegeSetLength,
-	OUT PACCESS_MASK GrantedAccess,
-	OUT PULONG AccessStatus
-	);
-
-NTSTATUS
-STDCALL
-ZwAccessCheckByTypeAndAuditAlarm(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccess,
-	OUT PULONG AccessStatus,
-	OUT PBOOLEAN GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-ZwAccessCheckByTypeResultList(
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN HANDLE TokenHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN PPRIVILEGE_SET PrivilegeSet,
-	IN PULONG PrivilegeSetLength,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList
-	);
-
-NTSTATUS
-STDCALL
-ZwAccessCheckByTypeResultListAndAuditAlarm(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList,
-	OUT PULONG GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-ZwAccessCheckByTypeResultListAndAuditAlarmByHandle(
-	IN PUNICODE_STRING SubsystemName,
-	IN PVOID HandleId,
-	IN HANDLE TokenHandle,
-	IN PUNICODE_STRING ObjectTypeName,
-	IN PUNICODE_STRING ObjectName,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSID PrincipalSelfSid,
-	IN ACCESS_MASK DesiredAccess,
-	IN AUDIT_EVENT_TYPE AuditType,
-	IN ULONG Flags,
-	IN POBJECT_TYPE_LIST ObjectTypeList,
-	IN ULONG ObjectTypeListLength,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN BOOLEAN ObjectCreation,
-	OUT PACCESS_MASK GrantedAccessList,
-	OUT PULONG AccessStatusList,
-	OUT PULONG GenerateOnClose
-	);
-
-NTSTATUS
-STDCALL
-ZwAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
-	);
-
-NTSTATUS
-STDCALL
-ZwAreMappedFilesTheSame(
-	IN PVOID Address1,
-	IN PVOID Address2
-	);
-
-NTSTATUS
-STDCALL
-ZwAssignProcessToJobObject(
-	IN HANDLE JobHandle,
-	IN HANDLE ProcessHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwCreateJobObject(
-	OUT PHANDLE JobHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes
-	);
-
-NTSTATUS
-STDCALL
-ZwCreateKeyedEvent(
-	OUT PHANDLE KeyedEventHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	ULONG Reserved
-	);
-
-NTSTATUS
-STDCALL
-ZwCreateWaitablePort(
-	OUT PHANDLE PortHandle,
-	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	IN ULONG MaxDataSize,
-	IN ULONG MaxMessageSize,
-	IN ULONG Reserved
-	);
-
-NTSTATUS
-STDCALL
-ZwFilterToken(
-	IN HANDLE ExistingTokenHandle,
-	IN ULONG Flags,
-	IN PTOKEN_GROUPS SidsToDisable,
-	IN PTOKEN_PRIVILEGES PrivilegesToDelete,
-	IN PTOKEN_GROUPS SidsToRestricted,
-	OUT PHANDLE NewTokenHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwFreeUserPhysicalPages(
-	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
-	);
-
-NTSTATUS
-STDCALL
-ZwGetWriteWatch(
-	IN HANDLE ProcessHandle,
-	IN ULONG Flags,
-	IN PVOID BaseAddress,
-	IN ULONG RegionSize,
-	OUT PULONG Buffer,
-	IN OUT PULONG BufferEntries,
-	OUT PULONG Granularity
-	);
-
-NTSTATUS
-STDCALL
-ZwImpersonateAnonymousToken(
-	IN HANDLE ThreadHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwIsProcessInJob(
-	IN HANDLE JobHandle,
-	IN HANDLE ProcessHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwMakePermanentObject(
-	IN HANDLE Object
-	);
-
-NTSTATUS
-STDCALL
-ZwMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-ZwMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-ZwOpenJobObject(
-	OUT PHANDLE JobHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes
-	);
-
-NTSTATUS
-STDCALL
-ZwOpenKeyedEvent(
-	OUT PHANDLE KeyedEventHandle,
-	IN PACCESS_MASK DesiredAccess,
-	IN PUNICODE_STRING KeyedEventName
-	);
-
-NTSTATUS
-STDCALL
-ZwOpenProcessTokenEx(
-	IN HANDLE ProcessHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN ULONG HandleAttributes,
-	OUT PHANDLE TokenHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwOpenThreadTokenEx(
-	IN HANDLE ThreadHandle,
-	IN ACCESS_MASK DesiredAccess,
-	IN BOOLEAN OpenAsSelf,
-	IN ULONG HandleAttributes,
-	OUT PHANDLE TokenHandle
-	);
-
-NTSTATUS
-STDCALL
-ZwQueryInformationJobObject(
-	IN HANDLE JobHandle,
-	IN JOBOBJECTINFOCLASS JobInformationClass,
-	OUT PVOID JobInformation,
-	IN ULONG JobInformationLength,
-	OUT PULONG ReturnLength OPTIONAL
-	);
-
-ULONG
-STDCALL
-ZwQueryPortInformationProcess(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-ZwReleaseKeyedEvent(
-	IN HANDLE KeyedEventHandle,
-	IN ULONG Requested,
-	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER Timeout OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-ZwReplyWaitReceivePortEx(
-	IN HANDLE PortHandle,
-	OUT PULONG PortIdentifier OPTIONAL,
-	IN PPORT_MESSAGE ReplyMessage OPTIONAL,
-	OUT PPORT_MESSAGE Message,
-	IN PLARGE_INTEGER Timeout
-	);
-
-NTSTATUS
-STDCALL
-ZwResetWriteWatch(
-	IN HANDLE ProcessHandle,
-	IN PVOID BaseAddress,
-	IN ULONG RegionSize
-	);
-
-NTSTATUS
-STDCALL
-ZwResumeProcess(
-	IN HANDLE Process
-	);
-
-NTSTATUS
-STDCALL
-ZwSecureConnectPort(
-	OUT PHANDLE PortHandle,
-	IN PUNICODE_STRING PortName,
-	IN PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-	IN OUT PPORT_SECTION_WRITE WriteSection OPTIONAL,
-	IN PSID ServerSid OPTIONAL,
-	IN OUT PPORT_SECTION_READ ReadSection OPTIONAL,
-	OUT PULONG MaxMessageSize OPTIONAL,
-	IN OUT PVOID ConnectData OPTIONAL,
-	IN OUT PULONG ConnectDataLength OPTIONAL
-	);
-
-NTSTATUS
-STDCALL
-ZwSetHighWaitLowThread(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-ZwSetInformationJobObject(
-	IN HANDLE JobHandle,
-	IN JOBOBJECTINFOCLASS JobInformationClass,
-	IN PVOID JobInformation,
-	IN ULONG JobInformationLength
-	);
-
-NTSTATUS
-STDCALL
-ZwSetLowWaitHighThread(
-	VOID
-	);
-
-NTSTATUS
-STDCALL
-ZwSetQuotaInformationFile(
-	IN HANDLE FileHandle,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
-	IN PFILE_USER_QUOTA_INFORMATION Buffer,
-	IN ULONG BufferLength
-	);
-
-NTSTATUS
-STDCALL
-ZwSetUuidSeed(
-	IN PUCHAR UuidSeed
-	);
-
-NTSTATUS
-STDCALL
-ZwSuspendProcess(
-	IN HANDLE Process
-	);
-
-NTSTATUS
-STDCALL
-ZwTerminateJobObject(
-	IN HANDLE JobHandle,
-	IN NTSTATUS ExitStatus
-	);
-
-NTSTATUS
-STDCALL
-ZwWaitForKeyedEvent(
-	IN HANDLE KeyedEventHandle,
-	IN ULONG Requested,
-	IN BOOLEAN Alertable,
-	IN PLARGE_INTEGER Timeout OPTIONAL
-	);
-DWORD
-STDCALL
-GetAppCompatFlags2(HTASK hTask);
-VOID STDCALL InitializeLpkHooks(FARPROC *hookfuncs);
-BOOL STDCALL EnterReaderModeHelper(HWND hwnd);
-BOOL STDCALL CtxInitUser32(VOID);
-BOOL STDCALL ReasonCodeNeedsBugID(ULONG reasoncode);
-BOOL STDCALL ReasonCodeNeedsComment(ULONG reasoncode);
-int
-STDCALL
-MessageBoxTimeoutW(
-    HWND hWnd,
-    LPCWSTR lpText,
-    LPCWSTR lpCaption,
-    UINT uType,
-    WORD wLanguageId,
-    DWORD dwTime);
-
-int
-STDCALL
-MessageBoxTimeoutA(
-    HWND hWnd,
-    LPCSTR lpText,
-    LPCSTR lpCaption,
-    UINT uType,
-    WORD wLanguageId,
-    DWORD dwTime);
-BOOL STDCALL DisplayExitWindowsWarnings(ULONG flags);
-FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PDelayLoadInfo pdli);
-VOID STDCALL WEP();
-DWORD STDCALL RtlDeleteSecurityObject(DWORD x1);
-DWORD     STDCALL RtlNewSecurityObject(DWORD x1,DWORD x2,DWORD x3,DWORD x4,DWORD x5,DWORD x6);
-NTSTATUS  STDCALL RtlWalkHeap( HANDLE heap, PVOID entry_ptr );
-NTSTATUS  STDCALL RtlpUnWaitCriticalSection(RTL_CRITICAL_SECTION *crit);
-NTSTATUS  STDCALL RtlpWaitForCriticalSection(RTL_CRITICAL_SECTION *crit);
-NTSTATUS STDCALL LdrLockLoaderLock(ULONG flags, ULONG *result, ULONG *magic);
-NTSTATUS STDCALL LdrUnlockLoaderLock(ULONG flags, ULONG magic);
-
-NTSTATUS  STDCALL RtlDuplicateUnicodeString(
-    int add_nul,
-    const UNICODE_STRING *source,
-    UNICODE_STRING *destination);
-NTSTATUS  STDCALL RtlFindCharInUnicodeString(
-    int flags,
-    const UNICODE_STRING *main_str,
-    const UNICODE_STRING *search_chars,
-    USHORT *pos);
-NTSTATUS  STDCALL RtlInitUnicodeStringEx(PUNICODE_STRING target,PCWSTR source);
-
-NTSTATUS
-STDCALL
-NtCancelDeviceWakeupRequest(
-    IN HANDLE Device
-    );
-NTSTATUS
-STDCALL
-NtCompactKeys(
-    IN ULONG Count,
-    IN HANDLE KeyArray[]
-            );
-NTSTATUS
-STDCALL
-NtCompressKey(
-    IN HANDLE Key
-            );
-NTSTATUS
-STDCALL
-NtGetDevicePowerState(
-    IN HANDLE Device,
-    OUT DEVICE_POWER_STATE *State
-    );
-BOOL
-STDCALL
-NtIsSystemResumeAutomatic(
-    VOID
-    );
-NTSTATUS
-STDCALL
-NtLockProductActivationKeys(
-    ULONG   *pPrivateVer,
-    ULONG   *pIsSafeMode
-    );
-NTSTATUS
-STDCALL
-NtLockRegistryKey(
-    IN HANDLE           KeyHandle
-    );
-NTSTATUS
-STDCALL
-NtNotifyChangeMultipleKeys(
-    IN HANDLE MasterKeyHandle,  		
-    IN ULONG Count,
-    IN OBJECT_ATTRIBUTES SlaveObjects[],
-    IN HANDLE Event OPTIONAL,
-    IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-    IN PVOID ApcContext OPTIONAL,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    IN ULONG CompletionFilter,
-    IN BOOL WatchTree,
-    OUT PVOID Buffer,
-    IN ULONG BufferSize,
-    IN BOOL Asynchronous
-    );
-NTSTATUS
-STDCALL
-NtQueryOpenSubKeys(
-    IN POBJECT_ATTRIBUTES TargetKey,
-    OUT PULONG  HandleCount
-    );
-NTSTATUS
-STDCALL
-NtRenameKey(
-    IN HANDLE           KeyHandle,
-    IN PUNICODE_STRING  NewName
-    );
-NTSTATUS
-STDCALL
-NtRequestDeviceWakeup(
-    IN HANDLE Device
-    );
-NTSTATUS
-STDCALL
-NtRequestWakeupLatency(
-    IN LATENCY_TIME latency
-    );
-NTSTATUS
-STDCALL
-NtSaveKeyEx(
-    IN HANDLE KeyHandle,
-    IN HANDLE FileHandle,
-    IN ULONG  Format
-    );
-NTSTATUS
-STDCALL
-NtSaveMergedKeys(
-    IN HANDLE HighPrecedenceKeyHandle,
-    IN HANDLE LowPrecedenceKeyHandle,
-    IN HANDLE FileHandle
-    );
-NTSTATUS
-STDCALL
-NtSetThreadExecutionState(
-    IN EXECUTION_STATE esFlags,
-    OUT EXECUTION_STATE *PreviousFlags
-    );
-NTSTATUS
-STDCALL
-NtUnloadKeyEx(
-    IN POBJECT_ATTRIBUTES TargetKey,
-    IN HANDLE Event OPTIONAL
-    );
-NTSTATUS
-STDCALL
-RtlGetVersion(
-    OUT PRTL_OSVERSIONINFOW lpVersionInformation
-    );
-ULONG
-STDCALL
-RtlWalkFrameChain (
-    OUT PVOID *Callers,
-    IN ULONG Count,
-    IN ULONG Flags
-    );
-ULONG
-vDbgPrintEx(
-    IN ULONG ComponentId,
-    IN ULONG Level,
-    IN PCH Format,
-    va_list arglist
-    );
-ULONG
-vDbgPrintExWithPrefix(
-    IN PCH Prefix,
-    IN ULONG ComponentId,
-    IN ULONG Level,
-    IN PCH Format,
-    va_list arglist
-    );
-NTSTATUS
-STDCALL
-ZwCancelDeviceWakeupRequest(
-    IN HANDLE Device
-    );
-NTSTATUS
-STDCALL
-ZwCompactKeys(
-    IN ULONG Count,
-    IN HANDLE KeyArray[]
-            );
-NTSTATUS
-STDCALL
-ZwCompressKey(
-    IN HANDLE Key
-            );
-NTSTATUS
-STDCALL
-ZwGetDevicePowerState(
-    IN HANDLE Device,
-    OUT DEVICE_POWER_STATE *State
-    );
-BOOL
-STDCALL
-ZwIsSystemResumeAutomatic(
-    VOID
-    );
-NTSTATUS
-STDCALL
-ZwLockProductActivationKeys(
-    ULONG   *pPrivateVer,
-    ULONG   *pIsSafeMode
-    );
-NTSTATUS
-STDCALL
-ZwLockRegistryKey(
-    IN HANDLE           KeyHandle
-    );
-NTSTATUS
-STDCALL
-ZwNotifyChangeMultipleKeys(
-    IN HANDLE MasterKeyHandle,  		
-    IN ULONG Count,
-    IN OBJECT_ATTRIBUTES SlaveObjects[],
-    IN HANDLE Event OPTIONAL,
-    IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-    IN PVOID ApcContext OPTIONAL,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    IN ULONG CompletionFilter,
-    IN BOOL WatchTree,
-    OUT PVOID Buffer,
-    IN ULONG BufferSize,
-    IN BOOL Asynchronous
-    );
-NTSTATUS
-STDCALL
-ZwQueryOpenSubKeys(
-    IN POBJECT_ATTRIBUTES TargetKey,
-    OUT PULONG  HandleCount
-    );
-NTSTATUS
-STDCALL
-ZwRenameKey(
-    IN HANDLE           KeyHandle,
-    IN PUNICODE_STRING  NewName
-    );
-NTSTATUS
-STDCALL
-ZwRequestDeviceWakeup(
-    IN HANDLE Device
-    );
-NTSTATUS
-STDCALL
-ZwRequestWakeupLatency(
-    IN LATENCY_TIME latency
-    );
-NTSTATUS
-STDCALL
-ZwSaveKeyEx(
-    IN HANDLE KeyHandle,
-    IN HANDLE FileHandle,
-    IN ULONG  Format
-    );
-NTSTATUS
-STDCALL
-ZwSaveMergedKeys(
-    IN HANDLE HighPrecedenceKeyHandle,
-    IN HANDLE LowPrecedenceKeyHandle,
-    IN HANDLE FileHandle
-    );
-NTSTATUS
-STDCALL
-ZwSetThreadExecutionState(
-    IN EXECUTION_STATE esFlags,
-    OUT EXECUTION_STATE *PreviousFlags
-    );
-NTSTATUS
-STDCALL
-ZwUnloadKeyEx(
-    IN POBJECT_ATTRIBUTES TargetKey,
-    IN HANDLE Event OPTIONAL
-    );
-BOOL STDCALL LdrFlushAlternateResourceModules(VOID);
-BOOL STDCALL LdrAlternateResourcesEnabled(VOID);
-
-VOID STDCALL MD4Init(PMD4_CONTEXT Context);
-VOID STDCALL MD4Update(PMD4_CONTEXT Context, PVOID Buffer, UINT BufferSize);
-VOID STDCALL MD4Final(PMD4_CONTEXT Context);
-
-VOID STDCALL MD5Init(PMD5_CONTEXT Context);
-VOID STDCALL MD5Update(PMD5_CONTEXT Context, PVOID Buffer, UINT BufferSize);
-VOID STDCALL MD5Final(PMD5_CONTEXT Context);
-
-VOID STDCALL A_SHAInit(PSHA_CONTEXT Context);
-VOID STDCALL A_SHAUpdate(PSHA_CONTEXT Context, PVOID Buffer, UINT BufferSize);
-VOID STDCALL A_SHAFinal(PSHA_CONTEXT Context, PVOID Result);
-
-VOID STDCALL GdiInitializeLanguagePack(DWORD InitParam);
-BOOL STDCALL SetConsoleIcon(HICON hicon);
-double __cdecl _CIpow(double x,double y);
-LPSTR __cdecl _ui64toa(
-    ULONGLONG value,
-    LPSTR str,
-    INT radix);
-LPWSTR __cdecl _ui64tow(
-    ULONGLONG value,
-    LPWSTR str,
-    INT radix);
-INT __cdecl iswdigit( WCHAR wc );
-INT __cdecl iswlower( WCHAR wc );
-INT __cdecl iswxdigit( WCHAR wc );
-DWORD STDCALL GetHandleContext(HANDLE hnd);
-HANDLE STDCALL CreateSocketHandle(VOID);
-BOOL STDCALL SetHandleContext(HANDLE hnd,DWORD context);
-BOOL STDCALL SetConsoleInputExeNameA(LPCSTR name);
-BOOL STDCALL SetConsoleInputExeNameW(LPCWSTR name);
-BOOL STDCALL UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
-                        LPSTR lpszInitName, LPSTR lpszProcName,
-                        FARPROC *ppfn32Thunk, FARPROC pfnUT32CallBack,
-                        LPVOID lpBuff );
-VOID STDCALL UTUnRegister( HMODULE hModule );
-BOOL STDCALL SynchronizeWindows31FilesAndWindowsNTRegistry( DWORD x1, DWORD x2, DWORD x3,DWORD x4 );
-BOOL STDCALL QueryWindows31FilesMigration( DWORD x1 );
-
-WINBOOL STDCALL GetConsoleKeyboardLayoutNameA(LPSTR name);
-WINBOOL STDCALL GetConsoleKeyboardLayoutNameW(LPWSTR name);
-
-DWORD STDCALL SetupChangeFontSize(HANDLE HWindow,
-                                  LPCWSTR lpszFontSize);
-WINBOOL
-STDCALL
-AccessCheckByType(
-PSECURITY_DESCRIPTOR pSecurityDescriptor,
-PSID PrincipalSelfSid,
-HANDLE ClientToken,
-DWORD DesiredAccess,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-PPRIVILEGE_SET PrivilegeSet,
-LPDWORD PrivilegeSetLength,
-LPDWORD GrantedAccess,
-LPBOOL AccessStatus
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeResultList(
-PSECURITY_DESCRIPTOR pSecurityDescriptor,
-PSID PrincipalSelfSid,
-HANDLE ClientToken,
-DWORD DesiredAccess,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-PPRIVILEGE_SET PrivilegeSet,
-LPDWORD PrivilegeSetLength,
-LPDWORD GrantedAccessList,
-LPDWORD AccessStatusList
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeAndAuditAlarmA(
-LPCSTR SubsystemName,
-LPVOID HandleId,
-LPCSTR ObjectTypeName,
-LPCSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPBOOL AccessStatus,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeAndAuditAlarmW(
-LPCWSTR SubsystemName,
-LPVOID HandleId,
-LPCWSTR ObjectTypeName,
-LPCWSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPBOOL AccessStatus,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeResultListAndAuditAlarmA(
-LPCSTR SubsystemName,
-LPVOID HandleId,
-LPCSTR ObjectTypeName,
-LPCSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPDWORD AccessStatusList,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeResultListAndAuditAlarmW(
-LPCWSTR SubsystemName,
-LPVOID HandleId,
-LPCWSTR ObjectTypeName,
-LPCWSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPDWORD AccessStatusList,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeResultListAndAuditAlarmByHandleA(
-LPCSTR SubsystemName,
-LPVOID HandleId,
-HANDLE ClientToken,
-LPCSTR ObjectTypeName,
-LPCSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPDWORD AccessStatusList,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-AccessCheckByTypeResultListAndAuditAlarmByHandleW(
-LPCWSTR SubsystemName,
-LPVOID HandleId,
-HANDLE ClientToken,
-LPCWSTR ObjectTypeName,
-LPCWSTR ObjectName,
-PSECURITY_DESCRIPTOR SecurityDescriptor,
-PSID PrincipalSelfSid,
-DWORD DesiredAccess,
-AUDIT_EVENT_TYPE AuditType,
-DWORD Flags,
-POBJECT_TYPE_LIST ObjectTypeList,
-DWORD ObjectTypeListLength,
-PGENERIC_MAPPING GenericMapping,
-WINBOOL ObjectCreation,
-LPDWORD GrantedAccess,
-LPDWORD AccessStatusList,
-LPBOOL pfGenerateOnClose
-);
-
-WINBOOL
-STDCALL
-InitiateSystemShutdownExA(LPSTR lpMachineName,LPSTR lpMessage,DWORD dwTimeout,BOOL bForceAppsClosed,BOOL bRebootAfterShutdown,DWORD dwReason);
-WINBOOL
-STDCALL
-InitiateSystemShutdownExW(LPWSTR lpMachineName,LPWSTR lpMessage,DWORD dwTimeout,BOOL bForceAppsClosed,BOOL bRebootAfterShutdown,DWORD dwReason);
-WINBOOL
-STDCALL
-NotifyBootConfigStatus(WINBOOL BootAcceptable);
-LONG
-STDCALL
-RegDisablePredefinedCache(VOID);
-LONG
-STDCALL
-RegOpenCurrentUser(REGSAM samDesired,PHKEY phkResult);
-LONG
-STDCALL
-RegOpenUserClassesRoot(HANDLE hToken,DWORD  dwOptions,REGSAM samDesired,PHKEY  phkResult);
-LONG
-STDCALL
-RegOverridePredefKey (HKEY hKey,HKEY hNewHKey);
-LONG
-STDCALL
-RegSaveKeyExA (HKEY hKey,LPCSTR lpFile,LPSECURITY_ATTRIBUTES lpSecurityAttributes,DWORD Flags);
-LONG
-STDCALL
-RegSaveKeyExW (HKEY hKey,LPCWSTR lpFile,LPSECURITY_ATTRIBUTES lpSecurityAttributes,DWORD Flags);
-WINBOOL 
-STDCALL
-SetServiceBits(SERVICE_STATUS_HANDLE hServiceStatus,DWORD  dwServiceBits,WINBOOL  bSetBitsOn,WINBOOL  bUpdateImmediately);
-LONG
-STDCALL
-Wow64Win32ApiEntry (DWORD dwFuncNumber,DWORD dwFlag,DWORD dwRes);
-
-WINBOOL
-STDCALL
-AddAccessAllowedAceEx (
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD AccessMask,
- PSID pSid
- );
-
-WINBOOL
-STDCALL
-AddAccessAllowedObjectAce (
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD AccessMask,
- GUID *ObjectTypeGuid,
- GUID *InheritedObjectTypeGuid,
- PSID pSid
- );
-
-WINBOOL
-STDCALL
-AddAccessDeniedAceEx (
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD AccessMask,
- PSID pSid
- );
-
-WINBOOL
-STDCALL
-AddAccessDeniedObjectAce (
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD AccessMask,
- GUID *ObjectTypeGuid,
- GUID *InheritedObjectTypeGuid,
- PSID pSid
- );
-
-WINBOOL
-STDCALL
-AddAuditAccessAceEx(
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD dwAccessMask,
- PSID pSid,
- WINBOOL bAuditSuccess,
- WINBOOL bAuditFailure
- );
-
-WINBOOL
-STDCALL
-AddAuditAccessObjectAce (
- PACL pAcl,
- DWORD dwAceRevision,
- DWORD AceFlags,
- DWORD AccessMask,
- GUID *ObjectTypeGuid,
- GUID *InheritedObjectTypeGuid,
- PSID pSid,
- WINBOOL bAuditSuccess,
- WINBOOL bAuditFailure
- );
-
-WINBOOL
-APIENTRY
-CheckTokenMembership(
- HANDLE TokenHandle,
- PSID SidToCheck,
- PWINBOOL IsMember
- );
-
-VOID
-STDCALL
-CloseEncryptedFileRaw(
- PVOID pvContext
- );
-
-WINBOOL
-STDCALL
-CloseEventLog (
- HANDLE hEventLog
- );
-
-WINBOOL
-STDCALL
-ConvertToAutoInheritPrivateObjectSecurity(
- PSECURITY_DESCRIPTOR ParentDescriptor,
- PSECURITY_DESCRIPTOR CurrentSecurityDescriptor,
- PSECURITY_DESCRIPTOR *NewSecurityDescriptor,
- GUID *ObjectType,
- WINBOOL IsDirectoryObject,
- PGENERIC_MAPPING GenericMapping
- );
-
-WINBOOL
-STDCALL
-CreatePrivateObjectSecurity (
- PSECURITY_DESCRIPTOR ParentDescriptor,
- PSECURITY_DESCRIPTOR CreatorDescriptor,
- PSECURITY_DESCRIPTOR * NewDescriptor,
- WINBOOL IsDirectoryObject,
- HANDLE Token,
- PGENERIC_MAPPING GenericMapping
- );
-
-WINBOOL
-STDCALL
-CreatePrivateObjectSecurityEx (
- PSECURITY_DESCRIPTOR ParentDescriptor,
- PSECURITY_DESCRIPTOR CreatorDescriptor,
- PSECURITY_DESCRIPTOR * NewDescriptor,
- GUID *ObjectType,
- WINBOOL IsContainerObject,
- ULONG AutoInheritFlags,
- HANDLE Token,
- PGENERIC_MAPPING GenericMapping
- );
-
-WINBOOL
-STDCALL
-CreatePrivateObjectSecurityWithMultipleInheritance (
- PSECURITY_DESCRIPTOR ParentDescriptor,
- PSECURITY_DESCRIPTOR CreatorDescriptor,
- PSECURITY_DESCRIPTOR * NewDescriptor,
- GUID **ObjectTypes,
- ULONG GuidCount,
- WINBOOL IsContainerObject,
- ULONG AutoInheritFlags,
- HANDLE Token,
- PGENERIC_MAPPING GenericMapping
- );
-
-WINBOOL
-STDCALL
-CreateProcessWithLogonW(
- LPCWSTR lpUsername,
- LPCWSTR lpDomain,
- LPCWSTR lpPassword,
- DWORD dwLogonFlags,
- LPCWSTR lpApplicationName,
- LPWSTR lpCommandLine,
- DWORD dwCreationFlags,
- LPVOID lpEnvironment,
- LPCWSTR lpCurrentDirectory,
- LPSTARTUPINFOW lpStartupInfo,
- LPPROCESS_INFORMATION lpProcessInformation
- );
-
-WINBOOL
-APIENTRY
-CreateRestrictedToken(
- HANDLE ExistingTokenHandle,
- DWORD Flags,
- DWORD DisableSidCount,
- PSID_AND_ATTRIBUTES SidsToDisable,
- DWORD DeletePrivilegeCount,
- PLUID_AND_ATTRIBUTES PrivilegesToDelete,
- DWORD RestrictedSidCount,
- PSID_AND_ATTRIBUTES SidsToRestrict,
- PHANDLE NewTokenHandle
- );
-
-WINBOOL
-STDCALL
-CreateWellKnownSid(
- WELL_KNOWN_SID_TYPE WellKnownSidType,
- PSID DomainSid ,
- PSID pSid,
- DWORD *cbSid
- );
-
-WINBOOL
-STDCALL
-DestroyPrivateObjectSecurity (
- PSECURITY_DESCRIPTOR * ObjectDescriptor
- );
-
-WINBOOL
-STDCALL
-EqualDomainSid(
- PSID pSid1,
- PSID pSid2,
- WINBOOL *pfEqual
- );
-
-WINBOOL
-STDCALL
-GetEventLogInformation (
- HANDLE hEventLog,
- DWORD dwInfoLevel,
- LPVOID lpBuffer,
- DWORD cbBufSize,
- LPDWORD pcbBytesNeeded
- );
-
-WINBOOL
-STDCALL
-GetNumberOfEventLogRecords (
- HANDLE hEventLog,
- PDWORD NumberOfRecords
- );
-
-WINBOOL
-STDCALL
-GetOldestEventLogRecord (
- HANDLE hEventLog,
- PDWORD OldestRecord
- );
-
-WINBOOL
-STDCALL
-GetPrivateObjectSecurity (
- PSECURITY_DESCRIPTOR ObjectDescriptor,
- SECURITY_INFORMATION SecurityInformation,
- PSECURITY_DESCRIPTOR ResultantDescriptor,
- DWORD DescriptorLength,
- PDWORD ReturnLength
- );
-
-DWORD
-STDCALL
-GetSecurityDescriptorRMControl(
- PSECURITY_DESCRIPTOR SecurityDescriptor,
- PUCHAR RMControl
- );
-
-WINBOOL
-STDCALL
-GetWindowsAccountDomainSid(
- PSID pSid,
- PSID ppDomainSid,
- DWORD *cbSid
- );
-
-WINBOOL
-APIENTRY
-ImpersonateAnonymousToken(
- HANDLE ThreadHandle
- );
-
-WINBOOL
-STDCALL
-ImpersonateNamedPipeClient(
- HANDLE hNamedPipe
- );
-
-WINBOOL
-STDCALL
-IsTextUnicode(
- CONST VOID* lpBuffer,
- int cb,
- LPINT lpi
- );
-
-WINBOOL
-STDCALL
-IsTokenRestricted(
- HANDLE TokenHandle
- );
-
-WINBOOL
-STDCALL
-IsTokenUntrusted(
- HANDLE TokenHandle
- );
-
-WINBOOL
-STDCALL
-IsWellKnownSid (
- PSID pSid,
- WELL_KNOWN_SID_TYPE WellKnownSidType
- );
-
-WINBOOL
-STDCALL
-MakeAbsoluteSD2 (
- PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
- LPDWORD lpdwBufferSize
- );
-
-WINBOOL
-STDCALL
-NotifyChangeEventLog(
- HANDLE hEventLog,
- HANDLE hEvent
- );
-
-DWORD
-STDCALL
-ReadEncryptedFileRaw(
- PFE_EXPORT_FUNC pfExportCallback,
- PVOID pvCallbackContext,
- PVOID pvContext
- );
-
-DWORD
-STDCALL
-WriteEncryptedFileRaw(
- PFE_IMPORT_FUNC pfImportCallback,
- PVOID pvCallbackContext,
- PVOID pvContext
- );
-
-WINBOOL
-STDCALL
-SetPrivateObjectSecurity (
- SECURITY_INFORMATION SecurityInformation,
- PSECURITY_DESCRIPTOR ModificationDescriptor,
- PSECURITY_DESCRIPTOR *ObjectsSecurityDescriptor,
- PGENERIC_MAPPING GenericMapping,
- HANDLE Token
- );
-
-WINBOOL
-STDCALL
-SetPrivateObjectSecurityEx (
- SECURITY_INFORMATION SecurityInformation,
- PSECURITY_DESCRIPTOR ModificationDescriptor,
- PSECURITY_DESCRIPTOR *ObjectsSecurityDescriptor,
- ULONG AutoInheritFlags,
- PGENERIC_MAPPING GenericMapping,
- HANDLE Token
- );
-
-WINBOOL
-STDCALL
-SetSecurityDescriptorControl (
- PSECURITY_DESCRIPTOR pSecurityDescriptor,
- SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
- SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet
- );
-
-DWORD
-STDCALL
-SetSecurityDescriptorRMControl(
- PSECURITY_DESCRIPTOR SecurityDescriptor,
- PUCHAR RMControl
- );
-
-VOID
-STDCALL
-RtlCaptureContext (
-    PCONTEXT ContextRecord
-    );
-
-ULONGLONG
-STDCALL
-VerSetConditionMask(
-        ULONGLONG   ConditionMask,
-        DWORD   TypeMask,
-        BYTE    Condition
-        );
-
-INT
-STDCALL
-GetExpandedNameA(
-	LPSTR in,
-	LPSTR out
-	);
-INT
-STDCALL
-GetExpandedNameW(
-	LPWSTR in,
-	LPWSTR out
-	);
-
-UINT
-STDCALL
-WINNLSGetIMEHotkey( HWND hwnd);
-
-WINBOOL
-STDCALL
-WINNLSEnableIME( HWND hwnd, BOOL enable);
-
-WINBOOL
-STDCALL
-WINNLSGetEnableStatus( HWND hwnd);
-
-LANGID
-STDCALL
-GetUserDefaultUILanguage(VOID);
-
-LANGID
-STDCALL
-GetSystemDefaultUILanguage(VOID);
-
-WINBOOL
-STDCALL
-SetUserGeoID(
-    GEOID       GeoId);
-
-GEOID
-STDCALL
-GetUserGeoID(
-    GEOCLASS    GeoClass);
-
-WINBOOL
-STDCALL
-EnumSystemGeoID(
-    GEOCLASS        GeoClass,
-    GEOID           ParentGeoId,
-    GEO_ENUMPROC    lpGeoEnumProc);
-
-WINBOOL
-STDCALL
-IsValidLanguageGroup(
-    LGRPID  LanguageGroup,
-    DWORD   dwFlags);
-
-WINBOOL
-STDCALL
-ActivateActCtx(
-    HANDLE hActCtx,
-    ULONG_PTR *lpCookie
-    );
-
-VOID
-STDCALL
-AddRefActCtx(
-    HANDLE hActCtx
-    );
-
-WINBOOL
-STDCALL
-AllocateUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
-    );
-
-WINBOOL
-STDCALL
-AssignProcessToJobObject(
-    HANDLE hJob,
-    HANDLE hProcess
-    );
-
-WINBOOL
-STDCALL
-BindIoCompletionCallback (
-    HANDLE FileHandle,
-    LPOVERLAPPED_COMPLETION_ROUTINE Function,
-    ULONG Flags
-    );
-
-WINBOOL
-STDCALL
-CancelDeviceWakeupRequest(
-    HANDLE hDevice
-    );
-
-WINBOOL
-STDCALL
-CancelTimerQueueTimer(
-    HANDLE TimerQueue,
-    HANDLE Timer
-    );
-
-WINBOOL
-STDCALL
-ChangeTimerQueueTimer(
-    HANDLE TimerQueue,
-    HANDLE Timer,
-    ULONG DueTime,
-    ULONG Period
-    );
-
-WINBOOL
-STDCALL
-CheckRemoteDebuggerPresent(
-    HANDLE hProcess,
-    PWINBOOL pbDebuggerPresent
-    );
-
-WINBOOL
-STDCALL
-ConvertFiberToThread(
-    VOID
-    );
-
-LONG
-STDCALL
-CopyLZFile(
-	INT a,
-	INT b
-	);
-
-HANDLE
-STDCALL
-CreateActCtxA(
-    PCACTCTXA pActCtx
-    );
-
-
-HANDLE
-STDCALL
-CreateActCtxW(
-    PCACTCTXW pActCtx
-    );
-
-LPVOID
-STDCALL
-CreateFiberEx(
-    SIZE_T dwStackCommitSize,
-    SIZE_T dwStackReserveSize,
-    DWORD dwFlags,
-    LPFIBER_START_ROUTINE lpStartAddress,
-    LPVOID lpParameter
-    );
-
-WINBOOL
-STDCALL
-CreateJobSet (
-    ULONG NumJob,
-    PJOB_SET_ARRAY UserJobSet,
-    ULONG Flags);
-
-HANDLE
-STDCALL
-CreateMemoryResourceNotification(
-    MEMORY_RESOURCE_NOTIFICATION_TYPE NotificationType
-    );
-
-HANDLE
-STDCALL
-CreateTimerQueue(
-    VOID
-    );
-
-WINBOOL
-STDCALL
-CreateTimerQueueTimer(
-    PHANDLE phNewTimer,
-    HANDLE TimerQueue,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Parameter,
-    DWORD DueTime,
-    DWORD Period,
-    ULONG Flags
-    ) ;
-
-WINBOOL
-STDCALL
-DeactivateActCtx(
-    DWORD dwFlags,
-    ULONG_PTR ulCookie
-    );
-
-WINBOOL
-STDCALL
-DebugActiveProcessStop(
-    DWORD dwProcessId
-    );
-
-WINBOOL
-STDCALL
-DebugBreakProcess (
-    HANDLE Process
-    );
-
-WINBOOL
-STDCALL
-DebugSetProcessKillOnExit(
-    WINBOOL KillOnExit
-    );
-
-WINBOOL
-STDCALL
-DeleteTimerQueue(
-    HANDLE TimerQueue
-    );
-
-WINBOOL
-STDCALL
-DeleteTimerQueueEx(
-    HANDLE TimerQueue,
-    HANDLE CompletionEvent
-    );
-
-WINBOOL
-STDCALL
-DeleteTimerQueueTimer(
-    HANDLE TimerQueue,
-    HANDLE Timer,
-    HANDLE CompletionEvent
-    );
-
-WINBOOL
-STDCALL
-FindActCtxSectionGuid(
-    DWORD dwFlags,
-    const GUID *lpExtensionGuid,
-    ULONG ulSectionId,
-    const GUID *lpGuidToFind,
-    PACTCTX_SECTION_KEYED_DATA ReturnedData
-    );
-
-WINBOOL
-STDCALL
-FindVolumeClose(
-    HANDLE hFindVolume
-    );
-
-WINBOOL
-STDCALL
-FindVolumeMountPointClose(
-    HANDLE hFindVolumeMountPoint
-    );
-
-WINBOOL
-STDCALL
-FreeUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
-    );
-
-WINBOOL
-STDCALL
-GetCurrentActCtx(
-    HANDLE *lphActCtx);
-
-WINBOOL
-STDCALL
-GetDevicePowerState(
-    HANDLE hDevice,
-    WINBOOL *pfOn
-    );
-
-WINBOOL
-STDCALL
-GetFileSizeEx(
-    HANDLE hFile,
-    PLARGE_INTEGER lpFileSize
-    );
-
-VOID
-STDCALL
-GetNativeSystemInfo(
-    LPSYSTEM_INFO lpSystemInfo
-    );
-
-WINBOOL
-STDCALL
-GetNumaHighestNodeNumber(
-    PULONG HighestNodeNumber
-    );
-
-WINBOOL
-STDCALL
-GetNumaNodeProcessorMask(
-    UCHAR Node,
-    PULONGLONG ProcessorMask
-    );
-
-WINBOOL
-STDCALL
-GetNumaProcessorNode(
-    UCHAR Processor,
-    PUCHAR NodeNumber
-    );
-
-WINBOOL
-STDCALL
-GetProcessHandleCount(
-    HANDLE hProcess,
-    PDWORD pdwHandleCount
-    );
-
-DWORD
-STDCALL
-GetProcessId(
-    HANDLE Process
-    );
-
-WINBOOL
-STDCALL
-GetProcessIoCounters(
-    HANDLE hProcess,
-    PIO_COUNTERS lpIoCounters
-    );
-
-WINBOOL
-STDCALL
-GetProcessPriorityBoost(
-    HANDLE hProcess,
-    PWINBOOL pDisablePriorityBoost
-    );
-
-WINBOOL
-STDCALL
-GetSystemRegistryQuota(
-    PDWORD pdwQuotaAllowed,
-    PDWORD pdwQuotaUsed
-    );
-
-WINBOOL
-STDCALL
-GetSystemTimes(
-    LPFILETIME lpIdleTime,
-    LPFILETIME lpKernelTime,
-    LPFILETIME lpUserTime
-    );
-
-WINBOOL
-STDCALL
-GetThreadIOPendingFlag(
-    HANDLE hThread,
-    PWINBOOL lpIOIsPending
-    );
-
-UINT
-STDCALL
-GetWriteWatch(
-    DWORD  dwFlags,
-    PVOID  lpBaseAddress,
-    SIZE_T dwRegionSize,
-    PVOID *lpAddresses,
-    PULONG_PTR lpdwCount,
-    PULONG lpdwGranularity
-    );
-
-WINBOOL
-STDCALL
-GlobalMemoryStatusEx(
-    LPMEMORYSTATUSEX lpBuffer
-    );
-
-WINBOOL
-STDCALL
-HeapQueryInformation (
-    HANDLE HeapHandle, 
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL,
-    PSIZE_T ReturnLength OPTIONAL
-    );
-
-WINBOOL
-STDCALL
-HeapSetInformation (
-    HANDLE HeapHandle,
-    HEAP_INFORMATION_CLASS HeapInformationClass,
-    PVOID HeapInformation OPTIONAL,
-    SIZE_T HeapInformationLength OPTIONAL
-    );
-
-WINBOOL
-STDCALL
-InitializeCriticalSectionAndSpinCount(
-    LPCRITICAL_SECTION lpCriticalSection,
-    DWORD dwSpinCount
-    );
-
-VOID
-STDCALL
-InitializeSListHead (
-    PSLIST_HEADER ListHead
-    );
-
-PSLIST_ENTRY
-STDCALL
-InterlockedFlushSList (
-    PSLIST_HEADER ListHead
-    );
-
-#ifndef __NTDRIVER__ /* needed to avoid conflicts in win32k */
-PSLIST_ENTRY
-STDCALL
-InterlockedPopEntrySList (
-    PSLIST_HEADER ListHead
-    );
-
-PSLIST_ENTRY
-STDCALL
-InterlockedPushEntrySList (
-    PSLIST_HEADER ListHead,
-    PSLIST_ENTRY ListEntry
-    );
-
-#endif
-
-WINBOOL
-STDCALL
-IsProcessInJob (
-    HANDLE ProcessHandle,
-    HANDLE JobHandle,
-    PWINBOOL Result
-    );
-
-WINBOOL
-STDCALL
-IsSystemResumeAutomatic(
-    VOID
-    );
-
-WINBOOL
-STDCALL
-IsWow64Process(
-    HANDLE hProcess,
-    PWINBOOL Wow64Process
-    );
-
-WINBOOL
-STDCALL
-MapUserPhysicalPages(
-    PVOID VirtualAddress,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray OPTIONAL
-    );
-
-WINBOOL
-STDCALL
-MapUserPhysicalPagesScatter(
-    PVOID *VirtualAddresses,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray OPTIONAL
-    );
-
-HANDLE
-STDCALL
-OpenThread(
-    DWORD dwDesiredAccess,
-    WINBOOL bInheritHandle,
-    DWORD dwThreadId
-    );
-
-WINBOOL
-STDCALL
-QueryActCtxW(
-    DWORD dwFlags,
-    HANDLE hActCtx,
-    PVOID pvSubInstance,
-    ULONG ulInfoClass,
-    PVOID pvBuffer,
-    SIZE_T cbBuffer OPTIONAL,
-    SIZE_T *pcbWrittenOrRequired OPTIONAL
-    );
-
-USHORT
-STDCALL
-QueryDepthSList (
-    PSLIST_HEADER ListHead
-    );
-
-WINBOOL
-STDCALL
-QueryInformationJobObject(
-    HANDLE hJob,
-    JOBOBJECTINFOCLASS JobObjectInformationClass,
-    LPVOID lpJobObjectInformation,
-    DWORD cbJobObjectInformationLength,
-    LPDWORD lpReturnLength
-    );
-
-WINBOOL
-STDCALL
-QueryMemoryResourceNotification(
-     HANDLE ResourceNotificationHandle,
-    PWINBOOL  ResourceState
-    );
-
-DWORD
-STDCALL
-QueueUserAPC(
-    PAPCFUNC pfnAPC,
-    HANDLE hThread,
-    ULONG_PTR dwData
-    );
-
-NTSTATUS
-STDCALL
-RtlQueueWorkItem(
-    LPTHREAD_START_ROUTINE Function,
-    PVOID Context,
-    ULONG Flags
-    );
-
-WINBOOL
-STDCALL
-ReadDirectoryChangesW(
-    HANDLE hDirectory,
-    LPVOID lpBuffer,
-    DWORD nBufferLength,
-    WINBOOL bWatchSubtree,
-    DWORD dwNotifyFilter,
-    LPDWORD lpBytesReturned,
-    LPOVERLAPPED lpOverlapped,
-    LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
-    );
-
-WINBOOL
-STDCALL
-ReadFileScatter(
-    HANDLE hFile,
-    FILE_SEGMENT_ELEMENT aSegmentArray[],
-    DWORD nNumberOfBytesToRead,
-    LPDWORD lpReserved,
-    LPOVERLAPPED lpOverlapped
-    );
-
-WINBOOL
-STDCALL
-RegisterWaitForSingleObject(
-    PHANDLE phNewWaitObject,
-    HANDLE hObject,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Context,
-    ULONG dwMilliseconds,
-    ULONG dwFlags
-    );
-
-HANDLE
-STDCALL
-RegisterWaitForSingleObjectEx(
-    HANDLE hObject,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Context,
-    ULONG dwMilliseconds,
-    ULONG dwFlags
-    );
-
-VOID
-STDCALL
-ReleaseActCtx(
-    HANDLE hActCtx
-    );
-
-ULONG
-STDCALL
-RemoveVectoredExceptionHandler(
-    PVOID VectoredHandlerHandle
-    );
-
-WINBOOL
-STDCALL
-RequestDeviceWakeup(
-    HANDLE hDevice
-    );
-
-WINBOOL
-STDCALL
-RequestWakeupLatency(
-    LATENCY_TIME latency
-    );
-
-UINT
-STDCALL
-ResetWriteWatch(
-    LPVOID lpBaseAddress,
-    SIZE_T dwRegionSize
-    );
-
-VOID
-STDCALL
-RestoreLastError(
-    DWORD dwErrCode
-    );
-
-DWORD
-STDCALL
-SetCriticalSectionSpinCount(
-    LPCRITICAL_SECTION lpCriticalSection,
-    DWORD dwSpinCount
-    );
-
-WINBOOL
-STDCALL
-SetFilePointerEx(
-    HANDLE hFile,
-    LARGE_INTEGER liDistanceToMove,
-    PLARGE_INTEGER lpNewFilePointer,
-    DWORD dwMoveMethod
-    );
-
-WINBOOL
-STDCALL
-SetFileValidData(
-    HANDLE hFile,
-    LONGLONG ValidDataLength
-    );
-
-WINBOOL
-STDCALL
-SetInformationJobObject(
-    HANDLE hJob,
-    JOBOBJECTINFOCLASS JobObjectInformationClass,
-    LPVOID lpJobObjectInformation,
-    DWORD cbJobObjectInformationLength
-    );
-
-WINBOOL
-STDCALL
-SetMessageWaitingIndicator(
-    HANDLE hMsgIndicator,
-    ULONG ulMsgCount
-    );
-
-WINBOOL
-STDCALL
-SetProcessPriorityBoost(
-    HANDLE hProcess,
-    WINBOOL bDisablePriorityBoost
-    );
-
-EXECUTION_STATE
-STDCALL
-SetThreadExecutionState(
-    EXECUTION_STATE esFlags
-    );
-
-HANDLE
-STDCALL
-SetTimerQueueTimer(
-    HANDLE TimerQueue,
-    WAITORTIMERCALLBACK Callback,
-    PVOID Parameter,
-    DWORD DueTime,
-    DWORD Period,
-    WINBOOL PreferIo
-    );
-
-DWORD
-STDCALL
-SignalObjectAndWait(
-    HANDLE hObjectToSignal,
-    HANDLE hObjectToWaitOn,
-    DWORD dwMilliseconds,
-    WINBOOL bAlertable
-    );
-
-WINBOOL
-STDCALL
-TerminateJobObject(
-    HANDLE hJob,
-    UINT uExitCode
-    );
-
-WINBOOL
-STDCALL
-TzSpecificLocalTimeToSystemTime(
-    LPTIME_ZONE_INFORMATION lpTimeZoneInformation,
-    LPSYSTEMTIME lpLocalTime,
-    LPSYSTEMTIME lpUniversalTime
-    );
-
-WINBOOL
-STDCALL
-UnregisterWait(
-    HANDLE WaitHandle
-    );
-
-WINBOOL
-STDCALL
-UnregisterWaitEx(
-    HANDLE WaitHandle,
-    HANDLE CompletionEvent
-    );
-
-WINBOOL
-STDCALL
-WriteFileGather(
-    HANDLE hFile,
-    FILE_SEGMENT_ELEMENT aSegmentArray[],
-    DWORD nNumberOfBytesToWrite,
-    LPDWORD lpReserved,
-    LPOVERLAPPED lpOverlapped
-    );
-
-DWORD
-STDCALL
-WTSGetActiveConsoleSessionId(VOID);
-
-WINBOOL
-STDCALL
-ZombifyActCtx(
-    HANDLE hActCtx
-    );
-
-PVOID
-STDCALL
-AddVectoredExceptionHandler(
-    ULONG FirstHandler,
-    PVECTORED_EXCEPTION_HANDLER VectoredHandler
-    );
-
-HANDLE 
-STDCALL 
-AddFontMemResourceEx(
-	PVOID pbFont,
-	DWORD cbFont,
-	PVOID pdv,
-	DWORD *pcFonts
-);
-
-int 
-STDCALL 
-AddFontResourceTracking(
-	LPCSTR lpString,
-	int unknown
-);
-
-WINBOOL 
-STDCALL 
-AnyLinkedFonts(VOID);
-
-HBITMAP 
-STDCALL
-ClearBitmapAttributes(HBITMAP hbm, DWORD dwFlags);
-
-HBRUSH 
-STDCALL
-ClearBrushAttributes(HBRUSH hbm, DWORD dwFlags);
-
-WINBOOL 
-STDCALL
-ColorCorrectPalette(HDC hDC,HPALETTE hPalette,DWORD dwFirstEntry,DWORD dwNumOfEntries);
-
-WINBOOL 
-STDCALL
-EnableEUDC(WINBOOL enable);
-
-int
-STDCALL
-EndFormPage(HDC hdc);
-
-WINBOOL
-STDCALL
-EudcLoadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath,INT iPriority,INT iFontLinkType);
-
-WINBOOL 
-STDCALL
-EudcUnloadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath);
-
-WINBOOL 
-STDCALL
-FontIsLinked(HDC hdc);
-
-int 
-STDCALL
-GdiAddFontResourceW(LPCWSTR filename,FLONG f,DESIGNVECTOR *pdv);
-
-DWORD 
-STDCALL
-GdiAddGlsBounds(HDC hdc,LPRECT prc);
-
-WINBOOL 
-STDCALL
-GdiAlphaBlend(HDC hdcDst,LONG DstX,LONG DstY,LONG DstCx,LONG DstCy,HDC hdcSrc,LONG SrcX,LONG SrcY,LONG SrcCx,LONG SrcCy,BLENDFUNCTION BlendFunction);
-
-WINBOOL 
-STDCALL
-GdiArtificialDecrementDriver(LPWSTR pDriverName,WINBOOL unknown);
-
-WINBOOL
-STDCALL
-GdiCleanCacheDC(HDC hdc);
-
-WINBOOL 
-STDCALL
-GdiConsoleTextOut(HDC hdc, POLYTEXTW *lpto,UINT nStrings, RECTL *prclBounds);
-
-HDC
-STDCALL
-GdiConvertAndCheckDC(HDC hdc);
-
-HBITMAP 
-STDCALL
-GdiConvertBitmap(HBITMAP hbm);
-
-HBRUSH
-STDCALL
-GdiConvertBrush(HBRUSH hbr);
-
-HDC 
-STDCALL
-GdiConvertDC(HDC hdc);
-
-HFONT 
-STDCALL
-GdiConvertFont(HFONT hfont);
-
-HPALETTE 
-STDCALL
-GdiConvertPalette(HPALETTE hpal);
-
-HRGN
-STDCALL
-GdiConvertRegion(HRGN hregion);
-
-HENHMETAFILE 
-STDCALL
-GdiConvertEnhMetaFile(HENHMETAFILE hmf);
-
-WINBOOL
-STDCALL
-GdiDeleteLocalDC(HDC hdc);
-
-int 
-STDCALL
-GdiDescribePixelFormat(HDC hdc,int ipfd,UINT cjpfd,PPIXELFORMATDESCRIPTOR ppfd);
-
-WINBOOL
-STDCALL
-GdiDrawStream(HDC dc, ULONG l, VOID *v);
-
-HGDIOBJ
-STDCALL
-GdiFixUpHandle(HGDIOBJ hobj);
-
-NTSTATUS
-STDCALL
-GdiFullscreenControl(FULLSCREENCONTROL FullscreenCommand, PVOID FullscreenInput,
-					DWORD FullscreenInputLength, PVOID FullscreenOutput,
-					PULONG FullscreenOutputLength);
-
-DWORD 
-STDCALL
-GdiGetCodePage(HDC hdc);
-
-HBRUSH 
-STDCALL
-GdiGetLocalBrush(HBRUSH hbr);
-
-HDC 
-STDCALL
-GdiGetLocalDC(HDC hdc);
-
-HFONT 
-STDCALL
-GdiGetLocalFont(HFONT hfont);
-
-WINBOOL
-STDCALL
-GdiGradientFill(HDC hdc,PTRIVERTEX pVertex,ULONG uVertex,PVOID pMesh,ULONG uMesh,ULONG ulMode);
-
-WINBOOL
-STDCALL
-GdiIsMetaFileDC(HDC hdc);
-
-WINBOOL
-STDCALL
-GdiIsMetaPrintDC(HDC hdc);
-
-WINBOOL
-STDCALL
-GdiIsPlayMetafileDC(HDC hdc);
-
-INT 
-STDCALL
-GdiQueryFonts(PUNIVERSAL_FONT_ID pufiFontList,ULONG nBufferSize,PLARGE_INTEGER pTimeStamp );
-
-WINBOOL 
-STDCALL
-GdiRealizationInfo(HDC hdc, PREALIZATION_INFO pri);
-
-WINBOOL
-STDCALL
-GdiReleaseDC(HDC hdc);
-
-WINBOOL
-STDCALL
-GdiReleaseLocalDC(HDC hdc);
-
-WINBOOL
-STDCALL
-GdiSetAttrs(HDC hdc);
-
-VOID
-STDCALL
-GdiSetLastError(DWORD dwErrCode);
-
-WINBOOL
-STDCALL
-GdiSetPixelFormat(HDC hdc,int ipfd);
-
-WINBOOL
-STDCALL
-GdiTransparentBlt(HDC hdcDst, int xDst, int yDst, int cxDst, int cyDst,HDC hdcSrc, int xSrc, int ySrc, int cxSrc, int cySrc,COLORREF TransColor);
-
-WINBOOL
-STDCALL
-GdiValidateHandle(HGDIOBJ hobj);
-
-WINBOOL
-STDCALL
-GdiSwapBuffers(HDC hdc);
-
-VOID 
-STDCALL
-GdiSetServerAttr(HDC hdc,DWORD attr);
-
-DWORD 
-STDCALL
-GetBitmapAttributes(HBITMAP hbm);
-
-DWORD 
-STDCALL
-GetBrushAttributes(HBRUSH hbr);
-
-WINBOOL 
-STDCALL
-GetCharABCWidthsI(
-	HDC hdc,
-	UINT giFirst,
-	UINT cgi,
-	LPWORD pgi,
-	LPABC lpabc
-);
-
-WINBOOL 
-STDCALL
-GetCharWidthI(
-	HDC hdc,
-	UINT giFirst,
-	UINT cgi,
-	LPWORD pgi,
-	LPINT lpBuffer
-);
-
-WINBOOL 
-STDCALL
-GetCharWidthInfo(HDC hdc,PCHWIDTHINFO pChWidthInfo);
-
-COLORREF 
-STDCALL
-GetDCBrushColor(
-	HDC hdc
-);
-
-COLORREF 
-STDCALL
-GetDCPenColor(
-	HDC hdc
-);
-
-DWORD 
-STDCALL
-GetFontUnicodeRanges(
-	HDC hdc,
-	LPGLYPHSET lpgs
-);
-
-WINBOOL 
-STDCALL
-GetETM(HDC hdc,EXTTEXTMETRIC *petm);
-
-ULONG 
-STDCALL
-GetEUDCTimeStamp(VOID);
-
-DWORD 
-STDCALL
-GetEUDCTimeStampExW(LPCWSTR str);
-
-ULONG 
-STDCALL
-GetFontAssocStatus(HDC hdc);
-
-HFONT 
-STDCALL
-GetHFONT(HDC dc);
-
-DWORD 
-STDCALL
-GetLayout(
-	HDC hdc
-);
-
-WINBOOL
-STDCALL
-GetTextExtentExPointWPri(HDC hdc,LPWSTR lpwsz,ULONG cwc,ULONG dxMax,ULONG *pcCh,PULONG pdxOut,LPSIZE psize);
-
-WINBOOL 
-STDCALL
-GetTextExtentPointI(
-	HDC hdc,
-	LPWORD pgiIn,
-	int cgi,
-	LPSIZE lpSize
-);
-
-int 
-STDCALL
-GetTextFaceAliasW(HDC hdc,int cChar,LPWSTR pszOut);
-
-WINBOOL 
-STDCALL
-GetTransform(HDC hdc, DWORD iXform, LPXFORM pxf);
-
-LONG 
-STDCALL
-HT_Get8BPPFormatPalette(LPPALETTEENTRY pPaletteEntry, USHORT RedGamma,USHORT GreenGamma, USHORT BlueGamma);
-
-LONG 
-STDCALL
-HT_Get8BPPMaskPalette(LPPALETTEENTRY pPaletteEntry, WINBOOL Use8BPPMaskPal,BYTE CMYMask, USHORT RedGamma, USHORT GreenGamma, USHORT BlueGamma);
-
-WINBOOL 
-STDCALL
-MirrorRgn(HWND hwnd,HRGN hrgn);
-
-int 
-STDCALL
-NamedEscape(HDC hdc,PWCHAR pDriver,int nDriver,int iEsc,int cjIn,LPSTR pjIn,int cjOut,LPSTR pjOut);
-
-DWORD 
-STDCALL
-QueryFontAssocStatus(VOID);
-
-WINBOOL 
-STDCALL
-RemoveFontMemResourceEx(
-	HANDLE fh
-);
-
-int 
-STDCALL
-RemoveFontResourceTracking(LPCSTR lpString,int unknown);
-
-WINBOOL 
-STDCALL
-GetTextExtentExPointI(
-	HDC hdc,
-	LPWORD pgiIn,
-	int cgi,
-	int nMaxExtent,
-	LPINT lpnFit,
-	LPINT alpDx,
-	LPSIZE lpSize
-);
-
-HBITMAP 
-STDCALL
-SetBitmapAttributes(HBITMAP hbm, DWORD dwFlags);
-
-HBRUSH 
-STDCALL
-SetBrushAttributes(HBRUSH hbm, DWORD dwFlags);
-
-COLORREF 
-STDCALL
-SetDCBrushColor(
-	HDC hdc,
-	COLORREF crColor
-);
-
-COLORREF 
-STDCALL
-SetDCPenColor(
-	HDC hdc,
-	COLORREF crColor
-);
-
-DWORD 
-STDCALL
-SetLayout(
-	HDC hdc,
-	DWORD dwLayout
-);
-
-DWORD 
-STDCALL
-SetLayoutWidth(HDC hdc,LONG wox,DWORD dwLayout);
-
-WINBOOL 
-STDCALL
-SetMagicColors(HDC hdc,PALETTEENTRY peMagic,ULONG Index);
-
-WINBOOL
-STDCALL
-SetVirtualResolution(HDC hdc, int cxVirtualDevicePixel,int cyVirtualDevicePixel,int cxVirtualDeviceMm, int cyVirtualDeviceMm);
-
-int 
-STDCALL
-StartFormPage(HDC hdc);
-
-VOID 
-STDCALL
-UnloadNetworkFonts(DWORD unknown);
-
-WINBOOL 
-STDCALL
-bInitSystemAndFontsDirectoriesW(LPWSTR *SystemDir,LPWSTR *FontsDir);
-
-WINBOOL 
-STDCALL
-bMakePathNameW(LPWSTR lpBuffer,LPCWSTR lpFileName,LPWSTR *lpFilePart,DWORD unknown);
-
-WINBOOL
-STDCALL
-GdiAddGlsRecord(HDC hdc,DWORD unknown1,LPCSTR unknown2,LPRECT unknown3);
-
-HANDLE
-STDCALL
-GdiConvertMetaFilePict(HGLOBAL hMem);
-
-DEVMODEW *
-STDCALL
-GdiConvertToDevmodeW(DEVMODEA *dm);
-
-HENHMETAFILE
-STDCALL
-GdiCreateLocalEnhMetaFile(HENHMETAFILE hmo);
-
-METAFILEPICT *
-STDCALL
-GdiCreateLocalMetaFilePict(HENHMETAFILE hmo);
-
-DWORD
-STDCALL
-GdiGetCharDimensions(HDC hdc,LPTEXTMETRICW lptm,BOOL unk);
-
-PVOID
-STDCALL
-GdiQueryTable(VOID);
-
-HANDLE 
-STDCALL
-GdiGetSpoolFileHandle(
-	LPWSTR		pwszPrinterName,
-	LPDEVMODEW	pDevmode,
-	LPWSTR		pwszDocName);
-
-WINBOOL
-STDCALL
-GdiDeleteSpoolFileHandle(
-	HANDLE	SpoolFileHandle);
-
-DWORD 
-STDCALL
-GdiGetPageCount(
-	HANDLE	SpoolFileHandle);
-
-HDC
-STDCALL
-GdiGetDC(
-	HANDLE	SpoolFileHandle);
-
-HANDLE 
-STDCALL
-GdiGetPageHandle(
-	HANDLE	SpoolFileHandle,
-	DWORD	Page,
-	LPDWORD	pdwPageType);
-
-WINBOOL
-STDCALL
-GdiStartDocEMF(
-	HANDLE		SpoolFileHandle,
-	DOCINFOW	*pDocInfo);
-
-WINBOOL
-STDCALL
-GdiStartPageEMF(
-	HANDLE	SpoolFileHandle);
-
-WINBOOL
-STDCALL
-GdiPlayPageEMF(
-	HANDLE	SpoolFileHandle,
-	HANDLE	hemf,
-	RECT	*prectDocument,
-	RECT	*prectBorder,
-	RECT	*prectClip);
-
-WINBOOL
-STDCALL
-GdiEndPageEMF(
-	HANDLE	SpoolFileHandle,
-	DWORD	dwOptimization);
-
-WINBOOL
-STDCALL
-GdiEndDocEMF(
-	HANDLE	SpoolFileHandle);
-
-WINBOOL
-STDCALL
-GdiGetDevmodeForPage(
-	HANDLE		SpoolFileHandle,
-	DWORD		dwPageNumber,
-	PDEVMODEW	*pCurrDM,
-	PDEVMODEW	*pLastDM);
-
-WINBOOL
-STDCALL
-GdiResetDCEMF(
-	HANDLE		SpoolFileHandle,
-	PDEVMODEW	pCurrDM);
-
-WINBOOL 
-STDCALL
-GdiPlayEMF
-(
-	LPWSTR     pwszPrinterName,
-	LPDEVMODEW pDevmode,
-	LPWSTR     pwszDocName,
-	EMFPLAYPROC pfnEMFPlayFn,
-	HANDLE     hPageQuery
-);
-
-WINBOOL
-STDCALL
-GdiInitSpool(VOID);
-
-WINBOOL
-STDCALL
-GdiPlayPrivatePageEMF
-(
-	HANDLE	SpoolFileHandle,
-	DWORD	unknown,
-	RECT	*prectDocument
-);
-
-WINBOOL 
-STDCALL
-AlignRects(LPRECT rect, DWORD b, DWORD c, DWORD d);
-
-LRESULT
-STDCALL
-DefRawInputProc(
-    PRAWINPUT* paRawInput,
-    INT nInput,
-    UINT cbSizeHeader);
-
-VOID
-STDCALL 
-DisableProcessWindowsGhosting(VOID);
-
-WINBOOL
-STDCALL
-GetLayeredWindowAttributes(
-    HWND hwnd,
-    COLORREF *pcrKey,
-    BYTE *pbAlpha,
-    DWORD *pdwFlags);
-
-UINT
-STDCALL
-GetRawInputBuffer(
-    PRAWINPUT   pData,
-    PUINT    pcbSize,
-    UINT         cbSizeHeader);
-
-UINT
-STDCALL
-GetRawInputData(
-    HRAWINPUT    hRawInput,
-    UINT         uiCommand,
-    LPVOID      pData,
-    PUINT    pcbSize,
-    UINT         cbSizeHeader);
-
-UINT
-STDCALL
-GetRawInputDeviceList(
-    PRAWINPUTDEVICELIST pRawInputDeviceList,
-    PUINT puiNumDevices,
-    UINT cbSize);
-
-UINT
-STDCALL
-GetRegisteredRawInputDevices(
-    PRAWINPUTDEVICE pRawInputDevices,
-    PUINT puiNumDevices,
-    UINT cbSize);
-
-int
-STDCALL
-GetWindowRgnBox(
-    HWND hWnd,
-    LPRECT lprc);
-
-WINBOOL
-STDCALL
-IsGUIThread(
-    WINBOOL bConvert);
-
-WINBOOL
-STDCALL
-IsWinEventHookInstalled(
-    DWORD event);
-
-WINBOOL
-STDCALL
-PrintWindow(
-    HWND hwnd,
-    HDC hdcBlt,
-    UINT nFlags);
-
-WINBOOL
-STDCALL
-RegisterRawInputDevices(
-    PCRAWINPUTDEVICE pRawInputDevices,
-    UINT uiNumDevices,
-    UINT cbSize);
-
-DWORD
-STDCALL 
-SetSysColorsTemp(
-		 const COLORREF *pPens,
-		 const HBRUSH *pBrushes,
-		 DWORD n
-		 );
-
-INT
-STDCALL
-UserClientDllInitialize(
-			HINSTANCE inst,
-			DWORD reason,
-			LPVOID reserved
-			);
-
-DWORD
-STDCALL
-DrawMenuBarTemp(
-		HWND hwnd,
-		HDC hDC,
-		LPRECT lprect,
-		HMENU hMenu,
-		HFONT hFont
-		);
-
-UINT
-STDCALL
-UserRealizePalette ( HDC hDC );
-
-WINBOOL
-STDCALL
-DdeFreeStringHandle ( DWORD idInst, HSZ hsz );
-
-WINBOOL
-STDCALL
-DeregisterShellHookWindow ( HWND hWnd );
-
-WINBOOL
-STDCALL
-RegisterShellHookWindow ( HWND hWnd );
-
-WINBOOL
-STDCALL
-EndTask(
-	HWND hWnd,
-	WINBOOL fShutDown,
-	WINBOOL fForce
-	);
-
-int
-STDCALL
-InternalGetWindowText(
-		      HWND hWnd,
-		      LPWSTR lpString,
-		      int nMaxCount
-		      );
-
-WINBOOL
-STDCALL
-IsHungAppWindow ( HWND hwnd );
-
-VOID
-STDCALL
-NotifyWinEvent(
-	       DWORD event,
-	       HWND hwnd,
-	       LONG idObject,
-	       LONG idChild
-	       );
-
-HWINEVENTHOOK
-STDCALL
-SetWinEventHook(
-		DWORD eventMin,
-		DWORD eventMax,
-		HMODULE hmodWinEventProc,
-		WINEVENTPROC pfnWinEventProc,
-		DWORD idProcess,
-		DWORD idThread,
-		DWORD dwFlags
-		);
-
-VOID
-STDCALL
-SwitchToThisWindow(
-		   HWND hwnd,
-		   WINBOOL fUnknown );
-
-WINBOOL
-STDCALL
-UnhookWinEvent ( HWINEVENTHOOK hWinEventHook );
-
-LRESULT
-STDCALL
-EditWndProc(
-	    HWND hWnd,
-	    UINT Msg,
-	    WPARAM wParam,
-	    LPARAM lParam
-	    );
-
-WINBOOL
-STDCALL
-SetDeskWallpaper ( LPCSTR filename );
-
-DWORD
-STDCALL
-GetAppCompatFlags ( HTASK hTask );
-
-HDESK
-STDCALL
-GetInputDesktop ( VOID );
-
-UINT
-STDCALL
-GetInternalWindowPos(
-		     HWND hwnd,
-		     LPRECT rectWnd,
-		     LPPOINT ptIcon
-		     );
-
-HWND
-STDCALL
-GetProgmanWindow ( VOID );
-
-HWND
-STDCALL
-GetTaskmanWindow ( VOID );
-
-DWORD
-STDCALL
-SetWindowStationUser(
-		       DWORD Unknown1,
-		       DWORD Unknown2,
-		       DWORD Unknown3,
-		       DWORD Unknown4
-		     );
-
-UINT
-STDCALL
-SetSystemTimer(
-	      HWND hWnd,
-	      UINT_PTR IDEvent,
-	      UINT Period,
-	      TIMERPROC TimerFunc
-	      );
-
-WINBOOL
-STDCALL
-SetSystemMenu(
-	      HWND hwnd,
-	      HMENU hMenu
-	      );
-
-HWND
-STDCALL
-SetTaskmanWindow ( HWND x );
-
-HWND
-STDCALL
-SetProgmanWindow ( HWND x );
-
-VOID
-STDCALL
-ScrollChildren(
-	       HWND hWnd,
-	       UINT uMsg,
-	       WPARAM wParam,
-	       LPARAM lParam
-	       );
-
-VOID
-STDCALL
-LoadLocalFonts ( VOID );
-
-VOID
-STDCALL
-LoadRemoteFonts ( VOID );
-
-VOID
-STDCALL
-SetInternalWindowPos(
-		     HWND hwnd,
-		     UINT showCmd,
-		     LPRECT rect,
-		     LPPOINT pt
-		     );
-
-VOID
-STDCALL
-RegisterSystemThread(
-		     DWORD flags,
-		     DWORD reserved
-		     );
-
-BOOL
-STDCALL
-RegisterLogonProcess(
-		     DWORD dwPprocessId,
-		     BOOL bRegister
-		     );
-
-WINBOOL
-STDCALL
-KillSystemTimer(
-		     HWND hWnd,
-		     UINT_PTR IDEvent
-		     );
-
-DWORD
-STDCALL
-RegisterTasklist ( DWORD x );
-
-DWORD
-STDCALL
-SetLogonNotifyWindow ( HWINSTA hwinsta, HWND hwnd );
-
-WORD
-STDCALL
-CascadeChildWindows ( HWND hWndParent, WORD wFlags );
-
-WORD
-STDCALL
-TileChildWindows ( HWND hWndParent, WORD wFlags );
-
-WINBOOL
-STDCALL
-TranslateMessageEx ( CONST MSG *lpMsg, DWORD unk );
-
-WINBOOL
-STDCALL
-DrawFrame(
-	  HDC hDc,
-	  RECT *r,
-	  DWORD width,
-	  DWORD type
-	  );
-
-WINBOOL
-STDCALL
-LockWindowStation ( HWINSTA hWinSta );
-
-WINBOOL
-STDCALL
-UnlockWindowStation ( HWINSTA hWinSta );
-
-WINBOOL
-STDCALL
-GetAccCursorInfo ( PCURSORINFO pci );
-
-LPWSTR
-STDCALL
-MB_GetString ( DWORD string );
-
-WINBOOL
-STDCALL
-ClientThreadSetup ( VOID );
-
-WINBOOL
-STDCALL
-PolyPatBlt(
-	   HDC hDC,
-	   DWORD dwRop,
-	   PPATRECT pRects,
-	   int cRects,
-	   ULONG Reserved
-	   );
-
-DWORD
-STDCALL
-WCSToMBEx(
-	  WORD CodePage,
-	  LPWSTR UnicodeString,
-	  LONG UnicodeSize,
-	  LPSTR *MBString,
-	  LONG MBSize,
-	  BOOL Allocate
-	  );
-
-DWORD
-STDCALL
-MBToWCSEx(
-	  WORD CodePage,
-	  LPSTR MBString,
-	  LONG MBSize,
-	  LPWSTR *UnicodeString,
-	  LONG UnicodeSize,
-	  BOOL Allocate
-	  );
-
-HWND
-STDCALL
-GetAncestor ( HWND hWnd, UINT GaFlags );
-
-WINBOOL
-STDCALL
-AbnormalTermination ( VOID );
-
-int
-STDCALL
-AbortDoc ( HDC );
-
-WINBOOL
-STDCALL
-AbortPath ( HDC );
-
-WINBOOL
-STDCALL
-AbortPrinter ( HANDLE );
-
-WINBOOL
-CALLBACK
-AbortProc ( HDC, int );
-
-WINBOOL
-STDCALL
-AccessCheck(
-	    PSECURITY_DESCRIPTOR  pSecurityDescriptor,
-	    HANDLE  ClientToken,
-	    DWORD  DesiredAccess,
-	    PGENERIC_MAPPING  GenericMapping,
-	    PPRIVILEGE_SET  PrivilegeSet,
-	    LPDWORD  PrivilegeSetLength,
-	    LPDWORD  GrantedAccess,
-	    LPBOOL  AccessStatus
-	    );
+  HWND STDCALL GetAncestor(HWND hWnd, UINT GaFlags);
+WINBOOL STDCALL AbnormalTermination(VOID);
+int STDCALL AbortDoc(HDC);
+WINBOOL STDCALL AbortPath(HDC);
+WINBOOL STDCALL AbortPrinter(HANDLE);
+WINBOOL CALLBACK AbortProc(HDC, int);
+WINBOOL STDCALL AccessCheck(
+		    PSECURITY_DESCRIPTOR  pSecurityDescriptor,
+		    HANDLE  ClientToken,
+		    DWORD  DesiredAccess,
+		    PGENERIC_MAPPING  GenericMapping,
+		    PPRIVILEGE_SET  PrivilegeSet,
+		    LPDWORD  PrivilegeSetLength,
+		    LPDWORD  GrantedAccess,
+		    LPBOOL  AccessStatus
+		    );
+
+WINBOOL STDCALL AccessCheckAndAuditAlarm(
+				 LPCTSTR  SubsystemName,
+				 LPVOID  HandleId,
+				 LPTSTR  ObjectTypeName,
+				 LPTSTR  ObjectName,
+				 PSECURITY_DESCRIPTOR  SecurityDescriptor,
+				 DWORD  DesiredAccess,
+				 PGENERIC_MAPPING  GenericMapping,
+				 WINBOOL  ObjectCreation,
+				 LPDWORD  GrantedAccess,
+				 LPBOOL  AccessStatus,
+				 LPBOOL  pfGenerateOnClose
+				 );
 
 #ifndef __NTDRIVER__
 LONG
@@ -4695,6 +999,10 @@ GlobalAlloc(
 	    DWORD dwBytes
 	    );
 
+HGLOBAL
+GlobalDiscard(
+	      HGLOBAL hglbMem
+	      );
 
 HGLOBAL
 STDCALL
@@ -5051,16 +1359,16 @@ WINBOOL
 STDCALL
 GetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 PSIZE_T lpMinimumWorkingSetSize,
-			 PSIZE_T lpMaximumWorkingSetSize
+			 LPDWORD lpMinimumWorkingSetSize,
+			 LPDWORD lpMaximumWorkingSetSize
 			 );
 
 WINBOOL
 STDCALL
 SetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 SIZE_T dwMinimumWorkingSetSize,
-			 SIZE_T dwMaximumWorkingSetSize
+			 DWORD dwMinimumWorkingSetSize,
+			 DWORD dwMaximumWorkingSetSize
 			 );
 
 HANDLE
@@ -5207,7 +1515,6 @@ GetThreadTimes(
 	       );
 
 
-__declspec(noreturn)
 VOID
 STDCALL
 ExitThread(
@@ -6453,6 +2760,15 @@ _llseek(
 	);
 
 
+WINBOOL
+STDCALL
+IsTextUnicode(
+	      CONST LPVOID lpBuffer,
+	      int cb,
+	      LPINT lpi
+	      );
+
+
 DWORD
 STDCALL
 TlsAlloc(
@@ -6479,16 +2795,6 @@ STDCALL
 TlsFree(
 	DWORD dwTlsIndex
 	);
-
-typedef VOID STDCALL_FUNC (*PFLS_CALLBACK_FUNCTION)(PVOID lpFlsData);
-
-DWORD STDCALL FlsAlloc(PFLS_CALLBACK_FUNCTION lpCallback);
-
-BOOL STDCALL FlsFree(DWORD dwFlsIndex);
-
-PVOID STDCALL FlsGetValue(DWORD dwFlsIndex);
-
-BOOL STDCALL FlsSetValue(DWORD dwFlsIndex, PVOID lpFlsData);
 
 DWORD
 STDCALL
@@ -8060,7 +4366,8 @@ ToAsciiEx(
  
 int
 STDCALL
-ToUnicode(UINT wVirtKey,
+ToUnicode(
+	  UINT wVirtKey,
 	  UINT wScanCode,
 	  PBYTE lpKeyState,
 	  LPWSTR pwszBuff,
@@ -8140,13 +4447,7 @@ SetTimer(
 	 UINT uElapse,
 	 TIMERPROC lpTimerFunc);
 
-typedef
-VOID STDCALL_FUNC
-(*PTIMERAPCROUTINE)(
-	LPVOID lpArgToCompletionRoutine,
-	DWORD dwTimerLowValue,
-	DWORD dwTimerHighValue
-	);
+
 WINBOOL
 STDCALL
 SetWaitableTimer(HANDLE hTimer,
@@ -8262,7 +4563,7 @@ CheckMenuItem(
 	      UINT uCheck);
 
  
-UINT
+WINBOOL
 STDCALL
 EnableMenuItem(
 	       HMENU hMenu,
@@ -8605,6 +4906,7 @@ GetScrollRange(
 	       LPINT lpMinPos,
 	       LPINT lpMaxPos);
 
+ 
 WINBOOL
 STDCALL
 ShowScrollBar(
@@ -8612,6 +4914,7 @@ ShowScrollBar(
 	      int wBar,
 	      WINBOOL bShow);
 
+ 
 WINBOOL
 STDCALL
 EnableScrollBar(
@@ -8619,25 +4922,21 @@ EnableScrollBar(
 		UINT wSBflags,
 		UINT wArrows);
 
-BOOL
-STDCALL
-GetScrollBarInfo(
-		 HWND hwnd,
-		 LONG idObject,
-		 PSCROLLBARINFO psbi);
-
+ 
 WINBOOL
 STDCALL
 GetClientRect(
 	      HWND hWnd,
 	      LPRECT lpRect);
 
+ 
 WINBOOL
 STDCALL
 GetWindowRect(
 	      HWND hWnd,
 	      LPRECT lpRect);
 
+ 
 WINBOOL
 STDCALL
 AdjustWindowRect(
@@ -8645,6 +4944,7 @@ AdjustWindowRect(
 		 DWORD dwStyle,
 		 WINBOOL bMenu);
 
+ 
 WINBOOL
 STDCALL
 AdjustWindowRectEx(
@@ -8655,40 +4955,33 @@ AdjustWindowRectEx(
 
 WINBOOL
 STDCALL
-SetWindowContextHelpId(
-		       HWND hwnd,
-		       DWORD dwContextHelpId);
+SetWindowContextHelpId(HWND, DWORD);
 
 DWORD
 STDCALL
-GetWindowContextHelpId(
-		       HWND hwnd);
+GetWindowContextHelpId(HWND);
 
 WINBOOL
 STDCALL
-SetMenuContextHelpId(
-		     HMENU hmenu,
-		     DWORD dwContextHelpId);
+SetMenuContextHelpId(HMENU, DWORD);
 
 DWORD
 STDCALL
-GetMenuContextHelpId(
-		     HMENU hmenu);
+GetMenuContextHelpId(HMENU);
 
+ 
 WINBOOL
 STDCALL
 MessageBeep(
 	    UINT uType);
 
-HCURSOR
-STDCALL
-CopyCursor(HCURSOR pcur);
-
+ 
 int
 STDCALL
 ShowCursor(
 	   WINBOOL bShow);
 
+ 
 WINBOOL
 STDCALL
 SetCursorPos(
@@ -8984,11 +5277,6 @@ GetDesktopWindow(
  
 HWND
 STDCALL
-GetShellWindow(VOID);
-
-
-HWND
-STDCALL
 GetParent(
 	  HWND hWnd);
 
@@ -9033,20 +5321,6 @@ STDCALL
 GetWindowThreadProcessId(
 			 HWND hWnd,
 			 LPDWORD lpdwProcessId);
-
-
-DWORD
-STDCALL
-GetGuiResources(
-		   HANDLE hProcess,
-		   DWORD uiFlags);
-
-
-WINBOOL
-STDCALL
-GetGUIThreadInfo(
-		   DWORD idThread,
-		   LPGUITHREADINFO lpgui);
 
  
 HWND
@@ -10183,7 +6457,7 @@ ColorMatchToTarget(HDC,HDC,DWORD);
 
 HPROPSHEETPAGE
 STDCALL
-CreatePropertySheetPageA(LPCPROPSHEETPAGEA lppsp);
+CreatePropertySheetPageA(LPCPROPSHEETPAGE lppsp);
 
 WINBOOL
 STDCALL
@@ -10646,37 +6920,31 @@ CommDlgExtendedError(VOID);
 
 #define CommDlg_OpenSave_GetSpecW(_hdlg, _psz, _cbmax) SNDMSG(_hdlg, CDM_GETSPEC, (WPARAM)_cbmax, (LPARAM)(LPWSTR)_psz)
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define CommDlg_OpenSave_GetSpec  CommDlg_OpenSave_GetSpecW
 #else
 #define CommDlg_OpenSave_GetSpec  CommDlg_OpenSave_GetSpecA
 #endif /* !UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 #define CommDlg_OpenSave_GetFilePathA(_hdlg, _psz, _cbmax) SNDMSG(_hdlg, CDM_GETFILEPATH, (WPARAM)_cbmax, (LPARAM)(LPSTR)_psz)
 
 #define CommDlg_OpenSave_GetFilePathW(_hdlg, _psz, _cbmax) SNDMSG(_hdlg, CDM_GETFILEPATH, (WPARAM)_cbmax, (LPARAM)(LPWSTR)_psz)
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define CommDlg_OpenSave_GetFilePath  CommDlg_OpenSave_GetFilePathW
 #else
 #define CommDlg_OpenSave_GetFilePath  CommDlg_OpenSave_GetFilePathA
 #endif /* !UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 #define CommDlg_OpenSave_GetFolderPathA(_hdlg, _psz, _cbmax) SNDMSG(_hdlg, CDM_GETFOLDERPATH, (WPARAM)_cbmax, (LPARAM)(LPSTR)_psz)
 
 #define CommDlg_OpenSave_GetFolderPathW(_hdlg, _psz, _cbmax) SNDMSG(_hdlg, CDM_GETFOLDERPATH, (WPARAM)_cbmax, (LPARAM)(LPWSTR)_psz)
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define CommDlg_OpenSave_GetFolderPath  CommDlg_OpenSave_GetFolderPathW
 #else
 #define CommDlg_OpenSave_GetFolderPath  CommDlg_OpenSave_GetFolderPathA
 #endif /* !UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 #define CommDlg_OpenSave_GetFolderIDList(_hdlg, _pidl, _cbmax) SNDMSG(_hdlg, CDM_GETFOLDERIDLIST, (WPARAM)_cbmax, (LPARAM)(LPVOID)_pidl)
 
@@ -11029,12 +7297,6 @@ SetConsoleOutputCP(
     UINT wCodePageID
     );
 
-BOOL
-STDCALL
-VerifyConsoleIoHandle(
-    HANDLE Handle
-    );
-
 DWORD STDCALL
 WNetConnectionDialog(
     HWND  hwnd,
@@ -11126,16 +7388,6 @@ UnlockServiceDatabase(
     SC_LOCK     ScLock
     );
 
-WINBOOL
-STDCALL
-QueryServiceStatusEx(
-    SC_HANDLE           hService,
-    SC_STATUS_TYPE      InfoLevel,
-    LPBYTE              lpBuffer,
-    DWORD               cbBufSize,
-    LPDWORD             pcbBytesNeeded
-    );
-
 /* Extensions to OpenGL */
 
 int STDCALL
@@ -11204,7 +7456,6 @@ wglSwapLayerBuffers(HDC, UINT);
   There doesn't seem to be any difference.
   */
 
-#ifndef _DISABLE_TIDENTS
 #ifdef UNICODE
 #define wglUseFontBitmaps  wglUseFontBitmapsW
 #define wglUseFontOutlines  wglUseFontOutlinesW
@@ -11212,38 +7463,37 @@ wglSwapLayerBuffers(HDC, UINT);
 #define wglUseFontBitmaps  wglUseFontBitmapsA
 #define wglUseFontOutlines  wglUseFontOutlinesA
 #endif /* !UNICODE */
-#endif /* _DISABLE_TIDENTS */
 
 /* ------------------------------------- */
 /* From shellapi.h in old Cygnus headers */
 
-WINBOOL STDCALL
+WINBOOL WINAPI
 DragQueryPoint (HDROP, LPPOINT);
 
-void STDCALL
+void WINAPI
 DragFinish (HDROP);
 
-void STDCALL
+void WINAPI
 DragAcceptFiles (HWND, WINBOOL);
 
-HICON STDCALL
+HICON WINAPI
 DuplicateIcon (HINSTANCE, HICON);
 
 /* end of stuff from shellapi.h in old Cygnus headers */
 /* -------------------------------------------------- */
 /* From ddeml.h in old Cygnus headers */
 
-HCONV STDCALL	DdeConnect (DWORD, HSZ, HSZ, CONVCONTEXT *);
-WINBOOL STDCALL	DdeDisconnect (HCONV);
-WINBOOL STDCALL	DdeFreeDataHandle (HDDEDATA);
-DWORD STDCALL	DdeGetData (HDDEDATA, BYTE *, DWORD, DWORD);
-UINT STDCALL	DdeGetLastError (DWORD);
-HDDEDATA STDCALL	DdeNameService (DWORD, HSZ, HSZ, UINT);
-WINBOOL STDCALL	DdePostAdvise (DWORD, HSZ, HSZ);
-HCONV STDCALL	DdeReconnect (HCONV);
-WINBOOL STDCALL	DdeUninitialize (DWORD);
-int STDCALL	DdeCmpStringHandles (HSZ, HSZ);
-HDDEDATA STDCALL	DdeCreateDataHandle (DWORD, LPBYTE, DWORD, DWORD, HSZ,
+HCONV WINAPI	DdeConnect (DWORD, HSZ, HSZ, CONVCONTEXT *);
+WINBOOL WINAPI	DdeDisconnect (HCONV);
+WINBOOL WINAPI	DdeFreeDataHandle (HDDEDATA);
+DWORD WINAPI	DdeGetData (HDDEDATA, BYTE *, DWORD, DWORD);
+UINT WINAPI	DdeGetLastError (DWORD);
+HDDEDATA WINAPI	DdeNameService (DWORD, HSZ, HSZ, UINT);
+WINBOOL WINAPI	DdePostAdvise (DWORD, HSZ, HSZ);
+HCONV WINAPI	DdeReconnect (HCONV);
+WINBOOL WINAPI	DdeUninitialize (DWORD);
+int WINAPI	DdeCmpStringHandles (HSZ, HSZ);
+HDDEDATA WINAPI	DdeCreateDataHandle (DWORD, LPBYTE, DWORD, DWORD, HSZ,
 				UINT, UINT);
 
 /* end of stuff from ddeml.h in old Cygnus headers */
@@ -11264,81 +7514,94 @@ VOID CopyMemory(PVOID Destination, CONST VOID* Source, DWORD Length);
 
 DWORD STDCALL GetCurrentTime(VOID);
 
-void STDCALL
+void WINAPI
 SHAddToRecentDocs (UINT, LPCVOID);
 
-LPITEMIDLIST STDCALL
+LPITEMIDLIST WINAPI
 SHBrowseForFolder (LPBROWSEINFO);
 
-void STDCALL
+void WINAPI
 SHChangeNotify (LONG, UINT, LPCVOID, LPCVOID);
 
-int STDCALL
-SHFileOperationA (LPSHFILEOPSTRUCTA);
+int WINAPI
+SHFileOperation (LPSHFILEOPSTRUCT);
 
-int STDCALL
-SHFileOperationW (LPSHFILEOPSTRUCTW);
-
-void STDCALL
+void WINAPI
 SHFreeNameMappings (HANDLE);
 
 /* Define when SHELLFOLDER is defined.
-HRESULT STDCALL
+HRESULT WINAPI
 SHGetDataFromIDList (LPSHELLFOLDER, LPCITEMIDLIST, int, PVOID, int);
 
-HRESULT STDCALL
+HRESULT WINAPI
 SHGetDesktopFolder (LPSHELLFOLDER);
 */
 
+DWORD WINAPI
+SHGetFileInfo (LPCTSTR, DWORD, SHFILEINFO FAR *, UINT, UINT);
+
 /* Define when IUnknown is defined.
-HRESULT STDCALL
+HRESULT WINAPI
 SHGetInstanceExplorer (IUnknown **);
 */
 
 /* Define when MALLOC is defined.
-HRESULT STDCALL
+HRESULT WINAPI
 SHGetMalloc (LPMALLOC *);
 */
 
-HRESULT STDCALL
+WINBOOL WINAPI
+SHGetPathFromIDList (LPCITEMIDLIST, LPTSTR);
+
+HRESULT WINAPI
 SHGetSpecialFolderLocation (HWND, int, LPITEMIDLIST *);
 
 /* Define when REFCLSID is defined.
-HRESULT STDCALL
+HRESULT WINAPI
 SHLoadInProc (REFCLSID);
 */
 
 /* Win32 Fibers */
 
-#define FIBER_FLAG_FLOAT_SWITCH (1)
+typedef
+VOID (WINAPI *PFIBER_START_ROUTINE) (
+	IN LPVOID lpFiberArgument
+	);
+typedef PFIBER_START_ROUTINE LPFIBER_START_ROUTINE;
 
-BOOL STDCALL ConvertFiberToThread(void);
+LPVOID
+STDCALL
+ConvertThreadToFiber (
+	LPVOID lpArgument
+	);
+LPVOID
+STDCALL
+CreateFiber (
+	DWORD			dwStackSize,
+	LPFIBER_START_ROUTINE	lpStartAddress,
+	LPVOID			lpArgument
+	);
+VOID
+STDCALL
+DeleteFiber(
+	LPVOID	lpFiber
+	);
+PVOID
+STDCALL
+GetCurrentFiber (
+	VOID
+	);
+PVOID
+STDCALL
+GetFiberData (
+	VOID
+	);
+VOID
+STDCALL
+SwitchToFiber (
+	LPVOID	lpFiber
+	);
 
-LPVOID STDCALL ConvertThreadToFiber(LPVOID lpParameter);
-
-LPVOID STDCALL ConvertThreadToFiberEx(LPVOID lpParameter, DWORD dwFlags);
-
-LPVOID STDCALL CreateFiber
-(
- SIZE_T dwStackSize,
- LPFIBER_START_ROUTINE lpStartAddress,
- LPVOID lpParameter
-);
-
-LPVOID STDCALL CreateFiberEx
-(
- SIZE_T dwStackCommitSize,
- SIZE_T dwStackReserveSize,
- DWORD dwFlags,
- LPFIBER_START_ROUTINE lpStartAddress,
- LPVOID lpParameter
-);
-
-void STDCALL DeleteFiber(LPVOID lpFiber);
-
-void STDCALL SwitchToFiber(LPVOID lpFiber);
-
-#define GetFiberData() *(LPVOID *)(((PNT_TIB)NtCurrentTeb())->FiberData)
 
 WINBOOL STDCALL
 RegisterServicesProcess(DWORD ServicesProcessId);

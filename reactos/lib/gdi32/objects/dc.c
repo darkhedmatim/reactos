@@ -1,12 +1,26 @@
-#include "precomp.h"
+#ifdef UNICODE
+#undef UNICODE
+#endif
 
-#define NDEBUG
-#include <debug.h>
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/kapi.h>
+
+HGDIOBJ STDCALL
+GetStockObject(int Index)
+{
+  return(W32kGetStockObject(Index));
+}
 
 
-/*
- * @implemented
- */
+int STDCALL
+GetClipBox(HDC hDc, LPRECT Rect)
+{
+  return(W32kGetClipBox(hDc, Rect));
+}
+
+
 HDC
 STDCALL
 CreateDCA (
@@ -76,10 +90,6 @@ CreateDCA (
 	return hDC;
 }
 
-
-/*
- * @implemented
- */
 HDC
 STDCALL
 CreateDCW (
@@ -89,314 +99,102 @@ CreateDCW (
 	CONST DEVMODEW	* lpInitData
 	)
 {
-	UNICODE_STRING Driver, Device, Output;
+	return W32kCreateDC (
+			lpwszDriver,
+			lpwszDevice,
+			lpwszOutput,
+			(PDEVMODEW)lpInitData
+			);
+}
 
-	if(lpwszDriver)
-		RtlInitUnicodeString(&Driver, lpwszDriver);
-	if(lpwszDevice)
-		RtlInitUnicodeString(&Driver, lpwszDevice);
-	if(lpwszOutput)
-		RtlInitUnicodeString(&Driver, lpwszOutput);
-
-	return NtGdiCreateDC((lpwszDriver ? &Driver : NULL),
-						 (lpwszDevice ? &Device : NULL),
-						 (lpwszOutput ? &Output : NULL),
-						 (PDEVMODEW)lpInitData);
+BOOL STDCALL DeleteDC( HDC hDC )
+{
+  return W32kDeleteDC( hDC );
 }
 
 
-/*
- * @implemented
- */
 HDC
 STDCALL
-CreateICW(
-	LPCWSTR			lpszDriver,
-	LPCWSTR			lpszDevice,
-	LPCWSTR			lpszOutput,
-	CONST DEVMODEW *	lpdvmInit
+CreateCompatibleDC(
+	HDC  hDC
 	)
 {
-  UNICODE_STRING Driver, Device, Output;
-  
-  if(lpszDriver)
-    RtlInitUnicodeString(&Driver, lpszDriver);
-  if(lpszDevice)
-    RtlInitUnicodeString(&Device, lpszDevice);
-  if(lpszOutput)
-    RtlInitUnicodeString(&Output, lpszOutput);
-  return NtGdiCreateIC ((lpszDriver ? &Driver : NULL),
-		      (lpszDevice ? &Device : NULL),
-		      (lpszOutput ? &Output : NULL),
-		      (CONST PDEVMODEW)lpdvmInit );
+	return W32kCreateCompatableDC(hDC);
 }
 
-
-/*
- * @implemented
- */
-HDC
+HGDIOBJ
 STDCALL
-CreateICA(
-	LPCSTR			lpszDriver,
-	LPCSTR			lpszDevice,
-	LPCSTR			lpszOutput,
-	CONST DEVMODEA *	lpdvmInit
+SelectObject(
+	HDC	hDC,
+	HGDIOBJ	hGDIObj
 	)
 {
-  NTSTATUS Status;
-  LPWSTR lpszDriverW, lpszDeviceW, lpszOutputW;
-  UNICODE_STRING Driver, Device, Output;
-  DEVMODEW dvmInitW;
-  HDC rc = 0;
-
-  Status = HEAP_strdupA2W ( &lpszDriverW, lpszDriver );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-  {
-    Status = HEAP_strdupA2W ( &lpszDeviceW, lpszDevice );
-    if (!NT_SUCCESS (Status))
-      SetLastError (RtlNtStatusToDosError(Status));
-    else
-      {
-	Status = HEAP_strdupA2W ( &lpszOutputW, lpszOutput );
-	if (!NT_SUCCESS (Status))
-	  SetLastError (RtlNtStatusToDosError(Status));
-	else
-	  {
-	    if ( lpdvmInit )
-	      RosRtlDevModeA2W ( &dvmInitW, (const LPDEVMODEA)lpdvmInit );
-        
-        RtlInitUnicodeString(&Driver, lpszDriverW);
-        RtlInitUnicodeString(&Device, lpszDeviceW);
-        RtlInitUnicodeString(&Output, lpszOutputW);
-	    rc = NtGdiCreateIC ( &Driver,
-				&Device,
-				&Output,
-				lpdvmInit ? &dvmInitW : NULL );
-
-	    HEAP_free ( lpszOutputW );
-	  }
-	HEAP_free ( lpszDeviceW );
-      }
-    HEAP_free ( lpszDriverW );
-  }
-  return rc;
+	return W32kSelectObject(hDC, hGDIObj);
 }
 
+int
+STDCALL
+SetMapMode(
+	HDC	a0,
+	int	a1
+	)
+{
+  return W32kSetMapMode( a0, a1 );
+}
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
-DeleteObject(HGDIOBJ hObject)
+SetViewportOrgEx(
+	HDC	a0,
+	int	a1,
+	int	a2,
+	LPPOINT	a3
+	)
 {
-  if (0 != ((DWORD) hObject & 0x00800000))
-    {
-      DPRINT1("Trying to delete system object 0x%x\n", hObject);
-      return TRUE;
-    }
-
-  return NtGdiDeleteObject(hObject);
+  return W32kSetViewportOrgEx( a0, a1, a2, a3 );
 }
 
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetRelAbs(
-         HDC  hdc,
-         DWORD dwIgnore
-           )
-{
-  return NtGdiGetRelAbs(hdc);
-}
-
-/*
- * @implemented
-*/
-LONG
-STDCALL
-GetDCOrg(
-    HDC hdc
-    )
-{
-  // Officially obsolete by Microsoft
-  POINT Pt;
-  if (!NtGdiGetDCOrgEx(hdc, &Pt))
-    return 0;
-  return(MAKELONG(Pt.x, Pt.y));
-}
-
-
-/*
- * @unimplemented
- */
-int   
-STDCALL 
-GetObjectA(HGDIOBJ Handle, int Size, LPVOID Buffer)
-{
-  LOGFONTW LogFontW;
-  DWORD Type;
-  int Result;
-
-  Type = NtGdiGetObjectType(Handle);
-  if (0 == Type)
-    {
-      return 0;
-    }
-
-  if (OBJ_FONT == Type)
-    {
-      if (Size < sizeof(LOGFONTA))
-        {
-          SetLastError(ERROR_BUFFER_OVERFLOW);
-          return 0;
-        }
-      Result = NtGdiGetObject(Handle, sizeof(LOGFONTW), &LogFontW);
-      if (0 == Result)
-        {
-          return 0;
-        }
-      RosRtlLogFontW2A((LPLOGFONTA) Buffer, &LogFontW);
-      Result = sizeof(LOGFONTA);
-    }
-  else
-    {
-      Result = NtGdiGetObject(Handle, Size, Buffer);
-    }
-
-  return Result;
-}
-
-
-/*
- * @unimplemented
- */
-int   
-STDCALL 
-GetObjectW(HGDIOBJ Handle, int Size, LPVOID Buffer)
-{
-  return NtGdiGetObject(Handle, Size, Buffer);
-}
-
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
-FixBrushOrgEx(
-	HDC	hdc,
-	int	nXOrg,
-	int	nYOrg,
-	LPPOINT	lppt
+SetWindowOrgEx(
+	HDC	a0,
+	int	a1,
+	int	a2,
+	LPPOINT	a3
 	)
 {
-  #if 0
-  /* FIXME - Check if we're emulating win95, if so, forward to SetBrushOrgEx() */
-  return SetBrushOrgEx(hdc, nXOrg, nYOrg, lppt);
-  #endif
-  
-  return FALSE;
-}
-
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-GetDCBrushColor(
-	HDC hdc
-)
-{
-  return NtUserGetDCBrushColor(hdc);
-}
-
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-GetDCPenColor(
-	HDC hdc
-)
-{
-  return NtUserGetDCPenColor(hdc);
-}
-
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-SetDCBrushColor(
-	HDC hdc,
-	COLORREF crColor
-)
-{
-  return NtUserSetDCBrushColor(hdc, crColor);
-}
-
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-SetDCPenColor(
-	HDC hdc,
-	COLORREF crColor
-)
-{
-  return NtUserSetDCPenColor(hdc, crColor);
+  return W32kSetWindowOrgEx( a0, a1, a2, a3 );
 }
 
 
-/*
- * @implemented
- */
-HDC
+BOOL
 STDCALL
-ResetDCW(
-	HDC		hdc,
-	CONST DEVMODEW	*lpInitData
+DeleteObject(
+	HGDIOBJ		a0
 	)
 {
-  return NtGdiResetDC ( hdc, lpInitData );
+	return W32kDeleteObject(a0);
 }
 
-
-/*
- * @implemented
- */
-HDC
+HPALETTE
 STDCALL
-ResetDCA(
-	HDC		hdc,
-	CONST DEVMODEA	*lpInitData
+SelectPalette(
+	HDC		a0,
+	HPALETTE	a1,
+	BOOL		a2
 	)
 {
-  DEVMODEW InitDataW;
+	return W32kSelectPalette( a0, a1,a2 );
+}
 
-  RosRtlDevModeA2W ( &InitDataW, (CONST LPDEVMODEA)lpInitData );
-
-  return NtGdiResetDC ( hdc, &InitDataW );
+UINT
+STDCALL
+RealizePalette(
+	HDC	a0
+	)
+{
+	return W32kRealizePalette( a0 );
 }
 
 
-/*
- * @implemented
- */
-int 
-STDCALL 
-StartDocW(
-	HDC		hdc,
-	CONST DOCINFOW	*a1
-	)
-{
-	return NtGdiStartDoc ( hdc, (DOCINFOW *)a1 );
-}
+

@@ -4,9 +4,6 @@
 #include <msvcrt/errno.h>
 
 
-/*
- * @implemented
- */
 int _spawnvpe(int nMode, const char* szPath, char* const* szaArgv, char* const* szaEnv)
 {
 

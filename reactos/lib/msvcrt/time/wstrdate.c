@@ -13,9 +13,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _wstrdate(const wchar_t* datestr)
 {
     time_t t;

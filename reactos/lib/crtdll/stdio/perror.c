@@ -9,9 +9,6 @@
 void perror(const char *s);
 #endif
 
-/*
- * @implemented
- */
 void perror(const char *s)
 {
  

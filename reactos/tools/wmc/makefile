@@ -14,7 +14,7 @@ CLEAN_FILES = *.o wmc$(EXE_POSTFIX)
 wmc$(EXE_POSTFIX): $(OBJECTS)
 	$(HOST_CC) $(OBJECTS) -g -o wmc$(EXE_POSTFIX)
 
-HOST_CFLAGS = -I. -Werror -Wall
+HOST_CFLAGS = -I.
 
 getopt.o: getopt.c
 	$(HOST_CC) $(HOST_CFLAGS) -g -c getopt.c -o getopt.o
@@ -47,8 +47,8 @@ clean:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	-del *.o
-	-del wmc$(EXE_POSTFIX)
+	del *.o
+	del wmc$(EXE_POSTFIX)
 endif
 
 .phony: clean

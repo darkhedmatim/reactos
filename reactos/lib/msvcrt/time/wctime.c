@@ -26,15 +26,12 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "precomp.h"
 #include <msvcrt/fcntl.h>
 #include <msvcrt/time.h>
+#include <windows.h>
 #include "tzfile.h"
 
 
-/*
- * @implemented
- */
 wchar_t* _wasctime(const struct tm* timeptr)
 {
 #ifdef __GNUC__
@@ -66,9 +63,6 @@ wchar_t* _wasctime(const struct tm* timeptr)
 }
 
 
-/*
- * @implemented
- */
 wchar_t* _wctime(const time_t* const timep)
 {
     return _wasctime(localtime(timep));

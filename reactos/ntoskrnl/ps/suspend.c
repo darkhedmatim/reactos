@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: suspend.c,v 1.16 2004/10/24 20:37:27 weiden Exp $
+/* $Id: suspend.c,v 1.10 2002/09/08 10:23:40 chorns Exp $
  *
  * PROJECT:                ReactOS kernel
  * FILE:                   ntoskrnl/ps/suspend.c
@@ -26,7 +26,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -74,33 +79,24 @@ PiSuspendThreadNormalRoutine(PVOID NormalContext,
 
 
 NTSTATUS
-PsResumeThread (PETHREAD Thread,
-		PULONG SuspendCount)
+PsResumeThread(PETHREAD Thread, PULONG SuspendCount)
 {
-  DPRINT("PsResumeThread (Thread %p  SuspendCount %p) called\n");
-
-  ExAcquireFastMutex (&SuspendMutex);
-
+  ExAcquireFastMutex(&SuspendMutex);
   if (SuspendCount != NULL)
     {
       *SuspendCount = Thread->Tcb.SuspendCount;
     }
-
   if (Thread->Tcb.SuspendCount > 0)
     {
       Thread->Tcb.SuspendCount--;
       if (Thread->Tcb.SuspendCount == 0)
 	{
-	  KeReleaseSemaphore (&Thread->Tcb.SuspendSemaphore,
-			      IO_NO_INCREMENT,
-			      1,
-			      FALSE);
-	}
+	  KeReleaseSemaphore(&Thread->Tcb.SuspendSemaphore, IO_NO_INCREMENT, 
+			     1, FALSE);
+	}      
     }
-
-  ExReleaseFastMutex (&SuspendMutex);
-
-  return STATUS_SUCCESS;
+  ExReleaseFastMutex(&SuspendMutex);
+  return(STATUS_SUCCESS);
 }
 
 
@@ -114,15 +110,10 @@ PsSuspendThread(PETHREAD Thread, PULONG PreviousSuspendCount)
   Thread->Tcb.SuspendCount++;
   if (!Thread->Tcb.SuspendApc.Inserted)
     {
-      if (!KeInsertQueueApc(&Thread->Tcb.SuspendApc,
-			    NULL,
-			    NULL,
-			    IO_NO_INCREMENT))
-	{
-	  Thread->Tcb.SuspendCount--;
-	  ExReleaseFastMutex(&SuspendMutex);
-	  return(STATUS_THREAD_IS_TERMINATING);
-	}
+      KeInsertQueueApc(&Thread->Tcb.SuspendApc,
+		       NULL,
+		       NULL,
+		       0);
     }
   ExReleaseFastMutex(&SuspendMutex);
   if (PreviousSuspendCount != NULL)
@@ -135,7 +126,7 @@ PsSuspendThread(PETHREAD Thread, PULONG PreviousSuspendCount)
 
 NTSTATUS STDCALL
 NtResumeThread(IN HANDLE ThreadHandle,
-	       IN PULONG SuspendCount  OPTIONAL)
+	       IN PULONG SuspendCount)
 /*
  * FUNCTION: Decrements a thread's resume count
  * ARGUMENTS: 
@@ -151,38 +142,32 @@ NtResumeThread(IN HANDLE ThreadHandle,
   DPRINT("NtResumeThead(ThreadHandle %lx  SuspendCount %p)\n",
 	 ThreadHandle, SuspendCount);
 
-  Status = ObReferenceObjectByHandle (ThreadHandle,
-				      THREAD_SUSPEND_RESUME,
-				      PsThreadType,
-				      UserMode,
-				      (PVOID*)&Thread,
-				      NULL);
+  Status = ObReferenceObjectByHandle(ThreadHandle,
+				     THREAD_SUSPEND_RESUME,
+				     PsThreadType,
+				     UserMode,
+				     (PVOID*)&Thread,
+				     NULL);
   if (!NT_SUCCESS(Status))
     {
-      return Status;
+      return(Status);
     }
 
-  Status = PsResumeThread (Thread, &Count);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject ((PVOID)Thread);
-      return Status;
-    }
-
+  Status = PsResumeThread(Thread, &Count);
   if (SuspendCount != NULL)
     {
       *SuspendCount = Count;
     }
 
-  ObDereferenceObject ((PVOID)Thread);
+  ObDereferenceObject((PVOID)Thread);
 
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
 NTSTATUS STDCALL
 NtSuspendThread(IN HANDLE ThreadHandle,
-		IN PULONG PreviousSuspendCount  OPTIONAL)
+		IN PULONG PreviousSuspendCount)
 /*
  * FUNCTION: Increments a thread's suspend count
  * ARGUMENTS: 
@@ -213,23 +198,17 @@ NtSuspendThread(IN HANDLE ThreadHandle,
     }
 
   Status = PsSuspendThread(Thread, &Count);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject ((PVOID)Thread);
-      return Status;
-    }
-
   if (PreviousSuspendCount != NULL)
     {
       *PreviousSuspendCount = Count;
     }
 
-  ObDereferenceObject ((PVOID)Thread);
+  ObDereferenceObject((PVOID)Thread);
 
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
-VOID INIT_FUNCTION
+VOID
 PsInitialiseSuspendImplementation(VOID)
 {
   ExInitializeFastMutex(&SuspendMutex);

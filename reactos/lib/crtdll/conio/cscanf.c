@@ -3,9 +3,6 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/internal/stdio.h>
 
-/*
- * @unimplemented
- */
 int _cscanf(char *fmt, ...)
 {
     int cnt;

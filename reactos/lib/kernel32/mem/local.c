@@ -1,4 +1,4 @@
-/* $Id: local.c,v 1.11 2004/06/13 20:04:55 navaraf Exp $
+/* $Id: local.c,v 1.8 2003/01/15 21:24:34 chorns Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  *              Copyright (C) 1996, Onno Hovers, All rights reserved
@@ -24,35 +24,26 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS ***************************************************************/
 
 
-/*
- * @implemented
- */
 HLOCAL STDCALL
 LocalAlloc(UINT uFlags,
-	   SIZE_T uBytes)
+	   UINT uBytes)
 {
    return (HLOCAL)GlobalAlloc(uFlags, uBytes);
 }
 
 
-/*
- * @implemented
- */
-SIZE_T STDCALL
+UINT STDCALL
 LocalCompact(UINT uMinFree)
 {
    return RtlCompactHeap(hProcessHeap, 0);
 }
 
 
-/*
- * @implemented
- */
 UINT STDCALL
 LocalFlags(HLOCAL hMem)
 {
@@ -60,9 +51,6 @@ LocalFlags(HLOCAL hMem)
 }
 
 
-/*
- * @implemented
- */
 HLOCAL STDCALL
 LocalFree(HLOCAL hMem)
 {
@@ -70,9 +58,6 @@ LocalFree(HLOCAL hMem)
 }
 
 
-/*
- * @implemented
- */
 HLOCAL STDCALL
 LocalHandle(LPCVOID pMem)
 {
@@ -80,9 +65,6 @@ LocalHandle(LPCVOID pMem)
 }
 
 
-/*
- * @implemented
- */
 LPVOID STDCALL
 LocalLock(HLOCAL hMem)
 {
@@ -90,31 +72,22 @@ LocalLock(HLOCAL hMem)
 }
 
 
-/*
- * @implemented
- */
 HLOCAL STDCALL
 LocalReAlloc(HLOCAL hMem,
-	     SIZE_T uBytes,
+	     UINT uBytes,
 	     UINT uFlags)
 {
    return (HLOCAL)GlobalReAlloc((HGLOBAL)hMem, uBytes, uFlags);
 }
 
 
-/*
- * @implemented
- */
-SIZE_T STDCALL
+UINT STDCALL
 LocalShrink(HLOCAL hMem, UINT cbNewSize)
 {
    return RtlCompactHeap(hProcessHeap, 0);
 }
 
 
-/*
- * @implemented
- */
 UINT STDCALL
 LocalSize(HLOCAL hMem)
 {
@@ -122,9 +95,6 @@ LocalSize(HLOCAL hMem)
 }
 
 
-/*
- * @implemented
- */
 BOOL STDCALL
 LocalUnlock(HLOCAL hMem)
 {

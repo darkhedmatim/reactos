@@ -22,9 +22,7 @@
 
 #include <windows.h>
 #include "loadlib.h"
-#include <string.h>
-#include <stdlib.h>
-#include <wchar.h>
+
 
 #define APP_VERSION 1
 #define MAX_LIBS    25
@@ -153,6 +151,7 @@ int __cdecl main(int argc, char* argv[])
 {
     char* libs[MAX_LIBS];
     int lib_count = 0;
+    int test_num = 0;
     int result = 0;
     int i = 0;
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: udfs.c,v 1.5 2004/01/05 13:50:23 weiden Exp $
+/* $Id: udfs.c,v 1.1 2003/01/16 11:58:15 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -41,8 +40,6 @@
 
 /* TYPES ********************************************************************/
 
-#include <pshpack1.h>
-
 typedef struct _TAG
 {
   USHORT Identifier;
@@ -53,23 +50,20 @@ typedef struct _TAG
   USHORT Crc;
   USHORT CrcLength;
   ULONG  Location;
-} TAG, *PTAG;
+} PACKED TAG, *PTAG;
 
 typedef struct _EXTENT
 {
   ULONG Length;
   ULONG Location;
-} EXTENT, *PEXTENT;
+} PACKED EXTENT, *PEXTENT;
 
 typedef struct _AVDP
 {
   TAG    DescriptorTag;
   EXTENT MainVolumeDescriptorExtent;
   EXTENT ReserveVolumeDescriptorExtent;
-} AVDP, *PAVDP;
-
-#include <poppack.h>
-
+} PACKED AVDP, *PAVDP;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -100,11 +94,11 @@ FsRecCheckVolumeRecognitionSequence(IN PDEVICE_OBJECT DeviceObject,
 				Buffer);
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT ("FsRecReadSectors() failed (Status %lx)\n", Status);
+	  DPRINT1("FsRecReadSectors() failed (Status %lx)\n", Status);
 	  break;
 	}
 
-      DPRINT ("Descriptor identifier: [%.5s]\n", Buffer + 1);
+      DPRINT1("Descriptor identifier: [%.5s]\n", Buffer + 1);
 
       switch (State)
 	{
@@ -120,7 +114,7 @@ FsRecCheckVolumeRecognitionSequence(IN PDEVICE_OBJECT DeviceObject,
 	      }
 	    else
 	      {
-		DPRINT ("VRS start sector is not 'BEA01'\n");
+		DPRINT1("VRS start sector is not 'BEA01'\n");
 		ExFreePool(Buffer);
 		return(STATUS_UNRECOGNIZED_VOLUME);
 	      }
@@ -144,7 +138,7 @@ FsRecCheckVolumeRecognitionSequence(IN PDEVICE_OBJECT DeviceObject,
 		(Buffer[4] == '0') &&
 		(Buffer[5] == '1'))
 	      {
-		DPRINT ("Found 'TEA01'\n");
+		DPRINT1("Found 'TEA01'\n");
 		ExFreePool(Buffer);
 		return(STATUS_SUCCESS);
 	      }
@@ -154,7 +148,7 @@ FsRecCheckVolumeRecognitionSequence(IN PDEVICE_OBJECT DeviceObject,
       Sector++;
       if (Sector == UDFS_AVDP_SECTOR)
 	{
-	  DPRINT ("No 'TEA01' found\n");
+	  DPRINT1("No 'TEA01' found\n");
 	  ExFreePool(Buffer);
 	  return(STATUS_UNRECOGNIZED_VOLUME);
 	}
@@ -190,24 +184,24 @@ FsRecCheckAnchorVolumeDescriptorPointer(IN PDEVICE_OBJECT DeviceObject,
 			    Buffer);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT ("FsRecReadSectors() failed (Status %lx)\n", Status);
+      DPRINT1("FsRecReadSectors() failed (Status %lx)\n", Status);
       ExFreePool(Buffer);
       return(Status);
     }
 
   Avdp = (PAVDP)Buffer;
-  DPRINT ("Descriptor identifier: %hu\n", Avdp->DescriptorTag.Identifier);
+  DPRINT1("Descriptor identifier: %hu\n", Avdp->DescriptorTag.Identifier);
 
-  DPRINT ("Main volume descriptor sequence location: %lu\n",
+  DPRINT1("Main volume descriptor sequence location: %lu\n",
 	  Avdp->MainVolumeDescriptorExtent.Location);
 
-  DPRINT ("Main volume descriptor sequence length: %lu\n",
+  DPRINT1("Main volume descriptor sequence length: %lu\n",
 	  Avdp->MainVolumeDescriptorExtent.Length);
 
-  DPRINT ("Reserve volume descriptor sequence location: %lu\n",
+  DPRINT1("Reserve volume descriptor sequence location: %lu\n",
 	  Avdp->ReserveVolumeDescriptorExtent.Location);
 
-  DPRINT ("Reserve volume descriptor sequence length: %lu\n",
+  DPRINT1("Reserve volume descriptor sequence length: %lu\n",
 	  Avdp->ReserveVolumeDescriptorExtent.Length);
 
   ExFreePool(Buffer);
@@ -233,10 +227,10 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject)
 				&Size);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT ("FsRecDeviceIoControl() failed (Status %lx)\n", Status);
+      DPRINT1("FsRecDeviceIoControl() failed (Status %lx)\n", Status);
       return(Status);
     }
-  DPRINT ("BytesPerSector: %lu\n", DiskGeometry.BytesPerSector);
+  DPRINT1("BytesPerSector: %lu\n", DiskGeometry.BytesPerSector);
 
   /* Check the volume recognition sequence */
   Status = FsRecCheckVolumeRecognitionSequence(DeviceObject,
@@ -248,6 +242,7 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject)
 						   DiskGeometry.BytesPerSector);
   if (!NT_SUCCESS(Status))
     return(Status);
+
 
   return(STATUS_SUCCESS);
 }
@@ -277,7 +272,7 @@ FsRecUdfsFsControl(IN PDEVICE_OBJECT DeviceObject,
 
       case IRP_MN_LOAD_FILE_SYSTEM:
 	DPRINT("Udfs: IRP_MN_LOAD_FILE_SYSTEM\n");
-	RtlRosInitUnicodeStringFromLiteral(&RegistryPath,
+	RtlInitUnicodeStringFromLiteral(&RegistryPath,
 			     L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\Udfs");
 	Status = ZwLoadDriver(&RegistryPath);
 	if (!NT_SUCCESS(Status))

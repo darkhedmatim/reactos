@@ -7,16 +7,12 @@
  * UPDATE HISTORY:
  *              04/03/99: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/process.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 int _cwait(int* pnStatus, int hProc, int nAction)
 {
     DWORD ExitCode;

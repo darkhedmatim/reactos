@@ -8,26 +8,18 @@ unsigned short *_pctype_dll = _ctype + 1;
 unsigned short *_pwctype_dll = _ctype + 1;
 
 
-/*
- * @implemented
- */
 int _isctype(unsigned int c, int ctypeFlags)
 {
 	return (_pctype_dll[(unsigned char)(c & 0xFF)] & ctypeFlags);
 }
 
-/*
- * @implemented
- */
 int iswctype(wint_t wc, wctype_t wctypeFlags)
 {
 	return (_pwctype_dll[(unsigned char)(wc & 0xFF)] & wctypeFlags);
 }
 
-/*
- * @implemented
- */
-int is_wctype(wint_t wc, wctype_t wctypeFlags)
+// obsolete
+int	is_wctype(wint_t wc, wctype_t wctypeFlags)
 {
 	return (_pwctype_dll[(unsigned char)(wc & 0xFF)] & wctypeFlags);
 }

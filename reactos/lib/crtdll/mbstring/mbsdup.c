@@ -12,9 +12,6 @@
 #include <msvcrt/mbstring.h>
 #include <msvcrt/stdlib.h>
 
-/*
- * @implemented
- */
 unsigned char * _mbsdup(const unsigned char *_s)
 {
 	char *rv;

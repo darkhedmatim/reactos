@@ -1,4 +1,4 @@
-/* $Id: sid.c,v 1.16 2003/12/30 18:52:06 fireball Exp $
+/* $Id: sid.c,v 1.12 2002/09/08 10:23:43 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -58,7 +58,7 @@ PSID SeAliasBackupOpsSid = NULL;
 /* FUNCTIONS ****************************************************************/
 
 
-BOOLEAN INIT_FUNCTION
+BOOLEAN
 SepInitSecurityIDs(VOID)
 {
   ULONG SidLength0;
@@ -468,9 +468,6 @@ SepInitSecurityIDs(VOID)
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlValidSid(PSID Sid)
 {
@@ -486,9 +483,6 @@ RtlValidSid(PSID Sid)
 }
 
 
-/*
- * @implemented
- */
 ULONG STDCALL
 RtlLengthRequiredSid(UCHAR SubAuthorityCount)
 {
@@ -496,9 +490,6 @@ RtlLengthRequiredSid(UCHAR SubAuthorityCount)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlInitializeSid(PSID Sid,
 		 PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
@@ -513,9 +504,6 @@ RtlInitializeSid(PSID Sid,
 }
 
 
-/*
- * @implemented
- */
 PULONG STDCALL
 RtlSubAuthoritySid(PSID Sid,
 		   ULONG SubAuthority)
@@ -524,9 +512,6 @@ RtlSubAuthoritySid(PSID Sid,
 }
 
 
-/*
- * @implemented
- */
 PUCHAR STDCALL
 RtlSubAuthorityCountSid(PSID Sid)
 {
@@ -534,9 +519,6 @@ RtlSubAuthorityCountSid(PSID Sid)
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlEqualSid(PSID Sid1,
 	    PSID Sid2)
@@ -558,9 +540,6 @@ RtlEqualSid(PSID Sid1,
 }
 
 
-/*
- * @implemented
- */
 ULONG STDCALL
 RtlLengthSid(PSID Sid)
 {
@@ -568,9 +547,6 @@ RtlLengthSid(PSID Sid)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCopySid(ULONG BufferLength,
 	   PSID Dest,
@@ -609,7 +585,7 @@ RtlCopySidAndAttributesArray(ULONG Count,
 	Dest[i].Sid = SidArea;
 	Dest[i].Attributes = Src[i].Attributes;
 	RtlCopySid(RtlLengthSid(Src[i].Sid), SidArea, Src[i].Sid);
-	SidArea = (char*)SidArea + RtlLengthSid(Src[i].Sid);
+	SidArea = SidArea + RtlLengthSid(Src[i].Sid);
     }
   *RemainingSidArea = SidArea;
   *RemainingSidAreaSize = Length;
@@ -617,9 +593,6 @@ RtlCopySidAndAttributesArray(ULONG Count,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlConvertSidToUnicodeString(PUNICODE_STRING String,
 			     PSID Sid,
@@ -688,7 +661,7 @@ RtlConvertSidToUnicodeString(PUNICODE_STRING String,
 	   Buffer,
 	   Length);
    if (Length < String->MaximumLength)
-     String->Buffer[Length/sizeof(WCHAR)] = 0;
+     String->Buffer[Length] = 0;
 
    return STATUS_SUCCESS;
 }

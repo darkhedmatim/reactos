@@ -21,9 +21,6 @@
 #include <msvcrt/msvcrtdbg.h>
 
 
-/*
- * @implemented
- */
 char* _mktemp (char *_template)
 {
   static int count = 0;

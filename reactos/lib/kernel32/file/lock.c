@@ -1,4 +1,4 @@
-/* $Id: lock.c,v 1.11 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: lock.c,v 1.8 2003/01/15 21:24:34 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -17,14 +17,11 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 LockFile(
 	 HANDLE hFile,
@@ -45,11 +42,7 @@ LockFile(
  
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 LockFileEx(
 	   HANDLE hFile,
@@ -110,11 +103,7 @@ LockFileEx(
   	         
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 UnlockFile(
 	   HANDLE hFile,
@@ -134,10 +123,8 @@ UnlockFile(
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+
+WINBOOL 
 STDCALL 
 UnlockFileEx(
 	HANDLE hFile,

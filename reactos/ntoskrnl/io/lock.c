@@ -10,7 +10,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,29 +21,27 @@
 
 /* FUNCTIONS *****************************************************************/
 
-static NTSTATUS STDCALL
-IopLockFileCompletionRoutine(
+NTSTATUS
+STDCALL
+  NtLockFileCompletionRoutine(
     IN PDEVICE_OBJECT  DeviceObject,
     IN PIRP  Irp,
     IN PVOID  Context
     )
 {
-  ExFreePool(Context);
-  return STATUS_SUCCESS;
-  // FIXME: Should I call IoFreeIrp and return STATUS_MORE_PROCESSING_REQUIRED?
+	ExFreePool(Context);
+	return STATUS_SUCCESS;
+	//FIXME: should I call IoFreeIrp and return STATUS_MORE_PROCESSING_REQUIRED?
 }
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 NtLockFile (
 	IN	HANDLE			FileHandle,
-	IN	HANDLE			EventHandle OPTIONAL,
-	IN	PIO_APC_ROUTINE		ApcRoutine OPTIONAL,
-	IN	PVOID			ApcContext OPTIONAL,
-	OUT	PIO_STATUS_BLOCK	IoStatusBlock,
+	IN	HANDLE			EventHandle		OPTIONAL,
+	IN	PIO_APC_ROUTINE		ApcRoutine	OPTIONAL,
+	IN	PVOID			ApcContext	OPTIONAL,
+	OUT	PIO_STATUS_BLOCK	UserIoStatusBlock,
 	IN	PLARGE_INTEGER		ByteOffset,
 	IN	PLARGE_INTEGER		Length,
 	IN	PULONG			Key,
@@ -49,248 +49,248 @@ NtLockFile (
 	IN	BOOLEAN			ExclusiveLock
 	)
 {
-  PFILE_OBJECT FileObject = NULL;
-  PLARGE_INTEGER LocalLength = NULL;
-  PKEVENT Event = NULL;
-  PIRP Irp = NULL;
-  PIO_STACK_LOCATION StackPtr;
-  PDEVICE_OBJECT DeviceObject;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status;
+	NTSTATUS Status;
+	PFILE_OBJECT FileObject = NULL;
+	PLARGE_INTEGER	LocalLength = NULL;
+	PKEVENT Event = NULL;
+	PIRP Irp = NULL;
+	PIO_STACK_LOCATION StackPtr;
+	IO_STATUS_BLOCK		LocalIoStatusBlock;
+	PIO_STATUS_BLOCK IoStatusBlock;
+	PDEVICE_OBJECT	DeviceObject;
 
-  // FIXME: instead of this, use SEH when available?
-  if (!Length || !ByteOffset)
-  {
-    Status = STATUS_INVALID_PARAMETER;
-    goto fail;
-  }
+	//FIXME: instead of this, use SEH when available?
+	if (!Length || !ByteOffset)	{
+		Status = STATUS_INVALID_PARAMETER;
+		goto fail;
+	}
 
-  PreviousMode = ExGetPreviousMode();
-
-  Status = ObReferenceObjectByHandle(FileHandle,
-				     0,
+	/*
+	BUGBUG: ObReferenceObjectByHandle fails if DesiredAccess=0 and mode=UserMode!
+	It should ONLY fail if we desire an access that conflict with granted access!
+	*/
+	Status = ObReferenceObjectByHandle(
+	  				 FileHandle,
+				     FILE_READ_DATA,//BUGBUG: have to use something...but shouldn't have to!
 				     IoFileObjectType,
-				     PreviousMode,
+				     ExGetPreviousMode(),
 				     (PVOID*)&FileObject,
 				     NULL);
-  if (!NT_SUCCESS(Status))
-  {
-    goto fail;
-  }
 
-  DeviceObject = IoGetRelatedDeviceObject(FileObject);
+	if (!NT_SUCCESS(Status)){
+		goto fail;
+	}
 
-  Irp = IoAllocateIrp(DeviceObject->StackSize,
-		      TRUE);
-  if (Irp == NULL)
-  {
-    Status = STATUS_INSUFFICIENT_RESOURCES;
-    goto fail;
-  }
+	DeviceObject = IoGetRelatedDeviceObject(FileObject);
 
-  if (EventHandle != NULL && !FailImmediatedly)
-  {
-    Status = ObReferenceObjectByHandle(EventHandle,
-				       SYNCHRONIZE,
-				       ExEventObjectType,
-				       PreviousMode,
-				       (PVOID*)&Event,
-				       NULL);
-    if (!NT_SUCCESS(Status))
-    {
-      goto fail;
-    }
-  }
-  else
-  {
-    Event = &FileObject->Event;
-    KeResetEvent(Event);
-  }
+	Irp = IoAllocateIrp(
+			DeviceObject->StackSize,
+			TRUE
+			);
 
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
+	if (Irp == NULL) {
+		Status = STATUS_INSUFFICIENT_RESOURCES;
+		goto fail;
+	}
 
-  Irp->RequestorMode = PreviousMode;
-  Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
-  Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
+	if (EventHandle != NULL && !FailImmediatedly) {
+		 Status = ObReferenceObjectByHandle(
+		  			 EventHandle,
+					 SYNCHRONIZE,
+					 ExEventObjectType,
+					 ExGetPreviousMode(),
+					 (PVOID*)&Event,
+					 NULL);
 
-  Irp->UserEvent = Event;
-  Irp->UserIosb = IoStatusBlock;
-  Irp->Tail.Overlay.Thread = PsGetCurrentThread();
+		if (!NT_SUCCESS(Status)) {
+	  		goto fail;
+		}
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
-  StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
-  StackPtr->MinorFunction = IRP_MN_LOCK;
-  StackPtr->FileObject = FileObject;
+	}	
+	else {
+		Event = &FileObject->Event;
+		KeResetEvent(Event);
+	}
 
-  if (ExclusiveLock)
-    StackPtr->Flags |= SL_EXCLUSIVE_LOCK;
+	if ((FileObject->Flags & FO_SYNCHRONOUS_IO) || FailImmediatedly)
+		IoStatusBlock = &LocalIoStatusBlock;
+	else
+		IoStatusBlock = UserIoStatusBlock;
 
-  if (FailImmediatedly)
-    StackPtr->Flags |= SL_FAIL_IMMEDIATELY;
+	Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
+	Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
 
-  LocalLength = ExAllocatePoolWithTag(NonPagedPool,
-				      sizeof(LARGE_INTEGER),
-				      TAG_LOCK);
-  if (!LocalLength)
-  {
-    Status = STATUS_INSUFFICIENT_RESOURCES;
-    goto fail;
-  }
+	Irp->UserEvent = Event;
+	Irp->UserIosb = IoStatusBlock;
+	Irp->Tail.Overlay.Thread = PsGetCurrentThread();
 
-  *LocalLength = *Length;
+	StackPtr = IoGetNextIrpStackLocation(Irp);
+	StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
+	StackPtr->MinorFunction = IRP_MN_LOCK;
+	StackPtr->DeviceObject = DeviceObject;
+	StackPtr->FileObject = FileObject;
+	
+	if (ExclusiveLock) StackPtr->Flags |= SL_EXCLUSIVE_LOCK;
+	if (FailImmediatedly) StackPtr->Flags |= SL_FAIL_IMMEDIATELY;
 
-  StackPtr->Parameters.LockControl.Length = LocalLength;
-  StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
-  StackPtr->Parameters.LockControl.Key = Key ? *Key : 0;
+	LocalLength = ExAllocatePoolWithTag(
+									NonPagedPool,
+									sizeof(LARGE_INTEGER),
+									TAG_LOCK
+									);
+	if (!LocalLength){
+		Status = STATUS_INSUFFICIENT_RESOURCES;
+		goto fail;
+	}
 
-  IoSetCompletionRoutine(Irp,
-			 IopLockFileCompletionRoutine,
-			 LocalLength,
-			 TRUE,
-			 TRUE,
-			 TRUE);
+	*LocalLength = *Length;
 
-  /* Can't touch FileObject after IoCallDriver since it might be freed */
-  Status = IofCallDriver(DeviceObject, Irp);
-  if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
-  {
-    Status = KeWaitForSingleObject(Event,
-				   Executive,
-				   PreviousMode,
-				   FileObject->Flags & FO_ALERTABLE_IO,
-				   NULL);
+	StackPtr->Parameters.LockControl.Length = LocalLength;
+	StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
+	StackPtr->Parameters.LockControl.Key = Key ? *Key : 0;
 
-    if (Status != STATUS_WAIT_0)
-    {
-      DPRINT1("NtLockFile -> KeWaitForSingleObject failed!\n");
-      /*
-       * FIXME: Should do some special processing here if alertable wait
-       * was interupted by user apc or a thread alert (STATUS_ALERTED, STATUS_USER_APC)
-       */
-      return Status; /* Set status to something else? */
-    }
+	IoSetCompletionRoutine(  
+					Irp,  
+					NtLockFileCompletionRoutine,  
+					LocalLength,  
+					TRUE,   
+					TRUE,  
+					TRUE  );
 
-    Status = IoStatusBlock->Status;
-  }
+  	Status = IofCallDriver(DeviceObject, Irp);
 
-  return Status;
+	if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO)) {
 
-fail:;
-  if (LocalLength)
-    ExFreePool(LocalLength);
+		Status = KeWaitForSingleObject(
+							Event,
+							Executive,
+							ExGetPreviousMode() , 
+							(FileObject->Flags & FO_ALERTABLE_IO) ? TRUE : FALSE,
+							NULL
+							);
 
-  if (Irp)
-    IoFreeIrp(Irp);
+		if (Status != STATUS_WAIT_0) {
+			DPRINT1("NtLockFile -> KeWaitForSingleObject failed!\n");
+			/*
+			FIXME: should do some special processing here if alertable wait 
+			was interupted by user apc or a thread alert (STATUS_ALERTED, STATUS_USER_APC)
+			*/
+			return Status;	 //set status to something else?
+	 	}
 
-  if (Event)
-    ObDereferenceObject(Event);
+		Status = LocalIoStatusBlock.Status;
+	}
 
-  if (FileObject)
-    ObDereferenceObject(FileObject);
+	if (FileObject->Flags & FO_SYNCHRONOUS_IO)
+		*UserIoStatusBlock = LocalIoStatusBlock;
 
-  return Status;
+	return Status;
+
+	fail:;
+
+	if (LocalLength) ExFreePool(LocalLength);
+	if (Irp) IoFreeIrp(Irp);
+	if (Event) ObDereferenceObject(Event);
+	if (FileObject) ObDereferenceObject(FileObject);
+
+	return Status;
+
 }
 
 
-/*
- * @unimplemented
- */
+
+
 NTSTATUS
 STDCALL
 NtUnlockFile (
 	IN	HANDLE			FileHandle,
-	OUT	PIO_STATUS_BLOCK	IoStatusBlock,
+	OUT	PIO_STATUS_BLOCK	UserIoStatusBlock,
 	IN	PLARGE_INTEGER		ByteOffset,
 	IN	PLARGE_INTEGER		Length,
-	OUT	PULONG			Key OPTIONAL
+	OUT	PULONG			Key		OPTIONAL
 	)
 {
-  PFILE_OBJECT FileObject = NULL;
-  PLARGE_INTEGER LocalLength = NULL;
-  PIRP Irp = NULL;
-  PIO_STACK_LOCATION StackPtr;
-  PDEVICE_OBJECT DeviceObject;
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status;
+	NTSTATUS Status;
+	PFILE_OBJECT FileObject = NULL;
+	PLARGE_INTEGER	LocalLength = NULL;
+	PIRP Irp  = NULL;
+	PIO_STACK_LOCATION StackPtr;
+	IO_STATUS_BLOCK		LocalIoStatusBlock;
+	PDEVICE_OBJECT	DeviceObject;
 
-  // FIXME: instead of this, use SEH when available
-  if (!Length || !ByteOffset)
-  {
-    Status = STATUS_INVALID_PARAMETER;
-    goto fail;
-  }
+	//FIXME: instead of this, use SEH when available
+	if (!Length || !ByteOffset)	{
+		Status = STATUS_INVALID_PARAMETER;
+		goto fail;
+	}
 
-  PreviousMode = ExGetPreviousMode();
-
-  /*
-   * BUGBUG: ObReferenceObjectByHandle fails if DesiredAccess=0 and mode=UserMode
-   * It should ONLY fail if we desire an access that conflict with granted access!
-   */
-  Status = ObReferenceObjectByHandle(FileHandle,
-				     0, //FILE_READ_DATA,//BUGBUG: have to use something...but shouldn't have to!
+	/*
+	BUGBUG: ObReferenceObjectByHandle fails if DesiredAccess=0 and mode=UserMode
+	It should ONLY fail if we desire an access that conflict with granted access!
+	*/
+	Status = ObReferenceObjectByHandle(
+	  				 FileHandle,
+				     FILE_READ_DATA,//BUGBUG: have to use something...but shouldn't have to!
 				     IoFileObjectType,
-				     PreviousMode,
+				     ExGetPreviousMode(),
 				     (PVOID*)&FileObject,
 				     NULL);
-  if (!NT_SUCCESS(Status))
-  {
-    goto fail;
-  }
 
-  DeviceObject = IoGetRelatedDeviceObject(FileObject);
+	if (!NT_SUCCESS(Status)){
+		goto fail;
+	}
 
-  Irp = IoAllocateIrp(DeviceObject->StackSize,
-		      TRUE);
-  if (Irp == NULL)
-  {
-    Status = STATUS_INSUFFICIENT_RESOURCES;
-    goto fail;
-  }
+	DeviceObject = IoGetRelatedDeviceObject(FileObject);
 
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
-  Irp->RequestorMode = PreviousMode;
-  Irp->UserIosb = IoStatusBlock;
-  Irp->Tail.Overlay.Thread = PsGetCurrentThread();
+	Irp = IoAllocateIrp(
+			DeviceObject->StackSize,
+			TRUE
+			);
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
-  StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
-  StackPtr->MinorFunction = IRP_MN_UNLOCK_SINGLE;
-  StackPtr->DeviceObject = DeviceObject;
-  StackPtr->FileObject = FileObject;
+	if (Irp == NULL) {
+		Status = STATUS_INSUFFICIENT_RESOURCES;
+		goto fail;
+	}
 
-  LocalLength = ExAllocatePoolWithTag(NonPagedPool,
-				      sizeof(LARGE_INTEGER),
-				      TAG_LOCK);
-  if (!LocalLength)
-  {
-    Status = STATUS_INSUFFICIENT_RESOURCES;
-    goto fail;
-  }
+	Irp->UserIosb = &LocalIoStatusBlock;
+	Irp->Tail.Overlay.Thread = PsGetCurrentThread();
 
-  *LocalLength = *Length;
+	StackPtr = IoGetNextIrpStackLocation(Irp);
+	StackPtr->MajorFunction = IRP_MJ_LOCK_CONTROL;
+	StackPtr->MinorFunction = IRP_MN_UNLOCK_SINGLE;
+	StackPtr->DeviceObject = DeviceObject;
+	StackPtr->FileObject = FileObject;
 
-  StackPtr->Parameters.LockControl.Length = LocalLength;
-  StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
-  StackPtr->Parameters.LockControl.Key = Key ? *Key : 0;
+	LocalLength = ExAllocatePoolWithTag(
+									NonPagedPool,
+									sizeof(LARGE_INTEGER),
+									TAG_LOCK
+									);
+	if (!LocalLength){
+		Status = STATUS_INSUFFICIENT_RESOURCES;
+		goto fail;
+	}
 
-  /* Allways synchronous */
-  Status = IofCallDriver(DeviceObject, Irp);
+	*LocalLength = *Length;
 
-  ExFreePool(LocalLength);
+	StackPtr->Parameters.LockControl.Length = LocalLength;
+	StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
+	StackPtr->Parameters.LockControl.Key = Key ? *Key : 0;
 
-  return Status;
+	//allways syncronious
+	Status = IofCallDriver(DeviceObject, Irp);
 
-fail:;
-  if (LocalLength)
-    ExFreePool(LocalLength);
+	*UserIoStatusBlock = LocalIoStatusBlock;
 
-  if (Irp)
-    IoFreeIrp(Irp);
+	ExFreePool(LocalLength);
 
-  if (FileObject)
-    ObDereferenceObject(FileObject);
+	return Status;
 
-  return Status;
+	fail:;
+
+	if (LocalLength) ExFreePool(LocalLength);
+	if (Irp) IoFreeIrp(Irp);
+	if (FileObject) ObDereferenceObject(FileObject);
+
+	return Status;
 }

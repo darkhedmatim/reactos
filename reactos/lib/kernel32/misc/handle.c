@@ -1,4 +1,4 @@
-/* $Id: handle.c,v 1.20 2004/11/06 10:10:02 weiden Exp $
+/* $Id: handle.c,v 1.9 2003/01/15 21:24:35 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,130 +14,76 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
-
-/* GLOBALS *******************************************************************/
-
-HANDLE STDCALL
-DuplicateConsoleHandle (HANDLE	hConsole,
-			DWORD   dwDesiredAccess,
-			BOOL	bInheritHandle,
-			DWORD	dwOptions);
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-BOOL WINAPI
-GetHandleInformation (HANDLE hObject,
-		      LPDWORD lpdwFlags)
+WINBOOL WINAPI GetHandleInformation(HANDLE hObject, LPDWORD lpdwFlags)
 {
-  PRTL_USER_PROCESS_PARAMETERS Ppb;
-  OBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo;
-  ULONG BytesWritten;
-  NTSTATUS Status;
-  DWORD Flags;
-  
-  Ppb = NtCurrentPeb()->ProcessParameters;
-  switch ((ULONG)hObject)
-  {
-    case STD_INPUT_HANDLE:
-      hObject = Ppb->hStdInput;
-      break;
-    case STD_OUTPUT_HANDLE:
-      hObject = Ppb->hStdOutput;
-      break;
-    case STD_ERROR_HANDLE:
-      hObject = Ppb->hStdError;
-      break;
-  }
-
-  Status = NtQueryObject (hObject,
-			  ObjectHandleInformation,
-			  &HandleInfo,
-			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
-			  &BytesWritten);
-  if (NT_SUCCESS(Status))
-  {
-    Flags = 0;
-    if (HandleInfo.Inherit)
-      Flags |= HANDLE_FLAG_INHERIT;
-    if (HandleInfo.ProtectFromClose)
-      Flags |= HANDLE_FLAG_PROTECT_FROM_CLOSE;
-
-    *lpdwFlags = Flags;
-
-    return TRUE;
-  }
-  else
-  {
-    SetLastErrorByStatus (Status);
-    return FALSE;
-  }
+   OBJECT_DATA_INFORMATION HandleInfo;
+   ULONG BytesWritten;
+   NTSTATUS errCode;
+   
+   errCode = NtQueryObject(hObject,
+			   ObjectDataInformation, 
+			   &HandleInfo, 
+			   sizeof(OBJECT_DATA_INFORMATION),
+			   &BytesWritten);
+   if (!NT_SUCCESS(errCode)) 
+     {
+	SetLastErrorByStatus (errCode);
+	return FALSE;
+     }
+   if ( HandleInfo.bInheritHandle )
+     *lpdwFlags &= HANDLE_FLAG_INHERIT;
+   if ( HandleInfo.bProtectFromClose )
+     *lpdwFlags &= HANDLE_FLAG_PROTECT_FROM_CLOSE;
+   return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-SetHandleInformation (HANDLE hObject,
-		      DWORD dwMask,
-		      DWORD dwFlags)
+WINBOOL STDCALL SetHandleInformation(HANDLE hObject,
+				     DWORD dwMask,
+				     DWORD dwFlags)
 {
-  PRTL_USER_PROCESS_PARAMETERS Ppb;
-  OBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo;
-  ULONG BytesWritten;
-  NTSTATUS Status;
+   OBJECT_DATA_INFORMATION HandleInfo;
+   NTSTATUS errCode;
+   ULONG BytesWritten;
 
-  Ppb = NtCurrentPeb()->ProcessParameters;
-  switch ((ULONG)hObject)
-  {
-    case STD_INPUT_HANDLE:
-      hObject = Ppb->hStdInput;
-      break;
-    case STD_OUTPUT_HANDLE:
-      hObject = Ppb->hStdOutput;
-      break;
-    case STD_ERROR_HANDLE:
-      hObject = Ppb->hStdError;
-      break;
-  }
-
-  Status = NtQueryObject (hObject,
-			  ObjectHandleInformation,
-			  &HandleInfo,
-			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
-			  &BytesWritten);
-  if (NT_SUCCESS(Status))
-  {
-    HandleInfo.Inherit = (dwFlags & HANDLE_FLAG_INHERIT) != 0;
-    HandleInfo.ProtectFromClose = (dwFlags & HANDLE_FLAG_PROTECT_FROM_CLOSE) != 0;
-    Status = NtSetInformationObject (hObject,
-				     ObjectHandleInformation,
-				     &HandleInfo,
-				     sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION));
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return FALSE;
-    }
-    
-    return TRUE;
-  }
-  else
-  {
-    SetLastErrorByStatus (Status);
-    return FALSE;
-  }
+   errCode = NtQueryObject(hObject,
+			   ObjectDataInformation,
+			   &HandleInfo,
+			   sizeof(OBJECT_DATA_INFORMATION),
+			   &BytesWritten);
+   if (!NT_SUCCESS(errCode)) 
+     {
+	SetLastErrorByStatus (errCode);
+	return FALSE;
+     }
+   if (dwMask & HANDLE_FLAG_INHERIT)
+     {
+	HandleInfo.bInheritHandle = TRUE;
+     }	
+   if (dwMask & HANDLE_FLAG_PROTECT_FROM_CLOSE) 
+     {
+	HandleInfo.bProtectFromClose = TRUE;
+     }
+   
+   errCode = NtSetInformationObject(hObject,
+				    ObjectDataInformation,
+				    &HandleInfo,
+				    sizeof(OBJECT_DATA_INFORMATION));
+   if (!NT_SUCCESS(errCode)) 
+     {
+	SetLastErrorByStatus (errCode);
+	return FALSE;
+     }
+   
+   return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL CloseHandle(HANDLE  hObject)
+WINBOOL STDCALL CloseHandle(HANDLE  hObject)
 /*
  * FUNCTION: Closes an open object handle
  * PARAMETERS:
@@ -146,32 +92,17 @@ BOOL STDCALL CloseHandle(HANDLE  hObject)
  *          If the function fails, the return value is zero
  */
 {
-   PRTL_USER_PROCESS_PARAMETERS Ppb;
-   NTSTATUS Status;
-   
-   Ppb = NtCurrentPeb()->ProcessParameters;
-   switch ((ULONG)hObject)
-   {
-     case STD_INPUT_HANDLE:
-       hObject = Ppb->hStdInput;
-       break;
-     case STD_OUTPUT_HANDLE:
-       hObject = Ppb->hStdOutput;
-       break;
-     case STD_ERROR_HANDLE:
-       hObject = Ppb->hStdError;
-       break;
-   }
+   NTSTATUS errCode;
    
    if (IsConsoleHandle(hObject))
      {
 	return(CloseConsoleHandle(hObject));
      }
    
-   Status = NtClose(hObject);
-   if (!NT_SUCCESS(Status))
+   errCode = NtClose(hObject);
+   if (!NT_SUCCESS(errCode)) 
      {     
-	SetLastErrorByStatus (Status);
+	SetLastErrorByStatus (errCode);
 	return FALSE;
      }
    
@@ -179,10 +110,7 @@ BOOL STDCALL CloseHandle(HANDLE  hObject)
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
+WINBOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
 				HANDLE hSourceHandle,
 				HANDLE hTargetProcessHandle,
 				LPHANDLE lpTargetHandle,
@@ -190,63 +118,41 @@ BOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
 				BOOL bInheritHandle,
 				DWORD dwOptions)
 {
-   PRTL_USER_PROCESS_PARAMETERS Ppb;
-   DWORD SourceProcessId, TargetProcessId;
-   NTSTATUS Status;
-   
-   Ppb = NtCurrentPeb()->ProcessParameters;
-   switch ((ULONG)hSourceHandle)
-   {
-     case STD_INPUT_HANDLE:
-       hSourceHandle = Ppb->hStdInput;
-       break;
-     case STD_OUTPUT_HANDLE:
-       hSourceHandle = Ppb->hStdOutput;
-       break;
-     case STD_ERROR_HANDLE:
-       hSourceHandle = Ppb->hStdError;
-       break;
-   }
-   
+   NTSTATUS errCode;
    if (IsConsoleHandle(hSourceHandle))
    {
-      SourceProcessId = GetProcessId(hSourceProcessHandle);
-      TargetProcessId = GetProcessId(hTargetProcessHandle);
-      if (!SourceProcessId || !TargetProcessId ||
-	  SourceProcessId != TargetProcessId ||
-	  SourceProcessId != GetCurrentProcessId())
+      /* FIXME: call CSRSS for console handle duplication */
+      if (hSourceProcessHandle == hTargetProcessHandle)
       {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
+	 *lpTargetHandle = hSourceHandle;
+	 return TRUE;
       }
-
-      *lpTargetHandle = DuplicateConsoleHandle(hSourceHandle, dwDesiredAccess, bInheritHandle, dwOptions);
-      return *lpTargetHandle != INVALID_HANDLE_VALUE;
+      else
+      {
+	 return FALSE;
+      }
    }
       
-   Status = NtDuplicateObject(hSourceProcessHandle,
-			      hSourceHandle,
-			      hTargetProcessHandle,
-			      lpTargetHandle,
-			      dwDesiredAccess,
-			      (BOOLEAN)bInheritHandle,
-			      dwOptions);
-   if (!NT_SUCCESS(Status))
+   errCode = NtDuplicateObject(hSourceProcessHandle,
+			       hSourceHandle,
+			       hTargetProcessHandle,
+			       lpTargetHandle, 
+			       dwDesiredAccess, 
+			       (BOOLEAN)bInheritHandle,
+			       dwOptions);
+   if (!NT_SUCCESS(errCode)) 
      {
-	SetLastErrorByStatus (Status);
+	SetLastErrorByStatus (errCode);
 	return FALSE;
      }
    
    return TRUE;
 }
 
-
-/*
- * @implemented
- */
 UINT STDCALL SetHandleCount(UINT nCount)
 {
    return(nCount);
 }
+
 
 /* EOF */

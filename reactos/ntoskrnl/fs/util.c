@@ -1,12 +1,11 @@
-/* $Id: util.c,v 1.18 2004/08/21 20:40:27 tamlin Exp $
+/* $Id: util.c,v 1.12 2002/09/08 10:23:20 chorns Exp $
  *
  * reactos/ntoskrnl/fs/util.c
  *
  */
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -25,7 +24,6 @@
  *	STATUS_CRC_ERROR, STATUS_DEVICE_DATA_ERROR;
  *	TRUE otherwise.
  *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -69,8 +67,6 @@ FsRtlIsTotalDeviceFailure (
  *	2002-01-17 Fixed a bad bug reported by Bo Brantén.
  *	Up to version 1.8, this function's semantics was
  *	exactly the opposite! Thank you Bo.
- *
- * @implemented
  */
 BOOLEAN
 STDCALL
@@ -88,18 +84,6 @@ FsRtlIsNtstatusExpected (
 		: TRUE;
 }
 	
-/*
- * @unimplemented
- */
-ULONG
-FsRtlIsPagingFile (
-    IN PFILE_OBJECT FileObject
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -118,8 +102,6 @@ FsRtlIsPagingFile (
  * RETURN VALUE
  * 	NtStatusToNormalize if it is an expected value,
  * 	otherwise NormalizedNtStatus.
- *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -150,8 +132,6 @@ FsRtlNormalizeNtstatus (
  *
  * RETURN VALUE
  * 
- *
- * @unimplemented
  */
 DWORD
 STDCALL
@@ -171,8 +151,6 @@ FsRtlAllocateResource (VOID)
  *
  * RETURN VALUE
  * 
- *
- * @unimplemented
  */
 DWORD
 STDCALL
@@ -197,7 +175,6 @@ FsRtlBalanceReads (
  * NOTE
  * 	From Bo Branten's ntifs.h v12.
  * 
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -228,8 +205,6 @@ FsRtlCopyRead (
  * 
  * NOTE
  * 	From Bo Branten's ntifs.h v12.
- *
- * @unimplemented
  */
 BOOLEAN
 STDCALL
@@ -258,7 +233,6 @@ FsRtlCopyWrite (
  *
  * RETURN VALUE
  * 
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -267,65 +241,9 @@ FsRtlGetFileSize (
     IN OUT PLARGE_INTEGER   FileSize
     )
 {
-	FILE_STANDARD_INFORMATION Info;
-	NTSTATUS Status;
-	ULONG Length;
-
-	Status = IoQueryFileInformation(FileObject,
-		FileStandardInformation,
-		sizeof(Info),
-		&Info,
-		&Length);
-	if (NT_SUCCESS(Status))
-		{
-			FileSize->QuadPart = Info.EndOfFile.QuadPart;
-		}
-
-	return Status;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlInsertPerStreamContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER PerStreamContext,
-    IN PFSRTL_PER_STREAM_CONTEXT Ptr
-    )
-{
-	UNIMPLEMENTED;
 	return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
-PFSRTL_PER_STREAM_CONTEXT
-STDCALL
-FsRtlRemovePerStreamContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return NULL;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlInsertPerFileObjectContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
-    IN PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/ Ptr
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -337,7 +255,6 @@ FsRtlInsertPerFileObjectContext (
  *
  * RETURN VALUE
  * 
- * @unimplemented
  */
 VOID
 STDCALL
@@ -360,7 +277,6 @@ FsRtlPostPagingFileStackOverflow (
  *
  * RETURN VALUE
  * 
- * @unimplemented
  */
 VOID
 STDCALL
@@ -373,21 +289,6 @@ FsRtlPostStackOverflow (
 }
 
 
-/*
- * @unimplemented
- */
-PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-STDCALL
-FsRtlRemovePerFileObjectContext (
-   IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return NULL;
-}
-
 /**********************************************************************
  * NAME							EXPORTED
  *	FsRtlSyncVolumes@12
@@ -399,8 +300,6 @@ FsRtlRemovePerFileObjectContext (
  *
  * RETURN VALUE
  *	It always returns STATUS_SUCCESS.
- *
- * @implemented
  */
 NTSTATUS
 STDCALL
@@ -414,16 +313,5 @@ FsRtlSyncVolumes (
 }
 
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlTeardownPerStreamContexts (
-  IN PFSRTL_ADVANCED_FCB_HEADER AdvancedHeader
-  )
-{
-	UNIMPLEMENTED;
-}
-
 /* EOF */
+

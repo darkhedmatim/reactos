@@ -1,4 +1,4 @@
-/* $Id: swprintf.c,v 1.16 2004/08/15 16:39:11 chorns Exp $
+/* $Id: swprintf.c,v 1.9 2002/09/13 18:43:01 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -22,19 +22,15 @@
  * Wirzenius wrote this portably, Torvalds fucked it up :-)
  */
 
-#include <ntoskrnl.h>
-#include <internal/ctype.h>
+#include <ddk/ntddk.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <wchar.h>
+#include <limits.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-
-#if defined(__GNUC__)
-typedef          long long SWPRINT_INT64;
-typedef unsigned long long SWPRINT_UINT64;
-#else
-typedef          __int64   SWPRINT_INT64;
-typedef unsigned __int64   SWPRINT_UINT64;
-#endif
 
 
 #define ZEROPAD	1		/* pad with zero */
@@ -46,28 +42,11 @@ typedef unsigned __int64   SWPRINT_UINT64;
 #define LARGE	64		/* use 'ABCDEF' instead of 'abcdef' */
 
 
-#if defined(__GNUC__)
-
 #define do_div(n,base) ({ \
 int __res; \
-__res = ((SWPRINT_UINT64) n) % (unsigned) base; \
-n = ((SWPRINT_UINT64) n) / (unsigned) base; \
+__res = ((unsigned long long) n) % (unsigned) base; \
+n = ((unsigned long long) n) / (unsigned) base; \
 __res; })
-
-#elif defined(_MSC_VER)
-
-static __inline int do_foo_div(SWPRINT_INT64* n, int base)
-{
-	int __res = (int)(((SWPRINT_UINT64) *n) % (unsigned) base);
-	*n        = (int)(((SWPRINT_UINT64) *n) / (unsigned) base);
-	return __res;
-}
-#define do_div(n,base) do_foo_div(&n,base)
-
-#else
-#error Unknown compiler for this special compiler trickery
-#endif
-
 
 
 static int skip_atoi(const wchar_t **s)
@@ -81,12 +60,12 @@ static int skip_atoi(const wchar_t **s)
 
 
 static wchar_t *
-number(wchar_t * buf, wchar_t * end, SWPRINT_INT64 num, int base, int size, int precision, int type)
+number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int precision, int type)
 {
 	wchar_t c,sign, tmp[66];
 	const wchar_t *digits;
-	const wchar_t *small_digits = L"0123456789abcdefghijklmnopqrstuvwxyz";
-	const wchar_t *large_digits = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	const wchar_t small_digits[] = L"0123456789abcdefghijklmnopqrstuvwxyz";
+	const wchar_t large_digits[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	int i;
 
 	digits = (type & LARGE) ? large_digits : small_digits;
@@ -188,7 +167,7 @@ string(wchar_t* buf, wchar_t* end, const char* s, int len, int field_width, int 
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -233,7 +212,7 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -267,7 +246,7 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 {
 	int len;
-	SWPRINT_UINT64 num;
+	unsigned long long num;
 	int base;
 	wchar_t * str, * end;
 	const char *s;
@@ -338,10 +317,10 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 
 		/* get the conversion qualifier */
 		qualifier = -1;
-		if (*fmt == L'h' || *fmt == L'l' || *fmt == L'L' || *fmt == L'w') {
+		if (*fmt == 'h' || *fmt == 'l' || *fmt == 'L' || *fmt == 'w') {
 			qualifier = *fmt;
 			++fmt;
-		} else if (*fmt == L'I' && *(fmt+1) == L'6' && *(fmt+2) == L'4') {
+		} else if (*fmt == 'I' && *(fmt+1) == '6' && *(fmt+2) == '4') {
 			qualifier = *fmt;
 			fmt += 3;
 		}
@@ -503,15 +482,11 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 			continue;
 		}
 
-		if (qualifier == L'I')
-			num = va_arg(args, SWPRINT_UINT64);
-		else if (qualifier == L'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
-		else if (qualifier == L'h') {
+		if (qualifier == 'I')
+			num = va_arg(args, unsigned long long);
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
+		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
 			else
@@ -534,9 +509,6 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 }
 
 
-/*
- * @implemented
- */
 int swprintf(wchar_t *buf, const wchar_t *fmt, ...)
 {
 	va_list args;
@@ -549,9 +521,6 @@ int swprintf(wchar_t *buf, const wchar_t *fmt, ...)
 }
 
 
-/*
- * @implemented
- */
 int _snwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, ...)
 {
 	va_list args;

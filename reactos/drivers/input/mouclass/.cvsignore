@@ -1,0 +1,4 @@
+mouclass.coff
+*.o
+*.sym
+*.sys

@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/stdarg.h>
 
-/*
- * @implemented
- */
 int _execlp(const char *szPath, const char *szArgv0, ...)
 {
   char *szArg[100];

@@ -1,4 +1,4 @@
-/* $Id: atoi64.c,v 1.5 2004/07/03 17:40:23 navaraf Exp $
+/* $Id: atoi64.c,v 1.3 2002/07/18 18:12:59 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,12 +7,8 @@
  */
 
 #include <stdlib.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 
-/*
- * @implemented
- */
 __int64
 _atoi64 (const char *nptr)
 {

@@ -2,9 +2,6 @@
 #include <string.h>
 //#include <unconst.h>
 
-/*
- * @implemented
- */
 char *
 strstr(const char *s, const char *find)
 {

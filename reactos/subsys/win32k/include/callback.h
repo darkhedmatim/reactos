@@ -1,45 +1,32 @@
-#ifndef _WIN32K_CALLBACK_H
-#define _WIN32K_CALLBACK_H
+#ifndef __SUBSYS_WIN32K_INCLUDE_CALLBACK_H
+#define __SUBSYS_WIN32K_INCLUDE_CALLBACK_H
 
 LRESULT STDCALL
-IntCallWindowProc(WNDPROC Proc,
-                  BOOLEAN IsAnsiProc,
-                  HWND Wnd,
-                  UINT Message,
-                  WPARAM wParam,
-                  LPARAM lParam,
-                  INT lParamBufferSize);
-
+W32kCallWindowProc(WNDPROC Proc,
+		   HWND Wnd,
+		   UINT Message,
+		   WPARAM wParam,
+		   LPARAM lParam);
+LRESULT STDCALL
+W32kCallTrampolineWindowProc(WNDPROC Proc,
+			     HWND Wnd,
+			     UINT Message,
+			     WPARAM wParam,
+			     LPARAM lParam);
+LRESULT STDCALL
+W32kSendNCCREATEMessage(HWND Wnd, CREATESTRUCTW* CreateStruct);
+LRESULT STDCALL
+W32kSendCREATEMessage(HWND Wnd, CREATESTRUCTW* CreateStruct);
 VOID STDCALL
-IntCallSentMessageCallback(SENDASYNCPROC CompletionCallback,
+W32kCallSentMessageCallback(SENDASYNCPROC CompletionCallback,
 			    HWND hWnd,
 			    UINT Msg,
 			    ULONG_PTR CompletionCallbackContext,
 			    LRESULT Result);
-
-
-HMENU STDCALL
-IntLoadSysMenuTemplate();
-
-BOOL STDCALL
-IntLoadDefaultCursors(VOID);
-
 LRESULT STDCALL
-IntCallHookProc(INT HookId,
-                INT Code,
-                WPARAM wParam,
-                LPARAM lParam,
-                HOOKPROC Proc,
-                BOOLEAN Ansi,
-                PUNICODE_STRING ModuleName);
+W32kSendNCCALCSIZEMessage(HWND Wnd, BOOL Validate, PRECT Rect,
+			  NCCALCSIZE_PARAMS* Params);
+LRESULT STDCALL
+W32kSendGETMINMAXINFOMessage(HWND Wnd, MINMAXINFO* MinMaxInfo);
 
-VOID FASTCALL
-IntCleanupThreadCallbacks(PW32THREAD W32Thread);
-
-PVOID FASTCALL
-IntCbAllocateMemory(ULONG Size);
-
-VOID FASTCALL
-IntCbFreeMemory(PVOID Data);
-
-#endif /* _WIN32K_CALLBACK_H */
+#endif /* __SUBSYS_WIN32K_INCLUDE_CALLBACK_H */

@@ -1,12 +1,7 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/string.h>
 
 #if 1
-/*
- * @unimplemented
- */
 size_t mbstowcs(wchar_t* wcstr, const char* mbstr, size_t count)
 {
 	size_t size;

@@ -6,9 +6,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 int ungetc(int c, FILE *f)
 {
   if (!__validfp (f) || !OPEN4READING(f)) {
@@ -41,9 +38,6 @@ int ungetc(int c, FILE *f)
 }
 
 
-/*
- * @implemented
- */
 wint_t
 ungetwc(wchar_t c, FILE *f)
 {

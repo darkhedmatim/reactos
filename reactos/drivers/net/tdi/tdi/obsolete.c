@@ -1,12 +1,9 @@
-/* $Id: obsolete.c,v 1.7 2004/01/28 20:55:50 ekohl Exp $
+/* $Id: obsolete.c,v 1.5 2002/09/08 10:22:20 chorns Exp $
  *
  */
 
-#include <ddk/ntddk.h>
+#include <ntos.h>
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 TdiMapBuffer (
@@ -17,9 +14,6 @@ TdiMapBuffer (
 }
 
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 TdiUnmapBuffer (
@@ -28,5 +22,6 @@ TdiUnmapBuffer (
 {
 	/* This function is obsolete */
 }
+
 
 /* EOF */

@@ -18,9 +18,9 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.7 $
- * $Author: navaraf $
- * $Date: 2004/12/25 21:05:19 $
+ * $Revision: 1.5 $
+ * $Author: robd $
+ * $Date: 2002/11/24 18:06:00 $
  *
  */
 /* Appropriated for Reactos Crtdll by Ariadne */
@@ -39,13 +39,12 @@
 #define __need_wchar_t
 #define __need_NULL
 #include <msvcrt/stddef.h>
-#include <_mingw.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-char * ___strtok; /* removed extern specifier 02-06-98, BD */
+char * ___strtok; // removed extern specifier 02-06-98, BD
 
 /*
  * Prototypes of the ANSI Standard C library string functions.
@@ -64,7 +63,7 @@ size_t  strcspn(const char* szGetPrefix, const char* szNotIncluding);
 char*   strerror(int nError); /* NOTE: NOT an old name wrapper. */
 char *  _strerror(const char *s);
 size_t  strlen(const char* sz);
-size_t  strnlen(const char* sz, size_t count); /* not exported */
+size_t  strnlen(const char* sz, size_t count); // not exported
 char*   strncat(char* szAddTo, const char* szAdd, size_t sizeMaxAdd);
 int     strncmp(const char* sz1, const char* sz2, size_t sizeMaxCompare);
 char*   strncpy(char* szCopyTo, const char* szSource, size_t sizeMaxCopy);
@@ -167,11 +166,7 @@ char*   strupr(char* szToConvert);
 
 /* NOTE: There is no _wcscmpi, but this is for compatibility. */
 int wcscmpi(const wchar_t* ws1, const wchar_t* ws2);
-#if __MINGW32_MAJOR_VERSION == 3 && __MINGW32_MINOR_VERSION == 5
-wchar_t* wcsdup(wchar_t* wsToDuplicate);
-#else
 wchar_t* wcsdup(const wchar_t* wsToDuplicate);
-#endif
 int wcsicmp(const wchar_t* ws1, const wchar_t* ws2);
 int wcsicoll(const wchar_t* ws1, const wchar_t* ws2);
 wchar_t* wcslwr(wchar_t* wsToConvert);

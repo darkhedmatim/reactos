@@ -3,9 +3,6 @@
 #include <msvcrt/stdarg.h>
 
 
-/*
- * @implemented
- */
 int _spawnlpe(int mode, const char *path, const char *szArgv0, ... /*, const char **envp */)
 {
   char *szArg[100];

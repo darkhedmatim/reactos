@@ -34,18 +34,12 @@ static char *__rt_err_msg[] =
 };
 
 
-/*
- * @implemented
- */
 int _aexit_rtn(int exitcode)
 {
     _exit(exitcode);
     return 0;
 }
 
-/*
- * @implemented
- */
 void _amsg_exit(int errnum)
 {
     fprintf(stderr, "runtime error - %s\n", __rt_err_msg[errnum]);

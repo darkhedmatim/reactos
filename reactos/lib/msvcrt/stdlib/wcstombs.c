@@ -20,7 +20,7 @@
 #include <msvcrt/wchar.h>
 
 #include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <msvcrt/wchar.h>
 
 #ifndef EILSEQ
 #define EILSEQ EINVAL
@@ -29,7 +29,7 @@
 
 static const wchar_t encoding_mask[] =
 {
-  (~0x7ff&WCHAR_MAX), (~0xffff&WCHAR_MAX), (~0x1fffff&WCHAR_MAX), (~0x3ffffff&WCHAR_MAX)
+  ~0x7ff, ~0xffff, ~0x1fffff, ~0x3ffffff
 };
 
 static const unsigned char encoding_byte[] =
@@ -49,18 +49,14 @@ mbstate_t __no_r_state;  /* Now defined in wcstombs.c.  */
 size_t
 __wcsrtombs (char *dst, const wchar_t **src, size_t len, mbstate_t *ps);
 
-/*
- * Convert the `wchar_t' string in PWCS to a multibyte character string
- * in S, writing no more than N characters.  Return the number of bytes
- * written, or (size_t) -1 if an invalid `wchar_t' was found.
- *
- * Attention: this function should NEVER be intentionally used.
- * The interface is completely stupid.  The state is shared between
- * all conversion functions.  You should use instead the restartable
- * version `wcsrtombs'.
- *
- * @implemented
- */
+/* Convert the `wchar_t' string in PWCS to a multibyte character string
+   in S, writing no more than N characters.  Return the number of bytes
+   written, or (size_t) -1 if an invalid `wchar_t' was found.
+
+   Attention: this function should NEVER be intentionally used.
+   The interface is completely stupid.  The state is shared between
+   all conversion functions.  You should use instead the restartable
+   version `wcsrtombs'.  */
 size_t
 wcstombs (char *s, const wchar_t *pwcs, size_t n)
 {
@@ -94,14 +90,12 @@ __wcsrtombs (char *dst, const wchar_t **src, size_t len, mbstate_t *ps)
     {
       wchar_t wc = *run++;
 
-#if 0
-      if (wc < 0 || wc > WCHAR_MAX)
+      if (wc < 0 || wc > 0x7fffffff)
         {
           /* This is no correct ISO 10646 character.  */
           __set_errno (EILSEQ);
           return (size_t) -1;
         }
-#endif
 
       if (wc == L'\0')
         {

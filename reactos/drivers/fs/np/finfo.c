@@ -1,4 +1,4 @@
-/* $Id: finfo.c,v 1.6 2004/04/12 13:03:29 navaraf Exp $
+/* $Id: finfo.c,v 1.5 2002/09/08 10:22:11 chorns Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -14,6 +14,9 @@
 
 #define NDEBUG
 #include <debug.h>
+
+
+
 
 /* FUNCTIONS *****************************************************************/
 

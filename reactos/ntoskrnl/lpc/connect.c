@@ -1,4 +1,4 @@
-/* $Id: connect.c,v 1.27 2004/08/15 16:39:06 chorns Exp $
+/* $Id: connect.c,v 1.15 2003/01/11 15:33:49 hbirr Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <internal/safe.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -21,16 +28,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-/**********************************************************************
- * NAME							EXPORTED
- * 	EiConnectPort/12
- *
- * DESCRIPTION
- *
- * ARGUMENTS
- *
- * RETURN VALUE
- */
 NTSTATUS STDCALL
 EiConnectPort(IN PEPORT* ConnectedPort,
 	      IN PEPORT NamedPort,
@@ -65,20 +62,16 @@ EiConnectPort(IN PEPORT* ConnectedPort,
   /*
    * Create a port to represent our side of the connection
    */
-  Status = ObCreateObject (KernelMode,
+  Status = ObCreateObject (NULL,
+			   PORT_ALL_ACCESS,
+			   NULL,
 			   ExPortType,
-			   NULL,
-			   KernelMode,
-			   NULL,
-			   sizeof(EPORT),
-			   0,
-			   0,
 			   (PVOID*)&OurPort);
   if (!NT_SUCCESS(Status))
     {
       return (Status);
     }
-  NiInitializePort(OurPort, EPORT_TYPE_CLIENT_COMM_PORT, NamedPort);
+  NiInitializePort(OurPort);
 
   /*
    * Allocate a request message.
@@ -102,7 +95,7 @@ EiConnectPort(IN PEPORT* ConnectedPort,
     sizeof(EPORT_CONNECT_REQUEST_MESSAGE) + RequestConnectDataLength;
   DPRINT("RequestMessageSize %d\n",
 	 RequestMessage->MessageHeader.MessageSize);
-  RequestMessage->MessageHeader.SectionSize = 0;
+  RequestMessage->MessageHeader.SharedSectionSize = 0;
   RequestMessage->ConnectingProcess = PsGetCurrentProcess();
   ObReferenceObjectByPointer(RequestMessage->ConnectingProcess,
 			     PROCESS_VM_OPERATION,
@@ -221,11 +214,11 @@ EiConnectPort(IN PEPORT* ConnectedPort,
 
 /**********************************************************************
  * NAME							EXPORTED
- * 	NtConnectPort/8
+ * 	NtConnectPort@32
  * 	
  * DESCRIPTION
  *	Connect to a named port and wait for the other side to 
- *	accept or reject the connection request.
+ *	accept the connection.
  *
  * ARGUMENTS
  *	ConnectedPort
@@ -239,7 +232,6 @@ EiConnectPort(IN PEPORT* ConnectedPort,
  * 
  * RETURN VALUE
  * 
- * @unimplemented
  */
 NTSTATUS STDCALL
 NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
@@ -268,8 +260,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
    */
   if (UnsafeWriteMap != NULL)
     {
-      Status = MmCopyFromCaller(&WriteMap,
-				UnsafeWriteMap,
+      Status = MmCopyFromCaller(&WriteMap, UnsafeWriteMap, 
 				sizeof(LPC_SECTION_WRITE));
       if (!NT_SUCCESS(Status))
 	{
@@ -317,7 +308,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
 	    }
 	  Status = MmCopyFromCaller(ConnectData,
 				    UnsafeConnectData,
-				    ConnectDataLength);
+				    ConnectDataLength);	
 	  if (!NT_SUCCESS(Status))
 	    {
 	      ExFreePool(ConnectData);
@@ -394,13 +385,11 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
 	{
 	  if (ExGetPreviousMode() != KernelMode)
 	    {
-	      MmCopyToCaller(UnsafeConnectData,
-			     ConnectData,
+	      MmCopyToCaller(UnsafeConnectData, ConnectData,
 			     ConnectDataLength);
 	      ExFreePool(ConnectData);
 	    }
-	  MmCopyToCaller(UnsafeConnectDataLength,
-			 &ConnectDataLength,
+	  MmCopyToCaller(UnsafeConnectDataLength, &ConnectDataLength,
 			 sizeof(ULONG));
 	}
       return(Status);
@@ -424,20 +413,18 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     {
       if (UnsafeConnectDataLength != NULL)
 	{
-	  Status = MmCopyToCaller(UnsafeConnectDataLength,
-				  &ConnectDataLength,
-				  sizeof(ULONG));
-	  if (!NT_SUCCESS(Status))
+	  if (ExGetPreviousMode() != KernelMode)
 	    {
-	      return(Status);
-	    }
-	}
-      if (UnsafeConnectData != NULL && ConnectData != NULL)
-	{
-	  Status = MmCopyToCaller(UnsafeConnectData,
-				      ConnectData,
+	      Status = MmCopyToCaller(UnsafeConnectData, ConnectData,
 				      ConnectDataLength);
-	  ExFreePool(ConnectData);
+	      ExFreePool(ConnectData);
+	      if (!NT_SUCCESS(Status))
+		{
+		  return(Status);
+		}
+	    }
+	  Status = MmCopyToCaller(UnsafeConnectDataLength, &ConnectDataLength,
+				  sizeof(ULONG));
 	  if (!NT_SUCCESS(Status))
 	    {
 	      return(Status);
@@ -454,8 +441,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     {
       return(Status);
     }
-  Status = MmCopyToCaller(UnsafeConnectedPortHandle,
-			  &ConnectedPortHandle,
+  Status = MmCopyToCaller(UnsafeConnectedPortHandle, &ConnectedPortHandle,
 			  sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
     {
@@ -463,8 +449,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     }
   if (UnsafeWriteMap != NULL)
     {
-      Status = MmCopyToCaller(UnsafeWriteMap,
-			      &WriteMap,
+      Status = MmCopyToCaller(UnsafeWriteMap, &WriteMap, 
 			      sizeof(LPC_SECTION_WRITE));
       if (!NT_SUCCESS(Status))
 	{
@@ -473,8 +458,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     }
   if (UnsafeReadMap != NULL)
     {
-      Status = MmCopyToCaller(UnsafeReadMap,
-			      &ReadMap,
+      Status = MmCopyToCaller(UnsafeReadMap, &ReadMap,
 			      sizeof(LPC_SECTION_READ));
       if (!NT_SUCCESS(Status))
 	{
@@ -483,9 +467,9 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
     }
   if (UnsafeMaximumMessageSize != NULL)
     {
-      Status = MmCopyToCaller(UnsafeMaximumMessageSize,
+      Status = MmCopyToCaller(UnsafeMaximumMessageSize, 
 			      &MaximumMessageSize,
-			      sizeof(ULONG));
+			      sizeof(LPC_SECTION_WRITE));
       if (!NT_SUCCESS(Status))
 	{
 	  return(Status);
@@ -502,7 +486,7 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
 
 /**********************************************************************
  * NAME							EXPORTED
- *	NtAcceptConnectPort/6
+ *	NtAcceptConnectPort@24
  *
  * DESCRIPTION
  *
@@ -515,8 +499,9 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
  *	ReadMap
  *
  * RETURN VALUE
+ *
  */
-/*EXPORTED*/ NTSTATUS STDCALL
+EXPORTED NTSTATUS STDCALL
 NtAcceptConnectPort (PHANDLE			ServerPortHandle,
 		     HANDLE			NamedPortHandle,
 		     PLPC_MESSAGE		LpcMessage,
@@ -562,14 +547,10 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
    */
   if (AcceptIt)
     {
-      Status = ObCreateObject(ExGetPreviousMode(),
+      Status = ObCreateObject(ServerPortHandle,
+			      PORT_ALL_ACCESS,
+			      NULL,
 			      ExPortType,
-			      NULL,
-			      ExGetPreviousMode(),
-			      NULL,
-			      sizeof(EPORT),
-			      0,
-			      0,
 			      (PVOID*)&OurPort);
       if (!NT_SUCCESS(Status))
 	{
@@ -577,24 +558,9 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
 	  ObDereferenceObject(NamedPort);
 	  return(Status);
 	}
-
-      Status = ObInsertObject ((PVOID)OurPort,
-			       NULL,
-			       PORT_ALL_ACCESS,
-			       0,
-			       NULL,
-			       ServerPortHandle);
-      if (!NT_SUCCESS(Status))
-	{
-	  ObDereferenceObject(OurPort);
-	  ExFreePool(CReply);
-	  ObDereferenceObject(NamedPort);
-	  return(Status);
-	}
-
-      NiInitializePort(OurPort, EPORT_TYPE_SERVER_COMM_PORT, NamedPort);
+      NiInitializePort(OurPort);
     }
-
+  
   /*
    * Dequeue the connection request
    */
@@ -734,7 +700,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
     {
       CReply->ReceiveClientViewBase = WriteMap->TargetViewBase;
     }
-  CReply->MaximumMessageSize = PORT_MAX_MESSAGE_LENGTH;
+  CReply->MaximumMessageSize = 0x148;
 
 
   /*
@@ -757,7 +723,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
 
 /**********************************************************************
  * NAME							EXPORTED
- * 	NtSecureConnectPort/9
+ * 	NtSecureConnectPort@36
  * 	
  * DESCRIPTION
  *	Connect to a named port and wait for the other side to 
@@ -767,7 +733,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
  *
  * ARGUMENTS
  *	ConnectedPort
- *	PortName: fully qualified name in the Ob name space;
+ *	PortName
  *	Qos
  *	WriteMap
  *	ServerSid
@@ -777,6 +743,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
  *	UserConnectInfoLength
  * 
  * RETURN VALUE
+ * 
  */
 NTSTATUS STDCALL
 NtSecureConnectPort (OUT    PHANDLE				ConnectedPort,
@@ -789,16 +756,7 @@ NtSecureConnectPort (OUT    PHANDLE				ConnectedPort,
 		     IN OUT PVOID				ConnectInfo		OPTIONAL,
 		     IN OUT PULONG				UserConnectInfoLength	OPTIONAL)
 {
-  /* TODO: implement a new object type: WaitablePort */
-  /* TODO: verify the process' SID that hosts the rendez-vous port equals ServerSid */
-  return NtConnectPort (ConnectedPort,
-		        PortName,
-		        Qos,
-		        WriteMap,
-		        ReadMap,
-		        MaxMessageSize,
-		        ConnectInfo,
-		        UserConnectInfoLength);
+	return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* EOF */

@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,14 +16,14 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rw.c,v 1.12 2003/11/13 15:25:08 ekohl Exp $
+/* $Id: rw.c,v 1.9 2003/01/02 16:02:02 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/cdfs/rw.c
+ * FILE:             services/fs/cdfs/rw.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
- *                   Eric Kohl
+ * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
@@ -58,6 +58,8 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
  */
 {
   NTSTATUS Status = STATUS_SUCCESS;
+  PUCHAR TempBuffer;
+  ULONG TempLength;
   PCCB Ccb;
   PFCB Fcb;
 
@@ -69,7 +71,7 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
     return(STATUS_SUCCESS);
 
   Ccb = (PCCB)FileObject->FsContext2;
-  Fcb = (PFCB)FileObject->FsContext;
+  Fcb = Ccb->Fcb;
 
   if (ReadOffset >= Fcb->Entry.DataLengthL)
     return(STATUS_END_OF_FILE);
@@ -83,11 +85,10 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
 
       if (ReadOffset + Length > Fcb->Entry.DataLengthL)
          Length = Fcb->Entry.DataLengthL - ReadOffset;
-
       if (FileObject->PrivateCacheMap == NULL)
-	{
-	  CcRosInitializeFileCache(FileObject, PAGE_SIZE);
-	}
+      {
+	  CcRosInitializeFileCache(FileObject, &Fcb->RFCB.Bcb, PAGE_SIZE);
+      }
 
       FileOffset.QuadPart = (LONGLONG)ReadOffset;
       CcCopyRead(FileObject,
@@ -105,27 +106,24 @@ CdfsReadFile(PDEVICE_EXTENSION DeviceExt,
     {
       return STATUS_INVALID_PARAMETER;
     }
-
   if (ReadOffset + Length > ROUND_UP(Fcb->Entry.DataLengthL, BLOCKSIZE))
     Length = ROUND_UP(Fcb->Entry.DataLengthL, BLOCKSIZE) - ReadOffset;
 
   Status = CdfsReadSectors(DeviceExt->StorageDevice,
 			   Fcb->Entry.ExtentLocationL + (ReadOffset / BLOCKSIZE),
 			   Length / BLOCKSIZE,
-			   Buffer,
-			   FALSE);
+			   Buffer);
   if (NT_SUCCESS(Status))
     {
       *LengthRead = Length;
       if (Length + ReadOffset > Fcb->Entry.DataLengthL)
-	{
-	  memset(Buffer + Fcb->Entry.DataLengthL - ReadOffset,
-		 0,
-		 Length + ReadOffset - Fcb->Entry.DataLengthL);
-	}
+      {
+	memset(Buffer + Fcb->Entry.DataLengthL - ReadOffset, 
+	       0, Length + ReadOffset - Fcb->Entry.DataLengthL);
+      }
     }
 
-  return Status;
+  return(Status);
 }
 
 
@@ -159,6 +157,8 @@ CdfsRead(PDEVICE_OBJECT DeviceObject,
 			ReadOffset.u.LowPart,
 			Irp->Flags,
 			&ReturnedReadLength);
+
+ByeBye:
   if (NT_SUCCESS(Status))
     {
       if (FileObject->Flags & FO_SYNCHRONOUS_IO)

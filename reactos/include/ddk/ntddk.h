@@ -1,4 +1,4 @@
-/* $Id: ntddk.h,v 1.38 2003/12/30 17:39:38 fireball Exp $
+/* $Id: ntddk.h,v 1.33 2002/11/15 22:30:30 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -9,26 +9,17 @@
  *                 15/05/98: Created
  */
 
-#ifdef __USE_W32API
-
-#include_next <ddk/ntddk.h>
-
-#else /* __USE_W32API */
-
 #ifndef __NTDDK_H
 #define __NTDDK_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* INCLUDES ***************************************************************/
 
-#if defined(__GNUC__)
 #define FASTCALL  __attribute__((fastcall))
-#else
-#define FASTCALL __fastcall
-#endif
 
 #define STATIC static
 
@@ -46,7 +37,6 @@ extern "C" {
 #include <ntos/disk.h>
 #include <ntos/registry.h>
 #include <ntos/port.h>
-#include <ntos/synch.h>
 #include <napi/types.h>
 
 #include <pe.h>
@@ -58,6 +48,7 @@ extern "C" {
 #include <ddk/cmtypes.h>
 #include <ddk/ketypes.h>
 #include <ntos/security.h>
+#include <ddk/obtypes.h>
 #include <ddk/setypes.h>
 #include <ddk/mmtypes.h>
 #include <ddk/potypes.h>
@@ -69,6 +60,7 @@ extern "C" {
 #include <ntos/zwtypes.h>
 #include <ddk/ioctrl.h>
 #include <ntos/rtltypes.h>
+#include <ddk/haltypes.h>
 #include <napi/shared_data.h>
 
 #include <ntos/zw.h>
@@ -79,6 +71,7 @@ extern "C" {
 #include <ddk/exfuncs.h>
 #include <ddk/halfuncs.h>
 #include <ddk/mmfuncs.h>
+#include <ddk/kdfuncs.h>
 #include <ddk/kefuncs.h>
 #include <ddk/pofuncs.h>
 #include <ddk/pnpfuncs.h>
@@ -89,9 +82,8 @@ extern "C" {
 #endif /*__NTOSKRNL__ || __NTDRIVER__ || __NTHAL__ */
 
 #ifdef __cplusplus
-}
+};
 #endif
 
 #endif /* __NTDDK_H */
 
-#endif /* __USE_W32API */

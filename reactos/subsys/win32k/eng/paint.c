@@ -1,23 +1,4 @@
 /*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: paint.c,v 1.21 2004/12/14 04:55:43 royce Exp $
- * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
  * PURPOSE:           GDI Driver Paint Functions
@@ -27,38 +8,84 @@
  *                 3/7/1999: Created
  */
 
-#include <w32k.h>
+#include <ddk/winddi.h>
+#include <include/object.h>
+#include <include/paint.h>
+#include <include/surface.h>
 
-BOOL STDCALL FillSolid(SURFOBJ *Surface, PRECTL pRect, ULONG iColor)
+#include "objects.h"
+#include <include/mouse.h>
+#include "../dib/dib.h"
+
+#include "brush.h"
+#include "clip.h"
+
+//#define NDEBUG
+#include <win32k/debug1.h>
+
+BOOL FillSolid(SURFOBJ *Surface, PRECTL pRect, ULONG iColor)
 {
+  // These functions are assigned if we're working with a DIB
+  // The assigned functions depend on the bitsPerPixel of the DIB
+  PFN_DIB_PutPixel DIB_PutPixel;
+  PFN_DIB_HLine    DIB_HLine;
+  PFN_DIB_VLine    DIB_VLine;
   LONG y;
-  ULONG LineWidth;
+  ULONG x, LineWidth, leftOfBitmap;
+  SURFGDI *SurfaceGDI;
 
-  ASSERT ( Surface );
-  ASSERT ( pRect );
-  MouseSafetyOnDrawStart(Surface, pRect->left, pRect->top, pRect->right, pRect->bottom);
+  SurfaceGDI = (SURFGDI*)AccessInternalObjectFromUserObject(Surface);
+  MouseSafetyOnDrawStart(Surface, SurfaceGDI, pRect->left, pRect->top, pRect->right, pRect->bottom);
+/*
+  if(Surface->iType!=STYPE_BITMAP)
+  {
+    // Call the driver's DrvLineTo
+    ret = SurfGDI->LineTo(Surface, Clip, Brush, x1, y1, x2, y2, RectBounds, mix);
+    MouseSafetyOnDrawEnd(Surface, SurfGDI);
+    return ret;
+  }
+*/
+  // Assign DIB functions according to bytes per pixel
+  DPRINT("BPF: %d\n", BitsPerFormat(Surface->iBitmapFormat));
+  switch(BitsPerFormat(Surface->iBitmapFormat))
+  {
+    case 4:
+      DIB_PutPixel = (PFN_DIB_PutPixel)DIB_4BPP_PutPixel;
+      DIB_HLine    = (PFN_DIB_HLine)DIB_4BPP_HLine;
+      DIB_VLine    = (PFN_DIB_VLine)DIB_4BPP_VLine;
+      break;
+
+    case 24:
+      DIB_PutPixel = (PFN_DIB_PutPixel)DIB_24BPP_PutPixel;
+      DIB_HLine    = (PFN_DIB_HLine)DIB_24BPP_HLine;
+      DIB_VLine    = (PFN_DIB_VLine)DIB_24BPP_VLine;
+      break;
+
+    default:
+      DbgPrint("EngLineTo: unsupported DIB format %u (bitsPerPixel:%u)\n", Surface->iBitmapFormat,
+               BitsPerFormat(Surface->iBitmapFormat));
+
+      MouseSafetyOnDrawEnd(Surface, SurfaceGDI);
+      return FALSE;
+  }
+
   LineWidth  = pRect->right - pRect->left;
   DPRINT(" LineWidth: %d, top: %d, bottom: %d\n", LineWidth, pRect->top, pRect->bottom);
   for (y = pRect->top; y < pRect->bottom; y++)
   {
-    DibFunctionsForBitmapFormat[Surface->iBitmapFormat].DIB_HLine(
-      Surface, pRect->left, pRect->right, y, iColor);
+      //EngLineTo(Surface, SurfaceGDI, Dimensions->left, y, LineWidth, iColor);
+	  DIB_HLine(Surface, pRect->left, pRect->right, y, iColor);
   }
-  MouseSafetyOnDrawEnd(Surface);
+  MouseSafetyOnDrawEnd(Surface, SurfaceGDI);
 
   return TRUE;
 }
 
-BOOL STDCALL
-EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
-            BRUSHOBJ *BrushObj, POINTL *BrushPoint)
+BOOL EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
+               BRUSHINST *BrushInst, POINTL *BrushPoint)
 {
   RECT_ENUM RectEnum;
   BOOL EnumMore;
-  ULONG i;
-
-  ASSERT(Surface);
-  ASSERT(ClipRegion);
 
   DPRINT("ClipRegion->iMode:%d, ClipRegion->iDComplexity: %d\n Color: %d", ClipRegion->iMode, ClipRegion->iDComplexity, iColor);
   switch(ClipRegion->iMode) {
@@ -75,13 +102,11 @@ EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
     } else {
 
       /* Enumerate all the rectangles and draw them */
-      CLIPOBJ_cEnumStart(ClipRegion, FALSE, CT_RECTANGLES, CD_ANY, 0);
+      CLIPOBJ_cEnumStart(ClipRegion, FALSE, CT_RECTANGLES, CD_ANY, ENUM_RECT_LIMIT);
 
       do {
         EnumMore = CLIPOBJ_bEnum(ClipRegion, sizeof(RectEnum), (PVOID) &RectEnum);
-        for (i = 0; i < RectEnum.c; i++) {
-          FillSolid(Surface, RectEnum.arcl + i, iColor);
-        }
+        FillSolid(Surface, &RectEnum.arcl[0], iColor);
       } while (EnumMore);
     }
 
@@ -92,9 +117,6 @@ EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
   }
 }
 
-/*
- * @unimplemented
- */
 BOOL STDCALL
 EngPaint(IN SURFOBJ *Surface,
 	 IN CLIPOBJ *ClipRegion,
@@ -105,36 +127,36 @@ EngPaint(IN SURFOBJ *Surface,
   BOOLEAN ret;
 
   // FIXME: We only support a brush's solid color attribute
-  ret = EngPaintRgn(Surface, ClipRegion, Brush->iSolidColor, Mix, Brush, BrushOrigin);
+  ret = EngPaintRgn(Surface, ClipRegion, Brush->iSolidColor, Mix, NULL, BrushOrigin);
 
   return ret;
 }
 
 BOOL STDCALL
-IntEngPaint(IN BITMAPOBJ *BitmapObj,
-            IN CLIPOBJ *ClipRegion,
-            IN BRUSHOBJ *Brush,
-            IN POINTL *BrushOrigin,
-            IN MIX  Mix)
+IntEngPaint(IN SURFOBJ *Surface,
+	 IN CLIPOBJ *ClipRegion,
+	 IN BRUSHOBJ *Brush,
+	 IN POINTL *BrushOrigin,
+	 IN MIX  Mix)
 {
-  SURFOBJ *Surface = &BitmapObj->SurfObj;
+  SURFGDI *SurfGDI;
   BOOL ret;
 
-  DPRINT("SurfGDI type: %d\n", Surface->iType);
-  /* Is the surface's Paint function hooked? */
-  if((Surface->iType!=STYPE_BITMAP) && (BitmapObj->flHooks & HOOK_PAINT))
+  // Is the surface's Paint function hooked?
+  SurfGDI = (SURFGDI*)AccessInternalObjectFromUserObject(Surface);
+
+  DPRINT("SurfGDI type: %d, sgdi paint: %x\n", Surface->iType, SurfGDI->Paint);
+  if((Surface->iType!=STYPE_BITMAP) && (SurfGDI->Paint!=NULL))
   {
     // Call the driver's DrvPaint
-    MouseSafetyOnDrawStart(Surface, ClipRegion->rclBounds.left,
+    MouseSafetyOnDrawStart(Surface, SurfGDI, ClipRegion->rclBounds.left,
 	                         ClipRegion->rclBounds.top, ClipRegion->rclBounds.right,
 							 ClipRegion->rclBounds.bottom);
 
-    ret = GDIDEVFUNCS(Surface).Paint(
-      Surface, ClipRegion, Brush, BrushOrigin, Mix);
-    MouseSafetyOnDrawEnd(Surface);
+    ret = SurfGDI->Paint(Surface, ClipRegion, Brush, BrushOrigin, Mix);
+    MouseSafetyOnDrawEnd(Surface, SurfGDI);
     return ret;
   }
   return EngPaint( Surface, ClipRegion, Brush, BrushOrigin, Mix );
 
 }
-/* EOF */

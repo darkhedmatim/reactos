@@ -23,8 +23,6 @@
 
 #include <windows.h>
 #include <net/ntddndis.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include <packet32.h>
 #include "trace.h"
@@ -1288,12 +1286,12 @@ BOOLEAN PacketGetStatsEx(LPADAPTER AdapterObject,struct bpf_stat *s)
 */
 BOOLEAN PacketRequest(LPADAPTER  AdapterObject,BOOLEAN Set,PPACKET_OID_DATA  OidData)
 {
-	//DWORD BytesReturned;
-    BOOLEAN Result = 0;
-	/*commented out since its broken & needs fixing*/
-    /*Result=DeviceIoControl(AdapterObject->hFile,(DWORD) Set ? pBIOCSETOID : pBIOCQUERYOID,
+	DWORD BytesReturned;
+    BOOLEAN Result;
+
+    Result=DeviceIoControl(AdapterObject->hFile,(DWORD) Set ? pBIOCSETOID : pBIOCQUERYOID,
                            OidData,sizeof(PACKET_OID_DATA)-1+OidData->Length,OidData,
-                           sizeof(PACKET_OID_DATA)-1+OidData->Length,&BytesReturned,NULL);*/
+                           sizeof(PACKET_OID_DATA)-1+OidData->Length,&BytesReturned,NULL);
     
 	// output some debug info
 	ODSEx("PacketRequest, OID=%d ", OidData->Oid);

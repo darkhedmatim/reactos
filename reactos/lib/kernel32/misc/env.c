@@ -1,4 +1,4 @@
-/* $Id: env.c,v 1.27 2004/12/27 16:40:14 navaraf Exp $
+/* $Id: env.c,v 1.18 2003/01/15 21:24:34 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,14 +12,11 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ******************************************************************/
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetEnvironmentVariableA (
@@ -95,9 +92,6 @@ GetEnvironmentVariableA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetEnvironmentVariableW (
@@ -137,10 +131,7 @@ GetEnvironmentVariableW (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetEnvironmentVariableA (
 	LPCSTR	lpName,
@@ -184,10 +175,7 @@ SetEnvironmentVariableA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetEnvironmentVariableW (
 	LPCWSTR	lpName,
@@ -219,224 +207,55 @@ SetEnvironmentVariableW (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetVersion(VOID)
 {
- PPEB pPeb = NtCurrentPeb();
- DWORD nVersion;
+	DWORD Version = 0;
+	OSVERSIONINFO VersionInformation;
+	GetVersionExW(&VersionInformation);
 
- nVersion = MAKEWORD(pPeb->OSMajorVersion, pPeb->OSMinorVersion);
+	Version |= ( VersionInformation.dwMajorVersion << 8 );
+	Version |= VersionInformation.dwMinorVersion;
 
- /* behave consistently when posing as another operating system */
- /* build number */
- if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_WINDOWS)
-  nVersion |= ((DWORD)(pPeb->OSBuildNumber)) << 16;
- 
- /* non-NT platform flag */
- if(pPeb->OSPlatformId != VER_PLATFORM_WIN32_NT)
-  nVersion |= 0x80000000;
+	Version |= ( VersionInformation.dwPlatformId << 16 );
 
- return nVersion;
+	return Version;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetVersionExW(
-    LPOSVERSIONINFOW lpVersionInformation
+    LPOSVERSIONINFO lpVersionInformation
     )
 {
- PPEB pPeb = NtCurrentPeb();
- WCHAR *RosVersion;
-
- /* TODO: move this into RtlGetVersion */
- switch(lpVersionInformation->dwOSVersionInfoSize)
- {
-  case sizeof(OSVERSIONINFOEXW):
-  {
-   LPOSVERSIONINFOEXW lpVersionInformationEx =
-    (LPOSVERSIONINFOEXW)lpVersionInformation;
-
-   lpVersionInformationEx->wServicePackMajor = pPeb->SPMajorVersion;
-   lpVersionInformationEx->wServicePackMinor = pPeb->SPMinorVersion;
-   /* TODO: read from the KUSER_SHARED_DATA */
-   lpVersionInformationEx->wSuiteMask = 0;
-   /* TODO: call RtlGetNtProductType */
-   lpVersionInformationEx->wProductType = 0;
-   /* ??? */
-   lpVersionInformationEx->wReserved = 0;
-   /* fall through */
-  }
-
-  case sizeof(OSVERSIONINFOW):
-  {
-   lpVersionInformation->dwMajorVersion = pPeb->OSMajorVersion;
-   lpVersionInformation->dwMinorVersion = pPeb->OSMinorVersion;
-   lpVersionInformation->dwBuildNumber = pPeb->OSBuildNumber;
-   lpVersionInformation->dwPlatformId = pPeb->OSPlatformId;
-
-   /* First the Windows compatible string */
-   _snwprintf(lpVersionInformation->szCSDVersion,
-              sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR),
-              L"Service Pack %u", pPeb->SPMajorVersion);
-   /* Add the Reactos-specific string */
-   RosVersion = lpVersionInformation->szCSDVersion + wcslen(lpVersionInformation->szCSDVersion) + 1;
-   wcsncpy
-   (
-    RosVersion,
-    L"ReactOS " KERNEL_VERSION_STR L" (Build " KERNEL_VERSION_BUILD_STR L")",
-    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) -
-    ((RosVersion - lpVersionInformation->szCSDVersion) + 1)
-   );
-
-   /* null-terminate, just in case */
-   lpVersionInformation->szCSDVersion
-   [
-    sizeof(lpVersionInformation->szCSDVersion) / sizeof(WCHAR) - 1
-   ] = 0;
-
-   break;
-  }
-
-  default:
-  {
-   /* unknown version information revision */
-   SetLastError(ERROR_INSUFFICIENT_BUFFER);
-   return FALSE;
-  }
- }
- 
- return TRUE;
+	lpVersionInformation->dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	lpVersionInformation->dwMajorVersion = 4;
+	lpVersionInformation->dwMinorVersion = 0;
+	lpVersionInformation->dwBuildNumber = 12;
+	lpVersionInformation->dwPlatformId = VER_PLATFORM_WIN32_NT;
+	lstrcpyW((WCHAR *)lpVersionInformation->szCSDVersion,L"Ariadne was here...");
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetVersionExA(
-    LPOSVERSIONINFOA lpVersionInformation
+    LPOSVERSIONINFO lpVersionInformation
     )
 {
- NTSTATUS nErrCode;
- OSVERSIONINFOEXW oviVerInfo;
- LPOSVERSIONINFOEXA lpVersionInformationEx;
-
- /* UNICODE_STRING descriptor of the Unicode version string */
- UNICODE_STRING wstrVerStr =
- {
-  /*
-   gives extra work to RtlUnicodeStringToAnsiString, but spares us an
-   RtlInitUnicodeString round
-  */
-  0,
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion),
-  oviVerInfo.szCSDVersion
- };
-
- /* ANSI_STRING descriptor of the ANSI version string buffer */
- ANSI_STRING strVerStr =
- {
-  0,
-  sizeof(((LPOSVERSIONINFOA)NULL)->szCSDVersion),
-  lpVersionInformation->szCSDVersion
- };
-
- switch(lpVersionInformation->dwOSVersionInfoSize)
- {
-  case sizeof(OSVERSIONINFOEXA):
-  {
-   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
-   break;
-  }
-
-  case sizeof(OSVERSIONINFOA):
-  {
-   oviVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOW);
-   break;
-  }
-
-  default:
-  {
-   /* unknown version information revision */
-   SetLastError(ERROR_INSUFFICIENT_BUFFER);
-   return FALSE;
-  }
- }
-
- if(!GetVersionExW((LPOSVERSIONINFOW)&oviVerInfo))
-  return FALSE;
-
- /* null-terminate, just in case */
- oviVerInfo.szCSDVersion
- [
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion) /
-  sizeof(((LPOSVERSIONINFOW)NULL)->szCSDVersion[0]) -
-  1
- ] = 0;
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
-
- /* convert the win version string */
- nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
- 
- if(!NT_SUCCESS(nErrCode))
- {
-  /* failure */
-  SetLastErrorByStatus(nErrCode);
-  return FALSE;
- }
-
- wstrVerStr.Buffer = oviVerInfo.szCSDVersion + wstrVerStr.Length / sizeof(WCHAR) + 1;
- wstrVerStr.MaximumLength = sizeof(oviVerInfo.szCSDVersion) - (wstrVerStr.Length + sizeof(WCHAR));
- wstrVerStr.Length = wcslen(wstrVerStr.Buffer) * sizeof(WCHAR);
- strVerStr.Buffer = lpVersionInformation->szCSDVersion + strVerStr.Length + 1;
- strVerStr.MaximumLength = sizeof(lpVersionInformation->szCSDVersion) - (strVerStr.Length + 1);
- strVerStr.Length = 0;
-
- /* convert the ReactOS version string */
- nErrCode = RtlUnicodeStringToAnsiString(&strVerStr, &wstrVerStr, FALSE);
- 
- if(!NT_SUCCESS(nErrCode))
- {
-  /* failure */
-  SetLastErrorByStatus(nErrCode);
-  return FALSE;
- }
-
- /* copy the fields */
- lpVersionInformation->dwMajorVersion = oviVerInfo.dwMajorVersion;
- lpVersionInformation->dwMinorVersion = oviVerInfo.dwMinorVersion;
- lpVersionInformation->dwBuildNumber = oviVerInfo.dwBuildNumber;
- lpVersionInformation->dwPlatformId = oviVerInfo.dwPlatformId;
- 
- if(lpVersionInformation->dwOSVersionInfoSize < sizeof(OSVERSIONINFOEXA))
-  /* success */
-  return TRUE;
-
- /* copy the extended fields */
- lpVersionInformationEx = (LPOSVERSIONINFOEXA)lpVersionInformation;
- lpVersionInformationEx->wServicePackMajor = oviVerInfo.wServicePackMajor;
- lpVersionInformationEx->wServicePackMinor = oviVerInfo.wServicePackMinor;
- lpVersionInformationEx->wSuiteMask = oviVerInfo.wSuiteMask;
- lpVersionInformationEx->wProductType = oviVerInfo.wProductType;
- lpVersionInformationEx->wReserved = oviVerInfo.wReserved;
-
- /* success */
- return TRUE;
+	lpVersionInformation->dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	lpVersionInformation->dwMajorVersion = 4;
+	lpVersionInformation->dwMinorVersion = 0;
+	lpVersionInformation->dwBuildNumber = 12;
+	lpVersionInformation->dwPlatformId = VER_PLATFORM_WIN32_NT;
+	lstrcpyA((char *)lpVersionInformation->szCSDVersion,"ReactOs Pre-Alpha");
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
 LPSTR
 STDCALL
 GetEnvironmentStringsA (
@@ -508,9 +327,6 @@ GetEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
 LPWSTR
 STDCALL
 GetEnvironmentStringsW (
@@ -521,10 +337,7 @@ GetEnvironmentStringsW (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeEnvironmentStringsA (
 	LPSTR	EnvironmentStrings
@@ -541,23 +354,16 @@ FreeEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeEnvironmentStringsW (
 	LPWSTR	EnvironmentStrings
 	)
 {
- (void)EnvironmentStrings;
- return TRUE;
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 ExpandEnvironmentStringsA (
@@ -581,7 +387,7 @@ ExpandEnvironmentStringsA (
 
 	Destination.Length = 0;
 	Destination.MaximumLength = nSize;
-	Destination.Buffer = lpDst;
+	Destination.Buffer = lpDst,
 
 	DestinationU.Length = 0;
 	DestinationU.MaximumLength = nSize * sizeof(WCHAR);
@@ -598,14 +404,11 @@ ExpandEnvironmentStringsA (
 
 	if (!NT_SUCCESS(Status))
 	{
+		RtlFreeHeap (RtlGetProcessHeap (),
+		             0,
+		             DestinationU.Buffer);
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-		{
-			RtlFreeHeap (RtlGetProcessHeap (),
-			             0,
-			             DestinationU.Buffer);
-			return 0;
-		}
+		return 0;
 	}
 
 	RtlUnicodeStringToAnsiString (&Destination,
@@ -620,9 +423,6 @@ ExpandEnvironmentStringsA (
 }
 
 
-/*
- * @implemented
- */
 DWORD
 STDCALL
 ExpandEnvironmentStringsW (
@@ -650,8 +450,7 @@ ExpandEnvironmentStringsW (
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
-		if (Status != STATUS_BUFFER_TOO_SMALL)
-			return 0;
+		return 0;
 	}
 
 	return (Length / sizeof(WCHAR));

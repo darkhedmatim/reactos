@@ -1,4 +1,4 @@
-/* $Id: priv.c,v 1.11 2004/08/15 16:39:11 chorns Exp $
+/* $Id: priv.c,v 1.5 2002/09/08 10:23:43 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,8 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
+#include <ddk/ntddk.h>
+#include <internal/se.h>
+
 #include <internal/debug.h>
 
 
@@ -45,212 +46,182 @@ LUID SeRemoteShutdownPrivilege;
 
 /* FUNCTIONS ***************************************************************/
 
-VOID INIT_FUNCTION
-SepInitPrivileges (VOID)
+VOID
+SepInitPrivileges(VOID)
 {
-  SeCreateTokenPrivilege.LowPart = SE_CREATE_TOKEN_PRIVILEGE;
-  SeCreateTokenPrivilege.HighPart = 0;
-  SeAssignPrimaryTokenPrivilege.LowPart = SE_ASSIGNPRIMARYTOKEN_PRIVILEGE;
-  SeAssignPrimaryTokenPrivilege.HighPart = 0;
-  SeLockMemoryPrivilege.LowPart = SE_LOCK_MEMORY_PRIVILEGE;
-  SeLockMemoryPrivilege.HighPart = 0;
-  SeIncreaseQuotaPrivilege.LowPart = SE_INCREASE_QUOTA_PRIVILEGE;
-  SeIncreaseQuotaPrivilege.HighPart = 0;
-  SeUnsolicitedInputPrivilege.LowPart = SE_UNSOLICITED_INPUT_PRIVILEGE;
-  SeUnsolicitedInputPrivilege.HighPart = 0;
-  SeTcbPrivilege.LowPart = SE_TCB_PRIVILEGE;
-  SeTcbPrivilege.HighPart = 0;
-  SeSecurityPrivilege.LowPart = SE_SECURITY_PRIVILEGE;
-  SeSecurityPrivilege.HighPart = 0;
-  SeTakeOwnershipPrivilege.LowPart = SE_TAKE_OWNERSHIP_PRIVILEGE;
-  SeTakeOwnershipPrivilege.HighPart = 0;
-  SeLoadDriverPrivilege.LowPart = SE_LOAD_DRIVER_PRIVILEGE;
-  SeLoadDriverPrivilege.HighPart = 0;
-  SeSystemProfilePrivilege.LowPart = SE_SYSTEM_PROFILE_PRIVILEGE;
-  SeSystemProfilePrivilege.HighPart = 0;
-  SeSystemtimePrivilege.LowPart = SE_SYSTEMTIME_PRIVILEGE;
-  SeSystemtimePrivilege.HighPart = 0;
-  SeProfileSingleProcessPrivilege.LowPart = SE_PROF_SINGLE_PROCESS_PRIVILEGE;
-  SeProfileSingleProcessPrivilege.HighPart = 0;
-  SeIncreaseBasePriorityPrivilege.LowPart = SE_INC_BASE_PRIORITY_PRIVILEGE;
-  SeIncreaseBasePriorityPrivilege.HighPart = 0;
-  SeCreatePagefilePrivilege.LowPart = SE_CREATE_PAGEFILE_PRIVILEGE;
-  SeCreatePagefilePrivilege.HighPart = 0;
-  SeCreatePermanentPrivilege.LowPart = SE_CREATE_PERMANENT_PRIVILEGE;
-  SeCreatePermanentPrivilege.HighPart = 0;
-  SeBackupPrivilege.LowPart = SE_BACKUP_PRIVILEGE;
-  SeBackupPrivilege.HighPart = 0;
-  SeRestorePrivilege.LowPart = SE_RESTORE_PRIVILEGE;
-  SeRestorePrivilege.HighPart = 0;
-  SeShutdownPrivilege.LowPart = SE_SHUTDOWN_PRIVILEGE;
-  SeShutdownPrivilege.HighPart = 0;
-  SeDebugPrivilege.LowPart = SE_DEBUG_PRIVILEGE;
-  SeDebugPrivilege.HighPart = 0;
-  SeAuditPrivilege.LowPart = SE_AUDIT_PRIVILEGE;
-  SeAuditPrivilege.HighPart = 0;
-  SeSystemEnvironmentPrivilege.LowPart = SE_SYSTEM_ENVIRONMENT_PRIVILEGE;
-  SeSystemEnvironmentPrivilege.HighPart = 0;
-  SeChangeNotifyPrivilege.LowPart = SE_CHANGE_NOTIFY_PRIVILEGE;
-  SeChangeNotifyPrivilege.HighPart = 0;
-  SeRemoteShutdownPrivilege.LowPart = SE_REMOTE_SHUTDOWN_PRIVILEGE;
-  SeRemoteShutdownPrivilege.HighPart = 0;
+  SeCreateTokenPrivilege.QuadPart = SE_CREATE_TOKEN_PRIVILEGE;
+  SeAssignPrimaryTokenPrivilege.QuadPart = SE_ASSIGNPRIMARYTOKEN_PRIVILEGE;
+  SeLockMemoryPrivilege.QuadPart = SE_LOCK_MEMORY_PRIVILEGE;
+  SeIncreaseQuotaPrivilege.QuadPart = SE_INCREASE_QUOTA_PRIVILEGE;
+  SeUnsolicitedInputPrivilege.QuadPart = SE_UNSOLICITED_INPUT_PRIVILEGE;
+  SeTcbPrivilege.QuadPart = SE_TCB_PRIVILEGE;
+  SeSecurityPrivilege.QuadPart = SE_SECURITY_PRIVILEGE;
+  SeTakeOwnershipPrivilege.QuadPart = SE_TAKE_OWNERSHIP_PRIVILEGE;
+  SeLoadDriverPrivilege.QuadPart = SE_LOAD_DRIVER_PRIVILEGE;
+  SeSystemProfilePrivilege.QuadPart = SE_SYSTEM_PROFILE_PRIVILEGE;
+  SeSystemtimePrivilege.QuadPart = SE_SYSTEMTIME_PRIVILEGE;
+  SeProfileSingleProcessPrivilege.QuadPart = SE_PROF_SINGLE_PROCESS_PRIVILEGE;
+  SeIncreaseBasePriorityPrivilege.QuadPart = SE_INC_BASE_PRIORITY_PRIVILEGE;
+  SeCreatePagefilePrivilege.QuadPart = SE_CREATE_PAGEFILE_PRIVILEGE;
+  SeCreatePermanentPrivilege.QuadPart = SE_CREATE_PERMANENT_PRIVILEGE;
+  SeBackupPrivilege.QuadPart = SE_BACKUP_PRIVILEGE;
+  SeRestorePrivilege.QuadPart = SE_RESTORE_PRIVILEGE;
+  SeShutdownPrivilege.QuadPart = SE_SHUTDOWN_PRIVILEGE;
+  SeDebugPrivilege.QuadPart = SE_DEBUG_PRIVILEGE;
+  SeAuditPrivilege.QuadPart = SE_AUDIT_PRIVILEGE;
+  SeSystemEnvironmentPrivilege.QuadPart = SE_SYSTEM_ENVIRONMENT_PRIVILEGE;
+  SeChangeNotifyPrivilege.QuadPart = SE_CHANGE_NOTIFY_PRIVILEGE;
+  SeRemoteShutdownPrivilege.QuadPart = SE_REMOTE_SHUTDOWN_PRIVILEGE;
 }
 
 
-BOOLEAN
-SepPrivilegeCheck (PACCESS_TOKEN Token,
-		   PLUID_AND_ATTRIBUTES Privileges,
-		   ULONG PrivilegeCount,
-		   ULONG PrivilegeControl,
-		   KPROCESSOR_MODE PreviousMode)
+BOOLEAN SepPrivilegeCheck(PACCESS_TOKEN Token,
+			  PLUID_AND_ATTRIBUTES Privileges,
+			  ULONG PrivilegeCount,
+			  ULONG PrivilegeControl,
+			  KPROCESSOR_MODE PreviousMode)
 {
-  ULONG i;
-  ULONG j;
-  ULONG k;
-
-  DPRINT ("SepPrivilegeCheck() called\n");
-
-  if (PreviousMode == KernelMode)
-    {
-      return TRUE;
-    }
-
-  k = 0;
-  if (PrivilegeCount > 0)
-    {
-      for (i = 0; i < Token->PrivilegeCount; i++)
-	{
-	  for (j = 0; j < PrivilegeCount; j++)
-	    {
-	      if (Token->Privileges[i].Luid.LowPart == Privileges[j].Luid.LowPart &&
-		  Token->Privileges[i].Luid.HighPart == Privileges[j].Luid.HighPart)
-		{
-		  DPRINT ("Found privilege\n");
-		  DPRINT ("Privilege attributes %lx\n",
-			  Token->Privileges[i].Attributes);
-
-		  if (Token->Privileges[i].Attributes & SE_PRIVILEGE_ENABLED)
+   ULONG i;
+   PLUID_AND_ATTRIBUTES Current;
+   ULONG j;
+   ULONG k;
+   
+   if (PreviousMode == KernelMode)
+     {
+	return(TRUE);
+     }
+   
+   j = 0;
+   if (PrivilegeCount != 0)
+     {
+	k = PrivilegeCount;
+	do
+	  {
+	     i = Token->PrivilegeCount;
+	     Current = Token->Privileges;
+	     for (i = 0; i < Token->PrivilegeCount; i++)
+	       {
+		  if (!(Current[i].Attributes & SE_PRIVILEGE_ENABLED) &&
+		      Privileges[i].Luid.u.LowPart == 
+		      Current[i].Luid.u.LowPart &&
+		      Privileges[i].Luid.u.HighPart == 
+		      Current[i].Luid.u.HighPart)
 		    {
-		      Privileges[j].Attributes |= SE_PRIVILEGE_USED_FOR_ACCESS;
-		      k++;
+		       Privileges[i].Attributes = 
+			 Privileges[i].Attributes | 
+			 SE_PRIVILEGE_USED_FOR_ACCESS;
+		       j++;
+		       break;
 		    }
-		}
-	    }
-	}
-    }
+	       }
+	     k--;
+	  } while (k > 0);
+     }
+   
+   if ((PrivilegeControl & PRIVILEGE_SET_ALL_NECESSARY) && 
+       PrivilegeCount == j)       
+     {
+	return(TRUE);
+     }
+       
+   if (j > 0 && 
+       !(PrivilegeControl & PRIVILEGE_SET_ALL_NECESSARY))
+     {
+	return(TRUE);
+     }
 
-  if ((PrivilegeControl & PRIVILEGE_SET_ALL_NECESSARY) &&
-      PrivilegeCount == k)
-    {
-      return TRUE;
-    }
-
-  if (k > 0 &&
-      !(PrivilegeControl & PRIVILEGE_SET_ALL_NECESSARY))
-    {
-      return TRUE;
-    }
-
-  return FALSE;
+   return(FALSE);
 }
 
 
-NTSTATUS
-SeCaptureLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Src,
-				 ULONG PrivilegeCount,
-				 KPROCESSOR_MODE PreviousMode,
-				 PLUID_AND_ATTRIBUTES AllocatedMem,
-				 ULONG AllocatedLength,
-				 POOL_TYPE PoolType,
-				 ULONG d,
-				 PLUID_AND_ATTRIBUTES* Dest,
-				 PULONG Length)
+NTSTATUS SeCaptureLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Src,
+					 ULONG PrivilegeCount,
+					 KPROCESSOR_MODE PreviousMode,
+					 PLUID_AND_ATTRIBUTES AllocatedMem,
+					 ULONG AllocatedLength,
+					 POOL_TYPE PoolType,
+					 ULONG d,
+					 PLUID_AND_ATTRIBUTES* Dest,
+					 PULONG Length)
 {
-  PLUID_AND_ATTRIBUTES* NewMem;
-  ULONG SrcLength;
-
-  if (PrivilegeCount == 0)
-    {
-      *Dest = 0;
-      *Length = 0;
-      return STATUS_SUCCESS;
-    }
-
-  if (PreviousMode == KernelMode && d == 0)
-    {
-      *Dest = Src;
-      return STATUS_SUCCESS;
-    }
-
-  SrcLength = ((PrivilegeCount * sizeof(LUID_AND_ATTRIBUTES)) + 3) & 0xfc;
-  *Length = SrcLength;
-  if (AllocatedMem == NULL)
-    {
-      NewMem = ExAllocatePool (PoolType,
-			       SrcLength);
-      *Dest = (PLUID_AND_ATTRIBUTES)NewMem;
-      if (NewMem == NULL)
-	{
-	  return STATUS_UNSUCCESSFUL;
-	}
-    }
-  else
-    {
-      if (SrcLength > AllocatedLength)
-	{
-	  return STATUS_UNSUCCESSFUL;
-	}
-      *Dest = AllocatedMem;
-    }
-  memmove (*Dest, Src, SrcLength);
-
-  return STATUS_SUCCESS;
+   PLUID_AND_ATTRIBUTES* NewMem;
+   ULONG SrcLength;
+   
+   if (PrivilegeCount == 0)
+     {
+	*Dest = 0;
+	*Length = 0;
+	return(STATUS_SUCCESS);
+     }
+   if (PreviousMode == 0 && d == 0)
+     {
+	*Dest = Src;
+	return(STATUS_SUCCESS);
+     }
+   SrcLength = ((PrivilegeCount * sizeof(LUID_AND_ATTRIBUTES)) + 3) & 0xfc;
+   *Length = SrcLength;
+   if (AllocatedMem == NULL)
+     {
+	NewMem = ExAllocatePool(PoolType, SrcLength);
+	*Dest =  (PLUID_AND_ATTRIBUTES)NewMem;
+	if (NewMem == NULL)
+	  {
+	     return(STATUS_UNSUCCESSFUL);
+	  }
+     }
+   else
+     {
+	if (SrcLength > AllocatedLength)
+	  {
+	     return(STATUS_UNSUCCESSFUL);
+	  }
+	*Dest = AllocatedMem;
+     }
+   memmove(*Dest, Src, SrcLength);
+   return(STATUS_SUCCESS);
 }
-
 
 VOID
-SeReleaseLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Privilege,
-				 KPROCESSOR_MODE PreviousMode,
-				 ULONG a)
+SeReleaseLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Privilege,
+				KPROCESSOR_MODE PreviousMode,
+				ULONG a)
 {
-  ExFreePool (Privilege);
+   ExFreePool(Privilege);
 }
 
-
 NTSTATUS STDCALL
-NtPrivilegeCheck (IN HANDLE ClientToken,
-		  IN PPRIVILEGE_SET RequiredPrivileges,
-		  IN PBOOLEAN Result)
+NtPrivilegeCheck(IN HANDLE ClientToken,
+		 IN PPRIVILEGE_SET RequiredPrivileges,
+		 IN PBOOLEAN Result)
 {
-  PLUID_AND_ATTRIBUTES Privilege;
-  PACCESS_TOKEN Token;
-  ULONG PrivilegeCount;
-  ULONG PrivilegeControl;
-  ULONG Length;
-  NTSTATUS Status;
-
-  Status = ObReferenceObjectByHandle (ClientToken,
+   NTSTATUS Status;
+   PACCESS_TOKEN Token;
+   ULONG PrivilegeCount;
+   BOOLEAN TResult;
+   ULONG PrivilegeControl;
+   PLUID_AND_ATTRIBUTES Privilege;
+   ULONG Length;
+   
+   Status = ObReferenceObjectByHandle(ClientToken,
 				      0,
 				      SepTokenObjectType,
 				      UserMode,
 				      (PVOID*)&Token,
 				      NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  if (Token->TokenType == TokenImpersonation &&
-      Token->ImpersonationLevel < SecurityAnonymous)
-    {
-      ObDereferenceObject (Token);
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  PrivilegeCount = RequiredPrivileges->PrivilegeCount;
-  PrivilegeControl = RequiredPrivileges->Control;
-  Privilege = 0;
-  Status = SeCaptureLuidAndAttributesArray (RequiredPrivileges->Privilege,
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+   if (Token->TokenType == TokenImpersonation &&
+       Token->ImpersonationLevel < SecurityAnonymous)
+     {
+	ObDereferenceObject(Token);
+	return(STATUS_UNSUCCESSFUL);
+     }
+   PrivilegeCount = RequiredPrivileges->PrivilegeCount;
+   PrivilegeControl = RequiredPrivileges->Control;
+   Privilege = 0;
+   Status = SeCaptureLuidAndAttributesArray(RequiredPrivileges->Privilege,
 					    PrivilegeCount,
 					    1,
 					    0,
@@ -259,95 +230,77 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
 					    1,
 					    &Privilege,
 					    &Length);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject (Token);
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  *Result = SepPrivilegeCheck (Token,
+   if (!NT_SUCCESS(Status))
+     {
+	ObDereferenceObject(Token);
+	return(STATUS_UNSUCCESSFUL);
+     }
+   TResult = SepPrivilegeCheck(Token,
 			       Privilege,
 			       PrivilegeCount,
 			       PrivilegeControl,
 			       UserMode);
-
-  memmove (RequiredPrivileges->Privilege,
-	   Privilege,
-	   Length);
-
-  SeReleaseLuidAndAttributesArray (Privilege,
-				   UserMode,
-				   1);
-
-  return STATUS_SUCCESS;
+   memmove(RequiredPrivileges->Privilege, Privilege, Length);
+   *Result = TResult;
+   SeReleaseLuidAndAttributesArray(Privilege, UserMode, 1);
+   return(STATUS_SUCCESS);
 }
 
-
-/*
- * @implemented
- */
 BOOLEAN STDCALL
-SePrivilegeCheck (PPRIVILEGE_SET Privileges,
-		  PSECURITY_SUBJECT_CONTEXT SubjectContext,
-		  KPROCESSOR_MODE PreviousMode)
+SePrivilegeCheck(PPRIVILEGE_SET Privileges,
+		 PSECURITY_SUBJECT_CONTEXT SubjectContext,
+		 KPROCESSOR_MODE PreviousMode)
 {
-  PACCESS_TOKEN Token = NULL;
-
-  if (SubjectContext->ClientToken == NULL)
-    {
-      Token = SubjectContext->PrimaryToken;
-    }
-  else
-    {
-      Token = SubjectContext->ClientToken;
-      if (SubjectContext->ImpersonationLevel < 2)
-	{
-	  return FALSE;
-	}
-    }
-
-  return SepPrivilegeCheck (Token,
+   PACCESS_TOKEN Token = NULL;
+   
+   if (SubjectContext->ClientToken == NULL)
+     {
+	Token = SubjectContext->PrimaryToken;
+     }
+   else
+     {
+	Token = SubjectContext->ClientToken;
+	if (SubjectContext->ImpersonationLevel < 2)
+	  {
+	     return(FALSE);
+	  }
+     }
+   
+   return(SepPrivilegeCheck(Token,
 			    Privileges->Privilege,
 			    Privileges->PrivilegeCount,
 			    Privileges->Control,
-			    PreviousMode);
+			    PreviousMode));
 }
 
-
-/*
- * @implemented
- */
 BOOLEAN STDCALL
-SeSinglePrivilegeCheck (IN LUID PrivilegeValue,
-			IN KPROCESSOR_MODE PreviousMode)
+SeSinglePrivilegeCheck(IN LUID PrivilegeValue,
+		       IN KPROCESSOR_MODE PreviousMode)
 {
-  SECURITY_SUBJECT_CONTEXT SubjectContext;
-  PRIVILEGE_SET Priv;
-  BOOLEAN Result;
-
-  SeCaptureSubjectContext (&SubjectContext);
-
-  Priv.PrivilegeCount = 1;
-  Priv.Control = PRIVILEGE_SET_ALL_NECESSARY;
-  Priv.Privilege[0].Luid = PrivilegeValue;
-  Priv.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-  Result = SePrivilegeCheck (&Priv,
-			     &SubjectContext,
-			     PreviousMode);
-
-  if (PreviousMode != KernelMode)
-    {
+   SECURITY_SUBJECT_CONTEXT SubjectContext;
+   BOOLEAN r;
+   PRIVILEGE_SET Priv;
+   
+   SeCaptureSubjectContext(&SubjectContext);
+   
+   Priv.PrivilegeCount = 1;
+   Priv.Control = 1;
+   Priv.Privilege[0].Luid = PrivilegeValue;
+   Priv.Privilege[0].Attributes = 0;
+   
+   r = SePrivilegeCheck(&Priv,
+			&SubjectContext,
+			PreviousMode);
+      
+   if (PreviousMode != KernelMode)
+     {
 #if 0
-      SePrivilegedServiceAuditAlarm (0,
+	SePrivilegeServiceAuditAlarm(0,
 				     &SubjectContext,
 				     &PrivilegeValue);
 #endif
-    }
-
-  SeReleaseSubjectContext (&SubjectContext);
-
-  return Result;
+     }
+   SeReleaseSubjectContext(&SubjectContext);
+   return(r);
 }
 
-/* EOF */

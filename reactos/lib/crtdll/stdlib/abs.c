@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/crttypes.h>
 
-/*
- * @implemented
- */
 int
 abs(int j)
 {

@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/internal/ieee.h>
 
-/*
- * @implemented
- */
 double
 frexp(double __x, int *exptr)
 {

@@ -6,11 +6,23 @@
  * UPDATE HISTORY:
 */
 
-#include <ntoskrnl.h>
+#ifdef WIN32_REGDBG
+#include "cm_win32.h"
+#else
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ob.h>
+#include <limits.h>
+#include <string.h>
+#include <internal/pool.h>
+#include <internal/registry.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 #include "cm.h"
+#endif
 
 
 static NTSTATUS
@@ -31,13 +43,13 @@ CmiObjectParse(PVOID ParsedObject,
   PKEY_OBJECT FoundObject;
   PKEY_OBJECT ParsedKey;
   PKEY_CELL SubKeyCell;
+  CHAR cPath[MAX_PATH];
   NTSTATUS Status;
   PWSTR StartPtr;
   PWSTR EndPtr;
   ULONG Length;
   UNICODE_STRING LinkPath;
   UNICODE_STRING TargetPath;
-  UNICODE_STRING KeyName;
 
   ParsedKey = ParsedObject;
 
@@ -64,37 +76,27 @@ CmiObjectParse(PVOID ParsedObject,
   else
     Length = wcslen(StartPtr);
 
-
-  KeyName.Length = Length * sizeof(WCHAR);
-  KeyName.MaximumLength = KeyName.Length + sizeof(WCHAR);
-  KeyName.Buffer = ExAllocatePool(NonPagedPool,
-				  KeyName.MaximumLength);
-  RtlCopyMemory(KeyName.Buffer,
-		StartPtr,
-		KeyName.Length);
-  KeyName.Buffer[KeyName.Length / sizeof(WCHAR)] = 0;
+  wcstombs(cPath, StartPtr, Length);
+  cPath[Length] = 0;
 
 
-  FoundObject = CmiScanKeyList(ParsedKey,
-			       &KeyName,
-			       Attributes);
+  FoundObject = CmiScanKeyList(ParsedKey, cPath, Attributes);
   if (FoundObject == NULL)
     {
       Status = CmiScanForSubKey(ParsedKey->RegistryHive,
 				ParsedKey->KeyCell,
 				&SubKeyCell,
 				&BlockOffset,
-				&KeyName,
+				cPath,
 				0,
 				Attributes);
       if (!NT_SUCCESS(Status) || (SubKeyCell == NULL))
 	{
-	  RtlFreeUnicodeString(&KeyName);
 	  return(STATUS_UNSUCCESSFUL);
 	}
 
-      if ((SubKeyCell->Flags & REG_KEY_LINK_CELL) &&
-	  !((Attributes & OBJ_OPENLINK) && (EndPtr == NULL)))
+      if ((SubKeyCell->Type == REG_LINK_KEY_CELL_TYPE) &&
+	  !((Attributes & OBJ_OPENLINK) && (EndPtr == NULL) /*(end == NULL)*/))
 	{
 	  RtlInitUnicodeString(&LinkPath, NULL);
 	  Status = CmiGetLinkTarget(ParsedKey->RegistryHive,
@@ -131,42 +133,35 @@ CmiObjectParse(PVOID ParsedObject,
 	      *Path = FullPath->Buffer;
 
 	      *NextObject = NULL;
-
-	      RtlFreeUnicodeString(&KeyName);
 	      return(STATUS_REPARSE);
 	    }
 	}
 
       /* Create new key object and put into linked list */
-      DPRINT("CmiObjectParse: %s\n", Path);
-      Status = ObCreateObject(KernelMode,
+      DPRINT("CmiObjectParse: %s\n", cPath);
+      Status = ObCreateObject(NULL,
+			      STANDARD_RIGHTS_REQUIRED,
+			      NULL,
 			      CmiKeyType,
-			      NULL,
-			      KernelMode,
-			      NULL,
-			      sizeof(KEY_OBJECT),
-			      0,
-			      0,
 			      (PVOID*)&FoundObject);
       if (!NT_SUCCESS(Status))
 	{
-	  RtlFreeUnicodeString(&KeyName);
 	  return(Status);
 	}
 
       FoundObject->Flags = 0;
+      FoundObject->Name = SubKeyCell->Name;
+      FoundObject->NameSize = SubKeyCell->NameSize;
       FoundObject->KeyCell = SubKeyCell;
-      FoundObject->KeyCellOffset = BlockOffset;
+      FoundObject->BlockOffset = BlockOffset;
       FoundObject->RegistryHive = ParsedKey->RegistryHive;
-      RtlCreateUnicodeString(&FoundObject->Name,
-			     KeyName.Buffer);
       CmiAddKeyToList(ParsedKey, FoundObject);
       DPRINT("Created object 0x%x\n", FoundObject);
     }
   else
     {
-      if ((FoundObject->KeyCell->Flags & REG_KEY_LINK_CELL) &&
-	  !((Attributes & OBJ_OPENLINK) && (EndPtr == NULL)))
+      if ((FoundObject->KeyCell->Type == REG_LINK_KEY_CELL_TYPE) &&
+	  !((Attributes & OBJ_OPENLINK) && (EndPtr == NULL)/*(end == NULL)*/))
 	{
 	  DPRINT("Found link\n");
 
@@ -205,8 +200,6 @@ CmiObjectParse(PVOID ParsedObject,
 	      *Path = FullPath->Buffer;
 
 	      *NextObject = NULL;
-
-	      RtlFreeUnicodeString(&KeyName);
 	      return(STATUS_REPARSE);
 	    }
 	}
@@ -216,16 +209,22 @@ CmiObjectParse(PVOID ParsedObject,
 				 NULL,
 				 UserMode);
     }
-
+#ifndef WIN32_REGDBG
   DPRINT("CmiObjectParse: %s\n", FoundObject->Name);
+#else
+  {
+      char buffer[_BUFFER_LEN];
+      memset(buffer, 0, _BUFFER_LEN);
+      strncpy(buffer, FoundObject->Name, min(FoundObject->NameSize, _BUFFER_LEN - 1));
+      DPRINT("CmiObjectParse: %s\n", buffer);
+  }
+#endif
 
   *Path = EndPtr;
 
   VERIFY_KEY_OBJECT(FoundObject);
 
   *NextObject = FoundObject;
-
-  RtlFreeUnicodeString(&KeyName);
 
   return(STATUS_SUCCESS);
 }
@@ -235,24 +234,27 @@ NTSTATUS STDCALL
 CmiObjectCreate(PVOID ObjectBody,
 		PVOID Parent,
 		PWSTR RemainingPath,
-		POBJECT_ATTRIBUTES ObjectAttributes)
+		struct _OBJECT_ATTRIBUTES* ObjectAttributes)
 {
-  PKEY_OBJECT KeyObject = ObjectBody;
-  PWSTR Start;
+  PKEY_OBJECT pKey = ObjectBody;
 
-  KeyObject->ParentKey = Parent;
+  pKey->ParentKey = Parent;
   if (RemainingPath)
     {
-      Start = RemainingPath;
-      if(*Start == L'\\')
-	Start++;
-      RtlCreateUnicodeString(&KeyObject->Name,
-			     Start);
+      if(RemainingPath[0]== L'\\')
+	{
+	  pKey->Name = (PCHAR)(&RemainingPath[1]);
+	  pKey->NameSize = wcslen(RemainingPath) - 1;
+	}
+      else
+	{
+	  pKey->Name = (PCHAR)RemainingPath;
+	  pKey->NameSize = wcslen(RemainingPath);
+	}
     }
    else
     {
-      RtlInitUnicodeString(&KeyObject->Name,
-			   NULL);
+      pKey->NameSize = 0;
     }
 
   return STATUS_SUCCESS;
@@ -262,267 +264,28 @@ CmiObjectCreate(PVOID ObjectBody,
 VOID STDCALL
 CmiObjectDelete(PVOID DeletedObject)
 {
-  PKEY_OBJECT ParentKeyObject;
   PKEY_OBJECT KeyObject;
 
-  DPRINT("Delete key object (%p)\n", DeletedObject);
+  DPRINT("Delete object key\n");
 
   KeyObject = (PKEY_OBJECT) DeletedObject;
-  ParentKeyObject = KeyObject->ParentKey;
-
-  ObReferenceObject (ParentKeyObject);
 
   if (!NT_SUCCESS(CmiRemoveKeyFromList(KeyObject)))
     {
       DPRINT1("Key not found in parent list ???\n");
     }
 
-  RtlFreeUnicodeString(&KeyObject->Name);
-
   if (KeyObject->Flags & KO_MARKED_FOR_DELETE)
     {
       DPRINT("delete really key\n");
-
-      CmiRemoveSubKey(KeyObject->RegistryHive,
-		      ParentKeyObject,
-		      KeyObject);
-
-      NtQuerySystemTime (&ParentKeyObject->KeyCell->LastWriteTime);
-      CmiMarkBlockDirty (ParentKeyObject->RegistryHive,
-			 ParentKeyObject->KeyCellOffset);
-
-      if (!IsNoFileHive (KeyObject->RegistryHive) ||
-	  !IsNoFileHive (ParentKeyObject->RegistryHive))
-	{
-	  CmiSyncHives ();
-	}
-    }
-
-  ObDereferenceObject (ParentKeyObject);
-
-  if (KeyObject->NumberOfSubKeys)
-    {
-      KEBUGCHECK(REGISTRY_ERROR);
-    }
-
-  if (KeyObject->SizeOfSubKeys)
-    {
-      ExFreePool(KeyObject->SubKeys);
-    }
-}
-
-
-static NTSTATUS
-CmiQuerySecurityDescriptor(PKEY_OBJECT KeyObject,
-			   SECURITY_INFORMATION SecurityInformation,
-			   PSECURITY_DESCRIPTOR SecurityDescriptor,
-			   PULONG BufferLength)
-{
-  ULONG_PTR Current;
-  ULONG SidSize;
-  ULONG SdSize;
-  NTSTATUS Status;
-
-  DPRINT("CmiQuerySecurityDescriptor() called\n");
-
-  /*
-   * FIXME:
-   * This is a big hack!!
-   * We need to retrieve the security descriptor from the keys security cell!
-   */
-
-  if (SecurityInformation == 0)
-    {
-      return STATUS_ACCESS_DENIED;
-    }
-
-  SidSize = RtlLengthSid(SeWorldSid);
-  SdSize = sizeof(SECURITY_DESCRIPTOR) + (2 * SidSize);
-
-  if (*BufferLength < SdSize)
-    {
-      *BufferLength = SdSize;
-      return STATUS_BUFFER_TOO_SMALL;
-    }
-
-  *BufferLength = SdSize;
-
-  Status = RtlCreateSecurityDescriptor(SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  SecurityDescriptor->Control |= SE_SELF_RELATIVE;
-  Current = (ULONG_PTR)SecurityDescriptor + sizeof(SECURITY_DESCRIPTOR);
-
-  if (SecurityInformation & OWNER_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Owner = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & GROUP_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Group = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & DACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_DACL_PRESENT;
-    }
-
-  if (SecurityInformation & SACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_SACL_PRESENT;
-    }
-
-  return STATUS_SUCCESS;
-}
-
-
-static NTSTATUS
-CmiAssignSecurityDescriptor(PKEY_OBJECT KeyObject,
-			    PSECURITY_DESCRIPTOR SecurityDescriptor)
-{
-#if 0
-  PREGISTRY_HIVE Hive;
-
-  DPRINT1("CmiAssignSecurityDescriptor() callled\n");
-
-  DPRINT1("KeyObject %p\n", KeyObject);
-  DPRINT1("KeyObject->RegistryHive %p\n", KeyObject->RegistryHive);
-
-  Hive = KeyObject->RegistryHive;
-  if (Hive == NULL)
-    {
-      DPRINT1("Create new root security cell\n");
-      return STATUS_SUCCESS;
-    }
-
-  if (Hive->RootSecurityCell == NULL)
-    {
-      DPRINT1("Create new root security cell\n");
-
+      CmiDestroyBlock(KeyObject->RegistryHive,
+		      KeyObject->KeyCell,
+		      KeyObject->BlockOffset);
     }
   else
     {
-      DPRINT1("Search for security cell\n");
-
+      CmiReleaseBlock(KeyObject->RegistryHive, KeyObject->KeyCell);
     }
-#endif
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS STDCALL
-CmiObjectSecurity(PVOID ObjectBody,
-		  SECURITY_OPERATION_CODE OperationCode,
-		  SECURITY_INFORMATION SecurityInformation,
-		  PSECURITY_DESCRIPTOR SecurityDescriptor,
-		  PULONG BufferLength)
-{
-  DPRINT("CmiObjectSecurity() called\n");
-
-  switch (OperationCode)
-    {
-      case SetSecurityDescriptor:
-        DPRINT("Set security descriptor\n");
-        return STATUS_SUCCESS;
-
-      case QuerySecurityDescriptor:
-        DPRINT("Query security descriptor\n");
-        return CmiQuerySecurityDescriptor((PKEY_OBJECT)ObjectBody,
-					  SecurityInformation,
-					  SecurityDescriptor,
-					  BufferLength);
-
-      case DeleteSecurityDescriptor:
-        DPRINT("Delete security descriptor\n");
-        return STATUS_SUCCESS;
-
-      case AssignSecurityDescriptor:
-        DPRINT("Assign security descriptor\n");
-        return CmiAssignSecurityDescriptor((PKEY_OBJECT)ObjectBody,
-					   SecurityDescriptor);
-    }
-
-  return STATUS_UNSUCCESSFUL;
-}
-
-
-NTSTATUS STDCALL
-CmiObjectQueryName (PVOID ObjectBody,
-		    POBJECT_NAME_INFORMATION ObjectNameInfo,
-		    ULONG Length,
-		    PULONG ReturnLength)
-{
-  POBJECT_NAME_INFORMATION LocalInfo;
-  PKEY_OBJECT KeyObject;
-  ULONG LocalReturnLength;
-  NTSTATUS Status;
-
-  DPRINT ("CmiObjectQueryName() called\n");
-
-  KeyObject = (PKEY_OBJECT)ObjectBody;
-
-  LocalInfo = ExAllocatePool (NonPagedPool,
-			      sizeof(OBJECT_NAME_INFORMATION) +
-				MAX_PATH * sizeof(WCHAR));
-  if (LocalInfo == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  if (KeyObject->ParentKey != KeyObject)
-    {
-      Status = ObQueryNameString (KeyObject->ParentKey,
-				  LocalInfo,
-				  MAX_PATH * sizeof(WCHAR),
-				  &LocalReturnLength);
-    }
-  else
-    {
-      /* KeyObject is the root key */
-      Status = ObQueryNameString (BODY_TO_HEADER(KeyObject)->Parent,
-				  LocalInfo,
-				  MAX_PATH * sizeof(WCHAR),
-				  &LocalReturnLength);
-    }
-
-  if (!NT_SUCCESS (Status))
-    {
-      ExFreePool (LocalInfo);
-      return Status;
-    }
-  DPRINT ("Parent path: %wZ\n", &LocalInfo->Name);
-
-  Status = RtlAppendUnicodeStringToString (&ObjectNameInfo->Name,
-					   &LocalInfo->Name);
-  ExFreePool (LocalInfo);
-  if (!NT_SUCCESS (Status))
-    return Status;
-
-  Status = RtlAppendUnicodeToString (&ObjectNameInfo->Name,
-				     L"\\");
-  if (!NT_SUCCESS (Status))
-    return Status;
-
-  Status = RtlAppendUnicodeStringToString (&ObjectNameInfo->Name,
-					   &KeyObject->Name);
-  if (NT_SUCCESS (Status))
-    {
-      DPRINT ("Total path: %wZ\n", &ObjectNameInfo->Name);
-    }
-
-  return Status;
 }
 
 
@@ -539,13 +302,13 @@ CmiAddKeyToList(PKEY_OBJECT ParentKey,
   if (ParentKey->SizeOfSubKeys <= ParentKey->NumberOfSubKeys)
     {
       PKEY_OBJECT *tmpSubKeys = ExAllocatePool(NonPagedPool,
-	(ParentKey->NumberOfSubKeys + 1) * sizeof(ULONG));
+	(ParentKey->NumberOfSubKeys + 1) * sizeof(DWORD));
 
       if (ParentKey->NumberOfSubKeys > 0)
 	{
-	  RtlCopyMemory (tmpSubKeys,
-			 ParentKey->SubKeys,
-			 ParentKey->NumberOfSubKeys * sizeof(ULONG));
+	  memcpy(tmpSubKeys,
+		 ParentKey->SubKeys,
+		 ParentKey->NumberOfSubKeys * sizeof(DWORD));
 	}
 
       if (ParentKey->SubKeys)
@@ -605,16 +368,27 @@ CmiRemoveKeyFromList(PKEY_OBJECT KeyToRemove)
 
 PKEY_OBJECT
 CmiScanKeyList(PKEY_OBJECT Parent,
-	       PUNICODE_STRING KeyName,
+	       PCHAR KeyName,
 	       ULONG Attributes)
 {
   PKEY_OBJECT CurKey;
   KIRQL OldIrql;
-  ULONG Index;
+  WORD NameSize;
+  DWORD Index;
 
-  DPRINT("Scanning key list for: %wZ (Parent: %wZ)\n",
-	 KeyName, &Parent->Name);
+#ifndef WIN32_REGDBG
+  DPRINT("Scanning key list for: %s (Parent: %s)\n",
+    KeyName, Parent->Name);
+#else
+  {
+      char buffer[_BUFFER_LEN];
+      memset(buffer, 0, _BUFFER_LEN);
+      strncpy(buffer, Parent->Name, min(Parent->NameSize, _BUFFER_LEN - 1));
+      DPRINT("Scanning key list for: %s (Parent: %s)\n", KeyName, buffer);
+  }
+#endif
 
+  NameSize = strlen(KeyName);
   KeAcquireSpinLock(&CmiKeyListLock, &OldIrql);
   /* FIXME: if list maintained in alphabetic order, use dichotomic search */
   for (Index=0; Index < Parent->NumberOfSubKeys; Index++)
@@ -622,8 +396,8 @@ CmiScanKeyList(PKEY_OBJECT Parent,
       CurKey = Parent->SubKeys[Index];
       if (Attributes & OBJ_CASE_INSENSITIVE)
 	{
-	  if ((KeyName->Length == CurKey->Name.Length)
-	      && (_wcsicmp(KeyName->Buffer, CurKey->Name.Buffer) == 0))
+	  if ((NameSize == CurKey->NameSize)
+	      && (_strnicmp(KeyName, CurKey->Name, NameSize) == 0))
 	    {
 	      KeReleaseSpinLock(&CmiKeyListLock, OldIrql);
 	      return CurKey;
@@ -631,8 +405,8 @@ CmiScanKeyList(PKEY_OBJECT Parent,
 	}
       else
 	{
-	  if ((KeyName->Length == CurKey->Name.Length)
-	      && (wcscmp(KeyName->Buffer, CurKey->Name.Buffer) == 0))
+	  if ((NameSize == CurKey->NameSize)
+	      && (strncmp(KeyName,CurKey->Name,NameSize) == 0))
 	    {
 	      KeReleaseSpinLock(&CmiKeyListLock, OldIrql);
 	      return CurKey;
@@ -640,7 +414,7 @@ CmiScanKeyList(PKEY_OBJECT Parent,
 	}
     }
   KeReleaseSpinLock(&CmiKeyListLock, OldIrql);
-
+  
   return NULL;
 }
 
@@ -650,7 +424,7 @@ CmiGetLinkTarget(PREGISTRY_HIVE RegistryHive,
 		 PKEY_CELL KeyCell,
 		 PUNICODE_STRING TargetPath)
 {
-  UNICODE_STRING LinkName = ROS_STRING_INITIALIZER(L"SymbolicLinkValue");
+  UNICODE_STRING LinkName = UNICODE_STRING_INITIALIZER(L"SymbolicLinkValue");
   PVALUE_CELL ValueCell;
   PDATA_CELL DataCell;
   NTSTATUS Status;
@@ -688,11 +462,12 @@ CmiGetLinkTarget(PREGISTRY_HIVE RegistryHive,
 
   if (ValueCell->DataSize > 0)
     {
-      DataCell = CmiGetCell (RegistryHive, ValueCell->DataOffset, NULL);
+      DataCell = CmiGetBlock(RegistryHive, ValueCell->DataOffset, NULL);
       RtlCopyMemory(TargetPath->Buffer,
 		    DataCell->Data,
 		    TargetPath->Length);
       TargetPath->Buffer[TargetPath->Length / sizeof(WCHAR)] = 0;
+      CmiReleaseBlock(RegistryHive, DataCell);
     }
   else
     {

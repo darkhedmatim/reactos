@@ -1,5 +1,5 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 #include <msvcrt/errno.h>
@@ -9,9 +9,6 @@
 #undef putc
 #undef putwc
 
-/*
- * @implemented
- */
 int putc(int c, FILE* fp)
 {
 // valid stream macro should check that fp is dword aligned
@@ -46,8 +43,7 @@ int putwc(wint_t c, FILE* fp)
  
         if (fp->_cnt > 0 ) {
                 fp->_cnt-= sizeof(wchar_t);
- 		*((wchar_t *)(fp->_ptr))  = c;
-                fp->_ptr += sizeof(wchar_t);
+ 		*((wchar_t *)(fp->_ptr))++  = c;
 		return (wint_t)c;
         }
         else

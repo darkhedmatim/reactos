@@ -16,7 +16,7 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/ctype.h>
 #include <msvcrt/wchar.h>
@@ -37,9 +37,6 @@ WideCharToMultiByte(
     LPBOOL   lpUsedDefaultChar);
 
 
-/*
- * @unimplemented
- */
 int wctomb(char* dst, wchar_t ch)
 {
 #if 0
@@ -47,8 +44,6 @@ int wctomb(char* dst, wchar_t ch)
 #else
     if (dst == NULL) {
         return 1;
-    } else if (0 != (ch & 0xff00)) {
-        return -1;
     }
     *dst = ch;
     return 1;

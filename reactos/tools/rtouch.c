@@ -3,13 +3,10 @@
 
 #ifdef WIN32
 #include <sys/utime.h>
-#include <time.h>
 #else
 #include <sys/time.h>
-#include <unistd.h>
-#endif
 #include <stdlib.h>
-#include <string.h>
+#endif
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -19,9 +16,7 @@ char* convert_path(char* origpath)
   char* newpath;
   int i;
    
-  //newpath = (char *)strdup(origpath);
-	newpath=malloc(strlen(origpath)+1);
-	strcpy(newpath,origpath);
+  newpath = (char *)strdup(origpath);
    
   i = 0;
   while (newpath[i] != 0)
@@ -47,7 +42,7 @@ char* convert_path(char* origpath)
 int main(int argc, char* argv[])
 {
   char* path;
-  int id;
+  FILE* file;
 #ifdef WIN32
   time_t now;
   struct utimbuf fnow;
@@ -60,21 +55,21 @@ int main(int argc, char* argv[])
     }
 
   path = convert_path(argv[1]);
-  id = open(path, S_IWRITE, S_IRUSR | S_IWUSR);
-  if (id < 0)
+  file = (FILE *)open(path, S_IWRITE);
+  if (file == (void*)-1)
     {
-      id = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-      if (id < 0)
+      file = (FILE *)open(path, S_IWRITE | O_CREAT);
+      if (file == (void*)-1)
         {
           fprintf(stderr, "Cannot create file.\n");
           exit(1);
         }
     }
 
-  close(id);
+  fclose(file);
 
 #ifdef WIN32
-  now = time(NULL);
+  now = time();
   fnow.actime = now;
   fnow.modtime = now;
   (int) utime(path, &fnow);

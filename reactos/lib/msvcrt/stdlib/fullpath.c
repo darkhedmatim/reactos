@@ -7,14 +7,10 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 char* _fullpath(char* absPath, const char* relPath, size_t maxLength)
 {
     char* lpFilePart;

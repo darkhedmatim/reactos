@@ -23,11 +23,7 @@ Cambridge, MA 02139, USA.  */
 #include <msvcrt/internal/file.h>
 
 
-/*
- * crtdll has void return type instead of int
- *
- * @implemented
- */
+// crtdll has void return type instead of int
 void _ftime(struct timeb* timebuf)
 {
     int save = errno;

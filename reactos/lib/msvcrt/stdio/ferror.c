@@ -9,9 +9,6 @@ int ferror(FILE *stream);
 
 int *_errno(void);
 
-/*
- * @implemented
- */
 int ferror(FILE *stream)
 {
   return stream->_flag & _IOERR;

@@ -1,8 +1,8 @@
-/* $Id: misc.c,v 1.15 2004/12/05 16:31:51 gvg Exp $
+/* $Id: misc.c,v 1.5 2003/01/25 15:55:07 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/misc.c
+ * FILE:             services/fs/vfat/misc.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Hartmut Birr
  *
@@ -22,52 +22,12 @@
 
 static LONG QueueCount = 0;
 
-NTSTATUS VfatLockControl(
-   IN PVFAT_IRP_CONTEXT IrpContext
-   )
-{
-   PVFATFCB Fcb;
-   NTSTATUS Status;
-
-   DPRINT("VfatLockControl(IrpContext %x)\n", IrpContext);
-
-   ASSERT(IrpContext);
-
-   Fcb = (PVFATFCB)IrpContext->FileObject->FsContext;
-
-   if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
-   {
-      Status = STATUS_INVALID_DEVICE_REQUEST;
-      goto Fail;
-   }
-
-   if (*Fcb->Attributes & FILE_ATTRIBUTE_DIRECTORY)
-   {
-      Status = STATUS_INVALID_PARAMETER;
-      goto Fail;
-   }
-
-   Status = FsRtlProcessFileLock(&Fcb->FileLock,
-                                 IrpContext->Irp,
-                                 NULL
-                                 );
-
-   VfatFreeIrpContext(IrpContext);
-   return Status;
-
-Fail:;
-   IrpContext->Irp->IoStatus.Status = Status;
-   IofCompleteRequest(IrpContext->Irp, (CCHAR)(NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
-   VfatFreeIrpContext(IrpContext);
-   return Status;
-}
-
 NTSTATUS VfatDispatchRequest (
         IN PVFAT_IRP_CONTEXT IrpContext)
 {
    DPRINT ("VfatDispatchRequest (IrpContext %x), MajorFunction %x\n", IrpContext, IrpContext->MajorFunction);
 
-   ASSERT(IrpContext);
+   assert (IrpContext);
 
    switch (IrpContext->MajorFunction)
    {
@@ -95,8 +55,6 @@ NTSTATUS VfatDispatchRequest (
          return VfatLockControl(IrpContext);
       case IRP_MJ_CLEANUP:
          return VfatCleanup(IrpContext);
-      case IRP_MJ_FLUSH_BUFFERS:
-         return VfatFlush(IrpContext);
       default:
          DPRINT1 ("Unexpected major function %x\n", IrpContext->MajorFunction);
          IrpContext->Irp->IoStatus.Status = STATUS_DRIVER_INTERNAL_ERROR;
@@ -104,6 +62,48 @@ NTSTATUS VfatDispatchRequest (
          VfatFreeIrpContext(IrpContext);
          return STATUS_DRIVER_INTERNAL_ERROR;
    }
+}
+
+NTSTATUS VfatLockControl(
+   IN PVFAT_IRP_CONTEXT IrpContext
+   )
+{
+   PVFATFCB Fcb;
+   PVFATCCB Ccb;
+   NTSTATUS Status;
+
+   DPRINT("VfatLockControl(IrpContext %x)\n", IrpContext);
+ 
+   assert(IrpContext);
+
+   Ccb = (PVFATCCB)IrpContext->FileObject->FsContext2;
+   Fcb = Ccb->pFcb;
+
+   if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
+   {
+      Status = STATUS_INVALID_DEVICE_REQUEST;
+      goto Fail;
+   }
+
+   if (Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY)
+   {
+      Status = STATUS_INVALID_PARAMETER;
+      goto Fail;
+   }
+
+   Status = FsRtlProcessFileLock(&Fcb->FileLock,
+                                 IrpContext->Irp,
+                                 NULL
+                                 );
+
+   VfatFreeIrpContext(IrpContext);
+   return Status;
+
+Fail:;
+   IrpContext->Irp->IoStatus.Status = Status;
+   IofCompleteRequest(IrpContext->Irp, NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT);
+   VfatFreeIrpContext(IrpContext);
+   return Status;
 }
 
 NTSTATUS STDCALL VfatBuildRequest (
@@ -115,8 +115,10 @@ NTSTATUS STDCALL VfatBuildRequest (
 
    DPRINT ("VfatBuildRequest (DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-   ASSERT(DeviceObject);
-   ASSERT(Irp);
+   assert (DeviceObject);
+   assert (Irp);
+
+   FsRtlEnterFileSystem();
    IrpContext = VfatAllocateIrpContext(DeviceObject, Irp);
    if (IrpContext == NULL)
    {
@@ -126,54 +128,40 @@ NTSTATUS STDCALL VfatBuildRequest (
    }
    else
    {
-      if (KeGetCurrentIrql() <= PASSIVE_LEVEL)
-      {
-         FsRtlEnterFileSystem();
-      }
-      else
-      {
-         DPRINT1("Vfat is entered at irql = %d\n", KeGetCurrentIrql());
-      }
       Status = VfatDispatchRequest (IrpContext);
-      
-      if (KeGetCurrentIrql() <= PASSIVE_LEVEL)
-      {
-         FsRtlExitFileSystem();
-      }
-      
    }
+   FsRtlExitFileSystem();
    return Status;
 }
 
 VOID VfatFreeIrpContext (PVFAT_IRP_CONTEXT IrpContext)
 {
-   ASSERT(IrpContext);
+   assert (IrpContext);
    ExFreeToNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList, IrpContext);
 }
 
 PVFAT_IRP_CONTEXT VfatAllocateIrpContext(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PVFAT_IRP_CONTEXT IrpContext;
-   /*PIO_STACK_LOCATION Stack;*/
+   PIO_STACK_LOCATION Stack;
    UCHAR MajorFunction;
    DPRINT ("VfatAllocateIrpContext(DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-   ASSERT(DeviceObject);
-   ASSERT(Irp);
+   assert (DeviceObject);
+   assert (Irp);
 
    IrpContext = ExAllocateFromNPagedLookasideList(&VfatGlobalData->IrpContextLookasideList);
    if (IrpContext)
    {
-      RtlZeroMemory(IrpContext, sizeof(VFAT_IRP_CONTEXT));
+      RtlZeroMemory(IrpContext, sizeof(IrpContext));
       IrpContext->Irp = Irp;
       IrpContext->DeviceObject = DeviceObject;
       IrpContext->DeviceExt = DeviceObject->DeviceExtension;
       IrpContext->Stack = IoGetCurrentIrpStackLocation(Irp);
-      ASSERT(IrpContext->Stack);
+      assert (IrpContext->Stack);
       MajorFunction = IrpContext->MajorFunction = IrpContext->Stack->MajorFunction;
       IrpContext->MinorFunction = IrpContext->Stack->MinorFunction;
       IrpContext->FileObject = IrpContext->Stack->FileObject;
-      IrpContext->Flags = 0;
       if (MajorFunction == IRP_MJ_FILE_SYSTEM_CONTROL ||
           MajorFunction == IRP_MJ_DEVICE_CONTROL ||
           MajorFunction == IRP_MJ_SHUTDOWN)
@@ -186,29 +174,25 @@ PVFAT_IRP_CONTEXT VfatAllocateIrpContext(PDEVICE_OBJECT DeviceObject, PIRP Irp)
       {
          IrpContext->Flags |= IRPCONTEXT_CANWAIT;
       }
-      KeInitializeEvent(&IrpContext->Event, NotificationEvent, FALSE);
-      IrpContext->RefCount = 0;
    }
    return IrpContext;
 }
 
 VOID STDCALL VfatDoRequest (PVOID IrpContext)
 {
-   InterlockedDecrement(&QueueCount);
-   DPRINT ("VfatDoRequest (IrpContext %x), MajorFunction %x, %d\n", IrpContext, ((PVFAT_IRP_CONTEXT)IrpContext)->MajorFunction, QueueCount);
-   FsRtlEnterFileSystem();
+   ULONG Count = InterlockedDecrement(&QueueCount);
+   DPRINT ("VfatDoRequest (IrpContext %x), MajorFunction %x, %d\n", IrpContext, ((PVFAT_IRP_CONTEXT)IrpContext)->MajorFunction, Count);
    VfatDispatchRequest((PVFAT_IRP_CONTEXT)IrpContext);
-   FsRtlExitFileSystem();
 
 }
 
 NTSTATUS VfatQueueRequest(PVFAT_IRP_CONTEXT IrpContext)
 {
-   InterlockedIncrement(&QueueCount);
-   DPRINT ("VfatQueueRequest (IrpContext %x), %d\n", IrpContext, QueueCount);
+   ULONG Count = InterlockedIncrement(&QueueCount);
+   DPRINT ("VfatQueueRequest (IrpContext %x), %d\n", IrpContext, Count);
 
-   ASSERT(IrpContext != NULL);
-   ASSERT(IrpContext->Irp != NULL);
+   assert (IrpContext != NULL);
+   assert (IrpContext->Irp != NULL);
 
    IrpContext->Flags |= IRPCONTEXT_CANWAIT;
    IoMarkIrpPending (IrpContext->Irp);
@@ -219,7 +203,7 @@ NTSTATUS VfatQueueRequest(PVFAT_IRP_CONTEXT IrpContext)
 
 PVOID VfatGetUserBuffer(IN PIRP Irp)
 {
-   ASSERT(Irp);
+   assert(Irp);
 
    if (Irp->MdlAddress)
    {
@@ -233,7 +217,7 @@ PVOID VfatGetUserBuffer(IN PIRP Irp)
 
 NTSTATUS VfatLockUserBuffer(IN PIRP Irp, IN ULONG Length, IN LOCK_OPERATION Operation)
 {
-   ASSERT(Irp);
+   assert(Irp);
 
    if (Irp->MdlAddress)
    {

@@ -7,17 +7,12 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/conio.h>
 #include <msvcrt/string.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/internal/file.h>
 
-
-/*
- * @implemented
- */
 int _cputs(const char *_str)
 {
   int len = strlen(_str);

@@ -1,4 +1,4 @@
-/* $Id: wapi.c,v 1.37 2004/07/03 17:15:02 hbirr Exp $
+/* $Id: wapi.c,v 1.25 2002/11/12 00:48:26 mdill Exp $
  * 
  * reactos/subsys/csrss/api/wapi.c
  *
@@ -10,9 +10,10 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <csrss/csrss.h>
 #include <ddk/ntddk.h>
+#include <windows.h>
 #include <ntdll/rtl.h>
+#include <csrss/csrss.h>
 #include <debug.h>
 
 #include "api.h"
@@ -21,128 +22,91 @@
 
 HANDLE CsrssApiHeap;
 
-static unsigned ApiDefinitionsCount = 0;
-static PCSRSS_API_DEFINITION ApiDefinitions = NULL;
-
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS FASTCALL
-CsrApiRegisterDefinitions(PCSRSS_API_DEFINITION NewDefinitions)
+typedef NTSTATUS (*CsrFunc)( PCSRSS_PROCESS_DATA, PCSRSS_API_REQUEST, PCSRSS_API_REPLY );
+
+static const CsrFunc CsrFuncs[] = {
+   CsrCreateProcess,
+   CsrTerminateProcess,
+   CsrWriteConsole,
+   CsrReadConsole,
+   CsrAllocConsole,
+   CsrFreeConsole,
+   CsrConnectProcess,
+   CsrGetScreenBufferInfo,
+   CsrSetCursor,
+   CsrFillOutputChar,
+   CsrReadInputEvent,
+   CsrWriteConsoleOutputChar,
+   CsrWriteConsoleOutputAttrib,
+   CsrFillOutputAttrib,
+   CsrGetCursorInfo,
+   CsrSetCursorInfo,
+   CsrSetTextAttrib,
+   CsrGetConsoleMode,
+   CsrSetConsoleMode,
+   CsrCreateScreenBuffer,
+   CsrSetScreenBuffer,
+   CsrSetTitle,
+   CsrGetTitle,
+   CsrWriteConsoleOutput,
+   CsrFlushInputBuffer,
+   CsrScrollConsoleScreenBuffer,
+   CsrReadConsoleOutputChar,
+   CsrReadConsoleOutputAttrib,
+   CsrGetNumberOfConsoleInputEvents,
+   CsrRegisterServicesProcess,
+   CsrExitReactos,
+   CsrGetShutdownParameters,
+   CsrSetShutdownParameters,
+   CsrPeekConsoleInput,
+   CsrReadConsoleOutput,
+   CsrWriteConsoleInput,
+   0 };
+
+static void Thread_Api2(HANDLE ServerPort)
 {
-  unsigned NewCount;
-  PCSRSS_API_DEFINITION Scan;
-  PCSRSS_API_DEFINITION New;
-
-  NewCount = 0;
-  for (Scan = NewDefinitions; 0 != Scan->Handler; Scan++)
-    {
-      NewCount++;
-    }
-
-  New = RtlAllocateHeap(CsrssApiHeap, 0,
-                        (ApiDefinitionsCount + NewCount)
-                        * sizeof(CSRSS_API_DEFINITION));
-  if (NULL == New)
-    {
-      DPRINT1("Unable to allocate memory\n");
-      return STATUS_NO_MEMORY;
-    }
-  if (0 != ApiDefinitionsCount)
-    {
-      RtlCopyMemory(New, ApiDefinitions,
-                    ApiDefinitionsCount * sizeof(CSRSS_API_DEFINITION));
-      RtlFreeHeap(CsrssApiHeap, 0, ApiDefinitions);
-    }
-  RtlCopyMemory(New + ApiDefinitionsCount, NewDefinitions,
-                NewCount * sizeof(CSRSS_API_DEFINITION));
-  ApiDefinitions = New;
-  ApiDefinitionsCount += NewCount;
-
-  return STATUS_SUCCESS;
-}
-
-VOID FASTCALL
-CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
-                  PCSRSS_API_REQUEST Request,
-                  PCSRSS_API_REPLY Reply)
-{
-  BOOL Found;
-  unsigned DefIndex;
-
-  Found = FALSE;
-  for (DefIndex = 0; ! Found && DefIndex < ApiDefinitionsCount; DefIndex++)
-    {
-      if (ApiDefinitions[DefIndex].Type == Request->Type)
-        {
-          if (Request->Header.DataSize < ApiDefinitions[DefIndex].MinRequestSize)
-            {
-              DPRINT1("Request type %d min request size %d actual %d\n",
-                      Request->Type, ApiDefinitions[DefIndex].MinRequestSize,
-                      Request->Header.DataSize);
-              Reply->Status = STATUS_INVALID_PARAMETER;
-            }
-          else
-            {
-              (ApiDefinitions[DefIndex].Handler)(ProcessData, Request, Reply);
-              Found = TRUE;
-            }
-        }
-    }
-  if (! Found)
-    {
-      DPRINT1("CSR: Unknown request type 0x%x\n", Request->Type);
-      Reply->Header.MessageSize = sizeof(CSRSS_API_REPLY);
-      Reply->Header.DataSize = sizeof(CSRSS_API_REPLY) - LPC_MESSAGE_BASE_SIZE;
-      Reply->Status = STATUS_INVALID_SYSTEM_SERVICE;
-    }
-}
-
-static void STDCALL
-ClientConnectionThread(HANDLE ServerPort)
-{
-  NTSTATUS Status;
-  LPC_MAX_MESSAGE LpcReply;
-  LPC_MAX_MESSAGE LpcRequest;
-  PCSRSS_API_REQUEST Request;
-  PCSRSS_PROCESS_DATA ProcessData;
-  PCSRSS_API_REPLY Reply;
+   NTSTATUS Status;
+   LPC_MAX_MESSAGE LpcReply;
+   LPC_MAX_MESSAGE LpcRequest;
+   PCSRSS_API_REQUEST Request;
+   PCSRSS_PROCESS_DATA ProcessData;
+   PCSRSS_API_REPLY Reply;
    
-  Reply = NULL;
+   Reply = NULL;
    
-  for (;;)
-    {
-      Status = NtReplyWaitReceivePort(ServerPort,
-                                      0,
-                                      &Reply->Header,
-                                      &LpcRequest.Header);
-      if (! NT_SUCCESS(Status))
-        {
-          DPRINT1("CSR: NtReplyWaitReceivePort failed\n");
-          break;
-        }
+   for (;;)
+     {
+	Status = NtReplyWaitReceivePort(ServerPort,
+					0,
+					&Reply->Header,
+					&LpcRequest.Header);
+	if ( !NT_SUCCESS( Status ) )
+	  {
+	     DisplayString(L"CSR: NtReplyWaitReceivePort failed\n");
+	  }
 	
-      if (LpcRequest.Header.MessageType == LPC_PORT_CLOSED)
-        {
-          CsrFreeProcessData( (ULONG)LpcRequest.Header.ClientId.UniqueProcess );
-          break;
-        }
+	if ( LpcRequest.Header.MessageType == LPC_PORT_CLOSED )
 
-      Request = (PCSRSS_API_REQUEST)&LpcRequest;
-      Reply = (PCSRSS_API_REPLY)&LpcReply;
+	  {
+	     CsrFreeProcessData( (ULONG)LpcRequest.Header.Cid.UniqueProcess );
+	     NtClose(ServerPort);
+	     NtTerminateThread(NtCurrentThread(), STATUS_SUCCESS);
+	     continue;
+	  }
 	
-      ProcessData = CsrGetProcessData((ULONG)LpcRequest.Header.ClientId.UniqueProcess);
-      if (ProcessData == NULL)
-        {
-          DPRINT1("CSR: Message %d: Unable to find data for process %d\n",
-	          LpcRequest.Header.MessageType, (ULONG)LpcRequest.Header.ClientId.UniqueProcess);
-	  break;
-        }	          
-
-
-      CsrApiCallHandler(ProcessData, Request, Reply);
-    }
-  NtClose(ServerPort);
-  RtlRosExitUserThread(STATUS_SUCCESS);
+	Request = (PCSRSS_API_REQUEST)&LpcRequest;
+	Reply = (PCSRSS_API_REPLY)&LpcReply;
+	
+	ProcessData = CsrGetProcessData(
+				  (ULONG)LpcRequest.Header.Cid.UniqueProcess);
+	
+//	DisplayString(L"CSR: Received request\n");
+	if( Request->Type >= (sizeof( CsrFuncs ) / sizeof( CsrFunc )) - 1 )
+	    Reply->Status = STATUS_INVALID_SYSTEM_SERVICE;
+	else CsrFuncs[ Request->Type ]( ProcessData, Request, Reply );
+     }
 }
 
 /**********************************************************************
@@ -153,8 +117,7 @@ ClientConnectionThread(HANDLE ServerPort)
  * 	Handle connection requests from clients to the port
  * 	"\Windows\ApiPort".
  */
-void STDCALL
-ServerApiPortThead(PVOID PortHandle)
+void Thread_Api(PVOID PortHandle)
 {
    NTSTATUS Status;
    LPC_MAX_MESSAGE Request;
@@ -166,15 +129,15 @@ ServerApiPortThead(PVOID PortHandle)
    
    for (;;)
      {
-        LPC_SECTION_READ LpcRead;
-        ServerPort = NULL;
+       LPC_SECTION_READ LpcRead;
 
 	Status = NtListenPort(PortHandle, &Request.Header);
 	if (!NT_SUCCESS(Status))
 	  {
-	     DPRINT1("CSR: NtListenPort() failed\n");
-	     break;
+	     DisplayString(L"CSR: NtListenPort() failed\n");
+	     NtTerminateThread(NtCurrentThread(), Status);
 	  }
+	
 	Status = NtAcceptConnectPort(&ServerPort,
 				     PortHandle,
 				     NULL,
@@ -183,28 +146,19 @@ ServerApiPortThead(PVOID PortHandle)
 				     &LpcRead);
 	if (!NT_SUCCESS(Status))
 	  {
-	     DPRINT1("CSR: NtAcceptConnectPort() failed\n");
-	     break;
+	     DisplayString(L"CSR: NtAcceptConnectPort() failed\n");
+	     NtTerminateThread(NtCurrentThread(), Status);
 	  }
 
-	ProcessData = CsrCreateProcessData((ULONG)Request.Header.ClientId.UniqueProcess);
-	if (ProcessData == NULL)
-	  {
-	     DPRINT1("Unable to allocate or find data for process %d\n",
-	             (ULONG)Request.Header.ClientId.UniqueProcess);
-	     Status = STATUS_UNSUCCESSFUL;
-	     break;
-	  }
-	    
-
+	ProcessData = CsrGetProcessData((ULONG)Request.Header.Cid.UniqueProcess);
 	ProcessData->CsrSectionViewBase = LpcRead.ViewBase;
 	ProcessData->CsrSectionViewSize = LpcRead.ViewSize;
 	
 	Status = NtCompleteConnectPort(ServerPort);
 	if (!NT_SUCCESS(Status))
 	  {
-	     DPRINT1("CSR: NtCompleteConnectPort() failed\n");
-	     break;
+	     DisplayString(L"CSR: NtCompleteConnectPort() failed\n");
+	     NtTerminateThread(NtCurrentThread(), Status);
 	  }
 	
 	Status = RtlCreateUserThread(NtCurrentProcess(),
@@ -213,23 +167,18 @@ ServerApiPortThead(PVOID PortHandle)
 				     0,
 				     NULL,
 				     NULL,
-				     (PTHREAD_START_ROUTINE)ClientConnectionThread,
+				     (PTHREAD_START_ROUTINE)Thread_Api2,
 				     ServerPort,
 				     &ServerThread,
 				     NULL);
 	if (!NT_SUCCESS(Status))
 	  {
-	     DPRINT1("CSR: Unable to create server thread\n");
-	     break;
+	     DisplayString(L"CSR: Unable to create server thread\n");
+	     NtClose(ServerPort);
+	     NtTerminateThread(NtCurrentThread(), Status);
 	  }
 	NtClose(ServerThread);
      }
-   if (ServerPort)
-     {
-       NtClose(ServerPort);
-     }
-   NtClose(PortHandle);
-   NtTerminateThread(NtCurrentThread(), Status);
 }
 
 /* EOF */

@@ -1,13 +1,10 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/internal/file.h>
 
 
 //#define SETFILEPOINTEREX_AVAILABLE
 
-/*
- * @implemented
- */
 __int64 _lseeki64(int _fildes, __int64 _offset, int _whence)
 {
 #ifdef SETFILEPOINTEREX_AVAILABLE
@@ -16,12 +13,12 @@ __int64 _lseeki64(int _fildes, __int64 _offset, int _whence)
     offset.QuadPart = _offset;
 
 //    if (invalid_filehnd(_fildes)) {
-//        __set_errno ( EBADF );
+//        errno = EBADF;
 //        return -1L;
 //    }
     if (SetFilePointerEx((HANDLE)filehnd(_fildes), offset, &new_pos, _whence)) {
     } else {
-		_dosmaperr(error);
+        //errno = EINVAL;
         return -1L;
     }
     return new_pos.QuadPart;

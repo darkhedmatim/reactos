@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.30 2004/11/14 18:47:10 hbirr Exp $
+/* $Id: init.c,v 1.18 2002/10/31 01:49:39 ekohl Exp $
  * 
  * reactos/subsys/csrss/init.c
  *
@@ -10,77 +10,31 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <csrss/csrss.h>
 #include <ddk/ntddk.h>
-#include <ntdll/csr.h>
 #include <ntdll/rtl.h>
-#include <ntdll/ldr.h>
+#include <csrss/csrss.h>
 #include <win32k/win32k.h>
-#include <rosrtl/string.h>
 
 #include "api.h"
-#include "csrplugin.h"
-
-#define NDEBUG
-#include <debug.h>
 
 /* GLOBALS ******************************************************************/
+
+/*
+ * Server's named ports.
+ */
+static HANDLE ApiPortHandle;
+
 
 HANDLE CsrInitEvent = INVALID_HANDLE_VALUE;
 HANDLE CsrHeap = INVALID_HANDLE_VALUE;
 
 HANDLE CsrObjectDirectory = INVALID_HANDLE_VALUE;
+HANDLE CsrApiPort = INVALID_HANDLE_VALUE;
+HANDLE CsrSbApiPort = INVALID_HANDLE_VALUE;
 
 UNICODE_STRING CsrDirectoryName;
 
 extern HANDLE CsrssApiHeap;
-
-static unsigned InitCompleteProcCount;
-static CSRPLUGIN_INIT_COMPLETE_PROC *InitCompleteProcs = NULL;
-
-static NTSTATUS FASTCALL
-AddInitCompleteProc(CSRPLUGIN_INIT_COMPLETE_PROC Proc)
-{
-  CSRPLUGIN_INIT_COMPLETE_PROC *NewProcs;
-
-  NewProcs = RtlAllocateHeap(CsrssApiHeap, 0,
-                             (InitCompleteProcCount + 1)
-                             * sizeof(CSRPLUGIN_INIT_COMPLETE_PROC));
-  if (NULL == NewProcs)
-    {
-      return STATUS_NO_MEMORY;
-    }
-  if (0 != InitCompleteProcCount)
-    {
-      RtlCopyMemory(NewProcs, InitCompleteProcs,
-                    InitCompleteProcCount * sizeof(CSRPLUGIN_INIT_COMPLETE_PROC));
-      RtlFreeHeap(CsrssApiHeap, 0, InitCompleteProcs);
-    }
-  NewProcs[InitCompleteProcCount] = Proc;
-  InitCompleteProcs = NewProcs;
-  InitCompleteProcCount++;
-
-  return STATUS_SUCCESS;
-}
-
-static BOOL FASTCALL
-CallInitComplete(void)
-{
-  BOOL Ok;
-  unsigned i;
-
-  Ok = TRUE;
-  if (0 != InitCompleteProcCount)
-    {
-      for (i = 0; i < InitCompleteProcCount && Ok; i++)
-        {
-          Ok = (*(InitCompleteProcs[i]))();
-        }
-      RtlFreeHeap(CsrssApiHeap, 0, InitCompleteProcs);
-    }
-
-  return Ok;
-}
 
 ULONG
 InitializeVideoAddressSpace(VOID);
@@ -93,7 +47,9 @@ CsrParseCommandLine (
 {
    NTSTATUS Status;
    OBJECT_ATTRIBUTES Attributes;
+   ANSI_STRING       AnsiString;
 
+   ULONG i;
 
    /*   DbgPrint ("Arguments: %ld\n", ArgumentCount);
    for (i = 0; i < ArgumentCount; i++)
@@ -129,9 +85,7 @@ CsrInitVideo(VOID)
   HANDLE VideoHandle;
   NTSTATUS Status;
 
-  InitializeVideoAddressSpace();
-
-  RtlRosInitUnicodeStringFromLiteral(&DeviceName, L"\\??\\DISPLAY1");
+  RtlInitUnicodeStringFromLiteral(&DeviceName, L"\\??\\DISPLAY1");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &DeviceName,
 			     0,
@@ -149,83 +103,16 @@ CsrInitVideo(VOID)
     }
 }
 
-static NTSTATUS FASTCALL
-InitWin32Csr()
-{
-  NTSTATUS Status;
-  UNICODE_STRING DllName;
-  HINSTANCE hInst;
-  ANSI_STRING ProcName;
-  CSRPLUGIN_INITIALIZE_PROC InitProc;
-  CSRSS_EXPORTED_FUNCS Exports;
-  PCSRSS_API_DEFINITION ApiDefinitions;
-  PCSRSS_OBJECT_DEFINITION ObjectDefinitions;
-  CSRPLUGIN_INIT_COMPLETE_PROC InitCompleteProc;
-
-  RtlInitUnicodeString(&DllName, L"win32csr.dll");
-  Status = LdrLoadDll(NULL, 0, &DllName, (PVOID *) &hInst);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  RtlInitAnsiString(&ProcName, "Win32CsrInitialization");
-  Status = LdrGetProcedureAddress(hInst, &ProcName, 0, (PVOID *) &InitProc);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  Exports.CsrInsertObjectProc = CsrInsertObject;
-  Exports.CsrGetObjectProc = CsrGetObject;
-  Exports.CsrReleaseObjectProc = CsrReleaseObject;
-  if (! (*InitProc)(&ApiDefinitions, &ObjectDefinitions, &InitCompleteProc,
-                    &Exports, CsrssApiHeap))
-    {
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  Status = CsrApiRegisterDefinitions(ApiDefinitions);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  Status = CsrRegisterObjectDefinitions(ObjectDefinitions);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  if (NULL != InitCompleteProc)
-    {
-      Status = AddInitCompleteProc(InitCompleteProc);
-    }
-
-  return Status;
-}
-
-CSRSS_API_DEFINITION NativeDefinitions[] =
-  {
-    CSRSS_DEFINE_API(CSRSS_CREATE_PROCESS,               CsrCreateProcess),
-    CSRSS_DEFINE_API(CSRSS_TERMINATE_PROCESS,            CsrTerminateProcess),
-    CSRSS_DEFINE_API(CSRSS_CONNECT_PROCESS,              CsrConnectProcess),
-    CSRSS_DEFINE_API(CSRSS_REGISTER_SERVICES_PROCESS,    CsrRegisterServicesProcess),
-    CSRSS_DEFINE_API(CSRSS_GET_SHUTDOWN_PARAMETERS,      CsrGetShutdownParameters),
-    CSRSS_DEFINE_API(CSRSS_SET_SHUTDOWN_PARAMETERS,      CsrSetShutdownParameters),
-    CSRSS_DEFINE_API(CSRSS_GET_INPUT_HANDLE,             CsrGetInputHandle),
-    CSRSS_DEFINE_API(CSRSS_GET_OUTPUT_HANDLE,            CsrGetOutputHandle),
-    CSRSS_DEFINE_API(CSRSS_CLOSE_HANDLE,                 CsrCloseHandle),
-    CSRSS_DEFINE_API(CSRSS_VERIFY_HANDLE,                CsrVerifyHandle),
-    CSRSS_DEFINE_API(CSRSS_DUPLICATE_HANDLE,             CsrDuplicateHandle),
-    CSRSS_DEFINE_API(CSRSS_GET_INPUT_WAIT_HANDLE,        CsrGetInputWaitHandle),
-    { 0, 0, 0, NULL }
-  };
-
 
 /**********************************************************************
  * NAME
  * 	CsrServerInitialization
  *
  * DESCRIPTION
- * 	Create a directory object (\windows) and a named LPC port
- * 	(\windows\ApiPort)
+ * 	Create a directory object (\windows) and two named LPC ports:
+ *
+ * 	1. \windows\ApiPort
+ * 	2. \windows\SbApiPort
  *
  * RETURN VALUE
  * 	TRUE: Initialization OK; otherwise FALSE.
@@ -237,85 +124,89 @@ CsrServerInitialization (
 	PWSTR *ArgumentArray
 	)
 {
-  NTSTATUS Status;
-  OBJECT_ATTRIBUTES ObAttributes;
-  UNICODE_STRING PortName;
-  HANDLE ApiPortHandle;
+   NTSTATUS		Status;
+   OBJECT_ATTRIBUTES	ObAttributes;
+   UNICODE_STRING PortName;
+   OBJECT_ATTRIBUTES RefreshEventAttr;
+   UNICODE_STRING RefreshEventName;
+   HANDLE RefreshEventHandle;
 
-  Status = CsrParseCommandLine (ArgumentCount, ArgumentArray);
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to parse the command line (Status: %x)\n", Status);
-      return FALSE;
-    }
+   Status = CsrParseCommandLine (ArgumentCount, ArgumentArray);
+   if (!NT_SUCCESS(Status))
+     {
+	PrintString("CSR: Unable to parse the command line (Status: %x)\n", Status);
+	return(FALSE);
+     }
 
-  CsrInitVideo();
+   CsrInitVideo();
 
-  CsrssApiHeap = RtlCreateHeap(HEAP_GROWABLE,
-                               NULL,
-                               65536,
-                               65536,
-                               NULL,
-                               NULL);
-  if (CsrssApiHeap == NULL)
-    {
-      DPRINT1("CSR: Failed to create private heap, aborting\n");
-      return FALSE;
-    }
+   /* NEW NAMED PORT: \ApiPort */
+   RtlInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
+   InitializeObjectAttributes(&ObAttributes,
+			      &PortName,
+			      0,
+			      NULL,
+			      NULL);
 
-  Status = CsrApiRegisterDefinitions(NativeDefinitions);
-  if (! NT_SUCCESS(Status))
-    {
-      return Status;
-    }
+   Status = NtCreatePort(&ApiPortHandle,
+			 &ObAttributes,
+			 260,
+			 328,
+			 0);
+   if (!NT_SUCCESS(Status))
+     {
+	PrintString("CSR: Unable to create \\ApiPort (Status %x)\n", Status);
+	return(FALSE);
+     }
+   CsrssApiHeap = RtlCreateHeap(HEAP_GROWABLE,
+				NULL,
+				65536,
+				65536,
+				NULL,
+				NULL);
+   if (CsrssApiHeap == NULL)
+     {
+	PrintString("CSR: Failed to create private heap, aborting\n");
+	return FALSE;
+     }
 
-  /* NEW NAMED PORT: \ApiPort */
-  RtlRosInitUnicodeStringFromLiteral(&PortName, L"\\Windows\\ApiPort");
-  InitializeObjectAttributes(&ObAttributes,
-                             &PortName,
-                             0,
-                             NULL,
-                             NULL);
-  Status = NtCreatePort(&ApiPortHandle,
-                        &ObAttributes,
-                        260,
-                        328,
-                        0);
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to create \\ApiPort (Status %x)\n", Status);
-      return FALSE;
-    }
-  Status = RtlCreateUserThread(NtCurrentProcess(),
-                               NULL,
-                               FALSE,
-                               0,
-                               NULL,
-                               NULL,
-                               (PTHREAD_START_ROUTINE)ServerApiPortThead,
-                               ApiPortHandle,
-                               NULL,
-                               NULL);
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to create server thread\n");
-      NtClose(ApiPortHandle);
-      return FALSE;
-    }
-  Status = CsrClientConnectToServer();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CsrClientConnectToServer() failed (Status %x)\n", Status);
-      return FALSE;
-    }
-  Status = InitWin32Csr();
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to load usermode dll (Status %x)\n", Status);
-      return FALSE;
-    }
+   CsrInitConsoleSupport();
+   Status = RtlCreateUserThread(NtCurrentProcess(),
+				NULL,
+				FALSE,
+				0,
+				NULL,
+				NULL,
+				(PTHREAD_START_ROUTINE)Thread_Api,
+				ApiPortHandle,
+				NULL,
+				NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	PrintString("CSR: Unable to create server thread\n");
+	NtClose(ApiPortHandle);
+	return FALSE;
+     }
+   RtlInitUnicodeStringFromLiteral( &RefreshEventName, L"\\TextConsoleRefreshEvent" );
+   InitializeObjectAttributes( &RefreshEventAttr, &RefreshEventName, 0, NULL, NULL );
+   Status = NtCreateEvent( &RefreshEventHandle, STANDARD_RIGHTS_ALL, &RefreshEventAttr, FALSE, FALSE );
+   if( !NT_SUCCESS( Status ) )
+     {
+       PrintString( "CSR: Unable to create refresh event!\n" );
+       return FALSE;
+     }
+   Status = RtlCreateUserThread( NtCurrentProcess(), NULL, FALSE, 0, NULL, NULL, (PTHREAD_START_ROUTINE)Console_Api, (PVOID) RefreshEventHandle, NULL, NULL );
+   if( !NT_SUCCESS( Status ) )
+     {
+       PrintString( "CSR: Unable to create console thread\n" );
+       return FALSE;
+     }
 
-  return CallInitComplete();
+   InitializeVideoAddressSpace();
+
+   W32kInitialize();
+
+   return TRUE;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: thread.c,v 1.60 2004/12/18 13:26:57 weiden Exp $
+/* $Id: thread.c,v 1.34 2003/01/22 02:24:36 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -8,7 +8,6 @@
  *			Tls functions are modified from WINE
  * UPDATE HISTORY:
  *                  Created 01/11/98
- *
  */
 
 /* INCLUDES ******************************************************************/
@@ -16,62 +15,31 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
+
+//static VOID ThreadAttachDlls (VOID);
 
 /* FUNCTIONS *****************************************************************/
 
-/* FIXME: please put this in some header */
 static EXCEPTION_DISPOSITION __cdecl
-_except_handler(EXCEPTION_RECORD *ExceptionRecord,
+_except_handler(struct _EXCEPTION_RECORD *ExceptionRecord,
 		void * EstablisherFrame,
-		CONTEXT *ContextRecord,
+		struct _CONTEXT *ContextRecord,
 		void * DispatcherContext)
 {
-   EXCEPTION_POINTERS ExceptionInfo;
-   EXCEPTION_DISPOSITION ExceptionDisposition;
+  ExitThread(0);
 
-   ExceptionInfo.ExceptionRecord = ExceptionRecord;
-   ExceptionInfo.ContextRecord = ContextRecord;
-
-   if (GlobalTopLevelExceptionFilter != NULL)
-   {
-      _SEH_TRY
-      {
-         ExceptionDisposition = GlobalTopLevelExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_HANDLE
-      {
-         ExceptionDisposition = UnhandledExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_END;
-   }
-   else 
-   {
-      ExceptionDisposition = EXCEPTION_EXECUTE_HANDLER;
-   }
-
-   if (ExceptionDisposition == EXCEPTION_EXECUTE_HANDLER)
-      ExitThread(ExceptionRecord->ExceptionCode);
-
-   /* translate EXCEPTION_XXX defines into EXCEPTION_DISPOSITION enum values */
-   if (ExceptionDisposition == EXCEPTION_CONTINUE_EXECUTION)
-     return ExceptionContinueExecution;
-   else if (ExceptionDisposition == EXCEPTION_CONTINUE_SEARCH)
-     return ExceptionContinueSearch;
-
-   return -1; /* unknown return from UnhandledExceptionFilter */
+  /* We should not get to here */
+  return(ExceptionContinueSearch);
 }
 
 
-__declspec(noreturn) void STDCALL
-ThreadStartup
-(
- LPTHREAD_START_ROUTINE lpStartAddress,
- LPVOID lpParameter
-)
+static VOID STDCALL
+ThreadStartup(LPTHREAD_START_ROUTINE lpStartAddress,
+	      LPVOID lpParameter)
 {
-  volatile UINT uExitCode = 0;
+  UINT uExitCode;
 
   __try1(_except_handler)
   {
@@ -79,244 +47,191 @@ ThreadStartup
     uExitCode = (lpStartAddress)(lpParameter);
   }
   __except1
+  {
+  }
 
   ExitThread(uExitCode);
 }
 
 
-/*
- * @implemented
- */
 HANDLE STDCALL
-CreateThread
-(
- LPSECURITY_ATTRIBUTES lpThreadAttributes,
- DWORD dwStackSize,
- LPTHREAD_START_ROUTINE lpStartAddress,
- LPVOID lpParameter,
- DWORD dwCreationFlags,
- LPDWORD lpThreadId
-)
+CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes,
+	     DWORD dwStackSize,
+	     LPTHREAD_START_ROUTINE lpStartAddress,
+	     LPVOID lpParameter,
+	     DWORD dwCreationFlags,
+	     LPDWORD lpThreadId)
 {
- return CreateRemoteThread
- (
-  NtCurrentProcess(),
-  lpThreadAttributes,
-  dwStackSize,
-  lpStartAddress,
-  lpParameter,
-  dwCreationFlags,
-  lpThreadId
- );
+  return(CreateRemoteThread(NtCurrentProcess(),
+			    lpThreadAttributes,
+			    dwStackSize,
+			    lpStartAddress,
+			    lpParameter,
+			    dwCreationFlags,
+			    lpThreadId));
 }
 
 
-/*
- * @implemented
- */
 HANDLE STDCALL
-CreateRemoteThread
-(
- HANDLE hProcess,
- LPSECURITY_ATTRIBUTES lpThreadAttributes,
- DWORD dwStackSize,
- LPTHREAD_START_ROUTINE lpStartAddress,
- LPVOID lpParameter,
- DWORD dwCreationFlags,
- LPDWORD lpThreadId
-)
+CreateRemoteThread(HANDLE hProcess,
+		   LPSECURITY_ATTRIBUTES lpThreadAttributes,
+		   DWORD dwStackSize,
+		   LPTHREAD_START_ROUTINE lpStartAddress,
+		   LPVOID lpParameter,
+		   DWORD dwCreationFlags,
+		   LPDWORD lpThreadId)
 {
- HANDLE hThread;
- CLIENT_ID cidClientId;
- NTSTATUS nErrCode;
- ULONG_PTR nStackReserve;
- ULONG_PTR nStackCommit;
- OBJECT_ATTRIBUTES oaThreadAttribs;
- PIMAGE_NT_HEADERS pinhHeader =
-  RtlImageNtHeader(NtCurrentPeb()->ImageBaseAddress);
+  HANDLE ThreadHandle;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  CLIENT_ID ClientId;
+  CONTEXT ThreadContext;
+  INITIAL_TEB InitialTeb;
+  BOOLEAN CreateSuspended = FALSE;
+  PVOID BaseAddress;
+  ULONG OldPageProtection;
+  NTSTATUS Status;
 
- DPRINT
- (
-  "hProcess           %08X\n"
-  "lpThreadAttributes %08X\n"
-  "dwStackSize        %08X\n"
-  "lpStartAddress     %08X\n"
-  "lpParameter        %08X\n"
-  "dwCreationFlags    %08X\n"
-  "lpThreadId         %08X\n",
-  hProcess,
-  lpThreadAttributes,
-  dwStackSize,
-  lpStartAddress,
-  lpParameter,
-  dwCreationFlags,
-  lpThreadId
- );
+  ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+  ObjectAttributes.RootDirectory = NULL;
+  ObjectAttributes.ObjectName = NULL;
+  ObjectAttributes.Attributes = 0;
+  if (lpThreadAttributes != NULL)
+    {
+      if (lpThreadAttributes->bInheritHandle)
+	ObjectAttributes.Attributes = OBJ_INHERIT;
+      ObjectAttributes.SecurityDescriptor = 
+	lpThreadAttributes->lpSecurityDescriptor;
+    }
+  ObjectAttributes.SecurityQualityOfService = NULL;
 
- /* FIXME: do more checks - e.g. the image may not have an optional header */
- if(pinhHeader == NULL)
- {
-  nStackReserve = 0x100000;
-  nStackCommit = PAGE_SIZE;
- }
- else
- {
-  nStackReserve = pinhHeader->OptionalHeader.SizeOfStackReserve;
-  nStackCommit = pinhHeader->OptionalHeader.SizeOfStackCommit;
- }
+  if ((dwCreationFlags & CREATE_SUSPENDED) == CREATE_SUSPENDED)
+    CreateSuspended = TRUE;
+  else
+    CreateSuspended = FALSE;
 
- /* FIXME: this should be defined in winbase.h */
-#ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
-#define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
+  InitialTeb.StackReserve = 0x100000; /* 1MByte */
+  /* FIXME: use correct commit size */
+#if 0
+  InitialTeb.StackCommit = (dwStackSize == 0) ? PAGE_SIZE : dwStackSize;
 #endif
+  InitialTeb.StackCommit = InitialTeb.StackReserve - PAGE_SIZE;
 
- /* use defaults */
- if(dwStackSize == 0);
- /* dwStackSize specifies the size to reserve */
- else if(dwCreationFlags & STACK_SIZE_PARAM_IS_A_RESERVATION)
-  nStackReserve = dwStackSize;
- /* dwStackSize specifies the size to commit */
- else
-  nStackCommit = dwStackSize;
+  /* size of guard page */
+  InitialTeb.StackCommit += PAGE_SIZE;
 
- /* fix the stack reserve size */
- if(nStackCommit > nStackReserve)
-  nStackReserve = ROUNDUP(nStackCommit, 0x100000);
+  /* Reserve stack */
+  InitialTeb.StackAllocate = NULL;
+  Status = NtAllocateVirtualMemory(hProcess,
+				   &InitialTeb.StackAllocate,
+				   0,
+				   &InitialTeb.StackReserve,
+				   MEM_RESERVE,
+				   PAGE_READWRITE);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("Error reserving stack space!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
 
- /* initialize the attributes for the thread object */
- InitializeObjectAttributes
- (
-  &oaThreadAttribs,
-  NULL,
-  0,
-  NULL,
-  NULL
- );
- 
- if(lpThreadAttributes)
- {
-  /* make the handle inheritable */
-  if(lpThreadAttributes->bInheritHandle)
-   oaThreadAttribs.Attributes |= OBJ_INHERIT;
+  DPRINT("StackDeallocation: %p ReserveSize: 0x%lX\n",
+	 InitialTeb.StackDeallocation, InitialTeb.StackReserve);
 
-  /* user-defined security descriptor */
-  oaThreadAttribs.SecurityDescriptor = lpThreadAttributes->lpSecurityDescriptor;
- }
+  InitialTeb.StackBase = (PVOID)((ULONG)InitialTeb.StackAllocate + InitialTeb.StackReserve);
+  InitialTeb.StackLimit = (PVOID)((ULONG)InitialTeb.StackBase - InitialTeb.StackCommit);
 
- DPRINT
- (
-  "RtlRosCreateUserThreadVa\n"
-  "(\n"
-  " ProcessHandle    %p,\n"
-  " ObjectAttributes %p,\n"
-  " CreateSuspended  %d,\n"
-  " StackZeroBits    %d,\n"
-  " StackReserve     %lu,\n"
-  " StackCommit      %lu,\n"
-  " StartAddress     %p,\n"
-  " ThreadHandle     %p,\n"
-  " ClientId         %p,\n"
-  " ParameterCount   %u,\n"
-  " Parameters[0]    %p,\n"
-  " Parameters[1]    %p\n"
-  ")\n",
-  hProcess,
-  &oaThreadAttribs,
-  dwCreationFlags & CREATE_SUSPENDED,
-  0,
-  nStackReserve,
-  nStackCommit,
-  ThreadStartup,
-  &hThread,
-  &cidClientId,
-  2,
-  lpStartAddress,
-  lpParameter
- );
+  DPRINT("StackBase: %p\nStackCommit: 0x%lX\n",
+	 InitialTeb.StackBase,
+	 InitialTeb.StackCommit);
 
- /* create the thread */
- nErrCode = RtlRosCreateUserThreadVa
- (
-  hProcess,
-  &oaThreadAttribs,
-  dwCreationFlags & CREATE_SUSPENDED,
-  0,
-  &nStackReserve,
-  &nStackCommit,
-  (PTHREAD_START_ROUTINE)ThreadStartup,
-  &hThread,
-  &cidClientId,
-  2,
-  lpStartAddress,
-  lpParameter
- );
+  /* Commit stack pages */
+  Status = NtAllocateVirtualMemory(hProcess,
+				   &InitialTeb.StackLimit,
+				   0,
+				   &InitialTeb.StackCommit,
+				   MEM_COMMIT,
+				   PAGE_READWRITE);
+  if (!NT_SUCCESS(Status))
+    {
+      /* release the stack space */
+      NtFreeVirtualMemory(hProcess,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
 
- /* failure */
- if(!NT_SUCCESS(nErrCode))
- {
-  SetLastErrorByStatus(nErrCode);
-  return NULL;
- }
- 
- DPRINT
- (
-  "StackReserve          %p\n"
-  "StackCommit           %p\n"
-  "ThreadHandle          %p\n"
-  "ClientId.UniqueThread %p\n",
-  nStackReserve,
-  nStackCommit,
-  hThread,
-  cidClientId.UniqueThread
- );
+      DPRINT("Error comitting stack page(s)!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
 
- /* success */
- if(lpThreadId) *lpThreadId = (DWORD)cidClientId.UniqueThread;
- return hThread;
+  DPRINT("StackLimit: %p\n",
+	 InitialTeb.StackLimit);
+
+  /* Protect guard page */
+  Status = NtProtectVirtualMemory(hProcess,
+				  InitialTeb.StackLimit,
+				  PAGE_SIZE,
+				  PAGE_GUARD | PAGE_READWRITE,
+				  &OldPageProtection);
+  if (!NT_SUCCESS(Status))
+    {
+      /* release the stack space */
+      NtFreeVirtualMemory(hProcess,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
+
+      DPRINT("Error comitting guard page!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  memset(&ThreadContext,0,sizeof(CONTEXT));
+  ThreadContext.Eip = (LONG)ThreadStartup;
+  ThreadContext.SegGs = USER_DS;
+  ThreadContext.SegFs = TEB_SELECTOR;
+  ThreadContext.SegEs = USER_DS;
+  ThreadContext.SegDs = USER_DS;
+  ThreadContext.SegCs = USER_CS;
+  ThreadContext.SegSs = USER_DS;
+  ThreadContext.Esp = (ULONG)InitialTeb.StackBase - 12;
+  ThreadContext.EFlags = (1<<1) + (1<<9);
+
+  /* initialize call stack */
+  *((PULONG)((ULONG)InitialTeb.StackBase - 4)) = (ULONG)lpParameter;
+  *((PULONG)((ULONG)InitialTeb.StackBase - 8)) = (ULONG)lpStartAddress;
+  *((PULONG)((ULONG)InitialTeb.StackBase - 12)) = 0xdeadbeef;
+
+  DPRINT("Esp: %p\n", ThreadContext.Esp);
+  DPRINT("Eip: %p\n", ThreadContext.Eip);
+
+  Status = NtCreateThread(&ThreadHandle,
+			  THREAD_ALL_ACCESS,
+			  &ObjectAttributes,
+			  hProcess,
+			  &ClientId,
+			  &ThreadContext,
+			  &InitialTeb,
+			  CreateSuspended);
+  if (!NT_SUCCESS(Status))
+    {
+      NtFreeVirtualMemory(hProcess,
+			  InitialTeb.StackAllocate,
+			  &InitialTeb.StackReserve,
+			  MEM_RELEASE);
+
+      DPRINT("NtCreateThread() failed!\n");
+      SetLastErrorByStatus(Status);
+      return(NULL);
+    }
+
+  if (lpThreadId != NULL)
+    memcpy(lpThreadId, &ClientId.UniqueThread,sizeof(ULONG));
+
+  return(ThreadHandle);
 }
 
 
-/*
- * @implemented
- */
-HANDLE
-STDCALL
-OpenThread(
-    DWORD dwDesiredAccess,
-    BOOL bInheritHandle,
-    DWORD dwThreadId
-    )
-{
-   NTSTATUS errCode;
-   HANDLE ThreadHandle;
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   CLIENT_ID ClientId ;
-   
-   ClientId.UniqueProcess = INVALID_HANDLE_VALUE;
-   ClientId.UniqueThread = (HANDLE)dwThreadId;
-   
-   InitializeObjectAttributes (&ObjectAttributes,
-			      NULL,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
-			      NULL,
-			      NULL);
-   
-   errCode = NtOpenThread(&ThreadHandle,
-			   dwDesiredAccess,
-			   &ObjectAttributes,
-			   &ClientId);
-   if (!NT_SUCCESS(errCode))
-     {
-	SetLastErrorByStatus (errCode);
-	return NULL;
-     }
-   return ThreadHandle;
-}
-
-
-/*
- * @implemented
- */
 PTEB
 GetTeb(VOID)
 {
@@ -324,10 +239,7 @@ GetTeb(VOID)
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SwitchToThread(VOID)
 {
   NTSTATUS errCode;
@@ -336,23 +248,18 @@ SwitchToThread(VOID)
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 GetCurrentThreadId(VOID)
 {
   return((DWORD)(NtCurrentTeb()->Cid).UniqueThread);
 }
 
-/*
- * @implemented
- */
+
 VOID STDCALL
 ExitThread(DWORD uExitCode)
 {
-  NTSTATUS Status;
   BOOLEAN LastThread;
+  NTSTATUS Status;
 
   /*
    * Terminate process if this is the last thread
@@ -372,14 +279,16 @@ ExitThread(DWORD uExitCode)
 
   LdrShutdownThread();
 
-  RtlRosExitUserThread(uExitCode);
+  Status = NtTerminateThread(NtCurrentThread(),
+			     uExitCode);
+  if (!NT_SUCCESS(Status))
+    {
+      SetLastErrorByStatus(Status);
+    }
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetThreadTimes(HANDLE hThread,
 	       LPFILETIME lpCreationTime,
 	       LPFILETIME lpExitTime,
@@ -387,39 +296,30 @@ GetThreadTimes(HANDLE hThread,
 	       LPFILETIME lpUserTime)
 {
   KERNEL_USER_TIMES KernelUserTimes;
+  ULONG ReturnLength;
   NTSTATUS Status;
 
   Status = NtQueryInformationThread(hThread,
 				    ThreadTimes,
 				    &KernelUserTimes,
 				    sizeof(KERNEL_USER_TIMES),
-				    NULL);
+				    &ReturnLength);
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
       return(FALSE);
     }
 
-  lpCreationTime->dwLowDateTime = KernelUserTimes.CreateTime.u.LowPart;
-  lpCreationTime->dwHighDateTime = KernelUserTimes.CreateTime.u.HighPart;
-  
-  lpExitTime->dwLowDateTime = KernelUserTimes.ExitTime.u.LowPart;
-  lpExitTime->dwHighDateTime = KernelUserTimes.ExitTime.u.HighPart;
-  
-  lpKernelTime->dwLowDateTime = KernelUserTimes.KernelTime.u.LowPart;
-  lpKernelTime->dwHighDateTime = KernelUserTimes.KernelTime.u.HighPart;
-  
-  lpUserTime->dwLowDateTime = KernelUserTimes.UserTime.u.LowPart;
-  lpUserTime->dwHighDateTime = KernelUserTimes.UserTime.u.HighPart;
+  memcpy(lpCreationTime, &KernelUserTimes.CreateTime, sizeof(FILETIME));
+  memcpy(lpExitTime, &KernelUserTimes.ExitTime, sizeof(FILETIME));
+  memcpy(lpKernelTime, &KernelUserTimes.KernelTime, sizeof(FILETIME));
+  memcpy(lpUserTime, &KernelUserTimes.UserTime, sizeof(FILETIME));
 
   return(TRUE);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetThreadContext(HANDLE hThread,
 		 LPCONTEXT lpContext)
 {
@@ -437,10 +337,7 @@ GetThreadContext(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetThreadContext(HANDLE hThread,
 		 CONST CONTEXT *lpContext)
 {
@@ -458,21 +355,19 @@ SetThreadContext(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetExitCodeThread(HANDLE hThread,
 		  LPDWORD lpExitCode)
 {
   THREAD_BASIC_INFORMATION ThreadBasic;
+  ULONG DataWritten;
   NTSTATUS Status;
 
   Status = NtQueryInformationThread(hThread,
 				    ThreadBasicInformation,
 				    &ThreadBasic,
 				    sizeof(THREAD_BASIC_INFORMATION),
-				    NULL);
+				    &DataWritten);
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
@@ -485,9 +380,6 @@ GetExitCodeThread(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 ResumeThread(HANDLE hThread)
 {
@@ -506,10 +398,7 @@ ResumeThread(HANDLE hThread)
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 TerminateThread(HANDLE hThread,
 		DWORD dwExitCode)
 {
@@ -533,9 +422,6 @@ TerminateThread(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 SuspendThread(HANDLE hThread)
 {
@@ -554,15 +440,13 @@ SuspendThread(HANDLE hThread)
 }
 
 
-/*
- * @implemented
- */
 DWORD STDCALL
 SetThreadAffinityMask(HANDLE hThread,
 		      DWORD dwThreadAffinityMask)
 {
   THREAD_BASIC_INFORMATION ThreadBasic;
   KAFFINITY AffinityMask;
+  ULONG DataWritten;
   NTSTATUS Status;
 
   AffinityMask = (KAFFINITY)dwThreadAffinityMask;
@@ -571,7 +455,7 @@ SetThreadAffinityMask(HANDLE hThread,
 				    ThreadBasicInformation,
 				    &ThreadBasic,
 				    sizeof(THREAD_BASIC_INFORMATION),
-				    NULL);
+				    &DataWritten);
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
@@ -589,21 +473,31 @@ SetThreadAffinityMask(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetThreadPriority(HANDLE hThread,
 		  int nPriority)
 {
-  ULONG Prio = nPriority;
+  THREAD_BASIC_INFORMATION ThreadBasic;
+  ULONG DataWritten;
   NTSTATUS Status;
 
-  Status = NtSetInformationThread(hThread,
-				  ThreadBasePriority,
-				  &Prio,
-				  sizeof(ULONG));
+  Status = NtQueryInformationThread(hThread,
+				    ThreadBasicInformation,
+				    &ThreadBasic,
+				    sizeof(THREAD_BASIC_INFORMATION),
+				    &DataWritten);
+  if (!NT_SUCCESS(Status))
+    {
+      SetLastErrorByStatus(Status);
+      return(FALSE);
+    }
 
+  ThreadBasic.BasePriority = nPriority;
+
+  Status = NtSetInformationThread(hThread,
+				  ThreadBasicInformation,
+				  &ThreadBasic,
+				  sizeof(THREAD_BASIC_INFORMATION));
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
@@ -614,20 +508,18 @@ SetThreadPriority(HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
 int STDCALL
 GetThreadPriority(HANDLE hThread)
 {
   THREAD_BASIC_INFORMATION ThreadBasic;
+  ULONG DataWritten;
   NTSTATUS Status;
 
   Status = NtQueryInformationThread(hThread,
 				    ThreadBasicInformation,
 				    &ThreadBasic,
 				    sizeof(THREAD_BASIC_INFORMATION),
-				    NULL);
+				    &DataWritten);
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
@@ -638,39 +530,34 @@ GetThreadPriority(HANDLE hThread)
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetThreadPriorityBoost(IN HANDLE hThread,
 		       OUT PBOOL pDisablePriorityBoost)
 {
   ULONG PriorityBoost;
+  ULONG DataWritten;
   NTSTATUS Status;
 
   Status = NtQueryInformationThread(hThread,
 				    ThreadPriorityBoost,
 				    &PriorityBoost,
 				    sizeof(ULONG),
-				    NULL);
+				    &DataWritten);
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
       return(FALSE);
     }
 
-  *pDisablePriorityBoost = !((BOOL)PriorityBoost);
+  *pDisablePriorityBoost = !((WINBOOL)PriorityBoost);
 
   return(TRUE);
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetThreadPriorityBoost(IN HANDLE hThread,
-		       IN BOOL bDisablePriorityBoost)
+		       IN WINBOOL bDisablePriorityBoost)
 {
   ULONG PriorityBoost;
   NTSTATUS Status;
@@ -691,165 +578,13 @@ SetThreadPriorityBoost(IN HANDLE hThread,
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetThreadSelectorEntry(IN HANDLE hThread,
 		       IN DWORD dwSelector,
 		       OUT LPLDT_ENTRY lpSelectorEntry)
 {
-  DESCRIPTOR_TABLE_ENTRY DescriptionTableEntry;
-  NTSTATUS Status;
-  
-  DescriptionTableEntry.Selector = dwSelector;
-  Status = NtQueryInformationThread(hThread,
-                                    ThreadDescriptorTableEntry,
-                                    &DescriptionTableEntry,
-                                    sizeof(DESCRIPTOR_TABLE_ENTRY),
-                                    NULL);
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastErrorByStatus(Status);
-    return FALSE;
-  }
-
-  *lpSelectorEntry = DescriptionTableEntry.Descriptor;
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
-DWORD STDCALL
-SetThreadIdealProcessor(HANDLE hThread,
-			DWORD dwIdealProcessor)
-{
-  NTSTATUS Status;
-
-  Status = NtSetInformationThread(hThread,
-				  ThreadIdealProcessor,
-				  &dwIdealProcessor,
-				  sizeof(ULONG));
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return -1;
-    }
-
-  return dwIdealProcessor;
-}
-
-
-/*
- * @implemented
- */
-DWORD STDCALL
-GetProcessIdOfThread(HANDLE Thread)
-{
-  THREAD_BASIC_INFORMATION ThreadBasic;
-  NTSTATUS Status;
-
-  Status = NtQueryInformationThread(Thread,
-                                    ThreadBasicInformation,
-                                    &ThreadBasic,
-                                    sizeof(THREAD_BASIC_INFORMATION),
-                                    NULL);
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastErrorByStatus(Status);
-    return 0;
-  }
-
-  return (DWORD)ThreadBasic.ClientId.UniqueProcess;
-}
-
-
-/*
- * @implemented
- */
-DWORD STDCALL
-GetThreadId(HANDLE Thread)
-{
-  THREAD_BASIC_INFORMATION ThreadBasic;
-  NTSTATUS Status;
-
-  Status = NtQueryInformationThread(Thread,
-                                    ThreadBasicInformation,
-                                    &ThreadBasic,
-                                    sizeof(THREAD_BASIC_INFORMATION),
-                                    NULL);
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastErrorByStatus(Status);
-    return 0;
-  }
-
-  return (DWORD)ThreadBasic.ClientId.UniqueThread;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL
-SetThreadUILanguage(DWORD Unknown1)
-{
-  DPRINT1("SetThreadUILanguage(0x%x) unimplemented!\n", Unknown1);
-}
-
-static void CALLBACK
-IntCallUserApc(PVOID Function, PVOID dwData, PVOID Argument3)
-{
-   PAPCFUNC pfnAPC = (PAPCFUNC)Function;
-   pfnAPC((ULONG_PTR)dwData);
-}
-
-/*
- * @implemented
- */
-DWORD STDCALL
-QueueUserAPC(PAPCFUNC pfnAPC, HANDLE hThread, ULONG_PTR dwData)
-{
-  NTSTATUS Status;
-
-  Status = NtQueueApcThread(hThread, IntCallUserApc, pfnAPC,
-                            (PVOID)dwData, NULL);
-  if (Status)
-    SetLastErrorByStatus(Status);
-
-  return NT_SUCCESS(Status);
-}
-
-/*
- * @implemented
- */
-BOOL STDCALL
-GetThreadIOPendingFlag(HANDLE hThread,
-                       PBOOL lpIOIsPending)
-{
-  ULONG IoPending;
-  NTSTATUS Status;
-  
-  if(lpIOIsPending == NULL)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
-  
-  Status = NtQueryInformationThread(hThread,
-                                    ThreadIsIoPending,
-                                    (PVOID)&IoPending,
-                                    sizeof(IoPending),
-                                    NULL);
-  if(NT_SUCCESS(Status))
-  {
-    *lpIOIsPending = ((IoPending != 0) ? TRUE : FALSE);
-    return TRUE;
-  }
-  
-  SetLastErrorByStatus(Status);
-  return FALSE;
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return(FALSE);
 }
 
 /* EOF */

@@ -1,8 +1,6 @@
+//#include <windows.h>
 #include <msvcrt/io.h>
 
-/*
- * @implemented
- */
 int _eof(int _fd)
 {
   __int64 cur_pos = _lseeki64(_fd, 0, SEEK_CUR);

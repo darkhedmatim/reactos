@@ -89,20 +89,11 @@ extern PACL SePublicOpenDacl;
 extern PACL SePublicOpenUnrestrictedDacl;
 extern PACL SeUnrestrictedDacl;
 
-/* SDs */
-extern PSECURITY_DESCRIPTOR SePublicDefaultSd;
-extern PSECURITY_DESCRIPTOR SePublicDefaultUnrestrictedSd;
-extern PSECURITY_DESCRIPTOR SePublicOpenSd;
-extern PSECURITY_DESCRIPTOR SePublicOpenUnrestrictedSd;
-extern PSECURITY_DESCRIPTOR SeSystemDefaultSd;
-extern PSECURITY_DESCRIPTOR SeUnrestrictedSd;
-
 
 /* Functions */
 
 BOOLEAN SeInit1(VOID);
 BOOLEAN SeInit2(VOID);
-BOOLEAN SeInitSRM(VOID);
 
 VOID SepInitLuid(VOID);
 VOID SepInitPrivileges(VOID);
@@ -110,43 +101,25 @@ BOOLEAN SepInitSecurityIDs(VOID);
 BOOLEAN SepInitDACLs(VOID);
 BOOLEAN SepInitSDs(VOID);
 
-NTSTATUS STDCALL 
-SepCreateImpersonationTokenDacl(PACCESS_TOKEN Token, 
-                                PACCESS_TOKEN PrimaryToken,
-                                PACL *Dacl);
-
 VOID SepInitializeTokenImplementation(VOID);
 
 NTSTATUS SepCreateSystemProcessToken(struct _EPROCESS* Process);
 NTSTATUS SepInitializeNewProcess(struct _EPROCESS* NewProcess,
-				 struct _EPROCESS* ParentProcess);
+								 struct _EPROCESS* ParentProcess);
 
 NTSTATUS SeExchangePrimaryToken(struct _EPROCESS* Process,
 				PACCESS_TOKEN NewToken,
 				PACCESS_TOKEN* OldTokenP);
 
-NTSTATUS
-SeCaptureLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Src,
-				ULONG PrivilegeCount,
-				KPROCESSOR_MODE PreviousMode,
-				PLUID_AND_ATTRIBUTES AllocatedMem,
-				ULONG AllocatedLength,
-				POOL_TYPE PoolType,
-				ULONG d,
-				PLUID_AND_ATTRIBUTES* Dest,
-				PULONG Length);
-
-VOID
-SeReleaseLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Privilege,
-				KPROCESSOR_MODE PreviousMode,
-				ULONG a);
-
-BOOLEAN
-SepPrivilegeCheck(PACCESS_TOKEN Token,
-		  PLUID_AND_ATTRIBUTES Privileges,
-		  ULONG PrivilegeCount,
-		  ULONG PrivilegeControl,
-		  KPROCESSOR_MODE PreviousMode);
+NTSTATUS SeCaptureLuidAndAttributesArray(PLUID_AND_ATTRIBUTES Src,
+					 ULONG PrivilegeCount,
+					 KPROCESSOR_MODE PreviousMode,
+					 PLUID_AND_ATTRIBUTES AllocatedMem,
+					 ULONG AllocatedLength,
+					 POOL_TYPE PoolType,
+					 ULONG d,
+					 PLUID_AND_ATTRIBUTES* Dest,
+					 PULONG Length);
 
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_SE_H */

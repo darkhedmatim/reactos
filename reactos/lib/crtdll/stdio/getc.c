@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 #include <msvcrt/errno.h>
@@ -7,9 +7,6 @@
 //getc can be a macro
 #undef getc
 
-/*
- * @implemented
- */
 int getc(FILE *fp)
 {
         int c = -1;
@@ -40,20 +37,19 @@ int getc(FILE *fp)
 
 wint_t  getwc(FILE *fp)
 {
-  wint_t c;
 	
  // might check on multi bytes if text mode
  
   if(fp->_cnt > 0) {
         fp->_cnt -= sizeof(wchar_t);
-        c = *((wchar_t *)(fp->_ptr));
-        fp->_ptr += sizeof(wchar_t);
+        return (wint_t )*((wchar_t *)(fp->_ptr))++;
   } 
   else {
-	c = _filwbuf(fp);
+	return _filwbuf(fp);
   }
   
-  return c;
+  // never reached
+  return -1;
 }
 
 

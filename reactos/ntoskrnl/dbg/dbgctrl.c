@@ -25,27 +25,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ldr.h>
+#include <internal/kd.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-DbgLoadImageSymbols(
-    IN PUNICODE_STRING Name,
-    IN ULONG Base, 
-    IN ULONG Unknown3
-    )
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
 
 NTSTATUS STDCALL 
 NtSystemDebugControl(DEBUG_CONTROL_CODE ControlCode,
@@ -58,13 +46,15 @@ NtSystemDebugControl(DEBUG_CONTROL_CODE ControlCode,
   switch (ControlCode) {
     case DebugGetTraceInformation:
     case DebugSetInternalBreakpoint:
-    case DebugSetSpecialCall:
+    case DebugSetSpecialCalls:
     case DebugClearSpecialCalls:
     case DebugQuerySpecialCalls:
     case DebugDbgBreakPoint:
       break;
+#ifdef KDBG
     case DebugDbgLoadSymbols:
-      KDB_LOADUSERMODULE_HOOK((PLDR_MODULE) InputBuffer);
+      KdbLdrLoadUserModuleSymbols((PLDR_MODULE) InputBuffer);
+#endif /* KDBG */
       break;
     default:
       break;

@@ -11,9 +11,6 @@
 
 size_t _mbclen2(const unsigned int s);
 
-/*
- * @implemented
- */
 unsigned char * _mbsnset(unsigned char *src, unsigned int val, size_t count)
 {
 	unsigned char *char_src = (unsigned char *)src;
@@ -40,9 +37,6 @@ unsigned char * _mbsnset(unsigned char *src, unsigned int val, size_t count)
 	return src;
 }
 
-/*
- * @implemented
- */
 unsigned char * _mbsnbset(unsigned char *src, unsigned int val, size_t count)
 {
 	unsigned char *char_src = (unsigned char *)src;

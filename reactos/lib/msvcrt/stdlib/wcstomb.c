@@ -29,7 +29,7 @@
 
 static const wchar_t encoding_mask[] =
 {
-  (wchar_t)~0x7ff, (wchar_t)~0xffff, (wchar_t)~0x1fffff, (wchar_t)~0x3ffffff
+  ~0x7ff, ~0xffff, ~0x1fffff, ~0x3ffffff
 };
 
 static const unsigned char encoding_byte[] =
@@ -46,17 +46,13 @@ static const unsigned char encoding_byte[] =
 size_t
 __wcrtomb (char *s, wchar_t wc);
 
-/*
- * Convert WCHAR into its multibyte character representation,
- * putting this in S and returning its length.
- *
- * Attention: this function should NEVER be intentionally used.
- * The interface is completely stupid.  The state is shared between
- * all conversion functions.  You should use instead the restartable
- * version `wcrtomb'.
- *
- * @implemented
- */
+/* Convert WCHAR into its multibyte character representation,
+   putting this in S and returning its length.
+
+   Attention: this function should NEVER be intentionally used.
+   The interface is completely stupid.  The state is shared between
+   all conversion functions.  You should use instead the restartable
+   version `wcrtomb'.  */
 int
 wctomb (char *s, wchar_t wchar)
 {
@@ -85,6 +81,14 @@ __wcrtomb (char *s, wchar_t wc)
     {
       s = fake;
       wc = L'\0';
+    }
+
+  /* Store the UTF8 representation of WC.  */
+  if (wc < 0 || wc > 0x7fffffff)
+    {
+      /* This is no correct ISO 10646 character.  */
+      __set_errno (EILSEQ);
+      return (size_t) -1;
     }
 
   if (wc < 0x80)

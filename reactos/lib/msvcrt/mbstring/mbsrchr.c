@@ -10,24 +10,21 @@
 
 #include <msvcrt/mbstring.h>
 
-/*
- * @implemented
- */
+size_t _mbclen2(const unsigned int s);
+
 unsigned char * _mbsrchr(const unsigned char *src, unsigned int val)
 {
-  unsigned int c;
-  unsigned char *match = NULL;
+	char  *s = (char *)src;
+	short cc = val;
+	const char *sp=(char *)0;
 
-  if (!src)
-    return NULL;
-
-  while (1)
-  {
-    c = _mbsnextc(src);
-    if (c == val)
-      match = (unsigned char*)src;
-    if (!c)
-      return match;
-    src += (c > 255) ? 2 : 1;
-  }
+	while (*s)
+	{
+		if (*(short *)s == cc)
+			sp = s;
+		s+= _mbclen2(*s);
+	}
+	if (cc == 0)
+		sp = s;
+	return (char *)sp;
 }

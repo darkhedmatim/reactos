@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <ntos/except.h>
 
 
@@ -11,9 +11,6 @@ struct _exception {
 } ;
 
 
-/*
- * @unimplemented
- */
 int _matherr(struct _exception* e)
 {
     return 0;
@@ -29,9 +26,6 @@ void __setusermatherr(int (*handler)(struct _exception*))
 
 #define _FPIEEE_RECORD void
 
-/*
- * @unimplemented
- */
 int _fpieee_flt(
         unsigned long exception_code,
         struct _EXCEPTION_POINTERS* ExceptionPointer,

@@ -13,9 +13,6 @@
 
 int _readcnv(int fn, void* buf, size_t siz);
 
-/*
- * @implemented
- */
 int _filbuf(FILE* f)
 {
   int size;
@@ -34,7 +31,7 @@ int _filbuf(FILE* f)
     if ((f->_base = malloc(size+1)) == NULL) {
 	// error ENOMEM
       f->_flag |= _IONBF;
-      f->_flag &= ~(_IOFBF|_IO_LBF);
+      f->_flag &= ~(_IOFBF|_IOLBF);
     } else {
       f->_flag |= _IOMYBUF;
       f->_bufsiz = size;
@@ -45,9 +42,9 @@ int _filbuf(FILE* f)
 
   // flush stdout before reading from stdin 
   if (f == stdin) {
-    if (stdout->_flag&_IO_LBF)
+    if (stdout->_flag&_IOLBF)
       fflush(stdout);
-    if (stderr->_flag&_IO_LBF)
+    if (stderr->_flag&_IOLBF)
       fflush(stderr);
   }
 
@@ -86,7 +83,7 @@ int _filbuf(FILE* f)
       f->_flag |= _IOERR;
     f->_cnt = 0;
 
-// FIXME should set errno 
+// should set errno 
 
     return EOF;
   }

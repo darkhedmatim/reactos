@@ -1,4 +1,4 @@
-/* $Id: sysinfo.c,v 1.14 2004/09/21 22:08:18 weiden Exp $
+/* $Id: sysinfo.c,v 1.6 2003/01/15 21:24:35 chorns Exp $
  *
  * reactos/lib/kernel32/misc/sysinfo.c
  *
@@ -6,14 +6,11 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 #define PV_NT351 0x00030033
 
-/*
- * @unimplemented
- */
 VOID
 STDCALL
 GetSystemInfo (
@@ -55,14 +52,14 @@ GetSystemInfo (
 	 *	PROCESSOR_ARCHITECTURE_PPC   3
 	 *	PROCESSOR_ARCHITECTURE_UNKNOWN 0xFFFF
 	 */
-	Si->wProcessorArchitecture	= Spi.ProcessorArchitecture;
+	Si->u.s.wProcessorArchitecture	= Spi.ProcessorArchitecture;
 	/* For future use: always zero */
-	Si->wReserved			= 0;
-	Si->dwPageSize			= Sbi.PhysicalPageSize;
-	Si->lpMinimumApplicationAddress	= (PVOID)Sbi.LowestUserAddress;
-	Si->lpMaximumApplicationAddress	= (PVOID)Sbi.HighestUserAddress;
-	Si->dwActiveProcessorMask	= Sbi.ActiveProcessors;
-	Si->dwNumberOfProcessors	= Sbi.NumberProcessors;
+	Si->u.s.wReserved		= 0;
+	Si->dwPageSize			= Sbi.PageSize;
+	Si->lpMinimumApplicationAddress	= (PVOID)Sbi.MinimumUserModeAddress;
+	Si->lpMaximumApplicationAddress	= (PVOID)Sbi.MaximumUserModeAddress;
+	Si->dwActiveProcessorMask	= Sbi.ActiveProcessorsAffinityMask;
+	Si->dwNumberOfProcessors	= Sbi.NumberOfProcessors;
 	/*
 	 * Compatibility (no longer relevant):
 	 *	PROCESSOR_INTEL_386	386
@@ -98,37 +95,9 @@ GetSystemInfo (
 	case PROCESSOR_ARCHITECTURE_ALPHA:
 		Si->dwProcessorType = PROCESSOR_ALPHA_21064;
 		break;
-
-	case PROCESSOR_ARCHITECTURE_IA64:
-		Si->dwProcessorType = PROCESSOR_INTEL_IA64;
-		break;
-
+		
 	case PROCESSOR_ARCHITECTURE_PPC:
-		switch (Spi.ProcessorLevel)
-		{
-		case 1:
-			Si->dwProcessorType = PROCESSOR_PPC_601;
-			break;
-		case 3:
-			Si->dwProcessorType = PROCESSOR_PPC_603;
-			break;
-		case 4:
-			Si->dwProcessorType = PROCESSOR_PPC_604;
-			break;
-		case 6:
-			/* PPC 603+ */
-			Si->dwProcessorType = PROCESSOR_PPC_603;
-			break;
-		case 9:
-			/* PPC 604+ */
-			Si->dwProcessorType = PROCESSOR_PPC_604;
-			break;
-		case 20:
-			Si->dwProcessorType = PROCESSOR_PPC_620;
-			break;
-		default:
-			Si->dwProcessorType = -1;
-		}
+		Si->dwProcessorType = -1; /* FIXME: what value? */
 		break;
 		
 	}
@@ -150,52 +119,5 @@ GetSystemInfo (
 	}
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
-IsProcessorFeaturePresent(DWORD ProcessorFeature)
-{
-  if (ProcessorFeature >= PROCESSOR_FEATURES_MAX)
-    return(FALSE);
-
-  return((BOOL)SharedUserData->ProcessorFeatures[ProcessorFeature]);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetSystemRegistryQuota(PDWORD pdwQuotaAllowed,
-                       PDWORD pdwQuotaUsed)
-{
-    SYSTEM_REGISTRY_QUOTA_INFORMATION srqi;
-    ULONG BytesWritten;
-    NTSTATUS Status;
-
-    Status = NtQuerySystemInformation(SystemRegistryQuotaInformation,
-                                      &srqi,
-                                      sizeof(srqi),
-                                      &BytesWritten);
-    if(NT_SUCCESS(Status))
-    {
-      if(pdwQuotaAllowed != NULL)
-      {
-        *pdwQuotaAllowed = srqi.RegistryQuotaAllowed;
-      }
-      if(pdwQuotaUsed != NULL)
-      {
-        *pdwQuotaUsed = srqi.RegistryQuotaUsed;
-      }
-
-      return TRUE;
-    }
-
-    SetLastErrorByStatus(Status);
-    return FALSE;
-}
 
 /* EOF */

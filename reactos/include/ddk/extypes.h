@@ -1,12 +1,22 @@
-/* $Id: extypes.h,v 1.25 2004/10/22 22:49:00 weiden Exp $ */
+/* $Id: extypes.h,v 1.12 2002/11/24 18:26:40 robd Exp $ */
 
 #ifndef __INCLUDE_DDK_EXTYPES_H
 #define __INCLUDE_DDK_EXTYPES_H
 
+#ifdef __NTOSKRNL__
+extern POBJECT_TYPE EXPORTED ExDesktopObjectType;
+extern POBJECT_TYPE EXPORTED ExEventObjectType;
+extern POBJECT_TYPE EXPORTED ExWindowStationObjectType;
+#else
+extern POBJECT_TYPE IMPORTED ExDesktopObjectType;
+extern POBJECT_TYPE IMPORTED ExEventObjectType;
+extern POBJECT_TYPE IMPORTED ExWindowStationObjectType;
+#endif
+
 typedef ULONG INTERLOCKED_RESULT;
 typedef ULONG WORK_QUEUE_TYPE;
 
-typedef ULONG_PTR ERESOURCE_THREAD, *PERESOURCE_THREAD;
+typedef ULONG ERESOURCE_THREAD, *PERESOURCE_THREAD;
 
 typedef struct _OWNER_ENTRY
 {
@@ -15,7 +25,7 @@ typedef struct _OWNER_ENTRY
      {
 	LONG OwnerCount;
 	ULONG TableSize;
-     }; /* anon */
+     } a;
 } OWNER_ENTRY, *POWNER_ENTRY;
 
 typedef struct _ERESOURCE
@@ -34,25 +44,10 @@ typedef struct _ERESOURCE
      {
 	PVOID Address;
 	ULONG CreatorBackTraceIndex;
-     }; /* anon */
+     } a;
    KSPIN_LOCK SpinLock;
 } ERESOURCE, *PERESOURCE;
 
-#define EX_RUNDOWN_ACTIVE       0x1
-#define EX_RUNDOWN_COUNT_SHIFT 0x1
-#define EX_RUNDOWN_COUNT_INC   (0x1 << EX_RUNDOWN_COUNT_SHIFT)
-
-typedef struct _RUNDOWN_DESCRIPTOR {
-    ULONG_PTR References;
-    KEVENT RundownEvent;
-} RUNDOWN_DESCRIPTOR, *PRUNDOWN_DESCRIPTOR;
-
-typedef struct _EX_RUNDOWN_REF {
-    union {
-        ULONG_PTR Count;
-        PRUNDOWN_DESCRIPTOR Ptr;
-    };
-} EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
 typedef struct 
 {
@@ -71,25 +66,26 @@ typedef struct _ZONE_HEADER
    ULONG TotalSegmentSize;
 } ZONE_HEADER, *PZONE_HEADER;
 
-typedef struct _ZONE_SEGMENT_HEADER
+typedef struct _ZONE_SEGMENT
 {
-   SINGLE_LIST_ENTRY SegmentList; /* was Entry */
-   PVOID Reserved;  /* was ULONG Size; */
-} ZONE_SEGMENT_HEADER, *PZONE_SEGMENT_HEADER;
+   SINGLE_LIST_ENTRY Entry;
+   ULONG size;
+} ZONE_SEGMENT, *PZONE_SEGMENT;
 
+typedef struct _ZONE_ENTRY
+{
+   SINGLE_LIST_ENTRY Entry;
+} ZONE_ENTRY, *PZONE_ENTRY;
 
 
 typedef VOID STDCALL_FUNC
 (*PWORKER_THREAD_ROUTINE)(PVOID Parameter);
 
-
-/* Modified by Andrew Greenwood, 16th July 2003: */
-
 typedef struct _WORK_QUEUE_ITEM
 {
-   LIST_ENTRY List;
-   PWORKER_THREAD_ROUTINE WorkerRoutine;
-   PVOID Parameter;
+   LIST_ENTRY Entry;
+   PWORKER_THREAD_ROUTINE Routine;
+   PVOID Context;
 } WORK_QUEUE_ITEM, *PWORK_QUEUE_ITEM;
 
 typedef PVOID STDCALL_FUNC
@@ -108,13 +104,13 @@ typedef union _SLIST_HEADER
 	SINGLE_LIST_ENTRY Next;
 	USHORT Depth;
 	USHORT Sequence;	
-     }; /* now anonymous */
+     } s;
 } SLIST_HEADER, *PSLIST_HEADER;
 
 typedef struct _NPAGED_LOOKASIDE_LIST
 {
    SLIST_HEADER ListHead;
-   USHORT Depth;
+   USHORT MinimumDepth;
    USHORT MaximumDepth;
    ULONG TotalAllocates;
    ULONG AllocateMisses;
@@ -129,13 +125,13 @@ typedef struct _NPAGED_LOOKASIDE_LIST
    ULONG LastTotalAllocates;
    ULONG LastAllocateMisses;
    ULONG Pad[2];
-   KSPIN_LOCK Obsoleted;
+   KSPIN_LOCK Lock;
 } NPAGED_LOOKASIDE_LIST, *PNPAGED_LOOKASIDE_LIST;
 
 typedef struct _PAGED_LOOKASIDE_LIST
 {
    SLIST_HEADER ListHead;
-   USHORT Depth;
+   USHORT MinimumDepth;
    USHORT MaximumDepth;
    ULONG TotalAllocates;
    ULONG AllocateMisses;
@@ -149,63 +145,9 @@ typedef struct _PAGED_LOOKASIDE_LIST
    LIST_ENTRY ListEntry;
    ULONG LastTotalAllocates;
    ULONG LastAllocateMisses;
-   FAST_MUTEX Obsoleted;
+   FAST_MUTEX Lock;
 } PAGED_LOOKASIDE_LIST, *PPAGED_LOOKASIDE_LIST;
 
-typedef struct _PP_LOOKASIDE_LIST {
-   struct _GENERAL_LOOKASIDE *P;
-   struct _GENERAL_LOOKASIDE *L;
-} PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
-
-typedef enum _EX_POOL_PRIORITY {
-    LowPoolPriority,
-    LowPoolPrioritySpecialPoolOverrun = 8,
-    LowPoolPrioritySpecialPoolUnderrun = 9,
-    NormalPoolPriority = 16,
-    NormalPoolPrioritySpecialPoolOverrun = 24,
-    NormalPoolPrioritySpecialPoolUnderrun = 25,
-    HighPoolPriority = 32,
-    HighPoolPrioritySpecialPoolOverrun = 40,
-    HighPoolPrioritySpecialPoolUnderrun = 41
-
-    } EX_POOL_PRIORITY;
-
-typedef enum _SUITE_TYPE {
-    SmallBusiness,
-    Enterprise,
-    BackOffice,
-    CommunicationServer,
-    TerminalServer,
-    SmallBusinessRestricted,
-    EmbeddedNT,
-    DataCenter,
-    SingleUserTS,
-    Personal,
-    Blade,
-    MaxSuiteType
-} SUITE_TYPE;
-
-typedef enum _HARDERROR_RESPONSE_OPTION {
-	OptionAbortRetryIgnore,
-	OptionOk,
-	OptionOkCancel,
-	OptionRetryCancel,
-	OptionYesNo,
-	OptionYesNoCancel,
-	OptionShutdownSystem
-} HARDERROR_RESPONSE_OPTION, *PHARDERROR_RESPONSE_OPTION;
-
-typedef enum _HARDERROR_RESPONSE {
-	ResponseReturnToCaller,
-	ResponseNotHandled,
-	ResponseAbort,
-	ResponseCancel,
-	ResponseIgnore,
-	ResponseNo,
-	ResponseOk,
-	ResponseRetry,
-	ResponseYes
-} HARDERROR_RESPONSE, *PHARDERROR_RESPONSE;
 
 /* callback object (not functional in NT4)*/
 
@@ -215,6 +157,81 @@ typedef VOID STDCALL_FUNC
 (*PCALLBACK_FUNCTION)(PVOID CallbackContext,
 		      PVOID Argument1,
 		      PVOID Argument2);
+
+/* BEGIN REACTOS ONLY */
+
+typedef enum _TRAVERSE_METHOD {
+  TraverseMethodPreorder,
+  TraverseMethodInorder,
+  TraverseMethodPostorder
+} TRAVERSE_METHOD;
+
+typedef LONG STDCALL_FUNC
+(*PKEY_COMPARATOR)(IN PVOID  Key1,
+  IN PVOID  Key2);
+
+typedef BOOLEAN STDCALL_FUNC
+(*PTRAVERSE_ROUTINE)(IN PVOID  Context,
+  IN PVOID  Key,
+  IN PVOID  Value);
+
+struct _BINARY_TREE_NODE;
+
+typedef struct _BINARY_TREE
+{
+  struct _BINARY_TREE_NODE  * RootNode;
+  PKEY_COMPARATOR  Compare;
+  BOOLEAN  UseNonPagedPool;
+  union {
+    NPAGED_LOOKASIDE_LIST  NonPaged;
+    PAGED_LOOKASIDE_LIST  Paged;
+  } List;
+  union {
+    KSPIN_LOCK  NonPaged;
+    FAST_MUTEX  Paged;
+  } Lock;
+} BINARY_TREE, *PBINARY_TREE;
+
+
+struct _SPLAY_TREE_NODE;
+
+typedef struct _SPLAY_TREE
+{
+  struct _SPLAY_TREE_NODE  * RootNode;
+  PKEY_COMPARATOR  Compare;
+  BOOLEAN  Weighted;
+  BOOLEAN  UseNonPagedPool;
+  union {
+    NPAGED_LOOKASIDE_LIST  NonPaged;
+    PAGED_LOOKASIDE_LIST  Paged;
+  } List;
+  union {
+    KSPIN_LOCK  NonPaged;
+    FAST_MUTEX  Paged;
+  } Lock;
+  PVOID  Reserved[4];
+} SPLAY_TREE, *PSPLAY_TREE;
+
+
+typedef struct _HASH_TABLE
+{
+  // Size of hash table in number of bits
+  ULONG  HashTableSize;
+
+  // Use non-paged pool memory?
+  BOOLEAN  UseNonPagedPool;
+
+  // Lock for this structure
+  union {
+    KSPIN_LOCK  NonPaged;
+    FAST_MUTEX  Paged;
+  } Lock;
+
+  // Pointer to array of hash buckets with splay trees
+  PSPLAY_TREE  HashTrees;
+} HASH_TABLE, *PHASH_TABLE;
+
+/* END REACTOS ONLY */
 
 #endif /* __INCLUDE_DDK_EXTYPES_H */
 

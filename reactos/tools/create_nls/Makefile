@@ -14,7 +14,7 @@ CLEAN_FILES = *.o create_nls$(EXE_POSTFIX)
 create_nls$(EXE_POSTFIX): $(OBJECTS)
 	$(HOST_CC) $(OBJECTS) -o create_nls$(EXE_POSTFIX)
 
-HOST_CFLAGS = -I. -Wall -Werror
+HOST_CFLAGS = -I.
 
 create_nls.o: create_nls.c
 	$(HOST_CC) $(HOST_CFLAGS) -c create_nls.c -o create_nls.o
@@ -26,8 +26,8 @@ clean:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	-del *.o
-	-del create_nls$(EXE_POSTFIX)
+	del *.o
+	del create_nls$(EXE_POSTFIX)
 endif
 
 .phony: clean
@@ -43,7 +43,7 @@ clean_nls:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean_nls:
-	-del ..\..\media\nls\*.nls
+	del ..\..\media\nls\*.nls
 endif
 
 .phony: clean_nls

@@ -10,7 +10,7 @@
 #ifdef _DEBUG
 
 #undef THIS_FILE
-//static char THIS_FILE[] = __FILE__;
+static char THIS_FILE[] = __FILE__;
 
 void _DebugBreak(void)
 {
@@ -36,10 +36,10 @@ void Assert(void* assert, const char* file, int line, void* msg)
 {
     if (msg == NULL) {
         printf("ASSERT -- %s occured on line %u of file %s.\n",
-               (CHAR *)assert, line, file);
+               assert, line, file);
     } else {
         printf("ASSERT -- %s occured on line %u of file %s: Message = %s.\n",
-               (CHAR *)assert, line, file, (CHAR *)msg);
+               assert, line, file, msg);
     }
 }
 

@@ -1,12 +1,10 @@
-/* $Id: finfo.c,v 1.39 2004/12/05 16:31:51 gvg Exp $
+/* $Id: finfo.c,v 1.26 2003/01/28 16:48:03 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/finfo.c
+ * FILE:             services/fs/vfat/finfo.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
- *                   Herve Poussineau (reactos@poussine.freesurf.fr)
  *
  */
 
@@ -35,23 +33,17 @@ VfatGetStandardInformation(PVFATFCB FCB,
     return STATUS_BUFFER_OVERFLOW;
 
   /* PRECONDITION */
-  ASSERT(StandardInfo != NULL);
-  ASSERT(FCB != NULL);
+  assert (StandardInfo != NULL);
+  assert (FCB != NULL);
 
-  if (vfatFCBIsDirectory(FCB))
-    {
-      StandardInfo->AllocationSize.QuadPart = 0LL;
-      StandardInfo->EndOfFile.QuadPart = 0LL;
-      StandardInfo->Directory = TRUE;
-    }
-  else
-    {
-      StandardInfo->AllocationSize = FCB->RFCB.AllocationSize;
-      StandardInfo->EndOfFile = FCB->RFCB.FileSize;
-      StandardInfo->Directory = FALSE;
-    }
+  RtlZeroMemory(StandardInfo,
+		sizeof(FILE_STANDARD_INFORMATION));
+
+  StandardInfo->AllocationSize = FCB->RFCB.AllocationSize;
+  StandardInfo->EndOfFile = FCB->RFCB.FileSize;
   StandardInfo->NumberOfLinks = 0;
   StandardInfo->DeletePending = FCB->Flags & FCB_DELETE_PENDING ? TRUE : FALSE;
+  StandardInfo->Directory = FCB->entry.Attrib & 0x10 ? TRUE : FALSE;
 
   *BufferLength -= sizeof(FILE_STANDARD_INFORMATION);
   return(STATUS_SUCCESS);
@@ -65,9 +57,8 @@ VfatSetPositionInformation(PFILE_OBJECT FileObject,
 
   DPRINT ("PositionInfo %x\n", PositionInfo);
   DPRINT ("Setting position %d\n", PositionInfo->CurrentByteOffset.u.LowPart);
-
-  FileObject->CurrentByteOffset.QuadPart =
-    PositionInfo->CurrentByteOffset.QuadPart;
+  memcpy (&FileObject->CurrentByteOffset, &PositionInfo->CurrentByteOffset,
+	  sizeof (LARGE_INTEGER));
 
   return (STATUS_SUCCESS);
 }
@@ -102,54 +93,33 @@ VfatSetBasicInformation(PFILE_OBJECT FileObject,
 {
   DPRINT("VfatSetBasicInformation()\n");
 
-  ASSERT(NULL != FileObject);
-  ASSERT(NULL != FCB);
-  ASSERT(NULL != DeviceExt);
-  ASSERT(NULL != BasicInfo);
+  assert (NULL != FileObject);
+  assert (NULL != FCB);
+  assert (NULL != DeviceExt);
+  assert (NULL != BasicInfo);
   /* Check volume label bit */
-  ASSERT(0 == (*FCB->Attributes & 0x08));
+  assert(0 == (FCB->entry.Attrib & 0x08));
 
-  if (FCB->Flags & FCB_IS_FATX_ENTRY)
-  {
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->CreationTime,
-                             &FCB->entry.FatX.CreationDate,
-                             &FCB->entry.FatX.CreationTime);
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->LastAccessTime,
-                             &FCB->entry.FatX.AccessDate,
-                             &FCB->entry.FatX.AccessTime);
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->LastWriteTime,
-                             &FCB->entry.FatX.UpdateDate,
-                             &FCB->entry.FatX.UpdateTime);
-  }
-  else
-  {
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->CreationTime,
-                             &FCB->entry.Fat.CreationDate,
-                             &FCB->entry.Fat.CreationTime);
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->LastAccessTime,
-                             &FCB->entry.Fat.AccessDate,
-                             NULL);
-    FsdSystemTimeToDosDateTime(DeviceExt,
-                             &BasicInfo->LastWriteTime,
-                             &FCB->entry.Fat.UpdateDate,
-                             &FCB->entry.Fat.UpdateTime);
-  }
+  FsdFileTimeToDosDateTime(&(BasicInfo->CreationTime),
+                           &(FCB->entry.CreationDate),  
+                           &(FCB->entry.CreationTime));
+  FsdFileTimeToDosDateTime(&(BasicInfo->LastAccessTime),
+                           &(FCB->entry.AccessDate),  
+                           NULL);
+  FsdFileTimeToDosDateTime(&(BasicInfo->LastWriteTime),
+                           &(FCB->entry.UpdateDate),
+                           &(FCB->entry.UpdateTime));
 
-  *FCB->Attributes = (unsigned char)((*FCB->Attributes &
+  FCB->entry.Attrib = (FCB->entry.Attrib &
                        (FILE_ATTRIBUTE_DIRECTORY | 0x48)) |
                       (BasicInfo->FileAttributes &
                        (FILE_ATTRIBUTE_ARCHIVE |
                         FILE_ATTRIBUTE_SYSTEM |
                         FILE_ATTRIBUTE_HIDDEN |
-                        FILE_ATTRIBUTE_READONLY)));
-  DPRINT("Setting attributes 0x%02x\n", *FCB->Attributes);
+                        FILE_ATTRIBUTE_READONLY));
+  DPRINT("Setting attributes 0x%02x\n", FCB->entry.Attrib);
 
-  VfatUpdateEntry(FCB);
+  VfatUpdateEntry(DeviceExt, FileObject);
 
   return(STATUS_SUCCESS);
 }
@@ -161,48 +131,23 @@ VfatGetBasicInformation(PFILE_OBJECT FileObject,
 			PFILE_BASIC_INFORMATION BasicInfo,
 			PULONG BufferLength)
 {
-  PDEVICE_EXTENSION DeviceExt;
   DPRINT("VfatGetBasicInformation()\n");
-  
-  DeviceExt = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   if (*BufferLength < sizeof(FILE_BASIC_INFORMATION))
     return STATUS_BUFFER_OVERFLOW;
 
-  if (FCB->Flags & FCB_IS_FATX_ENTRY)
-  {
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.FatX.CreationDate,
-			     FCB->entry.FatX.CreationTime,
-			     &BasicInfo->CreationTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.FatX.AccessDate,
-			     FCB->entry.FatX.AccessTime,
-			     &BasicInfo->LastAccessTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.FatX.UpdateDate,
-			     FCB->entry.FatX.UpdateTime,
-			     &BasicInfo->LastWriteTime);
-    BasicInfo->ChangeTime = BasicInfo->LastWriteTime;
-  }
-  else
-  {
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.Fat.CreationDate,
-			     FCB->entry.Fat.CreationTime,
-			     &BasicInfo->CreationTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.Fat.AccessDate,
-			     0,
-			     &BasicInfo->LastAccessTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     FCB->entry.Fat.UpdateDate,
-			     FCB->entry.Fat.UpdateTime,
-			     &BasicInfo->LastWriteTime);
-    BasicInfo->ChangeTime = BasicInfo->LastWriteTime;
-  }
+  FsdDosDateTimeToFileTime(FCB->entry.CreationDate,
+			   FCB->entry.CreationTime,
+			   &BasicInfo->CreationTime);
+  FsdDosDateTimeToFileTime(FCB->entry.AccessDate,
+			   0,
+			   &BasicInfo->LastAccessTime);
+  FsdDosDateTimeToFileTime(FCB->entry.UpdateDate,
+			   FCB->entry.UpdateTime,
+			   &BasicInfo->LastWriteTime);
+  BasicInfo->ChangeTime = BasicInfo->LastWriteTime;
 
-  BasicInfo->FileAttributes = *FCB->Attributes & 0x3f;
+  BasicInfo->FileAttributes = FCB->entry.Attrib;
   /* Synthesize FILE_ATTRIBUTE_NORMAL */
   if (0 == (BasicInfo->FileAttributes & (FILE_ATTRIBUTE_DIRECTORY |
                                          FILE_ATTRIBUTE_ARCHIVE |
@@ -225,67 +170,75 @@ VfatSetDispositionInformation(PFILE_OBJECT FileObject,
 			      PDEVICE_OBJECT DeviceObject,
 			      PFILE_DISPOSITION_INFORMATION DispositionInfo)
 {
+  KIRQL oldIrql;
+  VFATFCB tmpFcb;
+  WCHAR star[2];
+  ULONG Index;
   NTSTATUS Status = STATUS_SUCCESS;
+  int count;
 
   PDEVICE_EXTENSION DeviceExt = DeviceObject->DeviceExtension;
 
   DPRINT ("FsdSetDispositionInformation()\n");
 
-  ASSERT(DeviceExt != NULL);
-  ASSERT(DeviceExt->FatInfo.BytesPerCluster != 0);
-  ASSERT(FCB != NULL);
+  assert (DeviceExt != NULL);
+  assert (DeviceExt->FatInfo.BytesPerCluster != 0);
+  assert (FCB != NULL);
 
-  if (*FCB->Attributes & FILE_ATTRIBUTE_READONLY) 
-    {
-      return STATUS_CANNOT_DELETE;
-    }
-
-  if (vfatFCBIsRoot(FCB) || 
-     (FCB->LongNameU.Length == sizeof(WCHAR) && FCB->LongNameU.Buffer[0] == L'.') ||
-     (FCB->LongNameU.Length == 2 * sizeof(WCHAR) && FCB->LongNameU.Buffer[0] == L'.' && FCB->LongNameU.Buffer[1] == L'.'))
-    {
-      // we cannot delete a '.', '..' or the root directory
-      return STATUS_ACCESS_DENIED;
-    }
-
+  if (!wcscmp(FCB->PathName, L"\\") || !wcscmp(FCB->ObjectName, L"..")
+    || !wcscmp(FCB->ObjectName, L"."))
+  {
+    // we cannot delete a '.', '..' or the root directory
+    return STATUS_ACCESS_DENIED;
+  }
   if (DispositionInfo->DoDeleteFile)
+  {
+    if (MmFlushImageSection (FileObject->SectionObjectPointers, MmFlushForDelete))
     {
-      if (MmFlushImageSection (FileObject->SectionObjectPointer, MmFlushForDelete))
-        {
-          if (FCB->RefCount > 1)
-            {
-	      DPRINT1("%d %x\n", FCB->RefCount, CcGetFileObjectFromSectionPtrs(FileObject->SectionObjectPointer));
-              Status = STATUS_ACCESS_DENIED;
-            }
-          else
-            {
-              FCB->Flags |= FCB_DELETE_PENDING;
-              FileObject->DeletePending = TRUE;
-            }
-        }
+      KeAcquireSpinLock (&DeviceExt->FcbListLock, &oldIrql);
+      count = FCB->RefCount;
+      if (FCB->RefCount > 1)
+      {
+	DPRINT1("%d %x\n", FCB->RefCount, CcGetFileObjectFromSectionPtrs(FileObject->SectionObjectPointers));
+        Status = STATUS_ACCESS_DENIED;
+      }
       else
-        {
-          DPRINT("MmFlushImageSection returned FALSE\n");
-          Status = STATUS_CANNOT_DELETE;
-        }
-      if (NT_SUCCESS(Status) && vfatFCBIsDirectory(FCB))
-        {
-          if (!VfatIsDirectoryEmpty(FCB))
-            {
-              Status = STATUS_DIRECTORY_NOT_EMPTY;
-              FCB->Flags &= ~FCB_DELETE_PENDING;
-              FileObject->DeletePending = FALSE;
-            }
-          else
-            {
-              Status = STATUS_SUCCESS;
-            }
-        }
-     }
-   else
-     {
-       FileObject->DeletePending = FALSE;
-     }
+      {
+        FCB->Flags |= FCB_DELETE_PENDING;
+        FileObject->DeletePending = TRUE;
+      }
+      KeReleaseSpinLock(&DeviceExt->FcbListLock, oldIrql);
+    }
+    else
+    {
+      DPRINT1("MmFlushImageSection returned FALSE\n");
+      Status = STATUS_ACCESS_DENIED;
+    }
+    DPRINT("RefCount:%d\n", count);
+    if (NT_SUCCESS(Status) && vfatFCBIsDirectory(FCB))
+    {
+      memset (&tmpFcb, 0, sizeof(VFATFCB));
+      tmpFcb.ObjectName = tmpFcb.PathName;
+      star[0] = L'*';
+      star[1] = 0;
+      // skip '.' and '..', start by 2
+      Index = 2;
+      Status = FindFile (DeviceExt, &tmpFcb, FCB, star, &Index, NULL);
+      if (NT_SUCCESS(Status))
+      {
+        DPRINT1("found: \'%S\'\n", tmpFcb.PathName);
+        Status = STATUS_DIRECTORY_NOT_EMPTY;
+        FCB->Flags &= ~FCB_DELETE_PENDING;
+        FileObject->DeletePending = FALSE;
+      }
+      else
+      {
+        Status = STATUS_SUCCESS;
+      }
+    }
+  }
+  else
+    FileObject->DeletePending = FALSE;
   return Status;
 }
 
@@ -299,17 +252,19 @@ VfatGetNameInformation(PFILE_OBJECT FileObject,
  * FUNCTION: Retrieve the file name information
  */
 {
-  ASSERT(NameInfo != NULL);
-  ASSERT(FCB != NULL);
+  ULONG NameLength;
 
-  if (*BufferLength < sizeof(FILE_NAME_INFORMATION) + FCB->PathNameU.Length + sizeof(WCHAR))
+  assert (NameInfo != NULL);
+  assert (FCB != NULL);
+
+  NameLength = wcslen(FCB->PathName) * sizeof(WCHAR);
+  if (*BufferLength < sizeof(FILE_NAME_INFORMATION) + NameLength + sizeof(WCHAR))
     return STATUS_BUFFER_OVERFLOW;
 
-  NameInfo->FileNameLength = FCB->PathNameU.Length;
-  RtlCopyMemory(NameInfo->FileName, FCB->PathNameU.Buffer, FCB->PathNameU.Length);
-  NameInfo->FileName[FCB->PathNameU.Length / sizeof(WCHAR)] = 0;
+  NameInfo->FileNameLength = NameLength;
+  memcpy(NameInfo->FileName, FCB->PathName, NameLength + sizeof(WCHAR));
 
-  *BufferLength -= (sizeof(FILE_NAME_INFORMATION) + FCB->PathNameU.Length + sizeof(WCHAR));
+  *BufferLength -= (sizeof(FILE_NAME_INFORMATION) + NameLength + sizeof(WCHAR));
 
   return STATUS_SUCCESS;
 }
@@ -319,8 +274,8 @@ VfatGetInternalInformation(PVFATFCB Fcb,
 			   PFILE_INTERNAL_INFORMATION InternalInfo,
 			   PULONG BufferLength)
 {
-  ASSERT(InternalInfo);
-  ASSERT(Fcb);
+  assert (InternalInfo);
+  assert (Fcb);
 
   if (*BufferLength < sizeof(FILE_INTERNAL_INFORMATION))
     return STATUS_BUFFER_OVERFLOW;
@@ -333,62 +288,31 @@ VfatGetInternalInformation(PVFATFCB Fcb,
 
 static NTSTATUS
 VfatGetNetworkOpenInformation(PVFATFCB Fcb,
-			      PDEVICE_EXTENSION DeviceExt,
 			      PFILE_NETWORK_OPEN_INFORMATION NetworkInfo,
 			      PULONG BufferLength)
 /*
  * FUNCTION: Retrieve the file network open information
  */
 {
-  ASSERT(NetworkInfo);
-  ASSERT(Fcb);
+  assert (NetworkInfo);
+  assert (Fcb);
 
   if (*BufferLength < sizeof(FILE_NETWORK_OPEN_INFORMATION))
     return(STATUS_BUFFER_OVERFLOW);
 
-  if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-  {
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.FatX.CreationDate,
-			     Fcb->entry.FatX.CreationTime,
-			     &NetworkInfo->CreationTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.FatX.AccessDate,
-			     Fcb->entry.FatX.AccessTime,
-			     &NetworkInfo->LastAccessTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.FatX.UpdateDate,
-			     Fcb->entry.FatX.UpdateTime,
-			     &NetworkInfo->LastWriteTime);
-    NetworkInfo->ChangeTime.QuadPart = NetworkInfo->LastWriteTime.QuadPart;
-  }
-  else
-  {
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.Fat.CreationDate,
-			     Fcb->entry.Fat.CreationTime,
-			     &NetworkInfo->CreationTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.Fat.AccessDate,
-			     0,
-			     &NetworkInfo->LastAccessTime);
-    FsdDosDateTimeToSystemTime(DeviceExt,
-			     Fcb->entry.Fat.UpdateDate,
-			     Fcb->entry.Fat.UpdateTime,
-			     &NetworkInfo->LastWriteTime);
-    NetworkInfo->ChangeTime.QuadPart = NetworkInfo->LastWriteTime.QuadPart;
-  }
-  if (vfatFCBIsDirectory(Fcb))
-    {
-      NetworkInfo->EndOfFile.QuadPart = 0L;
-      NetworkInfo->AllocationSize.QuadPart = 0L;
-    }
-  else
-    {
-      NetworkInfo->AllocationSize = Fcb->RFCB.AllocationSize;
-      NetworkInfo->EndOfFile = Fcb->RFCB.FileSize;
-    }
-  NetworkInfo->FileAttributes = *Fcb->Attributes & 0x3f;
+  FsdDosDateTimeToFileTime(Fcb->entry.CreationDate,
+			   Fcb->entry.CreationTime,
+			   &NetworkInfo->CreationTime);
+  FsdDosDateTimeToFileTime(Fcb->entry.AccessDate,
+			   0,
+			   &NetworkInfo->LastAccessTime);
+  FsdDosDateTimeToFileTime(Fcb->entry.UpdateDate,
+			   Fcb->entry.UpdateTime,
+			   &NetworkInfo->LastWriteTime);
+  NetworkInfo->ChangeTime = NetworkInfo->LastWriteTime;
+  NetworkInfo->AllocationSize = Fcb->RFCB.AllocationSize;
+  NetworkInfo->EndOfFile = Fcb->RFCB.FileSize;
+  NetworkInfo->FileAttributes = Fcb->entry.Attrib;
 
   *BufferLength -= sizeof(FILE_NETWORK_OPEN_INFORMATION);
   return STATUS_SUCCESS;
@@ -398,45 +322,66 @@ VfatGetNetworkOpenInformation(PVFATFCB Fcb,
 static NTSTATUS
 VfatGetAllInformation(PFILE_OBJECT FileObject,
 		      PVFATFCB Fcb,
-		      PDEVICE_OBJECT DeviceObject,
 		      PFILE_ALL_INFORMATION Info,
 		      PULONG BufferLength)
 /*
  * FUNCTION: Retrieve the all file information
  */
 {
-  NTSTATUS Status;
-  ULONG InitialBufferLength = *BufferLength;
-  
-  ASSERT(Info);
-  ASSERT(Fcb);
+  ULONG NameLength;
 
-  if (*BufferLength < sizeof(FILE_ALL_INFORMATION) + Fcb->PathNameU.Length + sizeof(WCHAR))
+  assert (Info);
+  assert (Fcb);
+
+  NameLength = wcslen(Fcb->PathName) * sizeof(WCHAR);
+  if (*BufferLength < sizeof(FILE_ALL_INFORMATION) + NameLength + sizeof(WCHAR))
     return(STATUS_BUFFER_OVERFLOW);
 
   /* Basic Information */
-  Status = VfatGetBasicInformation(FileObject, Fcb, DeviceObject, &Info->BasicInformation, BufferLength);
-  if (!NT_SUCCESS(Status)) return Status;
+  FsdDosDateTimeToFileTime(Fcb->entry.CreationDate,
+			   Fcb->entry.CreationTime,
+			   &Info->BasicInformation.CreationTime);
+  FsdDosDateTimeToFileTime(Fcb->entry.AccessDate,
+			   0,
+			   &Info->BasicInformation.LastAccessTime);
+  FsdDosDateTimeToFileTime(Fcb->entry.UpdateDate,
+			   Fcb->entry.UpdateTime,
+			   &Info->BasicInformation.LastWriteTime);
+  Info->BasicInformation.ChangeTime = Info->BasicInformation.LastWriteTime;
+  Info->BasicInformation.FileAttributes = Fcb->entry.Attrib;
+
   /* Standard Information */
-  Status = VfatGetStandardInformation(Fcb, &Info->StandardInformation, BufferLength);
-  if (!NT_SUCCESS(Status)) return Status;
+  Info->StandardInformation.AllocationSize = Fcb->RFCB.AllocationSize;
+  Info->StandardInformation.EndOfFile = Fcb->RFCB.FileSize;
+  Info->StandardInformation.NumberOfLinks = 0;
+  Info->StandardInformation.DeletePending = Fcb->Flags & FCB_DELETE_PENDING ? TRUE : FALSE;
+  Info->StandardInformation.Directory = Fcb->entry.Attrib & 0x10 ? TRUE : FALSE;
+
   /* Internal Information */
-  Status = VfatGetInternalInformation(Fcb, &Info->InternalInformation, BufferLength);
-  if (!NT_SUCCESS(Status)) return Status;
+  /* FIXME: get a real index, that can be used in a create operation */
+  Info->InternalInformation.IndexNumber.QuadPart = 0;
+
   /* EA Information */
   Info->EaInformation.EaSize = 0;
-  /* Access Information: The IO-Manager adds this information */
+
+  /* Access Information */
+  /* The IO-Manager adds this information */
+
   /* Position Information */
-  Status = VfatGetPositionInformation(FileObject, Fcb, DeviceObject, &Info->PositionInformation, BufferLength);
-  if (!NT_SUCCESS(Status)) return Status;
-  /* Mode Information: The IO-Manager adds this information */
-  /* Alignment Information: The IO-Manager adds this information */
+  Info->PositionInformation.CurrentByteOffset.QuadPart = FileObject->CurrentByteOffset.QuadPart;
+
+  /* Mode Information */
+  /* The IO-Manager adds this information */
+
+  /* Alignment Information */
+  /* The IO-Manager adds this information */
+
   /* Name Information */
-  Status = VfatGetNameInformation(FileObject, Fcb, DeviceObject, &Info->NameInformation, BufferLength);
-  if (!NT_SUCCESS(Status)) return Status;
-  
-  *BufferLength = InitialBufferLength - (sizeof(FILE_ALL_INFORMATION) + Fcb->PathNameU.Length + sizeof(WCHAR));
-  
+  Info->NameInformation.FileNameLength = NameLength;
+  RtlCopyMemory(Info->NameInformation.FileName, Fcb->PathName, NameLength + sizeof(WCHAR));
+
+  *BufferLength -= (sizeof(FILE_ALL_INFORMATION) + NameLength + sizeof(WCHAR));
+
   return STATUS_SUCCESS;
 }
 
@@ -448,19 +393,16 @@ VOID UpdateFileSize(PFILE_OBJECT FileObject, PVFATFCB Fcb, ULONG Size, ULONG Clu
    }
    else
    {
-      Fcb->RFCB.AllocationSize.QuadPart = (LONGLONG)0;
+      Fcb->RFCB.AllocationSize.QuadPart = 0LL;
    }
    if (!vfatFCBIsDirectory(Fcb))
    {
-      if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-         Fcb->entry.FatX.FileSize = Size;  
-      else
-         Fcb->entry.Fat.FileSize = Size;  
+      Fcb->entry.FileSize = Size;  
    }
    Fcb->RFCB.FileSize.QuadPart = Size;
    Fcb->RFCB.ValidDataLength.QuadPart = Size;
 
-   if (FileObject->SectionObjectPointer->SharedCacheMap != NULL)
+   if (FileObject->SectionObjectPointers->SharedCacheMap != NULL)
    {
       CcSetFileSizes(FileObject, (PCC_FILE_SIZES)&Fcb->RFCB.AllocationSize);
    }
@@ -474,19 +416,16 @@ VfatSetAllocationSizeInformation(PFILE_OBJECT FileObject,
 {
   ULONG OldSize;
   ULONG Cluster, FirstCluster;
+  ULONG Offset;
   NTSTATUS Status;
 
   ULONG ClusterSize = DeviceExt->FatInfo.BytesPerCluster;
   ULONG NewSize = AllocationSize->u.LowPart;
   ULONG NCluster;
-  BOOL AllocSizeChanged = FALSE;
 
   DPRINT("VfatSetAllocationSizeInformation()\n");
 
-  if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-    OldSize = Fcb->entry.FatX.FileSize;
-  else
-    OldSize = Fcb->entry.Fat.FileSize;
+  OldSize = Fcb->entry.FileSize;
   if (AllocationSize->u.HighPart > 0)
   {
     return STATUS_INVALID_PARAMETER;
@@ -500,11 +439,9 @@ VfatSetAllocationSizeInformation(PFILE_OBJECT FileObject,
   
   if (NewSize > Fcb->RFCB.AllocationSize.u.LowPart)
   {
-    AllocSizeChanged = TRUE;
     if (FirstCluster == 0)
     {
-      Fcb->LastCluster = Fcb->LastOffset = 0;
-      Status = NextCluster (DeviceExt, FirstCluster, &FirstCluster, TRUE);
+      Status = NextCluster (DeviceExt, Fcb, FirstCluster, &FirstCluster, TRUE);
       if (!NT_SUCCESS(Status))
       {
 	DPRINT1("NextCluster failed. Status = %x\n", Status);
@@ -514,67 +451,45 @@ VfatSetAllocationSizeInformation(PFILE_OBJECT FileObject,
       {
          return STATUS_DISK_FULL;
       }
-      Status = OffsetToCluster(DeviceExt, FirstCluster, 
-                               ROUND_DOWN(NewSize - 1, ClusterSize),
-                               &NCluster, TRUE);
+      Status = OffsetToCluster(DeviceExt, Fcb, FirstCluster, 
+	         ROUND_DOWN(NewSize - 1, ClusterSize),
+                 &NCluster, TRUE);
       if (NCluster == 0xffffffff || !NT_SUCCESS(Status))
       {
-         /* disk is full */
+	 /* disk is full */
          NCluster = Cluster = FirstCluster;
-         Status = STATUS_SUCCESS;
+	 Status = STATUS_SUCCESS;
          while (NT_SUCCESS(Status) && Cluster != 0xffffffff && Cluster > 1)
-         {
-            Status = NextCluster (DeviceExt, FirstCluster, &NCluster, FALSE);
+	 {
+	    Status = NextCluster (DeviceExt, Fcb, FirstCluster, &NCluster, FALSE);
             WriteCluster (DeviceExt, Cluster, 0);
-            Cluster = NCluster;
-         }
-         return STATUS_DISK_FULL;
+	    Cluster = NCluster;
+	 }
+	 return STATUS_DISK_FULL;
       }
-      if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-      {
-         Fcb->entry.FatX.FirstCluster = FirstCluster;
-      }
-      else
-      {
-        Fcb->entry.Fat.FirstCluster = (unsigned short)(FirstCluster & 0x0000FFFF);
-        Fcb->entry.Fat.FirstClusterHigh = (unsigned short)((FirstCluster & 0xFFFF0000) >> 16);
-      }
+      Fcb->entry.FirstCluster = (FirstCluster & 0x0000FFFF);
+      Fcb->entry.FirstClusterHigh = (FirstCluster & 0xFFFF0000) >> 16;
     }
     else
     {
-       if (Fcb->LastCluster > 0 &&
-           (Fcb->RFCB.AllocationSize.u.LowPart - ClusterSize) > Fcb->LastOffset)
-       {
-          Status = OffsetToCluster(DeviceExt, Fcb->LastCluster, 
-                                   Fcb->RFCB.AllocationSize.u.LowPart -
-                                   ClusterSize - Fcb->LastOffset,
-                                   &Cluster, FALSE);
-       }
-       else
-       {
-          Status = OffsetToCluster(DeviceExt, FirstCluster, 
-                                   Fcb->RFCB.AllocationSize.u.LowPart - ClusterSize,
-                                   &Cluster, FALSE);
-       }
-
-       Fcb->LastCluster = Cluster;
-       Fcb->LastOffset = Fcb->RFCB.AllocationSize.u.LowPart - ClusterSize;
-
+       Status = OffsetToCluster(DeviceExt, Fcb, FirstCluster, 
+	          Fcb->RFCB.AllocationSize.u.LowPart - ClusterSize,
+		  &Cluster, FALSE);
        /* FIXME: Check status */
        /* Cluster points now to the last cluster within the chain */
-       Status = OffsetToCluster(DeviceExt, FirstCluster, 
+       Status = OffsetToCluster(DeviceExt, Fcb, FirstCluster, 
 	         ROUND_DOWN(NewSize - 1, ClusterSize),
                  &NCluster, TRUE);
        if (NCluster == 0xffffffff || !NT_SUCCESS(Status))
        {
 	  /* disk is full */
 	  NCluster = Cluster; 
-          Status = NextCluster (DeviceExt, FirstCluster, &NCluster, FALSE);
+          Status = NextCluster (DeviceExt, Fcb, FirstCluster, &NCluster, FALSE);
 	  WriteCluster(DeviceExt, Cluster, 0xffffffff);
 	  Cluster = NCluster;
           while (NT_SUCCESS(Status) && Cluster != 0xffffffff && Cluster > 1)
 	  {
-	    Status = NextCluster (DeviceExt, FirstCluster, &NCluster, FALSE);
+	    Status = NextCluster (DeviceExt, Fcb, FirstCluster, &NCluster, FALSE);
             WriteCluster (DeviceExt, Cluster, 0);
 	    Cluster = NCluster;
 	  }
@@ -585,39 +500,29 @@ VfatSetAllocationSizeInformation(PFILE_OBJECT FileObject,
   }
   else if (NewSize + ClusterSize <= Fcb->RFCB.AllocationSize.u.LowPart)
   {
-    AllocSizeChanged = TRUE;
-    /* FIXME: Use the cached cluster/offset better way. */
-    Fcb->LastCluster = Fcb->LastCluster = 0;
     UpdateFileSize(FileObject, Fcb, NewSize, ClusterSize);
     if (NewSize > 0)
     {
-      Status = OffsetToCluster(DeviceExt, FirstCluster, 
+      Status = OffsetToCluster(DeviceExt, Fcb, Cluster, 
 	          ROUND_DOWN(NewSize - 1, ClusterSize),
 		  &Cluster, FALSE);
 
       NCluster = Cluster;
-      Status = NextCluster (DeviceExt, FirstCluster, &NCluster, FALSE);
+      Status = NextCluster (DeviceExt, Fcb, FirstCluster, &NCluster, FALSE);
       WriteCluster(DeviceExt, Cluster, 0xffffffff);
       Cluster = NCluster;
     }
     else
     {
-      if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-      {
-         Fcb->entry.FatX.FirstCluster = 0;
-      }
-      else
-      {
-        Fcb->entry.Fat.FirstCluster = 0;
-        Fcb->entry.Fat.FirstClusterHigh = 0;
-      }
+      Fcb->entry.FirstCluster = 0;
+      Fcb->entry.FirstClusterHigh = 0;
 
       NCluster = Cluster = FirstCluster;
       Status = STATUS_SUCCESS;
     }
     while (NT_SUCCESS(Status) && 0xffffffff != Cluster && Cluster > 1)
     {
-       Status = NextCluster (DeviceExt, FirstCluster, &NCluster, FALSE);
+       Status = NextCluster (DeviceExt, Fcb, FirstCluster, &NCluster, FALSE);
        WriteCluster (DeviceExt, Cluster, 0);
        Cluster = NCluster;
     }
@@ -627,11 +532,7 @@ VfatSetAllocationSizeInformation(PFILE_OBJECT FileObject,
      UpdateFileSize(FileObject, Fcb, NewSize, ClusterSize);
   }
   /* Update the on-disk directory entry */
-  Fcb->Flags |= FCB_IS_DIRTY;
-  if (AllocSizeChanged)
-    {
-      VfatUpdateEntry(Fcb);
-    }
+  VfatUpdateEntry(DeviceExt, FileObject);
   return STATUS_SUCCESS;
 }
 
@@ -648,19 +549,18 @@ NTSTATUS VfatQueryInformation(PVFAT_IRP_CONTEXT IrpContext)
   ULONG BufferLength;
 
   /* PRECONDITION */
-  ASSERT(IrpContext);
+  assert (IrpContext);
 
   /* INITIALIZATION */
   FileInformationClass = IrpContext->Stack->Parameters.QueryFile.FileInformationClass;
-  FCB = (PVFATFCB) IrpContext->FileObject->FsContext;
+  FCB = ((PVFATCCB) IrpContext->FileObject->FsContext2)->pFcb;
 
   SystemBuffer = IrpContext->Irp->AssociatedIrp.SystemBuffer;
   BufferLength = IrpContext->Stack->Parameters.QueryFile.Length;
 
   if (!(FCB->Flags & FCB_IS_PAGE_FILE))
   {
-     if (!ExAcquireResourceSharedLite(&FCB->MainResource,
-                                      (BOOLEAN)(IrpContext->Flags & IRPCONTEXT_CANWAIT)))
+     if (!ExAcquireResourceSharedLite(&FCB->MainResource, IrpContext->Flags & IRPCONTEXT_CANWAIT))
      {
         return VfatQueueRequest (IrpContext);
      }
@@ -702,14 +602,12 @@ NTSTATUS VfatQueryInformation(PVFAT_IRP_CONTEXT IrpContext)
       break;
     case FileNetworkOpenInformation:
       RC = VfatGetNetworkOpenInformation(FCB,
-					 IrpContext->DeviceExt,
 					 SystemBuffer,
 					 &BufferLength);
       break;
     case FileAllInformation:
       RC = VfatGetAllInformation(IrpContext->FileObject,
 				 FCB,
-				 IrpContext->DeviceObject,
 				 SystemBuffer,
 				 &BufferLength);
       break;
@@ -749,23 +647,29 @@ NTSTATUS VfatSetInformation(PVFAT_IRP_CONTEXT IrpContext)
   BOOL CanWait = IrpContext->Flags & IRPCONTEXT_CANWAIT;
   
   /* PRECONDITION */
-  ASSERT(IrpContext);
+  assert(IrpContext);
   
   DPRINT("VfatSetInformation(IrpContext %x)\n", IrpContext);
   
   /* INITIALIZATION */
   FileInformationClass = 
     IrpContext->Stack->Parameters.SetFile.FileInformationClass;
-  FCB = (PVFATFCB) IrpContext->FileObject->FsContext;
+  FCB = ((PVFATCCB) IrpContext->FileObject->FsContext2)->pFcb;
   SystemBuffer = IrpContext->Irp->AssociatedIrp.SystemBuffer;
   
   DPRINT("FileInformationClass %d\n", FileInformationClass);
   DPRINT("SystemBuffer %x\n", SystemBuffer);
-
-  if (!(FCB->Flags & FCB_IS_PAGE_FILE))
+  
+  if (FCB->Flags & FCB_IS_PAGE_FILE)
     {
-      if (!ExAcquireResourceExclusiveLite(&FCB->MainResource,
-                                          (BOOLEAN)CanWait))
+      if (!ExAcquireResourceExclusiveLite(&FCB->PagingIoResource, CanWait))
+	{
+	  return(VfatQueueRequest (IrpContext));
+	}
+    }
+  else
+    {
+      if (!ExAcquireResourceExclusiveLite(&FCB->MainResource, CanWait))
 	{
 	  return(VfatQueueRequest (IrpContext));
 	}
@@ -803,7 +707,11 @@ NTSTATUS VfatSetInformation(PVFAT_IRP_CONTEXT IrpContext)
       RC = STATUS_NOT_SUPPORTED;
     }
 
-  if (!(FCB->Flags & FCB_IS_PAGE_FILE))
+  if (FCB->Flags & FCB_IS_PAGE_FILE)
+  {
+     ExReleaseResourceLite(&FCB->PagingIoResource);
+  }
+  else
   {
      ExReleaseResourceLite(&FCB->MainResource);
   }

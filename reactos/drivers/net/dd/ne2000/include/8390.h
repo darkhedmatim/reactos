@@ -140,21 +140,8 @@ typedef struct _PACKET_HEADER {
     UCHAR Status;           /* See RSR_* constants */
     UCHAR NextPacket;       /* Pointer to next packet in chain */
     USHORT PacketLength;    /* Length of packet including this header */
-} PACKET_HEADER, *PPACKET_HEADER;
+} PACKET_HEADER, PPACKET_HEADER;
 
-#define IEEE_802_ADDR_LENGTH 6
-
-/* Ethernet frame header */
-typedef struct _ETH_HEADER {
-    UCHAR Destination[IEEE_802_ADDR_LENGTH];
-    UCHAR Source[IEEE_802_ADDR_LENGTH];
-    USHORT PayloadType;
-} ETH_HEADER, *PETH_HEADER;
-
-typedef struct _DISCARD_HEADER {
-    PACKET_HEADER HWHeader;
-    ETH_HEADER EthernetHeader;
-} DISCARD_HEADER, *PDISCARD_HEADER;
 
 #define NICDisableInterrupts(Adapter) { \
     NDIS_DbgPrint(MAX_TRACE, ("NICDisableInterrupts()\n")); \
@@ -166,7 +153,7 @@ typedef struct _DISCARD_HEADER {
     NdisRawWritePortUchar((Adapter)->IOBase + PG0_IMR, (Adapter)->InterruptMask); \
 }
 
-VOID STDCALL MiniportHandleInterrupt(
+VOID MiniportHandleInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext);
 
 #endif /* __8390_H */

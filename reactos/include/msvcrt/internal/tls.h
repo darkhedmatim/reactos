@@ -3,7 +3,6 @@
 #ifndef __MSVCRT_INTERNAL_TLS_H
 #define __MSVCRT_INTERNAL_TLS_H
 
-#include <windows.h>
 #include <msvcrt/crttypes.h>
 #include <msvcrt/stddef.h>
 
@@ -24,8 +23,6 @@ typedef struct _ThreadData
   int qsz;                      /* size of each record */
   int thresh;                   /* THRESHold in chars */
   int mthresh;                  /* MTHRESHold in chars */
-
-  EXCEPTION_RECORD *exc_record; /* Head of exception record list */
 
 } THREADDATA, *PTHREADDATA;
 

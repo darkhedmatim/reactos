@@ -1,30 +1,22 @@
-# $Id: makefile,v 1.68 2004/10/03 14:24:42 weiden Exp $
+# $Id: makefile,v 1.52 2002/12/09 20:09:24 hbirr Exp $
 
 PATH_TO_TOP = ../..
 
 PATH_TO_MSVCRT = ../msvcrt
 
+TARGET_DEFONLY = yes
+
 TARGET_TYPE = dynlink
 
 TARGET_NAME = crtdll
 
-TARGET_PCH = precomp.h
+TARGET_BASE = 0x77630000
 
-TARGET_BASE = $(TARGET_BASE_LIB_CRTDLL)
+TARGET_LFLAGS = -nostartfiles
 
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
+TARGET_CFLAGS = -D_MSVCRT_LIB_
 
-TARGET_LFLAGS = -nostartfiles -nostdlib
-
-TARGET_CFLAGS = -D_MSVCRT_LIB_ -Werror -Wall
-
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
-
-TARGET_SDKLIBS = string.a kernel32.a ntdll.a
-
-TARGET_GCCLIBS = gcc
+TARGET_SDKLIBS = kernel32.a ntdll.a
 
 TARGET_OBJECTS = $(TARGET_NAME).o
 
@@ -37,6 +29,7 @@ TARGET_CLEAN = \
 	float/*.o \
 	io/*.o \
 	libc/*.o \
+	locale/*.o \
 	malloc/*.o \
 	math/*.o \
 	mbstring/*.o \
@@ -74,24 +67,22 @@ CONIO_OBJECTS = \
 CTYPE_OBJECTS = \
 	$(PATH_TO_MSVCRT)/ctype/ctype.o \
 	$(PATH_TO_MSVCRT)/ctype/isalnum.o \
+	$(PATH_TO_MSVCRT)/ctype/isalpha.o \
 	$(PATH_TO_MSVCRT)/ctype/isascii.o \
 	$(PATH_TO_MSVCRT)/ctype/iscntrl.o \
-	ctype/isctype.o \
+	$(PATH_TO_MSVCRT)/ctype/isdigit.o \
 	$(PATH_TO_MSVCRT)/ctype/isgraph.o \
+	$(PATH_TO_MSVCRT)/ctype/islower.o \
 	$(PATH_TO_MSVCRT)/ctype/isprint.o \
 	$(PATH_TO_MSVCRT)/ctype/ispunct.o \
-	$(PATH_TO_MSVCRT)/ctype/isupper.o
-
-# REMOVED CTYPE ENTRIES:
-#	$(PATH_TO_MSVCRT)/ctype/isalpha.o \
-#	$(PATH_TO_MSVCRT)/ctype/iscsym.o \
-#	$(PATH_TO_MSVCRT)/ctype/isdigit.o \
-#	$(PATH_TO_MSVCRT)/ctype/islower.o \
-#	$(PATH_TO_MSVCRT)/ctype/isspace.o \
-#	$(PATH_TO_MSVCRT)/ctype/isxdigit.o \
-#	$(PATH_TO_MSVCRT)/ctype/toascii.o \
-#	$(PATH_TO_MSVCRT)/ctype/tolower.o \
-#	$(PATH_TO_MSVCRT)/ctype/toupper.o \
+	$(PATH_TO_MSVCRT)/ctype/isspace.o \
+	$(PATH_TO_MSVCRT)/ctype/isupper.o \
+	$(PATH_TO_MSVCRT)/ctype/isxdigit.o \
+	$(PATH_TO_MSVCRT)/ctype/toascii.o \
+	$(PATH_TO_MSVCRT)/ctype/tolower.o \
+	$(PATH_TO_MSVCRT)/ctype/toupper.o \
+	$(PATH_TO_MSVCRT)/ctype/iscsym.o \
+	ctype/isctype.o
 
 DIRECT_OBJECTS = \
 	$(PATH_TO_MSVCRT)/direct/chdir.o \
@@ -170,6 +161,7 @@ MATH_OBJECTS = \
 	math/floor.o \
 	$(PATH_TO_MSVCRT)/math/fmod.o \
 	$(PATH_TO_MSVCRT)/math/frexp.o \
+	$(PATH_TO_MSVCRT)/math/ftol.o \
 	math/huge_val.o \
 	$(PATH_TO_MSVCRT)/math/hypot.o \
 	$(PATH_TO_MSVCRT)/math/j0_y0.o \
@@ -293,7 +285,7 @@ SEARCH_OBJECTS = \
 	$(PATH_TO_MSVCRT)/search/lsearch.o
 
 SETJMP_OBJECTS = \
-	$(PATH_TO_MSVCRT)/setjmp/i386/setjmp.o
+	$(PATH_TO_MSVCRT)/setjmp/setjmp.o
 
 SIGNAL_OBJECTS = \
 	signal/xcptfil.o \
@@ -346,7 +338,7 @@ STDIO_OBJECTS = \
 	$(PATH_TO_MSVCRT)/stdio/rename.o \
 	$(PATH_TO_MSVCRT)/stdio/rewind.o \
 	$(PATH_TO_MSVCRT)/stdio/rmtmp.o \
-	$(PATH_TO_MSVCRT)/stdio/scanf.o \
+	stdio/scanf.o \
 	$(PATH_TO_MSVCRT)/stdio/setbuf.o \
 	stdio/setbuffe.o \
 	stdio/setlineb.o \
@@ -359,9 +351,9 @@ STDIO_OBJECTS = \
 	$(PATH_TO_MSVCRT)/stdio/tmpfile.o \
 	$(PATH_TO_MSVCRT)/stdio/tmpnam.o \
 	$(PATH_TO_MSVCRT)/stdio/ungetc.o \
-	$(PATH_TO_MSVCRT)/stdio/vfprintf.o \
-	$(PATH_TO_MSVCRT)/stdio/vfscanf.o \
-	$(PATH_TO_MSVCRT)/stdio/vfwprint.o \
+	stdio/vfprintf.o \
+	stdio/vfscanf.o \
+	stdio/vfwprint.o \
 	$(PATH_TO_MSVCRT)/stdio/vprintf.o \
 	$(PATH_TO_MSVCRT)/stdio/vscanf.o \
 	$(PATH_TO_MSVCRT)/stdio/vsprintf.o \
@@ -402,27 +394,42 @@ STDLIB_OBJECTS = \
 	$(PATH_TO_MSVCRT)/stdlib/strtol.o \
 	$(PATH_TO_MSVCRT)/stdlib/strtoul.o \
 	$(PATH_TO_MSVCRT)/stdlib/swab.o \
-	$(PATH_TO_MSVCRT)/stdlib/wcstod.o \
-	stdlib/wcstomb.o
-	
+	$(PATH_TO_MSVCRT)/stdlib/wcstomb.o \
+
 STRING_OBJECTS = \
-	string/lasttok.o \
+	$(PATH_TO_MSVCRT)/string/memccpy.o \
+	$(PATH_TO_MSVCRT)/string/memchr.o \
+	$(PATH_TO_MSVCRT)/string/memcmp.o \
+	$(PATH_TO_MSVCRT)/string/memcpy.o \
+	$(PATH_TO_MSVCRT)/string/memicmp.o \
+	$(PATH_TO_MSVCRT)/string/memmove.o \
+	$(PATH_TO_MSVCRT)/string/memset.o \
+	$(PATH_TO_MSVCRT)/string/strcat.o \
+	$(PATH_TO_MSVCRT)/string/strchr.o \
+	$(PATH_TO_MSVCRT)/string/strcmp.o \
 	$(PATH_TO_MSVCRT)/string/strcoll.o \
+	$(PATH_TO_MSVCRT)/string/strcpy.o \
+	$(PATH_TO_MSVCRT)/string/strcspn.o \
 	$(PATH_TO_MSVCRT)/string/strdup.o \
 	string/strerror.o \
+	$(PATH_TO_MSVCRT)/string/stricmp.o \
+	$(PATH_TO_MSVCRT)/string/strlen.o \
+	$(PATH_TO_MSVCRT)/string/strlwr.o \
+	$(PATH_TO_MSVCRT)/string/strncat.o \
+	$(PATH_TO_MSVCRT)/string/strncmp.o \
+	$(PATH_TO_MSVCRT)/string/strncpy.o \
+	$(PATH_TO_MSVCRT)/string/strnicmp.o \
+	$(PATH_TO_MSVCRT)/string/strnlen.o \
+	$(PATH_TO_MSVCRT)/string/strpbrk.o \
+	$(PATH_TO_MSVCRT)/string/strrchr.o \
 	$(PATH_TO_MSVCRT)/string/strrev.o \
 	$(PATH_TO_MSVCRT)/string/strset.o \
-	$(PATH_TO_MSVCRT)/string/strtok.o \
+	$(PATH_TO_MSVCRT)/string/strspn.o \
+	$(PATH_TO_MSVCRT)/string/strstr.o \
+	string/strtok.o \
+	$(PATH_TO_MSVCRT)/string/strupr.o \
+	string/str_old.o \
 	$(PATH_TO_MSVCRT)/string/strxfrm.o
-
-#	string/str_old.o \
-#	$(PATH_TO_MSVCRT)/string/memicmp.o \
-#	$(PATH_TO_MSVCRT)/string/stricmp.o \
-#	$(PATH_TO_MSVCRT)/string/strlwr.o \
-#	$(PATH_TO_MSVCRT)/string/strnicmp.o \
-#	$(PATH_TO_MSVCRT)/string/strpbrk.o \
-#	$(PATH_TO_MSVCRT)/string/strstr.o \
-#	$(PATH_TO_MSVCRT)/string/strupr.o \
 
 SYS_STAT_OBJECTS = \
 	sys_stat/fstat.o \
@@ -440,37 +447,44 @@ TCHAR_OBJECTS = \
 	tchar/strspnp.o
 
 TIME_OBJECTS = \
-	$(PATH_TO_MSVCRT)/time/time.o \
 	$(PATH_TO_MSVCRT)/time/clock.o \
 	$(PATH_TO_MSVCRT)/time/ctime.o \
 	$(PATH_TO_MSVCRT)/time/difftime.o \
 	$(PATH_TO_MSVCRT)/time/strdate.o \
 	$(PATH_TO_MSVCRT)/time/strftime.o \
 	$(PATH_TO_MSVCRT)/time/strtime.o \
-	time/tz_vars.o
+	$(PATH_TO_MSVCRT)/time/time.o \
+	time/tz_vars.o \
 
 WSTRING_OBJECTS = \
-	wchar/wlasttok.o \
+	$(PATH_TO_MSVCRT)/wstring/wcscat.o \
+	$(PATH_TO_MSVCRT)/wstring/wcschr.o \
+	$(PATH_TO_MSVCRT)/wstring/wcscmp.o \
 	wchar/wcscoll.o \
+	$(PATH_TO_MSVCRT)/wstring/wcscpy.o \
+	$(PATH_TO_MSVCRT)/wstring/wcscspn.o \
 	$(PATH_TO_MSVCRT)/wstring/wcsdup.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsicmp.o \
+	wchar/wcslen.o \
+	$(PATH_TO_MSVCRT)/wstring/wcslwr.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsncat.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsncmp.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsncpy.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsnlen.o \
+	$(PATH_TO_MSVCRT)/wstring/wcspbrk.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsrchr.o \
 	$(PATH_TO_MSVCRT)/wstring/wcsrev.o \
 	$(PATH_TO_MSVCRT)/wstring/wcsset.o \
-	$(PATH_TO_MSVCRT)/wstring/wcstok.o \
-	$(PATH_TO_MSVCRT)/wstring/wcsxfrm.o
-
-#	wchar/wcstod.o \
-#	wchar/wcstok.o \
-#	wchar/wcstol.o \
-#	wchar/wtoi.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcscspn.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcsicmp.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcslwr.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcspbrk.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcsspn.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcsstr.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcsupr.o \
-#	wchar/wcstombs.o \
-#	$(PATH_TO_MSVCRT)/wstring/wcsnicmp.o 
+	$(PATH_TO_MSVCRT)/wstring/wcsspn.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsstr.o \
+	wchar/wcstod.o \
+	wchar/wcstok.o \
+	wchar/wcstol.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsupr.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsxfrm.o \
+	wchar/wtoi.o \
+	wchar/wcstombs.o \
+	$(PATH_TO_MSVCRT)/wstring/wcsnicmp.o 
 
 
 OBJECTS = \

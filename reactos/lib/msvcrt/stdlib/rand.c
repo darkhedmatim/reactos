@@ -1,14 +1,7 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#ifdef __USE_W32API
-#undef __USE_W32API
-#endif
-
 #include <msvcrt/stdlib.h>
 #include <msvcrt/internal/tls.h>
 
-/*
- * @implemented
- */
 int
 rand(void)
 {
@@ -22,9 +15,6 @@ rand(void)
   return (int)((ThreadData->tnext >> 16) & RAND_MAX);
 }
 
-/*
- * @implemented
- */
 void
 srand(unsigned int seed)
 {

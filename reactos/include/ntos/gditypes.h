@@ -24,21 +24,10 @@ typedef struct _devicemodeA
 	WORD dmSize;
 	WORD dmDriverExtra;
 	DWORD dmFields;
-	union
-	{
-		struct
-		{
-			short dmOrientation;
-			short dmPaperSize;
-			short dmPaperLength;
-			short dmPaperWidth;
-		};
-		struct
-		{
-			LONG x;
-			LONG y;
-		} dmPosition;
-	};
+	short dmOrientation;
+	short dmPaperSize;
+	short dmPaperLength;
+	short dmPaperWidth;
 	short dmScale;
 	short dmCopies;
 	short dmDefaultSource;
@@ -53,28 +42,14 @@ typedef struct _devicemodeA
 	DWORD dmBitsPerPel;
 	DWORD dmPelsWidth;
 	DWORD dmPelsHeight;
-	union
-	{
-		DWORD dmDisplayFlags;
-		DWORD dmNup;
-	};
+	DWORD dmDisplayFlags;
 	DWORD dmDisplayFrequency;
 	DWORD dmICMMethod;
 	DWORD dmICMIntent;
 	DWORD dmMediaType;
 	DWORD dmDitherType;
-	union
-	{
-		DWORD dmICCManufacturer;
-		DWORD dmReserved1;
-	};
-	union
-	{
-		DWORD dmICCModel;
-		DWORD dmReserved2;
-	};
-	DWORD dmPanningWidth;
-	DWORD dmPanningHeight;
+	DWORD dmICCManufacturer;
+	DWORD dmICCModel;
 } DEVMODEA,*LPDEVMODEA,*PDEVMODEA;
 
 typedef struct _devicemodeW
@@ -85,21 +60,10 @@ typedef struct _devicemodeW
 	WORD dmSize;
 	WORD dmDriverExtra;
 	DWORD dmFields;
-	union
-	{
-		struct
-		{
-			short dmOrientation;
-			short dmPaperSize;
-			short dmPaperLength;
-			short dmPaperWidth;
-		};
-		struct
-		{
-			LONG x;
-			LONG y;
-		} dmPosition;
-	};
+	short dmOrientation;
+	short dmPaperSize;
+	short dmPaperLength;
+	short dmPaperWidth;
 	short dmScale;
 	short dmCopies;
 	short dmDefaultSource;
@@ -114,28 +78,14 @@ typedef struct _devicemodeW
 	DWORD dmBitsPerPel;
 	DWORD dmPelsWidth;
 	DWORD dmPelsHeight;
-	union
-	{
-		DWORD dmDisplayFlags;
-		DWORD dmNup;
-	};
+	DWORD dmDisplayFlags;
 	DWORD dmDisplayFrequency;
 	DWORD dmICMMethod;
 	DWORD dmICMIntent;
 	DWORD dmMediaType;
 	DWORD dmDitherType;
-	union
-	{
-		DWORD dmICCManufacturer;
-		DWORD dmReserved1;
-	};
-	union
-	{
-		DWORD dmICCModel;
-		DWORD dmReserved2;
-	};
-	DWORD dmPanningWidth;
-	DWORD dmPanningHeight;
+	DWORD dmICCManufacturer;
+	DWORD dmICCModel;
 } DEVMODEW,*LPDEVMODEW,*PDEVMODEW;
 
 #endif /* !__USE_W32API */
