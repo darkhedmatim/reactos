@@ -1,0 +1,10 @@
+temp.exp
+napi.asm
+napi.c
+*.tmp
+*.lib
+*.sym
+*.coff
+*.dll
+*.o
+*.map
