@@ -19,29 +19,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "config.h"
-#include <assert.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>	/* Insomnia - pow() function */
 
+#define NONAMELESSSTRUCT
+#define NONAMELESSUNION
 #include "windef.h"
 #include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winerror.h"
 #include "mmsystem.h"
 #include "winreg.h"
 #include "winternl.h"
 #include "mmddk.h"
-#include "wine/windef16.h"
 #include "wine/debug.h"
 #include "dsound.h"
 #include "dsdriver.h"
@@ -51,22 +38,22 @@ WINE_DEFAULT_DEBUG_CHANNEL(dsound);
 
 void DSOUND_RecalcPrimary(IDirectSoundImpl *This)
 {
-	DWORD sw;
+	DWORD nBlockAlign;
 	TRACE("(%p)\n",This);
 
-	sw = This->pwfx->nChannels * (This->pwfx->wBitsPerSample / 8);
+	nBlockAlign = This->pwfx->nBlockAlign;
 	if (This->hwbuf) {
 		DWORD fraglen;
 		/* let fragment size approximate the timer delay */
-		fraglen = (This->pwfx->nSamplesPerSec * DS_TIME_DEL / 1000) * sw;
+		fraglen = (This->pwfx->nSamplesPerSec * DS_TIME_DEL / 1000) * nBlockAlign;
 		/* reduce fragment size until an integer number of them fits in the buffer */
 		/* (FIXME: this may or may not be a good idea) */
-		while (This->buflen % fraglen) fraglen -= sw;
+		while (This->buflen % fraglen) fraglen -= nBlockAlign;
 		This->fraglen = fraglen;
 		TRACE("fraglen=%ld\n", This->fraglen);
 	}
 	/* calculate the 10ms write lead */
-	This->writelead = (This->pwfx->nSamplesPerSec / 100) * sw;
+	This->writelead = (This->pwfx->nSamplesPerSec / 100) * nBlockAlign;
 }
 
 static HRESULT DSOUND_PrimaryOpen(IDirectSoundImpl *This)
@@ -85,7 +72,7 @@ static HRESULT DSOUND_PrimaryOpen(IDirectSoundImpl *This)
 		else if (This->state == STATE_STOPPING) This->state = STATE_STOPPED;
 		/* use fragments of 10ms (1/100s) each (which should get us within
 		 * the documented write cursor lead of 10-15ms) */
-		buflen = ((This->pwfx->nAvgBytesPerSec / 100) & ~3) * DS_HEL_FRAGS;
+		buflen = ((This->pwfx->nSamplesPerSec / 100) * This->pwfx->nBlockAlign) * DS_HEL_FRAGS;
 		TRACE("desired buflen=%ld, old buffer=%p\n", buflen, This->buffer);
 		/* reallocate emulated primary buffer */
 
@@ -127,7 +114,7 @@ static HRESULT DSOUND_PrimaryOpen(IDirectSoundImpl *This)
 			This->pwqueue = 0;
 			This->playpos = 0;
 			This->mixpos = 0;
-			memset(This->buffer, (This->pwfx->wBitsPerSample == 16) ? 0 : 128, This->buflen);
+			FillMemory(This->buffer, This->buflen, (This->pwfx->wBitsPerSample == 8) ? 128 : 0);
 			TRACE("fraglen=%ld\n", This->fraglen);
 			DSOUND_WaveQueue(This, (DWORD)-1);
 		}
@@ -234,10 +221,8 @@ HRESULT DSOUND_PrimaryDestroy(IDirectSoundImpl *This)
 			HeapFree(GetProcessHeap(),0,This->pwave[c]);
 		}
 	}
-	if (This->pwfx) {
-		HeapFree(GetProcessHeap(),0,This->pwfx);
-		This->pwfx=NULL;
-	}
+        HeapFree(GetProcessHeap(),0,This->pwfx);
+        This->pwfx=NULL;
 	return DS_OK;
 }
 
@@ -362,6 +347,7 @@ static HRESULT WINAPI PrimaryBufferImpl_SetFormat(
 
 	/* **** */
 	RtlAcquireResourceExclusive(&(dsound->buffer_list_lock), TRUE);
+	EnterCriticalSection(&(dsound->mixlock));
 
 	if (wfex->wFormatTag == WAVE_FORMAT_PCM) {
             alloc_size = sizeof(WAVEFORMATEX);
@@ -373,7 +359,7 @@ static HRESULT WINAPI PrimaryBufferImpl_SetFormat(
 
 	nSamplesPerSec = dsound->pwfx->nSamplesPerSec;
 
-        memcpy(dsound->pwfx, wfex, cp_size);
+        CopyMemory(dsound->pwfx, wfex, cp_size);
 
 	if (dsound->drvdesc.dwFlags & DSDDESC_DOMMSYSTEMSETFORMAT) {
 		DWORD flags = CALLBACK_FUNCTION;
@@ -389,14 +375,12 @@ static HRESULT WINAPI PrimaryBufferImpl_SetFormat(
                 if (err == DS_OK) {
                     err = DSOUND_PrimaryOpen(dsound);
 		    if (err != DS_OK) {
-			    WARN("DSOUND_PrimaryOpen failed\n");
-			    RtlReleaseResource(&(dsound->buffer_list_lock));
-			    return err;
+			WARN("DSOUND_PrimaryOpen failed\n");
+			goto done;
 		    }
 		} else {
 			WARN("waveOutOpen failed\n");
-			RtlReleaseResource(&(dsound->buffer_list_lock));
-			return err;
+			goto done;
 		}
 	} else if (dsound->hwbuf) {
 		err = IDsDriverBuffer_SetFormat(dsound->hwbuf, dsound->pwfx);
@@ -409,15 +393,13 @@ static HRESULT WINAPI PrimaryBufferImpl_SetFormat(
 							  (LPVOID)&(dsound->hwbuf));
 			if (err != DS_OK) {
 				WARN("IDsDriver_CreateSoundBuffer failed\n");
-				RtlReleaseResource(&(dsound->buffer_list_lock));
-				return err;
+				goto done;
 			}
 			if (dsound->state == STATE_PLAYING) dsound->state = STATE_STARTING;
 			else if (dsound->state == STATE_STOPPING) dsound->state = STATE_STOPPED;
 		} else {
 			WARN("IDsDriverBuffer_SetFormat failed\n");
-			RtlReleaseResource(&(dsound->buffer_list_lock));
-			return err;
+			goto done;
 		}
                 /* FIXME: should we set err back to DS_OK in all cases ? */
 	}
@@ -437,6 +419,8 @@ static HRESULT WINAPI PrimaryBufferImpl_SetFormat(
 		}
 	}
 
+done:
+	LeaveCriticalSection(&(dsound->mixlock));
 	RtlReleaseResource(&(dsound->buffer_list_lock));
 	/* **** */
 
@@ -578,26 +562,26 @@ static HRESULT WINAPI PrimaryBufferImpl_Stop(LPDIRECTSOUNDBUFFER8 iface)
 	return DS_OK;
 }
 
-static ULONG WINAPI PrimaryBufferImpl_AddRef(LPDIRECTSOUNDBUFFER8 iface) {
-	PrimaryBufferImpl *This = (PrimaryBufferImpl *)iface;
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	return InterlockedIncrement(&(This->ref));
+static ULONG WINAPI PrimaryBufferImpl_AddRef(LPDIRECTSOUNDBUFFER8 iface)
+{
+    PrimaryBufferImpl *This = (PrimaryBufferImpl *)iface;
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
-static ULONG WINAPI PrimaryBufferImpl_Release(LPDIRECTSOUNDBUFFER8 iface) {
-	PrimaryBufferImpl *This = (PrimaryBufferImpl *)iface;
-	DWORD ref;
+static ULONG WINAPI PrimaryBufferImpl_Release(LPDIRECTSOUNDBUFFER8 iface)
+{
+    PrimaryBufferImpl *This = (PrimaryBufferImpl *)iface;
+    DWORD ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	ref = InterlockedDecrement(&(This->ref));
-
-	if (ref == 0) {
-		This->dsound->primary = NULL;
-		HeapFree(GetProcessHeap(),0,This);
-		TRACE("(%p) released\n",This);
-	}
-
-	return ref;
+    if (!ref) {
+        This->dsound->primary = NULL;
+        HeapFree(GetProcessHeap(), 0, This);
+        TRACE("(%p) released\n", This);
+    }
+    return ref;
 }
 
 static HRESULT WINAPI PrimaryBufferImpl_GetCurrentPosition(
@@ -658,7 +642,7 @@ static HRESULT WINAPI PrimaryBufferImpl_GetFormat(
 
     if (lpwf) {	/* NULL is valid */
         if (wfsize >= size) {
-            memcpy(lpwf,This->dsound->pwfx,size);
+            CopyMemory(lpwf,This->dsound->pwfx,size);
             if (wfwritten)
                 *wfwritten = size;
         } else {
@@ -1091,7 +1075,7 @@ HRESULT WINAPI PrimaryBufferImpl_Create(
 	dsb->dsound = ds;
 	dsb->lpVtbl = &dspbvt;
 
-	memcpy(&ds->dsbd, dsbd, sizeof(*dsbd));
+	CopyMemory(&ds->dsbd, dsbd, sizeof(*dsbd));
 
 	TRACE("Created primary buffer at %p\n", dsb);
 	TRACE("(formattag=0x%04x,chans=%d,samplerate=%ld,"

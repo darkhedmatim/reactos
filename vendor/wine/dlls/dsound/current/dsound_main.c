@@ -36,37 +36,18 @@
  *      Optimize WINMM and negotiate fragment size, decrease DS_HEL_MARGIN
  */
 
-#include "config.h"
-#include "wine/port.h"
-
-#include <assert.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 
 #define COBJMACROS
 #define NONAMELESSSTRUCT
 #define NONAMELESSUNION
-
 #include "windef.h"
 #include "winbase.h"
+#include "winnls.h"
 #include "winreg.h"
-#include "winuser.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winerror.h"
 #include "mmsystem.h"
 #include "winternl.h"
 #include "mmddk.h"
-#include "wine/windef16.h"
-#include "wine/winbase16.h"
 #include "wine/debug.h"
 #include "dsound.h"
 #include "dsdriver.h"
@@ -287,19 +268,19 @@ HRESULT WINAPI GetDeviceID(LPCGUID pGuidSrc, LPGUID pGuidDest)
 
     if ( IsEqualGUID( &DSDEVID_DefaultPlayback, pGuidSrc ) ||
     	 IsEqualGUID( &DSDEVID_DefaultVoicePlayback, pGuidSrc ) ) {
-	memcpy(pGuidDest, &renderer_guids[ds_default_playback], sizeof(GUID));
+	CopyMemory(pGuidDest, &renderer_guids[ds_default_playback], sizeof(GUID));
         TRACE("returns %s\n", get_device_id(pGuidDest));
 	return DS_OK;
     }
 
     if ( IsEqualGUID( &DSDEVID_DefaultCapture, pGuidSrc ) ||
     	 IsEqualGUID( &DSDEVID_DefaultVoiceCapture, pGuidSrc ) ) {
-	memcpy(pGuidDest, &capture_guids[ds_default_capture], sizeof(GUID));
+	CopyMemory(pGuidDest, &capture_guids[ds_default_capture], sizeof(GUID));
         TRACE("returns %s\n", get_device_id(pGuidDest));
 	return DS_OK;
     }
 
-    memcpy(pGuidDest, pGuidSrc, sizeof(GUID));
+    CopyMemory(pGuidDest, pGuidSrc, sizeof(GUID));
     TRACE("returns %s\n", get_device_id(pGuidDest));
 
     return DS_OK;
@@ -344,8 +325,8 @@ HRESULT WINAPI DirectSoundEnumerateA(
                     err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
-                              "Primary Sound Driver",desc.szDrvName,lpContext);
-                        if (lpDSEnumCallback(NULL, "Primary Sound Driver", desc.szDrvName, lpContext) == FALSE)
+                              "Primary Sound Driver",desc.szDrvname,lpContext);
+                        if (lpDSEnumCallback(NULL, "Primary Sound Driver", desc.szDrvname, lpContext) == FALSE)
                             return DS_OK;
 		    }
 		}
@@ -357,8 +338,8 @@ HRESULT WINAPI DirectSoundEnumerateA(
 	err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&renderer_guids[wod]),desc.szDesc,desc.szDrvName,lpContext);
-            if (lpDSEnumCallback(&renderer_guids[wod], desc.szDesc, desc.szDrvName, lpContext) == FALSE)
+                  debugstr_guid(&renderer_guids[wod]),desc.szDesc,desc.szDrvname,lpContext);
+            if (lpDSEnumCallback(&renderer_guids[wod], desc.szDesc, desc.szDrvname, lpContext) == FALSE)
                 return DS_OK;
 	}
     }
@@ -405,10 +386,10 @@ HRESULT WINAPI DirectSoundEnumerateW(
                     err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
-                              "Primary Sound Driver",desc.szDrvName,lpContext);
+                              "Primary Sound Driver",desc.szDrvname,lpContext);
                         MultiByteToWideChar( CP_ACP, 0, "Primary Sound Driver", -1,
                                              wDesc, sizeof(wDesc)/sizeof(WCHAR) );
-                        MultiByteToWideChar( CP_ACP, 0, desc.szDrvName, -1,
+                        MultiByteToWideChar( CP_ACP, 0, desc.szDrvname, -1,
                                              wName, sizeof(wName)/sizeof(WCHAR) );
                         if (lpDSEnumCallback(NULL, wDesc, wName, lpContext) == FALSE)
                             return DS_OK;
@@ -422,10 +403,10 @@ HRESULT WINAPI DirectSoundEnumerateW(
 	err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&renderer_guids[wod]),desc.szDesc,desc.szDrvName,lpContext);
+                  debugstr_guid(&renderer_guids[wod]),desc.szDesc,desc.szDrvname,lpContext);
             MultiByteToWideChar( CP_ACP, 0, desc.szDesc, -1,
                                  wDesc, sizeof(wDesc)/sizeof(WCHAR) );
-            MultiByteToWideChar( CP_ACP, 0, desc.szDrvName, -1,
+            MultiByteToWideChar( CP_ACP, 0, desc.szDrvname, -1,
                                  wName, sizeof(wName)/sizeof(WCHAR) );
             if (lpDSEnumCallback(&renderer_guids[wod], wDesc, wName, lpContext) == FALSE)
                 return DS_OK;
@@ -446,18 +427,21 @@ DSCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid,LPVOID *ppobj) {
 	return E_NOINTERFACE;
 }
 
-static ULONG WINAPI
-DSCF_AddRef(LPCLASSFACTORY iface) {
-	IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-	TRACE("(%p) ref was %ld\n", This, This->ref);
-	return InterlockedIncrement(&(This->ref));
+static ULONG WINAPI DSCF_AddRef(LPCLASSFACTORY iface)
+{
+    IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
-static ULONG WINAPI DSCF_Release(LPCLASSFACTORY iface) {
-	IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-	/* static class, won't be  freed */
-	TRACE("(%p) ref was %ld\n", This, This->ref);
-	return InterlockedDecrement(&(This->ref));
+static ULONG WINAPI DSCF_Release(LPCLASSFACTORY iface)
+{
+    IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
+    /* static class, won't be freed */
+    return ref;
 }
 
 static HRESULT WINAPI DSCF_CreateInstance(
@@ -465,6 +449,9 @@ static HRESULT WINAPI DSCF_CreateInstance(
 ) {
 	IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
 	TRACE("(%p)->(%p,%s,%p)\n",This,pOuter,debugstr_guid(riid),ppobj);
+
+	if (pOuter)
+		return CLASS_E_NOAGGREGATION;
 
 	if (ppobj == NULL) {
 		WARN("invalid parameter\n");
@@ -511,19 +498,21 @@ DSPCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid,LPVOID *ppobj) {
 	return E_NOINTERFACE;
 }
 
-static ULONG WINAPI
-DSPCF_AddRef(LPCLASSFACTORY iface) {
-	IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-	TRACE("(%p) ref was %ld\n", This, This->ref);
-	return InterlockedIncrement(&(This->ref));
+static ULONG WINAPI DSPCF_AddRef(LPCLASSFACTORY iface)
+{
+    IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
-static ULONG WINAPI
-DSPCF_Release(LPCLASSFACTORY iface) {
-	IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-	/* static class, won't be  freed */
-	TRACE("(%p) ref was %ld\n", This, This->ref);
-	return InterlockedDecrement(&(This->ref));
+static ULONG WINAPI DSPCF_Release(LPCLASSFACTORY iface)
+{
+    IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
+    /* static class, won't be freed */
+    return ref;
 }
 
 static HRESULT WINAPI

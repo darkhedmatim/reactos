@@ -24,23 +24,12 @@
  *	Implement FX support.
  */
 
-#include "config.h"
-#include <assert.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
 
+#define NONAMELESSSTRUCT
+#define NONAMELESSUNION
 #include "windef.h"
 #include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winerror.h"
 #include "mmsystem.h"
 #include "mmddk.h"
 #include "winreg.h"
@@ -201,8 +190,8 @@ DirectSoundCaptureEnumerateA(
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
-                              "Primary Sound Capture Driver",desc.szDrvName,lpContext);
-                        if (lpDSEnumCallback(NULL, "Primary Sound Capture Driver", desc.szDrvName, lpContext) == FALSE)
+                              "Primary Sound Capture Driver",desc.szDrvname,lpContext);
+                        if (lpDSEnumCallback(NULL, "Primary Sound Capture Driver", desc.szDrvname, lpContext) == FALSE)
                             return DS_OK;
                     }
                 }
@@ -214,8 +203,8 @@ DirectSoundCaptureEnumerateA(
 	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvName,lpContext);
-            if (lpDSEnumCallback(&capture_guids[wid], desc.szDesc, desc.szDrvName, lpContext) == FALSE)
+                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
+            if (lpDSEnumCallback(&capture_guids[wid], desc.szDesc, desc.szDrvname, lpContext) == FALSE)
                 return DS_OK;
 	}
     }
@@ -263,10 +252,10 @@ DirectSoundCaptureEnumerateW(
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
-                              "Primary Sound Capture Driver",desc.szDrvName,lpContext);
+                              "Primary Sound Capture Driver",desc.szDrvname,lpContext);
                         MultiByteToWideChar( CP_ACP, 0, "Primary Sound Capture Driver", -1,
                                              wDesc, sizeof(wDesc)/sizeof(WCHAR) );
-                        MultiByteToWideChar( CP_ACP, 0, desc.szDrvName, -1,
+                        MultiByteToWideChar( CP_ACP, 0, desc.szDrvname, -1,
                                              wName, sizeof(wName)/sizeof(WCHAR) );
                         if (lpDSEnumCallback(NULL, wDesc, wName, lpContext) == FALSE)
                             return DS_OK;
@@ -280,10 +269,10 @@ DirectSoundCaptureEnumerateW(
 	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvName,lpContext);
+                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
             MultiByteToWideChar( CP_ACP, 0, desc.szDesc, -1,
                                  wDesc, sizeof(wDesc)/sizeof(WCHAR) );
-            MultiByteToWideChar( CP_ACP, 0, desc.szDrvName, -1,
+            MultiByteToWideChar( CP_ACP, 0, desc.szDrvname, -1,
                                  wName, sizeof(wName)/sizeof(WCHAR) );
             if (lpDSEnumCallback((LPGUID)&capture_guids[wid], wDesc, wName, lpContext) == FALSE)
                 return DS_OK;
@@ -374,19 +363,19 @@ static ULONG WINAPI
 IDirectSoundCaptureImpl_AddRef( LPDIRECTSOUNDCAPTURE iface )
 {
     IDirectSoundCaptureImpl *This = (IDirectSoundCaptureImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-    return InterlockedIncrement(&(This->ref));
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI
 IDirectSoundCaptureImpl_Release( LPDIRECTSOUNDCAPTURE iface )
 {
-    ULONG uRef;
     IDirectSoundCaptureImpl *This = (IDirectSoundCaptureImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-    uRef = InterlockedDecrement(&(This->ref));
-    if ( uRef == 0 ) {
+    if (!ref) {
         TRACE("deleting object\n");
         if (This->capture_buffer)
             IDirectSoundCaptureBufferImpl_Release(
@@ -397,17 +386,14 @@ IDirectSoundCaptureImpl_Release( LPDIRECTSOUNDCAPTURE iface )
             IDsCaptureDriver_Release(This->driver);
 	}
 
-	if (This->pwfx)
-	    HeapFree(GetProcessHeap(), 0, This->pwfx);
-
+        HeapFree(GetProcessHeap(), 0, This->pwfx);
         This->lock.DebugInfo->Spare[1] = 0;
         DeleteCriticalSection( &(This->lock) );
         HeapFree( GetProcessHeap(), 0, This );
 	dsound_capture = NULL;
-	TRACE("(%p) released\n",This);
+	TRACE("(%p) released\n", This);
     }
-
-    return uRef;
+    return ref;
 }
 
 static HRESULT WINAPI
@@ -583,8 +569,8 @@ IDirectSoundCaptureImpl_Initialize(
 
             if (err == DS_OK) {
                 This->drvcaps.dwFlags = 0;
-                strncpy(This->drvdesc.szDrvName, wic.szPname,
-                    sizeof(This->drvdesc.szDrvName));
+                strncpy(This->drvdesc.szDrvname, wic.szPname,
+                    sizeof(This->drvdesc.szDrvname));
 
                 This->drvcaps.dwFlags |= DSCCAPS_EMULDRIVER;
                 This->drvcaps.dwFormats = wic.dwFormats;
@@ -659,11 +645,11 @@ DSOUND_CreateDirectSoundCaptureBuffer(
 
         if (wfex->wFormatTag == WAVE_FORMAT_PCM) {
 	    ipDSC->pwfx = HeapAlloc(GetProcessHeap(),0,sizeof(WAVEFORMATEX));
-            memcpy(ipDSC->pwfx, wfex, sizeof(WAVEFORMATEX));
+            CopyMemory(ipDSC->pwfx, wfex, sizeof(WAVEFORMATEX));
 	    ipDSC->pwfx->cbSize = 0;
 	} else {
 	    ipDSC->pwfx = HeapAlloc(GetProcessHeap(),0,sizeof(WAVEFORMATEX)+wfex->cbSize);
-            memcpy(ipDSC->pwfx, wfex, sizeof(WAVEFORMATEX)+wfex->cbSize);
+            CopyMemory(ipDSC->pwfx, wfex, sizeof(WAVEFORMATEX)+wfex->cbSize);
         }
     } else {
 	WARN("lpcDSCBufferDesc->lpwfxFormat == 0\n");
@@ -694,7 +680,7 @@ DSOUND_CreateDirectSoundCaptureBuffer(
         This->pdscbd = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,
             lpcDSCBufferDesc->dwSize);
         if (This->pdscbd)
-            memcpy(This->pdscbd, lpcDSCBufferDesc, lpcDSCBufferDesc->dwSize);
+            CopyMemory(This->pdscbd, lpcDSCBufferDesc, lpcDSCBufferDesc->dwSize);
         else {
             WARN("no memory\n");
             This->dsound->capture_buffer = 0;
@@ -730,8 +716,7 @@ DSOUND_CreateDirectSoundCaptureBuffer(
                 /* let driver allocate memory */
                 ipDSC->buflen = lpcDSCBufferDesc->dwBufferBytes;
                 /* FIXME: */
-                if (ipDSC->buffer)
-                    HeapFree( GetProcessHeap(), 0, ipDSC->buffer);
+                HeapFree( GetProcessHeap(), 0, ipDSC->buffer);
                 ipDSC->buffer = NULL;
             }
 
@@ -802,25 +787,24 @@ static HRESULT WINAPI IDirectSoundCaptureNotifyImpl_QueryInterface(
 static ULONG WINAPI IDirectSoundCaptureNotifyImpl_AddRef(LPDIRECTSOUNDNOTIFY iface)
 {
     IDirectSoundCaptureNotifyImpl *This = (IDirectSoundCaptureNotifyImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-    return InterlockedIncrement(&(This->ref));
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI IDirectSoundCaptureNotifyImpl_Release(LPDIRECTSOUNDNOTIFY iface)
 {
     IDirectSoundCaptureNotifyImpl *This = (IDirectSoundCaptureNotifyImpl *)iface;
-    ULONG ref;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-
-    ref = InterlockedDecrement(&(This->ref));
-    if (ref == 0) {
+    if (!ref) {
         if (This->dscb->hwnotify)
             IDsDriverNotify_Release(This->dscb->hwnotify);
 	This->dscb->notify=NULL;
 	IDirectSoundCaptureBuffer_Release((LPDIRECTSOUNDCAPTUREBUFFER)This->dscb);
 	HeapFree(GetProcessHeap(),0,This);
-	TRACE("(%p) released\n",This);
+	TRACE("(%p) released\n", This);
     }
     return ref;
 }
@@ -865,13 +849,11 @@ static HRESULT WINAPI IDirectSoundCaptureNotifyImpl_SetNotificationPositions(
 	    WARN("out of memory\n");
 	    return DSERR_OUTOFMEMORY;
 	}
-	memcpy(This->dscb->notifies, notify, howmuch * sizeof(DSBPOSITIONNOTIFY));
+	CopyMemory(This->dscb->notifies, notify, howmuch * sizeof(DSBPOSITIONNOTIFY));
 	This->dscb->nrofnotifies = howmuch;
     } else {
-        if (This->dscb->notifies) {
-            HeapFree(GetProcessHeap(), 0, This->dscb->notifies);
-            This->dscb->notifies = NULL;
-        }
+        HeapFree(GetProcessHeap(), 0, This->dscb->notifies);
+        This->dscb->notifies = NULL;
         This->dscb->nrofnotifies = 0;
     }
 
@@ -968,33 +950,30 @@ static ULONG WINAPI
 IDirectSoundCaptureBufferImpl_AddRef( LPDIRECTSOUNDCAPTUREBUFFER8 iface )
 {
     IDirectSoundCaptureBufferImpl *This = (IDirectSoundCaptureBufferImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-    return InterlockedIncrement(&(This->ref));
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI
 IDirectSoundCaptureBufferImpl_Release( LPDIRECTSOUNDCAPTUREBUFFER8 iface )
 {
-    ULONG uRef;
     IDirectSoundCaptureBufferImpl *This = (IDirectSoundCaptureBufferImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-    uRef = InterlockedDecrement(&(This->ref));
-    if ( uRef == 0 ) {
+    if (!ref) {
         TRACE("deleting object\n");
 	if (This->dsound->state == STATE_CAPTURING)
 	    This->dsound->state = STATE_STOPPING;
 
-        if (This->pdscbd)
-            HeapFree(GetProcessHeap(),0, This->pdscbd);
+        HeapFree(GetProcessHeap(),0, This->pdscbd);
 
 	if (This->dsound->hwi) {
 	    waveInReset(This->dsound->hwi);
 	    waveInClose(This->dsound->hwi);
-	    if (This->dsound->pwave) {
-	    	HeapFree(GetProcessHeap(),0, This->dsound->pwave);
-		This->dsound->pwave = 0;
-	    }
+            HeapFree(GetProcessHeap(),0, This->dsound->pwave);
+            This->dsound->pwave = 0;
 	    This->dsound->hwi = 0;
 	}
 
@@ -1010,14 +989,11 @@ IDirectSoundCaptureBufferImpl_Release( LPDIRECTSOUNDCAPTUREBUFFER8 iface )
         if (This->notify)
 	    IDirectSoundNotify_Release((LPDIRECTSOUNDNOTIFY)This->notify);
 
-	if (This->notifies != NULL)
-		HeapFree(GetProcessHeap(), 0, This->notifies);
-
+	HeapFree(GetProcessHeap(), 0, This->notifies);
         HeapFree( GetProcessHeap(), 0, This );
-	TRACE("(%p) released\n",This);
+	TRACE("(%p) released\n", This);
     }
-
-    return uRef;
+    return ref;
 }
 
 static HRESULT WINAPI
@@ -1142,7 +1118,7 @@ IDirectSoundCaptureBufferImpl_GetFormat(
         dwSizeAllocated = sizeof(WAVEFORMATEX) + This->dsound->pwfx->cbSize;
 
     if (lpwfxFormat) { /* NULL is valid (just want size) */
-        memcpy(lpwfxFormat, This->dsound->pwfx, dwSizeAllocated);
+        CopyMemory(lpwfxFormat, This->dsound->pwfx, dwSizeAllocated);
         if (lpdwSizeWritten)
             *lpdwSizeWritten = dwSizeAllocated;
     } else {
@@ -1386,8 +1362,8 @@ IDirectSoundCaptureBufferImpl_Start(
 		    }
                 }
 
-                memset(ipDSC->buffer,
-                    (ipDSC->pwfx->wBitsPerSample == 8) ? 128 : 0, ipDSC->buflen);
+                FillMemory(ipDSC->buffer, ipDSC->buflen,
+                    (ipDSC->pwfx->wBitsPerSample == 8) ? 128 : 0);
             } else {
 		TRACE("no notifiers specified\n");
 		/* no notifiers specified so just create a single default header */
@@ -1599,17 +1575,19 @@ static ULONG WINAPI
 DSCCF_AddRef(LPCLASSFACTORY iface)
 {
     IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-    TRACE("(%p) ref was %ld\n", This, This->ref);
-    return InterlockedIncrement(&(This->ref));
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI
 DSCCF_Release(LPCLASSFACTORY iface)
 {
     IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
     /* static class, won't be  freed */
-    TRACE("(%p) ref was %ld\n", This, This->ref);
-    return InterlockedDecrement(&(This->ref));
+    return ref;
 }
 
 static HRESULT WINAPI
@@ -1726,8 +1704,6 @@ DirectSoundFullDuplexCreate(
 	    WARN("IDirectSoundFullDuplexImpl_Initialize failed\n");
 	return hres;
     }
-
-    return DSERR_GENERIC;
 }
 
 static HRESULT WINAPI
@@ -1752,26 +1728,25 @@ static ULONG WINAPI
 IDirectSoundFullDuplexImpl_AddRef( LPDIRECTSOUNDFULLDUPLEX iface )
 {
     IDirectSoundFullDuplexImpl *This = (IDirectSoundFullDuplexImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-    return InterlockedIncrement(&(This->ref));
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI
 IDirectSoundFullDuplexImpl_Release( LPDIRECTSOUNDFULLDUPLEX iface )
 {
-    ULONG uRef;
     IDirectSoundFullDuplexImpl *This = (IDirectSoundFullDuplexImpl *)iface;
-    TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
 
-    uRef = InterlockedDecrement(&(This->ref));
-    if ( uRef == 0 ) {
+    if (!ref) {
         This->lock.DebugInfo->Spare[1] = 0;
         DeleteCriticalSection( &(This->lock) );
         HeapFree( GetProcessHeap(), 0, This );
-	TRACE("(%p) released\n",This);
+	TRACE("(%p) released\n", This);
     }
-
-    return uRef;
+    return ref;
 }
 
 static HRESULT WINAPI

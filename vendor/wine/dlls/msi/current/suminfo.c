@@ -108,11 +108,9 @@ UINT WINAPI MsiGetSummaryInformationW(MSIHANDLE hDatabase,
     if( FAILED( r ) )
     {
         ERR("IStorage -> IPropertySetStorage failed\n");
-        if (db)
-            msiobj_release(&db->hdr);
-        return ERROR_FUNCTION_FAILED;
+        ret = ERROR_FUNCTION_FAILED;
+        goto end;
     }
-    ERR("storage = %p propertysetstorage = %p\n", db->storage, psstg);
 
     grfMode = STGM_READ | STGM_SHARE_EXCLUSIVE;
     r = IPropertySetStorage_Open( psstg, &FMTID_SummaryInformation, grfMode, &ps );
@@ -135,7 +133,7 @@ UINT WINAPI MsiGetSummaryInformationW(MSIHANDLE hDatabase,
     suminfo->propstg = ps;
     handle = alloc_msihandle( &suminfo->hdr );
     if( handle )
-    *phSummaryInfo = handle;
+        *phSummaryInfo = handle;
     else
         ret = ERROR_FUNCTION_FAILED;
     msiobj_release( &suminfo->hdr );
@@ -145,7 +143,7 @@ end:
         IPropertyStorage_Release(ps);
     if( psstg )
         IPropertySetStorage_Release(psstg);
-    if (db)
+    if( db )
         msiobj_release(&db->hdr);
 
     return ret;
@@ -161,6 +159,7 @@ UINT WINAPI MsiSummaryInfoGetPropertyCount(MSIHANDLE hSummaryInfo, UINT *pCount)
     if( !suminfo )
         return ERROR_INVALID_HANDLE;
 
+    msiobj_release( &suminfo->hdr );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
@@ -172,6 +171,7 @@ UINT WINAPI MsiSummaryInfoGetPropertyA(
     HRESULT r;
     PROPSPEC spec;
     PROPVARIANT var;
+    UINT rc = ERROR_SUCCESS;
 
     TRACE("%ld %d %p %p %p %p %p\n",
         hSummaryInfo, uiProperty, puiDataType, piValue,
@@ -186,7 +186,10 @@ UINT WINAPI MsiSummaryInfoGetPropertyA(
 
     r = IPropertyStorage_ReadMultiple( suminfo->propstg, 1, &spec, &var);
     if( FAILED(r) )
-        return ERROR_FUNCTION_FAILED;
+    {
+        rc = ERROR_FUNCTION_FAILED;
+        goto end;
+    }
 
     if( puiDataType )
         *puiDataType = var.vt;
@@ -215,7 +218,9 @@ UINT WINAPI MsiSummaryInfoGetPropertyA(
         break;
     }
 
-    return ERROR_SUCCESS;
+end:
+    msiobj_release( &suminfo->hdr );
+    return rc;
 }
 
 UINT WINAPI MsiSummaryInfoGetPropertyW(
@@ -226,6 +231,7 @@ UINT WINAPI MsiSummaryInfoGetPropertyW(
     HRESULT r;
     PROPSPEC spec;
     PROPVARIANT var;
+    UINT rc = ERROR_SUCCESS;
 
     TRACE("%ld %d %p %p %p %p %p\n",
         hSummaryInfo, uiProperty, puiDataType, piValue,
@@ -240,7 +246,10 @@ UINT WINAPI MsiSummaryInfoGetPropertyW(
 
     r = IPropertyStorage_ReadMultiple( suminfo->propstg, 1, &spec, &var);
     if( FAILED(r) )
-        return ERROR_FUNCTION_FAILED;
+    {
+        rc = ERROR_FUNCTION_FAILED;
+        goto end;
+    }
 
     if( puiDataType )
         *puiDataType = var.vt;
@@ -270,24 +279,31 @@ UINT WINAPI MsiSummaryInfoGetPropertyW(
         break;
     }
 
-    return ERROR_SUCCESS;
+end:
+    msiobj_release( &suminfo->hdr );
+    return rc;
 }
 
 UINT WINAPI MsiSummaryInfoSetPropertyA( MSIHANDLE hSummaryInfo, UINT uiProperty,
                                        UINT uiDataType, INT iValue, 
-                                       FILETIME* pftValue, LPSTR szValue)
+                                       FILETIME* pftValue, LPSTR szValue )
 {
+    FIXME("%ld %u %u %i %p %s\n", hSummaryInfo, uiProperty,
+          uiDataType, iValue, pftValue, debugstr_a(szValue) );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiSummaryInfoSetPropertyW( MSIHANDLE hSummaryInfo, UINT uiProperty,
                                        UINT uiDataType, INT iValue, 
-                                       FILETIME* pftValue, LPWSTR szValue)
+                                       FILETIME* pftValue, LPWSTR szValue )
 {
+    FIXME("%ld %u %u %i %p %s\n", hSummaryInfo, uiProperty,
+          uiDataType, iValue, pftValue, debugstr_w(szValue) );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-UINT WINAPI MsiSummaryInfoPersist(MSIHANDLE hSummaryInfo)
+UINT WINAPI MsiSummaryInfoPersist( MSIHANDLE hSummaryInfo )
 {
+    FIXME("%ld\n", hSummaryInfo );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }

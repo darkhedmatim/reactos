@@ -19,29 +19,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "config.h"
 #include <assert.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>	/* Insomnia - pow() function */
 
+#define NONAMELESSSTRUCT
+#define NONAMELESSUNION
 #include "windef.h"
 #include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winerror.h"
 #include "mmsystem.h"
 #include "winreg.h"
 #include "winternl.h"
-#include "mmddk.h"
-#include "wine/windef16.h"
 #include "wine/debug.h"
 #include "dsound.h"
 #include "dsdriver.h"
@@ -103,12 +91,10 @@ void DSOUND_AmpFactorToVolPan(PDSVOLUMEPAN volpan)
 
 void DSOUND_RecalcFormat(IDirectSoundBufferImpl *dsb)
 {
-	DWORD sw;
 	TRACE("(%p)\n",dsb);
 
-	sw = dsb->pwfx->nChannels * (dsb->pwfx->wBitsPerSample / 8);
 	/* calculate the 10ms write lead */
-	dsb->writelead = (dsb->freq / 100) * sw;
+	dsb->writelead = (dsb->freq / 100) * dsb->pwfx->nBlockAlign;
 }
 
 void DSOUND_CheckEvent(IDirectSoundBufferImpl *dsb, int len)
@@ -237,13 +223,13 @@ static INT DSOUND_MixerNorm(IDirectSoundBufferImpl *dsb, BYTE *buf, INT len)
 	if ((dsb->freq == dsb->dsound->pwfx->nSamplesPerSec) &&
 	    (dsb->pwfx->wBitsPerSample == dsb->dsound->pwfx->wBitsPerSample) &&
 	    (dsb->pwfx->nChannels == dsb->dsound->pwfx->nChannels)) {
-	        DWORD bytesleft = dsb->buflen - dsb->buf_mixpos;
+	        INT bytesleft = dsb->buflen - dsb->buf_mixpos;
 		TRACE("(%p) Best case\n", dsb);
 	    	if (len <= bytesleft )
-			memcpy(obp, ibp, len);
+			CopyMemory(obp, ibp, len);
 		else { /* wrap */
-			memcpy(obp, ibp, bytesleft );
-			memcpy(obp + bytesleft, dsb->buffer->memory, len - bytesleft);
+			CopyMemory(obp, ibp, bytesleft);
+			CopyMemory(obp + bytesleft, dsb->buffer->memory, len - bytesleft);
 		}
 		return len;
 	}
@@ -368,48 +354,50 @@ static void DSOUND_MixerVol(IDirectSoundBufferImpl *dsb, BYTE *buf, INT len)
 	}
 }
 
-static void *tmp_buffer;
-static size_t tmp_buffer_len = 0;
-
-static void *DSOUND_tmpbuffer(size_t len)
+static LPBYTE DSOUND_tmpbuffer(IDirectSoundImpl *dsound, DWORD len)
 {
-  if (len>tmp_buffer_len) {
-    void *new_buffer = realloc(tmp_buffer, len);
-    if (new_buffer) {
-      tmp_buffer = new_buffer;
-      tmp_buffer_len = len;
+    TRACE("(%p,%ld)\n",dsound,len);
+
+    if (len > dsound->tmp_buffer_len) {
+        if (dsound->tmp_buffer)
+            dsound->tmp_buffer = HeapReAlloc(GetProcessHeap(), 0, dsound->tmp_buffer, len);
+        else
+            dsound->tmp_buffer = HeapAlloc(GetProcessHeap(), 0, len);
+
+        dsound->tmp_buffer_len = len;
     }
-    return new_buffer;
-  }
-  return tmp_buffer;
+
+    return dsound->tmp_buffer;
 }
 
 static DWORD DSOUND_MixInBuffer(IDirectSoundBufferImpl *dsb, DWORD writepos, DWORD fraglen)
 {
-	INT	i, len, ilen, temp, field, nBlockAlign, todo;
+	INT	i, len, ilen, field, todo;
 	BYTE	*buf, *ibuf;
 
 	TRACE("(%p,%ld,%ld)\n",dsb,writepos,fraglen);
 
 	len = fraglen;
 	if (!(dsb->playflags & DSBPLAY_LOOPING)) {
-		temp = MulDiv(dsb->dsound->pwfx->nAvgBytesPerSec, dsb->buflen,
+		INT temp = MulDiv(dsb->dsound->pwfx->nAvgBytesPerSec, dsb->buflen,
 			dsb->nAvgBytesPerSec) -
-		       MulDiv(dsb->dsound->pwfx->nAvgBytesPerSec, dsb->buf_mixpos,
+			MulDiv(dsb->dsound->pwfx->nAvgBytesPerSec, dsb->buf_mixpos,
 			dsb->nAvgBytesPerSec);
-		len = (len > temp) ? temp : len;
+		len = min(len, temp);
 	}
-	nBlockAlign = dsb->dsound->pwfx->nBlockAlign;
-	len = len / nBlockAlign * nBlockAlign;	/* data alignment */
+
+	if (len % dsb->dsound->pwfx->nBlockAlign) {
+		INT nBlockAlign = dsb->dsound->pwfx->nBlockAlign;
+		len = (len / nBlockAlign) * nBlockAlign;	/* data alignment */
+		ERR("length not a multiple of block size, len = %d, block size = %d\n", len, nBlockAlign);
+	}
 
 	if (len == 0) {
 		/* This should only happen if we aren't looping and temp < nBlockAlign */
 		return 0;
 	}
 
-	/* Been seeing segfaults in malloc() for some reason... */
-	TRACE("allocating buffer (size = %d)\n", len);
-	if ((buf = ibuf = (BYTE *) DSOUND_tmpbuffer(len)) == NULL)
+	if ((buf = ibuf = DSOUND_tmpbuffer(dsb->dsound, len)) == NULL)
 		return 0;
 
 	TRACE("MixInBuffer (%p) len = %d, dest = %ld\n", dsb, len, writepos);
@@ -509,17 +497,19 @@ static DWORD DSOUND_MixInBuffer(IDirectSoundBufferImpl *dsb, DWORD writepos, DWO
 
 static void DSOUND_PhaseCancel(IDirectSoundBufferImpl *dsb, DWORD writepos, DWORD len)
 {
-	INT     ilen, field, nBlockAlign;
+	INT     ilen, field;
 	UINT    i, todo;
 	BYTE	*buf, *ibuf;
 
 	TRACE("(%p,%ld,%ld)\n",dsb,writepos,len);
 
-	nBlockAlign = dsb->dsound->pwfx->nBlockAlign;
-	len = len / nBlockAlign * nBlockAlign;  /* data alignment */
+	if (len % dsb->dsound->pwfx->nBlockAlign) {
+		INT nBlockAlign = dsb->dsound->pwfx->nBlockAlign;
+		len = (len / nBlockAlign) * nBlockAlign;	/* data alignment */
+		ERR("length not a multiple of block size, len = %ld, block size = %d\n", len, nBlockAlign);
+	}
 
-	TRACE("allocating buffer (size = %ld)\n", len);
-	if ((buf = ibuf = (BYTE *) DSOUND_tmpbuffer(len)) == NULL)
+	if ((buf = ibuf = DSOUND_tmpbuffer(dsb->dsound, len)) == NULL)
 		return;
 
 	TRACE("PhaseCancel (%p) len = %ld, dest = %ld\n", dsb, len, writepos);
@@ -906,10 +896,10 @@ static void DSOUND_MixReset(IDirectSoundImpl *dsound, DWORD writepos)
 
 	/* wipe out premixed data */
 	if (dsound->mixpos < writepos) {
-		memset(dsound->buffer + writepos, nfiller, dsound->buflen - writepos);
-		memset(dsound->buffer, nfiller, dsound->mixpos);
+		FillMemory(dsound->buffer + writepos, dsound->buflen - writepos, nfiller);
+		FillMemory(dsound->buffer, dsound->mixpos, nfiller);
 	} else {
-		memset(dsound->buffer + writepos, nfiller, dsound->mixpos - writepos);
+		FillMemory(dsound->buffer + writepos, dsound->mixpos - writepos, nfiller);
 	}
 
 	/* reset primary mix position */
@@ -995,10 +985,10 @@ void DSOUND_PerformMix(IDirectSoundImpl *dsound)
 		assert(dsound->playpos < dsound->buflen);
 		/* wipe out just-played sound data */
 		if (playpos < dsound->playpos) {
-			memset(dsound->buffer + dsound->playpos, nfiller, dsound->buflen - dsound->playpos);
-			memset(dsound->buffer, nfiller, playpos);
+			FillMemory(dsound->buffer + dsound->playpos, dsound->buflen - dsound->playpos, nfiller);
+			FillMemory(dsound->buffer, playpos, nfiller);
 		} else {
-			memset(dsound->buffer + dsound->playpos, nfiller, playpos - dsound->playpos);
+			FillMemory(dsound->buffer + dsound->playpos, playpos - dsound->playpos, nfiller);
 		}
 		dsound->playpos = playpos;
 
@@ -1070,7 +1060,7 @@ void DSOUND_PerformMix(IDirectSoundImpl *dsound)
 			inq = 0;
 			maxq = dsound->buflen;
 			if (maxq > frag) maxq = frag;
-			memset(dsound->buffer, nfiller, dsound->buflen);
+			FillMemory(dsound->buffer, dsound->buflen, nfiller);
 			paused = TRUE;
 		}
 

@@ -80,6 +80,16 @@ int is_void(type_t *t, var_t *v)
   return 0;
 }
 
+void write_guid(const char *guid_prefix, const char *name, UUID *uuid)
+{
+  if (!uuid) return;
+  fprintf(header, "DEFINE_GUID(%s_%s, 0x%08lx, 0x%04x, 0x%04x, 0x%02x,0x%02x, 0x%02x,"
+        "0x%02x,0x%02x,0x%02x,0x%02x,0x%02x);\n",
+        guid_prefix, name, uuid->Data1, uuid->Data2, uuid->Data3, uuid->Data4[0],
+        uuid->Data4[1], uuid->Data4[2], uuid->Data4[3], uuid->Data4[4], uuid->Data4[5],
+        uuid->Data4[6], uuid->Data4[7]);
+}
+
 static void write_pident(FILE *h, var_t *v)
 {
   int c;
@@ -428,6 +438,13 @@ void write_externdef(var_t *v)
   fprintf(header, ";\n\n");
 }
 
+void write_library(char *name, attr_t *attr) {
+  UUID *uuid = get_attrp(attr, ATTR_UUID);
+  fprintf(header, "\n");
+  write_guid("LIBID", name, uuid);
+  fprintf(header, "\n");
+}
+
 /********** INTERFACES **********/
 
 int is_object(attr_t *a)
@@ -669,7 +686,10 @@ static void write_function_proto(type_t *iface)
     fprintf(header, " ");
     write_name(header, def);
     fprintf(header, "(\n");
-    write_args(header, cur->args, iface->name, 0, TRUE);
+    if (cur->args)
+      write_args(header, cur->args, iface->name, 0, TRUE);
+    else
+      fprintf(header, "    void");
     fprintf(header, ");\n");
 
     cur = PREV_LINK(cur);
@@ -691,14 +711,6 @@ void write_forward(type_t *iface)
     fprintf(header, "#endif\n\n" );
     iface->written = TRUE;
   }
-}
-
-void write_guid(const char *guid_prefix, const char *name, UUID *uuid)
-{
-  if (!uuid) return;
-  fprintf(header, "DEFINE_GUID(%s_%s, 0x%08lx, 0x%04x, 0x%04x, 0x%02x,0x%02x, 0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x);\n",
-          guid_prefix, name, uuid->Data1, uuid->Data2, uuid->Data3, uuid->Data4[0], uuid->Data4[1],
-          uuid->Data4[2], uuid->Data4[3], uuid->Data4[4], uuid->Data4[5], uuid->Data4[6], uuid->Data4[7]);
 }
 
 void write_iface_guid(type_t *iface)
@@ -784,6 +796,7 @@ void write_com_interface(type_t *iface)
 void write_rpc_interface(type_t *iface)
 {
   unsigned long ver = get_attrv(iface->attrs, ATTR_VERSION);
+  char *var = get_attrp(iface->attrs, ATTR_IMPLICIT_HANDLE);
 
   if (!iface->funcs) return;
 
@@ -791,6 +804,7 @@ void write_rpc_interface(type_t *iface)
   fprintf(header, " * %s interface (v%d.%d)\n", iface->name, LOWORD(ver), HIWORD(ver));
   fprintf(header, " */\n");
   write_iface_guid(iface);
+  if (var) fprintf(header, "extern handle_t %s;\n", var);
   fprintf(header, "extern RPC_IF_HANDLE %s_v%d_%d_c_ifspec;\n", iface->name, LOWORD(ver), HIWORD(ver));
   fprintf(header, "extern RPC_IF_HANDLE %s_v%d_%d_s_ifspec;\n", iface->name, LOWORD(ver), HIWORD(ver));
   write_function_proto(iface);

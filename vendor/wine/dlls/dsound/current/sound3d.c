@@ -37,31 +37,17 @@
  *      Optimize WINMM and negotiate fragment size, decrease DS_HEL_MARGIN
  */
 
-#include "config.h"
-#include <assert.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>	/* Insomnia - pow() function */
 
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
 #include "windef.h"
 #include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winerror.h"
 #include "mmsystem.h"
 #include "winreg.h"
 #include "winternl.h"
 #include "mmddk.h"
-#include "wine/windef16.h"
 #include "wine/debug.h"
 #include "dsound.h"
 #include "dsdriver.h"
@@ -355,7 +341,7 @@ static void WINAPI DSOUND_ChangeListener(IDirectSound3DListenerImpl *ds3dl)
 		crash without the following line) */
 		if (ds3dl->dsound->buffers[i]->ds3db == NULL)
 			continue;
-		if (ds3dl->dsound->buffers[i]->ds3db_need_recalc == TRUE)
+		if (ds3dl->dsound->buffers[i]->ds3db_need_recalc)
 		{
 			DSOUND_Mix3DBuffer(ds3dl->dsound->buffers[i]);
 		}
@@ -378,26 +364,25 @@ static HRESULT WINAPI IDirectSound3DBufferImpl_QueryInterface(
 
 static ULONG WINAPI IDirectSound3DBufferImpl_AddRef(LPDIRECTSOUND3DBUFFER iface)
 {
-	IDirectSound3DBufferImpl *This = (IDirectSound3DBufferImpl *)iface;
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	return InterlockedIncrement(&(This->ref));
+    IDirectSound3DBufferImpl *This = (IDirectSound3DBufferImpl *)iface;
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI IDirectSound3DBufferImpl_Release(LPDIRECTSOUND3DBUFFER iface)
 {
-	IDirectSound3DBufferImpl *This = (IDirectSound3DBufferImpl *)iface;
-	ULONG ulReturn;
+    IDirectSound3DBufferImpl *This = (IDirectSound3DBufferImpl *)iface;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	ulReturn = InterlockedDecrement(&(This->ref));
-	if (!ulReturn) {
-		This->dsb->ds3db = NULL;
-		IDirectSoundBuffer_Release((LPDIRECTSOUNDBUFFER8)This->dsb);
-		HeapFree(GetProcessHeap(),0,This);
-		TRACE("(%p) released\n",This);
-	}
-
-	return ulReturn;
+    if (!ref) {
+        This->dsb->ds3db = NULL;
+        IDirectSoundBuffer_Release((LPDIRECTSOUNDBUFFER8)This->dsb);
+        HeapFree(GetProcessHeap(), 0, This);
+        TRACE("(%p) released\n", This);
+    }
+    return ref;
 }
 
 /* IDirectSound3DBuffer methods */
@@ -815,27 +800,24 @@ static HRESULT WINAPI IDirectSound3DListenerImpl_QueryInterface(
 
 static ULONG WINAPI IDirectSound3DListenerImpl_AddRef(LPDIRECTSOUND3DLISTENER iface)
 {
-	IDirectSound3DListenerImpl *This = (IDirectSound3DListenerImpl *)iface;
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	return InterlockedIncrement(&(This->ref));
+    IDirectSound3DListenerImpl *This = (IDirectSound3DListenerImpl *)iface;
+    ULONG ref = InterlockedIncrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref - 1);
+    return ref;
 }
 
 static ULONG WINAPI IDirectSound3DListenerImpl_Release(LPDIRECTSOUND3DLISTENER iface)
 {
-	IDirectSound3DListenerImpl *This = (IDirectSound3DListenerImpl *)iface;
-	ULONG ulReturn;
+    IDirectSound3DListenerImpl *This = (IDirectSound3DListenerImpl *)iface;
+    ULONG ref = InterlockedDecrement(&(This->ref));
+    TRACE("(%p) ref was %ld\n", This, ref + 1);
 
-	TRACE("(%p) ref was %ld, thread is %04lx\n",This, This->ref, GetCurrentThreadId());
-	ulReturn = InterlockedDecrement(&(This->ref));
-
-	/* Free all resources */
-	if( ulReturn == 0 ) {
-		This->dsound->listener = 0;
-		HeapFree(GetProcessHeap(),0,This);
-		TRACE("(%p) released\n",This);
-	}
-
-	return ulReturn;
+    if (!ref) {
+        This->dsound->listener = 0;
+        HeapFree(GetProcessHeap(), 0, This);
+        TRACE("(%p) released\n", This);
+    }
+    return ref;
 }
 
 /* IDirectSound3DListener methods */
