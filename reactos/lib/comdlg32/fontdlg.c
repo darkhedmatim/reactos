@@ -29,6 +29,9 @@
 #include "winnls.h"
 #include "wingdi.h"
 #include "winuser.h"
+#include "wine/winbase16.h"
+#include "wine/winuser16.h"
+#include "heap.h"
 #include "commdlg.h"
 #include "dlgs.h"
 #include "wine/debug.h"
@@ -96,7 +99,7 @@ static const WCHAR *sample_lang_text[]={
     stKOI8,stIso88593,stIso88594,stIso885910,stCeltic};
 
 
-static const BYTE CHARSET_ORDER[256]={
+static const int CHARSET_ORDER[256]={
     CI(ANSI), 0, CI(SYMBOL), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -115,9 +118,9 @@ static const BYTE CHARSET_ORDER[256]={
     CI(VISCII), CI(TCVN), CI(KOI8), CI(ISO3), CI(ISO4), CI(ISO10), CI(CELTIC), 0, 0, 0, 0, 0, 0, 0, 0, CI(OEM),
 };
 
-static const struct {
-    DWORD       mask;
-    const char *name;
+struct {
+    int         mask;
+    char        *name;
 } cfflags[] = {
 #define XX(x) { x, #x },
     XX(CF_SCREENFONTS)
@@ -146,16 +149,17 @@ static const struct {
     XX(CF_NOSCRIPTSEL)
     XX(CF_NOVERTFONTS)
 #undef XX
+    {0,NULL},
 };
 
 void _dump_cf_flags(DWORD cflags)
 {
     int i;
 
-    for (i = 0; i < sizeof(cfflags)/sizeof(cfflags[0]); i++)
+    for (i=0;cfflags[i].name;i++)
         if (cfflags[i].mask & cflags)
-            TRACE("%s|",cfflags[i].name);
-    TRACE("\n");
+            MESSAGE("%s|",cfflags[i].name);
+    MESSAGE("\n");
 }
 
 /***********************************************************************
@@ -167,7 +171,7 @@ BOOL WINAPI ChooseFontW(LPCHOOSEFONTW lpChFont)
     HRSRC hResInfo;
     HINSTANCE hDlginst;
     HGLOBAL hDlgTmpl;
-
+    
     static const WCHAR chooseFontW[] = {'C','H','O','O','S','E','_',
                                         'F','O','N','T',0};
 
@@ -346,9 +350,9 @@ static int SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTA *lplf)
     {
         int italic;
         int weight;
-        const char *stname;
+        char stname[20];
     };
-    static const struct FONTSTYLE fontstyles[FSTYLES]={
+    static struct FONTSTYLE fontstyles[FSTYLES]={
         { 0,FW_NORMAL,"Regular"}, { 1,FW_NORMAL,"Italic"},
         { 0,FW_BOLD,"Bold"}, { 1,FW_BOLD,"Bold Italic"}
     };
@@ -410,10 +414,10 @@ static int AddFontSizeToCombo3(HWND hwnd, UINT h, LPCHOOSEFONTA lpcf)
  */
 static int SetFontSizesToCombo3(HWND hwnd, LPCHOOSEFONTA lpcf)
 {
-    static const char sizes[]={8,9,10,11,12,14,16,18,20,22,24,26,28,36,48,72};
+    static const int sizes[]={8,9,10,11,12,14,16,18,20,22,24,26,28,36,48,72,0};
     int i;
 
-    for (i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++)
+    for (i=0; sizes[i]; i++)
         if (AddFontSizeToCombo3(hwnd, sizes[i], lpcf)) return 1;
     return 0;
 }
@@ -481,7 +485,7 @@ INT AddFontStyle( const ENUMLOGFONTEXA *lpElfex, const NEWTEXTMETRICEXA *lpNTM,
     if( iswin16 || !( hcmb5 = GetDlgItem(hDlg, cmb5))) return 1;
     i = SendMessageA( hcmb5, CB_FINDSTRINGEXACT, 0,
                 (LPARAM)lpElfex->elfScript);
-    if( i == CB_ERR) {
+    if( i == CB_ERR) { 
         i = SendMessageA( hcmb5, CB_ADDSTRING, 0,
                 (LPARAM)lpElfex->elfScript);
         if( i != CB_ERR)
@@ -613,7 +617,7 @@ LRESULT CFn_WMInitDialog(HWND hDlg, WPARAM wParam, LPARAM lParam,
                 strcpy( name, "[color name]" );
             }
             j=SendDlgItemMessageA(hDlg, cmb4, CB_ADDSTRING, 0, (LPARAM)name);
-            SendDlgItemMessageA(hDlg, cmb4, CB_SETITEMDATA, j, textcolors[j]);
+            SendDlgItemMessageA(hDlg, cmb4, CB_SETITEMDATA16, j, textcolors[j]);
             /* look for a fitting value in color combobox */
             if (textcolors[j]==lpcf->rgbColors)
                 SendDlgItemMessageA(hDlg,cmb4, CB_SETCURSEL,j,0);
@@ -869,7 +873,7 @@ LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
             pstyle = SendDlgItemMessageA(hDlg, cmb2, CB_GETITEMDATA, idx, 0);
             idx = SendDlgItemMessageA(hDlg, cmb5, CB_GETCURSEL, 0, 0);
             charset = SendDlgItemMessageA(hDlg, cmb5, CB_GETITEMDATA, idx, 0);
-
+            
             SendDlgItemMessageA(hDlg, cmb2, CB_RESETCONTENT, 0, 0);
             SendDlgItemMessageA(hDlg, cmb3, CB_RESETCONTENT, 0, 0);
             SendDlgItemMessageA(hDlg, cmb5, CB_RESETCONTENT, 0, 0);
@@ -932,7 +936,7 @@ LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
                     lpcf->nFontType |= BOLD_FONTTYPE;
             }
             i=SendDlgItemMessageA(hDlg, cmb3, CB_GETCURSEL, 0, 0);
-            if( i != CB_ERR)
+            if( i != CB_ERR) 
                 lpcf->iPointSize = 10 * LOWORD(SendDlgItemMessageA(hDlg, cmb3,
                             CB_GETITEMDATA , i, 0));
             else
@@ -943,7 +947,7 @@ LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
                 lpxx->lfHeight = - MulDiv( lpcf->iPointSize ,
                         GetDeviceCaps(hdc, LOGPIXELSY), 720);
                 CFn_ReleaseDC(lpcf, hdc);
-            } else
+            } else 
                 lpxx->lfHeight = -lpcf->iPointSize / 10;
             i=SendDlgItemMessageA(hDlg, cmb5, CB_GETCURSEL, 0, 0);
             if (i!=CB_ERR)
@@ -1035,11 +1039,7 @@ LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam,
         LOGFONTA lf = *(lpcf->lpLogFont);
 
         MapWindowPoints( 0, hDlg, (LPPOINT) &info.rcWindow, 2);
-        hdc = BeginPaint( hDlg, &ps );
-
-        TRACE("erase %d, rect=(%ld,%ld)-(%ld,%ld)\n", ps.fErase,
-              ps.rcPaint.left, ps.rcPaint.top,
-              ps.rcPaint.right, ps.rcPaint.bottom);
+        hdc=BeginPaint( hDlg, &ps );
 
         /* Paint frame */
         MoveToEx( hdc, info.rcWindow.left, info.rcWindow.bottom, NULL );
@@ -1060,7 +1060,7 @@ LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam,
         info.rcWindow.left++;
         hOrigFont = SelectObject( hdc, CreateFontIndirectA( &lf ) );
         rgbPrev=SetTextColor( hdc, lpcf->rgbColors );
-
+        
         DrawTextW( hdc,
                 sample_lang_text[CHARSET_ORDER[lpcf->lpLogFont->lfCharSet]],
                 -1, &info.rcWindow, DT_CENTER|DT_VCENTER|DT_SINGLELINE );
@@ -1068,6 +1068,7 @@ LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam,
         DeleteObject(SelectObject( hdc, hOrigFont ));
         EndPaint( hDlg, &ps );
     }
+
     return FALSE;
 }
 
@@ -1079,7 +1080,6 @@ INT_PTR CALLBACK FormatCharDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam,
 {
     LPCHOOSEFONTA lpcf;
     INT_PTR res = FALSE;
-
     if (uMsg!=WM_INITDIALOG)
     {
         lpcf=(LPCHOOSEFONTA)GetPropA(hDlg, WINE_FONTDATA);
@@ -1130,7 +1130,6 @@ INT_PTR CALLBACK FormatCharDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam,
 {
     LPCHOOSEFONTW lpcf32w;
     INT_PTR res = FALSE;
-
     if (uMsg!=WM_INITDIALOG)
     {
         lpcf32w=(LPCHOOSEFONTW)GetPropA(hDlg, WINE_FONTDATA);

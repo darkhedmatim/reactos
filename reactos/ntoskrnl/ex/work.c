@@ -1,4 +1,4 @@
-/* $Id: work.c,v 1.24 2004/12/24 02:09:12 gdalsnes Exp $
+/* $Id: work.c,v 1.19 2004/08/15 16:39:01 chorns Exp $
  *
  * COPYRIGHT:          See COPYING in the top level directory
  * PROJECT:            ReactOS kernel
@@ -21,16 +21,39 @@
 
 /* TYPES *********************************************************************/
 
+typedef struct _WORK_QUEUE
+{
+   /*
+    * PURPOSE: Head of the list of waiting work items
+    */
+   LIST_ENTRY Head;
+   
+   /*
+    * PURPOSE: Sychronize access to the work queue
+    */
+   KSPIN_LOCK Lock;
+   
+   /*
+    * PURPOSE: Worker threads with nothing to do wait on this event
+    */
+   KSEMAPHORE Sem;
+   
+   /*
+    * PURPOSE: Thread associated with work queue
+    */
+   HANDLE Thread[NUMBER_OF_WORKER_THREADS];
+} WORK_QUEUE, *PWORK_QUEUE;
+
 /* GLOBALS *******************************************************************/
 
 /*
  * PURPOSE: Queue of items waiting to be processed at normal priority
  */
-KQUEUE EiNormalWorkQueue;
+WORK_QUEUE EiNormalWorkQueue;
 
-KQUEUE EiCriticalWorkQueue;
+WORK_QUEUE EiCriticalWorkQueue;
 
-KQUEUE EiHyperCriticalWorkQueue;
+WORK_QUEUE EiHyperCriticalWorkQueue;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -46,62 +69,52 @@ ExWorkerThreadEntryPoint(IN PVOID context)
  * calls PsTerminateSystemThread
  */
 {
-
+   PWORK_QUEUE queue = (PWORK_QUEUE)context;
    PWORK_QUEUE_ITEM item;
    PLIST_ENTRY current;
    
-   while (TRUE) 
-   {
-      current = KeRemoveQueue( (PKQUEUE)context, KernelMode, NULL );
-      
-      /* can't happend since we do a KernelMode wait (and we're a system thread) */
-      ASSERT((NTSTATUS)current != STATUS_USER_APC);
-      
-      /* this should never happend either, since we wait with NULL timeout,
-       * but there's a slight possibility that STATUS_TIMEOUT is returned
-       * at queue rundown in NT (unlikely) -Gunnar
-       */
-      ASSERT((NTSTATUS)current != STATUS_TIMEOUT);
-      
-      /* based on INVALID_WORK_QUEUE_ITEM bugcheck desc. */
-      if (current->Flink == NULL || current->Blink == NULL)
-      {
-         KeBugCheck(INVALID_WORK_QUEUE_ITEM);
-      }
-      
-      /* "reinitialize" item (same as done in ExInitializeWorkItem) */
-      current->Flink = NULL;
-      
-      item = CONTAINING_RECORD( current, WORK_QUEUE_ITEM, List);
-      item->WorkerRoutine(item->Parameter);
-      
-      if (KeGetCurrentIrql() != PASSIVE_LEVEL)
-      {
-         KeBugCheck(IRQL_NOT_LESS_OR_EQUAL);
-      }
-   }
-   
+   for(;;)
+     {
+	current = ExInterlockedRemoveHeadList(&queue->Head,
+					      &queue->Lock);
+	if (current!=NULL)
+	  {
+	     item = CONTAINING_RECORD(current,WORK_QUEUE_ITEM,List);
+	     item->WorkerRoutine(item->Parameter);
+	  }
+	else
+	  {
+	     KeWaitForSingleObject((PVOID)&queue->Sem,
+				   Executive,
+				   KernelMode,
+				   FALSE,
+				   NULL);
+	     DPRINT("Woke from wait\n");
+	  }
+     }
 }
 
-static VOID ExInitializeWorkQueue(PKQUEUE WorkQueue,
+static VOID ExInitializeWorkQueue(PWORK_QUEUE WorkQueue,
 				  KPRIORITY Priority)
 {
    ULONG i;
    PETHREAD Thread;
-   HANDLE   hThread;
    
-   
+   InitializeListHead(&WorkQueue->Head);
+   KeInitializeSpinLock(&WorkQueue->Lock);
+   KeInitializeSemaphore(&WorkQueue->Sem,
+			 0,
+			 256);
    for (i=0; i<NUMBER_OF_WORKER_THREADS; i++)
      {
-        
-   PsCreateSystemThread(&hThread,
+	PsCreateSystemThread(&WorkQueue->Thread[i],
 			     THREAD_ALL_ACCESS,
 			     NULL,
 			     NULL,
 			     NULL,
 			     ExWorkerThreadEntryPoint,
-              WorkQueue);
-   ObReferenceObjectByHandle(hThread,
+			     WorkQueue);
+	ObReferenceObjectByHandle(WorkQueue->Thread[i],
 				  THREAD_ALL_ACCESS,
 				  PsThreadType,
 				  KernelMode,
@@ -110,17 +123,12 @@ static VOID ExInitializeWorkQueue(PKQUEUE WorkQueue,
 	KeSetPriorityThread(&Thread->Tcb,
 			    Priority);
 	ObDereferenceObject(Thread);
-   ZwClose(hThread);
      }
 }
 
 VOID INIT_FUNCTION
 ExInitializeWorkerThreads(VOID)
 {
-   KeInitializeQueue( &EiNormalWorkQueue, NUMBER_OF_WORKER_THREADS );
-   KeInitializeQueue( &EiCriticalWorkQueue , NUMBER_OF_WORKER_THREADS );
-   KeInitializeQueue( &EiHyperCriticalWorkQueue , NUMBER_OF_WORKER_THREADS );
-
    ExInitializeWorkQueue(&EiNormalWorkQueue,
 			 LOW_PRIORITY);
    ExInitializeWorkQueue(&EiCriticalWorkQueue,
@@ -143,9 +151,9 @@ ExQueueWorkItem (PWORK_QUEUE_ITEM	WorkItem,
  *        QueueType = Queue to insert it in
  */
 {
-    ASSERT(WorkItem!=NULL);
+    assert(WorkItem!=NULL);
     ASSERT_IRQL(DISPATCH_LEVEL);
-    ASSERT(WorkItem->List.Flink == NULL);
+   
    /*
     * Insert the item in the appropiate queue and wake up any thread
     * waiting for something to do
@@ -153,26 +161,40 @@ ExQueueWorkItem (PWORK_QUEUE_ITEM	WorkItem,
     switch(QueueType)
     {
     case DelayedWorkQueue:
-      KeInsertQueue (
-          &EiNormalWorkQueue,
-          &WorkItem->List
-            );
-   	break;
+	    ExInterlockedInsertTailList(&EiNormalWorkQueue.Head,
+				    &WorkItem->List,
+				    &EiNormalWorkQueue.Lock);
+	    KeReleaseSemaphore(&EiNormalWorkQueue.Sem,
+			   IO_NO_INCREMENT,
+			   1,
+			   FALSE);
+	break;
 	
     case CriticalWorkQueue:
-            KeInsertQueue (
-              &EiCriticalWorkQueue,
-              &WorkItem->List
-              );
-   	    break;
+        ExInterlockedInsertTailList(&EiCriticalWorkQueue.Head,
+				    &WorkItem->List,
+				    &EiCriticalWorkQueue.Lock);
+        KeReleaseSemaphore(&EiCriticalWorkQueue.Sem,
+	       	  	   IO_NO_INCREMENT,
+	       		   1,
+	       		   FALSE);
+	    break;
 
     case HyperCriticalWorkQueue:
-            KeInsertQueue (
-             &EiHyperCriticalWorkQueue,
-             &WorkItem->List
-             );
-        	break;
+	    ExInterlockedInsertTailList(&EiHyperCriticalWorkQueue.Head,
+				    &WorkItem->List,
+				    &EiHyperCriticalWorkQueue.Lock);
+	    KeReleaseSemaphore(&EiHyperCriticalWorkQueue.Sem,
+			   IO_NO_INCREMENT,
+			   1,
+			   FALSE);
+    	break;
 
+#ifdef __USE_W32API
+	case MaximumWorkQueue:
+	   // Unimplemented
+	   break;
+#endif
     }
 }
 

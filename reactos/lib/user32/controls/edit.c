@@ -824,18 +824,16 @@ static LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
 
 	case WM_GETDLGCODE:
 		result = DLGC_HASSETSEL | DLGC_WANTCHARS | DLGC_WANTARROWS;
-		
-		if (es->style & ES_MULTILINE)
-		{
-		   result |= DLGC_WANTALLKEYS;
-		   break;
-		}
 
 		if (lParam && (((LPMSG)lParam)->message == WM_KEYDOWN))
 		{
 		   int vk = (int)((LPMSG)lParam)->wParam;
 
-		   if (es->hwndListBox && (vk == VK_RETURN || vk == VK_ESCAPE))
+		   if (vk == VK_RETURN && (GetWindowLongW( hwnd, GWL_STYLE ) & ES_WANTRETURN))
+		   {
+		      result |= DLGC_WANTMESSAGE;
+		   }
+		   else if (es->hwndListBox && (vk == VK_RETURN || vk == VK_ESCAPE))
 		   {
 		      if (SendMessageW(GetParent(hwnd), CB_GETDROPPEDSTATE, 0, 0))
 		         result |= DLGC_WANTMESSAGE;
@@ -2247,39 +2245,13 @@ static void EDIT_SetCaretPos(EDITSTATE *es, INT pos,
  */
 static void EDIT_SetRectNP(EDITSTATE *es, LPRECT rc)
 {
-	RECT ClientRect;
-	LONG_PTR ExStyle;
-
 	CopyRect(&es->format_rect, rc);
-	if (es->style & ES_MULTILINE)
-	{
-		if (es->style & WS_BORDER) {
-			INT bw = GetSystemMetrics(SM_CXBORDER) + 1;
-			es->format_rect.left += bw;
-			es->format_rect.right -= bw;
-			es->format_rect.top += bw;
-			es->format_rect.bottom -= bw;
-		}
-	}
-	else
-	{
-		ExStyle = GetWindowLongPtrW(es->hwndSelf, GWL_EXSTYLE);
-		if (ExStyle & WS_EX_CLIENTEDGE) {
-			if (es->line_height + 2 <=
-			    es->format_rect.bottom - es->format_rect.top) {
-				es->format_rect.top++;
-				es->format_rect.bottom--;
-			}
-		} else if (es->style & WS_BORDER) {
-			INT bw = GetSystemMetrics(SM_CXBORDER) + 1;
-			es->format_rect.left += bw;
-			es->format_rect.right -= bw;
-			if (es->line_height + 2 * bw <=
-			    es->format_rect.bottom - es->format_rect.top) {
-				es->format_rect.top += bw;
-				es->format_rect.bottom -= bw;
-			}
-		}
+	if (es->style & WS_BORDER) {
+		INT bw = GetSystemMetrics(SM_CXBORDER) + 1;
+		es->format_rect.left += bw;
+		es->format_rect.top += bw;
+		es->format_rect.right -= bw;
+		es->format_rect.bottom -= bw;
 	}
 	es->format_rect.left += es->left_margin;
 	es->format_rect.right -= es->right_margin;
@@ -2310,10 +2282,6 @@ static void EDIT_SetRectNP(EDITSTATE *es, LPRECT rc)
 	else
 	/* Windows doesn't care to fix text placement for SL controls */
 		es->format_rect.bottom = es->format_rect.top + es->line_height;
-
-	/* Always stay within the client area */
-	GetClientRect(es->hwndSelf, &ClientRect);
-	es->format_rect.bottom = min(es->format_rect.bottom, ClientRect.bottom);
 
 	if ((es->style & ES_MULTILINE) && !(es->style & ES_AUTOHSCROLL))
 		EDIT_BuildLineDefs_ML(es, 0, strlenW(es->text), 0, NULL);
@@ -2909,8 +2877,6 @@ static BOOL EDIT_EM_LineScroll_internal(EDITSTATE *es, INT dx, INT dy)
 {
 	INT nyoff;
 	INT x_offset_in_pixels;
-	INT lines_per_page = (es->format_rect.bottom - es->format_rect.top) /
-			      es->line_height;
 
 	if (es->style & ES_MULTILINE)
 	{
@@ -2927,8 +2893,8 @@ static BOOL EDIT_EM_LineScroll_internal(EDITSTATE *es, INT dx, INT dy)
 	if (dx > es->text_width - x_offset_in_pixels)
 		dx = es->text_width - x_offset_in_pixels;
 	nyoff = max(0, es->y_offset + dy);
-	if (nyoff >= es->line_count - lines_per_page)
-		nyoff = es->line_count - lines_per_page;
+	if (nyoff >= es->line_count)
+		nyoff = es->line_count - 1;
 	dy = (es->y_offset - nyoff) * es->line_height;
 	if (dx || dy) {
 		RECT rc1;
@@ -3746,6 +3712,10 @@ static void EDIT_WM_Char(EDITSTATE *es, WCHAR c)
 {
         BOOL control;
 
+	/* Protect read-only edit control from modification */
+	if(es->style & ES_READONLY)
+	    return;
+
 	control = GetKeyState(VK_CONTROL) & 0x8000;
 
 	switch (c) {
@@ -3787,12 +3757,10 @@ static void EDIT_WM_Char(EDITSTATE *es, WCHAR c)
 		SendMessageW(es->hwndSelf, WM_COPY, 0, 0);
 		break;
 	case 0x16: /* ^V */
-	        if (!(es->style & ES_READONLY))
-		    SendMessageW(es->hwndSelf, WM_PASTE, 0, 0);
+		SendMessageW(es->hwndSelf, WM_PASTE, 0, 0);
 		break;
 	case 0x18: /* ^X */
-	        if (!(es->style & ES_READONLY))
-		    SendMessageW(es->hwndSelf, WM_CUT, 0, 0);
+		SendMessageW(es->hwndSelf, WM_CUT, 0, 0);
 		break;
 
 	default:
@@ -4555,6 +4523,7 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
 			if (es->style & ES_RIGHT)
 				es->style &= ~ES_CENTER;
 			es->style &= ~WS_HSCROLL;
+			es->style &= ~ES_AUTOHSCROLL;
 		}
 
 		/* FIXME: for now, all multi line controls are AUTOVSCROLL */
@@ -4565,6 +4534,8 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
 		es->style &= ~ES_RIGHT;
 		es->style &= ~WS_HSCROLL;
 		es->style &= ~WS_VSCROLL;
+		es->style &= ~ES_AUTOVSCROLL;
+		es->style &= ~ES_WANTRETURN;
 		if (es->style & ES_PASSWORD)
 			es->password_char = '*';
 
@@ -4589,18 +4560,13 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
 	/*
 	 * In Win95 look and feel, the WS_BORDER style is replaced by the
 	 * WS_EX_CLIENTEDGE style for the edit control. This gives the edit
-	 * control a nonclient area so we don't need to draw the border.
-         * If WS_BORDER without WS_EX_CLIENTEDGE is specified we shouldn't have
-         * a nonclient area and we should handle painting the border ourselves.
-         *
-         * When making modifications please ensure that the code still works 
-         * for edit controls created directly with style 0x50800000, exStyle 0
-         * (which should have a single pixel border)
+	 * control a non client area.  Not always.  This coordinates in some
+         * way with the window creation code in dialog.c  When making
+         * modifications please ensure that the code still works for edit
+         * controls created directly with style 0x50800000, exStyle 0 (
+         * which should have a single pixel border)
 	 */
-	if (lpcs->dwExStyle & WS_EX_CLIENTEDGE)
-		es->style &= ~WS_BORDER;
-        else if (es->style & WS_BORDER)
-		SetWindowLongW(hwnd, GWL_STYLE, es->style & ~WS_BORDER);
+	es->style      &= ~WS_BORDER;
 
 	return TRUE;
 }

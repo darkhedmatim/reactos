@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: environment.c,v 1.9 2004/11/30 02:26:25 gdalsnes Exp $
+/* $Id: environment.c,v 1.6 2004/08/15 19:02:40 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -34,16 +16,15 @@ SetUserEnvironmentVariable (LPVOID *Environment,
 			    LPWSTR lpValue,
 			    BOOL bExpand)
 {
-   WCHAR ShortName[MAX_PATH];
-   UNICODE_STRING Name;
-   UNICODE_STRING SrcValue;
-   UNICODE_STRING DstValue;
-   ULONG Length;
-   NTSTATUS Status;
-   PVOID Buffer=NULL;
+  WCHAR ShortName[MAX_PATH];
+  UNICODE_STRING Name;
+  UNICODE_STRING SrcValue;
+  UNICODE_STRING DstValue;
+  ULONG Length;
+  NTSTATUS Status;
 
-   if (bExpand)
-   {
+  if (bExpand)
+    {
       RtlInitUnicodeString(&SrcValue,
 			   lpValue);
 
@@ -51,46 +32,43 @@ SetUserEnvironmentVariable (LPVOID *Environment,
 
       DstValue.Length = 0;
       DstValue.MaximumLength = Length;
-      DstValue.Buffer = Buffer = LocalAlloc(LPTR, 
-         Length);
-         
+      DstValue.Buffer = LocalAlloc(LPTR,
+				   Length);
       if (DstValue.Buffer == NULL)
-      {
-         DPRINT1("LocalAlloc() failed\n");
-         return FALSE;
-      }
+	{
+	  DPRINT1("LocalAlloc() failed\n");
+	  return FALSE;
+	}
 
       Status = RtlExpandEnvironmentStrings_U((PWSTR)*Environment,
 					     &SrcValue,
 					     &DstValue,
 					     &Length);
       if (!NT_SUCCESS(Status))
-      {
-         DPRINT1("RtlExpandEnvironmentStrings_U() failed (Status %lx)\n", Status);
-         DPRINT1("Length %lu\n", Length);
-         if (Buffer) LocalFree(Buffer);
-         return FALSE;
-      }
-   }
-   else
-   {
+	{
+	  DPRINT1("RtlExpandEnvironmentStrings_U() failed (Status %lx)\n", Status);
+	  DPRINT1("Length %lu\n", Length);
+	  return FALSE;
+	}
+    }
+  else
+    {
       RtlInitUnicodeString(&DstValue,
 			   lpValue);
-   }
+    }
 
-   if (!_wcsicmp (lpName, L"temp") || !_wcsicmp (lpName, L"tmp"))
-   {
+  if (!_wcsicmp (lpName, L"temp") || !_wcsicmp (lpName, L"tmp"))
+    {
       if (!GetShortPathNameW(DstValue.Buffer, ShortName, MAX_PATH))
-      {
-         DPRINT1("GetShortPathNameW() failed (Error %lu)\n", GetLastError());
-         if (Buffer) LocalFree(Buffer);
-         return FALSE;
-      }
+	{
+	  DPRINT1("GetShortPathNameW() failed (Error %lu)\n", GetLastError());
+	  return FALSE;
+	}
 
       DPRINT("Buffer: %S\n", ShortName);
       RtlInitUnicodeString(&DstValue,
 			   ShortName);
-   }
+    }
 
   RtlInitUnicodeString(&Name,
 		       lpName);
@@ -101,8 +79,11 @@ SetUserEnvironmentVariable (LPVOID *Environment,
 				     &Name,
 				     &DstValue);
 
-  if (Buffer) LocalFree(Buffer);
-   
+  if (bExpand)
+    {
+      LocalFree(DstValue.Buffer);
+    }
+
   if (!NT_SUCCESS(Status))
     {
       DPRINT1("RtlSetEnvironmentVariable() failed (Status %lx)\n", Status);
@@ -308,7 +289,7 @@ CreateEnvironmentBlock (LPVOID *lpEnvironment,
   HKEY hKeyUser;
   NTSTATUS Status;
 
-  DPRINT("CreateEnvironmentBlock() called\n");
+  DPRINT1 ("CreateEnvironmentBlock() called\n");
 
   if (lpEnvironment == NULL)
     return FALSE;

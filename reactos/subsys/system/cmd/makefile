@@ -33,6 +33,4 @@ include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
 
-include $(TOOLS_PATH)/depend.mk
-
 # EOF

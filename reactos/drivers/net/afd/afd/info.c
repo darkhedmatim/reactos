@@ -1,4 +1,4 @@
-/* $Id: info.c,v 1.6 2004/12/11 14:59:31 navaraf Exp $
+/* $Id: info.c,v 1.4 2004/07/29 04:09:06 arty Exp $
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/net/afd/afd/info.c
@@ -40,10 +40,6 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	case AFD_INFO_GROUP_ID_TYPE:
 	    InfoReq->Information.Ulong = 0; /* What is group id */
 	    break;
-
-	case AFD_INFO_BLOCKING_MODE:
-	    InfoReq->Information.Ulong = 0;
-	    break;
 	    
 	default:
 	    AFD_DbgPrint(MID_TRACE,("Unknown info id %x\n", 
@@ -56,56 +52,6 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	Status = STATUS_INVALID_PARAMETER;
     } _SEH_END;
 
-    AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
-
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
-}
-
-NTSTATUS STDCALL
-AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-		PIO_STACK_LOCATION IrpSp ) {
-    NTSTATUS Status = STATUS_SUCCESS;
-    PFILE_OBJECT FileObject = IrpSp->FileObject;
-    PAFD_FCB FCB = FileObject->FsContext;
-    PMDL Mdl;
-
-    AFD_DbgPrint(MID_TRACE,("Called on %x\n", FCB));
-
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, FALSE );
-
-    if( FCB->AddressFile.Object == NULL) {
-	return UnlockAndMaybeComplete( FCB, STATUS_UNSUCCESSFUL, Irp, 0,
-	                               NULL, FALSE );
-    }
-
-    Mdl = IoAllocateMdl
-	( Irp->UserBuffer, 
-	  IrpSp->Parameters.DeviceIoControl.OutputBufferLength,
-	  FALSE,
-	  FALSE,
-	  NULL );
-
-    if( Mdl != NULL ) {
-	_SEH_TRY {
-	    MmProbeAndLockPages( Mdl, Irp->RequestorMode, IoModifyAccess );
-	} _SEH_HANDLE {
-	    AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
-	    Status = _SEH_GetExceptionCode();
-	} _SEH_END;
-
-	if( NT_SUCCESS(Status) ) {
-	    Status = TdiQueryInformation
-		( FCB->AddressFile.Object,
-		  TDI_QUERY_ADDRESS_INFO,
-		  Mdl );
-	}
-
-	/* MmUnlockPages( Mdl ); */
-	IoFreeMdl( Mdl );
-    } else {
-    	Status = STATUS_INSUFFICIENT_RESOURCES;
-    }
-    
     AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
 
     return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );

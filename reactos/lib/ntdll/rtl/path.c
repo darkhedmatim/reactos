@@ -1,4 +1,4 @@
-/* $Id: path.c,v 1.31 2004/11/29 01:42:03 gdalsnes Exp $
+/* $Id: path.c,v 1.29 2004/08/25 15:04:19 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -173,38 +173,44 @@ ULONG STDCALL RtlGetLongestNtPathLength (VOID)
 
 /*
  * @implemented
- *
  */
 ULONG STDCALL
-RtlDetermineDosPathNameType_U(PCWSTR Path)
+RtlDetermineDosPathNameType_U(PWSTR Path)
 {
    DPRINT("RtlDetermineDosPathNameType_U %S\n", Path);
 
    if (Path == NULL)
-   {
-      return INVALID_PATH;
-   }
+     {
+	return 0;
+     }
 
    if (IS_PATH_SEPARATOR(Path[0]))
-   {
-      if (!IS_PATH_SEPARATOR(Path[1])) return ABSOLUTE_PATH;         /* \xxx   */
-      if (Path[2] != L'.') return UNC_PATH;                          /* \\xxx   */
-      if (IS_PATH_SEPARATOR(Path[3])) return DEVICE_PATH;            /* \\.\xxx */
-      if (Path[3]) return UNC_PATH;                                  /* \\.xxxx */
+     {
+	if (!IS_PATH_SEPARATOR(Path[1]))
+	  {
+	     return 4;			/* \xxx   */
+	  }
 
-      return UNC_DOT_PATH;                                           /* \\.     */
-   }
+	if (Path[2] != L'.')
+	  return 1;			/* \\xxx   */
+
+	if (IS_PATH_SEPARATOR(Path[3]))
+	  return 6;			/* \\.\xxx */
+
+	if (Path[3])
+	  return 1;			/* \\.xxxx */
+
+	return 7;				/* \\.     */
+     }
    else
-   {
-      /* FIXME: the Wine version of this line reads:
-       * if (!Path[1] || Path[1] != L':')    return RELATIVE_PATH
-       * Should we do this too?
-       * -Gunnar
-       */ 
-      if (Path[1] != L':') return RELATIVE_PATH;                     /* xxx     */
-      if (IS_PATH_SEPARATOR(Path[2])) return ABSOLUTE_DRIVE_PATH;    /* x:\xxx  */
+     {
+	if (Path[1] != L':')
+		return 5;			/* xxx     */
 
-      return RELATIVE_DRIVE_PATH;                                    /* x:xxx   */
+	if (IS_PATH_SEPARATOR(Path[2]))
+		return 2;			/* x:\xxx  */
+
+	return 3;				/* x:xxx   */
    }
 }
 

@@ -17,7 +17,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: debug.c,v 1.15 2004/11/20 23:46:37 blight Exp $
+/* $Id: debug.c,v 1.13 2004/08/15 16:39:10 chorns Exp $
  *
  * PROJECT:                ReactOS kernel
  * FILE:                   ntoskrnl/ps/debug.c
@@ -77,9 +77,6 @@ KeContextToTrapFrame(PCONTEXT Context,
      {
 	/*
 	 * Not handled
-	 *
-	 * This should be handled separately I think.
-	 *  - blight
 	 */
      }
    if ((Context->ContextFlags & CONTEXT_DEBUG_REGISTERS) == CONTEXT_DEBUG_REGISTERS)
@@ -132,33 +129,19 @@ KeTrapFrameToContext(PKTRAP_FRAME TrapFrame,
 	/*
 	 * FIXME: Implement this case
 	 */	
-	Context->ContextFlags &= (~CONTEXT_DEBUG_REGISTERS) | CONTEXT_i386;
      }
    if ((Context->ContextFlags & CONTEXT_FLOATING_POINT) == CONTEXT_FLOATING_POINT)
      {
 	/*
 	 * FIXME: Implement this case
-	 *
-	 * I think this should only be filled for FPU exceptions, otherwise I
-         * would not know where to get it from as it can be the current state
-	 * of the FPU or already saved in the thread's FPU save area.
-	 *  -blight
 	 */
-	Context->ContextFlags &= (~CONTEXT_FLOATING_POINT) | CONTEXT_i386;
      }
 #if 0
    if ((Context->ContextFlags & CONTEXT_EXTENDED_REGISTERS) == CONTEXT_EXTENDED_REGISTERS)
      {
 	/*
 	 * FIXME: Investigate this
-	 *
-	 * This is the XMM state (first 512 bytes of FXSAVE_FORMAT/FX_SAVE_AREA)
-	 * This should only be filled in case of a SIMD exception I think, so
-	 * this is not the right place (like for FPU the state could already be
-	 * saved in the thread's FX_SAVE_AREA or still be in the CPU)
-	 *  -blight
 	 */
-        Context->ContextFlags &= ~CONTEXT_EXTENDED_REGISTERS;
      }
 #endif
 }
@@ -202,7 +185,7 @@ KeGetContextKernelRoutine(PKAPC Apc,
 
 NTSTATUS STDCALL
 NtGetContextThread(IN HANDLE ThreadHandle,
-		   OUT PCONTEXT ThreadContext)
+		   OUT PCONTEXT UnsafeContext)
 {
   PETHREAD Thread;
   NTSTATUS Status;
@@ -211,7 +194,7 @@ NtGetContextThread(IN HANDLE ThreadHandle,
   KEVENT Event;
   NTSTATUS AStatus;
 
-  Status = MmCopyFromCaller(&Context, ThreadContext, sizeof(CONTEXT));
+  Status = MmCopyFromCaller(&Context, UnsafeContext, sizeof(CONTEXT));
   if (! NT_SUCCESS(Status))
     {
       return Status;
@@ -273,7 +256,7 @@ NtGetContextThread(IN HANDLE ThreadHandle,
     }
   if (NT_SUCCESS(Status))
     {
-      Status = MmCopyToCaller(ThreadContext, &Context, sizeof(Context));
+      Status = MmCopyToCaller(UnsafeContext, &Context, sizeof(Context));
     }
 
   ObDereferenceObject(Thread);
@@ -307,7 +290,7 @@ KeSetContextKernelRoutine(PKAPC Apc,
 
 NTSTATUS STDCALL
 NtSetContextThread(IN HANDLE ThreadHandle,
-		   IN PCONTEXT ThreadContext)
+		   IN PCONTEXT UnsafeContext)
 {
   PETHREAD Thread;
   NTSTATUS Status;
@@ -316,7 +299,7 @@ NtSetContextThread(IN HANDLE ThreadHandle,
   NTSTATUS AStatus;
   CONTEXT Context;
 
-  Status = MmCopyFromCaller(&Context, ThreadContext, sizeof(CONTEXT));
+  Status = MmCopyFromCaller(&Context, UnsafeContext, sizeof(CONTEXT));
   if (! NT_SUCCESS(Status))
     {
       return Status;

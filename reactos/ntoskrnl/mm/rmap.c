@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rmap.c,v 1.32 2004/12/24 17:06:59 navaraf Exp $
+/* $Id: rmap.c,v 1.30 2004/08/15 16:39:08 chorns Exp $
  *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
@@ -391,7 +391,6 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
 {
    PMM_RMAP_ENTRY current_entry;
    PMM_RMAP_ENTRY new_entry;
-   ULONG PrevSize;
 
    Address = (PVOID)PAGE_ROUND_DOWN(Address);
 
@@ -417,18 +416,6 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
    new_entry->Next = current_entry;
    MmSetRmapListHeadPage(Page, new_entry);
    ExReleaseFastMutex(&RmapListLock);
-   if (Process == NULL)
-   {
-      Process = PsInitialSystemProcess;
-   }
-   if (Process)
-   {
-      PrevSize = InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, PAGE_SIZE);
-      if (PrevSize >= Process->Vm.PeakWorkingSetSize)
-      {
-         Process->Vm.PeakWorkingSetSize = PrevSize + PAGE_SIZE;
-      }
-   }
 }
 
 VOID
@@ -438,7 +425,6 @@ MmDeleteAllRmaps(PFN_TYPE Page, PVOID Context,
 {
    PMM_RMAP_ENTRY current_entry;
    PMM_RMAP_ENTRY previous_entry;
-   PEPROCESS Process;
 
    ExAcquireFastMutex(&RmapListLock);
    current_entry = MmGetRmapListHeadPage(Page);
@@ -457,16 +443,7 @@ MmDeleteAllRmaps(PFN_TYPE Page, PVOID Context,
          DeleteMapping(Context, previous_entry->Process,
                        previous_entry->Address);
       }
-      Process = previous_entry->Process;
       ExFreeToNPagedLookasideList(&RmapLookasideList, previous_entry);
-      if (Process == NULL)
-      {
-         Process = PsInitialSystemProcess;
-      }
-      if (Process)
-      {
-         InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
-      }
    }
    ExReleaseFastMutex(&RmapListLock);
 }
@@ -495,14 +472,6 @@ MmDeleteRmap(PFN_TYPE Page, PEPROCESS Process,
          }
          ExReleaseFastMutex(&RmapListLock);
          ExFreeToNPagedLookasideList(&RmapLookasideList, current_entry);
-	 if (Process == NULL)
-	 {
-	    Process = PsInitialSystemProcess;
-	 }
-	 if (Process)
-	 {
-            InterlockedExchangeAddUL(&Process->Vm.WorkingSetSize, -PAGE_SIZE);
-	 }
          return;
       }
       previous_entry = current_entry;

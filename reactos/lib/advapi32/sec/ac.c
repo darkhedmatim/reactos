@@ -1,4 +1,4 @@
-/* $Id: ac.c,v 1.12 2004/12/13 19:06:28 weiden Exp $
+/* $Id: ac.c,v 1.10 2004/08/15 17:03:15 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -8,8 +8,6 @@
 
 #include "advapi32.h"
 
-#define NDEBUG
-#include <debug.h>
 
 /* --- ACL --- */
 
@@ -141,33 +139,6 @@ AddAccessAllowedAce (
 /*
  * @implemented
  */
-BOOL STDCALL
-AddAccessAllowedAceEx(PACL pAcl,
-		      DWORD dwAceRevision,
-		      DWORD AceFlags,
-		      DWORD AccessMask,
-		      PSID pSid)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAccessAllowedAceEx(pAcl,
-                                    dwAceRevision,
-                                    AceFlags,
-                                    AccessMask,
-                                    pSid);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 AddAccessDeniedAce (
@@ -190,33 +161,6 @@ AddAccessDeniedAce (
 	}
 
 	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-AddAccessDeniedAceEx(PACL pAcl,
-		     DWORD dwAceRevision,
-		     DWORD AceFlags,
-		     DWORD AccessMask,
-		     PSID pSid)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAccessDeniedAceEx(pAcl,
-                                   dwAceRevision,
-                                   AceFlags,
-                                   AccessMask,
-                                   pSid);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
 }
 
 
@@ -285,37 +229,6 @@ AddAuditAccessAce (
 /*
  * @implemented
  */
-BOOL STDCALL
-AddAuditAccessAceEx(PACL pAcl,
-		    DWORD dwAceRevision,
-		    DWORD AceFlags,
-		    DWORD dwAccessMask,
-		    PSID pSid,
-		    BOOL bAuditSuccess,
-		    BOOL bAuditFailure)
-{
-  NTSTATUS Status;
-
-  Status = RtlAddAuditAccessAceEx(pAcl,
-                                  dwAceRevision,
-                                  AceFlags,
-                                  dwAccessMask,
-                                  pSid,
-                                  bAuditSuccess,
-                                  bAuditFailure);
-  if (!NT_SUCCESS(Status))
-  {
-    SetLastError(RtlNtStatusToDosError(Status));
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 DeleteAce (
@@ -375,68 +288,6 @@ GetAce (
 	}
 
 	return TRUE;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetInheritanceSourceW (
-	LPWSTR			pObjectName,
-	SE_OBJECT_TYPE		ObjectType,
-	SECURITY_INFORMATION	SecurityInfo,
-	BOOL			Container,
-	GUID**			pObjectClassGuids  OPTIONAL,
-	DWORD			GuidCount,
-	PACL			pAcl,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL,
-	PGENERIC_MAPPING	pGenericMapping,
-	PINHERITED_FROMW	pInheritArray
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetInheritanceSourceA (
-	LPSTR			pObjectName,
-	SE_OBJECT_TYPE		ObjectType,
-	SECURITY_INFORMATION	SecurityInfo,
-	BOOL			Container,
-	GUID**			pObjectClassGuids  OPTIONAL,
-	DWORD			GuidCount,
-	PACL			pAcl,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL,
-	PGENERIC_MAPPING	pGenericMapping,
-	PINHERITED_FROM		pInheritArray
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-FreeInheritedFromArray (
-	PINHERITED_FROM		pInheritArray,
-	USHORT			AceCnt,
-	PFN_OBJECT_MGR_FUNCTS	pfnArray  OPTIONAL
-	)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /* EOF */

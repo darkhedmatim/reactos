@@ -1,4 +1,4 @@
-/* $Id: aspace.c,v 1.19 2004/09/09 20:42:33 hbirr Exp $
+/* $Id: aspace.c,v 1.18 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -81,13 +81,11 @@ MmInitializeAddressSpace(PEPROCESS Process,
    AddressSpace->Process = Process;
    if (Process != NULL)
    {
-      ULONG Count;
-      Count = MiGetUserPageDirectoryCount();
       AddressSpace->PageTableRefCountTable =
-         ExAllocatePoolWithTag(NonPagedPool, Count * sizeof(USHORT),
+         ExAllocatePoolWithTag(NonPagedPool, 768 * sizeof(USHORT),
                                TAG_PTRC);
-      RtlZeroMemory(AddressSpace->PageTableRefCountTable, Count * sizeof(USHORT));
-      AddressSpace->PageTableRefCountTableSize = Count;
+      RtlZeroMemory(AddressSpace->PageTableRefCountTable, 768 * sizeof(USHORT));
+      AddressSpace->PageTableRefCountTableSize = 768;
    }
    else
    {

@@ -654,4 +654,7 @@ do {                        \
 #define LEN_SQUARED_2FV( V ) ((V)[0]*(V)[0]+(V)[1]*(V)[1])
 
 
+/*@}*/
+
+
 #endif

@@ -44,8 +44,6 @@
 #define IDS_NOTIFY_SHOW                 40
 #define IDS_NOTIFY_HIDE                 41
 #define IDS_NOTIFY_AUTOHIDE             42
-#define IDS_SHOW_HIDDEN_ICONS           43
-#define IDS_HIDE_ICONS                  44
 #define IDI_REACTOS                     100
 #define IDI_EXPLORER                    101
 #define IDI_STARTMENU                   102
@@ -96,7 +94,6 @@
 #define IDB_ICON_ALIGN_2                155
 #define IDD_NOTIFYAREA                  155
 #define IDB_ICON_ALIGN_3                156
-#define IDD_MDI_SDI                     156
 #define IDB_ICON_ALIGN_4                157
 #define IDB_ICON_ALIGN_5                158
 #define IDB_ICON_ALIGN_6                159
@@ -111,8 +108,6 @@
 #define IDI_DOT_RED                     165
 #define IDI_ARROW_UP                    166
 #define IDI_ARROW_DOWN                  167
-#define IDI_NOTIFY_L                    168
-#define IDI_NOTIFY_R                    169
 #define ID_VIEW_NAME                    401
 #define ID_VIEW_ALL_ATTRIBUTES          402
 #define ID_VIEW_SELECTED_ATTRIBUTES     403
@@ -141,9 +136,7 @@
 #define IDC_LABEL3                      1011
 #define IDC_ICON_ALIGN_10               1012
 #define IDC_WWW                         1012
-#define IDC_LABEL6                      1012
 #define IDC_ICON_ALIGN_11               1013
-#define IDC_LAST_CHANGE                 1013
 #define IDC_FILTER                      1017
 #define IDC_PROGRAMS_FOUND              1018
 #define IDC_PICTURE                     1019
@@ -158,8 +151,6 @@
 #define IDC_CHECK_ENTRIES               1028
 #define IDC_VERSION_TXT                 1029
 #define IDC_WIN_VERSION                 1030
-#define IDC_MDI                         1030
-#define IDC_SDI                         1031
 #define ID_REFRESH                      1704
 #define ID_ABOUT_WINEFILE               1705
 #define IDS_VERSION_STR                 5000
@@ -196,8 +187,6 @@
 #define ID_CONFIG_TIME                  40018
 #define ID_VIEW_MDI                     40019
 #define ID_VIEW_SDI                     40020
-#define ID_TOOLS_OPTIONS                40021
-#define ID_SHOW_ICON_BUTTON             40023
 #define ID_SWITCH_DESKTOP_1             50000
 #define ID_WINDOW_NEW                   0xE130
 #define ID_WINDOW_ARRANGE               0xE131
@@ -215,9 +204,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        169
-#define _APS_NEXT_COMMAND_VALUE         40024
-#define _APS_NEXT_CONTROL_VALUE         1033
+#define _APS_NEXT_RESOURCE_VALUE        166
+#define _APS_NEXT_COMMAND_VALUE         40021
+#define _APS_NEXT_CONTROL_VALUE         1030
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

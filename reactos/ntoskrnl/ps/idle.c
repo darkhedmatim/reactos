@@ -16,6 +16,10 @@
 
 /* GLOBALS *******************************************************************/
 
+HANDLE PsIdleThreadHandle = NULL;
+extern ULONG DpcQueueSize;
+PETHREAD PiIdleThread;
+
 /* FUNCTIONS *****************************************************************/
 
 /** System idle thread procedure
@@ -25,12 +29,10 @@ VOID STDCALL
 PsIdleThreadMain(PVOID Context)
 {
    KIRQL oldlvl;
-
-   PKPCR Pcr = KeGetCurrentKPCR();
    
    for(;;)
      {
-       if (Pcr->PrcbData.DpcData[0].DpcQueueDepth > 0)
+       if (DpcQueueSize > 0)
 	 {
 	   KeRaiseIrql(DISPATCH_LEVEL,&oldlvl);
 	   KiDispatchInterrupt();
@@ -53,10 +55,8 @@ PsInitIdleThread(VOID)
    KPRIORITY Priority;
    ULONG Affinity;
    NTSTATUS Status;
-   PETHREAD IdleThread;
-   HANDLE IdleThreadHandle;
    
-   Status = PsCreateSystemThread(&IdleThreadHandle,
+   Status = PsCreateSystemThread(&PsIdleThreadHandle,
 			THREAD_ALL_ACCESS,
 			NULL,
 			NULL,
@@ -70,7 +70,7 @@ PsInitIdleThread(VOID)
    }   
 
    Priority = LOW_PRIORITY;
-   Status = NtSetInformationThread(IdleThreadHandle,
+   Status = NtSetInformationThread(PsIdleThreadHandle,
 			  ThreadPriority,
 			  &Priority,
 			  sizeof(Priority));
@@ -80,22 +80,11 @@ PsInitIdleThread(VOID)
    }
    
    Affinity = 1 << 0;
-   Status = NtSetInformationThread(IdleThreadHandle,
+   Status = NtSetInformationThread(PsIdleThreadHandle,
 			  ThreadAffinityMask,
 			  &Affinity,
 			  sizeof(Affinity));
    if(!NT_SUCCESS(Status)) {
 	DPRINT("Couldn't set Affinity Mask to Idle System Thread!");
-   }
-   Status = ObReferenceObjectByHandle(IdleThreadHandle,
-				      THREAD_ALL_ACCESS,
-				      PsThreadType,
-				      KernelMode,
-				      (PVOID*)&IdleThread,
-				      NULL);
-   if(!NT_SUCCESS(Status)) {
-	DPRINT("Couldn't get pointer to Idle System Thread!");
-   }
-   KeGetCurrentKPCR()->PrcbData.IdleThread = &IdleThread->Tcb;
-   NtClose(IdleThreadHandle);
+   }   
 }

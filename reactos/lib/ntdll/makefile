@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.111 2004/11/07 18:45:52 hyperion Exp $
+# $Id: makefile,v 1.108 2004/08/10 12:03:29 ekohl Exp $
 
 PATH_TO_TOP = ../..
 
@@ -69,6 +69,7 @@ RTL_OBJECTS = \
 	rtl/dbgbuffer.o \
 	rtl/exception.o \
 	rtl/handle.o \
+	rtl/intrlck.o \
 	rtl/math.o \
 	rtl/message.o \
 	rtl/misc.o \

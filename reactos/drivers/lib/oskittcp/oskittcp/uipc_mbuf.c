@@ -79,11 +79,9 @@ mbinit()
 #else
 #define NCL_INIT	1
 #endif
-	printf("Here1\n");
 	s = splimp();
 	if (m_clalloc(NCL_INIT, M_DONTWAIT) == 0)
 		goto bad;
-	printf("Here2\n");
 	splx(s);
 	return;
 bad:
@@ -115,14 +113,8 @@ m_clalloc(ncl, nowait)
 		return (0);
 
 	npg = ncl * CLSIZE;
-
-	printf("kmem_malloc(%d)\n", npg);
-	
 	p = (caddr_t)kmem_malloc(mb_map, ctob(npg),
 				 nowait ? M_NOWAIT : M_WAITOK);
-	
-	printf("kmem_malloc done\n");
-
 	/*
 	 * Either the map is now full, or this is nowait and there
 	 * are no pages left.
@@ -133,13 +125,11 @@ m_clalloc(ncl, nowait)
 	ncl = ncl * CLBYTES / MCLBYTES;
 	for (i = 0; i < ncl; i++) {
 		((union mcluster *)p)->mcl_next = mclfree;
-		printf( "Freeing %x onto the free list\n", p);
 		mclfree = (union mcluster *)p;
 		p += MCLBYTES;
 		mbstat.m_clfree++;
 	}
 	mbstat.m_clusters += ncl;
-	printf( "done with m_clalloc\n");
 	return (1);
 }
 #endif /* !OSKIT */
@@ -330,7 +320,7 @@ m_copym(m, off0, len, wait)
 		copyhdr = 1;
 	while (off > 0) {
 		if (m == 0)
-			panic("m_copym: %d", off);
+			panic("m_copym");
 		if (off < m->m_len)
 			break;
 		off -= m->m_len;
@@ -363,11 +353,7 @@ m_copym(m, off0, len, wait)
 #ifdef OSKIT
 			oskit_bufio_addref(m->m_ext.ext_bufio);
 #else
-#ifdef __REACTOS__
-			m->m_data = malloc(m->m_len);
-#else
 			mclrefcnt[mtocl(m->m_ext.ext_buf)]++;
-#endif
 #endif /* OSKIT */
 			n->m_ext = m->m_ext;
 			n->m_flags |= M_EXT;
@@ -416,7 +402,13 @@ m_copydata(m, off, len, cp)
 		if (m == 0)
 			panic("m_copydata");
 		count = min(m->m_len - off, len);
+#ifdef __REACTOS__
+		memcpy(cp, mtod(m, caddr_t) + off, count);
+#else
 		bcopy(mtod(m, caddr_t) + off, cp, count);
+#endif
+		OS_DbgPrint(OSK_MID_TRACE,("buf %x, len %d\n", m, count));
+		OskitDumpBuffer(m->m_data, count);
 		len -= count;
 		cp += count;
 		off = 0;

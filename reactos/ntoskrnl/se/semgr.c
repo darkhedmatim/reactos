@@ -1,4 +1,4 @@
-/* $Id: semgr.c,v 1.51 2004/11/21 18:35:05 gdalsnes Exp $
+/* $Id: semgr.c,v 1.40 2004/08/15 16:39:12 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -22,15 +22,13 @@
 
 PSE_EXPORTS EXPORTED SeExports = NULL;
 
-static ERESOURCE SepSubjectContextLock;
-
 
 /* PROTOTYPES ***************************************************************/
 
 static BOOLEAN SepInitExports(VOID);
 
-
 /* FUNCTIONS ****************************************************************/
+
 
 BOOLEAN INIT_FUNCTION
 SeInit1(VOID)
@@ -50,9 +48,6 @@ SeInit1(VOID)
 
   if (!SepInitExports())
     return FALSE;
-
-  /* Initialize the subject context lock */
-  ExInitializeResource(&SepSubjectContextLock);
 
   return TRUE;
 }
@@ -104,7 +99,7 @@ SeInitSRM(VOID)
   Status = NtCreateEvent(&EventHandle,
 			 EVENT_ALL_ACCESS,
 			 &ObjectAttributes,
-			 SynchronizationEvent,
+			 FALSE,
 			 FALSE);
   if (!NT_SUCCESS(Status))
     {
@@ -190,6 +185,20 @@ VOID SepDeReferenceLogonSession(PLUID AuthenticationId)
 }
 
 
+
+/*
+ * @unimplemented
+ */
+NTSTATUS STDCALL
+NtAllocateUuids(PULARGE_INTEGER Time,
+		PULONG Range,
+		PULONG Sequence)
+{
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
+}
+
+
 /*
  * @implemented
  */
@@ -222,24 +231,12 @@ SeCaptureSubjectContext(OUT PSECURITY_SUBJECT_CONTEXT SubjectContext)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID STDCALL
 SeLockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 {
-  KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&SepSubjectContextLock, TRUE);
-}
-
-
-/*
- * @implemented
- */
-VOID STDCALL
-SeUnlockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
-{
-  ExReleaseResourceLite(&SepSubjectContextLock);
-  KeLeaveCriticalRegion();
+  UNIMPLEMENTED;
 }
 
 
@@ -262,6 +259,16 @@ SeReleaseSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
 
 
 /*
+ * @unimplemented
+ */
+VOID STDCALL
+SeUnlockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext)
+{
+  UNIMPLEMENTED;
+}
+
+
+/*
  * @implemented
  */
 NTSTATUS STDCALL
@@ -276,25 +283,26 @@ SeDeassignSecurity(PSECURITY_DESCRIPTOR *SecurityDescriptor)
   return STATUS_SUCCESS;
 }
 
-
 /*
  * @unimplemented
  */
-NTSTATUS STDCALL
-SeAssignSecurityEx(IN PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
-		   IN PSECURITY_DESCRIPTOR ExplicitDescriptor OPTIONAL,
-		   OUT PSECURITY_DESCRIPTOR *NewDescriptor,
-		   IN GUID *ObjectType OPTIONAL,
-		   IN BOOLEAN IsDirectoryObject,
-		   IN ULONG AutoInheritFlags,
-		   IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-		   IN PGENERIC_MAPPING GenericMapping,
-		   IN POOL_TYPE PoolType)
+NTSTATUS
+STDCALL
+SeAssignSecurityEx(
+	IN PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
+	IN PSECURITY_DESCRIPTOR ExplicitDescriptor OPTIONAL,
+	OUT PSECURITY_DESCRIPTOR *NewDescriptor,
+	IN GUID *ObjectType OPTIONAL,
+	IN BOOLEAN IsDirectoryObject,
+	IN ULONG AutoInheritFlags,
+	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
+	IN PGENERIC_MAPPING GenericMapping,
+	IN POOL_TYPE PoolType
+	)
 {
-  UNIMPLEMENTED;
-  return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
-
 
 /*
  * FUNCTION: Creates a security descriptor for a new object.
@@ -327,14 +335,13 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
   ULONG SaclLength = 0;
   ULONG Length = 0;
   ULONG Control = 0;
-  ULONG_PTR Current;
+  ULONG Current;
   PSID Owner = NULL;
   PSID Group = NULL;
   PACL Dacl = NULL;
   PACL Sacl = NULL;
 
-  /* Lock subject context */
-  SeLockSubjectContext(SubjectContext);
+  /* FIXME: Lock subject context */
 
   if (SubjectContext->ClientToken != NULL)
     {
@@ -428,20 +435,20 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 	{
 	  Dacl = (PACL)(((ULONG_PTR)Dacl) + (ULONG_PTR)ParentDescriptor);
 	}
-      Control |= (SE_DACL_PRESENT | SE_DACL_DEFAULTED);
+      Control |= (SE_DACL_PRESENT & SE_DACL_DEFAULTED);
     }
   else if (Token != NULL && Token->DefaultDacl != NULL)
     {
       DPRINT("Use token default DACL!\n");
       /* FIXME: Inherit */
       Dacl = Token->DefaultDacl;
-      Control |= (SE_DACL_PRESENT | SE_DACL_DEFAULTED);
+      Control |= (SE_DACL_PRESENT & SE_DACL_DEFAULTED);
     }
   else
     {
       DPRINT("Use NULL DACL!\n");
       Dacl = NULL;
-      Control |= (SE_DACL_PRESENT | SE_DACL_DEFAULTED);
+      Control |= (SE_DACL_PRESENT & SE_DACL_DEFAULTED);
     }
 
   DaclLength = (Dacl != NULL) ? ROUND_UP(Dacl->AclSize, 4) : 0;
@@ -471,27 +478,17 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 	{
 	  Sacl = (PACL)(((ULONG_PTR)Sacl) + (ULONG_PTR)ParentDescriptor);
 	}
-      Control |= (SE_SACL_PRESENT | SE_SACL_DEFAULTED);
+      Control |= (SE_SACL_PRESENT & SE_SACL_DEFAULTED);
     }
 
   SaclLength = (Sacl != NULL) ? ROUND_UP(Sacl->AclSize, 4) : 0;
 
 
   /* Allocate and initialize the new security descriptor */
-  Length = sizeof(SECURITY_DESCRIPTOR) + 
-      OwnerLength + GroupLength + DaclLength + SaclLength;
-
-  DPRINT("L: sizeof(SECURITY_DESCRIPTOR) %d OwnerLength %d GroupLength %d DaclLength %d SaclLength %d\n", 
-	 sizeof(SECURITY_DESCRIPTOR),
-	 OwnerLength,
-	 GroupLength,
-	 DaclLength,
-	 SaclLength);
+  Length = sizeof(SECURITY_DESCRIPTOR) + OwnerLength + GroupLength + DaclLength + SaclLength;
 
   Descriptor = ExAllocatePool(NonPagedPool,
 			      Length);
-  RtlZeroMemory( Descriptor, Length );
-
   if (Descriptor == NULL)
     {
       DPRINT1("ExAlloctePool() failed\n");
@@ -504,14 +501,14 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 
   Descriptor->Control = Control | SE_SELF_RELATIVE;
 
-  Current = (ULONG_PTR)Descriptor + sizeof(SECURITY_DESCRIPTOR);
+  Current = (ULONG)Descriptor + sizeof(SECURITY_DESCRIPTOR);
 
   if (SaclLength != 0)
     {
       RtlCopyMemory((PVOID)Current,
 		    Sacl,
 		    SaclLength);
-      Descriptor->Sacl = (PACL)((ULONG_PTR)Current - (ULONG_PTR)Descriptor);
+      Descriptor->Sacl = (PACL)((ULONG)Current - (ULONG)Descriptor);
       Current += SaclLength;
     }
 
@@ -520,7 +517,7 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
       RtlCopyMemory((PVOID)Current,
 		    Dacl,
 		    DaclLength);
-      Descriptor->Dacl = (PACL)((ULONG_PTR)Current - (ULONG_PTR)Descriptor);
+      Descriptor->Dacl = (PACL)((ULONG)Current - (ULONG)Descriptor);
       Current += DaclLength;
     }
 
@@ -529,28 +526,21 @@ SeAssignSecurity(PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
       RtlCopyMemory((PVOID)Current,
 		    Owner,
 		    OwnerLength);
-      Descriptor->Owner = (PSID)((ULONG_PTR)Current - (ULONG_PTR)Descriptor);
+      Descriptor->Owner = (PSID)((ULONG)Current - (ULONG)Descriptor);
       Current += OwnerLength;
-      DPRINT("Owner of %x at %x\n", Descriptor, Descriptor->Owner);
     }
-  else
-      DPRINT("Owner of %x is zero length\n", Descriptor);
 
   if (GroupLength != 0)
     {
       memmove((PVOID)Current,
               Group,
               GroupLength);
-      Descriptor->Group = (PSID)((ULONG_PTR)Current - (ULONG_PTR)Descriptor);
+      Descriptor->Group = (PSID)((ULONG)Current - (ULONG)Descriptor);
     }
 
-  /* Unlock subject context */
-  SeUnlockSubjectContext(SubjectContext);
+   /* FIXME: Unlock subject context */
 
   *NewDescriptor = Descriptor;
-
-  DPRINT("Descrptor %x\n", Descriptor);
-  ASSERT(RtlLengthSecurityDescriptor(Descriptor));
 
   return STATUS_SUCCESS;
 }
@@ -627,11 +617,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 
   CurrentAccess = PreviouslyGrantedAccess;
 
-  if (SubjectContextLocked == FALSE)
-    {
-      SeLockSubjectContext(SubjectSecurityContext);
-    }
-
   Token = SubjectSecurityContext->ClientToken ?
 	    SubjectSecurityContext->ClientToken : SubjectSecurityContext->PrimaryToken;
 
@@ -642,23 +627,13 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 					&Defaulted);
   if (!NT_SUCCESS(Status))
     {
-      if (SubjectContextLocked == FALSE)
-	{
-	  SeUnlockSubjectContext(SubjectSecurityContext);
-	}
-
       *AccessStatus = Status;
       return FALSE;
     }
 
   /* RULE 1: Grant desired access if the object is unprotected */
-  if (Present == TRUE && Dacl == NULL)
+  if (Dacl == NULL)
     {
-      if (SubjectContextLocked == FALSE)
-	{
-	  SeUnlockSubjectContext(SubjectSecurityContext);
-	}
-
       *GrantedAccess = DesiredAccess;
       *AccessStatus = STATUS_SUCCESS;
       return TRUE;
@@ -679,11 +654,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
       CurrentAccess |= WRITE_OWNER;
       if (DesiredAccess == CurrentAccess)
 	{
-	  if (SubjectContextLocked == FALSE)
-	    {
-	      SeUnlockSubjectContext(SubjectSecurityContext);
-	    }
-
 	  *GrantedAccess = CurrentAccess;
 	  *AccessStatus = STATUS_SUCCESS;
 	  return TRUE;
@@ -697,11 +667,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
   if (!NT_SUCCESS(Status))
     {
       DPRINT1("RtlGetOwnerSecurityDescriptor() failed (Status %lx)\n", Status);
-      if (SubjectContextLocked == FALSE)
-	{
-	  SeUnlockSubjectContext(SubjectSecurityContext);
-	}
-
       *AccessStatus = Status;
       return FALSE;
    }
@@ -711,28 +676,10 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
       CurrentAccess |= (READ_CONTROL | WRITE_DAC);
       if (DesiredAccess == CurrentAccess)
 	{
-	  if (SubjectContextLocked == FALSE)
-	    {
-	      SeUnlockSubjectContext(SubjectSecurityContext);
-	    }
-
 	  *GrantedAccess = CurrentAccess;
 	  *AccessStatus = STATUS_SUCCESS;
 	  return TRUE;
 	}
-    }
-
-  /* Fail if DACL is absent */
-  if (Present == FALSE)
-    {
-      if (SubjectContextLocked == FALSE)
-	{
-	  SeUnlockSubjectContext(SubjectSecurityContext);
-	}
-
-      *GrantedAccess = 0;
-      *AccessStatus = STATUS_ACCESS_DENIED;
-      return TRUE;
     }
 
   /* RULE 4: Grant rights according to the DACL */
@@ -744,11 +691,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 	{
 	  if (SepSidInToken(Token, Sid))
 	    {
-	      if (SubjectContextLocked == FALSE)
-		{
-		  SeUnlockSubjectContext(SubjectSecurityContext);
-		}
-
 	      *GrantedAccess = 0;
 	      *AccessStatus = STATUS_ACCESS_DENIED;
 	      return TRUE;
@@ -762,11 +704,6 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 	      CurrentAccess |= CurrentAce->AccessMask;
 	    }
 	}
-    }
-
-  if (SubjectContextLocked == FALSE)
-    {
-      SeUnlockSubjectContext(SubjectSecurityContext);
     }
 
   DPRINT("CurrentAccess %08lx\n DesiredAccess %08lx\n",
@@ -839,19 +776,18 @@ NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
   SubjectSecurityContext.ClientToken = Token;
   SubjectSecurityContext.ImpersonationLevel = Token->ImpersonationLevel;
 
-  /* Lock subject context */
-  SeLockSubjectContext(&SubjectSecurityContext);
+  /* FIXME: Lock subject context */
 
-  if (SeAccessCheck(SecurityDescriptor,
-		    &SubjectSecurityContext,
-		    TRUE,
-		    DesiredAccess,
-		    0,
-		    &PrivilegeSet,
-		    GenericMapping,
-		    PreviousMode,
-		    GrantedAccess,
-		    AccessStatus))
+  if (!SeAccessCheck(SecurityDescriptor,
+		     &SubjectSecurityContext,
+		     TRUE,
+		     DesiredAccess,
+		     0,
+		     &PrivilegeSet,
+		     GenericMapping,
+		     PreviousMode,
+		     GrantedAccess,
+		     AccessStatus))
     {
       Status = *AccessStatus;
     }
@@ -860,8 +796,7 @@ NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
       Status = STATUS_ACCESS_DENIED;
     }
 
-  /* Unlock subject context */
-  SeUnlockSubjectContext(&SubjectSecurityContext);
+  /* FIXME: Unlock subject context */
 
   ObDereferenceObject(Token);
 

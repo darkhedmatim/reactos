@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.41 2004/12/28 08:49:06 gvg Exp $
+/* $Id: input.c,v 1.37 2004/07/30 09:42:11 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -324,12 +324,6 @@ KeyboardThreadMain(PVOID StartContext)
 	      /* Context mode. 1 if ALT if pressed while the key is pressed */
 	      lParam |= (1 << 29);
 	    }
-
-	  if (! KeyEvent.bKeyDown)
-	    {
-	      /* Transition state. 1 for KEY_UP etc, 0 for KEY_DOWN */
-	      lParam |= (1 << 31);
-	    }
 	  
 	  if (GetHotKey(InputWindowStation,
 			fsModifiers,
@@ -377,11 +371,11 @@ KeyboardThreadMain(PVOID StartContext)
 
 	  FocusThread = FocusQueue->Thread;
 
-	  if (FocusThread && FocusThread->Tcb.Win32Thread &&
-	      FocusThread->Tcb.Win32Thread->KeyboardLayout)
+	  if (FocusThread && FocusThread->Win32Thread && 
+	      FocusThread->Win32Thread->KeyboardLayout) 
 	    {
 	      W32kKeyProcessMessage(&msg,
-				    FocusThread->Tcb.Win32Thread->KeyboardLayout);
+				    FocusThread->Win32Thread->KeyboardLayout);
 	    } 
 	  else
 	    continue;
@@ -549,6 +543,7 @@ IntMouseInput(MOUSEINPUT *mi)
   BITMAPOBJ *BitmapObj;
   SURFOBJ *SurfObj;
   PDC dc;
+  RECTL PointerRect;
   PWINDOW_OBJECT DesktopWindow;
   NTSTATUS Status;
   
@@ -654,17 +649,16 @@ IntMouseInput(MOUSEINPUT *mi)
       {
         SurfObj = &BitmapObj->SurfObj;
 
-        if (GDIDEV(SurfObj)->Pointer.MovePointer)
+        if (GDIDEV(SurfObj)->MovePointer)
         {
-          GDIDEV(SurfObj)->Pointer.MovePointer(SurfObj, MousePos.x, MousePos.y, &(GDIDEV(SurfObj)->Pointer.Exclude));
+          GDIDEV(SurfObj)->MovePointer(SurfObj, MousePos.x, MousePos.y, &PointerRect);
         }
-        /* FIXME - That's a bad thing! We should't access private gdi pointer fields
-                   from here. However it is required so MouseSafetyOnDrawEnd() can
-                   properly paint the mouse cursor to the screen again. See the
-                   comment in MouseSafetyOnDrawEnd() to fix this problem! */
-        GDIDEV(SurfObj)->Pointer.Pos = MousePos;
 
         BITMAPOBJ_UnlockBitmap(hBitmap);
+
+        ExAcquireFastMutex(&CurInfo->CursorMutex);
+        SetPointerRect(CurInfo, &PointerRect);
+        ExReleaseFastMutex(&CurInfo->CursorMutex);
       }
     }
   }

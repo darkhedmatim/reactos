@@ -19,7 +19,7 @@
 #define DEBUG_MEMORY   0x00000200
 #define DEBUG_PBUFFER  0x00000400
 #define DEBUG_IRP      0x00000800
-#define DEBUG_TCPIF    0x00001000
+#define DEBUG_REFCOUNT 0x00001000
 #define DEBUG_ADDRFILE 0x00002000
 #define DEBUG_DATALINK 0x00004000
 #define DEBUG_ARP      0x00008000
@@ -31,7 +31,6 @@
 #define DEBUG_RCACHE   0x00200000
 #define DEBUG_NCACHE   0x00400000
 #define DEBUG_CPOINT   0x00800000
-#define DEBUG_LOCK     0x01000000
 #define DEBUG_ULTRA    0xFFFFFFFF
 
 #ifdef DBG
@@ -58,11 +57,28 @@ extern DWORD DebugTraceLevel;
 
 #endif /* _MSC_VER */
 
+#if 0
+#ifdef ASSERT
+#undef ASSERT
+#endif
+
+#ifdef NASSERT
+#define ASSERT(x)
+#else /* NASSERT */
+#define ASSERT(x) if (!(x)) { TI_DbgPrint(MIN_TRACE, ("Assertion "#x" failed at %s:%d\n", __FILE__, __LINE__)); KeBugCheck(0); }
+#endif /* NASSERT */
+#endif
+
 #define ASSERT_IRQL(x) ASSERT(KeGetCurrentIrql() <= (x))
 
 #else /* DBG */
 
 #define TI_DbgPrint(_t_, _x_)
+
+#if 0
+#define ASSERT_IRQL(x)
+#define ASSERT(x)
+#endif
 
 #endif /* DBG */
 
@@ -92,10 +108,6 @@ extern DWORD DebugTraceLevel;
 #define CP CHECKPOINT
 
 #include <memtrack.h>
-
-#define ASSERT_KM_POINTER(_x) \
-   ASSERT(((PVOID)_x) != (PVOID)0xcccccccc); \
-   ASSERT(((PVOID)_x) >= (PVOID)0x80000000);
 
 #endif /* __DEBUG_H */
 

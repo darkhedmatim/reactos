@@ -1,4 +1,4 @@
-/* $Id: token.c,v 1.17 2004/12/14 00:41:24 gdalsnes Exp $
+/* $Id: token.c,v 1.13 2004/08/15 17:03:15 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -235,7 +235,7 @@ SetThreadToken (PHANDLE ThreadHandle,
 
   Status = NtSetInformationThread (hThread,
 				   ThreadImpersonationToken,
-				   &TokenHandle,
+				   TokenHandle,
 				   sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
     {
@@ -261,27 +261,22 @@ DuplicateTokenEx (HANDLE ExistingTokenHandle,
   OBJECT_ATTRIBUTES ObjectAttributes;
   HANDLE NewToken;
   NTSTATUS Status;
-  SECURITY_QUALITY_OF_SERVICE Sqos;
-  
-  Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-  Sqos.ImpersonationLevel = ImpersonationLevel;
-  Sqos.ContextTrackingMode = 0;
-  Sqos.EffectiveOnly = FALSE;
 
-  InitializeObjectAttributes(
-      &ObjectAttributes,
-      NULL,
-      lpTokenAttributes->bInheritHandle ? OBJ_INHERIT : 0,
-      NULL,
-      lpTokenAttributes->lpSecurityDescriptor
-      );
- 
-  ObjectAttributes.SecurityQualityOfService = &Sqos;
+  ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+  ObjectAttributes.RootDirectory = NULL;
+  ObjectAttributes.ObjectName = NULL;
+  ObjectAttributes.Attributes = 0;
+  if (lpTokenAttributes->bInheritHandle)
+    {
+      ObjectAttributes.Attributes |= OBJ_INHERIT;
+    }
+  ObjectAttributes.SecurityDescriptor = lpTokenAttributes->lpSecurityDescriptor;
+  ObjectAttributes.SecurityQualityOfService = NULL;
 
   Status = NtDuplicateToken (ExistingTokenHandle,
 			     dwDesiredAccess,
 			     &ObjectAttributes,
-              Sqos.EffectiveOnly, /* why both here _and_ in Sqos? */
+			     ImpersonationLevel,
 			     TokenType,
 			     &NewToken);
   if (!NT_SUCCESS(Status))

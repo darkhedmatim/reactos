@@ -19,9 +19,12 @@
 
 /* See debug.h for debug/trace constants */
 DWORD DebugTraceLevel = MIN_TRACE;
-//DWORD DebugTraceLevel = DEBUG_ULTRA;
 
 #endif /* DBG */
+
+/* see miniport.c */
+extern KSPIN_LOCK OrphanAdapterListLock;
+extern LIST_ENTRY OrphanAdapterListHead;
 
 
 VOID STDCALL MainUnload(
@@ -61,7 +64,17 @@ DriverEntry(
   InitializeListHead(&AdapterListHead);
   KeInitializeSpinLock(&AdapterListLock);
 
+  InitializeListHead(&OrphanAdapterListHead);
+  KeInitializeSpinLock(&OrphanAdapterListLock);
+
   DriverObject->DriverUnload = MainUnload;
+
+  /* 
+   * until we have PNP support, query the enum key and NdisFindDevice() each one
+   * NOTE- this will load and start other services before this one returns STATUS_SUCCESS.
+   * I hope there aren't code reentrancy problems. :) 
+   */
+  //NdisStartDevices();
 
   return STATUS_SUCCESS;
 }

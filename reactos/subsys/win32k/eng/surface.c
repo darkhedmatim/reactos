@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: surface.c,v 1.48 2004/12/27 16:45:19 navaraf Exp $
+/* $Id: surface.c,v 1.44 2004/07/07 16:33:44 navaraf Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -60,7 +60,6 @@ ULONG FASTCALL BitmapFormat(WORD Bits, DWORD Compression)
   switch(Compression)
   {
     case BI_RGB:
-    case BI_BITFIELDS:
       switch(Bits)
       {
         case 1: return BMF_1BPP;
@@ -333,9 +332,6 @@ EngCreateBitmap(IN SIZEL Size,
   HBITMAP NewBitmap;
   
   NewBitmap = IntCreateBitmap(Size, Width, Format, Flags, Bits);
-  if ( !NewBitmap )
-	  return 0;
-
   GDIOBJ_SetOwnership(NewBitmap, NULL);
 
   return NewBitmap;
@@ -476,8 +472,6 @@ EngEraseSurface(SURFOBJ *Surface,
 		RECTL *Rect,
 		ULONG iColor)
 {
-  ASSERT(Surface);
-  ASSERT(Rect);
   return FillSolid(Surface, Rect, iColor);
 }
 
@@ -487,13 +481,7 @@ EngEraseSurface(SURFOBJ *Surface,
 SURFOBJ * STDCALL
 EngLockSurface(IN HSURF Surface)
 {
-  BITMAPOBJ *bmp = (BITMAPOBJ*)BITMAPOBJ_LockBitmap(Surface);
-  if(bmp != NULL)
-  {
-    return &bmp->SurfObj;
-  }
-  
-  return NULL;
+  return &((BITMAPOBJ*)BITMAPOBJ_LockBitmap(Surface))->SurfObj;
 }
 
 /*
@@ -502,7 +490,6 @@ EngLockSurface(IN HSURF Surface)
 VOID STDCALL
 EngUnlockSurface(IN SURFOBJ *Surface)
 {
-  ASSERT (Surface);
-  BITMAPOBJ_UnlockBitmap (Surface->hsurf);
+  BITMAPOBJ_UnlockBitmap ( Surface->hsurf );
 }
 /* EOF */

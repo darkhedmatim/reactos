@@ -15,9 +15,13 @@
  *        Unicode and redirection ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_VERIFY
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
 
 
 /* global verify flag */

@@ -1,10 +1,60 @@
-/* $Id: De.rc,v 1.3 2004/12/24 17:19:44 ekohl Exp $ */
-
-/*
- * German (Austria) resources by Klemens Friedl (frik85 at hotmail dot com)
- */
+#include <defines.h>
+#include <reactos/resource.h>
+#include "resource.h"
 
 LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+
+VS_VERSION_INFO VERSIONINFO
+	FILEVERSION	RES_UINT_FV_MAJOR,RES_UINT_FV_MINOR,RES_UINT_FV_REVISION,RES_UINT_FV_BUILD
+	PRODUCTVERSION	RES_UINT_PV_MAJOR,RES_UINT_PV_MINOR,RES_UINT_PV_REVISION,RES_UINT_PV_BUILD	
+	FILEFLAGSMASK	0x3fL
+#ifdef _DEBUG
+	FILEFLAGS	0x1L
+#else
+	FILEFLAGS	0x0L
+#endif
+	FILEOS		0x40004L
+	FILETYPE	0x2L
+	FILESUBTYPE	0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",	RES_STR_COMPANY_NAME
+            VALUE "FileDescription",	"ReactOS-Willkommen\0"
+            VALUE "FileVersion",	RES_STR_FILE_VERSION
+            VALUE "InternalName",	"welcome\0"
+            VALUE "LegalCopyright",	RES_STR_LEGAL_COPYRIGHT
+            VALUE "OriginalFilename",	"welcome.exe\0"
+            VALUE "ProductName",	RES_STR_PRODUCT_NAME
+            VALUE "ProductVersion",	RES_STR_PRODUCT_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x407, 1200
+    END
+END
+
+/* Icons */
+IDI_MAIN                ICON  "res/welcome.ico"
+
+/* Bitmaps */
+IDB_TITLEBITMAP         BITMAP  DISCARDABLE     "res/title.bmp"
+//IDB_DEFAULTTOPICBITMAP  BITMAP  DISCARDABLE     "res/default.bmp"
+
+//IDB_TOPICBITMAP0        BITMAP  DISCARDABLE     "res/topic0.bmp"
+//IDB_TOPICBITMAP1        BITMAP  DISCARDABLE     "res/topic1.bmp"
+//IDB_TOPICBITMAP2        BITMAP  DISCARDABLE     "res/topic2.bmp"
+//IDB_TOPICBITMAP3        BITMAP  DISCARDABLE     "res/topic3.bmp"
+//IDB_TOPICBITMAP4        BITMAP  DISCARDABLE     "res/topic4.bmp"
+//IDB_TOPICBITMAP5        BITMAP  DISCARDABLE     "res/topic5.bmp"
+//IDB_TOPICBITMAP6        BITMAP  DISCARDABLE     "res/topic6.bmp"
+//IDB_TOPICBITMAP7        BITMAP  DISCARDABLE     "res/topic7.bmp"
+//IDB_TOPICBITMAP8        BITMAP  DISCARDABLE     "res/topic8.bmp"
+//IDB_TOPICBITMAP9        BITMAP  DISCARDABLE     "res/topic9.bmp"
+
 
 /* String Tables */
 
@@ -13,7 +63,7 @@ STRINGTABLE DISCARDABLE
 BEGIN
     IDS_APPTITLE            "ReactOS - Willkommen"
     IDS_DEFAULTTOPICTITLE   "ReactOS"
-    IDS_DEFAULTTOPICDESC    "Willkommen in ReactOS.\n\nKlicken Sie auf ein Thema auf der linken Seite."
+    IDS_DEFAULTTOPICDESC    "Willkommen in ReactOS.\n\nKlicken Sie auf ein Thema links."
 //    IDS_CHECKTEXT           "Dialog beim nächsen Start wieder anzeigen"
 //    IDS_CLOSETEXT           "Beenden"
 END
@@ -51,7 +101,7 @@ END
 /* Topic descriptions */
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_TOPICDESC0          "Installiert ReactOS auf ihrem Computer oder aktualisiert eine bestehende Installation."
+    IDS_TOPICDESC0          "Erstellt eine neue ReactOS Installation auf ihrem PC oder aktualisiert eine bestehende Installation."
     IDS_TOPICDESC1          "Die ReactOS-CD durchsuchen."
     IDS_TOPICDESC2          "Klicken Sie um dieses Programm zu beenden."
 //    IDS_TOPICDESC3          "Topic description 3.\n\nDescribe topic 3 here."
@@ -63,5 +113,21 @@ BEGIN
 //    IDS_TOPICDESC9          "Topic description 9.\n\nDescribe topic 9 here."
 END
 
+/* Topic actions */
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_TOPICACTION0        "setup.exe"
+    IDS_TOPICACTION1        "explorer.exe"
+    IDS_TOPICACTION2        "<exit>"  /* this quits the app */
+//    IDS_TOPICACTION3        "..."
+//    IDS_TOPICACTION4        "..."
+//    IDS_TOPICACTION5        "..."
+//    IDS_TOPICACTION6        "..."
+//    IDS_TOPICACTION7        "..."
+//    IDS_TOPICACTION8        "..."
+//    IDS_TOPICACTION9        "..."
+END
+
+// German (Austria) resources by Klemens Friedl (frik85 at hotmail dot com)
 /* EOF */
 

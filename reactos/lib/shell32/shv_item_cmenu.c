@@ -20,10 +20,8 @@
 
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "winerror.h"
 #include "wine/debug.h"
 
@@ -43,7 +41,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 *  IContextMenu Implementation
 */
 typedef struct
-{	IContextMenu2Vtbl *lpVtbl;
+{	ICOM_VFIELD(IContextMenu2);
 	DWORD		ref;
 	IShellFolder*	pSFParent;
 	LPITEMIDLIST	pidl;		/* root pidl */
@@ -53,7 +51,7 @@ typedef struct
 } ItemCmImpl;
 
 
-static struct IContextMenu2Vtbl cmvt;
+static struct ICOM_VTABLE(IContextMenu2) cmvt;
 
 /**************************************************************************
 * ISvItemCm_CanRenameItems()
@@ -109,7 +107,7 @@ IContextMenu2 *ISvItemCm_Constructor(LPSHELLFOLDER pSFParent, LPCITEMIDLIST pidl
 */
 static HRESULT WINAPI ISvItemCm_fnQueryInterface(IContextMenu2 *iface, REFIID riid, LPVOID *ppvObj)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvObj);
 
@@ -141,7 +139,7 @@ static HRESULT WINAPI ISvItemCm_fnQueryInterface(IContextMenu2 *iface, REFIID ri
 */
 static ULONG WINAPI ISvItemCm_fnAddRef(IContextMenu2 *iface)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
@@ -153,7 +151,7 @@ static ULONG WINAPI ISvItemCm_fnAddRef(IContextMenu2 *iface)
 */
 static ULONG WINAPI ISvItemCm_fnRelease(IContextMenu2 *iface)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	TRACE("(%p)->()\n",This);
 
@@ -220,7 +218,7 @@ static HRESULT WINAPI ISvItemCm_fnQueryContextMenu(
 	UINT idCmdLast,
 	UINT uFlags)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	TRACE("(%p)->(hmenu=%p indexmenu=%x cmdfirst=%x cmdlast=%x flags=%x )\n",This, hmenu, indexMenu, idCmdFirst, idCmdLast, uFlags);
 
@@ -271,7 +269,7 @@ static void DoOpenExplore(
 	HWND hwnd,
 	LPCSTR verb)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	UINT i, bFolderFound = FALSE;
 	LPITEMIDLIST	pidlFQ;
@@ -312,7 +310,7 @@ static void DoRename(
 	IContextMenu2 *iface,
 	HWND hwnd)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	LPSHELLBROWSER	lpSB;
 	LPSHELLVIEW	lpSV;
@@ -339,7 +337,7 @@ static void DoRename(
  */
 static void DoDelete(IContextMenu2 *iface)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 	ISFHelper * psfhlp;
 
 	IShellFolder_QueryInterface(This->pSFParent, &IID_ISFHelper, (LPVOID*)&psfhlp);
@@ -360,7 +358,7 @@ static BOOL DoCopyOrCut(
 	HWND hwnd,
 	BOOL bCut)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	LPSHELLBROWSER	lpSB;
 	LPSHELLVIEW	lpSV;
@@ -390,7 +388,7 @@ static HRESULT WINAPI ISvItemCm_fnInvokeCommand(
 	IContextMenu2 *iface,
 	LPCMINVOKECOMMANDINFO lpcmi)
 {
-    ItemCmImpl *This = (ItemCmImpl *)iface;
+    ICOM_THIS(ItemCmImpl, iface);
 
     if (lpcmi->cbSize != sizeof(CMINVOKECOMMANDINFO))
         FIXME("Is an EX structure\n");
@@ -457,7 +455,7 @@ static HRESULT WINAPI ISvItemCm_fnGetCommandString(
 	LPSTR lpszName,
 	UINT uMaxNameLen)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	HRESULT  hr = E_INVALIDARG;
 
@@ -512,15 +510,16 @@ static HRESULT WINAPI ISvItemCm_fnHandleMenuMsg(
 	WPARAM wParam,
 	LPARAM lParam)
 {
-	ItemCmImpl *This = (ItemCmImpl *)iface;
+	ICOM_THIS(ItemCmImpl, iface);
 
 	TRACE("(%p)->(msg=%x wp=%x lp=%lx)\n",This, uMsg, wParam, lParam);
 
 	return E_NOTIMPL;
 }
 
-static struct IContextMenu2Vtbl cmvt =
+static struct ICOM_VTABLE(IContextMenu2) cmvt =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISvItemCm_fnQueryInterface,
 	ISvItemCm_fnAddRef,
 	ISvItemCm_fnRelease,

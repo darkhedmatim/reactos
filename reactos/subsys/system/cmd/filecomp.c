@@ -20,7 +20,14 @@
  *       Now expands lfn even when trailing " is omitted.
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdio.h>
 
 
 #ifdef FEATURE_UNIX_FILENAME_COMPLETION
@@ -32,8 +39,7 @@ VOID CompleteFilename (LPTSTR str, INT charcount)
 	INT   curplace = 0;
 	INT   start;
 	INT   count;
-	INT step;
-	INT c = 0;
+	INT step, c;
 	BOOL  found_dot = FALSE;
 	BOOL  perfectmatch = TRUE;
 	TCHAR path[MAX_PATH];

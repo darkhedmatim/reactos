@@ -32,7 +32,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  6.2
+ * Version:  6.1
  *
  * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
@@ -58,7 +58,6 @@
 
 #include "imports.h"
 #include "context.h"
-#include "version.h"
 
 
 #define MAXSTRING 4000  /* for vsnprintf() */
@@ -906,10 +905,10 @@ _mesa_problem( const GLcontext *ctx, const char *fmtString, ... )
    va_end( args );
 
 #if defined(XFree86LOADER) && defined(IN_MODULE)
-   xf86fprintf(stderr, "Mesa %s implementation error: %s\n", MESA_VERSION_STRING, str);
+   xf86fprintf(stderr, "Mesa implementation error: %s\n", str);
    xf86fprintf(stderr, "Please report to the DRI project at dri.sourceforge.net\n");
 #else
-   fprintf(stderr, "Mesa %s implementation error: %s\n", MESA_VERSION_STRING, str);
+   fprintf(stderr, "Mesa implementation error: %s\n", str);
    fprintf(stderr, "Please report to the Mesa bug database at www.mesa3d.org\n" );
 #endif
 }

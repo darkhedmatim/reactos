@@ -1,14 +1,5 @@
-/* This file contains the proxy/stub code for core COM interfaces.
+/* this ALWAYS GENERATED file contains the proxy stub code */
 
-   It is usually generated directly by MIDL, however this file has
-   been tweaked since then to account for slight differences in the way
-   gcc and MSVC++ compile it. In particular, in some functions REFIIDs
-   declared on the stack have been converted to plain IID* in order to eliminate
-   the constness of the REFIID type, ensuring that the zero initializer is not
-   discarded.
-
-   Therefore, please do not regenerate this file.
-*/
 
 /* File created by MIDL compiler version 5.01.0164 */
 /* at Tue Jan 07 22:24:52 2003
@@ -27,8 +18,6 @@
 
 
 #include <stdarg.h>
-
-#define COBJMACROS
 
 #include "windef.h"
 #include "winbase.h"
@@ -57,8 +46,8 @@ typedef struct _MIDL_PROC_FORMAT_STRING
     } MIDL_PROC_FORMAT_STRING;
 
 
-static const MIDL_TYPE_FORMAT_STRING __MIDL_TypeFormatString;
-static const MIDL_PROC_FORMAT_STRING __MIDL_ProcFormatString;
+extern const MIDL_TYPE_FORMAT_STRING __MIDL_TypeFormatString;
+extern const MIDL_PROC_FORMAT_STRING __MIDL_ProcFormatString;
 
 
 /* Standard interface: __MIDL_itf_oaidl_0000, ver. 0.0,
@@ -77,7 +66,7 @@ static const MIDL_PROC_FORMAT_STRING __MIDL_ProcFormatString;
    GUID={0x00020400,0x0000,0x0000,{0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46}} */
 
 
-static const MIDL_STUB_DESC Object_StubDesc;
+extern const MIDL_STUB_DESC Object_StubDesc;
 
 
 HRESULT STDMETHODCALLTYPE IDispatch_GetTypeInfoCount_Proxy( 
@@ -116,11 +105,9 @@ HRESULT STDMETHODCALLTYPE IDispatch_GetTypeInfoCount_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[0] );
             
-            *pctinfo = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pctinfo = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -159,7 +146,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pctinfo = 0;
+    ( UINT __RPC_FAR * )pctinfo = 0;
     RpcTryFinally
         {
         pctinfo = &_M0;
@@ -171,11 +158,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pctinfo;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pctinfo;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -228,11 +213,9 @@ HRESULT STDMETHODCALLTYPE IDispatch_GetTypeInfo_Proxy(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = iTInfo;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = iTInfo;
             
-            *( LCID __RPC_FAR * )_StubMsg.Buffer = lcid;
-            _StubMsg.Buffer += sizeof(LCID);
+            *(( LCID __RPC_FAR * )_StubMsg.Buffer)++ = lcid;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -245,8 +228,7 @@ HRESULT STDMETHODCALLTYPE IDispatch_GetTypeInfo_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -287,17 +269,15 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTInfo = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[6] );
         
-        iTInfo = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        iTInfo = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        lcid = *( LCID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(LCID);
+        lcid = *(( LCID __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppTInfo = &_M1;
         _M1 = 0;
@@ -324,8 +304,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[6] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -406,11 +385,9 @@ HRESULT STDMETHODCALLTYPE IDispatch_GetIDsOfNames_Proxy(
                                         (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[54] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = cNames;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = cNames;
             
-            *( LCID __RPC_FAR * )_StubMsg.Buffer = lcid;
-            _StubMsg.Buffer += sizeof(LCID);
+            *(( LCID __RPC_FAR * )_StubMsg.Buffer)++ = lcid;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -422,8 +399,7 @@ HRESULT STDMETHODCALLTYPE IDispatch_GetIDsOfNames_Proxy(
                                           (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[88],
                                           (unsigned char)0 );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -460,15 +436,15 @@ void __RPC_STUB IDispatch_GetIDsOfNames_Stub(
     LCID lcid;
     DISPID __RPC_FAR *rgDispId;
     LPOLESTR __RPC_FAR *rgszNames;
-    IID* riid = 0;
+    REFIID riid = 0;
     
 NdrStubInitialize(
                      _pRpcMessage,
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    rgszNames = 0;
-    rgDispId = 0;
+    ( LPOLESTR __RPC_FAR * )rgszNames = 0;
+    ( DISPID __RPC_FAR * )rgDispId = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -485,12 +461,9 @@ NdrStubInitialize(
                                       (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        cNames = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
-
+        cNames = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        lcid = *( LCID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(LCID);
+        lcid = *(( LCID __RPC_FAR * )_StubMsg.Buffer)++;
         
         rgDispId = NdrAllocate(&_StubMsg,cNames * 4);
         
@@ -521,8 +494,7 @@ NdrStubInitialize(
                                     (unsigned char __RPC_FAR *)rgDispId,
                                     (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[88] );
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -643,26 +615,22 @@ NdrStubInitialize(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1184] );
             
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( DISPID __RPC_FAR * )_StubMsg.Buffer = dispIdMember;
-            _StubMsg.Buffer += sizeof(DISPID);
+            *(( DISPID __RPC_FAR * )_StubMsg.Buffer)++ = dispIdMember;
             
             NdrSimpleStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                      (unsigned char __RPC_FAR *)riid,
                                      (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
             
-            *( LCID __RPC_FAR * )_StubMsg.Buffer = lcid;
-            _StubMsg.Buffer += sizeof(LCID);
+            *(( LCID __RPC_FAR * )_StubMsg.Buffer)++ = lcid;
             
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = dwFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = dwFlags;
             
             NdrComplexStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                       (unsigned char __RPC_FAR *)pDispParams,
                                       (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1080] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = cVarRef;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = cVarRef;
             
             _StubMsg.MaxCount = cVarRef;
             
@@ -692,8 +660,7 @@ NdrStubInitialize(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pArgErr = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pArgErr = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrComplexArrayUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                        (unsigned char __RPC_FAR * __RPC_FAR *)&rgVarRef,
@@ -701,8 +668,7 @@ NdrStubInitialize(
                                        (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -760,37 +726,34 @@ void __RPC_STUB IDispatch_RemoteInvoke_Stub(
     VARIANT __RPC_FAR *pVarResult;
     VARIANTARG __RPC_FAR *rgVarRef;
     UINT __RPC_FAR *rgVarRefIdx;
-    IID* riid = 0;
+    REFIID riid = 0;
     
 NdrStubInitialize(
                      _pRpcMessage,
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pDispParams = 0;
-    pVarResult = 0;
-    pExcepInfo = 0;
-    pArgErr = 0;
-    rgVarRefIdx = 0;
-    rgVarRef = 0;
+    ( DISPPARAMS __RPC_FAR * )pDispParams = 0;
+    ( VARIANT __RPC_FAR * )pVarResult = 0;
+    ( EXCEPINFO __RPC_FAR * )pExcepInfo = 0;
+    ( UINT __RPC_FAR * )pArgErr = 0;
+    ( UINT __RPC_FAR * )rgVarRefIdx = 0;
+    ( VARIANTARG __RPC_FAR * )rgVarRef = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[34] );
         
-        dispIdMember = *( DISPID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DISPID);
+        dispIdMember = *(( DISPID __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                    (unsigned char __RPC_FAR * __RPC_FAR *)&riid,
                                    (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38],
                                    (unsigned char)0 );
         
-        lcid = *( LCID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(LCID);
+        lcid = *(( LCID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        dwFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        dwFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrComplexStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                     (unsigned char __RPC_FAR * __RPC_FAR *)&pDispParams,
@@ -798,8 +761,7 @@ NdrStubInitialize(
                                     (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        cVarRef = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        cVarRef = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrConformantArrayUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&rgVarRefIdx,
@@ -865,8 +827,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1138] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pArgErr;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pArgErr;
         
         _StubMsg.MaxCount = cVarRef;
         
@@ -875,8 +836,7 @@ NdrStubInitialize(
                                  (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1184] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -992,8 +952,7 @@ extern const MIDL_STUB_DESC Object_StubDesc;
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = celt;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = celt;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -1006,11 +965,9 @@ extern const MIDL_STUB_DESC Object_StubDesc;
                                        (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pCeltFetched = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *pCeltFetched = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -1059,15 +1016,14 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    rgVar = 0;
-    pCeltFetched = 0;
+    ( VARIANT __RPC_FAR * )rgVar = 0;
+    ( ULONG __RPC_FAR * )pCeltFetched = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[72] );
         
-        celt = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        celt = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
         
         rgVar = NdrAllocate(&_StubMsg,celt * 16);
         pCeltFetched = &_M11;
@@ -1104,11 +1060,9 @@ NdrStubInitialize(
                                  (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1206] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( ULONG __RPC_FAR * )_StubMsg.Buffer = *pCeltFetched;
-        _StubMsg.Buffer += sizeof(ULONG);
+        *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = *pCeltFetched;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -1156,16 +1110,14 @@ HRESULT STDMETHODCALLTYPE IEnumVARIANT_Skip_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = celt;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = celt;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[84] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -1204,8 +1156,8 @@ NdrStubInitialize(
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[84] );
         
-        celt = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        celt = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
+        
         
         *_pdwStubPhase = STUB_CALL_SERVER;
         _RetVal = (((IEnumVARIANT*) ((CStdStubBuffer *)This)->pvServerObject)->lpVtbl) -> Skip((IEnumVARIANT *) ((CStdStubBuffer *)This)->pvServerObject,celt);
@@ -1214,8 +1166,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -1259,9 +1210,8 @@ HRESULT STDMETHODCALLTYPE IEnumVARIANT_Reset_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
- 
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
+            
             }
         RpcFinally
             {
@@ -1303,8 +1253,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -1366,8 +1315,7 @@ HRESULT STDMETHODCALLTYPE IEnumVARIANT_Clone_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -1406,7 +1354,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppEnum = 0;
+    ( IEnumVARIANT __RPC_FAR *__RPC_FAR * )ppEnum = 0;
     RpcTryFinally
         {
         ppEnum = &_M12;
@@ -1430,8 +1378,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1224] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -1590,11 +1537,9 @@ extern const MIDL_STUB_DESC Object_StubDesc;
                                          (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1248] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = lHashVal;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = lHashVal;
             
-            *( WORD __RPC_FAR * )_StubMsg.Buffer = wFlags;
-            _StubMsg.Buffer += sizeof(WORD);
+            *(( WORD __RPC_FAR * )_StubMsg.Buffer)++ = wFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -1632,8 +1577,7 @@ extern const MIDL_STUB_DESC Object_StubDesc;
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -1705,13 +1649,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szName = 0;
-    ppTInfo = 0;
-    pDescKind = 0;
-    ppFuncDesc = 0;
-    ppVarDesc = 0;
-    ppTypeComp = 0;
-    pDummy = 0;
+    ( LPOLESTR  )szName = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
+    ( DESCKIND __RPC_FAR * )pDescKind = 0;
+    ( LPFUNCDESC __RPC_FAR * )ppFuncDesc = 0;
+    ( LPVARDESC __RPC_FAR * )ppVarDesc = 0;
+    ( ITypeComp __RPC_FAR *__RPC_FAR * )ppTypeComp = 0;
+    ( CLEANLOCALSTORAGE __RPC_FAR * )pDummy = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -1723,11 +1667,9 @@ NdrStubInitialize(
                                        (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        lHashVal = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        lHashVal = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
         
-        wFlags = *( WORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(WORD);
+        wFlags = *(( WORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppTInfo = &_M15;
         _M15 = 0;
@@ -1806,8 +1748,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1568] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -1893,8 +1834,7 @@ NdrStubInitialize(
                                          (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1248] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = lHashVal;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = lHashVal;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -1907,8 +1847,7 @@ NdrStubInitialize(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -1949,8 +1888,8 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szName = 0;
-    ppTInfo = 0;
+    ( LPOLESTR  )szName = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -1962,8 +1901,7 @@ NdrStubInitialize(
                                        (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        lHashVal = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        lHashVal = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppTInfo = &_M23;
         _M23 = 0;
@@ -1992,8 +1930,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[6] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2110,8 +2047,7 @@ extern const MIDL_STUB_DESC Object_StubDesc;
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2156,8 +2092,8 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTypeAttr = 0;
-    pDummy = 0;
+    ( LPTYPEATTR __RPC_FAR * )ppTypeAttr = 0;
+    ( CLEANLOCALSTORAGE __RPC_FAR * )pDummy = 0;
     RpcTryFinally
         {
         ppTypeAttr = &_M24;
@@ -2195,8 +2131,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1644] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2266,8 +2201,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetTypeComp_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2306,7 +2240,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTComp = 0;
+    ( ITypeComp __RPC_FAR *__RPC_FAR * )ppTComp = 0;
     RpcTryFinally
         {
         ppTComp = &_M26;
@@ -2330,8 +2264,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1540] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2396,8 +2329,7 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -2415,8 +2347,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2462,15 +2393,14 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppFuncDesc = 0;
-    pDummy = 0;
+    ( LPFUNCDESC __RPC_FAR * )ppFuncDesc = 0;
+    ( CLEANLOCALSTORAGE __RPC_FAR * )pDummy = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[158] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppFuncDesc = &_M27;
         _M27 = 0;
@@ -2508,8 +2438,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1660] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2578,8 +2507,7 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -2597,8 +2525,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2644,15 +2571,14 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppVarDesc = 0;
-    pDummy = 0;
+    ( LPVARDESC __RPC_FAR * )ppVarDesc = 0;
+    ( CLEANLOCALSTORAGE __RPC_FAR * )pDummy = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[170] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppVarDesc = &_M29;
         _M29 = 0;
@@ -2690,8 +2616,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1676] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2757,11 +2682,9 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = cMaxNames;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = cMaxNames;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -2774,11 +2697,9 @@ NdrStubInitialize(
                                        (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pcNames = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pcNames = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2828,18 +2749,16 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    rgBstrNames = 0;
-    pcNames = 0;
+    ( BSTR __RPC_FAR * )rgBstrNames = 0;
+    ( UINT __RPC_FAR * )pcNames = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[182] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        cMaxNames = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        cMaxNames = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         rgBstrNames = NdrAllocate(&_StubMsg,cMaxNames * 4);
         pcNames = &_M34;
@@ -2877,11 +2796,9 @@ NdrStubInitialize(
                                  (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1690] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pcNames;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pcNames;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -2934,19 +2851,16 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetRefTypeOfImplType_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
             
-            *pRefType = *( HREFTYPE __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HREFTYPE);
+            *pRefType = *(( HREFTYPE __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -2986,14 +2900,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pRefType = 0;
+    ( HREFTYPE __RPC_FAR * )pRefType = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pRefType = &_M35;
         
@@ -3007,11 +2920,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HREFTYPE __RPC_FAR * )_StubMsg.Buffer = *pRefType;
-        _StubMsg.Buffer += sizeof(HREFTYPE);
+        *(( HREFTYPE __RPC_FAR * )_StubMsg.Buffer)++ = *pRefType;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3056,19 +2967,16 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetImplTypeFlags_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
             
-            *pImplTypeFlags = *( INT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(INT);
+            *pImplTypeFlags = *(( INT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3108,14 +3016,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pImplTypeFlags = 0;
+    ( INT __RPC_FAR * )pImplTypeFlags = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pImplTypeFlags = &_M36;
         
@@ -3129,11 +3036,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( INT __RPC_FAR * )_StubMsg.Buffer = *pImplTypeFlags;
-        _StubMsg.Buffer += sizeof(INT);
+        *(( INT __RPC_FAR * )_StubMsg.Buffer)++ = *pImplTypeFlags;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3177,8 +3082,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3223,8 +3127,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3268,8 +3171,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3314,8 +3216,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3397,11 +3298,9 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = refPtrFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = refPtrFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -3419,8 +3318,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pdwHelpContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *pdwHelpContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pBstrHelpFile,
@@ -3428,8 +3326,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3488,20 +3385,18 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrName = 0;
-    pBstrDocString = 0;
-    pdwHelpContext = 0;
-    pBstrHelpFile = 0;
+    ( BSTR __RPC_FAR * )pBstrName = 0;
+    ( BSTR __RPC_FAR * )pBstrDocString = 0;
+    ( DWORD __RPC_FAR * )pdwHelpContext = 0;
+    ( BSTR __RPC_FAR * )pBstrHelpFile = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[204] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        refPtrFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        refPtrFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         pBstrName = &_M37;
         MIDL_memset(
@@ -3559,16 +3454,14 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( DWORD __RPC_FAR * )_StubMsg.Buffer = *pdwHelpContext;
-        _StubMsg.Buffer += sizeof(DWORD);
+        *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = *pdwHelpContext;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pBstrHelpFile,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3651,15 +3544,13 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
             NdrSimpleTypeMarshall(
                          ( PMIDL_STUB_MESSAGE  )&_StubMsg,
                          ( unsigned char __RPC_FAR * )&invKind,
                          14);
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = refPtrFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = refPtrFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -3677,12 +3568,10 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 1) & ~ 0x1);
-            *pwOrdinal = *( WORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(WORD);
+            *pwOrdinal = *(( WORD __RPC_FAR * )_StubMsg.Buffer)++;
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3736,23 +3625,21 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrDllName = 0;
-    pBstrName = 0;
-    pwOrdinal = 0;
+    ( BSTR __RPC_FAR * )pBstrDllName = 0;
+    ( BSTR __RPC_FAR * )pBstrName = 0;
+    ( WORD __RPC_FAR * )pwOrdinal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[226] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleTypeUnmarshall(
                            ( PMIDL_STUB_MESSAGE  )&_StubMsg,
                            ( unsigned char __RPC_FAR * )&invKind,
                            14);
-        refPtrFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        refPtrFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         pBstrDllName = &_M41;
         MIDL_memset(
@@ -3801,12 +3688,10 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 1) & ~ 0x1);
-        *( WORD __RPC_FAR * )_StubMsg.Buffer = *pwOrdinal;
-        _StubMsg.Buffer += sizeof(WORD);
+        *(( WORD __RPC_FAR * )_StubMsg.Buffer)++ = *pwOrdinal;
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -3866,8 +3751,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetRefTypeInfo_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( HREFTYPE __RPC_FAR * )_StubMsg.Buffer = hRefType;
-            _StubMsg.Buffer += sizeof(HREFTYPE);
+            *(( HREFTYPE __RPC_FAR * )_StubMsg.Buffer)++ = hRefType;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -3880,8 +3764,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetRefTypeInfo_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -3921,14 +3804,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTInfo = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[246] );
         
-        hRefType = *( HREFTYPE __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(HREFTYPE);
+        hRefType = *(( HREFTYPE __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppTInfo = &_M44;
         _M44 = 0;
@@ -3954,8 +3836,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[6] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4003,8 +3884,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4049,8 +3929,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4125,8 +4004,7 @@ NdrStubInitialize(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4161,14 +4039,14 @@ void __RPC_STUB ITypeInfo_RemoteCreateInstance_Stub(
     HRESULT _RetVal;
     MIDL_STUB_MESSAGE _StubMsg;
     IUnknown __RPC_FAR *__RPC_FAR *ppvObj;
-    IID* riid = 0;
+    REFIID riid = 0;
     
 NdrStubInitialize(
                      _pRpcMessage,
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppvObj = 0;
+    ( IUnknown __RPC_FAR *__RPC_FAR * )ppvObj = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -4209,8 +4087,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1716] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4268,8 +4145,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetMops_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -4282,8 +4158,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo_GetMops_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4323,14 +4198,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrMops = 0;
+    ( BSTR __RPC_FAR * )pBstrMops = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[264] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
         pBstrMops = &_M46;
         MIDL_memset(
@@ -4359,8 +4233,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4431,11 +4304,9 @@ NdrStubInitialize(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pIndex = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pIndex = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4480,8 +4351,8 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTLib = 0;
-    pIndex = 0;
+    ( ITypeLib __RPC_FAR *__RPC_FAR * )ppTLib = 0;
+    ( UINT __RPC_FAR * )pIndex = 0;
     RpcTryFinally
         {
         ppTLib = &_M47;
@@ -4511,11 +4382,9 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1726] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pIndex;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pIndex;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4563,8 +4432,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4609,8 +4477,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4654,8 +4521,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4700,8 +4566,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4745,8 +4610,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4791,8 +4655,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -4917,8 +4780,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetTypeKind_Proxy(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1250],
                                   (unsigned char)0 );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -4957,7 +4819,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pTypeKind = 0;
+    ( TYPEKIND __RPC_FAR * )pTypeKind = 0;
     RpcTryFinally
         {
         pTypeKind = &_M49;
@@ -4973,8 +4835,7 @@ NdrStubInitialize(
                             (unsigned char __RPC_FAR *)pTypeKind,
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1250] );
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5023,11 +4884,9 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetTypeFlags_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[0] );
             
-            *pTypeFlags = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *pTypeFlags = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5066,7 +4925,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pTypeFlags = 0;
+    ( ULONG __RPC_FAR * )pTypeFlags = 0;
     RpcTryFinally
         {
         pTypeFlags = &_M50;
@@ -5078,11 +4937,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( ULONG __RPC_FAR * )_StubMsg.Buffer = *pTypeFlags;
-        _StubMsg.Buffer += sizeof(ULONG);
+        *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = *pTypeFlags;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5128,8 +4985,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetFuncIndexOfMemId_Proxy(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
             NdrSimpleTypeMarshall(
                          ( PMIDL_STUB_MESSAGE  )&_StubMsg,
@@ -5140,11 +4996,9 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetFuncIndexOfMemId_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[288] );
             
-            *pFuncIndex = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pFuncIndex = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5185,14 +5039,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pFuncIndex = 0;
+    ( UINT __RPC_FAR * )pFuncIndex = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[288] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleTypeUnmarshall(
                            ( PMIDL_STUB_MESSAGE  )&_StubMsg,
@@ -5211,11 +5064,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pFuncIndex;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pFuncIndex;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5260,19 +5111,16 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetVarIndexOfMemId_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
             
-            *pVarIndex = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pVarIndex = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5312,14 +5160,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarIndex = 0;
+    ( UINT __RPC_FAR * )pVarIndex = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[196] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
         pVarIndex = &_M52;
         
@@ -5333,11 +5180,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pVarIndex;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pVarIndex;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5412,8 +5257,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5453,7 +5297,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -5491,8 +5335,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5557,8 +5400,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetFuncCustData_Proxy(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
             
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrSimpleStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                      (unsigned char __RPC_FAR *)guid,
@@ -5575,8 +5417,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetFuncCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5617,14 +5458,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[308] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                    (unsigned char __RPC_FAR * __RPC_FAR *)&guid,
@@ -5659,8 +5499,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5726,11 +5565,9 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetParamCustData_Proxy(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
             
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = indexFunc;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = indexFunc;
             
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = indexParam;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = indexParam;
             
             NdrSimpleStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                      (unsigned char __RPC_FAR *)guid,
@@ -5747,8 +5584,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetParamCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5790,17 +5626,15 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[320] );
         
-        indexFunc = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        indexFunc = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        indexParam = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        indexParam = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                    (unsigned char __RPC_FAR * __RPC_FAR *)&guid,
@@ -5836,8 +5670,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -5902,8 +5735,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetVarCustData_Proxy(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
             
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrSimpleStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                      (unsigned char __RPC_FAR *)guid,
@@ -5920,8 +5752,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetVarCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -5962,14 +5793,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[308] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                    (unsigned char __RPC_FAR * __RPC_FAR *)&guid,
@@ -6004,8 +5834,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6070,8 +5899,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetImplTypeCustData_Proxy(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
             
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrSimpleStructMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                      (unsigned char __RPC_FAR *)guid,
@@ -6088,8 +5916,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetImplTypeCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6130,14 +5957,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[308] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         NdrSimpleStructUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                    (unsigned char __RPC_FAR * __RPC_FAR *)&guid,
@@ -6172,8 +5998,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6248,14 +6073,11 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( MEMBERID __RPC_FAR * )_StubMsg.Buffer = memid;
-            _StubMsg.Buffer += sizeof(MEMBERID);
+            *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++ = memid;
             
-            *( LCID __RPC_FAR * )_StubMsg.Buffer = lcid;
-            _StubMsg.Buffer += sizeof(LCID);
+            *(( LCID __RPC_FAR * )_StubMsg.Buffer)++ = lcid;
             
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = refPtrFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = refPtrFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -6268,8 +6090,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pdwHelpStringContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *pdwHelpStringContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pbstrHelpStringDll,
@@ -6277,8 +6098,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6332,22 +6152,19 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pbstrHelpString = 0;
-    pdwHelpStringContext = 0;
-    pbstrHelpStringDll = 0;
+    ( BSTR __RPC_FAR * )pbstrHelpString = 0;
+    ( DWORD __RPC_FAR * )pdwHelpStringContext = 0;
+    ( BSTR __RPC_FAR * )pbstrHelpStringDll = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[334] );
         
-        memid = *( MEMBERID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(MEMBERID);
+        memid = *(( MEMBERID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        lcid = *( LCID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(LCID);
+        lcid = *(( LCID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        refPtrFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        refPtrFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         pbstrHelpString = &_M58;
         MIDL_memset(
@@ -6392,16 +6209,14 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( DWORD __RPC_FAR * )_StubMsg.Buffer = *pdwHelpStringContext;
-        _StubMsg.Buffer += sizeof(DWORD);
+        *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = *pdwHelpStringContext;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pbstrHelpStringDll,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6471,8 +6286,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6511,7 +6325,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         pCustData = &_pCustDataM;
@@ -6535,8 +6349,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6592,8 +6405,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllFuncCustData_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -6606,8 +6418,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllFuncCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6647,14 +6458,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[360] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pCustData = &_pCustDataM;
         pCustData -> prgCustData = 0;
@@ -6680,8 +6490,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6738,11 +6547,9 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllParamCustData_Proxy(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = indexFunc;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = indexFunc;
             
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = indexParam;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = indexParam;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -6755,8 +6562,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllParamCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6797,17 +6603,15 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[368] );
         
-        indexFunc = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        indexFunc = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        indexParam = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        indexParam = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pCustData = &_pCustDataM;
         pCustData -> prgCustData = 0;
@@ -6834,8 +6638,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -6891,8 +6694,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllVarCustData_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -6905,8 +6707,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllVarCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -6946,14 +6747,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[360] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pCustData = &_pCustDataM;
         pCustData -> prgCustData = 0;
@@ -6979,8 +6779,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7036,8 +6835,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllImplTypeCustData_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -7050,8 +6848,7 @@ HRESULT STDMETHODCALLTYPE ITypeInfo2_GetAllImplTypeCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7091,14 +6888,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[360] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pCustData = &_pCustDataM;
         pCustData -> prgCustData = 0;
@@ -7124,8 +6920,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7279,11 +7074,9 @@ extern const MIDL_STUB_DESC Object_StubDesc;
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[0] );
             
-            *pcTInfo = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(UINT);
+            *pcTInfo = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7322,7 +7115,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pcTInfo = 0;
+    ( UINT __RPC_FAR * )pcTInfo = 0;
     RpcTryFinally
         {
         pcTInfo = &_M61;
@@ -7336,11 +7129,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( UINT __RPC_FAR * )_StubMsg.Buffer = *pcTInfo;
-        _StubMsg.Buffer += sizeof(UINT);
+        *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = *pcTInfo;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7392,8 +7183,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeInfo_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -7406,8 +7196,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeInfo_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7447,14 +7236,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTInfo = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[246] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         ppTInfo = &_M62;
         _M62 = 0;
@@ -7480,8 +7268,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[6] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7530,8 +7317,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeInfoType_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( UINT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(UINT);
+            *(( UINT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -7543,8 +7329,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeInfoType_Proxy(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1250],
                                   (unsigned char)0 );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7584,14 +7369,13 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pTKind = 0;
+    ( TYPEKIND __RPC_FAR * )pTKind = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[378] );
         
-        index = *( UINT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(UINT);
+        index = *(( UINT __RPC_FAR * )_StubMsg.Buffer)++;
         
         pTKind = &_M63;
         
@@ -7609,8 +7393,7 @@ NdrStubInitialize(
                             (unsigned char __RPC_FAR *)pTKind,
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1250] );
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7685,8 +7468,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeInfoOfGuid_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7726,7 +7508,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTinfo = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTinfo = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -7761,8 +7543,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[6] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7842,8 +7623,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -7888,8 +7668,8 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTLibAttr = 0;
-    pDummy = 0;
+    ( LPTLIBATTR __RPC_FAR * )ppTLibAttr = 0;
+    ( CLEANLOCALSTORAGE __RPC_FAR * )pDummy = 0;
     RpcTryFinally
         {
         ppTLibAttr = &_M65;
@@ -7927,8 +7707,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1838] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -7998,8 +7777,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib_GetTypeComp_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -8038,7 +7816,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    ppTComp = 0;
+    ( ITypeComp __RPC_FAR *__RPC_FAR * )ppTComp = 0;
     RpcTryFinally
         {
         ppTComp = &_M67;
@@ -8062,8 +7840,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1540] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -8149,11 +7926,9 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( INT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(INT);
+            *(( INT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = refPtrFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = refPtrFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -8171,8 +7946,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pdwHelpContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *pdwHelpContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pBstrHelpFile,
@@ -8180,8 +7954,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -8240,20 +8013,18 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrName = 0;
-    pBstrDocString = 0;
-    pdwHelpContext = 0;
-    pBstrHelpFile = 0;
+    ( BSTR __RPC_FAR * )pBstrName = 0;
+    ( BSTR __RPC_FAR * )pBstrDocString = 0;
+    ( DWORD __RPC_FAR * )pdwHelpContext = 0;
+    ( BSTR __RPC_FAR * )pBstrHelpFile = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[204] );
         
-        index = *( INT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(INT);
+        index = *(( INT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        refPtrFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        refPtrFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         pBstrName = &_M68;
         MIDL_memset(
@@ -8311,16 +8082,14 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( DWORD __RPC_FAR * )_StubMsg.Buffer = *pdwHelpContext;
-        _StubMsg.Buffer += sizeof(DWORD);
+        *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = *pdwHelpContext;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pBstrHelpFile,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -8403,16 +8172,14 @@ NdrStubInitialize(
                                          (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1248] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = lHashVal;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = lHashVal;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[406] );
             
-            *pfName = *( BOOL __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(BOOL);
+            *pfName = *(( BOOL __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pBstrLibName,
@@ -8420,8 +8187,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -8468,9 +8234,9 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szNameBuf = 0;
-    pfName = 0;
-    pBstrLibName = 0;
+    ( LPOLESTR  )szNameBuf = 0;
+    ( BOOL __RPC_FAR * )pfName = 0;
+    ( BSTR __RPC_FAR * )pBstrLibName = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -8482,8 +8248,7 @@ NdrStubInitialize(
                                        (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        lHashVal = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        lHashVal = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
         
         pfName = &_M74;
         pBstrLibName = &_M75;
@@ -8512,16 +8277,14 @@ NdrStubInitialize(
         _StubMsg.BufferLength += 16;
         
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( BOOL __RPC_FAR * )_StubMsg.Buffer = *pfName;
-        _StubMsg.Buffer += sizeof(BOOL);
+        *(( BOOL __RPC_FAR * )_StubMsg.Buffer)++ = *pfName;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pBstrLibName,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -8613,11 +8376,9 @@ NdrStubInitialize(
                                          (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1248] );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *( ULONG __RPC_FAR * )_StubMsg.Buffer = lHashVal;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = lHashVal;
             
-            *( USHORT __RPC_FAR * )_StubMsg.Buffer = *pcFound;
-            _StubMsg.Buffer += sizeof(USHORT);
+            *(( USHORT __RPC_FAR * )_StubMsg.Buffer)++ = *pcFound;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -8634,8 +8395,7 @@ NdrStubInitialize(
                                                  (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1874],
                                                  (unsigned char)0 );
             
-            *pcFound = *( USHORT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(USHORT);
+            *pcFound = *(( USHORT __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pBstrLibName,
@@ -8643,8 +8403,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -8708,11 +8467,11 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szNameBuf = 0;
-    ppTInfo = 0;
-    rgMemId = 0;
-    pcFound = 0;
-    pBstrLibName = 0;
+    ( LPOLESTR  )szNameBuf = 0;
+    ( ITypeInfo __RPC_FAR *__RPC_FAR * )ppTInfo = 0;
+    ( MEMBERID __RPC_FAR * )rgMemId = 0;
+    ( USHORT __RPC_FAR * )pcFound = 0;
+    ( BSTR __RPC_FAR * )pBstrLibName = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -8724,8 +8483,7 @@ NdrStubInitialize(
                                        (unsigned char)0 );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        lHashVal = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(ULONG);
+        lHashVal = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
         
         pcFound = ( USHORT __RPC_FAR * )_StubMsg.Buffer;
         _StubMsg.Buffer += sizeof( USHORT  );
@@ -8792,16 +8550,14 @@ NdrStubInitialize(
                                            (unsigned char __RPC_FAR *)rgMemId,
                                            (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1874] );
         
-        *( USHORT __RPC_FAR * )_StubMsg.Buffer = *pcFound;
-        _StubMsg.Buffer += sizeof(USHORT);
+        *(( USHORT __RPC_FAR * )_StubMsg.Buffer)++ = *pcFound;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pBstrLibName,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -8865,8 +8621,7 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[88] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -8911,8 +8666,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9040,8 +8794,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib2_GetCustData_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9081,7 +8834,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pVarVal = 0;
+    ( VARIANT __RPC_FAR * )pVarVal = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -9119,8 +8872,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1110] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9178,14 +8930,11 @@ NdrStubInitialize(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[446] );
             
-            *pcUniqueNames = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *pcUniqueNames = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
             
-            *pcchUniqueNames = *( ULONG __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(ULONG);
+            *pcchUniqueNames = *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9230,8 +8979,8 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pcUniqueNames = 0;
-    pcchUniqueNames = 0;
+    ( ULONG __RPC_FAR * )pcUniqueNames = 0;
+    ( ULONG __RPC_FAR * )pcchUniqueNames = 0;
     RpcTryFinally
         {
         pcUniqueNames = &_M86;
@@ -9249,14 +8998,11 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( ULONG __RPC_FAR * )_StubMsg.Buffer = *pcUniqueNames;
-        _StubMsg.Buffer += sizeof(ULONG);
+        *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = *pcUniqueNames;
         
-        *( ULONG __RPC_FAR * )_StubMsg.Buffer = *pcchUniqueNames;
-        _StubMsg.Buffer += sizeof(ULONG);
+        *(( ULONG __RPC_FAR * )_StubMsg.Buffer)++ = *pcchUniqueNames;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9327,14 +9073,11 @@ NdrStubInitialize(
             
             _StubMsg.BufferLength = 4U + 4U + 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( INT __RPC_FAR * )_StubMsg.Buffer = index;
-            _StubMsg.Buffer += sizeof(INT);
+            *(( INT __RPC_FAR * )_StubMsg.Buffer)++ = index;
             
-            *( LCID __RPC_FAR * )_StubMsg.Buffer = lcid;
-            _StubMsg.Buffer += sizeof(LCID);
+            *(( LCID __RPC_FAR * )_StubMsg.Buffer)++ = lcid;
             
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = refPtrFlags;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = refPtrFlags;
             
             NdrProxySendReceive(This, &_StubMsg);
             
@@ -9347,8 +9090,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            *pdwHelpStringContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *pdwHelpStringContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
             
             NdrUserMarshalUnmarshall( (PMIDL_STUB_MESSAGE) &_StubMsg,
                                       (unsigned char __RPC_FAR * __RPC_FAR *)&pbstrHelpStringDll,
@@ -9356,8 +9098,7 @@ NdrStubInitialize(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9411,22 +9152,19 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pbstrHelpString = 0;
-    pdwHelpStringContext = 0;
-    pbstrHelpStringDll = 0;
+    ( BSTR __RPC_FAR * )pbstrHelpString = 0;
+    ( DWORD __RPC_FAR * )pdwHelpStringContext = 0;
+    ( BSTR __RPC_FAR * )pbstrHelpStringDll = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[334] );
         
-        index = *( INT __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(INT);
+        index = *(( INT __RPC_FAR * )_StubMsg.Buffer)++;
         
-        lcid = *( LCID __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(LCID);
+        lcid = *(( LCID __RPC_FAR * )_StubMsg.Buffer)++;
         
-        refPtrFlags = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        refPtrFlags = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         pbstrHelpString = &_M88;
         MIDL_memset(
@@ -9471,16 +9209,14 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( DWORD __RPC_FAR * )_StubMsg.Buffer = *pdwHelpStringContext;
-        _StubMsg.Buffer += sizeof(DWORD);
+        *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = *pdwHelpStringContext;
         
         NdrUserMarshalMarshall( (PMIDL_STUB_MESSAGE)& _StubMsg,
                                 (unsigned char __RPC_FAR *)pbstrHelpStringDll,
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9550,8 +9286,7 @@ HRESULT STDMETHODCALLTYPE ITypeLib2_GetAllCustData_Proxy(
                                         (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9590,7 +9325,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pCustData = 0;
+    ( CUSTDATA __RPC_FAR * )pCustData = 0;
     RpcTryFinally
         {
         pCustData = &_pCustDataM;
@@ -9614,8 +9349,7 @@ NdrStubInitialize(
                                   (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1788] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9745,8 +9479,7 @@ HRESULT STDMETHODCALLTYPE IErrorInfo_GetGUID_Proxy(
                                        (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38],
                                        (unsigned char)0 );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9785,7 +9518,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pGUID = 0;
+    ( GUID __RPC_FAR * )pGUID = 0;
     RpcTryFinally
         {
         pGUID = &_pGUIDM;
@@ -9807,8 +9540,7 @@ NdrStubInitialize(
                                  (unsigned char __RPC_FAR *)pGUID,
                                  (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[38] );
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -9870,8 +9602,7 @@ HRESULT STDMETHODCALLTYPE IErrorInfo_GetSource_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -9910,7 +9641,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrSource = 0;
+    ( BSTR __RPC_FAR * )pBstrSource = 0;
     RpcTryFinally
         {
         pBstrSource = &_M91;
@@ -9937,8 +9668,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10004,8 +9734,7 @@ HRESULT STDMETHODCALLTYPE IErrorInfo_GetDescription_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10044,7 +9773,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrDescription = 0;
+    ( BSTR __RPC_FAR * )pBstrDescription = 0;
     RpcTryFinally
         {
         pBstrDescription = &_M92;
@@ -10071,8 +9800,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10138,8 +9866,7 @@ HRESULT STDMETHODCALLTYPE IErrorInfo_GetHelpFile_Proxy(
                                       (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10178,7 +9905,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pBstrHelpFile = 0;
+    ( BSTR __RPC_FAR * )pBstrHelpFile = 0;
     RpcTryFinally
         {
         pBstrHelpFile = &_M93;
@@ -10205,8 +9932,7 @@ NdrStubInitialize(
                                 (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1128] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10259,11 +9985,9 @@ HRESULT STDMETHODCALLTYPE IErrorInfo_GetHelpContext_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[0] );
             
-            *pdwHelpContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *pdwHelpContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10302,7 +10026,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    pdwHelpContext = 0;
+    ( DWORD __RPC_FAR * )pdwHelpContext = 0;
     RpcTryFinally
         {
         pdwHelpContext = &_M94;
@@ -10314,11 +10038,9 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U + 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( DWORD __RPC_FAR * )_StubMsg.Buffer = *pdwHelpContext;
-        _StubMsg.Buffer += sizeof(DWORD);
+        *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = *pdwHelpContext;
         
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10418,8 +10140,7 @@ HRESULT STDMETHODCALLTYPE ICreateErrorInfo_SetGUID_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[468] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10471,8 +10192,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10529,8 +10249,7 @@ HRESULT STDMETHODCALLTYPE ICreateErrorInfo_SetSource_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[474] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10564,7 +10283,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szSource = 0;
+    ( LPOLESTR  )szSource = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -10585,8 +10304,7 @@ NdrStubInitialize(
         _StubMsg.BufferLength += 16;
         
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10643,8 +10361,7 @@ HRESULT STDMETHODCALLTYPE ICreateErrorInfo_SetDescription_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[474] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10678,7 +10395,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szDescription = 0;
+    ( LPOLESTR  )szDescription = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -10699,8 +10416,7 @@ NdrStubInitialize(
         _StubMsg.BufferLength += 16;
         
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10757,8 +10473,7 @@ HRESULT STDMETHODCALLTYPE ICreateErrorInfo_SetHelpFile_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[474] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10792,7 +10507,7 @@ NdrStubInitialize(
                      &_StubMsg,
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
-    szHelpFile = 0;
+    ( LPOLESTR  )szHelpFile = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -10813,8 +10528,7 @@ NdrStubInitialize(
         _StubMsg.BufferLength += 16;
         
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -10854,16 +10568,14 @@ HRESULT STDMETHODCALLTYPE ICreateErrorInfo_SetHelpContext_Proxy(
             
             _StubMsg.BufferLength = 4U;
             NdrProxyGetBuffer(This, &_StubMsg);
-            *( DWORD __RPC_FAR * )_StubMsg.Buffer = dwHelpContext;
-            _StubMsg.Buffer += sizeof(DWORD);
+            *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++ = dwHelpContext;
             
             NdrProxySendReceive(This, &_StubMsg);
             
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[84] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -10902,8 +10614,7 @@ NdrStubInitialize(
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
             NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[84] );
         
-        dwHelpContext = *( DWORD __RPC_FAR * )_StubMsg.Buffer;
-        _StubMsg.Buffer += sizeof(DWORD);
+        dwHelpContext = *(( DWORD __RPC_FAR * )_StubMsg.Buffer)++;
         
         
         *_pdwStubPhase = STUB_CALL_SERVER;
@@ -10913,8 +10624,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -11014,8 +10724,7 @@ HRESULT STDMETHODCALLTYPE ISupportErrorInfo_InterfaceSupportsErrorInfo_Proxy(
             if ( (_RpcMessage.DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
                 NdrConvert( (PMIDL_STUB_MESSAGE) &_StubMsg, (PFORMAT_STRING) &__MIDL_ProcFormatString.Format[468] );
             
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -11042,7 +10751,7 @@ void __RPC_STUB ISupportErrorInfo_InterfaceSupportsErrorInfo_Stub(
 {
     HRESULT _RetVal;
     MIDL_STUB_MESSAGE _StubMsg;
-    IID* riid = 0;
+    REFIID riid = 0;
     
 NdrStubInitialize(
                      _pRpcMessage,
@@ -11067,8 +10776,7 @@ NdrStubInitialize(
         
         _StubMsg.BufferLength = 4U;
         NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -11187,8 +10895,7 @@ HRESULT STDMETHODCALLTYPE ITypeFactory_CreateFromTypeInfo_Proxy(
                                   (unsigned char)0 );
             
             _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-            _RetVal = *( HRESULT __RPC_FAR * )_StubMsg.Buffer;
-            _StubMsg.Buffer += sizeof(HRESULT);
+            _RetVal = *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++;
             
             }
         RpcFinally
@@ -11224,7 +10931,7 @@ void __RPC_STUB ITypeFactory_CreateFromTypeInfo_Stub(
     MIDL_STUB_MESSAGE _StubMsg;
     ITypeInfo __RPC_FAR *pTypeInfo;
     IUnknown __RPC_FAR *__RPC_FAR *ppv;
-    IID* riid = 0;
+    REFIID riid = 0;
     
 NdrStubInitialize(
                      _pRpcMessage,
@@ -11232,7 +10939,7 @@ NdrStubInitialize(
                      &Object_StubDesc,
                      _pRpcChannelBuffer);
     pTypeInfo = 0;
-    ppv = 0;
+    ( IUnknown __RPC_FAR *__RPC_FAR * )ppv = 0;
     RpcTryFinally
         {
         if ( (_pRpcMessage->DataRepresentation & 0X0000FFFFUL) != NDR_LOCAL_DATA_REPRESENTATION )
@@ -11277,8 +10984,7 @@ NdrStubInitialize(
                             (PFORMAT_STRING) &__MIDL_TypeFormatString.Format[1896] );
         
         _StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~ 0x3);
-        *( HRESULT __RPC_FAR * )_StubMsg.Buffer = _RetVal;
-        _StubMsg.Buffer += sizeof(HRESULT);
+        *(( HRESULT __RPC_FAR * )_StubMsg.Buffer)++ = _RetVal;
         
         }
     RpcFinally
@@ -11300,28 +11006,7 @@ NdrStubInitialize(
     
 }
 
-static const USER_MARSHAL_ROUTINE_QUADRUPLE UserMarshalRoutines[3] = 
-        {
-            {
-                (USER_MARSHAL_SIZING_ROUTINE)VARIANT_UserSize,
-                (USER_MARSHAL_MARSHALLING_ROUTINE)VARIANT_UserMarshal,
-                (USER_MARSHAL_UNMARSHALLING_ROUTINE)VARIANT_UserUnmarshal,
-                (USER_MARSHAL_FREEING_ROUTINE)VARIANT_UserFree
-            },
-            {
-                (USER_MARSHAL_SIZING_ROUTINE)BSTR_UserSize,
-                (USER_MARSHAL_MARSHALLING_ROUTINE)BSTR_UserMarshal,
-                (USER_MARSHAL_UNMARSHALLING_ROUTINE)BSTR_UserUnmarshal,
-                (USER_MARSHAL_FREEING_ROUTINE)BSTR_UserFree
-            },
-            {
-                (USER_MARSHAL_SIZING_ROUTINE)CLEANLOCALSTORAGE_UserSize,
-                (USER_MARSHAL_MARSHALLING_ROUTINE)CLEANLOCALSTORAGE_UserMarshal,
-                (USER_MARSHAL_UNMARSHALLING_ROUTINE)CLEANLOCALSTORAGE_UserUnmarshal,
-                (USER_MARSHAL_FREEING_ROUTINE)CLEANLOCALSTORAGE_UserFree
-            }
-
-        };
+extern const USER_MARSHAL_ROUTINE_QUADRUPLE UserMarshalRoutines[3];
 
 static const MIDL_STUB_DESC Object_StubDesc = 
     {
@@ -11398,6 +11083,30 @@ const CInterfaceStubVtbl _ITypeFactoryStubVtbl =
 
 /* Object interface: ICreateTypeLib2, ver. 0.0,
    GUID={0x0002040F,0x0000,0x0000,{0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46}} */
+
+static const USER_MARSHAL_ROUTINE_QUADRUPLE UserMarshalRoutines[3] = 
+        {
+            {
+                (USER_MARSHAL_SIZING_ROUTINE)VARIANT_UserSize,
+                (USER_MARSHAL_MARSHALLING_ROUTINE)VARIANT_UserMarshal,
+                (USER_MARSHAL_UNMARSHALLING_ROUTINE)VARIANT_UserUnmarshal,
+                (USER_MARSHAL_FREEING_ROUTINE)VARIANT_UserFree
+            },
+            {
+                (USER_MARSHAL_SIZING_ROUTINE)BSTR_UserSize,
+                (USER_MARSHAL_MARSHALLING_ROUTINE)BSTR_UserMarshal,
+                (USER_MARSHAL_UNMARSHALLING_ROUTINE)BSTR_UserUnmarshal,
+                (USER_MARSHAL_FREEING_ROUTINE)BSTR_UserFree
+            },
+            {
+                (USER_MARSHAL_SIZING_ROUTINE)CLEANLOCALSTORAGE_UserSize,
+                (USER_MARSHAL_MARSHALLING_ROUTINE)CLEANLOCALSTORAGE_UserMarshal,
+                (USER_MARSHAL_UNMARSHALLING_ROUTINE)CLEANLOCALSTORAGE_UserUnmarshal,
+                (USER_MARSHAL_FREEING_ROUTINE)CLEANLOCALSTORAGE_UserFree
+            }
+
+        };
+
 
 #if !defined(__RPC_WIN32__)
 #error  Invalid build platform for this stub.

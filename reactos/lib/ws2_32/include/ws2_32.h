@@ -7,7 +7,6 @@
 #ifndef __WS2_32_H
 #define __WS2_32_H
 
-#include <roscfg.h>
 #include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
 #include <ntos.h>
@@ -18,7 +17,6 @@
 #include <windows.h>
 #undef assert
 #include <debug.h>
-#include <WinDNS.h> // DNS_A_DATA
 
 /* Exported by ntdll.dll, but where is the prototype? */
 unsigned long strtoul(const char *nptr, char **endptr, int base);
@@ -53,7 +51,6 @@ typedef struct _WINSOCK_THREAD_BLOCK {
     Getservbyname;          /* Buffer used by getservbyname */
     PWINSOCK_GETSERVBYPORT_CACHE
     Getservbyport;          /* Buffer used by getservbyname */
-    struct hostent* Hostent;
 } WINSOCK_THREAD_BLOCK, *PWINSOCK_THREAD_BLOCK;
 
 
@@ -63,11 +60,6 @@ typedef struct _WINSOCK_THREAD_BLOCK {
 
 #define WSASETINITIALIZED (Initialized = TRUE)
 
-/* ws2_32 internal Functions */
-void check_hostent(struct hostent **he);
-void populate_hostent(struct hostent *he, char* name, DNS_A_DATA addr);
-void free_hostent(struct hostent *he);
-void free_servent(struct servent* s);
 
 #ifdef LE
 

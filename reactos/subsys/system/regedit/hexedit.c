@@ -60,7 +60,7 @@ typedef struct
 #define HEHT_ASCIIDUMP	(0x6)
 #define HEHT_RIGHTMARGIN	(0x7)
 
-INT_PTR CALLBACK HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT WINAPI HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 ATOM
 STDCALL
@@ -502,7 +502,7 @@ HEXEDIT_WM_NCCREATE(HWND hWnd, CREATESTRUCT *cs)
   hed->SplitSpacing = 2;
   hed->EditingField = TRUE; /* in hexdump field */
   
-  SetWindowLongPtr(hWnd, 0, (DWORD_PTR)hed);
+  SetWindowLong(hWnd, 0, (LONG)hed);
   HEXEDIT_Update(hed);
   
   return TRUE;
@@ -522,7 +522,7 @@ HEXEDIT_WM_NCDESTROY(PHEXEDIT_DATA hed)
     DeleteObject(hed->hFont);
   }
   
-  SetWindowLongPtr(hed->hWndSelf, 0, (DWORD_PTR)0);
+  SetWindowLong(hed->hWndSelf, 0, 0);
   HeapFree(GetProcessHeap(), 0, hed);
   
   return 0;
@@ -858,12 +858,13 @@ HEXEDIT_WM_SIZE(PHEXEDIT_DATA hed, DWORD sType, WORD NewWidth, WORD NewHeight)
   return 0;
 }
 
-INT_PTR CALLBACK
+LRESULT
+WINAPI
 HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   PHEXEDIT_DATA hed;
   
-  hed = (PHEXEDIT_DATA)GetWindowLongPtr(hWnd, (DWORD_PTR)0);
+  hed = (PHEXEDIT_DATA)GetWindowLong(hWnd, 0);
   switch(uMsg)
   {
     case WM_ERASEBKGND:

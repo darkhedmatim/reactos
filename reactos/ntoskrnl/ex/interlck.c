@@ -1,4 +1,4 @@
-/* $Id: interlck.c,v 1.17 2004/10/17 13:08:26 navaraf Exp $
+/* $Id: interlck.c,v 1.15 2004/08/15 16:39:01 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -17,7 +17,9 @@
 
 /* FUNCTIONS *****************************************************************/
 
+#ifdef ExInterlockedDecrementLong
 #undef ExInterlockedDecrementLong
+#endif
 
 /*
  * @implemented
@@ -42,7 +44,10 @@ ExInterlockedDecrementLong (PLONG		Addend,
         return oldval;
 }
 
+
+#ifdef ExInterlockedExchangeUlong
 #undef ExInterlockedExchangeUlong
+#endif
 
 /*
  * @implemented
@@ -69,12 +74,14 @@ ExInterlockedExchangeUlong (PULONG		Target,
 }
 
 
+#ifdef ExInterlockedAddUlong
 #undef ExInterlockedAddUlong
+#endif
 
 /*
  * @implemented
  */
-ULONG STDCALL
+ULONG FASTCALL
 ExInterlockedAddUlong (PULONG		Addend,
 		       ULONG		Increment,
 		       PKSPIN_LOCK	Lock)
@@ -143,7 +150,9 @@ ExInterlockedAddLargeInteger (PLARGE_INTEGER Addend,
         return oldval;
 }
 
+#ifdef ExInterlockedIncrementLong
 #undef ExInterlockedIncrementLong
+#endif
 
 /*
  * @implemented
@@ -206,6 +215,23 @@ ExInterlockedCompareExchange64 (IN OUT	PLONGLONG	Destination,
 
 	KeReleaseSpinLock (Lock, oldlvl);
 
+	return oldval;
+}
+
+/*
+ * @unimplemented
+ */
+LONGLONG
+FASTCALL
+ExfInterlockedCompareExchange64(
+    IN OUT LONGLONG volatile *Destination,
+    IN PLONGLONG ExChange,
+    IN PLONGLONG Comperand
+    )
+{
+	LONGLONG oldval;
+
+	UNIMPLEMENTED;
 	return oldval;
 }
 

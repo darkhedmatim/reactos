@@ -1,4 +1,4 @@
-/* $Id: npool.c,v 1.93 2004/11/28 22:06:25 blight Exp $
+/* $Id: npool.c,v 1.89 2004/08/15 16:39:08 chorns Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -19,6 +19,19 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
+
+/* Enable strict checking of the nonpaged pool on every allocation */
+/*#define ENABLE_VALIDATE_POOL*/
+
+/* Enable tracking of statistics about the tagged blocks in the pool */
+#define TAG_STATISTICS_TRACKING
+
+/*
+ * Put each block in its own range of pages and position the block at the
+ * end of the range so any accesses beyond the end of block are to invalid
+ * memory locations. 
+ */
+/*#define WHOLE_PAGE_ALLOCATIONS*/
 
 #ifdef ENABLE_VALIDATE_POOL
 #define VALIDATE_POOL validate_kernel_pool()
@@ -309,7 +322,7 @@ void avl_insert (PNODE * root, PNODE n, int (*compare)(PNODE, PNODE))
       }
       else
       {
-         ASSERT(x->balance == +1);
+         assert (x->balance == +1);
          w = x->link[1];
          x->link[1] = w->link[0];
          w->link[0] = x;
@@ -360,7 +373,7 @@ void avl_insert (PNODE * root, PNODE n, int (*compare)(PNODE, PNODE))
       }
       else
       {
-         ASSERT(x->balance == -1);
+         assert (x->balance == -1);
          w = x->link[0];
          x->link[0] = w->link[1];
          w->link[1] = x;
@@ -515,7 +528,7 @@ void avl_remove (PNODE *root, PNODE item, int (*compare)(PNODE, PNODE))
             {
                PNODE w;
 
-               ASSERT(x->balance == -1);
+               assert (x->balance == -1);
                w = x->link[0];
                x->link[0] = w->link[1];
                w->link[1] = x;
@@ -587,7 +600,7 @@ void avl_remove (PNODE *root, PNODE item, int (*compare)(PNODE, PNODE))
             if (x->balance == +1)
             {
                PNODE w;
-               ASSERT(x->balance == +1);
+               assert (x->balance == +1);
                w = x->link[1];
                x->link[1] = w->link[0];
                w->link[0] = x;
@@ -1477,7 +1490,7 @@ VOID STDCALL ExFreeNonPagedPool (PVOID block)
       return;
    }
 
-   DPRINT("freeing block %x\n",block);
+   DPRINT("freeing block %x\n",blk);
 
    POOL_TRACE("ExFreePool(block %x), size %d, caller %x\n",block,blk->size,
               ((PULONG)&block)[-1]);
@@ -1542,8 +1555,6 @@ ExAllocateNonPagedPoolWithTag(ULONG Type, ULONG Size, ULONG Tag, PVOID Caller)
 #ifdef WHOLE_PAGE_ALLOCATIONS
    PVOID block;
    KIRQL oldIrql;
-
-   ASSERT_IRQL(DISPATCH_LEVEL);
 
    POOL_TRACE("ExAllocatePool(NumberOfBytes %d) caller %x ",
               Size,Caller);
@@ -1652,7 +1663,7 @@ PVOID STDCALL
 ExAllocateWholePageBlock(ULONG Size)
 {
    PVOID Address;
-   PFN_TYPE Page;
+   PHYSICAL_ADDRESS Page;
    ULONG i;
    ULONG NrPages;
    ULONG Base;
@@ -1669,30 +1680,25 @@ ExAllocateWholePageBlock(ULONG Size)
    {
       NonPagedPoolAllocMapHint += (NrPages + 1);
    }
-
    Address = MiNonPagedPoolStart + Base * PAGE_SIZE;
 
    for (i = 0; i < NrPages; i++)
    {
-       Page = MmAllocPage(MC_NPPOOL, 0);
-       if (Page == 0)
+      Page = MmAllocPage(MC_NPPOOL, 0);
+      if (Page.QuadPart == 0LL)
       {
          KEBUGCHECK(0);
       }
       MmCreateVirtualMapping(NULL,
                              Address + (i * PAGE_SIZE),
                              PAGE_READWRITE | PAGE_SYSTEM,
-                             &Page,
+                             Page,
                              TRUE);
    }
 
    MiCurrentNonPagedPoolLength = max(MiCurrentNonPagedPoolLength, (Base + NrPages) * PAGE_SIZE);
    Size = (Size + 7) & ~7;
-   Address = ((PVOID)((PUCHAR)Address + (NrPages * PAGE_SIZE) - Size));
-
-   DPRINT("WPALLOC: %x (%d)\n", Address, Size);
-
-   return Address;
+   return((PVOID)((PUCHAR)Address + (NrPages * PAGE_SIZE) - Size));
 }
 
 VOID STDCALL
@@ -1723,15 +1729,6 @@ ExFreeWholePageBlock(PVOID Addr)
 
 #endif /* WHOLE_PAGE_ALLOCATIONS */
 
-/* Whole Page Allocations note:
- *
- * We need enough pages for these things:
- *
- * 1) bitmap buffer
- * 2) hdr
- * 3) actual pages
- *
- */
 VOID INIT_FUNCTION
 MiInitializeNonPagedPool(VOID)
 {
@@ -1757,7 +1754,7 @@ MiInitializeNonPagedPool(VOID)
    FreeBlockListRoot = NULL;
 #ifdef WHOLE_PAGE_ALLOCATIONS
 
-   NonPagedPoolAllocMapHint = PAGE_ROUND_UP(MiNonPagedPoolLength / PAGE_SIZE / 8) / PAGE_SIZE; /* Pages of bitmap buffer */
+   NonPagedPoolAllocMapHint = PAGE_ROUND_UP(MiNonPagedPoolLength / PAGE_SIZE / 8) / PAGE_SIZE;
    MiCurrentNonPagedPoolLength = NonPagedPoolAllocMapHint * PAGE_SIZE;
    Address = MiNonPagedPoolStart;
    for (i = 0; i < NonPagedPoolAllocMapHint; i++)
@@ -1771,8 +1768,8 @@ MiInitializeNonPagedPool(VOID)
       Status = MmCreateVirtualMapping(NULL,
                                       Address,
                                       PAGE_READWRITE|PAGE_SYSTEM,
-                                      &Page,
-                                      1);
+                                      Page,
+                                      FALSE);
       if (!NT_SUCCESS(Status))
       {
          DbgPrint("Unable to create virtual mapping\n");
@@ -1780,8 +1777,7 @@ MiInitializeNonPagedPool(VOID)
       }
       Address += PAGE_SIZE;
    }
-   RtlInitializeBitMap(&NonPagedPoolAllocMap, MiNonPagedPoolStart, 
-		       MiNonPagedPoolLength / PAGE_SIZE);
+   RtlInitializeBitMap(&NonPagedPoolAllocMap, MiNonPagedPoolStart, MM_NONPAGED_POOL_SIZE / PAGE_SIZE);
    RtlClearAllBits(&NonPagedPoolAllocMap);
    RtlSetBits(&NonPagedPoolAllocMap, 0, NonPagedPoolAllocMapHint);
 #else

@@ -73,47 +73,46 @@ KdbpStabFindEntry(IN PIMAGE_SYMBOL_INFO SymbolInfo,
   StabsEnd = (PVOID)((ULONG_PTR)SymbolInfo->SymbolsBase + SymbolInfo->SymbolsLength);
   if (StartEntry != NULL)
     {
-      ASSERT((ULONG_PTR)StartEntry >= (ULONG_PTR)StabEntry);
+      assert((ULONG_PTR)StartEntry >= (ULONG_PTR)StabEntry);
       if ((ULONG_PTR)StartEntry >= (ULONG_PTR)StabsEnd)
         return NULL;
       StabEntry = StartEntry;
     }
 
-  if ( RelativeAddress != NULL )
-  {
-    for (; (ULONG_PTR)StabEntry < (ULONG_PTR)StabsEnd; StabEntry++)
+  for (; (ULONG_PTR)StabEntry < (ULONG_PTR)StabsEnd; StabEntry++)
     {
       ULONG_PTR SymbolRelativeAddress;
-
+      
       if (StabEntry->n_type != Type)
         continue;
 
       if (RelativeAddress != NULL)
-      {
-        if (StabEntry->n_value >= SymbolInfo->ImageSize)
-          continue;
-
-        SymbolRelativeAddress = StabEntry->n_value;
-        if ((SymbolRelativeAddress <= (ULONG_PTR)RelativeAddress) &&
-            (SymbolRelativeAddress > AddrFound))
         {
-          AddrFound = SymbolRelativeAddress;
-          BestStabEntry = StabEntry;
+          if (StabEntry->n_value < (ULONG_PTR)SymbolInfo->ImageBase)
+            continue;
+          if (StabEntry->n_value >= ((ULONG_PTR)SymbolInfo->ImageBase + SymbolInfo->ImageSize))
+            continue;
+
+          SymbolRelativeAddress = StabEntry->n_value - (ULONG_PTR)SymbolInfo->ImageBase;
+          if ((SymbolRelativeAddress <= (ULONG_PTR)RelativeAddress) &&
+              (SymbolRelativeAddress > AddrFound))
+            {
+	      AddrFound = SymbolRelativeAddress;
+	      BestStabEntry = StabEntry;
+            }
         }
-      }
+      else
+        {
+          BestStabEntry = StabEntry;
+          break;
+        }
     }
-  }
-  else
-    BestStabEntry = StabEntry;
 
   if (BestStabEntry == NULL)
-  {
     DPRINT("StabEntry not found!\n");
-  }
   else
-  {
     DPRINT("StabEntry found!\n");
-  }
 
   return BestStabEntry;
 }
+

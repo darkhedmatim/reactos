@@ -36,8 +36,6 @@
 
 */
 
-#ifndef _XMLSTORAGE_H
-
 #include "expat.h"
 
 #ifdef _MSC_VER
@@ -51,7 +49,6 @@
 #ifdef UNICODE
 #define _UNICODE
 #endif
-
 #include <tchar.h>
 #include <malloc.h>
 
@@ -71,149 +68,105 @@
 namespace XMLStorage {
 
 
-#ifndef XS_String
-
-#ifdef XS_STRING_UTF8
-#define	XS_CHAR char
-#define	XS_TEXT(x) x
-#define LPXSSTR LPSTR
-#define LPCXSSTR LPCSTR
-#define	XS_icmp stricmp
-#define	XS_nicmp strnicmp
-#define	XS_toi atoi
-#define	XS_len strlen
-#define	XS_sprintf sprintf
-#define	XS_vsprintf vsprintf
-#else
-#define	XS_CHAR TCHAR
-#define	XS_TEXT(x) TEXT(x)
-#define LPXSSTR LPTSTR
-#define LPCXSSTR LPCTSTR
-#define	XS_icmp _tcsicmp
-#define	XS_nicmp _tcsnicmp
-#define	XS_toi _ttoi
-#define	XS_len _tcslen
-#define	XS_sprintf _stprintf
-#define	XS_vsprintf _vstprintf
-#endif
-
-#if defined(_STRING_DEFINED) && !defined(XS_STRING_UTF8)
-
-#define	XS_String String
-
-#else // _STRING_DEFINED, !XS_STRING_UTF8
+#ifndef _STRING_DEFINED
 
  /// string class for TCHAR strings
 
-struct XS_String
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+struct String
+#ifdef UNICODE
  : public std::wstring
 #else
  : public std::string
 #endif
 {
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 	typedef std::wstring super;
 #else
 	typedef std::string super;
 #endif
 
-	XS_String() {}
+	String() {}
+	String(LPCTSTR s) {if (s) super::assign(s);}
+	String(LPCTSTR s, int l) : super(s, l) {}
+	String(const super& other) : super(other) {}
+	String(const String& other) : super(other) {}
 
-	XS_String(LPCXSSTR s) {if (s) super::assign(s);}
-	XS_String(LPCXSSTR s, int l) : super(s, l) {}
-
-	XS_String(const super& other) : super(other) {}
-	XS_String(const XS_String& other) : super(other) {}
-
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
-	XS_String(LPCSTR s) {assign(s);}
-	XS_String(LPCSTR s, int l) {assign(s, l);}
-	XS_String(const std::string& other) {assign(other.c_str());}
-	XS_String& operator=(LPCSTR s) {assign(s); return *this;}
+#ifdef UNICODE
+	String(LPCSTR s) {assign(s);}
+	String(LPCSTR s, int l) {assign(s, l);}
+	String(const std::string& other) {assign(other.c_str());}
+	String& operator=(LPCSTR s) {assign(s); return *this;}
 	void assign(LPCSTR s) {if (s) {int bl=strlen(s); LPWSTR b=(LPWSTR)alloca(sizeof(WCHAR)*bl); super::assign(b, MultiByteToWideChar(CP_ACP, 0, s, bl, b, bl));} else erase();}
 	void assign(LPCSTR s, int l) {if (s) {int bl=l; LPWSTR b=(LPWSTR)alloca(sizeof(WCHAR)*bl); super::assign(b, MultiByteToWideChar(CP_ACP, 0, s, l, b, bl));} else erase();}
 #else
-	XS_String(LPCWSTR s) {assign(s);}
-	XS_String(LPCWSTR s, int l) {assign(s, l);}
-	XS_String(const std::wstring& other) {assign(other.c_str());}
-	XS_String& operator=(LPCWSTR s) {assign(s); return *this;}
-#ifdef XS_STRING_UTF8
-	void assign(const XS_String& s) {assign(s.c_str());}
-	void assign(LPCWSTR s) {if (s) {int bl=wcslen(s); LPSTR b=(LPSTR)alloca(bl); super::assign(b, WideCharToMultiByte(CP_UTF8, 0, s, bl, b, bl, 0, 0));} else erase();}
-	void assign(LPCWSTR s, int l) {int bl=l; if (s) {LPSTR b=(LPSTR)alloca(bl); super::assign(b, WideCharToMultiByte(CP_UTF8, 0, s, l, b, bl, 0, 0));} else erase();}
-#else // if !UNICODE && !XS_STRING_UTF8
+	String(LPCWSTR s) {assign(s);}
+	String(LPCWSTR s, int l) {assign(s, l);}
+	String(const std::wstring& other) {assign(other.c_str());}
+	String& operator=(LPCWSTR s) {assign(s); return *this;}
 	void assign(LPCWSTR s) {if (s) {int bl=wcslen(s); LPSTR b=(LPSTR)alloca(bl); super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, bl, b, bl, 0, 0));} else erase();}
 	void assign(LPCWSTR s, int l) {int bl=l; if (s) {LPSTR b=(LPSTR)alloca(bl); super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, l, b, bl, 0, 0));} else erase();}
 #endif
-#endif
 
-	XS_String& operator=(LPCXSSTR s) {if (s) super::assign(s); else erase(); return *this;}
-	XS_String& operator=(const super& s) {super::assign(s); return *this;}
-	void assign(LPCXSSTR s) {super::assign(s);}
-	void assign(LPCXSSTR s, int l) {super::assign(s, l);}
+	String& operator=(LPCTSTR s) {if (s) super::assign(s); else erase(); return *this;}
+	String& operator=(const super& s) {super::assign(s); return *this;}
+	void assign(LPCTSTR s) {super::assign(s);}
+	void assign(LPCTSTR s, int l) {super::assign(s, l);}
 
-	operator LPCXSSTR() const {return c_str();}
+	operator LPCTSTR() const {return c_str();}
 
-#ifdef XS_STRING_UTF8
-	operator std::wstring() const {int bl=length(); LPWSTR b=(LPWSTR)alloca(sizeof(WCHAR)*bl); return std::wstring(b, MultiByteToWideChar(CP_UTF8, 0, c_str(), bl, b, bl));}
-#elif defined(UNICODE)
+#ifdef UNICODE
 	operator std::string() const {int bl=length(); LPSTR b=(LPSTR)alloca(bl); return std::string(b, WideCharToMultiByte(CP_ACP, 0, c_str(), bl, b, bl, 0, 0));}
 #else
 	operator std::wstring() const {int bl=length(); LPWSTR b=(LPWSTR)alloca(sizeof(WCHAR)*bl); return std::wstring(b, MultiByteToWideChar(CP_ACP, 0, c_str(), bl, b, bl));}
 #endif
 
-	XS_String& printf(LPCXSSTR fmt, ...)
+	String& printf(LPCTSTR fmt, ...)
 	{
 		va_list l;
-		XS_CHAR b[BUFFER_LEN];
+		TCHAR b[BUFFER_LEN];
 
 		va_start(l, fmt);
-		super::assign(b, XS_vsprintf(b, fmt, l));
+		super::assign(b, _vstprintf(b, fmt, l));
 		va_end(l);
 
 		return *this;
 	}
 
-	XS_String& vprintf(LPCXSSTR fmt, va_list l)
+	String& vprintf(LPCTSTR fmt, va_list l)
 	{
-		XS_CHAR b[BUFFER_LEN];
+		TCHAR b[BUFFER_LEN];
 
-		super::assign(b, XS_vsprintf(b, fmt, l));
+		super::assign(b, _vstprintf(b, fmt, l));
 
 		return *this;
 	}
 
-	XS_String& appendf(LPCXSSTR fmt, ...)
+	String& appendf(LPCTSTR fmt, ...)
 	{
 		va_list l;
-		XS_CHAR b[BUFFER_LEN];
+		TCHAR b[BUFFER_LEN];
 
 		va_start(l, fmt);
-		super::append(b, XS_vsprintf(b, fmt, l));
+		super::append(b, _vstprintf(b, fmt, l));
 		va_end(l);
 
 		return *this;
 	}
 
-	XS_String& vappendf(LPCXSSTR fmt, va_list l)
+	String& vappendf(LPCTSTR fmt, va_list l)
 	{
-		XS_CHAR b[BUFFER_LEN];
+		TCHAR b[BUFFER_LEN];
 
-		super::append(b, XS_vsprintf(b, fmt, l));
+		super::append(b, _vstprintf(b, fmt, l));
 
 		return *this;
 	}
 };
 
-#endif // _STRING_DEFINED, !XS_STRING_UTF8
-
-#endif // XS_String
+#endif
 
 
-#ifndef XS_STRING_UTF8
-
-inline void assign_utf8(XS_String& s, const char* str)
+inline void assign_utf8(String& s, const char* str)
 {
 	int lutf8 = strlen(str);
 
@@ -234,8 +187,8 @@ inline void assign_utf8(XS_String& s, const char* str)
 inline std::string get_utf8(LPCTSTR s, int l)
 {
 #ifdef UNICODE
-	int bl=2*l; LPSTR buffer = (LPSTR)alloca(bl);
-	l = WideCharToMultiByte(CP_UTF8, 0, s, l, buffer, bl, 0, 0);
+	LPSTR buffer = (LPSTR)alloca(l);
+	l = WideCharToMultiByte(CP_UTF8, 0, s, l, buffer, l, 0, 0);
 #else
 	LPWSTR wbuffer = (LPWSTR)alloca(sizeof(WCHAR)*l);
 	l = MultiByteToWideChar(CP_ACP, 0, s, l, wbuffer, l);
@@ -247,15 +200,13 @@ inline std::string get_utf8(LPCTSTR s, int l)
 	return std::string(buffer, l);
 }
 
-inline std::string get_utf8(const XS_String& s)
+inline std::string get_utf8(const String& s)
 {
 	return get_utf8(s.c_str(), s.length());
 }
 
-#endif // XS_STRING_UTF8
-
-extern std::string EncodeXMLString(const XS_String& str);
-extern XS_String DecodeXMLString(const XS_String& str);
+extern std::string EncodeXMLString(LPCTSTR s);
+extern String DecodeXMLString(LPCTSTR s);
 
 
 #ifdef __GNUC__
@@ -328,15 +279,11 @@ protected:
 
 #ifdef XML_UNICODE	// Are XML_Char strings UTF-16 encoded?
 
-typedef XS_String String_from_XML_Char;
-
-#elif defined(XS_STRING_UTF8)
-
-typedef XS_String String_from_XML_Char;
+typedef String String_from_XML_Char;
 
 #else
 
-struct String_from_XML_Char : public XS_String
+struct String_from_XML_Char : public String
 {
 	String_from_XML_Char(const XML_Char* str)
 	{
@@ -347,10 +294,10 @@ struct String_from_XML_Char : public XS_String
 #endif
 
 
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 
  // optimization for faster UNICODE/ASCII string comparison without temporary A/U conversion
-inline bool operator==(const XS_String& s1, const char* s2)
+inline bool operator==(const String& s1, const char* s2)
 {
 	LPCWSTR p = s1;
 	const unsigned char* q = (const unsigned char*)s2;
@@ -366,13 +313,13 @@ inline bool operator==(const XS_String& s1, const char* s2)
 
 
  /// in memory representation of an XML node
-struct XMLNode : public XS_String
+struct XMLNode : public String
 {
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 	 // optimized read access without temporary A/U conversion when using ASCII attribute names
-	struct AttributeMap : public std::map<XS_String, XS_String>
+	struct AttributeMap : public std::map<String, String>
 	{
-		typedef std::map<XS_String, XS_String> super;
+		typedef std::map<String, String> super;
 
 		const_iterator find(const char* x) const
 		{
@@ -394,7 +341,7 @@ struct XMLNode : public XS_String
 		}
 	};
 #else
-	typedef std::map<XS_String, XS_String> AttributeMap;
+	typedef std::map<String, String> AttributeMap;
 #endif
 
 	struct Children : public std::list<XMLNode*>
@@ -424,13 +371,13 @@ struct XMLNode : public XS_String
 	friend struct const_XMLPos;
 	friend struct XMLReaderBase;
 
-	XMLNode(const XS_String& name)
-	 :	XS_String(name)
+	XMLNode(const String& name)
+	 :	String(name)
 	{
 	}
 
-	XMLNode(const XS_String& name, const std::string& leading)
-	 :	XS_String(name),
+	XMLNode(const String& name, const std::string& leading)
+	 :	String(name),
 		_leading(leading)
 	{
 	}
@@ -464,7 +411,7 @@ struct XMLNode : public XS_String
 		_attributes.clear();
 		_children.clear();
 
-		XS_String::erase();
+		String::erase();
 	}
 
 	XMLNode& operator=(const XMLNode& other)
@@ -488,43 +435,43 @@ struct XMLNode : public XS_String
 	}
 
 	 /// write access to an attribute
-	void put(const XS_String& attr_name, const XS_String& value)
+	void put(const String& attr_name, const String& value)
 	{
 		_attributes[attr_name] = value;
 	}
 
 	 /// C++ write access to an attribute
-	XS_String& operator[](const XS_String& attr_name)
+	String& operator[](const String& attr_name)
 	{
 		return _attributes[attr_name];
 	}
 
 	 /// read only access to an attribute
-	template<typename T> XS_String get(const T& attr_name) const
+	template<typename T> String get(const T& attr_name) const
 	{
 		AttributeMap::const_iterator found = _attributes.find(attr_name);
 
 		if (found != _attributes.end())
 			return found->second;
 		else
-			return XS_String();
+			return TEXT("");
 	}
 
 	 /// convenient value access in children node
-	XS_String subvalue(const XS_String& name, const XS_String& attr_name, int n=0) const
+	String subvalue(const String& name, const String& attr_name) const
 	{
-		const XMLNode* node = find(name, n);
+		const XMLNode* node = find_first(name);
 
 		if (node)
 			return node->get(attr_name);
 		else
-			return XS_String();
+			return TEXT("");
 	}
 
 	 /// convenient storage of distinct values in children node
-	XS_String& subvalue(const XS_String& name, const XS_String& attr_name, int n=0)
+	String& subvalue(const String& name, const String& attr_name)
 	{
-		XMLNode* node = find(name, n);
+		XMLNode* node = find_first(name);
 
 		if (!node) {
 			node = new XMLNode(name);
@@ -534,22 +481,22 @@ struct XMLNode : public XS_String
 		return (*node)[attr_name];
 	}
 
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 	 /// convenient value access in children node
-	XS_String subvalue(const char* name, const char* attr_name, int n=0) const
+	String subvalue(const char* name, const char* attr_name) const
 	{
-		const XMLNode* node = find(name, n);
+		const XMLNode* node = find_first(name);
 
 		if (node)
 			return node->get(attr_name);
 		else
-			return XS_String();
+			return TEXT("");
 	}
 
 	 /// convenient storage of distinct values in children node
-	XS_String& subvalue(const char* name, const XS_String& attr_name, int n=0)
+	String& subvalue(const char* name, const String& attr_name)
 	{
-		XMLNode* node = find(name, n);
+		XMLNode* node = find_first(name);
 
 		if (!node) {
 			node = new XMLNode(name);
@@ -570,21 +517,18 @@ struct XMLNode : public XS_String
 		return _children;
 	}
 
-	XS_String get_content() const
+	String get_content() const
 	{
-#ifdef XS_STRING_UTF8
-		const XS_String& ret = _content;
-#else
-		XS_String ret;
-		assign_utf8(ret, _content.c_str());
-#endif
+		String ret;
 
-		return DecodeXMLString(ret.c_str());
+		assign_utf8(ret, _content.c_str());
+
+		return DecodeXMLString(ret);
 	}
 
-	void set_content(const XS_String& s)
+	void set_content(const String& s)
 	{
-		_content.assign(EncodeXMLString(s.c_str()));
+		_content.assign(EncodeXMLString(s));
 	}
 
 	enum WRITE_MODE {
@@ -629,63 +573,50 @@ protected:
 			return NULL;
 	}
 
-	XMLNode* find(const XS_String& name, int n=0) const
+	XMLNode* find_first(const String& name) const
 	{
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
 			if (**it == name)
-				if (!n--)
-					return *it;
+				return *it;
 
 		return NULL;
 	}
 
-	XMLNode* find(const XS_String& name, const XS_String& attr_name, const XS_String& attr_value, int n=0) const
+	XMLNode* find_first(const String& name, const String& attr_name, const String& attr_value) const
 	{
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it) {
 			const XMLNode& node = **it;
 
 			if (node==name && node.get(attr_name)==attr_value)
-				if (!n--)
-					return *it;
+				return *it;
 		}
 
 		return NULL;
 	}
 
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
-	XMLNode* find(const char* name, int n=0) const
+#ifdef UNICODE
+	XMLNode* find_first(const char* name) const
 	{
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
 			if (**it == name)
-				if (!n--)
-					return *it;
+				return *it;
 
 		return NULL;
 	}
 
 	template<typename T, typename U>
-	XMLNode* find(const char* name, const T& attr_name, const U& attr_value, int n=0) const
+	XMLNode* find_first(const char* name, const T& attr_name, const U& attr_value) const
 	{
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it) {
 			const XMLNode& node = **it;
 
 			if (node==name && node.get(attr_name)==attr_value)
-				if (!n--)
-					return *it;
+				return *it;
 		}
 
 		return NULL;
 	}
 #endif
-
-	 /// XPath find functions
-	const XMLNode* find_relative(const char* path) const;
-
-	XMLNode* find_relative(const char* path)
-		{return const_cast<XMLNode*>(const_cast<const XMLNode*>(this)->find_relative(path));}
-
-	 /// relative XPath create function
-	XMLNode* create_relative(const char* path);
 
 	void write_worker(std::ostream& out, int indent) const;
 	void pretty_write_worker(std::ostream& out, int indent) const;
@@ -696,13 +627,13 @@ protected:
  /// iterator access to children nodes with name filtering
 struct XMLChildrenFilter
 {
-	XMLChildrenFilter(XMLNode::Children& children, const XS_String& name)
+	XMLChildrenFilter(XMLNode::Children& children, const String& name)
 	 :	_begin(children.begin(), children.end(), name),
 		_end(children.end(), children.end(), name)
 	{
 	}
 
-	XMLChildrenFilter(XMLNode* node, const XS_String& name)
+	XMLChildrenFilter(XMLNode* node, const String& name)
 	 :	_begin(node->get_children().begin(), node->get_children().end(), name),
 		_end(node->get_children().end(), node->get_children().end(), name)
 	{
@@ -712,7 +643,7 @@ struct XMLChildrenFilter
 	{
 		typedef XMLNode::Children::iterator BaseIterator;
 
-		iterator(BaseIterator begin, BaseIterator end, const XS_String& filter_name)
+		iterator(BaseIterator begin, BaseIterator end, const String& filter_name)
 		 :	_cur(begin),
 			_end(end),
 			_filter_name(filter_name)
@@ -766,7 +697,7 @@ struct XMLChildrenFilter
 	protected:
 		BaseIterator	_cur;
 		BaseIterator	_end;
-		XS_String	_filter_name;
+		String	_filter_name;
 
 		void search_next()
 		{
@@ -794,13 +725,13 @@ protected:
  /// read only iterator access to children nodes with name filtering
 struct const_XMLChildrenFilter
 {
-	const_XMLChildrenFilter(const XMLNode::Children& children, const XS_String& name)
+	const_XMLChildrenFilter(const XMLNode::Children& children, const String& name)
 	 :	_begin(children.begin(), children.end(), name),
 		_end(children.end(), children.end(), name)
 	{
 	}
 
-	const_XMLChildrenFilter(const XMLNode* node, const XS_String& name)
+	const_XMLChildrenFilter(const XMLNode* node, const String& name)
 	 :	_begin(node->get_children().begin(), node->get_children().end(), name),
 		_end(node->get_children().end(), node->get_children().end(), name)
 	{
@@ -810,7 +741,7 @@ struct const_XMLChildrenFilter
 	{
 		typedef XMLNode::Children::const_iterator BaseIterator;
 
-		const_iterator(BaseIterator begin, BaseIterator end, const XS_String& filter_name)
+		const_iterator(BaseIterator begin, BaseIterator end, const String& filter_name)
 		 :	_cur(begin),
 			_end(end),
 			_filter_name(filter_name)
@@ -859,7 +790,7 @@ struct const_XMLChildrenFilter
 	protected:
 		BaseIterator	_cur;
 		BaseIterator	_end;
-		XS_String	_filter_name;
+		String	_filter_name;
 
 		void search_next()
 		{
@@ -899,28 +830,28 @@ struct XMLPos
 	{	// don't copy _stack
 	}
 
-	XMLPos(XMLNode* node, const XS_String& name)
+	XMLPos(XMLNode* node, const String& name)
 	 :	_root(node),
 		_cur(node)
 	{
 		smart_create(name);
 	}
 
-	XMLPos(XMLNode* node, const XS_String& name, const XS_String& attr_name, const XS_String& attr_value)
+	XMLPos(XMLNode* node, const String& name, const String& attr_name, const String& attr_value)
 	 :	_root(node),
 		_cur(node)
 	{
 		smart_create(name, attr_name, attr_value);
 	}
 
-	XMLPos(const XMLPos& other, const XS_String& name)
+	XMLPos(const XMLPos& other, const String& name)
 	 :	_root(other._root),
 		_cur(other._cur)
 	{
 		smart_create(name);
 	}
 
-	XMLPos(const XMLPos& other, const XS_String& name, const XS_String& attr_name, const XS_String& attr_value)
+	XMLPos(const XMLPos& other, const String& name, const String& attr_name, const String& attr_value)
 	 :	_root(other._root),
 		_cur(other._cur)
 	{
@@ -949,19 +880,19 @@ struct XMLPos
 	XMLNode& operator*() {return *_cur;}
 
 	 /// attribute access
-	XS_String get(const XS_String& attr_name) const
+	String get(const String& attr_name) const
 	{
 		return _cur->get(attr_name);
 	}
 
-	void put(const XS_String& attr_name, const XS_String& value)
+	void put(const String& attr_name, const String& value)
 	{
 		_cur->put(attr_name, value);
 	}
 
 	 /// C++ attribute access
-	template<typename T> XS_String get(const T& attr_name) const {return (*_cur)[attr_name];}
-	XS_String& operator[](const XS_String& attr_name) {return (*_cur)[attr_name];}
+	template<typename T> String get(const T& attr_name) const {return (*_cur)[attr_name];}
+	String& operator[](const String& attr_name) {return (*_cur)[attr_name];}
 
 	 /// insert children when building tree
 	void add_down(XMLNode* child)
@@ -994,9 +925,9 @@ struct XMLPos
 	}
 
 	 /// search for child and go down
-	bool go_down(const XS_String& name, int n=0)
+	bool go_down(const String& name)
 	{
-		XMLNode* node = _cur->find(name, n);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node) {
 			go_to(node);
@@ -1005,30 +936,19 @@ struct XMLPos
 			return false;
 	}
 
-	 /// move XPath like to position in XML tree
+	 /// move X-Path like to position in XML tree
 	bool go(const char* path);
 
-	 /// create child nodes using XPath notation and move to the deepest child
-	bool create_relative(const char* path)
-	{
-		XMLNode* node = _cur->create_relative(path);
-		if (!node)
-			return false;	// invalid path specified
-
-		go_to(node);
-		return true;
-	}
-
 	 /// create node and move to it
-	void create(const XS_String& name)
+	void create(const String& name)
 	{
 		add_down(new XMLNode(name));
 	}
 
 	 /// create node if not already existing and move to it
-	void smart_create(const XS_String& name)
+	void smart_create(const String& name)
 	{
-		XMLNode* node = _cur->find(name);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node)
 			go_to(node);
@@ -1037,9 +957,9 @@ struct XMLPos
 	}
 
 	 /// search matching child node identified by key name and an attribute value
-	void smart_create(const XS_String& name, const XS_String& attr_name, const XS_String& attr_value)
+	void smart_create(const String& name, const String& attr_name, const String& attr_value)
 	{
-		XMLNode* node = _cur->find(name, attr_name, attr_value);
+		XMLNode* node = _cur->find_first(name, attr_name, attr_value);
 
 		if (node)
 			go_to(node);
@@ -1050,11 +970,11 @@ struct XMLPos
 		}
 	}
 
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 	 /// search for child and go down
-	bool go_down(const char* name, int n=0)
+	bool go_down(const char* name)
 	{
-		XMLNode* node = _cur->find(name, n);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node) {
 			go_to(node);
@@ -1072,7 +992,7 @@ struct XMLPos
 	 /// create node if not already existing and move to it
 	void smart_create(const char* name)
 	{
-		XMLNode* node = _cur->find(name);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node)
 			go_to(node);
@@ -1084,7 +1004,7 @@ struct XMLPos
 	template<typename T, typename U>
 	void smart_create(const char* name, const T& attr_name, const U& attr_value)
 	{
-		XMLNode* node = _cur->find(name, attr_name, attr_value);
+		XMLNode* node = _cur->find_first(name, attr_name, attr_value);
 
 		if (node)
 			go_to(node);
@@ -1096,8 +1016,8 @@ struct XMLPos
 	}
 #endif
 
-	XS_String& str() {return *_cur;}
-	const XS_String& str() const {return *_cur;}
+	String& str() {return *_cur;}
+	const String& str() const {return *_cur;}
 
 protected:
 	XMLNode* _root;
@@ -1142,13 +1062,13 @@ struct const_XMLPos
 	const XMLNode& operator*() const {return *_cur;}
 
 	 /// attribute access
-	XS_String get(const XS_String& attr_name) const
+	String get(const String& attr_name) const
 	{
 		return _cur->get(attr_name);
 	}
 
 	 /// C++ attribute access
-	template<typename T> XS_String get(const T& attr_name) const {return _cur->get(attr_name);}
+	template<typename T> String get(const T& attr_name) const {return _cur->get(attr_name);}
 
 	 /// go back to previous position
 	bool back()
@@ -1174,9 +1094,9 @@ struct const_XMLPos
 	}
 
 	 /// search for child and go down
-	bool go_down(const XS_String& name, int n=0)
+	bool go_down(const String& name)
 	{
-		XMLNode* node = _cur->find(name, n);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node) {
 			go_to(node);
@@ -1185,14 +1105,14 @@ struct const_XMLPos
 			return false;
 	}
 
-	 /// move XPath like to position in XML tree
+	 /// move X-Path like to position in XML tree
 	bool go(const char* path);
 
-#if defined(UNICODE) && !defined(XS_STRING_UTF8)
+#ifdef UNICODE
 	 /// search for child and go down
-	bool go_down(const char* name, int n=0)
+	bool go_down(const char* name)
 	{
-		XMLNode* node = _cur->find(name, n);
+		XMLNode* node = _cur->find_first(name);
 
 		if (node) {
 			go_to(node);
@@ -1202,7 +1122,7 @@ struct const_XMLPos
 	}
 #endif
 
-	const XS_String& str() const {return *_cur;}
+	const String& str() const {return *_cur;}
 
 protected:
 	const XMLNode* _root;
@@ -1218,39 +1138,27 @@ protected:
 };
 
 
- // work around GCC's wide string constant bug
-#ifdef __GNUC__
-extern const LPCXSSTR XS_TRUE;
-extern const LPCXSSTR XS_FALSE;
-extern const LPCXSSTR XS_NUMBERFMT;
-#else
-#define	XS_TRUE XS_TEXT("true")
-#define	XS_FALSE XS_TEXT("false")
-#define	XS_NUMBERFMT XS_TEXT("%d")
-#endif
-
-
 struct XMLBool
 {
-	XMLBool(bool value=false)
+	XMLBool(bool value)
 	 :	_value(value)
 	{
 	}
 
-	XMLBool(LPCXSSTR value, bool def=false)
+	XMLBool(LPCTSTR value, bool def=false)
 	{
 		if (value && *value)
-			_value = !XS_icmp(value, XS_TRUE);
+			_value = !_tcsicmp(value, TEXT("true"));
 		else
 			_value = def;
 	}
 
-	XMLBool(const XMLNode* node, const XS_String& attr_name, bool def=false)
+	XMLBool(const XMLNode* node, const String& attr_name, bool def=false)
 	{
-		const XS_String& value = node->get(attr_name);
+		const String& value = node->get(attr_name);
 
 		if (!value.empty())
-			_value = !XS_icmp(value.c_str(), XS_TRUE);
+			_value = !_tcsicmp(value, TEXT("true"));
 		else
 			_value = def;
 	}
@@ -1265,9 +1173,9 @@ struct XMLBool
 		return !_value;
 	}
 
-	operator LPCXSSTR() const
+	operator LPCTSTR() const
 	{
-		return _value? XS_TRUE: XS_FALSE;
+		return _value? TEXT("true"): TEXT("false");
 	}
 
 protected:
@@ -1279,7 +1187,7 @@ private:
 
 struct XMLBoolRef
 {
-	XMLBoolRef(XMLNode* node, const XS_String& attr_name, bool def=false)
+	XMLBoolRef(XMLNode* node, const String& attr_name, bool def=false)
 	 :	_ref((*node)[attr_name])
 	{
 		if (_ref.empty())
@@ -1288,12 +1196,12 @@ struct XMLBoolRef
 
 	operator bool() const
 	{
-		return !XS_icmp(_ref.c_str(), XS_TRUE);
+		return !_tcsicmp(_ref, TEXT("true"));
 	}
 
 	bool operator!() const
 	{
-		return XS_icmp(_ref.c_str(), XS_TRUE)? true: false;
+		return _tcsicmp(_ref, TEXT("true"))? true: false;
 	}
 
 	XMLBoolRef& operator=(bool value)
@@ -1305,7 +1213,7 @@ struct XMLBoolRef
 
 	void assign(bool value)
 	{
-		_ref.assign(value? XS_TRUE: XS_FALSE);
+		_ref.assign(value? TEXT("true"): TEXT("false"));
 	}
 
 	void toggle()
@@ -1314,7 +1222,7 @@ struct XMLBoolRef
 	}
 
 protected:
-	XS_String& _ref;
+	String& _ref;
 };
 
 
@@ -1325,20 +1233,20 @@ struct XMLInt
 	{
 	}
 
-	XMLInt(LPCXSSTR value, int def=0)
+	XMLInt(LPCTSTR value, int def=0)
 	{
 		if (value && *value)
-			_value = XS_toi(value);
+			_value = _ttoi(value);
 		else
 			_value = def;
 	}
 
-	XMLInt(const XMLNode* node, const XS_String& attr_name, int def=0)
+	XMLInt(const XMLNode* node, const String& attr_name, int def=0)
 	{
-		const XS_String& value = node->get(attr_name);
+		const String& value = node->get(attr_name);
 
 		if (!value.empty())
-			_value = XS_toi(value.c_str());
+			_value = _ttoi(value);
 		else
 			_value = def;
 	}
@@ -1348,10 +1256,10 @@ struct XMLInt
 		return _value;
 	}
 
-	operator XS_String() const
+	operator String() const
 	{
-		XS_CHAR buffer[32];
-		XS_sprintf(buffer, XS_NUMBERFMT, _value);
+		TCHAR buffer[32];
+		_stprintf(buffer, TEXT("%d"), _value);
 		return buffer;
 	}
 
@@ -1364,7 +1272,7 @@ private:
 
 struct XMLIntRef
 {
-	XMLIntRef(XMLNode* node, const XS_String& attr_name, int def=0)
+	XMLIntRef(XMLNode* node, const String& attr_name, int def=0)
 	 :	_ref((*node)[attr_name])
 	{
 		if (_ref.empty())
@@ -1380,29 +1288,30 @@ struct XMLIntRef
 
 	operator int() const
 	{
-		return XS_toi(_ref.c_str());
+		return _ttoi(_ref);
 	}
 
 	void assign(int value)
 	{
-		XS_CHAR buffer[32];
-		XS_sprintf(buffer, XS_NUMBERFMT, value);
+		TCHAR buffer[32];
+
+		_stprintf(buffer, TEXT("%d"), value);
 		_ref.assign(buffer);
 	}
 
 protected:
-	XS_String& _ref;
+	String& _ref;
 };
 
 
 struct XMLString
 {
-	XMLString(const XS_String& value)
+	XMLString(const String& value)
 	 :	_value(value)
 	{
 	}
 
-	XMLString(LPCXSSTR value, LPCXSSTR def=XS_TEXT(""))
+	XMLString(LPCTSTR value, LPCTSTR def=TEXT(""))
 	{
 		if (value && *value)
 			_value = value;
@@ -1410,9 +1319,9 @@ struct XMLString
 			_value = def;
 	}
 
-	XMLString(const XMLNode* node, const XS_String& attr_name, LPCXSSTR def=XS_TEXT(""))
+	XMLString(const XMLNode* node, const String& attr_name, LPCTSTR def=TEXT(""))
 	{
-		const XS_String& value = node->get(attr_name);
+		const String& value = node->get(attr_name);
 
 		if (!value.empty())
 			_value = value;
@@ -1420,18 +1329,18 @@ struct XMLString
 			_value = def;
 	}
 
-	operator const XS_String&() const
+	operator const String&() const
 	{
 		return _value;
 	}
 
-	const XS_String& c_str() const
+	const String& c_str() const
 	{
 		return _value;
 	}
 
 protected:
-	XS_String	_value;
+	String	_value;
 
 private:
 	void operator=(const XMLString&); // disallow assignment operations
@@ -1439,58 +1348,58 @@ private:
 
 struct XMStringRef
 {
-	XMStringRef(XMLNode* node, const XS_String& attr_name, LPCXSSTR def=XS_TEXT(""))
+	XMStringRef(XMLNode* node, const String& attr_name, LPCTSTR def=TEXT(""))
 	 :	_ref((*node)[attr_name])
 	{
 		if (_ref.empty())
 			assign(def);
 	}
 
-	XMStringRef(XMLNode* node, const XS_String& node_name, const XS_String& attr_name, LPCXSSTR def=XS_TEXT(""))
+	XMStringRef(XMLNode* node, const String& node_name, const String& attr_name, LPCTSTR def=TEXT(""))
 	 :	_ref(node->subvalue(node_name, attr_name))
 	{
 		if (_ref.empty())
 			assign(def);
 	}
 
-	XMStringRef& operator=(const XS_String& value)
+	XMStringRef& operator=(const String& value)
 	{
 		assign(value);
 
 		return *this;
 	}
 
-	operator const XS_String&() const
+	operator const String&() const
 	{
 		return _ref;
 	}
 
-	void assign(const XS_String& value)
+	void assign(const String& value)
 	{
 		_ref.assign(value);
 	}
 
 protected:
-	XS_String& _ref;
+	String& _ref;
 };
 
 
 template<typename T>
-	inline void read_option(T& var, const_XMLPos& cfg, LPCXSSTR key)
+	inline void read_option(T& var, const_XMLPos& cfg, LPCTSTR key)
 	{
-		const XS_String& val = cfg.get(key);
+		const String& val = cfg.get(key);
 
 		if (!val.empty())
 			var = val;
 	}
 
 template<>
-	inline void read_option(int& var, const_XMLPos& cfg, LPCXSSTR key)
+	inline void read_option(int& var, const_XMLPos& cfg, LPCTSTR key)
 	{
-		const XS_String& val = cfg.get(key);
+		const String& val = cfg.get(key);
 
 		if (!val.empty())
-			var = XS_toi(val.c_str());
+			var = _ttoi(val);
 	}
 
 
@@ -1629,11 +1538,7 @@ struct XMLDoc : public XMLNode
 		tifstream in(path);
 		XMLReader reader(this, in);
 
-//#if defined(_STRING_DEFINED) && !defined(XS_STRING_UTF8)
-//		return read(reader, std::string(ANS(path)));
-//#else
-		return read(reader, XS_String(path));
-//#endif
+		return read(reader, String(path));
 	}
 
 	bool read(XMLReaderBase& reader)
@@ -1717,6 +1622,3 @@ struct XMLMessage : public XMLDoc
 
 
 }	// namespace XMLStorage
-
-#define _XMLSTORAGE_H
-#endif // _XMLSTORAGE_H

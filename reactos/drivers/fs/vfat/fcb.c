@@ -1,4 +1,4 @@
-/* $Id: fcb.c,v 1.43 2004/12/05 16:31:51 gvg Exp $
+/* $Id: fcb.c,v 1.40 2004/08/01 21:57:17 navaraf Exp $
  *
  *
  * FILE:             drivers/fs/vfat/fcb.c
@@ -8,7 +8,6 @@
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
  *                   Rex Jolliff (rex@lvcablemodem.com)
  *                   Hartmut Birr
- *                   Herve Poussineau (reactos@poussine.freesurf.fr)
  */
 
 /*  -------------------------------------------------------  INCLUDES  */
@@ -39,7 +38,6 @@ ULONG vfatNameHash(ULONG hash, PUNICODE_STRING NameU)
   PWCHAR curr;
   register WCHAR c;
 
-  ASSERT(NameU->Buffer[0] != L'.');
   curr = NameU->Buffer;
   last = NameU->Buffer + NameU->Length / sizeof(WCHAR);
 
@@ -61,7 +59,7 @@ vfatSplitPathName(PUNICODE_STRING PathNameU, PUNICODE_STRING DirNameU, PUNICODE_
     {
       pName--;
     }
-  ASSERT(*pName == L'\\');
+  assert(*pName == L'\\');
   FileNameU->Buffer = pName + 1;
   DirNameU->Length = (FileNameU->Buffer - PathNameU->Buffer) * sizeof(WCHAR);
   DirNameU->MaximumLength = DirNameU->Length;
@@ -90,12 +88,10 @@ vfatInitFcb(PVFATFCB Fcb, PUNICODE_STRING NameU)
       Fcb->DirNameU.MaximumLength = Fcb->DirNameU.Length = 0;
       Fcb->LongNameU.MaximumLength = Fcb->LongNameU.Length = 0; 
     }
-  RtlZeroMemory(&Fcb->FCBShareAccess, sizeof(SHARE_ACCESS));
-  Fcb->OpenHandleCount = 0;
 }  
 
 PVFATFCB
-vfatNewFCB(PDEVICE_EXTENSION  pVCB, PUNICODE_STRING pFileNameU)
+vfatNewFCB(PUNICODE_STRING pFileNameU)
 {
   PVFATFCB  rcFCB;
 
@@ -106,15 +102,8 @@ vfatNewFCB(PDEVICE_EXTENSION  pVCB, PUNICODE_STRING pFileNameU)
     {
       return NULL;
     }
-  RtlZeroMemory(rcFCB, sizeof(VFATFCB));
+  memset(rcFCB, 0, sizeof(VFATFCB));
   vfatInitFcb(rcFCB, pFileNameU);
-  if (pVCB->Flags & VCB_IS_FATX)
-  {
-    rcFCB->Flags |= FCB_IS_FATX_ENTRY;
-    rcFCB->Attributes = &rcFCB->entry.FatX.Attrib;
-  }
-  else
-    rcFCB->Attributes = &rcFCB->entry.Fat.Attrib;
   rcFCB->Hash.Hash = vfatNameHash(0, &rcFCB->PathNameU);
   rcFCB->Hash.self = rcFCB;
   rcFCB->ShortHash.self = rcFCB;
@@ -147,7 +136,7 @@ vfatDestroyFCB(PVFATFCB pFCB)
 BOOL
 vfatFCBIsDirectory(PVFATFCB FCB)
 {
-  return  *FCB->Attributes & FILE_ATTRIBUTE_DIRECTORY;
+  return  FCB->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY;
 }
 
 BOOL
@@ -321,7 +310,7 @@ vfatFCBInitializeCacheFromVolume (PVCB  vcb, PVFATFCB  fcb)
   {
     return  STATUS_INSUFFICIENT_RESOURCES;
   }
-  RtlZeroMemory(newCCB, sizeof (VFATCCB));
+  memset (newCCB, 0, sizeof (VFATCCB));
 
   fileObject->Flags |= FO_FCB_IS_VALID | FO_DIRECT_CACHE_PAGING_READ;
   fileObject->SectionObjectPointer = &fcb->SectionObjectPointers;
@@ -356,39 +345,28 @@ vfatMakeRootFCB(PDEVICE_EXTENSION  pVCB)
 
   RtlRosInitUnicodeStringFromLiteral(&NameU, L"\\");
 
-  FCB = vfatNewFCB(pVCB, &NameU);
-  if (FCB->Flags & FCB_IS_FATX_ENTRY)
+  FCB = vfatNewFCB(&NameU);
+  memset(FCB->entry.Filename, ' ', 11);
+  FCB->ShortHash.Hash = FCB->Hash.Hash;
+  FCB->entry.FileSize = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
+  FCB->entry.Attrib = FILE_ATTRIBUTE_DIRECTORY;
+  if (pVCB->FatInfo.FatType == FAT32)
   {
-    memset(FCB->entry.FatX.Filename, ' ', 42);
-    FCB->entry.FatX.FileSize = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
-    FCB->entry.FatX.Attrib = FILE_ATTRIBUTE_DIRECTORY;
-    FCB->entry.FatX.FirstCluster = 1;
-    Size = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
+    CurrentCluster = FirstCluster = pVCB->FatInfo.RootCluster;
+    FCB->entry.FirstCluster = (unsigned short)(FirstCluster & 0xffff);
+    FCB->entry.FirstClusterHigh = (unsigned short)(FirstCluster >> 16);
+
+    while (CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
+    {
+      Size += pVCB->FatInfo.BytesPerCluster;
+      Status = NextCluster (pVCB, FirstCluster, &CurrentCluster, FALSE);
+    }
   }
   else
   {
-    memset(FCB->entry.Fat.Filename, ' ', 11);
-    FCB->entry.Fat.FileSize = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
-    FCB->entry.Fat.Attrib = FILE_ATTRIBUTE_DIRECTORY;
-    if (pVCB->FatInfo.FatType == FAT32)
-    {
-      CurrentCluster = FirstCluster = pVCB->FatInfo.RootCluster;
-      FCB->entry.Fat.FirstCluster = (unsigned short)(FirstCluster & 0xffff);
-      FCB->entry.Fat.FirstClusterHigh = (unsigned short)(FirstCluster >> 16);
-
-      while (CurrentCluster != 0xffffffff && NT_SUCCESS(Status))
-      {
-        Size += pVCB->FatInfo.BytesPerCluster;
-        Status = NextCluster (pVCB, FirstCluster, &CurrentCluster, FALSE);
-      }
-    }
-    else
-    {
-      FCB->entry.Fat.FirstCluster = 1;
-      Size = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
-    }
+    FCB->entry.FirstCluster = 1;
+    Size = pVCB->FatInfo.rootDirectorySectors * pVCB->FatInfo.BytesPerSector;
   }
-  FCB->ShortHash.Hash = FCB->Hash.Hash;
   FCB->RefCount = 2;
   FCB->dirIndex = 0;
   FCB->RFCB.FileSize.QuadPart = Size;
@@ -455,18 +433,10 @@ vfatMakeFCBFromDirEntry(PVCB  vcb,
     RtlAppendUnicodeStringToString(&NameU, &DirContext->ShortNameU);
   }
   NameU.Buffer[NameU.Length / sizeof(WCHAR)] = 0;
-  
-  rcFCB = vfatNewFCB (vcb, &NameU);
-  RtlCopyMemory (&rcFCB->entry, &DirContext->DirEntry, sizeof (DIR_ENTRY));
+  rcFCB = vfatNewFCB (&NameU);
+  memcpy (&rcFCB->entry, &DirContext->FatDirEntry, sizeof (FAT_DIR_ENTRY));
   RtlCopyUnicodeString(&rcFCB->ShortNameU, &DirContext->ShortNameU);
-  if (vcb->Flags & VCB_IS_FATX)
-  {
-    rcFCB->ShortHash.Hash = rcFCB->Hash.Hash;
-  }
-  else
-  {
-    rcFCB->ShortHash.Hash = vfatNameHash(hash, &rcFCB->ShortNameU);
-  }
+  rcFCB->ShortHash.Hash = vfatNameHash(hash, &rcFCB->ShortNameU);
 
   if (vfatFCBIsDirectory(rcFCB))
   {
@@ -478,7 +448,7 @@ vfatMakeFCBFromDirEntry(PVCB  vcb,
     {
       Size = vcb->FatInfo.rootDirectorySectors * vcb->FatInfo.BytesPerSector;
     }
-    else if (FirstCluster != 0)
+    else
     {
       CurrentCluster = FirstCluster;
       while (CurrentCluster != 0xffffffff)
@@ -488,13 +458,9 @@ vfatMakeFCBFromDirEntry(PVCB  vcb,
       }
     }
   }
-  else if (rcFCB->Flags & FCB_IS_FATX_ENTRY)
-  {
-    Size = rcFCB->entry.FatX.FileSize;
-  }
   else
   {
-    Size = rcFCB->entry.Fat.FileSize;
+    Size = rcFCB->entry.FileSize;
   }
   rcFCB->dirIndex = DirContext->DirIndex;
   rcFCB->startIndex = DirContext->StartIndex;
@@ -526,7 +492,7 @@ vfatAttachFCBToFileObject (PDEVICE_EXTENSION  vcb,
     CHECKPOINT;
     return  STATUS_INSUFFICIENT_RESOURCES;
   }
-  RtlZeroMemory (newCCB, sizeof (VFATCCB));
+  memset (newCCB, 0, sizeof (VFATCCB));
 
   fileObject->Flags = fileObject->Flags | FO_FCB_IS_VALID |
       FO_DIRECT_CACHE_PAGING_READ;
@@ -554,9 +520,9 @@ vfatDirFindFile (PDEVICE_EXTENSION  pDeviceExt,
   BOOLEAN FoundLong = FALSE;
   BOOLEAN FoundShort = FALSE;
 
-  ASSERT(pDeviceExt);
-  ASSERT(pDirectoryFCB);
-  ASSERT(FileToFindU);
+  assert (pDeviceExt);
+  assert (pDirectoryFCB);
+  assert (FileToFindU);
 
   DPRINT ("vfatDirFindFile(VCB:%08x, dirFCB:%08x, File:%wZ)\n",
           pDeviceExt,
@@ -574,7 +540,7 @@ vfatDirFindFile (PDEVICE_EXTENSION  pDeviceExt,
 
   while (TRUE)
     {
-      status = pDeviceExt->GetNextDirEntry(&Context,
+      status = vfatGetNextDirEntry(&Context,
 	                           &Page, 
 	                           pDirectoryFCB,
 				   &DirContext,
@@ -594,7 +560,7 @@ vfatDirFindFile (PDEVICE_EXTENSION  pDeviceExt,
               &DirContext.LongNameU);
       DirContext.LongNameU.Buffer[DirContext.LongNameU.Length / sizeof(WCHAR)] = 0;
       DirContext.ShortNameU.Buffer[DirContext.ShortNameU.Length / sizeof(WCHAR)] = 0;
-      if (!ENTRY_VOLUME(pDeviceExt, &DirContext.DirEntry))
+      if (!ENTRY_VOLUME(&DirContext.FatDirEntry))
         {
 	  FoundLong = RtlEqualUnicodeString(FileToFindU, &DirContext.LongNameU, TRUE);
 	  if (FoundLong == FALSE)
@@ -678,7 +644,7 @@ vfatGetFCBForFile (PDEVICE_EXTENSION  pVCB,
 	      curr = pFileNameU->Buffer + FCB->PathNameU.Length / sizeof(WCHAR);
               last = pFileNameU->Buffer + pFileNameU->Length / sizeof(WCHAR) - 1;
 	    }
-	  RtlCopyMemory(pFileNameU->Buffer, FCB->PathNameU.Buffer, FCB->PathNameU.Length);
+	  memcpy(pFileNameU->Buffer, FCB->PathNameU.Buffer, FCB->PathNameU.Length);
 	}
     }
   else
@@ -731,7 +697,7 @@ vfatGetFCBForFile (PDEVICE_EXTENSION  pVCB,
 	      curr = prev + parentFCB->LongNameU.Length / sizeof(WCHAR);
               last = pFileNameU->Buffer + pFileNameU->Length / sizeof(WCHAR) - 1;
 	    }
-	  RtlCopyMemory(prev, parentFCB->LongNameU.Buffer, parentFCB->LongNameU.Length);
+	  memcpy(prev, parentFCB->LongNameU.Buffer, parentFCB->LongNameU.Length);
 	}
       curr++;      
       prev = curr;

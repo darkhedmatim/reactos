@@ -1,4 +1,4 @@
-/* $Id: mminit.c,v 1.71 2004/10/22 20:38:22 ekohl Exp $
+/* $Id: mminit.c,v 1.67 2004/08/19 22:17:47 hbirr Exp $
  *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
@@ -34,6 +34,7 @@ static MM_SYSTEM_SIZE MmSystemSize = MmSmallSystem;
 
 static MEMORY_AREA* kernel_text_desc = NULL;
 static MEMORY_AREA* kernel_init_desc = NULL;
+static MEMORY_AREA* kernel_map_desc = NULL;
 static MEMORY_AREA* kernel_kpcr_desc = NULL;
 static MEMORY_AREA* kernel_data_desc = NULL;
 static MEMORY_AREA* kernel_param_desc = NULL;
@@ -106,7 +107,17 @@ MmInitVirtualMemory(ULONG LastKernelAddress,
    /*
     * Setup the system area descriptor list
     */
-   MiInitPageDirectoryMap();
+   BaseAddress = (PVOID)0xf0000000;
+   MmCreateMemoryArea(NULL,
+                      MmGetKernelAddressSpace(),
+                      MEMORY_AREA_SYSTEM,
+                      &BaseAddress,
+                      0x400000,
+                      0,
+                      &kernel_map_desc,
+                      TRUE,
+                      FALSE,
+                      BoundaryAddressMultiple);
 
    BaseAddress = (PVOID)KPCR_BASE;
    MmCreateMemoryArea(NULL,
@@ -152,7 +163,7 @@ MmInitVirtualMemory(ULONG LastKernelAddress,
                       BoundaryAddressMultiple);
 
    BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG)&_text_end__));
-   ASSERT(BaseAddress == (PVOID)&_init_start__);
+   assert (BaseAddress == (PVOID)&_init_start__);
    Length = PAGE_ROUND_UP(((ULONG)&_init_end__)) -
             PAGE_ROUND_UP(((ULONG)&_text_end__));
    ParamLength = ParamLength - Length;
@@ -401,11 +412,22 @@ MmInit1(ULONG FirstKrnlPhysAddr,
    MmDeletePageTable(NULL, 0);
 #endif
 
-
+   /*
+    * Create a trap for null pointer references and protect text
+    * segment
+    */
+   DPRINT("_text_start__ %x _init_end__ %x\n",(int)&_text_start__,(int)&_init_end__);
+   for (i=PAGE_ROUND_DOWN(((int)&_text_start__));
+         i<PAGE_ROUND_UP(((int)&_init_end__));i=i+PAGE_SIZE)
+   {
+      MmSetPageProtect(NULL,
+                       (PVOID)i,
+                       PAGE_EXECUTE_READ);
+   }
 
    DPRINT("Invalidating between %x and %x\n",
-          LastKernelAddress, KERNEL_BASE + 0x00600000);
-   for (i=(LastKernelAddress); i<KERNEL_BASE + 0x00600000; i+=PAGE_SIZE)
+          LastKernelAddress, 0xc0600000);
+   for (i=(LastKernelAddress); i<0xc0600000; i+=PAGE_SIZE)
    {
       MmRawDeleteVirtualMapping((PVOID)(i));
    }
@@ -469,7 +491,7 @@ MiFreeInitMemoryPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
                      PFN_TYPE Page, SWAPENTRY SwapEntry,
                      BOOLEAN Dirty)
 {
-   ASSERT(SwapEntry == 0);
+   assert(SwapEntry == 0);
    if (Page != 0)
    {
       MmReleasePageMemoryConsumer(MC_NPPOOL, Page);

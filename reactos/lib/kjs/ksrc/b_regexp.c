@@ -24,7 +24,7 @@
 
 /*
  * $Source: /cygdrive/c/RCVS/CVS/ReactOS/reactos/lib/kjs/ksrc/b_regexp.c,v $
- * $Id: b_regexp.c,v 1.3 2004/12/25 19:38:16 navaraf Exp $
+ * $Id: b_regexp.c,v 1.1 2004/01/10 20:38:17 arty Exp $
  */
 
 #include "jsint.h"
@@ -275,7 +275,7 @@ method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 		  input_str = &cvt;
 		}
 
-	      input = (char*)input_str->u.vstring->data;
+	      input = input_str->u.vstring->data;
 	      input_len = input_str->u.vstring->len;
 	    }
 	  else if (args->u.vinteger == 1)
@@ -288,7 +288,7 @@ method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 		  input_str = &cvt;
 		}
 
-	      input = (char*)input_str->u.vstring->data;
+	      input = input_str->u.vstring->data;
 	      input_len = input_str->u.vstring->len;
 
 	      /* Set the input property to the class context. */
@@ -317,7 +317,7 @@ method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 		  input_str = &cvt;
 		}
 
-	      input = (char*)input_str->u.vstring->data;
+	      input = input_str->u.vstring->data;
 	      input_len = input_str->u.vstring->len;
 	    }
 	  else if (args->u.vinteger == 1)
@@ -330,7 +330,7 @@ method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 		  input_str = &cvt;
 		}
 
-	      input = (char*)input_str->u.vstring->data;
+	      input = input_str->u.vstring->data;
 	      input_len = input_str->u.vstring->len;
 
 	      /* Set the input property to the class context. */
@@ -370,10 +370,10 @@ method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	   js_vm_symname (vm, method));
   js_vm_error (vm);
 
-/* argument_type_error: */ 	 
-  sprintf (vm->error, "RegExp.%s(): illegal argument", 	 
-           js_vm_symname (vm, method)); 	 
-  js_vm_error (vm); 	 
+ /* argument_type_error: */
+  sprintf (vm->error, "RegExp.%s(): illegal argument",
+	   js_vm_symname (vm, method));
+  js_vm_error (vm);
 
  immutable:
   sprintf (vm->error, "RegExp.%s(): immutable object",
@@ -406,7 +406,7 @@ global_method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	      sprintf (vm->error, "RegExp(): RegExp.input is not a string");
 	      js_vm_error (vm);
 	    }
-	  input = (char*)ctx->input.u.vstring->data;
+	  input = ctx->input.u.vstring->data;
 	  input_len = ctx->input.u.vstring->len;
 	}
       else if (args->u.vinteger == 1)
@@ -417,7 +417,7 @@ global_method (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	      js_vm_error (vm);
 	    }
 
-	  input = (char*)args[1].u.vstring->data;
+	  input = args[1].u.vstring->data;
 	  input_len = args[1].u.vstring->len;
 
 	  /* Set the input property to the class context. */
@@ -466,7 +466,7 @@ property (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	node->type = JS_UNDEFINED;
       else
 	js_vm_make_string (vm, node,
-			   (char*)ctx->input.u.vstring->data
+			   ctx->input.u.vstring->data
 			   + ctx->regs.start[index],
 			   ctx->regs.end[index] - ctx->regs.start[index]);
     }
@@ -542,8 +542,7 @@ property (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	node->type = JS_UNDEFINED;
       else
 	js_vm_make_string (vm, node,
-			   (char*)ctx->input.u.vstring->data +
-			   ctx->regs.start[0],
+			   ctx->input.u.vstring->data + ctx->regs.start[0],
 			   ctx->regs.end[0] - ctx->regs.start[0]);
     }
   /* ********************************************************************** */
@@ -566,7 +565,7 @@ property (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	    node->type = JS_UNDEFINED;
 	  else
 	    js_vm_make_string (vm, node,
-			       (char*)ctx->input.u.vstring->data
+			       ctx->input.u.vstring->data
 			       + ctx->regs.start[i],
 			       ctx->regs.end[i] - ctx->regs.start[i]);
 	}
@@ -581,7 +580,7 @@ property (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	  || ctx->regs.end[0] > ctx->input.u.vstring->len)
 	node->type = JS_UNDEFINED;
       else
-	js_vm_make_string (vm, node, (char*)ctx->input.u.vstring->data,
+	js_vm_make_string (vm, node, ctx->input.u.vstring->data,
 			   ctx->regs.start[0]);
     }
   /* ********************************************************************** */
@@ -599,7 +598,7 @@ property (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info,
 	node->type = JS_UNDEFINED;
       else
 	js_vm_make_string (vm, node,
-			   (char*)ctx->input.u.vstring->data + ctx->regs.end[0],
+			   ctx->input.u.vstring->data + ctx->regs.end[0],
 			   ctx->input.u.vstring->len - ctx->regs.end[0]);
     }
   /* ********************************************************************** */
@@ -727,7 +726,7 @@ new_proc (JSVirtualMachine *vm, JSBuiltinInfo *builtin_info, JSNode *args,
 	  js_vm_error (vm);
 	}
 
-      source = (char*)args[1].u.vstring->data;
+      source = args[1].u.vstring->data;
       source_len = args[1].u.vstring->len;
     }
 

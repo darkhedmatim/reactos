@@ -236,7 +236,7 @@ extern struct ExplorerGlobals
 	void	write_persistent();
 
 	XMLPos	get_cfg();
-	XMLPos	get_cfg(const char* path);
+	XMLPos	get_cfg(const String& name);
 
 	HINSTANCE	_hInstance;
 	ATOM		_hframeClass;

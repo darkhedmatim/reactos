@@ -1,8 +1,6 @@
-# $Id: makefile,v 1.22 2004/12/26 14:43:00 gvg Exp $
+# $Id: makefile,v 1.16 2004/08/15 18:53:07 chorns Exp $
 
 PATH_TO_TOP = ../..
-
-TARGET_REGTESTS = yes
 
 TARGET_TYPE = dynlink
 
@@ -19,17 +17,18 @@ TARGET_CFLAGS = \
  -fno-builtin \
  -DUNICODE \
  -DLE \
- -D__USE_W32API \
- -D_WIN32_WINNT=0x0500
+ -DDBG \
+ -D__USE_W32API
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a advapi32.a dnsapi.a
+TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
 
-TARGET_OBJECTS = misc/bsd.o misc/catalog.o misc/dllmain.o \
+TARGET_OBJECTS = \
+  misc/bsd.o misc/catalog.o misc/dllmain.o \
   misc/event.o misc/handle.o misc/ns.o \
   misc/sndrcv.o misc/stubs.o misc/upcall.o
 

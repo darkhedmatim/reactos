@@ -9,74 +9,21 @@
  *   CSH 01/09-2000 Created
  *	 Alex 16/07/2004 - Complete Rewrite
  */
-
-#include <roscfg.h>
 #include <string.h>
 #include <msafd.h>
-#include <debug.h>
 
 INT
 WSPAPI
 WSPAsyncSelect(
-    IN  SOCKET Handle, 
+    IN  SOCKET s, 
     IN  HWND hWnd, 
     IN  UINT wMsg, 
     IN  LONG lEvent, 
     OUT LPINT lpErrno)
 {
-	PSOCKET_INFORMATION Socket = NULL;
-	PASYNC_DATA AsyncData;
-	NTSTATUS Status;
-	ULONG BlockMode;
+  UNIMPLEMENTED
 
-	/* Get the Socket Structure associated to this Socket */
-	Socket = GetSocketStructure(Handle);
-
-	/* Allocate the Async Data Structure to pass on to the Thread later */
-	AsyncData = HeapAlloc(GetProcessHeap(), 0, sizeof(*AsyncData));
-
-	/* Change the Socket to Non Blocking */
-	BlockMode = 1;
-	SetSocketInformation(Socket, AFD_INFO_BLOCKING_MODE, &BlockMode, NULL);
-	Socket->SharedData.NonBlocking = TRUE;
-
-	/* Deactive WSPEventSelect */
-	if (Socket->SharedData.AsyncEvents) {
-		WSPEventSelect(Handle, NULL, 0, NULL);
-	}
-
-	/* Create the Asynch Thread if Needed */  
-	SockCreateOrReferenceAsyncThread();
-	
-	/* Open a Handle to AFD's Async Helper */
-	SockGetAsyncSelectHelperAfdHandle();
-
-	/* Store Socket Data */
-	Socket->SharedData.hWnd = hWnd;
-	Socket->SharedData.wMsg = wMsg;
-	Socket->SharedData.AsyncEvents = lEvent;
-	Socket->SharedData.AsyncDisabledEvents = 0;
-	Socket->SharedData.SequenceNumber++;
-
-    /* Return if there are no more Events */
-	if ((Socket->SharedData.AsyncEvents & (~Socket->SharedData.AsyncDisabledEvents)) == 0) {
-		HeapFree(GetProcessHeap(), 0, AsyncData);
-		return 0;
-	}
-
-	/* Set up the Async Data */
-	AsyncData->ParentSocket = Socket;
-	AsyncData->SequenceNumber = Socket->SharedData.SequenceNumber;
-
-	/* Begin Async Select by using I/O Completion */
-	Status = NtSetIoCompletion(SockAsyncCompletionPort,
-				  (PVOID)&SockProcessQueuedAsyncSelect,
-				  AsyncData,
-				  0,
-				  0);
-
-	/* Return */
-	return ERROR_SUCCESS;
+  return 0;
 }
 
 
@@ -100,24 +47,12 @@ WSPRecv(
 	PVOID						APCContext;
 	PVOID						APCFunction;
 	HANDLE						Event;
-	HANDLE                                  SockEvent;
-	PSOCKET_INFORMATION			Socket;
-
-	AFD_DbgPrint(MID_TRACE,("Called\n"));
-
-	/* Get the Socket Structure associate to this Socket*/
-	Socket = GetSocketStructure(Handle);
-
-	Status = NtCreateEvent( &SockEvent, GENERIC_READ | GENERIC_WRITE,
-				NULL, 1, FALSE );
-
-	if( !NT_SUCCESS(Status) ) return -1;
 
     /* Set up the Receive Structure */
     RecvInfo.BufferArray = (PAFD_WSABUF)lpBuffers;
     RecvInfo.BufferCount = dwBufferCount;
 	RecvInfo.TdiFlags = 0;
-	RecvInfo.AfdFlags = Socket->SharedData.NonBlocking ? AFD_IMMEDIATE : 0;
+	RecvInfo.AfdFlags = 0;
 
 	/* Set the TDI Flags */
 	if (*ReceiveFlags == 0) {
@@ -187,36 +122,41 @@ WSPRecv(
 
 	/* Wait for completition of not overlapped */
 	if (Status == STATUS_PENDING && lpOverlapped == NULL) {
-	    /* It's up to the protocol to time out recv.  We must wait
-	     * until the protocol decides it's had enough. */
-	    WaitForSingleObject(SockEvent, INFINITE);
-	    Status = IOSB->Status;
+		WaitForSingleObject(SockEvent, 0); // BUGBUG, shouldn wait infintely for receive...
+		Status = IOSB->Status;
 	}
 
-    NtClose( SockEvent );
-
-    AFD_DbgPrint(MID_TRACE,("Status %x Information %d\n", 
-			    Status, IOSB->Information));
-
-    /* Return the Flags */
-    *ReceiveFlags = 0;
-
+	/* Return the Flags */
+    	*ReceiveFlags = 0;
     switch (Status) {
-    case STATUS_RECEIVE_EXPEDITED: *ReceiveFlags = MSG_OOB; break;
-    case STATUS_RECEIVE_PARTIAL_EXPEDITED: 
-	*ReceiveFlags = MSG_PARTIAL | MSG_OOB; break;
-    case STATUS_RECEIVE_PARTIAL: *ReceiveFlags = MSG_PARTIAL; break;
-    }
-    
-    /* Re-enable Async Event */
-    if (*ReceiveFlags == MSG_OOB) {
-        SockReenableAsyncSelectEvent(Socket, FD_OOB);
-    } else {
-        SockReenableAsyncSelectEvent(Socket, FD_READ);
-    }
+        
+		case STATUS_SUCCESS:
+            	break;
 
-    return MsafdReturnWithErrno
-	( Status, lpErrno, IOSB->Information, lpNumberOfBytesRead );
+        case STATUS_PENDING :
+        	return WSA_IO_PENDING;
+
+	case STATUS_BUFFER_OVERFLOW:
+           	return WSAEMSGSIZE;
+
+        case STATUS_RECEIVE_EXPEDITED:
+            	*ReceiveFlags = MSG_OOB;
+           	 break;
+
+	case STATUS_RECEIVE_PARTIAL_EXPEDITED :
+            	*ReceiveFlags = MSG_PARTIAL | MSG_OOB;
+           	 break;
+
+        case STATUS_RECEIVE_PARTIAL :
+            	*ReceiveFlags = MSG_PARTIAL;
+            	break;
+	}
+
+	/* Return Number of bytes Read */
+    	*lpNumberOfBytesRead = (DWORD)IOSB->Information;
+
+	/* Success */
+	return STATUS_SUCCESS;
 }
 
 int 
@@ -241,22 +181,12 @@ WSPRecvFrom(
 	PVOID						APCContext;
 	PVOID						APCFunction;
 	HANDLE						Event;
-	HANDLE                                  SockEvent;
-	PSOCKET_INFORMATION			Socket;
-
-	/* Get the Socket Structure associate to this Socket*/
-	Socket = GetSocketStructure(Handle);
-
-	Status = NtCreateEvent( &SockEvent, GENERIC_READ | GENERIC_WRITE,
-				NULL, 1, FALSE );
-
-	if( !NT_SUCCESS(Status) ) return -1;
 
     /* Set up the Receive Structure */
     RecvInfo.BufferArray = (PAFD_WSABUF)lpBuffers;
     RecvInfo.BufferCount = dwBufferCount;
 	RecvInfo.TdiFlags = 0;
-	RecvInfo.AfdFlags = Socket->SharedData.NonBlocking ? AFD_IMMEDIATE : 0;
+	RecvInfo.AfdFlags = 0;
 	RecvInfo.AddressLength = SocketAddressLength;
 	RecvInfo.Address = SocketAddress;
 
@@ -328,27 +258,41 @@ WSPRecvFrom(
 
 	/* Wait for completition of not overlapped */
 	if (Status == STATUS_PENDING && lpOverlapped == NULL) {
-		WaitForSingleObject(SockEvent, INFINITE); // BUGBUG, shouldn wait infintely for receive...
+		WaitForSingleObject(SockEvent, 0); // BUGBUG, shouldn wait infintely for receive...
 		Status = IOSB->Status;
 	}
 
-    NtClose( SockEvent );
-
-    /* Return the Flags */
-    *ReceiveFlags = 0;
-
+	/* Return the Flags */
+    	*ReceiveFlags = 0;
     switch (Status) {
-    case STATUS_RECEIVE_EXPEDITED: *ReceiveFlags = MSG_OOB; break;
-    case STATUS_RECEIVE_PARTIAL_EXPEDITED: 
-	*ReceiveFlags = MSG_PARTIAL | MSG_OOB; break;
-    case STATUS_RECEIVE_PARTIAL: *ReceiveFlags = MSG_PARTIAL; break;
-    }
+        
+		case STATUS_SUCCESS:
+            	break;
 
-    /* Re-enable Async Event */
-    SockReenableAsyncSelectEvent(Socket, FD_READ);
-    
-    return MsafdReturnWithErrno
-	( Status, lpErrno, IOSB->Information, lpNumberOfBytesRead );
+        case STATUS_PENDING :
+        	return WSA_IO_PENDING;
+
+		case STATUS_BUFFER_OVERFLOW:
+           	return WSAEMSGSIZE;
+
+        case STATUS_RECEIVE_EXPEDITED:
+            	*ReceiveFlags = MSG_OOB;
+           	 break;
+
+		case STATUS_RECEIVE_PARTIAL_EXPEDITED :
+            	*ReceiveFlags = MSG_PARTIAL | MSG_OOB;
+           	 break;
+
+        case STATUS_RECEIVE_PARTIAL :
+            	*ReceiveFlags = MSG_PARTIAL;
+            	break;
+	}
+
+	/* Return Number of bytes Read */
+    *lpNumberOfBytesRead = (DWORD)IOSB->Information;
+
+	/* Success */
+	return STATUS_SUCCESS;
 }
 
 
@@ -372,24 +316,12 @@ WSPSend(
 	PVOID						APCContext;
 	PVOID						APCFunction;
 	HANDLE						Event;
-	HANDLE                                  SockEvent;
-	PSOCKET_INFORMATION			Socket;
-
-	/* Get the Socket Structure associate to this Socket*/
-	Socket = GetSocketStructure(Handle);
-
-	Status = NtCreateEvent( &SockEvent, GENERIC_READ | GENERIC_WRITE,
-				NULL, 1, FALSE );
-
-	if( !NT_SUCCESS(Status) ) return -1;
-
-	AFD_DbgPrint(MID_TRACE,("Called\n"));
 
     /* Set up the Send Structure */
     SendInfo.BufferArray = (PAFD_WSABUF)lpBuffers;
     SendInfo.BufferCount = dwBufferCount;
 	SendInfo.TdiFlags = 0;
-	SendInfo.AfdFlags = Socket->SharedData.NonBlocking ? AFD_IMMEDIATE : 0;
+	SendInfo.AfdFlags = 0;
 
 	/* Set the TDI Flags */
 	if (iFlags) {
@@ -447,24 +379,19 @@ WSPSend(
 
 	/* Wait for completition of not overlapped */
 	if (Status == STATUS_PENDING && lpOverlapped == NULL) {
-		WaitForSingleObject(SockEvent, INFINITE); // BUGBUG, shouldn wait infintely for send...
+		WaitForSingleObject(SockEvent, 0); // BUGBUG, shouldn wait infintely for send...
 		Status = IOSB->Status;
 	}
 
-	NtClose( SockEvent );
-
 	if (Status == STATUS_PENDING) {
-	    AFD_DbgPrint(MID_TRACE,("Leaving (Pending)\n"));
-	    return WSA_IO_PENDING;
+        return WSA_IO_PENDING;
 	}
 
-     /* Re-enable Async Event */
-    SockReenableAsyncSelectEvent(Socket, FD_WRITE);
-    
-	AFD_DbgPrint(MID_TRACE,("Leaving (Success, %d)\n", IOSB->Information));
+	/* Return Number of bytes Sent */
+    *lpNumberOfBytesSent = (DWORD)IOSB->Information;
 
-    return MsafdReturnWithErrno
-	( Status, lpErrno, IOSB->Information, lpNumberOfBytesSent );
+	/* Success */
+	return STATUS_SUCCESS;
 }
 
 int 
@@ -475,7 +402,7 @@ WSPSendTo(
 	DWORD dwBufferCount, 
 	LPDWORD lpNumberOfBytesSent, 
 	DWORD iFlags, 
-	const struct sockaddr *SocketAddress, 
+	struct sockaddr *SocketAddress, 
 	int SocketAddressLength, 
 	LPWSAOVERLAPPED lpOverlapped, 
 	LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine, 
@@ -485,6 +412,7 @@ WSPSendTo(
 	PIO_STATUS_BLOCK			IOSB;
 	IO_STATUS_BLOCK				DummyIOSB;
 	AFD_SEND_INFO_UDP			SendInfo;
+	PSOCKET_INFORMATION			Socket;
 	NTSTATUS					Status;
 	PVOID						APCContext;
 	PVOID						APCFunction;
@@ -493,17 +421,9 @@ WSPSendTo(
 	UCHAR						TdiBuffer[0x16];
 	PSOCKADDR					BindAddress;
 	INT							BindAddressLength;
-	HANDLE                                  SockEvent;
-	PSOCKET_INFORMATION			Socket;
-	
 
 	/* Get the Socket Structure associate to this Socket*/
 	Socket = GetSocketStructure(Handle);
-
-	Status = NtCreateEvent( &SockEvent, GENERIC_READ | GENERIC_WRITE,
-				NULL, 1, FALSE );
-
-	if( !NT_SUCCESS(Status) ) return -1;
 
 	/* Bind us First */
 	if (Socket->SharedData.State == SocketOpen) {
@@ -527,7 +447,7 @@ WSPSendTo(
 
 	/* Set up Structure */
 	SendInfo.BufferArray = (PAFD_WSABUF)lpBuffers;
-	SendInfo.AfdFlags = Socket->SharedData.NonBlocking ? AFD_IMMEDIATE : 0;
+	SendInfo.AfdFlags = 0;
 	SendInfo.BufferCount = dwBufferCount;
 	SendInfo.RemoteAddress = RemoteAddress;
 	SendInfo.SizeOfRemoteAddress = Socket->HelperData->MaxTDIAddressLength;
@@ -576,21 +496,19 @@ WSPSendTo(
 
 	/* Wait for completition of not overlapped */
 	if (Status == STATUS_PENDING && lpOverlapped == NULL) {
-		WaitForSingleObject(SockEvent, INFINITE); // BUGBUG, shouldn wait infintely for send...
+		WaitForSingleObject(SockEvent, 0); // BUGBUG, shouldn wait infintely for send...
 		Status = IOSB->Status;
 	}
-
-	NtClose( SockEvent );
 
 	if (Status == STATUS_PENDING) {
         return WSA_IO_PENDING;
 	}
- 
-    /* Re-enable Async Event */
-    SockReenableAsyncSelectEvent(Socket, FD_WRITE);
 
-    return MsafdReturnWithErrno
-	( Status, lpErrno, IOSB->Information, lpNumberOfBytesSent );
+	/* Return Number of bytes Sent */
+    *lpNumberOfBytesSent = (DWORD)IOSB->Information;
+
+	/* Success */
+	return STATUS_SUCCESS;
 }
 INT
 WSPAPI

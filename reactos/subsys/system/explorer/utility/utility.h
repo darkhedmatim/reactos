@@ -152,9 +152,6 @@ BOOL RecursiveCreateDirectory(LPCTSTR path_in);
  // read DWORD value from registry
 DWORD RegGetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD def);
 
- // write DWORD value to registry
-BOOL RegSetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD value);
-
  // test for existing directory
 BOOL exists_path(LPCTSTR path);
 
@@ -746,10 +743,8 @@ struct String
 #endif
 
 	String() {}
-
 	String(LPCTSTR s) {if (s) super::assign(s);}
 	String(LPCTSTR s, int l) : super(s, l) {}
-
 	String(const super& other) : super(other) {}
 	String(const String& other) : super(other) {}
 
@@ -1018,7 +1013,7 @@ protected:
 #define	CONTEXT_OBJ __ctx__._obj
 #define	CONTEXT(c) Context __ctx__(c)
 #define	CURRENT_CONTEXT Context::current()
-#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o)
+#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o);
 
 
 extern bool SplitFileSysURL(LPCTSTR url, String& dir_out, String& fname_out);

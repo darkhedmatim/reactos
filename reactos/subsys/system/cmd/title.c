@@ -6,9 +6,13 @@
  *	1999-02-11 Emanuele Aliberti
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_TITLE
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
 
 
 INT cmd_title (LPTSTR cmd, LPTSTR param)

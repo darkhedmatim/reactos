@@ -1,4 +1,4 @@
-/* $Id: desktop.c,v 1.36 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: desktop.c,v 1.34 2004/08/21 19:50:39 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -33,7 +33,7 @@ GetSystemMetrics(int nIndex)
  */
 BOOL STDCALL SetDeskWallpaper(LPCSTR filename)
 {
-	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,TRUE);
+	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,1);
 }
 /*
  * @implemented
@@ -171,7 +171,7 @@ SystemParametersInfoA(UINT uiAction,
                            L"Control Panel\\Desktop",
                            0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
           {
-            Ret = RegSetValueExA(hKey, "Wallpaper", 0, REG_SZ, (LPBYTE)(lpWallpaper != NULL ? lpWallpaper : ""),
+            Ret = RegSetValueExA(hKey, "Wallpaper", 0, REG_SZ, (lpWallpaper != NULL ? lpWallpaper : ""),
                                  (lpWallpaper != NULL ? (lstrlenA(lpWallpaper) + 1) * sizeof(CHAR) : sizeof(CHAR)) == ERROR_SUCCESS);
             RegCloseKey(hKey);
           }

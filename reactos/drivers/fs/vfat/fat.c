@@ -1,5 +1,5 @@
 /*
- * $Id: fat.c,v 1.48 2004/12/25 11:18:38 navaraf Exp $
+ * $Id: fat.c,v 1.46 2004/08/05 02:48:18 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -459,7 +459,7 @@ CountAvailableClusters(PDEVICE_EXTENSION DeviceExt,
   {
 	if (DeviceExt->FatInfo.FatType == FAT12)
 	  Status = FAT12CountAvailableClusters(DeviceExt);
-	else if (DeviceExt->FatInfo.FatType == FAT16 || DeviceExt->FatInfo.FatType == FATX16)
+	else if (DeviceExt->FatInfo.FatType == FAT16)
 	  Status = FAT16CountAvailableClusters(DeviceExt);
 	else
 	  Status = FAT32CountAvailableClusters(DeviceExt);
@@ -606,9 +606,9 @@ WriteCluster(PDEVICE_EXTENSION DeviceExt,
   if (DeviceExt->AvailableClustersValid)
   {
       if (OldValue && NewValue == 0)
-        InterlockedIncrement((PLONG)&DeviceExt->AvailableClusters);
+        InterlockedIncrement(&DeviceExt->AvailableClusters);
       else if (OldValue == 0 && NewValue)
-        InterlockedDecrement((PLONG)&DeviceExt->AvailableClusters);
+        InterlockedDecrement(&DeviceExt->AvailableClusters);
   }
   ExReleaseResourceLite(&DeviceExt->FatResource);
   return(Status);
@@ -641,7 +641,7 @@ GetNextCluster(PDEVICE_EXTENSION DeviceExt,
 	  DeviceExt, CurrentCluster);
 
   if (CurrentCluster == 0)
-     return(STATUS_INVALID_PARAMETER);
+     return(STATUS_UNSUCCESSFUL);
 
   ExAcquireResourceSharedLite(&DeviceExt->FatResource, TRUE);
   Status = DeviceExt->GetNextCluster(DeviceExt, CurrentCluster, NextCluster);

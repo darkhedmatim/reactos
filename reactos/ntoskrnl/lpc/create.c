@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.18 2004/10/31 20:27:08 ea Exp $
+/* $Id: create.c,v 1.17 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -32,7 +32,7 @@ LpcpVerifyCreateParameters (IN	PHANDLE			PortHandle,
 			    IN	POBJECT_ATTRIBUTES	ObjectAttributes,
 			    IN	ULONG			MaxConnectInfoLength,
 			    IN	ULONG			MaxDataLength,
-			    IN	ULONG			MaxPoolUsage)
+			    IN	ULONG			Reserved)
 {
   if (NULL == PortHandle)
     {
@@ -58,8 +58,8 @@ LpcpVerifyCreateParameters (IN	PHANDLE			PortHandle,
     {
       return (STATUS_INVALID_PARAMETER_4);
     }
-  /* TODO: some checking is done also on MaxPoolUsage
-   * to avoid choking the executive */
+  /* FIXME: some checking is done also on Reserved, but
+   * not in public (free/checked) versions. */
   return (STATUS_SUCCESS);
 }
 
@@ -105,7 +105,7 @@ NiCreatePort (PVOID			ObjectBody,
  *	ObjectAttributes,
  *	MaxConnectInfoLength,
  *	MaxDataLength,
- *	MaxPoolUsage: size of NP zone the NP part of msgs is kept in
+ *	Reserved
  * 
  * RETURN VALUE
  */
@@ -114,7 +114,7 @@ NtCreatePort (PHANDLE		      PortHandle,
 	      POBJECT_ATTRIBUTES    ObjectAttributes,
 	      ULONG	       MaxConnectInfoLength,
 	      ULONG			MaxDataLength,
-	      ULONG			MaxPoolUsage)
+	      ULONG			Reserved)
 {
   PEPORT		Port;
   NTSTATUS	Status;
@@ -126,7 +126,7 @@ NtCreatePort (PHANDLE		      PortHandle,
 				       ObjectAttributes,
 				       MaxConnectInfoLength,
 				       MaxDataLength,
-				       MaxPoolUsage);
+				       Reserved);
   if (STATUS_SUCCESS != Status)
     {
       return (Status);
@@ -162,7 +162,6 @@ NtCreatePort (PHANDLE		      PortHandle,
   Status = NiInitializePort (Port, EPORT_TYPE_SERVER_RQST_PORT, NULL);
   Port->MaxConnectInfoLength = PORT_MAX_DATA_LENGTH;
   Port->MaxDataLength = PORT_MAX_MESSAGE_LENGTH;
-  Port->MaxPoolUsage = MaxPoolUsage;
   
   ObDereferenceObject (Port);
   
@@ -184,7 +183,7 @@ NtCreatePort (PHANDLE		      PortHandle,
  *	ObjectAttributes,
  *	MaxConnectInfoLength,
  *	MaxDataLength,
- *	MaxPoolUsage
+ *	Reserved
  * 
  * RETURN VALUE
  */
@@ -193,7 +192,7 @@ NtCreateWaitablePort (OUT	PHANDLE			PortHandle,
 		      IN	POBJECT_ATTRIBUTES	ObjectAttributes,
 		      IN	ULONG			MaxConnectInfoLength,
 		      IN	ULONG			MaxDataLength,
-		      IN	ULONG			MaxPoolUsage)
+		      IN	ULONG			Reserved)
 {
   NTSTATUS Status;
   
@@ -202,7 +201,7 @@ NtCreateWaitablePort (OUT	PHANDLE			PortHandle,
 				       ObjectAttributes,
 				       MaxConnectInfoLength,
 				       MaxDataLength,
-				       MaxPoolUsage);
+				       Reserved);
   if (STATUS_SUCCESS != Status)
     {
       return (Status);

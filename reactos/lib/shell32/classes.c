@@ -263,7 +263,7 @@ BOOL HCR_GetDefaultIconFromGUIDW(REFIID riid, LPWSTR szDest, DWORD len, LPDWORD 
 /***************************************************************************************
 *	HCR_GetClassName	[internal]
 *
-* Gets the name of a registered class
+* Gets the name of a registred class
 */
 static const WCHAR swEmpty[] = {0};
 

@@ -1,4 +1,4 @@
-/* $Id: pool.c,v 1.36 2004/12/11 00:13:37 royce Exp $
+/* $Id: pool.c,v 1.33 2004/08/21 20:05:35 tamlin Exp $
  * 
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -23,9 +23,6 @@ extern MM_STATS MmStats;
 /* GLOBALS *****************************************************************/
 
 #define TAG_NONE (ULONG)(('N'<<0) + ('o'<<8) + ('n'<<16) + ('e'<<24))
-
-ULONG STDCALL
-ExRosQueryPagedPoolTag ( PVOID Block );
 
 /* FUNCTIONS ***************************************************************/
 
@@ -96,7 +93,6 @@ ExAllocatePool (POOL_TYPE PoolType, ULONG NumberOfBytes)
  */
 {
    PVOID Block;
-
 #if defined(__GNUC__)
 
    Block = EiAllocatePool(PoolType,
@@ -124,7 +120,6 @@ PVOID STDCALL
 ExAllocatePoolWithTag (ULONG PoolType, ULONG NumberOfBytes, ULONG Tag)
 {
    PVOID Block;
-
 #if defined(__GNUC__)
 
    Block = EiAllocatePool(PoolType,
@@ -237,8 +232,6 @@ ExAllocatePoolWithQuotaTag (IN POOL_TYPE PoolType,
 VOID STDCALL
 ExFreePool(IN PVOID Block)
 {
-   ASSERT_IRQL(DISPATCH_LEVEL);
-
    if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
    {
       ExFreePagedPool(Block);
@@ -337,22 +330,6 @@ MiRaisePoolQuota(
         *NewMaxQuota = CurrentMaxQuota + 65536;
         return TRUE;
     }
-}
-
-ULONG STDCALL
-ExRosQueryPoolTag ( PVOID Block )
-{
-   ASSERT_IRQL(DISPATCH_LEVEL);
-
-   if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
-   {
-      return ExRosQueryPagedPoolTag(Block);
-   }
-   else
-   {
-      UNIMPLEMENTED;
-      return 0;
-   }
 }
 
 /* EOF */

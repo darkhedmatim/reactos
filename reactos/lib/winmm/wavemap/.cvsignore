@@ -1,2 +1,11 @@
-Makefile
-msacm.drv.dbg.c
+*.a
+*.d
+*.o
+*.dll
+*.coff
+*.sym
+*.map
+*.tmp
+temp.exp
+wavemap.spec.def
+Makefile.ros

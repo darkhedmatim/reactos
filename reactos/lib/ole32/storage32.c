@@ -30,10 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -144,8 +142,8 @@ static void updatePropertyChain(
   StgProperty newProperty);
 
 static LONG propertyNameCmp(
-    const OLECHAR *newProperty,
-    const OLECHAR *currentProperty);
+  OLECHAR *newProperty,
+  OLECHAR *currentProperty);
 
 
 /***********************************************************************
@@ -162,6 +160,7 @@ static DWORD GetCreationModeFromSTGM(DWORD stgm);
  */
 static IStorageVtbl Storage32Impl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StorageBaseImpl_QueryInterface,
     StorageBaseImpl_AddRef,
     StorageBaseImpl_Release,
@@ -187,6 +186,7 @@ static IStorageVtbl Storage32Impl_Vtbl =
  */
 static IStorageVtbl Storage32InternalImpl_Vtbl =
   {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StorageBaseImpl_QueryInterface,
     StorageBaseImpl_AddRef,
     StorageBaseImpl_Release,
@@ -212,6 +212,7 @@ static IStorageVtbl Storage32InternalImpl_Vtbl =
  */
 static IEnumSTATSTGVtbl IEnumSTATSTGImpl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IEnumSTATSTGImpl_QueryInterface,
     IEnumSTATSTGImpl_AddRef,
     IEnumSTATSTGImpl_Release,
@@ -242,7 +243,7 @@ HRESULT WINAPI StorageBaseImpl_QueryInterface(
   REFIID             riid,
   void**             ppvObject)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   /*
    * Perform a sanity check on the parameters.
    */
@@ -292,8 +293,10 @@ HRESULT WINAPI StorageBaseImpl_QueryInterface(
 ULONG WINAPI StorageBaseImpl_AddRef(
             IStorage* iface)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
-  return InterlockedIncrement(&This->ref);
+  ICOM_THIS(StorageBaseImpl,iface);
+  This->ref++;
+
+  return This->ref;
 }
 
 /************************************************************************
@@ -307,16 +310,16 @@ ULONG WINAPI StorageBaseImpl_AddRef(
 ULONG WINAPI StorageBaseImpl_Release(
       IStorage* iface)
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   /*
    * Decrease the reference count on this object.
    */
-  ULONG ref = InterlockedDecrement(&This->ref);
+  This->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref == 0)
+  if (This->ref==0)
   {
     /*
      * Since we are using a system of base-classes, we want to call the
@@ -324,9 +327,11 @@ ULONG WINAPI StorageBaseImpl_Release(
      * using virtual functions to implement the destructor.
      */
     This->v_destructor(This);
+
+    return 0;
   }
 
-  return ref;
+  return This->ref;
 }
 
 /************************************************************************
@@ -344,7 +349,7 @@ HRESULT WINAPI StorageBaseImpl_OpenStream(
   DWORD            reserved2, /* [in]  */
   IStream**        ppstm)     /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgStreamImpl*    newStream;
   StgProperty       currentProperty;
@@ -460,7 +465,7 @@ HRESULT WINAPI StorageBaseImpl_OpenStorage(
   DWORD            reserved,      /* [in] */
   IStorage**       ppstg)         /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   StorageInternalImpl* newStorage;
   IEnumSTATSTGImpl*      propertyEnumeration;
   StgProperty            currentProperty;
@@ -585,7 +590,7 @@ HRESULT WINAPI StorageBaseImpl_EnumElements(
   DWORD           reserved3, /* [in] */
   IEnumSTATSTG**  ppenum)    /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* newEnum;
 
   TRACE("(%p, %ld, %p, %ld, %p)\n",
@@ -632,7 +637,7 @@ HRESULT WINAPI StorageBaseImpl_Stat(
   STATSTG*         pstatstg,     /* [out] */
   DWORD            grfStatFlag)  /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   StgProperty    curProperty;
   BOOL           readSuccessful;
   HRESULT        res = STG_E_UNKNOWN;
@@ -695,7 +700,7 @@ HRESULT WINAPI StorageBaseImpl_RenameElement(
             const OLECHAR*   pwcsOldName,  /* [in] */
             const OLECHAR*   pwcsNewName)  /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgProperty       currentProperty;
   ULONG             foundPropertyIndex;
@@ -853,7 +858,7 @@ HRESULT WINAPI StorageBaseImpl_CreateStream(
             DWORD            reserved2, /* [in] */
             IStream**        ppstm)     /* [out] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   IEnumSTATSTGImpl* propertyEnumeration;
   StgStreamImpl*    newStream;
   StgProperty       currentProperty, newStreamProperty;
@@ -1003,7 +1008,7 @@ HRESULT WINAPI StorageBaseImpl_SetClass(
   IStorage*        iface,
   REFCLSID         clsid) /* [in] */
 {
-  StorageBaseImpl *This = (StorageBaseImpl *)iface;
+  ICOM_THIS(StorageBaseImpl,iface);
   HRESULT hRes = E_FAIL;
   StgProperty curProperty;
   BOOL success;
@@ -1158,7 +1163,7 @@ HRESULT WINAPI StorageImpl_CreateStorage(
    */
   hr = IStorage_OpenStorage(
          iface,
-         (const OLECHAR*)pwcsName,
+         (OLECHAR*)pwcsName,
          0,
          grfMode,
          0,
@@ -1284,8 +1289,8 @@ static ULONG getFreeProperty(
  *          0 when newPrpoerty == currentProperty
  */
 static LONG propertyNameCmp(
-    const OLECHAR *newProperty,
-    const OLECHAR *currentProperty)
+  OLECHAR *newProperty,
+  OLECHAR *currentProperty)
 {
   LONG diff      = lstrlenW(newProperty) - lstrlenW(currentProperty);
 
@@ -2675,7 +2680,7 @@ ULONG Storage32Impl_AddExtBlockDepot(StorageImpl* This)
   }
   else
   {
-    unsigned int i;
+    int i;
     /*
      * Follow the chain to the last one.
      */
@@ -3635,7 +3640,9 @@ ULONG   WINAPI IEnumSTATSTGImpl_AddRef(
   IEnumSTATSTG* iface)
 {
   IEnumSTATSTGImpl* const This=(IEnumSTATSTGImpl*)iface;
-  return InterlockedIncrement(&This->ref);
+
+  This->ref++;
+  return This->ref;
 }
 
 ULONG   WINAPI IEnumSTATSTGImpl_Release(
@@ -3645,7 +3652,8 @@ ULONG   WINAPI IEnumSTATSTGImpl_Release(
 
   ULONG newRef;
 
-  newRef = InterlockedDecrement(&This->ref);
+  This->ref--;
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
@@ -3962,8 +3970,8 @@ ULONG IEnumSTATSTGImpl_FindProperty(
       currentProperty);
 
     if ( propertyNameCmp(
-          (const OLECHAR*)currentProperty->name,
-          (const OLECHAR*)lpszPropName) == 0)
+          (OLECHAR*)currentProperty->name,
+          (OLECHAR*)lpszPropName) == 0)
       return currentSearchNode;
 
     /*
@@ -4348,7 +4356,7 @@ BOOL BlockChainStream_WriteAt(BlockChainStream* This,
   ULONG offsetInBlock     = offset.u.LowPart % This->parentStorage->bigBlockSize;
   ULONG bytesToWrite;
   ULONG blockIndex;
-  const BYTE* bufferWalker;
+  BYTE* bufferWalker;
   BYTE* bigBlockBuffer;
 
   /*
@@ -4385,7 +4393,7 @@ BOOL BlockChainStream_WriteAt(BlockChainStream* This,
    * This is OK since we don't intend to modify that buffer.
    */
   *bytesWritten   = 0;
-  bufferWalker = (const BYTE*)buffer;
+  bufferWalker = (BYTE*)buffer;
 
   while ( (size > 0) && (blockIndex != BLOCK_END_OF_CHAIN) )
   {
@@ -5095,7 +5103,7 @@ BOOL SmallBlockChainStream_WriteAt(
   ULONG bytesToWriteInBuffer;
   ULONG blockIndex;
   ULONG bytesWrittenFromBigBlockFile;
-  const BYTE* bufferWalker;
+  BYTE* bufferWalker;
 
   /*
    * This should never happen on a small block file.
@@ -5121,7 +5129,7 @@ BOOL SmallBlockChainStream_WriteAt(
    * This is OK since we don't intend to modify that buffer.
    */
   *bytesWritten   = 0;
-  bufferWalker = (const BYTE*)buffer;
+  bufferWalker = (BYTE*)buffer;
   while ( (size > 0) && (blockIndex != BLOCK_END_OF_CHAIN) )
   {
     /*
@@ -6662,8 +6670,7 @@ static HRESULT STORAGE_WriteCompObj( LPSTORAGE pstg, CLSID *clsid,
 /* enumerate HKEY_CLASSES_ROOT\\CLSID looking for a CLSID whose name matches */
 static HRESULT CLSIDFromUserType(LPCWSTR lpszUserType, CLSID *clsid)
 {
-    LONG r, i, len;
-    ULONG count;
+    LONG r, count, i, len;
     WCHAR szKey[0x40];
     HKEY hkey, hkeyclsid;
     LPWSTR buffer = NULL;

@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.72 2004/12/27 16:48:29 navaraf Exp $
+/* $Id: stubs.c,v 1.65 2004/08/15 21:36:28 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -7,7 +7,7 @@
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * NOTES:           If you implement a function, remove it from this file
  * UPDATE HISTORY:
- *      08-F05-2001  CSH  Created
+ *      08-05-2001  CSH  Created
  */
 
 #include "user32.h"
@@ -112,6 +112,97 @@ LockWorkStation(VOID)
 /*
  * @unimplemented
  */
+HMONITOR
+STDCALL
+MonitorFromPoint(
+  POINT pt,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromRect(
+  LPRECT lprc,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromWindow(
+  HWND hwnd,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+MsgWaitForMultipleObjects(
+  DWORD nCount,
+  CONST HANDLE *pHandles,
+  BOOL fWaitAll,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+RealMsgWaitForMultipleObjectsEx(
+  DWORD nCount,
+  LPHANDLE pHandles,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetSysColors(
+  int cElements,
+  CONST INT *lpaElements,
+  CONST COLORREF *lpaRgbValues)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
 STDCALL
 TrackMouseEvent(
@@ -189,6 +280,15 @@ EndTask(
     return TRUE;
 }
 
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SwitchToThisWindow ( HWND hwnd, BOOL fUnknown )
+{
+  UNIMPLEMENTED;
+}
 
 /*
  * @unimplemented

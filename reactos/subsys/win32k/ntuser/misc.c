@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.95 2004/12/25 22:59:10 navaraf Exp $
+/* $Id: misc.c,v 1.84 2004/08/17 21:47:36 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -108,7 +108,7 @@ NtUserCallNoParam(DWORD Routine)
       break;
     
     case NOPARAM_ROUTINE_DESTROY_CARET:
-      Result = (DWORD)IntDestroyCaret(PsGetCurrentThread()->Tcb.Win32Thread);
+      Result = (DWORD)IntDestroyCaret(PsGetCurrentThread()->Win32Thread);
       break;
     
     case NOPARAM_ROUTINE_INIT_MESSAGE_PUMP:
@@ -131,13 +131,6 @@ NtUserCallNoParam(DWORD Routine)
       Result = (DWORD)CsrInit();
       break;
     
-    case NOPARAM_ROUTINE_GDI_QUERY_TABLE:
-      Result = (DWORD)GDI_MapHandleTable(NtCurrentProcess());
-      break;
-    
-    case NOPARAM_ROUTINE_MSQCLEARWAKEMASK:
-      return (DWORD)IntMsqClearWakeMask();
-
     default:
       DPRINT1("Calling invalid routine number 0x%x in NtUserCallNoParam\n", Routine);
       SetLastWin32Error(ERROR_INVALID_PARAMETER);
@@ -218,16 +211,14 @@ NtUserCallOneParam(
       NTSTATUS Status;
       DWORD Result;
       
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObject);
       if (!NT_SUCCESS(Status))
         return (DWORD)FALSE;
 
-      /* FIXME
-      Result = (DWORD)IntSwapMouseButton(WinStaObject, (BOOL)Param); */
-      Result = 0;
+      Result = (DWORD)IntSwapMouseButton(WinStaObject, (BOOL)Param);
 
       ObDereferenceObject(WinStaObject);
       return Result;
@@ -270,7 +261,7 @@ NtUserCallOneParam(
       
       if(!Param)
         return (DWORD)FALSE;
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObject);
@@ -336,9 +327,6 @@ NtUserCallOneParam(
       
       return FALSE;
     }
-
-    case ONEPARAM_ROUTINE_MSQSETWAKEMASK:
-      return (DWORD)IntMsqSetWakeMask(Param);
   }
   DPRINT1("Calling invalid routine number 0x%x in NtUserCallOneParam(), Param=0x%x\n", 
           Routine, Param);
@@ -430,7 +418,7 @@ NtUserCallTwoParam(
     
     case TWOPARAM_ROUTINE_SETGUITHRDHANDLE:
     {
-      PUSER_MESSAGE_QUEUE MsgQueue = PsGetCurrentThread()->Tcb.Win32Thread->MessageQueue;
+      PUSER_MESSAGE_QUEUE MsgQueue = PsGetCurrentThread()->Win32Thread->MessageQueue;
       
       ASSERT(MsgQueue);
       return (DWORD)MsqSetStateWindow(MsgQueue, (ULONG)Param1, (HWND)Param2);
@@ -520,100 +508,6 @@ NtUserCallTwoParam(
     
     case TWOPARAM_ROUTINE_REGISTERLOGONPROC:
       return (DWORD)IntRegisterLogonProcess(Param1, (BOOL)Param2);
-
-    case TWOPARAM_ROUTINE_SETSYSCOLORS:
-    {
-      DWORD Ret = 0;
-      PVOID Buffer;
-      struct
-      {
-        INT *Elements;
-        COLORREF *Colors;
-      } ChangeSysColors;
-
-      /* FIXME - we should make use of SEH here... */
-      
-      Status = MmCopyFromCaller(&ChangeSysColors, (PVOID)Param1, sizeof(ChangeSysColors));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        return 0;
-      }
-      
-      Buffer = ExAllocatePool(PagedPool, (Param2 * sizeof(INT)) + (Param2 * sizeof(COLORREF)));
-      if(Buffer != NULL)
-      {
-        INT *Elements = (INT*)Buffer;
-        COLORREF *Colors = (COLORREF*)Buffer + Param2;
-        
-        Status = MmCopyFromCaller(Elements, ChangeSysColors.Elements, Param2 * sizeof(INT));
-        if(NT_SUCCESS(Status))
-        {
-          Status = MmCopyFromCaller(Colors, ChangeSysColors.Colors, Param2 * sizeof(COLORREF));
-          if(NT_SUCCESS(Status))
-          {
-            Ret = (DWORD)IntSetSysColors((UINT)Param2, Elements, Colors);
-          }
-          else
-            SetLastNtError(Status);
-        }
-        else
-          SetLastNtError(Status);
-
-        ExFreePool(Buffer);
-      }
-      return Ret;
-    }
-
-    case TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES:
-    case TWOPARAM_ROUTINE_GETSYSCOLORPENS:
-    case TWOPARAM_ROUTINE_GETSYSCOLORS:
-    {
-      DWORD Ret = 0;
-      union
-      {
-        PVOID Pointer;
-        HBRUSH *Brushes;
-        HPEN *Pens;
-        COLORREF *Colors;
-      } Buffer;
-
-      /* FIXME - we should make use of SEH here... */
-      
-      Buffer.Pointer = ExAllocatePool(PagedPool, Param2 * sizeof(HANDLE));
-      if(Buffer.Pointer != NULL)
-      {
-        switch(Routine)
-        {
-          case TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES:
-            Ret = (DWORD)IntGetSysColorBrushes(Buffer.Brushes, (UINT)Param2);
-            break;
-          case TWOPARAM_ROUTINE_GETSYSCOLORPENS:
-            Ret = (DWORD)IntGetSysColorPens(Buffer.Pens, (UINT)Param2);
-            break;
-          case TWOPARAM_ROUTINE_GETSYSCOLORS:
-            Ret = (DWORD)IntGetSysColors(Buffer.Colors, (UINT)Param2);
-            break;
-          default:
-            Ret = 0;
-            break;
-        }
-        
-        if(Ret > 0)
-        {
-          Status = MmCopyToCaller((PVOID)Param1, Buffer.Pointer, Param2 * sizeof(HANDLE));
-          if(!NT_SUCCESS(Status))
-          {
-            SetLastNtError(Status);
-            Ret = 0;
-          }
-        }
-
-        ExFreePool(Buffer.Pointer);
-      }
-
-      return Ret;
-    }
     
   }
   DPRINT1("Calling invalid routine number 0x%x in NtUserCallTwoParam(), Param1=0x%x Parm2=0x%x\n",
@@ -773,7 +667,7 @@ IntSystemParametersInfo(
     pMetrics.iSmCaptionHeight = NtUserGetSystemMetrics(SM_CYSMSIZE);
     pMetrics.iMenuWidth = NtUserGetSystemMetrics(SM_CXMENUSIZE);
     pMetrics.iMenuHeight = NtUserGetSystemMetrics(SM_CYMENUSIZE);
-    pMetrics.cbSize = sizeof(NONCLIENTMETRICSW);
+    pMetrics.cbSize = sizeof(LPNONCLIENTMETRICSW);
     
     bInitialized = TRUE;
   }
@@ -788,7 +682,7 @@ IntSystemParametersInfo(
     {
       PSYSTEM_CURSORINFO CurInfo;
       
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObject);
@@ -1108,7 +1002,8 @@ NtUserSystemParametersInfo(
         SetLastNtError(Status);
         return FALSE;
       }
-      if(metrics.cbSize != sizeof(NONCLIENTMETRICSW))
+      if((metrics.cbSize != sizeof(NONCLIENTMETRICSW)) ||
+         (uiParam != sizeof(NONCLIENTMETRICSW)))
       {
         SetLastWin32Error(ERROR_INVALID_PARAMETER);
         return FALSE;
@@ -1140,7 +1035,7 @@ NtUserGetDoubleClickTime(VOID)
   PWINSTATION_OBJECT WinStaObject;
   PSYSTEM_CURSORINFO CurInfo;
   
-  Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                           KernelMode,
                                           0,
                                           &WinStaObject);
@@ -1188,12 +1083,12 @@ NtUserGetGUIThreadInfo(
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
     }
-    Desktop = Thread->Tcb.Win32Thread->Desktop;
+    Desktop = Thread->Win32Thread->Desktop;
   }
   else
   {
     /* get the foreground thread */
-    PW32THREAD W32Thread = PsGetCurrentThread()->Tcb.Win32Thread;
+    PW32THREAD W32Thread = PsGetCurrentThread()->Win32Thread;
     Desktop = W32Thread->Desktop;
     if(Desktop)
     {
@@ -1430,16 +1325,6 @@ IntFreeNULLTerminatedFromUnicodeString(PWSTR NullTerminated, PUNICODE_STRING Uni
     {
       ExFreePool(NullTerminated);
     }
-}
-
-BOOL STDCALL
-NtUserUpdatePerUserSystemParameters(
-   DWORD dwReserved,
-   BOOL bEnable)
-{
-   BOOL Result = TRUE;
-   Result &= IntDesktopUpdatePerUserSettings(bEnable);
-   return Result;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: mmtypes.h,v 1.21 2004/12/22 05:06:59 royce Exp $ */
+/* $Id: mmtypes.h,v 1.19 2004/07/17 03:04:45 ion Exp $ */
 
 #ifndef _INCLUDE_DDK_MMTYPES_H
 #define _INCLUDE_DDK_MMTYPES_H
@@ -76,10 +76,10 @@ typedef union _FILE_SEGMENT_ELEMENT {
 }FILE_SEGMENT_ELEMENT, *PFILE_SEGMENT_ELEMENT;
 
 typedef struct _READ_LIST {
-	struct _FILE_OBJECT* FileObject;
+	struct FILE_OBJECT* FileObject;
     ULONG NumberOfEntries;
     ULONG IsImage;
-    FILE_SEGMENT_ELEMENT List[1];
+    FILE_SEGMENT_ELEMENT List[];
 } READ_LIST, *PREAD_LIST;
 
 #define MmSmallSystem (0)
@@ -105,37 +105,5 @@ typedef enum _MEMORY_CACHING_TYPE
 	MmHardwareCoherentCached,
 	MmMaximumCacheType
 } MEMORY_CACHING_TYPE;
-
-typedef struct _MMWSL *PMMWSL;
-
-typedef struct _MMSUPPORT_FLAGS {
-    ULONG SessionSpace              : 1;
-    ULONG BeingTrimmed              : 1;
-    ULONG SessionLeader             : 1;
-    ULONG TrimHard                  : 1;
-    ULONG WorkingSetHard            : 1;
-    ULONG AddressSpaceBeingDeleted  : 1;
-    ULONG Available                 : 10;
-    ULONG AllowWorkingSetAdjustment : 8;
-    ULONG MemoryPriority            : 8;
-} MMSUPPORT_FLAGS, *PMMSUPPORT_FLAGS;
-
-typedef struct _MMSUPPORT
-{
-    LARGE_INTEGER   LastTrimTime;
-    MMSUPPORT_FLAGS Flags;
-    ULONG           PageFaultCount;
-    ULONG           PeakWorkingSetSize;
-    ULONG           WorkingSetSize;
-    ULONG           MinimumWorkingSetSize;
-    ULONG           MaximumWorkingSetSize;
-    PMMWSL          VmWorkingSetList;
-    LIST_ENTRY      WorkingSetExpansionLinks;
-    ULONG           Claim;
-    ULONG           NextEstimationSlot;
-    ULONG           NextAgingSlot;
-    ULONG           EstimatedAvailable;
-    ULONG           GrowthSinceLastEstimate;
-} MMSUPPORT, *PMMSUPPORT;
 
 #endif

@@ -74,9 +74,9 @@ MEMORY_AREA* MmOpenMemoryAreaByAddress(PMADDRESS_SPACE AddressSpace,
       current = CONTAINING_RECORD(current_entry,
                                   MEMORY_AREA,
                                   Entry);
-      ASSERT(current_entry->Blink->Flink == current_entry);
-      ASSERT(current_entry->Flink->Blink == current_entry);
-      ASSERT(previous_entry->Flink == current_entry);
+      assert(current_entry->Blink->Flink == current_entry);
+      assert(current_entry->Flink->Blink == current_entry);
+      assert(previous_entry->Flink == current_entry);
       if (current->BaseAddress <= Address &&
             (PVOID)((char*)current->BaseAddress + current->Length) > Address)
       {
@@ -201,7 +201,8 @@ static VOID MmInsertMemoryArea(PMADDRESS_SPACE AddressSpace,
    InsertTailList(ListHead,inserted_entry);
 }
 
-static PVOID MmFindGapBottomUp(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG Granularity)
+
+PVOID MmFindGapBottomUp(PMADDRESS_SPACE AddressSpace, ULONG Length)
 {
    PLIST_ENTRY ListHead;
    PLIST_ENTRY current_entry;
@@ -212,10 +213,6 @@ static PVOID MmFindGapBottomUp(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG
 
    DPRINT("MmFindGapBottomUp(Length %x)\n",Length);
 
-#ifdef DBG
-   Length += PAGE_SIZE; /* For a guard page following the area */
-#endif
-
    ListHead = &AddressSpace->MAreaListHead;
 
    current_entry = ListHead->Flink;
@@ -223,49 +220,35 @@ static PVOID MmFindGapBottomUp(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG
    {
       current = CONTAINING_RECORD(current_entry,MEMORY_AREA,Entry);
       next = CONTAINING_RECORD(current_entry->Flink,MEMORY_AREA,Entry);
-      Address = (PVOID) ((char*)current->BaseAddress + PAGE_ROUND_UP(current->Length));
-#ifdef DBG
-      Address = (PVOID) ((char *) Address + PAGE_SIZE); /* For a guard page preceding the area */
-#endif
-      Address = (PVOID) MM_ROUND_UP(Address, Granularity);
-      if (Address < next->BaseAddress)
+      Gap = (char*)next->BaseAddress - ((char*)current->BaseAddress + PAGE_ROUND_UP(current->Length));
+      if (Gap >= Length)
       {
-         Gap = (char*)next->BaseAddress - ((char*)current->BaseAddress + PAGE_ROUND_UP(current->Length));
-         if (Gap >= Length)
-         {
-            return Address;
-         }
+         return((char*)current->BaseAddress + PAGE_ROUND_UP(current->Length));
       }
       current_entry = current_entry->Flink;
    }
 
    if (current_entry == ListHead)
    {
-      Address = (PVOID) MM_ROUND_UP(AddressSpace->LowestAddress, Granularity);
+      Address = (PVOID)AddressSpace->LowestAddress;
    }
    else
    {
       current = CONTAINING_RECORD(current_entry,MEMORY_AREA,Entry);
       Address = (char*)current->BaseAddress + PAGE_ROUND_UP(current->Length);
-#ifdef DBG
-      Address = (PVOID) ((char *) Address + PAGE_SIZE); /* For a guard page preceding the area */
-#endif
-      Address = (PVOID) MM_ROUND_UP(Address, Granularity);
    }
    /* Check if enough space for the block */
    if (AddressSpace->LowestAddress < KERNEL_BASE)
    {
-      if ((ULONG_PTR) Address >= KERNEL_BASE || Length > KERNEL_BASE - (ULONG_PTR) Address)
+      if ((ULONG)Address >= KERNEL_BASE || Length > KERNEL_BASE - (ULONG)Address)
       {
-         DPRINT1("Failed to find gap\n");
          return NULL;
       }
    }
    else
    {
-      if (Length >= ~ ((ULONG_PTR) 0) - (ULONG_PTR) Address)
+      if (Length >= 0xFFFFFFFF - (ULONG)Address)
       {
-         DPRINT1("Failed to find gap\n");
          return NULL;
       }
    }
@@ -273,7 +256,7 @@ static PVOID MmFindGapBottomUp(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG
 }
 
 
-static PVOID MmFindGapTopDown(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG Granularity)
+PVOID MmFindGapTopDown(PMADDRESS_SPACE AddressSpace, ULONG Length)
 {
    PLIST_ENTRY ListHead;
    PLIST_ENTRY current_entry;
@@ -285,10 +268,6 @@ static PVOID MmFindGapTopDown(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG 
    PVOID HighestAddress;
 
    DPRINT("MmFindGapTopDown(Length %lx)\n",Length);
-
-#ifdef DBG
-   Length += PAGE_SIZE; /* For a guard page following the area */
-#endif
 
    if (AddressSpace->LowestAddress < KERNEL_BASE) //(ULONG_PTR)MmSystemRangeStart)
    {
@@ -307,49 +286,45 @@ static PVOID MmFindGapTopDown(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG 
    {
       current = CONTAINING_RECORD(current_entry,MEMORY_AREA,Entry);
       BottomAddress = (char*)current->BaseAddress + PAGE_ROUND_UP(current->Length);
-#ifdef DBG
-      BottomAddress = (PVOID) ((char *) BottomAddress + PAGE_SIZE); /* For a guard page preceding the area */
-#endif
-      BottomAddress = (PVOID) MM_ROUND_UP(BottomAddress, Granularity);
       DPRINT("Base %p  Length %lx\n", current->BaseAddress, PAGE_ROUND_UP(current->Length));
 
-      if (BottomAddress < TopAddress && BottomAddress < HighestAddress)
+      if (BottomAddress < HighestAddress)
       {
-         Gap = (char*)TopAddress - (char*) BottomAddress + 1;
+         Gap = (char*)TopAddress - (char*)BottomAddress + 1;
          DPRINT("Bottom %p  Top %p  Gap %lx\n", BottomAddress, TopAddress, Gap);
          if (Gap >= Length)
          {
-            DPRINT("Found gap at %p\n", (char*) TopAddress - Length);
-            return (PVOID) MM_ROUND_DOWN((char*) TopAddress - Length + 1, Granularity);
+            DPRINT("Found gap at %p\n", (char*)TopAddress - Length);
+            return((char*)TopAddress - Length + 1);
          }
+         TopAddress = (char*)current->BaseAddress - 1;
       }
-      TopAddress = (char*)current->BaseAddress - 1;
       current_entry = current_entry->Blink;
    }
 
    if (current_entry == ListHead)
    {
-      Address = (PVOID) MM_ROUND_DOWN((char*) HighestAddress - Length + 1, Granularity);
+      Address = (char*)HighestAddress - Length + 1;
    }
    else
    {
-      Address = (PVOID) MM_ROUND_DOWN((char*)TopAddress - Length + 1, Granularity);
+      Address = (char*)TopAddress - Length + 1;
    }
 
    /* Check if enough space for the block */
    if (AddressSpace->LowestAddress < KERNEL_BASE)
    {
-      if ((ULONG_PTR) Address >= KERNEL_BASE || Length > KERNEL_BASE - (ULONG_PTR) Address)
+      if ((ULONG)Address >= KERNEL_BASE || Length > KERNEL_BASE - (ULONG)Address)
       {
-         DPRINT1("Failed to find gap\n");
+         DPRINT("Failed to find gap\n");
          return NULL;
       }
    }
    else
    {
-      if (Length >= ~ ((ULONG_PTR) 0) - (ULONG_PTR) Address)
+      if (Length >= 0xFFFFFFFF - (ULONG)Address)
       {
-         DPRINT1("Failed to find gap\n");
+         DPRINT("Failed to find gap\n");
          return NULL;
       }
    }
@@ -359,12 +334,12 @@ static PVOID MmFindGapTopDown(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG 
 }
 
 
-PVOID MmFindGap(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG Granularity, BOOL TopDown)
+PVOID MmFindGap(PMADDRESS_SPACE AddressSpace, ULONG Length, BOOL TopDown)
 {
    if (TopDown)
-      return MmFindGapTopDown(AddressSpace, Length, Granularity);
+      return MmFindGapTopDown(AddressSpace, Length);
 
-   return MmFindGapBottomUp(AddressSpace, Length, Granularity);
+   return MmFindGapBottomUp(AddressSpace, Length);
 }
 
 ULONG MmFindGapAtAddress(PMADDRESS_SPACE AddressSpace, PVOID Address)
@@ -453,7 +428,7 @@ MmFreeMemoryArea(PMADDRESS_SPACE AddressSpace,
    if (AddressSpace->Process != NULL &&
          AddressSpace->Process != CurrentProcess)
    {
-      KeAttachProcess(&AddressSpace->Process->Pcb);
+      KeAttachProcess(AddressSpace->Process);
    }
    EndAddress = (char*)MemoryArea->BaseAddress + PAGE_ROUND_UP(MemoryArea->Length); 
    for (Address = MemoryArea->BaseAddress; Address < EndAddress; Address += PAGE_SIZE)
@@ -498,6 +473,55 @@ MmFreeMemoryArea(PMADDRESS_SPACE AddressSpace,
    return(STATUS_SUCCESS);
 }
 
+PMEMORY_AREA MmSplitMemoryArea(PEPROCESS Process,
+                               PMADDRESS_SPACE AddressSpace,
+                               PMEMORY_AREA OriginalMemoryArea,
+                               PVOID BaseAddress,
+                               ULONG Length,
+                               ULONG NewType,
+                               ULONG NewAttributes)
+{
+   PMEMORY_AREA Result;
+   PMEMORY_AREA Split;
+
+   Result = ExAllocatePoolWithTag(NonPagedPool, sizeof(MEMORY_AREA),
+                                  TAG_MAREA);
+   RtlZeroMemory(Result,sizeof(MEMORY_AREA));
+   Result->Type = NewType;
+   Result->BaseAddress = BaseAddress;
+   Result->Length = Length;
+   Result->Attributes = NewAttributes;
+   Result->LockCount = 0;
+   Result->Process = Process;
+
+   if (BaseAddress == OriginalMemoryArea->BaseAddress)
+   {
+      OriginalMemoryArea->BaseAddress = (char*)BaseAddress + Length;
+      OriginalMemoryArea->Length = OriginalMemoryArea->Length - Length;
+      MmInsertMemoryArea(AddressSpace, Result);
+      return(Result);
+   }
+   if (((char*)BaseAddress + Length) ==
+         ((char*)OriginalMemoryArea->BaseAddress + OriginalMemoryArea->Length))
+   {
+      OriginalMemoryArea->Length = OriginalMemoryArea->Length - Length;
+      MmInsertMemoryArea(AddressSpace, Result);
+
+      return(Result);
+   }
+
+   Split = ExAllocatePoolWithTag(NonPagedPool, sizeof(MEMORY_AREA),
+                                 TAG_MAREA);
+   RtlCopyMemory(Split,OriginalMemoryArea,sizeof(MEMORY_AREA));
+   Split->BaseAddress = (char*)BaseAddress + Length;
+   Split->Length = OriginalMemoryArea->Length - (((ULONG)BaseAddress)
+                   + Length);
+
+   OriginalMemoryArea->Length = (char*)BaseAddress - (char*)OriginalMemoryArea->BaseAddress;
+
+   return(Split);
+}
+
 NTSTATUS MmCreateMemoryArea(PEPROCESS Process,
                             PMADDRESS_SPACE AddressSpace,
                             ULONG Type,
@@ -522,31 +546,38 @@ NTSTATUS MmCreateMemoryArea(PEPROCESS Process,
  */
 {
    PVOID EndAddress;
-   ULONG Granularity;
    ULONG tmpLength;
    DPRINT("MmCreateMemoryArea(Type %d, BaseAddress %x,"
           "*BaseAddress %x, Length %x, Attributes %x, Result %x)\n",
           Type,BaseAddress,*BaseAddress,Length,Attributes,Result);
 
-   Granularity = (MEMORY_AREA_VIRTUAL_MEMORY == Type ? MM_VIRTMEM_GRANULARITY : PAGE_SIZE);
    if ((*BaseAddress) == 0 && !FixedAddress)
    {
       tmpLength = PAGE_ROUND_UP(Length);
       *BaseAddress = MmFindGap(AddressSpace,
-                               PAGE_ROUND_UP(Length),
-                               Granularity,
+                               PAGE_ROUND_UP(Length) +(PAGE_SIZE*2),
                                TopDown);
       if ((*BaseAddress) == 0)
       {
          DPRINT("No suitable gap\n");
-         return STATUS_NO_MEMORY;
+         return(STATUS_NO_MEMORY);
       }
+#if defined(__GNUC__)
+      (*BaseAddress)=(*BaseAddress)+PAGE_SIZE;
+#else
+
+      {
+         char* pTemp = *BaseAddress;
+         pTemp += PAGE_SIZE;
+         *BaseAddress = pTemp;
+      }
+#endif
+
    }
    else
    {
-      tmpLength =  Length + ((ULONG_PTR) *BaseAddress
-                             - (ULONG_PTR) MM_ROUND_DOWN(*BaseAddress, Granularity));
-      *BaseAddress = MM_ROUND_DOWN(*BaseAddress, Granularity);
+      tmpLength = (ULONG)*BaseAddress + Length - PAGE_ROUND_DOWN((*BaseAddress));
+      (*BaseAddress) = (PVOID)PAGE_ROUND_DOWN((*BaseAddress));
 
       if (AddressSpace->LowestAddress == KERNEL_BASE &&
             (*BaseAddress) < (PVOID)KERNEL_BASE)
@@ -563,7 +594,7 @@ NTSTATUS MmCreateMemoryArea(PEPROCESS Process,
       if (BoundaryAddressMultiple.QuadPart != 0)
       {
          EndAddress = ((char*)(*BaseAddress)) + tmpLength-1;
-         ASSERT(((DWORD_PTR)*BaseAddress/BoundaryAddressMultiple.QuadPart) == ((DWORD_PTR)EndAddress/BoundaryAddressMultiple.QuadPart));
+         assert(((DWORD_PTR)*BaseAddress/BoundaryAddressMultiple.QuadPart) == ((DWORD_PTR)EndAddress/BoundaryAddressMultiple.QuadPart));
       }
 
       if (MmOpenMemoryAreaByRegion(AddressSpace,
@@ -571,7 +602,7 @@ NTSTATUS MmCreateMemoryArea(PEPROCESS Process,
                                    tmpLength)!=NULL)
       {
          DPRINT("Memory area already occupied\n");
-         return STATUS_CONFLICTING_ADDRESSES;
+         return(STATUS_CONFLICTING_ADDRESSES);
       }
    }
 
@@ -590,37 +621,5 @@ NTSTATUS MmCreateMemoryArea(PEPROCESS Process,
    MmInsertMemoryArea(AddressSpace, *Result);
 
    DPRINT("MmCreateMemoryArea() succeeded\n");
-   return STATUS_SUCCESS;
+   return(STATUS_SUCCESS);
 }
-
-
-void
-MmReleaseMemoryAreaIfDecommitted(PEPROCESS Process,
-                                 PMADDRESS_SPACE AddressSpace,
-                                 PVOID BaseAddress)
-{
-  PMEMORY_AREA MemoryArea;
-  PLIST_ENTRY Entry;
-  PMM_REGION Region;
-  BOOLEAN Reserved;
-  
-  MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, BaseAddress);
-  if (NULL != MemoryArea)
-    {
-      Entry = MemoryArea->Data.VirtualMemoryData.RegionListHead.Flink;
-      Reserved = TRUE;
-      while (Reserved && Entry != &MemoryArea->Data.VirtualMemoryData.RegionListHead)
-        {
-          Region = CONTAINING_RECORD(Entry, MM_REGION, RegionListEntry);
-          Reserved = (MEM_RESERVE == Region->Type);
-          Entry = Entry->Flink;
-        }
-
-      if (Reserved)
-        {
-          MmFreeVirtualMemory(Process, MemoryArea);
-        }
-    }
-}
-
-/* EOF */

@@ -254,15 +254,15 @@ ExfInterlockedCompareExchange64(
 VOID
 STDCALL
 ExGetCurrentProcessorCounts (
-	PULONG	ThreadKernelTime,
-	PULONG	TotalCpuTime,
-	PULONG	ProcessorNumber
-);
+	PVOID	IdleThreadTime,
+	PVOID	SystemTime,
+	PVOID	Number
+	);
 
 VOID
 STDCALL
 ExGetCurrentProcessorCpuUsage (
-	PULONG	CpuUsage
+	PVOID	RetVal
 	);
 
 ULONG
@@ -344,7 +344,8 @@ ExInitializeRundownProtection (
 	ASSERT_IRQL(DISPATCH_LEVEL); \
 	(Item)->WorkerRoutine = (Routine); \
 	(Item)->Parameter = (RoutineContext); \
-	(Item)->List.Flink = NULL;
+	(Item)->List.Flink = NULL; \
+	(Item)->List.Blink = NULL;
 
 NTSTATUS
 STDCALL
@@ -371,7 +372,7 @@ ExInterlockedAddLargeStatistic (
 	);
 
 ULONG
-STDCALL
+FASTCALL
 ExInterlockedAddUlong (
 	PULONG		Addend,
 	ULONG		Increment,
@@ -446,21 +447,21 @@ ExInterlockedIncrementLong (
 	PKSPIN_LOCK	Lock
 	);
 PLIST_ENTRY
-STDCALL
+FASTCALL
 ExInterlockedInsertHeadList (
 	PLIST_ENTRY	ListHead,
 	PLIST_ENTRY	ListEntry,
 	PKSPIN_LOCK	Lock
 	);
 PLIST_ENTRY
-STDCALL
+FASTCALL
 ExInterlockedInsertTailList (
 	PLIST_ENTRY	ListHead,
 	PLIST_ENTRY	ListEntry,
 	PKSPIN_LOCK	Lock
 	);
 PSINGLE_LIST_ENTRY
-STDCALL
+FASTCALL
 ExInterlockedPopEntryList (
 	PSINGLE_LIST_ENTRY	ListHead,
 	PKSPIN_LOCK		Lock
@@ -472,7 +473,7 @@ ExInterlockedPopEntrySList (
 	PKSPIN_LOCK	Lock
 	);
 PSINGLE_LIST_ENTRY
-STDCALL
+FASTCALL
 ExInterlockedPushEntryList (
 	PSINGLE_LIST_ENTRY	ListHead,
 	PSINGLE_LIST_ENTRY	ListEntry,
@@ -485,8 +486,16 @@ ExInterlockedPushEntrySList (
 	PSINGLE_LIST_ENTRY	ListEntry,
 	PKSPIN_LOCK		Lock
 	);
+
+VOID
+ExInterlockedRemoveEntryList (
+	PLIST_ENTRY	ListHead,
+	PLIST_ENTRY	Entry,
+	PKSPIN_LOCK	Lock
+	);
+
 PLIST_ENTRY
-STDCALL
+FASTCALL
 ExInterlockedRemoveHeadList (
 	PLIST_ENTRY	Head,
 	PKSPIN_LOCK	Lock
@@ -677,16 +686,6 @@ ExReleaseRundownProtectionEx (
     IN PEX_RUNDOWN_REF RunRef,
     IN ULONG Count
     );
-/* ReactOS Specific: begin */
-VOID STDCALL
-ExRosDumpPagedPoolByTag (
-    IN ULONG Tag
-    );
-ULONG STDCALL
-ExRosQueryPoolTag (
-    IN PVOID Block
-    );
-/* ReactOS Specific: end */
 VOID
 FASTCALL
 ExRundownCompleted (
@@ -1000,23 +999,8 @@ InterlockedIncrement (
 	);
 
 #ifndef InterlockedExchangePointer
-# ifdef _WIN64
-#  define InterlockedExchangePointer(__T__, __V__) \
-             (PVOID)InterlockedExchange64((PLONGLONG)(__T__), (LONGLONG)(__V__))
-# else
-#  define InterlockedExchangePointer(__T__, __V__) \
-             (PVOID)InterlockedExchange((PLONG)(__T__), (LONG)(__V__))
-# endif
-#endif
-
-#ifndef InterlockedCompareExchangePointer
-# ifdef _WIN64
-#  define InterlockedCompareExchangePointer(__T__, __V__, __C__) \
-             (PVOID)InterlockedCompareExchange64((PLONGLONG)(__T__), (LONGLONG)(__V__), (LONGLONG)(__C__))
-# else
-#  define InterlockedCompareExchangePointer(__T__, __V__, __C__) \
-             (PVOID)InterlockedCompareExchange((PLONG)(__T__), (LONG)(__V__), (LONG)(__C__))
-# endif
+#define InterlockedExchangePointer(__T__, __V__) \
+ (PVOID)InterlockedExchange((PLONG)(__T__), (LONG)(__V__))
 #endif
 
 /*---*/

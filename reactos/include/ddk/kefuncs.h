@@ -20,14 +20,13 @@ KeSaveFloatingPointState(
 #define KeFlushIoBuffers(Mdl, ReadOperation, DmaOperation)
 #endif
 
-VOID STDCALL KeAttachProcess(struct _KPROCESS *Process);
+VOID STDCALL KeAttachProcess (struct _EPROCESS*	Process);
 
 VOID FASTCALL KiAcquireSpinLock(PKSPIN_LOCK SpinLock);
 
 VOID FASTCALL KiReleaseSpinLock(PKSPIN_LOCK SpinLock);
 
 VOID KeDrainApcQueue(VOID);
-
 struct _KPROCESS* KeGetCurrentProcess(VOID);
 
 /*
@@ -86,7 +85,7 @@ BOOLEAN STDCALL KeCancelTimer (PKTIMER	Timer);
 
 VOID STDCALL KeClearEvent (PKEVENT	Event);
 
-BOOLEAN STDCALL KeConnectInterrupt(PKINTERRUPT InterruptObject);
+NTSTATUS STDCALL KeConnectInterrupt(PKINTERRUPT InterruptObject);
 
 NTSTATUS STDCALL KeDelayExecutionThread (KPROCESSOR_MODE	WaitMode,
 					 BOOLEAN		Alertable,
@@ -111,7 +110,7 @@ VOID STDCALL KeEnterKernelDebugger (VOID);
 KIRQL STDCALL KeGetCurrentIrql (VOID);
 
 #ifndef __USE_W32API
-#define KeGetCurrentProcessorNumber() (KeGetCurrentKPCR()->ProcessorNumber)
+ULONG KeGetCurrentProcessorNumber(VOID);
 ULONG KeGetDcacheFillSize(VOID);
 ULONG STDCALL KeGetPreviousMode (VOID);
 #endif
@@ -358,15 +357,6 @@ KeRemoveQueueDpc(IN PKDPC Dpc);
 LONG STDCALL
 KeResetEvent(IN PKEVENT Event);
 
-VOID STDCALL
-KeRosDumpStackFrames ( PULONG Frame, ULONG FrameCount );
-
-ULONG STDCALL
-KeRosGetStackFrames ( PULONG Frames, ULONG FrameCount );
-
-BOOLEAN STDCALL
-KeRosPrintAddress(PVOID address);
-
 LONG STDCALL
 KeSetBasePriorityThread(struct _KTHREAD* Thread,
 			LONG Increment);
@@ -540,6 +530,10 @@ KfReleaseSpinLock (
 	);
 
 
+VOID STDCALL KiDeliverApc(ULONG Unknown1,
+        ULONG Unknown2,
+        ULONG Unknown3);
+
 VOID STDCALL KiDispatchInterrupt(VOID);
 
 /* Stubs Start here */
@@ -603,7 +597,7 @@ KeTerminateThread(
 	IN KPRIORITY   	 Increment  	 
 );
 
-BOOLEAN
+VOID 
 STDCALL
 KeIsExecutingDpc(
 	VOID
@@ -638,8 +632,7 @@ KeFindConfigurationNextEntry(
 VOID
 STDCALL
 KeFlushEntireTb(
-    IN BOOLEAN Unknown,
-    IN BOOLEAN CurrentCpuOnly
+    IN ULONGLONG Flag
 );
 
 VOID

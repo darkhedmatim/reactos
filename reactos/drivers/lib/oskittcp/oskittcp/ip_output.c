@@ -361,14 +361,9 @@ sendit:
 	    ip->ip_sum = in_cksum(m, hlen);
 #ifdef __REACTOS__
 	    if( OtcpEvent.PacketSend ) {
-		struct mbuf *new_m;
-		MGET( new_m, M_DONTWAIT, 0 );
-		MCLGET( new_m, M_DONTWAIT );
-		m_copydata( m, 0, htons(ip->ip_len), new_m->m_data );
-		new_m->m_len = htons(ip->ip_len);
+		OS_DbgPrint(OSK_MID_TRACE,("Mark\n"));
 		error = OtcpEvent.PacketSend( OtcpEvent.ClientData,
-					      new_m->m_data, new_m->m_len );
-		m_free( new_m );
+					      m->m_data, m->m_len );
 		goto done;
 	    }
 #else
@@ -490,15 +485,9 @@ sendorfree:
 			m_freem(m);
 #else
 	if( error == 0 && OtcpEvent.PacketSend ) {
-	    struct mbuf *new_m;
-	    MGET( new_m, M_DONTWAIT, 0 );
-	    MCLGET( new_m, M_DONTWAIT );
-	    m_copydata( m, 0, htons(ip->ip_len), new_m->m_data );
-	    new_m->m_len = htons(ip->ip_len);
+	    OS_DbgPrint(OSK_MID_TRACE,("Mark\n"));
 	    error = OtcpEvent.PacketSend( OtcpEvent.ClientData,
-					  new_m->m_data, new_m->m_len );
-	    m_free( new_m );
-	    goto done;
+					  m->m_data, m->m_len );
 	}
 	
 	OS_DbgPrint(OSK_MID_TRACE,("Error from upper layer: %d\n", error));
@@ -891,7 +880,7 @@ ip_setmoptions(optname, imop, m)
 		 * allocate one and initialize to default values.
 		 */
 		imo = (struct ip_moptions*)malloc(sizeof(*imo), M_IPMOPTS,
-						  M_WAITOK);
+		    M_WAITOK);
 
 		if (imo == NULL)
 			return (ENOBUFS);

@@ -26,8 +26,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -218,17 +216,20 @@ StdMarshalImpl_QueryInterface(LPMARSHAL iface,REFIID riid,LPVOID *ppv) {
 
 static ULONG WINAPI
 StdMarshalImpl_AddRef(LPMARSHAL iface) {
-  StdMarshalImpl *This = (StdMarshalImpl *)iface;
-  return InterlockedIncrement(&This->ref);
+  ICOM_THIS(StdMarshalImpl,iface);
+  This->ref++;
+  return This->ref;
 }
 
 static ULONG WINAPI
 StdMarshalImpl_Release(LPMARSHAL iface) {
-  StdMarshalImpl *This = (StdMarshalImpl *)iface;
-  ULONG ref = InterlockedDecrement(&This->ref);
+  ICOM_THIS(StdMarshalImpl,iface);
+  This->ref--;
 
-  if (!ref) HeapFree(GetProcessHeap(),0,This);
-  return ref;
+  if (This->ref)
+    return This->ref;
+  HeapFree(GetProcessHeap(),0,This);
+  return 0;
 }
 
 static HRESULT WINAPI
@@ -391,6 +392,7 @@ StdMarshalImpl_DisconnectObject(LPMARSHAL iface, DWORD dwReserved) {
 }
 
 IMarshalVtbl stdmvtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StdMarshalImpl_QueryInterface,
     StdMarshalImpl_AddRef,
     StdMarshalImpl_Release,
@@ -750,6 +752,7 @@ SMCF_LockServer(LPCLASSFACTORY iface, BOOL fLock) {
 }
 
 static IClassFactoryVtbl dfmarshalcfvtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     SMCF_QueryInterface,
     SMCF_AddRef,
     SMCF_Release,
@@ -762,48 +765,4 @@ HRESULT
 MARSHAL_GetStandardMarshalCF(LPVOID *ppv) {
   *ppv = &pdfmarshalcfvtbl;
   return S_OK;
-}
-
-/***********************************************************************
- *		CoMarshalHresult	[OLE32.@]
- *
- * Marshals an HRESULT value into a stream.
- *
- * PARAMS
- *  pStm    [I] Stream that hresult will be marshaled into.
- *  hresult [I] HRESULT to be marshaled.
- *
- * RETURNS
- *  Success: S_OK
- *  Failure: A COM error code
- *
- * SEE
- *  CoUnmarshalHresult().
- */
-HRESULT WINAPI
-CoMarshalHresult(LPSTREAM pStm, HRESULT hresult)
-{
-    return IStream_Write(pStm, &hresult, sizeof(hresult), NULL);
-}
-
-/***********************************************************************
- *		CoUnmarshalHresult	[OLE32.@]
- *
- * Unmarshals an HRESULT value from a stream.
- *
- * PARAMS
- *  pStm     [I] Stream that hresult will be unmarshaled from.
- *  phresult [I] Pointer to HRESULT where the value will be unmarshaled to.
- *
- * RETURNS
- *  Success: S_OK
- *  Failure: A COM error code
- *
- * SEE
- *  CoMarshalHresult().
- */
-HRESULT WINAPI
-CoUnmarshalHresult(LPSTREAM pStm, HRESULT * phresult)
-{
-    return IStream_Read(pStm, phresult, sizeof(*phresult), NULL);
 }

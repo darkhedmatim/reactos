@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mutex.c,v 1.19 2004/11/21 18:33:54 gdalsnes Exp $
+/* $Id: mutex.c,v 1.17 2004/08/15 16:39:05 chorns Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/mutex.c
@@ -76,13 +76,13 @@ KeReleaseMutex(IN PKMUTEX Mutex,
       KEBUGCHECK(THREAD_NOT_MUTEX_OWNER);
     }
   Mutex->Header.SignalState++;
-  ASSERT(Mutex->Header.SignalState <= 1);
+  assert(Mutex->Header.SignalState <= 1);
   if (Mutex->Header.SignalState == 1)
     {
       Mutex->OwnerThread = NULL;
       if (Mutex->MutantListEntry.Flink && Mutex->MutantListEntry.Blink)
 	RemoveEntryList(&Mutex->MutantListEntry);
-      KiDispatcherObjectWake(&Mutex->Header);
+      KeDispatcherObjectWake(&Mutex->Header);
     }
 
   if (Wait == FALSE)
@@ -175,7 +175,7 @@ KeReleaseMutant(IN PKMUTANT Mutant,
 	  KEBUGCHECK(THREAD_NOT_MUTEX_OWNER);
 	}
       Mutant->Header.SignalState++;
-      ASSERT(Mutant->Header.SignalState <= 1);
+      assert(Mutant->Header.SignalState <= 1);
     }
   else
     {
@@ -191,7 +191,7 @@ KeReleaseMutant(IN PKMUTANT Mutant,
       Mutant->OwnerThread = NULL;
       if (Mutant->MutantListEntry.Flink && Mutant->MutantListEntry.Blink)
 	RemoveEntryList(&Mutant->MutantListEntry);
-      KiDispatcherObjectWake(&Mutant->Header);
+      KeDispatcherObjectWake(&Mutant->Header);
     }
 
   if (Wait == FALSE)

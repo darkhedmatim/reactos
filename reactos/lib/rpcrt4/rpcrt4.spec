@@ -573,7 +573,7 @@
 @ stub I_RpcltDebugSetPDUFilter
 @ stub I_UuidCreate
 
-@ stdcall CreateProxyFromTypeInfo(ptr ptr ptr ptr ptr)
+@ stub CreateProxyFromTypeInfo
 @ stub CreateStubFromTypeInfo
 @ stub PerformRpcInitialization
 @ stub StartServiceIfNecessary # win9x

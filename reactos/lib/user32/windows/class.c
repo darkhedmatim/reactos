@@ -1,4 +1,4 @@
-/* $Id: class.c,v 1.56 2004/12/26 23:56:16 navaraf Exp $
+/* $Id: class.c,v 1.51 2004/08/15 21:36:29 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -86,7 +86,6 @@ static BOOL GetClassInfoExCommon(
   if ( !str3.Buffer )
   {
     SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-    HEAP_free ( str2.Buffer );
     if ( !IS_ATOM(str) )
       HEAP_free ( str );
     return FALSE;
@@ -171,10 +170,7 @@ GetClassInfoA(
   }
 
   retval = GetClassInfoExA(hInstance,lpClassName,&w);
-  if (retval)
-  {
-    RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
-  }
+  RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
   return retval;
 }
 
@@ -439,7 +435,7 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
   
    RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
 
-   if (IS_ATOM(lpwcx->lpszMenuName) || lpwcx->lpszMenuName == 0)
+   if (IS_ATOM(lpwcx->lpszMenuName))
    {
       MenuName.Length =
       MenuName.MaximumLength = 0;
@@ -468,10 +464,8 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
       REGISTERCLASS_ANSI,
       0);
 
-   if (!IS_ATOM(lpwcx->lpszMenuName))
-      RtlFreeUnicodeString(&MenuName);
-   if (!IS_ATOM(lpwcx->lpszClassName))
-      RtlFreeUnicodeString(&ClassName);
+   RtlFreeUnicodeString(&MenuName);
+   RtlFreeUnicodeString(&ClassName);
 
    return (ATOM)Atom;
 }

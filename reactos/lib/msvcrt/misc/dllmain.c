@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.24 2004/08/27 03:08:23 navaraf Exp $
+/* $Id: dllmain.c,v 1.23 2004/08/15 18:16:37 chorns Exp $
  *
  * dllmain.c
  *
@@ -14,9 +14,9 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.24 $
- * $Author: navaraf $
- * $Date: 2004/08/27 03:08:23 $
+ * $Revision: 1.23 $
+ * $Author: chorns $
+ * $Date: 2004/08/15 18:16:37 $
  *
  */
 
@@ -33,22 +33,17 @@
 
 //void __fileno_init(void);
 extern BOOL __fileno_init(void);
-extern int BlockEnvToEnvironA(void);
-extern int BlockEnvToEnvironW(void);
-extern void FreeEnvironment(char **environment);
+extern int BlockEnvToEnviron(void);
 
 extern unsigned int _osver;
 extern unsigned int _winminor;
 extern unsigned int _winmajor;
 extern unsigned int _winver;
 
-extern char* _acmdln;        /* pointer to ascii command line */
-extern wchar_t* _wcmdln;     /* pointer to wide character command line */
+extern char* _acmdln;       /* pointer to ascii command line */
 #undef _environ
-extern char** _environ;      /* pointer to environment block */
-extern char** __initenv;     /* pointer to initial environment block */
-extern wchar_t** _wenviron;  /* pointer to environment block */
-extern wchar_t** __winitenv; /* pointer to initial environment block */
+extern char** _environ;     /* pointer to environment block */
+extern char** __initenv;    /* pointer to initial environment block */
 
 
 /* LIBRARY GLOBAL VARIABLES ***************************************************/
@@ -82,22 +77,17 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         if (!CreateThreadData())
             return FALSE;
 
-        if (BlockEnvToEnvironA() < 0)
-            return FALSE;
-
-        if (BlockEnvToEnvironW() < 0)
-        {
-            FreeEnvironment((char**)_wenviron);
-            return FALSE;
-        }
-
         _acmdln = strdup(GetCommandLineA());
-        _wcmdln = wcsdup(GetCommandLineW());
+
+        /* FIXME: This crashes all applications */
+        if (BlockEnvToEnviron() < 0)
+          return FALSE;
 
         /* FIXME: more initializations... */
 
         /* FIXME: Initialization of the WINE code */
         msvcrt_init_mt_locks();
+        msvcrt_init_args();
 
         DPRINT("Attach done\n");
         break;
@@ -117,16 +107,16 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         /* destroy tls stuff */
         DestroyThreadData();
 
-	if (__winitenv && __winitenv != _wenviron)
-            FreeEnvironment((char**)__winitenv);
-        if (_wenviron)
-            FreeEnvironment((char**)_wenviron);
-
 	if (__initenv && __initenv != _environ)
-            FreeEnvironment(__initenv);
+	  {
+            free(__initenv[0]);
+	    free(__initenv);
+	  }
         if (_environ)
-            FreeEnvironment(_environ);
-
+          {
+            free(_environ[0]);
+            free(_environ);
+          }
         /* destroy heap */
         HeapDestroy(hHeap);
 

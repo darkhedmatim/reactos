@@ -656,6 +656,7 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    Status = NtOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
    if (!NT_SUCCESS(Status))
    {
+      RtlFreeUnicodeString(&ValueName);
       return FALSE;
    }
 
@@ -666,13 +667,14 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    if (Kvpi == NULL)
    {
       NtClose(KeyHandle);
+      RtlFreeUnicodeString(&ValueName);
       return FALSE;
    }
 
    /* Query the file name for our code page. */
    Status = NtQueryValueKey(KeyHandle, &ValueName, KeyValuePartialInformation,
                             Kvpi, KvpiSize, &KvpiSize);
-
+   RtlFreeUnicodeString(&ValueName);
    NtClose(KeyHandle);
 
    /* Check if we succeded and the value is non-empty string. */
@@ -876,58 +878,5 @@ GetOEMCP (VOID)
 {
     return OemCodePage.CodePageTable.CodePage;
 }
-
-static inline BOOL
-IntIsLeadByte(PCPTABLEINFO TableInfo, UCHAR Ch)
-{
-  if(TableInfo->MaximumCharacterSize == 2)
-  {
-    UINT i;
-    for(i = 0; i < MAXIMUM_LEADBYTES; i++)
-    {
-      if(TableInfo->LeadByte[i] == Ch)
-      {
-        return TRUE;
-      }
-    }
-  }
-  return FALSE;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-IsDBCSLeadByte (
-    BYTE    TestChar
-    )
-{
-   return IntIsLeadByte(&AnsiCodePage.CodePageTable, (UCHAR)TestChar);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-IsDBCSLeadByteEx (
-    UINT    CodePage,
-    BYTE    TestChar
-    )
-{
-    PCODEPAGE_ENTRY CodePageEntry;
-    
-    CodePageEntry = IntGetCodePageEntry(CodePage);
-    if(CodePageEntry != NULL)
-    {
-      return IntIsLeadByte(&CodePageEntry->CodePageTable, (UCHAR)TestChar);
-    }
-
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-}
-
 
 /* EOF */

@@ -81,11 +81,48 @@ WSPGetQOSByName(
 }
 
 
+INT
+WSPAPI
+WSPGetSockOpt(
+    IN      SOCKET s,
+    IN      INT level,
+    IN      INT optname,
+    OUT	    CHAR FAR* optval,
+    IN OUT  LPINT optlen,
+    OUT     LPINT lpErrno)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
+INT
+WSPAPI
+WSPIoctl(
+    IN  SOCKET s,
+    IN  DWORD dwIoControlCode,
+    IN  LPVOID lpvInBuffer,
+    IN  DWORD cbInBuffer,
+    OUT LPVOID lpvOutBuffer,
+    IN  DWORD cbOutBuffer,
+    OUT LPDWORD lpcbBytesReturned,
+    IN  LPWSAOVERLAPPED lpOverlapped,
+    IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine,
+    IN  LPWSATHREADID lpThreadId,
+    OUT LPINT lpErrno)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
 SOCKET
 WSPAPI
 WSPJoinLeaf(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,

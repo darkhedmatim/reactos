@@ -2,7 +2,6 @@
  * Path Functions
  *
  * Copyright 1998, 1999, 2000 Juergen Schmied
- * Copyright 2004 Juan Lang
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -39,7 +38,6 @@
 #include "winuser.h"
 
 #include "shlobj.h"
-#include "shresdef.h"
 #include "shell32_main.h"
 #include "undocshell.h"
 #include "pidl.h"
@@ -558,76 +556,11 @@ BOOL WINAPI PathFindOnPathAW(LPVOID sFile, LPCVOID sOtherDirs)
 
 /*************************************************************************
  * PathCleanupSpec	[SHELL32.171]
- *
- * lpszFile is changed in place.
  */
-int WINAPI PathCleanupSpec( LPCWSTR lpszPathW, LPWSTR lpszFileW )
+DWORD WINAPI PathCleanupSpecAW (LPCVOID x, LPVOID y)
 {
-    int i = 0;
-    DWORD rc = 0;
-    int length = 0;
-
-    if (SHELL_OsIsUnicode())
-    {
-        LPWSTR p = lpszFileW;
-
-        TRACE("Cleanup %s\n",debugstr_w(lpszFileW));
-
-        if (lpszPathW)
-            length = strlenW(lpszPathW);
-
-        while (*p)
-        {
-            int gct = PathGetCharTypeW(*p);
-            if (gct == GCT_INVALID || gct == GCT_WILD || gct == GCT_SEPARATOR)
-            {
-                lpszFileW[i]='-';
-                rc |= PCS_REPLACEDCHAR;
-            }
-            else
-                lpszFileW[i]=*p;
-            i++;
-            p++;
-            if (length + i == MAX_PATH)
-            {
-                rc |= PCS_FATAL | PCS_PATHTOOLONG;
-                break;
-            }
-        }
-        lpszFileW[i]=0;
-    }
-    else
-    {
-        LPSTR lpszFileA = (LPSTR)lpszFileW;
-        LPCSTR lpszPathA = (LPSTR)lpszPathW;
-        LPSTR p = lpszFileA;
-
-        TRACE("Cleanup %s\n",debugstr_a(lpszFileA));
-
-        if (lpszPathA)
-            length = strlen(lpszPathA);
-
-        while (*p)
-        {
-            int gct = PathGetCharTypeA(*p);
-            if (gct == GCT_INVALID || gct == GCT_WILD || gct == GCT_SEPARATOR)
-            {
-                lpszFileA[i]='-';
-                rc |= PCS_REPLACEDCHAR;
-            }
-            else
-                lpszFileA[i]=*p;
-            i++;
-            p++;
-            if (length + i == MAX_PATH)
-            {
-                rc |= PCS_FATAL | PCS_PATHTOOLONG;
-                break;
-            }
-        }
-        lpszFileA[i]=0;
-    }
-    return rc;
+    FIXME("(%p, %p) stub\n",x,y);
+    return TRUE;
 }
 
 /*************************************************************************
@@ -756,939 +689,519 @@ VOID WINAPI PathSetDlgItemPathAW(HWND hDlg, int id, LPCVOID pszPath)
             PathSetDlgItemPathA(hDlg, id, pszPath);
 }
 
-static const WCHAR szCurrentVersion[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\0'};
-static const WCHAR Administrative_ToolsW[] = {'A','d','m','i','n','i','s','t','r','a','t','i','v','e',' ','T','o','o','l','s','\0'};
-static const WCHAR AppDataW[] = {'A','p','p','D','a','t','a','\0'};
-static const WCHAR CacheW[] = {'C','a','c','h','e','\0'};
-static const WCHAR CD_BurningW[] = {'C','D',' ','B','u','r','n','i','n','g','\0'};
-static const WCHAR Common_Administrative_ToolsW[] = {'C','o','m','m','o','n',' ','A','d','m','i','n','i','s','t','r','a','t','i','v','e',' ','T','o','o','l','s','\0'};
-static const WCHAR Common_AppDataW[] = {'C','o','m','m','o','n',' ','A','p','p','D','a','t','a','\0'};
-static const WCHAR Common_DesktopW[] = {'C','o','m','m','o','n',' ','D','e','s','k','t','o','p','\0'};
-static const WCHAR Common_DocumentsW[] = {'C','o','m','m','o','n',' ','D','o','c','u','m','e','n','t','s','\0'};
-static const WCHAR CommonFilesDirW[] = {'C','o','m','m','o','n','F','i','l','e','s','D','i','r','\0'};
-static const WCHAR CommonMusicW[] = {'C','o','m','m','o','n','M','u','s','i','c','\0'};
-static const WCHAR CommonPicturesW[] = {'C','o','m','m','o','n','P','i','c','t','u','r','e','s','\0'};
-static const WCHAR Common_ProgramsW[] = {'C','o','m','m','o','n',' ','P','r','o','g','r','a','m','s','\0'};
-static const WCHAR Common_StartUpW[] = {'C','o','m','m','o','n',' ','S','t','a','r','t','U','p','\0'};
-static const WCHAR Common_Start_MenuW[] = {'C','o','m','m','o','n',' ','S','t','a','r','t',' ','M','e','n','u','\0'};
-static const WCHAR Common_TemplatesW[] = {'C','o','m','m','o','n',' ','T','e','m','p','l','a','t','e','s','\0'};
-static const WCHAR CommonVideoW[] = {'C','o','m','m','o','n','V','i','d','e','o','\0'};
-static const WCHAR CookiesW[] = {'C','o','o','k','i','e','s','\0'};
-static const WCHAR DesktopW[] = {'D','e','s','k','t','o','p','\0'};
-static const WCHAR FavoritesW[] = {'F','a','v','o','r','i','t','e','s','\0'};
-static const WCHAR FontsW[] = {'F','o','n','t','s','\0'};
-static const WCHAR HistoryW[] = {'H','i','s','t','o','r','y','\0'};
-static const WCHAR Local_AppDataW[] = {'L','o','c','a','l',' ','A','p','p','D','a','t','a','\0'};
-static const WCHAR My_MusicW[] = {'M','y',' ','M','u','s','i','c','\0'};
-static const WCHAR My_PicturesW[] = {'M','y',' ','P','i','c','t','u','r','e','s','\0'};
-static const WCHAR My_VideoW[] = {'M','y',' ','V','i','d','e','o','\0'};
-static const WCHAR NetHoodW[] = {'N','e','t','H','o','o','d','\0'};
-static const WCHAR PersonalW[] = {'P','e','r','s','o','n','a','l','\0'};
-static const WCHAR PrintHoodW[] = {'P','r','i','n','t','H','o','o','d','\0'};
-static const WCHAR ProgramFilesDirW[] = {'P','r','o','g','r','a','m','F','i','l','e','s','D','i','r','\0'};
-static const WCHAR ProgramsW[] = {'P','r','o','g','r','a','m','s','\0'};
-static const WCHAR RecentW[] = {'R','e','c','e','n','t','\0'};
-static const WCHAR ResourcesW[] = {'R','e','s','o','u','r','c','e','s','\0'};
-static const WCHAR SendToW[] = {'S','e','n','d','T','o','\0'};
-static const WCHAR StartUpW[] = {'S','t','a','r','t','U','p','\0'};
-static const WCHAR Start_MenuW[] = {'S','t','a','r','t',' ','M','e','n','u','\0'};
-static const WCHAR TemplatesW[] = {'T','e','m','p','l','a','t','e','s','\0'};
-static const WCHAR DefaultW[] = {'.','D','e','f','a','u','l','t','\0'};
-static const WCHAR AllUsersProfileW[] = {'%','A','L','L','U','S','E','R','S','P','R','O','F','I','L','E','%','\0'};
-static const WCHAR UserProfileW[] = {'%','U','S','E','R','P','R','O','F','I','L','E','%','\0'};
-static const WCHAR SystemDriveW[] = {'%','S','y','s','t','e','m','D','r','i','v','e','%','\0'};
-static const WCHAR ProfileListW[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s',' ','N','T','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','P','r','o','f','i','l','e','L','i','s','t',0};
-static const WCHAR ProfilesDirectoryW[] = {'P','r','o','f','i','l','e','s','D','i','r','e','c','t','o','r','y',0};
-static const WCHAR AllUsersProfileValueW[] = {'A','l','l','U','s','e','r','s','P','r','o','f','i','l','e','\0'};
-static const WCHAR szSHFolders[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','E','x','p','l','o','r','e','r','\\','S','h','e','l','l',' ','F','o','l','d','e','r','s','\0'};
-static const WCHAR szSHUserFolders[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','E','x','p','l','o','r','e','r','\\','U','s','e','r',' ','S','h','e','l','l',' ','F','o','l','d','e','r','s','\0'};
-/* This defaults to L"Documents and Settings" on Windows 2000/XP, but we're
- * acting more Windows 9x-like for now.
- */
-static const WCHAR szDefaultProfileDirW[] = {'w','i','n','d','o','w','s','\\','p','r','o','f','i','l','e','s','\0'};
-static const WCHAR AllUsersW[] = {'A','l','l',' ','U','s','e','r','s','\0'};
-
-typedef enum _CSIDL_Type {
-    CSIDL_Type_User,
-    CSIDL_Type_AllUsers,
-    CSIDL_Type_CurrVer,
-    CSIDL_Type_Disallowed,
-    CSIDL_Type_NonExistent,
-    CSIDL_Type_WindowsPath,
-    CSIDL_Type_SystemPath,
-} CSIDL_Type;
-
-typedef struct
-{
-    CSIDL_Type type;
-    LPCWSTR    szValueName;
-    LPCWSTR    szDefaultPath; /* fallback string or resource ID */
-} CSIDL_DATA;
-
-static const CSIDL_DATA CSIDL_Data[] =
-{
-    { /* 0x00 - CSIDL_DESKTOP */
-        CSIDL_Type_User,
-        DesktopW,
-        MAKEINTRESOURCEW(IDS_DESKTOPDIRECTORY)
-    },
-    { /* 0x01 - CSIDL_INTERNET */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x02 - CSIDL_PROGRAMS */
-        CSIDL_Type_User,
-        ProgramsW,
-        MAKEINTRESOURCEW(IDS_PROGRAMS)
-    },
-    { /* 0x03 - CSIDL_CONTROLS (.CPL files) */
-        CSIDL_Type_SystemPath,
-        NULL,
-        NULL
-    },
-    { /* 0x04 - CSIDL_PRINTERS */
-        CSIDL_Type_SystemPath,
-        NULL,
-        NULL
-    },
-    { /* 0x05 - CSIDL_PERSONAL */
-        CSIDL_Type_User,
-        PersonalW,
-        MAKEINTRESOURCEW(IDS_PERSONAL)
-    },
-    { /* 0x06 - CSIDL_FAVORITES */
-        CSIDL_Type_User,
-        FavoritesW,
-        MAKEINTRESOURCEW(IDS_FAVORITES)
-    },
-    { /* 0x07 - CSIDL_STARTUP */
-        CSIDL_Type_User,
-        StartUpW,
-        MAKEINTRESOURCEW(IDS_STARTUP)
-    },
-    { /* 0x08 - CSIDL_RECENT */
-        CSIDL_Type_User,
-        RecentW,
-        MAKEINTRESOURCEW(IDS_RECENT)
-    },
-    { /* 0x09 - CSIDL_SENDTO */
-        CSIDL_Type_User,
-        SendToW,
-        MAKEINTRESOURCEW(IDS_SENDTO)
-    },
-    { /* 0x0a - CSIDL_BITBUCKET - Recycle Bin */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL,
-    },
-    { /* 0x0b - CSIDL_STARTMENU */
-        CSIDL_Type_User,
-        Start_MenuW,
-        MAKEINTRESOURCEW(IDS_STARTMENU)
-    },
-    { /* 0x0c - CSIDL_MYDOCUMENTS */
-        CSIDL_Type_Disallowed, /* matches WinXP--can't get its path */
-        NULL,
-        NULL
-    },
-    { /* 0x0d - CSIDL_MYMUSIC */
-        CSIDL_Type_User,
-        My_MusicW,
-        MAKEINTRESOURCEW(IDS_MYMUSIC)
-    },
-    { /* 0x0e - CSIDL_MYVIDEO */
-        CSIDL_Type_User,
-        My_VideoW,
-        MAKEINTRESOURCEW(IDS_MYVIDEO)
-    },
-    { /* 0x0f - unassigned */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL,
-    },
-    { /* 0x10 - CSIDL_DESKTOPDIRECTORY */
-        CSIDL_Type_User,
-        DesktopW,
-        MAKEINTRESOURCEW(IDS_DESKTOPDIRECTORY)
-    },
-    { /* 0x11 - CSIDL_DRIVES */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL,
-    },
-    { /* 0x12 - CSIDL_NETWORK */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL,
-    },
-    { /* 0x13 - CSIDL_NETHOOD */
-        CSIDL_Type_User,
-        NetHoodW,
-        MAKEINTRESOURCEW(IDS_NETHOOD)
-    },
-    { /* 0x14 - CSIDL_FONTS */
-        CSIDL_Type_WindowsPath,
-        NULL,
-        FontsW
-    },
-    { /* 0x15 - CSIDL_TEMPLATES */
-        CSIDL_Type_User,
-        TemplatesW,
-        MAKEINTRESOURCEW(IDS_TEMPLATES)
-    },
-    { /* 0x16 - CSIDL_COMMON_STARTMENU */
-        CSIDL_Type_AllUsers,
-        Common_Start_MenuW,
-        MAKEINTRESOURCEW(IDS_STARTMENU)
-    },
-    { /* 0x17 - CSIDL_COMMON_PROGRAMS */
-        CSIDL_Type_AllUsers,
-        Common_ProgramsW,
-        MAKEINTRESOURCEW(IDS_PROGRAMS)
-    },
-    { /* 0x18 - CSIDL_COMMON_STARTUP */
-        CSIDL_Type_AllUsers,
-        Common_StartUpW,
-        MAKEINTRESOURCEW(IDS_STARTUP)
-    },
-    { /* 0x19 - CSIDL_COMMON_DESKTOPDIRECTORY */
-        CSIDL_Type_AllUsers,
-        Common_DesktopW,
-        MAKEINTRESOURCEW(IDS_DESKTOP)
-    },
-    { /* 0x1a - CSIDL_APPDATA */
-        CSIDL_Type_User,
-        AppDataW,
-        MAKEINTRESOURCEW(IDS_APPDATA)
-    },
-    { /* 0x1b - CSIDL_PRINTHOOD */
-        CSIDL_Type_User,
-        PrintHoodW,
-        MAKEINTRESOURCEW(IDS_PRINTHOOD)
-    },
-    { /* 0x1c - CSIDL_LOCAL_APPDATA */
-        CSIDL_Type_User,
-        Local_AppDataW,
-        MAKEINTRESOURCEW(IDS_LOCAL_APPDATA)
-    },
-    { /* 0x1d - CSIDL_ALTSTARTUP */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x1e - CSIDL_COMMON_ALTSTARTUP */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x1f - CSIDL_COMMON_FAVORITES */
-        CSIDL_Type_AllUsers,
-        FavoritesW,
-        MAKEINTRESOURCEW(IDS_FAVORITES)
-    },
-    { /* 0x20 - CSIDL_INTERNET_CACHE */
-        CSIDL_Type_User,
-        CacheW,
-        MAKEINTRESOURCEW(IDS_INTERNET_CACHE)
-    },
-    { /* 0x21 - CSIDL_COOKIES */
-        CSIDL_Type_User,
-        CookiesW,
-        MAKEINTRESOURCEW(IDS_COOKIES)
-    },
-    { /* 0x22 - CSIDL_HISTORY */
-        CSIDL_Type_User,
-        HistoryW,
-        MAKEINTRESOURCEW(IDS_HISTORY)
-    },
-    { /* 0x23 - CSIDL_COMMON_APPDATA */
-        CSIDL_Type_AllUsers,
-        Common_AppDataW,
-        MAKEINTRESOURCEW(IDS_APPDATA)
-    },
-    { /* 0x24 - CSIDL_WINDOWS */
-        CSIDL_Type_WindowsPath,
-        NULL,
-        NULL
-    },
-    { /* 0x25 - CSIDL_SYSTEM */
-        CSIDL_Type_SystemPath,
-        NULL,
-        NULL
-    },
-    { /* 0x26 - CSIDL_PROGRAM_FILES */
-        CSIDL_Type_CurrVer,
-        ProgramFilesDirW,
-        MAKEINTRESOURCEW(IDS_PROGRAM_FILES)
-    },
-    { /* 0x27 - CSIDL_MYPICTURES */
-        CSIDL_Type_User,
-        My_PicturesW,
-        MAKEINTRESOURCEW(IDS_MYPICTURES)
-    },
-    { /* 0x28 - CSIDL_PROFILE */
-        CSIDL_Type_User,
-        NULL,
-        NULL
-    },
-    { /* 0x29 - CSIDL_SYSTEMX86 */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x2a - CSIDL_PROGRAM_FILESX86 */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x2b - CSIDL_PROGRAM_FILES_COMMON */
-        CSIDL_Type_CurrVer,
-        CommonFilesDirW,
-        MAKEINTRESOURCEW(IDS_PROGRAM_FILES_COMMON)
-    },
-    { /* 0x2c - CSIDL_PROGRAM_FILES_COMMONX86 */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x2d - CSIDL_COMMON_TEMPLATES */
-        CSIDL_Type_AllUsers,
-        Common_TemplatesW,
-        MAKEINTRESOURCEW(IDS_TEMPLATES)
-    },
-    { /* 0x2e - CSIDL_COMMON_DOCUMENTS */
-        CSIDL_Type_AllUsers,
-        Common_DocumentsW,
-        MAKEINTRESOURCEW(IDS_COMMON_DOCUMENTS)
-    },
-    { /* 0x2f - CSIDL_COMMON_ADMINTOOLS */
-        CSIDL_Type_AllUsers,
-        Common_Administrative_ToolsW,
-        MAKEINTRESOURCEW(IDS_ADMINTOOLS)
-    },
-    { /* 0x30 - CSIDL_ADMINTOOLS */
-        CSIDL_Type_User,
-        Administrative_ToolsW,
-        MAKEINTRESOURCEW(IDS_ADMINTOOLS)
-    },
-    { /* 0x31 - CSIDL_CONNECTIONS */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x32 - unassigned */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x33 - unassigned */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x34 - unassigned */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x35 - CSIDL_COMMON_MUSIC */
-        CSIDL_Type_AllUsers,
-        CommonMusicW,
-        MAKEINTRESOURCEW(IDS_COMMON_MUSIC)
-    },
-    { /* 0x36 - CSIDL_COMMON_PICTURES */
-        CSIDL_Type_AllUsers,
-        CommonPicturesW,
-        MAKEINTRESOURCEW(IDS_COMMON_PICTURES)
-    },
-    { /* 0x37 - CSIDL_COMMON_VIDEO */
-        CSIDL_Type_AllUsers,
-        CommonVideoW,
-        MAKEINTRESOURCEW(IDS_COMMON_VIDEO)
-    },
-    { /* 0x38 - CSIDL_RESOURCES */
-        CSIDL_Type_WindowsPath,
-        NULL,
-        ResourcesW
-    },
-    { /* 0x39 - CSIDL_RESOURCES_LOCALIZED */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x3a - CSIDL_COMMON_OEM_LINKS */
-        CSIDL_Type_NonExistent,
-        NULL,
-        NULL
-    },
-    { /* 0x3b - CSIDL_CDBURN_AREA */
-        CSIDL_Type_User,
-        CD_BurningW,
-        MAKEINTRESOURCEW(IDS_CDBURN_AREA)
-    },
-    { /* 0x3c unassigned */
-        CSIDL_Type_Disallowed,
-        NULL,
-        NULL
-    },
-    { /* 0x3d - CSIDL_COMPUTERSNEARME */
-        CSIDL_Type_Disallowed, /* FIXME */
-        NULL,
-        NULL
-    },
-    { /* 0x3e - CSIDL_PROFILES */
-        CSIDL_Type_Disallowed, /* oddly, this matches WinXP */
-        NULL,
-        NULL
-    }
-};
-
-static HRESULT _SHExpandEnvironmentStrings(LPCWSTR szSrc, LPWSTR szDest);
-
-/* Gets the value named value from the registry key
- * rootKey\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders
- * (or from rootKey\userPrefix\... if userPrefix is not NULL) into path, which
- * is assumed to be MAX_PATH WCHARs in length.
- * If it exists, expands the value and writes the expanded value to
- * rootKey\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
- * Returns successful error code if the value was retrieved from the registry,
- * and a failure otherwise.
- */
-static HRESULT _SHGetUserShellFolderPath(HKEY rootKey, LPCWSTR userPrefix,
- LPCWSTR value, LPWSTR path)
-{
-    HRESULT hr;
-    WCHAR shellFolderPath[MAX_PATH], userShellFolderPath[MAX_PATH];
-    LPCWSTR pShellFolderPath, pUserShellFolderPath;
-    DWORD dwDisp, dwType, dwPathLen = MAX_PATH;
-    HKEY userShellFolderKey, shellFolderKey;
-
-    TRACE("%p,%s,%s,%p\n",rootKey, debugstr_w(userPrefix), debugstr_w(value),
-     path);
-
-    if (userPrefix)
-    {
-        strcpyW(shellFolderPath, userPrefix);
-        PathAddBackslashW(shellFolderPath);
-        strcatW(shellFolderPath, szSHFolders);
-        pShellFolderPath = shellFolderPath;
-        strcpyW(userShellFolderPath, userPrefix);
-        PathAddBackslashW(userShellFolderPath);
-        strcatW(userShellFolderPath, szSHUserFolders);
-        pUserShellFolderPath = userShellFolderPath;
-    }
-    else
-    {
-        pUserShellFolderPath = szSHUserFolders;
-        pShellFolderPath = szSHFolders;
-    }
-
-    if (RegCreateKeyExW(rootKey, pShellFolderPath, 0, NULL, 0, KEY_ALL_ACCESS,
-     NULL, &shellFolderKey, &dwDisp))
-    {
-        TRACE("Failed to create %s\n", debugstr_w(pShellFolderPath));
-        return E_FAIL;
-    }
-    if (RegCreateKeyExW(rootKey, pUserShellFolderPath, 0, NULL, 0,
-     KEY_ALL_ACCESS, NULL, &userShellFolderKey, &dwDisp))
-    {
-        TRACE("Failed to create %s\n",
-         debugstr_w(pUserShellFolderPath));
-        RegCloseKey(shellFolderKey);
-        return E_FAIL;
-    }
-
-    if (!RegQueryValueExW(userShellFolderKey, value, NULL, &dwType,
-     (LPBYTE)path, &dwPathLen) && (dwType == REG_EXPAND_SZ || dwType == REG_SZ))
-    {
-        path[dwPathLen / sizeof(WCHAR)] = '\0';
-        if (dwType == REG_EXPAND_SZ && path[0] == '%')
-        {
-            WCHAR szTemp[MAX_PATH];
-
-            _SHExpandEnvironmentStrings(path, szTemp);
-            strncpyW(path, szTemp, MAX_PATH);
-        }
-        RegSetValueExW(shellFolderKey, value, 0, REG_SZ, (LPBYTE)path,
-         (strlenW(path) + 1) * sizeof(WCHAR));
-        hr = S_OK;
-    }
-    else
-        hr = E_FAIL;
-    RegCloseKey(shellFolderKey);
-    RegCloseKey(userShellFolderKey);
-    TRACE("returning 0x%08lx\n", hr);
-    return hr;
-}
-
-/* Gets a 'semi-expanded' default value of the CSIDL with index folder into
- * pszPath, based on the entries in CSIDL_Data.  By semi-expanded, I mean:
- * - The entry's szDefaultPath may be either a string value or an integer
- *   resource identifier.  In the latter case, the string value of the resource
- *   is written.
- * - Depending on the entry's type, the path may begin with an (unexpanded)
- *   environment variable name.  The caller is responsible for expanding
- *   environment strings if so desired.
- *   The types that are prepended with environment variables are:
- *   CSIDL_Type_User:     %USERPROFILE%
- *   CSIDL_Type_AllUsers: %ALLUSERSPROFILE%
- *   CSIDL_Type_CurrVer:  %SystemDrive%
- *   (Others might make sense too, but as yet are unneeded.)
- * FIXME: there are two special cases for the default value:
- * - the "My Documents" (CSIDL_PERSONAL) entry should be $HOME
- * - the CSIDL_DESKTOP and CSIDL_DESKTOPDIRECTORY (which have the same path)
- *   should be $HOME/Desktop if it exists
- * But, $HOME doesn't seem to be inherited into the Wine environment.  I could
- * use getenv, but this returns me a UNIX path, which may or may not be
- * reachable from any currently mounted DOS drives.
- */
-static HRESULT _SHGetDefaultValue(BYTE folder, LPWSTR pszPath)
-{
-    HRESULT hr;
-    WCHAR resourcePath[MAX_PATH];
-    LPCWSTR pDefaultPath = NULL;
-
-    TRACE("0x%02x,%p\n", folder, pszPath);
-
-    if (folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0]))
-        return E_INVALIDARG;
-    if (!pszPath)
-        return E_INVALIDARG;
-
-    if (CSIDL_Data[folder].szDefaultPath &&
-     IS_INTRESOURCE(CSIDL_Data[folder].szDefaultPath))
-    {
-        if (LoadStringW(shell32_hInstance,
-         (UINT)CSIDL_Data[folder].szDefaultPath, resourcePath, MAX_PATH))
-        {
-            hr = S_OK;
-            pDefaultPath = resourcePath;
-        }
-        else
-        {
-            FIXME("LoadString failed, missing translation?\n");
-            hr = E_FAIL;
-        }
-    }
-    else
-    {
-        hr = S_OK;
-        pDefaultPath = CSIDL_Data[folder].szDefaultPath;
-    }
-    if (SUCCEEDED(hr))
-    {
-        switch (CSIDL_Data[folder].type)
-        {
-            case CSIDL_Type_User:
-                strcpyW(pszPath, UserProfileW);
-                break;
-            case CSIDL_Type_AllUsers:
-                strcpyW(pszPath, AllUsersProfileW);
-                break;
-            case CSIDL_Type_CurrVer:
-                strcpyW(pszPath, SystemDriveW);
-                break;
-            default:
-                ; /* no corresponding env. var, do nothing */
-        }
-        if (pDefaultPath)
-        {
-            PathAddBackslashW(pszPath);
-            strcatW(pszPath, pDefaultPath);
-        }
-    }
-    TRACE("returning 0x%08lx\n", hr);
-    return hr;
-}
-
-/* Gets the (unexpanded) value of the folder with index folder into pszPath.
- * The folder's type is assumed to be CSIDL_Type_CurrVer.  Its default value
- * can be overridden in the HKLM\\szCurrentVersion key.
- * If dwFlags has SHGFP_TYPE_DEFAULT set or if the value isn't overridden in
- * the registry, uses _SHGetDefaultValue to get the value.
- */
-static HRESULT _SHGetCurrentVersionPath(DWORD dwFlags, BYTE folder,
- LPWSTR pszPath)
-{
-    HRESULT hr;
-
-    TRACE("0x%08lx,0x%02x,%p\n", dwFlags, folder, pszPath);
-
-    if (folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0]))
-        return E_INVALIDARG;
-    if (CSIDL_Data[folder].type != CSIDL_Type_CurrVer)
-        return E_INVALIDARG;
-    if (!pszPath)
-        return E_INVALIDARG;
-
-    if (dwFlags & SHGFP_TYPE_DEFAULT)
-        hr = _SHGetDefaultValue(folder, pszPath);
-    else
-    {
-        HKEY hKey;
-        DWORD dwDisp;
-
-        if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, szCurrentVersion, 0,
-         NULL, 0, KEY_ALL_ACCESS, NULL, &hKey, &dwDisp))
-            hr = E_FAIL;
-        else
-        {
-            DWORD dwType, dwPathLen = MAX_PATH * sizeof(WCHAR);
-
-            if (RegQueryValueExW(hKey, CSIDL_Data[folder].szValueName, NULL,
-             &dwType, (LPBYTE)pszPath, &dwPathLen) ||
-             (dwType != REG_SZ && dwType != REG_EXPAND_SZ))
-            {
-                hr = _SHGetDefaultValue(folder, pszPath);
-                dwType = REG_EXPAND_SZ;
-                RegSetValueExW(hKey, CSIDL_Data[folder].szValueName, 0, dwType,
-                 (LPBYTE)pszPath, (strlenW(pszPath)+1)*sizeof(WCHAR));
-            }
-            else
-            {
-                pszPath[dwPathLen / sizeof(WCHAR)] = '\0';
-                hr = S_OK;
-            }
-            RegCloseKey(hKey);
-        }
-    }
-    TRACE("returning 0x%08lx (output path is %s)\n", hr, debugstr_w(pszPath));
-    return hr;
-}
-
-/* Gets the user's path (unexpanded) for the CSIDL with index folder:
- * If SHGFP_TYPE_DEFAULT is set, calls _SHGetDefaultValue for it.  Otherwise
- * calls _SHGetUserShellFolderPath for it.  Where it looks depends on hToken:
- * - if hToken is -1, looks in HKEY_USERS\.Default
- * - otherwise looks first in HKEY_CURRENT_USER, followed by HKEY_LOCAL_MACHINE
- *   if HKEY_CURRENT_USER doesn't contain any entries.  If both fail, finally
- *   calls _SHGetDefaultValue for it.
- */
-static HRESULT _SHGetUserProfilePath(HANDLE hToken, DWORD dwFlags, BYTE folder,
- LPWSTR pszPath)
-{
-    HRESULT hr;
-
-    TRACE("%p,0x%08lx,0x%02x,%p\n", hToken, dwFlags, folder, pszPath);
-
-    if (folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0]))
-        return E_INVALIDARG;
-    if (CSIDL_Data[folder].type != CSIDL_Type_User)
-        return E_INVALIDARG;
-    if (!pszPath)
-        return E_INVALIDARG;
-
-    /* Only the current user and the default user are supported right now
-     * I'm afraid.
-     * FIXME: should be able to call GetTokenInformation on the token,
-     * then call ConvertSidToStringSidW on it to get the user prefix.
-     * But Wine's registry doesn't store user info by sid, it stores it
-     * by user name (and I don't know how to convert from a token to a
-     * user name).
-     */
-    if (hToken != NULL && hToken != (HANDLE)-1)
-    {
-        FIXME("unsupported for user other than current or default\n");
-        return E_FAIL;
-    }
-
-    if (dwFlags & SHGFP_TYPE_DEFAULT)
-        hr = _SHGetDefaultValue(folder, pszPath);
-    else
-    {
-        LPCWSTR userPrefix = NULL;
-        HKEY hRootKey;
-
-        if (hToken == (HANDLE)-1)
-        {
-            hRootKey = HKEY_USERS;
-            userPrefix = DefaultW;
-        }
-        else /* hToken == NULL, other values disallowed above */
-            hRootKey = HKEY_CURRENT_USER;
-        hr = _SHGetUserShellFolderPath(hRootKey, userPrefix,
-         CSIDL_Data[folder].szValueName, pszPath);
-        if (FAILED(hr) && hRootKey != HKEY_LOCAL_MACHINE)
-            hr = _SHGetUserShellFolderPath(HKEY_LOCAL_MACHINE, NULL,
-             CSIDL_Data[folder].szValueName, pszPath);
-        if (FAILED(hr))
-            hr = _SHGetDefaultValue(folder, pszPath);
-    }
-    TRACE("returning 0x%08lx (output path is %s)\n", hr, debugstr_w(pszPath));
-    return hr;
-}
-
-/* Gets the (unexpanded) path for the CSIDL with index folder.  If dwFlags has
- * SHGFP_TYPE_DEFAULT set, calls _SHGetDefaultValue.  Otherwise calls
- * _SHGetUserShellFolderPath for it, looking only in HKEY_LOCAL_MACHINE.
- * If this fails, falls back to _SHGetDefaultValue.
- */
-static HRESULT _SHGetAllUsersProfilePath(DWORD dwFlags, BYTE folder,
- LPWSTR pszPath)
-{
-    HRESULT hr;
-
-    TRACE("0x%08lx,0x%02x,%p\n", dwFlags, folder, pszPath);
-
-    if (folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0]))
-        return E_INVALIDARG;
-    if (CSIDL_Data[folder].type != CSIDL_Type_AllUsers)
-        return E_INVALIDARG;
-    if (!pszPath)
-        return E_INVALIDARG;
-
-    if (dwFlags & SHGFP_TYPE_DEFAULT)
-        hr = _SHGetDefaultValue(folder, pszPath);
-    else
-    {
-        hr = _SHGetUserShellFolderPath(HKEY_LOCAL_MACHINE, NULL,
-         CSIDL_Data[folder].szValueName, pszPath);
-        if (FAILED(hr))
-            hr = _SHGetDefaultValue(folder, pszPath);
-    }
-    TRACE("returning 0x%08lx (output path is %s)\n", hr, debugstr_w(pszPath));
-    return hr;
-}
-
-static HRESULT _SHOpenProfilesKey(PHKEY pKey)
-{
-    LONG lRet;
-    DWORD disp;
-
-    lRet = RegCreateKeyExW(HKEY_LOCAL_MACHINE, ProfileListW, 0, NULL, 0,
-     KEY_ALL_ACCESS, NULL, pKey, &disp);
-    return HRESULT_FROM_WIN32(lRet);
-}
-
-/* Reads the value named szValueName from the key profilesKey (assumed to be
- * opened by _SHOpenProfilesKey) into szValue, which is assumed to be MAX_PATH
- * WCHARs in length.  If it doesn't exist, returns szDefault (and saves
- * szDefault to the registry).
- */
-static HRESULT _SHGetProfilesValue(HKEY profilesKey, LPCWSTR szValueName,
- LPWSTR szValue, LPCWSTR szDefault)
-{
-    HRESULT hr;
-    DWORD type, dwPathLen = MAX_PATH * sizeof(WCHAR);
-    LONG lRet;
-
-    TRACE("%p,%s,%p,%s\n", profilesKey, debugstr_w(szValueName), szValue,
-     debugstr_w(szDefault));
-    lRet = RegQueryValueExW(profilesKey, szValueName, NULL, &type,
-     (LPBYTE)szValue, &dwPathLen);
-    if (!lRet && (type == REG_SZ || type == REG_EXPAND_SZ) && dwPathLen
-     && *szValue)
-    {
-        dwPathLen /= sizeof(WCHAR);
-        szValue[dwPathLen] = '\0';
-        hr = S_OK;
-    }
-    else
-    {
-        /* Missing or invalid value, set a default */
-        strncpyW(szValue, szDefault, MAX_PATH);
-        szValue[MAX_PATH - 1] = '\0';
-        TRACE("Setting missing value %s to %s\n", debugstr_w(szValueName),
-         debugstr_w(szValue));
-        lRet = RegSetValueExW(profilesKey, szValueName, 0, REG_EXPAND_SZ,
-         (LPBYTE)szValue, (strlenW(szValue) + 1) * sizeof(WCHAR));
-        if (lRet)
-            hr = HRESULT_FROM_WIN32(lRet);
-        else
-            hr = S_OK;
-    }
-    TRACE("returning 0x%08lx (output value is %s)\n", hr, debugstr_w(szValue));
-    return hr;
-}
-
-/* From the original Wine source:
- *
- * Attempts to expand environment variables from szSrc into szDest, which is
- * assumed to be MAX_PATH characters in length.  Before referring to the
- * environment, handles a few variables directly, because the environment
- * variables may not be set when this is called (as during Wine's installation
- * when default values are being written to the registry).
- * The directly handled environment variables, and their source, are:
- * - ALLUSERSPROFILE, USERPROFILE: reads from the registry
- * - SystemDrive: uses GetSystemDirectoryW and uses the drive portion of its
- *   path
- * If one of the directly handled environment variables is expanded, only
- * expands a single variable, and only in the beginning of szSrc.
- *
- * That's fine for Wine, but it breaks in ReactOS where we have profile paths
- * like "c:\documents and settings\Administrator.REACTOS". Anyway, we have the
- * environment variables handy so we'll just use them instead of hacking around
- */
-static HRESULT _SHExpandEnvironmentStrings(LPCWSTR szSrc, LPWSTR szDest)
-{
-    HRESULT hr;
-    WCHAR szTemp[MAX_PATH], szProfilesPrefix[MAX_PATH] = { 0 };
-
-    TRACE("%s, %p\n", debugstr_w(szSrc), szDest);
-
-    if (!szSrc || !szDest) return E_INVALIDARG;
-
-    /* short-circuit if there's nothing to expand */
-    if (szSrc[0] != '%')
-    {
-        strcpyW(szDest, szSrc);
-        hr = S_OK;
-        goto end;
-    }
-
-    *szDest = 0;
-    strcpyW(szTemp, szSrc);
-    while (SUCCEEDED(hr) && szTemp[0] == '%')
-    {
-        DWORD ret = ExpandEnvironmentStringsW(szSrc, szDest, MAX_PATH);
-
-        if (ret > MAX_PATH)
-            hr = HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
-        else if (ret == 0)
-            hr = HRESULT_FROM_WIN32(GetLastError());
-        else
-            hr = S_OK;
-        if (SUCCEEDED(hr) && szDest[0] == '%')
-            strcpyW(szTemp, szDest);
-        else
-        {
-            /* terminate loop */
-            szTemp[0] = '\0';
-        }
-    }
-end:
-    TRACE("returning 0x%08lx (input was %s, output is %s)\n", hr,
-     debugstr_w(szSrc), debugstr_w(szDest));
-    return hr;
-}
-
 /*************************************************************************
  * SHGetFolderPathW			[SHELL32.@]
  *
- * NOTES
- * Converts nFolder to path.  Most values can be overridden in either
- * HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders
- * or in the same location in HKLM.
- * The registry usage is explained by the following tech note:
- * http://www.microsoft.com/windows2000/techinfo/reskit/en-us/default.asp?url=/windows2000/techinfo/reskit/en-us/regentry/36173.asp
- * The "Shell Folders" registry key was used in NT4 and earlier systems.
- * Beginning with Windows 2000, the "User Shell Folders" key is used, so
- * changes made to it are made to the former key too.  This synchronization is
- * done on-demand: not until someone requests the value of one of these paths
- * (by calling one of the SHGet functions) is the value synchronized.
- * Furthermore, as explained here:
- * http://www.microsoft.com/windows2000/techinfo/reskit/en-us/default.asp?url=/windows2000/techinfo/reskit/en-us/regentry/36276.asp
- * the HKCU paths take precedence over the HKLM paths.
- *
- **********************************************************************/
+ * converts csidl to path
+ */
+
+static const WCHAR szSHFolders[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','E','x','p','l','o','r','e','r','\\','S','h','e','l','l',' ','F','o','l','d','e','r','s','\0'};
+static const WCHAR szSHUserFolders[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','E','x','p','l','o','r','e','r','\\','U','s','e','r',' ','S','h','e','l','l',' ','F','o','l','d','e','r','s','\0'};
+static const WCHAR szSetup[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\','E','x','p','l','o','r','e','r','\\','S','e','t','u','p','\0'};
+static const WCHAR szCurrentVersion[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\0'};
+
+typedef struct
+{
+    DWORD dwFlags;
+    HKEY hRootKey;
+    LPCSTR szValueName;
+    LPCSTR szDefaultPath; /* fallback string; sub dir of windows directory */
+} CSIDL_DATA;
+
+#define CSIDL_MYFLAG_SHFOLDER	1
+#define CSIDL_MYFLAG_SETUP	2
+#define CSIDL_MYFLAG_CURRVER	4
+#define CSIDL_MYFLAG_RELATIVE	8
+
+#define HKLM HKEY_LOCAL_MACHINE
+#define HKCU HKEY_CURRENT_USER
+#define HKEY_DISALLOWED    (HKEY)0
+#define HKEY_UNIMPLEMENTED (HKEY)1
+#define HKEY_WINDOWSPATH   (HKEY)2
+#define HKEY_NONEXISTENT   (HKEY)3
+static const CSIDL_DATA CSIDL_Data[] =
+{
+    { /* CSIDL_DESKTOP */
+	9, HKCU,
+	"Desktop",
+	"Desktop"
+    },
+    { /* CSIDL_INTERNET */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_PROGRAMS */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_CONTROLS (.CPL files) */
+	10, HKLM,
+	"SysDir",
+	"SYSTEM"
+    },
+    { /* CSIDL_PRINTERS */
+	10, HKLM,
+	"SysDir",
+	"SYSTEM"
+    },
+    { /* CSIDL_PERSONAL */
+	1, HKCU,
+	"Personal",
+	"My Documents"
+    },
+    { /* CSIDL_FAVORITES */
+	9, HKCU,
+	"Favorites",
+	"Favorites"
+    },
+    { /* CSIDL_STARTUP */
+	9, HKCU,
+	"StartUp",
+	"Start Menu\\Programs\\StartUp"
+    },
+    { /* CSIDL_RECENT */
+	9, HKCU,
+	"Recent",
+	"Recent"
+    },
+    { /* CSIDL_SENDTO */
+	9, HKCU,
+	"SendTo",
+	"SendTo"
+    },
+    { /* CSIDL_BITBUCKET - Recycle Bin */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_STARTMENU */
+	9, HKCU,
+	"Start Menu",
+	"Start Menu"
+    },
+    { /* CSIDL_MYDOCUMENTS */
+	0, HKEY_UNIMPLEMENTED, /* FIXME */
+	NULL,
+	NULL
+    },
+    { /* CSIDL_MYMUSIC */
+	1, HKCU,
+	"My Music",
+	"My Documents\\My Music"
+    },
+    { /* CSIDL_MYVIDEO */
+	1, HKCU,
+	"My Video",
+	"My Documents\\My Video"
+    },
+    { /* unassigned */
+	0, 0,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_DESKTOPDIRECTORY */
+	9, HKCU,
+	"Desktop",
+	"Desktop"
+    },
+    { /* CSIDL_DRIVES */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_NETWORK */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL,
+    },
+    { /* CSIDL_NETHOOD */
+	9, HKCU,
+	"NetHood",
+	"NetHood"
+    },
+    { /* CSIDL_FONTS */
+	9, HKCU,
+	"Fonts",
+	"Fonts"
+    },
+    { /* CSIDL_TEMPLATES */
+	9, HKCU,
+	"Templates",
+	"ShellNew"
+    },
+    { /* CSIDL_COMMON_STARTMENU */
+	9, HKLM,
+	"Common Start Menu",
+	"Start Menu"
+    },
+    { /* CSIDL_COMMON_PROGRAMS */
+	9, HKLM,
+	"Common Programs",
+	""
+    },
+    { /* CSIDL_COMMON_STARTUP */
+	9, HKLM,
+	"Common StartUp",
+	"All Users\\Start Menu\\Programs\\StartUp"
+    },
+    { /* CSIDL_COMMON_DESKTOPDIRECTORY */
+	9, HKLM,
+	"Common Desktop",
+	"Desktop"
+    },
+    { /* CSIDL_APPDATA */
+	9, HKCU,
+	"AppData",
+	"Application Data"
+    },
+    { /* CSIDL_PRINTHOOD */
+	9, HKCU,
+	"PrintHood",
+	"PrintHood"
+    },
+    { /* CSIDL_LOCAL_APPDATA (win2k only/undocumented) */
+	1, HKCU,
+	"Local AppData",
+	"Local Settings\\Application Data",
+    },
+    { /* CSIDL_ALTSTARTUP */
+	0, HKEY_NONEXISTENT,
+	NULL,
+	NULL
+    },
+    { /* CSIDL_COMMON_ALTSTARTUP */
+	0, HKEY_NONEXISTENT,
+	NULL,
+	NULL
+    },
+    { /* CSIDL_COMMON_FAVORITES */
+	9, HKCU,
+	"Favorites",
+	"Favorites"
+    },
+    { /* CSIDL_INTERNET_CACHE (32) */
+	9, HKCU,
+	"Cache",
+	"Temporary Internet Files"
+    },
+    { /* CSIDL_COOKIES (33) */
+	9, HKCU,
+	"Cookies",
+	"Cookies"
+    },
+    { /* CSIDL_HISTORY (34) */
+	9, HKCU,
+	"History",
+	"History"
+    },
+    { /* CSIDL_COMMON_APPDATA */
+	9, HKLM,
+	"Common AppData",
+	"All Users\\Application Data"
+    },
+    { /* CSIDL_WINDOWS */
+	2, HKLM,
+	"WinDir",
+	"Windows"
+    },
+    { /* CSIDL_SYSTEM */
+	10, HKLM,
+	"SysDir",
+	"SYSTEM"
+    },
+    { /* CSIDL_PROGRAM_FILES */
+	4, HKLM,
+	"ProgramFilesDir",
+	"Program Files"
+    },
+    { /* CSIDL_MYPICTURES */
+	1, HKCU,
+	"My Pictures",
+	"My Documents\\My Pictures"
+    },
+    { /* CSIDL_PROFILE */
+	10, HKLM,
+	"WinDir", /* correct ? */
+	""
+    },
+    { /* CSIDL_SYSTEMX86 */
+	10, HKLM,
+ 	"SysDir",
+	"SYSTEM"
+    },
+    { /* CSIDL_PROGRAM_FILESX86 */
+	4, HKLM,
+	"ProgramFilesDir",
+	"Program Files"
+    },
+    { /* CSIDL_PROGRAM_FILES_COMMON */
+	4, HKLM,
+	"CommonFilesDir",
+	"Program Files\\Common Files" /* ? */
+    },
+    { /* CSIDL_PROGRAM_FILES_COMMONX86 */
+	4, HKLM,
+	"CommonFilesDir",
+	"Program Files\\Common Files" /* ? */
+    },
+    { /* CSIDL_COMMON_TEMPLATES */
+	9, HKLM,
+	"Common Templates",
+	/*"Documents and Settings\\"*/"All Users\\Templates"
+    },
+    { /* CSIDL_COMMON_DOCUMENTS */
+	9, HKLM,
+	"Common Documents",
+	/*"Documents and Settings\\"*/"All Users\\Documents"
+    },
+    { /* CSIDL_COMMON_ADMINTOOLS */
+	9, HKLM,
+	"Common Administrative Tools",
+	/*"Documents and Settings\\"*/"All Users\\Start Menu\\Programs\\Administrative Tools"
+    },
+    { /* CSIDL_ADMINTOOLS */
+	9, HKCU,
+	"Administrative Tools",
+	"Start Menu\\Programs\\Administrative Tools"
+    },
+    { /* CSIDL_CONNECTIONS */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL
+    },
+    { /* unassigned 32 */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL
+    },
+    { /* unassigned 33 */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL
+    },
+    { /* unassigned 34 */
+	0, HKEY_DISALLOWED,
+	NULL,
+	NULL
+    },
+    { /* CSIDL_COMMON_MUSIC */
+	9, HKLM,
+	"CommonMusic",
+	/*"Documents and Settings\\"*/"All Users\\Documents\\My Music"
+    },
+    { /* CSIDL_COMMON_PICTURES */
+	9, HKLM,
+	"CommonPictures",
+	/*"Documents and Settings\\"*/"All Users\\Documents\\My Pictures"
+    },
+    { /* CSIDL_COMMON_VIDEO */
+	9, HKLM,
+	"CommonVideo",
+	/*"Documents and Settings\\"*/"All Users\\Documents\\My Video"
+    },
+    { /* CSIDL_RESOURCES */
+	0, HKEY_WINDOWSPATH,
+	NULL,
+	"Resources"
+    },
+    { /* CSIDL_RESOURCES_LOCALIZED */
+	0, 0, /* FIXME */
+	NULL,
+	NULL
+    },
+    { /* CSIDL_COMMON_OEM_LINKS */
+	0, 0, /* FIXME */
+	NULL,
+	NULL
+    },
+    { /* CSIDL_CDBURN_AREA */
+	1, HKCU,
+	"CD Burning",
+	"Local Settings\\Application Data\\Microsoft\\CD Burning"
+    },
+    { /* unassigned 3C */
+	0, 0,
+	NULL,
+	NULL
+    },
+    { /* CSIDL_COMPUTERSNEARME */
+	0, 0, /* FIXME */
+	NULL,
+	NULL
+    },
+    { /* CSIDL_PROFILES */
+	0, 0, /* FIXME */
+	NULL,
+	NULL
+    }
+};
+#undef HKCU
+#undef HKLM
+
+/**********************************************************************/
+
 HRESULT WINAPI SHGetFolderPathW(
 	HWND hwndOwner,
-	int nFolder,
-	HANDLE hToken,
-	DWORD dwFlags,
+	int csidl,
+	HANDLE hToken,	/* [in] FIXME: get paths for specific user */
+	DWORD dwFlags,	/* [in] FIXME: SHGFP_TYPE_CURRENT|SHGFP_TYPE_DEFAULT */
 	LPWSTR pszPath)
 {
-    HRESULT    hr;
-    WCHAR      szBuildPath[MAX_PATH], szTemp[MAX_PATH];
-    DWORD      folder = nFolder & CSIDL_FOLDER_MASK;
-    CSIDL_Type type;
-    int        ret;
+	WCHAR	szValueName[MAX_PATH], szDefaultPath[MAX_PATH], szBuildPath[MAX_PATH];
+	HKEY	hRootKey, hKey;
+	DWORD	dwCsidlFlags;
+	DWORD	dwType, dwDisp, dwPathLen = MAX_PATH;
+	DWORD	folder = csidl & CSIDL_FOLDER_MASK;
+	WCHAR	*p;
 
-    TRACE("%p,%p,nFolder=0x%04x\n", hwndOwner,pszPath,nFolder);
+	TRACE("%p,%p,csidl=0x%04x\n", hwndOwner,pszPath,csidl);
 
-    /* Windows always NULL-terminates the resulting path regardless of success
-     * or failure, so do so first
-     */
-    if (pszPath)
+        if (!pszPath)
+            return E_INVALIDARG;
+
         *pszPath = '\0';
-    if (folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0]))
-        return E_INVALIDARG;
-    szTemp[0] = 0;
-    type = CSIDL_Data[folder].type;
-    switch (type)
-    {
-        case CSIDL_Type_Disallowed:
-            hr = E_INVALIDARG;
-            break;
-        case CSIDL_Type_NonExistent:
-            hr = S_FALSE;
-            break;
-        case CSIDL_Type_WindowsPath:
-            GetWindowsDirectoryW(szTemp, MAX_PATH);
-            if (CSIDL_Data[folder].szDefaultPath &&
-             !IS_INTRESOURCE(CSIDL_Data[folder].szDefaultPath) &&
-             *CSIDL_Data[folder].szDefaultPath)
-            {
-                PathAddBackslashW(szTemp);
-                strcatW(szTemp, CSIDL_Data[folder].szDefaultPath);
-            }
-            hr = S_OK;
-            break;
-        case CSIDL_Type_SystemPath:
-            GetSystemDirectoryW(szTemp, MAX_PATH);
-            if (CSIDL_Data[folder].szDefaultPath &&
-             !IS_INTRESOURCE(CSIDL_Data[folder].szDefaultPath) &&
-             *CSIDL_Data[folder].szDefaultPath)
-            {
-                PathAddBackslashW(szTemp);
-                strcatW(szTemp, CSIDL_Data[folder].szDefaultPath);
-            }
-            hr = S_OK;
-            break;
-        case CSIDL_Type_CurrVer:
-            hr = _SHGetCurrentVersionPath(dwFlags, folder, szTemp);
-            break;
-        case CSIDL_Type_User:
-            hr = _SHGetUserProfilePath(hToken, dwFlags, folder, szTemp);
-            break;
-        case CSIDL_Type_AllUsers:
-            hr = _SHGetAllUsersProfilePath(dwFlags, folder, szTemp);
-            break;
-        default:
-            FIXME("bogus type %d, please fix\n", type);
-            hr = E_INVALIDARG;
-            break;
-    }
+	if ((folder >= sizeof(CSIDL_Data) / sizeof(CSIDL_Data[0])) ||
+	    (CSIDL_Data[folder].hRootKey == HKEY_DISALLOWED))
+	    return E_INVALIDARG;
+	if (CSIDL_Data[folder].hRootKey == HKEY_UNIMPLEMENTED)
+	{
+	    FIXME("folder 0x%04lx unknown, please add.\n", folder);
+	    return E_FAIL;
+	}
+        if (CSIDL_Data[folder].hRootKey == HKEY_NONEXISTENT)
+            return S_FALSE;
 
-    /* Expand environment strings if necessary */
-    if (*szTemp == '%')
-        hr = _SHExpandEnvironmentStrings(szTemp, szBuildPath);
-    else
-        strcpyW(szBuildPath, szTemp);
-    /* Copy the path if it's available before we might return */
-    if (SUCCEEDED(hr) && pszPath)
-        strcpyW(pszPath, szBuildPath);
+	/* Special case for some values that don't exist in registry */
+	if (CSIDL_Data[folder].hRootKey == HKEY_WINDOWSPATH)
+	{
+	    GetWindowsDirectoryW(pszPath, MAX_PATH);
+	    PathAddBackslashW(pszPath);
+	    strcatW(pszPath, szDefaultPath);
+	    return S_OK;
+	}
+        
+	dwCsidlFlags = CSIDL_Data[folder].dwFlags;
+	hRootKey = CSIDL_Data[folder].hRootKey;
+	MultiByteToWideChar(CP_ACP, 0, CSIDL_Data[folder].szValueName, -1, szValueName, MAX_PATH);
+	MultiByteToWideChar(CP_ACP, 0, CSIDL_Data[folder].szDefaultPath, -1, szDefaultPath, MAX_PATH);
 
-    if (FAILED(hr)) goto end;
+	if (dwCsidlFlags & CSIDL_MYFLAG_SHFOLDER)
+	{
+	  /*   user shell folders */
+	  if   (RegCreateKeyExW(hRootKey,szSHUserFolders,0,NULL,0,KEY_ALL_ACCESS,NULL,&hKey,&dwDisp)) return E_FAIL;
 
-    /* if we don't care about existing directories we are ready */
-    if(nFolder & CSIDL_FLAG_DONT_VERIFY) goto end;
+	  if   (RegQueryValueExW(hKey,szValueName,NULL,&dwType,(LPBYTE)pszPath,&dwPathLen))
+	  {
+	    RegCloseKey(hKey);
 
-    if (PathFileExistsW(szBuildPath)) goto end;
+	    /* shell folders */
+	    if (RegCreateKeyExW(hRootKey,szSHFolders,0,NULL,0,KEY_ALL_ACCESS,NULL,&hKey,&dwDisp)) return E_FAIL;
 
-    /* not existing but we are not allowed to create it.  The return value
-     * is verified against shell32 version 6.0.
-     */
-    if (!(nFolder & CSIDL_FLAG_CREATE))
-    {
-        hr = HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
-        goto end;
-    }
+	    if (RegQueryValueExW(hKey,szValueName,NULL,&dwType,(LPBYTE)pszPath,&dwPathLen))
+	    {
 
-    /* create directory/directories */
-    ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
-    if (ret && ret != ERROR_ALREADY_EXISTS)
-    {
-        ERR("Failed to create directory '%s'.\n", debugstr_w(szBuildPath));
-        hr = E_FAIL;
-        goto end;
-    }
+	      /* value not existing */
+	      if (dwCsidlFlags & CSIDL_MYFLAG_RELATIVE)
+	      {
+	        GetWindowsDirectoryW(pszPath, MAX_PATH);
+	        PathAddBackslashW(pszPath);
+	        strcatW(pszPath, szDefaultPath);
+	      }
+	      else
+	      {
+	        GetSystemDirectoryW(pszPath, MAX_PATH);
+	        strcpyW(pszPath + 3, szDefaultPath);
+	      }
+              dwType=REG_SZ;
+	      RegSetValueExW(hKey,szValueName,0,REG_SZ,(LPBYTE)pszPath,
+                         (strlenW(pszPath)+1)*sizeof(WCHAR));
+	    }
+	  }
+	  RegCloseKey(hKey);
+        }
+	else
+	{
+	  LPCWSTR pRegPath;
 
-    TRACE("Created missing system directory '%s'\n", debugstr_w(szBuildPath));
-end:
-    TRACE("returning 0x%08lx (final path is %s)\n", hr, debugstr_w(szBuildPath));
-    return hr;
+	  if (dwCsidlFlags & CSIDL_MYFLAG_SETUP)
+	    pRegPath = szSetup;
+	  else if (dwCsidlFlags & CSIDL_MYFLAG_CURRVER)
+	    pRegPath = szCurrentVersion;
+	  else
+	  {
+	    ERR("folder settings broken, please correct !\n");
+	    return E_FAIL;
+	  }
+
+	  if   (RegCreateKeyExW(hRootKey,pRegPath,0,NULL,0,KEY_ALL_ACCESS,NULL,&hKey,&dwDisp)) return E_FAIL;
+
+	  if   (RegQueryValueExW(hKey,szValueName,NULL,&dwType,(LPBYTE)pszPath,&dwPathLen))
+	  {
+	    /* value not existing */
+	    if (dwCsidlFlags & CSIDL_MYFLAG_RELATIVE)
+	    {
+	      GetWindowsDirectoryW(pszPath, MAX_PATH);
+	      PathAddBackslashW(pszPath);
+	      strcatW(pszPath, szDefaultPath);
+	    }
+	    else
+	    {
+	      GetSystemDirectoryW(pszPath, MAX_PATH);
+	      strcpyW(pszPath + 3, szDefaultPath);
+	    }
+            dwType=REG_SZ;
+	    RegSetValueExW(hKey,szValueName,0,REG_SZ,(LPBYTE)pszPath,
+                       (strlenW(pszPath)+1)*sizeof(WCHAR));
+	  }
+	  RegCloseKey(hKey);
+	}
+
+	/* expand paths like %USERPROFILE% */
+	if (dwType == REG_EXPAND_SZ)
+	{
+	  ExpandEnvironmentStringsW(pszPath, szDefaultPath, MAX_PATH);
+	  strcpyW(pszPath, szDefaultPath);
+	}
+
+	/* if we don't care about existing directories we are ready */
+	if(csidl & CSIDL_FLAG_DONT_VERIFY) return S_OK;
+
+	if (PathFileExistsW(pszPath)) return S_OK;
+
+	/* not existing but we are not allowed to create it */
+	if (!(csidl & CSIDL_FLAG_CREATE)) return E_FAIL;
+
+	/* create directory/directories */
+	strcpyW(szBuildPath, pszPath);
+	p = strchrW(szBuildPath, '\\');
+	while (p)
+	{
+	    *p = 0;
+	    if (!PathFileExistsW(szBuildPath))
+	    {
+		if (!CreateDirectoryW(szBuildPath,NULL))
+		{
+		    ERR("Failed to create directory '%s'.\n", debugstr_w(pszPath));
+		    return E_FAIL;
+		}
+	    }
+	    *p = '\\';
+	    p = strchrW(p+1, '\\');
+	}
+	/* last component must be created too. */
+	if (!PathFileExistsW(szBuildPath))
+	{
+	    if (!CreateDirectoryW(szBuildPath,NULL))
+	    {
+		ERR("Failed to create directory '%s'.\n", debugstr_w(pszPath));
+		return E_FAIL;
+	    }
+	}
+
+	TRACE("Created missing system directory '%s'\n", debugstr_w(pszPath));
+	return S_OK;
 }
 
 /*************************************************************************
@@ -1696,7 +1209,7 @@ end:
  */
 HRESULT WINAPI SHGetFolderPathA(
 	HWND hwndOwner,
-	int nFolder,
+	int csidl,
 	HANDLE hToken,
 	DWORD dwFlags,
 	LPSTR pszPath)
@@ -1704,157 +1217,17 @@ HRESULT WINAPI SHGetFolderPathA(
     WCHAR szTemp[MAX_PATH];
     HRESULT hr;
 
-    TRACE("%p,%p,nFolder=0x%04x\n",hwndOwner,pszPath,nFolder);
+    if (!pszPath)
+        return E_INVALIDARG;
 
-    if (pszPath)
-        *pszPath = '\0';
-    hr = SHGetFolderPathW(hwndOwner, nFolder, hToken, dwFlags, szTemp);
-    if (SUCCEEDED(hr) && pszPath)
+    *pszPath = '\0';
+    hr = SHGetFolderPathW(hwndOwner, csidl, hToken, dwFlags, szTemp);
+    if (SUCCEEDED(hr))
         WideCharToMultiByte(CP_ACP, 0, szTemp, -1, pszPath, MAX_PATH, NULL,
          NULL);
 
-    return hr;
-}
+    TRACE("%p,%p,csidl=0x%04x\n",hwndOwner,pszPath,csidl);
 
-/* For each folder in folders, if its value has not been set in the registry,
- * call _SHGetUserProfilePath or _SHGetAllUsersProfilePath (depending on the
- * folder's type) to get the unexpanded value first.
- * This will create the expanded value in the Shell Folders key, and
- * return the unexpanded value.
- * Write the unexpanded value to User Shell Folders, and query it with
- * SHGetFolderPath to force the creation of the directory if it doesn't
- * already exist.
- */
-static HRESULT _SHRegisterFolders(HKEY hRootKey, HANDLE hToken,
- LPCWSTR szUserShellFolderPath, const UINT folders[], UINT foldersLen)
-{
-    UINT i;
-    WCHAR path[MAX_PATH];
-    HRESULT hr = S_OK;
-    HKEY hKey = NULL;
-    DWORD dwDisp, dwType, dwPathLen;
-    LONG ret;
-
-    TRACE("%p,%p,%s,%p,%u\n", hRootKey, hToken,
-     debugstr_w(szUserShellFolderPath), folders, foldersLen);
-
-    ret = RegCreateKeyExW(hRootKey, szUserShellFolderPath, 0, NULL, 0,
-     KEY_ALL_ACCESS, NULL, &hKey, &dwDisp);
-    if (ret)
-        hr = HRESULT_FROM_WIN32(ret);
-    for (i = 0; SUCCEEDED(hr) && i < foldersLen; i++)
-    {
-        dwPathLen = MAX_PATH * sizeof(WCHAR);
-        if (RegQueryValueExW(hKey, CSIDL_Data[folders[i]].szValueName, NULL,
-         &dwType, (LPBYTE)path, &dwPathLen) || (dwType != REG_SZ &&
-         dwType != REG_EXPAND_SZ))
-        {
-            *path = '\0';
-            if (CSIDL_Data[folders[i]].type == CSIDL_Type_User)
-                _SHGetUserProfilePath(hToken, SHGFP_TYPE_DEFAULT, folders[i],
-                 path);
-            else if (CSIDL_Data[folders[i]].type == CSIDL_Type_AllUsers)
-                _SHGetAllUsersProfilePath(SHGFP_TYPE_DEFAULT, folders[i], path);
-            else
-                hr = E_FAIL;
-            if (*path)
-            {
-                ret = RegSetValueExW(hKey, CSIDL_Data[folders[i]].szValueName,
-                 0, REG_EXPAND_SZ, (LPBYTE)path,
-                 (strlenW(path) + 1) * sizeof(WCHAR));
-                if (ret)
-                    hr = HRESULT_FROM_WIN32(ret);
-                else
-                    hr = SHGetFolderPathW(NULL, folders[i] | CSIDL_FLAG_CREATE,
-                     hToken, SHGFP_TYPE_DEFAULT, NULL);
-            }
-        }
-    }
-    if (hKey)
-        RegCloseKey(hKey);
-
-    TRACE("returning 0x%08lx\n", hr);
-    return hr;
-}
-
-static HRESULT _SHRegisterUserShellFolders(BOOL bDefault)
-{
-    static const UINT folders[] = {
-     CSIDL_PROGRAMS,
-     CSIDL_PERSONAL,
-     CSIDL_FAVORITES,
-     CSIDL_STARTUP,
-     CSIDL_RECENT,
-     CSIDL_SENDTO,
-     CSIDL_STARTMENU,
-     CSIDL_DESKTOPDIRECTORY,
-     CSIDL_NETHOOD,
-     CSIDL_TEMPLATES,
-     CSIDL_PRINTHOOD,
-     CSIDL_COOKIES,
-     CSIDL_HISTORY,
-    };
-    WCHAR userShellFolderPath[MAX_PATH];
-    LPCWSTR pUserShellFolderPath;
-    HRESULT hr = S_OK;
-    HKEY hRootKey;
-    HANDLE hToken;
-
-    TRACE("%s\n", bDefault ? "TRUE" : "FALSE");
-    if (bDefault)
-    {
-        hToken = (HANDLE)-1;
-        hRootKey = HKEY_USERS;
-        strcpyW(userShellFolderPath, DefaultW);
-        PathAddBackslashW(userShellFolderPath);
-        strcatW(userShellFolderPath, szSHUserFolders);
-        pUserShellFolderPath = userShellFolderPath;
-    }
-    else
-    {
-        hToken = NULL;
-        hRootKey = HKEY_CURRENT_USER;
-        pUserShellFolderPath = szSHUserFolders;
-    }
-
-    hr = _SHRegisterFolders(hRootKey, hToken, pUserShellFolderPath,
-     folders, sizeof(folders) / sizeof(folders[0]));
-    TRACE("returning 0x%08lx\n", hr);
-    return hr;
-}
-
-static HRESULT _SHRegisterCommonShellFolders(void)
-{
-    static const UINT folders[] = {
-     CSIDL_COMMON_STARTMENU,
-     CSIDL_COMMON_PROGRAMS,
-     CSIDL_COMMON_STARTUP,
-     CSIDL_COMMON_DESKTOPDIRECTORY,
-     CSIDL_COMMON_FAVORITES,
-     CSIDL_COMMON_APPDATA,
-     CSIDL_COMMON_TEMPLATES,
-     CSIDL_COMMON_DOCUMENTS,
-    };
-    HRESULT hr;
-
-    TRACE("\n");
-    hr = _SHRegisterFolders(HKEY_LOCAL_MACHINE, NULL, szSHUserFolders,
-     folders, sizeof(folders) / sizeof(folders[0]));
-    TRACE("returning 0x%08lx\n", hr);
-    return hr;
-}
-
-/* Register the default values in the registry, as some apps seem to depend
- * on their presence.  The set registered was taken from Windows XP.
- */
-HRESULT SHELL_RegisterShellFolders(void)
-{
-    HRESULT hr = _SHRegisterUserShellFolders(TRUE);
-
-    if (SUCCEEDED(hr))
-        hr = _SHRegisterUserShellFolders(FALSE);
-    if (SUCCEEDED(hr))
-        hr = _SHRegisterCommonShellFolders();
     return hr;
 }
 
@@ -1864,12 +1237,12 @@ HRESULT SHELL_RegisterShellFolders(void)
 BOOL WINAPI SHGetSpecialFolderPathA (
 	HWND hwndOwner,
 	LPSTR szPath,
-	int nFolder,
+	int csidl,
 	BOOL bCreate)
 {
 	return (SHGetFolderPathA(
 		hwndOwner,
-		nFolder + (bCreate ? CSIDL_FLAG_CREATE : 0),
+		csidl + (bCreate ? CSIDL_FLAG_CREATE : 0),
 		NULL,
 		0,
 		szPath)) == S_OK ? TRUE : FALSE;
@@ -1881,12 +1254,12 @@ BOOL WINAPI SHGetSpecialFolderPathA (
 BOOL WINAPI SHGetSpecialFolderPathW (
 	HWND hwndOwner,
 	LPWSTR szPath,
-	int nFolder,
+	int csidl,
 	BOOL bCreate)
 {
 	return (SHGetFolderPathW(
 		hwndOwner,
-		nFolder + (bCreate ? CSIDL_FLAG_CREATE : 0),
+		csidl + (bCreate ? CSIDL_FLAG_CREATE : 0),
 		NULL,
 		0,
 		szPath)) == S_OK ? TRUE : FALSE;
@@ -1898,52 +1271,45 @@ BOOL WINAPI SHGetSpecialFolderPathW (
 BOOL WINAPI SHGetSpecialFolderPathAW (
 	HWND hwndOwner,
 	LPVOID szPath,
-	int nFolder,
+	int csidl,
 	BOOL bCreate)
 
 {
 	if (SHELL_OsIsUnicode())
-	  return SHGetSpecialFolderPathW (hwndOwner, szPath, nFolder, bCreate);
-	return SHGetSpecialFolderPathA (hwndOwner, szPath, nFolder, bCreate);
+	  return SHGetSpecialFolderPathW (hwndOwner, szPath, csidl, bCreate);
+	return SHGetSpecialFolderPathA (hwndOwner, szPath, csidl, bCreate);
 }
 
 /*************************************************************************
- * SHGetFolderLocation [SHELL32.@]
+ * SHGetSpecialFolderLocation		[SHELL32.@]
  *
- * NOTES
- * Gets the folder locations from the registry and creates a pidl.
- * Creates missing reg keys and directories.
- * Mostly forwards to SHGetFolderPathW, but a few values of nFolder return
- * virtual folders that are handled here.
+ * gets the folder locations from the registry and creates a pidl
+ * creates missing reg keys and directories
  *
  * PARAMS
- *   hwndOwner  [I]
- *   nFolder    [I] CSIDL_xxxxx
- *   hToken     [I] token representing user, or NULL for current user, or -1 for
- *                  default user
- *   dwReserved [I] must be zero
- *   ppidl      [O] PIDL of a special folder
+ *   hwndOwner [I]
+ *   nFolder   [I] CSIDL_xxxxx
+ *   ppidl     [O] PIDL of a special folder
  *
  * NOTES
+ *   In NT5, SHGetSpecialFolderLocation needs the <winntdir>/Recent
+ *   directory. If the directory is missing it returns a x80070002.
+ *   In most cases, this forwards to SHGetSpecialFolderPath, but
+ *   CSIDLs with virtual folders (not real paths) must be handled
+ *   here.
  */
-HRESULT WINAPI SHGetFolderLocation(
+HRESULT WINAPI SHGetSpecialFolderLocation(
 	HWND hwndOwner,
-	int nFolder,
-	HANDLE hToken,
-	DWORD dwReserved,
-	LPITEMIDLIST *ppidl)
+	INT nFolder,
+	LPITEMIDLIST * ppidl)
 {
     HRESULT hr = E_INVALIDARG;
 
-    TRACE("%p 0x%08x %p 0x%08lx %p\n",
-     hwndOwner, nFolder, hToken, dwReserved, ppidl);
-    
+    TRACE("(%p,0x%x,%p)\n", hwndOwner,nFolder,ppidl);
+
     if (!ppidl)
         return E_INVALIDARG;
-    if (dwReserved)
-        return E_INVALIDARG;
 
-    /* The virtual folders' locations are not user-dependent */
     *ppidl = NULL;
     switch (nFolder)
     {
@@ -1979,25 +1345,25 @@ HRESULT WINAPI SHGetFolderLocation(
             *ppidl = _ILCreateNetwork();
             break;
 
+        case CSIDL_ALTSTARTUP:
+        case CSIDL_COMMON_ALTSTARTUP:
+            hr = E_FAIL;
+            break;
+
+        case CSIDL_COMPUTERSNEARME:
+            hr = E_FAIL;
+            break;
+
         default:
         {
             WCHAR szPath[MAX_PATH];
 
-            hr = SHGetFolderPathW(hwndOwner, nFolder, hToken,
-             SHGFP_TYPE_CURRENT, szPath);
-            if (SUCCEEDED(hr))
+            if (SHGetSpecialFolderPathW(hwndOwner, szPath, nFolder, TRUE))
             {
                 DWORD attributes=0;
 
                 TRACE("Value=%s\n", debugstr_w(szPath));
                 hr = SHILCreateFromPathW(szPath, ppidl, &attributes);
-            }
-            else if (hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
-            {
-                /* unlike SHGetFolderPath, SHGetFolderLocation in shell32
-                 * version 6.0 returns E_FAIL for non-existing paths
-                 */
-                hr = E_FAIL;
             }
         }
     }
@@ -2009,24 +1375,38 @@ HRESULT WINAPI SHGetFolderLocation(
 }
 
 /*************************************************************************
- * SHGetSpecialFolderLocation		[SHELL32.@]
+ * SHGetFolderLocation [SHELL32.@]
  *
  * NOTES
- *   In NT5, SHGetSpecialFolderLocation needs the <winntdir>/Recent
- *   directory.
+ *  the pidl can be a simple one. since we can't get the path out of the pidl
+ *  we have to take all data from the pidl
+ *  Mostly we forward to SHGetSpecialFolderLocation, but a few special cases
+ *  we handle here.
  */
-HRESULT WINAPI SHGetSpecialFolderLocation(
-	HWND hwndOwner,
-	INT nFolder,
-	LPITEMIDLIST * ppidl)
+HRESULT WINAPI SHGetFolderLocation(
+	HWND hwnd,
+	int csidl,
+	HANDLE hToken,
+	DWORD dwFlags,
+	LPITEMIDLIST *ppidl)
 {
-    HRESULT hr = E_INVALIDARG;
+    HRESULT hr;
 
-    TRACE("(%p,0x%x,%p)\n", hwndOwner,nFolder,ppidl);
-
+    TRACE_(shell)("%p 0x%08x %p 0x%08lx %p\n",
+     hwnd, csidl, hToken, dwFlags, ppidl);
+    
     if (!ppidl)
         return E_INVALIDARG;
 
-    hr = SHGetFolderLocation(hwndOwner, nFolder, NULL, 0, ppidl);
+    switch (csidl)
+    {
+        case CSIDL_ALTSTARTUP:
+        case CSIDL_COMMON_ALTSTARTUP:
+            *ppidl = NULL;
+            hr = S_FALSE;
+            break;
+        default:
+            hr = SHGetSpecialFolderLocation(hwnd, csidl, ppidl);
+    }
     return hr;
 }

@@ -1,4 +1,4 @@
-/* $Id: vpb.c,v 1.27 2004/12/23 12:34:59 ekohl Exp $
+/* $Id: vpb.c,v 1.25 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -100,8 +100,8 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FsInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FsInformation != NULL);
    
    DPRINT("FsInformation %p\n", FsInformation);
 
@@ -202,7 +202,7 @@ IoQueryVolumeInformation(IN PFILE_OBJECT FileObject,
    PIRP Irp;
    NTSTATUS Status;
    
-   ASSERT(FsInformation != NULL);
+   assert(FsInformation != NULL);
    
    DPRINT("FsInformation %p\n", FsInformation);
    
@@ -281,12 +281,12 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    PDEVICE_OBJECT DeviceObject;
    PIRP Irp;
    NTSTATUS Status;
-   PIO_STACK_LOCATION StackPtr;
+   PEXTENDED_IO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
 
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FsInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FsInformation != NULL);
 
    PreviousMode = ExGetPreviousMode();
 
@@ -333,7 +333,7 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    Irp->UserIosb = IoStatusBlock;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
-   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr = (PEXTENDED_IO_STACK_LOCATION) IoGetNextIrpStackLocation(Irp);
    StackPtr->MajorFunction = IRP_MJ_SET_VOLUME_INFORMATION;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;

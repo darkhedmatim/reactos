@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.109 2004/12/24 17:45:58 weiden Exp $
+# $Id: makefile,v 1.102 2004/07/19 04:52:24 ion Exp $
 
 PATH_TO_TOP = ../..
 
@@ -13,9 +13,6 @@ TARGET_ENTRY = _DllMain@8
 TARGET_PCH = w32k.h
 
 TARGET_DDKLIBS = freetype.a
-
-TARGET_LIBS = \
-	$(SDK_PATH_LIB)/libpseh.a
 
 TARGET_REGTESTS = yes
 
@@ -47,12 +44,12 @@ TARGET_CFLAGS =\
  $(CFLAGS_OPT)
 
 TARGET_LFLAGS =\
- $(PATH_TO_TOP)/dk/nkm/lib/libfreetype.a \
- $(PATH_TO_TOP)/dk/w32/lib/librosrtl.a \
+ $(PATH_TO_TOP)/dk/nkm/lib/freetype.a \
+ $(PATH_TO_TOP)/dk/w32/lib/rosrtl.a \
  --disable-stdcall-fixup
 
 ENG_OBJECTS= eng/debug.o eng/error.o eng/mem.o eng/brush.o eng/bitblt.o \
-    eng/clip.o eng/copybits.o eng/device.o eng/lineto.o \
+    eng/clip.o eng/copybits.o eng/device.o eng/handle.o eng/lineto.o \
     eng/paint.o eng/palette.o eng/perfcnt.o eng/semaphor.o eng/surface.o \
     eng/xlate.o eng/transblt.o eng/mouse.o eng/misc.o eng/sort.o \
     eng/gradient.o eng/event.o eng/float.o
@@ -64,22 +61,21 @@ MISC_OBJECTS = misc/driver.o misc/error.o misc/math.o misc/object.o
 LDR_OBJECTS = ldr/loader.o
 
 NTUSER_OBJECTS = ntuser/accelerator.o ntuser/callback.o ntuser/caret.o ntuser/class.o \
-                 ntuser/clipboard.o ntuser/csr.o ntuser/cursoricon.o ntuser/focus.o ntuser/desktop.o \
+                 ntuser/clipboard.o ntuser/csr.o ntuser/focus.o ntuser/desktop.o \
                  ntuser/guicheck.o ntuser/hook.o ntuser/hotkey.o ntuser/input.o \
                  ntuser/keyboard.o ntuser/menu.o ntuser/message.o ntuser/metric.o \
-                 ntuser/misc.o ntuser/monitor.o ntuser/msgqueue.o ntuser/painting.o \
-                 ntuser/prop.o ntuser/scrollbar.o ntuser/stubs.o ntuser/timer.o \
-                 ntuser/useratom.o ntuser/vis.o ntuser/windc.o ntuser/window.o \
-                 ntuser/winpos.o ntuser/winsta.o
+                 ntuser/misc.o ntuser/msgqueue.o ntuser/painting.o ntuser/prop.o \
+                 ntuser/scrollbar.o ntuser/stubs.o ntuser/timer.o ntuser/useratom.o \
+                 ntuser/vis.o ntuser/windc.o ntuser/window.o ntuser/winpos.o ntuser/winsta.o
 
 OBJECTS_OBJECTS = objects/bitmaps.o objects/brush.o objects/cliprgn.o  \
-                  objects/color.o objects/coord.o  \
-                  objects/dc.o objects/fillshap.o objects/gdiobj.o  \
-                  objects/icm.o objects/line.o objects/metafile.o objects/paint.o  \
+                  objects/color.o objects/coord.o objects/dc.o  \
+                  objects/fillshap.o objects/gdiobj.o objects/icm.o  \
+                  objects/line.o objects/metafile.o objects/paint.o  \
                   objects/path.o objects/pen.o objects/print.o  \
                   objects/region.o objects/text.o objects/wingl.o \
                   objects/bezier.o objects/dib.o objects/palette.o \
-                  objects/rect.o objects/polyfill.o objects/stockobj.o
+                  objects/rect.o objects/polyfill.o objects/cursoricon.o
 
 DIB_OBJECTS = dib/dib.o dib/dib1bpp.o dib/dib4bpp.o dib/dib8bpp.o dib/dib16bpp.o \
               dib/dib24bpp.o dib/dib32bpp.o

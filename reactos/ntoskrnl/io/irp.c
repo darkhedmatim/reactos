@@ -1,4 +1,4 @@
-/* $Id: irp.c,v 1.72 2004/12/26 21:18:34 gvg Exp $
+/* $Id: irp.c,v 1.67 2004/08/21 20:51:26 tamlin Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -162,16 +162,14 @@ IoInitializeIrp(PIRP Irp,
  *          StackSize = Number of stack locations in the IRP
  */
 {
-  ASSERT(Irp != NULL);
+  assert(Irp != NULL);
 
-  DPRINT("IoInitializeIrp(StackSize %x, Irp %x)\n",StackSize, Irp);
   memset(Irp, 0, PacketSize);
   Irp->Size = PacketSize;
   Irp->StackCount = StackSize;
   Irp->CurrentLocation = StackSize;
   InitializeListHead(&Irp->ThreadListEntry);
-  Irp->Tail.Overlay.CurrentStackLocation = (PIO_STACK_LOCATION)(Irp + 1) + StackSize;
-  DPRINT("Irp->Tail.Overlay.CurrentStackLocation %x\n", Irp->Tail.Overlay.CurrentStackLocation);
+  Irp->Tail.Overlay.CurrentStackLocation = &Irp->Stack[(ULONG)StackSize];
   Irp->ApcEnvironment =  KeGetCurrentThread()->ApcStateIndex;
 }
 
@@ -188,21 +186,21 @@ IofCallDriver(PDEVICE_OBJECT DeviceObject,
 {
   PDRIVER_OBJECT DriverObject;
   PIO_STACK_LOCATION Param;
-
+  
   DPRINT("IofCallDriver(DeviceObject %x, Irp %x)\n",DeviceObject,Irp);
-
-  ASSERT(Irp);
-  ASSERT(DeviceObject);
+  
+  assert(Irp);
+  assert(DeviceObject);
 
   DriverObject = DeviceObject->DriverObject;
 
-  ASSERT(DriverObject);
+  assert(DriverObject);
 
   IoSetNextIrpStackLocation(Irp);
   Param = IoGetCurrentIrpStackLocation(Irp);
 
   DPRINT("IrpSp 0x%X\n", Param);
-
+  
   Param->DeviceObject = DeviceObject;
 
   DPRINT("MajorFunction %d\n", Param->MajorFunction);
@@ -299,17 +297,19 @@ IofCompleteRequest(PIRP Irp,
    PDEVICE_OBJECT    DeviceObject;
    KIRQL             oldIrql;
    PMDL              Mdl;
-   PIO_STACK_LOCATION Stack = (PIO_STACK_LOCATION)(Irp + 1);
 
    DPRINT("IoCompleteRequest(Irp %x, PriorityBoost %d) Event %x THread %x\n",
       Irp,PriorityBoost, Irp->UserEvent, PsGetCurrentThread());
 
-   ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-   ASSERT(Irp->CancelRoutine == NULL);
-   ASSERT(Irp->IoStatus.Status != STATUS_PENDING);
+   assert(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+   assert(Irp->CancelRoutine == NULL);
+   assert(Irp->IoStatus.Status != STATUS_PENDING);
 
-   Irp->PendingReturned = IoGetCurrentIrpStackLocation(Irp)->Control & SL_PENDING_RETURNED;
-   
+   if (IoGetCurrentIrpStackLocation(Irp)->Control & SL_PENDING_RETURNED)
+   {
+      Irp->PendingReturned = TRUE;
+   }
+
    /*
     * Run the completion routines.
     */
@@ -334,14 +334,14 @@ IofCompleteRequest(PIRP Irp,
          DeviceObject = NULL;
       }
 
-      if (Stack[i].CompletionRoutine != NULL &&
-         ((NT_SUCCESS(Irp->IoStatus.Status) && (Stack[i].Control & SL_INVOKE_ON_SUCCESS)) ||
-         (!NT_SUCCESS(Irp->IoStatus.Status) && (Stack[i].Control & SL_INVOKE_ON_ERROR)) ||
-         (Irp->Cancel && (Stack[i].Control & SL_INVOKE_ON_CANCEL))))
+      if (Irp->Stack[i].CompletionRoutine != NULL &&
+         ((NT_SUCCESS(Irp->IoStatus.Status) && (Irp->Stack[i].Control & SL_INVOKE_ON_SUCCESS)) ||
+         (!NT_SUCCESS(Irp->IoStatus.Status) && (Irp->Stack[i].Control & SL_INVOKE_ON_ERROR)) ||
+         (Irp->Cancel && (Irp->Stack[i].Control & SL_INVOKE_ON_CANCEL))))
       {
-         Status = Stack[i].CompletionRoutine(DeviceObject,
+         Status = Irp->Stack[i].CompletionRoutine(DeviceObject,
                                                   Irp,
-                                                  Stack[i].Context);
+                                                  Irp->Stack[i].Context);
 
          if (Status == STATUS_MORE_PROCESSING_REQUIRED)
          {
@@ -394,9 +394,9 @@ IofCompleteRequest(PIRP Irp,
 
          if (Irp->MdlAddress->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA)
          {
-            MmUnmapLockedPages(Irp->MdlAddress->MappedSystemVa, Irp->MdlAddress);
+            MmUnmapLockedPages(Irp->MdlAddress->MappedSystemVa, Irp->MdlAddress);            
          }
-
+         
          ExFreePool(Irp->MdlAddress);
       }
 
@@ -452,7 +452,6 @@ IofCompleteRequest(PIRP Irp,
       BOOLEAN bStatus;
       
       DPRINT("Dispatching APC\n");
-
       KeInitializeApc(  &Irp->Tail.Apc,
                              &Irp->Tail.Overlay.Thread->Tcb,
                              Irp->ApcEnvironment,
@@ -460,11 +459,11 @@ IofCompleteRequest(PIRP Irp,
                              NULL,
                              (PKNORMAL_ROUTINE) NULL,
                              KernelMode,
-                             NULL);
+                             OriginalFileObject);
       
       bStatus = KeInsertQueueApc(&Irp->Tail.Apc,
-                                      (PVOID)OriginalFileObject,
-                                      NULL, // This is used for REPARSE stuff
+                                      (PVOID)Irp,
+                                      (PVOID)(ULONG)PriorityBoost,
                                       PriorityBoost);
 
       if (bStatus == FALSE)
@@ -478,7 +477,7 @@ IofCompleteRequest(PIRP Irp,
    {
       DPRINT("Calling IoSecondStageCompletion routine directly\n");
       KeRaiseIrql(APC_LEVEL, &oldIrql);
-      IoSecondStageCompletion(&Irp->Tail.Apc,NULL,NULL,(PVOID)&OriginalFileObject, NULL);
+      IoSecondStageCompletion(NULL,NULL,(PVOID)&OriginalFileObject,(PVOID) &Irp,(PVOID) &PriorityBoost);
       KeLowerIrql(oldIrql);
       DPRINT("Finished completition routine\n");
    }

@@ -1,4 +1,4 @@
-/* $Id: desktopbg.c,v 1.15 2004/12/24 17:45:58 weiden Exp $
+/* $Id: desktopbg.c,v 1.9 2004/08/17 14:57:52 weiden Exp $
  *
  * reactos/subsys/csrss/win32csr/desktopbg.c
  *
@@ -30,8 +30,11 @@
 
 #define DESKTOP_WINDOW_ATOM 32880
 
-#define PM_SHOW_DESKTOP 1
-#define PM_HIDE_DESKTOP 2
+#ifndef WM_APP
+#define WM_APP 0x8000
+#endif
+#define PM_SHOW_DESKTOP (WM_APP + 1)
+#define PM_HIDE_DESKTOP (WM_APP + 2)
 
 typedef struct tagDTBG_THREAD_DATA
 {
@@ -69,7 +72,7 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT PS;
         RECT rc;
         HDC hDC;
-
+        
         if(GetUpdateRect(Wnd, &rc, FALSE) &&
            (hDC = BeginPaint(Wnd, &PS)))
         {
@@ -91,7 +94,7 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
       case WM_NOTIFY:
       {
         PPRIVATE_NOTIFY_DESKTOP nmh = (PPRIVATE_NOTIFY_DESKTOP)lParam;
-
+        
         /* Use WM_NOTIFY for private messages since it can't be sent between
            processes! */
         switch(nmh->hdr.code)
@@ -104,7 +107,7 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
                                     NULL, 0, 0,
                                     nmh->ShowDesktop.Width,
                                     nmh->ShowDesktop.Height,
-                                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW);
+                                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_NOREDRAW);
             UpdateWindow(Wnd);
             VisibleDesktopWindow = Wnd;
             return Result;
@@ -122,7 +125,7 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
             VisibleDesktopWindow = NULL;
             return Result;
           }
-
+          
           default:
             DPRINT("Unknown notification code 0x%x sent to the desktop window!\n", nmh->code);
             return 0;
@@ -137,9 +140,23 @@ static BOOL FASTCALL
 DtbgInit()
 {
   WNDCLASSEXW Class;
+  HWINSTA WindowStation;
   ATOM ClassAtom;
 
-  /*
+  /* Attach to window station */
+  WindowStation = OpenWindowStationW(L"WinSta0", FALSE, GENERIC_ALL);
+  if (NULL == WindowStation)
+    {
+      DPRINT1("Failed to open window station\n");
+      return FALSE;
+    }
+  if (! SetProcessWindowStation(WindowStation))
+    {
+      DPRINT1("Failed to set process window station\n");
+      return FALSE;
+    }
+
+  /* 
    * Create the desktop window class
    */
   Class.cbSize = sizeof(WNDCLASSEXW);
@@ -212,6 +229,7 @@ DtbgDesktopThread(PVOID Data)
 
 CSR_API(CsrCreateDesktop)
 {
+  HDESK Desktop;
   DTBG_THREAD_DATA ThreadData;
   HANDLE ThreadHandle;
 
@@ -229,11 +247,16 @@ CSR_API(CsrCreateDesktop)
         }
     }
 
-  /*
-   * the desktop handle we got from win32k is in the scope of CSRSS so we can just use it
-   */
-  ThreadData.Desktop = Request->Data.CreateDesktopRequest.DesktopHandle;
+  Desktop = OpenDesktopW(Request->Data.CreateDesktopRequest.DesktopName,
+                         0, FALSE, GENERIC_ALL);
+  if (NULL == Desktop)
+    {
+      DPRINT1("Failed to open desktop %S\n",
+              Request->Data.CreateDesktopRequest.DesktopName);
+      return Reply->Status = STATUS_UNSUCCESSFUL;
+    }
 
+  ThreadData.Desktop = Desktop;
   ThreadData.Event = CreateEventW(NULL, FALSE, FALSE, NULL);
   if (NULL == ThreadData.Event)
     {
@@ -273,7 +296,7 @@ CSR_API(CsrShowDesktop)
   nmh.hdr.hwndFrom = Request->Data.ShowDesktopRequest.DesktopWindow;
   nmh.hdr.idFrom = 0;
   nmh.hdr.code = PM_SHOW_DESKTOP;
-
+  
   nmh.ShowDesktop.Width = (int)Request->Data.ShowDesktopRequest.Width;
   nmh.ShowDesktop.Height = (int)Request->Data.ShowDesktopRequest.Height;
 

@@ -1532,7 +1532,7 @@ ATOM WINAPI GlobalAddAtomW( LPCWSTR);
 HGLOBAL WINAPI GlobalAlloc(UINT,DWORD);
 SIZE_T WINAPI GlobalCompact(DWORD); /* Obsolete: Has no effect. */
 ATOM WINAPI GlobalDeleteAtom(ATOM);
-#define GlobalDiscard(m) GlobalReAlloc((m),0,GMEM_MOVEABLE)
+HGLOBAL GlobalDiscard(HGLOBAL);
 ATOM WINAPI GlobalFindAtomA(LPCSTR);
 ATOM WINAPI GlobalFindAtomW(LPCWSTR);
 VOID WINAPI GlobalFix(HGLOBAL); /* Obsolete: Has no effect. */
@@ -1634,7 +1634,7 @@ DWORD WINAPI LoadModule(LPCSTR,PVOID);
 HGLOBAL WINAPI LoadResource(HINSTANCE,HRSRC);
 HLOCAL WINAPI LocalAlloc(UINT,SIZE_T);
 SIZE_T WINAPI LocalCompact(UINT); /* Obsolete: Has no effect. */
-#define LocalDiscard(m) (LocalReAlloc((m),0,LMEM_MOVEABLE))
+HLOCAL LocalDiscard(HLOCAL);
 BOOL WINAPI LocalFileTimeToFileTime(CONST FILETIME *,LPFILETIME);
 UINT WINAPI LocalFlags(HLOCAL); /* Obsolete: Has no effect. */
 HLOCAL WINAPI LocalFree(HLOCAL);

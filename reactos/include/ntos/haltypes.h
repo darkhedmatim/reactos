@@ -1,4 +1,4 @@
-/* $Id: haltypes.h,v 1.10 2004/12/08 11:42:28 gvg Exp $
+/* $Id: haltypes.h,v 1.8 2004/08/20 13:29:14 ekohl Exp $
  *
  * COPYRIGHT:                See COPYING in the top level directory
  * PROJECT:                  ReactOS kernel
@@ -358,38 +358,6 @@ typedef struct _PCI_SLOT_NUMBER
     } u;
 } PCI_SLOT_NUMBER, *PPCI_SLOT_NUMBER;
 
-typedef enum _RESOURCE_TRANSLATION_DIRECTION {
-    TranslateChildToParent,
-    TranslateParentToChild
-} RESOURCE_TRANSLATION_DIRECTION;
-
-typedef NTSTATUS STDCALL_FUNC
-(*PTRANSLATE_RESOURCE_HANDLER)(IN PVOID Context,
-    IN PCM_PARTIAL_RESOURCE_DESCRIPTOR Source,
-    IN RESOURCE_TRANSLATION_DIRECTION Direction,
-    IN ULONG AlternativesCount, OPTIONAL
-    IN IO_RESOURCE_DESCRIPTOR Alternatives[], OPTIONAL
-    IN PDEVICE_OBJECT PhysicalDeviceObject,
-    OUT PCM_PARTIAL_RESOURCE_DESCRIPTOR Target
-);
-
-typedef NTSTATUS STDCALL_FUNC
-(*PTRANSLATE_RESOURCE_REQUIREMENTS_HANDLER)(IN PVOID Context,
-    IN PIO_RESOURCE_DESCRIPTOR Source,
-    IN PDEVICE_OBJECT PhysicalDeviceObject,
-    OUT PULONG TargetCount,
-    OUT PIO_RESOURCE_DESCRIPTOR *Target);
-
-typedef struct _TRANSLATOR_INTERFACE {
-    USHORT Size;
-    USHORT Version;
-    PVOID Context;
-    PINTERFACE_REFERENCE InterfaceReference;
-    PINTERFACE_DEREFERENCE InterfaceDereference;
-    PTRANSLATE_RESOURCE_HANDLER TranslateResources;
-    PTRANSLATE_RESOURCE_REQUIREMENTS_HANDLER TranslateResourceRequirements;
-} TRANSLATOR_INTERFACE, *PTRANSLATOR_INTERFACE;
-
 #endif /* __USE_W32API */
 
 /* Hal dispatch table */
@@ -424,6 +392,25 @@ typedef struct _DEVICE_HANDLER_OBJECT *PDEVICE_HANDLER_OBJECT;
 
 typedef BOOLEAN STDCALL_FUNC
 (*PHAL_RESET_DISPLAY_PARAMETERS)(ULONG Columns, ULONG Rows);
+
+typedef NTSTATUS STDCALL_FUNC
+(*pHalQuerySystemInformation)(IN HAL_QUERY_INFORMATION_CLASS InformationClass,
+			      IN ULONG BufferSize,
+			      IN OUT PVOID Buffer,
+			      OUT PULONG ReturnedLength);
+
+
+typedef NTSTATUS STDCALL_FUNC
+(*pHalSetSystemInformation)(IN HAL_SET_INFORMATION_CLASS InformationClass,
+			    IN ULONG BufferSize,
+			    IN PVOID Buffer);
+
+
+typedef NTSTATUS STDCALL_FUNC
+(*pHalQueryBusSlots)(IN PBUS_HANDLER BusHandler,
+		     IN ULONG BufferSize,
+		     OUT PULONG SlotNumbers,
+		     OUT PULONG ReturnedLength);
 
 
 /* Control codes of HalDeviceControl function */
@@ -461,14 +448,10 @@ typedef struct _DEVICE_CONTROL_CONTEXT
   PVOID Context;
 } DEVICE_CONTROL_CONTEXT, *PDEVICE_CONTROL_CONTEXT;
 
-typedef struct _PM_DISPATCH_TABLE {
-    ULONG   Signature;
-    ULONG   Version;
-    PVOID   Function[1];
-} PM_DISPATCH_TABLE, *PPM_DISPATCH_TABLE;
 
 typedef VOID STDCALL_FUNC
 (*PDEVICE_CONTROL_COMPLETION)(IN PDEVICE_CONTROL_CONTEXT ControlContext);
+
 
 typedef NTSTATUS STDCALL_FUNC
 (*pHalDeviceControl)(IN PDEVICE_HANDLER_OBJECT DeviceHandler,
@@ -486,7 +469,7 @@ typedef VOID FASTCALL_FUNC
 		  OUT PVOID *Buffer);
 
 typedef VOID FASTCALL_FUNC
-(*pHalIoAssignDriveLetters)(IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
+(*pHalIoAssignDriveLetters)(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
 			    IN PSTRING NtDeviceName,
 			    OUT PUCHAR NtSystemPath,
 			    OUT PSTRING NtSystemPathString);
@@ -517,92 +500,22 @@ typedef PBUS_HANDLER FASTCALL_FUNC
 typedef VOID FASTCALL_FUNC
 (*pHalReferenceBusHandler)(IN PBUS_HANDLER BusHandler);
 
-typedef NTSTATUS STDCALL_FUNC
-(*pHalQuerySystemInformation)(IN HAL_QUERY_INFORMATION_CLASS InformationClass,
-			      IN ULONG BufferSize,
-			      IN OUT PVOID Buffer,
-			      OUT PULONG ReturnedLength);
 
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalSetSystemInformation)(IN HAL_SET_INFORMATION_CLASS InformationClass,
-			    IN ULONG BufferSize,
-			    IN PVOID Buffer);
-
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalQueryBusSlots)(IN PBUS_HANDLER BusHandler,
-		     IN ULONG BufferSize,
-		     OUT PULONG SlotNumbers,
-		     OUT PULONG ReturnedLength);
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalInitPnpDriver)(VOID);
- 
-typedef NTSTATUS STDCALL_FUNC
-(*pHalInitPowerManagement)(IN PPM_DISPATCH_TABLE  PmDriverDispatchTable,
-    			   OUT PPM_DISPATCH_TABLE *PmHalDispatchTable);
-
-typedef struct _DMA_ADAPTER * STDCALL_FUNC
-(*pHalGetDmaAdapter)(IN PVOID Context,
-    		     IN struct _DEVICE_DESCRIPTION *DeviceDescriptor,
-    		     OUT PULONG NumberOfMapRegisters);
-		     
-typedef NTSTATUS STDCALL_FUNC
-(*pHalGetInterruptTranslator)(IN INTERFACE_TYPE ParentInterfaceType,
-			      IN ULONG ParentBusNumber,
-			      IN INTERFACE_TYPE BridgeInterfaceType,
-			      IN USHORT Size,
-			      IN USHORT Version,
-			      OUT PTRANSLATOR_INTERFACE Translator,
-			      OUT PULONG BridgeBusNumber);
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalStartMirroring)(VOID);
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalEndMirroring)(IN ULONG PassNumber);
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalMirrorPhysicalMemory)(IN PHYSICAL_ADDRESS PhysicalAddress,
-    IN LARGE_INTEGER NumberOfBytes);
-
-typedef NTSTATUS STDCALL_FUNC
-(*pHalMirrorVerify)(IN PHYSICAL_ADDRESS PhysicalAddress,
-    IN LARGE_INTEGER NumberOfBytes);
-
-typedef VOID STDCALL_FUNC
-(*pHalEndOfBoot)(VOID);
-        
-
-typedef struct {
-    ULONG                           Version;
-    pHalQuerySystemInformation      HalQuerySystemInformation;
-    pHalSetSystemInformation        HalSetSystemInformation;
-    pHalQueryBusSlots               HalQueryBusSlots;
-    ULONG                           Spare1;
-    pHalExamineMBR                  HalExamineMBR;
-    pHalIoAssignDriveLetters        HalIoAssignDriveLetters;
-    pHalIoReadPartitionTable        HalIoReadPartitionTable;
-    pHalIoSetPartitionInformation   HalIoSetPartitionInformation;
-    pHalIoWritePartitionTable       HalIoWritePartitionTable;
-
-    pHalHandlerForBus               HalReferenceHandlerForBus;
-    pHalReferenceBusHandler         HalReferenceBusHandler;
-    pHalReferenceBusHandler         HalDereferenceBusHandler;
-
-    pHalInitPnpDriver               HalInitPnpDriver;
-    pHalInitPowerManagement         HalInitPowerManagement;
-
-    pHalGetDmaAdapter               HalGetDmaAdapter;
-    pHalGetInterruptTranslator      HalGetInterruptTranslator;
-
-    pHalStartMirroring              HalStartMirroring;
-    pHalEndMirroring                HalEndMirroring;
-    pHalMirrorPhysicalMemory        HalMirrorPhysicalMemory;
-    pHalEndOfBoot                   HalEndOfBoot;
-    pHalMirrorVerify                HalMirrorVerify;
-
+typedef struct _HAL_DISPATCH
+{
+  ULONG				Version;
+  pHalQuerySystemInformation	HalQuerySystemInformation;
+  pHalSetSystemInformation	HalSetSystemInformation;
+  pHalQueryBusSlots		HalQueryBusSlots;
+  pHalDeviceControl		HalDeviceControl;
+  pHalExamineMBR		HalExamineMBR;
+  pHalIoAssignDriveLetters	HalIoAssignDriveLetters;
+  pHalIoReadPartitionTable	HalIoReadPartitionTable;
+  pHalIoSetPartitionInformation	HalIoSetPartitionInformation;
+  pHalIoWritePartitionTable	HalIoWritePartitionTable;
+  pHalHandlerForBus		HalReferenceHandlerForBus;
+  pHalReferenceBusHandler	HalReferenceBusHandler;
+  pHalReferenceBusHandler	HalDereferenceBusHandler;
 } HAL_DISPATCH, *PHAL_DISPATCH;
 
 #ifndef __USE_W32API
@@ -622,7 +535,7 @@ extern PHAL_DISPATCH IMPORTED HalDispatchTable;
 #endif
 
 
-#define HAL_DISPATCH_VERSION		3
+#define HAL_DISPATCH_VERSION		1
 #define HalDispatchTableVersion		HALDISPATCH->Version
 #define HalQuerySystemInformation	HALDISPATCH->HalQuerySystemInformation
 #define HalSetSystemInformation		HALDISPATCH->HalSetSystemInformation

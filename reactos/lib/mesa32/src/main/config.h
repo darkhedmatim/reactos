@@ -201,6 +201,8 @@
 #define MAX_PROGRAM_MATRIX_STACK_DEPTH 4
 /*@}*/
 
+/*@}*/
+
 
 /**
  * \name Mesa-specific parameters

@@ -1,4 +1,4 @@
-/* $Id: except.c,v 1.21 2004/12/13 13:32:23 navaraf Exp $
+/* $Id: except.c,v 1.16 2004/08/22 18:49:11 tamlin Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -16,7 +16,7 @@
 #include "../include/debug.h"
 
 UINT GlobalErrMode = 0;
-LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = UnhandledExceptionFilter;
+LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = NULL;
 
 UINT GetErrorMode(void)
 {
@@ -46,8 +46,10 @@ SetUnhandledExceptionFilter(
     LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter
     )
 {
-    return InterlockedExchangePointer(&GlobalTopLevelExceptionFilter,
-                                      lpTopLevelExceptionFilter);
+    LPTOP_LEVEL_EXCEPTION_FILTER OldTopLevelExceptionFilter =
+					 GlobalTopLevelExceptionFilter;
+    GlobalTopLevelExceptionFilter = lpTopLevelExceptionFilter;
+    return OldTopLevelExceptionFilter;
 }
 
 
@@ -67,20 +69,6 @@ _module_name_from_addr(const void* addr, char* psz, size_t nChars)
    return psz;
 }
 
-static VOID
-_dump_context(PCONTEXT pc)
-{
-   /*
-    * Print out the CPU registers
-    */
-   DbgPrint("CS:EIP %x:%x\n", pc->SegCs&0xffff, pc->Eip );
-   DbgPrint("DS %x ES %x FS %x GS %x\n", pc->SegDs&0xffff, pc->SegEs&0xffff,
-	    pc->SegFs&0xffff, pc->SegGs&0xfff);
-   DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", pc->Eax, pc->Ebx, pc->Ecx);
-   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x   ESP: %.8x\n", pc->Edx,
-	    pc->Ebp, pc->Esi, pc->Esp);
-   DbgPrint("EDI: %.8x   EFLAGS: %.8x\n", pc->Edi, pc->EFlags);
-}
 
 /*
  * @unimplemented
@@ -88,11 +76,10 @@ _dump_context(PCONTEXT pc)
 LONG STDCALL
 UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
-#if 0
    DWORD RetValue;
-#endif
    HANDLE DebugPort = NULL;
    NTSTATUS ErrCode;
+   static int RescursionTrap = 3;
 
 #if 0
    if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
@@ -105,23 +92,36 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
    }
 #endif
 
-   /* Is there a debugger running ? */
-   ErrCode = NtQueryInformationProcess(NtCurrentProcess(), ProcessDebugPort,
-                                       &DebugPort, sizeof(HANDLE), NULL);
-   if (!NT_SUCCESS(ErrCode) && ErrCode != STATUS_NOT_IMPLEMENTED)
+   if (--RescursionTrap > 0)
    {
-      SetLastErrorByStatus(ErrCode);
-      return EXCEPTION_EXECUTE_HANDLER;
+      /* Is there a debugger running ? */
+      ErrCode = NtQueryInformationProcess(NtCurrentProcess(), ProcessDebugPort,
+                                          &DebugPort, sizeof(HANDLE), NULL);
+      if (!NT_SUCCESS(ErrCode) && ErrCode != STATUS_NOT_IMPLEMENTED)
+      {
+         SetLastErrorByStatus(ErrCode);
+         return EXCEPTION_EXECUTE_HANDLER;
+      }
+
+      if (DebugPort)
+      {
+         /* Pass the exception to debugger. */
+         DPRINT("Passing exception to debugger\n");
+         return EXCEPTION_CONTINUE_SEARCH;
+      }
+
+      /* Run unhandled exception handler. */
+      if (GlobalTopLevelExceptionFilter != NULL)
+      {
+         RetValue = GlobalTopLevelExceptionFilter(ExceptionInfo);
+         if (RetValue == EXCEPTION_EXECUTE_HANDLER)
+            return EXCEPTION_EXECUTE_HANDLER;
+         if (RetValue == EXCEPTION_CONTINUE_EXECUTION) 
+            return EXCEPTION_CONTINUE_EXECUTION;
+      }
    }
 
-   if (DebugPort)
-   {
-      /* Pass the exception to debugger. */
-      DPRINT("Passing exception to debugger\n");
-      return EXCEPTION_CONTINUE_SEARCH;
-   }
-
-   if ((GetErrorMode() & SEM_NOGPFAULTERRORBOX) == 0)
+   if (RescursionTrap >= 0 && (GetErrorMode() & SEM_NOGPFAULTERRORBOX) == 0)
    {
 #ifdef _X86_
       PULONG Frame;
@@ -134,7 +134,7 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
       DPRINT1("   %8x   %s\n",
          ExceptionInfo->ExceptionRecord->ExceptionAddress,
          _module_name_from_addr(ExceptionInfo->ExceptionRecord->ExceptionAddress, szMod, sizeof(szMod)));
-      _dump_context ( ExceptionInfo->ContextRecord );
+
 #ifdef _X86_
       DPRINT1("Frames:\n");
       Frame = (PULONG)ExceptionInfo->ContextRecord->Ebp;

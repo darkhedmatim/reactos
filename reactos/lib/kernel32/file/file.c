@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.61 2004/12/06 14:45:47 gdalsnes Exp $
+/* $Id: file.c,v 1.56 2004/07/24 01:27:54 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -13,6 +13,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
+#include <ddk/ntifs.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -622,15 +623,9 @@ GetFileInformationByHandle(HANDLE hFile,
      }
 
    lpFileInformation->dwFileAttributes = (DWORD)FileBasic.FileAttributes;
-   
-   lpFileInformation->ftCreationTime.dwHighDateTime = FileBasic.CreationTime.u.HighPart;
-   lpFileInformation->ftCreationTime.dwLowDateTime = FileBasic.CreationTime.u.LowPart;
-
-   lpFileInformation->ftLastAccessTime.dwHighDateTime = FileBasic.LastAccessTime.u.HighPart;
-   lpFileInformation->ftLastAccessTime.dwLowDateTime = FileBasic.LastAccessTime.u.LowPart;
-   
-   lpFileInformation->ftLastWriteTime.dwHighDateTime = FileBasic.LastWriteTime.u.HighPart;
-   lpFileInformation->ftLastWriteTime.dwLowDateTime = FileBasic.LastWriteTime.u.LowPart;
+   memcpy(&lpFileInformation->ftCreationTime,&FileBasic.CreationTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastAccessTime,&FileBasic.LastAccessTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastWriteTime, &FileBasic.LastWriteTime,sizeof(LARGE_INTEGER));
 
    errCode = NtQueryInformationFile(hFile,
 				    &IoStatusBlock,
@@ -993,7 +988,7 @@ GetTempFileNameA(LPCSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1041,7 +1036,7 @@ GetTempFileNameW(LPCWSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1357,101 +1352,6 @@ SetFileShortNameA(
   
   RtlFreeUnicodeString(&ShortName);
   return Ret;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3W(
-    LPCWSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitUnicodeString(&Name, lpName);
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3A(
-    LPCSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName, AnsiInputName;
-    NTSTATUS Status;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitAnsiString(&AnsiInputName, (LPSTR)lpName);
-    if(bIsFileApiAnsi)
-      Status = RtlAnsiStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-    else
-      Status = RtlOemStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return FALSE;
-    }
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    RtlFreeUnicodeString(&Name);
-
-    return TRUE;
 }
 
 /* EOF */

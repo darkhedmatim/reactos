@@ -1,4 +1,4 @@
-/* $Id: dlog.c,v 1.16 2004/09/01 00:15:08 navaraf Exp $
+/* $Id: dlog.c,v 1.15 2004/08/15 16:39:04 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -158,7 +158,7 @@ DebugLogInit2(VOID)
 			&Iosb,
 			NULL,
 			FILE_ATTRIBUTE_NORMAL,
-			FILE_SHARE_READ,
+			0,
 			FILE_SUPERSEDE,
 			FILE_WRITE_THROUGH | FILE_SYNCHRONOUS_IO_NONALERT,
 			NULL,

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.51 2004/12/11 19:21:35 sedwards Exp $
+# $Id: Makefile,v 1.46 2004/08/22 20:37:05 hbirr Exp $
 
 PATH_TO_TOP = ../..
 
@@ -12,12 +12,9 @@ TARGET_PCH = precomp.h
 
 TARGET_BASE = $(TARGET_BASE_LIB_MSVCRT)
 
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
-
 TARGET_LFLAGS = -nostartfiles --enable-stdcall-fixup
 
-TARGET_SDKLIBS = wine.a string.a kernel32.a ntdll.a
+TARGET_SDKLIBS = libwine.a string.a kernel32.a ntdll.a
 
 TARGET_GCCLIBS = gcc
 
@@ -272,9 +269,7 @@ MISC_OBJECTS = \
 	misc/environ.o \
 	misc/getargs.o \
 	misc/initterm.o \
-	misc/lock.o \
 	misc/purecall.o \
-	misc/stubs.o \
 	misc/tls.o
 
 PROCESS_OBJECTS = \
@@ -459,7 +454,10 @@ TIME_OBJECTS = \
 WINE_OBJECTS = \
 	wine/cpp.o \
 	wine/cppexcept.o \
+	wine/data.o \
 	wine/heap.o \
+	wine/lock.o \
+	wine/main.o \
 	wine/thread.o
 
 WSTRING_OBJECTS = \

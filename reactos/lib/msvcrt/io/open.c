@@ -1,4 +1,4 @@
-/* $Id: open.c,v 1.19 2004/08/31 20:07:06 hbirr Exp $
+/* $Id: open.c,v 1.18 2004/08/15 18:16:36 chorns Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -141,6 +141,11 @@ int _open(const char* _path, int _oflag,...)
    else //if ((_oflag & O_RDONLY) == O_RDONLY)
      dwDesiredAccess |= GENERIC_READ;
 #endif
+   if (( _oflag & S_IREAD ) == S_IREAD)
+     dwShareMode |= FILE_SHARE_READ;
+   
+   if (( _oflag & S_IWRITE ) == S_IWRITE)
+     dwShareMode |= FILE_SHARE_WRITE;
 
    if (( _oflag & (_O_CREAT | _O_EXCL)) == (_O_CREAT | _O_EXCL))
      dwCreationDistribution |= CREATE_NEW;
@@ -172,13 +177,6 @@ int _open(const char* _path, int _oflag,...)
    }
    if (_oflag & _O_NOINHERIT)
      sa.bInheritHandle = FALSE;
-
-   if (dwCreationDistribution == OPEN_EXISTING &&
-       (dwDesiredAccess & (GENERIC_WRITE|GENERIC_READ)) == GENERIC_READ) {
-      /* Allow always shared read for a file which is opened for read only */
-      dwShareMode |= FILE_SHARE_READ;
-   }
-
    hFile = CreateFileA(_path,
                dwDesiredAccess,
                dwShareMode, 

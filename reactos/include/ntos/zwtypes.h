@@ -336,53 +336,6 @@ typedef struct _SYSTEM_PERFORMANCE_INFORMATION {
 	ULONG  SystemCalls;
 } SYSTEM_PERFORMANCE_INFORMATION, *PSYSTEM_PERFORMANCE_INFORMATION;
 
-// SystemProcessThreadInfo (5)
-typedef struct _SYSTEM_THREAD_INFORMATION
-{
-	TIME		KernelTime;
-	TIME		UserTime;
-	TIME		CreateTime;
-	ULONG		WaitTime;
-	PVOID		StartAddress;
-	CLIENT_ID	ClientId;
-	KPRIORITY	Priority;
-	LONG		BasePriority;
-	ULONG		ContextSwitches;
-	ULONG		ThreadState;
-	KWAIT_REASON	WaitReason;
-} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
-
-typedef struct SYSTEM_PROCESS_INFORMATION
-{
-	ULONG				NextEntryOffset;
-	ULONG				NumberOfThreads;
-	LARGE_INTEGER			SpareLi1;
-	LARGE_INTEGER			SpareLi2;
-	LARGE_INTEGER			SpareLi3;
-	TIME				CreateTime;
-	TIME				UserTime;
-	TIME				KernelTime;
-	UNICODE_STRING			ImageName;
-	ULONG				BasePriority;
-	HANDLE				UniqueProcessId;
-	HANDLE				InheritedFromUniqueProcessId;
-	ULONG				HandleCount;
-	ULONG				SessionId;
-	ULONG				SpareUl3;
-	ULONG				PeakVirtualSize;
-	ULONG				VirtualSize;
-	ULONG				PageFaultCount;
-	ULONG				PeakWorkingSetSize;
-	ULONG				WorkingSetSize;
-	ULONG				QuotaPeakPagedPoolUsage;
-	ULONG				QuotaPagedPoolUsage;
-	ULONG				QuotaPeakNonPagedPoolUsage;
-	ULONG				QuotaNonPagedPoolUsage;
-	ULONG				PagefileUsage;
-	ULONG				PeakPagefileUsage;
-	ULONG				PrivatePageCount;
-} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
-
 // SystemModuleInformation (11)
 typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY {
 	ULONG	 Unknown1;
@@ -407,24 +360,32 @@ typedef struct _SYSTEM_MODULE_INFORMATION {
 // SystemHandleInformation (16)
 // (see ontypes.h)
 typedef
-struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO
+struct _SYSTEM_HANDLE_ENTRY
 {
-	USHORT	UniqueProcessId;
-	USHORT	CreatorBackTraceIndex;
-	UCHAR	ObjectTypeIndex;
-	UCHAR	HandleAttributes;
+	ULONG	OwnerPid;
+	BYTE	ObjectType;
+	BYTE	HandleFlags;
 	USHORT	HandleValue;
-	PVOID	Object;
-	ULONG	GrantedAccess;
+	PVOID	ObjectPointer;
+	ULONG	AccessMask;
 	
-} SYSTEM_HANDLE_TABLE_ENTRY_INFO, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO;
+} SYSTEM_HANDLE_ENTRY, *PSYSTEM_HANDLE_ENTRY;
 
 typedef
-struct _SYSTEM_HANDLE_INFORMATION
+struct _SYSTEM_HANDLE_INFORMATION_NT4
 {
-	ULONG	NumberOfHandles;
-	SYSTEM_HANDLE_TABLE_ENTRY_INFO	Handles[1];
+	ULONG			Count;
+	SYSTEM_HANDLE_ENTRY	Handle [1];
 	
+} SYSTEM_HANDLE_INFORMATION_NT4, *PSYSTEM_HANDLE_INFORMATION_NT4;
+
+typedef struct _SYSTEM_HANDLE_INFORMATION {
+        ULONG  ProcessId;
+        UCHAR  ObjectTypeNumber;
+        UCHAR  Flags;
+        USHORT  Handle;
+        PVOID  Object;
+        ACCESS_MASK  GrantedAccess;
 } SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
 
 // SystemObjectInformation (17)
@@ -466,12 +427,12 @@ struct _SYSTEM_OBJECT_INFORMATION
 typedef
 struct _SYSTEM_PAGEFILE_INFORMATION
 {
-	ULONG	NextEntryOffset;
-	ULONG	TotalSize;
-	ULONG	TotalInUse;
-	ULONG	PeakUsage;
-	UNICODE_STRING	PageFileName;
-
+	ULONG		RelativeOffset;
+	ULONG		CurrentSizePages;
+	ULONG		TotalUsedPages;
+	ULONG		PeakUsedPages;
+	UNICODE_STRING	PagefileFileName;
+	
 } SYSTEM_PAGEFILE_INFORMATION, *PSYSTEM_PAGEFILE_INFORMATION;
 
 // SystemCacheInformation (21)
@@ -556,14 +517,6 @@ typedef struct _SYSTEM_LOAD_AND_CALL_IMAGE
 {
   UNICODE_STRING ModuleName;
 } SYSTEM_LOAD_AND_CALL_IMAGE, *PSYSTEM_LOAD_AND_CALL_IMAGE;
-
-// SystemRegistryQuotaInformation (37)
-typedef struct _SYSTEM_REGISTRY_QUOTA_INFORMATION {
-  ULONG  RegistryQuotaAllowed;
-  ULONG  RegistryQuotaUsed;
-  PVOID  Reserved1;
-} SYSTEM_REGISTRY_QUOTA_INFORMATION, *PSYSTEM_REGISTRY_QUOTA_INFORMATION;
-
 
 // SystemTimeZoneInformation (44)
 typedef
@@ -693,8 +646,8 @@ typedef struct _QUOTA_LIMITS
 {
 	ULONG PagedPoolLimit;
 	ULONG NonPagedPoolLimit;
-	SIZE_T MinimumWorkingSetSize;
-	SIZE_T MaximumWorkingSetSize;
+	ULONG MinimumWorkingSetSize;
+	ULONG MaximumWorkingSetSize;
 	ULONG PagefileLimit;
 	TIME TimeLimit;
 } QUOTA_LIMITS, *PQUOTA_LIMITS;
@@ -782,7 +735,7 @@ typedef struct _PROCESS_DEVICEMAP_INFORMATION
 			UCHAR DriveType[32];
 		} Query;
 	};
-} PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
+} PROCESS_DEVICEMAP_INFORMATION, *pPROCESS_DEVICEMAP_INFORMATION;
 
 // Information class 24
 typedef struct _PROCESS_SESSION_INFORMATION
@@ -847,10 +800,10 @@ typedef struct _FILE_END_OF_FILE_INFORMATION
 
 typedef struct _FILE_NETWORK_OPEN_INFORMATION
 {
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER AllocationSize;
 	LARGE_INTEGER EndOfFile;
 	ULONG FileAttributes;
@@ -971,7 +924,7 @@ typedef struct _FILE_COMPRESSION_INFORMATION {
 
 typedef struct _FILE_COMPLETION_INFORMATION { // Information Class 30
    HANDLE IoCompletionHandle;
-   PVOID CompletionKey;
+   ULONG CompletionKey;
 } FILE_COMPLETION_INFORMATION, *PFILE_COMPLETION_INFORMATION;
 
 typedef struct _FILE_ALL_INFORMATION {
@@ -1037,10 +990,10 @@ typedef struct _FILE_FS_LABEL_INFORMATION {
 typedef struct _FILE_DIRECTORY_INFORMATION {
 	ULONG	NextEntryOffset;
 	ULONG	FileIndex;
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER EndOfFile;
 	LARGE_INTEGER AllocationSize;
 	ULONG FileAttributes;
@@ -1051,10 +1004,10 @@ typedef struct _FILE_DIRECTORY_INFORMATION {
 typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
 	ULONG	NextEntryOffset;
 	ULONG	FileIndex;
-	LARGE_INTEGER CreationTime;
-	LARGE_INTEGER LastAccessTime;
-	LARGE_INTEGER LastWriteTime;
-	LARGE_INTEGER ChangeTime;
+	TIME CreationTime;
+	TIME LastAccessTime;
+	TIME LastWriteTime;
+	TIME ChangeTime;
 	LARGE_INTEGER EndOfFile;
 	LARGE_INTEGER AllocationSize;
 	ULONG FileAttributes;
@@ -1068,12 +1021,12 @@ typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
 typedef struct _FILE_BOTH_DIRECTORY_INFORMATION {
 	ULONG		NextEntryOffset;
 	ULONG		FileIndex;
-	LARGE_INTEGER	CreationTime;
-	LARGE_INTEGER	LastAccessTime;
-	LARGE_INTEGER	LastWriteTime;
-	LARGE_INTEGER	ChangeTime;
-	LARGE_INTEGER	EndOfFile;
-	LARGE_INTEGER	AllocationSize;
+	TIME 		CreationTime;
+	TIME 		LastAccessTime;
+	TIME 		LastWriteTime;
+	TIME 		ChangeTime;
+	LARGE_INTEGER 	EndOfFile;
+	LARGE_INTEGER 	AllocationSize;
 	ULONG 		FileAttributes;
 	ULONG 		FileNameLength;
 	ULONG 		EaSize;
@@ -1231,7 +1184,8 @@ extern IMPORTED ULONG NtBuildNumber;
 #define ProcessWow64Information			26
 /* ReactOS private. */
 #define ProcessImageFileName			27
-#define MaxProcessInfoClass			28
+#define ProcessDesktop                          28
+#define MaxProcessInfoClass			29
 
 /*
  * thread query / set information class
@@ -1830,12 +1784,6 @@ typedef struct _KINTERRUPT
 #ifndef __USE_W32API
 
 typedef struct _KINTERRUPT *PKINTERRUPT;
-
-typedef VOID STDCALL_FUNC
-(*PTIMER_APC_ROUTINE)(
-  IN PVOID  TimerContext,
-  IN ULONG  TimerLowValue,
-  IN LONG  TimerHighValue);
 
 #endif /* __USE_W32API */
 

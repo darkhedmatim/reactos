@@ -3,7 +3,7 @@
  *
  *  Copyright 1998 Eric Kohl
  *  Copyright 2000 Jason Mawdsley
- *  Copyright 2001, 2004 Michael Stefaniuc
+ *  Copyright 2001 Michael Stefaniuc
  *  Copyright 2001 Charles Loep for CodeWeavers
  *  Copyright 2002 Dimitrie O. Paun
  *
@@ -34,14 +34,17 @@
  *    - Add support for ILD_PRESERVEALPHA, ILD_SCALE, ILD_DPISCALE
  *    - Add support for ILS_GLOW, ILS_SHADOW, ILS_SATURATE, ILS_ALPHA
  *    - Thread-safe locking
+ *
+ *  FIXME:
+ *    - Hotspot handling still not correct. The Hotspot passed to BeginDrag
+ *	is the offset of the image position relative to the actual mouse pointer
+ *	position. However the Hotspot passed to SetDragCursorImage is the
+ *	offset of the mouse messages sent to the application...
  */
 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define COBJMACROS
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -73,9 +76,10 @@ typedef struct
     BOOL	bShow;
     /* saved background */
     HBITMAP	hbmBg;
+    BOOL	bHSPending;
 } INTERNALDRAG;
 
-static INTERNALDRAG InternalDrag = { 0, 0, 0, 0, 0, 0, FALSE, 0 };
+static INTERNALDRAG InternalDrag = { 0, 0, 0, 0, 0, 0, FALSE, 0, FALSE };
 
 static HBITMAP ImageList_CreateImage(HDC hdc, HIMAGELIST himl, UINT width, UINT height);
 
@@ -420,6 +424,7 @@ ImageList_BeginDrag (HIMAGELIST himlTrack, INT iTrack,
     BitBlt (InternalDrag.himl->hdcMask, 0, 0, cx, cy, himlTrack->hdcMask, iTrack * cx, 0, SRCCOPY);
 
     InternalDrag.himl->cCurImage = 1;
+    InternalDrag.bHSPending = TRUE;
 
     return TRUE;
 }
@@ -587,7 +592,7 @@ ImageList_Create (INT cx, INT cy, UINT flags,
             goto cleanup;
     }
 
-    /* Default to ILC_COLOR4 if none of the ILC_COLOR* flags are specified */
+    /* Default to ILC_COLOR4 if non of the ILC_COLOR* flags are specified */
     if (ilc == ILC_COLOR)
         ilc = ILC_COLOR4;
 
@@ -1274,6 +1279,7 @@ ImageList_EndDrag (void)
     InternalDrag.bShow = FALSE;
     DeleteObject(InternalDrag.hbmBg);
     InternalDrag.hbmBg = 0;
+    InternalDrag.bHSPending = FALSE;
 }
 
 
@@ -1719,7 +1725,8 @@ ImageList_LoadImageW (HINSTANCE hi, LPCWSTR lpbmp, INT cx, INT cGrow,
 /*************************************************************************
  * ImageList_Merge [COMCTL32.@]
  *
- * Create an image list containing a merged image from two image lists.
+ * Creates a new image list that contains a merged image from the specified
+ * images of both source image lists.
  *
  * PARAMS
  *     himl1 [I] handle to first image list
@@ -1730,16 +1737,10 @@ ImageList_LoadImageW (HINSTANCE hi, LPCWSTR lpbmp, INT cx, INT cGrow,
  *     dy    [I] Y offset of the second image relative to the first.
  *
  * RETURNS
- *     Success: The newly created image list. It contains a single image
- *              consisting of the second image merged with the first.
- *     Failure: NULL, if either himl1 or himl2 are invalid.
- *
- * NOTES
- *   - The returned image list should be deleted by the caller using
- *     ImageList_Destroy() when it is no longer required.
- *   - If either i1 or i2 are not valid image indices they will be treated
- *     as a blank image.
+ *     Success: handle of the merged image list.
+ *     Failure: NULL
  */
+
 HIMAGELIST WINAPI
 ImageList_Merge (HIMAGELIST himl1, INT i1, HIMAGELIST himl2, INT i2,
 		 INT dx, INT dy)
@@ -1754,6 +1755,17 @@ ImageList_Merge (HIMAGELIST himl1, INT i1, HIMAGELIST himl2, INT i2,
 
     if (!is_valid(himl1) || !is_valid(himl2))
 	return NULL;
+
+    /* check indices */
+    if ((i1 < 0) || (i1 >= himl1->cCurImage)) {
+        ERR("Index 1 out of range! %d\n", i1);
+        return NULL;
+    }
+
+    if ((i2 < 0) || (i2 >= himl2->cCurImage)) {
+        ERR("Index 2 out of range! %d\n", i2);
+        return NULL;
+    }
 
     if (dx > 0) {
         cxDst = max (himl1->cx, dx + himl2->cx);
@@ -1788,28 +1800,23 @@ ImageList_Merge (HIMAGELIST himl1, INT i1, HIMAGELIST himl2, INT i2,
     }
 
     himlDst = ImageList_Create (cxDst, cyDst, ILC_MASK | ILC_COLOR, 1, 1);
+    if (!himlDst)
+        return NULL;
 
-    if (himlDst)
-    {
+    if (himlDst) {
         nX1 = i1 * himl1->cx;
         nX2 = i2 * himl2->cx;
 
         /* copy image */
-        BitBlt (himlDst->hdcImage, 0, 0, cxDst, cyDst, himl1->hdcImage, 0, 0, BLACKNESS);
-        if (i1 >= 0 && i1 < himl1->cCurImage)
-            BitBlt (himlDst->hdcImage, xOff1, yOff1, himl1->cx, himl1->cy, himl1->hdcImage, nX1, 0, SRCCOPY);
-        if (i2 >= 0 && i2 < himl2->cCurImage)
-        {
-            BitBlt (himlDst->hdcImage, xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcMask , nX2, 0, SRCAND);
-            BitBlt (himlDst->hdcImage, xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcImage, nX2, 0, SRCPAINT);
-        }
+        BitBlt (himlDst->hdcImage,     0,     0,     cxDst,     cyDst, himl1->hdcImage,   0, 0, BLACKNESS);
+        BitBlt (himlDst->hdcImage, xOff1, yOff1, himl1->cx, himl1->cy, himl1->hdcImage, nX1, 0, SRCCOPY);
+        BitBlt (himlDst->hdcImage, xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcMask , nX2, 0, SRCAND);
+        BitBlt (himlDst->hdcImage, xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcImage, nX2, 0, SRCPAINT);
 
         /* copy mask */
-        BitBlt (himlDst->hdcMask, 0, 0, cxDst, cyDst, himl1->hdcMask, 0, 0, WHITENESS);
-        if (i1 >= 0 && i1 < himl1->cCurImage)
-            BitBlt (himlDst->hdcMask,  xOff1, yOff1, himl1->cx, himl1->cy, himl1->hdcMask,  nX1, 0, SRCCOPY);
-        if (i2 >= 0 && i2 < himl2->cCurImage)
-            BitBlt (himlDst->hdcMask,  xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcMask,  nX2, 0, SRCAND);
+        BitBlt (himlDst->hdcMask,      0,     0,     cxDst,     cyDst, himl1->hdcMask,    0, 0, WHITENESS);
+        BitBlt (himlDst->hdcMask,  xOff1, yOff1, himl1->cx, himl1->cy, himl1->hdcMask,  nX1, 0, SRCCOPY);
+        BitBlt (himlDst->hdcMask,  xOff2, yOff2, himl2->cx, himl2->cy, himl2->hdcMask,  nX2, 0, SRCAND);
 
 	himlDst->cCurImage = 1;
     }
@@ -2054,7 +2061,7 @@ ImageList_Remove (HIMAGELIST himl, INT i)
     }
 
     if ((i < -1) || (i >= himl->cCurImage)) {
-        TRACE("index out of range! %d\n", i);
+        ERR("index out of range! %d\n", i);
         return FALSE;
     }
 
@@ -2249,7 +2256,7 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT i, HICON hIcon)
     ICONINFO  ii;
     BITMAP  bmp;
 
-    TRACE("(%p %d %p)\n", himl, i, hIcon);
+    TRACE("(0x%lx 0x%x %p)\n", (DWORD)himl, i, hIcon);
 
     if (!is_valid(himl))
 	return -1;
@@ -2307,7 +2314,6 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT i, HICON hIcon)
     if (ii.hbmMask)
 	DeleteObject (ii.hbmMask);
 
-    TRACE("Insert index = %d, himl->cCurImage = %d\n", nIndex, himl->cCurImage);
     return nIndex;
 }
 
@@ -2356,11 +2362,7 @@ ImageList_SetBkColor (HIMAGELIST himl, COLORREF clrBk)
  *     Failure: FALSE
  *
  * NOTES
- *   - The names dxHotspot, dyHotspot are misleading because they have nothing
- *     to do with a hotspot but are only the offset of the origin of the new
- *     image relative to the origin of the old image.
- *
- *   - When this function is called and the drag image is visible, a
+ *     When this function is called and the drag image is visible, a
  *     short flickering occurs but this matches the Win9x behavior. It is
  *     possible to fix the flickering using code like in ImageList_DragMove.
  */
@@ -2370,6 +2372,7 @@ ImageList_SetDragCursorImage (HIMAGELIST himlDrag, INT iDrag,
 			      INT dxHotspot, INT dyHotspot)
 {
     HIMAGELIST himlTemp;
+    INT dx, dy;
     BOOL visible;
 
     if (!is_valid(InternalDrag.himl) || !is_valid(himlDrag))
@@ -2380,8 +2383,20 @@ ImageList_SetDragCursorImage (HIMAGELIST himlDrag, INT iDrag,
 
     visible = InternalDrag.bShow;
 
-    himlTemp = ImageList_Merge (InternalDrag.himl, 0, himlDrag, iDrag,
-                                dxHotspot, dyHotspot);
+    /* Calculate the offset between the origin of the old image and the
+     * origin of the second image.
+     * dxHotspot, dyHotspot is the offset of THE Hotspot (there is only one
+     * hotspot) to the origin of the second image.
+     * See M$DN for details */
+    if(InternalDrag.bHSPending) {
+	dx = 0;
+	dy = 0;
+	InternalDrag.bHSPending = FALSE;
+    } else {
+	dx = InternalDrag.dxHotspot - dxHotspot;
+	dy = InternalDrag.dyHotspot - dyHotspot;
+    }
+    himlTemp = ImageList_Merge (InternalDrag.himl, 0, himlDrag, iDrag, dx, dy);
 
     if (visible) {
 	/* hide the drag image */
@@ -2396,6 +2411,13 @@ ImageList_SetDragCursorImage (HIMAGELIST himlDrag, INT iDrag,
 
     ImageList_Destroy (InternalDrag.himl);
     InternalDrag.himl = himlTemp;
+
+    /* update the InternalDragOffset, if the origin of the
+     * DragImage was changed by ImageList_Merge. */
+    if (dx <= 0)
+	InternalDrag.dxHotspot = dxHotspot;
+    if (dy <= 0)
+	InternalDrag.dyHotspot = dyHotspot;
 
     if (visible) {
 	/* show the drag image */
@@ -2731,7 +2753,6 @@ _write_bitmap(HBITMAP hBitmap, LPSTREAM pstm, int cx, int cy)
     failed:
     ReleaseDC(0, xdc);
     LocalFree((HLOCAL)lpBitsOrg);
-    LocalFree((HLOCAL)data);
 
     return result;
 }
@@ -2854,31 +2875,6 @@ static HBITMAP ImageList_CreateImage(HDC hdc, HIMAGELIST himl, UINT width, UINT 
 
         hbmNewBitmap = CreateBitmap (width, height, 1, himl->uBitsPixel, NULL);
     }
-    TRACE("returning %p\n", hbmNewBitmap);
+
     return hbmNewBitmap;
-}
-
-/*************************************************************************
- * ImageList_SetColorTable [COMCTL32.@]
- *
- * Sets the color table of an image list.
- *
- * PARAMS
- *     himl        [I] Handle to the image list.
- *     uStartIndex [I] The first index to set.
- *     cEntries    [I] Number of entries to set.
- *     prgb        [I] New color information for color table for the image list.
- *
- * RETURNS
- *     Success: Number of entries in the table that were set.
- *     Failure: Zero.
- *
- * SEE
- *     ImageList_Create(), SetDIBColorTable()
- */
-
-UINT WINAPI
-ImageList_SetColorTable (HIMAGELIST himl, UINT uStartIndex, UINT cEntries, CONST RGBQUAD * prgb)
-{
-    return SetDIBColorTable(himl->hdcImage, uStartIndex, cEntries, prgb);
 }

@@ -228,12 +228,17 @@ static GLboolean print_attr_header( struct tnl_clipspace_codegen *p,
 
 static GLboolean print_attr_footer( struct tnl_clipspace_codegen *p )
 {
-   return emit(p, "      }\n");
+   return 
+      emit(p, "      }\n");
 }
 
 static tnl_emit_func print_store_func( struct tnl_clipspace_codegen *p ) 
 {
-   fprintf(stderr, "print_store_func: emitted:\n%s\n", p->buf);
+#if defined( WIN32 ) || defined( __VMS )
+   fprintf(stderr, "%s: emitted:\n%s\n", "print_store_func", p->buf);
+#else
+   fprintf(stderr, "%s: emitted:\n%s\n", __FUNCTION__, p->buf);
+#endif   
    return 0;
 }
 

@@ -12,8 +12,6 @@
 #define NTOS_MODE_KERNEL
 #include <ntos.h>
 
-#define TAG_OBJECT_TYPE TAG('O', 'b', 'j', 'T')
-
 struct _EPROCESS;
 
 typedef struct
@@ -35,6 +33,7 @@ typedef struct _DIRECTORY_OBJECT
    LIST_ENTRY head;
    KSPIN_LOCK Lock;
 } DIRECTORY_OBJECT, *PDIRECTORY_OBJECT;
+
 
 typedef struct _SYMLINK_OBJECT
 {
@@ -137,9 +136,6 @@ ObDuplicateObject(PEPROCESS SourceProcess,
 ULONG
 ObpGetHandleCountByHandleTable(PHANDLE_TABLE HandleTable);
 
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process, PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo);
 
 /* Security descriptor cache functions */
 

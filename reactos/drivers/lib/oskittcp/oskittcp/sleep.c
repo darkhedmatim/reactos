@@ -1,35 +1,77 @@
+#include <roscfg.h>
 #include <oskittcp.h>
+#include <ntddk.h>
 #include <sys/callout.h>
 #include <oskitfreebsd.h>
 #include <oskitdebug.h>
+
+typedef struct _SLEEPING_THREAD {
+    LIST_ENTRY Entry;
+    PVOID SleepToken;
+    KEVENT Event;
+} SLEEPING_THREAD, *PSLEEPING_THREAD;
+
+LIST_ENTRY SleepingThreadsList;
+FAST_MUTEX SleepingThreadsLock;
 
 /* clock_init */
 int ncallout = 256;
 struct callout *callout;
 
 void init_freebsd_sched() {
+    ExInitializeFastMutex( &SleepingThreadsLock );
+    InitializeListHead( &SleepingThreadsList );    
 }
 
 int tsleep( void *token, int priority, char *wmesg, int tmio ) {
-    if( !OtcpEvent.Sleep ) panic("no sleep");
-    return 
-	OtcpEvent.Sleep( OtcpEvent.ClientData, token, priority, wmesg, tmio );
+    KIRQL OldIrql;
+    KEVENT Event;
+    PLIST_ENTRY Entry;
+    PSLEEPING_THREAD SleepingThread;
+    
+    OS_DbgPrint(OSK_MID_TRACE,
+		("Called TSLEEP: tok = %x, pri = %d, wmesg = %s, tmio = %x\n",
+		 token, priority, wmesg, tmio));
+
+    SleepingThread = ExAllocatePool( NonPagedPool, sizeof( *SleepingThread ) );
+    if( SleepingThread ) {
+	KeInitializeEvent( &SleepingThread->Event, NotificationEvent, FALSE );
+	SleepingThread->SleepToken = token;
+
+	ExAcquireFastMutex( &SleepingThreadsLock );
+	InsertTailList( &SleepingThreadsList, &SleepingThread->Entry );
+	ExReleaseFastMutex( &SleepingThreadsLock );
+
+	OS_DbgPrint(OSK_MID_TRACE,("Waiting on %x\n", token));
+	KeWaitForSingleObject( &SleepingThread->Event,
+			       WrSuspended,
+			       KernelMode,
+			       TRUE,
+			       NULL );
+
+	ExAcquireFastMutex( &SleepingThreadsLock );
+	RemoveEntryList( &SleepingThread->Entry );
+	ExReleaseFastMutex( &SleepingThreadsLock );
+
+	ExFreePool( SleepingThread );
+    }
+    OS_DbgPrint(OSK_MID_TRACE,("Waiting finished: %x\n", token));
+    return 0;
 }
 
 void wakeup( struct socket *so, void *token ) {
-    OSK_UINT flags = 0;
+    KIRQL OldIrql;
+    KEVENT Event;
+    PLIST_ENTRY Entry;
+    PSLEEPING_THREAD SleepingThread;
+    UINT flags = 0;
 
     OS_DbgPrint
-	(OSK_MID_TRACE,("XXX Bytes to receive: %d state %x\n", 
-			so->so_rcv.sb_cc, so->so_state));
+	(OSK_MID_TRACE,("XXX Bytes to receive: %d\n", so->so_rcv.sb_cc));
 
     if( so->so_state & SS_ISCONNECTED ) {
 	OS_DbgPrint(OSK_MID_TRACE,("Socket connected!\n"));
 	flags |= SEL_CONNECT;
-    }
-    if( so->so_q ) {
-	OS_DbgPrint(OSK_MID_TRACE,("Socket accepting q\n"));
-	flags |= SEL_ACCEPT;
     }
     if( so->so_rcv.sb_cc > 0 ) {
 	OS_DbgPrint(OSK_MID_TRACE,("Socket readable\n"));
@@ -50,9 +92,18 @@ void wakeup( struct socket *so, void *token ) {
 			       so ? so->so_connection : 0,
 			       flags );
 
-    if( OtcpEvent.Wakeup ) 
-	OtcpEvent.Wakeup( OtcpEvent.ClientData, token );
-
+    ExAcquireFastMutex( &SleepingThreadsLock );
+    Entry = SleepingThreadsList.Flink;
+    while( Entry != &SleepingThreadsList ) {
+	SleepingThread = CONTAINING_RECORD(Entry, SLEEPING_THREAD, Entry);
+	OS_DbgPrint(OSK_MID_TRACE,("Sleeper @ %x\n", SleepingThread));
+	if( SleepingThread->SleepToken == token ) {
+	    OS_DbgPrint(OSK_MID_TRACE,("Setting event to wake %x\n", token));
+	    KeSetEvent( &SleepingThread->Event, IO_NETWORK_INCREMENT, FALSE );
+	}
+	Entry = Entry->Flink;
+    }
+    ExReleaseFastMutex( &SleepingThreadsLock );
     OS_DbgPrint(OSK_MID_TRACE,("Wakeup done %x\n", token));
 }
 
@@ -83,7 +134,7 @@ void clock_init()
 {
 	timeout_init();
 	/* inittodr(0); // what does this do? */
-	/* boottime = kern_time; */
+	boottime = time;
 	/* Start a clock we can use for timeouts */
 }
 

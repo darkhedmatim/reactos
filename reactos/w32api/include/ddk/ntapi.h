@@ -398,20 +398,13 @@ typedef struct _SYSTEM_LOCK_INFORMATION {
 #define PROTECT_FROM_CLOSE                0x01
 #define INHERIT                           0x02
 
-typedef struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO {
-	USHORT  UniqueProcessId;
-	USHORT  CreatorBackTraceIndex;
-	UCHAR  ObjectTypeIndex;
-	UCHAR  HandleAttributes;
-	USHORT  HandleValue;
-	PVOID  Object;
-	ULONG  GrantedAccess;
-} SYSTEM_HANDLE_TABLE_ENTRY_INFO, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO;
-
 typedef struct _SYSTEM_HANDLE_INFORMATION {
-	ULONG  NumberOfHandles;
-	SYSTEM_HANDLE_TABLE_ENTRY_INFO  Handles[1];
-
+	ULONG  ProcessId;
+	UCHAR  ObjectTypeNumber;
+	UCHAR  Flags;
+	USHORT  Handle;
+	PVOID  Object;
+	ACCESS_MASK  GrantedAccess;
 } SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
 
 typedef struct _SYSTEM_OBJECT_TYPE_INFORMATION {
@@ -452,10 +445,10 @@ typedef struct _SYSTEM_OBJECT_INFORMATION {
 
 typedef struct _SYSTEM_PAGEFILE_INFORMATION {
 	ULONG  NextEntryOffset;
-	ULONG  TotalSize;
-	ULONG  TotalInUse;
-	ULONG  PeakUsage;
-	UNICODE_STRING  PageFileName;
+	ULONG  CurrentSize;
+	ULONG  TotalUsed;
+	ULONG  PeakUsed;
+	UNICODE_STRING  FileName;
 } SYSTEM_PAGEFILE_INFORMATION, *PSYSTEM_PAGEFILE_INFORMATION;
 
 typedef struct _SYSTEM_INSTRUCTION_EMULATION_INFORMATION {
@@ -573,9 +566,9 @@ typedef struct _SYSTEM_CONTEXT_SWITCH_INFORMATION {
 } SYSTEM_CONTEXT_SWITCH_INFORMATION, *PSYSTEM_CONTEXT_SWITCH_INFORMATION;
 
 typedef struct _SYSTEM_REGISTRY_QUOTA_INFORMATION {
-	ULONG  RegistryQuotaAllowed;
-	ULONG  RegistryQuotaUsed;
-	PVOID  Reserved1;
+	ULONG  RegistryQuota;
+	ULONG  RegistryQuotaInUse;
+	ULONG  PagedPoolSize;
 } SYSTEM_REGISTRY_QUOTA_INFORMATION, *PSYSTEM_REGISTRY_QUOTA_INFORMATION;
 
 typedef struct _SYSTEM_LOAD_AND_CALL_IMAGE {
@@ -658,52 +651,6 @@ typedef struct _SYSTEM_MEMORY_USAGE_INFORMATION {
 	PVOID  EndOfData;
 	SYSTEM_MEMORY_USAGE  MemoryUsage[1];
 } SYSTEM_MEMORY_USAGE_INFORMATION, *PSYSTEM_MEMORY_USAGE_INFORMATION;
-
-typedef struct _SYSTEM_THREAD_INFORMATION
-{
-	LARGE_INTEGER	KernelTime;
-	LARGE_INTEGER	UserTime;
-	LARGE_INTEGER	CreateTime;
-	ULONG		WaitTime;
-	PVOID		StartAddress;
-	CLIENT_ID	ClientId;
-	KPRIORITY	Priority;
-	LONG		BasePriority;
-	ULONG		ContextSwitches;
-	ULONG		ThreadState;
-	KWAIT_REASON	WaitReason;
-} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
-
-typedef struct SYSTEM_PROCESS_INFORMATION
-{
-	ULONG				NextEntryOffset;
-	ULONG				NumberOfThreads;
-	LARGE_INTEGER			SpareLi1;
-	LARGE_INTEGER			SpareLi2;
-	LARGE_INTEGER			SpareLi3;
-	LARGE_INTEGER			CreateTime;
-	LARGE_INTEGER			UserTime;
-	LARGE_INTEGER			KernelTime;
-	UNICODE_STRING			ImageName;
-	ULONG				BasePriority;
-	HANDLE				UniqueProcessId;
-	HANDLE				InheritedFromUniqueProcessId;
-	ULONG				HandleCount;
-	ULONG				SessionId;
-	ULONG				SpareUl3;
-	ULONG				PeakVirtualSize;
-	ULONG				VirtualSize;
-	ULONG				PageFaultCount;
-	ULONG				PeakWorkingSetSize;
-	ULONG				WorkingSetSize;
-	ULONG				QuotaPeakPagedPoolUsage;
-	ULONG				QuotaPagedPoolUsage;
-	ULONG				QuotaPeakNonPagedPoolUsage;
-	ULONG				QuotaNonPagedPoolUsage;
-	ULONG				PagefileUsage;
-	ULONG				PeakPagefileUsage;
-	ULONG				PrivatePageCount;
-} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
 
 NTOSAPI
 NTSTATUS
@@ -1106,32 +1053,32 @@ NTSTATUS
 NTAPI
 ZwAllocateUserPhysicalPages(
 	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray);
+	IN PULONG  NumberOfPages,
+	OUT PULONG  PageFrameNumbers);
 
 NTOSAPI
 NTSTATUS
 NTAPI
 ZwFreeUserPhysicalPages(
 	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	IN PULONG_PTR  UserPfnArray);
+	IN OUT PULONG  NumberOfPages,
+	IN PULONG  PageFrameNumbers);
 
 NTOSAPI
 NTSTATUS
 NTAPI
 ZwMapUserPhysicalPages(
-	IN PVOID  VirtualAddress,
-	IN ULONG_PTR  NumberOfPages,
-	IN PULONG_PTR  PageArray  OPTIONAL);
+	IN PVOID  BaseAddress,
+	IN PULONG  NumberOfPages,
+	IN PULONG  PageFrameNumbers);
 
 NTOSAPI
 NTSTATUS
 NTAPI
 ZwMapUserPhysicalPagesScatter(
-	IN PVOID  *VirtualAddresses,
-	IN ULONG_PTR  NumberOfPages,
-	IN PULONG_PTR  PageArray  OPTIONAL);
+	IN PVOID  *BaseAddresses,
+	IN PULONG  NumberOfPages,
+	IN PULONG  PageFrameNumbers);
 
 NTOSAPI
 NTSTATUS
@@ -1216,27 +1163,26 @@ ZwAreMappedFilesTheSame(
 
 /* Threads */
 
-typedef struct _INITIAL_TEB
-{
-	PVOID StackBase;
-	PVOID StackLimit;
-	PVOID StackCommit;
-	PVOID StackCommitMax;
-	PVOID StackReserved;
-} INITIAL_TEB, *PINITIAL_TEB;
+typedef struct _USER_STACK {
+	PVOID  FixedStackBase;
+	PVOID  FixedStackLimit;
+	PVOID  ExpandableStackBase;
+	PVOID  ExpandableStackLimit;
+	PVOID  ExpandableStackBottom;
+} USER_STACK, *PUSER_STACK;
 
 NTOSAPI
 NTSTATUS
 NTAPI
 ZwCreateThread(
-  OUT PHANDLE ThreadHandle,
-  IN ACCESS_MASK DesiredAccess,
-  IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
-  IN HANDLE ProcessHandle,
-  OUT PCLIENT_ID ClientId,
-  IN PCONTEXT ThreadContext,
-  IN PINITIAL_TEB InitialTeb,
-  IN BOOLEAN CreateSuspended);
+	OUT PHANDLE  ThreadHandle,
+	IN ACCESS_MASK  DesiredAccess,
+	IN POBJECT_ATTRIBUTES  ObjectAttributes,
+	IN HANDLE  ProcessHandle,
+	OUT PCLIENT_ID  ClientId,
+	IN PCONTEXT  ThreadContext,
+	IN PUSER_STACK  UserStack,
+	IN BOOLEAN  CreateSuspended);
 
 NTOSAPI
 NTSTATUS
@@ -1307,11 +1253,6 @@ typedef struct _KERNEL_USER_TIMES {
 	LARGE_INTEGER  KernelTime;
 	LARGE_INTEGER  UserTime;
 } KERNEL_USER_TIMES, *PKERNEL_USER_TIMES;
-
-typedef struct _DESCRIPTOR_TABLE_ENTRY {
-	ULONG Selector;
-	LDT_ENTRY Descriptor;
-} DESCRIPTOR_TABLE_ENTRY, *PDESCRIPTOR_TABLE_ENTRY;
 
 NTOSAPI
 NTSTATUS
@@ -1644,7 +1585,7 @@ RtlDestroyQueryDebugBuffer(
 
 typedef struct _DEBUG_MODULE_INFORMATION {
 	ULONG  Reserved[2];
-	PVOID  Base;
+	ULONG  Base;
 	ULONG  Size;
 	ULONG  Flags;
 	USHORT  Index;
@@ -1655,7 +1596,7 @@ typedef struct _DEBUG_MODULE_INFORMATION {
 } DEBUG_MODULE_INFORMATION, *PDEBUG_MODULE_INFORMATION;
 
 typedef struct _DEBUG_HEAP_INFORMATION {
-	PVOID  Base;
+	ULONG  Base;
 	ULONG  Flags;
 	USHORT  Granularity;
 	USHORT  Unknown;

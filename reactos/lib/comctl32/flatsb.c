@@ -47,7 +47,7 @@ typedef struct
     DWORD dwDummy;  /* just to keep the compiler happy ;-) */
 } FLATSB_INFO, *LPFLATSB_INFO;
 
-#define FlatSB_GetInfoPtr(hwnd) ((FLATSB_INFO*)GetWindowLongPtrW (hwnd, 0))
+#define FlatSB_GetInfoPtr(hwnd) ((FLATSB_INFO*)GetWindowLongA (hwnd, 0))
 
 
 /***********************************************************************
@@ -274,7 +274,7 @@ FLATSB_Register (void)
 
     ZeroMemory (&wndClass, sizeof(WNDCLASSA));
     wndClass.style         = CS_GLOBALCLASS;
-    wndClass.lpfnWndProc   = FlatSB_WindowProc;
+    wndClass.lpfnWndProc   = (WNDPROC)FlatSB_WindowProc;
     wndClass.cbClsExtra    = 0;
     wndClass.cbWndExtra    = sizeof(FLATSB_INFO *);
     wndClass.hCursor       = LoadCursorA (0, (LPSTR)IDC_ARROW);

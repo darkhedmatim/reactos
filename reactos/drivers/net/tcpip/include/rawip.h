@@ -8,14 +8,14 @@
 #define __RAWIP_H
 
 NTSTATUS RawIPSendDatagram(
-    PADDRESS_FILE AddrFile,
+    PTDI_REQUEST Request,
     PTDI_CONNECTION_INFORMATION ConnInfo,
-    PCHAR Buffer,
+    PNDIS_BUFFER Buffer,
     ULONG DataSize,
     PULONG DataUsed);
 
 VOID RawIPReceive(
-    PIP_INTERFACE Interface,
+    PNET_TABLE_ENTRY NTE,
     PIP_PACKET IPPacket);
 
 NTSTATUS RawIPStartup(

@@ -8,9 +8,6 @@
  *   CSH 01/09-2000 Created
  */
 #include <afd.h>
-#ifndef _MSC_VER
-#include <pseh.h>
-#endif
 #include "debug.h"
 #include "tdiconn.h"
 
@@ -271,8 +268,7 @@ NTSTATUS TdiOpenConnectionEndpointFile(
 NTSTATUS TdiConnect(
     PIRP *Irp,
     PFILE_OBJECT ConnectionObject,
-    PTDI_CONNECTION_INFORMATION RemoteAddress,
-    PIO_STATUS_BLOCK Iosb,
+    PTRANSPORT_ADDRESS RemoteAddress,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 /*
@@ -284,8 +280,12 @@ NTSTATUS TdiConnect(
  *     Status of operation
  */
 {
+  PTDI_CONNECTION_INFORMATION RequestConnectionInfo;
+  PTDI_CONNECTION_INFORMATION ReturnConnectionInfo;
   PDEVICE_OBJECT DeviceObject;
+  IO_STATUS_BLOCK Iosb;
   NTSTATUS Status;
+  KEVENT Event;
 
   AFD_DbgPrint(MAX_TRACE, ("Called\n"));
 
@@ -293,12 +293,32 @@ NTSTATUS TdiConnect(
 
   DeviceObject = IoGetRelatedDeviceObject(ConnectionObject);
 
+  /* Use same TDI address type for return connection information */
+  Status = TdiBuildConnectionInfo(&RequestConnectionInfo, 
+				  &RemoteAddress->Address[0]);
+  if (!NT_SUCCESS(Status)) {
+    ExFreePool(RequestConnectionInfo);
+    return Status;
+  }
+
+  /* Use same TDI address type for return connection information */
+  Status = TdiBuildConnectionInfo(&ReturnConnectionInfo, 
+				  &RemoteAddress->Address[0]);
+  if (!NT_SUCCESS(Status)) {
+    ExFreePool(RequestConnectionInfo);
+    ExFreePool(ReturnConnectionInfo);
+    return Status;
+  }
+
+  KeInitializeEvent(&Event, NotificationEvent, FALSE);
+
   *Irp = TdiBuildInternalDeviceControlIrp(TDI_CONNECT,             /* Sub function */
 					  DeviceObject,            /* Device object */
 					  ConnectionObject,        /* File object */
-					  NULL,                    /* Event */
-					  Iosb);                   /* Status */
+					  &Event,                  /* Event */
+					  &Iosb);                  /* Status */
   if (!*Irp) {
+    ExFreePool(ReturnConnectionInfo);
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
@@ -308,10 +328,12 @@ NTSTATUS TdiConnect(
                   CompletionRoutine,      /* Completion routine */
                   CompletionContext,      /* Completion routine context */
                   NULL,                   /* Time */
-                  RemoteAddress,          /* Request connection information */
-                  RemoteAddress);         /* Return connection information */
+                  RequestConnectionInfo,  /* Request connection information */
+                  ReturnConnectionInfo);  /* Return connection information */
 
-  Status = TdiCall(*Irp, DeviceObject, NULL, Iosb);
+  Status = TdiCall(*Irp, DeviceObject, &Event, &Iosb);
+
+  ExFreePool(ReturnConnectionInfo);
 
   return Status;
 }
@@ -369,7 +391,6 @@ NTSTATUS TdiListen
 ( PIRP *Irp,
   PFILE_OBJECT ConnectionObject,
   PTDI_CONNECTION_INFORMATION *RequestConnectionInfo,
-  PTDI_CONNECTION_INFORMATION *ReturnConnectionInfo,
   PIO_STATUS_BLOCK Iosb,
   PIO_COMPLETION_ROUTINE  CompletionRoutine,
   PVOID CompletionContext)
@@ -413,7 +434,7 @@ NTSTATUS TdiListen
                  CompletionContext,      /* Completion routine context */
                  0,                      /* Flags */
                  *RequestConnectionInfo, /* Request connection information */
-		 *ReturnConnectionInfo);  /* Return connection information */
+                 NULL /* ReturnConnectionInfo */);  /* Return connection information */
 
   Status = TdiCall(*Irp, DeviceObject, NULL /* Don't wait for completion */, Iosb);
   
@@ -766,7 +787,7 @@ NTSTATUS TdiSend
   PVOID CompletionContext )
 {
     PDEVICE_OBJECT DeviceObject;
-    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS Status;
     PMDL Mdl;
 
     DeviceObject = IoGetRelatedDeviceObject(TransportObject);
@@ -800,18 +821,17 @@ NTSTATUS TdiSend
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    _SEH_TRY {
+#ifdef _MSC_VER
+    try {
+#endif
         MmProbeAndLockPages(Mdl, KernelMode, IoModifyAccess);
-    } _SEH_HANDLE {
+#ifdef _MSC_VER
+    } except (EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
         IoFreeIrp(*Irp);
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-    } _SEH_END;
-
-    if( !NT_SUCCESS(Status) ) {
-	IoFreeIrp(*Irp);
-	return Status;
+        return STATUS_INSUFFICIENT_RESOURCES;
     }
+#endif
 
     AFD_DbgPrint(MID_TRACE,("AFD>>> Got an MDL: %x\n", Mdl));
 
@@ -841,8 +861,8 @@ NTSTATUS TdiReceive(
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
     PDEVICE_OBJECT DeviceObject;
+    NTSTATUS Status;
     PMDL Mdl;
 
     DeviceObject = IoGetRelatedDeviceObject(TransportObject);
@@ -876,20 +896,18 @@ NTSTATUS TdiReceive(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    _SEH_TRY {
-        AFD_DbgPrint(MIN_TRACE, ("probe and lock\n"));
+#ifdef _MSC_VER
+    try {
+#endif
         MmProbeAndLockPages(Mdl, KernelMode, IoModifyAccess);
-        AFD_DbgPrint(MIN_TRACE, ("probe and lock done\n"));
-    } _SEH_HANDLE {
+#ifdef _MSC_VER
+    } except (EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
+        IoFreeMdl(Mdl);
         IoFreeIrp(*Irp);
-	Status = STATUS_INSUFFICIENT_RESOURCES;
-    } _SEH_END;
-
-    if( !NT_SUCCESS(Status) ) {
-	IoFreeIrp(*Irp);
-	return Status;
+        return STATUS_INSUFFICIENT_RESOURCES;
     }
+#endif
 
     AFD_DbgPrint(MID_TRACE,("AFD>>> Got an MDL: %x\n", Mdl));
 
@@ -902,13 +920,9 @@ NTSTATUS TdiReceive(
 		    Flags,                  /* Flags */
 		    BufferLength);          /* Length of data */
 
-
     Status = TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the receive completion
        routine. */
-
-    AFD_DbgPrint(MID_TRACE,("Status %x Information %d\n", 
-			    Status, Iosb->Information));
 
     return Status;
 }
@@ -971,13 +985,18 @@ NTSTATUS TdiReceiveDatagram(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    _SEH_TRY {
+#ifdef _MSC_VER
+    try {
+#endif
         MmProbeAndLockPages(Mdl, KernelMode, IoModifyAccess);
-    } _SEH_HANDLE {
+#ifdef _MSC_VER
+    } except (EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
+        IoFreeMdl(Mdl);
         IoFreeIrp(*Irp);
         return STATUS_INSUFFICIENT_RESOURCES;
-    } _SEH_END;
+    }
+#endif
 
     AFD_DbgPrint(MID_TRACE,("AFD>>> Got an MDL: %x\n", Mdl));
 
@@ -1016,7 +1035,7 @@ NTSTATUS TdiSendDatagram(
  *     TransportObject = Pointer to transport object
  *     From            = Send filter (NULL if none)
  *     Address         = Address of buffer to place remote address
- *     Buffer          = Address of buffer to place send data
+ *     Buffer          = Address of buffer to place sendd data
  *     BufferSize      = Address of buffer with length of Buffer (updated)
  * RETURNS:
  *     Status of operation
@@ -1025,8 +1044,6 @@ NTSTATUS TdiSendDatagram(
     PDEVICE_OBJECT DeviceObject;
     NTSTATUS Status;
     PMDL Mdl;
-
-    AFD_DbgPrint(MID_TRACE,("Called(TransportObject %x)\n", TransportObject));
 
     DeviceObject = IoGetRelatedDeviceObject(TransportObject);
     if (!DeviceObject) {
@@ -1053,20 +1070,24 @@ NTSTATUS TdiSendDatagram(
                         FALSE,          /* Not secondary */
                         FALSE,          /* Don't charge quota */
                         *Irp);          /* Don't use IRP */
-
     if (!Mdl) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
         IoFreeIrp(*Irp);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    _SEH_TRY {
+#ifdef _MSC_VER
+    try {
+#endif
         MmProbeAndLockPages(Mdl, KernelMode, IoModifyAccess);
-    } _SEH_HANDLE {
+#ifdef _MSC_VER
+    } except (EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
+        IoFreeMdl(Mdl);
         IoFreeIrp(*Irp);
         return STATUS_INSUFFICIENT_RESOURCES;
-    } _SEH_END;
+    }
+#endif
 
     AFD_DbgPrint(MID_TRACE,("AFD>>> Got an MDL: %x\n", Mdl));
 
@@ -1083,60 +1104,6 @@ NTSTATUS TdiSendDatagram(
     Status = TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the send completion
        routine. */
-
-    return Status;
-}
-
-NTSTATUS TdiDisconnect(
-    PFILE_OBJECT TransportObject,
-    PLARGE_INTEGER Time,
-    USHORT Flags,
-    PIO_STATUS_BLOCK Iosb,
-    PIO_COMPLETION_ROUTINE CompletionRoutine,
-    PVOID CompletionContext,
-    PTDI_CONNECTION_INFORMATION RequestConnectionInfo,
-    PTDI_CONNECTION_INFORMATION ReturnConnectionInfo) {
-    PDEVICE_OBJECT DeviceObject;
-    NTSTATUS Status;
-    KEVENT Event;
-    PIRP Irp;
-
-    DeviceObject = IoGetRelatedDeviceObject(TransportObject);
-
-    KeInitializeEvent(&Event, NotificationEvent, FALSE);
-
-    AFD_DbgPrint(MID_TRACE,("Called(TransportObject %x)\n", TransportObject));
-
-    DeviceObject = IoGetRelatedDeviceObject(TransportObject);
-    if (!DeviceObject) {
-        AFD_DbgPrint(MIN_TRACE, ("Bad device object.\n"));
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    Irp = TdiBuildInternalDeviceControlIrp
-	( TDI_SEND_DATAGRAM,       /* Sub function */
-	  DeviceObject,            /* Device object */
-	  TransportObject,         /* File object */
-	  &Event,                  /* Event */
-	  Iosb );                  /* Status */
-
-    if (!Irp) {
-        AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    TdiBuildDisconnect
-	(Irp,                    /* I/O Request Packet */
-	 DeviceObject,           /* Device object */
-	 TransportObject,        /* File object */
-	 CompletionRoutine,      /* Completion routine */
-	 CompletionContext,      /* Completion context */
-	 Time,                   /* Time */
-	 Flags,                  /* Disconnect flags */
-	 RequestConnectionInfo,  /* Indication of who to disconnect */
-	 ReturnConnectionInfo);  /* Indication of who disconnected */
-
-    Status = TdiCall(Irp, DeviceObject, &Event, Iosb);
 
     return Status;
 }

@@ -41,7 +41,7 @@
  * Bugs
  *   -- Expand large item in ICON mode when the cursor is flying over the icon or text.
  *   -- Support CustonDraw options for _WIN32_IE >= 0x560 (see NMLVCUSTOMDRAW docs.
- *   -- in LISTVIEW_AddGroupSelection, we would send LVN_ODSTATECHANGED 
+ *   -- in LISTVIEW_AddGroupSelection, se whould send LVN_ODSTATECHANGED 
  *   -- LVA_SNAPTOGRID not implemented
  *   -- LISTVIEW_ApproximateViewRect partially implemented
  *   -- LISTVIEW_[GS]etColumnOrderArray stubs
@@ -348,7 +348,7 @@ typedef struct tagLISTVIEW_INFO
 /* Standard DrawText flags */
 #define LV_ML_DT_FLAGS  (DT_TOP | DT_NOPREFIX | DT_EDITCONTROL | DT_CENTER | DT_WORDBREAK | DT_WORD_ELLIPSIS | DT_END_ELLIPSIS)
 #define LV_FL_DT_FLAGS  (DT_TOP | DT_NOPREFIX | DT_EDITCONTROL | DT_CENTER | DT_WORDBREAK | DT_NOCLIP)
-#define LV_SL_DT_FLAGS  (DT_VCENTER | DT_NOPREFIX | DT_EDITCONTROL | DT_SINGLELINE | DT_WORD_ELLIPSIS | DT_END_ELLIPSIS)
+#define LV_SL_DT_FLAGS  (DT_VCENTER | DT_EDITCONTROL | DT_SINGLELINE | DT_WORD_ELLIPSIS | DT_END_ELLIPSIS)
 
 /* The time in milliseconds to reset the search in the list */
 #define KEY_DELAY       450
@@ -717,7 +717,7 @@ static LRESULT notify_hdr(LISTVIEW_INFO *infoPtr, INT code, LPNMHDR pnmh)
     TRACE("(code=%d)\n", code);
 
     pnmh->hwndFrom = infoPtr->hwndSelf;
-    pnmh->idFrom = GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_ID);
+    pnmh->idFrom = GetWindowLongW(infoPtr->hwndSelf, GWL_ID);
     pnmh->code = code;
     result = SendMessageW(infoPtr->hwndNotify, WM_NOTIFY,
 			  (WPARAM)pnmh->idFrom, (LPARAM)pnmh);
@@ -819,8 +819,10 @@ static int get_ansi_notification(INT unicodeNotificationCode)
 }
 
 /*
-  Send notification. depends on dispinfoW having same
-  structure as dispinfoA.
+  With testing on Windows 2000 it looks like the notify format
+  has nothing to do with this message. It ALWAYS seems to be
+  in ansi format.
+
   infoPtr : listview struct
   notificationCode : *Unicode* notification code
   pdi : dispinfo structure (can be unicode or ansi)
@@ -829,40 +831,32 @@ static int get_ansi_notification(INT unicodeNotificationCode)
 static BOOL notify_dispinfoT(LISTVIEW_INFO *infoPtr, INT notificationCode, LPNMLVDISPINFOW pdi, BOOL isW)
 {
     BOOL bResult = FALSE;
-    BOOL convertToAnsi = FALSE, convertToUnicode = FALSE;
-    INT cchTempBufMax = 0, savCchTextMax = 0, realNotifCode;
+    BOOL convertToAnsi = FALSE;
+    INT cchTempBufMax = 0, savCchTextMax = 0;
     LPWSTR pszTempBuf = NULL, savPszText = NULL;
 
     if ((pdi->item.mask & LVIF_TEXT) && is_textT(pdi->item.pszText, isW))
-    {
-	convertToAnsi = (isW && infoPtr->notifyFormat == NFR_ANSI);
-	convertToUnicode = (!isW && infoPtr->notifyFormat == NFR_UNICODE);
-    }
+	    convertToAnsi = isW;
 
-    if (convertToAnsi || convertToUnicode)
+    if (convertToAnsi)
     {
 	if (notificationCode != LVN_GETDISPINFOW)
- 	{
- 	    cchTempBufMax = convertToUnicode ?
-       		MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pdi->item.pszText, -1, NULL, 0):
-       		WideCharToMultiByte(CP_ACP, 0, pdi->item.pszText, -1, NULL, 0, NULL, NULL);
+	{
+            cchTempBufMax = WideCharToMultiByte(CP_ACP, 0, pdi->item.pszText,
+                                                -1, NULL, 0, NULL, NULL);
+        }
+	else
+	{
+	    cchTempBufMax = pdi->item.cchTextMax;
+	    *pdi->item.pszText = 0; /* make sure we don't process garbage */
 	}
- 	else
- 	{
- 	    cchTempBufMax = pdi->item.cchTextMax;
- 	    *pdi->item.pszText = 0; /* make sure we don't process garbage */
- 	}
 
-	pszTempBuf = HeapAlloc(GetProcessHeap(), 0,
-	    (convertToUnicode ? sizeof(WCHAR) : sizeof(CHAR)) * cchTempBufMax);
+        pszTempBuf = HeapAlloc(GetProcessHeap(), 0, sizeof(CHAR) *
+                               cchTempBufMax);
         if (!pszTempBuf) return FALSE;
 
-	if (convertToUnicode)
-	    MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pdi->item.pszText, -1,
-	                        pszTempBuf, cchTempBufMax);
-	else
-	    WideCharToMultiByte(CP_ACP, 0, pdi->item.pszText, -1, (LPSTR) pszTempBuf,
-	                        cchTempBufMax, NULL, NULL);
+        WideCharToMultiByte(CP_ACP, 0, pdi->item.pszText, -1, (LPSTR)
+                             pszTempBuf, cchTempBufMax, NULL, NULL);
 
         savCchTextMax = pdi->item.cchTextMax;
         savPszText = pdi->item.pszText;
@@ -870,21 +864,16 @@ static BOOL notify_dispinfoT(LISTVIEW_INFO *infoPtr, INT notificationCode, LPNML
         pdi->item.cchTextMax = cchTempBufMax;
     }
 
-    if (infoPtr->notifyFormat == NFR_ANSI)
-	realNotifCode = get_ansi_notification(notificationCode);
-    else
-	realNotifCode = notificationCode;
-    TRACE(" pdi->item=%s\n", debuglvitem_t(&pdi->item, infoPtr->notifyFormat != NFR_ANSI));
-    bResult = notify_hdr(infoPtr, realNotifCode, &pdi->hdr);
+    TRACE(" pdi->item=%s\n", debuglvitem_t(&pdi->item, infoPtr->notifyFormat !=
+           NFR_ANSI));
 
-    if (convertToUnicode || convertToAnsi)
+    bResult = notify_hdr(infoPtr, get_ansi_notification(notificationCode),
+                        (LPNMHDR)pdi);
+
+    if (convertToAnsi)
     {
-	if (convertToUnicode) /* note : pointer can be changed by app ! */
- 	    WideCharToMultiByte(CP_ACP, 0, pdi->item.pszText, -1, (LPSTR) savPszText,
-                                savCchTextMax, NULL, NULL);
-	else
-	    MultiByteToWideChar(CP_ACP, 0, (LPSTR) pdi->item.pszText, -1,
-	                        savPszText, savCchTextMax);
+        MultiByteToWideChar(CP_ACP, 0, (LPSTR) pdi->item.pszText, -1,
+                            savPszText, savCchTextMax);
         pdi->item.pszText = savPszText; /* restores our buffer */
         pdi->item.cchTextMax = savCchTextMax;
         HeapFree(GetProcessHeap(), 0, pszTempBuf);
@@ -1743,7 +1732,7 @@ static void LISTVIEW_ShowFocusRect(LISTVIEW_INFO *infoPtr, BOOL fShow)
 	   
 	ZeroMemory(&dis, sizeof(dis)); 
 	dis.CtlType = ODT_LISTVIEW;
-	dis.CtlID = (UINT)GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_ID);
+	dis.CtlID = GetWindowLongW(infoPtr->hwndSelf, GWL_ID);
 	dis.itemID = item.iItem;
 	dis.itemAction = ODA_FOCUS;
 	if (fShow) dis.itemState |= ODS_FOCUS;
@@ -3142,7 +3131,7 @@ static BOOL LISTVIEW_KeySelection(LISTVIEW_INFO *infoPtr, INT nItem)
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] fwKeys : key indicator
- * [I] x,y : mouse position
+ * [I] pts : mouse position
  *
  * RETURN:
  *   0 if the message was processed, non-zero if there was an error
@@ -3152,7 +3141,7 @@ static BOOL LISTVIEW_KeySelection(LISTVIEW_INFO *infoPtr, INT nItem)
  * over the item for a certain period of time.
  *
  */
-static LRESULT LISTVIEW_MouseHover(LISTVIEW_INFO *infoPtr, WORD fwKyes, INT x, INT y)
+static LRESULT LISTVIEW_MouseHover(LISTVIEW_INFO *infoPtr, WORD fwKyes, POINTS pts)
 {
     if(infoPtr->dwLvExStyle & LVS_EX_TRACKSELECT)
 	/* FIXME: select the item!!! */
@@ -3168,12 +3157,12 @@ static LRESULT LISTVIEW_MouseHover(LISTVIEW_INFO *infoPtr, WORD fwKyes, INT x, I
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] fwKeys : key indicator
- * [I] x,y : mouse position
+ * [I] pts : mouse position
  *
  * RETURN:
  *   0 if the message is processed, non-zero if there was an error
  */
-static LRESULT LISTVIEW_MouseMove(LISTVIEW_INFO *infoPtr, WORD fwKeys, INT x, INT y)
+static LRESULT LISTVIEW_MouseMove(LISTVIEW_INFO *infoPtr, WORD fwKeys, POINTS pts)
 {
   TRACKMOUSEEVENT trackinfo;
 
@@ -3702,7 +3691,7 @@ postpaint:
  */
 static void LISTVIEW_RefreshOwnerDraw(LISTVIEW_INFO *infoPtr, ITERATOR *i, HDC hdc, DWORD cdmode)
 {
-    UINT uID = (UINT)GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_ID);
+    UINT uID = GetWindowLongW(infoPtr->hwndSelf, GWL_ID);
     DWORD cditemmode = CDRF_DODEFAULT;
     NMLVCUSTOMDRAW nmlvcd;
     POINT Origin, Position;
@@ -7391,7 +7380,7 @@ static LRESULT LISTVIEW_Create(HWND hwnd, const CREATESTRUCTW *lpcs)
   infoPtr = (LISTVIEW_INFO *)Alloc(sizeof(LISTVIEW_INFO));
   if (!infoPtr) return -1;
 
-  SetWindowLongPtrW(hwnd, 0, (DWORD_PTR)infoPtr);
+  SetWindowLongW(hwnd, 0, (LONG)infoPtr);
 
   infoPtr->hwndSelf = hwnd;
   infoPtr->dwStyle = lpcs->style;
@@ -7736,7 +7725,7 @@ static LRESULT LISTVIEW_MouseWheel(LISTVIEW_INFO *infoPtr, INT wheelDelta)
 {
     UINT uView = infoPtr->dwStyle & LVS_TYPEMASK;
     INT gcWheelDelta = 0;
-    INT pulScrollLines = 3;
+    UINT pulScrollLines = 3;
     SCROLLINFO scrollInfo;
 
     TRACE("(wheelDelta=%d)\n", wheelDelta);
@@ -7962,22 +7951,22 @@ static LRESULT LISTVIEW_TrackMouse(LISTVIEW_INFO *infoPtr, POINT pt)
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_LButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_LButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
     LVHITTESTINFO htInfo;
 
-    TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, x, y);
+    TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, pts.x, pts.y);
 
     /* send NM_RELEASEDCAPTURE notification */
     notify(infoPtr, NM_RELEASEDCAPTURE);
 
-    htInfo.pt.x = x;
-    htInfo.pt.y = y;
+    htInfo.pt.x = pts.x;
+    htInfo.pt.y = pts.y;
 
     /* send NM_DBLCLK notification */
     LISTVIEW_HitTest(infoPtr, &htInfo, TRUE, FALSE);
@@ -7996,19 +7985,19 @@ static LRESULT LISTVIEW_LButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, 
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
   LVHITTESTINFO lvHitTestInfo;
   static BOOL bGroupSelect = TRUE;
-  POINT pt = { x, y };
+  POINT pt = { pts.x, pts.y };
   INT nItem;
 
-  TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, x, y);
+  TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, pts.x, pts.y);
 
   /* send NM_RELEASEDCAPTURE notification */
   notify(infoPtr, NM_RELEASEDCAPTURE);
@@ -8018,8 +8007,8 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
   /* set left button down flag */
   infoPtr->bLButtonDown = TRUE;
 
-  lvHitTestInfo.pt.x = x;
-  lvHitTestInfo.pt.y = y;
+  lvHitTestInfo.pt.x = pts.x;
+  lvHitTestInfo.pt.y = pts.y;
 
   nItem = LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, TRUE);
   TRACE("at %s, nItem=%d\n", debugpoint(&pt), nItem);
@@ -8123,21 +8112,21 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
     LVHITTESTINFO lvHitTestInfo;
     
-    TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, x, y);
+    TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, pts.x, pts.y);
 
     if (!infoPtr->bLButtonDown) return 0;
 
-    lvHitTestInfo.pt.x = x;
-    lvHitTestInfo.pt.y = y;
+    lvHitTestInfo.pt.x = pts.x;
+    lvHitTestInfo.pt.y = pts.y;
 
     /* send NM_CLICK notification */
     LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, FALSE);
@@ -8193,7 +8182,7 @@ static LRESULT LISTVIEW_NCDestroy(LISTVIEW_INFO *infoPtr)
   if (infoPtr->hDefaultFont) DeleteObject(infoPtr->hDefaultFont);
   if (infoPtr->clrBk != CLR_NONE) DeleteObject(infoPtr->hBkBrush);
 
-  SetWindowLongPtrW(infoPtr->hwndSelf, 0, 0);
+  SetWindowLongW(infoPtr->hwndSelf, 0, 0);
 
   /* free listview info pointer*/
   Free(infoPtr);
@@ -8355,23 +8344,23 @@ static LRESULT LISTVIEW_Paint(LISTVIEW_INFO *infoPtr, HDC hdc)
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_RButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_RButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
     LVHITTESTINFO lvHitTestInfo;
     
-    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, x, y);
+    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, pts.x, pts.y);
 
     /* send NM_RELEASEDCAPTURE notification */
     notify(infoPtr, NM_RELEASEDCAPTURE);
 
     /* send NM_RDBLCLK notification */
-    lvHitTestInfo.pt.x = x;
-    lvHitTestInfo.pt.y = y;
+    lvHitTestInfo.pt.x = pts.x;
+    lvHitTestInfo.pt.y = pts.y;
     LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, FALSE);
     notify_click(infoPtr, NM_RDBLCLK, &lvHitTestInfo);
 
@@ -8385,17 +8374,17 @@ static LRESULT LISTVIEW_RButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, 
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_RButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_RButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
     LVHITTESTINFO lvHitTestInfo;
     INT nItem;
 
-    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, x, y);
+    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, pts.x, pts.y);
 
     /* send NM_RELEASEDCAPTURE notification */
     notify(infoPtr, NM_RELEASEDCAPTURE);
@@ -8407,8 +8396,8 @@ static LRESULT LISTVIEW_RButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
     infoPtr->bRButtonDown = TRUE;
 
     /* determine the index of the selected item */
-    lvHitTestInfo.pt.x = x;
-    lvHitTestInfo.pt.y = y;
+    lvHitTestInfo.pt.x = pts.x;
+    lvHitTestInfo.pt.y = pts.y;
     nItem = LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, TRUE);
   
     if ((nItem >= 0) && (nItem < infoPtr->nItemCount))
@@ -8433,17 +8422,17 @@ static LRESULT LISTVIEW_RButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
  * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * [I] pts : mouse coordinate
  *
  * RETURN:
  * Zero
  */
-static LRESULT LISTVIEW_RButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
+static LRESULT LISTVIEW_RButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, POINTS pts)
 {
     LVHITTESTINFO lvHitTestInfo;
     POINT pt;
 
-    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, x, y);
+    TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, pts.x, pts.y);
 
     if (!infoPtr->bRButtonDown) return 0;
  
@@ -8451,8 +8440,8 @@ static LRESULT LISTVIEW_RButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT 
     infoPtr->bRButtonDown = FALSE;
 
     /* Send NM_RClICK notification */
-    lvHitTestInfo.pt.x = x;
-    lvHitTestInfo.pt.y = y;
+    lvHitTestInfo.pt.x = pts.x;
+    lvHitTestInfo.pt.y = pts.y;
     LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, FALSE);
     notify_click(infoPtr, NM_RCLICK, &lvHitTestInfo);
 
@@ -8785,7 +8774,7 @@ static INT LISTVIEW_StyleChanged(LISTVIEW_INFO *infoPtr, WPARAM wStyleType,
 static LRESULT WINAPI
 LISTVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  LISTVIEW_INFO *infoPtr = (LISTVIEW_INFO *)GetWindowLongPtrW(hwnd, 0);
+  LISTVIEW_INFO *infoPtr = (LISTVIEW_INFO *)GetWindowLongW(hwnd, 0);
 
   TRACE("(uMsg=%x wParam=%x lParam=%lx)\n", uMsg, wParam, lParam);
 
@@ -9170,19 +9159,19 @@ LISTVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return LISTVIEW_KillFocus(infoPtr);
 
   case WM_LBUTTONDBLCLK:
-    return LISTVIEW_LButtonDblClk(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_LButtonDblClk(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_LBUTTONDOWN:
-    return LISTVIEW_LButtonDown(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_LButtonDown(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_LBUTTONUP:
-    return LISTVIEW_LButtonUp(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_LButtonUp(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_MOUSEMOVE:
-    return LISTVIEW_MouseMove (infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_MouseMove (infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_MOUSEHOVER:
-    return LISTVIEW_MouseHover(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_MouseHover(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_NCDESTROY:
     return LISTVIEW_NCDestroy(infoPtr);
@@ -9199,13 +9188,13 @@ LISTVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return LISTVIEW_Paint(infoPtr, (HDC)wParam);
 
   case WM_RBUTTONDBLCLK:
-    return LISTVIEW_RButtonDblClk(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_RButtonDblClk(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_RBUTTONDOWN:
-    return LISTVIEW_RButtonDown(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_RButtonDown(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_RBUTTONUP:
-    return LISTVIEW_RButtonUp(infoPtr, (WORD)wParam, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+    return LISTVIEW_RButtonUp(infoPtr, (WORD)wParam, MAKEPOINTS(lParam));
 
   case WM_SETCURSOR:
     if(LISTVIEW_SetCursor(infoPtr, (HWND)wParam, LOWORD(lParam), HIWORD(lParam)))
@@ -9281,7 +9270,7 @@ void LISTVIEW_Register(void)
 
     ZeroMemory(&wndClass, sizeof(WNDCLASSW));
     wndClass.style = CS_GLOBALCLASS | CS_DBLCLKS;
-    wndClass.lpfnWndProc = LISTVIEW_WindowProc;
+    wndClass.lpfnWndProc = (WNDPROC)LISTVIEW_WindowProc;
     wndClass.cbClsExtra = 0;
     wndClass.cbWndExtra = sizeof(LISTVIEW_INFO *);
     wndClass.hCursor = LoadCursorW(0, (LPWSTR)IDC_ARROW);
@@ -9393,7 +9382,7 @@ static LRESULT LISTVIEW_Command(LISTVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lP
  */
 static LRESULT EditLblWndProcT(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL isW)
 {
-    LISTVIEW_INFO *infoPtr = (LISTVIEW_INFO *)GetWindowLongPtrW(GetParent(hwnd), 0);
+    LISTVIEW_INFO *infoPtr = (LISTVIEW_INFO *)GetWindowLongW(GetParent(hwnd), 0);
     BOOL cancel = FALSE;
 
     TRACE("(hwnd=%p, uMsg=%x, wParam=%x, lParam=%lx, isW=%d)\n",
@@ -9411,7 +9400,7 @@ static LRESULT EditLblWndProcT(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 	{
 	    WNDPROC editProc = infoPtr->EditWndProc;
 	    infoPtr->EditWndProc = 0;
-	    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (DWORD_PTR)editProc);
+	    SetWindowLongW(hwnd, GWL_WNDPROC, (LONG)editProc);
 	    return CallWindowProcT(editProc, hwnd, uMsg, wParam, lParam, isW);
 	}
 
@@ -9512,7 +9501,7 @@ static HWND CreateEditLabelT(LISTVIEW_INFO *infoPtr, LPCWSTR text, DWORD style,
     HDC hdc;
     HDC hOldFont=0;
     TEXTMETRICW textMetric;
-    HINSTANCE hinst = (HINSTANCE)GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_HINSTANCE);
+    HINSTANCE hinst = (HINSTANCE)GetWindowLongW(infoPtr->hwndSelf, GWL_HINSTANCE);
 
     TRACE("(text=%s, ..., isW=%d)\n", debugtext_t(text, isW), isW);
 
@@ -9543,8 +9532,8 @@ static HWND CreateEditLabelT(LISTVIEW_INFO *infoPtr, LPCWSTR text, DWORD style,
     if (!hedit) return 0;
 
     infoPtr->EditWndProc = (WNDPROC)
-	(isW ? SetWindowLongPtrW(hedit, GWLP_WNDPROC, (DWORD_PTR)EditLblWndProcW) :
-               SetWindowLongPtrA(hedit, GWLP_WNDPROC, (DWORD_PTR)EditLblWndProcA) );
+	(isW ? SetWindowLongW(hedit, GWL_WNDPROC, (LONG)EditLblWndProcW) :
+               SetWindowLongA(hedit, GWL_WNDPROC, (LONG)EditLblWndProcA) );
 
     SendMessageW(hedit, WM_SETFONT, (WPARAM)infoPtr->hFont, FALSE);
 

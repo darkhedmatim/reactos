@@ -280,7 +280,9 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 
   TRACE("(%p)\n",This);
 
-  return InterlockedIncrement(&This->ref);
+  This->ref++;
+
+  return This->ref;
 }
 
 /******************************************************************************
@@ -290,18 +292,20 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 ULONG WINAPI HGLOBALLockBytesImpl16_Release(ILockBytes16* iface)
 {
   HGLOBALLockBytesImpl16* const This=(HGLOBALLockBytesImpl16*)iface;
-  ULONG ref;
 
+  ULONG newRef;
   TRACE("(%p)\n",This);
 
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0)
+  if (newRef==0)
     HGLOBALLockBytesImpl16_Destroy(This);
-  return ref;
+  return newRef;
 }
 
 /******************************************************************************

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bitmap.c,v 1.5 2004/09/25 22:59:17 navaraf Exp $
+/* $Id: bitmap.c,v 1.1 2004/08/10 12:00:09 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -35,6 +35,9 @@
 
 
 /* MACROS *******************************************************************/
+
+#define ALIGN(x,align) \
+  (((x)+(align)-1) / (align))
 
 #define MASK(Count, Shift) \
   ((Count) == 32 ? 0xFFFFFFFF : ~(0xFFFFFFFF << (Count)) << (Shift))
@@ -137,18 +140,13 @@ RtlAreBitsSet(PRTL_BITMAP BitMapHeader,
 
 /*
  * @implemented
- *
- * Note: According to the documentation, SizeOfBitmap is in bits, so the
- * ROUND_UP(...) must be divided by the number of bits per byte here.
- * This function is exercised by the whole page allocator in npool.c
- * which is how i came across this error.
  */
 VOID STDCALL
 RtlClearAllBits(IN OUT PRTL_BITMAP BitMapHeader)
 {
-    memset(BitMapHeader->Buffer,
-	   0x00,
-	   ROUND_UP(BitMapHeader->SizeOfBitMap, 8) / 8);
+  memset(BitMapHeader->Buffer,
+	 0x00,
+	 ALIGN(BitMapHeader->SizeOfBitMap, 8));
 }
 
 
@@ -220,9 +218,6 @@ RtlFindClearBits(PRTL_BITMAP BitMapHeader,
   ULONG Count;
   PULONG Ptr;
   ULONG Mask;
-  ULONG Loop;
-  ULONG End;
-  ULONG OriginalHint = HintIndex;
 
   Size = BitMapHeader->SizeOfBitMap;
   if (NumberToFind > Size || NumberToFind == 0)
@@ -231,59 +226,39 @@ RtlFindClearBits(PRTL_BITMAP BitMapHeader,
   if (HintIndex >= Size)
     HintIndex = 0;
 
-  /* Initialize the values to the hint location. */
   Index = HintIndex;
-  Ptr = BitMapHeader->Buffer + (Index / 32);
-  Mask = 1 << (Index & 0x1F);
-  End = Size;
+  Ptr = (PULONG)BitMapHeader->Buffer + (Index / 32);
+  Mask  = 1 << (Index & 0x1F);
 
-  /* The outer loop does the magic of first searching from the
-   * hint to the bitmap end and then going again from beginning
-   * of the bitmap to the hint location.
-   */
-  for (Loop = 0; Loop < 2; Loop++)
+  while (HintIndex < Size)
   {
-    while (HintIndex < End)
+    /* Count clear bits */
+    for (Count = 0; Index < Size && ~*Ptr & Mask; Index++)
     {
-      /* Count clear bits */
-      for (Count = 0; Index < End && ~*Ptr & Mask; Index++)
+      if (++Count >= NumberToFind)
+	return HintIndex;
+
+      Mask <<= 1;
+
+      if (Mask == 0)
       {
-        if (++Count >= NumberToFind)
-          return HintIndex;
-
-        Mask <<= 1;
-
-        if (Mask == 0)
-        {
-          Mask = 1;
-          Ptr++;
-        }
+	Mask = 1;
+	Ptr++;
       }
-
-      /* Skip set bits */
-      for (; Index < End && *Ptr & Mask; Index++)
-      {
-        Mask <<= 1;
-
-        if (Mask == 0)
-        {
-          Mask = 1;
-          Ptr++;
-        }
-      }
-      HintIndex = Index;
     }
 
-    /* Optimalization */
-    if (OriginalHint == 0)
-      break;
+    /* Skip set bits */
+    for (; Index < Size && *Ptr & Mask; Index++)
+    {
+      Mask <<= 1;
 
-    /* Initialize the values for the beginning -> hint loop. */
-    HintIndex = Index = 0;
-    End = OriginalHint + NumberToFind - 1;
-    End = End > Size ? Size : End;
-    Ptr = BitMapHeader->Buffer;
-    Mask = 1;
+      if (Mask == 0)
+      {
+	Mask = 1;
+	Ptr++;
+      }
+    }
+    HintIndex = Index;
   }
 
   return (ULONG)-1;
@@ -623,9 +598,6 @@ RtlFindSetBits(PRTL_BITMAP BitMapHeader,
   ULONG Count;
   PULONG Ptr;
   ULONG Mask;
-  ULONG Loop;
-  ULONG End;
-  ULONG OriginalHint = HintIndex;
 
   Size = BitMapHeader->SizeOfBitMap;
   if (NumberToFind > Size || NumberToFind == 0)
@@ -634,60 +606,40 @@ RtlFindSetBits(PRTL_BITMAP BitMapHeader,
   if (HintIndex >= Size)
     HintIndex = 0;
 
-  /* Initialize the values to the hint location. */
   Index = HintIndex;
-  Ptr = BitMapHeader->Buffer + (Index / 32);
+  Ptr = (PULONG)BitMapHeader->Buffer + (Index / 32);
   Mask = 1 << (Index & 0x1F);
-  End = Size;
 
-  /* The outer loop does the magic of first searching from the
-   * hint to the bitmap end and then going again from beginning
-   * of the bitmap to the hint location.
-   */
-  for (Loop = 0; Loop < 2; Loop++)
+  while (HintIndex < Size)
   {
-    while (HintIndex < End)
+    /* Count set bits */
+    for (Count = 0; Index < Size && *Ptr & Mask; Index++)
     {
-      /* Count set bits */
-      for (Count = 0; Index < End && *Ptr & Mask; Index++)
+      if (++Count >= NumberToFind)
+	return HintIndex;
+
+      Mask <<= 1;
+
+      if (Mask == 0)
       {
-        if (++Count >= NumberToFind)
-          return HintIndex;
-
-        Mask <<= 1;
-
-        if (Mask == 0)
-        {
-          Mask = 1;
-          Ptr++;
-        }
+	Mask = 1;
+	Ptr++;
       }
-
-      /* Skip clear bits */
-      for (; Index < End && ~*Ptr & Mask; Index++)
-      {
-        Mask <<= 1;
-
-        if (Mask == 0)
-        {
-          Mask = 1;
-          Ptr++;
-        }
-      }
-
-      HintIndex = Index;
     }
 
-    /* Optimalization */
-    if (OriginalHint == 0)
-      break;
+    /* Skip clear bits */
+    for (; Index < Size && ~*Ptr & Mask; Index++)
+    {
+      Mask <<= 1;
 
-    /* Initialize the values for the beginning -> hint loop. */
-    HintIndex = Index = 0;
-    End = OriginalHint + NumberToFind - 1;
-    End = End > Size ? Size : End;
-    Ptr = BitMapHeader->Buffer;
-    Mask = 1;
+      if (Mask == 0)
+      {
+	Mask = 1;
+	Ptr++;
+      }
+    }
+
+    HintIndex = Index;
   }
 
   return (ULONG)-1;
@@ -784,18 +736,13 @@ RtlNumberOfSetBits(PRTL_BITMAP BitMapHeader)
 
 /*
  * @implemented
- *
- * Note: According to the documentation, SizeOfBitmap is in bits, so the
- * ROUND_UP(...) must be divided by the number of bits per byte here.
- * The companion function, RtlClearAllBits, is exercised by the whole page
- * allocator in npool.c which is how i came across this error.
  */
 VOID STDCALL
 RtlSetAllBits(IN OUT PRTL_BITMAP BitMapHeader)
 {
   memset(BitMapHeader->Buffer,
 	 0xFF,
-	 ROUND_UP(BitMapHeader->SizeOfBitMap, 8) / 8);
+	 ALIGN(BitMapHeader->SizeOfBitMap, 8));
 }
 
 

@@ -263,7 +263,7 @@ BOOL WINAPI SHChangeNotifyUpdateEntryList(DWORD unknown1, DWORD unknown2,
     return -1;
 }
 
-static BOOL should_notify( LPCITEMIDLIST changed, LPCITEMIDLIST watched, BOOL sub )
+static BOOL should_notify( LPITEMIDLIST changed, LPCITEMIDLIST watched, BOOL sub )
 {
     TRACE("%p %p %d\n", changed, watched, sub );
     if ( !watched )
@@ -280,7 +280,7 @@ static BOOL should_notify( LPCITEMIDLIST changed, LPCITEMIDLIST watched, BOOL su
  */
 void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID dwItem2)
 {
-    LPCITEMIDLIST Pidls[2];
+    LPITEMIDLIST Pidls[2];
     LPNOTIFICATIONLIST ptr;
     UINT typeFlag = uFlags & SHCNF_TYPE;
 
@@ -326,8 +326,8 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
         if (dwItem2) Pidls[1] = SHSimpleIDListFromPathW((LPCWSTR)dwItem2);
         break;
     case SHCNF_IDLIST:
-        Pidls[0] = (LPCITEMIDLIST)dwItem1;
-        Pidls[1] = (LPCITEMIDLIST)dwItem2;
+        Pidls[0] = (LPITEMIDLIST)dwItem1;
+        Pidls[1] = (LPITEMIDLIST)dwItem2;
         break;
     case SHCNF_PRINTERA:
     case SHCNF_PRINTERW:
@@ -389,10 +389,7 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
 
         ptr->wSignalledEvent |= wEventId;
 
-        if (ptr->dwFlags  & SHCNRF_NewDelivery)
-            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
-        else
-            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
+        SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
 
         TRACE("notifying %s, event %s(%lx) after\n", NodeName( ptr ), DumpEvent(
                 wEventId ),wEventId );
@@ -404,8 +401,8 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
     /* if we allocated it, free it. The ANSI flag is also set in its Unicode sibling. */
     if ((typeFlag & SHCNF_PATHA) || (typeFlag & SHCNF_PRINTERA))
     {
-        if (Pidls[0]) SHFree((LPITEMIDLIST)Pidls[0]);
-        if (Pidls[1]) SHFree((LPITEMIDLIST)Pidls[1]);
+        if (Pidls[0]) SHFree(Pidls[0]);
+        if (Pidls[1]) SHFree(Pidls[1]);
     }
 }
 
@@ -440,7 +437,7 @@ HANDLE WINAPI SHChangeNotification_Lock(
 {
     DWORD i;
     LPNOTIFICATIONLIST node;
-    LPCITEMIDLIST *idlist;
+    LPITEMIDLIST *idlist;
 
     TRACE("%p %08lx %p %p\n", hChange, dwProcessId, lppidls, lpwEventId);
 
@@ -451,9 +448,9 @@ HANDLE WINAPI SHChangeNotification_Lock(
     {
         idlist = SHAlloc( sizeof(LPCITEMIDLIST *) * node->cidl );
         for(i=0; i<node->cidl; i++)
-            idlist[i] = (LPCITEMIDLIST)node->pidlSignaled;
+            idlist[i] = (LPITEMIDLIST)node->pidlSignaled;
         *lpwEventId = node->wSignalledEvent;
-        *lppidls = (LPITEMIDLIST*)idlist;
+        *lppidls = idlist;
         node->wSignalledEvent = 0;
     }
     else

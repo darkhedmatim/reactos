@@ -1,4 +1,4 @@
-/* $Id: xhaldrv.c,v 1.50 2004/11/21 06:51:18 ion Exp $
+/* $Id: xhaldrv.c,v 1.48 2004/08/21 19:13:22 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -59,6 +59,7 @@ typedef enum _DISK_MANAGER
   OntrackDiskManager,
   EZ_Drive
 } DISK_MANAGER;
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -184,8 +185,8 @@ xHalpReadSector (IN PDEVICE_OBJECT DeviceObject,
 
   DPRINT("xHalpReadSector() called\n");
 
-  ASSERT(DeviceObject);
-  ASSERT(Sector);
+  assert(DeviceObject);
+  assert(Sector);
 
   KeInitializeEvent(&Event,
 		    NotificationEvent,
@@ -353,7 +354,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
   if ((DriveNumber != AUTO_DRIVE) && (DriveNumber < 24))
     {
       /* Force assignment */
-      if ((ObSystemDeviceMap->DriveMap & (1 << DriveNumber)) != 0)
+      if ((SharedUserData->DosDeviceMap & (1 << DriveNumber)) != 0)
 	{
 	  DbgPrint("Drive letter already used!\n");
 	  return;
@@ -366,7 +367,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
       for (i = 2; i < 24; i++)
 	{
-	  if ((ObSystemDeviceMap->DriveMap & (1 << i)) == 0)
+	  if ((SharedUserData->DosDeviceMap & (1 << i)) == 0)
 	    {
 	      DriveNumber = i;
 	      break;
@@ -382,9 +383,9 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
   DPRINT("DriveNumber %d\n", DriveNumber);
 
-  /* Update the System Device Map */
-  ObSystemDeviceMap->DriveMap |= (1 << DriveNumber);
-  ObSystemDeviceMap->DriveType[DriveNumber] = DriveType;
+  /* Update the shared user page */
+  SharedUserData->DosDeviceMap |= (1 << DriveNumber);
+  SharedUserData->DosDeviceDriveType[DriveNumber] = DriveType;
 
   /* Build drive name */
   swprintf(DriveNameBuffer,
@@ -1182,8 +1183,8 @@ xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
 	  NumberOfHeads,
 	  PartitionBuffer);
 
-  ASSERT(DeviceObject);
-  ASSERT(PartitionBuffer);
+  assert(DeviceObject);
+  assert(PartitionBuffer);
 
   DiskManager = NoDiskManager;
 

@@ -107,8 +107,6 @@ typedef PPROGRESS_ROUTINE LPPROGRESS_ROUTINE;
 #define MessageBoxIndirect  MessageBoxIndirectW
 #define GetWindowLong  GetWindowLongW
 #define SetWindowLong  SetWindowLongW
-#define GetWindowLongPtr  GetWindowLongW
-#define SetWindowLongPtr  SetWindowLongW
 #define GetClassLong  GetClassLongW
 #define SetClassLong  SetClassLongW
 #define FindWindow  FindWindowW
@@ -1352,9 +1350,9 @@ NtAccessCheckByTypeResultListAndAuditAlarmByHandle(
 NTSTATUS
 STDCALL
 NtAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
+	IN HANDLE ProcessHandle,
+	IN PULONG NumberOfPages,
+	OUT PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1396,8 +1394,8 @@ NTSTATUS
 STDCALL
 NtFreeUserPhysicalPages(
 	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
+	IN OUT PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1428,23 +1426,23 @@ NtIsProcessInJob(
 NTSTATUS
 STDCALL
 NtMakePermanentObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Object
 	);
 
 NTSTATUS
 STDCALL
 NtMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID BaseAddress,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
 STDCALL
 NtMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID *BaseAddresses,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1782,9 +1780,9 @@ ZwAccessCheckByTypeResultListAndAuditAlarmByHandle(
 NTSTATUS
 STDCALL
 ZwAllocateUserPhysicalPages(
-	IN HANDLE  ProcessHandle,
-	IN OUT PULONG_PTR  NumberOfPages,
-	OUT PULONG_PTR  UserPfnArray
+	IN HANDLE ProcessHandle,
+	IN PULONG NumberOfPages,
+	OUT PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1843,8 +1841,8 @@ NTSTATUS
 STDCALL
 ZwFreeUserPhysicalPages(
 	IN HANDLE ProcessHandle,
-	IN OUT PULONG_PTR NumberOfPages,
-	IN PULONG_PTR UserPfnArray
+	IN OUT PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -1881,17 +1879,17 @@ ZwMakePermanentObject(
 NTSTATUS
 STDCALL
 ZwMapUserPhysicalPages(
-	IN PVOID VirtualAddress,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID BaseAddress,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
 STDCALL
 ZwMapUserPhysicalPagesScatter(
-	IN PVOID *VirtualAddresses,
-	IN ULONG_PTR NumberOfPages,
-	IN PULONG_PTR PageArray  OPTIONAL
+	IN PVOID *BaseAddresses,
+	IN PULONG NumberOfPages,
+	IN PULONG PageFrameNumbers
 	);
 
 NTSTATUS
@@ -3004,7 +3002,7 @@ STDCALL
 AllocateUserPhysicalPages(
     HANDLE hProcess,
     PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+    PULONG_PTR PageArray
     );
 
 WINBOOL
@@ -3191,7 +3189,7 @@ STDCALL
 FreeUserPhysicalPages(
     HANDLE hProcess,
     PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
+    PULONG_PTR PageArray
     );
 
 WINBOOL
@@ -4090,7 +4088,7 @@ DWORD
 STDCALL
 GdiGetCharDimensions(HDC hdc,LPTEXTMETRICW lptm,BOOL unk);
 
-PVOID
+PSHAREDHANDLETABLE
 STDCALL
 GdiQueryTable(VOID);
 
@@ -5051,16 +5049,16 @@ WINBOOL
 STDCALL
 GetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 PSIZE_T lpMinimumWorkingSetSize,
-			 PSIZE_T lpMaximumWorkingSetSize
+			 LPDWORD lpMinimumWorkingSetSize,
+			 LPDWORD lpMaximumWorkingSetSize
 			 );
 
 WINBOOL
 STDCALL
 SetProcessWorkingSetSize(
 			 HANDLE hProcess,
-			 SIZE_T dwMinimumWorkingSetSize,
-			 SIZE_T dwMaximumWorkingSetSize
+			 DWORD dwMinimumWorkingSetSize,
+			 DWORD dwMaximumWorkingSetSize
 			 );
 
 HANDLE
@@ -8140,13 +8138,7 @@ SetTimer(
 	 UINT uElapse,
 	 TIMERPROC lpTimerFunc);
 
-typedef
-VOID STDCALL_FUNC
-(*PTIMERAPCROUTINE)(
-	LPVOID lpArgToCompletionRoutine,
-	DWORD dwTimerLowValue,
-	DWORD dwTimerHighValue
-	);
+
 WINBOOL
 STDCALL
 SetWaitableTimer(HANDLE hTimer,

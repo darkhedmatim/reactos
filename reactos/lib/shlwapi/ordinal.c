@@ -36,7 +36,6 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "winnls.h"
-#include "objbase.h"
 #include "docobj.h"
 #include "exdisp.h"
 #include "shlguid.h"
@@ -76,6 +75,8 @@ extern HMODULE SHLWAPI_hurlmon;
 extern HMODULE SHLWAPI_hversion;
 
 extern DWORD SHLWAPI_ThreadRef_index;
+
+typedef HANDLE HSHARED; /* Shared memory */
 
 /* following is GUID for IObjectWithSite::SetSite  -- see _174           */
 static DWORD id1[4] = {0xfc4801a3, 0x11cf2ba9, 0xaa0029a2, 0x52733d00};
@@ -143,7 +144,7 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  for unicode functions to provide these functions on systems without
  unicode functions eg. win95/win98. Since we have such functions we just
  call these. If running Wine with native DLL's, some late bound calls may
- fail. However, it is better to implement the functions in the forward DLL
+ fail. However, its better to implement the functions in the forward DLL
  and recommend the builtin rather than reimplementing the calls here!
 */
 
@@ -153,15 +154,15 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  * Internal implemetation of SHLWAPI_11.
  */
 static
-HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
+HSHARED WINAPI SHLWAPI_DupSharedHandle(HSHARED hShared, DWORD dwDstProcId,
                                        DWORD dwSrcProcId, DWORD dwAccess,
                                        DWORD dwOptions)
 {
   HANDLE hDst, hSrc;
   DWORD dwMyProcId = GetCurrentProcessId();
-  HANDLE hRet = NULL;
+  HSHARED hRet = (HSHARED)NULL;
 
-  TRACE("(%p,%ld,%ld,%08lx,%08lx)\n", hShared, dwDstProcId, dwSrcProcId,
+  TRACE("(%p,%ld,%ld,%08lx,%08lx)\n", (PVOID)hShared, dwDstProcId, dwSrcProcId,
         dwAccess, dwOptions);
 
   /* Get dest process handle */
@@ -181,9 +182,9 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
     if (hSrc)
     {
       /* Make handle available to dest process */
-      if (!DuplicateHandle(hDst, hShared, hSrc, &hRet,
+      if (!DuplicateHandle(hDst, (HANDLE)hShared, hSrc, &hRet,
                            dwAccess, 0, dwOptions | DUPLICATE_SAME_ACCESS))
-        hRet = NULL;
+        hRet = (HSHARED)NULL;
 
       if (dwSrcProcId != dwMyProcId)
         CloseHandle(hSrc);
@@ -193,7 +194,7 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
       CloseHandle(hDst);
   }
 
-  TRACE("Returning handle %p\n", hRet);
+  TRACE("Returning handle %p\n", (PVOID)hRet);
   return hRet;
 }
 
@@ -203,9 +204,9 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
  * Create a block of sharable memory and initialise it with data.
  *
  * PARAMS
+ * dwProcId [I] ID of process owning data
  * lpvData  [I] Pointer to data to write
  * dwSize   [I] Size of data
- * dwProcId [I] ID of process owning data
  *
  * RETURNS
  * Success: A shared memory handle
@@ -219,13 +220,13 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
  * the view pointer returned by this size.
  *
  */
-HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
+HSHARED WINAPI SHAllocShared(DWORD dwProcId, DWORD dwSize, LPCVOID lpvData)
 {
   HANDLE hMap;
   LPVOID pMapped;
-  HANDLE hRet = NULL;
+  HSHARED hRet = (HSHARED)NULL;
 
-  TRACE("(%p,%ld,%ld)\n", lpvData, dwSize, dwProcId);
+  TRACE("(%ld,%p,%ld)\n", dwProcId, lpvData, dwSize);
 
   /* Create file mapping of the correct length */
   hMap = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, FILE_MAP_READ, 0,
@@ -240,12 +241,12 @@ HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
   {
     /* Write size of data, followed by the data, to the view */
     *((DWORD*)pMapped) = dwSize;
-    if (lpvData)
+    if (dwSize)
       memcpy((char *) pMapped + sizeof(dwSize), lpvData, dwSize);
 
     /* Release view. All further views mapped will be opaque */
     UnmapViewOfFile(pMapped);
-    hRet = SHLWAPI_DupSharedHandle(hMap, dwProcId,
+    hRet = SHLWAPI_DupSharedHandle((HSHARED)hMap, dwProcId,
                                    GetCurrentProcessId(), FILE_MAP_ALL_ACCESS,
                                    DUPLICATE_SAME_ACCESS);
   }
@@ -268,18 +269,18 @@ HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
  * Failure: NULL
  *
  */
-PVOID WINAPI SHLockShared(HANDLE hShared, DWORD dwProcId)
+PVOID WINAPI SHLockShared(HSHARED hShared, DWORD dwProcId)
 {
-  HANDLE hDup;
+  HSHARED hDup;
   LPVOID pMapped;
 
-  TRACE("(%p %ld)\n", hShared, dwProcId);
+  TRACE("(%p %ld)\n", (PVOID)hShared, dwProcId);
 
   /* Get handle to shared memory for current process */
   hDup = SHLWAPI_DupSharedHandle(hShared, dwProcId, GetCurrentProcessId(),
                                  FILE_MAP_ALL_ACCESS, 0);
   /* Get View */
-  pMapped = MapViewOfFile(hDup, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+  pMapped = MapViewOfFile((HANDLE)hDup, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
   CloseHandle(hDup);
 
   if (pMapped)
@@ -320,17 +321,17 @@ BOOL WINAPI SHUnlockShared(LPVOID lpView)
  * Failure: FALSE
  *
  */
-BOOL WINAPI SHFreeShared(HANDLE hShared, DWORD dwProcId)
+BOOL WINAPI SHFreeShared(HSHARED hShared, DWORD dwProcId)
 {
-  HANDLE hClose;
+  HSHARED hClose;
 
-  TRACE("(%p %ld)\n", hShared, dwProcId);
+  TRACE("(%p %ld)\n", (PVOID)hShared, dwProcId);
 
   /* Get a copy of the handle for our process, closing the source handle */
   hClose = SHLWAPI_DupSharedHandle(hShared, dwProcId, GetCurrentProcessId(),
                                    FILE_MAP_ALL_ACCESS,DUPLICATE_CLOSE_SOURCE);
   /* Close local copy */
-  return CloseHandle(hClose);
+  return CloseHandle((HANDLE)hClose);
 }
 
 /*************************************************************************
@@ -350,10 +351,10 @@ BOOL WINAPI SHFreeShared(HANDLE hShared, DWORD dwProcId)
  * Failure: A NULL handle.
  *
  */
-HANDLE WINAPI SHMapHandle(HANDLE hShared, DWORD dwDstProcId, DWORD dwSrcProcId,
+HSHARED WINAPI SHMapHandle(HSHARED hShared, DWORD dwDstProcId, DWORD dwSrcProcId,
                           DWORD dwAccess, DWORD dwOptions)
 {
-  HANDLE hRet;
+  HSHARED hRet;
 
   hRet = SHLWAPI_DupSharedHandle(hShared, dwDstProcId, dwSrcProcId,
                                  dwAccess, dwOptions);
@@ -576,8 +577,8 @@ HRESULT WINAPI GetAcceptLanguagesW( LPWSTR langbuf, LPDWORD buflen)
     }
     memcpy( langbuf, mystr, min(*buflen,strlenW(mystr)+1)*sizeof(WCHAR) );
 
-    if(*buflen > strlenW(mystr)) {
-	*buflen = strlenW(mystr);
+    if(*buflen > lstrlenW(mystr)) {
+	*buflen = lstrlenW(mystr);
 	retval = S_OK;
     } else {
 	*buflen = 0;
@@ -1549,17 +1550,16 @@ DWORD WINAPI IUnknown_SetSite(
         LPVOID *p2)       /* [out]  ptr for call results */
 {
     DWORD ret, aa;
-    IUnknown *iobjectwithsite;
 
     if (!p1) return E_FAIL;
 
     /* see if SetSite interface exists for IObjectWithSite object */
-    ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id1, (LPVOID *)&iobjectwithsite);
-    TRACE("first IU_QI ret=%08lx, iobjectwithsite=%p\n", ret, iobjectwithsite);
+    ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id1, (LPVOID *)&p1);
+    TRACE("first IU_QI ret=%08lx, p1=%p\n", ret, p1);
     if (ret) {
 
 	/* see if GetClassId interface exists for IPersistMoniker object */
-	ret = IUnknown_QueryInterface(p1, (REFIID)id2, (LPVOID *)&aa);
+	ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id2, (LPVOID *)&aa);
 	TRACE("second IU_QI ret=%08lx, aa=%08lx\n", ret, aa);
 	if (ret) return ret;
 
@@ -1571,10 +1571,10 @@ DWORD WINAPI IUnknown_SetSite(
     }
     else {
 	/* fake a SetSite call */
-	ret = IOleWindow_GetWindow((IOleWindow *)iobjectwithsite, (HWND*)p2);
+	ret = IOleWindow_GetWindow((IOleWindow *)p1, (HWND*)p2);
 	TRACE("first IU_QI doing 0x0c ret=%08lx, *p2=%08lx\n", ret,
 	      *(LPDWORD)p2);
-	IUnknown_Release((IUnknown *)iobjectwithsite);
+	IUnknown_Release((IUnknown *)p1);
     }
     return ret;
 }
@@ -1827,30 +1827,6 @@ DWORD WINAPI SHRegisterClassA(WNDCLASSA *wndclass)
   if (GetClassInfoA(wndclass->hInstance, wndclass->lpszClassName, &wca))
     return TRUE;
   return (DWORD)RegisterClassA(wndclass);
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.186]
- */
-BOOL WINAPI SHSimulateDrop(IDropTarget *pDrop, IDataObject *pDataObj,
-                           DWORD grfKeyState, PPOINTL lpPt, DWORD* pdwEffect)
-{
-  DWORD dwEffect = DROPEFFECT_LINK | DROPEFFECT_MOVE | DROPEFFECT_COPY;
-  POINTL pt = { 0, 0 };
-
-  if (!lpPt)
-    lpPt = &pt;
-
-  if (!pdwEffect)
-    pdwEffect = &dwEffect;
-
-  IDropTarget_DragEnter(pDrop, pDataObj, grfKeyState, *lpPt, pdwEffect);
-
-  if (*pdwEffect)
-    return IDropTarget_Drop(pDrop, pDataObj, grfKeyState, *lpPt, pdwEffect);
-
-  IDropTarget_DragLeave(pDrop);
-  return TRUE;
 }
 
 /*************************************************************************
@@ -2439,7 +2415,7 @@ HWND WINAPI SHCreateWorkerWindowA(LONG wndProc, HWND hWndParent, DWORD dwExStyle
     SetWindowLongA(hWnd, DWL_MSGRESULT, z);
 
     if (wndProc)
-      SetWindowLongPtrA(hWnd, GWLP_WNDPROC, wndProc);
+      SetWindowLongA(hWnd, GWL_WNDPROC, wndProc);
   }
   return hWnd;
 }
@@ -2726,7 +2702,7 @@ HWND WINAPI SHCreateWorkerWindowW(LONG wndProc, HWND hWndParent, DWORD dwExStyle
     SetWindowLongA(hWnd, DWL_MSGRESULT, z);
 
     if (wndProc)
-      SetWindowLongPtrA(hWnd, GWLP_WNDPROC, wndProc);
+      SetWindowLongA(hWnd, GWL_WNDPROC, wndProc);
   }
   return hWnd;
 }
@@ -3022,6 +2998,19 @@ UINT WINAPI ExtractIconExWrapW(LPCWSTR lpszFile, INT nIconIndex, HICON *phiconLa
 LONG WINAPI SHInterlockedCompareExchange( PLONG dest, LONG xchg, LONG compare)
 {
         return InterlockedCompareExchange(dest, xchg, compare);
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.346]
+ */
+DWORD WINAPI SHUnicodeToUnicode(
+	LPCWSTR src,
+	LPWSTR dest,
+	int len)
+{
+	FIXME("(%s %p 0x%08x)stub\n",debugstr_w(src),dest,len);
+	lstrcpynW(dest, src, len);
+	return lstrlenW(dest)+1;
 }
 
 /*************************************************************************
@@ -3979,7 +3968,7 @@ VOID WINAPI FixSlashesAndColonW(LPWSTR lpwstr)
 /*************************************************************************
  *      @	[SHLWAPI.461]
  */
-DWORD WINAPI SHGetAppCompatFlags(DWORD Unknown)
+DWORD WINAPI SHGetAppCompatFlags()
 {
   FIXME("stub\n");
   return 0;

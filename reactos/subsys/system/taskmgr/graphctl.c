@@ -530,8 +530,7 @@ extern TGraphCtrl PerformancePageMemUsageHistoryGraph;
 extern HWND hPerformancePageCpuUsageHistoryGraph;
 extern HWND hPerformancePageMemUsageHistoryGraph;
 
-INT_PTR CALLBACK
-GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT        rcClient;
     HDC            hdc;

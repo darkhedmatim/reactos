@@ -26,10 +26,8 @@
 #include <string.h>
 #include <assert.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -287,21 +285,21 @@ PipeBuf_QueryInterface(
 
 static ULONG WINAPI
 PipeBuf_AddRef(LPRPCCHANNELBUFFER iface) {
-    PipeBuf *This = (PipeBuf *)iface;
-    return InterlockedIncrement(&This->ref);
+    ICOM_THIS(PipeBuf,iface);
+    This->ref++;
+    return This->ref;
 }
 
 static ULONG WINAPI
 PipeBuf_Release(LPRPCCHANNELBUFFER iface) {
-    PipeBuf *This = (PipeBuf *)iface;
-    ULONG ref;
+    ICOM_THIS(PipeBuf,iface);
     wine_rpc_disconnect_header header;
     HANDLE pipe;
     DWORD reqtype = REQTYPE_DISCONNECT;
 
-    ref = InterlockedDecrement(&This->ref);
-    if (ref)
-	return ref;
+    This->ref--;
+    if (This->ref)
+	return This->ref;
 
     FIXME("Free all stuff\n");
 
@@ -322,7 +320,7 @@ static HRESULT WINAPI
 PipeBuf_GetBuffer(
     LPRPCCHANNELBUFFER iface,RPCOLEMESSAGE* msg,REFIID riid
 ) {
-    /*PipeBuf *This = (PipeBuf *)iface;*/
+    /*ICOM_THIS(PipeBuf,iface);*/
 
     TRACE("(%p,%s)\n",msg,debugstr_guid(riid));
     /* probably reuses IID in real. */
@@ -417,7 +415,7 @@ static HRESULT WINAPI
 PipeBuf_SendReceive(
     LPRPCCHANNELBUFFER iface,RPCOLEMESSAGE* msg,ULONG *status
 ) {
-    PipeBuf *This = (PipeBuf *)iface;
+    ICOM_THIS(PipeBuf,iface);
     wine_rpc_request	*req;
     HRESULT		hres;
 
@@ -468,6 +466,7 @@ PipeBuf_IsConnected(LPRPCCHANNELBUFFER iface) {
 }
 
 static IRpcChannelBufferVtbl pipebufvt = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     PipeBuf_QueryInterface,
     PipeBuf_AddRef,
     PipeBuf_Release,

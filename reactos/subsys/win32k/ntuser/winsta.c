@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: winsta.c,v 1.70 2004/12/24 17:45:58 weiden Exp $
+ *  $Id: winsta.c,v 1.65 2004/08/20 22:38:49 gvg Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -85,7 +85,7 @@ CleanupWindowStationImpl(VOID)
 /*
  * IntGetFullWindowStationName
  *
- * Get a full window station object name from a name specified in
+ * Get a full desktop object name from a name specified in 
  * NtUserCreateWindowStation, NtUserOpenWindowStation, NtUserCreateDesktop
  * or NtUserOpenDesktop.
  *
@@ -197,6 +197,8 @@ IntInitializeDesktopGraphics(VOID)
     }
   DC_SetOwnership(ScreenDeviceContext, NULL);
   
+  EnableMouse(ScreenDeviceContext);
+  
   NtUserAcquireOrReleaseInputOwnership(FALSE);
 
   return TRUE;
@@ -206,6 +208,7 @@ VOID FASTCALL
 IntEndDesktopGraphics(VOID)
 {
   NtUserAcquireOrReleaseInputOwnership(TRUE);
+  EnableMouse(FALSE);
   if (NULL != ScreenDeviceContext)
     {
       DC_SetOwnership(ScreenDeviceContext, PsGetCurrentProcess());
@@ -398,6 +401,8 @@ NtUserCreateWindowStation(
   
    /* FIXME: Obtain the following information from the registry */
    CurInfo->SwapButtons = FALSE;
+   CurInfo->SafetySwitch = FALSE;
+   CurInfo->SafetyRemoveCount = 0;
    CurInfo->DblClickSpeed = 500;
    CurInfo->DblClickWidth = 4;
    CurInfo->DblClickHeight = 4;
@@ -473,7 +478,7 @@ NtUserOpenWindowStation(
 
    Status = ObOpenObjectByName(
       &ObjectAttributes,
-      ExWindowStationObjectType,
+      ExDesktopObjectType,
       NULL,
       UserMode,
       dwDesiredAccess,
@@ -778,48 +783,7 @@ NtUserSetObjectInformation(
 HWINSTA STDCALL
 NtUserGetProcessWindowStation(VOID)
 {
-   if(PsGetCurrentProcess() != CsrProcess)
-   {
-     return PsGetCurrentProcess()->Win32WindowStation;
-   }
-   else
-   {
-     /* FIXME - get the pointer to the window station by querying the parent of
-                the desktop of the calling thread (which is a window station),
-                then use ObFindHandleForObject() to find a suitable handle */
-     DPRINT1("CSRSS called NtUserGetProcessWindowStation()!!! returned NULL!\n");
-     return NULL;
-   }
-}
-
-PWINSTATION_OBJECT FASTCALL
-IntGetWinStaObj(VOID)
-{
-  PWINSTATION_OBJECT WinStaObj;
-  
-  /*
-   * just a temporary hack, this will be gone soon
-   */
-  
-  if(PsGetWin32Thread() != NULL && PsGetWin32Thread()->Desktop != NULL)
-  {
-    WinStaObj = PsGetWin32Thread()->Desktop->WindowStation;
-    ObReferenceObjectByPointer(WinStaObj, KernelMode, ExWindowStationObjectType, 0);
-  }
-  else if(PsGetCurrentProcess() != CsrProcess)
-  {
-    NTSTATUS Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
-                                                     KernelMode,
-                                                     0,
-                                                     &WinStaObj);
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastNtError(Status);
-     return NULL;
-   }
-  }
-  
-  return WinStaObj;
+   return PROCESS_WINDOW_STATION();
 }
 
 /*
@@ -841,43 +805,42 @@ IntGetWinStaObj(VOID)
 BOOL STDCALL
 NtUserSetProcessWindowStation(HWINSTA hWindowStation)
 {
-   HANDLE hOld;
-   PWINSTATION_OBJECT NewWinSta;
+   PWINSTATION_OBJECT Object;
+   PW32PROCESS Win32Process;
    NTSTATUS Status;
 
-   DPRINT("About to set process window station with handle (0x%X)\n",
+   DPRINT("About to set process window station with handle (0x%X)\n", 
       hWindowStation);
-
-   if(PsGetCurrentProcess() == CsrProcess)
-   {
-     DPRINT1("CSRSS is not allowed to change it's window station!!!\n");
-     SetLastWin32Error(ERROR_ACCESS_DENIED);
-     return FALSE;
-   }
 
    Status = IntValidateWindowStationHandle(
       hWindowStation,
       KernelMode,
       0,
-      &NewWinSta);
+      &Object);
 
    if (!NT_SUCCESS(Status)) 
    {
       DPRINT("Validation of window station handle (0x%X) failed\n", 
          hWindowStation);
-      SetLastNtError(Status);
       return FALSE;
    }
-   
-   /*
-    * FIXME - don't allow changing the window station if there are threads that are attached to desktops and own gui objects
-    */
 
-   /* FIXME - dereference the old window station, etc... */
-   hOld = InterlockedExchangePointer(&PsGetCurrentProcess()->Win32WindowStation, hWindowStation);
+   Win32Process = PsGetWin32Process();
+   if (Win32Process == NULL)
+   {
+      ObDereferenceObject(Object);
+   }
+   else
+   {
+      if (Win32Process->WindowStation != NULL)
+         ObDereferenceObject(Win32Process->WindowStation);
+      Win32Process->WindowStation = Object;
+   }
 
-   DPRINT("PsGetCurrentProcess()->Win32WindowStation 0x%X\n",
-      PsGetCurrentProcess()->Win32WindowStation);
+   SET_PROCESS_WINDOW_STATION(hWindowStation);
+  
+   DPRINT("IoGetCurrentProcess()->Win32WindowStation 0x%X\n",
+      IoGetCurrentProcess()->Win32WindowStation);
 
    return TRUE;
 }

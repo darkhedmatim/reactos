@@ -40,6 +40,9 @@
 #include <user32.h>
 #include <debug.h>
 
+#define COLOR_MENUHILIGHT	(29)
+#define COLOR_MENUBAR	(30)
+
 /* GLOBALS *******************************************************************/
 
 #define	DSS_DEFAULT	0x0040  /* Make it bold */
@@ -651,10 +654,10 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         else
             IntDrawRectEdge(dc, &myr, edge, (uFlags&DFCS_FLAT)|BF_RECT|BF_SOFT|BF_ADJUST);
 
-        UITOOLS_DrawCheckedRect( dc, &myr );
-    }
-    else
-    {
+	UITOOLS_DrawCheckedRect( dc, &myr );
+        }
+        else
+        {
         if(uFlags & DFCS_MONO)
         {
             IntDrawRectEdge(dc, &myr, edge, BF_MONO|BF_RECT|BF_ADJUST);
@@ -662,7 +665,7 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
         }
         else
         {
-            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT | BF_SOFT);
+            IntDrawRectEdge(dc, r, edge, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT);
         }
     }
 

@@ -1,4 +1,4 @@
-/* $Id: pdo.c,v 1.12 2004/11/17 20:39:27 navaraf Exp $
+/* $Id: pdo.c,v 1.9 2004/08/20 13:33:51 ekohl Exp $
  *
  * PROJECT:         ReactOS PCI bus driver
  * FILE:            pdo.c
@@ -169,10 +169,8 @@ PdoQueryCapabilities(
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
   DeviceCapabilities = IrpSp->Parameters.DeviceCapabilities.Capabilities;
 
-  if (DeviceCapabilities->Version != 1)
-    return STATUS_UNSUCCESSFUL;
-  
   DeviceCapabilities->UniqueID = FALSE;
+
   DeviceCapabilities->Address = DeviceExtension->SlotNumber.u.AsULONG;
   DeviceCapabilities->UINumber = (ULONG)-1; /* FIXME */
 
@@ -351,8 +349,7 @@ PdoQueryResourceRequirements(
 			     &Flags))
 	break;
 
-      if (Length != 0)
-        ResCount += 2;
+      ResCount += 2;
     }
 
     /* FIXME: Check ROM address */
@@ -371,8 +368,7 @@ PdoQueryResourceRequirements(
 			     &Flags))
 	break;
 
-      if (Length != 0)
-        ResCount += 2;
+      ResCount += 2;
     }
   }
   else if (PCI_CONFIGURATION_TYPE(&PciConfig) == PCI_CARDBUS_BRIDGE_TYPE)
@@ -644,8 +640,7 @@ PdoQueryResources(
 			     &Flags))
         break;
 
-      if (Length)
-        ResCount++;
+      ResCount++;
     }
 
     if ((PciConfig.u.type0.InterruptPin != 0) &&
@@ -663,8 +658,7 @@ PdoQueryResources(
 			     &Flags))
         break;
 
-      if (Length != 0)
-        ResCount++;
+      ResCount++;
     }
   }
   else if (PCI_CONFIGURATION_TYPE(&PciConfig) == 2)
@@ -941,6 +935,12 @@ PdoPnpControl(
 
   switch (IrpSp->MinorFunction) {
 #if 0
+  case IRP_MN_CANCEL_REMOVE_DEVICE:
+    break;
+
+  case IRP_MN_CANCEL_STOP_DEVICE:
+    break;
+
   case IRP_MN_DEVICE_USAGE_NOTIFICATION:
     break;
 
@@ -975,6 +975,9 @@ PdoPnpControl(
 #if 0
   case IRP_MN_QUERY_PNP_DEVICE_STATE:
     break;
+
+  case IRP_MN_QUERY_REMOVE_DEVICE:
+    break;
 #endif
 
   case IRP_MN_QUERY_RESOURCE_REQUIREMENTS:
@@ -988,20 +991,24 @@ PdoPnpControl(
     break;
 
 #if 0
+  case IRP_MN_QUERY_STOP_DEVICE:
+    break;
+
+  case IRP_MN_REMOVE_DEVICE:
+    break;
+
   case IRP_MN_SET_LOCK:
     break;
-#endif
 
   case IRP_MN_START_DEVICE:
-  case IRP_MN_QUERY_STOP_DEVICE:
-  case IRP_MN_CANCEL_STOP_DEVICE:
-  case IRP_MN_STOP_DEVICE:
-  case IRP_MN_QUERY_REMOVE_DEVICE:
-  case IRP_MN_CANCEL_REMOVE_DEVICE:
-  case IRP_MN_REMOVE_DEVICE:
-  case IRP_MN_SURPRISE_REMOVAL:
-    Status = STATUS_SUCCESS;
     break;
+
+  case IRP_MN_STOP_DEVICE:
+    break;
+
+  case IRP_MN_SURPRISE_REMOVAL:
+    break;
+#endif
 
   case IRP_MN_READ_CONFIG:
     DPRINT1("IRP_MN_READ_CONFIG received\n");

@@ -1,23 +1,6 @@
 #ifndef _WIN32K_INTENG_H
 #define _WIN32K_INTENG_H
 
-typedef ULONG HCLIP;
-
-#define ENUM_RECT_LIMIT   50
-
-typedef struct _RECT_ENUM
-{
-  ULONG c;
-  RECTL arcl[ENUM_RECT_LIMIT];
-} RECT_ENUM;
-
-typedef struct tagSPAN
-{
-  LONG Y;
-  LONG X;
-  ULONG Width;
-} SPAN, *PSPAN;
-
 #define ROP_NOOP	0x00AA0029
 
 /* Definitions of IntEngXxx functions */
@@ -71,19 +54,19 @@ IntEngGradientFill(BITMAPOBJ *psoDest,
                    POINTL *pptlDitherOrg,
                    ULONG ulMode);
 
-XLATEOBJ* FASTCALL
+XLATEOBJ * STDCALL
 IntEngCreateXlate(USHORT DestPalType,
                   USHORT SourcePalType,
                   HPALETTE PaletteDest,
                   HPALETTE PaletteSource);
 
-XLATEOBJ* FASTCALL
+XLATEOBJ * STDCALL
 IntEngCreateMonoXlate(USHORT SourcePalType,
                       HPALETTE PaletteDest,
                       HPALETTE PaletteSource,
                       ULONG BackgroundColor);
 
-XLATEOBJ* FASTCALL
+XLATEOBJ * STDCALL
 IntEngCreateSrcMonoXlate(HPALETTE PaletteDest,
                          ULONG ForegroundColor,
                          ULONG BackgroundColor);
@@ -96,19 +79,10 @@ IntEngPolyline(BITMAPOBJ *DestSurf,
                LONG dCount,
                MIX mix);
 
-CLIPOBJ* FASTCALL
+CLIPOBJ* STDCALL
 IntEngCreateClipRegion(ULONG count,
                        PRECTL pRect,
                        PRECTL rcBounds);
-
-VOID FASTCALL
-IntEngDeleteClipRegion(CLIPOBJ *ClipObj);
-
-BOOLEAN FASTCALL
-ClipobjToSpans(PSPAN *Spans,
-               UINT *Count,
-               CLIPOBJ *ClipRegion,
-               PRECTL Boundary);
 
 BOOL FASTCALL
 IntEngTransparentBlt(BITMAPOBJ *Dest,

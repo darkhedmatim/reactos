@@ -22,9 +22,14 @@
  *        Added "/N" option.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_MOVE
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
 
 
 #define OVERWRITE_NO     0

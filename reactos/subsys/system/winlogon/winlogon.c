@@ -1,4 +1,4 @@
-/* $Id: winlogon.c,v 1.38 2004/12/22 01:22:08 navaraf Exp $
+/* $Id: winlogon.c,v 1.34 2004/07/12 20:09:35 gvg Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -65,7 +65,7 @@ PrintString (WCHAR* fmt,...)
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 ShutdownComputerProc (HWND hwndDlg,
 		      UINT uMsg,
 		      WPARAM wParam,
@@ -364,7 +364,7 @@ static BOOL StartIntoGUI(VOID)
 
 
 static PWCHAR
-GetUserInit (WCHAR *CommandLine)
+GetShell (WCHAR *CommandLine)
 {
    HKEY WinLogonKey;
    BOOL GotCommandLine;
@@ -377,7 +377,7 @@ GetUserInit (WCHAR *CommandLine)
      {
 	Size = MAX_PATH;
 	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
-                                         L"UserInit",
+                                         L"Shell",
 	                                     NULL,
 	                                     &Type,
 	                                     (LPBYTE) Shell,
@@ -399,8 +399,8 @@ GetUserInit (WCHAR *CommandLine)
 
    if (! GotCommandLine)
      {
-	GetSystemDirectory(CommandLine, MAX_PATH - 15);
-	wcscat(CommandLine, L"\\userinit.exe");
+	GetWindowsDirectory(CommandLine, MAX_PATH - 15);
+	wcscat(CommandLine, L"\\explorer.exe");
      }
 
    return CommandLine;
@@ -461,12 +461,6 @@ DoLogonUser (PWCHAR Name,
       return FALSE;
     }
 
-  if (ImpersonateLoggedOnUser(hToken))
-    {
-      UpdatePerUserSystemParameters(0, TRUE);
-      RevertToSelf();
-    }
-
   GetWindowsDirectoryW (CurrentDirectory, MAX_PATH);
 
   StartupInfo.cb = sizeof(StartupInfo);
@@ -479,7 +473,7 @@ DoLogonUser (PWCHAR Name,
 
   Result = CreateProcessAsUserW (hToken,
 				 NULL,
-				 GetUserInit (CommandLine),
+				 GetShell (CommandLine),
 				 NULL,
 				 NULL,
 				 FALSE,
@@ -491,11 +485,6 @@ DoLogonUser (PWCHAR Name,
   if (!Result)
     {
       DbgPrint ("WL: Failed to execute user shell %s\n", CommandLine);
-      if (ImpersonateLoggedOnUser(hToken))
-        {
-          UpdatePerUserSystemParameters(0, FALSE);
-          RevertToSelf();
-        }
       UnloadUserProfile (hToken,
 			 ProfileInfo.hProfile);
       CloseHandle (hToken);
@@ -520,12 +509,6 @@ DoLogonUser (PWCHAR Name,
 
   CloseHandle (ProcessInformation.hProcess);
   CloseHandle (ProcessInformation.hThread);
-
-  if (ImpersonateLoggedOnUser(hToken))
-    {
-      UpdatePerUserSystemParameters(0, FALSE);
-      RevertToSelf();
-    }
 
   /* Unload user profile */
   UnloadUserProfile (hToken,
@@ -555,6 +538,7 @@ WinMain(HINSTANCE hInstance,
   LSA_OPERATIONAL_MODE Mode;
   ULONG AuthenticationPackage;
 #endif
+  NTSTATUS Status;
 
   hAppInstance = hInstance;
   
@@ -597,6 +581,14 @@ WinMain(HINSTANCE hInstance,
    * Switch to winlogon desktop
    */
   /* FIXME: Do start up in the application desktop for now. */
+  Status = NtSetInformationProcess(NtCurrentProcess(),
+                                   ProcessDesktop,
+                                   &WLSession->ApplicationDesktop,
+                                   sizeof(HDESK));
+  if(!NT_SUCCESS(Status))
+  {
+    DbgPrint("WL: Cannot set default desktop for winlogon.\n");
+  }
   SetThreadDesktop(WLSession->ApplicationDesktop);
   if(!SwitchDesktop(WLSession->ApplicationDesktop))
   {

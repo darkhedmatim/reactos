@@ -13,36 +13,6 @@ typedef BOOL STDCALL_FUNC
 		  ULONG ul_reason_for_call,
 		  LPVOID lpReserved);
 
-#if defined(__USE_W32API) || defined(__NTDLL__)
-/*
- * Fu***ng headers hell made me do this...i'm sick of it
- */
-
-typedef struct _LOCK_INFORMATION
-{
-  ULONG LockCount;
-  DEBUG_LOCK_INFORMATION LockEntry[1];
-} LOCK_INFORMATION, *PLOCK_INFORMATION;
-
-typedef struct _HEAP_INFORMATION
-{
-  ULONG HeapCount;
-  DEBUG_HEAP_INFORMATION HeapEntry[1];
-} HEAP_INFORMATION, *PHEAP_INFORMATION;
-
-typedef struct _MODULE_INFORMATION
-{
-  ULONG ModuleCount;
-  DEBUG_MODULE_INFORMATION ModuleEntry[1];
-} MODULE_INFORMATION, *PMODULE_INFORMATION;
-
-NTSTATUS STDCALL
-LdrQueryProcessModuleInformation(IN PMODULE_INFORMATION ModuleInformation OPTIONAL,
-				 IN ULONG Size OPTIONAL,
-				 OUT PULONG ReturnedSize);
-
-#endif /* __USE_W32API */
-
 /* Module flags */
 #define IMAGE_DLL		0x00000004
 #define LOAD_IN_PROGRESS	0x00001000
@@ -68,7 +38,7 @@ typedef struct _LDR_MODULE
    HANDLE         SectionHandle;
    ULONG          CheckSum;
    ULONG          TimeDateStamp;
-#if defined(DBG) || defined(KDBG)
+#ifdef KDBG
   IMAGE_SYMBOL_INFO SymbolInfo;
 #endif /* KDBG */
 } LDR_MODULE, *PLDR_MODULE;
@@ -85,7 +55,28 @@ typedef struct _LDR_SYMBOL_INFO {
 
 #define RVA(m, b) ((ULONG)b + m)
 
-#if defined(KDBG) || defined(DBG)
+
+typedef struct _MODULE_ENTRY
+{
+  ULONG Unknown0;
+  ULONG Unknown1;
+  PVOID BaseAddress;
+  ULONG SizeOfImage;
+  ULONG Flags;
+  USHORT Unknown2;
+  USHORT Unknown3;
+  SHORT LoadCount;
+  USHORT PathLength;
+  CHAR ModuleName[256];
+} MODULE_ENTRY, *PMODULE_ENTRY;
+
+typedef struct _MODULE_INFORMATION
+{
+  ULONG ModuleCount;
+  MODULE_ENTRY ModuleEntry[1];
+} MODULE_INFORMATION, *PMODULE_INFORMATION;
+
+#ifdef KDBG
 
 VOID
 LdrpLoadUserModuleSymbols(PLDR_MODULE LdrModule);
@@ -148,6 +139,11 @@ LdrQueryImageFileExecutionOptions (IN PUNICODE_STRING SubKey,
 				   OUT PVOID Buffer,
 				   IN ULONG BufferSize,
 				   OUT PULONG RetunedLength OPTIONAL);
+
+NTSTATUS STDCALL
+LdrQueryProcessModuleInformation(IN PMODULE_INFORMATION ModuleInformation OPTIONAL,
+				 IN ULONG Size OPTIONAL,
+				 OUT PULONG ReturnedSize);
 
 NTSTATUS STDCALL
 LdrShutdownProcess(VOID);

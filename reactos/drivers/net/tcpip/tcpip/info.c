@@ -19,7 +19,7 @@ TDI_STATUS InfoCopyOut( PCHAR DataOut, UINT SizeOut,
     if( RememberedCBSize < SizeOut )
 	return TDI_BUFFER_TOO_SMALL;
     else {
-	CopyBufferToBufferChain( ClientBuf, 0, (PCHAR)DataOut, SizeOut );
+	CopyBufferToBufferChain( ClientBuf, 0, (PUCHAR)DataOut, SizeOut );
 	return TDI_SUCCESS;
     }
 }
@@ -32,7 +32,7 @@ VOID InsertTDIInterfaceEntity( PIP_INTERFACE Interface ) {
 		("Inserting interface %08x (%d entities already)\n", 
 		 Interface, EntityCount));
 
-    TcpipAcquireSpinLock( &EntityListLock, &OldIrql );
+    KeAcquireSpinLock( &EntityListLock, &OldIrql );
 
     /* Count IP Entities */
     for( i = 0; i < EntityCount; i++ )
@@ -50,14 +50,14 @@ VOID InsertTDIInterfaceEntity( PIP_INTERFACE Interface ) {
     
     EntityCount++;
 
-    TcpipReleaseSpinLock( &EntityListLock, OldIrql );
+    KeReleaseSpinLock( &EntityListLock, OldIrql );
 }
 
 VOID RemoveTDIInterfaceEntity( PIP_INTERFACE Interface ) {
     KIRQL OldIrql;
     UINT i;
 
-    TcpipAcquireSpinLock( &EntityListLock, &OldIrql );
+    KeAcquireSpinLock( &EntityListLock, &OldIrql );
     
     /* Remove entities that have this interface as context
      * In the future, this might include AT_ENTITY types, too
@@ -71,7 +71,7 @@ VOID RemoveTDIInterfaceEntity( PIP_INTERFACE Interface ) {
 	}
     }
 
-    TcpipReleaseSpinLock( &EntityListLock, OldIrql );
+    KeReleaseSpinLock( &EntityListLock, OldIrql );
 }
 
 TDI_STATUS InfoTdiQueryListEntities(PNDIS_BUFFER Buffer,
@@ -83,14 +83,14 @@ TDI_STATUS InfoTdiQueryListEntities(PNDIS_BUFFER Buffer,
     TI_DbgPrint(MAX_TRACE,("About to copy %d TDIEntityIDs to user\n",
 			   EntityCount));
     
-    TcpipAcquireSpinLock(&EntityListLock, &OldIrql);
+    KeAcquireSpinLock(&EntityListLock, &OldIrql);
 
     Size = EntityCount * sizeof(TDIEntityID);
     *BufferSize = Size;
     
     if (BufSize < Size)
     {
-	TcpipReleaseSpinLock( &EntityListLock, OldIrql );
+	KeReleaseSpinLock( &EntityListLock, OldIrql );
 	/* The buffer is too small to contain requested data */
 	return TDI_BUFFER_TOO_SMALL;
     }
@@ -99,11 +99,11 @@ TDI_STATUS InfoTdiQueryListEntities(PNDIS_BUFFER Buffer,
     for( Count = 0; Count < EntityCount; Count++ ) {
 	CopyBufferToBufferChain(Buffer, 
 				Count * sizeof(TDIEntityID), 
-				(PCHAR)&EntityList[Count], 
+				(PUCHAR)&EntityList[Count], 
 				sizeof(TDIEntityID));
     }
     
-    TcpipReleaseSpinLock(&EntityListLock, OldIrql);
+    KeReleaseSpinLock(&EntityListLock, OldIrql);
     
     return TDI_SUCCESS;
 }
@@ -147,13 +147,12 @@ TDI_STATUS InfoTdiQueryInformationEx(
     {
 	if ((ID->toi_class != INFO_CLASS_GENERIC) ||
 	    (ID->toi_type != INFO_TYPE_PROVIDER) ||
-	    (ID->toi_id != ENTITY_LIST_ID)) {
-	    TI_DbgPrint(MAX_TRACE,("Invalid parameter\n"));
+	    (ID->toi_id != ENTITY_LIST_ID))
 	    Status = TDI_INVALID_PARAMETER;
-        } else
+        else
 	    Status = InfoTdiQueryListEntities(Buffer, BufferSize);
     } else {
-	TcpipAcquireSpinLock( &EntityListLock, &OldIrql );
+	KeAcquireSpinLock( &EntityListLock, &OldIrql );
 	
 	for( i = 0; i < EntityCount; i++ ) {
 	    if( EntityList[i].tei_entity == ID->toi_entity.tei_entity &&
@@ -165,7 +164,7 @@ TDI_STATUS InfoTdiQueryInformationEx(
 	    }
 	}
 	
-	TcpipReleaseSpinLock( &EntityListLock, OldIrql );
+	KeReleaseSpinLock( &EntityListLock, OldIrql );
 	
 	if( FoundEntity ) {
 	    TI_DbgPrint(MAX_TRACE,
@@ -210,18 +209,24 @@ TDI_STATUS InfoTdiSetInformationEx
 	case INFO_TYPE_PROVIDER:
 	    switch( ID->toi_id ) {
 	    case IP_MIB_ROUTETABLE_ENTRY_ID:
-		return InfoNetworkLayerTdiSetEx
-		    ( ID->toi_class,
-		      ID->toi_type,
-		      ID->toi_id,
-		      NULL,
-		      &ID->toi_entity,
-		      Buffer,
-		      BufferSize );
+		if( ID->toi_entity.tei_entity == CL_NL_ENTITY &&
+		    ID->toi_entity.tei_instance == TL_INSTANCE &&
+		    BufferSize >= sizeof(IPROUTE_ENTRY) ) {
+		    /* Add route -- buffer is an IPRouteEntry */
+		    PIPROUTE_ENTRY ire = (PIPROUTE_ENTRY)Buffer;
+		    RouteFriendlyAddRoute( ire );
+		} else {
+		    return TDI_INVALID_PARAMETER; 
+		    /* In my experience, we are being over
+		       protective compared to windows */
+		}
+		break;
 	    }
+	    break;
 	}
 	break;
     }
     
     return TDI_INVALID_PARAMETER;
 }
+

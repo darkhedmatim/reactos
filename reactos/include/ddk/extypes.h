@@ -1,4 +1,4 @@
-/* $Id: extypes.h,v 1.25 2004/10/22 22:49:00 weiden Exp $ */
+/* $Id: extypes.h,v 1.23 2004/08/09 01:26:10 ion Exp $ */
 
 #ifndef __INCLUDE_DDK_EXTYPES_H
 #define __INCLUDE_DDK_EXTYPES_H
@@ -39,18 +39,16 @@ typedef struct _ERESOURCE
 } ERESOURCE, *PERESOURCE;
 
 #define EX_RUNDOWN_ACTIVE       0x1
-#define EX_RUNDOWN_COUNT_SHIFT 0x1
-#define EX_RUNDOWN_COUNT_INC   (0x1 << EX_RUNDOWN_COUNT_SHIFT)
 
 typedef struct _RUNDOWN_DESCRIPTOR {
-    ULONG_PTR References;
-    KEVENT RundownEvent;
+    ULONG References;
+    PKEVENT RundownEvent;
 } RUNDOWN_DESCRIPTOR, *PRUNDOWN_DESCRIPTOR;
 
 typedef struct _EX_RUNDOWN_REF {
     union {
         ULONG_PTR Count;
-        PRUNDOWN_DESCRIPTOR Ptr;
+        PRUNDOWN_DESCRIPTOR Pointer;
     };
 } EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
@@ -151,11 +149,6 @@ typedef struct _PAGED_LOOKASIDE_LIST
    ULONG LastAllocateMisses;
    FAST_MUTEX Obsoleted;
 } PAGED_LOOKASIDE_LIST, *PPAGED_LOOKASIDE_LIST;
-
-typedef struct _PP_LOOKASIDE_LIST {
-   struct _GENERAL_LOOKASIDE *P;
-   struct _GENERAL_LOOKASIDE *L;
-} PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
 
 typedef enum _EX_POOL_PRIORITY {
     LowPoolPriority,

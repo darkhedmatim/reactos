@@ -62,10 +62,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
@@ -252,6 +250,7 @@ static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Clone(LPENUMFORMATETC iface, LPE
  */
 static IDataObjectVtbl OLEClipbrd_IDataObject_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   OLEClipbrd_IDataObject_QueryInterface,
   OLEClipbrd_IDataObject_AddRef,
   OLEClipbrd_IDataObject_Release,
@@ -271,6 +270,7 @@ static IDataObjectVtbl OLEClipbrd_IDataObject_VTable =
  */
 static struct IEnumFORMATETCVtbl efvt =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   OLEClipbrd_IEnumFORMATETC_QueryInterface,
   OLEClipbrd_IEnumFORMATETC_AddRef,
   OLEClipbrd_IEnumFORMATETC_Release,
@@ -1109,7 +1109,7 @@ static HRESULT WINAPI OLEClipbrd_IDataObject_QueryInterface(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
+  ICOM_THIS(OLEClipbrd, iface);
   TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvObject);
 
   /*
@@ -1160,12 +1160,13 @@ static ULONG WINAPI OLEClipbrd_IDataObject_AddRef(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
+  ICOM_THIS(OLEClipbrd, iface);
 
   TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
-  return InterlockedIncrement(&This->ref);
+  This->ref++;
 
+  return This->ref;
 }
 
 /************************************************************************
@@ -1179,25 +1180,24 @@ static ULONG WINAPI OLEClipbrd_IDataObject_Release(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
-  ULONG ref;
+  ICOM_THIS(OLEClipbrd, iface);
 
   TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
   /*
    * Decrease the reference count on this object.
    */
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref == 0)
+  if (This->ref==0)
   {
     OLEClipbrd_Destroy(This);
   }
 
-  return ref;
+  return This->ref;
 }
 
 
@@ -1222,7 +1222,7 @@ static HRESULT WINAPI OLEClipbrd_IDataObject_GetData(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
+  ICOM_THIS(OLEClipbrd, iface);
 
   TRACE("(%p,%p,%p)\n", iface, pformatetcIn, pmedium);
 
@@ -1322,7 +1322,7 @@ static HRESULT WINAPI OLEClipbrd_IDataObject_QueryGetData(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
+  ICOM_THIS(OLEClipbrd, iface);
 
   TRACE("(%p, %p)\n", iface, pformatetc);
 
@@ -1412,7 +1412,7 @@ static HRESULT WINAPI OLEClipbrd_IDataObject_EnumFormatEtc(
   /*
    * Declare "This" pointer
    */
-  OLEClipbrd *This = (OLEClipbrd *)iface;
+  ICOM_THIS(OLEClipbrd, iface);
 
   TRACE("(%p, %lx, %p)\n", iface, dwDirection, ppenumFormatEtc);
 
@@ -1605,7 +1605,7 @@ LPENUMFORMATETC OLEClipbrd_IEnumFORMATETC_Construct(UINT cfmt, const FORMATETC a
 static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_QueryInterface
   (LPENUMFORMATETC iface, REFIID riid, LPVOID* ppvObj)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
 
   TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvObj);
 
@@ -1647,13 +1647,13 @@ static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_QueryInterface
  */
 static ULONG WINAPI OLEClipbrd_IEnumFORMATETC_AddRef(LPENUMFORMATETC iface)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
   if (This->pUnkDataObj)
     IUnknown_AddRef(This->pUnkDataObj);
 
-  return InterlockedIncrement(&This->ref);
+  return ++(This->ref);
 }
 
 /************************************************************************
@@ -1663,17 +1663,15 @@ static ULONG WINAPI OLEClipbrd_IEnumFORMATETC_AddRef(LPENUMFORMATETC iface)
  */
 static ULONG WINAPI OLEClipbrd_IEnumFORMATETC_Release(LPENUMFORMATETC iface)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   LPMALLOC pIMalloc;
-  ULONG ref;
 
   TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
   if (This->pUnkDataObj)
     IUnknown_Release(This->pUnkDataObj);  /* Release parent data object */
 
-  ref = InterlockedDecrement(&This->ref);
-  if (!ref)
+  if (!--(This->ref))
   {
     TRACE("() - destroying IEnumFORMATETC(%p)\n",This);
     if (SUCCEEDED(CoGetMalloc(MEMCTX_TASK, &pIMalloc)))
@@ -1683,8 +1681,10 @@ static ULONG WINAPI OLEClipbrd_IEnumFORMATETC_Release(LPENUMFORMATETC iface)
     }
 
     HeapFree(GetProcessHeap(),0,This);
+    return 0;
   }
-  return ref;
+
+  return This->ref;
 }
 
 /************************************************************************
@@ -1695,7 +1695,7 @@ static ULONG WINAPI OLEClipbrd_IEnumFORMATETC_Release(LPENUMFORMATETC iface)
 static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Next
   (LPENUMFORMATETC iface, ULONG celt, FORMATETC *rgelt, ULONG *pceltFethed)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   UINT cfetch;
   HRESULT hres = S_FALSE;
 
@@ -1733,7 +1733,7 @@ static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Next
  */
 static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Skip(LPENUMFORMATETC iface, ULONG celt)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   TRACE("(%p)->(num=%lu)\n", This, celt);
 
   This->posFmt += celt;
@@ -1752,7 +1752,7 @@ static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Skip(LPENUMFORMATETC iface, ULON
  */
 static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Reset(LPENUMFORMATETC iface)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   TRACE("(%p)->()\n", This);
 
   This->posFmt = 0;
@@ -1767,7 +1767,7 @@ static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Reset(LPENUMFORMATETC iface)
 static HRESULT WINAPI OLEClipbrd_IEnumFORMATETC_Clone
   (LPENUMFORMATETC iface, LPENUMFORMATETC* ppenum)
 {
-  IEnumFORMATETCImpl *This = (IEnumFORMATETCImpl *)iface;
+  ICOM_THIS(IEnumFORMATETCImpl,iface);
   HRESULT hr = S_OK;
 
   TRACE("(%p)->(ppenum=%p)\n", This, ppenum);

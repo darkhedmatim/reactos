@@ -1,4 +1,4 @@
-LIBRARY aclui.dll
+LIBRARY alui.dll
 
 EXPORTS
 CreateSecurityPage@4 @1

@@ -1,4 +1,4 @@
-/* $Id: time.c,v 1.35 2004/12/02 21:22:36 weiden Exp $
+/* $Id: time.c,v 1.30 2004/07/30 19:18:39 jimtabor Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -21,16 +21,16 @@
 
 typedef struct __DOSTIME
 {
-  WORD Second:5;
-  WORD Minute:6;
-  WORD Hour:5;
+   WORD	Second:5;
+   WORD	Minute:6;
+   WORD Hour:5;
 } DOSTIME, *PDOSTIME;
 
 typedef struct __DOSDATE
 {
-  WORD Day:5;
-  WORD Month:4;
-  WORD Year:5;
+   WORD	Day:5;
+   WORD	Month:4;
+   WORD Year:5;
 } DOSDATE, *PDOSDATE;
 
 #define TICKSPERMIN        600000000
@@ -141,12 +141,7 @@ CompareFileTime(
 VOID STDCALL
 GetSystemTimeAsFileTime (PFILETIME lpFileTime)
 {
-  do
-    {
-      lpFileTime->dwHighDateTime = SharedUserData->SystemTime.High1Time;
-      lpFileTime->dwLowDateTime = SharedUserData->SystemTime.LowPart;
-    }
-  while (lpFileTime->dwHighDateTime != SharedUserData->SystemTime.High2Time);
+  NtQuerySystemTime ((PLARGE_INTEGER)lpFileTime);
 }
 
 
@@ -156,8 +151,8 @@ GetSystemTimeAsFileTime (PFILETIME lpFileTime)
 BOOL 
 STDCALL
 SystemTimeToFileTime(
-    CONST SYSTEMTIME *  lpSystemTime,
-    LPFILETIME  lpFileTime
+    CONST SYSTEMTIME *  lpSystemTime,	
+    LPFILETIME  lpFileTime 	
    )
 
 {
@@ -217,7 +212,7 @@ FileTimeToSystemTime(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -226,24 +221,15 @@ FileTimeToLocalFileTime(
 			LPFILETIME lpLocalFileTime
 			)
 {
-  LARGE_INTEGER TimeZoneBias;
-
-  do
-    {
-      TimeZoneBias.HighPart = SharedUserData->TimeZoneBias.High1Time;
-      TimeZoneBias.LowPart = SharedUserData->TimeZoneBias.LowPart;
-    }
-  while (TimeZoneBias.HighPart != SharedUserData->TimeZoneBias.High2Time);
-
-  *((PLONGLONG)lpLocalFileTime) =
-    *((PLONGLONG)lpFileTime) - TimeZoneBias.QuadPart;
+  // FIXME: include time bias
+  *((PLONGLONG)lpLocalFileTime) = *((PLONGLONG)lpFileTime);
 
   return TRUE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -252,17 +238,8 @@ LocalFileTimeToFileTime(
 			LPFILETIME lpFileTime
 			)
 {
-  LARGE_INTEGER TimeZoneBias;
-
-  do
-    {
-      TimeZoneBias.HighPart = SharedUserData->TimeZoneBias.High1Time;
-      TimeZoneBias.LowPart = SharedUserData->TimeZoneBias.LowPart;
-    }
-  while (TimeZoneBias.HighPart != SharedUserData->TimeZoneBias.High2Time);
-
-  *((PLONGLONG)lpFileTime) =
-    *((PLONGLONG)lpLocalFileTime) + TimeZoneBias.QuadPart;
+  // FIXME: include time bias
+  *((PLONGLONG)lpFileTime) = *((PLONGLONG)lpLocalFileTime);
 
   return TRUE;
 }
@@ -277,9 +254,9 @@ GetLocalTime(LPSYSTEMTIME lpSystemTime)
   FILETIME FileTime;
   FILETIME LocalFileTime;
 
-  GetSystemTimeAsFileTime(&FileTime);
-  FileTimeToLocalFileTime(&FileTime, &LocalFileTime);
-  FileTimeToSystemTime(&LocalFileTime, lpSystemTime);
+  NtQuerySystemTime ((PLARGE_INTEGER)&FileTime);
+  FileTimeToLocalFileTime (&FileTime, &LocalFileTime);
+  FileTimeToSystemTime (&LocalFileTime, lpSystemTime);
 }
 
 
@@ -291,8 +268,8 @@ GetSystemTime(LPSYSTEMTIME lpSystemTime)
 {
   FILETIME FileTime;
 
-  GetSystemTimeAsFileTime(&FileTime);
-  FileTimeToSystemTime(&FileTime, lpSystemTime);
+  NtQuerySystemTime ((PLARGE_INTEGER)&FileTime);
+  FileTimeToSystemTime (&FileTime, lpSystemTime);
 }
 
 
@@ -304,12 +281,12 @@ SetLocalTime(CONST SYSTEMTIME *lpSystemTime)
 {
   FILETIME LocalFileTime;
   LARGE_INTEGER FileTime;
-  NTSTATUS Status;
+  NTSTATUS errCode;
 
-  SystemTimeToFileTime(lpSystemTime, &LocalFileTime);
-  LocalFileTimeToFileTime(&LocalFileTime, (FILETIME *)&FileTime);
-  Status = NtSetSystemTime(&FileTime, &FileTime);
-  if (!NT_SUCCESS(Status))
+  SystemTimeToFileTime (lpSystemTime, &LocalFileTime);
+  LocalFileTimeToFileTime (&LocalFileTime, (FILETIME *)&FileTime);
+  errCode = NtSetSystemTime (&FileTime, &FileTime);
+  if (!NT_SUCCESS(errCode))
     return FALSE;
   return TRUE;
 }
@@ -322,11 +299,11 @@ BOOL STDCALL
 SetSystemTime(CONST SYSTEMTIME *lpSystemTime)
 {
   LARGE_INTEGER NewSystemTime;
-  NTSTATUS Status;
+  NTSTATUS errCode;
 
-  SystemTimeToFileTime(lpSystemTime, (PFILETIME)&NewSystemTime);
-  Status = NtSetSystemTime(&NewSystemTime, &NewSystemTime);
-  if (!NT_SUCCESS(Status))
+  SystemTimeToFileTime (lpSystemTime, (PFILETIME)&NewSystemTime);
+  errCode = NtSetSystemTime (&NewSystemTime, &NewSystemTime);
+  if (!NT_SUCCESS(errCode))
     return FALSE;
   return TRUE;
 }
@@ -338,12 +315,13 @@ SetSystemTime(CONST SYSTEMTIME *lpSystemTime)
 DWORD STDCALL
 GetTimeZoneInformation(LPTIME_ZONE_INFORMATION lpTimeZoneInformation)
 {
+   TIME_ZONE_INFORMATION TimeZoneInformation;
    NTSTATUS Status;
 
    DPRINT("GetTimeZoneInformation()\n");
 
    Status = NtQuerySystemInformation(SystemCurrentTimeZoneInformation,
-				     lpTimeZoneInformation,
+				     &TimeZoneInformation,
 				     sizeof(TIME_ZONE_INFORMATION),
 				     NULL);
    if (!NT_SUCCESS(Status))
@@ -351,6 +329,10 @@ GetTimeZoneInformation(LPTIME_ZONE_INFORMATION lpTimeZoneInformation)
 	SetLastErrorByStatus(Status);
 	return TIME_ZONE_ID_INVALID;
      }
+
+   memcpy(lpTimeZoneInformation,
+	  &TimeZoneInformation,
+	  sizeof(TIME_ZONE_INFORMATION));
 
    return(SharedUserData->TimeZoneId);
 }
@@ -362,27 +344,23 @@ GetTimeZoneInformation(LPTIME_ZONE_INFORMATION lpTimeZoneInformation)
 BOOL STDCALL
 SetTimeZoneInformation(CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation)
 {
+   TIME_ZONE_INFORMATION TimeZoneInformation;
    NTSTATUS Status;
 
    DPRINT("SetTimeZoneInformation()\n");
 
-   Status = RtlSetTimeZoneInformation((PTIME_ZONE_INFORMATION)lpTimeZoneInformation);
+   memcpy(&TimeZoneInformation,
+	  lpTimeZoneInformation,
+	  sizeof(TIME_ZONE_INFORMATION));
+
+   Status = RtlSetTimeZoneInformation(&TimeZoneInformation);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT1("RtlSetTimeZoneInformation() failed (Status %lx)\n", Status);
 	SetLastErrorByStatus(Status);
 	return FALSE;
      }
 
-   Status = NtSetSystemInformation(SystemCurrentTimeZoneInformation,
-				   (PVOID)lpTimeZoneInformation,
-				   sizeof(TIME_ZONE_INFORMATION));
-   if (!NT_SUCCESS(Status))
-     {
-	DPRINT1("NtSetSystemInformation() failed (Status %lx)\n", Status);
-	SetLastErrorByStatus(Status);
-	return FALSE;
-     }
+   NtSetSystemTime(0,0);
 
    return TRUE;
 }
@@ -394,7 +372,7 @@ SetTimeZoneInformation(CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation)
 DWORD STDCALL
 GetTickCount(VOID)
 {
-  return (DWORD)((ULONGLONG)SharedUserData->TickCountLowDeprecated * SharedUserData->TickCountMultiplier / 16777216);
+  return (DWORD)((ULONGLONG)SharedUserData->TickCountLow * SharedUserData->TickCountMultiplier / 16777216);
 }
 
 
@@ -414,7 +392,7 @@ SystemTimeToTzSpecificLocalTime(
 
   if (!lpTimeZoneInformation)
   {
-    GetTimeZoneInformation(&TimeZoneInformation);
+    GetTimeZoneInformation (&TimeZoneInformation);
     lpTzInfo = &TimeZoneInformation;
   }
   else
@@ -426,9 +404,9 @@ SystemTimeToTzSpecificLocalTime(
   if (!lpLocalTime)
     return FALSE;
 
-  SystemTimeToFileTime(lpUniversalTime, (PFILETIME)&FileTime);
+  SystemTimeToFileTime (lpUniversalTime, (PFILETIME)&FileTime);
   FileTime.QuadPart -= (lpTzInfo->Bias * TICKSPERMIN);
-  FileTimeToSystemTime((PFILETIME)&FileTime, lpLocalTime);
+  FileTimeToSystemTime ((PFILETIME)&FileTime, lpLocalTime);
 
   return TRUE;
 }

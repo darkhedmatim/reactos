@@ -18,7 +18,7 @@
  * Updated for Mesa 4.0 by Karl Schultz (kschultz@sourceforge.net)
  */
 
-#if defined(NDEBUG) && defined(_MSC_VER)
+#ifdef NDEBUG
 #pragma auto_inline(on)
 #pragma inline_depth(255)
 #pragma inline_recursion(on)
@@ -112,8 +112,6 @@ WMesaContext WC = NULL;
 
 #if defined(_MSC_VER) && _MSC_VER >= 1200
 #define FORCEINLINE __forceinline
-#elif defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
-#define FORCEINLINE __attribute__((always_inline))
 #else
 #define FORCEINLINE __inline
 #endif
@@ -981,8 +979,8 @@ static void read_ci32_span( const GLcontext* ctx, GLuint n, GLint x, GLint y,
                             GLuint index[])
 {
   GLuint i;
-  BYTE *Mem=Current->ScreenMem+FLIP(y)*Current->ScanWidth+x;
   (void) ctx;
+  BYTE *Mem=Current->ScreenMem+FLIP(y)*Current->ScanWidth+x;
   assert(Current->rgb_flag==GL_FALSE);
   for (i=0; i<n; i++)
     index[i]=Mem[i];

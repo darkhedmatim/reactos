@@ -131,13 +131,13 @@ static void ccf_search(adns_state ads, const char *fn, int lno, const char *buf)
   while (nextword(&bufp,&word,&l)) { count++; tl += l+1; }
 
   newptrs= malloc(sizeof(char*)*count);  if (!newptrs) { saveerr(ads,errno); return; }
-  newchars= malloc((size_t) tl);  if (!newchars) { saveerr(ads,errno); free(newptrs); return; }
+  newchars= malloc(tl);  if (!newchars) { saveerr(ads,errno); free(newptrs); return; }
 
   bufp= buf;
   pp= newptrs;
   while (nextword(&bufp,&word,&l)) {
     *pp++= newchars;
-    memcpy(newchars,word,(size_t) l);
+    memcpy(newchars,word,l);
     newchars += l;
     *newchars++ = 0;
   }
@@ -168,7 +168,7 @@ static void ccf_sortlist(adns_state ads, const char *fn, int lno, const char *bu
       continue;
     }
     
-    memcpy(tbuf,word, (size_t) l); tbuf[l]= 0;
+    memcpy(tbuf,word,l); tbuf[l]= 0;
     slash= strchr(tbuf,'/');
     if (slash) *slash++= 0;
     
@@ -351,7 +351,7 @@ static int gl_text(adns_state ads, getline_ctx *src_io, const char *filename,
     return -2;
   }
     
-  memcpy(buf,cp, (size_t) l);
+  memcpy(buf,cp,l);
   buf[l]= 0;
   return l;
 }
@@ -382,7 +382,7 @@ static void readconfiggeneric(adns_state ads, const char *filename,
     while (*q && !ctype_whitespace(*q)) q++;
     dirl= q-p;
     for (ccip=configcommandinfos;
-	 ccip->name && !((int)strlen(ccip->name)==dirl && !memcmp(ccip->name,p,(size_t) (q-p)));
+	 ccip->name && !((int)strlen(ccip->name)==dirl && !memcmp(ccip->name,p,q-p));
 	 ccip++);
     if (!ccip->name) {
       adns__diag(ads,-1,0,"%s:%d: unknown configuration directive `%.*s'",
@@ -457,7 +457,7 @@ static void readconfigenvtext(adns_state ads, const char *envvar) {
 int adns__setnonblock(adns_state ads, ADNS_SOCKET fd) {
 #ifdef ADNS_JGAA_WIN32
    unsigned long Val = 1;
-   return (ioctlsocket (fd, (long) FIONBIO, &Val) == 0) ? 0 : -1;
+   return (ioctlsocket (fd, FIONBIO, &Val) == 0) ? 0 : -1;
 #else
   int r;
   
@@ -488,7 +488,7 @@ static int init_begin(adns_state *ads_r, adns_initflags flags, FILE *diagfile) {
   LIST_INIT(ads->output);
   ads->forallnext= 0;
   ads->nextid= 0x311f;
-  ads->udpsocket= ads->tcpsocket= ((unsigned) -1);
+  ads->udpsocket= ads->tcpsocket= -1;
   adns__vbuf_init(&ads->tcpsend);
   adns__vbuf_init(&ads->tcprecv);
   ads->tcprecv_skip= 0;

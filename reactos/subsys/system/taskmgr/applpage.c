@@ -64,8 +64,7 @@ BOOL bRestore /* Restore the window if it is minimized */
 );
 #endif
 
-INT_PTR CALLBACK
-ApplicationPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ApplicationPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT        rc;
     int         nXDifference;

@@ -1,4 +1,4 @@
-/* $Id: rtl.h,v 1.41 2004/12/30 18:30:03 ion Exp $
+/* $Id: rtl.h,v 1.33 2004/08/12 06:04:21 ion Exp $
  * 
  */
 #ifndef __DDK_RTL_H
@@ -88,11 +88,10 @@
  * ARGUMENTS:
  *         ListHead = Caller supplied storage for the head of the list
  */
-static __inline VOID
-InitializeListHead(
-	IN PLIST_ENTRY  ListHead)
-{
-	ListHead->Flink = ListHead->Blink = ListHead;
+#define InitializeListHead(ListHead) \
+{ \
+	(ListHead)->Flink = (ListHead); \
+	(ListHead)->Blink = (ListHead); \
 }
 
 
@@ -108,17 +107,19 @@ InitializeListHead(
  *        ListHead = Head of the list
  *        Entry = Entry to insert
  */
-static __inline VOID
-InsertHeadList(
-	IN PLIST_ENTRY  ListHead,
-	IN PLIST_ENTRY  Entry)
-{ 
-	PLIST_ENTRY OldFlink;
-	OldFlink = ListHead->Flink;
-	Entry->Flink = OldFlink;
-	Entry->Blink = ListHead;
-	OldFlink->Blink = Entry;
-	ListHead->Flink = Entry;
+#define InsertHeadList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	OldFlink = (ListHead)->Flink; \
+	(ListEntry)->Flink = OldFlink; \
+	(ListEntry)->Blink = (ListHead); \
+	OldFlink->Blink = (ListEntry); \
+	(ListHead)->Flink = (ListEntry); \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
 }
 
 
@@ -136,17 +137,14 @@ InsertHeadList(
  *	ListHead = Head of the list
  *	Entry = Entry to insert
  */
-static __inline VOID
-InsertTailList(
-	IN PLIST_ENTRY  ListHead,
-	IN PLIST_ENTRY  Entry)
-{ 
-	PLIST_ENTRY OldBlink;
-	OldBlink = ListHead->Blink;
-	Entry->Flink = ListHead;
-	Entry->Blink = OldBlink;
-	OldBlink->Flink = Entry;
-	ListHead->Blink = Entry;
+#define InsertTailList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldBlink; \
+	OldBlink = (ListHead)->Blink; \
+	(ListEntry)->Flink = (ListHead); \
+	(ListEntry)->Blink = OldBlink; \
+	OldBlink->Flink = (ListEntry); \
+	(ListHead)->Blink = (ListEntry); \
 }
 
 /*
@@ -180,24 +178,49 @@ InsertTailList(
  * RETURNS:
  *	The removed entry
  */
+/*
 #define PopEntryList(ListHead) \
 	(ListHead)->Next; \
 	{ \
-		PSINGLE_LIST_ENTRY _FirstEntry; \
-		_FirstEntry = (ListHead)->Next; \
-		if (_FirstEntry != NULL) \
-			(ListHead)->Next = _FirstEntry->Next; \
+		PSINGLE_LIST_ENTRY FirstEntry; \
+		FirstEntry = (ListHead)->Next; \
+		if (FirstEntry != NULL) \
+		{ \
+			(ListHead)->Next = FirstEntry->Next; \
+		} \
 	}
+*/
+static inline PSINGLE_LIST_ENTRY
+PopEntryList(PSINGLE_LIST_ENTRY ListHead)
+{
+  PSINGLE_LIST_ENTRY ListEntry;
+
+  ListEntry = ListHead->Next;
+  if (ListEntry!=NULL)
+  {
+    ListHead->Next = ListEntry->Next;
+  }
+
+  return(ListEntry);
+}
 
 #define RtlCopyMemory(Destination,Source,Length) \
 	memcpy((Destination),(Source),(Length))
 
-#define PushEntryList(_ListHead, _Entry) \
-	(_Entry)->Next = (_ListHead)->Next; \
-	(_ListHead)->Next = (_Entry); \
+static
+inline
+VOID
+PushEntryList (
+	PSINGLE_LIST_ENTRY	ListHead,
+	PSINGLE_LIST_ENTRY	Entry
+	)
+{
+	Entry->Next = ListHead->Next;
+	ListHead->Next = Entry;
+}
 
 /*
- *BOOLEAN
+ *VOID
  *RemoveEntryList (
  *	PLIST_ENTRY	Entry
  *	);
@@ -208,18 +231,21 @@ InsertTailList(
  * ARGUMENTS:
  *	ListEntry = Entry to remove
  */
-static __inline BOOLEAN
-RemoveEntryList(
-  IN PLIST_ENTRY  Entry)
-{
-  PLIST_ENTRY OldFlink;
-  PLIST_ENTRY OldBlink;
-
-  OldFlink = Entry->Flink;
-  OldBlink = Entry->Blink;
-  OldFlink->Blink = OldBlink;
-  OldBlink->Flink = OldFlink;
-  return (OldFlink == OldBlink);
+#define RemoveEntryList(ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	PLIST_ENTRY OldBlink; \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
+	OldFlink = (ListEntry)->Flink; \
+	OldBlink = (ListEntry)->Blink; \
+	OldFlink->Blink = OldBlink; \
+	OldBlink->Flink = OldFlink; \
+        (ListEntry)->Flink = NULL; \
+        (ListEntry)->Blink = NULL; \
 }
 
 
@@ -238,18 +264,42 @@ RemoveEntryList(
  * RETURNS:
  *	The removed entry
  */
-static __inline PLIST_ENTRY 
-RemoveHeadList(
-  IN PLIST_ENTRY  ListHead)
-{
-  PLIST_ENTRY Flink;
-  PLIST_ENTRY Entry;
+/*
+#define RemoveHeadList(ListHead) \
+	(ListHead)->Flink; \
+	{RemoveEntryList((ListHead)->Flink)}
+*/
+/*
+PLIST_ENTRY
+RemoveHeadList (
+	PLIST_ENTRY	ListHead
+	);
+*/
 
-  Entry = ListHead->Flink;
-  Flink = Entry->Flink;
-  ListHead->Flink = Flink;
-  Flink->Blink = ListHead;
-  return Entry;
+static
+inline
+PLIST_ENTRY
+RemoveHeadList (
+	PLIST_ENTRY	ListHead
+	)
+{
+	PLIST_ENTRY Old;
+	PLIST_ENTRY OldFlink;
+	PLIST_ENTRY OldBlink;
+
+	Old = ListHead->Flink;
+
+	OldFlink = ListHead->Flink->Flink;
+	OldBlink = ListHead->Flink->Blink;
+	OldFlink->Blink = OldBlink;
+	OldBlink->Flink = OldFlink;
+        if (Old != ListHead)
+     {
+        Old->Flink = NULL;
+        Old->Blink = NULL;
+     }
+   
+	return(Old);
 }
 
 
@@ -268,18 +318,42 @@ RemoveHeadList(
  * RETURNS:
  *	The removed entry
  */
-static __inline PLIST_ENTRY
-RemoveTailList(
-  IN PLIST_ENTRY  ListHead)
-{
-  PLIST_ENTRY Blink;
-  PLIST_ENTRY Entry;
+/*
+#define RemoveTailList(ListHead) \
+	(ListHead)->Blink; \
+	{RemoveEntryList((ListHead)->Blink)}
+*/
+/*
+PLIST_ENTRY
+RemoveTailList (
+	PLIST_ENTRY	ListHead
+	);
+*/
 
-  Entry = ListHead->Blink;
-  Blink = Entry->Blink;
-  ListHead->Blink = Blink;
-  Blink->Flink = ListHead;
-  return Entry;
+static
+inline
+PLIST_ENTRY
+RemoveTailList (
+	PLIST_ENTRY ListHead
+	)
+{
+	PLIST_ENTRY Old;
+	PLIST_ENTRY OldFlink;
+	PLIST_ENTRY OldBlink;
+
+	Old = ListHead->Blink;
+
+	OldFlink = ListHead->Blink->Flink;
+	OldBlink = ListHead->Blink->Blink;
+	OldFlink->Blink = OldBlink;
+	OldBlink->Flink = OldFlink;
+   if (Old != ListHead)
+     {
+        Old->Flink = NULL;
+        Old->Blink = NULL;
+     }
+   
+	return(Old);
 }
 
 
@@ -375,7 +449,6 @@ RemoveTailList(
   
 #define IsLastEntry(ListHead, Entry) ((ListHead)->Blink == Entry)
   
-#define RtlEqualMemory(Destination,Source,Length)   (!memcmp((Destination), (Source), (Length)))
 
 NTSTATUS
 STDCALL
@@ -384,10 +457,13 @@ RtlAppendUnicodeToString (
 	PWSTR		Source
 	);
 
-SIZE_T STDCALL
-RtlCompareMemory(IN const VOID *Source1,
-                 IN const VOID *Source2,
-                 IN SIZE_T Length);
+ULONG
+STDCALL
+RtlCompareMemory (
+	PVOID	Source1,
+	PVOID	Source2,
+	ULONG	Length
+	);
 
 BOOLEAN
 STDCALL
@@ -720,10 +796,11 @@ RtlClearBits (
 	IN	ULONG		NumberToClear
 	);
 
-ULONG STDCALL
+DWORD
+STDCALL
 RtlCompactHeap (
-	HANDLE Heap,
-	ULONG	Flags
+	HANDLE	hheap,
+	DWORD	flags
 	);
 
 LONG
@@ -961,7 +1038,7 @@ RtlDescribeChunk(IN USHORT CompressionFormat,
 NTSTATUS STDCALL
 RtlDestroyAtomTable (IN PRTL_ATOM_TABLE AtomTable);
 
-HANDLE STDCALL
+BOOL STDCALL
 RtlDestroyHeap (HANDLE hheap);
 
 NTSTATUS
@@ -1418,13 +1495,6 @@ RtlInitializeSid (PSID Sid,
 
 VOID
 STDCALL
-RtlInitializeBitMap(
-  IN PRTL_BITMAP  BitMapHeader,
-  IN PULONG  BitMapBuffer,
-  IN ULONG  SizeOfBitMap); 
-  
-VOID
-STDCALL
 RtlInitNlsTables (
 	IN	PUSHORT		AnsiTableBase,
 	IN	PUSHORT		OemTableBase,
@@ -1458,10 +1528,10 @@ NTSTATUS
 STDCALL
 RtlInitializeContext (
 	IN	HANDLE			ProcessHandle,
-	OUT	PCONTEXT		ThreadContext,
-	IN	PVOID			ThreadStartParam  OPTIONAL,
-	IN	PTHREAD_START_ROUTINE	ThreadStartAddress,
-	IN	PINITIAL_TEB		InitialTeb
+	IN	PCONTEXT		Context,
+	IN	PVOID			Parameter,
+	IN	PTHREAD_START_ROUTINE	StartAddress,
+	IN OUT	PUSER_STACK		UserStack
 	);
 
 VOID
@@ -1573,7 +1643,7 @@ NTSTATUS STDCALL
 RtlInvertRangeList (OUT PRTL_RANGE_LIST InvertedRangeList,
 		    IN PRTL_RANGE_LIST RangeList);
 
-LPSTR
+NTSTATUS
 STDCALL
 RtlIpv4AddressToStringA(
 	PULONG IP,
@@ -1589,7 +1659,7 @@ RtlIpv4AddressToStringExA(
 	PULONG MaxSize
 	);
 
-LPWSTR
+NTSTATUS
 STDCALL
 RtlIpv4AddressToStringW(
 	PULONG IP,
@@ -1948,8 +2018,11 @@ RtlLockBootStatusData(
 	HANDLE Filehandle
 	);
 
-BOOLEAN STDCALL
-RtlLockHeap (IN HANDLE Heap);
+BOOL
+STDCALL
+RtlLockHeap (
+	HANDLE	hheap
+	);
 
 NTSTATUS STDCALL
 RtlLookupAtomInAtomTable (IN PRTL_ATOM_TABLE AtomTable,
@@ -2153,8 +2226,7 @@ RtlQueryTimeZoneInformation (IN OUT PTIME_ZONE_INFORMATION TimeZoneInformation);
 VOID STDCALL
 RtlRaiseException (IN PEXCEPTION_RECORD ExceptionRecord);
 
-VOID STDCALL
-RtlRaiseStatus(NTSTATUS Status);
+VOID STDCALL RtlRaiseStatus(NTSTATUS Status);
 
 ULONG STDCALL
 RtlRandom (PULONG Seed);
@@ -2177,12 +2249,13 @@ RtlRealSuccessor (
 	PRTL_SPLAY_LINKS Links
 	);
 
-PVOID STDCALL
+LPVOID
+STDCALL
 RtlReAllocateHeap (
-	HANDLE Heap,
-	ULONG Flags,
-	PVOID Ptr,
-	ULONG Size
+	HANDLE	hheap,
+	DWORD	flags,
+	LPVOID	ptr,
+	DWORD	size
 	);
 
 VOID
@@ -2320,7 +2393,8 @@ RtlSetInformationAcl (PACL Acl,
 NTSTATUS STDCALL
 RtlSetTimeZoneInformation (IN OUT PTIME_ZONE_INFORMATION TimeZoneInformation);
 
-ULONG STDCALL
+ULONG
+STDCALL
 RtlSizeHeap(
 	IN PVOID HeapHandle, 
 	IN ULONG Flags, 
@@ -2531,8 +2605,11 @@ RtlUnicodeToOemN (
 ULONG STDCALL
 RtlUniform (PULONG Seed);
 
-BOOLEAN STDCALL
-RtlUnlockHeap (IN HANDLE Heap);
+BOOL
+STDCALL
+RtlUnlockHeap (
+	HANDLE	hheap
+	);
 
 NTSTATUS
 STDCALL
@@ -2631,10 +2708,11 @@ RtlUshortByteSwap (IN USHORT Source);
 BOOLEAN STDCALL
 RtlValidAcl (PACL Acl);
 
-BOOLEAN STDCALL
+BOOL
+STDCALL
 RtlValidateHeap (
-	HANDLE Heap,
-	ULONG	Flags,
+	HANDLE	hheap,
+	DWORD	flags,
 	PVOID	pmem
 	);
 
@@ -2677,7 +2755,8 @@ RtlWalkFrameChain (
 	IN ULONG Flags
 	);
 
-BOOLEAN STDCALL
+ULONG
+STDCALL
 RtlZeroHeap(
     IN PVOID HeapHandle,
     IN ULONG Flags

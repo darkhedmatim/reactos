@@ -1,4 +1,4 @@
-/* $Id: rtl.h,v 1.53 2004/11/29 00:05:31 gdalsnes Exp $
+/* $Id: rtl.h,v 1.48 2004/08/11 21:03:11 jimtabor Exp $
  *
  */
 
@@ -54,7 +54,7 @@ typedef struct _DEBUG_BUFFER
 
 typedef struct _DEBUG_MODULE_INFORMATION {
 	ULONG  Reserved[2];
-	PVOID  Base;
+	ULONG  Base;
 	ULONG  Size;
 	ULONG  Flags;
 	USHORT  Index;
@@ -65,7 +65,7 @@ typedef struct _DEBUG_MODULE_INFORMATION {
 } DEBUG_MODULE_INFORMATION, *PDEBUG_MODULE_INFORMATION;
 
 typedef struct _DEBUG_HEAP_INFORMATION {
-	PVOID  Base;
+	ULONG  Base;
 	ULONG  Flags;
 	USHORT  Granularity;
 	USHORT  Unknown;
@@ -90,6 +90,20 @@ typedef struct _DEBUG_LOCK_INFORMATION {
 	ULONG  NumberOfSharedWaiters;
 	ULONG  NumberOfExclusiveWaiters;
 } DEBUG_LOCK_INFORMATION, *PDEBUG_LOCK_INFORMATION;
+
+
+typedef struct _LOCK_INFORMATION
+{
+  ULONG LockCount;
+  DEBUG_LOCK_INFORMATION LockEntry[1];
+} LOCK_INFORMATION, *PLOCK_INFORMATION;
+
+typedef struct _HEAP_INFORMATION
+{
+  ULONG HelpCount;
+  DEBUG_HEAP_INFORMATION HeapEntry[1];
+} HEAP_INFORMATION, *PHEAP_INFORMATION;
+
 
 typedef struct _CRITICAL_SECTION_DEBUG
 {
@@ -119,6 +133,7 @@ typedef PCRITICAL_SECTION PRTL_CRITICAL_SECTION;
 typedef LPCRITICAL_SECTION LPRTL_CRITICAL_SECTION;
 
 #endif /* !__USE_W32API */
+
 
 typedef struct _RTL_PROCESS_INFO
 {
@@ -157,6 +172,8 @@ typedef struct _RTL_HANDLE_TABLE
    PRTL_HANDLE LastUsed;	/* pointer to last allocated handle */
 } RTL_HANDLE_TABLE, *PRTL_HANDLE_TABLE;
 
+
+#define HEAP_BASE (0xa0000000)
 
 /* RtlQueryProcessDebugInformation */
 #define PDI_MODULES     0x01	/* The loaded modules of the process */
@@ -263,22 +280,10 @@ RtlLargeIntegerToChar (
 
 /* Path functions */
 
-typedef enum
-{
-    INVALID_PATH = 0,
-    UNC_PATH,              /* "//foo" */
-    ABSOLUTE_DRIVE_PATH,   /* "c:/foo" */
-    RELATIVE_DRIVE_PATH,   /* "c:foo" */
-    ABSOLUTE_PATH,         /* "/foo" */
-    RELATIVE_PATH,         /* "foo" */
-    DEVICE_PATH,           /* "//./foo" */
-    UNC_DOT_PATH           /* "//." */
-} DOS_PATHNAME_TYPE;
-
 ULONG
 STDCALL
 RtlDetermineDosPathNameType_U (
-   PCWSTR Path
+	PWSTR Path
 	);
 
 BOOLEAN

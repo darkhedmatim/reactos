@@ -1,4 +1,4 @@
-/* $Id: registry.c,v 1.129 2004/12/12 22:36:10 ekohl Exp $
+/* $Id: registry.c,v 1.125 2004/08/15 16:39:00 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -24,8 +24,7 @@ PREGISTRY_HIVE  CmiVolatileHive = NULL;
 KSPIN_LOCK  CmiKeyListLock;
 
 LIST_ENTRY CmiHiveListHead;
-
-ERESOURCE CmiRegistryLock;
+ERESOURCE CmiHiveListLock;
 
 volatile BOOLEAN CmiHiveSyncEnabled = FALSE;
 volatile BOOLEAN CmiHiveSyncPending = FALSE;
@@ -115,7 +114,7 @@ CmiCheckSubKeys(BOOLEAN Verbose,
 			 KEY_ALL_ACCESS,
 			 &ObjectAttributes);
 
-      ASSERT(NT_SUCCESS(Status));
+      assert(NT_SUCCESS(Status));
 
       CmiCheckKey(Verbose, SubKey);
 
@@ -124,7 +123,7 @@ CmiCheckSubKeys(BOOLEAN Verbose,
       Index++;
     }
 
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
 }
 
 
@@ -175,7 +174,7 @@ CmiCheckValues(BOOLEAN Verbose,
       Index++;
     }
 
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
 }
 
 
@@ -219,7 +218,7 @@ CmiCheckByName(BOOLEAN Verbose,
 	{
           DbgPrint("KeyPath %wZ  Status: %.08x", KeyPath, Status);
           DbgPrint("KeyPath %S  Status: %.08x", KeyPath.Buffer, Status);
-          ASSERT(NT_SUCCESS(Status));
+          assert(NT_SUCCESS(Status));
 	}
     }
 
@@ -246,16 +245,13 @@ CmInitializeRegistry(VOID)
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING KeyName;
   PKEY_OBJECT RootKey;
-#if 0
-  PSECURITY_CELL RootSecurityCell;
-#endif
   HANDLE RootKeyHandle;
   HANDLE KeyHandle;
   NTSTATUS Status;
 
   /*  Initialize the Key object type  */
   CmiKeyType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
-  ASSERT(CmiKeyType);
+  assert(CmiKeyType);
   CmiKeyType->Tag = TAG('R', 'e', 'g', 'K');
   CmiKeyType->TotalObjects = 0;
   CmiKeyType->TotalHandles = 0;
@@ -280,13 +276,11 @@ CmInitializeRegistry(VOID)
 
   /* Initialize the hive list */
   InitializeListHead(&CmiHiveListHead);
-
-  /* Initialize registry lock */
-  ExInitializeResourceLite(&CmiRegistryLock);
+  ExInitializeResourceLite(&CmiHiveListLock);
 
   /*  Build volatile registry store  */
   Status = CmiCreateVolatileHive (&CmiVolatileHive);
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
 
   /* Create '\Registry' key. */
   RtlInitUnicodeString(&KeyName, REG_ROOT_KEY_NAME);
@@ -300,14 +294,14 @@ CmInitializeRegistry(VOID)
 			  0,
 			  0,
 			  (PVOID *) &RootKey);
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
   Status = ObInsertObject(RootKey,
 			  NULL,
 			  STANDARD_RIGHTS_REQUIRED,
 			  0,
 			  NULL,
 			  &RootKeyHandle);
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
   RootKey->RegistryHive = CmiVolatileHive;
   RootKey->KeyCellOffset = CmiVolatileHive->HiveHeader->RootKeyOffset;
   RootKey->KeyCell = CmiGetCell (CmiVolatileHive, RootKey->KeyCellOffset, NULL);
@@ -317,19 +311,7 @@ CmInitializeRegistry(VOID)
   RootKey->SubKeys = NULL;
   RootKey->SizeOfSubKeys = 0;
   Status = RtlCreateUnicodeString(&RootKey->Name, L"Registry");
-  ASSERT(NT_SUCCESS(Status));
-
-#if 0
-  Status = CmiAllocateCell(CmiVolatileHive,
-			   0x10, //LONG CellSize,
-			   (PVOID *)&RootSecurityCell,
-			   &RootKey->KeyCell->SecurityKeyOffset);
-  ASSERT(NT_SUCCESS(Status));
-
-  /* Copy the security descriptor */
-
-  CmiVolatileHive->RootSecurityCell = RootSecurityCell;
-#endif
+  assert(NT_SUCCESS(Status));
 
   KeInitializeSpinLock(&CmiKeyListLock);
 
@@ -348,7 +330,7 @@ CmInitializeRegistry(VOID)
 		       NULL,
 		       REG_OPTION_VOLATILE,
 		       NULL);
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
 
   /* Create '\Registry\User' key. */
   RtlInitUnicodeString(&KeyName,
@@ -365,7 +347,7 @@ CmInitializeRegistry(VOID)
 		       NULL,
 		       REG_OPTION_VOLATILE,
 		       NULL);
-  ASSERT(NT_SUCCESS(Status));
+  assert(NT_SUCCESS(Status));
 }
 
 
@@ -373,7 +355,7 @@ VOID INIT_FUNCTION
 CmInit2(PCHAR CommandLine)
 {
   ULONG PiceStart = 4;
-  BOOLEAN MiniNT = FALSE;
+  BOOL MiniNT = FALSE;
   PWCHAR SystemBootDevice;
   PWCHAR SystemStartOptions;
   ULONG Position;
@@ -388,13 +370,9 @@ CmInit2(PCHAR CommandLine)
    * Parse the system boot device.
    */
   Position = 0;
-  SystemBootDevice = ExAllocatePool(PagedPool,
-				    (strlen(CommandLine) + 1) * sizeof(WCHAR));
+  SystemBootDevice = ExAllocatePool(PagedPool, (strlen(CommandLine) + 1) * sizeof(WCHAR));
   if (SystemBootDevice == NULL)
-  {
     KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
-
   while (*CommandLine != 0 && *CommandLine != ' ')
     SystemBootDevice[Position++] = *(CommandLine++);
   SystemBootDevice[Position++] = 0;
@@ -402,16 +380,15 @@ CmInit2(PCHAR CommandLine)
   /*
    * Write the system boot device to registry.
    */
-  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
-				 L"SystemBootDevice",
-				 REG_SZ,
-				 SystemBootDevice,
-				 Position * sizeof(WCHAR));
+  Status = RtlWriteRegistryValue(
+    RTL_REGISTRY_ABSOLUTE,
+    L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
+    L"SystemBootDevice",
+    REG_SZ,
+    SystemBootDevice,
+    Position * sizeof(WCHAR));
   if (!NT_SUCCESS(Status))
-  {
     KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
 
   /*
    * Parse the system start options.
@@ -442,16 +419,15 @@ CmInit2(PCHAR CommandLine)
   /*
    * Write the system start options to registry.
    */
-  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
-				 L"SystemStartOptions",
-				 REG_SZ,
-				 SystemStartOptions,
-				 Position * sizeof(WCHAR));
+  Status = RtlWriteRegistryValue(
+    RTL_REGISTRY_ABSOLUTE,
+    L"\\Registry\\Machine\\System\\CurrentControlSet\\Control",
+    L"SystemStartOptions",
+    REG_SZ,
+    SystemStartOptions,
+    Position * sizeof(WCHAR));
   if (!NT_SUCCESS(Status))
-  {
     KEBUGCHECK(CONFIG_INITIALIZATION_FAILED);
-  }
 
   /*
    * Create a CurrentControlSet\Control\MiniNT key that is used
@@ -645,7 +621,7 @@ CmiConnectHive(IN POBJECT_ATTRIBUTES KeyObjectAttributes,
   NewKey->NumberOfSubKeys = 0;
   if (NewKey->KeyCell->NumberOfSubKeys != 0)
     {
-      NewKey->SubKeys = ExAllocatePool(NonPagedPool,
+      NewKey->SubKeys = ExAllocatePool(PagedPool,
 				       NewKey->KeyCell->NumberOfSubKeys * sizeof(ULONG));
       if (NewKey->SubKeys == NULL)
 	{
@@ -1056,7 +1032,7 @@ CmShutdownRegistry(VOID)
   PREGISTRY_HIVE Hive;
   PLIST_ENTRY Entry;
 
-  DPRINT("CmShutdownRegistry() called\n");
+  DPRINT1("CmShutdownRegistry() called\n");
 
   /* Stop automatic hive synchronization */
   CmiHiveSyncEnabled = FALSE;
@@ -1070,7 +1046,7 @@ CmShutdownRegistry(VOID)
 
   /* Acquire hive list lock exclusively */
   KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&CmiRegistryLock, TRUE);
+  ExAcquireResourceExclusiveLite(&CmiHiveListLock, TRUE);
 
   Entry = CmiHiveListHead.Flink;
   while (Entry != &CmiHiveListHead)
@@ -1079,18 +1055,25 @@ CmShutdownRegistry(VOID)
 
       if (!(IsNoFileHive(Hive) || IsNoSynchHive(Hive)))
 	{
+	  /* Acquire hive resource exclusively */
+	  ExAcquireResourceExclusiveLite(&Hive->HiveResource,
+					 TRUE);
+
 	  /* Flush non-volatile hive */
 	  CmiFlushRegistryHive(Hive);
+
+	  /* Release hive resource */
+	  ExReleaseResourceLite(&Hive->HiveResource);
 	}
 
       Entry = Entry->Flink;
     }
 
   /* Release hive list lock */
-  ExReleaseResourceLite(&CmiRegistryLock);
+  ExReleaseResourceLite(&CmiHiveListLock);
   KeLeaveCriticalRegion();
 
-  DPRINT("CmShutdownRegistry() done\n");
+  DPRINT1("CmShutdownRegistry() done\n");
 }
 
 
@@ -1106,7 +1089,7 @@ CmiHiveSyncRoutine(PVOID DeferredContext)
 
   /* Acquire hive list lock exclusively */
   KeEnterCriticalRegion();
-  ExAcquireResourceExclusiveLite(&CmiRegistryLock, TRUE);
+  ExAcquireResourceExclusiveLite(&CmiHiveListLock, TRUE);
 
   Entry = CmiHiveListHead.Flink;
   while (Entry != &CmiHiveListHead)
@@ -1115,15 +1098,22 @@ CmiHiveSyncRoutine(PVOID DeferredContext)
 
       if (!(IsNoFileHive(Hive) || IsNoSynchHive(Hive)))
 	{
+	  /* Acquire hive resource exclusively */
+	  ExAcquireResourceExclusiveLite(&Hive->HiveResource,
+					 TRUE);
+
 	  /* Flush non-volatile hive */
 	  CmiFlushRegistryHive(Hive);
+
+	  /* Release hive resource */
+	  ExReleaseResourceLite(&Hive->HiveResource);
 	}
 
       Entry = Entry->Flink;
     }
 
   /* Release hive list lock */
-  ExReleaseResourceLite(&CmiRegistryLock);
+  ExReleaseResourceLite(&CmiHiveListLock);
   KeLeaveCriticalRegion();
 
   DPRINT("DeferredContext %x\n", DeferredContext);
@@ -1172,7 +1162,12 @@ CmiSyncHives(VOID)
 
   CmiHiveSyncPending = TRUE;
 
-  Timeout.QuadPart = (LONGLONG)-50000000;
+
+#if defined(__GNUC__)
+  Timeout.QuadPart = -50000000LL;
+#else
+  Timeout.QuadPart = -50000000;
+#endif
   KeSetTimer(&CmiHiveSyncTimer,
 	     Timeout,
 	     &CmiHiveSyncDpc);

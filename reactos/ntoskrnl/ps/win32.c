@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: win32.c,v 1.10 2004/11/20 16:46:05 weiden Exp $
+/* $Id: win32.c,v 1.8 2004/08/15 16:39:10 chorns Exp $
  *
  * COPYRIGHT:              See COPYING in the top level directory
  * PROJECT:                ReactOS kernel
@@ -45,7 +45,7 @@ static ULONG PspWin32ThreadSize = 0;
 PW32THREAD STDCALL
 PsGetWin32Thread(VOID)
 {
-  return(PsGetCurrentThread()->Tcb.Win32Thread);
+  return(PsGetCurrentThread()->Win32Thread);
 }
 
 PW32PROCESS STDCALL
@@ -100,31 +100,28 @@ PsInitWin32Thread (PETHREAD Thread)
 
   if (Process->Win32Process == NULL)
     {
-      /* FIXME - lock the process */
       Process->Win32Process = ExAllocatePool (NonPagedPool,
 					      PspWin32ProcessSize);
-
       if (Process->Win32Process == NULL)
 	return STATUS_NO_MEMORY;
 
       RtlZeroMemory (Process->Win32Process,
 		     PspWin32ProcessSize);
-      /* FIXME - unlock the process */
 
       if (PspWin32ProcessCallback != NULL)
 	{
-          PspWin32ProcessCallback (Process, TRUE);
+	  PspWin32ProcessCallback (Process, TRUE);
 	}
     }
 
-  if (Thread->Tcb.Win32Thread == NULL)
+  if (Thread->Win32Thread == NULL)
     {
-      Thread->Tcb.Win32Thread = ExAllocatePool (NonPagedPool,
-						PspWin32ThreadSize);
-      if (Thread->Tcb.Win32Thread == NULL)
+      Thread->Win32Thread = ExAllocatePool (NonPagedPool,
+					    PspWin32ThreadSize);
+      if (Thread->Win32Thread == NULL)
 	return STATUS_NO_MEMORY;
 
-      RtlZeroMemory (Thread->Tcb.Win32Thread,
+      RtlZeroMemory (Thread->Win32Thread,
 		     PspWin32ThreadSize);
 
       if (PspWin32ThreadCallback != NULL)
@@ -148,24 +145,22 @@ PsTerminateWin32Process (PEPROCESS Process)
       PspWin32ProcessCallback (Process, FALSE);
     }
 
-  /* don't delete the W32PROCESS structure at this point, wait until the
-     EPROCESS structure is being freed */
+  ExFreePool (Process->Win32Process);
 }
 
 
 VOID
 PsTerminateWin32Thread (PETHREAD Thread)
 {
-  if (Thread->Tcb.Win32Thread != NULL)
-  {
-    if (PspWin32ThreadCallback != NULL)
+  if (Thread->Win32Thread == NULL)
+    return;
+
+  if (PspWin32ThreadCallback != NULL)
     {
       PspWin32ThreadCallback (Thread, FALSE);
     }
 
-    /* don't delete the W32THREAD structure at this point, wait until the
-       ETHREAD structure is being freed */
-  }
+  ExFreePool (Thread->Win32Thread);
 }
 
 /* EOF */

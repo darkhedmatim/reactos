@@ -14,7 +14,10 @@ C_SRCS = \
 	pwcache.c \
 	wnet.c
 
-RC_SRCS = mpr.rc
+RC_SRCS = \
+	mpr.rc \
+	version.rc
+
 
 @MAKE_DLL_RULES@
 

@@ -497,17 +497,18 @@ send:
 		}
 		m->m_data += max_linkhdr;
 		m->m_len = hdrlen;
-		/* m is not initialized here ... see below up to line
-		 * in_cksum to see how it gets there */
 		if (len <= MHLEN - hdrlen - max_linkhdr) {
+		    OS_DbgPrint(OSK_MID_TRACE,("Preparing %d bytes to send\n",
+					       len));
+		    OskitDumpBuffer(mtod(m, caddr_t), len);
 		    m_copydata(so->so_snd.sb_mb, off, (int) len,
 			       mtod(m, caddr_t) + hdrlen);
 		    m->m_len += len;
 		} else {
 		    m->m_next = m_copy(so->so_snd.sb_mb, off, (int) len);
-		    // the buffer is allocated, but not filled with the tcp
-		    // header yet, so dumping it here yields garbage...
-		    //OskitDumpBuffer(mtod(m, caddr_t), len);
+		    OS_DbgPrint(OSK_MID_TRACE,("Preparing %d bytes to send\n",
+					       len));
+		    OskitDumpBuffer(mtod(m, caddr_t), len);
 		    if (m->m_next == 0) {
 			(void) m_free(m);
 			error = ENOBUFS;
@@ -542,9 +543,6 @@ send:
 		m->m_len = hdrlen;
 	}
 	m->m_pkthdr.rcvif = (struct ifnet *)0;
-
-	/* This pulls the data ptr from m and start initting it...
-	 * before this point, m is empty. */
 	ti = mtod(m, struct tcpiphdr *);
 	if (tp->t_template == 0)
 		panic("tcp_output");
@@ -576,6 +574,7 @@ send:
 	else
 		ti->ti_seq = htonl(tp->snd_max);
 	ti->ti_ack = htonl(tp->rcv_nxt);
+	printf("ti->ti_ack = %d\n", ti->ti_ack);
 
 	if (optlen) {
 		(void)memcpy(ti + 1, opt, optlen);
@@ -706,25 +705,6 @@ send:
 	    && !(rt->rt_rmx.rmx_locks & RTV_MTU)) {
 		((struct ip *)ti)->ip_off |= IP_DF;
 	}
-#endif
-        /*
-         * XXX: It seems that osktittcp expects that packets are
-         * synchronously processed. The current implementation feeds
-         * oskittcp with the packets asynchronously. That's not a
-         * problem normally when the packets are transfered over
-         * network, but it starts to be a problem when it comes to
-         * loopback packets.
-         * The ACK bits are set in tcp_input which calls tcp_output and
-         * expects them to be cleared before further processing.
-         * Instead tcp_output calls ip_output which produces a packet
-         * and ends up in tcp_input and we're stuck in infinite loop.
-         * Normally the flags are masked out at the end of this function
-         * and the incomming packets are processed then, but since 
-         * currently the loopback packet is delivered during the 
-         * ip_output call, the function end is never reached...
-         */
-#ifdef __REACTOS__
-	tp->t_flags &= ~(TF_ACKNOW|TF_DELACK);
 #endif
 	error = ip_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 			  so->so_options & SO_DONTROUTE, 0);

@@ -1,4 +1,4 @@
-/* $Id: procmem.c,v 1.9 2004/10/30 22:18:17 weiden Exp $
+/* $Id: procmem.c,v 1.8 2004/06/13 20:04:55 navaraf Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -10,9 +10,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
 
 /* FUNCTIONS *****************************************************************/
 

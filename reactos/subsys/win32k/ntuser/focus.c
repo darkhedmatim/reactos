@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: focus.c,v 1.27 2004/12/19 11:05:48 tamlin Exp $
+ * $Id: focus.c,v 1.24 2004/06/23 15:38:07 weiden Exp $
  */
 
 #include <w32k.h>
@@ -174,9 +174,6 @@ IntSetForegroundAndFocusWindow(PWINDOW_OBJECT Window, PWINDOW_OBJECT FocusWindow
 
    /* FIXME: Call hooks. */
 
-   IntSendDeactivateMessages(hWndPrev, hWnd);
-   IntSendKillFocusMessages(hWndFocusPrev, hWndFocus);
-
    IntSetFocusMessageQueue(Window->MessageQueue);
    IntLockMessageQueue(Window->MessageQueue);
    if (Window->MessageQueue)
@@ -191,11 +188,12 @@ IntSetForegroundAndFocusWindow(PWINDOW_OBJECT Window, PWINDOW_OBJECT FocusWindow
    }
    IntUnLockMessageQueue(FocusWindow->MessageQueue);
 
+   IntSendDeactivateMessages(hWndPrev, hWnd);
+   IntSendKillFocusMessages(hWndFocusPrev, hWndFocus);
    if (PrevForegroundQueue != Window->MessageQueue)
    {
       /* FIXME: Send WM_ACTIVATEAPP to all thread windows. */
    }
-
    IntSendSetFocusMessages(hWndFocusPrev, hWndFocus);
    IntSendActivateMessages(hWndPrev, hWnd, MouseActivate);
    
@@ -238,18 +236,12 @@ IntMouseActivateWindow(PWINDOW_OBJECT Window)
   if (Top != Window->Self)
     {
       TopWindow = IntGetWindowObject(Top);
-      if (TopWindow == NULL)
-        {
-          SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-          return FALSE;
-        }
     }
   else
     {
       TopWindow = Window;
     }
 
-  /* TMN: Check return valud from this function? */
   IntSetForegroundAndFocusWindow(TopWindow, Window, TRUE);
 
   if (Top != Window->Self)

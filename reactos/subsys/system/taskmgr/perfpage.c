@@ -67,7 +67,6 @@ HWND		hPerformancePageTotalsThreadCountEdit;			/*  Total Threads Edit Control */
 
 static int	nPerformancePageWidth;
 static int	nPerformancePageHeight;
-static int lastX, lastY;
 static HANDLE	hPerformancePageEvent = NULL;	/*  When this event becomes signaled then we refresh the performance page */
 DWORD WINAPI	PerformancePageRefreshThread(void *lpParameter);
 
@@ -117,8 +116,7 @@ void AdjustCntrlPos(int ctrl_id, HWND hDlg, int nXDifference, int nYDifference)
     AdjustFrameSize(GetDlgItem(hDlg, ctrl_id), hDlg, nXDifference, nYDifference, 0);
 }
 		 
-INT_PTR CALLBACK
-PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	RECT	rc;
 	int		nXDifference;
@@ -199,10 +197,10 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		/* 
 		 *  Subclass graph buttons
 		 */ 
-        OldGraphWndProc = SetWindowLongPtr(hPerformancePageCpuUsageGraph, GWL_WNDPROC, (DWORD_PTR)Graph_WndProc);
-        SetWindowLongPtr(hPerformancePageMemUsageGraph, GWL_WNDPROC, (DWORD_PTR)Graph_WndProc);
-		OldGraphCtrlWndProc = SetWindowLongPtr(hPerformancePageMemUsageHistoryGraph, GWL_WNDPROC, (DWORD_PTR)GraphCtrl_WndProc);
-		SetWindowLongPtr(hPerformancePageCpuUsageHistoryGraph, GWL_WNDPROC, (DWORD_PTR)GraphCtrl_WndProc);
+        OldGraphWndProc = SetWindowLong(hPerformancePageCpuUsageGraph, GWL_WNDPROC, (LONG)Graph_WndProc);
+        SetWindowLong(hPerformancePageMemUsageGraph, GWL_WNDPROC, (LONG)Graph_WndProc);
+		OldGraphCtrlWndProc = SetWindowLong(hPerformancePageMemUsageHistoryGraph, GWL_WNDPROC, (LONG)GraphCtrl_WndProc);
+		SetWindowLong(hPerformancePageCpuUsageHistoryGraph, GWL_WNDPROC, (LONG)GraphCtrl_WndProc);
 		return TRUE;
 
 	case WM_COMMAND:
@@ -268,6 +266,8 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         AdjustControlPostion(hPerformancePageTotalsProcessCountEdit, hDlg, 0, nYDifference);
         AdjustControlPostion(hPerformancePageTotalsThreadCountEdit, hDlg, 0, nYDifference);
 
+        static int lastX, lastY;
+
         nXDifference += lastX; 
         nYDifference += lastY; 
         lastX = lastY = 0; 
@@ -315,9 +315,6 @@ DWORD WINAPI PerformancePageRefreshThread(void *lpParameter)
 	ULONG	CommitChargeLimit;
 	ULONG	CommitChargePeak;
 
-	ULONG	CpuUsage;
-	ULONG	CpuKernelUsage;
-
 	ULONG	KernelMemoryTotal;
 	ULONG	KernelMemoryPaged;
 	ULONG	KernelMemoryNonPaged;
@@ -342,9 +339,6 @@ DWORD WINAPI PerformancePageRefreshThread(void *lpParameter)
 	while (1)
 	{
 		DWORD	dwWaitVal;
-
-		int nBarsUsed1;
-		int nBarsUsed2;
 
 		/*  Wait on the event */
 		dwWaitVal = WaitForSingleObject(hPerformancePageEvent, INFINITE);
@@ -418,6 +412,16 @@ DWORD WINAPI PerformancePageRefreshThread(void *lpParameter)
 			 */ 
 			InvalidateRect(hPerformancePageCpuUsageGraph, NULL, FALSE);
 			InvalidateRect(hPerformancePageMemUsageGraph, NULL, FALSE);
+
+
+        	ULONG	  CpuUsage;
+	        ULONG	  CpuKernelUsage;
+        	ULONGLONG CommitChargeTotal;
+	        ULONGLONG CommitChargeLimit;
+        	ULONG	  PhysicalMemoryTotal;
+        	ULONG	  PhysicalMemoryAvailable;
+            int nBarsUsed1;
+            int nBarsUsed2;
 
         	/* 
         	 *  Get the CPU usage

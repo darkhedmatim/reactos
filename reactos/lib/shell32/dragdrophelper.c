@@ -25,8 +25,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
@@ -48,11 +46,11 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    IDropTargetHelperVtbl *lpVtbl;
+    ICOM_VFIELD (IDropTargetHelper);
     DWORD ref;
 } IDropTargetHelperImpl;
 
-static struct IDropTargetHelperVtbl vt_IDropTargetHelper;
+static struct ICOM_VTABLE (IDropTargetHelper) vt_IDropTargetHelper;
 
 #define _IUnknown_(This) (IUnknown*)&(This->lpVtbl)
 #define _IDropTargetHelper_(This) (IDropTargetHelper*)&(This->lpVtbl)
@@ -91,7 +89,7 @@ HRESULT WINAPI IDropTargetHelper_Constructor (IUnknown * pUnkOuter, REFIID riid,
  */
 static HRESULT WINAPI IDropTargetHelper_fnQueryInterface (IDropTargetHelper * iface, REFIID riid, LPVOID * ppvObj)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, shdebugstr_guid (riid), ppvObj);
 
@@ -112,7 +110,7 @@ static HRESULT WINAPI IDropTargetHelper_fnQueryInterface (IDropTargetHelper * if
 
 static ULONG WINAPI IDropTargetHelper_fnAddRef (IDropTargetHelper * iface)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -121,7 +119,7 @@ static ULONG WINAPI IDropTargetHelper_fnAddRef (IDropTargetHelper * iface)
 
 static ULONG WINAPI IDropTargetHelper_fnRelease (IDropTargetHelper * iface)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -140,41 +138,42 @@ static HRESULT WINAPI IDropTargetHelper_fnDragEnter (
 	POINT* ppt,
 	DWORD dwEffect)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
     FIXME ("(%p)->(%p %p %p 0x%08lx)\n", This,hwndTarget, pDataObject, ppt, dwEffect);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI IDropTargetHelper_fnDragLeave (IDropTargetHelper * iface)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
     FIXME ("(%p)->()\n", This);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI IDropTargetHelper_fnDragOver (IDropTargetHelper * iface, POINT* ppt, DWORD dwEffect)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
     FIXME ("(%p)->(%p 0x%08lx)\n", This, ppt, dwEffect);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI IDropTargetHelper_fnDrop (IDropTargetHelper * iface, IDataObject* pDataObject, POINT* ppt, DWORD dwEffect)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
     FIXME ("(%p)->(%p %p 0x%08lx)\n", This, pDataObject, ppt, dwEffect);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI IDropTargetHelper_fnShow (IDropTargetHelper * iface, BOOL fShow)
 {
-    IDropTargetHelperImpl *This = (IDropTargetHelperImpl *)iface;
+    ICOM_THIS (IDropTargetHelperImpl, iface);
     FIXME ("(%p)->(%u)\n", This, fShow);
     return E_NOTIMPL;
 }
 
-static IDropTargetHelperVtbl vt_IDropTargetHelper =
+static ICOM_VTABLE (IDropTargetHelper) vt_IDropTargetHelper =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IDropTargetHelper_fnQueryInterface,
 	IDropTargetHelper_fnAddRef,
 	IDropTargetHelper_fnRelease,

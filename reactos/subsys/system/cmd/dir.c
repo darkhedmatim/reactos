@@ -1,4 +1,4 @@
-/* $Id: dir.c,v 1.13 2004/12/25 11:22:37 navaraf Exp $
+/* $Id: dir.c,v 1.11 2004/08/15 22:15:23 chorns Exp $
  *
  *  DIR.C - dir internal command.
  *
@@ -121,9 +121,15 @@
  *        Fix /w to print long names.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DIR
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 
 
 /* flag definitions */
@@ -855,7 +861,7 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 	ULONG filecount = 0;
 	ULONG dircount = 0;
 	INT count = 0;
-	SHORT screenwidth;
+	USHORT screenwidth;
 	INT longestfname = 0;
 
 	bytecount.QuadPart = 0;

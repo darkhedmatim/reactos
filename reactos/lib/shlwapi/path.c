@@ -32,7 +32,7 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
-#include "winternl.h"
+#include "winnls.h"
 #define NO_SHLWAPI_STREAM
 #include "shlwapi.h"
 #include "wine/debug.h"
@@ -141,11 +141,11 @@ LPSTR WINAPI PathCombineA(LPSTR lpszDest, LPCSTR lpszDir, LPCSTR lpszFile)
     WCHAR szDir[MAX_PATH];
     WCHAR szFile[MAX_PATH];
     if (lpszDir)
-      MultiByteToWideChar(CP_ACP,0,lpszDir,-1,szDir,MAX_PATH);
+      MultiByteToWideChar(0,0,lpszDir,-1,szDir,MAX_PATH);
     if (lpszFile)
-      MultiByteToWideChar(CP_ACP,0,lpszFile,-1,szFile,MAX_PATH);
+      MultiByteToWideChar(0,0,lpszFile,-1,szFile,MAX_PATH);
     PathCombineW(szDest, lpszDir ? szDir : NULL, lpszFile ? szFile : NULL);
-    WideCharToMultiByte(CP_ACP,0,szDest,-1,lpszDest,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szDest,-1,lpszDest,MAX_PATH,0,0);
   }
   return lpszDest;
 }
@@ -1079,7 +1079,7 @@ BOOL WINAPI PathFileExistsDefExtW(LPWSTR lpszPath,DWORD dwWhich)
       int iLen = lstrlenW(lpszPath);
       if (iLen > (MAX_PATH - 5))
         return FALSE;
-      while ( (dwWhich & 0x1) && pszExts[iChoose][0] )
+      while (dwWhich & 0x1 && iChoose < sizeof(pszExts))
       {
         lstrcpyW(lpszPath + iLen, pszExts[iChoose]);
         if (PathFileExistsW(lpszPath))
@@ -1126,10 +1126,10 @@ BOOL WINAPI PathFileExistsDefExtA(LPSTR lpszPath,DWORD dwWhich)
   if (lpszPath)
   {
     WCHAR szPath[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathFileExistsDefExtW(szPath, dwWhich);
     if (bRet)
-      WideCharToMultiByte(CP_ACP,0,szPath,-1,lpszPath,MAX_PATH,0,0);
+      WideCharToMultiByte(0,0,szPath,-1,lpszPath,MAX_PATH,0,0);
   }
   return bRet;
 }
@@ -1239,7 +1239,7 @@ BOOL WINAPI PathFindOnPathExA(LPSTR lpszFile,LPCSTR *lppszOtherDirs,DWORD dwWhic
   if (!lpszFile || !PathIsFileSpecA(lpszFile))
     return FALSE;
 
-  MultiByteToWideChar(CP_ACP,0,lpszFile,-1,szFile,MAX_PATH);
+  MultiByteToWideChar(0,0,lpszFile,-1,szFile,MAX_PATH);
 
   /* Search provided directories first */
   if (lppszOtherDirs && *lppszOtherDirs)
@@ -1249,11 +1249,11 @@ BOOL WINAPI PathFindOnPathExA(LPSTR lpszFile,LPCSTR *lppszOtherDirs,DWORD dwWhic
 
     while (lpszOtherPath && *lpszOtherPath && (*lpszOtherPath)[0])
     {
-      MultiByteToWideChar(CP_ACP,0,*lpszOtherPath,-1,szOther,MAX_PATH);
+      MultiByteToWideChar(0,0,*lpszOtherPath,-1,szOther,MAX_PATH);
       PathCombineW(buff, szOther, szFile);
       if (PathFileExistsDefExtW(buff, dwWhich))
       {
-        WideCharToMultiByte(CP_ACP,0,buff,-1,lpszFile,MAX_PATH,0,0);
+        WideCharToMultiByte(0,0,buff,-1,lpszFile,MAX_PATH,0,0);
         return TRUE;
       }
       lpszOtherPath++;
@@ -1262,7 +1262,7 @@ BOOL WINAPI PathFindOnPathExA(LPSTR lpszFile,LPCSTR *lppszOtherDirs,DWORD dwWhic
   /* Not found, try system and path dirs */
   if (SHLWAPI_PathFindInOtherDirs(szFile, dwWhich))
   {
-    WideCharToMultiByte(CP_ACP,0,szFile,-1,lpszFile,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szFile,-1,lpszFile,MAX_PATH,0,0);
     return TRUE;
   }
   return FALSE;
@@ -1369,10 +1369,10 @@ BOOL WINAPI PathCompactPathExA(LPSTR lpszDest, LPCSTR lpszPath,
     WCHAR szPath[MAX_PATH];
     WCHAR szDest[MAX_PATH];
 
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     szDest[0] = '\0';
     bRet = PathCompactPathExW(szDest, szPath, cchMax, dwFlags);
-    WideCharToMultiByte(CP_ACP,0,szDest,-1,lpszDest,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szDest,-1,lpszDest,MAX_PATH,0,0);
   }
   return bRet;
 }
@@ -2339,9 +2339,9 @@ BOOL WINAPI PathCanonicalizeA(LPSTR lpszBuf, LPCSTR lpszPath)
   {
     WCHAR szPath[MAX_PATH];
     WCHAR szBuff[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathCanonicalizeW(szBuff, szPath);
-    WideCharToMultiByte(CP_ACP,0,szBuff,-1,lpszBuf,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szBuff,-1,lpszBuf,MAX_PATH,0,0);
   }
   return bRet;
 }
@@ -2779,9 +2779,9 @@ BOOL WINAPI PathCompactPathA(HDC hDC, LPSTR lpszPath, UINT dx)
   if (lpszPath)
   {
     WCHAR szPath[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathCompactPathW(hDC, szPath, dx);
-    WideCharToMultiByte(CP_ACP,0,szPath,-1,lpszPath,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szPath,-1,lpszPath,MAX_PATH,0,0);
   }
   return bRet;
 }
@@ -3011,7 +3011,7 @@ BOOL WINAPI PathMakeSystemFolderA(LPCSTR lpszPath)
   if (lpszPath && *lpszPath)
   {
     WCHAR szPath[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathMakeSystemFolderW(szPath);
   }
   return bRet;
@@ -3116,11 +3116,8 @@ BOOL WINAPI PathRenameExtensionW(LPWSTR lpszPath, LPCWSTR lpszExt)
  */
 BOOL WINAPI PathSearchAndQualifyA(LPCSTR lpszPath, LPSTR lpszBuf, UINT cchBuf)
 {
-    TRACE("(%s,%p,0x%08x)\n", debugstr_a(lpszPath), lpszBuf, cchBuf);
-
-    if(SearchPathA(NULL, lpszPath, NULL, cchBuf, lpszBuf, NULL))
-        return TRUE;
-    return !!GetFullPathNameA(lpszPath, cchBuf, lpszBuf, NULL);
+  FIXME("(%s,%p,0x%08x)-stub\n", debugstr_a(lpszPath), lpszBuf, cchBuf);
+  return FALSE;
 }
 
 /*************************************************************************
@@ -3130,11 +3127,8 @@ BOOL WINAPI PathSearchAndQualifyA(LPCSTR lpszPath, LPSTR lpszBuf, UINT cchBuf)
  */
 BOOL WINAPI PathSearchAndQualifyW(LPCWSTR lpszPath, LPWSTR lpszBuf, UINT cchBuf)
 {
-    TRACE("(%s,%p,0x%08x)\n", debugstr_w(lpszPath), lpszBuf, cchBuf);
-
-    if(SearchPathW(NULL, lpszPath, NULL, cchBuf, lpszBuf, NULL))
-        return TRUE;
-    return !!GetFullPathNameW(lpszPath, cchBuf, lpszBuf, NULL);
+  FIXME("(%s,%p,0x%08x)-stub\n", debugstr_w(lpszPath), lpszBuf, cchBuf);
+  return FALSE;
 }
 
 /*************************************************************************
@@ -3206,42 +3200,6 @@ LPWSTR WINAPI PathSkipRootW(LPCWSTR lpszPath)
 /*************************************************************************
  * PathCreateFromUrlA   [SHLWAPI.@]
  *
- * See PathCreateFromUrlW
- */
-HRESULT WINAPI PathCreateFromUrlA(LPCSTR pszUrl, LPSTR pszPath,
-                                  LPDWORD pcchPath, DWORD dwReserved)
-{
-    WCHAR bufW[MAX_PATH];
-    WCHAR *pathW = bufW;
-    UNICODE_STRING urlW;
-    HRESULT ret;
-    DWORD lenW = sizeof(bufW)/sizeof(WCHAR), lenA;
-
-    if(!RtlCreateUnicodeStringFromAsciiz(&urlW, pszUrl))
-        return E_INVALIDARG;
-    if((ret = PathCreateFromUrlW(urlW.Buffer, pathW, &lenW, dwReserved)) == E_POINTER) {
-        pathW = HeapAlloc(GetProcessHeap(), 0, lenW * sizeof(WCHAR));
-        ret = PathCreateFromUrlW(urlW.Buffer, pathW, &lenW, dwReserved);
-    }
-    if(ret == S_OK) {
-        RtlUnicodeToMultiByteSize(&lenA, pathW, lenW * sizeof(WCHAR));
-        if(*pcchPath > lenA) {
-            RtlUnicodeToMultiByteN(pszPath, *pcchPath - 1, &lenA, pathW, lenW * sizeof(WCHAR));
-            pszPath[lenA] = 0;
-            *pcchPath = lenA;
-        } else {
-            *pcchPath = lenA + 1;
-            ret = E_POINTER;
-        }
-    }
-    if(pathW != bufW) HeapFree(GetProcessHeap(), 0, pathW);
-    RtlFreeUnicodeString(&urlW);
-    return ret;
-}
-
-/*************************************************************************
- * PathCreateFromUrlW   [SHLWAPI.@]
- *
  * Create a path from a URL
  *
  * PARAMS
@@ -3254,66 +3212,74 @@ HRESULT WINAPI PathCreateFromUrlA(LPCSTR pszUrl, LPSTR pszPath,
  *  Success: S_OK. lpszPath contains the URL in path format,
  *  Failure: An HRESULT error code such as E_INVALIDARG.
  */
-HRESULT WINAPI PathCreateFromUrlW(LPCWSTR pszUrl, LPWSTR pszPath,
-                                  LPDWORD pcchPath, DWORD dwReserved)
+HRESULT WINAPI PathCreateFromUrlA(LPCSTR lpszUrl, LPSTR lpszPath,
+                                  LPDWORD pcchPath, DWORD dwFlags)
 {
-    static const WCHAR file_colon[] = { 'f','i','l','e',':',0 };
-    HRESULT hr;
-    DWORD nslashes = 0;
-    WCHAR *ptr;
+  LPSTR pszPathPart;
+  TRACE("(%s,%p,%p,0x%08lx)\n", debugstr_a(lpszUrl), lpszPath, pcchPath, dwFlags);
 
-    TRACE("(%s,%p,%p,0x%08lx)\n", debugstr_w(pszUrl), pszPath, pcchPath, dwReserved);
+  if (!lpszUrl || !lpszPath || !pcchPath || !*pcchPath)
+    return E_INVALIDARG;
 
-    if (!pszUrl || !pszPath || !pcchPath || !*pcchPath)
-        return E_INVALIDARG;
+  pszPathPart = StrChrA(lpszUrl, ':');
+  if ((((pszPathPart - lpszUrl) == 1) && isalpha(*lpszUrl)) ||
+         !lstrcmpA(lpszUrl, "file:"))
+  {
+    return UrlUnescapeA(pszPathPart, lpszPath, pcchPath, dwFlags);
+  }
+    /* extracts thing prior to : in pszURL and checks against:
+     *   https
+     *   shell
+     *   local
+     *   about  - if match returns E_INVALIDARG
+     */
 
+  return E_INVALIDARG;
+}
 
-    if (strncmpW(pszUrl, file_colon, 5))
-        return E_INVALIDARG;
-    pszUrl += 5;
+/*************************************************************************
+ * PathCreateFromUrlW   [SHLWAPI.@]
+ *
+ * See PathCreateFromUrlA.
+ */
+HRESULT WINAPI PathCreateFromUrlW(LPCWSTR lpszUrl, LPWSTR lpszPath,
+                                  LPDWORD pcchPath, DWORD dwFlags)
+{
+  static const WCHAR stemp[] = { 'f','i','l','e',':','/','/',0 };
+  LPWSTR pwszPathPart;
+  HRESULT hr;
 
-    while(*pszUrl == '/' || *pszUrl == '\\') {
-        nslashes++;
-        pszUrl++;
-    }
+  TRACE("(%s,%p,%p,0x%08lx)\n", debugstr_w(lpszUrl), lpszPath, pcchPath, dwFlags);
 
-    if(isalphaW(*pszUrl) && (pszUrl[1] == ':' || pszUrl[1] == '|') && (pszUrl[2] == '/' || pszUrl[2] == '\\'))
-        nslashes = 0;
+  if (!lpszUrl || !lpszPath || !pcchPath || !*pcchPath)
+    return E_INVALIDARG;
 
-    switch(nslashes) {
-    case 2:
-        pszUrl -= 2;
-        break;
-    case 0:
-        break;
-    default:
-        pszUrl -= 1;
-        break;
-    }
+  /* Path of the form file://... */
+  if (!strncmpW(lpszUrl, stemp, 7))
+  {
+    lpszUrl += 7;
+  }
+  /* Path of the form file:... */
+  else if (!strncmpW(lpszUrl, stemp, 5))
+  {
+    lpszUrl += 5;
+  }
 
-    hr = UrlUnescapeW((LPWSTR)pszUrl, pszPath, pcchPath, 0);
-    if(hr != S_OK) return hr;
+  /* Ensure that path is of the form c:... or c|... */
+  if (lpszUrl[1] != ':' && lpszUrl[1] != '|' && isalphaW(*lpszUrl))
+    return E_INVALIDARG;
 
-    for(ptr = pszPath; *ptr; ptr++)
-        if(*ptr == '/') *ptr = '\\';
+  hr = UrlUnescapeW((LPWSTR) lpszUrl, lpszPath, pcchPath, dwFlags);
+  if (lpszPath[1] == '|')
+    lpszPath[1] = ':';
 
-    while(*pszPath == '\\')
-        pszPath++;
- 
-    if(isalphaW(*pszPath) && pszPath[1] == '|' && pszPath[2] == '\\') /* c|\ -> c:\ */
-        pszPath[1] = ':';
+  for (pwszPathPart = lpszPath; *pwszPathPart; pwszPathPart++)
+    if (*pwszPathPart == '/')
+      *pwszPathPart = '\\';
 
-    if(nslashes == 2 && (ptr = strchrW(pszPath, '\\'))) { /* \\host\c:\ -> \\hostc:\ */
-        ptr++;
-        if(isalphaW(*ptr) && (ptr[1] == ':' || ptr[1] == '|') && ptr[2] == '\\') {
-            memmove(ptr - 1, ptr, (strlenW(ptr) + 1) * sizeof(WCHAR));
-            (*pcchPath)--;
-        }
-    }
+  TRACE("Returning %s\n",debugstr_w(lpszPath));
 
-    TRACE("Returning %s\n",debugstr_w(pszPath));
-
-    return hr;
+  return hr;
 }
 
 /*************************************************************************
@@ -3361,10 +3327,10 @@ BOOL WINAPI PathRelativePathToA(LPSTR lpszPath, LPCSTR lpszFrom, DWORD dwAttrFro
     WCHAR szPath[MAX_PATH];
     WCHAR szFrom[MAX_PATH];
     WCHAR szTo[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszFrom,-1,szFrom,MAX_PATH);
-    MultiByteToWideChar(CP_ACP,0,lpszTo,-1,szTo,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszFrom,-1,szFrom,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszTo,-1,szTo,MAX_PATH);
     bRet = PathRelativePathToW(szPath,szFrom,dwAttrFrom,szTo,dwAttrTo);
-    WideCharToMultiByte(CP_ACP,0,szPath,-1,lpszPath,MAX_PATH,0,0);
+    WideCharToMultiByte(0,0,szPath,-1,lpszPath,MAX_PATH,0,0);
   }
   return bRet;
 }
@@ -3510,7 +3476,7 @@ VOID WINAPI PathSetDlgItemPathA(HWND hDlg, int id, LPCSTR lpszPath)
   TRACE("(%p,%8x,%s)\n",hDlg, id, debugstr_a(lpszPath));
 
   if (lpszPath)
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
   else
     szPath[0] = '\0';
   PathSetDlgItemPathW(hDlg, id, szPath);
@@ -3535,7 +3501,7 @@ VOID WINAPI PathSetDlgItemPathW(HWND hDlg, int id, LPCWSTR lpszPath)
     return;
 
   if (lpszPath)
-    lstrcpynW(path, lpszPath, sizeof(path) / sizeof(WCHAR));
+    strncpyW(path, lpszPath, sizeof(path));
   else
     path[0] = '\0';
 
@@ -3714,7 +3680,7 @@ BOOL WINAPI PathIsDirectoryEmptyA(LPCSTR lpszPath)
   if (lpszPath)
   {
     WCHAR szPath[MAX_PATH];
-    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
+    MultiByteToWideChar(0,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathIsDirectoryEmptyW(szPath);
   }
   return bRet;
@@ -3931,10 +3897,10 @@ HRESULT WINAPI SHGetWebFolderFilePathA(LPCSTR lpszFile, LPSTR lpszPath, DWORD dw
 
   TRACE("(%s,%p,%ld)\n", lpszFile, lpszPath, dwPathLen);
 
-  MultiByteToWideChar(CP_ACP, 0, lpszFile, -1, szFile, MAX_PATH);
+  MultiByteToWideChar(0, 0, lpszFile, -1, szFile, MAX_PATH);
   szPath[0] = '\0';
   hRet = SHGetWebFolderFilePathW(szFile, szPath, dwPathLen);
-  WideCharToMultiByte(CP_ACP, 0, szPath, -1, lpszPath, dwPathLen, 0, 0);
+  WideCharToMultiByte(0, 0, szPath, -1, lpszPath, dwPathLen, 0, 0);
   return hRet;
 }
 
@@ -3988,102 +3954,4 @@ HRESULT WINAPI SHGetWebFolderFilePathW(LPCWSTR lpszFile, LPWSTR lpszPath, DWORD 
   if (PathFileExistsW(lpszPath))
     return S_OK;
   return E_FAIL;
-}
-
-#define PATH_CHAR_CLASS_LETTER      0x0001
-#define PATH_CHAR_CLASS_ASTERIX     0x0002
-#define PATH_CHAR_CLASS_DOT         0x0004
-#define PATH_CHAR_CLASS_BACKSLASH   0x0008
-#define PATH_CHAR_CLASS_COLON       0x0010
-#define PATH_CHAR_CLASS_SEMICOLON   0x0020
-#define PATH_CHAR_CLASS_COMMA       0x0040
-#define PATH_CHAR_CLASS_SPACE       0x0080
-#define PATH_CHAR_CLASS_OTHER_VALID 0x0100
-#define PATH_CHAR_CLASS_DOUBLEQUOTE 0x0200
-
-/*************************************************************************
- * PathIsValidCharAW     [internal]
- *
- * Check if a char is of a certain class
- */
-static BOOL WINAPI PathIsValidCharAW(unsigned Ch, DWORD Class)
-{
-  static struct
-  {
-    char Ch;
-    DWORD Class;
-  } CharClass[] =
-  {
-    { ' ', PATH_CHAR_CLASS_SPACE },
-    { '!', PATH_CHAR_CLASS_OTHER_VALID },
-    { '"', PATH_CHAR_CLASS_DOUBLEQUOTE },
-    { '#', PATH_CHAR_CLASS_OTHER_VALID },
-    { '$', PATH_CHAR_CLASS_OTHER_VALID },
-    { '%', PATH_CHAR_CLASS_OTHER_VALID },
-    { '&', PATH_CHAR_CLASS_OTHER_VALID },
-    { '\'', PATH_CHAR_CLASS_OTHER_VALID },
-    { '(', PATH_CHAR_CLASS_OTHER_VALID },
-    { ')', PATH_CHAR_CLASS_OTHER_VALID },
-    { '*', PATH_CHAR_CLASS_ASTERIX },
-    { '+', PATH_CHAR_CLASS_OTHER_VALID },
-    { ',', PATH_CHAR_CLASS_COMMA },
-    { '-', PATH_CHAR_CLASS_OTHER_VALID },
-    { '.', PATH_CHAR_CLASS_DOT },
-    { ':', PATH_CHAR_CLASS_COLON },
-    { ';', PATH_CHAR_CLASS_SEMICOLON },
-    { '=', PATH_CHAR_CLASS_OTHER_VALID },
-    { '?', PATH_CHAR_CLASS_LETTER },
-    { '@', PATH_CHAR_CLASS_OTHER_VALID },
-    { '[', PATH_CHAR_CLASS_OTHER_VALID },
-    { '\\', PATH_CHAR_CLASS_BACKSLASH },
-    { ']', PATH_CHAR_CLASS_OTHER_VALID },
-    { '^', PATH_CHAR_CLASS_OTHER_VALID },
-    { '_', PATH_CHAR_CLASS_OTHER_VALID },
-    { '`', PATH_CHAR_CLASS_OTHER_VALID },
-    { '{', PATH_CHAR_CLASS_OTHER_VALID },
-    { '}', PATH_CHAR_CLASS_OTHER_VALID },
-    { '~', PATH_CHAR_CLASS_OTHER_VALID },
-    { 0x7f, PATH_CHAR_CLASS_OTHER_VALID }
-  };
-  unsigned Index;
-
-  if (('A' <= Ch && Ch <= 'Z') || ('a' <= Ch && Ch <= 'z'))
-  {
-    return (Class & PATH_CHAR_CLASS_LETTER);
-  }
-
-  if (('0' <= Ch && Ch <= '9') || 0x80 <= Ch)
-  {
-    return (Class & PATH_CHAR_CLASS_OTHER_VALID);
-  }
-
-  for (Index = 0; Index < sizeof(CharClass) / sizeof(CharClass[0]); Index++)
-  {
-    if (Ch == CharClass[Index].Ch)
-    {
-      return (Class & CharClass[Index].Class);
-    }
-  }
-
-  return FALSE;
-}
-
-/*************************************************************************
- * @     [SHLWAPI.455]
- *
- * Check if an Ascii char is of a certain class
- */
-BOOL WINAPI PathIsValidCharA(char Ch, DWORD Class)
-{
-  return PathIsValidCharAW((unsigned) Ch, Class);
-}
-
-/*************************************************************************
- * @     [SHLWAPI.456]
- *
- * Check if an Unicode char is of a certain class
- */
-BOOL WINAPI PathIsValidCharW(WCHAR Ch, DWORD Class)
-{
-  return PathIsValidCharAW((unsigned) Ch, Class);
 }

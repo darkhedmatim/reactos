@@ -16,7 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* $Id: libskygi.c,v 1.13 2004/10/20 19:19:12 weiden Exp $
+/* $Id: libskygi.c,v 1.11 2004/08/14 10:47:19 weiden Exp $
  *
  * PROJECT:         SkyOS GI library
  * FILE:            lib/libskygi/libskygi.c
@@ -223,44 +223,39 @@ IntIsSkyMessage(PSKY_WINDOW skw, MSG *Msg, s_gi_msg *smsg)
       smsg->type = MSG_COMMAND;
       smsg->para1 = LOWORD(Msg->wParam);
       return TRUE;
-
-    case WM_MOUSEMOVE:
-      if(skw->MouseInput)
-      {
-        smsg->type = MSG_MOUSE_MOVED;
-        goto DoMouseInputMessage;
-      }
-      break;
-
-    case WM_LBUTTONDOWN:
-      smsg->type = MSG_MOUSE_BUT1_PRESSED;
-      goto DoMouseInputMessage;
-
-    case WM_LBUTTONUP:
-      smsg->type = MSG_MOUSE_BUT1_RELEASED;
-      goto DoMouseInputMessage;
-
-    case WM_RBUTTONDOWN:
-      smsg->type = MSG_MOUSE_BUT2_PRESSED;
-      goto DoMouseInputMessage;
-
-    case WM_RBUTTONUP:
+  }
+  
+  if(skw->MouseInput)
+  {
+    switch(Msg->message)
     {
-      POINT pt;
+      case WM_LBUTTONDOWN:
+        smsg->type = MSG_MOUSE_BUT1_PRESSED;
+        goto DoMouseInputMessage;
+      case WM_LBUTTONUP:
+        smsg->type = MSG_MOUSE_BUT1_RELEASED;
+        goto DoMouseInputMessage;
+      case WM_RBUTTONDOWN:
+        smsg->type = MSG_MOUSE_BUT2_PRESSED;
+        goto DoMouseInputMessage;
+      case WM_RBUTTONUP:
+      {
+        POINT pt;
 
-      smsg->type = MSG_MOUSE_BUT2_RELEASED;
+        smsg->type = MSG_MOUSE_BUT2_RELEASED;
 
 DoMouseInputMessage:
 #if 0
-      pt.x = LOWORD(Msg->lParam);
-      pt.y = HIWORD(Msg->lParam);
+        pt.x = LOWORD(Msg->lParam);
+        pt.y = HIWORD(Msg->lParam);
 #else
-      pt = Msg->pt;
-      MapWindowPoints(NULL, skw->hWnd, &pt, 1);
+        pt = Msg->pt;
+        MapWindowPoints(NULL, skw->hWnd, &pt, 1);
 #endif
-      smsg->para1 = pt.x;
-      smsg->para2 = pt.y;
-      return TRUE;
+        smsg->para1 = pt.x;
+        smsg->para2 = pt.y;
+        return TRUE;
+      }
     }
   }
   
@@ -486,7 +481,7 @@ GI_wait_message(s_gi_msg *m,
     /* loop until we found a message that a sky app would handle, too */
     RtlZeroMemory(m, sizeof(s_gi_msg));
 
-    if(Msg.hwnd != NULL && (msgwnd = (PSKY_WINDOW)GetWindowLongPtrW(Msg.hwnd, GWL_USERDATA)))
+    if(Msg.hwnd != NULL && (msgwnd = (PSKY_WINDOW)GetWindowLongW(Msg.hwnd, GWL_USERDATA)))
       {
         SkyMessage = IntIsSkyMessage(msgwnd, &Msg, m);
       }

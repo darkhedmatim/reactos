@@ -7,7 +7,6 @@
 #ifndef __MSAFD_H
 #define __MSAFD_H
 
-#include <roscfg.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <ddk/ntddk.h>
@@ -22,17 +21,11 @@
 #include <helpers.h>
 #include <debug.h>
 
-/* Because our headers are f*cked up */
-typedef LARGE_INTEGER TIME;
-#include <ntos/zw.h>
-
 extern HANDLE GlobalHeap;
 extern WSPUPCALLTABLE Upcalls;
 extern LPWPUCOMPLETEOVERLAPPEDREQUEST lpWPUCompleteOverlappedRequest;
 extern LIST_ENTRY SockHelpersListHead;
 extern HANDLE SockEvent;
-extern HANDLE SockAsyncCompletionPort;
-extern BOOLEAN SockAsyncSelectCalled;
 
 typedef enum _SOCKET_STATE {
     SocketOpen,
@@ -49,7 +42,7 @@ typedef struct _SOCK_SHARED_INFO {
     INT							Protocol;
     INT							SizeOfLocalAddress;
     INT							SizeOfRemoteAddress;
-    struct linger				LingerData;
+    ULONG						LingerData;
     ULONG						SendTimeout;
     ULONG						RecvTimeout;
     ULONG						SizeOfRecvBuffer;
@@ -80,47 +73,40 @@ typedef struct _SOCK_SHARED_INFO {
     LONG						Unknown;
     DWORD						SequenceNumber;
     UINT						wMsg;
-    LONG						AsyncEvents;
-    LONG						AsyncDisabledEvents;
+    LONG						Event;
+    LONG						DisabledEvents;
 } SOCK_SHARED_INFO, *PSOCK_SHARED_INFO;
 
 typedef struct _SOCKET_INFORMATION {
-	ULONG RefCount;
-	SOCKET Handle;
-	SOCK_SHARED_INFO SharedData;
-	DWORD HelperEvents;
-	PHELPER_DATA HelperData;
-	PVOID HelperContext;
-	PSOCKADDR LocalAddress;
-	PSOCKADDR RemoteAddress;
-	HANDLE TdiAddressHandle;
-	HANDLE TdiConnectionHandle;
-	PVOID AsyncData;
-	HANDLE EventObject;
-	LONG NetworkEvents;
-	CRITICAL_SECTION Lock;
-	PVOID SanData;
-	BOOL TrySAN;
-	SOCKADDR WSLocalAddress;
-	SOCKADDR WSRemoteAddress;
+    ULONG						RefCount;
+    SOCKET						Handle;
+	SOCK_SHARED_INFO			SharedData;
+    DWORD						HelperEvents;
+    PHELPER_DATA				HelperData;
+    PVOID						HelperContext;
+    PSOCKADDR					LocalAddress;
+    PSOCKADDR					RemoteAddress;
+    HANDLE						TdiAddressHandle;
+    HANDLE						TdiConnectionHandle;
+    PVOID						AsyncData;
+    HANDLE						EventObject;
+    LONG						NetworkEvents;
+    CRITICAL_SECTION			Lock;
+    PVOID						SanData;
+	BOOL						TrySAN;
+	SOCKADDR					WSLocalAddress;
+	SOCKADDR					WSRemoteAddress;
 } SOCKET_INFORMATION, *PSOCKET_INFORMATION;
 
 
 typedef struct _SOCKET_CONTEXT {
-	SOCK_SHARED_INFO SharedData;
-	ULONG SizeOfHelperData;
-	ULONG Padding;
-	SOCKADDR LocalAddress;
-	SOCKADDR RemoteAddress;
+	SOCK_SHARED_INFO			SharedData;
+	ULONG						SizeOfHelperData;
+	ULONG						Padding;
+	SOCKADDR					LocalAddress;
+	SOCKADDR					RemoteAddress;
 	/* Plus Helper Data */
 } SOCKET_CONTEXT, *PSOCKET_CONTEXT;
-
-typedef struct _ASYNC_DATA {
-	PSOCKET_INFORMATION ParentSocket;
-	DWORD SequenceNumber;
-	IO_STATUS_BLOCK IoStatusBlock;
-	AFD_POLL_INFO AsyncSelectInfo;
-} ASYNC_DATA, *PASYNC_DATA;
 
 SOCKET
 WSPAPI
@@ -154,7 +140,7 @@ WSPAsyncSelect(
 INT
 WSPAPI WSPBind(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name, 
+    IN  CONST LPSOCKADDR name, 
     IN  INT namelen, 
     OUT LPINT lpErrno);
 
@@ -178,7 +164,7 @@ INT
 WSPAPI
 WSPConnect(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -273,7 +259,7 @@ SOCKET
 WSPAPI
 WSPJoinLeaf(
     IN  SOCKET s,
-    IN  CONST SOCKADDR *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -362,7 +348,7 @@ WSPSendTo(
     IN  DWORD dwBufferCount,
     OUT LPDWORD lpNumberOfBytesSent,
     IN  DWORD dwFlags,
-    IN  CONST SOCKADDR *lpTo,
+    IN  CONST LPSOCKADDR lpTo,
     IN  INT iTolen,
     IN  LPWSAOVERLAPPED lpOverlapped,
     IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine,
@@ -429,48 +415,6 @@ int SetSocketInformation(
 int CreateContext(
 	PSOCKET_INFORMATION Socket
 );
-
-int SockAsyncThread(
-	PVOID ThreadParam
-);
-
-VOID 
-SockProcessAsyncSelect(
-	PSOCKET_INFORMATION Socket,
-	PASYNC_DATA AsyncData
-);
-
-VOID
-SockAsyncSelectCompletionRoutine(
-	PVOID Context,
-	PIO_STATUS_BLOCK IoStatusBlock
-);
-
-BOOLEAN
-SockCreateOrReferenceAsyncThread(
-	VOID
-);
-
-BOOLEAN SockGetAsyncSelectHelperAfdHandle(
-	VOID
-);
-
-VOID SockProcessQueuedAsyncSelect(
-	PVOID Context,
-	PIO_STATUS_BLOCK IoStatusBlock
-);
-
-VOID
-SockReenableAsyncSelectEvent (
-    IN PSOCKET_INFORMATION Socket,
-    IN ULONG Event
-    );
-    
-DWORD MsafdReturnWithErrno( NTSTATUS Status, LPINT Errno, DWORD Received,
-			    LPDWORD ReturnedBytes );
-
-typedef VOID (*PASYNC_COMPLETION_ROUTINE)(PVOID Context, PIO_STATUS_BLOCK IoStatusBlock);
-
 #endif /* __MSAFD_H */
 
 /* EOF */

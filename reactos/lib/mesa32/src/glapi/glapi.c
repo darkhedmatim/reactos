@@ -116,7 +116,7 @@ warn(void)
 #define DISPATCH_TABLE_NAME __glapi_noop_table
 #define UNUSED_TABLE_NAME __usused_noop_functions
 
-#define TABLE_ENTRY(name) (void *) NoOp##name
+#define TABLE_ENTRY(name) (void *) (int)NoOp##name
 
 static int NoOpUnused(void)
 {
@@ -720,11 +720,7 @@ fill_in_entrypoint_offset(void *entrypoint, GLuint offset)
 #endif /* __sparc_v9__ && !linux */
 
 #else
-
-   /* an unimplemented architecture */
-   (void) entrypoint;
-   (void) offset;
-
+   (void) entrypoint; (void) offset;
 #endif /* USE_*_ASM */
 }
 

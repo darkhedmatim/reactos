@@ -23,9 +23,13 @@
  *        Added multiple file support (copied from y.c)
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_TYPE
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
 
 
 INT cmd_type (LPTSTR cmd, LPTSTR param)

@@ -1,4 +1,4 @@
-/* $Id: find.c,v 1.46 2004/09/06 15:56:25 weiden Exp $
+/* $Id: find.c,v 1.44 2004/05/13 20:32:18 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -49,6 +49,12 @@ InternalFindNextFile (
 	NTSTATUS Status;
 
 	DPRINT("InternalFindNextFile(%lx)\n", hFindFile);
+
+	if (hFindFile == NULL)
+	{
+	    SetLastError (ERROR_INVALID_HANDLE);
+	    return FALSE;
+	}
 
 	IData = (PKERNEL32_FIND_FILE_DATA)hFindFile;
 
@@ -350,16 +356,15 @@ FindFirstFileA (
 
 	/* copy data into WIN32_FIND_DATA structure */
 	lpFindFileData->dwFileAttributes = IData->pFileInfo->FileAttributes;
-	
-	lpFindFileData->ftCreationTime.dwHighDateTime = IData->pFileInfo->CreationTime.u.HighPart;
-	lpFindFileData->ftCreationTime.dwLowDateTime = IData->pFileInfo->CreationTime.u.LowPart;
-	
-	lpFindFileData->ftLastAccessTime.dwHighDateTime = IData->pFileInfo->LastAccessTime.u.HighPart;
-	lpFindFileData->ftLastAccessTime.dwLowDateTime = IData->pFileInfo->LastAccessTime.u.LowPart;
-	
-	lpFindFileData->ftLastWriteTime.dwHighDateTime = IData->pFileInfo->LastWriteTime.u.HighPart;
-	lpFindFileData->ftLastWriteTime.dwLowDateTime = IData->pFileInfo->LastWriteTime.u.LowPart;
-
+	memcpy (&lpFindFileData->ftCreationTime,
+	        &IData->pFileInfo->CreationTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastAccessTime,
+	        &IData->pFileInfo->LastAccessTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastWriteTime,
+	        &IData->pFileInfo->LastWriteTime,
+	        sizeof(FILETIME));
 	lpFindFileData->nFileSizeHigh = IData->pFileInfo->EndOfFile.u.HighPart;
 	lpFindFileData->nFileSizeLow = IData->pFileInfo->EndOfFile.u.LowPart;
 
@@ -419,14 +424,12 @@ FindNextFileA (
 	UNICODE_STRING FileNameU;
 	ANSI_STRING FileName;
 
-	if (hFindFile == INVALID_HANDLE_VALUE)
+	IData = (PKERNEL32_FIND_FILE_DATA)hFindFile;
+	if (IData == NULL)
 	{
-		SetLastError (ERROR_INVALID_HANDLE);
-		DPRINT("Failing request\n");
 		return FALSE;
 	}
 
-	IData = (PKERNEL32_FIND_FILE_DATA)hFindFile;
 	if (!InternalFindNextFile (hFindFile))
 	{
 		DPRINT("InternalFindNextFile() failed\n");
@@ -438,16 +441,15 @@ FindNextFileA (
 
 	/* copy data into WIN32_FIND_DATA structure */
 	lpFindFileData->dwFileAttributes = IData->pFileInfo->FileAttributes;
-	
-	lpFindFileData->ftCreationTime.dwHighDateTime = IData->pFileInfo->CreationTime.u.HighPart;
-	lpFindFileData->ftCreationTime.dwLowDateTime = IData->pFileInfo->CreationTime.u.LowPart;
-
-	lpFindFileData->ftLastAccessTime.dwHighDateTime = IData->pFileInfo->LastAccessTime.u.HighPart;
-	lpFindFileData->ftLastAccessTime.dwLowDateTime = IData->pFileInfo->LastAccessTime.u.LowPart;
-
-	lpFindFileData->ftLastWriteTime.dwHighDateTime = IData->pFileInfo->LastWriteTime.u.HighPart;
-	lpFindFileData->ftLastWriteTime.dwLowDateTime = IData->pFileInfo->LastWriteTime.u.LowPart;
-
+	memcpy (&lpFindFileData->ftCreationTime,
+	        &IData->pFileInfo->CreationTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastAccessTime,
+	        &IData->pFileInfo->LastAccessTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastWriteTime,
+	        &IData->pFileInfo->LastWriteTime,
+	        sizeof(FILETIME));
 	lpFindFileData->nFileSizeHigh = IData->pFileInfo->EndOfFile.u.HighPart;
 	lpFindFileData->nFileSizeLow = IData->pFileInfo->EndOfFile.u.LowPart;
 
@@ -543,19 +545,17 @@ FindFirstFileW (
 
 	/* copy data into WIN32_FIND_DATA structure */
 	lpFindFileData->dwFileAttributes = IData->pFileInfo->FileAttributes;
-	
-	lpFindFileData->ftCreationTime.dwHighDateTime = IData->pFileInfo->CreationTime.u.HighPart;
-	lpFindFileData->ftCreationTime.dwLowDateTime = IData->pFileInfo->CreationTime.u.LowPart;
-
-	lpFindFileData->ftLastAccessTime.dwHighDateTime = IData->pFileInfo->LastAccessTime.u.HighPart;
-	lpFindFileData->ftLastAccessTime.dwLowDateTime = IData->pFileInfo->LastAccessTime.u.LowPart;
-
-	lpFindFileData->ftLastWriteTime.dwHighDateTime = IData->pFileInfo->LastWriteTime.u.HighPart;
-	lpFindFileData->ftLastWriteTime.dwLowDateTime = IData->pFileInfo->LastWriteTime.u.LowPart;
-	
+	memcpy (&lpFindFileData->ftCreationTime,
+	        &IData->pFileInfo->CreationTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastAccessTime,
+	        &IData->pFileInfo->LastAccessTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastWriteTime,
+	        &IData->pFileInfo->LastWriteTime,
+	        sizeof(FILETIME));
 	lpFindFileData->nFileSizeHigh = IData->pFileInfo->EndOfFile.u.HighPart;
 	lpFindFileData->nFileSizeLow = IData->pFileInfo->EndOfFile.u.LowPart;
-	
 	memcpy (lpFindFileData->cFileName,
 	        IData->pFileInfo->FileName,
 	        IData->pFileInfo->FileNameLength);
@@ -580,13 +580,6 @@ FindNextFileW (
 {
 	PKERNEL32_FIND_FILE_DATA IData;
 
-	if (hFindFile == INVALID_HANDLE_VALUE)
-	{
-		SetLastError (ERROR_INVALID_HANDLE);
-		DPRINT("Failing request\n");
-		return FALSE;
-	}
-
 	IData = (PKERNEL32_FIND_FILE_DATA)hFindFile;
 	if (!InternalFindNextFile(hFindFile))
 	{
@@ -596,23 +589,18 @@ FindNextFileW (
 
 	/* copy data into WIN32_FIND_DATA structure */
 	lpFindFileData->dwFileAttributes = IData->pFileInfo->FileAttributes;
-
-	lpFindFileData->ftCreationTime.dwHighDateTime = IData->pFileInfo->CreationTime.u.HighPart;
-	lpFindFileData->ftCreationTime.dwLowDateTime = IData->pFileInfo->CreationTime.u.LowPart;
-
-	lpFindFileData->ftLastAccessTime.dwHighDateTime = IData->pFileInfo->LastAccessTime.u.HighPart;
-	lpFindFileData->ftLastAccessTime.dwLowDateTime = IData->pFileInfo->LastAccessTime.u.LowPart;
-
-	lpFindFileData->ftLastWriteTime.dwHighDateTime = IData->pFileInfo->LastWriteTime.u.HighPart;
-	lpFindFileData->ftLastWriteTime.dwLowDateTime = IData->pFileInfo->LastWriteTime.u.LowPart;
-
+	memcpy (&lpFindFileData->ftCreationTime,
+	        &IData->pFileInfo->CreationTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastAccessTime,
+	        &IData->pFileInfo->LastAccessTime,
+	        sizeof(FILETIME));
+	memcpy (&lpFindFileData->ftLastWriteTime,
+	        &IData->pFileInfo->LastWriteTime,
+	        sizeof(FILETIME));
 	lpFindFileData->nFileSizeHigh = IData->pFileInfo->EndOfFile.u.HighPart;
 	lpFindFileData->nFileSizeLow = IData->pFileInfo->EndOfFile.u.LowPart;
-
-	lpFindFileData->nFileSizeHigh = IData->pFileInfo->EndOfFile.u.HighPart;
-	lpFindFileData->nFileSizeLow = IData->pFileInfo->EndOfFile.u.LowPart;
-
-        memcpy (lpFindFileData->cFileName,
+	memcpy (lpFindFileData->cFileName,
 	        IData->pFileInfo->FileName,
 	        IData->pFileInfo->FileNameLength);
 	lpFindFileData->cFileName[IData->pFileInfo->FileNameLength / sizeof(WCHAR)] = 0;

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.17 2004/09/25 21:32:17 arty Exp $
+# $Id: makefile,v 1.14 2004/08/11 08:28:13 weiden Exp $
 
 PATH_TO_TOP = ../..
 
@@ -25,14 +25,8 @@ REGISTRY_OBJECTS = \
 
 MISC_OBJECTS = \
  misc/devmode.o \
- misc/intrlck.o \
  misc/logfont.o \
  misc/qsort.o
-
-FILE_OBJECTS = \
- file/sparse.o
-
-RECMUTEX_OBJECTS = recmutex/recmutex.o
 
 include $(PATH_TO_TOP)/config
 
@@ -45,8 +39,8 @@ TARGET_NAME = rosrtl
 TARGET_CFLAGS = -D__USE_W32API -Wall -Werror
 
 TARGET_OBJECTS = $(THREAD_OBJECTS) $(MISC_OBJECTS) $(STRING_OBJECTS) \
-		 $(REGISTRY_OBJECTS) $(FILE_OBJECTS) $(RECMUTEX_OBJECTS)
-
+		 $(REGISTRY_OBJECTS)
+ 
 DEP_OBJECTS = $(TARGET_OBJECTS)
 
 include $(PATH_TO_TOP)/rules.mak

@@ -29,7 +29,14 @@
  *        Added PagePrompt() and FilePrompt().
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <tchar.h>
 
 
 /*

@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.42 2004/12/06 14:24:51 gdalsnes Exp $
+/* $Id: create.c,v 1.38 2004/07/22 02:32:40 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -91,10 +91,10 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 
    DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
 
-   if(hTemplateFile != NULL && hTemplateFile != INVALID_HANDLE_VALUE)
+   if(hTemplateFile != NULL)
    {
     /* FIXME */
-    DPRINT1("Template file feature not supported yet\n");
+    DPRINT("Template file feature not supported yet\n");
     SetLastError(ERROR_NOT_SUPPORTED);
     return INVALID_HANDLE_VALUE;
    }
@@ -134,7 +134,7 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 				      NULL))
    {
      DPRINT("Invalid path\n");
-     SetLastError(ERROR_PATH_NOT_FOUND);
+     SetLastError(ERROR_BAD_PATHNAME);
      return INVALID_HANDLE_VALUE;
    }
    
@@ -271,37 +271,20 @@ HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
    RtlFreeUnicodeString(&NtPathU);
 
    /* error */
-   if (!NT_SUCCESS(Status))
-   {
-      /* In the case file creation was rejected due to CREATE_NEW flag
-       * was specified and file with that name already exists, correct
-       * last error is ERROR_FILE_EXISTS and not ERROR_ALREADY_EXISTS.
-       * Note: RtlNtStatusToDosError is not the subject to blame here.
-       */
-      if (Status == STATUS_OBJECT_NAME_COLLISION &&
-          dwCreationDisposition == FILE_CREATE)
-      {
-         SetLastError( ERROR_FILE_EXISTS );
-      }
-      else
-      {
-         SetLastErrorByStatus (Status);
-      }
-     
-      return INVALID_HANDLE_VALUE;
-   }
+  if (!NT_SUCCESS(Status))
+  {
+    SetLastErrorByStatus (Status);
+    return INVALID_HANDLE_VALUE;
+  }
    
   /*
   create with OPEN_ALWAYS (FILE_OPEN_IF) returns info = FILE_OPENED or FILE_CREATED
   create with CREATE_ALWAYS (FILE_OVERWRITE_IF) returns info = FILE_OVERWRITTEN or FILE_CREATED
   */    
-  if (dwCreationDisposition == FILE_OPEN_IF)
+  if ((dwCreationDisposition == FILE_OPEN_IF && IoStatusBlock.Information == FILE_OPENED) ||
+      (dwCreationDisposition == FILE_OVERWRITE_IF && IoStatusBlock.Information == FILE_OVERWRITTEN))
   {
-    SetLastError(IoStatusBlock.Information == FILE_OPENED ? ERROR_ALREADY_EXISTS : 0);
-  }
-  else if (dwCreationDisposition == FILE_OVERWRITE_IF)
-  {
-    SetLastError(IoStatusBlock.Information == FILE_OVERWRITTEN ? ERROR_ALREADY_EXISTS : 0);
+    SetLastError(ERROR_ALREADY_EXISTS);
   }
 
   return FileHandle;

@@ -7,9 +7,13 @@
  *     started - Paolo Pantaleo <paolopan@freemail.it>
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_MSGBOX
+#include "precomp.h"
+#include <ctype.h>
+#include <string.h>
+#include <tchar.h>
 
 
 #define U_TYPE_INIT 0

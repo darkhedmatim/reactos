@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mm.c,v 1.80 2004/11/13 13:09:07 weiden Exp $
+/* $Id: mm.c,v 1.78 2004/08/21 19:04:47 tamlin Exp $
  *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
@@ -34,9 +34,6 @@
 #include <internal/debug.h>
 
 /* GLOBALS *****************************************************************/
-
-extern MODULE_OBJECT NtoskrnlModuleObject;
-extern MODULE_OBJECT HalModuleObject;
 
 PVOID EXPORTED MmUserProbeAddress = NULL;
 PVOID EXPORTED MmHighestUserAddress = NULL;
@@ -106,7 +103,7 @@ NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
    {
       case MEMORY_AREA_SECTION_VIEW:
          Status = MmUnmapViewOfSection(Process, Marea->BaseAddress);
-         ASSERT(Status == STATUS_SUCCESS);
+         assert(Status == STATUS_SUCCESS);
          return(STATUS_SUCCESS);
 
       case MEMORY_AREA_VIRTUAL_MEMORY:
@@ -499,7 +496,7 @@ MmSetAddressRangeModified (
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 PVOID
 NTKERNELAPI
@@ -507,33 +504,8 @@ MmGetSystemRoutineAddress (
     IN PUNICODE_STRING SystemRoutineName
     )
 {
-  PVOID ProcAddress;
-  ANSI_STRING AnsiRoutineName;
-  NTSTATUS Status;
-  
-  if(!NT_SUCCESS(RtlUnicodeStringToAnsiString(&AnsiRoutineName,
-                                              SystemRoutineName,
-                                              TRUE)))
-  {
-    return NULL;
-  }
-  
-  Status = LdrGetProcedureAddress(NtoskrnlModuleObject.Base,
-                                  &AnsiRoutineName,
-                                  0,
-                                  &ProcAddress);
-  
-  if(!NT_SUCCESS(Status))
-  {
-    Status = LdrGetProcedureAddress(HalModuleObject.Base,
-                                    &AnsiRoutineName,
-                                    0,
-                                    &ProcAddress);
-  }
-  
-  RtlFreeAnsiString(&AnsiRoutineName);
-  
-  return (NT_SUCCESS(Status) ? ProcAddress : NULL);
+	UNIMPLEMENTED;
+	return 0;
 }
 
 /* EOF */

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: xlate.c,v 1.44 2004/12/12 23:08:09 navaraf Exp $
+/* $Id: xlate.c,v 1.42 2004/07/15 21:14:51 navaraf Exp $
  * 
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,8 +29,7 @@
 
 #include <w32k.h>
 
-static inline ULONG
-ShiftAndMask(XLATEGDI *XlateGDI, ULONG Color)
+static ULONG FASTCALL ShiftAndMask(XLATEGDI *XlateGDI, ULONG Color)
 {
    ULONG TranslatedColor;
 
@@ -51,65 +50,62 @@ ShiftAndMask(XLATEGDI *XlateGDI, ULONG Color)
 }
 
 
-static inline ULONG
+ULONG STDCALL 
 ClosestColorMatch(XLATEGDI *XlateGDI, LPPALETTEENTRY SourceColor,
                   PALETTEENTRY *DestColors, ULONG NumColors)
 {
    ULONG SourceRed, SourceGreen, SourceBlue;
-   ULONG cxRed, cxGreen, cxBlue, Rating, BestMatch = 0xFFFFFF;
+   ULONG cxRed, cxGreen, cxBlue, Rating, BestMatch = 16777215;
    ULONG CurrentIndex, BestIndex = 0;
 
    SourceRed = SourceColor->peRed;
    SourceGreen = SourceColor->peGreen;
    SourceBlue = SourceColor->peBlue;
 
-   for (CurrentIndex = 0; CurrentIndex < NumColors; CurrentIndex++, DestColors++)
+   for (CurrentIndex = 0; CurrentIndex < NumColors; CurrentIndex++)
    {
-      cxRed = abs((SHORT)SourceRed - (SHORT)DestColors->peRed);
+      cxRed = abs((SHORT)SourceRed - (SHORT)DestColors[CurrentIndex].peRed);
       cxRed *= cxRed;
-      cxGreen = abs((SHORT)SourceGreen - (SHORT)DestColors->peGreen);
+      cxGreen = abs((SHORT)SourceGreen - (SHORT)DestColors[CurrentIndex].peGreen);
       cxGreen *= cxGreen;
-      cxBlue = abs((SHORT)SourceBlue - (SHORT)DestColors->peBlue);
+      cxBlue = abs((SHORT)SourceBlue - (SHORT)DestColors[CurrentIndex].peBlue);
       cxBlue *= cxBlue;
 
       Rating = cxRed + cxGreen + cxBlue;
-      
-      if (Rating == 0)
-      {
-         /* Exact match */
-         BestIndex = CurrentIndex;
-         break;
-      }
 
       if (Rating < BestMatch)
       {
          BestIndex = CurrentIndex;
          BestMatch = Rating;
       }
+
+      /* Exact match */
+      if (Rating == 0)
+         break;
    }
 
    return BestIndex;
 }
 
-static inline VOID
+static VOID STDCALL
 BitMasksFromPal(USHORT PalType, PPALGDI Palette,
                 PULONG RedMask, PULONG BlueMask, PULONG GreenMask)
 {
-   static const union { PALETTEENTRY Color; ULONG Mask; } Red   = {{0xFF, 0x00, 0x00}};
-   static const union { PALETTEENTRY Color; ULONG Mask; } Green = {{0x00, 0xFF, 0x00}};
-   static const union { PALETTEENTRY Color; ULONG Mask; } Blue  = {{0x00, 0x00, 0xFF}};
+   static const union { PALETTEENTRY Color; ULONG Mask; } Red = {{255, 0, 0}};
+   static const union { PALETTEENTRY Color; ULONG Mask; } Green = {{0, 255, 0}};
+   static const union { PALETTEENTRY Color; ULONG Mask; } Blue = {{0, 0, 255}};
 
    switch (PalType)
    {
       case PAL_RGB:
-         *RedMask   = RGB(0xFF, 0x00, 0x00);
-         *GreenMask = RGB(0x00, 0xFF, 0x00);
-         *BlueMask  = RGB(0x00, 0x00, 0xFF);
+         *RedMask = RGB(255, 0, 0);
+         *GreenMask = RGB(0, 255, 0);
+         *BlueMask = RGB(0, 0, 255);
          break;
       case PAL_BGR:
-         *RedMask   = RGB(0x00, 0x00, 0xFF);
-         *GreenMask = RGB(0x00, 0xFF, 0x00);
-         *BlueMask  = RGB(0xFF, 0x00, 0x00);
+         *RedMask = RGB(0, 0, 255);
+         *GreenMask = RGB(0, 255, 0);
+         *BlueMask = RGB(255, 0, 0);
          break;
       case PAL_BITFIELDS:
          *RedMask = Palette->RedMask;
@@ -128,8 +124,7 @@ BitMasksFromPal(USHORT PalType, PPALGDI Palette,
  * Calculate the number of bits Mask must be shift to the left to get a
  * 1 in the most significant bit position
  */
-static inline INT
-CalculateShift(ULONG Mask)
+static INT FASTCALL CalculateShift(ULONG Mask)
 {
    ULONG Shift = 0;
    ULONG LeftmostBit = 1 << (8 * sizeof(ULONG) - 1);
@@ -143,25 +138,22 @@ CalculateShift(ULONG Mask)
    return Shift;
 }
 
-XLATEOBJ* FASTCALL
+XLATEOBJ* STDCALL
 IntEngCreateXlate(USHORT DestPalType, USHORT SourcePalType,
                   HPALETTE PaletteDest, HPALETTE PaletteSource)
 {
+   ULONG NewXlate;
    XLATEOBJ *XlateObj;
    XLATEGDI *XlateGDI;
    PALGDI *SourcePalGDI = 0;
    PALGDI *DestPalGDI = 0;
-   ULONG SourceRedMask = 0, SourceGreenMask = 0, SourceBlueMask = 0;
-   ULONG DestRedMask = 0, DestGreenMask = 0, DestBlueMask = 0;
+   ULONG SourceRedMask, SourceGreenMask, SourceBlueMask;
+   ULONG DestRedMask, DestGreenMask, DestBlueMask;
    ULONG i;
 
-   XlateGDI = EngAllocMem(0, sizeof(XLATEGDI), TAG_XLATEOBJ);
-   if (XlateGDI == NULL)
-   {
-      DPRINT1("Failed to allocate memory for a XLATE structure!\n");
+   NewXlate = CreateGDIHandle(sizeof(XLATEGDI), sizeof(XLATEOBJ), (PVOID*)&XlateGDI, (PVOID*)&XlateObj);
+   if (!ValidEngHandle(NewXlate))
       return NULL;
-   }
-   XlateObj = GDIToObj(XlateGDI, XLATE);
 
    if (PaletteSource != NULL)
       SourcePalGDI = PALETTE_LockPalette(PaletteSource);
@@ -278,25 +270,20 @@ end:
    return XlateObj;
 }
 
-XLATEOBJ* FASTCALL
-IntEngCreateMonoXlate(
+XLATEOBJ * STDCALL IntEngCreateMonoXlate(
    USHORT SourcePalType, HPALETTE PaletteDest, HPALETTE PaletteSource,
    ULONG BackgroundColor)
 {
+   ULONG NewXlate;
    XLATEOBJ *XlateObj;
    XLATEGDI *XlateGDI;
    PALGDI *SourcePalGDI;
 
-   XlateGDI = EngAllocMem(0, sizeof(XLATEGDI), TAG_XLATEOBJ);
-   if (XlateGDI == NULL)
-   {
-      DPRINT1("Failed to allocate memory for a XLATE structure!\n");
+   NewXlate = CreateGDIHandle(sizeof(XLATEGDI), sizeof(XLATEOBJ), (PVOID*)&XlateGDI, (PVOID*)&XlateObj);
+   if (!ValidEngHandle(NewXlate))
       return NULL;
-   }
-   XlateObj = GDIToObj(XlateGDI, XLATE);
 
    SourcePalGDI = PALETTE_LockPalette(PaletteSource);
-   /* FIXME - SourcePalGDI can be NULL!!! Handle this case instead of ASSERT! */
    ASSERT(SourcePalGDI);
 
    if (SourcePalType == 0)
@@ -342,11 +329,12 @@ IntEngCreateMonoXlate(
    return XlateObj;
 }
 
-XLATEOBJ* FASTCALL
+XLATEOBJ * STDCALL
 IntEngCreateSrcMonoXlate(HPALETTE PaletteDest,
                          ULONG ForegroundColor,
                          ULONG BackgroundColor)
 {
+   ULONG NewXlate;
    XLATEOBJ *XlateObj;
    XLATEGDI *XlateGDI;
    PALGDI *DestPalGDI;
@@ -355,20 +343,14 @@ IntEngCreateSrcMonoXlate(HPALETTE PaletteDest,
    if (DestPalGDI == NULL)
       return NULL;
 
-   XlateGDI = EngAllocMem(0, sizeof(XLATEGDI), TAG_XLATEOBJ);
-   if (XlateGDI == NULL)
-   {
-      PALETTE_UnlockPalette(PaletteDest);
-      DPRINT1("Failed to allocate memory for a XLATE structure!\n");
+   NewXlate = CreateGDIHandle(sizeof(XLATEGDI), sizeof(XLATEOBJ), (PVOID*)&XlateGDI, (PVOID*)&XlateObj);
+   if (!ValidEngHandle(NewXlate))
       return NULL;
-   }
-   XlateObj = GDIToObj(XlateGDI, XLATE);
 
    XlateGDI->translationTable = EngAllocMem(0, sizeof(ULONG) * 2, 0);
    if (XlateGDI->translationTable == NULL)
    {
-      PALETTE_UnlockPalette(PaletteDest);
-      EngFreeMem(XlateGDI);
+      FreeGDIHandle(NewXlate);
       return NULL;
    }
 
@@ -386,9 +368,9 @@ IntEngCreateSrcMonoXlate(HPALETTE PaletteDest,
    BitMasksFromPal(DestPalGDI->Mode, DestPalGDI, &XlateGDI->RedMask,
       &XlateGDI->BlueMask, &XlateGDI->GreenMask);
 
-   XlateGDI->RedShift =   CalculateShift(RGB(0xFF, 0x00, 0x00)) - CalculateShift(XlateGDI->RedMask);
-   XlateGDI->GreenShift = CalculateShift(RGB(0x00, 0xFF, 0x00)) - CalculateShift(XlateGDI->GreenMask);
-   XlateGDI->BlueShift =  CalculateShift(RGB(0x00, 0x00, 0xFF)) - CalculateShift(XlateGDI->BlueMask);
+   XlateGDI->RedShift = CalculateShift(RGB(255, 0, 0)) - CalculateShift(XlateGDI->RedMask);
+   XlateGDI->GreenShift = CalculateShift(RGB(0, 255, 0)) - CalculateShift(XlateGDI->GreenMask);
+   XlateGDI->BlueShift = CalculateShift(RGB(0, 0, 255)) - CalculateShift(XlateGDI->BlueMask);
 
    XlateGDI->translationTable[0] = ShiftAndMask(XlateGDI, BackgroundColor);
    XlateGDI->translationTable[1] = ShiftAndMask(XlateGDI, ForegroundColor);
@@ -421,6 +403,7 @@ VOID FASTCALL
 EngDeleteXlate(XLATEOBJ *XlateObj)
 {
    XLATEGDI *XlateGDI;
+   HANDLE HXlate;
 
    if (XlateObj == NULL)
    {
@@ -428,7 +411,8 @@ EngDeleteXlate(XLATEOBJ *XlateObj)
       return;
    }
 
-   XlateGDI = ObjToGDI(XlateObj, XLATE);
+   XlateGDI = (XLATEGDI *)AccessInternalObjectFromUserObject(XlateObj);
+   HXlate = (HANDLE)AccessHandleFromUserObject(XlateObj);
 
    if ((XlateObj->flXlate & XO_TABLE) &&
        XlateGDI->translationTable != NULL)
@@ -436,7 +420,7 @@ EngDeleteXlate(XLATEOBJ *XlateObj)
       EngFreeMem(XlateGDI->translationTable);
    }
 
-   EngFreeMem(XlateGDI);
+   FreeGDIHandle((ULONG)HXlate);
 }
 
 /*
@@ -445,7 +429,7 @@ EngDeleteXlate(XLATEOBJ *XlateObj)
 PULONG STDCALL
 XLATEOBJ_piVector(XLATEOBJ *XlateObj)
 {
-   XLATEGDI *XlateGDI = ObjToGDI(XlateObj, XLATE);
+   XLATEGDI *XlateGDI = (XLATEGDI*)AccessInternalObjectFromUserObject(XlateObj);
 
    if (XlateObj->iSrcType == PAL_INDEXED)
    {
@@ -475,7 +459,7 @@ XLATEOBJ_iXlate(XLATEOBJ *XlateObj, ULONG Color)
    if (XlateObj->flXlate & XO_TABLE)
       return XlateObj->pulXlate[Color];
 
-   XlateGDI = ObjToGDI(XlateObj, XLATE);
+   XlateGDI = (XLATEGDI *)AccessInternalObjectFromUserObject(XlateObj);
 
    if (XlateObj->flXlate & XO_TO_MONO)
       return Color == XlateGDI->BackgroundColor;
@@ -488,19 +472,17 @@ XLATEOBJ_iXlate(XLATEOBJ *XlateObj, ULONG Color)
    {
       /* FIXME: should we cache colors used often? */
       /* FIXME: won't work if destination isn't indexed */
-      
-      /* Convert the source color to the palette RGB format. */
-      Color = ShiftAndMask(XlateGDI, Color);
 
       /* Extract the destination palette. */
       PalGDI = PALETTE_LockPalette(XlateGDI->DestPal);
-      if(PalGDI != NULL)
-      {
-         /* Return closest match for the given color. */
-         Closest = ClosestColorMatch(XlateGDI, (LPPALETTEENTRY)&Color, PalGDI->IndexedColors, PalGDI->NumColors);
-         PALETTE_UnlockPalette(XlateGDI->DestPal);
-         return Closest;
-      }
+
+      /* Convert the source color to the palette RGB format. */
+      Color = ShiftAndMask(XlateGDI, Color);
+
+      /* Return closest match for the given color. */
+      Closest = ClosestColorMatch(XlateGDI, (LPPALETTEENTRY)&Color, PalGDI->IndexedColors, PalGDI->NumColors);
+      PALETTE_UnlockPalette(XlateGDI->DestPal);
+      return Closest;
    }
 
    return 0;
@@ -516,9 +498,8 @@ XLATEOBJ_cGetPalette(XLATEOBJ *XlateObj, ULONG PalOutType, ULONG cPal,
    HPALETTE hPalette;
    XLATEGDI *XlateGDI;
    PALGDI *PalGDI;
-   ULONG *InPal;
 
-   XlateGDI = ObjToGDI(XlateObj, XLATE);
+   XlateGDI = (XLATEGDI*)AccessInternalObjectFromUserObject(XlateObj);
    if (PalOutType == XO_SRCPALETTE)
       hPalette = XlateGDI->SourcePal;
    else if (PalOutType == XO_DESTPALETTE)
@@ -527,23 +508,10 @@ XLATEOBJ_cGetPalette(XLATEOBJ *XlateObj, ULONG PalOutType, ULONG cPal,
       UNIMPLEMENTED;
 
    PalGDI = PALETTE_LockPalette(hPalette);
-   if(PalGDI != NULL)
-   {
-     /* copy the indexed colors into the buffer */
+   RtlCopyMemory(OutPal, PalGDI->IndexedColors, sizeof(ULONG) * cPal);
+   PALETTE_UnlockPalette(hPalette);
 
-     for(InPal = (ULONG*)PalGDI->IndexedColors;
-         cPal > 0;
-         cPal--, InPal++, OutPal++)
-     {
-       *OutPal = *InPal;
-     }
-
-     PALETTE_UnlockPalette(hPalette);
-     
-     return cPal;
-   }
-   
-   return 0;
+   return cPal;
 }
 
 /* EOF */

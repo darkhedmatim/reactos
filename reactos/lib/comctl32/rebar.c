@@ -1,75 +1,4 @@
 /*
- * Rebar control
- *
- * Copyright 1998, 1999 Eric Kohl
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- *
- * This code was audited for completeness against the documented features
- * of Comctl32.dll version 6.0 on Oct. 19, 2004, by Robert Shearman.
- * 
- * Unless otherwise noted, we believe this code to be complete, as per
- * the specification mentioned above.
- * If you discover missing features or bugs please note them below.
- *
- * TODO
- *   Styles:
- *   - RBS_DBLCLKTOGGLE
- *   - RBS_FIXEDORDER
- *   - RBS_REGISTERDROP
- *   - RBS_TOOLTIPS
- *   - CCS_NORESIZE
- *   - CCS_NOMOVEX
- *   - CCS_NOMOVEY
- *   Messages:
- *   - RB_BEGINDRAG
- *   - RB_DRAGMOVE
- *   - RB_ENDDRAG
- *   - RB_GETBANDMARGINS
- *   - RB_GETCOLORSCHEME
- *   - RB_GETDROPTARGET
- *   - RB_GETPALETTE
- *   - RB_SETCOLORSCHEME
- *   - RB_SETPALETTE
- *   - RB_SETTOOLTIPS
- *   - WM_CHARTOITEM
- *   - WM_LBUTTONDBLCLK
- *   - WM_MEASUREITEM
- *   - WM_PALETTECHANGED
- *   - WM_PRINTCLIENT
- *   - WM_QUERYNEWPALETTE
- *   - WM_RBUTTONDOWN
- *   - WM_RBUTTONUP
- *   - WM_SYSCOLORCHANGE
- *   - WM_VKEYTOITEM
- *   - WM_WININICHANGE
- *   Notifications:
- *   - NM_HCHITTEST
- *   - NM_RELEASEDCAPTURE
- *   - RBN_AUTOBREAK
- *   - RBN_GETOBJECT
- *   - RBN_MINMAX
- *   Band styles:
- *   - RBBS_FIXEDBMP
- *   Native uses (on each draw!!) SM_CYBORDER (or SM_CXBORDER for CCS_VERT)
- *   to set the size of the separator width (the value SEP_WIDTH_SIZE
- *   in here). Should be fixed!!
- */
-
-/*
  * Testing: set to 1 to make background brush *always* green
  */
 #define GLATESTING 0
@@ -87,6 +16,127 @@
  * 3. REBAR_MoveChildWindows should have a loop because more than
  *    one pass is made (together with the RBN_CHILDSIZEs) is made on
  *    at least RB_INSERTBAND
+ */
+
+
+/*
+ * Rebar control    rev 8e
+ *
+ * Copyright 1998, 1999 Eric Kohl
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * NOTES
+ *   An author is needed! Any volunteers?
+ *   I will only improve this control once in a while.
+ *     Eric <ekohl@abo.rhein-zeitung.de>
+ *
+ * TODO:
+ *   - vertical placement
+ *   - ComboBox and ComboBoxEx placement
+ *   - center image
+ *   - Layout code.
+ *   - Display code.
+ *   - Some messages.
+ *   - All notifications.
+
+ * Changes Guy Albertelli <galberte@neo.lrun.com>
+ *  rev 2,3,4
+ *   - Implement initial version of row grouping, row separators,
+ *     text and background colors. Support additional messages.
+ *     Support RBBS_BREAK. Implement ERASEBKGND and improve painting.
+ *  rev 5
+ *   - implement support for dragging Gripper left or right in a row. Supports
+ *     WM_LBUTTONDOWN, WM_LBUTTONUP, and WM_MOUSEMOVE. Also support
+ *     RBS_BANDBORDERS.
+ *  rev 6
+ *   - Fix or implement notifications for RBN_HEIGHTCHANGE, RBN_CHILDSIZE.
+ *   - Correct styles RBBS_NOGRIPPER, RBBS_GRIPPERALWAYS, and RBBS_FIXEDSIZE.
+ *   - Fix algorithm for Layout and AdjustBand.
+ *
+ * rev 7
+ *   - Fix algorithm for _Layout and _AdjustBand.
+ *   - Fix or implement RBN_ENDDRAG, RB_MOVEBAND, WM_SETREDRAW,
+ *     WM_STYLECHANGED, RB_MINIMIZEBAND, RBBS_VARIABLEHEIGHT, RBS_VARHEIGHT,
+ *     RBBS_HIDDEN, WM_NOTIFYFORMAT, NM_NCHITTEST, WM_SETREDRAW, RBS_AUTOSIZE,
+ *     WM_SETFONT, RBS_BORDERS
+ *   - Create structures in WM_NCCREATE
+ *   - Additional performance enhancements.
+ *
+ * rev 8
+ *  1. Create array of start and end band indexes by row and use.
+ *  2. Fix problem with REBAR_Layout Phase 2b to process only if only
+ *     band in row.
+ *  3. Set the Caption Font (Regular) as default font for text.
+ *  4. Delete font handle on control distruction.
+ *  5. Add UpdateWindow call in _MoveChildWindows to match repainting done
+ *     by native control
+ *  6. Improve some traces.
+ *  7. Invalidate window rectangles after SetBandInfo, InsertBand, ShowBand
+ *     so that repainting is correct.
+ *  8. Implement RB_MAXIMIZEBAND for the "ideal=TRUE" case.
+ *  9. Implement item custom draw notifications partially. Only done for
+ *     ITEMPREPAINT and ITEMPOSTPAINT. (Used by IE4 for "Favorites" frame
+ *     to draw the word "Favorites").
+ * rev 8a
+ * 10. Handle CCS_NODIVIDER and fix WS_BORDER code.
+ * 11. Fix logic error in _AdjustBands where flag was set to valid band
+ *     number (0) to indicate *no* band.
+ * 12. Fix CCS_VERT errors in _ForceResize, _NCCalcSize, and _NCPaint.
+ * 13. Support some special cases of CCS_TOP (and therefore CCS_LEFT),
+ *     CCS_BOTTOM (and therefore CCS_RIGHT) and CCS_NOPARENTALIGN. Not
+ *     at all sure whether this is all cases.
+ * 14. Handle returned value for the RBN_CHILDSIZE notify.
+ * 15. Implement RBBS_CHILDEDGE, and set each bands "offChild" at _Layout
+ *     time.
+ * 16. Fix REBARSPACE. It should depend on CCS_NODIVIDER.
+ * rev 8b
+ * 17. Fix determination of whether Gripper is needed in _ValidateBand.
+ * 18. Fix _AdjustBand processing of RBBS_FIXEDSIZE.
+ * rev 8c
+ * 19. Fix problem in _Layout when all lengths are 0.
+ * 20. If CLR_NONE specified, we will use default BtnFace color when drawing.
+ * 21. Fix test in REBAR_Layout.
+ * rev 8d
+ * 22. Add support for WM_WINDOWPOSCHANGED to save new origin of window.
+ * 23. Correct RBN_CHILDSIZE rect value for CCS_VERT rebar.
+ * 24. Do UpdateWindow only if doing redraws.
+ * rev 8e
+ * 25. Adjust setting of offChild.cx based on RBBS_CHILDEDGE.
+ *
+ *
+ *    Still to do:
+ *  2. Following still not handled: RBBS_FIXEDBMP,
+ *            CCS_NORESIZE,
+ *            CCS_NOMOVEX, CCS_NOMOVEY
+ *  3. Following are only partially handled:
+ *            RBS_AUTOSIZE, RBBS_VARIABLEHEIGHT
+ *  5. Native uses (on each draw!!) SM_CYBORDER (or SM_CXBORDER for CCS_VERT)
+ *     to set the size of the separator width (the value SEP_WIDTH_SIZE
+ *     in here). Should be fixed!!
+ *  6. The following messages are not implemented:
+ *        RB_BEGINDRAG, RB_DRAGMOVE, RB_ENDDRAG, RB_GETCOLORSCHEME,
+ *        RB_GETDROPTARGET, RB_MAXIMIZEBAND,
+ *        RB_SETCOLORSCHEME, RB_SETPALETTE, RB_SETTOOLTIPS
+ *        WM_CHARTOITEM, WM_LBUTTONDBLCLK, WM_MEASUREITEM,
+ *        WM_PALETTECHANGED, WM_PRINTCLIENT, WM_QUERYNEWPALETTE,
+ *        WM_RBUTTONDOWN, WM_RBUTTONUP,
+ *        WM_SYSCOLORCHANGE, WM_VKEYTOITEM, WM_WININICHANGE
+ *  7. The following notifications are not implemented:
+ *        NM_CUSTOMDRAW, NM_RELEASEDCAPTURE
+ *        RBN_MINMAX
  */
 
 #include <stdarg.h>
@@ -194,8 +244,8 @@ typedef struct
     HCURSOR  hcurVert;    /* handle to the NS cursor */
     HCURSOR  hcurDrag;    /* handle to the drag cursor */
     INT      iVersion;    /* version number */
-    POINT    dragStart;   /* x,y of button down */
-    POINT    dragNow;     /* x,y of this MouseMove */
+    POINTS   dragStart;   /* x,y of button down */
+    POINTS   dragNow;     /* x,y of this MouseMove */
     INT      iOldBand;    /* last band that had the mouse cursor over it */
     INT      ihitoffset;  /* offset of hotspot from gripper.left */
     POINT    origin;      /* left/upper corner of client */
@@ -283,7 +333,7 @@ typedef struct
                     else b->rcBand.left += (i); } while(0)
 
 
-#define REBAR_GetInfoPtr(wndPtr) ((REBAR_INFO *)GetWindowLongPtrW (hwnd, 0))
+#define REBAR_GetInfoPtr(wndPtr) ((REBAR_INFO *)GetWindowLongA (hwnd, 0))
 
 
 /* "constant values" retrieved when DLL was initialized    */
@@ -394,7 +444,7 @@ REBAR_DumpBand (REBAR_INFO *iP)
     TRACE("hwnd=%p: color=%08lx/%08lx, bands=%u, rows=%u, cSize=%ld,%ld\n",
 	  iP->hwndSelf, iP->clrText, iP->clrBk, iP->uNumBands, iP->uNumRows,
 	  iP->calcSize.cx, iP->calcSize.cy);
-    TRACE("hwnd=%p: flags=%08x, dragStart=%ld,%ld, dragNow=%ld,%ld, iGrabbedBand=%d\n",
+    TRACE("hwnd=%p: flags=%08x, dragStart=%d,%d, dragNow=%d,%d, iGrabbedBand=%d\n",
 	  iP->hwndSelf, iP->fStatus, iP->dragStart.x, iP->dragStart.y,
 	  iP->dragNow.x, iP->dragNow.y,
 	  iP->iGrabbedBand);
@@ -701,8 +751,8 @@ REBAR_AdjustBands (REBAR_INFO *infoPtr, UINT rowstart, UINT rowend,
      /*   start and end bands are *not* hidden                       */
 {
     REBAR_BAND *lpBand;
-    UINT xsep, extra, curwidth, fudge;
-    INT x, i, last_adjusted;
+    UINT x, xsep, extra, curwidth, fudge;
+    INT i, last_adjusted;
 
     TRACE("start=%u, end=%u, max x=%d, max y=%d\n",
 	  rowstart, rowend, maxx, mcy);
@@ -2418,7 +2468,7 @@ REBAR_Shrink (REBAR_INFO *infoPtr, REBAR_BAND *band, INT movement, INT i)
 
 
 static void
-REBAR_HandleLRDrag (REBAR_INFO *infoPtr, const POINT *ptsmove)
+REBAR_HandleLRDrag (REBAR_INFO *infoPtr, POINTS *ptsmove)
      /* Function:  This will implement the functionality of a     */
      /*  Gripper drag within a row. It will not implement "out-   */
      /*  of-row" drags. (They are detected and handled in         */
@@ -2491,7 +2541,7 @@ REBAR_HandleLRDrag (REBAR_INFO *infoPtr, const POINT *ptsmove)
 			     infoPtr->ihitoffset);
     infoPtr->dragNow = *ptsmove;
 
-    TRACE("before: movement=%d (%ld,%ld), imindBand=%d, ihitBand=%d, imaxdBand=%d, LSum=%d, RSum=%d\n",
+    TRACE("before: movement=%d (%d,%d), imindBand=%d, ihitBand=%d, imaxdBand=%d, LSum=%d, RSum=%d\n",
 	  movement, ptsmove->x, ptsmove->y, imindBand, ihitBand,
 	  imaxdBand, LHeaderSum, RHeaderSum);
     REBAR_DumpBand (infoPtr);
@@ -3081,9 +3131,9 @@ REBAR_InsertBandA (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 	}
 
 	/* post copy */
-	if (uIndex < infoPtr->uNumBands) {
+	if (uIndex < infoPtr->uNumBands - 1) {
 	    memcpy (&infoPtr->bands[uIndex+1], &oldBands[uIndex],
-		    (infoPtr->uNumBands - uIndex) * sizeof(REBAR_BAND));
+		    (infoPtr->uNumBands - uIndex - 1) * sizeof(REBAR_BAND));
 	}
 
 	Free (oldBands);
@@ -3786,12 +3836,12 @@ REBAR_Destroy (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 	infoPtr->bands = NULL;
     }
 
-    DestroyCursor (infoPtr->hcurArrow);
-    DestroyCursor (infoPtr->hcurHorz);
-    DestroyCursor (infoPtr->hcurVert);
-    DestroyCursor (infoPtr->hcurDrag);
+    DeleteObject (infoPtr->hcurArrow);
+    DeleteObject (infoPtr->hcurHorz);
+    DeleteObject (infoPtr->hcurVert);
+    DeleteObject (infoPtr->hcurDrag);
     if(infoPtr->hDefaultFont) DeleteObject (infoPtr->hDefaultFont);
-    SetWindowLongPtrW (infoPtr->hwndSelf, 0, 0);
+    SetWindowLongA (infoPtr->hwndSelf, 0, 0);
 
     /* free rebar info data */
     Free (infoPtr);
@@ -3874,8 +3924,7 @@ REBAR_LButtonDown (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
         infoPtr->iGrabbedBand = iHitBand;
 
         /* save off the LOWORD and HIWORD of lParam as initial x,y */
-        infoPtr->dragStart.x = (short)LOWORD(lParam);
-        infoPtr->dragStart.y = (short)HIWORD(lParam);
+        infoPtr->dragStart = MAKEPOINTS(lParam);
         infoPtr->dragNow = infoPtr->dragStart;
         if (infoPtr->dwStyle & CCS_VERT)
             infoPtr->ihitoffset = infoPtr->dragStart.y - (lpBand->rcBand.top+REBAR_PRE_GRIPPER);
@@ -3936,10 +3985,9 @@ static LRESULT
 REBAR_MouseMove (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
     REBAR_BAND *lpChevronBand;
-    POINT ptMove;
+    POINTS ptsmove;
 
-    ptMove.x = (short)LOWORD(lParam);
-    ptMove.y = (short)HIWORD(lParam);
+    ptsmove = MAKEPOINTS(lParam);
 
     /* if we are currently dragging a band */
     if (infoPtr->iGrabbedBand >= 0)
@@ -3953,37 +4001,40 @@ REBAR_MouseMove (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
         band2 = &infoPtr->bands[infoPtr->iGrabbedBand];
 
         /* if mouse did not move much, exit */
-        if ((abs(ptMove.x - infoPtr->dragNow.x) <= mindragx) &&
-            (abs(ptMove.y - infoPtr->dragNow.y) <= mindragy)) return 0;
+        if ((abs(ptsmove.x - infoPtr->dragNow.x) <= mindragx) &&
+            (abs(ptsmove.y - infoPtr->dragNow.y) <= mindragy)) return 0;
 
         /* Test for valid drag case - must not be first band in row */
         if (infoPtr->dwStyle & CCS_VERT) {
-            if ((ptMove.x < band2->rcBand.left) ||
-	      (ptMove.x > band2->rcBand.right) ||
+            if ((ptsmove.x < band2->rcBand.left) ||
+	      (ptsmove.x > band2->rcBand.right) ||
               ((infoPtr->iGrabbedBand > 0) && (band1->iRow != band2->iRow))) {
                 FIXME("Cannot drag to other rows yet!!\n");
             }
             else {
-                REBAR_HandleLRDrag (infoPtr, &ptMove);
+                REBAR_HandleLRDrag (infoPtr, &ptsmove);
             }
         }
         else {
-            if ((ptMove.y < band2->rcBand.top) ||
-              (ptMove.y > band2->rcBand.bottom) ||
+            if ((ptsmove.y < band2->rcBand.top) ||
+              (ptsmove.y > band2->rcBand.bottom) ||
               ((infoPtr->iGrabbedBand > 0) && (band1->iRow != band2->iRow))) {
                 FIXME("Cannot drag to other rows yet!!\n");
             }
             else {
-                REBAR_HandleLRDrag (infoPtr, &ptMove);
+                REBAR_HandleLRDrag (infoPtr, &ptsmove);
             }
         }
     }
     else
     {
+        POINT ptMove;
         INT iHitBand;
         UINT htFlags;
         TRACKMOUSEEVENT trackinfo;
 
+        ptMove.x = (INT)ptsmove.x;
+        ptMove.y = (INT)ptsmove.y;
         REBAR_InternalHitTest(infoPtr, &ptMove, &htFlags, &iHitBand);
 
         if (infoPtr->iOldBand >= 0 && infoPtr->iOldBand == infoPtr->ichevronhotBand)
@@ -4073,7 +4124,7 @@ REBAR_NCCreate (HWND hwnd, WPARAM wParam, LPARAM lParam)
 
     /* allocate memory for info structure */
     infoPtr = (REBAR_INFO *)Alloc (sizeof(REBAR_INFO));
-    SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
+    SetWindowLongA (hwnd, 0, (DWORD)infoPtr);
 
     /* initialize info structure - initial values are 0 */
     infoPtr->clrBk = CLR_NONE;
@@ -4151,7 +4202,8 @@ static LRESULT
 REBAR_NCHitTest (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
     NMMOUSE nmmouse;
-    POINT clpt;
+    POINTS shortpt;
+    POINT clpt, pt;
     INT i;
     UINT scrap;
     LRESULT ret = HTCLIENT;
@@ -4164,8 +4216,9 @@ REBAR_NCHitTest (REBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
      * 3. native always seems to return HTCLIENT if notify return is 0.
      */
 
-    clpt.x = (short)LOWORD(lParam);
-    clpt.y = (short)HIWORD(lParam);
+    shortpt = MAKEPOINTS (lParam);
+    POINTSTOPOINT(pt, shortpt);
+    clpt = pt;
     ScreenToClient (infoPtr->hwndSelf, &clpt);
     REBAR_InternalHitTest (infoPtr, &clpt, &scrap,
 			   (INT *)&nmmouse.dwItemSpec);
@@ -4707,7 +4760,7 @@ REBAR_Register (void)
 
     ZeroMemory (&wndClass, sizeof(WNDCLASSA));
     wndClass.style         = CS_GLOBALCLASS | CS_DBLCLKS;
-    wndClass.lpfnWndProc   = REBAR_WindowProc;
+    wndClass.lpfnWndProc   = (WNDPROC)REBAR_WindowProc;
     wndClass.cbClsExtra    = 0;
     wndClass.cbWndExtra    = sizeof(REBAR_INFO *);
     wndClass.hCursor       = 0;

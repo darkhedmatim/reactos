@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.7 2004/12/23 23:56:33 ekohl Exp $
+/* $Id: create.c,v 1.5 2004/07/03 17:40:20 navaraf Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -10,7 +10,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ddk/iotypes.h> /* FIXME: Temporary Until NDK implemented */
 #include "msfs.h"
 
 #define NDEBUG
@@ -115,14 +114,14 @@ MsfsCreateMailslot(PDEVICE_OBJECT DeviceObject,
    KIRQL oldIrql;
    PLIST_ENTRY current_entry;
    PMSFS_MAILSLOT current;
-   PMAILSLOT_CREATE_PARAMETERS Buffer;
+   PIO_MAILSLOT_CREATE_BUFFER Buffer;
 
    DPRINT("MsfsCreateMailslot(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
 
    IoStack = IoGetCurrentIrpStackLocation(Irp);
    DeviceExtension = DeviceObject->DeviceExtension;
    FileObject = IoStack->FileObject;
-   Buffer = IoStack->Parameters.CreateMailslot.Parameters;
+   Buffer = (PIO_MAILSLOT_CREATE_BUFFER)Irp->Tail.Overlay.AuxiliaryBuffer;
 
    DPRINT("Mailslot name: %wZ\n", &FileObject->FileName);
 
@@ -166,9 +165,9 @@ MsfsCreateMailslot(PDEVICE_OBJECT DeviceObject,
    InitializeListHead(&Mailslot->FcbListHead);
    KeInitializeSpinLock(&Mailslot->FcbListLock);
 
-   Mailslot->MaxMessageSize = Buffer->MaximumMessageSize;
+   Mailslot->MaxMessageSize = Buffer->MaxMessageSize;
    Mailslot->MessageCount = 0;
-   Mailslot->TimeOut = Buffer->ReadTimeout;
+   Mailslot->TimeOut = Buffer->TimeOut;
    KeInitializeEvent(&Mailslot->MessageEvent,
 		     NotificationEvent,
 		     FALSE);

@@ -17,9 +17,16 @@
  *        Unicode ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_PAUSE
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+
+#include "batch.h"
+
 
 /*
  * Perform PAUSE command.

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bitblt.c,v 1.67 2004/12/30 02:32:18 navaraf Exp $
+/* $Id: bitblt.c,v 1.58 2004/07/14 20:48:57 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -91,7 +91,6 @@ BltMask(SURFOBJ* Dest,
    PGDIBRUSHINST GdiBrush = NULL;
    HBITMAP PatternSurface = NULL;
    SURFOBJ *PatternObj = NULL;
-   PBITMAPOBJ PatternBitmap;
    ULONG PatternWidth = 0, PatternHeight = 0, PatternY = 0;
   
    if (Mask == NULL)
@@ -104,6 +103,8 @@ BltMask(SURFOBJ* Dest,
 
    if (Brush->iSolidColor == 0xFFFFFFFF)
    {
+      PBITMAPOBJ PatternBitmap;
+
       GdiBrush = CONTAINING_RECORD(
          Brush,
          GDIBRUSHINST,
@@ -111,15 +112,11 @@ BltMask(SURFOBJ* Dest,
 
       PatternSurface = GdiBrush->GdiBrushObject->hbmPattern;
       PatternBitmap = BITMAPOBJ_LockBitmap(GdiBrush->GdiBrushObject->hbmPattern);
-      if(PatternBitmap != NULL)
-      {
-        PatternObj = &PatternBitmap->SurfObj;
-        PatternWidth = PatternObj->sizlBitmap.cx;
-        PatternHeight = PatternObj->sizlBitmap.cy;
-      }
+
+      PatternObj = &PatternBitmap->SurfObj;
+      PatternWidth = PatternObj->sizlBitmap.cx;
+      PatternHeight = PatternObj->sizlBitmap.cy;
    }
-   else
-     PatternBitmap = NULL;
 
    tMask = Mask->pvScan0 + SourcePoint->y * Mask->lDelta + (SourcePoint->x >> 3);
    for (j = 0; j < dy; j++)
@@ -127,14 +124,14 @@ BltMask(SURFOBJ* Dest,
       lMask = tMask;
       c8 = SourcePoint->x & 0x07;
       
-      if(PatternBitmap != NULL)
+      if(PatternSurface)
          PatternY = (DestRect->top + j) % PatternHeight;
       
       for (i = 0; i < dx; i++)
       {
          if (0 != (*lMask & maskbit[c8]))
          {
-            if (PatternBitmap == NULL)
+            if (PatternSurface == NULL)
             {
                DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_PutPixel(
                   Dest, DestRect->left + i, DestRect->top + j, Brush->iSolidColor);
@@ -156,7 +153,7 @@ BltMask(SURFOBJ* Dest,
       tMask += Mask->lDelta;
    }
 
-   if (PatternBitmap != NULL)
+   if (PatternSurface != NULL)
       BITMAPOBJ_UnlockBitmap(PatternSurface);
 
    return TRUE;
@@ -225,25 +222,15 @@ CallDibBitBlt(SURFOBJ* OutputObj,
    if (ROP_USES_PATTERN(Rop4) && Brush->iSolidColor == 0xFFFFFFFF)
    {
       GdiBrush = CONTAINING_RECORD(Brush, GDIBRUSHINST, BrushObject);
-      if((bmPattern = BITMAPOBJ_LockBitmap(GdiBrush->GdiBrushObject->hbmPattern)))
-      {
-        BltInfo.PatternSurface = &bmPattern->SurfObj;
-      }
-      else
-      {
-        /* FIXME - What to do here? */
-      }
+      bmPattern = BITMAPOBJ_LockBitmap(GdiBrush->GdiBrushObject->hbmPattern);
+      BltInfo.PatternSurface = &bmPattern->SurfObj;
       BltInfo.XlatePatternToDest = GdiBrush->XlateObject;
-   }
-   else
-   {
-     bmPattern = NULL;
    }
 
    Result = DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_BitBlt(&BltInfo);
 
    /* Pattern brush */
-   if (bmPattern != NULL)
+   if (ROP_USES_PATTERN(Rop4) && Brush->iSolidColor == 0xFFFFFFFF)
    {
       BITMAPOBJ_UnlockBitmap(BltInfo.PatternSurface->hsurf);
    }
@@ -496,13 +483,9 @@ IntEngBitBlt(BITMAPOBJ *DestObj,
   RECTL OutputRect;
   POINTL InputPoint;
   BOOLEAN UsesSource;
-  SURFOBJ *DestSurf;
+  SURFOBJ *DestSurf = &DestObj->SurfObj;
   SURFOBJ *SourceSurf = SourceObj ? &SourceObj->SurfObj : NULL;
   SURFOBJ *MaskSurf = MaskObj ? &MaskObj->SurfObj : NULL;
-
-  ASSERT(DestObj);
-  DestSurf = &DestObj->SurfObj;
-  ASSERT(DestSurf);
 
   InputClippedRect = *DestRect;
   if (InputClippedRect.right < InputClippedRect.left)
@@ -518,7 +501,7 @@ IntEngBitBlt(BITMAPOBJ *DestObj,
   UsesSource = ((Rop4 & 0xCC0000) >> 2) != (Rop4 & 0x330000);
   if (UsesSource)
     {
-      if (NULL == SourcePoint || NULL == SourceSurf)
+      if (NULL == SourcePoint || NULL == SourceObj)
         {
           return FALSE;
         }
@@ -746,29 +729,24 @@ IntEngStretchBlt(BITMAPOBJ *DestObj,
   BOOLEAN ret;
   COLORADJUSTMENT ca;
   POINT MaskOrigin;
-  SURFOBJ *DestSurf;
+  SURFOBJ *DestSurf = &DestObj->SurfObj;
   SURFOBJ *SourceSurf = SourceObj ? &SourceObj->SurfObj : NULL;
   SURFOBJ *MaskSurf = MaskObj ? &MaskObj->SurfObj : NULL;
-
-  ASSERT(DestObj);
-  DestSurf = &DestObj->SurfObj;
-  ASSERT(DestSurf);
 
   if (pMaskOrigin != NULL)
     {
       MaskOrigin.x = pMaskOrigin->x; MaskOrigin.y = pMaskOrigin->y;
     }
 
-  if (NULL != SourceSurf)
+  if (NULL != SourceObj)
     {
-    ASSERT(SourceRect);
     MouseSafetyOnDrawStart(SourceSurf, SourceRect->left, SourceRect->top,
-                           SourceRect->right, SourceRect->bottom);
+                           (SourceRect->left + abs(SourceRect->right - SourceRect->left)),
+			   (SourceRect->top + abs(SourceRect->bottom - SourceRect->top)));
     }
 
   /* No success yet */
   ret = FALSE;
-  ASSERT(DestRect);
   MouseSafetyOnDrawStart(DestSurf, DestRect->left, DestRect->top,
                          DestRect->right, DestRect->bottom);
 
@@ -831,7 +809,7 @@ AlphaBltMask(SURFOBJ* Dest,
       g = (int)GetGValue(BrushColor);
       b = (int)GetBValue(BrushColor);
       
-      tMask = Mask->pvScan0 + (SourcePoint->y * Mask->lDelta) + SourcePoint->x;
+      tMask = Mask->pvBits + (SourcePoint->y * Mask->lDelta) + SourcePoint->x;
       for (j = 0; j < dy; j++)
 	{
 	  lMask = tMask;
@@ -900,8 +878,6 @@ EngMaskBitBlt(SURFOBJ *DestObj,
   POINTL             Pt;
   ULONG              Direction;
   POINTL             AdjustedBrushOrigin;
-
-  ASSERT ( Mask );
 
   if (NULL != SourcePoint)
     {
@@ -1094,8 +1070,6 @@ IntEngMaskBlt(SURFOBJ *DestObj,
   RECTL OutputRect;
   POINTL InputPoint;
 
-  ASSERT(Mask);
-
   if (NULL != SourcePoint)
     {
       InputPoint = *SourcePoint;
@@ -1119,7 +1093,6 @@ IntEngMaskBlt(SURFOBJ *DestObj,
 
   /* No success yet */
   ret = FALSE;
-  ASSERT(DestObj);
   MouseSafetyOnDrawStart(DestObj, OutputRect.left, OutputRect.top,
                          OutputRect.right, OutputRect.bottom);
 

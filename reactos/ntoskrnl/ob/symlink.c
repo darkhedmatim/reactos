@@ -1,4 +1,4 @@
-/* $Id: symlink.c,v 1.12 2004/10/25 14:22:21 blight Exp $
+/* $Id: symlink.c,v 1.9 2004/08/15 16:39:10 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -202,21 +202,21 @@ ObInitSymbolicLinkImplementation (VOID)
  *
  */
 NTSTATUS STDCALL
-NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
+NtCreateSymbolicLinkObject(OUT PHANDLE SymbolicLinkHandle,
 			   IN ACCESS_MASK DesiredAccess,
 			   IN POBJECT_ATTRIBUTES ObjectAttributes,
-			   IN PUNICODE_STRING LinkTarget)
+			   IN PUNICODE_STRING DeviceName)
 {
   PSYMLINK_OBJECT SymbolicLink;
   NTSTATUS Status;
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
-  DPRINT("NtCreateSymbolicLinkObject(LinkHandle %p, DesiredAccess %ul, ObjectAttributes %p, LinkTarget %wZ)\n",
-	 LinkHandle,
+  DPRINT("NtCreateSymbolicLinkObject(SymbolicLinkHandle %p, DesiredAccess %ul, ObjectAttributes %p, DeviceName %wZ)\n",
+	 SymbolicLinkHandle,
 	 DesiredAccess,
 	 ObjectAttributes,
-	 LinkTarget);
+	 DeviceName);
 
   Status = ObCreateObject(ExGetPreviousMode(),
 			  ObSymbolicLinkType,
@@ -237,7 +237,7 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
 			   DesiredAccess,
 			   0,
 			   NULL,
-			   LinkHandle);
+			   SymbolicLinkHandle);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject (SymbolicLink);
@@ -246,13 +246,13 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
 
   SymbolicLink->TargetName.Length = 0;
   SymbolicLink->TargetName.MaximumLength = 
-    ((wcslen(LinkTarget->Buffer) + 1) * sizeof(WCHAR));
+    ((wcslen(DeviceName->Buffer) + 1) * sizeof(WCHAR));
   SymbolicLink->TargetName.Buffer = 
     ExAllocatePoolWithTag(NonPagedPool,
 			  SymbolicLink->TargetName.MaximumLength,
 			  TAG_SYMLINK_TARGET);
   RtlCopyUnicodeString(&SymbolicLink->TargetName,
-		       LinkTarget);
+		       DeviceName);
 
   DPRINT("DeviceName %S\n", SymbolicLink->TargetName.Buffer);
 
@@ -311,8 +311,8 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
  */
 NTSTATUS STDCALL
 NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
-			  OUT PUNICODE_STRING LinkTarget,
-			  OUT PULONG ResultLength  OPTIONAL)
+			  IN OUT PUNICODE_STRING LinkTarget,
+			  OUT PULONG ReturnedLength OPTIONAL)
 {
   PSYMLINK_OBJECT SymlinkObject;
   NTSTATUS Status;
@@ -328,9 +328,9 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
       return Status;
     }
 
-  if (ResultLength != NULL)
+  if (ReturnedLength != NULL)
     {
-      *ResultLength = (ULONG)SymlinkObject->TargetName.Length + sizeof(WCHAR);
+      *ReturnedLength = (ULONG)SymlinkObject->TargetName.Length + sizeof(WCHAR);
     }
 
   if (LinkTarget->MaximumLength >= SymlinkObject->TargetName.Length + sizeof(WCHAR))

@@ -51,11 +51,6 @@ typedef struct TCPv4_PSEUDO_HEADER {
   USHORT TCPLength;         /* Size of TCP segment */
 } __attribute__((packed)) TCPv4_PSEUDO_HEADER, *PTCPv4_PSEUDO_HEADER;
 
-typedef struct _SLEEPING_THREAD {
-    LIST_ENTRY Entry;
-    PVOID SleepToken;
-    KEVENT Event;
-} SLEEPING_THREAD, *PSLEEPING_THREAD;
 
 /* Retransmission timeout constants */
 
@@ -81,33 +76,6 @@ typedef struct _SLEEPING_THREAD {
 #define SRF_SYN   TCP_SYN
 #define SRF_FIN   TCP_FIN
 
-extern LONG TCP_IPIdentification;
-extern LIST_ENTRY SignalledConnections;
-extern LIST_ENTRY SleepingThreadsList;
-extern FAST_MUTEX SleepingThreadsLock;
-extern RECURSIVE_MUTEX TCPLock;
-
-/* accept.c */
-NTSTATUS TCPServiceListeningSocket( PCONNECTION_ENDPOINT Listener,
-				    PCONNECTION_ENDPOINT Connection,
-				    PTDI_REQUEST_KERNEL Request );
-NTSTATUS TCPListen( PCONNECTION_ENDPOINT Connection, UINT Backlog );
-VOID TCPAbortListenForSocket( PCONNECTION_ENDPOINT Listener,
-			      PCONNECTION_ENDPOINT Connection );
-NTSTATUS TCPAccept
-( PTDI_REQUEST Request,
-  PCONNECTION_ENDPOINT Listener,
-  PCONNECTION_ENDPOINT Connection,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context );
-
-/* tcp.c */
-PCONNECTION_ENDPOINT TCPAllocateConnectionEndpoint( PVOID ClientContext );
-VOID TCPFreeConnectionEndpoint( PCONNECTION_ENDPOINT Connection );
-
-NTSTATUS TCPSocket( PCONNECTION_ENDPOINT Connection, 
-		    UINT Family, UINT Type, UINT Proto );
-
 PTCP_SEGMENT TCPCreateSegment(
   PIP_PACKET IPPacket,
   PTCPv4_HEADER TCPHeader,
@@ -122,47 +90,36 @@ VOID TCPAddSegment(
   PULONG Acknowledged);
 
 NTSTATUS TCPConnect(
-  PCONNECTION_ENDPOINT Connection,
+  PTDI_REQUEST Request,
   PTDI_CONNECTION_INFORMATION ConnInfo,
-  PTDI_CONNECTION_INFORMATION ReturnInfo,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
+  PTDI_CONNECTION_INFORMATION ReturnInfo);
 
-NTSTATUS TCPDisconnect(
-  PCONNECTION_ENDPOINT Connection,
-  UINT Flags,
-  PTDI_CONNECTION_INFORMATION ConnInfo,
-  PTDI_CONNECTION_INFORMATION ReturnInfo,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
+NTSTATUS TCPListen(
+  PTDI_REQUEST Request,
+  UINT Backlog );
 
 NTSTATUS TCPReceiveData(
-  PCONNECTION_ENDPOINT Connection,    
+  PTDI_REQUEST Request,
   PNDIS_BUFFER Buffer,
   ULONG ReceiveLength,
-  PULONG BytesReceived,
   ULONG ReceiveFlags,
-  PTCP_COMPLETION_ROUTINE Complete,
-  PVOID Context);
+  PULONG BytesReceived);
 
 NTSTATUS TCPSendData(
-  PCONNECTION_ENDPOINT Connection,
-  PCHAR Buffer,
+  PTDI_REQUEST Request,
+  PNDIS_BUFFER Buffer,
   ULONG DataSize,
-  PULONG DataUsed,
-  ULONG Flags);
+  ULONG Flags,
+  PULONG DataUsed);
 
-NTSTATUS TCPClose( PCONNECTION_ENDPOINT Connection );
+NTSTATUS TCPClose
+( PTDI_REQUEST Request );
 
 PVOID TCPPrepareInterface( PIP_INTERFACE IF );
 
 NTSTATUS TCPTranslateError( int OskitError );
 
 VOID TCPTimeout();
-
-UINT TCPAllocatePort( UINT HintPort );
-
-VOID TCPFreePort( UINT Port );
 
 NTSTATUS TCPStartup(
   VOID);

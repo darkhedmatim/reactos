@@ -1,4 +1,4 @@
-/* $Id: rawfs.c,v 1.13 2004/10/22 20:25:54 ekohl Exp $
+/* $Id: rawfs.c,v 1.12 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -332,8 +332,8 @@ RawFsAllocateIrpContext(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
   DPRINT("RawFsAllocateIrpContext(DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-  ASSERT(DeviceObject);
-  ASSERT(Irp);
+  assert(DeviceObject);
+  assert(Irp);
 
   GlobalData = (PRAWFS_GLOBAL_DATA) DeviceObject->DeviceExtension;
   IrpContext = ExAllocateFromNPagedLookasideList(&IrpContextLookasideList);
@@ -344,7 +344,7 @@ RawFsAllocateIrpContext(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
       IrpContext->DeviceObject = DeviceObject;
       IrpContext->DeviceExt = DeviceObject->DeviceExtension;
       IrpContext->Stack = IoGetCurrentIrpStackLocation(Irp);
-      ASSERT(IrpContext->Stack);
+      assert(IrpContext->Stack);
       MajorFunction = IrpContext->MajorFunction = IrpContext->Stack->MajorFunction;
       IrpContext->MinorFunction = IrpContext->Stack->MinorFunction;
       IrpContext->FileObject = IrpContext->Stack->FileObject;
@@ -369,7 +369,7 @@ RawFsFreeIrpContext(IN PRAWFS_IRP_CONTEXT IrpContext)
 {
   DPRINT("RawFsFreeIrpContext(IrpContext %x)\n", IrpContext);
 
-  ASSERT(IrpContext);
+  assert(IrpContext);
 
   ExFreeToNPagedLookasideList(&IrpContextLookasideList, IrpContext);
 }
@@ -392,8 +392,8 @@ RawFsQueueRequest(PRAWFS_IRP_CONTEXT IrpContext)
 {
   ULONG Count;
 
-  ASSERT(IrpContext != NULL);
-  ASSERT(IrpContext->Irp != NULL);
+  assert(IrpContext != NULL);
+  assert(IrpContext->Irp != NULL);
 
   Count = InterlockedIncrement(&RawFsQueueCount);
 
@@ -475,7 +475,7 @@ RawFsCreate(IN PRAWFS_IRP_CONTEXT IrpContext)
 
   DPRINT("RawFsCreate(IrpContext %x)\n", IrpContext);
 
-  ASSERT(IrpContext);
+  assert(IrpContext);
   
   if (RawFsIsRawFileSystemDeviceObject(IrpContext->DeviceObject))
     {
@@ -537,7 +537,7 @@ RawFsMount(IN PRAWFS_IRP_CONTEXT IrpContext)
 
   DPRINT("RawFsMount(IrpContext %x)\n", IrpContext);
 
-  ASSERT(IrpContext);
+  assert(IrpContext);
 
   if (!RawFsIsRawFileSystemDeviceObject(IrpContext->DeviceObject))
     {
@@ -675,7 +675,7 @@ RawFsFileSystemControl(IN PRAWFS_IRP_CONTEXT IrpContext)
 
   DPRINT("RawFsFileSystemControl(IrpContext %x)\n", IrpContext);
   
-  ASSERT(IrpContext);
+  assert (IrpContext);
 
   switch (IrpContext->MinorFunction)
     {
@@ -791,7 +791,7 @@ RawFsDispatchRequest(IN PRAWFS_IRP_CONTEXT IrpContext)
   DPRINT("RawFsDispatchRequest(IrpContext %x), MajorFunction %x\n",
     IrpContext, IrpContext->MajorFunction);
 
-  ASSERT(IrpContext);
+  assert (IrpContext);
 
   switch (IrpContext->MajorFunction)
     {
@@ -839,8 +839,8 @@ RawFsBuildRequest(IN PDEVICE_OBJECT DeviceObject,
 
   DPRINT("RawFsBuildRequest(DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
-  ASSERT(DeviceObject);
-  ASSERT(Irp);
+  assert(DeviceObject);
+  assert(Irp);
 
   IrpContext = RawFsAllocateIrpContext(DeviceObject, Irp);
   if (IrpContext == NULL)

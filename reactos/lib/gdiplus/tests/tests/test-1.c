@@ -3,9 +3,10 @@
 
 #include "regtests.h"
 
-static void
-RunTest()
+static int
+RunTest(char *Buffer)
 {
+  return TS_OK;
 }
 
-_Dispatcher(Test_1Test, "Test 1")
+DISPATCHER(Test_1Test, "Test 1")

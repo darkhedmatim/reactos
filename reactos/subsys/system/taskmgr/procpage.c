@@ -53,8 +53,7 @@ void CommaSeparateNumberString(LPTSTR strNumber, int nMaxCount);
 void ProcessPageShowContextMenu(DWORD dwProcessId);
 DWORD WINAPI ProcessPageRefreshThread(void *lpParameter);
 
-INT_PTR CALLBACK
-ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT    rc;
     int        nXDifference;
@@ -93,7 +92,7 @@ ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         /*
          * Subclass the process list control so we can intercept WM_ERASEBKGND
          */
-        OldProcessListWndProc = (WNDPROC)SetWindowLongPtr(hProcessPageListCtrl, GWL_WNDPROC, (DWORD_PTR)ProcessListWndProc);
+        OldProcessListWndProc = SetWindowLong(hProcessPageListCtrl, GWL_WNDPROC, (LONG)ProcessListWndProc);
 
         /* Start our refresh thread */
          CreateThread(NULL, 0, ProcessPageRefreshThread, NULL, 0, NULL);

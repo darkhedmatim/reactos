@@ -1,5 +1,6 @@
 #include <oskittcp.h>
 #include <oskitdebug.h>
+#include <ntddk.h>
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/socket.h>
@@ -14,16 +15,11 @@
 #include <sys/socketvar.h>
 #include <sys/uio.h>
 
-#ifdef WIN32
-#define snprintf _snprintf
-#endif//WIN32
-
 struct linker_set domain_set;
 
 OSKITTCP_EVENT_HANDLERS OtcpEvent = { 0 };
 
 OSK_UINT OskitDebugTraceLevel = OSK_DEBUG_ULTRA;
-//OSK_UINT OskitDebugTraceLevel = 0;
 
 /* SPL */
 unsigned cpl;
@@ -31,15 +27,15 @@ unsigned net_imask;
 unsigned volatile ipending;
 struct timeval boottime;
 
-void *fbsd_malloc( unsigned int bytes, ... ) {
-    if( !OtcpEvent.TCPMalloc ) panic("no malloc");
-    return OtcpEvent.TCPMalloc
-	( OtcpEvent.ClientData, (OSK_UINT)bytes, "*", 0 );
+void *fbsd_malloc( unsigned int bytes, const char *file, int line, ... ) {
+    void *v = ExAllocatePool( NonPagedPool, bytes );
+    if( v ) TrackWithTag( 'fbsd', v, file, line );
+    return v;
 }
 
-void fbsd_free( void *data, ... ) {
-    if( !OtcpEvent.TCPFree ) panic("no free");
-    OtcpEvent.TCPFree( OtcpEvent.ClientData, data, "*", 0 );
+void fbsd_free( void *data, const char *file, int line, ... ) {
+    UntrackFL( file, line, data );
+    ExFreePool( data );
 }
 
 void InitOskitTCP() {
@@ -59,6 +55,7 @@ void InitOskitTCP() {
     tcp_init();
     OS_DbgPrint(OSK_MID_TRACE,("Init routing\n"));
     domaininit();
+    memset( &OtcpEvent, 0, sizeof( OtcpEvent ) );
     OS_DbgPrint(OSK_MID_TRACE,("Init Finished\n"));
     tcp_iss = 1024;
 }
@@ -78,32 +75,15 @@ void RegisterOskitTCPEventHandlers( POSKITTCP_EVENT_HANDLERS EventHandlers ) {
 				   OtcpEvent.PacketSend));
 }
 
-void OskitDumpBuffer( OSK_PCHAR Data, OSK_UINT Len )
-{
-	unsigned int i;
-	char line[81];
-	static const char* hex = "0123456789abcdef";
-
-	for ( i = 0; i < Len; i++ )
-	{
-		int align = i & 0xf;
-		int align3 = (align<<1) + align;
-		unsigned char c = Data[i];
-		if ( !align )
-		{
-			if ( i ) DbgPrint( line );
-			snprintf ( line, sizeof(line)-1, "%08x:                                                                  \n", &Data[i] );
-			line[sizeof(line)-1] = '\0';
-		}
-
-		line[10+align3] = hex[(c>>4)&0xf];
-		line[11+align3] = hex[c&0xf];
-		if ( !isprint(c) )
-			c = '.';
-		line[59+align] = c;
-	}
-	if ( Len & 0xf )
-		DbgPrint ( line );
+void OskitDumpBuffer( OSK_PCHAR Data, OSK_UINT Len ) {
+    unsigned int i;
+    
+    for( i = 0; i < Len; i++ ) {
+	if( i && !(i & 0xf) ) DbgPrint( "\n" );
+	if( !(i & 0xf) ) DbgPrint( "%08x: ", (UINT)(Data + i) );
+	DbgPrint( " %02x", Data[i] );
+    }
+    DbgPrint("\n");
 }
 
 /* From uipc_syscalls.c */
@@ -119,7 +99,6 @@ int OskitTCPSocket( void *context,
     if( !error ) {
 	so->so_connection = context;
 	so->so_state = SS_NBIO;
-	so->so_error = 0;
 	*aso = so;
     }
     return error;
@@ -130,37 +109,35 @@ int OskitTCPRecv( void *connection,
 		  OSK_UINT Len,
 		  OSK_UINT *OutLen,
 		  OSK_UINT Flags ) {
-    char *output_ptr = Data;
+    struct mbuf *paddr = 0;
+    struct mbuf m, *mp;
     struct uio uio = { 0 };
-    struct iovec iov = { 0 };
     int error = 0;
     int tcp_flags = 0;
-    int tocopy = 0;
-
-    *OutLen = 0;
-
-    printf("so->so_state %x\n", ((struct socket *)connection)->so_state);
 
     if( Flags & OSK_MSG_OOB )      tcp_flags |= MSG_OOB;
     if( Flags & OSK_MSG_DONTWAIT ) tcp_flags |= MSG_DONTWAIT;
     if( Flags & OSK_MSG_PEEK )     tcp_flags |= MSG_PEEK;
 
     uio.uio_resid = Len;
-    uio.uio_iov = &iov;
-    uio.uio_rw = UIO_READ;
-    uio.uio_iovcnt = 1;
-    iov.iov_len = Len;
-    iov.iov_base = Data;
+    m.m_len = Len;
+    m.m_data = Data;
+    m.m_type = MT_DATA;
+    m.m_flags = M_PKTHDR | M_EOR;
+
+    mp = &m;
 
     OS_DbgPrint(OSK_MID_TRACE,("Reading %d bytes from TCP:\n", Len));
 	
-    error = soreceive( connection, NULL, &uio, NULL, NULL /* SCM_RIGHTS */, 
+    error = soreceive( connection, &paddr, &uio, &mp, NULL /* SCM_RIGHTS */, 
 		       &tcp_flags );
 
     if( error == 0 ) {
-	*OutLen = Len - uio.uio_resid;
+	OS_DbgPrint(OSK_MID_TRACE,("Successful read from TCP:\n"));
+	OskitDumpBuffer( m.m_data, uio.uio_resid );
     }
 
+    *OutLen = uio.uio_resid;
     return error;
 }
 		  
@@ -186,8 +163,8 @@ size_t len;
     return error;
 }
 
-int OskitTCPBind( void *socket, void *connection,
-		  void *nam, OSK_UINT namelen ) {
+int OskitTCPBind( PVOID socket, PVOID connection,
+		  PVOID nam, OSK_UINT namelen ) {
     int error = EFAULT;
     struct socket *so = socket;
     struct mbuf sabuf = { 0 };
@@ -204,14 +181,16 @@ int OskitTCPBind( void *socket, void *connection,
     addr.sa_family = addr.sa_len;
     addr.sa_len = sizeof(struct sockaddr);
 
+    OskitDumpBuffer( (PCHAR)&addr, sizeof(addr) );
+
     error = sobind(so, &sabuf);
 
     OS_DbgPrint(OSK_MID_TRACE,("Ending: %08x\n", error));
     return (error);    
 }
 
-int OskitTCPConnect( void *socket, void *connection, 
-		     void *nam, OSK_UINT namelen ) {
+int OskitTCPConnect( PVOID socket, PVOID connection, 
+		     PVOID nam, OSK_UINT namelen ) {
     struct socket *so = socket;
     struct connect_args _uap = {
 	0, nam, namelen
@@ -260,11 +239,6 @@ done:
     return (error);    
 }
 
-int OskitTCPShutdown( void *socket, int disconn_type ) {
-    struct socket *so = socket;
-    return soshutdown( socket, disconn_type );
-}
-
 int OskitTCPClose( void *socket ) {
     struct socket *so = socket;
     so->so_connection = 0;
@@ -274,127 +248,31 @@ int OskitTCPClose( void *socket ) {
 
 int OskitTCPSend( void *socket, OSK_PCHAR Data, OSK_UINT Len, 
 		  OSK_UINT *OutLen, OSK_UINT flags ) {
-    struct mbuf* m = m_devget( Data, Len, 0, NULL, NULL );
+    struct mbuf mb;
+    struct uio uio = { 0 };
     int error = 0;
-	if ( !m )
-		return ENOBUFS;
-    error = sosend( socket, NULL, NULL, m, NULL, 0 );
-    *OutLen = Len;
+    OskitDumpBuffer( Data, Len );
+    uio.uio_resid = Len;
+    mb.m_data = Data;
+    mb.m_len  = Len;
+    mb.m_flags = M_EOR;
+    error = sosend( socket, NULL, &uio, (struct mbuf *)&mb, NULL, 0 );
+    printf("uio.uio_resid = %d\n", uio.uio_resid);
+    *OutLen = uio.uio_resid;
     return error;
 }
 
 int OskitTCPAccept( void *socket, 
-		    void **new_socket,
 		    void *AddrOut, 
 		    OSK_UINT AddrLen,
-		    OSK_UINT *OutAddrLen,
-		    OSK_UINT FinishAccepting ) {
-    struct socket *head = (void *)socket;
-    struct sockaddr *name = (struct sockaddr *)AddrOut;
-    struct socket **newso = (struct socket **)new_socket;    
-    struct socket *so = socket;
-    struct sockaddr_in sa;
-    struct mbuf mnam;
-    int namelen = 0, error = 0, s;
+		    OSK_UINT *OutAddrLen ) {
+    struct mbuf nam;
+    int error;
 
-    OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: Doing accept (Finish %d)\n",
-			       FinishAccepting));
-                        
-    *OutAddrLen = AddrLen;
+    nam.m_data = AddrOut;
+    nam.m_len  = AddrLen;
 
-    if (name) 
-	/* that's a copyin actually */
-	namelen = *OutAddrLen;
-
-    s = splnet();
-
-    OskitDumpBuffer( so, sizeof(*so) );
-
-#if 0
-    if ((head->so_options & SO_ACCEPTCONN) == 0) {
-	splx(s);
-	OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: head->so_options = %x, wanted bit %x\n",
-				   head->so_options, SO_ACCEPTCONN));
-	error = EINVAL;
-	goto out;
-    }
-#endif
-
-    OS_DbgPrint(OSK_MID_TRACE,("head->so_q = %x, head->so_state = %x\n", 
-			       head->so_q, head->so_state));
-
-    if ((head->so_state & SS_NBIO) && head->so_q == NULL) {
-	splx(s);
-	error = EWOULDBLOCK;
-	goto out;
-    }
-	
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    while (head->so_q == NULL && head->so_error == 0) {
-	if (head->so_state & SS_CANTRCVMORE) {
-	    head->so_error = ECONNABORTED;
-	    break;
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	error = tsleep((caddr_t)&head->so_timeo, PSOCK | PCATCH,
-		       "accept", 0);
-	if (error) {
-	    splx(s);
-	    goto out;
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    }
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-
-#if 0
-    if (head->so_error) {
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	error = head->so_error;
-	head->so_error = 0;
-	splx(s);
-	goto out;
-    }
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-#endif
-
-    /*
-     * At this point we know that there is at least one connection
-     * ready to be accepted. Remove it from the queue.
-     */
-    so = head->so_q;
-
-    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    if( FinishAccepting ) {
-	head->so_q = so->so_q;
-	head->so_qlen--;
-	    
-	*newso = so;
-	    
-	/*so->so_state &= ~SS_COMP;*/
-	so->so_q = NULL;
-
-	mnam.m_data = &sa;
-	mnam.m_len = sizeof(sa);
-	
-	(void) soaccept(so, &mnam);
-
-	so->so_state = SS_NBIO | SS_ISCONNECTED;
-
-	OskitDumpBuffer( so, sizeof(*so) );
-
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	if (name) {
-	    /* check sa_len before it is destroyed */
-	    memcpy( AddrOut, &sa, AddrLen < sizeof(sa) ? AddrLen : sizeof(sa) );
-	    OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	    *OutAddrLen = namelen;	/* copyout actually */
-	}
-	OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-	splx(s);
-    }
-out:
-    OS_DbgPrint(OSK_MID_TRACE,("OSKITTCP: Returning %d\n", error));
-    return (error);
+    return soaccept( socket, &nam );
 }
 
 /* The story so far
@@ -410,7 +288,7 @@ void OskitTCPReceiveDatagram( OSK_PCHAR Data, OSK_UINT Len,
     
     if( !Ip ) return; /* drop the segment */
 
-    //memcpy( Ip->m_data, Data, Len );
+    memcpy( Ip->m_data, Data, Len );
     Ip->m_pkthdr.len = IpHeaderLen;
 
     /* Do the transformations on the header that tcp_input expects */
@@ -422,32 +300,31 @@ void OskitTCPReceiveDatagram( OSK_PCHAR Data, OSK_UINT Len,
 		("OskitTCPReceiveDatagram: %d (%d header) Bytes\n", Len,
 		 IpHeaderLen));
 
+    OskitDumpBuffer( Data, Len );
+
     tcp_input(Ip, IpHeaderLen);
 
     /* The buffer Ip is freed by tcp_input */
 }
 
 int OskitTCPListen( void *socket, int backlog ) {
-    int error;
-    
-    OS_DbgPrint(OSK_MID_TRACE,("Called, socket = %08x\n", socket));
-    error = solisten( socket, backlog );
-    OS_DbgPrint(OSK_MID_TRACE,("Ending: %08x\n", error));
-
-    return error;
+    return solisten( socket, backlog );
 }
 
 void OskitTCPSetAddress( void *socket, 
-			 OSK_UINT LocalAddress,
-			 OSK_UI16 LocalPort,
-			 OSK_UINT RemoteAddress,
-			 OSK_UI16 RemotePort ) {
+			 ULONG LocalAddress,
+			 USHORT LocalPort,
+			 ULONG RemoteAddress,
+			 USHORT RemotePort ) {
     struct socket *so = socket;
     struct inpcb *inp = so->so_pcb;
     inp->inp_laddr.s_addr = LocalAddress;
     inp->inp_lport = LocalPort;
     inp->inp_faddr.s_addr = RemoteAddress;
     inp->inp_fport = RemotePort;
+    DbgPrint("OSKIT: SET ADDR %x:%x -> %x:%x\n", 
+	     LocalAddress, LocalPort,
+	     RemoteAddress, RemotePort);
 }
 
 void OskitTCPGetAddress( void *socket, 
@@ -462,6 +339,9 @@ void OskitTCPGetAddress( void *socket,
 	*LocalPort = inp->inp_lport;
 	*RemoteAddress = inp->inp_faddr.s_addr;
 	*RemotePort = inp->inp_fport;
+	DbgPrint("OSKIT: GET ADDR %x:%x -> %x:%x\n", 
+		 *LocalAddress, *LocalPort,
+		 *RemoteAddress, *RemotePort);
     }
 }
 
@@ -478,7 +358,7 @@ struct ifaddr *ifa_iffind(struct sockaddr *addr, int type)
 
 void oskittcp_die( const char *file, int line ) {
     DbgPrint("\n\n*** OSKITTCP: Panic Called at %s:%d ***\n", file, line);
-    *((int *)0) = 0;
+    KeBugCheck(0);
 }
 
 /* Stuff supporting the BSD network-interface interface */
@@ -578,13 +458,9 @@ struct ifaddr *ifa_ifwithnet(addr)
     struct sockaddr_in *sin;
     struct ifaddr *ifaddr = ifa_iffind(addr, IFF_UNICAST);
 
-    if( ifaddr )
-    {
-       sin = (struct sockaddr *)&ifaddr->ifa_addr;
+    sin = (struct sockaddr *)&ifaddr->ifa_addr;
 
-       OS_DbgPrint(OSK_MID_TRACE,("ifaddr->addr = %x\n", 
-                                  sin->sin_addr.s_addr));
-    }
+    OS_DbgPrint(OSK_MID_TRACE,("ifaddr->addr = %x\n", sin->sin_addr.s_addr));
 
     return ifaddr;
 }

@@ -22,10 +22,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -108,6 +106,7 @@ HRESULT WINAPI AntiMonikerImpl_Destroy(AntiMonikerImpl* iface);
 /* IPersistStream and IMoniker functions.                                       */
 static IMonikerVtbl VT_AntiMonikerImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     AntiMonikerImpl_QueryInterface,
     AntiMonikerImpl_AddRef,
     AntiMonikerImpl_Release,
@@ -137,6 +136,7 @@ static IMonikerVtbl VT_AntiMonikerImpl =
 /* Virtual function table for the IROTData class.                               */
 static IROTDataVtbl VT_ROTDataImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     AntiMonikerROTDataImpl_QueryInterface,
     AntiMonikerROTDataImpl_AddRef,
     AntiMonikerROTDataImpl_Release,
@@ -148,7 +148,7 @@ static IROTDataVtbl VT_ROTDataImpl =
  *******************************************************************************/
 HRESULT WINAPI AntiMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
   TRACE("(%p,%p,%p)\n",This,riid,ppvObject);
 
@@ -184,11 +184,11 @@ HRESULT WINAPI AntiMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void**
  ******************************************************************************/
 ULONG WINAPI AntiMonikerImpl_AddRef(IMoniker* iface)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
     TRACE("(%p)\n",This);
 
-    return InterlockedIncrement(&This->ref);
+    return ++(This->ref);
 }
 
 /******************************************************************************
@@ -196,17 +196,20 @@ ULONG WINAPI AntiMonikerImpl_AddRef(IMoniker* iface)
  ******************************************************************************/
 ULONG WINAPI AntiMonikerImpl_Release(IMoniker* iface)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
-    ULONG ref;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
     TRACE("(%p)\n",This);
 
-    ref = InterlockedDecrement(&This->ref);
+    This->ref--;
 
     /* destroy the object if there's no more reference on it */
-    if (ref == 0) AntiMonikerImpl_Destroy(This);
+    if (This->ref==0){
 
-    return ref;
+        AntiMonikerImpl_Destroy(This);
+
+        return 0;
+    }
+    return This->ref;
 }
 
 /******************************************************************************

@@ -1,4 +1,4 @@
-/* $Id: write.c,v 1.14 2004/12/28 17:05:19 navaraf Exp $
+/* $Id: write.c,v 1.4 2004/08/22 18:42:42 arty Exp $
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/net/afd/afd/write.c
@@ -30,18 +30,10 @@ NTSTATUS DDKAPI SendComplete
 			    Irp->IoStatus.Status,
 			    Irp->IoStatus.Information));
 
-    ASSERT_IRQL(APC_LEVEL);
-
     if( !SocketAcquireStateLock( FCB ) ) return Status;
 
     FCB->SendIrp.InFlightRequest = NULL; 
     /* Request is not in flight any longer */
-
-    if( FCB->State == SOCKET_STATE_CLOSED ) {
-	SocketStateUnlock( FCB );
-	DestroySocket( FCB );
-	return STATUS_SUCCESS;
-    }
 
     if( !NT_SUCCESS(Status) ) {
 	/* Complete all following send IRPs with error */
@@ -55,8 +47,7 @@ NTSTATUS DDKAPI SendComplete
 	    SendReq = NextIrpSp->Parameters.DeviceIoControl.Type3InputBuffer;
 
 	    UnlockBuffers( SendReq->BufferArray,
-			   SendReq->BufferCount,
-			   FALSE );
+			   SendReq->BufferCount );
 
 	    NextIrp->IoStatus.Status = Status;
 	    NextIrp->IoStatus.Information = 0;
@@ -112,9 +103,6 @@ NTSTATUS DDKAPI SendComplete
     /* Some data is still waiting */
     if( FCB->Send.BytesUsed ) {
 	FCB->PollState &= ~AFD_EVENT_SEND;
-
-	SocketCalloutEnter( FCB );
-
 	Status = TdiSend( &FCB->SendIrp.InFlightRequest,
 			  IrpSp->FileObject,
 			  0,
@@ -123,15 +111,13 @@ NTSTATUS DDKAPI SendComplete
 			  &FCB->SendIrp.Iosb,
 			  SendComplete,
 			  FCB );
-
-	SocketCalloutLeave( FCB );
     } else {
 	FCB->PollState |= AFD_EVENT_SEND;
 	PollReeval( FCB->DeviceExt, FCB->FileObject );
     }
 
     if( TotalBytesCopied > 0 ) {
-	UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount, FALSE );
+	UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount );
 
 	if( Status == STATUS_PENDING )
 	    Status = STATUS_SUCCESS;
@@ -152,33 +138,6 @@ NTSTATUS DDKAPI SendComplete
     return STATUS_SUCCESS;
 }
 
-NTSTATUS DDKAPI PacketSocketSendComplete
-( PDEVICE_OBJECT DeviceObject,
-  PIRP Irp,
-  PVOID Context ) {
-    PAFD_FCB FCB = (PAFD_FCB)Context;
-
-    AFD_DbgPrint(MID_TRACE,("Called, status %x, %d bytes used\n",
-			    Irp->IoStatus.Status,
-			    Irp->IoStatus.Information));
-
-    /* It's ok if the FCB already died */
-    if( !SocketAcquireStateLock( FCB ) ) return STATUS_SUCCESS;
-
-    FCB->SendIrp.InFlightRequest = NULL; 
-    /* Request is not in flight any longer */
-
-    if( FCB->State == SOCKET_STATE_CLOSED ) {
-	SocketStateUnlock( FCB );
-	DestroySocket( FCB );
-	return STATUS_SUCCESS;
-    }
-
-    SocketStateUnlock( FCB );
-
-    return STATUS_SUCCESS;
-}
-
 NTSTATUS STDCALL
 AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp, 
 			    PIO_STACK_LOCATION IrpSp, BOOLEAN Short) {
@@ -192,50 +151,6 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
     AFD_DbgPrint(MID_TRACE,("Called on %x\n", FCB));
 
     if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, FALSE );
-    
-    FCB->EventsFired &= ~AFD_EVENT_SEND;
-
-    if( FCB->Flags & AFD_ENDPOINT_CONNECTIONLESS )
-    {
-        PAFD_SEND_INFO_UDP SendReq;
-        PTDI_CONNECTION_INFORMATION TargetAddress;
-    
-        /* Check that the socket is bound */
-        if( FCB->State != SOCKET_STATE_BOUND ) 
-            return UnlockAndMaybeComplete( FCB, STATUS_UNSUCCESSFUL, Irp,
-                                           0, NULL, FALSE );
-
-        if( !(SendReq = LockRequest( Irp, IrpSp )) ) 
-            return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0,
-                                           NULL, FALSE );
-    
-        TdiBuildConnectionInfo( &TargetAddress, FCB->RemoteAddress );
-
-        SocketCalloutEnter( FCB );
-
-        Status = TdiSendDatagram
-            ( &FCB->SendIrp.InFlightRequest,
-              FCB->AddressFile.Object,
-              SendReq->BufferArray[0].buf,
-              SendReq->BufferArray[0].len,
-              TargetAddress,
-              &FCB->SendIrp.Iosb,
-              PacketSocketSendComplete,
-              FCB );
-    
-        SocketCalloutLeave( FCB );
-
-        ExFreePool( TargetAddress );
-
-        if( Status == STATUS_PENDING ) Status = STATUS_SUCCESS;
-
-        AFD_DbgPrint(MID_TRACE,("Dismissing request: %x\n", Status));
-    
-        return UnlockAndMaybeComplete( FCB, Status, Irp,
-                                       SendReq->BufferArray[0].len,
-                                       NULL, TRUE );
-    }
-
     if( !(SendReq = LockRequest( Irp, IrpSp )) ) 
 	return UnlockAndMaybeComplete
 	    ( FCB, STATUS_NO_MEMORY, Irp, TotalBytesCopied, NULL, FALSE );
@@ -243,14 +158,8 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
     AFD_DbgPrint(MID_TRACE,("Socket state %d\n", FCB->State));
 
     if( FCB->State != SOCKET_STATE_CONNECTED ) {
-	if( SendReq->AfdFlags & AFD_IMMEDIATE ) {
-	    AFD_DbgPrint(MID_TRACE,("Nonblocking\n"));
-	    return UnlockAndMaybeComplete
-		( FCB, STATUS_CANT_WAIT, Irp, 0, NULL, TRUE );
-	} else {
-	    AFD_DbgPrint(MID_TRACE,("Queuing request\n"));
-	    return LeaveIrpUntilLater( FCB, Irp, FUNCTION_SEND );
-	}
+	AFD_DbgPrint(MID_TRACE,("Queuing request\n"));
+	return LeaveIrpUntilLater( FCB, Irp, FUNCTION_SEND );
     }
 
     AFD_DbgPrint(MID_TRACE,("We already have %d bytes waiting.\n", 
@@ -258,8 +167,7 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     SendReq->BufferArray = LockBuffers( SendReq->BufferArray,
 					SendReq->BufferCount,
-					NULL, NULL,
-					FALSE, FALSE );
+					FALSE );
     
     AFD_DbgPrint(MID_TRACE,("FCB->Send.BytesUsed = %d\n", 
 			    FCB->Send.BytesUsed));
@@ -293,7 +201,7 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	}
 	
 	if( TotalBytesEncountered == 0 ) {
-	    UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount, FALSE );
+	    UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount );
 	    
 	    AFD_DbgPrint(MID_TRACE,("Empty send\n"));
 	    return UnlockAndMaybeComplete
@@ -303,11 +211,7 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	AFD_DbgPrint(MID_TRACE,("Completed %d bytes\n", TotalBytesCopied));
 	
 	if( TotalBytesCopied > 0 ) {
-	    UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount, FALSE );
-
-	    FCB->SendIrp.InFlightRequest = (PVOID)1; /* Placeholder */
-
-	    SocketCalloutEnter( FCB );
+	    UnlockBuffers( SendReq->BufferArray, SendReq->BufferCount );
 
 	    Status = TdiSend( &FCB->SendIrp.InFlightRequest,
 			      FCB->Connection.Object,
@@ -318,34 +222,24 @@ AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			      SendComplete,
 			      FCB );
 	    
-	    SocketCalloutLeave( FCB );
-
 	    if( Status == STATUS_PENDING )
 		Status = STATUS_SUCCESS;
 	    
-	    AFD_DbgPrint(MID_TRACE,("Dismissing request: %x (%d)\n", 
-				    Status, TotalBytesCopied));
+	    AFD_DbgPrint(MID_TRACE,("Dismissing request: %x\n", Status));
 	    
 	    return UnlockAndMaybeComplete
 		( FCB, Status, Irp, TotalBytesCopied, NULL, TRUE );
 	}
     }
 
-    if( SendReq->AfdFlags & AFD_IMMEDIATE ) {
-	AFD_DbgPrint(MID_TRACE,("Nonblocking\n"));
-	return UnlockAndMaybeComplete
-	    ( FCB, STATUS_CANT_WAIT, Irp, 0, NULL, TRUE );
-    } else {
-	AFD_DbgPrint(MID_TRACE,("Queuing request\n"));
-	return LeaveIrpUntilLater( FCB, Irp, FUNCTION_SEND );
-    }
+    AFD_DbgPrint(MID_TRACE,("Queuing request\n"));
+    return LeaveIrpUntilLater( FCB, Irp, FUNCTION_SEND );
 }
 
 NTSTATUS STDCALL
 AfdPacketSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp, 
 			 PIO_STACK_LOCATION IrpSp) {
     NTSTATUS Status = STATUS_SUCCESS;
-    PTDI_CONNECTION_INFORMATION TargetAddress;
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
     PAFD_SEND_INFO_UDP SendReq;
@@ -353,49 +247,24 @@ AfdPacketSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
     AFD_DbgPrint(MID_TRACE,("Called on %x\n", FCB));
 
     if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, FALSE );
-
-    FCB->EventsFired &= ~AFD_EVENT_SEND;
-
-    /* Check that the socket is bound */
-    if( FCB->State != SOCKET_STATE_BOUND ) 
-	return UnlockAndMaybeComplete
-	    ( FCB, STATUS_UNSUCCESSFUL, Irp, 0, NULL, FALSE );
     if( !(SendReq = LockRequest( Irp, IrpSp )) ) 
-	return UnlockAndMaybeComplete
-	    ( FCB, STATUS_NO_MEMORY, Irp, 0, NULL, FALSE );
-    
-    AFD_DbgPrint
-	(MID_TRACE,("RemoteAddress #%d Type %d\n", 
-		    ((PTRANSPORT_ADDRESS)SendReq->RemoteAddress)->
-		    TAAddressCount,
-		    ((PTRANSPORT_ADDRESS)SendReq->RemoteAddress)->
-		    Address[0].AddressType));
-
-    TdiBuildConnectionInfo( &TargetAddress,
-			    ((PTRANSPORT_ADDRESS)SendReq->RemoteAddress) );
+    return UnlockAndMaybeComplete
+	( FCB, STATUS_NO_MEMORY, Irp, 0, NULL, FALSE );
 
     /* Check the size of the Address given ... */
 
-    if( TargetAddress ) {
-	SocketCalloutEnter( FCB );
-
-	Status = TdiSendDatagram
-	    ( &FCB->SendIrp.InFlightRequest,
-	      FCB->AddressFile.Object,
-	      SendReq->BufferArray[0].buf,
-	      SendReq->BufferArray[0].len,
-	      TargetAddress,
-	      &FCB->SendIrp.Iosb,
-	      PacketSocketSendComplete,
-	      FCB );
-    
-	SocketCalloutLeave( FCB );
-
-	ExFreePool( TargetAddress );
-    } else Status = STATUS_NO_MEMORY;
+    Status = TdiSendDatagram
+	( &FCB->SendIrp.InFlightRequest,
+	  FCB->AddressFile.Object,
+	  SendReq->BufferArray[0].buf,
+	  SendReq->BufferArray[0].len,
+	  SendReq->RemoteAddress,
+	  &FCB->SendIrp.Iosb,
+	  NULL,
+	  NULL );
 
     if( Status == STATUS_PENDING ) Status = STATUS_SUCCESS;
-
+    
     AFD_DbgPrint(MID_TRACE,("Dismissing request: %x\n", Status));
     
     return UnlockAndMaybeComplete

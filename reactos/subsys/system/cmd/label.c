@@ -14,9 +14,14 @@
  *        Unicode ready!
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_LABEL
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
 
 
 INT cmd_label (LPTSTR cmd, LPTSTR param)

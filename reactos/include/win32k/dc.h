@@ -108,26 +108,6 @@ typedef struct _DC
   WIN_DC_INFO  w;
 } DC, *PDC;
 
-typedef struct _GDIPOINTER /* should stay private to ENG */
-{
-  /* private GDI pointer handling information, required for software emulation */
-  BOOL Enabled;
-  POINTL Pos;
-  SIZEL Size;
-  POINTL HotSpot;
-  XLATEOBJ *XlateObject;
-  HSURF ColorSurface;
-  HSURF MaskSurface;
-  HSURF SaveSurface;
-  
-  /* public pointer information */
-  RECTL Exclude; /* required publicly for SPS_ACCEPT_EXCLUDE */
-  PGD_MOVEPOINTER MovePointer;
-  ULONG Status;
-  BOOL SafetySwitch;
-  UINT SafetyRemoveCount;
-} GDIPOINTER, *PGDIPOINTER;
-
 typedef struct
 {
   HANDLE Handle;
@@ -139,7 +119,21 @@ typedef struct
   DRIVER_FUNCTIONS DriverFunctions;
   PFILE_OBJECT VideoFileObject;
 
-  GDIPOINTER Pointer;
+  PGD_MOVEPOINTER MovePointer;
+
+  struct {
+     BOOL Enable;
+     LONG Column;
+     LONG Row;
+     LONG Width;
+     LONG Height;
+  } PointerAttributes;
+  XLATEOBJ *PointerXlateObject;
+  HSURF PointerColorSurface;
+  HSURF PointerMaskSurface;
+  HSURF PointerSaveSurface;
+  POINTL PointerHotSpot;
+  ULONG PointerStatus;
 } GDIDEVICE;
 
 /*  Internal functions  */
@@ -147,16 +141,16 @@ typedef struct
 #define  DC_LockDc(hDC)  \
   ((PDC) GDIOBJ_LockObj ((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC))
 #define  DC_UnlockDc(hDC)  \
-  GDIOBJ_UnlockObj ((HGDIOBJ) hDC)
+  GDIOBJ_UnlockObj ((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC)
 
 HDC  FASTCALL RetrieveDisplayHDC(VOID);
 HDC  FASTCALL DC_AllocDC(PUNICODE_STRING  Driver);
 VOID FASTCALL DC_InitDC(HDC  DCToInit);
 HDC  FASTCALL DC_FindOpenDC(PUNICODE_STRING  Driver);
 VOID FASTCALL DC_FreeDC(HDC  DCToFree);
-BOOL INTERNAL_CALL DC_Cleanup(PVOID ObjectBody);
 HDC  FASTCALL DC_GetNextDC (PDC pDC);
 VOID FASTCALL DC_SetNextDC (PDC pDC, HDC hNextDC);
+BOOL FASTCALL DC_InternalDeleteDC( PDC DCToDelete );
 VOID FASTCALL DC_SetOwnership(HDC DC, PEPROCESS Owner);
 
 VOID FASTCALL DC_UpdateXforms(PDC  dc);

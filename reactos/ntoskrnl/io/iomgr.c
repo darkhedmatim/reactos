@@ -1,4 +1,4 @@
-/* $Id: iomgr.c,v 1.55 2004/12/21 18:37:28 gvg Exp $
+/* $Id: iomgr.c,v 1.50 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -19,7 +19,6 @@
 
 #define TAG_DEVICE_TYPE     TAG('D', 'E', 'V', 'T')
 #define TAG_FILE_TYPE       TAG('F', 'I', 'L', 'E')
-#define TAG_ADAPTER_TYPE    TAG('A', 'D', 'P', 'T')
 
 /* DATA ********************************************************************/
 
@@ -132,76 +131,6 @@ IopDeleteFile(PVOID ObjectBody)
 }
 
 
-static NTSTATUS
-IopSetDefaultSecurityDescriptor(SECURITY_INFORMATION SecurityInformation,
-				PSECURITY_DESCRIPTOR SecurityDescriptor,
-				PULONG BufferLength)
-{
-  ULONG_PTR Current;
-  ULONG SidSize;
-  ULONG SdSize;
-  NTSTATUS Status;
-
-  DPRINT("IopSetDefaultSecurityDescriptor() called\n");
-
-  if (SecurityInformation == 0)
-    {
-      return STATUS_ACCESS_DENIED;
-    }
-
-  SidSize = RtlLengthSid(SeWorldSid);
-  SdSize = sizeof(SECURITY_DESCRIPTOR) + (2 * SidSize);
-
-  if (*BufferLength < SdSize)
-    {
-      *BufferLength = SdSize;
-      return STATUS_BUFFER_TOO_SMALL;
-    }
-
-  *BufferLength = SdSize;
-
-  Status = RtlCreateSecurityDescriptor(SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  SecurityDescriptor->Control |= SE_SELF_RELATIVE;
-  Current = (ULONG_PTR)SecurityDescriptor + sizeof(SECURITY_DESCRIPTOR);
-
-  if (SecurityInformation & OWNER_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Owner = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & GROUP_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Group = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & DACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_DACL_PRESENT;
-    }
-
-  if (SecurityInformation & SACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_SACL_PRESENT;
-    }
-
-  return STATUS_SUCCESS;
-}
-
-
 NTSTATUS STDCALL
 IopSecurityFile(PVOID ObjectBody,
 		SECURITY_OPERATION_CODE OperationCode,
@@ -209,94 +138,17 @@ IopSecurityFile(PVOID ObjectBody,
 		PSECURITY_DESCRIPTOR SecurityDescriptor,
 		PULONG BufferLength)
 {
-  IO_STATUS_BLOCK IoStatusBlock;
-  PIO_STACK_LOCATION StackPtr;
-  PFILE_OBJECT FileObject;
-  PIRP Irp;
-  NTSTATUS Status;
-
   DPRINT("IopSecurityFile() called\n");
-
-  FileObject = (PFILE_OBJECT)ObjectBody;
 
   switch (OperationCode)
     {
       case SetSecurityDescriptor:
 	DPRINT("Set security descriptor\n");
-	KeResetEvent(&FileObject->Event);
-	Irp = IoBuildSynchronousFsdRequest(IRP_MJ_SET_SECURITY,
-					   FileObject->DeviceObject,
-					   NULL,
-					   0,
-					   NULL,
-					   &FileObject->Event,
-					   &IoStatusBlock);
-
-	StackPtr = IoGetNextIrpStackLocation(Irp);
-	StackPtr->FileObject = FileObject;
-
-	StackPtr->Parameters.SetSecurity.SecurityInformation = SecurityInformation;
-	StackPtr->Parameters.SetSecurity.SecurityDescriptor = SecurityDescriptor;
-
-	Status = IoCallDriver(FileObject->DeviceObject, Irp);
-	if (Status == STATUS_PENDING)
-	  {
-	    KeWaitForSingleObject(&FileObject->Event,
-				  Executive,
-				  KernelMode,
-				  FALSE,
-				  NULL);
-	    Status = IoStatusBlock.Status;
-	  }
-
-	if (Status == STATUS_INVALID_DEVICE_REQUEST)
-	  {
-	    Status = STATUS_SUCCESS;
-	  }
-	return Status;
+	return STATUS_SUCCESS;
 
       case QuerySecurityDescriptor:
 	DPRINT("Query security descriptor\n");
-	KeResetEvent(&FileObject->Event);
-	Irp = IoBuildSynchronousFsdRequest(IRP_MJ_QUERY_SECURITY,
-					   FileObject->DeviceObject,
-					   NULL,
-					   0,
-					   NULL,
-					   &FileObject->Event,
-					   &IoStatusBlock);
-
-	Irp->UserBuffer = SecurityDescriptor;
-
-	StackPtr = IoGetNextIrpStackLocation(Irp);
-	StackPtr->FileObject = FileObject;
-
-	StackPtr->Parameters.QuerySecurity.SecurityInformation = SecurityInformation;
-	StackPtr->Parameters.QuerySecurity.Length = *BufferLength;
-
-	Status = IoCallDriver(FileObject->DeviceObject, Irp);
-	if (Status == STATUS_PENDING)
-	  {
-	    KeWaitForSingleObject(&FileObject->Event,
-				  Executive,
-				  KernelMode,
-				  FALSE,
-				  NULL);
-	    Status = IoStatusBlock.Status;
-	  }
-
-	if (Status == STATUS_INVALID_DEVICE_REQUEST)
-	  {
-	    Status = IopSetDefaultSecurityDescriptor(SecurityInformation,
-						     SecurityDescriptor,
-						     BufferLength);
-	  }
-	else
-	  {
-	    /* FIXME: Is this correct?? */
-	    *BufferLength = IoStatusBlock.Information;
-	  }
-	return Status;
+	return STATUS_UNSUCCESSFUL;
 
       case DeleteSecurityDescriptor:
 	DPRINT("Delete security descriptor\n");
@@ -443,19 +295,6 @@ IoInit (VOID)
   RtlRosInitUnicodeStringFromLiteral(&IoFileObjectType->TypeName, L"File");
 
   ObpCreateTypeObject(IoFileObjectType);
-  
-    /*
-   * Register iomgr types: AdapterObjectType
-   */
-  IoAdapterObjectType = ExAllocatePool (NonPagedPool,
-				       sizeof (OBJECT_TYPE));
-  RtlZeroMemory(IoAdapterObjectType, sizeof(OBJECT_TYPE));
-  IoAdapterObjectType->Tag = TAG_ADAPTER_TYPE;
-  IoAdapterObjectType->MaxObjects = ULONG_MAX;
-  IoAdapterObjectType->MaxHandles = ULONG_MAX;
-  IoDeviceObjectType->Mapping = &IopFileMapping;
-  RtlRosInitUnicodeStringFromLiteral(&IoAdapterObjectType->TypeName, L"Adapter");
-  ObpCreateTypeObject(IoAdapterObjectType);
 
   /*
    * Create the '\Driver' object directory
@@ -534,8 +373,6 @@ IoInit (VOID)
   IoInitVpbImplementation();
   IoInitShutdownNotification();
   IopInitErrorLog();
-  IopInitTimerImplementation();
-  IopInitIoCompletionImplementation();
 
   /*
    * Create link from '\DosDevices' to '\??' directory

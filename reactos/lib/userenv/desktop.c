@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: desktop.c,v 1.11 2004/09/30 20:23:00 ekohl Exp $
+/* $Id: desktop.c,v 1.9 2004/08/15 19:02:40 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -144,77 +126,12 @@ AddDesktopItemA (BOOL bCommonItem,
 		 LPCSTR lpArguments,
 		 LPCSTR lpIconLocation,
 		 INT iIcon,
-		 LPCSTR lpWorkingDirectory, /* Optional */
+		 LPCSTR lpWorkingDirectory,
 		 WORD wHotKey,
 		 INT iShowCmd)
 {
-  UNICODE_STRING ItemName;
-  UNICODE_STRING Arguments;
-  UNICODE_STRING IconLocation;
-  UNICODE_STRING WorkingDirectory;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&ItemName,
-					    (LPSTR)lpItemName);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&Arguments,
-					    (LPSTR)lpArguments);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeUnicodeString(&ItemName);
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&IconLocation,
-					    (LPSTR)lpIconLocation);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeUnicodeString(&Arguments);
-      RtlFreeUnicodeString(&ItemName);
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  if (lpWorkingDirectory != NULL)
-    {
-      Status = RtlCreateUnicodeStringFromAsciiz(&WorkingDirectory,
-						(LPSTR)lpWorkingDirectory);
-      if (!NT_SUCCESS(Status))
-	{
-	  RtlFreeUnicodeString(&IconLocation);
-	  RtlFreeUnicodeString(&Arguments);
-	  RtlFreeUnicodeString(&ItemName);
-	  SetLastError (RtlNtStatusToDosError (Status));
-	  return FALSE;
-	}
-    }
-
-  bResult = AddDesktopItemW(bCommonItem,
-			    ItemName.Buffer,
-			    Arguments.Buffer,
-			    IconLocation.Buffer,
-			    iIcon,
-			    (lpWorkingDirectory != NULL) ? WorkingDirectory.Buffer : NULL,
-			    wHotKey,
-			    iShowCmd);
-
-  if (lpWorkingDirectory != NULL)
-    {
-      RtlFreeUnicodeString(&WorkingDirectory);
-    }
-
-  RtlFreeUnicodeString(&IconLocation);
-  RtlFreeUnicodeString(&Arguments);
-  RtlFreeUnicodeString(&ItemName);
-
-  return bResult;
+  DPRINT1 ("AddDesktopItemA() not implemented!\n");
+  return FALSE;
 }
 
 
@@ -224,7 +141,7 @@ AddDesktopItemW (BOOL bCommonDesktop,
 		 LPCWSTR lpArguments,
 		 LPCWSTR lpIconLocation,
 		 INT iIcon,
-		 LPCWSTR lpWorkingDirectory,  /* Optional */
+		 LPCWSTR lpWorkingDirectory,
 		 WORD wHotKey,
 		 INT iShowCmd)
 {
@@ -295,12 +212,12 @@ AddDesktopItemW (BOOL bCommonDesktop,
   DPRINT ("szCommand: '%S'\n", szCommand);
   DPRINT ("szArguments: '%S'\n", szArguments);
 
-  /* Dynamically load ole32.dll */
-  if (!LoadDynamicImports(&DynOle32, &Ole32))
-    {
-      DPRINT1("USERENV: Unable to load OLE32.DLL\n");
-      return FALSE;
-    }
+  /* dynamically load ole32.dll */
+  if(!LoadDynamicImports(&DynOle32, &Ole32))
+  {
+    DPRINT1("USERENV: Unable to load OLE32.DLL\n");
+    return FALSE;
+  }
 
   Ole32.fn.CoInitialize(NULL);
 
@@ -376,24 +293,8 @@ BOOL WINAPI
 DeleteDesktopItemA (BOOL bCommonItem,
 		    LPCSTR lpItemName)
 {
-  UNICODE_STRING ItemName;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&ItemName,
-					    (LPSTR)lpItemName);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  bResult = DeleteDesktopItemW(bCommonItem,
-			       ItemName.Buffer);
-
-  RtlFreeUnicodeString(&ItemName);
-
-  return bResult;
+  DPRINT1 ("DeleteDesktopItemA() not implemented!\n");
+  return FALSE;
 }
 
 
@@ -424,23 +325,8 @@ BOOL WINAPI
 CreateGroupA (LPCSTR lpGroupName,
 	      BOOL bCommonGroup)
 {
-  UNICODE_STRING GroupName;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&GroupName,
-					    (LPSTR)lpGroupName);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  bResult = CreateGroupW(GroupName.Buffer, bCommonGroup);
-
-  RtlFreeUnicodeString(&GroupName);
-
-  return bResult;
+  DPRINT1 ("CreateGroupA() not implemented!\n");
+  return FALSE;
 }
 
 
@@ -482,23 +368,8 @@ BOOL WINAPI
 DeleteGroupA (LPCSTR lpGroupName,
 	      BOOL bCommonGroup)
 {
-  UNICODE_STRING GroupName;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&GroupName,
-					    (LPSTR)lpGroupName);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  bResult = DeleteGroupW(GroupName.Buffer, bCommonGroup);
-
-  RtlFreeUnicodeString(&GroupName);
-
-  return bResult;
+  DPRINT1 ("DeleteGroupA() not implemented!\n");
+  return FALSE;
 }
 
 
@@ -537,119 +408,29 @@ DeleteGroupW (LPCWSTR lpGroupName,
 
 
 BOOL WINAPI
-AddItemA (LPCSTR lpGroupName,  /* Optional */
+AddItemA (LPCSTR lpGroupName,
 	  BOOL bCommonGroup,
 	  LPCSTR lpItemName,
 	  LPCSTR lpArguments,
 	  LPCSTR lpIconLocation,
 	  INT iIcon,
-	  LPCSTR lpWorkingDirectory,  /* Optional */
+	  LPCSTR lpWorkingDirectory,
 	  WORD wHotKey,
 	  INT iShowCmd)
 {
-  UNICODE_STRING GroupName;
-  UNICODE_STRING ItemName;
-  UNICODE_STRING Arguments;
-  UNICODE_STRING IconLocation;
-  UNICODE_STRING WorkingDirectory;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&ItemName,
-					    (LPSTR)lpItemName);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&Arguments,
-					    (LPSTR)lpArguments);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeUnicodeString(&ItemName);
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&IconLocation,
-					    (LPSTR)lpIconLocation);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeUnicodeString(&Arguments);
-      RtlFreeUnicodeString(&ItemName);
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  if (lpGroupName != NULL)
-    {
-      Status = RtlCreateUnicodeStringFromAsciiz(&GroupName,
-						(LPSTR)lpGroupName);
-      if (!NT_SUCCESS(Status))
-	{
-	  RtlFreeUnicodeString(&IconLocation);
-	  RtlFreeUnicodeString(&Arguments);
-	  RtlFreeUnicodeString(&ItemName);
-	  SetLastError (RtlNtStatusToDosError (Status));
-	  return FALSE;
-	}
-    }
-
-  if (lpWorkingDirectory != NULL)
-    {
-      Status = RtlCreateUnicodeStringFromAsciiz(&WorkingDirectory,
-						(LPSTR)lpWorkingDirectory);
-      if (!NT_SUCCESS(Status))
-	{
-	  if (lpGroupName != NULL)
-	    {
-	      RtlFreeUnicodeString(&GroupName);
-	    }
-	  RtlFreeUnicodeString(&IconLocation);
-	  RtlFreeUnicodeString(&Arguments);
-	  RtlFreeUnicodeString(&ItemName);
-	  SetLastError (RtlNtStatusToDosError (Status));
-	  return FALSE;
-	}
-    }
-
-  bResult = AddItemW((lpGroupName != NULL) ? GroupName.Buffer : NULL,
-		     bCommonGroup,
-		     ItemName.Buffer,
-		     Arguments.Buffer,
-		     IconLocation.Buffer,
-		     iIcon,
-		     (lpWorkingDirectory != NULL) ? WorkingDirectory.Buffer : NULL,
-		     wHotKey,
-		     iShowCmd);
-
-  if (lpGroupName != NULL)
-    {
-      RtlFreeUnicodeString(&GroupName);
-    }
-
-  if (lpWorkingDirectory != NULL)
-    {
-      RtlFreeUnicodeString(&WorkingDirectory);
-    }
-
-  RtlFreeUnicodeString(&IconLocation);
-  RtlFreeUnicodeString(&Arguments);
-  RtlFreeUnicodeString(&ItemName);
-
-  return bResult;
+  DPRINT1 ("AddItemA() not implemented!\n");
+  return FALSE;
 }
 
 
 BOOL WINAPI
-AddItemW (LPCWSTR lpGroupName,  /* Optional */
+AddItemW (LPCWSTR lpGroupName,
 	  BOOL bCommonGroup,
 	  LPCWSTR lpItemName,
 	  LPCWSTR lpArguments,
 	  LPCWSTR lpIconLocation,
 	  INT iIcon,
-	  LPCWSTR lpWorkingDirectory,  /* Optional */
+	  LPCWSTR lpWorkingDirectory,
 	  WORD wHotKey,
 	  INT iShowCmd)
 {
@@ -725,12 +506,12 @@ AddItemW (LPCWSTR lpGroupName,  /* Optional */
   DPRINT ("szCommand: '%S'\n", szCommand);
   DPRINT ("szArguments: '%S'\n", szArguments);
 
-  /* Dynamically load ole32.dll */
-  if (!LoadDynamicImports(&DynOle32, &Ole32))
-    {
-      DPRINT1("USERENV: Unable to load OLE32.DLL\n");
-      return FALSE;
-    }
+  /* dynamically load ole32.dll */
+  if(!LoadDynamicImports(&DynOle32, &Ole32))
+  {
+    DPRINT1("USERENV: Unable to load OLE32.DLL\n");
+    return FALSE;
+  }
 
   Ole32.fn.CoInitialize(NULL);
 
@@ -802,57 +583,18 @@ AddItemW (LPCWSTR lpGroupName,  /* Optional */
 
 
 BOOL WINAPI
-DeleteItemA (LPCSTR lpGroupName, /* Optional */
+DeleteItemA (LPCSTR lpGroupName,
 	     BOOL bCommonGroup,
 	     LPCSTR lpItemName,
 	     BOOL bDeleteGroup)
 {
-  UNICODE_STRING GroupName;
-  UNICODE_STRING ItemName;
-  BOOL bResult;
-  NTSTATUS Status;
-
-  if (lpGroupName != NULL)
-    {
-      Status = RtlCreateUnicodeStringFromAsciiz(&GroupName,
-						(LPSTR)lpGroupName);
-      if (!NT_SUCCESS(Status))
-	{
-	  SetLastError (RtlNtStatusToDosError (Status));
-	  return FALSE;
-	}
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&ItemName,
-					    (LPSTR)lpItemName);
-  if (!NT_SUCCESS(Status))
-    {
-      if (lpGroupName != NULL)
-	{
-	  RtlFreeUnicodeString(&GroupName);
-	}
-
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  bResult = DeleteItemW((lpGroupName != NULL) ? GroupName.Buffer : NULL,
-			bCommonGroup,
-			ItemName.Buffer,
-			bDeleteGroup);
-
-  RtlFreeUnicodeString(&ItemName);
-  if (lpGroupName != NULL)
-    {
-      RtlFreeUnicodeString(&GroupName);
-    }
-
-  return bResult;
+  DPRINT1 ("DeleteItemA() not implemented!\n");
+  return FALSE;
 }
 
 
 BOOL WINAPI
-DeleteItemW (LPCWSTR lpGroupName, /* Optional */
+DeleteItemW (LPCWSTR lpGroupName,
 	     BOOL bCommonGroup,
 	     LPCWSTR lpItemName,
 	     BOOL bDeleteGroup)

@@ -36,16 +36,15 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-
-#define COBJMACROS
-
 #include "windef.h"
 #include "winerror.h"
 #include "winbase.h"
-#include "variant.h"
+#include "oleauto.h"
 #include "wine/debug.h"
+#include "variant.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(variant);
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
+
 
 /************************************************************************
  * SafeArray {OLEAUT32}
@@ -62,8 +61,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(variant);
  * using the IRecordInfo interface.
  *
  * There are two types of SafeArray, normal and vectors. Normal arrays can have
- * multiple dimensions and the data for the array is allocated separately from
- * the array header. This is the most flexible type of array. Vectors, on the
+ * multiple dimensions and the data for the array is allocated seperately from
+ * the array header. This is the most flexable type of array. Vectors, on the
  * other hand, are fixed in size and consist of a single allocated block, and a
  * single dimension.
  *
@@ -342,9 +341,7 @@ static HRESULT SAFEARRAY_DestroyData(SAFEARRAY *psa, ULONG ulStartCell)
 
       while(ulCellCount--)
       {
-        HRESULT hRet = VariantClear(lpVariant);
-
-        if (FAILED(hRet)) FIXME("VariantClear of element failed!\n");
+        VariantClear(lpVariant);
         lpVariant++;
       }
     }
@@ -371,10 +368,7 @@ static HRESULT SAFEARRAY_CopyData(SAFEARRAY *psa, SAFEARRAY *dest)
 
       while(ulCellCount--)
       {
-        HRESULT hRet;
-
-        hRet = VariantCopy(lpDest, lpVariant);
-        if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantCopy(lpDest, lpVariant);
         lpVariant++;
         lpDest++;
       }
@@ -879,10 +873,8 @@ HRESULT WINAPI SafeArrayPutElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
         VARIANT* lpVariant = (VARIANT*)pvData;
         VARIANT* lpDest = (VARIANT*)lpvDest;
 
-        hRet = VariantClear(lpDest);
-        if (FAILED(hRet)) FIXME("VariantClear failed with 0x%lx\n", hRet);
-        hRet = VariantCopy(lpDest, lpVariant);
-        if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantClear(lpDest);
+        VariantCopy(lpDest, lpVariant);
       }
       else if (psa->fFeatures & FADF_BSTR)
       {
@@ -966,10 +958,7 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
         VARIANT* lpVariant = (VARIANT*)lpvSrc;
         VARIANT* lpDest = (VARIANT*)pvData;
 
-        /* The original content of pvData is ignored. */
-        V_VT(lpDest) = VT_EMPTY;
-        hRet = VariantCopy(lpDest, lpVariant);
-	if (FAILED(hRet)) FIXME("VariantCopy failed with 0x%lx\n", hRet);
+        VariantCopy(lpDest, lpVariant);
       }
       else if (psa->fFeatures & FADF_BSTR)
       {
@@ -1252,10 +1241,9 @@ HRESULT WINAPI SafeArrayDestroyData(SAFEARRAY *psa)
     return E_INVALIDARG;
 
   if (psa->cLocks)
-    return DISP_E_ARRAYISLOCKED; /* Can't delete a locked array */
+    return DISP_E_ARRAYISLOCKED; /* Cant delete a locked array */
 
-  /* If static, keep pvData and don't free */
-  if (psa->pvData && !(psa->fFeatures & FADF_STATIC))
+  if (psa->pvData)
   {
     /* Delete the actual item data */
     if (FAILED(SAFEARRAY_DestroyData(psa, 0)))

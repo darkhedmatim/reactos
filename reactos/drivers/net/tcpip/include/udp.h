@@ -7,8 +7,6 @@
 #ifndef __UDP_H
 #define __UDP_H
 
-#define UDP_STARTING_PORT 0x8000
-#define UDP_DYNAMIC_PORTS 0x8000
 
 /* UDPv4 header structure */
 typedef struct UDP_HEADER {
@@ -36,41 +34,35 @@ typedef struct UDP_STATISTICS {
   ULONG NumAddresses;
 } UDP_STATISTICS, *PUDP_STATISTICS;
 
-extern UDP_STATISTICS UDPStats;
-
 VOID UDPSend(
   PVOID Context,
   PDATAGRAM_SEND_REQUEST SendRequest);
 
 NTSTATUS UDPSendDatagram(
-    PADDRESS_FILE AddrFile,
-    PTDI_CONNECTION_INFORMATION ConnInfo,
-    PCHAR BufferData,
-    ULONG DataSize,
-    PULONG DataUsed );
+  PTDI_REQUEST Request,
+  PTDI_CONNECTION_INFORMATION ConnInfo,
+  PNDIS_BUFFER Buffer,
+  ULONG DataSize,
+  PULONG DataUsed);
 
 NTSTATUS UDPReceiveDatagram(
-    PADDRESS_FILE AddrFile,
-    PTDI_CONNECTION_INFORMATION ConnInfo,
-    PCHAR Buffer,
-    ULONG ReceiveLength,
-    ULONG ReceiveFlags,
-    PTDI_CONNECTION_INFORMATION ReturnInfo,
-    PULONG BytesReceived,
-    PDATAGRAM_COMPLETION_ROUTINE Complete,
-    PVOID Context);
+  PTDI_REQUEST Request,
+  PTDI_CONNECTION_INFORMATION ConnInfo,
+  PNDIS_BUFFER Buffer,
+  ULONG ReceiveLength,
+  ULONG ReceiveFlags,
+  PTDI_CONNECTION_INFORMATION ReturnInfo,
+  PULONG BytesReceived);
 
 VOID UDPReceive(
-    PIP_INTERFACE Interface,
-    PIP_PACKET IPPacket);
+  PNET_TABLE_ENTRY NTE,
+  PIP_PACKET IPPacket);
 
 NTSTATUS UDPStartup(
   VOID);
 
 NTSTATUS UDPShutdown(
   VOID);
-UINT UDPAllocatePort( UINT HintPort );
-VOID UDPFreePort( UINT Port );
 
 #endif /* __UDP_H */
 

@@ -136,7 +136,7 @@ KdbpSymFindUserModule(IN PVOID Address  OPTIONAL,
         }
       current_entry = current_entry->Flink;
     }
-
+    
   return FALSE;
 }
 
@@ -158,7 +158,7 @@ KdbpSymFindModule(IN PVOID Address  OPTIONAL,
   INT Count = 0;
 
   current_entry = ModuleTextListHead.Flink;
-
+   
   while (current_entry != &ModuleTextListHead &&
          current_entry != NULL)
     {
@@ -178,7 +178,7 @@ KdbpSymFindModule(IN PVOID Address  OPTIONAL,
         }
       current_entry = current_entry->Flink;
     }
-
+    
   return KdbpSymFindUserModule(Address, Name, Index-Count, pInfo);
 }
 
@@ -241,16 +241,16 @@ KdbpSymFindModuleByIndex(IN INT Index,
 
 /*! \brief Print address...
  *
- * Tries to lookup line number, file name and function name for the given
+ * Tries to lookup line number, file name and function name for the given 
  * address and prints it.
  * If no such information is found the address is printed in the format
- * <module: offset>, otherwise the format will be
+ * <module: offset>, otherwise the format will be 
  * <module: offset (filename:linenumber (functionname))>
  *
  * \retval TRUE  Module containing \a Address was found, \a Address was printed.
  * \retval FALSE  No module containing \a Address was found, nothing was printed.
  */
-BOOLEAN
+BOOLEAN 
 KdbSymPrintAddress(IN PVOID Address)
 {
   KDB_MODULE_INFO Info;
@@ -325,7 +325,7 @@ KdbSymGetAddressInformation(IN PIMAGE_SYMBOL_INFO SymbolInfo,
     }
 #endif
 
-  ASSERT(LineNumber || FileName || FunctionName);
+  assert(LineNumber || FileName || FunctionName);
 
   if (LineNumber != NULL || FunctionName != NULL)
     {
@@ -335,14 +335,14 @@ KdbSymGetAddressInformation(IN PIMAGE_SYMBOL_INFO SymbolInfo,
         {
           DPRINT("No function stab entry found. RelativeAddress %p\n", RelativeAddress);
         }
-
+        
       if (LineNumber != NULL && FunctionEntry != NULL)
         {
           /* find stab entry for line number */
-          ULONG_PTR FunctionRelativeAddress = RelativeAddress - FunctionEntry->n_value;
+          ULONG_PTR FunctionRelativeAddress = FunctionEntry->n_value - (ULONG_PTR)SymbolInfo->ImageBase;
           ULONG_PTR AddrFound = 0;
           PSTAB_ENTRY NextLineEntry;
-
+          
           LineEntry = NextLineEntry = FunctionEntry;
           while (NextLineEntry != NULL)
             {
@@ -353,9 +353,9 @@ KdbSymGetAddressInformation(IN PIMAGE_SYMBOL_INFO SymbolInfo,
                 break;
               if (NextLineEntry->n_type != N_SLINE)
                 continue;
-
-              if ( NextLineEntry->n_value <= FunctionRelativeAddress
-                && NextLineEntry->n_value >= AddrFound )
+              
+              if (((NextLineEntry->n_value+FunctionRelativeAddress) <= RelativeAddress) &&
+                  (NextLineEntry->n_value > AddrFound))
                 {
                   AddrFound = NextLineEntry->n_value;
                   LineEntry = NextLineEntry;
@@ -363,13 +363,13 @@ KdbSymGetAddressInformation(IN PIMAGE_SYMBOL_INFO SymbolInfo,
             }
         }
     }
-
+  
   if (FileName != NULL)
     {
       /* find stab entry for file name */
       PCHAR p;
       INT Length;
-
+      
       FileEntry = KdbpStabFindEntry(SymbolInfo, N_SO, (PVOID)RelativeAddress, NULL);
       if (FileEntry != NULL)
         {
@@ -383,7 +383,7 @@ KdbSymGetAddressInformation(IN PIMAGE_SYMBOL_INFO SymbolInfo,
           DPRINT("No filename stab entry found. RelativeAddress %p\n", RelativeAddress);
         }
     }
-
+  
   if (((LineNumber   != NULL && LineEntry     == NULL) || LineNumber   == NULL) &&
       ((FileName     != NULL && FileEntry     == NULL) || FileName     == NULL) &&
       ((FunctionName != NULL && FunctionEntry == NULL) || FunctionName == NULL))
@@ -443,10 +443,10 @@ KdbpSymGetSourceAddress(IN PIMAGE_SYMBOL_INFO SymbolInfo,
   PCHAR SymbolName, p;
   CHAR Buffer[512] = "";
   INT Length, FileNameLength, FuncNameLength = 0;
-
+  
   if (FuncName == NULL && LineNumber < 1)
     return FALSE;
-
+  
   FileNameLength = strlen(FileName);
   FuncNameLength = strlen(FuncName);
   for (Entry = SymbolInfo->SymbolsBase;
@@ -467,7 +467,7 @@ KdbpSymGetSourceAddress(IN PIMAGE_SYMBOL_INFO SymbolInfo,
         }
       strncat(Buffer, SymbolName, sizeof (Buffer) - 1);
       Buffer[sizeof (Buffer) - 1] = '\0';
-
+      
       Length = strlen(Buffer);
       if (strcmp(Buffer + Length - FileNameLength, FileName) != 0)
         continue;
@@ -513,7 +513,7 @@ KdbpSymGetSourceAddress(IN PIMAGE_SYMBOL_INFO SymbolInfo,
         }
       break;
     }
-
+    
     return FALSE;
 }
 
@@ -574,18 +574,18 @@ KdbpSymAddCachedFile(IN PUNICODE_STRING FileName,
 		     IN PIMAGE_SYMBOL_INFO SymbolInfo)
 {
   PIMAGE_SYMBOL_INFO_CACHE CacheEntry;
-
+  
   DPRINT("Adding symbol file: FileBuffer = %p, ImageBase = %p\n",
          SymbolInfo->FileBuffer, SymbolInfo->ImageBase);
 
   /* allocate entry */
   CacheEntry = ExAllocatePool(NonPagedPool, sizeof (IMAGE_SYMBOL_INFO_CACHE));
-  ASSERT(CacheEntry);
+  assert(CacheEntry);
   RtlZeroMemory(CacheEntry, sizeof (IMAGE_SYMBOL_INFO_CACHE));
 
   /* fill entry */
   RtlCreateUnicodeString(&CacheEntry->FileName, FileName->Buffer);
-  ASSERT(CacheEntry->FileName.Buffer);
+  assert(CacheEntry->FileName.Buffer);
   CacheEntry->RefCount = 1;
   CacheEntry->FileBuffer = SymbolInfo->FileBuffer;
   CacheEntry->SymbolsBase = SymbolInfo->SymbolsBase;
@@ -621,7 +621,7 @@ KdbpSymRemoveCachedFile(IN PIMAGE_SYMBOL_INFO SymbolInfo)
 
       if (Current->FileBuffer == SymbolInfo->FileBuffer) /* found */
         {
-          ASSERT(Current->RefCount > 0);
+          assert(Current->RefCount > 0);
           Current->RefCount--;
           if (Current->RefCount < 1)
             {
@@ -639,6 +639,7 @@ KdbpSymRemoveCachedFile(IN PIMAGE_SYMBOL_INFO SymbolInfo)
   KeReleaseSpinLock(&SymbolFileListLock, Irql);
   DPRINT1("Warning: Removing unknown symbol file: FileBuffer = %p, ImageBase = %p\n",
           SymbolInfo->FileBuffer, SymbolInfo->ImageBase);
+  assert(0);
 }
 
 /*! \brief Loads a symbol file.
@@ -664,7 +665,7 @@ KdbpSymLoadModuleSymbols(IN PUNICODE_STRING FileName,
   IO_STATUS_BLOCK IoStatusBlock;
   PSYMBOLFILE_HEADER SymbolFileHeader;
   PIMAGE_SYMBOL_INFO_CACHE CachedSymbolFile;
-
+  
   /*  Get the path to the symbol store  */
   wcscpy(TmpFileName, L"\\SystemRoot\\symbols\\");
 
@@ -747,7 +748,7 @@ KdbpSymLoadModuleSymbols(IN PUNICODE_STRING FileName,
       ZwClose(FileHandle);
       return;
     }
-
+   
   /*  Load file into memory chunk  */
   Status = ZwReadFile(FileHandle,
                       0, 0, 0,
@@ -779,7 +780,7 @@ KdbpSymLoadModuleSymbols(IN PUNICODE_STRING FileName,
 
   DPRINT("Installed stabs: %wZ (%08x-%08x,%08x)\n",
 	 FileName,
-	 SymbolInfo->SymbolsBase,
+	 SymbolInfo->SymbolsBase, 
 	 SymbolInfo->SymbolsLength + SymbolInfo->SymbolsBase,
 	 SymbolInfo->SymbolStringsBase);
 }
@@ -795,8 +796,7 @@ KdbpSymUnloadModuleSymbols(IN PIMAGE_SYMBOL_INFO SymbolInfo)
 {
   DPRINT("Unloading symbols\n");
 
-  if (SymbolInfo != NULL && SymbolInfo->FileBuffer != NULL &&
-      (PVOID)SymbolInfo->ImageBase != NULL)
+  if (SymbolInfo != NULL && SymbolInfo->FileBuffer != NULL)
     {
       KdbpSymRemoveCachedFile(SymbolInfo);
       SymbolInfo->FileBuffer = NULL;
@@ -837,14 +837,14 @@ KdbSymFreeProcessSymbols(IN PEPROCESS Process)
   CurrentProcess = PsGetCurrentProcess();
   if (CurrentProcess != Process)
   {
-    KeAttachProcess(&Process->Pcb);
+    KeAttachProcess(Process);
   }
   Peb = Process->Peb;
-  ASSERT(Peb);
-  ASSERT(Peb->Ldr);
+  assert (Peb);
+  assert (Peb->Ldr);
 
   CurrentEntry = Peb->Ldr->InLoadOrderModuleList.Flink;
-  while (CurrentEntry != &Peb->Ldr->InLoadOrderModuleList &&
+  while (CurrentEntry != &Peb->Ldr->InLoadOrderModuleList && 
 	 CurrentEntry != NULL)
     {
       Current = CONTAINING_RECORD(CurrentEntry, LDR_MODULE, InLoadOrderModuleList);
@@ -871,11 +871,11 @@ KdbSymLoadDriverSymbols(IN PUNICODE_STRING Filename,
 {
   /* Load symbols for the image if available */
   DPRINT("Loading driver %wZ symbols (driver @ %08x)\n", Filename, Module->Base);
-
+  
   RtlZeroMemory(&Module->TextSection->SymbolInfo, sizeof (Module->TextSection->SymbolInfo));
   Module->TextSection->SymbolInfo.ImageBase = Module->TextSection->Base;
   Module->TextSection->SymbolInfo.ImageSize = Module->TextSection->Length;
-
+  
   KdbpSymLoadModuleSymbols(Filename, &Module->TextSection->SymbolInfo);
 }
 
@@ -893,7 +893,7 @@ KdbSymUnloadDriverSymbols(IN PMODULE_OBJECT ModuleObject)
 /*! \brief Called when a symbol file is loaded by the loader?
  *
  * Tries to find a driver (.sys) or executable (.exe) with the same base name
- * as the symbol file and sets the drivers/exes symbol info to the loaded
+ * as the symbol file and sets the drivers/exes symbol info to the loaded 
  * module.
  * Used to load ntoskrnl and hal symbols before the SystemRoot is available to us.
  *
@@ -925,13 +925,13 @@ KdbSymProcessSymbolFile(IN PVOID ModuleLoadBase,
     {
       *Extension = 0;
     }
-
+  
   DPRINT("base: %s (Length %d)\n", TmpBaseName, Length);
-
+  
   strcpy(TmpFileName, TmpBaseName);
   strcat(TmpFileName, ".sys");
   RtlInitAnsiString(&AnsiString, TmpFileName);
-
+  
   RtlAnsiStringToUnicodeString(&ModuleName, &AnsiString, TRUE);
   ModuleObject = LdrGetModuleObject(&ModuleName);
   RtlFreeUnicodeString(&ModuleName);
@@ -951,7 +951,7 @@ KdbSymProcessSymbolFile(IN PVOID ModuleLoadBase,
         {
           KdbpSymRemoveCachedFile(SymbolInfo);
         }
-
+      
       SymbolFileHeader = (PSYMBOLFILE_HEADER) ModuleLoadBase;
       SymbolInfo->FileBuffer = ModuleLoadBase;
       SymbolInfo->SymbolsBase = ModuleLoadBase + SymbolFileHeader->StabsOffset;
@@ -960,12 +960,11 @@ KdbSymProcessSymbolFile(IN PVOID ModuleLoadBase,
       SymbolInfo->SymbolStringsLength = SymbolFileHeader->StabstrLength;
       DPRINT("Installed stabs: %s@%08x-%08x (%08x-%08x,%08x)\n",
 	       FileName,
-	       ModuleObject->Base,
-	       ModuleObject->Length + ModuleObject->Base,
-	       SymbolInfo->SymbolsBase,
+	       ModuleObject->Base, ModuleObject->Length + ModuleObject->Base,
+	       SymbolInfo->SymbolsBase, 
 	       SymbolInfo->SymbolsLength + SymbolInfo->SymbolsBase,
 	       SymbolInfo->SymbolStringsBase);
-    }
+    } 
 }
 
 /*! \brief Initializes the KDB symbols implementation.

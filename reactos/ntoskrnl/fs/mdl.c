@@ -1,4 +1,4 @@
-/* $Id: mdl.c,v 1.9 2004/12/30 18:30:05 ion Exp $
+/* $Id: mdl.c,v 1.8 2004/08/15 16:39:02 chorns Exp $
  *
  * reactos/ntoskrnl/fs/mdl.c
  *
@@ -7,47 +7,44 @@
 #include <ntoskrnl.h>
 #include <internal/debug.h>
 
-extern ULONG CcFastReadResourceMiss;
-extern ULONG CcFastReadNoWait;
-
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadResourceMiss( VOID )
 {
-    CcFastReadResourceMiss++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadNotPossible( VOID )
 {
-    CcFastReadNotPossible++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadWait( VOID )
 {
-    CcFastReadWait++;
+  UNIMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 STDCALL
 FsRtlIncrementCcFastReadNoWait( VOID )
 {
-    CcFastReadNoWait++;
+  UNIMPLEMENTED;
 }
 
 

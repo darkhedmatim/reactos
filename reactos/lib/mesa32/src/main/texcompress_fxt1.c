@@ -295,9 +295,9 @@ const struct gl_texture_format _mesa_texformat_rgba_fxt1 = {
 
 typedef unsigned long long Fx64;
 
-#define FX64_MOV32(a, b) a = b
-#define FX64_OR32(a, b)  a |= b
-#define FX64_SHL(a, c)   a <<= c
+#define FX64_MOV32(a, b) a = b;
+#define FX64_OR32(a, b)  a |= b;
+#define FX64_SHL(a, c)   a <<= c;
 
 #else  /* !__GNUC__ */
 
@@ -323,6 +323,7 @@ typedef struct {
 
 #endif /* !__GNUC__ */
 
+#if 0 /* unused */
 
 static int
 fxt1_bestcol (float vec[][MAX_COMP], int nv,
@@ -367,6 +368,7 @@ fxt1_worst (float vec[MAX_COMP],
    return worst;
 }
 
+#endif /* unused */
 
 static int
 fxt1_variance (double variance[MAX_COMP],
@@ -397,6 +399,7 @@ fxt1_variance (double variance[MAX_COMP],
    return best;
 }
 
+#if 0 /* unused */
 
 static int
 fxt1_choose (float vec[][MAX_COMP], int nv,
@@ -685,6 +688,7 @@ fxt1_quantize_ALPHA0 (unsigned long *cc,
    cc[0] = lolo;
 }
 
+#endif /* unused */
 
 static void
 fxt1_quantize_ALPHA1 (unsigned long *cc,
@@ -875,6 +879,7 @@ fxt1_quantize_ALPHA1 (unsigned long *cc,
    ((Fx64 *)cc)[1] = hi;
 }
 
+#if 0 /* unused*/
 
 static void
 fxt1_quantize_HI (unsigned long *cc,
@@ -973,6 +978,7 @@ fxt1_quantize_HI (unsigned long *cc,
    }
 }
 
+#endif /* unused */
 
 static void
 fxt1_quantize_MIXED1 (unsigned long *cc,
@@ -1394,7 +1400,7 @@ fxt1_quantize (unsigned long *cc, const unsigned char *lines[], int comps)
       }
    }
 
-   /* block layout:
+   /* block looks like this:
     * 00, 01, 02, 03, 08, 09, 0a, 0b
     * 10, 11, 12, 13, 18, 19, 1a, 1b
     * 04, 05, 06, 07, 0c, 0d, 0e, 0f
@@ -1434,9 +1440,6 @@ fxt1_quantize (unsigned long *cc, const unsigned char *lines[], int comps)
    } else {
       fxt1_quantize_CHROMA(cc, input);
    }
-   (void)fxt1_quantize_ALPHA1;
-   (void)fxt1_quantize_MIXED1;
-   (void)fxt1_quantize_MIXED0;
 #else
    if (trualpha) {
       fxt1_quantize_ALPHA1(cc, input);
@@ -1448,9 +1451,6 @@ fxt1_quantize (unsigned long *cc, const unsigned char *lines[], int comps)
    } else {
       fxt1_quantize_MIXED0(cc, input);
    }
-   (void)fxt1_quantize_ALPHA0;
-   (void)fxt1_quantize_HI;
-   (void)fxt1_quantize_CHROMA;
 #endif
 }
 

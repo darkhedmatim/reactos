@@ -22,8 +22,6 @@ VOID ReferenceProviderByPointer(
     //EnterCriticalSection(&Provider->Lock);
     Provider->ReferenceCount++;
     //LeaveCriticalSection(&Provider->Lock);
-
-    WS_DbgPrint(MAX_TRACE, ("Leaving\n"));
 }
 
 

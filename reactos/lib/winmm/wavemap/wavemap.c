@@ -188,7 +188,7 @@ static	DWORD	wodOpen(LPDWORD lpdwUser, LPWAVEOPENDESC lpDesc, DWORD dwFlags)
 	}
     }
 
-    if ((dwFlags & WAVE_FORMAT_DIRECT) == 0 && lpDesc->lpFormat->wFormatTag == WAVE_FORMAT_PCM) {
+    if ((dwFlags & WAVE_FORMAT_DIRECT) == 0) {
         WAVEFORMATEX	wfx;
 
         wfx.wFormatTag = WAVE_FORMAT_PCM;

@@ -34,13 +34,12 @@
 #include "perfdata.h"
 
 
-INT_PTR CALLBACK    ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK    ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-WNDPROC             OldProcessListWndProc;
+LONG                OldProcessListWndProc;
 
 
-INT_PTR CALLBACK
-ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HBRUSH    hbrBackground;
     RECT    rcItem;
@@ -117,5 +116,5 @@ ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     /*
      * We pass on all messages except WM_ERASEBKGND
      */
-    return CallWindowProc(OldProcessListWndProc, hWnd, message, wParam, lParam);
+    return CallWindowProc((WNDPROC)OldProcessListWndProc, hWnd, message, wParam, lParam);
 }

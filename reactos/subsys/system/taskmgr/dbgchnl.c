@@ -249,7 +249,7 @@ static int enum_channel(HANDLE hProcess, EnumChannelCB ce, void* user, unsigned 
     struct dll_option_layout    dol;
     int                         i, j, ret = 1;
     void*                       buf_addr;
-    char                        buffer[32];
+    unsigned char               buffer[32];
     void*                       addr;
     const char**                cache = NULL;
     unsigned                    num_cache, used_cache;
@@ -397,7 +397,7 @@ static void DebugChannels_OnNotify(HWND hDlg, LPARAM lParam)
     }
 }
 
-static INT_PTR CALLBACK DebugChannelsDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK DebugChannelsDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
@@ -419,5 +419,5 @@ static INT_PTR CALLBACK DebugChannelsDlgProc(HWND hDlg, UINT message, WPARAM wPa
 
 void ProcessPage_OnDebugChannels(void)
 {
-    DialogBox(hInst, (LPCTSTR)IDD_DEBUG_CHANNELS_DIALOG, hMainWnd, DebugChannelsDlgProc);
+    DialogBox(hInst, (LPCTSTR)IDD_DEBUG_CHANNELS_DIALOG, hMainWnd, (DLGPROC)DebugChannelsDlgProc);
 }

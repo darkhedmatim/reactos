@@ -1,15 +1,9 @@
-/* $Id: interlck.c,v 1.10 2004/12/12 17:48:20 hbirr Exp $
+/* $Id: interlck.c,v 1.8 2004/08/15 16:39:01 chorns Exp $
  *
  * reactos/ntoskrnl/ex/i386/interlck.c
  *
  */
 #include <ntoskrnl.h>
-
-#ifdef MP
-#define	LOCK	"lock "
-#else
-#define LOCK	" "
-#endif
 
 #if defined(__GNUC__)
 
@@ -92,7 +86,7 @@ Exfi386InterlockedExchangeUlong(IN PULONG Target,
 
 __asm__("\n\t.global @Exfi386InterlockedExchangeUlong@8\n\t"
 	"@Exfi386InterlockedExchangeUlong@8:\n\t"
-	LOCK"xchgl %edx,(%ecx)\n\t"
+	"xchgl %edx,(%ecx)\n\t"
 	"movl  %edx,%eax\n\t"
 	"ret\n\t");
 
@@ -188,7 +182,7 @@ __asm__("\n\t.global _Exi386InterlockedExchangeUlong@8\n\t"
 	"_Exi386InterlockedExchangeUlong@8:\n\t"
 	"movl 4(%esp),%edx\n\t"
 	"movl 8(%esp),%eax\n\t"
-	LOCK"xchgl %eax,(%edx)\n\t"
+	"xchgl %eax,(%edx)\n\t"
 	"ret $8\n\t");
 
 #elif defined(_MSC_VER)
@@ -231,7 +225,7 @@ InterlockedIncrement(PLONG Addend);
 __asm__("\n\t.global @InterlockedIncrement@4\n\t"
 	"@InterlockedIncrement@4:\n\t"
 	"movl $1,%eax\n\t"
-	LOCK"xaddl %eax,(%ecx)\n\t"
+	"xaddl %eax,(%ecx)\n\t"
 	"incl %eax\n\t"
 	"ret\n\t");
 
@@ -268,7 +262,7 @@ InterlockedDecrement(PLONG Addend);
 __asm__("\n\t.global @InterlockedDecrement@4\n\t"
 	"@InterlockedDecrement@4:\n\t"
 	"movl $-1,%eax\n\t"
-	LOCK"xaddl %eax,(%ecx)\n\t"
+	"xaddl %eax,(%ecx)\n\t"
 	"decl %eax\n\t"
 	"ret\n\t");
 
@@ -307,7 +301,7 @@ InterlockedExchange(PLONG Target,
 
 __asm__("\n\t.global @InterlockedExchange@8\n\t"
 	"@InterlockedExchange@8:\n\t"
-	LOCK"xchgl %edx,(%ecx)\n\t"
+	"xchgl %edx,(%ecx)\n\t"
 	"movl  %edx,%eax\n\t"
 	"ret\n\t");
 
@@ -343,7 +337,7 @@ InterlockedExchangeAdd(PLONG Addend,
 
 __asm__("\n\t.global @InterlockedExchangeAdd@8\n\t"
 	"@InterlockedExchangeAdd@8:\n\t"
-	LOCK"xaddl %edx,(%ecx)\n\t"
+	"xaddl %edx,(%ecx)\n\t"
 	"movl %edx,%eax\n\t"
 	"ret\n\t");
 
@@ -380,7 +374,7 @@ InterlockedCompareExchange(PLONG Destination,
 __asm__("\n\t.global @InterlockedCompareExchange@12\n\t"
 	"@InterlockedCompareExchange@12:\n\t"
 	"movl 4(%esp),%eax\n\t"
-	LOCK"cmpxchg %edx,(%ecx)\n\t"
+	"cmpxchg %edx,(%ecx)\n\t"
 	"ret $4\n\t");
 
 #elif defined(_MSC_VER)
@@ -395,62 +389,6 @@ InterlockedCompareExchange(PLONG Destination,
 	__asm cmpxchg [ecx], edx
 	__asm ret 4
 }
-
-#else
-#error Unknown compiler for inline assembler
-#endif
-
-/**********************************************************************
- * FASTCALL: @InterlockedCompareExchange64@8
- */
-#if defined(__GNUC__)
-LONGLONG FASTCALL
-ExfpInterlockedExchange64(LONGLONG volatile * Destination,
-                         PLONGLONG Exchange);
-
-__asm__("\n\t.global @ExfpInterlockedExchange64@8\n\t"
-	"@ExfpInterlockedExchange64@8:\n\t"
-	"pushl %ebx\n\t"
-	"pushl %esi\n\t"
-	"movl %ecx,%esi\n\t"
-	"movl (%edx),%ebx\n\t"
-	"movl 4(%edx),%ecx\n\t"
-	"\n1:\t"
-	"movl (%esi),%eax\n\t"
-	"movl 4(%esi),%edx\n\t"
-	LOCK"cmpxchg8b (%esi)\n\t"
-	"jnz 1b\n\t"
-	"popl %esi\n\t"
-	"popl %ebx\n\t"
-	"ret\n\t");
-
-#else
-#error Unknown compiler for inline assembler
-#endif
-
-/**********************************************************************
- * FASTCALL: @ExfInterlockedCompareExchange@12
- */
-#if defined(__GNUC__)
-LONGLONG FASTCALL
-ExfInterlockedCompareExchange64(LONGLONG volatile * Destination,
-                                PLONGLONG Exchange,
-				PLONGLONG Comperand);
-
-__asm__("\n\t.global @ExfInterlockedCompareExchange64@12\n\t"
-	"@ExfInterlockedCompareExchange64@12:\n\t"
-	"pushl %ebx\n\t"
-	"pushl %esi\n\t"
-	"movl %ecx,%esi\n\t"
-	"movl (%edx),%ebx\n\t"
-	"movl 4(%edx),%ecx\n\t"
-	"movl 12(%esp),%edx\n\t"
-	"movl (%edx),%eax\n\t"
-	"movl 4(%edx),%edx\n\t"
-	LOCK"cmpxchg8b (%esi)\n\t"
-	"popl %esi\n\t"
-	"popl %ebx\n\t"
-	"ret  $4\n\t");
 
 #else
 #error Unknown compiler for inline assembler

@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: videoprt.h,v 1.13 2004/12/19 15:51:51 navaraf Exp $
+ * $Id: videoprt.h,v 1.10 2004/04/08 09:43:55 navaraf Exp $
  */
 
 #ifndef VIDEOPRT_H
@@ -33,16 +33,8 @@
 
 int swprintf(wchar_t *buf, const wchar_t *fmt, ...);
 int vsprintf(char *buf, const char *fmt, va_list args);
-
-BOOLEAN STDCALL
-HalDisableSystemInterrupt(ULONG Vector,
-  KIRQL Irql);
-  
-BOOLEAN STDCALL
-HalEnableSystemInterrupt(ULONG Vector,
-  KIRQL Irql,
-  KINTERRUPT_MODE InterruptMode);
-
+BOOLEAN STDCALL HalDisableSystemInterrupt(ULONG Vector, ULONG Unknown2);
+BOOLEAN STDCALL HalEnableSystemInterrupt(ULONG Vector, ULONG Unknown2, ULONG Unknown3);
 PIMAGE_NT_HEADERS STDCALL RtlImageNtHeader(IN PVOID BaseAddress);
 
 #define TAG_VIDEO_PORT  TAG('V', 'I', 'D', 'P')
@@ -51,12 +43,10 @@ typedef struct _VIDEO_PORT_ADDRESS_MAPPING
 {
    LIST_ENTRY List;
    PVOID MappedAddress;
-   PVOID MappedUserAddress;
    ULONG NumberOfUchars;
    PHYSICAL_ADDRESS IoAddress;
    ULONG SystemIoBusNumber;
    UINT MappingCount;
-   UINT UserMappingCount;
 } VIDEO_PORT_ADDRESS_MAPPING, *PVIDEO_PORT_ADDRESS_MAPPING;
 
 typedef struct _VIDEO_PORT_DRIVER_EXTENSION
@@ -70,7 +60,6 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
 {
    PDEVICE_OBJECT PhysicalDeviceObject;
    PDEVICE_OBJECT FunctionalDeviceObject;
-   PDEVICE_OBJECT NextDeviceObject;
    UNICODE_STRING RegistryPath;
    PKINTERRUPT InterruptObject;
    KSPIN_LOCK InterruptSpinLock;

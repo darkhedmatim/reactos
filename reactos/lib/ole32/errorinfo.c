@@ -30,10 +30,10 @@
 
 #include "windef.h"
 #include "winbase.h"
-#include "objbase.h"
 #include "oleauto.h"
 #include "winerror.h"
 
+#include "objbase.h"
 #include "wine/unicode.h"
 #include "compobj_private.h"
 
@@ -304,6 +304,7 @@ static HRESULT WINAPI IErrorInfoImpl_GetHelpContext(
 
 static IErrorInfoVtbl IErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   IErrorInfoImpl_QueryInterface,
   IErrorInfoImpl_AddRef,
   IErrorInfoImpl_Release,
@@ -358,7 +359,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetSource(
 	LPOLESTR szSource)
 {
 	_ICOM_THIS_From_ICreateErrorInfo(ErrorInfoImpl, iface);
-	TRACE("(%p): %s\n",This, debugstr_w(szSource));
+	TRACE("(%p)\n",This);
 	if (This->bstrSource != NULL)
 	    ERRORINFO_SysFreeString(This->bstrSource);
 	This->bstrSource = ERRORINFO_SysAllocString(szSource);
@@ -371,7 +372,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetDescription(
 	LPOLESTR szDescription)
 {
 	_ICOM_THIS_From_ICreateErrorInfo(ErrorInfoImpl, iface);
-	TRACE("(%p): %s\n",This, debugstr_w(szDescription));
+	TRACE("(%p)\n",This);
 	if (This->bstrDescription != NULL)
 	    ERRORINFO_SysFreeString(This->bstrDescription);
 	This->bstrDescription = ERRORINFO_SysAllocString(szDescription);
@@ -405,6 +406,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetHelpContext(
 
 static ICreateErrorInfoVtbl ICreateErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   ICreateErrorInfoImpl_QueryInterface,
   ICreateErrorInfoImpl_AddRef,
   ICreateErrorInfoImpl_Release,
@@ -455,6 +457,7 @@ static HRESULT WINAPI ISupportErrorInfoImpl_InterfaceSupportsErrorInfo(
 
 static ISupportErrorInfoVtbl ISupportErrorInfoImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   ISupportErrorInfoImpl_QueryInterface,
   ISupportErrorInfoImpl_AddRef,
   ISupportErrorInfoImpl_Release,

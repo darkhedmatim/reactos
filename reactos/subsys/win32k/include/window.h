@@ -129,7 +129,7 @@ typedef struct _WINDOW_OBJECT
   (hWnd == HWND_BROADCAST || hWnd == HWND_TOPMOST)
 
 #define IntGetWindowObject(hWnd) \
-  IntGetProcessWindowObject(PsGetWin32Thread(), hWnd)
+  IntGetProcessWindowObject(PsGetWin32Process(), hWnd)
 
 #define IntReferenceWindowObject(WndObj) \
   ObmReferenceObjectByPointer(WndObj, otWindow)
@@ -138,8 +138,8 @@ typedef struct _WINDOW_OBJECT
   ObmDereferenceObject(WndObj)
 
 #define IntWndBelongsToThread(WndObj, W32Thread) \
-  (((WndObj->OwnerThread && WndObj->OwnerThread->Tcb.Win32Thread)) && \
-   (WndObj->OwnerThread->Tcb.Win32Thread == W32Thread))
+  (((WndObj->OwnerThread && WndObj->OwnerThread->Win32Thread)) && \
+   (WndObj->OwnerThread->Win32Thread == W32Thread))
 
 #define IntGetWndThreadId(WndObj) \
   WndObj->OwnerThread->Cid.UniqueThread
@@ -161,7 +161,7 @@ typedef struct _WINDOW_OBJECT
 
 
 PWINDOW_OBJECT FASTCALL
-IntGetProcessWindowObject(PW32THREAD Thread, HWND hWnd);
+IntGetProcessWindowObject(PW32PROCESS ProcessData, HWND hWnd);
 
 BOOL FASTCALL
 IntIsWindow(HWND hWnd);
@@ -212,7 +212,7 @@ BOOL FASTCALL
 IntGetWindowInfo(PWINDOW_OBJECT WindowObject, PWINDOWINFO pwi);
 
 VOID FASTCALL
-IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, UINT *cx, UINT *cy);
+IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, INT *cx, INT *cy);
 
 BOOL FASTCALL
 IntAnyPopup(VOID);

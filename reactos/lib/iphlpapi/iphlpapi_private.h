@@ -102,12 +102,12 @@ NTSTATUS tdiGetIpAddrsForIpEntity( HANDLE tcpFile, TDIEntityID *ent,
 
 int GetLongestChildKeyName( HANDLE RegHandle );
 LONG OpenChildKeyRead( HANDLE RegHandle,
-		       PWCHAR ChildKeyName,
+		       PCHAR ChildKeyName,
 		       PHKEY ReturnHandle );
-PWCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n );
-void ConsumeChildKeyName( PWCHAR Name );
-PWCHAR QueryRegistryValueString( HANDLE RegHandle, PWCHAR ValueName );
-void ConsumeRegValueString( PWCHAR NameServer );
+PCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n );
+void ConsumeChildKeyName( PCHAR Name );
+PCHAR QueryRegistryValueString( HANDLE RegHandle, PCHAR ValueName );
+void ConsumeRegValueString( PCHAR NameServer );
 
 #include <w32api.h>
 /* This is here until we switch to version 2.5 of the mingw headers */

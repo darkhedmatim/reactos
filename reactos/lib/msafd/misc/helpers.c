@@ -92,7 +92,6 @@ SockGetTdiName(
     for (Transport = Transports; 
          *Transports != 0; 
          Transport += wcslen(Transport) + 1) {
-	AFD_DbgPrint(MID_TRACE, ("Transport: %S\n", Transports));
 
         /* See what mapping this Transport supports */
         Status = SockLoadTransportMapping(Transport, &Mapping);
@@ -142,9 +141,8 @@ SockGetTdiName(
 
             /* Return the Helper Pointers */
             *HelperDllData = HelperData;
-	    /* We actually cache these ... the can't be freed yet */
-            /*HeapFree(GlobalHeap, 0, Transports);*/
-            /*HeapFree(GlobalHeap, 0, Mapping);*/
+            HeapFree(GlobalHeap, 0, Transports);
+            HeapFree(GlobalHeap, 0, Mapping);
             return NO_ERROR;
         }
         

@@ -42,15 +42,9 @@
 #define TAG_PRINT	TAG('P', 'R', 'N', 'T') /* print */
 #define TAG_REGION	TAG('R', 'G', 'N', 'O') /* region */
 #define TAG_GDITEXT	TAG('T', 'X', 'T', 'O') /* text */
-
-/* Eng objects */
-#define TAG_CLIPOBJ	TAG('C', 'L', 'P', 'O') /* clip object */
-#define TAG_XLATEOBJ	TAG('X', 'L', 'A', 'O') /* xlate object */
-#define TAG_FONT	TAG('F', 'N', 'T', 'E') /* font entry */
-#define TAG_FONTOBJ	TAG('F', 'N', 'T', 'O') /* font object */
+#define TAG_FONT	TAG('F', 'N', 'T', 'O') /* font entry */
 
 /* misc */
-#define TAG_DRIVER	TAG('G', 'D', 'R', 'V') /* video drivers */
-#define TAG_FNTFILE	TAG('F', 'N', 'T', 'F') /* font file */
+#define TAG_DRIVER  TAG('G', 'D', 'R', 'V') /* video drivers */
 
 #endif /* _WIN32K_TAGS_H */

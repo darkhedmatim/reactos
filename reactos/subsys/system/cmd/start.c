@@ -8,9 +8,14 @@
  *        Started.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_START
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
 
 
 INT cmd_start (LPTSTR first, LPTSTR rest)

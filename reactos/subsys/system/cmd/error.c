@@ -17,7 +17,12 @@
  *        Use FormatMessage() for error reports.
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <tchar.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 
 #define INVALID_SWITCH		_T("Invalid switch - /%c\n")

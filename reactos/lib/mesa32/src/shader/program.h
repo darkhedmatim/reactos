@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.2
+ * Version:  5.1
  *
- * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,14 +29,6 @@
  */
 
 
-/**
- * \mainpage Mesa vertex and fragment program module
- *
- * This module or directory contains most of the code for vertex and
- * fragment programs and shaders, including state management, parsers,
- * and (some) software routines for executing programs
- */
-
 #ifndef PROGRAM_H
 #define PROGRAM_H
 
@@ -50,9 +42,6 @@
 #define SWIZZLE_W    3
 #define SWIZZLE_ZERO 4		/* keep these values together: KW */
 #define SWIZZLE_ONE  5		/* keep these values together: KW */
-
-
-extern struct program _mesa_DummyProgram;
 
 
 /*

@@ -43,9 +43,8 @@ ExUuidCreate(
 	UNIMPLEMENTED;
 	return FALSE;
 }
-
 /*
- * @implemented
+ * @unimplemented
  */
 STDCALL
 BOOLEAN
@@ -53,8 +52,8 @@ ExVerifySuite(
     SUITE_TYPE SuiteType
     )
 {
-    if (SuiteType == Personal) return TRUE;
-    return FALSE;
+	UNIMPLEMENTED;
+	return FALSE;
 }
 
 /* EOF */

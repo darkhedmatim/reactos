@@ -13,13 +13,6 @@
 #include "ndissys.h"
 #include <buffer.h>
 
-VOID
-EXPORT
-NdisMSendComplete(
-    IN  NDIS_HANDLE     MiniportAdapterHandle,
-    IN  PNDIS_PACKET    Packet,
-    IN  NDIS_STATUS     Status);
-
 #define SERVICES_KEY L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\"
 #define LINKAGE_KEY  L"\\Linkage"
 #define PARAMETERS_KEY L"\\Parameters\\"
@@ -86,7 +79,7 @@ ProIndicatePacket(
   KeAcquireSpinLock(&Adapter->NdisMiniportBlock.Lock, &OldIrql);
     {
       Adapter->LoopPacket = Packet;
-      BufferedLength = CopyPacketToBuffer(Adapter->LookaheadBuffer, Packet, 0, Adapter->NdisMiniportBlock.CurrentLookahead);
+      BufferedLength = CopyPacketToBuffer(Adapter->LookaheadBuffer, Packet, 0, Adapter->CurLookaheadLength);
     }
   KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
 
@@ -154,15 +147,13 @@ ProRequest(
           Adapter->MiniportBusy = TRUE;
         }
     }
+  KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
 
-  /* MiniQueueWorkItem must be called at IRQL >= DISPATCH_LEVEL */
   if (QueueWorkItem) 
     {
-      MiniQueueWorkItem(Adapter, NdisWorkItemRequest, (PVOID)NdisRequest);
+      MiniQueueWorkItem(Adapter, NdisWorkItemRequest, (PVOID)NdisRequest, (NDIS_HANDLE)AdapterBinding);
       return NDIS_STATUS_PENDING;
     } 
-
-  KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
 
   /* MiniportQueryInformation (called by MiniDoRequest) runs at DISPATCH_LEVEL */
   /* TODO (?): move the irql raise into MiniDoRequest */
@@ -277,7 +268,7 @@ ProSend(
 
       if (QueueWorkItem) 
         {
-          MiniQueueWorkItem(Adapter, NdisWorkItemSendLoopback, (PVOID)Packet);
+          MiniQueueWorkItem(Adapter, NdisWorkItemSendLoopback, (PVOID)Packet, (NDIS_HANDLE)AdapterBinding);
           return NDIS_STATUS_PENDING;
         }
 
@@ -314,7 +305,7 @@ ProSend(
   /* This is a normal send packet, not a loopback packet. */
   if (QueueWorkItem) 
     {
-      MiniQueueWorkItem(Adapter, NdisWorkItemSend, (PVOID)Packet);
+      MiniQueueWorkItem(Adapter, NdisWorkItemSend, (PVOID)Packet, (NDIS_HANDLE)AdapterBinding);
       NDIS_DbgPrint(MAX_TRACE, ("Queued a work item and returning\n"));
       return NDIS_STATUS_PENDING;
     }
@@ -355,7 +346,7 @@ ProSend(
       if(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_DESERIALIZE)
         {
           NDIS_DbgPrint(MAX_TRACE, ("Calling miniport's Send handler\n"));
-          NdisStatus = (*Adapter->Miniport->Chars.SendHandler)(Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
+          NdisStatus = (*Adapter->Miniport->Chars.u1.SendHandler)(Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
           NDIS_DbgPrint(MAX_TRACE, ("back from miniport's send handler\n"));
         }
       else
@@ -364,15 +355,13 @@ ProSend(
           KeRaiseIrql(DISPATCH_LEVEL, &RaiseOldIrql);
 
           NDIS_DbgPrint(MAX_TRACE, ("Calling miniport's Send handler\n"));
-          NdisStatus = (*Adapter->Miniport->Chars.SendHandler)(Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
+          NdisStatus = (*Adapter->Miniport->Chars.u1.SendHandler)(Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
           NDIS_DbgPrint(MAX_TRACE, ("back from miniport's send handler\n"));
-	  if( NdisStatus != NDIS_STATUS_PENDING ) {
-	      Adapter->MiniportBusy = FALSE;
-	  }
+
           KeLowerIrql(RaiseOldIrql);
         }
     }
-  
+
   /* XXX why the hell do we do this? */
   NDIS_DbgPrint(MAX_TRACE, ("acquiring miniport block lock\n"));
   KeAcquireSpinLock(&Adapter->NdisMiniportBlock.Lock, &SpinOldIrql);
@@ -406,7 +395,7 @@ ProTransferData(
     IN  NDIS_HANDLE         MacReceiveContext,
     IN  UINT                ByteOffset,
     IN  UINT                BytesToTransfer,
-    IN  OUT PNDIS_PACKET    Packet,
+    IN  OUT	PNDIS_PACKET    Packet,
     OUT PUINT               BytesTransferred)
 /*
  * FUNCTION: Forwards a request to copy received data into a protocol-supplied packet
@@ -439,7 +428,7 @@ ProTransferData(
         return NDIS_STATUS_SUCCESS;
     }
 
-    return (*Adapter->Miniport->Chars.TransferDataHandler)(
+    return (*Adapter->Miniport->Chars.u2.TransferDataHandler)(
         Packet,
         BytesTransferred,
         Adapter->NdisMiniportBlock.MiniportAdapterContext,
@@ -609,18 +598,18 @@ NdisOpenAdapter(
 
   AdapterBinding->ProtocolBinding        = Protocol;
   AdapterBinding->Adapter                = Adapter;
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.ProtocolBindingContext = ProtocolBindingContext;
+  AdapterBinding->NdisOpenBlock.ProtocolBindingContext = ProtocolBindingContext;
 
   /* Set fields required by some NDIS macros */
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.BindingHandle = (NDIS_HANDLE)AdapterBinding;
+  AdapterBinding->NdisOpenBlock.MacBindingHandle = (NDIS_HANDLE)AdapterBinding;
     
   /* Set handlers (some NDIS macros require these) */
 
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.RequestHandler      = ProRequest;
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.ResetHandler        = ProReset;
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.SendHandler         = ProSend;
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.SendPacketsHandler  = ProSendPackets;
-  AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.TransferDataHandler = ProTransferData;
+  AdapterBinding->NdisOpenBlock.RequestHandler      = ProRequest;
+  AdapterBinding->NdisOpenBlock.ResetHandler        = ProReset;
+  AdapterBinding->NdisOpenBlock.u1.SendHandler      = ProSend;
+  AdapterBinding->NdisOpenBlock.SendPacketsHandler  = ProSendPackets;
+  AdapterBinding->NdisOpenBlock.TransferDataHandler = ProTransferData;
 
 #if 0
   /* XXX this looks fishy */
@@ -672,7 +661,7 @@ NdisRegisterProtocol(
   UINT MinSize;
   HANDLE DriverKeyHandle = NULL;
   PKEY_VALUE_PARTIAL_INFORMATION KeyInformation = NULL;
-  WCHAR *DataPtr;
+  UINT DataOffset = 0;
 
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
@@ -682,15 +671,15 @@ NdisRegisterProtocol(
     case 0x03:	
       /* we don't really want to support ndis3 drivers - so we complain for now */
       NDIS_DbgPrint(MID_TRACE, ("NDIS 3 protocol attempting to register\n"));
-      MinSize = sizeof(NDIS30_PROTOCOL_CHARACTERISTICS);
+      MinSize = sizeof(NDIS30_PROTOCOL_CHARACTERISTICS_S);
       break;
 
     case 0x04:
-      MinSize = sizeof(NDIS40_PROTOCOL_CHARACTERISTICS);
+      MinSize = sizeof(NDIS40_PROTOCOL_CHARACTERISTICS_S);
       break;
 
     case 0x05:
-      MinSize = sizeof(NDIS50_PROTOCOL_CHARACTERISTICS);
+      MinSize = sizeof(NDIS50_PROTOCOL_CHARACTERISTICS_S);
       break;
 
     default:
@@ -745,7 +734,7 @@ NdisRegisterProtocol(
     UNICODE_STRING RegistryPath;
     WCHAR *RegistryPathStr;
 
-    RegistryPathStr = ExAllocatePoolWithTag(PagedPool, sizeof(SERVICES_KEY) + ProtocolCharacteristics->Name.Length + sizeof(LINKAGE_KEY), NDIS_TAG + __LINE__);
+    RegistryPathStr = ExAllocatePool(PagedPool, sizeof(SERVICES_KEY) + ProtocolCharacteristics->Name.Length + sizeof(LINKAGE_KEY));
     if(!RegistryPathStr)
       {
         NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -794,7 +783,7 @@ NdisRegisterProtocol(
         return;
       }
 
-    KeyInformation = ExAllocatePoolWithTag(PagedPool, sizeof(KEY_VALUE_PARTIAL_INFORMATION) + ResultLength, NDIS_TAG + __LINE__);
+    KeyInformation = ExAllocatePool(PagedPool, sizeof(KEY_VALUE_PARTIAL_INFORMATION) + ResultLength);
     if(!KeyInformation)
       {
         NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -818,9 +807,8 @@ NdisRegisterProtocol(
       }
   }
 
-  for (DataPtr = (WCHAR *)KeyInformation->Data;
-       *DataPtr != 0;
-       DataPtr += wcslen(DataPtr) + 1)
+  DataOffset = 0;
+  while((KeyInformation->Data)[DataOffset])
     {
       /* BindContext is for tracking pending binding operations */
       VOID *BindContext = 0;
@@ -829,7 +817,7 @@ NdisRegisterProtocol(
       WCHAR *RegistryPathStr = NULL;
       ULONG PathLength = 0;
 
-      RtlInitUnicodeString(&DeviceName, DataPtr);	/* we know this is 0-term */
+      RtlInitUnicodeString(&DeviceName, (WCHAR *)KeyInformation->Data);	/* we know this is 0-term */
 
       /*
        * RegistryPath should be:
@@ -840,9 +828,9 @@ NdisRegisterProtocol(
        */
 
       PathLength = sizeof(SERVICES_KEY) +                               /* \Registry\Machine\System\CurrentControlSet\Services\ */
-          wcslen( DataPtr + 8 ) * sizeof(WCHAR) + /* Adapter1  (extracted from \Device\Adapter1)          */
+          wcslen( ((WCHAR *)KeyInformation->Data)+8 ) * sizeof(WCHAR) + /* Adapter1  (extracted from \Device\Adapter1)          */
           sizeof(PARAMETERS_KEY) +                                      /* \Parameters\                                         */
-          ProtocolCharacteristics->Name.Length + sizeof(WCHAR);                         /* Tcpip                                                */
+          ProtocolCharacteristics->Name.Length;                         /* Tcpip                                                */
 
       RegistryPathStr = ExAllocatePool(PagedPool, PathLength);
       if(!RegistryPathStr)
@@ -865,7 +853,7 @@ NdisRegisterProtocol(
 
       NDIS_DbgPrint(MAX_TRACE, ("Calling protocol's BindAdapter handler with DeviceName %wZ and RegistryPath %wZ\n",
           &DeviceName, &RegistryPath));
-      
+
       /* XXX SD must do something with bind context */
       *NdisProtocolHandle = Protocol;
 
@@ -893,6 +881,8 @@ NdisRegisterProtocol(
           // what to do here?
         }
        */
+
+      DataOffset += wcslen((WCHAR *)KeyInformation->Data);
     }
 
   *Status             = NDIS_STATUS_SUCCESS;

@@ -31,15 +31,15 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Daniel Borca <dborca@yahoo.com>
  */
 
-#if defined (__DJGPP__) || defined (__MINGW32__) || defined (__CYGWIN__)
+#if defined (__DJGPP__) || defined (__MINGW32__)
 #define GLOBL( x )	\
 .globl _##x;		\
 _##x:
-#else  /* !defined (__DJGPP__) && !defined (__MINGW32__) && !defined (__CYGWIN__) */
+#else  /* !defined (__DJGPP__) && !defined (__MINGW32__) */
 #define GLOBL( x )	\
 .globl x;		\
 x:
-#endif /* !defined (__DJGPP__) && !defined (__MINGW32__) && !defined (__CYGWIN__) */
+#endif /* !defined (__DJGPP__) && !defined (__MINGW32__) */
 
 
 #if !defined (STDCALL_API)

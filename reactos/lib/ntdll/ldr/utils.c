@@ -1,4 +1,4 @@
-/* $Id: utils.c,v 1.104 2004/12/25 11:18:51 navaraf Exp $
+/* $Id: utils.c,v 1.99 2004/07/14 02:40:45 navaraf Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -68,7 +68,7 @@ static VOID LdrpDetachProcess(BOOL UnloadAll);
 
 /* FUNCTIONS *****************************************************************/
 
-#if defined(DBG) || defined(KDBG)
+#ifdef KDBG
 
 VOID
 LdrpLoadUserModuleSymbols(PLDR_MODULE LdrModule)
@@ -82,7 +82,7 @@ LdrpLoadUserModuleSymbols(PLDR_MODULE LdrModule)
     NULL);
 }
 
-#endif /* DBG || KDBG */
+#endif /* DBG */
 
 static inline LONG LdrpDecrementLoadCount(PLDR_MODULE Module, BOOL Locked)
 {
@@ -974,7 +974,7 @@ LdrFixupForward(PCHAR ForwardName)
 
         DPRINT("BaseAddress: %p\n", Module->BaseAddress);
 
-        return LdrGetExportByName(Module->BaseAddress, (PUCHAR)(p+1), -1);
+        return LdrGetExportByName(Module->BaseAddress, p+1, -1);
      }
 
    return NULL;
@@ -1110,7 +1110,7 @@ LdrGetExportByName(PVOID BaseAddress,
    if (Hint < ExportDir->NumberOfNames)
      {
         ExName = RVA(BaseAddress, ExNames[Hint]);
-        if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+        if (strcmp(ExName, SymbolName) == 0)
           {
              Ordinal = ExOrdinals[Hint];
              Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1143,7 +1143,7 @@ LdrGetExportByName(PVOID BaseAddress,
         mid = (minn + maxn) / 2;
 
         ExName = RVA(BaseAddress, ExNames[mid]);
-        res = strcmp(ExName, (PCHAR)SymbolName);
+        res = strcmp(ExName, SymbolName);
         if (res == 0)
           {
              Ordinal = ExOrdinals[mid];
@@ -1184,7 +1184,7 @@ LdrGetExportByName(PVOID BaseAddress,
    for (i = 0; i < ExportDir->NumberOfNames; i++)
      {
         ExName = RVA(BaseAddress, ExNames[i]);
-        if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+        if (strcmp(ExName,SymbolName) == 0)
           {
              Ordinal = ExOrdinals[i];
              Function = RVA(BaseAddress, ExFunctions[Ordinal]);
@@ -1504,7 +1504,7 @@ LdrpProcessImportDirectory(
 static NTSTATUS
 LdrpAdjustImportDirectory(PLDR_MODULE Module,
                           PLDR_MODULE ImportedModule,
-                          PCHAR ImportedName)
+                          PUCHAR ImportedName)
 {
    PIMAGE_IMPORT_MODULE_DIRECTORY ImportModuleDirectory;
    NTSTATUS Status;
@@ -1535,7 +1535,7 @@ LdrpAdjustImportDirectory(PLDR_MODULE Module,
    while (ImportModuleDirectory->dwRVAModuleName)
      {
        Name = (PCHAR)Module->BaseAddress + ImportModuleDirectory->dwRVAModuleName;
-       if (0 == _stricmp(Name, (PCHAR)ImportedName))
+       if (0 == _stricmp(Name, ImportedName))
          {
 
            /* Get the import address list. */
@@ -1727,7 +1727,7 @@ LdrFixupImports(IN PWSTR SearchPath OPTIONAL,
                    PIMAGE_BOUND_FORWARDER_REF BoundForwarderRef;
                    ULONG i;
                    PLDR_MODULE ForwarderModule;
-                   PCHAR ForwarderName;
+                   PUCHAR ForwarderName;
 
                    BoundForwarderRef = (PIMAGE_BOUND_FORWARDER_REF)(BoundImportDescriptorCurrent + 1);
                    for (i = 0; i < BoundImportDescriptorCurrent->NumberOfModuleForwarderRefs; i++, BoundForwarderRef++)
@@ -2017,6 +2017,7 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
           {
             DPRINT1("Failed to create or open dll section of '%wZ' (Status %lx)\n", &AdjustedName, Status);
             RtlFreeUnicodeString(&AdjustedName);
+            RtlFreeUnicodeString(&FullDosName);
             return Status;
           }
         RtlFreeUnicodeString(&AdjustedName);
@@ -2084,9 +2085,9 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             DPRINT1("LdrFixupImports failed for %wZ, status=%x\n", &(*Module)->BaseDllName, Status);
             return Status;
           }
-#if defined(DBG) || defined(KDBG)
+#ifdef KDBG
         LdrpLoadUserModuleSymbols(*Module);
-#endif /* DBG || KDBG */
+#endif
         RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
         InsertTailList(&NtCurrentPeb()->Ldr->InInitializationOrderModuleList,
                        &(*Module)->InInitializationOrderModuleList);
@@ -2319,7 +2320,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
    if (Name && Name->Length)
      {
        /* by name */
-       *ProcedureAddress = LdrGetExportByName(BaseAddress, (PUCHAR)Name->Buffer, 0xffff);
+       *ProcedureAddress = LdrGetExportByName(BaseAddress, Name->Buffer, 0xffff);
        if (*ProcedureAddress != NULL)
          {
            return STATUS_SUCCESS;
@@ -2414,7 +2415,7 @@ LdrpDetachProcess(BOOL UnloadAll)
                ((UnloadAll && Module->LoadCount >= 0) || Module->LoadCount == 0))
              {
                /* remove the module entry from the list */
-               RemoveEntryList (&Module->InLoadOrderModuleList);
+               RemoveEntryList (&Module->InLoadOrderModuleList)
                RemoveEntryList (&Module->InInitializationOrderModuleList);
 
                NtUnmapViewOfSection (NtCurrentProcess (), Module->BaseAddress);
@@ -2628,7 +2629,7 @@ LdrQueryProcessModuleInformation(IN PMODULE_INFORMATION ModuleInformation OPTION
   PLIST_ENTRY ModuleListHead;
   PLIST_ENTRY Entry;
   PLDR_MODULE Module;
-  PDEBUG_MODULE_INFORMATION ModulePtr = NULL;
+  PMODULE_ENTRY ModulePtr = NULL;
   NTSTATUS Status = STATUS_SUCCESS;
   ULONG UsedSize = sizeof(ULONG);
   ANSI_STRING AnsiString;
@@ -2665,30 +2666,31 @@ LdrQueryProcessModuleInformation(IN PMODULE_INFORMATION ModuleInformation OPTION
         }
       else if (ModuleInformation != NULL)
         {
-          ModulePtr->Reserved[0] = ModulePtr->Reserved[1] = 0;      // FIXME: ??
-          ModulePtr->Base = Module->BaseAddress;
-          ModulePtr->Size = Module->SizeOfImage;
+          ModulePtr->Unknown0 = 0;      // FIXME: ??
+          ModulePtr->Unknown1 = 0;      // FIXME: ??
+          ModulePtr->BaseAddress = Module->BaseAddress;
+          ModulePtr->SizeOfImage = Module->SizeOfImage;
           ModulePtr->Flags = Module->Flags;
-          ModulePtr->Index = 0;      // FIXME: index ??
-          ModulePtr->Unknown = 0;      // FIXME: ??
+          ModulePtr->Unknown2 = 0;      // FIXME: load order index ??
+          ModulePtr->Unknown3 = 0;      // FIXME: ??
           ModulePtr->LoadCount = Module->LoadCount;
 
           AnsiString.Length = 0;
           AnsiString.MaximumLength = 256;
-          AnsiString.Buffer = ModulePtr->ImageName;
+          AnsiString.Buffer = ModulePtr->ModuleName;
           RtlUnicodeStringToAnsiString(&AnsiString,
                                        &Module->FullDllName,
                                        FALSE);
-          p = strrchr(ModulePtr->ImageName, '\\');
+          p = strrchr(ModulePtr->ModuleName, '\\');
           if (p != NULL)
-            ModulePtr->ModuleNameOffset = p - ModulePtr->ImageName + 1;
+            ModulePtr->PathLength = p - ModulePtr->ModuleName + 1;
           else
-            ModulePtr->ModuleNameOffset = 0;
+            ModulePtr->PathLength = 0;
 
           ModulePtr++;
           ModuleInformation->ModuleCount++;
         }
-      UsedSize += sizeof(DEBUG_MODULE_INFORMATION);
+      UsedSize += sizeof(MODULE_ENTRY);
 
       Entry = Entry->Flink;
     }

@@ -1,4 +1,4 @@
-/* $Id: kd.h,v 1.29 2004/12/09 14:20:06 royce Exp $
+/* $Id: kd.h,v 1.27 2004/08/26 16:04:50 blight Exp $
  *
  * kernel debugger prototypes
  */
@@ -8,7 +8,6 @@
 
 #include <internal/ke.h>
 #include <internal/ldr.h>
-#include <ntdll/ldr.h>
 
 #define KD_DEBUG_DISABLED	0x00
 #define KD_DEBUG_GDB		0x01
@@ -108,7 +107,7 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
 VOID KdInitializeMda(VOID);
 VOID KdPrintMda(PCH pch);
 
-#if !defined(KDBG) && !defined(DBG)
+#ifndef KDBG
 # define KDB_LOADUSERMODULE_HOOK(LDRMOD) do { } while (0)
 # define KDB_DELETEPROCESS_HOOK(PROCESS) do { } while (0)
 # define KDB_LOADDRIVER_HOOK(FILENAME, MODULE) do { } while (0)
@@ -155,12 +154,10 @@ KdbSymPrintAddress(IN PVOID Address);
 
 KD_CONTINUE_TYPE
 KdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
-			  KPROCESSOR_MODE PreviousMode,
                           PCONTEXT Context,
-                          PKTRAP_FRAME TrapFrame,
-			  BOOLEAN HandleAlways);
+                          PKTRAP_FRAME TrapFrame);
 
-#endif /* KDBG || DBG */
+#endif /* KDBG */
 
 VOID
 DebugLogDumpMessages(VOID);

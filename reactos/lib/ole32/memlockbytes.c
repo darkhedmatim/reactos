@@ -25,10 +25,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -144,6 +142,7 @@ HRESULT WINAPI HGLOBALLockBytesImpl_Stat(
  */
 static ILockBytesVtbl HGLOBALLockBytesImpl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     HGLOBALLockBytesImpl_QueryInterface,
     HGLOBALLockBytesImpl_AddRef,
     HGLOBALLockBytesImpl_Release,
@@ -353,7 +352,10 @@ HRESULT WINAPI HGLOBALLockBytesImpl_QueryInterface(
 ULONG WINAPI HGLOBALLockBytesImpl_AddRef(ILockBytes* iface)
 {
   HGLOBALLockBytesImpl* const This=(HGLOBALLockBytesImpl*)iface;
-  return InterlockedIncrement(&This->ref);
+
+  This->ref++;
+
+  return This->ref;
 }
 
 /******************************************************************************
@@ -363,19 +365,22 @@ ULONG WINAPI HGLOBALLockBytesImpl_AddRef(ILockBytes* iface)
 ULONG WINAPI HGLOBALLockBytesImpl_Release(ILockBytes* iface)
 {
   HGLOBALLockBytesImpl* const This=(HGLOBALLockBytesImpl*)iface;
-  ULONG ref;
 
-  ref = InterlockedDecrement(&This->ref);
+  ULONG newRef;
+
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0)
+  if (newRef==0)
   {
     HGLOBALLockBytesImpl_Destroy(This);
   }
 
-  return ref;
+  return newRef;
 }
 
 /******************************************************************************

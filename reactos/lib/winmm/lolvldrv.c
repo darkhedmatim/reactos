@@ -85,7 +85,7 @@ void    MMDRV_InstallMap(unsigned int drv,
     llTypes[drv].Map16To32A   = mp1632;
     llTypes[drv].UnMap16To32A = um1632;
     llTypes[drv].Map32ATo16   = mp3216;
-    llTypes[drv].UnMap32ATo16 = um3216;
+    llTypes[drv].UnMap32ATo16 = um1632;
     llTypes[drv].Callback     = cb;
 }
 
@@ -510,9 +510,12 @@ UINT	MMDRV_PhysicalFeatures(LPWINE_MLD mld, UINT uMsg, DWORD dwParam1,
     case DRV_QUERYDEVICEINTERFACESIZE:
         return MMDRV_Message(mld, uMsg, dwParam1, dwParam2, TRUE);
 
+#ifdef __WINESRC__
     case DRV_QUERYDSOUNDIFACE: /* Wine-specific: Retrieve DirectSound interface */
     case DRV_QUERYDSOUNDDESC: /* Wine-specific: Retrieve DirectSound driver description*/
+    case DRV_QUERYDSOUNDGUID: /* Wine-specific: Retrieve DirectSound driver GUID */
 	return MMDRV_Message(mld, uMsg, dwParam1, dwParam2, TRUE);
+#endif
 
     default:
 	WARN("Unknown call %04x\n", uMsg);
@@ -561,9 +564,6 @@ static  BOOL	MMDRV_InitPerType(LPWINE_MM_DRIVER lpDrv, UINT type, UINT wMsg)
     }
 
     TRACE("Got %u dev for (%s:%s)\n", count, lpDrv->drvname, llTypes[type].typestr);
-    
-    if (HIWORD(count))
-        return FALSE;
 
     /* got some drivers */
     if (lpDrv->bIsMapper) {

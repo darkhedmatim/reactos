@@ -1,4 +1,4 @@
-/* $Id: psfuncs.h,v 1.33 2004/09/22 14:53:26 weiden Exp $
+/* $Id: psfuncs.h,v 1.32 2004/08/12 06:04:21 ion Exp $
  */
 #ifndef _INCLUDE_DDK_PSFUNCS_H
 #define _INCLUDE_DDK_PSFUNCS_H
@@ -118,17 +118,17 @@ STDCALL PsGetCurrentThreadStackLimit (
 
 PVOID
 STDCALL PsGetJobLock(
-    PEJOB	Job
+    PVOID */*PEJOB*/	Job
 	);
 
 PVOID
 STDCALL PsGetJobSessionId(
-    PEJOB	Job
+    PVOID /*PEJOB*/	Job
 	);
 
 ULONG
 STDCALL PsGetJobUIRestrictionsClass(
-   	PEJOB	Job
+   	PVOID /*PEJOB*/	Job
 	);
 
 LONGLONG
@@ -167,7 +167,7 @@ STDCALL PsGetProcessInheritedFromUniqueProcessId(
     	PEPROCESS	Process
 	);
 
-PEJOB
+PVOID /*PEJOB*/
 STDCALL PsGetProcessJob(
 	PEPROCESS Process
 	);
@@ -311,7 +311,7 @@ PsRevertThreadToSelf(
 
 VOID
 STDCALL PsSetJobUIRestrictionsClass(
-    PEJOB	Job,
+    PVOID /*PEJOB*/	Job,
     ULONG	UIRestrictionsClass	
 	);
 

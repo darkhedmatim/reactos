@@ -1,15 +1,2 @@
-#include <windows.h>
-#include <winnt.h>
-#include <winternl.h>
-#include <shellapi.h>
-
-#include <tchar.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-
 #include "cmd.h"
-#include "config.h"
-#include "batch.h"
+#include <windows.h>

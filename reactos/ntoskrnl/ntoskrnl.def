@@ -1,4 +1,4 @@
-; $Id: ntoskrnl.def,v 1.206 2004/12/26 17:48:19 navaraf Exp $
+; $Id: ntoskrnl.def,v 1.189 2004/08/14 00:47:33 ion Exp $
 ;
 ; reactos/ntoskrnl/ntoskrnl.def
 ;
@@ -62,6 +62,7 @@ DbgPrintEx
 DbgPrintReturnControlC
 DbgQueryDebugFilterState@8
 DbgSetDebugFilterState@12
+DpcQueueSize DATA
 @ExAcquireFastMutexUnsafe@4
 ExAcquireResourceExclusive@8
 ExAcquireResourceExclusiveLite@8
@@ -70,7 +71,7 @@ ExAcquireResourceSharedLite@8
 @ExAcquireRundownProtectionEx@8
 ExAcquireSharedStarveExclusive@8
 ExAcquireSharedWaitForExclusive@8
-@ExAllocateFromPagedLookasideList@4=@ExiAllocateFromPagedLookasideList@4
+@ExiAllocateFromPagedLookasideList@4
 ExAllocatePool@8
 ExAllocatePoolWithQuota@8
 ExAllocatePoolWithQuotaTag@12
@@ -89,7 +90,7 @@ ExEventObjectType DATA
 ExExtendZone@12
 ExFreePool@4
 ExFreePoolWithTag@8
-ExFreeToPagedLookasideList@8=ExiFreeToPagedLookasideList@8
+ExiFreeToPagedLookasideList@8
 ExGetCurrentProcessorCounts@12
 ExGetCurrentProcessorCpuUsage@4
 ExGetExclusiveWaiterCount@4
@@ -103,20 +104,20 @@ ExInitializeResourceLite@4
 ExInitializeZone@16
 ExInterlockedAddLargeInteger@16
 @ExInterlockedAddLargeStatistic@8
-ExInterlockedAddUlong@12
+@ExInterlockedAddUlong@12
 @ExInterlockedCompareExchange64@16
 ExInterlockedDecrementLong@8
 ExInterlockedExchangeUlong@12
 ExInterlockedExtendZone@16
 ExInterlockedIncrementLong@8
 @ExInterlockedFlushSList@4
-ExInterlockedInsertHeadList@12
-ExInterlockedInsertTailList@12
-ExInterlockedPopEntryList@8
+@ExInterlockedInsertHeadList@12
+@ExInterlockedInsertTailList@12
+@ExInterlockedPopEntryList@8
 @ExInterlockedPopEntrySList@8
-ExInterlockedPushEntryList@12
+@ExInterlockedPushEntryList@12
 @ExInterlockedPushEntrySList@12
-ExInterlockedRemoveHeadList@8
+@ExInterlockedRemoveHeadList@8
 ExIsProcessorFeaturePresent@4
 ExIsResourceAcquiredExclusiveLite@4
 ExIsResourceAcquiredSharedLite@4
@@ -139,10 +140,7 @@ ExReleaseResourceForThreadLite@8
 @ExReleaseResourceLite@4
 @ExReleaseRundownProtection@4
 @ExReleaseRundownProtectionEx@8
-ExRosDumpPagedPoolByTag@4
-ExRosQueryPoolTag@4
 @ExRundownCompleted@4
-ExSemaphoreObjectType DATA
 ExSetResourceOwnerPointer@8
 ExSetTimerResolution@8
 ExSystemExceptionFilter@0
@@ -285,7 +283,6 @@ FsRtlRemovePerStreamContext@12
 FsRtlResetLargeMcb@8
 FsRtlSplitLargeMcb@20
 FsRtlSyncVolumes@12
-FsRtlTeardownPerStreamContexts@4
 FsRtlTruncateLargeMcb@12
 FsRtlTruncateMcb@8
 FsRtlUninitializeFileLock@4
@@ -294,7 +291,7 @@ FsRtlUninitializeMcb@4
 FsRtlUninitializeOplock@4
 HalDispatchTable DATA
 HalPrivateDispatchTable DATA
-@HalExamineMBR=@xHalExamineMBR@16
+@xHalExamineMBR@16
 InbvAcquireDisplayOwnership@0
 InbvCheckDisplayOwnership@0
 InbvDisplayString@4
@@ -307,7 +304,6 @@ InbvResetDisplay@0
 InbvSetScrollRegion@16
 InbvSetTextColor@4
 InbvSolidColorFill@20
-InitSafeBootMode DATA
 @InterlockedCompareExchange@12
 @InterlockedDecrement@4
 @InterlockedExchange@8
@@ -361,12 +357,6 @@ IoCreateStreamFileObjectLite@8
 IoCreateSymbolicLink@8
 IoCreateSynchronizationEvent@8
 IoCreateUnprotectedSymbolicLink@8
-IoCsqInitialize@28
-IoCsqInitializeEx@28
-IoCsqInsertIrp@12
-IoCsqInsertIrpEx@16
-IoCsqRemoveIrp@8
-IoCsqRemoveNextIrp@8
 IoDeleteController@4
 IoDeleteDevice@4
 IoDeleteDriver@4
@@ -381,7 +371,7 @@ IoEnqueueIrp@4
 IoEnumerateDeviceObjectList@16
 IoFastQueryNetworkAttributes@20
 IoFileObjectType DATA
-IoForwardAndCatchIrp@8=IoForwardIrpSynchronously@8
+IoForwardIrpSynchronously@8
 IoForwardIrpSynchronously@8
 IoFreeController@4
 IoFreeErrorLogEntry@4
@@ -438,7 +428,7 @@ IoRaiseHardError@12
 IoRaiseInformationalHardError@12
 IoReadDiskSignature@12
 IoReadOperationCount DATA
-@IoReadPartitionTable@16
+IoReadPartitionTable@16
 IoReadPartitionTableEx@8
 IoReadTransferCount DATA
 IoRegisterBootDriverReinitialization@12
@@ -470,7 +460,7 @@ IoSetFileOrigin@8
 IoSetHardErrorOrVerifyDevice@8
 IoSetInformation@16
 IoSetIoCompletion@24
-@IoSetPartitionInformation@16
+IoSetPartitionInformation@16
 IoSetPartitionInformationEx@12
 IoSetStartIoAttributes@12
 IoSetShareAccess@16
@@ -511,7 +501,7 @@ IoWMISuggestInstanceName@16
 IoWMIWriteEvent@4
 IoWriteErrorLogEntry@4
 IoWriteOperationCount DATA
-@IoWritePartitionTable@20
+IoWritePartitionTable@20
 IoWritePartitionTableEx@8
 IoWriteTransferCount DATA
 @IofCallDriver@8
@@ -558,14 +548,17 @@ KeFlushQueuedDpcs@0
 KeGetCurrentThread@0
 KeGetPreviousMode@0
 KeGetRecommendedSharedDataAlignment@0
-;KeI386AbiosCall
 KeI386AllocateGdtSelectors
+KeI386FlatToGdtSelector
+KeI386ReleaseGdtSelectors
+;KeI386AbiosCall
+;KeI386AllocateGdtSelectors
 ;KeI386Call16BitCStyleFunction
 ;KeI386Call16BitFunction
-KeI386FlatToGdtSelector
+;KeI386FlatToGdtSelector
 ;KeI386GetLid
 ;KeI386MachineType DATA
-KeI386ReleaseGdtSelectors
+;KeI386ReleaseGdtSelectors
 ;KeI386ReleaseLid
 ;KeI386SetGdtSelector
 KeIcacheFlushCount DATA
@@ -603,6 +596,7 @@ KeQuerySystemTime@4
 KeQueryTickCount@4
 KeQueryTimeIncrement@0
 KeRaiseUserException@4
+KeRescheduleThread@0
 KeReadStateEvent@4
 KeReadStateMutant@4
 KeReadStateMutex@4
@@ -612,8 +606,8 @@ KeReadStateTimer@4
 KeRegisterBugCheckCallback@20
 KeRegisterBugCheckReasonCallback@16
 KeReleaseDispatcherDatabaseLockFromDpcLevel
-@KeReleaseInStackQueuedSpinLockFromDpcLevel@4
 KeReleaseInterruptSpinLock@8
+@KeReleaseInStackQueuedSpinLockFromDpcLevel@4
 KeReleaseMutant@16
 KeReleaseMutex@8
 KeReleaseSemaphore@16
@@ -631,7 +625,7 @@ KeRevertToUserAffinityThread@0
 KeRundownQueue@4
 KeSaveFloatingPointState@4
 KeSaveStateForHibernate
-KeServiceDescriptorTable DATA
+KeServiceDescriptorTable	DATA
 KeSetAffinityThread@8
 KeSetBasePriorityThread@8
 KeSetDmaIoCoherency@4
@@ -647,14 +641,15 @@ KeSetSystemAffinityThread@4
 KeSetTargetProcessorDpc@8
 ;KeSetThreadSelectNotifyRoutine
 KeSetTimeIncrement@8
-KeSetTimer@16
-KeSetTimerEx@20
 @KeSetTimeUpdateNotifyRoutine@4
 KeStackAttachProcess@8
+KeSetTimer@16
+KeSetTimerEx@20
+;KeSetTimeUpdateNotifyRoutine
 KeSynchronizeExecution@12
 KeTerminateThread@4
 KeTickCount DATA
-KeUpdateRunTime@8
+KeUpdateRunTime@4
 KeUpdateSystemTime@8
 KeUnstackDetachProcess@4
 KeUserModeCallback@20
@@ -727,7 +722,7 @@ MmIsRecursiveIoFault@0
 MmIsThisAnNtAsSystem@0
 MmIsVerifierEnabled@4
 MmLockPagableDataSection@4
-MmLockPagableImageSection@4=MmLockPagableDataSection@4
+MmLockPagableDataSection@4
 MmLockPagableSectionByHandle@4
 MmMapIoSpace@16
 MmMapLockedPages@8
@@ -777,7 +772,7 @@ NtAddAtom@12
 NtAdjustPrivilegesToken@24
 NtAlertThread@4
 NtAllocateLocallyUniqueId@4
-NtAllocateUuids@16
+NtAllocateUuids@12
 NtAllocateVirtualMemory@24
 NtBuildNumber DATA
 NtClose@4
@@ -840,8 +835,8 @@ NtW32Call@20
 NtWaitForSingleObject@12
 NtWriteFile@36
 ObAssignSecurity@16
-;ObCheckCreateObjectAccess@28
-;ObCheckObjectAccess@20
+ObCheckCreateObjectAccess@28
+ObCheckObjectAccess@20
 ObCreateObject@36
 ObFindHandleForObject@20
 ObGetObjectPointerCount@4
@@ -859,7 +854,7 @@ ObReferenceObjectByName@32
 ObReferenceObjectByPointer@16
 ObReleaseObjectSecurity@8
 ObDereferenceObject@4
-;ObSetSecurityDescriptorInfo@24
+ObSetSecurityDescriptorInfo@24
 ;PfxFindPrefix
 ;PfxInitialize
 ;PfxInsertPrefix
@@ -877,13 +872,13 @@ ProbeForRead@12
 ProbeForWrite@12
 PsAssignImpersonationToken@8
 PsChargePoolQuota@12
-PsChargeProcessNonPagedPoolQuota@4=PsDereferenceImpersonationToken@4
+PsDereferenceImpersonationToken@4
 PsChargeProcessPagedPoolQuota@8
 PsChargeProcessPoolQuota@12
 PsCreateSystemProcess@12
 PsCreateSystemThread@28
 PsCreateWin32Process@4
-PsDereferenceImpersonationToken@4=PsDereferencePrimaryToken@4
+PsDereferencePrimaryToken@4
 PsDereferencePrimaryToken@4
 PsDisableImpersonation@8
 PsEstablishWin32Callouts@24
@@ -929,7 +924,7 @@ PsIsProcessBeingDebugged@4
 PsIsSystemThread@4
 PsIsThreadImpersonating@4
 PsIsThreadTerminating@4
-PsJobType DATA
+;PsJobType DATA
 PsLookupProcessByProcessId@8
 PsLookupProcessThreadByCid@12
 PsLookupThreadByThreadId@8
@@ -965,7 +960,6 @@ READ_REGISTER_BUFFER_ULONG@12
 READ_REGISTER_BUFFER_USHORT@12
 KeRosPrintAddress@4
 KeRosDumpStackFrames@8
-KeRosGetStackFrames@8
 RtlAbsoluteToSelfRelativeSD@12
 RtlAddAccessAllowedAce@16
 RtlAddAce@20
@@ -1231,7 +1225,7 @@ RtlUpperString@8
 RtlValidRelativeSecurityDescriptor@12
 RtlValidSecurityDescriptor@4
 RtlValidSid@4
-;RtlVerifyVersionInfo@16
+RtlVerifyVersionInfo@16
 RtlVolumeDeviceToDosName@8
 RtlWalkFrameChain@12
 RtlWriteRegistryValue@24
@@ -1292,7 +1286,6 @@ SeTokenType@4
 SeUnlockSubjectContext@4
 SeUnregisterLogonSessionTerminatedRoutine@4
 SeValidSecurityDescriptor@8
-VerSetConditionMask@16
 WRITE_REGISTER_UCHAR@8
 WRITE_REGISTER_ULONG@8
 WRITE_REGISTER_USHORT@8
@@ -1300,13 +1293,8 @@ WRITE_REGISTER_BUFFER_UCHAR@12
 WRITE_REGISTER_BUFFER_ULONG@12
 WRITE_REGISTER_BUFFER_USHORT@12
 ZwAccessCheckAndAuditAlarm@44
-ZwAddBootEntry@8
-ZwAdjustPrivilegesToken@24
 ZwAlertThread@4
 ZwAllocateVirtualMemory@24
-ZwAssignProcessToJobObject@8
-ZwCancelIoFile@8
-ZwCancelTimer@8
 ZwClearEvent@4
 ZwClose@4
 ZwCloseObjectAuditAlarm@12
@@ -1314,12 +1302,9 @@ ZwConnectPort@32
 ZwCreateDirectoryObject@12
 ZwCreateEvent@20
 ZwCreateFile@44
-ZwCreateJobObject@12
 ZwCreateKey@28
 ZwCreateSection@28
 ZwCreateSymbolicLinkObject@16
-ZwCreateTimer@16
-ZwDeleteBootEntry@8
 ZwDeleteFile@4
 ZwDeleteKey@4
 ZwDeleteValueKey@8
@@ -1327,16 +1312,12 @@ ZwDeviceIoControlFile@40
 ZwDisplayString@4
 ZwDuplicateObject@28
 ZwDuplicateToken@24
-ZwEnumerateBootEntries@8
 ZwEnumerateKey@24
 ZwEnumerateValueKey@24
 ZwFlushInstructionCache@12
 ZwFlushKey@4
-ZwFlushVirtualMemory@16
 ZwFreeVirtualMemory@16
 ZwFsControlFile@40
-ZwInitiatePowerAction@16
-ZwIsProcessInJob@8
 ZwLoadDriver@4
 ZwLoadKey@8
 ZwMakeTemporaryObject@4
@@ -1345,34 +1326,20 @@ ZwNotifyChangeKey@40
 ZwOpenDirectoryObject@12
 ZwOpenEvent@12
 ZwOpenFile@24
-ZwOpenJobObject@12
 ZwOpenKey@12
 ZwOpenProcess@16
 ZwOpenProcessToken@12
-ZwOpenProcessTokenEx@16
 ZwOpenSection@12
 ZwOpenSymbolicLinkObject@12
 ZwOpenThread@16
 ZwOpenThreadToken@16
-ZwOpenThreadTokenEx@20
-ZwOpenTimer@12
-ZwPowerInformation@20
 ZwPulseEvent@8
-ZwQueryBootEntryOrder@8
-ZwQueryBootOptions@8
 ZwQueryDefaultLocale@8
-ZwQueryDefaultUILanguage@4
 ZwQueryDirectoryFile@44
-ZwQueryDirectoryObject@28
-ZwQueryEaFile@36
-ZwQueryFullAttributesFile@8
 ZwQueryInformationAtom@20
 ZwQueryInformationFile@20
-ZwQueryInformationJobObject@20
 ZwQueryInformationProcess@20
-ZwQueryInformationThread@20
 ZwQueryInformationToken@20
-ZwQueryInstallUILanguage@4
 ZwQueryKey@20
 ZwQueryObject@20
 ZwQuerySection@20
@@ -1386,29 +1353,17 @@ ZwReadFile@36
 ZwReplaceKey@12
 ZwRequestWaitReplyPort@12
 ZwResetEvent@8
-ZwRestoreKey@12
 ZwSaveKey@8
-ZwSaveKeyEx@12
-ZwSetBootEntryOrder@8
-ZwSetBootOptions@8
 ZwSetDefaultLocale@8
-ZwSetDefaultUILanguage@4
-ZwSetEaFile@16
 ZwSetEvent@8
 ZwSetInformationFile@20
-ZwSetInformationJobObject@16
 ZwSetInformationObject@16
 ZwSetInformationProcess@16
 ZwSetInformationThread@16
-ZwSetSecurityObject@12
 ZwSetSystemInformation@12
 ZwSetSystemTime@8
-ZwSetTimer@28
 ZwSetValueKey@24
-ZwSetVolumeInformationFile@20
-ZwTerminateJobObject@8
 ZwTerminateProcess@8
-ZwTranslateFilePath@12
 ZwUnloadDriver@4
 ZwUnloadKey@4
 ZwUnmapViewOfSection@8
@@ -1416,6 +1371,44 @@ ZwWaitForMultipleObjects@20
 ZwWaitForSingleObject@12
 ZwWriteFile@36
 ZwYieldExecution@0
+ZwAddBootEntry@8
+ZwAdjustPrivilegesToken@24
+ZwAssignProcessToJobObject@8
+ZwCancelIoFile@8
+ZwCancelTimer@8
+ZwCreateJobObject@12
+ZwCreateTimer@16
+ZwDeleteBootEntry@8
+ZwEnumerateBootEntries@8
+ZwFlushVirtualMemory@16
+ZwInitiatePowerAction@16
+ZwIsProcessInJob@8
+ZwOpenJobObject@12
+ZwOpenProcessTokenEx@16
+ZwOpenThreadTokenEx@20
+ZwOpenTimer@12
+ZwPowerInformation@20
+ZwQueryBootEntryOrder@8
+ZwQueryBootOptions@8
+ZwQueryDefaultUILanguage@4
+ZwQueryDirectoryObject@28
+ZwQueryEaFile@36
+ZwQueryFullAttributesFile@8
+ZwQueryInformationJobObject@20
+ZwQueryInformationThread@20
+ZwQueryInstallUILanguage@4
+ZwRestoreKey@12
+ZwSaveKeyEx@12
+ZwSetBootEntryOrder@8
+ZwSetBootOptions@8
+ZwSetDefaultUILanguage@4
+ZwSetEaFile@16
+ZwSetInformationJobObject@16
+ZwSetSecurityObject@12
+ZwSetTimer@28
+ZwSetVolumeInformationFile@20
+ZwTerminateJobObject@8
+ZwTranslateFilePath@12
 _abnormal_termination
 _alldiv
 _allmul

@@ -26,9 +26,9 @@ VOID IoDeviceControlCompletion(PDEVICE_OBJECT DeviceObject,
    if (IoStack->MajorFunction == IRP_MJ_FILE_SYSTEM_CONTROL)
      {
        IoControlCode = 
-	 IoStack->Parameters.FileSystemControl.FsControlCode;
+	 ((PEXTENDED_IO_STACK_LOCATION)IoStack)->Parameters.FileSystemControl.FsControlCode;
        OutputBufferLength = 
-	 IoStack->Parameters.FileSystemControl.OutputBufferLength;
+	 ((PEXTENDED_IO_STACK_LOCATION)IoStack)->Parameters.FileSystemControl.OutputBufferLength;
      }
    else
      {
@@ -166,14 +166,11 @@ IoSecondStageCompletion(
    PDEVICE_OBJECT       DeviceObject;
    PFILE_OBJECT         OriginalFileObject;
    PIRP                 Irp;
+   CCHAR                PriorityBoost;
 
-   if (Apc) DPRINT("IoSecondStageCompletition with APC: %x\n", Apc);
-   
-   OriginalFileObject = (PFILE_OBJECT)(*SystemArgument1);
-   DPRINT("OriginalFileObject: %x\n", OriginalFileObject);
-
-   Irp = CONTAINING_RECORD(Apc, IRP, Tail.Apc);
-   DPRINT("Irp: %x\n", Irp);
+   OriginalFileObject = (PFILE_OBJECT)(*NormalContext);
+   Irp = (PIRP)(*SystemArgument1);
+   PriorityBoost = (CCHAR)(LONG)(*SystemArgument2);
    
    /*
     * Note that we'll never see irp's flagged IRP_PAGING_IO (IRP_MOUNT_OPERATION)
@@ -193,10 +190,10 @@ IoSecondStageCompletion(
      InitializeListHead(&Irp->ThreadListEntry);
    }
    
-   IoStack =  (PIO_STACK_LOCATION)(Irp+1) + Irp->CurrentLocation;
+   IoStack = &Irp->Stack[(ULONG)Irp->CurrentLocation];
    DeviceObject = IoStack->DeviceObject;
 
-   DPRINT("IoSecondStageCompletion(Irp %x, MajorFunction %x)\n", Irp, IoStack->MajorFunction);
+   DPRINT("IoSecondStageCompletion(Irp %x, PriorityBoost %d)\n", Irp, PriorityBoost);
 
    switch (IoStack->MajorFunction)
      {
@@ -242,7 +239,7 @@ IoSecondStageCompletion(
 
    if (Irp->UserEvent)
    {
-      KeSetEvent(Irp->UserEvent,0,FALSE);
+      KeSetEvent(Irp->UserEvent,PriorityBoost,FALSE);
    }
 
    //Windows NT File System Internals, page 169
@@ -250,11 +247,11 @@ IoSecondStageCompletion(
    {
       if (Irp->UserEvent == NULL)
       {
-         KeSetEvent(&OriginalFileObject->Event,0,FALSE);
+         KeSetEvent(&OriginalFileObject->Event,PriorityBoost,FALSE);
       }
       else if (OriginalFileObject->Flags & FO_SYNCHRONOUS_IO && Irp->UserEvent != &OriginalFileObject->Event)
       {
-         KeSetEvent(&OriginalFileObject->Event,0,FALSE);
+         KeSetEvent(&OriginalFileObject->Event,PriorityBoost,FALSE);
       }
    }
 
@@ -292,26 +289,12 @@ IoSecondStageCompletion(
       KeInsertQueueApc( &Irp->Tail.Apc,
                         Irp->UserIosb,
                         NULL,
-                        2);
+                        PriorityBoost);
 
       //NOTE: kernel (or rundown) routine frees the IRP
 
       return;
 
-   }
-
-   if (NULL != IoStack->FileObject
-       && NULL != IoStack->FileObject->CompletionContext
-       && (0 != (Irp->Flags & IRP_SYNCHRONOUS_API)
-           || 0 == (IoStack->FileObject->Flags & FO_SYNCHRONOUS_IO)))
-   {
-      PFILE_OBJECT FileObject = IoStack->FileObject;
-      IoSetIoCompletion(FileObject->CompletionContext->Port,
-                        FileObject->CompletionContext->Key,
-                        Irp->Overlay.AsynchronousParameters.UserApcContext,
-                        Irp->IoStatus.Status,
-                        Irp->IoStatus.Information,
-                        FALSE);
    }
 
    IoFreeIrp(Irp);

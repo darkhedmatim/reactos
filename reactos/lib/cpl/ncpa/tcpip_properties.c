@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: tcpip_properties.c,v 1.5 2004/12/11 21:07:20 arty Exp $
+/* $Id: tcpip_properties.c,v 1.1 2004/08/15 16:50:30 kuehng Exp $
  *
  * PROJECT:         ReactOS Network Control Panel
  * FILE:            lib/cpl/system/tcpip_properties.c
@@ -33,17 +33,15 @@
 #include <windows.h>
 #include <iptypes.h>
 #include <iphlpapi.h>
-#include <commctrl.h>
-#include <prsht.h>
-
 
 #ifdef _MSC_VER
+#include <commctrl.h>
 #include <cpl.h>
 #else
 
 // this is missing on reactos...
 #ifndef IPM_SETADDRESS
-#define IPM_SETADDRESS (WM_USER+101)
+#define IPM_SETADDRESS (WM_USER+101) 
 #endif
 
 #endif
@@ -54,10 +52,9 @@
 
 extern void InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc);
 
-INT_PTR CALLBACK
-TCPIPPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK TCPIPPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	PROPSHEETPAGE *pPage = (PROPSHEETPAGE *)GetWindowLongPtr(hwndDlg,GWL_USERDATA);
+	PROPSHEETPAGE *pPage = (PROPSHEETPAGE *)GetWindowLong(hwndDlg,GWL_USERDATA);
 	IP_ADAPTER_INFO *pInfo = NULL;
 	if(pPage)
 		pInfo = (IP_ADAPTER_INFO *)pPage->lParam;
@@ -68,7 +65,7 @@ TCPIPPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			pPage = (PROPSHEETPAGE *)lParam;
 			pInfo = (IP_ADAPTER_INFO *)pPage->lParam;
 			EnableWindow(GetDlgItem(hwndDlg,IDC_ADVANCED),FALSE);
-			SetWindowLongPtr(hwndDlg,GWL_USERDATA,(DWORD_PTR)pPage->lParam);
+			SetWindowLong(hwndDlg,GWL_USERDATA,pPage->lParam);
 
 			if(pInfo->DhcpEnabled) {
 				CheckDlgButton(hwndDlg,IDC_USEDHCP,BST_CHECKED);
@@ -79,7 +76,7 @@ TCPIPPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			} 
 			{
 				DWORD dwIPAddr;
-				int b[4];
+				DWORD b[4];
 				IP_ADDR_STRING *pString;
 				pString = &pInfo->IpAddressList;
 				while(pString->Next)
@@ -108,7 +105,7 @@ TCPIPPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					char pszDNS[MAX_PATH];
 					DWORD dwSize = sizeof(pszDNS);
 					DWORD dwType = REG_SZ;
-					int b[2][4];
+					DWORD b[2][4];
 					DWORD dwIPAddr;
 					RegQueryValueExA(hKey,"NameServer",NULL,&dwType,(BYTE*)pszDNS,&dwSize);
 					RegCloseKey(hKey);
@@ -140,32 +137,45 @@ void DisplayTCPIPProperties(HWND hParent,IP_ADAPTER_INFO *pInfo)
 {
 	PROPSHEETPAGE psp[1];
 	PROPSHEETHEADER psh;
-	INITCOMMONCONTROLSEX cce;
-
-	cce.dwSize = sizeof(INITCOMMONCONTROLSEX);
-	cce.dwICC = ICC_INTERNET_CLASSES;
-	InitCommonControlsEx(&cce);
-
 	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
 	psh.dwSize = sizeof(PROPSHEETHEADER);
 	psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_NOAPPLYNOW;
 	psh.hwndParent = hParent;
 	psh.hInstance = hApplet;
+#ifdef _MSC_VER
 	psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#else
+	psh.u1.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#endif
 	psh.pszCaption = NULL;//Caption;
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
+#ifdef _MSC_VER
 	psh.nStartPage = 0;
 	psh.ppsp = psp;
+#else
+	psh.u2.nStartPage = 0;
+	psh.u3.ppsp = psp;
+#endif
 	psh.pfnCallback = NULL;
 	
 
 	InitPropSheetPage(&psp[0], IDD_TCPIPPROPERTIES, TCPIPPropertyPageProc);
 	psp[0].lParam = (LPARAM)pInfo;
 
-	if (PropertySheet(&psh) == -1)
+#ifdef _MSC_VER 
+	{
+		INITCOMMONCONTROLSEX cce;
+		cce.dwSize = sizeof(cce);
+		cce.dwICC = ICC_INTERNET_CLASSES;
+		InitCommonControlsEx(&cce);
+	}
+#else
+	InitCommonControls();
+	MessageBox(hParent,_T("If the following Messagebox does not work... fix the reactos #include hell and call the InitCommonControlsEx instead"),_T("Info"),MB_OK);
+#endif
+	if(PropertySheet(&psh)==-1)
 	{
 		MessageBox(hParent,_T("Unable to create property sheet"),_T("Error"),MB_ICONSTOP);
-	}
-
+	};
 	return;
 }

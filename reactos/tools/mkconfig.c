@@ -2,9 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef max
 #define max(a, b) ((a) > (b) ? (a) : (b))
-#endif
 
 int
 write_if_change(char* outbuf, char* filename)
@@ -102,20 +100,11 @@ main(int argc, char* argv[])
   include_tests = 0;
   for (i = 2; i < argc; i++)
     {
-      if (strcmp(argv[i], "REGTESTS") == 0)
+	  if (strcmp(argv[i], "REGTESTS") == 0)
         {
           include_tests = 1;
         }
-      if (strcmp(argv[i], "MP") == 0 || strcmp(argv[i], "UP") == 0)
-        {
-          s = s + sprintf(s, "#if ! defined(MP) && ! defined(UP)\n");
-          s = s + sprintf(s, "#define %s\n", argv[i]);
-          s = s + sprintf(s, "#endif /* ! defined(MP) && ! defined(UP) */\n");
-        }
-      else
-        {
-          s = s + sprintf(s, "#define %s\n", argv[i]);
-        }
+      s = s + sprintf(s, "#define %s\n", argv[i]);
       strcat(config, argv[i]);
       if (i != (argc - 1))
 	{

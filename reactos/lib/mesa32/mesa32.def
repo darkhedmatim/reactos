@@ -1,4 +1,5 @@
-DESCRIPTION 'Mesa (OpenGL driver) for Win32'
+LIBRARY mesa32.dll
+DESCRIPTION 'Mesa (OpenGL driver) for ReactOS'
 VERSION 6.1
 
 EXPORTS

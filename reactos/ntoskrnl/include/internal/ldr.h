@@ -10,6 +10,7 @@
 
 #include <pe.h>
 #include <internal/io.h>
+#include <ntdll/ldr.h>
 #include <internal/module.h>
 
 #define  KERNEL_MODULE_NAME  L"ntoskrnl.exe"

@@ -17,7 +17,6 @@
 
 #include <internal/ob.h>
 #include <internal/safe.h>
-#include <internal/ps.h>
 
 #include <napi/win32.h>
 #include <ntos.h>
@@ -50,7 +49,6 @@
 #include <include/inteng.h>
 #include <include/intgdi.h>
 #include <include/menu.h>
-#include <include/monitor.h>
 #include <include/mouse.h>
 #include <include/msgqueue.h>
 #include <include/object.h>
@@ -74,6 +72,8 @@
 
 #include <eng/objects.h>
 #include <eng/misc.h>
+#include <eng/handle.h>
+#include <eng/clip.h>
 
 #include <dib/dib.h>
 

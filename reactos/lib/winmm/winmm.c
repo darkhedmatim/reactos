@@ -28,17 +28,6 @@
  *      99/9	added support for loadable low level drivers
  */
 
-/* TODO
- *      + it seems that some programs check what's installed in
- *        registry against the value returned by drivers. Wine is
- *        currently broken regarding this point.
- *      + check thread-safeness for MMSYSTEM and WINMM entry points
- *      + unicode entry points are badly supported (would require
- *        moving 32 bit drivers as Unicode as they are supposed to be)
- *      + allow joystick and timer external calls as we do for wave,
- *        midi, mixer and aux
- */
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -171,15 +160,6 @@ const char* WINMM_ErrorToString(MMRESULT error)
     ERR_TO_STR(MMSYSERR_BADERRNUM);
     ERR_TO_STR(MMSYSERR_INVALFLAG);
     ERR_TO_STR(MMSYSERR_INVALPARAM);
-    ERR_TO_STR(MMSYSERR_HANDLEBUSY);
-    ERR_TO_STR(MMSYSERR_INVALIDALIAS);
-    ERR_TO_STR(MMSYSERR_BADDB);
-    ERR_TO_STR(MMSYSERR_KEYNOTFOUND);
-    ERR_TO_STR(MMSYSERR_READERROR);
-    ERR_TO_STR(MMSYSERR_WRITEERROR);
-    ERR_TO_STR(MMSYSERR_DELETEERROR);
-    ERR_TO_STR(MMSYSERR_VALNOTFOUND);
-    ERR_TO_STR(MMSYSERR_NODRIVERCB);
     ERR_TO_STR(WAVERR_BADFORMAT);
     ERR_TO_STR(WAVERR_STILLPLAYING);
     ERR_TO_STR(WAVERR_UNPREPARED);
@@ -450,7 +430,7 @@ UINT WINAPI mixerGetControlDetailsW(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcd,
 	    MIXERCONTROLDETAILS_LISTTEXTW *pDetailsW = (MIXERCONTROLDETAILS_LISTTEXTW *)lpmcd->paDetails;
             MIXERCONTROLDETAILS_LISTTEXTA *pDetailsA;
 	    int size = max(1, lpmcd->cChannels) * sizeof(MIXERCONTROLDETAILS_LISTTEXTA);
-            unsigned int i;
+            int i;
 
 	    if (lpmcd->u.cMultipleItems != 0) {
 		size *= lpmcd->u.cMultipleItems;
@@ -515,7 +495,7 @@ UINT WINAPI mixerGetLineControlsW(HMIXEROBJ hmix, LPMIXERLINECONTROLSW lpmlcW,
 {
     MIXERLINECONTROLSA	mlcA;
     DWORD		ret;
-    unsigned int	i;
+    int			i;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmlcW, fdwControls);
 
@@ -673,7 +653,7 @@ UINT WINAPI mixerSetControlDetails(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcdA,
 /**************************************************************************
  * 				mixerMessage		[WINMM.@]
  */
-DWORD WINAPI mixerMessage(HMIXER hmix, UINT uMsg, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+UINT WINAPI mixerMessage(HMIXER hmix, UINT uMsg, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
     LPWINE_MLD		wmld;
 
@@ -1691,8 +1671,8 @@ UINT WINAPI midiInGetErrorTextA(UINT uError, LPSTR lpText, UINT uSize)
     return MIDI_GetErrorText(uError, lpText, uSize);
 }
 
-UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD_PTR dwCallback,
-                 DWORD_PTR dwInstance, DWORD dwFlags, BOOL bFrom32)
+UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD dwCallback,
+                 DWORD dwInstance, DWORD dwFlags, BOOL bFrom32)
 {
     HANDLE		hMidiIn;
     LPWINE_MIDI		lpwm;
@@ -1730,7 +1710,7 @@ UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD_PTR dwCallback,
  * 				midiInOpen		[WINMM.@]
  */
 UINT WINAPI midiInOpen(HMIDIIN* lphMidiIn, UINT uDeviceID,
-		       DWORD_PTR dwCallback, DWORD_PTR dwInstance, DWORD dwFlags)
+		       DWORD dwCallback, DWORD dwInstance, DWORD dwFlags)
 {
     return MIDI_InOpen(lphMidiIn, uDeviceID, dwCallback, dwInstance, dwFlags, TRUE);
 }
@@ -2239,7 +2219,7 @@ MMRESULT WINAPI midiStreamClose(HMIDISTRM hMidiStrm)
  * 				MMSYSTEM_MidiStream_Open	[internal]
  */
 MMRESULT MIDI_StreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID, DWORD cMidi,
-                         DWORD_PTR dwCallback, DWORD_PTR dwInstance, DWORD fdwOpen, 
+                         DWORD dwCallback, DWORD dwInstance, DWORD fdwOpen, 
                          BOOL bFrom32)
 {
     WINE_MIDIStream*	lpMidiStrm;
@@ -2306,8 +2286,8 @@ MMRESULT MIDI_StreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID, DWORD cMidi
  * 				midiStreamOpen			[WINMM.@]
  */
 MMRESULT WINAPI midiStreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID,
-			       DWORD cMidi, DWORD_PTR dwCallback,
-			       DWORD_PTR dwInstance, DWORD fdwOpen)
+			       DWORD cMidi, DWORD dwCallback,
+			       DWORD dwInstance, DWORD fdwOpen)
 {
     return MIDI_StreamOpen(lphMidiStrm, lpuDeviceID, cMidi, dwCallback,
                            dwInstance, fdwOpen, TRUE);
@@ -2491,8 +2471,8 @@ MMRESULT WINAPI midiStreamStop(HMIDISTRM hMidiStrm)
 }
 
 UINT WAVE_Open(HANDLE* lphndl, UINT uDeviceID, UINT uType, 
-               const LPWAVEFORMATEX lpFormat, DWORD_PTR dwCallback, 
-               DWORD_PTR dwInstance, DWORD dwFlags, BOOL bFrom32)
+               const LPWAVEFORMATEX lpFormat, DWORD dwCallback, 
+               DWORD dwInstance, DWORD dwFlags, BOOL bFrom32)
 {
     HANDLE		handle;
     LPWINE_MLD		wmld;
@@ -2673,8 +2653,8 @@ UINT WINAPI waveOutGetErrorTextW(UINT uError, LPWSTR lpText, UINT uSize)
  *			waveOutOpen			[WINMM.@]
  * All the args/structs have the same layout as the win16 equivalents
  */
-MMRESULT WINAPI waveOutOpen(LPHWAVEOUT lphWaveOut, UINT uDeviceID,
-                       LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
+UINT WINAPI waveOutOpen(LPHWAVEOUT lphWaveOut, UINT uDeviceID,
+                       const LPWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
                        DWORD_PTR dwInstance, DWORD dwFlags)
 {
     return WAVE_Open((HANDLE*)lphWaveOut, uDeviceID, MMDRV_WAVEOUT, lpFormat,
@@ -3058,9 +3038,9 @@ UINT WINAPI waveInGetErrorTextW(UINT uError, LPWSTR lpText, UINT uSize)
 /**************************************************************************
  * 				waveInOpen			[WINMM.@]
  */
-MMRESULT WINAPI waveInOpen(HWAVEIN* lphWaveIn, UINT uDeviceID,
-		       LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
-		       DWORD_PTR dwInstance, DWORD dwFlags)
+UINT WINAPI waveInOpen(HWAVEIN* lphWaveIn, UINT uDeviceID,
+		       const LPWAVEFORMATEX lpFormat, DWORD dwCallback,
+		       DWORD dwInstance, DWORD dwFlags)
 {
     return WAVE_Open((HANDLE*)lphWaveIn, uDeviceID, MMDRV_WAVEIN, lpFormat,
                      dwCallback, dwInstance, dwFlags, TRUE);
@@ -3257,7 +3237,7 @@ struct mm_starter
     HANDLE              event;
 };
 
-static DWORD WINAPI mmTaskRun(void* pmt)
+DWORD WINAPI mmTaskRun(void* pmt)
 {
     struct mm_starter mms;
 
@@ -3268,9 +3248,6 @@ static DWORD WINAPI mmTaskRun(void* pmt)
     return 0;
 }
 
-/******************************************************************
- *		mmTaskCreate (WINMM.@)
- */
 MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK cb, HANDLE* ph, DWORD client)
 {
     HANDLE               hThread;
@@ -3278,7 +3255,7 @@ MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK cb, HANDLE* ph, DWORD client)
     struct mm_starter   *mms;
 
     mms = HeapAlloc(GetProcessHeap(), 0, sizeof(struct mm_starter));
-    if (mms == NULL) return TASKERR_OUTOFMEMORY;
+    if (mms == NULL) { return TASKERR_OUTOFMEMORY; }
 
     mms->cb = cb;
     mms->client = client;
@@ -3294,39 +3271,4 @@ MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK cb, HANDLE* ph, DWORD client)
     if (ph) *ph = hEvent;
     CloseHandle(hThread);
     return 0;
-}
-
-/******************************************************************
- *		mmTaskBlock (WINMM.@)
- */
-void     WINAPI mmTaskBlock(HANDLE tid)
-{
-    MSG		msg;
-
-    do
-    {
-	GetMessageA(&msg, 0, 0, 0);
-	if (msg.hwnd) DispatchMessageA(&msg);
-    } while (msg.message != WM_USER);
-}
-
-/******************************************************************
- *		mmTaskSignal (WINMM.@)
- */
-BOOL     WINAPI mmTaskSignal(HANDLE tid)
-{
-    return PostThreadMessageW((DWORD)tid, WM_USER, 0, 0);
-}
-
-/******************************************************************
- *		mmTaskYield (WINMM.@)
- */
-void     WINAPI mmTaskYield(void) {}
-
-/******************************************************************
- *		mmGetCurrentTask (WINMM.@)
- */
-HANDLE   WINAPI mmGetCurrentTask(void)
-{
-    return (HANDLE)GetCurrentThreadId();
 }

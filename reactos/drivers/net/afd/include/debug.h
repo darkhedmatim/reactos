@@ -61,9 +61,7 @@ extern DWORD DebugTraceLevel;
 
 #define ASSERT_IRQL(x)
 #define ASSERTKM(x)
-#ifndef ASSERT
 #define ASSERT(x)
-#endif
 
 #endif /* DBG */
 

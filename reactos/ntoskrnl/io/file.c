@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.35 2004/10/22 20:25:53 ekohl Exp $
+/* $Id: file.c,v 1.34 2004/08/21 20:51:26 tamlin Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -41,8 +41,8 @@ NtQueryInformationFile(HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FileInformation != NULL);
    
    DPRINT("NtQueryInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,
@@ -308,7 +308,7 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
    PIO_STACK_LOCATION StackPtr;
    NTSTATUS Status;
    
-   ASSERT(FileInformation != NULL);
+   assert(FileInformation != NULL)
    
    Status = ObReferenceObjectByPointer(FileObject,
 				       FILE_READ_ATTRIBUTES,
@@ -392,8 +392,8 @@ NtSetInformationFile(HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL)
+   assert(FileInformation != NULL)
    
    DPRINT("NtSetInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,

@@ -103,9 +103,9 @@ RtlDestroyQueryDebugBuffer(IN PDEBUG_BUFFER Buf)
  */
 NTSTATUS STDCALL
 RtlpQueryRemoteProcessModules(HANDLE ProcessHandle,
-                              IN PMODULE_INFORMATION ModuleInformation OPTIONAL,
-                              IN ULONG Size OPTIONAL,
-                              OUT PULONG ReturnedSize)
+			IN PMODULE_INFORMATION ModuleInformation OPTIONAL,
+                                 IN ULONG Size OPTIONAL,
+                                 OUT PULONG ReturnedSize)
 {
   PROCESS_BASIC_INFORMATION pbiInfo;
   PPEB_LDR_DATA ppldLdrData;
@@ -113,7 +113,7 @@ RtlpQueryRemoteProcessModules(HANDLE ProcessHandle,
   PLIST_ENTRY pleListHead;
   PLIST_ENTRY pleCurEntry;
 
-  PDEBUG_MODULE_INFORMATION ModulePtr = NULL;
+  PMODULE_ENTRY ModulePtr = NULL;
   NTSTATUS Status = STATUS_SUCCESS;
   ULONG UsedSize = sizeof(ULONG);
   ANSI_STRING AnsiString;
@@ -124,7 +124,7 @@ RtlpQueryRemoteProcessModules(HANDLE ProcessHandle,
   /* query the process basic information (includes the PEB address) */
   Status = NtQueryInformationProcess ( ProcessHandle,
                                        ProcessBasicInformation,
-                                       &pbiInfo,
+                                      &pbiInfo,
                                        sizeof(PROCESS_BASIC_INFORMATION),
                                        NULL);
  
@@ -217,31 +217,32 @@ RtlpQueryRemoteProcessModules(HANDLE ProcessHandle,
         }
       else if (ModuleInformation != NULL)
         {
-          ModulePtr->Reserved[0] = ModulePtr->Reserved[1] = 0;      // FIXME: ??
-          ModulePtr->Base        = lmModule.BaseAddress;
-          ModulePtr->Size        = lmModule.SizeOfImage;
+          ModulePtr->Unknown0    = 0;      // FIXME: ??
+          ModulePtr->Unknown1    = 0;      // FIXME: ??
+          ModulePtr->BaseAddress = lmModule.BaseAddress;
+          ModulePtr->SizeOfImage = lmModule.SizeOfImage;
           ModulePtr->Flags       = lmModule.Flags;
-          ModulePtr->Index       = 0;      // FIXME:  ??
-          ModulePtr->Unknown     = 0;      // FIXME: ??
+          ModulePtr->Unknown2    = 0;      // FIXME: load order index ??
+          ModulePtr->Unknown3    = 0;      // FIXME: ??
           ModulePtr->LoadCount   = lmModule.LoadCount;
 
           AnsiString.Length        = 0;
           AnsiString.MaximumLength = 256;
-          AnsiString.Buffer        = ModulePtr->ImageName;
+          AnsiString.Buffer        = ModulePtr->ModuleName;
           RtlUnicodeStringToAnsiString(&AnsiString,
                                        &Unicode,
                                        FALSE);
 
-          p = strrchr(ModulePtr->ImageName, '\\');
+          p = strrchr(ModulePtr->ModuleName, '\\');
           if (p != NULL)
-            ModulePtr->ModuleNameOffset = p - ModulePtr->ImageName + 1;
+            ModulePtr->PathLength = p - ModulePtr->ModuleName + 1;
           else
-            ModulePtr->ModuleNameOffset = 0;
+            ModulePtr->PathLength = 0;
 
           ModulePtr++;
           ModuleInformation->ModuleCount++;
         }
-      UsedSize += sizeof(DEBUG_MODULE_INFORMATION);
+      UsedSize += sizeof(MODULE_ENTRY);
 
       /* address of the next module in the list */
       pleCurEntry = lmModule.InLoadOrderModuleList.Flink;

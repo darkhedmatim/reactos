@@ -38,9 +38,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define COBJMACROS
-
 #include "wine/debug.h"
 #include "windef.h"
 #include "winbase.h"
@@ -62,8 +59,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 typedef struct
 {
-    IAutoCompleteVtbl  *lpVtbl;
-    IAutoComplete2Vtbl *lpvtblAutoComplete2;
+    ICOM_VFIELD(IAutoComplete);
+    ICOM_VTABLE (IAutoComplete2) * lpvtblAutoComplete2;
     DWORD ref;
     BOOL  enabled;
     HWND hwndEdit;
@@ -76,8 +73,8 @@ typedef struct
     AUTOCOMPLETEOPTIONS options;
 } IAutoCompleteImpl;
 
-static struct IAutoCompleteVtbl acvt;
-static struct IAutoComplete2Vtbl ac2vt;
+static struct ICOM_VTABLE(IAutoComplete) acvt;
+static struct ICOM_VTABLE(IAutoComplete2) ac2vt;
 
 #define _IAutoComplete2_Offset ((int)(&(((IAutoCompleteImpl*)0)->lpvtblAutoComplete2)))
 #define _ICOM_THIS_From_IAutoComplete2(class, name) class* This = (class*)(((char*)name)-_IAutoComplete2_Offset);
@@ -135,7 +132,7 @@ static HRESULT WINAPI IAutoComplete_fnQueryInterface(
     REFIID riid,
     LPVOID *ppvObj)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)iface;
+    ICOM_THIS(IAutoCompleteImpl, iface);
     
     TRACE("(%p)->(\n\tIID:\t%s,%p)\n", This, shdebugstr_guid(riid), ppvObj);
     *ppvObj = NULL;
@@ -169,7 +166,7 @@ static HRESULT WINAPI IAutoComplete_fnQueryInterface(
 static ULONG WINAPI IAutoComplete_fnAddRef(
 	IAutoComplete * iface)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)iface;
+    ICOM_THIS(IAutoCompleteImpl,iface);
     
     TRACE("(%p)->(%lu)\n",This,This->ref);
     return ++(This->ref);
@@ -181,7 +178,7 @@ static ULONG WINAPI IAutoComplete_fnAddRef(
 static ULONG WINAPI IAutoComplete_fnRelease(
 	IAutoComplete * iface)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)iface;
+    ICOM_THIS(IAutoCompleteImpl,iface);
     
     TRACE("(%p)->(%lu)\n",This,This->ref);
 
@@ -208,7 +205,7 @@ static HRESULT WINAPI IAutoComplete_fnEnable(
     IAutoComplete * iface,
     BOOL fEnable)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)iface;
+    ICOM_THIS(IAutoCompleteImpl, iface);
 
     HRESULT hr = S_OK;
 
@@ -229,7 +226,7 @@ static HRESULT WINAPI IAutoComplete_fnInit(
     LPCOLESTR pwzsRegKeyPath,
     LPCOLESTR pwszQuickComplete)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)iface;
+    ICOM_THIS(IAutoCompleteImpl, iface);
     static const WCHAR lbName[] = {'L','i','s','t','B','o','x',0};
 
     TRACE("(%p)->(0x%08lx, %p, %s, %s)\n", 
@@ -263,7 +260,7 @@ static HRESULT WINAPI IAutoComplete_fnInit(
 					    WS_BORDER | WS_CHILD | WS_VSCROLL | LBS_HASSTRINGS | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT, 
 					    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 					    hwndParent, NULL, 
-					    (HINSTANCE)GetWindowLongPtrW( hwndParent, GWLP_HINSTANCE ), NULL);
+					    (HINSTANCE)GetWindowLongA( hwndParent, GWL_HINSTANCE ), NULL);
 					    
 	if (This->hwndListBox) {
 	    This->wpOrigLBoxProc = (WNDPROC) SetWindowLongPtrW( This->hwndListBox, GWLP_WNDPROC, (LONG_PTR) ACLBoxSubclassProc);
@@ -313,8 +310,9 @@ static HRESULT WINAPI IAutoComplete_fnInit(
 /**************************************************************************
  *  IAutoComplete_fnVTable
  */
-static IAutoCompleteVtbl acvt =
+static ICOM_VTABLE (IAutoComplete) acvt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IAutoComplete_fnQueryInterface,
     IAutoComplete_fnAddRef,
     IAutoComplete_fnRelease,
@@ -433,8 +431,9 @@ static HRESULT WINAPI IAutoComplete2_fnSetOptions(
 /**************************************************************************
  *  IAutoComplete2_fnVTable
  */
-static IAutoComplete2Vtbl ac2vt =
+static ICOM_VTABLE (IAutoComplete2) ac2vt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IAutoComplete2_fnQueryInterface,
     IAutoComplete2_fnAddRef,
     IAutoComplete2_fnRelease,
@@ -450,7 +449,7 @@ static IAutoComplete2Vtbl ac2vt =
  */
 static LRESULT APIENTRY ACEditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    ICOM_THIS(IAutoCompleteImpl, GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     LPOLESTR strs;
     HRESULT hr;
     WCHAR hwndText[255];
@@ -620,7 +619,7 @@ static LRESULT APIENTRY ACEditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
 static LRESULT APIENTRY ACLBoxSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    IAutoCompleteImpl *This = (IAutoCompleteImpl *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    ICOM_THIS(IAutoCompleteImpl, GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     WCHAR *msg;
     int sel = -1, len;
 

@@ -53,7 +53,7 @@ SPEC_SRCS16 = \
 	ole2thk.spec \
 	storage.spec
 
-RC_SRCS = ole32res.rc
+RC_SRCS = ole32res.rc version.rc
 RC_BINSRC = ole32res.rc
 RC_BINARIES = \
 	drag_copy.cur \
@@ -61,14 +61,8 @@ RC_BINARIES = \
 	drag_move.cur \
 	nodrop.cur 
 
-IDL_SRCS = \
-	dcom.idl
-
 SUBDIRS = tests
 
 @MAKE_DLL_RULES@
 
 ### Dependencies:
-
-# note: this will get overwritten by make depend
-$(ALL_OBJS): $(IDL_SRCS:.idl=.h)

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: palette.c,v 1.21 2004/12/12 01:40:38 weiden Exp $ */
+/* $Id: palette.c,v 1.20 2004/06/22 20:08:17 gvg Exp $ */
 #include <w32k.h>
 
 #ifndef NO_MAPPING
@@ -36,13 +36,12 @@ PPALETTEENTRY FASTCALL ReturnSystemPalette (VOID)
   return COLOR_sysPal;
 }
 
-BOOL INTERNAL_CALL
-PALETTE_Cleanup(PVOID ObjectBody)
+static BOOL FASTCALL
+PALETTE_InternalDelete(PPALGDI Palette)
 {
-  PPALGDI pPal = (PPALGDI)ObjectBody;
-  if (NULL != pPal->IndexedColors)
+  if (NULL != Palette->IndexedColors)
     {
-      ExFreePool(pPal->IndexedColors);
+      ExFreePool(Palette->IndexedColors);
     }
 
   return TRUE;
@@ -59,14 +58,13 @@ PALETTE_AllocPalette(ULONG Mode,
   HPALETTE NewPalette;
   PPALGDI PalGDI;
 
-  NewPalette = (HPALETTE) GDIOBJ_AllocObj(GDI_OBJECT_TYPE_PALETTE);
+  NewPalette = (HPALETTE) GDIOBJ_AllocObj(sizeof(PALGDI), GDI_OBJECT_TYPE_PALETTE, (GDICLEANUPPROC) PALETTE_InternalDelete);
   if (NULL == NewPalette)
     {
       return NULL;
     }
 
   PalGDI = PALETTE_LockPalette(NewPalette);
-  /* FIXME - PalGDI can be NULL!!! Don't assert here! */
   ASSERT( PalGDI );
 
   PalGDI->Self = NewPalette;
@@ -108,14 +106,13 @@ PALETTE_AllocPaletteIndexedRGB(ULONG NumColors,
   PPALGDI PalGDI;
   unsigned i;
 
-  NewPalette = (HPALETTE) GDIOBJ_AllocObj(GDI_OBJECT_TYPE_PALETTE);
+  NewPalette = (HPALETTE) GDIOBJ_AllocObj(sizeof(PALGDI), GDI_OBJECT_TYPE_PALETTE, (GDICLEANUPPROC) PALETTE_InternalDelete);
   if (NULL == NewPalette)
     {
       return NULL;
     }
 
   PalGDI = PALETTE_LockPalette(NewPalette);
-  /* FIXME - PalGDI can be NULL!!! Don't assert here! */
   ASSERT( PalGDI );
 
   PalGDI->Self = NewPalette;
@@ -230,7 +227,6 @@ INT STDCALL PALETTE_SetMapping(PALOBJ *palPtr, UINT uStart, UINT uNum, BOOL mapO
   HPALETTE hSysPal = NtGdiGetStockObject(DEFAULT_PALETTE);
   PPALGDI pSysPal = PALETTE_LockPalette(hSysPal);
   PPALGDI palGDI = (PPALGDI) palPtr;
-  /* FIXME - handle pSysPal == NULL!!!!!!! */
 
   COLOR_sysPal = pSysPal->IndexedColors;
   PALETTE_UnlockPalette(hSysPal); // FIXME: Is this a right way to obtain pointer to the system palette?

@@ -16,13 +16,13 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: install.c,v 1.21 2004/12/28 14:41:46 ekohl Exp $
+/* $Id: install.c,v 1.15 2004/08/03 13:43:00 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           System setup
  * FILE:              lib/syssetup/install.c
- * PROGRAMER:         Eric Kohl
+ * PROGRAMER:         Eric Kohl (ekohl@rz-online.de)
  */
 
 /* INCLUDES *****************************************************************/
@@ -37,16 +37,13 @@
 #include <samlib.h>
 #include <syssetup.h>
 #include <userenv.h>
-#include <setupapi.h>
-
-#include <shlobj.h>
-#include <objidl.h>
-#include <shlwapi.h>
 
 #include "globals.h"
 #include "resource.h"
 
 #define VMWINST
+
+VOID WINAPI CreateCmdLink(VOID);
 
 
 /* GLOBALS ******************************************************************/
@@ -54,7 +51,6 @@
 PSID DomainSid = NULL;
 PSID AdminSid = NULL;
 
-HINF hSysSetupInf = INVALID_HANDLE_VALUE;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -86,8 +82,8 @@ RunVMWInstall(VOID)
   ZeroMemory(&si, sizeof(STARTUPINFO));
   si.cb = sizeof(STARTUPINFO);
   
-  if(CreateProcess(NULL, _T("vmwinst.exe"), NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, 
-                   NULL, NULL, &si, &ProcInfo))
+  if(CreateProcessA(NULL, "vmwinst.exe", NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, 
+                    NULL, NULL, &si, &ProcInfo))
   {
     WaitForSingleObject(ProcInfo.hProcess, INFINITE);
     CloseHandle(ProcInfo.hThread);
@@ -97,74 +93,6 @@ RunVMWInstall(VOID)
   return FALSE;
 }
 #endif
-
-
-HRESULT CreateShellLink(LPCSTR linkPath, LPCSTR cmd, LPCSTR arg, LPCSTR dir, LPCSTR iconPath, int icon_nr, LPCSTR comment)
-{
-  IShellLinkA* psl;
-  IPersistFile* ppf;
-  WCHAR buffer[MAX_PATH];
-
-  HRESULT hr = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLink, (LPVOID*)&psl);
-
-  if (SUCCEEDED(hr))
-    {
-      hr = psl->lpVtbl->SetPath(psl, cmd);
-
-      if (arg)
-        {
-          hr = psl->lpVtbl->SetArguments(psl, arg);
-        }
-
-      if (dir)
-        {
-          hr = psl->lpVtbl->SetWorkingDirectory(psl, dir);
-        }
-
-      if (iconPath)
-        {
-          hr = psl->lpVtbl->SetIconLocation(psl, iconPath, icon_nr);
-        }
-
-      if (comment)
-        {
-          hr = psl->lpVtbl->SetDescription(psl, comment);
-        }
-
-      hr = psl->lpVtbl->QueryInterface(psl, &IID_IPersistFile, (LPVOID*)&ppf);
-
-      if (SUCCEEDED(hr))
-        {
-          MultiByteToWideChar(CP_ACP, 0, linkPath, -1, buffer, MAX_PATH);
-
-          hr = ppf->lpVtbl->Save(ppf, buffer, TRUE);
-
-          ppf->lpVtbl->Release(ppf);
-        }
-
-      psl->lpVtbl->Release(psl);
-    }
-
-  return hr;
-}
-
-
-static VOID
-CreateCmdLink(VOID)
-{
-  char path[MAX_PATH];
-  LPSTR p;
-
-  CoInitialize(NULL);
-
-  SHGetSpecialFolderPathA(0, path, CSIDL_DESKTOP, TRUE);
-  p = PathAddBackslashA(path);
-
-  strcpy(p, "Command Prompt.lnk");
-  CreateShellLink(path, "cmd.exe", "", NULL, NULL, 0, "Open command prompt");
-
-  CoUninitialize();
-}
 
 
 static VOID
@@ -266,92 +194,99 @@ RestartDlgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 static VOID
 CreateTempDir(LPCWSTR VarName)
 {
-  TCHAR szTempDir[MAX_PATH];
-  TCHAR szBuffer[MAX_PATH];
+  WCHAR szTempDir[MAX_PATH];
+  WCHAR szBuffer[MAX_PATH];
   DWORD dwLength;
   HKEY hKey;
 
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-		   _T("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"),
-		   0,
-		   KEY_ALL_ACCESS,
-		   &hKey))
+  if (RegOpenKeyExW (HKEY_LOCAL_MACHINE,
+		     L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+		     0,
+		     KEY_ALL_ACCESS,
+		     &hKey))
     {
       DebugPrint("Error: %lu\n", GetLastError());
       return;
     }
 
   /* Get temp dir */
-  dwLength = MAX_PATH * sizeof(TCHAR);
-  if (RegQueryValueEx(hKey,
-		      VarName,
-		      NULL,
-		      NULL,
-		      (LPBYTE)szBuffer,
-		      &dwLength))
+  dwLength = MAX_PATH * sizeof(WCHAR);
+  if (RegQueryValueExW (hKey,
+			VarName,
+			NULL,
+			NULL,
+			(LPBYTE)szBuffer,
+			&dwLength))
     {
       DebugPrint("Error: %lu\n", GetLastError());
-      RegCloseKey(hKey);
+      RegCloseKey (hKey);
       return;
     }
 
   /* Expand it */
-  if (!ExpandEnvironmentStrings(szBuffer,
-				szTempDir,
-				MAX_PATH))
+  if (!ExpandEnvironmentStringsW (szBuffer,
+				  szTempDir,
+				  MAX_PATH))
     {
       DebugPrint("Error: %lu\n", GetLastError());
-      RegCloseKey(hKey);
+      RegCloseKey (hKey);
       return;
     }
 
   /* Create profiles directory */
-  if (!CreateDirectory(szTempDir, NULL))
+  if (!CreateDirectoryW (szTempDir, NULL))
     {
-      if (GetLastError() != ERROR_ALREADY_EXISTS)
+      if (GetLastError () != ERROR_ALREADY_EXISTS)
 	{
 	  DebugPrint("Error: %lu\n", GetLastError());
-	  RegCloseKey(hKey);
+	  RegCloseKey (hKey);
 	  return;
 	}
     }
 
-  RegCloseKey(hKey);
+  RegCloseKey (hKey);
 }
 
+#define SECTIONBUF_SIZE 4096
 
 BOOL
 ProcessSysSetupInf(VOID)
 {
-  INFCONTEXT InfContext;
-  TCHAR LineBuffer[256];
-  DWORD LineLength;
+  LPTSTR pBuf2;
+  TCHAR szBuf[SECTIONBUF_SIZE];
+  DWORD dwBufSize;
 
-  if (!SetupFindFirstLine(hSysSetupInf,
-			  _T("DeviceInfsToInstall"),
-			  NULL,
-			  &InfContext))
-  {
+  SetLastError(0);
+
+  dwBufSize = GetPrivateProfileSection(_T("DeviceInfsToInstall"),
+				       szBuf,
+				       SECTIONBUF_SIZE,
+				       _T("Inf\\SYSSETUP.INF"));
+
+  /* fix this first... */
+  if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
+    return TRUE;
+
+  if (dwBufSize == SECTIONBUF_SIZE-2)
     return FALSE;
-  }
 
-  do
+  if (!dwBufSize)
+    return FALSE;
+
+  pBuf2 = szBuf;
+  while (*pBuf2)
   {
-    if (!SetupGetStringField(&InfContext,
-			     0,
-			     LineBuffer,
-			     256,
-			     &LineLength))
-    {
-      return FALSE;
-    }
+    OutputDebugString(_T("Calling Class Installer for "));
+    OutputDebugString(pBuf2);
+    OutputDebugString(_T("\r\n"));
 
-    if (!SetupDiInstallClass(NULL, LineBuffer, DI_QUIETINSTALL, NULL))
-    {
+#if 0
+    /* FIXME: Currently unsupported */
+    if (!SetupDiInstallClass(NULL, pBuf2, DI_QUIETINSTALL, NULL))
       return FALSE;
-    }
+#endif
+    pBuf2 += _tcslen(pBuf2) + 1;
   }
-  while (SetupFindNextLine(&InfContext, &InfContext));
 
   return TRUE;
 }
@@ -382,15 +317,12 @@ InstallReactOS (HINSTANCE hInstance)
 #if 0
   UNICODE_STRING SidString;
 #endif
-  ULONG LastError;
 
   if (!InitializeProfiles ())
     {
       DebugPrint ("InitializeProfiles() failed\n");
       return 0;
     }
-
-  CreateCmdLink();
 
   /* Create the semi-random Domain-SID */
   CreateRandomSid (&DomainSid);
@@ -423,7 +355,7 @@ InstallReactOS (HINSTANCE hInstance)
     }
 
   /* Append the Admin-RID */
-  AppendRidToSid(&AdminSid, DomainSid, DOMAIN_USER_RID_ADMIN);
+  AppendRidToSid (&AdminSid, DomainSid, DOMAIN_USER_RID_ADMIN);
 
 #if 0
   RtlConvertSidToUnicodeString (&SidString, DomainSid, TRUE);
@@ -432,66 +364,45 @@ InstallReactOS (HINSTANCE hInstance)
 #endif
 
   /* Create the Administrator account */
-  if (!SamCreateUser(L"Administrator", L"", AdminSid))
-  {
-    /* Check what the error was.
-     * If the Admin Account already exists, then it means Setup
-     * wasn't allowed to finish properly. Instead of rebooting
-     * and not completing it, let it restart instead
-     */
-    LastError = GetLastError();
-    if (LastError != ERROR_USER_EXISTS)
+  if (!SamCreateUser (L"Administrator", L"", AdminSid))
     {
-      DebugPrint("SamCreateUser() failed!\n");
-      RtlFreeSid(AdminSid);
-      RtlFreeSid(DomainSid);
+      DebugPrint ("SamCreateUser() failed!\n");
+      RtlFreeSid (AdminSid);
+      RtlFreeSid (DomainSid);
       return 0;
     }
-  }
 
   /* Create the Administrator profile */
-  if (!CreateUserProfileW(AdminSid, L"Administrator"))
-  {
-    DebugPrint("CreateUserProfileW() failed!\n");
-    RtlFreeSid(AdminSid);
-    RtlFreeSid(DomainSid);
-    return 0;
-  }
+  if (!CreateUserProfileW (AdminSid, L"Administrator"))
+    {
+      DebugPrint ("CreateUserProfileW() failed!\n");
+      RtlFreeSid (AdminSid);
+      RtlFreeSid (DomainSid);
+      return 0;
+    }
 
-  RtlFreeSid(AdminSid);
-  RtlFreeSid(DomainSid);
+  RtlFreeSid (AdminSid);
+  RtlFreeSid (DomainSid);
 
   CreateTempDir(L"TEMP");
   CreateTempDir(L"TMP");
 
-  hSysSetupInf = SetupOpenInfFileW(L"syssetup.inf",
-				   NULL,
-				   INF_STYLE_WIN4,
-				   NULL);
-  if (hSysSetupInf == INVALID_HANDLE_VALUE)
+  if(!ProcessSysSetupInf())
   {
-    DebugPrint("SetupOpenInfFileW() failed to open 'syssetup.inf' (Error: %lu)\n", GetLastError());
-    return 0;
-  }
-
-  if (!ProcessSysSetupInf())
-  {
-    DebugPrint("ProcessSysSetupInf() failed!\n");
-    return 0;
+      DebugPrint("ProcessSysSetupInf() failed!\n");
+	  return 0;
   }
 
   InstallWizard();
 
-  SetupCloseInfFile(hSysSetupInf);
-
 #ifdef VMWINST
-  RunVMWInstall();
+  RunVMWInstall ();
 #endif
 
-  DialogBox(hDllInstance,
-	    MAKEINTRESOURCE(IDD_RESTART),
-	    NULL,
-	    RestartDlgProc);
+  DialogBox (hDllInstance,
+	     MAKEINTRESOURCE(IDD_RESTART),
+	     NULL,
+	     RestartDlgProc);
 
   return 0;
 }

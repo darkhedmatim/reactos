@@ -204,10 +204,9 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (NT_CUSTOMER(ErrorCode))
         {
-          _snprintf(TempBuf, sizeof(TempBuf)-1,
+          sprintf(TempBuf, 
                   "%%CUST-%s-", 
                   SeverityCodes[NT_SEVERITY(ErrorCode)]);
-		  TempBuf[sizeof(TempBuf)-1] = '\0';
         }
       else 
         {
@@ -220,16 +219,14 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
             }
           if (FacList[i].Name != NULL)
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%%s-%s-", 
+              sprintf(TempBuf, "%%%s-%s-", 
                       FacList[i].Name, 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
           else
             {
-              _snprintf(TempBuf, sizeof(TempBuf)-1, "%%UNKNOWN-%s-", 
+              sprintf(TempBuf, "%%UNKNOWN-%s-", 
                       SeverityCodes[NT_SEVERITY(ErrorCode)]);
-			  TempBuf[sizeof(TempBuf)-1] = '\0';
             }
         }
     }
@@ -260,8 +257,7 @@ DbgGetErrorText(NTSTATUS ErrorCode, PUNICODE_STRING ErrorText, ULONG Flags)
     {
       if (Flags & DBG_GET_SHOW_FACILITY)
         {
-          _snprintf(NumBuf, sizeof(NumBuf)-1, "%08lx", ErrorCode);
-		  NumBuf[sizeof(NumBuf)-1] = '\0';
+          sprintf(NumBuf, "%08lx", ErrorCode);
           strcat(TempBuf, NumBuf);
           strcat(TempBuf, " ");
         }

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.3 2004/10/31 11:51:47 ekohl Exp $
+# $Id: Makefile,v 1.1 2004/08/07 00:05:23 kuehng Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -10,13 +10,10 @@ TARGET_NAME = desk
 
 TARGET_INSTALLDIR = system32
 
-TARGET_BASE = $(TARGET_BASE_LIB_CPL_DESK)
+TARGET_BASE = $(TARGET_BASE_LIB_CPL_SYSDM)
 
 TARGET_CFLAGS = \
  -I./include \
- -D_WIN32_IE=0x0600 \
- -D_WIN32_WINNT=0x0501 \
- -D__USE_W32API \
  -DUNICODE \
  -D_UNICODE \
  -D__REACTOS__ \

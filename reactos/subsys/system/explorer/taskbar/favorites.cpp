@@ -85,7 +85,7 @@ bool Bookmark::read_url(LPCTSTR path)
  /// convert XBEL bookmark node
 bool Bookmark::read(const_XMLPos& pos)
 {
-	_url = pos.get("href").c_str();
+	_url = pos.get("href");
 
 	if (pos.go_down("title")) {
 		_name = pos->get_content();
@@ -106,8 +106,8 @@ bool Bookmark::read(const_XMLPos& pos)
 
 			if (node.get("owner") == "ros-explorer") {
 				if (sub_pos.go_down("icon")) {
-					_icon_path = sub_pos.get("path").c_str();
-					_icon_idx = XS_toi(sub_pos.get("index"));
+					_icon_path = sub_pos.get("path");
+					_icon_idx = _ttoi(sub_pos.get("index"));
 
 					sub_pos.back();	// </icon>
 				}
@@ -126,7 +126,7 @@ void Bookmark::write(XMLPos& pos) const
 {
 	pos.create("bookmark");
 
-	pos["href"] = _url.c_str();
+	pos["href"] = _url;
 
 	if (!_name.empty()) {
 		pos.create("title");
@@ -145,8 +145,8 @@ void Bookmark::write(XMLPos& pos) const
 		pos.create("metadata");
 		pos["owner"] = "ros-explorer";
 		pos.create("icon");
-		pos["path"] = _icon_path.c_str();
-		pos["index"].printf(XS_TEXT("%d"), _icon_idx);
+		pos["path"] = _icon_path;
+		pos["index"].printf(TEXT("%d"), _icon_idx);
 		pos.back();	// </icon>
 		pos.back();	// </metadata>
 		pos.back();	// </info>
@@ -172,7 +172,7 @@ void BookmarkFolder::read(const_XMLPos& pos)
 	_bookmarks.read(pos);
 }
 
- /// write bookmark folder content from XBEL formated XML tree
+ /// write bookmark folder conten from XBEL formated XML tree
 void BookmarkFolder::write(XMLPos& pos) const
 {
 	pos.create("folder");
@@ -389,7 +389,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 		if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 			BookmarkFolder new_folder;
 
-			new_folder._name = DecodeXMLString(name);
+			new_folder._name = name;
 
 			if (entry->_etype == ET_SHELL) {
 				ShellDirectory new_dir(dir._folder, static_cast<ShellEntry*>(entry)->_pidl, hwnd);
@@ -404,7 +404,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 		} else {
 			Bookmark bookmark;
 
-			bookmark._name = DecodeXMLString(name);
+			bookmark._name = name;
 
 			entry->get_path(path);
 			_tsplitpath(path, NULL, NULL, NULL, ext);
@@ -414,7 +414,7 @@ void BookmarkList::import_IE_favorites(ShellDirectory& dir, HWND hwnd)
 				push_back(bookmark);
 			} else {
 				///@todo read shell links
-				//assert(0);
+				assert(0);
 			}
 		}
 	}

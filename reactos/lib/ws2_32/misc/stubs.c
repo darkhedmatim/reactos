@@ -147,7 +147,7 @@ getsockopt(
  * @implemented
  */
 INT
-EXPORT __stdcall
+EXPORT
 setsockopt(
     IN  SOCKET s,
     IN  INT level,
@@ -635,6 +635,23 @@ WSACancelAsyncRequest(
 
     return 0;
 }
+
+/*
+ * @unimplemented
+ */
+INT
+#if 0
+PASCAL FAR
+#else
+EXPORT
+#endif
+__WSAFDIsSet(SOCKET s, LPFD_SET set)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
 
 /* WinSock Service Provider support functions */
 

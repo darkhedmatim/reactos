@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: directory.c,v 1.8 2004/12/28 13:30:18 ekohl Exp $
+/* $Id: directory.c,v 1.5 2004/08/15 19:02:40 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -29,54 +11,6 @@
 
 
 /* FUNCTIONS ***************************************************************/
-
-BOOL STDCALL
-CopyProfileDirectoryA(LPCSTR lpSourcePath,
-		      LPCSTR lpDestinationPath,
-		      DWORD dwFlags)
-{
-  UNICODE_STRING SrcPath;
-  UNICODE_STRING DstPath;
-  NTSTATUS Status;
-  BOOL bResult;
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&SrcPath,
-                                            (LPSTR)lpSourcePath);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  Status = RtlCreateUnicodeStringFromAsciiz(&DstPath,
-                                            (LPSTR)lpDestinationPath);
-  if (!NT_SUCCESS(Status))
-    {
-      RtlFreeUnicodeString(&SrcPath);
-      SetLastError (RtlNtStatusToDosError (Status));
-      return FALSE;
-    }
-
-  bResult = CopyProfileDirectoryW(SrcPath.Buffer,
-                                  DstPath.Buffer,
-                                  dwFlags);
-
-  RtlFreeUnicodeString(&DstPath);
-  RtlFreeUnicodeString(&SrcPath);
-
-  return bResult;
-}
-
-
-BOOL STDCALL
-CopyProfileDirectoryW(LPCWSTR lpSourcePath,
-		      LPCWSTR lpDestinationPath,
-		      DWORD dwFlags)
-{
-  /* FIXME: dwFlags are ignored! */
-  return CopyDirectory(lpDestinationPath, lpSourcePath);
-}
-
 
 BOOL
 CopyDirectory (LPCWSTR lpDestinationPath,
@@ -142,7 +76,7 @@ CopyDirectory (LPCWSTR lpDestinationPath,
 	    }
 	  else
 	    {
-	      DPRINT ("Copy file: %S -> %S\n", szFullSrcName, szFullDstName);
+	      DPRINT1 ("Copy file: %S -> %S\n", szFullSrcName, szFullDstName);
 	      if (!CopyFileW (szFullSrcName, szFullDstName, FALSE))
 		{
 		  DPRINT1 ("Error: %lu\n", GetLastError());
@@ -332,7 +266,7 @@ RemoveDirectoryPath (LPCWSTR lpPathName)
   if (!RecursiveRemoveDir (lpPathName))
     return FALSE;
 
-  DPRINT ("Delete directory: '%S'\n", lpPathName);
+  DPRINT1 ("Delete directory: '%S'\n", lpPathName);
   return RemoveDirectoryW (lpPathName);
 }
 

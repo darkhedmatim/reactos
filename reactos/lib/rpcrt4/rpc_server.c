@@ -767,7 +767,7 @@ RPC_STATUS WINAPI RpcServerRegisterIf2( RPC_IF_HANDLE IfSpec, UUID* MgrTypeUuid,
 {
   PRPC_SERVER_INTERFACE If = (PRPC_SERVER_INTERFACE)IfSpec;
   RpcServerInterface* sif;
-  unsigned int i;
+  int i;
 
   TRACE("(%p,%s,%p,%u,%u,%u,%p)\n", IfSpec, debugstr_guid(MgrTypeUuid), MgrEpv, Flags, MaxCalls,
          MaxRpcSize, IfCallbackFn);
@@ -905,7 +905,7 @@ RPC_STATUS WINAPI RpcObjectSetType( UUID* ObjUuid, UUID* TypeUuid )
 /***********************************************************************
  *             RpcServerRegisterAuthInfoA (RPCRT4.@)
  */
-RPC_STATUS WINAPI RpcServerRegisterAuthInfoA( unsigned char *ServerPrincName, unsigned long AuthnSvc, RPC_AUTH_KEY_RETRIEVAL_FN GetKeyFn,
+RPC_STATUS WINAPI RpcServerRegisterAuthInfoA( unsigned char *ServerPrincName, ULONG AuthnSvc, RPC_AUTH_KEY_RETRIEVAL_FN GetKeyFn,
                             LPVOID Arg )
 {
   FIXME( "(%s,%lu,%p,%p): stub\n", ServerPrincName, AuthnSvc, GetKeyFn, Arg );
@@ -916,7 +916,7 @@ RPC_STATUS WINAPI RpcServerRegisterAuthInfoA( unsigned char *ServerPrincName, un
 /***********************************************************************
  *             RpcServerRegisterAuthInfoW (RPCRT4.@)
  */
-RPC_STATUS WINAPI RpcServerRegisterAuthInfoW( LPWSTR ServerPrincName, unsigned long AuthnSvc, RPC_AUTH_KEY_RETRIEVAL_FN GetKeyFn,
+RPC_STATUS WINAPI RpcServerRegisterAuthInfoW( LPWSTR ServerPrincName, ULONG AuthnSvc, RPC_AUTH_KEY_RETRIEVAL_FN GetKeyFn,
                             LPVOID Arg )
 {
   FIXME( "(%s,%lu,%p,%p): stub\n", debugstr_w( ServerPrincName ), AuthnSvc, GetKeyFn, Arg );
@@ -1004,7 +1004,7 @@ RPC_STATUS WINAPI RpcMgmtStopServerListening ( RPC_BINDING_HANDLE Binding )
 /***********************************************************************
  *             I_RpcServerStartListening (RPCRT4.@)
  */
-RPC_STATUS WINAPI I_RpcServerStartListening( HWND hWnd )
+RPC_STATUS WINAPI I_RpcServerStartListening( void* hWnd )
 {
   FIXME( "(%p): stub\n", hWnd );
 

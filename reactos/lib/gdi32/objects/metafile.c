@@ -1,4 +1,9 @@
 #include "precomp.h"
+#include <string.h>
+#include <internal/heap.h>
+#include <win32k/kapi.h>
+#include <win32k/metafile.h>
+
 
 /*
  * @implemented

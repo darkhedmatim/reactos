@@ -1,4 +1,4 @@
-/* $Id: mailslot.c,v 1.12 2004/10/08 23:20:57 weiden Exp $
+/* $Id: mailslot.c,v 1.11 2004/06/13 20:04:55 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -60,8 +60,6 @@ CreateMailslotW(LPCWSTR lpName,
    BOOLEAN Result;
    LARGE_INTEGER DefaultTimeOut;
    IO_STATUS_BLOCK Iosb;
-   ULONG Attributes = OBJ_CASE_INSENSITIVE;
-   PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
    
    Result = RtlDosPathNameToNtPathName_U((LPWSTR)lpName,
 					 &MailslotName,
@@ -75,18 +73,11 @@ CreateMailslotW(LPCWSTR lpName,
    
    DPRINT("Mailslot name: %wZ\n", &MailslotName);
    
-   if(lpSecurityAttributes)
-     {
-       SecurityDescriptor = lpSecurityAttributes->lpSecurityDescriptor;
-       if(lpSecurityAttributes->bInheritHandle)
-          Attributes |= OBJ_INHERIT;
-     }
-   
    InitializeObjectAttributes(&ObjectAttributes,
 			      &MailslotName,
-			      Attributes,
+			      OBJ_CASE_INSENSITIVE,
 			      NULL,
-			      SecurityDescriptor);
+			      NULL);
    
    DefaultTimeOut.QuadPart = lReadTimeout * 10000;
    

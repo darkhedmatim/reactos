@@ -129,9 +129,9 @@ struct timezone; /* XXX arty */
  * Undef ADNS_MAP_UNIXAPI in the calling code to use natve calls 
  */
 ADNS_API int adns_gettimeofday(struct timeval *tv, struct timezone *tz);
-ADNS_API int adns_writev (SOCKET FileDescriptor, const struct iovec * iov, int iovCount);
+ADNS_API int adns_writev (int FileDescriptor, const struct iovec * iov, int iovCount);
 ADNS_API int adns_inet_aton(const char *cp, struct in_addr *inp);
-ADNS_API int adns_getpid(void);
+ADNS_API int adns_getpid();
 
 #ifdef ADNS_DLL
  ADNS_API void *adns_malloc(const size_t bytes);

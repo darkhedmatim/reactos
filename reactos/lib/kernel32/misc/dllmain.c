@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.38 2004/11/29 00:08:59 gdalsnes Exp $
+/* $Id: dllmain.c,v 1.36 2004/08/24 17:21:11 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,6 +11,7 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <roscfg.h>
 #include <k32.h>
 
 #define NDEBUG
@@ -37,6 +38,7 @@ CRITICAL_SECTION DllLock;
 CRITICAL_SECTION ConsoleLock;
 
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
+extern BOOL FASTCALL PROFILE_Init();
 
 extern BOOL FASTCALL NlsInit();
 extern VOID FASTCALL NlsUninit();
@@ -93,7 +95,18 @@ DllMain(HANDLE hDll,
       case DLL_PROCESS_ATTACH:
 	DPRINT("DLL_PROCESS_ATTACH\n");
 
+#if !defined(REGTESTS)
+	/*
+	 * When running regression tests, this module need to receive
+	 * thread attach/detach notifications. This is needed because
+	 * the module is already loaded when the regression test suite
+	 * driver would load this module using LoadLibrary() so a
+	 * DLL_PROCESS_ATTACH notification is not sent. The regression
+	 * test suite driver sends thread notifications instead in this
+	 * case.
+	 */
 	LdrDisableThreadCalloutsForDll ((PVOID)hDll);
+#endif
 
 	/*
 	 * Connect to the csrss server
@@ -136,6 +149,12 @@ DllMain(HANDLE hDll,
 
 	/* Initialize the DLL critical section */
 	RtlInitializeCriticalSection(&DllLock);
+
+	/* Initialize the profile (.ini) routines */
+	if (! PROFILE_Init())
+          {
+            return FALSE;
+          }
 
 	/* Initialize the National Language Support routines */
         if (! NlsInit())

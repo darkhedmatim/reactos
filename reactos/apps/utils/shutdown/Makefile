@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.3 2004/12/13 18:06:38 weiden Exp $
+# $Id: Makefile,v 1.1 2004/07/07 22:29:37 gvg Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -8,15 +8,13 @@ TARGET_TYPE = program
 
 TARGET_APPTYPE = console
 
-TARGET_INSTALLDIR = system32
-
 TARGET_NAME = shutdown
 
 TARGET_SDKLIBS = kernel32.a user32.a
 
 TARGET_OBJECTS = shutdown.o
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API -D_WIN32_WINNT=0x0501
+TARGET_CFLAGS = -Wall -Werror -D__USE_W32API
 
 include $(PATH_TO_TOP)/rules.mak
 

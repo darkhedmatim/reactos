@@ -15,7 +15,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* $Id: ncpa.c,v 1.5 2004/10/31 11:54:58 ekohl Exp $
+/* $Id: ncpa.c,v 1.2 2004/08/15 16:50:30 kuehng Exp $
  *
  * PROJECT:         ReactOS Network Control Panel
  * FILE:            lib/cpl/system/ncpa.c
@@ -25,70 +25,60 @@
  *      07-18-2004  Created
  */
 
-/*
- * Read this first !
- *
- * This file contains a first attempt for reactos network configuration
- *
- *  - It is not complete.
- *  - It does not work the way it works on Windows.
- *
- * A lot of code that can be found here now, will probably be relocated into the OS core or some
- * protocol Co-Installers or Notify Objects later when all the required COM
- * and "netcfgx.dll" infrastructure (esp. headers and Interfaces) get implemented step by step.
- *
- * This code is only a first approach to provide a usable network configuration dialogs for
- * the new network support in Reactos.
- *
- * If you intend to extend this code by more, please contact me to avoid duplicate work.
- * There are already resources and code for TCP/IP configuration that are not 
- * mature enough for committing them to CVS yet.
- */
-
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//							Read this first !
+//
+// This file contains a first attempt for reactos network configuration
+// This is:
+// - not complete
+// - not the way it works on Windows
+// 
+// A lot of code that can be found here now, will probably be relocated into the OS core or some
+// protocol Co-Installers or Notify Objects later when all the required COM
+// and "netcfgx.dll" infrastructure (esp. headers and Interfaces) get implemented step by step.
+//
+// This code is only a first approach to provide a usable network configuration dialogs for
+// the new network support in Reactos.
+//
+// If you intend to extend this code by more, please contact me to avoid duplicate work.
+// There are already resources and code for TCP/IP configuration that are not 
+// mature enough for committing them to CVS yet.
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <tchar.h>
 #include <windows.h>
 #include <iphlpapi.h>
+#ifdef __REACTOS__
+//#include <Netcfgn.h>
+#else
 #include <commctrl.h>
 #include <cpl.h>
-//#ifdef __REACTOS__
-//#include <Netcfgn.h>
-//#endif
+#endif
 
 #include "resource.h"
 #include "ncpa.h"
 
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// useful utilities
 #define NCF_HIDDEN 0x08
 #define NCF_HAS_UI 0x80
 
 typedef void (ENUMREGKEYCALLBACK)(void *pCookie,HKEY hBaseKey,TCHAR *pszSubKey);
-
-LONG CALLBACK DisplayApplet(VOID);
-INT_PTR CALLBACK NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-void DisplayTCPIPProperties(HWND hParent,IP_ADAPTER_INFO *pInfo);
-
-HINSTANCE hApplet = 0;
-
-/* Applets */
-APPLET Applets[] = 
-{
-	{IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, DisplayApplet}
-};
-
-
-
-/* useful utilities */
-VOID EnumRegKeys(ENUMREGKEYCALLBACK *pCallback,PVOID pCookie,HKEY hBaseKey,TCHAR *tpszRegPath)
+void EnumRegKeys(ENUMREGKEYCALLBACK *pCallback,void *pCookie,HKEY hBaseKey,TCHAR *tpszRegPath)
 {
 	HKEY hKey;
-	INT i;
+	int i;
 	LONG ret;
 	TCHAR tpszName[MAX_PATH];
 	DWORD dwNameLen = sizeof(tpszName);
-
 	if(RegOpenKeyEx(hBaseKey,tpszRegPath,0,KEY_ALL_ACCESS,&hKey)!=ERROR_SUCCESS)
 	{
 		OutputDebugString(_T("EnumRegKeys failed (key not found)\r\n"));
@@ -96,7 +86,7 @@ VOID EnumRegKeys(ENUMREGKEYCALLBACK *pCallback,PVOID pCookie,HKEY hBaseKey,TCHAR
 		OutputDebugString(_T("\r\n"));
 		return;
 	}
-
+	
 	for(i=0;;i++)
 	{
 		TCHAR pszNewPath[MAX_PATH];
@@ -115,7 +105,6 @@ VOID EnumRegKeys(ENUMREGKEYCALLBACK *pCallback,PVOID pCookie,HKEY hBaseKey,TCHAR
 
 		dwNameLen = sizeof(tpszName);
 	}
-
 	RegCloseKey(hKey);
 }
 
@@ -125,10 +114,33 @@ void InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc,LPARAM lP
 	psp->dwSize = sizeof(PROPSHEETPAGE);
 	psp->dwFlags = PSP_DEFAULT;
 	psp->hInstance = hApplet;
+#ifdef _MSC_VER
 	psp->pszTemplate = MAKEINTRESOURCE(idDlg);
+#else
+	psp->u1.pszTemplate = MAKEINTRESOURCE(idDlg);
+#endif
 	psp->pfnDlgProc = DlgProc;
 	psp->lParam = lParam;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+LONG CALLBACK DisplayApplet(VOID);
+BOOL CALLBACK NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+void DisplayTCPIPProperties(HWND hParent,IP_ADAPTER_INFO *pInfo);
+
+HINSTANCE hApplet = 0;
+
+/* Applets */
+APPLET Applets[] = 
+{
+	{IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, DisplayApplet}
+};
+
+
 
 
 
@@ -139,8 +151,7 @@ BOOL FindNICClassKeyForCfgInstance(TCHAR *tpszCfgInst,TCHAR *tpszSubKeyOut)
 	TCHAR tpszCfgInst2[MAX_PATH];
 	HKEY hKey;
 	DWORD dwType,dwSize;
-
-	for (i = 0; i < 100; i++)
+	for(i=0;i<100;i++)
 	{
 		_stprintf(tpszSubKey,_T("SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\%04d"),i);
 		if(RegOpenKey(HKEY_LOCAL_MACHINE,tpszSubKey,&hKey)!=ERROR_SUCCESS)
@@ -176,17 +187,14 @@ void NICPropertyProtocolCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 //	INetCfgComponentControl *pNetCfg;
 //	INetCfgComponentPropertyUi *pNetCfgPropUI;
 	hwndDlg = (HWND)pCookie;
-
+	
 	if(RegOpenKey(HKEY_LOCAL_MACHINE,tpszSubKey,&hKey)!=ERROR_SUCCESS)
 		return;
-
 	dwType = REG_DWORD;
 	dwSize = sizeof(dwCharacteristics);
 	if(RegQueryValueEx(hKey,_T("Characteristics"),NULL,&dwType,(BYTE*)&dwCharacteristics,&dwSize)!= ERROR_SUCCESS)
 		return;
-
-	if(dwCharacteristics & NCF_HIDDEN)
-	{
+	if(dwCharacteristics & NCF_HIDDEN) {
 		RegCloseKey(hKey);
 		return;
 	}
@@ -201,7 +209,6 @@ void NICPropertyProtocolCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	dwSize = sizeof(tpszNotifyObjectCLSID);
 	if(RegQueryValueEx(hNDIKey,_T("ClsId"),NULL,&dwType,(BYTE*)tpszNotifyObjectCLSID,&dwSize)!= ERROR_SUCCESS)
 		;//return;
-
 	RegCloseKey(hNDIKey);
 
 	//
@@ -233,13 +240,12 @@ void NICPropertyProtocolCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 
 
 
-INT_PTR CALLBACK
-NICPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK NICPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	PROPSHEETPAGE *pPage = (PROPSHEETPAGE *)GetWindowLongPtr(hwndDlg,GWL_USERDATA);
+	PROPSHEETPAGE *pPage = (PROPSHEETPAGE *)GetWindowLong(hwndDlg,GWL_USERDATA);
 	switch(uMsg)
 	{
-	case WM_INITDIALOG:
+    case WM_INITDIALOG:	
 		{
 			TCHAR *tpszCfgInstanceID;
 			DWORD dwType,dwSize;
@@ -266,7 +272,7 @@ NICPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			EnableWindow(GetDlgItem(hwndDlg,IDC_CONFIGURE),FALSE);
 
 
-			SetWindowLongPtr(hwndDlg,GWL_USERDATA,(DWORD_PTR)lParam);
+			SetWindowLong(hwndDlg,GWL_USERDATA,lParam);
 			//SetDlgItemTextA(hwndDlg,IDC_NETCARDNAME,Info[pPage->lParam].Description);
 			EnumRegKeys(NICPropertyProtocolCallback,hwndDlg,HKEY_LOCAL_MACHINE,_T("System\\CurrentControlSet\\Control\\Network\\{4D36E975-E325-11CE-BFC1-08002BE10318}"));
 
@@ -396,31 +402,39 @@ void DisplayNICProperties(HWND hParent,TCHAR *tpszCfgInstanceID)
 	psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_NOAPPLYNOW;
 	psh.hwndParent = hParent;
 	psh.hInstance = hApplet;
+#ifdef _MSC_VER
 	psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#else
+	psh.u1.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#endif
 	psh.pszCaption = tpszName;
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
+#ifdef _MSC_VER
 	psh.nStartPage = 0;
 	psh.ppsp = psp;
+#else
+	psh.u2.nStartPage = 0;
+	psh.u3.ppsp = psp;
+#endif
 	psh.pfnCallback = NULL;
 	
 
 	InitPropSheetPage(&psp[0], IDD_NETPROPERTIES, NICPropertyPageProc,(LPARAM)tpszCfgInstanceID);
-	PropertySheet(&psh);
+	PropertySheet(&psh)	;
 	return;
 }
 
 
 
-INT_PTR CALLBACK
-NICStatusPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK NICStatusPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch(uMsg)
 	{
-	case WM_INITDIALOG:
+    case WM_INITDIALOG:	
 		{
 			PROPSHEETPAGE *psp= (PROPSHEETPAGE *)lParam;
 			EnableWindow(GetDlgItem(hwndDlg,IDC_ENDISABLE),FALSE);
-			SetWindowLongPtr(hwndDlg,DWL_USER,(DWORD_PTR)psp->lParam);
+			SetWindowLong(hwndDlg,DWL_USER,psp->lParam);
 		}
 		break;
 	case WM_COMMAND:
@@ -439,7 +453,7 @@ NICStatusPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
-VOID DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
+void DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
 {
 	PROPSHEETPAGE psp[1];
 	PROPSHEETHEADER psh;
@@ -451,10 +465,9 @@ VOID DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
 
 	// Get the "Name" for this Connection
 	_stprintf(tpszSubKey,_T("System\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\%s\\Connection"),tpszCfgInstanceID);
-	if (RegOpenKey(HKEY_LOCAL_MACHINE,tpszSubKey,&hKey)!=ERROR_SUCCESS)
+	if(RegOpenKey(HKEY_LOCAL_MACHINE,tpszSubKey,&hKey)!=ERROR_SUCCESS)
 		return;
-
-	if (RegQueryValueEx(hKey,_T("Name"),NULL,&dwType,(BYTE*)tpszName,&dwSize)!=ERROR_SUCCESS)
+	if(RegQueryValueEx(hKey,_T("Name"),NULL,&dwType,(BYTE*)tpszName,&dwSize)!=ERROR_SUCCESS)
 		_stprintf(tpszName,_T("[ERROR]"));
 		//_stprintf(tpszName,_T("[ERROR]") _T(__FILE__) _T(" %d"),__LINE__ );
 	else
@@ -467,47 +480,54 @@ VOID DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
 	psh.hwndParent = hParent;
 	psh.hInstance = hApplet;
 	// FIX THESE REACTOS HEADERS !!!!!!!!!
+#ifdef _MSC_VER
 	psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#else
+	psh.u1.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#endif
 	psh.pszCaption = tpszName;//Caption;
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
+#ifdef _MSC_VER
 	psh.nStartPage = 0;
 	psh.ppsp = psp;
+#else
+	psh.u2.nStartPage = 0;
+	psh.u3.ppsp = psp;
+#endif
 	psh.pfnCallback = NULL;
 	
 
 	InitPropSheetPage(&psp[0], IDD_CARDPROPERTIES, NICStatusPageProc,(LPARAM)tpszCfgInstanceID);
-	PropertySheet(&psh);
+	PropertySheet(&psh)	;
 	return;
 }
 
 //
 // IPHLPAPI does not provide a list of all adapters
 //
-#if 0
-VOID EnumAdapters(HWND hwndDlg)
+/*
+void EnumAdapters(HWND hwndDlg)
 {
-	TCHAR pszText[MAX_ADAPTER_NAME_LENGTH + 4];
 	IP_ADAPTER_INFO *pInfo;
-	ULONG size;
-	INT nIndex;
+	ULONG size=sizeof(Info);
+	TCHAR pszText[MAX_ADAPTER_NAME_LENGTH + 4];
+	int nIndex;
 
-	size=sizeof(Info);
 	if(GetAdaptersInfo(Info,&size)!=ERROR_SUCCESS)
 	{
 		MessageBox(hwndDlg,L"IPHLPAPI.DLL failed to provide Adapter information",L"Error",MB_ICONSTOP);
 		return;
 	}
-
 	pInfo = &Info[0];
 	while(pInfo)
 	{
-		swprintf(pszText,L"%S",Info[0].Description);
-		nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_ADDSTRING,0,(LPARAM)pszText);
-		SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_SETITEMDATA,nIndex,(LPARAM)pInfo);
-		pInfo = pInfo->Next;
+	swprintf(pszText,L"%S",Info[0].Description);
+	nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_ADDSTRING,0,(LPARAM)pszText);
+	SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_SETITEMDATA,nIndex,(LPARAM)pInfo);
+	pInfo = pInfo->Next;
 	}
 }
-#endif
+*/
 
 
 
@@ -537,15 +557,15 @@ void NetAdapterCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 		dwCharacteristics = 0;
 
 
-	if (dwCharacteristics & NCF_HIDDEN)
+	if(dwCharacteristics & NCF_HIDDEN)
 		return;
-//	if (!(dwCharacteristics & NCF_HAS_UI))
+//	if(!(dwCharacteristics & NCF_HAS_UI))
 //		return;
 
 	OutputDebugString(_T("NetAdapterCallback: Reading DriverDesc\r\n"));
 	dwType = REG_SZ;
 	dwSize = sizeof(tpszDisplayName);
-	if (RegQueryValueEx(hKey,_T("DriverDesc"),NULL,&dwType,(BYTE*)tpszDisplayName,&dwSize)!= ERROR_SUCCESS)
+	if(RegQueryValueEx(hKey,_T("DriverDesc"),NULL,&dwType,(BYTE*)tpszDisplayName,&dwSize)!= ERROR_SUCCESS)
 		_tcscpy(tpszDisplayName,_T("Unnamed Adapter"));
 
 	// get the link to the Enum Subkey (currently unused)
@@ -581,21 +601,20 @@ void NetAdapterCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 
 void EnumAdapters(HWND hwndDlg)
 {
-	LPTSTR lpRegPath = _T("SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}");
+	TCHAR *tpszRegPath = _T("SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}");
 
-	EnumRegKeys(NetAdapterCallback,hwndDlg,HKEY_LOCAL_MACHINE,lpRegPath);
+	EnumRegKeys(NetAdapterCallback,hwndDlg,HKEY_LOCAL_MACHINE,tpszRegPath);
 	return;
 }
 
 
-INT_PTR CALLBACK
-NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	NMHDR* pnmh;
 	int nIndex;
 	switch(uMsg)
 	{
-	case WM_INITDIALOG:
+    case WM_INITDIALOG:	
 		{
 			EnableWindow(GetDlgItem(hwndDlg,IDC_ADD),FALSE);
 			EnableWindow(GetDlgItem(hwndDlg,IDC_REMOVE),FALSE);
@@ -608,23 +627,22 @@ NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case WM_NOTIFY:
 		pnmh=(NMHDR*)lParam;
-		switch(pnmh->code)
-		{
+		switch(pnmh->code) {
 		case PSN_APPLY:
 		case PSN_RESET:
-			while(SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCOUNT,0,0)>0)
 			{
-				TCHAR *tpszString;
-
-				tpszString = (TCHAR*)SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETITEMDATA,0,0);
-				if(tpszString)
-					free(tpszString);
-				SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_DELETESTRING,0,0);
+				while(SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCOUNT,0,0)>0)
+				{
+					TCHAR *tpszString;
+					tpszString = (TCHAR*)SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETITEMDATA,0,0);
+					if(tpszString)
+						free(tpszString);
+					SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_DELETESTRING,0,0);
+				}
 			}
 			break;
 		}
 		break;
-
 	case WM_COMMAND:
 		switch(LOWORD(wParam))
 		{
@@ -635,7 +653,6 @@ NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					DisplayNICStatus(hwndDlg,(TCHAR*)SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETITEMDATA,nIndex,0));
 			}
 			break;
-
 		case IDC_PROPERTIES:
 			nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCURSEL,0,0);
 			if(nIndex!=-1)
@@ -644,7 +661,6 @@ NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
-
 	return FALSE;
 }
 
@@ -656,58 +672,66 @@ LONG CALLBACK DisplayApplet(VOID)
 	PROPSHEETPAGE psp[1];
 	PROPSHEETHEADER psh;
 	TCHAR Caption[1024];
-
+	
 	LoadString(hApplet, IDS_CPLSYSTEMNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
-
+	
 	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
 	psh.dwSize = sizeof(PROPSHEETHEADER);
 	psh.dwFlags =  PSH_PROPSHEETPAGE;
 	psh.hwndParent = NULL;
 	psh.hInstance = hApplet;
+#ifdef _MSC_VER
 	psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#else
+	psh.u1.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
+#endif
 	psh.pszCaption = Caption;
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
+#ifdef _MSC_VER
 	psh.nStartPage = 0;
 	psh.ppsp = psp;
+#else
+	psh.u2.nStartPage = 0;
+	psh.u3.ppsp = psp;
+#endif
 	psh.pfnCallback = NULL;
+	
 
 	InitPropSheetPage(&psp[0], IDD_PROPPAGENETWORK, NetworkPageProc,0);
-
+	
 	return (LONG)(PropertySheet(&psh) != -1);
 }
 
 /* Control Panel Callback */
 LONG CALLBACK CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 {
-	switch (uMsg)
+	int i = (int)lParam1;
+	
+	switch(uMsg)
 	{
-	case CPL_INIT:
+    case CPL_INIT:
 		{
 			return TRUE;
 		}
-
-	case CPL_GETCOUNT:
+    case CPL_GETCOUNT:
 		{
 			return sizeof(Applets)/sizeof(APPLET);
 		}
-
-	case CPL_INQUIRE:
+    case CPL_INQUIRE:
 		{
 			CPLINFO *CPlInfo = (CPLINFO*)lParam2;
 			CPlInfo->lData = 0;
-			CPlInfo->idIcon = Applets[(int)lParam1].idIcon;
-			CPlInfo->idName = Applets[(int)lParam1].idName;
-			CPlInfo->idInfo = Applets[(int)lParam1].idDescription;
+			CPlInfo->idIcon = Applets[i].idIcon;
+			CPlInfo->idName = Applets[i].idName;
+			CPlInfo->idInfo = Applets[i].idDescription;
 			break;
 		}
-
-	case CPL_DBLCLK:
+    case CPL_DBLCLK:
 		{
-			Applets[(int)lParam1].AppletProc();
+			Applets[i].AppletProc();
 			break;
 		}
 	}
-
 	return FALSE;
 }
 
@@ -716,12 +740,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpvReserved)
 {
 	switch(dwReason)
 	{
-	case DLL_PROCESS_ATTACH:
-	case DLL_THREAD_ATTACH:
+    case DLL_PROCESS_ATTACH:
+    case DLL_THREAD_ATTACH:
 		hApplet = hinstDLL;
 		break;
 	}
-
 	return TRUE;
 }
 

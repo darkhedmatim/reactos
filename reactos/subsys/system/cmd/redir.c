@@ -22,9 +22,14 @@
  *        Added new error AND output redirection "&>" and "&>>".
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef FEATURE_REDIRECTION
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
 
 
 static BOOL

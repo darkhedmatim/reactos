@@ -220,7 +220,7 @@ RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
 
   DPRINT ("RtlFormatCurrentUserKeyPath() called\n");
 
-  Status = ZwOpenThreadToken (NtCurrentThread (),
+  Status = NtOpenThreadToken (NtCurrentThread (),
 			      TOKEN_READ,
 			      TRUE,
 			      &TokenHandle);
@@ -228,22 +228,22 @@ RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
     {
       if (Status != STATUS_NO_TOKEN)
 	{
-	  DPRINT1 ("ZwOpenThreadToken() failed (Status %lx)\n", Status);
+	  DPRINT1 ("NtOpenThreadToken() failed (Status %lx)\n", Status);
 	  return Status;
 	}
 
-      Status = ZwOpenProcessToken (NtCurrentProcess (),
+      Status = NtOpenProcessToken (NtCurrentProcess (),
 				   TOKEN_READ,
 				   &TokenHandle);
       if (!NT_SUCCESS (Status))
 	{
-	  DPRINT1 ("ZwOpenProcessToken() failed (Status %lx)\n", Status);
+	  DPRINT1 ("NtOpenProcessToken() failed (Status %lx)\n", Status);
 	  return Status;
 	}
     }
 
   SidBuffer = (PSID_AND_ATTRIBUTES)Buffer;
-  Status = ZwQueryInformationToken (TokenHandle,
+  Status = NtQueryInformationToken (TokenHandle,
 				    TokenUser,
 				    (PVOID)SidBuffer,
 				    256,
@@ -251,7 +251,7 @@ RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
   NtClose (TokenHandle);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT ("ZwQueryInformationToken() failed (Status %lx)\n", Status);
+      DPRINT ("NtQueryInformationToken() failed (Status %lx)\n", Status);
       return Status;
     }
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: keyboard.c,v 1.35 2004/12/28 08:50:10 gvg Exp $
+/* $Id: keyboard.c,v 1.31 2004/07/08 12:55:01 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -342,23 +342,16 @@ int STDCALL ToUnicodeEx( UINT wVirtKey,
 			 HKL dwhkl ) {
   int ToUnicodeResult = 0;
 
-  if (0 == (lpKeyState[wVirtKey] & KS_DOWN_BIT))
-    {
-      ToUnicodeResult = 0;
-    }
-  else
-    {
-      IntLockQueueState;
-      ToUnicodeResult = ToUnicodeInner( wVirtKey,
-				        wScanCode,
-				        lpKeyState,
-				        pwszBuff,
-				        cchBuff,
-				        wFlags,
-				        PsGetWin32Thread() ? 
-				        PsGetWin32Thread()->KeyboardLayout : 0 );
-      IntUnLockQueueState;
-    }
+  IntLockQueueState;
+  ToUnicodeResult = ToUnicodeInner( wVirtKey,
+				    wScanCode,
+				    lpKeyState,
+				    pwszBuff,
+				    cchBuff,
+				    wFlags,
+				    PsGetWin32Thread() ? 
+				    PsGetWin32Thread()->KeyboardLayout : 0 );
+  IntUnLockQueueState;
 
   return ToUnicodeResult;
 }
@@ -493,15 +486,14 @@ NTSTATUS STDCALL LdrGetProcedureAddress(PVOID module,
 					DWORD flags,
 					PVOID *func_addr);
 
-void InitKbdLayout( PVOID *pkKeyboardLayout )
-{
-  WCHAR LocaleBuffer[16];
+void InitKbdLayout( PVOID *pkKeyboardLayout ) {
+  UNICODE_STRING KeyName;
+  UNICODE_STRING ValueName;
   UNICODE_STRING LayoutKeyName;
   UNICODE_STRING LayoutValueName;
   UNICODE_STRING DefaultLocale;
   UNICODE_STRING LayoutFile;
   UNICODE_STRING FullLayoutPath;
-  LCID LocaleId;
   PWCHAR KeyboardLayoutWSTR;
   HMODULE kbModule = 0;
   NTSTATUS Status;
@@ -511,17 +503,20 @@ void InitKbdLayout( PVOID *pkKeyboardLayout )
   #define XX_STATUS(x) if (!NT_SUCCESS(Status = (x))) continue;
 
   do {
-    Status = ZwQueryDefaultLocale(FALSE, &LocaleId);
-    if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Could not get default locale (%08lx).\n", Status);
-    }
-    else
-    {
-      DPRINT("DefaultLocale = %lx\n", LocaleId);
-      swprintf(LocaleBuffer, L"%08lx", LocaleId);
-      DPRINT("DefaultLocale = %S\n", LocaleBuffer);
-      RtlInitUnicodeString(&DefaultLocale, LocaleBuffer);
+    RtlInitUnicodeString(&KeyName,
+			 L"\\REGISTRY\\Machine\\SYSTEM\\CurrentControlSet"
+			 L"\\Control\\Nls\\Locale");
+    RtlInitUnicodeString(&ValueName,
+			 L"(Default)");
+       
+    DPRINT("KeyName = %wZ, ValueName = %wZ\n", &KeyName, &ValueName);
+
+    Status = ReadRegistryValue(&KeyName,&ValueName,&DefaultLocale);
+    
+    if( !NT_SUCCESS(Status) ) {
+      DPRINT1( "Could not get default locale (%08x).\n", Status );
+    } else {
+      DPRINT( "DefaultLocale = %wZ\n", &DefaultLocale );
 
       RtlInitUnicodeString(&LayoutKeyName,
 			   L"\\REGISTRY\\Machine\\SYSTEM\\CurrentControlSet"
@@ -529,6 +524,7 @@ void InitKbdLayout( PVOID *pkKeyboardLayout )
 
       AppendUnicodeString(&LayoutKeyName,&DefaultLocale,FALSE);
 
+      RtlFreeUnicodeString(&DefaultLocale);
       RtlInitUnicodeString(&LayoutValueName,L"Layout File");
 
       Status = ReadRegistryValue(&LayoutKeyName,&LayoutValueName,&LayoutFile);
@@ -667,14 +663,14 @@ IntTranslateKbdMessage(LPMSG lpMsg,
 	  NewMsg.wParam = dead_char;
 	  NewMsg.lParam = lpMsg->lParam;
 	  dead_char = 0;
-	  MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
+	  MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE);
 	}
       
       NewMsg.hwnd = lpMsg->hwnd;
       NewMsg.wParam = wp[0];
       NewMsg.lParam = lpMsg->lParam;
       DPRINT( "CHAR='%c' %04x %08x\n", wp[0], wp[0], lpMsg->lParam );
-      MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
+      MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE);
       Result = TRUE;
     }
   else if (UState == -1)
@@ -685,7 +681,7 @@ IntTranslateKbdMessage(LPMSG lpMsg,
       NewMsg.wParam = wp[0];
       NewMsg.lParam = lpMsg->lParam;
       dead_char = wp[0];
-      MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
+      MsqPostMessage(PsGetWin32Thread()->MessageQueue, &NewMsg, FALSE);
       Result = TRUE;
     }
 

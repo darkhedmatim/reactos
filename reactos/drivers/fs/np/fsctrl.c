@@ -1,4 +1,4 @@
-/* $Id: fsctrl.c,v 1.18 2004/12/30 12:34:27 ekohl Exp $
+/* $Id: fsctrl.c,v 1.15 2004/05/05 18:30:16 navaraf Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -21,97 +21,94 @@
 static NTSTATUS
 NpfsConnectPipe(PNPFS_FCB Fcb)
 {
-  PNPFS_PIPE Pipe;
-  PLIST_ENTRY current_entry;
-  PNPFS_FCB ClientFcb;
-  NTSTATUS Status;
+   PNPFS_PIPE Pipe;
+   PLIST_ENTRY current_entry;
+   PNPFS_FCB ClientFcb;
+   NTSTATUS Status;
 
-  DPRINT("NpfsConnectPipe()\n");
+   DPRINT("NpfsConnectPipe()\n");
 
-  if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
-    {
-      KeResetEvent(&Fcb->ConnectEvent);
-      return STATUS_PIPE_CONNECTED;
-    }
+   if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
+   {
+     KeResetEvent(&Fcb->ConnectEvent);
+     return STATUS_PIPE_CONNECTED;
+   }
 
-  if (Fcb->PipeState == FILE_PIPE_CLOSING_STATE)
-    return STATUS_PIPE_CLOSING;
+   if (Fcb->PipeState == FILE_PIPE_CLOSING_STATE)
+     return STATUS_PIPE_CLOSING;
 
-  DPRINT("Waiting for connection...\n");
+   DPRINT("Waiting for connection...\n");
 
-  Pipe = Fcb->Pipe;
+   Pipe = Fcb->Pipe;
 
-  /* search for a listening client fcb */
-  KeLockMutex(&Pipe->FcbListLock);
+   /* search for a listening client fcb */
 
-  current_entry = Pipe->ClientFcbListHead.Flink;
-  while (current_entry != &Pipe->ClientFcbListHead)
-    {
-      ClientFcb = CONTAINING_RECORD(current_entry,
-				    NPFS_FCB,
-				    FcbListEntry);
+   KeLockMutex(&Pipe->FcbListLock);
+   current_entry = Pipe->ClientFcbListHead.Flink;
+   while (current_entry != &Pipe->ClientFcbListHead)
+     {
+	ClientFcb = CONTAINING_RECORD(current_entry,
+				      NPFS_FCB,
+				      FcbListEntry);
+	
+	if (ClientFcb->PipeState == FILE_PIPE_LISTENING_STATE)
+	  {
+	     break;
+	  }
+	
+	current_entry = current_entry->Flink;
+     }
+   
+   if (current_entry != &Pipe->ClientFcbListHead)
+     {
+	/* found a listening client fcb */
+	DPRINT("Listening client fcb found -- connecting\n");
 
-      if (ClientFcb->PipeState == 0)
-	{
-	  /* found a passive (waiting) client fcb */
-	  DPRINT("Passive (waiting) client fcb found -- wake the client\n");
-	  KeSetEvent(&ClientFcb->ConnectEvent, IO_NO_INCREMENT, FALSE);
-	  break;
-	}
+	/* connect client and server fcb's */
+	Fcb->OtherSide = ClientFcb;
+	ClientFcb->OtherSide = Fcb;
 
+	/* set connected state */
+	Fcb->PipeState = FILE_PIPE_CONNECTED_STATE;
+	ClientFcb->PipeState = FILE_PIPE_CONNECTED_STATE;
 
-#if 0
-      if (ClientFcb->PipeState == FILE_PIPE_LISTENING_STATE)
-	{
-	  /* found a listening client fcb */
-	  DPRINT("Listening client fcb found -- connecting\n");
+        KeUnlockMutex(&Pipe->FcbListLock);
 
-	  /* connect client and server fcb's */
-	  Fcb->OtherSide = ClientFcb;
-	  ClientFcb->OtherSide = Fcb;
+	/* FIXME: create and initialize data queues */
 
-	  /* set connected state */
-	  Fcb->PipeState = FILE_PIPE_CONNECTED_STATE;
-	  ClientFcb->PipeState = FILE_PIPE_CONNECTED_STATE;
+	/* signal client's connect event */
+        DPRINT("Setting the ConnectEvent for %x\n", ClientFcb);
+	KeSetEvent(&ClientFcb->ConnectEvent, IO_NO_INCREMENT, FALSE);
 
-	  KeUnlockMutex(&Pipe->FcbListLock);
+	Status = STATUS_PIPE_CONNECTED;
+     }
+   else
+     {
+	/* no listening client fcb found */
+	DPRINT("No listening client fcb found -- waiting for client\n");
 
-	  /* FIXME: create and initialize data queues */
+        KeUnlockMutex(&Pipe->FcbListLock);
 
-	  /* signal client's connect event */
-	  DPRINT("Setting the ConnectEvent for %x\n", ClientFcb);
-	  KeSetEvent(&ClientFcb->ConnectEvent, IO_NO_INCREMENT, FALSE);
+	Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
 
-	  return STATUS_PIPE_CONNECTED;
-	}
-#endif
+	Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
+				       UserRequest,
+				       KernelMode,
+				       FALSE,
+				       NULL);
 
-      current_entry = current_entry->Flink;
-    }
+	if (NT_SUCCESS(Status))
+	  {
+	    Status = STATUS_PIPE_CONNECTED;
+	    Fcb->PipeState = FILE_PIPE_CONNECTED_STATE;
+	  }
 
-  KeUnlockMutex(&Pipe->FcbListLock);
+	DPRINT("Finished waiting! Status: %x\n", Status);
+     }
 
-  /* no listening client fcb found */
-  DPRINT("No listening client fcb found -- waiting for client\n");
+   DPRINT("Client Fcb: %p\n", Fcb->OtherSide);
 
-  Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
-
-  Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
-				 UserRequest,
-				 KernelMode,
-				 FALSE,
-				 NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("KeWaitForSingleObject() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  Fcb->PipeState = FILE_PIPE_CONNECTED_STATE;
-
-  DPRINT("Client Fcb: %p\n", Fcb->OtherSide);
-
-  return STATUS_PIPE_CONNECTED;
+   return Status;
 }
 
 
@@ -121,7 +118,7 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
   DPRINT("NpfsDisconnectPipe()\n");
 
   if (Fcb->PipeState == FILE_PIPE_DISCONNECTED_STATE)
-    return STATUS_SUCCESS;
+    return(STATUS_SUCCESS);
 
   if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
     {
@@ -135,7 +132,7 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
       Fcb->OtherSide = NULL;
 
       DPRINT("Pipe disconnected\n");
-      return STATUS_SUCCESS;
+      return(STATUS_SUCCESS);
     }
 
   if (Fcb->PipeState == FILE_PIPE_CLOSING_STATE)
@@ -146,10 +143,10 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
       /* FIXME: remove data queue(s) */
 
       DPRINT("Pipe disconnected\n");
-      return STATUS_SUCCESS;
+      return(STATUS_SUCCESS);
     }
 
-  return STATUS_UNSUCCESSFUL;
+  return(STATUS_UNSUCCESSFUL);
 }
 
 
@@ -168,12 +165,6 @@ NpfsWaitPipe(PIRP Irp,
   WaitPipe = (PNPFS_WAIT_PIPE)Irp->AssociatedIrp.SystemBuffer;
   Pipe = Fcb->Pipe;
 
-  if (Fcb->PipeState != 0)
-    {
-      DPRINT("Pipe is not in passive (waiting) state!\n");
-      return STATUS_UNSUCCESSFUL;
-    }
-
   /* search for listening server */
   current_entry = Pipe->ServerFcbListHead.Flink;
   while (current_entry != &Pipe->ServerFcbListHead)
@@ -183,29 +174,38 @@ NpfsWaitPipe(PIRP Irp,
 				    FcbListEntry);
 
       if (ServerFcb->PipeState == FILE_PIPE_LISTENING_STATE)
-	{
-	  /* found a listening server fcb */
-	  DPRINT("Listening server fcb found -- connecting\n");
-
-	  return STATUS_SUCCESS;
-	}
+	break;
 
       current_entry = current_entry->Flink;
     }
 
-  /* no listening server fcb found -- wait for one */
-  Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
-				 UserRequest,
-				 KernelMode,
-				 FALSE,
-				 &WaitPipe->Timeout);
+  if (current_entry != &Pipe->ServerFcbListHead)
+    {
+      /* found a listening server fcb */
+      DPRINT("Listening server fcb found -- connecting\n");
 
-  DPRINT("KeWaitForSingleObject() returned (Status %lx)\n", Status);
+      Status = STATUS_SUCCESS;
+    }
+  else
+    {
+      /* no listening server fcb found -- wait for one */
+      Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
 
-  return Status;
+      Status = KeWaitForSingleObject(&Fcb->ConnectEvent,
+				     UserRequest,
+				     KernelMode,
+				     FALSE,
+				     &WaitPipe->Timeout);
+    }
+
+  return(Status);
 }
 
 
+static NTSTATUS
+NpfsGetState(
+  PIRP Irp,
+  PIO_STACK_LOCATION IrpSp)
 /*
  * FUNCTION: Return current state of a pipe
  * ARGUMENTS:
@@ -214,9 +214,6 @@ NpfsWaitPipe(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsGetState(PIRP Irp,
-	     PIO_STACK_LOCATION IrpSp)
 {
   ULONG OutputBufferLength;
   PNPFS_GET_STATE Reply;
@@ -228,10 +225,10 @@ NpfsGetState(PIRP Irp,
 
   /* Validate parameters */
   if (OutputBufferLength >= sizeof(NPFS_GET_STATE))
-    {
-      Fcb = IrpSp->FileObject->FsContext;
-      Reply = (PNPFS_GET_STATE)Irp->AssociatedIrp.SystemBuffer;
-      Pipe = Fcb->Pipe;
+  {
+    Fcb = IrpSp->FileObject->FsContext;
+    Reply = (PNPFS_GET_STATE)Irp->AssociatedIrp.SystemBuffer;
+    Pipe = Fcb->Pipe;
 
     if (Pipe->PipeWriteMode == FILE_PIPE_MESSAGE_MODE)
     {
@@ -279,6 +276,10 @@ NpfsGetState(PIRP Irp,
 }
 
 
+static NTSTATUS
+NpfsSetState(
+  PIRP Irp,
+  PIO_STACK_LOCATION IrpSp)
 /*
  * FUNCTION: Set state of a pipe
  * ARGUMENTS:
@@ -287,9 +288,6 @@ NpfsGetState(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsSetState(PIRP Irp,
-	     PIO_STACK_LOCATION IrpSp)
 {
   ULONG InputBufferLength;
   PNPFS_SET_STATE Request;
@@ -352,6 +350,9 @@ NpfsSetState(PIRP Irp,
 }
 
 
+static NTSTATUS
+NpfsPeekPipe(PIRP Irp,
+	     PIO_STACK_LOCATION IoStack)
 /*
  * FUNCTION: Peek at a pipe (get information about messages)
  * ARGUMENTS:
@@ -360,9 +361,6 @@ NpfsSetState(PIRP Irp,
  * RETURNS:
  *     Status of operation
  */
-static NTSTATUS
-NpfsPeekPipe(PIRP Irp,
-	     PIO_STACK_LOCATION IoStack)
 {
   ULONG OutputBufferLength;
   PNPFS_PIPE Pipe;
@@ -378,7 +376,7 @@ NpfsPeekPipe(PIRP Irp,
   if (OutputBufferLength < sizeof(FILE_PIPE_PEEK_BUFFER))
     {
       DPRINT("Buffer too small\n");
-      return STATUS_INVALID_PARAMETER;
+      return(STATUS_INVALID_PARAMETER);
     }
 
   Fcb = IoStack->FileObject->FsContext;
@@ -387,7 +385,7 @@ NpfsPeekPipe(PIRP Irp,
 
   Status = STATUS_NOT_IMPLEMENTED;
 
-  return Status;
+  return(Status);
 }
 
 
@@ -396,7 +394,7 @@ NTSTATUS STDCALL
 NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp)
 {
-  PIO_STACK_LOCATION IoStack;
+  PEXTENDED_IO_STACK_LOCATION IoStack;
   PFILE_OBJECT FileObject;
   NTSTATUS Status;
   PNPFS_DEVICE_EXTENSION DeviceExt;
@@ -406,7 +404,7 @@ NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
   DPRINT("NpfsFileSystemContol(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
 
   DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  IoStack = IoGetCurrentIrpStackLocation(Irp);
+  IoStack = (PEXTENDED_IO_STACK_LOCATION) IoGetCurrentIrpStackLocation(Irp);
   DPRINT("IoStack: %p\n", IoStack);
   FileObject = IoStack->FileObject;
   DPRINT("FileObject: %p\n", FileObject);

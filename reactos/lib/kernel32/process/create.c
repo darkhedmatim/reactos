@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.92 2004/12/30 08:05:11 hyperion Exp $
+/* $Id: create.c,v 1.87 2004/07/07 16:32:02 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include <pseh/framebased.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -292,37 +291,21 @@ _except_handler(EXCEPTION_RECORD *ExceptionRecord,
 {
    EXCEPTION_POINTERS ExceptionInfo;
    EXCEPTION_DISPOSITION ExceptionDisposition;
-
    ExceptionInfo.ExceptionRecord = ExceptionRecord;
    ExceptionInfo.ContextRecord = ContextRecord;
-
-   if (GlobalTopLevelExceptionFilter != NULL)
-   {
-      _SEH_TRY
-      {
-         ExceptionDisposition = GlobalTopLevelExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_HANDLE
-      {
-         ExceptionDisposition = UnhandledExceptionFilter(&ExceptionInfo);
-      }
-      _SEH_END;
-   }
-   else 
-   {
-      ExceptionDisposition = EXCEPTION_EXECUTE_HANDLER;
-   }
-
+   ExceptionDisposition = UnhandledExceptionFilter(&ExceptionInfo);
    if (ExceptionDisposition == EXCEPTION_EXECUTE_HANDLER)
-      ExitProcess(ExceptionRecord->ExceptionCode);
+   {
+      /* FIXME */
+#if 0
+      if (_BaseRunningInServerProcess)
+         ExitThread(ExceptionRecord->ExceptionCode);
+      else
+#endif
+         ExitProcess(ExceptionRecord->ExceptionCode);
+   }
 
-   /* translate EXCEPTION_XXX defines into EXCEPTION_DISPOSITION enum values */
-   if (ExceptionDisposition == EXCEPTION_CONTINUE_EXECUTION)
-     return ExceptionContinueExecution;
-   else if (ExceptionDisposition == EXCEPTION_CONTINUE_SEARCH)
-     return ExceptionContinueSearch;
-
-   return -1; /* unknown return from UnhandledExceptionFilter */
+   return ExceptionDisposition;
 }
 
 
@@ -338,8 +321,6 @@ BaseProcessStart(LPTHREAD_START_ROUTINE lpStartAddress,
    {
       uExitCode = (lpStartAddress)((PVOID)lpParameter);
    } __except1
-
-   ExitProcess(uExitCode);
 }
 
 
@@ -778,6 +759,7 @@ CreateProcessW
    UNICODE_STRING CommandLine_U;
    CSRSS_API_REQUEST CsrRequest;
    CSRSS_API_REPLY CsrReply;
+   CHAR ImageFileName[8];
    PWCHAR s, e;
    ULONG i;
    UNICODE_STRING CurrentDirectory_U;
@@ -792,11 +774,7 @@ CreateProcessW
    WCHAR Name[MAX_PATH];
    WCHAR *TidyCmdLine;
    BOOL IsBatchFile = FALSE;
-   PROCESS_PRIORITY_CLASS PriorityClass;
-   OBJECT_ATTRIBUTES ProcObjectAttributes;
-   ULONG ProcAttributes = 0;
-   PVOID ProcSecurity = NULL;
-   
+
    DPRINT("CreateProcessW(lpApplicationName '%S', lpCommandLine '%S')\n",
 	   lpApplicationName, lpCommandLine);
 
@@ -892,6 +870,23 @@ CreateProcessW
 	  return FALSE;
        }
    }
+
+   /*
+    * Store the image file name for the process
+    */
+   e = wcschr(s, L'.');
+   if (e != NULL)
+     {
+	*e = 0;
+     }
+   for (i = 0; i < 8; i++)
+     {
+	ImageFileName[i] = (CHAR)(s[i]);
+     }
+   if (e != NULL)
+     {
+	*e = '.';
+     }
    
    /*
     * Process the application name and command line
@@ -1012,79 +1007,16 @@ CreateProcessW
    }
 /////////////////////////////////////////
    /*
-    * Initialize the process object attributes
-    */
-
-   if(lpProcessAttributes != NULL)
-   {
-     if(lpProcessAttributes->bInheritHandle)
-     {
-       ProcAttributes |= OBJ_INHERIT;
-     }
-     ProcSecurity = lpProcessAttributes->lpSecurityDescriptor;
-   }
-
-   InitializeObjectAttributes(&ProcObjectAttributes,
-			      NULL,
-			      ProcAttributes,
-			      NULL,
-			      ProcSecurity);
-   /*
-    * initialize the process priority class structure
-    */
-   PriorityClass.Foreground = FALSE;
-   
-   if(dwCreationFlags & IDLE_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_IDLE;
-   }
-   else if(dwCreationFlags & BELOW_NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_BELOW_NORMAL;
-   }
-   else if(dwCreationFlags & NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_NORMAL;
-   }
-   else if(dwCreationFlags & ABOVE_NORMAL_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_ABOVE_NORMAL;
-   }
-   else if(dwCreationFlags & HIGH_PRIORITY_CLASS)
-   {
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_HIGH;
-   }
-   else if(dwCreationFlags & REALTIME_PRIORITY_CLASS)
-   {
-     /* FIXME - This is a privileged operation. If we don't have the privilege we should
-                rather use PROCESS_PRIORITY_CLASS_HIGH. */
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_REALTIME;
-   }
-   else
-   {
-     /* FIXME - what to do in this case? */
-     PriorityClass.PriorityClass = PROCESS_PRIORITY_CLASS_NORMAL;
-   }
-
-   /*
     * Create a new process
     */
    Status = NtCreateProcess(&hProcess,
 			    PROCESS_ALL_ACCESS,
-			    &ProcObjectAttributes,
+			    NULL,
 			    NtCurrentProcess(),
 			    bInheritHandles,
 			    hSection,
 			    NULL,
 			    NULL);
-   /* FIXME - handle failure!!!!! */
-   
-   Status = NtSetInformationProcess(hProcess,
-                                    ProcessPriorityClass,
-                                    &PriorityClass,
-                                    sizeof(PROCESS_PRIORITY_CLASS));
-   /* FIXME - handle failure!!!!! */
-   
    if (lpStartupInfo)
    {
       if (lpStartupInfo->lpReserved2)
@@ -1131,7 +1063,6 @@ CreateProcessW
 			 0,
 			 TRUE,
 			 DUPLICATE_SAME_ACCESS);
-      /* FIXME - handle failure!!!!! */
    }
 
    /*
@@ -1142,8 +1073,6 @@ CreateProcessW
 			   &Sii,
 			   sizeof(Sii),
 			   &i);
-   /* FIXME - handle failure!!!!! */
-   
    /*
     * Close the section
     */
@@ -1381,16 +1310,20 @@ CreateProcessW
    KlInitPeb(hProcess, Ppb, &ImageBaseAddress, Sii.Subsystem);
 
    RtlDestroyProcessParameters (Ppb);
-   
+
+   Status = NtSetInformationProcess(hProcess,
+				    ProcessImageFileName,
+				    ImageFileName,
+				    8);
    /*
     * Create the thread for the kernel
     */
    DPRINT("Creating thread for process (EntryPoint = 0x%.08x)\n",
-    (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint));
+    ImageBaseAddress + (ULONG)Sii.EntryPoint);
    hThread =  KlCreateFirstThread(hProcess,
 				  lpThreadAttributes,
           &Sii,
-          (PVOID)((ULONG_PTR)ImageBaseAddress + Sii.EntryPoint),
+          ImageBaseAddress + (ULONG)Sii.EntryPoint,
 				  dwCreationFlags,
 				  &lpProcessInformation->dwThreadId);
    if (hThread == INVALID_HANDLE_VALUE)

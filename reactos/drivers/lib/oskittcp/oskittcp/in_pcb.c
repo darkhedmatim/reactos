@@ -93,10 +93,10 @@ in_pcbbind(inp, nam)
 	u_short lport = 0;
 	int wild = 0, reuseport = (so->so_options & SO_REUSEPORT);
 	int error;
-	
+
 	OS_DbgPrint(OSK_MID_TRACE,("Called\n"));
 
-	if( nam ) OskitDumpBuffer( nam->m_data, nam->m_len );
+	OskitDumpBuffer( nam->m_data, nam->m_len );
 
 #ifndef __REACTOS__
 	if (in_ifaddr == 0) {
@@ -150,7 +150,6 @@ in_pcbbind(inp, nam)
 		if (lport) {
 			struct inpcb *t;
 
-#ifndef __REACTOS__
 			/* GROSS */
 			if (ntohs(lport) < IPPORT_RESERVED &&
 			    (error = suser(p->p_ucred, &p->p_acflag))) {
@@ -158,7 +157,6 @@ in_pcbbind(inp, nam)
 					("Leaving EACCESS\n"));
 			    return (EACCES);
 			}
-#endif
 			t = in_pcblookup(head, zeroin_addr, 0,
 			    sin->sin_addr, lport, wild);
 			if (t && (reuseport & t->inp_socket->so_options) == 0)

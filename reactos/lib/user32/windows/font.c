@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: font.c,v 1.13 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: font.c,v 1.11 2004/08/15 21:36:29 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -750,7 +750,7 @@ static const WCHAR *TEXT_NextLineW( HDC hdc, const WCHAR *str, int *count,
     int num_fit;
     int word_broken;
     int line_fits;
-    unsigned int j_in_seg;
+    int j_in_seg;
     int ellipsified;
     *pprefix_offset = -1;
 
@@ -826,7 +826,7 @@ static const WCHAR *TEXT_NextLineW( HDC hdc, const WCHAR *str, int *count,
         if (!line_fits && (format & DT_WORDBREAK))
         {
             const WCHAR *s;
-            unsigned int chars_used;
+            int chars_used;
             TEXT_WordBreak (hdc, dest+seg_j, maxl-seg_j, &j_in_seg,
                             max_seg_width, format, num_fit, &chars_used, &size);
             line_fits = (size.cx <= max_seg_width);
@@ -991,7 +991,7 @@ DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
     const WCHAR *strPtr;
     WCHAR *retstr, *p_retstr;
     size_t size_retstr;
-    WCHAR line[MAX_STATIC_BUFFER];
+    static WCHAR line[MAX_STATIC_BUFFER];
     int len, lh, count=i_count;
     TEXTMETRICW tm;
     int lmargin = 0, rmargin = 0;

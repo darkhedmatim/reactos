@@ -1,4 +1,4 @@
-# $Id: helper.mk,v 1.101 2004/12/13 02:20:09 blight Exp $
+# $Id: helper.mk,v 1.76 2004/08/15 16:38:59 chorns Exp $
 #
 # Helper makefile for ReactOS modules
 # Variables this makefile accepts:
@@ -18,8 +18,6 @@
 #                        subsystem = Kernel subsystem
 #                        kmdll = Kernel mode DLL
 #                        winedll = DLL imported from wine
-#                        kernel = ReactOS kernel
-#                        test = ReactOS test
 #   $TARGET_APPTYPE    = Application type (windows,native,console).
 #                        Required only for TARGET_TYPEs program and proglib
 #   $TARGET_NAME       = Base name of output file and .rc, .def, and .edf files
@@ -43,6 +41,7 @@
 #   $TARGET_PATH       = Relative path for *.def, *.edf, and *.rc (optional)
 #   $TARGET_BASE       = Default base address (optional)
 #   $TARGET_ENTRY      = Entry point (optional)
+#   $TARGET_DEFONLY    = Use .def instead of .edf extension (no,yes) (optional)
 #   $TARGET_NORC       = Do not include standard resource file (no,yes) (optional)
 #   $TARGET_LIBPATH    = Destination path for static libraries (optional)
 #   $TARGET_IMPLIBPATH = Destination path for import libraries (optional)
@@ -51,7 +50,7 @@
 #   $TARGET_BOOTSTRAP  = Whether this file is needed to bootstrap the installation (no,yes) (optional)
 #   $TARGET_BOOTSTRAP_NAME = Name on the installation medium (optional)
 #   $TARGET_REGTESTS   = This module has regression tests (no,yes) (optional)
-#   $TARGET_INSTALL    = Install the file (no,yes) (optional)
+#   $TARGET_BUILDENV_TEST = Build this test to be run in the build environment (no,yes) (optional)
 #   $SUBDIRS           = Subdirs in which to run make (optional)
 
 include $(PATH_TO_TOP)/config
@@ -89,12 +88,12 @@ endif
 # MK_CFLAGS        = C compiler command-line flags for this target
 # MK_CPPFLAGS      = C++ compiler command-line flags for this target
 # MK_DDKLIBS       = Import libraries from the ReactOS DDK to link with
-# MK_DEFENTRY      = Module entry point:
+# MK_DEFENTRY      = Module entry point: 
 #                    _WinMain@16 for windows EXE files that are export libraries
-#                    _DriverEntry@8 for .SYS files
+#                    _DriverEntry@8 for .SYS files 
 #                    _DllMain@12 for .DLL files
 #                    _DrvEnableDriver@12 for GDI drivers
-#                    _WinMainCRTStartup for Win32 EXE files
+#                    _WinMainCRTStartup for Win32 EXE files 
 #                    _NtProcessStartup@4 for Native EXE files
 #                    _mainCRTStartup for Console EXE files
 # MK_DEFEXT        = Extension to give compiled modules (.EXE, .DLL, .SYS, .a)
@@ -271,14 +270,12 @@ ifeq ($(TARGET_TYPE),hal)
   MK_CPPFLAGS := -D__NTHAL__ -I.
   MK_IMPLIB := yes
   MK_IMPLIBONLY := no
-  MK_IMPLIBDEFPATH := $(DDK_PATH_LIB)
+  MK_IMPLIBDEFPATH :=
   MK_IMPLIB_EXT := .a
   MK_INSTALLDIR := system32
   MK_BOOTCDDIR := .
   MK_DISTDIR := dlls
   MK_RES_BASE := $(TARGET_NAME)
-  MK_INSTALL_BASENAME := hal
-  MK_INSTALL_FULLNAME := hal.dll
 endif
 
 ifeq ($(TARGET_TYPE),bootpgm)
@@ -338,53 +335,10 @@ ifeq ($(TARGET_TYPE),gdi_driver)
   MK_RES_BASE := $(TARGET_NAME)
 endif
 
-ifeq ($(TARGET_TYPE),kernel)
-  MK_MODE := kernel
-  MK_EXETYPE := dll
-  MK_DEFEXT := .exe
-  MK_DEFENTRY := _NtProcessStartup
-  MK_DDKLIBS := hal.a
-  MK_SDKLIBS :=
-  MK_CFLAGS := -D__NTOSKRNL__ -I.
-  MK_CPPFLAGS := -D__NTOSKRNL__ -I.
-  MK_IMPLIB := yes
-  MK_IMPLIBONLY := no
-  MK_IMPLIBDEFPATH := $(DDK_PATH_LIB)
-  MK_IMPLIB_EXT := .a
-  MK_INSTALLDIR := system32
-  MK_BOOTCDDIR := .
-  MK_RES_BASE := $(TARGET_NAME)
-endif
-
-ifeq ($(TARGET_TYPE),test)
-  TARGET_NORC := yes
-  MK_MODE := static
-  MK_EXETYPE :=
-  MK_DEFEXT := .a
-  MK_DEFENTRY :=
-  MK_DDKLIBS :=
-  MK_SDKLIBS :=
-  MK_CFLAGS := -I.
-  MK_CPPFLAGS := -I.
-  MK_IMPLIB := no
-  MK_IMPLIBONLY := no
-  MK_IMPLIBDEFPATH :=
-  MK_IMPLIB_EXT :=
-  MK_INSTALLDIR := # none
-  MK_BOOTCDDIR := system32
-  MK_DISTDIR := # none
-  MK_RES_BASE :=
-  TARGET_OBJECTS := _rtstub.o _regtests.o $(TARGET_OBJECTS)
-endif
 
 # can be overidden with $(CXX) for linkage of c++ executables
 LD_CC = $(CC)
 
-ifeq ($(RM_AT_FROM_SYMBOLS),no)
-  MK_KILLAT :=
-else
-  MK_KILLAT := --kill-at
-endif
 
 ifeq ($(TARGET_TYPE),program)
   ifeq ($(TARGET_APPTYPE),windows)
@@ -471,8 +425,8 @@ ifeq ($(TARGET_TYPE),winedll)
   MK_DEFENTRY := _DllMain@12
   MK_DDKLIBS :=
   MK_SDKLIBS :=
-  MK_CFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D_STDDEF_H -I$(PATH_TO_TOP)/include/wine
-  MK_CPPFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/wine
+  MK_CFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D_STDDEF_H -DCOBJMACROS -I$(PATH_TO_TOP)/include/wine
+  MK_CPPFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -DCOBJMACROS -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/wine
   MK_RCFLAGS := --define __USE_W32API --include-dir $(PATH_TO_TOP)/include/wine
   MK_IMPLIB := yes
   MK_IMPLIBONLY := no
@@ -488,10 +442,8 @@ ifeq ($(TARGET_DEFNAME),)
 else
   MK_DEFBASENAME := $(TARGET_DEFNAME)
 endif
-ifneq ($(TARGET_STUBS),no)
-  MK_STUBS_SRC := $(TARGET_NAME).stubs.c
-  MK_STUBS_OBJ := $(TARGET_NAME).stubs.o
-endif
+  MK_KILLAT := --kill-at
+  TARGET_DEFONLY := yes
   MK_RC_BINARIES = $(TARGET_RC_BINARIES)
 endif
 
@@ -505,8 +457,8 @@ ifeq ($(TARGET_TYPE),winedrv)
   MK_DEFENTRY := _DllMain@12
   MK_DDKLIBS :=
   MK_SDKLIBS :=
-  MK_CFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -I$(PATH_TO_TOP)/include/wine
-  MK_CPPFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/wine
+  MK_CFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -DCOBJMACROS -I$(PATH_TO_TOP)/include/wine
+  MK_CPPFLAGS := -D__USE_W32API -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x501 -DWINVER=0x501 -D__need_offsetof -DCOBJMACROS -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/wine
   MK_RCFLAGS := --define __USE_W32API --include-dir $(PATH_TO_TOP)/include/wine
   MK_IMPLIB := yes
   MK_IMPLIBONLY := no
@@ -522,6 +474,8 @@ ifeq ($(TARGET_DEFNAME),)
 else
   MK_DEFBASENAME := $(TARGET_DEFNAME)
 endif
+  MK_KILLAT := --kill-at
+  TARGET_DEFONLY := yes
   MK_RC_BINARIES = $(TARGET_RC_BINARIES)
 endif
 
@@ -585,6 +539,12 @@ endif
 endif
 
 MK_DEFNAME := $(TARGET_PATH)/$(MK_DEFBASENAME).def
+ifeq ($(TARGET_DEFONLY),yes)
+  MK_EDFNAME := $(MK_DEFNAME)
+else
+  MK_EDFNAME := $(TARGET_PATH)/$(MK_DEFBASENAME).edf
+endif
+
 
 ifeq ($(MK_MODE),user)
   ifeq ($(MK_EXETYPE),dll)
@@ -593,22 +553,18 @@ ifeq ($(MK_MODE),user)
     MK_DEFBASE := 0x400000
   endif
   ifneq ($(TARGET_SDKLIBS),)
-    MK_LIBS := $(addprefix $(SDK_PATH_LIB)/lib, $(TARGET_SDKLIBS))
+    MK_LIBS := $(addprefix $(SDK_PATH_LIB)/, $(TARGET_SDKLIBS))
   else
-    MK_LIBS := $(addprefix $(SDK_PATH_LIB)/lib, $(MK_SDKLIBS))
+    MK_LIBS := $(addprefix $(SDK_PATH_LIB)/, $(MK_SDKLIBS))
   endif
 endif
 
 
 ifeq ($(MK_MODE),kernel)
   MK_DEFBASE := 0x10000
-  MK_LIBS := $(addprefix $(DDK_PATH_LIB)/lib, $(TARGET_DDKLIBS) $(MK_DDKLIBS))
+  MK_LIBS := $(addprefix $(DDK_PATH_LIB)/, $(TARGET_DDKLIBS) $(MK_DDKLIBS))
   MK_CFLAGS += -D_SEH_NO_NATIVE_NLG
   MK_CPPFLAGS += -D_SEH_NO_NATIVE_NLG
-  MK_LFLAGS += -nostartfiles
-ifneq ($(TARGET_TYPE),kernel)
-  MK_LFLAGS += -nostdlib
-endif
 endif
 
 
@@ -647,34 +603,25 @@ TARGET_ASFLAGS += $(MK_ASFLAGS) $(STD_ASFLAGS)
 
 TARGET_NFLAGS += $(MK_NFLAGS) $(STD_NFLAGS)
 
-TARGET_LFLAGS += $(MK_LFLAGS) $(STD_LFLAGS)
-
 
 MK_GCCLIBS := $(addprefix -l, $(TARGET_GCCLIBS))
 
 ifeq ($(MK_MODE),static)
-  MK_FULLNAME := $(MK_LIBPATH)/lib$(MK_BASENAME)$(MK_EXT)
+  MK_FULLNAME := $(MK_LIBPATH)/$(MK_BASENAME)$(MK_EXT)
 else
   MK_FULLNAME := $(MK_BASENAME)$(MK_EXT)
 endif
 
 ifeq ($(TARGET_TYPE), kmlibrary)
-  MK_FULLNAME := $(DDK_PATH_LIB)/lib$(MK_BASENAME)$(MK_EXT)
+  MK_FULLNAME := $(DDK_PATH_LIB)/$(MK_BASENAME)$(MK_EXT)
 endif
 
-MK_IMPLIB_FULLNAME := lib$(MK_BASENAME)$(MK_IMPLIB_EXT)
+MK_IMPLIB_FULLNAME := $(MK_BASENAME)$(MK_IMPLIB_EXT)
 
 MK_NOSTRIPNAME := $(MK_BASENAME).nostrip$(MK_EXT)
-MK_DEBUGNAME := $(MK_BASENAME).dbg
-
-MK_EXTRADEP := $(filter %.h,$(TARGET_OBJECTS))
-
-ifeq ($(TARGET_TYPE),test)
-MK_EXTRADEP += _stubs.o _hooks.o
-endif
 
 # We don't want to link header files
-MK_OBJECTS := $(filter-out %.h,$(TARGET_OBJECTS)) $(MK_STUBS_OBJ)
+MK_OBJECTS := $(filter-out %.h,$(TARGET_OBJECTS))
 
 # There is problems with C++ applications and ld -r. Ld can cause errors like:
 #   reloc refers to symbol `.text$_ZN9CCABCodecC2Ev' which is not being output
@@ -685,24 +632,16 @@ else
 endif
 
 ifeq ($(TARGET_REGTESTS),yes)
-  REGTEST_TARGETS := tests/_hooks.c tests/_regtests.c tests/_stubs.S tests/Makefile.tests tests/_rtstub.c
+  REGTEST_TARGETS := tests/_regtests.c tests/Makefile.tests tests/_rtstub.c 
+ifeq ($(MK_MODE),user)
+  MK_LIBS := $(SDK_PATH_LIB)/rtshared.a $(MK_LIBS)
+endif
   MK_REGTESTS_CLEAN := clean_regtests
+  MK_OBJECTS += tests/_rtstub.o tests/regtests.a
+  TARGET_CFLAGS += -I$(REGTESTS_PATH_INC)
 else
   REGTEST_TARGETS :=
   MK_REGTESTS_CLEAN :=
-endif
-
-ifeq ($(TARGET_INSTALL),)
- MK_INSTALL := yes
-else
- MK_INSTALL := $(TARGET_INSTALL)
-endif
-
-ifeq ($(MK_INSTALL_BASENAME),)
-  MK_INSTALL_BASENAME := $(MK_BASENAME)
-endif
-ifeq ($(MK_INSTALL_FULLNAME),)
-  MK_INSTALL_FULLNAME := $(MK_FULLNAME)
 endif
 
 ifeq ($(MK_IMPLIBONLY),yes)
@@ -712,12 +651,11 @@ TARGET_CLEAN += $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME)
 all: $(REGTEST_TARGETS) $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME)
 
 $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME): $(MK_OBJECTS) $(MK_DEFNAME)
-	$(HALFVERBOSEECHO) [DLLTOOL] $(MK_IMPLIB_FULLNAME)
 	$(DLLTOOL) \
 		--dllname $(MK_FULLNAME) \
 		--def $(MK_DEFNAME) \
-		--output-lib $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME) \
-		$(MK_KILLAT)
+		--output-lib $(MK_IMPLIBPATH)/$(MK_BASENAME).a \
+		--kill-at
 
 else # MK_IMPLIBONLY
 
@@ -725,29 +663,27 @@ all: $(REGTEST_TARGETS) $(MK_FULLNAME) $(MK_NOSTRIPNAME) $(SUBDIRS:%=%_all)
 
 
 ifeq ($(MK_IMPLIB),yes)
-  MK_EXTRACMD := --def $(MK_DEFNAME)
+  MK_EXTRACMD := --def $(MK_EDFNAME)
 else
   MK_EXTRACMD :=
 endif
-
 
 # User mode targets
 ifeq ($(MK_MODE),user)
 
 ifeq ($(MK_EXETYPE),dll)
   TARGET_LFLAGS += -mdll -Wl,--image-base,$(TARGET_BASE)
-  MK_EXTRADEP += $(MK_DEFNAME)
+  MK_EXTRADEP := $(MK_EDFNAME)
   MK_EXTRACMD2 := -Wl,temp.exp
 else
+  MK_EXTRADEP :=
   MK_EXTRACMD2 :=
 endif
 
 $(MK_BASENAME).a: $(MK_OBJECTS)
-	$(HALFVERBOSEECHO) [AR]      $(MK_BASENAME).a
-	$(AR) -rc $(MK_BASENAME).a $(MK_OBJECTS)
+	$(AR) -r $(MK_BASENAME).a $(MK_OBJECTS)
 
-$(MK_NOSTRIPNAME): $(MK_EXTRADEP) $(MK_FULLRES) $(MK_BASENAME).a $(MK_LIBS) $(MK_STUBS_SRC) $(MK_STUBS_OBJ)
-	$(HALFVERBOSEECHO) [LD]      $(MK_NOSTRIPNAME)
+$(MK_NOSTRIPNAME): $(MK_FULLRES) $(MK_BASENAME).a $(MK_EXTRADEP) $(MK_LIBS)
 ifeq ($(MK_EXETYPE),dll)
 	$(LD_CC) -Wl,--base-file,base.tmp \
 		-Wl,--entry,$(TARGET_ENTRY) \
@@ -776,25 +712,18 @@ endif
 	  	-o $(MK_NOSTRIPNAME) \
 	  	$(MK_FULLRES) $(MK_OBJECTS) $(MK_LIBS) $(MK_GCCLIBS)
 	- $(RM) temp.exp
-ifeq ($(BUILD_SYM),yes)
-	$(HALFVERBOSEECHO) [RSYM]    $(MK_BASENAME).sym
 	- $(RSYM) $(MK_NOSTRIPNAME) $(MK_BASENAME).sym
-endif
-ifeq ($(BUILD_MAP),full)
-	$(HALFVERBOSEECHO) [OBJDUMP] $(MK_BASENAME).map
+ifeq ($(FULL_MAP),yes)
 	$(OBJDUMP) -d -S $(MK_NOSTRIPNAME) > $(MK_BASENAME).map
 else
-ifeq ($(BUILD_MAP),yes)
-	$(HALFVERBOSEECHO) [NM]      $(MK_BASENAME).map
 	$(NM) --numeric-sort $(MK_NOSTRIPNAME) > $(MK_BASENAME).map
-endif
 endif
 
 $(MK_FULLNAME): $(MK_NOSTRIPNAME) $(MK_EXTRADEP)
-	$(HALFVERBOSEECHO) [LD]      $(MK_FULLNAME)
 	-
 ifneq ($(TARGET_CPPAPP),yes)
-	$(LD) --strip-debug -r -o $(MK_STRIPPED_OBJECT) $(MK_OBJECTS)
+	$(LD) -r -o $(MK_STRIPPED_OBJECT) $(MK_OBJECTS)
+	$(STRIP) --strip-debug $(MK_STRIPPED_OBJECT)
 endif
 ifeq ($(MK_EXETYPE),dll)
 	$(LD_CC) -Wl,--base-file,base.tmp \
@@ -840,26 +769,24 @@ endif # KM_MODE
 ifeq ($(MK_MODE),kernel)
 
 ifeq ($(MK_IMPLIB),yes)
-  MK_EXTRACMD := --def $(MK_DEFNAME)
+  MK_EXTRACMD := --def $(MK_EDFNAME)
+  MK_EXTRADEP := $(MK_EDFNAME)
 else
   MK_EXTRACMD :=
+  MK_EXTRADEP :=
 endif
 
-$(MK_BASENAME).a: $(MK_OBJECTS)
-	$(HALFVERBOSEECHO) [AR]      $(MK_BASENAME).a
-	$(AR) -rc $(MK_BASENAME).a $(MK_OBJECTS)
-
-$(MK_NOSTRIPNAME): $(MK_EXTRADEP) $(MK_FULLRES) $(MK_BASENAME).a $(MK_LIBS)
-	$(HALFVERBOSEECHO) [LD]      $(MK_NOSTRIPNAME)
+$(MK_NOSTRIPNAME): $(MK_FULLRES) $(MK_OBJECTS) $(MK_EXTRADEP) $(MK_LIBS)
 	$(LD_CC) -Wl,--base-file,base.tmp \
 		-Wl,--entry,$(TARGET_ENTRY) \
 		$(TARGET_LFLAGS) \
+		-nostartfiles -nostdlib \
 		-o junk.tmp \
 		$(MK_FULLRES) $(MK_OBJECTS) $(MK_LIBS) $(MK_GCCLIBS)
 	- $(RM) junk.tmp
 	$(DLLTOOL) --dllname $(MK_FULLNAME) \
 		--base-file base.tmp \
-		--output-exp temp.exp $(MK_EXTRACMD) $(MK_KILLAT)
+		--output-exp temp.exp $(MK_EXTRACMD)
 	- $(RM) base.tmp
 	$(LD_CC) $(TARGET_LFLAGS) \
 		-Wl,--subsystem,native \
@@ -867,39 +794,34 @@ $(MK_NOSTRIPNAME): $(MK_EXTRADEP) $(MK_FULLRES) $(MK_BASENAME).a $(MK_LIBS)
 		-Wl,--file-alignment,0x1000 \
 		-Wl,--section-alignment,0x1000 \
 		-Wl,--entry,$(TARGET_ENTRY) \
-		-Wl,temp.exp -mdll \
+		-Wl,temp.exp \
+		-mdll -nostartfiles -nostdlib \
 		-o $(MK_NOSTRIPNAME) \
 	  	$(MK_FULLRES) $(MK_OBJECTS) $(MK_LIBS) $(MK_GCCLIBS)
 	- $(RM) temp.exp
-ifeq ($(BUILD_SYM),yes)
-	$(HALFVERBOSEECHO) [RSYM]    $(MK_BASENAME).sym
 	$(RSYM) $(MK_NOSTRIPNAME) $(MK_BASENAME).sym
-endif
-ifeq ($(BUILD_MAP),full)
-	$(HALFVERBOSEECHO) [OBJDUMP] $(MK_BASENAME).map
+ifeq ($(FULL_MAP),yes)
 	$(OBJDUMP) -d -S $(MK_NOSTRIPNAME) > $(MK_BASENAME).map
 else
-ifeq ($(BUILD_MAP),yes)
-	$(HALFVERBOSEECHO) [NM]      $(MK_BASENAME).map
 	$(NM) --numeric-sort $(MK_NOSTRIPNAME) > $(MK_BASENAME).map
 endif
-endif
 
-$(MK_FULLNAME): $(MK_EXTRADEP) $(MK_FULLRES) $(MK_BASENAME).a $(MK_LIBS) $(MK_NOSTRIPNAME)
+$(MK_FULLNAME): $(MK_FULLRES) $(MK_OBJECTS) $(MK_EXTRADEP) $(MK_LIBS) $(MK_NOSTRIPNAME)
 	-
-	$(HALFVERBOSEECHO) [LD]      $(MK_FULLNAME)
 ifneq ($(TARGET_CPPAPP),yes)
-	$(LD) --strip-debug -r -o $(MK_STRIPPED_OBJECT) $(MK_OBJECTS)
+	$(LD) -r -o $(MK_STRIPPED_OBJECT) $(MK_OBJECTS)
+	$(STRIP) --strip-debug $(MK_STRIPPED_OBJECT)
 endif
 	$(LD_CC) -Wl,--base-file,base.tmp \
 		-Wl,--entry,$(TARGET_ENTRY) \
 		$(TARGET_LFLAGS) \
+		-nostartfiles -nostdlib \
 		-o junk.tmp \
 		$(MK_FULLRES) $(MK_STRIPPED_OBJECT) $(MK_LIBS) $(MK_GCCLIBS)
 	- $(RM) junk.tmp
 	$(DLLTOOL) --dllname $(MK_FULLNAME) \
 		--base-file base.tmp \
-		--output-exp temp.exp $(MK_EXTRACMD) $(MK_KILLAT)
+		--output-exp temp.exp $(MK_EXTRACMD)
 	- $(RM) base.tmp
 	$(LD_CC) $(TARGET_LFLAGS) \
 		-Wl,--subsystem,native \
@@ -907,7 +829,8 @@ endif
 		-Wl,--file-alignment,0x1000 \
 		-Wl,--section-alignment,0x1000 \
 		-Wl,--entry,$(TARGET_ENTRY) \
-		-Wl,temp.exp -mdll \
+		-Wl,temp.exp \
+		-mdll -nostartfiles -nostdlib \
 		-o $(MK_FULLNAME) \
 	  	$(MK_FULLRES) $(MK_STRIPPED_OBJECT) $(MK_LIBS) $(MK_GCCLIBS)
 ifneq ($(TARGET_CPPAPP),yes)
@@ -922,12 +845,9 @@ endif # MK_MODE
 # Static library target
 ifeq ($(MK_MODE),static)
 
-$(MK_FULLNAME): $(MK_EXTRADEP) $(MK_OBJECTS)
-	$(HALFVERBOSEECHO) [AR]      $(MK_FULLNAME)
-	$(AR) -rc $(MK_FULLNAME) $(MK_OBJECTS)
-ifneq ($(TARGET_TYPE),test)
-	@echo $(MK_FULLNAME) was successfully built.
-endif
+$(MK_FULLNAME): $(TARGET_OBJECTS)
+	$(AR) -r $(MK_FULLNAME) $(TARGET_OBJECTS)
+	@echo $(MK_BASENAME)$(MK_EXT) was successfully built.
 
 # Static libraries dont have a nostrip version
 $(MK_NOSTRIPNAME):
@@ -949,14 +869,13 @@ depends:
 endif
 
 ifeq ($(MK_IMPLIB),yes)
-$(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME): $(MK_DEFNAME)
-	$(HALFVERBOSEECHO) [DLLTOOL] $(MK_IMPLIB_FULLNAME)
+$(MK_IMPLIBPATH)/$(MK_BASENAME).a: $(MK_DEFNAME)
 	$(DLLTOOL) --dllname $(MK_FULLNAME) \
 		--def $(MK_DEFNAME) \
-		--output-lib $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME) \
-		$(MK_KILLAT)
+		--output-lib $(MK_IMPLIBPATH)/$(MK_BASENAME).a \
+		--kill-at
 
-implib: $(MK_IMPLIBPATH)/$(MK_IMPLIB_FULLNAME)
+implib: $(MK_IMPLIBPATH)/$(MK_BASENAME).a
 else
 implib: $(SUBDIRS:%=%_implib)
 endif
@@ -975,22 +894,34 @@ else
 PCH_CC := $(CC)
 endif
 
+# GCC generates wrong dependencies for header files.
+MK_PCHFAKE = $(TARGET_PCH:.h=.o)
+$(MK_PCHFAKE):
+	- $(RTOUCH) $(MK_PCHFAKE)
+
+$(MK_PCHNAME): depend.d
+	- $(RTOUCH) $(MK_PCHNAME)
+	- $(PCH_CC) $(TARGET_CFLAGS) $(TARGET_PCH)
+
+depend.d: $(MK_PCHFAKE)
+	- $(RTOUCH) depend.d
+	- $(PCH_CC) $(TARGET_CFLAGS) $(TARGET_PCH) -M -MF depend.d
+
+-include depend.d
 
 endif # TARGET_PCH
-else  #
-MK_PCHNAME =
 endif # ROS_USE_PCH
 
 # Be carefull not to clean non-object files
 MK_CLEANFILES := $(filter %.o,$(MK_OBJECTS))
-MK_CLEANFILTERED := $(MK_OBJECTS:.o=.d) $(TARGET_PCH:.h=.d)
+MK_CLEANFILTERED := $(MK_OBJECTS:.o=.d)
 MK_CLEANDEPS := $(join $(dir $(MK_CLEANFILTERED)), $(addprefix ., $(notdir $(MK_CLEANFILTERED))))
 
 clean: $(MK_REGTESTS_CLEAN) $(SUBDIRS:%=%_clean)
-	- $(RM) *.o $(MK_PCHNAME) $(MK_BASENAME).sym $(MK_BASENAME).a $(MK_RESOURCE) \
+	- $(RM) *.o depend.d $(MK_PCHNAME) *.gch $(MK_BASENAME).sym $(MK_BASENAME).a $(MK_RESOURCE) \
 	  $(MK_FULLNAME) $(MK_NOSTRIPNAME) $(MK_CLEANFILES) $(MK_CLEANDEPS) $(MK_BASENAME).map \
-	  junk.tmp base.tmp temp.exp $(MK_RC_BINARIES) $(MK_SPECDEF) $(MK_STUBS_SRC) \
-	  $(MK_GENERATED_MAKEFILE) $(TARGET_CLEAN)
+	  junk.tmp base.tmp temp.exp $(MK_RC_BINARIES) $(MK_SPECDEF) $(MK_GENERATED_MAKEFILE) \
+	  $(TARGET_CLEAN)
 
 ifneq ($(TARGET_HEADERS),)
 $(TARGET_OBJECTS): $(TARGET_HEADERS)
@@ -1002,8 +933,6 @@ ifeq ($(MK_IMPLIBONLY),yes)
 
 # Don't install import libraries
 
-forceinstall:
-
 install:
 
 bootcd:
@@ -1014,38 +943,23 @@ else # MK_IMPLIBONLY
 # Don't install static libraries
 ifeq ($(MK_MODE),static)
 
-forceinstall:
-
 install:
-
-bootcd:
+	
+bootcd:	
 
 else # MK_MODE
 
-ifneq ($(MK_INSTALL),no)
-
-install: forceinstall
-
-else # MK_INSTALL
-
-install:
-
-endif # MK_INSTALL
-
 ifeq ($(INSTALL_SYMBOLS),yes)
 
-forceinstall: $(SUBDIRS:%=%_install) $(MK_FULLNAME) $(MK_BASENAME).sym
-	$(HALFVERBOSEECHO) [INSTALL] $(MK_FULLNAME) to $(MK_INSTALLDIR)/$(MK_INSTALL_FULLNAME)
-	$(HALFVERBOSEECHO) [INSTALL] $(MK_BASENAME).sym to symbols/$(MK_INSTALL_BASENAME).sym
-	-$(CP) $(MK_FULLNAME) $(INSTALL_DIR)/$(MK_INSTALLDIR)/$(MK_INSTALL_FULLNAME)
-	-$(CP) $(MK_BASENAME).sym $(INSTALL_DIR)/symbols/$(MK_INSTALL_BASENAME).sym
+install: $(SUBDIRS:%=%_install) $(MK_FULLNAME) $(MK_BASENAME).sym
+	-$(CP) $(MK_FULLNAME) $(INSTALL_DIR)/$(MK_INSTALLDIR)/$(MK_FULLNAME)
+	-$(CP) $(MK_BASENAME).sym $(INSTALL_DIR)/symbols/$(MK_BASENAME).sym
 	@echo $(MK_FULLNAME) was successfully installed.
 
 else # INSTALL_SYMBOLS
 
-forceinstall: $(SUBDIRS:%=%_install) $(MK_FULLNAME)
-	$(HALFVERBOSEECHO) [INSTALL] $(MK_FULLNAME) to $(MK_INSTALLDIR)/$(MK_INSTALL_FULLNAME)
-	-$(CP) $(MK_FULLNAME) $(INSTALL_DIR)/$(MK_INSTALLDIR)/$(MK_INSTALL_FULLNAME)
+install: $(SUBDIRS:%=%_install) $(MK_FULLNAME)
+	-$(CP) $(MK_FULLNAME) $(INSTALL_DIR)/$(MK_INSTALLDIR)/$(MK_FULLNAME)
 
 endif # INSTALL_SYMBOLS
 
@@ -1056,7 +970,7 @@ ifeq ($(TARGET_BOOTSTRAP),yes)
 ifneq ($(TARGET_BOOTSTRAP_NAME),)
 MK_BOOTSTRAP_NAME := $(TARGET_BOOTSTRAP_NAME)
 else # TARGET_BOOTSTRAP_NAME
-MK_BOOTSTRAP_NAME := $(MK_INSTALL_FULLNAME)
+MK_BOOTSTRAP_NAME := $(MK_FULLNAME)
 endif # TARGET_BOOTSTRAP_NAME
 
 bootcd: $(SUBDIRS:%=%_bootcd)
@@ -1065,10 +979,10 @@ bootcd: $(SUBDIRS:%=%_bootcd)
 else # TARGET_BOOTSTRAP
 
 bootcd:
-
+	
 endif # TARGET_BOOTSTRAP
-
-endif # MK_MODE
+    
+endif # MK_MODE     
 
 endif # MK_IMPLIBONLY
 
@@ -1084,13 +998,24 @@ endif
 
 REGTEST_TESTS = $(wildcard tests/tests/*.c)
 
-$(REGTEST_TARGETS): $(REGTEST_TESTS) ./tests/stubs.tst
+$(REGTEST_TARGETS): $(REGTEST_TESTS)
+ifeq ($(MK_MODE),user)
+ifeq ($(TARGET_BUILDENV_TEST),yes)
 	$(REGTESTS) ./tests/tests ./tests/_regtests.c ./tests/Makefile.tests -e ./tests/_rtstub.c
-	$(REGTESTS) -s ./tests/stubs.tst ./tests/_stubs.S ./tests/_hooks.c
+else
+	$(REGTESTS) ./tests/tests ./tests/_regtests.c ./tests/Makefile.tests -u ./tests/_rtstub.c
+endif
+	$(MAKE) -C tests TARGET_REGTESTS=no all
+else
+ifeq ($(MK_MODE),kernel)
+	$(REGTESTS) ./tests/tests ./tests/_regtests.c ./tests/Makefile.tests -k ./tests/_rtstub.c
+	$(MAKE) -C tests TARGET_REGTESTS=no all
+endif
+endif
 
 clean_regtests:
-	- $(MAKE) -C tests TARGET_REGTESTS=no clean
-	- $(RM) ./tests/_rtstub.c ./tests/_hooks.c ./tests/_regtests.c ./tests/_stubs.S ./tests/Makefile.tests
+	$(MAKE) -C tests TARGET_REGTESTS=no clean
+	$(RM) ./tests/_rtstub.c ./tests/_regtests.c ./tests/Makefile.tests
 
 .PHONY: all depends implib clean install dist bootcd depends gen_regtests clean_regtests
 
@@ -1122,68 +1047,41 @@ $(SUBDIRS:%=%_bootcd): %_bootcd:
 endif
 
 ifeq ($(TARGET_REGTESTS),yes)
+ifeq ($(TARGET_BUILDENV_TEST),yes)
 test: all
 	$(MAKE) -C tests run
 else
 test:
 	-
 endif
-
-ifeq ($(TARGET_TYPE),test)
-run: all
-	@$(CC) -nostdlib -o _runtest.exe regtests.a $(TARGET_LIBS) _stubs.o \
-	$(SDK_PATH_LIB)/librtshared.a $(SDK_PATH_LIB)/libregtests.a $(SDK_PATH_LIB)/libpseh.a \
-	_hooks.o -lgcc -lmsvcrt -lntdll
-	@$(CP) $(REGTESTS_PATH)/regtests/regtests.dll regtests.dll
-	@_runtest.exe
-	@$(RM) regtests.dll
-	@$(RM) _runtest.exe
+else
+test:
+	-
 endif
 
+
 %.o: %.c $(MK_PCHNAME)
-	$(HALFVERBOSEECHO) [CC]      $<
 	$(CC) $(TARGET_CFLAGS) -c $< -o $@
-%.o: %.cc $(MK_PCHNAME)
-	$(HALFVERBOSEECHO) [CXX]     $<
+%.o: %.cc
 	$(CXX) $(TARGET_CPPFLAGS) -c $< -o $@
-%.o: %.cxx $(MK_PCHNAME)
-	$(HALFVERBOSEECHO) [CXX]     $<
+%.o: %.cxx
 	$(CXX) $(TARGET_CPPFLAGS) -c $< -o $@
-%.o: %.cpp $(MK_PCHNANE)
-	$(HALFVERBOSEECHO) [CXX]     $<
+%.o: %.cpp
 	$(CXX) $(TARGET_CPPFLAGS) -c $< -o $@
 %.o: %.S
-	$(HALFVERBOSEECHO) [AS]      $<
 	$(AS) $(TARGET_ASFLAGS) -c $< -o $@
 %.o: %.s
-	$(HALFVERBOSEECHO) [AS]      $<
 	$(AS) $(TARGET_ASFLAGS) -c $< -o $@
 %.o: %.asm
-	$(HALFVERBOSEECHO) [NASM]    $<
 	$(NASM_CMD) $(TARGET_NFLAGS) $< -o $@
 %.coff: %.rc
-	$(HALFVERBOSEECHO) [RC]      $<
 	$(RC) $(TARGET_RCFLAGS) $< -o $@
 %.spec.def: %.spec
-	$(HALFVERBOSEECHO) [DEF]     $<
 	$(WINEBUILD) $(DEFS) -o $@ --def $<
 %.drv.spec.def: %.spec
-	$(HALFVERBOSEECHO) [DEF]     $<
 	$(WINEBUILD) $(DEFS) -o $@ --def $<
-%.stubs.c: %.spec
-	$(HALFVERBOSEECHO) [STUBS]   $<
-	$(WINEBUILD) $(DEFS) -o $@ --pedll $<
 %.i: %.c
-	$(HALFVERBOSEECHO) [CPP]     $<
 	$(CC) $(TARGET_CFLAGS) -E $< > $@
-%.h.gch: %.h
-	$(HALFVERBOSEECHO) [PCH]     $<
-	$(PCH_CC) $(CFLAGS) $<
-# rule for msvc conversion
-%.c: %_msvc.c
-	$(HALFVERBOSEECHO) [MS2PS]   $<
-	$(subst /,$(SEP),$(MS2PS)) -try try -except except -finally finally < $< > $@
-
 # Kill implicit rule
 .o:;
 

@@ -50,9 +50,6 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 #define MM_LOWEST_USER_ADDRESS (4096)
 #endif
 
-#define MM_VIRTMEM_GRANULARITY (64 * 1024) /* Although Microsoft says this isn't hardcoded anymore,
-                                              they won't be able to change it. Stuff depends on it */
-
 #define STATUS_MM_RESTART_OPERATION       ((NTSTATUS)0xD0000001)
 
 /*
@@ -71,26 +68,6 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 						 PAGE_NOACCESS | \
 						 PAGE_NOCACHE)
 
-#define PAGE_IS_READABLE (PAGE_READONLY | \
-                          PAGE_READWRITE | \
-                          PAGE_WRITECOPY | \
-                          PAGE_EXECUTE_READ | \
-                          PAGE_EXECUTE_READWRITE | \
-                          PAGE_EXECUTE_WRITECOPY)
-
-#define PAGE_IS_WRITABLE (PAGE_READWRITE | \
-                          PAGE_WRITECOPY | \
-                          PAGE_EXECUTE_READWRITE | \
-                          PAGE_EXECUTE_WRITECOPY)
-
-#define PAGE_IS_EXECUTABLE (PAGE_EXECUTE | \
-                            PAGE_EXECUTE_READ | \
-                            PAGE_EXECUTE_READWRITE | \
-                            PAGE_EXECUTE_WRITECOPY)
-
-#define PAGE_IS_WRITECOPY (PAGE_WRITECOPY | \
-                           PAGE_EXECUTE_WRITECOPY)
-
 typedef struct
 {
   ULONG Entry[NR_SECTION_PAGE_ENTRIES];
@@ -106,35 +83,38 @@ typedef struct
 #define MM_PAGEFILE_SEGMENT    (0x1)
 #define MM_DATAFILE_SEGMENT    (0x2)
 
+#define MM_SECTION_SEGMENT_BSS (0x1)
+
 typedef struct _MM_SECTION_SEGMENT
 {
-  LONGLONG FileOffset;
-  ULONG_PTR VirtualAddress;
-  ULONG RawLength;
-  ULONG Length;
+  ULONG FileOffset;
   ULONG Protection;
+  ULONG Attributes;
+  ULONG Length;
+  ULONG RawLength;
   FAST_MUTEX Lock;
   ULONG ReferenceCount;
   SECTION_PAGE_DIRECTORY PageDirectory;
   ULONG Flags;
+  PVOID VirtualAddress;
   ULONG Characteristics;
   BOOLEAN WriteCopy;
 } MM_SECTION_SEGMENT, *PMM_SECTION_SEGMENT;
 
 typedef struct _MM_IMAGE_SECTION_OBJECT
 {
-  ULONG_PTR ImageBase;
-  ULONG_PTR StackReserve;
-  ULONG_PTR StackCommit;
-  ULONG EntryPoint;
+  PVOID ImageBase;
+  PVOID EntryPoint;
+  ULONG StackReserve;
+  ULONG StackCommit;
   ULONG Subsystem;
+  ULONG MinorSubsystemVersion;
+  ULONG MajorSubsystemVersion;
   ULONG ImageCharacteristics;
-  USHORT MinorSubsystemVersion;
-  USHORT MajorSubsystemVersion;
   USHORT Machine;
   BOOLEAN Executable;
   ULONG NrSegments;
-  PMM_SECTION_SEGMENT Segments;
+  MM_SECTION_SEGMENT Segments[0];
 } MM_IMAGE_SECTION_OBJECT, *PMM_IMAGE_SECTION_OBJECT;
 
 typedef struct _SECTION_OBJECT
@@ -168,19 +148,6 @@ ULONG           PeakPagefileUsage;
 ULONG           PagefileUsage;
 ULONG           PagefileLimit;
 } EPROCESS_QUOTA_BLOCK, *PEPROCESS_QUOTA_BLOCK;
-
-/*
- * header mess....
- */
-
-typedef struct _PAGEFAULT_HISTORY
-{
-    ULONG                                 CurrentIndex;
-    ULONG                                 MaxIndex;
-    KSPIN_LOCK                            SpinLock;
-    PVOID                                 Reserved;
-    struct _PROCESS_WS_WATCH_INFORMATION  WatchInfo[1];
-} PAGEFAULT_HISTORY, *PPAGEFAULT_HISTORY;
 
 #endif /* __USE_W32API */
 
@@ -223,18 +190,6 @@ typedef struct _MADDRESS_SPACE
   ULONG PageTableRefCountTableSize;
 } MADDRESS_SPACE, *PMADDRESS_SPACE;
 
-typedef struct _KNODE {
-   ULONG ProcessorMask;
-   ULONG Color;
-   ULONG MmShiftedColor;
-   ULONG FreeCount[2];
-   SLIST_HEADER DeadStackList;
-   SLIST_HEADER PfnDereferenceSListHead;
-   struct _SINGLE_LIST_ENTRY *PfnDeferredList;
-   UCHAR Seed;
-   UCHAR NodeNumber;
-   ULONG Flags;
-} KNODE, *PKNODE;
 
 #ifndef __USE_W32API
 /* VARIABLES */
@@ -387,15 +342,19 @@ NTSTATUS MmLockMemoryArea(MEMORY_AREA* MemoryArea);
 
 NTSTATUS MmUnlockMemoryArea(MEMORY_AREA* MemoryArea);
 
+PMEMORY_AREA MmSplitMemoryArea(struct _EPROCESS* Process,
+			       PMADDRESS_SPACE AddressSpace,
+			       PMEMORY_AREA OriginalMemoryArea,
+			       PVOID BaseAddress,
+			       ULONG Length,
+			       ULONG NewType,
+			       ULONG NewAttributes);
+
 MEMORY_AREA* MmOpenMemoryAreaByRegion(PMADDRESS_SPACE AddressSpace, 
 				      PVOID Address,
 				      ULONG Length);
 
-PVOID MmFindGap(PMADDRESS_SPACE AddressSpace, ULONG Length, ULONG Granularity, BOOL TopDown);
-
-void MmReleaseMemoryAreaIfDecommitted(PEPROCESS Process,
-                                      PMADDRESS_SPACE AddressSpace,
-                                      PVOID BaseAddress);
+PVOID MmFindGap(PMADDRESS_SPACE AddressSpace, ULONG Length, BOOL TopDown);
 
 /* npool.c *******************************************************************/
 
@@ -715,10 +674,6 @@ VOID MmMarkPageUnmapped(PFN_TYPE Page);
 
 VOID MmUpdatePageDir(PEPROCESS Process, PVOID Address, ULONG Size);
 
-VOID MiInitPageDirectoryMap(VOID);
-
-ULONG MiGetUserPageDirectoryCount(VOID);
-
 /* wset.c ********************************************************************/
 
 NTSTATUS MmTrimUserMemory(ULONG Target, ULONG Priority, PULONG NrFreedPages);
@@ -739,7 +694,7 @@ PMM_REGION MmFindRegion(PVOID BaseAddress, PLIST_ENTRY RegionListHead, PVOID Add
 /* section.c *****************************************************************/
 
 PVOID STDCALL 
-MmAllocateSection (IN ULONG Length, PVOID BaseAddress);
+MmAllocateSection (IN ULONG Length);
 
 NTSTATUS STDCALL
 MmQuerySectionView(PMEMORY_AREA MemoryArea,

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: transblt.c,v 1.22 2004/12/14 04:40:16 royce Exp $
+/* $Id: transblt.c,v 1.21 2004/07/03 17:40:25 navaraf Exp $
  * 
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -204,19 +204,9 @@ IntEngTransparentBlt(BITMAPOBJ *DestObj,
 {
   BOOL Ret;
   RECTL OutputRect, InputClippedRect;
-  SURFOBJ *DestSurf;
-  SURFOBJ *SourceSurf;
+  SURFOBJ *DestSurf = &DestObj->SurfObj;
+  SURFOBJ *SourceSurf = &SourceObj->SurfObj;
   
-  ASSERT(DestObj);
-  ASSERT(SourceObj);
-  ASSERT(DestRect);
-
-  DestSurf = &DestObj->SurfObj;
-  SourceSurf = &SourceObj->SurfObj;
-
-  ASSERT(DestSurf);
-  ASSERT(SourceSurf);
-
   InputClippedRect = *DestRect;
   if(InputClippedRect.right < InputClippedRect.left)
   {
@@ -250,7 +240,8 @@ IntEngTransparentBlt(BITMAPOBJ *DestObj,
   if(SourceSurf != DestSurf)
   {
     MouseSafetyOnDrawStart(SourceSurf, SourceRect->left, SourceRect->top, 
-                           SourceRect->right, SourceRect->bottom);
+                           (SourceRect->left + abs(SourceRect->right - SourceRect->left)),
+                           (SourceRect->top + abs(SourceRect->bottom - SourceRect->top)));
   }
   MouseSafetyOnDrawStart(DestSurf, OutputRect.left, OutputRect.top,
                          OutputRect.right, OutputRect.bottom);

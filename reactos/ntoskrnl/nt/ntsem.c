@@ -1,4 +1,4 @@
-/* $Id: ntsem.c,v 1.24 2004/12/26 17:48:19 navaraf Exp $
+/* $Id: ntsem.c,v 1.22 2004/08/15 16:39:09 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -17,7 +17,7 @@
 
 /* GLOBALS ******************************************************************/
 
-POBJECT_TYPE ExSemaphoreObjectType;
+POBJECT_TYPE ExSemaphoreType;
 
 static GENERIC_MAPPING ExSemaphoreMapping = {
 	STANDARD_RIGHTS_READ | SEMAPHORE_QUERY_STATE,
@@ -47,36 +47,36 @@ NtpCreateSemaphore(PVOID ObjectBody,
 VOID INIT_FUNCTION
 NtInitializeSemaphoreImplementation(VOID)
 {
-   ExSemaphoreObjectType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
+   ExSemaphoreType = ExAllocatePool(NonPagedPool, sizeof(OBJECT_TYPE));
    
-   RtlCreateUnicodeString(&ExSemaphoreObjectType->TypeName, L"Semaphore");
+   RtlCreateUnicodeString(&ExSemaphoreType->TypeName, L"Semaphore");
    
-   ExSemaphoreObjectType->Tag = TAG('S', 'E', 'M', 'T');
-   ExSemaphoreObjectType->MaxObjects = ULONG_MAX;
-   ExSemaphoreObjectType->MaxHandles = ULONG_MAX;
-   ExSemaphoreObjectType->TotalObjects = 0;
-   ExSemaphoreObjectType->TotalHandles = 0;
-   ExSemaphoreObjectType->PagedPoolCharge = 0;
-   ExSemaphoreObjectType->NonpagedPoolCharge = sizeof(KSEMAPHORE);
-   ExSemaphoreObjectType->Mapping = &ExSemaphoreMapping;
-   ExSemaphoreObjectType->Dump = NULL;
-   ExSemaphoreObjectType->Open = NULL;
-   ExSemaphoreObjectType->Close = NULL;
-   ExSemaphoreObjectType->Delete = NULL;
-   ExSemaphoreObjectType->Parse = NULL;
-   ExSemaphoreObjectType->Security = NULL;
-   ExSemaphoreObjectType->QueryName = NULL;
-   ExSemaphoreObjectType->OkayToClose = NULL;
-   ExSemaphoreObjectType->Create = NtpCreateSemaphore;
-   ExSemaphoreObjectType->DuplicationNotify = NULL;
+   ExSemaphoreType->Tag = TAG('S', 'E', 'M', 'T');
+   ExSemaphoreType->MaxObjects = ULONG_MAX;
+   ExSemaphoreType->MaxHandles = ULONG_MAX;
+   ExSemaphoreType->TotalObjects = 0;
+   ExSemaphoreType->TotalHandles = 0;
+   ExSemaphoreType->PagedPoolCharge = 0;
+   ExSemaphoreType->NonpagedPoolCharge = sizeof(KSEMAPHORE);
+   ExSemaphoreType->Mapping = &ExSemaphoreMapping;
+   ExSemaphoreType->Dump = NULL;
+   ExSemaphoreType->Open = NULL;
+   ExSemaphoreType->Close = NULL;
+   ExSemaphoreType->Delete = NULL;
+   ExSemaphoreType->Parse = NULL;
+   ExSemaphoreType->Security = NULL;
+   ExSemaphoreType->QueryName = NULL;
+   ExSemaphoreType->OkayToClose = NULL;
+   ExSemaphoreType->Create = NtpCreateSemaphore;
+   ExSemaphoreType->DuplicationNotify = NULL;
 
-   ObpCreateTypeObject(ExSemaphoreObjectType);
+   ObpCreateTypeObject(ExSemaphoreType);
 }
 
 NTSTATUS STDCALL
 NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
 		  IN ACCESS_MASK DesiredAccess,
-		  IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
+		  IN POBJECT_ATTRIBUTES ObjectAttributes,
 		  IN LONG InitialCount,
 		  IN LONG MaximumCount)
 {
@@ -84,7 +84,7 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
    NTSTATUS Status;
 
    Status = ObCreateObject(ExGetPreviousMode(),
-			   ExSemaphoreObjectType,
+			   ExSemaphoreType,
 			   ObjectAttributes,
 			   ExGetPreviousMode(),
 			   NULL,
@@ -122,7 +122,7 @@ NtOpenSemaphore(IN HANDLE SemaphoreHandle,
    NTSTATUS Status;
    
    Status = ObOpenObjectByName(ObjectAttributes,
-			       ExSemaphoreObjectType,
+			       ExSemaphoreType,
 			       NULL,
 			       UserMode,
 			       DesiredAccess,
@@ -138,7 +138,7 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
 		 IN SEMAPHORE_INFORMATION_CLASS SemaphoreInformationClass,
 		 OUT PVOID SemaphoreInformation,
 		 IN ULONG SemaphoreInformationLength,
-		 OUT PULONG ReturnLength  OPTIONAL)
+		 OUT PULONG ReturnLength)
 {
    PSEMAPHORE_BASIC_INFORMATION Info;
    PKSEMAPHORE Semaphore;
@@ -154,7 +154,7 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
 
    Status = ObReferenceObjectByHandle(SemaphoreHandle,
 				      SEMAPHORE_QUERY_STATE,
-				      ExSemaphoreObjectType,
+				      ExSemaphoreType,
 				      UserMode,
 				      (PVOID*)&Semaphore,
 				      NULL);
@@ -164,8 +164,7 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
    Info->CurrentCount = KeReadStateSemaphore(Semaphore);
    Info->MaximumCount = Semaphore->Limit;
 
-   if (ReturnLength != NULL)
-     *ReturnLength = sizeof(SEMAPHORE_BASIC_INFORMATION);
+   *ReturnLength = sizeof(SEMAPHORE_BASIC_INFORMATION);
 
    ObDereferenceObject(Semaphore);
 
@@ -175,14 +174,14 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
 NTSTATUS STDCALL
 NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
 		   IN LONG ReleaseCount,
-		   OUT PLONG PreviousCount  OPTIONAL)
+		   OUT PLONG PreviousCount)
 {
    PKSEMAPHORE Semaphore;
    NTSTATUS Status;
    
    Status = ObReferenceObjectByHandle(SemaphoreHandle,
 				      SEMAPHORE_MODIFY_STATE,
-				      ExSemaphoreObjectType,
+				      ExSemaphoreType,
 				      UserMode,
 				      (PVOID*)&Semaphore,
 				      NULL);

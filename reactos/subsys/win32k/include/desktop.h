@@ -12,7 +12,6 @@ extern PDESKTOP_OBJECT InputDesktop;
 extern HDESK InputDesktopHandle; 
 extern PWNDCLASS_OBJECT DesktopWindowClass;
 extern HDC ScreenDeviceContext;
-extern BOOL g_PaintDesktopVersion;
 
 NTSTATUS FASTCALL
 InitDesktopImpl(VOID);
@@ -59,15 +58,6 @@ IntValidateDesktopHandle(
    KPROCESSOR_MODE AccessMode,
    ACCESS_MASK DesiredAccess,
    PDESKTOP_OBJECT *Object);
-
-NTSTATUS FASTCALL
-IntParseDesktopPath(PEPROCESS Process,
-                    PUNICODE_STRING DesktopPath,
-                    HWINSTA *hWinSta,
-                    HDESK *hDesktop);
-
-BOOL FASTCALL
-IntDesktopUpdatePerUserSettings(BOOL bEnable);
 
 #define IntIsActiveDesktop(Desktop) \
   ((Desktop)->WindowStation->ActiveDesktop == (Desktop))

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: brush.c,v 1.43 2004/12/18 18:19:24 royce Exp $
+ * $Id: brush.c,v 1.40 2004/07/14 20:48:57 navaraf Exp $
  */
 #include <w32k.h>
 
@@ -31,14 +31,14 @@ static const USHORT HatchBrushes[NB_HATCH_STYLES][8] =
   {0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81}  /* HS_DIAGCROSS  */
 };
 
-BOOL INTERNAL_CALL
-BRUSH_Cleanup(PVOID ObjectBody)
+BOOL FASTCALL
+Brush_InternalDelete( PGDIBRUSHOBJ pBrush )
 {
-  PGDIBRUSHOBJ pBrush = (PGDIBRUSHOBJ)ObjectBody;
+  ASSERT(pBrush);
+  
   if(pBrush->flAttrs & (GDIBRUSH_IS_HATCH | GDIBRUSH_IS_BITMAP))
   {
     ASSERT(pBrush->hbmPattern);
-    GDIOBJ_SetOwnership(pBrush->hbmPattern, PsGetCurrentProcess());
     NtGdiDeleteObject(pBrush->hbmPattern);
   }
   
@@ -83,10 +83,8 @@ IntGdiCreateBrushXlate(PDC Dc, GDIBRUSHOBJ *BrushObj, BOOLEAN *Failed)
 VOID FASTCALL
 IntGdiInitBrushInstance(GDIBRUSHINST *BrushInst, PGDIBRUSHOBJ BrushObj, XLATEOBJ *XlateObj)
 {
-   ASSERT(BrushInst);
-   ASSERT(BrushObj);
    if (BrushObj->flAttrs & GDIBRUSH_IS_NULL)
-      BrushInst->BrushObject.iSolidColor = 0;
+      BrushInst->BrushObject.iSolidColor = 0;			
    else if (BrushObj->flAttrs & GDIBRUSH_IS_SOLID)
       BrushInst->BrushObject.iSolidColor = XLATEOBJ_iXlate(XlateObj, BrushObj->BrushAttr.lbColor);
    else
@@ -133,44 +131,37 @@ IntGdiCreateBrushIndirect(PLOGBRUSH LogBrush)
    }
 
    BrushObject = BRUSHOBJ_LockBrush(hBrush);
-   if(BrushObject != NULL)
+
+   switch (LogBrush->lbStyle)
    {
-     switch (LogBrush->lbStyle)
-     {
-        case BS_NULL:
-           BrushObject->flAttrs |= GDIBRUSH_IS_NULL;
-           break;
+      case BS_NULL:
+         BrushObject->flAttrs |= GDIBRUSH_IS_NULL;
+         break;
 
-        case BS_SOLID:
-           BrushObject->flAttrs |= GDIBRUSH_IS_SOLID;
-           BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
-           /* FIXME: Fill in the rest of fields!!! */
-           break;
+      case BS_SOLID:
+         BrushObject->flAttrs |= GDIBRUSH_IS_SOLID;
+         BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
+         /* FIXME: Fill in the rest of fields!!! */
+         break;
 
-        case BS_HATCHED:
-           BrushObject->flAttrs |= GDIBRUSH_IS_HATCH;
-           BrushObject->hbmPattern = hPattern;
-           BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
-           break;
+      case BS_HATCHED:
+         BrushObject->flAttrs |= GDIBRUSH_IS_HATCH;
+         BrushObject->hbmPattern = hPattern;
+         BrushObject->BrushAttr.lbColor = LogBrush->lbColor & 0xFFFFFF;
+         break;
 
-        case BS_PATTERN:
-           BrushObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-           BrushObject->hbmPattern = hPattern;
-           /* FIXME: Fill in the rest of fields!!! */
-           break;
+      case BS_PATTERN:
+         BrushObject->flAttrs |= GDIBRUSH_IS_BITMAP;
+         BrushObject->hbmPattern = hPattern;
+         /* FIXME: Fill in the rest of fields!!! */
+         break;
 
-        default:
-           DPRINT1("Brush Style: %d\n", LogBrush->lbStyle);
-           UNIMPLEMENTED;
-           break;
-     }
-     
-     BRUSHOBJ_UnlockBrush(hBrush);
+      default:
+         DPRINT1("Brush Style: %d\n", LogBrush->lbStyle);
+         UNIMPLEMENTED;
    }
 
-   if (hPattern != 0)
-      GDIOBJ_SetOwnership(hPattern, NULL);
-   
+   BRUSHOBJ_UnlockBrush(hBrush);
    return hBrush;
 }
 
@@ -190,8 +181,6 @@ IntPatBlt(
    POINTL BrushOrigin;
    BOOL ret = TRUE;
 
-   ASSERT(BrushObj);
-
    BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
    if (BitmapObj == NULL)
    {
@@ -199,6 +188,7 @@ IntPatBlt(
       return FALSE;
    }
 
+   ASSERT(BrushObj);
    if (!(BrushObj->flAttrs & GDIBRUSH_IS_NULL))
    {
       if (Width > 0)
@@ -270,18 +260,15 @@ IntGdiPolyPatBlt(
    for (r = pRects, i = 0; i < cRects; i++)
    {
       BrushObj = BRUSHOBJ_LockBrush(r->hBrush);
-      if(BrushObj != NULL)
-      {
-        IntPatBlt(
-           dc,
-           r->r.left,
-           r->r.top,
-           r->r.right,
-           r->r.bottom,
-           dwRop,
-           BrushObj);
-        BRUSHOBJ_UnlockBrush(r->hBrush);
-      }
+      IntPatBlt(
+         dc,
+         r->r.left,
+         r->r.top,
+         r->r.right,
+         r->r.bottom,
+         dwRop,
+         BrushObj);
+      BRUSHOBJ_UnlockBrush(r->hBrush);
       r++;
    }
 

@@ -26,15 +26,13 @@
 
 #include "config.h"
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-#define COBJMACROS
-#define NONAMELESSUNION
-#define NONAMELESSSTRUCT
 
 #include "windef.h"
 #include "winbase.h"
@@ -96,6 +94,7 @@ static HRESULT WINAPI StdGlobalInterfaceTable_GetInterfaceFromGlobal(IGlobalInte
 /* Virtual function table */
 static IGlobalInterfaceTableVtbl StdGlobalInterfaceTableImpl_Vtbl =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   StdGlobalInterfaceTable_QueryInterface,
   StdGlobalInterfaceTable_AddRef,
   StdGlobalInterfaceTable_Release,
@@ -351,6 +350,7 @@ static HRESULT WINAPI GITCF_LockServer(LPCLASSFACTORY iface, BOOL fLock) {
 }
 
 static IClassFactoryVtbl GITClassFactoryVtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     GITCF_QueryInterface,
     GITCF_AddRef,
     GITCF_Release,

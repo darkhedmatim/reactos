@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.76 2004/12/23 23:55:56 ekohl Exp $
+/* $Id: create.c,v 1.74 2004/08/15 16:39:03 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -212,7 +212,7 @@ IoCreateStreamFileObject(PFILE_OBJECT FileObject,
   DPRINT("IoCreateStreamFileObject(FileObject %x, DeviceObject %x)\n",
 	 FileObject, DeviceObject);
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
   Status = ObCreateObject(KernelMode,
 			  IoFileObjectType,
@@ -346,7 +346,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
 	  FileHandle,DesiredAccess,ObjectAttributes,
 	  ObjectAttributes->ObjectName->Buffer);
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
 
   if (IoStatusBlock == NULL)
     return STATUS_ACCESS_VIOLATION;
@@ -367,7 +367,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
    if (!NT_SUCCESS(Status))
      {
 	DPRINT("ObCreateObject() failed! (Status %lx)\n", Status);
-	return Status;
+	return(Status);
      }
 
    RtlMapGenericMask(&DesiredAccess,
@@ -383,7 +383,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
      {
 	DPRINT("ObInsertObject() failed! (Status %lx)\n", Status);
 	ObDereferenceObject (FileObject);
-	return Status;
+	return(Status);
      }
 
    if (CreateOptions & FILE_SYNCHRONOUS_IO_ALERT)
@@ -395,7 +395,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
 	FileObject->Flags |= FO_SYNCHRONOUS_IO;
      }
 
-   if (CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING)
+   if( CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING )
      FileObject->Flags |= FO_NO_INTERMEDIATE_BUFFERING;
 
    SecurityContext.SecurityQos = NULL; /* ?? */
@@ -417,7 +417,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
    if (Irp == NULL)
      {
 	ZwClose(*FileHandle);
-	return STATUS_UNSUCCESSFUL;
+	return (STATUS_UNSUCCESSFUL);
      }
 
    //trigger FileObject/Event dereferencing
@@ -425,7 +425,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
    Irp->RequestorMode = PreviousMode;
    Irp->UserIosb = IoStatusBlock;
    Irp->AssociatedIrp.SystemBuffer = EaBuffer;
-   Irp->Tail.Overlay.AuxiliaryBuffer = NULL;
+   Irp->Tail.Overlay.AuxiliaryBuffer = (PCHAR)ExtraCreateParameters;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    Irp->UserEvent = &FileObject->Event;
    if (AllocationSize)
@@ -438,46 +438,35 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
     * IRP and prepare it.
     */
    StackLoc = IoGetNextIrpStackLocation(Irp);
-   StackLoc->MinorFunction = 0;
-   StackLoc->Flags = (UCHAR)Options;
-   StackLoc->Control = 0;
-   StackLoc->DeviceObject = FileObject->DeviceObject;
-   StackLoc->FileObject = FileObject;
-
    switch (CreateFileType)
      {
 	default:
 	case CreateFileTypeNone:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE;
-	  StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.Create.FileAttributes = (USHORT)FileAttributes;
-	  StackLoc->Parameters.Create.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.Create.EaLength = EaLength;
 	  break;
 	
 	case CreateFileTypeNamedPipe:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_NAMED_PIPE;
-	  StackLoc->Parameters.CreatePipe.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreatePipe.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreatePipe.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreatePipe.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreatePipe.Parameters = ExtraCreateParameters;
 	  break;
 
 	case CreateFileTypeMailslot:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_MAILSLOT;
-	  StackLoc->Parameters.CreateMailslot.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreateMailslot.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreateMailslot.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreateMailslot.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreateMailslot.Parameters = ExtraCreateParameters;
 	  break;
      }
-
+   StackLoc->MinorFunction = 0;
+   StackLoc->Flags = (UCHAR)Options;
+   StackLoc->Control = 0;
+   StackLoc->DeviceObject = FileObject->DeviceObject;
+   StackLoc->FileObject = FileObject;
+   StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
+   StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
+   StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
+   StackLoc->Parameters.Create.FileAttributes = (USHORT)FileAttributes;
+   StackLoc->Parameters.Create.ShareAccess = (USHORT)ShareAccess;
+   StackLoc->Parameters.Create.EaLength = EaLength;
+   
    /*
-    * Now call the driver and
+    * Now call the driver and 
     * possibly wait if it can
     * not complete the request
     * immediately.
@@ -502,11 +491,11 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
 	ZwClose(*FileHandle);
      }
 
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
 
    DPRINT("Finished IoCreateFile() (*FileHandle) %x\n", (*FileHandle));
 
-   return Status;
+   return (Status);
 }
 
 

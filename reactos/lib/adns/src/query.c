@@ -98,12 +98,12 @@ static void query_submit(adns_state ads, adns_query qu,
   qu->vb= *qumsg_vb;
   adns__vbuf_init(qumsg_vb);
 
-  qu->query_dgram= malloc( (size_t) qu->vb.used);
+  qu->query_dgram= malloc(qu->vb.used);
   if (!qu->query_dgram) { adns__query_fail(qu,adns_s_nomemory); return; }
   
   qu->id= id;
   qu->query_dglen= qu->vb.used;
-  memcpy(qu->query_dgram,qu->vb.buf,(size_t) qu->vb.used);
+  memcpy(qu->query_dgram,qu->vb.buf,qu->vb.used);
   
   adns__query_send(qu,now);
 }
@@ -118,7 +118,7 @@ adns_status adns__internal_submit(adns_state ads, adns_query *query_r,
   if (!qu) { adns__vbuf_free(qumsg_vb); return adns_s_nomemory; }
   *query_r= qu;
 
-  memcpy(&qu->ctx,ctx,(size_t) sizeof(qu->ctx));
+  memcpy(&qu->ctx,ctx,sizeof(qu->ctx));
   query_submit(ads,qu, typei,qumsg_vb,id,flags,now);
   
   return adns_s_ok;
@@ -194,9 +194,9 @@ static int save_owner(adns_query qu, const char *owner, int ol) {
   ans= qu->answer;
   assert(!ans->owner);
 
-  ans->owner= adns__alloc_preserved(qu, (size_t) ol+1);  if (!ans->owner) return 0;
+  ans->owner= adns__alloc_preserved(qu,ol+1);  if (!ans->owner) return 0;
 
-  memcpy(ans->owner,owner, (size_t) ol);
+  memcpy(ans->owner,owner,ol);
   ans->owner[ol]= 0;
   return 1;
 }
@@ -287,7 +287,7 @@ int adns_submit_reverse_any(adns_state ads,
 
   lreq= strlen(zone) + 4*4 + 1;
   if (lreq > sizeof(shortbuf)) {
-    buf= malloc( strlen(zone) + 4*4 + 1 );
+    buf= malloc(strlen(zone) + 4*4 + 1);
     if (!buf) return errno;
     buf_free= buf;
   } else {
@@ -481,7 +481,7 @@ static void makefinal_query(adns_query qu) {
   adns__makefinal_str(qu,&ans->owner);
   
   if (ans->nrrs) {
-    adns__makefinal_block(qu, &ans->rrs.untyped, (size_t) ans->nrrs*ans->rrsz);
+    adns__makefinal_block(qu, &ans->rrs.untyped, ans->nrrs*ans->rrsz);
 
     for (rrn=0; rrn<ans->nrrs; rrn++)
       qu->typei->makefinal(qu, ans->rrs.bytes + rrn*ans->rrsz);
@@ -557,8 +557,8 @@ void adns__makefinal_str(adns_query qu, char **strp) {
   before= *strp;
   if (!before) return;
   l= strlen(before)+1;
-  after= adns__alloc_final(qu, (size_t) l);
-  memcpy(after,before,(size_t) l);
+  after= adns__alloc_final(qu,l);
+  memcpy(after,before,l);
   *strp= after;  
 }
 
@@ -568,6 +568,6 @@ void adns__makefinal_block(adns_query qu, void **blpp, size_t sz) {
   before= *blpp;
   if (!before) return;
   after= adns__alloc_final(qu,sz);
-  memcpy(after,before, (size_t) sz);
+  memcpy(after,before,sz);
   *blpp= after;
 }

@@ -11,6 +11,23 @@
 extern "C" {
 #endif
 
+#ifdef NONAMELESSUNION
+#define DEC_SIGN(d) ((d)->DUMMYUNIONNAME.DUMMYSTRUCTNAME.sign)
+#define DEC_SCALE(d) ((d)->DUMMYUNIONNAME.DUMMYSTRUCTNAME.scale)
+#define DEC_SIGNSCALE(d) ((d)->DUMMYUNIONNAME.signscale)
+#define DEC_MID32(d) ((d)->DUMMYUNIONNAME2.DUMMYSTRUCTNAME2.Mid32)
+#define DEC_LO32(d) ((d)->DUMMYUNIONNAME2.DUMMYSTRUCTNAME2.Lo32)
+#define DEC_LO64(d) ((d)->DUMMYUNIONNAME2.Lo64)
+#else
+#define DEC_SIGN(d) ((d)->sign)
+#define DEC_SCALE(d) ((d)->scale)
+#define DEC_SIGNSCALE(d) ((d)->signscale)
+#define DEC_MID32(d) ((d)->Mid32)
+#define DEC_LO32(d) ((d)->Lo32)
+#define DEC_LO64(d) ((d)->Lo64)
+#endif
+#define DEC_HI32(d) ((d)->Hi32)
+
 #define IID_NULL GUID_NULL
 #define CLSID_NULL GUID_NULL
 #define CBPCLIPDATA(d) ((d).cbSize-sizeof((d).ulClipFmt))
@@ -143,21 +160,21 @@ typedef struct _HYPER_SIZEDARR {
 typedef double DOUBLE;
 typedef struct tagDEC {
 	USHORT wReserved;
-	union {
-		struct {
+	_ANONYMOUS_UNION union {
+		_ANONYMOUS_STRUCT struct {
 			BYTE scale;
 			BYTE sign;
-		};
+		}_STRUCT_NAME(s);
 		USHORT signscale;
-	};
+	} DUMMYUNIONNAME;
 	ULONG Hi32;
-	union {
-		struct {
+	_ANONYMOUS_UNION union {
+		_ANONYMOUS_STRUCT struct {
 			ULONG Lo32;
 			ULONG Mid32;
-		};
+		}_STRUCT_NAME(s2);
 		ULONGLONG Lo64;
-	};
+	} DUMMYUNIONNAME2;
 } DECIMAL;
 typedef void *HMETAFILEPICT;
 #ifdef __cplusplus

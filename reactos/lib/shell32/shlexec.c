@@ -32,8 +32,6 @@
 #include <ctype.h>
 #include <assert.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -79,7 +77,7 @@ static const WCHAR wszEmpty[] = {0};
  * %* all following parameters (see batfile)
  *
  * FIXME: use 'len'
- * FIXME: Careful of going over string boundaries. No checking is done to 'res'...
+ * FIXME: Careful of going over string-boundries. No checking is done to 'res'...
  */
 static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lpFile, LPITEMIDLIST pidl, LPCWSTR args)
 {
@@ -88,6 +86,11 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
     PWSTR   res = out;
     PCWSTR  cmd;
     LPVOID  pv;
+    WCHAR	tmpBuffer[1024];
+	PWSTR	tmpB = tmpBuffer;
+	WCHAR	tmpEnvBuff[MAX_PATH];
+	WCHAR*	tmpE = tmpEnvBuff;
+	DWORD	envRet;
 
     TRACE("%p, %d, %s, %s, %p, %p\n", out, len, debugstr_w(fmt),
           debugstr_w(lpFile), pidl, args);
@@ -142,10 +145,8 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
                     else
                         cmd = lpFile;
 
-                    /* Add double quotation marks unless we already have them
-                       (e.g.: "file://%1" %* for exefile) or unless the arg is already
-                       enclosed in double quotation marks */
-                    if ((res == out || *(fmt + 1) != '"') && *cmd != '"')
+                    /* Add double quotation marks unless we already have them (e.g.: "file://%1" %* for exefile) */
+                    if (res == out || *(fmt + 1) != '"')
                     {
                         *res++ = '"';
                         strcpyW(res, cmd);
@@ -183,40 +184,38 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
 		}
                 break;
 
-	    default:
-                /*
-                 * Check if this is a env-variable here...
-                 */
+	      default:
+	    /*
+	     * Check if this is a env-variable here...
+	     */
 
-                /* Make sure that we have at least one more %.*/
-                if (strchrW(fmt, '%'))
-                {
-                    WCHAR   tmpBuffer[1024];
-                    PWSTR   tmpB = tmpBuffer;
-                    WCHAR   tmpEnvBuff[MAX_PATH];
-                    DWORD   envRet;
+	    // Make sure that we have at least one more %.
+	    if (strstrW(fmt, L"%"))
+	    {
+			while (*fmt != '%')
+				*tmpB++ = *fmt++;
+			*tmpB++ = 0;
 
-                    while (*fmt != '%')
-                        *tmpB++ = *fmt++;
-                    *tmpB++ = 0;
+			TRACE("Checking %s to be a env-var\n", debugstr_w(tmpBuffer));
 
-                    TRACE("Checking %s to be a env-var\n", debugstr_w(tmpBuffer));
-
-                    envRet = GetEnvironmentVariableW(tmpBuffer, tmpEnvBuff, MAX_PATH);
-                    if (envRet == 0 || envRet > MAX_PATH)
-                        strcpyW( res, tmpBuffer );
-                    else
-                        strcpyW( res, tmpEnvBuff );
-                    res += strlenW(res);
-                }
-                done = TRUE;
-                break;
+			envRet = GetEnvironmentVariableW(tmpBuffer, tmpE, MAX_PATH);
+			if (envRet == 0 || envRet > MAX_PATH)
+			{
+				TRACE("The env. var can't be found or is bigger than MAX_PATH => useless.");
+				res += sprintfW(res, L"%s%%", tmpBuffer);
             }
-            /* Don't skip past terminator (catch a single '%' at the end) */
-            if (*fmt != '\0')
-            {
-                fmt++;
-            }
+			else
+			{
+				TRACE("Found it %s. Replacing... \n", debugstr_w(tmpEnvBuff));
+				res += sprintfW(res, L"%s", tmpEnvBuff);
+			}
+		}
+
+	    } // switch
+
+
+            fmt++;
+            done = TRUE;
         }
         else
             *res++ = *fmt++;

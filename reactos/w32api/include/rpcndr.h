@@ -12,9 +12,6 @@
 extern "C" {
 #endif
 #include <objfwd.h>
-#define TARGET_IS_NT50_OR_LATER 1
-#define TARGET_IS_NT40_OR_LATER 1
-#define TARGET_IS_NT351_OR_WIN95_OR_LATER 1
 #define DECLSPEC_UUID(x)
 #define MIDL_INTERFACE(x) struct
 #define NDR_CHAR_REP_MASK (unsigned long)0xFL
@@ -153,16 +150,6 @@ void RPC_ENTRY tree_size_ndr(void*,PRPC_MESSAGE,char*,unsigned char);
 void RPC_ENTRY tree_peek_ndr(PRPC_MESSAGE,unsigned char**,char*,unsigned char);
 void *RPC_ENTRY midl_allocate(int);
 
-typedef struct
-{
-  unsigned long WireCodeset;
-  unsigned long DesiredReceivingCodeset;
-  void *CSArrayInfo;
-} CS_STUB_INFO;
-
-typedef struct _NDR_ASYNC_MESSAGE *PNDR_ASYNC_MESSAGE;
-typedef struct _NDR_CORRELATION_INFO *PNDR_CORRELATION_INFO;
-
 #pragma pack(push,4)
 typedef struct _MIDL_STUB_MESSAGE {
 	PRPC_MESSAGE RpcMsg;
@@ -180,7 +167,7 @@ typedef struct _MIDL_STUB_MESSAGE {
 	int IgnoreEmbeddedPointers;
 	unsigned char *PointerBufferMark;
 	unsigned char fBufferValid;
-	unsigned char uFlags;
+	unsigned char Unused;
 	unsigned long MaxCount;
 	unsigned long Offset;
 	unsigned long ActualCount;
@@ -209,21 +196,7 @@ typedef struct _MIDL_STUB_MESSAGE {
 	unsigned long *SizePtrLengthArray;
 	void*pArgQueue;
 	unsigned long dwStubPhase;
-	void *LowStackMark;
-	PNDR_ASYNC_MESSAGE pAsyncMsg;
-	PNDR_CORRELATION_INFO pCorrInfo;
-	unsigned char *pCorrMemory;
-	void *pMemoryList;
-	CS_STUB_INFO *pCSInfo;
-	unsigned char *ConformanceMark;
-	unsigned char *VarianceMark;
-	INT_PTR Unused;
-	struct _NDR_PROC_CONTEXT *pContext;
-	INT_PTR Reserved51_1;
-	INT_PTR Reserved51_2;
-	INT_PTR Reserved51_3;
-	INT_PTR Reserved51_4;
-	INT_PTR Reserved51_5;
+	unsigned long w2kReserved[5];
 } MIDL_STUB_MESSAGE,*PMIDL_STUB_MESSAGE;
 #pragma pack(pop)
 typedef void*(__RPC_API *GENERIC_BINDING_ROUTINE)(void*);

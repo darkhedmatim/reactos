@@ -136,11 +136,6 @@ extern "C" {
 #define CRYPT_READ 8
 #define CRYPT_WRITE 16
 #define CRYPT_MAC 32
-/* Crypt{Get|Set}Provider */
-#define CRYPT_MACHINE_DEFAULT     0x00000001
-#define CRYPT_USER_DEFAULT        0x00000002
-#define CRYPT_DELETE_DEFAULT      0x00000004
-
 #define HP_ALGID 1
 #define HP_HASHVAL 2
 #define HP_HASHSIZE 4
@@ -148,7 +143,6 @@ extern "C" {
 #define CRYPT_SUCCEED TRUE
 #define RCRYPT_SUCCEEDED(r) ((r)==CRYPT_SUCCEED)
 #define RCRYPT_FAILED(r) ((r)==CRYPT_FAILED)
-#define PP_CLIENT_HWND 1
 #define PP_ENUMALGS 1
 #define PP_ENUMCONTAINERS 2
 #define PP_IMPTYPE 3
@@ -355,15 +349,7 @@ extern "C" {
 #define INTERNATIONAL_USAGE 0x00000001
 
 typedef UINT ALG_ID;
-typedef struct _VTableProvStruc {
-    DWORD    Version;
-    FARPROC  pFuncVerifyImage;
-    FARPROC  pFuncReturnhWnd;
-    DWORD    dwProvType;
-    BYTE    *pbContextInfo;
-    DWORD    cbContextInfo;
-    LPSTR    pszProvName;
-} VTableProvStruc, *PVTableProvStruc;
+typedef struct _VTableProvStruc {FARPROC FuncVerifyImage;} VTableProvStruc,*PVTableProvStruc;
 typedef ULONG HCRYPTPROV;
 typedef ULONG HCRYPTKEY;
 typedef ULONG HCRYPTHASH;
@@ -663,8 +649,7 @@ BOOL WINAPI CryptVerifySignatureA(HCRYPTHASH,PBYTE,DWORD,HCRYPTKEY,LPCSTR,DWORD)
 BOOL WINAPI CryptVerifySignatureW(HCRYPTHASH,PBYTE,DWORD,HCRYPTKEY,LPCWSTR,DWORD);
 BOOL WINAPI CryptSetProviderA(LPCSTR,DWORD);
 BOOL WINAPI CryptSetProviderW(LPCWSTR,DWORD);
-BOOL WINAPI CryptSetProviderExA(LPCSTR,DWORD,DWORD*,DWORD);
-BOOL WINAPI CryptSetProviderExW(LPCWSTR,DWORD,DWORD*,DWORD);
+
 #ifdef UNICODE
 #define CertNameToStr CertNameToStrW
 #define CryptAcquireContext CryptAcquireContextW

@@ -1,6 +1,6 @@
 #ifndef _INCLUDE_DDK_IOFUNCS_H
 #define _INCLUDE_DDK_IOFUNCS_H
-/* $Id: iofuncs.h,v 1.47 2004/11/27 13:04:05 navaraf Exp $ */
+/* $Id: iofuncs.h,v 1.43 2004/08/21 12:12:35 tamlin Exp $ */
 
 #ifdef __NTOSKRNL__
 extern POBJECT_TYPE EXPORTED IoAdapterObjectType;
@@ -56,7 +56,6 @@ STDCALL
 IoAcquireVpbSpinLock (
 	PKIRQL	Irpl
 	);
-
 /**********************************************************************
  * NAME							EXPORTED
  *	IoAllocateAdapterChannel@
@@ -978,7 +977,7 @@ IoReportResourceUsage (
 #define IoSetCompletionRoutine(Irp,Routine,NewContext,Success,Error,Cancel) \
 	{ \
 		PIO_STACK_LOCATION param; \
-		ASSERT((Success)||(Error)||(Cancel)?(Routine)!=NULL:TRUE); \
+		assert((Success)||(Error)||(Cancel)?(Routine)!=NULL:TRUE); \
 		param = IoGetNextIrpStackLocation((Irp)); \
 		param->CompletionRoutine=(Routine); \
 		param->Context=(NewContext); \
@@ -1043,7 +1042,13 @@ USHORT
 IoSizeOfIrp (CCHAR StackSize)
  */
 #define IoSizeOfIrp(StackSize) \
+	((USHORT)(sizeof(IRP)+(((StackSize)-1)*sizeof(IO_STACK_LOCATION))))
+
+/* original macro */
+/*
+#define IoSizeOfIrp(StackSize) \
 	((USHORT)(sizeof(IRP)+((StackSize)*sizeof(IO_STACK_LOCATION))))
+*/
 
 /*
  * FUNCTION: Dequeues the next IRP from the device's associated queue and
@@ -1206,7 +1211,7 @@ IoMapTransfer (
 	);
 
 NTSTATUS
-FASTCALL
+STDCALL
 IoReadPartitionTable (
 	PDEVICE_OBJECT			DeviceObject,
 	ULONG				SectorSize,
@@ -1215,7 +1220,7 @@ IoReadPartitionTable (
 	);
 
 NTSTATUS
-FASTCALL
+STDCALL
 IoSetPartitionInformation (
 	PDEVICE_OBJECT	DeviceObject,
 	ULONG		SectorSize,
@@ -1224,7 +1229,7 @@ IoSetPartitionInformation (
 	);
 
 NTSTATUS
-FASTCALL
+STDCALL
 IoWritePartitionTable (
 	PDEVICE_OBJECT			DeviceObject,
 	ULONG				SectorSize,
@@ -1479,7 +1484,8 @@ IoCreateDisk(
     );
 
 NTSTATUS
-STDCALL
+STDCALL /* TMN: Huh? BOTH explicit STDCALL, and implicit by NTAPI ??? */
+NTAPI
 IoGetDeviceInterfaces(
     IN CONST GUID *InterfaceClassGuid,
     IN PDEVICE_OBJECT PhysicalDeviceObject OPTIONAL,
@@ -1488,7 +1494,8 @@ IoGetDeviceInterfaces(
     );
 
 NTSTATUS
-STDCALL
+STDCALL /* TMN: Huh? BOTH explicit STDCALL, and implicit by NTAPI ??? */
+NTAPI
 IoGetDeviceInterfaceAlias(
     IN PUNICODE_STRING SymbolicLinkName,
     IN CONST GUID *AliasInterfaceClassGuid,
@@ -1774,20 +1781,6 @@ IoWMIDeviceObjectToInstanceName(
     OUT PUNICODE_STRING InstanceName
     );
 
-NTSTATUS
-STDCALL
-IoAllocateDriverObjectExtension(
-  IN PDRIVER_OBJECT  DriverObject,
-  IN PVOID  ClientIdentificationAddress,
-  IN ULONG  DriverObjectExtensionSize,
-  OUT PVOID  *DriverObjectExtension);
-
-
-PVOID
-STDCALL
-IoGetDriverObjectExtension(
-  IN PDRIVER_OBJECT  DriverObject,
-  IN PVOID  ClientIdentificationAddress);
 
 /* --- --- --- INTERNAL or REACTOS ONLY --- --- --- */
 

@@ -1,2 +1,11 @@
-Makefile
-midimap.drv.dbg.c
+*.a
+*.d
+*.o
+*.dll
+*.coff
+*.sym
+*.map
+*.tmp
+temp.exp
+midimap.spec.def
+Makefile.ros

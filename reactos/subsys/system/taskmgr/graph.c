@@ -40,8 +40,7 @@ void                Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd);
 void                Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd);
 void                Graph_DrawMemUsageHistoryGraph(HDC hDC, HWND hWnd);
 
-INT_PTR CALLBACK
-Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HDC                hdc;
     PAINTSTRUCT        ps;

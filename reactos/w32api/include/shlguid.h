@@ -17,7 +17,6 @@ extern const GUID CLSID_Internet;
 extern const GUID CLSID_NetworkPlaces;
 extern const GUID CLSID_RecycleBin;
 extern const GUID CLSID_ShellFSFolder;
-extern const GUID CLSID_Printers;
 extern const GUID FMTID_Intshcut;
 extern const GUID FMTID_InternetSite;
 extern const GUID CGID_Explorer;
@@ -72,7 +71,6 @@ extern const GUID IID_IDropTargetHelper;
 extern const GUID IID_IDragSourceHelper;
 #if (_WIN32_IE >= 0x400 || _WIN32_WINNT >= 0x500)
 extern const GUID IID_IPersistFolder2;
-extern const GUID CLSID_AutoComplete;
 #endif
 #if (_WIN32_WINNT >= 0x500)
 extern const GUID IID_IPersistFolder3;

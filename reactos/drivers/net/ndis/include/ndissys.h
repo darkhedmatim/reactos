@@ -19,12 +19,8 @@
 #include <ndis.h>
 #else /* _MSC_VER */
 #include <ddk/ntddk.h>
-#include <ddk/ndis.h>
 #include <ddk/xfilter.h>
-#include <ddk/afilter.h>
-typedef struct _ATM_ADDRESS *PATM_ADDRESS;
-/* FIXME: Get rid of this dependance. */
-#include <ddk/ntapi.h>
+#include <net/ndis.h>
 #endif /* _MSC_VER */
 
 #include "miniport.h"
@@ -39,7 +35,6 @@ typedef struct _ATM_ADDRESS *PATM_ADDRESS;
 #define EXPORT STDCALL
 #endif
 
-#define NDIS_TAG  0x4e4d4953
 
 #ifdef DBG
 
@@ -61,27 +56,27 @@ typedef struct _ATM_ADDRESS *PATM_ADDRESS;
  * VOID ReferenceObject(
  *     PVOID Object)
  */
-#define ReferenceObject(Object)                         \
-{                                                       \
-    DEBUG_REFCHECK(Object);                             \
+#define ReferenceObject(Object)                  \
+{                                                \
+    DEBUG_REFCHECK(Object);                      \
     NDIS_DbgPrint(DEBUG_REFCOUNT, ("Referencing object at (0x%X). RefCount (%d).\n", \
-        (Object), (Object)->RefCount));                 \
-                                                        \
-    InterlockedIncrement((PLONG)&((Object)->RefCount)); \
+        (Object), (Object)->RefCount));          \
+                                                 \
+    InterlockedIncrement(&((Object)->RefCount)); \
 }
 
 /*
  * VOID DereferenceObject(
  *     PVOID Object)
  */
-#define DereferenceObject(Object)                                \
-{                                                                \
-    DEBUG_REFCHECK(Object);                                      \
+#define DereferenceObject(Object)                         \
+{                                                         \
+    DEBUG_REFCHECK(Object);                               \
     NDIS_DbgPrint(DEBUG_REFCOUNT, ("Dereferencing object at (0x%X). RefCount (%d).\n", \
-        (Object), (Object)->RefCount));                          \
-                                                                 \
-    if (InterlockedDecrement((PLONG)&((Object)->RefCount)) == 0) \
-        PoolFreeBuffer(Object);                                  \
+        (Object), (Object)->RefCount));                   \
+                                                          \
+    if (InterlockedDecrement(&((Object)->RefCount)) == 0) \
+        PoolFreeBuffer(Object);                           \
 }
 
 

@@ -1,4 +1,4 @@
-/* $Id: lock.c,v 1.8 2004/12/25 21:30:17 arty Exp $
+/* $Id: lock.c,v 1.2 2004/07/18 22:49:17 arty Exp $
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/net/afd/afd/lock.c
@@ -36,36 +36,19 @@ VOID UnlockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
     Irp->MdlAddress = NULL;
 }
 
-/* Note: We add an extra buffer if LockAddress is true.  This allows us to
- * treat the address buffer as an ordinary client buffer.  It's only used
- * for datagrams. */
-
-PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count, 
-			 PVOID AddressBuf, PINT AddressLen,
-			 BOOLEAN Write, BOOLEAN LockAddress ) {
+PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count, BOOLEAN Write ) {
     UINT i;
     /* Copy the buffer array so we don't lose it */
-    UINT Lock = LockAddress ? 2 : 0;
-    UINT Size = sizeof(AFD_WSABUF) * (Count + Lock);
+    UINT Size = sizeof(AFD_WSABUF) * Count;
     PAFD_WSABUF NewBuf = ExAllocatePool( PagedPool, Size * 2 );
     PMDL NewMdl;
 
     AFD_DbgPrint(MID_TRACE,("Called\n"));
 
     if( NewBuf ) {
-	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
-
-	RtlCopyMemory( NewBuf, Buf, sizeof(AFD_WSABUF) * Count );
-
-	if( LockAddress ) {
-	    NewBuf[Count].buf = AddressBuf;
-	    NewBuf[Count].len = *AddressLen;
-	    Count++;
-	    NewBuf[Count].buf = (PVOID)AddressLen;
-	    NewBuf[Count].len = sizeof(*AddressLen);
-	    Count++;
-	}
-
+	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count);
+	RtlCopyMemory( NewBuf, Buf, Size );
+	
 	for( i = 0; i < Count; i++ ) {
 	    AFD_DbgPrint(MID_TRACE,("Locking buffer %d (%x:%d)\n",
 				    i, NewBuf[i].buf, NewBuf[i].len));
@@ -99,12 +82,11 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
     return NewBuf;
 }
 
-VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count, BOOL Address ) {
-    UINT Lock = Address ? 2 : 0;
-    PAFD_MAPBUF Map = (PAFD_MAPBUF)(Buf + Count + Lock);
+VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count ) {
+    PAFD_MAPBUF Map = (PAFD_MAPBUF)(Buf + Count);
     UINT i;
 
-    for( i = 0; i < Count + Lock; i++ ) {
+    for( i = 0; i < Count; i++ ) {
 	if( Map[i].Mdl ) {
 	    MmUnlockPages( Map[i].Mdl );
 	    IoFreeMdl( Map[i].Mdl );
@@ -114,47 +96,10 @@ VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count, BOOL Address ) {
     ExFreePool( Buf );
 }
 
-/* Produce a kernel-land handle array with handles replaced by object
- * pointers.  This will allow the system to do proper alerting */
-PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount ) {
-    UINT i;
-    NTSTATUS Status;
-
-    PAFD_HANDLE FileObjects = ExAllocatePool
-	( NonPagedPool, HandleCount * sizeof(AFD_HANDLE) );
-
-    for( i = 0; FileObjects && i < HandleCount; i++ ) {
-	HandleArray[i].Status = 0;
-	HandleArray[i].Events = HandleArray[i].Events;
-	Status = ObReferenceObjectByHandle
-	    ( (PVOID)HandleArray[i].Handle,
-	      FILE_ALL_ACCESS,
-	      NULL,
-	      KernelMode,
-	      (PVOID*)&FileObjects[i].Handle,
-	      NULL );
-    }
-
-    return FileObjects;
-}
-
-VOID UnlockHandles( PAFD_HANDLE HandleArray, UINT HandleCount ) {
-    UINT i;
-
-    for( i = 0; i < HandleCount; i++ ) {
-	if( HandleArray[i].Handle ) 
-	    ObDereferenceObject( (PVOID)HandleArray[i].Handle );
-    }
-
-    ExFreePool( HandleArray );
-}
-
 /* Returns transitioned state or SOCKET_STATE_INVALID_TRANSITION */
 UINT SocketAcquireStateLock( PAFD_FCB FCB ) {
     NTSTATUS Status = STATUS_SUCCESS;
     PVOID CurrentThread = KeGetCurrentThread();
-
-    ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
 
     AFD_DbgPrint(MAX_TRACE,("Called on %x, attempting to lock\n", FCB));
 
@@ -175,52 +120,56 @@ UINT SocketAcquireStateLock( PAFD_FCB FCB ) {
 		      CurrentThread, FCB->CurrentThread));
     }
 
-
-    ExAcquireFastMutex( &FCB->Mutex );
-
-    while( FCB->Locked ) {
-	AFD_DbgPrint
-	    (MID_TRACE,("FCB %x is locked, waiting for notification\n",
-			FCB));
-	ExReleaseFastMutex( &FCB->Mutex );
-	Status = KeWaitForSingleObject( &FCB->StateLockedEvent,
-					UserRequest,
-					KernelMode,
-					FALSE,
-					NULL );
+    if( KeGetCurrentIrql() == PASSIVE_LEVEL ) {
 	ExAcquireFastMutex( &FCB->Mutex );
+	while( FCB->Locked ) {
+	    AFD_DbgPrint
+		(MID_TRACE,("FCB %x is locked, waiting for notification\n",
+			    FCB));
+	    ExReleaseFastMutex( &FCB->Mutex );
+	    Status = KeWaitForSingleObject( &FCB->StateLockedEvent,
+					    UserRequest,
+					    KernelMode,
+					    FALSE,
+					    NULL );
+	    ExAcquireFastMutex( &FCB->Mutex );
+	    if( Status == STATUS_SUCCESS ) break;
+	}
+	FCB->Locked = TRUE;
+	FCB->CurrentThread = CurrentThread;
+	FCB->LockCount++;
+	ExReleaseFastMutex( &FCB->Mutex );
+    } else {
+	KeAcquireSpinLock( &FCB->SpinLock, &FCB->OldIrql );
+	FCB->Locked = TRUE;
+	FCB->CurrentThread = CurrentThread;
+	FCB->LockCount++;
     }
-    FCB->Locked = TRUE;
-    FCB->CurrentThread = CurrentThread;
-    FCB->LockCount++;
-    ExReleaseFastMutex( &FCB->Mutex );
-
     AFD_DbgPrint(MAX_TRACE,("Got lock (%d).\n", FCB->LockCount));
 
     return TRUE;
 }
 
 VOID SocketStateUnlock( PAFD_FCB FCB ) {
-#ifdef DBG
-    PVOID CurrentThread = KeGetCurrentThread();
-#endif
     ASSERT(FCB->LockCount > 0);
-    ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
-
-    ExAcquireFastMutex( &FCB->Mutex );
     FCB->LockCount--;
 
     if( !FCB->LockCount ) {
 	FCB->CurrentThread = NULL;
-	FCB->Locked = FALSE;
+	if( KeGetCurrentIrql() == PASSIVE_LEVEL ) {
+	    ExAcquireFastMutex( &FCB->Mutex );
+	    FCB->Locked = FALSE;
+	    ExReleaseFastMutex( &FCB->Mutex );
+	} else {
+	    FCB->Locked = FALSE;
+	    KeReleaseSpinLock( &FCB->SpinLock, FCB->OldIrql );
+	}
 
 	AFD_DbgPrint(MAX_TRACE,("Unlocked.\n"));
 	KePulseEvent( &FCB->StateLockedEvent, IO_NETWORK_INCREMENT, FALSE );
     } else {
-	AFD_DbgPrint(MAX_TRACE,("New lock count: %d (Thr: %x)\n", 
-				FCB->LockCount, CurrentThread));
+	AFD_DbgPrint(MID_TRACE,("Lock count %d\n", FCB->LockCount));
     }
-    ExReleaseFastMutex( &FCB->Mutex );
 }
 
 NTSTATUS DDKAPI UnlockAndMaybeComplete
@@ -261,13 +210,3 @@ NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function ) {
     return UnlockAndMaybeComplete( FCB, STATUS_PENDING, Irp, 0, NULL, FALSE );
 }
 
-VOID SocketCalloutEnter( PAFD_FCB FCB ) {
-    ASSERT(FCB->Locked);
-    FCB->Critical = TRUE;
-    SocketStateUnlock( FCB );
-}
-
-VOID SocketCalloutLeave( PAFD_FCB FCB ) {
-    FCB->Critical = FALSE;
-    SocketAcquireStateLock( FCB );
-}

@@ -1,4 +1,5 @@
-/* $Id: zw.h,v 1.40 2004/12/30 08:05:10 hyperion Exp $
+
+/* $Id: zw.h,v 1.30 2004/08/21 13:20:25 tamlin Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -532,8 +533,8 @@ STDCALL
 NtCreateEvent(
 	OUT PHANDLE EventHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
-	IN EVENT_TYPE EventType,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	IN BOOLEAN ManualReset,
 	IN BOOLEAN InitialState
 	);
 
@@ -542,8 +543,8 @@ STDCALL
 ZwCreateEvent(
 	OUT PHANDLE EventHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
-	IN EVENT_TYPE EventType,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	IN BOOLEAN ManualReset,
 	IN BOOLEAN InitialState
 	);
 
@@ -760,7 +761,7 @@ STDCALL
 NtCreateMutant(
 	OUT PHANDLE MutantHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
 	IN BOOLEAN InitialOwner
 	);
 
@@ -769,7 +770,7 @@ STDCALL
 ZwCreateMutant(
 	OUT PHANDLE MutantHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
 	IN BOOLEAN InitialOwner
 	);
 
@@ -829,9 +830,9 @@ NtCreateNamedPipeFile (OUT PHANDLE NamedPipeFileHandle,
 		       IN ULONG ShareAccess,
 		       IN ULONG CreateDisposition,
 		       IN ULONG CreateOptions,
-		       IN ULONG NamedPipeType,
-		       IN ULONG ReadMode,
-		       IN ULONG CompletionMode,
+		       IN BOOLEAN WriteModeMessage,
+		       IN BOOLEAN ReadModeMessage,
+		       IN BOOLEAN NonBlocking,
 		       IN ULONG MaxInstances,
 		       IN ULONG InBufferSize,
 		       IN ULONG OutBufferSize,
@@ -845,9 +846,9 @@ ZwCreateNamedPipeFile (OUT PHANDLE NamedPipeFileHandle,
 		       IN ULONG ShareAccess,
 		       IN ULONG CreateDisposition,
 		       IN ULONG CreateOptions,
-		       IN ULONG NamedPipeType,
-		       IN ULONG ReadMode,
-		       IN ULONG CompletionMode,
+		       IN BOOLEAN WriteModeMessage,
+		       IN BOOLEAN ReadModeMessage,
+		       IN BOOLEAN NonBlocking,
 		       IN ULONG MaxInstances,
 		       IN ULONG InBufferSize,
 		       IN ULONG OutBufferSize,
@@ -996,19 +997,19 @@ ZwCreateSemaphore(
 NTSTATUS
 STDCALL
 NtCreateSymbolicLinkObject(
-	OUT PHANDLE LinkHandle,
+	OUT PHANDLE SymbolicLinkHandle,
 	IN ACCESS_MASK DesiredAccess,
 	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	IN PUNICODE_STRING LinkTarget
+	IN PUNICODE_STRING Name
 	);
 
 NTSTATUS
 STDCALL
 ZwCreateSymbolicLinkObject(
-	OUT PHANDLE LinkHandle,
+	OUT PHANDLE SymbolicLinkHandle,
 	IN ACCESS_MASK DesiredAccess,
 	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	IN PUNICODE_STRING LinkTarget
+	IN PUNICODE_STRING Name
 	);
 
 /*
@@ -1531,7 +1532,7 @@ ZwFsControlFile(
  * FUNCTION: Retrieves the processor context of a thread
  * ARGUMENTS:
  *        ThreadHandle = Handle to a thread
- *        ThreadContext (OUT) = Caller allocated storage for the processor context
+ *        Context (OUT) = Caller allocated storage for the processor context
  * RETURNS: Status 
  */
 
@@ -1539,14 +1540,14 @@ NTSTATUS
 STDCALL 
 NtGetContextThread(
 	IN HANDLE ThreadHandle,
-	OUT PCONTEXT ThreadContext
+	OUT PCONTEXT Context
 	);
 
 NTSTATUS
 STDCALL 
 ZwGetContextThread(
 	IN HANDLE ThreadHandle,
-	OUT PCONTEXT ThreadContext
+	OUT PCONTEXT Context
 	);
 
 
@@ -1586,19 +1587,19 @@ ZwImpersonateThread(
 NTSTATUS
 STDCALL
 NtInitiatePowerAction (
-	IN POWER_ACTION SystemAction,
-	IN SYSTEM_POWER_STATE MinSystemState,
- 	IN ULONG Flags,
-	IN BOOLEAN Asynchronous
+	POWER_ACTION SystemAction,
+	SYSTEM_POWER_STATE MinSystemState,
+ 	ULONG Flags,
+	BOOLEAN Asynchronous
 );
 
 NTSTATUS
 STDCALL
 ZwInitiatePowerAction (
-	IN POWER_ACTION SystemAction,
-	IN SYSTEM_POWER_STATE MinSystemState,
- 	IN ULONG Flags,
-	IN BOOLEAN Asynchronous
+	POWER_ACTION SystemAction,
+	SYSTEM_POWER_STATE MinSystemState,
+ 	ULONG Flags,
+	BOOLEAN Asynchronous
 );
 /*
  * FUNCTION: Initializes the registry.
@@ -1721,25 +1722,25 @@ ZwLockFile(
 NTSTATUS
 STDCALL
 NtMakePermanentObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Object
 	);
 
 NTSTATUS
 STDCALL
 ZwMakePermanentObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Object
 	);
 
 NTSTATUS
 STDCALL
 NtMakeTemporaryObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Handle 
 	);
 
 NTSTATUS
 STDCALL
 ZwMakeTemporaryObject(
-	IN HANDLE ObjectHandle
+	IN HANDLE Handle 
 	);
 /*
  * FUNCTION: Maps a view of a section into the virtual address space of a 
@@ -2227,14 +2228,14 @@ ZwOpenSemaphore(
 NTSTATUS
 STDCALL
 NtOpenSymbolicLinkObject(
-	OUT PHANDLE LinkHandle,
+	OUT PHANDLE SymbolicLinkHandle,
 	IN ACCESS_MASK DesiredAccess,
 	IN POBJECT_ATTRIBUTES ObjectAttributes
 	);
 NTSTATUS
 STDCALL
 ZwOpenSymbolicLinkObject(
-	OUT PHANDLE LinkHandle,
+	OUT PHANDLE SymbolicLinkHandle,
 	IN ACCESS_MASK DesiredAccess,
 	IN POBJECT_ATTRIBUTES ObjectAttributes
 	);
@@ -2341,21 +2342,21 @@ ZwOpenTimer(
 NTSTATUS 
 STDCALL 
 NtPowerInformation(
-	IN POWER_INFORMATION_LEVEL PowerInformationLevel,
-	IN PVOID InputBuffer  OPTIONAL,
-	IN ULONG InputBufferLength,
-	OUT PVOID OutputBuffer  OPTIONAL,
-	IN ULONG OutputBufferLength
+	POWER_INFORMATION_LEVEL PowerInformationLevel,
+    PVOID InputBuffer, 
+	ULONG InputBufferLength,
+    PVOID OutputBuffer,
+	ULONG OutputBufferLength
 	);
 
 NTSTATUS 
 STDCALL 
 ZwPowerInformation(
-	IN POWER_INFORMATION_LEVEL PowerInformationLevel,
-	IN PVOID InputBuffer  OPTIONAL,
-	IN ULONG InputBufferLength,
-	OUT PVOID OutputBuffer  OPTIONAL,
-	IN ULONG OutputBufferLength
+	POWER_INFORMATION_LEVEL PowerInformationLevel,
+    PVOID InputBuffer, 
+	ULONG InputBufferLength,
+    PVOID OutputBuffer,
+	ULONG OutputBufferLength
 	);
 
 NTSTATUS
@@ -2442,14 +2443,14 @@ NTSTATUS
 STDCALL
 NtPulseEvent(
 	IN HANDLE EventHandle,
-	OUT PLONG PreviousState OPTIONAL
+	IN PULONG PulseCount OPTIONAL
 	);
 
 NTSTATUS
 STDCALL
 ZwPulseEvent(
 	IN HANDLE EventHandle,
-	OUT PLONG PreviousState OPTIONAL
+	IN PULONG PulseCount OPTIONAL
 	);
 
 /*
@@ -2658,7 +2659,7 @@ NtQueryEvent(
 	IN EVENT_INFORMATION_CLASS EventInformationClass,
 	OUT PVOID EventInformation,
 	IN ULONG EventInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	OUT PULONG ReturnLength
 	);
 NTSTATUS
 STDCALL
@@ -2667,7 +2668,7 @@ ZwQueryEvent(
 	IN EVENT_INFORMATION_CLASS EventInformationClass,
 	OUT PVOID EventInformation,
 	IN ULONG EventInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	OUT PULONG ReturnLength
 	);
 
 NTSTATUS STDCALL
@@ -2833,17 +2834,17 @@ NtQueryInformationThread(
 	IN THREADINFOCLASS ThreadInformationClass,
 	OUT PVOID ThreadInformation,
 	IN ULONG ThreadInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	OUT PULONG ReturnLength 
 	);
 
 NTSTATUS 
 STDCALL 
 ZwQueryInformationThread(
 	IN HANDLE ThreadHandle,
-	IN THREADINFOCLASS ThreadInformationClass,
+    IN THREADINFOCLASS ThreadInformationClass,
 	OUT PVOID ThreadInformation,
-	IN ULONG ThreadInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+    IN ULONG ThreadInformationLength, 
+	OUT PULONG ReturnLength
 	);
 
 
@@ -2995,20 +2996,20 @@ NTSTATUS
 STDCALL
 NtQueryMutant(
 	IN HANDLE MutantHandle,
-	IN MUTANT_INFORMATION_CLASS MutantInformationClass,
+	IN CINT MutantInformationClass,
 	OUT PVOID MutantInformation,
-	IN ULONG MutantInformationLength,
-	OUT PULONG ResultLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 
 NTSTATUS
 STDCALL
 ZwQueryMutant(
 	IN HANDLE MutantHandle,
-	IN MUTANT_INFORMATION_CLASS MutantInformationClass,
+	IN CINT MutantInformationClass,
 	OUT PVOID MutantInformation,
-	IN ULONG MutantInformationLength,
-	OUT PULONG ResultLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 
 /*
@@ -3054,7 +3055,7 @@ NtQuerySemaphore(
 	IN	SEMAPHORE_INFORMATION_CLASS	SemaphoreInformationClass,
 	OUT	PVOID				SemaphoreInformation,
 	IN	ULONG				Length,
-	OUT	PULONG				ReturnLength  OPTIONAL
+	OUT	PULONG				ReturnLength
 	);
 
 NTSTATUS
@@ -3064,7 +3065,7 @@ ZwQuerySemaphore(
 	IN	SEMAPHORE_INFORMATION_CLASS	SemaphoreInformationClass,
 	OUT	PVOID				SemaphoreInformation,
 	IN	ULONG				Length,
-	OUT	PULONG				ReturnLength  OPTIONAL
+	OUT	PULONG				ReturnLength
 	);
 
 
@@ -3080,17 +3081,17 @@ ZwQuerySemaphore(
 NTSTATUS
 STDCALL
 NtQuerySymbolicLinkObject(
-	IN HANDLE               LinkHandle,
+	IN HANDLE               SymLinkObjHandle,
 	OUT PUNICODE_STRING     LinkTarget,
-	OUT PULONG              ResultLength  OPTIONAL
+	OUT PULONG              DataWritten OPTIONAL
 	);
 
 NTSTATUS
 STDCALL
 ZwQuerySymbolicLinkObject(
-	IN HANDLE               LinkHandle,
-	OUT PUNICODE_STRING     LinkTarget,
-	OUT PULONG              ResultLength  OPTIONAL
+	IN HANDLE               SymLinkObjHandle,
+	OUT PUNICODE_STRING     LinkName,
+	OUT PULONG              DataWritten OPTIONAL
 	); 
 
 
@@ -3171,19 +3172,19 @@ NTSTATUS
 STDCALL
 NtQueryTimer(
 	IN HANDLE TimerHandle,
-	IN TIMER_INFORMATION_CLASS TimerInformationClass,
+	IN CINT TimerInformationClass,
 	OUT PVOID TimerInformation,
-	IN ULONG TimerInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 NTSTATUS
 STDCALL
 ZwQueryTimer(
 	IN HANDLE TimerHandle,
-	IN TIMER_INFORMATION_CLASS TimerInformationClass,
+	IN CINT TimerInformationClass,
 	OUT PVOID TimerInformation,
-	IN ULONG TimerInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	IN ULONG Length,
+	OUT PULONG ResultLength
 	);
 
 /*
@@ -3499,12 +3500,12 @@ ZwReadVirtualMemory(
 NTSTATUS
 STDCALL	
 NtRegisterThreadTerminatePort(
-	HANDLE PortHandle
+	HANDLE TerminationPort
 	);
 NTSTATUS
 STDCALL	
 ZwRegisterThreadTerminatePort(
-	HANDLE PortHandle
+	HANDLE TerminationPort
 	);
 
 /*
@@ -3518,14 +3519,14 @@ NTSTATUS
 STDCALL	
 NtReleaseMutant(
 	IN HANDLE MutantHandle,
-	IN PLONG PreviousCount  OPTIONAL
+	IN PULONG ReleaseCount OPTIONAL
 	);
 
 NTSTATUS
 STDCALL	
 ZwReleaseMutant(
 	IN HANDLE MutantHandle,
-	IN PLONG PreviousCount  OPTIONAL
+	IN PULONG ReleaseCount OPTIONAL
 	);
 
 /*
@@ -3541,7 +3542,7 @@ STDCALL
 NtReleaseSemaphore(
 	IN	HANDLE	SemaphoreHandle,
 	IN	LONG	ReleaseCount,
-	OUT	PLONG	PreviousCount  OPTIONAL
+	OUT	PLONG	PreviousCount
 	);
 
 NTSTATUS
@@ -3549,7 +3550,7 @@ STDCALL
 ZwReleaseSemaphore(
 	IN	HANDLE	SemaphoreHandle,
 	IN	LONG	ReleaseCount,
-	OUT	PLONG	PreviousCount  OPTIONAL
+	OUT	PLONG	PreviousCount
 	);
 
 /*
@@ -3566,8 +3567,8 @@ NTSTATUS
 STDCALL
 NtRemoveIoCompletion(
    IN  HANDLE           IoCompletionHandle,
-   OUT PVOID           *CompletionKey,
-   OUT PVOID           *CompletionContext,
+   OUT PULONG           CompletionKey,
+   OUT PULONG           CompletionValue,
    OUT PIO_STATUS_BLOCK IoStatusBlock,
    IN  PLARGE_INTEGER   Timeout OPTIONAL
    );
@@ -3576,8 +3577,8 @@ NTSTATUS
 STDCALL
 ZwRemoveIoCompletion(
    IN  HANDLE           IoCompletionHandle,
-   OUT PVOID           *CompletionKey,
-   OUT PVOID           *CompletionValue,
+   OUT PULONG           CompletionKey,
+   OUT PULONG           CompletionValue,
    OUT PIO_STATUS_BLOCK IoStatusBlock,
    IN  PLARGE_INTEGER   Timeout OPTIONAL
    );
@@ -3667,13 +3668,13 @@ NTSTATUS
 STDCALL
 NtResetEvent(
 	HANDLE EventHandle,
-	OUT PLONG PreviousState OPTIONAL
+	PULONG NumberOfWaitingThreads OPTIONAL
 	);
 NTSTATUS
 STDCALL
 ZwResetEvent(
 	HANDLE EventHandle,
-	OUT PLONG PreviousState OPTIONAL
+	PULONG NumberOfWaitingThreads OPTIONAL
 	);
 //draft
 NTSTATUS
@@ -3705,13 +3706,13 @@ NTSTATUS
 STDCALL
 NtResumeThread(
 	IN HANDLE ThreadHandle,
-	OUT PULONG SuspendCount  OPTIONAL
+	OUT PULONG SuspendCount
 	);
 NTSTATUS
 STDCALL
 ZwResumeThread(
 	IN HANDLE ThreadHandle,
-	OUT PULONG SuspendCount  OPTIONAL
+	OUT PULONG SuspendCount
 	);
 /*
  * FUNCTION: Writes the content of a registry key to ascii file
@@ -3785,7 +3786,7 @@ ZwSetBootOptions(
  * FUNCTION: Sets the context of a specified thread.
  * ARGUMENTS: 
  *        ThreadHandle = Handle to the thread
- *        ThreadContext =  The processor context.
+ *        Context =  The processor context.
  * RETURNS: Status
  */
 
@@ -3793,13 +3794,13 @@ NTSTATUS
 STDCALL
 NtSetContextThread(
 	IN HANDLE ThreadHandle,
-	IN PCONTEXT ThreadContext
+	IN PCONTEXT Context
 	);
 NTSTATUS
 STDCALL
 ZwSetContextThread(
 	IN HANDLE ThreadHandle,
-	IN PCONTEXT ThreadContext
+	IN PCONTEXT Context
 	);
 
 /*
@@ -3898,14 +3899,14 @@ NTSTATUS
 STDCALL
 NtSetEvent(
 	IN HANDLE EventHandle,
-	OUT PLONG PreviousState  OPTIONAL
+	PULONG NumberOfThreadsReleased
 	);
 
 NTSTATUS
 STDCALL
 ZwSetEvent(
 	IN HANDLE EventHandle,
-	OUT PLONG PreviousState  OPTIONAL
+	PULONG NumberOfThreadsReleased
 	);
 
 /*
@@ -4093,8 +4094,8 @@ NTSTATUS
 STDCALL
 NtSetIoCompletion(
    IN HANDLE   IoCompletionPortHandle,
-   IN PVOID    CompletionKey,
-   IN PVOID    CompletionContext,
+   IN ULONG    CompletionKey,
+   IN ULONG    CompletionValue,
    IN NTSTATUS CompletionStatus,
    IN ULONG    CompletionInformation
    );
@@ -4103,8 +4104,8 @@ NTSTATUS
 STDCALL
 ZwSetIoCompletion(
    IN HANDLE   IoCompletionPortHandle,
-   IN PVOID    CompletionKey,
-   IN PVOID    CompletionContext,
+   IN ULONG    CompletionKey,
+   IN ULONG    CompletionValue,
    IN NTSTATUS CompletionStatus,
    IN ULONG    CompletionInformation
    );
@@ -4315,16 +4316,16 @@ ZwSetSystemTime(
 NTSTATUS
 STDCALL
 NtSetTimerResolution(
-	IN ULONG DesiredResolution,
-	IN BOOLEAN SetResolution,
-	OUT PULONG CurrentResolution
+	IN ULONG RequestedResolution,
+	IN BOOL SetOrUnset,
+	OUT PULONG ActualResolution
 	);
 NTSTATUS
 STDCALL
 ZwSetTimerResolution(
-	IN ULONG DesiredResolution,
-	IN BOOLEAN SetResolution,
-	OUT PULONG CurrentResolution
+	IN ULONG RequestedResolution,
+	IN BOOL SetOrUnset,
+	OUT PULONG ActualResolution
 	);
 
 /*
@@ -4500,13 +4501,13 @@ ZwStopProfile(
 NTSTATUS 
 STDCALL 
 NtTerminateProcess(
-	IN HANDLE ProcessHandle  OPTIONAL,
+	IN HANDLE ProcessHandle,
 	IN NTSTATUS ExitStatus
 	);
 NTSTATUS 
 STDCALL 
 ZwTerminateProcess(
-	IN HANDLE ProcessHandle  OPTIONAL,
+	IN HANDLE ProcessHandle,
 	IN NTSTATUS ExitStatus
 	);
 
@@ -4869,14 +4870,14 @@ NTSTATUS
 STDCALL 
 NtSuspendThread(
 	IN HANDLE ThreadHandle,
-	OUT PULONG PreviousSuspendCount  OPTIONAL
+	IN PULONG PreviousSuspendCount 
 	);
 
 NTSTATUS 
 STDCALL 
 ZwSuspendThread(
 	IN HANDLE ThreadHandle,
-	OUT PULONG PreviousSuspendCount  OPTIONAL
+	IN PULONG PreviousSuspendCount 
 	);
 
 /*
@@ -5192,14 +5193,14 @@ NtCreatePagingFile(
 NTSTATUS 
 STDCALL
 NtCreateProfile(OUT PHANDLE ProfileHandle, 
-		IN HANDLE Process  OPTIONAL,
+		IN HANDLE ProcessHandle,
 		IN PVOID ImageBase, 
 		IN ULONG ImageSize, 
-		IN ULONG BucketSize,
-		IN PVOID Buffer,
-		IN ULONG BufferSize,
-		IN KPROFILE_SOURCE ProfileSource,
-		IN KAFFINITY Affinity);
+		IN ULONG Granularity,
+		OUT PULONG Buffer, 
+		IN ULONG ProfilingSize,
+		IN KPROFILE_SOURCE Source,
+		IN ULONG ProcessorMask);
 
 /*
  * FUNCTION: Creates a user mode thread
@@ -5225,7 +5226,7 @@ NtCreateThread(
 	IN	HANDLE			ProcessHandle,
 	OUT	PCLIENT_ID		ClientId,
 	IN	PCONTEXT		ThreadContext,
-	IN	PINITIAL_TEB		InitialTeb,
+	IN	PUSER_STACK		UserStack,
 	IN	BOOLEAN			CreateSuspended
 	);
 
@@ -5422,8 +5423,8 @@ NtQueryDirectoryObject(
 NTSTATUS
 STDCALL
 NtQueryIntervalProfile(
-	IN  KPROFILE_SOURCE ProfileSource,
-	OUT PULONG Interval
+	OUT PULONG Interval,
+	OUT KPROFILE_SOURCE ClockSource
 	);
 
 /*
@@ -5560,11 +5561,11 @@ STDCALL
 NtSetTimer(
 	IN HANDLE TimerHandle,
 	IN PLARGE_INTEGER DueTime,
-	IN PTIMER_APC_ROUTINE TimerApcRoutine  OPTIONAL,
-	IN PVOID TimerContext  OPTIONAL,
-	IN BOOLEAN ResumeTimer,
-	IN LONG Period  OPTIONAL,
-	OUT PBOOLEAN PreviousState  OPTIONAL
+	IN PTIMERAPCROUTINE TimerApcRoutine,
+	IN PVOID TimerContext,
+	IN BOOL WakeTimer,
+	IN ULONG Period OPTIONAL,
+	OUT PBOOLEAN PreviousState OPTIONAL
 	);
 
 /*
@@ -5764,19 +5765,17 @@ ZwAddAtom(
 NTSTATUS
 STDCALL
 NtAllocateUuids(
-	OUT PULARGE_INTEGER Time,
-	OUT PULONG Range,
-	OUT PULONG Sequence,
-	OUT PUCHAR Seed
+	PULARGE_INTEGER Time,
+	PULONG Range,
+	PULONG Sequence
 	);
 
 NTSTATUS
 STDCALL
 ZwAllocateUuids(
-	OUT PULARGE_INTEGER Time,
-	OUT PULONG Range,
-	OUT PULONG Sequence,
-	OUT PUCHAR Seed
+	PULARGE_INTEGER Time,
+	PULONG Range,
+	PULONG Sequence
 	);
 
 NTSTATUS
@@ -5828,7 +5827,7 @@ ZwCreateThread(
 	IN HANDLE ProcessHandle,
 	OUT PCLIENT_ID ClientId,
 	IN PCONTEXT ThreadContext,
-	IN PINITIAL_TEB InitialTeb,
+	IN PUSER_STACK UserStack,
 	IN BOOLEAN CreateSuspended
 	);
 
@@ -5837,8 +5836,8 @@ STDCALL
 NtDuplicateToken(  
 	IN HANDLE ExistingToken, 
   	IN ACCESS_MASK DesiredAccess, 
- 	IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
-	IN BOOLEAN EffectiveOnly,
+ 	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
   	IN TOKEN_TYPE TokenType,  
   	OUT PHANDLE NewToken     
 	);
@@ -5848,8 +5847,8 @@ STDCALL
 ZwDuplicateToken(  
 	IN HANDLE ExistingToken, 
   	IN ACCESS_MASK DesiredAccess, 
- 	IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
-	IN BOOLEAN EffectiveOnly,
+ 	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
   	IN TOKEN_TYPE TokenType,  
   	OUT PHANDLE NewToken     
 	);
@@ -6099,20 +6098,20 @@ NTSTATUS
 STDCALL
 NtQueryInformationProcess(
 	IN HANDLE ProcessHandle,
-	IN PROCESSINFOCLASS ProcessInformationClass,
+	IN CINT ProcessInformationClass,
 	OUT PVOID ProcessInformation,
 	IN ULONG ProcessInformationLength,
-	OUT PULONG  ReturnLength  OPTIONAL
+	OUT PULONG ReturnLength 
 	);
 
 NTSTATUS
 STDCALL
 ZwQueryInformationProcess(
 	IN HANDLE ProcessHandle,
-	IN PROCESSINFOCLASS ProcessInformationClass,
+	IN CINT ProcessInformationClass,
 	OUT PVOID ProcessInformation,
 	IN ULONG ProcessInformationLength,
-	OUT PULONG ReturnLength  OPTIONAL
+	OUT PULONG ReturnLength 
 	);
 
 /*
@@ -6125,8 +6124,8 @@ ZwQueryInformationProcess(
 NTSTATUS
 STDCALL
 ZwQueryIntervalProfile(
-	IN  KPROFILE_SOURCE ProfileSource,
-	OUT PULONG Interval
+	OUT PULONG Interval,
+	OUT KPROFILE_SOURCE ClockSource
 	);
 
 /*
@@ -6153,7 +6152,7 @@ ZwQueryObject(
 	IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
 	OUT PVOID ObjectInformation,
 	IN ULONG Length,
-	OUT PULONG ResultLength  OPTIONAL
+	OUT PULONG ResultLength OPTIONAL
 	);
 
 NTSTATUS
@@ -6296,7 +6295,7 @@ NTSTATUS
 STDCALL
 NtSetInformationProcess(
 	IN HANDLE ProcessHandle,
-	IN PROCESSINFOCLASS ProcessInformationClass,
+	IN CINT ProcessInformationClass,
 	IN PVOID ProcessInformation,
 	IN ULONG ProcessInformationLength
 	);
@@ -6305,7 +6304,7 @@ NTSTATUS
 STDCALL
 ZwSetInformationProcess(
 	IN HANDLE ProcessHandle,
-	IN PROCESSINFOCLASS ProcessInformationClass,
+	IN CINT ProcessInformationClass,
 	IN PVOID ProcessInformation,
 	IN ULONG ProcessInformationLength
 	);
@@ -6327,18 +6326,12 @@ STDCALL
 ZwSetTimer(
 	IN HANDLE TimerHandle,
 	IN PLARGE_INTEGER DueTime,
-	IN PTIMER_APC_ROUTINE TimerApcRoutine  OPTIONAL,
-	IN PVOID TimerContext  OPTIONAL,
-	IN BOOLEAN ResumeTimer,
-	IN LONG Period  OPTIONAL,
-	OUT PBOOLEAN PreviousState  OPTIONAL
+	IN PTIMERAPCROUTINE TimerApcRoutine,
+	IN PVOID TimerContext,
+	IN BOOL WakeTimer,
+	IN ULONG Period OPTIONAL,
+	OUT PBOOLEAN PreviousState OPTIONAL
 	);
-
-NTSTATUS STDCALL
-NtSetUuidSeed(IN PUCHAR Seed);
-
-NTSTATUS STDCALL
-ZwSetUuidSeed(IN PUCHAR Seed);
 
 /*
  * FUNCTION: Unloads a registry key.
@@ -6417,15 +6410,15 @@ ZwWaitForMultipleObjects (
 NTSTATUS 
 STDCALL
 ZwCreateProfile(
-	OUT PHANDLE ProfileHandle,
-	IN HANDLE Process  OPTIONAL,
-	IN PVOID ImageBase,
-	IN ULONG ImageSize,
-	IN ULONG BucketSize,
-	IN PVOID Buffer,
-	IN ULONG BufferSize,
-	IN KPROFILE_SOURCE ProfileSource,
-	IN KAFFINITY Affinity
+	OUT PHANDLE ProfileHandle, 
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	IN ULONG ImageBase, 
+	IN ULONG ImageSize, 
+	IN ULONG Granularity,
+	OUT PVOID Buffer, 
+	IN ULONG ProfilingSize,
+	IN ULONG ClockSource,
+	IN ULONG ProcessorMask
 	);
 
 /*
@@ -6479,7 +6472,7 @@ ZwQuerySection(
 
 typedef struct _SECTION_IMAGE_INFORMATION
 {
-  ULONG EntryPoint;
+  PVOID EntryPoint;
   ULONG Unknown1;
   ULONG StackReserve;
   ULONG StackCommit;
@@ -6560,7 +6553,7 @@ NtQueryObject(
 	IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
 	OUT PVOID ObjectInformation,
 	IN ULONG Length,
-	OUT PULONG ResultLength  OPTIONAL
+	OUT PULONG ResultLength OPTIONAL
 	);
 
 /* BEGIN REACTOS ONLY */

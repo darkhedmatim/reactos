@@ -109,8 +109,8 @@ void WINAPI RunFileDlg(
         return;
         }
 
-    DialogBoxIndirectParamA((HINSTANCE)GetWindowLongPtrW( hwndOwner,
-						       GWLP_HINSTANCE ),
+    DialogBoxIndirectParamA((HINSTANCE)GetWindowLongA( hwndOwner,
+						       GWL_HINSTANCE ),
 			    template, hwndOwner, RunDlgProc, (LPARAM)&rfdp);
 
 }
@@ -135,6 +135,25 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             return TRUE ;
 
         case WM_COMMAND :
+            {
+            STARTUPINFOA si ;
+            PROCESS_INFORMATION pi ;
+
+            si.cb = sizeof (STARTUPINFOA) ;
+            si.lpReserved = NULL ;
+            si.lpDesktop = NULL ;
+            si.lpTitle = NULL ;
+            si.dwX = 0 ;
+            si.dwY = 0 ;
+            si.dwXSize = 0 ;
+            si.dwYSize = 0 ;
+            si.dwXCountChars = 0 ;
+            si.dwYCountChars = 0 ;
+            si.dwFillAttribute = 0 ;
+            si.dwFlags = 0 ;
+            si.cbReserved2 = 0 ;
+            si.lpReserved2 = NULL ;
+
             switch (LOWORD (wParam))
                 {
                 case IDOK :
@@ -142,10 +161,10 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     HWND htxt = NULL ;
                     if ((ic = GetWindowTextLengthA (htxt = GetDlgItem (hwnd, 12298))))
                         {
-                        psz = HeapAlloc( GetProcessHeap(), 0, (ic + 2) );
+                        psz = malloc (ic + 2) ;
                         GetWindowTextA (htxt, psz, ic + 1) ;
 
-                        if (ShellExecuteA(NULL, "open", psz, NULL, NULL, SW_SHOWNORMAL) < (HINSTANCE)33)
+                        if ((ShellExecuteA(NULL, _T("open"), psz, NULL, NULL, SW_SHOWNORMAL)) < 33)
                             {
                             char *pszSysMsg = NULL ;
                             FormatMessageA (
@@ -160,12 +179,12 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                             LocalFree ((HLOCAL)pszSysMsg) ;
                             MessageBoxA (hwnd, szMsg, "Nix", MB_OK | MB_ICONEXCLAMATION) ;
 
-                            HeapFree(GetProcessHeap(), 0, psz);
+                            free (psz) ;
                             SendMessageA (htxt, CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
                             return TRUE ;
                             }
                         FillList (htxt, psz) ;
-                        HeapFree(GetProcessHeap(), 0, psz);
+                        free (psz) ;
                         EndDialog (hwnd, 0) ;
                         }
                     }
@@ -230,6 +249,7 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     }
                 }
             return TRUE ;
+            }
         }
     return FALSE ;
     }
@@ -254,14 +274,13 @@ void FillList (HWND hCb, char *pszLatest)
 
     if (icList > 0)
         {
-        pszList = HeapAlloc( GetProcessHeap(), 0, icList) ;
+        pszList = malloc (icList) ;
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, "MRUList", NULL, NULL, pszList, &icList))
             MessageBoxA (hCb, "Unable to grab MRUList !", "Nix", MB_OK) ;
         }
     else
         {
-        icList = 1 ;
-        pszList = HeapAlloc( GetProcessHeap(), 0, icList) ;
+        pszList = malloc (icList = 1) ;
         pszList[0] = 0 ;
         }
 
@@ -274,10 +293,7 @@ void FillList (HWND hCb, char *pszLatest)
 
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, szIndex, NULL, NULL, NULL, &icCmd))
             MessageBoxA (hCb, "Unable to grab size of index", "Nix", MB_OK) ;
-        if( pszCmd )
-            pszCmd = HeapReAlloc(GetProcessHeap(), 0, pszCmd, icCmd) ;
-        else
-            pszCmd = HeapAlloc(GetProcessHeap(), 0, icCmd) ;
+        pszCmd = realloc (pszCmd, icCmd) ;
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, szIndex, NULL, NULL, pszCmd, &icCmd))
             MessageBoxA (hCb, "Unable to grab index", "Nix", MB_OK) ;
 
@@ -343,10 +359,7 @@ void FillList (HWND hCb, char *pszLatest)
         SendMessageA (hCb, CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
 
         cMatch = ++cMax ;
-        if( pszList )
-            pszList = HeapReAlloc(GetProcessHeap(), 0, pszList, ++icList) ;
-        else
-            pszList = HeapAlloc(GetProcessHeap(), 0, ++icList) ;
+        pszList = realloc (pszList, ++icList) ;
         memmove (&pszList[1], pszList, icList - 1) ;
         pszList[0] = cMatch ;
         szIndex[0] = cMatch ;
@@ -355,8 +368,8 @@ void FillList (HWND hCb, char *pszLatest)
 
     RegSetValueExA (hkey, "MRUList", 0, REG_SZ, pszList, strlen (pszList) + 1) ;
 
-    HeapFree( GetProcessHeap(), 0, pszCmd) ;
-    HeapFree( GetProcessHeap(), 0, pszList) ;
+    free (pszCmd) ;
+    free (pszList) ;
     }
 
 

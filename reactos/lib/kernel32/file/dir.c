@@ -1,4 +1,4 @@
-/* $Id: dir.c,v 1.51 2004/12/09 17:28:10 weiden Exp $
+/* $Id: dir.c,v 1.48 2004/08/18 02:13:27 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -20,7 +20,6 @@
 #define NDEBUG
 #include "../include/debug.h"
 
-UNICODE_STRING DllDirectory = {0, 0, NULL};
 
 /* FUNCTIONS *****************************************************************/
 
@@ -337,70 +336,70 @@ GetFullPathNameA (
         LPSTR   *lpFilePart
         )
 {
-    UNICODE_STRING nameW;
-    WCHAR bufferW[MAX_PATH];
-    DWORD ret;
-    LPWSTR FilePart = NULL;
+        UNICODE_STRING nameW;
+        WCHAR bufferW[MAX_PATH];
+        DWORD ret, retW;
+        LPWSTR FilePart = NULL;
 
-    DPRINT("GetFullPathNameA(lpFileName %s, nBufferLength %d, lpBuffer %p, "
-           "lpFilePart %p)\n",lpFileName,nBufferLength,lpBuffer,lpFilePart);
+        DPRINT("GetFullPathNameA(lpFileName %s, nBufferLength %d, lpBuffer %p, "
+               "lpFilePart %p)\n",lpFileName,nBufferLength,lpBuffer,lpFilePart);
 
-    if (!lpFileName)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
-    if (!RtlCreateUnicodeStringFromAsciiz(&nameW, (LPSTR)lpFileName))
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
-    if (lpFilePart)
-    {
-            *lpFilePart = NULL;
-    }
-
-    ret = GetFullPathNameW(nameW.Buffer, MAX_PATH, bufferW, &FilePart);
-
-    if (MAX_PATH < ret)
-    {
-        SetLastError(ERROR_FILENAME_EXCED_RANGE);
-        ret = 0;
-    }
-    else if (0 < ret)
-    {
-        if (ret < nBufferLength)
+        if (!lpFileName)
         {
-            ANSI_STRING AnsiBuffer;
-            UNICODE_STRING UnicodeBuffer;
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return 0;
+        }
 
-            UnicodeBuffer.Length = wcslen(bufferW) * sizeof(WCHAR);
-            UnicodeBuffer.MaximumLength = MAX_PATH * sizeof(WCHAR);
-            UnicodeBuffer.Buffer = bufferW;
-            AnsiBuffer.MaximumLength = nBufferLength;
-            AnsiBuffer.Length = 0;
-            AnsiBuffer.Buffer = lpBuffer;
-            RtlUnicodeStringToAnsiString(&AnsiBuffer, &UnicodeBuffer, FALSE);
+        if (!RtlCreateUnicodeStringFromAsciiz(&nameW, (LPSTR)lpFileName))
+        {
+                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                return 0;
+        }
 
-            if (lpFilePart && FilePart != NULL)
-            {
-                *lpFilePart = (FilePart - bufferW) + lpBuffer;
-            }
+        if (lpFilePart)
+        {
+                *lpFilePart = NULL;
+        }
+
+        retW = GetFullPathNameW(nameW.Buffer, MAX_PATH, bufferW, &FilePart);
+
+        if (!retW)
+        {
+                ret = 0;
+        }
+        else if (retW > MAX_PATH)
+        {
+                SetLastError(ERROR_FILENAME_EXCED_RANGE);
+                ret = 0;
         }
         else
         {
-            ret++;
+                ANSI_STRING AnsiBuffer;
+                UNICODE_STRING UnicodeBuffer;
+
+                UnicodeBuffer.Length = wcslen(bufferW) * sizeof(WCHAR);
+                ret = nameW.Length;
+                if (nameW.Length <= nBufferLength)
+                {
+                        UnicodeBuffer.Buffer = bufferW;
+                        AnsiBuffer.MaximumLength = nBufferLength;
+                        AnsiBuffer.Length = 0;
+                        AnsiBuffer.Buffer = lpBuffer;
+                        RtlUnicodeStringToAnsiString(&AnsiBuffer, &UnicodeBuffer, FALSE);
+
+                        if (lpFilePart && FilePart != NULL)
+                        {
+                                *lpFilePart = (FilePart - bufferW) + lpBuffer;
+                        }
+                }
         }
-    }
 
-    RtlFreeUnicodeString(&nameW);
+        RtlFreeUnicodeString(&nameW);
 
-    DPRINT("lpBuffer %s lpFilePart %s Length %ld\n",
-           lpBuffer, (lpFilePart == NULL) ? "NULL" : *lpFilePart, nameW.Length);
+        DPRINT("lpBuffer %s lpFilePart %s Length %ld\n",
+               lpBuffer, (lpFilePart == NULL) ? "NULL" : *lpFilePart, nameW.Length);
 
-    return ret;
+        return ret;
 }
 
 
@@ -416,27 +415,20 @@ GetFullPathNameW (
         LPWSTR  *lpFilePart
         )
 {
-    ULONG Length;
+        ULONG Length;
 
-    DPRINT("GetFullPathNameW(lpFileName %S, nBufferLength %d, lpBuffer %p, "
-           "lpFilePart %p)\n",lpFileName,nBufferLength,lpBuffer,lpFilePart);
+        DPRINT("GetFullPathNameW(lpFileName %S, nBufferLength %d, lpBuffer %p, "
+               "lpFilePart %p)\n",lpFileName,nBufferLength,lpBuffer,lpFilePart);
 
-    Length = RtlGetFullPathName_U ((LPWSTR)lpFileName,
-                                   nBufferLength * sizeof(WCHAR),
-                                   lpBuffer,
-                                   lpFilePart);
+        Length = RtlGetFullPathName_U ((LPWSTR)lpFileName,
+                                       nBufferLength * sizeof(WCHAR),
+                                       lpBuffer,
+                                       lpFilePart);
 
-    DPRINT("lpBuffer %S lpFilePart %S Length %ld\n",
-           lpBuffer, (lpFilePart == NULL) ? L"NULL" : *lpFilePart, Length / sizeof(WCHAR));
+        DPRINT("lpBuffer %S lpFilePart %S Length %ld\n",
+               lpBuffer, (lpFilePart == NULL) ? L"NULL" : *lpFilePart, Length / sizeof(WCHAR));
 
-    Length = Length / sizeof(WCHAR);
-    if (nBufferLength < Length + 1)
-    {
-        DPRINT("Adjusting Length for terminator\n");
-        Length++;
-    }
-
-    return Length;
+        return (Length / sizeof(WCHAR));
 }
 
 
@@ -877,186 +869,6 @@ SearchPathW (
                 }
         }
         return retCode / sizeof(WCHAR);
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetDllDirectoryW(
-    LPCWSTR lpPathName
-    )
-{
-  UNICODE_STRING PathName;
-  
-  RtlInitUnicodeString(&PathName, lpPathName);
-  
-  RtlEnterCriticalSection(&DllLock);
-  if(PathName.Length > 0)
-  {
-    if(PathName.Length + sizeof(WCHAR) <= DllDirectory.MaximumLength)
-    {
-      RtlCopyUnicodeString(&DllDirectory, &PathName);
-    }
-    else
-    {
-      RtlFreeUnicodeString(&DllDirectory);
-      if(!(DllDirectory.Buffer = (PWSTR)RtlAllocateHeap(RtlGetProcessHeap(),
-                                                        0,
-                                                        PathName.Length + sizeof(WCHAR))))
-      {
-        RtlLeaveCriticalSection(&DllLock);
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-      }
-      DllDirectory.Length = 0;
-      DllDirectory.MaximumLength = PathName.Length + sizeof(WCHAR);
-      
-      RtlCopyUnicodeString(&DllDirectory, &PathName);
-    }
-  }
-  else
-  {
-    RtlFreeUnicodeString(&DllDirectory);
-  }
-  RtlLeaveCriticalSection(&DllLock);
-
-  return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetDllDirectoryA(
-    LPCSTR lpPathName
-    )
-{
-  UNICODE_STRING PathNameU;
-  ANSI_STRING PathNameA;
-  BOOL Ret;
-  
-  if(lpPathName != NULL)
-  {
-    RtlInitAnsiString(&PathNameA, lpPathName);
-    if(bIsFileApiAnsi)
-    {
-      RtlAnsiStringToUnicodeString(&PathNameU, &PathNameA, TRUE);
-    }
-    else
-    {
-      RtlOemStringToUnicodeString(&PathNameU, &PathNameA, TRUE);
-    }
-  }
-  else
-  {
-    PathNameU.Buffer = NULL;
-  }
-  
-  Ret = SetDllDirectoryW(PathNameU.Buffer);
-  
-  if(lpPathName != NULL)
-  {
-    RtlFreeUnicodeString(&PathNameU);
-  }
-
-  return Ret;
-}
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetDllDirectoryW(
-    DWORD nBufferLength,
-    LPWSTR lpBuffer
-    )
-{
-  DWORD Ret;
-  
-  RtlEnterCriticalSection(&DllLock);
-  if(nBufferLength > 0)
-  {
-    Ret = DllDirectory.Length / sizeof(WCHAR);
-    if(Ret > nBufferLength - 1)
-    {
-      Ret = nBufferLength - 1;
-    }
-    
-    if(Ret > 0)
-    {
-      RtlCopyMemory(lpBuffer, DllDirectory.Buffer, Ret * sizeof(WCHAR));
-    }
-    lpBuffer[Ret] = L'\0';
-  }
-  else
-  {
-    /* include termination character, even if the string is empty! */
-    Ret = (DllDirectory.Length / sizeof(WCHAR)) + 1;
-  }
-  RtlLeaveCriticalSection(&DllLock);
-  
-  return Ret;
-}
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetDllDirectoryA(
-    DWORD nBufferLength,
-    LPSTR lpBuffer
-    )
-{
-  UNICODE_STRING PathNameU;
-  ANSI_STRING PathNameA;
-  DWORD Ret;
-  
-  if(nBufferLength > 0)
-  {
-    if(!(PathNameU.Buffer = (PWSTR)RtlAllocateHeap(RtlGetProcessHeap(),
-                                                   0,
-                                                   nBufferLength * sizeof(WCHAR))))
-    {
-      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-      return 0;
-    }
-    PathNameU.Length = 0;
-    PathNameU.MaximumLength = nBufferLength * sizeof(WCHAR);
-  }
-
-  Ret = GetDllDirectoryW(nBufferLength,
-                         ((nBufferLength > 0) ? PathNameU.Buffer : NULL));
-
-  if(nBufferLength > 0)
-  {
-    PathNameU.Length = Ret * sizeof(WCHAR);
-    
-    PathNameA.Length = 0;
-    PathNameA.MaximumLength = nBufferLength;
-    PathNameA.Buffer = lpBuffer;
-    
-    if(Ret > 0)
-    {
-      if(bIsFileApiAnsi)
-      {
-        RtlUnicodeStringToAnsiString(&PathNameA, &PathNameU, FALSE);
-      }
-      else
-      {
-        RtlUnicodeStringToOemString(&PathNameA, &PathNameU, FALSE);
-      }
-    }
-    lpBuffer[Ret] = '\0';
-
-    RtlFreeHeap(RtlGetProcessHeap(), 0, PathNameU.Buffer);
-  }
-  
-  return Ret;
 }
 
 /* EOF */

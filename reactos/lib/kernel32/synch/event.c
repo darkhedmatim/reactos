@@ -1,4 +1,4 @@
-/* $Id: event.c,v 1.20 2004/10/24 15:26:14 weiden Exp $
+/* $Id: event.c,v 1.18 2004/01/23 21:16:04 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -32,6 +32,8 @@ CreateEventA(LPSECURITY_ATTRIBUTES lpEventAttributes,
    ANSI_STRING EventName;
    HANDLE EventHandle;
 
+   RtlInitUnicodeString (&EventNameU, NULL);
+
    if (lpName)
      {
 	RtlInitAnsiString(&EventName,
@@ -44,7 +46,7 @@ CreateEventA(LPSECURITY_ATTRIBUTES lpEventAttributes,
    EventHandle = CreateEventW(lpEventAttributes,
 			      bManualReset,
 			      bInitialState,
-			      (lpName ? EventNameU.Buffer : NULL));
+			      EventNameU.Buffer);
 
    if (lpName)
      {
@@ -66,33 +68,37 @@ CreateEventW(LPSECURITY_ATTRIBUTES lpEventAttributes,
 {
    NTSTATUS Status;
    HANDLE hEvent;
-   UNICODE_STRING UnicodeName;
+   UNICODE_STRING EventNameString;
    OBJECT_ATTRIBUTES ObjectAttributes;
+
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = hBaseDir;
+   ObjectAttributes.ObjectName = NULL;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
+
+   if (NULL != lpEventAttributes)
+     {
+       if (sizeof(SECURITY_ATTRIBUTES) < lpEventAttributes->nLength)
+         {
+           SetLastError(ERROR_INVALID_PARAMETER);
+           return NULL;
+         }
+       ObjectAttributes.SecurityDescriptor = lpEventAttributes->lpSecurityDescriptor;
+       ObjectAttributes.Attributes = lpEventAttributes->bInheritHandle ? OBJ_INHERIT : 0;
+     }
 
    if (lpName != NULL)
      {
-	RtlInitUnicodeString(&UnicodeName, (LPWSTR)lpName);
-     }
-
-   InitializeObjectAttributes(&ObjectAttributes,
-			      (lpName ? &UnicodeName : NULL),
-			      0,
-			      hBaseDir,
-			      NULL);
-
-   if (lpEventAttributes != NULL)
-     {
-	ObjectAttributes.SecurityDescriptor = lpEventAttributes->lpSecurityDescriptor;
-	if (lpEventAttributes->bInheritHandle)
-	  {
-	     ObjectAttributes.Attributes |= OBJ_INHERIT;
-	  }
+	RtlInitUnicodeString(&EventNameString, (LPWSTR)lpName);
+	ObjectAttributes.ObjectName = &EventNameString;
      }
 
    Status = NtCreateEvent(&hEvent,
-			  STANDARD_RIGHTS_ALL | EVENT_READ_ACCESS | EVENT_WRITE_ACCESS,
+			  STANDARD_RIGHTS_ALL|EVENT_READ_ACCESS|EVENT_WRITE_ACCESS,
 			  &ObjectAttributes,
-			  (bManualReset ? NotificationEvent : SynchronizationEvent),
+			  bManualReset,
 			  bInitialState);
    DPRINT( "Called\n" );
    if (!NT_SUCCESS(Status))
@@ -117,26 +123,26 @@ OpenEventA(DWORD dwDesiredAccess,
    ANSI_STRING EventName;
    HANDLE EventHandle;
 
-   if (lpName == NULL)
-     {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return NULL;
-     }
-
    RtlInitUnicodeString(&EventNameU,
 			NULL);
 
-   RtlInitAnsiString(&EventName,
-                     (LPSTR)lpName);
-   RtlAnsiStringToUnicodeString(&EventNameU,
-                                &EventName,
-                                TRUE);
+   if (lpName)
+     {
+	RtlInitAnsiString(&EventName,
+			  (LPSTR)lpName);
+	RtlAnsiStringToUnicodeString(&EventNameU,
+				     &EventName,
+				     TRUE);
+    }
 
    EventHandle = OpenEventW(dwDesiredAccess,
 			    bInheritHandle,
 			    EventNameU.Buffer);
 
-   RtlFreeUnicodeString(&EventNameU);
+   if (lpName)
+     {
+	RtlFreeUnicodeString(&EventNameU);
+     }
 
    return EventHandle;
 }
@@ -163,11 +169,16 @@ OpenEventW(DWORD dwDesiredAccess,
 
    RtlInitUnicodeString(&EventNameString, (LPWSTR)lpName);
 
-   InitializeObjectAttributes(&ObjectAttributes,
-			      &EventNameString,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
-			      hBaseDir,
-			      NULL);
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = hBaseDir;
+   ObjectAttributes.ObjectName = &EventNameString;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = NULL;
+   if (bInheritHandle == TRUE)
+     {
+	ObjectAttributes.Attributes |= OBJ_INHERIT;
+     }
 
    Status = NtOpenEvent(&hEvent,
 			dwDesiredAccess,
@@ -188,9 +199,11 @@ OpenEventW(DWORD dwDesiredAccess,
 BOOL STDCALL
 PulseEvent(HANDLE hEvent)
 {
+   ULONG Count;
    NTSTATUS Status;
 
-   Status = NtPulseEvent(hEvent, NULL);
+   Status = NtPulseEvent(hEvent,
+			 &Count);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus (Status);
@@ -208,8 +221,10 @@ BOOL STDCALL
 ResetEvent(HANDLE hEvent)
 {
    NTSTATUS Status;
+   ULONG Count;
 
-   Status = NtClearEvent(hEvent);
+   Status = NtResetEvent(hEvent,
+			 &Count);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);
@@ -227,8 +242,10 @@ BOOL STDCALL
 SetEvent(HANDLE hEvent)
 {
    NTSTATUS Status;
+   ULONG Count;
 
-   Status = NtSetEvent(hEvent, NULL);
+   Status = NtSetEvent(hEvent,
+		       &Count);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);

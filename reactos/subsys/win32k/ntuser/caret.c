@@ -1,4 +1,4 @@
-/* $Id: caret.c,v 1.17 2004/12/29 19:55:01 gvg Exp $
+/* $Id: caret.c,v 1.14 2004/08/04 22:31:17 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -54,7 +54,18 @@ BOOL FASTCALL
 IntSetCaretBlinkTime(UINT uMSeconds)
 {
   /* Don't save the new value to the registry! */
-  PWINSTATION_OBJECT WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
+  NTSTATUS Status;
+  PWINSTATION_OBJECT WinStaObject;
+  
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+	                                  KernelMode,
+				          0,
+				          &WinStaObject);
+  if(!NT_SUCCESS(Status))
+  {
+    SetLastNtError(Status);
+    return FALSE;
+  }
   
   /* windows doesn't do this check */
   if((uMSeconds < MIN_CARETBLINKRATE) || (uMSeconds > MAX_CARETBLINKRATE))
@@ -66,6 +77,7 @@ IntSetCaretBlinkTime(UINT uMSeconds)
   
   WinStaObject->CaretBlinkRate = uMSeconds;
   
+  ObDereferenceObject(WinStaObject);
   return TRUE;
 }
 
@@ -139,10 +151,19 @@ IntQueryCaretBlinkRate(VOID)
 UINT FASTCALL
 IntGetCaretBlinkTime(VOID)
 {
+  NTSTATUS Status;
   PWINSTATION_OBJECT WinStaObject;
   UINT Ret;
   
-  WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
+  Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
+	                                  KernelMode,
+				          0,
+				          &WinStaObject);
+  if(!NT_SUCCESS(Status))
+  {
+    SetLastNtError(Status);
+    return 0;
+  }
   
   Ret = WinStaObject->CaretBlinkRate;
   if(!Ret)
@@ -157,6 +178,7 @@ IntGetCaretBlinkTime(VOID)
     Ret = DEFAULT_CARETBLINKRATE;
   }
   
+  ObDereferenceObject(WinStaObject);
   return Ret;
 }
 
@@ -240,7 +262,7 @@ NtUserCreateCaret(
     return FALSE;
   }
   
-  IntKillTimer(hWnd, IDCARETTIMER, TRUE);
+  IntRemoveTimer(hWnd, IDCARETTIMER, PsGetCurrentThreadId(), TRUE);
   
   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetWin32Thread()->MessageQueue;
   
@@ -315,7 +337,7 @@ NtUserHideCaret(
   }
   
   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetWin32Thread()->MessageQueue;
-
+  
   if(ThreadQueue->CaretInfo->hWnd != hWnd)
   {
     IntReleaseWindowObject(WindowObject);
@@ -325,7 +347,7 @@ NtUserHideCaret(
   
   if(ThreadQueue->CaretInfo->Visible)
   {
-    IntKillTimer(hWnd, IDCARETTIMER, TRUE);
+    IntRemoveTimer(hWnd, IDCARETTIMER, PsGetCurrentThreadId(), TRUE);
     
     IntHideCaret(ThreadQueue->CaretInfo);
     ThreadQueue->CaretInfo->Visible = 0;

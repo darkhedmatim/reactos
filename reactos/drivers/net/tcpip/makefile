@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.34 2004/12/25 21:30:19 arty Exp $
+# $Id: makefile,v 1.20 2004/08/19 21:38:58 arty Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -13,65 +13,52 @@ TARGET_PCH = include/precomp.h
 # -DMEMTRACK
 TARGET_CFLAGS = \
 	-D__USE_W32API \
-	-D_SEH_NO_NATIVE_NLG \
 	-DNDIS40 \
+	-DMEMTRACK \
 	-Wall -Werror \
 	-I./include \
 	-I$(PATH_TO_TOP)/drivers/lib/oskittcp/include \
 	-I$(PATH_TO_TOP)/w32api/include \
 	-I$(PATH_TO_TOP)/include
 
-TARGET_LIBS = \
-	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-	$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a \
-	$(PATH_TO_TOP)/dk/w32/lib/librosrtl.a \
-	$(PATH_TO_TOP)/dk/w32/lib/libpseh.a \
-	$(PATH_TO_TOP)/dk/nkm/lib/libndis.a
+TARGET_DDKLIBS = ndis.a $(PATH_TO_TOP)/dk/w32/lib/oskittcp.a
 
-TARGET_CLEAN = tcpip/*.o datalink/*.o \
-	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-	$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a
+TARGET_CLEAN = \
+  tcpip/*.o \
+  datalink/*.o \
+  network/*.o \
+  transport/datagram/*.o \
+  transport/rawip/*.o \
+  transport/tcp/*.o \
+  transport/udp/*.o 
 
-TCPIP_OBJECTS    = tcpip/buffer.o \
-		   tcpip/dispatch.o \
-		   tcpip/fileobjs.o \
-		   tcpip/irp.o \
-		   tcpip/main.o \
-                   tcpip/pool.o \
-		   tcpip/proto.o \
-		   tcpip/lock.o \
-		   tcpip/wait.o \
-		   tcpip/bug.o
+TCPIP_OBJECTS    = tcpip/main.o tcpip/address.o tcpip/checksum.o \
+                   tcpip/dispatch.o tcpip/fileobjs.o \
+                   tcpip/pool.o tcpip/routines.o tcpip/interface.o \
+		   tcpip/memtrack.o tcpip/irp.o
 INFO_OBJECTS     = tcpip/info.o tcpip/ninfo.o tcpip/tinfo.o tcpip/iinfo.o
-DATALINK_OBJECTS = datalink/lan.o
-MOCKOBJS         = tcpip/mockbuffer.o \
-		   tcpip/mockwait.o \
-		   tcpip/mocklock.o \
-		   tcpip/mockpool.o \
-		   tcpip/mockbug.o
+DATALINK_OBJECTS = datalink/arp.o datalink/lan.o datalink/loopback.o
+NETWORK_OBJECTS  = network/icmp.o network/ip.o network/neighbor.o \
+                   network/receive.o network/route.o network/router.o \
+                   network/transmit.o network/prefix.o
+DATAGRAM_OBJECTS = transport/datagram/datagram.o
+RAWIP_OBJECTS    = transport/rawip/rawip.o
+TCP_OBJECTS      = transport/tcp/tcp.o transport/tcp/event.o transport/tcp/if.o
+UDP_OBJECTS      = transport/udp/udp.o
+ARCH_OBJECTS     = tcpip/i386/checksum.o
 
 TARGET_OBJECTS = \
   $(TCPIP_OBJECTS) \
   $(INFO_OBJECTS) \
-  $(DATALINK_OBJECTS)
-
-preall: preclean
-	$(MAKE) -C ../../lib/ip
-	$(MAKE) -C ../../lib/oskittcp
-	$(MAKE) all
-	$(MAKE) $(MOCKOBJS)
-
-preclean:
-	$(RM) 	$(PATH_TO_TOP)/dk/w32/lib/libip.a \
-		$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a
-
-$(PATH_TO_TOP)/dk/w32/lib/liboskittcp.a:
-	$(MAKE) -C $(PATH_TO_TOP)/drivers/lib/oskittcp
-
-$(PATH_TO_TOP)/dk/w32/lib/libip.a:
-	$(MAKE) -C $(PATH_TO_TOP)/drivers/lib/ip
-
-$(TARGET_OBJECTS):: makefile
+  $(DATALINK_OBJECTS) \
+  $(NETWORK_OBJECTS) \
+  $(DATAGRAM_OBJECTS) \
+  $(RAWIP_OBJECTS) \
+  $(TCP_OBJECTS) \
+  $(FREEBSD_OBJECTS) \
+  $(REACTOS_OBJECTS) \
+  $(UDP_OBJECTS) \
+  $(ARCH_OBJECTS) \
 
 include $(PATH_TO_TOP)/rules.mak
 

@@ -8,9 +8,15 @@
  *        Started.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_FREE
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
 
 
 /*

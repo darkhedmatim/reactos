@@ -74,7 +74,11 @@
  *
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <string.h>
+#include <stdlib.h>
 
 
 /* initial size of environment variable buffer */

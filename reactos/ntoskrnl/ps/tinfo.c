@@ -1,4 +1,4 @@
-/* $Id: tinfo.c,v 1.31 2004/11/19 22:19:33 gdalsnes Exp $
+/* $Id: tinfo.c,v 1.28 2004/08/15 16:39:10 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -115,8 +115,7 @@ NtSetInformationThread (IN HANDLE ThreadHandle,
 	/* Can only be queried */
 	Status = STATUS_INVALID_INFO_CLASS;
 	break;
-
-#ifdef _ENABLE_THRDEVTPAIR
+	
       case ThreadEventPair:
 	{
 	  PKEVENT_PAIR EventPair;
@@ -150,13 +149,6 @@ NtSetInformationThread (IN HANDLE ThreadHandle,
 	  Status = STATUS_SUCCESS;
 	  break;
 	}
-#else /* !_ENABLE_THRDEVTPAIR */
-      case ThreadEventPair:
-	{
-          Status = STATUS_NOT_IMPLEMENTED;
-	  break;
-	}
-#endif /* _ENABLE_THRDEVTPAIR */
 	
       case ThreadQuerySetWin32StartAddress:
 	if (ThreadInformationLength != sizeof(ULONG))
@@ -164,7 +156,7 @@ NtSetInformationThread (IN HANDLE ThreadHandle,
 	    Status = STATUS_INFO_LENGTH_MISMATCH;
 	    break;
 	  }
-	Thread->Win32StartAddress = (PVOID)*((PULONG)ThreadInformation);
+	Thread->u2.Win32StartAddress = (PVOID)*((PULONG)ThreadInformation);
 	Status = STATUS_SUCCESS;
 	break;
 
@@ -222,7 +214,7 @@ NtQueryInformationThread (IN	HANDLE		ThreadHandle,
 			  IN	THREADINFOCLASS	ThreadInformationClass,
 			  OUT	PVOID		ThreadInformation,
 			  IN	ULONG		ThreadInformationLength,
-			  OUT	PULONG		ReturnLength  OPTIONAL)
+			  OUT	PULONG		ReturnLength)
 {
    PETHREAD Thread;
    NTSTATUS Status;
@@ -252,11 +244,7 @@ NtQueryInformationThread (IN	HANDLE		ThreadHandle,
 	     break;
 	   }
 	 
-    /* A test on W2K agains ntdll shows NtQueryInformationThread return STATUS_PENDING
-     * as ExitStatus for current/running thread, while KETHREAD's ExitStatus is 
-     * 0. So do the conversion here:
-     * -Gunnar     */
-    TBI->ExitStatus = (Thread->ExitStatus == 0) ? STATUS_PENDING : Thread->ExitStatus;
+	 TBI->ExitStatus = Thread->ExitStatus;
 	 TBI->TebBaseAddress = Thread->Tcb.Teb;
 	 TBI->ClientId = Thread->Cid;
 	 TBI->AffinityMask = Thread->Tcb.Affinity;
@@ -282,7 +270,7 @@ NtQueryInformationThread (IN	HANDLE		ThreadHandle,
             TTI->UserTime.QuadPart = Thread->Tcb.UserTime * 100000LL;
             TTI->CreateTime = (TIME) Thread->CreateTime;
             /*This works*/
-	    TTI->ExitTime = (TIME) Thread->ExitTime;
+	    TTI->ExitTime = (TIME) Thread->u1.ExitTime;
 	 
             Status = STATUS_SUCCESS;
             break;
@@ -329,7 +317,7 @@ NtQueryInformationThread (IN	HANDLE		ThreadHandle,
 	   Status = STATUS_INFO_LENGTH_MISMATCH;
 	   break;
 	 }
-       *((PVOID*)ThreadInformation) = Thread->Win32StartAddress;
+       *((PVOID*)ThreadInformation) = Thread->u2.Win32StartAddress;
        Status = STATUS_SUCCESS;
        break;
 

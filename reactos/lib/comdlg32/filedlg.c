@@ -55,10 +55,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
@@ -519,7 +517,7 @@ static void ArrangeCtrlPositions(HWND hwndChildDlg, HWND hwndParentDlg, BOOL hid
 {
     HWND hwndChild, hwndStc32;
     RECT rectParent, rectChild, rectStc32;
-    INT help_fixup = 0, child_height_fixup = 0, child_width_fixup = 0;
+    INT help_fixup = 0;
 
     /* Take into account if open as read only checkbox and help button
      * are hidden
@@ -582,24 +580,16 @@ static void ArrangeCtrlPositions(HWND hwndChildDlg, HWND hwndParentDlg, BOOL hid
             /* move only if stc32 exist */
             if (hwndStc32 && rectChild.left > rectStc32.right)
             {
-                LONG old_left = rectChild.left;
-
                 /* move to the right of visible controls of the parent dialog */
                 rectChild.left += rectParent.right;
                 rectChild.left -= rectStc32.right;
-
-                child_width_fixup = rectChild.left - old_left;
             }
             /* move even if stc32 doesn't exist */
-            if (rectChild.top >= rectStc32.bottom)
+            if (rectChild.top > rectStc32.bottom)
             {
-                LONG old_top = rectChild.top;
-
                 /* move below visible controls of the parent dialog */
                 rectChild.top += rectParent.bottom;
                 rectChild.top -= rectStc32.bottom - rectStc32.top;
-
-                child_height_fixup = rectChild.top - old_top;
             }
 
             SetWindowPos(hwndChild, 0, rectChild.left, rectChild.top,
@@ -637,9 +627,6 @@ static void ArrangeCtrlPositions(HWND hwndChildDlg, HWND hwndParentDlg, BOOL hid
 
     if (hwndStc32)
     {
-        rectChild.right += child_width_fixup;
-        rectChild.bottom += child_height_fixup;
-
         if (rectParent.right > rectChild.right)
         {
             rectParent.right += rectChild.right;
@@ -657,10 +644,7 @@ static void ArrangeCtrlPositions(HWND hwndChildDlg, HWND hwndParentDlg, BOOL hid
         }
         else
         {
-            /* child dialog is higher, unconditionally set new dialog
-             * height to its size (help_fixup will be subtracted below)
-             */
-            rectParent.bottom = rectChild.bottom + help_fixup;
+            rectParent.bottom = rectChild.bottom;
         }
     }
     else
@@ -841,7 +825,7 @@ HRESULT FILEDLG95_Handle_GetFilePath(HWND hwnd, DWORD size, LPVOID buffer)
 
     /* get path and filenames */
     SHGetPathFromIDListW(fodInfos->ShellInfos.pidlAbsCurrent,lpstrCurrentDir);
-    n = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed, ' ');
+    n = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed);
 
     TRACE("path >%s< filespec >%s< %d files\n",
          debugstr_w(lpstrCurrentDir),debugstr_w(lpstrFileList),n);
@@ -897,7 +881,7 @@ HRESULT FILEDLG95_Handle_GetFileSpec(HWND hwnd, DWORD size, LPVOID buffer)
 
     TRACE("CDM_GETSPEC:\n");
 
-    FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed, ' ');
+    FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed);
     if( fodInfos->unicode )
     {
         LPWSTR bufW = buffer;
@@ -1650,7 +1634,7 @@ BOOL FILEDLG95_OnOpenMultipleFiles(HWND hwnd, LPWSTR lpstrFileList, UINT nFileCo
 
     if (ofn->lpstrFile != NULL)
     {
-      nSizePath = WideCharToMultiByte(CP_ACP, 0, lpstrPathSpec, -1,
+      WideCharToMultiByte(CP_ACP, 0, lpstrPathSpec, -1,
 			  ofn->lpstrFile, ofn->nMaxFile, NULL, NULL);
       if (ofn->nMaxFile > nSizePath)
       {
@@ -1661,7 +1645,7 @@ BOOL FILEDLG95_OnOpenMultipleFiles(HWND hwnd, LPWSTR lpstrFileList, UINT nFileCo
     }
   }
 
-  fodInfos->ofnInfos->nFileOffset = nSizePath;
+  fodInfos->ofnInfos->nFileOffset = nSizePath + 1;
   fodInfos->ofnInfos->nFileExtension = 0;
 
   if ( !FILEDLG95_SendFileOK(hwnd, fodInfos) )
@@ -1709,7 +1693,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
   TRACE("hwnd=%p\n", hwnd);
 
   /* get the files from the edit control */
-  nFileCount = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed, '\0');
+  nFileCount = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed);
 
   /* try if the user selected a folder in the shellview */
   if(nFileCount == 0)
@@ -1976,7 +1960,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
             if (lpstrFilter != (LPWSTR)CB_ERR)  /* control is not empty */
                 filterExt = PathFindExtensionW(lpstrFilter);
 
-            if ( filterExt && *filterExt ) /* attach the file extension from file type filter*/
+            if ( *filterExt ) /* attach the file extension from file type filter*/
                 strcatW(lpstrPathAndFile, filterExt + 1);
             else if ( fodInfos->defext ) /* attach the default file extension*/
                 strcatW(lpstrPathAndFile, fodInfos->defext);
@@ -2120,7 +2104,7 @@ ret:
  *
  * Initialisation of the shell objects
  */
-static LRESULT FILEDLG95_SHELL_Init(HWND hwnd)
+static HRESULT FILEDLG95_SHELL_Init(HWND hwnd)
 {
   FileOpenDlgInfos *fodInfos = (FileOpenDlgInfos *) GetPropA(hwnd,FileOpenDlgInfosStr);
 
@@ -3029,11 +3013,9 @@ static HRESULT COMDLG32_StrRetToStrNA (LPVOID dest, DWORD len, LPSTRRET src, LPI
 /***********************************************************************
  * FILEDLG95_FILENAME_GetFileNames
  *
- * Copies the filenames to a delimited string list.
- * The delimiter is specified by the parameter 'separator',
- *  usually either a space or a nul
+ * copies the filenames to a 0-delimited string list (A\0B\0C\0\0)
  */
-int FILEDLG95_FILENAME_GetFileNames (HWND hwnd, LPWSTR * lpstrFileList, UINT * sizeUsed, char separator)
+int FILEDLG95_FILENAME_GetFileNames (HWND hwnd, LPWSTR * lpstrFileList, UINT * sizeUsed)
 {
 	FileOpenDlgInfos *fodInfos  = (FileOpenDlgInfos *) GetPropA(hwnd,FileOpenDlgInfosStr);
 	UINT nStrCharCount = 0;	/* index in src buffer */
@@ -3056,7 +3038,7 @@ int FILEDLG95_FILENAME_GetFileNames (HWND hwnd, LPWSTR * lpstrFileList, UINT * s
 	*lpstrFileList = MemAlloc( (nStrLen+2)*sizeof(WCHAR) );
 	*sizeUsed = 0;
 
-	/* build delimited file list from filenames */
+	/* build 0-delimited file list from filenames */
 	while ( nStrCharCount <= nStrLen )
 	{
 	  if ( lpstrEdit[nStrCharCount]=='"' )
@@ -3068,7 +3050,7 @@ int FILEDLG95_FILENAME_GetFileNames (HWND hwnd, LPWSTR * lpstrFileList, UINT * s
 	      (*sizeUsed)++;
 	      nStrCharCount++;
 	    }
-	    (*lpstrFileList)[nFileIndex++] = separator;
+	    (*lpstrFileList)[nFileIndex++] = '\0';
 	    (*sizeUsed)++;
 	    nFileCount++;
 	  }
@@ -3639,7 +3621,7 @@ static BOOL GetFileName31A(LPOPENFILENAMEA lpofn, /* addess of structure with da
     lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, &callbacks, (DWORD) FALSE);
     if (lfs)
     {
-        hInst = (HINSTANCE)GetWindowLongPtrA( lpofn->hwndOwner, GWLP_HINSTANCE );
+        hInst = (HINSTANCE)GetWindowLongA( lpofn->hwndOwner, GWL_HINSTANCE );
         bRet = DialogBoxIndirectParamA( hInst, lfs->template, lpofn->hwndOwner,
                                         FD32_FileOpenDlgProc, (LPARAM)lfs);
         FD31_DestroyPrivate(lfs);
@@ -3669,7 +3651,7 @@ static BOOL GetFileName31W(LPOPENFILENAMEW lpofn, /* addess of structure with da
     lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, &callbacks, (DWORD) FALSE);
     if (lfs)
     {
-        hInst = (HINSTANCE)GetWindowLongPtrW( lpofn->hwndOwner, GWLP_HINSTANCE );
+        hInst = (HINSTANCE)GetWindowLongA( lpofn->hwndOwner, GWL_HINSTANCE );
         bRet = DialogBoxIndirectParamW( hInst, lfs->template, lpofn->hwndOwner,
                                         FD32_FileOpenDlgProc, (LPARAM)lfs);
         FD31_DestroyPrivate(lfs);

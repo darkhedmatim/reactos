@@ -14,9 +14,15 @@
  *        Added DIRS command.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef FEATURE_DIRECTORY_STACK
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+
 
 typedef struct tagDIRENTRY
 {

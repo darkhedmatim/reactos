@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: environment.c,v 1.5 2004/10/11 21:08:04 weiden Exp $
+/* $Id: environment.c,v 1.3 2004/07/07 09:42:58 ekohl Exp $
  *
  * PROJECT:         ReactOS System Control Panel
  * FILE:            lib/cpl/sysdm/environment.c
@@ -42,7 +42,7 @@ typedef struct _VARIABLE_DATA
 
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 EditVariableDlgProc(HWND hwndDlg,
 		    UINT uMsg,
 		    WPARAM wParam,
@@ -52,12 +52,12 @@ EditVariableDlgProc(HWND hwndDlg,
   DWORD dwNameLength;
   DWORD dwValueLength;
 
-  VarData = (PVARIABLE_DATA)GetWindowLongPtr(hwndDlg, GWL_USERDATA);
+  VarData = (PVARIABLE_DATA)GetWindowLong(hwndDlg, GWL_USERDATA);
 
   switch (uMsg)
   {
     case WM_INITDIALOG:
-      SetWindowLongPtr(hwndDlg, GWL_USERDATA, (DWORD_PTR)lParam);
+      SetWindowLong(hwndDlg, GWL_USERDATA, (LONG)lParam);
       VarData = (PVARIABLE_DATA)lParam;
 
       if (VarData->lpName != NULL)
@@ -475,7 +475,7 @@ ReleaseListViewItems(HWND hwndDlg,
 
 
 /* Environment dialog procedure */
-INT_PTR CALLBACK
+BOOL CALLBACK
 EnvironmentDlgProc(HWND hwndDlg,
 		   UINT uMsg,
 		   WPARAM wParam,

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: finfo.c,v 1.12 2004/11/06 13:41:58 ekohl Exp $
+/* $Id: finfo.c,v 1.11 2004/05/23 15:49:56 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -54,8 +54,8 @@ CdfsGetStandardInformation(PFCB Fcb,
     return STATUS_BUFFER_OVERFLOW;
 
   /* PRECONDITION */
-  ASSERT(StandardInfo != NULL);
-  ASSERT(Fcb != NULL);
+  assert(StandardInfo != NULL);
+  assert(Fcb != NULL);
 
   RtlZeroMemory(StandardInfo,
 		sizeof(FILE_STANDARD_INFORMATION));
@@ -119,14 +119,14 @@ CdfsGetBasicInformation(PFILE_OBJECT FileObject,
   if (*BufferLength < sizeof(FILE_BASIC_INFORMATION))
     return STATUS_BUFFER_OVERFLOW;
 
-  CdfsDateTimeToSystemTime(Fcb,
-			   &BasicInfo->CreationTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &BasicInfo->LastAccessTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &BasicInfo->LastWriteTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &BasicInfo->ChangeTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&BasicInfo->CreationTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&BasicInfo->LastAccessTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&BasicInfo->LastWriteTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&BasicInfo->ChangeTime);
 
   CdfsFileFlagsToAttributes(Fcb,
 			    &BasicInfo->FileAttributes);
@@ -151,8 +151,8 @@ CdfsGetNameInformation(PFILE_OBJECT FileObject,
 
   DPRINT("CdfsGetNameInformation() called\n");
 
-  ASSERT(NameInfo != NULL);
-  ASSERT(Fcb != NULL);
+  assert(NameInfo != NULL);
+  assert(Fcb != NULL);
 
   NameLength = wcslen(Fcb->PathName) * sizeof(WCHAR);
   if (*BufferLength < sizeof(FILE_NAME_INFORMATION) + NameLength)
@@ -180,8 +180,8 @@ CdfsGetInternalInformation(PFCB Fcb,
 {
   DPRINT("CdfsGetInternalInformation() called\n");
 
-  ASSERT(InternalInfo);
-  ASSERT(Fcb);
+  assert(InternalInfo);
+  assert(Fcb);
 
   if (*BufferLength < sizeof(FILE_INTERNAL_INFORMATION))
     return(STATUS_BUFFER_OVERFLOW);
@@ -202,20 +202,20 @@ CdfsGetNetworkOpenInformation(PFCB Fcb,
 			      PFILE_NETWORK_OPEN_INFORMATION NetworkInfo,
 			      PULONG BufferLength)
 {
-  ASSERT(NetworkInfo);
-  ASSERT(Fcb);
+  assert(NetworkInfo);
+  assert(Fcb);
 
   if (*BufferLength < sizeof(FILE_NETWORK_OPEN_INFORMATION))
     return(STATUS_BUFFER_OVERFLOW);
 
-  CdfsDateTimeToSystemTime(Fcb,
-			   &NetworkInfo->CreationTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &NetworkInfo->LastAccessTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &NetworkInfo->LastWriteTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &NetworkInfo->ChangeTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 &NetworkInfo->CreationTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 &NetworkInfo->LastAccessTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 &NetworkInfo->LastWriteTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 &NetworkInfo->ChangeTime);
   if (CdfsFCBIsDirectory(Fcb))
     {
       NetworkInfo->AllocationSize.QuadPart = 0LL;;
@@ -246,22 +246,22 @@ CdfsGetAllInformation(PFILE_OBJECT FileObject,
 {
   ULONG NameLength;
 
-  ASSERT(Info);
-  ASSERT(Fcb);
+  assert(Info);
+  assert(Fcb);
 
   NameLength = wcslen(Fcb->PathName) * sizeof(WCHAR);
   if (*BufferLength < sizeof(FILE_ALL_INFORMATION) + NameLength)
     return(STATUS_BUFFER_OVERFLOW);
 
   /* Basic Information */
-  CdfsDateTimeToSystemTime(Fcb,
-			   &Info->BasicInformation.CreationTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &Info->BasicInformation.LastAccessTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &Info->BasicInformation.LastWriteTime);
-  CdfsDateTimeToSystemTime(Fcb,
-			   &Info->BasicInformation.ChangeTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&Info->BasicInformation.CreationTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&Info->BasicInformation.LastAccessTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&Info->BasicInformation.LastWriteTime);
+  CdfsDateTimeToFileTime(Fcb,
+			 (TIME *)&Info->BasicInformation.ChangeTime);
   CdfsFileFlagsToAttributes(Fcb,
 			    &Info->BasicInformation.FileAttributes);
 

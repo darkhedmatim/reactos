@@ -1,4 +1,4 @@
-/* $Id: namespc.c,v 1.50 2004/11/21 10:59:10 weiden Exp $
+/* $Id: namespc.c,v 1.47 2004/08/15 16:39:10 chorns Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -22,8 +22,6 @@ POBJECT_TYPE ObDirectoryType = NULL;
 POBJECT_TYPE ObTypeObjectType = NULL;
 
 PDIRECTORY_OBJECT NameSpaceRoot = NULL;
- /* FIXME: Move this somewhere else once devicemap support is in */
-PDEVICE_MAP ObSystemDeviceMap = NULL;
 
 static GENERIC_MAPPING ObpDirectoryMapping = {
 	STANDARD_RIGHTS_READ|DIRECTORY_QUERY|DIRECTORY_TRAVERSE,
@@ -79,7 +77,7 @@ CHECKPOINT;
 DPRINT("Object %p\n", Object);
 	*ObjectPtr = NULL;
 	RtlFreeUnicodeString (&RemainingPath);
-	return(STATUS_OBJECT_NAME_NOT_FOUND);
+	return(STATUS_UNSUCCESSFUL);
      }
    *ObjectPtr = Object;
    RtlFreeUnicodeString (&RemainingPath);
@@ -159,29 +157,7 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
    return Status;
 }
 
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process,
-			    PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo)
-{
-	//KIRQL OldIrql ;
-	
-	/*
-	 * FIXME: This is an ugly hack for now, to always return the System Device Map
-	 * instead of returning the Process Device Map. Not important yet since we don't use it
-	 */
-	   
-	 /* FIXME: Acquire the DeviceMap Spinlock */
-	 // KeAcquireSpinLock(DeviceMap->Lock, &OldIrql);
-	 
-	 /* Make a copy */
-	 DeviceMapInfo->Query.DriveMap = ObSystemDeviceMap->DriveMap;
-	 RtlMoveMemory(DeviceMapInfo->Query.DriveType, ObSystemDeviceMap->DriveType, sizeof(ObSystemDeviceMap->DriveType));
-	 
-	 /* FIXME: Release the DeviceMap Spinlock */
-	 // KeReleasepinLock(DeviceMap->Lock, OldIrql);
-}	 
-	 
+
 VOID
 ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
 		     POBJECT_HEADER Header,
@@ -476,10 +452,6 @@ ObInit(VOID)
 
   /* Create 'symbolic link' object type */
   ObInitSymbolicLinkImplementation();
-  
-  /* FIXME: Hack Hack! */
-  ObSystemDeviceMap = ExAllocatePoolWithTag(NonPagedPool, sizeof(*ObSystemDeviceMap), TAG('O', 'b', 'D', 'm'));
-  RtlZeroMemory(ObSystemDeviceMap, sizeof(*ObSystemDeviceMap));
 }
 
 

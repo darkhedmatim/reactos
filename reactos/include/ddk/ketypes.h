@@ -36,23 +36,7 @@ typedef VOID STDCALL_FUNC
 
 struct _DISPATCHER_HEADER;
 
-typedef enum _KERNEL_OBJECTS {
-	KNotificationEvent = 0,
-	KSynchronizationEvent = 1,
-	KMutant = 2,
-	KProcess = 3,
-	KQueue = 4,
-	KSemaphore = 5,
-	KThread = 6,
-	KNotificationTimer = 8,
-	KSynchronizationTimer = 9,
-	KApc = 18,
-	KDpc = 19,
-	KDeviceQueue = 20,
-	KEventPair = 21,
-	KInterrupt = 22,
-	KProfile = 23
-} KERNEL_OBJECTS;
+
 
 #include <pshpack1.h>
 
@@ -100,7 +84,7 @@ typedef struct _KDEVICE_QUEUE
 } KDEVICE_QUEUE, *PKDEVICE_QUEUE;
 
 
-#include <pshpack2.h>
+#include <pshpack1.h>
 
 typedef struct _KAPC
 {
@@ -117,28 +101,10 @@ typedef struct _KAPC
    PVOID SystemArgument2;
    CCHAR ApcStateIndex;
    KPROCESSOR_MODE ApcMode;
-   BOOLEAN Inserted;
+   USHORT Inserted;
 } KAPC, *PKAPC;
 
 #include <poppack.h>
-
-#ifndef __USE_W32API
-
-#include <pshpack1.h>
-
-typedef struct _KAPC_STATE
-{
-   LIST_ENTRY ApcListHead[2];
-   struct _KPROCESS* Process;
-   UCHAR KernelApcInProgress;
-   UCHAR KernelApcPending;
-   UCHAR UserApcPending;
-   UCHAR Reserved;
-} KAPC_STATE, *PKAPC_STATE, *__restrict PRKAPC_STATE;
-
-#include <poppack.h>
-
-#endif /* __USE_W32API */
 
 typedef struct _KBUGCHECK_CALLBACK_RECORD
 {
@@ -238,17 +204,11 @@ typedef struct _KDPC
    PVOID DeferredContext;
    PVOID SystemArgument1;
    PVOID SystemArgument2;
-   PVOID DpcData;
+   PULONG Lock;
 } KDPC, *PKDPC;
 
 #include <poppack.h>
 
-typedef struct _KDPC_DATA {
-  LIST_ENTRY  DpcListHead;
-  ULONG  DpcLock;
-  ULONG  DpcQueueDepth;
-  ULONG  DpcCount;
-} KDPC_DATA, *PKDPC_DATA;
 
 typedef struct _KDEVICE_QUEUE_ENTRY
 {

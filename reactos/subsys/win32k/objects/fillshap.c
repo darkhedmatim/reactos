@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fillshap.c,v 1.53 2004/12/12 01:40:38 weiden Exp $ */
+/* $Id: fillshap.c,v 1.52 2004/07/14 20:48:58 navaraf Exp $ */
 #include <w32k.h>
 
 /*
@@ -59,7 +59,6 @@ IntGdiPolygon(PDC    dc,
     }
 
   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!!! don't assert but handle this case gracefully! */
   ASSERT(BitmapObj);
 
       /* Convert to screen coordinates */
@@ -88,7 +87,6 @@ IntGdiPolygon(PDC    dc,
 
 	/* Now fill the polygon with the current brush. */
 	FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-	/* FIXME - FillBrushObj can be NULL!!!!!!!! Don't Assert! */
 	ASSERT(FillBrushObj);
 	if (!(FillBrushObj->flAttrs & GDIBRUSH_IS_NULL))
 	{
@@ -99,7 +97,6 @@ IntGdiPolygon(PDC    dc,
 
 	/* get BRUSHOBJ from current pen. */
 	PenBrushObj = PENOBJ_LockPen(dc->w.hPen);
-	/* FIXME - handle PenBrushObj == NULL !!!!! */
         IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
 
 	// Draw the Polygon Edges with the current pen ( if not a NULL pen )
@@ -131,10 +128,10 @@ IntGdiPolygon(PDC    dc,
 			       dc->w.ROPmode); /* MIX */
 	  }
 	}
-	PENOBJ_UnlockPen( dc->w.hPen );
       }
 
       BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
+      PENOBJ_UnlockPen( dc->w.hPen );
   
   return ret;
 }
@@ -253,14 +250,13 @@ NtGdiEllipse(
    PenBrush = PENOBJ_LockPen(dc->w.hPen);
    if (NULL == PenBrush)
    {
-      BRUSHOBJ_UnlockBrush(dc->w.hBrush);
+      PENOBJ_UnlockPen(dc->w.hPen);
       DC_UnlockDc(hDC);
       SetLastWin32Error(ERROR_INTERNAL_ERROR);
       return FALSE;
    }
 
    BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   /* FIXME - BitmapObj can be NULL!!!! Don't assert but handle this case gracefully! */
    ASSERT(BitmapObj);
 
    IntGdiInitBrushInstance(&FillBrushInst, FillBrush, dc->XlateBrush);
@@ -941,7 +937,6 @@ IntRectangle(PDC dc,
   RECTL      DestRect;
 
   ASSERT ( dc ); // caller's responsibility to set this up
-  /* FIXME - BitmapObj can be NULL!!! Don't assert but handle this case gracefully! */
   ASSERT ( BitmapObj );
 
   if ( PATH_IsPathOpen(dc->w.path) )
@@ -961,7 +956,6 @@ IntRectangle(PDC dc,
     DestRect.bottom = BottomRect;
 
     FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-    /* FIXME - Handle FillBrushObj == NULL !!!! */
     IntGdiInitBrushInstance(&FillBrushInst, FillBrushObj, dc->XlateBrush);
 
     if ( FillBrushObj )
@@ -1111,11 +1105,9 @@ IntRoundRect(
   RectBounds.bottom = bottom;
 
   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!!! Handle this case gracefully instead of ASSERT! */
   ASSERT(BitmapObj);
 
   FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-  /* FIXME - Don't assert if FillBrushObj == NULL, handle this case !!!! */
   ASSERT(FillBrushObj);
   if (FillBrushObj->flAttrs & GDIBRUSH_IS_NULL)
   {
@@ -1124,7 +1116,6 @@ IntRoundRect(
   }
 
   PenBrushObj = PENOBJ_LockPen(dc->w.hPen);
-  /* FIXME - PenBrushObject can be NULL!!! Don't assert!!!! */
   ASSERT(PenBrushObj);
   if (PenBrushObj->flAttrs & GDIBRUSH_IS_NULL)
   {
@@ -1313,8 +1304,7 @@ IntRoundRect(
   }
 
   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-  if(PenBrushObj != NULL)
-    PENOBJ_UnlockPen(dc->w.hPen);
+  PENOBJ_UnlockPen(dc->w.hPen);
   BRUSHOBJ_UnlockBrush(dc->w.hBrush);
 
   return ret;
@@ -1420,11 +1410,9 @@ IntGdiGradientFill(
   Extent.bottom += DitherOrg.y;
   
   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!! Don't assert but handle this case gracefully! */
   ASSERT(BitmapObj);
   
   PalDestGDI = PALETTE_LockPalette(dc->w.hPalette);
-  /* FIXME - PalDestGDI can be NULL!!! Don't assert but handle this case gracefully! */
   ASSERT(PalDestGDI);
   Mode = PalDestGDI->Mode;
   PALETTE_UnlockPalette(dc->w.hPalette);

@@ -1,4 +1,4 @@
-/* $Id: reply.c,v 1.24 2004/12/24 17:06:59 navaraf Exp $
+/* $Id: reply.c,v 1.21 2004/08/15 16:39:06 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,6 +16,8 @@
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
+
+#define TAG_LPC_MESSAGE   TAG('L', 'P', 'C', 'M')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -56,7 +58,7 @@ EiReplyOrRequestPort (IN	PEPORT		Port,
    MessageReply->Message.ClientId.UniqueProcess = PsGetCurrentProcessId();
    MessageReply->Message.ClientId.UniqueThread = PsGetCurrentThreadId();
    MessageReply->Message.MessageType = MessageType;
-   MessageReply->Message.MessageId = InterlockedIncrementUL(&LpcpNextMessageId);
+   MessageReply->Message.MessageId = InterlockedIncrement((LONG *)&EiNextLpcMessageId);
    
    KeAcquireSpinLock(&Port->Lock, &oldIrql);
    EiEnqueueMessagePort(Port, MessageReply);
@@ -96,12 +98,6 @@ NtReplyPort (IN	HANDLE		PortHandle,
      {
 	DPRINT("NtReplyPort() = %x\n", Status);
 	return(Status);
-     }
-
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
      }
    
    Status = EiReplyOrRequestPort(Port->OtherPort, 

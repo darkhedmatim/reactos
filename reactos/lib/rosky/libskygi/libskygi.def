@@ -1,7 +1,7 @@
-LIBRARY libskygi.dll
+LIBRARY libsky.dll
 
 EXPORTS
-DefaultWindowFunc
+DefaultWindowFunction
 GC_ResetBlit
 GC_blit
 GC_create_connected

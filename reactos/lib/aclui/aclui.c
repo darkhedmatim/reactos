@@ -16,7 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* $Id: aclui.c,v 1.8 2004/10/21 18:28:05 weiden Exp $
+/* $Id: aclui.c,v 1.6 2004/08/14 11:50:25 weiden Exp $
  *
  * PROJECT:         ReactOS Access Control List Editor
  * FILE:            lib/aclui/aclui.c
@@ -96,7 +96,7 @@ SecurityPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         sp->hiUsrs = ImageList_LoadBitmap(hDllInstance, MAKEINTRESOURCE(IDB_USRGRPIMAGES), 16, 3, 0);
         
         /* save the pointer to the structure */
-        SetWindowLongPtr(hwndDlg, DWL_USER, (DWORD_PTR)sp);
+        SetWindowLong(hwndDlg, DWL_USER, (LONG)sp);
         
         GetClientRect(sp->hWndUsrList, &rcLvClient);
         
@@ -140,7 +140,7 @@ CreateSecurityPage(LPSECURITYINFO psi)
     return NULL;
   }
 
-  /* get the object information from the server interface */
+  /* get the object information from the client interface */
   hRet = psi->lpVtbl->GetObjectInformation(psi, &ObjectInfo);
 
   if(FAILED(hRet))
@@ -195,7 +195,7 @@ EditSecurity(HWND hwndOwner, LPSECURITYINFO psi)
     return FALSE;
   }
   
-  /* get the object information from the server interface */
+  /* get the object information from the client interface */
   hRet = psi->lpVtbl->GetObjectInformation(psi, &ObjectInfo);
   
   if(FAILED(hRet))

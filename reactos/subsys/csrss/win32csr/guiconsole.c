@@ -1,4 +1,4 @@
-/* $Id: guiconsole.c,v 1.26 2004/12/25 11:22:37 navaraf Exp $
+/* $Id: guiconsole.c,v 1.19 2004/08/24 17:25:17 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -53,7 +53,7 @@ static HWND NotifyWnd;
 static VOID FASTCALL
 GuiConsoleGetDataPointers(HWND hWnd, PCSRSS_CONSOLE *Console, PGUI_CONSOLE_DATA *GuiData)
 {
-  *Console = (PCSRSS_CONSOLE) GetWindowLongPtrW(hWnd, GWL_USERDATA);
+  *Console = (PCSRSS_CONSOLE) GetWindowLongW(hWnd, GWL_USERDATA);
   *GuiData = (NULL == *Console ? NULL : (*Console)->PrivateData);
 }
 
@@ -129,10 +129,9 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
   GuiData->MemoryBitmap = CreateCompatibleBitmap(Dc, 
                                                  Console->Size.X * GuiData->CharWidth, 
 						 Console->Size.Y * GuiData->CharHeight);
-  /* NOTE: Don't delete the "first bitmap", it's done in DeleteDC. */
-  SelectObject(GuiData->MemoryDC, GuiData->MemoryBitmap);
-  /* NOTE: Don't delete stock font. */
-  SelectObject(GuiData->MemoryDC, GuiData->Font); 
+  DeleteObject(SelectObject(GuiData->MemoryDC, GuiData->MemoryBitmap));
+  DeleteObject(SelectObject(GuiData->MemoryDC, GuiData->Font));
+
 
   ReleaseDC(hWnd, Dc);
   GuiData->CursorBlinkOn = TRUE;
@@ -141,7 +140,7 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
   GuiData->Selection.left = -1;
   
   Console->PrivateData = GuiData;
-  SetWindowLongPtrW(hWnd, GWL_USERDATA, (DWORD_PTR) Console);
+  SetWindowLongW(hWnd, GWL_USERDATA, (LONG) Console);
 
   GetWindowRect(hWnd, &Rect);
   Rect.right = Rect.left + Console->Size.X * GuiData->CharWidth +
@@ -317,7 +316,7 @@ GuiConsoleUpdateBitmap(HWND hWnd, RECT rc)
                       LastAttribute = Attribute;
                     }
                 }  
-              MultiByteToWideChar(Console->OutputCodePage, 0, (PCHAR)From, 1, To, 1);
+              MultiByteToWideChar(Console->OutputCodePage, 0, From, 1, To, 1);
               To++;
               From += 2;
             }
@@ -572,6 +571,8 @@ GuiConsoleHandleClose(HWND hWnd)
   PGUI_CONSOLE_DATA GuiData;
   PLIST_ENTRY current_entry;
   PCSRSS_PROCESS_DATA current;
+  HANDLE Process;
+  BOOL Result;
 
   GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
 
@@ -583,7 +584,18 @@ GuiConsoleHandleClose(HWND hWnd)
       current = CONTAINING_RECORD(current_entry, CSRSS_PROCESS_DATA, ProcessEntry);
       current_entry = current_entry->Flink;
 
-      ConioConsoleCtrlEvent(CTRL_CLOSE_EVENT, current);
+      Process = OpenProcess(PROCESS_DUP_HANDLE, FALSE, current->ProcessId);
+      if (NULL == Process)
+        {
+          DPRINT1("Failed for handle duplication\n");
+	  continue;
+        }
+      Result = TerminateProcess(Process, 0);
+      CloseHandle(Process);
+      if (!Result)
+        {
+	  DPRINT1("Failed to terminate process %d\n", current->ProcessId);
+	}
     }
 
   LeaveCriticalSection(&Console->Header.Lock);
@@ -793,7 +805,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   HWND NewWindow;
   LONG WindowCount;
-  MSG Msg;
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) lParam;
 
   switch(msg)
@@ -821,14 +832,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         return (LRESULT) NewWindow;
       case PM_DESTROY_CONSOLE:
-        /* Window creation is done using a PostMessage(), so it's possible that the
-         * window that we want to destroy doesn't exist yet. So first empty the message
-         * queue */
-        while(PeekMessageW(&Msg, NULL, 0, 0, PM_REMOVE))
-          {
-            TranslateMessage(&Msg);
-            DispatchMessageW(&Msg);
-          }
         DestroyWindow(Console->hWindow);
         Console->hWindow = NULL;
         WindowCount = GetWindowLongW(hWnd, GWL_USERDATA);
@@ -885,7 +888,30 @@ GuiConsoleGuiThread(PVOID Data)
 static BOOL FASTCALL
 GuiInit(VOID)
 {
+  HDESK Desktop;
+  NTSTATUS Status;
   WNDCLASSEXW wc;
+
+  Desktop = OpenDesktopW(L"Default", 0, FALSE, GENERIC_ALL);
+  if (NULL == Desktop)
+    {
+      DPRINT1("Failed to open desktop\n");
+      return FALSE;
+    }
+  Status = NtSetInformationProcess(NtCurrentProcess(),
+                                   ProcessDesktop,
+                                   &Desktop,
+                                   sizeof(Desktop));
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("Cannot set default desktop.\n");
+      return FALSE;
+    }
+  if (! SetThreadDesktop(Desktop))
+    {
+      DPRINT1("Failed to set thread desktop\n");
+      return FALSE;
+    }
 
   if (NULL == NotifyWnd)
     {

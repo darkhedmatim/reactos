@@ -1,4 +1,4 @@
-/* $Id: mdl.c,v 1.69 2004/10/22 20:38:22 ekohl Exp $
+/* $Id: mdl.c,v 1.68 2004/08/15 16:39:07 chorns Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -209,7 +209,7 @@ MmMapLockedPages(PMDL Mdl, KPROCESSOR_MODE AccessMode)
       NTSTATUS Status;
 
       /* pretty sure you can't map partial mdl's to user space */
-      ASSERT(!(Mdl->MdlFlags & MDL_PARTIAL));
+      assert(!(Mdl->MdlFlags & MDL_PARTIAL));
 
       BoundaryAddressMultiple.QuadPart = 0;
       Base = NULL;
@@ -244,9 +244,9 @@ MmMapLockedPages(PMDL Mdl, KPROCESSOR_MODE AccessMode)
    else /* if (AccessMode == KernelMode) */
    {
       /* can't map mdl twice */
-      ASSERT(!(Mdl->MdlFlags & (MDL_MAPPED_TO_SYSTEM_VA|MDL_PARTIAL_HAS_BEEN_MAPPED)));
+      assert(!(Mdl->MdlFlags & (MDL_MAPPED_TO_SYSTEM_VA|MDL_PARTIAL_HAS_BEEN_MAPPED)));
       /* can't map mdl buildt from non paged pool into kernel space */
-      ASSERT(!(Mdl->MdlFlags & (MDL_SOURCE_IS_NONPAGED_POOL)));
+      assert(!(Mdl->MdlFlags & (MDL_SOURCE_IS_NONPAGED_POOL)));
       
       CurrentProcess = NULL;
 
@@ -386,7 +386,7 @@ MmUnmapLockedPages(PVOID BaseAddress, PMDL Mdl)
 
    if ((DWORD)BaseAddress >= KERNEL_BASE)
    {
-      ASSERT(Mdl->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA);
+      assert(Mdl->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA);
       
       KeAcquireSpinLock(&MiMdlMappingRegionLock, &oldIrql);
       /* Deallocate all the pages used. */
@@ -407,7 +407,7 @@ MmUnmapLockedPages(PVOID BaseAddress, PMDL Mdl)
    {
       MEMORY_AREA *Marea;
       
-      ASSERT(Mdl->Process == PsGetCurrentProcess());
+      assert(Mdl->Process == PsGetCurrentProcess());
 
       Marea = MmOpenMemoryAreaByAddress( &Mdl->Process->AddressSpace, BaseAddress );
       if (Marea == NULL)
@@ -505,14 +505,14 @@ VOID STDCALL MmProbeAndLockPages (PMDL Mdl,
 
    DPRINT("MmProbeAndLockPages(Mdl %x)\n", Mdl);
 
-   ASSERT(!(Mdl->MdlFlags & (MDL_PAGES_LOCKED|MDL_MAPPED_TO_SYSTEM_VA|MDL_PARTIAL|
+   assert(!(Mdl->MdlFlags & (MDL_PAGES_LOCKED|MDL_MAPPED_TO_SYSTEM_VA|MDL_PARTIAL|
             MDL_IO_SPACE|MDL_SOURCE_IS_NONPAGED_POOL)));
 
    MdlPages = (PPFN_TYPE)(Mdl + 1);
    NrPages = PAGE_ROUND_UP(Mdl->ByteOffset + Mdl->ByteCount) / PAGE_SIZE;
    
    /* mdl must have enough page entries */
-   ASSERT(NrPages <= (Mdl->Size - sizeof(MDL))/sizeof(PFN_TYPE));
+   assert(NrPages <= (Mdl->Size - sizeof(MDL))/sizeof(PFN_TYPE));
 
 
    if (Mdl->StartVa >= (PVOID)KERNEL_BASE && 
@@ -678,13 +678,13 @@ MmBuildMdlForNonPagedPool (PMDL Mdl)
     * mdl buffer must (at least) be in kernel space, thou this doesn't 
     * necesarely mean that the buffer in within _nonpaged_ kernel space...
     */
-   ASSERT((ULONG)Mdl->StartVa >= KERNEL_BASE);
+   assert((ULONG)Mdl->StartVa >= KERNEL_BASE);
    
    PageCount = PAGE_ROUND_UP(Mdl->ByteOffset + Mdl->ByteCount) / PAGE_SIZE;
    MdlPages = (PPFN_TYPE)(Mdl + 1);
    
    /* mdl must have enough page entries */
-   ASSERT(PageCount <= (Mdl->Size - sizeof(MDL))/sizeof(PFN_TYPE));
+   assert(PageCount <= (Mdl->Size - sizeof(MDL))/sizeof(PFN_TYPE));
    
    for (i=0; i < PageCount; i++)
    {
@@ -777,7 +777,7 @@ MmAllocatePagesForMdl ( IN PHYSICAL_ADDRESS LowAddress,
 */
    
    /* SkipBytes must be a multiple of the page size */
-   ASSERT((SkipBytes.QuadPart % PAGE_SIZE) == 0);
+   assert((SkipBytes.QuadPart % PAGE_SIZE) == 0);
    
    UNIMPLEMENTED;
    return(NULL);

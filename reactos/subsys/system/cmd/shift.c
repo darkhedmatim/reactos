@@ -20,7 +20,13 @@
  *        Unicode and redirection safe!
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+
+#include "batch.h"
 
 
 /*

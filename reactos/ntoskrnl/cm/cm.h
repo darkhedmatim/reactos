@@ -47,7 +47,6 @@
 #define  REG_KEY_CELL_ID               0x6b6e
 #define  REG_HASH_TABLE_CELL_ID        0x666c
 #define  REG_VALUE_CELL_ID             0x6b76
-#define  REG_SECURITY_CELL_ID          0x6b73
 
 
 // BLOCK_OFFSET = offset in file after header block
@@ -240,19 +239,6 @@ typedef struct _VALUE_CELL
 #define REG_DATA_IN_OFFSET                 0x80000000
 
 
-typedef struct _SECURITY_CELL
-{
-  LONG  CellSize;
-  USHORT Id;	// "sk"
-  USHORT Reserved;
-  BLOCK_OFFSET PrevSecurityCell;
-  BLOCK_OFFSET NextSecurityCell;
-  ULONG RefCount;
-  ULONG SdSize;
-  UCHAR Data[0];
-} SECURITY_CELL, *PSECURITY_CELL;
-
-
 typedef struct _DATA_CELL
 {
   LONG  CellSize;
@@ -284,8 +270,7 @@ typedef struct _REGISTRY_HIVE
   ULONG  FreeListMax;
   PCELL_HEADER *FreeList;
   BLOCK_OFFSET *FreeListOffset;
-
-  PSECURITY_CELL RootSecurityCell;
+  ERESOURCE  HiveResource;
 
   PULONG BitmapBuffer;
   RTL_BITMAP  DirtyBitMap;
@@ -369,8 +354,7 @@ extern POBJECT_TYPE CmiKeyType;
 extern KSPIN_LOCK CmiKeyListLock;
 
 extern LIST_ENTRY CmiHiveListHead;
-
-extern ERESOURCE CmiRegistryLock;
+extern ERESOURCE CmiHiveListLock;
 
 /* Registry Callback Function */
 typedef NTSTATUS (*PEX_CALLBACK_FUNCTION ) (
@@ -601,10 +585,6 @@ CmiDestroyCell(PREGISTRY_HIVE RegistryHive,
 	       PVOID Cell,
 	       BLOCK_OFFSET CellOffset);
 
-PHBIN
-CmiGetBin (PREGISTRY_HIVE RegistryHive,
-	   BLOCK_OFFSET CellOffset);
-
 PVOID
 CmiGetCell (PREGISTRY_HIVE RegistryHive,
 	    BLOCK_OFFSET CellOffset,
@@ -641,13 +621,13 @@ CmiGetPackedNameLength(IN PUNICODE_STRING Name,
 
 BOOLEAN
 CmiComparePackedNames(IN PUNICODE_STRING Name,
-		      IN PUCHAR NameBuffer,
+		      IN PCHAR NameBuffer,
 		      IN USHORT NameBufferSize,
 		      IN BOOLEAN NamePacked);
 
 VOID
 CmiCopyPackedName(PWCHAR NameBuffer,
-		  PUCHAR PackedNameBuffer,
+		  PCHAR PackedNameBuffer,
 		  ULONG PackedNameSize);
 
 BOOLEAN

@@ -1,4 +1,4 @@
-/* $Id: afd.h,v 1.29 2004/12/25 21:30:18 arty Exp $
+/* $Id: afd.h,v 1.19 2004/07/18 22:49:17 arty Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -21,7 +21,6 @@
 #include <shared.h>
 
 #ifndef _MSC_VER
-#include <roscfg.h>
 #include <rosrtl/string.h>
 #include <winsock2.h>
 #include <ddk/tdi.h>
@@ -50,28 +49,17 @@
 
 #define FUNCTION_CONNECT                0
 #define FUNCTION_RECV                   1
-#define FUNCTION_SEND                   2
-#define FUNCTION_PREACCEPT              3
-#define FUNCTION_ACCEPT                 4
-#define FUNCTION_CLOSE                  5
-#define MAX_FUNCTIONS                   6
+#define FUNCTION_RECV_DATAGRAM          2
+#define FUNCTION_SEND                   3
+#define FUNCTION_CLOSE                  4
+#define MAX_FUNCTIONS                   5
 
 #define IN_FLIGHT_REQUESTS              3
-
-#define EXTRA_LOCK_BUFFERS              2 /* Number of extra buffers needed
-					   * for ancillary data on packet
-					   * requests. */
 
 #define DEFAULT_SEND_WINDOW_SIZE        16384
 #define DEFAULT_RECEIVE_WINDOW_SIZE     16384
 
 #define SGID_CONNECTIONLESS             1 /* XXX Find this flag */
-
-/* XXX This is a hack we should clean up later 
- * We do this in order to get some storage for the locked handle table
- * Maybe I'll use some tail item in the irp instead */
-#define AFD_HANDLES(x) ((PAFD_HANDLE)(x)->Exclusive)
-#define SET_AFD_HANDLES(x,y) (((x)->Exclusive) = (ULONG)(y))
 
 typedef struct _AFD_MAPBUF {
     PVOID BufferAddress;
@@ -90,8 +78,6 @@ typedef struct _AFD_ACTIVE_POLL {
     PAFD_DEVICE_EXTENSION DeviceExt;
     KDPC TimeoutDpc;
     KTIMER Timer;
-    PKEVENT EventObject;
-    BOOLEAN Exclusive;
 } AFD_ACTIVE_POLL, *PAFD_ACTIVE_POLL;
 
 typedef struct _IRP_LIST {
@@ -104,18 +90,10 @@ typedef struct _AFD_TDI_OBJECT {
     HANDLE Handle;
 } AFD_TDI_OBJECT, *PAFD_TDI_OBJECT;
 
-typedef struct _AFD_TDI_OBJECT_QELT {
-    LIST_ENTRY ListEntry;
-    UINT Seq;
-    PTDI_CONNECTION_INFORMATION ConnInfo;
-    AFD_TDI_OBJECT Object;
-} AFD_TDI_OBJECT_QELT, *PAFD_TDI_OBJECT_QELT;
-
 typedef struct _AFD_IN_FLIGHT_REQUEST {
     PIRP InFlightRequest;
     IO_STATUS_BLOCK Iosb;    
-    PTDI_CONNECTION_INFORMATION ConnectionCallInfo;
-    PTDI_CONNECTION_INFORMATION ConnectionReturnInfo;
+    PTDI_CONNECTION_INFORMATION ConnectionInfo;
 } AFD_IN_FLIGHT_REQUEST, *PAFD_IN_FLIGHT_REQUEST;
 
 typedef struct _AFD_DATA_WINDOW {
@@ -126,12 +104,12 @@ typedef struct _AFD_DATA_WINDOW {
 typedef struct _AFD_STORED_DATAGRAM {
     LIST_ENTRY ListEntry;
     UINT Len;
-    PTRANSPORT_ADDRESS Address;
+    PTA_ADDRESS Address;
     CHAR Buffer[1];
 } AFD_STORED_DATAGRAM, *PAFD_STORED_DATAGRAM;
 
 typedef struct _AFD_FCB {
-    BOOLEAN Locked, Critical;
+    BOOLEAN Locked;
     UINT State, Flags;
     KIRQL OldIrql;
     UINT LockCount;
@@ -139,25 +117,21 @@ typedef struct _AFD_FCB {
     KSPIN_LOCK SpinLock;
     PFILE_OBJECT FileObject;
     PAFD_DEVICE_EXTENSION DeviceExt;
-    BOOLEAN DelayedAccept, NeedsNewListen;
-    UINT ConnSeq;
+    BOOLEAN DelayedAccept;
     PTRANSPORT_ADDRESS LocalAddress, RemoteAddress;
     PTDI_CONNECTION_INFORMATION AddressFrom;
     AFD_TDI_OBJECT AddressFile, Connection;
-    AFD_IN_FLIGHT_REQUEST ConnectIrp, ListenIrp, ReceiveIrp, SendIrp;
+    AFD_IN_FLIGHT_REQUEST ListenIrp, ReceiveIrp, SendIrp;
     AFD_DATA_WINDOW Send, Recv;
     FAST_MUTEX Mutex;
     KEVENT StateLockedEvent;
-    PKEVENT EventSelect;
-    DWORD EventSelectTriggers;
-    DWORD EventsFired;
     UNICODE_STRING TdiDeviceName;
     PVOID Context;
     DWORD PollState;
     UINT ContextSize;
+    PIRP PendingTdiIrp;
     LIST_ENTRY PendingIrpList[MAX_FUNCTIONS];
     LIST_ENTRY DatagramList;
-    LIST_ENTRY PendingConnections;
 } AFD_FCB, *PAFD_FCB;
 
 /* bind.c */
@@ -169,7 +143,6 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 /* connect.c */
 
-NTSTATUS MakeSocketIntoConnection( PAFD_FCB FCB );
 NTSTATUS WarmSocketForConnection( PAFD_FCB FCB );
 NTSTATUS STDCALL
 AfdStreamSocketConnect(PDEVICE_OBJECT DeviceObject, PIRP Irp,
@@ -190,26 +163,15 @@ NTSTATUS STDCALL
 AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
 	    PIO_STACK_LOCATION IrpSp );
 
-NTSTATUS STDCALL
-AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-		PIO_STACK_LOCATION IrpSp );
-
 /* listen.c */
-NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-			   PIO_STACK_LOCATION IrpSp );
 
 NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			 PIO_STACK_LOCATION IrpSp);
 
-NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-		    PIO_STACK_LOCATION IrpSp );
-
 /* lock.c */
 
-PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count, 
-			 PVOID AddressBuf, PINT AddressLen,
-			 BOOLEAN Write, BOOLEAN LockAddress );
-VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count, BOOL Address );
+PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count, BOOLEAN Write );
+VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count );
 UINT SocketAcquireStateLock( PAFD_FCB FCB );
 NTSTATUS DDKAPI UnlockAndMaybeComplete
 ( PAFD_FCB FCB, NTSTATUS Status, PIRP Irp,
@@ -218,18 +180,13 @@ NTSTATUS DDKAPI UnlockAndMaybeComplete
   BOOL ShouldUnlockIrp );
 VOID SocketStateUnlock( PAFD_FCB FCB );
 NTSTATUS LostSocket( PIRP Irp, BOOL ShouldUnlockIrp );
-PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
-VOID UnlockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
 PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
 VOID UnlockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
-VOID SocketCalloutEnter( PAFD_FCB FCB );
-VOID SocketCalloutLeave( PAFD_FCB FCB );
 
 /* main.c */
 
 VOID OskitDumpBuffer( PCHAR Buffer, UINT Len );
 NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function );
-VOID DestroySocket( PAFD_FCB FCB );
 
 /* read.c */
 
@@ -255,12 +212,6 @@ AfdPacketSocketReadData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 NTSTATUS STDCALL
 AfdSelect( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
 	   PIO_STACK_LOCATION IrpSp );
-NTSTATUS STDCALL
-AfdEventSelect( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-		PIO_STACK_LOCATION IrpSp );
-NTSTATUS STDCALL
-AfdEnumEvents( PDEVICE_OBJECT DeviceObject, PIRP Irp, 
-	       PIO_STACK_LOCATION IrpSp );
 VOID PollReeval( PAFD_DEVICE_EXTENSION DeviceObject, PFILE_OBJECT FileObject );
 
 /* tdi.c */
@@ -279,7 +230,6 @@ NTSTATUS TdiListen
 ( PIRP *Irp,
   PFILE_OBJECT ConnectionObject,
   PTDI_CONNECTION_INFORMATION *RequestConnectionInfo,
-  PTDI_CONNECTION_INFORMATION *ReturnConnectionInfo,
   PIO_STATUS_BLOCK Iosb,
   PIO_COMPLETION_ROUTINE  CompletionRoutine,
   PVOID CompletionContext);

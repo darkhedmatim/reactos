@@ -17,9 +17,16 @@
  *        Implemented basic rename code.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_RENAME
+
+#include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "batch.h"
 
 enum
 {

@@ -1,4 +1,4 @@
-/* $Id: isbad.c,v 1.11 2004/09/14 14:01:25 weiden Exp $
+/* $Id: isbad.c,v 1.10 2004/01/23 21:16:03 ekohl Exp $
  *
  * lib/kernel32/mem/isbad.c
  *
@@ -12,7 +12,7 @@
 
 /* FIXME: Stubs. What is it for? */
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 wcsnlen (
@@ -20,9 +20,9 @@ wcsnlen (
 	UINT	ucchMax
 	)
 {
-  UINT i = 0;
-  while( lpsz[i] && i < ucchMax ) i++;
-  return i;
+	DPRINT1("wcsnlen stub called\n");
+
+	return 0;
 }
 
 

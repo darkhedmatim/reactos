@@ -49,8 +49,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -125,13 +123,13 @@ typedef struct DefaultHandler DefaultHandler;
 /*
  * Here, I define utility macros to help with the casting of the
  * "this" parameter.
- * There is a version to accommodate all of the VTables implemented
+ * There is a version to accomodate all of the VTables implemented
  * by this object.
  */
-#define _ICOM_THIS_From_IOleObject(class,name)       class* this = (class*)name
-#define _ICOM_THIS_From_NDIUnknown(class, name)      class* this = (class*)(((char*)name)-sizeof(void*))
-#define _ICOM_THIS_From_IDataObject(class, name)     class* this = (class*)(((char*)name)-2*sizeof(void*))
-#define _ICOM_THIS_From_IRunnableObject(class, name) class* this = (class*)(((char*)name)-3*sizeof(void*))
+#define _ICOM_THIS_From_IOleObject(class,name)       class* this = (class*)name;
+#define _ICOM_THIS_From_NDIUnknown(class, name)      class* this = (class*)(((char*)name)-sizeof(void*));
+#define _ICOM_THIS_From_IDataObject(class, name)     class* this = (class*)(((char*)name)-2*sizeof(void*));
+#define _ICOM_THIS_From_IRunnableObject(class, name) class* this = (class*)(((char*)name)-3*sizeof(void*));
 
 /*
  * Prototypes for the methods of the DefaultHandler class.
@@ -327,6 +325,7 @@ static HRESULT WINAPI DefaultHandler_SetContainedObject(
  */
 static IOleObjectVtbl DefaultHandler_IOleObject_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DefaultHandler_QueryInterface,
   DefaultHandler_AddRef,
   DefaultHandler_Release,
@@ -355,6 +354,7 @@ static IOleObjectVtbl DefaultHandler_IOleObject_VTable =
 
 static IUnknownVtbl DefaultHandler_NDIUnknown_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DefaultHandler_NDIUnknown_QueryInterface,
   DefaultHandler_NDIUnknown_AddRef,
   DefaultHandler_NDIUnknown_Release,
@@ -362,6 +362,7 @@ static IUnknownVtbl DefaultHandler_NDIUnknown_VTable =
 
 static IDataObjectVtbl DefaultHandler_IDataObject_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DefaultHandler_IDataObject_QueryInterface,
   DefaultHandler_IDataObject_AddRef,
   DefaultHandler_IDataObject_Release,
@@ -378,6 +379,7 @@ static IDataObjectVtbl DefaultHandler_IDataObject_VTable =
 
 static IRunnableObjectVtbl DefaultHandler_IRunnableObject_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DefaultHandler_IRunnableObject_QueryInterface,
   DefaultHandler_IRunnableObject_AddRef,
   DefaultHandler_IRunnableObject_Release,
@@ -658,7 +660,10 @@ static ULONG WINAPI DefaultHandler_NDIUnknown_AddRef(
             IUnknown*      iface)
 {
   _ICOM_THIS_From_NDIUnknown(DefaultHandler, iface);
-  return InterlockedIncrement(&this->ref);
+
+  this->ref++;
+
+  return this->ref;
 }
 
 /************************************************************************
@@ -673,19 +678,23 @@ static ULONG WINAPI DefaultHandler_NDIUnknown_Release(
             IUnknown*      iface)
 {
   _ICOM_THIS_From_NDIUnknown(DefaultHandler, iface);
-  ULONG ref;
 
   /*
    * Decrease the reference count on this object.
    */
-  ref = InterlockedDecrement(&this->ref);
+  this->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref == 0) DefaultHandler_Destroy(this);
+  if (this->ref==0)
+  {
+    DefaultHandler_Destroy(this);
 
-  return ref;
+    return 0;
+  }
+
+  return this->ref;
 }
 
 /*********************************************************

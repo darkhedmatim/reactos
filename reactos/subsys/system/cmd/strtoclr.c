@@ -18,6 +18,10 @@ other are internal service functions*/
 
 #include "precomp.h"
 
+#include <ctype.h>
+#include <tchar.h>
+
+
 #define _B FOREGROUND_BLUE
 #define _G FOREGROUND_GREEN
 #define _R FOREGROUND_RED

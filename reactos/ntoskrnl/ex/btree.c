@@ -264,7 +264,7 @@ VOID
 ExpRemoveAboveExternalBinaryTreeNode(PBINARY_TREE Tree,
   PBINARY_TREE_NODE Node)
 {
-  ASSERTMSG(ExpBinaryTreeIsExternalNode(Node), ("Node is not external"));
+  assertmsg(ExpBinaryTreeIsExternalNode(Node), ("Node is not external"));
 
   if (Node == ExpBinaryTreeRootNode(Tree))
 		{

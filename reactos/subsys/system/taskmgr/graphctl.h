@@ -104,7 +104,7 @@ color);
 void    GraphCtrl_SetRange(TGraphCtrl* this, double dLower, double 
 dUpper, int nDecimalPlaces);
 
-INT_PTR CALLBACK GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 #ifdef __cplusplus
 }

@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: videoprt.c,v 1.30 2004/12/19 15:56:53 navaraf Exp $
+ * $Id: videoprt.c,v 1.26 2004/07/03 17:40:21 navaraf Exp $
  */
 
 #include "videoprt.h"
@@ -104,8 +104,8 @@ IntVideoPortGetProcAddress(
       ((ULONG_PTR)BaseAddress + (ULONG_PTR)ExportDir->AddressOfNames);
    for (i = 0; i < ExportDir->NumberOfNames; i++, NamePtr++, OrdinalPtr++)
    {
-      if (!_strnicmp((PCHAR)FunctionName, (PCHAR)(BaseAddress + *NamePtr),
-                     strlen((PCHAR)FunctionName)))
+      if (!_strnicmp(FunctionName, (char*)(BaseAddress + *NamePtr),
+                     strlen(FunctionName)))
       {
          return (PVOID)((ULONG_PTR)BaseAddress + 
                         (ULONG_PTR)AddressPtr[*OrdinalPtr]);	  
@@ -445,8 +445,7 @@ IntVideoPortFindAdapter(
    }
 
    if (PhysicalDeviceObject != NULL)
-      DeviceExtension->NextDeviceObject = IoAttachDeviceToDeviceStack(
-         DeviceObject, PhysicalDeviceObject);
+      IoAttachDeviceToDeviceStack(DeviceObject, PhysicalDeviceObject);
 
    DPRINT("STATUS_SUCCESS\n");
    return STATUS_SUCCESS;
@@ -458,7 +457,7 @@ IntAttachToCSRSS(PEPROCESS *CallingProcess, PEPROCESS *PrevAttachedProcess)
    *CallingProcess = PsGetCurrentProcess(); 
    if (*CallingProcess != Csrss) 
    { 
-      if (PsGetCurrentThread()->ThreadsProcess != *CallingProcess)
+      if (PsGetCurrentThread()->OldProcess != NULL)
       { 
          *PrevAttachedProcess = *CallingProcess; 
          KeDetachProcess(); 
@@ -728,7 +727,7 @@ VideoPortSetRegistryParameters(
    IN ULONG ValueLength)
 {
    DPRINT("VideoPortSetRegistryParameters\n");
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    return RtlWriteRegistryValue(
       RTL_REGISTRY_ABSOLUTE,
       VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension)->RegistryPath.Buffer,
@@ -841,7 +840,7 @@ VideoPortScanRom(
 
    DPRINT("VideoPortScanRom RomBase %p RomLength 0x%x String %s\n", RomBase, RomLength, String);
 
-   StringLength = strlen((PCHAR)String);
+   StringLength = strlen(String);
    Found = FALSE;
    SearchLocation = RomBase;
    for (SearchLocation = RomBase;

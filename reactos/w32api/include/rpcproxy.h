@@ -20,10 +20,6 @@ extern "C" {
 #include <rpcndr.h>
 #include <string.h>
 
-#ifndef __RPCPROXY_H_VERSION__
-#define __RPCPROXY_H_VERSION__ 475
-#endif
-
 #define CStdStubBuffer_METHODS CStdStubBuffer_QueryInterface,CStdStubBuffer_AddRef,\
 CStdStubBuffer_Release,CStdStubBuffer_Connect,CStdStubBuffer_Disconnect,CStdStubBuffer_Invoke,\
 CStdStubBuffer_IsIIDSupported,CStdStubBuffer_CountRefs,CStdStubBuffer_DebugServerQueryInterface,\
@@ -101,13 +97,6 @@ DLLDUMMYPURECALL \
 DLLREGISTRY_ROUTINES(pProxyFileList, pClsID)
 
 #define DLLDATA_STANDARD_ROUTINES DLLDATA_ROUTINES( (const ProxyFileInfo**) pProxyFileList, &CLSID_PSFactoryBuffer)
-
-#define CINTERFACE_PROXY_VTABLE(n) \
-	struct \
-	{ \
-		CInterfaceProxyHeader header; \
-		void *Vtbl[n]; \
-	}
 
 struct tagCInterfaceStubVtbl;
 struct tagCInterfaceProxyVtbl;

@@ -26,7 +26,14 @@
  *        IF DEFINED variable command
  */
 
+#include "config.h"
+
 #include "precomp.h"
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "batch.h"
 
 
 #define X_EXEC 1

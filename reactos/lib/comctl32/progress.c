@@ -493,13 +493,13 @@ static DWORD PROGRESS_SetRange (PROGRESS_INFO *infoPtr, int low, int high)
  *           ProgressWindowProc
  */
 static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
-                                         WPARAM wParam, LPARAM lParam)
+                                  WPARAM wParam, LPARAM lParam)
 {
     PROGRESS_INFO *infoPtr;
 
     TRACE("hwnd=%p msg=%04x wparam=%x lParam=%lx\n", hwnd, message, wParam, lParam);
 
-    infoPtr = (PROGRESS_INFO *)GetWindowLongPtrW(hwnd, 0);
+    infoPtr = (PROGRESS_INFO *)GetWindowLongW(hwnd, 0);
 
     if (!infoPtr && message != WM_CREATE)
         return DefWindowProcW( hwnd, message, wParam, lParam );
@@ -518,7 +518,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
         /* allocate memory for info struct */
         infoPtr = (PROGRESS_INFO *)Alloc (sizeof(PROGRESS_INFO));
         if (!infoPtr) return -1;
-        SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
+        SetWindowLongW (hwnd, 0, (DWORD)infoPtr);
 
         /* initialize the info struct */
         infoPtr->Self = hwnd;
@@ -538,7 +538,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
     case WM_DESTROY:
         TRACE("Progress Ctrl destruction, hwnd=%p\n", hwnd);
         Free (infoPtr);
-        SetWindowLongPtrW(hwnd, 0, 0);
+        SetWindowLongW(hwnd, 0, 0);
         return 0;
 
     case WM_GETFONT:
@@ -654,7 +654,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
  *
  * Registers the progress bar window class.
  */
-void PROGRESS_Register (void)
+VOID PROGRESS_Register (void)
 {
     WNDCLASSW wndClass;
 
@@ -675,7 +675,7 @@ void PROGRESS_Register (void)
  *
  * Unregisters the progress bar window class.
  */
-void PROGRESS_Unregister (void)
+VOID PROGRESS_Unregister (void)
 {
     UnregisterClassW (PROGRESS_CLASSW, NULL);
 }

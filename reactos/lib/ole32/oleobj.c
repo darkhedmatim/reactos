@@ -22,9 +22,6 @@
 
 #include <stdarg.h>
 #include <string.h>
-
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -68,6 +65,7 @@ static HRESULT WINAPI    OleAdviseHolderImpl_SendOnClose (LPOLEADVISEHOLDER);
  */
 static struct IOleAdviseHolderVtbl oahvt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     OleAdviseHolderImpl_QueryInterface,
     OleAdviseHolderImpl_AddRef,
     OleAdviseHolderImpl_Release,
@@ -142,7 +140,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_QueryInterface(
   REFIID            riid,
   LPVOID*           ppvObj)
 {
-  OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+  ICOM_THIS(OleAdviseHolderImpl, iface);
   TRACE("(%p)->(%s,%p)\n",This,debugstr_guid(riid),ppvObj);
   /*
    * Sanity check
@@ -180,7 +178,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_QueryInterface(
 static ULONG WINAPI OleAdviseHolderImpl_AddRef(
   LPOLEADVISEHOLDER iface)
 {
-  OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+  ICOM_THIS(OleAdviseHolderImpl, iface);
   TRACE("(%p)->(ref=%ld)\n", This, This->ref);
   return ++(This->ref);
 }
@@ -191,14 +189,18 @@ static ULONG WINAPI OleAdviseHolderImpl_AddRef(
 static ULONG WINAPI OleAdviseHolderImpl_Release(
   LPOLEADVISEHOLDER iface)
 {
-  OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
-  ULONG ref;
+  ICOM_THIS(OleAdviseHolderImpl, iface);
   TRACE("(%p)->(ref=%ld)\n", This, This->ref);
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
 
-  if (ref == 0) OleAdviseHolderImpl_Destructor(This);
+  if (This->ref == 0)
+  {
+    OleAdviseHolderImpl_Destructor(This);
 
-  return ref;
+    return 0;
+  }
+
+  return This->ref;
 }
 
 /******************************************************************************
@@ -211,7 +213,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_Advise(
 {
   DWORD index;
 
-  OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+  ICOM_THIS(OleAdviseHolderImpl, iface);
 
   TRACE("(%p)->(%p, %p)\n", This, pAdvise, pdwConnection);
 
@@ -275,7 +277,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_Unadvise(
   LPOLEADVISEHOLDER iface,
   DWORD             dwConnection)
 {
-  OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+  ICOM_THIS(OleAdviseHolderImpl, iface);
 
   TRACE("(%p)->(%lu)\n", This, dwConnection);
 
@@ -310,7 +312,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_Unadvise(
 static HRESULT WINAPI
 OleAdviseHolderImpl_EnumAdvise (LPOLEADVISEHOLDER iface, IEnumSTATDATA **ppenumAdvise)
 {
-    OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+    ICOM_THIS(OleAdviseHolderImpl, iface);
     FIXME("(%p)->(%p)\n", This, ppenumAdvise);
 
     *ppenumAdvise = NULL;
@@ -324,7 +326,7 @@ OleAdviseHolderImpl_EnumAdvise (LPOLEADVISEHOLDER iface, IEnumSTATDATA **ppenumA
 static HRESULT WINAPI
 OleAdviseHolderImpl_SendOnRename (LPOLEADVISEHOLDER iface, IMoniker *pmk)
 {
-    OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+    ICOM_THIS(OleAdviseHolderImpl, iface);
     FIXME("(%p)->(%p)\n", This, pmk);
 
 
@@ -337,7 +339,7 @@ OleAdviseHolderImpl_SendOnRename (LPOLEADVISEHOLDER iface, IMoniker *pmk)
 static HRESULT WINAPI
 OleAdviseHolderImpl_SendOnSave (LPOLEADVISEHOLDER iface)
 {
-    OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+    ICOM_THIS(OleAdviseHolderImpl, iface);
     FIXME("(%p)\n", This);
 
     return S_OK;
@@ -349,7 +351,7 @@ OleAdviseHolderImpl_SendOnSave (LPOLEADVISEHOLDER iface)
 static HRESULT WINAPI
 OleAdviseHolderImpl_SendOnClose (LPOLEADVISEHOLDER iface)
 {
-    OleAdviseHolderImpl *This = (OleAdviseHolderImpl *)iface;
+    ICOM_THIS(OleAdviseHolderImpl, iface);
     FIXME("(%p)\n", This);
 
 
@@ -411,6 +413,7 @@ static HRESULT WINAPI     DataAdviseHolder_SendOnDataChange(
  */
 static struct IDataAdviseHolderVtbl DataAdviseHolderImpl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataAdviseHolder_QueryInterface,
   DataAdviseHolder_AddRef,
   DataAdviseHolder_Release,
@@ -474,7 +477,7 @@ static HRESULT WINAPI DataAdviseHolder_QueryInterface(
   REFIID                  riid,
   void**                  ppvObject)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
   TRACE("(%p)->(%s,%p)\n",This,debugstr_guid(riid),ppvObject);
   /*
    * Perform a sanity check on the parameters.
@@ -521,9 +524,11 @@ static HRESULT WINAPI DataAdviseHolder_QueryInterface(
 static ULONG WINAPI       DataAdviseHolder_AddRef(
   IDataAdviseHolder*      iface)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
   TRACE("(%p) (ref=%ld)\n", This, This->ref);
-  return InterlockedIncrement(&This->ref);
+  This->ref++;
+
+  return This->ref;
 }
 
 /************************************************************************
@@ -534,21 +539,25 @@ static ULONG WINAPI       DataAdviseHolder_AddRef(
 static ULONG WINAPI DataAdviseHolder_Release(
   IDataAdviseHolder*      iface)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
-  ULONG ref;
+  ICOM_THIS(DataAdviseHolder, iface);
   TRACE("(%p) (ref=%ld)\n", This, This->ref);
 
   /*
    * Decrease the reference count on this object.
    */
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0) DataAdviseHolder_Destructor(This);
+  if (This->ref==0)
+  {
+    DataAdviseHolder_Destructor(This);
 
-  return ref;
+    return 0;
+  }
+
+  return This->ref;
 }
 
 /************************************************************************
@@ -565,7 +574,7 @@ static HRESULT WINAPI DataAdviseHolder_Advise(
 {
   DWORD index;
 
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
 
   TRACE("(%p)->(%p, %p, %08lx, %p, %p)\n", This, pDataObject, pFetc, advf,
 	pAdvise, pdwConnection);
@@ -626,7 +635,7 @@ static HRESULT WINAPI     DataAdviseHolder_Unadvise(
   IDataAdviseHolder*      iface,
   DWORD                   dwConnection)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
 
   TRACE("(%p)->(%lu)\n", This, dwConnection);
 
@@ -658,7 +667,7 @@ static HRESULT WINAPI     DataAdviseHolder_EnumAdvise(
   IDataAdviseHolder*      iface,
   IEnumSTATDATA**         ppenumAdvise)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
 
   FIXME("(%p)->(%p)\n", This, ppenumAdvise);
   return E_NOTIMPL;
@@ -673,7 +682,7 @@ static HRESULT WINAPI     DataAdviseHolder_SendOnDataChange(
   DWORD                   dwReserved,
   DWORD                   advf)
 {
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
+  ICOM_THIS(DataAdviseHolder, iface);
   DWORD index;
   STGMEDIUM stg;
   HRESULT res;

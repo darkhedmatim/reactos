@@ -1,38 +1,17 @@
-# Default to half-verbose mode
+# Default to verbose mode
 ifeq ($(VERBOSE),no)
   Q = @
-  HALFVERBOSEECHO = @:
-  # Do not print "Entering directory ..."
-  export MAKEFLAGS += --no-print-directory
-  # Be silent
-  export MAKEFLAGS += --silent
 else
-ifeq ($(VERBOSE),yes)
   Q =
-  HALFVERBOSEECHO = @:
-else
-  Q = @
-  # the following is a hack to get the target name for wine dlls
-  # it's disabled because it produces warnings about overriden rules for author.c
-  #ifeq ($(TARGET_TYPE),winedll)
-  #  export TOOLS_PATH = $(PATH_TO_TOP)/tools
-  #  -include Makefile.ros
-  #endif
-  ifeq ($(TARGET_NAME),)
-    HALFVERBOSEECHO = @echo
-  else
-    HALFVERBOSEECHO = @echo $(TARGET_NAME):
-  endif
-  # Do not print "Entering directory ..."
-  export MAKEFLAGS += --no-print-directory
-  # Be silent
-  export MAKEFLAGS += --silent
-endif
 endif
 
 export MAKE := @$(MAKE)
 
 ifeq ($(VERBOSE),no)
+# Do not print "Entering directory ..."
+export MAKEFLAGS += --no-print-directory
+# Be silent
+export MAKEFLAGS += --silent
 endif
 
 # Windows is default host environment
@@ -41,14 +20,8 @@ export HOST = mingw32-windows
 endif
 
 # Default to building map files which includes source and asm code
-# Other options are: yes
-ifeq ($(BUILD_MAP),)
-export BUILD_MAP = full
-endif
-
-# Default to dumping .sym files out of .nostrip files
-ifeq ($(BUILD_SYM),)
-export BUILD_SYM = yes
+ifeq ($(FULL_MAP),)
+export FULL_MAP = yes
 endif
 
 # Default to minimal dependencies, making components not
@@ -161,16 +134,10 @@ export MKHIVE = $(Q)$(TOOLS_PATH)/mkhive/mkhive
 export CDMAKE = $(Q)$(TOOLS_PATH)/cdmake/cdmake
 export BIN2RES = $(Q)$(TOOLS_PATH)/bin2res/bin2res
 export XSLTPROC = $(Q)xsltproc
-export MS2PS = $(Q)$(TOOLS_PATH)/ms2ps/ms2ps
 
-export STD_CFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -pipe -march=$(OARCH) -D_M_IX86
+export STD_CFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -pipe -march=i386 -D_M_IX86
 export STD_CPPFLAGS = $(STD_CFLAGS)
-# Check for 3GB 
-ifeq ($(3GB), 1)
-export STD_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -D__ASM__ -D_M_IX86 -D__3GB__
-else
 export STD_ASFLAGS = -I$(PATH_TO_TOP)/include -I$(W32API_PATH)/include -D__ASM__ -D_M_IX86
-endif
 export STD_RCFLAGS = --include-dir $(PATH_TO_TOP)/include --include-dir $(W32API_PATH)/include
 export STD_NFLAGS = -f win32
 
@@ -205,5 +172,5 @@ export OS2_PATH_LIB=$(OS2_PATH)/lib
 export OS2_PATH_INC=$(OS2_PATH)/include
 
 # Other systems integration
-export REGTESTS_PATH=$(PATH_TO_TOP)/regtests
+export ROOT_PATH=$(PATH_TO_TOP)/..
 export REGTESTS_PATH_INC=$(PATH_TO_TOP)/regtests/shared

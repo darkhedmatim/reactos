@@ -34,10 +34,8 @@
 #include <ctype.h>
 #include <limits.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
@@ -633,8 +631,7 @@ INT WINAPI
 FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData, LPINT lpRegNum)
 {
     LPWINEMRULIST mp = (LPWINEMRULIST)hList;
-    INT ret;
-    UINT i;
+    UINT i, ret;
     LPSTR dataA = NULL;
 
     if (!mp->extview.lpfnCompare) {

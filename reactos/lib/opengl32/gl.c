@@ -76,7 +76,7 @@ ret STDCALL func typeargs                                             \
 {                                                                     \
 	PROC *table;                                                      \
 	PROC fn;                                                          \
-	if (tebidx >= 0 && 0)                                                  \
+	if (tebidx >= 10000)                                                  \
 	{                                                                 \
 		table = (PROC *)NtCurrentTeb()->glDispatchTable;              \
 		fn = table[tebidx];                                           \

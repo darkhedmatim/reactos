@@ -9,8 +9,6 @@
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
 
-unsigned int __setlc_active;
-unsigned int __unguarded_readlc_active;
 int _current_category;	/* used by setlocale */
 const char *_current_locale;
 
@@ -175,29 +173,5 @@ return;
 void __lc_collate_cp(int cp)
 {
 DPRINT1("__lc_collate_cp - stub\n");
-return;
-}
-
-
-/*********************************************************************
- *		__lc_handle (MSVCRT.@)
- *
- * @unimplemented
- */
-void __lc_handle(void)
-{
-DPRINT1("__lc_handle - stub\n");
-return;
-}
-
-
-/*********************************************************************
- *		__lc_codepage (MSVCRT.@)
- *
- * @unimplemented
- */
-void __lc_codepage(void)
-{
-DPRINT1("__lc_codepage - stub\n");
 return;
 }

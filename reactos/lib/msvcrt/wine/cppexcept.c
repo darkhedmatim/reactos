@@ -23,7 +23,7 @@
  * www.thecodeproject.com.
  */
 
-#include "wine/config.h"
+#include "config.h"
 #include "wine/port.h"
 
 #include <stdarg.h>
