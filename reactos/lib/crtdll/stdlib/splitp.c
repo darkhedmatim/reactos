@@ -1,10 +1,6 @@
-#include <msvcrt/stdlib.h>
-#include <msvcrt/string.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/string.h>
 
-
-/*
- * @implemented
- */
 void _splitpath( const char *path, char *drive, char *dir, char *fname, char *ext )
 {
 	char *tmp_drive;
@@ -34,17 +30,13 @@ void _splitpath( const char *path, char *drive, char *dir, char *fname, char *ex
 		strcpy(ext,tmp_ext);
 	}
 	else
-	{
 		*ext = 0; 
-		tmp_ext = (char*)path+strlen(path);
-	}
     if ( tmp_dir != NULL ) {
 		strncpy(fname,tmp_dir+1,tmp_ext - tmp_dir - 1);
 		*(fname + (tmp_ext - tmp_dir -1)) = 0;
 	}
 	else
-	{
 		strncpy(fname,path,tmp_ext - path);
-		*(fname+(tmp_ext-path))=0;
-	}
+
 }
+

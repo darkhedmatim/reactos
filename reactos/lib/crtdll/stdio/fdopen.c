@@ -1,12 +1,8 @@
-#include <msvcrt/stdio.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/internal/file.h>
 
 FILE *	__alloc_file(void);
 
-
-/*
- * @implemented
- */
 FILE *_fdopen(int handle, char *mode)
 {
   FILE *file;
@@ -52,6 +48,15 @@ FILE *_fdopen(int handle, char *mode)
     file->_flag = _IOWRT;
 
   file->_base = file->_ptr = NULL;   
-
   return file;
 }        
+                       
+                        
+                        
+                        
+                       
+                       
+                      
+                      
+                      
+                       

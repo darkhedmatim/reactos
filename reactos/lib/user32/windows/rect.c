@@ -1,237 +1,63 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: rect.c,v 1.16 2004/08/15 21:36:30 chorns Exp $
- *
- * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/input.c
- * PURPOSE:         Input
- * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
- * UPDATE HISTORY:
- *      09-05-2001  CSH  Created
- */
+#include <windows.h>
+#include <user32/nc.h>
 
-/* INCLUDES ******************************************************************/
-
-#include "user32.h"
-#include <debug.h>
-
-/* FUNCTIONS *****************************************************************/
-
-/*
- * @implemented
- */
-BOOL STDCALL
-CopyRect(LPRECT lprcDst, CONST RECT *lprcSrc)
+WINBOOL 
+STDCALL 
+AdjustWindowRect( LPRECT lpRect, DWORD dwStyle, WINBOOL bMenu )
 {
-  if(lprcDst == NULL || lprcSrc == NULL)
-    return(FALSE);
-  
-  *lprcDst = *lprcSrc;
-  return(TRUE);
+    return AdjustWindowRectEx( lpRect, dwStyle, bMenu, 0 );
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-EqualRect(
-   CONST RECT *lprc1,
-   CONST RECT *lprc2)
+
+WINBOOL
+STDCALL AdjustWindowRectEx(LPRECT lpRect, DWORD dwStyle, WINBOOL bMenu, DWORD dwExStyle)
 {
-   if (lprc1 == NULL || lprc2 == NULL)
-      return FALSE;
-  
-   return (lprc1->left == lprc2->left) && (lprc1->top == lprc2->top) &&
-          (lprc1->right == lprc2->right) && (lprc1->bottom == lprc2->bottom);
-}
+        /* Correct the window style */
 
+    if (!(dwStyle & (WS_POPUP | WS_CHILD)))  /* Overlapped window */
+	dwStyle |= WS_CAPTION;
+    dwStyle &= (WS_DLGFRAME | WS_BORDER | WS_THICKFRAME | WS_CHILD);
+    dwExStyle &= (WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE |
+		WS_EX_STATICEDGE | WS_EX_TOOLWINDOW);
+    if (dwExStyle & WS_EX_DLGMODALFRAME) dwStyle &= ~WS_THICKFRAME;
 
-/*
- * @implemented
- */
-BOOL STDCALL
-InflateRect(LPRECT rect, int dx, int dy)
-{
-  rect->left -= dx;
-  rect->top -= dy;
-  rect->right += dx;
-  rect->bottom += dy;
-  return(TRUE);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-IntersectRect(LPRECT lprcDst,
-	      CONST RECT *lprcSrc1,
-	      CONST RECT *lprcSrc2)
-{
-  if (IsRectEmpty(lprcSrc1) || IsRectEmpty(lprcSrc2) ||
-      lprcSrc1->left >= lprcSrc2->right || 
-      lprcSrc2->left >= lprcSrc1->right ||
-      lprcSrc1->top >= lprcSrc2->bottom || 
-      lprcSrc2->top >= lprcSrc1->bottom)
-    {
-      SetRectEmpty(lprcDst);
-      return(FALSE);
+    if (TWEAK_WineLook == WIN31_LOOK)
+	NC_AdjustRect( lpRect, dwStyle, bMenu, dwExStyle );
+    else {
+	NC_AdjustRectOuter95( lpRect, dwStyle, bMenu, dwExStyle );
+	NC_AdjustRectInner95( lpRect, dwStyle, dwExStyle );
     }
-  lprcDst->left = max(lprcSrc1->left, lprcSrc2->left);
-  lprcDst->right = min(lprcSrc1->right, lprcSrc2->right);
-  lprcDst->top = max(lprcSrc1->top, lprcSrc2->top);
-  lprcDst->bottom = min(lprcSrc1->bottom, lprcSrc2->bottom);
-  return(TRUE);
+   
+    return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-IsRectEmpty(CONST RECT *lprc)
+WINBOOL STDCALL GetWindowRect( HWND hwnd, LPRECT rect ) 
 {
-  return((lprc->left >= lprc->right) || (lprc->top >= lprc->bottom));
+    WND * wndPtr = WIN_FindWndPtr( hwnd ); 
+    if (!wndPtr) return FALSE;
+    
+    *rect = wndPtr->rectWindow;
+    if (wndPtr->dwStyle & WS_CHILD)
+	MapWindowPoints( wndPtr->parent->hwndSelf, 0, (POINT *)rect, 2 );
+    return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
-OffsetRect(LPRECT rect, int dx, int dy)
+WINBOOL
+STDCALL
+GetClientRect(HWND hWnd, LPRECT lpRect)
 {
-  if(rect == NULL)
-    return(FALSE);
-  
-  rect->left += dx;
-  rect->top += dy;
-  rect->right += dx;
-  rect->bottom += dy;
-  return(TRUE);  
-}
+    WND * wndPtr = WIN_FindWndPtr( hWnd );
+    if ( wndPtr == NULL || lpRect == NULL )
+	return FALSE;
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-PtInRect(CONST RECT *lprc, POINT pt)
-{
-  return((pt.x >= lprc->left) && (pt.x < lprc->right) &&
-	 (pt.y >= lprc->top) && (pt.y < lprc->bottom));
-}
-
-BOOL STDCALL
-SetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
-{
-  lprc->left = xLeft;
-  lprc->top = yTop;
-  lprc->right = xRight;
-  lprc->bottom = yBottom;
-  return(TRUE);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SetRectEmpty(LPRECT lprc)
-{
-  lprc->left = lprc->right = lprc->top = lprc->bottom = 0;
-  return(TRUE);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SubtractRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
-{
-  RECT tempRect;
-  
-  if(lprcDst == NULL || lprcSrc1 == NULL || lprcSrc2 == NULL)
-    return(FALSE);
-  
-  CopyRect(lprcDst, lprcSrc1);
-  
-  if(!IntersectRect(&tempRect, lprcSrc1, lprcSrc2))
-    return(TRUE);
-  
-  if (EqualRect(&tempRect, lprcDst))
-  {
-    SetRectEmpty(lprcDst);
-    return FALSE;
-  }
-  if(lprcDst->top == tempRect.top && lprcDst->bottom == tempRect.bottom)
-  {
-    if(lprcDst->left == tempRect.left)
-      lprcDst->left = tempRect.right;
-    else if(lprcDst->right == tempRect.right)
-      lprcDst->right = tempRect.left;
-  }
-  else if(lprcDst->left == tempRect.left && lprcDst->right == tempRect.right)
-  {
-    if(lprcDst->top == tempRect.top)
-      lprcDst->top = tempRect.bottom;
-    else if(lprcDst->right == tempRect.right)
-      lprcDst->right = tempRect.left;
-  }
-  
-  return(TRUE);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-UnionRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
-{
-  if (IsRectEmpty(lprcSrc1))
+    lpRect->left = lpRect->top = lpRect->right = lpRect->bottom = 0;
+    if (wndPtr) 
     {
-      if (IsRectEmpty(lprcSrc2))
-	{
-	  SetRectEmpty(lprcDst);
-	  return(FALSE);
-	}
-      else
-	{
-	  *lprcDst = *lprcSrc2;
-	}
+	lpRect->right  = wndPtr->rectClient.right - wndPtr->rectClient.left;
+	lpRect->bottom = wndPtr->rectClient.bottom - wndPtr->rectClient.top;
     }
-  else
-    {
-      if (IsRectEmpty(lprcSrc2))
-	{
-	  *lprcDst = *lprcSrc1;
-	}
-      else
-	{
-	  lprcDst->left = min(lprcSrc1->left, lprcSrc2->left);
-	  lprcDst->top = min(lprcSrc1->top, lprcSrc2->top);
-	  lprcDst->right = max(lprcSrc1->right, lprcSrc2->right);
-	  lprcDst->bottom = max(lprcSrc1->bottom, lprcSrc2->bottom);
-	}
-    }
-  return(TRUE);
+    return TRUE;
 }

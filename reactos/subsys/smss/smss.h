@@ -9,14 +9,13 @@
 
 /* GLOBAL VARIABLES ****/
 
-//extern HANDLE SmApiPort;
+extern HANDLE SmApiPort;
 
 
 /* FUNCTIONS ***********/
 
 /* init.c */
-NTSTATUS
-InitSessionManager(HANDLE Children[]);
+BOOL InitSessionManager (HANDLE Children[]);
 
 
 /* smss.c */
@@ -25,12 +24,7 @@ void PrintString (char* fmt,...);
 
 
 /* smapi.c */
-
-NTSTATUS
-SmCreateApiPort(VOID);
-
-VOID STDCALL
-SmApiThread(HANDLE Port);
+VOID STDCALL SmApiThread(HANDLE Port);
 
 
 

@@ -1,8 +1,8 @@
-/* $Id: dereg.c,v 1.8 2004/03/02 18:18:14 navaraf Exp $
+/* $Id: dereg.c,v 1.1 1999/11/28 07:59:29 ea Exp $
  *
  */
-#include <ddk/ntddk.h>
-#include <ddk/tdi.h>
+#include <ntos.h>
+
 
 /* De-/Register Action IDs for TdiDeRegister */
 
@@ -10,7 +10,7 @@ typedef
 enum 
 {
 	R_NOTIFICATION_HANDLER = 0,
-	DT_NOTIFICATION_HANDLER,
+	D_NOTIFICATION_HANDLER,
 	R_DEVICE_OBJECT,
 	D_DEVICE_OBJECT,
 	R_ADDRESS_CHANGE_HANDLER,
@@ -35,19 +35,16 @@ TdiDeRegister (
 
 /* ADDRESS_CHANGE_HANDLER */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterAddressChangeHandler (
 	DWORD	Unknown0,
 	DWORD	Unknown1,
-	DWORD	Unknown2
+	DWORD	Unknown2,
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_ADDRESS_CHANGE_HANDLER,
 			AddressChangeHandler
@@ -57,9 +54,6 @@ TdiRegisterAddressChangeHandler (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterAddressChangeHandler (
@@ -75,9 +69,6 @@ TdiDeregisterAddressChangeHandler (
 
 /* DEVICE_OBJECT */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterDeviceObject (
@@ -85,20 +76,17 @@ TdiRegisterDeviceObject (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_DEVICE_OBJECT,
 			DeviceObject
 			);
 #endif
-	return STATUS_NOT_IMPLEMENTED;
+	return = STATUS_NOT_IMPLEMENTED;
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterDeviceObject (
@@ -114,9 +102,6 @@ TdiDeregisterDeviceObject (
 
 /* NET_ADDRESS */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterNetAddress (
@@ -124,8 +109,8 @@ TdiRegisterNetAddress (
 	DWORD	Unknown1
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NET_ADDRESS,
 			NetAddress
@@ -135,9 +120,6 @@ TdiRegisterNetAddress (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterNetAddress (
@@ -153,9 +135,6 @@ TdiDeregisterNetAddress (
 
 /* NOTIFICATION_HANDLER */
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiRegisterNotificationHandler (
@@ -164,8 +143,8 @@ TdiRegisterNotificationHandler (
 	DWORD	Unknown2
 	)
 {
-#if 0	
 	NTSTATUS	Status = STATUS_SUCCESS;
+#if 0	
 	Status = TdiDeRegister (
 			R_NOTIFICATION_HANDLER,
 			NotificationHandler
@@ -175,9 +154,6 @@ TdiRegisterNotificationHandler (
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS
 STDCALL
 TdiDeregisterNotificationHandler (

@@ -1,10 +1,5 @@
-#include <msvcrt/mbstring.h>
-
-/*
- * FIXME not correct
- *
- * @implemented
- */
+#include <crtdll/mbstring.h>
+// not correct
 unsigned char * _mbsspnp(const unsigned char *s1, const unsigned char *s2)
 {
   const char *p = s1, *spanp;
@@ -15,5 +10,5 @@ unsigned char * _mbsspnp(const unsigned char *s1, const unsigned char *s2)
   for (spanp = s2; (sc = *spanp++) != 0;)
     if (sc == c)
       goto cont;
-  return (unsigned char *)p;
+  return p;
 }

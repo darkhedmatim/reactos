@@ -1,15 +1,36 @@
-# $Id: makefile,v 1.7 2004/01/20 00:29:48 sedwards Exp $
+#
+#
+#
+OBJECTS= sound.o ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+all: sound.sys
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = sb16
+clean:
+ifeq ($(DOSCLI),yes)
+	- $(RM) sound.o
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) sound.sys
+else
+	- $(RM) sound.o junk.tmp base.tmp temp.exp sound.sys
+endif
 
-TARGET_OBJECTS = sb16.o dsp.o mixer.o sb_waveout.o sound.o wave.o
+.phony: clean
 
-TARGET_CFLAGS = -Wall
+sound.sys: $(OBJECTS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end \
+	      -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext \
+	      -Wl,--base-file,base.tmp $(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) --dllname sound.sys --base-file base.tmp \
+	           --output-exp temp.exp
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 \
+	      -specs=../../svc_specs -mdll -o sound.sys $(OBJECTS) -Wl,temp.exp
 
-include $(PATH_TO_TOP)/rules.mak
+sound.o: sound.c dsp.c mixer.c wave.h wave.c
 
-include $(TOOLS_PATH)/helper.mk
+

@@ -10,11 +10,13 @@
  *              28/12/98: Created
  */
 
-#include <msvcrt/conio.h>
-#include <msvcrt/internal/console.h>
+#include <crtdll/process.h>
+#include <crtdll/conio.h>
 
 
-int getche(void)
+extern int char_avail;
+int
+getche(void)
 {
   if (char_avail)
     /*

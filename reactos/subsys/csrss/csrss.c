@@ -1,4 +1,4 @@
-/* $Id: csrss.c,v 1.15 2003/11/17 02:12:51 hyperion Exp $
+/* $Id: csrss.c,v 1.4 1999/12/30 01:51:41 dwelch Exp $
  *
  * csrss.c - Client/Server Runtime subsystem
  * 
@@ -32,107 +32,37 @@
  * 		actually does nothing but running).
  */
 #include <ddk/ntddk.h>
-#include <ntdll/rtl.h>
-#include <csrss/csrss.h>
-#include <rosrtl/string.h>
 
-#include "api.h"
+BOOL TerminationRequestPending = FALSE;
+
+BOOL InitializeServer(void);
+
 
 /* Native process' entry point */
 
-VOID STDCALL NtProcessStartup(PPEB Peb)
+VOID NtProcessStartup(PPEB Peb)
 {
-   PRTL_USER_PROCESS_PARAMETERS ProcParams;
-   PWSTR ArgBuffer;
-   PWSTR *argv;
-   ULONG argc = 0;
-   int i = 0;
-   int afterlastspace = 0;
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   HANDLE CsrssInitEvent;
-   UNICODE_STRING UnicodeString;
-   NTSTATUS Status;
+   DisplayString(L"Client/Server Runtime Subsystem\n");
 
-   ProcParams = RtlNormalizeProcessParams (Peb->ProcessParameters);
-
-   argv = (PWSTR *)RtlAllocateHeap (Peb->ProcessHeap,
-                                    0, 512 * sizeof(PWSTR));
-   ArgBuffer = (PWSTR)RtlAllocateHeap (Peb->ProcessHeap,
-                                       0,
-                                       ProcParams->CommandLine.Length + sizeof(WCHAR));
-   memcpy (ArgBuffer,
-           ProcParams->CommandLine.Buffer,
-           ProcParams->CommandLine.Length + sizeof(WCHAR));
-
-   while (ArgBuffer[i])
+   if (InitializeServer() == TRUE)
      {
-	if (ArgBuffer[i] == L' ')
+	while (FALSE == TerminationRequestPending)
 	  {
-	     argc++;
-	     ArgBuffer[i] = L'\0';
-	     argv[argc-1] = &(ArgBuffer[afterlastspace]);
-	     i++;
-	     while (ArgBuffer[i] == L' ')
-		i++;
-	     afterlastspace = i;
+	     /* Do nothing! Should it
+	      * be the SbApi port's
+	      * thread instead?
+	      */
+	     NtYieldExecution();
 	  }
-	else
-	  {
-	     i++;
-	  }
-     }
-
-   if (ArgBuffer[afterlastspace] != L'\0')
-     {
-	argc++;
-	ArgBuffer[i] = L'\0';
-	argv[argc-1] = &(ArgBuffer[afterlastspace]);
-     }
-   
-   RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
-			L"\\CsrssInitDone");
-   InitializeObjectAttributes(&ObjectAttributes,
-			      &UnicodeString,
-			      EVENT_ALL_ACCESS,
-			      0,
-			      NULL);
-   Status = NtOpenEvent(&CsrssInitEvent,
-			EVENT_ALL_ACCESS,
-			&ObjectAttributes);
-   if (!NT_SUCCESS(Status))
-     {
-	DbgPrint("CSR: Failed to open csrss notification event\n");
-     }
-   if (CsrServerInitialization (argc, argv) == TRUE)
-     {
-
-	NtSetEvent(CsrssInitEvent,
-		   NULL);
-	
-	RtlFreeHeap (Peb->ProcessHeap,
-	             0, argv);
-	RtlFreeHeap (Peb->ProcessHeap,
-	             0,
-	             ArgBuffer);
-
-	/* terminate the current thread only */
-	NtTerminateThread( NtCurrentThread(), 0 );
      }
    else
      {
 	DisplayString( L"CSR: Subsystem initialization failed.\n" );
-
-	RtlFreeHeap (Peb->ProcessHeap,
-	             0, argv);
-	RtlFreeHeap (Peb->ProcessHeap,
-	             0,
-	             ArgBuffer);
-
 	/*
 	 * Tell SM we failed.
 	 */
-	NtTerminateProcess( NtCurrentProcess(), 0 );
      }
+   NtTerminateProcess( NtCurrentProcess(), 0 );
 }
 
 /* EOF */

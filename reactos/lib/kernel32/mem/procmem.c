@@ -1,5 +1,4 @@
-/* $Id: procmem.c,v 1.9 2004/10/30 22:18:17 weiden Exp $
- *
+/*
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
  * FILE:                 lib/kernel32/mem/procmem.c
@@ -9,17 +8,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
+#include <ddk/ntddk.h>
+#include <windows.h>
 
 /* FUNCTIONS *****************************************************************/
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 ReadProcessMemory (
 	HANDLE	hProcess,
@@ -38,38 +32,33 @@ ReadProcessMemory (
 
 	if (!NT_SUCCESS(Status))
      	{
-		SetLastErrorByStatus (Status);
+		SetLastError(RtlNtStatusToDosError(Status));
 		return FALSE;
      	}
 	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 WriteProcessMemory (
-	HANDLE hProcess,
-	LPVOID lpBaseAddress,
-	LPCVOID lpBuffer,
-	SIZE_T nSize,
-	SIZE_T *lpNumberOfBytesWritten
+	HANDLE	hProcess,
+	LPVOID	lpBaseAddress,
+	LPVOID	lpBuffer,
+	DWORD	nSize,
+	LPDWORD	lpNumberOfBytesWritten
 	)
 {
 	NTSTATUS Status;
 
-	Status = NtWriteVirtualMemory( hProcess, lpBaseAddress, (LPVOID)lpBuffer, nSize,
+	Status = NtWriteVirtualMemory( hProcess, lpBaseAddress,lpBuffer, nSize,
 		(PULONG)lpNumberOfBytesWritten
 		);
 
 	if (!NT_SUCCESS(Status))
      	{
-		SetLastErrorByStatus (Status);
+		SetLastError(RtlNtStatusToDosError(Status));
 		return FALSE;
      	}
 	return TRUE;
 }
-
-/* EOF */

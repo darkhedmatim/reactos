@@ -1,43 +1,52 @@
-/* $Id: error.c,v 1.23 2004/10/24 12:36:12 weiden Exp $
+/* $Id: error.c,v 1.12 1999/10/07 23:45:07 ekohl Exp $
  *
  * reactos/lib/kernel32/misc/error.c
  *
  */
+#include <ddk/ntddk.h>
+#include <ddk/ntddbeep.h>
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
+// #define NDEBUG
+#include <kernel32/kernel32.h>
 
 
-/*
- * @implemented
- */
+static DWORD LastError=0;
+
+
 VOID
 STDCALL
 SetLastError (
 	DWORD	dwErrorCode
 	)
 {
-	NtCurrentTeb ()->LastErrorValue = (ULONG) dwErrorCode;
+	/* FIXME: it is per thread */
+	LastError = dwErrorCode;
 }
 
-
-/*
- * @implemented
- */
 DWORD
 STDCALL
 GetLastError (VOID)
 {
-	return (DWORD) (NtCurrentTeb ()->LastErrorValue);
+	/* FIXME: it is per thread */
+	return LastError;
 }
 
 
-/*
- * @implemented
- */
 BOOL
+__ErrorReturnFalse (ULONG ErrorCode)
+{
+   return(FALSE);
+}
+
+
+PVOID
+__ErrorReturnNull (ULONG ErrorCode)
+{
+   return(NULL);
+}
+
+
+WINBOOL
 STDCALL
 Beep (DWORD dwFreq, DWORD dwDuration)
 {
@@ -45,7 +54,7 @@ Beep (DWORD dwFreq, DWORD dwDuration)
     BEEP_SET_PARAMETERS BeepSetParameters;
     DWORD dwReturned;
 
-    hBeep = CreateFileW(L"\\\\.\\Beep",
+    hBeep = CreateFile("\\\\.\\Beep",
                        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                        0,
                        NULL,
@@ -72,5 +81,6 @@ Beep (DWORD dwFreq, DWORD dwDuration)
 
     return TRUE;
 }
+
 
 /* EOF */

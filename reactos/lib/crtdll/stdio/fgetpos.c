@@ -1,11 +1,9 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/errno.h>
+#include <crtdll/stdio.h>
+#include <crtdll/errno.h>
 
-/*
- * @implemented
- */
-int fgetpos(FILE *stream, fpos_t *pos)
+int
+fgetpos(FILE *stream, fpos_t *pos)
 {
   if (stream && pos)
   {

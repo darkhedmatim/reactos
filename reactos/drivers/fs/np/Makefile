@@ -1,25 +1,52 @@
-# $Id: Makefile,v 1.14 2003/11/13 15:26:07 ekohl Exp $
+# $Id: Makefile,v 1.2 1999/12/04 20:58:42 ea Exp $
+#
+# Named Pipes File System
+#
 
-PATH_TO_TOP = ../../..
+TARGETNAME=npfs
 
-TARGET_TYPE = driver
+BASE_CFLAGS = -I../../../include
 
-TARGET_NAME = npfs
+OBJECTS = create.o mount.o \
+          ../../../ntoskrnl/ntoskrnl.a
 
-TARGET_OBJECTS = \
-  create.o \
-  finfo.o \
-  fsctrl.o \
-  npfs.o \
-  rw.o \
-  volume.o
+all: $(TARGETNAME).sys
 
-TARGET_CFLAGS = -Werror -Wall
+.phony: all
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
+clean:
+	- $(RM) create.o 
+	- $(RM) mount.o
+	- $(RM) $(TARGETNAME).sys
 
-include $(PATH_TO_TOP)/rules.mak
+.phony: clean
 
-include $(TOOLS_PATH)/helper.mk
+$(TARGETNAME).sys: $(OBJECTS)
+	$(CC) \
+		-specs=../../svc_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp \
+		$(OBJECTS)
+	$(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGETNAME).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	$(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry \
+		-specs=../../svc_specs \
+		-mdll \
+		-o $(TARGETNAME).sys \
+		$(OBJECTS) \
+		-Wl,temp.exp
+	$(RM) temp.exp
 
-include $(TOOLS_PATH)/depend.mk
+include ../../../rules.mak

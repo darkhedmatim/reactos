@@ -13,7 +13,7 @@
 #include <string.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
@@ -73,9 +73,9 @@ NTSTATUS Ext2ReadFile(PDEVICE_EXTENSION DeviceExt,
    Ext2ReleaseInode(DeviceExt,
 		    &Fcb->i);
    
-   if ((Offset % PAGE_SIZE) != 0)
+   if ((Offset % PAGESIZE) != 0)
      {
-	Delta = min(PAGE_SIZE - (Offset % PAGE_SIZE),Length);
+	Delta = min(PAGESIZE - (Offset % PAGESIZE),Length);
 	CcRequestCachePage(Fcb->Bcb,
 			   Offset,
 			   &BaseAddress,
@@ -88,7 +88,7 @@ NTSTATUS Ext2ReadFile(PDEVICE_EXTENSION DeviceExt,
 			  BaseAddress,
 			  Offset / BLOCKSIZE);
 	  }
-	memcpy(Buffer, BaseAddress + (Offset % PAGE_SIZE), Delta);
+	memcpy(Buffer, BaseAddress + (Offset % PAGESIZE), Delta);
 	CcReleaseCachePage(Fcb->Bcb,
 			   CacheSeg,
 			   TRUE);
@@ -97,7 +97,7 @@ NTSTATUS Ext2ReadFile(PDEVICE_EXTENSION DeviceExt,
 	Buffer = Buffer + Delta;
      }
    CHECKPOINT;
-   for (i=0; i<(Length/PAGE_SIZE); i++)
+   for (i=0; i<(Length/PAGESIZE); i++)
      {
 	CcRequestCachePage(Fcb->Bcb,
 			   Offset,
@@ -111,16 +111,16 @@ NTSTATUS Ext2ReadFile(PDEVICE_EXTENSION DeviceExt,
 			  BaseAddress,
 			  (Offset / BLOCKSIZE));
 	  }
-	memcpy(Buffer, BaseAddress, PAGE_SIZE);
+	memcpy(Buffer, BaseAddress, PAGESIZE);
 	CcReleaseCachePage(Fcb->Bcb,
 			   CacheSeg,
 			   TRUE);	
-	Length = Length - PAGE_SIZE;
-	Offset = Offset + PAGE_SIZE;
-	Buffer = Buffer + PAGE_SIZE;
+	Length = Length - PAGESIZE;
+	Offset = Offset + PAGESIZE;
+	Buffer = Buffer + PAGESIZE;
      }
    CHECKPOINT;
-   if ((Length % PAGE_SIZE) != 0)
+   if ((Length % PAGESIZE) != 0)
      {
 	CcRequestCachePage(Fcb->Bcb,
 			   Offset,
@@ -146,8 +146,7 @@ NTSTATUS Ext2ReadFile(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-NTSTATUS STDCALL
-Ext2Write(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Write(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("Ext2Write(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -156,8 +155,7 @@ Ext2Write(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2FlushBuffers(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2FlushBuffers(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("Ext2FlushBuffers(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -166,8 +164,7 @@ Ext2FlushBuffers(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2Shutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Shutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("Ext2Shutdown(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -176,8 +173,7 @@ Ext2Shutdown(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2Cleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Cleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DbgPrint("Ext2Cleanup(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -189,8 +185,7 @@ Ext2Cleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2Read(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Read(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    ULONG Length;
    PVOID Buffer;

@@ -1,9 +1,6 @@
-#include "precomp.h"
-#include <msvcrt/io.h>
+#include <windows.h>
+#include <crtdll/io.h>
 
-/*
- * @implemented
- */
 int _eof( int _fd )
 {
 	int cur_pos = _lseek(_fd, 0, SEEK_CUR);
@@ -15,4 +12,8 @@ int _eof( int _fd )
 		return 1;
 
 	return 0;
+
+
+		
+	
 }

@@ -1,10 +1,7 @@
-#include <msvcrt/process.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdarg.h>
+#include <crtdll/process.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdarg.h>
 
-/*
- * @implemented
- */
 int _execlp(const char *szPath, const char *szArgv0, ...)
 {
   char *szArg[100];

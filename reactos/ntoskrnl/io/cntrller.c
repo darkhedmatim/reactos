@@ -1,5 +1,4 @@
-/* $Id: cntrller.c,v 1.12 2004/10/22 20:25:52 ekohl Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/cntrller.c
@@ -11,14 +10,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
-
-/* GLOBALS *******************************************************************/
-
-#define TAG_CQE                    TAG('C', 'Q', 'E', ' ')
-#define TAG_CONTROLLER             TAG('C', 'N', 'T', 'R')
-#define TAG_CONTROLLER_EXTENSION   TAG('C', 'E', 'X', 'T')
 
 /* TYPES ********************************************************************/
 
@@ -35,12 +29,7 @@ typedef struct
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
+VOID IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
 			  PDEVICE_OBJECT DeviceObject,
 			  PDRIVER_CONTROL ExecutionRoutine,
 			  PVOID Context)
@@ -59,13 +48,11 @@ IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
 {
    PCONTROLLER_QUEUE_ENTRY entry;
    IO_ALLOCATION_ACTION Result;
-
-   ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-
-   entry = 
-     ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_QUEUE_ENTRY),
-			   TAG_CQE);
-   ASSERT(entry!=NULL);
+   
+   assert_irql(DISPATCH_LEVEL);
+   
+   entry=ExAllocatePool(NonPagedPool,sizeof(CONTROLLER_QUEUE_ENTRY));
+   assert(entry!=NULL);
    
    entry->DeviceObject = DeviceObject;
    entry->ExecutionRoutine = ExecutionRoutine;
@@ -84,12 +71,7 @@ IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
    ExFreePool(entry);
 }
 
-/*
- * @implemented
- */
-PCONTROLLER_OBJECT
-STDCALL
-IoCreateController(ULONG Size)
+PCONTROLLER_OBJECT IoCreateController(ULONG Size)
 /*
  * FUNCTION: Allocates memory and initializes a controller object
  * ARGUMENTS:
@@ -99,18 +81,15 @@ IoCreateController(ULONG Size)
 {
    PCONTROLLER_OBJECT controller;
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
-   controller = 
-     ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_OBJECT),
-			   TAG_CONTROLLER);
+   controller = ExAllocatePool(NonPagedPool,sizeof(CONTROLLER_OBJECT));
    if (controller==NULL)
      {
 	return(NULL);
      }
    
-   controller->ControllerExtension = 
-     ExAllocatePoolWithTag(NonPagedPool, Size, TAG_CONTROLLER_EXTENSION);
+   controller->ControllerExtension=ExAllocatePool(NonPagedPool,Size);
    if (controller->ControllerExtension==NULL)
      {
 	ExFreePool(controller);
@@ -121,30 +100,20 @@ IoCreateController(ULONG Size)
    return(controller);
 }
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoDeleteController(PCONTROLLER_OBJECT ControllerObject)
+VOID IoDeleteController(PCONTROLLER_OBJECT ControllerObject)
 /*
  * FUNCTION: Removes a given controller object from the system
  * ARGUMENTS:
  *        ControllerObject = Controller object to be released
  */
 {
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
 
    ExFreePool(ControllerObject->ControllerExtension);
    ExFreePool(ControllerObject);
 }
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoFreeController(PCONTROLLER_OBJECT ControllerObject)
+VOID IoFreeController(PCONTROLLER_OBJECT ControllerObject)
 /*
  * FUNCTION: Releases a previously allocated controller object when a 
  * device has finished an I/O request
@@ -166,11 +135,9 @@ IoFreeController(PCONTROLLER_OBJECT ControllerObject)
 	  }
 	Result = Entry->ExecutionRoutine(Entry->DeviceObject,
 					 Entry->DeviceObject->CurrentIrp,
-					 NULL,
+					 NULL,					 
 					 Entry->Context);
 	ExFreePool(Entry);
      } while (Result == DeallocateObject);
 }
 
-
-/* EOF */

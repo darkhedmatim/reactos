@@ -1,13 +1,10 @@
-#include <msvcrt/process.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdarg.h>
+#include <crtdll/process.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdarg.h>
 
 
-/*
- * FIXME rewrite to pass the array variants to va_list variant
- *
- * @unimplemented
- */
+// fixme rewrite to pass the array variants to va_list variant
+
 int _execle(const char *path, const char *szArgv0, ... /*, const char **envp */)
 {
   char *szArg[100];

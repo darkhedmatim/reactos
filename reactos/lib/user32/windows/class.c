@@ -1,765 +1,531 @@
-/* $Id: class.c,v 1.56 2004/12/26 23:56:16 navaraf Exp $
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/class.c
- * PURPOSE:         Window classes
- * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
+/*
+ * COPYRIGHT:   See COPYING in the top level directory
+ * PROJECT:     ReactOS system libraries
+ * FILE:        lib/user32/windows/class.c
+ * PURPOSE:     Registers a window class
+ * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
- *      09-05-2001  CSH  Created
+ *              28/05/99: Created
  */
-
-#include "user32.h"
-#include <string.h>
-#include <stdlib.h>
-#include <debug.h>
-#include <window.h>
-#include <strpool.h>
-#include <user32/regcontrol.h>
+#include <windows.h>
+#include <user32/class.h>
+#include <user32/win.h>
+#include <user32/dce.h>
+#include <user32/heapdup.h>
 
 
-static BOOL GetClassInfoExCommon(
-    HINSTANCE hInst,
-    LPCWSTR lpszClass,
-    LPWNDCLASSEXW lpwcx,
-    BOOL unicode)
+CLASS *rootClass;
+
+ATOM STDCALL RegisterClassA(const WNDCLASS* wc) 
 {
-  LPWSTR str;
-  UNICODE_STRING str2, str3;
-  WNDCLASSEXW w;
-  BOOL retval;
-  NTSTATUS Status;
+	WNDCLASSEX wcex;
+	wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.style = wc->style; 
+    	wcex.lpfnWndProc = wc->lpfnWndProc; 
+    	wcex.cbClsExtra = wc->cbClsExtra; 
+	wcex.cbWndExtra = wc->cbWndExtra;
+	wcex.hInstance = wc->hInstance;
+	wcex.hIcon = wc->hIcon;
+	wcex.hCursor = wc->hCursor;
+    	wcex.hbrBackground = wc->hbrBackground;
+	wcex.lpszMenuName = wc->lpszMenuName; 
+	wcex.lpszClassName = 	wc->lpszClassName;
+	wcex.hIconSm = NULL;
+	return RegisterClassExA(&wcex);
+}
 
-  if ( !lpszClass || !lpwcx )
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
+ATOM STDCALL RegisterClassW(const WNDCLASS* wc) 
+{
+	WNDCLASSEX wcex;
+	wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.style = wc->style; 
+    	wcex.lpfnWndProc = wc->lpfnWndProc; 
+    	wcex.cbClsExtra = wc->cbClsExtra; 
+	wcex.cbWndExtra = wc->cbWndExtra;
+	wcex.hInstance = wc->hInstance;
+	wcex.hIcon = wc->hIcon;
+	wcex.hCursor = wc->hCursor;
+    	wcex.hbrBackground = wc->hbrBackground;
+	wcex.lpszMenuName = wc->lpszMenuName; 
+	wcex.lpszClassName = 	wc->lpszClassName;
+	wcex.hIconSm = NULL;
+	return RegisterClassExW(&wcex);
+}
 
-  if(IS_ATOM(lpszClass))
-    str = (LPWSTR)lpszClass;
-  else
-  {
-    extern BOOL ControlsInitialized;
+ATOM STDCALL RegisterClassExA(const WNDCLASSEX* wc) 
+{
+    ATOM atom;
+    CLASS *classPtr;
+    INT classExtra, winExtra;
+    int len;
 
-    if (unicode)
-    {
-        str = HEAP_strdupW ( lpszClass, wcslen(lpszClass) );
 
-        if ( !str )
-        {
-          SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-          return FALSE;
-        }
+    if ( wc == NULL || wc->cbSize != sizeof(WNDCLASSEX)) {
+	SetLastError(ERROR_INVALID_DATA);
+	return FALSE;
     }
 
-    else
+    atom = GlobalAddAtomA( wc->lpszClassName );
+    if (!atom)
     {
-        Status = HEAP_strdupAtoW(&str, (LPCSTR)lpszClass, NULL);
-        
-        if (! NT_SUCCESS(Status))
-        {
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
+        SetLastError(ERROR_CLASS_ALREADY_EXISTS);
+        return FALSE;
     }
 
-    /* Register built-in controls if not already done */
-    if ( !ControlsInitialized )
-    {
-      ControlsInitialized = ControlsInit(str);
+    classExtra = wc->cbClsExtra;
+    if (classExtra < 0) 
+	classExtra = 0;
+    else if (classExtra > 40)  
+	classExtra = 40;
+
+    winExtra = wc->cbClsExtra;
+    if (winExtra < 0) 
+	winExtra = 0;
+    else if (winExtra > 40)    
+	winExtra = 40;
+
+    classPtr = (CLASS *)HeapAlloc( GetProcessHeap(), 0, sizeof(CLASS) +
+                                       classExtra - sizeof(classPtr->wExtra) );
+
+
+    if (classExtra) 
+	HEAP_memset( classPtr->wExtra, 0, classExtra );
+
+    if (!classPtr) {
+	SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+	GlobalDeleteAtom( atom );
+	return FALSE;
     }
-  }
+    classPtr->magic       = CLASS_MAGIC;
+    classPtr->cWindows    = 0;  
+    classPtr->style       = wc->style;
+    classPtr->winproc     = wc->lpfnWndProc; 
+    classPtr->cbWndExtra  = winExtra;
+    classPtr->cbClsExtra  = classExtra;
+    classPtr->hInstance   = wc->hInstance;
+    classPtr->atomName	  = atom;
+    classPtr->hIcon         = (HICON)wc->hIcon;
+    classPtr->hIconSm       = (HICON)wc->hIconSm;
+    classPtr->hCursor       = (HCURSOR)wc->hCursor;
+    classPtr->hbrBackground = (HBRUSH)wc->hbrBackground;
+    classPtr->bUnicode = FALSE;
 
-  str2.Length = str3.Length = 0;
-  str2.MaximumLength = str3.MaximumLength = 255;
-  str2.Buffer = (PWSTR)HEAP_alloc ( str2.MaximumLength * sizeof(WCHAR) );
-  if ( !str2.Buffer )
-  {
-    SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-    if ( !IS_ATOM(str) )
-      HEAP_free ( str );
-    return FALSE;
-  }
+    if (wc->style & CS_CLASSDC)
+       classPtr->dce         = DCE_AllocDCE( 0, DCE_CLASS_DC ) ;
+    else 
+       classPtr->dce = NULL;
 
-  str3.Buffer = (PWSTR)HEAP_alloc ( str3.MaximumLength * sizeof(WCHAR) );
-  if ( !str3.Buffer )
-  {
-    SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-    HEAP_free ( str2.Buffer );
-    if ( !IS_ATOM(str) )
-      HEAP_free ( str );
-    return FALSE;
-  }
 
-  w.lpszMenuName = (LPCWSTR)&str2;
-  w.lpszClassName = (LPCWSTR)&str3;
-  retval = (BOOL)NtUserGetClassInfo(hInst, str, &w, TRUE, 0);
-  if ( !IS_ATOM(str) )
-    HEAP_free(str);
-
-  RtlCopyMemory ( lpwcx, &w, sizeof(WNDCLASSEXW) );
-
-  if ( !IS_INTRESOURCE(w.lpszMenuName) && w.lpszMenuName )
-  {
-    if (unicode)
-        lpwcx->lpszMenuName = heap_string_poolW ( str2.Buffer, str2.Length );
+    if ( wc->lpszMenuName != NULL ) {
+	len = lstrlenA(wc->lpszMenuName);
+    	classPtr->menuName = HeapAlloc(GetProcessHeap(),0,len+1);
+    	lstrcpyA(classPtr->menuName,wc->lpszMenuName);
+    }
     else
-        ((LPWNDCLASSEXA) lpwcx)->lpszMenuName = heap_string_poolA ( str2.Buffer, str2.Length );
-  }
+	classPtr->menuName = NULL;
 
-  if ( !IS_ATOM(w.lpszClassName) && w.lpszClassName )
-  {
-    if (unicode)
-        lpwcx->lpszClassName = heap_string_poolW ( str3.Buffer, str3.Length );
+    
+
+    len = lstrlenA(wc->lpszClassName);
+    classPtr->className = HeapAlloc(GetProcessHeap(),0,len+1);
+    lstrcpyA(classPtr->className,wc->lpszClassName);
+    
+    
+
+    classPtr->next        = rootClass;
+    rootClass = classPtr;
+
+    return atom;
+}
+
+
+ATOM STDCALL RegisterClassExW( const WNDCLASSEX* wc )
+{
+    ATOM atom;
+    CLASS *classPtr;
+    INT classExtra, winExtra;
+
+    int len;
+    if ( wc == NULL || wc->cbSize != sizeof(WNDCLASSEX)) {
+	SetLastError(ERROR_INVALID_DATA);
+	return FALSE;
+    }
+
+    if (!(atom = GlobalAddAtomW( (LPWSTR)wc->lpszClassName )))
+    {
+        SetLastError(ERROR_CLASS_ALREADY_EXISTS);
+        return FALSE;
+    }
+
+    classExtra = wc->cbClsExtra;
+    if (classExtra < 0) 
+	classExtra = 0;
+    else if (classExtra > 40)  
+	classExtra = 40;
+
+    winExtra = wc->cbClsExtra;
+    if (winExtra < 0) 
+	winExtra = 0;
+    else if (winExtra > 40)    
+	winExtra = 40;
+
+    classPtr = (CLASS *)HeapAlloc( GetProcessHeap(), 0, sizeof(CLASS) +
+                                       classExtra - sizeof(classPtr->wExtra) );
+
+
+    if (classExtra) 
+	HEAP_memset( classPtr->wExtra, 0, classExtra );
+
+    if (!classPtr) {
+	SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+	GlobalDeleteAtom( atom );
+	return FALSE;
+    }
+    classPtr->magic       = CLASS_MAGIC;
+    classPtr->cWindows    = 0;  
+    classPtr->style       = wc->style;
+    classPtr->winproc     = wc->lpfnWndProc; 
+    classPtr->cbWndExtra  = winExtra;
+    classPtr->cbClsExtra  = classExtra;
+    classPtr->hInstance   = wc->hInstance;
+    classPtr->atomName	  = atom;
+    classPtr->hIcon         = (HICON)wc->hIcon;
+    classPtr->hIconSm       = (HICON)wc->hIconSm;
+    classPtr->hCursor       = (HCURSOR)wc->hCursor;
+    classPtr->hbrBackground = (HBRUSH)wc->hbrBackground;
+    classPtr->bUnicode = FALSE;
+
+    classPtr->dce         = (wc->style & CS_CLASSDC) ?
+                                 CreateDC( "DISPLAY", NULL,NULL,NULL ) : NULL;
+
+   if ( wc->lpszMenuName != NULL ) {
+	len = lstrlenW(wc->lpszMenuName);
+    	classPtr->menuName = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(len+1));
+    	lstrcpyW(classPtr->menuName,wc->lpszMenuName);
+    }
     else
-        ((LPWNDCLASSEXA) lpwcx)->lpszClassName = heap_string_poolA ( str3.Buffer, str3.Length );
-  }
+	classPtr->menuName = NULL;
 
-  HEAP_free ( str2.Buffer );
-  HEAP_free ( str3.Buffer );
 
-  return retval;
+    len = lstrlenW((LPWSTR)wc->lpszClassName);
+    classPtr->className = HeapAlloc(GetProcessHeap(),0,(len+1)*sizeof(WCHAR));
+    lstrcpyW((LPWSTR)classPtr->className,(LPWSTR) wc->lpszClassName );
+
+    classPtr->next        = rootClass;
+    rootClass = classPtr;
+
+    return atom;
+}
+
+WINBOOL STDCALL UnregisterClassA(LPCSTR  lpClassName,	 HINSTANCE  hInstance )
+{
+    CLASS *classPtr;
+    classPtr = CLASS_FindClassByAtom( STRING2ATOMA(lpClassName), hInstance );
+    if ( classPtr == NULL )
+		return FALSE;
+
+
+    if ( CLASS_FreeClass(classPtr) == TRUE )
+	    GlobalDeleteAtom( classPtr->atomName );	
+    return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetClassInfoExA(
-  HINSTANCE hinst,
-  LPCSTR lpszClass,
-  LPWNDCLASSEXA lpwcx)
+
+
+WINBOOL STDCALL UnregisterClassW(LPCWSTR  lpClassName,	 HINSTANCE  hInstance )
 {
-    return GetClassInfoExCommon(hinst, (LPWSTR)lpszClass, (LPWNDCLASSEXW)lpwcx, FALSE);
+    CLASS *classPtr;
+    classPtr = CLASS_FindClassByAtom( STRING2ATOMW(lpClassName), hInstance );
+    if ( classPtr == NULL )
+		return FALSE;
+
+
+    if ( CLASS_FreeClass(classPtr) == TRUE )
+	    GlobalDeleteAtom( classPtr->atomName );	
+    return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetClassInfoExW(
-  HINSTANCE hinst,
-  LPCWSTR lpszClass,
-  LPWNDCLASSEXW lpwcx)
+WINBOOL STDCALL GetClassInfoA( HINSTANCE  hInstance, LPCSTR  lpClassName, LPWNDCLASS  lpWndClass )
 {
-    return GetClassInfoExCommon(hinst, lpszClass, lpwcx, TRUE);
+
+	CLASS *classPtr;
+	ATOM a;
+
+	if ( HIWORD(lpClassName) != 0 )
+		a = FindAtomA(lpClassName);
+	else
+		a = lpClassName;
+
+	classPtr = CLASS_FindClassByAtom(  a,  hInstance );
+	if ( classPtr == NULL )
+		return FALSE;
+
+		
+	lpWndClass->style = classPtr->style;
+    	lpWndClass->lpfnWndProc = classPtr->winproc;
+	lpWndClass->cbClsExtra =   classPtr->cbWndExtra;
+	lpWndClass->cbClsExtra = classPtr->cbClsExtra;
+    	lpWndClass->hInstance = classPtr->hInstance;
+    	lpWndClass->hIcon = classPtr->hIcon;
+    	lpWndClass->hCursor = classPtr->hCursor;
+	lpWndClass->hbrBackground = classPtr->hbrBackground;
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetClassInfoA(
-  HINSTANCE hInstance,
-  LPCSTR lpClassName,
-  LPWNDCLASSA lpWndClass)
+WINBOOL STDCALL GetClassInfoW( HINSTANCE  hInstance, LPCWSTR  lpClassName, LPWNDCLASS  lpWndClass )
 {
-  WNDCLASSEXA w;
-  BOOL retval;
+	CLASS *classPtr;
+	ATOM a;
 
-  if ( !lpClassName || !lpWndClass )
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
+	if ( HIWORD(lpClassName) != 0 )
+		a = FindAtomW(lpClassName);
+	else
+		a = lpClassName;
 
-  retval = GetClassInfoExA(hInstance,lpClassName,&w);
-  if (retval)
-  {
-    RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
-  }
-  return retval;
+	classPtr = CLASS_FindClassByAtom(  a,  hInstance );
+	if ( classPtr == NULL )
+		return FALSE;
+
+		
+	lpWndClass->style = classPtr->style;
+    	lpWndClass->lpfnWndProc = classPtr->winproc;
+	lpWndClass->cbClsExtra =   classPtr->cbWndExtra;
+	lpWndClass->cbClsExtra = classPtr->cbClsExtra;
+    	lpWndClass->hInstance = classPtr->hInstance;
+    	lpWndClass->hIcon = classPtr->hIcon;
+    	lpWndClass->hCursor = classPtr->hCursor;
+	lpWndClass->hbrBackground = classPtr->hbrBackground;
+	return TRUE;
+	
 }
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetClassInfoW(
-  HINSTANCE hInstance,
-  LPCWSTR lpClassName,
-  LPWNDCLASSW lpWndClass)
+WINBOOL STDCALL GetClassInfoExA( HINSTANCE  hInstance, LPCSTR  lpClassName, LPWNDCLASSEX  lpWndClassEx )
 {
-  WNDCLASSEXW w;
-  BOOL retval;
 
-  if(!lpClassName || !lpWndClass)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
+	CLASS *classPtr;
+	ATOM a;
 
-  retval = GetClassInfoExW(hInstance,lpClassName,&w);
-  RtlCopyMemory (lpWndClass,&w.style,sizeof(WNDCLASSW));
-  return retval;
+	if ( HIWORD(lpClassName) != 0 )
+		a = FindAtomA(lpClassName);
+	else
+		a = (ATOM)lpClassName;
+
+	classPtr = CLASS_FindClassByAtom(  a, hInstance );
+	if ( classPtr == NULL )
+		return FALSE;
+
+	
+	if ( lpWndClassEx ->cbSize != sizeof(WNDCLASSEX) ) 
+		return FALSE;
+		
+	
+	lpWndClassEx->style = classPtr->style;
+    	lpWndClassEx->lpfnWndProc = classPtr->winproc;
+	lpWndClassEx->cbClsExtra =   classPtr->cbWndExtra;
+	lpWndClassEx->cbClsExtra = classPtr->cbClsExtra;
+    	lpWndClassEx->hInstance = classPtr->hInstance;
+    	lpWndClassEx->hIcon = classPtr->hIcon;
+    	lpWndClassEx->hCursor = classPtr->hCursor;
+	lpWndClassEx->hbrBackground = classPtr->hbrBackground;
+		
+	
+	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-DWORD STDCALL
-GetClassLongA(HWND hWnd, int nIndex)
+WINBOOL STDCALL GetClassInfoExW( HINSTANCE  hInstance, LPCWSTR  lpClassName, LPWNDCLASSEX  lpWndClassEx )
 {
-   switch (nIndex)
-   {
-      case GCL_HBRBACKGROUND:
-         {
-            DWORD hBrush = NtUserGetClassLong(hWnd, GCL_HBRBACKGROUND, TRUE);
-            if (hBrush != 0 && hBrush < 0x4000)
-               hBrush = (DWORD)GetSysColorBrush((ULONG)hBrush - 1);
-            return hBrush;
-         }
 
-      case GCL_MENUNAME:
-         {
-            PUNICODE_STRING Name;
-            Name = (PUNICODE_STRING)NtUserGetClassLong(hWnd, nIndex, TRUE);
-            if (IS_INTRESOURCE(Name))
-               return (DWORD)Name;
-            else
-               return (DWORD)heap_string_poolA(Name->Buffer, Name->Length);
-         }
+	CLASS *classPtr;
+	ATOM a;
 
-      default:
-         return NtUserGetClassLong(hWnd, nIndex, TRUE);
-   }
+	if ( HIWORD(lpClassName) != 0 )
+		a = FindAtomW(lpClassName);
+	else
+		a = (ATOM)lpClassName;
+
+	classPtr = CLASS_FindClassByAtom(  a, hInstance );
+	if ( classPtr == NULL )
+		return FALSE;
+
+	
+	if ( lpWndClassEx ->cbSize != sizeof(WNDCLASSEX) ) 
+		return FALSE;
+		
+	
+	lpWndClassEx->style = classPtr->style;
+    	lpWndClassEx->lpfnWndProc = classPtr->winproc;
+	lpWndClassEx->cbClsExtra =   classPtr->cbWndExtra;
+	lpWndClassEx->cbClsExtra = classPtr->cbClsExtra;
+    	lpWndClassEx->hInstance = classPtr->hInstance;
+    	lpWndClassEx->hIcon = classPtr->hIcon;
+    	lpWndClassEx->hCursor = classPtr->hCursor;
+	lpWndClassEx->hbrBackground = classPtr->hbrBackground;
+		
+	
+	return TRUE;
 }
 
-/*
- * @implemented
- */
-DWORD STDCALL
-GetClassLongW ( HWND hWnd, int nIndex )
+int STDCALL  GetClassNameA(HWND  hWnd, LPSTR  lpClassName, int  nMaxCount )
 {
-   switch (nIndex)
-   {
-      case GCL_HBRBACKGROUND:
-         {
-            DWORD hBrush = NtUserGetClassLong(hWnd, GCL_HBRBACKGROUND, TRUE);
-            if (hBrush != 0 && hBrush < 0x4000)
-               hBrush = (DWORD)GetSysColorBrush((ULONG)hBrush - 1);
-            return hBrush;
-         }
+	WND *wndPtr = WIN_FindWndPtr(hWnd);
 
-      case GCL_MENUNAME:
-         {
-            PUNICODE_STRING Name;
-            Name = (PUNICODE_STRING)NtUserGetClassLong(hWnd, nIndex, FALSE);
-            if (IS_INTRESOURCE(Name))
-               return (DWORD)Name;
-            else
-               return (DWORD)heap_string_poolW(Name->Buffer, Name->Length);
-         }
+	if ( wndPtr == NULL )
+		return 0;
 
-      default:
-         return NtUserGetClassLong(hWnd, nIndex, FALSE);
-   }
+	if ( wndPtr->class->bUnicode == TRUE )
+		return 0;
+
+	return lpstrncpyA(lpClassName,wndPtr->class->className, nMaxCount);
+	
 }
 
-
-/*
- * @implemented
- */
-int STDCALL
-GetClassNameA(
-  HWND hWnd,
-  LPSTR lpClassName,
-  int nMaxCount)
+int STDCALL GetClassNameW(HWND  hWnd, LPWSTR  lpClassName, int  nMaxCount )
 {
-  int result;
-  LPWSTR ClassNameW;
-  NTSTATUS Status;
-  
-  if(!lpClassName)
+	WND *wndPtr = WIN_FindWndPtr(hWnd);
+
+	if ( wndPtr == NULL )
+		return 0;
+
+	if ( wndPtr->class->bUnicode == FALSE )
+		return 0;
+
+	return lpstrncpyW(lpClassName,wndPtr->class->className, nMaxCount);
+
+
+}
+
+DWORD STDCALL GetClassLongA(HWND  hWnd,	int  nIndex )
+{
+    WND * wndPtr;
+    
+    if (!(wndPtr = WIN_FindWndPtr( hWnd ))) return 0;
+    if (nIndex >= 0)
+    {
+        if (nIndex <= wndPtr->class->cbClsExtra - sizeof(LONG))
+            return (DWORD)((char *)wndPtr->class->wExtra) + nIndex;
+    }
+    switch(nIndex)
+    {
+        case GCL_STYLE:      return (LONG)wndPtr->class->style;
+        case GCL_CBWNDEXTRA: return (LONG)wndPtr->class->cbWndExtra;
+        case GCL_CBCLSEXTRA: return (LONG)wndPtr->class->cbClsExtra;
+        case GCL_HMODULE:    return (LONG)wndPtr->class->hInstance;
+        case GCL_WNDPROC:    return (LONG)wndPtr->class->winproc;
+        case GCL_MENUNAME:   return (LONG)wndPtr->class->menuName;
+        case GCW_ATOM:
+        case GCL_HBRBACKGROUND:
+        case GCL_HCURSOR:
+        case GCL_HICON:
+        case GCL_HICONSM:
+            return GetClassWord( hWnd, nIndex );
+	default:
+	    return -1;
+    }
+    
     return 0;
-
-  ClassNameW = HEAP_alloc ( (nMaxCount+1)*sizeof(WCHAR) );
-
-  result = NtUserGetClassName ( hWnd, ClassNameW, nMaxCount );
-
-  Status = HEAP_strcpyWtoA ( lpClassName, ClassNameW, result );
-
-  HEAP_free ( ClassNameW );
-
-  if ( !NT_SUCCESS(Status) )
-    return 0;
-
-  return result;
 }
 
-
-/*
- * @implemented
- */
-int
-STDCALL
-GetClassNameW(
-  HWND hWnd,
-  LPWSTR lpClassName,
-  int nMaxCount)
+DWORD STDCALL GetClassLongW(HWND  hWnd,	int  nIndex )
 {
-   return NtUserGetClassName(hWnd, lpClassName, nMaxCount);
-}
-
-
-/*
- * @implemented
- */
-WORD
-STDCALL
-GetClassWord(
-  HWND hWnd,
-  int nIndex)
-/*
- * NOTE: Obsoleted in 32-bit windows
- */
-{
-    if ((nIndex < 0) && (nIndex != GCW_ATOM))
-        return 0;
-
-    return (WORD) NtUserGetClassLong ( hWnd, nIndex, TRUE );
-}
-
-
-/*
- * @implemented
- */
-LONG
-STDCALL
-GetWindowLongA ( HWND hWnd, int nIndex )
-{
-  return NtUserGetWindowLong(hWnd, nIndex, TRUE);
-}
-
-
-/*
- * @implemented
- */
-LONG
-STDCALL
-GetWindowLongW(HWND hWnd, int nIndex)
-{
-  return NtUserGetWindowLong(hWnd, nIndex, FALSE);
-}
-
-/*
- * @implemented
- */
-WORD
-STDCALL
-GetWindowWord(HWND hWnd, int nIndex)
-{
-  return (WORD)NtUserGetWindowLong(hWnd, nIndex,  TRUE);
-}
-
-/*
- * @implemented
- */
-WORD
-STDCALL
-SetWindowWord ( HWND hWnd,int nIndex,WORD wNewWord )
-{
-  return (WORD)NtUserSetWindowLong ( hWnd, nIndex, (LONG)wNewWord, TRUE );
-}
-
-/*
- * @implemented
- */
-UINT
-STDCALL
-RealGetWindowClassW(
-  HWND  hwnd,
-  LPWSTR pszType,
-  UINT  cchType)
-{
-	/* FIXME: Implement correct functionality of RealGetWindowClass */
-	return GetClassNameW(hwnd,pszType,cchType);
-}
-
-
-/*
- * @implemented
- */
-UINT
-STDCALL
-RealGetWindowClassA(
-  HWND  hwnd,
-  LPSTR pszType,
-  UINT  cchType)
-{
-	/* FIXME: Implement correct functionality of RealGetWindowClass */
-	return GetClassNameA(hwnd,pszType,cchType);
-}
-
-/*
- * @implemented
- */
-ATOM STDCALL
-RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
-{
-   RTL_ATOM Atom;
-   WNDCLASSEXA WndClass;
-   UNICODE_STRING ClassName;
-   UNICODE_STRING MenuName;
-
-   if (lpwcx == NULL || lpwcx->cbSize != sizeof(WNDCLASSEXW) ||
-       lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0 ||
-       lpwcx->lpszClassName == NULL)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   /*
-    * On real Windows this looks more like:
-    *    if (lpwcx->hInstance == User32Instance &&
-    *        *(PULONG)((ULONG_PTR)NtCurrentTeb() + 0x6D4) & 0x400)
-    * But since I have no idea what the magic field in the
-    * TEB structure means, I rather decided to omit that.
-    * -- Filip Navara
-    */
-   if (lpwcx->hInstance == User32Instance)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   /* Yes, this is correct. We should modify the passed structure. */
-   if (lpwcx->hInstance == NULL)
-      ((WNDCLASSEXA*)lpwcx)->hInstance = GetModuleHandleW(NULL);
-  
-   RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
-
-   if (IS_ATOM(lpwcx->lpszMenuName) || lpwcx->lpszMenuName == 0)
-   {
-      MenuName.Length =
-      MenuName.MaximumLength = 0;
-      MenuName.Buffer = (LPWSTR)lpwcx->lpszMenuName;
-   } else
-   {
-      RtlCreateUnicodeStringFromAsciiz(&MenuName, lpwcx->lpszMenuName);
-   }
-
-   if (IS_ATOM(lpwcx->lpszClassName))
-   {
-      ClassName.Length =
-      ClassName.MaximumLength = 0;
-      ClassName.Buffer = (LPWSTR)lpwcx->lpszClassName;
-   } else
-   {
-      RtlCreateUnicodeStringFromAsciiz(&ClassName, lpwcx->lpszClassName);
-   }
-
-   Atom = NtUserRegisterClassExWOW(
-      (WNDCLASSEXW*)&WndClass,
-      &ClassName,
-      &ClassName,
-      &MenuName,
-      NULL,
-      REGISTERCLASS_ANSI,
-      0);
-
-   if (!IS_ATOM(lpwcx->lpszMenuName))
-      RtlFreeUnicodeString(&MenuName);
-   if (!IS_ATOM(lpwcx->lpszClassName))
-      RtlFreeUnicodeString(&ClassName);
-
-   return (ATOM)Atom;
-}
-
-/*
- * @implemented
- */
-ATOM STDCALL
-RegisterClassExW(CONST WNDCLASSEXW *lpwcx)
-{
-   WNDCLASSEXW WndClass;
-   UNICODE_STRING ClassName;
-   UNICODE_STRING MenuName;
-
-   if (lpwcx == NULL || lpwcx->cbSize != sizeof(WNDCLASSEXW) ||
-       lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0 ||
-       lpwcx->lpszClassName == NULL)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   /*
-    * On real Windows this looks more like:
-    *    if (lpwcx->hInstance == User32Instance &&
-    *        *(PULONG)((ULONG_PTR)NtCurrentTeb() + 0x6D4) & 0x400)
-    * But since I have no idea what the magic field in the
-    * TEB structure means, I rather decided to omit that.
-    * -- Filip Navara
-    */
-   if (lpwcx->hInstance == User32Instance)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   /* Yes, this is correct. We should modify the passed structure. */
-   if (lpwcx->hInstance == NULL)
-      ((WNDCLASSEXW*)lpwcx)->hInstance = GetModuleHandleW(NULL);
-
-   RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
-
-   if (IS_ATOM(lpwcx->lpszMenuName))
-   {
-      MenuName.Length =
-      MenuName.MaximumLength = 0;
-      MenuName.Buffer = (LPWSTR)lpwcx->lpszMenuName;
-   } else
-   {
-      RtlInitUnicodeString(&MenuName, lpwcx->lpszMenuName);
-   }
-
-   if (IS_ATOM(lpwcx->lpszClassName))
-   {
-      ClassName.Length =
-      ClassName.MaximumLength = 0;
-      ClassName.Buffer = (LPWSTR)lpwcx->lpszClassName;
-   } else
-   {
-      RtlInitUnicodeString(&ClassName, lpwcx->lpszClassName);
-   }
-
-   return (ATOM)NtUserRegisterClassExWOW(
-      &WndClass,
-      &ClassName,
-      &ClassName,
-      &MenuName,
-      NULL,
-      0,
-      0);
-}
-
-/*
- * @implemented
- */
-ATOM STDCALL
-RegisterClassA(CONST WNDCLASSA *lpWndClass)
-{
-   WNDCLASSEXA Class;
-
-   if (lpWndClass == NULL)
-      return 0;
-
-   RtlCopyMemory(&Class.style, lpWndClass, sizeof(WNDCLASSA));
-   Class.cbSize = sizeof(WNDCLASSEXA);
-   Class.hIconSm = NULL;
-
-   return RegisterClassExA(&Class);
-}
-
-/*
- * @implemented
- */
-ATOM STDCALL
-RegisterClassW(CONST WNDCLASSW *lpWndClass)
-{
-   WNDCLASSEXW Class;
-
-   if (lpWndClass == NULL)
-      return 0;
-
-   RtlCopyMemory(&Class.style, lpWndClass, sizeof(WNDCLASSW));
-   Class.cbSize = sizeof(WNDCLASSEXW);
-   Class.hIconSm = NULL;
-
-   return RegisterClassExW(&Class);
-}
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-SetClassLongA (
-  HWND hWnd,
-  int nIndex,
-  LONG dwNewLong)
-{
-  UNICODE_STRING str2buf;
-  PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
-
-  if ( nIndex != GCL_MENUNAME )
-  {
-    return NtUserSetClassLong ( hWnd, nIndex, dwNewLong, TRUE );
-  }
-  if ( IS_INTRESOURCE(dwNewLong) )
-  {
-    str2 = (PUNICODE_STRING)dwNewLong;
-  }
-  else
-  {
-    RtlCreateUnicodeStringFromAsciiz ( &str2buf,(LPSTR)dwNewLong );
-  }
-
-  str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);
-
-  if ( !IS_INTRESOURCE(dwNewLong) )
-  {
-    RtlFreeUnicodeString ( str2 );
-  }
-  if ( IS_INTRESOURCE(str) )
-  {
-    return (DWORD)str;
-  }
-  else
-  {
-    return (DWORD)heap_string_poolA ( str->Buffer, str->Length );
-  }
-}
-
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-SetClassLongW(
-  HWND hWnd,
-  int nIndex,
-  LONG dwNewLong)
-{
-  UNICODE_STRING str2buf;
-  PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
-
-  if (nIndex != GCL_MENUNAME )
-  {
-    return NtUserSetClassLong ( hWnd, nIndex, dwNewLong, FALSE );
-  }
-  if ( IS_INTRESOURCE(dwNewLong) )
-  {
-    str2 = (PUNICODE_STRING)dwNewLong;
-  }
-  else
-  {
-    RtlCreateUnicodeString ( &str2buf, (LPWSTR)dwNewLong );
-  }
-
-  str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);
-
-  if ( !IS_INTRESOURCE(dwNewLong) )
-  {
-    RtlFreeUnicodeString(str2);
-  }
-  if ( IS_INTRESOURCE(str) )
-  {
-    return (DWORD)str;
-  }
-  else
-  {
-    return (DWORD)heap_string_poolW ( str->Buffer, str->Length );
-  }
-}
-
-
-/*
- * @implemented
- */
-WORD
-STDCALL
-SetClassWord(
-  HWND hWnd,
-  int nIndex,
-  WORD wNewWord)
-/*
- * NOTE: Obsoleted in 32-bit windows
- */
-{
-    if ((nIndex < 0) && (nIndex != GCW_ATOM))
-        return 0;
-
-    return (WORD) NtUserSetClassLong ( hWnd, nIndex, wNewWord, TRUE );
-}
-
-
-/*
- * @implemented
- */
-LONG
-STDCALL
-SetWindowLongA(
-  HWND hWnd,
-  int nIndex,
-  LONG dwNewLong)
-{
-  return NtUserSetWindowLong(hWnd, nIndex, dwNewLong, TRUE);
-}
-
-
-/*
- * @implemented
- */
-LONG
-STDCALL
-SetWindowLongW(
-  HWND hWnd,
-  int nIndex,
-  LONG dwNewLong)
-{
-  return NtUserSetWindowLong(hWnd, nIndex, dwNewLong, FALSE);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-UnregisterClassA(
-  LPCSTR lpClassName,
-  HINSTANCE hInstance)
-{
-  LPWSTR ClassName;
-  NTSTATUS Status;
-  BOOL Result;
-  
-  if(!IS_ATOM(lpClassName))
-  {
-    Status = HEAP_strdupAtoW(&ClassName, lpClassName, NULL);
-    if(!NT_SUCCESS(Status))
+    WND * wndPtr;
+    
+    if (!(wndPtr = WIN_FindWndPtr( hWnd ))) return 0;
+    if (nIndex >= 0)
     {
-      SetLastError(RtlNtStatusToDosError(Status));
-      return FALSE;
+        if (nIndex <= wndPtr->class->cbClsExtra - sizeof(LONG))
+            return (DWORD)((char *)wndPtr->class->wExtra) + nIndex;
     }
-  }
-  else
-    ClassName = (LPWSTR)lpClassName;
-  
-  Result = (BOOL)NtUserUnregisterClass((LPCWSTR)ClassName, hInstance, 0);
-  
-  if(ClassName && !IS_ATOM(lpClassName)) 
-    HEAP_free(ClassName);
-  
-  return Result;
+    switch(nIndex)
+    {
+        case GCL_STYLE:      return (LONG)wndPtr->class->style;
+        case GCL_CBWNDEXTRA: return (LONG)wndPtr->class->cbWndExtra;
+        case GCL_CBCLSEXTRA: return (LONG)wndPtr->class->cbClsExtra;
+        case GCL_HMODULE:    return (LONG)wndPtr->class->hInstance;
+        case GCL_WNDPROC:    return (LONG)wndPtr->class->winproc;
+        case GCL_MENUNAME:   return (LONG)wndPtr->class->menuName;
+        case GCW_ATOM:
+        case GCL_HBRBACKGROUND:
+        case GCL_HCURSOR:
+        case GCL_HICON:
+        case GCL_HICONSM:
+            return GetClassWord( hWnd, nIndex );
+	default:
+	    return -1;
+    }
+    
+    return 0;
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-UnregisterClassW(
-  LPCWSTR lpClassName,
-  HINSTANCE hInstance)
+
+WORD STDCALL GetClassWord( HWND hWnd, INT nIndex )
 {
-  return (BOOL)NtUserUnregisterClass(lpClassName, hInstance, 0);
+    WND * wndPtr;
+    
+    if (!(wndPtr = WIN_FindWndPtr( hWnd ))) return 0;
+    if (nIndex >= 0)
+    {
+        if (nIndex <= wndPtr->class->cbClsExtra - sizeof(WORD))
+            return (WORD)(wndPtr->class->wExtra + nIndex);
+    }
+    else switch(nIndex)
+    {
+        //case GCW_HBRBACKGROUND: return wndPtr->class->hbrBackground;
+        //case GCW_HCURSOR:       return wndPtr->class->hCursor;
+        //case GCW_HICON:         return wndPtr->class->hIcon;
+    //    case GCW_HICONSM:       return wndPtr->class->hIconSm;
+        case GCW_ATOM:          return wndPtr->class->atomName;
+        //case GCW_STYLE:
+        //case GCW_CBWNDEXTRA:
+        //case GCW_CBCLSEXTRA:
+        //case GCW_HMODULE:
+            return (WORD)GetClassLongA( hWnd, nIndex );
+	default:
+	    return -1;
+    }
+
+    
+    return 0;
 }
 
-/* EOF */
+
+CLASS *CLASS_FindClassByAtom( ATOM classAtom, HINSTANCE hInstance )
+{
+	CLASS *p = rootClass;
+	while(p != NULL ) {
+		if ( p->atomName == classAtom )
+			return p;
+		p = p->next;
+	}
+	return NULL;
+}
+
+
+WINBOOL CLASS_FreeClass(CLASS *classPtr)
+{
+    CLASS *p = rootClass;
+    if( classPtr->cWindows > 0 )
+	return FALSE;
+
+    if (classPtr->dce) 
+	DeleteDC( classPtr->dce );
+    if (classPtr->hbrBackground) 
+	DeleteObject( classPtr->hbrBackground );
+    
+
+    classPtr->atomName = 0;
+    HeapFree(GetProcessHeap(),0,classPtr->className);
+    	
+    while(p != NULL && p->next != classPtr ) 
+	p = p->next;
+ 
+    if ( p != NULL )
+	p->next = classPtr->next;
+
+    HeapFree(GetProcessHeap(),0,classPtr);
+    return TRUE;
+}
+		

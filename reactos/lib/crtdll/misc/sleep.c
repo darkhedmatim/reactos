@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 
 
 void sleep(unsigned long timeout) 

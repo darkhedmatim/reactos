@@ -78,10 +78,10 @@ struct minix_dir_entry {
 
 BOOLEAN MinixReadSector(IN PDEVICE_OBJECT pDeviceObject,
 			IN ULONG	DiskSector,
-			IN PVOID	Buffer);
+			IN UCHAR*	Buffer);
 BOOLEAN MinixWriteSector(IN PDEVICE_OBJECT pDeviceObject,
 			IN ULONG	DiskSector,
-			IN PVOID	Buffer);
+			IN UCHAR*	Buffer);
 
 #define BLOCKSIZE (1024)
 
@@ -94,18 +94,19 @@ typedef struct
    char superblock_buf[BLOCKSIZE];
    struct minix_super_block* sb;
    PFILE_OBJECT FileObject;
+   PBCB Bcb;
 } MINIX_DEVICE_EXTENSION, *PMINIX_DEVICE_EXTENSION;
 
 typedef struct
 {
+   PBCB Bcb;
    struct minix_inode inode;
 } MINIX_FSCONTEXT, *PMINIX_FSCONTEXT;
 
-NTSTATUS STDCALL MinixCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-NTSTATUS STDCALL MinixClose(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-NTSTATUS STDCALL MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-NTSTATUS STDCALL MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-NTSTATUS STDCALL MinixDirectoryControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+NTSTATUS MinixCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+NTSTATUS MinixClose(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+NTSTATUS MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+NTSTATUS MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 ULONG MinixNewInode(PDEVICE_OBJECT Volume,
 		    MINIX_DEVICE_EXTENSION* DeviceExt,
@@ -128,6 +129,9 @@ NTSTATUS MinixReadBlock(PDEVICE_OBJECT DeviceObject,
 			ULONG FileOffset,
 			PULONG DiskOffset);
 
-BOOLEAN MinixReadPage(PDEVICE_OBJECT DeviceObject,
-		      ULONG Offset,
-		      PVOID Buffer);
+
+NTSTATUS MinixRequestCacheBlock(PDEVICE_OBJECT DeviceObject,
+				PBCB Bcb,
+				ULONG FileOffset,
+				PVOID* BaseAddress,
+				PCACHE_SEGMENT* CacheSeg);

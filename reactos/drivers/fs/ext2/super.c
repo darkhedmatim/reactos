@@ -10,10 +10,11 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
+#include <wchar.h>
+#include <internal/string.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
@@ -23,10 +24,9 @@ static PDRIVER_OBJECT DriverObject;
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS STDCALL
-Ext2Close(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Close(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-   PIO_STACK_LOCATION Stack;
+   PIO_STACK_LOCATION Stack;   
    PFILE_OBJECT FileObject;
    PDEVICE_EXTENSION DeviceExtension;
    NTSTATUS Status;
@@ -54,7 +54,7 @@ Ext2Close(PDEVICE_OBJECT DeviceObject, PIRP Irp)
      {
 	if (Fcb->Bcb != NULL)
 	  {
-	     CcRosReleaseFileCache(FileObject, Fcb->Bcb);
+	     CcReleaseFileCache(FileObject, Fcb->Bcb);
 	  }
 	ExFreePool(Fcb);
 	FileObject->FsContext = NULL;
@@ -105,28 +105,20 @@ NTSTATUS Ext2Mount(PDEVICE_OBJECT DeviceToMount)
    DeviceObject->Flags = DeviceObject->Flags | DO_DIRECT_IO;
    DeviceExt = (PVOID)DeviceObject->DeviceExtension;
    DPRINT("DeviceExt %x\n",DeviceExt);
-
-  DeviceExt->StorageDevice = DeviceToMount;
-  DeviceExt->StorageDevice->Vpb->DeviceObject = DeviceObject;
-  DeviceExt->StorageDevice->Vpb->RealDevice = DeviceExt->StorageDevice;
-  DeviceExt->StorageDevice->Vpb->Flags |= VPB_MOUNTED;
-  DeviceObject->StackSize = DeviceExt->StorageDevice->StackSize + 1;
-  DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
-
+   DeviceExt->StorageDevice = IoAttachDeviceToDeviceStack(DeviceObject,
+							  DeviceToMount);
    DPRINT("DeviceExt->StorageDevice %x\n", DeviceExt->StorageDevice);
    DeviceExt->FileObject = IoCreateStreamFileObject(NULL, DeviceObject);
    DeviceExt->superblock = superblock;
-   CcRosInitializeFileCache(DeviceExt->FileObject,
-			    &DeviceExt->Bcb,
-			    PAGE_SIZE * 3);
+   CcInitializeFileCache(DeviceExt->FileObject,
+			 &DeviceExt->Bcb);
    
    DPRINT("Ext2Mount() = STATUS_SUCCESS\n");
    
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-Ext2FileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2FileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PVPB	vpb = Stack->Parameters.Mount.Vpb;
@@ -142,9 +134,8 @@ Ext2FileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(Status);
 }
 
-NTSTATUS STDCALL
-DriverEntry(PDRIVER_OBJECT _DriverObject,
-	    PUNICODE_STRING RegistryPath)
+NTSTATUS DriverEntry(PDRIVER_OBJECT _DriverObject,
+		     PUNICODE_STRING RegistryPath)
 /*
  * FUNCTION: Called by the system to initalize the driver
  * ARGUMENTS:
@@ -155,16 +146,19 @@ DriverEntry(PDRIVER_OBJECT _DriverObject,
 {
    PDEVICE_OBJECT DeviceObject;
    NTSTATUS ret;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Ext2Fsd");
+   UNICODE_STRING DeviceNameU;
+   ANSI_STRING DeviceNameA;
    
    DbgPrint("Ext2 FSD 0.0.1\n");
-   
+          
    DriverObject = _DriverObject;
    
+   RtlInitAnsiString(&DeviceNameA,"\\Device\\Ext2Fsd");
+   RtlAnsiStringToUnicodeString(&DeviceNameU,&DeviceNameA,TRUE);
    ret = IoCreateDevice(DriverObject,
 			0,
-			&DeviceName,
-			FILE_DEVICE_FILE_SYSTEM,
+			&DeviceNameU,
+                        FILE_DEVICE_FILE_SYSTEM,
 			0,
 			FALSE,
 			&DeviceObject);

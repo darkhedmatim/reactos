@@ -1,21 +1,42 @@
-# $Id: makefile,v 1.11 2003/11/14 17:13:22 weiden Exp $
+#
+#
+#
+OBJECTS= cat.o
+PROGS= cat.exe
 
-PATH_TO_TOP = ../../..
+all: cat.exe
 
-TARGET_NORC = yes
+.phony: all
 
-TARGET_TYPE = program
+clean:
+	- $(RM) cat.o
+	- $(RM) cat.exe
+	- $(RM) cat.sym
 
-TARGET_APPTYPE = console
+.phony: clean
 
-TARGET_NAME = cat
+floppy: $(PROGS:%=$(FLOPPY_DIR)/apps/%)
 
-TARGET_OBJECTS = $(TARGET_NAME).o
+$(PROGS:%=$(FLOPPY_DIR)/apps/%): $(FLOPPY_DIR)/apps/%: %
+ifeq ($(DOSCLI),yes)
+	$(CP) $* $(FLOPPY_DIR)\apps\$*
+else
+	$(CP) $* $(FLOPPY_DIR)/apps/$*
+endif
 
-TARGET_CFLAGS = -Wall -Werror
+dist: $(PROGS:%=../../$(DIST_DIR)/apps/%)
 
-include $(PATH_TO_TOP)/rules.mak
+$(PROGS:%=../../$(DIST_DIR)/apps/%): ../../$(DIST_DIR)/apps/%: %
+ifeq ($(DOSCLI),yes)
+	$(CP) $* ..\..\$(DIST_DIR)\apps\$*
+else
+	$(CP) $* ../../$(DIST_DIR)/apps/$*
+endif
 
-include $(TOOLS_PATH)/helper.mk
+.PHONY: floppy dist
 
-# EOF
+cat.exe: $(OBJECTS) $(LIBS)
+	$(CC) $(OBJECTS) -o cat.exe
+	$(NM) --numeric-sort cat.exe > cat.sym
+
+include ../../rules.mak

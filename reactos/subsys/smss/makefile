@@ -1,24 +1,60 @@
-# $Id: makefile,v 1.11 2003/11/14 17:13:32 weiden Exp $
+# $Id: makefile,v 1.3 1999/12/01 15:18:54 ekohl Exp $
+#
+# Session Manager
+#
+# ReactOS Operating System
+#
+TARGET=smss
 
-PATH_TO_TOP = ../..
+BASE_CFLAGS = -I../../include
 
-TARGET_TYPE = program
+OBJECTS = $(TARGET).o init.o smapi.o $(TARGET).coff
 
-TARGET_APPTYPE = native
+LIBS = ../../lib/ntdll/ntdll.a
 
-TARGET_NAME = smss
+CLEAN_FILES = *.o $(TARGET).exe $(TARGET).sym $(TARGET).coff
 
-TARGET_INSTALLDIR = system32
+all: $(TARGET).exe
 
-TARGET_CFLAGS = -D__NTAPP__
+.phony: all
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror
 
-TARGET_OBJECTS = $(TARGET_NAME).o init.o smapi.o
+$(TARGET).coff: $(TARGET).rc
 
-include $(PATH_TO_TOP)/rules.mak
+$(TARGET).exe: $(OBJECTS) $(LIBS)
+	$(LD) \
+		$(OBJECTS) \
+		$(LIBS) \
+		-o $(TARGET).exe \
+		--subsystem native
+	$(NM) --numeric-sort $(TARGET).exe > $(TARGET).sym
 
-include $(TOOLS_PATH)/helper.mk
 
-# EOF
+clean: $(CLEAN_FILES:%=%_clean)
+
+$(CLEAN_FILES:%=%_clean): %_clean:
+	- $(RM) $*
+
+.PHONY: clean $(CLEAN_FILES:%=%_clean)
+
+
+floppy: $(FLOPPY_DIR)/subsys/$(TARGET).exe
+
+$(FLOPPY_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).exe $(FLOPPY_DIR)\subsys\$(TARGET).exe
+else
+	$(CP) $(TARGET).exe $(FLOPPY_DIR)/subsys/$(TARGET).exe
+endif
+
+
+dist: $(DIST_DIR)/subsys/$(TARGET).exe
+
+$(DIST_DIR)/subsys/$(TARGET).exe: $(TARGET).exe
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).exe ..\..\$(DIST_DIR)\subsys\$(TARGET).exe
+else
+	$(CP) $(TARGET).exe ../../$(DIST_DIR)/subsys/$(TARGET).exe
+endif
+
+include ../../rules.mak

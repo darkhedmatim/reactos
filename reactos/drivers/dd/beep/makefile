@@ -1,15 +1,71 @@
-# $Id: makefile,v 1.14 2003/11/13 14:20:44 ekohl Exp $
+# $Id: makefile,v 1.6 1999/12/04 20:58:35 ea Exp $
+#
+#
+TARGET = beep
+OBJECTS = beep.o beep.coff ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+BASE_CFLAGS = -I../../../include
 
-TARGET_TYPE = driver
+all: beep.sys
 
-TARGET_NAME = beep
+.PHONY: all
 
-TARGET_OBJECTS = beep.o
+clean:
+	- $(RM) beep.o
+	- $(RM) beep.coff
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) beep.sys
 
-TARGET_CFLAGS = -Wall -Werror
+.phony: clean
 
-include $(PATH_TO_TOP)/rules.mak
+floppy: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
-include $(TOOLS_PATH)/helper.mk
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+endif
+
+dist: ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+
+../../../$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys ..\..\..\$(DIST_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+endif
+
+
+beep.sys: $(OBJECTS)
+	$(CC) \
+		-specs=../../svc_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp \
+		$(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname beep.sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-specs=../../svc_specs \
+		-mdll \
+		-o $(TARGET).sys \
+		$(OBJECTS)
+	- $(RM) temp.exp
+
+include ../../../rules.mak
+

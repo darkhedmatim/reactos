@@ -1,4 +1,4 @@
-/* $Id: symlink.c,v 1.35 2004/10/22 20:25:54 ekohl Exp $
+/* $Id: symlink.c,v 1.10 2000/01/12 19:02:40 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,16 +11,162 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <wchar.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
+/* GLOBALS ******************************************************************/
 
-/* FUNCTIONS ****************************************************************/
+typedef
+struct
+{
+	CSHORT			Type;
+	CSHORT			Size;
+	UNICODE_STRING		TargetName;
+	OBJECT_ATTRIBUTES	Target;
+	
+} SYMLNK_OBJECT, *PSYMLNK_OBJECT;
+
+
+POBJECT_TYPE
+IoSymbolicLinkType = NULL;
+
+/* FUNCTIONS *****************************************************************/
+
+
+/**********************************************************************
+ * NAME							INTERNAL
+ *	IopCreateSymbolicLink
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURNN VALUE
+ *	Status.
+ *
+ * REVISIONS
+ */
+NTSTATUS
+IopCreateSymbolicLink (
+	PVOID			Object,
+	PVOID			Parent,
+	PWSTR			RemainingPath,
+	POBJECT_ATTRIBUTES	ObjectAttributes
+	)
+{
+	if (	(Parent != NULL)
+		&& (RemainingPath != NULL)
+		)
+	{
+		ObAddEntryDirectory(
+			Parent,
+			Object,
+			RemainingPath + 1
+			);
+	}
+	return STATUS_SUCCESS;
+}
+
+
+/**********************************************************************
+ * NAME							INTERNAL
+ *	IopParseSymbolicLink
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURNN VALUE
+ *
+ * REVISIONS
+ */
+PVOID
+IopParseSymbolicLink (
+	PVOID	Object,
+	PWSTR	* RemainingPath
+	)
+{
+	NTSTATUS	Status;
+	PSYMLNK_OBJECT	SymlinkObject = (PSYMLNK_OBJECT) Object;
+	PVOID		ReturnedObject;
+   
+	Status = ObReferenceObjectByName(
+			SymlinkObject->Target.ObjectName,
+			0,
+			NULL,
+			STANDARD_RIGHTS_REQUIRED,
+			NULL,
+			UserMode,
+			NULL,
+			& ReturnedObject
+			);
+	if (NT_SUCCESS(Status))
+	{
+		return ReturnedObject;
+	}
+	return NULL;
+}
+
+
+/**********************************************************************
+ * NAME							INTERNAL
+ *	IoInitSymbolicLinkImplementation
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ * 	None.
+ *
+ * RETURNN VALUE
+ * 	None.
+ *
+ * REVISIONS
+ */
+VOID
+IoInitSymbolicLinkImplementation (VOID)
+{
+	ANSI_STRING AnsiString;
+   
+	IoSymbolicLinkType = ExAllocatePool(
+				NonPagedPool,
+				sizeof (OBJECT_TYPE)
+				);
+   
+	IoSymbolicLinkType->TotalObjects = 0;
+	IoSymbolicLinkType->TotalHandles = 0;
+	IoSymbolicLinkType->MaxObjects = ULONG_MAX;
+	IoSymbolicLinkType->MaxHandles = ULONG_MAX;
+	IoSymbolicLinkType->PagedPoolCharge = 0;
+	IoSymbolicLinkType->NonpagedPoolCharge = sizeof (SYMLNK_OBJECT);
+	IoSymbolicLinkType->Dump = NULL;
+	IoSymbolicLinkType->Open = NULL;
+	IoSymbolicLinkType->Close = NULL;
+	IoSymbolicLinkType->Delete = NULL;
+	IoSymbolicLinkType->Parse = IopParseSymbolicLink;
+	IoSymbolicLinkType->Security = NULL;
+	IoSymbolicLinkType->QueryName = NULL;
+	IoSymbolicLinkType->OkayToClose = NULL;
+	IoSymbolicLinkType->Create = IopCreateSymbolicLink;
+   
+	RtlInitAnsiString(
+		& AnsiString,
+		"Symbolic Link"
+		);
+	RtlAnsiStringToUnicodeString(
+		& IoSymbolicLinkType->TypeName,
+		& AnsiString,
+		TRUE
+		);
+}
+
 
 /**********************************************************************
  * NAME							EXPORTED
- *	IoCreateSymbolicLink
+ *	NtOpenSymbolicLinkObject
  *
  * DESCRIPTION
  *
@@ -30,41 +176,97 @@
  *
  * REVISIONS
  *
- * @implemented
  */
-NTSTATUS STDCALL
-IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName,
-		     PUNICODE_STRING DeviceName)
+NTSTATUS
+STDCALL
+NtOpenSymbolicLinkObject (
+	OUT	PHANDLE			LinkHandle,
+	IN	ACCESS_MASK		DesiredAccess,
+	IN	POBJECT_ATTRIBUTES	ObjectAttributes
+	)
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
+	NTSTATUS	Status;
+	PVOID		Object;
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+	Status = ObReferenceObjectByName(
+			ObjectAttributes->ObjectName,
+			ObjectAttributes->Attributes,
+			NULL,
+			DesiredAccess,
+			NULL,
+			UserMode,
+			NULL,
+			& Object
+			);
+	if (!NT_SUCCESS(Status))
+	{
+		return Status;
+	}
+   
+	Status = ObCreateHandle(
+			PsGetCurrentProcess(),
+			Object,
+			DesiredAccess,
+			FALSE,
+			LinkHandle
+			);
+	if (!NT_SUCCESS(Status))
+	{
+		return Status;
+	}
+   
+	return STATUS_SUCCESS;
+}
 
-  DPRINT("IoCreateSymbolicLink(SymbolicLinkName %wZ, DeviceName %wZ)\n",
-	 SymbolicLinkName,
-	 DeviceName);
 
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_PERMANENT,
-			     NULL,
-			     SePublicDefaultSd);
-
-  Status = NtCreateSymbolicLinkObject(&Handle,
-				      SYMBOLIC_LINK_ALL_ACCESS,
-				      &ObjectAttributes,
-				      DeviceName);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  NtClose(Handle);
-
-  return(STATUS_SUCCESS);
+/**********************************************************************
+ * NAME							EXPORTED
+ *	NtQuerySymbolicLinkObject
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
+ * REVISIONS
+ *
+ */
+NTSTATUS
+STDCALL
+NtQuerySymbolicLinkObject (
+	IN	HANDLE		LinkHandle,
+	IN OUT	PUNICODE_STRING	LinkTarget,
+	OUT	PULONG		ReturnedLength	OPTIONAL
+	)
+{
+	PSYMLNK_OBJECT	SymlinkObject;
+	NTSTATUS	Status;
+   
+	Status = ObReferenceObjectByHandle(
+			LinkHandle,
+			SYMBOLIC_LINK_QUERY,
+			IoSymbolicLinkType,
+			UserMode,
+			(PVOID *) & SymlinkObject,
+			NULL
+			);
+	if (Status != STATUS_SUCCESS)
+	{
+		return Status;
+	}
+   
+	RtlCopyUnicodeString(
+		LinkTarget,
+		SymlinkObject->Target.ObjectName
+		);
+	if (ReturnedLength != NULL)
+	{
+		*ReturnedLength = SymlinkObject->Target.Length;
+	}
+	ObDereferenceObject(SymlinkObject);
+	
+	return STATUS_SUCCESS;
 }
 
 
@@ -80,60 +282,99 @@ IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName,
  *
  * REVISIONS
  *
- * @implemented
  */
-NTSTATUS STDCALL
-IoCreateUnprotectedSymbolicLink(PUNICODE_STRING SymbolicLinkName,
-				PUNICODE_STRING DeviceName)
+NTSTATUS
+STDCALL
+IoCreateUnprotectedSymbolicLink (
+	PUNICODE_STRING	SymbolicLinkName,
+	PUNICODE_STRING	DeviceName
+	)
 {
-  SECURITY_DESCRIPTOR SecurityDescriptor;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
+	return IoCreateSymbolicLink(
+			SymbolicLinkName,
+			DeviceName
+			);
+}
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
 
-  DPRINT("IoCreateUnprotectedSymbolicLink(SymbolicLinkName %wZ, DeviceName %wZ)\n",
-	 SymbolicLinkName,
-	 DeviceName);
+/**********************************************************************
+ * NAME							EXPORTED
+ *	IoCreateSymbolicLink
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
+ * REVISIONS
+ *
+ */
+NTSTATUS
+STDCALL
+IoCreateSymbolicLink (
+	PUNICODE_STRING	SymbolicLinkName,
+	PUNICODE_STRING	DeviceName
+	)
+{
+	OBJECT_ATTRIBUTES	ObjectAttributes;
+	HANDLE			SymbolicLinkHandle;
+	PSYMLNK_OBJECT		SymbolicLink;
+   
+	assert_irql(PASSIVE_LEVEL);
+   
+	DPRINT(
+		"IoCreateSymbolicLink(SymbolicLinkName %S, DeviceName %S)\n",
+		SymbolicLinkName->Buffer,
+		DeviceName->Buffer
+		);
+   
+	InitializeObjectAttributes(
+		& ObjectAttributes,
+		SymbolicLinkName,
+		0,
+		NULL,
+		NULL
+		);
+	SymbolicLink = ObCreateObject(
+			& SymbolicLinkHandle,
+			SYMBOLIC_LINK_ALL_ACCESS,
+			& ObjectAttributes,
+			IoSymbolicLinkType
+			);
+	if (SymbolicLink == NULL)
+	{
+		return STATUS_UNSUCCESSFUL;
+	}
+   
+	ZwClose(SymbolicLinkHandle);
+	
+	SymbolicLink->TargetName.Length = 0;
+	SymbolicLink->TargetName.MaximumLength = 
+		((wcslen(DeviceName->Buffer) + 1) * sizeof(WCHAR));
+	SymbolicLink->TargetName.Buffer =
+		ExAllocatePool(
+			NonPagedPool,
+                        SymbolicLink->TargetName.MaximumLength
+			);
+	RtlCopyUnicodeString(
+		& (SymbolicLink->TargetName),
+		DeviceName
+		);
+	
+	DPRINT("DeviceName %S\n", SymbolicLink->TargetName.Buffer);
+	
+	InitializeObjectAttributes(
+		& (SymbolicLink->Target),
+		& (SymbolicLink->TargetName),
+		0,
+		NULL,
+		NULL
+		);
+	
+	DPRINT("%s() = STATUS_SUCCESS\n",__FUNCTION__);
 
-  Status = RtlCreateSecurityDescriptor(&SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("RtlCreateSecurityDescriptor() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  Status = RtlSetDaclSecurityDescriptor(&SecurityDescriptor,
-					TRUE,
-					NULL,
-					TRUE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("RtlSetDaclSecurityDescriptor() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_PERMANENT,
-			     NULL,
-			     &SecurityDescriptor);
-
-  Status = NtCreateSymbolicLinkObject(&Handle,
-				      SYMBOLIC_LINK_ALL_ACCESS,
-				      &ObjectAttributes,
-				      DeviceName);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  NtClose(Handle);
-
-  return(STATUS_SUCCESS);
+	return STATUS_SUCCESS;
 }
 
 
@@ -149,36 +390,41 @@ IoCreateUnprotectedSymbolicLink(PUNICODE_STRING SymbolicLinkName,
  *
  * REVISIONS
  *
- * @implemented
  */
-NTSTATUS STDCALL
-IoDeleteSymbolicLink(PUNICODE_STRING SymbolicLinkName)
+NTSTATUS
+STDCALL
+IoDeleteSymbolicLink (
+	PUNICODE_STRING	DeviceName
+	)
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  DPRINT("IoDeleteSymbolicLink (SymbolicLinkName %S)\n",
-	 SymbolicLinkName->Buffer);
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_OPENLINK,
-			     NULL,
-			     NULL);
-
-  Status = NtOpenSymbolicLinkObject(&Handle,
-				    SYMBOLIC_LINK_ALL_ACCESS,
-				    &ObjectAttributes);
-  if (!NT_SUCCESS(Status))
-    return(Status);
-
-  Status = NtMakeTemporaryObject(Handle);
-  NtClose(Handle);
-
-  return(Status);
+	UNIMPLEMENTED;
 }
+
+
+/**********************************************************************
+ * NAME						(EXPORTED as Zw)
+ *	NtCreateSymbolicLinkObject
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
+ * REVISIONS
+ *
+ */
+NTSTATUS
+STDCALL
+NtCreateSymbolicLinkObject (
+	OUT	PHANDLE			SymbolicLinkHandle,
+	IN	ACCESS_MASK		DesiredAccess,
+	IN	POBJECT_ATTRIBUTES	ObjectAttributes,
+	IN	PUNICODE_STRING		Name
+	)
+{
+	UNIMPLEMENTED;
+}
+
 
 /* EOF */

@@ -1,54 +1,40 @@
+
 #ifndef __WIN32K_PATH_H
 #define __WIN32K_PATH_H
 
-typedef enum tagGdiPathState
-{
-   PATH_Null,
-   PATH_Open,
-   PATH_Closed
-} GdiPathState;
+BOOL  W32kAbortPath(HDC  hDC);
 
-typedef struct tagGdiPath
-{
-   GdiPathState state;
-   POINT      *pPoints;
-   BYTE         *pFlags;
-   int          numEntriesUsed, numEntriesAllocated;
-   BOOL       newStroke;
-} GdiPath;
+BOOL  W32kBeginPath(HDC  hDC);
 
-#define PATH_IsPathOpen(path) ((path).state==PATH_Open)
+BOOL  W32kCloseFigure(HDC  hDC);
 
-BOOL STDCALL NtGdiAbortPath(HDC  hDC);
+BOOL  W32kEndPath(HDC  hDC);
 
-BOOL STDCALL NtGdiBeginPath(HDC  hDC);
+BOOL  W32kFillPath(HDC  hDC);
 
-BOOL STDCALL NtGdiCloseFigure(HDC  hDC);
+BOOL  W32kFlattenPath(HDC  hDC);
 
-BOOL STDCALL NtGdiEndPath(HDC  hDC);
-
-BOOL STDCALL NtGdiFillPath(HDC  hDC);
-
-BOOL STDCALL NtGdiFlattenPath(HDC  hDC);
-
-BOOL STDCALL NtGdiGetMiterLimit(HDC  hDC,
+BOOL  W32kGetMiterLimit(HDC  hDC,
                         PFLOAT  Limit);
 
-INT STDCALL NtGdiGetPath(HDC  hDC,
+INT  W32kGetPath(HDC  hDC,
                  LPPOINT  Points,
                  LPBYTE  Types,
                  INT  nSize);
 
-HRGN STDCALL NtGdiPathToRegion(HDC  hDC);
+HRGN  W32kPathToRegion(HDC  hDC);
 
-BOOL STDCALL NtGdiSetMiterLimit(HDC  hDC,
+BOOL  W32kSetMiterLimit(HDC  hDC,
                         FLOAT  NewLimit,
                         PFLOAT  OldLimit);
 
-BOOL STDCALL NtGdiStrokeAndFillPath(HDC  hDC);
+BOOL  W32kStrokeAndFillPath(HDC  hDC);
 
-BOOL STDCALL NtGdiStrokePath(HDC  hDC);
+BOOL  W32kStrokePath(HDC  hDC);
 
-BOOL STDCALL NtGdiWidenPath(HDC  hDC);
+BOOL  W32kWidenPath(HDC  hDC);
+
+
 
 #endif
+

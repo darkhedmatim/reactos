@@ -1,16 +1,15 @@
 #ifndef _INC_REACTOS_CONFIG_H
 #define _INC_REACTOS_CONFIG_H 
-/* $Id: config.h,v 1.4 2003/08/25 01:37:47 sedwards Exp $ */
+/* $Id: config.h,v 1.2 1999/10/12 21:17:03 ea Exp $ */
 /* ReactOS global configuration options */
 
-#define CONFIG_PROCESSOR_FAMILY_I386	386L
-#define CONFIG_PROCESSOR_FAMILY_I486	486L
-#define CONFIG_PROCESSOR_FAMILY_I586	586L
-#define CONFIG_PROCESSOR_FAMILY_IPII	686L
+#define CONFIG_PROCESSOR_FAMILY_I386	"i386"
+#define CONFIG_PROCESSOR_FAMILY_I486	"i486"
+#define CONFIG_PROCESSOR_FAMILY_I586	"i586"
 
-#define CONFIG_PROCESSOR_FAMILY_ALPHA	0x10000000
+#define CONFIG_PROCESSOR_FAMILY_ALPHA	"ALPHA"
 
-#define CONFIG_ARCHITECTURE_IBMPC	0x00000000
+#define CONFIG_ARCHITECTURE_IBMPC	"IBMPC"
 /*
  * Processor and architecture.
  */
@@ -24,9 +23,7 @@
  * Use __fastcall calling conventions when needed
  * in system components that require it.
  */
-
-/* #define CONFIG_USE_FASTCALL */
-
+//#define CONFIG_USE_FASTCALL
 /*
  * Enable debugging output on a per module
  * base.

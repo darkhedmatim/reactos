@@ -1,212 +1,174 @@
-/* $Id: res.c,v 1.22 2004/09/11 17:06:33 gvg Exp $
- *
- * COPYRIGHT: See COPYING in the top level directory
- * PROJECT  : ReactOS user mode libraries
- * MODULE   : kernel32.dll
- * FILE     : reactos/lib/kernel32/misc/res.c
- * AUTHOR   : ???
- */
+#define WIN32_NO_STATUS
+#define WIN32_NO_PEHDR
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <pe.h>
+#include <ntdll/ldr.h>
+#include <kernel32/kernel32.h>
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
-
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
-FindResourceA (
-	HINSTANCE	hModule,
-	LPCSTR		lpName,
-	LPCSTR		lpType
-	)
+FindResourceA(
+	      HINSTANCE hModule,
+	      LPCSTR lpName,
+	      LPCSTR lpType
+	      )
 {
-	return FindResourceExA (hModule, lpType, lpName, 0);
+	return FindResourceExA(hModule,lpName,lpType,0);
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
 FindResourceExA(
-	HINSTANCE	hModule,
-	LPCSTR		lpType,
-	LPCSTR		lpName,
-	WORD		wLanguage
-	)
+		HINSTANCE hModule,
+		LPCSTR lpType,
+		LPCSTR lpName,
+		WORD    wLanguage
+		)
 {
-	UNICODE_STRING TypeU;
-	UNICODE_STRING NameU;
-	ANSI_STRING Type;
-	ANSI_STRING Name;
-	HRSRC Res;
+     WCHAR ResourceNameW[MAX_PATH];
+     WCHAR TypeNameW[MAX_PATH];
 
-	RtlInitUnicodeString (&NameU,
-	                      NULL);
-	RtlInitUnicodeString (&TypeU,
-	                      NULL);
+     WCHAR *ResourceName = ResourceNameW;
+     WCHAR *TypeName = TypeNameW;
 
-	if (HIWORD(lpName) != 0)
-	{
-		RtlInitAnsiString (&Name,
-		                   (LPSTR)lpName);
-		RtlAnsiStringToUnicodeString (&NameU,
-		                              &Name,
-		                              TRUE);
-	}
-	else
-		NameU.Buffer = (PWSTR)lpName;
+     if ( HIWORD(lpName) != 0 ) {
 
-	if (HIWORD(lpType) != 0)
-	{
-		RtlInitAnsiString (&Type,
-		                   (LPSTR)lpType);
-		RtlAnsiStringToUnicodeString (&TypeU,
-		                              &Type,
-		                              TRUE);
-	}
-	else
-		TypeU.Buffer = (PWSTR)lpType;
+     	if (!KERNEL32_AnsiToUnicode(ResourceNameW,
+			       lpName,
+			       MAX_PATH))
+     	{
+		return NULL;
+     	}	
+     }
+     else
+	ResourceName = (WCHAR *)lpName;
 
-	Res = FindResourceExW (hModule,
-	                       TypeU.Buffer,
-	                       NameU.Buffer,
-	                       wLanguage);
+     if ( HIWORD(lpType) != 0 ) {
 
-	if (HIWORD(lpName) != 0)
-		RtlFreeUnicodeString (&NameU);
+     	if (!KERNEL32_AnsiToUnicode(TypeNameW,
+			       lpType,
+			       MAX_PATH))
+     	{
+		return NULL;
+     	}	
+     }
+     else
+	TypeName = lpType;
 
-	if (HIWORD(lpType) != 0)
-		RtlFreeUnicodeString (&TypeU);
-
-	return Res;
+     return FindResourceExW(hModule,TypeName,ResourceName,wLanguage);
+     
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
-FindResourceW (
-	HINSTANCE	hModule,
-	LPCWSTR		lpName,
-	LPCWSTR		lpType
-	)
+FindResourceW(
+    HINSTANCE hModule,
+    LPCWSTR lpName,
+    LPCWSTR lpType
+    )
 {
-	return FindResourceExW (hModule, lpType, lpName, 0);
+	return FindResourceExW(hModule,lpName,lpType,0);
 }
 
-
-/*
- * @implemented
- */
 HRSRC
 STDCALL
-FindResourceExW (
-	HINSTANCE	hModule,
-	LPCWSTR		lpType,
-	LPCWSTR		lpName,
-	WORD		wLanguage
-	)
+FindResourceExW(
+    HINSTANCE hModule,
+    LPCWSTR lpType,
+    LPCWSTR lpName,
+    WORD    wLanguage
+    )
 {
-	PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry = NULL;
-	LDR_RESOURCE_INFO ResourceInfo;
+
+	IMAGE_RESOURCE_DATA_ENTRY *ResourceDataEntry;
 	NTSTATUS Status;
-
+	int i,l;
+	ULONG nType = 0, nName = 0;
+	
 	if ( hModule == NULL )
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
+		hModule = GetModuleHandle(NULL);
 
-	if ( !IS_INTRESOURCE(lpName) && lpName[0] == L'#' ) {
-		lpName = MAKEINTRESOURCEW(wcstoul(lpName + 1, NULL, 10));
+
+	if ( HIWORD(lpName) != 0 )  {
+		if ( lpName[0] == L'#' ) {
+			l = lstrlenW(lpName) -1;
+		
+			for(i=0;i<l;i++) {
+				nName = lpName[i+1] - L'0';
+				if ( i < l - 1 )
+					nName*= 10;
+			}
+
+		}
+
+		lpName = (LPWSTR)nName;
 	}
-	if ( !IS_INTRESOURCE(lpType) && lpType[0] == L'#' ) {
-		lpType = MAKEINTRESOURCEW(wcstoul(lpType + 1, NULL, 10));
+		
+
+
+	if ( HIWORD(lpType) != 0 )  {
+		if ( lpType[0] == L'#' ) {
+			l = lstrlenW(lpType);
+
+			for(i=0;i<l;i++) {
+				nType = lpType[i] - L'0';
+				if ( i < l - 1 )
+					nType*= 10;
+			}
+
+		}
+		else
+			return NULL;
 	}
+	else
+		nType = lpType;
+     	
+        
 
-	ResourceInfo.Type = (ULONG)lpType;
-	ResourceInfo.Name = (ULONG)lpName;
-	ResourceInfo.Language = (ULONG)wLanguage;
-
-	Status = LdrFindResource_U (hModule,
-				    &ResourceInfo,
-				    RESOURCE_DATA_LEVEL,
-				    &ResourceDataEntry);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus (Status);
+	Status = LdrFindResource_U(hModule,&ResourceDataEntry,lpName, nType,wLanguage);
+	if ( !NT_SUCCESS(Status ) ) {
+		SetLastError(RtlNtStatusToDosError(Status));
 		return NULL;
 	}
-
-	return (HRSRC)ResourceDataEntry;
+	return ResourceDataEntry;
 }
 
 
-/*
- * @implemented
- */
 HGLOBAL
 STDCALL
-LoadResource (
-	HINSTANCE	hModule,
-	HRSRC		hResInfo
-	)
+LoadResource(
+	     HINSTANCE hModule,
+	     HRSRC hResInfo
+	     )
 {
-	NTSTATUS Status;
-	PVOID Data;
-	PIMAGE_RESOURCE_DATA_ENTRY ResInfo = (PIMAGE_RESOURCE_DATA_ENTRY)hResInfo;
+	void **Data;
+	Data = HeapAlloc(GetProcessHeap(),0,sizeof(void *));
 
-	if (hModule == NULL)
-	{
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
-	}
-
-	Status = LdrAccessResource (hModule, ResInfo, &Data, NULL);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus (Status);
-		return NULL;
-	}
-
-	return Data;
+	LdrAccessResource(hModule, hResInfo, Data);
+	return *Data;
 }
 
-
-/*
- * @implemented
- */
 DWORD
 STDCALL
-SizeofResource (
-	HINSTANCE	hModule,
-	HRSRC		hResInfo
-	)
+SizeofResource(
+	       HINSTANCE hModule,
+	       HRSRC hResInfo
+	       )
 {
 	return ((PIMAGE_RESOURCE_DATA_ENTRY)hResInfo)->Size;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 FreeResource (
 	HGLOBAL	hResData
 	)
 {
+	HeapFree(GetProcessHeap(),0,&hResData);
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
 LPVOID
 STDCALL
 LockResource (
@@ -217,202 +179,4 @@ LockResource (
 }
 
 
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-BeginUpdateResourceW (
-	LPCWSTR	pFileName,
-	BOOL	bDeleteExistingResources
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
 
-
-/*
- * @unimplemented
- */
-HANDLE
-STDCALL
-BeginUpdateResourceA (
-	LPCSTR	pFileName,
-	BOOL	bDeleteExistingResources
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EndUpdateResourceW (
-	HANDLE	hUpdate,
-	BOOL	fDiscard
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EndUpdateResourceA (
-	HANDLE	hUpdate,
-	BOOL	fDiscard
-	)
-{
-	return EndUpdateResourceW(
-			hUpdate,
-			fDiscard
-			);
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EnumResourceLanguagesW (
-	HINSTANCE		hModule,
-	LPCWSTR			lpType,
-	LPCWSTR			lpName,
-	ENUMRESLANGPROCW	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-BOOL
-STDCALL
-EnumResourceLanguagesA (
-	HINSTANCE		hModule,
-	LPCSTR			lpType,
-	LPCSTR			lpName,
-	ENUMRESLANGPROCA	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EnumResourceNamesW (
-	HINSTANCE		hModule,
-	LPCWSTR			lpType,
-	ENUMRESNAMEPROCW	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EnumResourceNamesA (
-	HINSTANCE		hModule,
-	LPCSTR			lpType,
-	ENUMRESNAMEPROCA	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EnumResourceTypesW (
-	HINSTANCE		hModule,
-	ENUMRESTYPEPROCW	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-EnumResourceTypesA (
-	HINSTANCE		hModule,
-	ENUMRESTYPEPROCA	lpEnumFunc,
-	LONG			lParam
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UpdateResourceA (
-	HANDLE	hUpdate,
-	LPCSTR	lpType,
-	LPCSTR	lpName,
-	WORD	wLanguage,
-	LPVOID	lpData,
-	DWORD	cbData
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UpdateResourceW (
-	HANDLE	hUpdate,
-	LPCWSTR	lpType,
-	LPCWSTR	lpName,
-	WORD	wLanguage,
-	LPVOID	lpData,
-	DWORD	cbData
-	)
-{
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
-}
-
-/* EOF */

@@ -1,23 +1,5 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: sem.c,v 1.16 2004/11/21 18:33:54 gdalsnes Exp $
- *
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/sem.c
  * PURPOSE:         Implements kernel semaphores
@@ -28,19 +10,17 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-VOID STDCALL
-KeInitializeSemaphore (PKSEMAPHORE	Semaphore,
-		       LONG		Count,
-		       LONG		Limit)
+VOID KeInitializeSemaphore(PKSEMAPHORE Semaphore,
+			   LONG Count,
+			   LONG Limit)
 {
    KeInitializeDispatcherHeader(&Semaphore->Header,
 				InternalSemaphoreType,
@@ -49,23 +29,15 @@ KeInitializeSemaphore (PKSEMAPHORE	Semaphore,
    Semaphore->Limit=Limit;
 }
 
-/*
- * @implemented
- */
-LONG STDCALL
-KeReadStateSemaphore (PKSEMAPHORE	Semaphore)
+LONG KeReadStateSemaphore(PKSEMAPHORE Semaphore)
 {
    return(Semaphore->Header.SignalState);
 }
 
-/*
- * @implemented
- */
-LONG STDCALL
-KeReleaseSemaphore (PKSEMAPHORE	Semaphore,
-		    KPRIORITY	Increment,
-		    LONG		Adjustment,
-		    BOOLEAN		Wait)
+LONG KeReleaseSemaphore(PKSEMAPHORE Semaphore,
+			KPRIORITY Increment,
+			LONG Adjustment,
+			BOOLEAN Wait)
 /*
  * FUNCTION: KeReleaseSemaphore releases a given semaphore object. This
  * routine supplies a runtime priority boost for waiting threads. If this
@@ -87,39 +59,29 @@ KeReleaseSemaphore (PKSEMAPHORE	Semaphore,
  *          object is Not-Signaled.
  */
 {
-  ULONG InitialState;
-  KIRQL OldIrql;
-
-  DPRINT("KeReleaseSemaphore(Semaphore %x, Increment %d, Adjustment %d, "
+   ULONG initState = Semaphore->Header.SignalState;
+  
+   DPRINT("KeReleaseSemaphore(Semaphore %x, Increment %d, Adjustment %d, "
 	  "Wait %d)\n", Semaphore, Increment, Adjustment, Wait);
-
-  OldIrql = KeAcquireDispatcherDatabaseLock();
-
-  InitialState = Semaphore->Header.SignalState;
-  if (Semaphore->Limit < (LONG) InitialState + Adjustment ||
-      InitialState > InitialState + Adjustment)
-    {
-      ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED);
-    }
-
-  Semaphore->Header.SignalState += Adjustment;
-  if (InitialState == 0)
-    {
-      KiDispatcherObjectWake(&Semaphore->Header);
-    }
-
-  if (Wait == FALSE)
-    {
-      KeReleaseDispatcherDatabaseLock(OldIrql);
-    }
-  else
-    {
-      KTHREAD *Thread = KeGetCurrentThread();
-      Thread->WaitNext = Wait;
-      Thread->WaitIrql = OldIrql;
-    }
-
-  return(InitialState);
+   
+   KeAcquireDispatcherDatabaseLock(Wait);
+   
+   if (Semaphore->Limit < initState+Adjustment
+       || initState > initState+Adjustment)
+     {
+	ExRaiseStatus(STATUS_SEMAPHORE_LIMIT_EXCEEDED);
+     }
+   
+   Semaphore->Header.SignalState+=Adjustment;
+   DPRINT("initState %d\n", initState);
+   if(initState == 0)
+     {
+	//  wake up SignalState waiters
+	DPRINT("Waking waiters\n");
+	KeDispatcherObjectWake(&Semaphore->Header);
+     }
+   
+  KeReleaseDispatcherDatabaseLock(Wait);
+  return initState;
 }
 
-/* EOF */

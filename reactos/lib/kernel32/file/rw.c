@@ -1,4 +1,4 @@
-/* $Id: rw.c,v 1.25 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: rw.c,v 1.8 2000/01/11 17:30:16 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,19 +11,18 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <wchar.h>
+#include <string.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
-BOOL STDCALL
-WriteFile(HANDLE hFile,
+WINBOOL STDCALL WriteFile(HANDLE hFile,
 			  LPCVOID lpBuffer,	
 			  DWORD nNumberOfBytesToWrite,
 			  LPDWORD lpNumberOfBytesWritten,	
@@ -35,28 +34,63 @@ WriteFile(HANDLE hFile,
    IO_STATUS_BLOCK IIosb;
    PIO_STATUS_BLOCK IoStatusBlock;
    PLARGE_INTEGER ptrOffset;
-
+   
    DPRINT("WriteFile(hFile %x)\n",hFile);
    
-  if (lpOverLapped == NULL && lpNumberOfBytesWritten == NULL)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-  }  
-   
-  if (lpNumberOfBytesWritten)
-  {
-    *lpNumberOfBytesWritten = 0;
-  }
-   
-   if (IsConsoleHandle(hFile))
+   if (lpOverLapped != NULL) 
      {
-	return(WriteConsoleA(hFile,
-			     lpBuffer,
-			     nNumberOfBytesToWrite,
-			     lpNumberOfBytesWritten,
-			     NULL));
+        Offset.u.LowPart = lpOverLapped->Offset;
+        Offset.u.HighPart = lpOverLapped->OffsetHigh;
+	lpOverLapped->Internal = STATUS_PENDING;
+	hEvent = lpOverLapped->hEvent;
+	IoStatusBlock = (PIO_STATUS_BLOCK)lpOverLapped;
+	ptrOffset = &Offset;
      }
-      
+   else 
+     {
+	ptrOffset = NULL;
+	IoStatusBlock = &IIosb;
+        Offset.QuadPart = 0;
+     }
+
+   errCode = NtWriteFile(hFile,
+			 hEvent,
+			 NULL,
+			 NULL,
+			 IoStatusBlock,
+			 (PVOID)lpBuffer, 
+			 nNumberOfBytesToWrite,
+			 ptrOffset,
+			 NULL);
+   if (!NT_SUCCESS(errCode))
+     {
+	SetLastError(RtlNtStatusToDosError(errCode));
+	DPRINT("WriteFile() failed\n");
+	return FALSE;
+     }
+   if (lpNumberOfBytesWritten != NULL )
+     {
+	*lpNumberOfBytesWritten = IoStatusBlock->Information;
+     }
+   DPRINT("WriteFile() succeeded\n");
+   return(TRUE);
+}
+
+
+
+WINBOOL STDCALL ReadFile(HANDLE hFile,
+			 LPVOID lpBuffer,
+			 DWORD nNumberOfBytesToRead,
+			 LPDWORD lpNumberOfBytesRead,
+			 LPOVERLAPPED lpOverLapped)
+{
+   HANDLE hEvent = NULL;
+   LARGE_INTEGER Offset;
+   NTSTATUS errCode;
+   IO_STATUS_BLOCK IIosb;
+   PIO_STATUS_BLOCK IoStatusBlock;
+   PLARGE_INTEGER ptrOffset;
+   
    if (lpOverLapped != NULL) 
      {
         Offset.u.LowPart = lpOverLapped->Offset;
@@ -71,85 +105,6 @@ WriteFile(HANDLE hFile,
 	ptrOffset = NULL;
 	IoStatusBlock = &IIosb;
      }
-
-   errCode = NtWriteFile(hFile,
-			 hEvent,
-			 NULL,
-			 NULL,
-			 IoStatusBlock,
-			 (PVOID)lpBuffer, 
-			 nNumberOfBytesToWrite,
-			 ptrOffset,
-			 NULL);
-       
-  if (!NT_SUCCESS(errCode) || errCode == STATUS_PENDING)
-  {
-    SetLastErrorByStatus (errCode);
-    return FALSE;
-  }
-     
-  if (lpNumberOfBytesWritten != NULL )
-  {
-    *lpNumberOfBytesWritten = IoStatusBlock->Information;
-  }
-     
-  DPRINT("WriteFile() succeeded\n");
-  return(TRUE);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ReadFile(
-  HANDLE hFile,
-  LPVOID lpBuffer,
-  DWORD nNumberOfBytesToRead,
-  LPDWORD lpNumberOfBytesRead,
-  LPOVERLAPPED lpOverLapped
-  )
-{
-   HANDLE hEvent = NULL;
-   LARGE_INTEGER Offset;
-   NTSTATUS errCode;
-   IO_STATUS_BLOCK IIosb;
-   PIO_STATUS_BLOCK IoStatusBlock;
-   PLARGE_INTEGER ptrOffset;
-
-  if (lpOverLapped == NULL && lpNumberOfBytesRead == NULL)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-  }  
-
-  if (lpNumberOfBytesRead)
-  {
-    *lpNumberOfBytesRead = 0;
-  }
-   
-  if (IsConsoleHandle(hFile))
-  {
-    return(ReadConsoleA(hFile,
-			    lpBuffer,
-			    nNumberOfBytesToRead,
-			    lpNumberOfBytesRead,
-			    NULL));
-  }
-   
-  if (lpOverLapped) 
-  {
-    Offset.u.LowPart = lpOverLapped->Offset;
-    Offset.u.HighPart = lpOverLapped->OffsetHigh;
-    lpOverLapped->Internal = STATUS_PENDING;
-    hEvent = lpOverLapped->hEvent;
-    IoStatusBlock = (PIO_STATUS_BLOCK)lpOverLapped;
-    ptrOffset = &Offset;
-  }
-  else 
-  {
-    ptrOffset = NULL;
-    IoStatusBlock = &IIosb;
-  }
    
    errCode = NtReadFile(hFile,
 			hEvent,
@@ -160,56 +115,39 @@ ReadFile(
 			nNumberOfBytesToRead,
 			ptrOffset,
 			NULL);
-
-  /* for non-overlapped io, a end-of-file error is translated to
-  a successful operation with zero bytes read */
-  if (!lpOverLapped && errCode == STATUS_END_OF_FILE)
-  {
-    /* IoStatusBlock->Information should contain zero in case of an error, but to be safe,
-    set lpNumberOfBytesRead to zero manually instead of using IoStatusBlock->Information */
-    *lpNumberOfBytesRead = 0;
-    return TRUE;
-  }
    
-  if (!NT_SUCCESS(errCode) || errCode == STATUS_PENDING)
-  {
-    SetLastErrorByStatus (errCode);
-    return FALSE;
-  }
-
-  if (lpNumberOfBytesRead != NULL)
-  {
-    *lpNumberOfBytesRead = IoStatusBlock->Information;
-  }
-  
-  return(TRUE);
+   if (errCode != STATUS_PENDING && lpNumberOfBytesRead != NULL)
+     {
+	*lpNumberOfBytesRead = IoStatusBlock->Information;
+     }
+   
+   if (!NT_SUCCESS(errCode))  
+     {
+	SetLastError(RtlNtStatusToDosError(errCode));
+	return(FALSE);
+     }
+   return(TRUE);
 }
 
-VOID STDCALL
-ApcRoutine(PVOID ApcContext, 
-		struct _IO_STATUS_BLOCK* IoStatusBlock, 
-		ULONG Reserved)
+VOID ApcRoutine(PVOID ApcContext, struct _IO_STATUS_BLOCK* IoStatusBlock, ULONG NumberOfBytesTransfered)
 {
-   DWORD dwErrorCode;
-   LPOVERLAPPED_COMPLETION_ROUTINE  lpCompletionRoutine = 
-     (LPOVERLAPPED_COMPLETION_ROUTINE)ApcContext;
-     
-   dwErrorCode = RtlNtStatusToDosError(IoStatusBlock->Status);
-   lpCompletionRoutine(dwErrorCode, 
-           IoStatusBlock->Information, 
-		       (LPOVERLAPPED)IoStatusBlock);
+	DWORD dwErrorCode;
+	LPOVERLAPPED_COMPLETION_ROUTINE  lpCompletionRoutine = (LPOVERLAPPED_COMPLETION_ROUTINE)ApcContext;
+
+	dwErrorCode = RtlNtStatusToDosError( IoStatusBlock->Status);
+	lpCompletionRoutine(  dwErrorCode, NumberOfBytesTransfered, (LPOVERLAPPED)IoStatusBlock );
 }
 
 
-/*
- * @implemented
- */
-BOOL STDCALL 
-WriteFileEx (HANDLE				hFile,
-	     LPCVOID				lpBuffer,
-	     DWORD				nNumberOfBytesToWrite,
-	     LPOVERLAPPED			lpOverLapped,
-	     LPOVERLAPPED_COMPLETION_ROUTINE	lpCompletionRoutine)
+WINBOOL
+STDCALL
+WriteFileEx (
+	HANDLE				hFile,
+	LPCVOID				lpBuffer,
+	DWORD				nNumberOfBytesToWrite,
+	LPOVERLAPPED			lpOverLapped,
+	LPOVERLAPPED_COMPLETION_ROUTINE	lpCompletionRoutine
+	)
 {
 
    LARGE_INTEGER Offset;
@@ -219,6 +157,9 @@ WriteFileEx (HANDLE				hFile,
    
    DPRINT("WriteFileEx(hFile %x)\n",hFile);
    
+   if (lpOverLapped == NULL) 
+	return FALSE;
+
    Offset.u.LowPart = lpOverLapped->Offset;
    Offset.u.HighPart = lpOverLapped->OffsetHigh;
    lpOverLapped->Internal = STATUS_PENDING;
@@ -234,33 +175,18 @@ WriteFileEx (HANDLE				hFile,
 			 nNumberOfBytesToWrite,
 			 ptrOffset,
 			 NULL);
-       
-   if (NT_ERROR(errCode))
+   if (!NT_SUCCESS(errCode))
      {
-	SetLastErrorByStatus (errCode);
+	SetLastError(RtlNtStatusToDosError(errCode));
 	DPRINT("WriteFileEx() failed\n");
 	return FALSE;
      }
-     
-  if (NT_WARNING(errCode))
-  {
-    SetLastErrorByStatus(errCode);
-  }
-  else
-  {
-    SetLastError(0);
-  }
   
    DPRINT("WriteFileEx() succeeded\n");
    return(TRUE);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ReadFileEx(HANDLE hFile,
+WINBOOL STDCALL ReadFileEx(HANDLE hFile,
 			   LPVOID lpBuffer,
 			   DWORD nNumberOfBytesToRead,
 			   LPOVERLAPPED lpOverLapped,
@@ -271,6 +197,9 @@ ReadFileEx(HANDLE hFile,
    PIO_STATUS_BLOCK IoStatusBlock;
    PLARGE_INTEGER ptrOffset;
    
+   if (lpOverLapped == NULL) 
+	return FALSE;
+
    Offset.u.LowPart = lpOverLapped->Offset;
    Offset.u.HighPart = lpOverLapped->OffsetHigh;
    lpOverLapped->Internal = STATUS_PENDING;
@@ -287,21 +216,11 @@ ReadFileEx(HANDLE hFile,
 			ptrOffset,
 			NULL);
 
-   if (NT_ERROR(errCode))  
+   if (!NT_SUCCESS(errCode))  
      {
-	SetLastErrorByStatus (errCode);
+	SetLastError(RtlNtStatusToDosError(errCode));
 	return(FALSE);
      }
-     
-  if (NT_WARNING(errCode))
-  {
-    SetLastErrorByStatus(errCode);
-  }
-  else
-  {
-    SetLastError(0);
-  }
-     
    return(TRUE);
 }
 

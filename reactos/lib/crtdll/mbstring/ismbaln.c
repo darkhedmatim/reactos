@@ -1,12 +1,6 @@
-#include <msvcrt/mbctype.h>
-#include <msvcrt/ctype.h>
+#include <crtdll/mbctype.h>
 
-
-/*
- * @implemented
- */
 int _ismbbalnum(unsigned char c)
 {
 	return (isalnum(c) || _ismbbkalnum(c));
 }
-

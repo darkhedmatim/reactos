@@ -1,5 +1,4 @@
-/* $Id: tls.c,v 1.14 2004/01/23 21:16:04 ekohl Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/thread/tls.c
@@ -12,107 +11,52 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
-
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <kernel32/thread.h>
+#include <string.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-DWORD STDCALL 
-TlsAlloc(VOID)
+DWORD STDCALL TlsAlloc(VOID)
 {
-   ULONG Index;
-
-   RtlAcquirePebLock();
-   Index = RtlFindClearBitsAndSet (NtCurrentPeb()->TlsBitmap, 1, 0);
-   if (Index == (ULONG)-1)
+   DWORD dwTlsIndex = GetTeb()->dwTlsIndex;
+   void	**TlsData = GetTeb()->TlsData;
+	
+   if (dwTlsIndex < (sizeof(TlsData) / sizeof(TlsData[0])))
      {
-       SetLastErrorByStatus(STATUS_NO_MEMORY);
+	TlsData[dwTlsIndex] = NULL;
+	return (dwTlsIndex++);
      }
-   else
-     {
-       NtCurrentTeb()->TlsSlots[Index] = 0;
-     }
-   RtlReleasePebLock();
-   
-   return(Index);
+   return (0xFFFFFFFFUL);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL 
-TlsFree(DWORD dwTlsIndex)
+WINBOOL	STDCALL TlsFree(DWORD dwTlsIndex)
 {
-   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
-     {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return(FALSE);
-     }
-
-   RtlAcquirePebLock();
-   if (RtlAreBitsSet(NtCurrentPeb()->TlsBitmap, dwTlsIndex, 1))
-     {
-	/*
-	 * clear the tls cells (slots) in all threads
-	 * of the current process
-	 */
-	NtSetInformationThread(NtCurrentThread(),
-			       ThreadZeroTlsCell,
-			       &dwTlsIndex,
-			       sizeof(DWORD));
-	RtlClearBits(NtCurrentPeb()->TlsBitmap,
-		     dwTlsIndex,
-		     1);
-     }
-   RtlReleasePebLock();
-
-   return(TRUE);
+   return (TRUE);
 }
 
-
-/*
- * @implemented
- */
-LPVOID STDCALL 
-TlsGetValue(DWORD dwTlsIndex)
+LPVOID STDCALL TlsGetVlue(DWORD dwTlsIndex)
 {
-   LPVOID Value;
-
-   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
+   void	**TlsData = GetTeb()->TlsData;
+	
+   if (dwTlsIndex < (sizeof(TlsData) / sizeof(TlsData[0])))
      {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return(NULL);
+	SetLastError(NO_ERROR);
+	return (TlsData[dwTlsIndex]);
      }
-
-   Value = NtCurrentTeb()->TlsSlots[dwTlsIndex];
-   if (Value == 0)
-   {
-      SetLastError(NO_ERROR);
-   }
-   return Value;
+   SetLastError(1);
+   return (NULL);
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL 
-TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue)
+WINBOOL	STDCALL TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue)
 {
-   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
+   void	**TlsData = GetTeb()->TlsData;
+	
+   if (dwTlsIndex < (sizeof(TlsData) / sizeof(TlsData[0])))
      {
-	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	return(FALSE);
+	TlsData[dwTlsIndex] = lpTlsValue;
+	return (TRUE);
      }
-   NtCurrentTeb()->TlsSlots[dwTlsIndex] = lpTlsValue;
-   return(TRUE);
+   return (FALSE);
 }
-
-/* EOF */

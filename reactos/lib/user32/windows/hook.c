@@ -1,363 +1,468 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ * Windows hook functions
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright 1994, 1995 Alexandre Julliard
+ *                 1996 Andrew Lewycky
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: hook.c,v 1.16 2004/08/15 21:36:29 chorns Exp $
- *
- * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/input.c
- * PURPOSE:         Input
- * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
- * UPDATE HISTORY:
- *      09-05-2001  CSH  Created
+ * Based on investigations by Alex Korobka
  */
 
-/* INCLUDES ******************************************************************/
+#include <windows.h>
+#include <user32/hook.h>
 
-#include "user32.h"
-#include <user32/callback.h>
-#define NDEBUG
-#include <debug.h>
+#define GetThreadQueue(x) NULL
 
-/* FUNCTIONS *****************************************************************/
+HANDLE HOOK_systemHooks[WH_NB_HOOKS] = { NULL, };
 
+/***********************************************************************
+ *           SetWindowsHookA   
+ *
+ * FIXME: I don't know if this is correct
+ */
+HHOOK STDCALL SetWindowsHookExA(int  idHook, HOOKPROC  lpfn, HINSTANCE  hMod, DWORD  dwThreadId )
+{
+    return HOOK_SetHook( idHook, lpfn, HOOK_WINA, hMod, dwThreadId );
+
+}
+
+
+/***********************************************************************
+ *           SetWindowsHookExW   
+ *
+ * FIXME: I don't know if this is correct
+ */
+HHOOK STDCALL SetWindowsHookExW(int  idHook, HOOKPROC  lpfn, HINSTANCE  hMod, DWORD  dwThreadId )
+{
+    return HOOK_SetHook( idHook, lpfn, HOOK_WINW, hMod, dwThreadId );
+
+}
+
+
+
+
+
+
+/***********************************************************************
+ *           UnhookWindowsHook   
+ */
+WINBOOL STDCALL UnhookWindowsHook( INT id, HOOKPROC proc )
+{
+	return FALSE;
+}
+
+
+/***********************************************************************
+ *           UnhookWindowHookEx   (USER.558)
+ */
+WINBOOL STDCALL UnhookWindowsHookEx( HHOOK hhook )
+{
+    return HOOK_RemoveHook( hhook );
+}
+
+
+
+/***********************************************************************
+ *           CallNextHookEx   
+ *
+ * There aren't ANSI and UNICODE versions of this.
+ */
+LRESULT STDCALL CallNextHookEx( HHOOK hhook, INT code, WPARAM wParam,
+                                 LPARAM lParam )
+{
+    HHOOK next;
+    INT fromtype;	/* figure out Ansi/Unicode */
+    HOOKDATA *oldhook;
+
+   
+    if (!(next = HOOK_GetNextHook(hhook ))) return 0;
+
+    oldhook = (HOOKDATA *)hhook ;
+    fromtype = oldhook->flags & HOOK_MAPTYPE;
+
+
+    return HOOK_CallHook( next, fromtype, code, wParam, lParam );
+}
+
+
+
+/***********************************************************************
+ *           CallMsgFilterA   (USER.15)
+ */
 /*
- * @implemented
+ * FIXME: There are ANSI and UNICODE versions of this, plus an unspecified
+ * version, plus USER (the bit one) has a CallMsgFilter function.
  */
-BOOL
-STDCALL
-UnhookWindowsHookEx(
-  HHOOK Hook)
+WINBOOL STDCALL CallMsgFilterA( LPMSG msg, INT code )
 {
-  return NtUserUnhookWindowsHookEx(Hook);
+   
+    if (HOOK_CallHooksA( WH_SYSMSGFILTER, code, 0, (LPARAM)msg ))
+      return TRUE;
+    return HOOK_CallHooksA( WH_MSGFILTER, code, 0, (LPARAM)msg );
 }
+
+
+/***********************************************************************
+ *           CallMsgFilterW   (USER.)
+ */
+WINBOOL STDCALL CallMsgFilterW( LPMSG msg, INT code )
+{
+    if (HOOK_CallHooksW( WH_SYSMSGFILTER, code, 0, (LPARAM)msg ))
+      return TRUE;
+    return HOOK_CallHooksW( WH_MSGFILTER, code, 0, (LPARAM)msg );
+}
+
+
+
+
+
+/***********************************************************************
+ *           Internal Functions
+ */
+
+/***********************************************************************
+ *           HOOK_GetNextHook
+ *
+ * Get the next hook of a given hook.
+ */
+HANDLE HOOK_GetNextHook( HHOOK hhook )
+{
+   
+    HOOKDATA *hook;
+    if (!hhook) return 0;
+    hook = (HOOKDATA *)hhook;
+
+    if (hook->next) return hook->next;
+    if (!hook->ownerQueue) return 0;  /* Already system hook */
+
+    /* Now start enumerating the system hooks */
+    return HOOK_systemHooks[hook->id - WH_MINHOOK];
+}
+
+
+/***********************************************************************
+ *           HOOK_GetHook
+ *
+ * Get the first hook for a given type.
+ */
+HANDLE HOOK_GetHook( INT id, HQUEUE hQueue )
+{
+//    MESSAGEQUEUE *queue;
+    HHOOK hook = 0;
+
+ //   if ((queue = (MESSAGEQUEUE *)GlobalLock( hQueue )) != NULL)
+ //       hook = queue->hooks[id - WH_MINHOOK];
+    if (!hook) hook = HOOK_systemHooks[id - WH_MINHOOK];
+    return hook;
+}
+
+
+/***********************************************************************
+ *           HOOK_SetHook
+ *
+ * Install a given hook.
+ */
+HANDLE HOOK_SetHook( INT id, LPVOID proc, INT type,
+			      HINSTANCE hInst, DWORD dwThreadId )
+{
+    HOOKDATA *data;
+    //HANDLE handle;
+    HQUEUE hQueue = 0;
+
+    if ((id < WH_MINHOOK) || (id > WH_MAXHOOK)) return 0;
+
+   
+
+
+    //if (id == WH_JOURNALPLAYBACK) EnableHardwareInput(FALSE);
+
 #if 0
-BOOL
-STDCALL
-CallMsgFilter(
-  LPMSG lpMsg,
-  int nCode)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
+     if (hTask)  /* Task-specific hook */
+    {
+	if ((id == WH_JOURNALRECORD) || (id == WH_JOURNALPLAYBACK) ||
+	    (id == WH_SYSMSGFILTER)) return 0;  /* System-only hooks */
+        if (!(hQueue = GetTaskQueue( hTask )))
+        {
+            /* FIXME: shouldn't this be done somewhere else? */
+            if (hTask != GetCurrentTask()) return 0;
+            if (!(hQueue = GetFastQueue())) return 0;
+        }
+    }
 #endif
 
+    /* Create the hook structure */
 
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-CallMsgFilterA(
-  LPMSG lpMsg,
-  int nCode)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
+    if (!(data = HeapAlloc(GetProcessHeap(),0, sizeof(HOOKDATA) ))) return 0;
+    data->proc        = proc;
+    data->id          = id;
+    data->ownerQueue  = hQueue;
+    data->ownerModule = hInst;
+    data->flags       = type;
 
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-CallMsgFilterW(
-  LPMSG lpMsg,
-  int nCode)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-LRESULT
-STDCALL
-CallNextHookEx(
-  HHOOK Hook,
-  int Code,
-  WPARAM wParam,
-  LPARAM lParam)
-{
-  return NtUserCallNextHookEx(Hook, Code, wParam, lParam);
-}
-
-STATIC
-HHOOK
-FASTCALL
-IntSetWindowsHook(
-    int idHook,
-    HOOKPROC lpfn,
-    HINSTANCE hMod,
-    DWORD dwThreadId,
-    BOOL bAnsi)
-{
-  WCHAR ModuleName[MAX_PATH];
-  UNICODE_STRING USModuleName;
-
-  if (NULL != hMod)
+    /* Insert it in the correct linked list */
+#if 0
+    if (hQueue)
     {
-      if (0 == GetModuleFileNameW(hMod, ModuleName, MAX_PATH))
-        {
-          return NULL;
-        }
-      RtlInitUnicodeString(&USModuleName, ModuleName);
+        MESSAGEQUEUE *queue = (MESSAGEQUEUE *)GlobalLock16( hQueue );
+        data->next = queue->hooks[id - WH_MINHOOK];
+        queue->hooks[id - WH_MINHOOK] = data;
+	return data;
     }
-  else
+#endif
+  
+    data->next = HOOK_systemHooks[id - WH_MINHOOK];
+    HOOK_systemHooks[id - WH_MINHOOK] = data;
+    
+  
+    return data;
+}
+
+/***********************************************************************
+ *           HOOK_RemoveHook
+ *
+ * Remove a hook from the list.
+ */
+WINBOOL HOOK_RemoveHook( HANDLE hook )
+{
+    HOOKDATA *data;
+    HANDLE *prevHook = NULL;
+
+
+
+    if (!(data = (HOOKDATA *)(hook))) return FALSE;
+    if (data->flags & HOOK_INUSE)
     {
-      RtlInitUnicodeString(&USModuleName, NULL);
+        /* Mark it for deletion later on */
+        //WARN(hook, "Hook still running, deletion delayed\n" );
+        data->proc = (HOOKPROC)0;
+        return TRUE;
     }
 
-  return NtUserSetWindowsHookEx(hMod, &USModuleName, dwThreadId, idHook, lpfn, bAnsi);
-}
+//    if (data->id == WH_JOURNALPLAYBACK) EnableHardwareInput(TRUE);
+     
+    /* Remove it from the linked list */
 
-/*
- * @unimplemented
- */
-HHOOK
-STDCALL
-SetWindowsHookW(int idHook, HOOKPROC lpfn)
-{
-  return IntSetWindowsHook(idHook, lpfn, NULL, 0, FALSE);
-}
-
-/*
- * @unimplemented
- */
-HHOOK
-STDCALL
-SetWindowsHookA(int idHook, HOOKPROC lpfn)
-{
-  return IntSetWindowsHook(idHook, lpfn, NULL, 0, TRUE);
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-DeregisterShellHookWindow(HWND hWnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RegisterShellHookWindow(HWND hWnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UnhookWindowsHook ( int nCode, HOOKPROC pfnFilterProc )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-NotifyWinEvent(
-	       DWORD event,
-	       HWND  hwnd,
-	       LONG  idObject,
-	       LONG  idChild
-	       )
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-HWINEVENTHOOK
-STDCALL
-SetWinEventHook(
-		UINT         eventMin,
-		UINT         eventMax,
-		HMODULE      hmodWinEventProc,
-		WINEVENTPROC pfnWinEventProc,
-		DWORD        idProcess,
-		DWORD        idThread,
-		UINT         dwFlags
-		)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-UnhookWinEvent ( HWINEVENTHOOK hWinEventHook )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IsWinEventHookInstalled(
-    DWORD event)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-HHOOK
-STDCALL
-SetWindowsHookExA(
-    int idHook,
-    HOOKPROC lpfn,
-    HINSTANCE hMod,
-    DWORD dwThreadId)
-{
-  return IntSetWindowsHook(idHook, lpfn, hMod, dwThreadId, TRUE);
-}
-
-
-/*
- * @unimplemented
- */
-HHOOK
-STDCALL
-SetWindowsHookExW(
-    int idHook,
-    HOOKPROC lpfn,
-    HINSTANCE hMod,
-    DWORD dwThreadId)
-{
-  return IntSetWindowsHook(idHook, lpfn, hMod, dwThreadId, FALSE);
-}
-
-NTSTATUS STDCALL
-User32CallHookProcFromKernel(PVOID Arguments, ULONG ArgumentLength)
-{
-  PHOOKPROC_CALLBACK_ARGUMENTS Common;
-  LRESULT Result;
-  CREATESTRUCTW Csw;
-  CBT_CREATEWNDW CbtCreatewndw;
-  UNICODE_STRING UString;
-  CREATESTRUCTA Csa;
-  CBT_CREATEWNDA CbtCreatewnda;
-  ANSI_STRING AString;
-  PHOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS CbtCreatewndExtra;
-  WPARAM wParam;
-  LPARAM lParam;
-
-  Common = (PHOOKPROC_CALLBACK_ARGUMENTS) Arguments;
-
-  switch(Common->HookId)
+    if (data->ownerQueue)
     {
-    case WH_CBT:
-      switch(Common->Code)
-        {
-        case HCBT_CREATEWND:
-          CbtCreatewndExtra = (PHOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS)
-                              ((PCHAR) Common + Common->lParam);
-          Csw = CbtCreatewndExtra->Cs;
-          if (NULL != CbtCreatewndExtra->Cs.lpszName)
-            {
-              Csw.lpszName = (LPCWSTR)((PCHAR) CbtCreatewndExtra
-                                       + (ULONG) CbtCreatewndExtra->Cs.lpszName);
-            }
-          if (0 != HIWORD(CbtCreatewndExtra->Cs.lpszClass))
-            {
-              Csw.lpszClass = (LPCWSTR)((PCHAR) CbtCreatewndExtra
-                                         + LOWORD((ULONG) CbtCreatewndExtra->Cs.lpszClass));
-            }
-          wParam = Common->wParam;
-          if (Common->Ansi)
-            {
-              memcpy(&Csa, &Csw, sizeof(CREATESTRUCTW));
-              if (NULL != Csw.lpszName)
-                {
-                  RtlInitUnicodeString(&UString, Csw.lpszName);
-                  RtlUnicodeStringToAnsiString(&AString, &UString, TRUE);
-                  Csa.lpszName = AString.Buffer;
-                }
-              if (0 != HIWORD(Csw.lpszClass))
-                {
-                  RtlInitUnicodeString(&UString, Csw.lpszClass);
-                  RtlUnicodeStringToAnsiString(&AString, &UString, TRUE);
-                  Csa.lpszClass = AString.Buffer;
-                }
-              CbtCreatewnda.lpcs = &Csa;
-              CbtCreatewnda.hwndInsertAfter = CbtCreatewndExtra->WndInsertAfter;
-              lParam = (LPARAM) &CbtCreatewnda;
-            }
-          else
-            {
-              CbtCreatewndw.lpcs = &Csw;
-              CbtCreatewndw.hwndInsertAfter = CbtCreatewndExtra->WndInsertAfter;
-              lParam = (LPARAM) &CbtCreatewndw;
-            }
-          break;
-        default:
-          return ZwCallbackReturn(NULL, 0, STATUS_NOT_SUPPORTED);
-        }
-
-      Result = Common->Proc(Common->Code, wParam, lParam);
-
-      switch(Common->Code)
-        {
-        case HCBT_CREATEWND:
-          if (Common->Ansi)
-            {
-              if (0 != HIWORD(Csa.lpszClass))
-                {
-                  RtlFreeHeap(GetProcessHeap(), 0, (LPSTR) Csa.lpszClass);
-                }
-              if (NULL != Csa.lpszName)
-                {
-                  RtlFreeHeap(GetProcessHeap(), 0, (LPSTR) Csa.lpszName);
-                }
-            }
-          break;
-        }
-      break;
-    default:
-      return ZwCallbackReturn(NULL, 0, STATUS_NOT_SUPPORTED);
+#if 0
+        MESSAGEQUEUE *queue = (MESSAGEQUEUE *)GlobalLock( data->ownerQueue );
+        if (!queue) return FALSE;
+        prevHook = &queue->hooks[data->id - WH_MINHOOK];
+#endif
     }
+    else
+    	prevHook = &HOOK_systemHooks[data->id - WH_MINHOOK];
 
-  return ZwCallbackReturn(&Result, sizeof(LRESULT), STATUS_SUCCESS);
+    while (*prevHook && *prevHook != hook)
+        prevHook = &((HOOKDATA *)(*prevHook))->next;
+
+    if (!*prevHook) return FALSE;
+    *prevHook = data->next;
+    HeapFree(GetProcessHeap(),0, hook );
+    return TRUE;
+}
+
+
+/***********************************************************************
+ *           HOOK_FindValidHook
+ */
+static HANDLE HOOK_FindValidHook( HANDLE hook )
+{
+    HOOKDATA *data;
+
+    for (;;)
+    {
+	if (!(data = (HOOKDATA *)(hook))) return 0;
+	if (data->proc) return hook;
+	hook = data->next;
+    }
+}
+
+
+/***********************************************************************
+ *           HOOK_CallHook
+ *
+ * Call a hook procedure.
+ */
+LRESULT HOOK_CallHook( HHOOK hook, INT fromtype, INT code,
+                              WPARAM wParam, LPARAM lParam )
+{
+   // MESSAGEQUEUE *queue;
+    //HANDLE prevHook;
+    HOOKDATA *data = (HOOKDATA *)(hook);
+    LRESULT ret;
+
+    //WPARAM wParamOrig = wParam;
+    //LPARAM lParamOrig = lParam;
+   // HOOK_MapFunc MapFunc;
+   // HOOK_UnMapFunc UnMapFunc;
+
+   // MapFunc = HOOK_MapFuncs[fromtype][data->flags & HOOK_MAPTYPE];
+   // UnMapFunc = HOOK_UnMapFuncs[fromtype][data->flags & HOOK_MAPTYPE];
+
+    //if (MapFunc)
+    //  MapFunc( data->id, code, &wParam, &lParam );
+
+    /* Now call it */
+#if 0
+    if (!(queue = (MESSAGEQUEUE *)GlobalLock( GetThreadQueue(0) ))) return 0;
+    prevHook = queue->hCurHook;
+    queue->hCurHook = hook;
+    data->flags |= HOOK_INUSE;
+#endif
+    //TRACE(hook, "Calling hook %04x: %d %08x %08lx\n",
+    //              hook, code, wParam, lParam );
+
+    ret = data->proc(code, wParam, lParam);
+
+    //TRACE(hook, "Ret hook %04x = %08lx\n", hook, ret );
+
+    data->flags &= ~HOOK_INUSE;
+    //queue->hCurHook = prevHook;
+
+    //if (UnMapFunc)
+    //  UnMapFunc( data->id, code, wParamOrig, lParamOrig, wParam, lParam );
+
+    if (!data->proc) HOOK_RemoveHook( hook );
+
+    return ret;
+}
+
+/***********************************************************************
+ *           HOOK_IsHooked
+ *
+ * Replacement for calling HOOK_GetHook from other modules.
+ */
+WINBOOL HOOK_IsHooked( INT id )
+{
+    return HOOK_GetHook( id, GetThreadQueue(0) ) != 0;
+}
+
+LRESULT HOOK_CallHooks( INT id, INT code, WPARAM wParam,
+                           LPARAM lParam ,WINBOOL bUnicode)
+{
+	if ( bUnicode == TRUE )
+		return HOOK_CallHooksW( id, code, wParam,lParam );
+	else
+		return HOOK_CallHooksA( id, code, wParam,lParam );
+
+	return 0;
+}
+
+/***********************************************************************
+ *           HOOK_CallHooksA
+ *
+ * Call a hook chain.
+ */
+LRESULT HOOK_CallHooksA( INT id, INT code, WPARAM wParam,
+                           LPARAM lParam )
+{
+    HANDLE hook; 
+
+    if (!(hook = HOOK_GetHook( id , GetThreadQueue(0) ))) return 0;
+    if (!(hook = HOOK_FindValidHook(hook))) return 0;
+    return HOOK_CallHook( hook, HOOK_WINA, code, wParam, lParam );
+}
+
+/***********************************************************************
+ *           HOOK_CallHooksW
+ *
+ * Call a hook chain.
+ */
+LRESULT HOOK_CallHooksW( INT id, INT code, WPARAM wParam,
+                           LPARAM lParam )
+{
+    HANDLE hook; 
+
+    if (!(hook = HOOK_GetHook( id , GetThreadQueue(0) ))) return 0;
+    if (!(hook = HOOK_FindValidHook(hook))) return 0;
+    return HOOK_CallHook( hook, HOOK_WINW, code, wParam,
+			  lParam );
+}
+
+
+/***********************************************************************
+ *           HOOK_ResetQueueHooks
+ */
+void HOOK_ResetQueueHooks( HQUEUE hQueue )
+{
+#if 0
+    MESSAGEQUEUE *queue;
+
+    if ((queue = (MESSAGEQUEUE *)GlobalLock( hQueue )) != NULL)
+    {
+	HOOKDATA*	data;
+	HHOOK		hook;
+	int		id;
+	for( id = WH_MINHOOK; id <= WH_MAXHOOK; id++ )
+	{
+	    hook = queue->hooks[id - WH_MINHOOK];
+	    while( hook )
+	    {
+	        if( (data = (HOOKDATA *)(hook)) )
+	        {
+		  data->ownerQueue = hQueue;
+		  hook = data->next;
+		} else break;
+	    }
+	}
+    }
+#endif
+}
+
+/***********************************************************************
+ *	     HOOK_FreeModuleHooks
+ */
+void HOOK_FreeModuleHooks( HMODULE hModule )
+{
+ /* remove all system hooks registered by this module */
+
+  HOOKDATA*     hptr;
+  HHOOK         hook, next;
+  int           id;
+
+  for( id = WH_MINHOOK; id <= WH_MAXHOOK; id++ )
+    {
+       hook = HOOK_systemHooks[id - WH_MINHOOK];
+       while( hook )
+          if( (hptr = (HOOKDATA *)(hook)) )
+	    {
+	      next = hptr->next;
+	      if( hptr->ownerModule == hModule )
+                {
+                  hptr->flags &= HOOK_MAPTYPE;
+                  HOOK_RemoveHook(hook);
+                }
+	      hook = next;
+	    }
+	  else hook = 0;
+    }
+}
+
+/***********************************************************************
+ *	     HOOK_FreeQueueHooks
+ */
+void HOOK_FreeQueueHooks( HQUEUE hQueue )
+{
+  /* remove all hooks registered by this queue */
+
+  HOOKDATA*	hptr = NULL;
+  HHOOK 	hook, next;
+  int 		id;
+
+  for( id = WH_MINHOOK; id <= WH_MAXHOOK; id++ )
+    {
+       hook = HOOK_GetHook( id, hQueue );
+       while( hook )
+	{
+	  next = HOOK_GetNextHook(hook);
+
+	  hptr = (HOOKDATA *)(hook);
+	  if( hptr && hptr->ownerQueue == hQueue )
+	    {
+	      hptr->flags &= HOOK_MAPTYPE;
+	      HOOK_RemoveHook(hook);
+	    }
+	  hook = next;
+	}
+    }
 }

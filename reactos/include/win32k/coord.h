@@ -1,153 +1,80 @@
+
 #ifndef __WIN32K_COORD_H
 #define __WIN32K_COORD_H
 
-#include "dc.h"
+BOOL  W32kCombineTransform(LPXFORM  XformResult,
+                           CONST LPXFORM  xform1,
+                           CONST LPXFORM  xform2);
 
-BOOL
-STDCALL
-NtGdiCombineTransform (
-	LPXFORM		XformResult,
-	CONST LPXFORM	xform1,
-	CONST LPXFORM	xform2
-	);
+BOOL  W32kDPtoLP(HDC  hDC,
+                 LPPOINT  Points,
+                 int  Count);
 
-VOID
-FASTCALL
-IntDPtoLP ( PDC dc, LPPOINT Points, INT Count );
+int  W32kGetGraphicsMode(HDC  hDC);
 
-VOID
-FASTCALL
-CoordDPtoLP ( PDC Dc, LPPOINT Point );
+BOOL  W32kGetWorldTransform(HDC  hDC,
+                            LPXFORM  Xform);
 
-BOOL
-STDCALL
-NtGdiDPtoLP (
-	HDC	hDC,
-	LPPOINT	Points,
-	int	Count
-	);
+BOOL  W32kLPtoDP(HDC  hDC,
+                 LPPOINT  Points,
+                 int  Count);
 
-int
-FASTCALL
-IntGetGraphicsMode ( PDC dc );
+BOOL  W32kModifyWorldTransform(HDC  hDC,
+                               CONST LPXFORM  Xform,
+                               DWORD  Mode);
 
-int
-STDCALL
-NtGdiGetGraphicsMode ( HDC hDC );
+BOOL  W32kOffsetViewportOrgEx(HDC  hDC,
+                              int  XOffset,
+                              int  YOffset,
+                              LPPOINT  Point);
 
-BOOL
-STDCALL
-NtGdiGetWorldTransform (
-	HDC	hDC,
-	LPXFORM	Xform
-	);
+BOOL  W32kOffsetWindowOrgEx(HDC  hDC,
+                            int  XOffset,
+                            int  YOffset,
+                            LPPOINT  Point);
 
-VOID
-FASTCALL
-CoordLPtoDP ( PDC Dc, LPPOINT Point );
+BOOL  W32kScaleViewportExtEx(HDC  hDC,
+                             int  Xnum,
+                             int  Xdenom,
+                             int  Ynum,
+                             int  Ydenom,
+                             LPSIZE  Size);
 
-VOID
-FASTCALL
-IntLPtoDP ( PDC dc, LPPOINT Points, INT Count );
+BOOL  W32kScaleWindowExtEx(HDC  hDC,
+                           int  Xnum,
+                           int  Xdenom,
+                           int  Ynum,
+                           int  Ydenom,
+                           LPSIZE  Size);
 
-BOOL
-STDCALL
-NtGdiLPtoDP (
-	HDC	hDC,
-	LPPOINT	Points,
-	int	Count
-	);
-BOOL
-STDCALL
-NtGdiModifyWorldTransform (
-	HDC		hDC,
-	CONST LPXFORM	Xform,
-	DWORD		Mode
-	);
-BOOL
-STDCALL
-NtGdiOffsetViewportOrgEx (
-	HDC	hDC,
-	int	XOffset,
-	int	YOffset,
-	LPPOINT	Point
-	);
-BOOL
-STDCALL
-NtGdiOffsetWindowOrgEx (
-	HDC	hDC,
-	int	XOffset,
-	int	YOffset,
-	LPPOINT	Point
-	);
-BOOL
-STDCALL
-NtGdiScaleViewportExtEx (
-	HDC	hDC,
-	int	Xnum,
-	int	Xdenom,
-	int	Ynum,
-	int	Ydenom,
-	LPSIZE	Size
-	);
-BOOL
-STDCALL
-NtGdiScaleWindowExtEx (
-	HDC	hDC,
-	int	Xnum,
-	int	Xdenom,
-	int	Ynum,
-	int	Ydenom,
-	LPSIZE  Size
-	);
-int
-STDCALL
-NtGdiSetGraphicsMode (
-	HDC	hDC,
-	int	Mode
-	);
-int
-STDCALL
-NtGdiSetMapMode (
-	HDC	hDC,
-	int	MapMode
-	);
-BOOL
-STDCALL
-NtGdiSetViewportExtEx (
-	HDC	hDC,
-	int	XExtent,
-	int	YExtent,
-	LPSIZE	Size
-	);
-BOOL
-STDCALL
-NtGdiSetViewportOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
-	);
-BOOL
-STDCALL
-NtGdiSetWindowExtEx (
-	HDC	hDC,
-	int	XExtent,
-	int	YExtent,
-	LPSIZE	Size
-	);
-BOOL
-STDCALL
-NtGdiSetWindowOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
-	);
-BOOL
-STDCALL
-NtGdiSetWorldTransform (
-	HDC		hDC,
-	CONST LPXFORM	Xform
-	);
+int  W32kSetGraphicsMode(HDC  hDC,
+                         int  Mode);
+
+int  W32kSetMapMode(HDC  hDC,
+                    int  MapMode);
+
+BOOL  W32kSetViewportExtEx(HDC  hDC,
+                           int  XExtent,
+                           int  YExtent,
+                           LPSIZE  Size);
+
+BOOL  W32kSetViewportOrgEx(HDC  hDC,
+                           int  X,
+                           int  Y,
+                           LPPOINT  Point);
+
+BOOL  W32kSetWindowExtEx(HDC  hDC,
+                         int  XExtent,
+                         int  YExtent,
+                         LPSIZE  Size);
+
+BOOL  W32kSetWindowOrgEx(HDC  hDC,
+                         int  X,
+                         int  Y,
+                         LPPOINT  Point);
+
+BOOL  W32kSetWorldTransform(HDC  hDC,
+                            CONST LPXFORM  Xform);
+
 #endif
+

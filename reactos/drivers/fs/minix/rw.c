@@ -11,17 +11,15 @@
 
 #include <ddk/ntddk.h>
 #include <string.h>
-#include <ntos/minmax.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "minix.h"
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS STDCALL
-MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS MinixWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("MinixWrite(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
@@ -34,30 +32,42 @@ static NTSTATUS MinixReadFilePage(PDEVICE_OBJECT DeviceObject,
 				  PMINIX_DEVICE_EXTENSION DeviceExt,
 				  PMINIX_FSCONTEXT FsContext,
 				  ULONG Offset,
-				  PVOID* Buffer)
+				  PVOID* Buffer,
+				  PCACHE_SEGMENT* CacheSeg)
 {
+   BOOLEAN UptoDate;
    NTSTATUS Status;
    ULONG i;
    ULONG DiskOffset;
-
-   *Buffer = ExAllocatePool(NonPagedPool, 4096);
-
-   for (i=0; i<4; i++)
+   
+   Status = CcRequestCachePage(FsContext->Bcb,
+			       Offset,
+			       Buffer,
+			       &UptoDate,
+			       CacheSeg);
+   if (!NT_SUCCESS(Status))
      {
-	Status = MinixReadBlock(DeviceObject,
-				DeviceExt,
-				&FsContext->inode,
-				Offset + (i * BLOCKSIZE),
-				&DiskOffset);
-	MinixReadSector(DeviceObject,
-			DiskOffset / BLOCKSIZE,
-			(*Buffer) + (i * BLOCKSIZE));
+	return(Status);
+     }
+   
+   if (!UptoDate)
+     {
+	for (i=0; i<4; i++)
+	  {
+	     Status = MinixReadBlock(DeviceObject,
+				     DeviceExt,
+				     &FsContext->inode,
+				     Offset + (i * BLOCKSIZE),
+				     &DiskOffset);
+	     MinixReadSector(DeviceObject,
+			     DiskOffset / BLOCKSIZE,
+			     (*Buffer) + (i * BLOCKSIZE));
+	  }
      }
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    ULONG Length;
    PVOID Buffer;
@@ -69,6 +79,7 @@ MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    PMINIX_FSCONTEXT FsContext = (PMINIX_FSCONTEXT)FileObject->FsContext;
    unsigned int i;
    PVOID DiskBuffer;
+   PCACHE_SEGMENT CacheSeg;
    
    DPRINT("MinixRead(DeviceObject %x, Irp %x)\n",DeviceObject,Irp);
    
@@ -94,32 +105,35 @@ MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	Length = FsContext->inode.i_size - Offset;
      }
    
-   if ((Offset%PAGE_SIZE)!=0)
+   if ((Offset%PAGESIZE)!=0)
      {
-	CurrentOffset = Offset - (Offset%PAGE_SIZE);
+	CurrentOffset = Offset - (Offset%PAGESIZE);
 	
 	MinixReadFilePage(DeviceObject,
 			  DeviceExt,
 			  FsContext,
 			  CurrentOffset,
-			  &DiskBuffer);
+			  &DiskBuffer,
+			  &CacheSeg);
 
 	memcpy(Buffer,
-	       DiskBuffer+(Offset%PAGE_SIZE),
-	       min(PAGE_SIZE - (Offset%PAGE_SIZE),Length));
+	       DiskBuffer+(Offset%PAGESIZE),
+	       min(PAGESIZE - (Offset%PAGESIZE),Length));
 	
-	ExFreePool(DiskBuffer);
+	CcReleaseCachePage(FsContext->Bcb,
+			   CacheSeg,
+			   TRUE);
 	
 	DPRINT("(BLOCKSIZE - (Offset%BLOCKSIZE)) %d\n",
 	       (BLOCKSIZE - (Offset%BLOCKSIZE)));
 	DPRINT("Length %d\n",Length);
-	CurrentOffset = CurrentOffset + PAGE_SIZE;
-	Buffer = Buffer + PAGE_SIZE - (Offset%PAGE_SIZE);
-	Length = Length - min(PAGE_SIZE - (Offset%PAGE_SIZE),Length);
+	CurrentOffset = CurrentOffset + PAGESIZE;
+	Buffer = Buffer + PAGESIZE - (Offset%PAGESIZE);
+	Length = Length - min(PAGESIZE - (Offset%PAGESIZE),Length);
 	DPRINT("CurrentOffset %d Buffer %x Length %d\n",CurrentOffset,Buffer,
 	       Length);
      }
-   for (i=0;i<(Length/PAGE_SIZE);i++)
+   for (i=0;i<(Length/PAGESIZE);i++)
      {
 	CHECKPOINT;
 	
@@ -129,29 +143,35 @@ MinixRead(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			  DeviceExt,
 			  FsContext,
 			  CurrentOffset,
-			  &DiskBuffer);
-	memcpy(Buffer, DiskBuffer, PAGE_SIZE);
+			  &DiskBuffer,
+			  &CacheSeg);
+	memcpy(Buffer, DiskBuffer, PAGESIZE);
 	
-	ExFreePool(DiskBuffer);
-	
-	CurrentOffset = CurrentOffset + PAGE_SIZE;
-	Buffer = Buffer + PAGE_SIZE;
+	CcReleaseCachePage(FsContext->Bcb,
+			   CacheSeg,
+			   TRUE);
+
+	CurrentOffset = CurrentOffset + PAGESIZE;
+	Buffer = Buffer + PAGESIZE;
      }
-   if ((Length%PAGE_SIZE) > 0)
+   if ((Length%PAGESIZE) > 0)
      {
 	CHECKPOINT;
 	
-	DPRINT("Length %x Buffer %x\n",(Length%PAGE_SIZE),Buffer);
+	DPRINT("Length %x Buffer %x\n",(Length%PAGESIZE),Buffer);
 	
 	MinixReadFilePage(DeviceObject,
 			  DeviceExt,
 			  FsContext,
 			  CurrentOffset,
-			  &DiskBuffer);
+			  &DiskBuffer,
+			  &CacheSeg);
 
-	memcpy(Buffer, DiskBuffer, (Length%PAGE_SIZE));
+	memcpy(Buffer, DiskBuffer, (Length%PAGESIZE));
 
-	ExFreePool(DiskBuffer);
+	CcReleaseCachePage(FsContext->Bcb,
+			   CacheSeg,
+			   TRUE);
 
      }
    

@@ -1,19 +1,18 @@
-/* $Id: main.c,v 1.5 2004/01/28 20:55:36 ekohl Exp $
+/* $Id: main.c,v 1.1 1999/11/20 20:41:29 ea Exp $
  *
  * DESCRIPTION: Entry point for TDI.SYS
  */
-#include <ddk/ntddk.h>
+#include <ntos.h>
 
-NTSTATUS
+BOOLEAN
 STDCALL
-DriverEntry (
+DllMain (
 	IN	PDRIVER_OBJECT	DriverObject,
 	IN	PUNICODE_STRING	RegistryPath
 	)
 {
-	return STATUS_UNSUCCESSFUL;
+	return FALSE; /* ? */
 }
-
 
 
 /* EOF */

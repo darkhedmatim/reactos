@@ -11,9 +11,11 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
+#include <string.h>
+#include <internal/string.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
@@ -44,7 +46,7 @@ struct ext2_group_desc* Ext2LoadGroupDesc(PDEVICE_EXTENSION DeviceExt,
    
 }
 
-#define INODES_PER_PAGE (PAGE_SIZE / sizeof(struct ext2_inode))
+#define INODES_PER_PAGE (PAGESIZE / sizeof(struct ext2_inode))
 #define INODES_PER_BLOCK (BLOCKSIZE / sizeof(struct ext2_inode))
 
 VOID Ext2LoadInode(PDEVICE_EXTENSION DeviceExt,

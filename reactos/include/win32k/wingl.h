@@ -2,37 +2,25 @@
 #ifndef __WIN32K_WINGL_H
 #define __WIN32K_WINGL_H
 
-INT
-STDCALL
-NtGdiChoosePixelFormat(HDC  hDC,
+INT  W32kChoosePixelFormat(HDC  hDC,
                            CONST PPIXELFORMATDESCRIPTOR  pfd);
 
-INT
-STDCALL
-NtGdiDescribePixelFormat(HDC  hDC,
+INT  W32kDescribePixelFormat(HDC  hDC,
                              INT  PixelFormat,
                              UINT  BufSize,
                              PPIXELFORMATDESCRIPTOR  pfd);
 
-UINT
-STDCALL
-NtGdiGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
+UINT  W32kGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
                                     DWORD  BufSize, 
                                     CONST PPIXELFORMATDESCRIPTOR  pfd);
 
-INT
-STDCALL
-NtGdiGetPixelFormat(HDC  hDC);
+INT  W32kGetPixelFormat(HDC  hDC);
 
-BOOL
-STDCALL
-NtGdiSetPixelFormat(HDC  hDC,
+BOOL  W32kSetPixelFormat(HDC  hDC,
                          INT  PixelFormat,
                          CONST PPIXELFORMATDESCRIPTOR  pfd);
 
-BOOL
-STDCALL
-NtGdiSwapBuffers(HDC  hDC);
+BOOL  W32kSwapBuffers(HDC  hDC);
 
 #endif
 

@@ -2,150 +2,83 @@
 #ifndef __WIN32K_REGION_H
 #define __WIN32K_REGION_H
 
-#include <win32k/gdiobj.h>
-
-/* Internal region data. Can't use RGNDATA structure because buffer is allocated statically */
-typedef struct _ROSRGNDATA {
-  RGNDATAHEADER rdh;
-  PRECT         Buffer;
-} ROSRGNDATA, *PROSRGNDATA, *LPROSRGNDATA;
-
-
-#define  RGNDATA_FreeRgn(hRgn)  GDIOBJ_FreeObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION)
-#define  RGNDATA_LockRgn(hRgn) ((PROSRGNDATA)GDIOBJ_LockObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION))
-#define  RGNDATA_UnlockRgn(hRgn) GDIOBJ_UnlockObj((HGDIOBJ)hRgn)
-HRGN FASTCALL RGNDATA_AllocRgn(INT n);
-BOOL INTERNAL_CALL RGNDATA_Cleanup(PVOID ObjectBody);
-
-/*  User entry points */
-HRGN STDCALL
-NtGdiUnionRectWithRgn(HRGN hDest, CONST PRECT Rect);
-
-INT
-STDCALL
-NtGdiCombineRgn(HRGN  hDest,
+INT  W32kCombineRgn(HRGN  hDest,
                     HRGN  hSrc1,
                     HRGN  hSrc2,
                     INT  CombineMode);
 
-HRGN
-STDCALL
-NtGdiCreateEllipticRgn(INT  LeftRect,
+HRGN  W32kCreateEllipticRgn(INT  LeftRect,
                             INT  TopRect,
                             INT  RightRect,
                             INT  BottomRect);
 
-HRGN
-STDCALL
-NtGdiCreateEllipticRgnIndirect(CONST PRECT  rc);
+HRGN  W32kCreateEllipticRgnIndirect(CONST PRECT  rc);
 
-HRGN
-STDCALL
-NtGdiCreatePolygonRgn(CONST PPOINT  pt,
+HRGN  W32kCreatePolygonRgn(CONST PPOINT  pt,
                            INT  Count,
                            INT  PolyFillMode);
 
-HRGN
-STDCALL
-NtGdiCreatePolyPolygonRgn(CONST PPOINT  pt,
+HRGN  W32kCreatePolyPolygonRgn(CONST PPOINT  pt,
                                CONST PINT  PolyCounts,
                                INT  Count,
                                INT  PolyFillMode);
 
-HRGN
-STDCALL
-NtGdiCreateRectRgn(INT  LeftRect,
+HRGN  W32kCreateRectRgn(INT  LeftRect,
                         INT  TopRect,
                         INT  RightRect,
                         INT  BottomRect);
 
-HRGN
-STDCALL
-NtGdiCreateRectRgnIndirect(CONST PRECT  rc);
+HRGN  W32kCreateRectRgnIndirect(CONST PRECT  rc);
 
-HRGN
-STDCALL
-NtGdiCreateRoundRectRgn(INT  LeftRect,
+HRGN  W32kCreateRoundRectRgn(INT  LeftRect,
                              INT  TopRect,
                              INT  RightRect,
                              INT  BottomRect,
                              INT  WidthEllipse,
                              INT  HeightEllipse);
 
-BOOL
-STDCALL
-NtGdiEqualRgn(HRGN  hSrcRgn1,
+BOOL  W32kEqualRgn(HRGN  hSrcRgn1,
                    HRGN  hSrcRgn2);
 
-HRGN
-STDCALL
-NtGdiExtCreateRegion(CONST PXFORM  Xform,
+HRGN  W32kExtCreateRegion(CONST PXFORM  Xform,
                           DWORD  Count,
-                          CONST PROSRGNDATA  RgnData);
+                          CONST PRGNDATA  RgnData);
 
-BOOL
-STDCALL
-NtGdiFillRgn(HDC  hDC,
+BOOL  W32kFillRgn(HDC  hDC,
                   HRGN  hRgn,
                   HBRUSH  hBrush);
 
-BOOL
-STDCALL
-NtGdiFrameRgn(HDC  hDC,
+BOOL  W32kFrameRgn(HDC  hDC,
                    HRGN  hRgn,
                    HBRUSH  hBrush,
                    INT  Width,
                    INT  Height);
 
-INT
-STDCALL
-NtGdiGetRgnBox(HRGN  hRgn,
+INT  W32kGetRgnBox(HRGN  hRgn,
                    LPRECT  Rect);
 
-BOOL
-STDCALL
-NtGdiInvertRgn(HDC  hDC,
+BOOL  W32kInvertRgn(HDC  hDC,
                     HRGN  hRgn);
 
-INT
-STDCALL
-NtGdiOffsetRgn(HRGN  hRgn,
+INT  W32kOffsetRgn(HRGN  hRgn,
                    INT  XOffset,
                    INT  YOffset);
 
-BOOL
-STDCALL
-NtGdiPaintRgn(HDC  hDC,
+BOOL  W32kPaintRgn(HDC  hDC,
                    HRGN  hRgn);
 
-BOOL
-STDCALL
-NtGdiPtInRegion(HRGN  hRgn,
+BOOL  W32kPtInRegion(HRGN  hRgn,
                      INT  X,
                      INT  Y);
 
-BOOL
-STDCALL
-NtGdiRectInRegion(HRGN  hRgn,
+BOOL  W32kRectInRegion(HRGN  hRgn,
                        CONST LPRECT  rc);
 
-INT
-STDCALL
-NtGdiSelectVisRgn(HDC hdc,
-                     HRGN hrgn);
-
-BOOL
-STDCALL
-NtGdiSetRectRgn(HRGN  hRgn,
+BOOL  W32kSetRectRgn(HRGN  hRgn,
                      INT  LeftRect,
                      INT  TopRect,
                      INT  RightRect,
                      INT  BottomRect);
 
-DWORD
-STDCALL
-NtGdiGetRegionData(HRGN hrgn,
-						DWORD count,
-						LPRGNDATA rgndata);
 #endif
-
+               

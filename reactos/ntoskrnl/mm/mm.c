@@ -1,23 +1,4 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: mm.c,v 1.80 2004/11/13 13:09:07 weiden Exp $
- *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
  * FILE:        ntoskrnl/mm/mm.c
@@ -29,511 +10,397 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/hal/io.h>
+#include <internal/i386/segment.h>
+#include <internal/stddef.h>
+#include <internal/mm.h>
+#include <string.h>
+#include <internal/string.h>
+#include <internal/ntoskrnl.h>
+#include <internal/bitops.h>
+#include <internal/string.h>
+#include <internal/io.h>
+
+#include <internal/mmhal.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *****************************************************************/
 
-extern MODULE_OBJECT NtoskrnlModuleObject;
-extern MODULE_OBJECT HalModuleObject;
+/*
+ * Size of extended memory (kb) (fixed for now)
+ */
+#define EXTENDED_MEMORY_SIZE  (3*1024*1024)
 
-PVOID EXPORTED MmUserProbeAddress = NULL;
-PVOID EXPORTED MmHighestUserAddress = NULL;
-PBOOLEAN EXPORTED Mm64BitPhysicalAddress = FALSE;
-PVOID EXPORTED MmSystemRangeStart = NULL;
+/*
+ * Compiler defined symbol 
+ */
+extern unsigned int stext;
+extern unsigned int etext;
+extern unsigned int end;
 
-MM_STATS MmStats;
+static BOOLEAN IsThisAnNtAsSystem = FALSE;
+static MM_SYSTEM_SIZE MmSystemSize = MmSmallSystem;
+
+extern unsigned int etext;
+extern unsigned int _bss_end__;
+
+static MEMORY_AREA* kernel_text_desc = NULL;
+static MEMORY_AREA* kernel_data_desc = NULL;
+static MEMORY_AREA* kernel_param_desc = NULL;
+static MEMORY_AREA* kernel_pool_desc = NULL;
+
+/*
+ * All pagefaults are synchronized on this 
+ */
+static KSPIN_LOCK MiPageFaultLock;
 
 /* FUNCTIONS ****************************************************************/
 
-
-NTSTATUS STDCALL
-MmCopyToCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
+VOID MiShutdownMemoryManager(VOID)
 {
-  NTSTATUS Status;
-
-  if (ExGetPreviousMode() == UserMode)
-    {
-      if ((ULONG)Dest >= KERNEL_BASE)
-   {
-     return(STATUS_ACCESS_VIOLATION);
-   }
-      Status = MmSafeCopyToUser(Dest, Src, NumberOfBytes);
-      return(Status);
-    }
-  else
-    {
-      memcpy(Dest, Src, NumberOfBytes);
-      return(STATUS_SUCCESS);
-    }
 }
 
-NTSTATUS STDCALL
-MmCopyFromCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
-{
-  NTSTATUS Status;
-
-  if (ExGetPreviousMode() == UserMode)
-    {
-      if ((ULONG)Src >= KERNEL_BASE)
-   {
-     return(STATUS_ACCESS_VIOLATION);
-   }
-      Status = MmSafeCopyFromUser(Dest, Src, NumberOfBytes);
-      return(Status);
-    }
-  else
-    {
-      memcpy(Dest, Src, NumberOfBytes);
-      return(STATUS_SUCCESS);
-    }
-}
-
-
-
-NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
-{
-   NTSTATUS Status;
-
-   DPRINT("MmReleaseMemoryArea(Process %x, Marea %x)\n",Process,Marea);
-
-   DPRINT("Releasing %x between %x %x (type %d)\n",
-          Marea, Marea->BaseAddress, (char*)Marea->BaseAddress + Marea->Length,
-          Marea->Type);
-
-   switch (Marea->Type)
-   {
-      case MEMORY_AREA_SECTION_VIEW:
-         Status = MmUnmapViewOfSection(Process, Marea->BaseAddress);
-         ASSERT(Status == STATUS_SUCCESS);
-         return(STATUS_SUCCESS);
-
-      case MEMORY_AREA_VIRTUAL_MEMORY:
-         MmFreeVirtualMemory(Process, Marea);
-         break;
-
-      case MEMORY_AREA_SHARED_DATA:
-      case MEMORY_AREA_NO_ACCESS:
-         Status = MmFreeMemoryArea(&Process->AddressSpace,
-                                   Marea->BaseAddress,
-                                   0,
-                                   NULL,
-                                   NULL);
-         break;
-
-      case MEMORY_AREA_MDL_MAPPING:
-         KEBUGCHECK(PROCESS_HAS_LOCKED_PAGES);
-         break;
-
-      default:
-         KEBUGCHECK(0);
-   }
-
-   return(STATUS_SUCCESS);
-}
-
-NTSTATUS MmReleaseMmInfo(PEPROCESS Process)
-{
-   PLIST_ENTRY CurrentEntry;
-   PMEMORY_AREA Current;
-
-   DPRINT("MmReleaseMmInfo(Process %x (%s))\n", Process,
-          Process->ImageFileName);
-
-   MmLockAddressSpace(&Process->AddressSpace);
-
-   while(!IsListEmpty(&Process->AddressSpace.MAreaListHead))
-   {
-      CurrentEntry = Process->AddressSpace.MAreaListHead.Flink;
-      Current = CONTAINING_RECORD(CurrentEntry, MEMORY_AREA, Entry);
-      MmReleaseMemoryArea(Process, Current);
-   }
-
-   Mmi386ReleaseMmInfo(Process);
-
-   MmUnlockAddressSpace(&Process->AddressSpace);
-   MmDestroyAddressSpace(&Process->AddressSpace);
-
-   DPRINT("Finished MmReleaseMmInfo()\n");
-   return(STATUS_SUCCESS);
-}
-
+VOID MmInitVirtualMemory(boot_param* bp)
 /*
- * @implemented
- */
-BOOLEAN STDCALL MmIsNonPagedSystemAddressValid(PVOID VirtualAddress)
-{
-   return MmIsAddressValid(VirtualAddress);
-}
-
-/*
- * @implemented
- */
-BOOLEAN STDCALL MmIsAddressValid(PVOID VirtualAddress)
-/*
- * FUNCTION: Checks whether the given address is valid for a read or write
+ * FUNCTION: Intialize the memory areas list
  * ARGUMENTS:
- *          VirtualAddress = address to check
- * RETURNS: True if the access would be valid
- *          False if the access would cause a page fault
- * NOTES: This function checks whether a byte access to the page would
- *        succeed. Is this realistic for RISC processors which don't
- *        allow byte granular access?
+ *           bp = Pointer to the boot parameters
+ *           kernel_len = Length of the kernel
  */
 {
-   MEMORY_AREA* MemoryArea;
-   PMADDRESS_SPACE AddressSpace;
-
-   if ((ULONG)VirtualAddress >= KERNEL_BASE)
-   {
-      AddressSpace = MmGetKernelAddressSpace();
-   }
-   else
-   {
-      AddressSpace = &PsGetCurrentProcess()->AddressSpace;
-   }
-
-   MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
-                                          VirtualAddress);
-
-   if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
-   {
-      MmUnlockAddressSpace(AddressSpace);
-      return(FALSE);
-   }
-   MmUnlockAddressSpace(AddressSpace);
-   return(TRUE);
-}
-
-NTSTATUS MmAccessFault(KPROCESSOR_MODE Mode,
-                       ULONG Address,
-                       BOOLEAN FromMdl)
-{
-   PMADDRESS_SPACE AddressSpace;
-   MEMORY_AREA* MemoryArea;
-   NTSTATUS Status;
-   BOOLEAN Locked = FromMdl;
-
-   DPRINT("MmAccessFault(Mode %d, Address %x)\n", Mode, Address);
-
-   if (KeGetCurrentIrql() >= DISPATCH_LEVEL)
-   {
-      DbgPrint("Page fault at high IRQL was %d\n", KeGetCurrentIrql());
-      return(STATUS_UNSUCCESSFUL);
-   }
-   if (PsGetCurrentProcess() == NULL)
-   {
-      DbgPrint("No current process\n");
-      return(STATUS_UNSUCCESSFUL);
-   }
-
+   unsigned int kernel_len = bp->end_mem - bp->start_mem;
+   PVOID BaseAddress;
+   ULONG Length;
+   ULONG ParamLength = kernel_len;
+   
+   DPRINT("MmInitVirtualMemory(%x)\n",bp);
+   
+   MmInitMemoryAreas();
+   ExInitNonPagedPool(KERNEL_BASE+ PAGE_ROUND_UP(kernel_len) + PAGESIZE);
+   
+   
    /*
-    * Find the memory area for the faulting address
+    * Setup the system area descriptor list
     */
-   if (Address >= KERNEL_BASE)
-   {
-      /*
-       * Check permissions
-       */
-      if (Mode != KernelMode)
-      {
-         DbgPrint("%s:%d\n",__FILE__,__LINE__);
-         return(STATUS_UNSUCCESSFUL);
-      }
-      AddressSpace = MmGetKernelAddressSpace();
-   }
-   else
-   {
-      AddressSpace = &PsGetCurrentProcess()->AddressSpace;
-   }
-
-   if (!FromMdl)
-   {
-      MmLockAddressSpace(AddressSpace);
-   }
-   do
-   {
-      MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, (PVOID)Address);
-      if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
-      {
-         if (!FromMdl)
-         {
-            MmUnlockAddressSpace(AddressSpace);
-         }
-         return (STATUS_UNSUCCESSFUL);
-      }
-
-      switch (MemoryArea->Type)
-      {
-         case MEMORY_AREA_SYSTEM:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-
-         case MEMORY_AREA_PAGED_POOL:
-            Status = STATUS_SUCCESS;
-            break;
-
-         case MEMORY_AREA_SECTION_VIEW:
-            Status = MmAccessFaultSectionView(AddressSpace,
-                                              MemoryArea,
-                                              (PVOID)Address,
-                                              Locked);
-            break;
-
-         case MEMORY_AREA_VIRTUAL_MEMORY:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-
-         case MEMORY_AREA_SHARED_DATA:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-
-         default:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-      }
-   }
-   while (Status == STATUS_MM_RESTART_OPERATION);
-
-   DPRINT("Completed page fault handling\n");
-   if (!FromMdl)
-   {
-      MmUnlockAddressSpace(AddressSpace);
-   }
-   return(Status);
+   BaseAddress = (PVOID)KERNEL_BASE;
+   Length = PAGE_ROUND_UP(((ULONG)&etext)) - KERNEL_BASE;
+   ParamLength = ParamLength - Length;
+   MmCreateMemoryArea(KernelMode,NULL,MEMORY_AREA_SYSTEM,&BaseAddress,
+		      Length,0,&kernel_text_desc);
+   
+   Length = PAGE_ROUND_UP(((ULONG)&_bss_end__)) - 
+            PAGE_ROUND_UP(((ULONG)&etext));
+   ParamLength = ParamLength - Length;
+   DPRINT("Length %x\n",Length);
+   BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG)&etext));
+   DPRINT("BaseAddress %x\n",BaseAddress);
+   MmCreateMemoryArea(KernelMode,
+		      NULL,
+		      MEMORY_AREA_SYSTEM,
+		      &BaseAddress,
+		      Length,
+		      0,
+		      &kernel_data_desc);
+   
+   BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG)&end));
+   Length = ParamLength;
+   MmCreateMemoryArea(KernelMode,NULL,MEMORY_AREA_SYSTEM,&BaseAddress,
+		      Length,0,&kernel_param_desc);
+   
+   BaseAddress = (PVOID)(KERNEL_BASE + PAGE_ROUND_UP(kernel_len) + PAGESIZE);
+   Length = NONPAGED_POOL_SIZE;
+   MmCreateMemoryArea(KernelMode,NULL,MEMORY_AREA_SYSTEM,&BaseAddress,
+		      Length,0,&kernel_pool_desc);
+   
+//   MmDumpMemoryAreas();
+   CHECKPOINT;
+   
+//  while (inb_p(0x60)!=0x1); inb_p(0x60);
+   
+   MmInitSectionImplementation();
+   MmInitPagingFile();
 }
 
-NTSTATUS MmCommitPagedPoolAddress(PVOID Address, BOOLEAN Locked)
+NTSTATUS MmCommitedSectionHandleFault(MEMORY_AREA* MemoryArea, PVOID Address)
 {
+   KIRQL oldIrql;
+   
+   KeAcquireSpinLock(&MiPageFaultLock, &oldIrql);
+   
+   if (MmIsPagePresent(NULL, Address))
+     {
+	KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+	return(STATUS_SUCCESS);
+     }
+   
+   MmSetPage(PsGetCurrentProcess(),
+	     Address,
+	     MemoryArea->Attributes,
+	     (ULONG)MmAllocPage());
+   
+   KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+   
+   return(STATUS_SUCCESS);
+}
+
+NTSTATUS MmSectionHandleFault(MEMORY_AREA* MemoryArea, 
+			      PVOID Address)
+{
+   LARGE_INTEGER Offset;
+   IO_STATUS_BLOCK IoStatus;
+   PMDL Mdl;
+   PVOID Page;
    NTSTATUS Status;
-   PFN_TYPE AllocatedPage;
-   Status = MmRequestPageMemoryConsumer(MC_PPOOL, FALSE, &AllocatedPage);
+   KIRQL oldIrql;
+   
+   DPRINT("MmSectionHandleFault(MemoryArea %x, Address %x)\n",
+	  MemoryArea,Address);
+   
+   KeAcquireSpinLock(&MiPageFaultLock, &oldIrql);
+   
+   if (MmIsPagePresent(NULL, Address))
+     {
+	KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+	return(STATUS_SUCCESS);
+     }
+   
+   Offset.QuadPart = (Address - MemoryArea->BaseAddress) + 
+     MemoryArea->Data.SectionData.ViewOffset;
+   
+   DPRINT("MemoryArea->Data.SectionData.Section->FileObject %x\n",
+	    MemoryArea->Data.SectionData.Section->FileObject);
+   DPRINT("MemoryArea->Data.SectionData.ViewOffset %x\n",
+	  MemoryArea->Data.SectionData.ViewOffset);
+   DPRINT("Offset.QuadPart %x\n", (ULONG)Offset.QuadPart);
+   DPRINT("MemoryArea->BaseAddress %x\n", MemoryArea->BaseAddress);
+   
+   if (MemoryArea->Data.SectionData.Section->FileObject == NULL)
+     {
+	ULONG Page;
+	
+	Page = (ULONG)MiTryToSharePageInSection(
+			       MemoryArea->Data.SectionData.Section,
+						(ULONG)Offset.QuadPart);
+	
+	if (Page == 0)
+	  {
+	     Page = (ULONG)MmAllocPage();
+	  }
+	
+	MmSetPage(PsGetCurrentProcess(),
+		  Address,
+		  MemoryArea->Attributes,
+		  Page);
+	return(STATUS_SUCCESS);
+     }
+   
+   Mdl = MmCreateMdl(NULL, NULL, PAGESIZE);
+   MmBuildMdlFromPages(Mdl);
+     
+   Page = MmGetMdlPageAddress(Mdl, 0);
+   
+   KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+   
+   Status = IoPageRead(MemoryArea->Data.SectionData.Section->FileObject,
+		       Mdl,
+		       &Offset,
+		       &IoStatus);
+   
    if (!NT_SUCCESS(Status))
-   {
-      MmUnlockAddressSpace(MmGetKernelAddressSpace());
-      Status = MmRequestPageMemoryConsumer(MC_PPOOL, TRUE, &AllocatedPage);
-      MmLockAddressSpace(MmGetKernelAddressSpace());
-   }
-   Status =
-      MmCreateVirtualMapping(NULL,
-                             (PVOID)PAGE_ROUND_DOWN(Address),
-                             PAGE_READWRITE,
-                             &AllocatedPage,
-                             1);
-   if (Locked)
-   {
-      MmLockPage(AllocatedPage);
-   }
-   return(Status);
+     {
+	return(Status);
+     }
+      
+   KeAcquireSpinLock(&MiPageFaultLock, &oldIrql);
+   
+   if (MmIsPagePresent(NULL, Address))
+     {
+	KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+	return(STATUS_SUCCESS);
+     }
+   
+   MmSetPage(NULL,
+	     Address,
+	     MemoryArea->Attributes,
+	     (ULONG)Page);
+   
+   KeReleaseSpinLock(&MiPageFaultLock, oldIrql);
+   
+   DPRINT("Returning from MmSectionHandleFault()\n");
+   
+   return(STATUS_SUCCESS);
 }
 
-NTSTATUS MmNotPresentFault(KPROCESSOR_MODE Mode,
-                           ULONG Address,
-                           BOOLEAN FromMdl)
+ULONG MmPageFault(ULONG cs, ULONG eip, ULONG error_code)
+/*
+ * FUNCTION: Handle a page fault
+ */
 {
-   PMADDRESS_SPACE AddressSpace;
+   KPROCESSOR_MODE FaultMode;
    MEMORY_AREA* MemoryArea;
    NTSTATUS Status;
-   BOOLEAN Locked = FromMdl;
-   PFN_TYPE Pfn;
+   unsigned int cr2;
+   
+   /*
+    * Get the address for the page fault
+    */
+   __asm__("movl %%cr2,%0\n\t" : "=d" (cr2));                
+//   DbgPrint("Page fault address %x eip %x process %x code %x\n",cr2,eip,
+//	    PsGetCurrentProcess(), error_code);
 
-   DPRINT("MmNotPresentFault(Mode %d, Address %x)\n", Mode, Address);
-
+   MmSetPageProtect(PsGetCurrentProcess(),
+		    (PVOID)PAGE_ROUND_DOWN(PsGetCurrentProcess()),
+		    0x7);
+   
+   cr2 = PAGE_ROUND_DOWN(cr2);
+   
+   if (error_code & 0x1)
+     {
+	DPRINT1("Page protection fault at %x with eip %x\n", cr2, eip);
+	return(0);
+     }
+   
+//   DbgPrint("(%%");
+   
    if (KeGetCurrentIrql() >= DISPATCH_LEVEL)
-   {
-      DbgPrint("Page fault at high IRQL was %d\n", KeGetCurrentIrql());
-      return(STATUS_UNSUCCESSFUL);
-   }
+     {
+	DbgPrint("Page fault at high IRQL was %d\n", KeGetCurrentIrql());
+	return(0);
+//	KeBugCheck(0);
+     }
    if (PsGetCurrentProcess() == NULL)
-   {
-      DbgPrint("No current process\n");
-      return(STATUS_UNSUCCESSFUL);
-   }
-
+     {
+	DbgPrint("No current process\n");
+	return(0);
+     }
+   
    /*
     * Find the memory area for the faulting address
     */
-   if (Address >= KERNEL_BASE)
-   {
-      /*
-       * Check permissions
-       */
-      if (Mode != KernelMode)
-      {
-         DbgPrint("%s:%d\n",__FILE__,__LINE__);
-         return(STATUS_UNSUCCESSFUL);
-      }
-      AddressSpace = MmGetKernelAddressSpace();
-   }
+   if (cr2 >= KERNEL_BASE)
+     {
+	/*
+	 * Check permissions
+	 */
+	if (cs != KERNEL_CS)
+	  {
+	     DbgPrint("%s:%d\n",__FILE__,__LINE__);
+	     return(0);
+	  }
+	FaultMode = UserMode;
+     }
    else
-   {
-      AddressSpace = &PsGetCurrentProcess()->AddressSpace;
-   }
+     {
+	FaultMode = KernelMode;
+     }
+   
+   MemoryArea = MmOpenMemoryAreaByAddress(PsGetCurrentProcess(),(PVOID)cr2);
+   if (MemoryArea == NULL)
+     {
+	DbgPrint("%s:%d\n",__FILE__,__LINE__);
+	return(0);
+     }
+   
+   switch (MemoryArea->Type)
+     {
+      case MEMORY_AREA_SYSTEM:
+	Status = STATUS_UNSUCCESSFUL;
+	break;
+	
+      case MEMORY_AREA_SECTION_VIEW_COMMIT:
+	Status = MmSectionHandleFault(MemoryArea, (PVOID)cr2);
+	break;
+	
+      case MEMORY_AREA_COMMIT:
+	Status = MmCommitedSectionHandleFault(MemoryArea,(PVOID)cr2);
+	break;
+	
+      default:
+	Status = STATUS_UNSUCCESSFUL;
+	break;
+     }
+   DPRINT("Completed page fault handling\n");
+   return(NT_SUCCESS(Status));
+}
 
-   if (!FromMdl)
-   {
-      MmLockAddressSpace(AddressSpace);
-   }
+BOOLEAN MmIsThisAnNtAsSystem(VOID)
+{
+   return(IsThisAnNtAsSystem);
+}
+
+MM_SYSTEM_SIZE MmQuerySystemSize(VOID)
+{
+   return(MmSystemSize);
+}
+
+void MmInitialize(boot_param* bp, ULONG LastKernelAddress)
+/*
+ * FUNCTION: Initalize memory managment
+ */
+{
+   unsigned int first_krnl_phys_addr;
+   unsigned int last_krnl_phys_addr;
+   int i;
+   unsigned int kernel_len;
+   
+   DPRINT("MmInitialize(bp %x, LastKernelAddress %x)\n", bp, 
+	  LastKernelAddress);
 
    /*
-    * Call the memory area specific fault handler
+    * Unmap low memory
     */
-   do
-   {
-      MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace, (PVOID)Address);
-      if (MemoryArea == NULL || MemoryArea->DeleteInProgress)
-      {
-         if (!FromMdl)
-         {
-            MmUnlockAddressSpace(AddressSpace);
-         }
-         return (STATUS_UNSUCCESSFUL);
-      }
-
-      switch (MemoryArea->Type)
-      {
-         case MEMORY_AREA_PAGED_POOL:
-            {
-               Status = MmCommitPagedPoolAddress((PVOID)Address, Locked);
-               break;
-            }
-
-         case MEMORY_AREA_SYSTEM:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-
-         case MEMORY_AREA_SECTION_VIEW:
-            Status = MmNotPresentFaultSectionView(AddressSpace,
-                                                  MemoryArea,
-                                                  (PVOID)Address,
-                                                  Locked);
-            break;
-
-         case MEMORY_AREA_VIRTUAL_MEMORY:
-            Status = MmNotPresentFaultVirtualMemory(AddressSpace,
-                                                    MemoryArea,
-                                                    (PVOID)Address,
-                                                    Locked);
-            break;
-
-         case MEMORY_AREA_SHARED_DATA:
-	    Pfn = MmSharedDataPagePhysicalAddress.QuadPart >> PAGE_SHIFT;
-            Status =
-               MmCreateVirtualMapping(PsGetCurrentProcess(),
-                                      (PVOID)PAGE_ROUND_DOWN(Address),
-                                      PAGE_READONLY,
-                                      &Pfn,
-                                      1);
-            break;
-
-         default:
-            Status = STATUS_UNSUCCESSFUL;
-            break;
-      }
-   }
-   while (Status == STATUS_MM_RESTART_OPERATION);
-
-   DPRINT("Completed page fault handling\n");
-   if (!FromMdl)
-   {
-      MmUnlockAddressSpace(AddressSpace);
-   }
-   return(Status);
+   MmDeletePageTable(NULL, 0);
+   
+   /*
+    * Free all pages not used for kernel memory
+    * (we assume the kernel occupies a continuous range of physical
+    * memory)
+    */
+   first_krnl_phys_addr = bp->start_mem;
+   last_krnl_phys_addr = bp->end_mem;
+   DPRINT("first krnl %x\nlast krnl %x\n",first_krnl_phys_addr,
+	  last_krnl_phys_addr);
+   
+   /*
+    * Free physical memory not used by the kernel
+    */
+   LastKernelAddress = (ULONG)MmInitializePageList(
+						   (PVOID)first_krnl_phys_addr,
+						   (PVOID)last_krnl_phys_addr,
+						   1024,
+					      PAGE_ROUND_UP(LastKernelAddress));
+   kernel_len = last_krnl_phys_addr - first_krnl_phys_addr;
+   
+   /*
+    * Create a trap for null pointer references and protect text
+    * segment
+    */
+   CHECKPOINT;
+   DPRINT("stext %x etext %x\n",(int)&stext,(int)&etext);
+   for (i=PAGE_ROUND_UP(((int)&stext));
+	i<PAGE_ROUND_DOWN(((int)&etext));i=i+PAGESIZE)
+     {
+	MmSetPageProtect(NULL,
+			 (PVOID)i,
+			 PAGE_EXECUTE_READ);
+     }
+   
+   DPRINT("Invalidating between %x and %x\n",
+	  LastKernelAddress,
+	  KERNEL_BASE + PAGE_TABLE_SIZE);
+   for (i=(LastKernelAddress); 
+	i<(KERNEL_BASE + PAGE_TABLE_SIZE); 
+	i=i+PAGESIZE)
+     {
+	MmSetPage(NULL, (PVOID)(i), PAGE_NOACCESS, 0);
+     }
+   DPRINT("Almost done MmInit()\n");
+   
+   /*
+    * Intialize memory areas
+    */
+   MmInitVirtualMemory(bp);
 }
-
-/* Miscellanea functions: they may fit somewhere else */
-
-/*
- * @unimplemented
- */
-DWORD STDCALL
-MmAdjustWorkingSetSize (DWORD Unknown0,
-                        DWORD Unknown1,
-                        DWORD Unknown2)
-{
-   UNIMPLEMENTED;
-   return (0);
-}
-
-
-DWORD
-STDCALL
-MmDbgTranslatePhysicalAddress (
-   DWORD Unknown0,
-   DWORD Unknown1
-)
-{
-   UNIMPLEMENTED;
-   return (0);
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-MmGrowKernelStack (
-   DWORD Unknown0
-)
-{
-   UNIMPLEMENTED;
-   return (STATUS_NOT_IMPLEMENTED);
-}
-
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-MmSetAddressRangeModified (
-   DWORD Unknown0,
-   DWORD Unknown1
-)
-{
-   UNIMPLEMENTED;
-   return (FALSE);
-}
-
-/*
- * @implemented
- */
-PVOID
-NTKERNELAPI
-MmGetSystemRoutineAddress (
-    IN PUNICODE_STRING SystemRoutineName
-    )
-{
-  PVOID ProcAddress;
-  ANSI_STRING AnsiRoutineName;
-  NTSTATUS Status;
-  
-  if(!NT_SUCCESS(RtlUnicodeStringToAnsiString(&AnsiRoutineName,
-                                              SystemRoutineName,
-                                              TRUE)))
-  {
-    return NULL;
-  }
-  
-  Status = LdrGetProcedureAddress(NtoskrnlModuleObject.Base,
-                                  &AnsiRoutineName,
-                                  0,
-                                  &ProcAddress);
-  
-  if(!NT_SUCCESS(Status))
-  {
-    Status = LdrGetProcedureAddress(HalModuleObject.Base,
-                                    &AnsiRoutineName,
-                                    0,
-                                    &ProcAddress);
-  }
-  
-  RtlFreeAnsiString(&AnsiRoutineName);
-  
-  return (NT_SUCCESS(Status) ? ProcAddress : NULL);
-}
-
-/* EOF */

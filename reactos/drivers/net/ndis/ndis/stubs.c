@@ -1,349 +1,1433 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS NDIS library
- * FILE:        ndis/stubs.c
- * PURPOSE:     Stubs
- * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- * REVISIONS:
- *   CSH 01/08-2000 Created
+/* $Id: stubs.c,v 1.3 2000/01/16 18:32:34 ea Exp $
+ *
+ * services/net/ndis/ndis/stubs.c
+ *
+ * NOTE: remove the stub from this file, if you 
+ * implement the function.
+ *
  */
+#include <ntos.h>
 
-#include "ndissys.h"
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisCompleteQueryStatistics(
-    IN  NDIS_HANDLE     NdisAdapterHandle,
-    IN  PNDIS_REQUEST   NdisRequest,
-    IN  NDIS_STATUS     Status)
+ULONG
+STDCALL
+NDIS_BUFFER_TO_SPAN_PAGES(
+	IN	PNDIS_BUFFER	Buffer
+	)
 {
-    UNIMPLEMENTED
+	return 0;
 }
 
 
-/*
- * @unimplemented
- */
 VOID
-EXPORT
-NdisCompleteUnbindAdapter(
-    IN  NDIS_HANDLE UnbindAdapterContext,
-    IN  NDIS_STATUS Status)
+STDCALL
+NdisAcquireSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
 {
-    UNIMPLEMENTED
 }
 
 
-#undef NdisInterlockedAddUlong
-
-/*
- * @implemented
- */
 VOID
-EXPORT
+STDCALL
+NdisAdjustBufferLength (
+	IN	PNDIS_BUFFER	Buffer,
+	IN	UINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisAllocateBuffer (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_BUFFER	* Buffer,
+	IN	NDIS_HANDLE	PoolHandle,
+	IN	PVOID		VirtualAddress,
+	IN	UINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisAllocateBufferPool (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_HANDLE	PoolHandle,
+	IN	UINT		NumberOfDescriptors
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisAllocateMemory (
+	OUT	PVOID			* VirtualAddress,
+	IN	UINT			Length,
+	IN	UINT			MemoryFlags,
+	IN	NDIS_PHYSICAL_ADDRESS	HighestAcceptableAddress
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisAllocatePacket (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_PACKET	* Packet,
+	IN	NDIS_HANDLE	PoolHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisAllocatePacketPool (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_HANDLE	PoolHandle,
+	IN	UINT		NumberOfDescriptors,
+	IN	UINT		ProtocolReservedLength
+        )
+{
+}
+
+
+VOID
+STDCALL
+NdisAllocateSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisAnsiStringToUnicodeString (
+	IN OUT	PNDIS_STRING		DestinationString,
+        IN	PNDIS_ANSI_STRING	SourceString
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisChainBufferAtBack (
+	IN OUT	PNDIS_PACKET	Packet,
+	IN OUT	PNDIS_BUFFER	Buffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisChainBufferAtFront (
+	IN OUT	PNDIS_PACKET	Packet,
+	IN OUT	PNDIS_BUFFER	Buffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisCloseConfiguration (
+	IN	NDIS_HANDLE	ConfigurationHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisCloseFile (
+	IN	NDIS_HANDLE	FileHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisCopyBuffer (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_BUFFER	* Buffer,
+	IN	NDIS_HANDLE	PoolHandle,
+	IN	PVOID		MemoryDescriptor,
+	IN	UINT		Offset,
+	IN	UINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisCopyFromPacketToPacket (
+	IN	PNDIS_PACKET	Destination,
+	IN	UINT		DestinationOffset,
+	IN	UINT		BytesToCopy,
+	IN	PNDIS_PACKET	Source,
+	IN	UINT		SourceOffset,
+	OUT	PUINT		BytesCopied
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisCreateLookaheadBufferFromSharedMemory (
+	IN	PVOID	pSharedMemory,
+	IN	UINT	LookaheadLength,
+	OUT	PVOID	* pLookaheadBuffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisDestroyLookaheadBufferFromSharedMemory (
+	IN	PVOID	pLookaheadBuffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisDprAcquireSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisDprAllocatePacket (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_PACKET	* Packet,
+	IN	NDIS_HANDLE	PoolHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisDprFreePacket (
+	IN	PNDIS_PACKET	Packet
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisDprReleaseSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
+{
+}
+
+
+BOOLEAN
+STDCALL
+NdisEqualString (
+	IN	PNDIS_STRING	String1,
+	IN	PNDIS_STRING	String2,
+	IN	BOOLEAN		CaseInsensitive
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFlushBuffer (
+	IN	PNDIS_BUFFER	Buffer,
+	IN	BOOLEAN		WriteToDevice
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreeBuffer(
+	IN	PNDIS_BUFFER	Buffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreeBufferPool (
+	IN	NDIS_HANDLE	PoolHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreeMemory (
+	IN	PVOID	VirtualAddress,
+	IN	UINT	Length,
+	IN	UINT	MemoryFlags
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreePacket (
+	IN	PNDIS_PACKET	Packet
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreePacketPool (
+	IN	NDIS_HANDLE	PoolHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreeSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisFreeString (
+	IN	NDIS_STRING	String
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisGetBufferPhysicalArraySize (
+	IN	PNDIS_BUFFER	Buffer,
+	OUT	PUINT		ArraySize
+	)
+{
+}
+
+
+ULONG
+STDCALL
+NdisGetCacheFillSize (
+	VOID
+	)
+{
+	return 0;
+}
+
+
+VOID
+STDCALL
+NdisGetCurrentProcessorCpuUsage (
+	IN OUT	PULONG	pCpuUsage
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisGetCurrentSystemTime (
+	IN OUT	PLONGLONG	pSystemTime
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisGetFirstBufferFromPacket (
+	IN	PNDIS_PACKET	_Packet,
+	OUT	PNDIS_BUFFER	* _FirstBuffer,
+	OUT	PVOID		* _FirstBufferVA,
+	OUT	PUINT		_FirstBufferLength,
+	OUT	PUINT		_TotalBufferLength
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisGetNextBuffer (
+	IN	PNDIS_BUFFER	CurrentBuffer,
+	OUT	PNDIS_BUFFER	* NextBuffer
+	)
+{
+}
+
+
+UINT
+STDCALL
+NdisGetPacketFlags (
+	IN	PNDIS_PACKET	Packet
+	)
+{
+}
+
+
+ULONG
+STDCALL
+NdisGetPhysicalAddressHigh (
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress
+	)
+{
+	return 0;
+}
+
+
+ULONG
+STDCALL
+NdisGetPhysicalAddressLow (
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress
+	)
+{
+	retrun 0;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisIMDeInitializeDeviceInstance (
+	IN	NDIS_HANDLE	NdisMiniportHandle
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisIMInitializeDeviceInstance (
+	IN	NDIS_HANDLE	DriverHandle,
+	IN	PNDIS_STRING	DeviceInstance
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+ULONG
+STDCALL
+NdisImmediateReadPciSlotInformation (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		SlotNumber,
+	IN	ULONG		Offset,
+	IN	PVOID		Buffer,
+	IN	ULONG		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateReadPortUchar (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	OUT	PUCHAR		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateReadPortUlong (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	OUT	PULONG		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateReadPortUshort (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	OUT	PUSHORT		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateReadSharedMemory (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		SharedMemoryAddress,
+	OUT	PUCHAR		Buffer,
+	IN	ULONG		Length
+	)
+{
+}
+
+
+ULONG 
+STDCALL
+NdisImmediateWritePciSlotInformation (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		SlotNumber,
+	IN	ULONG		Offset,
+	IN	PVOID		Buffer,
+	IN	ULONG		Length
+	)
+{
+	return 0;
+}
+
+
+VOID
+STDCALL
+NdisImmediateWritePortUchar (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	IN	UCHAR		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateWritePortUlong (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	IN	ULONG		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateWritePortUshort (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		Port,
+	IN	USHORT		Data
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisImmediateWriteSharedMemory (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		SharedMemoryAddress,
+	IN	PUCHAR		Buffer,
+	IN	ULONG		Length
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisIMQueueMiniportCallback (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	W_MINIPORT_CALLBACK	CallbackRoutine,
+	IN	PVOID			CallbackContext
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisIMRegisterLayeredMiniport (
+	IN	NDIS_HANDLE			NdisWrapperHandle,
+	IN	PNDIS_MINIPORT_CHARACTERISTICS	MiniportCharacteristics,
+	IN	UINT				CharacteristicsLength,
+	OUT	PNDIS_HANDLE			DriverHandle
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisIMRevertBack (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_HANDLE	SwitchHandle
+	)
+{
+}
+
+
+BOOLEAN
+STDCALL
+NdisIMSwitchToMiniport (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	OUT	PNDIS_HANDLE	SwitchHandle
+	)
+{
+	return FALSE;
+}
+
+
+VOID
+STDCALL
+NdisInitAnsiString (
+	IN	OUT PNDIS_ANSI_STRING	DestinationString,
+	IN	PCSTR			SourceString
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisInitializeEvent (
+	IN	PNDIS_EVENT	Event
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisInitializeListHead (
+	IN	PLIST_ENTRY	ListHead
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisInitializeString (
+	IN	OUT PNDIS_STRING	DestinationString,
+	IN	PUCHAR			SourceString
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisInitUnicodeString (
+	IN OUT	PNDIS_STRING	DestinationString,
+	IN	PCWSTR		SourceString
+	)
+{
+}
+
+
+VOID
+STDCALL
 NdisInterlockedAddUlong (
-    IN  PULONG          Addend,
-    IN  ULONG           Increment,
-    IN  PNDIS_SPIN_LOCK SpinLock)
+	IN	PULONG		Addend,
+	IN	ULONG		Increment,
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
 {
-   ExInterlockedAddUlong ( Addend, Increment, (PKSPIN_LOCK)SpinLock );
 }
 
 
-#undef NdisInterlockedInsertHeadList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
-EXPORT
-NdisInterlockedInsertHeadList(
-    IN  PLIST_ENTRY     ListHead,
-    IN  PLIST_ENTRY     ListEntry,
-    IN  PNDIS_SPIN_LOCK SpinLock)
+STDCALL
+NdisInterlockedInsertHeadList (
+	IN	PLIST_ENTRY	ListHead,
+	IN	PLIST_ENTRY	ListEntry,
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
 {
-  return ExInterlockedInsertHeadList ( ListHead, ListEntry, (PKSPIN_LOCK)SpinLock );
+	return NULL;
 }
 
 
-#undef NdisInterlockedInsertTailList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
-EXPORT
+STDCALL
 NdisInterlockedInsertTailList(
-    IN  PLIST_ENTRY     ListHead,
-    IN  PLIST_ENTRY     ListEntry,
-    IN  PNDIS_SPIN_LOCK SpinLock)
+	IN	PLIST_ENTRY	ListHead,
+	IN	PLIST_ENTRY	ListEntry,
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
 {
-  return ExInterlockedInsertTailList ( ListHead, ListEntry, (PKSPIN_LOCK)SpinLock );
+	return NULL;
 }
 
 
-#undef NdisInterlockedRemoveHeadList
-
-/*
- * @implemented
- */
 PLIST_ENTRY
-EXPORT
-NdisInterlockedRemoveHeadList(
-    IN  PLIST_ENTRY     ListHead,
-    IN  PNDIS_SPIN_LOCK SpinLock)
+STDCALL
+NdisInterlockedRemoveHeadList (
+	IN	PLIST_ENTRY	ListHead,
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
 {
-  return ExInterlockedRemoveHeadList ( ListHead, (PKSPIN_LOCK)SpinLock );
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisMapFile(
-    OUT PNDIS_STATUS    Status,
-    OUT PVOID           * MappedBuffer,
-    IN  NDIS_HANDLE     FileHandle)
-{
-    UNIMPLEMENTED
-}
-
-typedef struct _NDIS_HANDLE_OBJECT
-{
-  HANDLE FileHandle;
-  BOOL Mapped;
-  ULONG FileLength;
-  PVOID MapBuffer;
-} NDIS_HANDLE_OBJECT, *PNDIS_HANDLE_OBJECT;
-
-inline
-PNDIS_HANDLE_OBJECT
-NDIS_HANDLE_TO_POBJECT ( NDIS_HANDLE handle )
-{
-  return (PNDIS_HANDLE_OBJECT)handle;
-}
-
-inline
-NDIS_HANDLE
-NDIS_POBJECT_TO_HANDLE ( PNDIS_HANDLE_OBJECT obj )
-{
-  return (NDIS_HANDLE)obj;
-}
-
-const WCHAR* NDIS_FILE_FOLDER = L"\\SystemRoot\\System32\\Drivers\\";
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisCloseFile(
-    IN  NDIS_HANDLE FileHandle)
-{
-  PNDIS_HANDLE_OBJECT FileHandleObject;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  ASSERT ( FileHandle );
-
-  FileHandleObject = NDIS_HANDLE_TO_POBJECT(FileHandle);
-
-  ASSERT ( FileHandleObject->FileHandle );
-
-  /*
-  if ( FileHandleObject->Mapped )
-    NdisUnmapFile ( FileHandle );
-  */
-
-  ZwClose ( FileHandleObject->FileHandle );
-
-  memset ( FileHandleObject, 0, sizeof(NDIS_HANDLE_OBJECT) );
-
-  ExFreePool ( FileHandleObject );
+	return NULL;
 }
 
 
-/*
- * @unimplemented
- */
 NDIS_STATUS
-EXPORT
-NdisIMDeInitializeDeviceInstance(
-    IN  NDIS_HANDLE NdisMiniportHandle)
+STDCALL
+NdisMAllocateMapRegisters (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	UINT		DmaChannel,
+	IN	BOOLEAN		Dma32BitAddresses,
+	IN	ULONG		PhysicalMapRegistersNeeded,
+	IN	ULONG		MaximumPhysicalMapping
+	)
 {
-    UNIMPLEMENTED
-
-	return NDIS_STATUS_FAILURE;
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
 }
 
 
-#undef NdisIMInitializeDeviceInstance
+VOID
+STDCALL
+NdisMAllocateSharedMemory (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	ULONG			Length,
+	IN	BOOLEAN			Cached,
+	OUT	PVOID			* VirtualAddress,
+	OUT	PNDIS_PHYSICAL_ADDRESS	PhysicalAddress
+	)
+{
+}
 
-/*
- * @unimplemented
- */
+
 NDIS_STATUS
-EXPORT
-NdisIMInitializeDeviceInstance(
-    IN  NDIS_HANDLE     DriverHandle,
-    IN  PNDIS_STRING    DeviceInstance)
+STDCALL
+NdisMAllocateSharedMemoryAsync (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	ULONG		Length,
+	IN	BOOLEAN		Cached,
+	IN	PVOID		Context
+	)
 {
-    UNIMPLEMENTED
-
-	return NDIS_STATUS_FAILURE;
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
 }
 
 
-/*
- * @unimplemented
- */
+VOID
+STDCALL
+NdisMapFile (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PVOID		* MappedBuffer,
+	IN	NDIS_HANDLE	FileHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMArcIndicateReceive (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	PUCHAR		HeaderBuffer,
+	IN	PUCHAR		DataBuffer,
+	IN	UINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMArcIndicateReceiveComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMCancelTimer (
+	IN	PNDIS_MINIPORT_TIMER	Timer,
+	OUT	PBOOLEAN		TimerCancelled
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMCloseLog (
+	IN	NDIS_HANDLE	LogHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMCompleteBufferPhysicalMapping (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	PNDIS_BUFFER	Buffer,
+	IN	ULONG		PhysicalMapRegister
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMCompleteDmaTransfer (
+	OUT	PNDIS_STATUS	Status,
+	IN	PNDIS_HANDLE	MiniportDmaHandle,
+	IN	PNDIS_BUFFER	Buffer,
+	IN	ULONG		Offset,
+	IN	ULONG		Length,
+	IN	BOOLEAN		WriteToDevice
+	)
+{
+}
+
+
 NDIS_STATUS
-EXPORT
-NdisIMRegisterLayeredMiniport(
-    IN  NDIS_HANDLE                     NdisWrapperHandle,
-    IN  PNDIS_MINIPORT_CHARACTERISTICS  MiniportCharacteristics,
-    IN  UINT                            CharacteristicsLength,
-    OUT PNDIS_HANDLE                    DriverHandle)
+STDCALL
+NdisMCreateLog (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	UINT		Size,
+	OUT	PNDIS_HANDLE	LogHandle
+	)
 {
-    UNIMPLEMENTED
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
 
-	return NDIS_STATUS_FAILURE;
+
+VOID
+STDCALL
+NdisMDeregisterAdapterShutdownHandler (
+	IN	NDIS_HANDLE	MiniportHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMDeregisterDmaChannel (
+	IN	PNDIS_HANDLE	MiniportDmaHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMDeregisterInterrupt (
+	IN	PNDIS_MINIPORT_INTERRUPT	Interrupt
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMDeregisterIoPortRange (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	UINT		InitialPort,
+	IN	UINT		NumberOfPorts,
+	IN	PVOID		PortOffset
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMEthIndicateReceive (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_HANDLE	MiniportReceiveContext,
+	IN	PVOID		HeaderBuffer,
+	IN	UINT		HeaderBufferSize,
+	IN	PVOID		LookaheadBuffer,
+	IN	UINT		LookaheadBufferSize,
+	IN	UINT		PacketSize
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMEthIndicateReceiveComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMFddiIndicateReceive (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_HANDLE	MiniportReceiveContext,
+	IN	PVOID		HeaderBuffer,
+	IN	UINT		HeaderBufferSize,
+	IN	PVOID		LookaheadBuffer,
+	IN	UINT		LookaheadBufferSize,
+	IN	UINT		PacketSize
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMFddiIndicateReceiveComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMFlushLog (
+	IN	NDIS_HANDLE	LogHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMFreeMapRegisters (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMFreeSharedMemory (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	ULONG			Length,
+	IN	BOOLEAN			Cached,
+	IN	PVOID			VirtualAddress,
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMIndicateStatus (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_STATUS	GeneralStatus,
+	IN	PVOID		StatusBuffer,
+	IN	UINT		StatusBufferSize
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMIndicateStatusComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMInitializeTimer (
+	IN OUT	PNDIS_MINIPORT_TIMER	Timer,
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	PNDIS_TIMER_FUNCTION	TimerFunction,
+	IN	PVOID			FunctionContext
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMInitializeWrapper (
+	OUT	PNDIS_HANDLE	NdisWrapperHandle,
+	IN	PVOID		SystemSpecific1,
+	IN	PVOID		SystemSpecific2,
+	IN	PVOID		SystemSpecific3
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMMapIoSpace (
+	OUT	PVOID			* VirtualAddress,
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress,
+	IN	UINT			Length
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisMoveFromMappedMemory (
+	OUT	PVOID	Destination,
+	IN	PVOID	Source,
+	IN	ULONG	Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMoveMappedMemory (
+	OUT	PVOID	Destination,
+	IN	PVOID	Source,
+	IN	ULONG	Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMoveMemory (
+	OUT	PVOID	Destination,
+	IN	PVOID	Source,
+	IN	ULONG	Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMoveToMappedMemory (
+	OUT	PVOID	Destination,
+	IN	PVOID	Source,
+	IN	ULONG	Length
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMPciAssignResources (
+	IN	NDIS_HANDLE		MiniportHandle,
+	IN	ULONG			SlotNumber,
+	OUT	PNDIS_RESOURCE_LIST	* AssignedResources
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisMQueryAdapterResources (
+	OUT	PNDIS_STATUS		Status,
+	IN	NDIS_HANDLE		WrapperConfigurationContext,
+	OUT	PNDIS_RESOURCE_LIST	ResourceList,
+	IN OUT	PUINT			BufferSize
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMQueryInformationComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_STATUS	Status
+	)
+{
+}
+
+
+ULONG
+STDCALL
+NdisMReadDmaCounter (
+	IN	NDIS_HANDLE	MiniportDmaHandle
+	)
+{
+	return 0;
+}
+
+
+VOID
+STDCALL
+NdisMRegisterAdapterShutdownHandler (
+	IN	NDIS_HANDLE			MiniportHandle,
+	IN	PVOID				ShutdownContext,
+	IN	ADAPTER_SHUTDOWN_HANDLER	ShutdownHandler
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMRegisterDmaChannel (
+	OUT	PNDIS_HANDLE		MiniportDmaHandle,
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	UINT			DmaChannel,
+	IN	BOOLEAN			Dma32BitAddresses,
+	IN	PNDIS_DMA_DESCRIPTION	DmaDescription,
+	IN	ULONG			MaximumLength
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMRegisterInterrupt (
+	OUT	PNDIS_MINIPORT_INTERRUPT	Interrupt,
+	IN	NDIS_HANDLE			MiniportAdapterHandle,
+	IN	UINT				InterruptVector,
+	IN	UINT				InterruptLevel,
+	IN	BOOLEAN				RequestIsr,
+	IN	BOOLEAN				SharedInterrupt,
+	IN	NDIS_INTERRUPT_MODE		InterruptMode
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMRegisterIoPortRange (
+	OUT	PVOID		* PortOffset,
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	UINT		InitialPort,
+	IN	UINT		NumberOfPorts
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMRegisterMiniport (
+	IN	NDIS_HANDLE			NdisWrapperHandle,
+	IN	PNDIS_MINIPORT_CHARACTERISTICS	MiniportCharacteristics,
+	IN	UINT				CharacteristicsLength
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisMResetComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_STATUS	Status,
+	IN	BOOLEAN		AddressingReset
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSendComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	PNDIS_PACKET	Packet,
+	IN	NDIS_STATUS	Status
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSendResourcesAvailable (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetAttributes (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	NDIS_HANDLE		MiniportAdapterContext,
+	IN	BOOLEAN			BusMaster,
+	IN	NDIS_INTERFACE_TYPE	AdapterType
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetAttributesEx (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	NDIS_HANDLE		MiniportAdapterContext,
+	IN	UINT			CheckForHangTimeInSeconds	OPTIONAL,
+	IN	ULONG			AttributeFlags,
+	IN	NDIS_INTERFACE_TYPE	AdapterType
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetInformationComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_STATUS	Status
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetPeriodicTimer (
+	IN	PNDIS_MINIPORT_TIMER	Timer,
+	IN	UINT			MillisecondsPeriod
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetTimer (
+	IN	PNDIS_MINIPORT_TIMER	Timer,
+	IN	UINT			MillisecondsToDelay
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSetupDmaTransfer (
+	OUT	PNDIS_STATUS	Status,
+	IN	PNDIS_HANDLE	MiniportDmaHandle,
+	IN	PNDIS_BUFFER	Buffer,
+	IN	ULONG		Offset,
+	IN	ULONG		Length,
+	IN	BOOLEAN		WriteToDevice
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMSleep (
+	IN	ULONG	MicrosecondsToSleep
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMStartBufferPhysicalMapping (
+	IN	NDIS_HANDLE			MiniportAdapterHandle,
+	IN	PNDIS_BUFFER			Buffer,
+	IN	ULONG				PhysicalMapRegister,
+	IN	BOOLEAN				WriteToDevice,
+	OUT	PNDIS_PHYSICAL_ADDRESS_UNIT	PhysicalAddressArray,
+	OUT	PUINT				ArraySize
+	)
+{
+}
+
+
+BOOLEAN
+STDCALL
+NdisMSynchronizeWithInterrupt (
+	IN	PNDIS_MINIPORT_INTERRUPT	Interrupt,
+	IN	PVOID				SynchronizeFunction,
+	IN	PVOID				SynchronizeContext
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMTrIndicateReceive (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	NDIS_HANDLE	MiniportReceiveContext,
+	IN	PVOID		HeaderBuffer,
+	IN	UINT		HeaderBufferSize,
+	IN	PVOID		LookaheadBuffer,
+	IN	UINT		LookaheadBufferSize,
+        IN	UINT		PacketSize
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMTrIndicateReceiveComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMTransferDataComplete (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	PNDIS_PACKET	Packet,
+	IN	NDIS_STATUS	Status,
+	IN	UINT		BytesTransferred
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMUnmapIoSpace (
+	IN	NDIS_HANDLE	MiniportAdapterHandle,
+	IN	PVOID		VirtualAddress,
+	IN	UINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMUpdateSharedMemory (
+	IN	NDIS_HANDLE		MiniportAdapterHandle,
+	IN	ULONG			Length,
+	IN	PVOID			VirtualAddress,
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisMWriteLogData (
+	IN	NDIS_HANDLE	LogHandle,
+	IN	PVOID		LogBuffer,
+	IN	UINT		LogBufferSize
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisMapFile (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PVOID		* MappedBuffer,
+	IN	NDIS_HANDLE	FileHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisMapIoSpace (
+	OUT	PNDIS_STATUS		Status,
+	OUT	PVOID			* VirtualAddress,
+	IN	NDIS_HANDLE		NdisAdapterHandle,
+	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress,
+	IN	UINT			Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisOpenAdapter (
+	OUT	PNDIS_STATUS		Status,
+	OUT	PNDIS_STATUS		OpenErrorStatus,
+	OUT	PNDIS_HANDLE		NdisBindingHandle,
+	OUT	PUINT			SelectedMediumIndex,
+	IN	PNDIS_MEDIUM		MediumArray,
+	IN	UINT			MediumArraySize,
+	IN	NDIS_HANDLE		NdisProtocolHandle,
+	IN	NDIS_HANDLE		ProtocolBindingContext,
+	IN	PNDIS_STRING		AdapterName,
+	IN	UINT			OpenOptions,
+	IN	PSTRING			AddressingInformation	OPTIONAL
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisOpenConfiguration (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_HANDLE	ConfigurationHandle,
+	IN	NDIS_HANDLE	WrapperConfigurationContext
+	)
+{
 }
 
 
 /*
- * @unimplemented
- */
+NdisOpenConfigurationKeyByIndex
+NdisOpenConfigurationKeyByName
+*/
+
+
 VOID
-EXPORT
-NdisMWanIndicateReceive(
-    OUT PNDIS_STATUS    Status,
-    IN  NDIS_HANDLE     MiniportAdapterHandle,
-    IN  NDIS_HANDLE     NdisLinkContext,
-    IN  PUCHAR          PacketBuffer,
-    IN  UINT            PacketSize)
+STDCALL
+NdisOpenFile (
+	OUT	PNDIS_STATUS		Status,
+	OUT	PNDIS_HANDLE		FileHandle,
+	OUT	PUINT			FileLength,
+	IN	PNDIS_STRING		FileName,
+	IN	NDIS_PHYSICAL_ADDRESS	HighestAcceptableAddress
+	)
 {
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisMWanIndicateReceiveComplete(
-    IN  NDIS_HANDLE MiniportAdapterHandle)
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisMWanSendComplete(
-    IN  NDIS_HANDLE         MiniportAdapterHandle,
-    IN  PNDIS_WAN_PACKET    Packet,
-    IN  NDIS_STATUS         Status)
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisOpenFile(
-    OUT PNDIS_STATUS            Status,
-    OUT PNDIS_HANDLE            FileHandle,
-    OUT PUINT                   FileLength,
-    IN  PNDIS_STRING            FileName,
-    IN  NDIS_PHYSICAL_ADDRESS   HighestAcceptableAddress)
-{
-  NDIS_STRING FullFileName;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  PNDIS_HANDLE_OBJECT FileHandleObject = NULL;
-  IO_STATUS_BLOCK IoStatusBlock;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  *Status = NDIS_STATUS_SUCCESS;
-  FullFileName.Buffer = NULL;
-
-  ASSERT ( Status && FileName );
-
-  FullFileName.Length = sizeof(NDIS_FILE_FOLDER);
-  FullFileName.MaximumLength = FileName->MaximumLength + sizeof(NDIS_FILE_FOLDER);
-  FullFileName.Buffer = ExAllocatePool ( NonPagedPool, FullFileName.MaximumLength );
-
-  if ( !FullFileName.Buffer )
-  {
-    *Status = NDIS_STATUS_RESOURCES;
-    goto cleanup;
-  }
-
-  FileHandleObject = ExAllocatePool ( NonPagedPool, sizeof(NDIS_HANDLE_OBJECT) );
-  if ( !FileHandleObject )
-  {
-    *Status = NDIS_STATUS_RESOURCES;
-    goto cleanup;
-  }
-  memset ( FileHandleObject, 0, sizeof(NDIS_HANDLE_OBJECT) );
-
-  memmove ( FullFileName.Buffer, NDIS_FILE_FOLDER, FullFileName.Length );
-  *Status = RtlAppendUnicodeStringToString ( &FullFileName, FileName );
-  if ( !NT_SUCCESS(*Status) )
-    goto cleanup;
-
-  InitializeObjectAttributes ( &ObjectAttributes,
-    &FullFileName,
-    OBJ_CASE_INSENSITIVE,
-    NULL,
-    NULL );
-
-  *Status = ZwCreateFile (
-    &FileHandleObject->FileHandle,
-    FILE_READ_DATA|SYNCHRONIZE,
-    &ObjectAttributes,
-    &IoStatusBlock,
-    NULL, // PLARGE_INTEGER AllocationSize
-    0, // ULONG FileAttributes
-    FILE_SHARE_READ, // ULONG ShareAccess
-    CREATE_NEW, // ULONG CreateDisposition
-    FILE_SYNCHRONOUS_IO_NONALERT, // ULONG CreateOptions
-    0, // PVOID EaBuffer
-    0 ); // ULONG EaLength
-
-  //if ( !NT_SUCCESS(*Status) )
-  //  goto cleanup;
-
-cleanup:
-  if ( FullFileName.Buffer != NULL )
-  {
-    ExFreePool ( FullFileName.Buffer );
-    FullFileName.Buffer = NULL;
-  }
-  if ( !NT_SUCCESS(*Status) && FileHandleObject != NULL )
-  {
-    ExFreePool ( FileHandleObject );
-    FileHandleObject = NULL;
-    *FileHandle = NULL;
-  }
-  else
-    *FileHandle = NDIS_POBJECT_TO_HANDLE(FileHandleObject);
-
-  return;
 }
 
 
@@ -351,61 +1435,447 @@ cleanup:
 NdisOpenGlobalConfiguration
 */
 
-#if 0
 VOID
-EXPORT
-NdisRegisterTdiCallBack(
-    IN  TDI_REGISTER_CALLBACK   RegsterCallback)
+STDCALL
+NdisOpenProtocolConfiguration (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_HANDLE	ConfigurationHandle,
+	IN	PNDIS_STRING	ProtocolSection
+	)
 {
-    UNIMPLEMENTED
 }
-#endif
 
+
+VOID
+STDCALL
+NdisOverrideBusNumber (
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	NDIS_HANDLE	MiniportAdapterHandle		OPTIONAL,
+	IN	ULONG		BusNumber
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisPciAssignResources (
+	IN	NDIS_HANDLE	NdisMacHandle,
+	IN	NDIS_HANDLE	NdisWrapperHandle,
+	IN	NDIS_HANDLE	WrapperConfigurationContext,
+	IN	ULONG		SlotNumber,
+	OUT PNDIS_RESOURCE_LIST * AssignedResources
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisQueryBuffer (
+	IN	PNDIS_BUFFER	Buffer,
+	OUT	PVOID		* VirtualAddress	OPTIONAL,
+	OUT	PUINT		Length
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisQueryBufferOffset (
+	IN	PNDIS_BUFFER	Buffer,
+	OUT	PUINT		Offset,
+	OUT	PUINT		Length
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisQueryMapRegisterCount (
+	IN	NDIS_INTERFACE_TYPE	BusType,
+	OUT	PUINT			MapRegisterCount
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisQueryReceiveInformation (
+	IN	NDIS_HANDLE	NdisBindingHandle,
+	IN	NDIS_HANDLE	MacContext,
+	OUT	PLONGLONG	TimeSent		OPTIONAL,
+	OUT	PLONGLONG	TimeReceived		OPTIONAL,
+	IN	PUCHAR		Buffer,
+	IN	UINT		BufferSize,
+	OUT	PUINT		SizeNeeded
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisReadBindingInformation (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PNDIS_STRING	* Binding,
+	IN	NDIS_HANDLE	ConfigurationHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReadConfiguration (
+	OUT	PNDIS_STATUS			Status,
+	OUT	PNDIS_CONFIGURATION_PARAMETER	* ParameterValue,
+	IN	NDIS_HANDLE			ConfigurationHandle,
+	IN	PNDIS_STRING			Keyword,
+	IN	NDIS_PARAMETER_TYPE		ParameterType
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReadEisaSlotInformation (
+	OUT	PNDIS_STATUS			Status,
+	IN	NDIS_HANDLE			WrapperConfigurationContext,
+	OUT	PUINT				SlotNumber,
+	OUT	PNDIS_EISA_FUNCTION_INFORMATION	EisaData
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReadEisaSlotInformationEx (
+	OUT	PNDIS_STATUS			Status,
+	IN	NDIS_HANDLE			WrapperConfigurationContext,
+	OUT	PUINT				SlotNumber,
+	OUT	PNDIS_EISA_FUNCTION_INFORMATION	* EisaData,
+	OUT	PUINT				NumberOfFunctions
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReadMcaPosInformation (
+	OUT	PNDIS_STATUS		Status,
+	IN	NDIS_HANDLE		WrapperConfigurationContext,
+	IN	PUINT			ChannelNumber,
+	OUT	PNDIS_MCA_POS_DATA	McaData
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReadNetworkAddress (
+	OUT	PNDIS_STATUS	Status,
+	OUT	PVOID		* NetworkAddress,
+	OUT	PUINT		NetworkAddressLength,
+	IN	NDIS_HANDLE	ConfigurationHandle
+	)
+{
+}
+
+
+ULONG
+STDCALL
+NdisReadPciSlotInformation (
+	IN	NDIS_HANDLE	NdisAdapterHandle,
+	IN	ULONG		SlotNumber,
+	IN	ULONG		Offset,
+	IN	PVOID		Buffer,
+	IN	ULONG		Length
+	)
+{
+	return 0;
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisRegisterAdapter(
+	OUT PNDIS_HANDLE			NdisAdapterHandle,
+	IN	NDIS_HANDLE				NdisMacHandle,
+	IN	NDIS_HANDLE				MacAdapterContext,
+	IN	NDIS_HANDLE				WrapperConfigurationContext,
+	IN	PNDIS_STRING			AdapterName,
+	IN	PVOID					AdapterInformation
+	)
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisRegisterAdapterShutdownHandler (
+	IN	NDIS_HANDLE			NdisAdapterHandle,
+	IN	PVOID				ShutdownContext,
+	IN	ADAPTER_SHUTDOWN_HANDLER	ShutdownHandler
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisRegisterMac (
+	OUT	PNDIS_STATUS			Status,
+	OUT	PNDIS_HANDLE			NdisMacHandle,
+	IN	NDIS_HANDLE			NdisWrapperHandle,
+	IN	NDIS_HANDLE			MacMacContext,
+	IN	PNDIS_MAC_CHARACTERISTICS	MacCharacteristics,
+	IN	UINT				CharacteristicsLength
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisRegisterProtocol (
+	OUT	PNDIS_STATUS			Status,
+	OUT	PNDIS_HANDLE			NdisProtocolHandle,
+	IN	PNDIS_PROTOCOL_CHARACTERISTICS	ProtocolCharacteristics,
+	IN	UINT				CharacteristicsLength
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisRegisterTdiCallBack (
+	IN	TDI_REGISTER_CALLBACK	RegsterCallback
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReleaseAdapterResources (
+	IN	NDIS_HANDLE	NdisAdapterHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReleaseSpinLock (
+	IN	PNDIS_SPIN_LOCK	SpinLock
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisRemoveInterrupt(
+	IN	PNDIS_INTERRUPT	Interrupt
+	)
+{
+}
+
+
+VOID
+NdisRequest (
+	OUT	PNDIS_STATUS	Status,
+	IN	NDIS_HANDLE	NdisBindingHandle,
+	IN	PNDIS_REQUEST	NdisRequest
+	)
+{
+}
+
+
+VOID
+NdisReset(
+	OUT	PNDIS_STATUS	Status,
+	IN	NDIS_HANDLE	NdisBindingHandle
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisResetEvent (
+	IN	PNDIS_EVENT	Event
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisReturnPackets (
+	IN	PNDIS_PACKET	* PacketsToReturn,
+	IN	UINT		NumberOfPackets
+	)
+{
+}
 
 /*
 NdisScheduleWorkItem
 */
 
-
-#if 0
 VOID
-EXPORT
-NdisSetProtocolFilter(
-    OUT PNDIS_STATUS            Status,
-    IN  NDIS_HANDLE             NdisBindingHandle,
-    IN  RECEIVE_HANDLER         ReceiveHandler,
-    IN  RECEIVE_PACKET_HANDLER  ReceivePacketHandler,
-    IN  NDIS_MEDIUM             Medium,
-    IN  UINT                    Offset,
-    IN  UINT                    Size,
-    IN  PUCHAR                  Pattern)
+NdisSend(
+	OUT	PNDIS_STATUS	Status,
+	IN	NDIS_HANDLE	NdisBindingHandle,
+	IN	PNDIS_PACKET	Packet
+	)
 {
-    UNIMPLEMENTED
 }
-#endif
 
 
-/*
- * @unimplemented
- */
+VOID
+NdisSendPackets(
+	IN	NDIS_HANDLE	NdisBindingHandle,
+	IN	PPNDIS_PACKET	PacketArray,
+	IN	UINT		NumberOfPackets
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisSetEvent (
+	IN	PNDIS_EVENT	Event
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisSetProtocolFilter (
+	OUT	PNDIS_STATUS		Status,
+	IN	NDIS_HANDLE		NdisBindingHandle,
+	IN	RECEIVE_HANDLER		ReceiveHandler,
+	IN	RECEIVE_PACKET_HANDLER	ReceivePacketHandler,
+	IN	NDIS_MEDIUM		Medium,
+	IN	UINT			Offset,
+	IN	UINT			Size,
+	IN	PUCHAR			Pattern
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisSetTimer (
+	IN	PNDIS_TIMER	Timer,
+	IN	UINT		MillisecondsToDelay
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisSetupDmaTransfer (
+	OUT	PNDIS_STATUS	Status,
+	IN	PNDIS_HANDLE	NdisDmaHandle,
+	IN	PNDIS_BUFFER	Buffer,
+	IN	ULONG		Offset,
+	IN	ULONG		Length,
+	IN	BOOLEAN		WriteToDevice
+	)
+{
+}
+
+
 CCHAR
-EXPORT
+STDCALL
 NdisSystemProcessorCount(
-    VOID)
+	VOID
+	)
 {
-	return (CCHAR)1;
+	return (CCHAR) 1; /* ? */
 }
 
 
-/*
- * @unimplemented
- */
 VOID
-EXPORT
-NdisUnmapFile(
-    IN  NDIS_HANDLE FileHandle)
+STDCALL
+NdisTerminateWrapper (
+	IN	NDIS_HANDLE	NdisWrapperHandle,
+	IN	PVOID		SystemSpecific
+	)
 {
-    UNIMPLEMENTED
+}
+
+
+VOID
+NdisTransferData(
+	OUT	PNDIS_STATUS	Status,
+	IN	NDIS_HANDLE	NdisBindingHandle,
+	IN	NDIS_HANDLE	MacReceiveContext,
+	IN	UINT		ByteOffset,
+	IN	UINT		BytesToTransfer,
+	IN OUT	PNDIS_PACKET	Packet,
+	OUT	PUINT		BytesTransferred
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisUnchainBufferAtBack (
+	IN OUT	PNDIS_PACKET	Packet,
+	OUT	PNDIS_BUFFER	* Buffer
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisUnchainBufferAtFront (
+	IN OUT	PNDIS_PACKET	Packet,
+        OUT	PNDIS_BUFFER	* Buffer
+	)
+{
+}
+
+
+NDIS_STATUS
+STDCALL
+NdisUnicodeStringToAnsiString (
+	IN	OUT PNDIS_ANSI_STRING	DestinationString,
+	IN	PNDIS_STRING		SourceString
+        )
+{
+	return (NDIS_STATUS) STATUS_NOT_IMPLEMENTED;
+}
+
+
+VOID
+STDCALL
+NdisUnmapFile (
+	IN	NDIS_HANDLE	FileHandle
+        )
+{
 }
 
 
@@ -415,645 +1885,58 @@ NdisUpdateSharedMemory@4
 */
 
 
+BOOLEAN
+STDCALL
+NdisWaitEvent (
+	IN	PNDIS_EVENT	Event,
+	IN	UINT		MsToWait
+	)
+{
+	return FALSE;
+}
+
+
+VOID
+STDCALL
+NdisWriteConfiguration (
+	OUT	PNDIS_STATUS			Status,
+	IN	NDIS_HANDLE			WrapperConfigurationContext,
+	IN	PNDIS_STRING			Keyword,
+	IN	PNDIS_CONFIGURATION_PARAMETER	* ParameterValue
+	)
+{
+}
+
+
+VOID
+STDCALL
+NdisWriteErrorLogEntry (
+	IN	NDIS_HANDLE	NdisAdapterHandle,
+	IN	NDIS_ERROR_CODE	ErrorCode,
+	IN	ULONG		NumberOfErrorValues,
+	IN	ULONG		...
+	)
+{
+}
+
+
 /*
 NdisWriteEventLogEntry
 */
 
 
-
-/* NDIS 5.0 extensions */
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisCompletePnPEvent(
-    IN  NDIS_STATUS     Status,
-    IN  NDIS_HANDLE     NdisBindingHandle,
-    IN  PNET_PNP_EVENT  NetPnPEvent)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisConvertStringToAtmAddress(
-    OUT PNDIS_STATUS    Status,
-    IN  PNDIS_STRING    String,
-    OUT PATM_ADDRESS    AtmAddress)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisGetCurrentProcessorCounts(
-    OUT PULONG  pIdleCount,
-    OUT PULONG  pKernelAndUser,
-    OUT PULONG  pIndex)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisGetDriverHandle(
-    IN  PNDIS_HANDLE    NdisBindingHandle,
-    OUT PNDIS_HANDLE    NdisDriverHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-PNDIS_PACKET
-EXPORT
-NdisGetReceivedPacket(
-    IN  PNDIS_HANDLE    NdisBindingHandle,
-    IN  PNDIS_HANDLE    MacContext)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NULL;
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisGetSystemUptime(
-    OUT PULONG  pSystemUpTime)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-#undef NdisInterlockedDecrement
-
-/*
- * @implemented
- */
-LONG
-EXPORT
-NdisInterlockedDecrement(
-    IN  PLONG   Addend)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-  return InterlockedDecrement ( Addend );
-}
-
-
-#undef NdisInterlockedIncrement
-
-/*
- * @implemented
- */
-LONG
-EXPORT
-NdisInterlockedIncrement(
-    IN  PLONG   Addend)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-  return InterlockedIncrement ( Addend );
-}
-
-
-/*
- * @implemented
- */
-PSINGLE_LIST_ENTRY 
-EXPORT
-NdisInterlockedPopEntrySList(
-    IN  PSLIST_HEADER   ListHead,
-    IN  PKSPIN_LOCK     Lock)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-  return ExInterlockedPopEntrySList ( ListHead, Lock );
-}
-
-
-/*
- * @implemented
- */
-PSINGLE_LIST_ENTRY 
-EXPORT
-NdisInterlockedPushEntrySList(
-    IN  PSLIST_HEADER       ListHead,
-    IN  PSINGLE_LIST_ENTRY  ListEntry,
-    IN  PKSPIN_LOCK         Lock)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-  return ExInterlockedPushEntrySList ( ListHead, ListEntry, Lock );
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMDeregisterDevice(
-    IN  NDIS_HANDLE NdisDeviceHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisMGetDeviceProperty(
-    IN      NDIS_HANDLE         MiniportAdapterHandle,
-    IN OUT  PDEVICE_OBJECT      *PhysicalDeviceObject           OPTIONAL,
-    IN OUT  PDEVICE_OBJECT      *FunctionalDeviceObject         OPTIONAL,
-    IN OUT  PDEVICE_OBJECT      *NextDeviceObject               OPTIONAL,
-    IN OUT  PCM_RESOURCE_LIST   *AllocatedResources             OPTIONAL,
-    IN OUT  PCM_RESOURCE_LIST   *AllocatedResourcesTranslated   OPTIONAL)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMInitializeScatterGatherDma(
-    IN  NDIS_HANDLE MiniportAdapterHandle,
-    IN  BOOLEAN     Dma64BitAddresses,
-    IN  ULONG       MaximumPhysicalMapping)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMPromoteMiniport(
-    IN  NDIS_HANDLE MiniportAdapterHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMQueryAdapterInstanceName(
-    OUT PNDIS_STRING    AdapterInstanceName,
-    IN  NDIS_HANDLE     MiniportAdapterHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMRegisterDevice(
-    IN  NDIS_HANDLE         NdisWrapperHandle,
-    IN  PNDIS_STRING        DeviceName,
-    IN  PNDIS_STRING        SymbolicName,
-    IN  PDRIVER_DISPATCH    MajorFunctions[],
-    OUT PDEVICE_OBJECT      *pDeviceObject,
-    OUT NDIS_HANDLE         *NdisDeviceHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisMRegisterUnloadHandler(
-    IN  NDIS_HANDLE     NdisWrapperHandle,
-    IN  PDRIVER_UNLOAD  UnloadHandler)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMRemoveMiniport(
-    IN  NDIS_HANDLE MiniportAdapterHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisMSetMiniportSecondary(
-    IN  NDIS_HANDLE MiniportAdapterHandle,
-    IN  NDIS_HANDLE PrimaryMiniportAdapterHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisQueryAdapterInstanceName(
-    OUT PNDIS_STRING    AdapterInstanceName,
-    IN  NDIS_HANDLE     NdisBindingHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
 ULONG
-EXPORT
-NdisReadPcmciaAttributeMemory(
-    IN  NDIS_HANDLE NdisAdapterHandle,
-    IN  ULONG       Offset,
-    IN  PVOID       Buffer,
-    IN  ULONG       Length)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
+STDCALL
+NdisWritePciSlotInformation (
+	IN	NDIS_HANDLE	NdisAdapterHandle,
+	IN	ULONG		SlotNumber,
+	IN	ULONG		Offset,
+	IN	PVOID		Buffer,
+	IN	ULONG		Length
+	)
 {
-    UNIMPLEMENTED
-
-    return 0;
+	return 0;
 }
 
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisReleaseReadWriteLock(
-    IN  PNDIS_RW_LOCK   Lock,
-    IN  PLOCK_STATE     LockState)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-/*
- * @unimplemented
- */
-ULONG
-EXPORT
-NdisWritePcmciaAttributeMemory(
-    IN  NDIS_HANDLE NdisAdapterHandle,
-    IN  ULONG       Offset,
-    IN  PVOID       Buffer,
-    IN  ULONG       Length)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return 0;
-}
-
-
-/* NDIS 5.0 extensions for intermediate drivers */
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisIMAssociateMiniport(
-    IN  NDIS_HANDLE DriverHandle,
-    IN  NDIS_HANDLE ProtocolHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS 
-EXPORT
-NdisIMCancelInitializeDeviceInstance(
-    IN  NDIS_HANDLE     DriverHandle,
-    IN  PNDIS_STRING    DeviceInstance)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisIMCopySendCompletePerPacketInfo(
-    IN  PNDIS_PACKET    DstPacket,
-    IN  PNDIS_PACKET    SrcPacket)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisIMCopySendPerPacketInfo(
-    IN  PNDIS_PACKET    DstPacket,
-    IN  PNDIS_PACKET    SrcPacket)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-EXPORT
-NdisIMDeregisterLayeredMiniport(
-    IN  NDIS_HANDLE DriverHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_HANDLE
-EXPORT
-NdisIMGetBindingContext(
-    IN  NDIS_HANDLE NdisBindingHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return (NDIS_HANDLE)NULL;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_HANDLE
-EXPORT
-NdisIMGetDeviceContext(
-    IN  NDIS_HANDLE MiniportAdapterHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return (NDIS_HANDLE)NULL;
-}
-
-
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisIMInitializeDeviceInstanceEx(
-    IN  NDIS_HANDLE     DriverHandle,
-    IN  PNDIS_STRING    DriverInstance,
-    IN  NDIS_HANDLE     DeviceContext   OPTIONAL)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
 
 /* EOF */

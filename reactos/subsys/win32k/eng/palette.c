@@ -1,82 +1,41 @@
 /*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: palette.c,v 1.22 2004/06/28 15:53:17 navaraf Exp $
- * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
- * PURPOSE:           GDI Palette Functions
+ * PURPOSE:           GDI Driver Bitmap Functions
  * FILE:              subsys/win32k/eng/palette.c
  * PROGRAMER:         Jason Filby
  * REVISION HISTORY:
  *                 11/7/1999: Created
  */
-#include <w32k.h>
 
-/*
- * @implemented
- */
-HPALETTE STDCALL
-EngCreatePalette(ULONG Mode, ULONG NumColors, ULONG *Colors,
-                 ULONG Red, ULONG Green, ULONG Blue)
+#include <ddk/winddi.h>
+
+HPALETTE EngCreatePalette(IN ULONG  Mode,
+                          IN ULONG  NumColors,
+                          IN PULONG  *Colors,
+                          IN ULONG  Red,
+                          IN ULONG  Green,
+                          IN ULONG  Blue)
 {
-   HPALETTE Palette;
+  /* We need to take the colors given to us and generate a nice default color
+     model */
 
-   Palette = PALETTE_AllocPalette(Mode, NumColors, Colors, Red, Green, Blue);
-   if (Palette != NULL)
-   {
-      GDIOBJ_SetOwnership(Palette, NULL);
-   }
+  if(Mode==PAL_INDEXED)
+  {
+    /* For now the ultimate color model is just colors.. */
+  }
 
-   return Palette;
+  /* FIXME: Add support for other given palette types */
+
+  /* FIXME: Generate a handle for Colors */
+
+  return Colors;
 }
 
-/*
- * @implemented
- */
-BOOL STDCALL
-EngDeletePalette(IN HPALETTE Palette)
+BOOL EngDeletePalette(IN HPALETTE hpal)
 {
-   GDIOBJ_SetOwnership(Palette, PsGetCurrentProcess());
+  /* Should actually get the pointer from this handle.. which for now IS
+     the pointer */
 
-   return PALETTE_FreePalette(Palette);
+  EngFreeMem(hpal);
 }
-
-/*
- * @implemented
- */
-ULONG STDCALL
-PALOBJ_cGetColors(PALOBJ *PalObj, ULONG Start, ULONG Colors, ULONG *PaletteEntry)
-{
-   PALGDI *PalGDI;
-
-   PalGDI = (PALGDI*)PalObj;
-   /* PalGDI = (PALGDI*)AccessInternalObjectFromUserObject(PalObj); */
-
-   if (Start >= PalGDI->NumColors)
-      return 0;
-
-   Colors = min(Colors, PalGDI->NumColors - Start);
-
-   /* NOTE: PaletteEntry ULONGs are in the same order as PALETTEENTRY. */
-   RtlCopyMemory(PaletteEntry, PalGDI->IndexedColors + Start, sizeof(ULONG) * Colors);
-
-   return Colors;
-}
-
-/* EOF */

@@ -1,5 +1,4 @@
-/* $Id: kill.c,v 1.91 2004/12/24 17:07:00 navaraf Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ps/kill.c
@@ -11,359 +10,219 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+#include <internal/ke.h>
+#include <internal/mm.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
-VOID PsTerminateCurrentThread(NTSTATUS ExitStatus);
-NTSTATUS STDCALL NtCallTerminatePorts(PETHREAD Thread);
-
-#define TAG_TERMINATE_APC   TAG('T', 'A', 'P', 'C')
-
-LIST_ENTRY ThreadsToReapHead;
+extern ULONG PiNrThreads;
+extern ULONG PiNrRunnableThreads;
+extern KSPIN_LOCK PiThreadListLock;
+extern LIST_ENTRY PiThreadListHead;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-PsInitializeThreadReaper(VOID)
-{
-  InitializeListHead(&ThreadsToReapHead);
-}
-
-VOID
-PsReapThreads(VOID)
-{
-  KIRQL oldlvl;
-  PETHREAD Thread;
-  PLIST_ENTRY ListEntry;
-
-  oldlvl = KeAcquireDispatcherDatabaseLock();
-  while((ListEntry = RemoveHeadList(&ThreadsToReapHead)) != &ThreadsToReapHead)
-  {
-    PiNrThreadsAwaitingReaping--;
-    KeReleaseDispatcherDatabaseLock(oldlvl);
-    Thread = CONTAINING_RECORD(ListEntry, ETHREAD, TerminationPortList);
-
-    ObDereferenceObject(Thread);
-    oldlvl = KeAcquireDispatcherDatabaseLock();
-  }
-  KeReleaseDispatcherDatabaseLock(oldlvl);
-}
-
-VOID
-PsQueueThreadReap(PETHREAD Thread)
-{
-  InsertTailList(&ThreadsToReapHead, &Thread->TerminationPortList);
-  PiNrThreadsAwaitingReaping++;
-}
-
-VOID
-PiTerminateProcessThreads(PEPROCESS Process,
-			  NTSTATUS ExitStatus)
+VOID PiTerminateProcessThreads(PEPROCESS Process, NTSTATUS ExitStatus)
 {
    KIRQL oldlvl;
    PLIST_ENTRY current_entry;
-   PETHREAD current, CurrentThread = PsGetCurrentThread();
-   
-   DPRINT("PiTerminateProcessThreads(Process %x, ExitStatus %x)\n",
-	  Process, ExitStatus);
-	  
-   oldlvl = KeAcquireDispatcherDatabaseLock();
-   
-   current_entry = Process->ThreadListHead.Flink;
-   while (current_entry != &Process->ThreadListHead)
+   PETHREAD current;
+
+   KeAcquireSpinLock(&PiThreadListLock, &oldlvl);
+
+   current_entry = PiThreadListHead.Flink;
+   while (current_entry != &PiThreadListHead)
      {
-	current = CONTAINING_RECORD(current_entry, ETHREAD,
-				    ThreadListEntry);
-	if (current != CurrentThread && current->HasTerminated == 0)
+	current = CONTAINING_RECORD(current_entry,ETHREAD,Tcb.QueueListEntry);
+	if (current->ThreadsProcess == Process &&
+	    current != PsGetCurrentThread())
 	  {
-	     DPRINT("Terminating %x, current thread: %x, "
-		    "thread's process: %x\n", current, PsGetCurrentThread(), 
-		    current->ThreadsProcess);
-             KeReleaseDispatcherDatabaseLock(oldlvl);
+	     KeReleaseSpinLock(&PiThreadListLock, oldlvl);
 	     PsTerminateOtherThread(current, ExitStatus);
-             oldlvl = KeAcquireDispatcherDatabaseLock();
-	     current_entry = Process->ThreadListHead.Flink;
+	     KeAcquireSpinLock(&PiThreadListLock, &oldlvl);
+	     current_entry = PiThreadListHead.Flink;
 	  }
-	else
-	  {
-	     current_entry = current_entry->Flink;
-	  }
+	current_entry = current_entry->Flink;
      }
-   KeReleaseDispatcherDatabaseLock(oldlvl);
-   DPRINT("Finished PiTerminateProcessThreads()\n");
+
+   KeReleaseSpinLock(&PiThreadListLock, oldlvl);
 }
 
-VOID
-PsTerminateCurrentThread(NTSTATUS ExitStatus)
+VOID PsReapThreads(VOID)
+{
+   PLIST_ENTRY current_entry;
+   PETHREAD current;
+   KIRQL oldIrql;
+   
+//   DPRINT1("PsReapThreads()\n");
+   
+   KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+   
+   current_entry = PiThreadListHead.Flink;
+   
+   while (current_entry != &PiThreadListHead)
+     {
+	current = CONTAINING_RECORD(current_entry, ETHREAD, 
+				    Tcb.ThreadListEntry);
+	
+	current_entry = current_entry->Flink;
+	
+	if (current->Tcb.State == THREAD_STATE_TERMINATED_1)
+	  {
+	     PEPROCESS Process = current->ThreadsProcess; 
+	     NTSTATUS Status = current->ExitStatus;
+	     
+	     DPRINT("PsProcessType %x\n", PsProcessType);
+	     ObReferenceObjectByPointer(Process, 
+					0, 
+					PsProcessType, 
+					KernelMode);
+	     DPRINT("Reaping thread %x\n", current);
+	     DPRINT("Ref count %d\n", ObGetReferenceCount(Process));
+	     current->Tcb.State = THREAD_STATE_TERMINATED_2;
+	     RemoveEntryList(&current->Tcb.ProcessThreadListEntry);
+	     KeReleaseSpinLock(&PiThreadListLock, oldIrql);
+	     ObDereferenceObject(current);
+	     KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+	     if(IsListEmpty(&Process->Pcb.ThreadListHead))
+	       {
+		  /* 
+		   * TODO: Optimize this so it doesnt jerk the IRQL around so 
+		   * much :)
+		   */
+		  DPRINT("Last thread terminated, terminating process\n");
+		  KeReleaseSpinLock(&PiThreadListLock, oldIrql);
+		  PiTerminateProcess(Process, Status);
+		  KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+	       }
+	     DPRINT("Ref count %d\n", ObGetReferenceCount(Process));
+	     ObDereferenceObject(Process);
+	     current_entry = PiThreadListHead.Flink;
+	  }
+     }
+   KeReleaseSpinLock(&PiThreadListLock, oldIrql);
+}
+
+VOID PsTerminateCurrentThread(NTSTATUS ExitStatus)
 /*
  * FUNCTION: Terminates the current thread
  */
 {
    KIRQL oldIrql;
    PETHREAD CurrentThread;
-   PLIST_ENTRY current_entry;
-   PKMUTANT Mutant;
-   BOOLEAN Last;
-   PEPROCESS CurrentProcess;
-   SIZE_T Length = PAGE_SIZE;
-   PVOID TebBlock;
-
-   KeLowerIrql(PASSIVE_LEVEL);
-
+   
    CurrentThread = PsGetCurrentThread();
-   CurrentProcess = CurrentThread->ThreadsProcess;
-
-   /* Can't terminate a thread if it attached another process */
-   if (AttachedApcEnvironment == CurrentThread->Tcb.ApcStateIndex)
-     {
-        KEBUGCHECKEX(INVALID_PROCESS_ATTACH_ATTEMPT, (ULONG) CurrentProcess,
-                     (ULONG) CurrentThread->Tcb.ApcState.Process,
-                     (ULONG) CurrentThread->Tcb.ApcStateIndex,
-                     (ULONG) CurrentThread);
-     }
-
-   KeCancelTimer(&CurrentThread->Tcb.Timer);
-
-   oldIrql = KeAcquireDispatcherDatabaseLock();
-
+   
    DPRINT("terminating %x\n",CurrentThread);
-
-   CurrentThread->HasTerminated = TRUE;
+   KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+   
    CurrentThread->ExitStatus = ExitStatus;
-   KeQuerySystemTime((PLARGE_INTEGER)&CurrentThread->ExitTime);
-
-   /* If the ProcessoR Control Block's NpxThread points to the current thread
-    * unset it.
-    */
-   InterlockedCompareExchangePointer(&KeGetCurrentKPCR()->PrcbData.NpxThread,
-                                     NULL, ETHREAD_TO_KTHREAD(CurrentThread));
-
-   KeReleaseDispatcherDatabaseLock(oldIrql);
- 
-   PsLockProcess(CurrentProcess, FALSE);
-
-   /* Remove the thread from the thread list of its process */
-   RemoveEntryList(&CurrentThread->ThreadListEntry);
-   Last = IsListEmpty(&CurrentProcess->ThreadListHead);
-   PsUnlockProcess(CurrentProcess);
-
-   /* Notify subsystems of the thread termination */
-   PspRunCreateThreadNotifyRoutines(CurrentThread, FALSE);
-   PsTerminateWin32Thread(CurrentThread);
-
-   /* Free the TEB */
-   if(CurrentThread->Tcb.Teb)
-   {
-     DPRINT("Decommit teb at %p\n", CurrentThread->Tcb.Teb);
-     ExAcquireFastMutex(&CurrentProcess->TebLock);
-     TebBlock = MM_ROUND_DOWN(CurrentThread->Tcb.Teb, MM_VIRTMEM_GRANULARITY);
-     ZwFreeVirtualMemory(NtCurrentProcess(),
-                         (PVOID *)&CurrentThread->Tcb.Teb,
-                         &Length,
-                         MEM_DECOMMIT);
-     DPRINT("teb %p, TebBlock %p\n", CurrentThread->Tcb.Teb, TebBlock);
-     if (TebBlock != CurrentProcess->TebBlock ||
-         CurrentProcess->TebBlock == CurrentProcess->TebLastAllocated)
-       {
-         MmLockAddressSpace(&CurrentProcess->AddressSpace);
-         MmReleaseMemoryAreaIfDecommitted(CurrentProcess, &CurrentProcess->AddressSpace, TebBlock);
-         MmUnlockAddressSpace(&CurrentProcess->AddressSpace);
-       }
-     CurrentThread->Tcb.Teb = NULL;
-     ExReleaseFastMutex(&CurrentProcess->TebLock);
-   }
-
-   /* abandon all owned mutants */
-   current_entry = CurrentThread->Tcb.MutantListHead.Flink;
-   while (current_entry != &CurrentThread->Tcb.MutantListHead)
-     {
-	Mutant = CONTAINING_RECORD(current_entry, KMUTANT,
-				   MutantListEntry);
-	KeReleaseMutant(Mutant,
-			MUTANT_INCREMENT,
-			TRUE,
-			FALSE);
-	current_entry = CurrentThread->Tcb.MutantListHead.Flink;
-     }
-
-   oldIrql = KeAcquireDispatcherDatabaseLock();
+   
+   DPRINT("ObGetReferenceCount(CurrentThread) %d\n",
+	  ObGetReferenceCount(CurrentThread));
+   DPRINT("ObGetHandleCount(CurrentThread) %x\n",
+	  ObGetHandleCount(CurrentThread));
+   
    CurrentThread->Tcb.DispatcherHeader.SignalState = TRUE;
-   KiDispatcherObjectWake(&CurrentThread->Tcb.DispatcherHeader);
-   KeReleaseDispatcherDatabaseLock (oldIrql);
-
-   /* The last thread shall close the door on exit */
-   if(Last)
-   {
-    /* save the last thread exit status */
-    CurrentProcess->LastThreadExitStatus = ExitStatus;
-    
-    PspRunCreateProcessNotifyRoutines(CurrentProcess, FALSE);
-    PsTerminateWin32Process(CurrentProcess);
-    PiTerminateProcess(CurrentProcess, ExitStatus);
-   }
-
-   oldIrql = KeAcquireDispatcherDatabaseLock();
-
-#ifdef _ENABLE_THRDEVTPAIR
-   ExpSwapThreadEventPair(CurrentThread, NULL); /* Release the associated eventpair object, if there was one */
-#endif /* _ENABLE_THRDEVTPAIR */
-
-   ASSERT(CurrentThread->Tcb.WaitBlockList == NULL);
+   KeDispatcherObjectWake(&CurrentThread->Tcb.DispatcherHeader);
+   
+   DPRINT("Type %x\n", 
+	   BODY_TO_HEADER(CurrentThread->ThreadsProcess)->ObjectType);
    
    PsDispatchThreadNoLock(THREAD_STATE_TERMINATED_1);
-   DPRINT1("Unexpected return, CurrentThread %x PsGetCurrentThread() %x\n", CurrentThread, PsGetCurrentThread());
-   KEBUGCHECK(0);
+   KeBugCheck(0);
 }
 
-VOID STDCALL
-PiTerminateThreadRundownRoutine(PKAPC Apc)
-{
-  ExFreePool(Apc);
-}
-
-VOID STDCALL
-PiTerminateThreadKernelRoutine(PKAPC Apc,
-			       PKNORMAL_ROUTINE* NormalRoutine,
-			       PVOID* NormalContext,
-			       PVOID* SystemArgument1,
-			       PVOID* SystemArguemnt2)
-{
-  ExFreePool(Apc);
-}
-
-VOID STDCALL
-PiTerminateThreadNormalRoutine(PVOID NormalContext,
-			     PVOID SystemArgument1,
-			     PVOID SystemArgument2)
-{
-  PsTerminateCurrentThread(PsGetCurrentThread()->ExitStatus);
-}
-
-VOID
-PsTerminateOtherThread(PETHREAD Thread,
-		       NTSTATUS ExitStatus)
+VOID PsTerminateOtherThread(PETHREAD Thread, NTSTATUS ExitStatus)
 /*
- * FUNCTION: Terminate a thread when calling from another thread's context
- * NOTES: This function must be called with PiThreadLock held
+ * FUNCTION: Terminate a thread when calling from that thread's context
  */
 {
-  PKAPC Apc;
-  KIRQL OldIrql;
-
-  DPRINT("PsTerminateOtherThread(Thread %x, ExitStatus %x)\n",
-	 Thread, ExitStatus);
-
-  OldIrql = KeAcquireDispatcherDatabaseLock();
-  if (Thread->HasTerminated)
-  {
-     KeReleaseDispatcherDatabaseLock (OldIrql);
-     return;
-  }
-  Thread->HasTerminated = TRUE;
-  KeReleaseDispatcherDatabaseLock (OldIrql);
-  Thread->ExitStatus = ExitStatus;
-  Apc = ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), TAG_TERMINATE_APC);
-  KeInitializeApc(Apc,
-		  &Thread->Tcb,
-		  OriginalApcEnvironment,
-		  PiTerminateThreadKernelRoutine,
-		  PiTerminateThreadRundownRoutine,
-		  PiTerminateThreadNormalRoutine,
-		  KernelMode,
-		  NULL);
-  KeInsertQueueApc(Apc,
-		   NULL,
-		   NULL,
-		   IO_NO_INCREMENT);
-
-  OldIrql = KeAcquireDispatcherDatabaseLock();          
-  if (THREAD_STATE_BLOCKED == Thread->Tcb.State && UserMode == Thread->Tcb.WaitMode)
-    {
-      DPRINT("Unblocking thread\n");
-      KiAbortWaitThread((PKTHREAD)Thread, STATUS_THREAD_IS_TERMINATING);
-    }
-  KeReleaseDispatcherDatabaseLock(OldIrql); 
+   KIRQL oldIrql;
+   
+   KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+   if (Thread->Tcb.State == THREAD_STATE_RUNNABLE)
+     {
+	RemoveEntryList(&Thread->Tcb.QueueListEntry);
+     }
+   RemoveEntryList(&Thread->Tcb.ProcessThreadListEntry);
+   Thread->Tcb.State = THREAD_STATE_TERMINATED_2;
+   Thread->Tcb.DispatcherHeader.SignalState = TRUE;
+   KeDispatcherObjectWake(&Thread->Tcb.DispatcherHeader);
+   KeReleaseSpinLock(&PiThreadListLock, oldIrql);
+   if (IsListEmpty(&Thread->ThreadsProcess->Pcb.ThreadListHead))
+     {
+	PiTerminateProcess(Thread->ThreadsProcess, ExitStatus);
+     }
+   ObDereferenceObject(Thread);
 }
 
-NTSTATUS STDCALL
-PiTerminateProcess(PEPROCESS Process,
-		   NTSTATUS ExitStatus)
+NTSTATUS STDCALL PiTerminateProcess(PEPROCESS Process,
+				    NTSTATUS ExitStatus)
 {
-   KIRQL OldIrql;
-   PEPROCESS CurrentProcess;
-
-   DPRINT("PiTerminateProcess(Process %x, ExitStatus %x) PC %d HC %d\n",
-	   Process, ExitStatus, ObGetObjectPointerCount(Process),
-	   ObGetObjectHandleCount(Process));
+   KIRQL oldlvl;
    
-   ObReferenceObject(Process);
-   if (InterlockedExchangeUL(&Process->Pcb.State, 
-			     PROCESS_STATE_TERMINATED) == 
-       PROCESS_STATE_TERMINATED)
+   DPRINT("PsTerminateProcess(Process %x, ExitStatus %x)\n",
+          Process, ExitStatus);
+   
+   if (Process->Pcb.ProcessState == PROCESS_STATE_TERMINATED)
      {
-        ObDereferenceObject(Process);
 	return(STATUS_SUCCESS);
      }
-   CurrentProcess = PsGetCurrentProcess();
-   if (Process != CurrentProcess)
-   {
-      KeAttachProcess(&Process->Pcb);
-   }
+   
+   PiTerminateProcessThreads(Process, ExitStatus);
    ObCloseAllHandles(Process);
-   if (Process != CurrentProcess)
-   {
-      KeDetachProcess();
-   }
-   OldIrql = KeAcquireDispatcherDatabaseLock ();
+   KeRaiseIrql(DISPATCH_LEVEL, &oldlvl);
+   Process->Pcb.ProcessState = PROCESS_STATE_TERMINATED;
    Process->Pcb.DispatcherHeader.SignalState = TRUE;
-   KiDispatcherObjectWake(&Process->Pcb.DispatcherHeader);
-   KeReleaseDispatcherDatabaseLock (OldIrql);
-   ObDereferenceObject(Process);
+   DPRINT("Type %x\n", BODY_TO_HEADER(Process)->ObjectType);
+   KeDispatcherObjectWake(&Process->Pcb.DispatcherHeader);
+   KeLowerIrql(oldlvl);
+   DPRINT("Type %x\n", BODY_TO_HEADER(Process)->ObjectType);
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-NtTerminateProcess(IN	HANDLE		ProcessHandle  OPTIONAL,
-		   IN	NTSTATUS	ExitStatus)
+NTSTATUS STDCALL NtTerminateProcess(IN	HANDLE		ProcessHandle,
+				    IN	NTSTATUS	ExitStatus)
 {
    NTSTATUS Status;
    PEPROCESS Process;
    
    DPRINT("NtTerminateProcess(ProcessHandle %x, ExitStatus %x)\n",
-	   ProcessHandle, ExitStatus);
+          ProcessHandle, ExitStatus);
    
    Status = ObReferenceObjectByHandle(ProcessHandle,
                                       PROCESS_TERMINATE,
                                       PsProcessType,
-				      KeGetCurrentThread()->PreviousMode,
+				      UserMode,
                                       (PVOID*)&Process,
 				      NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       return(Status);
-     }
-   Process->ExitStatus = ExitStatus;
-   PiTerminateProcessThreads(Process, ExitStatus);
+   if (Status != STATUS_SUCCESS)
+   {
+        return(Status);
+   }
+   
+   PiTerminateProcess(Process, ExitStatus);
    if (PsGetCurrentThread()->ThreadsProcess == Process)
-     {
-       ObDereferenceObject(Process);
-       PsTerminateCurrentThread(ExitStatus);
-       /*
-        * We should never get here!
-        */
-       return(STATUS_SUCCESS);
-     }
+   {
+      DPRINT("Type %x\n", BODY_TO_HEADER(Process)->ObjectType);
+      ObDereferenceObject(Process);
+      DPRINT("Type %x\n", BODY_TO_HEADER(Process)->ObjectType);
+      PsTerminateCurrentThread(ExitStatus);
+   }
    ObDereferenceObject(Process);
    return(STATUS_SUCCESS);
 }
 
 
-NTSTATUS STDCALL
-NtTerminateThread(IN	HANDLE		ThreadHandle,
-		  IN	NTSTATUS	ExitStatus)
+NTSTATUS STDCALL NtTerminateThread(IN	HANDLE		ThreadHandle,
+				   IN	NTSTATUS	ExitStatus)
 {
    PETHREAD Thread;
    NTSTATUS Status;
@@ -371,7 +230,7 @@ NtTerminateThread(IN	HANDLE		ThreadHandle,
    Status = ObReferenceObjectByHandle(ThreadHandle,
 				      THREAD_TERMINATE,
 				      PsThreadType,
-				      KeGetCurrentThread()->PreviousMode,
+				      UserMode,
 				      (PVOID*)&Thread,
 				      NULL);
    if (Status != STATUS_SUCCESS)
@@ -379,29 +238,21 @@ NtTerminateThread(IN	HANDLE		ThreadHandle,
 	return(Status);
      }
    
+   ObDereferenceObject(Thread);
+   
    if (Thread == PsGetCurrentThread())
      {
-        /* dereference the thread object before we kill our thread */
-        ObDereferenceObject(Thread);
-        PsTerminateCurrentThread(ExitStatus);
-        /*
-         * We should never get here!
-         */
+	PsTerminateCurrentThread(ExitStatus);
      }
    else
      {
 	PsTerminateOtherThread(Thread, ExitStatus);
-	ObDereferenceObject(Thread);
      }
    return(STATUS_SUCCESS);
 }
 
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-PsTerminateSystemThread(NTSTATUS ExitStatus)
+NTSTATUS PsTerminateSystemThread(NTSTATUS ExitStatus)
 /*
  * FUNCTION: Terminates the current thread
  * ARGUMENTS:
@@ -413,64 +264,8 @@ PsTerminateSystemThread(NTSTATUS ExitStatus)
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-NtCallTerminatePorts(PETHREAD Thread)
-{
-   KIRQL oldIrql;
-   PLIST_ENTRY current_entry;
-   PEPORT_TERMINATION_REQUEST current;
-   
-   KeAcquireSpinLock(&Thread->ActiveTimerListLock, &oldIrql);
-   while ((current_entry = RemoveHeadList(&Thread->TerminationPortList)) !=
-	  &Thread->TerminationPortList);
-     {
-	current = CONTAINING_RECORD(current_entry,
-				    EPORT_TERMINATION_REQUEST,
-				    ThreadListEntry);
-	KeReleaseSpinLock(&Thread->ActiveTimerListLock, oldIrql);
-	LpcSendTerminationPort(current->Port, 
-			       Thread->CreateTime);
-	ExFreePool(current);
-	KeAcquireSpinLock(&Thread->ActiveTimerListLock, &oldIrql);
-     }
-   KeReleaseSpinLock(&Thread->ActiveTimerListLock, oldIrql);
-   return(STATUS_SUCCESS);
-}
 
-NTSTATUS STDCALL
-NtRegisterThreadTerminatePort(HANDLE PortHandle)
+NTSTATUS STDCALL NtRegisterThreadTerminatePort(HANDLE	TerminationPort)
 {
-   NTSTATUS Status;
-   PEPORT_TERMINATION_REQUEST Request;
-   PEPORT TerminationPort;
-   KIRQL oldIrql;
-   PETHREAD Thread;
-   
-   Status = ObReferenceObjectByHandle(PortHandle,
-				      PORT_ALL_ACCESS,
-				      ExPortType,
-				      KeGetCurrentThread()->PreviousMode,
-				      (PVOID*)&TerminationPort,
-				      NULL);   
-   if (!NT_SUCCESS(Status))
-     {
-	return(Status);
-     }
-   
-   Request = ExAllocatePool(NonPagedPool, sizeof(EPORT_TERMINATION_REQUEST));
-   if(Request != NULL)
-   {
-     Request->Port = TerminationPort;
-     Thread = PsGetCurrentThread();
-     KeAcquireSpinLock(&Thread->ActiveTimerListLock, &oldIrql);
-     InsertTailList(&Thread->TerminationPortList, &Request->ThreadListEntry);
-     KeReleaseSpinLock(&Thread->ActiveTimerListLock, oldIrql);
-
-     return(STATUS_SUCCESS);
-   }
-   else
-   {
-     ObDereferenceObject(TerminationPort);
-     return(STATUS_INSUFFICIENT_RESOURCES);
-   }
+   UNIMPLEMENTED;
 }

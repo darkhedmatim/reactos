@@ -1,9 +1,6 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/math.h>
+#include <crtdll/math.h>
 
-/*
- * @implemented
- */
 double sinh(double x)
 {
  if(x >= 0.0)

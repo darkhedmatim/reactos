@@ -1,9 +1,7 @@
 .globl _MmSafeCopyFromUser
-.globl _MmSafeCopyFromUserUnsafeStart
-.globl _MmSafeCopyFromUserRestart
+.globl _MmSafeCopyFromUserEnd
 .globl _MmSafeCopyToUser
-.globl _MmSafeCopyToUserUnsafeStart
-.globl _MmSafeCopyToUserRestart
+.globl _MmSafeCopyToUserEnd
 
 	/*
 	 * NTSTATUS MmSafeCopyFromUser(PVOID Dest, PVOID Src, 
@@ -25,25 +23,20 @@ _MmSafeCopyFromUser:
 	 * Default return code
 	 */ 
 	movl    $0,%eax
-
-_MmSafeCopyFromUserUnsafeStart:	        
+	
 	/*
 	 * This is really a synthetic instruction since if we incur a
 	 * pagefault then eax will be set to an appropiate STATUS code
-	 */
-	cld 
+	 */ 
 	rep movsb
-
-_MmSafeCopyFromUserRestart:
 
 	popl	%ecx
 	popl	%edi
 	popl	%esi
 
-        popl    %ebp
-        ret
+	ret
 
-/*****************************************************************************/
+_MmSafeCopyFromUserEnd:
 
 	/*
 	 * NTSTATUS MmSafeCopyToUser(PVOID Dest, PVOID Src, 
@@ -65,21 +58,17 @@ _MmSafeCopyToUser:
 	 * Default return code
 	 */ 
 	movl    $0,%eax
-
-_MmSafeCopyToUserUnsafeStart:	 	 
+	
 	/*
 	 * This is really a synthetic instruction since if we incur a
 	 * pagefault then eax will be set to an appropiate STATUS code
-	 */
-	cld 
+	 */ 
 	rep movsb
-
-_MmSafeCopyToUserRestart:
 
 	popl	%ecx
 	popl	%edi
 	popl	%esi
-	
-	popl    %ebp
+
 	ret
 
+_MmSafeCopyToUserEnd:

@@ -9,11 +9,10 @@
  *              12/04/99: Created
  */
 
-#include <msvcrt/mbstring.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/mbctype.h>
+#include <crtdll/mbstring.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/mbctype.h>
 
-size_t _mbclen2(const unsigned int s);
 
 char _jctype[257] = {
 /*-1*/  ___,
@@ -36,9 +35,6 @@ char _jctype[257] = {
 };
 
 char *_mbctype = _jctype;
-/*
- * @implemented
- */
 int _ismbblead(unsigned int c)
 {
 	return ((_jctype+1)[(unsigned char)(c)] & _KNJ_1);
@@ -49,9 +45,6 @@ int _ismbblead(unsigned int c)
 //	return (int)IsDBCSLeadByte(byte) 
 //}
 
-/*
- * @implemented
- */
 int _ismbslead( const unsigned char *str, const unsigned char *t)
 {
 	unsigned char *s = (unsigned char *)str;

@@ -10,7 +10,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -28,6 +29,12 @@ NtDisplayString(IN PUNICODE_STRING DisplayString)
    RtlFreeAnsiString (&AnsiString);
 
    return(STATUS_SUCCESS);
+}
+
+
+NTSTATUS STDCALL NtVdmControl(VOID)
+{
+   UNIMPLEMENTED;
 }
 
 /* EOF */

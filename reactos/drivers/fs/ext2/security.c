@@ -11,18 +11,17 @@
 
 #include <ddk/ntddk.h>
 #include <wchar.h>
-#include <string.h>
+#include <internal/string.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS STDCALL
-Ext2QuerySecurity(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
+NTSTATUS Ext2QuerySecurity(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{   
    DPRINT("Ext2QuerySecurity(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
@@ -30,9 +29,8 @@ Ext2QuerySecurity(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2SetSecurity(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
+NTSTATUS Ext2SetSecurity(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{   
    DPRINT("Ext2SetSecurity(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;

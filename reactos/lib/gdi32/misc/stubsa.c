@@ -1,4 +1,4 @@
-/* $Id: stubsa.c,v 1.35 2004/12/30 02:32:23 navaraf Exp $
+/* $Id: stubsa.c,v 1.1 1999/05/24 20:04:44 ea Exp $
  *
  * reactos/lib/gdi32/misc/stubs.c
  *
@@ -8,85 +8,338 @@
  * remove its stub from this file.
  *
  */
+#ifdef UNICODE
+#undef UNICODE
+#endif
+#include <windows.h>
 
-#include "precomp.h"
 
-#define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
+int
+STDCALL
+AddFontResourceA(
+	LPCSTR		a0
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 
-/*
- * @unimplemented
- */
+HMETAFILE
+STDCALL
+CopyMetaFileA(
+	HMETAFILE	a0,
+	LPCSTR		a1
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HDC
+STDCALL
+CreateDCA(
+	LPCSTR		a0,
+	LPCSTR		a1,
+	LPCSTR		a2,
+	CONST DEVMODE	*a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HFONT
+STDCALL
+CreateFontIndirectA(
+	CONST LOGFONT		*a0
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+
+HFONT
+STDCALL
+CreateFontA(
+	int	a0,
+	int	a1,
+	int	a2,
+	int	a3,
+	int	a4,
+	DWORD	a5,
+	DWORD	a6,
+	DWORD	a7,
+	DWORD	a8,
+	DWORD	a9,
+	DWORD	a10,
+	DWORD	a11,
+	DWORD	a12,
+	LPCSTR	a13
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HDC
+STDCALL
+CreateICA(
+	LPCSTR			a0,
+	LPCSTR			a1,
+	LPCSTR			a2,
+	CONST DEVMODE *	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HDC
+STDCALL
+CreateMetaFileA(
+	LPCSTR		a0
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+BOOL
+STDCALL
+CreateScalableFontResourceA(
+	DWORD		a0,
+	LPCSTR		a1,
+	LPCSTR		a2,
+	LPCSTR		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
 int
 STDCALL
 DeviceCapabilitiesExA(
-	LPCSTR		pDevice,
-	LPCSTR		pPort,
-	WORD		fwCapability,
-	LPSTR		pOutput,
-	CONST DEVMODEA	*pDevMode
+	LPCSTR		a0,
+	LPCSTR		a1,
+	WORD		a2,
+	LPSTR		a3,
+	CONST DEVMODE	*a4
 	)
 {
-  UNIMPLEMENTED;
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return 0;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
-/*
- * @unimplemented
- */
 int
 STDCALL
-EnumFontsA (
-	HDC  hDC,
-	LPCSTR lpFaceName,
-	FONTENUMPROCA  FontFunc,
-	LPARAM  lParam
+EnumFontFamiliesExA(
+	HDC		a0,
+	LPLOGFONT	a1,
+	FONTENUMEXPROC	a2,
+	LPARAM		a3,
+	DWORD		a4
 	)
 {
-  UNIMPLEMENTED;
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return 0;
-#if 0
-  NTSTATUS Status;
-  LPWSTR lpFaceNameW;
-  int rc = 0;
-
-  Status = HEAP_strdupA2W ( &lpFaceNameW, lpFaceName );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-    {
-      rc = NtGdiEnumFonts ( hDC, lpFaceNameW, FontFunc, lParam );
-
-      HEAP_free ( lpFaceNameW );
-    }
-  return rc;
-#endif
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
-/*
- * @unimplemented
- */
+int
+STDCALL
+EnumFontFamiliesA(
+	HDC		a0,
+	LPCSTR		a1,
+	FONTENUMPROC	a2,
+	LPARAM		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+int
+STDCALL
+EnumFontsA(
+	HDC		a0,
+	LPCSTR		a1,
+	ENUMFONTSPROC	a2,
+	LPARAM		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+BOOL
+STDCALL
+GetCharWidthA(
+	HDC	a0,
+	UINT	a1,
+	UINT	a2,
+	LPINT	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+STDCALL
+GetCharWidth32A(
+	HDC	a0,
+	UINT	a1,
+	UINT	a2,
+	LPINT	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+APIENTRY
+GetCharWidthFloatA(
+	HDC	a0,
+	UINT	a1,
+	UINT	a2,
+	PFLOAT	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+APIENTRY
+GetCharABCWidthsA(
+	HDC	a0,
+	UINT	a1,
+	UINT	a2,
+	LPABC	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+APIENTRY
+GetCharABCWidthsFloatA(
+	HDC		a0,
+	UINT		a1,
+	UINT		a2,
+	LPABCFLOAT	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+DWORD
+STDCALL
+GetGlyphOutlineA(
+	HDC		a0,
+	UINT		a1,
+	UINT		a2,
+	LPGLYPHMETRICS	a3,
+	DWORD		a4,
+	LPVOID		a5,
+	CONST MAT2	*a6
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HMETAFILE
+STDCALL
+GetMetaFileA(
+	LPCSTR	a0
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
 UINT
 APIENTRY
 GetOutlineTextMetricsA(
-	HDC			hdc,
-	UINT			cbData,
-	LPOUTLINETEXTMETRICA	lpOTM
+	HDC			a0,
+	UINT			a1,
+	LPOUTLINETEXTMETRIC	a2
 	)
 {
-  UNIMPLEMENTED;
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return 0;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
-/*
- * @unimplemented
- */
+BOOL
+APIENTRY
+GetTextExtentPointA(
+	HDC		hDc,
+	LPCSTR		a1,
+	int		a2,
+	LPSIZE		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+APIENTRY
+GetTextExtentPoint32A(
+	HDC		hDc,
+	LPCSTR		a1,
+	int		a2,
+	LPSIZE		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL
+APIENTRY
+GetTextExtentExPointA(
+	HDC		hDc,
+	LPCSTR		a1,
+	int		a2,
+	int		a3,
+	LPINT		a4,
+	LPINT		a5,
+	LPSIZE		a6
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
 DWORD
 STDCALL
 GetCharacterPlacementA(
@@ -94,52 +347,184 @@ GetCharacterPlacementA(
 	LPCSTR		a1,
 	int		a2,
 	int		a3,
-	LPGCP_RESULTSA	a4,
+	LPGCP_RESULTS	a4,
 	DWORD		a5
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
 
 
-/*
- * @unimplemented
- */
-int
+HDC
 STDCALL
-StartDocA(
-	HDC		hdc,
-	CONST DOCINFOA	*a1
+ResetDCA(
+	HDC		a0,
+	CONST DEVMODE	*a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL  
-STDCALL 
-PolyTextOutA(
-	HDC			hdc, 
-	CONST POLYTEXTA		*a1, 
-	int			a2
+BOOL
+STDCALL
+RemoveFontResourceA(
+	LPCSTR	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
+HENHMETAFILE 
+STDCALL 
+CopyEnhMetaFileA(
+	HENHMETAFILE	a0,
+	LPCSTR		a1
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HDC   
+STDCALL 
+CreateEnhMetaFileA(
+	HDC		a0,
+	LPCSTR		a1,
+	CONST RECT	*a2,
+	LPCSTR		a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+HENHMETAFILE  
+STDCALL 
+GetEnhMetaFileA(
+	LPCSTR	a0
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+UINT  
+STDCALL 
+GetEnhMetaFileDescriptionA(
+	HENHMETAFILE	a0,
+	UINT		a1,
+	LPSTR		a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+BOOL 
+STDCALL 
+GetTextMetricsA(
+	HDC		hdc, 
+	LPTEXTMETRIC	a1
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+int
+STDCALL
+StartDocA(
+	HDC		hdc,
+	CONST DOCINFO	*a1
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+int   
+STDCALL 
+GetObjectA(
+	HGDIOBJ		a0, 
+	int		a1, 
+	LPVOID		a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+BOOL  
+STDCALL 
+TextOutA(
+	HDC		hdc, 
+	int		a1, 
+	int		a2, 
+	LPCSTR		a3, 
+	int		a4
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+BOOL  
+STDCALL 
+ExtTextOutA(
+	HDC		hdc, 
+	int		a1, 
+	int		a2, 
+	UINT		a3, 
+	CONST RECT	*a4,
+	LPCSTR		a5, 
+	UINT		a6, 
+	CONST INT	*a7
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+ 
+BOOL  
+STDCALL 
+PolyTextOutA(
+	HDC			hdc, 
+	CONST POLYTEXT		*a1, 
+	int			a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+int
+STDCALL
+GetTextFaceA(
+	HDC	a0,
+	int	a1,
+	LPSTR	a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
 DWORD
 STDCALL
 GetKerningPairsA(
@@ -148,48 +533,36 @@ GetKerningPairsA(
 	LPKERNINGPAIR	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 GetLogColorSpaceA(
 	HCOLORSPACE		a0,
-	LPLOGCOLORSPACEA	a1,
+	LPLOGCOLORSPACE	a1,
 	DWORD			a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 HCOLORSPACE
 STDCALL
 CreateColorSpaceA(
-	LPLOGCOLORSPACEA	a0
+	LPLOGCOLORSPACE	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetICMProfileA(
 	HDC		a0,
@@ -197,15 +570,11 @@ GetICMProfileA(
 	LPSTR		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 SetICMProfileA(
@@ -213,42 +582,24 @@ SetICMProfileA(
 	LPSTR	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 int
 STDCALL
 EnumICMProfilesA(
 	HDC		a0,
-	ICMENUMPROCA	a1,
+	ICMENUMPROC	a1,
 	LPARAM		a2
 	)
 {
-  /*
-   * FIXME - call NtGdiEnumICMProfiles with NULL for lpstrBuffer
-   * to find out how big a buffer we need. Then allocate that buffer
-   * and call NtGdiEnumICMProfiles again to have the buffer filled.
-   *
-   * Finally, step through the buffer ( MULTI-SZ recommended for format ),
-   * and convert each string to ANSI, calling the user's callback function
-   * until we run out of strings or the user returns FALSE
-   */
-
-  UNIMPLEMENTED;
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return 0;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 wglUseFontBitmapsA(
@@ -258,15 +609,11 @@ wglUseFontBitmapsA(
 	DWORD		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
 BOOL
 STDCALL
 wglUseFontOutlinesA(
@@ -280,16 +627,12 @@ wglUseFontOutlinesA(
 	LPGLYPHMETRICSFLOAT	a7
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 UpdateICMRegKeyA(
 	DWORD	a0,
@@ -298,69 +641,8 @@ UpdateICMRegKeyA(
 	UINT	a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RemoveFontResourceExA(
-	LPCSTR lpFileName,
-	DWORD fl,
-	PVOID pdv
-)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-HFONT
-STDCALL
-CreateFontIndirectExA(const ENUMLOGFONTEXDVA *elfexd)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetGlyphIndicesA(
-	HDC hdc,
-	LPCSTR lpstr,
-	int c,
-	LPWORD pgi,
-	DWORD fl
-)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetStringBitmapA(HDC hdc,LPSTR psz,BOOL unknown,UINT cj,BYTE *lpSB)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
 }
 
 

@@ -1,134 +1,116 @@
-# $Id: makefile,v 1.109 2004/12/24 17:45:58 weiden Exp $
+# $Id: makefile,v 1.15 1999/11/12 00:16:51 rex Exp $
+#
+# WIN32K.SYS build spec
+#
 
-PATH_TO_TOP = ../..
+TARGET=win32k
 
-TARGET_TYPE = subsystem
+BASE_CFLAGS = -I../../include
 
-TARGET_NAME = win32k
-
-TARGET_BASE = 0x0
-
-TARGET_ENTRY = _DllMain@8
-
-TARGET_PCH = w32k.h
-
-TARGET_DDKLIBS = freetype.a
-
-TARGET_LIBS = \
-	$(SDK_PATH_LIB)/libpseh.a
-
-TARGET_REGTESTS = yes
-
-FREETYPE_DIR = $(PATH_TO_TOP)/lib/freetype
-
-include $(PATH_TO_TOP)/config
-
-ifeq ($(DBG), 1)
-CFLAGS_DBG := -g
-else
-CFLAGS_DBG :=
-endif
-
-ifeq ($(OPTIMIZED), 1)
-CFLAGS_OPT := -O2 -Wno-strict-aliasing
-else
-CFLAGS_OPT :=
-endif
-
-TARGET_CFLAGS =\
- $(CFLAGS_DBG) \
- -I. \
- -I$(PATH_TO_TOP)/ntoskrnl/include \
- -I$(FREETYPE_DIR)/include \
- -DUNICODE \
- -Wall -Werror \
- -D__USE_W32API -D_WIN32_WINNT=0x0501 \
- -DWINVER=0x600 -D_WIN32K_ \
- $(CFLAGS_OPT)
-
-TARGET_LFLAGS =\
- $(PATH_TO_TOP)/dk/nkm/lib/libfreetype.a \
- $(PATH_TO_TOP)/dk/w32/lib/librosrtl.a \
- --disable-stdcall-fixup
-
-ENG_OBJECTS= eng/debug.o eng/error.o eng/mem.o eng/brush.o eng/bitblt.o \
-    eng/clip.o eng/copybits.o eng/device.o eng/lineto.o \
-    eng/paint.o eng/palette.o eng/perfcnt.o eng/semaphor.o eng/surface.o \
-    eng/xlate.o eng/transblt.o eng/mouse.o eng/misc.o eng/sort.o \
-    eng/gradient.o eng/event.o eng/float.o
-
-MAIN_OBJECTS = main/dllmain.o main/svctabm.o
-
-MISC_OBJECTS = misc/driver.o misc/error.o misc/math.o misc/object.o
-
-LDR_OBJECTS = ldr/loader.o
-
-NTUSER_OBJECTS = ntuser/accelerator.o ntuser/callback.o ntuser/caret.o ntuser/class.o \
-                 ntuser/clipboard.o ntuser/csr.o ntuser/cursoricon.o ntuser/focus.o ntuser/desktop.o \
-                 ntuser/guicheck.o ntuser/hook.o ntuser/hotkey.o ntuser/input.o \
-                 ntuser/keyboard.o ntuser/menu.o ntuser/message.o ntuser/metric.o \
-                 ntuser/misc.o ntuser/monitor.o ntuser/msgqueue.o ntuser/painting.o \
-                 ntuser/prop.o ntuser/scrollbar.o ntuser/stubs.o ntuser/timer.o \
-                 ntuser/useratom.o ntuser/vis.o ntuser/windc.o ntuser/window.o \
-                 ntuser/winpos.o ntuser/winsta.o
-
+ENG_OBJECTS= eng/debug.o eng/mem.o
+MAIN_OBJECTS = main/dllmain.o
+MISC_OBJECTS = misc/driver.o
 OBJECTS_OBJECTS = objects/bitmaps.o objects/brush.o objects/cliprgn.o  \
-                  objects/color.o objects/coord.o  \
-                  objects/dc.o objects/fillshap.o objects/gdiobj.o  \
-                  objects/icm.o objects/line.o objects/metafile.o objects/paint.o  \
+                  objects/color.o objects/coord.o objects/dc.o  \
+                  objects/fillshap.o objects/gdiobj.o objects/icm.o  \
+                  objects/line.o objects/metafile.o objects/paint.o  \
                   objects/path.o objects/pen.o objects/print.o  \
-                  objects/region.o objects/text.o objects/wingl.o \
-                  objects/bezier.o objects/dib.o objects/palette.o \
-                  objects/rect.o objects/polyfill.o objects/stockobj.o
+                  objects/region.o objects/text.o objects/wingl.o
+RESOURCE_OBJECT = $(TARGET).coff
+STUBS_OBJECTS = stubs/stubs.o
 
-DIB_OBJECTS = dib/dib.o dib/dib1bpp.o dib/dib4bpp.o dib/dib8bpp.o dib/dib16bpp.o \
-              dib/dib24bpp.o dib/dib32bpp.o
+OBJECTS = $(ENG_OBJECTS) $(MAIN_OBJECTS) $(MISC_OBJECTS) $(OBJECTS_OBJECTS)  \
+          $(RESOURCE_OBJECT) $(STUBS_OBJECTS) 
 
-STUBS_OBJECTS = stubs/stubs.o stubs/xpstubs.o
+all: $(TARGET).sys
 
-NTDDRAW_OBJECTS = ntddraw/stubs.o ntddraw/ddraw.o
+$(TARGET).coff: $(TARGET).rc ../../include/reactos/resource.h
 
-TARGET_OBJECTS = \
-  $(ENG_OBJECTS) $(MAIN_OBJECTS) $(MISC_OBJECTS) $(LDR_OBJECTS) \
-  $(NTUSER_OBJECTS) $(OBJECTS_OBJECTS) $(STUBS_OBJECTS) \
-  $(MATH_OBJECTS) $(FLOAT_OBJECTS) $(DIB_OBJECTS) $(NTDDRAW_OBJECTS)
+ifeq ($(DOSCLI),yes)
+CLEAN_FILES = eng\*.o main\*.o misc\*.o stubs\*.o objects\*.o  \
+              $(TARGET).coff $(TARGET).o $(TARGET).a  \
+              junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sym
+else
+CLEAN_FILES = eng/*.o main/*.o misc/*.o stubs/*.o objects/*.o  \
+              $(TARGET).coff $(TARGET).o $(TARGET).a  \
+              junk.tmp base.tmp temp.exp $(TARGET).sys $(TARGET).sym
+endif
 
-TARGET_CLEAN = $(DEP_FILES) \
-  dib/*.o \
-  eng/*.o \
-  ldr/*.o \
-  main/*.o \
-  misc/*.o \
-  ntuser/*.o \
-  objects/*.o \
-  ntddraw/*.o \
-  stubs/*.o
+$(TARGET).sys: $(OBJECTS) $(TARGET).def
+	$(LD) -r $(OBJECTS) -o $(TARGET).o
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--def $(TARGET).def \
+		--output-lib $(TARGET).a
+	$(CC) \
+		--subsystem=native \
+		-mdll \
+		--dll \
+		-e _DllMain@8 \
+		-o junk.tmp \
+		-Wl,--image-base,0x0 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp $(TARGET).o \
+		-specs=../../specs \
+		../../ntoskrnl/ntoskrnl.a
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def $(TARGET).def
+	- $(RM) base.tmp
+	$(CC) \
+		--subsystem=native \
+		-mdll \
+		--dll \
+		-e _DllMain@8 \
+		-o $(TARGET).sys \
+		$(TARGET).o \
+		../../ntoskrnl/ntoskrnl.a \
+		-Wl,--image-base,0x0 \
+		-Wl,--file-alignment,0x1000 \
+		-Wl,--section-alignment,0x1000 \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,temp.exp \
+		-specs=../../specs
+              
+	- $(RM) temp.exp
+	$(NM) --numeric-sort $(TARGET).sys > $(TARGET).sym
 
-include $(PATH_TO_TOP)/rules.mak
+clean: $(CLEAN_FILES:%=%_clean)
 
-include $(TOOLS_PATH)/helper.mk
+$(CLEAN_FILES:%=%_clean): %_clean:
+	- $(RM) $*
 
-# Automatic dependency tracking
-DEP_OBJECTS := $(TARGET_OBJECTS)
-DEP_EXCLUDE_FILTER := main/svctabm.d
-include $(PATH_TO_TOP)/tools/depend.mk
+.PHONY: clean $(CLEAN_FILES:%=%_clean)
 
-main/svctabm.o: main/svctab.c
+floppy: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
-.dummy:
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+endif
 
-%/TAGS: .dummy
-	etags $(@D)/\*.c -o $(@D)/TAGS
+dist: $(DIST_DIR)/drivers/$(TARGET).sys
 
-etags: TAGS
-TAGS: main/TAGS eng/TAGS ldr/TAGS misc/TAGS objects/TAGS stubs/TAGS ntuser/TAGS dib/TAGS ntddraw/TAGS
-	etags -i main/TAGS -i eng/TAGS -i ldr/TAGS -i misc/TAGS -i objects/TAGS -i stubs/TAGS -i ntuser/TAGS -i dib/TAGS -i ntddraw/TAGS
+$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys ..\..\$(DIST_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys ../../$(DIST_DIR)/drivers/$(TARGET).sys
+endif
 
+#WITH_DEBUGGING = yes
+#WIN32_LEAN_AND_MEAN = yes
+#WARNINGS_ARE_ERRORS = yes
+include ../../rules.mak
 
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu
-
-
-# EOF

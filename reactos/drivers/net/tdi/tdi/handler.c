@@ -1,16 +1,12 @@
-/* $Id: handler.c,v 1.7 2004/03/02 18:18:14 navaraf Exp $
+/* $Id: handler.c,v 1.1 1999/11/20 20:41:29 ea Exp $
  *
  * DESCRIPTION: Default TDI event handlers.
  */
-#include <ddk/ntddk.h>
-#include <ddk/tdi.h>
+#include <ntos.h>
 
 
-/*
- * ClientEventChainedReceiveDatagram
- *
- * @unimplemented
- */
+
+/* ClientEventChainedReceiveDatagram */
 NTSTATUS
 STDCALL
 TdiDefaultChainedRcvDatagramHandler (
@@ -30,11 +26,7 @@ TdiDefaultChainedRcvDatagramHandler (
 }
 
 
-/*
- * ClientEventChainedReceiveExpedited
- *
- * @unimplemented
- */
+/* ClientEventChainedReceiveExpedited */
 NTSTATUS
 STDCALL
 TdiDefaultChainedRcvExpeditedHandler (
@@ -51,11 +43,7 @@ TdiDefaultChainedRcvExpeditedHandler (
 }
 
 
-/*
- * ClientEventChainedReceive
- *
- * @unimplemented
- */
+/* ClientEventChainedReceive */
 NTSTATUS
 STDCALL
 TdiDefaultChainedReceiveHandler (
@@ -72,11 +60,7 @@ TdiDefaultChainedReceiveHandler (
 }
 
 
-/*
- * ClientEventConnect
- *
- * @unimplemented
- */
+/* ClientEventConnect */
 NTSTATUS
 STDCALL
 TdiDefaultConnectHandler (
@@ -95,11 +79,7 @@ TdiDefaultConnectHandler (
 }
 
 
-/*
- * ClientEventDisconnect
- *
- * @unimplemented
- */
+/* ClientEventDisconnect */
 NTSTATUS
 STDCALL
 TdiDefaultDisconnectHandler (
@@ -116,11 +96,7 @@ TdiDefaultDisconnectHandler (
 }
 
 
-/*
- * ClientEventError
- *
- * @unimplemented
- */
+/* ClientEventError */
 NTSTATUS 
 STDCALL
 TdiDefaultErrorHandler (
@@ -132,11 +108,7 @@ TdiDefaultErrorHandler (
 }
 
 
-/*
- * ClientEventReceiveDatagram
- *
- * @unimplemented
- */
+/* ClientEventReceiveDatagram */
 NTSTATUS
 STDCALL
 TdiDefaultRcvDatagramHandler (
@@ -157,11 +129,7 @@ TdiDefaultRcvDatagramHandler (
 }
 
 
-/*
- * ClientEventReceiveExpedited
- *
- * @unimplemented
- */
+/* ClientEventReceiveExpedited */
 TDI_STATUS
 STDCALL
 TdiDefaultRcvExpeditedHandler (
@@ -179,11 +147,7 @@ TdiDefaultRcvExpeditedHandler (
 }
 
 
-/*
- * ClientEventReceive
- *
- * @unimplemented
- */
+/* ClientEventReceive */
 NTSTATUS 
 STDCALL
 TdiDefaultReceiveHandler (
@@ -201,11 +165,7 @@ TdiDefaultReceiveHandler (
 }
 
 
-/*
- * ClientEventSendPossible
- *
- * @unimplemented
- */
+/* ClientEventSendPossible */
 TDI_STATUS 
 STDCALL
 TdiDefaultSendPossibleHandler (
@@ -216,5 +176,6 @@ TdiDefaultSendPossibleHandler (
 {
 	return STATUS_NOT_IMPLEMENTED;
 }
+
 
 /* EOF */

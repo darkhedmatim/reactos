@@ -1,19 +1,16 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include <msvcrt/sys/types.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/io.h>
-#include <msvcrt/fcntl.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/sys/types.h>
+#include <crtdll/stdio.h>
+#include <crtdll/io.h>
+#include <crtdll/fcntl.h>
+#include <crtdll/internal/file.h>
 
 //might change fopen(file,mode) -> fsopen(file,mode,_SH_DENYNO);
 
 FILE *	__alloc_file(void);
 
 
-/*
- * @implemented
- */
 FILE* fopen(const char *file, const char *mode)
 {
   FILE *f;
@@ -56,7 +53,7 @@ FILE* fopen(const char *file, const char *mode)
   else
     oflags |= (_fmode & (O_TEXT|O_BINARY));
 
-  fd = _open(file, oflags, 0666);
+  fd = _open(file, oflags, 0);
   if (fd < 0)
     return NULL;
 

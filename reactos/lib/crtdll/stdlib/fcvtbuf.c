@@ -1,13 +1,11 @@
 /* Copyright (C) 1998 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdlib.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/string.h>
-#include <msvcrt/float.h>
-#include <msvcrt/alloc.h>
-// #include <msvcrt/locale.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/stdio.h>
+#include <crtdll/string.h>
+#include <crtdll/float.h>
+// #include <crtdll/locale.h>
 
 void __ecvround (char *, char *, const char *, int *);
-char *ecvtbuf (double, int, int *, int *, char *);
 
 char *
 fcvtbuf (double value, int ndigits, int *decpt, int *sign, char *buf)

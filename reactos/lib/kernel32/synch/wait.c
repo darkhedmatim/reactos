@@ -1,296 +1,265 @@
-/* $Id: wait.c,v 1.32 2004/12/04 19:31:26 navaraf Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/synch/wait.c
- * PURPOSE:         Wait functions
+ * PURPOSE:         Wait  functions
  * PROGRAMMER:      Ariadne ( ariadne@xs4all.nl)
  * UPDATE HISTORY:
  *                  Created 01/11/98
  */
 
-/* INCLUDES *****************************************************************/
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <wchar.h>
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
-
-
-/* FUNCTIONS ****************************************************************/
-
-DWORD STDCALL
-GetConsoleInputWaitHandle (VOID);
-
-/*
- * @implemented
- */
-DWORD STDCALL
-WaitForSingleObject(HANDLE hHandle,
-		    DWORD dwMilliseconds)
+HANDLE
+STDCALL
+CreateSemaphoreA(
+		 LPSECURITY_ATTRIBUTES lpSemaphoreAttributes,
+		 LONG lInitialCount,
+		 LONG lMaximumCount,
+		 LPCSTR lpName
+		 )
 {
-   return WaitForSingleObjectEx(hHandle,
-				dwMilliseconds,
-				FALSE);
+	WCHAR NameW[MAX_PATH];
+	ULONG i = 0;
+
+	while ((*lpName)!=0 && i < MAX_PATH)
+		{
+		NameW[i] = *lpName;
+		lpName++;
+		i++;
+		}
+	NameW[i] = 0;
+	return CreateSemaphoreW(
+		 lpSemaphoreAttributes,
+		 lInitialCount,
+		 lMaximumCount,
+		 NameW
+		 );
+}
+
+HANDLE
+STDCALL
+CreateSemaphoreW(
+		 LPSECURITY_ATTRIBUTES lpSemaphoreAttributes,
+		 LONG lInitialCount,
+		 LONG lMaximumCount,
+		 LPCWSTR lpName
+		 )
+{
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	NTSTATUS errCode;
+	UNICODE_STRING NameString;
+	HANDLE SemaphoreHandle;
+
+	NameString.Length = lstrlenW(lpName)*sizeof(WCHAR);
+	NameString.Buffer = (WCHAR *)lpName;
+	NameString.MaximumLength = NameString.Length;
+
+	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+	ObjectAttributes.RootDirectory = NULL;
+	ObjectAttributes.ObjectName = &NameString;
+	ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE;
+	ObjectAttributes.SecurityDescriptor = NULL;
+	ObjectAttributes.SecurityQualityOfService = NULL;
+
+	if ( lpSemaphoreAttributes != NULL ) {
+		ObjectAttributes.SecurityDescriptor = lpSemaphoreAttributes->lpSecurityDescriptor;
+		if ( lpSemaphoreAttributes->bInheritHandle == TRUE )
+			ObjectAttributes.Attributes |= OBJ_INHERIT;
+	}
+	
+
+	errCode = NtCreateSemaphore(
+	&SemaphoreHandle,
+	GENERIC_ALL,
+	&ObjectAttributes,
+	lInitialCount,
+	lMaximumCount
+	);
+	if (!NT_SUCCESS(errCode))
+		{
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return NULL;
+		}
+
+	return SemaphoreHandle;
+}
+
+HANDLE
+STDCALL
+CreateMutexA(
+	     LPSECURITY_ATTRIBUTES lpMutexAttributes,
+	     WINBOOL bInitialOwner,
+	     LPCSTR lpName
+	     )
+{
+	WCHAR NameW[MAX_PATH];
+	ULONG i = 0;
+
+	while ((*lpName)!=0 && i < MAX_PATH)
+     	{
+		NameW[i] = *lpName;
+		lpName++;
+		i++;
+     	}
+	NameW[i] = 0;
+
+	return CreateMutexW(
+	     lpMutexAttributes,
+	     bInitialOwner,
+	     NameW
+	     );
+}
+
+HANDLE
+STDCALL
+CreateMutexW(
+    LPSECURITY_ATTRIBUTES lpMutexAttributes,
+    WINBOOL bInitialOwner,
+    LPCWSTR lpName
+    )
+{
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	NTSTATUS errCode;
+	UNICODE_STRING NameString;
+	HANDLE MutantHandle;
+
+	NameString.Length = lstrlenW(lpName)*sizeof(WCHAR);
+	NameString.Buffer = (WCHAR *)lpName;
+	NameString.MaximumLength = NameString.Length;
+
+	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+	ObjectAttributes.RootDirectory = NULL;
+	ObjectAttributes.ObjectName = &NameString;
+	ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE;
+	ObjectAttributes.SecurityDescriptor = NULL;
+	ObjectAttributes.SecurityQualityOfService = NULL;
+
+	if ( lpMutexAttributes != NULL ) {
+		ObjectAttributes.SecurityDescriptor = lpMutexAttributes->lpSecurityDescriptor;
+		if ( lpMutexAttributes->bInheritHandle == TRUE )
+			ObjectAttributes.Attributes |= OBJ_INHERIT;
+	}
+	
+
+	errCode = NtCreateMutant(&MutantHandle,GENERIC_ALL, &ObjectAttributes,(BOOLEAN)bInitialOwner);
+	if (!NT_SUCCESS(errCode))
+	{
+		SetLastError(RtlNtStatusToDosError(errCode));
+		return NULL;
+	}
+
+	return MutantHandle;
+
 }
 
 
-/*
- * @implemented
- */
-DWORD STDCALL
+DWORD 
+STDCALL
+WaitForSingleObject(HANDLE  hHandle,
+                    DWORD  dwMilliseconds)
+{
+   return WaitForSingleObjectEx(hHandle,dwMilliseconds,FALSE); 
+}
+
+
+DWORD
+STDCALL
 WaitForSingleObjectEx(HANDLE hHandle,
-                      DWORD  dwMilliseconds,
+                      DWORD  dwMilliseconds, 
                       BOOL   bAlertable)
 {
-  PLARGE_INTEGER TimePtr;
-  LARGE_INTEGER Time;
-  NTSTATUS Status;
+   NTSTATUS  errCode;
+   PLARGE_INTEGER TimePtr;
+   LARGE_INTEGER Time;
+   DWORD retCode;
 
-  /* Get real handle */
-  switch ((ULONG)hHandle)
-    {
-      case STD_INPUT_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->hStdInput;
-	break;
+   if (dwMilliseconds == INFINITE)
+     {
+	TimePtr = NULL;
+     }
+   else
+     {
+        Time.QuadPart = -10000 * dwMilliseconds;
+	TimePtr = &Time;
+     }
 
-      case STD_OUTPUT_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->hStdOutput;
-	break;
+   errCode = NtWaitForSingleObject(hHandle,
+				   (BOOLEAN) bAlertable,
+				   TimePtr);
+   if (errCode == STATUS_TIMEOUT)
+     {
+         return WAIT_TIMEOUT;
+     }
+   else if (errCode == WAIT_OBJECT_0)
+     {
+        return WAIT_OBJECT_0;
+     }
 
-      case STD_ERROR_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->hStdError;
-	break;
-    }
+   retCode = RtlNtStatusToDosError(errCode);
+   SetLastError(retCode);
 
-  /* Check for console handle */
-  if (IsConsoleHandle(hHandle))
-    {
-      if (!VerifyConsoleIoHandle(hHandle))
-	{
-	  SetLastError (ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
-        }
-	  
-      hHandle = (HANDLE)GetConsoleInputWaitHandle();
-      if (hHandle == NULL || hHandle == INVALID_HANDLE_VALUE)
-        {
-	  SetLastError (ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
-
-	}
-    }
-
-  if (dwMilliseconds == INFINITE)
-    {
-      TimePtr = NULL;
-    }
-  else
-    {
-      Time.QuadPart = -10000 * (LONGLONG)dwMilliseconds;
-      TimePtr = &Time;
-    }
-
-  Status = NtWaitForSingleObject(hHandle,
-				 (BOOLEAN) bAlertable,
-				 TimePtr);
-
-  if (HIWORD(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
-    }
-
-  return Status;
+   return 0xFFFFFFFF;
 }
 
 
-/*
- * @implemented
- */
-DWORD STDCALL
+DWORD 
+STDCALL
 WaitForMultipleObjects(DWORD nCount,
-		       CONST HANDLE *lpHandles,
-		       BOOL  bWaitAll,
-		       DWORD dwMilliseconds)
+                       CONST HANDLE *lpHandles,
+                       BOOL  bWaitAll,
+                       DWORD dwMilliseconds)
 {
-  return WaitForMultipleObjectsEx(nCount,
-				  lpHandles,
-				  bWaitAll,
-				  dwMilliseconds,
-				  FALSE);
+    return WaitForMultipleObjectsEx( nCount, lpHandles, bWaitAll ? WaitAll : WaitAny, dwMilliseconds, FALSE );
 }
 
 
-/*
- * @implemented
- */
-DWORD STDCALL
+DWORD 
+STDCALL
 WaitForMultipleObjectsEx(DWORD nCount,
                          CONST HANDLE *lpHandles,
                          BOOL  bWaitAll,
                          DWORD dwMilliseconds,
                          BOOL  bAlertable)
 {
-  PLARGE_INTEGER TimePtr;
-  LARGE_INTEGER Time;
-  PHANDLE HandleBuffer;
-  HANDLE Handle[3];
-  DWORD i;
-  NTSTATUS Status;
+   NTSTATUS  errCode;
+   LARGE_INTEGER Time;
+   PLARGE_INTEGER TimePtr;
+   DWORD retCode;
 
-  DPRINT("nCount %lu\n", nCount);
+   if (dwMilliseconds == INFINITE)
+     {
+        TimePtr = NULL;
+     }
+   else
+     {
+        Time.QuadPart = -10000 * dwMilliseconds;
+        TimePtr = &Time;
+     }
+	
+   errCode = NtWaitForMultipleObjects (nCount,
+                                       (PHANDLE)lpHandles,
+                                       (CINT)bWaitAll,
+                                       (BOOLEAN)bAlertable,
+                                       TimePtr);
 
-  if (nCount > 3)
-    {
-      HandleBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, nCount * sizeof(HANDLE));
-      if (HandleBuffer == NULL)
-        {
-          SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-          return WAIT_FAILED;
-        }
-    }
-  else
-    {
-      HandleBuffer = Handle;
-    }
-  for (i = 0; i < nCount; i++)
-    {
-      switch ((DWORD)lpHandles[i])
-	{
-	  case STD_INPUT_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdInput;
-	    break;
+   if (errCode == STATUS_TIMEOUT)
+     {
+         return WAIT_TIMEOUT;
+     }
+   else if ((errCode >= WAIT_OBJECT_0) &&
+            (errCode <= WAIT_OBJECT_0 + nCount - 1))
+     {
+        return errCode;
+     }
 
-	  case STD_OUTPUT_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdOutput;
-	    break;
+   retCode = RtlNtStatusToDosError(errCode);
+   SetLastError(retCode);
 
-	  case STD_ERROR_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdError;
-	    break;
-
-	  default:
-	    HandleBuffer[i] = lpHandles[i];
-	    break;
-	}
-
-      /* Check for console handle */
-      if (IsConsoleHandle(HandleBuffer[i]))
-	{
-	  if (!VerifyConsoleIoHandle(HandleBuffer[i]))
-	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
-	    }
-	  HandleBuffer[i] = (HANDLE)GetConsoleInputWaitHandle();
-	  if (HandleBuffer[i] == NULL || HandleBuffer[i] == INVALID_HANDLE_VALUE)
-	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
-	    }
-	}
-    }
-
-  if (dwMilliseconds == INFINITE)
-    {
-      TimePtr = NULL;
-    }
-  else
-    {
-      Time.QuadPart = -10000 * (LONGLONG)dwMilliseconds;
-      TimePtr = &Time;
-    }
-
-  Status = NtWaitForMultipleObjects (nCount,
-				     HandleBuffer,
-				     bWaitAll  ? WaitAll : WaitAny,
-				     (BOOLEAN)bAlertable,
-				     TimePtr);
-  if (HandleBuffer != Handle)
-    {
-      RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
-    }
-
-  if (HIWORD(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
-    }
-
-  return Status;
-}
-
-
-/*
- * @implemented
- */
-DWORD STDCALL
-SignalObjectAndWait(HANDLE hObjectToSignal,
-		    HANDLE hObjectToWaitOn,
-		    DWORD dwMilliseconds,
-		    BOOL bAlertable)
-{
-  PLARGE_INTEGER TimePtr;
-  LARGE_INTEGER Time;
-  NTSTATUS Status;
-
-  /* Get real handle */
-  switch ((ULONG)hObjectToWaitOn)
-    {
-      case STD_INPUT_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdInput;
-	break;
-
-      case STD_OUTPUT_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdOutput;
-	break;
-
-      case STD_ERROR_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdError;
-	break;
-    }
-
-  /* Check for console handle */
-  if (IsConsoleHandle(hObjectToWaitOn))
-    {
-      if (VerifyConsoleIoHandle(hObjectToWaitOn))
-	{
-	  DPRINT1("Console handles are not supported yet!\n");
-	  SetLastError(ERROR_INVALID_HANDLE);
-	  return FALSE;
-	}
-    }
-
-  if (dwMilliseconds == INFINITE)
-    {
-      TimePtr = NULL;
-    }
-  else
-    {
-      Time.QuadPart = -10000 * (LONGLONG)dwMilliseconds;
-      TimePtr = &Time;
-    }
-
-  Status = NtSignalAndWaitForSingleObject (hObjectToSignal,
-					   hObjectToWaitOn,
-					   (BOOLEAN)bAlertable,
-					   TimePtr);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return FALSE;
-    }
-
-  return TRUE;
+   return 0xFFFFFFFF;
 }
 
 /* EOF */
+

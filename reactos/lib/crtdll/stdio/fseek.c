@@ -2,16 +2,13 @@
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include <msvcrt/stdio.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/fcntl.h>
-#include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
+#include <crtdll/fcntl.h>
+#include <crtdll/io.h>
 
 
-/*
- * @implemented
- */
 int fseek(FILE *f, long offset, int ptrname)
 {
   long p = -1;			/* can't happen? */
@@ -41,6 +38,7 @@ int fseek(FILE *f, long offset, int ptrname)
         return 0;
       }
     }
+
  
     p = lseek(fileno(f), offset, ptrname);
     f->_cnt = 0;
@@ -54,4 +52,5 @@ int fseek(FILE *f, long offset, int ptrname)
       -1 : 0;
   }
   return p==-1 ? -1 : 0;
+
 }

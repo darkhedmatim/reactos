@@ -8,25 +8,24 @@
  *              28/12/98: Created
  */
 
-#include "precomp.h"
-#include <msvcrt/time.h>
-#include <msvcrt/internal/file.h>
+#include <windows.h>
+#include <crtdll/time.h>
+#include <crtdll/internal/file.h>
 
 VOID STDCALL GetSystemTimeAsFileTime(LPFILETIME  lpSystemTimeAsFileTime );
 
-/*
- * @implemented
- */
 clock_t clock ( void )
 {
-  FILETIME CreationTime;
-  FILETIME ExitTime;
-  FILETIME KernelTime;
-  FILETIME UserTime;
-  DWORD Remainder;
+        FILETIME  CreationTime;
+        FILETIME  ExitTime;
+        FILETIME  KernelTime;
+        FILETIME  UserTime;
+        
+        DWORD Remainder;
 
-  if (!GetProcessTimes(GetCurrentProcess(),&CreationTime,&ExitTime,&KernelTime,&UserTime))
-    return -1;
+        if ( !GetProcessTimes(GetCurrentProcess(),&CreationTime,&ExitTime,&KernelTime,&UserTime ) )
+                return -1;
+            
 
-  return FileTimeToUnixTime(&KernelTime,&Remainder) + FileTimeToUnixTime(&UserTime,&Remainder);
+        return FileTimeToUnixTime( &KernelTime,&Remainder ) + FileTimeToUnixTime( &UserTime,&Remainder ); 
 }

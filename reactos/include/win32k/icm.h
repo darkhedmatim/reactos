@@ -2,77 +2,49 @@
 #ifndef __WIN32K_ICM_H
 #define __WIN32K_ICM_H
 
-BOOL
-STDCALL
-NtGdiCheckColorsInGamut(HDC  hDC,
+BOOL  W32kCheckColorsInGamut(HDC  hDC,
                              LPVOID  RGBTriples,
                              LPVOID  Buffer,
                              UINT  Count);
 
-BOOL
-STDCALL
-NtGdiColorMatchToTarget(HDC  hDC,
+BOOL  W32kColorMatchToTarget(HDC  hDC,
                              HDC  hDCTarget, 
                              DWORD  Action);
 
-HCOLORSPACE
-STDCALL
-NtGdiCreateColorSpace(LPLOGCOLORSPACEW  LogColorSpace);
+HCOLORSPACE  W32kCreateColorSpace(LPLOGCOLORSPACE  LogColorSpace);
 
-BOOL
-STDCALL
-NtGdiDeleteColorSpace(HCOLORSPACE  hColorSpace);
+BOOL  W32kDeleteColorSpace(HCOLORSPACE  hColorSpace);
 
-INT
-STDCALL
-NtGdiEnumICMProfiles(HDC    hDC,
-                    LPWSTR lpstrBuffer,
-                    UINT   cch );
+INT  W32kEnumICMProfiles(HDC  hDC,  
+                         ICMENUMPROC  EnumICMProfilesFunc,
+                         LPARAM lParam);
 
-HCOLORSPACE
-STDCALL
-NtGdiGetColorSpace(HDC  hDC);
+HCOLORSPACE  W32kGetColorSpace(HDC  hDC);
 
-BOOL
-STDCALL
-NtGdiGetDeviceGammaRamp(HDC  hDC,
+BOOL  W32kGetDeviceGammaRamp(HDC  hDC,  
                              LPVOID  Ramp);
 
-BOOL
-STDCALL
-NtGdiGetICMProfile(HDC  hDC,  
-                        LPDWORD  NameSize,
+BOOL  W32kGetICMProfile(HDC  hDC,  
+                        LPDWORD  NameSize,  
                         LPWSTR  Filename);
 
-BOOL
-STDCALL
-NtGdiGetLogColorSpace(HCOLORSPACE  hColorSpace,
-                           LPLOGCOLORSPACEW  Buffer,
+BOOL  W32kGetLogColorSpace(HCOLORSPACE  hColorSpace,
+                           LPLOGCOLORSPACE  Buffer,  
                            DWORD  Size);
 
-HCOLORSPACE
-STDCALL
-NtGdiSetColorSpace(HDC  hDC,  
+HCOLORSPACE  W32kSetColorSpace(HDC  hDC,  
                                HCOLORSPACE  hColorSpace);
 
-BOOL
-STDCALL
-NtGdiSetDeviceGammaRamp(HDC  hDC,
+BOOL  W32kSetDeviceGammaRamp(HDC  hDC,
                              LPVOID  Ramp);
 
-INT
-STDCALL
-NtGdiSetICMMode(HDC  hDC,
+INT  W32kSetICMMode(HDC  hDC,
                     INT  EnableICM);
 
-BOOL
-STDCALL
-NtGdiSetICMProfile(HDC  hDC,
+BOOL  W32kSetICMProfile(HDC  hDC,
                         LPWSTR  Filename);
 
-BOOL
-STDCALL
-NtGdiUpdateICMRegKey(DWORD  Reserved,  
+BOOL  W32kUpdateICMRegKey(DWORD  Reserved,  
                           LPWSTR  CMID, 
                           LPWSTR  Filename,
                           UINT  Command);

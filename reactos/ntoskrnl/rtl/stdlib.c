@@ -1,4 +1,4 @@
-/* $Id: stdlib.c,v 1.12 2004/08/15 16:39:11 chorns Exp $
+/* $Id: stdlib.c,v 1.4 1999/12/30 14:37:54 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,16 +11,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <internal/ctype.h>
+#include <ddk/ntddk.h>
+#include <ctype.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* GLOBALS   ****************************************************************/
 
-#if defined(__GNUC__)
 static unsigned long long next = 0;
-#else
-static unsigned __int64 next = 0;
-#endif
 
 /* FUNCTIONS ****************************************************************/
 
@@ -32,9 +31,8 @@ int atoi(const char *str)
 
 /*
  * NOTE: no error 
- *
- * @implemented
  */
+
 long atol(const char *str)
 {
   const char *s = str;
@@ -107,8 +105,6 @@ long atol(const char *str)
 
 /*
  * NOTE: no radix range check (valid range: 2 - 36)
- *
- * @implemented
  */
 
 char *_itoa (int value, char *string, int radix)
@@ -134,7 +130,7 @@ char *_itoa (int value, char *string, int radix)
     i = v % radix;
     v = v / radix;
     if (i < 10)
-      *tp++ = i + '0';
+      *tp++ = i+'0';
     else
       *tp++ = i + 'a' - 10;
   }
@@ -149,77 +145,20 @@ char *_itoa (int value, char *string, int radix)
   return string;
 }
 
-/*
- * NOTE: no radix range check (valid range: 2 - 36)
- *
- * @implemented
- */
 
-wchar_t *_itow (int value, wchar_t *string, int radix)
-{
-  wchar_t tmp[33];
-  wchar_t *tp = tmp;
-  int i;
-  unsigned v;
-  int sign;
-  wchar_t *sp = NULL;
-
-  if (string == NULL)
-    return NULL;
-
-  sign = (radix == 10 && value < 0);
-  if (sign)
-    v = -value;
-  else
-    v = (unsigned)value;
-
-  while (v || tp == tmp)
-  {
-    i = v % radix;
-    v = v / radix;
-    if (i < 10)
-      *tp++ = i + L'0';
-    else
-      *tp++ = i + L'a' - 10;
-  }
-
-  if (sign)
-    *sp++ = L'-';
-
-  while (tp > tmp)
-    *sp++ = *--tp;
-  *sp = 0;
-
-  return string;
-}
-
-
-/*
- * @implemented
- */
 int rand(void)
 {
-#if defined(__GNUC__)
 	next = next * 0x5deece66dLL + 11;
-#else
-	next = next * 0x5deece66di64 + 11;
-#endif
 	return (int)((next >> 16) & RAND_MAX);
 }
 
 
-/*
- * @implemented
- */
 void srand(unsigned seed)
 {
 	next = seed;
 }
 
 
-/*
- * @implemented
- */
 int mbtowc (wchar_t *wchar, const char *mbchar, size_t count)
 {
 	NTSTATUS Status;
@@ -240,9 +179,6 @@ int mbtowc (wchar_t *wchar, const char *mbchar, size_t count)
 }
 
 
-/*
- * @implemented
- */
 size_t mbstowcs (wchar_t *wcstr, const char *mbstr, size_t count)
 {
 	NTSTATUS Status;
@@ -272,9 +208,6 @@ size_t mbstowcs (wchar_t *wcstr, const char *mbstr, size_t count)
 }
 
 
-/*
- * @implemented
- */
 int wctomb (char *mbchar, wchar_t wchar)
 {
 	NTSTATUS Status;
@@ -295,9 +228,6 @@ int wctomb (char *mbchar, wchar_t wchar)
 }
 
 
-/*
- * @implemented
- */
 size_t wcstombs (char *mbstr, const wchar_t *wcstr, size_t count)
 {
 	NTSTATUS Status;

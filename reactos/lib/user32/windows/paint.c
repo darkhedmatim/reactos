@@ -1,342 +1,247 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+ * Window painting functions
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright 1993, 1994, 1995 Alexandre Julliard
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * FIXME: Do not repaint full nonclient area all the time. Instead, compute 
+ *	  intersection with hrgnUpdate (which should be moved from client to 
+ *	  window coords as well, lookup 'the pain' comment in the winpos.c).
  */
-/* $Id: paint.c,v 1.27 2004/08/15 21:36:30 chorns Exp $
- *
- * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/paint.c
- * PURPOSE:         Input
- * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
- * UPDATE HISTORY:
- *      09-05-2001  CSH  Created
- */
+#include <windows.h>
+#include <user32/paint.h>
+#include <user32/win.h>
+#include <user32/queue.h>
+#include <user32/dce.h>
+#include <user32/debug.h>
 
-/* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <resource.h>
-#define NDEBUG
-#include <debug.h>
+  /* Last CTLCOLOR id */
+//#define CTLCOLOR_MAX   CTLCOLOR_STATIC
 
-static HBRUSH FrameBrushes[13];
-static HBITMAP hHatch;
-const DWORD HatchBitmap[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
 
-BOOL STDCALL PolyPatBlt(HDC,DWORD,PPATRECT,INT,ULONG);
 
-/* FUNCTIONS *****************************************************************/
 
-VOID 
-CreateFrameBrushes(VOID)
-{
-  FrameBrushes[0] = CreateSolidBrush(RGB(0,0,0));
-  FrameBrushes[1] = CreateSolidBrush(RGB(0,0,128));
-  FrameBrushes[2] = CreateSolidBrush(RGB(10,36,106));
-  FrameBrushes[3] = CreateSolidBrush(RGB(128,128,128));
-  FrameBrushes[4] = CreateSolidBrush(RGB(181,181,181));
-  FrameBrushes[5] = CreateSolidBrush(RGB(212,208,200));
-  FrameBrushes[6] = CreateSolidBrush(RGB(236,233,216));
-  FrameBrushes[7] = CreateSolidBrush(RGB(255,255,255));
-  FrameBrushes[8] = CreateSolidBrush(RGB(49,106,197));
-  FrameBrushes[9] = CreateSolidBrush(RGB(58,110,165));
-  FrameBrushes[10] = CreateSolidBrush(RGB(64,64,64));
-  FrameBrushes[11] = CreateSolidBrush(RGB(255,255,225));
-  hHatch = CreateBitmap(8, 8, 1, 1, HatchBitmap);
-  FrameBrushes[12] = CreatePatternBrush(hHatch);
-}
 
-VOID 
-DeleteFrameBrushes(VOID)
-{
-  unsigned Brush;
-
-  for (Brush = 0; Brush < sizeof(FrameBrushes) / sizeof(HBRUSH); Brush++)
-    {
-      if (NULL != FrameBrushes[Brush])
-	{
-	  DeleteObject(FrameBrushes[Brush]);
-	  FrameBrushes[Brush] = NULL;
-	}
-    }
-  if (NULL != hHatch)
-    {
-      DeleteObject(hHatch);
-      hHatch = NULL;
-    }
-}
-
-/*
- * @implemented
- */
 HDC
 STDCALL
 BeginPaint(
-  HWND hwnd,
-  LPPAINTSTRUCT lpPaint)
+	   HWND hWnd,
+	   LPPAINTSTRUCT lpPaint)
 {
-  return NtUserBeginPaint(hwnd, lpPaint);
+    WINBOOL bIcon;
+    HRGN hrgnUpdate;
+    WND *wndPtr = WIN_FindWndPtr( hWnd );
+    if (!wndPtr) return 0;
+
+    bIcon = (wndPtr->dwStyle & WS_MINIMIZE && wndPtr->class->hIcon);
+
+    wndPtr->flags &= ~WIN_NEEDS_BEGINPAINT;
+
+    if (wndPtr->flags & WIN_NEEDS_NCPAINT) WIN_UpdateNCArea( wndPtr, TRUE );
+
+    if (((hrgnUpdate = wndPtr->hrgnUpdate) != 0) ||
+        (wndPtr->flags & WIN_INTERNAL_PAINT))
+        QUEUE_DecPaintCount( wndPtr->hmemTaskQ );
+
+    wndPtr->hrgnUpdate = 0;
+    wndPtr->flags &= ~WIN_INTERNAL_PAINT;
+
+    HideCaret( hWnd );
+
+    DPRINT("hrgnUpdate = %04x, \n", hrgnUpdate);
+
+    /* When bIcon is TRUE hrgnUpdate is automatically in window coordinates
+     * (because rectClient == rectWindow for WS_MINIMIZE windows).
+     */
+
+    if (wndPtr->class->style & CS_PARENTDC)
+    {
+        /* Don't clip the output to the update region for CS_PARENTDC window */
+	if(hrgnUpdate > (HRGN)1)
+	    DeleteObject(hrgnUpdate);
+        lpPaint->hdc = GetDCEx( hWnd, 0, DCX_WINDOWPAINT | DCX_USESTYLE |
+                              (bIcon ? DCX_WINDOW : 0) );
+    }
+    else
+    {
+        lpPaint->hdc = GetDCEx(hWnd, hrgnUpdate, DCX_INTERSECTRGN |
+                             DCX_WINDOWPAINT | DCX_USESTYLE |
+                             (bIcon ? DCX_WINDOW : 0) );
+    }
+
+    DPRINT("hdc = %04x\n", lpPaint->hdc);
+
+    if (!lpPaint->hdc)
+    {
+        //WARN(win, "GetDCEx() failed in BeginPaint(), hWnd=%04x\n", hWnd);
+        return 0;
+    }
+
+    GetClipBox( lpPaint->hdc, &lpPaint->rcPaint );
+
+	DPRINT("box = (%i,%i - %i,%i)\n", lpPaint->rcPaint.left, lpPaint->rcPaint.top,
+		    lpPaint->rcPaint.right, lpPaint->rcPaint.bottom );
+
+    if (wndPtr->flags & WIN_NEEDS_ERASEBKGND)
+    {
+        wndPtr->flags &= ~WIN_NEEDS_ERASEBKGND;
+        lpPaint->fErase = !SendMessageA(hWnd, (bIcon) ? WM_ICONERASEBKGND
+                                                   : WM_ERASEBKGND,
+                                     (WPARAM)lpPaint->hdc, 0 );
+    }
+    else lpPaint->fErase = TRUE;
+
+    return lpPaint->hdc;
+ 
 }
 
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-EndPaint(
-  HWND hWnd,
-  CONST PAINTSTRUCT *lpPaint)
+WINBOOL STDCALL EndPaint( HWND hWnd, const PAINTSTRUCT *lpPaint )
 {
-  return NtUserEndPaint(hWnd, lpPaint);
+    ReleaseDC( hWnd, lpPaint->hdc );
+    ShowCaret( hWnd );
+    return TRUE;
 }
 
-
-/*
- * @unimplemented
+/***********************************************************************
+ *           RedrawWindow    (USER32.426)
  */
-int
-STDCALL
-ExcludeUpdateRgn(
-  HDC hDC,
-  HWND hWnd)
+WINBOOL STDCALL RedrawWindow( HWND hwnd, const RECT *rectUpdate,
+                              HRGN hrgnUpdate, UINT flags )
 {
-  UNIMPLEMENTED;
-  return 0;
+    return PAINT_RedrawWindow( hwnd, rectUpdate, hrgnUpdate, flags, 0 );
 }
 
-
-/*
- * @implemented
+/***********************************************************************
+ *           UpdateWindow   (USER32.567)
  */
-BOOL
-STDCALL
-GetUpdateRect(
-  HWND Wnd,
-  LPRECT Rect,
-  BOOL Erase)
-{
-  return NtUserGetUpdateRect(Wnd, Rect, Erase);
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-GetUpdateRgn(
-  HWND hWnd,
-  HRGN hRgn,
-  BOOL bErase)
-{
-  return NtUserGetUpdateRgn(hWnd, hRgn, bErase);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-InvalidateRect(
-  HWND hWnd,
-  CONST RECT *lpRect,
-  BOOL bErase)
-{
-  return NtUserInvalidateRect( hWnd, lpRect, bErase );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-InvalidateRgn(
-  HWND hWnd,
-  HRGN hRgn,
-  BOOL bErase)
-{
-  return NtUserInvalidateRgn( hWnd, hRgn, bErase );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-RedrawWindow(
-  HWND hWnd,
-  CONST RECT *lprcUpdate,
-  HRGN hrgnUpdate,
-  UINT flags)
-{
- return NtUserRedrawWindow(hWnd, lprcUpdate, hrgnUpdate, flags);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
-   HRGN hrgnUpdate, LPRECT lprcUpdate)
-{
-   return NtUserScrollDC(hDC, dx, dy, lprcScroll, lprcClip, hrgnUpdate,
-      lprcUpdate);
-}
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-SetWindowRgn(
-  HWND hWnd,
-  HRGN hRgn,
-  BOOL bRedraw)
-{
-  return (int)NtUserSetWindowRgn(hWnd, hRgn, bRedraw);
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 UpdateWindow(
-  HWND hWnd)
+	     HWND hWnd)
 {
-  return NtUserUpdateWindow( hWnd );
+    return PAINT_RedrawWindow( hWnd, NULL, 0, RDW_UPDATENOW | RDW_NOCHILDREN, 0 );
 }
 
-
-/*
- * @unimplemented
+/***********************************************************************
+ *           InvalidateRgn   (USER32.9)
  */
-BOOL
+WINBOOL
 STDCALL
-ValidateRect(
-  HWND hWnd,
-  CONST RECT *lpRect)
+InvalidateRgn(
+	      HWND hWnd,
+	      HRGN hRgn,
+	      WINBOOL bErase)
 {
-  UNIMPLEMENTED;
-  return FALSE;
+    return PAINT_RedrawWindow(hWnd, NULL, hRgn, RDW_INVALIDATE | (bErase ? RDW_ERASE : 0), 0 );
 }
 
-
-/*
- * @implemented
+/***********************************************************************
+ *           InvalidateRect   (USER32.8)
  */
-BOOL
+WINBOOL
+STDCALL
+InvalidateRect(
+	       HWND hWnd ,
+	       CONST RECT *lpRect,
+	       WINBOOL bErase)
+{
+    return PAINT_RedrawWindow( hWnd, lpRect, 0, 
+			RDW_INVALIDATE | (bErase ? RDW_ERASE : 0), 0 );
+}
+
+/***********************************************************************
+ *           ValidateRgn   (USER32.572)
+ */
+WINBOOL
 STDCALL
 ValidateRgn(
-  HWND hWnd,
-  HRGN hRgn)
+	    HWND hWnd,
+	    HRGN hRgn)
 {
-  return NtUserValidateRgn(hWnd, hRgn);
+    return PAINT_RedrawWindow( hWnd, NULL, hRgn, RDW_VALIDATE | RDW_NOCHILDREN, 0 );
 }
 
-
-/*
- * @implemented
+/***********************************************************************
+ *           ValidateRect   (USER32.571)
  */
-int
+WINBOOL
 STDCALL
-GetWindowRgn(
-  HWND hWnd,
-  HRGN hRgn)
+ValidateRect(
+	     HWND hWnd ,
+	     CONST RECT *lpRect)
 {
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_GETWINDOWRGN);
+    return PAINT_RedrawWindow( hWnd, lpRect, 0, RDW_VALIDATE | RDW_NOCHILDREN, 0 );
 }
 
-
-/*
- * @implemented
+/***********************************************************************
+ *           GetUpdateRect   (USER32.297)
  */
-int
-STDCALL
-GetWindowRgnBox(
-    HWND hWnd,
-    LPRECT lprc)
+WINBOOL STDCALL GetUpdateRect( HWND hwnd, LPRECT rect, WINBOOL erase )
 {
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)lprc, TWOPARAM_ROUTINE_GETWINDOWRGNBOX);
+    WND * wndPtr = WIN_FindWndPtr( hwnd );
+    if (!wndPtr) return FALSE;
+
+    if (rect)
+    {
+	if (wndPtr->hrgnUpdate > (HRGN)1)
+	{
+	    HRGN hrgn = CreateRectRgn( 0, 0, 0, 0 );
+	    if (GetUpdateRgn( hwnd, hrgn, erase ) == ERROR) return FALSE;
+	    GetRgnBox( hrgn, rect );
+	    DeleteObject( hrgn );
+	}
+	else SetRectEmpty( rect );
+    }
+    return ((UINT)wndPtr->hrgnUpdate > 1);
 }
 
-
-const BYTE MappingTable[33] = {5,9,2,3,5,7,0,0,0,7,5,5,3,2,7,5,3,3,0,5,7,10,5,0,11,4,1,1,3,8,6,12,7};
-/*
- * @implemented
+/***********************************************************************
+ *           GetUpdateRgn   (USER32.298)
  */
-BOOL
-STDCALL
-DrawFrame(
-	  HDC    hDc,
-	  RECT  *r,
-	  DWORD  width,
-	  DWORD  type
-	  )
+INT STDCALL GetUpdateRgn( HWND hwnd, HRGN hrgn, WINBOOL erase )
 {
-	DWORD rop;
-	DWORD brush;
-	HBRUSH hbrFrame;
-	PATRECT p[4];
-	if (NULL == FrameBrushes[0])
-	{
-		CreateFrameBrushes();
-	}
-	if (type & 4)
-	{
-		rop = PATINVERT;
-	}
-	else
-	{
-		rop = PATCOPY;
-	}
-	brush = type / 8;
-	if (brush >= 33)
-	{
-		brush = 32;
-	}
-	brush = MappingTable[brush];
-	hbrFrame = FrameBrushes[brush];
-	p[0].hBrush = hbrFrame;
-	p[1].hBrush = hbrFrame;
-	p[2].hBrush = hbrFrame;
-	p[3].hBrush = hbrFrame;
-	p[0].r.left = r->left;
-	p[0].r.top = r->top;
-	p[0].r.right = r->right - r->left;
-	p[0].r.bottom = width;
-	p[1].r.left = r->left;
-	p[1].r.top = r->bottom - width;
-	p[1].r.right = r->right - r->left;
-	p[1].r.bottom = width;
-	p[2].r.left = r->left;
-	p[2].r.top = r->top + width;
-	p[2].r.right = width;
-	p[2].r.bottom = r->bottom - r->top - (width * 2);
-	p[3].r.left = r->right - width;
-	p[3].r.top = r->top + width;
-	p[3].r.right = width;
-	p[3].r.bottom = r->bottom - r->top - (width * 2);
-	return PolyPatBlt(hDc,rop,p,4,0);
+    INT retval;
+    WND * wndPtr = WIN_FindWndPtr( hwnd );
+    if (!wndPtr) return ERROR;
+
+    if ((UINT)wndPtr->hrgnUpdate <= 1)
+    {
+        SetRectRgn( hrgn, 0, 0, 0, 0 );
+        return NULLREGION;
+    }
+    retval = CombineRgn( hrgn, wndPtr->hrgnUpdate, 0, RGN_COPY );
+    if (erase) RedrawWindow( hwnd, NULL, 0, RDW_ERASENOW | RDW_NOCHILDREN );
+    return retval;
 }
+
+/***********************************************************************
+ *           ExcludeUpdateRgn   (USER32.195)
+ */
+INT STDCALL ExcludeUpdateRgn( HDC hdc, HWND hwnd )
+{
+    RECT rect;
+    WND * wndPtr;
+
+    if (!(wndPtr = WIN_FindWndPtr( hwnd ))) return ERROR;
+
+    if (wndPtr->hrgnUpdate)
+    {
+	INT ret;
+	HRGN hrgn = CreateRectRgn(wndPtr->rectWindow.left - wndPtr->rectClient.left,
+				      wndPtr->rectWindow.top - wndPtr->rectClient.top,
+				      wndPtr->rectClient.right - wndPtr->rectClient.left,
+				      wndPtr->rectClient.bottom - wndPtr->rectClient.top);
+	if( wndPtr->hrgnUpdate > (HRGN)1 )
+	    CombineRgn(hrgn, wndPtr->hrgnUpdate, 0, RGN_COPY);
+
+	/* do ugly coordinate translations in dce.c */
+
+	ret = DCE_ExcludeRgn( hdc, wndPtr, hrgn );
+	DeleteObject( hrgn );
+	return ret;
+    } 
+    return GetClipBox( hdc, &rect );
+}
+
+

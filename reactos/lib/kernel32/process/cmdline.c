@@ -1,4 +1,4 @@
-/* $Id: cmdline.c,v 1.19 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: cmdline.c,v 1.10 2000/01/11 17:30:46 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,10 +11,17 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
+#include <kernel32/proc.h>
+#include <kernel32/thread.h>
+#include <wchar.h>
+#include <string.h>
+#include <internal/teb.h>
+#include <ntdll/rtl.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS ******************************************************************/
@@ -22,7 +29,10 @@
 static UNICODE_STRING CommandLineStringW;
 static ANSI_STRING CommandLineStringA;
 
-static BOOL bCommandLineInitialized = FALSE;
+static WCHAR CommandLineW[MAX_PATH];
+static CHAR CommandLineA[MAX_PATH];
+
+static WINBOOL bCommandLineInitialized = FALSE;
 
 
 /* FUNCTIONS ****************************************************************/
@@ -32,43 +42,31 @@ InitCommandLines (VOID)
 {
 	PRTL_USER_PROCESS_PARAMETERS Params;
 
+	// initialize command line buffers
+	CommandLineW[0] = 0;
+	CommandLineStringW.Buffer = CommandLineW;
+	CommandLineStringW.Length = 0;
+	CommandLineStringW.MaximumLength = MAX_PATH * sizeof(WCHAR);
+
+	CommandLineA[0] = 0;
+	CommandLineStringA.Buffer = CommandLineA;
+	CommandLineStringA.Length = 0;
+	CommandLineStringA.MaximumLength = MAX_PATH;
+
 	// get command line
 	Params = NtCurrentPeb()->ProcessParameters;
 	RtlNormalizeProcessParams (Params);
 
-	// initialize command line buffers
-	CommandLineStringW.Length = Params->CommandLine.Length;
-	CommandLineStringW.MaximumLength = CommandLineStringW.Length + sizeof(WCHAR);
-	CommandLineStringW.Buffer = RtlAllocateHeap(GetProcessHeap(),
-						    HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY, 
-						    CommandLineStringW.MaximumLength);
-
-	RtlInitAnsiString(&CommandLineStringA, NULL);
-	
-	// copy command line
 	RtlCopyUnicodeString (&CommandLineStringW,
 	                      &(Params->CommandLine));
-	CommandLineStringW.Buffer[CommandLineStringW.Length / sizeof(WCHAR)] = 0;
-
-	/* convert unicode string to ansi (or oem) */
-	if (bIsFileApiAnsi)
-	    RtlUnicodeStringToAnsiString (&CommandLineStringA,
-					  &CommandLineStringW, 
-					  TRUE);
-	else
-	    RtlUnicodeStringToOemString (&CommandLineStringA,
-					 &CommandLineStringW,
-					 TRUE);
-
-	CommandLineStringA.Buffer[CommandLineStringA.Length] = 0;
+	RtlUnicodeStringToAnsiString (&CommandLineStringA,
+	                              &CommandLineStringW,
+	                              FALSE);
 
 	bCommandLineInitialized = TRUE;
 }
 
 
-/*
- * @implemented
- */
 LPSTR STDCALL GetCommandLineA(VOID)
 {
 	if (bCommandLineInitialized == FALSE)
@@ -76,15 +74,11 @@ LPSTR STDCALL GetCommandLineA(VOID)
 		InitCommandLines ();
 	}
 
-	DPRINT ("CommandLine \'%s\'\n", CommandLineStringA.Buffer);
+	DPRINT ("CommandLine \'%s\'\n", CommandLineA);
 
-	return(CommandLineStringA.Buffer);
+	return(CommandLineA);
 }
 
-
-/*
- * @implemented
- */
 LPWSTR STDCALL GetCommandLineW (VOID)
 {
 	if (bCommandLineInitialized == FALSE)
@@ -92,9 +86,9 @@ LPWSTR STDCALL GetCommandLineW (VOID)
 		InitCommandLines ();
 	}
 
-	DPRINT ("CommandLine \'%S\'\n", CommandLineStringW.Buffer);
+	DPRINT ("CommandLine \'%S\'\n", CommandLineW);
 
-	return(CommandLineStringW.Buffer);
+	return(CommandLineW);
 }
 
 /* EOF */

@@ -1,5 +1,4 @@
-/* $Id: nt.c,v 1.12 2004/08/15 16:39:09 chorns Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/nt/nt.c
@@ -11,21 +10,16 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/nt.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
-NtInit(VOID)
+VOID NtInit(VOID)
 {
    NtInitializeEventImplementation();
-   NtInitializeEventPairImplementation();
-   NtInitializeMutantImplementation();
    NtInitializeSemaphoreImplementation();
-   NtInitializeTimerImplementation();
    NiInitPort();
-   NtInitializeProfileImplementation();
 }
-
-/* EOF */

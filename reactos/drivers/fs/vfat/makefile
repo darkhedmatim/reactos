@@ -1,51 +1,64 @@
-# $Id: makefile,v 1.45 2004/08/26 19:55:20 hbirr Exp $
+# $Id: makefile,v 1.14 2000/01/19 07:05:04 rex Exp $
+#
+#
+TARGET=vfatfs
 
-PATH_TO_TOP = ../../..
+OBJECTS = blockdev.o dir.o dirwr.o iface.o string.o fat.o rw.o finfo.o volume.o create.o $(TARGET).coff
+LIBS = ../../../ntoskrnl/ntoskrnl.a
 
-TARGET_BOOTSTRAP = yes
+BASE_CFLAGS = -I../../../include
 
-TARGET_TYPE = driver
+all: $(TARGET).sys
 
-TARGET_NAME = vfatfs
+.phony: all
 
-TARGET_GCCLIBS = gcc
-
-TARGET_OBJECTS = \
-  blockdev.o \
-  cleanup.o \
-  close.o \
-  create.o \
-  dir.o \
-  direntry.o \
-  dirwr.o \
-  fat.o \
-  fcb.o \
-  finfo.o \
-  iface.o \
-  rw.o \
-  shutdown.o \
-  string.o \
-  volume.o \
-  misc.o \
-  fsctl.o \
-  ea.o \
-  flush.o
-
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
-TARGET_CLEAN = $(DEP_FILES) *.o *.sys *.sym
-
-include $(PATH_TO_TOP)/config
-
-ifeq ($(DBG), 1)
-TARGET_CFLAGS = -Wall -Werror -g
+clean:
+ifeq ($(DOSCLI),yes)
+	- $(RM) blockdev.o
+	- $(RM) dir.o
+	- $(RM) dirwr.o
+	- $(RM) iface.o
+	- $(RM) $(TARGET).coff
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) $(TARGET).sys
 else
-TARGET_CFLAGS = -Wall -Werror -O3 -fno-strict-aliasing 
+	- $(RM) $(OBJECTS) $(TARGET).coff junk.tmp base.tmp temp.exp $(TARGET).sys
 endif
 
-include $(PATH_TO_TOP)/rules.mak
+.phony: clean
 
-include $(TOOLS_PATH)/helper.mk
+floppy: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
-include $(TOOLS_PATH)/depend.mk
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+endif
 
+dist: ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+
+../../../$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys ..\..\..\$(DIST_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+endif
+
+$(TARGET).sys: $(OBJECTS) $(LIBS)
+	$(CC) -specs=../../svc_specs -mdll -o junk.tmp -Wl,--defsym,_end=end -Wl,--defsym,_edata=__data_end__ -Wl,--defsym,_etext=etext -Wl,--base-file,base.tmp -Wl,"-h vfatfs.sys" $(OBJECTS) $(LIBS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--def vfatfs.def
+	- $(RM) base.tmp
+	$(CC) --verbose -Wl,--image-base,0x10000 -Wl,-e,_DriverEntry@8 -Wl,temp.exp -Wl,"-h vfatfs.sys" -specs=../../svc_specs -mdll -o $(TARGET).sys $(OBJECTS) $(LIBS)
+	- $(RM) temp.exp
+
+
+WARNINGS_ARE_ERRORS = yes
+include ../../../rules.mak

@@ -1,4 +1,4 @@
-/* $Id: regio.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
+/* $Id: regio.c,v 1.1 1999/12/29 01:35:53 ekohl Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -9,13 +9,12 @@
  *                       29/12/1999 Created
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 
 
 /* FUNCTIONS ***************************************************************/
 
 UCHAR
-STDCALL
 READ_REGISTER_UCHAR (
 	PUCHAR	Register
 	)
@@ -23,11 +22,7 @@ READ_REGISTER_UCHAR (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 USHORT
-STDCALL
 READ_REGISTER_USHORT (
 	PUSHORT	Register
 	)
@@ -35,11 +30,7 @@ READ_REGISTER_USHORT (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 ULONG
-STDCALL
 READ_REGISTER_ULONG (
 	PULONG	Register
 	)
@@ -47,11 +38,7 @@ READ_REGISTER_ULONG (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 READ_REGISTER_BUFFER_UCHAR (
 	PUCHAR	Register,
 	PUCHAR	Buffer,
@@ -64,11 +51,7 @@ READ_REGISTER_BUFFER_UCHAR (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 READ_REGISTER_BUFFER_USHORT (
 	PUSHORT	Register,
 	PUSHORT	Buffer,
@@ -81,11 +64,7 @@ READ_REGISTER_BUFFER_USHORT (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 READ_REGISTER_BUFFER_ULONG (
 	PULONG	Register,
 	PULONG	Buffer,
@@ -98,11 +77,7 @@ READ_REGISTER_BUFFER_ULONG (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_UCHAR (
 	PUCHAR	Register,
 	UCHAR	Value
@@ -111,11 +86,7 @@ WRITE_REGISTER_UCHAR (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_USHORT (
 	PUSHORT	Register,
 	USHORT	Value
@@ -124,11 +95,7 @@ WRITE_REGISTER_USHORT (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_ULONG (
 	PULONG	Register,
 	ULONG	Value
@@ -137,11 +104,7 @@ WRITE_REGISTER_ULONG (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_BUFFER_UCHAR (
 	PUCHAR	Register,
 	PUCHAR	Buffer,
@@ -150,15 +113,11 @@ WRITE_REGISTER_BUFFER_UCHAR (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_BUFFER_USHORT (
 	PUSHORT	Register,
 	PUSHORT	Buffer,
@@ -167,15 +126,11 @@ WRITE_REGISTER_BUFFER_USHORT (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
-/*
- * @implemented
- */
 VOID
-STDCALL
 WRITE_REGISTER_BUFFER_ULONG (
 	PULONG	Register,
 	PULONG	Buffer,
@@ -184,7 +139,7 @@ WRITE_REGISTER_BUFFER_ULONG (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 

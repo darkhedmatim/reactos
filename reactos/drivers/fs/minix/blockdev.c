@@ -11,15 +11,16 @@
 
 #include <ddk/ntddk.h>
 #include <string.h>
+#include <internal/string.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "minix.h"
 
 /* FUNCTIONS ***************************************************************/
 
-BOOLEAN MinixReadPage(PDEVICE_OBJECT DeviceObject,
+BOLEAN MinixReadPage(PDEVICE_OBJECT DeviceObject,
 		     ULONG Offset,
 		     PVOID Buffer)
 {
@@ -29,19 +30,19 @@ BOOLEAN MinixReadPage(PDEVICE_OBJECT DeviceObject,
    for (i=0; i<4; i++)
      {
 	Result = MinixReadSector(DeviceObject,
-				 (Offset + (i * PAGE_SIZE)) / BLOCKSIZE,
-				 (Buffer + (i * PAGE_SIZE)));
+				 (Offset + (i * PAGESIZE)) / BLOCKSIZE,
+				 (Buffer + (i * PAGESIZE)));
 	if (!Result)
 	  {
 	     return(Result);
 	  }
      }
-   return(TRUE);
+   return(True);
 }
 
 BOOLEAN MinixReadSector(IN PDEVICE_OBJECT pDeviceObject,
 			IN ULONG	DiskSector,
-			IN PVOID	Buffer)
+			IN UCHAR*	Buffer)
 {
     LARGE_INTEGER   sectorNumber;
     PIRP            irp;
@@ -106,7 +107,7 @@ BOOLEAN MinixReadSector(IN PDEVICE_OBJECT pDeviceObject,
 
 BOOLEAN MinixWriteSector(IN PDEVICE_OBJECT pDeviceObject,
 			IN ULONG	DiskSector,
-			IN PVOID	Buffer)
+			IN UCHAR*	Buffer)
 {
     LARGE_INTEGER   sectorNumber;
     PIRP            irp;

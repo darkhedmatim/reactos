@@ -1,17 +1,70 @@
-# $Id: makefile,v 1.20 2004/12/03 23:37:39 blight Exp $
+# $Id: makefile,v 1.6 1999/12/04 20:58:39 ea Exp $
+#
+#
+TARGET=null
+OBJECTS= $(TARGET).o $(TARGET).coff ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+BASE_CFLAGS = -I../../../include
 
-include $(PATH_TO_TOP)/rules.mak
+all: $(TARGET).sys
 
-TARGET_TYPE = driver
+.phony: all
 
-TARGET_NAME = null
+clean:
+	- $(RM) $(TARGET).o
+	- $(RM) $(TARGET).coff
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) $(TARGET).sys
 
-TARGET_OBJECTS = null.o
+.phony: clean
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API
+floppy: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
-TARGET_LIBS = $(SDK_PATH_LIB)/libpseh.a
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+endif
 
-include $(TOOLS_PATH)/helper.mk
+dist: ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+
+../../../$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys ..\..\..\$(DIST_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+endif
+
+$(TARGET).sys: $(OBJECTS)
+	$(CC) \
+		-specs=../../svc_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp \
+		$(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-specs=../../svc_specs \
+		-mdll \
+		-o $(TARGET).sys \
+		$(OBJECTS)
+	- $(RM) temp.exp
+
+
+include ../../../rules.mak

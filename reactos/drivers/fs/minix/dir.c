@@ -12,15 +12,14 @@
 #include <ddk/ntddk.h>
 #include <string.h>
 
-//#define NDEBUG
-#include <debug.h>
+#define NDEBUG
+#include <internal/debug.h>
 
 #include "minix.h"
 
 /* FUNCTIONS ****************************************************************/
 
-BOOLEAN MinixCompareUnicodeStringToAnsi(PCH AnsiStr, 
-					PWCHAR UnicodeStr,
+BOOLEAN MinixCompareUnicodeStringToAnsi(PCH AnsiStr, PWCHAR UnicodeStr,
 					ULONG MaxLen)
 {
    unsigned int i = 0;
@@ -45,7 +44,6 @@ BOOLEAN MinixCompareUnicodeStringToAnsi(PCH AnsiStr,
 #define ENTRIES_PER_BLOCK (BLOCKSIZE / MINIX_DIR_ENTRY_SIZE)
 
 ULONG MinixDirLookup(PMINIX_DEVICE_EXTENSION DeviceExt,
-		     PDEVICE_OBJECT DeviceObject,
 		     struct minix_inode* dir,
 		     PWCHAR Name)
 {
@@ -53,13 +51,10 @@ ULONG MinixDirLookup(PMINIX_DEVICE_EXTENSION DeviceExt,
    unsigned int offset;
    unsigned int i;
    unsigned int inode;
-   PVOID Block;
-   ULONG DiskOffset;
+   PCCB Ccb = NULL;
    
    DPRINT("MinixDirLookup(DeviceExt %x, dir %x, Name %S)\n",DeviceExt,dir,
 	  Name);
-   
-   Block = ExAllocatePool(NonPagedPool, 512);
    
    for (i=0;i<(dir->i_size/MINIX_DIR_ENTRY_SIZE);i++)
      {
@@ -67,52 +62,58 @@ ULONG MinixDirLookup(PMINIX_DEVICE_EXTENSION DeviceExt,
 	offset = i*MINIX_DIR_ENTRY_SIZE;
 	if ((offset%BLOCKSIZE)==0)
 	  {
-	     MinixReadBlock(DeviceObject,
-			    DeviceExt,
+	     CHECKPOINT;
+	     if (Ccb != NULL)
+	       {
+		  CHECKPOINT;
+		  CbReleaseFromRead(&DeviceExt->Dccb,Ccb);
+	       }
+	     CHECKPOINT;
+	     MinixReadBlock(DeviceExt,
 			    dir,
 			    offset/BLOCKSIZE,
-			    &DiskOffset);
-	     MinixReadSector(DeviceObject,
-			     DiskOffset,
-			     Block);
+			    &Ccb);
 	  }
 	current_entry = (struct minix_dir_entry *)
-	  (Block+offset%BLOCKSIZE);
+	  (Ccb->Buffer+offset%BLOCKSIZE);
 	DPRINT("Inode %x Name %.30s\n",current_entry->inode,
 	       current_entry->name);
         if (MinixCompareUnicodeStringToAnsi(current_entry->name,
 					    Name,30))
 	  {
 	     inode = current_entry->inode;
-	     ExFreePool(Block);
+	     CbReleaseFromRead(&DeviceExt->Dccb,Ccb);
 	     DPRINT("MinixDirLookup() = %d\n",inode);
 	     return(inode);
 	  }
      }
    CHECKPOINT;
-   ExFreePool(Block);
+   if (Ccb != NULL)
+     {
+	CbReleaseFromRead(&DeviceExt->Dccb,Ccb);
+     }
    DPRINT("MinixDirLookup() = %d\n",0);
    return(0);
 }
 
 NTSTATUS MinixOpen(PDEVICE_OBJECT DeviceObject,
 		   MINIX_DEVICE_EXTENSION* DeviceExt,
-		   PFILE_OBJECT FileObject,
+		   PFILE_OBJECT FileObject;
 		   PMINIX_FSCONTEXT result,
 		   PULONG Information)
 {
    PWSTR current;
    PWSTR next;
-   PWSTR string;
+   PWSTR string = DeviceName;
    struct minix_inode current_dir;
    unsigned int current_ino;
+   PWSTR DeviceName;
    
-   string = ExAllocatePool(NonPagedPool, 
-			   2*(wcslen(FileObject->FileName.Buffer)+1));
-   wcscpy(string, FileObject->FileName.Buffer);
+   DeviceName = FileObject->FileName.Buffer;
    
    DbgPrint("MinixOpen(DeviceObject %x, DeviceName %S, result %x)\n",
-	  DeviceObject,string,result);
+	  DeviceObject,DeviceName,result);
+   DPRINT("DeviceName %x\n",DeviceName);
    
    
    next = &string[0];
@@ -120,7 +121,7 @@ NTSTATUS MinixOpen(PDEVICE_OBJECT DeviceObject,
    
    current_ino = MINIX_ROOT_INO;
    
-   while (next != NULL && current_ino != 0)
+   while (next!=NULL && current_ino!=0)
      {	
 	MinixReadInode(DeviceObject,DeviceExt,current_ino,&current_dir);
 
@@ -134,12 +135,9 @@ NTSTATUS MinixOpen(PDEVICE_OBJECT DeviceObject,
 	     *next=0;
 	  }
 	
-        current_ino = MinixDirLookup(DeviceExt,
-				     DeviceObject,
-				     &current_dir,
-				     current);
+        current_ino = MinixDirLookup(DeviceExt,&current_dir,current);
      }
-   if (next == NULL && current_ino != 0)
+   if (next==NULL && current_ino!=0)
      {
 	MinixReadInode(DeviceObject,DeviceExt,current_ino,&current_dir);       
      }
@@ -151,14 +149,14 @@ NTSTATUS MinixOpen(PDEVICE_OBJECT DeviceObject,
    
    result = ExAllocatePool(NonPagedPool, sizeof(MINIX_FSCONTEXT));
    memcpy(&result->inode,&current_dir,sizeof(struct minix_inode));
+   CcInitializeFileCache(FileObject, 
+			 &result->Bcb);
    
    DPRINT("MinxOpen() = STATUS_SUCCESS\n",0);
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-MinixClose(PDEVICE_OBJECT DeviceObject,
-	   PIRP Irp)
+NTSTATUS MinixClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PFILE_OBJECT FileObject = Stack->FileObject;
@@ -174,12 +172,11 @@ MinixClose(PDEVICE_OBJECT DeviceObject,
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-MinixDirectoryControl(PDEVICE_OBJECT DeviceObject,
-		      PIRP Irp)
+NTSTATUS MinixDirectoryControl(PDEVICE_OBJECT DeviceObject,
+			       PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
-//   PFILE_OBJECT FileObject = Stack->FileObject;
+   PFILE_OBJECT FileObject = Stack->FileObject;
    
    if (Stack->MinorFunction != IRP_MN_QUERY_DIRECTORY)
      {
@@ -193,14 +190,12 @@ MinixDirectoryControl(PDEVICE_OBJECT DeviceObject,
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-MinixCreate(PDEVICE_OBJECT DeviceObject,
-	    PIRP Irp)
+NTSTATUS MinixCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PFILE_OBJECT FileObject = Stack->FileObject;
    NTSTATUS Status;
-   PMINIX_FSCONTEXT result;
+   struct minix_inode* result;
    MINIX_DEVICE_EXTENSION* DeviceExt;
    
    DPRINT("MinixCreate(DeviceObject %x, Irp %x)\n",DeviceObject,Irp);
@@ -220,7 +215,7 @@ MinixCreate(PDEVICE_OBJECT DeviceObject,
    
    if (NT_SUCCESS(Status))
      {
-	FileObject->FsContext = result;
+	FileObject->FsContext=result;
      }
    
    Irp->IoStatus.Status = Status;

@@ -12,7 +12,7 @@
 #include <ddk/ntddk.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 

@@ -11,10 +11,10 @@
 
 #include <ddk/ntddk.h>
 #include <wchar.h>
-#include <string.h>
+#include <internal/string.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
@@ -97,7 +97,7 @@ PVOID Ext2ProcessDirEntry(PDEVICE_EXTENSION DeviceExt,
      }
    return(Buffer);
 }
-
+			  
 
 NTSTATUS Ext2QueryDirectory(PDEVICE_EXTENSION DeviceExt,
 			    PEXT2_FCB Fcb,
@@ -157,8 +157,7 @@ NTSTATUS Ext2QueryDirectory(PDEVICE_EXTENSION DeviceExt,
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-Ext2DirectoryControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2DirectoryControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PFILE_OBJECT FileObject = Stack->FileObject;
@@ -241,7 +240,7 @@ BOOL Ext2ScanDir(PDEVICE_EXTENSION DeviceExt,
 	       }
 	     
 	     offset = offset + current->rec_len;
-	     ASSERT(current->rec_len != 0);
+	     assert(current->rec_len != 0);
 	     DPRINT("offset %d\n",offset);
 	  }
 	DPRINT("Onto next block\n");
@@ -311,14 +310,13 @@ NTSTATUS Ext2OpenFile(PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
    DPRINT("Found file\n");
    
    Fcb->inode = current_inode;
-   CcRosInitializeFileCache(FileObject, &Fcb->Bcb, PAGE_SIZE*3);
+   CcInitializeFileCache(FileObject, &Fcb->Bcb);
    FileObject->FsContext = Fcb;
    
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL
-Ext2Create(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2Create(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
    PFILE_OBJECT FileObject = Stack->FileObject;

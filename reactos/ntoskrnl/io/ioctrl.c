@@ -1,11 +1,11 @@
-/* $Id: ioctrl.c,v 1.25 2004/10/10 14:01:50 ekohl Exp $
+/* $Id: ioctrl.c,v 1.8 1999/11/07 14:07:35 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/ioctrl.c
  * PURPOSE:         Device IO control
  * PROGRAMMER:      David Welch (welch@mcmail.com)
- *                  Eric Kohl (ekohl@rz-online.de)
+ *                  Eric Kohl (ekohl@abo.rhein-zeitung.de)
  * UPDATE HISTORY:
  *                  Created 22/05/98
  *                  Filled in ZwDeviceIoControlFile 22/02/99
@@ -15,123 +15,93 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-NtDeviceIoControlFile (IN HANDLE DeviceHandle,
-		       IN HANDLE Event OPTIONAL,
-		       IN PIO_APC_ROUTINE UserApcRoutine OPTIONAL,
-		       IN PVOID UserApcContext OPTIONAL,
-		       OUT PIO_STATUS_BLOCK IoStatusBlock,
-		       IN ULONG IoControlCode,
-		       IN PVOID InputBuffer,
-		       IN ULONG InputBufferLength OPTIONAL,
-		       OUT PVOID OutputBuffer,
-		       IN ULONG OutputBufferLength OPTIONAL)
+ULONG IoGetFunctionCodeFromCtlCode(ULONG ControlCode)
 {
-  NTSTATUS Status;
-  PFILE_OBJECT FileObject;
-  PDEVICE_OBJECT DeviceObject;
-  PIRP Irp;
-  PIO_STACK_LOCATION StackPtr;
-  PKEVENT EventObject;
-  KPROCESSOR_MODE PreviousMode;
+   UNIMPLEMENTED;
+}
 
-  DPRINT("NtDeviceIoControlFile(DeviceHandle %x Event %x UserApcRoutine %x "
-         "UserApcContext %x IoStatusBlock %x IoControlCode %x "
-         "InputBuffer %x InputBufferLength %x OutputBuffer %x "
-         "OutputBufferLength %x)\n",
-         DeviceHandle,Event,UserApcRoutine,UserApcContext,IoStatusBlock,
-         IoControlCode,InputBuffer,InputBufferLength,OutputBuffer,
-         OutputBufferLength);
 
-  if (IoStatusBlock == NULL)
-    return STATUS_ACCESS_VIOLATION;
+NTSTATUS
+STDCALL
+NtDeviceIoControlFile (
+	IN	HANDLE			DeviceHandle,
+	IN	HANDLE			Event		OPTIONAL,
+	IN	PIO_APC_ROUTINE		UserApcRoutine,
+	IN	PVOID			UserApcContext	OPTIONAL,
+	OUT	PIO_STATUS_BLOCK	IoStatusBlock,
+	IN	ULONG			IoControlCode,
+	IN	PVOID			InputBuffer,
+	IN	ULONG			InputBufferSize,
+	OUT	PVOID			OutputBuffer,
+	IN	ULONG			OutputBufferSize
+	)
+{
+   NTSTATUS Status;
+   PFILE_OBJECT FileObject;
+   PDEVICE_OBJECT DeviceObject;
+   PIRP Irp;
+   PIO_STACK_LOCATION StackPtr;
+   KEVENT KEvent;
 
-  PreviousMode = ExGetPreviousMode();
+   assert_irql(PASSIVE_LEVEL);
+   
+   DPRINT("NtDeviceIoControlFile(DeviceHandle %x Event %x UserApcRoutine %x "
+          "UserApcContext %x IoStatusBlock %x IoControlCode %x "
+          "InputBuffer %x InputBufferSize %x OutputBuffer %x "
+          "OutputBufferSize %x)\n",
+          DeviceHandle,Event,UserApcRoutine,UserApcContext,IoStatusBlock,
+          IoControlCode,InputBuffer,InputBufferSize,OutputBuffer,
+          OutputBufferSize);
 
-  /* Check granted access against the access rights from IoContolCode */
-  Status = ObReferenceObjectByHandle (DeviceHandle,
-				      (IoControlCode >> 14) & 0x3,
-				      IoFileObjectType,
-				      PreviousMode,
+   Status = ObReferenceObjectByHandle(DeviceHandle,
+				      FILE_READ_DATA | FILE_WRITE_DATA,
+				      NULL,
+				      KernelMode,
 				      (PVOID *) &FileObject,
 				      NULL);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
 
-  if (Event != NULL)
-    {
-      Status = ObReferenceObjectByHandle (Event,
-                                          SYNCHRONIZE,
-                                          ExEventObjectType,
-                                          PreviousMode,
-                                          (PVOID*)&EventObject,
-                                          NULL);
-      if (!NT_SUCCESS(Status))
-	{
-	  ObDereferenceObject (FileObject);
-	  return Status;
-	}
-     }
-   else
-     {
-       EventObject = &FileObject->Event;
-       KeResetEvent (EventObject);
-     }
+   if (Status != STATUS_SUCCESS)
+   {
+      return(Status);
+   }
 
-  DeviceObject = FileObject->DeviceObject;
+   DeviceObject = FileObject->DeviceObject;
+   assert(DeviceObject != NULL);
 
-  Irp = IoBuildDeviceIoControlRequest (IoControlCode,
+   KeInitializeEvent(&KEvent,NotificationEvent,TRUE);
+
+   Irp = IoBuildDeviceIoControlRequest(IoControlCode,
 				       DeviceObject,
 				       InputBuffer,
-				       InputBufferLength,
+				       InputBufferSize,
 				       OutputBuffer,
-				       OutputBufferLength,
+				       OutputBufferSize,
 				       FALSE,
-				       EventObject,
+				       &KEvent,
 				       IoStatusBlock);
 
-  /* Trigger FileObject/Event dereferencing */
-  Irp->Tail.Overlay.OriginalFileObject = FileObject;
+   Irp->Overlay.AsynchronousParameters.UserApcRoutine = UserApcRoutine;
+   Irp->Overlay.AsynchronousParameters.UserApcContext = UserApcContext;
 
-  Irp->RequestorMode = PreviousMode;
-  Irp->Overlay.AsynchronousParameters.UserApcRoutine = UserApcRoutine;
-  Irp->Overlay.AsynchronousParameters.UserApcContext = UserApcContext;
+   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr->DeviceObject = DeviceObject;
+   StackPtr->Parameters.DeviceIoControl.InputBufferLength = InputBufferSize;
+   StackPtr->Parameters.DeviceIoControl.OutputBufferLength = OutputBufferSize;
 
-  StackPtr = IoGetNextIrpStackLocation(Irp);
-  StackPtr->FileObject = FileObject;
-  StackPtr->DeviceObject = DeviceObject;
-  StackPtr->Parameters.DeviceIoControl.InputBufferLength = InputBufferLength;
-  StackPtr->Parameters.DeviceIoControl.OutputBufferLength = OutputBufferLength;
-
-  Status = IoCallDriver(DeviceObject,Irp);
-  if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
-    {
-      Status = KeWaitForSingleObject (EventObject,
-				      Executive,
-				      PreviousMode,
-				      FileObject->Flags & FO_ALERTABLE_IO,
-				      NULL);
-      if (Status != STATUS_WAIT_0)
-	{
-	  /* Wait failed. */
-	  return Status;
-	}
-
-      Status = IoStatusBlock->Status;
-    }
-
-  return Status;
+   Status = IoCallDriver(DeviceObject,Irp);
+   if (Status == STATUS_PENDING && (FileObject->Flags & FO_SYNCHRONOUS_IO))
+   {
+      KeWaitForSingleObject(&KEvent,Executive,KernelMode,FALSE,NULL);
+      return(IoStatusBlock->Status);
+   }
+   return(Status);
 }
 
 /* EOF */

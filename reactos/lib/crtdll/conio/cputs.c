@@ -7,20 +7,17 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-#include "precomp.h"
-#include <msvcrt/conio.h>
-#include <msvcrt/string.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/internal/file.h>
+#include <windows.h>
+#include <crtdll/conio.h>
+#include <crtdll/string.h>
+#include <crtdll/stdio.h>
+#include <crtdll/internal/file.h>
 
-/*
- * @implemented
- */
-int _cputs(const char *_str)
+int     _cputs(const char *_str)
 {
-  int len = strlen(_str);
-  DWORD written = 0;
-  if (!WriteFile(filehnd(stdout->_file),_str,len,&written,NULL))
-    return -1;
-  return 0;
+	int len = strlen(_str);
+	int written = 0;
+	if ( !WriteFile(filehnd(stdout->_file),_str,len,&written,NULL)) 
+		return -1;
+	return 0;
 }

@@ -1,4 +1,4 @@
-/* $Id: atoi64.c,v 1.5 2004/07/03 17:40:23 navaraf Exp $
+/* $Id: atoi64.c,v 1.2 2000/01/06 00:26:15 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,12 +7,10 @@
  */
 
 #include <stdlib.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 
-/*
- * @implemented
- */
+typedef long long __int64;
+
 __int64
 _atoi64 (const char *nptr)
 {

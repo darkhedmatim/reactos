@@ -1,4 +1,4 @@
-/* $Id: serial.c,v 1.11 2003/11/14 17:13:25 weiden Exp $
+/* $Id: serial.c,v 1.7 1999/12/04 20:58:41 ea Exp $
  *
  * Serial driver
  * Written by Jason Filby (jasonfilby@yahoo.com)
@@ -7,16 +7,11 @@
  */
 
 #include <ddk/ntddk.h>
-//#include <internal/mmhal.h>
-//#include "../../../ntoskrnl/include/internal/i386/io.h"
-//#include "../../../ntoskrnl/include/internal/io.h"
-
-#define outb_p(a,p) WRITE_PORT_UCHAR((PUCHAR)a,p)
-#define outw_p(a,p) WRITE_PORT_USHORT((PUSHORT)a,p)
-#define inb_p(p)    READ_PORT_UCHAR((PUCHAR)p)
+#include <internal/mmhal.h>
+#include <internal/halio.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 
 #define COM1    0x3F8
@@ -32,6 +27,7 @@ int uart_detect(unsigned base)
 {
         // Returns 0 if no UART detected
 
+        int olddata=inb_p(base+4);
         outb_p(base+4, 0x10);
         if ((inb_p(base+6) & 0xf0)) return 0;
         return 1;
@@ -153,7 +149,7 @@ NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
         DbgPrint("Serial Driver 0.0.2\n");
-//        InitializeSerial();
+        InitializeSerial();
 //        testserial();
         return(STATUS_SUCCESS);
 };

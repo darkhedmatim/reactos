@@ -1,4 +1,4 @@
-/* $Id: smss.c,v 1.15 2003/08/11 18:50:12 chorns Exp $
+/* $Id: smss.c,v 1.4 1999/12/15 06:48:10 phreak Exp $
  *
  * smss.c - Session Manager
  * 
@@ -30,76 +30,103 @@
 
 #include "smss.h"
 
-#define NDEBUG
-#include <debug.h>
-
 
 void
-DisplayString(LPCWSTR lpwString)
+DisplayString( LPCWSTR lpwString )
 {
-  UNICODE_STRING us;
+	UNICODE_STRING us;
 
-  RtlInitUnicodeString(&us, lpwString);
-  NtDisplayString(&us);
+	RtlInitUnicodeString (&us, lpwString);
+	NtDisplayString (&us);
 }
 
 
 void
-PrintString(char* fmt,...)
+PrintString (char* fmt,...)
 {
-  char buffer[512];
-  va_list ap;
-  UNICODE_STRING UnicodeString;
-  ANSI_STRING AnsiString;
+	char buffer[512];
+	va_list ap;
+	UNICODE_STRING UnicodeString;
+	ANSI_STRING AnsiString;
+	ULONG i;
 
-  va_start(ap, fmt);
-  vsprintf(buffer, fmt, ap);
-  va_end(ap);
+	va_start(ap, fmt);
+	vsprintf(buffer, fmt, ap);
+	va_end(ap);
 
-  RtlInitAnsiString(&AnsiString, buffer);
-  RtlAnsiStringToUnicodeString(&UnicodeString,
-			       &AnsiString,
-			       TRUE);
-  NtDisplayString(&UnicodeString);
-  RtlFreeUnicodeString(&UnicodeString);
+	RtlInitAnsiString (&AnsiString, buffer);
+	RtlAnsiStringToUnicodeString (
+		&UnicodeString,
+		&AnsiString,
+		TRUE);
+	NtDisplayString(&UnicodeString);
+	RtlFreeUnicodeString (&UnicodeString);
 }
 
 
 /* Native image's entry point */
 
-VOID STDCALL
-NtProcessStartup(PPEB Peb)
+void
+NtProcessStartup (PPEB Peb)
 {
-  HANDLE Children[2]; /* csrss, winlogon */
-  NTSTATUS Status;
+	HANDLE	Children[2]; /* csrss, winlogon */
+	
+	DisplayString( L"Session Manager\n" );
 
-  Status = InitSessionManager(Children);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("SM: Initialization failed!\n");
-      goto ByeBye;
-    }
+	PrintString ("Peb %x\n", Peb);
 
-  Status = NtWaitForMultipleObjects(((LONG) sizeof(Children) / sizeof(HANDLE)),
-				    Children,
-				    WaitAny,
-				    TRUE,	/* alertable */
-				    NULL);	/* NULL for infinite */
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("SM: NtWaitForMultipleObjects failed!\n");
-    }
-  else
-    {
-      DPRINT1("SM: Process terminated!\n");
-    }
+	if (TRUE == InitSessionManager(Children))
+	{
+		NTSTATUS	wws;
 
-ByeBye:
-  /* Raise a hard error (crash the system/BSOD) */
-  NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED,
-		   0,0,0,0,0);
+		DisplayString( L"SM: Waiting for process termination...\n" );
 
-//   NtTerminateProcess(NtCurrentProcess(), 0);
+#if 0
+		wws = NtWaitForMultipleObjects (
+				((LONG) sizeof Children / sizeof (HANDLE)),
+				Children,
+				WaitAny,
+				TRUE,	/* alertable */
+				NULL    /* NULL for infinite */
+				);
+#endif
+		wws = NtWaitForSingleObject (
+				Children[CHILD_WINLOGON],
+				TRUE,	/* alertable */
+				NULL
+				);
+
+
+//		if (!NT_SUCCESS(wws))
+		if (wws > 1)
+		{
+			DisplayString( L"SM: NtWaitForMultipleObjects failed!\n" );
+			/* FIXME: CRASH THE SYSTEM (BSOD) */
+		}
+		else
+		{
+			DisplayString( L"SM: Process terminated!\n" );
+			/* FIXME: CRASH THE SYSTEM (BSOD) */
+		}
+	}
+	else
+	{
+		DisplayString( L"SM: initialization failed!\n" );
+		/* FIXME: CRASH SYSTEM (BSOD)*/
+	}
+
+
+	/*
+	 * OK: CSRSS asked to shutdown the system;
+	 * We die.
+	 */
+#if 0
+	NtRaiseHardError (
+		STATUS_SYSTEM_PROCESS_TERMINATED,
+		...);
+#endif
+
+	NtTerminateProcess( NtCurrentProcess(), 0 );
 }
 
 /* EOF */

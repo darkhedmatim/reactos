@@ -13,7 +13,7 @@
 #include <ddk/ntifs.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "minix.h"
 
@@ -27,7 +27,7 @@ NTSTATUS MinixRequestCacheBlock(PDEVICE_OBJECT DeviceObject,
 {
    BOOLEAN UptoDate;
    
-   CcRosRequestCacheSegment(Bcb,
+   CcRequestCachePage(Bcb,
 		      FileOffset,
 		      BaseAddress,
 		      &UptoDate,
@@ -38,7 +38,7 @@ NTSTATUS MinixRequestCacheBlock(PDEVICE_OBJECT DeviceObject,
 		      PAGE_ROUND_DOWN(FileOffset),
 		      BaseAddress);
      }		      
-   BaseAddress = BaseAddress + (FileOffset % PAGE_SIZE);
+   BaseAddress = BaseAddress + (FileOffset % PAGESIZE);
    
    return(STATUS_SUCCESS);
 }

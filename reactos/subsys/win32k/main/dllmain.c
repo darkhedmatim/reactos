@@ -1,349 +1,324 @@
 /*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: dllmain.c,v 1.86 2004/12/29 19:55:01 gvg Exp $
- *
  *  Entry Point for win32k.sys
  */
-#include <w32k.h>
 
-#define NDEBUG
-#include <win32k/debug1.h>
-#include <debug.h>
+#undef WIN32_LEAN_AND_MEAN
+#define WIN32_NO_STATUS
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <ddk/winddi.h>
+#include <internal/service.h>
+#include <internal/hal.h>
 
-#ifdef __USE_W32API
-typedef NTSTATUS (STDCALL *PW32_PROCESS_CALLBACK)(
-   struct _EPROCESS *Process,
-   BOOLEAN Create);
+#include <win32k/win32k.h>
 
-typedef NTSTATUS (STDCALL *PW32_THREAD_CALLBACK)(
-   struct _ETHREAD *Thread,
-   BOOLEAN Create);
-
-VOID STDCALL
-PsEstablishWin32Callouts(
-   PW32_PROCESS_CALLBACK W32ProcessCallback,
-   PW32_THREAD_CALLBACK W32ThreadCallback,
-   PVOID Param3,
-   PVOID Param4,
-   ULONG W32ThreadSize,
-   ULONG W32ProcessSize);
-#endif
-
-BOOL INTERNAL_CALL GDI_CleanupForProcess (struct _EPROCESS *Process);
-
-extern SSDT Win32kSSDT[];
-extern SSPT Win32kSSPT[];
-extern ULONG Win32kNumberOfSysCalls;
-
-NTSTATUS STDCALL
-Win32kProcessCallback (struct _EPROCESS *Process,
-		     BOOLEAN Create)
+/*
+ * WARNING: whoever you are, do NOT rely on the order of this table.
+ * I'll change it just to spite ya. 
+ */
+SERVICE_TABLE W32kServiceTable[] =
 {
-  PW32PROCESS Win32Process;
-  
-  Win32Process = Process->Win32Process;
-  if (Create)
-    {
-      DPRINT("Creating W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
-
-      InitializeListHead(&Win32Process->ClassListHead);
-      ExInitializeFastMutex(&Win32Process->ClassListLock);
-      
-      InitializeListHead(&Win32Process->MenuListHead);
-      ExInitializeFastMutex(&Win32Process->MenuListLock);      
-
-      InitializeListHead(&Win32Process->PrivateFontListHead);
-      ExInitializeFastMutex(&Win32Process->PrivateFontListLock);
-      
-      InitializeListHead(&Win32Process->CursorIconListHead);
-      ExInitializeFastMutex(&Win32Process->CursorIconListLock);
-
-      Win32Process->KeyboardLayout = W32kGetDefaultKeyLayout();
-      
-      /* setup process flags */
-      Win32Process->Flags = 0;
-    }
-  else
-    {
-      DPRINT("Destroying W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
-      IntRemoveProcessWndProcHandles((HANDLE)Process->UniqueProcessId);
-      IntCleanupMenus(Process, Win32Process);
-      IntCleanupCurIcons(Process, Win32Process);
-      CleanupMonitorImpl();
-
-      GDI_CleanupForProcess(Process);
-
-      IntGraphicsCheck(FALSE);
-      
-      /*
-       * Deregister logon application automatically
-       */
-      if(LogonProcess == Win32Process)
-      {
-        LogonProcess = NULL;
-      }
-    }
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS STDCALL
-Win32kThreadCallback (struct _ETHREAD *Thread,
-		    BOOLEAN Create)
-{
-  struct _EPROCESS *Process;
-  PW32THREAD Win32Thread;
-
-  Process = Thread->ThreadsProcess;
-  Win32Thread = Thread->Tcb.Win32Thread;
-  if (Create)
-    {
-      HWINSTA hWinSta = NULL;
-      HDESK hDesk = NULL;
-      NTSTATUS Status;
-      PUNICODE_STRING DesktopPath;
-      PRTL_USER_PROCESS_PARAMETERS ProcessParams = (Process->Peb ? Process->Peb->ProcessParameters : NULL);
-
-      DPRINT("Creating W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
-      
-      /*
-       * inherit the thread desktop and process window station (if not yet inherited) from the process startup
-       * info structure. See documentation of CreateProcess()
-       */
-      DesktopPath = (ProcessParams ? ((ProcessParams->DesktopInfo.Length > 0) ? &ProcessParams->DesktopInfo : NULL) : NULL);
-      Status = IntParseDesktopPath(Process,
-                                   DesktopPath,
-                                   &hWinSta,
-                                   &hDesk);
-      if(NT_SUCCESS(Status))
-      {
-        if(hWinSta != NULL)
-        {
-          if(Process != CsrProcess)
-          {
-            HWINSTA hProcessWinSta = (HWINSTA)InterlockedCompareExchangePointer((PVOID)&Process->Win32WindowStation, (PVOID)hWinSta, NULL);
-            if(hProcessWinSta != NULL)
-            {
-              /* our process is already assigned to a different window station, we don't need the handle anymore */
-              NtClose(hWinSta);
-            }
-          }
-          else
-          {
-            NtClose(hWinSta);
-          }
-        }
-
-        Win32Thread->hDesktop = hDesk;
-
-        Status = ObReferenceObjectByHandle(hDesk,
-                 0,
-                 ExDesktopObjectType,
-                 KernelMode,
-                 (PVOID*)&Win32Thread->Desktop,
-                 NULL);
-
-        if(!NT_SUCCESS(Status))
-        {
-          DPRINT1("Unable to reference thread desktop handle 0x%x\n", hDesk);
-          Win32Thread->Desktop = NULL;
-          NtClose(hDesk);
-        }
-      }
-
-      Win32Thread->IsExiting = FALSE;
-      IntDestroyCaret(Win32Thread);
-      Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);
-      Win32Thread->KeyboardLayout = W32kGetDefaultKeyLayout();
-      Win32Thread->MessagePumpHookValue = 0;
-      InitializeListHead(&Win32Thread->WindowListHead);
-      ExInitializeFastMutex(&Win32Thread->WindowListLock);
-      InitializeListHead(&Win32Thread->W32CallbackListHead);
-      ExInitializeFastMutex(&Win32Thread->W32CallbackListLock);
-    }
-  else
-    {
-      DPRINT("Destroying W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
-
-      Win32Thread->IsExiting = TRUE;
-      HOOK_DestroyThreadHooks(Thread);
-      UnregisterThreadHotKeys(Thread);
-      DestroyThreadWindows(Thread);
-      IntBlockInput(Win32Thread, FALSE);
-      MsqDestroyMessageQueue(Win32Thread->MessageQueue);
-      IntCleanupThreadCallbacks(Win32Thread);
-      if(Win32Thread->Desktop != NULL)
-      {
-        ObDereferenceObject(Win32Thread->Desktop);
-      }
-    }
-
-  return STATUS_SUCCESS;
-}
-
+  {4, (ULONG) W32kAbortDoc},
+  {4, (ULONG) W32kAbortPath},
+  {4, (ULONG) W32kAddFontResource},
+  {24, (ULONG) W32kAngleArc},
+  {16, (ULONG) W32kAnimatePalette},
+  {36, (ULONG) W32kArc},
+  {36, (ULONG) W32kArcTo},
+  {4, (ULONG) W32kBeginPath},
+  {36, (ULONG) W32kBitBlt},
+  {4, (ULONG) W32kCancelDC},
+  {16, (ULONG) W32kCheckColorsInGamut},
+  {2, (ULONG) W32kChoosePixelFormat},
+  {36, (ULONG) W32kChord},
+  {4, (ULONG) W32kCloseEnhMetaFile},
+  {4, (ULONG) W32kCloseFigure},
+  {4, (ULONG) W32kCloseMetaFile},
+  {12, (ULONG) W32kColorMatchToTarget},
+  {16, (ULONG) W32kCombineRgn},
+  {12, (ULONG) W32kCombineTransform},
+  {8, (ULONG) W32kCopyEnhMetaFile},
+  {8, (ULONG) W32kCopyMetaFile},
+  {20, (ULONG) W32kCreateBitmap},
+  {4, (ULONG) W32kCreateBitmapIndirect},
+  {4, (ULONG) W32kCreateBrushIndirect},
+  {4, (ULONG) W32kCreateColorSpace},
+  {12, (ULONG) W32kCreateCompatibleBitmap},
+  {4, (ULONG) W32kCreateCompatableDC},
+  {16, (ULONG) W32kCreateDC},
+  {24, (ULONG) W32kCreateDIBitmap},
+  {8, (ULONG) W32kCreateDIBPatternBrush},
+  {8, (ULONG) W32kCreateDIBPatternBrushPt},
+  {24, (ULONG) W32kCreateDIBSection},
+  {12, (ULONG) W32kCreateDiscardableBitmap},
+  {16, (ULONG) W32kCreateEllipticRgn},
+  {4, (ULONG) W32kCreateEllipticRgnIndirect},
+  {16, (ULONG) W32kCreateEnhMetaFile},
+  {56, (ULONG) W32kCreateFont},
+  {4, (ULONG) W32kCreateFontIndirect},
+  {4, (ULONG) W32kCreateHalftonePalette},
+  {8, (ULONG) W32kCreateHatchBrush},
+  {16, (ULONG) W32kCreateIC},
+  {4, (ULONG) W32kCreateMetaFile},
+  {4, (ULONG) W32kCreatePalette},
+  {4, (ULONG) W32kCreatePatternBrush},
+  {12, (ULONG) W32kCreatePen},
+  {4, (ULONG) W32kCreatePenIndirect},
+  {12, (ULONG) W32kCreatePolygonRgn},
+  {16, (ULONG) W32kCreatePolyPolygonRgn},
+  {16, (ULONG) W32kCreateRectRgn},
+  {4, (ULONG) W32kCreateRectRgnIndirect},
+  {24, (ULONG) W32kCreateRoundRectRgn},
+  {16, (ULONG) W32kCreateScalableFontResource},
+  {4, (ULONG) W32kCreateSolidBrush},
+  {12, (ULONG) W32kDPtoLP},
+  {4, (ULONG) W32kDeleteColorSpace},
+  {4, (ULONG) W32kDeleteDC},
+  {4, (ULONG) W32kDeleteEnhMetaFile},
+  {4, (ULONG) W32kDeleteMetaFile},
+  {4, (ULONG) W32kDeleteObject},
+  {16, (ULONG) W32kDescribePixelFormat},
+// FIXME:  {?, (ULONG) W32kDeviceCapabilitiesEx},
+  {16, (ULONG) W32kDrawEscape},
+  {20, (ULONG) W32kEllipse},
+  {4, (ULONG) W32kEndDoc},
+  {4, (ULONG) W32kEndPage},
+  {4, (ULONG) W32kEndPath},
+  {20, (ULONG) W32kEnumEnhMetaFile},
+  {16, (ULONG) W32kEnumFontFamilies},
+  {20, (ULONG) W32kEnumFontFamiliesEx},
+  {16, (ULONG) W32kEnumFonts},
+  {12, (ULONG) W32kEnumICMProfiles},
+  {16, (ULONG) W32kEnumMetaFile},
+  {16, (ULONG) W32kEnumObjects},
+  {8, (ULONG) W32kEqualRgn},
+  {20, (ULONG) W32kEscape},
+  {20, (ULONG) W32kExcludeClipRect},
+  {20, (ULONG) W32kExtCreatePen},
+  {12, (ULONG) W32kExtCreateRegion},
+  {24, (ULONG) W32kExtEscape},
+  {20, (ULONG) W32kExtFloodFill},
+  {12, (ULONG) W32kExtSelectClipRgn},
+  {32, (ULONG) W32kExtTextOut},
+  {4, (ULONG) W32kFillPath},
+  {12, (ULONG) W32kFillRgn},
+  {0, (ULONG) W32kFixBrushOrgEx},
+  {4, (ULONG) W32kFlattenPath},
+  {16, (ULONG) W32kFloodFill},
+  {20, (ULONG) W32kFrameRgn},
+  {12, (ULONG) W32kGdiComment},
+  {0, (ULONG) W32kGdiFlush},
+  {0, (ULONG) W32kGdiGetBatchLimit},
+// FIXME:  {?, (ULONG) W32kGdiPlayDCScript},
+// FIXME:  {?, (ULONG) W32kGdiPlayJournal},
+// FIXME:  {?, (ULONG) W32kGdiPlayScript},
+// FIXME:  {?, (ULONG) W32kGdiPlaySpoolStream},
+  {4, (ULONG) W32kGdiSetBatchLimit},
+  {4, (ULONG) W32kGetArcDirection},
+  {8, (ULONG) W32kGetAspectRatioFilterEx},
+  {12, (ULONG) W32kGetBitmapBits},
+  {8, (ULONG) W32kGetBitmapDimensionEx},
+  {4, (ULONG) W32kGetBkColor},
+  {4, (ULONG) W32kGetBkMode},
+  {12, (ULONG) W32kGetBoundsRect},
+  {8, (ULONG) W32kGetBrushOrgEx},
+  {16, (ULONG) W32kGetCharABCWidths},
+  {16, (ULONG) W32kGetCharABCWidthsFloat},
+  {24, (ULONG) W32kGetCharacterPlacement},
+  {16, (ULONG) W32kGetCharWidth},
+  {16, (ULONG) W32kGetCharWidth32},
+  {16, (ULONG) W32kGetCharWidthFloat},
+  {8, (ULONG) W32kGetClipBox},
+  {4, (ULONG) W32kGetClipRgn},
+  {8, (ULONG) W32kGetColorAdjustment},
+  {4, (ULONG) W32kGetColorSpace},
+  {8, (ULONG) W32kGetCurrentObject},
+  {8, (ULONG) W32kGetCurrentPositionEx},
+  {8, (ULONG) W32kGetDCOrgEx},
+  {16, (ULONG) W32kGetDIBColorTable},
+  {28, (ULONG) W32kGetDIBits},
+  {8, (ULONG) W32kGetDeviceCaps},
+  {8, (ULONG) W32kGetDeviceGammaRamp},
+  {4, (ULONG) W32kGetEnhMetaFile},
+  {12, (ULONG) W32kGetEnhMetaFileBits},
+  {12, (ULONG) W32kGetEnhMetaFileDescription},
+  {12, (ULONG) W32kGetEnhMetaFileHeader},
+  {12, (ULONG) W32kGetEnhMetaFilePaletteEntries},
+  {12, (ULONG) W32kGetEnhMetaFilePixelFormat},
+  {4, (ULONG) W32kGetFontLanguageInfo},
+// FIXME:  {?, (ULONG) W32kGetFontResourceInfo},
+  {28, (ULONG) W32kGetGlyphOutline},
+// FIXME:  {?, (ULONG) W32kGetGlyphOutlineWow},
+  {4, (ULONG) W32kGetGraphicsMode},
+  {12, (ULONG) W32kGetICMProfile},
+  {12, (ULONG) W32kGetKerningPairs},
+  {12, (ULONG) W32kGetLogColorSpace},
+  {4, (ULONG) W32kGetMapMode},
+  {4, (ULONG) W32kGetMetaFile},
+  {12, (ULONG) W32kGetMetaFileBitsEx},
+  {8, (ULONG) W32kGetMetaRgn},
+  {8, (ULONG) W32kGetMiterLimit},
+  {8, (ULONG) W32kGetNearestColor},
+  {8, (ULONG) W32kGetNearestPaletteIndex},
+  {12, (ULONG) W32kGetObject},
+  {4, (ULONG) W32kGetObjectType},
+  {12, (ULONG) W32kGetOutlineTextMetrics},
+  {16, (ULONG) W32kGetPaletteEntries},
+  {16, (ULONG) W32kGetPath},
+  {4, (ULONG) W32kGetPixel},
+  {4, (ULONG) W32kGetPixelFormat},
+  {4, (ULONG) W32kGetPolyFillMode},
+  {4, (ULONG) W32kGetROP2},
+// FIXME:  {?, (ULONG) W32kGetRandomRgn},
+  {8, (ULONG) W32kGetRasterizerCaps},
+  {4, (ULONG) W32kGetRelAbs},
+  {8, (ULONG) W32kGetRgnBox},
+  {4, (ULONG) W32kGetStockObject},
+  {4, (ULONG) W32kGetStretchBltMode},
+  {16, (ULONG) W32kGetSystemPaletteEntries},
+  {4, (ULONG) W32kGetSystemPaletteUse},
+  {4, (ULONG) W32kGetTextAlign},
+  {4, (ULONG) W32kGetTextCharset},
+  {12, (ULONG) W32kGetTextCharsetInfo},
+  {4, (ULONG) W32kGetTextColor},
+  {28, (ULONG) W32kGetTextExtentExPoint},
+  {16, (ULONG) W32kGetTextExtentPoint},
+  {16, (ULONG) W32kGetTextExtentPoint32},
+  {12, (ULONG) W32kGetTextFace},
+  {8, (ULONG) W32kGetTextMetrics},
+  {8, (ULONG) W32kGetViewportExtEx},
+  {8, (ULONG) W32kGetViewportOrgEx},
+  {20, (ULONG) W32kGetWinMetaFileBits},
+  {8, (ULONG) W32kGetWindowExtEx},
+  {8, (ULONG) W32kGetWindowOrgEx},
+  {8, (ULONG) W32kGetWorldTransform},
+  {20, (ULONG) W32kIntersectClipRect},
+  {8, (ULONG) W32kInvertRgn},
+  {12, (ULONG) W32kLPtoDP},
+  {12, (ULONG) W32kLineTo},
+  {48, (ULONG) W32kMaskBlt},
+  {12, (ULONG) W32kModifyWorldTransform},
+  {16, (ULONG) W32kMoveToEx},
+  {12, (ULONG) W32kOffsetClipRgn},
+  {12, (ULONG) W32kOffsetRgn},
+  {16, (ULONG) W32kOffsetViewportOrgEx},
+  {16, (ULONG) W32kOffsetWindowOrgEx},
+  {8, (ULONG) W32kPaintRgn},
+  {24, (ULONG) W32kPatBlt},
+  {4, (ULONG) W32kPathToRegion},
+  {36, (ULONG) W32kPie},
+  {12, (ULONG) W32kPlayEnhMetaFile},
+  {16, (ULONG) W32kPlayEnhMetaFileRecord},
+  {8, (ULONG) W32kPlayMetaFile},
+  {16, (ULONG) W32kPlayMetaFileRecord},
+  {40, (ULONG) W32kPlgBlt},
+  {12, (ULONG) W32kPolyBezier},
+  {12, (ULONG) W32kPolyBezierTo},
+  {16, (ULONG) W32kPolyDraw},
+  {12, (ULONG) W32kPolyline},
+  {12, (ULONG) W32kPolylineTo},
+  {16, (ULONG) W32kPolyPolyline},
+  {12, (ULONG) W32kPolyTextOut},
+  {12, (ULONG) W32kPolygon},
+  {16, (ULONG) W32kPolyPolygon},
+  {12, (ULONG) W32kPtInRegion},
+  {12, (ULONG) W32kPtVisible},
+  {4, (ULONG) W32kRealizePalette},
+  {8, (ULONG) W32kRectInRegion},
+  {8, (ULONG) W32kRectVisible},
+  {20, (ULONG) W32kRectangle},
+  {4, (ULONG) W32kRemoveFontResource},
+  {8, (ULONG) W32kResetDC},
+  {8, (ULONG) W32kResizePalette},
+  {8, (ULONG) W32kRestoreDC},
+  {28, (ULONG) W32kRoundRect},
+  {4, (ULONG) W32kSaveDC},
+  {24, (ULONG) W32kScaleViewportExtEx},
+  {24, (ULONG) W32kScaleWindowExtEx},
+// FIXME:  {?, (ULONG) W32kSelectBrushLocal},
+  {8, (ULONG) W32kSelectClipPath},
+  {8, (ULONG) W32kSelectClipRgn},
+// FIXME:  {?, (ULONG) W32kSelectFontLocal},
+  {8, (ULONG) W32kSelectObject},
+  {12, (ULONG) W32kSelectPalette},
+  {8, (ULONG) W32kSetAbortProc},
+  {8, (ULONG) W32kSetArcDirection},
+  {12, (ULONG) W32kSetBitmapBits},
+  {16, (ULONG) W32kSetBitmapDimensionEx},
+  {8, (ULONG) W32kSetBkColor},
+  {8, (ULONG) W32kSetBkMode},
+  {12, (ULONG) W32kSetBoundsRect},
+  {16, (ULONG) W32kSetBrushOrgEx},
+  {8, (ULONG) W32kSetColorAdjustment},
+  {8, (ULONG) W32kSetColorSpace},
+  {16, (ULONG) W32kSetDIBColorTable},
+  {28, (ULONG) W32kSetDIBits},
+  {48, (ULONG) W32kSetDIBitsToDevice},
+  {8, (ULONG) W32kSetDeviceGammaRamp},
+  {8, (ULONG) W32kSetEnhMetaFileBits},
+// FIXME:  {?, (ULONG) W32kSetFontEnumeration},
+  {8, (ULONG) W32kSetGraphicsMode},
+  {8, (ULONG) W32kSetICMMode},
+  {8, (ULONG) W32kSetICMProfile},
+  {8, (ULONG) W32kSetMapMode},
+  {8, (ULONG) W32kSetMapperFlags},
+  {8, (ULONG) W32kSetMetaFileBitsEx},
+  {4, (ULONG) W32kSetMetaRgn},
+  {12, (ULONG) W32kSetMiterLimit},
+  {16, (ULONG) W32kSetPaletteEntries},
+  {16, (ULONG) W32kSetPixel},
+  {12, (ULONG) W32kSetPixelFormat},
+  {16, (ULONG) W32kSetPixelV},
+  {8, (ULONG) W32kSetPolyFillMode},
+  {8, (ULONG) W32kSetROP2},
+  {20, (ULONG) W32kSetRectRgn},
+//  {8, (ULONG) W32kSetRelAbs},
+  {8, (ULONG) W32kSetStretchBltMode},
+  {8, (ULONG) W32kSetSystemPaletteUse},
+  {8, (ULONG) W32kSetTextAlign},
+  {8, (ULONG) W32kSetTextColor},
+  {12, (ULONG) W32kSetTextJustification},
+  {16, (ULONG) W32kSetViewportExtEx},
+  {16, (ULONG) W32kSetViewportOrgEx},
+  {4, (ULONG) W32kSetWinMetaFileBits},
+  {16, (ULONG) W32kSetWindowExtEx},
+  {16, (ULONG) W32kSetWindowOrgEx},
+  {8, (ULONG) W32kSetWorldTransform},
+  {8, (ULONG) W32kStartDoc},
+  {4, (ULONG) W32kStartPage},
+  {44, (ULONG) W32kStretchBlt},
+  {52, (ULONG) W32kStretchDIBits},
+  {4, (ULONG) W32kStrokeAndFillPath},
+  {4, (ULONG) W32kStrokePath},
+  {4, (ULONG) W32kSwapBuffers},
+  {20, (ULONG) W32kTextOut},
+  {12, (ULONG) W32kTranslateCharsetInfo},
+  {8, (ULONG) W32kUnrealizeObject},
+  {4, (ULONG) W32kUpdateColors},
+  {16, (ULONG) W32kUpdateICMRegKey},
+  {4, (ULONG) W32kWidenPath},
+};
 
 /*
  * This definition doesn't work
  */
-// BOOL STDCALL DllMain(VOID)
-NTSTATUS STDCALL
-DllMain (
-  IN	PDRIVER_OBJECT	DriverObject,
-  IN	PUNICODE_STRING	RegistryPath)
+// WINBOOL STDCALL DllMain(VOID)
+STDCALL NTSTATUS DllMain(IN PDRIVER_OBJECT DriverObject,
+			     IN PUNICODE_STRING RegistryPath)
 {
-  NTSTATUS Status;
-  BOOLEAN Result;
-
-  /*
-   * Register user mode call interface
-   * (system service table index = 1)
-   */
-  Result = KeAddSystemServiceTable (Win32kSSDT,
-				    NULL,
-				    Win32kNumberOfSysCalls,
-				    Win32kSSPT,
-				    1);
-  if (Result == FALSE)
-    {
-      DPRINT1("Adding system services failed!\n");
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  /*
-   * Register our per-process and per-thread structures.
-   */
-  PsEstablishWin32Callouts (Win32kProcessCallback,
-			    Win32kThreadCallback,
-			    0,
-			    0,
-			    sizeof(W32THREAD),
-			    sizeof(W32PROCESS));
+  NTSTATUS  Status;
   
-  Status = InitWindowStationImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize window station implementation!\n");
-    return STATUS_UNSUCCESSFUL;
-  }
-
-  Status = InitClassImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize window class implementation!\n");
-    return STATUS_UNSUCCESSFUL;
-  }
-
-  Status = InitDesktopImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize desktop implementation!\n");
-    return STATUS_UNSUCCESSFUL;
-  }
-
-  Status = InitWindowImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize window implementation!\n");
-    return STATUS_UNSUCCESSFUL;
-  }
-
-  Status = InitMenuImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize menu implementation!\n");
-    return STATUS_UNSUCCESSFUL;
-  }
-
-  Status = InitInputImpl();
+  /*  Register user mode call interface (svc mask is 0x10000000)  */
+  Status = HalRegisterServiceTable(0xF0000000, 
+                                   0x10000000, 
+                                   W32kServiceTable,
+                                   sizeof(W32kServiceTable) / 
+                                     sizeof(W32kServiceTable[0]));
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize input implementation.\n");
-      return(Status);
+      return FALSE;
     }
-
-  Status = InitKeyboardImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize keyboard implementation.\n");
-      return(Status);
-    }
-
-  Status = InitMonitorImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DbgPrint("Failed to initialize monitor implementation!\n");
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  Status = MsqInitializeImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize message queue implementation.\n");
-      return(Status);
-    }
-
-  Status = InitTimerImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize timer implementation.\n");
-      return(Status);
-    }
-
-  Status = InitAcceleratorImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize accelerator implementation.\n");
-      return(Status);
-    }
-
-  Status = InitGuiCheckImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize GUI check implementation.\n");
-      return(Status);
-    }
-
-  InitGdiObjectHandleTable ();
-
-  /* Initialize FreeType library */
-  if (! InitFontSupport())
-    {
-      DPRINT1("Unable to initialize font support\n");
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  /* Create stock objects, ie. precreated objects commonly
-     used by win32 applications */
-  CreateStockObjects();
-  CreateSysColorObjects();
   
-  PREPARE_TESTS
-
-  return STATUS_SUCCESS;
-}
-
-
-BOOLEAN STDCALL
-Win32kInitialize (VOID)
-{
   return TRUE;
 }
 
-/* EOF */

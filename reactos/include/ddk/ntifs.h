@@ -1,33 +1,55 @@
-#ifdef __USE_W32API
-
-#include_next <ddk/ntifs.h>
-
-#else /* __USE_W32API */
-
 #ifndef __INCLUDE_DDK_NTIFS_H
 #define __INCLUDE_DDK_NTIFS_H
 
-NTSTATUS STDCALL
-CcRosInitializeFileCache (PFILE_OBJECT	FileObject,
-		          ULONG		CacheSegmentSize);
-NTSTATUS STDCALL
-CcRosReleaseFileCache (PFILE_OBJECT	FileObject);
-
-#define FSCTL_ROS_QUERY_LCN_MAPPING \
-        CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 63, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-typedef struct _ROS_QUERY_LCN_MAPPING
+#if 0
+typedef struct
 {
-  LARGE_INTEGER LcnDiskOffset;
-} ROS_QUERY_LCN_MAPPING, *PROS_QUERY_LCN_MAPPING;
+   BOOLEAN Replace;
+   HANDLE RootDir;
+   ULONG FileNameLength;
+   WCHAR FileName[1];
+} FILE_RENAME_INFORMATION, *PFILE_RENAME_INFORMATION;
+#endif 
+
+typedef struct _BCB
+{
+   LIST_ENTRY CacheSegmentListHead;
+   PFILE_OBJECT FileObject;
+   KSPIN_LOCK BcbLock;
+} BCB, *PBCB;
+
+#define CACHE_SEGMENT_SIZE (0x1000)
+
+struct _MEMORY_AREA;
+
+typedef struct _CACHE_SEGMENT
+{
+   PVOID BaseAddress;
+   struct _MEMORY_AREA* MemoryArea;
+   BOOLEAN Valid;
+   LIST_ENTRY ListEntry;
+   ULONG FileOffset;
+   KEVENT Lock;
+   ULONG ReferenceCount;
+   PBCB Bcb;
+} CACHE_SEGMENT, *PCACHE_SEGMENT;
+
+NTSTATUS CcFlushCachePage(PCACHE_SEGMENT CacheSeg);
+NTSTATUS CcReleaseCachePage(PBCB Bcb,
+			    PCACHE_SEGMENT CacheSeg,
+			    BOOLEAN Valid);
+NTSTATUS CcRequestCachePage(PBCB Bcb,
+			    ULONG FileOffset,
+			    PVOID* BaseAddress,
+			    PBOOLEAN UptoDate,
+			    PCACHE_SEGMENT* CacheSeg);
+NTSTATUS CcInitializeFileCache(PFILE_OBJECT FileObject,
+			       PBCB* Bcb);
+NTSTATUS CcReleaseFileCache(PFILE_OBJECT FileObject,
+			    PBCB Bcb);
 
 #include <ddk/cctypes.h>
 
 #include <ddk/ccfuncs.h>
 
-#include <ddk/fstypes.h>
-#include <ddk/fsfuncs.h>
-
 #endif /* __INCLUDE_DDK_NTIFS_H */
-
-#endif /* __USE_W32API */

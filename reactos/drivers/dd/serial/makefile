@@ -1,15 +1,70 @@
-# $Id: makefile,v 1.17 2003/11/16 22:41:10 sedwards Exp $
+# $Id: makefile,v 1.7 1999/12/04 20:58:40 ea Exp $
+#
+#
+TARGET= serial
+OBJECTS= $(TARGET).o $(TARGET).coff ../../../ntoskrnl/ntoskrnl.a
 
-PATH_TO_TOP = ../../..
+BASE_CFLAGS = -I../../../include
 
-TARGET_TYPE = driver
+all: $(TARGET).sys
 
-TARGET_NAME = serial
+.phony: all
 
-TARGET_OBJECTS = serial.o
+clean:
+	- $(RM) $(TARGET).o
+	- $(RM) $(TARGET).coff
+	- $(RM) junk.tmp
+	- $(RM) base.tmp
+	- $(RM) temp.exp
+	- $(RM) $(TARGET).sys
 
-TARGET_CFLAGS = -Wall -Werror -D__USE_W32API 
+.phony: clean
 
-include $(PATH_TO_TOP)/rules.mak
+floppy: $(FLOPPY_DIR)/drivers/$(TARGET).sys
 
-include $(TOOLS_PATH)/helper.mk
+$(FLOPPY_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys $(FLOPPY_DIR)/drivers/$(TARGET).sys
+endif
+
+dist: ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+
+../../../$(DIST_DIR)/drivers/$(TARGET).sys: $(TARGET).sys
+ifeq ($(DOSCLI),yes)
+	$(CP) $(TARGET).sys ..\..\..\$(DIST_DIR)\drivers\$(TARGET).sys
+else
+	$(CP) $(TARGET).sys ../../../$(DIST_DIR)/drivers/$(TARGET).sys
+endif
+
+$(TARGET).sys: $(OBJECTS)
+	$(CC) \
+		-specs=../../svc_specs \
+		-mdll \
+		-o junk.tmp \
+		-Wl,--defsym,_end=end \
+		-Wl,--defsym,_edata=__data_end__ \
+		-Wl,--defsym,_etext=etext \
+		-Wl,--base-file,base.tmp \
+		$(OBJECTS)
+	- $(RM) junk.tmp
+	$(DLLTOOL) \
+		--dllname $(TARGET).sys \
+		--base-file base.tmp \
+		--output-exp temp.exp \
+		--kill-at
+	- $(RM) base.tmp
+	$(CC) \
+		--verbose \
+		-Wl,--image-base,0x10000 \
+		-Wl,-e,_DriverEntry@8 \
+		-Wl,temp.exp \
+		-specs=../../svc_specs \
+		-mdll \
+		-o $(TARGET).sys \
+		$(OBJECTS)
+	- $(RM) temp.exp
+
+
+include ../../../rules.mak

@@ -11,30 +11,25 @@
 
 #include <ddk/ntddk.h>
 #include <wchar.h>
-#include <string.h>
+#include <internal/string.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "ext2fs.h"
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS STDCALL
-Ext2SetInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2SetInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    DPRINT("Ext2SetInformation(DeviceObject %x Irp %x)\n",DeviceObject,Irp);
    
    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
    Irp->IoStatus.Information = 0;
-   IoCompleteRequest(Irp,
-		     IO_NO_INCREMENT);
-   
    return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS STDCALL
-Ext2QueryInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Ext2QueryInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    NTSTATUS Status;
    PIO_STACK_LOCATION Param;
@@ -56,7 +51,7 @@ Ext2QueryInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    FileObject = Param->FileObject;
    DeviceExt = DeviceObject->DeviceExtension;
    Length = Param->Parameters.QueryFile.Length;
-   Buffer = Irp->AssociatedIrp.SystemBuffer;
+   Buffer = MmGetSystemAddressForMdl(Irp->MdlAddress);
    
    switch (Param->Parameters.QueryFile.FileInformationClass)
      {
@@ -117,20 +112,14 @@ Ext2QueryInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	break;
 	
       default:
-	Status = STATUS_NOT_SUPPORTED;
+	Status = STATUS_NOT_IMPLEMENTED;
      }
    
    
    
    
    Irp->IoStatus.Status = Status;
-   if (NT_SUCCESS(Status))
-     Irp->IoStatus.Information =
-       Param->Parameters.QueryFile.Length - Length;
-   else
-     Irp->IoStatus.Information = 0;
-   IoCompleteRequest(Irp,
-		     IO_NO_INCREMENT);
-   
-   return(Status);
+   Irp->IoStatus.Information = 0;
+   return(STATUS_UNSUCCESSFUL);
 }
+

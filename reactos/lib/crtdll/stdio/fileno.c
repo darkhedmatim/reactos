@@ -1,4 +1,4 @@
-#include <msvcrt/stdio.h>
+#include <crtdll/stdio.h>
 
 #undef fileno
 int fileno(FILE *f) 
@@ -7,9 +7,6 @@ int fileno(FILE *f)
 }
 
 
-/*
- * @implemented
- */
 int _fileno(FILE *f) 
 {
 	return f->_file;

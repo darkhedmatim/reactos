@@ -1,20 +1,18 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-#include "precomp.h"
-#include <msvcrt/stdio.h>
-#include <msvcrt/wchar.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/internal/file.h>
+#include <windows.h>
+#include <crtdll/stdio.h>
+#include <crtdll/wchar.h>
+#include <crtdll/errno.h>
+#include <crtdll/internal/file.h>
 
 // putc can be a macro
 #undef putc
-#undef putwc
 
-/*
- * @implemented
- */
-int putc(int c, FILE* fp)
+int putc(int c, FILE *fp)
 {
-// valid stream macro should check that fp is dword aligned
+
+// valid stream macro should check that fp 
+// is dword aligned
 	if (!__validfp (fp)) {
 		__set_errno(EINVAL);
 		return -1;
@@ -38,16 +36,13 @@ int putc(int c, FILE* fp)
 	return EOF;
 }
 
-//wint_t putwc(wint_t c, FILE* fp)
-//int putwc(wchar_t c, FILE* fp)
-int putwc(wint_t c, FILE* fp)
+wint_t putwc(wchar_t c, FILE *fp)
 {
 	// might check on multi bytes if text mode
  
         if (fp->_cnt > 0 ) {
                 fp->_cnt-= sizeof(wchar_t);
- 		*((wchar_t *)(fp->_ptr))  = c;
-                fp->_ptr += sizeof(wchar_t);
+ 		*((wchar_t *)(fp->_ptr))++  = c;
 		return (wint_t)c;
         }
         else

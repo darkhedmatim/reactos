@@ -1,9 +1,8 @@
+
 #ifndef __WIN32K_FILLSHAP_H
 #define __WIN32K_FILLSHAP_H
 
-BOOL
-STDCALL
-NtGdiChord(HDC  hDC,
+BOOL  W32kChord(HDC  hDC,
                 int  LeftRect,
                 int  TopRect,
                 int  RightRect,
@@ -13,17 +12,13 @@ NtGdiChord(HDC  hDC,
                 int  XRadial2,
                 int  YRadial2);
 
-BOOL
-STDCALL
-NtGdiEllipse(HDC  hDC,
+BOOL  W32kEllipse(HDC  hDC,
                   int  LeftRect,
                   int  TopRect,
                   int  RightRect,
                   int  BottomRect);
 
-BOOL
-STDCALL
-NtGdiPie(HDC  hDC,
+BOOL  W32kPie(HDC  hDC,
               int  LeftRect,
               int  TopRect,
               int  RightRect,
@@ -33,30 +28,22 @@ NtGdiPie(HDC  hDC,
               int  XRadial2,
               int  YRadial2);
 
-BOOL
-STDCALL
-NtGdiPolygon(HDC  hDC,
+BOOL  W32kPolygon(HDC  hDC,
                   CONST PPOINT  Points,
                   int  Count);
 
-BOOL
-STDCALL
-NtGdiPolyPolygon(HDC  hDC,
+BOOL  W32kPolyPolygon(HDC  hDC,
                       CONST LPPOINT  Points,
                       CONST LPINT  PolyCounts,
                       int  Count);
 
-BOOL
-STDCALL
-NtGdiRectangle(HDC  hDC,
+BOOL  W32kRectangle(HDC  hDC,
                     int  LeftRect,
                     int  TopRect,
                     int  RightRect,
                     int  BottomRect);
 
-BOOL
-STDCALL
-NtGdiRoundRect(HDC  hDC,
+BOOL  W32kRoundRect(HDC  hDC,
                     int  LeftRect,
                     int  TopRect,  
                     int  RightRect, 

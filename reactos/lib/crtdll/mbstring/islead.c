@@ -1,9 +1,6 @@
-#include "precomp.h"
-#include <msvcrt/mbstring.h>
+#include <windows.h>
+#include <crtdll/mbstring.h>
 
-/*
- * @unimplemented
- */
 int isleadbyte(char *mbstr)
 {
 	return 0;

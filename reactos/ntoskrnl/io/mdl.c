@@ -1,5 +1,4 @@
-/* $Id: mdl.c,v 1.19 2004/10/22 20:25:54 ekohl Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/mdl.c
@@ -11,22 +10,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
+#include <ddk/ntddk.h>
+#include <internal/mmhal.h>
+
 #include <internal/debug.h>
-
-/* GLOBALS *******************************************************************/
-
-#define TAG_MDL    TAG('M', 'D', 'L', ' ')
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-PMDL
-STDCALL
-IoAllocateMdl(PVOID VirtualAddress,
+PMDL IoAllocateMdl(PVOID VirtualAddress,
 		   ULONG Length,
 		   BOOLEAN SecondaryBuffer,
 		   BOOLEAN ChargeQuota,
@@ -38,100 +29,40 @@ IoAllocateMdl(PVOID VirtualAddress,
      {
 //	Mdl = ExAllocatePoolWithQuota(NonPagedPool,
 //				      MmSizeOfMdl(VirtualAddress,Length));
-	Mdl = ExAllocatePoolWithTag(NonPagedPool,
-				    MmSizeOfMdl(VirtualAddress,Length),
-				    TAG_MDL);
+	Mdl = ExAllocatePool(NonPagedPool,MmSizeOfMdl(VirtualAddress,Length));
      }
    else
      {
-	Mdl = ExAllocatePoolWithTag(NonPagedPool,
-				    MmSizeOfMdl(VirtualAddress,Length),
-				    TAG_MDL);
+	Mdl = ExAllocatePool(NonPagedPool,MmSizeOfMdl(VirtualAddress,Length));
      }
-   MmInitializeMdl(Mdl, (char*)VirtualAddress, Length);
-   
-   if (Irp)
-   {
-      if (SecondaryBuffer)
-      {
-         ASSERT(Irp->MdlAddress);
-         
-         /* FIXME: add to end of list maybe?? */
-         Mdl->Next = Irp->MdlAddress->Next;
-         Irp->MdlAddress->Next = Mdl;
-      }
-      else
-      {
-         /* 
-          * What if there's allready an mdl at Irp->MdlAddress?
-          * Is that bad and should we do something about it?
-          */
-         Irp->MdlAddress = Mdl;
-      }
-   }
-   
+   MmInitializeMdl(Mdl,VirtualAddress,Length);
+   if (Irp!=NULL && !SecondaryBuffer)
+     {
+	Irp->MdlAddress = Mdl;
+     }
    return(Mdl);
 }
 
-/*
- * @implemented
- *
- * You must IoFreeMdl the slave before freeing the master.
- *
- * IoBuildPartialMdl is more similar to MmBuildMdlForNonPagedPool, the difference
- * is that the former takes the physical addresses from the master MDL, while the
- * latter - from the known location of the NPP.
- */
-VOID
-STDCALL
-IoBuildPartialMdl(PMDL SourceMdl,
+VOID IoBuildPartialMdl(PMDL SourceMdl,
 		       PMDL TargetMdl,
 		       PVOID VirtualAddress,
 		       ULONG Length)
 {
-   PPFN_TYPE TargetPages = (PPFN_TYPE)(TargetMdl + 1);
-   PPFN_TYPE SourcePages = (PPFN_TYPE)(SourceMdl + 1);
-   ULONG Count;
-   ULONG Delta;
+   PULONG TargetPages = (PULONG)(TargetMdl + 1);
+   PULONG SourcePages = (PULONG)(SourceMdl + 1);
+   ULONG Va;
+   ULONG Delta = (PAGE_ROUND_DOWN(VirtualAddress) - (ULONG)SourceMdl->StartVa)/
+                 PAGESIZE;
 
-   DPRINT("VirtualAddress %x, SourceMdl->StartVa %x, SourceMdl->MappedSystemVa %x\n",
-          VirtualAddress, SourceMdl->StartVa, SourceMdl->MappedSystemVa);
-
-   TargetMdl->StartVa = (PVOID)PAGE_ROUND_DOWN(VirtualAddress);
-   TargetMdl->ByteOffset = (ULONG_PTR)VirtualAddress - (ULONG_PTR)TargetMdl->StartVa;
-   TargetMdl->ByteCount = Length;
-   TargetMdl->Process = SourceMdl->Process;
-   Delta = (ULONG_PTR)VirtualAddress - ((ULONG_PTR)SourceMdl->StartVa + SourceMdl->ByteOffset);
-   TargetMdl->MappedSystemVa = (char*)SourceMdl->MappedSystemVa + Delta;
-
-   TargetMdl->MdlFlags = SourceMdl->MdlFlags & (MDL_IO_PAGE_READ|MDL_SOURCE_IS_NONPAGED_POOL|MDL_MAPPED_TO_SYSTEM_VA);
-   TargetMdl->MdlFlags |= MDL_PARTIAL;
-
-   Delta = ((ULONG_PTR)TargetMdl->StartVa - (ULONG_PTR)SourceMdl->StartVa) / PAGE_SIZE;
-   Count = ADDRESS_AND_SIZE_TO_SPAN_PAGES(VirtualAddress,Length);
-
-   SourcePages += Delta;
-
-   DPRINT("Delta %d, Count %d\n", Delta, Count);
-
-   memcpy(TargetPages, SourcePages, Count * sizeof(PFN_TYPE));
-
+   for (Va = 0; Va < (PAGE_ROUND_UP(Length)/PAGESIZE); Va++)
+     {
+	TargetPages[Va] = SourcePages[Va+Delta];
+     }
 }
 
-/*
- * @implemented
- */
-VOID STDCALL
-IoFreeMdl(PMDL Mdl)
+VOID IoFreeMdl(PMDL Mdl)
 {   
-   /* 
-    * This unmaps partial mdl's from kernel space but also asserts that non-partial
-    * mdl's isn't still mapped into kernel space.
-    */
-   MmPrepareMdlForReuse(Mdl);
-   
+   MmUnmapLockedPages(MmGetSystemAddressForMdl(Mdl),Mdl);
+   MmUnlockPages(Mdl);
    ExFreePool(Mdl);
 }
-
-
-/* EOF */

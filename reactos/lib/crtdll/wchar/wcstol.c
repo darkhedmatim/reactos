@@ -1,15 +1,12 @@
-#include <msvcrt/wchar.h>
+#include <crtdll/wchar.h>
 
 
-/*
- * @implemented
- */
-long wcstol(const wchar_t* cp, wchar_t** endp, int base)
+long wcstol(const wchar_t *cp,wchar_t **endp,int base)
 {
-	long result = 0, value;
+	long result = 0,value;
 	int sign = 1;
 
-	if (*cp == L'-') {
+	if ( *cp == L'-' ) {
 		sign = -1;
 		cp++;
 	}
@@ -31,16 +28,14 @@ long wcstol(const wchar_t* cp, wchar_t** endp, int base)
 		cp++;
 	}
 	if (endp)
-		*endp = (wchar_t*)cp;
+		*endp = (wchar_t *)cp;
 	return result * sign;
 }
 
-/*
- * @implemented
- */
-unsigned long wcstoul(const wchar_t* cp, wchar_t** endp, int base)
+
+unsigned long wcstoul(const wchar_t *cp,wchar_t **endp,int base)
 {
-	unsigned long result = 0, value;
+	unsigned long result = 0,value;
 
 	if (!base) {
 		base = 10;
@@ -59,6 +54,7 @@ unsigned long wcstoul(const wchar_t* cp, wchar_t** endp, int base)
 		cp++;
 	}
 	if (endp)
-		*endp = (wchar_t*)cp;
+		*endp = (wchar_t *)cp;
 	return result;
 }
+

@@ -1,795 +1,658 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
+/* $Id: create.c,v 1.2 2000/01/12 19:05:32 ekohl Exp $
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: create.c,v 1.78 2004/12/25 11:18:38 navaraf Exp $
- *
+ * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/create.c
+ * FILE:             services/fs/vfat/create.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
+
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ddk/ntddk.h>
 #include <wchar.h>
-#include <limits.h>
+#include <internal/string.h>
+#include <ddk/ntddk.h>
+#include <ddk/cctypes.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "vfat.h"
 
-/* FUNCTIONS *****************************************************************/
+/* FUNCTIONS ****************************************************************/
 
-void  vfat8Dot3ToString (PFAT_DIR_ENTRY pEntry, PUNICODE_STRING NameU)
+BOOLEAN IsLastEntry(PVOID Block, ULONG Offset)
+/*
+ * FUNCTION: Determine if the given directory entry is the last
+ */
 {
-  OEM_STRING StringA;
-  ULONG Length;
-  CHAR  cString[12];
-  
-  RtlCopyMemory(cString, pEntry->Filename, 11);
-  cString[11] = 0;
-  if (cString[0] == 0x05)
-    {
-      cString[0] = 0xe5;
-    }      
-
-  StringA.Buffer = cString;
-  for (StringA.Length = 0; 
-       StringA.Length < 8 && StringA.Buffer[StringA.Length] != ' ';
-       StringA.Length++);
-  StringA.MaximumLength = StringA.Length;
-  
-  RtlOemStringToUnicodeString(NameU, &StringA, FALSE);
-
-  if (pEntry->lCase & VFAT_CASE_LOWER_BASE)
-    {
-      RtlDowncaseUnicodeString(NameU, NameU, FALSE);
-    }
-  if (cString[8] != ' ')
-    {
-      Length = NameU->Length;
-      NameU->Buffer += Length / sizeof(WCHAR);
-      if (!FAT_ENTRY_VOLUME(pEntry))
-        {
-	  Length += sizeof(WCHAR);
-          NameU->Buffer[0] = L'.';
-          NameU->Buffer++;
-	}
-      NameU->Length = 0;
-      NameU->MaximumLength -= Length;
-      
-      StringA.Buffer = &cString[8];
-      for (StringA.Length = 0; 
-           StringA.Length < 3 && StringA.Buffer[StringA.Length] != ' ';
-           StringA.Length++);
-      StringA.MaximumLength = StringA.Length;
-      RtlOemStringToUnicodeString(NameU, &StringA, FALSE);
-      if (pEntry->lCase & VFAT_CASE_LOWER_EXT)
-        {
-          RtlDowncaseUnicodeString(NameU, NameU, FALSE);
-        }
-      NameU->Buffer -= Length / sizeof(WCHAR);
-      NameU->Length += Length;
-      NameU->MaximumLength += Length;
-    }
-  NameU->Buffer[NameU->Length / sizeof(WCHAR)] = 0;
-  DPRINT("'%wZ'\n", NameU);
+   return(((FATDirEntry *)Block)[Offset].Filename[0] == 0);
 }
 
-NTSTATUS
-ReadVolumeLabel (PDEVICE_EXTENSION DeviceExt, PVPB Vpb)
+BOOLEAN IsVolEntry(PVOID Block, ULONG Offset)
+/*
+ * FUNCTION: Determine if the given directory entry is a vol entry
+ */
+{
+   if( (((FATDirEntry *)Block)[Offset].Attrib)==0x28 ) return TRUE;
+   else return FALSE;
+}
+
+BOOLEAN IsDeletedEntry(PVOID Block, ULONG Offset)
+/*
+ * FUNCTION: Determines if the given entry is a deleted one
+ */
+{
+   /* Checks special character */
+
+   return ((((FATDirEntry *)Block)[Offset].Filename[0] == 0xe5));
+}
+
+BOOLEAN GetEntryName(PVOID Block, PULONG _Offset, PWSTR Name, PULONG _jloop,
+  PDEVICE_EXTENSION DeviceExt, ULONG * _StartingSector)
+/*
+ * FUNCTION: Retrieves the file name, be it in short or long file name format
+ */
+{
+   FATDirEntry* test;
+   slot* test2;
+   ULONG Offset = *_Offset;
+   ULONG StartingSector = *_StartingSector;
+   ULONG jloop = *_jloop;
+   ULONG cpos;
+   
+   test = (FATDirEntry *)Block;
+   test2 = (slot *)Block;
+   
+   *Name = 0;
+
+   if (IsDeletedEntry(Block,Offset))
+     {
+	return(FALSE);
+     }
+   
+   if(test2[Offset].attr == 0x0f) 
+     {
+        vfat_initstr(Name, 256);
+	vfat_wcsncpy(Name,test2[Offset].name0_4,5);
+	vfat_wcsncat(Name,test2[Offset].name5_10,5,6);
+	vfat_wcsncat(Name,test2[Offset].name11_12,11,2);
+
+        cpos=0;
+        while((test2[Offset].id!=0x41) && (test2[Offset].id!=0x01) &&
+	      (test2[Offset].attr>0)) 
+	  {
+	     Offset++;
+             if(Offset==ENTRIES_PER_SECTOR) {
+               Offset=0;
+               StartingSector++;//FIXME : nor always the next sector
+               jloop++;
+               VFATReadSectors(DeviceExt->StorageDevice,StartingSector,1,Block);
+               test2 = (slot *)Block;
+             }
+             cpos++;
+             vfat_movstr(Name, 13, 0, cpos*13);
+             vfat_wcsncpy(Name, test2[Offset].name0_4, 5);
+             vfat_wcsncat(Name,test2[Offset].name5_10,5,6);
+             vfat_wcsncat(Name,test2[Offset].name11_12,11,2);
+
+          }
+
+	if (IsDeletedEntry(Block,Offset+1))
+	  {
+	     Offset++;
+	     *_Offset = Offset;
+             *_jloop = jloop;
+             *_StartingSector = StartingSector;
+	     return(FALSE);
+	  }
+	
+	*_Offset = Offset;
+        *_jloop = jloop;
+        *_StartingSector = StartingSector;
+	
+	return(TRUE);
+     }   
+      
+   RtlAnsiToUnicode(Name,test[Offset].Filename,8);
+   if (test[Offset].Ext[0]!=' ')
+     {
+	RtlCatAnsiToUnicode(Name,".",1);
+     }
+   RtlCatAnsiToUnicode(Name,test[Offset].Ext,3);
+      
+   *_Offset = Offset;
+   
+   return(TRUE);
+}
+
+NTSTATUS ReadVolumeLabel(PDEVICE_EXTENSION DeviceExt, PVPB Vpb)
 /*
  * FUNCTION: Read the volume label
  */
 {
-  PVOID Context = NULL;
-  ULONG DirIndex = 0;
-  PDIR_ENTRY Entry;
-  PVFATFCB pFcb;
-  LARGE_INTEGER FileOffset;
-  UNICODE_STRING NameU;
-  ULONG SizeDirEntry;
-  ULONG EntriesPerPage;
-  OEM_STRING StringO;
+   ULONG i = 0;
+   ULONG j;
+   ULONG Size;
+   char* block;
+   ULONG StartingSector;
+   ULONG NextCluster;
 
-  NameU.Buffer = Vpb->VolumeLabel;
-  NameU.Length = 0;
-  NameU.MaximumLength = sizeof(Vpb->VolumeLabel);
-  *(Vpb->VolumeLabel) = 0;
-  Vpb->VolumeLabelLength = 0;
-  
-  if (DeviceExt->Flags & VCB_IS_FATX)
-  {
-    SizeDirEntry = sizeof(FATX_DIR_ENTRY);
-    EntriesPerPage = FATX_ENTRIES_PER_PAGE;
-  }
-  else
-  {
-    SizeDirEntry = sizeof(FAT_DIR_ENTRY);
-    EntriesPerPage = FAT_ENTRIES_PER_PAGE;
-  }
+   Size = DeviceExt->rootDirectorySectors;//FIXME : in fat32, no limit
+   StartingSector = DeviceExt->rootStart;
+   NextCluster=0;
 
-  ExAcquireResourceExclusiveLite (&DeviceExt->DirResource, TRUE);
-  pFcb = vfatOpenRootFCB (DeviceExt);
-  ExReleaseResourceLite (&DeviceExt->DirResource);
+   block = ExAllocatePool(NonPagedPool,BLOCKSIZE);
+   DPRINT("FindFile : start at sector %lx, entry %ld\n",StartingSector,i);
+   for (j=0; j<Size; j++)
+   {
+     VFATReadSectors(DeviceExt->StorageDevice,StartingSector,1,block);
 
-  FileOffset.QuadPart = 0;
-  if (CcMapData(pFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
-  {
-     while (TRUE)
+     for (i=0; i<ENTRIES_PER_SECTOR; i++)
      {
-       if (ENTRY_VOLUME(DeviceExt, Entry))
+       if (IsVolEntry((PVOID)block,i))
        {
-          /* copy volume label */
-          if (DeviceExt->Flags & VCB_IS_FATX)
-          {
-            StringO.Buffer = (PCHAR)Entry->FatX.Filename;
-            StringO.MaximumLength = StringO.Length = Entry->FatX.FilenameLength;
-            RtlOemStringToUnicodeString(&NameU, &StringO, FALSE);
-          }
-          else
-          {
-            vfat8Dot3ToString (&Entry->Fat, &NameU);
-          }
-          Vpb->VolumeLabelLength = NameU.Length;
-          break;
+         FATDirEntry *test = (FATDirEntry *)block;
+
+         /* copy volume label */
+         RtlAnsiToUnicode(Vpb->VolumeLabel,test[i].Filename,8);
+         RtlCatAnsiToUnicode(Vpb->VolumeLabel,test[i].Ext,3);
+         Vpb->VolumeLabelLength = wcslen(Vpb->VolumeLabel);
+
+         ExFreePool(block);
+         return(STATUS_SUCCESS);
        }
-       if (ENTRY_END(DeviceExt, Entry))
+       if (IsLastEntry((PVOID)block,i))
        {
-          break;
-       }
-       DirIndex++;       
-       Entry = (PDIR_ENTRY)((ULONG_PTR)Entry + SizeDirEntry);
-       if ((DirIndex % EntriesPerPage) == 0)
-       {
-	  CcUnpinData(Context);
-	  FileOffset.u.LowPart += PAGE_SIZE;
-	  if (!CcMapData(pFcb->FileObject, &FileOffset, PAGE_SIZE, TRUE, &Context, (PVOID*)&Entry))
-	  {
-	     Context = NULL;
-	     break;
-	  }
+         *(Vpb->VolumeLabel) = 0;
+         Vpb->VolumeLabelLength = 0;
+         ExFreePool(block);
+         return(STATUS_UNSUCCESSFUL);
        }
      }
-     if (Context)
-     {
-       CcUnpinData(Context);
-     }
-  }
-  ExAcquireResourceExclusiveLite (&DeviceExt->DirResource, TRUE);
-  vfatReleaseFCB (DeviceExt, pFcb);
-  ExReleaseResourceLite (&DeviceExt->DirResource);
+     // not found in this sector, try next :
 
-  return STATUS_SUCCESS;
+     /* directory can be fragmented although it is best to keep them
+        unfragmented */
+     StartingSector++;
+     if (DeviceExt->FatType ==FAT32)
+     {
+       if(StartingSector==ClusterToSector(DeviceExt,NextCluster+1))
+       {
+         NextCluster = GetNextCluster(DeviceExt,NextCluster);
+         if (NextCluster == 0||NextCluster==0xffffffff)
+         {
+           *(Vpb->VolumeLabel) = 0;
+           Vpb->VolumeLabelLength = 0;
+           ExFreePool(block);
+           return(STATUS_UNSUCCESSFUL);
+         }
+         StartingSector = ClusterToSector(DeviceExt,NextCluster);
+       }
+     }
+   }
+   *(Vpb->VolumeLabel) = 0;
+   Vpb->VolumeLabelLength = 0;
+   ExFreePool(block);
+   return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS
-FindFile (PDEVICE_EXTENSION DeviceExt,
-          PVFATFCB Parent,
-          PUNICODE_STRING FileToFindU,
-	  PVFAT_DIRENTRY_CONTEXT DirContext,
-	  BOOLEAN First)
+
+NTSTATUS FindFile(PDEVICE_EXTENSION DeviceExt, PVFATFCB Fcb,
+          PVFATFCB Parent, PWSTR FileToFind,ULONG *StartSector,ULONG *Entry)
 /*
  * FUNCTION: Find a file
  */
 {
-  WCHAR PathNameBuffer[MAX_PATH];
-  NTSTATUS Status;
-  PVOID Context = NULL;
-  PVOID Page;
-  PVFATFCB rcFcb;
-  BOOLEAN Found;
-  UNICODE_STRING PathNameU;
-  BOOLEAN WildCard;
-
-  DPRINT ("FindFile(Parent %x, FileToFind '%wZ', DirIndex: %d)\n", 
-          Parent, FileToFindU, DirContext->DirIndex);
-  DPRINT ("FindFile: Path %wZ)\n",&Parent->PathNameU);
-
-  PathNameU.Buffer = PathNameBuffer;
-  PathNameU.Length = 0;
-  PathNameU.MaximumLength = sizeof(PathNameBuffer);
-
-  DirContext->LongNameU.Length = 0;
-  DirContext->ShortNameU.Length = 0;
-
-  WildCard = FsRtlDoesNameContainWildCards(FileToFindU);
-
-  if (WildCard == FALSE)
-    {
-      /* if there is no '*?' in the search name, than look first for an existing fcb */
-      RtlCopyUnicodeString(&PathNameU, &Parent->PathNameU);
-      if (!vfatFCBIsRoot(Parent))
-        {
-          PathNameU.Buffer[PathNameU.Length / sizeof(WCHAR)] = L'\\';
-	  PathNameU.Length += sizeof(WCHAR);
-        }
-      RtlAppendUnicodeStringToString(&PathNameU, FileToFindU);
-      PathNameU.Buffer[PathNameU.Length / sizeof(WCHAR)] = 0;
-      rcFcb = vfatGrabFCBFromTable(DeviceExt, &PathNameU);
-      if (rcFcb)
-        {
-	  if(rcFcb->startIndex >= DirContext->DirIndex)
-	    {
-	      RtlCopyUnicodeString(&DirContext->LongNameU, &rcFcb->LongNameU);
-	      RtlCopyUnicodeString(&DirContext->ShortNameU, &rcFcb->ShortNameU);
-	      RtlCopyMemory(&DirContext->DirEntry, &rcFcb->entry, sizeof(DIR_ENTRY));
-	      DirContext->StartIndex = rcFcb->startIndex;
-	      DirContext->DirIndex = rcFcb->dirIndex;
-              DPRINT("FindFile: new Name %wZ, DirIndex %d (%d)\n",
-		     &DirContext->LongNameU, DirContext->DirIndex, DirContext->StartIndex);
-	      Status = STATUS_SUCCESS;
-	    }
-          else
-	    {
-	      CHECKPOINT1;
-	      Status = STATUS_UNSUCCESSFUL;
-	    }
-          vfatReleaseFCB(DeviceExt, rcFcb);
-	  return Status;
-	}
-    }
-
-  while(TRUE)
-    {
-      Status = DeviceExt->GetNextDirEntry(&Context, &Page, Parent, DirContext, First);
-      First = FALSE;
-      if (Status == STATUS_NO_MORE_ENTRIES)
-        {
-	  break;
-        }
-      if (ENTRY_VOLUME(DeviceExt, &DirContext->DirEntry))
-        {
-          DirContext->DirIndex++;
-          continue;
-        }
-      if (WildCard)
-        {
-          Found = FsRtlIsNameInExpression(FileToFindU, &DirContext->LongNameU, TRUE, NULL) ||
-                  FsRtlIsNameInExpression(FileToFindU, &DirContext->ShortNameU, TRUE, NULL);
-	}
-      else
-        {
-          /* FIXME: Use FsRtlAreNamesEqual */
-          Found = RtlEqualUnicodeString(&DirContext->LongNameU, FileToFindU, TRUE) ||
-	          RtlEqualUnicodeString(&DirContext->ShortNameU, FileToFindU, TRUE);
-	}
-
-      if (Found)
-        {
-	  if (WildCard)
-	    {
-              RtlCopyUnicodeString(&PathNameU, &Parent->PathNameU);
-              if (!vfatFCBIsRoot(Parent))
-                {
-                  PathNameU.Buffer[PathNameU.Length / sizeof(WCHAR)] = L'\\';
-	          PathNameU.Length += sizeof(WCHAR);
-                }
-              RtlAppendUnicodeStringToString(&PathNameU, &DirContext->LongNameU);
-              PathNameU.Buffer[PathNameU.Length / sizeof(WCHAR)] = 0;
-              rcFcb = vfatGrabFCBFromTable(DeviceExt, &PathNameU);
-	      if (rcFcb != NULL)
-	        {
-	          RtlCopyMemory(&DirContext->DirEntry, &rcFcb->entry, sizeof(DIR_ENTRY));
-                  vfatReleaseFCB(DeviceExt, rcFcb);
-		}
-	    }
-          DPRINT("%d\n", DirContext->LongNameU.Length);
-          DPRINT("FindFile: new Name %wZ, DirIndex %d\n",
-	         &DirContext->LongNameU, DirContext->DirIndex);
-
-          if (Context)
-	    {
-              CcUnpinData(Context);
-	    }
-          return STATUS_SUCCESS;
-	}
-      DirContext->DirIndex++;
-    }
-
-  if (Context)
-    {
-      CcUnpinData(Context);
-    }
-
-  return Status;
+   ULONG i, j;
+   ULONG Size;
+   char* block;
+   WCHAR name[256];
+   ULONG StartingSector;
+   ULONG NextCluster;
+   WCHAR TempStr[2];
+   
+   DPRINT("FindFile(Parent %x, FileToFind '%S')\n",Parent,FileToFind);
+   
+   if (wcslen(FileToFind)==0)
+     {
+	CHECKPOINT;
+        TempStr[0] = (WCHAR)'.';
+	TempStr[1] = 0;
+	FileToFind=(PWSTR)&TempStr;
+     }
+   if (Parent != NULL)
+     {
+	DPRINT("Parent->entry.FirstCluster %d\n",Parent->entry.FirstCluster);
+     }
+   
+   DPRINT("FindFile '%S'\n", FileToFind);
+   if (Parent == NULL||Parent->entry.FirstCluster==1)
+     {
+	CHECKPOINT;
+	Size = DeviceExt->rootDirectorySectors; /* FIXME : in fat32, no limit */
+	StartingSector = DeviceExt->rootStart;
+	NextCluster=0;
+	if(FileToFind[0]==0 ||(FileToFind[0]=='\\' && FileToFind[1]==0) ||
+	   (FileToFind[0]=='.' && FileToFind[1]==0))
+	  {
+	     /* it's root : complete essentials fields then return ok */
+	     CHECKPOINT;
+	     memset(Fcb,0,sizeof(VFATFCB));
+	     memset(Fcb->entry.Filename,' ',11);
+	     Fcb->entry.FileSize=DeviceExt->rootDirectorySectors*BLOCKSIZE;
+	     Fcb->entry.Attrib=FILE_ATTRIBUTE_DIRECTORY;
+	     if (DeviceExt->FatType == FAT32)
+	       Fcb->entry.FirstCluster=2;
+	     else
+	       Fcb->entry.FirstCluster=1; /* FIXME : is 1 the good value for mark root? */
+	     if(StartSector)
+	       *StartSector=StartingSector;
+	     if(Entry)
+	       *Entry=0;
+	     return(STATUS_SUCCESS);
+	  }
+     }
+   else
+     {
+	DPRINT("Parent->entry.FileSize %x\n",Parent->entry.FileSize);
+	
+	Size = ULONG_MAX;
+	if (DeviceExt->FatType == FAT32)
+	  NextCluster = Parent->entry.FirstCluster
+	  +Parent->entry.FirstClusterHigh*65536;
+	else
+	  NextCluster = Parent->entry.FirstCluster;
+	StartingSector = ClusterToSector(DeviceExt, NextCluster);
+	if(Parent->entry.FirstCluster==1 && DeviceExt->FatType!=FAT32)
+	  {
+	     /* read of root directory in FAT16 or FAT12 */
+	     StartingSector=DeviceExt->rootStart;
+	  }
+     }
+   CHECKPOINT;
+   block = ExAllocatePool(NonPagedPool,BLOCKSIZE);
+   CHECKPOINT;
+   if (StartSector && (*StartSector)) StartingSector=*StartSector;
+   i=(Entry)?(*Entry):0;
+   DPRINT("FindFile : start at sector %lx, entry %ld\n",StartingSector,i);
+   for (j=0; j<Size; j++)
+     {
+	VFATReadSectors(DeviceExt->StorageDevice,StartingSector,1,block);
+	
+	for (i=(Entry)?(*Entry):0; i<ENTRIES_PER_SECTOR; i++)
+	  {
+	     if (IsVolEntry((PVOID)block,i))
+	       continue;
+	     if (IsLastEntry((PVOID)block,i))
+	       {
+		  if(StartSector) *StartSector=StartingSector;
+		  if(Entry) *Entry=i;
+		  ExFreePool(block);
+		  return(STATUS_UNSUCCESSFUL);
+	       }
+	     if (GetEntryName((PVOID)block,&i,name,&j,DeviceExt,&StartingSector))
+	       {
+		  DPRINT("Comparing '%S' '%S'\n",name,FileToFind);
+		  if (wstrcmpjoki(name,FileToFind))
+		    {
+		       /* In the case of a long filename, the firstcluster is stored in
+			the next record -- where it's short name is */
+		       if(((FATDirEntry *)block)[i].Attrib==0x0f) i++;
+		       if( i==(ENTRIES_PER_SECTOR))
+			 {
+			    /* entry is in next sector */
+			    StartingSector++;
+			    /* FIXME : treat case of next sector fragmented */
+			    VFATReadSectors(DeviceExt->StorageDevice,StartingSector,1,block);
+			    i=0;
+			 }
+		       memcpy(&Fcb->entry,&((FATDirEntry *)block)[i],
+			      sizeof(FATDirEntry));
+		       vfat_wcsncpy(Fcb->ObjectName,name,MAX_PATH);
+		       if(StartSector) *StartSector=StartingSector;
+		       if(Entry) *Entry=i;
+		       ExFreePool(block);
+		       return(STATUS_SUCCESS);
+		    }
+	       }
+	  }
+	/* not found in this sector, try next : */
+	
+	/* directory can be fragmented although it is best to keep them
+	 unfragmented */
+	if(Entry) *Entry=0;
+	StartingSector++;
+	if ((Parent != NULL && Parent->entry.FirstCluster!=1)
+	    || DeviceExt->FatType ==FAT32)
+	  {
+	     if(StartingSector==ClusterToSector(DeviceExt,NextCluster+1))
+	       {
+		  NextCluster = GetNextCluster(DeviceExt,NextCluster);
+		  if (NextCluster == 0||NextCluster==0xffffffff)
+		    {
+		       if(StartSector) *StartSector=StartingSector;
+		       if(Entry) *Entry=i;
+		       ExFreePool(block);
+		       return(STATUS_UNSUCCESSFUL);
+		    }
+		  StartingSector = ClusterToSector(DeviceExt,NextCluster);
+	       }
+	  }
+     }
+   if(StartSector) *StartSector=StartingSector;
+   if(Entry) *Entry=i;
+   ExFreePool(block);
+   return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS
-VfatOpenFile (PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
-	      PUNICODE_STRING FileNameU)
+
+NTSTATUS FsdCloseFile(PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject)
+/*
+ * FUNCTION: Closes a file
+ */
+{
+   PVFATFCB pFcb;
+   PVFATCCB pCcb;
+   KIRQL oldIrql;
+   
+   DPRINT("FsdCloseFile(DeviceExt %x, FileObject %x)\n",
+	  DeviceExt,FileObject);
+   
+ //FIXME : update entry in directory ?
+   pCcb = (PVFATCCB)(FileObject->FsContext2);
+   
+   DPRINT("pCcb %x\n",pCcb);
+   if (pCcb == NULL)
+     {
+	return(STATUS_SUCCESS);
+     }
+   
+   pFcb = pCcb->pFcb;
+   
+   pFcb->RefCount--;
+   if(pFcb->RefCount<=0)
+   {
+      KeAcquireSpinLock(&DeviceExt->FcbListLock, &oldIrql);
+      RemoveEntryList(&pFcb->FcbListEntry);
+      KeReleaseSpinLock(&DeviceExt->FcbListLock, oldIrql);
+      ExFreePool(pFcb);
+   }
+   ExFreePool(pCcb);
+   return STATUS_SUCCESS;
+}
+
+NTSTATUS FsdOpenFile(PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject, 
+		     PWSTR FileName)
 /*
  * FUNCTION: Opens a file
  */
 {
-  PVFATFCB ParentFcb;
-  PVFATFCB Fcb;
-  NTSTATUS Status;
+   PWSTR current = NULL;
+   PWSTR next;
+   PWSTR string;
+   PVFATFCB ParentFcb;
+   PVFATFCB Fcb,pRelFcb;
+   PVFATFCB Temp;
+ PVFATCCB newCCB,pRelCcb;
+   NTSTATUS Status;
+   PFILE_OBJECT pRelFileObject;
+   PWSTR AbsFileName=NULL;
+   short i,j;
+   PLIST_ENTRY current_entry;
+   KIRQL oldIrql;
+   
+   DPRINT("FsdOpenFile(%08lx, %08lx, %S)\n", 
+          DeviceExt,
+          FileObject,
+          FileName);
+   
+  /* FIXME : treat relative name */
+   if(FileObject->RelatedFileObject)
+   {
+      DbgPrint("try related for %S\n",FileName);
+     pRelFileObject=FileObject->RelatedFileObject;
+     pRelCcb=pRelFileObject->FsContext2;
+     assert(pRelCcb);
+     pRelFcb=pRelCcb->pFcb;
+     assert(pRelFcb);
+     /*
+      * verify related object is a directory and target name don't start with \.
+      */
+     if( !(pRelFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY)
+         || (FileName[0]!= '\\') )
+     {
+       Status=STATUS_INVALID_PARAMETER;
+       return Status;
+     }
+     /* construct absolute path name */
+     AbsFileName=ExAllocatePool(NonPagedPool,MAX_PATH);
+     for (i=0;pRelFcb->PathName[i];i++)
+       AbsFileName[i]=pRelFcb->PathName[i];
+     AbsFileName[i++]='\\';
+     for (j=0;FileName[j]&&i<MAX_PATH;j++)
+       AbsFileName[i++]=FileName[j];
+     assert(i<MAX_PATH);
+     AbsFileName[i]=0;
+     FileName=AbsFileName;
+   }
+ 
+ /*
+  * try first to find an existing FCB in memory
+  */
+   CHECKPOINT;
+   
+   KeAcquireSpinLock(&DeviceExt->FcbListLock, &oldIrql);
+   current_entry = DeviceExt->FcbListHead.Flink;
+   while (current_entry != &DeviceExt->FcbListHead)
+     {
+	Fcb = CONTAINING_RECORD(current_entry, VFATFCB, FcbListEntry);
 
+	DPRINT("Scanning %x\n", Fcb);
+	DPRINT("Scanning %S\n", Fcb->PathName);
+	
+	if (DeviceExt==Fcb->pDevExt
+	    && wstrcmpi(FileName,Fcb->PathName))
+	  {
+	     Fcb->RefCount++;
+	     KeReleaseSpinLock(&DeviceExt->FcbListLock, oldIrql);
+	     FileObject->FsContext =(PVOID) &Fcb->NTRequiredFCB;
+	     newCCB = ExAllocatePool(NonPagedPool,sizeof(VFATCCB));
+	     memset(newCCB,0,sizeof(VFATCCB));
+	     FileObject->FsContext2 = newCCB;
+	     newCCB->pFcb=Fcb;
+	     newCCB->PtrFileObject=FileObject;
+	     if(AbsFileName)ExFreePool(AbsFileName);
+	     return(STATUS_SUCCESS);
+	  }
+	
+	current_entry = current_entry->Flink;
+     }
+   KeReleaseSpinLock(&DeviceExt->FcbListLock, oldIrql);
+   
+ CHECKPOINT; 
 
-//  PDEVICE_OBJECT DeviceObject = DeviceExt->StorageDevice->Vpb->DeviceObject;
-  
-  DPRINT ("VfatOpenFile(%08lx, %08lx, '%wZ')\n", DeviceExt, FileObject, &FileObject->FileName);
-
-  if (FileObject->RelatedFileObject)
-    {
-      DPRINT ("Converting relative filename to absolute filename\n");
-
-      Fcb = FileObject->RelatedFileObject->FsContext;
-      RtlCopyUnicodeString(FileNameU, &Fcb->PathNameU);
-      if (!vfatFCBIsRoot(Fcb))
-        {
-	  RtlAppendUnicodeToString(FileNameU, L"\\");
-	}
-      RtlAppendUnicodeStringToString(FileNameU, &FileObject->FileName);
-    }
-  else
-    {
-      RtlCopyUnicodeString(FileNameU, &FileObject->FileName);
-    }
-  if (FileNameU->Length > sizeof(WCHAR) &&
-      FileNameU->Buffer[FileNameU->Length / sizeof(WCHAR) - 1] == L'\\')
-    {
-      FileNameU->Length -= sizeof(WCHAR);
-    }
-  FileNameU->Buffer[FileNameU->Length / sizeof(WCHAR)] = 0;
-
-  DPRINT ("PathName to open: '%wZ'\n", FileNameU);
-
-  if (!DeviceExt->FatInfo.FixedMedia)
-    {
-      Status = VfatBlockDeviceIoControl (DeviceExt->StorageDevice,
-					 IOCTL_DISK_CHECK_VERIFY,
-					 NULL,
-					 0,
-					 NULL,
-					 0,
-					 FALSE);
-
-      if (Status == STATUS_VERIFY_REQUIRED) 
-
-        {
-          PDEVICE_OBJECT DeviceToVerify;
-
-          DPRINT ("Media change detected!\n");
-          DPRINT ("Device %p\n", DeviceExt->StorageDevice);
-
-	  DeviceToVerify = IoGetDeviceToVerify (PsGetCurrentThread ());
-	  
-	  IoSetDeviceToVerify (PsGetCurrentThread (),
-			       NULL);
-          Status = IoVerifyVolume (DeviceExt->StorageDevice,
-			           FALSE);
-	}
-      if (!NT_SUCCESS(Status))
+ string = FileName;
+ ParentFcb = NULL;
+ Fcb = ExAllocatePool(NonPagedPool, sizeof(VFATFCB));
+ memset(Fcb,0,sizeof(VFATFCB));
+ Fcb->ObjectName=Fcb->PathName;
+ next = &string[0];   
+   
+   CHECKPOINT;
+   while (next!=NULL)
+   {
+      CHECKPOINT;
+     *next = '\\';
+     current = next+1;
+     next = wcschr(next+1,'\\');
+     if (next!=NULL)
 	{
-	  DPRINT ("Status %lx\n", Status);
-	  return Status;
+	   *next=0;
 	}
-    }
-
-
-  /*  try first to find an existing FCB in memory  */
-  DPRINT ("Checking for existing FCB in memory\n");
-  Fcb = vfatGrabFCBFromTable (DeviceExt, FileNameU);
-  if (Fcb == NULL)
-    {
-      DPRINT ("No existing FCB found, making a new one if file exists.\n");
-      Status = vfatGetFCBForFile (DeviceExt, &ParentFcb, &Fcb, FileNameU);
-      if (ParentFcb != NULL)
-        {
-          vfatReleaseFCB (DeviceExt, ParentFcb);
-        }
-      if (!NT_SUCCESS (Status))
-        {
-          DPRINT ("Could not make a new FCB, status: %x\n", Status);
-          return  Status;
+      DPRINT("current '%S'\n",current);
+      Status = FindFile(DeviceExt,Fcb,ParentFcb,current,NULL,NULL);
+      if (Status != STATUS_SUCCESS)
+	{
+	   CHECKPOINT;
+	   if (Fcb != NULL)
+	     ExFreePool(Fcb);
+	   if (ParentFcb != NULL)
+	     ExFreePool(ParentFcb);
+	   if(AbsFileName)
+             ExFreePool(AbsFileName);
+           return(Status);
 	}
-    }
-  else
-    {
-      RtlCopyUnicodeString(FileNameU, &Fcb->PathNameU);
-    }
-  if (Fcb->Flags & FCB_DELETE_PENDING)
-    {
-      vfatReleaseFCB (DeviceExt, Fcb);
-      return STATUS_DELETE_PENDING;
-    }
-  DPRINT ("Attaching FCB to fileObject\n");
-  Status = vfatAttachFCBToFileObject (DeviceExt, Fcb, FileObject);
-
-  return  Status;
-}
-
-VOID STATIC
-VfatSupersedeFile(PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
-		  PVFATFCB Fcb)
+      Temp = Fcb;
+CHECKPOINT;
+      if (ParentFcb == NULL)
+	{
+	   CHECKPOINT;
+	   Fcb = ExAllocatePool(NonPagedPool,sizeof(VFATFCB));
+	   memset(Fcb,0,sizeof(VFATFCB));
+	   Fcb->ObjectName=Fcb->PathName;
+	}
+      else
+        Fcb = ParentFcb;
+CHECKPOINT;
+      ParentFcb = Temp;
+   }
+CHECKPOINT;
+ FileObject->FsContext =(PVOID) &ParentFcb->NTRequiredFCB;
+   newCCB = ExAllocatePool(NonPagedPool,sizeof(VFATCCB));
+   memset(newCCB,0,sizeof(VFATCCB));
+   FileObject->FsContext2 = newCCB;
+   newCCB->pFcb=ParentFcb;
+   newCCB->PtrFileObject=FileObject;
+   ParentFcb->RefCount++;
+   //FIXME : initialize all fields in FCB and CCB
+   
+   KeAcquireSpinLock(&DeviceExt->FcbListLock, &oldIrql);
+   InsertTailList(&DeviceExt->FcbListHead, &ParentFcb->FcbListEntry);
+   KeReleaseSpinLock(&DeviceExt->FcbListLock, oldIrql);
+   
+   vfat_wcsncpy(ParentFcb->PathName,FileName,MAX_PATH);
+   ParentFcb->ObjectName=ParentFcb->PathName+(current-FileName);
+   ParentFcb->pDevExt=DeviceExt;
+   DPRINT("file open, fcb=%x\n",ParentFcb);
+   DPRINT("FileSize %d\n",ParentFcb->entry.FileSize);
+   if(Fcb) ExFreePool(Fcb);
+   if(AbsFileName)ExFreePool(AbsFileName);
+   CHECKPOINT;
+   return(STATUS_SUCCESS);
+ }
+ 
+NTSTATUS FsdClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+/*
+ * FUNCTION: Close a file
+ */
 {
-  ULONG Cluster, NextCluster;
-  NTSTATUS Status;
-  
-  if (Fcb->Flags & FCB_IS_FATX_ENTRY)
-  {
-    Fcb->entry.FatX.FileSize = 0;
-    Cluster = Fcb->entry.FatX.FirstCluster;
-    Fcb->entry.FatX.FirstCluster = 0;
-  }
-  else
-  {
-    Fcb->entry.Fat.FileSize = 0;
-    if (DeviceExt->FatInfo.FatType == FAT32)
-      {
-        Cluster = Fcb->entry.Fat.FirstCluster + Fcb->entry.Fat.FirstClusterHigh * 65536;
-      }
-    else
-      {
-        Cluster = Fcb->entry.Fat.FirstCluster;
-      }
-    Fcb->entry.Fat.FirstCluster = 0;
-    Fcb->entry.Fat.FirstClusterHigh = 0;
-  }
-  Fcb->LastOffset = Fcb->LastCluster = 0;
-  VfatUpdateEntry (Fcb);
-  if (Fcb->RFCB.FileSize.QuadPart > 0)
-    {
-      Fcb->RFCB.AllocationSize.QuadPart = 0;
-      Fcb->RFCB.FileSize.QuadPart = 0;
-      Fcb->RFCB.ValidDataLength.QuadPart = 0;
-      /* Notify cache manager about the change in file size if caching is
-         initialized on the file stream */
-      if (FileObject->SectionObjectPointer->SharedCacheMap != NULL)
-        {
-          CcSetFileSizes(FileObject, (PCC_FILE_SIZES)&Fcb->RFCB.AllocationSize);
-        }
-    }
-  while (Cluster != 0xffffffff && Cluster > 1)
-    {
-      Status = GetNextCluster (DeviceExt, Cluster, &NextCluster);
-      WriteCluster (DeviceExt, Cluster, 0);
-      Cluster = NextCluster;
-    }
+   PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
+   PFILE_OBJECT FileObject = Stack->FileObject;
+   PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
+   NTSTATUS Status;
+
+   DPRINT("FsdClose(DeviceObject %x, Irp %x)\n",DeviceObject, Irp);
+   
+   Status = FsdCloseFile(DeviceExtension,FileObject);
+
+   Irp->IoStatus.Status = Status;
+   Irp->IoStatus.Information = 0;
+   
+   IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   return(Status);
 }
 
-NTSTATUS
-VfatCreateFile (PDEVICE_OBJECT DeviceObject, PIRP Irp)
+
+NTSTATUS FsdCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 /*
  * FUNCTION: Create or open a file
  */
 {
-  PIO_STACK_LOCATION Stack;
-  PFILE_OBJECT FileObject;
-  NTSTATUS Status = STATUS_SUCCESS;
-  PDEVICE_EXTENSION DeviceExt;
-  ULONG RequestedDisposition, RequestedOptions;
-  PVFATCCB pCcb;
-  PVFATFCB pFcb;
-  PWCHAR c, last;
-  BOOLEAN PagingFileCreate = FALSE;
-  LARGE_INTEGER AllocationSize;
-  BOOLEAN Dots;
-  UNICODE_STRING NameU;
-  WCHAR NameW[MAX_PATH];
-  
-  /* Unpack the various parameters. */
-  Stack = IoGetCurrentIrpStackLocation (Irp);
-  RequestedDisposition = ((Stack->Parameters.Create.Options >> 24) & 0xff);
-  RequestedOptions =
-    Stack->Parameters.Create.Options & FILE_VALID_OPTION_FLAGS;
-  PagingFileCreate = (Stack->Flags & SL_OPEN_PAGING_FILE) ? TRUE : FALSE;
-  FileObject = Stack->FileObject;
-  DeviceExt = DeviceObject->DeviceExtension;
+   PIO_STACK_LOCATION Stack;
+   PFILE_OBJECT FileObject;
+   NTSTATUS Status=STATUS_SUCCESS;
+   PDEVICE_EXTENSION DeviceExt;
+   ULONG RequestedDisposition,RequestedOptions;
+   PVFATCCB pCcb;
+   PVFATFCB pFcb;
 
-  /* Check their validity. */
-  if (RequestedOptions & FILE_DIRECTORY_FILE &&
-      RequestedDisposition == FILE_SUPERSEDE)
-    {
-      return(STATUS_INVALID_PARAMETER);
-    }
-
-  /* This a open operation for the volume itself */
-  if (FileObject->FileName.Length == 0 && 
-      FileObject->RelatedFileObject == NULL)
-    {      
-      if (RequestedDisposition == FILE_CREATE ||
-	  RequestedDisposition == FILE_OVERWRITE_IF ||
-	  RequestedDisposition == FILE_SUPERSEDE)
-	{
-	  return(STATUS_ACCESS_DENIED);
-	}
-      if (RequestedOptions & FILE_DIRECTORY_FILE)
-	{
-	  return(STATUS_NOT_A_DIRECTORY);
-	}
-      pFcb = DeviceExt->VolumeFcb;
-      pCcb = ExAllocateFromNPagedLookasideList(&VfatGlobalData->CcbLookasideList);
-      if (pCcb == NULL)
-	{
-	  return (STATUS_INSUFFICIENT_RESOURCES);
-	}
-      RtlZeroMemory(pCcb, sizeof(VFATCCB));
-      FileObject->Flags |= FO_FCB_IS_VALID;
-      FileObject->SectionObjectPointer = &pFcb->SectionObjectPointers;
-      FileObject->FsContext = pFcb;
-      FileObject->FsContext2 = pCcb;
-      pFcb->RefCount++;
-
-      Irp->IoStatus.Information = FILE_OPENED;
-      return(STATUS_SUCCESS);
-    }
-
-  /*
-   * Check for illegal characters and illegale dot sequences in the file name
-   */
-  c = FileObject->FileName.Buffer + FileObject->FileName.Length / sizeof(WCHAR);
-  last = c - 1;
-  Dots = TRUE;
-  while (c-- > FileObject->FileName.Buffer)
-    {
-      if (*c == L'\\' || c == FileObject->FileName.Buffer)
-        {
-	  if (Dots && last > c)
-	    {
-              return(STATUS_OBJECT_NAME_INVALID);
-	    }
-	  last = c - 1;
-	  Dots = TRUE;
-	}
-      else if (*c != L'.')
-        {
-	  Dots = FALSE;
-	}
-
-      if (*c != '\\' && vfatIsLongIllegal(*c)) 
-        {
-          return(STATUS_OBJECT_NAME_INVALID);
-	}
-    }
-
-  NameU.Buffer = NameW;
-  NameU.Length = 0;
-  NameU.MaximumLength = sizeof(NameW);
-
-  /* Try opening the file. */
-  Status = VfatOpenFile (DeviceExt, FileObject, &NameU);
-
-  /*
-   * If the directory containing the file to open doesn't exist then
-   * fail immediately
-   */
-  if (Status == STATUS_OBJECT_PATH_NOT_FOUND ||
-      Status == STATUS_INVALID_PARAMETER ||
-      Status == STATUS_DELETE_PENDING)
-    {
+   assert(DeviceObject);
+   assert(Irp);
+   
+   if (DeviceObject->Size==sizeof(DEVICE_OBJECT))
+   {
+      /* DeviceObject represent FileSystem instead of  logical volume */
+      DbgPrint("FsdCreate called with file system\n");
+      Irp->IoStatus.Status=Status;
+      Irp->IoStatus.Information=FILE_OPENED;
+      IoCompleteRequest(Irp,IO_NO_INCREMENT);
       return(Status);
-    }
-
-  /*
-   * If the file open failed then create the required file
-   */
-  if (!NT_SUCCESS (Status))
-    {
-      if (RequestedDisposition == FILE_CREATE ||
-	  RequestedDisposition == FILE_OPEN_IF ||
-	  RequestedDisposition == FILE_OVERWRITE_IF ||
-	  RequestedDisposition == FILE_SUPERSEDE)
-	{
-	  ULONG Attributes;
-	  Attributes = Stack->Parameters.Create.FileAttributes;
-	  Status = VfatAddEntry (DeviceExt, &NameU, FileObject, RequestedOptions, 
-				 (UCHAR)(Attributes & FILE_ATTRIBUTE_VALID_FLAGS));
-	  if (NT_SUCCESS (Status))
-	    {
-	      pFcb = FileObject->FsContext;
-        
-	      Irp->IoStatus.Information = FILE_CREATED;
-        
-	      VfatSetAllocationSizeInformation(FileObject, 
-					       pFcb,
-					       DeviceExt,
-					       &Irp->Overlay.AllocationSize);
-	      VfatSetExtendedAttributes(FileObject, 
-					Irp->AssociatedIrp.SystemBuffer,
-					Stack->Parameters.Create.EaLength);
-
-	      if (PagingFileCreate)
-                {
-                  pFcb->Flags |= FCB_IS_PAGE_FILE;
-                }
-	    }
-	  else
-	    {
-	      return(Status);
-	    }
-	}
-      else
-	{
-	  return(Status);
-	}
-    }
-  else
-    {
-      /* Otherwise fail if the caller wanted to create a new file  */
-      if (RequestedDisposition == FILE_CREATE)
-	{
-	  Irp->IoStatus.Information = FILE_EXISTS;
-	  VfatCloseFile (DeviceExt, FileObject);
-	  return(STATUS_OBJECT_NAME_COLLISION);
-	}
-
-      pFcb = FileObject->FsContext;
-
-      if (pFcb->OpenHandleCount != 0)
-        {
-          Status = IoCheckShareAccess(Stack->Parameters.Create.SecurityContext->DesiredAccess,
-                                      Stack->Parameters.Create.ShareAccess,
-                                      FileObject,
-                                      &pFcb->FCBShareAccess,
-                                      FALSE);
-          if (!NT_SUCCESS(Status)) 
-            {
-              VfatCloseFile (DeviceExt, FileObject);
-              return(Status);
-            }
-        }
-
-      /*
-       * Check the file has the requested attributes
-       */
-      if (RequestedOptions & FILE_NON_DIRECTORY_FILE && 
-	  *pFcb->Attributes & FILE_ATTRIBUTE_DIRECTORY)
-	{
-	  VfatCloseFile (DeviceExt, FileObject);
-	  return(STATUS_FILE_IS_A_DIRECTORY);
-	}
-      if (RequestedOptions & FILE_DIRECTORY_FILE && 
-	  !(*pFcb->Attributes & FILE_ATTRIBUTE_DIRECTORY))
-	{
-	  VfatCloseFile (DeviceExt, FileObject);
-	  return(STATUS_NOT_A_DIRECTORY);
-	}
-
-      if (PagingFileCreate)
-        {
-	  /* FIXME:
-	   *   Do more checking for page files. It is possible, 
-	   *   that the file was opened and closed previously 
-	   *   as a normal cached file. In this case, the cache 
-	   *   manager has referenced the fileobject and the fcb 
-	   *   is held in memory. Try to remove the fileobject 
-	   *   from cache manager and use the fcb.
-	   */
-          if (pFcb->RefCount > 1)
-	    {
-	      if(!(pFcb->Flags & FCB_IS_PAGE_FILE))
-	        {
-	          VfatCloseFile(DeviceExt, FileObject);
-	          return(STATUS_INVALID_PARAMETER);
-		}
-	    }
-	  else
-	    {
-	      pFcb->Flags |= FCB_IS_PAGE_FILE;
-	    }
-	}
-      else
-        {
-	  if (pFcb->Flags & FCB_IS_PAGE_FILE)
-	    {
-	      VfatCloseFile(DeviceExt, FileObject);
-	      return(STATUS_INVALID_PARAMETER);
-	    }
-	}
-        
-
-      if (RequestedDisposition == FILE_OVERWRITE ||
-          RequestedDisposition == FILE_OVERWRITE_IF)
-	{
-	  AllocationSize.QuadPart = 0;
-	  Status = VfatSetAllocationSizeInformation (FileObject,
-	                                             pFcb,
-	                                             DeviceExt,
-	                                             &AllocationSize);
-	  if (!NT_SUCCESS (Status))
-	    {
-	      VfatCloseFile (DeviceExt, FileObject);
-	      return(Status);
-	    }
-	}
-	
-      
-      /* Supersede the file */
-      if (RequestedDisposition == FILE_SUPERSEDE)
-	{
-	  VfatSupersedeFile(DeviceExt, FileObject, pFcb);
-	  Irp->IoStatus.Information = FILE_SUPERSEDED;
-	}
-      else if (RequestedDisposition == FILE_OVERWRITE || RequestedDisposition == FILE_OVERWRITE_IF)
-        {
-          Irp->IoStatus.Information = FILE_OVERWRITTEN;
-        }
-      else
-        {
-	  Irp->IoStatus.Information = FILE_OPENED;
-	}
-    }
-
-  if (pFcb->OpenHandleCount == 0)
-  {
-      IoSetShareAccess(Stack->Parameters.Create.SecurityContext->DesiredAccess,
-                   Stack->Parameters.Create.ShareAccess,
-                   FileObject,
-                   &pFcb->FCBShareAccess);
+   }
+   
+   Stack = IoGetCurrentIrpStackLocation(Irp);
+   assert(Stack);
+   RequestedDisposition = ((Stack->Parameters.Create.Options>>24)&0xff);
+   RequestedOptions=Stack->Parameters.Create.Options&FILE_VALID_OPTION_FLAGS;
+   FileObject = Stack->FileObject;
+   DeviceExt = DeviceObject->DeviceExtension;
+   assert(DeviceExt);
+   ExAcquireResourceExclusiveLite(&DeviceExt->DirResource, TRUE);
+   Status = FsdOpenFile(DeviceExt,FileObject,FileObject->FileName.Buffer);
+   CHECKPOINT;
+   Irp->IoStatus.Information = 0;
+   if(!NT_SUCCESS(Status))
+     {
+      if(RequestedDisposition==FILE_CREATE
+         ||RequestedDisposition==FILE_OPEN_IF
+         ||RequestedDisposition==FILE_OVERWRITE_IF)
+      {
+CHECKPOINT;
+         Status=addEntry(DeviceExt,FileObject,RequestedOptions
+             ,(Stack->Parameters.Create.FileAttributes & FILE_ATTRIBUTE_VALID_FLAGS));
+         if(NT_SUCCESS(Status))
+           Irp->IoStatus.Information = FILE_CREATED;
+         // FIXME set size if AllocationSize requested
+         // FIXME set extended attributes ?
+         // FIXME set share access
+         // IoSetShareAccess(DesiredAccess,ShareAccess,FileObject
+         //   ,((PVfatCCB)(FileObject->FsContext2))->pFcb->FCBShareAccess);
+      }
    }
    else
    {
-      IoUpdateShareAccess(
-          FileObject,
-          &pFcb->FCBShareAccess
-         );
-      
+     if(RequestedDisposition==FILE_CREATE)
+     {
+       Irp->IoStatus.Information = FILE_EXISTS;
+       Status=STATUS_OBJECT_NAME_COLLISION;
+     }
+     pCcb=FileObject->FsContext2;
+     pFcb=pCcb->pFcb;
+     if( (RequestedOptions&FILE_NON_DIRECTORY_FILE)
+         && (pFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY))
+     {
+       Status=STATUS_FILE_IS_A_DIRECTORY;
+     }
+     if( (RequestedOptions&FILE_DIRECTORY_FILE)
+         && !(pFcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY))
+     {
+       Status=STATUS_NOT_A_DIRECTORY;
+     }
+     // FIXME : test share access
+     // FIXME : test write access if requested
+     if(!NT_SUCCESS(Status))
+       FsdCloseFile(DeviceExt,FileObject);
+     else Irp->IoStatus.Information = FILE_OPENED;
+     // FIXME : make supersed or overwrite if requested
    }
-
-  pFcb->OpenHandleCount++;
-  
-  /* FIXME : test write access if requested */
-
-  return(Status);
+CHECKPOINT;   
+   
+   Irp->IoStatus.Status = Status;   
+   IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   ExReleaseResourceLite(&DeviceExt->DirResource);
+   
+   return Status;
 }
 
 
-NTSTATUS VfatCreate (PVFAT_IRP_CONTEXT IrpContext)
-/*
- * FUNCTION: Create or open a file
- */
-{
-  NTSTATUS Status;
-
-  ASSERT(IrpContext);
-
-  if (IrpContext->DeviceObject == VfatGlobalData->DeviceObject)
-    {
-      /* DeviceObject represents FileSystem instead of logical volume */
-      DPRINT ("FsdCreate called with file system\n");
-      IrpContext->Irp->IoStatus.Information = FILE_OPENED;
-      IrpContext->Irp->IoStatus.Status = STATUS_SUCCESS;
-      IoCompleteRequest (IrpContext->Irp, IO_DISK_INCREMENT);
-      VfatFreeIrpContext(IrpContext);
-      return(STATUS_SUCCESS);
-    }
-
-  if (!(IrpContext->Flags & IRPCONTEXT_CANWAIT))
-    {
-      return(VfatQueueRequest (IrpContext));
-    }
-
-  IrpContext->Irp->IoStatus.Information = 0;
-  ExAcquireResourceExclusiveLite (&IrpContext->DeviceExt->DirResource, TRUE);
-  Status = VfatCreateFile (IrpContext->DeviceObject, IrpContext->Irp);
-  ExReleaseResourceLite (&IrpContext->DeviceExt->DirResource);
-
-  IrpContext->Irp->IoStatus.Status = Status;
-  IoCompleteRequest (IrpContext->Irp, 
-		     (CCHAR)(NT_SUCCESS(Status) ? IO_DISK_INCREMENT : IO_NO_INCREMENT));
-  VfatFreeIrpContext(IrpContext);
-  return(Status);
-}
-
-/* EOF */
