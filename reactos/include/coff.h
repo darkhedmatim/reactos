@@ -6,11 +6,11 @@
 extern "C" {
 #endif
 
-/*
- * #ifndef __dj_ENFORCE_ANSI_FREESTANDING
- * #ifndef __STRICT_ANSI__
- * #ifndef _POSIX_SOURCE
- */
+//#ifndef __dj_ENFORCE_ANSI_FREESTANDING
+
+//#ifndef __STRICT_ANSI__
+
+//#ifndef _POSIX_SOURCE
 
 /*** coff information for Intel 386/486.  */
 
@@ -122,8 +122,6 @@ struct external_scnhdr {
 #define STYP_DATA	 (0x0040)	/* section contains data only */
 #define STYP_BSS	 (0x0080)	/* section contains bss only */
 
-#include <pshpack1.h>
-
 /********************** LINE NUMBERS **********************/
 
 /* 1 line number entry for every "breakpointable" source line in a section.
@@ -133,8 +131,8 @@ struct external_scnhdr {
  */
 struct external_lineno {
 	union {
-		unsigned long l_symndx;	/* function name symbol index, iff l_lnno == 0 */
-		unsigned long l_paddr;		/* (physical) address of line number */
+		unsigned long l_symndx __attribute__((packed));	/* function name symbol index, iff l_lnno == 0 */
+		unsigned long l_paddr __attribute__((packed));		/* (physical) address of line number */
 	} l_addr;
 	unsigned short l_lnno;						/* line number */
 };
@@ -155,11 +153,11 @@ struct external_syment
   union {
     char e_name[E_SYMNMLEN];
     struct {
-      unsigned long e_zeroes;
-      unsigned long e_offset;
+      unsigned long e_zeroes __attribute__((packed));
+      unsigned long e_offset __attribute__((packed));
     } e;
   } e;
-  unsigned long e_value;
+  unsigned long e_value __attribute__((packed));
   short e_scnum;
   unsigned short e_type;
   unsigned char e_sclass;
@@ -173,18 +171,18 @@ struct external_syment
   
 union external_auxent {
 	struct {
-		unsigned long x_tagndx;		/* str, un, or enum tag indx */
+		unsigned long x_tagndx __attribute__((packed));		/* str, un, or enum tag indx */
 		union {
 			struct {
 			    unsigned short  x_lnno;				/* declaration line number */
 			    unsigned short  x_size; 				/* str/union/array size */
 			} x_lnsz;
-			unsigned long x_fsize;		/* size of function */
+			unsigned long x_fsize __attribute__((packed));		/* size of function */
 		} x_misc;
 		union {
 			struct {					/* if ISFCN, tag, or .bb */
-			    unsigned long x_lnnoptr;	/* ptr to fcn line # */
-			    unsigned long x_endndx;	/* entry ndx past block end */
+			    unsigned long x_lnnoptr __attribute__((packed));	/* ptr to fcn line # */
+			    unsigned long x_endndx __attribute__((packed));	/* entry ndx past block end */
 			} x_fcn;
 			struct {					/* if ISARY, up to 4 dimen. */
 			    unsigned short x_dimen[E_DIMNUM];
@@ -196,19 +194,19 @@ union external_auxent {
 	union {
 		char x_fname[E_FILNMLEN];
 		struct {
-			unsigned long x_zeroes;
-			unsigned long x_offset;
+			unsigned long x_zeroes __attribute__((packed));
+			unsigned long x_offset __attribute__((packed));
 		} x_n;
 	} x_file;
 
 	struct {
-		unsigned long x_scnlen;						/* section length */
+		unsigned long x_scnlen __attribute__((packed));		/* section length */
 		unsigned short x_nreloc;					/* # relocation entries */
 		unsigned short x_nlinno;					/* # line numbers */
 	} x_scn;
 
         struct {
-		unsigned long x_tvfill;						/* tv fill value */
+		unsigned long x_tvfill __attribute__((packed));		/* tv fill value */
 		unsigned short x_tvlen;						/* length of .tv */
 		unsigned short x_tvran[2];					/* tv range */
 	} x_tv;		/* info about .tv section (in auxent of symbol .tv)) */
@@ -309,12 +307,10 @@ union external_auxent {
 
 
 struct external_reloc {
-  unsigned long r_vaddr;
-  unsigned long r_symndx;
+  unsigned long r_vaddr __attribute__((packed));
+  unsigned long r_symndx __attribute__((packed));
   unsigned short r_type;
 };
-
-#include <poppack.h>
 
 
 #define RELOC struct external_reloc
@@ -329,11 +325,10 @@ struct external_reloc {
 /* For new sections we havn't heard of before */
 #define DEFAULT_SECTION_ALIGNMENT 4
 
-/*
- * #endif /* !_POSIX_SOURCE */
- * #endif /* !__STRICT_ANSI__ */
- * #endif /* !__dj_ENFORCE_ANSI_FREESTANDING */
- */
+//#endif /* !_POSIX_SOURCE */
+//#endif /* !__STRICT_ANSI__ */
+//#endif /* !__dj_ENFORCE_ANSI_FREESTANDING */
+
 #ifndef __dj_ENFORCE_FUNCTION_CALLS
 #endif /* !__dj_ENFORCE_FUNCTION_CALLS */
 

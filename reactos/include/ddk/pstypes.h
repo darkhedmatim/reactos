@@ -1,88 +1,111 @@
 #ifndef __INCLUDE_DDK_PSTYPES_H
 #define __INCLUDE_DDK_PSTYPES_H
 
-#include <ntos/ps.h>
+#include <kernel32/heap.h>
 
-#include <ntos/tss.h>
-#include <napi/teb.h>
-
-#ifndef TLS_MINIMUM_AVAILABLE
-#define TLS_MINIMUM_AVAILABLE 	(64)
-#endif
-#ifndef TLS_OUT_OF_INDEXES
-#define TLS_OUT_OF_INDEXES		0xFFFFFFFF
-#endif
-#ifndef MAX_PATH
-#define MAX_PATH 	(260)
-#endif
-
-struct _EPROCESS;
-struct _KPROCESS;
-struct _ETHREAD;
-struct _KTHREAD;
-struct _EJOB;
-
-typedef struct _EJOB *PEJOB;
-typedef struct _KTHREAD *PKTHREAD, *PRKTHREAD;
-
-typedef struct _IMAGE_INFO {
-   union {
-      ULONG Properties;
-      struct {
-         ULONG ImageAddressingMode : 8;
-         ULONG SystemModeImage : 1;
-         ULONG ImageMappedToAllPids : 1;
-         ULONG Reserved : 22;
-      };
-   };
-   PVOID ImageBase;
-   ULONG ImageSelector;
-   ULONG ImageSize;
-   ULONG ImageSectionNumber;
-} IMAGE_INFO, *PIMAGE_INFO;
-
-typedef VOID STDCALL_FUNC
-(*PKSTART_ROUTINE)(PVOID StartContext);
-
-typedef VOID STDCALL_FUNC
-(*PCREATE_PROCESS_NOTIFY_ROUTINE)(HANDLE ParentId,
-				  HANDLE ProcessId,
-				  BOOLEAN Create);
-
-typedef VOID STDCALL_FUNC
-(*PCREATE_THREAD_NOTIFY_ROUTINE)(HANDLE ProcessId,
-				 HANDLE ThreadId,
-				 BOOLEAN Create);
-
-typedef VOID STDCALL_FUNC
-(*PLOAD_IMAGE_NOTIFY_ROUTINE)(PUNICODE_STRING FullImageName,
-                              HANDLE ProcessId,
-                              PIMAGE_INFO ImageInfo);
-
-typedef NTSTATUS STDCALL_FUNC
-(*PW32_PROCESS_CALLBACK)(struct _EPROCESS *Process,
-			 BOOLEAN Create);
-
-typedef NTSTATUS STDCALL_FUNC
-(*PW32_THREAD_CALLBACK)(struct _ETHREAD *Thread,
-			BOOLEAN Create);
-
-typedef struct _STACK_INFORMATION
+typedef struct _CLIENT_ID 
 {
-  PVOID BaseAddress;
-  PVOID UpperAddress;
-} STACK_INFORMATION, *PSTACK_INFORMATION;
+    HANDLE UniqueProcess;
+    HANDLE UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
 
-typedef ULONG THREADINFOCLASS;
-typedef ULONG PROCESSINFOCLASS;
+//typedef void* HEAP;
+typedef void* HANDLE_TABLE;
+typedef void* ATOMTABLE;
 
-struct _KPROCESS;
+typedef struct _pPebInfo {
+	LPWSTR		lpCommandLine;
+	DWORD		cb;
+	HANDLE		hStdInput; //18
+    	HANDLE		hStdput;  
+    	HANDLE 		hStdError; 
+	LPWSTR		lpEnvironment;
+	DWORD		dwX;
+	DWORD		dwY;
+    	DWORD		dwXSize;  
+    	DWORD		dwYSize;  
+    	DWORD		dwXCountChars;  
+    	DWORD		dwYCountChars; 
+    	DWORD		dwFillAttribute; 
+    	DWORD		dwFlags; 
+    	DWORD		wShowWindow; 
+	LPTSTR		lpTitle;  
+	LPTSTR		lpDesktop; 
+	LPTSTR		reserved; 
+	DWORD		cbReserved2; 
+	LPTSTR		lpReserved1; 
+} PEBINFO;
 
-#define LOW_PRIORITY (0)
-#define LOW_REALTIME_PRIORITY (16)
-#define HIGH_PRIORITY (31)
-#define MAXIMUM_PRIORITY (32)
+typedef struct _NT_PEB
+{
+	
+	LONG			ImageBaseAddress; 
+	DWORD			nActiveStdHandle;
+	void			*HeapIndex;
+	DWORD			dwTlsBits[2]; // tls in use bits 
+	WORD			NumberOfProcessors;
+	WORD			NtGlobalFlag;
+	DWORD			dwCriticalSectionTime;
+	DWORD			dwHeapReserve;
+	DWORD			dwHeapCommit;
+	DWORD			dwHeapDecommitFreeBlockThreshold;
+	DWORD			dwNumberOfHeaps;
+	DWORD			dwMaxiumNumberOfHeaps;
+	PEBINFO			*pPebInfo; 
+	HEAP			*pProcessHeap; 
+	HANDLE_TABLE		htGDISharedHandleTable;
+	ATOMTABLE		LocalAtomTable;
+	CRITICAL_SECTION	*pCriticalSection; 
+	WORD			wMajorVersion; 
+	WORD			wMinorVersion; 
+	WORD			wBuildNumber;  
+	WORD			wPlatformId;	
+} NT_PEB;
 
-#define IMAGE_ADDRESSING_MODE_32BIT (3)
+typedef NT_PEB *PPEB;	
+
+
+
+typedef struct _NT_TIB {
+    struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList;
+    PVOID StackBase;
+    PVOID StackLimit;
+    PVOID SubSystemTib;
+    union {
+        PVOID FiberData;
+        ULONG Version;
+    } s;
+    PVOID ArbitraryUserPointer;
+    struct _NT_TIB *Self;
+} NT_TIB, *PNT_TIB;
+
+typedef struct _NT_TEB
+{
+
+	NT_TIB			Tib; 
+	DWORD			dwProcessId;
+	DWORD			dwThreadId;	
+	HANDLE			hRPC;
+	NT_PEB			*pPeb;   
+	DWORD			dwErrCode; 
+	WORD			nMutexCount;
+	LCID  			Locale;
+	//HQUEUE		MessageQueue
+	DWORD	 		dwTlsIndex ;
+	LPVOID	 		TlsData[512];
+	
+	
+} NT_TEB;
+
+
+typedef NT_TEB *PINITIAL_TEB;
+
+typedef struct _EPROCESS
+{
+} EPROCESS, *PEPROCESS;
+
+typedef struct _ETHREAD
+{
+} ETHREAD, *PETHREAD;
 
 #endif /* __INCLUDE_DDK_PSTYPES_H */

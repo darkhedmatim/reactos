@@ -1,9 +1,8 @@
-/* $Id: local.c,v 1.11 2004/06/13 20:04:55 navaraf Exp $
- *
+/*
  * COPYRIGHT:   See COPYING in the top level directory
  *              Copyright (C) 1996, Onno Hovers, All rights reserved
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/kernel32/mem/local.c
+ * FILE:        lib/kernel32/mem/local.cc
  * PURPOSE:     Manages the local heap
  * PROGRAMER:   Onno Hovers (original wfc version)
  *              David Welch (adapted for ReactOS)
@@ -21,114 +20,104 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
+#include <windows.h>
+#include <kernel32/heap.h>
 
 /* FUNCTIONS ***************************************************************/
 
-
-/*
- * @implemented
- */
-HLOCAL STDCALL
-LocalAlloc(UINT uFlags,
-	   SIZE_T uBytes)
+/*********************************************************************
+*                    LocalFlags  --  KERNEL32                        *
+*********************************************************************/
+UINT WINAPI LocalFlags(HLOCAL hmem)
 {
-   return (HLOCAL)GlobalAlloc(uFlags, uBytes);
+   DWORD		retval;
+   PGLOBAL_HANDLE	phandle;
+   
+   if(((ULONG)hmem%8)==0)
+   {
+      retval=0;
+   }
+   else
+   {
+      HeapLock(__ProcessHeap);
+      phandle=(PGLOBAL_HANDLE)(((LPVOID) hmem)-4);
+      if(phandle->Magic==MAGIC_GLOBAL_USED)
+      {               
+         retval=phandle->LockCount + (phandle->Flags<<8);
+         if(phandle->Pointer==0)
+            retval|= LMEM_DISCARDED;
+      }
+      else
+      {
+         dprintf("GlobalSize: invalid handle\n");
+         retval=0;
+      }
+      HeapUnlock(__ProcessHeap);
+   }
+   return retval;
 }
 
 
-/*
- * @implemented
- */
-SIZE_T STDCALL
-LocalCompact(UINT uMinFree)
+/*********************************************************************
+*                    LocalAlloc  --  KERNEL32                        *
+*********************************************************************/
+HLOCAL WINAPI LocalAlloc(UINT flags, UINT size)
 {
-   return RtlCompactHeap(hProcessHeap, 0);
+   return (HLOCAL) GlobalAlloc( flags, size );
 }
 
-
-/*
- * @implemented
- */
-UINT STDCALL
-LocalFlags(HLOCAL hMem)
+/*********************************************************************
+*                    LocalLock  --  KERNEL32                         *
+*********************************************************************/
+LPVOID WINAPI LocalLock(HLOCAL hmem)
 {
-   return GlobalFlags((HGLOBAL)hMem);
+   return GlobalLock( (HGLOBAL) hmem );
 }
 
-
-/*
- * @implemented
- */
-HLOCAL STDCALL
-LocalFree(HLOCAL hMem)
+/*********************************************************************
+*                    LocalUnlock  --  KERNEL32                       *
+*********************************************************************/
+BOOL WINAPI LocalUnlock(HLOCAL hmem)
 {
-   return (HLOCAL)GlobalFree((HGLOBAL)hMem);
+   return GlobalUnlock( (HGLOBAL) hmem);
 }
 
-
-/*
- * @implemented
- */
-HLOCAL STDCALL
-LocalHandle(LPCVOID pMem)
+/*********************************************************************
+*                    LocalHandle  --  KERNEL32                       *
+*********************************************************************/
+HLOCAL WINAPI LocalHandle(LPCVOID pmem)
 {
-   return (HLOCAL)GlobalHandle(pMem);
+   return (HLOCAL) GlobalHandle(pmem);
 }
 
-
-/*
- * @implemented
- */
-LPVOID STDCALL
-LocalLock(HLOCAL hMem)
+/*********************************************************************
+*                    LocalReAlloc  --  KERNEL32                      *
+*********************************************************************/
+HLOCAL WINAPI LocalReAlloc(HLOCAL hmem, UINT size, UINT flags)
 {
-   return GlobalLock((HGLOBAL)hMem);
+   return (HLOCAL) GlobalReAlloc( (HGLOBAL) hmem, size, flags);
 }
 
-
-/*
- * @implemented
- */
-HLOCAL STDCALL
-LocalReAlloc(HLOCAL hMem,
-	     SIZE_T uBytes,
-	     UINT uFlags)
+/*********************************************************************
+*                    LocalFree  --  KERNEL32                         *
+*********************************************************************/
+HLOCAL WINAPI LocalFree(HLOCAL hmem)
 {
-   return (HLOCAL)GlobalReAlloc((HGLOBAL)hMem, uBytes, uFlags);
+   return (HLOCAL) GlobalFree( (HGLOBAL) hmem );
 }
 
-
-/*
- * @implemented
- */
-SIZE_T STDCALL
-LocalShrink(HLOCAL hMem, UINT cbNewSize)
+/*********************************************************************
+*                    LocalSize  --  KERNEL32                         *
+*********************************************************************/
+UINT WINAPI LocalSize(HLOCAL hmem)
 {
-   return RtlCompactHeap(hProcessHeap, 0);
+   return GlobalSize( (HGLOBAL) hmem );
 }
 
-
-/*
- * @implemented
- */
-UINT STDCALL
-LocalSize(HLOCAL hMem)
+/*********************************************************************
+*                    LocalShrink  --  KERNEL32                       *
+*********************************************************************/
+UINT WINAPI LocalShrink(HLOCAL hmem, UINT newsize)
 {
-   return GlobalSize((HGLOBAL)hMem);
+   return (__ProcessHeap->End - (LPVOID) __ProcessHeap);
 }
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-LocalUnlock(HLOCAL hMem)
-{
-   return GlobalUnlock((HGLOBAL)hMem);
-}
-
-/* EOF */

@@ -1,617 +1,527 @@
-/* $Id: atom.c,v 1.21 2004/11/28 21:16:15 gdalsnes Exp $
- *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * FILE:            lib/kernel32/misc/atom.c
- * PURPOSE:         Atom functions
- * PROGRAMMER:      Eric Kohl ( ariadne@xs4all.nl)
- * UPDATE HISTORY:
- *                  Created 01/11/98
- *                  Full rewrite 27/05/2001
- */
-
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
 
 
-/* GLOBALS *******************************************************************/
+#include <Atom.h>
+#include <process.h>
+#include <thread.h>
+#include <wstring.h>
 
-static PRTL_ATOM_TABLE LocalAtomTable = NULL;
-
-static PRTL_ATOM_TABLE GetLocalAtomTable(VOID);
-
-
-/* FUNCTIONS *****************************************************************/
 
 /*
- * @implemented
- */
-ATOM STDCALL
-GlobalAddAtomA(LPCSTR lpString)
+	title:	atom.c
+	author: Boudewijn Dekker
+	hsitory:copied from twin wine source
+	modified:	-- add wide char support
+			-- removed ex functions
+			-- use a per process local atom table
+	todo :	
+		check initatomtable
+		check if not calling down to ntdll conflicts with anything
+		check anis2unicode procedure 
+*/
+
+
+/* system global and local atom tables */
+
+static ATOMTABLE GlobalAtomTable;
+
+/* internal functions */
+ATOM GLDeleteAtom(ATOMTABLE *at, ATOM nAtom);
+ATOM AWGLAddAtom( ATOMTABLE *at, const wchar_t *lpString);
+ATOM AWGLFindAtom(ATOMTABLE *at, const wchar_t *lpString);
+UINT AWGLGetAtomName(ATOMTABLE *at,ATOM atom, wchar_t *lpString, int nSize);
+
+static ATOMENTRY *GetAtomPointer(ATOMTABLE *,int);
+static ATOMID    AtomHashString(const wchar_t *,int *);
+
+#define ATOMBASE	 0xcc00
+
+
+
+ATOM
+STDCALL
+GlobalDeleteAtom(
+    ATOM nAtom
+    )
 {
-   UNICODE_STRING AtomName;
-   NTSTATUS Status;
-   ATOM Atom;
-
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
-   RtlCreateUnicodeStringFromAsciiz(&AtomName,
-				    (LPSTR)lpString);
-
-   Status = NtAddAtom(AtomName.Buffer,
-                      AtomName.Length,
-		      &Atom);
-   RtlFreeUnicodeString(&AtomName);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
+	return GLDeleteAtom(&GlobalAtomTable, nAtom);
 }
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-GlobalAddAtomW(LPCWSTR lpString)
+BOOL
+STDCALL
+InitAtomTable(
+    DWORD nSize
+    )
 {
-   ATOM Atom;
-   NTSTATUS Status;
-
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
-   Status = NtAddAtom((LPWSTR)lpString,
-                      wcslen(lpString),
-		      &Atom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
+// nSize should be a prime number
+	
+	if ( nSize < 4 || nSize >= 512 ) {
+		nSize = 37;
+	}
+	/*
+	if ( GetTeb()->pPeb->LocalAtomTable == NULL ) {
+		GetTeb()->pPeb->LocalAtomTable = (ATOMTABLE *)malloc(nSize*sizeof(ATOMTABLE));
+	}
+	
+	GetTeb()->pPeb->LocalAtomTable->TableSize = nSize;
+	*/
+	return TRUE;
 }
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-GlobalDeleteAtom(ATOM nAtom)
+ATOM
+STDCALL
+DeleteAtom(
+    ATOM nAtom
+    )
 {
-   NTSTATUS Status;
-   
-   if (nAtom < 0xC000)
-     {
-	return 0;
-     }
-   
-   Status = NtDeleteAtom(nAtom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
+	return GLDeleteAtom(&GetTeb()->pPeb->LocalAtomTable, nAtom);
+	
+}
+
+
+
+
+ATOM
+STDCALL
+GlobalAddAtomA(
+    const char *lpString
+    )
+{
+
+	UINT	 BufLen = strlen(lpString);
+	wchar_t *lpBuffer = (wchar_t *)malloc(BufLen*sizeof(wchar_t));
+	ATOM atom;
+	ansi2unicode(lpBuffer, lpString,BufLen);
+	atom = AWGLAddAtom(&GlobalAtomTable,lpBuffer );
+	free(lpBuffer);
+	return atom;
+}
+
+
+
+
+
+ATOM
+STDCALL
+GlobalAddAtomW(
+    const wchar_t *lpString
+    )
+{
+	return AWGLAddAtom(&GlobalAtomTable, lpString);	
+}
+
+
+ATOM
+STDCALL
+GlobalFindAtomA(
+    const char *lpString
+    )
+{
+	ATOM 	a;
+	UINT	BufLen = strlen(lpString);
+	wchar_t *lpBuffer = (wchar_t *)malloc(BufLen*sizeof(wchar_t));
+	ansi2unicode(lpBuffer, lpString,BufLen);
+	a = AWGLFindAtom(&GlobalAtomTable, lpBuffer);
+	free(lpBuffer);
+	return a;
+}
+
+
+ATOM
+STDCALL
+GlobalFindAtomW(
+    const wchar_t *lpString
+    )
+{
+	return AWGLFindAtom(&GlobalAtomTable, lpString);	
+}
+
+
+
+UINT
+STDCALL
+GlobalGetAtomNameA(
+    ATOM nAtom,
+    char *lpBuffer,
+    int nSize
+    )
+{
+	
+	wchar_t *lpUnicode = (wchar_t *)malloc(nSize *sizeof(wchar_t));
+	UINT x = AWGLGetAtomName(&GlobalAtomTable,nAtom, lpUnicode,nSize);	
+	unicode2ansi(lpBuffer,lpUnicode,nSize);
+	free(lpUnicode);
+	return x;
+}
+
+
+UINT
+STDCALL
+GlobalGetAtomNameW(
+    ATOM nAtom,
+    wchar_t * lpBuffer,
+    int nSize
+    )
+{
+	return AWGLGetAtomName(&GlobalAtomTable, nAtom, lpBuffer, nSize);	
+}
+
+
+ATOM
+STDCALL
+AddAtomA(
+    const char *lpString
+    )
+{
+	UINT	BufLen = strlen(lpString);
+	wchar_t *lpBuffer = (wchar_t*)malloc(BufLen*2);
+	ATOM a;
+	ansi2unicode(lpBuffer, lpString,BufLen);
+	a = AWGLAddAtom(&GetTeb()->pPeb->LocalAtomTable, lpBuffer);
+	free(lpBuffer);
+	return a;
+	
+}
+
+
+ATOM
+STDCALL
+AddAtomW(
+    const wchar_t * lpString
+    )
+{
+	return AWGLAddAtom(&GetTeb()->pPeb->LocalAtomTable, lpString);
+}
+
+
+
+
+ATOM
+STDCALL
+FindAtomA(
+    const char *lpString
+    )
+{
+	UINT	BufLen = strlen(lpString);
+	wchar_t *lpBuffer = (wchar_t *)malloc(BufLen*2);
+	ATOM a;
+	ansi2unicode(lpBuffer, lpString,BufLen);
+	a = AWGLFindAtom(&GetTeb()->pPeb->LocalAtomTable, lpBuffer);
+	free(lpBuffer);
+	return a;
+}
+
+
+ATOM
+STDCALL
+FindAtomW(
+    const wchar_t * lpString
+    )
+{
+	return AWGLFindAtom(&GetTeb()->pPeb->LocalAtomTable, lpString);
+}
+
+
+
+UINT
+STDCALL
+GetAtomNameA(
+    ATOM nAtom,
+    char  *lpBuffer,
+    int nSize
+    )
+{
+	LPWSTR lpUnicode = (wchar_t *)malloc(nSize *2);
+	UINT x = AWGLGetAtomName(&GlobalAtomTable, nAtom,lpUnicode,nSize);	
+	unicode2ansi(lpBuffer,lpUnicode,nSize);
+	free(lpUnicode);
+	return x;
+}
+
+
+UINT
+STDCALL
+GetAtomNameW(
+    ATOM nAtom,
+    wchar_t * lpBuffer,
+    int nSize
+    )
+{
+	return AWGLGetAtomName(&GetTeb()->pPeb->LocalAtomTable,nAtom,lpBuffer,  nSize);
+}
+
+ATOM
+GLDeleteAtom(
+    ATOMTABLE *at, ATOM nAtom
+    )
+{
+
+	ATOMENTRY *lp;
+
+	/* a free slot has q == 0 && refcnt == 0 */
+	if((lp = GetAtomPointer(at,nAtom - ATOMBASE))) {
+		if(lp->idsize)
+			lp->refcnt--;
+
+		if(lp->refcnt == 0) {
+			free(at->AtomTable);
+			at->AtomTable = NULL;
+			free(at->AtomData);
+			at->AtomData = NULL;
+			return lp->q = 0;
+		}
+	}
 	return nAtom;
-     }
-   
-   return 0;
+
+
+
 }
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-GlobalFindAtomA(LPCSTR lpString)
+ATOM
+AWGLAddAtom(
+     ATOMTABLE *at, const wchar_t *lpString
+  	)
 {
-   UNICODE_STRING AtomName;
-   NTSTATUS Status;
-   ATOM Atom;
+	ATOM 		atom;
+	ATOMID		q;
+	LPATOMENTRY   	lp,lpfree;
+	int		index,freeindex;
+	int		atomlen;
+	int		newlen;
+	
+	
+	
+	/* if we already have it, bump refcnt */
+	if((atom = AWGLFindAtom(at, lpString ))) {
+		lp = GetAtomPointer(at,atom - ATOMBASE);
+		if(lp->idsize) lp->refcnt++;
+		return atom;
+	}
 
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
+	/* add to a free slot */
+	q = AtomHashString(lpString,&atomlen);
 
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
+	lpfree 	  = 0;
+	freeindex = 0;
 
-   RtlCreateUnicodeStringFromAsciiz(&AtomName,
-				    (LPSTR)lpString);
-   Status = NtFindAtom(AtomName.Buffer,
-                       AtomName.Length,
-		       &Atom);
-   RtlFreeUnicodeString(&AtomName);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
+	for(index = 0;(lp = GetAtomPointer(at,index));index++) {
+		if(lp->q == 0 && lp->refcnt == 0) {	
+			if(lp->idsize > atomlen) {
+				if ((lpfree == 0) ||
+					    (lpfree->idsize > lp->idsize)) {
+					lpfree = lp;
+					freeindex = index;
+				}
+			}
+		}
+	}
+	/* intatoms do not take space in data, but do get new entries */
+	/* an INTATOM will have length of 0 			      */
+	if(lpfree && atomlen) {
+		lpfree->q = q;
+		lpfree->refcnt = 1;
+		wcsncpy(&at->AtomData[lpfree->idx],lpString,atomlen);
+		return freeindex + ATOMBASE;
+	}
 
-   return Atom;
+	/* no space was available, or we have an INTATOM		*/
+	/* so expand or create the table 				*/
+	if(at->AtomTable == 0) {
+		at->AtomTable = (ATOMENTRY *) malloc(sizeof(ATOMENTRY));	
+		at->TableSize = 1;
+		lp = at->AtomTable;
+		index = 0;
+	} else {
+		at->TableSize++;
+		at->AtomTable = (ATOMENTRY *) realloc(
+			(LPVOID) at->AtomTable,
+			at->TableSize * sizeof(ATOMENTRY));
+		lp = &at->AtomTable[at->TableSize - 1];
+	}
+
+	/* set in the entry */
+	lp->refcnt = 1;
+	lp->q      = q;
+	lp->idsize = atomlen;
+	lp->idx    = 0;
+
+	/* add an entry if not intatom... */
+	if(atomlen) {
+		newlen = at->DataSize + atomlen;
+
+		if(at->AtomData == 0) {
+			at->AtomData = (wchar_t *) malloc(newlen*2);
+			lp->idx = 0;
+		} else {
+			
+			at->AtomData = (wchar_t *) realloc(at->AtomData,newlen*2);
+			lp->idx = at->DataSize;
+		}
+
+		wcscpy(&at->AtomData[lp->idx],lpString);
+		at->DataSize = newlen;
+	}	
+
+	return index + ATOMBASE;
 }
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-GlobalFindAtomW(LPCWSTR lpString)
+
+
+
+
+
+
+
+
+ATOM
+AWGLFindAtom(
+     ATOMTABLE *at, const wchar_t *lpString
+    )
 {
-   ATOM Atom;
-   NTSTATUS Status;
 
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
+	ATOMID		q;
+	LPATOMENTRY   	lp;
+	int		index;
+	int		atomlen;
+	
 
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
+	
 
-   Status = NtFindAtom((LPWSTR)lpString,
-                       wcslen(lpString),
-		       &Atom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
+	/* convert string to 'q', and get length */
+	q = AtomHashString(lpString,&atomlen);
 
-   return Atom;
-}
-
-
-UINT STDCALL
-GlobalGetAtomNameA(ATOM nAtom,
-		   LPSTR lpBuffer,
-		   int nSize)
-{
-   PATOM_BASIC_INFORMATION Buffer;
-   UNICODE_STRING AtomNameU;
-   ANSI_STRING AtomName;
-   ULONG BufferSize;
-   ULONG ReturnLength;
-   NTSTATUS Status;
-
-   BufferSize = sizeof(ATOM_BASIC_INFORMATION) + nSize * sizeof(WCHAR);
-   Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
-			    HEAP_ZERO_MEMORY,
-			    BufferSize);
-
-   Status = NtQueryInformationAtom(nAtom,
-				   AtomBasicInformation,
-				   Buffer,
-				   BufferSize,
-				   &ReturnLength);
-   if (!NT_SUCCESS(Status))
-     {
-	RtlFreeHeap(RtlGetProcessHeap(),
-		    0,
-		    Buffer);
+	/* find the q value, note: this could be INTATOM */
+	/* if q matches, then do case insensitive compare*/
+	for(index = 0;(lp = GetAtomPointer(at,index));index++) {
+		if(lp->q == q) {	
+			if(HIWORD(lpString) == 0)
+				return ATOMBASE + index;
+			if(wcsicmp(&at->AtomData[lp->idx],lpString) == 0)
+				return ATOMBASE + index;
+		}
+	}
 	return 0;
-     }
-
-   RtlInitUnicodeString(&AtomNameU,
-			Buffer->Name);
-   AtomName.Buffer = lpBuffer;
-   AtomName.Length = 0;
-   AtomName.MaximumLength = nSize;
-   RtlUnicodeStringToAnsiString(&AtomName,
-				&AtomNameU,
-				FALSE);
-
-   ReturnLength = AtomName.Length;
-   RtlFreeHeap(RtlGetProcessHeap(),
-	       0,
-	       Buffer);
-
-   return ReturnLength;
 }
 
 
-/*
- * @implemented
- */
-UINT STDCALL
-GlobalGetAtomNameW(ATOM nAtom,
-		   LPWSTR lpBuffer,
-		   int nSize)
+UINT
+AWGLGetAtomName(ATOMTABLE *at, ATOM atom, wchar_t *lpString,int len)
 {
-   PATOM_BASIC_INFORMATION Buffer;
-   ULONG BufferSize;
-   ULONG ReturnLength;
-   NTSTATUS Status;
-
-   BufferSize = sizeof(ATOM_BASIC_INFORMATION) + nSize * sizeof(WCHAR);
-   Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
-			    HEAP_ZERO_MEMORY,
-			    BufferSize);
-
-   Status = NtQueryInformationAtom(nAtom,
-				   AtomBasicInformation,
-				   Buffer,
-				   BufferSize,
-				   &ReturnLength);
-   if (!NT_SUCCESS(Status))
-     {
-	RtlFreeHeap(RtlGetProcessHeap(),
-		    0,
-		    Buffer);
+	
+	ATOMENTRY	*lp;
+	wchar_t 	*atomstr;
+	int		atomlen;
+	
+	
+	
+	/* return the atom name, or create the INTATOM */
+	if((lp = GetAtomPointer(at,atom - ATOMBASE))) {
+		if(lp->idsize) {
+			atomlen = wcslen(atomstr = &at->AtomData[lp->idx]);
+			if (atomlen < len)
+			    wcscpy(lpString,atomstr);
+			else {
+			    wcsncpy(lpString,atomstr,len-1);
+			    lpString[len-1] = '\0';
+			}
+			return (UINT)wcslen(lpString);
+		} else {
+			//wsprintf((wchar *)lpString,"#%d",lp->q);
+			return (UINT)wcslen(lpString);
+		}
+	}
 	return 0;
-     }
-
-   memcpy(lpBuffer, Buffer->Name, Buffer->NameLength);
-   ReturnLength = Buffer->NameLength / sizeof(WCHAR);
-   *(lpBuffer + ReturnLength) = 0;
-   RtlFreeHeap(RtlGetProcessHeap(),
-	       0,
-	       Buffer);
-
-   return ReturnLength;
 }
 
 
-static PRTL_ATOM_TABLE
-GetLocalAtomTable(VOID)
+/********************************************************/
+/* convert alphanumeric string to a 'q' value. 		*/
+/* 'q' values do not need to be unique, they just limit */
+/* the search we need to make to find a string		*/
+/********************************************************/
+
+static ATOMID
+AtomHashString(const wchar_t * lp,int *lplen)
 {
-   if (LocalAtomTable != NULL)
-     {
-	return LocalAtomTable;
-     }
-   RtlCreateAtomTable(37,
-		      &LocalAtomTable);
-   return LocalAtomTable;
+	ATOMID 	q;
+	wchar_t   *p,ch;
+	int	len;
+
+	/* if we have an intatom... */
+	if(HIWORD(lp) == 0) {
+		if(lplen) *lplen = 0;
+		return (ATOMID)lp;
+	}
+
+	/* convert the string to an internal representation */
+	for(p=(wchar_t *)lp,q=0,len=0;(p++,ch=*p++);len++)
+		q = (q<<1) + iswlower(ch)?towupper(ch):ch;
+
+	/* 0 is reserved for empty slots */
+	if(q == 0)
+		q++;
+
+	/* avoid strlen later */
+	/* check out with unicode */
+	if(lplen) {
+		*lplen = ++len;
+	}
+	return q;
 }
 
+/********************************************************/
+/*	convert an atom index into a pointer into an 	*/
+/* 	atom table.  This validates the pointer is in   */
+/*	range, and that the data is accessible		*/
+/********************************************************/
 
-/*
- * @implemented
- */
-BOOL STDCALL
-InitAtomTable(DWORD nSize)
+static ATOMENTRY *
+GetAtomPointer(ATOMTABLE *at,int index)
 {
-   NTSTATUS Status;
-   
-   /* nSize should be a prime number */
-   
-   if ( nSize < 4 || nSize >= 512 )
-     {
-	nSize = 37;
-     }
-   
-   if (LocalAtomTable == NULL)
-    {
-	Status = RtlCreateAtomTable(nSize,
-				    &LocalAtomTable);
-	if (!NT_SUCCESS(Status))
-	  {
-	     SetLastErrorByStatus(Status);
-	     return FALSE;
-	  }
-    }
+	ATOMENTRY *lp;
+	
+	/* if no table, then no pointers */
+	if(at->AtomTable == 0)
+		return 0;
 
-  return TRUE;
+	/* bad index */
+	if((index < 0) || (index >= at->TableSize))
+		return 0;
+
+	/* we have a pointer */
+	lp = &at->AtomTable[index];
+
+
+	/* is the index past stored data, validity check		*/
+	/* LATER: is the size of the entry within the available space 	*/
+	if(lp->idx > at->DataSize)
+		return 0;
+
+	return lp;
 }
 
-
-/*
- * @implemented
- */
-ATOM STDCALL
-AddAtomA(LPCSTR lpString)
+int ansi2unicode( wchar_t *uni, char *ansi, int s)
 {
-   PRTL_ATOM_TABLE AtomTable;
-   UNICODE_STRING AtomName;
-   NTSTATUS Status;
-   ATOM Atom;
-
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   AtomTable = GetLocalAtomTable();
-
-   RtlCreateUnicodeStringFromAsciiz(&AtomName,
-				    (LPSTR)lpString);
-
-   Status = RtlAddAtomToAtomTable(AtomTable,
-				  AtomName.Buffer,
-				  &Atom);
-   RtlFreeUnicodeString(&AtomName);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
+	register int i;
+	
+	for(i=0;i<=s;i++) 
+		uni[i] = (wchar_t)ansi[i];
+	return;
 }
 
-
-/*
- * @implemented
- */
-ATOM STDCALL
-AddAtomW(LPCWSTR lpString)
+int unicode2ansi( char *ansi, wchar_t *uni, int s)
 {
-   PRTL_ATOM_TABLE AtomTable;
-   ATOM Atom;
-   NTSTATUS Status;
-
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   AtomTable = GetLocalAtomTable();
-
-   Status = RtlAddAtomToAtomTable(AtomTable,
-				  (LPWSTR)lpString,
-				  &Atom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
+	register int i;
+	
+	for(i=0;i<=s;i++) 
+		ansi[i] = (char)uni[i];
+	return;
 }
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-DeleteAtom(ATOM nAtom)
-{
-   PRTL_ATOM_TABLE AtomTable;
-   NTSTATUS Status;
-   
-   if (nAtom < 0xC000)
-     {
-	return 0;
-     }
-
-   AtomTable = GetLocalAtomTable();
-
-   Status = RtlDeleteAtomFromAtomTable(AtomTable,
-				       nAtom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return nAtom;
-     }
-   
-   return 0;
-}
 
 
-/*
- * @implemented
- */
-ATOM STDCALL
-FindAtomA(LPCSTR lpString)
-{
-   PRTL_ATOM_TABLE AtomTable;
-   UNICODE_STRING AtomName;
-   NTSTATUS Status;
-   ATOM Atom;
 
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   AtomTable = GetLocalAtomTable();
-   RtlCreateUnicodeStringFromAsciiz(&AtomName,
-				    (LPSTR)lpString);
-   Status = RtlLookupAtomInAtomTable(AtomTable,
-				     AtomName.Buffer,
-				     &Atom);
-   RtlFreeUnicodeString(&AtomName);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
-}
-
-
-/*
- * @implemented
- */
-ATOM STDCALL
-FindAtomW(LPCWSTR lpString)
-{
-   PRTL_ATOM_TABLE AtomTable;
-   ATOM Atom;
-   NTSTATUS Status;
-
-   if (HIWORD((ULONG)lpString) == 0)
-     {
-	if ((ULONG)lpString >= 0xC000)
-	  {
-	     SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-	     return (ATOM)0;
-	  }
-	return (ATOM)LOWORD((ULONG)lpString);
-     }
-
-   AtomTable = GetLocalAtomTable();
-
-   Status = RtlLookupAtomInAtomTable(AtomTable,
-				     (LPWSTR)lpString,
-				     &Atom);
-   if (!NT_SUCCESS(Status))
-     {
-	SetLastErrorByStatus(Status);
-	return (ATOM)0;
-     }
-
-   return Atom;
-}
-
-
-/*
- * @implemented
- */
-UINT STDCALL
-GetAtomNameA(ATOM nAtom,
-	     LPSTR lpBuffer,
-	     int nSize)
-{
-   PRTL_ATOM_TABLE AtomTable;
-   PWCHAR Buffer;
-   UNICODE_STRING AtomNameU;
-   ANSI_STRING AtomName;
-   ULONG NameLength;
-   NTSTATUS Status;
-
-   AtomTable = GetLocalAtomTable();
-
-   NameLength = nSize * sizeof(WCHAR);
-   Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
-			    HEAP_ZERO_MEMORY,
-			    NameLength);
-
-   Status = RtlQueryAtomInAtomTable(AtomTable,
-				    nAtom,
-				    NULL,
-				    NULL,
-				    Buffer,
-				    &NameLength);
-   if (!NT_SUCCESS(Status))
-     {
-	RtlFreeHeap(RtlGetProcessHeap(),
-		    0,
-		    Buffer);
-	return 0;
-     }
-
-   RtlInitUnicodeString(&AtomNameU,
-			Buffer);
-   AtomName.Buffer = lpBuffer;
-   AtomName.Length = 0;
-   AtomName.MaximumLength = nSize;
-   RtlUnicodeStringToAnsiString(&AtomName,
-				&AtomNameU,
-				FALSE);
-
-   NameLength = AtomName.Length;
-   RtlFreeHeap(RtlGetProcessHeap(),
-	       0,
-	       Buffer);
-
-   return NameLength;
-}
-
-
-/*
- * @implemented
- */
-UINT STDCALL
-GetAtomNameW(ATOM nAtom,
-	     LPWSTR lpBuffer,
-	     int nSize)
-{
-   PRTL_ATOM_TABLE AtomTable;
-   ULONG NameLength;
-   NTSTATUS Status;
-
-   AtomTable = GetLocalAtomTable();
-
-   NameLength = nSize * sizeof(WCHAR);
-   Status = RtlQueryAtomInAtomTable(AtomTable,
-				    nAtom,
-				    NULL,
-				    NULL,
-				    lpBuffer,
-				    &NameLength);
-   if (!NT_SUCCESS(Status))
-     {
-	return 0;
-     }
-
-   return(NameLength / sizeof(WCHAR));
-}
-
-/* EOF */
