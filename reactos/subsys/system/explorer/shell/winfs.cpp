@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
 
-//#include "winfs.h"
+#include "entries.h"
+#include "winfs.h"
 
 
 int ScanNTFSStreams(Entry* entry, HANDLE hFile)
@@ -78,6 +80,7 @@ int ScanNTFSStreams(Entry* entry, HANDLE hFile)
 				stream_entry->_expanded = false;
 				stream_entry->_scanned = false;
 				stream_entry->_level = entry->_level + 1;
+				stream_entry->_bhfi_valid = false;
 
 				*pnext = stream_entry;
 				pnext = &stream_entry->_next;
@@ -127,18 +130,18 @@ void WinDirectory::read_directory(int scan_flags)
 	Entry* entry;
 
 	LPCTSTR path = (LPCTSTR)_path;
-	TCHAR buffer[MAX_PATH], *pname;
-	for(pname=buffer; *path; )
-		*pname++ = *path++;
+	TCHAR buffer[MAX_PATH], *p;
+	for(p=buffer; *path; )
+		*p++ = *path++;
 
-	lstrcpy(pname, TEXT("\\*"));
+	lstrcpy(p, TEXT("\\*"));
 
 	WIN32_FIND_DATA w32fd;
 	HANDLE hFind = FindFirstFile(buffer, &w32fd);
 
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			lstrcpy(pname+1, w32fd.cFileName);
+			lstrcpy(p+1, w32fd.cFileName);
 
 			if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				entry = new WinDirectory(this, buffer);
@@ -152,10 +155,11 @@ void WinDirectory::read_directory(int scan_flags)
 				last->_next = entry;
 
 			memcpy(&entry->_data, &w32fd, sizeof(WIN32_FIND_DATA));
+			entry->_down = NULL;
+			entry->_expanded = false;
+			entry->_scanned = false;
 			entry->_level = level;
-
-			 // display file type names, but don't hide file extensions
-			g_Globals._ftype_mgr.set_type(entry, true);
+			entry->_bhfi_valid = false;
 
 			if (scan_flags & SCAN_DO_ACCESS) {
 				HANDLE hFile = CreateFile(buffer, GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
@@ -185,7 +189,7 @@ void WinDirectory::read_directory(int scan_flags)
 }
 
 
-const void* WinDirectory::get_next_path_component(const void* p) const
+const void* WinDirectory::get_next_path_component(const void* p)
 {
 	LPCTSTR s = (LPCTSTR) p;
 
@@ -293,16 +297,4 @@ bool WinEntry::get_path(PTSTR path) const
 	path[len] = TEXT('\0');
 
 	return true;
-}
-
-ShellPath WinEntry::create_absolute_pidl() const
-{
-	CONTEXT("WinEntry::create_absolute_pidl()");
-
-	TCHAR path[MAX_PATH];
-
-	if (get_path(path))
-		return ShellPath(path);
-
-	return ShellPath();
 }

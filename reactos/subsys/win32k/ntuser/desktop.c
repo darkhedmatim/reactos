@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: desktop.c,v 1.30 2004/12/24 17:45:58 weiden Exp $
+ *  $Id: desktop.c,v 1.8 2003/12/26 00:58:33 weiden Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -28,20 +28,28 @@
  */
 
 /* INCLUDES ******************************************************************/
-#include <w32k.h>
 
-#if 0
-/* not yet defined in w32api... */
-NTSTATUS STDCALL
-ObFindHandleForObject(IN PEPROCESS Process,
-                      IN PVOID Object,
-                      IN POBJECT_TYPE ObjectType,
-                      IN POBJECT_HANDLE_INFORMATION HandleInformation,
-                      OUT PHANDLE Handle);
-#else
-#define ObFindHandleForObject(Process, Object, ObjectType, HandleInformation, Handle) \
-  (STATUS_UNSUCCESSFUL)
-#endif
+#define __WIN32K__
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <ddk/ntddmou.h>
+#include <csrss/csrss.h>
+#include <win32k/win32k.h>
+#include <include/winsta.h>
+#include <include/desktop.h>
+#include <include/object.h>
+#include <include/window.h>
+#include <include/error.h>
+#include <include/cursoricon.h>
+#include <include/hotkey.h>
+#include <include/color.h>
+#include <include/mouse.h>
+#include <include/callback.h>
+#include <include/guicheck.h>
+#include <include/intgdi.h>
+
+#define NDEBUG
+#include <debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -49,8 +57,6 @@ ObFindHandleForObject(IN PEPROCESS Process,
 PDESKTOP_OBJECT InputDesktop = NULL;
 HDESK InputDesktopHandle = NULL; 
 HDC ScreenDeviceContext = NULL;
-
-BOOL g_PaintDesktopVersion = FALSE;
 
 /* INITALIZATION FUNCTIONS ****************************************************/
 
@@ -67,179 +73,6 @@ CleanupDesktopImpl(VOID)
 }
 
 /* PRIVATE FUNCTIONS **********************************************************/
-
-NTSTATUS FASTCALL
-IntParseDesktopPath(PEPROCESS Process,
-                    PUNICODE_STRING DesktopPath,
-                    HWINSTA *hWinSta,
-                    HDESK *hDesktop)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING WinSta, Desktop, FullName;
-  BOOL DesktopPresent = FALSE;
-  BOOL WinStaPresent = FALSE;
-  NTSTATUS Status;
-  
-  ASSERT(hWinSta);
-  
-  *hWinSta = NULL;
-  
-  if(hDesktop != NULL)
-  {
-    *hDesktop = NULL;
-  }
-  
-  RtlInitUnicodeString(&WinSta, NULL);
-  RtlInitUnicodeString(&Desktop, NULL);
-  
-  if(DesktopPath != NULL && DesktopPath->Buffer != NULL && DesktopPath->Length > sizeof(WCHAR))
-  {
-    PWCHAR c = DesktopPath->Buffer;
-    USHORT wl = 0;
-    USHORT l = DesktopPath->Length;
-
-    /*
-     * Parse the desktop path string which can be in the form "WinSta\Desktop"
-     * or just "Desktop". In latter case WinSta0 will be used.
-     */
-
-    while(l > 0)
-    {
-      if(*c == L'\\')
-      {
-        wl = (ULONG_PTR)c - (ULONG_PTR)DesktopPath->Buffer;
-        break;
-      }
-      l -= sizeof(WCHAR);
-      c++;
-    }
-    
-    if(wl > 0)
-    {
-      WinSta.Length = wl;
-      WinSta.MaximumLength = wl + sizeof(WCHAR);
-      WinSta.Buffer = DesktopPath->Buffer;
-      
-      WinStaPresent = TRUE;
-      c++;
-    }
-    
-    Desktop.Length = DesktopPath->Length - wl;
-    if(wl > 0)
-    {
-      Desktop.Length -= sizeof(WCHAR);
-    }
-    if(Desktop.Length > 0)
-    {
-      Desktop.MaximumLength = Desktop.Length + sizeof(WCHAR);
-      Desktop.Buffer = ((wl > 0) ? c : DesktopPath->Buffer);
-      DesktopPresent = TRUE;
-    }
-  }
-  
-  if(!WinStaPresent)
-  {
-    /* search the process handle table for (inherited) window station
-       handles, use a more appropriate one than WinSta0 if possible. */
-    Status = ObFindHandleForObject(Process,
-                                   NULL,
-                                   ExWindowStationObjectType,
-                                   NULL,
-                                   (PHANDLE)hWinSta);
-    if(!NT_SUCCESS(Status))
-    {
-      /* we had no luck searching for opened handles, use WinSta0 now */
-      RtlInitUnicodeString(&WinSta, L"WinSta0");
-    }
-  }
-  
-  if(!DesktopPresent && hDesktop != NULL)
-  {
-    /* search the process handle table for (inherited) desktop
-       handles, use a more appropriate one than Default if possible. */
-    Status = ObFindHandleForObject(Process,
-                                   NULL,
-                                   ExDesktopObjectType,
-                                   NULL,
-                                   (PHANDLE)hDesktop);
-    if(!NT_SUCCESS(Status))
-    {
-      /* we had no luck searching for opened handles, use Desktop now */
-      RtlInitUnicodeString(&Desktop, L"Default");
-    }
-  }
-  
-  if(*hWinSta == NULL)
-  {
-    if(!IntGetFullWindowStationName(&FullName, &WinSta, NULL))
-    {
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    /* open the window station */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &FullName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status = ObOpenObjectByName(&ObjectAttributes,
-                                ExWindowStationObjectType,
-                                NULL,
-                                UserMode,
-                                0,
-                                NULL,
-                                (HANDLE*)hWinSta);
-
-    RtlFreeUnicodeString(&FullName);
-
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastNtError(Status);
-      DPRINT("Failed to reference window station %wZ PID: %d!\n", &WinSta, PsGetCurrentProcessId());
-      return Status;
-    }
-  }
-  
-  if(hDesktop != NULL && *hDesktop == NULL)
-  {
-    if(!IntGetFullWindowStationName(&FullName, &WinSta, &Desktop))
-    {
-      NtClose(*hWinSta);
-      *hWinSta = NULL;
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-    
-    /* open the desktop object */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &FullName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-     Status = ObOpenObjectByName(&ObjectAttributes,
-                                 ExDesktopObjectType,
-                                 NULL,
-                                 UserMode,
-                                 0,
-                                 NULL,
-                                 (HANDLE*)hDesktop);
-
-    RtlFreeUnicodeString(&FullName);
-    
-    if(!NT_SUCCESS(Status))
-    {
-      *hDesktop = NULL;
-      NtClose(*hWinSta);
-      *hWinSta = NULL;
-      SetLastNtError(Status);
-      DPRINT("Failed to reference desktop %wZ PID: %d!\n", &Desktop, PsGetCurrentProcessId());
-      return Status;
-    }
-  }
-  
-  return STATUS_SUCCESS;
-}
 
 /*
  * IntValidateDesktopHandle
@@ -274,77 +107,33 @@ IntValidateDesktopHandle(
    return Status;
 }
 
-VOID FASTCALL
-IntGetDesktopWorkArea(PDESKTOP_OBJECT Desktop, PRECT Rect)
+PRECT FASTCALL
+IntGetDesktopWorkArea(PDESKTOP_OBJECT Desktop)
 {
   PRECT Ret;
-  
-  ASSERT(Desktop);
   
   Ret = &Desktop->WorkArea;
   if((Ret->right == -1) && ScreenDeviceContext)
   {
     PDC dc;
-    BITMAPOBJ *BitmapObj;
+    PSURFOBJ SurfObj;
     dc = DC_LockDc(ScreenDeviceContext);
-    /* FIXME - Handle dc == NULL!!!! */
-    BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-    if(BitmapObj)
+    SurfObj = (PSURFOBJ)AccessUserObject((ULONG) dc->Surface);
+    if(SurfObj)
     {
-      Ret->right = BitmapObj->SurfObj.sizlBitmap.cx;
-      Ret->bottom = BitmapObj->SurfObj.sizlBitmap.cy;
-      BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
+      Ret->right = SurfObj->sizlBitmap.cx;
+      Ret->bottom = SurfObj->sizlBitmap.cy;
     }
     DC_UnlockDc(ScreenDeviceContext);
   }
   
-  if(Rect)
-  {
-    *Rect = *Ret;
-  }
+  return Ret;
 }
 
 PDESKTOP_OBJECT FASTCALL
 IntGetActiveDesktop(VOID)
 {
-  return InputDesktop;
-}
-
-/*
- * returns or creates a handle to the desktop object
- */
-HDESK FASTCALL
-IntGetDesktopObjectHandle(PDESKTOP_OBJECT DesktopObject)
-{
-  NTSTATUS Status;
-  HDESK Ret;
-  
-  ASSERT(DesktopObject);
-  
-  Status = ObFindHandleForObject(PsGetCurrentProcess(),
-                                 DesktopObject,
-                                 ExDesktopObjectType,
-                                 NULL,
-                                 (PHANDLE)&Ret);
-   
-  if(!NT_SUCCESS(Status))
-  {
-    Status = ObOpenObjectByPointer(DesktopObject,
-                                   0,
-                                   NULL,
-                                   0,
-                                   ExDesktopObjectType,
-                                   UserMode,
-                                   (PHANDLE)&Ret);
-    if(!NT_SUCCESS(Status))
-    {
-     /* unable to create a handle */
-     DPRINT1("Unable to create a desktop handle\n"); 
-     return NULL;
-    }
-  }
-  
-  return Ret;
+   return InputDesktop;
 }
 
 PUSER_MESSAGE_QUEUE FASTCALL
@@ -362,29 +151,13 @@ IntGetFocusMessageQueue(VOID)
 VOID FASTCALL
 IntSetFocusMessageQueue(PUSER_MESSAGE_QUEUE NewQueue)
 {
-   PUSER_MESSAGE_QUEUE Old;
    PDESKTOP_OBJECT pdo = IntGetActiveDesktop();
    if (!pdo)
    {
       DPRINT("No active desktop\n");
       return;
    }
-   if(NewQueue != NULL)
-   {
-      if(NewQueue->Desktop != NULL)
-      {
-        DPRINT("Message Queue already attached to another desktop!\n");
-        return;
-      }
-      IntReferenceMessageQueue(NewQueue);
-      InterlockedExchange((LONG*)&NewQueue->Desktop, (LONG)pdo);
-   }
-   Old = (PUSER_MESSAGE_QUEUE)InterlockedExchange((LONG*)&pdo->ActiveMessageQueue, (LONG)NewQueue);
-   if(Old != NULL)
-   {
-      InterlockedExchange((LONG*)&Old->Desktop, 0);
-      IntDereferenceMessageQueue(Old);
-   }
+   pdo->ActiveMessageQueue = NewQueue;
 }
 
 HWND FASTCALL IntGetDesktopWindow(VOID)
@@ -398,54 +171,48 @@ HWND FASTCALL IntGetDesktopWindow(VOID)
   return pdo->DesktopWindow;
 }
 
-HWND FASTCALL IntGetCurrentThreadDesktopWindow(VOID)
-{
-  PDESKTOP_OBJECT pdo = PsGetWin32Thread()->Desktop;
-  if (NULL == pdo)
-    {
-      DPRINT1("Thread doesn't have a desktop\n");
-      return NULL;
-    }
-  return pdo->DesktopWindow;
-}
-
-BOOL FASTCALL IntDesktopUpdatePerUserSettings(BOOL bEnable)
-{
-   if (bEnable)
-   {
-      RTL_QUERY_REGISTRY_TABLE QueryTable[2];
-      NTSTATUS Status;
-
-      RtlZeroMemory(QueryTable, sizeof(QueryTable));
-
-      QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
-      QueryTable[0].Name = L"PaintDesktopVersion";
-      QueryTable[0].EntryContext = &g_PaintDesktopVersion;
-
-      /* Query the "PaintDesktopVersion" flag in the "Control Panel\Desktop" key */
-      Status = RtlQueryRegistryValues(RTL_REGISTRY_USER, 
-                                      L"Control Panel\\Desktop",
-                                      QueryTable, NULL, NULL);
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT1("RtlQueryRegistryValues failed for PaintDesktopVersion (%x)\n",
-                 Status);
-         g_PaintDesktopVersion = FALSE;
-         return FALSE;
-      }
-    
-      DPRINT("PaintDesktopVersion = %d\n", g_PaintDesktopVersion);
-
-      return TRUE;
-   }
-   else
-   {
-      g_PaintDesktopVersion = FALSE;
-      return TRUE;
-   }
-}
-
 /* PUBLIC FUNCTIONS ***********************************************************/
+
+
+static NTSTATUS FASTCALL
+NotifyCsrss(PCSRSS_API_REQUEST Request, PCSRSS_API_REPLY Reply)
+{
+  NTSTATUS Status;
+  UNICODE_STRING PortName;
+  ULONG ConnectInfoLength;
+  static HANDLE WindowsApiPort = NULL;
+
+  RtlInitUnicodeString(&PortName, L"\\Windows\\ApiPort");
+  ConnectInfoLength = 0;
+  Status = ZwConnectPort(&WindowsApiPort,
+                         &PortName,
+                         NULL,
+                         NULL,
+                         NULL,
+                         NULL,
+                         NULL,
+                         &ConnectInfoLength);
+  if (! NT_SUCCESS(Status))
+    {
+      return Status;
+    }
+
+   Request->Header.DataSize = sizeof(CSRSS_API_REQUEST) - sizeof(LPC_MESSAGE);
+   Request->Header.MessageSize = sizeof(CSRSS_API_REQUEST);
+   
+   Status = ZwRequestWaitReplyPort(WindowsApiPort,
+				   &Request->Header,
+				   &Reply->Header);
+   if (! NT_SUCCESS(Status) || ! NT_SUCCESS(Status = Reply->Status))
+     {
+       ZwClose(WindowsApiPort);
+       return Status;
+     }
+
+//  ZwClose(WindowsApiPort);
+
+  return STATUS_SUCCESS;
+}
 
 NTSTATUS FASTCALL
 IntShowDesktop(PDESKTOP_OBJECT Desktop, ULONG Width, ULONG Height)
@@ -458,7 +225,7 @@ IntShowDesktop(PDESKTOP_OBJECT Desktop, ULONG Width, ULONG Height)
   Request.Data.ShowDesktopRequest.Width = Width;
   Request.Data.ShowDesktopRequest.Height = Height;
 
-  return CsrNotify(&Request, &Reply);
+  return NotifyCsrss(&Request, &Reply);
 }
 
 NTSTATUS FASTCALL
@@ -487,6 +254,7 @@ IntHideDesktop(PDESKTOP_OBJECT Desktop)
 }
 
 /*
+<<<<<<< winsta.c
  * NtUserCreateDesktop
  *
  * Creates a new desktop.
@@ -534,19 +302,17 @@ NtUserCreateDesktop(
   HDESK Desktop;
   CSRSS_API_REQUEST Request;
   CSRSS_API_REPLY Reply;
-  
-  DPRINT("CreateDesktop: %wZ\n", lpszDesktopName);
 
   Status = IntValidateWindowStationHandle(
     hWindowStation,
     KernelMode,
-    0, /* FIXME - WINSTA_CREATEDESKTOP */
+    0,
     &WinStaObject);
 
   if (! NT_SUCCESS(Status))
     {
-      DPRINT1("Failed validation of window station handle (0x%X), cannot create desktop %wZ\n",
-        hWindowStation, lpszDesktopName);
+      DPRINT1("Failed validation of window station handle (0x%X)\n", 
+        hWindowStation);
       SetLastNtError(Status);
       return NULL;
     }
@@ -582,7 +348,7 @@ NtUserCreateDesktop(
     UserMode,
     dwDesiredAccess,
     NULL,
-    (HANDLE*)&Desktop);
+    &Desktop);
 
   if (NT_SUCCESS(Status))
     {
@@ -619,7 +385,7 @@ NtUserCreateDesktop(
   DesktopObject->WorkArea.top = 0;
   DesktopObject->WorkArea.right = -1;
   DesktopObject->WorkArea.bottom = -1;
-  IntGetDesktopWorkArea(DesktopObject, NULL);
+  IntGetDesktopWorkArea(DesktopObject);
 
   /* Initialize some local (to win32k) desktop state. */
   DesktopObject->ActiveMessageQueue = NULL;
@@ -630,7 +396,9 @@ NtUserCreateDesktop(
     STANDARD_RIGHTS_REQUIRED,
     0,
     NULL,
-    (HANDLE*)&Desktop);
+    &Desktop);
+
+  DesktopObject->Self = (HANDLE)Desktop;
   
   ObDereferenceObject(DesktopObject);
   ExFreePool(DesktopName.Buffer);
@@ -642,28 +410,14 @@ NtUserCreateDesktop(
       return NULL;
     }
 
-  /*
-   * Create a handle for CSRSS and notify CSRSS
-   */
   Request.Type = CSRSS_CREATE_DESKTOP;
-  Status = CsrInsertObject((PVOID)DesktopObject,
-                           NULL,
-                           GENERIC_ALL,
-                           0,
-                           NULL,
-                           (HANDLE*)&Request.Data.CreateDesktopRequest.DesktopHandle);
-  if (! NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to create desktop handle for CSRSS\n");
-    ZwClose(Desktop);
-    SetLastNtError(Status);
-    return NULL;
-  }
+  memcpy(Request.Data.CreateDesktopRequest.DesktopName, lpszDesktopName->Buffer,
+         lpszDesktopName->Length);
+  Request.Data.CreateDesktopRequest.DesktopName[lpszDesktopName->Length / sizeof(WCHAR)] = L'\0';
 
-  Status = CsrNotify(&Request, &Reply);
+  Status = NotifyCsrss(&Request, &Reply);
   if (! NT_SUCCESS(Status))
     {
-      CsrCloseHandle(Request.Data.CreateDesktopRequest.DesktopHandle);
       DPRINT1("Failed to notify CSRSS about new desktop\n");
       ZwClose(Desktop);
       SetLastNtError(Status);
@@ -713,15 +467,15 @@ NtUserOpenDesktop(
     */
 
    Status = IntValidateWindowStationHandle(
-      PsGetCurrentProcess()->Win32WindowStation,
+      PROCESS_WINDOW_STATION(),
       KernelMode,
       0,
       &WinStaObject);
 
    if (!NT_SUCCESS(Status))
    {
-      DPRINT1("Failed validation of window station handle (0x%X)\n",
-              PsGetCurrentProcess()->Win32WindowStation);
+      DPRINT("Failed validation of window station handle (0x%X)\n",
+         PROCESS_WINDOW_STATION());
       SetLastNtError(Status);
       return 0;
    }
@@ -736,7 +490,7 @@ NtUserOpenDesktop(
  
    ObDereferenceObject(WinStaObject);
 
-   DPRINT1("Trying to open desktop (%wZ)\n", &DesktopName);
+   DPRINT("Trying to open desktop station (%wZ)\n", &DesktopName);
 
    /* Initialize ObjectAttributes for the desktop object */
    InitializeObjectAttributes(
@@ -753,7 +507,7 @@ NtUserOpenDesktop(
       UserMode,
       dwDesiredAccess,
       NULL,
-      (HANDLE*)&Desktop);
+      &Desktop);
 
    if (!NT_SUCCESS(Status))
    {
@@ -805,7 +559,7 @@ NtUserOpenInputDesktop(
    /* Get a pointer to the desktop object */
 
    Status = IntValidateDesktopHandle(
-      InputDesktopHandle,
+      InputDesktop,
       UserMode,
       0,
       &Object);
@@ -825,7 +579,7 @@ NtUserOpenInputDesktop(
       dwDesiredAccess,
       ExDesktopObjectType,
       UserMode,
-      (HANDLE*)&Desktop);
+      &Desktop);
 
    ObDereferenceObject(Object);
 
@@ -895,30 +649,6 @@ NtUserCloseDesktop(HDESK hDesktop)
    return TRUE;
 }
 
-
-static int GetSystemVersionString(LPWSTR buffer)
-{
-  RTL_OSVERSIONINFOEXW versionInfo;
-  int len;
-
-  versionInfo.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEXW);
-
-  if (!NT_SUCCESS(RtlGetVersion((PRTL_OSVERSIONINFOW)&versionInfo)))
-	return 0;
-
-  if (versionInfo.dwMajorVersion <= 4)
-	  len = swprintf(buffer,
-			  L"ReactOS Version %d.%d %s Build %d",
-			  versionInfo.dwMajorVersion, versionInfo.dwMinorVersion,
-			  versionInfo.szCSDVersion, versionInfo.dwBuildNumber&0xFFFF);
-  else
-	  len = swprintf(buffer,
-			  L"ReactOS %s (Build %d)",
-			  versionInfo.szCSDVersion, versionInfo.dwBuildNumber&0xFFFF);
-
-  return len;
-}
-
 /*
  * NtUserPaintDesktop
  *
@@ -927,7 +657,7 @@ static int GetSystemVersionString(LPWSTR buffer)
  * function is provided primarily for shell desktops.
  *
  * Parameters
- *    hDC 
+ *    hdc 
  *       Handle to the device context. 
  *
  * Status
@@ -940,10 +670,6 @@ NtUserPaintDesktop(HDC hDC)
   RECT Rect;
   HBRUSH DesktopBrush, PreviousBrush;
   HWND hWndDesktop;
-  BOOL doPatBlt = TRUE;
-  int len;
-
-  PWINSTATION_OBJECT WinSta = PsGetWin32Thread()->Desktop->WindowStation;
 
   IntGdiGetClipBox(hDC, &Rect);
 
@@ -954,87 +680,12 @@ NtUserPaintDesktop(HDC hDC)
    * Paint desktop background
    */
 
-  if(WinSta->hbmWallpaper != NULL)
-  {
-    PWINDOW_OBJECT DeskWin;
-
-    if((DeskWin = IntGetWindowObject(hWndDesktop)))
-    {
-      SIZE sz;
-      int x, y;
-      HDC hWallpaperDC;
-      
-      sz.cx = DeskWin->WindowRect.right - DeskWin->WindowRect.left;
-      sz.cy = DeskWin->WindowRect.bottom - DeskWin->WindowRect.top;
-      IntReleaseWindowObject(DeskWin);
-
-      x = (sz.cx / 2) - (WinSta->cxWallpaper / 2);
-      y = (sz.cy / 2) - (WinSta->cyWallpaper / 2);
-      
-      hWallpaperDC = NtGdiCreateCompatableDC(hDC);
-      if(hWallpaperDC != NULL)
-      {
-        HBITMAP hOldBitmap;
-
-        if(x > 0 || y > 0)
-        {
-          /* FIXME - clip out the bitmap */
-          PreviousBrush = NtGdiSelectObject(hDC, DesktopBrush);
-          NtGdiPatBlt(hDC, Rect.left, Rect.top, Rect.right, Rect.bottom, PATCOPY);
-          NtGdiSelectObject(hDC, PreviousBrush);
-        }
-		else
-		  doPatBlt = FALSE;
-
-        hOldBitmap = NtGdiSelectObject(hWallpaperDC, WinSta->hbmWallpaper);
-        NtGdiBitBlt(hDC, x, y, WinSta->cxWallpaper, WinSta->cyWallpaper, hWallpaperDC, 0, 0, SRCCOPY);
-        NtGdiSelectObject(hWallpaperDC, hOldBitmap);
-        
-        NtGdiDeleteDC(hWallpaperDC);
-      }
-    }
-  }
-
-  if (doPatBlt) {
-	PreviousBrush = NtGdiSelectObject(hDC, DesktopBrush);
-	NtGdiPatBlt(hDC, Rect.left, Rect.top, Rect.right, Rect.bottom, PATCOPY);
-	NtGdiSelectObject(hDC, PreviousBrush);
-  }
-
-  /*
-   * Display system version on the desktop background
-   */
-
-  if (g_PaintDesktopVersion) {
-	static WCHAR s_wszVersion[256] = {0};
-	RECT rect;
-
-	if (*s_wszVersion)
-	  len = wcslen(s_wszVersion);
-	else
-	  len = GetSystemVersionString(s_wszVersion);
-
-	if (len) {
-	  if (!NtUserSystemParametersInfo(SPI_GETWORKAREA, 0, &rect, 0)) {
-		rect.right = NtUserGetSystemMetrics(SM_CXSCREEN);
-		rect.bottom = NtUserGetSystemMetrics(SM_CYSCREEN);
-	  }
-
-	  COLORREF color_old = NtGdiSetTextColor(hDC, RGB(255,255,255));
-	  UINT align_old = NtGdiSetTextAlign(hDC, TA_RIGHT);
-	  int mode_old = NtGdiSetBkMode(hDC, TRANSPARENT);
-
-	  NtGdiTextOut(hDC, rect.right-16, rect.bottom-48, s_wszVersion, len);
-
-	  NtGdiSetBkMode(hDC, mode_old);
-	  NtGdiSetTextAlign(hDC, align_old);
-	  NtGdiSetTextColor(hDC, color_old);
-	}
-  }
+  PreviousBrush = NtGdiSelectObject(hDC, DesktopBrush);
+  NtGdiPatBlt(hDC, Rect.left, Rect.top, Rect.right, Rect.bottom, PATCOPY);
+  NtGdiSelectObject(hDC, PreviousBrush);
 
   return TRUE;
 }
-
 
 /*
  * NtUserSwitchDesktop
@@ -1071,19 +722,7 @@ NtUserSwitchDesktop(HDESK hDesktop)
       DPRINT("Validation of desktop handle (0x%X) failed\n", hDesktop);
       return FALSE;
    }
-   
-   /*
-    * Don't allow applications switch the desktop if it's locked, unless the caller
-    * is the logon application itself
-    */
-   if((DesktopObject->WindowStation->Flags & WSS_LOCKED) &&
-      LogonProcess != NULL && LogonProcess != PsGetWin32Process())
-   {
-      ObDereferenceObject(DesktopObject);
-      DPRINT1("Switching desktop 0x%x denied because the work station is locked!\n", hDesktop);
-      return FALSE;
-   }
-   
+
    /* FIXME: Fail if the desktop belong to an invisible window station */
    /* FIXME: Fail if the process is associated with a secured
              desktop such as Winlogon or Screen-Saver */
@@ -1126,11 +765,10 @@ NtUserResolveDesktopForWOW(DWORD Unknown0)
 HDESK STDCALL
 NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
 {
+  PDESKTOP_OBJECT Desktop;
   NTSTATUS Status;
   PETHREAD Thread;
-  PDESKTOP_OBJECT DesktopObject;
-  HDESK Ret, hThreadDesktop;
-  OBJECT_HANDLE_INFORMATION HandleInformation;
+  HDESK Ret;
   
   if(!dwThreadId)
   {
@@ -1145,52 +783,27 @@ NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
     return 0;
   }
   
-  if(Thread->ThreadsProcess == PsGetCurrentProcess())
+  Desktop = Thread->Win32Thread->Desktop;
+  
+  if(Desktop)
   {
-    /* just return the handle, we queried the desktop handle of a thread running
-       in the same context */
-    Ret = Thread->Tcb.Win32Thread->hDesktop;
-    ObDereferenceObject(Thread);
+    Status = ObReferenceObjectByPointer(Desktop,
+                                        0,
+                                        ExDesktopObjectType,
+                                        UserMode);
+    if(!NT_SUCCESS(Status))
+    {
+      SetLastNtError(Status);
+      return 0;
+    }
+    
+    Ret = (HDESK)Desktop->Self;
+    
+    ObDereferenceObject(Desktop);
     return Ret;
   }
   
-  /* get the desktop handle and the desktop of the thread */
-  if(!(hThreadDesktop = Thread->Tcb.Win32Thread->hDesktop) ||
-     !(DesktopObject = Thread->Tcb.Win32Thread->Desktop))
-  {
-    ObDereferenceObject(Thread);
-    DPRINT1("Desktop information of thread 0x%x broken!?\n", dwThreadId);
-    return NULL;
-  }
-  
-  /* we could just use DesktopObject instead of looking up the handle, but latter
-     may be a bit safer (e.g. when the desktop is being destroyed */
-  /* switch into the context of the thread we're trying to get the desktop from,
-     so we can use the handle */
-  KeAttachProcess(Thread->ThreadsProcess);
-  Status = ObReferenceObjectByHandle(hThreadDesktop,
-                                     GENERIC_ALL,
-				     ExDesktopObjectType,
-				     UserMode,
-				     (PVOID*)&DesktopObject,
-				     &HandleInformation);
-  KeDetachProcess();
-  
-  /* the handle couldn't be found, there's nothing to get... */
-  if(!NT_SUCCESS(Status))
-  {
-    ObDereferenceObject(Thread);
-    return NULL;                                               
-  }
-  
-  /* lookup our handle table if we can find a handle to the desktop object,
-     if not, create one */
-  Ret = IntGetDesktopObjectHandle(DesktopObject);
-  
-  /* all done, we got a valid handle to the desktop */
-  ObDereferenceObject(DesktopObject);
-  ObDereferenceObject(Thread);
-  return Ret;
+  return 0;
 }
 
 /*
@@ -1203,7 +816,6 @@ NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
 BOOL STDCALL
 NtUserSetThreadDesktop(HDESK hDesktop)
 {
-   PW32THREAD W32Thread;
    PDESKTOP_OBJECT DesktopObject;
    NTSTATUS Status;
 
@@ -1220,17 +832,21 @@ NtUserSetThreadDesktop(HDESK hDesktop)
       return FALSE;
    }
 
-   W32Thread = PsGetWin32Thread();
+   /* Check for setting the same desktop as before. */
+   if (DesktopObject == PsGetWin32Thread()->Desktop)
+   {
+      ObDereferenceObject(DesktopObject);
+      return TRUE;
+   }
 
    /* FIXME: Should check here to see if the thread has any windows. */
 
-   if (W32Thread->Desktop != NULL)
+   if (PsGetWin32Thread()->Desktop != NULL)
    {
-      ObDereferenceObject(W32Thread->Desktop);
+      ObDereferenceObject(PsGetWin32Thread()->Desktop);
    }
 
-   W32Thread->Desktop = DesktopObject;
-   W32Thread->hDesktop = hDesktop;
+   PsGetWin32Thread()->Desktop = DesktopObject;
 
    return TRUE;
 }

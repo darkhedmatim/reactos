@@ -755,12 +755,6 @@ POLICYDATA sh32_policy_table[] =
   },
 /* 0x4000050 - 0x4000060 */
   {
-    REST_NONLEGACYSHELLMODE,
-    strExplorer,
-    "NoneLegacyShellMode",
-    SHELL_NO_POLICY
-  },
-  {
     REST_STARTRUNNOHOMEPATH,
     strExplorer,
     "StartRunNoHOMEPATH",
@@ -897,15 +891,15 @@ BOOL WINAPI SHInitRestricted(LPCVOID unused, LPCVOID inpRegKey)
 	{
 	  if (SHELL_OsIsUnicode())
 	  {
-	    if (lstrcmpiW((LPCWSTR)inpRegKey, strRegistryPolicyW) &&
-	        lstrcmpiW((LPCWSTR)inpRegKey, strPolicyW))
+	    if (lstrcmpiW((LPWSTR)inpRegKey, strRegistryPolicyW) &&
+	        lstrcmpiW((LPWSTR)inpRegKey, strPolicyW))
 	      /* doesn't match, fail */
 	      return 0;
 	  }
 	  else
 	  {
-	    if (lstrcmpiA((LPCSTR)inpRegKey, strRegistryPolicyA) &&
-	        lstrcmpiA((LPCSTR)inpRegKey, strPolicyA))
+	    if (lstrcmpiA((LPSTR)inpRegKey, strRegistryPolicyA) &&
+	        lstrcmpiA((LPSTR)inpRegKey, strPolicyA))
 	      /* doesn't match, fail */
 	      return 0;
 	  }

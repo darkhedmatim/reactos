@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    SFNT object management (base).                                       */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -21,9 +21,10 @@
 #include "ttload.h"
 #include "ttcmap0.h"
 #include FT_INTERNAL_SFNT_H
+#include FT_INTERNAL_POSTSCRIPT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TRUETYPE_TAGS_H
-#include FT_SERVICE_POSTSCRIPT_CMAPS_H
+
 #include "sferrors.h"
 
 
@@ -160,8 +161,6 @@
     FT_Int            found_win     = -1;
     FT_Int            found_unicode = -1;
 
-    FT_Bool           is_english = 0;
-
     TT_NameEntry_ConvertFunc  convert;
 
 
@@ -207,8 +206,7 @@
             case TT_MS_ID_SYMBOL_CS:
             case TT_MS_ID_UNICODE_CS:
             case TT_MS_ID_UCS_4:
-              is_english = ( rec->languageID & 0x3FF ) == 0x009;
-              found_win  = n;
+              found_win = n;
               break;
 
             default:
@@ -225,10 +223,9 @@
 
     /* some fonts contain invalid Unicode or Macintosh formatted entries; */
     /* we will thus favor names encoded in Windows formats if available   */
-    /* (provided it is an English name)                                   */
     /*                                                                    */
     convert = NULL;
-    if ( found_win >= 0 && !( found_apple >= 0 && !is_english ) )
+    if ( found_win >= 0 )
     {
       rec = face->name_table.names + found_win;
       switch ( rec->encodingID )
@@ -261,13 +258,11 @@
     {
       if ( rec->string == NULL )
       {
-        FT_Error   error  = SFNT_Err_Ok;
+        FT_Error   error;
         FT_Stream  stream = face->name_table.stream;
 
-        FT_UNUSED( error );
 
-
-        if ( FT_QNEW_ARRAY ( rec->string, rec->stringLength ) ||
+        if ( FT_NEW_ARRAY  ( rec->string, rec->stringLength ) ||
              FT_STREAM_SEEK( rec->stringOffset )              ||
              FT_STREAM_READ( rec->string, rec->stringLength ) )
         {
@@ -310,11 +305,11 @@
       { TT_PLATFORM_MICROSOFT,     TT_MS_ID_SYMBOL_CS,  FT_ENCODING_MS_SYMBOL },
       { TT_PLATFORM_MICROSOFT,     TT_MS_ID_UCS_4,      FT_ENCODING_UNICODE },
       { TT_PLATFORM_MICROSOFT,     TT_MS_ID_UNICODE_CS, FT_ENCODING_UNICODE },
-      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_SJIS,       FT_ENCODING_SJIS },
-      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_GB2312,     FT_ENCODING_GB2312 },
-      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_BIG_5,      FT_ENCODING_BIG5 },
-      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_WANSUNG,    FT_ENCODING_WANSUNG },
-      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_JOHAB,      FT_ENCODING_JOHAB }
+      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_SJIS,       FT_ENCODING_MS_SJIS },
+      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_GB2312,     FT_ENCODING_MS_GB2312 },
+      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_BIG_5,      FT_ENCODING_MS_BIG5 },
+      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_WANSUNG,    FT_ENCODING_MS_WANSUNG },
+      { TT_PLATFORM_MICROSOFT,     TT_MS_ID_JOHAB,      FT_ENCODING_MS_JOHAB }
     };
 
     const TEncoding  *cur, *limit;
@@ -368,7 +363,11 @@
       face->goto_table = sfnt->goto_table;
     }
 
-    FT_FACE_FIND_GLOBAL_SERVICE( face, face->psnames, POSTSCRIPT_CMAPS );
+    if ( !face->psnames )
+    {
+      face->psnames = (PSNames_Service)
+                        FT_Get_Module_Interface( library, "psnames" );
+    }
 
     /* check that we have a valid TrueType file */
     error = sfnt->load_sfnt_header( face, stream, face_index, &sfnt_header );
@@ -404,7 +403,7 @@
                   FT_Int         num_params,
                   FT_Parameter*  params )
   {
-    FT_Error      error, psnames_error;
+    FT_Error      error;
     FT_Bool       has_outline;
     FT_Bool       is_apple_sbit;
 
@@ -435,11 +434,11 @@
     /* do we have outlines in there? */
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
     has_outline   = FT_BOOL( face->root.internal->incremental_interface != 0 ||
-                             tt_face_lookup_table( face, TTAG_glyf )    != 0 ||
-                             tt_face_lookup_table( face, TTAG_CFF )     != 0 );
+                             tt_face_lookup_table( face, TTAG_glyf ) != 0         ||
+                             tt_face_lookup_table( face, TTAG_CFF ) != 0          );
 #else
     has_outline   = FT_BOOL( tt_face_lookup_table( face, TTAG_glyf ) != 0 ||
-                             tt_face_lookup_table( face, TTAG_CFF )  != 0 );
+                             tt_face_lookup_table( face, TTAG_CFF ) != 0  );
 #endif
 
     is_apple_sbit = 0;
@@ -466,7 +465,7 @@
     /* the following tables are optional in PCL fonts -- */
     /* don't check for errors                            */
     (void)LOAD_( names );
-    psnames_error = LOAD_( psnames );
+    (void)LOAD_( psnames );
 
     /* do not load the metrics headers and tables if this is an Apple */
     /* sbit font file                                                 */
@@ -533,9 +532,9 @@
                FT_FACE_FLAG_HORIZONTAL;   /* horizontal data   */
 
 #ifdef TT_CONFIG_OPTION_POSTSCRIPT_NAMES
-      if ( psnames_error == SFNT_Err_Ok &&
-           face->postscript.FormatType != 0x00030000L )
-        flags |= FT_FACE_FLAG_GLYPH_NAMES;
+      /* might need more polish to detect the presence of a Postscript */
+      /* name table in the font                                        */
+      flags |= FT_FACE_FLAG_GLYPH_NAMES;
 #endif
 
       /* fixed width font? */
@@ -550,15 +549,6 @@
       if ( face->kern_pairs )
         flags |= FT_FACE_FLAG_KERNING;
 
-#ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
-      /* Don't bother to load the tables unless somebody asks for them. */
-      /* No need to do work which will (probably) not be used.          */
-      if ( tt_face_lookup_table( face, TTAG_glyf ) != 0 &&
-           tt_face_lookup_table( face, TTAG_fvar ) != 0 &&
-           tt_face_lookup_table( face, TTAG_gvar ) != 0 )
-        flags |= FT_FACE_FLAG_MULTIPLE_MASTERS;
-#endif
-
       root->face_flags = flags;
 
       /*********************************************************************/
@@ -566,7 +556,7 @@
       /* Compute style flags.                                              */
       /*                                                                   */
       flags = 0;
-      if ( has_outline == TRUE && face->os2.version != 0xFFFFU )
+      if ( has_outline == TRUE && face->os2.version != 0xFFFF )
       {
         /* we have an OS/2 table; use the `fsSelection' field */
         if ( face->os2.fsSelection & 1 )
@@ -641,30 +631,18 @@
           root->face_flags |= FT_FACE_FLAG_VERTICAL;
         }
 #endif
-        root->num_fixed_sizes = (FT_Int)face->num_sbit_strikes;
+        root->num_fixed_sizes = face->num_sbit_strikes;
 
         if ( FT_NEW_ARRAY( root->available_sizes, face->num_sbit_strikes ) )
           goto Exit;
 
         for ( n = 0 ; n < face->num_sbit_strikes ; n++ )
         {
-          FT_Bitmap_Size*  bsize  = root->available_sizes + n;
-          TT_SBit_Strike   strike = face->sbit_strikes + n;
-          FT_UShort        fupem  = face->header.Units_Per_EM;
-          FT_Short         height = (FT_Short)( face->horizontal.Ascender -
-                                                face->horizontal.Descender +
-                                                face->horizontal.Line_Gap );
-          FT_Short         avg    = face->os2.xAvgCharWidth;
+          root->available_sizes[n].width =
+            face->sbit_strikes[n].x_ppem;
 
-
-          /* assume 72dpi */
-          bsize->height =
-            (FT_Short)( ( height * strike->y_ppem + fupem/2 ) / fupem );
-          bsize->width  =
-            (FT_Short)( ( avg * strike->y_ppem + fupem/2 ) / fupem );
-          bsize->size   = strike->y_ppem << 6;
-          bsize->x_ppem = strike->x_ppem << 6;
-          bsize->y_ppem = strike->y_ppem << 6;
+          root->available_sizes[n].height =
+            face->sbit_strikes[n].y_ppem;
         }
       }
       else
@@ -683,7 +661,7 @@
       if ( has_outline == TRUE )
       {
         /* XXX What about if outline header is missing */
-        /*     (e.g. sfnt wrapped bitmap)?             */
+        /*     (e.g. sfnt wrapped outline)?            */
         root->bbox.xMin    = face->header.xMin;
         root->bbox.yMin    = face->header.yMin;
         root->bbox.xMax    = face->header.xMax;
@@ -728,18 +706,16 @@
         root->height    = (FT_Short)( root->ascender - root->descender +
                                       face->horizontal.Line_Gap );
 
-#if 0
         /* if the line_gap is 0, we add an extra 15% to the text height --  */
         /* this computation is based on various versions of Times New Roman */
         if ( face->horizontal.Line_Gap == 0 )
           root->height = (FT_Short)( ( root->height * 115 + 50 ) / 100 );
-#endif
 
 #if 0
 
         /* some fonts have the OS/2 "sTypoAscender", "sTypoDescender" & */
         /* "sTypoLineGap" fields set to 0, like ARIALNB.TTF             */
-        if ( face->os2.version != 0xFFFFU && root->ascender )
+        if ( face->os2.version != 0xFFFF && root->ascender )
         {
           FT_Int  height;
 
@@ -842,10 +818,9 @@
     FT_FREE( face->root.style_name );
 
     /* freeing sbit size table */
-    FT_FREE( face->root.available_sizes );
     face->root.num_fixed_sizes = 0;
-
-    FT_FREE( face->postscript_name );
+    if ( face->root.available_sizes )
+      FT_FREE( face->root.available_sizes );
 
     face->sfnt = 0;
   }

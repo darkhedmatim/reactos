@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.9 2004/12/24 17:45:58 weiden Exp $
+/* $Id: dllmain.c,v 1.3.2.1 2004/01/19 20:08:49 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -19,7 +19,6 @@
 
 /* Not defined in any header file */
 extern VOID STDCALL PrivateCsrssManualGuiCheck(LONG Check);
-extern VOID STDCALL PrivateCsrssInitialized();
 
 /* GLOBALS *******************************************************************/
 
@@ -55,22 +54,13 @@ static CSRSS_API_DEFINITION Win32CsrApiDefinitions[] =
     CSRSS_DEFINE_API(CSRSS_READ_CONSOLE_OUTPUT_CHAR,     CsrReadConsoleOutputChar),
     CSRSS_DEFINE_API(CSRSS_READ_CONSOLE_OUTPUT_ATTRIB,   CsrReadConsoleOutputAttrib),
     CSRSS_DEFINE_API(CSRSS_GET_NUM_INPUT_EVENTS,         CsrGetNumberOfConsoleInputEvents),
-    CSRSS_DEFINE_API(CSRSS_EXIT_REACTOS,                 CsrExitReactos),
     CSRSS_DEFINE_API(CSRSS_PEEK_CONSOLE_INPUT,           CsrPeekConsoleInput),
     CSRSS_DEFINE_API(CSRSS_READ_CONSOLE_OUTPUT,          CsrReadConsoleOutput),
     CSRSS_DEFINE_API(CSRSS_WRITE_CONSOLE_INPUT,          CsrWriteConsoleInput),
     CSRSS_DEFINE_API(CSRSS_SETGET_CONSOLE_HW_STATE,      CsrHardwareStateProperty),
-    CSRSS_DEFINE_API(CSRSS_GET_CONSOLE_WINDOW,           CsrGetConsoleWindow),
     CSRSS_DEFINE_API(CSRSS_CREATE_DESKTOP,               CsrCreateDesktop),
     CSRSS_DEFINE_API(CSRSS_SHOW_DESKTOP,                 CsrShowDesktop),
     CSRSS_DEFINE_API(CSRSS_HIDE_DESKTOP,                 CsrHideDesktop),
-    CSRSS_DEFINE_API(CSRSS_SET_CONSOLE_ICON,             CsrSetConsoleIcon),
-    CSRSS_DEFINE_API(CSRSS_SET_LOGON_NOTIFY_WINDOW,      CsrSetLogonNotifyWindow),
-    CSRSS_DEFINE_API(CSRSS_REGISTER_LOGON_PROCESS,       CsrRegisterLogonProcess),
-    CSRSS_DEFINE_API(CSRSS_GET_CONSOLE_CP,               CsrGetConsoleCodePage),
-    CSRSS_DEFINE_API(CSRSS_SET_CONSOLE_CP,               CsrSetConsoleCodePage),
-    CSRSS_DEFINE_API(CSRSS_GET_CONSOLE_OUTPUT_CP,        CsrGetConsoleOutputCodePage),
-    CSRSS_DEFINE_API(CSRSS_SET_CONSOLE_OUTPUT_CP,        CsrSetConsoleOutputCodePage),
     { 0, 0, 0, NULL }
   };
 
@@ -151,18 +141,10 @@ Win32CsrReleaseObject(PCSRSS_PROCESS_DATA ProcessData,
   return (CsrExports.CsrReleaseObjectProc)(ProcessData, Object);
 }
 
-static BOOL STDCALL
-Win32CsrInitComplete(void)
-{
-  PrivateCsrssInitialized();
-
-  return TRUE;
-}
 
 BOOL STDCALL
 Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRSS_OBJECT_DEFINITION *ObjectDefinitions,
-                       CSRPLUGIN_INIT_COMPLETE_PROC *InitComplete,
                        PCSRSS_EXPORTED_FUNCS Exports,
                        HANDLE CsrssApiHeap)
 {
@@ -183,7 +165,6 @@ Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
 
   *ApiDefinitions = Win32CsrApiDefinitions;
   *ObjectDefinitions = Win32CsrObjectDefinitions;
-  *InitComplete = Win32CsrInitComplete;
 
   return TRUE;
 }

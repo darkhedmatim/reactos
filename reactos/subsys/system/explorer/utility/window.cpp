@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,11 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
+#include "window.h"
 
-#include "../explorer_intres.h"	// for ID_GO_BACK, ...
+#include "../globals.h"
 
 
 WindowClass::WindowClass(LPCTSTR classname, UINT style_, WNDPROC wndproc)
@@ -102,14 +104,14 @@ HWND Window::Create(CREATORFUNC creator, DWORD dwExStyle,
 							hwndParent, hMenu, g_Globals._hInstance, 0/*lpParam*/);
 }
 
-HWND Window::Create(CREATORFUNC_INFO creator, const void* info, DWORD dwExStyle,
+HWND Window::Create(CREATORFUNC creator, const void* info, DWORD dwExStyle,
 					LPCTSTR lpClassName, LPCTSTR lpWindowName,
 					DWORD dwStyle, int x, int y, int w, int h,
 					HWND hwndParent, HMENU hMenu/*, LPVOID lpParam*/)
 {
 	Lock lock(GetStaticWindowData()._create_crit_sect);	// protect access to s_window_creator and s_new_info
 
-	s_window_creator = (CREATORFUNC) creator;
+	s_window_creator = creator;
 	s_new_info = info;
 
 	return CreateWindowEx(dwExStyle, lpClassName, lpWindowName, dwStyle,
@@ -118,69 +120,33 @@ HWND Window::Create(CREATORFUNC_INFO creator, const void* info, DWORD dwExStyle,
 }
 
 
-Window* Window::create_mdi_child(const ChildWndInfo& info, const MDICREATESTRUCT& mcs, CREATORFUNC_INFO creator)
-{
-	Lock lock(GetStaticWindowData()._create_crit_sect);	// protect access to s_window_creator and s_new_info
+static Window* s_new_child_wnd = NULL;
 
-	s_window_creator = (CREATORFUNC) creator;
-	s_new_info = &info;
-
-	s_hcbtHook = SetWindowsHookEx(WH_CBT, MDICBTHookProc, 0, GetCurrentThreadId());
-
-	HWND hwnd = (HWND) SendMessage(info._hmdiclient, WM_MDICREATE, 0, (LPARAM)&mcs);
-
-	UnhookWindowsHookEx(s_hcbtHook);
-
-	Window* child = get_window(hwnd);
-	s_new_info = NULL;
-
-	if (child && (!hwnd || !child->_hwnd))
-		child = NULL;
-
-	return child;
-}
-
-LRESULT CALLBACK Window::MDICBTHookProc(int code, WPARAM wparam, LPARAM lparam)
-{
-	if (code == HCBT_CREATEWND) {
-		HWND hwnd = (HWND)wparam;
-
-		 // create Window controller and associate it with the window handle
-		Window* child = get_window(hwnd);
-
-		if (!child)
-			child = create_controller(hwnd);
-	}
-
-	return CallNextHookEx(s_hcbtHook, code, wparam, lparam);
-}
-
-
-/*
-Window* Window::create_property_sheet(PropertySheetDialog* ppsd, CREATORFUNC creator, const void* info)
+Window* Window::create_mdi_child(HWND hmdiclient, const MDICREATESTRUCT& mcs, CREATORFUNC creator, const void* info)
 {
 	Lock lock(GetStaticWindowData()._create_crit_sect);	// protect access to s_window_creator and s_new_info
 
 	s_window_creator = creator;
 	s_new_info = info;
+	s_new_child_wnd = NULL;
 
-	s_hcbtHook = SetWindowsHookEx(WH_CBT, PropSheetCBTHookProc, 0, GetCurrentThreadId());
+	s_hcbtHook = SetWindowsHookEx(WH_CBT, CBTHookProc, 0, GetCurrentThreadId());
 
-	HWND hwnd = (HWND) PropertySheet(ppsd);
+	HWND hwnd = (HWND) SendMessage(hmdiclient, WM_MDICREATE, 0, (LPARAM)&mcs);
 
 	UnhookWindowsHookEx(s_hcbtHook);
 
-	Window* child = get_window(hwnd);
+	Window* child = s_new_child_wnd;
 	s_new_info = NULL;
+	s_new_child_wnd = NULL;
 
-	if (child && (!hwnd || !child->_hwnd))
+	if (!hwnd || !child || !child->_hwnd)
 		child = NULL;
 
 	return child;
 }
-*/
 
-LRESULT CALLBACK Window::PropSheetCBTHookProc(int code, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK Window::CBTHookProc(int code, WPARAM wparam, LPARAM lparam)
 {
 	if (code == HCBT_CREATEWND) {
 		HWND hwnd = (HWND)wparam;
@@ -190,6 +156,9 @@ LRESULT CALLBACK Window::PropSheetCBTHookProc(int code, WPARAM wparam, LPARAM lp
 
 		if (!child)
 			child = create_controller(hwnd);
+
+		if (child)
+			s_new_child_wnd = child;
 	}
 
 	return CallNextHookEx(s_hcbtHook, code, wparam, lparam);
@@ -217,7 +186,7 @@ Window* Window::get_window(HWND hwnd)
 
 Window* Window::create_controller(HWND hwnd)
 {
-	if (s_window_creator) {	// protect for recursion and create the window object only for the first window
+	if (s_window_creator) {	// protect for recursion
 		Lock lock(GetStaticWindowData()._create_crit_sect);	// protect access to s_window_creator and s_new_info
 
 		const void* info = s_new_info;
@@ -227,16 +196,16 @@ Window* Window::create_controller(HWND hwnd)
 		s_window_creator = NULL;
 
 		if (info)
-			return CREATORFUNC_INFO(window_creator)(hwnd, info);
+			return window_creator(hwnd, info);
 		else
-			return CREATORFUNC(window_creator)(hwnd);
+			return CREATORFUNC_NO_INFO(window_creator)(hwnd);
 	}
 
 	return NULL;
 }
 
 
-LRESULT Window::Init(LPCREATESTRUCT pcs)
+LRESULT	Window::Init(LPCREATESTRUCT pcs)
 {
 	return 0;
 }
@@ -256,9 +225,6 @@ LRESULT CALLBACK Window::WindowWndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPAR
 
 		  case WM_NOTIFY:
 			return pThis->Notify(wparam, (NMHDR*)lparam);
-
-		  case WM_NOTIFYFORMAT:
-			return NFR_CURRENT;
 
 		  case WM_CREATE:
 			return pThis->Init((LPCREATESTRUCT)lparam);
@@ -291,7 +257,7 @@ LRESULT Window::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 int Window::Command(int id, int code)
 {
-	return 1;	// no command handler found
+	return 1;	// WM_COMMAND not yet handled
 }
 
 int Window::Notify(int id, NMHDR* pnmh)
@@ -332,9 +298,6 @@ LRESULT CALLBACK SubclassedWindow::SubclassedWndProc(HWND hwnd, UINT nmsg, WPARA
 		  case WM_NOTIFY:
 			return pThis->Notify(wparam, (NMHDR*)lparam);
 
-		  case WM_NOTIFYFORMAT:
-			return NFR_CURRENT;
-
 		  case WM_CREATE:
 			return pThis->Init((LPCREATESTRUCT)lparam);
 
@@ -363,7 +326,7 @@ LRESULT SubclassedWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 int SubclassedWindow::Command(int id, int code)
 {
-	return 1;	// no command handler found
+	return 1;	// WM_COMMAND not yet handled
 }
 
 int SubclassedWindow::Notify(int id, NMHDR* pnmh)
@@ -372,9 +335,8 @@ int SubclassedWindow::Notify(int id, NMHDR* pnmh)
 }
 
 
-ChildWindow::ChildWindow(HWND hwnd, const ChildWndInfo& info)
- :	super(hwnd),
-	_hwndFrame(GetParent(info._hmdiclient))
+ChildWindow::ChildWindow(HWND hwnd)
+ :	super(hwnd)
 {
 	_focus_pane = 0;
 	_split_pos = DEFAULT_SPLIT_POS;
@@ -382,8 +344,7 @@ ChildWindow::ChildWindow(HWND hwnd, const ChildWndInfo& info)
 }
 
 
-ChildWindow* ChildWindow::create(const ChildWndInfo& info, const RECT& rect, CREATORFUNC_INFO creator,
-									LPCTSTR classname, LPCTSTR title, DWORD style)
+ChildWindow* ChildWindow::create(HWND hmdiclient, const RECT& rect, CREATORFUNC creator, LPCTSTR classname, LPCTSTR title, const void* info)
 {
 	MDICREATESTRUCT mcs;
 
@@ -394,10 +355,10 @@ ChildWindow* ChildWindow::create(const ChildWndInfo& info, const RECT& rect, CRE
 	mcs.y		= rect.top;
 	mcs.cx		= rect.right - rect.left;
 	mcs.cy		= rect.bottom - rect.top;
-	mcs.style	= style;
+	mcs.style	= 0;
 	mcs.lParam	= 0;
 
-	return static_cast<ChildWindow*>(create_mdi_child(info, mcs, creator));
+	return static_cast<ChildWindow*>(create_mdi_child(hmdiclient, mcs, creator, info));
 }
 
 
@@ -489,45 +450,8 @@ LRESULT ChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		}
 		break;
 
- 	  case PM_DISPATCH_COMMAND:
-		switch(LOWORD(wparam)) {
-		  case ID_GO_BACK:
-			if (!_url_history.empty()) {
-				const String& url = jump_to_int(_url_history.top());
-
-				if (jump_to_int(url))
-					set_url(url);
-
-				_url_history.pop();
-			}
-			break;
-
-		  case ID_GO_FORWARD:
-			//@@
-			break;
-
-		  case ID_GO_UP:
-			///@todo
-			break;
-
-		  case ID_GO_HOME:
-			//@@
-			break;
-
-		  default:
-			return FALSE;
-		}
-		return TRUE;
-
-	  case WM_MDIACTIVATE:
-		if ((HWND)lparam == _hwnd) {
-			SendMessage(_hwndFrame, PM_SETSTATUSTEXT, 0, (LPARAM)_statusText.c_str());
-			SendMessage(_hwndFrame, PM_URL_CHANGED, 0, (LPARAM)_url.c_str());
-		}
-		break;
-
-	  case PM_JUMP_TO_URL:
-		return go_to((LPCTSTR)lparam)? TRUE: FALSE;
+	  case PM_DISPATCH_COMMAND:
+		return FALSE;
 
 	  default: def:
 		return DefMDIChildProc(_hwnd, nmsg, wparam, lparam);
@@ -539,7 +463,7 @@ LRESULT ChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 void ChildWindow::resize_children(int cx, int cy)
 {
-	HDWP hdwp = BeginDeferWindowPos(2);
+	HDWP hdwp = BeginDeferWindowPos(4);
 	RECT rt;
 
 	rt.left   = 0;
@@ -556,34 +480,9 @@ void ChildWindow::resize_children(int cx, int cy)
 		cx = 0;
 	}
 
-	if (_right_hwnd)
-		hdwp = DeferWindowPos(hdwp, _right_hwnd, 0, rt.left+cx+1, rt.top, rt.right-cx, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
+	hdwp = DeferWindowPos(hdwp, _right_hwnd, 0, rt.left+cx+1, rt.top, rt.right-cx, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
 
 	EndDeferWindowPos(hdwp);
-}
-
-
-bool ChildWindow::go_to(LPCTSTR url)
-{
-	const String& url_str = jump_to_int(url);
-
-	if (!url_str.empty()) {
-		set_url(url_str);
-
-		_url_history.push(url_str);
-
-		return true;
-	} else
-		return false;
-}
-
-void ChildWindow::set_url(LPCTSTR url)
-{
-	if (_url != url) {
-		_url = url;
-
-		SendMessage(_hwndFrame, PM_URL_CHANGED, 0, (LPARAM)url);
-	}
 }
 
 
@@ -710,19 +609,15 @@ int Dialog::DoModal(UINT nid, CREATORFUNC creator, HWND hwndParent)
 	s_window_creator = creator;
 	s_new_info = NULL;
 
-	///@todo call Window::pretranslate_msg()
-
 	return DialogBoxParam(g_Globals._hInstance, MAKEINTRESOURCE(nid), hwndParent, DialogProc, 0/*lpParam*/);
 }
 
-int Dialog::DoModal(UINT nid, CREATORFUNC_INFO creator, const void* info, HWND hwndParent)
+int Dialog::DoModal(UINT nid, CREATORFUNC creator, const void* info, HWND hwndParent)
 {
 	Lock lock(GetStaticWindowData()._create_crit_sect);	// protect access to s_window_creator and s_new_info
 
-	s_window_creator = (CREATORFUNC) creator;
+	s_window_creator = creator;
 	s_new_info = NULL;
-
-	///@todo call Window::pretranslate_msg()
 
 	return DialogBoxParam(g_Globals._hInstance, MAKEINTRESOURCE(nid), hwndParent, DialogProc, 0/*lpParam*/);
 }
@@ -739,10 +634,6 @@ INT_PTR CALLBACK Window::DialogProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM 
 
 		  case WM_NOTIFY:
 			pThis->Notify(wparam, (NMHDR*)lparam);
-			return TRUE;	// message has been processed
-
-		  case WM_NOTIFYFORMAT:
-			SetWindowLong(hwnd, DWLP_MSGRESULT, NFR_CURRENT);	// set return value NFR_CURRENT
 			return TRUE;	// message has been processed
 
 		  case WM_NCDESTROY:
@@ -771,10 +662,10 @@ int Dialog::Command(int id, int code)
 {
 	if (code == BN_CLICKED) {
 		EndDialog(_hwnd, id);
-		return 0;	// message has been processed
+		return TRUE;	// message has been processed
 	}
 
-	return 1;
+	return FALSE;
 }
 
 
@@ -809,8 +700,8 @@ void ResizeManager::HandleSize(int cx, int cy)
 		const ResizeEntry& e = *it;
 		RECT move = {0};
 
-		if (e._flags & MOVE_LEFT)
-			move.left += dx;
+		if (e._flags & MOVE_LEFT)	// Die verschiedenen Transformationsmatrizen in move ließen sich eigentlich
+			move.left += dx;		// cachen oder vorausberechnen, da sie nur von _flags und der Größenänderung abhängig sind.
 
 		if (e._flags & MOVE_RIGHT)
 			move.right += dx;
@@ -831,18 +722,15 @@ void ResizeManager::HandleSize(int cx, int cy)
 
 		if (flags != (SWP_NOMOVE|SWP_NOSIZE)) {
 			HWND hwnd = GetDlgItem(_hwnd, e._id);
+			WindowRect rect(hwnd);
+			ScreenToClient(_hwnd, rect);
 
-			if (hwnd) {
-				WindowRect rect(hwnd);
-				ScreenToClient(_hwnd, rect);
+			rect.left	+= move.left;
+			rect.right	+= move.right;
+			rect.top	+= move.top;
+			rect.bottom	+= move.bottom;
 
-				rect.left	+= move.left;
-				rect.right	+= move.right;
-				rect.top	+= move.top;
-				rect.bottom	+= move.bottom;
-
-				hDWP = DeferWindowPos(hDWP, hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, flags|SWP_NOACTIVATE|SWP_NOZORDER);
-			}
+			hDWP = DeferWindowPos(hDWP, hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, flags|SWP_NOACTIVATE|SWP_NOZORDER);
 		}
 	}
 
@@ -852,7 +740,6 @@ void ResizeManager::HandleSize(int cx, int cy)
 void ResizeManager::Resize(int dx, int dy)
 {
 	::SetWindowPos(_hwnd, 0, 0, 0, _min_wnd_size.cx+dx, _min_wnd_size.cy+dy, SWP_NOMOVE|SWP_NOACTIVATE);
-	MoveVisible(_hwnd);
 
 	ClientRect clnt_rect(_hwnd);
 	HandleSize(clnt_rect.right, clnt_rect.bottom);
@@ -867,13 +754,13 @@ Button::Button(HWND parent, LPCTSTR title, int left, int top, int width, int hei
 }
 
 
-LRESULT OwnerdrawnButton::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT OwnerdrawnButton::WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 {
-	if (nmsg == PM_DISPATCH_DRAWITEM) {
+	if (message == PM_DISPATCH_DRAWITEM) {
 		DrawItem((LPDRAWITEMSTRUCT)lparam);
 		return TRUE;
 	} else
-		return super::WndProc(nmsg, wparam, lparam);
+		return super::WndProc(message, wparam, lparam);
 }
 
 
@@ -922,6 +809,15 @@ void DrawGrayText(HDC hdc, LPRECT pRect, LPCTSTR title, int dt_flags)
 }
 
 
+static BOOL DrawButton(HDC hdc, LPRECT prect, UINT state, HBRUSH hbrush)
+{
+	FillRect(hdc, prect, hbrush);
+	DrawEdge(hdc, prect, EDGE_RAISED, BF_RECT|BF_SOFT);
+
+	return TRUE;
+}
+
+
 /* not yet used
 void ColorButton::DrawItem(LPDRAWITEMSTRUCT dis)
 {
@@ -939,6 +835,7 @@ void ColorButton::DrawItem(LPDRAWITEMSTRUCT dis)
 	}
 
 	DrawFrameControl(dis->hDC, &dis->rcItem, DFC_BUTTON, state);
+	//DrawButton(dis->hDC, &dis->rcItem, state, GetSysColorBrush(COLOR_BTNFACE));
 
 	TCHAR title[BUFFER_LEN];
 	GetWindowText(_hwnd, title, BUFFER_LEN);
@@ -970,42 +867,16 @@ void ColorButton::DrawItem(LPDRAWITEMSTRUCT dis)
 void PictureButton::DrawItem(LPDRAWITEMSTRUCT dis)
 {
 	UINT state = DFCS_BUTTONPUSH;
-	int style = GetWindowStyle(_hwnd);
 
 	if (dis->itemState & ODS_DISABLED)
 		state |= DFCS_INACTIVE;
 
-	POINT imagePos;
-	RECT textRect;
-	int dt_flags;
-
-	if (style & BS_BOTTOM) {
-		 // align horizontal centered, vertical floating
-		imagePos.x = (dis->rcItem.left + dis->rcItem.right - _cx) / 2;
-		imagePos.y = dis->rcItem.top + 3;
-
-		textRect.left = dis->rcItem.left + 2;
-		textRect.top = dis->rcItem.top + _cy + 4;
-		textRect.right = dis->rcItem.right - 4;
-		textRect.bottom = dis->rcItem.bottom - 4;
-
-		dt_flags = DT_SINGLELINE|DT_CENTER|DT_VCENTER;
-	} else {
-		 // horizontal floating, vertical centered
-		imagePos.x = dis->rcItem.left + 3;
-		imagePos.y = (dis->rcItem.top + dis->rcItem.bottom - _cy)/2;
-
-		textRect.left = dis->rcItem.left + _cx + 4;
-		textRect.top = dis->rcItem.top + 2;
-		textRect.right = dis->rcItem.right - 4;
-		textRect.bottom = dis->rcItem.bottom - 4;
-
-		dt_flags = DT_SINGLELINE|DT_VCENTER/*|DT_CENTER*/;
-	}
+	POINT iconPos = {dis->rcItem.left+2, (dis->rcItem.top+dis->rcItem.bottom-16)/2};
+	RECT textRect = {dis->rcItem.left+16+4, dis->rcItem.top+2, dis->rcItem.right-4, dis->rcItem.bottom-4};
 
 	if (dis->itemState & ODS_SELECTED) {
 		state |= DFCS_PUSHED;
-		++imagePos.x;		++imagePos.y;
+		++iconPos.x;		++iconPos.y;
 		++textRect.left;	++textRect.top;
 		++textRect.right;	++textRect.bottom;
 	}
@@ -1013,18 +884,13 @@ void PictureButton::DrawItem(LPDRAWITEMSTRUCT dis)
 	if (_flat) {
 		FillRect(dis->hDC, &dis->rcItem, _hBrush);
 
-		if (style & BS_FLAT)	// Only with BS_FLAT set, there will be drawn a frame without highlight.
+		if (GetWindowStyle(_hwnd) & BS_FLAT)	// Only with BS_FLAT set, there will be drawn a frame without highlight.
 			DrawEdge(dis->hDC, &dis->rcItem, EDGE_RAISED, BF_RECT|BF_FLAT);
 	} else
-		DrawFrameControl(dis->hDC, &dis->rcItem, DFC_BUTTON, state);
+		//DrawFrameControl(dis->hDC, &dis->rcItem, DFC_BUTTON, state);
+		DrawButton(dis->hDC, &dis->rcItem, state, _hBrush);
 
-	if (_hIcon)
-		DrawIconEx(dis->hDC, imagePos.x, imagePos.y, _hIcon, _cx, _cy, 0, _hBrush, DI_NORMAL);
-	else {
-		MemCanvas mem_dc;
-		BitmapSelection sel(mem_dc, _hBmp);
-		BitBlt(dis->hDC, imagePos.x, imagePos.y, _cx, _cy, mem_dc, 0, 0, SRCCOPY);
-	}
+	DrawIconEx(dis->hDC, iconPos.x, iconPos.y, _hIcon, 16, 16, 0, _hBrush, DI_NORMAL);
 
 	TCHAR title[BUFFER_LEN];
 	GetWindowText(_hwnd, title, BUFFER_LEN);
@@ -1032,10 +898,10 @@ void PictureButton::DrawItem(LPDRAWITEMSTRUCT dis)
 	BkMode bk_mode(dis->hDC, TRANSPARENT);
 
 	if (dis->itemState & (ODS_DISABLED|ODS_GRAYED))
-		DrawGrayText(dis->hDC, &textRect, title, dt_flags);
+		DrawGrayText(dis->hDC, &textRect, title, DT_SINGLELINE|DT_VCENTER/*|DT_CENTER*/);
 	else {
 		TextColor lcColor(dis->hDC, GetSysColor(COLOR_BTNTEXT));
-		DrawText(dis->hDC, title, -1, &textRect, dt_flags);
+		DrawText(dis->hDC, title, -1, &textRect, DT_SINGLELINE|DT_VCENTER/*|DT_CENTER*/);
 	}
 
 	if (dis->itemState & ODS_FOCUS) {
@@ -1129,7 +995,7 @@ LRESULT	FlatButton::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 		if (IsWindowEnabled(_hwnd)) {
 			DWORD pid_foreground;
-			HWND hwnd_foreground = GetForegroundWindow();	//@@ may be better look for WM_ACTIVATEAPP ?
+			HWND hwnd_foreground = GetForegroundWindow();	//@@ vielleicht besser über WM_ACTIVATEAPP-Abfrage
 			GetWindowThreadProcessId(hwnd_foreground, &pid_foreground);
 
 			if (GetCurrentProcessId() == pid_foreground) {
@@ -1224,9 +1090,9 @@ HyperlinkCtrl::~HyperlinkCtrl()
 		DeleteObject(_hfont);
 }
 
-LRESULT HyperlinkCtrl::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+LRESULT HyperlinkCtrl::WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 {
-	switch(nmsg) {
+	switch(message) {
 	  case PM_DISPATCH_CTLCOLOR: {
 		if (!_hfont) {
 			HFONT hfont = (HFONT) SendMessage(_hwnd, WM_GETFONT, 0, 0);
@@ -1262,7 +1128,7 @@ LRESULT HyperlinkCtrl::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		return 0;
 
 	  default:
-		return super::WndProc(nmsg, wparam, lparam);
+		return super::WndProc(message, wparam, lparam);
 	}
 }
 
@@ -1305,157 +1171,4 @@ void ListSort::sort()
 		idx = ListView_FindItemPara(_hwnd, param);
 		ListView_EnsureVisible(_hwnd, idx, FALSE);
 	}
-}
-
-
-PropSheetPage::PropSheetPage(UINT nid, Window::CREATORFUNC dlg_creator)
- :	_dlg_creator(dlg_creator)
-{
-	PROPSHEETPAGE::dwSize		= sizeof(PROPSHEETPAGE);
-	PROPSHEETPAGE::dwFlags		= 0;
-	PROPSHEETPAGE::hInstance	= g_Globals._hInstance;
-	PROPSHEETPAGE::pszTemplate	= MAKEINTRESOURCE(nid);
-	PROPSHEETPAGE::pfnDlgProc	= PropSheetPageDlg::DialogProc;
-	PROPSHEETPAGE::lParam		= (LPARAM) this;
-}
-
-
-#ifndef PSM_GETRESULT	// currently (as of 18.01.2004) missing in MinGW headers
-#define PSM_GETRESULT				(WM_USER + 135)
-#define PropSheet_GetResult(hDlg)	SNDMSG(hDlg, PSM_GETRESULT, 0, 0)
-#endif
-
-
-PropertySheetDialog::PropertySheetDialog(HWND owner)
- :	_hwnd(0)
-{
-	PROPSHEETHEADER::dwSize = sizeof(PROPSHEETHEADER);
-	PROPSHEETHEADER::dwFlags = PSH_PROPSHEETPAGE | PSH_MODELESS;
-	PROPSHEETHEADER::hwndParent = owner;
-	PROPSHEETHEADER::hInstance = g_Globals._hInstance;
-}
-
-void PropertySheetDialog::add(PropSheetPage& psp)
-{
-	_pages.push_back(psp);
-}
-
-int	PropertySheetDialog::DoModal(int start_page)
-{
-	PROPSHEETHEADER::ppsp = (LPCPROPSHEETPAGE) &_pages[0];
-	PROPSHEETHEADER::nPages = _pages.size();
-	PROPSHEETHEADER::nStartPage = start_page;
-/*
-	Window* pwnd = Window::create_property_sheet(this, WINDOW_CREATOR(PropertySheetDlg), NULL);
-	if (!pwnd)
-		return -1;
-
-	HWND hwndPropSheet = *pwnd;
-*/
-	int ret = PropertySheet(this);
-	if (ret == -1)
-		return -1;
-
-	HWND hwndPropSheet = (HWND) ret;
-	HWND hwndparent = GetParent(hwndPropSheet);
-
-	if (hwndparent)
-		EnableWindow(hwndparent, FALSE);
-
-	ret = 0;
-	MSG msg;
-
-	while(GetMessage(&msg, 0, 0, 0)) {
-		try {
-			if (Window::pretranslate_msg(&msg))
-				continue;
-
-			if (PropSheet_IsDialogMessage(hwndPropSheet, &msg))
-				continue;
-
-			if (Window::dispatch_dialog_msg(&msg))
-				continue;
-
-			TranslateMessage(&msg);
-
-			try {
-				DispatchMessage(&msg);
-			} catch(COMException& e) {
-				HandleException(e, 0);
-			}
-
-			if (!PropSheet_GetCurrentPageHwnd(hwndPropSheet)) {
-				ret = PropSheet_GetResult(hwndPropSheet);
-				break;
-			}
-		} catch(COMException& e) {
-			HandleException(e, 0);
-		}
-	}
-
-	if (hwndparent)
-		EnableWindow(hwndparent, TRUE);
-
-	DestroyWindow(hwndPropSheet);
-
-	return ret;
-}
-
-HWND PropertySheetDialog::GetCurrentPage()
-{
-	HWND hdlg = PropSheet_GetCurrentPageHwnd(_hwnd);
-	return hdlg;
-}
-
-
-PropSheetPageDlg::PropSheetPageDlg(HWND hwnd)
- :	super(hwnd)
-{
-}
-
-INT_PTR CALLBACK PropSheetPageDlg::DialogProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam)
-{
-	PropSheetPageDlg* pThis = GET_WINDOW(PropSheetPageDlg, hwnd);
-
-	if (pThis) {
-		switch(nmsg) {
-		  case WM_COMMAND:
-			pThis->Command(LOWORD(wparam), HIWORD(wparam));
-			return TRUE;	// message has been processed
-
-		  case WM_NOTIFY:
-			pThis->Notify(wparam, (NMHDR*)lparam);
-			return TRUE;	// message has been processed
-
-		  case WM_NOTIFYFORMAT:
-			SetWindowLong(hwnd, DWLP_MSGRESULT, NFR_CURRENT);	// set return value NFR_CURRENT
-			return TRUE;	// message has been processed
-
-		  case WM_NCDESTROY:
-			delete pThis;
-			return TRUE;	// message has been processed
-
-		  default:
-			return pThis->WndProc(nmsg, wparam, lparam);
-		}
-	} else if (nmsg == WM_INITDIALOG) {
-		PROPSHEETPAGE* psp = (PROPSHEETPAGE*) lparam;
-		PropSheetPage* ppsp = (PropSheetPage*) psp->lParam;
-
-		if (ppsp->_dlg_creator) {
-			pThis = static_cast<PropSheetPageDlg*>(ppsp->_dlg_creator(hwnd));
-
-			if (pThis)
-				return pThis->Init(NULL);
-		}
-	}
-
-	return FALSE;	// message has not been processed
-}
-
-int PropSheetPageDlg::Command(int id, int code)
-{
-	// override call to EndDialog in Dialog::Command();
-
-	return FALSE;
 }

@@ -1,3 +1,4 @@
+
 /*
  *	OLE2 library
  *
@@ -28,10 +29,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -333,9 +332,6 @@ HRESULT WINAPI RegisterDragDrop(
 
   TRACE("(%p,%p)\n", hwnd, pDropTarget);
 
-  if (!pDropTarget)
-    return E_INVALIDARG;
-  
   /*
    * First, check if the window is already registered.
    */
@@ -1423,13 +1419,15 @@ HRESULT WINAPI OleSetMenuDescriptor(
  */
 BOOL WINAPI IsAccelerator(HACCEL hAccel, int cAccelEntries, LPMSG lpMsg, WORD* lpwCmd)
 {
-    LPACCEL lpAccelTbl;
+#if 0 /* Not implemented for ReactOS */
+    /* YES, Accel16! */
+    LPACCEL16 lpAccelTbl;
     int i;
 
     if(!lpMsg) return FALSE;
-    if (!hAccel)
+    if (!hAccel || !(lpAccelTbl = (LPACCEL16)LockResource16(HACCEL_16(hAccel))))
     {
-	WARN_(accel)("NULL accel handle\n");
+	WARN_(accel)("invalid accel handle=%p\n", hAccel);
 	return FALSE;
     }
     if((lpMsg->message != WM_KEYDOWN &&
@@ -1437,17 +1435,6 @@ BOOL WINAPI IsAccelerator(HACCEL hAccel, int cAccelEntries, LPMSG lpMsg, WORD* l
 	lpMsg->message != WM_SYSKEYDOWN &&
 	lpMsg->message != WM_SYSKEYUP &&
 	lpMsg->message != WM_CHAR)) return FALSE;
-    lpAccelTbl = HeapAlloc(GetProcessHeap(), 0, cAccelEntries * sizeof(ACCEL));
-    if (NULL == lpAccelTbl)
-    {
-	return FALSE;
-    }
-    if (CopyAcceleratorTableW(hAccel, lpAccelTbl, cAccelEntries) != cAccelEntries)
-    {
-	WARN_(accel)("CopyAcceleratorTableW failed\n");
-	HeapFree(GetProcessHeap(), 0, lpAccelTbl);
-	return FALSE;
-    }
 
     TRACE_(accel)("hAccel=%p, cAccelEntries=%d,"
 		"msg->hwnd=%p, msg->message=%04x, wParam=%08x, lParam=%08lx\n",
@@ -1494,13 +1481,14 @@ BOOL WINAPI IsAccelerator(HACCEL hAccel, int cAccelEntries, LPMSG lpMsg, WORD* l
     }
 
     WARN_(accel)("couldn't translate accelerator key\n");
-    HeapFree(GetProcessHeap(), 0, lpAccelTbl);
     return FALSE;
 
 found:
     if(lpwCmd) *lpwCmd = lpAccelTbl[i].cmd;
-    HeapFree(GetProcessHeap(), 0, lpAccelTbl);
     return TRUE;
+#else
+    return FALSE;
+#endif
 }
 
 /***********************************************************************
@@ -2328,81 +2316,17 @@ static void OLE_FreeClipDataArray(ULONG count, CLIPDATA * pClipDataArray)
             CoTaskMemFree(pClipDataArray[i].pClipData);
 }
 
-/******************************************************************************
- * Check if a PROPVARIANT's type is valid.
- */
-static inline HRESULT PROPVARIANT_ValidateType(VARTYPE vt)
-{
-    switch (vt)
-    {
-    case VT_EMPTY:
-    case VT_NULL:
-    case VT_I2:
-    case VT_I4:
-    case VT_R4:
-    case VT_R8:
-    case VT_CY:
-    case VT_DATE:
-    case VT_BSTR:
-    case VT_ERROR:
-    case VT_BOOL:
-    case VT_UI1:
-    case VT_UI2:
-    case VT_UI4:
-    case VT_I8:
-    case VT_UI8:
-    case VT_LPSTR:
-    case VT_LPWSTR:
-    case VT_FILETIME:
-    case VT_BLOB:
-    case VT_STREAM:
-    case VT_STORAGE:
-    case VT_STREAMED_OBJECT:
-    case VT_STORED_OBJECT:
-    case VT_BLOB_OBJECT:
-    case VT_CF:
-    case VT_CLSID:
-    case VT_I2|VT_VECTOR:
-    case VT_I4|VT_VECTOR:
-    case VT_R4|VT_VECTOR:
-    case VT_R8|VT_VECTOR:
-    case VT_CY|VT_VECTOR:
-    case VT_DATE|VT_VECTOR:
-    case VT_BSTR|VT_VECTOR:
-    case VT_ERROR|VT_VECTOR:
-    case VT_BOOL|VT_VECTOR:
-    case VT_VARIANT|VT_VECTOR:
-    case VT_UI1|VT_VECTOR:
-    case VT_UI2|VT_VECTOR:
-    case VT_UI4|VT_VECTOR:
-    case VT_I8|VT_VECTOR:
-    case VT_UI8|VT_VECTOR:
-    case VT_LPSTR|VT_VECTOR:
-    case VT_LPWSTR|VT_VECTOR:
-    case VT_FILETIME|VT_VECTOR:
-    case VT_CF|VT_VECTOR:
-    case VT_CLSID|VT_VECTOR:
-        return S_OK;
-    }
-    WARN("Bad type %d\n", vt);
-    return STG_E_INVALIDPARAMETER;
-}
+HRESULT WINAPI FreePropVariantArray(ULONG,PROPVARIANT*);
 
 /***********************************************************************
  *           PropVariantClear			    [OLE32.@]
  */
 HRESULT WINAPI PropVariantClear(PROPVARIANT * pvar) /* [in/out] */
 {
-    HRESULT hr;
-
     TRACE("(%p)\n", pvar);
 
     if (!pvar)
         return S_OK;
-
-    hr = PROPVARIANT_ValidateType(pvar->vt);
-    if (FAILED(hr))
-        return hr;
 
     switch(pvar->vt)
     {
@@ -2410,8 +2334,7 @@ HRESULT WINAPI PropVariantClear(PROPVARIANT * pvar) /* [in/out] */
     case VT_STREAMED_OBJECT:
     case VT_STORAGE:
     case VT_STORED_OBJECT:
-        if (pvar->u.pStream)
-            IUnknown_Release(pvar->u.pStream);
+        IUnknown_Release((LPUNKNOWN)pvar->u.pStream);
         break;
     case VT_CLSID:
     case VT_LPSTR:
@@ -2425,11 +2348,8 @@ HRESULT WINAPI PropVariantClear(PROPVARIANT * pvar) /* [in/out] */
         CoTaskMemFree(pvar->u.blob.pBlobData);
         break;
     case VT_BSTR:
-        if (pvar->u.bstrVal)
-        {
-            FIXME("Need to load OLEAUT32 for SysFreeString\n");
-            /* SysFreeString(pvar->u.bstrVal); */
-        }
+        FIXME("Need to load OLEAUT32 for SysFreeString\n");
+        /* SysFreeString(pvar->u.bstrVal); */
         break;
    case VT_CF:
         if (pvar->u.pclipdata)
@@ -2439,7 +2359,12 @@ HRESULT WINAPI PropVariantClear(PROPVARIANT * pvar) /* [in/out] */
         }
         break;
     default:
-        switch (pvar->vt & ~VT_VECTOR)
+        if (pvar->vt & VT_ARRAY)
+        {
+            FIXME("Need to call SafeArrayDestroy\n");
+            /* SafeArrayDestroy(pvar->u.caub); */
+        }
+        switch (pvar->vt & VT_VECTOR)
         {
         case VT_VARIANT:
             FreePropVariantArray(pvar->u.capropvar.cElems, pvar->u.capropvar.pElems);
@@ -2450,10 +2375,9 @@ HRESULT WINAPI PropVariantClear(PROPVARIANT * pvar) /* [in/out] */
         case VT_BSTR:
         case VT_LPSTR:
         case VT_LPWSTR:
-        case VT_CLSID:
             FIXME("Freeing of vector sub-type not supported yet\n");
         }
-        if (pvar->vt & ~VT_VECTOR)
+        if (pvar->vt & VT_VECTOR)
         {
             /* pick an arbitary VT_VECTOR structure - they all have the same
              * memory layout */
@@ -2473,13 +2397,7 @@ HRESULT WINAPI PropVariantCopy(PROPVARIANT *pvarDest,      /* [out] */
                                const PROPVARIANT *pvarSrc) /* [in] */
 {
     ULONG len;
-    HRESULT hr;
-
-    TRACE("(%p, %p)\n", pvarDest, pvarSrc);
-
-    hr = PROPVARIANT_ValidateType(pvarSrc->vt);
-    if (FAILED(hr))
-        return hr;
+    TRACE("(%p, %p): stub:\n", pvarDest, pvarSrc);
 
     /* this will deal with most cases */
     CopyMemory(pvarDest, pvarSrc, sizeof(*pvarDest));
@@ -2498,13 +2416,13 @@ HRESULT WINAPI PropVariantCopy(PROPVARIANT *pvarDest,      /* [out] */
         break;
     case VT_LPSTR:
         len = strlen(pvarSrc->u.pszVal);
-        pvarDest->u.pszVal = CoTaskMemAlloc((len+1)*sizeof(CHAR));
-        CopyMemory(pvarDest->u.pszVal, pvarSrc->u.pszVal, (len+1)*sizeof(CHAR));
+        pvarDest->u.pszVal = CoTaskMemAlloc(len);
+        CopyMemory(pvarDest->u.pszVal, pvarSrc->u.pszVal, len);
         break;
     case VT_LPWSTR:
         len = lstrlenW(pvarSrc->u.pwszVal);
-        pvarDest->u.pwszVal = CoTaskMemAlloc((len+1)*sizeof(WCHAR));
-        CopyMemory(pvarDest->u.pwszVal, pvarSrc->u.pwszVal, (len+1)*sizeof(WCHAR));
+        pvarDest->u.pwszVal = CoTaskMemAlloc(len);
+        CopyMemory(pvarDest->u.pwszVal, pvarSrc->u.pwszVal, len);
         break;
     case VT_BLOB:
     case VT_BLOB_OBJECT:
@@ -2527,6 +2445,11 @@ HRESULT WINAPI PropVariantCopy(PROPVARIANT *pvarDest,      /* [out] */
         }
         break;
     default:
+        if (pvarSrc->vt & VT_ARRAY)
+        {
+            FIXME("Need to call SafeArrayCopy\n");
+            /* SafeArrayCopy(...); */
+        }
         if (pvarSrc->vt & VT_VECTOR)
         {
             int elemSize;

@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.21 2004/11/28 21:16:15 gdalsnes Exp $
+/* $Id: atom.c,v 1.18 2003/10/28 09:49:04 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS *******************************************************************/
@@ -45,20 +45,10 @@ GlobalAddAtomA(LPCSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    RtlCreateUnicodeStringFromAsciiz(&AtomName,
 				    (LPSTR)lpString);
 
    Status = NtAddAtom(AtomName.Buffer,
-                      AtomName.Length,
 		      &Atom);
    RtlFreeUnicodeString(&AtomName);
    if (!NT_SUCCESS(Status))
@@ -90,17 +80,7 @@ GlobalAddAtomW(LPCWSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    Status = NtAddAtom((LPWSTR)lpString,
-                      wcslen(lpString),
 		      &Atom);
    if (!NT_SUCCESS(Status))
      {
@@ -156,19 +136,9 @@ GlobalFindAtomA(LPCSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenA(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    RtlCreateUnicodeStringFromAsciiz(&AtomName,
 				    (LPSTR)lpString);
    Status = NtFindAtom(AtomName.Buffer,
-                       AtomName.Length,
 		       &Atom);
    RtlFreeUnicodeString(&AtomName);
    if (!NT_SUCCESS(Status))
@@ -200,17 +170,7 @@ GlobalFindAtomW(LPCWSTR lpString)
 	return (ATOM)LOWORD((ULONG)lpString);
      }
 
-   if (lstrlenW(lpString) > 255)
-   {
-      /* This limit does not exist with NtAddAtom so the limit is probably 
-       * added for compability. -Gunnar 
-       */
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return (ATOM)0;
-   }
-
    Status = NtFindAtom((LPWSTR)lpString,
-                       wcslen(lpString),
 		       &Atom);
    if (!NT_SUCCESS(Status))
      {

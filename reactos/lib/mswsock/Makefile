@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.4 2004/05/29 21:24:44 hbirr Exp $
+# $Id: Makefile,v 1.3 2004/01/11 20:46:05 navaraf Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,7 +6,7 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = mswsock
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSWSOCK)
+TARGET_BASE = 0x71a30000
 
 TARGET_CFLAGS = \
  -I./include \

@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.66 2004/12/30 02:32:23 navaraf Exp $
+/* $Id: stubs.c,v 1.45 2004/01/10 02:57:08 arty Exp $
  *
  * reactos/lib/gdi32/misc/stubs.c
  *
@@ -8,10 +8,11 @@
  * remove its stub from this file.
  *
  */
-
-#include "precomp.h"
-
-#define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
+#ifdef UNICODE
+#undef UNICODE
+#endif
+#include <windows.h>
+#include <ddentry.h>
 
 /*
  * @unimplemented
@@ -25,7 +26,6 @@ AnimatePalette(
 	CONST PALETTEENTRY	*a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -41,7 +41,6 @@ CancelDC(
 	HDC	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -64,7 +63,6 @@ Chord(
 	int	a8
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -79,7 +77,6 @@ CloseMetaFile(
 	HDC	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -94,7 +91,6 @@ CreateDIBPatternBrush(
 	UINT			a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -109,7 +105,6 @@ DeleteMetaFile(
 	HMETAFILE	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -127,7 +122,6 @@ DrawEscape(
 	LPCSTR		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -141,11 +135,10 @@ STDCALL
 EnumObjects(
 	HDC		a0,
 	int		a1,
-	GOBJENUMPROC	a2,
+	ENUMOBJECTSPROC	a2,
 	LPARAM		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -164,7 +157,43 @@ Escape(
 	LPVOID		a4
 	)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+ExtEscape(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	LPCSTR		a3,
+	int		a4,
+	LPSTR		a5
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+ExcludeClipRect(
+	HDC	a0,
+	int	a1,
+	int	a2,
+	int	a3,
+	int	a4
+	)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -181,9 +210,25 @@ ExtCreateRegion(
 	CONST RGNDATA *	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+FrameRgn(
+	HDC	a0,
+	HRGN	a1,
+	HBRUSH	a2,
+	int	a3,
+	int	a4
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -197,7 +242,6 @@ GetAspectRatioFilterEx(
 	LPSIZE	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -214,7 +258,6 @@ GetBoundsRect(
 	UINT	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -230,7 +273,39 @@ GetMetaRgn(
 	HRGN	a1
 	)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGDIOBJ
+STDCALL
+GetCurrentObject(
+	HDC	a0,
+	UINT	a1
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetFontData(
+	HDC	a0,
+	DWORD	a1,
+	DWORD	a2,
+	LPVOID	a3,
+	DWORD	a4
+	)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -247,7 +322,6 @@ GetMetaFileBitsEx(
 	LPVOID		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -263,7 +337,6 @@ GetRasterizerCaps(
 	UINT			a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -277,7 +350,6 @@ GetSystemPaletteUse(
 	HDC	hDc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -292,7 +364,6 @@ GetTextCharacterExtra(
 	HDC	hDc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -307,7 +378,6 @@ GetTextCharset(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -324,9 +394,24 @@ GetTextCharsetInfo(
 	DWORD		dwFlags
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+TranslateCharsetInfo(
+	DWORD FAR	*lpSrc,
+	LPCHARSETINFO	lpCs,
+	DWORD		dwFlags
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -339,11 +424,24 @@ GetFontLanguageInfo(
 	HDC 	hDc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
 
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+InvertRgn(
+	HDC	hDc,
+	HRGN	hRgn
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
 
 /*
  * @unimplemented
@@ -355,7 +453,22 @@ PlayMetaFile(
 	HMETAFILE	a1
 	)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+PtVisible(
+	HDC	a0,
+	int	a1,
+	int	a2
+	)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -371,9 +484,23 @@ ResizePalette(
 	UINT		a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+ExtSelectClipRgn(
+	HDC	a0,
+	HRGN	a1,
+	int	a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -386,7 +513,6 @@ SetMetaRgn(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -403,7 +529,6 @@ SetBoundsRect(
 	UINT		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -419,7 +544,6 @@ SetMapperFlags(
 	DWORD	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -435,9 +559,25 @@ SetMetaFileBitsEx(
 	CONST BYTE	*a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetPixelV(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	COLORREF	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -451,7 +591,6 @@ SetSystemPaletteUse(
 	UINT	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -467,7 +606,6 @@ SetTextCharacterExtra(
 	int	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -484,7 +622,6 @@ SetTextJustification(
 	int	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -499,7 +636,6 @@ UpdateColors(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -517,7 +653,6 @@ PlayMetaFileRecord(
 	UINT		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -531,11 +666,10 @@ STDCALL
 EnumMetaFile(
 	HDC			a0,
 	HMETAFILE		a1,
-	MFENUMPROC		a2,
+	ENUMMETAFILEPROC	a2,
 	LPARAM			a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -550,7 +684,6 @@ CloseEnhMetaFile(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -565,7 +698,6 @@ DeleteEnhMetaFile(
 	HENHMETAFILE	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -579,12 +711,11 @@ STDCALL
 EnumEnhMetaFile(
 	HDC		a0,
 	HENHMETAFILE	a1,
-	ENHMFENUMPROC	a2,
+	ENHMETAFILEPROC	a2,
 	LPVOID		a3,
 	CONST RECT	*a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -601,7 +732,6 @@ GetEnhMetaFileBits(
 	LPBYTE		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -618,7 +748,6 @@ GetEnhMetaFileHeader(
 	LPENHMETAHEADER	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -635,7 +764,6 @@ GetEnhMetaFilePaletteEntries(
 	LPPALETTEENTRY	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -654,7 +782,6 @@ GetWinMetaFileBits(
 	HDC		a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -671,7 +798,6 @@ PlayEnhMetaFile(
 	CONST RECT	*a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -689,7 +815,6 @@ PlayEnhMetaFileRecord(
 	UINT			a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -705,7 +830,6 @@ SetEnhMetaFileBits(
 	CONST BYTE	*a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -720,9 +844,10 @@ SetWinMetaFileBits(
 	UINT			a0,
 	CONST BYTE		*a1,
 	HDC			a2,
-	CONST METAFILEPICT	*a3)
+//	CONST METAFILEPICT	*a3
+		   PVOID a3
+	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -739,7 +864,6 @@ GdiComment(
 	CONST BYTE	*a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -759,11 +883,26 @@ AngleArc(
 	FLOAT	a5
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetDIBColorTable(
+	HDC		hdc,
+	UINT		a1,
+	UINT		a2,
+	RGBQUAD		*a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented 
@@ -775,7 +914,6 @@ SetColorAdjustment(
 	CONST COLORADJUSTMENT	*a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -791,7 +929,6 @@ GetColorAdjustment(
 	LPCOLORADJUSTMENT	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -806,7 +943,6 @@ EndDoc(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -821,7 +957,6 @@ StartPage(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -836,7 +971,6 @@ EndPage(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -851,7 +985,6 @@ AbortDoc(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -867,7 +1000,6 @@ SetAbortProc(
 	ABORTPROC	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -882,7 +1014,6 @@ AbortPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -897,7 +1028,6 @@ BeginPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -912,7 +1042,6 @@ CloseFigure(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -927,7 +1056,6 @@ EndPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -942,7 +1070,6 @@ FillPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -957,7 +1084,6 @@ FlattenPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -975,7 +1101,6 @@ GetPath(
 	int		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -990,7 +1115,6 @@ PathToRegion(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1008,7 +1132,6 @@ PolyDraw(
 	int		a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1024,7 +1147,6 @@ SelectClipPath(
 	int	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1041,7 +1163,6 @@ SetMiterLimit(
 	PFLOAT	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1056,7 +1177,6 @@ StrokeAndFillPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1071,7 +1191,6 @@ StrokePath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1086,9 +1205,26 @@ WidenPath(
 	HDC	hdc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HPEN
+STDCALL
+ExtCreatePen(
+	DWORD		a0,
+	DWORD		a1,
+	CONST LOGBRUSH	*a2,
+	DWORD		a3,
+	CONST DWORD	*a4
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -1102,9 +1238,24 @@ GetMiterLimit(
 	PFLOAT	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HRGN
+STDCALL
+CreatePolygonRgn(
+	CONST POINT	*a0,
+	int		a1,
+	int		a2
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
@@ -1121,7 +1272,6 @@ ScaleViewportExtEx(
 	LPSIZE	a5
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1141,7 +1291,40 @@ ScaleWindowExtEx(
 	LPSIZE	a5
 	)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetBrushOrgEx(
+	HDC	a0,
+	int	a1,
+	int	a2,
+	LPPOINT	a3
+	)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+FixBrushOrgEx(
+	HDC	a0,
+	int	a1,
+	int	a2,
+	LPPOINT	a3
+	)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1156,7 +1339,6 @@ UnrealizeObject(
 	HGDIOBJ	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1169,12 +1351,8 @@ BOOL
 STDCALL
 GdiFlush()
 {
-        /*
-         * Although GdiFlush is unimplemented, it's safe to return
-         * TRUE, because we don't have GDI engine surface caching
-         * implemented yet.
-         */
-	return TRUE;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -1187,7 +1365,6 @@ GdiSetBatchLimit(
 	DWORD	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1200,7 +1377,6 @@ DWORD
 STDCALL
 GdiGetBatchLimit()
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1216,7 +1392,6 @@ SetICMMode(
 	int	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1234,7 +1409,6 @@ CheckColorsInGamut(
 	DWORD	a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1249,7 +1423,6 @@ GetColorSpace(
 	HDC	hDc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1265,7 +1438,6 @@ SetColorSpace(
 	HCOLORSPACE	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1280,7 +1452,6 @@ DeleteColorSpace(
 	HCOLORSPACE	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1296,7 +1467,6 @@ GetDeviceGammaRamp(
 	LPVOID	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1312,7 +1482,6 @@ SetDeviceGammaRamp(
 	LPVOID	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1329,7 +1498,6 @@ ColorMatchToTarget(
 	DWORD	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1346,7 +1514,6 @@ wglCopyContext(
 	UINT	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1361,7 +1528,6 @@ wglCreateContext(
 	HDC	hDc
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1377,7 +1543,6 @@ wglCreateLayerContext(
 	int	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1392,7 +1557,6 @@ wglDeleteContext(
 	HGLRC	a
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1405,7 +1569,6 @@ HGLRC
 STDCALL
 wglGetCurrentContext(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1418,7 +1581,6 @@ HDC
 STDCALL
 wglGetCurrentDC(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1433,7 +1595,6 @@ wglGetProcAddress(
 	LPCSTR		a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1449,7 +1610,6 @@ wglMakeCurrent(
 	HGLRC	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1465,7 +1625,6 @@ wglShareLists(
 	HGLRC	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1484,7 +1643,6 @@ wglDescribeLayerPlane(
 	LPLAYERPLANEDESCRIPTOR	a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1503,7 +1661,6 @@ wglSetLayerPaletteEntries(
 	CONST COLORREF	*a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1519,10 +1676,9 @@ wglGetLayerPaletteEntries(
 	int		a1,
 	int		a2,
 	int		a3,
-	COLORREF	*a4
+	CONST COLORREF	*a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1539,7 +1695,6 @@ wglRealizeLayerPalette(
 	BOOL		a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1555,7 +1710,6 @@ wglSwapLayerBuffers(
 	UINT		a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
@@ -1581,7 +1735,6 @@ GdiPlayDCScript(
 	DWORD	a5
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1600,7 +1753,6 @@ GdiPlayJournal(
 	DWORD	a4
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1621,7 +1773,6 @@ GdiPlayScript(
 	DWORD	a6
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1642,7 +1793,6 @@ GetGlyphOutlineWow(
 	DWORD	a6
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1651,15 +1801,14 @@ GetGlyphOutlineWow(
 /*
  * @unimplemented
  */
-INT
+DWORD
 STDCALL
 GetRandomRgn(
-	HDC	a0,
-	HRGN	a1,
-	INT	a2
+	DWORD	a0,
+	DWORD	a1,
+	DWORD	a2
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1675,7 +1824,6 @@ SelectBrushLocal(
 	DWORD	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1691,7 +1839,6 @@ SelectFontLocal(
 	DWORD	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1706,7 +1853,6 @@ SetFontEnumeration(
 	DWORD	a0
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1722,7 +1868,6 @@ SetRelAbs(
 	DWORD	a1
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1742,7 +1887,6 @@ gdiPlaySpoolStream(
 	DWORD	a5
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1760,7 +1904,6 @@ GetFontResourceInfo(
 	DWORD	a3
 	)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1777,7 +1920,6 @@ AddFontMemResourceEx(
 	DWORD *pcFonts
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1792,7 +1934,6 @@ AddFontResourceTracking(
 	int unknown
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1800,11 +1941,10 @@ AddFontResourceTracking(
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL 
 AnyLinkedFonts(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1816,7 +1956,6 @@ HBITMAP
 STDCALL
 ClearBitmapAttributes(HBITMAP hbm, DWORD dwFlags)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1828,7 +1967,6 @@ HBRUSH
 STDCALL
 ClearBrushAttributes(HBRUSH hbm, DWORD dwFlags)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1836,11 +1974,10 @@ ClearBrushAttributes(HBRUSH hbm, DWORD dwFlags)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 ColorCorrectPalette(HDC hDC,HPALETTE hPalette,DWORD dwFirstEntry,DWORD dwNumOfEntries)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1848,11 +1985,10 @@ ColorCorrectPalette(HDC hDC,HPALETTE hPalette,DWORD dwFirstEntry,DWORD dwNumOfEn
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
-EnableEUDC(BOOL enable)
+EnableEUDC(WINBOOL enable)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1864,7 +2000,6 @@ int
 STDCALL
 EndFormPage(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1872,11 +2007,43 @@ EndFormPage(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL
+STDCALL
+EudcLoadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath,INT iPriority,INT iFontLinkType)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
+STDCALL
+EudcUnloadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
 STDCALL
 FontIsLinked(HDC hdc)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+int 
+STDCALL
+GdiAddFontResourceW(LPCWSTR filename,FLONG f,DESIGNVECTOR *pdv)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1888,7 +2055,6 @@ DWORD
 STDCALL
 GdiAddGlsBounds(HDC hdc,LPRECT prc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1896,11 +2062,10 @@ GdiAddGlsBounds(HDC hdc,LPRECT prc)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GdiAlphaBlend(HDC hdcDst,LONG DstX,LONG DstY,LONG DstCx,LONG DstCy,HDC hdcSrc,LONG SrcX,LONG SrcY,LONG SrcCx,LONG SrcCy,BLENDFUNCTION BlendFunction)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1908,11 +2073,10 @@ GdiAlphaBlend(HDC hdcDst,LONG DstX,LONG DstY,LONG DstCx,LONG DstCy,HDC hdcSrc,LO
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
-GdiArtificialDecrementDriver(LPWSTR pDriverName,BOOL unknown)
+GdiArtificialDecrementDriver(LPWSTR pDriverName,WINBOOL unknown)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1920,11 +2084,21 @@ GdiArtificialDecrementDriver(LPWSTR pDriverName,BOOL unknown)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiCleanCacheDC(HDC hdc)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
+STDCALL
+GdiConsoleTextOut(HDC hdc, POLYTEXTW *lpto,UINT nStrings, RECTL *prclBounds)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1936,7 +2110,6 @@ HDC
 STDCALL
 GdiConvertAndCheckDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1948,7 +2121,6 @@ HBITMAP
 STDCALL
 GdiConvertBitmap(HBITMAP hbm)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1960,7 +2132,6 @@ HBRUSH
 STDCALL
 GdiConvertBrush(HBRUSH hbr)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1972,7 +2143,6 @@ HDC
 STDCALL
 GdiConvertDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1984,7 +2154,6 @@ HFONT
 STDCALL
 GdiConvertFont(HFONT hfont)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -1996,7 +2165,6 @@ HPALETTE
 STDCALL
 GdiConvertPalette(HPALETTE hpal)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2008,7 +2176,6 @@ HRGN
 STDCALL
 GdiConvertRegion(HRGN hregion)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2020,7 +2187,6 @@ HENHMETAFILE
 STDCALL
 GdiConvertEnhMetaFile(HENHMETAFILE hmf)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2028,11 +2194,10 @@ GdiConvertEnhMetaFile(HENHMETAFILE hmf)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiDeleteLocalDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2044,7 +2209,6 @@ int
 STDCALL
 GdiDescribePixelFormat(HDC hdc,int ipfd,UINT cjpfd,PPIXELFORMATDESCRIPTOR ppfd)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2052,11 +2216,10 @@ GdiDescribePixelFormat(HDC hdc,int ipfd,UINT cjpfd,PPIXELFORMATDESCRIPTOR ppfd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiDrawStream(HDC dc, ULONG l, VOID *v)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2068,7 +2231,6 @@ HGDIOBJ
 STDCALL
 GdiFixUpHandle(HGDIOBJ hobj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2080,7 +2242,6 @@ DWORD
 STDCALL
 GdiGetCodePage(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2092,7 +2253,6 @@ HBRUSH
 STDCALL
 GdiGetLocalBrush(HBRUSH hbr)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2104,7 +2264,6 @@ HDC
 STDCALL
 GdiGetLocalDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2116,7 +2275,6 @@ HFONT
 STDCALL
 GdiGetLocalFont(HFONT hfont)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2124,11 +2282,21 @@ GdiGetLocalFont(HFONT hfont)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
+STDCALL
+GdiGradientFill(HDC hdc,PTRIVERTEX pVertex,ULONG uVertex,PVOID pMesh,ULONG uMesh,ULONG ulMode)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 GdiIsMetaFileDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2136,11 +2304,10 @@ GdiIsMetaFileDC(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiIsMetaPrintDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2148,11 +2315,10 @@ GdiIsMetaPrintDC(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiIsPlayMetafileDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2160,11 +2326,10 @@ GdiIsPlayMetafileDC(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiReleaseDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2172,11 +2337,10 @@ GdiReleaseDC(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiReleaseLocalDC(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2184,11 +2348,10 @@ GdiReleaseLocalDC(HDC hdc)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiSetAttrs(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2200,18 +2363,16 @@ VOID
 STDCALL
 GdiSetLastError(DWORD dwErrCode)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiSetPixelFormat(HDC hdc,int ipfd)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2219,11 +2380,21 @@ GdiSetPixelFormat(HDC hdc,int ipfd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
+STDCALL
+GdiTransparentBlt(HDC hdcDst, int xDst, int yDst, int cxDst, int cyDst,HDC hdcSrc, int xSrc, int ySrc, int cxSrc, int cySrc,COLORREF TransColor)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 GdiValidateHandle(HGDIOBJ hobj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2231,11 +2402,10 @@ GdiValidateHandle(HGDIOBJ hobj)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiSwapBuffers(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2247,7 +2417,6 @@ VOID
 STDCALL
 GdiSetServerAttr(HDC hdc,DWORD attr)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -2258,7 +2427,6 @@ DWORD
 STDCALL
 GetBitmapAttributes(HBITMAP hbm)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2270,7 +2438,6 @@ DWORD
 STDCALL
 GetBrushAttributes(HBRUSH hbr)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2278,7 +2445,7 @@ GetBrushAttributes(HBRUSH hbr)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GetCharABCWidthsI(
 	HDC hdc,
@@ -2288,7 +2455,6 @@ GetCharABCWidthsI(
 	LPABC lpabc
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2296,7 +2462,7 @@ GetCharABCWidthsI(
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GetCharWidthI(
 	HDC hdc,
@@ -2306,7 +2472,32 @@ GetCharWidthI(
 	LPINT lpBuffer
 )
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+COLORREF 
+STDCALL
+GetDCBrushColor(
+	HDC hdc
+)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+COLORREF 
+STDCALL
+GetDCPenColor(
+	HDC hdc
+)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2321,7 +2512,6 @@ GetFontUnicodeRanges(
 	LPGLYPHSET lpgs
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2333,7 +2523,17 @@ ULONG
 STDCALL
 GetEUDCTimeStamp(VOID)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD 
+STDCALL
+GetEUDCTimeStampExW(LPCWSTR str)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2345,7 +2545,6 @@ ULONG
 STDCALL
 GetFontAssocStatus(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2357,7 +2556,6 @@ HFONT
 STDCALL
 GetHFONT(HDC dc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2371,7 +2569,6 @@ GetLayout(
 	HDC hdc
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2379,11 +2576,10 @@ GetLayout(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetTextExtentExPointWPri(HDC hdc,LPWSTR lpwsz,ULONG cwc,ULONG dxMax,ULONG *pcCh,PULONG pdxOut,LPSIZE psize)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2395,7 +2591,6 @@ int
 STDCALL
 GetTextFaceAliasW(HDC hdc,int cChar,LPWSTR pszOut)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2403,11 +2598,10 @@ GetTextFaceAliasW(HDC hdc,int cChar,LPWSTR pszOut)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GetTransform(HDC hdc, DWORD iXform, LPXFORM pxf)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2419,7 +2613,6 @@ LONG
 STDCALL
 HT_Get8BPPFormatPalette(LPPALETTEENTRY pPaletteEntry, USHORT RedGamma,USHORT GreenGamma, USHORT BlueGamma)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2429,9 +2622,8 @@ HT_Get8BPPFormatPalette(LPPALETTEENTRY pPaletteEntry, USHORT RedGamma,USHORT Gre
  */
 LONG 
 STDCALL
-HT_Get8BPPMaskPalette(LPPALETTEENTRY pPaletteEntry, BOOL Use8BPPMaskPal,BYTE CMYMask, USHORT RedGamma, USHORT GreenGamma, USHORT BlueGamma)
+HT_Get8BPPMaskPalette(LPPALETTEENTRY pPaletteEntry, WINBOOL Use8BPPMaskPal,BYTE CMYMask, USHORT RedGamma, USHORT GreenGamma, USHORT BlueGamma)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2439,11 +2631,10 @@ HT_Get8BPPMaskPalette(LPPALETTEENTRY pPaletteEntry, BOOL Use8BPPMaskPal,BYTE CMY
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 MirrorRgn(HWND hwnd,HRGN hrgn)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2455,7 +2646,6 @@ int
 STDCALL
 NamedEscape(HDC hdc,PWCHAR pDriver,int nDriver,int iEsc,int cjIn,LPSTR pjIn,int cjOut,LPSTR pjOut)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2467,7 +2657,6 @@ DWORD
 STDCALL
 QueryFontAssocStatus(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2475,13 +2664,42 @@ QueryFontAssocStatus(VOID)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 RemoveFontMemResourceEx(
 	HANDLE fh
 )
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
+STDCALL
+RemoveFontResourceExA(
+	LPCSTR lpFileName,
+	DWORD fl,
+	PVOID pdv
+)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
+STDCALL
+RemoveFontResourceExW(
+	LPCWSTR lpFileName,
+	DWORD fl,
+	PVOID pdv
+)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2493,7 +2711,6 @@ int
 STDCALL
 RemoveFontResourceTracking(LPCSTR lpString,int unknown)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2505,7 +2722,6 @@ HBITMAP
 STDCALL
 SetBitmapAttributes(HBITMAP hbm, DWORD dwFlags)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2517,7 +2733,34 @@ HBRUSH
 STDCALL
 SetBrushAttributes(HBRUSH hbm, DWORD dwFlags)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+COLORREF 
+STDCALL
+SetDCBrushColor(
+	HDC hdc,
+	COLORREF crColor
+)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+COLORREF 
+STDCALL
+SetDCPenColor(
+	HDC hdc,
+	COLORREF crColor
+)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2532,7 +2775,6 @@ SetLayout(
 	DWORD dwLayout
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2544,7 +2786,6 @@ DWORD
 STDCALL
 SetLayoutWidth(HDC hdc,LONG wox,DWORD dwLayout)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2552,11 +2793,10 @@ SetLayoutWidth(HDC hdc,LONG wox,DWORD dwLayout)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 SetMagicColors(HDC hdc,PALETTEENTRY peMagic,ULONG Index)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2564,11 +2804,10 @@ SetMagicColors(HDC hdc,PALETTEENTRY peMagic,ULONG Index)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetVirtualResolution(HDC hdc, int cxVirtualDevicePixel,int cyVirtualDevicePixel,int cxVirtualDeviceMm, int cyVirtualDeviceMm)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2580,7 +2819,6 @@ int
 STDCALL
 StartFormPage(HDC hdc)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2592,14 +2830,74 @@ VOID
 STDCALL
 UnloadNetworkFonts(DWORD unknown)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
+STDCALL
+bInitSystemAndFontsDirectoriesW(LPWSTR *SystemDir,LPWSTR *FontsDir)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
+STDCALL
+bMakePathNameW(LPWSTR lpBuffer,LPCWSTR lpFileName,LPWSTR *lpFilePart,DWORD unknown)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HFONT 
+STDCALL
+CreateFontIndirectExA(const ENUMLOGFONTEXDVA *elfexd)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD 
+STDCALL
+GetGlyphIndicesA(
+	HDC hdc,
+	LPCSTR lpstr,
+	int c,
+	LPWORD pgi,
+	DWORD fl
+)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+UINT 
+STDCALL
+GetStringBitmapA(HDC hdc,LPSTR psz,WINBOOL unknown,UINT cj,BYTE *lpSB)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
 STDCALL
 GetTextExtentExPointI(
 	HDC hdc,
@@ -2611,7 +2909,6 @@ GetTextExtentExPointI(
 	LPSIZE lpSize
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2619,7 +2916,46 @@ GetTextExtentExPointI(
 /*
  * @unimplemented
  */
-BOOL 
+HFONT
+STDCALL
+CreateFontIndirectExW(const ENUMLOGFONTEXDVW *elfexd)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD 
+STDCALL
+GetGlyphIndicesW(
+	HDC hdc,
+	LPCWSTR lpstr,
+	int c,
+	LPWORD pgi,
+	DWORD fl
+)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+UINT 
+STDCALL
+GetStringBitmapW(HDC hdc,LPWSTR pwsz,WINBOOL unknown,UINT cj,BYTE *lpSB)
+{
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL 
 STDCALL
 GetTextExtentPointI(
 	HDC hdc,
@@ -2628,7 +2964,6 @@ GetTextExtentPointI(
 	LPSIZE lpSize
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2642,7 +2977,6 @@ GdiFullscreenControl(FULLSCREENCONTROL FullscreenCommand,PVOID FullscreenInput,
 					DWORD FullscreenInputLength,PVOID FullscreenOutput,
 					PULONG FullscreenOutputLength)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2654,7 +2988,6 @@ INT
 STDCALL
 GdiQueryFonts(PUNIVERSAL_FONT_ID pufiFontList,ULONG nBufferSize,PLARGE_INTEGER pTimeStamp )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2662,11 +2995,10 @@ GdiQueryFonts(PUNIVERSAL_FONT_ID pufiFontList,ULONG nBufferSize,PLARGE_INTEGER p
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GdiRealizationInfo(HDC hdc, PREALIZATION_INFO pri)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2674,11 +3006,10 @@ GdiRealizationInfo(HDC hdc, PREALIZATION_INFO pri)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GetCharWidthInfo(HDC hdc,PCHWIDTHINFO pChWidthInfo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2686,11 +3017,10 @@ GetCharWidthInfo(HDC hdc,PCHWIDTHINFO pChWidthInfo)
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GetETM(HDC hdc,EXTTEXTMETRIC *petm)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2698,11 +3028,10 @@ GetETM(HDC hdc,EXTTEXTMETRIC *petm)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiAddGlsRecord(HDC hdc,DWORD unknown1,LPCSTR unknown2,LPRECT unknown3)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2714,7 +3043,6 @@ HANDLE
 STDCALL
 GdiConvertMetaFilePict(HGLOBAL hMem)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2726,7 +3054,6 @@ DEVMODEW *
 STDCALL
 GdiConvertToDevmodeW(DEVMODEA *dm)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2738,7 +3065,6 @@ HENHMETAFILE
 STDCALL
 GdiCreateLocalEnhMetaFile(HENHMETAFILE hmo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2750,7 +3076,6 @@ METAFILEPICT *
 STDCALL
 GdiCreateLocalMetaFilePict(HENHMETAFILE hmo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2762,7 +3087,17 @@ DWORD
 STDCALL
 GdiGetCharDimensions(HDC hdc,LPTEXTMETRICW lptm,BOOL unk)
 {
-	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PSHAREDHANDLETABLE
+STDCALL
+GdiQueryTable(VOID)
+{
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2777,7 +3112,6 @@ GdiGetSpoolFileHandle(
 	LPDEVMODEW	pDevmode,
 	LPWSTR		pwszDocName)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2785,12 +3119,11 @@ GdiGetSpoolFileHandle(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiDeleteSpoolFileHandle(
 	HANDLE	SpoolFileHandle)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2803,7 +3136,6 @@ STDCALL
 GdiGetPageCount(
 	HANDLE	SpoolFileHandle)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2816,7 +3148,6 @@ STDCALL
 GdiGetDC(
 	HANDLE	SpoolFileHandle)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2831,7 +3162,6 @@ GdiGetPageHandle(
 	DWORD	Page,
 	LPDWORD	pdwPageType)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2839,13 +3169,12 @@ GdiGetPageHandle(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiStartDocEMF(
 	HANDLE		SpoolFileHandle,
 	DOCINFOW	*pDocInfo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2853,12 +3182,11 @@ GdiStartDocEMF(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiStartPageEMF(
 	HANDLE	SpoolFileHandle)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2866,7 +3194,7 @@ GdiStartPageEMF(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiPlayPageEMF(
 	HANDLE	SpoolFileHandle,
@@ -2875,7 +3203,6 @@ GdiPlayPageEMF(
 	RECT	*prectBorder,
 	RECT	*prectClip)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2883,13 +3210,12 @@ GdiPlayPageEMF(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiEndPageEMF(
 	HANDLE	SpoolFileHandle,
 	DWORD	dwOptimization)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2897,12 +3223,11 @@ GdiEndPageEMF(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiEndDocEMF(
 	HANDLE	SpoolFileHandle)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2910,7 +3235,7 @@ GdiEndDocEMF(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiGetDevmodeForPage(
 	HANDLE		SpoolFileHandle,
@@ -2918,7 +3243,6 @@ GdiGetDevmodeForPage(
 	PDEVMODEW	*pCurrDM,
 	PDEVMODEW	*pLastDM)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2926,13 +3250,12 @@ GdiGetDevmodeForPage(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiResetDCEMF(
 	HANDLE		SpoolFileHandle,
 	PDEVMODEW	pCurrDM)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2943,7 +3266,6 @@ GdiResetDCEMF(
 HANDLE STDCALL
 BRUSHOBJ_hGetColorTransform(BRUSHOBJ *pbo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2952,10 +3274,9 @@ BRUSHOBJ_hGetColorTransform(BRUSHOBJ *pbo)
  * @unimplemented
  */
 PVOID STDCALL
-BRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ *BrushObj,
+BRUSHOBJ_pvAllocRbrush(IN PBRUSHOBJ BrushObj,
 		       IN ULONG ObjSize)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2964,9 +3285,8 @@ BRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ *BrushObj,
  * @unimplemented
  */
 PVOID STDCALL
-BRUSHOBJ_pvGetRbrush(IN BRUSHOBJ *BrushObj)
+BRUSHOBJ_pvGetRbrush(IN PBRUSHOBJ BrushObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2977,7 +3297,6 @@ BRUSHOBJ_pvGetRbrush(IN BRUSHOBJ *BrushObj)
 ULONG STDCALL
 BRUSHOBJ_ulGetBrushColor(BRUSHOBJ *pbo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2986,11 +3305,10 @@ BRUSHOBJ_ulGetBrushColor(BRUSHOBJ *pbo)
  * @unimplemented
  */
 BOOL STDCALL
-CLIPOBJ_bEnum(IN CLIPOBJ *ClipObj,
+CLIPOBJ_bEnum(IN PCLIPOBJ ClipObj,
 	      IN ULONG ObjSize,
 	      OUT ULONG *EnumRects)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -2999,13 +3317,12 @@ CLIPOBJ_bEnum(IN CLIPOBJ *ClipObj,
  * @unimplemented
  */
 ULONG STDCALL
-CLIPOBJ_cEnumStart(IN CLIPOBJ *ClipObj,
+CLIPOBJ_cEnumStart(IN PCLIPOBJ ClipObj,
 		   IN BOOL ShouldDoAll,
 		   IN ULONG ClipType,
 		   IN ULONG BuildOrder,
 		   IN ULONG MaxRects)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3013,10 +3330,9 @@ CLIPOBJ_cEnumStart(IN CLIPOBJ *ClipObj,
 /*
  * @unimplemented
  */
-PATHOBJ* STDCALL
-CLIPOBJ_ppoGetPath(CLIPOBJ *ClipObj)
+PPATHOBJ STDCALL
+CLIPOBJ_ppoGetPath(PCLIPOBJ ClipObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3028,7 +3344,6 @@ VOID
 STDCALL
 EngAcquireSemaphore ( IN HSEMAPHORE hsem )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3038,7 +3353,6 @@ EngAcquireSemaphore ( IN HSEMAPHORE hsem )
 BOOL STDCALL 
 EngAlphaBlend(SURFOBJ *psoDest,SURFOBJ *psoSrc,CLIPOBJ *pco,XLATEOBJ *pxlo,RECTL *prclDest,RECTL *prclSrc,BLENDOBJ *pBlendObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3051,7 +3365,6 @@ EngAssociateSurface(IN HSURF Surface,
 		    IN HDEV Dev,
 		    IN ULONG Hooks)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3072,7 +3385,6 @@ EngBitBlt(SURFOBJ *Dest,
 	  POINTL *BrushOrigin,
 	  ROP4 rop4)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3083,7 +3395,6 @@ EngBitBlt(SURFOBJ *Dest,
 BOOL STDCALL
 EngCheckAbort(SURFOBJ *pso)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3094,7 +3405,6 @@ EngCheckAbort(SURFOBJ *pso)
 FD_GLYPHSET* STDCALL
 EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3110,7 +3420,6 @@ EngCopyBits(SURFOBJ *Dest,
 	    RECTL *DestRect,
 	    POINTL *SourcePoint)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3125,7 +3434,6 @@ EngCreateBitmap(IN SIZEL Size,
 		IN ULONG Flags,
 		IN PVOID Bits)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3133,10 +3441,9 @@ EngCreateBitmap(IN SIZEL Size,
 /*
  * @unimplemented
  */
-CLIPOBJ* STDCALL
+PCLIPOBJ STDCALL
 EngCreateClip(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3149,7 +3456,6 @@ EngCreateDeviceBitmap(IN DHSURF Surface,
 		      IN SIZEL Size,
 		      IN ULONG Format)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3162,7 +3468,6 @@ EngCreateDeviceSurface(IN DHSURF Surface,
 		       IN SIZEL Size,
 		       IN ULONG FormatVersion)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3178,7 +3483,6 @@ EngCreatePalette(IN ULONG Mode,
 		 IN ULONG Green,
 		 IN ULONG Blue)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3190,7 +3494,6 @@ HSEMAPHORE
 STDCALL
 EngCreateSemaphore ( VOID )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3201,7 +3504,6 @@ EngCreateSemaphore ( VOID )
 VOID STDCALL
 EngDeleteClip(CLIPOBJ *ClipRegion)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3211,7 +3513,6 @@ EngDeleteClip(CLIPOBJ *ClipRegion)
 BOOL STDCALL
 EngDeletePalette(IN HPALETTE Palette)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3222,7 +3523,6 @@ EngDeletePalette(IN HPALETTE Palette)
 VOID STDCALL
 EngDeletePath(PATHOBJ *ppo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3233,7 +3533,6 @@ VOID
 STDCALL
 EngDeleteSemaphore ( IN HSEMAPHORE hsem )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3243,7 +3542,6 @@ EngDeleteSemaphore ( IN HSEMAPHORE hsem )
 BOOL STDCALL
 EngDeleteSurface(IN HSURF Surface)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3256,7 +3554,6 @@ EngEraseSurface(SURFOBJ *Surface,
 		RECTL *Rect,
 		ULONG iColor)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3267,7 +3564,6 @@ EngEraseSurface(SURFOBJ *Surface,
 BOOL STDCALL
 EngFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,BRUSHOBJ *pbo,POINTL *pptlBrushOrg,MIX mix,FLONG flOptions)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3278,7 +3574,6 @@ EngFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,BRUSHOBJ *pbo,POINTL *pptlBru
 PVOID STDCALL
 EngFindResource(HANDLE h,int iName,int iType,PULONG pulSize)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3289,7 +3584,6 @@ EngFindResource(HANDLE h,int iName,int iType,PULONG pulSize)
 VOID STDCALL 
 EngFreeModule(HANDLE h)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3300,7 +3594,6 @@ VOID STDCALL
 EngGetCurrentCodePage(OUT PUSHORT OemCodePage,
 		      OUT PUSHORT AnsiCodePage)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3310,7 +3603,6 @@ EngGetCurrentCodePage(OUT PUSHORT OemCodePage,
 LPWSTR STDCALL
 EngGetDriverName(HDEV hdev)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3321,7 +3613,6 @@ EngGetDriverName(HDEV hdev)
 LPWSTR STDCALL
 EngGetPrinterDataFileName(HDEV hdev)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3332,7 +3623,6 @@ EngGetPrinterDataFileName(HDEV hdev)
 BOOL STDCALL 
 EngGradientFill(SURFOBJ *psoDest,CLIPOBJ *pco,XLATEOBJ *pxlo,TRIVERTEX *pVertex,ULONG nVertex,PVOID pMesh,ULONG nMesh,RECTL *prclExtents,POINTL *pptlDitherOrg,ULONG ulMode)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3351,7 +3641,6 @@ EngLineTo(SURFOBJ *Surface,
 	  RECTL *RectBounds,
 	  MIX mix)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3362,7 +3651,6 @@ EngLineTo(SURFOBJ *Surface,
 HANDLE STDCALL 
 EngLoadModule(LPWSTR pwsz)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3373,7 +3661,6 @@ EngLoadModule(LPWSTR pwsz)
 SURFOBJ * STDCALL
 EngLockSurface(IN HSURF Surface)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3384,7 +3671,6 @@ EngLockSurface(IN HSURF Surface)
 BOOL STDCALL 
 EngMarkBandingSurface(HSURF hsurf)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3399,7 +3685,6 @@ EngMultiByteToUnicodeN(OUT LPWSTR UnicodeString,
 		       IN PCHAR MultiByteString,
 		       IN ULONG BytesInMultiByteString)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3409,7 +3694,6 @@ EngMultiByteToUnicodeN(OUT LPWSTR UnicodeString,
 INT STDCALL 
 EngMultiByteToWideChar(UINT CodePage,LPWSTR WideCharString,INT BytesInWideCharString,LPSTR MultiByteString,INT BytesInMultiByteString)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3424,7 +3708,6 @@ EngPaint(IN SURFOBJ *Surface,
 	 IN POINTL *BrushOrigin,
 	 IN MIX  Mix)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3435,7 +3718,6 @@ EngPaint(IN SURFOBJ *Surface,
 BOOL STDCALL 
 EngPlgBlt(SURFOBJ *psoTrg,SURFOBJ *psoSrc,SURFOBJ *psoMsk,CLIPOBJ *pco,XLATEOBJ *pxlo,COLORADJUSTMENT *pca,POINTL *pptlBrushOrg,POINTFIX *pptfx,RECTL *prcl,POINTL *pptl,ULONG iMode)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3446,7 +3728,6 @@ EngPlgBlt(SURFOBJ *psoTrg,SURFOBJ *psoSrc,SURFOBJ *psoMsk,CLIPOBJ *pco,XLATEOBJ 
 BOOL STDCALL
 EngQueryEMFInfo(HDEV hdev,EMFINFO *pEMFInfo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3457,7 +3738,6 @@ EngQueryEMFInfo(HDEV hdev,EMFINFO *pEMFInfo)
 VOID STDCALL 
 EngQueryLocalTime(PENG_TIME_FIELDS etf)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3468,7 +3748,6 @@ VOID
 STDCALL
 EngReleaseSemaphore ( IN HSEMAPHORE hsem )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3478,7 +3757,6 @@ EngReleaseSemaphore ( IN HSEMAPHORE hsem )
 BOOL STDCALL 
 EngStretchBlt(SURFOBJ *psoDest,SURFOBJ *psoSrc,SURFOBJ *psoMask,CLIPOBJ *pco,XLATEOBJ *pxlo,COLORADJUSTMENT *pca,POINTL *pptlHTOrg,RECTL *prclDest,RECTL *prclSrc,POINTL *pptlMask,ULONG iMode)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3489,7 +3767,6 @@ EngStretchBlt(SURFOBJ *psoDest,SURFOBJ *psoSrc,SURFOBJ *psoMask,CLIPOBJ *pco,XLA
 BOOL STDCALL 
 EngStretchBltROP(SURFOBJ *psoDest,SURFOBJ *psoSrc,SURFOBJ *psoMask,CLIPOBJ *pco,XLATEOBJ *pxlo,COLORADJUSTMENT *pca,POINTL *pptlHTOrg,RECTL *prclDest,RECTL *prclSrc,POINTL *pptlMask,ULONG iMode,BRUSHOBJ *pbo,DWORD rop4)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3500,7 +3777,6 @@ EngStretchBltROP(SURFOBJ *psoDest,SURFOBJ *psoSrc,SURFOBJ *psoMask,CLIPOBJ *pco,
 BOOL STDCALL 
 EngStrokeAndFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHOBJ *pboStroke,LINEATTRS *plineattrs,BRUSHOBJ *pboFill,POINTL *pptlBrushOrg,MIX mixFill,FLONG flOptions)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3511,7 +3787,6 @@ EngStrokeAndFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHO
 BOOL STDCALL
 EngStrokePath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHOBJ *pbo,POINTL *pptlBrushOrg,LINEATTRS *plineattrs,MIX mix)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3522,7 +3797,6 @@ EngStrokePath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHOBJ *pbo
 BOOL STDCALL 
 EngTextOut(SURFOBJ *pso,STROBJ *pstro,FONTOBJ *pfo,CLIPOBJ *pco,RECTL *prclExtra,RECTL *prclOpaque,BRUSHOBJ *pboFore,BRUSHOBJ *pboOpaque,POINTL *pptlOrg,MIX mix)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3531,16 +3805,15 @@ EngTextOut(SURFOBJ *pso,STROBJ *pstro,FONTOBJ *pfo,CLIPOBJ *pco,RECTL *prclExtra
  * @unimplemented
  */
 BOOL STDCALL
-EngTransparentBlt(IN SURFOBJ *Dest,
-		  IN SURFOBJ *Source,
-		  IN CLIPOBJ *Clip,
-		  IN XLATEOBJ *ColorTranslation,
+EngTransparentBlt(IN PSURFOBJ Dest,
+		  IN PSURFOBJ Source,
+		  IN PCLIPOBJ Clip,
+		  IN PXLATEOBJ ColorTranslation,
 		  IN PRECTL DestRect,
 		  IN PRECTL SourceRect,
 		  IN ULONG TransparentColor,
 		  IN ULONG Reserved)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3555,7 +3828,6 @@ EngUnicodeToMultiByteN(OUT PCHAR MultiByteString,
 		       IN PWSTR  UnicodeString,
 		       IN ULONG  BytesInUnicodeString)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3565,7 +3837,6 @@ EngUnicodeToMultiByteN(OUT PCHAR MultiByteString,
 VOID STDCALL 
 EngUnlockSurface(SURFOBJ *pso)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3575,7 +3846,6 @@ EngUnlockSurface(SURFOBJ *pso)
 INT STDCALL 
 EngWideCharToMultiByte(UINT CodePage,LPWSTR WideCharString,INT BytesInWideCharString,LPSTR MultiByteString,INT BytesInMultiByteString)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3585,10 +3855,9 @@ EngWideCharToMultiByte(UINT CodePage,LPWSTR WideCharString,INT BytesInWideCharSt
  */
 ULONG
 STDCALL
-FONTOBJ_cGetAllGlyphHandles(IN FONTOBJ *FontObj,
+FONTOBJ_cGetAllGlyphHandles(IN PFONTOBJ  FontObj,
                             IN HGLYPH  *Glyphs)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3598,13 +3867,12 @@ FONTOBJ_cGetAllGlyphHandles(IN FONTOBJ *FontObj,
  */
 ULONG
 STDCALL
-FONTOBJ_cGetGlyphs(IN FONTOBJ *FontObj,
+FONTOBJ_cGetGlyphs(IN PFONTOBJ FontObj,
                    IN ULONG    Mode,
                    IN ULONG    NumGlyphs,
                    IN HGLYPH  *GlyphHandles,
                    IN PVOID   *OutGlyphs)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3615,7 +3883,6 @@ FONTOBJ_cGetGlyphs(IN FONTOBJ *FontObj,
 PFD_GLYPHATTR STDCALL
 FONTOBJ_pQueryGlyphAttrs(FONTOBJ *pfo,ULONG iMode)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3626,7 +3893,6 @@ FONTOBJ_pQueryGlyphAttrs(FONTOBJ *pfo,ULONG iMode)
 FD_GLYPHSET *STDCALL
 FONTOBJ_pfdg(FONTOBJ *pfo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3636,9 +3902,8 @@ FONTOBJ_pfdg(FONTOBJ *pfo)
  */
 IFIMETRICS*
 STDCALL
-FONTOBJ_pifi(IN FONTOBJ  *FontObj)
+FONTOBJ_pifi(IN PFONTOBJ  FontObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3648,10 +3913,9 @@ FONTOBJ_pifi(IN FONTOBJ  *FontObj)
  */
 PVOID
 STDCALL
-FONTOBJ_pvTrueTypeFontFile(IN FONTOBJ  *FontObj,
+FONTOBJ_pvTrueTypeFontFile(IN PFONTOBJ  FontObj,
                            IN ULONG    *FileSize)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3661,9 +3925,8 @@ FONTOBJ_pvTrueTypeFontFile(IN FONTOBJ  *FontObj,
  */
 XFORMOBJ*
 STDCALL
-FONTOBJ_pxoGetXform(IN FONTOBJ  *FontObj)
+FONTOBJ_pxoGetXform(IN PFONTOBJ  FontObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3673,11 +3936,10 @@ FONTOBJ_pxoGetXform(IN FONTOBJ  *FontObj)
  */
 VOID
 STDCALL
-FONTOBJ_vGetInfo(IN  FONTOBJ   *FontObj,
+FONTOBJ_vGetInfo(IN  PFONTOBJ   FontObj,
                  IN  ULONG      InfoSize,
                  OUT PFONTINFO  FontInfo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3687,7 +3949,6 @@ FONTOBJ_vGetInfo(IN  FONTOBJ   *FontObj,
 BOOL STDCALL
 PATHOBJ_bEnum(PATHOBJ *ppo,PATHDATA *ppd)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3698,7 +3959,6 @@ PATHOBJ_bEnum(PATHOBJ *ppo,PATHDATA *ppd)
 BOOL STDCALL 
 PATHOBJ_bEnumClipLines(PATHOBJ *ppo,ULONG cb,CLIPLINE *pcl)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3709,7 +3969,6 @@ PATHOBJ_bEnumClipLines(PATHOBJ *ppo,ULONG cb,CLIPLINE *pcl)
 VOID STDCALL 
 PATHOBJ_vEnumStart(PATHOBJ *ppo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3719,7 +3978,6 @@ PATHOBJ_vEnumStart(PATHOBJ *ppo)
 VOID STDCALL
 PATHOBJ_vEnumStartClipLines(PATHOBJ *ppo,CLIPOBJ *pco,SURFOBJ *pso,LINEATTRS *pla)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3729,7 +3987,6 @@ PATHOBJ_vEnumStartClipLines(PATHOBJ *ppo,CLIPOBJ *pco,SURFOBJ *pso,LINEATTRS *pl
 VOID STDCALL
 PATHOBJ_vGetBounds(PATHOBJ *ppo,PRECTFX prectfx)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3739,7 +3996,6 @@ PATHOBJ_vGetBounds(PATHOBJ *ppo,PRECTFX prectfx)
 BOOL STDCALL
 STROBJ_bEnum(STROBJ *pstro,ULONG *pc,PGLYPHPOS *ppgpos)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3750,7 +4006,6 @@ STROBJ_bEnum(STROBJ *pstro,ULONG *pc,PGLYPHPOS *ppgpos)
 BOOL STDCALL
 STROBJ_bEnumPositionsOnly(STROBJ *pstro,ULONG *pc,PGLYPHPOS *ppgpos)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3761,7 +4016,6 @@ STROBJ_bEnumPositionsOnly(STROBJ *pstro,ULONG *pc,PGLYPHPOS *ppgpos)
 BOOL STDCALL
 STROBJ_bGetAdvanceWidths(STROBJ *pso,ULONG iFirst,ULONG c,POINTQF *pptqD)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3772,7 +4026,6 @@ STROBJ_bGetAdvanceWidths(STROBJ *pso,ULONG iFirst,ULONG c,POINTQF *pptqD)
 DWORD STDCALL
 STROBJ_dwGetCodePage(STROBJ  *pstro)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3783,7 +4036,6 @@ STROBJ_dwGetCodePage(STROBJ  *pstro)
 VOID STDCALL
 STROBJ_vEnumStart(STROBJ *pstro)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -3793,7 +4045,6 @@ STROBJ_vEnumStart(STROBJ *pstro)
 BOOL STDCALL
 XFORMOBJ_bApplyXform(XFORMOBJ *pxo,ULONG iMode,ULONG cPoints,PVOID pvIn,PVOID pvOut)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3804,7 +4055,6 @@ XFORMOBJ_bApplyXform(XFORMOBJ *pxo,ULONG iMode,ULONG cPoints,PVOID pvIn,PVOID pv
 ULONG STDCALL
 XFORMOBJ_iGetXform(XFORMOBJ *pxo,XFORML *pxform)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3818,7 +4068,6 @@ XLATEOBJ_cGetPalette(XLATEOBJ *XlateObj,
 		     ULONG cPal,
 		     ULONG *OutPal)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3829,7 +4078,6 @@ XLATEOBJ_cGetPalette(XLATEOBJ *XlateObj,
 HANDLE STDCALL
 XLATEOBJ_hGetColorTransform(XLATEOBJ *pxlo)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3841,7 +4089,6 @@ ULONG STDCALL
 XLATEOBJ_iXlate(XLATEOBJ *XlateObj,
 		ULONG Color)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3852,7 +4099,6 @@ XLATEOBJ_iXlate(XLATEOBJ *XlateObj,
 ULONG * STDCALL
 XLATEOBJ_piVector(XLATEOBJ *XlateObj)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3865,7 +4111,6 @@ LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 HDC hdc
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3887,7 +4132,6 @@ LPDWORD pdwFourCC,
 LPVIDMEM pvmList
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3899,7 +4143,6 @@ BOOL STDCALL DdDeleteDirectDrawObject(
 LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3912,7 +4155,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
 BOOL bPrimarySurface
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3924,7 +4166,6 @@ BOOL STDCALL DdDeleteSurfaceObject(
 LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3937,7 +4178,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
 HWND hWnd
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3950,7 +4190,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
 LPPALETTEENTRY pColorTable
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3962,7 +4201,6 @@ BOOL STDCALL DdReleaseDC(
 LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3979,7 +4217,6 @@ HANDLE hSectionApp,
 DWORD dwOffset
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -3992,7 +4229,6 @@ LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 BOOL *pbNewMode
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4005,7 +4241,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurfaceFrom,
 LPDDRAWI_DDRAWSURFACE_LCL pSurfaceTo
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4018,7 +4253,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurface,
 LPDDRAWI_DDRAWSURFACE_LCL pSurfaceAttached
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
@@ -4027,7 +4261,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurfaceAttached
  */
 ULONG STDCALL DdQueryDisplaySettingsUniqueness(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4041,7 +4274,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pSurface,
 BOOL bRelease
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4055,7 +4287,6 @@ HDC hdc,
 LPVOID lpGammaRamp
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4069,7 +4300,6 @@ LPDDRAWI_DDRAWSURFACE_LCL pDDSLcl1,
 LPDDRAWI_DDRAWSURFACE_LCL pDDSLcl2
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4077,7 +4307,7 @@ LPDDRAWI_DDRAWSURFACE_LCL pDDSLcl2
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 GdiPlayEMF
 (
@@ -4088,7 +4318,6 @@ GdiPlayEMF
 	HANDLE     hPageQuery
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4096,11 +4325,10 @@ GdiPlayEMF
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiInitSpool(VOID)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4108,7 +4336,7 @@ GdiInitSpool(VOID)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GdiPlayPrivatePageEMF
 (
@@ -4117,7 +4345,6 @@ GdiPlayPrivatePageEMF
 	RECT	*prectDocument
 )
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
@@ -4127,6 +4354,5 @@ GdiPlayPrivatePageEMF
  */
 VOID STDCALL GdiInitializeLanguagePack(DWORD InitParam)
 {
-	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }

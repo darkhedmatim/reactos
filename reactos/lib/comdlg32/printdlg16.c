@@ -48,10 +48,27 @@ WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 #include "cdlg16.h"
 #include "printdlg.h"
 
+/* This PRINTDLGA16 internal structure stores
+ * pointers to several throughout useful structures.
+ * This structure is a duplicate of the PRINT_PTRA
+ * struct with a extra memeber.
+ */
+
 typedef struct
 {
-    PRINT_PTRA   print32;
-    LPPRINTDLG16 lpPrintDlg16;
+  LPDEVMODEA        lpDevMode;
+  struct {
+      LPPRINTDLGA       lpPrintDlg;
+      LPPRINTDLG16	lpPrintDlg16;
+  } dlg;
+  LPPRINTER_INFO_2A lpPrinterInfo;
+  LPDRIVER_INFO_3A  lpDriverInfo;
+  UINT              HelpMessageID;
+  HICON             hCollateIcon;    /* PrintDlg only */
+  HICON             hNoCollateIcon;  /* PrintDlg only */
+  HICON             hPortraitIcon;   /* PrintSetupDlg only */
+  HICON             hLandscapeIcon;  /* PrintSetupDlg only */
+  HWND              hwndUpDown;
 } PRINT_PTRA16;
 
 /* Internal Functions */
@@ -103,10 +120,10 @@ static BOOL PRINTDLG_CreateDevNames16(HGLOBAL16 *hmem, char* DeviceDriverName,
 /***********************************************************************
  *           PRINTDLG_WMInitDialog                      [internal]
  */
-static LRESULT PRINTDLG_WMInitDialog16(HWND hDlg, WPARAM wParam, PRINT_PTRA16* ptr16)
+static LRESULT PRINTDLG_WMInitDialog16(HWND hDlg, WPARAM wParam,
+				     PRINT_PTRA16* PrintStructures)
 {
-    PRINT_PTRA *PrintStructures = &ptr16->print32;
-    LPPRINTDLG16 lppd = ptr16->lpPrintDlg16;
+    LPPRINTDLG16 lppd = PrintStructures->dlg.lpPrintDlg16;
     DEVNAMES *pdn;
     DEVMODEA *pdm;
     char *name = NULL;
@@ -345,7 +362,7 @@ BOOL16 WINAPI PrintDlg16(
 ) {
     BOOL      bRet = FALSE;
     LPVOID   ptr;
-    HINSTANCE16 hInst = GetWindowLongPtrW( HWND_32(lppd->hwndOwner), GWLP_HINSTANCE );
+    HINSTANCE16 hInst = GetWindowWord( HWND_32(lppd->hwndOwner), GWL_HINSTANCE );
 
     if(TRACE_ON(commdlg)) {
         char flagstr[1000] = "";
@@ -413,8 +430,7 @@ BOOL16 WINAPI PrintDlg16(
 	bRet = TRUE;
     } else {
 	HGLOBAL16 hDlgTmpl;
-	PRINT_PTRA *PrintStructures;
-	PRINT_PTRA16 *ptr16;
+	PRINT_PTRA16 *PrintStructures;
 
     /* load Dialog resources,
      * depending on Flags indicates Print32 or Print32_setup dialog
@@ -424,18 +440,18 @@ BOOL16 WINAPI PrintDlg16(
 	    COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
 	    return FALSE;
 	}
-        ptr16 = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(PRINT_PTRA16));
-        ptr16->lpPrintDlg16 = lppd;
-        PrintStructures = &ptr16->print32;
-        PrintStructures->lpPrintDlg = (LPPRINTDLGA)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(PRINTDLGA));
-#define CVAL(x)	PrintStructures->lpPrintDlg->x = lppd->x;
-#define MVAL(x)	PrintStructures->lpPrintDlg->x = MapSL(lppd->x);
+        PrintStructures = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+				    sizeof(PRINT_PTRA16));
+	PrintStructures->dlg.lpPrintDlg16 = lppd;
+	PrintStructures->dlg.lpPrintDlg = (LPPRINTDLGA)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(PRINTDLGA));
+#define CVAL(x)	PrintStructures->dlg.lpPrintDlg->x = lppd->x;
+#define MVAL(x)	PrintStructures->dlg.lpPrintDlg->x = MapSL(lppd->x);
 	CVAL(Flags);
-	PrintStructures->lpPrintDlg->hwndOwner = HWND_32(lppd->hwndOwner);
-	PrintStructures->lpPrintDlg->hDC = HDC_32(lppd->hDC);
+	PrintStructures->dlg.lpPrintDlg->hwndOwner = HWND_32(lppd->hwndOwner);
+	PrintStructures->dlg.lpPrintDlg->hDC = HDC_32(lppd->hDC);
 	CVAL(nFromPage);CVAL(nToPage);CVAL(nMinPage);CVAL(nMaxPage);
 	CVAL(nCopies);
-	PrintStructures->lpPrintDlg->hInstance = HINSTANCE_32(lppd->hInstance);
+	PrintStructures->dlg.lpPrintDlg->hInstance = HINSTANCE_32(lppd->hInstance);
 	CVAL(lCustData);
 	MVAL(lpPrintTemplateName);MVAL(lpSetupTemplateName);
 	/* Don't copy rest, it is 16 bit specific */
@@ -515,7 +531,7 @@ BOOL16 CALLBACK PrintDlgProc16(HWND16 hDlg16, UINT16 uMsg, WPARAM16 wParam,
                             LPARAM lParam)
 {
     HWND hDlg = HWND_32(hDlg16);
-    PRINT_PTRA16 *PrintStructures;
+    PRINT_PTRA16* PrintStructures;
     BOOL16 res = FALSE;
 
     if (uMsg!=WM_INITDIALOG) {
@@ -527,18 +543,18 @@ BOOL16 CALLBACK PrintDlgProc16(HWND16 hDlg16, UINT16 uMsg, WPARAM16 wParam,
 	SetPropA(hDlg,"__WINE_PRINTDLGDATA",PrintStructures);
 	res = PRINTDLG_WMInitDialog16(hDlg, wParam, PrintStructures);
 
-	if(PrintStructures->lpPrintDlg16->Flags & PD_ENABLEPRINTHOOK) {
+	if(PrintStructures->dlg.lpPrintDlg16->Flags & PD_ENABLEPRINTHOOK) {
 	    res = CallWindowProc16(
-		(WNDPROC16)PrintStructures->lpPrintDlg16->lpfnPrintHook,
-		hDlg16, uMsg, wParam, (LPARAM)PrintStructures->lpPrintDlg16
+		(WNDPROC16)PrintStructures->dlg.lpPrintDlg16->lpfnPrintHook,
+		hDlg16, uMsg, wParam, (LPARAM)PrintStructures->dlg.lpPrintDlg16
 	    );
 	}
 	return res;
     }
 
-    if(PrintStructures->lpPrintDlg16->Flags & PD_ENABLEPRINTHOOK) {
+    if(PrintStructures->dlg.lpPrintDlg16->Flags & PD_ENABLEPRINTHOOK) {
         res = CallWindowProc16(
-		(WNDPROC16)PrintStructures->lpPrintDlg16->lpfnPrintHook,
+		(WNDPROC16)PrintStructures->dlg.lpPrintDlg16->lpfnPrintHook,
 		hDlg16,uMsg, wParam, lParam
 	);
 	if(LOWORD(res)) return res;
@@ -553,12 +569,12 @@ BOOL16 CALLBACK PrintDlgProc16(HWND16 hDlg16, UINT16 uMsg, WPARAM16 wParam,
 		hDlg,
 		MAKEWPARAM(wParam,HIWORD(lParam)),
 		LOWORD(lParam),
-		&PrintStructures->print32
+		PrintStructures
 	);
     }
     case WM_DESTROY:
-	DestroyIcon(PrintStructures->print32.hCollateIcon);
-	DestroyIcon(PrintStructures->print32.hNoCollateIcon);
+	DestroyIcon(PrintStructures->hCollateIcon);
+	DestroyIcon(PrintStructures->hNoCollateIcon);
     /* FIXME: don't forget to delete the paper orientation icons here! */
 
         return FALSE;

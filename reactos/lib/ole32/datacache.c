@@ -47,10 +47,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
@@ -93,12 +91,12 @@ struct DataCache
   /*
    * List all interface VTables here
    */
-  IDataObjectVtbl*      lpvtbl1;
-  IUnknownVtbl*         lpvtbl2;
-  IPersistStorageVtbl*  lpvtbl3;
-  IViewObject2Vtbl*     lpvtbl4;
-  IOleCache2Vtbl*       lpvtbl5;
-  IOleCacheControlVtbl* lpvtbl6;
+  ICOM_VTABLE(IDataObject)*      lpvtbl1;
+  ICOM_VTABLE(IUnknown)*         lpvtbl2;
+  ICOM_VTABLE(IPersistStorage)*  lpvtbl3;
+  ICOM_VTABLE(IViewObject2)*     lpvtbl4;
+  ICOM_VTABLE(IOleCache2)*       lpvtbl5;
+  ICOM_VTABLE(IOleCacheControl)* lpvtbl6;
 
   /*
    * Reference count of this object
@@ -133,15 +131,15 @@ typedef struct DataCache DataCache;
 /*
  * Here, I define utility macros to help with the casting of the
  * "this" parameter.
- * There is a version to accommodate all of the VTables implemented
+ * There is a version to accomodate all of the VTables implemented
  * by this object.
  */
-#define _ICOM_THIS_From_IDataObject(class,name)       class* this = (class*)name
-#define _ICOM_THIS_From_NDIUnknown(class, name)       class* this = (class*)(((char*)name)-sizeof(void*))
-#define _ICOM_THIS_From_IPersistStorage(class, name)  class* this = (class*)(((char*)name)-2*sizeof(void*))
-#define _ICOM_THIS_From_IViewObject2(class, name)     class* this = (class*)(((char*)name)-3*sizeof(void*))
-#define _ICOM_THIS_From_IOleCache2(class, name)       class* this = (class*)(((char*)name)-4*sizeof(void*))
-#define _ICOM_THIS_From_IOleCacheControl(class, name) class* this = (class*)(((char*)name)-5*sizeof(void*))
+#define _ICOM_THIS_From_IDataObject(class,name)       class* this = (class*)name;
+#define _ICOM_THIS_From_NDIUnknown(class, name)       class* this = (class*)(((char*)name)-sizeof(void*));
+#define _ICOM_THIS_From_IPersistStorage(class, name)  class* this = (class*)(((char*)name)-2*sizeof(void*));
+#define _ICOM_THIS_From_IViewObject2(class, name)     class* this = (class*)(((char*)name)-3*sizeof(void*));
+#define _ICOM_THIS_From_IOleCache2(class, name)       class* this = (class*)(((char*)name)-4*sizeof(void*));
+#define _ICOM_THIS_From_IOleCacheControl(class, name) class* this = (class*)(((char*)name)-5*sizeof(void*));
 
 /*
  * Prototypes for the methods of the DataCache class.
@@ -279,7 +277,7 @@ static HRESULT WINAPI DataCache_Draw(
 	    LPCRECTL         lprcBounds,
 	    LPCRECTL         lprcWBounds,
 	    BOOL  (CALLBACK *pfnContinue)(ULONG_PTR dwContinue),
-	    ULONG_PTR        dwContinue);
+	    DWORD            dwContinue);
 static HRESULT WINAPI DataCache_GetColorSet(
             IViewObject2*   iface,
 	    DWORD           dwDrawAspect,
@@ -375,15 +373,17 @@ static HRESULT WINAPI DataCache_OnStop(
 /*
  * Virtual function tables for the DataCache class.
  */
-static IUnknownVtbl DataCache_NDIUnknown_VTable =
+static ICOM_VTABLE(IUnknown) DataCache_NDIUnknown_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_NDIUnknown_QueryInterface,
   DataCache_NDIUnknown_AddRef,
   DataCache_NDIUnknown_Release
 };
 
-static IDataObjectVtbl DataCache_IDataObject_VTable =
+static ICOM_VTABLE(IDataObject) DataCache_IDataObject_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_IDataObject_QueryInterface,
   DataCache_IDataObject_AddRef,
   DataCache_IDataObject_Release,
@@ -398,8 +398,9 @@ static IDataObjectVtbl DataCache_IDataObject_VTable =
   DataCache_EnumDAdvise
 };
 
-static IPersistStorageVtbl DataCache_IPersistStorage_VTable =
+static ICOM_VTABLE(IPersistStorage) DataCache_IPersistStorage_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_IPersistStorage_QueryInterface,
   DataCache_IPersistStorage_AddRef,
   DataCache_IPersistStorage_Release,
@@ -412,8 +413,9 @@ static IPersistStorageVtbl DataCache_IPersistStorage_VTable =
   DataCache_HandsOffStorage
 };
 
-static IViewObject2Vtbl DataCache_IViewObject2_VTable =
+static ICOM_VTABLE(IViewObject2) DataCache_IViewObject2_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_IViewObject2_QueryInterface,
   DataCache_IViewObject2_AddRef,
   DataCache_IViewObject2_Release,
@@ -426,8 +428,9 @@ static IViewObject2Vtbl DataCache_IViewObject2_VTable =
   DataCache_GetExtent
 };
 
-static IOleCache2Vtbl DataCache_IOleCache2_VTable =
+static ICOM_VTABLE(IOleCache2) DataCache_IOleCache2_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_IOleCache2_QueryInterface,
   DataCache_IOleCache2_AddRef,
   DataCache_IOleCache2_Release,
@@ -440,8 +443,9 @@ static IOleCache2Vtbl DataCache_IOleCache2_VTable =
   DataCache_DiscardCache
 };
 
-static IOleCacheControlVtbl DataCache_IOleCacheControl_VTable =
+static ICOM_VTABLE(IOleCacheControl) DataCache_IOleCacheControl_VTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   DataCache_IOleCacheControl_QueryInterface,
   DataCache_IOleCacheControl_AddRef,
   DataCache_IOleCacheControl_Release,
@@ -970,7 +974,10 @@ static ULONG WINAPI DataCache_NDIUnknown_AddRef(
             IUnknown*      iface)
 {
   _ICOM_THIS_From_NDIUnknown(DataCache, iface);
-  return InterlockedIncrement(&this->ref);
+
+  this->ref++;
+
+  return this->ref;
 }
 
 /************************************************************************
@@ -985,19 +992,23 @@ static ULONG WINAPI DataCache_NDIUnknown_Release(
             IUnknown*      iface)
 {
   _ICOM_THIS_From_NDIUnknown(DataCache, iface);
-  ULONG ref;
 
   /*
    * Decrease the reference count on this object.
    */
-  ref = InterlockedDecrement(&this->ref);
+  this->ref--;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref == 0) DataCache_Destroy(this);
+  if (this->ref==0)
+  {
+    DataCache_Destroy(this);
 
-  return ref;
+    return 0;
+  }
+
+  return this->ref;
 }
 
 /*********************************************************
@@ -1558,7 +1569,7 @@ static HRESULT WINAPI DataCache_Draw(
 	    LPCRECTL         lprcBounds,
 	    LPCRECTL         lprcWBounds,
 	    BOOL  (CALLBACK *pfnContinue)(ULONG_PTR dwContinue),
-	    ULONG_PTR        dwContinue)
+	    DWORD            dwContinue)
 {
   PresentationDataHeader presData;
   HMETAFILE              presMetafile = 0;

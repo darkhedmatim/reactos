@@ -25,23 +25,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
-#include "winerror.h"
 #include "objbase.h"
 #include "undocshell.h"
 #include "shlguid.h"
-#include "winreg.h"
-#include "shlwapi.h"
 
 #include "wine/debug.h"
-#include "wine/unicode.h"
+#include "winerror.h"
 
 #include "pidl.h"
 #include "shell32_main.h"
-#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -50,16 +44,16 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 */
 typedef struct
 {
-	IExtractIconWVtbl *lpVtbl;
-	DWORD              ref;
-	IPersistFileVtbl  *lpvtblPersistFile;
-	IExtractIconAVtbl *lpvtblExtractIconA;
-	LPITEMIDLIST       pidl;
+	ICOM_VFIELD(IExtractIconW);
+	DWORD	ref;
+	ICOM_VTABLE(IPersistFile)*	lpvtblPersistFile;
+	ICOM_VTABLE(IExtractIconA)*	lpvtblExtractIconA;
+	LPITEMIDLIST	pidl;
 } IExtractIconWImpl;
 
-static struct IExtractIconAVtbl eiavt;
-static struct IExtractIconWVtbl eivt;
-static struct IPersistFileVtbl pfvt;
+static struct ICOM_VTABLE(IExtractIconA) eiavt;
+static struct ICOM_VTABLE(IExtractIconW) eivt;
+static struct ICOM_VTABLE(IPersistFile) pfvt;
 
 #define _IPersistFile_Offset ((int)(&(((IExtractIconWImpl*)0)->lpvtblPersistFile)))
 #define _ICOM_THIS_From_IPersistFile(class, name) class* This = (class*)(((char*)name)-_IPersistFile_Offset);
@@ -93,7 +87,7 @@ IExtractIconW* IExtractIconW_Constructor(LPCITEMIDLIST pidl)
  */
 static HRESULT WINAPI IExtractIconW_fnQueryInterface(IExtractIconW *iface, REFIID riid, LPVOID *ppvObj)
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
+	ICOM_THIS(IExtractIconWImpl, iface);
 
 	TRACE("(%p)->(\n\tIID:\t%s,%p)\n", This, debugstr_guid(riid), ppvObj);
 
@@ -131,7 +125,7 @@ static HRESULT WINAPI IExtractIconW_fnQueryInterface(IExtractIconW *iface, REFII
 */
 static ULONG WINAPI IExtractIconW_fnAddRef(IExtractIconW * iface)
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
+	ICOM_THIS(IExtractIconWImpl, iface);
 
 	TRACE("(%p)->(count=%lu)\n",This, This->ref );
 
@@ -142,7 +136,7 @@ static ULONG WINAPI IExtractIconW_fnAddRef(IExtractIconW * iface)
 */
 static ULONG WINAPI IExtractIconW_fnRelease(IExtractIconW * iface)
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
+	ICOM_THIS(IExtractIconWImpl, iface);
 
 	TRACE("(%p)->()\n",This);
 
@@ -156,54 +150,8 @@ static ULONG WINAPI IExtractIconW_fnRelease(IExtractIconW * iface)
 	return This->ref;
 }
 
-static HRESULT getIconLocationForFolder(IExtractIconW *iface, UINT uFlags,
- LPWSTR szIconFile, UINT cchMax, int *piIndex, UINT *pwFlags)
-{
-    IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
-    DWORD dwNr;
-    WCHAR wszPath[MAX_PATH];
-    WCHAR wszCLSIDValue[CHARS_IN_GUID];
-    static const WCHAR shellClassInfo[] = { '.','S','h','e','l','l','C','l','a','s','s','I','n','f','o',0 };
-    static const WCHAR iconFile[] = { 'I','c','o','n','F','i','l','e',0 };
-    static const WCHAR clsid[] = { 'C','L','S','I','D',0 };
-    static const WCHAR clsid2[] = { 'C','L','S','I','D','2',0 };
-    static const WCHAR iconIndex[] = { 'I','c','o','n','I','n','d','e','x',0 };
-
-    if (SHELL32_GetCustomFolderAttribute(This->pidl, shellClassInfo, iconFile,
-        wszPath, MAX_PATH))
-    {
-        WCHAR wszIconIndex[10];
-        SHELL32_GetCustomFolderAttribute(This->pidl, shellClassInfo, iconIndex,
-            wszIconIndex, 10);
-        *piIndex = atoiW(wszIconIndex);
-    }
-    else if (SHELL32_GetCustomFolderAttribute(This->pidl, shellClassInfo, clsid,
-        wszCLSIDValue, CHARS_IN_GUID) &&
-        HCR_GetDefaultIconW(wszCLSIDValue, szIconFile, cchMax, &dwNr))
-    {
-       *piIndex = dwNr;
-    }
-    else if (SHELL32_GetCustomFolderAttribute(This->pidl, shellClassInfo, clsid2,
-        wszCLSIDValue, CHARS_IN_GUID) &&
-        HCR_GetDefaultIconW(wszCLSIDValue, szIconFile, cchMax, &dwNr))
-    {
-       *piIndex = dwNr;
-    }
-    else
-    {
-        static const WCHAR folder[] = { 'F','o','l','d','e','r',0 };
-
-        if (!HCR_GetDefaultIconW(folder, szIconFile, cchMax, &dwNr))
-        {
-            lstrcpynW(szIconFile, swShell32Name, cchMax);
-            dwNr = 3;
-        }
-        *piIndex = (uFlags & GIL_OPENICON) ? dwNr + 1 : dwNr;
-    }
-    return S_OK;
-}
-
 WCHAR swShell32Name[MAX_PATH];
+char sShell32Name[MAX_PATH];
 
 /**************************************************************************
 *  IExtractIconW_GetIconLocation
@@ -218,7 +166,7 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
 	int * piIndex,
 	UINT * pwFlags)		/* returned GIL_ flags */
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
+	ICOM_THIS(IExtractIconWImpl, iface);
 
 	char	sTemp[MAX_PATH];
 	DWORD	dwNr;
@@ -239,19 +187,16 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
 	/* my computer and other shell extensions */
 	else if ((riid = _ILGetGUIDPointer(pSimplePidl)))
 	{
-	  static const WCHAR fmt[] = { 'C','L','S','I','D','\\',
-       '{','%','0','8','l','x','-','%','0','4','x','-','%','0','4','x','-',
-       '%','0','2','x','%','0','2','x','-','%','0','2','x', '%','0','2','x',
-       '%','0','2','x','%','0','2','x','%','0','2','x','%','0','2','x','}',0 };
-	  WCHAR xriid[50];
+	  char xriid[50];
 
-	  sprintfW(xriid, fmt,
+	  sprintf(xriid, "CLSID\\{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
 	          riid->Data1, riid->Data2, riid->Data3,
 	          riid->Data4[0], riid->Data4[1], riid->Data4[2], riid->Data4[3],
 	          riid->Data4[4], riid->Data4[5], riid->Data4[6], riid->Data4[7]);
 
-	  if (HCR_GetDefaultIconW(xriid, szIconFile, cchMax, &dwNr))
+	  if (HCR_GetDefaultIconA(xriid, sTemp, MAX_PATH, &dwNr))
 	  {
+	    MultiByteToWideChar(CP_ACP, 0, sTemp, -1, szIconFile, cchMax);
 	    *piIndex = dwNr;
 	  }
 	  else
@@ -263,44 +208,32 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
 
 	else if (_ILIsDrive (pSimplePidl))
 	{
-	  static const WCHAR drive[] = { 'D','r','i','v','e',0 };
-
-	  int icon_idx = -1;
-
-	  if (_ILGetDrive(pSimplePidl, sTemp, MAX_PATH))
+	  if (HCR_GetDefaultIconA("Drive", sTemp, MAX_PATH, &dwNr))
 	  {
-		switch(GetDriveTypeA(sTemp))
-		{
-		  case DRIVE_REMOVABLE:	  icon_idx =  5;	break;
-		  case DRIVE_CDROM:		  icon_idx = 11;	break;
-		  case DRIVE_REMOTE:	  icon_idx =  9;	break;
-		  case DRIVE_RAMDISK: 	  icon_idx = 12;	break;
-		}
-	  }
-
-	  if (icon_idx != -1)
-	  {
-		lstrcpynW(szIconFile, swShell32Name, cchMax);
-		*piIndex = icon_idx;
+	    MultiByteToWideChar(CP_ACP, 0, sTemp, -1, szIconFile, cchMax);
+	    *piIndex = dwNr;
 	  }
 	  else
 	  {
-		if (HCR_GetDefaultIconW(drive, szIconFile, cchMax, &dwNr))
-		{
-		  *piIndex = dwNr;
-		}
-		else
-		{
-		  lstrcpynW(szIconFile, swShell32Name, cchMax);
-		  *piIndex = 8;
-		}
+	    lstrcpynW(szIconFile, swShell32Name, cchMax);
+	    *piIndex = 8;
 	  }
 	}
+
 	else if (_ILIsFolder (pSimplePidl))
 	{
-	  getIconLocationForFolder(iface, uFlags, szIconFile, cchMax, piIndex,
-	   pwFlags);
+	  if (HCR_GetDefaultIconA("Folder", sTemp, MAX_PATH, &dwNr))
+	  {
+	    MultiByteToWideChar(CP_ACP, 0, sTemp, -1, szIconFile, cchMax);
+	  }
+	  else
+	  {
+	    lstrcpynW(szIconFile, swShell32Name, cchMax);
+	    dwNr = 3;
+	  }
+	  *piIndex = (uFlags & GIL_OPENICON) ? dwNr + 1 : dwNr;
 	}
+
 	else
 	{
 	  BOOL found = FALSE;
@@ -340,6 +273,10 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
 
 		if (SUCCEEDED(hr))
 		{
+		  /*no need to resolve shortcuts here
+		  hr = IShellLinkW_Resolve(psl, pThis->_hwnd, SLR_NO_UI);
+		  */
+
 		  hr = IShellLinkW_GetIconLocation(psl, szIconFile, MAX_PATH, piIndex);
 
 		  if (SUCCEEDED(hr) && *szIconFile)
@@ -369,7 +306,7 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
 */
 static HRESULT WINAPI IExtractIconW_fnExtract(IExtractIconW * iface, LPCWSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize)
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)iface;
+	ICOM_THIS(IExtractIconWImpl, iface);
 
 	FIXME("(%p) (file=%p index=%u %p %p size=%u) semi-stub\n", This, debugstr_w(pszFile), nIconIndex, phiconLarge, phiconSmall, nIconSize);
 
@@ -382,8 +319,9 @@ static HRESULT WINAPI IExtractIconW_fnExtract(IExtractIconW * iface, LPCWSTR psz
 	return S_OK;
 }
 
-static struct IExtractIconWVtbl eivt =
+static struct ICOM_VTABLE(IExtractIconW) eivt =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IExtractIconW_fnQueryInterface,
 	IExtractIconW_fnAddRef,
 	IExtractIconW_fnRelease,
@@ -396,7 +334,7 @@ static struct IExtractIconWVtbl eivt =
 */
 IExtractIconA* IExtractIconA_Constructor(LPCITEMIDLIST pidl)
 {
-	IExtractIconWImpl *This = (IExtractIconWImpl *)IExtractIconW_Constructor(pidl);
+	ICOM_THIS(IExtractIconWImpl, IExtractIconW_Constructor(pidl));
 	IExtractIconA *eia = (IExtractIconA *)&This->lpvtblExtractIconA;
 	
 	TRACE("(%p)->(%p)\n", This, eia);
@@ -474,8 +412,9 @@ static HRESULT WINAPI IExtractIconA_fnExtract(IExtractIconA * iface, LPCSTR pszF
 	return ret;
 }
 
-static struct IExtractIconAVtbl eiavt =
+static struct ICOM_VTABLE(IExtractIconA) eiavt =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IExtractIconA_fnQueryInterface,
 	IExtractIconA_fnAddRef,
 	IExtractIconA_fnRelease,
@@ -546,8 +485,9 @@ static HRESULT WINAPI IEIPersistFile_fnLoad(IPersistFile* iface, LPCOLESTR pszFi
 
 }
 
-static struct IPersistFileVtbl pfvt =
+static struct ICOM_VTABLE(IPersistFile) pfvt =
 {
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IEIPersistFile_fnQueryInterface,
 	IEIPersistFile_fnAddRef,
 	IEIPersistFile_fnRelease,

@@ -205,7 +205,7 @@ static int SendByte(PDEVICE_EXTENSION DeviceExtension, unsigned char byte)
   unsigned char status;
   LARGE_INTEGER Millisecond_Timeout;
 	
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 	
   DeviceExtension->ack = 0;
   DeviceExtension->acking = 1;
@@ -256,7 +256,7 @@ int SendCommand(PDEVICE_EXTENSION DeviceExtension, unsigned char *param, int com
   int receive = (command >> 8) & 0xf;
   int i;
 
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   DeviceExtension->RepliesExpected = receive;
   if (command == PSMOUSE_CMD_RESET_BAT)
@@ -576,7 +576,7 @@ BOOLEAN SetupMouse(PDEVICE_OBJECT DeviceObject, PUNICODE_STRING RegistryPath)
   KAFFINITY Affinity;
   LARGE_INTEGER Millisecond_Timeout;
   
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   /* setup */
   DeviceExtension->NoExtensions = 0;
@@ -641,7 +641,7 @@ BOOLEAN DetectPS2Port(void)
   BOOLEAN return_value = FALSE;
   LARGE_INTEGER Millisecond_Timeout;
   
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
   
   //return TRUE; // The rest of this code fails under BOCHs
   

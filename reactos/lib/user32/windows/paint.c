@@ -16,10 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: paint.c,v 1.27 2004/08/15 21:36:30 chorns Exp $
+/* $Id: paint.c,v 1.20 2003/12/28 17:22:16 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
- * FILE:            lib/user32/windows/paint.c
+ * FILE:            lib/user32/windows/input.c
  * PURPOSE:         Input
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -28,16 +28,15 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
 #include <resource.h>
+#include <user32.h>
 #define NDEBUG
 #include <debug.h>
 
 static HBRUSH FrameBrushes[13];
 static HBITMAP hHatch;
 const DWORD HatchBitmap[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
-
-BOOL STDCALL PolyPatBlt(HDC,DWORD,PPATRECT,INT,ULONG);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -96,7 +95,7 @@ BeginPaint(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 EndPaint(
   HWND hWnd,
@@ -121,16 +120,17 @@ ExcludeUpdateRgn(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetUpdateRect(
-  HWND Wnd,
-  LPRECT Rect,
-  BOOL Erase)
+  HWND hWnd,
+  LPRECT lpRect,
+  WINBOOL bErase)
 {
-  return NtUserGetUpdateRect(Wnd, Rect, Erase);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
@@ -142,7 +142,7 @@ STDCALL
 GetUpdateRgn(
   HWND hWnd,
   HRGN hRgn,
-  BOOL bErase)
+  WINBOOL bErase)
 {
   return NtUserGetUpdateRgn(hWnd, hRgn, bErase);
 }
@@ -151,12 +151,12 @@ GetUpdateRgn(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 InvalidateRect(
   HWND hWnd,
   CONST RECT *lpRect,
-  BOOL bErase)
+  WINBOOL bErase)
 {
   return NtUserInvalidateRect( hWnd, lpRect, bErase );
 }
@@ -165,12 +165,12 @@ InvalidateRect(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 InvalidateRgn(
   HWND hWnd,
   HRGN hRgn,
-  BOOL bErase)
+  WINBOOL bErase)
 {
   return NtUserInvalidateRgn( hWnd, hRgn, bErase );
 }
@@ -179,7 +179,7 @@ InvalidateRgn(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 RedrawWindow(
   HWND hWnd,
@@ -192,9 +192,9 @@ RedrawWindow(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
    HRGN hrgnUpdate, LPRECT lprcUpdate)
 {
@@ -204,23 +204,24 @@ ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
 SetWindowRgn(
   HWND hWnd,
   HRGN hRgn,
-  BOOL bRedraw)
+  WINBOOL bRedraw)
 {
-  return (int)NtUserSetWindowRgn(hWnd, hRgn, bRedraw);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UpdateWindow(
   HWND hWnd)
@@ -232,7 +233,7 @@ UpdateWindow(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 ValidateRect(
   HWND hWnd,
@@ -246,18 +247,20 @@ ValidateRect(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 ValidateRgn(
   HWND hWnd,
   HRGN hRgn)
 {
-  return NtUserValidateRgn(hWnd, hRgn);
+  return (WINBOOL) NtUserCallTwoParam((DWORD) hWnd,
+                                      (DWORD) hRgn,
+                                      TWOPARAM_ROUTINE_VALIDATERGN);
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
@@ -265,28 +268,15 @@ GetWindowRgn(
   HWND hWnd,
   HRGN hRgn)
 {
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_GETWINDOWRGN);
+  UNIMPLEMENTED;
+  return 0;
 }
-
-
-/*
- * @implemented
- */
-int
-STDCALL
-GetWindowRgnBox(
-    HWND hWnd,
-    LPRECT lprc)
-{
-  return (int)NtUserCallTwoParam((DWORD)hWnd, (DWORD)lprc, TWOPARAM_ROUTINE_GETWINDOWRGNBOX);
-}
-
 
 const BYTE MappingTable[33] = {5,9,2,3,5,7,0,0,0,7,5,5,3,2,7,5,3,3,0,5,7,10,5,0,11,4,1,1,3,8,6,12,7};
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DrawFrame(
 	  HDC    hDc,

@@ -8,8 +8,6 @@ extern "C"
 
 void
 RosRtlDevModeA2W ( LPDEVMODEW pW, const LPDEVMODEA pA );
-void
-RosRtlDevModeW2A( LPDEVMODEA pA, const LPDEVMODEW pW );
 
 #ifdef __cplusplus
 }

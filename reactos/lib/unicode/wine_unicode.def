@@ -1,7 +1,6 @@
-LIBRARY wine_unicode.dll
+LIBRARY libwine_unicode.dll
 
 EXPORTS
-    memicmpW
     snprintfW
     sprintfW
     strcmpiW
@@ -18,8 +17,6 @@ EXPORTS
     wine_cp_get_table
     wine_cp_mbstowcs
     wine_cp_wcstombs
-    wine_cpsymbol_mbstowcs
-    wine_cpsymbol_wcstombs
     wine_fold_string
     wine_get_sortkey
     wine_utf8_mbstowcs

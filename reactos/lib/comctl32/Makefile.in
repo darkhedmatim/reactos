@@ -28,9 +28,7 @@ C_SRCS = \
 	propsheet.c \
 	rebar.c \
 	smoothscroll.c \
-	string.c \
 	status.c \
-	syslink.c \
 	tab.c \
 	toolbar.c \
 	tooltips.c \
@@ -43,18 +41,13 @@ RC_BINSRC = rsrc.rc
 RC_BINARIES = \
 	idb_hist_large.bmp \
 	idb_hist_small.bmp \
-	idb_std_large.bmp \
 	idb_std_small.bmp \
+	idb_std_large.bmp \
 	idb_view_large.bmp \
 	idb_view_small.bmp \
-	idc_copy.cur \
 	idc_divider.cur \
 	idc_divideropen.cur \
-	idc_movebutton.cur \
 	idi_dragarrow.ico \
-	idi_tt_error_sm.ico \
-	idi_tt_info_sm.ico \
-	idi_tt_warn_sm.ico \
 	idt_check.bmp
 
 SUBDIRS = tests

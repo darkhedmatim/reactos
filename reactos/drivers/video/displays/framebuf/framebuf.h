@@ -26,8 +26,6 @@
 #include <ddk/winddi.h>
 #include <ddk/ntddvdeo.h>
 
-//#define EXPERIMENTAL_MOUSE_CURSOR_SUPPORT
-
 typedef struct _PDEV
 {
    HANDLE hDriver;
@@ -45,15 +43,6 @@ typedef struct _PDEV
    PVOID ScreenPtr;
    HPALETTE DefaultPalette;
    PALETTEENTRY *PaletteEntries;
-
-#ifdef EXPERIMENTAL_MOUSE_CURSOR_SUPPORT
-   VIDEO_POINTER_ATTRIBUTES PointerAttributes;
-   XLATEOBJ *PointerXlateObject;
-   HSURF PointerColorSurface;
-   HSURF PointerMaskSurface;
-   HSURF PointerSaveSurface;
-   POINTL PointerHotSpot;
-#endif
 } PDEV, *PPDEV;
 
 #define DEVICE_NAME	L"framebuf"

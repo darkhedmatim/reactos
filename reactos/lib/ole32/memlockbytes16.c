@@ -52,7 +52,7 @@ struct HGLOBALLockBytesImpl16
    * Needs to be the first item in the stuct
    * since we want to cast this in an ILockBytes pointer
    */
-  ILockBytes16Vtbl *lpVtbl;
+  ICOM_VFIELD(ILockBytes16);
   ULONG        ref;
 
   /*
@@ -148,7 +148,7 @@ HGLOBALLockBytesImpl16_Construct(HGLOBAL16 hGlobal,
 {
   HGLOBALLockBytesImpl16* newLockBytes;
 
-  static ILockBytes16Vtbl vt16;
+  static ICOM_VTABLE(ILockBytes16) vt16;
   static SEGPTR msegvt16;
   HMODULE16 hcomp = GetModuleHandle16("OLE2");
 
@@ -176,7 +176,7 @@ HGLOBALLockBytesImpl16_Construct(HGLOBAL16 hGlobal,
 #undef VTENT
       msegvt16 = MapLS( &vt16 );
   }
-  newLockBytes->lpVtbl	= (ILockBytes16Vtbl*)msegvt16;
+  newLockBytes->lpVtbl	= (ICOM_VTABLE(ILockBytes16)*)msegvt16;
   newLockBytes->ref	= 0;
   /*
    * Initialize the support.
@@ -193,8 +193,8 @@ HGLOBALLockBytesImpl16_Construct(HGLOBAL16 hGlobal,
   /*
    * Initialize the size of the array to the size of the handle.
    */
-  newLockBytes->byteArraySize.u.HighPart = 0;
-  newLockBytes->byteArraySize.u.LowPart  = GlobalSize16(
+  newLockBytes->byteArraySize.s.HighPart = 0;
+  newLockBytes->byteArraySize.s.LowPart  = GlobalSize16(
 					    newLockBytes->supportHandle);
 
   return (HGLOBALLockBytesImpl16*)MapLS(newLockBytes);
@@ -280,7 +280,9 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 
   TRACE("(%p)\n",This);
 
-  return InterlockedIncrement(&This->ref);
+  This->ref++;
+
+  return This->ref;
 }
 
 /******************************************************************************
@@ -290,18 +292,20 @@ ULONG WINAPI HGLOBALLockBytesImpl16_AddRef(ILockBytes16* iface)
 ULONG WINAPI HGLOBALLockBytesImpl16_Release(ILockBytes16* iface)
 {
   HGLOBALLockBytesImpl16* const This=(HGLOBALLockBytesImpl16*)iface;
-  ULONG ref;
 
+  ULONG newRef;
   TRACE("(%p)\n",This);
 
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0)
+  if (newRef==0)
     HGLOBALLockBytesImpl16_Destroy(This);
-  return ref;
+  return newRef;
 }
 
 /******************************************************************************
@@ -325,7 +329,7 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_ReadAt(
   ULONG bytesReadBuffer = 0;
   ULONG bytesToReadFromBuffer;
 
-  TRACE("(%p,%ld,%p,%ld,%p)\n",This,ulOffset.u.LowPart,pv,cb,pcbRead);
+  TRACE("(%p,%ld,%p,%ld,%p)\n",This,ulOffset.s.LowPart,pv,cb,pcbRead);
   /*
    * If the caller is not interested in the number of bytes read,
    * we use another buffer to avoid "if" statements in the code.
@@ -336,15 +340,15 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_ReadAt(
   /*
    * Make sure the offset is valid.
    */
-  if (ulOffset.u.LowPart > This->byteArraySize.u.LowPart)
+  if (ulOffset.s.LowPart > This->byteArraySize.s.LowPart)
     return E_FAIL;
 
   /*
    * Using the known size of the array, calculate the number of bytes
    * to read.
    */
-  bytesToReadFromBuffer = min(This->byteArraySize.u.LowPart -
-                              ulOffset.u.LowPart, cb);
+  bytesToReadFromBuffer = min(This->byteArraySize.s.LowPart -
+                              ulOffset.s.LowPart, cb);
 
   /*
    * Lock the buffer in position and copy the data.
@@ -352,7 +356,7 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_ReadAt(
   supportBuffer = GlobalLock16(This->supportHandle);
 
   memcpy(pv,
-         (char *) supportBuffer + ulOffset.u.LowPart,
+         (char *) supportBuffer + ulOffset.s.LowPart,
          bytesToReadFromBuffer);
 
   /*
@@ -398,7 +402,7 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_WriteAt(
   ULARGE_INTEGER newSize;
   ULONG          bytesWritten = 0;
 
-  TRACE("(%p,%ld,%p,%ld,%p)\n",This,ulOffset.u.LowPart,pv,cb,pcbWritten);
+  TRACE("(%p,%ld,%p,%ld,%p)\n",This,ulOffset.s.LowPart,pv,cb,pcbWritten);
   /*
    * If the caller is not interested in the number of bytes written,
    * we use another buffer to avoid "if" statements in the code.
@@ -409,13 +413,13 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_WriteAt(
   if (cb == 0)
     return S_OK;
 
-  newSize.u.HighPart = 0;
-  newSize.u.LowPart = ulOffset.u.LowPart + cb;
+  newSize.s.HighPart = 0;
+  newSize.s.LowPart = ulOffset.s.LowPart + cb;
 
   /*
    * Verify if we need to grow the stream
    */
-  if (newSize.u.LowPart > This->byteArraySize.u.LowPart)
+  if (newSize.s.LowPart > This->byteArraySize.s.LowPart)
   {
     /* grow stream */
     if (HGLOBALLockBytesImpl16_SetSize(iface, newSize) == STG_E_MEDIUMFULL)
@@ -427,7 +431,7 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_WriteAt(
    */
   supportBuffer = GlobalLock16(This->supportHandle);
 
-  memcpy((char *) supportBuffer + ulOffset.u.LowPart, pv, cb);
+  memcpy((char *) supportBuffer + ulOffset.s.LowPart, pv, cb);
 
   /*
    * Return the number of bytes written.
@@ -467,26 +471,26 @@ HRESULT WINAPI HGLOBALLockBytesImpl16_SetSize(
   HGLOBALLockBytesImpl16* const This=(HGLOBALLockBytesImpl16*)iface;
   HGLOBAL16 supportHandle;
 
-  TRACE("(%p,%ld)\n",This,libNewSize.u.LowPart);
+  TRACE("(%p,%ld)\n",This,libNewSize.s.LowPart);
   /*
    * As documented.
    */
-  if (libNewSize.u.HighPart != 0)
+  if (libNewSize.s.HighPart != 0)
     return STG_E_INVALIDFUNCTION;
 
-  if (This->byteArraySize.u.LowPart == libNewSize.u.LowPart)
+  if (This->byteArraySize.s.LowPart == libNewSize.s.LowPart)
     return S_OK;
 
   /*
    * Re allocate the HGlobal to fit the new size of the stream.
    */
-  supportHandle = GlobalReAlloc16(This->supportHandle, libNewSize.u.LowPart, 0);
+  supportHandle = GlobalReAlloc16(This->supportHandle, libNewSize.s.LowPart, 0);
 
   if (supportHandle == 0)
     return STG_E_MEDIUMFULL;
 
   This->supportHandle = supportHandle;
-  This->byteArraySize.u.LowPart = libNewSize.u.LowPart;
+  This->byteArraySize.s.LowPart = libNewSize.s.LowPart;
 
   return S_OK;
 }

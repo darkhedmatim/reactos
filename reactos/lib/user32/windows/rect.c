@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rect.c,v 1.16 2004/08/15 21:36:30 chorns Exp $
+/* $Id: rect.c,v 1.13 2003/07/10 21:04:32 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -36,7 +37,7 @@
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 CopyRect(LPRECT lprcDst, CONST RECT *lprcSrc)
 {
   if(lprcDst == NULL || lprcSrc == NULL)
@@ -50,23 +51,29 @@ CopyRect(LPRECT lprcDst, CONST RECT *lprcSrc)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL
+STDCALL
 EqualRect(
-   CONST RECT *lprc1,
-   CONST RECT *lprc2)
+  CONST RECT *lprc1,
+  CONST RECT *lprc2)
 {
-   if (lprc1 == NULL || lprc2 == NULL)
-      return FALSE;
-  
-   return (lprc1->left == lprc2->left) && (lprc1->top == lprc2->top) &&
-          (lprc1->right == lprc2->right) && (lprc1->bottom == lprc2->bottom);
+  if ((lprc1->left   == lprc2->left)
+   && (lprc1->top    == lprc2->top)
+   && (lprc1->right  == lprc2->right)
+   && (lprc1->bottom == lprc2->bottom))
+  {
+    return TRUE;
+  }
+  /* TODO: return the correct error code. */
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return FALSE;
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 InflateRect(LPRECT rect, int dx, int dy)
 {
   rect->left -= dx;
@@ -80,7 +87,7 @@ InflateRect(LPRECT rect, int dx, int dy)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 IntersectRect(LPRECT lprcDst,
 	      CONST RECT *lprcSrc1,
 	      CONST RECT *lprcSrc2)
@@ -105,7 +112,7 @@ IntersectRect(LPRECT lprcDst,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 IsRectEmpty(CONST RECT *lprc)
 {
   return((lprc->left >= lprc->right) || (lprc->top >= lprc->bottom));
@@ -115,7 +122,7 @@ IsRectEmpty(CONST RECT *lprc)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 OffsetRect(LPRECT rect, int dx, int dy)
 {
   if(rect == NULL)
@@ -132,14 +139,14 @@ OffsetRect(LPRECT rect, int dx, int dy)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 PtInRect(CONST RECT *lprc, POINT pt)
 {
   return((pt.x >= lprc->left) && (pt.x < lprc->right) &&
 	 (pt.y >= lprc->top) && (pt.y < lprc->bottom));
 }
 
-BOOL STDCALL
+WINBOOL STDCALL
 SetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
 {
   lprc->left = xLeft;
@@ -164,7 +171,7 @@ SetRectEmpty(LPRECT lprc)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SubtractRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
 {
   RECT tempRect;
@@ -175,13 +182,8 @@ SubtractRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
   CopyRect(lprcDst, lprcSrc1);
   
   if(!IntersectRect(&tempRect, lprcSrc1, lprcSrc2))
-    return(TRUE);
+    return(FALSE);
   
-  if (EqualRect(&tempRect, lprcDst))
-  {
-    SetRectEmpty(lprcDst);
-    return FALSE;
-  }
   if(lprcDst->top == tempRect.top && lprcDst->bottom == tempRect.bottom)
   {
     if(lprcDst->left == tempRect.left)
@@ -204,7 +206,7 @@ SubtractRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 UnionRect(LPRECT lprcDst, CONST RECT *lprcSrc1, CONST RECT *lprcSrc2)
 {
   if (IsRectEmpty(lprcSrc1))

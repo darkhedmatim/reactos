@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,16 +33,14 @@
 
 
 enum COLUMN_FLAGS {
-	COL_TYPE		= 0x0001,
-	COL_SIZE		= 0x0002,
-	COL_DATE		= 0x0004,
-	COL_TIME		= 0x0008,
-	COL_ATTRIBUTES	= 0x0010,
-	COL_DOSNAMES	= 0x0020,
-	COL_INDEX		= 0x0040,
-	COL_LINKS		= 0x0080,
-	COL_CONTENT		= 0x0100,
-	COL_ALL = COL_TYPE|COL_SIZE|COL_DATE|COL_TIME|COL_ATTRIBUTES|COL_DOSNAMES|COL_INDEX|COL_LINKS|COL_CONTENT
+	COL_SIZE		= 0x01,
+	COL_DATE		= 0x02,
+	COL_TIME		= 0x04,
+	COL_ATTRIBUTES	= 0x08,
+	COL_DOSNAMES	= 0x10,
+	COL_INDEX		= 0x20,
+	COL_LINKS		= 0x40,
+	COL_ALL = COL_SIZE|COL_DATE|COL_TIME|COL_ATTRIBUTES|COL_DOSNAMES|COL_INDEX|COL_LINKS
 };
 
 
@@ -68,9 +66,8 @@ struct Pane : public SubclassedWindow
 	typedef SubclassedWindow super;
 
 	Pane(HWND hparent, int id, int id_header, Entry* rool, bool treePane, int visible_cols);
-	~Pane();
 
-#define COLUMNS 12
+#define COLUMNS 10
 	int 	_widths[COLUMNS];
 	int 	_positions[COLUMNS+1];
 		
@@ -92,7 +89,7 @@ struct Pane : public SubclassedWindow
 	void	calc_single_width(int col);
 	void	draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol=-1);
 
-	void	insert_entries(Entry* dir, int idx=-1);
+	void	insert_entries(Entry* dir, int idx);
 	BOOL	command(UINT cmd);
 	int		Notify(int id, NMHDR* pnmh);
 
@@ -101,7 +98,7 @@ protected:
 
 	void	calc_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
 	void	calc_tabbed_width(LPDRAWITEMSTRUCT dis, int col, LPCTSTR str);
-	struct MainFrameBase* get_frame();
+	MainFrame* get_frame();
 
 protected:
 	HIMAGELIST	_himl;

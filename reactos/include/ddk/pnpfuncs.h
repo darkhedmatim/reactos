@@ -45,24 +45,11 @@ IoReleaseRemoveLockAndWaitEx(
   IN PVOID Tag,
   IN ULONG RemlockSize);
 
-/*
- * VOID
- * STDCALL
- * IoAdjustPagingPathCount(
- *   IN PLONG Count,
- *   IN BOOLEAN Increment);
- */
-#define IoAdjustPagingPathCount(Count, Paging) \
-{ \
-  if (Paging) \
-  { \
-    InterlockedIncrement(Count); \
-  } \
-  else \
-  { \
-    InterlockedDecrement(Count); \
-  } \
-}
+VOID
+STDCALL
+IoAdjustPagingPathCount(
+  IN PLONG Count,
+  IN BOOLEAN Increment);
 
 NTSTATUS
 STDCALL

@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003 by
+# Copyright 1996-2000 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -15,9 +15,7 @@
 
 # Compiler command line name
 #
-CC           := gcc
-COMPILER_SEP := /
-
+CC := gcc
 
 # The object file extension (for standard and static libraries).  This can be
 # .o, .tco, .obj, etc., depending on the platform.
@@ -64,7 +62,6 @@ T := -o$(space)
 #
 ifndef CFLAGS
   CFLAGS := -c -g -O0 \
-            -fno-strict-aliasing \
             -Wall \
             -W \
             -Wundef \
@@ -85,9 +82,8 @@ ANSIFLAGS := -ansi -pedantic
 # Library linking
 #
 ifndef CLEAN_LIBRARY
-  CLEAN_LIBRARY = $(DELETE) $(subst /,$(SEP),$(PROJECT_LIBRARY))
+  CLEAN_LIBRARY = $(DELETE) $(subst $(SEP),$(HOSTSEP),$(PROJECT_LIBRARY))
 endif
 LINK_LIBRARY = $(AR) -r $@ $(OBJECTS_LIST)
-
 
 # EOF

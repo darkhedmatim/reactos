@@ -28,8 +28,6 @@
 #include "winerror.h"
 
 #include "ole2.h"
-#include "shlguid.h"
-#include "shell32_main.h"
 
 #include "wine/debug.h"
 
@@ -477,24 +475,12 @@ static struct regsvr_coclass const coclass_list[] = {
 	"shell32.dll",
 	"Apartment"
     },
-    {   &CLSID_MyComputer,
-	"My Computer",
-	NULL,
-	"shell32.dll",
-	"Apartment"
-    },
     {   &CLSID_Shortcut,
 	"Shortcut",
 	NULL,
 	"shell32.dll",
 	"Apartment",
 	SHELLEX_MAYCHANGEDEFAULTMENU
-    },
-    {   &CLSID_AutoComplete,
-	"AutoComplete",
-	NULL,
-	"shell32.dll",
-	"Apartment",
     },
     { NULL }			/* list terminator */
 };
@@ -519,8 +505,6 @@ HRESULT WINAPI SHELL32_DllRegisterServer()
     hr = register_coclasses(coclass_list);
     if (SUCCEEDED(hr))
 	hr = register_interfaces(interface_list);
-    if (SUCCEEDED(hr))
-	hr = SHELL_RegisterShellFolders();
     return hr;
 }
 

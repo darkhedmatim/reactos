@@ -20,7 +20,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN        /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -30,6 +31,14 @@
 
 #include <math.h>
 #include "graphctl.h"
+#include "taskmgr.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#undef THIS_FILE
+static char THIS_FILE[] = __FILE__;
+#endif
+
 
 LONG OldGraphCtrlWndProc;
 
@@ -530,8 +539,7 @@ extern TGraphCtrl PerformancePageMemUsageHistoryGraph;
 extern HWND hPerformancePageCpuUsageHistoryGraph;
 extern HWND hPerformancePageMemUsageHistoryGraph;
 
-INT_PTR CALLBACK
-GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK GraphCtrl_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     RECT        rcClient;
     HDC            hdc;

@@ -1,4 +1,4 @@
-/* $Id: resource.c,v 1.8 2004/08/15 16:39:06 chorns Exp $
+/* $Id: resource.c,v 1.6 2003/08/22 20:00:39 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -9,7 +9,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -187,41 +188,6 @@ found:;
      }
 
   return Status;
-}
-
-/* STUBS */
-
-/*
- * @unimplemented
- */
-STDCALL
-NTSTATUS
-LdrFindResourceDirectory_U(
-	IN PVOID   	BaseAddress,
-	IN PLDR_RESOURCE_INFO			ResourceInfo,
-	IN  ULONG						Level,
-	OUT PIMAGE_RESOURCE_DIRECTORY	*ResourceDirectory
-)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-STDCALL
-NTSTATUS
-LdrEnumResources(
-	IN PVOID   	BaseAddress,
-	IN PLDR_RESOURCE_INFO			ResourceInfo,
-	IN  ULONG						Level,
-	IN OUT PULONG					ResourceCount,
-	OUT PVOID						Resources  OPTIONAL
-)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

@@ -31,20 +31,40 @@
 #define LANG_WELSH                       0x92
 #define LANG_BRETON                      0x93
 
-/* FIXME: these are not in the Windows header */
-#define LANG_GAELIC         0x3c
-#define LANG_MALTESE        0x3a
-#define LANG_MAORI          0x28
-#define LANG_RHAETO_ROMANCE 0x17
-#define LANG_SAAMI          0x3b
-#define LANG_SORBIAN        0x2e
-#define LANG_SUTU           0x30
-#define LANG_TSONGA         0x31
-#define LANG_TSWANA         0x32
-#define LANG_VENDA          0x33
-#define LANG_XHOSA          0x34
-#define LANG_ZULU           0x35
-
 #define WINE_UNUSED   __attribute__((unused))
+
+#if (__W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5)
+
+static inline struct _TEB * NtCurrentTeb(void)
+{
+ struct _TEB * pTeb;
+
+#if defined(__GNUC__)
+ /* FIXME: instead of hardcoded offsets, use offsetof() - if possible */
+ __asm__ __volatile__
+ (
+  "movl %%fs:0x18, %0\n" /* fs:18h == Teb->Tib.Self */
+  : "=r" (pTeb) /* can't have two memory operands */
+  : /* no inputs */
+ );
+#elif defined(_MSC_VER)
+ __asm mov eax, fs:0x18
+ __asm mov pTeb, eax
+#else
+#error Unknown compiler for inline assembler
+#endif
+
+ return pTeb;
+}
+
+#if (_WIN32_WINNT >= 0x0500)
+typedef LONG (WINAPI *PVECTORED_EXCEPTION_HANDLER)(PEXCEPTION_POINTERS);
+#endif
+
+/* Fix buggy definition in w32api 2.4 */
+#undef INVALID_FILE_ATTRIBUTES
+#define INVALID_FILE_ATTRIBUTES ((DWORD) (-1))
+
+#endif /* __W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5 */
 
 #endif  /* __WINE_WINNT_H */

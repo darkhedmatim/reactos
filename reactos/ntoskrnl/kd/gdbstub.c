@@ -83,10 +83,18 @@
  *
  ****************************************************************************/
 
-#include <ntoskrnl.h>
+#include <ntddk.h>
+#include <internal/kd.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/module.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-#include <internal/ps.h>
+
+extern LIST_ENTRY PiThreadListHead;
+
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
@@ -105,8 +113,6 @@ static CONST CHAR HexChars[]="0123456789abcdef";
 static PETHREAD GspRunThread; /* NULL means run all threads */
 static PETHREAD GspDbgThread;
 static PETHREAD GspEnumThread;
-
-extern LIST_ENTRY PsProcessListHead;
 
 /* Number of Registers.  */
 #define NUMREGS	16
@@ -650,6 +656,14 @@ GspFindThread(PCHAR Data,
       /* All threads */
       ThreadInfo = NULL;
     }
+    else if (strcmp (Data, "0") == 0)
+    {
+       /* Pick any thread, pick the first thread,
+        * which is what most people are interested in
+        */
+       ThreadInfo = CONTAINING_RECORD (PiThreadListHead.Flink,
+         ETHREAD, Tcb.ThreadListEntry);
+    }
     else
     {
       ULONG ThreadId;
@@ -685,7 +699,6 @@ GspSetThread(PCHAR Request)
                             if(GspRunThread) ObDereferenceObject(GspRunThread);
 
 	                    GspRunThread = ThreadInfo;
-	                    if (GspRunThread) ObReferenceObject(GspRunThread);
 			  }
 			  else
 			  {
@@ -739,89 +752,32 @@ GspQuery(PCHAR Request)
   }
   else if (strncmp (Command, "fThreadInfo", 11) == 0)
   {
-    PEPROCESS Process;
-    PLIST_ENTRY AThread, AProcess;
     PCHAR ptr = &GspOutBuffer[1];
 
     /* Get first thread id */
-    GspEnumThread = NULL;
-    AProcess = PsProcessListHead.Flink;
-    while(AProcess != &PsProcessListHead)
-    {
-      Process = CONTAINING_RECORD(AProcess, EPROCESS, ProcessListEntry);
-      AThread = Process->ThreadListHead.Flink;
-      if(AThread != &Process->ThreadListHead)
-      {
-        GspEnumThread = CONTAINING_RECORD (Process->ThreadListHead.Flink,
-                                           ETHREAD, ThreadListEntry);
-        break;
-      }
-      AProcess = AProcess->Flink;
-    }
-    if(GspEnumThread != NULL)
-    {
-      GspOutBuffer[0] = 'm';
-      Value = (ULONG) GspEnumThread->Cid.UniqueThread;
-      GspLong2Hex (&ptr, Value);
-    }
-    else
-    {
-      /* FIXME - what to do here? This case should never happen though, there
-                 should always be at least one thread on the system... */
-      /* GspOutBuffer[0] = 'l'; */
-    }
+    GspOutBuffer[0] = 'm';
+    GspEnumThread = CONTAINING_RECORD (PiThreadListHead.Flink,
+      ETHREAD, Tcb.ThreadListEntry);
+    Value = (ULONG) GspEnumThread->Cid.UniqueThread;
+    GspLong2Hex (&ptr, Value);
   }
   else if (strncmp (Command, "sThreadInfo", 11) == 0)
   {
-    PEPROCESS Process;
-    PLIST_ENTRY AThread, AProcess;
     PCHAR ptr = &GspOutBuffer[1];
 
     /* Get next thread id */
-    if (GspEnumThread != NULL)
+    if ((GspEnumThread) && (GspEnumThread->Tcb.ThreadListEntry.Flink != PiThreadListHead.Flink))
     {
-      /* find the next thread */
-      Process = GspEnumThread->ThreadsProcess;
-      if(GspEnumThread->ThreadListEntry.Flink != &Process->ThreadListHead)
-      {
-        GspEnumThread = CONTAINING_RECORD (GspEnumThread->ThreadListEntry.Flink,
-                                           ETHREAD, ThreadListEntry);
-      }
-      else
-      {
-        PETHREAD Thread = NULL;
-        AProcess = Process->ProcessListEntry.Flink;
-        while(AProcess != &PsProcessListHead)
-        {
-          Process = CONTAINING_RECORD(AProcess, EPROCESS, ProcessListEntry);
-          AThread = Process->ThreadListHead.Flink;
-          if(AThread != &Process->ThreadListHead)
-          {
-            Thread = CONTAINING_RECORD (Process->ThreadListHead.Flink,
-                                        ETHREAD, ThreadListEntry);
-            break;
-          }
-          AProcess = AProcess->Flink;
-        }
-        GspEnumThread = Thread;
-      }
-
-      if(GspEnumThread != NULL)
-      {
-        /* return the ID */
-        GspOutBuffer[0] = 'm';
-        Value = (ULONG) GspEnumThread->Cid.UniqueThread;
-        GspLong2Hex (&ptr, Value);
-      }
-      else
-      {
-        GspOutBuffer[0] = 'l';
-      }
+      GspEnumThread = CONTAINING_RECORD (GspEnumThread->Tcb.ThreadListEntry.Flink,
+        ETHREAD, Tcb.ThreadListEntry);
+	    GspOutBuffer[0] = 'm';
+	    Value = (ULONG) GspEnumThread->Cid.UniqueThread;
+      GspLong2Hex (&ptr, Value);
     }
-    else
-    {
-      GspOutBuffer[0] = 'l';
-    }
+		else
+		{
+	    GspOutBuffer[0] = 'l';
+		}
   }
   else if (strncmp (Command, "ThreadExtraInfo", 15) == 0)
   {
@@ -1101,7 +1057,6 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
   LONG NewPC;
   PCHAR ptr;
   LONG Esp;
-  KIRQL OldIrql;
 
   /* FIXME: Stop on other CPUs too */
   /* Disable hardware debugging while we are inside the stub */
@@ -1124,20 +1079,6 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
     }
   else
     {
-      /* Don't switch threads */
-      OldIrql = KeGetCurrentIrql();
-      if (OldIrql < DISPATCH_LEVEL)
-        {
-          KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
-        }
-          
-      /* Always use the current thread when entering the exception handler */
-      if (NULL != GspDbgThread)
-        {
-          ObDereferenceObject(GspDbgThread);
-          GspDbgThread = NULL;
-        }
-
       /* reply to host that an exception has occurred */
       SigVal = GspComputeSignal (ExceptionRecord->ExceptionCode);
 
@@ -1188,24 +1129,17 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
               GspRemoteDebug = !GspRemoteDebug; /* toggle debug flag */
               break;
             case 'g':		/* return the value of the CPU Registers */
-              if (NULL != GspDbgThread)
-                {
-                  GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, GspDbgThread->Tcb.TrapFrame);
-                }
+              if (GspDbgThread)
+                GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, GspDbgThread->Tcb.TrapFrame);
               else
-                {
-                  GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, TrapFrame);
-                }
+                GspGetRegistersFromTrapFrame (&GspOutBuffer[0], Context, TrapFrame);
               break;
             case 'G':		/* set the value of the CPU Registers - return OK */
-              if (NULL != GspDbgThread)
-                {
-                  GspSetRegistersInTrapFrame (ptr, Context, GspDbgThread->Tcb.TrapFrame);
-                }
+              if (GspDbgThread)
+/*                GspSetRegistersInTrapFrame (ptr, Context, GspDbgThread->Tcb.TrapFrame);*/
+GspSetRegistersInTrapFrame (ptr, Context, TrapFrame);
               else
-                {
-                  GspSetRegistersInTrapFrame (ptr, Context, TrapFrame);
-                }
+                GspSetRegistersInTrapFrame (ptr, Context, TrapFrame);
               strcpy (GspOutBuffer, "OK");
               break;
             case 'P':		/* set the value of a single CPU register - return OK */
@@ -1216,14 +1150,11 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
                   if ((Register >= 0) && (Register < NUMREGS))
                     {
                       if (GspDbgThread)
-                        {
-                          GspSetSingleRegisterInTrapFrame(ptr, Register,
-                                                          Context, GspDbgThread->Tcb.TrapFrame);
-                        }
+/*                        GspSetSingleRegisterInTrapFrame (ptr, Register,
+                                                         Context, GspDbgThread->Tcb.TrapFrame);*/
+GspSetSingleRegisterInTrapFrame (ptr, Register, Context, TrapFrame);
                       else
-                        {
-                          GspSetSingleRegisterInTrapFrame (ptr, Register, Context, TrapFrame);
-                        }
+                        GspSetSingleRegisterInTrapFrame (ptr, Register, Context, TrapFrame);
                       strcpy (GspOutBuffer, "OK");
                       break;
                     }
@@ -1291,7 +1222,7 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
 
                 /* try to read optional parameter, pc unchanged if no parm */
                 if (GspHex2Long (&ptr, &Address))
-                  Context->Eip = Address;
+                Context->Eip = Address;
 
                 NewPC = Context->Eip;
 
@@ -1332,13 +1263,8 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
 #else
 #error Unknown compiler for inline assembler
 #endif
-                if (OldIrql < DISPATCH_LEVEL)
-                  {
-                    KeLowerIrql(OldIrql);
-                  }
 
-                KeContextToTrapFrame(Context, TrapFrame);
-                return ((SigVal == 5) ? (kdContinue) : (kdHandleException));
+                return kdHandleException;
                 break;
               }
 
@@ -1410,12 +1336,9 @@ KdEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
           /* reply to the request */
           GspPutPacket (&GspOutBuffer[0]);
         }
-
-      /* not reached */
-      ASSERT(0);
     }
 
-    return kdDoNotHandleException;
+  return kdHandleException;
 }
 
 
@@ -1428,7 +1351,7 @@ GspBreakIn(PKINTERRUPT Interrupt,
   BOOLEAN DoBreakIn;
   CONTEXT Context;
   KIRQL OldIrql;
-  UCHAR Value;
+  CHAR Value;
 
   DPRINT ("Break In\n");
 

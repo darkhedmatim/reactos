@@ -44,8 +44,6 @@ Already defined in makefile now.
 #include <menu.h>
 #include <winpos.h>
 #include <user32/wininternal.h>
-#include <user32.h>
-#include "window.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -61,16 +59,6 @@ Already defined in makefile now.
 #define HAS_THINFRAME(Style, ExStyle) \
             (((Style) & (WS_BORDER | WS_MINIMIZE)) || (!((Style) & (WS_CHILD | WS_POPUP))))
 
-#define HASSIZEGRIP(Style, ExStyle, ParentStyle, WindowRect, ParentClientRect) \
-            ((!(Style & WS_CHILD) && (Style & WS_THICKFRAME) && !(Style & WS_MAXIMIZE))  || \
-             ((Style & WS_CHILD) && (ParentStyle & WS_THICKFRAME) && !(ParentStyle & WS_MAXIMIZE) && \
-             (WindowRect.right - WindowRect.left == ParentClientRect.right) && \
-             (WindowRect.bottom - WindowRect.top == ParentClientRect.bottom)))
-
-#ifndef STATE_SYSTEM_OFFSCREEN
-#define STATE_SYSTEM_OFFSCREEN	0x00010000
-#endif
-
 /*
  * FIXME: This should be moved to a header
  */
@@ -81,22 +69,9 @@ IntScrollHitTest(HWND hWnd, INT nBar, POINT pt, BOOL bDragging);
 HPEN STDCALL
 GetSysColorPen(int nIndex);
 
-BOOL STDCALL GdiGradientFill(HDC,PTRIVERTEX,ULONG,PVOID,ULONG,ULONG);
-
 extern ATOM AtomInternalPos;
 
 /* PRIVATE FUNCTIONS **********************************************************/
-
-BOOL
-IntIsScrollBarVisible(HWND hWnd, INT hBar)
-{
-  SCROLLBARINFO sbi;
-  sbi.cbSize = sizeof(SCROLLBARINFO);
-  if(!NtUserGetScrollBarInfo(hWnd, hBar, &sbi))
-    return FALSE;
-  
-  return !(sbi.rgstate[0] & STATE_SYSTEM_OFFSCREEN);
-}
 
 BOOL
 UserHasWindowEdge(DWORD Style, DWORD ExStyle)
@@ -144,41 +119,39 @@ UserHasMenu(HWND hWnd, ULONG Style)
    return (!(Style & WS_CHILD) && GetMenu(hWnd) != 0);
 }
 
-HICON 
-UserGetWindowIcon(HWND hwnd)
-{
-   HICON hIcon = 0;
-
-   SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
-
-   if (!hIcon)
-      hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
-
-   return hIcon;
-}
-
 BOOL
-UserDrawSysMenuButton(HWND hWnd, HDC hDC, LPRECT Rect, BOOL Down)
+UserDrawSysMenuButton(HWND hWnd, HDC hDC, LPRECT Rect, BOOL down)
 {
-   HICON WindowIcon;
-  
-   if ((WindowIcon = UserGetWindowIcon(hWnd)))
+   HDC hDcMem;
+   HBITMAP hSavedBitmap;
+   static HBITMAP hbSysMenu = NULL;
+
+   if (hbSysMenu == NULL)
    {
-      return DrawIconEx(hDC, Rect->left + 2, Rect->top + 2, WindowIcon,
-                        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
-                        0, NULL, DI_NORMAL);
+      hbSysMenu = (HBITMAP)LoadBitmapW(0, MAKEINTRESOURCEW(OBM_CLOSE));
    }
 
-   return FALSE;
+   hDcMem = CreateCompatibleDC(hDC);
+   if (!hDcMem)
+   {
+      return FALSE;
+   }
+
+   hSavedBitmap = SelectObject(hDcMem, hbSysMenu);
+   if (!hSavedBitmap)
+   {
+      DeleteDC(hDcMem);
+      return FALSE;
+   }
+
+   BitBlt(hDC, Rect->left + 2, Rect->top + 3, 16, 14, hDcMem,
+          (GetWindowLongW(hWnd, GWL_STYLE) & WS_CHILD) ?
+          GetSystemMetrics(SM_CXSIZE): 0, 0, SRCCOPY);
+
+   SelectObject(hDcMem, hSavedBitmap);
+   DeleteDC(hDcMem);
+
+   return TRUE;
 }
 
 /*
@@ -293,7 +266,6 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
    HDC hDC;
    BOOL Active;
    DWORD Style, ExStyle;
-   HWND Parent;
    RECT ClientRect, WindowRect, CurrentRect, TempRect;
 
    if (!IsWindowVisible(hWnd))
@@ -306,14 +278,13 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
    {
       return 0;
    }
-   
-   Parent = GetParent(hWnd);
+
    ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
    if (ExStyle & WS_EX_MDICHILD)
    {
       Active = IsChild(GetForegroundWindow(), hWnd);
       if (Active)
-         Active = (hWnd == (HWND)SendMessageW(Parent, WM_MDIGETACTIVE, 0, 0));
+         Active = (hWnd == (HWND)SendMessageW(GetParent(hWnd), WM_MDIGETACTIVE, 0, 0));
    }
    else
    {
@@ -333,19 +304,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
    } else
    if (ExStyle & WS_EX_STATICEDGE)
    {
-#if 0
-      DrawEdge(hDC, &CurrentRect, BDR_SUNKENINNER, BF_RECT | BF_ADJUST | BF_FLAT);
-#else
-      SelectObject(hDC, GetSysColorBrush(COLOR_BTNSHADOW));
-      PatBlt(hDC, CurrentRect.left, CurrentRect.top, CurrentRect.right - CurrentRect.left, 1, PATCOPY);
-      PatBlt(hDC, CurrentRect.left, CurrentRect.top, 1, CurrentRect.bottom - CurrentRect.top, PATCOPY);
-      
-      SelectObject(hDC, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
-      PatBlt(hDC, CurrentRect.left, CurrentRect.bottom - 1, CurrentRect.right - CurrentRect.left, 1, PATCOPY);
-      PatBlt(hDC, CurrentRect.right - 1, CurrentRect.top, 1, CurrentRect.bottom - CurrentRect.top, PATCOPY);
-
-      InflateRect(&CurrentRect, -1, -1);
-#endif
+      DrawEdge(hDC, &CurrentRect, BDR_SUNKENINNER, BF_RECT | BF_ADJUST);
    }
     
    /* Firstly the "thick" frame */
@@ -459,12 +418,11 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
    
    if(!(Style & WS_MINIMIZE))
    {
-     HMENU menu = GetMenu(hWnd);
      /* Draw menu bar */
-     if (menu && !(Style & WS_CHILD))
+     if (UserHasMenu(hWnd, Style))
      {
         TempRect = CurrentRect;
-        TempRect.bottom = TempRect.top + (UINT)NtUserSetMenuBarHeight(menu, 0);
+        TempRect.bottom = TempRect.top + GetSystemMetrics(SM_CYMENU);
         CurrentRect.top += MenuDrawMenuBar(hDC, &TempRect, hWnd, FALSE);
      }
      
@@ -475,22 +433,22 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
      
      /* Draw the scrollbars */
      if ((Style & WS_VSCROLL) && (Style & WS_HSCROLL) &&
-         IntIsScrollBarVisible(hWnd, OBJID_VSCROLL) && IntIsScrollBarVisible(hWnd, OBJID_HSCROLL))
+         (CurrentRect.bottom - CurrentRect.top) > GetSystemMetrics(SM_CYHSCROLL))
      {
-        RECT ParentClientRect;
-        
         TempRect = CurrentRect;
         if (ExStyle & WS_EX_LEFTSCROLLBAR)
            TempRect.right = TempRect.left + GetSystemMetrics(SM_CXVSCROLL);
         else
            TempRect.left = TempRect.right - GetSystemMetrics(SM_CXVSCROLL);
         TempRect.top = TempRect.bottom - GetSystemMetrics(SM_CYHSCROLL);
-        FillRect(hDC, &TempRect, GetSysColorBrush(COLOR_BTNFACE));
+        FillRect(hDC, &TempRect, GetSysColorBrush(COLOR_SCROLLBAR));
         /* FIXME: Correct drawing of size-box with WS_EX_LEFTSCROLLBAR */
-        if(Parent)
-          GetClientRect(Parent, &ParentClientRect);
-        if (HASSIZEGRIP(Style, ExStyle, GetWindowLongW(Parent, GWL_STYLE), WindowRect, ParentClientRect))
+        if (!(Style & WS_CHILD) || (ExStyle & WS_EX_MDICHILD))
         {
+           TempRect.top--;
+           TempRect.bottom++;
+           TempRect.left--;
+           TempRect.right++;
            DrawFrameControl(hDC, &TempRect, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
         }
         IntDrawScrollBar(hWnd, hDC, SB_VERT);
@@ -498,9 +456,9 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn)
      }
      else
      {
-        if (Style & WS_VSCROLL && IntIsScrollBarVisible(hWnd, OBJID_VSCROLL))
+        if (Style & WS_VSCROLL)
            IntDrawScrollBar(hWnd, hDC, SB_VERT);
-        else if (Style & WS_HSCROLL && IntIsScrollBarVisible(hWnd, OBJID_HSCROLL))
+        else if (Style & WS_HSCROLL)
            IntDrawScrollBar(hWnd, hDC, SB_HORZ);
      }
    }
@@ -517,7 +475,6 @@ DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect)
    DWORD Style = GetClassLongW(hWnd, GCL_STYLE);
    DWORD ExStyle;
    SIZE WindowBorders;
-   RECT OrigRect = *Rect;
 
    if (CalcSizeStruct)
    {
@@ -537,18 +494,8 @@ DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect)
     
    if (!(Style & WS_MINIMIZE))
    {
-      HMENU menu = GetMenu(hWnd);
-      
-      if (UserHasWindowEdge(Style, ExStyle))
-      {
-         UserGetWindowBorders(Style, ExStyle, &WindowBorders, FALSE);
-         InflateRect(Rect, -WindowBorders.cx, -WindowBorders.cy);
-      } else
-      if ((ExStyle & WS_EX_STATICEDGE) || (Style & WS_BORDER))
-      {
-         InflateRect(Rect, -1, -1);
-      }
-
+      UserGetWindowBorders(Style, ExStyle, &WindowBorders, FALSE);
+      InflateRect(Rect, -WindowBorders.cx, -WindowBorders.cy);
       if ((Style & WS_CAPTION) == WS_CAPTION)
       {
          if (ExStyle & WS_EX_TOOLWINDOW)
@@ -557,73 +504,17 @@ DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect)
             Rect->top += GetSystemMetrics(SM_CYCAPTION);
       }
 
-      if (menu && !(Style & WS_CHILD))
-      {
-         HDC hDC = GetWindowDC(hWnd);
-         if(hDC)
-         {
-           RECT CliRect = *Rect;
-           CliRect.bottom -= OrigRect.top;
-           CliRect.right -= OrigRect.left;
-           CliRect.left -= OrigRect.left;
-           CliRect.top -= OrigRect.top;
-           Rect->top += MenuDrawMenuBar(hDC, &CliRect, hWnd, TRUE);
-           ReleaseDC(hWnd, hDC);
-         }
-      }
+      if (UserHasMenu(hWnd, Style))
+         Rect->top += MenuGetMenuBarHeight(hWnd, Rect->right - Rect->left, Rect->left, Rect->top);
 
       if (ExStyle & WS_EX_CLIENTEDGE)
       {
          InflateRect(Rect, -2 * GetSystemMetrics(SM_CXBORDER),
             -2 * GetSystemMetrics(SM_CYBORDER));
       }
-      
-      if(Style & (WS_VSCROLL | WS_HSCROLL))
-      {
-        SCROLLBARINFO sbi;
-        SETSCROLLBARINFO ssbi;
-        
-        sbi.cbSize = sizeof(SCROLLBARINFO);
-        if((Style & WS_VSCROLL) && NtUserGetScrollBarInfo(hWnd, OBJID_VSCROLL, &sbi))
-        {
-          int i;
-          LONG sx = Rect->right;
-          
-          sx -= GetSystemMetrics(SM_CXVSCROLL);
-          for(i = 0; i <= CCHILDREN_SCROLLBAR; i++)
-            ssbi.rgstate[i] = sbi.rgstate[i];
-          if(sx <= Rect->left)
-            ssbi.rgstate[0] |= STATE_SYSTEM_OFFSCREEN;
-          else
-            ssbi.rgstate[0] &= ~STATE_SYSTEM_OFFSCREEN;
-          NtUserSetScrollBarInfo(hWnd, OBJID_VSCROLL, &ssbi);
-          if(ssbi.rgstate[0] & STATE_SYSTEM_OFFSCREEN)
-            Style &= ~WS_VSCROLL;
-        }
-        else
-          Style &= ~WS_VSCROLL;
-        
-        if((Style & WS_HSCROLL) && NtUserGetScrollBarInfo(hWnd, OBJID_HSCROLL, &sbi))
-        {
-          int i;
-          LONG sy = Rect->bottom;
-          
-          sy -= GetSystemMetrics(SM_CYHSCROLL);
-          for(i = 0; i <= CCHILDREN_SCROLLBAR; i++)
-            ssbi.rgstate[i] = sbi.rgstate[i];
-          if(sy <= Rect->top)
-            ssbi.rgstate[0] |= STATE_SYSTEM_OFFSCREEN;
-          else
-            ssbi.rgstate[0] &= ~STATE_SYSTEM_OFFSCREEN;
-          NtUserSetScrollBarInfo(hWnd, OBJID_HSCROLL, &ssbi);
-          if(ssbi.rgstate[0] & STATE_SYSTEM_OFFSCREEN)
-            Style &= ~WS_HSCROLL;
-        }
-        else
-          Style &= ~WS_HSCROLL;
-      }
 
-      if ((Style & WS_VSCROLL) && (Style & WS_HSCROLL))
+      if ((Style & WS_VSCROLL) && (Style & WS_HSCROLL) &&
+          (Rect->bottom - Rect->top) > GetSystemMetrics(SM_CYHSCROLL))
       {
          if ((ExStyle & WS_EX_LEFTSCROLLBAR) != 0)
             Rect->left += GetSystemMetrics(SM_CXVSCROLL);
@@ -671,7 +562,7 @@ DefWndNCActivate(HWND hWnd, WPARAM wParam)
 LRESULT
 DefWndNCHitTest(HWND hWnd, POINT Point)
 {
-   RECT WindowRect, ClientRect, OrigWndRect;
+   RECT WindowRect, ClientRect;
    POINT ClientPoint;
    SIZE WindowBorders;
    ULONG Style = GetWindowLongW(hWnd, GWL_STYLE);
@@ -682,11 +573,10 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
    {      
       return HTNOWHERE;
    }
-   OrigWndRect = WindowRect;
-   
+
    if (UserHasWindowEdge(Style, ExStyle))
    {
-      LONG XSize, YSize; 
+      DWORD XSize, YSize; 
 
       UserGetWindowBorders(Style, ExStyle, &WindowBorders, FALSE);
       InflateRect(&WindowRect, -WindowBorders.cx, -WindowBorders.cy);
@@ -757,7 +647,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
          return HTBORDER;
    }
 
-   if ((Style & WS_CAPTION) == WS_CAPTION)
+   if (Style & WS_CAPTION)
    {
       if (ExStyle & WS_EX_TOOLWINDOW)
          WindowRect.top += GetSystemMetrics(SM_CYSMCAPTION);
@@ -787,7 +677,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
             return HTMAXBUTTON;
          if (Style & WS_MINIMIZEBOX)
             WindowRect.right -= GetSystemMetrics(SM_CXSIZE);
-         if (Point.x >= WindowRect.right)
+	 if (Point.x >= WindowRect.right)
             return HTMINBUTTON;
          return HTCAPTION;
       }
@@ -795,8 +685,6 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
    
    if(!(Style & WS_MINIMIZE))
    {
-     HMENU menu;
-     
      ClientPoint = Point;
      ScreenToClient(hWnd, &ClientPoint);
      GetClientRect(hWnd, &ClientRect);
@@ -806,9 +694,9 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
         return HTCLIENT;
      }
      
-     if ((menu = GetMenu(hWnd)) && !(Style & WS_CHILD))
+     if (UserHasMenu(hWnd, Style))
      {
-        if (Point.x > 0 && Point.x < WindowRect.right && ClientPoint.y < 0)
+        if (Point.y < 0 && Point.x >= 0 && Point.x <= WindowRect.right)
            return HTMENU;
      }
 
@@ -821,8 +709,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
      if ((Style & WS_VSCROLL) && (Style & WS_HSCROLL) &&
          (WindowRect.bottom - WindowRect.top) > GetSystemMetrics(SM_CYHSCROLL))
      {
-        RECT ParentRect, TempRect = WindowRect, TempRect2 = WindowRect;
-        HWND Parent = GetParent(hWnd);
+        RECT TempRect = WindowRect, TempRect2 = WindowRect;
 
         TempRect.bottom -= GetSystemMetrics(SM_CYHSCROLL);
         if ((ExStyle & WS_EX_LEFTSCROLLBAR) != 0)
@@ -842,10 +729,8 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
 
         TempRect.top = TempRect2.top;
         TempRect.bottom = TempRect2.bottom;
-        if(Parent)
-          GetClientRect(Parent, &ParentRect);
-        if (PtInRect(&TempRect, Point) && HASSIZEGRIP(Style, ExStyle, 
-            GetWindowLongW(Parent, GWL_STYLE), OrigWndRect, ParentRect))
+        if (PtInRect(&TempRect, Point) && 
+            (!(Style & WS_CHILD) || (ExStyle & WS_EX_MDICHILD)))
         {
            if ((ExStyle & WS_EX_LEFTSCROLLBAR) != 0)
               return HTBOTTOMLEFT;
@@ -886,7 +771,7 @@ DefWndDoButton(HWND hWnd, WPARAM wParam)
   BOOL InBtn, HasBtn = FALSE;
   ULONG Btn, Style;
   WPARAM SCMsg, CurBtn = wParam, OrigBtn = wParam;
-  HDC WindowDC = NULL;
+  HDC WindowDC;
   
   Style = GetWindowLongW(hWnd, GWL_STYLE);
   switch(wParam)
@@ -925,6 +810,7 @@ DefWndDoButton(HWND hWnd, WPARAM wParam)
     GetMessageW(&Msg, 0, 0, 0);
     switch(Msg.message)
     {
+      case WM_NCLBUTTONUP:
       case WM_LBUTTONUP:
         if(InBtn)
           goto done;
@@ -935,6 +821,7 @@ DefWndDoButton(HWND hWnd, WPARAM wParam)
             ReleaseDC(hWnd, WindowDC);
           return;
         }
+      case WM_NCMOUSEMOVE:
       case WM_MOUSEMOVE:
         if(HasBtn)
         {
@@ -1012,7 +899,7 @@ DefWndNCLButtonDown(HWND hWnd, WPARAM wParam, LPARAM lParam)
         case HTBOTTOMLEFT:
         case HTBOTTOMRIGHT:
         {
-            SendMessageW(hWnd, WM_SYSCOMMAND, SC_SIZE + wParam - (HTLEFT - WMSZ_LEFT), lParam);
+            SendMessageW(hWnd, WM_SYSCOMMAND, SC_SIZE + wParam - 2, lParam);
             break;
         }
     }
@@ -1031,7 +918,7 @@ DefWndNCLButtonDblClk(HWND hWnd, WPARAM wParam, LPARAM lParam)
     case HTCAPTION:
     {
       /* Maximize/Restore the window */
-      if((Style & WS_CAPTION) == WS_CAPTION && (Style & WS_MAXIMIZEBOX))
+      if((Style & WS_CAPTION) && (Style & WS_MAXIMIZEBOX))
       {
         SendMessageW(hWnd, WM_SYSCOMMAND, ((Style & (WS_MINIMIZE | WS_MAXIMIZE)) ? SC_RESTORE : SC_MAXIMIZE), 0);
       }
@@ -1074,10 +961,10 @@ DefWndTrackScrollBar(HWND hWnd, WPARAM wParam, POINT Point)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 AdjustWindowRectEx(LPRECT lpRect, 
 		   DWORD dwStyle, 
-		   BOOL bMenu, 
+		   WINBOOL bMenu, 
 		   DWORD dwExStyle)
 {
    SIZE BorderSize;
@@ -1106,10 +993,10 @@ AdjustWindowRectEx(LPRECT lpRect,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 AdjustWindowRect(LPRECT lpRect,
 		 DWORD dwStyle,
-		 BOOL bMenu)
+		 WINBOOL bMenu)
 {
    return AdjustWindowRectEx(lpRect, dwStyle, bMenu, 0);
 }
@@ -1175,10 +1062,12 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
     {
         if (uFlags & DC_GRADIENT)
         {
-          static GRADIENT_RECT gcap = {0, 1};
-          TRIVERTEX vert[2];
           COLORREF Colors[2];
-          LONG xx;
+          BYTE cr[3], cg[3], cb[3];
+          LONG xx, wd, wdh;
+          POINT OldPoint;
+          HPEN Pen;
+          HGDIOBJ OldObj;
           
           r.right = (lprc->right - lprc->left);
           if (uFlags & DC_SMALLCAP)
@@ -1209,28 +1098,46 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
             xx = GetSystemMetrics(SM_CXSIZE) + Padding;
             /* draw icon background */
             PatBlt(MemDC, 0, 0, xx, lprc->bottom - lprc->top, PATCOPY);
-            /* For some reason the icon isn't centered correctly... */
+            // For some reason the icon isn't centered correctly...
             r.top --;
-            if (UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE))
-              r.left += xx;
+            UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE);
             r.top ++;
+            r.left += xx;
+          }          
+          
+          cr[1] = GetRValue(Colors[0]);
+          cg[1] = GetGValue(Colors[0]);
+          cb[1] = GetBValue(Colors[0]);
+          cr[2] = GetRValue(Colors[1]) - cr[1];
+          cg[2] = GetGValue(Colors[1]) - cg[1];
+          cb[2] = GetBValue(Colors[1]) - cb[1];
+          
+          wd = r.right - r.left;
+          wdh = wd / 2;
+          
+          if(wd > 0)
+          {
+            MoveToEx(MemDC, 0, 0, &OldPoint);
+            
+            for(xx = 0; xx < wd; xx++)
+            {
+              cr[0] = (cr[1] + ((cr[2] * xx) + wdh) / wd);
+              cg[0] = (cg[1] + ((cg[2] * xx) + wdh) / wd);
+              cb[0] = (cb[1] + ((cb[2] * xx) + wdh) / wd);
+              Pen = CreatePen(PS_SOLID, 0, RGB(cr[0], cg[0], cb[0]));
+              if(!Pen)
+              {
+                break;
+              }
+              OldObj = SelectObject(MemDC, Pen);
+              MoveToEx(MemDC, r.left + xx, 0, NULL);
+              LineTo(MemDC, r.left + xx, lprc->bottom - lprc->top);
+              if(OldObj)
+                SelectObject(MemDC, OldObj);
+              DeleteObject(Pen);
+            }
+            MoveToEx(MemDC, OldPoint.x, OldPoint.y, NULL);
           }
-          
-          vert[0].x = r.left;
-          vert[0].y = 0;
-          vert[0].Red = GetRValue(Colors[0]) << 8;
-          vert[0].Green = GetGValue(Colors[0]) << 8;
-          vert[0].Blue = GetBValue(Colors[0]) << 8;
-          vert[0].Alpha = 0;
-          
-          vert[1].x = r.right;
-          vert[1].y = lprc->bottom - lprc->top;
-          vert[1].Red = GetRValue(Colors[1]) << 8;
-          vert[1].Green = GetGValue(Colors[1]) << 8;
-          vert[1].Blue = GetBValue(Colors[1]) << 8;
-          vert[1].Alpha = 0;
-          
-          GdiGradientFill(MemDC, vert, 2, &gcap, 1, GRADIENT_FILL_RECT_H);
           
           if(OldBrush)
           {
@@ -1255,10 +1162,9 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
     
     if ((uFlags & DC_ICON) && !(uFlags & DC_GRADIENT) && (Style & WS_SYSMENU) && !(uFlags & DC_SMALLCAP))
     {
-        /* For some reason the icon isn't centered correctly... */
+        // For some reason the icon isn't centered correctly...
         r.top --;
-        if (UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE))
-          r.left += GetSystemMetrics(SM_CXSIZE) + Padding;
+        UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE);
         r.top ++;
     }
     r.top ++;
@@ -1266,10 +1172,13 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
 
     r.bottom = r.top + Height;
 
-  if ((uFlags & DC_TEXT) && (NtUserInternalGetWindowText( hWnd, buffer, sizeof(buffer)/sizeof(buffer[0]) )))
+  if ((uFlags & DC_TEXT) && (GetWindowTextW( hWnd, buffer, sizeof(buffer)/sizeof(buffer[0]) )))
   {
     if(!(uFlags & DC_GRADIENT))
     {
+    if (!(uFlags & DC_SMALLCAP) && ((uFlags & DC_ICON) || (uFlags & DC_INBUTTON)))
+        r.left += GetSystemMetrics(SM_CXSIZE) + Padding;
+
     r.right = (lprc->right - lprc->left);
     if (uFlags & DC_SMALLCAP)
       ButtonWidth = GetSystemMetrics(SM_CXSMSIZE) - 2;
@@ -1355,7 +1264,7 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DrawCaptionTempW(
 		 HWND        hwnd,
@@ -1374,7 +1283,7 @@ DrawCaptionTempW(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DrawCaptionTempA(
 		 HWND        hwnd,
@@ -1388,86 +1297,4 @@ DrawCaptionTempA(
 {
   UNIMPLEMENTED;
   return FALSE;
-}
-
-/***********************************************************************
- *           NcGetInsideRect
- *
- * Get the 'inside' rectangle of a window, i.e. the whole window rectangle
- * but without the borders (if any).
- * The rectangle is in window coordinates (for drawing with GetWindowDC()).
- */
-static void FASTCALL
-NcGetInsideRect(HWND Wnd, RECT *Rect)
-{
-  DWORD Style;
-  DWORD ExStyle;
-
-  GetWindowRect(Wnd, Rect);
-  Rect->right = Rect->right - Rect->left;
-  Rect->left = 0;
-  Rect->bottom = Rect->bottom - Rect->top;
-  Rect->top = 0;
-
-  Style = GetWindowLongW(Wnd, GWL_STYLE);
-  if (0 != (Style & WS_ICONIC))
-    {
-      return;
-    }
-
-  /* Remove frame from rectangle */
-  ExStyle = GetWindowLongW(Wnd, GWL_EXSTYLE);
-  if (HAS_THICKFRAME(Style, ExStyle))
-    {
-      InflateRect(Rect, - GetSystemMetrics(SM_CXFRAME), - GetSystemMetrics(SM_CYFRAME));
-    }
-  else if (HAS_DLGFRAME(Style, ExStyle))
-    {
-      InflateRect(Rect, - GetSystemMetrics(SM_CXDLGFRAME), - GetSystemMetrics(SM_CYDLGFRAME));
-    }
-  else if (HAS_THINFRAME(Style, ExStyle))
-    {
-      InflateRect(Rect, - GetSystemMetrics(SM_CXBORDER), - GetSystemMetrics(SM_CYBORDER));
-    }
-
-  /* We have additional border information if the window
-   * is a child (but not an MDI child) */
-  if (0 != (Style & WS_CHILD)
-      && 0 == (ExStyle & WS_EX_MDICHILD))
-    {
-      if (0 != (ExStyle & WS_EX_CLIENTEDGE))
-        {
-          InflateRect(Rect, - GetSystemMetrics(SM_CXEDGE), - GetSystemMetrics(SM_CYEDGE));
-        }
-      if (0 != (ExStyle & WS_EX_STATICEDGE))
-        {
-          InflateRect(Rect, - GetSystemMetrics(SM_CXBORDER), - GetSystemMetrics(SM_CYBORDER));
-        }
-    }
-}
-
-/***********************************************************************
- *           NcGetSysPopupPos
- */
-void FASTCALL
-NcGetSysPopupPos(HWND Wnd, RECT *Rect)
-{
-  RECT WindowRect;
-
-  if (IsIconic(Wnd))
-    {
-      GetWindowRect(Wnd, Rect);
-    }
-  else
-    {
-      NcGetInsideRect(Wnd, Rect);
-      GetWindowRect(Wnd, &WindowRect);
-      OffsetRect(Rect, WindowRect.left, WindowRect.top);
-      if (0 != (GetWindowLongW(Wnd, GWL_STYLE) & WS_CHILD))
-        {
-          ClientToScreen(GetParent(Wnd), (POINT *) Rect);
-        }
-      Rect->right = Rect->left + GetSystemMetrics(SM_CYCAPTION) - 1;
-      Rect->bottom = Rect->top + GetSystemMetrics(SM_CYCAPTION) - 1;
-    }
 }

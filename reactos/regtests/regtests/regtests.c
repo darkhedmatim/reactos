@@ -1,56 +1,37 @@
 /*
  * PROJECT:         ReactOS kernel
  * FILE:            regtests/regtests/regtests.c
- * PURPOSE:         Regression testing framework
+ * PURPOSE:         Regression testing host
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
- *      23-10-2004  CSH  Created
+ *      06-07-2003  CSH  Created
  */
-#include <windows.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include "regtests.h"
 
-HMODULE STDCALL
-_GetModuleHandleA(LPCSTR lpModuleName)
+VOID
+RunTestDriver(LPTSTR FileName)
 {
-  return GetModuleHandleA(lpModuleName);
+  TestDriverMain Main;
+  HMODULE hModule;
+
+  hModule = LoadLibrary(FileName);
+  if (hModule != NULL) 
+    { 
+        Main = (TestDriverMain) GetProcAddress(hModule, "RegTestMain");
+        if (Main != NULL) 
+          {
+            (Main)(); 
+          }
+        FreeLibrary(hModule); 
+    }
 }
 
-FARPROC STDCALL
-_GetProcAddress(HMODULE hModule,
-  LPCSTR lpProcName)
+int
+main(int argc, char* argv[])
 {
-  return GetProcAddress(hModule, lpProcName);
+  RunTestDriver("win32base.dll");
+  RunTestDriver("kmrtint.dll");
+  return 0;
 }
-
-HINSTANCE STDCALL
-_LoadLibraryA(LPCSTR lpLibFileName)
-{
-  return LoadLibraryA(lpLibFileName);
-}
-
-VOID STDCALL
-_ExitProcess(UINT uExitCode)
-{
-  ExitProcess(uExitCode);
-}
-
-HANDLE STDCALL
-_CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, DWORD dwStackSize,
-              LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter,
-              DWORD dwCreationFlags, LPDWORD lpThreadId)
-{
-  return CreateThread(lpThreadAttributes, dwStackSize, lpStartAddress,
-                      lpParameter, dwCreationFlags, lpThreadId);
-}
-
-WINBOOL STDCALL
-_TerminateThread(HANDLE hThread, DWORD dwExitCode)
-{
-  return TerminateThread(hThread, dwExitCode);
-}
-
-DWORD STDCALL
-_WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds)
-{
-  return WaitForSingleObject(hHandle, dwMilliseconds);
-}
-

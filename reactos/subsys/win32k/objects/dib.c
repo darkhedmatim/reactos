@@ -1,5 +1,5 @@
 /*
- * $Id: dib.c,v 1.60 2004/12/30 02:32:19 navaraf Exp $
+ * $Id: dib.c,v 1.39.2.1 2004/01/16 19:19:19 gvg Exp $
  *
  * ReactOS W32 Subsystem
  * Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
@@ -18,230 +18,71 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <w32k.h>
 
-UINT STDCALL
-NtGdiSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors)
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdlib.h>
+#include <win32k/bitmaps.h>
+#include <win32k/debug.h>
+#include "../eng/handle.h"
+#include <ntos/minmax.h>
+#include <include/error.h>
+#include <include/inteng.h>
+#include <include/eng.h>
+#include <include/dib.h>
+#include <include/color.h>
+#include <internal/safe.h>
+#include <include/surface.h>
+#include <include/palette.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
+
+UINT STDCALL NtGdiSetDIBColorTable(HDC  hDC,
+                           UINT  StartIndex,
+                           UINT  Entries,
+                           CONST RGBQUAD  *Colors)
 {
-   PDC dc;
-   PBITMAPOBJ BitmapObj;
+  PDC dc;
+  PALETTEENTRY * palEntry;
+  PPALGDI palette;
+  const RGBQUAD *end;
 
-   if (!(dc = DC_LockDc(hDC))) return 0;
+  if (!(dc = (PDC)AccessUserObject((ULONG)hDC))) return 0;
 
-   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   if (BitmapObj == NULL)
-   {
-      DC_UnlockDc(hDC);
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   if (BitmapObj->dib == NULL)
-   {
-      BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-      DC_UnlockDc(hDC);
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   if (BitmapObj->dib->dsBmih.biBitCount <= 8 &&
-       StartIndex < (1 << BitmapObj->dib->dsBmih.biBitCount))
-   {
-      if (StartIndex + Entries > (1 << BitmapObj->dib->dsBmih.biBitCount))
-         Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
-
-      MmCopyFromCaller(BitmapObj->ColorMap + StartIndex, Colors, Entries * sizeof(RGBQUAD));
-
-      /* Rebuild the palette. */
-      NtGdiDeleteObject(dc->w.hPalette);
-      dc->w.hPalette = PALETTE_AllocPaletteIndexedRGB(1 << BitmapObj->dib->dsBmih.biBitCount,
-                                                      BitmapObj->ColorMap);
-   }
-   else
-      Entries = 0;
-
-   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-   DC_UnlockDc(hDC);
-
-   return Entries;
-}
-
-UINT STDCALL
-NtGdiGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
-{
-   PDC dc;
-   PBITMAPOBJ BitmapObj;
-
-   if (!(dc = DC_LockDc(hDC))) return 0;
-
-   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   if (BitmapObj == NULL)
-   {
-      DC_UnlockDc(hDC);
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   if (BitmapObj->dib == NULL)
-   {
-      BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-      DC_UnlockDc(hDC);
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-   if (BitmapObj->dib->dsBmih.biBitCount <= 8 &&
-       StartIndex < (1 << BitmapObj->dib->dsBmih.biBitCount))
-   {
-      if (StartIndex + Entries > (1 << BitmapObj->dib->dsBmih.biBitCount))
-         Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
-
-      MmCopyToCaller(Colors, BitmapObj->ColorMap + StartIndex, Entries * sizeof(RGBQUAD));
-   }
-   else
-      Entries = 0;
-
-   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-   DC_UnlockDc(hDC);
-
-   return Entries;
-}
-
-// Converts a DIB to a device-dependent bitmap
-static INT FASTCALL
-IntSetDIBits(
-	PDC   DC,
-	HBITMAP  hBitmap,
-	UINT  StartScan,
-	UINT  ScanLines,
-	CONST VOID  *Bits,
-	CONST BITMAPINFO  *bmi,
-	UINT  ColorUse)
-{
-  BITMAPOBJ  *bitmap;
-  HBITMAP     SourceBitmap;
-  INT         result = 0;
-  BOOL        copyBitsResult;
-  SURFOBJ    *DestSurf, *SourceSurf;
-  SIZEL       SourceSize;
-  POINTL      ZeroPoint;
-  RECTL       DestRect;
-  XLATEOBJ   *XlateObj;
-  PPALGDI     hDCPalette;
-  //RGBQUAD  *lpRGB;
-  HPALETTE    DDB_Palette, DIB_Palette;
-  ULONG       DDB_Palette_Type, DIB_Palette_Type;
-  INT         DIBWidth;
-
-  // Check parameters
-  if (!(bitmap = BITMAPOBJ_LockBitmap(hBitmap)))
+  if (!(palette = PALETTE_LockPalette((ULONG)dc->DevInfo->hpalDefault)))
   {
+//    GDI_ReleaseObj( hdc );
     return 0;
   }
 
-  // Get RGB values
-  //if (ColorUse == DIB_PAL_COLORS)
-  //  lpRGB = DIB_MapPaletteColors(hDC, bmi);
-  //else
-  //  lpRGB = &bmi->bmiColors[0];
+  // Transfer color info
 
-  DestSurf = &bitmap->SurfObj;
-
-  // Create source surface
-  SourceSize.cx = bmi->bmiHeader.biWidth;
-  SourceSize.cy = ScanLines;
-
-  // Determine width of DIB
-  DIBWidth = DIB_GetDIBWidthBytes(SourceSize.cx, bmi->bmiHeader.biBitCount);
-
-  SourceBitmap = EngCreateBitmap(SourceSize,
-                                 DIBWidth,
-                                 BitmapFormat(bmi->bmiHeader.biBitCount, bmi->bmiHeader.biCompression),
-                                 bmi->bmiHeader.biHeight < 0 ? BMF_TOPDOWN : 0,
-                                 (PVOID) Bits);
-  if (0 == SourceBitmap)
+  if (dc->w.bitsPerPixel <= 8)
   {
-      BITMAPOBJ_UnlockBitmap(hBitmap);
-      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-      return 0;
+    palEntry = palette->IndexedColors + StartIndex;
+    if (StartIndex + Entries > (UINT) (1 << dc->w.bitsPerPixel))
+      Entries = (1 << dc->w.bitsPerPixel) - StartIndex;
+
+    if (StartIndex + Entries > palette->NumColors)
+      Entries = palette->NumColors - StartIndex;
+
+    for (end = Colors + Entries; Colors < end; palEntry++, Colors++)
+    {
+      palEntry->peRed   = Colors->rgbRed;
+      palEntry->peGreen = Colors->rgbGreen;
+      palEntry->peBlue  = Colors->rgbBlue;
+    }
+  }
+  else
+  {
+    Entries = 0;
   }
 
-  SourceSurf = EngLockSurface((HSURF)SourceBitmap);
-  if (NULL == SourceSurf)
-  {
-	  EngDeleteSurface((HSURF)SourceBitmap);
-      BITMAPOBJ_UnlockBitmap(hBitmap);
-      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-      return 0;
-  }
+  PALETTE_UnlockPalette(dc->DevInfo->hpalDefault);
+//  GDI_ReleaseObj(hdc);
 
-  // Destination palette obtained from the hDC
-  hDCPalette = PALETTE_LockPalette(DC->DevInfo->hpalDefault);
-  if (NULL == hDCPalette)
-    {
-      EngUnlockSurface(SourceSurf);
-      EngDeleteSurface((HSURF)SourceBitmap);
-      BITMAPOBJ_UnlockBitmap(hBitmap);
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return 0;
-    }
-  DDB_Palette_Type = hDCPalette->Mode;
-  DDB_Palette = DC->DevInfo->hpalDefault;
-  PALETTE_UnlockPalette(DC->DevInfo->hpalDefault);
-
-  // Source palette obtained from the BITMAPINFO
-  DIB_Palette = BuildDIBPalette ( (PBITMAPINFO)bmi, (PINT)&DIB_Palette_Type );
-  if (NULL == DIB_Palette)
-    {
-      EngUnlockSurface(SourceSurf);
-      EngDeleteSurface((HSURF)SourceBitmap);
-      BITMAPOBJ_UnlockBitmap(hBitmap);
-      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-      return 0;
-    }
-
-  // Determine XLATEOBJ for color translation
-  XlateObj = IntEngCreateXlate(DDB_Palette_Type, DIB_Palette_Type, DDB_Palette, DIB_Palette);
-  if (NULL == XlateObj)
-    {
-      PALETTE_FreePalette(DIB_Palette);
-      EngUnlockSurface(SourceSurf);
-      EngDeleteSurface((HSURF)SourceBitmap);
-      BITMAPOBJ_UnlockBitmap(hBitmap);
-      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-      return 0;
-    }
-
-  // Zero point
-  ZeroPoint.x = 0;
-  ZeroPoint.y = 0;
-
-  // Determine destination rectangle
-  DestRect.left	= 0;
-  DestRect.top	= abs(bmi->bmiHeader.biHeight) - StartScan - ScanLines;
-  DestRect.right	= SourceSize.cx;
-  DestRect.bottom	= DestRect.top + ScanLines;
-
-  copyBitsResult = EngCopyBits(DestSurf, SourceSurf, NULL, XlateObj, &DestRect, &ZeroPoint);
-
-  // If it succeeded, return number of scanlines copies
-  if(copyBitsResult == TRUE)
-  {
-    result = SourceSize.cy - 1;
-  }
-
-  // Clean up
-  EngDeleteXlate(XlateObj);
-  PALETTE_FreePalette(DIB_Palette);
-  EngUnlockSurface(SourceSurf);
-  EngDeleteSurface((HSURF)SourceBitmap);
-
-//  if (ColorUse == DIB_PAL_COLORS)
-//    WinFree((LPSTR)lpRGB);
-
-  BITMAPOBJ_UnlockBitmap(hBitmap);
-
-  return result;
+  return Entries;
 }
 
 // Converts a DIB to a device-dependent bitmap
@@ -255,21 +96,138 @@ NtGdiSetDIBits(
 	CONST BITMAPINFO  *bmi,
 	UINT  ColorUse)
 {
-  PDC Dc;
-  INT Ret;
+  DC         *dc;
+  BITMAPOBJ  *bitmap;
+  HBITMAP     SourceBitmap, DestBitmap;
+  INT         result = 0;
+  BOOL        copyBitsResult;
+  PSURFOBJ    DestSurf, SourceSurf;
+  PSURFGDI    DestGDI;
+  SIZEL       SourceSize;
+  POINTL      ZeroPoint;
+  RECTL       DestRect;
+  PXLATEOBJ   XlateObj;
+  PPALGDI     hDCPalette;
+  //RGBQUAD  *lpRGB;
+  HPALETTE    DDB_Palette, DIB_Palette;
+  ULONG       DDB_Palette_Type, DIB_Palette_Type;
+  const BYTE *vBits = (const BYTE*)Bits;
+  INT         scanDirection = 1, DIBWidth;
 
-  Dc = DC_LockDc(hDC);
-  if (NULL == Dc)
+  // Check parameters
+  if (!(dc = DC_LockDc(hDC)))
+     return 0;
+
+  if (!(bitmap = BITMAPOBJ_LockBitmap(hBitmap)))
+  {
+    DC_UnlockDc(hDC);
+    return 0;
+  }
+
+  // Get RGB values
+  //if (ColorUse == DIB_PAL_COLORS)
+  //  lpRGB = DIB_MapPaletteColors(hDC, bmi);
+  //else
+  //  lpRGB = &bmi->bmiColors[0];
+
+  // Create a temporary surface for the destination bitmap
+  DestBitmap = BitmapToSurf(bitmap, dc->GDIDevice);
+
+  DestSurf   = (PSURFOBJ) AccessUserObject( (ULONG)DestBitmap );
+  DestGDI    = (PSURFGDI) AccessInternalObject( (ULONG)DestBitmap );
+
+  // Create source surface
+  SourceSize.cx = bmi->bmiHeader.biWidth;
+  SourceSize.cy = abs(bmi->bmiHeader.biHeight);
+
+  // Determine width of DIB
+  DIBWidth = DIB_GetDIBWidthBytes(SourceSize.cx, bmi->bmiHeader.biBitCount);
+
+  // Determine DIB Vertical Orientation
+  if(bmi->bmiHeader.biHeight > 0)
+  {
+    scanDirection = -1;
+    vBits += DIBWidth * bmi->bmiHeader.biHeight - DIBWidth;
+  }
+
+  SourceBitmap = EngCreateBitmap(SourceSize,
+                                 DIBWidth * scanDirection,
+                                 BitmapFormat(bmi->bmiHeader.biBitCount, bmi->bmiHeader.biCompression),
+                                 0,
+                                 (PVOID)vBits );
+  SourceSurf = (PSURFOBJ)AccessUserObject((ULONG)SourceBitmap);
+
+  // Destination palette obtained from the hDC
+  hDCPalette = PALETTE_LockPalette(dc->DevInfo->hpalDefault);
+  if (NULL == hDCPalette)
     {
+      EngDeleteSurface(SourceBitmap);
+      EngDeleteSurface(DestBitmap);
+      BITMAPOBJ_UnlockBitmap(hBitmap);
+      DC_UnlockDc(hDC);
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return 0;
     }
+  DDB_Palette_Type = hDCPalette->Mode;
+  DDB_Palette = dc->DevInfo->hpalDefault;
+  PALETTE_UnlockPalette(dc->DevInfo->hpalDefault);
 
-  Ret = IntSetDIBits(Dc, hBitmap, StartScan, ScanLines, Bits, bmi, ColorUse);
+  // Source palette obtained from the BITMAPINFO
+  DIB_Palette = BuildDIBPalette ( (PBITMAPINFO)bmi, (PINT)&DIB_Palette_Type );
+  if (NULL == DIB_Palette)
+    {
+      EngDeleteSurface(SourceBitmap);
+      EngDeleteSurface(DestBitmap);
+      BITMAPOBJ_UnlockBitmap(hBitmap);
+      DC_UnlockDc(hDC);
+      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+      return 0;
+    }
 
+  // Determine XLATEOBJ for color translation
+  XlateObj = IntEngCreateXlate(DDB_Palette_Type, DIB_Palette_Type, DDB_Palette, DIB_Palette);
+  if (NULL == XlateObj)
+    {
+      PALETTE_FreePalette(DIB_Palette);
+      EngDeleteSurface(SourceBitmap);
+      EngDeleteSurface(DestBitmap);
+      BITMAPOBJ_UnlockBitmap(hBitmap);
+      DC_UnlockDc(hDC);
+      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+      return 0;
+    }
+
+  // Zero point
+  ZeroPoint.x = 0;
+  ZeroPoint.y = 0;
+
+  // Determine destination rectangle
+  DestRect.top	= 0;
+  DestRect.left	= 0;
+  DestRect.right	= SourceSize.cx;
+  DestRect.bottom	= SourceSize.cy;
+
+  copyBitsResult = EngCopyBits(DestSurf, SourceSurf, NULL, XlateObj, &DestRect, &ZeroPoint);
+
+  // If it succeeded, return number of scanlines copies
+  if(copyBitsResult == TRUE)
+  {
+    result = SourceSize.cy - 1;
+  }
+
+  // Clean up
+  EngDeleteXlate(XlateObj);
+  PALETTE_FreePalette(DIB_Palette);
+  EngDeleteSurface(SourceBitmap);
+  EngDeleteSurface(DestBitmap);
+
+//  if (ColorUse == DIB_PAL_COLORS)
+//    WinFree((LPSTR)lpRGB);
+
+  BITMAPOBJ_UnlockBitmap(hBitmap);
   DC_UnlockDc(hDC);
 
-  return Ret;
+  return result;
 }
 
 INT STDCALL
@@ -291,177 +249,499 @@ NtGdiSetDIBitsToDevice(
   return 0;
 }
 
-/* Converts a device-dependent bitmap to a DIB */
-INT STDCALL
-NtGdiGetDIBits(HDC hDC,
-               HBITMAP hBitmap,
-               UINT StartScan,
-               UINT ScanLines,
-               LPVOID Bits,
-               LPBITMAPINFO Info,
-               UINT Usage)
+UINT STDCALL NtGdiGetDIBColorTable(HDC  hDC,
+                           UINT  StartIndex,
+                           UINT  Entries,
+                           RGBQUAD  *Colors)
 {
-   BITMAPOBJ *BitmapObj;
-   SURFOBJ *DestSurfObj;
-   XLATEOBJ *XlateObj;
-   HBITMAP DestBitmap;
-   SIZEL DestSize;
-   HPALETTE hSourcePalette;
-   HPALETTE hDestPalette;
-   PPALGDI SourcePalette;
-   PPALGDI DestPalette;
-   ULONG SourcePaletteType;
-   ULONG DestPaletteType;
-   PDC Dc;
-   POINTL SourcePoint;
-   RECTL DestRect;
-   ULONG Result = 0;
-   ULONG Index;
+  UNIMPLEMENTED;
+}
 
-   /* Get handle for the palette in DC. */
-   Dc = DC_LockDc(hDC);
-   if (Dc == NULL)
-   {
+// Converts a device-dependent bitmap to a DIB
+#if 0
+INT STDCALL NtGdiGetDIBits(HDC  hDC,
+                   HBITMAP hBitmap,
+                   UINT  StartScan,
+                   UINT  ScanLines,
+                   LPVOID  Bits,
+                   LPBITMAPINFO UnsafeInfo,
+                   UINT  Usage)
+#else
+INT STDCALL NtGdiGetDIBits(
+    HDC hdc,         /* [in]  Handle to device context */
+    HBITMAP hbitmap, /* [in]  Handle to bitmap */
+    UINT startscan,  /* [in]  First scan line to set in dest bitmap */
+    UINT lines,      /* [in]  Number of scan lines to copy */
+    LPVOID bits,       /* [out] Address of array for bitmap bits */
+    BITMAPINFO * info, /* [out] Address of structure with bitmap data */
+    UINT coloruse)   /* [in]  RGB or palette index */
+#endif
+{
+#if 0
+  BITMAPINFO Info;
+  BITMAPCOREHEADER *Core;
+  PBITMAPOBJ BitmapObj;
+  INT Result;
+  NTSTATUS Status;
+  PDC DCObj;
+  PPALGDI PalGdi;
+  struct
+    {
+    BITMAPINFO Info;
+    DWORD BitFields[3];
+    } InfoWithBitFields;
+  DWORD *BitField;
+  DWORD InfoSize;
+
+  BitmapObj = BITMAPOBJ_LockBitmap(hBitmap);
+  if (NULL == BitmapObj)
+    {
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return 0;
-   }
-   hSourcePalette = Dc->w.hPalette;
-   /* FIXME: This is incorrect. hDestPalette should be something other. */
-   hDestPalette = Dc->DevInfo->hpalDefault;
-   DC_UnlockDc(hDC);
+    }
 
-   /* Get pointer to the source bitmap object. */
-   BitmapObj = BITMAPOBJ_LockBitmap(hBitmap);
-   if (BitmapObj == NULL)
-   {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
+  RtlZeroMemory(&Info, sizeof(BITMAPINFO));
+  Status = MmCopyFromCaller(&(Info.bmiHeader.biSize),
+                            &(UnsafeInfo->bmiHeader.biSize),
+                            sizeof(DWORD));
+  if (! NT_SUCCESS(Status))
+    {
+    SetLastNtError(Status);
+    BITMAPOBJ_UnlockBitmap(hBitmap);
+    return 0;
+    }
+
+  /* If the bits are not requested, UnsafeInfo can point to either a
+     BITMAPINFOHEADER or a BITMAPCOREHEADER */
+  if (sizeof(BITMAPINFOHEADER) != Info.bmiHeader.biSize &&
+      (sizeof(BITMAPCOREHEADER) != Info.bmiHeader.biSize ||
+       NULL != Bits))
+    {
+      SetLastWin32Error(ERROR_INVALID_PARAMETER);
+      BITMAPOBJ_UnlockBitmap(hBitmap);
       return 0;
-   }
+    }
 
-   if (Bits == NULL)
-   {
-      if (Info->bmiHeader.biSize == sizeof(BITMAPCOREHEADER) ||
-          Info->bmiHeader.biSize == sizeof(BITMAPINFOHEADER))
-      {
-         Info->bmiHeader.biWidth = BitmapObj->SurfObj.sizlBitmap.cx;
-         Info->bmiHeader.biHeight = BitmapObj->SurfObj.sizlBitmap.cy;
-         /* Report negtive height for top-down bitmaps. */
-         if (BitmapObj->SurfObj.lDelta > 0)
-            Info->bmiHeader.biHeight = -Info->bmiHeader.biHeight;
-         Info->bmiHeader.biPlanes = 1;
-         Info->bmiHeader.biBitCount = BitsPerFormat(BitmapObj->SurfObj.iBitmapFormat);
-         if (Info->bmiHeader.biSize == sizeof(BITMAPINFOHEADER))
-         {
-            switch (BitmapObj->SurfObj.iBitmapFormat)
-            {
-               case BMF_1BPP: case BMF_4BPP: case BMF_8BPP:
-               case BMF_16BPP: case BMF_24BPP: case BMF_32BPP:
-                  Info->bmiHeader.biCompression = BI_RGB;
-                  break;
-               case BMF_4RLE:
-                  Info->bmiHeader.biCompression = BI_RLE4;
-                  break;
-               case BMF_8RLE:
-                  Info->bmiHeader.biCompression = BI_RLE8;
-                  break;
-               case BMF_JPEG: 
-                  Info->bmiHeader.biCompression = BI_JPEG;
-                  break;
-               case BMF_PNG:
-                  Info->bmiHeader.biCompression = BI_PNG;
-                  break;
-            }
-            Info->bmiHeader.biSizeImage = BitmapObj->SurfObj.cjBits;
-            Info->bmiHeader.biXPelsPerMeter = 0; /* FIXME */
-            Info->bmiHeader.biYPelsPerMeter = 0; /* FIXME */ 
-            Info->bmiHeader.biClrUsed = 
-            Info->bmiHeader.biClrImportant = 1 << Info->bmiHeader.biBitCount; /* FIXME */
-            Result = BitmapObj->SurfObj.sizlBitmap.cy;
-         }
-      }
-   }
-   else
-   {
-      if (StartScan > BitmapObj->SurfObj.sizlBitmap.cy)
-      {
-         Result = 0;
-      }
+  Status = MmCopyFromCaller(&(Info.bmiHeader),
+                            &(UnsafeInfo->bmiHeader),
+                            Info.bmiHeader.biSize);
+  if (! NT_SUCCESS(Status))
+    {
+      SetLastNtError(Status);
+      BITMAPOBJ_UnlockBitmap(hBitmap);
+      return 0;
+    }
+
+  if (NULL == Bits)
+    {
+      if (sizeof(BITMAPINFOHEADER) == Info.bmiHeader.biSize)
+	{
+	  if (0 != Info.bmiHeader.biBitCount)
+	    {
+              DPRINT("NtGdiGetDIBits(): This operation isn't fully implemented yet.");
+	      /*UNIMPLEMENTED;*/
+	    }
+
+	  Info.bmiHeader.biWidth = BitmapObj->bitmap.bmWidth;
+	  Info.bmiHeader.biHeight = BitmapObj->bitmap.bmHeight;
+	  Info.bmiHeader.biPlanes = BitmapObj->bitmap.bmPlanes;
+	  Info.bmiHeader.biBitCount = BitmapObj->bitmap.bmBitsPixel;
+	  Info.bmiHeader.biCompression = BI_RGB;
+	  Info.bmiHeader.biSizeImage = BitmapObj->bitmap.bmHeight * BitmapObj->bitmap.bmWidthBytes;
+	}
       else
-      {
-         ScanLines = min(ScanLines, BitmapObj->SurfObj.sizlBitmap.cy - StartScan);
-         DestSize.cx = BitmapObj->SurfObj.sizlBitmap.cx;
-         DestSize.cy = ScanLines;
-         DestBitmap = EngCreateBitmap(
-            DestSize, BitmapObj->SurfObj.lDelta,
-            BitmapFormat(Info->bmiHeader.biBitCount, Info->bmiHeader.biCompression),
-            0 < Info->bmiHeader.biHeight ? 0 : BMF_TOPDOWN,
-            Bits);
-         DestSurfObj = EngLockSurface((HSURF)DestBitmap);
+	{
+	  Core = (BITMAPCOREHEADER *)(&Info.bmiHeader);
+	  if (0 != Core->bcBitCount)
+	    {
+	      UNIMPLEMENTED;
+	    }
 
-         SourcePalette = PALETTE_LockPalette(hSourcePalette);
-         /* FIXME - SourcePalette can be NULL!!! Don't assert here! */
-         ASSERT(SourcePalette);
-         SourcePaletteType = SourcePalette->Mode;
-         PALETTE_UnlockPalette(hSourcePalette);
+	  Core->bcWidth = BitmapObj->bitmap.bmWidth;
+	  Core->bcHeight = BitmapObj->bitmap.bmHeight;
+	  Core->bcPlanes = BitmapObj->bitmap.bmPlanes;
+	  Core->bcBitCount = BitmapObj->bitmap.bmBitsPixel;
+	}
 
-         DestPalette = PALETTE_LockPalette(hDestPalette);
-         /* FIXME - DestPalette can be NULL!!!! Don't assert here!!! */
-         ASSERT(DestPalette);
-         DestPaletteType = DestPalette->Mode;
-         
-         /* Copy palette. */
-         /* FIXME: This is largely incomplete. */
-         if (Info->bmiHeader.biBitCount <= 8)
-         {
-            if (Usage == DIB_RGB_COLORS)
-            {
-               for (Index = 0;
-                    Index < (1 << Info->bmiHeader.biBitCount) &&
-                    Index < DestPalette->NumColors;
-                    Index++)
-               {
-                  Info->bmiColors[Index].rgbRed =
-                     DestPalette->IndexedColors[Index].peRed;
-                  Info->bmiColors[Index].rgbGreen =
-                     DestPalette->IndexedColors[Index].peGreen;
-                  Info->bmiColors[Index].rgbBlue =
-                     DestPalette->IndexedColors[Index].peBlue;
-               }
+      Status = MmCopyToCaller(UnsafeInfo, &Info, Info.bmiHeader.biSize);
+      if (! NT_SUCCESS(Status))
+	{
+	  SetLastNtError(Status);
+	  BITMAPOBJ_UnlockBitmap(hBitmap);
+	  return 0;
+	}
+      Result = 1;
+    }
+  else if (0 == StartScan && Info.bmiHeader.biHeight == (LONG) (StartScan + ScanLines) &&
+           Info.bmiHeader.biWidth == BitmapObj->bitmap.bmWidth &&
+           Info.bmiHeader.biHeight == BitmapObj->bitmap.bmHeight &&
+           Info.bmiHeader.biPlanes == BitmapObj->bitmap.bmPlanes &&
+           Info.bmiHeader.biBitCount == BitmapObj->bitmap.bmBitsPixel &&
+           8 < Info.bmiHeader.biBitCount)
+    {
+      Info.bmiHeader.biSizeImage = BitmapObj->bitmap.bmHeight * BitmapObj->bitmap.bmWidthBytes;
+      Status = MmCopyToCaller(Bits, BitmapObj->bitmap.bmBits, Info.bmiHeader.biSizeImage);
+      if (! NT_SUCCESS(Status))
+	{
+	  SetLastNtError(Status);
+	  BITMAPOBJ_UnlockBitmap(hBitmap);
+	  return 0;
+	}
+      RtlZeroMemory(&InfoWithBitFields, sizeof(InfoWithBitFields));
+      RtlCopyMemory(&(InfoWithBitFields.Info), &Info, sizeof(BITMAPINFO));
+      if (BI_BITFIELDS == Info.bmiHeader.biCompression)
+	{
+	  DCObj = DC_LockDc(hDC);
+	  if (NULL == DCObj)
+	    {
+	      SetLastWin32Error(ERROR_INVALID_HANDLE);
+	      BITMAPOBJ_UnlockBitmap(hBitmap);
+	      return 0;
+	    }
+	  PalGdi = PALETTE_LockPalette(DCObj->w.hPalette);
+	  BitField = (DWORD *) ((char *) &InfoWithBitFields + InfoWithBitFields.Info.bmiHeader.biSize);
+	  BitField[0] = PalGdi->RedMask;
+	  BitField[1] = PalGdi->GreenMask;
+	  BitField[2] = PalGdi->BlueMask;
+	  PALETTE_UnlockPalette(DCObj->w.hPalette);
+	  InfoSize = InfoWithBitFields.Info.bmiHeader.biSize + 3 * sizeof(DWORD);
+	  DC_UnlockDc(hDC);
+	}
+      else
+	{
+	  InfoSize = Info.bmiHeader.biSize;
+	}
+      Status = MmCopyToCaller(UnsafeInfo, &InfoWithBitFields, InfoSize);
+      if (! NT_SUCCESS(Status))
+	{
+	  SetLastNtError(Status);
+	  BITMAPOBJ_UnlockBitmap(hBitmap);
+	  return 0;
+	}
+    }
+  else
+    {
+    UNIMPLEMENTED;
+    }
+
+  BITMAPOBJ_UnlockBitmap(hBitmap);
+
+  return Result;
+#else
+    PDC dc;
+    PBITMAPOBJ bmp;
+    int i;
+
+    if (!info) return 0;
+    if (!(dc = DC_LockDc( hdc ))) return 0;
+    if (!(bmp = BITMAPOBJ_LockBitmap(hbitmap)))
+    {
+        DC_UnlockDc( hdc );
+	return 0;
+    }
+
+    /* Transfer color info */
+
+    if (info->bmiHeader.biBitCount <= 8 && info->bmiHeader.biBitCount > 0 ) {
+
+	info->bmiHeader.biClrUsed = 0;
+
+	/* If the bitmap object already has a dib section at the
+	   same color depth then get the color map from it */
+	if (bmp->dib && bmp->dib->dsBm.bmBitsPixel == info->bmiHeader.biBitCount) {
+	    NtGdiGetDIBColorTable(hdc, 0, 1 << info->bmiHeader.biBitCount, info->bmiColors);
+	}
+        else {
+            if(info->bmiHeader.biBitCount >= bmp->bitmap.bmBitsPixel) {
+                /* Generate the color map from the selected palette */
+                PALETTEENTRY * palEntry;
+                PPALGDI palette;
+                if (!(palette = PALETTE_LockPalette(dc->w.hPalette))) {
+                    DC_UnlockDc( hdc );
+                    BITMAPOBJ_UnlockBitmap( hbitmap );
+                    return 0;
+                }
+                palEntry = palette->IndexedColors;
+                for (i = 0; i < (1 << bmp->bitmap.bmBitsPixel); i++, palEntry++) {
+                    if (coloruse == DIB_RGB_COLORS) {
+                        info->bmiColors[i].rgbRed      = palEntry->peRed;
+                        info->bmiColors[i].rgbGreen    = palEntry->peGreen;
+                        info->bmiColors[i].rgbBlue     = palEntry->peBlue;
+                        info->bmiColors[i].rgbReserved = 0;
+                    }
+                    else ((WORD *)info->bmiColors)[i] = (WORD)i;
+                }
+                PALETTE_UnlockPalette( dc->w.hPalette );
+            } else {
+                switch (info->bmiHeader.biBitCount) {
+                case 1:
+                    info->bmiColors[0].rgbRed = info->bmiColors[0].rgbGreen =
+                        info->bmiColors[0].rgbBlue = 0;
+                    info->bmiColors[0].rgbReserved = 0;
+                    info->bmiColors[1].rgbRed = info->bmiColors[1].rgbGreen =
+                        info->bmiColors[1].rgbBlue = 0xff;
+                    info->bmiColors[1].rgbReserved = 0;
+                    break;
+
+                case 4:
+                    memcpy(info->bmiColors, COLOR_GetSystemPaletteTemplate(), NB_RESERVED_COLORS * sizeof(PALETTEENTRY));
+                    break;
+
+                case 8:
+                    {
+                        INT r, g, b;
+                        RGBQUAD *color;
+
+                        memcpy(info->bmiColors, COLOR_GetSystemPaletteTemplate(),
+                               10 * sizeof(RGBQUAD));
+                        memcpy(info->bmiColors + 246, COLOR_GetSystemPaletteTemplate() + 10,
+                               10 * sizeof(RGBQUAD));
+                        color = info->bmiColors + 10;
+                        for(r = 0; r <= 5; r++) /* FIXME */
+                            for(g = 0; g <= 5; g++)
+                                for(b = 0; b <= 5; b++) {
+                                    color->rgbRed =   (r * 0xff) / 5;
+                                    color->rgbGreen = (g * 0xff) / 5;
+                                    color->rgbBlue =  (b * 0xff) / 5;
+                                    color->rgbReserved = 0;
+                                    color++;
+                                }
+                    }
+                }
             }
-            if (Usage == DIB_PAL_COLORS)
+        }
+    }
+
+    if (bits && lines)
+    {
+        /* If the bitmap object already have a dib section that contains image data, get the bits from it */
+        if(bmp->dib && bmp->dib->dsBm.bmBitsPixel >= 15 && info->bmiHeader.biBitCount >= 15)
+        {
+            /*FIXME: Only RGB dibs supported for now */
+            unsigned int srcwidth = bmp->dib->dsBm.bmWidth, srcwidthb = bmp->dib->dsBm.bmWidthBytes;
+            int dstwidthb = DIB_GetDIBWidthBytes( info->bmiHeader.biWidth, info->bmiHeader.biBitCount );
+            LPBYTE dbits = bits, sbits = (LPBYTE) bmp->dib->dsBm.bmBits + (startscan * srcwidthb);
+            unsigned int x, y;
+
+            if ((info->bmiHeader.biHeight < 0) ^ (bmp->dib->dsBmih.biHeight < 0))
             {
-               DbgPrint("GetDIBits with DIB_PAL_COLORS isn't implemented yet.");
+                dbits = (LPBYTE)bits + (dstwidthb * (lines-1));
+                dstwidthb = -dstwidthb;
             }
-         }
 
-         PALETTE_UnlockPalette(hDestPalette);
+            switch( info->bmiHeader.biBitCount ) {
 
-         XlateObj = IntEngCreateXlate(
-            DestPaletteType, SourcePaletteType, hDestPalette, hSourcePalette);
-         
-         SourcePoint.x = 0;
-         SourcePoint.y = StartScan;
+	    case 15:
+            case 16: /* 16 bpp dstDIB */
+                {
+                    LPWORD dstbits = (LPWORD)dbits;
+                    WORD rmask = 0x7c00, gmask= 0x03e0, bmask = 0x001f;
 
-         /* Determine destination rectangle */
-         DestRect.top = 0;
-         DestRect.left = 0;
-         DestRect.right = DestSize.cx;
-         DestRect.bottom = DestSize.cy;
+                    /* FIXME: BI_BITFIELDS not supported yet */
 
-         if (EngCopyBits(DestSurfObj, &BitmapObj->SurfObj,
-                         NULL, XlateObj, &DestRect, &SourcePoint))
-         {
-            Result = ScanLines;
-         }
-         
-         EngDeleteXlate(XlateObj);
-         EngUnlockSurface(DestSurfObj);
-      }
-   }
+                    switch(bmp->dib->dsBm.bmBitsPixel) {
 
-   BITMAPOBJ_UnlockBitmap(hBitmap);
+                    case 16: /* 16 bpp srcDIB -> 16 bpp dstDIB */
+                        {
+                            /* FIXME: BI_BITFIELDS not supported yet */
+                            for (y = 0; y < lines; y++, dbits+=dstwidthb, sbits+=srcwidthb)
+                                memcpy(dbits, sbits, srcwidthb);
+                        }
+                        break;
 
-   return Result;
+                    case 24: /* 24 bpp srcDIB -> 16 bpp dstDIB */
+                        {
+                            LPBYTE srcbits = sbits;
+
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++, srcbits += 3)
+                                    *dstbits++ = ((srcbits[0] >> 3) & bmask) |
+                                                 (((WORD)srcbits[1] << 2) & gmask) |
+                                                 (((WORD)srcbits[2] << 7) & rmask);
+
+                                dstbits = (LPWORD)(dbits+=dstwidthb);
+                                srcbits = (sbits += srcwidthb);
+                            }
+                        }
+                        break;
+
+                    case 32: /* 32 bpp srcDIB -> 16 bpp dstDIB */
+                        {
+                            LPDWORD srcbits = (LPDWORD)sbits;
+                            DWORD val;
+
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++ ) {
+                                    val = *srcbits++;
+                                    *dstbits++ = (WORD)(((val >> 3) & bmask) | ((val >> 6) & gmask) |
+                                                       ((val >> 9) & rmask));
+                                }
+                                dstbits = (LPWORD)(dbits+=dstwidthb);
+                                srcbits = (LPDWORD)(sbits+=srcwidthb);
+                            }
+                        }
+                        break;
+
+                    default: /* ? bit bmp -> 16 bit DIB */
+                        DPRINT1("FIXME: 15/16 bit DIB %d bit bitmap\n",
+                        bmp->bitmap.bmBitsPixel);
+                        break;
+                    }
+                }
+                break;
+
+            case 24: /* 24 bpp dstDIB */
+                {
+                    LPBYTE dstbits = dbits;
+
+                    switch(bmp->dib->dsBm.bmBitsPixel) {
+
+                    case 16: /* 16 bpp srcDIB -> 24 bpp dstDIB */
+                        {
+                            LPWORD srcbits = (LPWORD)sbits;
+                            WORD val;
+
+                            /* FIXME: BI_BITFIELDS not supported yet */
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++ ) {
+                                    val = *srcbits++;
+                                    *dstbits++ = (BYTE)(((val << 3) & 0xf8) | ((val >> 2) & 0x07));
+                                    *dstbits++ = (BYTE)(((val >> 2) & 0xf8) | ((val >> 7) & 0x07));
+                                    *dstbits++ = (BYTE)(((val >> 7) & 0xf8) | ((val >> 12) & 0x07));
+                                }
+                                dstbits = (LPBYTE)(dbits+=dstwidthb);
+                                srcbits = (LPWORD)(sbits+=srcwidthb);
+                            }
+                        }
+                        break;
+
+                    case 24: /* 24 bpp srcDIB -> 24 bpp dstDIB */
+                        {
+                            for (y = 0; y < lines; y++, dbits+=dstwidthb, sbits+=srcwidthb)
+                                memcpy(dbits, sbits, srcwidthb);
+                        }
+                        break;
+
+                    case 32: /* 32 bpp srcDIB -> 24 bpp dstDIB */
+                        {
+                            LPBYTE srcbits = (LPBYTE)sbits;
+
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++, srcbits++ ) {
+                                    *dstbits++ = *srcbits++;
+                                    *dstbits++ = *srcbits++;
+                                    *dstbits++ = *srcbits++;
+                                }
+                                dstbits=(LPBYTE)(dbits+=dstwidthb);
+                                srcbits = (LPBYTE)(sbits+=srcwidthb);
+                            }
+                        }
+                        break;
+
+                    default: /* ? bit bmp -> 24 bit DIB */
+                        DPRINT1("FIXME: 24 bit DIB %d bit bitmap\n",
+                              bmp->bitmap.bmBitsPixel);
+                        break;
+                    }
+                }
+                break;
+
+            case 32: /* 32 bpp dstDIB */
+                {
+                    LPDWORD dstbits = (LPDWORD)dbits;
+
+                    /* FIXME: BI_BITFIELDS not supported yet */
+
+                    switch(bmp->dib->dsBm.bmBitsPixel) {
+                        case 16: /* 16 bpp srcDIB -> 32 bpp dstDIB */
+                        {
+                            LPWORD srcbits = (LPWORD)sbits;
+                            DWORD val;
+
+                            /* FIXME: BI_BITFIELDS not supported yet */
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++ ) {
+                                    val = (DWORD)*srcbits++;
+                                    *dstbits++ = ((val << 3) & 0xf8) | ((val >> 2) & 0x07) |
+                                                 ((val << 6) & 0xf800) | ((val << 1) & 0x0700) |
+                                                 ((val << 9) & 0xf80000) | ((val << 4) & 0x070000);
+                                }
+                                dstbits=(LPDWORD)(dbits+=dstwidthb);
+                                srcbits=(LPWORD)(sbits+=srcwidthb);
+                            }
+                        }
+                        break;
+
+                    case 24: /* 24 bpp srcDIB -> 32 bpp dstDIB */
+                        {
+                            LPBYTE srcbits = sbits;
+
+                            for( y = 0; y < lines; y++) {
+                                for( x = 0; x < srcwidth; x++, srcbits+=3 )
+                                    *dstbits++ = ((DWORD)*srcbits) & 0x00ffffff;
+                                dstbits=(LPDWORD)(dbits+=dstwidthb);
+                                srcbits=(sbits+=srcwidthb);
+                            }
+                        }
+                        break;
+
+                    case 32: /* 32 bpp srcDIB -> 16 bpp dstDIB */
+                        {
+                            /* FIXME: BI_BITFIELDS not supported yet */
+                            for (y = 0; y < lines; y++, dbits+=dstwidthb, sbits+=srcwidthb)
+                                memcpy(dbits, sbits, srcwidthb);
+                        }
+                        break;
+
+                    default: /* ? bit bmp -> 32 bit DIB */
+                        DPRINT1("FIXME: 32 bit DIB %d bit bitmap\n",
+                        bmp->bitmap.bmBitsPixel);
+                        break;
+                    }
+                }
+                break;
+
+            default: /* ? bit DIB */
+                DPRINT1("FIXME: Unsupported DIB depth %d\n", info->bmiHeader.biBitCount);
+                break;
+            }
+        }
+        /* Otherwise, get bits from the XImage */
+        else
+        {
+            UNIMPLEMENTED;
+        }
+    }
+    else if( info->bmiHeader.biSize >= sizeof(BITMAPINFOHEADER) )
+    {
+	/* fill in struct members */
+
+        if( info->bmiHeader.biBitCount == 0)
+	{
+	    info->bmiHeader.biWidth = bmp->bitmap.bmWidth;
+	    info->bmiHeader.biHeight = bmp->bitmap.bmHeight;
+	    info->bmiHeader.biPlanes = 1;
+	    info->bmiHeader.biBitCount = bmp->bitmap.bmBitsPixel;
+	    info->bmiHeader.biSizeImage =
+                             DIB_GetDIBImageBytes( bmp->bitmap.bmWidth,
+						   bmp->bitmap.bmHeight,
+						   bmp->bitmap.bmBitsPixel );
+	    info->bmiHeader.biCompression = 0;
+	}
+	else
+	{
+	    info->bmiHeader.biSizeImage = DIB_GetDIBImageBytes(
+					       info->bmiHeader.biWidth,
+					       info->bmiHeader.biHeight,
+					       info->bmiHeader.biBitCount );
+	}
+    }
+
+    DC_UnlockDc( hdc );
+    BITMAPOBJ_UnlockBitmap( hbitmap );
+
+    return lines;
+#endif
 }
 
 INT STDCALL NtGdiStretchDIBits(HDC  hDC,
@@ -496,13 +776,9 @@ INT STDCALL NtGdiStretchDIBits(HDC  hDC,
        BitsInfo->bmiHeader.biCompression == BI_RLE8)
    {
       /* copy existing bitmap from destination dc */
-      if (SrcWidth == DestWidth && SrcHeight == DestHeight)
-         NtGdiBitBlt(hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
-                     SrcWidth, SrcHeight, hDC, XDest, YDest, ROP);
-      else
-         NtGdiStretchBlt(hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
-                         SrcWidth, SrcHeight, hDC, XDest, YDest, DestWidth, DestHeight,
-                         ROP);
+      NtGdiStretchBlt(hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
+                      SrcWidth, SrcHeight, hDC, XDest, YDest, DestWidth, DestHeight,
+                      ROP);
    }
 
    NtGdiSetDIBits(hdcMem, hBitmap, 0, BitsInfo->bmiHeader.biHeight, Bits,
@@ -510,14 +786,9 @@ INT STDCALL NtGdiStretchDIBits(HDC  hDC,
 
    /* Origin for DIBitmap may be bottom left (positive biHeight) or top
       left (negative biHeight) */
-   if (SrcWidth == DestWidth && SrcHeight == DestHeight)
-      NtGdiBitBlt(hDC, XDest, YDest, DestWidth, DestHeight,
-                  hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
-                  ROP);
-   else
-      NtGdiStretchBlt(hDC, XDest, YDest, DestWidth, DestHeight,
-                      hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
-                      SrcWidth, SrcHeight, ROP);
+   NtGdiStretchBlt(hDC, XDest, YDest, DestWidth, DestHeight,
+                   hdcMem, XSrc, abs(BitsInfo->bmiHeader.biHeight) - SrcHeight - YSrc,
+                   SrcWidth, SrcHeight, ROP);
 
    NtGdiSelectObject(hdcMem, hOldBitmap);
    NtGdiDeleteDC(hdcMem);
@@ -542,9 +813,7 @@ LONG STDCALL NtGdiGetBitmapBits(HBITMAP  hBitmap,
   /* If the bits vector is null, the function should return the read size */
   if (Bits == NULL)
   {
-    ret = bmp->SurfObj.cjBits;
-    BITMAPOBJ_UnlockBitmap (hBitmap);
-    return ret;
+    return bmp->bitmap.bmWidthBytes * bmp->bitmap.bmHeight;
   }
 
   if (Count < 0)
@@ -554,23 +823,21 @@ LONG STDCALL NtGdiGetBitmapBits(HBITMAP  hBitmap,
   }
 
   /* Only get entire lines */
-  height = Count / abs(bmp->SurfObj.lDelta);
-  if (height > bmp->SurfObj.sizlBitmap.cy)
+  height = Count / bmp->bitmap.bmWidthBytes;
+  if (height > bmp->bitmap.bmHeight)
   {
-    height = bmp->SurfObj.sizlBitmap.cy;
+    height = bmp->bitmap.bmHeight;
   }
-  Count = height * abs(bmp->SurfObj.lDelta);
+  Count = height * bmp->bitmap.bmWidthBytes;
   if (Count == 0)
   {
     DPRINT("Less then one entire line requested\n");
-    BITMAPOBJ_UnlockBitmap (hBitmap);
     return  0;
   }
 
   DPRINT("(%08x, %ld, %p) %dx%d %d colors fetched height: %ld\n",
-         hBitmap, Count, Bits, bmp->SurfObj.sizlBitmap.cx,
-         bmp->SurfObj.sizlBitmap.cy,
-         1 << BitsPerFormat(bmp->SurfObj.iBitmapFormat), height );
+         hBitmap, Count, Bits, bmp->bitmap.bmWidth, bmp->bitmap.bmHeight,
+         1 << bmp->bitmap.bmBitsPixel, height );
 #if 0
   /* FIXME: Call DDI CopyBits here if available  */
   if(bmp->DDBitmap)
@@ -590,115 +857,55 @@ LONG STDCALL NtGdiGetBitmapBits(HBITMAP  hBitmap,
   else
 #endif
   {
-    memcpy(Bits, bmp->SurfObj.pvBits, Count);
-    ret = Count;
+    if(!bmp->bitmap.bmBits)
+    {
+      DPRINT ("Bitmap is empty\n");
+      ret = 0;
+    }
+    else
+    {
+      memcpy(Bits, bmp->bitmap.bmBits, Count);
+      ret = Count;
+    }
   }
-
-  BITMAPOBJ_UnlockBitmap (hBitmap);
 
   return  ret;
 }
 
-static HBITMAP FASTCALL
-IntCreateDIBitmap(PDC Dc, const BITMAPINFOHEADER *header,
-                  DWORD init, LPCVOID bits, const BITMAPINFO *data,
-                  UINT coloruse)
+// The CreateDIBitmap function creates a device-dependent bitmap (DDB) from a DIB and, optionally, sets the bitmap bits
+// The DDB that is created will be whatever bit depth your reference DC is
+HBITMAP STDCALL NtGdiCreateDIBitmap(HDC hdc, const BITMAPINFOHEADER *header,
+                               DWORD init, LPCVOID bits, const BITMAPINFO *data,
+                               UINT coloruse)
 {
   HBITMAP handle;
-  BOOL fColor;
   DWORD width;
   int height;
   WORD bpp;
   WORD compr;
 
   if (DIB_GetBitmapInfo( header, &width, &height, &bpp, &compr ) == -1) return 0;
+  if (height < 0) height = -height;
 
   // Check if we should create a monochrome or color bitmap. We create a monochrome bitmap only if it has exactly 2
   // colors, which are black followed by white, nothing else. In all other cases, we create a color bitmap.
 
-  if (bpp != 1) fColor = TRUE;
-  else if ((coloruse != DIB_RGB_COLORS) ||
-           (init != CBM_INIT) || !data) fColor = FALSE;
-  else
-  {
-    if (data->bmiHeader.biSize == sizeof(BITMAPINFOHEADER))
-    {
-      RGBQUAD *rgb = data->bmiColors;
-      DWORD col = RGB( rgb->rgbRed, rgb->rgbGreen, rgb->rgbBlue );
-
-      // Check if the first color of the colormap is black
-      if ((col == RGB(0, 0, 0)))
-      {
-        rgb++;
-        col = RGB( rgb->rgbRed, rgb->rgbGreen, rgb->rgbBlue );
-
-        // If the second color is white, create a monochrome bitmap
-        fColor =  (col != RGB(0xff,0xff,0xff));
-      }
-    else fColor = TRUE;
-  }
-  else if (data->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
-  {
-    RGBTRIPLE *rgb = ((BITMAPCOREINFO *)data)->bmciColors;
-     DWORD col = RGB( rgb->rgbtRed, rgb->rgbtGreen, rgb->rgbtBlue);
-
-    if ((col == RGB(0,0,0)))
-    {
-      rgb++;
-      col = RGB( rgb->rgbtRed, rgb->rgbtGreen, rgb->rgbtBlue );
-      fColor = (col != RGB(0xff,0xff,0xff));
-    }
-    else fColor = TRUE;
-  }
-  else
-  {
-      DPRINT("(%ld): wrong size for data\n", data->bmiHeader.biSize );
-      return 0;
-    }
-  }
-
   // Now create the bitmap
-  if (fColor)
-  {
-    handle = IntCreateCompatibleBitmap(Dc, width, height);
-  }
+  if (init == CBM_INIT)
+    {
+      handle = NtGdiCreateCompatibleBitmap(hdc, width, height);
+      if (!handle)
+        { 
+          return 0;
+        }
+      NtGdiSetDIBits(hdc, handle, 0, height, bits, data, coloruse);
+    }
   else
-  {
-    handle = NtGdiCreateBitmap( width, height, 1, 1, NULL);
-  }
-
-  if (height < 0)
-    height = -height;
-
-  if (NULL != handle && CBM_INIT == init)
-  {
-    IntSetDIBits(Dc, handle, 0, height, bits, data, coloruse);
-  }
+    {
+      handle = NtGdiCreateBitmap(width, height, 1, bpp, NULL);
+    }
 
   return handle;
-}
-
-// The CreateDIBitmap function creates a device-dependent bitmap (DDB) from a DIB and, optionally, sets the bitmap bits
-// The DDB that is created will be whatever bit depth your reference DC is
-HBITMAP STDCALL NtGdiCreateDIBitmap(HDC hDc, const BITMAPINFOHEADER *Header,
-                                    DWORD Init, LPCVOID Bits, const BITMAPINFO *Data,
-                                    UINT ColorUse)
-{
-  PDC Dc;
-  HBITMAP Bmp;
-
-  Dc = DC_LockDc(hDc);
-  if (NULL == Dc)
-    {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return NULL;
-    }
-
-  Bmp = IntCreateDIBitmap(Dc, Header, Init, Bits, Data, ColorUse);
-
-  DC_UnlockDc(hDc);
-
-  return Bmp;
 }
 
 HBITMAP STDCALL NtGdiCreateDIBSection(HDC hDC,
@@ -725,10 +932,6 @@ HBITMAP STDCALL NtGdiCreateDIBSection(HDC hDC,
       hSection, dwOffset, 0);
     DC_UnlockDc(hDC);
   }
-  else
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-  }
 
   if (bDesktopDC)
     NtGdiDeleteDC(hDC);
@@ -752,7 +955,6 @@ DIB_CreateDIBSection(
   ULONG totalSize;
   UINT Entries = 0;
   BITMAP bm;
-  SIZEL Size;
 
   DPRINT("format (%ld,%ld), planes %d, bpp %d, size %ld, colors %ld (%s)\n",
 	bi->biWidth, bi->biHeight, bi->biPlanes, bi->biBitCount,
@@ -774,13 +976,9 @@ DIB_CreateDIBSection(
     ? bi->biSizeImage : (ULONG) (bm.bmWidthBytes * effHeight);
 
   if (section)
-  {
 /*    bm.bmBits = MapViewOfFile(section, FILE_MAP_ALL_ACCESS,
 			      0L, offset, totalSize); */
     DbgPrint("DIB_CreateDIBSection: Cannot yet handle section DIBs\n");
-    SetLastWin32Error(ERROR_CALL_NOT_IMPLEMENTED);
-    return 0;
-  }
   else if (ovr_pitch && offset)
     bm.bmBits = (LPVOID) offset;
   else {
@@ -788,13 +986,14 @@ DIB_CreateDIBSection(
     bm.bmBits = EngAllocUserMem(totalSize, 0);
   }
 
-  if(usage == DIB_PAL_COLORS)
-    memcpy(bmi->bmiColors, (UINT *)DIB_MapPaletteColors(dc, bmi), sizeof(UINT *));
+/*  bm.bmBits = ExAllocatePool(NonPagedPool, totalSize); */
+
+  if(usage == DIB_PAL_COLORS) memcpy(bmi->bmiColors, (UINT *)DIB_MapPaletteColors(dc, bmi), sizeof(UINT *));
 
   // Allocate Memory for DIB and fill structure
   if (bm.bmBits)
   {
-    dib = ExAllocatePoolWithTag(PagedPool, sizeof(DIBSECTION), TAG_DIB);
+    dib = ExAllocatePool(PagedPool, sizeof(DIBSECTION));
     RtlZeroMemory(dib, sizeof(DIBSECTION));
   }
 
@@ -814,18 +1013,19 @@ DIB_CreateDIBSection(
       case 16:
         dib->dsBitfields[0] = (bi->biCompression == BI_BITFIELDS) ? *(DWORD *)bmi->bmiColors : 0x7c00;
         dib->dsBitfields[1] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 1) : 0x03e0;
-        dib->dsBitfields[2] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 2) : 0x001f;        break;
+        dib->dsBitfields[2] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 2) : 0x001f;
+        break;
 
       case 24:
-        dib->dsBitfields[0] = 0xff0000;
-        dib->dsBitfields[1] = 0x00ff00;
-        dib->dsBitfields[2] = 0x0000ff;
+        dib->dsBitfields[0] = 0xff;
+        dib->dsBitfields[1] = 0xff00;
+        dib->dsBitfields[2] = 0xff0000;
         break;
 
       case 32:
-        dib->dsBitfields[0] = (bi->biCompression == BI_BITFIELDS) ? *(DWORD *)bmi->bmiColors : 0xff0000;
-        dib->dsBitfields[1] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 1) : 0x00ff00;
-        dib->dsBitfields[2] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 2) : 0x0000ff;
+        dib->dsBitfields[0] = (bi->biCompression == BI_BITFIELDS) ? *(DWORD *)bmi->bmiColors : 0xff;
+        dib->dsBitfields[1] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 1) : 0xff00;
+        dib->dsBitfields[2] = (bi->biCompression == BI_BITFIELDS) ? *((DWORD *)bmi->bmiColors + 2) : 0xff0000;
         break;
     }
     dib->dshSection = section;
@@ -835,26 +1035,21 @@ DIB_CreateDIBSection(
   // Create Device Dependent Bitmap and add DIB pointer
   if (dib)
   {
-    Size.cx = bm.bmWidth;
-    Size.cy = abs(bm.bmHeight);
-    res = IntCreateBitmap(Size, bm.bmWidthBytes,
-                          BitmapFormat(bi->biBitCount * bi->biPlanes, bi->biCompression),
-                          BMF_DONTCACHE | BMF_USERMEM | BMF_NOZEROINIT |
-                          (bi->biHeight < 0 ? BMF_TOPDOWN : 0),
-                          bm.bmBits);
+    res = NtGdiCreateDIBitmap(dc->hSelf, bi, 0, NULL, bmi, usage);
     if (! res)
       {
-        SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
 	return NULL;
       } 
     bmp = BITMAPOBJ_LockBitmap(res);
     if (NULL == bmp)
       {
-	SetLastWin32Error(ERROR_INVALID_HANDLE);
 	NtGdiDeleteObject(bmp);
 	return NULL;
       }
     bmp->dib = (DIBSECTION *) dib;
+    /* Install user-mode bits instead of kernel-mode bits */
+    ExFreePool(bmp->bitmap.bmBits);
+    bmp->bitmap.bmBits = bm.bmBits;
 
     /* WINE NOTE: WINE makes use of a colormap, which is a color translation table between the DIB and the X physical
                   device. Obviously, this is left out of the ReactOS implementation. Instead, we call
@@ -863,7 +1058,7 @@ DIB_CreateDIBSection(
     if(bi->biBitCount == 4) { Entries = 16; } else
     if(bi->biBitCount == 8) { Entries = 256; }
 
-    bmp->ColorMap = ExAllocatePoolWithTag(PagedPool, sizeof(RGBQUAD)*Entries, TAG_COLORMAP);
+    bmp->ColorMap = ExAllocatePool(NonPagedPool, sizeof(RGBQUAD)*Entries);
     RtlCopyMemory(bmp->ColorMap, bmi->bmiColors, sizeof(RGBQUAD)*Entries);
   }
 
@@ -911,12 +1106,12 @@ INT FASTCALL DIB_GetDIBWidthBytes (INT width, INT depth)
 
   switch(depth)
   {
-    case 1:  words = (width + 31) >> 5; break;
-    case 4:  words = (width + 7) >> 3; break;
-    case 8:  words = (width + 3) >> 2; break;
+    case 1:  words = (width + 31) / 32; break;
+    case 4:  words = (width + 7) / 8; break;
+    case 8:  words = (width + 3) / 4; break;
     case 15:
-    case 16: words = (width + 1) >> 1; break;
-    case 24: words = (width * 3 + 3) >> 2; break;
+    case 16: words = (width + 1) / 2; break;
+    case 24: words = (width * 3 + 3)/4; break;
 
     default:
       DPRINT("(%d): Unsupported depth\n", depth );
@@ -924,7 +1119,7 @@ INT FASTCALL DIB_GetDIBWidthBytes (INT width, INT depth)
     case 32:
       words = width;
   }
-  return words << 2;
+  return 4 * words;
 }
 
 /***********************************************************************
@@ -1024,10 +1219,10 @@ DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi)
 {
   RGBQUAD *lpRGB;
   ULONG nNumColors,i;
-  USHORT *lpIndex;
+  DWORD *lpIndex;
   PPALGDI palGDI;
 
-  palGDI = PALETTE_LockPalette(dc->w.hPalette);
+  palGDI = PALETTE_LockPalette(dc->DevInfo->hpalDefault);
 
   if (NULL == palGDI)
     {
@@ -1041,8 +1236,8 @@ DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi)
       nNumColors = min(nNumColors, lpbmi->bmiHeader.biClrUsed);
     }
 
-  lpRGB = (RGBQUAD *)ExAllocatePoolWithTag(PagedPool, sizeof(RGBQUAD) * nNumColors, TAG_COLORMAP);
-  lpIndex = (USHORT *)&lpbmi->bmiColors[0];
+  lpRGB = (RGBQUAD *)ExAllocatePool(NonPagedPool, sizeof(RGBQUAD) * nNumColors);
+  lpIndex = (DWORD *)&lpbmi->bmiColors[0];
 
   for (i = 0; i < nNumColors; i++)
     {
@@ -1052,9 +1247,30 @@ DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi)
       lpIndex++;
     }
 //    RELEASEDCINFO(hDC);
-  PALETTE_UnlockPalette(dc->w.hPalette);
+  PALETTE_UnlockPalette(dc->DevInfo->hpalDefault);
 
   return lpRGB;
+}
+
+PPALETTEENTRY STDCALL
+DIBColorTableToPaletteEntries (
+	PPALETTEENTRY palEntries,
+	const RGBQUAD *DIBColorTable,
+	ULONG ColorCount
+	)
+{
+  ULONG i;
+
+  for (i = 0; i < ColorCount; i++)
+    {
+      palEntries->peRed   = DIBColorTable->rgbRed;
+      palEntries->peGreen = DIBColorTable->rgbGreen;
+      palEntries->peBlue  = DIBColorTable->rgbBlue;
+      palEntries++;
+      DIBColorTable++;
+    }
+
+  return palEntries;
 }
 
 HPALETTE FASTCALL
@@ -1093,11 +1309,13 @@ BuildDIBPalette (PBITMAPINFO bmi, PINT paletteType)
 
   if (PAL_INDEXED == *paletteType)
     {
-      hPal = PALETTE_AllocPaletteIndexedRGB(ColorCount, (RGBQUAD*)bmi->bmiColors);
+      palEntries = ExAllocatePool(NonPagedPool, sizeof(PALETTEENTRY)*ColorCount);
+      DIBColorTableToPaletteEntries(palEntries, bmi->bmiColors, ColorCount);
     }
-  else
+  hPal = PALETTE_AllocPalette( *paletteType, ColorCount, (ULONG*)palEntries, 0, 0, 0 );
+  if (NULL != palEntries)
     {
-      hPal = PALETTE_AllocPalette( *paletteType, ColorCount, (ULONG*)palEntries, 0, 0, 0 );
+      ExFreePool(palEntries);
     }
 
   return hPal;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: object.c,v 1.8 2004/08/15 21:36:28 chorns Exp $
+/* $Id: object.c,v 1.5 2003/07/10 21:04:31 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/dde.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -36,7 +37,7 @@
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetUserObjectInformationA(
   HANDLE hObj,
@@ -52,7 +53,7 @@ SetUserObjectInformationA(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetUserObjectInformationW(
   HANDLE hObj,
@@ -68,12 +69,12 @@ SetUserObjectInformationW(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UserHandleGrantAccess(
   HANDLE hUserHandle,
   HANDLE hJob,
-  BOOL bGrant)
+  WINBOOL bGrant)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -81,9 +82,9 @@ UserHandleGrantAccess(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetUserObjectInformationA(
   HANDLE hObj,
@@ -92,48 +93,15 @@ GetUserObjectInformationA(
   DWORD nLength,
   LPDWORD lpnLengthNeeded)
 {
-  LPWSTR buffer;
-  BOOL ret = TRUE; 
-   
-  DPRINT("GetUserObjectInformationA(%x %d %x %d %x)\n", hObj, nIndex,
-         pvInfo, nLength, lpnLengthNeeded);
-   
-  if (nIndex != UOI_NAME && nIndex != UOI_TYPE)
-    return GetUserObjectInformationW(hObj, nIndex, pvInfo, nLength, lpnLengthNeeded);
-
-  /* allocate unicode buffer */    
-  buffer = HeapAlloc(GetProcessHeap(), 0, nLength*2);
-  if (buffer == NULL)
-  {
-    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-    return FALSE;
-  }
-
-  /* get unicode string */
-  if (!GetUserObjectInformationW(hObj, nIndex, buffer, nLength*2, lpnLengthNeeded))
-    ret = FALSE;
-  *lpnLengthNeeded /= 2;
-
-  if (ret)
-  {
-    /* convert string */
-    if (WideCharToMultiByte(CP_THREAD_ACP, 0, buffer, -1,
-                            pvInfo, nLength, NULL, NULL) == 0)
-    {
-      ret = FALSE;
-    }
-  }
-
-  /* free resources */  
-  HeapFree(GetProcessHeap(), 0, buffer);
-  return ret;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetUserObjectInformationW(
   HANDLE hObj,
@@ -142,8 +110,6 @@ GetUserObjectInformationW(
   DWORD nLength,
   LPDWORD lpnLengthNeeded)
 {
-  DPRINT("GetUserObjectInformationW(%x %d %x %d %x)\n", hObj, nIndex,
-         pvInfo, nLength, lpnLengthNeeded);
-  return NtUserGetObjectInformation(hObj, nIndex, pvInfo, nLength, lpnLengthNeeded);
+  UNIMPLEMENTED;
+  return FALSE;
 }
-

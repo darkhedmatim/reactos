@@ -1,4 +1,4 @@
-/* $Id: section.c,v 1.27 2004/10/24 12:55:19 weiden Exp $
+/* $Id: section.c,v 1.21 2003/12/16 21:32:18 gvg Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -12,7 +12,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -33,7 +33,6 @@ CreateFileMappingA(HANDLE hFile,
    NTSTATUS Status;
    HANDLE SectionHandle;
    LARGE_INTEGER MaximumSize;
-   PLARGE_INTEGER MaximumSizePointer;
    OBJECT_ATTRIBUTES ObjectAttributes;
    ANSI_STRING AnsiName;
    UNICODE_STRING UnicodeName;
@@ -54,44 +53,26 @@ CreateFileMappingA(HANDLE hFile,
         SecurityDescriptor = NULL;
      }
 
-   if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0)
-     {
-        MaximumSizePointer = NULL;
-     }
-   else
-     {
-        MaximumSize.u.LowPart = dwMaximumSizeLow;
-        MaximumSize.u.HighPart = dwMaximumSizeHigh;
-        MaximumSizePointer = &MaximumSize;
-     }
-
-   if (lpName != NULL)
-     {
-        RtlInitAnsiString(&AnsiName,
-                          (LPSTR)lpName);
-        RtlAnsiStringToUnicodeString(&UnicodeName,
-                                     &AnsiName,
-                                     TRUE);
-     }
-
+   MaximumSize.u.LowPart = dwMaximumSizeLow;
+   MaximumSize.u.HighPart = dwMaximumSizeHigh;
+   RtlInitAnsiString(&AnsiName,
+		     (LPSTR)lpName);
+   RtlAnsiStringToUnicodeString(&UnicodeName,
+				&AnsiName,
+				TRUE);
    InitializeObjectAttributes(&ObjectAttributes,
-			      (lpName ? &UnicodeName : NULL),
+			      &UnicodeName,
 			      0,
 			      hBaseDir,
 			      SecurityDescriptor);
-
    Status = NtCreateSection(&SectionHandle,
 			    SECTION_ALL_ACCESS,
 			    &ObjectAttributes,
-			    MaximumSizePointer,
+			    &MaximumSize,
 			    flProtect & MASK_PAGE_FLAGS,
 			    flProtect & MASK_SEC_FLAGS,
-			    ((hFile != INVALID_HANDLE_VALUE) ? hFile : NULL));
-   if (lpName != NULL)
-     {
-        RtlFreeUnicodeString(&UnicodeName);
-     }
-
+			    hFile==INVALID_HANDLE_VALUE ? NULL : hFile);
+   RtlFreeUnicodeString(&UnicodeName);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);
@@ -135,36 +116,30 @@ CreateFileMappingW(HANDLE hFile,
         SecurityDescriptor = NULL;
      }
 
-   if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0)
+   if ((dwMaximumSizeLow == 0) && (dwMaximumSizeHigh == 0))
      {
-        MaximumSizePointer = NULL;
+       MaximumSizePointer = NULL;
      }
    else
      {
-        MaximumSize.u.LowPart = dwMaximumSizeLow;
-        MaximumSize.u.HighPart = dwMaximumSizeHigh;
-        MaximumSizePointer = &MaximumSize;
+       MaximumSize.u.LowPart = dwMaximumSizeLow;
+       MaximumSize.u.HighPart = dwMaximumSizeHigh;
+       MaximumSizePointer = &MaximumSize;
      }
-
-   if (lpName != NULL)
-     {
-        RtlInitUnicodeString(&UnicodeName,
-                             lpName);
-     }
-
+   RtlInitUnicodeString(&UnicodeName,
+			lpName);
    InitializeObjectAttributes(&ObjectAttributes,
-			      (lpName ? &UnicodeName : NULL),
+			      &UnicodeName,
 			      0,
 			      hBaseDir,
 			      SecurityDescriptor);
-
    Status = NtCreateSection(&SectionHandle,
 			    SECTION_ALL_ACCESS,
 			    &ObjectAttributes,
 			    MaximumSizePointer,
 			    flProtect & MASK_PAGE_FLAGS,
 			    flProtect & MASK_SEC_FLAGS,
-			    ((hFile != INVALID_HANDLE_VALUE) ? hFile : NULL));
+			    hFile==INVALID_HANDLE_VALUE ? NULL : hFile);
    if (!NT_SUCCESS(Status))
      {
 	SetLastErrorByStatus(Status);
@@ -257,7 +232,7 @@ MapViewOfFile(HANDLE hFileMappingObject,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 UnmapViewOfFile(LPVOID lpBaseAddress)
 {
    NTSTATUS Status;
@@ -278,7 +253,7 @@ UnmapViewOfFile(LPVOID lpBaseAddress)
  */
 HANDLE STDCALL
 OpenFileMappingA(DWORD dwDesiredAccess,
-		 BOOL bInheritHandle,
+		 WINBOOL bInheritHandle,
 		 LPCSTR lpName)
 {
    NTSTATUS Status;
@@ -286,11 +261,12 @@ OpenFileMappingA(DWORD dwDesiredAccess,
    OBJECT_ATTRIBUTES ObjectAttributes;
    ANSI_STRING AnsiName;
    UNICODE_STRING UnicodeName;
-   
-   if (lpName == NULL)
+
+   ULONG Attributes = 0;
+
+   if (bInheritHandle)
      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return NULL;
+	Attributes = OBJ_INHERIT;
      }
 
    RtlInitAnsiString(&AnsiName,
@@ -301,7 +277,7 @@ OpenFileMappingA(DWORD dwDesiredAccess,
 
    InitializeObjectAttributes(&ObjectAttributes,
 			      &UnicodeName,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      Attributes,
 			      hBaseDir,
 			      NULL);
    Status = NtOpenSection(&SectionHandle,
@@ -313,7 +289,6 @@ OpenFileMappingA(DWORD dwDesiredAccess,
 	SetLastErrorByStatus (Status);
 	return NULL;
      }
-
    return SectionHandle;
 }
 
@@ -323,25 +298,25 @@ OpenFileMappingA(DWORD dwDesiredAccess,
  */
 HANDLE STDCALL
 OpenFileMappingW(DWORD dwDesiredAccess,
-		 BOOL bInheritHandle,
+		 WINBOOL bInheritHandle,
 		 LPCWSTR lpName)
 {
    NTSTATUS Status;
    HANDLE SectionHandle;
    OBJECT_ATTRIBUTES ObjectAttributes;
    UNICODE_STRING UnicodeName;
+   ULONG Attributes = 0;
 
-   if (lpName == NULL)
+   if (bInheritHandle)
      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return NULL;
+	Attributes = OBJ_INHERIT;
      }
 
    RtlInitUnicodeString(&UnicodeName,
 			lpName);
    InitializeObjectAttributes(&ObjectAttributes,
 			      &UnicodeName,
-			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      Attributes,
 			      hBaseDir,
 			      NULL);
    Status = ZwOpenSection(&SectionHandle,
@@ -352,7 +327,6 @@ OpenFileMappingW(DWORD dwDesiredAccess,
 	SetLastErrorByStatus(Status);
 	return NULL;
      }
-
    return SectionHandle;
 }
 
@@ -360,7 +334,7 @@ OpenFileMappingW(DWORD dwDesiredAccess,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 FlushViewOfFile(LPCVOID lpBaseAddress,
 		DWORD dwNumberOfBytesToFlush)
 {

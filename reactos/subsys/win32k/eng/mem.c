@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mem.c,v 1.17 2004/07/03 22:36:27 navaraf Exp $
+/* $Id: mem.c,v 1.14 2003/10/29 08:38:55 gvg Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -27,7 +27,16 @@
  *                 3/7/1999: Created
  */
 
-#include <w32k.h>
+#ifdef __USE_W32API
+#include <windows.h>
+#include <ddk/ntapi.h>
+#endif
+#include <ddk/ntddk.h>
+#include <ddk/winddi.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
+#include <debug.h>
 
 typedef struct _USERMEMHEADER
   {
@@ -46,7 +55,7 @@ EngAllocMem(ULONG Flags,
 {
   PVOID newMem;
 
-  newMem = ExAllocatePoolWithTag(PagedPool, MemSize, Tag);
+  newMem = ExAllocatePoolWithTag(NonPagedPool, MemSize, Tag); // FIXME: Use PagedPool when it is implemented
 
   if (Flags == FL_ZERO_MEMORY && NULL != newMem)
   {
@@ -76,6 +85,7 @@ EngAllocUserMem(ULONG cj, ULONG Tag)
   ULONG MemSize = sizeof(USERMEMHEADER) + cj;
   PUSERMEMHEADER Header;
 
+  DbgPrint("EngAllocUserMem\n");
   Status = ZwAllocateVirtualMemory(NtCurrentProcess(), &NewMem, 0, &MemSize, MEM_COMMIT, PAGE_READWRITE);
 
   if (! NT_SUCCESS(Status))

@@ -623,12 +623,12 @@ NPF_Unload(IN PDRIVER_OBJECT DriverObject)
 		}
 
         IoDeleteDevice(OldDeviceObject);
+    }
 
 	NdisDeregisterProtocol(
         &Status,
         NdisProtocolHandle
         );
-    }
 
 	// Free the adapters names
 	ExFreePool( bindP );
@@ -706,7 +706,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 	case BIOCSENDPACKETSNOSYNC:
 
 		WriteRes = NPF_BufferedWrite(Irp,
-			(PCHAR)Irp->AssociatedIrp.SystemBuffer,
+			(PUCHAR)Irp->AssociatedIrp.SystemBuffer,
 			IrpSp->Parameters.DeviceIoControl.InputBufferLength,
 			SyncWrite);
 
@@ -804,7 +804,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 		//return
 		Open->Bhead = 0;
 		Open->Btail = 0;
-		Open->BLastByte = (UINT) -1;
+		(INT)Open->BLastByte = -1;
 		Open->Received = 0;		
 		Open->Dropped = 0;
 		Open->Accepted = 0;
@@ -951,7 +951,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 		Open->Buffer = tpointer;
 		Open->Bhead = 0;
 		Open->Btail = 0;
-		Open->BLastByte = (UINT) -1;
+		(INT)Open->BLastByte = -1;
 		
 		Open->BufSize = (UINT)dim;
 		EXIT_SUCCESS(dim);
@@ -1101,7 +1101,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_RequestComplete(
     IN NDIS_HANDLE   ProtocolBindingContext,
     IN PNDIS_REQUEST NdisRequest,
@@ -1185,7 +1185,7 @@ NPF_RequestComplete(
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_Status(
     IN NDIS_HANDLE   ProtocolBindingContext,
     IN NDIS_STATUS   Status,
@@ -1203,7 +1203,7 @@ NPF_Status(
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_StatusComplete(
     IN NDIS_HANDLE  ProtocolBindingContext
     )

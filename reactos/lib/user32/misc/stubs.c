@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.72 2004/12/27 16:48:29 navaraf Exp $
+/* $Id: stubs.c,v 1.55 2003/12/08 18:21:24 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -7,29 +7,56 @@
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * NOTES:           If you implement a function, remove it from this file
  * UPDATE HISTORY:
- *      08-F05-2001  CSH  Created
+ *      08-05-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
 #include <debug.h>
 #include <string.h>
+typedef UINT *LPUINT;
 #include <mmsystem.h>
-#ifdef __USE_W32API
-typedef PVOID LPIMEPROW, LPIMEPROA;
-#endif
+#include <user32.h>
+
 
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
+STDCALL
+AnyPopup(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 AttachThreadInput(
   DWORD idAttach,
   DWORD idAttachTo,
-  BOOL fAttach)
+  WINBOOL fAttach)
 {
   UNIMPLEMENTED;
   return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+long
+STDCALL
+BroadcastSystemMessage(
+  DWORD dwFlags,
+  LPDWORD lpdwRecipients,
+  UINT uiMessage,
+  WPARAM wParam,
+  LPARAM lParam)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -87,7 +114,7 @@ GetMouseMovePointsEx(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 LockWindowUpdate(
   HWND hWndLock)
@@ -100,7 +127,7 @@ LockWindowUpdate(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 LockWorkStation(VOID)
 {
@@ -112,7 +139,98 @@ LockWorkStation(VOID)
 /*
  * @unimplemented
  */
-BOOL
+HMONITOR
+STDCALL
+MonitorFromPoint(
+  POINT pt,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromRect(
+  LPRECT lprc,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HMONITOR
+STDCALL
+MonitorFromWindow(
+  HWND hwnd,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+MsgWaitForMultipleObjects(
+  DWORD nCount,
+  CONST LPHANDLE pHandles,
+  WINBOOL fWaitAll,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+RealMsgWaitForMultipleObjectsEx(
+  DWORD nCount,
+  LPHANDLE pHandles,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+WINBOOL
+STDCALL
+SetSysColors(
+  int cElements,
+  CONST INT *lpaElements,
+  CONST COLORREF *lpaRgbValues)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 TrackMouseEvent(
   LPTRACKMOUSEEVENT lpEventTrack)
@@ -125,7 +243,7 @@ TrackMouseEvent(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnregisterDeviceNotification(
   HDEVNOTIFY Handle)
@@ -146,6 +264,39 @@ WaitForInputIdle(
 {
   UNIMPLEMENTED;
   return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+keybd_event(
+	    BYTE bVk,
+	    BYTE bScan,
+	    DWORD dwFlags,
+	    DWORD dwExtraInfo)
+
+
+{
+  UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+mouse_event(
+	    DWORD dwFlags,
+	    DWORD dx,
+	    DWORD dy,
+	    DWORD cButtons,
+	    DWORD dwExtraInfo)
+{
+  UNIMPLEMENTED
 }
 
 /******************************************************************************
@@ -169,12 +320,12 @@ SetDebugErrorLevel( DWORD dwLevel )
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 EndTask(
 	HWND    hWnd,
-	BOOL fShutDown,
-	BOOL fForce)
+	WINBOOL fShutDown,
+	WINBOOL fForce)
 {
     SendMessageW(hWnd, WM_CLOSE, 0, 0);
     
@@ -189,6 +340,15 @@ EndTask(
     return TRUE;
 }
 
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SwitchToThisWindow ( HWND hwnd, WINBOOL fUnknown )
+{
+  UNIMPLEMENTED;
+}
 
 /*
  * @unimplemented
@@ -266,7 +426,29 @@ RegisterSystemThread ( DWORD flags, DWORD reserved )
  */
 DWORD
 STDCALL
+RegisterLogonProcess ( HANDLE hprocess, BOOL x )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
 RegisterTasklist ( DWORD x )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+SetLogonNotifyWindow ( HWINSTA hwinsta, HWND hwnd )
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -291,7 +473,7 @@ DragObject(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetUserObjectSecurity(
 		      HANDLE                hObj,
@@ -308,7 +490,7 @@ GetUserObjectSecurity(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetUserObjectSecurity(
 		      HANDLE                hObj,
@@ -382,7 +564,7 @@ GetInputDesktop ( VOID )
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetAccCursorInfo ( PCURSORINFO pci )
 {
@@ -393,7 +575,7 @@ GetAccCursorInfo ( PCURSORINFO pci )
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 ClientThreadSetup ( VOID )
 {
@@ -515,7 +697,7 @@ BroadcastSystemMessageExA(
 /*
  * @unimplemented
  */
-BOOL 
+WINBOOL 
 STDCALL
 AlignRects(LPRECT rect, DWORD b, DWORD c, DWORD d)
 {
@@ -540,7 +722,17 @@ DefRawInputProc(
 /*
  * @unimplemented
  */
-BOOL
+VOID
+STDCALL 
+DisableProcessWindowsGhosting(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 GetLayeredWindowAttributes(
     HWND hwnd,
@@ -613,10 +805,11 @@ GetRegisteredRawInputDevices(
 /*
  * @unimplemented
  */
-BOOL
+int
 STDCALL
-IsGUIThread(
-    BOOL bConvert)
+GetWindowRgnBox(
+    HWND hWnd,
+    LPRECT lprc)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -625,7 +818,19 @@ IsGUIThread(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
+STDCALL
+IsGUIThread(
+    WINBOOL bConvert)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+WINBOOL
 STDCALL
 PrintWindow(
     HWND hwnd,
@@ -639,7 +844,7 @@ PrintWindow(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 RegisterRawInputDevices(
     PCRAWINPUTDEVICE pRawInputDevices,
@@ -664,7 +869,7 @@ WINNLSGetIMEHotkey( HWND hwnd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 WINNLSEnableIME( HWND hwnd, BOOL enable)
 {
@@ -675,7 +880,7 @@ WINNLSEnableIME( HWND hwnd, BOOL enable)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 WINNLSGetEnableStatus( HWND hwnd)
 {
@@ -686,7 +891,7 @@ WINNLSGetEnableStatus( HWND hwnd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPSetIMEW( HWND hwnd, LPIMEPROW ime)
 {
@@ -697,7 +902,7 @@ IMPSetIMEW( HWND hwnd, LPIMEPROW ime)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPQueryIMEW( LPIMEPROW ime)
 {
@@ -708,7 +913,7 @@ IMPQueryIMEW( LPIMEPROW ime)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPGetIMEW( HWND hwnd, LPIMEPROW ime)
 {
@@ -719,7 +924,7 @@ IMPGetIMEW( HWND hwnd, LPIMEPROW ime)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPSetIMEA( HWND hwnd, LPIMEPROA ime)
 {
@@ -730,7 +935,7 @@ IMPSetIMEA( HWND hwnd, LPIMEPROA ime)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPQueryIMEA( LPIMEPROA ime)
 {
@@ -741,7 +946,7 @@ IMPQueryIMEA( LPIMEPROA ime)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IMPGetIMEA( HWND hwnd, LPIMEPROA ime)
 {
@@ -867,6 +1072,15 @@ BOOL STDCALL RegisterUserApiHook(HINSTANCE instance,THEME_HOOK_FUNC proc)
  * @unimplemented
  */
 BOOL STDCALL UnregisterUserApiHook(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL IsWindowInDestroy(HWND wnd)
 {
   UNIMPLEMENTED;
   return FALSE;

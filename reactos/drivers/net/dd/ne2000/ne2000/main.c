@@ -7,9 +7,7 @@
  * REVISIONS:
  *   CSH 27/08-2000 Created
  */
-#include <roscfg.h>
 #include <ne2000.h>
-#include <debug.h>
 
 
 #ifdef DBG
@@ -71,7 +69,7 @@ BOOLEAN MiniportCheckForHang(
 }
 
 
-VOID STDCALL MiniportDisableInterrupt(
+VOID MiniportDisableInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Disables interrupts from an adapter
@@ -86,7 +84,7 @@ VOID STDCALL MiniportDisableInterrupt(
 }
 
 
-VOID STDCALL MiniportEnableInterrupt(
+VOID MiniportEnableInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Enables interrupts from an adapter
@@ -101,7 +99,7 @@ VOID STDCALL MiniportEnableInterrupt(
 }
 
 
-VOID STDCALL MiniportHalt(
+VOID MiniportHalt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Deallocates resources for and halts an adapter
@@ -141,7 +139,7 @@ VOID STDCALL MiniportHalt(
 }
 
 
-NDIS_STATUS STDCALL MiniportInitialize(
+NDIS_STATUS MiniportInitialize(
     OUT PNDIS_STATUS    OpenErrorStatus,
     OUT PUINT           SelectedMediumIndex,
     IN  PNDIS_MEDIUM    MediumArray,
@@ -165,7 +163,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
     NDIS_STATUS Status;
     PNIC_ADAPTER Adapter;
 
-    NDIS_DbgPrint(MAX_TRACE, ("Called (Adapter %X).\n", MiniportAdapterHandle));
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
     /* Search for 802.3 media which is the only one we support */
     for (i = 0; i < MediumArraySize; i++) {
@@ -349,7 +347,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
 }
 
 
-VOID STDCALL MiniportISR(
+VOID MiniportISR(
     OUT PBOOLEAN    InterruptRecognized,
     OUT PBOOLEAN    QueueMiniportHandleInterrupt,
     IN  NDIS_HANDLE MiniportAdapterContext)
@@ -374,7 +372,7 @@ VOID STDCALL MiniportISR(
 }
 
 
-NDIS_STATUS STDCALL MiniportQueryInformation(
+NDIS_STATUS MiniportQueryInformation(
     IN  NDIS_HANDLE MiniportAdapterContext,
     IN  NDIS_OID    Oid,
     IN  PVOID       InformationBuffer,
@@ -532,7 +530,7 @@ NDIS_STATUS STDCALL MiniportQueryInformation(
 }
 
 
-NDIS_STATUS STDCALL MiniportReconfigure(
+NDIS_STATUS MiniportReconfigure(
     OUT PNDIS_STATUS    OpenErrorStatus,
     IN  NDIS_HANDLE     MiniportAdapterContext,
     IN  NDIS_HANDLE     WrapperConfigurationContext)
@@ -555,7 +553,7 @@ NDIS_STATUS STDCALL MiniportReconfigure(
 
 
 
-NDIS_STATUS STDCALL MiniportReset(
+NDIS_STATUS MiniportReset(
     OUT PBOOLEAN    AddressingReset,
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
@@ -575,7 +573,7 @@ NDIS_STATUS STDCALL MiniportReset(
 }
 
 
-NDIS_STATUS STDCALL MiniportSend(
+NDIS_STATUS MiniportSend(
     IN  NDIS_HANDLE     MiniportAdapterContext,
     IN  PNDIS_PACKET    Packet,
     IN  UINT            Flags)
@@ -616,7 +614,7 @@ NDIS_STATUS STDCALL MiniportSend(
 }
 
 
-NDIS_STATUS STDCALL MiniportSetInformation(
+NDIS_STATUS MiniportSetInformation(
     IN  NDIS_HANDLE MiniportAdapterContext,
     IN  NDIS_OID    Oid,
     IN  PVOID       InformationBuffer,
@@ -722,7 +720,7 @@ NDIS_STATUS STDCALL MiniportSetInformation(
 }
 
 
-NDIS_STATUS STDCALL MiniportTransferData(
+NDIS_STATUS MiniportTransferData(
     OUT PNDIS_PACKET    Packet,
     OUT PUINT           BytesTransferred,
     IN  NDIS_HANDLE     MiniportAdapterContext,
@@ -764,25 +762,23 @@ NDIS_STATUS STDCALL MiniportTransferData(
     NdisQueryPacket(Packet, NULL, NULL, &DstBuffer, NULL);
     NdisQueryBuffer(DstBuffer, (PVOID)&DstData, &DstSize);
 
-    SrcData = Adapter->PacketOffset + sizeof(DISCARD_HEADER) + ByteOffset;
-    if (ByteOffset + sizeof(DISCARD_HEADER) + BytesToTransfer > 
-	Adapter->PacketHeader.PacketLength)
-        BytesToTransfer = Adapter->PacketHeader.PacketLength - 
-	    sizeof(DISCARD_HEADER) - ByteOffset;
+    SrcData = Adapter->PacketOffset + sizeof(PACKET_HEADER) + ByteOffset;
+    if (ByteOffset + sizeof(PACKET_HEADER) + BytesToTransfer > Adapter->PacketHeader.PacketLength)
+        BytesToTransfer = Adapter->PacketHeader.PacketLength- sizeof(PACKET_HEADER) - ByteOffset;
 
     /* Start copying the data */
     BytesCopied = 0;
     for (;;) {
-        BytesToCopy = (DstSize < BytesToTransfer) ? DstSize : BytesToTransfer;
+        BytesToCopy = (DstSize < BytesToTransfer)? DstSize : BytesToTransfer;
         if (SrcData + BytesToCopy > RecvStop)
             BytesToCopy = (RecvStop - SrcData);
 
         NICReadData(Adapter, DstData, SrcData, BytesToCopy);
 
-        BytesCopied     += BytesToCopy;
-        SrcData         += BytesToCopy;
-        DstData          = (PUCHAR)((ULONG_PTR) DstData + BytesToCopy);
-        BytesToTransfer -= BytesToCopy;
+        BytesCopied        += BytesToCopy;
+        SrcData            += BytesToCopy;
+        (ULONG_PTR)DstData += BytesToCopy;
+        BytesToTransfer    -= BytesToCopy;
         if (BytesToTransfer == 0)
             break;
 

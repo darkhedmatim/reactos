@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,17 +28,12 @@
  //
 
 
-#include "precomp.h"
+#include "utility.h"
+#include "shellclasses.h"
 
 
 #ifdef _MS_VER
 #pragma comment(lib, "shell32")	// link to shell32.dll
-#endif
-
-
- // work around GCC's wide string constant bug
-#ifdef __GNUC__
-const LPCTSTR sCFSTR_SHELLIDLIST = TEXT("Shell IDList Array");
 #endif
 
 
@@ -92,11 +87,11 @@ void HandleException(COMException& e, HWND hwnd)
 	if (hwnd && !IsWindowVisible(hwnd))
 		hwnd = 0;
 
-	MessageBox(hwnd, msg, TEXT("ShellClasses Exception"), MB_ICONHAND|MB_OK);
+	MessageBox(hwnd, msg, TEXT("ShellClasses COM Exception"), MB_ICONHAND|MB_OK);
 
 	 // If displaying the error message box _with_ parent was not successfull, display it now without a parent window.
 	if (GetLastError() == ERROR_INVALID_WINDOW_HANDLE)
-		MessageBox(0, msg, TEXT("ShellClasses Exception"), MB_ICONHAND|MB_OK);
+		MessageBox(0, msg, TEXT("ShellClasses COM Exception"), MB_ICONHAND|MB_OK);
 }
 
 
@@ -107,7 +102,7 @@ CommonShellMalloc ShellMalloc::s_cmn_shell_malloc;
 
  // common desktop object
 
-ShellFolder& GetDesktopFolder()
+ShellFolder& Desktop()
 {
 	static CommonDesktop s_desktop;
 
@@ -227,7 +222,7 @@ ShellFolder::ShellFolder(LPCITEMIDLIST pidl)
 	CONTEXT("ShellFolder::ShellFolder(LPCITEMIDLIST)");
 
 	IShellFolder* ptr;
-	IShellFolder* parent = GetDesktopFolder();
+	IShellFolder* parent = Desktop();
 
 	if (pidl && pidl->mkid.cb)
 		CHECKERROR(parent->BindToObject(pidl, 0, IID_IShellFolder, (LPVOID*)&ptr));
@@ -279,7 +274,7 @@ ShellFolder::ShellFolder(IShellFolder* parent, LPCITEMIDLIST pidl)
 	if (pidl && pidl->mkid.cb)
 		CHECKERROR(parent->BindToObject(pidl, 0, IID_IShellFolder, (LPVOID*)&_p));
 	else
-		_p = GetDesktopFolder();
+		_p = Desktop();
 
 	_p->AddRef();
 }
@@ -289,9 +284,9 @@ ShellFolder::ShellFolder(LPCITEMIDLIST pidl)
 	CONTEXT("ShellFolder::ShellFolder(LPCITEMIDLIST)");
 
 	if (pidl && pidl->mkid.cb)
-		CHECKERROR(GetDesktopFolder()->BindToObject(pidl, 0, IID_IShellFolder, (LPVOID*)&_p));
+		CHECKERROR(Desktop()->BindToObject(pidl, 0, IID_IShellFolder, (LPVOID*)&_p));
 	else
-		_p = GetDesktopFolder();
+		_p = Desktop();
 
 	_p->AddRef();
 }
@@ -431,45 +426,6 @@ UINT ILGetSize(LPCITEMIDLIST pidl)
 }
 
 #endif
-
-
-#ifndef	_SHFOLDER_H_
-#define	CSIDL_FLAG_CREATE	0x8000
-#endif
-
- /// file system path of special folder
-SpecialFolderFSPath::SpecialFolderFSPath(int folder, HWND hwnd)
-{
-	_fullpath[0] = '\0';
-
-#ifdef UNICODE
-	static DynamicFct<BOOL (__stdcall*)(HWND hwnd, LPTSTR pszPath, int csidl, BOOL fCreate)> s_pSHGetSpecialFolderPath(TEXT("shell32"), "SHGetSpecialFolderPathW");
-#else
-	static DynamicFct<BOOL (__stdcall*)(HWND hwnd, LPTSTR pszPath, int csidl, BOOL fCreate)> s_pSHGetSpecialFolderPath(TEXT("shell32"), "SHGetSpecialFolderPathA");
-#endif
-	if (*s_pSHGetSpecialFolderPath)
-		(*s_pSHGetSpecialFolderPath)(hwnd, _fullpath, folder, TRUE);
-	else {
-		 // SHGetSpecialFolderPath() is not compatible to WIN95/NT4
-#ifdef UNICODE
-		static DynamicFct<HRESULT (__stdcall*)(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPTSTR pszPath)> s_pSHGetFolderPath_shell32(TEXT("shell32"), "SHGetFolderPathW");
-#else
-		static DynamicFct<HRESULT (__stdcall*)(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPTSTR pszPath)> s_pSHGetFolderPath_shell32(TEXT("shell32"), "SHGetFolderPathA");
-#endif
-		if (*s_pSHGetFolderPath_shell32)
-			(*s_pSHGetFolderPath_shell32)(hwnd, folder|CSIDL_FLAG_CREATE, 0, 0, _fullpath);
-		else {
-			 // SHGetFolderPath() is only present in shfolder.dll on some platforms.
-#ifdef UNICODE
-			static DynamicLoadLibFct<HRESULT (__stdcall*)(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPTSTR pszPath)> s_pSHGetFolderPath_shfolder(TEXT("shfolder"), "SHGetFolderPathW");
-#else
-			static DynamicLoadLibFct<HRESULT (__stdcall*)(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPTSTR pszPath)> s_pSHGetFolderPath_shfolder(TEXT("shfolder"), "SHGetFolderPathA");
-#endif
-			if (*s_pSHGetFolderPath_shfolder)
-				(*s_pSHGetFolderPath_shfolder)(hwnd, folder|CSIDL_FLAG_CREATE, 0, 0, _fullpath);
-		}
-	}
-}
 
 
 HRESULT ShellFolderContextMenu(IShellFolder* shell_folder, HWND hwndParent, int cidl, LPCITEMIDLIST* apidl, int x, int y)

@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.61 2004/12/06 14:45:47 gdalsnes Exp $
+/* $Id: file.c,v 1.47 2003/12/08 19:50:31 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,12 +15,12 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS ******************************************************************/
 
-BOOL bIsFileApiAnsi = TRUE; // set the file api to ansi or oem
+WINBOOL bIsFileApiAnsi = TRUE; // set the file api to ansi or oem
 
 
 /* FUNCTIONS ****************************************************************/
@@ -48,7 +48,7 @@ SetFileApisToANSI(VOID)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 AreFileApisANSI(VOID)
 {
    return bIsFileApiAnsi;
@@ -81,28 +81,6 @@ OpenFile(LPCSTR lpFileName,
 		return FALSE;
 	}
 
-	if ((uStyle & OF_CREATE) == OF_CREATE)
-	{
-		DWORD Sharing;
-		switch (uStyle & 0x70)
-		{
-			case OF_SHARE_EXCLUSIVE: Sharing = 0; break;
-			case OF_SHARE_DENY_WRITE: Sharing = FILE_SHARE_READ; break;
-			case OF_SHARE_DENY_READ: Sharing = FILE_SHARE_WRITE; break;
-			case OF_SHARE_DENY_NONE:
-			case OF_SHARE_COMPAT:
-			default:
-				Sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
-		}
-		return (HFILE) CreateFileA (lpFileName,
-		                            GENERIC_READ | GENERIC_WRITE,
-		                            Sharing,
-		                            NULL,
-		                            CREATE_ALWAYS,
-		                            FILE_ATTRIBUTE_NORMAL,
-		                            0);
-	}
-
 	RtlInitAnsiString (&FileName, (LPSTR)lpFileName);
 
 	/* convert ansi (or oem) string to unicode */
@@ -110,13 +88,13 @@ OpenFile(LPCSTR lpFileName,
 		RtlAnsiStringToUnicodeString (&FileNameU, &FileName, TRUE);
 	else
 		RtlOemStringToUnicodeString (&FileNameU, &FileName, TRUE);
-		        
+
 	Len = SearchPathW (NULL,
 	                   FileNameU.Buffer,
-        	           NULL,
+	                   NULL,
 	                   OFS_MAXPATHNAME,
 	                   PathNameW,
-        	           &FilePart);
+	                   &FilePart);
 
 	RtlFreeUnicodeString(&FileNameU);
 
@@ -145,6 +123,13 @@ OpenFile(LPCSTR lpFileName,
 		return (HFILE)INVALID_HANDLE_VALUE;
 	}
 
+	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+	ObjectAttributes.RootDirectory = NULL;
+	ObjectAttributes.ObjectName = &FileNameString;
+	ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE| OBJ_INHERIT;
+	ObjectAttributes.SecurityDescriptor = NULL;
+	ObjectAttributes.SecurityQualityOfService = NULL;
+
 	// FILE_SHARE_READ
 	// FILE_NO_INTERMEDIATE_BUFFERING
 
@@ -153,13 +138,6 @@ OpenFile(LPCSTR lpFileName,
 		RtlFreeUnicodeString(&FileNameString);
 		return (HFILE)NULL;
 	}
-
-	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
-	ObjectAttributes.RootDirectory = NULL;
-	ObjectAttributes.ObjectName = &FileNameString;
-	ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE| OBJ_INHERIT;
-	ObjectAttributes.SecurityDescriptor = NULL;
-	ObjectAttributes.SecurityQualityOfService = NULL;
 
 	errCode = NtOpenFile (&FileHandle,
 	                      GENERIC_READ|SYNCHRONIZE,
@@ -185,7 +163,7 @@ OpenFile(LPCSTR lpFileName,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 FlushFileBuffers(HANDLE hFile)
 {
    NTSTATUS errCode;
@@ -217,19 +195,13 @@ SetFilePointer(HANDLE hFile,
 	       DWORD dwMoveMethod)
 {
    FILE_POSITION_INFORMATION FilePosition;
-   FILE_STANDARD_INFORMATION FileStandard;
+   FILE_STANDARD_INFORMATION FileStandart;
    NTSTATUS errCode;
    IO_STATUS_BLOCK IoStatusBlock;
    LARGE_INTEGER Distance;
    
    DPRINT("SetFilePointer(hFile %x, lDistanceToMove %d, dwMoveMethod %d)\n",
 	  hFile,lDistanceToMove,dwMoveMethod);
-
-   if(IsConsoleHandle(hFile))
-   {
-     SetLastError(ERROR_INVALID_HANDLE);
-     return -1;
-   }
 
    Distance.u.LowPart = lDistanceToMove;
    if (lpDistanceToMoveHigh)
@@ -244,39 +216,30 @@ SetFilePointer(HANDLE hFile,
    {
       Distance.u.HighPart = -1;
    }
-   
-   switch(dwMoveMethod)
-   {
-     case FILE_CURRENT:
+
+   if (dwMoveMethod == FILE_CURRENT)
+     {
 	NtQueryInformationFile(hFile,
 			       &IoStatusBlock,
 			       &FilePosition,
 			       sizeof(FILE_POSITION_INFORMATION),
 			       FilePositionInformation);
 	FilePosition.CurrentByteOffset.QuadPart += Distance.QuadPart;
-	break;
-     case FILE_END:
+     }
+   else if (dwMoveMethod == FILE_END)
+     {
 	NtQueryInformationFile(hFile,
                                &IoStatusBlock,
-                               &FileStandard,
+                               &FileStandart,
                                sizeof(FILE_STANDARD_INFORMATION),
                                FileStandardInformation);
         FilePosition.CurrentByteOffset.QuadPart =
-                  FileStandard.EndOfFile.QuadPart + Distance.QuadPart;
-	break;
-     case FILE_BEGIN:
+                  FileStandart.EndOfFile.QuadPart + Distance.QuadPart;
+     }
+   else if ( dwMoveMethod == FILE_BEGIN )
+     {
         FilePosition.CurrentByteOffset.QuadPart = Distance.QuadPart;
-	break;
-     default:
-        SetLastError(ERROR_INVALID_PARAMETER);
-	return -1;
-   }
-   
-   if(FilePosition.CurrentByteOffset.QuadPart < 0)
-   {
-     SetLastError(ERROR_NEGATIVE_SEEK);
-     return -1;
-   }
+     }
    
    errCode = NtSetInformationFile(hFile,
 				  &IoStatusBlock,
@@ -294,79 +257,6 @@ SetFilePointer(HANDLE hFile,
         *lpDistanceToMoveHigh = FilePosition.CurrentByteOffset.u.HighPart;
      }
    return FilePosition.CurrentByteOffset.u.LowPart;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetFilePointerEx(HANDLE hFile,
-		 LARGE_INTEGER liDistanceToMove,
-		 PLARGE_INTEGER lpNewFilePointer,
-		 DWORD dwMoveMethod)
-{
-   FILE_POSITION_INFORMATION FilePosition;
-   FILE_STANDARD_INFORMATION FileStandard;
-   NTSTATUS errCode;
-   IO_STATUS_BLOCK IoStatusBlock;
-
-   if(IsConsoleHandle(hFile))
-   {
-     SetLastError(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
-
-   switch(dwMoveMethod)
-   {
-     case FILE_CURRENT:
-	NtQueryInformationFile(hFile,
-			       &IoStatusBlock,
-			       &FilePosition,
-			       sizeof(FILE_POSITION_INFORMATION),
-			       FilePositionInformation);
-	FilePosition.CurrentByteOffset.QuadPart += liDistanceToMove.QuadPart;
-	break;
-     case FILE_END:
-	NtQueryInformationFile(hFile,
-                               &IoStatusBlock,
-                               &FileStandard,
-                               sizeof(FILE_STANDARD_INFORMATION),
-                               FileStandardInformation);
-        FilePosition.CurrentByteOffset.QuadPart =
-                  FileStandard.EndOfFile.QuadPart + liDistanceToMove.QuadPart;
-	break;
-     case FILE_BEGIN:
-        FilePosition.CurrentByteOffset.QuadPart = liDistanceToMove.QuadPart;
-	break;
-     default:
-        SetLastError(ERROR_INVALID_PARAMETER);
-	return FALSE;
-   }
-   
-   if(FilePosition.CurrentByteOffset.QuadPart < 0)
-   {
-     SetLastError(ERROR_NEGATIVE_SEEK);
-     return FALSE;
-   }
-   
-   errCode = NtSetInformationFile(hFile,
-				  &IoStatusBlock,
-				  &FilePosition,
-				  sizeof(FILE_POSITION_INFORMATION),
-				  FilePositionInformation);
-   if (!NT_SUCCESS(errCode))
-     {
-	SetLastErrorByStatus(errCode);
-	return FALSE;
-     }
-   
-   if (lpNewFilePointer)
-     {
-       *lpNewFilePointer = FilePosition.CurrentByteOffset;
-     }
-   return TRUE;
 }
 
 
@@ -483,37 +373,6 @@ GetFileSize(HANDLE hFile,
 /*
  * @implemented
  */
-BOOL
-STDCALL
-GetFileSizeEx(
-    HANDLE hFile,
-    PLARGE_INTEGER lpFileSize
-    )
-{
-   NTSTATUS errCode;
-   FILE_STANDARD_INFORMATION FileStandard;
-   IO_STATUS_BLOCK IoStatusBlock;
-
-   errCode = NtQueryInformationFile(hFile,
-				    &IoStatusBlock,
-				    &FileStandard,
-				    sizeof(FILE_STANDARD_INFORMATION),
-				    FileStandardInformation);
-   if (!NT_SUCCESS(errCode))
-     {
-	SetLastErrorByStatus(errCode);
-	return FALSE;
-     }
-   if (lpFileSize)
-     *lpFileSize = FileStandard.EndOfFile;
-
-   return TRUE;
-}
-
-
-/*
- * @implemented
- */
 DWORD STDCALL
 GetCompressedFileSizeA(LPCSTR lpFileName,
 		       LPDWORD lpFileSizeHigh)
@@ -587,7 +446,7 @@ GetCompressedFileSizeW(LPCWSTR lpFileName,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetFileInformationByHandle(HANDLE hFile,
 			   LPBY_HANDLE_FILE_INFORMATION lpFileInformation)
 {
@@ -604,12 +463,6 @@ GetFileInformationByHandle(HANDLE hFile,
    NTSTATUS errCode;
    IO_STATUS_BLOCK IoStatusBlock;
 
-   if(IsConsoleHandle(hFile))
-   {
-     SetLastError(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
-
    errCode = NtQueryInformationFile(hFile,
 				    &IoStatusBlock,
 				    &FileBasic,
@@ -622,15 +475,9 @@ GetFileInformationByHandle(HANDLE hFile,
      }
 
    lpFileInformation->dwFileAttributes = (DWORD)FileBasic.FileAttributes;
-   
-   lpFileInformation->ftCreationTime.dwHighDateTime = FileBasic.CreationTime.u.HighPart;
-   lpFileInformation->ftCreationTime.dwLowDateTime = FileBasic.CreationTime.u.LowPart;
-
-   lpFileInformation->ftLastAccessTime.dwHighDateTime = FileBasic.LastAccessTime.u.HighPart;
-   lpFileInformation->ftLastAccessTime.dwLowDateTime = FileBasic.LastAccessTime.u.LowPart;
-   
-   lpFileInformation->ftLastWriteTime.dwHighDateTime = FileBasic.LastWriteTime.u.HighPart;
-   lpFileInformation->ftLastWriteTime.dwLowDateTime = FileBasic.LastWriteTime.u.LowPart;
+   memcpy(&lpFileInformation->ftCreationTime,&FileBasic.CreationTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastAccessTime,&FileBasic.LastAccessTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastWriteTime, &FileBasic.LastWriteTime,sizeof(LARGE_INTEGER));
 
    errCode = NtQueryInformationFile(hFile,
 				    &IoStatusBlock,
@@ -845,13 +692,13 @@ GetFileAttributesW(LPCWSTR lpFileName)
   return Result ? FileAttributeData.dwFileAttributes : 0xffffffff;
 }
 
-BOOL STDCALL
+WINBOOL STDCALL
 SetFileAttributesA(LPCSTR lpFileName,
 		   DWORD dwFileAttributes)
 {
   UNICODE_STRING FileNameU;
   ANSI_STRING FileName;
-  BOOL Result;
+  WINBOOL Result;
 
   RtlInitAnsiString (&FileName,
 		     (LPSTR)lpFileName);
@@ -878,7 +725,7 @@ SetFileAttributesA(LPCSTR lpFileName,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetFileAttributesW(LPCWSTR lpFileName,
 		   DWORD dwFileAttributes)
 {
@@ -993,7 +840,7 @@ GetTempFileNameA(LPCSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1041,7 +888,7 @@ GetTempFileNameW(LPCWSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1055,7 +902,7 @@ GetTempFileNameW(LPCWSTR lpPathName,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetFileTime(HANDLE hFile,
 	    LPFILETIME lpCreationTime,
 	    LPFILETIME lpLastAccessTime,
@@ -1064,12 +911,6 @@ GetFileTime(HANDLE hFile,
    IO_STATUS_BLOCK IoStatusBlock;
    FILE_BASIC_INFORMATION FileBasic;
    NTSTATUS Status;
-
-   if(IsConsoleHandle(hFile))
-   {
-     SetLastError(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
 
    Status = NtQueryInformationFile(hFile,
 				   &IoStatusBlock,
@@ -1096,7 +937,7 @@ GetFileTime(HANDLE hFile,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetFileTime(HANDLE hFile,
 	    CONST FILETIME *lpCreationTime,
 	    CONST FILETIME *lpLastAccessTime,
@@ -1105,12 +946,6 @@ SetFileTime(HANDLE hFile,
    FILE_BASIC_INFORMATION FileBasic;
    IO_STATUS_BLOCK IoStatusBlock;
    NTSTATUS Status;
-
-   if(IsConsoleHandle(hFile))
-   {
-     SetLastError(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
 
    Status = NtQueryInformationFile(hFile,
 				   &IoStatusBlock,
@@ -1152,7 +987,7 @@ SetFileTime(HANDLE hFile,
  *
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetEndOfFile(HANDLE hFile)
 {
 	IO_STATUS_BLOCK  IoStatusBlock;
@@ -1160,12 +995,6 @@ SetEndOfFile(HANDLE hFile)
 	FILE_ALLOCATION_INFORMATION		FileAllocationInfo;
 	FILE_POSITION_INFORMATION		 FilePosInfo;
 	NTSTATUS Status;
-
-	if(IsConsoleHandle(hFile))
-	{
-		SetLastError(ERROR_INVALID_HANDLE);
-		return FALSE;
-	}
 
 	//get current position
 	Status = NtQueryInformationFile(
@@ -1222,236 +1051,6 @@ SetEndOfFile(HANDLE hFile)
 	
 	return TRUE;
 
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetFileValidData(
-    HANDLE hFile,
-    LONGLONG ValidDataLength
-    )
-{
-	IO_STATUS_BLOCK IoStatusBlock;
-	FILE_VALID_DATA_LENGTH_INFORMATION ValidDataLengthInformation;
-	NTSTATUS Status;
-	
-	ValidDataLengthInformation.ValidDataLength.QuadPart = ValidDataLength;
-	
-	Status = NtSetInformationFile(
-						hFile,
-						&IoStatusBlock,	 //out
-						&ValidDataLengthInformation,
-						sizeof(FILE_VALID_DATA_LENGTH_INFORMATION),
-						FileValidDataLengthInformation
-						);
-  
-	if (!NT_SUCCESS(Status)){
-		SetLastErrorByStatus(Status);
-		return FALSE;
-	}
-	
-	return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetFileShortNameW(
-  HANDLE hFile,
-  LPCWSTR lpShortName)
-{
-  NTSTATUS Status;
-  ULONG NeededSize;
-  UNICODE_STRING ShortName;
-  IO_STATUS_BLOCK IoStatusBlock;
-  PFILE_NAME_INFORMATION FileNameInformation;
-  
-  if(IsConsoleHandle(hFile))
-  {
-    SetLastError(ERROR_INVALID_HANDLE);
-    return FALSE;
-  }
-  
-  if(!lpShortName)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
-  
-  RtlInitUnicodeString(&ShortName, lpShortName);
-  
-  NeededSize = sizeof(FILE_NAME_INFORMATION) + ShortName.Length + sizeof(WCHAR);
-  if(!(FileNameInformation = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, NeededSize)))
-  {
-    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-    return FALSE;
-  }
-  
-  FileNameInformation->FileNameLength = ShortName.Length;
-  RtlCopyMemory(FileNameInformation->FileName, ShortName.Buffer, ShortName.Length);
-  
-  Status = NtSetInformationFile(hFile,
-                                &IoStatusBlock,	 //out
-                                FileNameInformation,
-                                NeededSize,
-                                FileShortNameInformation);
-  
-  RtlFreeHeap(RtlGetProcessHeap(), 0, FileNameInformation);
-  if(!NT_SUCCESS(Status))
-  {
-    
-    SetLastErrorByStatus(Status);
-  }
-  
-  return NT_SUCCESS(Status);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetFileShortNameA(
-    HANDLE hFile,
-    LPCSTR lpShortName
-    )
-{
-  NTSTATUS Status;
-  BOOL Ret;
-  ANSI_STRING ShortNameA;
-  UNICODE_STRING ShortName;
-  
-  if(IsConsoleHandle(hFile))
-  {
-    SetLastError(ERROR_INVALID_HANDLE);
-    return FALSE;
-  }
-  
-  if(!lpShortName)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
-  
-  RtlInitAnsiString(&ShortNameA, (LPSTR)lpShortName);
-  
-  if(bIsFileApiAnsi)
-    Status = RtlAnsiStringToUnicodeString(&ShortName, &ShortNameA, TRUE);
-  else
-    Status = RtlOemStringToUnicodeString(&ShortName, &ShortNameA, TRUE);
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastErrorByStatus(Status);
-    return FALSE;
-  }
-  
-  Ret = SetFileShortNameW(hFile, ShortName.Buffer);
-  
-  RtlFreeUnicodeString(&ShortName);
-  return Ret;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3W(
-    LPCWSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitUnicodeString(&Name, lpName);
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3A(
-    LPCSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName, AnsiInputName;
-    NTSTATUS Status;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitAnsiString(&AnsiInputName, (LPSTR)lpName);
-    if(bIsFileApiAnsi)
-      Status = RtlAnsiStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-    else
-      Status = RtlOemStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return FALSE;
-    }
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    RtlFreeUnicodeString(&Name);
-
-    return TRUE;
 }
 
 /* EOF */

@@ -1,6 +1,6 @@
 /*
  * Copyright 2003 Ulrich Czekalla for CodeWeavers
- * Copyright 2003 Ivan Leo Puoti
+ * Copyright 2003 Ivan Leo Murray-Smith
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,7 +22,7 @@ LANGUAGE LANG_ITALIAN, SUBLANG_DEFAULT
 UIINSERTOBJECT DIALOG DISCARDABLE  0, 0, 294, 151
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Insersci oggetto"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     LISTBOX         IDC_OBJTYPELIST,82,19,131,66,LBS_SORT |
                     LBS_NOINTEGRALHEIGHT | WS_VISIBLE | WS_VSCROLL |
@@ -43,7 +43,7 @@ BEGIN
                     WS_TABSTOP | NOT WS_VISIBLE,223,58,64,10
     PUSHBUTTON      "Esplora...",IDC_BROWSE,83,53,50,14,NOT WS_VISIBLE
     LTEXT           "File:",IDC_FILELBL,83,27,20,8, NOT WS_VISIBLE
-    EDITTEXT        IDC_FILE,83,37,132,13,ES_AUTOHSCROLL | NOT WS_VISIBLE
+    EDITTEXT        "", IDC_FILE,83,37,132,13,ES_AUTOHSCROLL | NOT WS_VISIBLE
 END
 
 STRINGTABLE DISCARDABLE

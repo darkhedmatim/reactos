@@ -36,7 +36,6 @@
 #include "shellapi.h"
 #include "shlobj.h"
 #include "shell32_main.h"
-#include "shresdef.h"
 #include "undocshell.h"
 
 typedef struct
@@ -109,8 +108,8 @@ void WINAPI RunFileDlg(
         return;
         }
 
-    DialogBoxIndirectParamA((HINSTANCE)GetWindowLongPtrW( hwndOwner,
-						       GWLP_HINSTANCE ),
+    DialogBoxIndirectParamA((HINSTANCE)GetWindowLongA( hwndOwner,
+						       GWL_HINSTANCE ),
 			    template, hwndOwner, RunDlgProc, (LPARAM)&rfdp);
 
 }
@@ -130,11 +129,34 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             SetClassLongA (hwnd, GCL_HICON, (LPARAM)prfdp->hIcon) ;
             SendMessageA (GetDlgItem (hwnd, 12297), STM_SETICON,
                           (WPARAM)LoadIconA (NULL, (LPSTR)IDI_WINLOGO), 0);
+            if (NULL != prfdp->lpstrDescription)
+                {
+                SetWindowTextA (GetDlgItem(hwnd, 12289), prfdp->lpstrDescription) ;
+                }
             FillList (GetDlgItem (hwnd, 12298), NULL) ;
             SetFocus (GetDlgItem (hwnd, 12298)) ;
             return TRUE ;
 
         case WM_COMMAND :
+            {
+            STARTUPINFOA si ;
+            PROCESS_INFORMATION pi ;
+
+            si.cb = sizeof (STARTUPINFOA) ;
+            si.lpReserved = NULL ;
+            si.lpDesktop = NULL ;
+            si.lpTitle = NULL ;
+            si.dwX = 0 ;
+            si.dwY = 0 ;
+            si.dwXSize = 0 ;
+            si.dwYSize = 0 ;
+            si.dwXCountChars = 0 ;
+            si.dwYCountChars = 0 ;
+            si.dwFillAttribute = 0 ;
+            si.dwFlags = 0 ;
+            si.cbReserved2 = 0 ;
+            si.lpReserved2 = NULL ;
+
             switch (LOWORD (wParam))
                 {
                 case IDOK :
@@ -142,10 +164,11 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     HWND htxt = NULL ;
                     if ((ic = GetWindowTextLengthA (htxt = GetDlgItem (hwnd, 12298))))
                         {
-                        psz = HeapAlloc( GetProcessHeap(), 0, (ic + 2) );
+                        psz = malloc (ic + 2) ;
                         GetWindowTextA (htxt, psz, ic + 1) ;
 
-                        if (ShellExecuteA(NULL, "open", psz, NULL, NULL, SW_SHOWNORMAL) < (HINSTANCE)33)
+                        if (!CreateProcessA (NULL, psz, NULL, NULL, TRUE,
+                            NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi))
                             {
                             char *pszSysMsg = NULL ;
                             FormatMessageA (
@@ -160,12 +183,12 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                             LocalFree ((HLOCAL)pszSysMsg) ;
                             MessageBoxA (hwnd, szMsg, "Nix", MB_OK | MB_ICONEXCLAMATION) ;
 
-                            HeapFree(GetProcessHeap(), 0, psz);
+                            free (psz) ;
                             SendMessageA (htxt, CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
                             return TRUE ;
                             }
                         FillList (htxt, psz) ;
-                        HeapFree(GetProcessHeap(), 0, psz);
+                        free (psz) ;
                         EndDialog (hwnd, 0) ;
                         }
                     }
@@ -230,6 +253,7 @@ INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     }
                 }
             return TRUE ;
+            }
         }
     return FALSE ;
     }
@@ -254,14 +278,13 @@ void FillList (HWND hCb, char *pszLatest)
 
     if (icList > 0)
         {
-        pszList = HeapAlloc( GetProcessHeap(), 0, icList) ;
+        pszList = malloc (icList) ;
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, "MRUList", NULL, NULL, pszList, &icList))
             MessageBoxA (hCb, "Unable to grab MRUList !", "Nix", MB_OK) ;
         }
     else
         {
-        icList = 1 ;
-        pszList = HeapAlloc( GetProcessHeap(), 0, icList) ;
+        pszList = malloc (icList = 1) ;
         pszList[0] = 0 ;
         }
 
@@ -274,10 +297,7 @@ void FillList (HWND hCb, char *pszLatest)
 
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, szIndex, NULL, NULL, NULL, &icCmd))
             MessageBoxA (hCb, "Unable to grab size of index", "Nix", MB_OK) ;
-        if( pszCmd )
-            pszCmd = HeapReAlloc(GetProcessHeap(), 0, pszCmd, icCmd) ;
-        else
-            pszCmd = HeapAlloc(GetProcessHeap(), 0, icCmd) ;
+        pszCmd = realloc (pszCmd, icCmd) ;
         if (ERROR_SUCCESS != RegQueryValueExA (hkey, szIndex, NULL, NULL, pszCmd, &icCmd))
             MessageBoxA (hCb, "Unable to grab index", "Nix", MB_OK) ;
 
@@ -343,10 +363,7 @@ void FillList (HWND hCb, char *pszLatest)
         SendMessageA (hCb, CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
 
         cMatch = ++cMax ;
-        if( pszList )
-            pszList = HeapReAlloc(GetProcessHeap(), 0, pszList, ++icList) ;
-        else
-            pszList = HeapAlloc(GetProcessHeap(), 0, ++icList) ;
+        pszList = realloc (pszList, ++icList) ;
         memmove (&pszList[1], pszList, icList - 1) ;
         pszList[0] = cMatch ;
         szIndex[0] = cMatch ;
@@ -355,52 +372,36 @@ void FillList (HWND hCb, char *pszLatest)
 
     RegSetValueExA (hkey, "MRUList", 0, REG_SZ, pszList, strlen (pszList) + 1) ;
 
-    HeapFree( GetProcessHeap(), 0, pszCmd) ;
-    HeapFree( GetProcessHeap(), 0, pszList) ;
+    free (pszCmd) ;
+    free (pszList) ;
     }
 
 
 /*************************************************************************
- * ConfirmDialog				[internal]
- *
- * Put up a confirm box, return TRUE if the user confirmed
- */
-static BOOL ConfirmDialog(HWND hWndOwner, UINT PromptId, UINT TitleId)
-{
-  WCHAR Prompt[256];
-  WCHAR Title[256];
-
-  LoadStringW(shell32_hInstance, PromptId, Prompt, sizeof(Prompt) / sizeof(WCHAR));
-  LoadStringW(shell32_hInstance, TitleId, Title, sizeof(Title) / sizeof(WCHAR));
-  return MessageBoxW(hWndOwner, Prompt, Title, MB_YESNO|MB_ICONQUESTION) == IDYES;
-}
-
-
-/*************************************************************************
- * RestartDialogEx				[SHELL32.730]
+ * RestartWindowsDialog				[SHELL32.730]
  */
 
-int WINAPI RestartDialogEx(HWND hWndOwner, LPCWSTR lpwstrReason, DWORD uFlags, DWORD uReason)
+int WINAPI RestartDialogEx(HWND hwndOwner, LPCWSTR lpwstrReason, UINT uFlags, UINT uReason)
 {
-    TRACE("(%p)\n", hWndOwner);
+    TRACE("(%p)\n", hwndOwner);
 
     /*FIXME: use uReason */
 
-    if (ConfirmDialog(hWndOwner, IDS_RESTART_PROMPT, IDS_RESTART_TITLE))
+    if (MessageBoxA(hwndOwner, "Do you want to restart the system?", "Restart", MB_YESNO|MB_ICONQUESTION) == IDYES)
     {
-        HANDLE hToken;
-        TOKEN_PRIVILEGES npr;
+	if (SHELL_OsIsUnicode())
+	{
+	    HANDLE hToken;
+	    TOKEN_PRIVILEGES npr = {1, {{{0, 0}, SE_PRIVILEGE_ENABLED}}};
 
-        /* enable shutdown privilege for current process */
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
-        {
-            LookupPrivilegeValueA(0, "SeShutdownPrivilege", &npr.Privileges[0].Luid);
-            npr.PrivilegeCount = 1;
-            npr.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-            AdjustTokenPrivileges(hToken, FALSE, &npr, 0, 0, 0);
-            CloseHandle(hToken);
-        }
-        ExitWindowsEx(EWX_REBOOT, 0);
+	    /* enable shutdown privilege for current process */
+	    OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken);
+	    LookupPrivilegeValueA(0, "SeShutdownPrivilege", &npr.Privileges[0].Luid);
+	    AdjustTokenPrivileges(hToken, FALSE, &npr, 0, 0, 0);
+	    CloseHandle(hToken);
+	}
+
+	ExitWindowsEx(EWX_REBOOT, 0);
     }
 
     return 0;
@@ -408,12 +409,27 @@ int WINAPI RestartDialogEx(HWND hWndOwner, LPCWSTR lpwstrReason, DWORD uFlags, D
 
 
 /*************************************************************************
- * RestartDialog				[SHELL32.59]
+ * RestartWindowsDialog				[SHELL32.59]
  */
 
-int WINAPI RestartDialog(HWND hWndOwner, LPCWSTR lpstrReason, DWORD uFlags)
+int WINAPI RestartDialog(HWND hwndOwner, LPCSTR lpstrReason, UINT uFlags)
 {
-    return RestartDialogEx(hWndOwner, lpstrReason, uFlags, 0);
+    LPWSTR lpwcsReason;
+    int len, ret;
+
+    if (lpstrReason) {
+	len = MultiByteToWideChar(CP_ACP, 0, lpstrReason, -1, NULL, 0);
+	lpwcsReason = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+	MultiByteToWideChar(CP_ACP, 0, lpstrReason, -1, lpwcsReason, len);
+    } else
+	lpwcsReason = NULL;
+
+    ret = RestartDialogEx(hwndOwner, lpwcsReason, uFlags, 0);
+
+    if (lpwcsReason)
+	HeapFree(GetProcessHeap(), 0, lpwcsReason);
+
+    return ret;
 }
 
 
@@ -427,20 +443,22 @@ void WINAPI ExitWindowsDialog (HWND hWndOwner)
 {
     TRACE("(%p)\n", hWndOwner);
 
-    if (ConfirmDialog(hWndOwner, IDS_SHUTDOWN_PROMPT, IDS_SHUTDOWN_TITLE))
+    if (MessageBoxA(hWndOwner, "Do you want to shutdown?", "Shutdown", MB_YESNO|MB_ICONQUESTION) == IDYES)
     {
-        HANDLE hToken;
-        TOKEN_PRIVILEGES npr;
+	if (SHELL_OsIsUnicode())
+	{
+	    HANDLE hToken;
+	    TOKEN_PRIVILEGES npr = {1, {{{0, 0}, SE_PRIVILEGE_ENABLED}}};
 
-        /* enable shutdown privilege for current process */
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
-        {
-            LookupPrivilegeValueA(0, "SeShutdownPrivilege", &npr.Privileges[0].Luid);
-            npr.PrivilegeCount = 1;
-            npr.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-            AdjustTokenPrivileges(hToken, FALSE, &npr, 0, 0, 0);
-            CloseHandle(hToken);
-        }
-        ExitWindowsEx(EWX_SHUTDOWN, 0);
+	    /* enable shutdown privilege for current process */
+	    OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken);
+	    LookupPrivilegeValueA(0, "SeShutdownPrivilege", &npr.Privileges[0].Luid);
+	    AdjustTokenPrivileges(hToken, FALSE, &npr, 0, 0, 0);
+	    CloseHandle(hToken);
+
+	    ExitWindowsEx(EWX_SHUTDOWN, 0);
+	}
+	else
+	    SendMessageA(hWndOwner, WM_QUIT, 0, 0);
     }
 }

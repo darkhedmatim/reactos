@@ -94,23 +94,11 @@ BOOL WINAPI SymGetModuleInfo(
   HANDLE hProcess, DWORD dwAddr,
   PIMAGEHLP_MODULE ModuleInfo)
 {
-  MEMORY_BASIC_INFORMATION mbi;
-
-  FIXME("(%p, 0x%08lx, %p): hacked stub\n",
+  FIXME("(%p, 0x%08lx, %p): stub\n",
     hProcess, dwAddr, ModuleInfo
   );
-
-  /*
-   * OpenOffice uses this function to get paths of it's modules
-   * from address inside the module. So return at least that for
-   * now.
-   */
-  if (VirtualQuery((PVOID)dwAddr, &mbi, sizeof(mbi)) != sizeof(mbi) ||
-      !GetModuleFileNameA((HMODULE)mbi.AllocationBase, ModuleInfo->ImageName, sizeof(ModuleInfo->ImageName)))
-  {
-    return FALSE;
-  }
-  return TRUE;
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return FALSE;
 }
 
 /***********************************************************************

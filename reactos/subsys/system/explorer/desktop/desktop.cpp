@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,216 +26,23 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
+#include "../utility/shellbrowserimpl.h"
+#include "../utility/dragdropimpl.h"
+#include "../utility/window.h"
 
-#include "../explorer_intres.h"
-
+#include "desktop.h"
 #include "../taskbar/desktopbar.h"
-#include "../taskbar/taskbar.h"	// for PM_GET_LAST_ACTIVE
+#include "../shell/mainframe.h"	// for MainFrame::Create()
+
+#include "../globals.h"
+#include "../externals.h"
+#include "../explorer_intres.h"
 
 
 static BOOL (WINAPI*SetShellWindow)(HWND);
 static BOOL (WINAPI*SetShellWindowEx)(HWND, HWND);
-
-
-#ifdef _USE_HDESK
-
-Desktop::Desktop(HDESK hdesktop/*, HWINSTA hwinsta*/)
- :	_hdesktop(hdesktop)
-//	_hwinsta(hwinsta)
-{
-}
-
-Desktop::~Desktop()
-{
-	if (_hdesktop)
-		CloseDesktop(_hdesktop);
-
-//	if (_hwinsta)
-//		CloseWindowStation(_hwinsta);
-
-	if (_pThread.get()) {
-		_pThread->Stop();
-		_pThread.release();
-	}
-}
-
-#endif
-
-
-Desktops::Desktops()
- :	_current_desktop(0)
-{
-}
-
-Desktops::~Desktops()
-{
-	 // show all hidden windows
-	for(iterator it_dsk=begin(); it_dsk!=end(); ++it_dsk)
-		for(WindowSet::iterator it=it_dsk->_windows.begin(); it!=it_dsk->_windows.end(); ++it)
-			ShowWindowAsync(*it, SW_SHOW);
-}
-
-void Desktops::init()
-{
-	resize(DESKTOP_COUNT);
-
-#ifdef _USE_HDESK
-	DesktopPtr& desktop = (*this)[0];
-
-	desktop = DesktopPtr(new Desktop(OpenInputDesktop(0, FALSE, DESKTOP_SWITCHDESKTOP)));
-#endif
-}
-
-#ifdef _USE_HDESK
-
-void Desktops::SwitchToDesktop(int idx)
-{
-	if (_current_desktop == idx)
-		return;
-
-	DesktopPtr& desktop = (*this)[idx];
-
-	DesktopThread* pThread = NULL;
-
-	if (desktop.get()) {
-		if (desktop->_hdesktop)
-			if (!SwitchDesktop(desktop->_hdesktop))
-				return;
-	} else {
-		FmtString desktop_name(TEXT("Desktop %d"), idx);
-
-		SECURITY_ATTRIBUTES saAttr = {sizeof(SECURITY_ATTRIBUTES), 0, TRUE};
-/*
-		HWINSTA hwinsta = CreateWindowStation(TEXT("ExplorerWinStation"), 0, GENERIC_ALL, &saAttr);
-
-		if (!SetProcessWindowStation(hwinsta))
-			return;
-*/
-		HDESK hdesktop = CreateDesktop(desktop_name, NULL, NULL, 0, GENERIC_ALL, &saAttr);
-		if (!hdesktop)
-			return;
-
-		desktop = DesktopPtr(new Desktop(hdesktop/*, hwinsta*/));
-
-		pThread = new DesktopThread(*desktop);
-	}
-
-	_current_desktop = idx;
-
-	if (pThread) {
-		desktop->_pThread = DesktopThreadPtr(pThread);
-		pThread->Start();
-	}
-}
-
-int DesktopThread::Run()
-{
-	if (!SetThreadDesktop(_desktop._hdesktop))
-		return -1;
-
-	HDESK hDesk_old = OpenInputDesktop(0, FALSE, DESKTOP_SWITCHDESKTOP);
-
-	if (!SwitchDesktop(_desktop._hdesktop))
-		return -1;
-
-	if (!_desktop._hwndDesktop)
-		_desktop._hwndDesktop = DesktopWindow::Create();
-
-	int ret = Window::MessageLoop();
-
-	SwitchDesktop(hDesk_old);
-
-	return ret;
-}
-
-#else // _USE_HDESK
-
-static BOOL CALLBACK SwitchDesktopEnumFct(HWND hwnd, LPARAM lparam)
-{
-	WindowSet& windows = *(WindowSet*)lparam;
-
-	if (IsWindowVisible(hwnd))
-		if (hwnd!=g_Globals._hwndDesktopBar && hwnd!=g_Globals._hwndDesktop)
-			windows.insert(hwnd);
-
-	return TRUE;
-}
-
-void Desktops::SwitchToDesktop(int idx)
-{
-	if (_current_desktop == idx)
-		return;
-
-	Desktop& old_desktop = (*this)[_current_desktop];
-	WindowSet& windows = old_desktop._windows;
-	Desktop& desktop = (*this)[idx];
-
-	windows.clear();
-
-	 // collect window handles of all other desktops
-	WindowSet other_wnds;
-	for(const_iterator it1=begin(); it1!=end(); ++it1)
-		for(WindowSet::const_iterator it2=it1->_windows.begin(); it2!=it1->_windows.end(); ++it2)
-			other_wnds.insert(*it2);
-
-	 // save currently visible application windows
-	EnumWindows(SwitchDesktopEnumFct, (LPARAM)&windows);
-
-	old_desktop._hwndForeground = (HWND)SendMessage(g_Globals._hwndDesktopBar, PM_GET_LAST_ACTIVE, 0, 0);
-
-	 // hide all windows of the previous desktop
-	for(WindowSet::iterator it=windows.begin(); it!=windows.end(); ++it)
-		ShowWindowAsync(*it, SW_HIDE);
-
-	 // show all windows of the new desktop
-	for(WindowSet::iterator it=desktop._windows.begin(); it!=desktop._windows.end(); ++it)
-		ShowWindowAsync(*it, SW_SHOW);
-
-	if (desktop._hwndForeground)
-		SetForegroundWindow(desktop._hwndForeground);
-
-	 // remove the window handles of the other desktops from what we found on the previous desktop
-	for(WindowSet::const_iterator it=other_wnds.begin(); it!=other_wnds.end(); ++it)
-		windows.erase(*it);
-
-	 // We don't need to store the window handles of what's now visible the now current desktop.
-	desktop._windows.clear();
-
-	_current_desktop = idx;
-}
-
-#endif // _USE_HDESK
-
-
-static BOOL CALLBACK MinimizeDesktopEnumFct(HWND hwnd, LPARAM lparam)
-{
-	list<MinimizeStruct>& minimized = *(list<MinimizeStruct>*)lparam;
-
-	if (IsWindowVisible(hwnd))
-		if (hwnd!=g_Globals._hwndDesktopBar && hwnd!=g_Globals._hwndDesktop)
-			if (!IsIconic(hwnd)) {
-				minimized.push_back(MinimizeStruct(hwnd, GetWindowStyle(hwnd)));
-				ShowWindowAsync(hwnd, SW_MINIMIZE);
-			}
-
-	return TRUE;
-}
-
- /// minimize/restore all windows on the desktop
-void Desktops::ToggleMinimize()
-{
-	list<MinimizeStruct>& minimized = (*this)[_current_desktop]._minimized;
-
-	if (minimized.empty()) {
-		EnumWindows(MinimizeDesktopEnumFct, (LPARAM)&minimized);
-	} else {
-		for(list<MinimizeStruct>::const_iterator it=minimized.begin(); it!=minimized.end(); ++it)
-			ShowWindowAsync(it->first, it->second&WS_MAXIMIZE? SW_MAXIMIZE: SW_RESTORE);
-
-		minimized.clear();
-	}
-}
 
 
 BOOL IsAnyDesktopRunning()
@@ -249,57 +56,53 @@ BOOL IsAnyDesktopRunning()
 }
 
 
-BackgroundWindow::BackgroundWindow(HWND hwnd)
- :	super(hwnd)
+static void draw_desktop_background(HWND hwnd, HDC hdc)
 {
-	 // set background brush for the short moment of displaying the
-	 // background color while moving foreground windows
-	SetClassLong(hwnd, GCL_HBRBACKGROUND, COLOR_BACKGROUND+1);
+	ClientRect rect(hwnd);
 
-	_display_version = RegGetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), 1);
+	PaintDesktop(hdc);
+/*
+	HBRUSH bkgndBrush = CreateSolidBrush(RGB(0,32,160));	// dark blue
+	FillRect(hdc, &rect, bkgndBrush);
+	DeleteBrush(bkgndBrush);
+*/
+
+	rect.left = rect.right - 280;
+	rect.top = rect.bottom - 56 - DESKTOPBARBAR_HEIGHT;
+	rect.right = rect.left + 250;
+	rect.bottom = rect.top + 40;
+
+#include "../buildno.h"
+	static const LPCTSTR BkgndText = TEXT("ReactOS ")TEXT(KERNEL_VERSION_STR)TEXT(" Explorer\nby Martin Fuchs");
+
+	BkMode bkMode(hdc, TRANSPARENT);
+
+	TextColor textColor(hdc, RGB(128,128,192));
+	DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
+
+	SetTextColor(hdc, RGB(255,255,255));
+	--rect.right;
+	++rect.top;
+	DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
 }
 
-LRESULT BackgroundWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+
+LRESULT	BackgroundWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
 	  case WM_ERASEBKGND:
-		DrawDesktopBkgnd((HDC)wparam);
+		PaintDesktop((HDC)wparam);
 		return TRUE;
 
 	  case WM_MBUTTONDBLCLK:
-		/* Imagelist icons are missing if MainFrame::Create() is called directly from here!
-		explorer_show_frame(SW_SHOWNORMAL); */
-		PostMessage(g_Globals._hwndDesktop, nmsg, wparam, lparam);
+		explorer_show_frame(_hwnd, SW_SHOWNORMAL);
 		break;
-
-	  case PM_DISPLAY_VERSION:
-		if (lparam || wparam) {
-			DWORD or_mask = wparam;
-			DWORD reset_mask = LOWORD(lparam);
-			DWORD xor_mask = HIWORD(lparam);
-			_display_version = ((_display_version&~reset_mask) | or_mask) ^ xor_mask;
-			RegSetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), _display_version);
-			///@todo Changing the PaintDesktopVersion-Flag needs a restart of the shell -> display a message box
-			InvalidateRect(_hwnd, NULL, TRUE);
-		}
-		return _display_version;
 
 	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
 
 	return 0;
-}
-
-void BackgroundWindow::DrawDesktopBkgnd(HDC hdc)
-{
-	PaintDesktop(hdc);
-
-/* special solid background
-	HBRUSH bkgndBrush = CreateSolidBrush(RGB(0,32,160));	// dark blue
-	FillRect(hdc, &rect, bkgndBrush);
-	DeleteBrush(bkgndBrush);
-*/
 }
 
 
@@ -318,15 +121,14 @@ DesktopWindow::~DesktopWindow()
 
 HWND DesktopWindow::Create()
 {
-	static IconWindowClass wcDesktop(TEXT("Progman"), IDI_REACTOS, CS_DBLCLKS);
-	/* (disabled because of small ugly temporary artefacts when hiding start menu)
-	wcDesktop.hbrBackground = (HBRUSH)(COLOR_BACKGROUND+1); */
+	IconWindowClass wcDesktop(TEXT("Progman"), IDI_REACTOS, CS_DBLCLKS);
+	wcDesktop.hbrBackground = (HBRUSH)(COLOR_BACKGROUND+1);
 
 	int width = GetSystemMetrics(SM_CXSCREEN);
 	int height = GetSystemMetrics(SM_CYSCREEN);
 
 	HWND hwndDesktop = Window::Create(WINDOW_CREATOR(DesktopWindow),
-					WS_EX_TOOLWINDOW, wcDesktop, TEXT("Program Manager"), WS_POPUP|WS_VISIBLE,	//|WS_CLIPCHILDREN for SDI frames
+					WS_EX_TOOLWINDOW, wcDesktop, TEXT("Program Manager"), WS_POPUP|WS_VISIBLE|WS_CLIPCHILDREN,
 					0, 0, width, height, 0);
 
 	 // work around to display desktop bar in Wine
@@ -345,12 +147,12 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 	if (super::Init(pcs))
 		return 1;
 
-	HRESULT hr = GetDesktopFolder()->CreateViewObject(_hwnd, IID_IShellView, (void**)&_pShellView);
+	HRESULT hr = Desktop()->CreateViewObject(_hwnd, IID_IShellView, (void**)&_pShellView);
 /* also possible:
 	SFV_CREATE sfv_create;
 
 	sfv_create.cbSize = sizeof(SFV_CREATE);
-	sfv_create.pshf = GetDesktopFolder();
+	sfv_create.pshf = Desktop();
 	sfv_create.psvOuter = NULL;
 	sfv_create.psfvcb = NULL;
 
@@ -362,7 +164,7 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 		FOLDERSETTINGS fs;
 
 		fs.ViewMode = FVM_ICON;
-		fs.fFlags = FWF_DESKTOP|FWF_NOCLIENTEDGE|FWF_NOSCROLL|FWF_BESTFITWINDOW|FWF_SNAPTOGRID;	//|FWF_AUTOARRANGE;
+		fs.fFlags = FWF_DESKTOP|FWF_NOCLIENTEDGE|FWF_NOSCROLL|FWF_BESTFITWINDOW|FWF_SNAPTOGRID;
 
 		ClientRect rect(_hwnd);
 
@@ -371,8 +173,6 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 		///@todo use IShellBrowser::GetViewStateStream() to restore previous view state -> see SHOpenRegStream()
 
 		if (SUCCEEDED(hr)) {
-			g_Globals._hwndShellView = hWndView;
-
 			 // subclass shellview window
 			new DesktopShellView(hWndView, _pShellView);
 
@@ -405,6 +205,15 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 				hr = pFolderView->SetCurrentViewMode(FVM_DETAILS);
 			}
 		*/
+
+			HWND hwndFolderView = ::GetNextWindow(hWndView, GW_CHILD);
+
+			 // work around for Windows NT, Win 98, ...
+			 // Without this the desktop has mysteriously only a size of 800x600 pixels.
+			MoveWindow(hwndFolderView, 0, 0, rect.right, rect.bottom, TRUE);
+
+			 // subclass background window
+			new BackgroundWindow(hwndFolderView);
 		}
 	}
 
@@ -415,7 +224,6 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 
 	 // create the explorer bar
 	_desktopBar = DesktopBar::Create();
-	g_Globals._hwndDesktopBar = _desktopBar;
 
 	return 0;
 }
@@ -424,10 +232,14 @@ LRESULT	DesktopWindow::Init(LPCREATESTRUCT pcs)
 LRESULT DesktopWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
+	  case WM_PAINT:
+		draw_desktop_background(_hwnd, PaintCanvas(_hwnd));
+		break;
+
 	  case WM_LBUTTONDBLCLK:
 	  case WM_RBUTTONDBLCLK:
 	  case WM_MBUTTONDBLCLK:
-		explorer_show_frame(SW_SHOWNORMAL);
+		explorer_show_frame(_hwnd, SW_SHOWNORMAL);
 		break;
 
 	  case WM_GETISHELLBROWSER:
@@ -462,7 +274,7 @@ LRESULT DesktopWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 HRESULT DesktopWindow::OnDefaultCommand(LPIDA pida)
 {
-	if (MainFrameBase::OpenShellFolders(pida, 0))
+	if (MainFrame::OpenShellFolders(pida, 0))
 		return S_OK;
 
 	return E_NOTIMPL;
@@ -473,21 +285,6 @@ DesktopShellView::DesktopShellView(HWND hwnd, IShellView* pShellView)
  :	super(hwnd),
 	_pShellView(pShellView)
 {
-	_hwndListView = ::GetNextWindow(hwnd, GW_CHILD);
-
-	SetWindowStyle(_hwndListView, GetWindowStyle(_hwndListView)&~LVS_ALIGNMASK);//|LVS_ALIGNTOP|LVS_AUTOARRANGE);
-
-	 // work around for Windows NT, Win 98, ...
-	 // Without this the desktop has mysteriously only a size of 800x600 pixels.
-	ClientRect rect(hwnd);
-	MoveWindow(_hwndListView, 0, 0, rect.right, rect.bottom, TRUE);
-
-	 // subclass background window
-	new BackgroundWindow(_hwndListView);
-
-	_icon_algo = 1;	// default icon arrangement
-
-	PositionIcons();
 	InitDragDrop();
 }
 
@@ -529,17 +326,6 @@ LRESULT	DesktopShellView::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		if (!DoContextMenu(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)))
 			DoDesktopContextMenu(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
 		break;
-
-	  case PM_SET_ICON_ALGORITHM:
-		_icon_algo = wparam;
-		PositionIcons();
-		break;
-
-	  case PM_GET_ICON_ALGORITHM:
-		return _icon_algo;
-
-	  case PM_DISPLAY_VERSION:
-		return SendMessage(_hwndListView, nmsg, wparam, lparam);
 
 	  default:
 		return super::WndProc(nmsg, wparam, lparam);
@@ -639,178 +425,4 @@ HRESULT DesktopShellView::DoDesktopContextMenu(int x, int y)
 	}
 
 	return hr;
-}
-
-
-#define	ARRANGE_BORDER_DOWN	 8
-#define	ARRANGE_BORDER_HV	 9
-#define	ARRANGE_ROUNDABOUT	10
-
-static const POINTS s_align_start[] = {
-	{0, 0},	// left/top
-	{0, 0},
-	{1, 0},	// right/top
-	{1, 0},
-	{0, 1},	// left/bottom
-	{0, 1},
-	{1, 1},	// right/bottom
-	{1, 1},
-
-	{0, 0},	// left/top
-	{0, 0},
-	{0, 0}
-};
-
-static const POINTS s_align_dir1[] = {
-	{ 0, +1},	// down
-	{+1,  0},	// right
-	{-1,  0},	// left
-	{ 0, +1},	// down
-	{ 0, -1},	// up
-	{+1,  0},	// right
-	{-1,  0},	// left
-	{ 0, -1},	// up
-
-	{ 0, +1},	// down
-	{+1,  0},	// right
-	{+1,  0}	// right
-};
-
-static const POINTS s_align_dir2[] = {
-	{+1,  0},	// right
-	{ 0, +1},	// down
-	{ 0, +1},	// down
-	{-1,  0},	// left
-	{+1,  0},	// right
-	{ 0, -1},	// up
-	{ 0, -1},	// up
-	{-1,  0},	// left
-
-	{+1,  0},	// right
-	{ 0, +1},	// down
-	{ 0, +1}	// down
-};
-
-typedef pair<int,int> IconPos;
-typedef map<IconPos, int> IconMap;
-
-void DesktopShellView::PositionIcons(int dir)
-{
-	DWORD spacing = ListView_GetItemSpacing(_hwndListView, FALSE);
-
-	RECT work_area;
-	SystemParametersInfo(SPI_GETWORKAREA, 0, &work_area, 0);
-
-	const POINTS& dir1 = s_align_dir1[_icon_algo];
-	const POINTS& dir2 = s_align_dir2[_icon_algo];
-	const POINTS& start_pos = s_align_start[_icon_algo];
-
-	int dir_x1 = dir1.x;
-	int dir_y1 = dir1.y;
-	int dir_x2 = dir2.x;
-	int dir_y2 = dir2.y;
-
-	int cx = LOWORD(spacing);
-	int cy = HIWORD(spacing);
-
-	int dx1 = dir_x1 * cx;
-	int dy1 = dir_y1 * cy;
-	int dx2 = dir_x2 * cx;
-	int dy2 = dir_y2 * cy;
-
-	int start_x = (start_pos.x * work_area.right)/cx*cx + (cx-32)/2;
-	int start_y = (start_pos.y * work_area.bottom)/cy*cy + 4/*(cy-32)/2*/;
-
-	if (start_x >= work_area.right)
-		start_x -= cx;
-
-	if (start_y >= work_area.bottom)
-		start_y -= cy;
-
-	int x = start_x;
-	int y = start_y;
-
-	int all = ListView_GetItemCount(_hwndListView);
-	int i1, i2;
-
-	if (dir > 0) {
-		i1 = 0;
-		i2 = all;
-	} else {
-		i1 = all-1;
-		i2 = -1;
-	}
-
-	IconMap pos_idx;
-	int cnt = 0;
-
-	for(int idx=i1; idx!=i2; idx+=dir) {
-		pos_idx[IconPos(y, x)] = idx;
-
-		if (_icon_algo == ARRANGE_BORDER_DOWN) {
-			if (++cnt & 1)
-				x = work_area.right - x;
-			else {
-				y += dy1;
-
-				if (y >= work_area.bottom) {
-					y = start_y;
-					x += dx2;
-				}
-			}
-
-			continue;
-		}
-		else if (_icon_algo == ARRANGE_BORDER_HV) {
-			if (++cnt & 1)
-				x = work_area.right - x;
-			else if (cnt & 2) {
-				y += dy1;
-
-				if (y >= work_area.bottom) {
-					y = start_y;
-					x += dx2;
-				}
-			} else {
-				x += dx1;
-
-				if (x >= work_area.right) {
-					x = start_x;
-					y += dy2;
-				}
-			}
-
-			continue;
-		}
-		else if (_icon_algo == ARRANGE_ROUNDABOUT) {
-
-			///@todo
-
-		}
-
-		x += dx1;
-		y += dy1;
-
-		if (x<0 || x>=work_area.right) {
-			x = start_x;
-			y += dy2;
-		} else if (y<0 || y>=work_area.bottom) {
-			y = start_y;
-			x += dx2;
-		}
-	}
-
-	 // use a little trick to get the icons where we want them to be...
-
-	for(IconMap::const_iterator it=pos_idx.end(); --it!=pos_idx.begin(); ) {
-		const IconPos& pos = it->first;
-
-		ListView_SetItemPosition32(_hwndListView, it->second, pos.second, pos.first);
-	}
-
-	for(IconMap::const_iterator it=pos_idx.begin(); it!=pos_idx.end(); ++it) {
-		const IconPos& pos = it->first;
-
-		ListView_SetItemPosition32(_hwndListView, it->second, pos.second, pos.first);
-	}
 }

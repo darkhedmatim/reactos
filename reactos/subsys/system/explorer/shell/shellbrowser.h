@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,36 +29,27 @@
 #include "../utility/shellbrowserimpl.h"
 
 
- /// information structure to hold current shell folder information
-struct ShellPathInfo
-{
-	ShellPathInfo(int mode=0) : _open_mode(mode) {}
-
-	ShellPathInfo(const ShellChildWndInfo& info)
-	 :	_shell_path(info._shell_path),
-		_root_shell_path(info._root_shell_path),
-		_open_mode(info._open_mode)
-	{
-	}
-
-	ShellPath	_shell_path;
-	ShellPath	_root_shell_path;
-
-	int			_open_mode;	//OPEN_WINDOW_MODE
-};
-
-
-struct BrowserCallback
-{
-	virtual void entry_selected(Entry* entry) = 0;
-};
-
-
  /// Implementation of IShellBrowserImpl interface in explorer child windows
-struct ShellBrowser : public IShellBrowserImpl
+struct ShellBrowserChild : public ChildWindow, public IShellBrowserImpl
 {
-	ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, ShellPathInfo& create_info, HIMAGELIST himl, BrowserCallback* cb);
-	virtual ~ShellBrowser();
+	typedef ChildWindow super;
+
+	ShellBrowserChild(HWND hwnd, const ShellChildWndInfo& info);
+	~ShellBrowserChild();
+
+	static ShellBrowserChild* create(HWND hmdiclient, const FileChildWndInfo& info)
+	{
+#ifndef _NO_MDI
+		ChildWindow* child = ChildWindow::create(hmdiclient, info._pos.rcNormalPosition,
+													WINDOW_CREATOR_INFO(ShellBrowserChild,ShellChildWndInfo), CLASSNAME_CHILDWND, NULL, &info);
+#else
+		///@todo SDI implementation
+#endif
+
+		ShowWindow(*child, info._pos.showCmd);
+
+		return static_cast<ShellBrowserChild*>(child);
+	}
 
 	//IOleWindow
 	virtual HRESULT STDMETHODCALLTYPE GetWindow(HWND* lphwnd)
@@ -110,149 +101,36 @@ struct ShellBrowser : public IShellBrowserImpl
 		return E_NOTIMPL;
 	}
 
-	const Root& get_root() const {return _root;}
+protected:
+	Root _root;
+
+	WindowHandle _hWndFrame;
+	ShellChildWndInfo _create_info;
+	ShellFolder	_folder;
+
+	IShellView*	_pShellView;	// current hosted shellview
+	HIMAGELIST	_himlSmall;		// list
+//	HIMAGELIST	_himlLarge;		// shell image
+	TreeDropTarget* _pDropTarget;
+
+	HTREEITEM _last_sel;
+
+	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
+	int 	Notify(int id, NMHDR* pnmh);
+
+	LRESULT	Init(LPCREATESTRUCT);
+	void	InitializeTree(/*const FileChildWndInfo& info*/);
+	int		InsertSubitems(HTREEITEM hParentItem, Entry* entry, IShellFolder* pParentFolder);
+	bool	InitDragDrop();
+
+	HRESULT OnDefaultCommand(LPIDA pida);
 
 	void	OnTreeGetDispInfo(int idCtrl, LPNMHDR pnmh);
 	void	OnTreeItemExpanding(int idCtrl, LPNMTREEVIEW pnmtv);
 	void	OnTreeItemRClick(int idCtrl, LPNMHDR pnmh);
 	void	OnTreeItemSelected(int idCtrl, LPNMTREEVIEW pnmtv);
 
-	LRESULT	Init(HWND hWndFrame);
-
-	void	Init(HIMAGELIST himl)
-	{
-		InitializeTree(himl);
-		InitDragDrop();
-	}
-
-	int		InsertSubitems(HTREEITEM hParentItem, Entry* entry, IShellFolder* pParentFolder);
-
-	bool	jump_to_pidl(LPCITEMIDLIST pidl);
-
-	HRESULT OnDefaultCommand(LPIDA pida);
-
 	void	UpdateFolderView(IShellFolder* folder);
-	HTREEITEM select_entry(HTREEITEM hitem, Entry* entry, bool expand=true);
-
-protected:
-	HWND	_hwnd;
-	HWND	_left_hwnd;
-	WindowHandle& _right_hwnd;
-	ShellPathInfo& _create_info;
-	HIMAGELIST	_himl;
-	BrowserCallback* _callback;
-
-	WindowHandle _hWndFrame;
-	ShellFolder	_folder;
-
-	IShellView*	_pShellView;	// current hosted shellview
-	TreeDropTarget* _pDropTarget;
-
-	HTREEITEM _last_sel;
-
-	Root	_root;
-	ShellDirectory*	_cur_dir;
-
-	void	InitializeTree(HIMAGELIST himl);
-	bool	InitDragDrop();
-
-	 // for SDIMainFrame
-	void	jump_to(LPCITEMIDLIST pidl);
+	void	Tree_DoItemMenu(HWND hwndTreeView, HTREEITEM hItem, LPPOINT pptScreen);
+	bool	expand_folder(ShellDirectory* entry);
 };
-
-
-template<typename BASE> struct ShellBrowserChildT
- : public BASE, public BrowserCallback
-{
-	typedef BASE super;
-
-	 // constructor for SDIMainFrame
-	ShellBrowserChildT(HWND hwnd)
-	 :	super(hwnd)
-	{
-		_himlSmall = 0;
-	}
-
-	 // constructor for MDIShellBrowserChild
-	ShellBrowserChildT(HWND hwnd, const ShellChildWndInfo& info)
-	 :	super(hwnd, info)
-	{
-		_himlSmall = 0;
-	}
-
-	void init_himl()
-	{
-		SHFILEINFO sfi;
-
-		_himlSmall = (HIMAGELIST)SHGetFileInfo(TEXT("C:\\"), 0, &sfi, sizeof(SHFILEINFO), SHGFI_SYSICONINDEX|SHGFI_SMALLICON);
-//		_himlLarge = (HIMAGELIST)SHGetFileInfo(TEXT("C:\\"), 0, &sfi, sizeof(SHFILEINFO), SHGFI_SYSICONINDEX|SHGFI_LARGEICON);
-	}
-
-protected:
-	HIMAGELIST	_himlSmall;		// list
-//	HIMAGELIST	_himlLarge;		// shell image
-
-protected:
-	auto_ptr<ShellBrowser> _shellBrowser;
-
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-	{
-		switch(nmsg) {
-		  case PM_GET_SHELLBROWSER_PTR:
-			return (LRESULT)&*_shellBrowser;
-
-		  case WM_GETISHELLBROWSER:	// for Registry Explorer Plugin
-			return (LRESULT)static_cast<IShellBrowser*>(&*_shellBrowser);
-
-		  default:
-			return super::WndProc(nmsg, wparam, lparam);
-		}
-
-		return 0;
-	}
-
-	int Notify(int id, NMHDR* pnmh)
-	{
-		if (&*_shellBrowser)
-			switch(pnmh->code) {
-			  case TVN_GETDISPINFO:		_shellBrowser->OnTreeGetDispInfo(id, pnmh);					break;
-			  case TVN_SELCHANGED:		_shellBrowser->OnTreeItemSelected(id, (LPNMTREEVIEW)pnmh);	break;
-			  case TVN_ITEMEXPANDING:	_shellBrowser->OnTreeItemExpanding(id, (LPNMTREEVIEW)pnmh);	break;
-			  case NM_RCLICK:			_shellBrowser->OnTreeItemRClick(id, pnmh);					break;
-			  default:					return super::Notify(id, pnmh);
-			}
-		else
-			return super::Notify(id, pnmh);
-
-		return 0;
-	}
-};
-
-
-#ifndef _NO_MDI
-
-struct MDIShellBrowserChild : public ShellBrowserChildT<ChildWindow>
-{
-	typedef ShellBrowserChildT<ChildWindow> super;
-
-	MDIShellBrowserChild(HWND hwnd, const ShellChildWndInfo& info);
-
-	static MDIShellBrowserChild* create(const ShellChildWndInfo& info);
-
-	LRESULT	Init(LPCREATESTRUCT);
-
-	virtual String jump_to_int(LPCTSTR url);
-
-protected:
-	ShellChildWndInfo _create_info;
-	ShellPathInfo	_shellpath_info;
-
-	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-
-	void	update_shell_browser();
-
-	 // interface BrowserCallback
-	virtual void	entry_selected(Entry* entry);
-};
-
-#endif

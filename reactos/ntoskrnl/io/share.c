@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: share.c,v 1.12 2004/08/25 15:01:48 navaraf Exp $
+/* $Id: share.c,v 1.9 2003/07/10 15:47:00 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -29,7 +29,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -100,7 +101,7 @@ IoCheckShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedDelete;
 
   ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  WriteAccess = (DesiredAccess & (FILE_READ_DATA | FILE_APPEND_DATA));
   DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
@@ -248,7 +249,7 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedDelete;
 
   ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  WriteAccess = (DesiredAccess & (FILE_READ_DATA | FILE_APPEND_DATA));
   DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
@@ -329,8 +330,8 @@ IoCheckFunctionAccess(IN ACCESS_MASK GrantedAccess,
 		      IN UCHAR MajorFunction,
 		      IN UCHAR MinorFunction,
 		      IN ULONG IoControlCode,
-		      IN PVOID ExtraData OPTIONAL,
-		      IN PVOID ExtraData2 OPTIONAL)
+		      IN PFILE_INFORMATION_CLASS FileInformationClass OPTIONAL,
+		      IN PFS_INFORMATION_CLASS FsInformationClass OPTIONAL)
 {
   UNIMPLEMENTED;
   return(STATUS_NOT_IMPLEMENTED);

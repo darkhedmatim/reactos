@@ -12,20 +12,19 @@ TARGET_APPTYPE = windows
 
 TARGET_NAME = taskmgr
 
-TARGET_INSTALLDIR = system32
-
-TARGET_PCH = precomp.h
-
-TARGET_CFLAGS = -Werror -Wall -DDBG -D_WIN32_IE=0x0501 -D_WIN32_WINNT=0x0501 -D__USE_W32API 
+TARGET_CFLAGS = -DDBG -D_WIN32_IE=0x0501 -D_WIN32_WINNT=0x0501 -D__USE_W32API 
 	
-TARGET_SDKLIBS = ntdll.a kernel32.a user32.a gdi32.a comctl32.a
+TARGET_SDKLIBS = \
+	kernel32.a \
+	user32.a \
+	gdi32.a \
+	comctl32.a
 
 TARGET_OBJECTS = \
 	about.o \
 	affinity.o \
 	applpage.o \
 	column.o \
-	dbgchnl.o \
 	debug.o \
 	endproc.o \
 	font.o \

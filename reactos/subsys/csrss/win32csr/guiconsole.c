@@ -1,4 +1,4 @@
-/* $Id: guiconsole.c,v 1.26 2004/12/25 11:22:37 navaraf Exp $
+/* $Id: guiconsole.c,v 1.7.2.1 2004/01/19 20:08:49 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -29,12 +29,6 @@ typedef struct GUI_CONSOLE_DATA_TAG
   PWCHAR LineBuffer;
   BOOL CursorBlinkOn;
   BOOL ForceCursorOff;
-  CRITICAL_SECTION Lock;
-  HDC MemoryDC;
-  HBITMAP MemoryBitmap;
-  RECT Selection;
-  POINT SelectionStart;
-  BOOL MouseDown;
 } GUI_CONSOLE_DATA, *PGUI_CONSOLE_DATA;
 
 #ifndef WM_APP
@@ -42,6 +36,8 @@ typedef struct GUI_CONSOLE_DATA_TAG
 #endif
 #define PM_CREATE_CONSOLE  (WM_APP + 1)
 #define PM_DESTROY_CONSOLE (WM_APP + 2)
+
+#define PM_COPY_REGION     (WM_APP + 100)
 
 #define CURSOR_BLINK_TIME 500
 
@@ -53,7 +49,7 @@ static HWND NotifyWnd;
 static VOID FASTCALL
 GuiConsoleGetDataPointers(HWND hWnd, PCSRSS_CONSOLE *Console, PGUI_CONSOLE_DATA *GuiData)
 {
-  *Console = (PCSRSS_CONSOLE) GetWindowLongPtrW(hWnd, GWL_USERDATA);
+  *Console = (PCSRSS_CONSOLE) GetWindowLongW(hWnd, GWL_USERDATA);
   *GuiData = (NULL == *Console ? NULL : (*Console)->PrivateData);
 }
 
@@ -67,7 +63,7 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
   HFONT OldFont;
   TEXTMETRICW Metrics;
 
-  GuiData = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY,
+  GuiData = HeapAlloc(Win32CsrApiHeap, 0,
                       sizeof(GUI_CONSOLE_DATA) +
                       (Console->Size.X + 1) * sizeof(WCHAR));
   if (NULL == GuiData)
@@ -75,20 +71,16 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
       DPRINT1("GuiConsoleNcCreate: HeapAlloc failed\n");
       return FALSE;
     }
-
-  InitializeCriticalSection(&GuiData->Lock);
-
   GuiData->LineBuffer = (PWCHAR)(GuiData + 1);
 
   GuiData->Font = CreateFontW(12, 0, 0, TA_BASELINE, FW_NORMAL,
-                              FALSE, FALSE, FALSE, OEM_CHARSET,
+                              FALSE, FALSE, FALSE, ANSI_CHARSET,
                               OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                              NONANTIALIASED_QUALITY, FIXED_PITCH | FF_DONTCARE,
+                              DEFAULT_QUALITY, FIXED_PITCH | FF_DONTCARE,
                               L"Bitstream Vera Sans Mono");
   if (NULL == GuiData->Font)
     {
       DPRINT1("GuiConsoleNcCreate: CreateFont failed\n");
-      DeleteCriticalSection(&GuiData->Lock);
       HeapFree(Win32CsrApiHeap, 0, GuiData);
       return FALSE;
     }
@@ -96,8 +88,6 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
   if (NULL == Dc)
     {
       DPRINT1("GuiConsoleNcCreate: GetDC failed\n");
-      DeleteObject(GuiData->Font);
-      DeleteCriticalSection(&GuiData->Lock);
       HeapFree(Win32CsrApiHeap, 0, GuiData);
       return FALSE;
     }
@@ -106,8 +96,6 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
     {
       DPRINT1("GuiConsoleNcCreate: SelectObject failed\n");
       ReleaseDC(hWnd, Dc);
-      DeleteObject(GuiData->Font);
-      DeleteCriticalSection(&GuiData->Lock);
       HeapFree(Win32CsrApiHeap, 0, GuiData);
       return FALSE;
     }
@@ -116,32 +104,18 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
       DPRINT1("GuiConsoleNcCreate: GetTextMetrics failed\n");
       SelectObject(Dc, OldFont);
       ReleaseDC(hWnd, Dc);
-      DeleteObject(GuiData->Font);
-      DeleteCriticalSection(&GuiData->Lock);
       HeapFree(Win32CsrApiHeap, 0, GuiData);
       return FALSE;
     }
   GuiData->CharWidth = Metrics.tmMaxCharWidth;
   GuiData->CharHeight = Metrics.tmHeight + Metrics.tmExternalLeading;
   SelectObject(Dc, OldFont);
-
-  GuiData->MemoryDC = CreateCompatibleDC(Dc);
-  GuiData->MemoryBitmap = CreateCompatibleBitmap(Dc, 
-                                                 Console->Size.X * GuiData->CharWidth, 
-						 Console->Size.Y * GuiData->CharHeight);
-  /* NOTE: Don't delete the "first bitmap", it's done in DeleteDC. */
-  SelectObject(GuiData->MemoryDC, GuiData->MemoryBitmap);
-  /* NOTE: Don't delete stock font. */
-  SelectObject(GuiData->MemoryDC, GuiData->Font); 
-
   ReleaseDC(hWnd, Dc);
   GuiData->CursorBlinkOn = TRUE;
   GuiData->ForceCursorOff = FALSE;
 
-  GuiData->Selection.left = -1;
-  
   Console->PrivateData = GuiData;
-  SetWindowLongPtrW(hWnd, GWL_USERDATA, (DWORD_PTR) Console);
+  SetWindowLongW(hWnd, GWL_USERDATA, (LONG) Console);
 
   GetWindowRect(hWnd, &Rect);
   Rect.right = Rect.left + Console->Size.X * GuiData->CharWidth +
@@ -187,80 +161,17 @@ GuiConsoleGetLogicalCursorPos(PCSRSS_SCREEN_BUFFER Buff, ULONG *CursorX, ULONG *
     }
 }
 
-
 static VOID FASTCALL
-GuiConsoleUpdateSelection(HWND hWnd, PRECT rc, PGUI_CONSOLE_DATA GuiData)
+GuiConsoleHandlePaint(HWND hWnd)
 {
-  RECT oldRect = GuiData->Selection;
-  
-  if(rc != NULL)
-  {
-    RECT changeRect = *rc;
-
-    GuiData->Selection = *rc;
-
-    changeRect.left *= GuiData->CharWidth;
-    changeRect.top *= GuiData->CharHeight;
-    changeRect.right *= GuiData->CharWidth;
-    changeRect.bottom *= GuiData->CharHeight;
-    
-    if(rc->left != oldRect.left ||
-       rc->top != oldRect.top ||
-       rc->right != oldRect.right ||
-       rc->bottom != oldRect.bottom)
-    {
-      if(oldRect.left != -1)
-      {
-        HRGN rgn1, rgn2;
-        
-        oldRect.left *= GuiData->CharWidth;
-        oldRect.top *= GuiData->CharHeight;
-        oldRect.right *= GuiData->CharWidth;
-        oldRect.bottom *= GuiData->CharHeight;
-        
-        /* calculate the region that needs to be updated */
-        if((rgn1 = CreateRectRgnIndirect(&oldRect)))
-        {
-          if((rgn2 = CreateRectRgnIndirect(&changeRect)))
-          {
-            if(CombineRgn(rgn1, rgn2, rgn1, RGN_XOR) != ERROR)
-            {
-              InvalidateRgn(hWnd, rgn1, FALSE);
-            }
-
-            DeleteObject(rgn2);
-          }
-          DeleteObject(rgn1);
-        }
-      }
-      else
-      {
-        InvalidateRect(hWnd, &changeRect, FALSE);
-      }
-    }
-  }
-  else if(oldRect.left != -1)
-  {
-    /* clear the selection */
-    GuiData->Selection.left = -1;
-    oldRect.left *= GuiData->CharWidth;
-    oldRect.top *= GuiData->CharHeight;
-    oldRect.right *= GuiData->CharWidth;
-    oldRect.bottom *= GuiData->CharHeight;
-    InvalidateRect(hWnd, &oldRect, FALSE);
-  }
-}
-
-
-VOID FASTCALL
-GuiConsoleUpdateBitmap(HWND hWnd, RECT rc)
-{
+  PAINTSTRUCT Ps;
+  HDC Dc;
   PCSRSS_CONSOLE Console;
   PGUI_CONSOLE_DATA GuiData;
   PCSRSS_SCREEN_BUFFER Buff;
-  HDC Dc;
-  ULONG TopLine, BottomLine, LeftChar, RightChar;
-  ULONG Line, Char, Start;
+  unsigned TopLine, BottomLine, LeftChar, RightChar;
+  unsigned Line, Char, Start;
+  HFONT OldFont;
   PBYTE From;
   PWCHAR To;
   BYTE LastAttribute, Attribute;
@@ -271,24 +182,23 @@ GuiConsoleUpdateBitmap(HWND hWnd, RECT rc)
   if (NULL != Console && NULL != GuiData && NULL != Console->ActiveBuffer)
     {
       Buff = Console->ActiveBuffer;
-      EnterCriticalSection(&Buff->Header.Lock);
-      Dc = GetDC(hWnd);
-      if (rc.right <= rc.left || rc.bottom <= rc.top)
+      EnterCriticalSection(&(Buff->Header.Lock));
+
+      Dc = BeginPaint(hWnd, &Ps);
+      if (Ps.rcPaint.right <= Ps.rcPaint.left || Ps.rcPaint.bottom <= Ps.rcPaint.top)
         {
-          ReleaseDC(hWnd, Dc);
-          LeaveCriticalSection(&Buff->Header.Lock);
+          EndPaint(hWnd, &Ps);
+          LeaveCriticalSection(&(Buff->Header.Lock));
           return;
         }
+      OldFont = SelectObject(Dc, GuiData->Font);
 
-      EnterCriticalSection(&GuiData->Lock);
-
-      TopLine = rc.top / GuiData->CharHeight;
-      BottomLine = (rc.bottom + (GuiData->CharHeight - 1)) / GuiData->CharHeight - 1;
-      LeftChar = rc.left / GuiData->CharWidth;
-      RightChar = (rc.right + (GuiData->CharWidth - 1)) / GuiData->CharWidth - 1;
+      TopLine = Ps.rcPaint.top / GuiData->CharHeight;
+      BottomLine = (Ps.rcPaint.bottom + (GuiData->CharHeight - 1)) / GuiData->CharHeight - 1;
+      LeftChar = Ps.rcPaint.left / GuiData->CharWidth;
+      RightChar = (Ps.rcPaint.right + (GuiData->CharWidth - 1)) / GuiData->CharWidth - 1;
       LastAttribute = Buff->Buffer[(TopLine * Buff->MaxX + LeftChar) * 2 + 1];
-      GuiConsoleSetTextColors(GuiData->MemoryDC, LastAttribute);
-
+      GuiConsoleSetTextColors(Dc, LastAttribute);
       for (Line = TopLine; Line <= BottomLine; Line++)
         {
           if (Line + Buff->ShowY < Buff->MaxY)
@@ -300,30 +210,34 @@ GuiConsoleUpdateBitmap(HWND hWnd, RECT rc)
               From = Buff->Buffer +
                      ((Line - (Buff->MaxY - Buff->ShowY)) * Buff->MaxX + LeftChar) * 2;
             }
+          Attribute = *(From + 1);
           Start = LeftChar;
           To = GuiData->LineBuffer;
           for (Char = LeftChar; Char <= RightChar; Char++)
             {
-              if (*(From + 1) != LastAttribute)
+              if (*(From + 1) != Attribute)
                 {
-                  TextOutW(GuiData->MemoryDC, Start * GuiData->CharWidth, Line * GuiData->CharHeight,
+                  TextOutW(Dc, Start * GuiData->CharWidth, Line * GuiData->CharHeight,
                            GuiData->LineBuffer, Char - Start);
                   Start = Char;
                   To = GuiData->LineBuffer;
                   Attribute = *(From + 1);
                   if (Attribute != LastAttribute)
                     {
-                      GuiConsoleSetTextColors(GuiData->MemoryDC, Attribute);
+                      GuiConsoleSetTextColors(Dc, Attribute);
                       LastAttribute = Attribute;
                     }
                 }  
-              MultiByteToWideChar(Console->OutputCodePage, 0, (PCHAR)From, 1, To, 1);
+              *((PBYTE) To) = *From;
+              *(((PBYTE) To) + 1) = '\0';
               To++;
               From += 2;
             }
-          TextOutW(GuiData->MemoryDC, Start * GuiData->CharWidth, Line * GuiData->CharHeight,
+          TextOutW(Dc, Start * GuiData->CharWidth, Line * GuiData->CharHeight,
                    GuiData->LineBuffer, RightChar - Start + 1);
         }
+
+      SelectObject(Dc, OldFont);
 
       if (Buff->CursorInfo.bVisible && GuiData->CursorBlinkOn
           &&! GuiData->ForceCursorOff)
@@ -339,62 +253,22 @@ GuiConsoleUpdateBitmap(HWND hWnd, RECT rc)
                 }
               From = Buff->Buffer + (Buff->CurrentY * Buff->MaxX + Buff->CurrentX) * 2 + 1;
               CursorBrush = CreateSolidBrush(GuiConsoleRGBFromAttribute(*From));
-              OldBrush = SelectObject(GuiData->MemoryDC, CursorBrush);
-              PatBlt(GuiData->MemoryDC, CursorX * GuiData->CharWidth,
+              OldBrush = SelectObject(Dc, CursorBrush);
+              PatBlt(Dc, CursorX * GuiData->CharWidth,
                      CursorY * GuiData->CharHeight + (GuiData->CharHeight - CursorHeight),
                      GuiData->CharWidth, CursorHeight, PATCOPY);
-              SelectObject(GuiData->MemoryDC, OldBrush);
+              SelectObject(Dc, OldBrush);
               DeleteObject(CursorBrush);
             }
         }
+      EndPaint(hWnd, &Ps);
 
-      LeaveCriticalSection(&GuiData->Lock);
-      ReleaseDC(hWnd, Dc);
-      LeaveCriticalSection(&Buff->Header.Lock);
-      InvalidateRect(hWnd, &rc, FALSE);
-   }
-}
-
-VOID FASTCALL
-GuiConsoleHandlePaint(HWND hWnd)
-{
-  PAINTSTRUCT Ps;
-  HDC Dc;
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-  if (NULL != Console && NULL != GuiData)
-    {
-      EnterCriticalSection(&GuiData->Lock);
-      Dc = BeginPaint (hWnd, &Ps);
-      BitBlt(Dc, Ps.rcPaint.left, Ps.rcPaint.top,
-             Ps.rcPaint.right - Ps.rcPaint.left + 1,
-             Ps.rcPaint.bottom - Ps.rcPaint.top + 1, GuiData->MemoryDC,
-             Ps.rcPaint.left, Ps.rcPaint.top, SRCCOPY);
-      
-      if (GuiData->Selection.left != -1)
-      {
-        RECT rc = GuiData->Selection;
-        
-        rc.left *= GuiData->CharWidth;
-        rc.top *= GuiData->CharHeight;
-        rc.right *= GuiData->CharWidth;
-        rc.bottom *= GuiData->CharHeight;
-
-        if (IntersectRect(&rc, &Ps.rcPaint, &rc))
-        {                 
-          PatBlt(Dc, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, DSTINVERT);
-        } 
-      }                   
-      
-      EndPaint (hWnd, &Ps);
-      LeaveCriticalSection(&GuiData->Lock);
+      LeaveCriticalSection(&(Buff->Header.Lock));
     }
   else
     {
-      Dc = BeginPaint (hWnd, &Ps);
-      EndPaint (hWnd, &Ps);
+      Dc = BeginPaint(hWnd, &Ps);
+      EndPaint(hWnd, &Ps);
     }
 }
 
@@ -410,14 +284,102 @@ GuiConsoleHandleKey(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   Message.message = msg;
   Message.wParam = wParam;
   Message.lParam = lParam;
-  
-  if(msg == WM_CHAR || msg == WM_SYSKEYDOWN)
-  {
-    /* clear the selection */
-    GuiConsoleUpdateSelection(hWnd, NULL, GuiData);
-  }
 
   ConioProcessKey(&Message, Console, FALSE);
+}
+
+static VOID FASTCALL
+GuiConsoleHandleCopyRegion(HWND hWnd, PRECT Source, PRECT Dest)
+{
+  HDC Dc;
+  int XDest, YDest, Width, Height, XSrc, YSrc;
+  PCSRSS_CONSOLE Console;
+  PGUI_CONSOLE_DATA GuiData;
+  RECT CursorRect, UpdateRect;
+  DWORD CursorX, CursorY;
+  PCSRSS_SCREEN_BUFFER Buff;
+
+  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
+  Buff = Console->ActiveBuffer;
+
+  /* Check if the cursor is in the source rectangle and if it is,
+   * make sure it's invisible */ 
+  GuiConsoleGetLogicalCursorPos(Buff, &CursorX, &CursorY);
+  if (Source->left <= CursorX && CursorX <= Source->right &&
+      Source->top <= CursorY && CursorY <= Source->bottom)
+    {
+      GuiData->ForceCursorOff = TRUE;
+
+      CursorRect.left = CursorX * GuiData->CharWidth;
+      CursorRect.top = CursorY * GuiData->CharHeight;
+      CursorRect.right = (CursorX + 1) * GuiData->CharWidth;
+      CursorRect.bottom = (CursorY + 1) * GuiData->CharHeight;
+
+      InvalidateRect(hWnd, &CursorRect, FALSE);
+    }
+
+
+  /* This is a bit tricky. We want to copy a source rectangle to
+   * a destination rectangle, but there is no guarantee that the
+   * contents of the source rectangle is valid. First let's try
+   * to make it as valid as possible by painting all outstanding
+   * updates. To do that we have to release the lock, otherwise
+   * the paint code can't acquire it */
+
+  UpdateWindow(hWnd);
+
+  Dc = GetDC(hWnd);
+  if (NULL == Dc)
+    {
+      return;
+    }
+
+  XSrc = Source->left * GuiData->CharWidth;
+  YSrc = Source->top * GuiData->CharHeight;
+  XDest = Dest->left * GuiData->CharWidth;
+  YDest = Dest->top * GuiData->CharHeight;
+  Width = (Dest->right - Dest->left + 1) * GuiData->CharWidth;
+  Height = (Dest->bottom - Dest->top + 1) * GuiData->CharHeight;
+
+  BitBlt(Dc, XDest, YDest, Width, Height, Dc, XSrc, YSrc, SRCCOPY);
+
+  ReleaseDC(hWnd, Dc);
+
+  /* Although we tried to make sure that the source rectangle was
+   * up-to-date, this is not guaranteed. For example, the user could
+   * have moved a window between the UpdateWindow() and the BitBlt()
+   * above, invalidating part of the window. So, we're going to
+   * check if the current update rect of the window overlaps with the
+   * source rectangle. If it does, we invalidate the corresponding
+   * part of the destination rectangle so it will eventually be
+   * repainted. Note that this is probably doesn't happen all that
+   * often and GetUpdateRect() below will usually return FALSE,
+   * indicating that the whole window is valid */
+
+  if (GetUpdateRect(hWnd, &UpdateRect, FALSE))
+    {
+      UpdateRect.left = max(UpdateRect.left, XSrc);
+      UpdateRect.top = max(UpdateRect.top, YSrc);
+      UpdateRect.right = min(UpdateRect.right, XSrc + Width);
+      UpdateRect.bottom = min(UpdateRect.bottom, YSrc + Height);
+      if (UpdateRect.left < UpdateRect.right && UpdateRect.top < UpdateRect.bottom)
+        {
+          UpdateRect.left += XDest - XSrc;
+          UpdateRect.top += YDest - YSrc;
+          UpdateRect.right += XDest - XSrc;
+          UpdateRect.bottom += YDest - YSrc;
+
+          InvalidateRect(Console->hWindow, &UpdateRect, FALSE);
+        }
+    }
+
+  /* Show cursor again if we made it invisible */
+  if (GuiData->ForceCursorOff)
+    {
+      GuiData->ForceCursorOff = FALSE;
+
+      InvalidateRect(hWnd, &CursorRect, FALSE);
+    }
 }
 
 static VOID FASTCALL
@@ -430,7 +392,7 @@ GuiIntDrawRegion(PGUI_CONSOLE_DATA GuiData, HWND Wnd, RECT *Region)
   RegionRect.right = (Region->right + 1) * GuiData->CharWidth;
   RegionRect.bottom = (Region->bottom + 1) * GuiData->CharHeight;
 
-  GuiConsoleUpdateBitmap(Wnd, RegionRect);
+  InvalidateRect(Wnd, &RegionRect, FALSE);
 }
 
 static VOID STDCALL
@@ -484,7 +446,7 @@ GuiWriteStream(PCSRSS_CONSOLE Console, RECT *Region, UINT CursorStartX, UINT Cur
       Dest.right = Console->Size.X - 1;
       Dest.bottom = Region->top - 1;
 
-      GuiConsoleCopyRegion(Console->hWindow, &Source, &Dest);
+      GuiConsoleCopyRegion(Console, &Source, &Dest);
     }
 
   GuiIntDrawRegion(GuiData, Console->hWindow, Region);
@@ -568,25 +530,7 @@ GuiConsoleHandleTimer(HWND hWnd)
 static VOID FASTCALL
 GuiConsoleHandleClose(HWND hWnd)
 {
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  PLIST_ENTRY current_entry;
-  PCSRSS_PROCESS_DATA current;
-
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-
-  EnterCriticalSection(&Console->Header.Lock);
-
-  current_entry = Console->ProcessList.Flink;
-  while (current_entry != &Console->ProcessList)
-    {
-      current = CONTAINING_RECORD(current_entry, CSRSS_PROCESS_DATA, ProcessEntry);
-      current_entry = current_entry->Flink;
-
-      ConioConsoleCtrlEvent(CTRL_CLOSE_EVENT, current);
-    }
-
-  LeaveCriticalSection(&Console->Header.Lock);
+  /* FIXME for now, just ignore close requests */
 }
 
 static VOID FASTCALL
@@ -598,141 +542,8 @@ GuiConsoleHandleNcDestroy(HWND hWnd)
   GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
   KillTimer(hWnd, 1);
   Console->PrivateData = NULL;
-  DeleteDC(GuiData->MemoryDC);
-  DeleteCriticalSection(&GuiData->Lock);
   HeapFree(Win32CsrApiHeap, 0, GuiData);
 }
-
-static VOID FASTCALL
-GuiConsoleLeftMouseDown(HWND hWnd, LPARAM lParam)
-{
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  POINTS pt;
-  RECT rc;
-  
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-  if (Console == NULL || GuiData == NULL) return;
-
-  pt = MAKEPOINTS(lParam);
-
-  rc.left = pt.x / GuiData->CharWidth;
-  rc.top = pt.y / GuiData->CharHeight;
-  rc.right = rc.left + 1;
-  rc.bottom = rc.top + 1;
-  
-  GuiData->SelectionStart.x = rc.left;
-  GuiData->SelectionStart.y = rc.top;
-  
-  SetCapture(hWnd);
-  
-  GuiData->MouseDown = TRUE;
-  
-  GuiConsoleUpdateSelection(hWnd, &rc, GuiData);
-}
-
-static VOID FASTCALL
-GuiConsoleLeftMouseUp(HWND hWnd, LPARAM lParam)
-{
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  RECT rc;
-  POINTS pt;
-  
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-  if (Console == NULL || GuiData == NULL) return;
-  if (GuiData->Selection.left == -1 || !GuiData->MouseDown) return;
-  
-  pt = MAKEPOINTS(lParam);
-  
-  rc.left = GuiData->SelectionStart.x;
-  rc.top = GuiData->SelectionStart.y;
-  rc.right = (pt.x >= 0 ? (pt.x / GuiData->CharWidth) + 1 : 0);
-  rc.bottom = (pt.y >= 0 ? (pt.y / GuiData->CharHeight) + 1 : 0);
-
-  /* exchange left/top with right/bottom if required */
-  if(rc.left >= rc.right)
-  {
-    LONG tmp;
-    tmp = rc.left;
-    rc.left = max(rc.right - 1, 0);
-    rc.right = tmp + 1;
-  }
-  if(rc.top >= rc.bottom)
-  {
-    LONG tmp;
-    tmp = rc.top;
-    rc.top = max(rc.bottom - 1, 0);
-    rc.bottom = tmp + 1;
-  }
-  
-  GuiData->MouseDown = FALSE;
-
-  GuiConsoleUpdateSelection(hWnd, &rc, GuiData);
-  
-  ReleaseCapture();
-}
-
-static VOID FASTCALL
-GuiConsoleMouseMove(HWND hWnd, WPARAM wParam, LPARAM lParam)
-{
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  RECT rc;
-  POINTS pt;
-  
-  if (!(wParam & MK_LBUTTON)) return;
-  
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-  if (Console == NULL || GuiData == NULL || !GuiData->MouseDown) return;
-
-  pt = MAKEPOINTS(lParam);
-
-  rc.left = GuiData->SelectionStart.x;
-  rc.top = GuiData->SelectionStart.y;
-  rc.right = (pt.x >= 0 ? (pt.x / GuiData->CharWidth) + 1 : 0);
-  rc.bottom = (pt.y >= 0 ? (pt.y / GuiData->CharHeight) + 1 : 0);
-
-  /* exchange left/top with right/bottom if required */
-  if(rc.left >= rc.right)
-  {
-    LONG tmp;
-    tmp = rc.left;
-    rc.left = max(rc.right - 1, 0);
-    rc.right = tmp + 1;
-  }
-  if(rc.top >= rc.bottom)
-  {
-    LONG tmp;
-    tmp = rc.top;
-    rc.top = max(rc.bottom - 1, 0);
-    rc.bottom = tmp + 1;
-  }
-
-  GuiConsoleUpdateSelection(hWnd, &rc, GuiData);
-}    
-
-static VOID FASTCALL
-GuiConsoleRightMouseDown(HWND hWnd)
-{
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-  if (Console == NULL || GuiData == NULL) return;
-
-  if (GuiData->Selection.left == -1)
-  {
-    /* FIXME - paste text from clipboard */
-  }
-  else
-  {
-    /* FIXME - copy selection to clipboard */
-    
-    GuiConsoleUpdateSelection(hWnd, NULL, GuiData);
-  }
-
-}    
 
 static LRESULT CALLBACK
 GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -760,6 +571,9 @@ GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         GuiConsoleHandleTimer(hWnd);
         Result = 0;
         break;
+      case PM_COPY_REGION:
+        GuiConsoleHandleCopyRegion(hWnd, (PRECT) wParam, (PRECT) lParam);
+        break;
       case WM_CLOSE:
         GuiConsoleHandleClose(hWnd);
         Result = 0;
@@ -767,18 +581,6 @@ GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       case WM_NCDESTROY:
         GuiConsoleHandleNcDestroy(hWnd);
         Result = 0;
-        break;
-      case WM_LBUTTONDOWN:
-          GuiConsoleLeftMouseDown(hWnd, lParam);
-        break;
-      case WM_LBUTTONUP:
-          GuiConsoleLeftMouseUp(hWnd, lParam);
-        break;
-      case WM_RBUTTONDOWN:
-          GuiConsoleRightMouseDown(hWnd);
-        break;
-      case WM_MOUSEMOVE:
-          GuiConsoleMouseMove(hWnd, wParam, lParam);
         break;
       default:
         Result = DefWindowProcW(hWnd, msg, wParam, lParam);
@@ -793,7 +595,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   HWND NewWindow;
   LONG WindowCount;
-  MSG Msg;
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) lParam;
 
   switch(msg)
@@ -821,14 +622,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         return (LRESULT) NewWindow;
       case PM_DESTROY_CONSOLE:
-        /* Window creation is done using a PostMessage(), so it's possible that the
-         * window that we want to destroy doesn't exist yet. So first empty the message
-         * queue */
-        while(PeekMessageW(&Msg, NULL, 0, 0, PM_REMOVE))
-          {
-            TranslateMessage(&Msg);
-            DispatchMessageW(&Msg);
-          }
         DestroyWindow(Console->hWindow);
         Console->hWindow = NULL;
         WindowCount = GetWindowLongW(hWnd, GWL_USERDATA);
@@ -852,6 +645,8 @@ GuiConsoleGuiThread(PVOID Data)
 {
   MSG msg;
   PHANDLE GraphicsStartupEvent = (PHANDLE) Data;
+
+  PrivateCsrssManualGuiCheck(+1);
 
   NotifyWnd = CreateWindowW(L"Win32CsrCreateNotify",
                             L"",
@@ -885,11 +680,29 @@ GuiConsoleGuiThread(PVOID Data)
 static BOOL FASTCALL
 GuiInit(VOID)
 {
+  HDESK Desktop;
+  NTSTATUS Status;
   WNDCLASSEXW wc;
 
-  if (NULL == NotifyWnd)
+  Desktop = OpenDesktopW(L"Default", 0, FALSE, GENERIC_ALL);
+  if (NULL == Desktop)
     {
-      PrivateCsrssManualGuiCheck(+1);
+      DPRINT1("Failed to open desktop\n");
+      return FALSE;
+    }
+  Status = NtSetInformationProcess(NtCurrentProcess(),
+                                   ProcessDesktop,
+                                   &Desktop,
+                                   sizeof(Desktop));
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("Cannot set default desktop.\n");
+      return FALSE;
+    }
+  if (! SetThreadDesktop(Desktop))
+    {
+      DPRINT1("Failed to set thread desktop\n");
+      return FALSE;
     }
 
   wc.cbSize = sizeof(WNDCLASSEXW);
@@ -947,15 +760,6 @@ GuiChangeTitle(PCSRSS_CONSOLE Console)
   return TRUE;
 }
 
-STATIC BOOL STDCALL
-GuiChangeIcon(PCSRSS_CONSOLE Console)
-{
-  SendMessageW(Console->hWindow, WM_SETICON, ICON_BIG, (LPARAM)Console->hWindowIcon);
-  SendMessageW(Console->hWindow, WM_SETICON, ICON_SMALL, (LPARAM)Console->hWindowIcon);
-
-  return TRUE;
-}
-
 static VOID STDCALL
 GuiCleanupConsole(PCSRSS_CONSOLE Console)
 {
@@ -970,8 +774,7 @@ static CSRSS_CONSOLE_VTBL GuiVtbl =
   GuiSetCursorInfo,
   GuiSetScreenInfo,
   GuiChangeTitle,
-  GuiCleanupConsole,
-  GuiChangeIcon
+  GuiCleanupConsole
 };
 
 NTSTATUS FASTCALL
@@ -1013,7 +816,6 @@ GuiInitConsole(PCSRSS_CONSOLE Console)
           DPRINT1("Win32Csr: Failed to create graphics console thread. Expect problems\n");
           return STATUS_UNSUCCESSFUL;
         }
-      SetThreadPriority(ThreadHandle, THREAD_PRIORITY_HIGHEST);
       CloseHandle(ThreadHandle);
 
       WaitForSingleObject(GraphicsStartupEvent, INFINITE);
@@ -1032,29 +834,13 @@ GuiInitConsole(PCSRSS_CONSOLE Console)
 }
 
 VOID STDCALL
-GuiConsoleCopyRegion(HWND hWnd,
+GuiConsoleCopyRegion(PCSRSS_CONSOLE Console,
                      RECT *Source,
                      RECT *Dest)
 {
-  RECT ScrollRect;
-  PGUI_CONSOLE_DATA GuiData;
-  PCSRSS_CONSOLE Console;
-
-
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-
-  ScrollRect.left = Dest->left * GuiData->CharWidth;
-  ScrollRect.right = (Dest->right + 1) * GuiData->CharWidth;
-  ScrollRect.top = Dest->top * GuiData->CharHeight;
-  ScrollRect.bottom = (Dest->bottom + 1) * GuiData->CharHeight;
-  EnterCriticalSection(&GuiData->Lock);
-  BitBlt(GuiData->MemoryDC, ScrollRect.left, ScrollRect.top, 
-         ScrollRect.right - ScrollRect.left, ScrollRect.bottom - ScrollRect.top,
-	 GuiData->MemoryDC, Source->left * GuiData->CharWidth, Source->top * GuiData->CharHeight, SRCCOPY);
-
-  LeaveCriticalSection(&GuiData->Lock);
-
-  InvalidateRect(hWnd, &ScrollRect, FALSE);
+  LeaveCriticalSection(&(Console->ActiveBuffer->Header.Lock));
+  SendMessageW(Console->hWindow, PM_COPY_REGION, (WPARAM) Source, (LPARAM) Dest);
+  EnterCriticalSection(&(Console->ActiveBuffer->Header.Lock));
 }
 
 /* EOF */

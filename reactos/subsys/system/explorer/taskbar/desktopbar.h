@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,6 +28,9 @@
 
 #define	CLASSNAME_EXPLORERBAR	TEXT("Shell_TrayWnd")
 #define	TITLE_EXPLORERBAR		TEXT("")	// use an empty window title, so windows taskmanager does not show the window in its application list
+
+
+#define	WINMSG_TASKBARCREATED	TEXT("TaskbarCreated")
 
 
 #define	DESKTOPBARBAR_HEIGHT	29
@@ -61,11 +64,9 @@
 
 
  /// desktop bar window, also known as "system tray"
-struct DesktopBar : public TrayIconControllerTemplate<
-						OwnerDrawParent<Window> >
+struct DesktopBar : public OwnerDrawParent<Window>
 {
-	typedef TrayIconControllerTemplate<
-				OwnerDrawParent<Window> > super;
+	typedef OwnerDrawParent<Window> super;
 
 	DesktopBar(HWND hwnd);
 	~DesktopBar();
@@ -73,8 +74,10 @@ struct DesktopBar : public TrayIconControllerTemplate<
 	static HWND Create();
 
 protected:
+	CommonControlInit _usingCmnCtrl;
+
+	int		WM_TASKBARCREATED;
 	RECT	_work_area_org;
-	int		_taskbar_pos;
 
 	LRESULT	Init(LPCREATESTRUCT pcs);
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
@@ -84,18 +87,11 @@ protected:
 	void	RegisterHotkeys();
 	void	ProcessHotKey(int id_hotkey);
 	void	ShowStartMenu();
-	LRESULT	ProcessCopyData(COPYDATASTRUCT* pcd);
+	LRESULT ProcessCopyData(COPYDATASTRUCT* pcd);
 
 	WindowHandle _hwndTaskBar;
 	WindowHandle _hwndNotify;
 	WindowHandle _hwndQuickLaunch;
-	WindowHandle _hwndrebar;
 
 	struct StartMenuRoot* _startMenuRoot;
-
-	TrayIcon	_trayIcon;
-
-	void	AddTrayIcons();
-	virtual void TrayClick(UINT id, int btn);
-	virtual void TrayDblClick(UINT id, int btn);
 };

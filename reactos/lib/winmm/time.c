@@ -42,47 +42,21 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(mmtime);
 
-static    HANDLE                TIME_hMMTimer;
-static    LPWINE_TIMERENTRY 	TIME_TimersList;
-static    HANDLE                TIME_hKillEvent;
-static    HANDLE                TIME_hWakeEvent;
-static    BOOL                  TIME_TimeToDie = TRUE;
-
 /*
- * Some observations on the behavior of winmm on Windows.
- * First, the call to timeBeginPeriod(xx) can never be used
- * to raise the timer resolution, only lower it.
- *
- * Second, a brief survey of a variety of Win 2k and Win X
- * machines showed that a 'standard' (aka default) timer
- * resolution was 1 ms (Win9x is documented as being 1).  However, one 
- * machine had a standard timer resolution of 10 ms.
- *
- * Further, if we set our default resolution to 1,
- * the implementation of timeGetTime becomes GetTickCount(),
- * and we can optimize the code to reduce overhead.
- *
- * Additionally, a survey of Event behaviors shows that
- * if we request a Periodic event every 50 ms, then Windows
- * makes sure to trigger that event 20 times in the next
- * second.  If delays prevent that from happening on exact
- * schedule, Windows will trigger the events as close
- * to the original schedule as is possible, and will eventually
- * bring the event triggers back onto a schedule that is
- * consistent with what would have happened if there were
- * no delays.
- *
- *   Jeremy White, October 2004
+ * FIXME
+ * We're using "1" as the mininum resolution to the timer,
+ * as Windows 95 does, according to the docs. Maybe it should
+ * depend on the computers resources!
  */
 #define MMSYSTIME_MININTERVAL (1)
 #define MMSYSTIME_MAXINTERVAL (65535)
 
+#define MMSYSTIME_STDINTERVAL (10) /* reasonable value? */
 
 static	void	TIME_TriggerCallBack(LPWINE_TIMERENTRY lpTimer)
 {
-    TRACE("%04lx:CallBack => lpFunc=%p wTimerID=%04X dwUser=%08lX dwTriggerTime %ld(delta %ld)\n",
-	  GetCurrentThreadId(), lpTimer->lpFunc, lpTimer->wTimerID, lpTimer->dwUser,
-          lpTimer->dwTriggerTime, GetTickCount() - lpTimer->dwTriggerTime);
+    TRACE("before CallBack => lpFunc=%p wTimerID=%04X dwUser=%08lX !\n",
+	  lpTimer->lpFunc, lpTimer->wTimerID, lpTimer->dwUser);
 
     /* - TimeProc callback that is called here is something strange, under Windows 3.1x it is called
      * 		during interrupt time,  is allowed to execute very limited number of API calls (like
@@ -108,116 +82,76 @@ static	void	TIME_TriggerCallBack(LPWINE_TIMERENTRY lpTimer)
 	      lpTimer->wFlags, lpTimer->lpFunc);
 	break;
     }
+    TRACE("after CallBack !\n");
 }
 
 /**************************************************************************
  *           TIME_MMSysTimeCallback
  */
-static DWORD CALLBACK TIME_MMSysTimeCallback(LPWINE_MM_IDATA iData)
+static void CALLBACK TIME_MMSysTimeCallback(LPWINE_MM_IDATA iData)
 {
-static    int				nSizeLpTimers;
-static    LPWINE_TIMERENTRY		lpTimers;
-
-    LPWINE_TIMERENTRY   timer, *ptimer, *next_ptimer;
+    LPWINE_TIMERENTRY 	lpTimer, lpNextTimer;
+    DWORD		delta = GetTickCount() - iData->mmSysTimeMS;
     int			idx;
-    DWORD               cur_time;
-    DWORD               delta_time;
-    DWORD               ret_time = INFINITE;
-    DWORD               adjust_time;
 
+    TRACE("Time delta: %ld\n", delta);
 
-    /* optimize for the most frequent case  - no events */
-    if (! TIME_TimersList)
-        return(ret_time);
+    while (delta >= MMSYSTIME_MININTERVAL) {
+	delta -= MMSYSTIME_MININTERVAL;
+	iData->mmSysTimeMS += MMSYSTIME_MININTERVAL;
 
-    /* since timeSetEvent() and timeKillEvent() can be called
-     * from 16 bit code, there are cases where win16 lock is
-     * locked upon entering timeSetEvent(), and then the mm timer
-     * critical section is locked. This function cannot call the
-     * timer callback with the crit sect locked (because callback
-     * may need to acquire Win16 lock, thus providing a deadlock
-     * situation).
-     * To cope with that, we just copy the WINE_TIMERENTRY struct
-     * that need to trigger the callback, and call it without the
-     * mm timer crit sect locked.
-     * the hKillTimeEvent is used to mark the section where we 
-     * handle the callbacks so we can do synchronous kills.
-     * EPP 99/07/13, updated 04/01/10
-     */
-    idx = 0;
-    cur_time = GetTickCount();
+	/* since timeSetEvent() and timeKillEvent() can be called
+	 * from 16 bit code, there are cases where win16 lock is
+	 * locked upon entering timeSetEvent(), and then the mm timer
+	 * critical section is locked. This function cannot call the
+	 * timer callback with the crit sect locked (because callback
+	 * may need to acquire Win16 lock, thus providing a deadlock
+	 * situation).
+	 * To cope with that, we just copy the WINE_TIMERENTRY struct
+	 * that need to trigger the callback, and call it without the
+	 * mm timer crit sect locked. The bad side of this
+	 * implementation is that, in some cases, the callback may be
+	 * invoked *after* a timer has been destroyed...
+	 * EPP 99/07/13
+	 */
+	idx = 0;
 
-    EnterCriticalSection(&iData->cs);
-    for (ptimer = &TIME_TimersList; *ptimer != NULL; ) {
-        timer = *ptimer;
-        next_ptimer = &timer->lpNext;
-        if (cur_time >= timer->dwTriggerTime)
-        {
-            if (timer->lpFunc) {
-                if (idx == nSizeLpTimers) {
-                    if (lpTimers) 
-                        lpTimers = (LPWINE_TIMERENTRY)
-                            HeapReAlloc(GetProcessHeap(), 0, lpTimers,
-                                        ++nSizeLpTimers * sizeof(WINE_TIMERENTRY));
-                    else 
-                        lpTimers = (LPWINE_TIMERENTRY)
-                        HeapAlloc(GetProcessHeap(), 0,
-                                  ++nSizeLpTimers * sizeof(WINE_TIMERENTRY));
-                }
-                lpTimers[idx++] = *timer;
+	EnterCriticalSection(&iData->cs);
+	for (lpTimer = iData->lpTimerList; lpTimer != NULL; ) {
+	    lpNextTimer = lpTimer->lpNext;
+	    if (lpTimer->uCurTime < MMSYSTIME_MININTERVAL) {
+		/* since lpTimer->wDelay is >= MININTERVAL, wCurTime value
+		 * shall be correct (>= 0)
+		 */
+		lpTimer->uCurTime += lpTimer->wDelay - MMSYSTIME_MININTERVAL;
+		if (lpTimer->lpFunc) {
+		    if (idx == iData->nSizeLpTimers) {
+			if (iData->lpTimers) 
+			    iData->lpTimers = (LPWINE_TIMERENTRY)
+			    HeapReAlloc(GetProcessHeap(), 0,
+					iData->lpTimers,
+					++iData->nSizeLpTimers * sizeof(WINE_TIMERENTRY));
+			else 
+			    iData->lpTimers = (LPWINE_TIMERENTRY)
+			    HeapAlloc(GetProcessHeap(), 0,
+					++iData->nSizeLpTimers * sizeof(WINE_TIMERENTRY));
+		    }
+		    iData->lpTimers[idx++] = *lpTimer;
+		}
+		/* TIME_ONESHOT is defined as 0 */
+		if (!(lpTimer->wFlags & TIME_PERIODIC))
+		    timeKillEvent(lpTimer->wTimerID);
+	    } else {
+		lpTimer->uCurTime -= MMSYSTIME_MININTERVAL;
+	    }
+	    lpTimer = lpNextTimer;
+	}
+	LeaveCriticalSection(&iData->cs);
 
-            }
-
-            /* Update the time after we make the copy to preserve
-               the original trigger time    */
-            timer->dwTriggerTime += timer->wDelay;
-
-            /* TIME_ONESHOT is defined as 0 */
-            if (!(timer->wFlags & TIME_PERIODIC))
-            {
-                /* unlink timer from timers list */
-                *ptimer = *next_ptimer;
-                HeapFree(GetProcessHeap(), 0, timer);
-
-                /* We don't need to trigger oneshots again */
-                delta_time = INFINITE;
-            }
-            else
-            {
-                /* Compute when this event needs this function
-                    to be called again */
-                if (timer->dwTriggerTime <= cur_time)
-                    delta_time = 0;
-                else
-                    delta_time = timer->dwTriggerTime - cur_time;
-            }
-        } 
-        else
-            delta_time = timer->dwTriggerTime - cur_time;
-
-        /* Determine when we need to return to this function */
-        ret_time = min(ret_time, delta_time);
-
-        ptimer = next_ptimer;
+	while (idx > 0) {
+	    TIME_TriggerCallBack(&iData->lpTimers[--idx]);
+	}
     }
-    if (TIME_hKillEvent) ResetEvent(TIME_hKillEvent);
-    LeaveCriticalSection(&iData->cs);
-
-    while (idx > 0) TIME_TriggerCallBack(&lpTimers[--idx]);
-    if (TIME_hKillEvent) SetEvent(TIME_hKillEvent);
-
-    /* Finally, adjust the recommended wait time downward
-       by the amount of time the processing routines 
-       actually took */
-    adjust_time = GetTickCount() - cur_time;
-    if (adjust_time > ret_time)
-        ret_time = 0;
-    else
-        ret_time -= adjust_time;
-
-    /* We return the amount of time our caller should sleep
-       before needing to check in on us again       */
-    return(ret_time);
 }
 
 /**************************************************************************
@@ -226,32 +160,22 @@ static    LPWINE_TIMERENTRY		lpTimers;
 static DWORD CALLBACK TIME_MMSysTimeThread(LPVOID arg)
 {
     LPWINE_MM_IDATA iData = (LPWINE_MM_IDATA)arg;
-    DWORD sleep_time;
-    DWORD rc;
+    volatile HANDLE *pActive = (volatile HANDLE *)&iData->hMMTimer;
+    DWORD last_time, cur_time;
 
-    TRACE("Starting main winmm thread\n");
-
-    /* FIXME:  As an optimization, we could have
-               this thread die when there are no more requests
-               pending, and then get recreated on the first
-               new event; it's not clear if that would be worth
-               it or not.                 */
-
-    while (! TIME_TimeToDie) 
-    {
-	sleep_time = TIME_MMSysTimeCallback(iData);
-
-        if (sleep_time == 0)
-            continue;
-
-        rc = WaitForSingleObject(TIME_hWakeEvent, sleep_time);
-        if (rc != WAIT_TIMEOUT && rc != WAIT_OBJECT_0)
-        {   
-            FIXME("Unexpected error %ld(%ld) in timer thread\n", rc, GetLastError());
-            break;
-        }
+#ifndef __REACTOS__
+    usleep(MMSYSTIME_STDINTERVAL * 1000);
+#endif /* __REACTOS__ */
+    last_time = GetTickCount();
+    while (*pActive) {
+	TIME_MMSysTimeCallback(iData);
+	cur_time = GetTickCount();
+	while (last_time < cur_time)
+	    last_time += MMSYSTIME_STDINTERVAL;
+#ifndef __REACTOS__
+	usleep((last_time - cur_time) * 1000);
+#endif /* __REACTOS__ */
     }
-    TRACE("Exiting main winmm thread\n");
     return 0;
 }
 
@@ -260,11 +184,14 @@ static DWORD CALLBACK TIME_MMSysTimeThread(LPVOID arg)
  */
 void	TIME_MMTimeStart(void)
 {
-    if (!TIME_hMMTimer) {
-	TIME_TimersList = NULL;
-        TIME_hWakeEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-        TIME_TimeToDie = FALSE;
-	TIME_hMMTimer = CreateThread(NULL, 0, TIME_MMSysTimeThread, WINMM_IData, 0, NULL);
+    /* one could think it's possible to stop the service thread activity when no more
+     * mm timers are active, but this would require to keep mmSysTimeMS up-to-date
+     * without being incremented within the service thread callback.
+     */
+    if (!WINMM_IData->hMMTimer) {
+	WINMM_IData->mmSysTimeMS = GetTickCount();
+	WINMM_IData->lpTimerList = NULL;
+	WINMM_IData->hMMTimer = CreateThread(NULL, 0, TIME_MMSysTimeThread, WINMM_IData, 0, NULL);
     }
 }
 
@@ -273,18 +200,11 @@ void	TIME_MMTimeStart(void)
  */
 void	TIME_MMTimeStop(void)
 {
-    if (TIME_hMMTimer) {
-
-        TIME_TimeToDie = TRUE;
-        SetEvent(TIME_hWakeEvent);
-
-        /* FIXME: in the worst case, we're going to wait 65 seconds here :-( */
-	WaitForSingleObject(TIME_hMMTimer, INFINITE);
-
-	CloseHandle(TIME_hMMTimer);
-	CloseHandle(TIME_hWakeEvent);
-	TIME_hMMTimer = 0;
-        TIME_TimersList = NULL;
+    if (WINMM_IData->hMMTimer) {
+	HANDLE hMMTimer = WINMM_IData->hMMTimer;
+	WINMM_IData->hMMTimer = 0;
+	WaitForSingleObject(hMMTimer, INFINITE);
+	CloseHandle(hMMTimer);
     }
 }
 
@@ -293,11 +213,14 @@ void	TIME_MMTimeStop(void)
  */
 MMRESULT WINAPI timeGetSystemTime(LPMMTIME lpTime, UINT wSize)
 {
+    TRACE("(%p, %u);\n", lpTime, wSize);
 
     if (wSize >= sizeof(*lpTime)) {
+	TIME_MMTimeStart();
 	lpTime->wType = TIME_MS;
-	lpTime->u.ms = GetTickCount();
+	lpTime->u.ms = WINMM_IData->mmSysTimeMS;
 
+	TRACE("=> %lu\n", lpTime->u.ms);
     }
 
     return 0;
@@ -324,11 +247,8 @@ WORD	TIME_SetEventInternal(UINT wDelay, UINT wResol,
 
     TIME_MMTimeStart();
 
+    lpNewTimer->uCurTime = wDelay;
     lpNewTimer->wDelay = wDelay;
-    lpNewTimer->dwTriggerTime = GetTickCount() + wDelay;
-
-    /* FIXME - wResol is not respected, although it is not clear
-               that we could change our precision meaningfully  */
     lpNewTimer->wResol = wResol;
     lpNewTimer->lpFunc = lpFunc;
     lpNewTimer->dwUser = dwUser;
@@ -336,21 +256,15 @@ WORD	TIME_SetEventInternal(UINT wDelay, UINT wResol,
 
     EnterCriticalSection(&WINMM_IData->cs);
 
-    if ((wFlags & TIME_KILL_SYNCHRONOUS) && !TIME_hKillEvent)
-        TIME_hKillEvent = CreateEventW(NULL, TRUE, TRUE, NULL);
-
-    for (lpTimer = TIME_TimersList; lpTimer != NULL; lpTimer = lpTimer->lpNext) {
+    for (lpTimer = WINMM_IData->lpTimerList; lpTimer != NULL; lpTimer = lpTimer->lpNext) {
 	wNewID = max(wNewID, lpTimer->wTimerID);
     }
 
-    lpNewTimer->lpNext = TIME_TimersList;
-    TIME_TimersList = lpNewTimer;
+    lpNewTimer->lpNext = WINMM_IData->lpTimerList;
+    WINMM_IData->lpTimerList = lpNewTimer;
     lpNewTimer->wTimerID = wNewID + 1;
 
     LeaveCriticalSection(&WINMM_IData->cs);
-
-    /* Wake the service thread in case there is work to be done */
-    SetEvent(TIME_hWakeEvent);
 
     TRACE("=> %u\n", wNewID + 1);
 
@@ -361,7 +275,7 @@ WORD	TIME_SetEventInternal(UINT wDelay, UINT wResol,
  * 				timeSetEvent		[WINMM.@]
  */
 MMRESULT WINAPI timeSetEvent(UINT wDelay, UINT wResol, LPTIMECALLBACK lpFunc,
-                            DWORD_PTR dwUser, UINT wFlags)
+			     DWORD dwUser, UINT wFlags)
 {
     if (wFlags & WINE_TIMER_IS32)
 	WARN("Unknown windows flag... wine internally used.. ooch\n");
@@ -375,30 +289,31 @@ MMRESULT WINAPI timeSetEvent(UINT wDelay, UINT wResol, LPTIMECALLBACK lpFunc,
  */
 MMRESULT WINAPI timeKillEvent(UINT wID)
 {
-    LPWINE_TIMERENTRY   lpSelf = NULL, *lpTimer;
+    LPWINE_TIMERENTRY*	lpTimer;
+    MMRESULT		ret = MMSYSERR_INVALPARAM;
 
     TRACE("(%u)\n", wID);
     EnterCriticalSection(&WINMM_IData->cs);
     /* remove WINE_TIMERENTRY from list */
-    for (lpTimer = &TIME_TimersList; *lpTimer; lpTimer = &(*lpTimer)->lpNext) {
+    for (lpTimer = &WINMM_IData->lpTimerList; *lpTimer; lpTimer = &(*lpTimer)->lpNext) {
 	if (wID == (*lpTimer)->wTimerID) {
-            lpSelf = *lpTimer;
-            /* unlink timer of id 'wID' */
-            *lpTimer = (*lpTimer)->lpNext;
 	    break;
 	}
     }
     LeaveCriticalSection(&WINMM_IData->cs);
 
-    if (!lpSelf)
-    {
-        WARN("wID=%u is not a valid timer ID\n", wID);
-        return MMSYSERR_INVALPARAM;
+    if (*lpTimer) {
+	LPWINE_TIMERENTRY	lpTemp = *lpTimer;
+
+	/* unlink timer of id 'wID' */
+	*lpTimer = (*lpTimer)->lpNext;
+	HeapFree(GetProcessHeap(), 0, lpTemp);
+	ret = TIMERR_NOERROR;
+    } else {
+	WARN("wID=%u is not a valid timer ID\n", wID);
     }
-    if (lpSelf->wFlags & TIME_KILL_SYNCHRONOUS)
-        WaitForSingleObject(TIME_hKillEvent, INFINITE);
-    HeapFree(GetProcessHeap(), 0, lpSelf);
-    return TIMERR_NOERROR;
+
+    return ret;
 }
 
 /**************************************************************************
@@ -406,7 +321,7 @@ MMRESULT WINAPI timeKillEvent(UINT wID)
  */
 MMRESULT WINAPI timeGetDevCaps(LPTIMECAPS lpCaps, UINT wSize)
 {
-    TRACE("(%p, %u)\n", lpCaps, wSize);
+    TRACE("(%p, %u) !\n", lpCaps, wSize);
 
     lpCaps->wPeriodMin = MMSYSTIME_MININTERVAL;
     lpCaps->wPeriodMax = MMSYSTIME_MAXINTERVAL;
@@ -418,14 +333,10 @@ MMRESULT WINAPI timeGetDevCaps(LPTIMECAPS lpCaps, UINT wSize)
  */
 MMRESULT WINAPI timeBeginPeriod(UINT wPeriod)
 {
+    TRACE("(%u) !\n", wPeriod);
+
     if (wPeriod < MMSYSTIME_MININTERVAL || wPeriod > MMSYSTIME_MAXINTERVAL)
 	return TIMERR_NOCANDO;
-
-    if (wPeriod > MMSYSTIME_MININTERVAL)
-    {
-        FIXME("Stub; we set our timer resolution at minimum\n");
-    }
-
     return 0;
 }
 
@@ -434,13 +345,10 @@ MMRESULT WINAPI timeBeginPeriod(UINT wPeriod)
  */
 MMRESULT WINAPI timeEndPeriod(UINT wPeriod)
 {
+    TRACE("(%u) !\n", wPeriod);
+
     if (wPeriod < MMSYSTIME_MININTERVAL || wPeriod > MMSYSTIME_MAXINTERVAL)
 	return TIMERR_NOCANDO;
-
-    if (wPeriod > MMSYSTIME_MININTERVAL)
-    {
-        FIXME("Stub; we set our timer resolution at minimum\n");
-    }
     return 0;
 }
 
@@ -450,15 +358,12 @@ MMRESULT WINAPI timeEndPeriod(UINT wPeriod)
  */
 DWORD WINAPI timeGetTime(void)
 {
-#if defined(COMMENTOUTPRIORTODELETING)
     DWORD       count;
-
     /* FIXME: releasing the win16 lock here is a temporary hack (I hope)
      * that lets mciavi.drv run correctly
      */
     if (pFnReleaseThunkLock) pFnReleaseThunkLock(&count);
+    TIME_MMTimeStart();
     if (pFnRestoreThunkLock) pFnRestoreThunkLock(count);
-#endif
-
-    return GetTickCount();
+    return WINMM_IData->mmSysTimeMS;
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: partlist.c,v 1.28 2004/08/21 19:30:12 hbirr Exp $
+/* $Id: partlist.c,v 1.26 2003/12/01 18:28:54 navaraf Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/partlist.c
@@ -25,7 +25,7 @@
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ddk/ntddscsi.h>
 
 #include <ntdll/rtl.h>
@@ -719,24 +719,24 @@ PrintEmptyLine (PPARTLIST List)
   USHORT Height;
 
   Width = List->Right - List->Left - 1;
-  Height = List->Bottom - List->Top - 2;
+  Height = List->Bottom - List->Top - 1;
 
+  if (List->Line < 0 || List->Line > Height)
+    return;
 
   coPos.X = List->Left + 1;
   coPos.Y = List->Top + 1 + List->Line;
 
-  if (List->Line >= 0 && List->Line <= Height)
-    { 
-      FillConsoleOutputAttribute (0x17,
-			          Width,
-			          coPos,
-			          &Written);
+  FillConsoleOutputAttribute (0x17,
+			      Width,
+			      coPos,
+			      &Written);
 
-      FillConsoleOutputCharacter (' ',
-			          Width,
-			          coPos,
-			          &Written);
-    }
+  FillConsoleOutputCharacter (' ',
+			      Width,
+			      coPos,
+			      &Written);
+
   List->Line++;
 }
 
@@ -758,8 +758,10 @@ PrintPartitionData (PPARTLIST List,
   PCHAR PartType;
 
   Width = List->Right - List->Left - 1;
-  Height = List->Bottom - List->Top - 2;
+  Height = List->Bottom - List->Top - 1;
 
+  if (List->Line < 0 || List->Line > Height)
+    return;
 
   coPos.X = List->Left + 1;
   coPos.Y = List->Top + 1 + List->Line;
@@ -862,30 +864,24 @@ PrintPartitionData (PPARTLIST List,
   Attribute = (List->CurrentDisk == DiskEntry &&
 	       List->CurrentPartition == PartEntry) ? 0x71 : 0x17;
 
-  if (List->Line >= 0 && List->Line <= Height)
-    {
-      FillConsoleOutputCharacter (' ',
-			          Width,
-			          coPos,
-			          &Written);
-    }
+  FillConsoleOutputCharacter (' ',
+			      Width,
+			      coPos,
+			      &Written);
+
   coPos.X += 4;
   Width -= 8;
-  if (List->Line >= 0 && List->Line <= Height)
-    {
-      FillConsoleOutputAttribute (Attribute,
-			          Width,
-			          coPos,
-			          &Written);
-    }
+  FillConsoleOutputAttribute (Attribute,
+			      Width,
+			      coPos,
+			      &Written);
+
   coPos.X++;
   Width -= 2;
-  if (List->Line >= 0 && List->Line <= Height)
-    {
-      WriteConsoleOutputCharacters (LineBuffer,
-				    min (strlen (LineBuffer), Width),
-				    coPos);
-    }
+  WriteConsoleOutputCharacters (LineBuffer,
+				min (strlen (LineBuffer), Width),
+				coPos);
+
   List->Line++;
 }
 
@@ -905,8 +901,10 @@ PrintDiskData (PPARTLIST List,
   PCHAR Unit;
 
   Width = List->Right - List->Left - 1;
-  Height = List->Bottom - List->Top - 2;
+  Height = List->Bottom - List->Top - 1;
 
+  if (List->Line < 0 || List->Line > Height)
+    return;
 
   coPos.X = List->Left + 1;
   coPos.Y = List->Top + 1 + List->Line;
@@ -949,26 +947,22 @@ PrintDiskData (PPARTLIST List,
 	       DiskEntry->Bus,
 	       DiskEntry->Id);
     }
-  if (List->Line >= 0 && List->Line <= Height)
-    {
-      FillConsoleOutputAttribute (0x17,
-			          Width,
-			          coPos,
-			          &Written);
-    
-      FillConsoleOutputCharacter (' ',
-			          Width,
-			          coPos,
-			          &Written);
-    }
+
+  FillConsoleOutputAttribute (0x17,
+			      Width,
+			      coPos,
+			      &Written);
+
+  FillConsoleOutputCharacter (' ',
+			      Width,
+			      coPos,
+			      &Written);
 
   coPos.X++;
-  if (List->Line >= 0 && List->Line <= Height)
-    {
-      WriteConsoleOutputCharacters (LineBuffer,
-				    min (strlen (LineBuffer), Width - 2),
-				    coPos);
-    }
+  WriteConsoleOutputCharacters (LineBuffer,
+				min (strlen (LineBuffer), Width - 2),
+				coPos);
+
   List->Line++;
 
   /* Print separator line */
@@ -996,80 +990,11 @@ PrintDiskData (PPARTLIST List,
 VOID
 DrawPartitionList (PPARTLIST List)
 {
-  PLIST_ENTRY Entry, Entry2;
+  PLIST_ENTRY Entry;
   PDISKENTRY DiskEntry;
-  PPARTENTRY PartEntry = NULL;
   COORD coPos;
   ULONG Written;
   SHORT i;
-  SHORT CurrentDiskLine;
-  SHORT CurrentPartLine;
-  SHORT LastLine;
-  BOOL CurrentPartLineFound = FALSE;
-  BOOL CurrentDiskLineFound = FALSE;
-
-  /* Calculate the line of the current disk and partition */
-  CurrentDiskLine = 0;
-  CurrentPartLine = 0;
-  LastLine = 0;
-  Entry = List->DiskListHead.Flink;
-  while (Entry != &List->DiskListHead)
-    {
-      DiskEntry = CONTAINING_RECORD (Entry, DISKENTRY, ListEntry);
-      LastLine += 2;
-      if (CurrentPartLineFound == FALSE)
-        {
-          CurrentPartLine += 2;
-	}
-      Entry2 = DiskEntry->PartListHead.Flink;
-      while (Entry2 != &DiskEntry->PartListHead)
-	{
-	  PartEntry = CONTAINING_RECORD (Entry2, PARTENTRY, ListEntry);
-	  if (PartEntry == List->CurrentPartition)
-	    {
-	      CurrentPartLineFound = TRUE;;
-	    }
-          Entry2 = Entry2->Flink;
-	  if (CurrentPartLineFound == FALSE)
-	    {
-	      CurrentPartLine++;
-	    }
-	  LastLine++;
-	}
-      if (DiskEntry == List->CurrentDisk)
-        {
-	  CurrentDiskLineFound = TRUE;
-	}
-      Entry = Entry->Flink;
-      if (Entry != &List->DiskListHead)
-        {
-	  if (CurrentDiskLineFound == FALSE)
-	    {
-	      CurrentPartLine ++;
-	      CurrentDiskLine = CurrentPartLine;
-	    }
-	  LastLine++;
-	}
-      else
-        {
-	  LastLine--;
-	}
-    }
-  
-  /* If it possible, make the disk name visible */ 
-  if (CurrentPartLine < List->Offset)
-    {
-      List->Offset = CurrentPartLine;
-    }
-  else if (CurrentPartLine - List->Offset > List->Bottom - List->Top - 2)
-    {
-      List->Offset = CurrentPartLine - (List->Bottom - List->Top - 2);
-    }
-  if (CurrentDiskLine < List->Offset && CurrentPartLine - CurrentDiskLine < List->Bottom - List->Top - 2)
-    {
-      List->Offset = CurrentDiskLine;
-    }
-
 
   /* draw upper left corner */
   coPos.X = List->Left;
@@ -1082,29 +1007,10 @@ DrawPartitionList (PPARTLIST List)
   /* draw upper edge */
   coPos.X = List->Left + 1;
   coPos.Y = List->Top;
-  if (List->Offset == 0)
-    {
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          List->Right - List->Left - 1,
-			          coPos,
-			          &Written);
-    }
-  else
-    {
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          List->Right - List->Left - 5,
-			          coPos,
-			          &Written);
-      coPos.X = List->Right - 5;
-      WriteConsoleOutputCharacters ("(\x18)", // "(up)"
-			            3,
-			            coPos);
-      coPos.X = List->Right - 2;
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          2,
-			          coPos,
-			          &Written);
-    }
+  FillConsoleOutputCharacter (0xC4, // '-',
+			      List->Right - List->Left - 1,
+			      coPos,
+			      &Written);
 
   /* draw upper right corner */
   coPos.X = List->Right;
@@ -1142,29 +1048,10 @@ DrawPartitionList (PPARTLIST List)
   /* draw lower edge */
   coPos.X = List->Left + 1;
   coPos.Y = List->Bottom;
-  if (LastLine - List->Offset <= List->Bottom - List->Top - 2)
-    {
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          List->Right - List->Left - 1,
-			          coPos,
-			          &Written);
-    }
-  else
-    {
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          List->Right - List->Left - 5,
-			          coPos,
-			          &Written);
-      coPos.X = List->Right - 5;
-      WriteConsoleOutputCharacters ("(\x19)", // "(down)"
-			            3,
-			            coPos);
-      coPos.X = List->Right - 2;
-      FillConsoleOutputCharacter (0xC4, // '-',
-			          2,
-			          coPos,
-			          &Written);
-    }
+  FillConsoleOutputCharacter (0xC4, // '-',
+			      List->Right - List->Left - 1,
+			      coPos,
+			      &Written);
 
   /* draw lower right corner */
   coPos.X = List->Right;
@@ -1175,7 +1062,7 @@ DrawPartitionList (PPARTLIST List)
 			      &Written);
 
   /* print list entries */
-  List->Line = - List->Offset;
+  List->Line = 0;
 
   Entry = List->DiskListHead.Flink;
   while (Entry != &List->DiskListHead)

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: accelerator.c,v 1.13 2004/11/13 02:02:07 rcampbell Exp $
+/* $Id: accelerator.c,v 1.7 2003/12/29 23:28:46 sedwards Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -48,7 +48,18 @@
  */
 
 /* INCLUDES ******************************************************************/
-#include <w32k.h>
+
+#include <roskrnl.h>
+#include <win32k/win32k.h>
+#include <internal/safe.h>
+#include <napi/win32.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
+#include <include/focus.h>
+#include <include/accelerator.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -164,7 +175,7 @@ NtUserCreateAcceleratorTable(
   AcceleratorTable->Count = EntriesCount;
   if (AcceleratorTable->Count > 0)
   {
-	AcceleratorTable->Table = ExAllocatePoolWithTag(PagedPool, EntriesCount * sizeof(ACCEL), TAG_ACCEL);
+	AcceleratorTable->Table = ExAllocatePool(PagedPool, EntriesCount * sizeof(ACCEL));
 	if (AcceleratorTable->Table == NULL)
 	{
 		ObmCloseHandle(WindowStation->HandleTable, Handle);
@@ -435,7 +446,7 @@ IntTranslateAccelerator(HWND hWnd,
 int
 STDCALL
 NtUserTranslateAccelerator(
-  HWND hWnd,
+  HWND Window,
   HACCEL Table,
   LPMSG Message)
 {
@@ -444,29 +455,30 @@ NtUserTranslateAccelerator(
   NTSTATUS Status;
   ULONG i;
 
-  DPRINT("NtUserTranslateAccelerator(hWnd %x, Table %x, Message %p)\n",
-    hWnd, Table, Message);
-
-  if (hWnd == NULL)
-	 return 0;
+  DPRINT("NtUserTranslateAccelerator(Window %x, Table %x, Message %p)\n",
+    Window, Table, Message);
 
   if (Message == NULL)
     {
 	  SetLastNtError(STATUS_INVALID_PARAMETER);
+	  DPRINT1("E0a\n");
       return 0;
     }
 
   if (Table == NULL)
     {
       SetLastWin32Error(ERROR_INVALID_ACCEL_HANDLE);
+	  DPRINT1("E0b\n");
       return 0;
     }
 
   if ((Message->message != WM_KEYDOWN) &&
+	  (Message->message != WM_KEYUP) &&
 	  (Message->message != WM_SYSKEYDOWN) &&
-	  (Message->message != WM_SYSCHAR) &&
+	  (Message->message != WM_SYSKEYUP) &&
 	  (Message->message != WM_CHAR))
   {
+    DPRINT1("E0c\n");
     return 0;
   }
 
@@ -477,6 +489,7 @@ NtUserTranslateAccelerator(
   if (!NT_SUCCESS(Status))
   {
     SetLastNtError(STATUS_ACCESS_DENIED);
+    DPRINT1("E1\n");
     return 0;
   }
 
@@ -488,32 +501,36 @@ NtUserTranslateAccelerator(
   {
     SetLastWin32Error(ERROR_INVALID_ACCEL_HANDLE);
     ObDereferenceObject(WindowStation);
+    DPRINT1("E2\n");
     return 0;
   }
 
   /* FIXME: Associate AcceleratorTable with the current thread */
 
+  /* FIXME: If Window is active and no window has focus, translate WM_SYSKEYUP and WM_SYSKEY_DOWN instead */
+
   for (i = 0; i < AcceleratorTable->Count; i++)
     {
-      if (IntTranslateAccelerator(hWnd, Message->message, Message->wParam, Message->lParam,
+      if (IntTranslateAccelerator(Window, Message->message, Message->wParam, Message->lParam,
 		  AcceleratorTable->Table[i].fVirt, AcceleratorTable->Table[i].key,
 		  AcceleratorTable->Table[i].cmd))
-        {
-          ObDereferenceObject(WindowStation);
-          DPRINT("NtUserTranslateAccelerator(hWnd %x, Table %x, Message %p) = %i end\n",
-                 hWnd, Table, Message, 1);
+	    {
+		  ObDereferenceObject(WindowStation);
+          DPRINT1("NtUserTranslateAccelerator(Window %x, Table %x, Message %p) = %i end\n",
+            Window, Table, Message, 1);
           return 1;
-        }
-      if (((AcceleratorTable->Table[i].fVirt & 0x80) > 0))
-        {
+		}
+	  if (((AcceleratorTable->Table[i].fVirt & 0x80) > 0))
+	    {
           break;
-        }
+	    }
+	  i++;
     }
 
   ObDereferenceObject(WindowStation);
 
-  DPRINT("NtUserTranslateAccelerator(hWnd %x, Table %x, Message %p) = %i end\n",
-    hWnd, Table, Message, 0);
+  DPRINT("NtUserTranslateAccelerator(Window %x, Table %x, Message %p) = %i end\n",
+    Window, Table, Message, 0);
 
   return 0;
 }

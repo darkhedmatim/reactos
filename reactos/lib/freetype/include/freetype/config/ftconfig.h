@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    ANSI-specific configuration file (specification only).               */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -58,37 +58,24 @@ FT_BEGIN_HEADER
   /*************************************************************************/
 
 
-  /* There are systems (like the Texas Instruments 'C54x) where a `char' */
-  /* has 16 bits.  ANSI C says that sizeof(char) is always 1.  Since an  */
-  /* `int' has 16 bits also for this system, sizeof(int) gives 1 which   */
-  /* is probably unexpected.                                             */
-  /*                                                                     */
-  /* `CHAR_BIT' (defined in limits.h) gives the number of bits in a      */
-  /* `char' type.                                                        */
-
-#ifndef FT_CHAR_BIT
-#define FT_CHAR_BIT  CHAR_BIT
-#endif
-
-
-  /* The size of an `int' type.  */
+  /* The number of bytes in an `int' type.  */
 #if   FT_UINT_MAX == 0xFFFFFFFFUL
-#define FT_SIZEOF_INT  (32 / FT_CHAR_BIT)
+#define FT_SIZEOF_INT  4
 #elif FT_UINT_MAX == 0xFFFFU
-#define FT_SIZEOF_INT  (16 / FT_CHAR_BIT)
+#define FT_SIZEOF_INT  2
 #elif FT_UINT_MAX > 0xFFFFFFFFU && FT_UINT_MAX == 0xFFFFFFFFFFFFFFFFU
-#define FT_SIZEOF_INT  (64 / FT_CHAR_BIT)
+#define FT_SIZEOF_INT  8
 #else
-#error "Unsupported size of `int' type!"
+#error "Unsupported number of bytes in `int' type!"
 #endif
 
-  /* The size of a `long' type.  */
+  /* The number of bytes in a `long' type.  */
 #if   FT_ULONG_MAX == 0xFFFFFFFFUL
-#define FT_SIZEOF_LONG  (32 / FT_CHAR_BIT)
+#define FT_SIZEOF_LONG  4
 #elif FT_ULONG_MAX > 0xFFFFFFFFU && FT_ULONG_MAX == 0xFFFFFFFFFFFFFFFFU
-#define FT_SIZEOF_LONG  (64 / FT_CHAR_BIT)
+#define FT_SIZEOF_LONG  8
 #else
-#error "Unsupported size of `long' type!"
+#error "Unsupported number of bytes in `long' type!"
 #endif
 
 
@@ -121,8 +108,7 @@ FT_BEGIN_HEADER
   /*   This is the only necessary change, so it is defined here instead    */
   /*   providing a new configuration file.                                 */
   /*                                                                       */
-#if ( defined( __APPLE__ ) && !defined( DARWIN_NO_CARBON ) ) || \
-    ( defined( __MWERKS__ ) && defined( macintosh )        )
+#if defined( __APPLE__ ) || ( defined( __MWERKS__ ) && defined( macintosh ) )
 #define FT_MACINTOSH 1
 #endif
 
@@ -136,12 +122,12 @@ FT_BEGIN_HEADER
   typedef signed short    FT_Int16;
   typedef unsigned short  FT_UInt16;
 
-#if FT_SIZEOF_INT == (32 / FT_CHAR_BIT)
+#if FT_SIZEOF_INT == 4
 
   typedef signed int      FT_Int32;
   typedef unsigned int    FT_UInt32;
 
-#elif FT_SIZEOF_LONG == (32 / FT_CHAR_BIT)
+#elif FT_SIZEOF_LONG == 4
 
   typedef signed long     FT_Int32;
   typedef unsigned long   FT_UInt32;
@@ -150,13 +136,13 @@ FT_BEGIN_HEADER
 #error "no 32bit type found -- please check your configuration files"
 #endif
 
-  /* look up an integer type that is at least 32 bits */
-#if FT_SIZEOF_INT >= (32 / FT_CHAR_BIT)
+  /* now, lookup for an integer type that is at least 32 bits */
+#if FT_SIZEOF_INT >= 4
 
   typedef int            FT_Fast;
   typedef unsigned int   FT_UFast;
 
-#elif FT_SIZEOF_LONG >= (32 / FT_CHAR_BIT)
+#elif FT_SIZEOF_LONG >= 4
 
   typedef long           FT_Fast;
   typedef unsigned long  FT_UFast;
@@ -166,7 +152,7 @@ FT_BEGIN_HEADER
 
   /* determine whether we have a 64-bit int type for platforms without */
   /* Autoconf                                                          */
-#if FT_SIZEOF_LONG == (64 / FT_CHAR_BIT)
+#if FT_SIZEOF_LONG == 8
 
   /* FT_LONG64 must be defined if a 64-bit type is available */
 #define FT_LONG64
@@ -191,10 +177,10 @@ FT_BEGIN_HEADER
 
   /* Watcom doesn't provide 64-bit data types */
 
-#elif defined( __MWERKS__ )    /* Metrowerks CodeWarrior */
+#elif defined( __MWKS__ )      /* Metrowerks CodeWarrior */
 
-#define FT_LONG64
-#define FT_INT64  long long int
+  /* I don't know if it provides 64-bit data types, any suggestion */
+  /* is welcome.                                                   */
 
 #elif defined( __GNUC__ )
 
@@ -202,12 +188,7 @@ FT_BEGIN_HEADER
 #define FT_LONG64
 #define FT_INT64  long long int
 
-#endif /* FT_SIZEOF_LONG == (64 / FT_CHAR_BIT) */
-
-
-#define FT_BEGIN_STMNT  do {
-#define FT_END_STMNT    } while ( 0 )
-#define FT_DUMMY_STMNT  FT_BEGIN_STMNT FT_END_STMNT
+#endif /* FT_SIZEOF_LONG == 8 */
 
 
   /*************************************************************************/

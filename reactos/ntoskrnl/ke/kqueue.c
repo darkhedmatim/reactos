@@ -10,7 +10,8 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -27,8 +28,8 @@ KeInsertByKeyDeviceQueue (
   IN ULONG			SortKey)
 {
   DPRINT("KeInsertByKeyDeviceQueue()\n");
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-
+  assert(KeGetCurrentIrql() == DISPATCH_LEVEL);   
+   
   DeviceQueueEntry->SortKey=SortKey;
 
   KeAcquireSpinLockAtDpcLevel(&DeviceQueue->Lock);
@@ -41,11 +42,11 @@ KeInsertByKeyDeviceQueue (
   }
   
   /* Insert new entry after the last entry with SortKey less or equal to passed-in SortKey */
-  InsertAscendingListFIFO(&DeviceQueue->DeviceListHead,
-                          KDEVICE_QUEUE_ENTRY,
-                          DeviceListEntry,
-                          DeviceQueueEntry,
-                          SortKey);
+  InsertAscendingList(&DeviceQueue->DeviceListHead,
+                      &DeviceQueueEntry->DeviceListEntry,
+                      KDEVICE_QUEUE_ENTRY,
+                      DeviceListEntry,
+                      SortKey);
    
   KeReleaseSpinLockFromDpcLevel(&DeviceQueue->Lock);
   return(TRUE);
@@ -62,12 +63,12 @@ KeRemoveByKeyDeviceQueue (
 	)
 {
   PLIST_ENTRY current;
-  PKDEVICE_QUEUE_ENTRY entry;
-
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-  ASSERT(DeviceQueue!=NULL);
-  ASSERT(DeviceQueue->Busy);
-
+  PKDEVICE_QUEUE_ENTRY entry;   
+   
+  assert(KeGetCurrentIrql() == DISPATCH_LEVEL);
+  assert(DeviceQueue!=NULL);
+  assert(DeviceQueue->Busy);
+   
   KeAcquireSpinLockAtDpcLevel(&DeviceQueue->Lock);
    
   /* an attempt to remove an entry from an empty (and busy) queue sets the queue to idle */
@@ -117,9 +118,9 @@ KeRemoveDeviceQueue (
    
    DPRINT("KeRemoveDeviceQueue(DeviceQueue %x)\n",DeviceQueue);
    
-   ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-   ASSERT(DeviceQueue!=NULL);
-   ASSERT(DeviceQueue->Busy);
+   assert(KeGetCurrentIrql() == DISPATCH_LEVEL);
+   assert(DeviceQueue!=NULL);
+   assert(DeviceQueue->Busy);
    
    KeAcquireSpinLockAtDpcLevel(&DeviceQueue->Lock);
    
@@ -151,7 +152,7 @@ KeInitializeDeviceQueue (
  *       DeviceQueue = Device queue to initialize
  */
 {
-   ASSERT(DeviceQueue!=NULL);
+   assert(DeviceQueue!=NULL);
    InitializeListHead(&DeviceQueue->DeviceListHead);
    DeviceQueue->Busy=FALSE;
    KeInitializeSpinLock(&DeviceQueue->Lock);
@@ -175,7 +176,7 @@ KeInsertDeviceQueue (
  *          True otherwise
  */
 {
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
+  assert(KeGetCurrentIrql() == DISPATCH_LEVEL);
    
   KeAcquireSpinLockAtDpcLevel(&DeviceQueue->Lock);
    
@@ -206,7 +207,7 @@ KeRemoveEntryDeviceQueue(
   KIRQL oldIrql;
   PKDEVICE_QUEUE_ENTRY entry;
   
-  ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+  assert(KeGetCurrentIrql() <= DISPATCH_LEVEL);
   
   KeAcquireSpinLock(&DeviceQueue->Lock, &oldIrql);
   

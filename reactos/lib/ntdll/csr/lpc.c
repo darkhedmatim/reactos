@@ -1,4 +1,4 @@
-/* $Id: lpc.c,v 1.15 2004/12/24 17:45:57 weiden Exp $
+/* $Id: lpc.c,v 1.12 2003/12/02 11:38:46 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -29,6 +29,8 @@ HANDLE WindowsApiPort = INVALID_HANDLE_VALUE;
 static PVOID CsrSectionMapBase = NULL;
 static PVOID CsrSectionMapServerBase = NULL;
 static HANDLE CsrCommHeap = NULL;
+
+static BOOL IsCsrss = FALSE;
 
 #define CSR_CONTROL_HEAP_SIZE (65536)
 
@@ -126,7 +128,7 @@ CsrClientConnectToServer(VOID)
    HANDLE CsrSectionHandle;
    LARGE_INTEGER CsrSectionViewSize;
 
-   if (WindowsApiPort != INVALID_HANDLE_VALUE)
+   if (IsCsrss)
      {
        return STATUS_SUCCESS;
      }
@@ -159,7 +161,6 @@ CsrClientConnectToServer(VOID)
 			  &ConnectInfoLength);
    if (!NT_SUCCESS(Status))
      {
-     	WindowsApiPort = INVALID_HANDLE_VALUE;
 	return(Status);
      }
 
@@ -193,6 +194,12 @@ CsrClientConnectToServer(VOID)
 	return(Reply.Status);
      }
    return(STATUS_SUCCESS);
+}
+
+void STDCALL
+CsrIsCsrss()
+{
+   IsCsrss = TRUE;
 }
 
 /* EOF */

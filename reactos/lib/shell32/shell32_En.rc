@@ -81,7 +81,7 @@ BEGIN
 	  MENUITEM "C&ut",		FCIDM_SHVIEW_CUT
 	  MENUITEM "&Copy",		FCIDM_SHVIEW_COPY
 	  MENUITEM SEPARATOR
-	  MENUITEM "Create &Link",	FCIDM_SHVIEW_CREATELINK
+	  MENUITEM "&Create Link",	FCIDM_SHVIEW_CREATELINK
 	  MENUITEM "&Delete",		FCIDM_SHVIEW_DELETE
 	  MENUITEM "&Rename",		FCIDM_SHVIEW_RENAME
 	  MENUITEM SEPARATOR
@@ -92,7 +92,7 @@ END
 SHBRSFORFOLDER_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 188, 192
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_3DLOOK
 CAPTION "Browse for Folder"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Helv"
 {
  DEFPUSHBUTTON "OK", 1, 80, 176, 50, 12, BS_DEFPUSHBUTTON | WS_GROUP | WS_TABSTOP
  PUSHBUTTON "Cancel", 2, 134, 176, 50, 12, WS_GROUP | WS_TABSTOP
@@ -107,25 +107,24 @@ FONT 8, "MS Shell Dlg"
 SHELL_ABOUT_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 210, 152
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "About %s"
-FONT 10, "MS Shell Dlg"
+FONT 10, "Helv"
 {
- DEFPUSHBUTTON "OK", IDOK, 153, 133, 50, 12, WS_TABSTOP
+ DEFPUSHBUTTON "OK", IDOK, 153, 130, 50, 12, WS_TABSTOP
  LISTBOX 99, 8, 65, 137, 82, LBS_NOTIFY | WS_VSCROLL | WS_BORDER
- ICON "", 1088, 10, 10, 14, 16
- LTEXT "", 100, 30, 10, 137, 10
- LTEXT "", 101, 30, 22, 137, 10
- LTEXT "ReactOS was brought to you by:", 98, 8, 55, 137, 10
+ ICON "", 1088, 189, 10, 14, 16
+ LTEXT "", 100, 8, 10, 137, 33
+ LTEXT "Wine was brought to you by:", 98, 8, 55, 137, 10
 }
 
 SHELL_RUN_DLG DIALOG LOADONCALL MOVEABLE DISCARDABLE 0, 0, 227, 95
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION ""
-FONT 8, "MS Shell Dlg"
+FONT 8, "Helv"
 {
  ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
- LTEXT "Type the name of a program, folder, document, or Internet resource, and ReactOS will open it for you.", 12289, 36, 11, 182, 18
+ LTEXT "Type the name of a program, folder, document, or Internet resource, and Wine will open it for you.", 12289, 36, 11, 182, 18
  LTEXT "&Open:", 12305, 7, 39, 24, 10
- CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+ CONTROL "", 12298, "COMBOBOX", WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
  DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
  PUSHBUTTON "Cancel", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
  PUSHBUTTON "&Browse...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -178,44 +177,3 @@ BEGIN
 	IDS_SHV_COLUMN8		"Name"
 	IDS_SHV_COLUMN9		"Comments"
 END
-
-/* message box strings */
-STRINGTABLE DISCARDABLE
-{
-	IDS_RESTART_TITLE	"Restart"
-	IDS_RESTART_PROMPT	"Do you want to restart the system?"
-	IDS_SHUTDOWN_TITLE	"Shutdown"
-	IDS_SHUTDOWN_PROMPT	"Do you want to shutdown?"
-}
-
-/* shell folder path default values */
-STRINGTABLE DISCARDABLE
-{
-	IDS_PROGRAMS                "Start Menu\\Programs"
-	IDS_PERSONAL                "My Documents"
-	IDS_FAVORITES               "Favorites"
-	IDS_STARTUP                 "Start Menu\\Programs\\StartUp"
-	IDS_RECENT                  "Recent"
-	IDS_SENDTO                  "SendTo"
-	IDS_STARTMENU               "Start Menu"
-	IDS_MYMUSIC                 "My Documents\\My Music"
-	IDS_MYVIDEO                 "My Documents\\My Video"
-	IDS_DESKTOPDIRECTORY        "Desktop"
-	IDS_NETHOOD                 "NetHood"
-	IDS_TEMPLATES               "Templates"
-	IDS_APPDATA                 "Application Data"
-	IDS_PRINTHOOD               "PrintHood"
-	IDS_LOCAL_APPDATA           "Local Settings\\Application Data"
-	IDS_INTERNET_CACHE          "Temporary Internet Files"
-	IDS_COOKIES                 "Cookies"
-	IDS_HISTORY                 "History"
-	IDS_PROGRAM_FILES           "Program Files"
-	IDS_MYPICTURES              "My Documents\\My Pictures"
-	IDS_PROGRAM_FILES_COMMON    "Program Files\\Common Files"
-	IDS_COMMON_DOCUMENTS        "Documents"
-	IDS_ADMINTOOLS              "Start Menu\\Programs\\Administrative Tools"
-	IDS_COMMON_MUSIC            "Documents\\My Music"
-	IDS_COMMON_PICTURES         "Documents\\My Pictures"
-	IDS_COMMON_VIDEO            "Documents\\My Video"
-	IDS_CDBURN_AREA             "Local Settings\\Application Data\\Microsoft\\CD Burning"
-}

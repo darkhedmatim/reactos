@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: hook.c,v 1.16 2004/08/15 21:36:29 chorns Exp $
+/* $Id: hook.c,v 1.13 2003/12/15 19:32:31 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,8 +28,10 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <user32/callback.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -38,7 +40,7 @@
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnhookWindowsHookEx(
   HHOOK Hook)
@@ -46,7 +48,7 @@ UnhookWindowsHookEx(
   return NtUserUnhookWindowsHookEx(Hook);
 }
 #if 0
-BOOL
+WINBOOL
 STDCALL
 CallMsgFilter(
   LPMSG lpMsg,
@@ -61,7 +63,7 @@ CallMsgFilter(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 CallMsgFilterA(
   LPMSG lpMsg,
@@ -75,7 +77,7 @@ CallMsgFilterA(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 CallMsgFilterW(
   LPMSG lpMsg,
@@ -152,7 +154,7 @@ SetWindowsHookA(int idHook, HOOKPROC lpfn)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DeregisterShellHookWindow(HWND hWnd)
 {
@@ -163,7 +165,7 @@ DeregisterShellHookWindow(HWND hWnd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 RegisterShellHookWindow(HWND hWnd)
 {
@@ -174,7 +176,7 @@ RegisterShellHookWindow(HWND hWnd)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnhookWindowsHook ( int nCode, HOOKPROC pfnFilterProc )
 {
@@ -203,13 +205,13 @@ NotifyWinEvent(
 HWINEVENTHOOK
 STDCALL
 SetWinEventHook(
-		UINT         eventMin,
-		UINT         eventMax,
+		DWORD        eventMin,
+		DWORD        eventMax,
 		HMODULE      hmodWinEventProc,
 		WINEVENTPROC pfnWinEventProc,
 		DWORD        idProcess,
 		DWORD        idThread,
-		UINT         dwFlags
+		DWORD        dwFlags
 		)
 {
   UNIMPLEMENTED;
@@ -219,7 +221,7 @@ SetWinEventHook(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnhookWinEvent ( HWINEVENTHOOK hWinEventHook )
 {
@@ -230,7 +232,7 @@ UnhookWinEvent ( HWINEVENTHOOK hWinEventHook )
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 IsWinEventHookInstalled(
     DWORD event)
@@ -345,11 +347,11 @@ User32CallHookProcFromKernel(PVOID Arguments, ULONG ArgumentLength)
             {
               if (0 != HIWORD(Csa.lpszClass))
                 {
-                  RtlFreeHeap(GetProcessHeap(), 0, (LPSTR) Csa.lpszClass);
+                  RtlFreeHeap(RtlGetProcessHeap(), 0, (LPSTR) Csa.lpszClass);
                 }
               if (NULL != Csa.lpszName)
                 {
-                  RtlFreeHeap(GetProcessHeap(), 0, (LPSTR) Csa.lpszName);
+                  RtlFreeHeap(RtlGetProcessHeap(), 0, (LPSTR) Csa.lpszName);
                 }
             }
           break;

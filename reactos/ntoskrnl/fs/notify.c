@@ -1,12 +1,11 @@
-/* $Id: notify.c,v 1.13 2004/08/21 20:38:53 tamlin Exp $
+/* $Id: notify.c,v 1.9 2003/12/30 18:52:03 fireball Exp $
  *
  * reactos/ntoskrnl/fs/notify.c
  *
  */
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -47,7 +46,6 @@ FsRtlNotifyChangeDirectory (
 }
 
 
-
 /**********************************************************************
  * NAME							EXPORTED
  *	FsRtlNotifyCleanup@12
@@ -68,50 +66,6 @@ FsRtlNotifyCleanup (
 	IN	PVOID		FsContext
 	)
 {
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlNotifyFilterChangeDirectory (
-    IN PNOTIFY_SYNC NotifySync,
-    IN PLIST_ENTRY NotifyList,
-    IN PVOID FsContext,
-    IN PSTRING FullDirectoryName,
-    IN BOOLEAN WatchTree,
-    IN BOOLEAN IgnoreBuffer,
-    IN ULONG CompletionFilter,
-    IN PIRP NotifyIrp,
-    IN PCHECK_FOR_TRAVERSE_ACCESS TraverseCallback OPTIONAL,
-    IN PSECURITY_SUBJECT_CONTEXT SubjectContext OPTIONAL,
-    IN PFILTER_REPORT_CHANGE FilterCallback OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlNotifyFilterReportChange (
-    IN PNOTIFY_SYNC NotifySync,
-    IN PLIST_ENTRY NotifyList,
-    IN PSTRING FullTargetName,
-    IN USHORT TargetNameOffset,
-    IN PSTRING StreamName OPTIONAL,
-    IN PSTRING NormalizedParentName OPTIONAL,
-    IN ULONG FilterMatch,
-    IN ULONG Action,
-    IN PVOID TargetContext,
-    IN PVOID FilterContext
-    )
-{
-	UNIMPLEMENTED;
 }
 
 
@@ -307,18 +261,4 @@ FsRtlNotifyVolumeEvent (
 	return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- *
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlRegisterFileSystemFilterCallbacks (
-    IN PVOID		Unknown1,
-    IN PVOID		Unknown2
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 /* EOF */

@@ -28,15 +28,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
 #include "winnls.h"
-#include "objbase.h"
+#include "ddeml.h"
 #include "docobj.h"
 #include "exdisp.h"
 #include "shlguid.h"
@@ -48,9 +46,9 @@
 #include "wine/unicode.h"
 #include "servprov.h"
 #include "winreg.h"
+#include "winuser.h"
 #include "wine/debug.h"
 #include "shlwapi.h"
-#include "winnt.h"
 
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
@@ -72,10 +70,13 @@ extern HMODULE SHLWAPI_hwinmm;
 extern HMODULE SHLWAPI_hcomdlg32;
 extern HMODULE SHLWAPI_hcomctl32;
 extern HMODULE SHLWAPI_hmpr;
+extern HMODULE SHLWAPI_hmlang;
 extern HMODULE SHLWAPI_hurlmon;
 extern HMODULE SHLWAPI_hversion;
 
 extern DWORD SHLWAPI_ThreadRef_index;
+
+typedef HANDLE HSHARED; /* Shared memory */
 
 /* following is GUID for IObjectWithSite::SetSite  -- see _174           */
 static DWORD id1[4] = {0xfc4801a3, 0x11cf2ba9, 0xaa0029a2, 0x52733d00};
@@ -85,6 +86,8 @@ static DWORD id2[4] = {0x79eac9ee, 0x11cebaf9, 0xaa00828c, 0x0ba94b00};
 /* Function pointers for GET_FUNC macro; these need to be global because of gcc bug */
 typedef LPITEMIDLIST (WINAPI *fnpSHBrowseForFolderW)(LPBROWSEINFOW);
 static  fnpSHBrowseForFolderW pSHBrowseForFolderW;
+typedef HRESULT (WINAPI *fnpConvertINetUnicodeToMultiByte)(LPDWORD,DWORD,LPCWSTR,LPINT,LPSTR,LPINT);
+static  fnpConvertINetUnicodeToMultiByte pConvertINetUnicodeToMultiByte;
 typedef BOOL    (WINAPI *fnpPlaySoundW)(LPCWSTR, HMODULE, DWORD);
 static  fnpPlaySoundW pPlaySoundW;
 typedef DWORD   (WINAPI *fnpSHGetFileInfoW)(LPCWSTR,DWORD,SHFILEINFOW*,UINT,UINT);
@@ -143,7 +146,7 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  for unicode functions to provide these functions on systems without
  unicode functions eg. win95/win98. Since we have such functions we just
  call these. If running Wine with native DLL's, some late bound calls may
- fail. However, it is better to implement the functions in the forward DLL
+ fail. However, its better to implement the functions in the forward DLL
  and recommend the builtin rather than reimplementing the calls here!
 */
 
@@ -153,15 +156,15 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  * Internal implemetation of SHLWAPI_11.
  */
 static
-HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
+HSHARED WINAPI SHLWAPI_DupSharedHandle(HSHARED hShared, DWORD dwDstProcId,
                                        DWORD dwSrcProcId, DWORD dwAccess,
                                        DWORD dwOptions)
 {
   HANDLE hDst, hSrc;
   DWORD dwMyProcId = GetCurrentProcessId();
-  HANDLE hRet = NULL;
+  HSHARED hRet = (HSHARED)NULL;
 
-  TRACE("(%p,%ld,%ld,%08lx,%08lx)\n", hShared, dwDstProcId, dwSrcProcId,
+  TRACE("(%p,%ld,%ld,%08lx,%08lx)\n", (PVOID)hShared, dwDstProcId, dwSrcProcId,
         dwAccess, dwOptions);
 
   /* Get dest process handle */
@@ -181,9 +184,9 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
     if (hSrc)
     {
       /* Make handle available to dest process */
-      if (!DuplicateHandle(hDst, hShared, hSrc, &hRet,
+      if (!DuplicateHandle(hDst, (HANDLE)hShared, hSrc, &hRet,
                            dwAccess, 0, dwOptions | DUPLICATE_SAME_ACCESS))
-        hRet = NULL;
+        hRet = (HSHARED)NULL;
 
       if (dwSrcProcId != dwMyProcId)
         CloseHandle(hSrc);
@@ -193,7 +196,7 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
       CloseHandle(hDst);
   }
 
-  TRACE("Returning handle %p\n", hRet);
+  TRACE("Returning handle %p\n", (PVOID)hRet);
   return hRet;
 }
 
@@ -203,9 +206,9 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
  * Create a block of sharable memory and initialise it with data.
  *
  * PARAMS
+ * dwProcId [I] ID of process owning data
  * lpvData  [I] Pointer to data to write
  * dwSize   [I] Size of data
- * dwProcId [I] ID of process owning data
  *
  * RETURNS
  * Success: A shared memory handle
@@ -219,13 +222,13 @@ HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
  * the view pointer returned by this size.
  *
  */
-HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
+HSHARED WINAPI SHAllocShared(DWORD dwProcId, DWORD dwSize, LPCVOID lpvData)
 {
   HANDLE hMap;
   LPVOID pMapped;
-  HANDLE hRet = NULL;
+  HSHARED hRet = (HSHARED)NULL;
 
-  TRACE("(%p,%ld,%ld)\n", lpvData, dwSize, dwProcId);
+  TRACE("(%ld,%p,%ld)\n", dwProcId, lpvData, dwSize);
 
   /* Create file mapping of the correct length */
   hMap = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, FILE_MAP_READ, 0,
@@ -240,12 +243,12 @@ HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
   {
     /* Write size of data, followed by the data, to the view */
     *((DWORD*)pMapped) = dwSize;
-    if (lpvData)
+    if (dwSize)
       memcpy((char *) pMapped + sizeof(dwSize), lpvData, dwSize);
 
     /* Release view. All further views mapped will be opaque */
     UnmapViewOfFile(pMapped);
-    hRet = SHLWAPI_DupSharedHandle(hMap, dwProcId,
+    hRet = SHLWAPI_DupSharedHandle((HSHARED)hMap, dwProcId,
                                    GetCurrentProcessId(), FILE_MAP_ALL_ACCESS,
                                    DUPLICATE_SAME_ACCESS);
   }
@@ -268,18 +271,18 @@ HANDLE WINAPI SHAllocShared(LPCVOID lpvData, DWORD dwSize, DWORD dwProcId)
  * Failure: NULL
  *
  */
-PVOID WINAPI SHLockShared(HANDLE hShared, DWORD dwProcId)
+PVOID WINAPI SHLockShared(HSHARED hShared, DWORD dwProcId)
 {
-  HANDLE hDup;
+  HSHARED hDup;
   LPVOID pMapped;
 
-  TRACE("(%p %ld)\n", hShared, dwProcId);
+  TRACE("(%p %ld)\n", (PVOID)hShared, dwProcId);
 
   /* Get handle to shared memory for current process */
   hDup = SHLWAPI_DupSharedHandle(hShared, dwProcId, GetCurrentProcessId(),
                                  FILE_MAP_ALL_ACCESS, 0);
   /* Get View */
-  pMapped = MapViewOfFile(hDup, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+  pMapped = MapViewOfFile((HANDLE)hDup, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
   CloseHandle(hDup);
 
   if (pMapped)
@@ -320,17 +323,17 @@ BOOL WINAPI SHUnlockShared(LPVOID lpView)
  * Failure: FALSE
  *
  */
-BOOL WINAPI SHFreeShared(HANDLE hShared, DWORD dwProcId)
+BOOL WINAPI SHFreeShared(HSHARED hShared, DWORD dwProcId)
 {
-  HANDLE hClose;
+  HSHARED hClose;
 
-  TRACE("(%p %ld)\n", hShared, dwProcId);
+  TRACE("(%p %ld)\n", (PVOID)hShared, dwProcId);
 
   /* Get a copy of the handle for our process, closing the source handle */
   hClose = SHLWAPI_DupSharedHandle(hShared, dwProcId, GetCurrentProcessId(),
                                    FILE_MAP_ALL_ACCESS,DUPLICATE_CLOSE_SOURCE);
   /* Close local copy */
-  return CloseHandle(hClose);
+  return CloseHandle((HANDLE)hClose);
 }
 
 /*************************************************************************
@@ -350,10 +353,10 @@ BOOL WINAPI SHFreeShared(HANDLE hShared, DWORD dwProcId)
  * Failure: A NULL handle.
  *
  */
-HANDLE WINAPI SHMapHandle(HANDLE hShared, DWORD dwDstProcId, DWORD dwSrcProcId,
+HSHARED WINAPI SHMapHandle(HSHARED hShared, DWORD dwDstProcId, DWORD dwSrcProcId,
                           DWORD dwAccess, DWORD dwOptions)
 {
-  HANDLE hRet;
+  HSHARED hRet;
 
   hRet = SHLWAPI_DupSharedHandle(hShared, dwDstProcId, dwSrcProcId,
                                  dwAccess, dwOptions);
@@ -520,99 +523,109 @@ RegisterDefaultAcceptHeaders_Exit:
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.15]
+ *      @	[SHLWAPI.14]
  *
  * Get Explorers "AcceptLanguage" setting.
  *
  * PARAMS
  *  langbuf [O] Destination for language string
  *  buflen  [I] Length of langbuf
- *          [0] Success: used length of langbuf
  *
  * RETURNS
  *  Success: S_OK.   langbuf is set to the language string found.
  *  Failure: E_FAIL, If any arguments are invalid, error occurred, or Explorer
  *           does not contain the setting.
- *           E_INVALIDARG, If the buffer is not big enough
  */
-HRESULT WINAPI GetAcceptLanguagesW( LPWSTR langbuf, LPDWORD buflen)
+HRESULT WINAPI GetAcceptLanguagesA(
+	LPSTR langbuf,
+	LPDWORD buflen)
 {
-    static const WCHAR szkeyW[] = {
-	'S','o','f','t','w','a','r','e','\\',
-	'M','i','c','r','o','s','o','f','t','\\',
-	'I','n','t','e','r','n','e','t',' ','E','x','p','l','o','r','e','r','\\',
-	'I','n','t','e','r','n','a','t','i','o','n','a','l',0};
-    static const WCHAR valueW[] = {
-	'A','c','c','e','p','t','L','a','n','g','u','a','g','e',0};
-    static const WCHAR enusW[] = {'e','n','-','u','s',0};
-    DWORD mystrlen, mytype;
-    HKEY mykey;
-    HRESULT retval;
-    LCID mylcid;
-    WCHAR *mystr;
+	CHAR *mystr;
+	DWORD mystrlen, mytype;
+	HKEY mykey;
+	LCID mylcid;
 
-    if(!langbuf || !buflen || !*buflen)
-	return E_FAIL;
-
-    mystrlen = (*buflen > 20) ? *buflen : 20 ;
-    mystr = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR) * mystrlen);
-    RegOpenKeyW(HKEY_CURRENT_USER, szkeyW, &mykey);
-    if(RegQueryValueExW(mykey, valueW, 0, &mytype, (PBYTE)mystr, &mystrlen)) {
-        /* Did not find value */
-        mylcid = GetUserDefaultLCID();
-        /* somehow the mylcid translates into "en-us"
-         *  this is similar to "LOCALE_SABBREVLANGNAME"
-         *  which could be gotten via GetLocaleInfo.
-         *  The only problem is LOCALE_SABBREVLANGUAGE" is
-         *  a 3 char string (first 2 are country code and third is
-         *  letter for "sublanguage", which does not come close to
-         *  "en-us"
-         */
-        lstrcpyW(mystr, enusW);
-        mystrlen = lstrlenW(mystr);
-    } else {
-        /* handle returned string */
-        FIXME("missing code\n");
-    }
-    memcpy( langbuf, mystr, min(*buflen,strlenW(mystr)+1)*sizeof(WCHAR) );
-
-    if(*buflen > strlenW(mystr)) {
-	*buflen = strlenW(mystr);
-	retval = S_OK;
-    } else {
-	*buflen = 0;
-	retval = E_INVALIDARG;
-	SetLastError(ERROR_INSUFFICIENT_BUFFER);
-    }
-    RegCloseKey(mykey);
-    HeapFree(GetProcessHeap(), 0, mystr);
-    return retval;
+	mystrlen = (*buflen > 6) ? *buflen : 6;
+	mystr = (CHAR*)HeapAlloc(GetProcessHeap(),
+				 HEAP_ZERO_MEMORY, mystrlen);
+	RegOpenKeyA(HKEY_CURRENT_USER,
+		    "Software\\Microsoft\\Internet Explorer\\International",
+		    &mykey);
+	if (RegQueryValueExA(mykey, "AcceptLanguage",
+			      0, &mytype, (PBYTE)mystr, &mystrlen)) {
+	    /* Did not find value */
+	    mylcid = GetUserDefaultLCID();
+	    /* somehow the mylcid translates into "en-us"
+	     *  this is similar to "LOCALE_SABBREVLANGNAME"
+	     *  which could be gotten via GetLocaleInfo.
+	     *  The only problem is LOCALE_SABBREVLANGUAGE" is
+	     *  a 3 char string (first 2 are country code and third is
+	     *  letter for "sublanguage", which does not come close to
+	     *  "en-us"
+	     */
+	    lstrcpyA(mystr, "en-us");
+	    mystrlen = lstrlenA(mystr);
+	}
+	else {
+	    /* handle returned string */
+	    FIXME("missing code\n");
+	}
+	if (mystrlen > *buflen)
+	    lstrcpynA(langbuf, mystr, *buflen);
+	else {
+	    lstrcpyA(langbuf, mystr);
+	    *buflen = lstrlenA(langbuf);
+	}
+	RegCloseKey(mykey);
+	HeapFree(GetProcessHeap(), 0, mystr);
+	TRACE("language is %s\n", debugstr_a(langbuf));
+	return 0;
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.14]
+ *      @	[SHLWAPI.15]
  *
- * Ascii version of GetAcceptLanguagesW.
+ * Unicode version of SHLWAPI_14.
  */
-HRESULT WINAPI GetAcceptLanguagesA( LPSTR langbuf, LPDWORD buflen)
+HRESULT WINAPI GetAcceptLanguagesW(
+	LPWSTR langbuf,
+	LPDWORD buflen)
 {
-    WCHAR *langbufW;
-    DWORD buflenW, convlen;
-    HRESULT retval;
+	CHAR *mystr;
+	DWORD mystrlen, mytype;
+	HKEY mykey;
+	LCID mylcid;
 
-    if(!langbuf || !buflen || !*buflen) return E_FAIL;
-
-    buflenW = *buflen;
-    langbufW = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR) * buflenW);
-    retval = GetAcceptLanguagesW(langbufW, &buflenW);
-
-    /* FIXME: this is wrong, the string may not be null-terminated */
-    convlen = WideCharToMultiByte(CP_ACP, 0, langbufW, -1, langbuf,
-                                  *buflen, NULL, NULL);
-    *buflen = buflenW ? convlen : 0;
-
-    if(langbufW) HeapFree(GetProcessHeap(), 0, langbufW);
-    return retval;
+	mystrlen = (*buflen > 6) ? *buflen : 6;
+	mystr = (CHAR*)HeapAlloc(GetProcessHeap(),
+				 HEAP_ZERO_MEMORY, mystrlen);
+	RegOpenKeyA(HKEY_CURRENT_USER,
+		    "Software\\Microsoft\\Internet Explorer\\International",
+		    &mykey);
+	if (RegQueryValueExA(mykey, "AcceptLanguage",
+			      0, &mytype, (PBYTE)mystr, &mystrlen)) {
+	    /* Did not find value */
+	    mylcid = GetUserDefaultLCID();
+	    /* somehow the mylcid translates into "en-us"
+	     *  this is similar to "LOCALE_SABBREVLANGNAME"
+	     *  which could be gotten via GetLocaleInfo.
+	     *  The only problem is LOCALE_SABBREVLANGUAGE" is
+	     *  a 3 char string (first 2 are country code and third is
+	     *  letter for "sublanguage", which does not come close to
+	     *  "en-us"
+	     */
+	    lstrcpyA(mystr, "en-us");
+	    mystrlen = lstrlenA(mystr);
+	}
+	else {
+	    /* handle returned string */
+	    FIXME("missing code\n");
+	}
+	RegCloseKey(mykey);
+	*buflen = MultiByteToWideChar(0, 0, mystr, -1, langbuf, (*buflen)-1);
+	HeapFree(GetProcessHeap(), 0, mystr);
+	TRACE("language is %s\n", debugstr_w(langbuf));
+	return 0;
 }
 
 /*************************************************************************
@@ -657,7 +670,7 @@ INT WINAPI SHStringFromGUIDW(REFGUID guid, LPWSTR lpszDest, INT cchMax)
 {
   char xguid[40];
   INT iLen = SHStringFromGUIDA(guid, xguid, cchMax);
-
+  
   if (iLen)
     MultiByteToWideChar(CP_ACP, 0, xguid, -1, lpszDest, cchMax);
   return iLen;
@@ -1044,7 +1057,7 @@ BOOL WINAPI SHAboutInfoA(LPSTR lpszDest, DWORD dwDestLen)
 {
   WCHAR buff[2084];
 
-  TRACE("(%p,%ld)\n", lpszDest, dwDestLen);
+  TRACE("(%p,%ld)", lpszDest, dwDestLen);
 
   if (lpszDest && SHAboutInfoW(buff, dwDestLen))
   {
@@ -1090,7 +1103,7 @@ BOOL WINAPI SHAboutInfoW(LPWSTR lpszDest, DWORD dwDestLen)
   HKEY hReg;
   DWORD dwType, dwLen;
 
-  TRACE("(%p,%ld)\n", lpszDest, dwDestLen);
+  TRACE("(%p,%ld)", lpszDest, dwDestLen);
 
   if (!lpszDest)
     return FALSE;
@@ -1153,6 +1166,38 @@ BOOL WINAPI SHAboutInfoW(LPWSTR lpszDest, DWORD dwDestLen)
 
   RegCloseKey(hReg);
   return TRUE;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.162]
+ *
+ * Remove a hanging lead byte from the end of a string, if present.
+ *
+ * PARAMS
+ *  lpStr [I] String to check for a hanging lead byte
+ *  size  [I] Length of lpStr
+ *
+ * RETURNS
+ *  Success: The new length of the string. Any hanging lead bytes are removed.
+ *  Failure: 0, if any parameters are invalid.
+ */
+DWORD WINAPI SHTruncateString(LPSTR lpStr, DWORD size)
+{
+  if (lpStr && size)
+  {
+    LPSTR lastByte = lpStr + size - 1;
+
+    while(lpStr < lastByte)
+      lpStr += IsDBCSLeadByte(*lpStr) ? 2 : 1;
+
+    if(lpStr == lastByte && IsDBCSLeadByte(*lpStr))
+    {
+      *lpStr = '\0';
+      size--;
+    }
+    return size;
+  }
+  return 0;
 }
 
 /*************************************************************************
@@ -1549,17 +1594,16 @@ DWORD WINAPI IUnknown_SetSite(
         LPVOID *p2)       /* [out]  ptr for call results */
 {
     DWORD ret, aa;
-    IUnknown *iobjectwithsite;
 
     if (!p1) return E_FAIL;
 
     /* see if SetSite interface exists for IObjectWithSite object */
-    ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id1, (LPVOID *)&iobjectwithsite);
-    TRACE("first IU_QI ret=%08lx, iobjectwithsite=%p\n", ret, iobjectwithsite);
+    ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id1, (LPVOID *)&p1);
+    TRACE("first IU_QI ret=%08lx, p1=%p\n", ret, p1);
     if (ret) {
 
 	/* see if GetClassId interface exists for IPersistMoniker object */
-	ret = IUnknown_QueryInterface(p1, (REFIID)id2, (LPVOID *)&aa);
+	ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id2, (LPVOID *)&aa);
 	TRACE("second IU_QI ret=%08lx, aa=%08lx\n", ret, aa);
 	if (ret) return ret;
 
@@ -1571,10 +1615,10 @@ DWORD WINAPI IUnknown_SetSite(
     }
     else {
 	/* fake a SetSite call */
-	ret = IOleWindow_GetWindow((IOleWindow *)iobjectwithsite, (HWND*)p2);
+	ret = IOleWindow_GetWindow((IOleWindow *)p1, (HWND*)p2);
 	TRACE("first IU_QI doing 0x0c ret=%08lx, *p2=%08lx\n", ret,
 	      *(LPDWORD)p2);
-	IUnknown_Release((IUnknown *)iobjectwithsite);
+	IUnknown_Release((IUnknown *)p1);
     }
     return ret;
 }
@@ -1830,30 +1874,6 @@ DWORD WINAPI SHRegisterClassA(WNDCLASSA *wndclass)
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.186]
- */
-BOOL WINAPI SHSimulateDrop(IDropTarget *pDrop, IDataObject *pDataObj,
-                           DWORD grfKeyState, PPOINTL lpPt, DWORD* pdwEffect)
-{
-  DWORD dwEffect = DROPEFFECT_LINK | DROPEFFECT_MOVE | DROPEFFECT_COPY;
-  POINTL pt = { 0, 0 };
-
-  if (!lpPt)
-    lpPt = &pt;
-
-  if (!pdwEffect)
-    pdwEffect = &dwEffect;
-
-  IDropTarget_DragEnter(pDrop, pDataObj, grfKeyState, *lpPt, pdwEffect);
-
-  if (*pdwEffect)
-    return IDropTarget_Drop(pDrop, pDataObj, grfKeyState, *lpPt, pdwEffect);
-
-  IDropTarget_DragLeave(pDrop);
-  return TRUE;
-}
-
-/*************************************************************************
  *      @	[SHLWAPI.187]
  *
  * Call IPersistPropertyBag_Load() on an object.
@@ -1918,6 +1938,41 @@ DWORD WINAPI IUnknown_OnFocusOCS(IUnknown *lpUnknown, IDispatch** lppDisp)
   return hRet;
 }
 
+static const WCHAR szDontShowKey[] = { 'S','o','f','t','w','a','r','e','\\',
+  'M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\',
+  'C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\',
+  'E','x','p','l','o','r','e','r','\\','D','o','n','t','S','h','o','w',
+  'M','e','T','h','i','s','D','i','a','l','o','g','A','g','a','i','n','\0'
+};
+
+/*************************************************************************
+ * @    [SHLWAPI.191]
+ *
+ * Pop up a 'Don't show this message again' error dialog box.
+ *
+ * PARAMS
+ *  hWnd      [I] Window to own the dialog box
+ *  arg2      [I] Unknown
+ *  arg3      [I] Unknown
+ *  arg4      [I] Unknown
+ *  arg5      [I] Unknown
+ *  lpszValue [I] Registry value holding boolean show/don't show.
+ *
+ * RETURNS
+ *  Nothing.
+ */
+void WINAPI SHMessageBoxCheckW(HWND hWnd, PVOID arg2, PVOID arg3, PVOID arg4, PVOID arg5, LPCWSTR lpszValue)
+{
+  FIXME("(%p,%p,%p,%p,%p,%s) - stub!\n", hWnd, arg2, arg3, arg4, arg5, debugstr_w(lpszValue));
+
+  if (SHRegGetBoolUSValueW(szDontShowKey, lpszValue, FALSE, TRUE))
+  {
+    /* FIXME: Should use DialogBoxParamW to load a dialog box; its dlgproc
+     * should accept clicks on 'Don't show' and set the reg value appropriately.
+     */
+  }
+}
+
 /*************************************************************************
  * @    [SHLWAPI.192]
  *
@@ -1970,41 +2025,6 @@ DWORD WINAPI SHGetCurColorRes()
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.194]
- *
- * Wait for a message to arrive, with a timeout.
- *
- * PARAMS
- *  hand      [I] Handle to query
- *  dwTimeout [I] Timeout in ticks or INFINITE to never timeout
- *
- * RETURNS
- *  STATUS_TIMEOUT if no message is received before dwTimeout ticks passes.
- *  Otherwise returns the value from MsgWaitForMultipleObjectsEx when a
- *  message is available.
- */
-DWORD WINAPI SHWaitForSendMessageThread(HANDLE hand, DWORD dwTimeout)
-{
-  DWORD dwEndTicks = GetTickCount() + dwTimeout;
-  DWORD dwRet;
-
-  while ((dwRet = MsgWaitForMultipleObjectsEx(1, &hand, dwTimeout, QS_SENDMESSAGE, 0)) == 1)
-  {
-    MSG msg;
-
-    PeekMessageW(&msg, NULL, 0, 0, PM_NOREMOVE);
-
-    if (dwTimeout != INFINITE)
-    {
-        if ((int)(dwTimeout = dwEndTicks - GetTickCount()) <= 0)
-            return WAIT_TIMEOUT;
-    }
-  }
-
-  return dwRet;
-}
-
-/*************************************************************************
  *      @       [SHLWAPI.197]
  *
  * Blank out a region of text by drawing the background only.
@@ -2024,43 +2044,6 @@ DWORD WINAPI SHFillRectClr(HDC hDC, LPCRECT pRect, COLORREF cRef)
     SetBkColor(hDC, cOldColor);
     return 0;
 }
-
-/*************************************************************************
- *      @	[SHLWAPI.198]
- *
- * Return the value asociated with a key in a map.
- *
- * PARAMS
- *  lpKeys   [I] A list of keys of length iLen
- *  lpValues [I] A list of values associated with lpKeys, of length iLen
- *  iLen     [I] Length of both lpKeys and lpValues
- *  iKey     [I] The key value to look up in lpKeys
- *
- * RETURNS
- *  The value in lpValues associated with iKey, or -1 if iKey is not
- *  found in lpKeys.
- *
- * NOTES
- *  - If two elements in the map share the same key, this function returns
- *    the value closest to the start of the map
- *  - The native version of this function crashes if lpKeys or lpValues is NULL.
- */
-int WINAPI SHSearchMapInt(const int *lpKeys, const int *lpValues, int iLen, int iKey)
-{
-  if (lpKeys && lpValues)
-  {
-    int i = 0;
-
-    while (i < iLen)
-    {
-      if (lpKeys[i] == iKey)
-        return lpValues[i]; /* Found */
-      i++;
-    }
-  }
-  return -1; /* Not found */
-}
-
 
 /*************************************************************************
  *      @	[SHLWAPI.199]
@@ -2191,6 +2174,148 @@ DWORD WINAPI FDSA_DeleteItem(
     FIXME("(%p 0x%08lx) stub\n",
 	  a, b);
     return 1;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.215]
+ *
+ * NOTES
+ *  check me!
+ */
+DWORD WINAPI SHAnsiToUnicode(
+	LPCSTR lpStrSrc,
+	LPWSTR lpwStrDest,
+	int len)
+{
+	INT len_a, ret;
+
+	len_a = lstrlenA(lpStrSrc);
+	ret = MultiByteToWideChar(0, 0, lpStrSrc, len_a, lpwStrDest, len);
+	TRACE("%s %s %d, ret=%d\n",
+	      debugstr_a(lpStrSrc), debugstr_w(lpwStrDest), len, ret);
+	return ret;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.218]
+ *
+ * WideCharToMultiByte with support for multiple codepages.
+ *
+ * PARAMS
+ *  CodePage          [I] Code page to use for the conversion
+ *  lpSrcStr          [I] Source Unicode string to convert
+ *  lpDstStr          [O] Destination for converted Ascii string
+ *  lpnMultiCharCount [O] Input length of lpDstStr/destination for length of lpDstStr
+ *
+ * RETURNS
+ *  Success: The number of characters that result from the conversion.
+ *  Failure: 0.
+ */
+INT WINAPI SHUnicodeToAnsiCP(UINT CodePage, LPCWSTR lpSrcStr, LPSTR lpDstStr,
+                       LPINT lpnMultiCharCount)
+{
+  WCHAR emptyW[] = { '\0' };
+  int len , reqLen;
+  LPSTR mem;
+
+  if (!lpDstStr || !lpnMultiCharCount)
+    return 0;
+
+  if (!lpSrcStr)
+    lpSrcStr = emptyW;
+
+  *lpDstStr = '\0';
+
+  len = strlenW(lpSrcStr) + 1;
+
+  switch (CodePage)
+  {
+  case CP_WINUNICODE:
+    CodePage = CP_UTF8; /* Fall through... */
+  case 0x0000C350: /* FIXME: CP_ #define */
+  case CP_UTF7:
+  case CP_UTF8:
+    {
+      DWORD dwMode = 0;
+      INT nWideCharCount = len - 1;
+
+      GET_FUNC(pConvertINetUnicodeToMultiByte, mlang, "ConvertINetUnicodeToMultiByte", 0);
+      if (!pConvertINetUnicodeToMultiByte(&dwMode, CodePage, lpSrcStr, &nWideCharCount, lpDstStr,
+                                          lpnMultiCharCount))
+        return 0;
+
+      if (nWideCharCount < len - 1)
+      {
+        mem = (LPSTR)HeapAlloc(GetProcessHeap(), 0, *lpnMultiCharCount);
+        if (!mem)
+          return 0;
+
+        *lpnMultiCharCount = 0;
+
+        if (pConvertINetUnicodeToMultiByte(&dwMode, CodePage, lpSrcStr, &len, mem, lpnMultiCharCount))
+        {
+          SHTruncateString(mem, *lpnMultiCharCount);
+          lstrcpynA(lpDstStr, mem, *lpnMultiCharCount + 1);
+          return *lpnMultiCharCount + 1;
+        }
+        HeapFree(GetProcessHeap(), 0, mem);
+        return *lpnMultiCharCount;
+      }
+      lpDstStr[*lpnMultiCharCount] = '\0';
+      return *lpnMultiCharCount;
+    }
+    break;
+  default:
+    break;
+  }
+
+  reqLen = WideCharToMultiByte(CodePage, 0, lpSrcStr, len, lpDstStr,
+                               *lpnMultiCharCount, NULL, NULL);
+
+  if (!reqLen && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+  {
+    reqLen = WideCharToMultiByte(CodePage, 0, lpSrcStr, len, NULL, 0, NULL, NULL);
+    if (reqLen)
+    {
+      mem = (LPSTR)HeapAlloc(GetProcessHeap(), 0, reqLen);
+      if (mem)
+      {
+        reqLen = WideCharToMultiByte(CodePage, 0, lpSrcStr, len, mem,
+                                     reqLen, NULL, NULL);
+
+        reqLen = SHTruncateString(mem, *lpnMultiCharCount);
+        reqLen++;
+
+        lstrcpynA(lpDstStr, mem, *lpnMultiCharCount);
+
+        HeapFree(GetProcessHeap(), 0, mem);
+      }
+    }
+  }
+  return reqLen;
+}
+
+/*************************************************************************
+ *      @	[SHLWAPI.217]
+ *
+ * WideCharToMultiByte with support for multiple codepages.
+ *
+ * PARAMS
+ *  lpSrcStr          [I] Source Unicode string to convert
+ *  lpDstStr          [O] Destination for converted Ascii string
+ *  lpnMultiCharCount [O] Input length of lpDstStr/destination for length of lpDstStr
+ *
+ * RETURNS
+ *  See SHUnicodeToAnsiCP
+
+ * NOTES
+ *  This function simply calls SHUnicodeToAnsiCP with CodePage = CP_ACP.
+ */
+INT WINAPI SHUnicodeToAnsi(LPCWSTR lpSrcStr, LPSTR lpDstStr, INT MultiCharCount)
+{
+    INT myint = MultiCharCount;
+
+    return SHUnicodeToAnsiCP(CP_ACP, lpSrcStr, lpDstStr, &myint);
 }
 
 typedef struct {
@@ -2390,6 +2515,16 @@ LRESULT CALLBACK SHDefWindowProc(HWND hWnd, UINT uMessage, WPARAM wParam, LPARAM
 }
 
 /*************************************************************************
+ *      @	[SHLWAPI.241]
+ *
+ */
+DWORD WINAPI StopWatchMode()
+{
+	FIXME("()stub\n");
+	return /* 0xabba1243 */ 0;
+}
+
+/*************************************************************************
  *      @	[SHLWAPI.257]
  *
  * Create a worker window using CreateWindowExA().
@@ -2439,7 +2574,7 @@ HWND WINAPI SHCreateWorkerWindowA(LONG wndProc, HWND hWndParent, DWORD dwExStyle
     SetWindowLongA(hWnd, DWL_MSGRESULT, z);
 
     if (wndProc)
-      SetWindowLongPtrA(hWnd, GWLP_WNDPROC, wndProc);
+      SetWindowLongA(hWnd, GWL_WNDPROC, wndProc);
   }
   return hWnd;
 }
@@ -2454,7 +2589,7 @@ typedef struct tagPOLICYDATA
 #define SHELL_NO_POLICY 0xffffffff
 
 /* default shell policy registry key */
-static const WCHAR strRegistryPolicyW[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o',
+static WCHAR strRegistryPolicyW[] = {'S','o','f','t','w','a','r','e','\\','M','i','c','r','o',
                                       's','o','f','t','\\','W','i','n','d','o','w','s','\\',
                                       'C','u','r','r','e','n','t','V','e','r','s','i','o','n',
                                       '\\','P','o','l','i','c','i','e','s',0};
@@ -2474,12 +2609,12 @@ static const WCHAR strRegistryPolicyW[] = {'S','o','f','t','w','a','r','e','\\',
  */
 DWORD WINAPI SHGetRestriction(LPCWSTR lpSubKey, LPCWSTR lpSubName, LPCWSTR lpValue)
 {
-	DWORD retval, datsize = sizeof(retval);
+	DWORD retval, datsize = 4;
 	HKEY hKey;
 
 	if (!lpSubKey)
-	  lpSubKey = strRegistryPolicyW;
-
+	  lpSubKey = (LPCWSTR)strRegistryPolicyW;
+	
 	retval = RegOpenKeyW(HKEY_LOCAL_MACHINE, lpSubKey, &hKey);
     if (retval != ERROR_SUCCESS)
 	  retval = RegOpenKeyW(HKEY_CURRENT_USER, lpSubKey, &hKey);
@@ -2488,7 +2623,7 @@ DWORD WINAPI SHGetRestriction(LPCWSTR lpSubKey, LPCWSTR lpSubName, LPCWSTR lpVal
 
 	SHGetValueW(hKey, lpSubName, lpValue, NULL, (LPBYTE)&retval, &datsize);
 	RegCloseKey(hKey);
-	return retval;
+	return retval;  
 }
 
 /*************************************************************************
@@ -2658,7 +2793,7 @@ DWORD WINAPI WhichPlatform()
   GET_FUNC(pDllGetVersion, shell32, "DllGetVersion", 1);
   dwState = pDllGetVersion ? 2 : 1;
 
-  /* Set or delete the key accordingly */
+  /* Set or delete the key accordinly */
   dwRet = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
                         "Software\\Microsoft\\Internet Explorer", 0,
                          KEY_ALL_ACCESS, &hKey);
@@ -2726,7 +2861,7 @@ HWND WINAPI SHCreateWorkerWindowW(LONG wndProc, HWND hWndParent, DWORD dwExStyle
     SetWindowLongA(hWnd, DWL_MSGRESULT, z);
 
     if (wndProc)
-      SetWindowLongPtrA(hWnd, GWLP_WNDPROC, wndProc);
+      SetWindowLongA(hWnd, GWL_WNDPROC, wndProc);
   }
   return hWnd;
 }
@@ -3025,6 +3160,19 @@ LONG WINAPI SHInterlockedCompareExchange( PLONG dest, LONG xchg, LONG compare)
 }
 
 /*************************************************************************
+ *      @	[SHLWAPI.346]
+ */
+DWORD WINAPI SHUnicodeToUnicode(
+	LPCWSTR src,
+	LPWSTR dest,
+	int len)
+{
+	FIXME("(%s %p 0x%08x)stub\n",debugstr_w(src),dest,len);
+	lstrcpynW(dest, src, len);
+	return lstrlenW(dest)+1;
+}
+
+/*************************************************************************
  *      @	[SHLWAPI.350]
  *
  * See GetFileVersionInfoSizeW.
@@ -3210,6 +3358,25 @@ HRESULT WINAPI SHInvokeCommand(HWND hWnd, IShellFolder* lpFolder, LPCITEMIDLIST 
 }
 
 /*************************************************************************
+ *      @	[SHLWAPI.364]
+ *
+ * Copy one string to another, up to a given length.
+ *
+ * PARAMS
+ *  lpszSrc [I] Source string to copy
+ *  lpszDst [O] Destination for copied string
+ *  iLen    [I] Number of characters to copy
+ *
+ * RETURNS
+ *  TRUE.
+ */
+DWORD WINAPI DoesStringRoundTripA(LPCSTR lpszSrc, LPSTR lpszDst, INT iLen)
+{
+  lstrcpynA(lpszDst, lpszSrc, iLen);
+  return TRUE;
+}
+
+/*************************************************************************
  *      @	[SHLWAPI.370]
  *
  * See ExtractIconW.
@@ -3247,7 +3414,7 @@ LANGID WINAPI MLGetUILanguage()
  *  Success: A handle to the loaded module
  *  Failure: A NULL handle.
  */
-HMODULE WINAPI MLLoadLibraryA(LPCSTR new_mod, HMODULE inst_hwnd, DWORD dwFlags)
+HMODULE WINAPI MLLoadLibraryA(LPCSTR new_mod, HANDLE inst_hwnd, DWORD dwFlags, LPCSTR component, BOOL cross_code_page)
 {
   /* FIXME: Native appears to do DPA_Create and a DPA_InsertPtr for
    *        each call here.
@@ -3269,12 +3436,9 @@ HMODULE WINAPI MLLoadLibraryA(LPCSTR new_mod, HMODULE inst_hwnd, DWORD dwFlags)
    */
     CHAR mod_path[2*MAX_PATH];
     LPSTR ptr;
-    DWORD len;
 
     FIXME("(%s,%p,0x%08lx) semi-stub!\n", debugstr_a(new_mod), inst_hwnd, dwFlags);
-    len = GetModuleFileNameA(inst_hwnd, mod_path, sizeof(mod_path));
-    if (!len || len >= sizeof(mod_path)) return NULL;
-
+    GetModuleFileNameA(inst_hwnd, mod_path, 2*MAX_PATH);
     ptr = strrchr(mod_path, '\\');
     if (ptr) {
 	strcpy(ptr+1, new_mod);
@@ -3289,16 +3453,13 @@ HMODULE WINAPI MLLoadLibraryA(LPCSTR new_mod, HMODULE inst_hwnd, DWORD dwFlags)
  *
  * Unicode version of MLLoadLibraryA.
  */
-HMODULE WINAPI MLLoadLibraryW(LPCWSTR new_mod, HMODULE inst_hwnd, DWORD dwFlags)
+HMODULE WINAPI MLLoadLibraryW(LPCWSTR new_mod, HANDLE inst_hwnd, DWORD dwFlags, LPCWSTR component, BOOL cross_code_page)
 {
     WCHAR mod_path[2*MAX_PATH];
     LPWSTR ptr;
-    DWORD len;
 
     FIXME("(%s,%p,0x%08lx) semi-stub!\n", debugstr_w(new_mod), inst_hwnd, dwFlags);
-    len = GetModuleFileNameW(inst_hwnd, mod_path, sizeof(mod_path) / sizeof(WCHAR));
-    if (!len || len >= sizeof(mod_path) / sizeof(WCHAR)) return NULL;
-
+    GetModuleFileNameW(inst_hwnd, mod_path, 2*MAX_PATH);
     ptr = strrchrW(mod_path, '\\');
     if (ptr) {
 	strcpyW(ptr+1, new_mod);
@@ -3517,25 +3678,6 @@ BOOL WINAPI MLFreeLibrary(HMODULE hModule)
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.419]
- */
-BOOL WINAPI SHFlushSFCacheWrap(void) {
-  FIXME(": stub\n");
-  return TRUE;
-}
-
-/*************************************************************************
- *      @      [SHLWAPI.429]
- * FIXME I have no idea what this function does or what its arguments are.
- */
-BOOL WINAPI MLIsMLHInstance(HINSTANCE hInst)
-{
-       FIXME("(%p) stub\n", hInst);
-       return FALSE;
-}
-
-
-/*************************************************************************
  *      @	[SHLWAPI.430]
  */
 DWORD WINAPI MLSetMLHInstance(HINSTANCE hInst, HANDLE hHeap)
@@ -3671,118 +3813,12 @@ HRESULT WINAPI CLSIDFromStringWrap(LPCWSTR idstr, CLSID *id)
  *  TRUE  If the feature is available.
  *  FALSE If the feature is not available.
  */
-BOOL WINAPI IsOS(DWORD feature)
+DWORD WINAPI IsOS(DWORD feature)
 {
-    OSVERSIONINFOA osvi;
-    DWORD platform, majorv, minorv;
-
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
-    if(!GetVersionExA(&osvi))  {
-        ERR("GetVersionEx failed");
-        return FALSE;
-    }
-
-    majorv = osvi.dwMajorVersion;
-    minorv = osvi.dwMinorVersion;
-    platform = osvi.dwPlatformId;
-
-#define ISOS_RETURN(x) \
-    TRACE("(0x%lx) ret=%d\n",feature,(x)); \
-    return (x);
-
-    switch(feature)  {
-    case OS_WIN32SORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32s
-                 || platform == VER_PLATFORM_WIN32_WINDOWS)
-    case OS_NT:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_WIN95ORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_WINDOWS)
-    case OS_NT4ORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 4)
-    case OS_WIN2000ORGREATER_ALT:
-    case OS_WIN2000ORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 5)
-    case OS_WIN98ORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_WINDOWS && minorv >= 10)
-    case OS_WIN98_GOLD:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_WINDOWS && minorv == 10)
-    case OS_WIN2000PRO:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 5)
-    case OS_WIN2000SERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && (minorv == 0 || minorv == 1))
-    case OS_WIN2000ADVSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && (minorv == 0 || minorv == 1))
-    case OS_WIN2000DATACENTER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && (minorv == 0 || minorv == 1))
-    case OS_WIN2000TERMINAL:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && (minorv == 0 || minorv == 1))
-    case OS_EMBEDDED:
-        FIXME("(OS_EMBEDDED) What should we return here?\n");
-        return FALSE;
-    case OS_TERMINALCLIENT:
-        FIXME("(OS_TERMINALCLIENT) What should we return here?\n");
-        return FALSE;
-    case OS_TERMINALREMOTEADMIN:
-        FIXME("(OS_TERMINALREMOTEADMIN) What should we return here?\n");
-        return FALSE;
-    case OS_WIN95_GOLD:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_WINDOWS && minorv == 0)
-    case OS_MEORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_WINDOWS && minorv >= 90)
-    case OS_XPORGREATER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 5 && minorv >= 1)
-    case OS_HOME:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 5 && minorv >= 1)
-    case OS_PROFESSIONAL:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT) 
-    case OS_DATACENTER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_ADVSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && majorv >= 5)
-    case OS_SERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_TERMINALSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_PERSONALTERMINALSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT && minorv >= 1 && majorv >= 5)
-    case OS_FASTUSERSWITCHING:
-        FIXME("(OS_FASTUSERSWITCHING) What should we return here?\n");
-        return TRUE;
-    case OS_WELCOMELOGONUI:
-        FIXME("(OS_WELCOMELOGONUI) What should we return here?\n");
-        return FALSE;
-    case OS_DOMAINMEMBER:
-        FIXME("(OS_DOMAINMEMBER) What should we return here?\n");
-        return TRUE;
-    case OS_ANYSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_WOW6432:
-        FIXME("(OS_WOW6432) Should we check this?\n");
-        return FALSE;
-    case OS_WEBSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_SMALLBUSINESSSERVER:
-        ISOS_RETURN(platform == VER_PLATFORM_WIN32_NT)
-    case OS_TABLETPC:
-        FIXME("(OS_TABLEPC) What should we return here?\n");
-        return FALSE;
-    case OS_SERVERADMINUI:
-        FIXME("(OS_SERVERADMINUI) What should we return here?\n");
-        return FALSE;
-    case OS_MEDIACENTER:
-        FIXME("(OS_MEDIACENTER) What should we return here?\n");
-        return FALSE;
-    case OS_APPLIANCE:
-        FIXME("(OS_APPLIANCE) What should we return here?\n");
-        return FALSE;
-    }
-
-#undef ISOS_RETURN
-
-    WARN("(0x%lx) unknown parameter\n",feature);
-
-    return FALSE;
+  FIXME("(0x%08lx) stub\n", feature);
+  if (feature == 4)
+    return TRUE;
+  return FALSE;
 }
 
 /*************************************************************************
@@ -3952,50 +3988,6 @@ INT WINAPI GetMenuPosFromID(HMENU hMenu, UINT wID)
 }
 
 /*************************************************************************
- *      @	[SHLWAPI.179]
- *
- * Same as SHLWAPI.GetMenuPosFromID
- */
-DWORD WINAPI SHMenuIndexFromID(HMENU hMenu, UINT uID)
-{
-    return GetMenuPosFromID(hMenu, uID);
-}
-
-
-/*************************************************************************
- *      @	[SHLWAPI.448]
- */
-VOID WINAPI FixSlashesAndColonW(LPWSTR lpwstr)
-{
-    while (*lpwstr)
-    {
-        if (*lpwstr == '/')
-            *lpwstr = '\\';
-        lpwstr++;
-    }
-}
-
-
-/*************************************************************************
- *      @	[SHLWAPI.461]
- */
-DWORD WINAPI SHGetAppCompatFlags(DWORD Unknown)
-{
-  FIXME("stub\n");
-  return 0;
-}
-
-
-/*************************************************************************
- *      @	[SHLWAPI.549]
- */
-HRESULT WINAPI SHCoCreateInstanceAC(REFCLSID rclsid, LPUNKNOWN pUnkOuter,
-                                    DWORD dwClsContext, REFIID iid, LPVOID *ppv)
-{
-    return CoCreateInstance(rclsid, pUnkOuter, dwClsContext, iid, ppv);
-}
-
-/*************************************************************************
  * SHSkipJunction	[SHLWAPI.@]
  *
  * Determine if a bind context can be bound to an object
@@ -4011,7 +4003,7 @@ HRESULT WINAPI SHCoCreateInstanceAC(REFCLSID rclsid, LPUNKNOWN pUnkOuter,
  */
 BOOL WINAPI SHSkipJunction(IBindCtx *pbc, const CLSID *pclsid)
 {
-  static const WCHAR szSkipBinding[] = { 'S','k','i','p',' ',
+  static WCHAR szSkipBinding[] = { 'S','k','i','p',' ',
     'B','i','n','d','i','n','g',' ','C','L','S','I','D','\0' };
   BOOL bRet = FALSE;
 
@@ -4019,7 +4011,7 @@ BOOL WINAPI SHSkipJunction(IBindCtx *pbc, const CLSID *pclsid)
   {
     IUnknown* lpUnk;
 
-    if (SUCCEEDED(IBindCtx_GetObjectParam(pbc, (LPOLESTR)szSkipBinding, &lpUnk)))
+    if (SUCCEEDED(IBindCtx_GetObjectParam(pbc, szSkipBinding, &lpUnk)))
     {
       CLSID clsid;
 
@@ -4033,27 +4025,18 @@ BOOL WINAPI SHSkipJunction(IBindCtx *pbc, const CLSID *pclsid)
   return bRet;
 }
 
-/***********************************************************************
- *		SHGetShellKey (SHLWAPI.@)
- */
 DWORD WINAPI SHGetShellKey(DWORD a, DWORD b, DWORD c)
 {
     FIXME("(%lx, %lx, %lx): stub\n", a, b, c);
     return 0x50;
 }
 
-/***********************************************************************
- *		SHQueueUserWorkItem (SHLWAPI.@)
- */
 HRESULT WINAPI SHQueueUserWorkItem(DWORD a, DWORD b, DWORD c, DWORD d, DWORD e, DWORD f, DWORD g)
 {
     FIXME("(%lx, %lx, %lx, %lx, %lx, %lx, %lx): stub\n", a, b, c, d, e, f, g);
     return E_FAIL;
 }
 
-/***********************************************************************
- *		IUnknown_OnFocusChangeIS (SHLWAPI.@)
- */
 DWORD WINAPI IUnknown_OnFocusChangeIS(IUnknown * pUnk, IUnknown * pFocusObject, BOOL bChange)
 {
     FIXME("(%p, %p, %s)\n", pUnk, pFocusObject, bChange ? "TRUE" : "FALSE");
@@ -4067,39 +4050,8 @@ DWORD WINAPI IUnknown_OnFocusChangeIS(IUnknown * pUnk, IUnknown * pFocusObject, 
     return 0;
 }
 
-/***********************************************************************
- *		SHGetValueW (SHLWAPI.@)
- */
 HRESULT WINAPI SKGetValueW(DWORD a, LPWSTR b, LPWSTR c, DWORD d, DWORD e, DWORD f)
 {
     FIXME("(%lx, %s, %s, %lx, %lx, %lx): stub\n", a, debugstr_w(b), debugstr_w(c), d, e, f);
     return E_FAIL;
-}
-
-typedef HRESULT (WINAPI *DllGetVersion_func)(DLLVERSIONINFO *);
-
-/***********************************************************************
- *              GetUIVersion (SHLWAPI.452)
- */
-DWORD WINAPI GetUIVersion(void)
-{
-    static DWORD version;
-
-    if (!version)
-    {
-        DllGetVersion_func pDllGetVersion;
-        HMODULE dll = LoadLibraryA("shell32.dll");
-        if (!dll) return 0;
-
-        pDllGetVersion = (DllGetVersion_func)GetProcAddress(dll, "DllGetVersion");
-        if (pDllGetVersion)
-        {
-            DLLVERSIONINFO dvi;
-            dvi.cbSize = sizeof(DLLVERSIONINFO);
-            if (pDllGetVersion(&dvi) == S_OK) version = dvi.dwMajorVersion;
-        }
-        FreeLibrary( dll );
-        if (!version) version = 3;  /* old shell dlls don't have DllGetVersion */
-    }
-    return version;
 }

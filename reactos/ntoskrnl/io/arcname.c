@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: arcname.c,v 1.19 2004/08/15 16:39:03 chorns Exp $
+/* $Id: arcname.c,v 1.16 2003/11/17 02:12:51 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -28,7 +28,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <rosrtl/string.h>
+
+#include "internal/io.h"
+#include "internal/xhal.h"
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -47,11 +52,8 @@ IoCreateArcNames(VOID)
   WCHAR ArcNameBuffer[80];
   UNICODE_STRING DeviceName;
   UNICODE_STRING ArcName;
-  ULONG i, j, k;
+  ULONG i, j;
   NTSTATUS Status;
-  PFILE_OBJECT FileObject;
-  PDEVICE_OBJECT DeviceObject;
-  BOOL IsRemovableMedia;
 
   DPRINT("IoCreateArcNames() called\n");
 
@@ -84,7 +86,7 @@ IoCreateArcNames(VOID)
 
   /* create ARC names for hard disk drives */
   DPRINT("Disk drives: %lu\n", ConfigInfo->DiskCount);
-  for (i = 0, k = 0; i < ConfigInfo->DiskCount; i++)
+  for (i = 0; i < ConfigInfo->DiskCount; i++)
     {
       swprintf(DeviceNameBuffer,
 	       L"\\Device\\Harddisk%lu\\Partition0",
@@ -92,25 +94,9 @@ IoCreateArcNames(VOID)
       RtlInitUnicodeString(&DeviceName,
 			   DeviceNameBuffer);
 
-
-      Status = IoGetDeviceObjectPointer(&DeviceName,
-				        FILE_READ_DATA,
-				        &FileObject,
-				        &DeviceObject);
-      if (!NT_SUCCESS(Status))
-        {
-	  continue;
-	}
-      IsRemovableMedia = DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA ? TRUE : FALSE;
-      ObDereferenceObject(FileObject);
-      if (IsRemovableMedia)
-        {
-          continue;
-	}
-
       swprintf(ArcNameBuffer,
 	       L"\\ArcName\\multi(0)disk(0)rdisk(%lu)partition(0)",
-	       k);
+	       i);
       RtlInitUnicodeString(&ArcName,
 			   ArcNameBuffer);
       DPRINT("%wZ ==> %wZ\n",
@@ -140,7 +126,7 @@ IoCreateArcNames(VOID)
 
 	  swprintf(ArcNameBuffer,
 		   L"\\ArcName\\multi(0)disk(0)rdisk(%lu)partition(%lu)",
-		   k,
+		   i,
 		   j + 1);
 	  RtlInitUnicodeString(&ArcName,
 			       ArcNameBuffer);
@@ -156,7 +142,6 @@ IoCreateArcNames(VOID)
 
       ExFreePool(LayoutInfo);
       LayoutInfo = NULL;
-      k++;
     }
 
   /* create ARC names for cdrom drives */
@@ -253,10 +238,6 @@ IopCheckCdromDevices(PULONG DeviceNumber)
 	}
 #endif
 
-      /*
-       * Check for 'reactos/ntoskrnl.exe' first...
-       */
-
       swprintf(DeviceNameBuffer,
 	       L"\\Device\\CdRom%lu\\reactos\\ntoskrnl.exe",
 	       i);
@@ -284,36 +265,6 @@ IopCheckCdromDevices(PULONG DeviceNumber)
 	  return(STATUS_SUCCESS);
 	}
 
-      /*
-       * ...and for 'reactos/system32/ntoskrnl.exe' also.
-       */
-
-      swprintf(DeviceNameBuffer,
-	       L"\\Device\\CdRom%lu\\reactos\\system32\\ntoskrnl.exe",
-	       i);
-      RtlInitUnicodeString(&DeviceName,
-			   DeviceNameBuffer);
-
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &DeviceName,
-				 0,
-				 NULL,
-				 NULL);
-
-      Status = NtOpenFile(&Handle,
-			  FILE_ALL_ACCESS,
-			  &ObjectAttributes,
-			  &IoStatusBlock,
-			  0,
-			  0);
-      DPRINT("NtOpenFile()  DeviceNumber %lu  Status %lx\n", i, Status);
-      if (NT_SUCCESS(Status))
-	{
-	  DPRINT("Found ntoskrnl.exe on Cdrom%lu\n", i);
-	  NtClose(Handle);
-	  *DeviceNumber = i;
-	  return(STATUS_SUCCESS);
-	}
     }
 
   DPRINT("Could not find ntoskrnl.exe\n");

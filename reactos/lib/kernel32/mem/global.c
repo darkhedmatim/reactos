@@ -1,4 +1,4 @@
-/* $Id: global.c,v 1.28 2004/10/30 22:18:17 weiden Exp $
+/* $Id: global.c,v 1.18 2003/12/30 23:16:43 sedwards Exp $
  *
  * Win32 Global/Local heap functions (GlobalXXX, LocalXXX).
  * These functions included in Win32 for compatibility with 16 bit Windows
@@ -10,9 +10,10 @@
  */
 
 #include <k32.h>
+#include <time.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 #ifdef _GNUC_
 #define STRUCT_PACK __attribute__((packed))
@@ -46,10 +47,10 @@ typedef struct __GLOBAL_LOCAL_HANDLE
 
 static void DbgPrintStruct(PGLOBAL_HANDLE h)
 {
-    DPRINT("Magic:     0x%X\n", h->Magic);
-    DPRINT("Pointer:   0x%X\n", h->Pointer);
-    DPRINT("Flags:     0x%X\n", h->Flags);
-    DPRINT("LockCount: 0x%X\n", h->LockCount);
+    DbgPrint("Magic:     0x%X\n", h->Magic);
+    DbgPrint("Pointer:   0x%X\n", h->Pointer);
+    DbgPrint("Flags:     0x%X\n", h->Flags);
+    DbgPrint("LockCount: 0x%X\n", h->LockCount);
 }
 
 
@@ -67,6 +68,10 @@ GlobalAlloc(UINT uFlags,
     PGLOBAL_HANDLE phandle    = 0;
     PVOID          palloc     = 0;
     UINT           heap_flags = 0;
+    /*Fixme: When we are sure all allocations are 8-byte aligned,
+    **we can remove this hack.
+    */
+    PGLOBAL_HANDLE hack_fix   = 0;
 
     if (uFlags & GMEM_ZEROINIT)
     {
@@ -78,20 +83,24 @@ GlobalAlloc(UINT uFlags,
     //Changed hProcessHeap to GetProcessHeap()
     if ((uFlags & GMEM_MOVEABLE)==0) /* POINTER */
     {
-        palloc = RtlAllocateHeap(GetProcessHeap(), heap_flags, dwBytes);
-        if (! ISPOINTER(palloc))
-        {
-            DPRINT1("GlobalAlloced pointer which is not 8-byte aligned\n");
-            RtlFreeHeap(GetProcessHeap(), 0, palloc);
-            return NULL;
-        }
-        return (HGLOBAL) palloc;
+        return ((HGLOBAL)RtlAllocateHeap(GetProcessHeap(), heap_flags, dwBytes));
     }
     else  /* HANDLE */
     {
         HeapLock(hProcessHeap);
 
         phandle = RtlAllocateHeap(GetProcessHeap(), 0,  sizeof(GLOBAL_HANDLE));
+        /* This little hack is to make sure that we get a pointer with 8-byte
+        ** alignment.
+        ** Fixme: When we are sure all allocations are 8-byte aligned,
+        ** we can remove this hack.
+        */
+        if (ISPOINTER(INTERN_TO_HANDLE(phandle)))
+        {
+            hack_fix = RtlAllocateHeap(GetProcessHeap(), 0,  sizeof(GLOBAL_HANDLE));
+            RtlFreeHeap(GetProcessHeap(), 0, phandle);
+            phandle = hack_fix;
+        }
         if (phandle)
         {
             phandle->Magic     = MAGIC_GLOBAL_USED;
@@ -115,25 +124,16 @@ GlobalAlloc(UINT uFlags,
             }
             else
             {
-                DPRINT("Allocated a 0 size movable block.\n");
+                DbgPrint("Allocated a 0 size movable block.\n");
                 DbgPrintStruct(phandle);
-                DPRINT("Address of the struct: 0x%X\n", phandle);
-                DPRINT("Address of pointer:    0x%X\n", &(phandle->Pointer));
+                DbgPrint("Address of the struct: 0x%X\n", phandle);
+                DbgPrint("Address of pointer:    0x%X\n", &(phandle->Pointer));
             }
         }
         HeapUnlock(hProcessHeap);
 
         if (phandle)
-        {
-            if (ISPOINTER(INTERN_TO_HANDLE(phandle)))
-            {
-                DPRINT1("GlobalAlloced handle which is 8-byte aligned but shouldn't be\n");
-                RtlFreeHeap(GetProcessHeap(), 0, palloc);
-                RtlFreeHeap(GetProcessHeap(), 0, phandle);
-                return NULL;
-            }
             return INTERN_TO_HANDLE(phandle);	
-        }
         else
             return (HGLOBAL)0;
     }
@@ -143,7 +143,7 @@ GlobalAlloc(UINT uFlags,
 /*
  * @implemented
  */
-SIZE_T STDCALL
+UINT STDCALL
 GlobalCompact(DWORD dwMinFree)
 {
    return RtlCompactHeap(hProcessHeap, 0);
@@ -169,11 +169,11 @@ GlobalFlags(HGLOBAL hMem)
     DWORD		    retval;
     PGLOBAL_HANDLE	phandle;
 
-    DPRINT("GlobalFlags( 0x%lX )\n", (ULONG)hMem);
+    DbgPrint("GlobalFlags( 0x%lX )\n", (ULONG)hMem);
 
     if(!ISHANDLE(hMem))
     {
-        DPRINT("GlobalFlags: Fixed memory.\n");
+        DbgPrint("GlobalFlags: Fixed memory.\n");
         retval = 0;
     }
     else
@@ -197,7 +197,7 @@ GlobalFlags(HGLOBAL hMem)
         }
         else
         {
-            DPRINT1("GlobalSize: invalid handle\n");
+            DbgPrint("GlobalSize: invalid handle\n");
             retval = 0;
         }
         HeapUnlock(GetProcessHeap());
@@ -232,7 +232,7 @@ GlobalFree(HGLOBAL hMem)
 
             if(phandle->LockCount!=0)
             {
-                DPRINT1("Warning! GlobalFree(0x%X) Freeing a handle to a locked object.\n", hMem);
+                DbgPrint("Warning! GlobalFree(0x%X) Freeing a handle to a locked object.\n", hMem);
                 SetLastError(ERROR_INVALID_HANDLE);
             }
             
@@ -259,11 +259,11 @@ GlobalHandle(LPCVOID pMem)
     PGLOBAL_HANDLE         test = 0;
     LPCVOID        pointer_test = 0;
 
-    DPRINT("GlobalHandle( 0x%lX )\n", (ULONG)pMem);
+    DbgPrint("GlobalHandle( 0x%lX )\n", (ULONG)pMem);
     if (0 == pMem) /*Invalid argument */
     {
         SetLastError(ERROR_INVALID_PARAMETER);
-        DPRINT1("Error: 0 handle.\n");
+        DbgPrint("Error: 0 handle.\n");
         return 0;
     }
   
@@ -299,7 +299,7 @@ GlobalHandle(LPCVOID pMem)
     }
     else
     {
-        DPRINT1("GlobalHandle: Bad read pointer.\n");
+        DbgPrint("GlobalHandle: Bad read pointer.\n");
         SetLastError(ERROR_INVALID_HANDLE);
         handle = 0;
     }
@@ -347,133 +347,57 @@ GlobalLock(HGLOBAL hMem)
     return palloc;
 }
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer)
-{
-  SYSTEM_BASIC_INFORMATION	SysBasicInfo;
-  SYSTEM_PERFORMANCE_INFORMATION	SysPerfInfo;
-  ULONG UserMemory;
-  NTSTATUS Status;
-
-    DPRINT("GlobalMemoryStatusEx\n");
-
-    if (lpBuffer->dwLength != sizeof(MEMORYSTATUSEX))
-      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-      }
-
-   Status = ZwQuerySystemInformation(SystemBasicInformation,
-                                     &SysBasicInfo,
-                                     sizeof(SysBasicInfo),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }
-
-   Status = ZwQuerySystemInformation(SystemPerformanceInformation,
-                                     &SysPerfInfo,
-                                     sizeof(SysPerfInfo),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }            
-
-   Status = ZwQuerySystemInformation(SystemFullMemoryInformation,
-                                     &UserMemory,
-                                     sizeof(ULONG),
-                                     NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       SetLastErrorByStatus(Status);
-       return FALSE;
-     }            
 
 /*
- * Load percentage 0 thru 100. 0 is good and 100 is bad.
- *
- *	Um = allocated memory / physical memory
- *	Um =      177 MB      /     256 MB        = 69.1%
- *
- *	Mult allocated memory by 100 to move decimal point up.
- */
-   lpBuffer->dwMemoryLoad = (SysBasicInfo.NumberOfPhysicalPages -
-  			     SysPerfInfo.AvailablePages) * 100 /
-    			     SysBasicInfo.NumberOfPhysicalPages;
-
-	DPRINT1("Memory Load: %d\n",lpBuffer->dwMemoryLoad );
-    
-   lpBuffer->ullTotalPhys = SysBasicInfo.NumberOfPhysicalPages *
-   					SysBasicInfo.PhysicalPageSize;
-   lpBuffer->ullAvailPhys = SysPerfInfo.AvailablePages *
-    					SysBasicInfo.PhysicalPageSize;
-
-	DPRINT("%d\n",SysPerfInfo.AvailablePages );
-	DPRINT("%d\n",lpBuffer->ullAvailPhys );
-
-   lpBuffer->ullTotalPageFile = SysPerfInfo.TotalCommitLimit *
-    					SysBasicInfo.PhysicalPageSize;
-
-	DPRINT("%d\n",lpBuffer->ullTotalPageFile );
-
-   lpBuffer->ullAvailPageFile = ((SysPerfInfo.TotalCommitLimit -
-    					SysPerfInfo.TotalCommittedPages) *
-    					SysBasicInfo.PhysicalPageSize);
-
-/* VM available to the calling processes, User Mem? */
-   lpBuffer->ullTotalVirtual = SysBasicInfo.HighestUserAddress - 
-    					SysBasicInfo.LowestUserAddress;
-
-   lpBuffer->ullAvailVirtual = (lpBuffer->ullTotalVirtual -
-    					(UserMemory *
-    					 SysBasicInfo.PhysicalPageSize));
-
-	DPRINT("%d\n",lpBuffer->ullAvailVirtual );
-	DPRINT("%d\n",UserMemory);
-	DPRINT("%d\n",SysBasicInfo.PhysicalPageSize);
-
-/* lol! Memory from beyond! */
-   lpBuffer->ullAvailExtendedVirtual = 0;
-   return TRUE;
-}
-
-/*
- * @implemented
+ * @unimplemented
  */
 VOID STDCALL
 GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer)
 {
-    MEMORYSTATUSEX lpBufferEx;
-#if 0    
-    if (lpBuffer->dwLength != sizeof(MEMORYSTATUS))
-      {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return;      
-      }
-#endif
-    lpBufferEx.dwLength = sizeof(MEMORYSTATUSEX);
+    static MEMORYSTATUS	cached_memstatus;
+//    static int cache_lastchecked = 0;
+    SYSTEM_INFO si;
 
-    if (GlobalMemoryStatusEx(&lpBufferEx))
-      {
+//    if (GetSystemTimeAsFileTime(NULL)==cache_lastchecked) {
+//	memcpy(lpBuffer,&cached_memstatus,sizeof(MEMORYSTATUS));
+//	return;
+//    }
+//    cache_lastchecked = GetSystemTimeAsFileTime(NULL);
 
-	 lpBuffer->dwLength 	   = sizeof(MEMORYSTATUS);
+    lpBuffer->dwMemoryLoad    = 0;
+    lpBuffer->dwTotalPhys     = 16*1024*1024;
+    lpBuffer->dwAvailPhys     = 16*1024*1024;
+    lpBuffer->dwTotalPageFile = 16*1024*1024;
+    lpBuffer->dwAvailPageFile = 16*1024*1024;
 
-         lpBuffer->dwMemoryLoad    = lpBufferEx.dwMemoryLoad;
-         lpBuffer->dwTotalPhys     = lpBufferEx.ullTotalPhys;
-         lpBuffer->dwAvailPhys     = lpBufferEx.ullAvailPhys;
-         lpBuffer->dwTotalPageFile = lpBufferEx.ullTotalPageFile;
-         lpBuffer->dwAvailPageFile = lpBufferEx.ullAvailPageFile;
-         lpBuffer->dwTotalVirtual  = lpBufferEx.ullTotalVirtual;
-         lpBuffer->dwAvailVirtual  = lpBufferEx.ullAvailVirtual;
-      }
+    /* Some applications (e.g. QuickTime 6) crash if we tell them there
+     * is more than 2GB of physical memory.
+     */
+    if (lpBuffer->dwTotalPhys>2U*1024*1024*1024)
+    {
+        lpBuffer->dwTotalPhys=2U*1024*1024*1024;
+        lpBuffer->dwAvailPhys=2U*1024*1024*1024;
+    }
+
+    /* FIXME: should do something for other systems */
+    GetSystemInfo(&si);
+    lpBuffer->dwTotalVirtual  = (char*)si.lpMaximumApplicationAddress-(char*)si.lpMinimumApplicationAddress;
+    /* FIXME: we should track down all the already allocated VM pages and substract them, for now arbitrarily remove 64KB so that it matches NT */
+    lpBuffer->dwAvailVirtual  = lpBuffer->dwTotalVirtual-64*1024;
+    memcpy(&cached_memstatus,lpBuffer,sizeof(MEMORYSTATUS));
+
+    /* it appears some memory display programs want to divide by these values */
+    if(lpBuffer->dwTotalPageFile==0)
+        lpBuffer->dwTotalPageFile++;
+
+    if(lpBuffer->dwAvailPageFile==0)
+        lpBuffer->dwAvailPageFile++;
+
+    DPRINT1("<-- LPMEMORYSTATUS: dwLength %ld, dwMemoryLoad %ld, dwTotalPhys %ld, dwAvailPhys %ld,"
+          " dwTotalPageFile %ld, dwAvailPageFile %ld, dwTotalVirtual %ld, dwAvailVirtual %ld\n",
+          lpBuffer->dwLength, lpBuffer->dwMemoryLoad, lpBuffer->dwTotalPhys, lpBuffer->dwAvailPhys,
+          lpBuffer->dwTotalPageFile, lpBuffer->dwAvailPageFile, lpBuffer->dwTotalVirtual,
+          lpBuffer->dwAvailVirtual);
 }
 
 
@@ -490,6 +414,8 @@ GlobalReAlloc(HGLOBAL hMem,
 
     DPRINT("GlobalReAlloc( 0x%lX, 0x%lX, 0x%X )\n", (ULONG)hMem, dwBytes, uFlags);
 
+    hnew = 0;
+    
     if (uFlags & GMEM_ZEROINIT)
     {
         heap_flags = HEAP_ZERO_MEMORY;
@@ -543,6 +469,13 @@ GlobalReAlloc(HGLOBAL hMem,
         {
             /* reallocate a moveable block */
             phandle= HANDLE_TO_INTERN(hMem);
+#if 0
+            if(phandle->LockCount != 0)
+            {
+                SetLastError(ERROR_INVALID_HANDLE);
+            }
+            else
+#endif
             if (0 != dwBytes)
             {
                 hnew = hMem;
@@ -577,6 +510,7 @@ GlobalReAlloc(HGLOBAL hMem,
             }
             else
             {
+                hnew = hMem;
                 if(phandle->Pointer)
                 {
                     RtlFreeHeap(GetProcessHeap(), 0, phandle->Pointer - HANDLE_SIZE);
@@ -597,7 +531,7 @@ GlobalSize(HGLOBAL hMem)
     SIZE_T         retval  = 0;
     PGLOBAL_HANDLE phandle = 0;
     
-    DPRINT("GlobalSize( 0x%lX )\n", (ULONG)hMem);
+    DbgPrint("GlobalSize( 0x%lX )\n", (ULONG)hMem);
     
     if(ISPOINTER(hMem)) /*FIXED*/
     {
@@ -622,7 +556,7 @@ GlobalSize(HGLOBAL hMem)
                     **      We should choose an error value to set as
                     **      the last error. Which One?
                     */
-                    DPRINT("GlobalSize:  RtlSizeHeap failed.\n");
+                    DbgPrint("GlobalSize:  RtlSizeHeap failed.\n");
                     retval = 0;
                 }
                 else /*Everything is ok*/
@@ -660,7 +594,7 @@ GlobalUnlock(HGLOBAL hMem)
 {
 
    PGLOBAL_HANDLE	phandle;
-   BOOL			    locked = FALSE;
+   BOOL			    locked;
 
    DPRINT("GlobalUnlock( 0x%lX )\n", (ULONG)hMem);
 
@@ -683,7 +617,7 @@ GlobalUnlock(HGLOBAL hMem)
       else if (GLOBAL_LOCK_MAX > phandle->LockCount)
       {
          phandle->LockCount--;
-         locked = (0 != phandle->LockCount) ? TRUE : FALSE;
+         locked = (0 == phandle->LockCount) ? TRUE : FALSE;
          SetLastError(NO_ERROR);
       }
    }
@@ -716,4 +650,12 @@ GlobalWire(HGLOBAL hMem)
    return GlobalLock(hMem);
 }
 
+/*
+ * @implemented
+ */
+//HGLOBAL STDCALL
+//GlobalDiscard(HGLOBAL hMem)
+//{
+//    return GlobalReAlloc(hMem, 0, GMEM_MOVEABLE);
+//}
 /* EOF */

@@ -13,12 +13,15 @@ TARGET_APPTYPE = console
 
 TARGET_NAME = cmd
 
-TARGET_PCH = precomp.h
-
 TARGET_INSTALLDIR = system32
 
-TARGET_CFLAGS = -D__USE_W32API -DANONYMOUSUNIONS -Wall -Werror \
-                -I$(PATH_TO_TOP)/include/wine -D_WIN32_WINNT=0x0501
+TARGET_CFLAGS = -D__USE_W32API -DANONYMOUSUNIONS -Wall -Werror -I$(PATH_TO_TOP)/include -I$(PATH_TO_TOP)/include/msvcrt
+
+WINE_MODE = yes
+
+WINE_RC = $(TARGET_NAME)
+
+WINE_INCLUDE = $(PATH_TO_TOP)/include/reactos
 
 TARGET_OBJECTS = \
 	cmd.o attrib.o alias.o batch.o beep.o call.o chcp.o choice.o \
@@ -32,7 +35,5 @@ TARGET_OBJECTS = \
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
 
 # EOF

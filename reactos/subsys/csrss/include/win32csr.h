@@ -1,4 +1,4 @@
-/* $Id: win32csr.h,v 1.3 2004/01/19 20:14:28 gvg Exp $
+/* $Id: win32csr.h,v 1.2.2.1 2004/01/19 20:08:49 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries

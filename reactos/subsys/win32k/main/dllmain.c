@@ -16,36 +16,38 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dllmain.c,v 1.86 2004/12/29 19:55:01 gvg Exp $
+/* $Id: dllmain.c,v 1.64 2003/12/21 10:19:40 weiden Exp $
  *
  *  Entry Point for win32k.sys
  */
-#include <w32k.h>
+
+#undef WIN32_LEAN_AND_MEAN
+#define WIN32_NO_STATUS
+#include <windows.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <ddk/winddi.h>
+
+#include <win32k/win32k.h>
+
+#include <include/winsta.h>
+#include <include/desktop.h>
+#include <include/class.h>
+#include <include/window.h>
+#include <include/menu.h>
+#include <include/object.h>
+#include <include/input.h>
+#include <include/timer.h>
+#include <include/text.h>
+#include <include/caret.h>
+#include <include/hotkey.h>
+#include <include/accelerator.h>
+#include <include/cursoricon.h>
+#include <include/guicheck.h>
+#include <include/hook.h>
 
 #define NDEBUG
 #include <win32k/debug1.h>
-#include <debug.h>
-
-#ifdef __USE_W32API
-typedef NTSTATUS (STDCALL *PW32_PROCESS_CALLBACK)(
-   struct _EPROCESS *Process,
-   BOOLEAN Create);
-
-typedef NTSTATUS (STDCALL *PW32_THREAD_CALLBACK)(
-   struct _ETHREAD *Thread,
-   BOOLEAN Create);
-
-VOID STDCALL
-PsEstablishWin32Callouts(
-   PW32_PROCESS_CALLBACK W32ProcessCallback,
-   PW32_THREAD_CALLBACK W32ThreadCallback,
-   PVOID Param3,
-   PVOID Param4,
-   ULONG W32ThreadSize,
-   ULONG W32ProcessSize);
-#endif
-
-BOOL INTERNAL_CALL GDI_CleanupForProcess (struct _EPROCESS *Process);
 
 extern SSDT Win32kSSDT[];
 extern SSPT Win32kSSPT[];
@@ -56,11 +58,18 @@ Win32kProcessCallback (struct _EPROCESS *Process,
 		     BOOLEAN Create)
 {
   PW32PROCESS Win32Process;
-  
+  NTSTATUS Status;
+
+#if 0
+  DbgPrint ("Win32kProcessCallback() called\n");
+#endif
+
   Win32Process = Process->Win32Process;
   if (Create)
     {
-      DPRINT("Creating W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
+#if 0
+      DbgPrint ("  Create process\n");
+#endif
 
       InitializeListHead(&Win32Process->ClassListHead);
       ExInitializeFastMutex(&Win32Process->ClassListLock);
@@ -75,29 +84,37 @@ Win32kProcessCallback (struct _EPROCESS *Process,
       ExInitializeFastMutex(&Win32Process->CursorIconListLock);
 
       Win32Process->KeyboardLayout = W32kGetDefaultKeyLayout();
-      
-      /* setup process flags */
-      Win32Process->Flags = 0;
+      Win32Process->WindowStation = NULL;
+      if (Process->Win32WindowStation != NULL)
+	{
+	  Status = 
+	    IntValidateWindowStationHandle(Process->Win32WindowStation,
+					   UserMode,
+					   GENERIC_ALL,
+					   &Win32Process->WindowStation);
+	  if (!NT_SUCCESS(Status))
+	    {
+	      DbgPrint("Win32K: Failed to reference a window station for "
+		       "process.\n");
+	    }
+	}
+
+      Win32Process->CreatedWindowOrDC = FALSE;
+      Win32Process->ManualGuiCheck = FALSE;
     }
   else
     {
-      DPRINT("Destroying W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
-      IntRemoveProcessWndProcHandles((HANDLE)Process->UniqueProcessId);
+#if 0
+      DbgPrint ("  Destroy process\n");
+      DbgPrint ("  IRQ level: %lu\n", KeGetCurrentIrql ());
+#endif
+	  IntRemoveProcessWndProcHandles((HANDLE)Process->UniqueProcessId);
       IntCleanupMenus(Process, Win32Process);
       IntCleanupCurIcons(Process, Win32Process);
-      CleanupMonitorImpl();
 
-      GDI_CleanupForProcess(Process);
+      CleanupForProcess(Process, Process->UniqueProcessId);
 
       IntGraphicsCheck(FALSE);
-      
-      /*
-       * Deregister logon application automatically
-       */
-      if(LogonProcess == Win32Process)
-      {
-        LogonProcess = NULL;
-      }
     }
 
   return STATUS_SUCCESS;
@@ -110,89 +127,53 @@ Win32kThreadCallback (struct _ETHREAD *Thread,
 {
   struct _EPROCESS *Process;
   PW32THREAD Win32Thread;
+  NTSTATUS Status;
+
+#if 0
+  DbgPrint ("Win32kThreadCallback() called\n");
+#endif
 
   Process = Thread->ThreadsProcess;
-  Win32Thread = Thread->Tcb.Win32Thread;
+  Win32Thread = Thread->Win32Thread;
   if (Create)
     {
-      HWINSTA hWinSta = NULL;
-      HDESK hDesk = NULL;
-      NTSTATUS Status;
-      PUNICODE_STRING DesktopPath;
-      PRTL_USER_PROCESS_PARAMETERS ProcessParams = (Process->Peb ? Process->Peb->ProcessParameters : NULL);
+#if 0
+      DbgPrint ("  Create thread\n");
+#endif
 
-      DPRINT("Creating W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
-      
-      /*
-       * inherit the thread desktop and process window station (if not yet inherited) from the process startup
-       * info structure. See documentation of CreateProcess()
-       */
-      DesktopPath = (ProcessParams ? ((ProcessParams->DesktopInfo.Length > 0) ? &ProcessParams->DesktopInfo : NULL) : NULL);
-      Status = IntParseDesktopPath(Process,
-                                   DesktopPath,
-                                   &hWinSta,
-                                   &hDesk);
-      if(NT_SUCCESS(Status))
-      {
-        if(hWinSta != NULL)
-        {
-          if(Process != CsrProcess)
-          {
-            HWINSTA hProcessWinSta = (HWINSTA)InterlockedCompareExchangePointer((PVOID)&Process->Win32WindowStation, (PVOID)hWinSta, NULL);
-            if(hProcessWinSta != NULL)
-            {
-              /* our process is already assigned to a different window station, we don't need the handle anymore */
-              NtClose(hWinSta);
-            }
-          }
-          else
-          {
-            NtClose(hWinSta);
-          }
-        }
-
-        Win32Thread->hDesktop = hDesk;
-
-        Status = ObReferenceObjectByHandle(hDesk,
-                 0,
-                 ExDesktopObjectType,
-                 KernelMode,
-                 (PVOID*)&Win32Thread->Desktop,
-                 NULL);
-
-        if(!NT_SUCCESS(Status))
-        {
-          DPRINT1("Unable to reference thread desktop handle 0x%x\n", hDesk);
-          Win32Thread->Desktop = NULL;
-          NtClose(hDesk);
-        }
-      }
-
-      Win32Thread->IsExiting = FALSE;
       IntDestroyCaret(Win32Thread);
       Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);
       Win32Thread->KeyboardLayout = W32kGetDefaultKeyLayout();
       Win32Thread->MessagePumpHookValue = 0;
       InitializeListHead(&Win32Thread->WindowListHead);
       ExInitializeFastMutex(&Win32Thread->WindowListLock);
-      InitializeListHead(&Win32Thread->W32CallbackListHead);
-      ExInitializeFastMutex(&Win32Thread->W32CallbackListLock);
+
+      /* By default threads get assigned their process's desktop. */
+      Win32Thread->Desktop = NULL;
+      if (Process->Win32Desktop != NULL)
+	{
+	  Status = ObReferenceObjectByHandle(Process->Win32Desktop,
+					     GENERIC_ALL,
+					     ExDesktopObjectType,
+					     UserMode,
+					     (PVOID*)&Win32Thread->Desktop,
+					     NULL);
+	  if (!NT_SUCCESS(Status))
+	    {
+	      DbgPrint("Win32K: Failed to reference a desktop for thread.\n");
+	    }
+	}
     }
   else
     {
-      DPRINT("Destroying W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
+#if 0
+      DbgPrint ("  Destroy thread\n");
+#endif
 
-      Win32Thread->IsExiting = TRUE;
       HOOK_DestroyThreadHooks(Thread);
+      RemoveTimersThread(Thread->Cid.UniqueThread);
       UnregisterThreadHotKeys(Thread);
       DestroyThreadWindows(Thread);
-      IntBlockInput(Win32Thread, FALSE);
-      MsqDestroyMessageQueue(Win32Thread->MessageQueue);
-      IntCleanupThreadCallbacks(Win32Thread);
-      if(Win32Thread->Desktop != NULL)
-      {
-        ObDereferenceObject(Win32Thread->Desktop);
-      }
     }
 
   return STATUS_SUCCESS;
@@ -202,7 +183,7 @@ Win32kThreadCallback (struct _ETHREAD *Thread,
 /*
  * This definition doesn't work
  */
-// BOOL STDCALL DllMain(VOID)
+// WINBOOL STDCALL DllMain(VOID)
 NTSTATUS STDCALL
 DllMain (
   IN	PDRIVER_OBJECT	DriverObject,
@@ -210,6 +191,8 @@ DllMain (
 {
   NTSTATUS Status;
   BOOLEAN Result;
+
+  IntInitializeWinLock();
 
   /*
    * Register user mode call interface
@@ -222,7 +205,7 @@ DllMain (
 				    1);
   if (Result == FALSE)
     {
-      DPRINT1("Adding system services failed!\n");
+      DbgPrint("Adding system services failed!\n");
       return STATUS_UNSUCCESSFUL;
     }
 
@@ -239,84 +222,70 @@ DllMain (
   Status = InitWindowStationImpl();
   if (!NT_SUCCESS(Status))
   {
-    DPRINT1("Failed to initialize window station implementation!\n");
+    DbgPrint("Failed to initialize window station implementation!\n");
     return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitClassImpl();
   if (!NT_SUCCESS(Status))
   {
-    DPRINT1("Failed to initialize window class implementation!\n");
+    DbgPrint("Failed to initialize window class implementation!\n");
     return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitDesktopImpl();
   if (!NT_SUCCESS(Status))
   {
-    DPRINT1("Failed to initialize desktop implementation!\n");
+    DbgPrint("Failed to initialize window station implementation!\n");
     return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitWindowImpl();
   if (!NT_SUCCESS(Status))
   {
-    DPRINT1("Failed to initialize window implementation!\n");
+    DbgPrint("Failed to initialize window implementation!\n");
     return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitMenuImpl();
   if (!NT_SUCCESS(Status))
   {
-    DPRINT1("Failed to initialize menu implementation!\n");
+    DbgPrint("Failed to initialize menu implementation!\n");
     return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitInputImpl();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize input implementation.\n");
+      DbgPrint("Failed to initialize input implementation.\n");
       return(Status);
     }
 
   Status = InitKeyboardImpl();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize keyboard implementation.\n");
+      DbgPrint("Failed to initialize keyboard implementation.\n");
       return(Status);
-    }
-
-  Status = InitMonitorImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DbgPrint("Failed to initialize monitor implementation!\n");
-      return STATUS_UNSUCCESSFUL;
     }
 
   Status = MsqInitializeImpl();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize message queue implementation.\n");
+      DbgPrint("Failed to initialize message queue implementation.\n");
       return(Status);
     }
 
   Status = InitTimerImpl();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize timer implementation.\n");
+      DbgPrint("Failed to initialize timer implementation.\n");
       return(Status);
     }
 
   Status = InitAcceleratorImpl();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("Failed to initialize accelerator implementation.\n");
-      return(Status);
-    }
-
-  Status = InitGuiCheckImpl();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("Failed to initialize GUI check implementation.\n");
+      DbgPrint("Failed to initialize accelerator implementation.\n");
       return(Status);
     }
 
@@ -332,9 +301,6 @@ DllMain (
   /* Create stock objects, ie. precreated objects commonly
      used by win32 applications */
   CreateStockObjects();
-  CreateSysColorObjects();
-  
-  PREPARE_TESTS
 
   return STATUS_SUCCESS;
 }

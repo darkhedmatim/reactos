@@ -1,4 +1,4 @@
-/* $Id: defwnd.c,v 1.149 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: defwnd.c,v 1.122 2004/01/14 21:28:24 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -11,8 +11,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <windowsx.h>
+#include <windows.h>
+#include <user32.h>
 #include <window.h>
 #include <user32/wininternal.h>
 #include <string.h>
@@ -24,49 +24,69 @@
 #define NDEBUG
 #include <debug.h>
 
-#ifndef WM_SETVISIBLE
-#define WM_SETVISIBLE 9
-#endif
-#ifndef WM_QUERYDROPOBJECT
-#define WM_QUERYDROPOBJECT  0x022B
-#endif
-
 LRESULT DefWndNCPaint(HWND hWnd, HRGN hRgn);
 LRESULT DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect);
 LRESULT DefWndNCActivate(HWND hWnd, WPARAM wParam);
 LRESULT DefWndNCHitTest(HWND hWnd, POINT Point);
 LRESULT DefWndNCLButtonDown(HWND hWnd, WPARAM wParam, LPARAM lParam);
 LRESULT DefWndNCLButtonDblClk(HWND hWnd, WPARAM wParam, LPARAM lParam);
-void FASTCALL MenuInitSysMenuPopup(HMENU Menu, DWORD Style, DWORD ClsStyle, LONG HitTest );
 
 /* GLOBALS *******************************************************************/
 
-COLORREF SysColors[NUM_SYSCOLORS] = {0};
-HPEN SysPens[NUM_SYSCOLORS] = {0};
-HBRUSH SysBrushes[NUM_SYSCOLORS] = {0};
+/* TODO:  widgets will be cached here.
+static HBITMAP hbClose;
+static HBITMAP hbCloseD;
+static HBITMAP hbMinimize;
+static HBITMAP hbMinimizeD;
+static HBITMAP hbRestore;
+static HBITMAP hbRestoreD;
+static HBITMAP hbMaximize;
+static HBITMAP hbScrUp;
+static HBITMAP hbScrDwn;
+static HBITMAP hbScrLeft;
+static HBITMAP hbScrRight;
+*/
+
+
+static COLORREF SysColors[] =
+  {
+    RGB(192, 192, 192) /* COLOR_SCROLLBAR */,
+    RGB(58, 110, 165) /* COLOR_BACKGROUND */,
+    RGB(10, 36, 106) /* COLOR_ACTIVECAPTION */,
+    RGB(128, 128, 128) /* COLOR_INACTIVECAPTION */,
+    RGB(192, 192, 192) /* COLOR_MENU */,
+    RGB(255, 255, 255) /* COLOR_WINDOW */,
+    RGB(0, 0, 0) /* COLOR_WINDOWFRAME */,
+    RGB(0, 0, 0) /* COLOR_MENUTEXT */,
+    RGB(0, 0, 0) /* COLOR_WINDOWTEXT */,
+    RGB(255, 255, 255) /* COLOR_CAPTIONTEXT */,
+    RGB(192, 192, 192) /* COLOR_ACTIVEBORDER */,
+    RGB(192, 192, 192) /* COLOR_INACTIVEBORDER */,
+    RGB(128, 128, 128) /* COLOR_APPWORKSPACE */,
+    RGB(0, 0, 128) /* COLOR_HILIGHT */,
+    RGB(255, 255, 255) /* COLOR_HILIGHTTEXT */,
+    RGB(192, 192, 192) /* COLOR_BTNFACE */,
+    RGB(128, 128, 128) /* COLOR_BTNSHADOW */,
+    RGB(128, 128, 128) /* COLOR_GRAYTEXT */,
+    RGB(0, 0, 0) /* COLOR_BTNTEXT */,
+    RGB(192, 192, 192) /* COLOR_INACTIVECAPTIONTEXT */,
+    RGB(255, 255, 255) /* COLOR_BTNHILIGHT */,
+    RGB(32, 32, 32) /* COLOR_3DDKSHADOW */,
+    RGB(192, 192, 192) /* COLOR_3DLIGHT */,
+    RGB(0, 0, 0) /* COLOR_INFOTEXT */,
+    RGB(255, 255, 192) /* COLOR_INFOBK */,
+    RGB(180, 180, 180) /* COLOR_ALTERNATEBTNFACE */,
+    RGB(0, 0, 255) /* COLOR_HOTLIGHT */,
+    RGB(166, 202, 240) /* COLOR_GRADIENTACTIVECAPTION */,
+    RGB(192, 192, 192) /* COLOR_GRADIENTINACTIVECAPTION */,
+  };
+
+#define NUM_SYSCOLORS (sizeof(SysColors) / sizeof(SysColors[0]))
 
 /* Bits in the dwKeyData */
 #define KEYDATA_ALT   0x2000
 
 /* FUNCTIONS *****************************************************************/
-
-void
-InitStockObjects(void)
-{
-  /* FIXME - Instead of copying the stuff to usermode we should map the tables to
-             userland. The current implementation has one big flaw: the system color
-             table doesn't get updated when another process changes them. That's why
-             we should rather map the table into usermode. But it only affects the
-             SysColors table - the pens, brushes and stock objects are not affected
-             as their handles never change. But it'd be faster to map them, too. */
-  if(SysBrushes[0] == NULL)
-  {
-    /* only initialize once */
-    NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
-    NtUserGetSysColorPens(SysPens, NUM_SYSCOLORS);
-    NtUserGetSysColorBrushes(SysBrushes, NUM_SYSCOLORS);
-  }
-}
 
 /*
  * @implemented
@@ -74,13 +94,7 @@ InitStockObjects(void)
 DWORD STDCALL
 GetSysColor(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
     return SysColors[nIndex];
-  }
-  
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return 0;
 }
 
 /*
@@ -89,13 +103,22 @@ GetSysColor(int nIndex)
 HPEN STDCALL
 GetSysColorPen(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysPens[nIndex];
-  }
+  static HPEN SysPens[NUM_SYSCOLORS];
 
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  if (nIndex < 0 || NUM_SYSCOLORS < nIndex)
+    {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return NULL;
+    }
+
+  /* FIXME should register this object with DeleteObject() so it
+     can't be deleted */
+  if (NULL == SysPens[nIndex])
+    {
+      SysPens[nIndex] = CreatePen(PS_SOLID, 1, SysColors[nIndex]);
+    }
+
+  return SysPens[nIndex];
 }
 
 /*
@@ -104,51 +127,89 @@ GetSysColorPen(int nIndex)
 HBRUSH STDCALL
 GetSysColorBrush(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysBrushes[nIndex];
-  }
+  static HBRUSH SysBrushes[NUM_SYSCOLORS];
 
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  if (nIndex < 0 || NUM_SYSCOLORS < nIndex)
+    {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return NULL;
+    }
+
+  /* FIXME should register this object with DeleteObject() so it
+     can't be deleted */
+  if (NULL == SysBrushes[nIndex])
+    {
+      SysBrushes[nIndex] = (HBRUSH) ((DWORD) CreateSolidBrush(SysColors[nIndex]) | 0x00800000);
+    }
+
+  return SysBrushes[nIndex];
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
-STDCALL
-SetSysColors(
-  int cElements,
-  CONST INT *lpaElements,
-  CONST COLORREF *lpaRgbValues)
+/*
+LRESULT STDCALL
+DefFrameProcA( HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam )
 {
-  BOOL Ret;
-  struct
-  {
-    INT *Elements;
-    COLORREF *Colors;
-  } ChangeSysColors;
+    UNIMPLEMENTED;
+    return ((LRESULT)0);
+}
+*/
 
-  ChangeSysColors.Elements = (INT*)lpaElements;
-  ChangeSysColors.Colors = (COLORREF*)lpaRgbValues;
-  
-  if(cElements > 0)
-  {
-    Ret = NtUserSetSysColors(&ChangeSysColors, cElements);
-    if(Ret)
-    {
-      /* FIXME - just change it in the usermode structure, too, instead of asking win32k again */
-      NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
-    }
-  }
-  else
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    Ret = FALSE;
-  }
-  
-  return Ret;
+/*
+ * @unimplemented
+ */
+/*
+LRESULT STDCALL
+DefFrameProcW(HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam)
+{
+    UNIMPLEMENTED;
+    return ((LRESULT)0);
+}
+*/
+
+ULONG
+UserHasAnyFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & (WS_THICKFRAME | WS_DLGFRAME | WS_BORDER)) ||
+            (ExStyle & WS_EX_DLGMODALFRAME) ||
+            (!(Style & (WS_CHILD | WS_POPUP))));
+}
+
+ULONG
+UserHasDlgFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((ExStyle & WS_EX_DLGMODALFRAME) ||
+            ((Style & WS_DLGFRAME) && (!(Style & WS_THICKFRAME))));
+}
+
+ULONG
+UserHasThickFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & WS_THICKFRAME) &&
+            (!((Style & (WS_DLGFRAME | WS_BORDER)) == WS_DLGFRAME)));
+}
+
+ULONG
+UserHasThinFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & WS_BORDER) || (!(Style & (WS_CHILD | WS_POPUP))));
+}
+
+ULONG
+UserHasBigFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & (WS_THICKFRAME | WS_DLGFRAME)) ||
+            (ExStyle & WS_EX_DLGMODALFRAME));
 }
 
 void
@@ -201,11 +262,6 @@ UserGetInsideRectNC(HWND hWnd, RECT *rect)
 VOID
 DefWndSetRedraw(HWND hWnd, WPARAM wParam)
 {
-  if ((BOOL) wParam && 0 == (GetWindowLong(hWnd, GWL_STYLE) & WS_VISIBLE))
-    {
-      ShowWindow(hWnd, SW_NORMAL);
-    }
-
   UNIMPLEMENTED;
 }
 
@@ -219,7 +275,7 @@ DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
       return(0);
     }
 
-  switch((INT_PTR) LOWORD(lParam))
+  switch(LOWORD(lParam))
     {
     case HTERROR:
       {
@@ -375,48 +431,34 @@ DefWndStartSizeMove(HWND hWnd, WPARAM wParam, POINT *capturePoint)
 
 VOID STATIC 
 UserDrawWindowFrame(HDC hdc, const RECT *rect,
-		    ULONG width, ULONG height)
+		    ULONG width, ULONG height, DWORD rop )
 {
-  static HBRUSH hDraggingRectBrush = NULL;
-  
-  if(!hDraggingRectBrush)
-  {
-    static HBITMAP hDraggingPattern = NULL;
-    const DWORD Pattern[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
-    
-    hDraggingPattern = CreateBitmap(8, 8, 1, 1, Pattern);
-    hDraggingRectBrush = CreatePatternBrush(hDraggingPattern);
-  }
-  
-  HBRUSH hbrush = SelectObject( hdc, hDraggingRectBrush );
+  HBRUSH hbrush = SelectObject( hdc, GetStockObject( GRAY_BRUSH ) );
   PatBlt( hdc, rect->left, rect->top,
-	  rect->right - rect->left - width, height, PATINVERT );
+	  rect->right - rect->left - width, height, rop );
   PatBlt( hdc, rect->left, rect->top + height, width,
-	  rect->bottom - rect->top - height, PATINVERT );
+	  rect->bottom - rect->top - height, rop );
   PatBlt( hdc, rect->left + width, rect->bottom - 1,
-	  rect->right - rect->left - width, -height, PATINVERT );
+	  rect->right - rect->left - width, -height, rop );
   PatBlt( hdc, rect->right - 1, rect->top, -width,
-	  rect->bottom - rect->top - height, PATINVERT );
+	  rect->bottom - rect->top - height, rop );
   SelectObject( hdc, hbrush );
 }
 
 VOID STATIC
 UserDrawMovingFrame(HDC hdc, RECT *rect, BOOL thickframe)
 {
-  if(thickframe)
-  {
-    UserDrawWindowFrame(hdc, rect, GetSystemMetrics(SM_CXFRAME), GetSystemMetrics(SM_CYFRAME));
-  }
-  else
-  {
-    UserDrawWindowFrame(hdc, rect, 1, 1);
-  }
+  if (thickframe)
+    {
+      UserDrawWindowFrame(hdc, rect, GetSystemMetrics(SM_CXFRAME),
+			  GetSystemMetrics(SM_CYFRAME), DSTINVERT);
+    }
+  else DrawFocusRect( hdc, rect );
 }
 
 VOID STATIC
 DefWndDoSizeMove(HWND hwnd, WORD wParam)
 {
-  HRGN DesktopRgn;
   MSG msg;
   RECT sizingRect, mouseRect, origRect, clipRect;
   HDC hdc;
@@ -431,12 +473,12 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
   BOOL moved = FALSE;
   DWORD dwPoint = GetMessagePos();
   BOOL DragFullWindows = FALSE;
-  HWND hWndParent = NULL;
+  HWND hWndParent;
 
   SystemParametersInfoA(SPI_GETDRAGFULLWINDOWS, 0, &DragFullWindows, 0);
   
-  pt.x = GET_X_LPARAM(dwPoint);
-  pt.y = GET_Y_LPARAM(dwPoint);
+  pt.x = SLOWORD(dwPoint);
+  pt.y = SHIWORD(dwPoint);
   capturePoint = pt;
   
   if (IsZoomed(hwnd) || !IsWindowVisible(hwnd))
@@ -462,9 +504,9 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
 	{
 	  return;
 	}
-      if (hittest && ((wParam & 0xfff0) != SC_MOUSEMENU))
+      if (hittest && hittest != HTSYSMENU) 
 	{
-          hittest += (HTLEFT - WMSZ_LEFT);
+	  hittest += 2;
 	}
       else
 	{
@@ -496,16 +538,9 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
     }
   else 
     {
-      if(!(ExStyle & WS_EX_TOPMOST))
-      {
-        SystemParametersInfoW(SPI_GETWORKAREA, 0, &clipRect, 0);
-        mouseRect = clipRect;
-      }
-      else
-      {
-        SetRect(&mouseRect, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-        clipRect = mouseRect;
-      }
+      SetRect(&mouseRect, 0, 0, GetSystemMetrics(SM_CXSCREEN), 
+	      GetSystemMetrics(SM_CYSCREEN));
+      SystemParametersInfoW(SPI_GETWORKAREA, 0, &clipRect, 0);
     }
   ClipCursor(&clipRect);
   
@@ -534,24 +569,19 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
     {      
       MapWindowPoints( hWndParent, 0, (LPPOINT)&mouseRect, 2 );
     }
-  
   SendMessageA( hwnd, WM_ENTERSIZEMOVE, 0, 0 );
-  NtUserSetGUIThreadHandle(MSQ_STATE_MOVESIZE, hwnd);
+  
   if (GetCapture() != hwnd) SetCapture( hwnd );    
   
   if (Style & WS_CHILD)
     {
       /* Retrieve a default cache DC (without using the window style) */
       hdc = GetDCEx(hWndParent, 0, DCX_CACHE);
-      DesktopRgn = NULL;
     }
   else
     {
       hdc = GetDC( 0 );
-      DesktopRgn = CreateRectRgnIndirect(&clipRect);
     }
-  
-  SelectObject(hdc, DesktopRgn);
   
   if( iconic ) /* create a cursor for dragging */
     {
@@ -564,7 +594,7 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
   /* invert frame if WIN31_LOOK to indicate mouse click on caption */
   if( !iconic && !DragFullWindows)
     {
-      UserDrawMovingFrame( hdc, &sizingRect, thickframe);
+      UserDrawMovingFrame( hdc, &sizingRect, thickframe );
     }
   
   for(;;)
@@ -674,14 +704,8 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
   if (Style & WS_CHILD)
     ReleaseDC( hWndParent, hdc );
   else
-  {
     ReleaseDC( 0, hdc );
-    if(DesktopRgn)
-    {
-      DeleteObject(DesktopRgn);
-    }
-  }
-  NtUserSetGUIThreadHandle(MSQ_STATE_MOVESIZE, NULL);
+  
   SendMessageA( hwnd, WM_EXITSIZEMOVE, 0, 0 );
   SendMessageA( hwnd, WM_SETVISIBLE, !IsIconic(hwnd), 0L);
   
@@ -793,7 +817,7 @@ DefWndHandleSysCommand(HWND hWnd, WPARAM wParam, POINT Pt)
         SendMessageA(hWnd, WM_CLOSE, 0, 0);
         break;
       case SC_MOUSEMENU:
-        MenuTrackMouseMenuBar(hWnd, wParam & 0x000f, Pt);
+        MenuTrackMouseMenuBar(hWnd, wParam, Pt);
 	break;
       case SC_KEYMENU:
         MenuTrackKbdMenuBar(hWnd, wParam, Pt.x);
@@ -829,11 +853,6 @@ DefWndHandleWindowPosChanging(HWND hWnd, WINDOWPOS* Pos)
             if (Pos->cx < minTrack.x) Pos->cx = minTrack.x;
             if (Pos->cy < minTrack.y) Pos->cy = minTrack.y;
         }
-    }
-    else
-    {
-        Pos->cx = max(Pos->cx, 0);
-        Pos->cy = max(Pos->cy, 0);
     }
     return 0;
 }
@@ -882,6 +901,7 @@ DefWndHandleWindowPosChanged(HWND hWnd, WINDOWPOS* Pos)
 HBRUSH
 DefWndControlColor(HDC hDC, UINT ctlType)
 {
+#if 0 /* FIXME: Re-enable when pattern brushes are implemented */
   if (CTLCOLOR_SCROLLBAR == ctlType)
     {
       HBRUSH hb = GetSysColorBrush(COLOR_SCROLLBAR);
@@ -912,6 +932,7 @@ DefWndControlColor(HDC hDC, UINT ctlType)
       UnrealizeObject(hb);
       return hb;
     }
+#endif
 
   SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
 
@@ -961,8 +982,8 @@ User32DefWindowProc(HWND hWnd,
         case WM_NCHITTEST:
         {
             POINT Point;
-            Point.x = GET_X_LPARAM(lParam);
-            Point.y = GET_Y_LPARAM(lParam);
+            Point.x = SLOWORD(lParam);
+            Point.y = SHIWORD(lParam);
             return (DefWndNCHitTest(hWnd, Point));
         }
 
@@ -993,8 +1014,8 @@ User32DefWindowProc(HWND hWnd,
             {
                 ReleaseCapture();
             }
-            Pt.x = GET_X_LPARAM(lParam);
-            Pt.y = GET_Y_LPARAM(lParam);
+            Pt.x = SLOWORD(lParam);
+            Pt.y = SHIWORD(lParam);
             ClientToScreen(hWnd, &Pt);
             lParam = MAKELPARAM(Pt.x, Pt.y);
             if (bUnicode)
@@ -1023,14 +1044,14 @@ User32DefWindowProc(HWND hWnd,
             }
             else
             {
+                LONG HitCode;
                 POINT Pt;
                 DWORD Style;
-                LONG HitCode;
                 
                 Style = GetWindowLongW(hWnd, GWL_STYLE);
                 
-                Pt.x = GET_X_LPARAM(lParam);
-                Pt.y = GET_Y_LPARAM(lParam);
+                Pt.x = SLOWORD(lParam);
+                Pt.y = SHIWORD(lParam);
                 if (Style & WS_CHILD)
                 {
                     ScreenToClient(GetParent(hWnd), &Pt);
@@ -1041,19 +1062,18 @@ User32DefWindowProc(HWND hWnd,
                 if (HitCode == HTCAPTION || HitCode == HTSYSMENU)
                 {
                     HMENU SystemMenu;
-                    UINT Flags;
+                    UINT DefItem = SC_CLOSE;
                     
                     if((SystemMenu = GetSystemMenu(hWnd, FALSE)))
                     {
-                      MenuInitSysMenuPopup(SystemMenu, GetWindowLongW(hWnd, GWL_STYLE),
-                                           GetClassLongW(hWnd, GCL_STYLE), HitCode);
-                      
                       if(HitCode == HTCAPTION)
-                        Flags = TPM_LEFTBUTTON | TPM_RIGHTBUTTON;
-                      else
-                        Flags = TPM_LEFTBUTTON;
+                        DefItem = ((Style & (WS_MAXIMIZE | WS_MINIMIZE)) ? 
+                                   SC_RESTORE : SC_MAXIMIZE);
                       
-                      TrackPopupMenu(SystemMenu, Flags,
+                      SetMenuDefaultItem(SystemMenu, DefItem, MF_BYCOMMAND);
+                      
+                      TrackPopupMenu(SystemMenu,
+                                     TPM_LEFTBUTTON | TPM_RIGHTBUTTON,
                                      Pt.x, Pt.y, 0, hWnd, NULL);
                     }
                 }
@@ -1234,8 +1254,8 @@ User32DefWindowProc(HWND hWnd,
         case WM_SYSCOMMAND:
         {
             POINT Pt;
-            Pt.x = GET_X_LPARAM(lParam);
-            Pt.y = GET_Y_LPARAM(lParam);
+            Pt.x = SLOWORD(lParam);
+            Pt.y = SHIWORD(lParam);
             return (DefWndHandleSysCommand(hWnd, wParam, Pt));
         }
 
@@ -1364,7 +1384,7 @@ User32DefWindowProc(HWND hWnd,
 
         case WM_GETICON:
         {
-            INT Index = (wParam == ICON_BIG) ? GCL_HICON : GCL_HICONSM;
+            INT Index = (wParam != 0) ? GCL_HICON : GCL_HICONSM;
             return (GetClassLongW(hWnd, Index));
         }
 
@@ -1388,7 +1408,7 @@ User32DefWindowProc(HWND hWnd,
           {
             case 0xffff: /* Caret timer */
               /* switch showing byte in win32k and get information about the caret */
-              if(NtUserSwitchCaretShowing(&CaretInfo) && (CaretInfo.hWnd == hWnd))
+              if(NtUserCallOneParam((DWORD)&CaretInfo, ONEPARAM_ROUTINE_SWITCHCARETSHOWING) && (CaretInfo.hWnd == hWnd))
               {
                 DrawCaret(hWnd, &CaretInfo);
               }
@@ -1422,50 +1442,42 @@ DefWindowProcA(HWND hWnd,
 
         case WM_GETTEXTLENGTH:
         {
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
+            return InternalGetWindowText(hWnd, NULL, 0);
         }
 
         case WM_GETTEXT:
         {
-            LPWSTR Buffer;
+            UNICODE_STRING UnicodeString;
             LPSTR AnsiBuffer = (LPSTR)lParam;
-            INT Length;
+            BOOL Result;
 
             if (wParam > 1)
             {
                 *((PWSTR)lParam) = '\0';
             }
-            Buffer = HeapAlloc(GetProcessHeap(), 0, wParam * sizeof(WCHAR));
-            if (!Buffer)
+            UnicodeString.Length = UnicodeString.MaximumLength =
+                wParam * sizeof(WCHAR);
+            UnicodeString.Buffer = HeapAlloc(GetProcessHeap(), 0,
+                UnicodeString.Length);
+            if (!UnicodeString.Buffer)
                 return FALSE;
-            Length = NtUserInternalGetWindowText(hWnd, Buffer, wParam);
-            if (Length > 0 && wParam > 0 &&
-                !WideCharToMultiByte(CP_ACP, 0, Buffer, -1,
+            Result = InternalGetWindowText(hWnd, UnicodeString.Buffer, wParam);
+            if (wParam > 0 &&
+                !WideCharToMultiByte(CP_ACP, 0, UnicodeString.Buffer, -1,
                 AnsiBuffer, wParam, NULL, NULL))
             {
-                AnsiBuffer[0] = '\0';
+                AnsiBuffer[wParam - 1] = 0;
             }
+            HeapFree(GetProcessHeap(), 0, UnicodeString.Buffer);
 
-            HeapFree(GetProcessHeap(), 0, Buffer);
-
-            return (LRESULT)Length;
+            return Result;
         }
 
         case WM_SETTEXT:
         {
             ANSI_STRING AnsiString;
-            UNICODE_STRING UnicodeString;
-            
-            if(lParam)
-            {
-              RtlInitAnsiString(&AnsiString, (LPSTR)lParam);
-              RtlAnsiStringToUnicodeString(&UnicodeString, &AnsiString, TRUE);
-              NtUserDefSetText(hWnd, &UnicodeString);
-              RtlFreeUnicodeString(&UnicodeString);
-            }
-            else
-              NtUserDefSetText(hWnd, NULL);
-            
+            RtlInitAnsiString(&AnsiString, (LPSTR)lParam);
+            NtUserDefSetText(hWnd, &AnsiString);
             if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
             {
                 DefWndNCPaint(hWnd, (HRGN)1);
@@ -1505,27 +1517,29 @@ DefWindowProcW(HWND hWnd,
 
         case WM_GETTEXTLENGTH:
         {
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
+            return InternalGetWindowText(hWnd, NULL, 0);
         }
 
         case WM_GETTEXT:
         {
+            DWORD Result;
             if (wParam > 1)
             {
-                *((PWSTR)lParam) = L'\0';
+                *((PWSTR)lParam) = '\0';
             }
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, (PWSTR)lParam, wParam);
+            Result = InternalGetWindowText(hWnd, (PWSTR)lParam, wParam);
+            return Result;
         }
 
         case WM_SETTEXT:
         {
             UNICODE_STRING UnicodeString;
+            ANSI_STRING AnsiString;
 
-            if(lParam)
-              RtlInitUnicodeString(&UnicodeString, (LPWSTR)lParam);
-            
-            NtUserDefSetText(hWnd, (lParam ? &UnicodeString : NULL));
-            
+            RtlInitUnicodeString(&UnicodeString, (LPWSTR)lParam);
+            RtlUnicodeStringToAnsiString(&AnsiString, &UnicodeString, TRUE);
+            NtUserDefSetText(hWnd, &AnsiString);
+            RtlFreeAnsiString(&AnsiString);
             if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
             {
                 DefWndNCPaint(hWnd, (HRGN)1);
@@ -1548,4 +1562,3 @@ DefWindowProcW(HWND hWnd,
 
     return User32DefWindowProc(hWnd, Msg, wParam, lParam, TRUE);
 }
-

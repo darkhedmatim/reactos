@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,20 +27,14 @@
 
 
 enum ENTRY_TYPE {
-	ET_UNKNOWN,
 	ET_WINDOWS,
 #ifdef __WINE__
 	ET_UNIX,
 #endif
-	ET_SHELL,
-	ET_NTOBJS,
-	ET_REGISTRY,
-	ET_FAT,
-	ET_WEB
+	ET_SHELL
 };
 
 enum SORT_ORDER {
-	SORT_NONE,
 	SORT_NAME,
 	SORT_EXT,
 	SORT_SIZE,
@@ -55,15 +49,6 @@ enum SCAN_FLAGS {
 
 	SCAN_FILESYSTEM		= 4
 };
-
-#ifndef ATTRIBUTE_SYMBOLIC_LINK
-#define	ATTRIBUTE_LONGNAME			0x08000000
-#define	ATTRIBUTE_VOLNAME			0x10000000
-#define	ATTRIBUTE_ERASED			0x20000000
-#define ATTRIBUTE_SYMBOLIC_LINK		0x40000000
-#define	ATTRIBUTE_EXECUTABLE		0x80000000
-#endif
-
 
  /// base of all file and directory entries
 struct Entry
@@ -88,8 +73,6 @@ public:
 
 	SFGAOF		_shell_attribs;
 	LPTSTR		_display_name;
-	LPTSTR		_type_name;
-	LPTSTR		_content;
 
 	ENTRY_TYPE	_etype;
 	int /*ICON_ID*/ _icon_id;
@@ -99,20 +82,19 @@ public:
 
 	void	free_subentries();
 
-	void	read_directory_base(SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
-	Entry*	read_tree(const void* path, SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
+	void	read_directory(SORT_ORDER sortOrder, int scan_flags=SCAN_ALL);
+	Entry*	read_tree(const void* path, SORT_ORDER sortOrder);
 	void	sort_directory(SORT_ORDER sortOrder);
-	void	smart_scan(SORT_ORDER sortOrder=SORT_NAME, int scan_flags=SCAN_ALL);
+	void	smart_scan(int scan_flags=SCAN_ALL);
 	void	extract_icon();
 
-	virtual void		read_directory(int scan_flags=SCAN_ALL) {}
-	virtual const void*	get_next_path_component(const void*) const {return NULL;}
-	virtual Entry*		find_entry(const void*) {return NULL;}
-	virtual bool		get_path(PTSTR path) const = 0;
-	virtual ShellPath	create_absolute_pidl() const {return (LPCITEMIDLIST)NULL;}
-	virtual HRESULT		GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
-	virtual BOOL		launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
-	virtual HRESULT		do_context_menu(HWND hwnd, const POINT& pos);
+	virtual void read_directory(int scan_flags=SCAN_ALL) {}
+	virtual const void* get_next_path_component(const void*) {return NULL;}
+	virtual Entry* find_entry(const void*) {return NULL;}
+	virtual bool get_path(PTSTR path) const = 0;
+	virtual ShellPath create_absolute_pidl() const;
+	virtual HRESULT GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
+	virtual BOOL launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
 };
 
 
@@ -137,8 +119,4 @@ struct Root {
 	TCHAR	_fs[_MAX_DIR];
 	DWORD	_drive_type;
 	DWORD	_fs_flags;
-	SORT_ORDER _sort_order;
-
-	Entry*	read_tree(LPCTSTR path, int scan_flags=SCAN_ALL);
-	Entry*	read_tree(LPCITEMIDLIST pidl, int scan_flags=SCAN_ALL);
 };

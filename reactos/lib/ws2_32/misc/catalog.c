@@ -22,8 +22,6 @@ VOID ReferenceProviderByPointer(
     //EnterCriticalSection(&Provider->Lock);
     Provider->ReferenceCount++;
     //LeaveCriticalSection(&Provider->Lock);
-
-    WS_DbgPrint(MAX_TRACE, ("Leaving\n"));
 }
 
 
@@ -190,7 +188,7 @@ INT LoadProvider(
 {
   INT Status;
 
-  WS_DbgPrint(MID_TRACE, ("Loading provider at (0x%X)  Name (%wZ).\n",
+  WS_DbgPrint(MAX_TRACE, ("Loading provider at (0x%X)  Name (%wZ).\n",
     Provider, &Provider->LibraryName));
 
   if (NULL == Provider->hModule)
@@ -199,7 +197,7 @@ INT LoadProvider(
      * UNICODE_STRING objects are not null-terminated, but LoadLibraryW
      * expects a null-terminated string
      */
-    Provider->LibraryName.Buffer[Provider->LibraryName.Length / sizeof(WCHAR)] = L'\0';
+    Provider->LibraryName.Buffer[Provider->LibraryName.Length] = L'\0';
     Provider->hModule = LoadLibraryW(Provider->LibraryName.Buffer);
     if (NULL != Provider->hModule) {
       Provider->WSPStartup = (LPWSPSTARTUP)GetProcAddress(
@@ -223,7 +221,7 @@ INT LoadProvider(
   } else
     Status = NO_ERROR;
 
-  WS_DbgPrint(MID_TRACE, ("Status (%d).\n", Status));
+  WS_DbgPrint(MAX_TRACE, ("Status (%d).\n", Status));
 
   return Status;
 }

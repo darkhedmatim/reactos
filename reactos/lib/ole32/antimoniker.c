@@ -22,10 +22,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -43,12 +41,12 @@ const CLSID CLSID_AntiMoniker = {
 /* AntiMoniker data structure */
 typedef struct AntiMonikerImpl{
 
-    IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
+    ICOM_VTABLE(IMoniker)*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
 
     /* The ROT (RunningObjectTable implementation) uses the IROTData interface to test whether
      * two monikers are equal. That's whay IROTData interface is implemented by monikers.
      */
-    IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
+    ICOM_VTABLE(IROTData)*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
 
     ULONG ref; /* reference counter for this object */
 
@@ -106,8 +104,9 @@ HRESULT WINAPI AntiMonikerImpl_Destroy(AntiMonikerImpl* iface);
 /********************************************************************************/
 /* Virtual function table for the AntiMonikerImpl class which  include IPersist,*/
 /* IPersistStream and IMoniker functions.                                       */
-static IMonikerVtbl VT_AntiMonikerImpl =
+static ICOM_VTABLE(IMoniker) VT_AntiMonikerImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     AntiMonikerImpl_QueryInterface,
     AntiMonikerImpl_AddRef,
     AntiMonikerImpl_Release,
@@ -135,8 +134,9 @@ static IMonikerVtbl VT_AntiMonikerImpl =
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class.                               */
-static IROTDataVtbl VT_ROTDataImpl =
+static ICOM_VTABLE(IROTData) VT_ROTDataImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     AntiMonikerROTDataImpl_QueryInterface,
     AntiMonikerROTDataImpl_AddRef,
     AntiMonikerROTDataImpl_Release,
@@ -148,7 +148,7 @@ static IROTDataVtbl VT_ROTDataImpl =
  *******************************************************************************/
 HRESULT WINAPI AntiMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
   TRACE("(%p,%p,%p)\n",This,riid,ppvObject);
 
@@ -184,11 +184,11 @@ HRESULT WINAPI AntiMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void**
  ******************************************************************************/
 ULONG WINAPI AntiMonikerImpl_AddRef(IMoniker* iface)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
     TRACE("(%p)\n",This);
 
-    return InterlockedIncrement(&This->ref);
+    return ++(This->ref);
 }
 
 /******************************************************************************
@@ -196,17 +196,20 @@ ULONG WINAPI AntiMonikerImpl_AddRef(IMoniker* iface)
  ******************************************************************************/
 ULONG WINAPI AntiMonikerImpl_Release(IMoniker* iface)
 {
-    AntiMonikerImpl *This = (AntiMonikerImpl *)iface;
-    ULONG ref;
+    ICOM_THIS(AntiMonikerImpl,iface);
 
     TRACE("(%p)\n",This);
 
-    ref = InterlockedDecrement(&This->ref);
+    This->ref--;
 
     /* destroy the object if there's no more reference on it */
-    if (ref == 0) AntiMonikerImpl_Destroy(This);
+    if (This->ref==0){
 
-    return ref;
+        AntiMonikerImpl_Destroy(This);
+
+        return 0;
+    }
+    return This->ref;
 }
 
 /******************************************************************************
@@ -536,7 +539,7 @@ HRESULT WINAPI AntiMonikerImpl_GetDisplayName(IMoniker* iface,
                                               IMoniker* pmkToLeft,
                                               LPOLESTR *ppszDisplayName)
 {
-    static const WCHAR back[]={'\\','.','.',0};
+    WCHAR back[]={'\\','.','.',0};
 
     TRACE("(%p,%p,%p,%p)\n",iface,pbc,pmkToLeft,ppszDisplayName);
 

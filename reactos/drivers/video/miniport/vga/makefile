@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.3 2004/03/22 16:00:38 navaraf Exp $
+# $Id: makefile,v 1.1 2004/01/10 14:39:21 navaraf Exp $
 
 PATH_TO_TOP = ../../../..
 
@@ -8,11 +8,12 @@ TARGET_NAME = vgamp
 
 TARGET_DDKLIBS = videoprt.a
 
-TARGET_CFLAGS = -Werror -Wall -D__USE_W32API
+TARGET_CFLAGS = -Werror -Wall
 
 TARGET_OBJECTS = \
   initvga.o \
-  vgamp.o
+  vgamp.o \
+  vgavideo.o
 
 include $(PATH_TO_TOP)/rules.mak
 

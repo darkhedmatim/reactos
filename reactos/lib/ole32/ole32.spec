@@ -5,7 +5,7 @@
 @ stub CLIPFORMAT_UserUnmarshal
 @ stdcall CLSIDFromProgID(wstr ptr)
 @ stdcall CLSIDFromString(wstr ptr)
-@ stdcall CoAddRefServerProcess()
+@ stub CoAddRefServerProcess
 @ stdcall CoBuildVersion()
 @ stub CoCopyProxy                #@ stdcall (ptr ptr) return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoCreateFreeThreadedMarshaler(ptr ptr)
@@ -44,7 +44,7 @@
 @ stdcall CoIsOle1Class (ptr)
 @ stdcall CoLoadLibrary(wstr long)
 @ stdcall CoLockObjectExternal(ptr long long)
-@ stdcall CoMarshalHresult(ptr long)
+@ stub CoMarshalHresult           #@ stdcall (ptr ptr) return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoMarshalInterThreadInterfaceInStream(ptr ptr ptr)
 @ stdcall CoMarshalInterface(ptr ptr ptr long ptr long)
 @ stub CoQueryAuthenticationServices
@@ -57,8 +57,8 @@
 @ stdcall CoRegisterMessageFilter(ptr ptr)
 @ stub CoRegisterPSClsid          #@ stdcall (ptr ptr) return 0,ERR_NOTIMPLEMENTED
 @ stub CoRegisterSurrogate
-@ stdcall CoReleaseMarshalData(ptr)
-@ stdcall CoReleaseServerProcess()
+@ stub CoReleaseMarshalData       #@ stdcall (ptr) return 0,ERR_NOTIMPLEMENTED
+@ stub CoReleaseServerProcess     #@ stdcall () return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoResumeClassObjects()
 @ stub CoRevertToSelf             #@ stdcall () return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoRevokeClassObject(long)
@@ -66,14 +66,14 @@
 @ stub CoSetProxyBlanket          #@ stdcall (ptr long long wstr long long ptr long) return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoSetState(ptr)
 @ stub CoSwitchCallContext
-@ stdcall CoSuspendClassObjects()
+@ stub CoSuspendClassObjects      #@ stdcall () return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoTaskMemAlloc(long)
 @ stdcall CoTaskMemFree(ptr)
 @ stdcall CoTaskMemRealloc(ptr long)
 @ stdcall CoTreatAsClass(ptr ptr)
 @ stdcall CoUninitialize()
 @ stub CoUnloadingWOW
-@ stdcall CoUnmarshalHresult(ptr ptr)
+@ stub CoUnmarshalHresult         #@ stdcall (ptr ptr) return 0,ERR_NOTIMPLEMENTED
 @ stdcall CoUnmarshalInterface(ptr ptr ptr)
 @ stdcall CreateAntiMoniker(ptr)
 @ stdcall CreateBindCtx(long ptr)
@@ -233,7 +233,7 @@
 @ stub SNB_UserUnmarshal
 @ stdcall StgCreateDocfile(wstr long long ptr)
 @ stdcall StgCreateDocfileOnILockBytes(ptr long long ptr)
-@ stdcall StgCreateStorageEx(wstr long long long ptr ptr ptr ptr)
+@ stub StgCreateStorageEx
 @ stub StgGetIFillLockBytesOnFile
 @ stub StgGetIFillLockBytesOnILockBytes
 @ stdcall StgIsStorageFile(wstr)

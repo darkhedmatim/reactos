@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID-keyed Type1 Glyph Loader (body).                                 */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -40,16 +40,15 @@
   cid_load_glyph( T1_Decoder  decoder,
                   FT_UInt     glyph_index )
   {
-    CID_Face       face = (CID_Face)decoder->builder.face;
-    CID_FaceInfo   cid  = &face->cid;
-    FT_Byte*       p;
-    FT_UInt        fd_select;
-    FT_Stream      stream = face->cid_stream;
-    FT_Error       error  = 0;
-    FT_Byte*       charstring = 0;
-    FT_Memory      memory = face->root.memory;
-    FT_ULong       glyph_length = 0;
-    PSAux_Service  psaux = (PSAux_Service)face->psaux;
+    CID_Face      face = (CID_Face)decoder->builder.face;
+    CID_FaceInfo  cid  = &face->cid;
+    FT_Byte*      p;
+    FT_UInt       fd_select;
+    FT_Stream     stream = face->root.stream;
+    FT_Error      error  = 0;
+    FT_Byte*      charstring = 0;
+    FT_Memory     memory = face->root.memory;
+    FT_UInt       glyph_length = 0;
 
 
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
@@ -108,7 +107,8 @@
       fd_select    = (FT_UInt) cid_get_offset( &p, (FT_Byte)cid->fd_bytes );
       off1         = (FT_ULong)cid_get_offset( &p, (FT_Byte)cid->gd_bytes );
       p           += cid->fd_bytes;
-      glyph_length = cid_get_offset( &p, (FT_Byte)cid->gd_bytes ) - off1;
+      glyph_length = (FT_UInt) cid_get_offset(
+                                 &p, (FT_Byte)cid->gd_bytes ) - off1;
       FT_FRAME_EXIT();
 
       if ( glyph_length == 0 )
@@ -146,11 +146,11 @@
 
       /* Decrypt only if lenIV >= 0. */
       if ( decoder->lenIV >= 0 )
-        psaux->t1_decrypt( charstring, glyph_length, 4330 );
+        cid_decrypt( charstring, glyph_length, 4330 );
 
-      error = decoder->funcs.parse_charstrings(
-                decoder, charstring + cs_offset,
-                (FT_Int)glyph_length - cs_offset  );
+      error = decoder->funcs.parse_charstrings( decoder,
+                                                charstring + cs_offset,
+                                                glyph_length - cs_offset  );
     }
 
     FT_FREE( charstring );
@@ -158,16 +158,15 @@
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
 
     /* Incremental fonts can optionally override the metrics. */
-    if ( !error                                                              &&
-         face->root.internal->incremental_interface                          &&
+    if ( !error                                       &&
+         face->root.internal->incremental_interface   &&
          face->root.internal->incremental_interface->funcs->get_glyph_metrics )
     {
       FT_Incremental_MetricsRec  metrics;
 
-
       metrics.bearing_x = decoder->builder.left_bearing.x;
-      metrics.bearing_y = decoder->builder.left_bearing.y;
-      metrics.advance   = decoder->builder.advance.x;
+	  metrics.bearing_y = decoder->builder.left_bearing.y;
+	  metrics.advance   = decoder->builder.advance.x;
       error = face->root.internal->incremental_interface->funcs->get_glyph_metrics(
                 face->root.internal->incremental_interface->object,
                 glyph_index, FALSE, &metrics );
@@ -269,16 +268,14 @@
 
 
   FT_LOCAL_DEF( FT_Error )
-  cid_slot_load_glyph( FT_GlyphSlot  cidglyph,      /* CID_GlyphSlot */
-                       FT_Size       cidsize,       /* CID_Size      */
-                       FT_UInt       glyph_index,
-                       FT_Int32      load_flags )
+  cid_slot_load_glyph( CID_GlyphSlot  glyph,
+                       CID_Size       size,
+                       FT_Int         glyph_index,
+                       FT_Int32       load_flags )
   {
-    CID_GlyphSlot  glyph = (CID_GlyphSlot)cidglyph;
-    CID_Size       size  = (CID_Size)cidsize;
     FT_Error       error;
     T1_DecoderRec  decoder;
-    CID_Face       face = (CID_Face)cidglyph->face;
+    CID_Face       face = (CID_Face)glyph->root.face;
     FT_Bool        hinting;
 
     PSAux_Service  psaux = (PSAux_Service)face->psaux;
@@ -289,26 +286,26 @@
     if ( load_flags & FT_LOAD_NO_RECURSE )
       load_flags |= FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING;
 
-    glyph->x_scale = cidsize->metrics.x_scale;
-    glyph->y_scale = cidsize->metrics.y_scale;
+    glyph->x_scale = size->root.metrics.x_scale;
+    glyph->y_scale = size->root.metrics.y_scale;
 
-    cidglyph->outline.n_points   = 0;
-    cidglyph->outline.n_contours = 0;
+    glyph->root.outline.n_points   = 0;
+    glyph->root.outline.n_contours = 0;
 
     hinting = FT_BOOL( ( load_flags & FT_LOAD_NO_SCALE   ) == 0 &&
                        ( load_flags & FT_LOAD_NO_HINTING ) == 0 );
 
-    cidglyph->format = FT_GLYPH_FORMAT_OUTLINE;
+    glyph->root.format = FT_GLYPH_FORMAT_OUTLINE;
 
     {
       error = psaux->t1_decoder_funcs->init( &decoder,
-                                             cidglyph->face,
-                                             cidsize,
-                                             cidglyph,
+                                             (FT_Face)face,
+                                             (FT_Size)size,
+                                             (FT_GlyphSlot)glyph,
                                              0, /* glyph names -- XXX */
                                              0, /* blend == 0 */
                                              hinting,
-                                             FT_LOAD_TARGET_MODE( load_flags ),
+                                             FT_LOAD_TARGET_MODE(load_flags),
                                              cid_load_glyph );
 
       /* set up the decoder */
@@ -329,18 +326,18 @@
     /* bearing the yMax                                    */
     if ( !error )
     {
-      cidglyph->outline.flags &= FT_OUTLINE_OWNER;
-      cidglyph->outline.flags |= FT_OUTLINE_REVERSE_FILL;
+      glyph->root.outline.flags &= FT_OUTLINE_OWNER;
+      glyph->root.outline.flags |= FT_OUTLINE_REVERSE_FILL;
 
       /* for composite glyphs, return only left side bearing and */
       /* advance width                                           */
       if ( load_flags & FT_LOAD_NO_RECURSE )
       {
-        FT_Slot_Internal  internal = cidglyph->internal;
+        FT_Slot_Internal  internal = glyph->root.internal;
 
 
-        cidglyph->metrics.horiBearingX = decoder.builder.left_bearing.x;
-        cidglyph->metrics.horiAdvance  = decoder.builder.advance.x;
+        glyph->root.metrics.horiBearingX = decoder.builder.left_bearing.x;
+        glyph->root.metrics.horiAdvance  = decoder.builder.advance.x;
 
         internal->glyph_matrix         = font_matrix;
         internal->glyph_delta          = font_offset;
@@ -349,41 +346,31 @@
       else
       {
         FT_BBox            cbox;
-        FT_Glyph_Metrics*  metrics = &cidglyph->metrics;
-        FT_Vector          advance;
+        FT_Glyph_Metrics*  metrics = &glyph->root.metrics;
 
 
         /* copy the _unscaled_ advance width */
-        metrics->horiAdvance                  = decoder.builder.advance.x;
-        cidglyph->linearHoriAdvance           = decoder.builder.advance.x;
-        cidglyph->internal->glyph_transformed = 0;
+        metrics->horiAdvance          = decoder.builder.advance.x;
+        glyph->root.linearHoriAdvance = decoder.builder.advance.x;
+        glyph->root.internal->glyph_transformed = 0;
 
         /* make up vertical metrics */
         metrics->vertBearingX = 0;
         metrics->vertBearingY = 0;
         metrics->vertAdvance  = 0;
 
-        cidglyph->linearVertAdvance = 0;
-        cidglyph->format            = FT_GLYPH_FORMAT_OUTLINE;
+        glyph->root.linearVertAdvance = 0;
+        glyph->root.format = FT_GLYPH_FORMAT_OUTLINE;
 
-        if ( size && cidsize->metrics.y_ppem < 24 )
-          cidglyph->outline.flags |= FT_OUTLINE_HIGH_PRECISION;
+        if ( size && size->root.metrics.y_ppem < 24 )
+          glyph->root.outline.flags |= FT_OUTLINE_HIGH_PRECISION;
 
         /* apply the font matrix */
-        FT_Outline_Transform( &cidglyph->outline, &font_matrix );
+        FT_Outline_Transform( &glyph->root.outline, &font_matrix );
 
-        FT_Outline_Translate( &cidglyph->outline,
+        FT_Outline_Translate( &glyph->root.outline,
                               font_offset.x,
                               font_offset.y );
-
-        advance.x = metrics->horiAdvance;
-        advance.y = 0;
-        FT_Vector_Transform( &advance, &font_matrix );
-        metrics->horiAdvance = advance.x + font_offset.x;
-        advance.x = 0;
-        advance.y = metrics->vertAdvance;
-        FT_Vector_Transform( &advance, &font_matrix );
-        metrics->vertAdvance = advance.y + font_offset.y;
 
         if ( ( load_flags & FT_LOAD_NO_SCALE ) == 0 )
         {
@@ -403,7 +390,7 @@
               vec->y = FT_MulFix( vec->y, y_scale );
             }
 
-          FT_Outline_Get_CBox( &cidglyph->outline, &cbox );
+          FT_Outline_Get_CBox( &glyph->root.outline, &cbox );
 
           /* Then scale the metrics */
           metrics->horiAdvance  = FT_MulFix( metrics->horiAdvance,  x_scale );
@@ -414,24 +401,24 @@
 
           if ( hinting )
           {
-            metrics->horiAdvance = FT_PIX_ROUND( metrics->horiAdvance );
-            metrics->vertAdvance = FT_PIX_ROUND( metrics->vertAdvance );
+            metrics->horiAdvance = ( metrics->horiAdvance + 32 ) & -64;
+            metrics->vertAdvance = ( metrics->vertAdvance + 32 ) & -64;
 
-            metrics->vertBearingX = FT_PIX_ROUND( metrics->vertBearingX );
-            metrics->vertBearingY = FT_PIX_ROUND( metrics->vertBearingY );
+            metrics->vertBearingX = ( metrics->vertBearingX + 32 ) & -64;
+            metrics->vertBearingY = ( metrics->vertBearingY + 32 ) & -64;
           }
         }
 
         /* compute the other metrics */
-        FT_Outline_Get_CBox( &cidglyph->outline, &cbox );
+        FT_Outline_Get_CBox( &glyph->root.outline, &cbox );
 
         /* grid fit the bounding box if necessary */
         if ( hinting )
         {
-          cbox.xMin = FT_PIX_FLOOR( cbox.xMin );
-          cbox.yMin = FT_PIX_FLOOR( cbox.yMin );
-          cbox.xMax = FT_PIX_CEIL( cbox.xMax );
-          cbox.yMax = FT_PIX_CEIL( cbox.yMax );
+          cbox.xMin &= -64;
+          cbox.yMin &= -64;
+          cbox.xMax  = ( cbox.xMax + 63 ) & -64;
+          cbox.yMax  = ( cbox.yMax + 63 ) & -64;
         }
 
         metrics->width  = cbox.xMax - cbox.xMin;
@@ -441,7 +428,6 @@
         metrics->horiBearingY = cbox.yMax;
       }
     }
-
     return error;
   }
 

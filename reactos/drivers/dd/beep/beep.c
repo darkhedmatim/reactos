@@ -1,4 +1,4 @@
-/* $Id: beep.c,v 1.18 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: beep.c,v 1.17 2003/11/17 02:12:48 hyperion Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -18,6 +18,7 @@
 
 #define NDEBUG
 #include <debug.h>
+
 
 /* TYEPEDEFS ***************************************************************/
 
@@ -53,9 +54,8 @@ BeepDPC(PKDPC Dpc,
 
 
 static NTSTATUS STDCALL
-BeepCreate(
-   PDEVICE_OBJECT DeviceObject,
-	 PIRP Irp)
+BeepCreate(PDEVICE_OBJECT DeviceObject,
+	   PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:
@@ -220,10 +220,11 @@ BeepDeviceControl(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID STDCALL
+static NTSTATUS STDCALL
 BeepUnload(PDRIVER_OBJECT DriverObject)
 {
   DPRINT("BeepUnload() called!\n");
+  return(STATUS_SUCCESS);
 }
 
 
@@ -247,11 +248,11 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
   DPRINT("Beep Device Driver 0.0.3\n");
 
   DriverObject->Flags = 0;
-  DriverObject->MajorFunction[IRP_MJ_CREATE] = BeepCreate;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = BeepClose;
-  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = BeepCleanup;
-  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = BeepDeviceControl;
-  DriverObject->DriverUnload = BeepUnload;
+  DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)BeepCreate;
+  DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)BeepClose;
+  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = (PDRIVER_DISPATCH)BeepCleanup;
+  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = (PDRIVER_DISPATCH)BeepDeviceControl;
+  DriverObject->DriverUnload = (PDRIVER_UNLOAD)BeepUnload;
 
   Status = IoCreateDevice(DriverObject,
 			  sizeof(DEVICE_EXTENSION),

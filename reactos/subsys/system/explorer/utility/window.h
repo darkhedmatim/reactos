@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,16 +40,6 @@ typedef set<HWND> WindowSet;
  */
 
 
- /// information structure for creation of a MDI child window
-struct ChildWndInfo
-{
-	ChildWndInfo(HWND hmdiclient)
-	 :	_hmdiclient(hmdiclient) {}
-
-	HWND	_hmdiclient;
-};
-
-
  /**
 	Class Window is the base class for several C++ window wrapper classes.
 	Window objects are allocated from the heap. They are automatically freed
@@ -63,21 +53,20 @@ struct Window : public WindowHandle
 
 	typedef map<HWND,Window*> WindowMap;
 
-	typedef Window* (*CREATORFUNC)(HWND);
-	typedef Window* (*CREATORFUNC_INFO)(HWND, const void*);
+	typedef Window* (*CREATORFUNC)(HWND, const void*);
+	typedef Window* (*CREATORFUNC_NO_INFO)(HWND);
 
 	static HWND Create(CREATORFUNC creator, DWORD dwExStyle,
 				LPCTSTR lpClassName, LPCTSTR lpWindowName,
 				DWORD dwStyle, int x, int y, int w, int h,
 				HWND hwndParent=0, HMENU hMenu=0/*, LPVOID lpParam=0*/);
 
-	static HWND Create(CREATORFUNC_INFO creator, const void* info,
+	static HWND Create(CREATORFUNC creator, const void* info,
 				DWORD dwExStyle, LPCTSTR lpClassName, LPCTSTR lpWindowName,
 				DWORD dwStyle, int x, int y, int w, int h,
 				HWND hwndParent=0, HMENU hMenu=0/*, LPVOID lpParam=0*/);
 
-	static Window* create_mdi_child(const ChildWndInfo& info, const MDICREATESTRUCT& mcs, CREATORFUNC_INFO creator);
-//	static Window* create_property_sheet(struct PropertySheetDialog* ppsd, CREATORFUNC creator, const void* info);
+	static Window* create_mdi_child(HWND hmdiclient, const MDICREATESTRUCT& mcs, CREATORFUNC creator, const void* info=NULL);
 
 	static LRESULT CALLBACK WindowWndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
 	static INT_PTR CALLBACK DialogProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
@@ -131,18 +120,11 @@ protected:
 
 	 // MDI child creation
 	static HHOOK s_hcbtHook;
-	static LRESULT CALLBACK MDICBTHookProc(int code, WPARAM wparam, LPARAM lparam);
-	static LRESULT CALLBACK PropSheetCBTHookProc(int code, WPARAM wparam, LPARAM lparam);
+	static LRESULT CALLBACK CBTHookProc(int code, WPARAM wparam, LPARAM lparam);
 
 	static WindowSet s_pretranslate_windows;
 	static WindowSet s_dialogs;
 };
-
-#ifdef UNICODE
-#define	NFR_CURRENT	NFR_UNICODE
-#else
-#define	NFR_CURRENT	NFR_ANSI
-#endif
 
 
 #ifdef _MSC_VER
@@ -190,7 +172,7 @@ protected:
 };
 
 
- /// template class used in macro WINDOW_CREATOR to define the creater functions for Window objects
+ /// template class used in macro WINDOW_CREATOR to the define creater functions for Window objects
 template<typename WND_CLASS> struct WindowCreator
 {
 	static WND_CLASS* window_creator(HWND hwnd)
@@ -200,7 +182,7 @@ template<typename WND_CLASS> struct WindowCreator
 };
 
 #define WINDOW_CREATOR(WND_CLASS) \
-	((Window::CREATORFUNC) WindowCreator<WND_CLASS>::window_creator)
+	(Window::CREATORFUNC) WindowCreator<WND_CLASS>::window_creator
 
 
  /// template class used in macro WINDOW_CREATOR_INFO to the define creater functions for Window objects with additional creation information
@@ -213,7 +195,7 @@ template<typename WND_CLASS, typename INFO_CLASS> struct WindowCreatorInfo
 };
 
 #define WINDOW_CREATOR_INFO(WND_CLASS, INFO_CLASS) \
-	((Window::CREATORFUNC_INFO) WindowCreatorInfo<WND_CLASS, INFO_CLASS>::window_creator)
+	(Window::CREATORFUNC) WindowCreatorInfo<WND_CLASS, INFO_CLASS>::window_creator
 
 
  /**
@@ -271,10 +253,11 @@ struct IconWindowClass : public WindowClass
 #define	COLOR_SPLITBAR		LTGRAY_BRUSH
 
 
- /// menu info structure
+ /// menu info structure for MDI child windows
 struct MenuInfo
 {
 	HMENU	_hMenuView;
+	HMENU	_hMenuOptions;
 };
 
 #define	PM_FRM_GET_MENUINFO		(WM_APP+0x02)
@@ -290,18 +273,15 @@ struct ChildWindow : public Window
 {
 	typedef Window super;
 
-	ChildWindow(HWND hwnd, const ChildWndInfo& info);
+	ChildWindow(HWND hwnd);
 
-	static ChildWindow* create(const ChildWndInfo& info, const RECT& rect, CREATORFUNC_INFO creator,
-								LPCTSTR classname, LPCTSTR title=NULL, DWORD style=0);
-
-	bool	go_to(LPCTSTR url);
+	static ChildWindow* create(HWND hmdiclient, const RECT& rect,
+				CREATORFUNC creator, LPCTSTR classname, LPCTSTR title=NULL, const void* info=NULL);
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
 
 	virtual void resize_children(int cx, int cy);
-	virtual String jump_to_int(LPCTSTR url) = 0;
 
 protected:
 	MenuInfo*_menu_info;
@@ -312,17 +292,7 @@ protected:
 
 	int 	_split_pos;
 	int		_last_split;
-
-	HWND	_hwndFrame;
-	String	_statusText;
-	String	_url;
-
-	stack<String> _url_history;
-
-	void	set_url(LPCTSTR url);
 };
-
-#define	PM_SETSTATUSTEXT		(WM_APP+0x1E)
 
 
  /**
@@ -375,7 +345,7 @@ struct Dialog : public Window
 	~Dialog();
 
 	static int DoModal(UINT nid, CREATORFUNC creator, HWND hwndParent=0);
-	static int DoModal(UINT nid, CREATORFUNC_INFO creator, const void* info, HWND hwndParent=0);
+	static int DoModal(UINT nid, CREATORFUNC creator, const void* info, HWND hwndParent=0);
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
@@ -385,67 +355,6 @@ protected:
 
 #define	PM_FRM_CALC_CLIENT		(WM_APP+0x03)
 #define	Frame_CalcFrameClient(hwnd, prt) ((BOOL)SNDMSG(hwnd, PM_FRM_CALC_CLIENT, 0, (LPARAM)(PRECT)prt))
-
-#define	PM_JUMP_TO_URL			(WM_APP+0x25)
-#define	PM_URL_CHANGED			(WM_APP+0x26)
-
-
-struct PropSheetPage : public PROPSHEETPAGE
-{
-	PropSheetPage(UINT nid, Window::CREATORFUNC dlg_creator);
-
-	void	init(struct PropertySheetDialog*);
-
-protected:
-	friend struct PropSheetPageDlg;
-
-	Window::CREATORFUNC	_dlg_creator;
-};
-
-
- /// Property Sheet dialog
-struct PropertySheetDialog : public PROPSHEETHEADER
-{
-	PropertySheetDialog(HWND owner);
-
-	void	add(PropSheetPage& psp);
-	int		DoModal(int start_page=0);
-
-	HWND	GetCurrentPage();
-
-protected:
-	typedef vector<PROPSHEETPAGE> Vector;
-	Vector	_pages;
-	HWND	_hwnd;
-};
-
-
- /// Property Sheet Page (inner dialog)
-struct PropSheetPageDlg : public Dialog
-{
-	typedef Dialog super;
-
-	PropSheetPageDlg(HWND);
-
-protected:
-	friend struct PropertySheetDialog;
-	friend struct PropSheetPage;
-
-	static INT_PTR CALLBACK DialogProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
-
-	int	Command(int id, int code);
-};
-
-
-/*
- /// Property Sheet Dialog (outer dialog)
-struct PropertySheetDlg : public SubclassedWindow
-{
-	typedef SubclassedWindow super;
-
-	PropertySheetDlg(HWND hwnd) : super(hwnd) {}
-};
-*/
 
 
  // Layouting of resizable windows
@@ -521,9 +430,9 @@ template<typename BASE> struct ResizeController : public BASE
 	{
 	}
 
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 	{
-		switch(nmsg) {
+		switch(message) {
 		  case PM_FRM_CALC_CLIENT:
 			GetClientSpace((PRECT)lparam);
 			return TRUE;
@@ -538,17 +447,17 @@ template<typename BASE> struct ResizeController : public BASE
 			goto def;
 
 		  default: def:
-			return super::WndProc(nmsg, wparam, lparam);
+			return super::WndProc(message, wparam, lparam);
 		}
 	}
 
 	virtual void GetClientSpace(PRECT prect)
 	{
-		 if (!IsIconic(this->_hwnd)) {
-			GetClientRect(this->_hwnd, prect);
+		 if (!IsIconic(_hwnd)) {
+			GetClientRect(_hwnd, prect);
 		 } else {
 			WINDOWPLACEMENT wp;
-			GetWindowPlacement(this->_hwnd, &wp);
+			GetWindowPlacement(_hwnd, &wp);
 			prect->left = prect->top = 0;
 			prect->right = wp.rcNormalPosition.right-wp.rcNormalPosition.left-
 				2*(GetSystemMetrics(SM_CXSIZEFRAME)+GetSystemMetrics(SM_CXEDGE));
@@ -632,7 +541,7 @@ template<typename BASE> struct OwnerDrawParent : public BASE
 		switch(nmsg) {
 		  case WM_DRAWITEM:
 			if (wparam) {	// should there be drawn a control?
-				HWND hctl = GetDlgItem(this->_hwnd, wparam);
+				HWND hctl = GetDlgItem(_hwnd, wparam);
 
 				if (hctl)
 					return SendMessage(hctl, PM_DISPATCH_DRAWITEM, wparam, lparam);
@@ -718,47 +627,15 @@ struct PictureButton : public OwnerdrawnButton
 	typedef OwnerdrawnButton super;
 
 	PictureButton(HWND hwnd, HICON hIcon, HBRUSH hbrush=GetSysColorBrush(COLOR_BTNFACE), bool flat=false)
-	 :	super(hwnd), _hIcon(hIcon), _hBmp(0), _hBrush(hbrush), _flat(flat)
+	 :	super(hwnd), _hIcon(hIcon), _hBrush(hbrush), _flat(flat)
 	{
-		_cx = 16;
-		_cy = 16;
-	}
-
-	PictureButton(HWND hparent, int id, HICON hIcon, HBRUSH hbrush=GetSysColorBrush(COLOR_BTNFACE), bool flat=false)
-	 :	super(GetDlgItem(hparent, id)), _hIcon(hIcon), _hBmp(0), _hBrush(hbrush), _flat(flat)
-	{
-		_cx = 16;
-		_cy = 16;
-	}
-
-	PictureButton(HWND hwnd, HBITMAP hBmp, HBRUSH hbrush=GetSysColorBrush(COLOR_BTNFACE), bool flat=false)
-	 :	super(hwnd), _hIcon(0), _hBmp(hBmp), _hBrush(hbrush), _flat(flat)
-	{
-		BITMAP bmp;
-		GetObject(hBmp, sizeof(bmp), &bmp);
-		_cx = bmp.bmWidth;
-		_cy = bmp.bmHeight;
-	}
-
-	PictureButton(HWND hparent, int id, HBITMAP hBmp, HBRUSH hbrush=GetSysColorBrush(COLOR_BTNFACE), bool flat=false)
-	 :	super(GetDlgItem(hparent, id)), _hIcon(0), _hBmp(hBmp), _hBrush(hbrush), _flat(flat)
-	{
-		BITMAP bmp;
-		GetObject(hBmp, sizeof(bmp), &bmp);
-		_cx = bmp.bmWidth;
-		_cy = bmp.bmHeight;
 	}
 
 protected:
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis);
 
 	HICON	_hIcon;
-	HBITMAP	_hBmp;
 	HBRUSH	_hBrush;
-
-	int		_cx;
-	int		_cy;
-
 	bool	_flat;
 };
 
@@ -784,9 +661,9 @@ struct ColorStatic : public SubclassedWindow
 	}
 
 protected:
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam)
 	{
-		if (nmsg == PM_DISPATCH_CTLCOLOR) {
+		if (message == PM_DISPATCH_CTLCOLOR) {
 			HDC hdc = (HDC) wparam;
 
 			SetTextColor(hdc, _textColor);
@@ -801,7 +678,7 @@ protected:
 				return (LRESULT)GetStockBrush(HOLLOW_BRUSH);
 			}
 		} else
-			return super::WndProc(nmsg, wparam, lparam);
+			return super::WndProc(message, wparam, lparam);
 	}
 
 	COLORREF	_textColor;
@@ -829,7 +706,7 @@ protected:
 	HFONT	 _hfont;
 	HCURSOR	_crsr_link;
 
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
+	LRESULT WndProc(UINT message, WPARAM wparam, LPARAM lparam);
 
 	void init();
 
@@ -857,56 +734,14 @@ struct ToolTip : public WindowHandle
 		SendMessage(_hwnd, TTM_ACTIVATE, active, 0);
 	}
 
-	void add(HWND hparent, HWND htool, LPCTSTR txt=LPSTR_TEXTCALLBACK, LPARAM lparam=0)
+	void add(HWND hparent, HWND htool, LPCTSTR txt=LPSTR_TEXTCALLBACK)
 	{
 		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_IDISHWND|TTF_TRANSPARENT, hparent, (UINT)htool,
-			{0,0,0,0}, 0, (LPTSTR)txt, lparam
+			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_IDISHWND/*|TTF_TRANSPARENT*/, hparent, (UINT)htool, {0,0,0,0}, 0, 0, 0
 		};
+		ti.lpszText = (LPTSTR) txt;
 
-#ifdef UNICODE	///@todo Why is it neccesary to try both TTM_ADDTOOLW and TTM_ADDTOOLW ?!
-		if (!SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
-#else
-		if (!SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti);
-#endif
-	}
-
-	void add(HWND hparent, UINT id, const RECT& rect, LPCTSTR txt=LPSTR_TEXTCALLBACK, LPARAM lparam=0)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_SUBCLASS|TTF_TRANSPARENT, hparent, id,
-			{rect.left,rect.top,rect.right,rect.bottom}, 0, (LPTSTR)txt, lparam
-		};
-
-#ifdef UNICODE
-		if (!SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
-#else
-		if (!SendMessage(_hwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti))
-			SendMessage(_hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti);
-#endif
-	}
-
-	void remove(HWND hparent, HWND htool)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), TTF_IDISHWND, hparent, (UINT)htool,
-			{0,0,0,0}, 0, 0, 0
-		};
-
-		SendMessage(_hwnd, TTM_DELTOOL, 0, (LPARAM)&ti);
-	}
-
-	void remove(HWND hparent, UINT id)
-	{
-		TOOLINFO ti = {
-			sizeof(TOOLINFO), 0, hparent, id,
-			{0,0,0,0}, 0, 0, 0
-		};
-
-		SendMessage(_hwnd, TTM_DELTOOL, 0, (LPARAM)&ti);
+		SendMessage(_hwnd, TTM_ADDTOOL, 0, (LPARAM)&ti);
 	}
 };
 
@@ -961,157 +796,4 @@ protected:
 	PFNLVCOMPARE _compare_fct;
 
 	static int CALLBACK CompareFunc(LPARAM lparam1, LPARAM lparam2, LPARAM lparamSort);
-};
-
-
-inline LPARAM TreeView_GetItemData(HWND hwndTreeView, HTREEITEM hItem)
-{
-	TVITEM tvItem;
-
-	tvItem.mask = TVIF_PARAM;
-	tvItem.hItem = hItem;
-
-	if (!TreeView_GetItem(hwndTreeView, &tvItem))
-		return 0;
-
-	return tvItem.lParam;
-}
-
-
-enum {TRAYBUTTON_LEFT=0, TRAYBUTTON_RIGHT, TRAYBUTTON_MIDDLE};
-
-#define	PM_TRAYICON		(WM_APP+0x20)
-
-#define	WINMSG_TASKBARCREATED	TEXT("TaskbarCreated")
-
-
-struct TrayIcon
-{
-	TrayIcon(HWND hparent, UINT id)
-	 :	_hparent(hparent), _id(id) {}
-
-	~TrayIcon()
-		{Remove();}
-
-	void	Add(HICON hIcon, LPCTSTR tooltip=NULL)
-		{Set(NIM_ADD, _id, hIcon, tooltip);}
-
-	void	Modify(HICON hIcon, LPCTSTR tooltip=NULL)
-		{Set(NIM_MODIFY, _id, hIcon, tooltip);}
-
-	void	Remove()
-	{
-		NOTIFYICONDATA nid = {
-			sizeof(NOTIFYICONDATA),	// cbSize
-			_hparent,				// hWnd
-			_id,					// uID
-		};
-
-		Shell_NotifyIcon(NIM_DELETE, &nid);
-	}
-
-protected:
-	HWND	_hparent;
-	UINT	_id;
-
-	void	Set(DWORD dwMessage, UINT id, HICON hIcon, LPCTSTR tooltip=NULL)
-	{
-		NOTIFYICONDATA nid = {
-			sizeof(NOTIFYICONDATA),	// cbSize
-			_hparent,				// hWnd
-			id,						// uID
-			NIF_MESSAGE|NIF_ICON,	// uFlags
-			PM_TRAYICON,			// uCallbackMessage
-			hIcon					// hIcon
-		};
-
-		if (tooltip)
-			lstrcpyn(nid.szTip, tooltip, COUNTOF(nid.szTip));
-
-		if (nid.szTip[0])
-			nid.uFlags |= NIF_TIP;
-
-		Shell_NotifyIcon(dwMessage, &nid);
-	}
-};
-
-
-template<typename BASE> struct TrayIconControllerTemplate : public BASE
-{
-	typedef BASE super;
-
-	TrayIconControllerTemplate(HWND hwnd) : BASE(hwnd),
-		WM_TASKBARCREATED(RegisterWindowMessage(WINMSG_TASKBARCREATED))
-	{
-	}
-
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-	{
-		if (nmsg == PM_TRAYICON) {
-			switch(lparam) {
-			  case WM_MOUSEMOVE:
-				TrayMouseOver(wparam);
-				break;
-
-			  case WM_LBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_LEFT);
-				break;
-
-			  case WM_LBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_LEFT);
-				break;
-
-			  case WM_RBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_RIGHT);
-				break;
-
-			  case WM_RBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_RIGHT);
-				break;
-
-			  case WM_MBUTTONDOWN:
-				TrayClick(wparam, TRAYBUTTON_MIDDLE);
-				break;
-
-			  case WM_MBUTTONDBLCLK:
-				TrayDblClick(wparam, TRAYBUTTON_MIDDLE);
-				break;
-			}
-
-			return 0;
-		} else if (nmsg == WM_TASKBARCREATED) {
-			AddTrayIcons();
-			return 0;
-		} else
-			return super::WndProc(nmsg, wparam, lparam);
-	}
-
-	virtual void AddTrayIcons() = 0;
-	virtual void TrayMouseOver(UINT id) {}
-	virtual void TrayClick(UINT id, int btn) {}
-	virtual void TrayDblClick(UINT id, int btn) {}
-
-protected:
-	const UINT WM_TASKBARCREATED;
-};
-
-
-struct EditController : public SubclassedWindow
-{
-	typedef SubclassedWindow super;
-
-	EditController(HWND hwnd)
-	 :	super(hwnd)
-	{
-	}
-
-protected:
-	LRESULT WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
-	{
-		if (nmsg==WM_KEYDOWN && wparam==VK_RETURN) {
-			SendParent(WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(_hwnd),1), (LPARAM)_hwnd);
-			return 0;
-		} else
-			return super::WndProc(nmsg, wparam, lparam);
-	}
 };

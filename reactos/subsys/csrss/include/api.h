@@ -1,4 +1,4 @@
-/* $Id: api.h,v 1.7 2004/11/14 18:47:10 hbirr Exp $
+/* $Id: api.h,v 1.4 2004/01/11 17:31:15 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -96,7 +96,7 @@ NTSTATUS FASTCALL CsrApiRegisterDefinitions(PCSRSS_API_DEFINITION NewDefinitions
 VOID FASTCALL CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
                                 PCSRSS_API_REQUEST Request,
                                 PCSRSS_API_REPLY Reply);
-VOID STDCALL ServerApiPortThead(PVOID PortHandle);
+VOID Thread_Api(PVOID PortHandle);
 VOID Console_Api( DWORD Ignored );
 
 extern HANDLE CsrssApiHeap;
@@ -107,7 +107,6 @@ VOID STDCALL CsrInitConsoleSupport(VOID);
 /* api/process.c */
 VOID STDCALL CsrInitProcessData(VOID);
 PCSRSS_PROCESS_DATA STDCALL CsrGetProcessData(ULONG ProcessId);
-PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(ULONG ProcessId);
 NTSTATUS STDCALL CsrFreeProcessData( ULONG Pid );
 
 /* api/handle.c */
@@ -124,16 +123,12 @@ CSR_API(CsrGetOutputHandle);
 CSR_API(CsrCloseHandle);
 CSR_API(CsrVerifyHandle);
 CSR_API(CsrDuplicateHandle);
-CSR_API(CsrGetInputWaitHandle);
 
 /* api/user.c */
 CSR_API(CsrRegisterServicesProcess);
 CSR_API(CsrExitReactos);
 CSR_API(CsrGetShutdownParameters);
 CSR_API(CsrSetShutdownParameters);
-
-CSR_API(CsrSetLogonNotifyWindow);
-CSR_API(CsrRegisterLogonProcess);
 
 #endif /* ndef API_H_INCLUDED */
 

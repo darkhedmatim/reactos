@@ -8,34 +8,14 @@ HKLM,"SOFTWARE\Classes",,0x00000010
 HKCR,".exe","",0x00000000,"exefile"
 HKCR,"exefile\Defaulticon","",0x00000000,"%1"
 HKCR,"exefile\shell\open\command","",0x00000000,"""%1"" %*"
-
 ; Show icons for shortcuts in shell views (lnkfile is handled specially in shell32)
-; Don't display extension for shortcuts
 HKCR,".lnk","",0x00000000,"lnkfile"
+; Don't display extension for shortcuts
 HKCR,"lnkfile","NeverShowExt",0x00000000,""
-HKCR,"lnkfile","IsShortcut",0x00000000,"yes"
-HKCR,"lnkfile\CLSID","",0x00000000,"{00021401-0000-0000-C000-000000000046}"
-HKCR,"lnkfile\shellex\IconHandler","",0x00000000,"{00021401-0000-0000-C000-000000000046}"
-
-; shell command files (e.g. "Show Desktop" in quicklaunch bar)
-HKCR,".scf","",0x00000000,"SHCmdFile"
-HKCR,"SHCmdFile","NeverShowExt",0x00000000,""
-HKCR,"SHCmdFile","IsShortcut",0x00000000,"yes"
-HKCR,"SHCmdFile\shell\open\command","",0x00000000,"explorer.exe ""%1"""
-HKCR,"SHCmdFile\CLSID","",0x00000000,"{57651662-CE3E-11D0-8D77-00C04FC99D61}"
-HKCR,"SHCmdFile\shellex\IconHandler","",0x00000000,"{57651662-CE3E-11D0-8D77-00C04FC99D61}"
-
-; URL shortcuts (e.g. used in favorites folder of IExplorer)
-HKCR,".url","",0x00000000,"InternetShortcut"
-HKCR,"InternetShortcut","NeverShowExt",0x00000000,""
-HKCR,"InternetShortcut","IsShortcut",0x00000000,"yes"
-HKCR,"InternetShortcut\shell\open\command","",0x00000000,"rundll32.exe shdocvw.dll,OpenURL %l"
-HKCR,"InternetShortcut\DefaultIcon","",0x00020000,"%SystemRoot%\system32\url.dll,0"
-
 ; install notepad as handler for .txt files
 HKCR,".txt","",0x00000000,"txtfile"
 HKCR,".txt","Content Type",0x00000000,"text/plain"
-HKCR,"txtfile\shell\open\command","",0x00020000,"%SystemRoot%\bin\notepad.exe %1"
+HKCR,"txtfile\shell\open\command","",0x00000000,"%SystemRoot%\bin\notepad.exe"
 
 HKCR,"CLSID",,0x00000012
 
@@ -50,23 +30,13 @@ HKCR,"CLSID\{00021401-0000-0000-C000-000000000046}\shellex\MayChangeDefaultMenu"
 HKCR,"CLSID\{000214E6-0000-0000-C000-000000000046}","",0x00000000,"Shellfolder"
 HKCR,"CLSID\{000214E6-0000-0000-C000-000000000046}\InProcServer32","",0x00000000,"shell32.dll"
 HKCR,"CLSID\{000214E6-0000-0000-C000-000000000046}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
-HKCR,"CLSID\{000214EE-0000-0000-C000-000000000046}","",0x00000000,"IShellLinkA"
-HKCR,"CLSID\{000214EE-0000-0000-C000-000000000046}\InProcServer32","",0x00000000,"shell32.dll"
-HKCR,"CLSID\{000214EE-0000-0000-C000-000000000046}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
-HKCR,"CLSID\{000214F9-0000-0000-C000-000000000046}","",0x00000000,"IShellLinkW"
-HKCR,"CLSID\{000214F9-0000-0000-C000-000000000046}\InProcServer32","",0x00000000,"shell32.dll"
-HKCR,"CLSID\{000214F9-0000-0000-C000-000000000046}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
 
 HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}","",0x00000000,"Computer Search Results Folder"
 HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}","LocalizedString",0x00020000,"@%SystemRoot%\system32\shell32.dll,-30521"
 HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}\DefaultIcon","",0x00020000,"%SystemRoot%\system32\shell32.dll,-135"
-HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}\InProcServer32","",0x00020000,"%SystemRoot%\system32\shell32.dll"
+HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}\InProcServer32","",0x00020000,"%SystemRoot%\system32\shell32.dll,-135"
 HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
 HKCR,"CLSID\{1F4DE370-D627-11D1-BA4F-00A0C91EEDBA}\ShellFolder","Attributes",0x00010001,0x20180000
-
-HKCR,"CLSID\{4657278A-411B-11d2-839A-00C04FD918D0}","",0x00000000,"Shell Drag and Drop helper"
-HKCR,"CLSID\{4657278A-411B-11d2-839A-00C04FD918D0}\InProcServer32","",0x00020000,"%SystemRoot%\system32\shell32.dll"
-HKCR,"CLSID\{4657278A-411B-11d2-839A-00C04FD918D0}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
 
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}","",0x00000000,"Recycle Bin"
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}","LocalizedString",0x00020000,"@%SystemRoot%\system32\shell32.dll,-8964"
@@ -76,7 +46,7 @@ HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}","SortOrderIndex",0x00010001,
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\DefaultIcon","",0x00020000,"%SystemRoot%\System32\shell32.dll,31"
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\DefaultIcon","Empty",0x00020000,"%SystemRoot%\System32\shell32.dll,31"
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\DefaultIcon","Full",0x00020000,"%SystemRoot%\System32\shell32.dll,32"
-HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\InProcServer32","",0x00020000,"%SystemRoot%\system32\shell32.dll"
+HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\InProcServer32","",0x00020000,"%SystemRoot%\system32\shell32.dll,-135"
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\ShellFolder","Attributes",0x00010001,0x20000140
 HKCR,"CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\ShellFolder","CallForAttributes",0x00010001,0x00000040
@@ -97,17 +67,6 @@ HKCR,"CLSID\{0002E005-0000-0000-C000-000000000046}","",0x00000000,"StdComponentC
 HKCR,"CLSID\{0002E005-0000-0000-C000-000000000046}\InProcServer32","",0x00000000,"comcat.dll"
 HKCR,"CLSID\{0002E005-0000-0000-C000-000000000046}\InProcServer32","ThreadingModel",0x00000000,"Both"
 
-; For TCPIP Protocol property page
-HKCR,"CLSID\{A907657F-6FDF-11D0-8EFB-00C04FD912B2}","",0x00000000,"TCP/IP Configuration Notify Object"
-HKCR,"CLSID\{A907657F-6FDF-11D0-8EFB-00C04FD912B2}\InProcServer32","",0x00000000,"netcfgx.dll"
-HKCR,"CLSID\{A907657F-6FDF-11D0-8EFB-00C04FD912B2}\InProcServer32","ThreadingModel",0x00000000,"Both"
-
-; For dxdiagn.dll
-HKCR,"CLSID\{A65B8071-3BFE-4213-9A5B-491DA4461CA7}","",0x00000000,"DxDiagProvider Class"
-HKCR,"CLSID\{A65B8071-3BFE-4213-9A5B-491DA4461CA7}\InProcServer32","",0x00000000,"%SystemRoot%\system32\dxdiagn.dll"
-HKCR,"CLSID\{A65B8071-3BFE-4213-9A5B-491DA4461CA7}\InProcServer32","ThreadingModel",0x00000000,"Apartment"
-HKCR,"CLSID\{A65B8071-3BFE-4213-9A5B-491DA4461CA7}\ProgID","",0x00000000,"DxDiag.DxDiagProvider.1"
-HKCR,"CLSID\{A65B8071-3BFE-4213-9A5B-491DA4461CA7}\VersionIndependentProgID","",0x00000000,"DxDiag.DxDiagProvider"
 
 HKCR,"Interface",,0x00000012
 

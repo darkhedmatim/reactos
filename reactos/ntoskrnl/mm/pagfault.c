@@ -1,6 +1,6 @@
-/* $Id: pagfault.c,v 1.7 2004/08/15 16:39:08 chorns Exp $ */
-
-#include <ntoskrnl.h>
+/* $Id: pagfault.c,v 1.5 2003/07/10 21:05:03 royce Exp $ */
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
 
 /*
  * @implemented
@@ -8,14 +8,14 @@
 BOOLEAN
 STDCALL
 MmIsRecursiveIoFault (
-   VOID
-)
+	VOID
+	)
 {
-   PETHREAD Thread = PsGetCurrentThread ();
+	PETHREAD Thread = PsGetCurrentThread ();
 
-   return ( Thread->DisablePageFaultClustering
-            | Thread->ForwardClusterOnly
-          );
+	return (	Thread->DisablePageFaultClustering
+			| Thread->ForwardClusterOnly
+			);
 }
 
 

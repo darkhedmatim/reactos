@@ -1,4 +1,4 @@
-/* $Id: rw.c,v 1.25 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: rw.c,v 1.23 2003/11/30 19:50:42 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ****************************************************************/
@@ -22,7 +22,7 @@
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 WriteFile(HANDLE hFile,
 			  LPCVOID lpBuffer,	
 			  DWORD nNumberOfBytesToWrite,
@@ -101,7 +101,7 @@ WriteFile(HANDLE hFile,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ReadFile(
   HANDLE hFile,
   LPVOID lpBuffer,
@@ -204,7 +204,7 @@ ApcRoutine(PVOID ApcContext,
 /*
  * @implemented
  */
-BOOL STDCALL 
+WINBOOL STDCALL 
 WriteFileEx (HANDLE				hFile,
 	     LPCVOID				lpBuffer,
 	     DWORD				nNumberOfBytesToWrite,
@@ -259,7 +259,7 @@ WriteFileEx (HANDLE				hFile,
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ReadFileEx(HANDLE hFile,
 			   LPVOID lpBuffer,
 			   DWORD nNumberOfBytesToRead,

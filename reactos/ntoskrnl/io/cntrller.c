@@ -1,4 +1,4 @@
-/* $Id: cntrller.c,v 1.12 2004/10/22 20:25:52 ekohl Exp $
+/* $Id: cntrller.c,v 1.10 2003/07/10 15:47:00 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -60,12 +62,12 @@ IoAllocateController(PCONTROLLER_OBJECT ControllerObject,
    PCONTROLLER_QUEUE_ENTRY entry;
    IO_ALLOCATION_ACTION Result;
 
-   ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
+   assert(KeGetCurrentIrql() == DISPATCH_LEVEL);
 
    entry = 
      ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_QUEUE_ENTRY),
 			   TAG_CQE);
-   ASSERT(entry!=NULL);
+   assert(entry!=NULL);
    
    entry->DeviceObject = DeviceObject;
    entry->ExecutionRoutine = ExecutionRoutine;
@@ -99,7 +101,7 @@ IoCreateController(ULONG Size)
 {
    PCONTROLLER_OBJECT controller;
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
    controller = 
      ExAllocatePoolWithTag(NonPagedPool, sizeof(CONTROLLER_OBJECT),
@@ -133,7 +135,7 @@ IoDeleteController(PCONTROLLER_OBJECT ControllerObject)
  *        ControllerObject = Controller object to be released
  */
 {
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
 
    ExFreePool(ControllerObject->ControllerExtension);
    ExFreePool(ControllerObject);
@@ -166,7 +168,7 @@ IoFreeController(PCONTROLLER_OBJECT ControllerObject)
 	  }
 	Result = Entry->ExecutionRoutine(Entry->DeviceObject,
 					 Entry->DeviceObject->CurrentIrp,
-					 NULL,
+					 NULL,					 
 					 Entry->Context);
 	ExFreePool(Entry);
      } while (Result == DeallocateObject);

@@ -516,11 +516,11 @@ BOOLEAN ConsoleInitVga(void)
 
     // the real framebuffer
 	FrameBuffer.u.LowPart = 0xB8000;
-	pScreenBufferHardwareVga = MmMapIoSpace(FrameBuffer,SCREEN_BUFFER_SIZE,MmNonCached);
+	pScreenBufferHardwareVga = MmMapIoSpace(FrameBuffer,SCREEN_BUFFER_SIZE,FALSE);
 
 	//The real font buffer
 	FontBuffer.u.LowPart = 0xA0000;
-	pFontBufferVga = MmMapIoSpace(FontBuffer,FONTBUFFERSIZE,MmNonCached);
+	pFontBufferVga = MmMapIoSpace(FontBuffer,FONTBUFFERSIZE,FALSE);
 
     // the console
 	pScreenBufferVga = PICE_malloc(SCREEN_BUFFER_SIZE,NONPAGEDPOOL);

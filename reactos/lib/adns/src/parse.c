@@ -47,7 +47,7 @@ int vbuf__append_quoted1035(vbuf *vb, const byte *buf, int len) {
 	break;
       }
     }
-    if (!adns__vbuf_append(vb,buf,i) || !adns__vbuf_append(vb,qbuf,(int)  strlen(qbuf)))
+    if (!adns__vbuf_append(vb,buf,i) || !adns__vbuf_append(vb,qbuf,strlen(qbuf)))
       return 0;
     if (i<len) i++;
     buf+= i;
@@ -115,7 +115,7 @@ adns_status adns__findlabel_next(findlabel_state *fls,
 }
 
 adns_status adns__parse_domain(adns_state ads, int serv, adns_query qu,
-			       vbuf *vb, parsedomain_flags flags,
+			       vbuf *vb, adns_queryflags flags,
 			       const byte *dgram, int dglen, int *cbyte_io, int max) {
   findlabel_state fls;
   

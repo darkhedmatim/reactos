@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: clipboard.c,v 1.14 2004/08/15 21:36:29 chorns Exp $
+/* $Id: clipboard.c,v 1.11 2003/12/28 08:59:24 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/clipboard.c
@@ -28,8 +28,10 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <strpool.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -38,7 +40,7 @@
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 OpenClipboard(HWND hWndNewOwner)
 {
    return NtUserOpenClipboard(hWndNewOwner, 0);
@@ -47,7 +49,7 @@ OpenClipboard(HWND hWndNewOwner)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 CloseClipboard(VOID)
 {
    return NtUserCloseClipboard();
@@ -65,7 +67,7 @@ CountClipboardFormats(VOID)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 EmptyClipboard(VOID)
 {
    return NtUserEmptyClipboard();
@@ -77,7 +79,7 @@ EmptyClipboard(VOID)
 UINT STDCALL
 EnumClipboardFormats(UINT format)
 {
-   return NtUserEnumClipboardFormats(format);
+   return (UINT)NtUserCallOneParam(format, ONEPARAM_ROUTINE_ENUMCLIPBOARDFORMATS);
 }
 
 /*
@@ -183,7 +185,7 @@ GetPriorityClipboardFormat(UINT *paFormatPriorityList, INT cFormats)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 IsClipboardFormatAvailable(UINT format)
 {
    return NtUserIsClipboardFormatAvailable(format);
@@ -232,7 +234,7 @@ SetClipboardViewer(HWND hWndNewViewer)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext)
 {
    return NtUserChangeClipboardChain(hWndRemove, hWndNewNext);

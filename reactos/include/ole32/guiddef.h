@@ -119,9 +119,8 @@ typedef	FMTID*		LPFMTID;
 #endif
 
 /*	REFIID section */
-#if !defined(_REFIID_DEFINED) && !defined(_REFGIID_DEFINED)
+#ifndef _REFIID_DEFINED
 	#define _REFIID_DEFINED
-	#define _REFGIID_DEFINED
 	#ifdef __cplusplus
 		#define REFIID const IID &
 	#else

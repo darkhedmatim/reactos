@@ -1,9 +1,20 @@
-# $Id: Makefile 7978 2004-02-01 21:20:05Z gvg $
-
 PATH_TO_TOP = ../..
 
-TARGET_TYPE = winedll
+TARGET_TYPE = dynlink
+
+TARGET_NAME = riched32
+
+TARGET_BASE = 0x76340000
+
+# require os code to explicitly request A/W version of structs/functions
+TARGET_CFLAGS += -DWM_ALTTABACTIVE=0x0029 -D_DISABLE_TIDENTS -D__USE_W32API -Werror -Wall
+
+TARGET_SDKLIBS = ntdll.a libwine.a
+
+TARGET_OBJECTS = charlist.o reader.o richedit.o text-writer.o
 
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
+
+include $(TOOLS_PATH)/config.mk

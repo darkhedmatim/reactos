@@ -7,8 +7,7 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
@@ -63,8 +62,7 @@ size_t _write(int _fd, const void* _buf, size_t _nbyte)
             if (count == 0) {
                 if (!WriteFile(_get_osfhandle(_fd), tmp, BUFSIZE, &wbyte, NULL)) {
                    //ReportLastError();
-		   _dosmaperr(GetLastError());
-		   result = -1;
+                   result = -1;
                    break;
                 }
                 if (wbyte < BUFSIZE) {
@@ -78,9 +76,11 @@ size_t _write(int _fd, const void* _buf, size_t _nbyte)
          *out++ = *in++;
          count--;
          if (count == 0 || _nbyte == 0) {
+            int tmp_len_debug = strlen(tmp);
             if (!WriteFile(_get_osfhandle(_fd), tmp, BUFSIZE - count, &wbyte, NULL)) {
 				_dosmaperr(GetLastError());
 				result = -1; 
+				tmp_len_debug = 0;
 				break;
             }
             if (wbyte < (BUFSIZE - count)) {

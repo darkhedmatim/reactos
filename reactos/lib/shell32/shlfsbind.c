@@ -24,8 +24,6 @@
 
 #include <stdarg.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
@@ -43,7 +41,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(pidl);
  */
 typedef struct
 {
-	IFileSystemBindDataVtbl *lpVtbl;
+	ICOM_VFIELD(IFileSystemBindData);
 	DWORD              ref;
 	WIN32_FIND_DATAW findFile;
 } IFileSystemBindDataImpl;
@@ -54,23 +52,24 @@ static ULONG WINAPI IFileSystemBindData_fnRelease(IFileSystemBindData *iface);
 static HRESULT WINAPI IFileSystemBindData_fnGetFindData(IFileSystemBindData *iface, WIN32_FIND_DATAW *pfd);
 static HRESULT WINAPI IFileSystemBindData_fnSetFindData(IFileSystemBindData *iface, const WIN32_FIND_DATAW *pfd);
 
-static struct IFileSystemBindDataVtbl sbvt =
+static struct ICOM_VTABLE(IFileSystemBindData) sbvt =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IFileSystemBindData_fnQueryInterface,
     IFileSystemBindData_fnAddRef,
     IFileSystemBindData_fnRelease,
-    IFileSystemBindData_fnSetFindData,
     IFileSystemBindData_fnGetFindData,
+    IFileSystemBindData_fnSetFindData,
 };
 
-static const WCHAR wFileSystemBindData[] = {'F','i','l','e',' ','S','y','s','t','e','m',' ','B','i','n','d','D','a','t','a',0};
+static WCHAR wFileSystemBindData[] = {'F','i','l','e',' ','S','y','s','t','e','m',' ','B','i','n','d','D','a','t','a',0};
 
 HRESULT WINAPI IFileSystemBindData_Constructor(const WIN32_FIND_DATAW *pfd, LPBC *ppV)
 {
 	IFileSystemBindDataImpl *sb;
 	HRESULT ret = E_OUTOFMEMORY;
 
-	TRACE("%p, %p\n", pfd, ppV);
+	TRACE("%p, %p", pfd, ppV);
 
 	if (!ppV)
 	  return E_INVALIDARG;
@@ -94,7 +93,7 @@ HRESULT WINAPI IFileSystemBindData_Constructor(const WIN32_FIND_DATAW *pfd, LPBC
 	  bindOpts.grfMode = STGM_CREATE;
 	  bindOpts.dwTickCountDeadline = 0;
 	  IBindCtx_SetBindOptions(*ppV, &bindOpts);
-	  IBindCtx_RegisterObjectParam(*ppV, (LPOLESTR)wFileSystemBindData, (LPUNKNOWN)sb);
+	  IBindCtx_RegisterObjectParam(*ppV, wFileSystemBindData, (LPUNKNOWN)sb);
 
 	  IFileSystemBindData_Release((IFileSystemBindData*)sb);
 	}
@@ -109,12 +108,12 @@ HRESULT WINAPI FileSystemBindData_GetFindData(LPBC pbc, WIN32_FIND_DATAW *pfd)
 	IFileSystemBindData *pfsbd = NULL;
 	HRESULT ret;
 
-	TRACE("%p, %p\n", pbc, pfd);
+	TRACE("%p, %p", pbc, pfd);
 
 	if (!pfd)
 	  return E_INVALIDARG;
 
-	ret = IBindCtx_GetObjectParam(pbc, (LPOLESTR)wFileSystemBindData, &pUnk);
+	ret = IBindCtx_GetObjectParam(pbc, wFileSystemBindData, &pUnk);
 	if (SUCCEEDED(ret))
 	{
 	  ret = IUnknown_QueryInterface(pUnk, &IID_IFileSystemBindData, (LPVOID *)&pfsbd);
@@ -134,9 +133,9 @@ HRESULT WINAPI FileSystemBindData_SetFindData(LPBC pbc, const WIN32_FIND_DATAW *
 	IFileSystemBindData *pfsbd = NULL;
 	HRESULT ret;
 	
-	TRACE("%p, %p\n", pbc, pfd);
+	TRACE("%p, %p", pbc, pfd);
 
-	ret = IBindCtx_GetObjectParam(pbc, (LPOLESTR)wFileSystemBindData, &pUnk);
+	ret = IBindCtx_GetObjectParam(pbc, wFileSystemBindData, &pUnk);
 	if (SUCCEEDED(ret))
 	{
 	  ret = IUnknown_QueryInterface(pUnk, &IID_IFileSystemBindData, (LPVOID *)&pfsbd);
@@ -153,7 +152,7 @@ HRESULT WINAPI FileSystemBindData_SetFindData(LPBC pbc, const WIN32_FIND_DATAW *
 
 static HRESULT WINAPI IFileSystemBindData_fnQueryInterface(IFileSystemBindData *iface, REFIID riid, LPVOID *ppV)
 {
-	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
+	ICOM_THIS(IFileSystemBindDataImpl, iface);
 	TRACE("(%p)->(\n\tIID:\t%s, %p)\n", This, debugstr_guid(riid), ppV);
 
 	*ppV = NULL;
@@ -179,14 +178,14 @@ static HRESULT WINAPI IFileSystemBindData_fnQueryInterface(IFileSystemBindData *
 
 static ULONG WINAPI IFileSystemBindData_fnAddRef(IFileSystemBindData *iface)
 {
-	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
+	ICOM_THIS(IFileSystemBindDataImpl, iface);
 	TRACE("(%p)\n", This);
 	return InterlockedIncrement(&This->ref);
 }
 
 static ULONG WINAPI IFileSystemBindData_fnRelease(IFileSystemBindData *iface)
 {
-	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
+	ICOM_THIS(IFileSystemBindDataImpl, iface);
 	TRACE("(%p)\n", This);
 
 	if (!InterlockedDecrement(&This->ref))
@@ -200,7 +199,7 @@ static ULONG WINAPI IFileSystemBindData_fnRelease(IFileSystemBindData *iface)
 
 static HRESULT WINAPI IFileSystemBindData_fnGetFindData(IFileSystemBindData *iface, WIN32_FIND_DATAW *pfd)
 {
-	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
+	ICOM_THIS(IFileSystemBindDataImpl, iface);
 	TRACE("(%p), %p\n", This, pfd);
 
 	if (!pfd)
@@ -212,7 +211,7 @@ static HRESULT WINAPI IFileSystemBindData_fnGetFindData(IFileSystemBindData *ifa
 
 static HRESULT WINAPI IFileSystemBindData_fnSetFindData(IFileSystemBindData *iface, const WIN32_FIND_DATAW *pfd)
 {
-	IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
+	ICOM_THIS(IFileSystemBindDataImpl, iface);
 	TRACE("(%p), %p\n", This, pfd);
 
 	if (pfd)

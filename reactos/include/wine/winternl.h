@@ -33,7 +33,7 @@ extern "C" {
  * Fundamental types and data structures
  */
 
-typedef LONG NTSTATUS, *PNTSTATUS;
+typedef LONG NTSTATUS;
 
 typedef CONST char *PCSZ;
 
@@ -158,9 +158,7 @@ typedef struct _PEB
     BYTE                         __pad_1c[36];       /*  1c */
     PRTL_BITMAP                  TlsBitmap;          /*  40 */
     ULONG                        TlsBitmapBits[2];   /*  44 */
-    BYTE                         __pad_4c[104];      /*  4c */
-    ULONG                        ImageSubSystem;     /*  b4 */
-    BYTE                         __pad_b8[48];       /*  b8 */
+    BYTE                         __pad_4c[156];      /*  4c */
     PVOID                        Reserved3[59];      /*  e8 */
     ULONG                        SessionId;          /* 1d4 */
 } PEB, *PPEB;
@@ -966,7 +964,7 @@ void      WINAPI LdrInitializeThunk(HANDLE,LPVOID,ULONG,ULONG);
 NTSTATUS  WINAPI LdrLoadDll(LPCWSTR, DWORD, const UNICODE_STRING*, HMODULE*);
 void      WINAPI LdrShutdownProcess(void);
 void      WINAPI LdrShutdownThread(void);
-NTSTATUS  WINAPI NtAccessCheck(PSECURITY_DESCRIPTOR,HANDLE,ACCESS_MASK,PGENERIC_MAPPING,PPRIVILEGE_SET,PULONG,PACCESS_MASK,PNTSTATUS);
+NTSTATUS  WINAPI NtAccessCheck(PSECURITY_DESCRIPTOR,HANDLE,ACCESS_MASK,PGENERIC_MAPPING,PPRIVILEGE_SET,PULONG,PULONG,PBOOLEAN);
 NTSTATUS  WINAPI NtAdjustPrivilegesToken(HANDLE,BOOLEAN,PTOKEN_PRIVILEGES,DWORD,PTOKEN_PRIVILEGES,PDWORD);
 NTSTATUS  WINAPI NtAllocateVirtualMemory(HANDLE,PVOID*,PVOID,ULONG*,ULONG,ULONG);
 NTSTATUS  WINAPI NtCancelTimer(HANDLE, BOOLEAN*);

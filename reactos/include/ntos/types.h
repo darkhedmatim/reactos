@@ -19,18 +19,18 @@
 
 #include <basetsd.h>
 
-#ifndef STDCALL_FUNC
-#define STDCALL_FUNC(a)  (STDCALL a)
-#endif
+#ifdef __GNUC__
+#define STDCALL_FUNC STDCALL
+#else
+#define STDCALL_FUNC(a) (__stdcall a )
+#endif /*__GNUC__*/
 
 /* Fixed precision types */
 typedef signed char         INT8, *PINT8;
-typedef unsigned char       UINT8, *PUINT8;
-
-#ifndef __USE_W32API
 typedef signed short        INT16, *PINT16;
+
+typedef unsigned char       UINT8, *PUINT8;
 typedef unsigned short      UINT16, *PUINT16;
-#endif
 
 
 /* Check VOID before defining CHAR, SHORT */
@@ -51,7 +51,7 @@ typedef short SHORT;
 #define STDCALL __stdcall
 #define CDECL __cdecl
 #endif
-#define CALLBACK    STDCALL
+#define CALLBACK    STDCALL_FUNC
 #define PASCAL      WINAPI
 #else
 
@@ -269,15 +269,12 @@ typedef unsigned short *PRTL_ATOM;
 
 #ifndef __USE_W32API
 
-#define CONTEXT_CONTROL            (CONTEXT_i386 | 1)
-#define CONTEXT_INTEGER            (CONTEXT_i386 | 2)
-#define CONTEXT_SEGMENTS           (CONTEXT_i386 | 4)
-#define CONTEXT_FLOATING_POINT     (CONTEXT_i386 | 8)
-#define CONTEXT_DEBUG_REGISTERS    (CONTEXT_i386 | 0x10)
-#define CONTEXT_EXTENDED_REGISTERS (CONTEXT_i386 | 0x20)
-#define CONTEXT_FULL               (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
-
-#define MAXIMUM_SUPPORTED_EXTENSION  512
+#define CONTEXT_CONTROL         (CONTEXT_i386 | 1)
+#define CONTEXT_INTEGER         (CONTEXT_i386 | 2)
+#define CONTEXT_SEGMENTS        (CONTEXT_i386 | 4)
+#define CONTEXT_FLOATING_POINT  (CONTEXT_i386 | 8)
+#define CONTEXT_DEBUG_REGISTERS (CONTEXT_i386 | 0x10)
+#define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
 
 #endif /* !__USE_W32API */
 
@@ -318,8 +315,6 @@ typedef struct _CONTEXT_X86
   DWORD   EFlags;
   DWORD   Esp;
   DWORD   SegSs;
-
-  BYTE    ExtendedRegisters[MAXIMUM_SUPPORTED_EXTENSION];
 } CONTEXT_X86, *PCONTEXT_X86, *LPCONTEXT_X86;
 
 typedef struct _CONTEXT_PPC
@@ -460,6 +455,14 @@ typedef struct _SMALL_RECT
   SHORT Right;
   SHORT Bottom;
 } SMALL_RECT, *PSMALL_RECT;
+
+
+typedef VOID STDCALL_FUNC
+(*PTIMERAPCROUTINE)(
+	LPVOID lpArgToCompletionRoutine,
+	DWORD dwTimerLowValue,
+	DWORD dwTimerHighValue
+	);
 
 #include "except.h"
 

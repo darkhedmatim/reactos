@@ -16,9 +16,21 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: lineto.c,v 1.36 2004/12/14 04:30:58 royce Exp $
+ * $Id: lineto.c,v 1.28.2.1 2004/01/16 19:19:19 gvg Exp $
  */
-#include <w32k.h>
+
+#include <ddk/winddi.h>
+#include <ddk/ntddmou.h>
+#include <include/inteng.h>
+#include <include/dib.h>
+#include "clip.h"
+#include "objects.h"
+#include "../dib/dib.h"
+#include "misc.h"
+
+#include <include/mouse.h>
+#include <include/object.h>
+#include <include/surface.h>
 
 static void FASTCALL
 TranslateRects(RECT_ENUM *RectEnum, POINTL* Translate)
@@ -40,8 +52,8 @@ TranslateRects(RECT_ENUM *RectEnum, POINTL* Translate)
 /*
  * Draw a line from top-left to bottom-right
  */
-void FASTCALL
-NWtoSE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
+static void FASTCALL
+NWtoSE(SURFOBJ* OutputObj, SURFGDI* OutputGDI, CLIPOBJ* Clip,
        BRUSHOBJ* Brush, LONG x, LONG y, LONG deltax, LONG deltay,
        POINTL* Translate)
 {
@@ -59,7 +71,7 @@ NWtoSE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
   ClipRect = RectEnum.arcl;
   delta = max(deltax, deltay);
   i = 0;
-  error = delta >> 1;
+  error = delta / 2;
   while (i < delta && (ClipRect < RectEnum.arcl + RectEnum.c || EnumMore))
     {
       while ((ClipRect < RectEnum.arcl + RectEnum.c /* there's still a current clip rect */
@@ -83,8 +95,7 @@ NWtoSE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
 	{
 	  if (ClipRect->left <= x && ClipRect->top <= y)
 	    {
-              DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_PutPixel(
-                OutputObj, x, y, Pixel);
+	      OutputGDI->DIB_PutPixel(OutputObj, x, y, Pixel);
 	    }
 	  if (deltax < deltay)
 	    {
@@ -111,8 +122,8 @@ NWtoSE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
     }
 }
 
-void FASTCALL
-SWtoNE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
+static void FASTCALL
+SWtoNE(SURFOBJ* OutputObj, SURFGDI* OutputGDI, CLIPOBJ* Clip,
        BRUSHOBJ* Brush, LONG x, LONG y, LONG deltax, LONG deltay,
        POINTL* Translate)
 {
@@ -130,7 +141,7 @@ SWtoNE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
   ClipRect = RectEnum.arcl;
   delta = max(deltax, deltay);
   i = 0;
-  error = delta >> 1;
+  error = delta / 2;
   while (i < delta && (ClipRect < RectEnum.arcl + RectEnum.c || EnumMore))
     {
       while ((ClipRect < RectEnum.arcl + RectEnum.c
@@ -153,8 +164,7 @@ SWtoNE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
 	{
 	  if (ClipRect->left <= x && y < ClipRect->bottom)
 	    {
-              DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_PutPixel(
-	        OutputObj, x, y, Pixel);
+	      OutputGDI->DIB_PutPixel(OutputObj, x, y, Pixel);
 	    }
 	  if (deltax < deltay)
 	    {
@@ -181,8 +191,8 @@ SWtoNE(SURFOBJ* OutputObj, CLIPOBJ* Clip,
     }
 }
 
-void FASTCALL
-NEtoSW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
+static void FASTCALL
+NEtoSW(SURFOBJ* OutputObj, SURFGDI* OutputGDI, CLIPOBJ* Clip,
        BRUSHOBJ* Brush, LONG x, LONG y, LONG deltax, LONG deltay,
        POINTL* Translate)
 {
@@ -200,7 +210,7 @@ NEtoSW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
   ClipRect = RectEnum.arcl;
   delta = max(deltax, deltay);
   i = 0;
-  error = delta >> 1;
+  error = delta / 2;
   while (i < delta && (ClipRect < RectEnum.arcl + RectEnum.c || EnumMore))
     {
       while ((ClipRect < RectEnum.arcl + RectEnum.c
@@ -223,8 +233,7 @@ NEtoSW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
 	{
 	  if (x < ClipRect->right && ClipRect->top <= y)
 	    {
-              DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_PutPixel(
-	        OutputObj, x, y, Pixel);
+	      OutputGDI->DIB_PutPixel(OutputObj, x, y, Pixel);
 	    }
 	  if (deltax < deltay)
 	    {
@@ -251,8 +260,8 @@ NEtoSW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
     }
 }
 
-void FASTCALL
-SEtoNW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
+static void FASTCALL
+SEtoNW(SURFOBJ* OutputObj, SURFGDI* OutputGDI, CLIPOBJ* Clip,
        BRUSHOBJ* Brush, LONG x, LONG y, LONG deltax, LONG deltay,
        POINTL* Translate)
 {
@@ -270,7 +279,7 @@ SEtoNW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
   ClipRect = RectEnum.arcl;
   delta = max(deltax, deltay);
   i = 0;
-  error = delta >> 1;
+  error = delta / 2;
   while (i < delta && (ClipRect < RectEnum.arcl + RectEnum.c || EnumMore))
     {
       while ((ClipRect < RectEnum.arcl + RectEnum.c
@@ -293,8 +302,7 @@ SEtoNW(SURFOBJ* OutputObj, CLIPOBJ* Clip,
 	{
 	  if (x < ClipRect->right && y < ClipRect->bottom)
 	    {
-              DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_PutPixel(
-	        OutputObj, x, y, Pixel);
+	      OutputGDI->DIB_PutPixel(OutputObj, x, y, Pixel);
 	    }
 	  if (deltax < deltay)
 	    {
@@ -339,6 +347,7 @@ EngLineTo(SURFOBJ *DestObj,
   ULONG i;
   ULONG Pixel = Brush->iSolidColor;
   SURFOBJ *OutputObj;
+  SURFGDI *OutputGDI;
   RECTL DestRect;
   POINTL Translate;
   INTENG_ENTER_LEAVE EnterLeave;
@@ -375,6 +384,8 @@ EngLineTo(SURFOBJ *DestObj,
   x2 += Translate.x;
   y1 += Translate.y;
   y2 += Translate.y;
+
+  OutputGDI = AccessInternalObjectFromUserObject(OutputObj);
 
   x = x1;
   y = y1;
@@ -417,8 +428,7 @@ EngLineTo(SURFOBJ *DestObj,
 	          RectEnum.arcl[i].left + Translate.x <= hx + deltax &&
 	          hx < RectEnum.arcl[i].right + Translate.x)
 		{
-		  DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_HLine(
-                                       OutputObj,
+		  OutputGDI->DIB_HLine(OutputObj,
 		                       max(hx, RectEnum.arcl[i].left + Translate.x),
 		                       min(hx + deltax, RectEnum.arcl[i].right + Translate.x),
 		                       y1, Pixel);
@@ -440,8 +450,7 @@ EngLineTo(SURFOBJ *DestObj,
 	          RectEnum.arcl[i].top + Translate.y <= vy + deltay &&
 	          vy < RectEnum.arcl[i].bottom + Translate.y)
 		{
-		  DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_VLine(
-		                       OutputObj, x1,
+		  OutputGDI->DIB_VLine(OutputObj, x1,
 		                       max(vy, RectEnum.arcl[i].top + Translate.y),
 		                       min(vy + deltay, RectEnum.arcl[i].bottom + Translate.y),
 		                       Pixel);
@@ -456,22 +465,22 @@ EngLineTo(SURFOBJ *DestObj,
 	{
 	  if (0 < ychange)
 	    {
-	      NWtoSE(OutputObj, Clip, Brush, x, y, deltax, deltay, &Translate);
+	      NWtoSE(OutputObj, OutputGDI, Clip, Brush, x, y, deltax, deltay, &Translate);
 	    }
 	  else
 	    {
-	      SWtoNE(OutputObj, Clip, Brush, x, y, deltax, deltay, &Translate);
+	      SWtoNE(OutputObj, OutputGDI, Clip, Brush, x, y, deltax, deltay, &Translate);
 	    }
 	}
       else
 	{
 	  if (0 < ychange)
 	    {
-	      NEtoSW(OutputObj, Clip, Brush, x, y, deltax, deltay, &Translate);
+	      NEtoSW(OutputObj, OutputGDI, Clip, Brush, x, y, deltax, deltay, &Translate);
 	    }
 	  else
 	    {
-	      SEtoNW(OutputObj, Clip, Brush, x, y, deltax, deltay, &Translate);
+	      SEtoNW(OutputObj, OutputGDI, Clip, Brush, x, y, deltax, deltay, &Translate);
 	    }
 	}
     }
@@ -480,7 +489,7 @@ EngLineTo(SURFOBJ *DestObj,
 }
 
 BOOL STDCALL
-IntEngLineTo(BITMAPOBJ *DestObj,
+IntEngLineTo(SURFOBJ *DestSurf,
 	     CLIPOBJ *Clip,
 	     BRUSHOBJ *Brush,
 	     LONG x1,
@@ -491,26 +500,15 @@ IntEngLineTo(BITMAPOBJ *DestObj,
 	     MIX mix)
 {
   BOOLEAN ret;
-  SURFOBJ *DestSurf;
-  PGDIBRUSHINST GdiBrush;
+  SURFGDI *SurfGDI;
   RECTL b;
 
-  ASSERT(DestObj);
-  DestSurf = &DestObj->SurfObj;
-  ASSERT(DestSurf);
-
-  GdiBrush = CONTAINING_RECORD(
-     Brush,
-     GDIBRUSHINST,
-     BrushObject);
-  ASSERT(GdiBrush);
-  ASSERT(GdiBrush->GdiBrushObject);
-
-  if (GdiBrush->GdiBrushObject->flAttrs & GDIBRUSH_IS_NULL)
+  if (Brush->logbrush.lbStyle == BS_NULL)
     return TRUE;
 
   /* No success yet */
   ret = FALSE;
+  SurfGDI = (SURFGDI*)AccessInternalObjectFromUserObject(DestSurf);
 
   b.left = min(x1, x2);
   b.right = max(x1, x2);
@@ -518,17 +516,18 @@ IntEngLineTo(BITMAPOBJ *DestObj,
   b.bottom = max(y1, y2);
   if (b.left == b.right) b.right++;
   if (b.top == b.bottom) b.bottom++;
-  MouseSafetyOnDrawStart(DestSurf, x1, y1, x2, y2);
+  MouseSafetyOnDrawStart(DestSurf, SurfGDI, x1, y1, x2, y2);
 
-  if (DestObj->flHooks & HOOK_LINETO)
+  if (NULL != SurfGDI->LineTo)
     {
     /* Call the driver's DrvLineTo */
-    ret = GDIDEVFUNCS(DestSurf).LineTo(
-      DestSurf, Clip, Brush, x1, y1, x2, y2, /*RectBounds*/&b, mix);
+    ExAcquireFastMutex(SurfGDI->DriverLock);
+    ret = SurfGDI->LineTo(DestSurf, Clip, Brush, x1, y1, x2, y2, /*RectBounds*/&b, mix);
+    ExReleaseFastMutex(SurfGDI->DriverLock);
     }
 
 #if 0
-  if (! ret && (DestObj->flHooks & HOOK_STROKEPATH))
+  if (! ret && NULL != SurfGDI->StrokePath)
     {
       /* FIXME: Emulate LineTo using drivers DrvStrokePath and set ret on success */
     }
@@ -539,13 +538,13 @@ IntEngLineTo(BITMAPOBJ *DestObj,
       ret = EngLineTo(DestSurf, Clip, Brush, x1, y1, x2, y2, RectBounds, mix);
     }
 
-  MouseSafetyOnDrawEnd(DestSurf);
+  MouseSafetyOnDrawEnd(DestSurf, SurfGDI);
 
   return ret;
 }
 
 BOOL STDCALL
-IntEngPolyline(BITMAPOBJ *DestObj,
+IntEngPolyline(SURFOBJ *DestSurf,
 	       CLIPOBJ *Clip,
 	       BRUSHOBJ *Brush,
 	       CONST LPPOINT  pt,
@@ -563,7 +562,7 @@ IntEngPolyline(BITMAPOBJ *DestObj,
       rect.top = min(pt[i-1].y, pt[i].y);
       rect.right = max(pt[i-1].x, pt[i].x);
       rect.bottom = max(pt[i-1].y, pt[i].y);
-      ret = IntEngLineTo(DestObj,
+      ret = IntEngLineTo(DestSurf,
 	                 Clip,
 	                 Brush,
                          pt[i-1].x,

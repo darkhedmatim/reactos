@@ -1,4 +1,4 @@
-/* $Id: pci.h,v 1.8 2004/08/16 09:13:00 ekohl Exp $ */
+/* $Id: pci.h,v 1.4 2003/12/12 21:54:42 ekohl Exp $ */
 
 #ifndef __PCI_H
 #define __PCI_H
@@ -17,9 +17,7 @@ typedef struct _PCI_DEVICE
   LIST_ENTRY ListEntry;
   // Physical Device Object of device
   PDEVICE_OBJECT Pdo;
-  // PCI bus number
-  ULONG BusNumber;
-  // PCI slot number
+  /* PCI Slot number */
   PCI_SLOT_NUMBER SlotNumber;
   // PCI configuration data
   PCI_COMMON_CONFIG PciConfig;
@@ -54,12 +52,6 @@ typedef struct _PDO_DEVICE_EXTENSION
 {
   // Common device data
   COMMON_DEVICE_EXTENSION Common;
-  // Functional device object
-  PDEVICE_OBJECT Fdo;
-  // PCI bus number
-  ULONG BusNumber;
-  // PCI slot number
-  PCI_SLOT_NUMBER SlotNumber;
   // Device ID
   UNICODE_STRING DeviceID;
   // Instance ID
@@ -69,9 +61,9 @@ typedef struct _PDO_DEVICE_EXTENSION
   // Compatible IDs
   UNICODE_STRING CompatibleIDs;
   // Textual description of device
-  UNICODE_STRING DeviceDescription;
-  // Textual description of device location
-  UNICODE_STRING DeviceLocation;
+  UNICODE_STRING DeviceText;
+  // Textual description of device
+  UNICODE_STRING DeviceTextLocation;
 } __attribute((packed)) PDO_DEVICE_EXTENSION, *PPDO_DEVICE_EXTENSION;
 
 /* Functional Device Object device extension for the PCI driver device object */
@@ -79,6 +71,8 @@ typedef struct _FDO_DEVICE_EXTENSION
 {
   // Common device data
   COMMON_DEVICE_EXTENSION Common;
+  // Physical Device Object
+  PDEVICE_OBJECT Pdo;
   // Current state of the driver
   PCI_DEVICE_STATE State;
   // Namespace device list
@@ -87,6 +81,8 @@ typedef struct _FDO_DEVICE_EXTENSION
   ULONG DeviceListCount;
   // Lock for namespace device list
   KSPIN_LOCK DeviceListLock;
+  // PCI bus number
+  ULONG BusNumber;
   // Lower device object
   PDEVICE_OBJECT Ldo;
 } __attribute((packed)) FDO_DEVICE_EXTENSION, *PFDO_DEVICE_EXTENSION;
@@ -111,42 +107,6 @@ PciCreateUnicodeString(
   PUNICODE_STRING Destination,
   PWSTR Source,
   POOL_TYPE PoolType);
-
-NTSTATUS
-PciDuplicateUnicodeString(
-  PUNICODE_STRING Destination,
-  PUNICODE_STRING Source,
-  POOL_TYPE PoolType);
-
-BOOLEAN
-PciCreateDeviceIDString(
-  PUNICODE_STRING DeviceID,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateInstanceIDString(
-  PUNICODE_STRING InstanceID,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateHardwareIDsString(
-  PUNICODE_STRING HardwareIDs,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateCompatibleIDsString(
-  PUNICODE_STRING HardwareIDs,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateDeviceDescriptionString(
-  PUNICODE_STRING DeviceDescription,
-  PPCI_DEVICE Device);
-
-BOOLEAN
-PciCreateDeviceLocationString(
-  PUNICODE_STRING DeviceLocation,
-  PPCI_DEVICE Device);
 
 /* pdo.c */
 

@@ -1,6 +1,5 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/process.h>
-
 
 /*
  * @implemented

@@ -4,8 +4,6 @@
 #include <napi/dbg.h>
 #include <internal/port.h>
 
-#define KdPrintEx(_x_) DbgPrintEx _x_
-
 NTSTATUS STDCALL 
 LpcSendDebugMessagePort(PEPORT Port,
 			PLPC_DBG_MESSAGE Message,

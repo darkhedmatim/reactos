@@ -20,10 +20,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -38,7 +36,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 /* Layout of ISHFileStream object */
 typedef struct
 {
-  IStreamVtbl *lpVtbl;
+  ICOM_VFIELD(IStream);
   ULONG    ref;
   HANDLE   hFile;
   DWORD    dwMode;
@@ -55,7 +53,7 @@ static HRESULT WINAPI IStream_fnCommit(IStream*,DWORD);
 */
 static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVOID *ppvObj)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
   TRACE("(%p,%s,%p)\n", This, debugstr_guid(riid), ppvObj);
 
@@ -77,7 +75,7 @@ static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVO
 */
 static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
   TRACE("(%p)\n", This);
   return InterlockedIncrement(&This->ref);
@@ -88,7 +86,7 @@ static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 */
 static ULONG WINAPI IStream_fnRelease(IStream *iface)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   ULONG ulRet;
 
   TRACE("(%p)\n", This);
@@ -108,7 +106,7 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
  */
 static HRESULT WINAPI IStream_fnRead(IStream *iface, void* pv, ULONG cb, ULONG* pcbRead)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   HRESULT hRet = S_OK;
   DWORD dwRead = 0;
 
@@ -132,7 +130,7 @@ static HRESULT WINAPI IStream_fnRead(IStream *iface, void* pv, ULONG cb, ULONG* 
  */
 static HRESULT WINAPI IStream_fnWrite(IStream *iface, const void* pv, ULONG cb, ULONG* pcbWritten)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   HRESULT hRet = S_OK;
   DWORD dwWritten = 0;
 
@@ -159,10 +157,10 @@ static HRESULT WINAPI IStream_fnWrite(IStream *iface, const void* pv, ULONG cb, 
 static HRESULT WINAPI IStream_fnSeek(IStream *iface, LARGE_INTEGER dlibMove,
                                      DWORD dwOrigin, ULARGE_INTEGER* pNewPos)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   DWORD dwPos;
 
-  TRACE("(%p,%ld,%ld,%p)\n", This, dlibMove.u.LowPart, dwOrigin, pNewPos);
+  TRACE("(%p,%ld,%ld,%p)\n", This, dlibMove.s.LowPart, dwOrigin, pNewPos);
 
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
   dwPos = SetFilePointer(This->hFile, dlibMove.u.LowPart, NULL, dwOrigin);
@@ -180,9 +178,9 @@ static HRESULT WINAPI IStream_fnSeek(IStream *iface, LARGE_INTEGER dlibMove,
  */
 static HRESULT WINAPI IStream_fnSetSize(IStream *iface, ULARGE_INTEGER libNewSize)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
-  TRACE("(%p,%ld)\n", This, libNewSize.u.LowPart);
+  TRACE("(%p,%ld)\n", This, libNewSize.s.LowPart);
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
   return E_NOTIMPL;
 }
@@ -193,12 +191,12 @@ static HRESULT WINAPI IStream_fnSetSize(IStream *iface, ULARGE_INTEGER libNewSiz
 static HRESULT WINAPI IStream_fnCopyTo(IStream *iface, IStream* pstm, ULARGE_INTEGER cb,
                                        ULARGE_INTEGER* pcbRead, ULARGE_INTEGER* pcbWritten)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   char copyBuff[1024];
   ULONGLONG ulSize;
   HRESULT hRet = S_OK;
 
-  TRACE("(%p,%p,%ld,%p,%p)\n", This, pstm, cb.u.LowPart, pcbRead, pcbWritten);
+  TRACE("(%p,%p,%ld,%p,%p)\n", This, pstm, cb.s.LowPart, pcbRead, pcbWritten);
 
   if (pcbRead)
     pcbRead->QuadPart = 0;
@@ -242,7 +240,7 @@ static HRESULT WINAPI IStream_fnCopyTo(IStream *iface, IStream* pstm, ULARGE_INT
  */
 static HRESULT WINAPI IStream_fnCommit(IStream *iface, DWORD grfCommitFlags)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
   TRACE("(%p,%ld)\n", This, grfCommitFlags);
   /* Currently unbuffered: This function is not needed */
@@ -254,7 +252,7 @@ static HRESULT WINAPI IStream_fnCommit(IStream *iface, DWORD grfCommitFlags)
  */
 static HRESULT WINAPI IStream_fnRevert(IStream *iface)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
   TRACE("(%p)\n", This);
   return E_NOTIMPL;
@@ -266,8 +264,8 @@ static HRESULT WINAPI IStream_fnRevert(IStream *iface)
 static HRESULT WINAPI IStream_fnLockUnlockRegion(IStream *iface, ULARGE_INTEGER libOffset,
                                                  ULARGE_INTEGER cb, DWORD dwLockType)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
-  TRACE("(%p,%ld,%ld,%ld)\n", This, libOffset.u.LowPart, cb.u.LowPart, dwLockType);
+  ICOM_THIS(ISHFileStream, iface);
+  TRACE("(%p,%ld,%ld,%ld)\n", This, libOffset.s.LowPart, cb.s.LowPart, dwLockType);
   return E_NOTIMPL;
 }
 
@@ -277,7 +275,7 @@ static HRESULT WINAPI IStream_fnLockUnlockRegion(IStream *iface, ULARGE_INTEGER 
 static HRESULT WINAPI IStream_fnStat(IStream *iface, STATSTG* lpStat,
                                      DWORD grfStatFlag)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
   BY_HANDLE_FILE_INFORMATION fi;
   HRESULT hRet = S_OK;
 
@@ -314,7 +312,7 @@ static HRESULT WINAPI IStream_fnStat(IStream *iface, STATSTG* lpStat,
  */
 static HRESULT WINAPI IStream_fnClone(IStream *iface, IStream** ppstm)
 {
-  ISHFileStream *This = (ISHFileStream *)iface;
+  ICOM_THIS(ISHFileStream, iface);
 
   TRACE("(%p)\n",This);
   if (ppstm)
@@ -322,8 +320,9 @@ static HRESULT WINAPI IStream_fnClone(IStream *iface, IStream** ppstm)
   return E_NOTIMPL;
 }
 
-static struct IStreamVtbl SHLWAPI_fsVTable =
+static struct ICOM_VTABLE(IStream) SHLWAPI_fsVTable =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   IStream_fnQueryInterface,
   IStream_fnAddRef,
   IStream_fnRelease,

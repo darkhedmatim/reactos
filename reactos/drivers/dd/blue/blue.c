@@ -1,4 +1,4 @@
-/* $Id: blue.c,v 1.49 2004/12/25 11:18:38 navaraf Exp $
+/* $Id: blue.c,v 1.42 2004/01/11 17:31:14 gvg Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -11,8 +11,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ddk/ntddk.h>
-#include <ntos/halfuncs.h>
+#include <roskrnl.h>
 #include <ddk/ntddblue.h>
 #include <rosrtl/string.h>
 #include <string.h>
@@ -129,7 +128,7 @@ ScrCreate(PDEVICE_OBJECT DeviceObject,
     /* get pointer to video memory */
     BaseAddress.QuadPart = VIDMEM_BASE;
     DeviceExtension->VideoMemory =
-        (PBYTE)MmMapIoSpace (BaseAddress, DeviceExtension->Rows * DeviceExtension->Columns * 2, MmNonCached);
+        (PBYTE)MmMapIoSpace (BaseAddress, DeviceExtension->Rows * DeviceExtension->Columns * 2, FALSE);
 
     DeviceExtension->CursorSize    = 5; /* FIXME: value correct?? */
     DeviceExtension->CursorVisible = TRUE;
@@ -166,7 +165,7 @@ ScrWrite(PDEVICE_OBJECT DeviceObject,
     PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
     NTSTATUS Status;
     char *pch = Irp->UserBuffer;
-    PBYTE vidmem;
+    char *vidmem;
     int i, j, offset;
     int cursorx, cursory;
     int rows, columns;
@@ -437,7 +436,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
       case IOCTL_CONSOLE_FILL_OUTPUT_ATTRIBUTE:
         {
           POUTPUT_ATTRIBUTE Buf = (POUTPUT_ATTRIBUTE)Irp->AssociatedIrp.SystemBuffer;
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -461,7 +460,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         {
           POUTPUT_ATTRIBUTE Buf = (POUTPUT_ATTRIBUTE)Irp->AssociatedIrp.SystemBuffer;
           PWORD pAttr = (PWORD)MmGetSystemAddressForMdl(Irp->MdlAddress);
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -471,7 +470,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
 
           for (dwCount = 0; dwCount < stk->Parameters.DeviceIoControl.OutputBufferLength; dwCount++, pAttr++)
             {
-              *((char *) pAttr) = vidmem[offset + (dwCount * 2)];
+              (char) *pAttr = vidmem[offset + (dwCount * 2)];
             }
 
           Buf->dwTransfered = dwCount;
@@ -485,7 +484,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         {
           COORD *pCoord = (COORD *)MmGetSystemAddressForMdl(Irp->MdlAddress);
           CHAR *pAttr = (CHAR *)(pCoord + 1);
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -493,7 +492,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
           offset = (pCoord->Y * DeviceExtension->Columns * 2) +
                    (pCoord->X * 2) + 1;
 
-          for (dwCount = 0; dwCount < (stk->Parameters.DeviceIoControl.OutputBufferLength - sizeof( COORD )); dwCount++, pAttr++)
+          for (dwCount = 0; dwCount < (stk->Parameters.DeviceIoControl.InputBufferLength - sizeof( COORD )); dwCount++, pAttr++)
             {
               vidmem[offset + (dwCount * 2)] = *pAttr;
             }
@@ -511,7 +510,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
       case IOCTL_CONSOLE_FILL_OUTPUT_CHARACTER:
         {
           POUTPUT_CHARACTER Buf = (POUTPUT_CHARACTER)Irp->AssociatedIrp.SystemBuffer;
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -537,7 +536,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         {
           POUTPUT_CHARACTER Buf = (POUTPUT_CHARACTER)Irp->AssociatedIrp.SystemBuffer;
           LPSTR pChar = (LPSTR)MmGetSystemAddressForMdl(Irp->MdlAddress);
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -561,7 +560,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         {
           COORD *pCoord;
           LPSTR pChar;
-          PBYTE vidmem;
+          char *vidmem;
           int offset;
           DWORD dwCount;
 
@@ -571,7 +570,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
           offset = (pCoord->Y * DeviceExtension->Columns * 2) +
                    (pCoord->X * 2);
 
-          for (dwCount = 0; dwCount < (stk->Parameters.DeviceIoControl.OutputBufferLength - sizeof( COORD )); dwCount++, pChar++)
+          for (dwCount = 0; dwCount < (stk->Parameters.DeviceIoControl.InputBufferLength - sizeof( COORD )); dwCount++, pChar++)
             {
               vidmem[offset + (dwCount * 2)] = *pChar;
             }
@@ -584,11 +583,11 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
       case IOCTL_CONSOLE_DRAW:
         {
           PCONSOLE_DRAW ConsoleDraw;
-          PBYTE Src, Dest;
+          char *Src, *Dest;
           UINT SrcDelta, DestDelta, i, Offset;
 
           ConsoleDraw = (PCONSOLE_DRAW) MmGetSystemAddressForMdl(Irp->MdlAddress);
-          Src = (PBYTE) (ConsoleDraw + 1);
+          Src = (char *) (ConsoleDraw + 1);
           SrcDelta = ConsoleDraw->SizeX * 2;
           Dest = DeviceExtension->VideoMemory +
                  (ConsoleDraw->Y * DeviceExtension->Columns + ConsoleDraw->X) * 2;
@@ -665,11 +664,11 @@ DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
     DPRINT ("Screen Driver 0.0.6\n");
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = ScrCreate;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = ScrDispatch;
-    DriverObject->MajorFunction[IRP_MJ_READ]   = ScrDispatch;
-    DriverObject->MajorFunction[IRP_MJ_WRITE]  = ScrWrite;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL ] = ScrIoControl;
+    DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH) ScrCreate;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = (PDRIVER_DISPATCH) ScrDispatch;
+    DriverObject->MajorFunction[IRP_MJ_READ]   = (PDRIVER_DISPATCH) ScrDispatch;
+    DriverObject->MajorFunction[IRP_MJ_WRITE]  = (PDRIVER_DISPATCH) ScrWrite;
+    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL ] = (PDRIVER_DISPATCH) ScrIoControl;
 
     IoCreateDevice (DriverObject,
                     sizeof(DEVICE_EXTENSION),

@@ -52,6 +52,7 @@
 #include "wine/debug.h"
 
 /* Start of Hack section */
+typedef unsigned short UINT16;
 
 WINE_DEFAULT_DEBUG_CHANNEL(icon);
 

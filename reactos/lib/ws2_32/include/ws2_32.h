@@ -7,7 +7,6 @@
 #ifndef __WS2_32_H
 #define __WS2_32_H
 
-#include <roscfg.h>
 #include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
 #include <ntos.h>
@@ -18,7 +17,6 @@
 #include <windows.h>
 #undef assert
 #include <debug.h>
-#include <WinDNS.h> // DNS_A_DATA
 
 /* Exported by ntdll.dll, but where is the prototype? */
 unsigned long strtoul(const char *nptr, char **endptr, int base);
@@ -30,30 +28,10 @@ extern HANDLE GlobalHeap;
 extern BOOL Initialized;	/* TRUE if WSAStartup() has been successfully called */
 extern WSPUPCALLTABLE UpcallTable;
 
-#define WS2_INTERNAL_MAX_ALIAS 16
-
-typedef struct _WINSOCK_GETSERVBYNAME_CACHE {
-    UINT Size;
-    SERVENT ServerEntry;
-    PCHAR Aliases[WS2_INTERNAL_MAX_ALIAS];
-    CHAR Data[1];
-} WINSOCK_GETSERVBYNAME_CACHE, *PWINSOCK_GETSERVBYNAME_CACHE;
-
-typedef struct _WINSOCK_GETSERVBYPORT_CACHE {
-    UINT Size;
-    SERVENT ServerEntry;
-    PCHAR Aliases[WS2_INTERNAL_MAX_ALIAS];
-    CHAR Data[1];
-} WINSOCK_GETSERVBYPORT_CACHE, *PWINSOCK_GETSERVBYPORT_CACHE;
 
 typedef struct _WINSOCK_THREAD_BLOCK {
     INT LastErrorValue;     /* Error value from last function that failed */
     CHAR Intoa[16];         /* Buffer for inet_ntoa() */
-    PWINSOCK_GETSERVBYNAME_CACHE 
-    Getservbyname;          /* Buffer used by getservbyname */
-    PWINSOCK_GETSERVBYPORT_CACHE
-    Getservbyport;          /* Buffer used by getservbyname */
-    struct hostent* Hostent;
 } WINSOCK_THREAD_BLOCK, *PWINSOCK_THREAD_BLOCK;
 
 
@@ -63,11 +41,6 @@ typedef struct _WINSOCK_THREAD_BLOCK {
 
 #define WSASETINITIALIZED (Initialized = TRUE)
 
-/* ws2_32 internal Functions */
-void check_hostent(struct hostent **he);
-void populate_hostent(struct hostent *he, char* name, DNS_A_DATA addr);
-void free_hostent(struct hostent *he);
-void free_servent(struct servent* s);
 
 #ifdef LE
 

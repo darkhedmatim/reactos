@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.35 2004/10/22 20:25:53 ekohl Exp $
+/* $Id: file.c,v 1.28 2003/12/13 14:36:42 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -41,8 +44,8 @@ NtQueryInformationFile(HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL);
+   assert(FileInformation != NULL);
    
    DPRINT("NtQueryInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,
@@ -88,7 +91,6 @@ NtQueryInformationFile(HANDLE FileHandle,
    Irp->AssociatedIrp.SystemBuffer = SystemBuffer;
    Irp->UserIosb = IoStatusBlock;
    Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    KeResetEvent( &FileObject->Event );
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -128,169 +130,6 @@ NtQueryInformationFile(HANDLE FileHandle,
    return Status;
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-NtQueryQuotaInformationFile(
-    IN HANDLE FileHandle,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    OUT PVOID Buffer,
-    IN ULONG Length,
-    IN BOOLEAN ReturnSingleEntry,
-    IN PVOID SidList OPTIONAL,
-    IN ULONG SidListLength,
-    IN PSID StartSid OPTIONAL,
-    IN BOOLEAN RestartScan
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-STDCALL
-NtSetQuotaInformationFile(
-	HANDLE FileHandle,
-    	PIO_STATUS_BLOCK IoStatusBlock,
-	PFILE_USER_QUOTA_INFORMATION Buffer,
-    	ULONG BufferLength)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuerySetFileInformation(
-    IN FILE_INFORMATION_CLASS FileInformationClass,
-    IN ULONG Length,
-    IN BOOLEAN SetOperation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuerySetVolumeInformation(
-    IN FS_INFORMATION_CLASS FsInformationClass,
-    IN ULONG Length,
-    IN BOOLEAN SetOperation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCheckQuotaBufferValidity(
-    IN PFILE_QUOTA_INFORMATION QuotaBuffer,
-    IN ULONG QuotaLength,
-    OUT PULONG ErrorOffset
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoCreateFileSpecifyDeviceObjectHint(
-    OUT PHANDLE FileHandle,
-    IN ACCESS_MASK DesiredAccess,
-    IN POBJECT_ATTRIBUTES ObjectAttributes,
-    OUT PIO_STATUS_BLOCK IoStatusBlock,
-    IN PLARGE_INTEGER AllocationSize OPTIONAL,
-    IN ULONG FileAttributes,
-    IN ULONG ShareAccess,
-    IN ULONG Disposition,
-    IN ULONG CreateOptions,
-    IN PVOID EaBuffer OPTIONAL,
-    IN ULONG EaLength,
-    IN CREATE_FILE_TYPE CreateFileType,
-    IN PVOID ExtraCreateParameters OPTIONAL,
-    IN ULONG Options,
-    IN PVOID DeviceObject
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-PFILE_OBJECT
-STDCALL
-IoCreateStreamFileObjectEx(
-    IN PFILE_OBJECT FileObject OPTIONAL,
-    IN PDEVICE_OBJECT DeviceObject OPTIONAL,
-    OUT PHANDLE FileObjectHandle OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-/*
- * @unimplemented
- */
-PFILE_OBJECT
-STDCALL
-IoCreateStreamFileObjectLite(
-    IN PFILE_OBJECT FileObject OPTIONAL,
-    IN PDEVICE_OBJECT DeviceObject OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-IoIsFileOriginRemote(
-    IN PFILE_OBJECT FileObject
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoQueryFileDosDeviceName(
-    IN PFILE_OBJECT FileObject,
-    OUT POBJECT_NAME_INFORMATION *ObjectNameInformation
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 /*
  * @implemented
@@ -308,7 +147,7 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
    PIO_STACK_LOCATION StackPtr;
    NTSTATUS Status;
    
-   ASSERT(FileInformation != NULL);
+   assert(FileInformation != NULL)
    
    Status = ObReferenceObjectByPointer(FileObject,
 				       FILE_READ_ATTRIBUTES,
@@ -337,7 +176,6 @@ IoQueryFileInformation(IN PFILE_OBJECT FileObject,
    Irp->AssociatedIrp.SystemBuffer = FileInformation;
    Irp->UserIosb = &IoStatusBlock;
    Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    KeResetEvent( &FileObject->Event );
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
@@ -392,8 +230,8 @@ NtSetInformationFile(HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
    
-   ASSERT(IoStatusBlock != NULL);
-   ASSERT(FileInformation != NULL);
+   assert(IoStatusBlock != NULL)
+   assert(FileInformation != NULL)
    
    DPRINT("NtSetInformationFile(Handle %x StatBlk %x FileInfo %x Length %d "
 	  "Class %d)\n", FileHandle, IoStatusBlock, FileInformation,
@@ -478,7 +316,6 @@ NtSetInformationFile(HANDLE FileHandle,
    Irp->UserIosb = IoStatusBlock;
    Irp->UserEvent = &FileObject->Event;
    KeResetEvent( &FileObject->Event );
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->MajorFunction = IRP_MJ_SET_INFORMATION;
@@ -514,20 +351,6 @@ NtSetInformationFile(HANDLE FileHandle,
    return Status;
 }
 
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-IoSetFileOrigin(
-    IN PFILE_OBJECT FileObject,
-    IN BOOLEAN Remote
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 
 NTSTATUS STDCALL
 NtQueryAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,

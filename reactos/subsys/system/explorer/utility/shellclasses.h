@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -45,15 +45,8 @@ using namespace _com_util;
 #endif
 #endif
 
- // work around GCC's wide string constant bug when compiling inline functions
-#ifdef __GNUC__
-extern const LPCTSTR sCFSTR_SHELLIDLIST;
-#undef CFSTR_SHELLIDLIST
-#define	CFSTR_SHELLIDLIST sCFSTR_SHELLIDLIST
-#endif
 
-
- // Exception Handling
+ // COM Exception Handling
 
 #ifndef _NO_COMUTIL
 
@@ -85,7 +78,7 @@ struct COMExceptionBase
 				LocalFree(pBuf);
 			 } else {
 				TCHAR buffer[128];
-				_stprintf(buffer, TEXT("unknown Exception: 0x%08lX"), _hr);
+				_stprintf(buffer, TEXT("unknown COM Exception: 0x%08X"), _hr);
 				_msg = buffer;
 			 }
 		}
@@ -101,7 +94,7 @@ protected:
 #endif
 
 
- /// Exception with context information
+ /// COM Exception with context information
 
 struct COMException : public COMExceptionBase
 {
@@ -151,7 +144,7 @@ struct COMException : public COMExceptionBase
 	int _line;
 };
 
-#define	THROW_EXCEPTION(hr) throw COMException(hr, __FILE__, __LINE__)
+#define	THROW_EXCEPTION(e) throw COMException(e, __FILE__, __LINE__)
 #define	CHECKERROR(hr) ((void)(FAILED(hr)? THROW_EXCEPTION(hr): 0))
 
 
@@ -336,11 +329,6 @@ template<typename T> struct SIfacePtr
 			p->AddRef();
 	}
 
-	SIfacePtr(IUnknown* unknown, REFIID riid)
-	{
-		CHECKERROR(unknown->QueryInterface(riid, (LPVOID*)&_p));
-	}
-
 	~SIfacePtr()
 	{
 		Free();
@@ -372,7 +360,7 @@ template<typename T> struct SIfacePtr
 		return &_p;
 	}
 
-	bool empty() const	//NOTE: GCC seems not to work correctly when defining operator bool() AND operator T*() at one time
+	bool empty() const	//NOTE: GCC seems not to work correctly when defining operator bool() AND operator T*()
 	{
 		return !_p;
 	}
@@ -380,11 +368,8 @@ template<typename T> struct SIfacePtr
 	SIfacePtr& operator=(T* p)
 	{
 		Free();
-
-		if (p) {
-			p->AddRef();
-			_p = p;
-		}
+		p->AddRef();
+		_p = p;
 
 		return *this;
 	}
@@ -400,21 +385,6 @@ template<typename T> struct SIfacePtr
 
 		if (h)
 			h->Release();
-	}
-
-	HRESULT CreateInstance(REFIID clsid, REFIID riid)
-	{
-		return CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, riid, (LPVOID*)&_p);
-	}
-
-	template<typename I> HRESULT QueryInterface(REFIID riid, I* p)
-	{
-		return _p->QueryInterface(riid, (LPVOID*)p);
-	}
-
-	T* get()
-	{
-		return _p;
 	}
 
 	void Free()
@@ -535,7 +505,7 @@ struct ShellLinkPtr : public SIfacePtr<IShellLink>
 #endif
 
 
-extern ShellFolder& GetDesktopFolder();
+extern ShellFolder& Desktop();
 
 
 #ifdef UNICODE
@@ -576,7 +546,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 		CONTEXT("ShellPath::ShellPath(IShellFolder*, LPCWSTR)");
 
 		if (path)
-			CHECKERROR(folder->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
+			CHECKERROR(folder->ParseDisplayName(0, 0, (LPOLESTR)path, NULL, &_p, 0));
 		else
 			_p = NULL;
 	}
@@ -586,7 +556,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 		OBJ_CONTEXT("ShellPath::ShellPath(LPCWSTR)", path);
 
 		if (path)
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, (LPOLESTR)path, NULL, &_p, NULL));
+			CHECKERROR(Desktop()->ParseDisplayName(0, 0, (LPOLESTR)path, NULL, &_p, 0));
 		else
 			_p = NULL;
 	}
@@ -599,7 +569,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 		if (path) {
 			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(folder->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
+			CHECKERROR(folder->ParseDisplayName(0, 0, b, NULL, &_p, 0));
 		} else
 			_p = NULL;
 	}
@@ -612,7 +582,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 		if (path) {
 			MultiByteToWideChar(CP_ACP, 0, path, -1, b, MAX_PATH);
-			CHECKERROR(GetDesktopFolder()->ParseDisplayName(0, NULL, b, NULL, &_p, NULL));
+			CHECKERROR(Desktop()->ParseDisplayName(0, 0, b, NULL, &_p, 0));
 		} else
 			_p = NULL;
 	}
@@ -740,7 +710,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 
 	void split(ShellPath& parent, ShellPath& obj) const;
 
-	void GetUIObjectOf(REFIID riid, LPVOID* ppvOut, HWND hWnd=0, ShellFolder& sf=GetDesktopFolder());
+	void GetUIObjectOf(REFIID riid, LPVOID* ppvOut, HWND hWnd=0, ShellFolder& sf=Desktop());
 
 	ShellFolder get_folder()
 	{
@@ -758,7 +728,7 @@ struct ShellPath : public SShellPtr<ITEMIDLIST>
 };
 
 
-#ifdef __WINE__	// Wine doesn't know of unnamed union members and uses some macros instead.
+#ifdef __GCC__	// Wine doesn't know of unnamed union members and uses some macros instead.
 #define	UNION_MEMBER(x) DUMMYUNIONNAME.##x
 #else
 #define	UNION_MEMBER(x) x
@@ -903,7 +873,7 @@ struct DesktopFolderPath : public SpecialFolderPath
 struct SpecialFolder : public ShellFolder
 {
 	SpecialFolder(int folder, HWND hwnd)
-	 :	ShellFolder(GetDesktopFolder(), SpecialFolderPath(folder, hwnd))
+	 :	ShellFolder(Desktop(), SpecialFolderPath(folder, hwnd))
 	{
 	}
 };
@@ -914,10 +884,17 @@ struct DesktopFolder : public ShellFolder
 };
 
 
+#if _WIN32_IE>=0x400 // is SHGetSpecialFolderPath() available?
+
  /// file system path of special folder
 struct SpecialFolderFSPath
 {
-	SpecialFolderFSPath(int folder/*e.g. CSIDL_DESKTOP*/, HWND hwnd);
+	SpecialFolderFSPath(int folder/*e.g. CSIDL_DESKTOP*/, HWND hwnd)
+	{
+		_fullpath[0] = '\0';
+
+		SHGetSpecialFolderPath(hwnd, _fullpath, folder, TRUE);
+	}
 
 	operator LPCTSTR()
 	{
@@ -928,7 +905,8 @@ protected:
 	TCHAR	_fullpath[MAX_PATH];
 };
 
-/*
+#else // _WIN32_IE<0x400 -> use SHGetSpecialFolderLocation()
+
  /// file system path of special folder
 struct SpecialFolderFSPath : public FileSysShellPath
 {
@@ -940,7 +918,8 @@ struct SpecialFolderFSPath : public FileSysShellPath
 		CHECKERROR(hr);
 	}
 };
-*/
+
+#endif
 
 
  /// wrapper class for enumerating shell namespace objects

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "../explorer_intres.h"
 
@@ -42,10 +45,45 @@ enum IMAGE {
 #define IMAGE_HEIGHT		13
 
 
+static int is_exe_file(LPCTSTR ext)
+{
+	static const LPCTSTR executable_extensions[] = {
+		TEXT("COM"),
+		TEXT("EXE"),
+		TEXT("BAT"),
+		TEXT("CMD"),
+		TEXT("CMM"),
+		TEXT("BTM"),
+		TEXT("AWK"),
+		0
+	};
+
+	TCHAR ext_buffer[_MAX_EXT];
+	const LPCTSTR* p;
+	LPCTSTR s;
+	LPTSTR d;
+
+	for(s=ext+1,d=ext_buffer; (*d=tolower(*s)); s++)
+		++d;
+
+	for(p=executable_extensions; *p; p++)
+		if (!lstrcmp(ext_buffer, *p))
+			return 1;
+
+	return 0;
+}
+
+static int is_registered_type(LPCTSTR ext)
+{
+	 // TODO
+
+	return 1;
+}
+
+
 static const LPTSTR g_pos_names[COLUMNS] = {
 	TEXT(""),			/* symbol */
 	TEXT("Name"),
-	TEXT("Type"),
 	TEXT("Size"),
 	TEXT("CDate"),
 	TEXT("ADate"),
@@ -53,23 +91,20 @@ static const LPTSTR g_pos_names[COLUMNS] = {
 	TEXT("Index/Inode"),
 	TEXT("Links"),
 	TEXT("Attributes"),
-	TEXT("Security"),
-	TEXT("Content")
+	TEXT("Security")
 };
 
 static const int g_pos_align[] = {
 	0,
 	HDF_LEFT,	/* Name */
-	HDF_LEFT,	/* Type */
 	HDF_RIGHT,	/* Size */
 	HDF_LEFT,	/* CDate */
 	HDF_LEFT,	/* ADate */
 	HDF_LEFT,	/* MDate */
 	HDF_LEFT,	/* Index */
-	HDF_RIGHT,	/* Links */
+	HDF_CENTER,	/* Links */
 	HDF_CENTER,	/* Attributes */
-	HDF_LEFT,	/* Security */
-	HDF_LEFT	/* Content / Description */
+	HDF_LEFT	/* Security */
 };
 
 
@@ -90,11 +125,6 @@ Pane::Pane(HWND hparent, int id, int id_header, Entry* root, bool treePane, int 
 	init();
 
 	create_header(hparent, id_header);
-}
-
-Pane::~Pane()
-{
-	ImageList_Destroy(_himl);
 }
 
 
@@ -323,9 +353,13 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 			else
 				img = IMG_FOLDER;
 		} else {
-			if (attrs & ATTRIBUTE_EXECUTABLE)
+			LPCTSTR ext = _tcsrchr(entry->_data.cFileName, TEXT('.'));
+			if (!ext)
+				ext = TEXT("");
+
+			if (is_exe_file(ext))
 				img = IMG_EXECUTABLE;
-			else if (entry->_type_name)
+			else if (is_registered_type(ext))
 				img = IMG_DOCUMENT;
 			else
 				img = IMG_FILE;
@@ -481,20 +515,12 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 
 	++col;
 
-	 // output file name
+	 // ouput file name
 	if (calcWidthCol == -1)
 		_out_wrkr.output_text(dis, _positions, col, entry->_display_name, 0);
 	else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 		calc_width(dis, col, entry->_display_name);
-	++col;
 
-	 // output type/class name
-	if (visible_cols & COL_TYPE) {
-		if (calcWidthCol == -1)
-			_out_wrkr.output_text(dis, _positions, col, entry->_type_name? entry->_type_name: TEXT(""), 0);
-		else if (calcWidthCol==col || calcWidthCol==COLUMNS)
-			calc_width(dis, col, entry->_type_name? entry->_type_name: TEXT(""));
-	}
 	++col;
 
 	 // display file size
@@ -507,8 +533,9 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 			_out_wrkr.output_number(dis, _positions, col, buffer);
 		else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 			calc_width(dis, col, buffer);	///@todo not in every case time enough
+
+		++col;
 	}
-	++col;
 
 	 // display file date
 	if (visible_cols & (COL_DATE|COL_TIME)) {
@@ -532,31 +559,26 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 		else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 			calc_width(dis, col, buffer);
 		++col;
-	} else
-		col += 3;
+	}
 
 	if (entry->_bhfi_valid) {
 		ULONGLONG index = ((ULONGLONG)entry->_bhfi.nFileIndexHigh << 32) | entry->_bhfi.nFileIndexLow;
 
 		if (visible_cols & COL_INDEX) {
 			_stprintf(buffer, TEXT("%") LONGLONGARG TEXT("X"), index);
-
 			if (calcWidthCol == -1)
 				_out_wrkr.output_text(dis, _positions, col, buffer, DT_RIGHT);
 			else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 				calc_width(dis, col, buffer);
-
 			++col;
 		}
 
 		if (visible_cols & COL_LINKS) {
 			wsprintf(buffer, TEXT("%d"), entry->_bhfi.nNumberOfLinks);
-
 			if (calcWidthCol == -1)
-				_out_wrkr.output_text(dis, _positions, col, buffer, DT_RIGHT);
+				_out_wrkr.output_text(dis, _positions, col, buffer, DT_CENTER);
 			else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 				calc_width(dis, col, buffer);
-
 			++col;
 		}
 	} else
@@ -564,7 +586,7 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 
 	 // show file attributes
 	if (visible_cols & COL_ATTRIBUTES) {
-		lstrcpy(buffer, TEXT(" \t \t \t \t \t \t \t \t \t \t \t \t \t \t "));
+		lstrcpy(buffer, TEXT(" \t \t \t \t \t \t \t \t \t \t \t "));
 
 		if (attrs & FILE_ATTRIBUTE_NORMAL)					buffer[ 0] = 'N';
 		else {
@@ -580,16 +602,15 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 			if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)		buffer[20] = 'Q';
 			if (attrs & FILE_ATTRIBUTE_OFFLINE) 			buffer[22] = 'O';
 			if (attrs & FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) buffer[24] = 'X';
-			if (attrs & ATTRIBUTE_EXECUTABLE)				buffer[26] = 'x';
-			if (attrs & ATTRIBUTE_SYMBOLIC_LINK)			buffer[28] = 'L';
 		}
 
 		if (calcWidthCol == -1)
 			_out_wrkr.output_tabbed_text(dis, _positions, col, buffer);
 		else if (calcWidthCol==col || calcWidthCol==COLUMNS)
 			calc_tabbed_width(dis, col, buffer);
+
+		++col;
 	}
-	++col;
 
 /*TODO
 	if (flags.security) {
@@ -618,15 +639,6 @@ void Pane::draw_item(LPDRAWITEMSTRUCT dis, Entry* entry, int calcWidthCol)
 		output_text(dis, col++, buffer, 0, psize);
 	}
 */
-	++col;
-
-	 // output content / symbolic link target / comment
-	if (visible_cols & COL_CONTENT) {
-		if (calcWidthCol == -1)
-			_out_wrkr.output_text(dis, _positions, col, entry->_content? entry->_content: TEXT(""), 0);
-		else if (calcWidthCol==col || calcWidthCol==COLUMNS)
-			calc_width(dis, col, entry->_content? entry->_content: TEXT(""));
-	}
 }
 
 
@@ -664,6 +676,8 @@ void Pane::insert_entries(Entry* dir, int idx)
 	if (!entry)
 		return;
 
+	SendMessage(_hwnd, WM_SETREDRAW, FALSE, 0);	//ShowWindow(_hwnd, SW_HIDE);
+
 	for(; entry; entry=entry->_next) {
 #ifndef _LEFT_FILES
 		if (_treePane &&
@@ -687,6 +701,8 @@ void Pane::insert_entries(Entry* dir, int idx)
 		if (_treePane && entry->_expanded)
 			insert_entries(entry->_down, idx);
 	}
+
+	SendMessage(_hwnd, WM_SETREDRAW, TRUE, 0);	//ShowWindow(_hwnd, SW_SHOW);
 }
 
 
@@ -984,9 +1000,9 @@ BOOL Pane::command(UINT cmd)
 	return TRUE;
 }
 
-MainFrameBase* Pane::get_frame()
+MainFrame* Pane::get_frame()
 {
 	HWND owner = GetParent(_hwnd);
 
-	return (MainFrameBase*)owner;
+	return (MainFrame*)owner;
 }

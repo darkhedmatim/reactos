@@ -1,5 +1,5 @@
 /*
- * Serial Mouse driver 0.0.9
+ * Serial Mouse driver 0.0.8
  * Written by Jason Filby (jasonfilby@yahoo.com)
  * And heavily rewritten by Filip Navara (xnavara@volny.cz)
  * For ReactOS (www.reactos.com)
@@ -8,13 +8,8 @@
  * in the file sermouse.txt.
  */
 
-/* INCLUDES *****************************************************************/
-
 #include <ddk/ntddk.h>
 #include <ddk/ntddmou.h>
-
-#define NDEBUG
-#include <debug.h>
 
 /*
  * Compile time options
@@ -25,7 +20,7 @@
 /* Check for mouse on COM1? */
 #define SERMOUSE_COM1_SUPPORT
 /* Check for mouse on COM2? */
-/* #define SERMOUSE_COM2_SUPPORT */
+//#define SERMOUSE_COM2_SUPPORT
 /* Create \??\Mouse* symlink for device? */
 #define SERMOUSE_MOUSESYMLINK_SUPPORT
 
@@ -46,13 +41,13 @@
 /* No Mouse */
 #define MOUSE_TYPE_NONE			0
 /* Microsoft Mouse with 2 buttons */
-#define MOUSE_TYPE_MICROSOFT		1
+#define MOUSE_TYPE_MICROSOFT	1
 /* Logitech Mouse with 3 buttons */
 #define MOUSE_TYPE_LOGITECH		2
 /* Microsoft Wheel Mouse (aka Z Mouse) */
 #define MOUSE_TYPE_WHEELZ		3
 /* Mouse Systems Mouse */
-#define MOUSE_TYPE_MOUSESYSTEMS		4
+#define MOUSE_TYPE_MOUSESYSTEMS	4
 
 /* Size for packet buffer used in interrupt routine */
 #define PACKET_BUFFER_SIZE		4
@@ -81,8 +76,7 @@
  * Structures
  */
 
-typedef struct _DEVICE_EXTENSION
-{
+typedef struct _DEVICE_EXTENSION {
 	PDEVICE_OBJECT DeviceObject;
 	ULONG ActiveQueue;
 	ULONG InputDataCount[2];
@@ -104,20 +98,17 @@ typedef struct _DEVICE_EXTENSION
  * Functions
  */
 
-/* Waits until the mouse calms down but also quits out after a while
- * in case some destructive user wants to keep moving the mouse
- * before we're done */
-VOID ClearMouse(ULONG Port)
+void ClearMouse(ULONG Port)
 {
-	ULONG Restarts = 0;
-	ULONG i;
-	UCHAR Temp;
-
+	/* Waits until the mouse calms down but also quits out after a while
+	 * in case some destructive user wants to keep moving the mouse
+	 * before we're done */
+	unsigned int Restarts = 0, i;
 	for (i = 0; i < 60000; i++)
 	{
-		Temp = READ_PORT_UCHAR((PUCHAR)Port);
-		if (Temp != 0)
-		{
+    	unsigned Temp = READ_PORT_UCHAR((PUCHAR)Port);
+	    if (Temp != 0)
+    	{
 			Restarts++;
 			if (Restarts < 300000)
 				i = 0;
@@ -179,15 +170,15 @@ SerialMouseInterruptService(IN PKINTERRUPT Interrupt, PVOID ServiceContext)
 			if (DeviceExtension->PacketBufferPosition == 3)
 			{
 				/* Retrieve change in x and y from packet */
-				Input->LastX = (signed char)(PacketBuffer[1] | ((PacketBuffer[0] & 0x03) << 6));
-				Input->LastY = (signed char)(PacketBuffer[2] | ((PacketBuffer[0] & 0x0c) << 4));
+    	        Input->LastX = (signed char)(PacketBuffer[1] | ((PacketBuffer[0] & 0x03) << 6));
+        	    Input->LastY = (signed char)(PacketBuffer[2] | ((PacketBuffer[0] & 0x0c) << 4));
 	
 				/* Determine the current state of the buttons */
 				Input->RawButtons = (DeviceExtension->PreviousButtons & MOUSE_BUTTON_MIDDLE) |
 					((UCHAR)(PacketBuffer[0] & LEFT_BUTTON_MASK) >> LEFT_BUTTON_SHIFT) |
 					((UCHAR)(PacketBuffer[0] & RIGHT_BUTTON_MASK) >> RIGHT_BUTTON_SHIFT);
-			}
-			else if (DeviceExtension->PacketBufferPosition == 4)
+			} else
+			if (DeviceExtension->PacketBufferPosition == 4)
 			{
 				DeviceExtension->PacketBufferPosition = 0;
 				/* If middle button state changed than report event */
@@ -217,7 +208,6 @@ SerialMouseInterruptService(IN PKINTERRUPT Interrupt, PVOID ServiceContext)
 					else
 						Input->ButtonFlags |= MOUSE_LEFT_BUTTON_UP;
 				}
-
 				if (ButtonsDifference & MOUSE_BUTTON_RIGHT)
 				{
 					if (Input->RawButtons & MOUSE_BUTTON_RIGHT)
@@ -225,7 +215,6 @@ SerialMouseInterruptService(IN PKINTERRUPT Interrupt, PVOID ServiceContext)
 					else
 						Input->ButtonFlags |= MOUSE_RIGHT_BUTTON_UP;
 				}
-
 				if (ButtonsDifference & MOUSE_BUTTON_MIDDLE)
 				{
 					if (Input->RawButtons & MOUSE_BUTTON_MIDDLE)
@@ -265,21 +254,21 @@ SerialMouseStartIo(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 	if (KeSynchronizeExecution(DeviceExtension->MouseInterrupt, MouseSynchronizeRoutine, Irp))
 	{
-		KIRQL oldIrql;
+        	KIRQL oldIrql;
 		Irp->IoStatus.Status = STATUS_SUCCESS;
 		Irp->IoStatus.Information = 0;
 		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-		oldIrql = KeGetCurrentIrql();
-		if (oldIrql < DISPATCH_LEVEL)
-		{
-			KeRaiseIrql(DISPATCH_LEVEL, &oldIrql);
-			IoStartNextPacket(DeviceObject, FALSE);
-			KeLowerIrql(oldIrql);
-		}
-		else
-		{
-			IoStartNextPacket (DeviceObject, FALSE);
-		}
+	        oldIrql = KeGetCurrentIrql();
+                if (oldIrql < DISPATCH_LEVEL)
+                  {
+                    KeRaiseIrql (DISPATCH_LEVEL, &oldIrql);
+                    IoStartNextPacket (DeviceObject, FALSE);
+                    KeLowerIrql(oldIrql);
+	          }
+                else
+                  {
+                    IoStartNextPacket (DeviceObject, FALSE);
+	          }
 	}
 }
 
@@ -311,8 +300,8 @@ SerialMouseInternalDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				*(PMOUSE_ATTRIBUTES)Irp->AssociatedIrp.SystemBuffer =
 					DeviceExtension->AttributesInformation;
 				Irp->IoStatus.Information = sizeof(MOUSE_ATTRIBUTES);
-				Status = STATUS_SUCCESS;				
-			} else {
+                Status = STATUS_SUCCESS;				
+            } else {
 				Status = STATUS_BUFFER_TOO_SMALL;
 			}
 			break;
@@ -365,115 +354,79 @@ SerialMouseDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		Irp->IoStatus.Status = Status;
 		Irp->IoStatus.Information = 0;
 		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	}
+    }
 
 	return Status;
 }
 
 VOID SerialMouseIsrDpc(PKDPC Dpc, PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Context)
 {
-	PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
-	ULONG Queue;
+   PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
+   ULONG Queue;
 
-	Queue = DeviceExtension->ActiveQueue % 2;
-	InterlockedIncrement((PLONG)&DeviceExtension->ActiveQueue);
-	(*(PSERVICE_CALLBACK_ROUTINE)DeviceExtension->ClassInformation.CallBack)(
-		DeviceExtension->ClassInformation.DeviceObject,
-		DeviceExtension->MouseInputData[Queue],
-		NULL,
-		&DeviceExtension->InputDataCount[Queue]);
+   Queue = DeviceExtension->ActiveQueue % 2;
+   InterlockedIncrement(&DeviceExtension->ActiveQueue);
+   (*(PSERVICE_CALLBACK_ROUTINE)DeviceExtension->ClassInformation.CallBack)(
+			DeviceExtension->ClassInformation.DeviceObject,
+			DeviceExtension->MouseInputData[Queue],
+			NULL,
+			&DeviceExtension->InputDataCount[Queue]);
 
-	DeviceExtension->InputDataCount[Queue] = 0;
+   DeviceExtension->InputDataCount[Queue] = 0;
 }
 
-VOID InitializeSerialPort(ULONG Port)
+void InitializeSerialPort(ULONG Port, unsigned int LineControl)
 {
-	/* DLAB off */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 3, 0);
-	WRITE_PORT_UCHAR((PUCHAR)Port + 2, 0);  /* FCR: disable FIFO */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 1, 0);  /* IER: disable ints */
-	/* Set DLAB on */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 3, 0x80);
-	/* Set serial port speed */
-	WRITE_PORT_UCHAR((PUCHAR)Port, 0x60);
-	WRITE_PORT_UCHAR((PUCHAR)Port + 1, 0);
-	/* Set DLAB off and set LCR */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 3, 2);
-}
-
-BOOLEAN UARTReadChar(ULONG Port, CHAR *Value, ULONG Timeout)
-{
-	ULONG i, j;
-
-	for (i = 0; i < Timeout; i++)
-	{
-		for (j = 0; j < 1000; j++)
-		{
-			/* Is there a character ready? */
-			if (READ_PORT_UCHAR((PUCHAR)Port + 5) & 0x01)
-			{
-				/* Yes, read it and return */
-				*Value = READ_PORT_UCHAR((PUCHAR)Port);
-				return TRUE;
-			}
-			else
-			{
-				/* No, wait */
-				KeStallExecutionProcessor(1);
-			}
-		}
-	}
-
-	return FALSE;
+	WRITE_PORT_UCHAR((PUCHAR)Port + 3, 0x80);  /* set DLAB on   */
+	WRITE_PORT_UCHAR((PUCHAR)Port,     0x60);  /* speed LO byte */
+	WRITE_PORT_UCHAR((PUCHAR)Port + 1, 0);     /* speed HI byte */
+	WRITE_PORT_UCHAR((PUCHAR)Port + 3, LineControl);
+	WRITE_PORT_UCHAR((PUCHAR)Port + 1, 0);     /* set comm and DLAB to 0 */
+	WRITE_PORT_UCHAR((PUCHAR)Port + 4, 0x09);  /* DR int enable */
+	(void) READ_PORT_UCHAR((PUCHAR)Port + 5);  /* clear error bits */
 }
 
 ULONG DetectMicrosoftMouse(ULONG Port)
 {
-	CHAR Buffer[8];
-	ULONG Count, i;
-	UCHAR LCR, MCR;
+	CHAR Buffer[4];
+	ULONG i;
+	ULONG TimeOut = 250;
+    UCHAR LineControl;
+    
+    /* Shutdown mouse or something like that */ 
+    LineControl = READ_PORT_UCHAR((PUCHAR)Port + 4);
+	WRITE_PORT_UCHAR((PUCHAR)Port + 4, (LineControl & ~0x02) | 0x01);
+    KeStallExecutionProcessor(500000);
 
-	/* Save original LCR/MCR */
-	LCR = READ_PORT_UCHAR((PUCHAR)Port + 3); /* LCR (line ctrl reg) */
-	MCR = READ_PORT_UCHAR((PUCHAR)Port + 4); /* MCR (modem ctrl reg) */
+    /* Clear buffer */
+	while (READ_PORT_UCHAR((PUCHAR)Port + 5) & 0x01)
+		(void)READ_PORT_UCHAR((PUCHAR)Port);
 
-	/* Reset UART */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 4, 0);  /* MCR: DTR/RTS/OUT2 off */
+	/* Send modem control with 'Data Terminal Ready', 'Request To Send' and
+	 * 'Output Line 2' message. This enables mouse to identify. */
+	WRITE_PORT_UCHAR((PUCHAR)Port + 4, 0x0b);
+	/* Wait 10 milliseconds for the mouse getting ready */
+	KeStallExecutionProcessor(10000);
 
-	/* Set communications parameters */
-	InitializeSerialPort(Port);
-
-	/* Flush receive buffer */
-	(void) READ_PORT_UCHAR((PUCHAR)Port);
-	/* right? -> wait two ticks (approx 1/9 sec) */
-	KeStallExecutionProcessor(100000);
-
-	/* Enable DTR/RTS (OUT2 disabled) */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 4, 3);
-
-	if (UARTReadChar(Port, &Buffer[0], 500))
+	/* Read first four bytes, which contains Microsoft Mouse signs */
+	for (i = 0; i < 4; i++)
 	{
-		Count = 1;
-		while (Count < 8)
+		while (((READ_PORT_UCHAR((PUCHAR)Port + 5) & 1) == 0) && (TimeOut > 0))
 		{
-			if (UARTReadChar(Port, &Buffer[Count], 100))
-				Count++;
-			else
-				break;
+			KeStallExecutionProcessor(1000);
+			--TimeOut;
+			if (TimeOut == 0)
+				return MOUSE_TYPE_NONE;
 		}
+		Buffer[i] = READ_PORT_UCHAR((PUCHAR)Port);
 	}
-	else
-		return MOUSE_TYPE_NONE;
 
-	/* Restore LCR/MCR */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 3, LCR); /* LCR (line ctrl reg) */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 4, MCR); /* MCR (modem ctrl reg) */
-
-	for (i = 0; i < Count; ++i)
+	/* Check that four bytes for signs */
+	for (i = 0; i < 4; ++i)
 	{
 		/* Sign for Microsoft Ballpoint */
-		if (Buffer[i] == 'B')
-		{
+    	if (Buffer[i] == 'B')
+	    {
 			DbgPrint("Microsoft Ballpoint device detected");
 			DbgPrint("THIS DEVICE IS NOT SUPPORTED, YET");
 			return MOUSE_TYPE_NONE;
@@ -516,7 +469,7 @@ AllocatePointerDevice(PDRIVER_OBJECT DriverObject)
 	ULONG Suffix;
 	NTSTATUS Status;
 
-	/* Allocate buffer for full device name */
+	/* Allocate buffer for full device name */   
 	RtlInitUnicodeString(&DeviceName, NULL);
 	DeviceName.MaximumLength = sizeof(DD_MOUSE_DEVICE_NAME_U) + SUFFIX_MAXIMUM_SIZE + sizeof(UNICODE_NULL);
 	DeviceName.Buffer = ExAllocatePool(PagedPool, DeviceName.MaximumLength);
@@ -539,7 +492,7 @@ AllocatePointerDevice(PDRIVER_OBJECT DriverObject)
 			break;
 		DeviceName.Length -= SuffixString.Length;
 	}
-
+ 
 	ExFreePool(DeviceName.Buffer);
 
 	/* Couldn't create device */
@@ -580,33 +533,27 @@ InitializeMouse(ULONG Port, ULONG Irq, PDRIVER_OBJECT DriverObject)
 	ULONG MouseType;
 
 	/* Try to detect mouse on specified port */
+	InitializeSerialPort(Port, 2);
 	MouseType = DetectMicrosoftMouse(Port);
-
-	/* No mouse, no need to continue */
-	if (MouseType == MOUSE_TYPE_NONE)
-	{
-		return FALSE;
-	}
 
 	/* Enable interrupts */
 	WRITE_PORT_UCHAR((PUCHAR)(Port) + 1, 1);
-	
 	ClearMouse(Port);
 
-	/* Enable RTS, DTR and OUT2 */
-	WRITE_PORT_UCHAR((PUCHAR)Port + 4, 0x0b);
-
-	/* Allocate new device */
-	DeviceObject = AllocatePointerDevice(DriverObject);
-	if (!DeviceObject)
-	{
-		DbgPrint("Oops, couldn't creat device object.\n");
+	/* No mouse, no need to continue */
+	if (MouseType == MOUSE_TYPE_NONE)
 		return FALSE;
-	}
 
-	DeviceExtension = DeviceObject->DeviceExtension;
+    /* Allocate new device */
+    DeviceObject = AllocatePointerDevice(DriverObject);
+    if (!DeviceObject)
+    {
+    	DbgPrint("Oops, couldn't creat device object.\n");
+    	return FALSE;
+    }
+    DeviceExtension = DeviceObject->DeviceExtension;
 
-	/* Setup device extension structure */
+    /* Setup device extension structure */
 	DeviceExtension->ActiveQueue = 0;
 	DeviceExtension->MouseType = MouseType;
 	DeviceExtension->MousePort = Port;
@@ -637,324 +584,35 @@ InitializeMouse(ULONG Port, ULONG Irq, PDRIVER_OBJECT DriverObject)
 	IoConnectInterrupt(
 		&DeviceExtension->MouseInterrupt, SerialMouseInterruptService,
 		DeviceObject, NULL, MappedIrq, Dirql, Dirql, 0, FALSE,
-		Affinity, FALSE);
+		Affinity, FALSE);		
 
 	return TRUE;
 }
 
-
-static VOID
-GetMouseResourceData(PCM_FULL_RESOURCE_DESCRIPTOR FullDescriptor,
-		     PULONG Port,
-		     PULONG Interrupt)
-{
-  PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
-  ULONG i;
-
-  for (i = 0; i < FullDescriptor->PartialResourceList.Count; i++)
-    {
-      PartialDescriptor = &FullDescriptor->PartialResourceList.PartialDescriptors[i];
-
-      switch (PartialDescriptor->Type)
-	{
-	  case CmResourceTypePort:
-	    *Port = (ULONG)PartialDescriptor->u.Port.Start.u.LowPart;
-	    break;
-
-	  case CmResourceTypeInterrupt:
-	    *Interrupt = (ULONG)PartialDescriptor->u.Interrupt.Level;
-	    break;
-	}
-    }
-}
-
-
-static BOOLEAN
-GetMouseResources(PULONG Port,
-		  PULONG Interrupt)
-{
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING KeyName;
-  WCHAR Buffer[32];
-  HANDLE BusKey;
-  HANDLE BusInstanceKey;
-  HANDLE ControllerKey;
-  HANDLE ControllerInstanceKey;
-  HANDLE PeripheralKey;
-  HANDLE PeripheralInstanceKey;
-  ULONG BusInstance;
-  ULONG ControllerInstance;
-  ULONG PeripheralInstance;
-  ULONG BufferLength;
-  ULONG ReturnedLength;
-  PKEY_VALUE_PARTIAL_INFORMATION ValueInfo;
-  NTSTATUS Status;
-
-  DPRINT("GetMouseResources() called\n");
-
-  /* Open the bus key */
-  RtlInitUnicodeString(&KeyName,
-		       L"\\Registry\\Machine\\HARDWARE\\Description\\System\\MultifunctionAdapter");
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-  Status = ZwOpenKey(&BusKey,
-		     KEY_ALL_ACCESS,
-		     &ObjectAttributes);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-      return FALSE;
-    }
-
-  BusInstance = 0;
-  while (TRUE)
-    {
-      sprintf((PCHAR)Buffer, "%lu", (ULONG)0);
-      swprintf(Buffer, L"%lu", BusInstance);
-      RtlInitUnicodeString(&KeyName,
-			   Buffer);
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &KeyName,
-				 OBJ_CASE_INSENSITIVE,
-				 BusKey,
-				 NULL);
-      Status = ZwOpenKey(&BusInstanceKey,
-			 KEY_ALL_ACCESS,
-			 &ObjectAttributes);
-      if (!NT_SUCCESS(Status))
-	{
-	  DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-	  ZwClose(BusKey);
-	  return FALSE;
-	}
-
-      /* Open the controller type key */
-      RtlInitUnicodeString(&KeyName,
-			   L"SerialController");
-      InitializeObjectAttributes(&ObjectAttributes,
-				 &KeyName,
-				 OBJ_CASE_INSENSITIVE,
-				 BusInstanceKey,
-				 NULL);
-      Status = ZwOpenKey(&ControllerKey,
-			 KEY_ALL_ACCESS,
-			 &ObjectAttributes);
-      if (NT_SUCCESS(Status))
-	{
-	  ControllerInstance = 0;
-	  while (TRUE)
-	    {
-	      /* Open the pointer controller instance key */
-	      swprintf(Buffer, L"%lu", ControllerInstance);
-	      RtlInitUnicodeString(&KeyName,
-				   Buffer);
-	      InitializeObjectAttributes(&ObjectAttributes,
-					 &KeyName,
-					 OBJ_CASE_INSENSITIVE,
-					 ControllerKey,
-					 NULL);
-	      Status = ZwOpenKey(&ControllerInstanceKey,
-				 KEY_ALL_ACCESS,
-				 &ObjectAttributes);
-	      if (!NT_SUCCESS(Status))
-		{
-		  DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-		  ZwClose(ControllerKey);
-		  ZwClose(BusInstanceKey);
-		  ZwClose(BusKey);
-		  return FALSE;
-		}
-
-	      /* Open the 'PointerPeripheral' key */
-	      RtlInitUnicodeString(&KeyName,
-				   L"PointerPeripheral");
-	      InitializeObjectAttributes(&ObjectAttributes,
-					 &KeyName,
-					 OBJ_CASE_INSENSITIVE,
-					 ControllerInstanceKey,
-					 NULL);
-	      Status = ZwOpenKey(&PeripheralKey,
-				 KEY_ALL_ACCESS,
-				 &ObjectAttributes);
-	      if (NT_SUCCESS(Status))
-		{
-		  PeripheralInstance = 0;
-		  while (TRUE)
-		    {
-		      /* Open the pointer peripheral instance key */
-		      swprintf(Buffer, L"%lu", PeripheralInstance);
-		      RtlInitUnicodeString(&KeyName,
-					   Buffer);
-		      InitializeObjectAttributes(&ObjectAttributes,
-						 &KeyName,
-						 OBJ_CASE_INSENSITIVE,
-						 PeripheralKey,
-						 NULL);
-		      Status = ZwOpenKey(&PeripheralInstanceKey,
-					 KEY_ALL_ACCESS,
-					 &ObjectAttributes);
-		      if (!NT_SUCCESS(Status))
-			{
-			  DPRINT("ZwOpenKey() failed (Status %lx)\n", Status);
-			  ZwClose(PeripheralKey);
-			  ZwClose(ControllerInstanceKey);
-			  ZwClose(ControllerKey);
-			  ZwClose(BusInstanceKey);
-			  ZwClose(BusKey);
-			  return FALSE;
-			}
-
-		      /* Get peripheral identifier */
-		      RtlInitUnicodeString(&KeyName,
-					   L"Configuration Data");
-
-		      BufferLength = sizeof(KEY_VALUE_PARTIAL_INFORMATION);
-		      ReturnedLength = 0;
-		      ValueInfo = ExAllocatePool(NonPagedPool,
-						 BufferLength);
-		      if (ValueInfo == NULL)
-			{
-			  DPRINT("ExAllocatePool() failed\n");
-			  ZwClose(PeripheralInstanceKey);
-			  ZwClose(PeripheralKey);
-			  ZwClose(ControllerInstanceKey);
-			  ZwClose(ControllerKey);
-			  ZwClose(BusInstanceKey);
-			  ZwClose(BusKey);
-			  return FALSE;
-			}
-
-		      Status = ZwQueryValueKey(ControllerInstanceKey,
-					       &KeyName,
-					       KeyValuePartialInformation,
-					       ValueInfo,
-					       BufferLength,
-					       &ReturnedLength);
-		      DPRINT("ZwQueryValueKey() called (Status %lx)\n", Status);
-		      DPRINT("ReturnedLength %ld\n", ReturnedLength);
-
-		      ExFreePool(ValueInfo);
-		      if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_TOO_SMALL)
-			{
-			  DPRINT("ZwQueryValueKey() failed (Status %lx)\n", Status);
-			  ZwClose(PeripheralInstanceKey);
-			  ZwClose(PeripheralKey);
-			  ZwClose(ControllerInstanceKey);
-			  ZwClose(ControllerKey);
-			  ZwClose(BusInstanceKey);
-			  ZwClose(BusKey);
-			  return FALSE;
-			}
-
-		      BufferLength = ReturnedLength;
-		      ValueInfo = ExAllocatePool(NonPagedPool,
-						 BufferLength);
-		      if (ValueInfo == NULL)
-			{
-			  DPRINT("ExAllocatePool() failed\n");
-			  ZwClose(PeripheralInstanceKey);
-			  ZwClose(PeripheralKey);
-			  ZwClose(ControllerInstanceKey);
-			  ZwClose(ControllerKey);
-			  ZwClose(BusInstanceKey);
-			  ZwClose(BusKey);
-			  return FALSE;
-			}
-
-		      Status = ZwQueryValueKey(ControllerInstanceKey,
-					       &KeyName,
-					       KeyValuePartialInformation,
-					       ValueInfo,
-					       BufferLength,
-					       &ReturnedLength);
-		      if (NT_SUCCESS(Status))
-			{
-			  DPRINT("Done\n");
-			  GetMouseResourceData((PCM_FULL_RESOURCE_DESCRIPTOR)(ValueInfo->Data),
-					       Port,
-					       Interrupt);
-
-			  ExFreePool(ValueInfo);
-			  ZwClose(PeripheralInstanceKey);
-			  ZwClose(PeripheralKey);
-			  ZwClose(ControllerInstanceKey);
-			  ZwClose(ControllerKey);
-			  ZwClose(BusInstanceKey);
-			  ZwClose(BusKey);
-			  return TRUE;
-			}
-
-		      ExFreePool(ValueInfo);
-
-		      ZwClose(PeripheralInstanceKey);
-
-		      PeripheralInstance++;
-		    }
-
-		  ZwClose(PeripheralKey);
-		}
-
-	      ZwClose(ControllerInstanceKey);
-
-	      ControllerInstance++;
-	    }
-
-	  ZwClose(ControllerKey);
-	}
-
-      ZwClose(BusInstanceKey);
-
-      BusInstance++;
-    }
-
-  ZwClose(BusKey);
-
-  return FALSE;
-}
-
-
-
 NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
-	BOOLEAN MouseFound = FALSE;
-	ULONG BaseAddress = (ULONG)-1;
-	ULONG Interrupt = (ULONG)-1;
+	BOOL MouseFound = FALSE;
 
-	DPRINT1("Serial Mouse Driver 0.0.9\n");
-
-	if (GetMouseResources(&BaseAddress, &Interrupt))
-	{
-		if (BaseAddress != (ULONG)-1 && Interrupt != (ULONG)-1)
-		{
-			DPRINT1("Found mouse: Port %lx  Interupt %lu\n", BaseAddress, Interrupt);
-			MouseFound |= InitializeMouse(BaseAddress, Interrupt, DriverObject);
-		}
-	}
-	else
-	{
+	DbgPrint("Serial Mouse Driver 0.0.8\n");
 #ifdef SERMOUSE_COM1_SUPPORT
-		DPRINT1("Trying to find mouse on COM1\n");
-		MouseFound |= InitializeMouse(MOUSE_PORT_COM1, MOUSE_IRQ_COM1, DriverObject);
+	DbgPrint("Trying to find mouse on COM1\n");
+	MouseFound |= InitializeMouse(MOUSE_PORT_COM1, MOUSE_IRQ_COM1, DriverObject);
 #endif
 #ifdef SERMOUSE_COM2_SUPPORT
-		DPRINT1("Trying to find mouse on COM2\n");
-		MouseFound |= InitializeMouse(MOUSE_PORT_COM2, MOUSE_IRQ_COM2, DriverObject);
+	DbgPrint("Trying to find mouse on COM2\n");
+	MouseFound |= InitializeMouse(MOUSE_PORT_COM2, MOUSE_IRQ_COM2, DriverObject);
 #endif
-	}
 
 	if (!MouseFound)
 	{
-		DPRINT1("No serial mouse found.\n");
+		DbgPrint("No serial mouse found.\n");
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	DriverObject->MajorFunction[IRP_MJ_CREATE] = SerialMouseDispatch;
-	DriverObject->MajorFunction[IRP_MJ_CLOSE] = SerialMouseDispatch;
-	DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = SerialMouseInternalDeviceControl;
+	DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)SerialMouseDispatch;
+	DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)SerialMouseDispatch;
+	DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = (PDRIVER_DISPATCH)SerialMouseInternalDeviceControl;
 	DriverObject->DriverStartIo = SerialMouseStartIo;
 
 	return STATUS_SUCCESS;

@@ -1,47 +1,38 @@
-/*
- * Top level resource file for oleaut32
- *
- * Copyright 2003 Jon Griffiths
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
+#include <defines.h>
+#include <reactos/resource.h>
 
-#include "windef.h"
-#include "winbase.h"
-#include "resource.h"
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
-#include "version.rc"
+VS_VERSION_INFO VERSIONINFO
+	FILEVERSION	RES_UINT_FV_MAJOR,RES_UINT_FV_MINOR,RES_UINT_FV_REVISION,RES_UINT_FV_BUILD
+	PRODUCTVERSION	RES_UINT_PV_MAJOR,RES_UINT_PV_MINOR,RES_UINT_PV_REVISION,RES_UINT_PV_BUILD	
+	FILEFLAGSMASK	0x3fL
+#ifdef _DEBUG
+	FILEFLAGS	0x1L
+#else
+	FILEFLAGS	0x0L
+#endif
+	FILEOS		0x40004L
+	FILETYPE	0x2L
+	FILESUBTYPE	0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",	RES_STR_COMPANY_NAME
+            VALUE "FileDescription",	"OLE for ReactOS\0"
+            VALUE "FileVersion",	RES_STR_FILE_VERSION
+            VALUE "InternalName",	"oleaut32\0"
+            VALUE "LegalCopyright",	RES_STR_LEGAL_COPYRIGHT
+            VALUE "OriginalFilename",	"oleaut32.dll\0"
+            VALUE "ProductName",	RES_STR_PRODUCT_NAME
+            VALUE "ProductVersion",	RES_STR_PRODUCT_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
 
-#include "oleaut32_De.rc"
-#include "oleaut32_Dk.rc"
-#include "oleaut32_En.rc"
-#include "oleaut32_Es.rc"
-#include "oleaut32_Cz.rc"
-#include "oleaut32_Fr.rc"
-#include "oleaut32_Hu.rc"
-#include "oleaut32_It.rc"
-#include "oleaut32_Nl.rc"
-#include "oleaut32_No.rc"
-#include "oleaut32_Pl.rc"
-#include "oleaut32_Pt.rc"
-#include "oleaut32_Sv.rc"
-#include "oleaut32_Th.rc"
-
-/*
- * FIXME:
- *  Finnish, Greek, Hebrew, Japanese, Korean, Portuguese,
- *  Russian, Turkish, Slovenian (at least) are localised in XP Home.
- *  I expect Chinese etc are localised in Asian Editions also.
- */

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType API for accessing BDF-specific strings (specification).     */
 /*                                                                         */
-/*  Copyright 2002, 2003 by                                                */
+/*  Copyright 2002 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -21,12 +21,6 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-
-#ifdef FREETYPE_H
-#error "freetype.h of FreeType 1 has been loaded!"
-#error "Please fix the directory search order for header files"
-#error "so that freetype.h of FreeType 2 is found first."
-#endif
 
 
 FT_BEGIN_HEADER
@@ -55,22 +49,22 @@ FT_BEGIN_HEADER
   *    FT_PropertyType
   *
   * @description:
-  *    A list of BDF property types.
+  *    list of BDF property types
   *
   * @values:
   *    BDF_PROPERTY_TYPE_NONE ::
-  *      Value 0 is used to indicate a missing property.
+  *      value 0 is used to indicate a missing property
   *
   *    BDF_PROPERTY_TYPE_ATOM ::
-  *      Property is a string atom.
+  *      property is a string atom
   *
   *    BDF_PROPERTY_TYPE_INTEGER ::
-  *      Property is a 32-bit signed integer.
+  *      property is a 32-bit signed integer
   *
   *    BDF_PROPERTY_TYPE_CARDINAL ::
-  *      Property is a 32-bit unsigned integer.
+  *      property is a 32-bit unsigned integer
   */
-  typedef enum  BDF_PropertyType_
+  typedef enum
   {
     BDF_PROPERTY_TYPE_NONE     = 0,
     BDF_PROPERTY_TYPE_ATOM     = 1,
@@ -82,44 +76,34 @@ FT_BEGIN_HEADER
 
  /**********************************************************************
   *
-  * @type:
-  *    BDF_Property
+  * @type:  BDF_Property
   *
   * @description:
-  *    A handle to a @BDF_PropertyRec structure to model a given
-  *    BDF/PCF property.
+  *    handle to a @BDF_PropertyRec structure used to model a given
+  *    BDF/PCF property
   */
-  typedef struct BDF_PropertyRec_*  BDF_Property;
-
+  typedef struct BDF_PropertyRec_*   BDF_Property;
 
  /**********************************************************************
   *
-  * @struct:
-  *    BDF_PropertyRec
+  * @struct:  BDF_PropertyRec
   *
   * @description:
-  *    This structure models a given BDF/PCF property.
+  *    models a given BDF/PCF property
   *
-  * @fields:
-  *    type ::
-  *      The property type.
-  *
-  *    u.atom ::
-  *      The atom string, if type is @BDF_PROPERTY_TYPE_ATOM.
-  *
-  *    u.integer ::
-  *      A signed integer, if type is @BDF_PROPERTY_TYPE_INTEGER.
-  *
-  *    u.cardinal ::
-  *      An unsigned integer, if type is @BDF_PROPERTY_TYPE_CARDINAL.
+  * @note:
+  *    type       :: property type
+  *    u.atom     :: atom string, when type is @BDF_PROPERTY_TYPE_ATOM
+  *    u.integer  :: signed integer, when type is @BDF_PROPERTY_TYPE_INTEGER
+  *    u.cardinal :: unsigned integer, when type is @BDF_PROPERTY_TYPE_CARDINAL
   */
-  typedef struct  BDF_PropertyRec_
+  typedef struct BDF_PropertyRec_
   {
-    BDF_PropertyType  type;
+    BDF_PropertyType   type;
     union {
-      const char*     atom;
-      FT_Int32        integer;
-      FT_UInt32       cardinal;
+      const char*   atom;
+      FT_Int32      integer;
+      FT_UInt32     cardinal;
 
     } u;
 
@@ -137,7 +121,7 @@ FT_BEGIN_HEADER
   *
   * @input:
   *    face ::
-  *       A handle to the input face.
+  *       handle to input face
   *
   * @output:
   *    acharset_encoding ::
@@ -147,7 +131,7 @@ FT_BEGIN_HEADER
   *       Charset registry, as a C string, owned by the face.
   *
   * @return:
-  *   FreeType error code.  0 means success.
+  *   FreeType rror code.  0 means success.
   *
   * @note:
   *   This function only works with BDF faces, returning an error otherwise.
@@ -157,33 +141,31 @@ FT_BEGIN_HEADER
                          const char*  *acharset_encoding,
                          const char*  *acharset_registry );
 
-
  /**********************************************************************
   *
   * @function:
   *    FT_Get_BDF_Property
   *
   * @description:
-  *    Retrieves a BDF property from a BDF or PCF font file.
+  *    Retrieves a BDF property from a BDF or PCF font file
   *
   * @input:
-  *    face :: A handle to the input face.
-  *
-  *    name :: The property name.
+  *    face :: handle to input face
+  *    name :: property name
   *
   * @output:
-  *    aproperty :: The property.
+  *    aproperty :: the property
   *
   * @return:
   *   FreeType error code.  0 means success.
   *
   * @note:
-  *   This function works with BDF _and_ PCF fonts.  It returns an error
-  *   otherwise.  It also returns an error if the property is not in the
+  *   This function works with BDF _and_ PCF fonts. It returns an error
+  *   otherwise. it also returns an error when the property is not in the
   *   font.
   *
-  *   In case of error, "aproperty->type" is always set to
-  *   @BDF_PROPERTY_TYPE_NONE.
+  *   in case of error, "aproperty->type" is always set to
+  *   @BDF_PROPERTY_TYPE_NONE
   */
   FT_EXPORT( FT_Error )
   FT_Get_BDF_Property( FT_Face           face,

@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -23,30 +25,29 @@ NtCreateMailslotFile(OUT PHANDLE FileHandle,
 		     IN POBJECT_ATTRIBUTES ObjectAttributes,
 		     OUT PIO_STATUS_BLOCK IoStatusBlock,
 		     IN ULONG CreateOptions,
-		     IN ULONG MailslotQuota,
+		     IN ULONG Param,			/* FIXME: ??? */
 		     IN ULONG MaxMessageSize,
 		     IN PLARGE_INTEGER TimeOut)
 {
-   MAILSLOT_CREATE_PARAMETERS Buffer;
+   IO_MAILSLOT_CREATE_BUFFER Buffer;
    
    DPRINT("NtCreateMailslotFile(FileHandle %x, DesiredAccess %x, "
 	  "ObjectAttributes %x ObjectAttributes->ObjectName->Buffer %S)\n",
 	  FileHandle,DesiredAccess,ObjectAttributes,
 	  ObjectAttributes->ObjectName->Buffer);
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    
    if (TimeOut != NULL)
      {
-	Buffer.ReadTimeout.QuadPart = TimeOut->QuadPart;
-	Buffer.TimeoutSpecified = TRUE;
+	Buffer.TimeOut.QuadPart = TimeOut->QuadPart;
      }
    else
      {
-	Buffer.TimeoutSpecified = FALSE;
+	Buffer.TimeOut.QuadPart = 0;
      }
-   Buffer.MailslotQuota = MailslotQuota;
-   Buffer.MaximumMessageSize = MaxMessageSize;
+   Buffer.Param = Param;			/* FIXME: ??? */
+   Buffer.MaxMessageSize = MaxMessageSize;
 
    return IoCreateFile(FileHandle,
 		       DesiredAccess,

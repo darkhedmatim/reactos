@@ -304,7 +304,7 @@ typedef struct {
 typedef struct _BLOB {
   ULONG   cbSize;
   BYTE    *pBlobData;
-} BLOB, *PBLOB,*LPBLOB;
+} BLOB;
 #endif
 
 typedef struct _SHITEMID {
@@ -495,6 +495,36 @@ typedef struct _cpinfoexW {
 
 typedef_tident(CPINFOEX)
 typedef_tident(LPCPINFOEX)
+
+typedef struct _RTL_RANGE_LIST {
+    LIST_ENTRY ListHead;
+    ULONG Flags;
+    ULONG Count;
+    ULONG Stamp;
+} RTL_RANGE_LIST, *PRTL_RANGE_LIST;
+
+typedef struct _RTL_RANGE {
+    ULONGLONG Start;
+    ULONGLONG End;
+    PVOID UserData;
+    PVOID Owner;
+    UCHAR Attributes;
+    UCHAR Flags;
+} RTL_RANGE, *PRTL_RANGE;
+
+typedef
+BOOLEAN
+(CALLBACK *PRTL_CONFLICT_RANGE_CALLBACK) (
+PVOID Context,
+PRTL_RANGE Range
+    );
+
+typedef struct _RANGE_LIST_ITERATOR {
+    PLIST_ENTRY RangeListHead;
+    PLIST_ENTRY MergedHead;
+    PVOID Current;
+    ULONG Stamp;
+} RTL_RANGE_LIST_ITERATOR, *PRTL_RANGE_LIST_ITERATOR;
 
 typedef struct tagCBT_CREATEWNDA {
   LPCREATESTRUCTA lpcs;
@@ -969,6 +999,13 @@ typedef struct tagACTCTX_SECTION_KEYED_DATA {
     ACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA AssemblyMetadata;
 } ACTCTX_SECTION_KEYED_DATA, *PACTCTX_SECTION_KEYED_DATA;
 typedef const ACTCTX_SECTION_KEYED_DATA * PCACTCTX_SECTION_KEYED_DATA;
+
+typedef struct tagRTL_BITMAP_RUN {
+    ULONG StartOfRun;
+    ULONG SizeOfRun;
+} RTL_BITMAP_RUN, *PRTL_BITMAP_RUN;
+
+typedef const RTL_BITMAP *PCRTL_BITMAP;
 
 typedef struct _cpinfo {
   UINT MaxCharSize;
@@ -2991,14 +3028,6 @@ typedef struct _LANA_ENUM {
 } LANA_ENUM;
 
 
-typedef struct tagLOADPARMS32 {
-  LPSTR lpEnvAddress;
-  LPSTR lpCmdLine;
-  LPSTR lpCmdShow;
-  DWORD dwReserved;
-} LOADPARMS32;
-
-
 typedef struct tagLOCALESIGNATURE {
   DWORD  lsUsb[4];
   DWORD  lsCsbDefault[2];
@@ -3143,12 +3172,6 @@ typedef struct tagMDICREATESTRUCTW {
 
 typedef_tident(MDICREATESTRUCT)
 typedef_tident(LPMDICREATESTRUCT)
-
-typedef struct tagMDINEXTMENU {
-	HMENU hmenuIn;
-	HMENU hmenuNext;
-	HWND hwndNext;
-} MDINEXTMENU,*PMDINEXTMENU,*LPMDINEXTMENU;
 
 typedef struct tagMEASUREITEMSTRUCT {
   UINT  CtlType;
@@ -3455,7 +3478,7 @@ typedef struct tagMSG {
   POINT  pt;
 } MSG, *LPMSG;
 
-typedef void (CALLBACK *MSGBOXCALLBACK) (LPHELPINFO lpHelpInfo);
+typedef void CALLBACK (*MSGBOXCALLBACK) (LPHELPINFO lpHelpInfo);
 
 typedef struct {
   UINT      cbSize;
@@ -3642,13 +3665,13 @@ typedef struct tagNEWTEXTMETRICW {
 typedef_tident(NEWTEXTMETRIC)
 
 typedef struct tagNEWTEXTMETRICEXA {
-  NEWTEXTMETRICA ntmTm;
-  FONTSIGNATURE  ntmFontSig;
+  NEWTEXTMETRICA ntmentm;
+  FONTSIGNATURE  ntmeFontSignature;
 } NEWTEXTMETRICEXA;
 
 typedef struct tagNEWTEXTMETRICEXW {
-  NEWTEXTMETRICW ntmTm;
-  FONTSIGNATURE  ntmFontSig;
+  NEWTEXTMETRICW ntmentm;
+  FONTSIGNATURE  ntmeFontSignature;
 } NEWTEXTMETRICEXW;
 
 typedef_tident(NEWTEXTMETRICEX)
@@ -3760,11 +3783,22 @@ typedef struct tagNONCLIENTMETRICSW {
 typedef_tident(NONCLIENTMETRICS)
 typedef_tident(LPNONCLIENTMETRICS)
 
-#include <serviceinfo.h>
+typedef struct _SERVICE_ADDRESS {
+  DWORD   dwAddressType;
+  DWORD   dwAddressFlags;
+  DWORD   dwAddressLength;
+  DWORD   dwPrincipalLength;
+  BYTE   *lpAddress;
+  BYTE   *lpPrincipal;
+} SERVICE_ADDRESS;
+
+typedef struct _SERVICE_ADDRESSES {
+  DWORD   dwAddressCount;
+  SERVICE_ADDRESS   Addresses[1];
+} SERVICE_ADDRESSES, *LPSERVICE_ADDRESSES;
 
 #ifndef GUID_DEFINED
 #define GUID_DEFINED
-
 typedef struct _GUID
 {
     unsigned long  Data1;
@@ -3773,8 +3807,33 @@ typedef struct _GUID
     unsigned char Data4[8];
 } GUID, *LPGUID;
 typedef GUID CLSID, *LPCLSID;
+#endif
 
-#endif/*GUID_DEFINED*/
+typedef struct _SERVICE_INFOA {
+  LPGUID   lpServiceType;
+  LPSTR    lpServiceName;
+  LPSTR    lpComment;
+  LPSTR    lpLocale;
+  DWORD    dwDisplayHint;
+  DWORD    dwVersion;
+  DWORD    dwTime;
+  LPSTR    lpMachineName;
+  LPSERVICE_ADDRESSES lpServiceAddress;
+  BLOB ServiceSpecificInfo;
+} SERVICE_INFOA, *LPSERVICE_INFOA;
+
+typedef struct _SERVICE_INFOW {
+  LPGUID   lpServiceType;
+  LPWSTR   lpServiceName;
+  LPWSTR   lpComment;
+  LPWSTR   lpLocale;
+  DWORD    dwDisplayHint;
+  DWORD    dwVersion;
+  DWORD    dwTime;
+  LPWSTR   lpMachineName;
+  LPSERVICE_ADDRESSES lpServiceAddress;
+  BLOB ServiceSpecificInfo;
+} SERVICE_INFOW, *LPSERVICE_INFOW;
 
 typedef_tident(SERVICE_INFO);
 typedef_tident(LPSERVICE_INFO);
@@ -4500,7 +4559,7 @@ typedef struct _PROCESS_INFORMATION {
   DWORD dwThreadId;
 } PROCESS_INFORMATION, *LPPROCESS_INFORMATION;
 
-typedef UINT (CALLBACK *LPFNPSPCALLBACK) (HWND, UINT, LPVOID);
+typedef UINT CALLBACK (*LPFNPSPCALLBACK) (HWND, UINT, LPVOID);
 
 typedef struct _PROPSHEETPAGEA {
   DWORD     dwSize;
@@ -4599,8 +4658,8 @@ typedef_tident(LPPROPSHEETHEADER)
 typedef_tident(LPCPROPSHEETHEADER)
 
 /* PropertySheet callbacks */
-typedef WINBOOL (CALLBACK *LPFNADDPROPSHEETPAGE) (HPROPSHEETPAGE, LPARAM);
-typedef WINBOOL (CALLBACK *LPFNADDPROPSHEETPAGES) (LPVOID,
+typedef WINBOOL CALLBACK (*LPFNADDPROPSHEETPAGE) (HPROPSHEETPAGE, LPARAM);
+typedef WINBOOL CALLBACK (*LPFNADDPROPSHEETPAGES) (LPVOID,
 						   LPFNADDPROPSHEETPAGE,
 						   LPARAM);
 
@@ -5293,74 +5352,66 @@ typedef struct _SYSTEM_POWER_STATUS {
 } SYSTEM_POWER_STATUS;
 typedef SYSTEM_POWER_STATUS *LPSYSTEM_POWER_STATUS;
 
-typedef struct _TAPE_CREATE_PARTITION {
-  ULONG Method;
-  ULONG Count;
-  ULONG Size;
-} TAPE_CREATE_PARTITION, *PTAPE_CREATE_PARTITION;
-
 typedef struct _TAPE_ERASE {
   ULONG Type;
-  BOOLEAN Immediate;
-} TAPE_ERASE, *PTAPE_ERASE;
+} TAPE_ERASE;
 
 typedef struct _TAPE_GET_DRIVE_PARAMETERS {
   BOOLEAN ECC;
   BOOLEAN Compression;
   BOOLEAN DataPadding;
   BOOLEAN ReportSetmarks;
-  ULONG DefaultBlockSize;
-  ULONG MaximumBlockSize;
-  ULONG MinimumBlockSize;
-  ULONG MaximumPartitionCount;
-  ULONG FeaturesLow;
-  ULONG FeaturesHigh;
-  ULONG EOTWarningZoneSize;
-} TAPE_GET_DRIVE_PARAMETERS, *PTAPE_GET_DRIVE_PARAMETERS;
+  ULONG   DefaultBlockSize;
+  ULONG   MaximumBlockSize;
+  ULONG   MinimumBlockSize;
+  ULONG   MaximumPartitionCount;
+  ULONG   FeaturesLow;
+  ULONG   FeaturesHigh;
+  ULONG   EOTWarningZoneSize;
+} TAPE_GET_DRIVE_PARAMETERS;
 
 typedef struct _TAPE_GET_MEDIA_PARAMETERS {
-  LARGE_INTEGER Capacity;
-  LARGE_INTEGER Remaining;
-  ULONG BlockSize;
-  ULONG PartitionCount;
+  LARGE_INTEGER   Capacity;
+  LARGE_INTEGER   Remaining;
+  DWORD   BlockSize;
+  DWORD   PartitionCount;
   BOOLEAN WriteProtected;
-} TAPE_GET_MEDIA_PARAMETERS, *PTAPE_GET_MEDIA_PARAMETERS;
+} TAPE_GET_MEDIA_PARAMETERS;
 
 typedef struct _TAPE_GET_POSITION {
   ULONG Type;
   ULONG Partition;
-  LARGE_INTEGER Offset;
-} TAPE_GET_POSITION, *PTAPE_GET_POSITION;
+  ULONG OffsetLow;
+  ULONG OffsetHigh;
+} TAPE_GET_POSITION;
 
 typedef struct _TAPE_PREPARE {
   ULONG Operation;
-  BOOLEAN Immediate;
-} TAPE_PREPARE, *PTAPE_PREPARE;
+} TAPE_PREPARE;
 
 typedef struct _TAPE_SET_DRIVE_PARAMETERS {
   BOOLEAN ECC;
   BOOLEAN Compression;
   BOOLEAN DataPadding;
   BOOLEAN ReportSetmarks;
-  ULONG EOTWarningZoneSize;
-} TAPE_SET_DRIVE_PARAMETERS, *PTAPE_SET_DRIVE_PARAMETERS;
+  ULONG   EOTWarningZoneSize;
+} TAPE_SET_DRIVE_PARAMETERS;
 
 typedef struct _TAPE_SET_MEDIA_PARAMETERS {
   ULONG BlockSize;
-} TAPE_SET_MEDIA_PARAMETERS, *PTAPE_SET_MEDIA_PARAMETERS;
+} TAPE_SET_MEDIA_PARAMETERS;
 
 typedef struct _TAPE_SET_POSITION {
   ULONG Method;
   ULONG Partition;
-  LARGE_INTEGER Offset;
-  BOOLEAN Immediate;
-} TAPE_SET_POSITION, *PTAPE_SET_POSITION;
+  ULONG OffsetLow;
+  ULONG OffsetHigh;
+} TAPE_SET_POSITION;
 
 typedef struct _TAPE_WRITE_MARKS {
   ULONG Type;
   ULONG Count;
-  BOOLEAN Immediate;
-} TAPE_WRITE_MARKS, *PTAPE_WRITE_MARKS;
+} TAPE_WRITE_MARKS;
 
 typedef struct {
   HINSTANCE hInst;
@@ -5815,26 +5866,26 @@ typedef struct _NETCONNECTINFOSTRUCT{
   DWORD dwOptDataSize;
 } NETCONNECTINFOSTRUCT, *LPNETCONNECTINFOSTRUCT;
 
-typedef int (CALLBACK *ENUMMETAFILEPROC) (HDC, HANDLETABLE,
+typedef int CALLBACK (*ENUMMETAFILEPROC) (HDC, HANDLETABLE,
 					  METARECORD, int, LPARAM);
-typedef int (CALLBACK *ENHMETAFILEPROC) (HDC, HANDLETABLE,
+typedef int CALLBACK (*ENHMETAFILEPROC) (HDC, HANDLETABLE,
 					 ENHMETARECORD, int, LPARAM);
 
-typedef int (CALLBACK *ENUMFONTSPROCA) (LPLOGFONTA, LPTEXTMETRICA, DWORD, LPARAM);
-typedef int (CALLBACK *ENUMFONTSPROCW) (LPLOGFONTW, LPTEXTMETRICW, DWORD, LPARAM);
+typedef int CALLBACK (*ENUMFONTSPROCA) (LPLOGFONTA, LPTEXTMETRICA, DWORD, LPARAM);
+typedef int CALLBACK (*ENUMFONTSPROCW) (LPLOGFONTW, LPTEXTMETRICW, DWORD, LPARAM);
 typedef_tident(ENUMFONTSPROC)
-typedef int (CALLBACK *FONTENUMPROCA) (ENUMLOGFONTA *, NEWTEXTMETRICA *,
+typedef int CALLBACK (*FONTENUMPROCA) (ENUMLOGFONTA *, NEWTEXTMETRICA *,
 				       int, LPARAM);
-typedef int (CALLBACK *FONTENUMPROCW) (ENUMLOGFONTW *, NEWTEXTMETRICW *,
+typedef int CALLBACK (*FONTENUMPROCW) (ENUMLOGFONTW *, NEWTEXTMETRICW *,
 				       int, LPARAM);
 typedef_tident(FONTENUMPROC)
-typedef int (CALLBACK *FONTENUMEXPROCA) (ENUMLOGFONTEXA *, NEWTEXTMETRICEXA *,
+typedef int CALLBACK (*FONTENUMEXPROCA) (ENUMLOGFONTEXA *, NEWTEXTMETRICEXA *,
 				         int, LPARAM);
-typedef int (CALLBACK *FONTENUMEXPROCW) (ENUMLOGFONTEXW *, NEWTEXTMETRICEXW *,
+typedef int CALLBACK (*FONTENUMEXPROCW) (ENUMLOGFONTEXW *, NEWTEXTMETRICEXW *,
 				         int, LPARAM);
 typedef_tident(FONTENUMEXPROC)
 
-typedef VOID (CALLBACK *LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD,
+typedef VOID CALLBACK (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD,
 							  LPOVERLAPPED);
 
 /*
@@ -6007,7 +6058,7 @@ typedef struct _DISPLAY_DEVICE {
 typedef HANDLE HMONITOR;
 typedef HANDLE HDEVNOTIFY;
 
-typedef BOOL (CALLBACK *MonitorEnumProc)(
+typedef BOOL CALLBACK (*MonitorEnumProc)(
   HMONITOR hMonitor,
   HDC hdcMonitor,
   LPRECT lprcMonitor,
@@ -6243,6 +6294,16 @@ typedef struct _PORT_SECTION_READ {
 	ULONG ViewBase;
 } PORT_SECTION_READ,*PPORT_SECTION_READ;
 
+typedef struct _FILE_USER_QUOTA_INFORMATION {
+	ULONG NextEntryOffset;
+	ULONG SidLength;
+	LARGE_INTEGER ChangeTime;
+	LARGE_INTEGER QuotaUsed;
+	LARGE_INTEGER QuotaThreshold;
+	LARGE_INTEGER QuotaLimit;
+	SID Sid [1 ];
+} FILE_USER_QUOTA_INFORMATION,*PFILE_USER_QUOTA_INFORMATION;
+
 typedef struct _FILE_QUOTA_LIST_INFORMATION {
 	ULONG NextEntryOffset;
 	ULONG SidLength;
@@ -6268,17 +6329,6 @@ typedef struct _WIN32_FILE_ATTRIBUTES_DATA {
     DWORD    nFileSizeHigh;
     DWORD    nFileSizeLow;
 } WIN32_FILE_ATTRIBUTE_DATA, *LPWIN32_FILE_ATTRIBUTE_DATA;
-
-typedef struct _GRADIENT_TRIANGLE {
-  ULONG Vertex1;
-  ULONG Vertex2;
-  ULONG Vertex3;
-} GRADIENT_TRIANGLE, *PGRADIENT_TRIANGLE, *LPGRADIENT_TRIANGLE;
-
-typedef struct _GRADIENT_RECT {
-  ULONG UpperLeft;
-  ULONG LowerRight;
-} GRADIENT_RECT, *PGRADIENT_RECT, *LPGRADIENT_RECT;
 
 #ifdef __cplusplus
 }

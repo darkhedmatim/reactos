@@ -5,7 +5,10 @@ SRCDIR    = @srcdir@
 VPATH     = @srcdir@
 MODULE    = ole32.dll
 IMPORTS   = advapi32 user32 gdi32 rpcrt4 kernel32 ntdll
-EXTRALIBS = -luuid
+ALTNAMES  = ole2.dll ole2nls.dll ole2conv.dll ole2prox.dll ole2thk.dll storage.dll compobj.dll
+EXTRALIBS = $(LIBUUID)
+
+SPEC_SRCS16 = $(ALTNAMES:.dll=.spec)
 
 C_SRCS = \
 	antimoniker.c \
@@ -44,16 +47,7 @@ C_SRCS16 = \
 	ole2nls.c \
 	storage.c
 
-SPEC_SRCS16 = \
-	compobj.spec \
-	ole2.spec \
-	ole2conv.spec \
-	ole2nls.spec \
-	ole2prox.spec \
-	ole2thk.spec \
-	storage.spec
-
-RC_SRCS = ole32res.rc
+RC_SRCS = ole32res.rc version.rc
 RC_BINSRC = ole32res.rc
 RC_BINARIES = \
 	drag_copy.cur \
@@ -61,14 +55,6 @@ RC_BINARIES = \
 	drag_move.cur \
 	nodrop.cur 
 
-IDL_SRCS = \
-	dcom.idl
-
-SUBDIRS = tests
-
 @MAKE_DLL_RULES@
 
 ### Dependencies:
-
-# note: this will get overwritten by make depend
-$(ALL_OBJS): $(IDL_SRCS:.idl=.h)

@@ -21,8 +21,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -215,7 +213,7 @@ static DWORD WINAPI SHLWAPI_ThreadWrapper(PVOID pTi)
   HRESULT hCom = E_FAIL;
   DWORD dwRet;
 
-  TRACE("(%p)\n", pTi);
+  TRACE("(%p)", pTi);
 
   /* We are now executing in the context of the newly created thread.
    * So we copy the data passed to us (it is on the stack of the function
@@ -312,7 +310,7 @@ BOOL WINAPI SHCreateThread(LPTHREAD_START_ROUTINE pfnThreadProc, VOID *pData,
     if(hThread)
     {
       /* Wait for the thread to signal us to continue */
-      WaitForSingleObject(ti.hEvent, INFINITE);
+      WaitForSingleObject(ti.hEvent, -1);
       CloseHandle(hThread);
       bCalled = TRUE;
     }

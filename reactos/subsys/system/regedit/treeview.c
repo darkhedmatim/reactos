@@ -104,20 +104,20 @@ LPCTSTR GetItemPath(HWND hwndTV, HTREEITEM hItem, HKEY* phRootKey)
     return pathBuffer;
 }
 
-static HTREEITEM AddEntryToTree(HWND hwndTV, HTREEITEM hParent, LPTSTR label, HKEY hKey, DWORD dwChildren, HTREEITEM insAfter )
+static HTREEITEM AddEntryToTree(HWND hwndTV, HTREEITEM hParent, LPTSTR label, HKEY hKey, DWORD dwChildren)
 {
     TVITEM tvi;
     TVINSERTSTRUCT tvins;
 
     tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_CHILDREN | TVIF_PARAM;
     tvi.pszText = label;
-    tvi.cchTextMax = _tcslen(tvi.pszText);
+    tvi.cchTextMax = lstrlen(tvi.pszText);
     tvi.iImage = Image_Closed;
     tvi.iSelectedImage = Image_Open;
     tvi.cChildren = dwChildren;
     tvi.lParam = (LPARAM)hKey;
     tvins.u.item = tvi;
-    tvins.hInsertAfter = insAfter;
+    tvins.hInsertAfter = (HTREEITEM)(hKey ? TVI_LAST : TVI_SORT);
     tvins.hParent = hParent;
     return TreeView_InsertItem(hwndTV, &tvins);
 }
@@ -132,7 +132,7 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
     tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_CHILDREN | TVIF_PARAM;
     /* Set the text of the item.  */
     tvi.pszText = pHostName;
-    tvi.cchTextMax = _tcslen(tvi.pszText);
+    tvi.cchTextMax = lstrlen(tvi.pszText);
     /* Assume the item is not a parent item, so give it an image.  */
     tvi.iImage = Image_Root;
     tvi.iSelectedImage = Image_Root;
@@ -145,11 +145,11 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
     /* Add the item to the tree view control.  */
     if (!(hRoot = TreeView_InsertItem(hwndTV, &tvins))) return FALSE;
 
-    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CLASSES_ROOT"), HKEY_CLASSES_ROOT, 1, TVI_LAST)) return FALSE;
-    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CURRENT_USER"), HKEY_CURRENT_USER, 1, TVI_LAST)) return FALSE;
-    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_LOCAL_MACHINE"), HKEY_LOCAL_MACHINE, 1, TVI_LAST)) return FALSE;
-    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_USERS"), HKEY_USERS, 1, TVI_LAST)) return FALSE;
-    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CURRENT_CONFIG"), HKEY_CURRENT_CONFIG, 1, TVI_LAST)) return FALSE;
+    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CLASSES_ROOT"), HKEY_CLASSES_ROOT, 1)) return FALSE;
+    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CURRENT_USER"), HKEY_CURRENT_USER, 1)) return FALSE;
+    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_LOCAL_MACHINE"), HKEY_LOCAL_MACHINE, 1)) return FALSE;
+    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_USERS"), HKEY_USERS, 1)) return FALSE;
+    if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_CURRENT_CONFIG"), HKEY_CURRENT_CONFIG, 1)) return FALSE;
     
     /* expand and select host name */
     TreeView_Expand(hwndTV, hRoot, TVE_EXPAND);
@@ -203,7 +203,6 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
     LPCTSTR keyPath;
     LPTSTR Name;
     LONG errCode;
-    HCURSOR hcursorOld;
 
     static int expanding;
     if (expanding) return FALSE;
@@ -211,8 +210,6 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
         return TRUE;
     }
     expanding = TRUE;
-    hcursorOld = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    SendMessage(hwndTV, WM_SETREDRAW, FALSE, 0);
 
     keyPath = GetItemPath(hwndTV, pnmtv->itemNew.hItem, &hRoot);
     if (!keyPath) goto done;
@@ -243,17 +240,12 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
 	}
 	if (errCode != ERROR_SUCCESS) dwSubCount = 0;
 	printf("dwSubCount=%ld, Name=%s\n", dwSubCount, Name);
-        AddEntryToTree(hwndTV, pnmtv->itemNew.hItem, Name, NULL, dwSubCount, TVI_FIRST);
+        AddEntryToTree(hwndTV, pnmtv->itemNew.hItem, Name, NULL, dwSubCount);
     }
-    
-    SendMessage(hwndTV, TVM_SORTCHILDREN, 0, (LPARAM)pnmtv->itemNew.hItem);
-   
     RegCloseKey(hNewKey);
     HeapFree(GetProcessHeap(), 0, Name);
 
 done:
-    SendMessage(hwndTV, WM_SETREDRAW, TRUE, 0);
-    SetCursor(hcursorOld);
     expanding = FALSE;
 
     return TRUE;
@@ -272,7 +264,7 @@ HWND CreateTreeView(HWND hwndParent, LPTSTR pHostName, int id)
 
     /* Get the dimensions of the parent window's client area, and create the tree view control.  */
     GetClientRect(hwndParent, &rcClient);
-    hwndTV = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL,
+    hwndTV = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, _T("Tree View"),
                             WS_VISIBLE | WS_CHILD | WS_TABSTOP | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT,
                             0, 0, rcClient.right, rcClient.bottom,
                             hwndParent, (HMENU)id, hInst, NULL);

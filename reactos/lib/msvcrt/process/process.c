@@ -1,4 +1,4 @@
-#include "precomp.h"
+/* $Id: process.c,v 1.8 2003/08/07 09:14:14 hbirr Exp $ */
 #include <msvcrt/process.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
@@ -85,6 +85,7 @@ const char* find_exec(const char* path, char* rpath)
 		  }
 	       }
 	    }
+	    free(env);
 	}
     }
     

@@ -1,5 +1,3 @@
-#include "precomp.h"
-
 /**************************************************************************
    THIS CODE AND INFORMATION IS PROVIDED 'AS IS' WITHOUT WARRANTY OF
    ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
@@ -11,11 +9,10 @@
 
 // dragdropimp.cpp: implementation of the IDataObjectImpl class.
 //////////////////////////////////////////////////////////////////////
+#include <shlobj.h>
+#include <assert.h>
 
-//#include <shlobj.h>
-//#include <assert.h>
-
-//#include "dragdropimpl.h"
+#include "dragdropimpl.h"
 
 //////////////////////////////////////////////////////////////////////
 // IDataObjectImpl Class

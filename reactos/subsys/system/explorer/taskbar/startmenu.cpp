@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,15 +30,16 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
 
+#include "../explorer.h"
+#include "../globals.h"
+#include "../externals.h"
 #include "../explorer_intres.h"
 
 #include "desktopbar.h"
 #include "startmenu.h"
-
 #include "../dialogs/searchprogram.h"
-#include "../dialogs/settings.h"
 
 
 StartMenu::StartMenu(HWND hwnd)
@@ -46,17 +47,8 @@ StartMenu::StartMenu(HWND hwnd)
 {
 	_next_id = IDC_FIRST_MENU;
 	_submenu_id = 0;
-
 	_border_left = 0;
 	_border_top = 0;
-	_bottom_max = INT_MAX;
-
-	_floating_btn = false;
-	_arrow_btns = false;
-	_scroll_mode = SCROLL_NOT;
-	_scroll_pos = 0;
-	_invisible_lines = 0;
-
 	_last_pos = WindowRect(hwnd).pos();
 #ifdef _LIGHT_STARTMENU
 	_selected_id = -1;
@@ -70,21 +62,12 @@ StartMenu::StartMenu(HWND hwnd, const StartMenuCreateInfo& create_info)
 {
 	for(StartMenuFolders::const_iterator it=create_info._folders.begin(); it!=create_info._folders.end(); ++it)
 		if (*it)
-			_dirs.push_back(ShellDirectory(GetDesktopFolder(), *it, _hwnd));
+			_dirs.push_back(ShellDirectory(Desktop(), *it, _hwnd));
 
 	_next_id = IDC_FIRST_MENU;
 	_submenu_id = 0;
-
 	_border_left = 0;
 	_border_top = create_info._border_top;
-	_bottom_max = INT_MAX;
-
-	_floating_btn = create_info._border_top? true: false;
-	_arrow_btns = false;
-	_scroll_mode = SCROLL_NOT;
-	_scroll_pos = 0;
-	_invisible_lines = 0;
-
 	_last_pos = WindowRect(hwnd).pos();
 #ifdef _LIGHT_STARTMENU
 	_selected_id = -1;
@@ -108,9 +91,9 @@ BtnWindowClass& StartMenu::GetWndClasss()
 }
 
 
-Window::CREATORFUNC_INFO StartMenu::s_def_creator = STARTMENU_CREATOR(StartMenu);
+Window::CREATORFUNC StartMenu::s_def_creator = STARTMENU_CREATOR(StartMenu);
 
-HWND StartMenu::Create(int x, int y, const StartMenuFolders& folders, HWND hwndParent, LPCTSTR title, CREATORFUNC_INFO creator, void* info)
+HWND StartMenu::Create(int x, int y, const StartMenuFolders& folders, HWND hwndParent, LPCTSTR title, CREATORFUNC creator)
 {
 	UINT style, ex_style;
 	int top_height;
@@ -138,7 +121,6 @@ HWND StartMenu::Create(int x, int y, const StartMenuFolders& folders, HWND hwndP
 	create_info._folders = folders;
 	create_info._border_top = top_height;
 	create_info._creator = creator;
-	create_info._info = info;
 
 	if (title)
 		create_info._title = title;
@@ -153,7 +135,7 @@ HWND StartMenu::Create(int x, int y, const StartMenuFolders& folders, HWND hwndP
 }
 
 
-LRESULT StartMenu::Init(LPCREATESTRUCT pcs)
+LRESULT	StartMenu::Init(LPCREATESTRUCT pcs)
 {
 	try {
 		AddEntries();
@@ -208,9 +190,9 @@ void StartMenu::AddEntries()
 			WaitCursor wait;
 
 #ifdef _LAZY_ICONEXTRACT
-			dir.smart_scan(SORT_NAME, SCAN_FILESYSTEM);	// lazy icon extraction, try to read directly from filesystem
+			dir.smart_scan(SCAN_FILESYSTEM);	// lazy icon extraction, try to read directly from filesystem
 #else
-			dir.smart_scan(SORT_NAME, SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
+			dir.smart_scan(SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
 #endif
 		}
 
@@ -296,7 +278,7 @@ LRESULT StartMenu::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
  			WindowRect pos(_hwnd);
 
 			///@todo do something similar to StartMenuRoot::TrackStartmenu() in order to automatically close submenus when clicking on the desktop background
-			StartMenu::Create(pos.left+3, pos.bottom-3, _create_info._folders, 0, _create_info._title, _create_info._creator, _create_info._info);
+			StartMenu::Create(pos.left+3, pos.bottom-3, _create_info._folders, 0, _create_info._title, _create_info._creator);
 			CloseStartMenu();
 		}
 
@@ -321,69 +303,20 @@ LRESULT StartMenu::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 	  case WM_CANCELMODE:
 		CloseStartMenu();
-
-#ifdef _LIGHT_STARTMENU
-		if (_scroll_mode != SCROLL_NOT) {
-			ReleaseCapture();
-			KillTimer(_hwnd, 0);
-		}
-#endif
 		break;
 
 #ifdef _LIGHT_STARTMENU
 	  case WM_MOUSEMOVE: {
 		 // automatically set the focus to startmenu entries when moving the mouse over them
 		if (lparam != _last_mouse_pos) { // don't process WM_MOUSEMOVE when opening submenus using keyboard navigation
-			Point pt(lparam);
+			int new_id = ButtonHitTest(Point(lparam));
 
-			if (_arrow_btns) {
-				RECT rect_up, rect_down;
-
-				GetArrowButtonRects(&rect_up, &rect_down);
-
-				SCROLL_MODE scroll_mode = SCROLL_NOT;
-
-				if (PtInRect(&rect_up, pt))
-					scroll_mode = SCROLL_UP;
-				else if (PtInRect(&rect_down, pt))
-					scroll_mode = SCROLL_DOWN;
-
-				if (scroll_mode != _scroll_mode) {
-					if (scroll_mode == SCROLL_NOT) {
-						ReleaseCapture();
-						KillTimer(_hwnd, 0);
-					} else {
-						CloseSubmenus();
-						SetTimer(_hwnd, 0, 150, NULL);	// 150 ms scroll interval
-						SetCapture(_hwnd);
-					}
-
-					_scroll_mode = scroll_mode;
-				}
-			}
-
-			int new_id = ButtonHitTest(pt);
-
-			if (new_id > 0 && new_id != _selected_id)
+			if (new_id != _selected_id)
 				SelectButton(new_id);
 
 			_last_mouse_pos = lparam;
 		}
 		break;}
-
-	  case WM_TIMER:
-		if (_scroll_mode == SCROLL_UP) {
-			if (_scroll_pos > 0) {
-				--_scroll_pos;
-				InvalidateRect(_hwnd, NULL, TRUE);
-			}
-		} else {
-			if (_scroll_pos <= _invisible_lines) {
-				++_scroll_pos;
-				InvalidateRect(_hwnd, NULL, TRUE);
-			}
-		}
-		break;
 
 	  case WM_KEYDOWN:
 		ProcessKey(wparam);
@@ -428,28 +361,6 @@ LRESULT StartMenu::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		SelectButtonIndex(0, wparam?true:false);
 		break;
 
-#ifdef _LIGHT_STARTMENU
-	  case WM_CONTEXTMENU: {
-		Point screen_pt(lparam), clnt_pt=screen_pt;
-		ScreenToClient(_hwnd, &clnt_pt);
-
-		int id = ButtonHitTest(clnt_pt);
-
-		if (id) {
-			StartMenuEntry& sme = _entries[id];
-
-			for(ShellEntrySet::iterator it=sme._entries.begin(); it!=sme._entries.end(); ++it) {
-				Entry* entry = *it;
-
-				if (entry) {
-					CHECKERROR(entry->do_context_menu(_hwnd, screen_pt));	// may close start menu because of focus loss
-					break;	///@todo handle context menu for more than one entry
-				}
-			}
-		}
-		break;}
-#endif
-
 	  default: def:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
@@ -468,16 +379,13 @@ int StartMenu::ButtonHitTest(POINT pt)
 	if (pt.x<rect.left || pt.x>rect.right)
 		return 0;
 
-	for(SMBtnVector::const_iterator it=_buttons.begin()+_scroll_pos; it!=_buttons.end(); ++it) {
+	for(SMBtnVector::const_iterator it=_buttons.begin(); it!=_buttons.end(); ++it) {
 		const SMBtnInfo& info = *it;
 
 		if (rect.top > pt.y)
 			break;
 
 		rect.bottom = rect.top + (info._id==-1? STARTMENU_SEP_HEIGHT: STARTMENU_LINE_HEIGHT);
-
-		if (rect.bottom > _bottom_max)
-			break;
 
 		if (pt.y < rect.bottom)	// PtInRect(&rect, pt)
 			return info._id;
@@ -490,13 +398,13 @@ int StartMenu::ButtonHitTest(POINT pt)
 
 void StartMenu::InvalidateSelection()
 {
-	if (_selected_id <= 0)
+	if (!_selected_id)
 		return;
 
 	ClientRect clnt(_hwnd);
 	RECT rect = {_border_left, _border_top, clnt.right, STARTMENU_LINE_HEIGHT};
 
-	for(SMBtnVector::const_iterator it=_buttons.begin()+_scroll_pos; it!=_buttons.end(); ++it) {
+	for(SMBtnVector::const_iterator it=_buttons.begin(); it!=_buttons.end(); ++it) {
 		const SMBtnInfo& info = *it;
 
 		rect.bottom = rect.top + (info._id==-1? STARTMENU_SEP_HEIGHT: STARTMENU_LINE_HEIGHT);
@@ -632,10 +540,6 @@ void StartMenu::ProcessKey(int vk)
 	  case VK_ESCAPE:
 		CloseStartMenu();
 		break;
-
-	  default:
-		if (vk>='0' && vk<='Z')
-			JumpToNextShortcut(vk);
 	}
 }
 
@@ -662,56 +566,6 @@ bool StartMenu::Navigate(int step)
 	return false;
 }
 
-bool StartMenu::JumpToNextShortcut(char c)
-{
-	int cur_idx = GetSelectionIndex();
-
-	if (cur_idx == -1)
-		cur_idx = 0;
-
-	int first_found = 0;
-	int found_more = 0;
-
-	SMBtnVector::const_iterator cur_it = _buttons.begin();
-	cur_it += cur_idx + 1;
-
-	 // first search down from current item...
-	SMBtnVector::const_iterator it = cur_it;
-	for(; it!=_buttons.end(); ++it) {
-		const SMBtnInfo& btn = *it;
-
-		if (!btn._title.empty() && toupper((TBYTE)btn._title.at(0)) == c) {
-			if (!first_found)
-				first_found = btn._id;
-			else
-				++found_more;
-		}
-	}
-
-	 // ...now search from top to the current item
-	it = _buttons.begin();
-	for(; it!=_buttons.end() && it!=cur_it; ++it) {
-		const SMBtnInfo& btn = *it;
-
-		if (!btn._title.empty() && toupper((TBYTE)btn._title.at(0)) == c) {
-			if (!first_found)
-				first_found = btn._id;
-			else
-				++found_more;
-		}
-	}
-
-	if (first_found) {
-		SelectButton(first_found);
-
-		if (!found_more)
-			Command(first_found, BN_CLICKED);
-
-		return true;
-	} else
-		return false;
-}
-
 #endif // _LIGHT_STARTMENU
 
 
@@ -721,7 +575,7 @@ bool StartMenu::GetButtonRect(int id, PRECT prect) const
 	ClientRect clnt(_hwnd);
 	RECT rect = {_border_left, _border_top, clnt.right, STARTMENU_LINE_HEIGHT};
 
-	for(SMBtnVector::const_iterator it=_buttons.begin()+_scroll_pos; it!=_buttons.end(); ++it) {
+	for(SMBtnVector::const_iterator it=_buttons.begin(); it!=_buttons.end(); ++it) {
 		const SMBtnInfo& info = *it;
 
 		rect.bottom = rect.top + (info._id==-1? STARTMENU_SEP_HEIGHT: STARTMENU_LINE_HEIGHT);
@@ -768,44 +622,12 @@ void StartMenu::GetFloatingButtonRect(LPRECT prect)
 }
 
 
-void StartMenu::DrawArrows(HDC hdc)
-{
-	static ResIconEx arrowUpIcon(IDI_ARROW_UP, 8, 4);
-	static ResIconEx arrowDownIcon(IDI_ARROW_DOWN, 8, 4);
-
-	ClientRect clnt(_hwnd);
-
-	DrawIconEx(hdc, clnt.right/2-4, _floating_btn?3:1, arrowUpIcon, 8, 4, 0, 0, DI_NORMAL);
-	DrawIconEx(hdc, clnt.right/2-4, clnt.bottom-5, arrowDownIcon, 8, 4, 0, 0, DI_NORMAL);
-}
-
-void StartMenu::GetArrowButtonRects(LPRECT prect_up, LPRECT prect_down)
-{
-	GetClientRect(_hwnd, prect_up);
-	*prect_down = *prect_up;
-
-//	prect_up->left = prect_up->right/2 - 4;
-//	prect_up->right = prect_up->left + 8;
-	prect_up->right -= 8;
-	prect_up->top = _floating_btn? 3: 1;
-	prect_up->bottom = prect_up->top + 4;
-
-//	prect_down->left = prect_down->right/2 - 4;
-//	prect_down->right = prect_down->left + 8;
-	prect_down->right -= 8;
-	prect_down->top = prect_down->bottom - 5;
-}
-
-
 void StartMenu::Paint(PaintCanvas& canvas)
 {
-	if (_floating_btn)
+	if (_border_top)
 		DrawFloatingButton(canvas);
 
 #ifdef _LIGHT_STARTMENU
-	if (_arrow_btns)
-		DrawArrows(canvas);
-
 	ClientRect clnt(_hwnd);
 	RECT rect = {_border_left, _border_top, clnt.right, STARTMENU_LINE_HEIGHT};
 
@@ -814,7 +636,7 @@ void StartMenu::Paint(PaintCanvas& canvas)
 	FontSelection font(canvas, GetStockFont(DEFAULT_GUI_FONT));
 	BkMode bk_mode(canvas, TRANSPARENT);
 
-	for(SMBtnVector::const_iterator it=_buttons.begin()+_scroll_pos; it!=_buttons.end(); ++it) {
+	for(SMBtnVector::const_iterator it=_buttons.begin(); it!=_buttons.end(); ++it) {
 		const SMBtnInfo& btn = *it;
 
 		if (rect.top > canvas.rcPaint.bottom)
@@ -823,9 +645,6 @@ void StartMenu::Paint(PaintCanvas& canvas)
 		if (btn._id == -1) {	// a separator?
 			rect.bottom = rect.top + STARTMENU_SEP_HEIGHT;
 
-			if (rect.bottom > _bottom_max)
-				break;
-
 			BrushSelection brush_sel(canvas, GetSysColorBrush(COLOR_BTNSHADOW));
 			PatBlt(canvas, rect.left+2, rect.top+STARTMENU_SEP_HEIGHT/2-1, sep_width, 1, PATCOPY);
 
@@ -833,9 +652,6 @@ void StartMenu::Paint(PaintCanvas& canvas)
 			PatBlt(canvas, rect.left+2, rect.top+STARTMENU_SEP_HEIGHT/2, sep_width, 1, PATCOPY);
 		} else {
 			rect.bottom = rect.top + STARTMENU_LINE_HEIGHT;
-
-			if (rect.bottom > _bottom_max)
-				break;
 
 			if (rect.top >= canvas.rcPaint.top)
 				DrawStartMenuButton(canvas, rect, btn._title, btn, btn._id==_selected_id, false);
@@ -854,7 +670,7 @@ void StartMenu::UpdateIcons(/*int idx*/)
 #ifdef _SINGLE_ICONEXTRACT
 
 	//if (idx >= 0)
-	int idx = _scroll_pos;
+	int idx = 0;
 
 	for(; idx<(int)_buttons.size(); ++idx) {
 		SMBtnInfo& btn = _buttons[idx];
@@ -868,11 +684,7 @@ void StartMenu::UpdateIcons(/*int idx*/)
 				Entry* entry = *it;
 
 				if (entry->_icon_id == ICID_UNKNOWN)
-					try {
-						entry->extract_icon();
-					} catch(COMException&) {
-						// ignore unexpected exceptions while extracting icons
-					}
+					entry->extract_icon();
 
 				if (entry->_icon_id > ICID_NONE) {
 					btn._icon_id = (ICON_ID)/*@@*/ entry->_icon_id;
@@ -880,10 +692,6 @@ void StartMenu::UpdateIcons(/*int idx*/)
 					RECT rect;
 
 					GetButtonRect(btn._id, &rect);
-
-					if (rect.bottom > _bottom_max)
-						break;
-
 					WindowCanvas canvas(_hwnd);
 					DrawStartMenuButton(canvas, rect, NULL, btn, btn._id==_selected_id, false);
 
@@ -998,7 +806,7 @@ int StartMenu::Command(int id, int code)
 }
 
 
-ShellEntryMap::iterator StartMenu::AddEntry(const String& title, ICON_ID icon_id, Entry* entry)
+StartMenuEntry& StartMenu::AddEntry(const String& title, ICON_ID icon_id, Entry* entry)
 {
 	 // search for an already existing subdirectory entry with the same name
 	if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -1010,35 +818,32 @@ ShellEntryMap::iterator StartMenu::AddEntry(const String& title, ICON_ID icon_id
 					if ((*it2)->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 						 // merge the new shell entry with the existing of the same name
 						sme._entries.insert(entry);
-
-						return it;
+						return sme;
 					}
 				}
 		}
 
-	ShellEntryMap::iterator sme = AddEntry(title, icon_id);
+	StartMenuEntry& sme = AddEntry(title, icon_id);
 
-	sme->second._entries.insert(entry);
+	sme._entries.insert(entry);
 
 	return sme;
 }
 
-ShellEntryMap::iterator StartMenu::AddEntry(const String& title, ICON_ID icon_id, int id)
+StartMenuEntry& StartMenu::AddEntry(const String& title, ICON_ID icon_id, int id)
 {
 	if (id == -1)
 		id = ++_next_id;
 
-	StartMenuEntry sme;
+	StartMenuEntry& sme = _entries[id];
 
 	sme._title = title;
 	sme._icon_id = icon_id;
 
-	ShellEntryMap::iterator it = _entries.insert(make_pair(id, sme)).first;
-
-	return it;
+	return sme;
 }
 
-ShellEntryMap::iterator StartMenu::AddEntry(const ShellFolder folder, ShellEntry* entry)
+StartMenuEntry& StartMenu::AddEntry(const ShellFolder folder, ShellEntry* entry)
 {
 	ICON_ID icon_id;
 
@@ -1050,7 +855,7 @@ ShellEntryMap::iterator StartMenu::AddEntry(const ShellFolder folder, ShellEntry
 	return AddEntry(folder.get_name(entry->_pidl), icon_id, entry);
 }
 
-ShellEntryMap::iterator StartMenu::AddEntry(const ShellFolder folder, Entry* entry)
+StartMenuEntry& StartMenu::AddEntry(const ShellFolder folder, Entry* entry)
 {
 	ICON_ID icon_id;
 
@@ -1143,12 +948,12 @@ bool StartMenu::CloseOtherSubmenus(int id)
 }
 
 
-void StartMenu::CreateSubmenu(int id, LPCTSTR title, CREATORFUNC_INFO creator, void* info)
+void StartMenu::CreateSubmenu(int id, LPCTSTR title, CREATORFUNC creator)
 {
-	CreateSubmenu(id, StartMenuFolders(), title, creator, info);
+	CreateSubmenu(id, StartMenuFolders(), title, creator);
 }
 
-bool StartMenu::CreateSubmenu(int id, int folder_id, LPCTSTR title, CREATORFUNC_INFO creator, void* info)
+void StartMenu::CreateSubmenu(int id, int folder_id, LPCTSTR title, CREATORFUNC creator)
 {
 	try {
 		SpecialFolderPath folder(folder_id, _hwnd);
@@ -1156,18 +961,13 @@ bool StartMenu::CreateSubmenu(int id, int folder_id, LPCTSTR title, CREATORFUNC_
 		StartMenuFolders new_folders;
 		new_folders.push_back(folder);
 
-		CreateSubmenu(id, new_folders, title, creator, info);
-
-		return true;
+		CreateSubmenu(id, new_folders, title, creator);
 	} catch(COMException&) {
 		// ignore Exception and don't display anything
-		CloseOtherSubmenus(id);
-		_buttons[GetSelectionIndex()]._enabled = false;	// disable entries for non-existing folders
-		return false;
 	}
 }
 
-bool StartMenu::CreateSubmenu(int id, int folder_id1, int folder_id2, LPCTSTR title, CREATORFUNC_INFO creator, void* info)
+void StartMenu::CreateSubmenu(int id, int folder_id1, int folder_id2, LPCTSTR title, CREATORFUNC creator)
 {
 	StartMenuFolders new_folders;
 
@@ -1181,17 +981,11 @@ bool StartMenu::CreateSubmenu(int id, int folder_id1, int folder_id2, LPCTSTR ti
 	} catch(COMException&) {
 	}
 
-	if (!new_folders.empty()) {
-		CreateSubmenu(id, new_folders, title, creator, info);
-		return true;
-	} else {
-		CloseOtherSubmenus(id);
-		_buttons[GetSelectionIndex()]._enabled = false;	// disable entries for non-existing folders
-		return false;
-	}
+	if (!new_folders.empty())
+		CreateSubmenu(id, new_folders, title, creator);
 }
 
-void StartMenu::CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTSTR title, CREATORFUNC_INFO creator, void* info)
+void StartMenu::CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTSTR title, CREATORFUNC creator)
 {
 	 // Only open one submenu at a time.
 	if (!CloseOtherSubmenus(id))
@@ -1204,7 +998,7 @@ void StartMenu::CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTS
 		ClientToScreen(_hwnd, &rect);
 
 		x = rect.right;	// Submenus should overlap their parent a bit.
-		y = rect.top+STARTMENU_LINE_HEIGHT +_border_top/*own border*/ -STARTMENU_TOP_BTN_SPACE/*border of new submenu*/;
+		y = rect.top+STARTMENU_LINE_HEIGHT-_border_top;
 	} else {
 		WindowRect pos(_hwnd);
 
@@ -1213,7 +1007,7 @@ void StartMenu::CreateSubmenu(int id, const StartMenuFolders& new_folders, LPCTS
 	}
 
 	_submenu_id = id;
-	_submenu = StartMenu::Create(x, y, new_folders, _hwnd, title, creator, info);
+	_submenu = StartMenu::Create(x, y, new_folders, _hwnd, title, creator);
 }
 
 
@@ -1241,13 +1035,13 @@ void StartMenu::ActivateEntry(int id, const ShellEntrySet& entries)
 			if (title.empty())
 				title = entry->_display_name;
 		} else {
-			 // The entry is no subdirectory, so there can only be one shell entry.
+			 // If the entry is no subdirectory, there can only be one shell entry.
 			assert(entries.size()==1);
 
 			HWND hparent = GetParent(_hwnd);
 			ShellPath shell_path = entry->create_absolute_pidl();
 
-			 // close start menus when launching the selected entry
+			 // close start menus after launching the selected entry
 			CloseStartMenu(id);
 
 			///@todo launch in the background; specify correct HWND for error message box titles
@@ -1263,9 +1057,6 @@ void StartMenu::ActivateEntry(int id, const ShellEntrySet& entries)
 			shexinfo.nShow = SW_SHOWNORMAL;
 
 			shexinfo.lpIDList = &*shell_path;
-
-			 // add PIDL to the recent file list
-			SHAddToRecentDocs(SHARD_PIDL, shexinfo.lpIDList);
 
 			if (!ShellExecuteEx(&shexinfo))
 				display_error(hparent, GetLastError());
@@ -1402,40 +1193,11 @@ void StartMenu::ResizeToButtons()
 
 	 // move down if we are too high
 	if (rect.top < 0) {
-		int dy = -rect.top;
-		rect.top += dy;
-		rect.bottom += dy;
-	}
-
-	 // enable scroll mode for long start menus, which span more than the whole screen height
-	int cyscreen = GetSystemMetrics(SM_CYSCREEN);
-	int bottom_max = 0;
-
-	if (rect.bottom > cyscreen) {
-		_arrow_btns = true;
-
-		_invisible_lines = (rect.bottom-cyscreen+(STARTMENU_LINE_HEIGHT-1))/STARTMENU_LINE_HEIGHT + 1;
-		rect.bottom -= _invisible_lines * STARTMENU_LINE_HEIGHT;
-
-		bottom_max = rect.bottom;
-
-		if (_floating_btn)
-			rect.bottom += 6;	// lower scroll arrow
-		else {
-			_border_top += 6;	// upper scroll arrow
-			rect.bottom += 2*6;	// upper+lower scroll arrow
-		}
+		rect.top += STARTMENU_LINE_HEIGHT;
+		rect.bottom += STARTMENU_LINE_HEIGHT;
 	}
 
 	MoveWindow(_hwnd, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, TRUE);
-
-	if (bottom_max) {
-		POINT pt = {0, bottom_max};
-
-		ScreenToClient(_hwnd, &pt);
-
-		_bottom_max = pt.y;
-	}
 }
 
 #else // _LIGHT_STARTMENU
@@ -1488,7 +1250,7 @@ StartMenuRoot::StartMenuRoot(HWND hwnd)
 #endif
 		try {
 			 // insert directory "All Users\Start Menu"
-			ShellDirectory cmn_startmenu(GetDesktopFolder(), SpecialFolderPath(CSIDL_COMMON_STARTMENU, _hwnd), _hwnd);
+			ShellDirectory cmn_startmenu(Desktop(), SpecialFolderPath(CSIDL_COMMON_STARTMENU, _hwnd), _hwnd);
 			_dirs.push_back(StartMenuDirectory(cmn_startmenu, false));	// don't add subfolders
 		} catch(COMException&) {
 			// ignore exception and don't show additional shortcuts
@@ -1496,8 +1258,7 @@ StartMenuRoot::StartMenuRoot(HWND hwnd)
 
 	try {
 		 // insert directory "<user name>\Start Menu"
-
-		ShellDirectory usr_startmenu(GetDesktopFolder(), SpecialFolderPath(CSIDL_STARTMENU, _hwnd), _hwnd);
+		ShellDirectory usr_startmenu(Desktop(), SpecialFolderPath(CSIDL_STARTMENU, _hwnd), _hwnd);
 		_dirs.push_back(StartMenuDirectory(usr_startmenu, false));	// don't add subfolders
 	} catch(COMException&) {
 		// ignore exception and don't show additional shortcuts
@@ -1509,35 +1270,25 @@ StartMenuRoot::StartMenuRoot(HWND hwnd)
 	_logo_size.cx = bmp_hdr.bmWidth;
 	_logo_size.cy = bmp_hdr.bmHeight;
 
-	_border_left = _logo_size.cx + 1;
+	_border_left = _logo_size.cx;
 }
 
 
-static void CalculateStartPos(HWND hwndOwner, RECT& rect)
+HWND StartMenuRoot::Create(HWND hwndDesktopBar)
 {
-	WindowRect pos(hwndOwner);
+	WindowRect pos(hwndDesktopBar);
 
-	rect.left = pos.left;
-	rect.top = pos.top-STARTMENU_LINE_HEIGHT-4;
-	rect.right = pos.left+STARTMENU_WIDTH_MIN;
-	rect.bottom = pos.top;
+	RECT rect = {pos.left, pos.top-STARTMENU_LINE_HEIGHT-4, pos.left+STARTMENU_WIDTH_MIN, pos.top};
 
 #ifndef _LIGHT_STARTMENU
 	rect.top += STARTMENU_LINE_HEIGHT;
 #endif
 
 	AdjustWindowRectEx(&rect, WS_POPUP|WS_THICKFRAME|WS_CLIPCHILDREN|WS_VISIBLE, FALSE, 0);
-}
-
-HWND StartMenuRoot::Create(HWND hwndOwner)
-{
-	RECT rect;
-
-	CalculateStartPos(hwndOwner, rect);
 
 	return Window::Create(WINDOW_CREATOR(StartMenuRoot), 0, GetWndClasss(), TITLE_STARTMENU,
 							WS_POPUP|WS_THICKFRAME|WS_CLIPCHILDREN,
-							rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, hwndOwner);
+							rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, hwndDesktopBar);
 }
 
 
@@ -1550,20 +1301,8 @@ void StartMenuRoot::TrackStartmenu()
 	_selected_id = -1;
 #endif
 
-#ifdef _LIGHT_STARTMENU
-	 // recalculate start menu root position
-	RECT rect;
-
-	CalculateStartPos(GetParent(hwnd), rect);
-
-	SetWindowPos(hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
-
-	ResizeToButtons();
-#endif
-
 	 // show previously hidden start menu
 	ShowWindow(hwnd, SW_SHOW);
-	SetForegroundWindow(hwnd);
 
 	while(IsWindow(hwnd)) {
 		if (!GetMessage(&msg, 0, 0, 0)) {
@@ -1732,22 +1471,31 @@ void StartMenuRoot::Paint(PaintCanvas& canvas)
 {
 	int clr_bits;
 	{WindowCanvas dc(_hwnd); clr_bits=GetDeviceCaps(dc, BITSPIXEL);}
+	bool logo256 = clr_bits<=8;
 
 	MemCanvas mem_dc;
-	ResBitmap bmp(clr_bits<=8? clr_bits<=4? IDB_LOGOV16: IDB_LOGOV256: IDB_LOGOV);
+	ResBitmap bmp(logo256? IDB_LOGOV256: IDB_LOGOV);
 	BitmapSelection sel(mem_dc, bmp);
 
 	ClientRect clnt(_hwnd);
 	int h = min(_logo_size.cy, clnt.bottom);
 
-	RECT rect = {0, 0, _logo_size.cx, clnt.bottom-h};
-	HBRUSH hbr = CreateSolidBrush(GetPixel(mem_dc, 0, 0));
+	RECT rect = {0, 0, _logo_size.cx-1, clnt.bottom-h};
+	HBRUSH hbr = CreateSolidBrush(logo256? RGB(166,202,240): RGB(255,255,255));	// same color as the background color in the logo bitmap
 	FillRect(canvas, &rect, hbr);
 	DeleteObject(hbr);
-
-	PatBlt(canvas, _logo_size.cx, 0, 1, clnt.bottom, WHITENESS);
+	//PatBlt(canvas, _logo_size.cx-1, 0, 1, clnt.bottom-h, WHITENESS);
+	PatBlt(canvas, _logo_size.cx-1, 0, 1, clnt.bottom-h, WHITENESS);
 
 	BitBlt(canvas, 0, clnt.bottom-h, _logo_size.cx, h, mem_dc, 0, 0, SRCCOPY);
+
+	if (!logo256) {
+		rect.left = rect.right++;
+		rect.bottom = clnt.bottom;
+		HBRUSH hbr_border = GetStockBrush(GRAY_BRUSH);	//CreateSolidBrush(RGB(71,88,85));
+		FillRect(canvas, &rect, hbr_border);
+		//DeleteObject(hbr_border);
+	}
 
 	super::Paint(canvas);
 }
@@ -1788,13 +1536,14 @@ int StartMenuHandler::Command(int id, int code)
 
 	  case IDC_EXPLORE:
 		CloseStartMenu(id);
-		explorer_show_frame(SW_SHOWNORMAL);
+		explorer_show_frame(_hwnd, SW_SHOWNORMAL);
 		break;
 
-	  case IDC_LAUNCH:
+	  case IDC_LAUNCH: {
+		HWND hwndDesktopBar = GetWindow(_hwnd, GW_OWNER);
 		CloseStartMenu(id);
-		ShowLaunchDialog(g_Globals._hwndDesktopBar);
-		break;
+		ShowLaunchDialog(hwndDesktopBar);
+		break;}
 
 	  case IDC_DOCUMENTS:
 		CreateSubmenu(id, CSIDL_PERSONAL, ResString(IDS_DOCUMENTS));
@@ -1805,11 +1554,7 @@ int StartMenuHandler::Command(int id, int code)
 		break;
 
 	  case IDC_FAVORITES:
-#ifndef _SHELL32_FAVORITES
-		CreateSubmenu(id, ResString(IDS_FAVORITES), STARTMENU_CREATOR(FavoritesMenu), &static_cast<BookmarkList&>(g_Globals._favorites));
-#else
-		CreateSubmenu(id, CSIDL_COMMON_FAVORITES, CSIDL_FAVORITES, ResString(IDS_FAVORITES));
-#endif
+		CreateSubmenu(id, CSIDL_FAVORITES, ResString(IDS_FAVORITES));
 		break;
 
 	  case IDC_BROWSE:
@@ -1824,46 +1569,40 @@ int StartMenuHandler::Command(int id, int code)
 		CreateSubmenu(id, ResString(IDS_SEARCH), STARTMENU_CREATOR(SearchMenu));
 		break;
 
-	  case IDC_START_HELP:
+	  case IDC_START_HELP: {
+		HWND hwndDesktopBar = GetWindow(_hwnd, GW_OWNER);
 		CloseStartMenu(id);
-		MessageBox(g_Globals._hwndDesktopBar, TEXT("Help not yet implemented"), ResString(IDS_TITLE), MB_OK);
-		break;
+		MessageBox(hwndDesktopBar, TEXT("Help not yet implemented"), ResString(IDS_TITLE), MB_OK);
+		break;}
 
 	  case IDC_LOGOFF:
 		/* The shell32 Dialog prompts about some system setting change. This is not what we want to display here.
+		HWND hwndDesktopBar = GetWindow(_hwnd, GW_OWNER);
 		CloseStartMenu(id);
-		ShowRestartDialog(g_Globals._hwndDesktopBar, EWX_LOGOFF);*/
+		ShowRestartDialog(hwndDesktopBar, EWX_LOGOFF);*/
 		DestroyWindow(GetParent(_hwnd));
 		break;
 
-	  case IDC_SHUTDOWN:
+	  case IDC_SHUTDOWN: {
+		HWND hwndDesktopBar = GetWindow(_hwnd, GW_OWNER);
 		CloseStartMenu(id);
-		ShowExitWindowsDialog(g_Globals._hwndDesktopBar);
-		break;
+		ShowExitWindowsDialog(hwndDesktopBar);
+		break;}
 
 
 	// settings menu
-
-	  case ID_DESKTOPBAR_SETTINGS:
-		CloseStartMenu(id);
-		ExplorerPropertySheet(g_Globals._hwndDesktopBar);
-		break;
 
 	  case IDC_SETTINGS_MENU:
 		CreateSubmenu(id, CSIDL_CONTROLS, ResString(IDS_SETTINGS_MENU));
 		break;
 
 	  case IDC_PRINTERS:
-#ifdef _ROS_	// to be removed when printer folder will be implemented
-		MessageBox(0, TEXT("printer folder not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
-#else
 		CreateSubmenu(id, CSIDL_PRINTERS, CSIDL_PRINTHOOD, ResString(IDS_PRINTERS));
-#endif
 		break;
 
 	  case IDC_CONTROL_PANEL:
 		CloseStartMenu(id);
-		//@@SDIMainFrame::Create(TEXT("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\::{21EC2020-3AEA-1069-A2DD-08002B30309D}"), 0);
+		MainFrame::Create(TEXT("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\::{21EC2020-3AEA-1069-A2DD-08002B30309D}"), FALSE);
 		break;
 
 	  case IDC_ADMIN:
@@ -1871,22 +1610,14 @@ int StartMenuHandler::Command(int id, int code)
 		break;
 
 	  case IDC_CONNECTIONS:
-#ifdef _ROS_	// to be removed when RAS will be implemented
-		MessageBox(0, TEXT("RAS folder not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
-#else
 		CreateSubmenu(id, CSIDL_CONNECTIONS, ResString(IDS_CONNECTIONS));
-#endif
 		break;
 
 
 	// browse menu
 
 	  case IDC_NETWORK:
-#ifdef _ROS_	// to be removed when network will be implemented
-		MessageBox(0, TEXT("network not yet implemented"), ResString(IDS_TITLE), MB_OK);
-#else
 		CreateSubmenu(id, CSIDL_NETWORK, ResString(IDS_NETWORK));
-#endif
 		break;
 
 	  case IDC_DRIVES:
@@ -1941,10 +1672,10 @@ void StartMenuHandler::ShowSearchComputer()
 		MessageBox(0, TEXT("SHFindComputer() not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
 }
 
-void StartMenuHandler::ShowLaunchDialog(HWND hwndOwner)
+void StartMenuHandler::ShowLaunchDialog(HWND hwndDesktopBar)
 {
 	 ///@todo All text phrases should be put into the resources.
-	static LPCSTR szTitle = "Run";
+	static LPCSTR szTitle = "Create New Task";
 	static LPCSTR szText = "Type the name of a program, folder, document, or Internet resource, and Explorer will open it for you.";
 
 	static DynamicFct<RUNFILEDLG> RunFileDlg(TEXT("SHELL32"), 61);
@@ -1959,11 +1690,11 @@ void StartMenuHandler::ShowLaunchDialog(HWND hwndOwner)
 			MultiByteToWideChar(CP_ACP, 0, szTitle, -1, wTitle, 40);
 			MultiByteToWideChar(CP_ACP, 0, szText, -1, wText, 256);
 
-			(*RunFileDlg)(hwndOwner, 0, NULL, (LPCSTR)wTitle, (LPCSTR)wText, RFF_CALCDIRECTORY);
+			(*RunFileDlg)(hwndDesktopBar, 0, NULL, (LPCSTR)wTitle, (LPCSTR)wText, RFF_CALCDIRECTORY);
 		}
 		else
 #endif
-			(*RunFileDlg)(hwndOwner, 0, NULL, szTitle, szText, RFF_CALCDIRECTORY);
+			(*RunFileDlg)(hwndDesktopBar, 0, NULL, szTitle, szText, RFF_CALCDIRECTORY);
 	}
 }
 
@@ -1997,21 +1728,14 @@ void SettingsMenu::AddEntries()
 #endif
 		AddButton(ResString(IDS_CONTROL_PANEL),	ICID_CONFIG, false, IDC_CONTROL_PANEL);
 
-#ifdef _ROS_	// to be removed when printer/network will be implemented
-	AddButton(ResString(IDS_PRINTERS),			ICID_PRINTER, false, IDC_PRINTERS);
-	AddButton(ResString(IDS_CONNECTIONS),		ICID_NETWORK, false, IDC_CONNECTIONS);
-#else
-	AddButton(ResString(IDS_PRINTERS),			ICID_PRINTER, true, IDC_PRINTERS);
-	AddButton(ResString(IDS_CONNECTIONS),		ICID_NETWORK, true, IDC_CONNECTIONS);
-#endif
-	AddButton(ResString(IDS_ADMIN),				ICID_CONFIG, true, IDC_ADMIN);
+	AddButton(ResString(IDS_PRINTERS),		ICID_PRINTER, true, IDC_PRINTERS);
+	AddButton(ResString(IDS_CONNECTIONS),	ICID_NETWORK, true, IDC_CONNECTIONS);
+	AddButton(ResString(IDS_ADMIN),			ICID_CONFIG, true, IDC_ADMIN);
 
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_NOCONTROLPANEL))
 #endif
 		AddButton(ResString(IDS_SETTINGS_MENU),	ICID_CONFIG, true, IDC_SETTINGS_MENU);
-
-	AddButton(ResString(IDS_DESKTOPBAR_SETTINGS), ICID_CONFIG, false, ID_DESKTOPBAR_SETTINGS);
 }
 
 void BrowseMenu::AddEntries()
@@ -2021,27 +1745,23 @@ void BrowseMenu::AddEntries()
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_NONETHOOD))	// or REST_NOENTIRENETWORK ?
 #endif
-#ifdef _ROS_	// to be removed when printer/network will be implemented
-		AddButton(ResString(IDS_NETWORK),		ICID_NETWORK, false, IDC_NETWORK);
-#else
-		AddButton(ResString(IDS_NETWORK),		ICID_NETWORK, true, IDC_NETWORK);
-#endif
+		AddButton(ResString(IDS_NETWORK),	ICID_NETWORK, true, IDC_NETWORK);
 
-	AddButton(ResString(IDS_DRIVES),			ICID_FOLDER, true, IDC_DRIVES);
+	AddButton(ResString(IDS_DRIVES),	ICID_FOLDER, true, IDC_DRIVES);
 }
 
 void SearchMenu::AddEntries()
 {
 	super::AddEntries();
 
-	AddButton(ResString(IDS_SEARCH_FILES),		ICID_SEARCH_DOC, false, IDC_SEARCH_FILES);
+	AddButton(ResString(IDS_SEARCH_PRG),	ICID_APPS, false, IDC_SEARCH_PROGRAM);
+
+	AddButton(ResString(IDS_SEARCH_FILES),	ICID_SEARCH_DOC, false, IDC_SEARCH_FILES);
 
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_HASFINDCOMPUTERS))
 #endif
-		AddButton(ResString(IDS_SEARCH_COMPUTER),ICID_COMPUTER, false, IDC_SEARCH_COMPUTER);
-
-	AddButton(ResString(IDS_SEARCH_PRG),		ICID_APPS, false, IDC_SEARCH_PROGRAM);
+		AddButton(ResString(IDS_SEARCH_COMPUTER),	ICID_COMPUTER, false, IDC_SEARCH_COMPUTER);
 }
 
 
@@ -2055,75 +1775,13 @@ void RecentStartMenu::AddEntries()
 			WaitCursor wait;
 
 #ifdef _LAZY_ICONEXTRACT
-			dir.smart_scan(SORT_NAME, SCAN_FILESYSTEM);
+			dir.smart_scan(SCAN_FILESYSTEM);
 #else
-			dir.smart_scan(SORT_NAME, SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
+			dir.smart_scan(SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
 #endif
 		}
 
 		dir.sort_directory(SORT_DATE);
-		AddShellEntries(dir, RECENT_DOCS_COUNT, smd._subfolders);
+		AddShellEntries(dir, 16, smd._subfolders);	///@todo read max. count of entries from registry
 	}
 }
-
-
-#ifndef _SHELL32_FAVORITES
-
-void FavoritesMenu::AddEntries()
-{
-	super::AddEntries();
-
-	for(BookmarkList::iterator it=_bookmarks.begin(); it!=_bookmarks.end(); ++it) {
-		BookmarkNode& node = *it;
-
-		int id = ++_next_id;
-
-		_entries[id] = node;
-
-		if (node._type == BookmarkNode::BMNT_FOLDER) {
-			BookmarkFolder& folder = *node._pfolder;
-
-			AddButton(folder._name, ICID_FOLDER, true, id);
-		} else if (node._type == BookmarkNode::BMNT_BOOKMARK) {
-			Bookmark& bookmark = *node._pbookmark;
-
-			ICON_ID icon = ICID_NONE;
-
-			if (!bookmark._icon_path.empty())
-				icon = g_Globals._icon_cache.extract(bookmark._icon_path, bookmark._icon_idx);
-
-			AddButton(bookmark._name, icon!=ICID_NONE?icon:ICID_BOOKMARK, false, id);
-		}
-	}
-}
-
-int FavoritesMenu::Command(int id, int code)
-{
-	BookmarkMap::iterator found = _entries.find(id);
-
-	if (found != _entries.end()) {
-		BookmarkNode& node = found->second;
-
-		if (node._type == BookmarkNode::BMNT_FOLDER) {
-			BookmarkFolder& folder = *node._pfolder;
-
-			if (CloseOtherSubmenus(id))
-				CreateSubmenu(id, folder._name, STARTMENU_CREATOR(FavoritesMenu), &static_cast<BookmarkList&>(folder._bookmarks));
-		} else if (node._type == BookmarkNode::BMNT_BOOKMARK) {
-			Bookmark& bookmark = *node._pbookmark;
-
-			String url = bookmark._url;
-			HWND hparent = GetParent(_hwnd);
-
-			CloseStartMenu(id);
-
-			launch_file(hparent, url, SW_SHOWNORMAL);
-		}
-
-		return 0;
-	}
-
-	return super::Command(id, code);
-}
-
-#endif

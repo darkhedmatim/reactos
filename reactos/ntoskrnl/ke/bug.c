@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bug.c,v 1.48 2004/12/12 17:42:00 hbirr Exp $
+/* $Id: bug.c,v 1.41 2003/12/30 18:52:04 fireball Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/bug.c
@@ -30,15 +30,22 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <roskrnl.h>
 #include <ntos/bootvid.h>
+#include <internal/kd.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+
 #include <internal/debug.h>
+
 #include "../../hal/halx86/include/hal.h"
 
 /* GLOBALS ******************************************************************/
 
 static LIST_ENTRY BugcheckCallbackListHead = {NULL,NULL};
 static ULONG InBugCheck;
+
+VOID PsDumpThreads(VOID);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -50,20 +57,13 @@ KeInitializeBugCheck(VOID)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN STDCALL
 KeDeregisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord)
 {
-	/* Check the Current State */
-	if (CallbackRecord->State == BufferInserted) {
-		CallbackRecord->State = BufferEmpty;
-		RemoveEntryList(&CallbackRecord->Entry);
-		return TRUE;
-	}
-	
-	/* The callback wasn't registered */
-	return FALSE;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /*
@@ -76,21 +76,12 @@ KeRegisterBugCheckCallback(PKBUGCHECK_CALLBACK_RECORD CallbackRecord,
 			   ULONG Length,
 			   PUCHAR Component)
 {
-
-	/* Check the Current State first so we don't double-register */
-	if (CallbackRecord->State == BufferEmpty) {
-		CallbackRecord->Length = Length;
-		CallbackRecord->Buffer = Buffer;
-		CallbackRecord->Component = Component;
-		CallbackRecord->CallbackRoutine = CallbackRoutine;
-		CallbackRecord->State = BufferInserted;
-		InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
-		
-		return TRUE;
-	}
-  
-	/* The Callback was already registered */
-	return(FALSE);
+  InsertTailList(&BugcheckCallbackListHead, &CallbackRecord->Entry);
+  CallbackRecord->Length = Length;
+  CallbackRecord->Buffer = Buffer;
+  CallbackRecord->Component = Component;
+  CallbackRecord->CallbackRoutine = CallbackRoutine;
+  return(TRUE);
 }
 
 VOID STDCALL
@@ -103,7 +94,6 @@ KeBugCheckWithTf(ULONG BugCheckCode,
 {
   PRTL_MESSAGE_RESOURCE_ENTRY Message;
   NTSTATUS Status;
-  ULONG Mask;
   KIRQL OldIrql;
 
   /* Make sure we're switching back to the blue screen and print messages on it */
@@ -113,8 +103,13 @@ KeBugCheckWithTf(ULONG BugCheckCode,
       KdDebugState |= KD_DEBUG_SCREEN;
     }
 
-  Ke386DisableInterrupts();
-  DebugLogDumpMessages();
+#if defined(__GNUC__)
+  __asm__("cli\n\t");
+#elif defined(_MSC_VER)
+  __asm cli
+#else
+#error Unknown compiler for inline assembler
+#endif
 
   if (KeGetCurrentIrql() < DISPATCH_LEVEL)
     {
@@ -143,59 +138,51 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     {
       DbgPrint("  No message text found!\n\n");
     }
-  Mask = 1 << KeGetCurrentProcessorNumber();
-  if (InBugCheck & Mask)
+
+  if (InBugCheck == 1)
     {
-#ifdef MP
-      DbgPrint("Recursive bug check on CPU%d, halting now\n", KeGetCurrentProcessorNumber());
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
-#else
       DbgPrint("Recursive bug check halting now\n");
-#endif
-      Ke386HaltProcessor();
-    }
-  /* 
-   * FIXME:
-   *   Use InterlockedOr or InterlockedBitSet.
-   */
-  InBugCheck |= Mask;
-  if (Tf != NULL)
-    {
-      KiDumpTrapFrame(Tf, BugCheckParameter1, BugCheckParameter2);
-    }
-  else
-    {
+      for (;;)
+	{
 #if defined(__GNUC__)
-      KeDumpStackFrames((PULONG)__builtin_frame_address(0));
+	  __asm__("hlt\n\t");
 #elif defined(_MSC_VER)
-      __asm push ebp
-      __asm call KeDumpStackFrames
-      __asm add esp, 4
+	  __asm hlt
 #else
 #error Unknown compiler for inline assembler
 #endif
+	}
     }
+  InBugCheck = 1;
+  KiDumpTrapFrame(Tf, BugCheckParameter1, BugCheckParameter2);
   MmDumpToPagingFile(BugCheckCode, BugCheckParameter1, 
 		     BugCheckParameter2, BugCheckParameter3,
 		     BugCheckParameter4, Tf);
 
   if (KdDebuggerEnabled)
     {
-      Ke386EnableInterrupts();
-      DbgBreakPointNoBugCheck();
-      Ke386DisableInterrupts();
+#if defined(__GNUC__)
+      __asm__("sti\n\t");
+      DbgBreakPoint();
+      __asm__("cli\n\t");
+#elif defined(_MSC_VER)
+      __asm sti
+      DbgBreakPoint();
+      __asm cli
+#else
+#error Unknown compiler for inline assembler
+#endif
     }
 
   for (;;)
     {
-      /*
-       * FIXME:
-       *   Send an ipi to all other processors which halt them too.
-       */
-      Ke386HaltProcessor();
+#if defined(__GNUC__)
+      __asm__("hlt\n\t");
+#elif defined(_MSC_VER)
+      __asm hlt
+#else
+#error Unknown compiler for inline assembler
+#endif
     }
 }
 
@@ -217,8 +204,116 @@ KeBugCheckEx(ULONG BugCheckCode,
  * RETURNS: Doesn't
  */
 {
-  KeBugCheckWithTf(BugCheckCode, BugCheckParameter1, BugCheckParameter2,
-		   BugCheckParameter3, BugCheckParameter4, NULL);
+  PRTL_MESSAGE_RESOURCE_ENTRY Message;
+  NTSTATUS Status;
+  KIRQL OldIrql;
+
+  /* Make sure we're switching back to the blue screen and print messages on it */
+  HalReleaseDisplayOwnership();
+  if (0 == (KdDebugState & KD_DEBUG_GDB))
+    {
+      KdDebugState |= KD_DEBUG_SCREEN;
+    }
+
+#if defined(__GNUC__)
+  __asm__("cli\n\t");
+#elif defined(_MSC_VER)
+  __asm cli
+#else
+#error Unknown compiler for inline assembler
+#endif
+  if (KeGetCurrentIrql() < DISPATCH_LEVEL)
+    {
+      KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
+    }
+  DbgPrint("Bug detected (code %x param %x %x %x %x)\n",
+	   BugCheckCode,
+	   BugCheckParameter1,
+	   BugCheckParameter2,
+	   BugCheckParameter3,
+	   BugCheckParameter4);
+
+  Status = RtlFindMessage((PVOID)KERNEL_BASE, //0xC0000000,
+			  11, //RT_MESSAGETABLE,
+			  0x09, //0x409,
+			  BugCheckCode,
+			  &Message);
+  if (NT_SUCCESS(Status))
+    {
+      if (Message->Flags == 0)
+	DbgPrint("  %s\n", Message->Text);
+      else
+	DbgPrint("  %S\n", (PWSTR)Message->Text);
+    }
+  else
+    {
+      DbgPrint("  No message text found!\n\n");
+    }
+
+  if (InBugCheck == 1)
+    {
+      DbgPrint("Recursive bug check halting now\n");
+      for (;;)
+	{
+#if defined(__GNUC__)
+	  __asm__("hlt\n\t");
+#elif defined(_MSC_VER)
+	  __asm hlt
+#else
+#error Unknown compiler for inline assembler
+#endif
+	}
+    }
+  InBugCheck = 1;
+  if (PsGetCurrentProcess() != NULL)
+    {
+      DbgPrint("Pid: %x <", PsGetCurrentProcess()->UniqueProcessId);
+      DbgPrint("%.8s> ", PsGetCurrentProcess()->ImageFileName);
+    }
+  if (PsGetCurrentThread() != NULL)
+    {
+      DbgPrint("Thrd: %x Tid: %x\n",
+	       PsGetCurrentThread(),
+	       PsGetCurrentThread()->Cid.UniqueThread);
+    }
+#if defined(__GNUC__)
+  KeDumpStackFrames((PULONG)__builtin_frame_address(0));
+#elif defined(_MSC_VER)
+  __asm push ebp
+  __asm call KeDumpStackFrames
+  __asm add esp, 4
+#else
+#error Unknown compiler for inline assembler
+#endif
+  MmDumpToPagingFile(BugCheckCode, BugCheckParameter1, 
+		     BugCheckParameter2, BugCheckParameter3,
+		     BugCheckParameter4, NULL);
+
+  if (KdDebuggerEnabled)
+    {
+#if defined(__GNUC__)
+      __asm__("sti\n\t");
+      DbgBreakPoint();
+      __asm__("cli\n\t");
+#elif defined(_MSC_VER)
+      __asm sti
+      DbgBreakPoint();
+      __asm cli
+#else
+#error Unknown compiler for inline assembler
+#endif
+    }
+
+  for (;;)
+    {
+#if defined(__GNUC__)
+      __asm__("hlt\n\t");
+#elif defined(_MSC_VER)
+      __asm hlt
+#else
+#error Unknown compiler for inline assembler
+#endif
+    }
 }
 
 /*

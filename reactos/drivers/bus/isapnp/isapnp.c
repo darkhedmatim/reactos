@@ -1,4 +1,4 @@
-/* $Id: isapnp.c,v 1.10 2004/07/03 17:40:20 navaraf Exp $
+/* $Id: isapnp.c,v 1.8 2003/11/14 17:13:24 weiden Exp $
  *
  * PROJECT:         ReactOS ISA PnP Bus driver
  * FILE:            isapnp.c
@@ -584,7 +584,7 @@ static NTSTATUS AddIrqResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[3];
-  ULONG irq, i, last = 0;
+  ULONG irq, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -639,7 +639,7 @@ static NTSTATUS AddDmaResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[2];
-  ULONG dma, flags, i, last = 0;
+  ULONG dma, flags, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -1424,7 +1424,7 @@ ISAPNPQueryBusRelations(
   PISAPNP_LOGICAL_DEVICE LogicalDevice;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   ULONG Size;
   ULONG i;
 
@@ -1726,12 +1726,12 @@ DriverEntry(
 {
   DbgPrint("ISA Plug and Play Bus Driver\n");
 
-  DriverObject->MajorFunction[IRP_MJ_CREATE] = ISAPNPDispatchOpenClose;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = ISAPNPDispatchOpenClose;
-  DriverObject->MajorFunction[IRP_MJ_READ] = ISAPNPDispatchReadWrite;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = ISAPNPDispatchReadWrite;
-  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = ISAPNPDispatchDeviceControl;
-  DriverObject->MajorFunction[IRP_MJ_PNP] = ISAPNPControl;
+  DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)ISAPNPDispatchOpenClose;
+  DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)ISAPNPDispatchOpenClose;
+  DriverObject->MajorFunction[IRP_MJ_READ] = (PDRIVER_DISPATCH)ISAPNPDispatchReadWrite;
+  DriverObject->MajorFunction[IRP_MJ_WRITE] = (PDRIVER_DISPATCH)ISAPNPDispatchReadWrite;
+  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = (PDRIVER_DISPATCH)ISAPNPDispatchDeviceControl;
+  DriverObject->MajorFunction[IRP_MJ_PNP] = (PDRIVER_DISPATCH)ISAPNPControl;
   DriverObject->DriverExtension->AddDevice = ISAPNPAddDevice;
 
   return STATUS_SUCCESS;

@@ -1,4 +1,4 @@
-/* $Id: deviceio.c,v 1.15 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: deviceio.c,v 1.13 2003/11/27 00:57:57 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,13 +12,14 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+//#define DBG
+#include <kernel32/kernel32.h>
 
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DeviceIoControl(
 		HANDLE hDevice,
@@ -36,7 +37,7 @@ DeviceIoControl(
 	PIO_STATUS_BLOCK IoStatusBlock;
 	IO_STATUS_BLOCK IIosb;
 
-	BOOL bFsIoControlCode = FALSE;
+	WINBOOL bFsIoControlCode = FALSE;
 
     DPRINT("DeviceIoControl(hDevice %x dwIoControlCode %d lpInBuffer %x "
           "nInBufferSize %d lpOutBuffer %x nOutBufferSize %d "
@@ -135,13 +136,13 @@ DeviceIoControl(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetOverlappedResult (
   IN HANDLE   hFile,
 	IN LPOVERLAPPED	lpOverlapped,
 	OUT LPDWORD		lpNumberOfBytesTransferred,
-	IN BOOL		bWait
+	IN WINBOOL		bWait
 	)
 {
 	DWORD WaitStatus;

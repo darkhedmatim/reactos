@@ -7,14 +7,11 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = msvcrt20
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSVCRT20)
-
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
+TARGET_BASE = 0x78000000
 
 TARGET_LFLAGS = -nostartfiles --enable-stdcall-fixup
 
-TARGET_SDKLIBS = wine.a string.a kernel32.a ntdll.a
+TARGET_SDKLIBS = libwine.a string.a kernel32.a ntdll.a
 
 TARGET_GCCLIBS = gcc
 

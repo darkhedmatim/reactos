@@ -611,14 +611,11 @@ DWORD WINAPI RegEnumKey16( HKEY hkey, DWORD index, LPSTR name, DWORD name_len )
 /*************************************************************************
  *           SHELL_Execute16 [Internal]
  */
-static UINT SHELL_Execute16(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
-			    LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
+static UINT SHELL_Execute16(const char *lpCmd, void *env, BOOL shWait,
+			    LPSHELLEXECUTEINFOA psei, LPSHELLEXECUTEINFOA psei_out)
 {
-    UINT ret;
-    char sCmd[MAX_PATH];
-    WideCharToMultiByte(CP_ACP, 0, lpCmd, -1, sCmd, MAX_PATH, NULL, NULL);
-    ret = WinExec16(sCmd, (UINT16)psei->nShow);
-    psei_out->hInstApp = HINSTANCE_32(ret);
+    UINT ret = WinExec16(lpCmd, psei->nShow);
+    psei->hInstApp = HINSTANCE_32(ret);
     return ret;
 }
 
@@ -629,31 +626,23 @@ HINSTANCE16 WINAPI ShellExecute16( HWND16 hWnd, LPCSTR lpOperation,
                                    LPCSTR lpFile, LPCSTR lpParameters,
                                    LPCSTR lpDirectory, INT16 iShowCmd )
 {
-    SHELLEXECUTEINFOW seiW;
-    WCHAR *wVerb = NULL, *wFile = NULL, *wParameters = NULL, *wDirectory = NULL;
+    SHELLEXECUTEINFOA sei;
     HANDLE hProcess = 0;
 
-    seiW.lpVerb = lpOperation ? __SHCloneStrAtoW(&wVerb, lpOperation) : NULL;
-    seiW.lpFile = lpFile ? __SHCloneStrAtoW(&wFile, lpFile) : NULL;
-    seiW.lpParameters = lpParameters ? __SHCloneStrAtoW(&wParameters, lpParameters) : NULL;
-    seiW.lpDirectory = lpDirectory ? __SHCloneStrAtoW(&wDirectory, lpDirectory) : NULL;
+    sei.cbSize = sizeof(sei);
+    sei.fMask = 0;
+    sei.hwnd = HWND_32(hWnd);
+    sei.lpVerb = lpOperation;
+    sei.lpFile = lpFile;
+    sei.lpParameters = lpParameters;
+    sei.lpDirectory = lpDirectory;
+    sei.nShow = iShowCmd;
+    sei.lpIDList = 0;
+    sei.lpClass = 0;
+    sei.hkeyClass = 0;
+    sei.dwHotKey = 0;
+    sei.hProcess = hProcess;
 
-    seiW.cbSize = sizeof(seiW);
-    seiW.fMask = 0;
-    seiW.hwnd = HWND_32(hWnd);
-    seiW.nShow = iShowCmd;
-    seiW.lpIDList = 0;
-    seiW.lpClass = 0;
-    seiW.hkeyClass = 0;
-    seiW.dwHotKey = 0;
-    seiW.hProcess = hProcess;
-
-    ShellExecuteExW32 (&seiW, SHELL_Execute16);
-
-    if (wVerb) SHFree(wVerb);
-    if (wFile) SHFree(wFile);
-    if (wParameters) SHFree(wParameters);
-    if (wDirectory) SHFree(wDirectory);
-
-    return HINSTANCE_16(seiW.hInstApp);
+    ShellExecuteExA32 (&sei, SHELL_Execute16);
+    return HINSTANCE_16(sei.hInstApp);
 }

@@ -3,9 +3,8 @@
  * 
  */
 
-#include <ddk/miniport.h>
-#include <ddk/video.h>
-#include <ddk/ntddvdeo.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddvid.h>
 
 #define UNIMPLEMENTED do {DbgPrint("%s:%d: Function not implemented", __FILE__, __LINE__); for(;;);} while (0)
 
@@ -35,8 +34,7 @@ VGATimer(PVOID DeviceExtension);
 */
 
 /*  Mandatory IoControl routines  */
-VOID  VGAMapVideoMemory(IN PVOID DeviceExtension,
-			IN PVIDEO_MEMORY  RequestedAddress,
+VOID  VGAMapVideoMemory(IN PVIDEO_MEMORY  RequestedAddress,
                         OUT PVIDEO_MEMORY_INFORMATION  MapInformation,
                         OUT PSTATUS_BLOCK  StatusBlock);
 VOID  VGAQueryAvailModes(OUT PVIDEO_MODE_INFORMATION  ReturnedModes,
@@ -55,8 +53,7 @@ VOID  VGASetCurrentMode(IN PVIDEO_MODE  RequestedMode,
 VOID  VGAShareVideoMemory(IN PVIDEO_SHARE_MEMORY  RequestedMemory,
                           OUT PVIDEO_MEMORY_INFORMATION  ReturnedMemory,
                           OUT PSTATUS_BLOCK  StatusBlock);
-VOID  VGAUnmapVideoMemory(IN PVOID DeviceExtension,
-			  IN PVIDEO_MEMORY  MemoryToUnmap,
+VOID  VGAUnmapVideoMemory(IN PVIDEO_MEMORY  MemoryToUnmap,
                           OUT PSTATUS_BLOCK  StatusBlock);
 VOID  VGAUnshareVideoMemory(IN PVIDEO_MEMORY  MemoryToUnshare,
                             OUT PSTATUS_BLOCK  StatusBlock);
@@ -85,7 +82,6 @@ DriverEntry(IN PVOID Context1,
 
   VideoPortZeroMemory(&InitData, sizeof InitData);
   
-  InitData.HwInitDataSize = sizeof(InitData);
   /* FIXME: Fill in InitData members  */
   InitData.StartingDeviceNumber = 0;
   
@@ -222,8 +218,7 @@ VGAStartIO(PVOID DeviceExtension,
   switch (RequestPacket->IoControlCode)
     {
     case  IOCTL_VIDEO_MAP_VIDEO_MEMORY:
-      VGAMapVideoMemory(DeviceExtension,
-			(PVIDEO_MEMORY) RequestPacket->InputBuffer,
+      VGAMapVideoMemory((PVIDEO_MEMORY) RequestPacket->InputBuffer,
                         (PVIDEO_MEMORY_INFORMATION) 
                           RequestPacket->OutputBuffer,
                         RequestPacket->StatusBlock);
@@ -265,8 +260,7 @@ VGAStartIO(PVOID DeviceExtension,
       break;
       
     case  IOCTL_VIDEO_UNMAP_VIDEO_MEMORY:
-      VGAUnmapVideoMemory(DeviceExtension,
-			  (PVIDEO_MEMORY) RequestPacket->InputBuffer,
+      VGAUnmapVideoMemory((PVIDEO_MEMORY) RequestPacket->InputBuffer,
                           RequestPacket->StatusBlock);
       break;
       
@@ -394,34 +388,11 @@ VGATimer(PVOID DeviceExtension)
 
 #endif
 
-VOID  VGAMapVideoMemory(IN PVOID DeviceExtension,
-			IN PVIDEO_MEMORY  RequestedAddress,
+VOID  VGAMapVideoMemory(IN PVIDEO_MEMORY  RequestedAddress,
                         OUT PVIDEO_MEMORY_INFORMATION  MapInformation,
                         OUT PSTATUS_BLOCK  StatusBlock)
 {
-  ULONG ReturnedLength;
-  PVOID ReturnedAddress;
-  ULONG IoSpace;
-  PHYSICAL_ADDRESS FrameBufferBase;
-  ReturnedAddress = RequestedAddress->RequestedVirtualAddress;
-  ReturnedLength = 256 * 1024;
-  FrameBufferBase.QuadPart = 0xA0000;
-  IoSpace = VIDEO_MEMORY_SPACE_MEMORY;
-  StatusBlock->Status = VideoPortMapMemory(DeviceExtension,
-					   FrameBufferBase,
-					   &ReturnedLength,
-					   &IoSpace,
-					   &ReturnedAddress);
-  if (StatusBlock->Status != 0)
-    {
-      StatusBlock->Information = 0;
-      return;
-    }
-  MapInformation->VideoRamBase = MapInformation->FrameBufferBase =
-    ReturnedAddress;
-  MapInformation->VideoRamLength = MapInformation->FrameBufferLength =
-    ReturnedLength;
-  StatusBlock->Information = sizeof(VIDEO_MEMORY_INFORMATION);
+  UNIMPLEMENTED;
 }
 
 VOID  VGAQueryAvailModes(OUT PVIDEO_MODE_INFORMATION  ReturnedModes,
@@ -502,13 +473,10 @@ VOID  VGAShareVideoMemory(IN PVIDEO_SHARE_MEMORY  RequestedMemory,
   UNIMPLEMENTED;
 }
 
-VOID  VGAUnmapVideoMemory(IN PVOID DeviceExtension,
-			  IN PVIDEO_MEMORY  MemoryToUnmap,
+VOID  VGAUnmapVideoMemory(IN PVIDEO_MEMORY  MemoryToUnmap,
                           OUT PSTATUS_BLOCK  StatusBlock)
 {
-  VideoPortUnmapMemory(DeviceExtension,
-		       MemoryToUnmap->RequestedVirtualAddress,
-		       0);
+  UNIMPLEMENTED;
 }
 
 VOID  VGAUnshareVideoMemory(IN PVIDEO_MEMORY  MemoryToUnshare,

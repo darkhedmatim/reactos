@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: computername.c,v 1.7 2004/10/30 22:18:17 weiden Exp $
+/* $Id: computername.c,v 1.3 2003/09/12 17:51:47 vizzini Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -30,217 +30,10 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS *****************************************************************/
-
-static BOOL GetComputerNameFromRegistry( LPWSTR RegistryKey,
-					 LPWSTR ValueNameStr,
-					 LPWSTR lpBuffer, 
-					 LPDWORD nSize ) {
-    PKEY_VALUE_PARTIAL_INFORMATION KeyInfo;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    ULONG KeyInfoSize;
-    ULONG ReturnSize;
-    NTSTATUS Status;
-    
-    RtlInitUnicodeString (&KeyName,RegistryKey);
-    InitializeObjectAttributes (&ObjectAttributes,
-				&KeyName,
-				OBJ_CASE_INSENSITIVE,
-				NULL,
-				NULL);
-    Status = ZwOpenKey (&KeyHandle,
-			KEY_READ,
-			&ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-	SetLastErrorByStatus (Status);
-	return FALSE;
-    }
-    
-    KeyInfoSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
-	*nSize * sizeof(WCHAR);
-    KeyInfo = RtlAllocateHeap (RtlGetProcessHeap (),
-			       0,
-			       KeyInfoSize);
-    if (KeyInfo == NULL)
-    {
-	ZwClose (KeyHandle);
-	SetLastError (ERROR_OUTOFMEMORY);
-	return FALSE;
-    }
-    
-    RtlInitUnicodeString (&ValueName,ValueNameStr);
-    
-    Status = ZwQueryValueKey (KeyHandle,
-			      &ValueName,
-			      KeyValuePartialInformation,
-			      KeyInfo,
-			      KeyInfoSize,
-			      &ReturnSize);
-    if (!NT_SUCCESS(Status))
-    {
-	RtlFreeHeap (RtlGetProcessHeap (),
-		     0,
-		     KeyInfo);
-	ZwClose (KeyHandle);
-	SetLastErrorByStatus (Status);
-	return FALSE;
-    }
-    
-    if( *nSize > (KeyInfo->DataLength / sizeof(WCHAR)) ) {
-	*nSize = KeyInfo->DataLength / sizeof(WCHAR);
-	lpBuffer[*nSize] = 0;
-    }
-
-    RtlCopyMemory (lpBuffer,
-		   KeyInfo->Data,
-		   *nSize * sizeof(WCHAR));
-
-    RtlFreeHeap (RtlGetProcessHeap (),
-		 0,
-		 KeyInfo)
-;
-    ZwClose (KeyHandle);
-    
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL STDCALL
-GetComputerNameExW (
-    COMPUTER_NAME_FORMAT NameType,
-    LPWSTR lpBuffer,
-    LPDWORD nSize
-    )
-{
-    UNICODE_STRING ResultString;
-    UNICODE_STRING DomainPart, Dot;
-    UNICODE_STRING RegKey, RegValue;
-    
-    switch( NameType ) {
-    case ComputerNameNetBIOS: 
-	return GetComputerNameFromRegistry
-	    ( L"\\Registry\\Machine\\System\\CurrentControlSet"
-	      L"\\Control\\ComputerName\\ComputerName",
-	      L"ComputerName",
-	      lpBuffer, 
-	      nSize );
-
-    case ComputerNameDnsDomain:
-	return GetComputerNameFromRegistry
-	    ( L"\\Registry\\Machine\\System\\CurrentControlSet"
-	      L"\\Services\\Tcpip\\Parameters",
-	      L"Domain",
-	      lpBuffer, 
-	      nSize );
-
-    case ComputerNameDnsFullyQualified:
-	RtlInitUnicodeString(&Dot,L".");
-	RosInitializeString(&ResultString,0,*nSize * sizeof(WCHAR),lpBuffer);
-	RtlInitUnicodeString(&RegKey,
-			     L"\\Registry\\Machine\\System"
-			     L"\\CurrentControlSet\\Services\\Tcpip"
-			     L"\\Parameters");
-	RtlInitUnicodeString(&RegValue,L"HostName");
-	RtlInitUnicodeString(&DomainPart,L"");
-	if( NT_SUCCESS(RosReadRegistryValue(&RegKey,&RegValue,&DomainPart)) ) {
-	    RtlAppendUnicodeStringToString(&ResultString,&DomainPart);
-	    RtlAppendUnicodeStringToString(&ResultString,&Dot);
-	    RtlFreeUnicodeString(&DomainPart);
-	    RtlInitUnicodeString(&RegValue,L"Domain");
-	    RtlInitUnicodeString(&DomainPart,L"");
-	    if( NT_SUCCESS(RosReadRegistryValue
-			   (&RegKey,&RegValue,&DomainPart)) ) {
-		RtlAppendUnicodeStringToString(&ResultString,&DomainPart);
-		RtlFreeUnicodeString(&DomainPart);
-		*nSize = ResultString.Length / sizeof(WCHAR);
-		return TRUE;
-	    }
-	}
-	return FALSE;
-
-    case ComputerNameDnsHostname:
-	return GetComputerNameFromRegistry
-	    ( L"\\Registry\\Machine\\System\\CurrentControlSet"
-	      L"\\Services\\Tcpip\\Parameters",
-	      L"Hostname",
-	      lpBuffer, 
-	      nSize );
-	
-    case ComputerNamePhysicalDnsDomain:
-	return GetComputerNameFromRegistry
-	    ( L"\\Registry\\Machine\\System\\CurrentControlSet"
-	      L"\\Services\\Tcpip\\Parameters",
-	      L"Domain",
-	      lpBuffer, 
-	      nSize );
-
-	/* XXX Redo these */
-    case ComputerNamePhysicalDnsFullyQualified:
-	return GetComputerNameExW( ComputerNameDnsFullyQualified, 
-				   lpBuffer, nSize );
-    case ComputerNamePhysicalDnsHostname:
-	return GetComputerNameExW( ComputerNameDnsHostname,
-				   lpBuffer, nSize );
-    case ComputerNamePhysicalNetBIOS:
-	return GetComputerNameExW( ComputerNameNetBIOS,
-				   lpBuffer, nSize );
-
-    case ComputerNameMax:
-	return FALSE;
-    }
-
-    return FALSE;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetComputerNameExA (
-    COMPUTER_NAME_FORMAT NameType,
-    LPSTR lpBuffer,
-    LPDWORD nSize
-    )
-{
-    UNICODE_STRING UnicodeString;
-    ANSI_STRING AnsiString;
-    BOOL Result;
-    PWCHAR TempBuffer = RtlAllocateHeap( GetProcessHeap(), 0, *nSize * sizeof(WCHAR) );
-    
-    if( !TempBuffer ) {
-	return ERROR_OUTOFMEMORY;
-    }
-
-    AnsiString.MaximumLength = *nSize;
-    AnsiString.Length = 0;
-    AnsiString.Buffer = lpBuffer;
-
-    Result = GetComputerNameExW( NameType, TempBuffer, nSize );
-
-    if( Result ) {
-	UnicodeString.MaximumLength = *nSize * sizeof(WCHAR);
-	UnicodeString.Length = *nSize * sizeof(WCHAR);
-	UnicodeString.Buffer = TempBuffer;
-	
-	RtlUnicodeStringToAnsiString (&AnsiString,
-				      &UnicodeString,
-				      FALSE);
-    }
-
-    HeapFree( GetProcessHeap(), 0, TempBuffer );
-    
-    return Result;
-}
 
 /*
  * @implemented
@@ -249,7 +42,39 @@ BOOL STDCALL
 GetComputerNameA (LPSTR lpBuffer,
 		  LPDWORD lpnSize)
 {
-    return GetComputerNameExA( ComputerNameNetBIOS, lpBuffer, lpnSize );
+  UNICODE_STRING UnicodeString;
+  ANSI_STRING AnsiString;
+
+  AnsiString.MaximumLength = *lpnSize;
+  AnsiString.Length = 0;
+  AnsiString.Buffer = lpBuffer;
+
+  UnicodeString.MaximumLength = *lpnSize * sizeof(WCHAR);
+  UnicodeString.Length = 0;
+  UnicodeString.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
+					  0,
+					  UnicodeString.MaximumLength);
+  if (UnicodeString.Buffer == NULL)
+    {
+      SetLastError (ERROR_OUTOFMEMORY);
+      return FALSE;
+    }
+
+  if (!GetComputerNameW (UnicodeString.Buffer, lpnSize))
+    {
+      RtlFreeUnicodeString (&UnicodeString);
+      return FALSE;
+    }
+
+  UnicodeString.Length = *lpnSize * sizeof(WCHAR);
+
+  RtlUnicodeStringToAnsiString (&AnsiString,
+				&UnicodeString,
+				FALSE);
+
+  RtlFreeUnicodeString (&UnicodeString);
+
+  return TRUE;
 }
 
 
@@ -260,7 +85,76 @@ BOOL STDCALL
 GetComputerNameW (LPWSTR lpBuffer,
 		  LPDWORD lpnSize)
 {
-    return GetComputerNameExW( ComputerNameNetBIOS, lpBuffer, lpnSize );
+  PKEY_VALUE_PARTIAL_INFORMATION KeyInfo;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING KeyName;
+  UNICODE_STRING ValueName;
+  HANDLE KeyHandle;
+  ULONG KeyInfoSize;
+  ULONG ReturnSize;
+  NTSTATUS Status;
+
+  RtlInitUnicodeString (&KeyName,
+			L"\\Registry\\Machine\\System\\CurrentControlSet\\Control\\ComputerName\\ComputerName");
+  InitializeObjectAttributes (&ObjectAttributes,
+			      &KeyName,
+			      OBJ_CASE_INSENSITIVE,
+			      NULL,
+			      NULL);
+  Status = NtOpenKey (&KeyHandle,
+		      KEY_READ,
+		      &ObjectAttributes);
+  if (!NT_SUCCESS(Status))
+    {
+      SetLastErrorByStatus (Status);
+      return FALSE;
+    }
+
+  KeyInfoSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
+		*lpnSize * sizeof(WCHAR);
+  KeyInfo = RtlAllocateHeap (RtlGetProcessHeap (),
+			     0,
+			     KeyInfoSize);
+  if (KeyInfo == NULL)
+    {
+      NtClose (KeyHandle);
+      SetLastError (ERROR_OUTOFMEMORY);
+      return FALSE;
+    }
+
+  RtlInitUnicodeString (&ValueName,
+			L"ComputerName");
+
+  Status = NtQueryValueKey (KeyHandle,
+			    &ValueName,
+			    KeyValuePartialInformation,
+			    KeyInfo,
+			    KeyInfoSize,
+			    &ReturnSize);
+  if (!NT_SUCCESS(Status))
+    {
+      RtlFreeHeap (RtlGetProcessHeap (),
+		   0,
+		   KeyInfo);
+      NtClose (KeyHandle);
+      SetLastErrorByStatus (Status);
+      return FALSE;
+    }
+
+  *lpnSize =
+    (KeyInfo->DataLength != 0) ? (KeyInfo->DataLength / sizeof(WCHAR)) - 1 : 0;
+
+  RtlCopyMemory (lpBuffer,
+		 KeyInfo->Data,
+		 KeyInfo->DataLength);
+  lpBuffer[*lpnSize] = 0;
+
+  RtlFreeHeap (RtlGetProcessHeap (),
+	       0,
+	       KeyInfo);
+  NtClose (KeyHandle);
+
+  return TRUE;
 }
 
 
@@ -373,13 +267,13 @@ SetComputerNameW (LPCWSTR lpComputerName)
 			  (wcslen (lpComputerName) + 1) * sizeof(WCHAR));
   if (!NT_SUCCESS(Status))
     {
-      ZwClose (KeyHandle);
+      NtClose (KeyHandle);
       SetLastErrorByStatus (Status);
       return FALSE;
     }
 
   NtFlushKey (KeyHandle);
-  ZwClose (KeyHandle);
+  NtClose (KeyHandle);
 
   return TRUE;
 }

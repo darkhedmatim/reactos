@@ -7,7 +7,7 @@
  */
 unsigned char * _mbsspnp(const unsigned char *s1, const unsigned char *s2)
 {
-  const unsigned char *p = s1, *spanp;
+  const char *p = s1, *spanp;
   char c, sc;
 
  cont:

@@ -124,7 +124,15 @@
  *        Improved chdir/cd command.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 #ifdef INCLUDE_CMD_CHDIR
@@ -238,9 +246,8 @@ INT cmd_chdir (LPTSTR cmd, LPTSTR param)
 
 	if (!SetCurrentDirectory (dir))
 	{
-		//ErrorMessage (GetLastError(), _T("CD"));
-		ConOutFormatMessage(GetLastError());
-		
+		ErrorMessage (GetLastError(), _T("CD"));
+
 		/* throw away current directory */
 		free (lpOldPath);
 		lpOldPath = NULL;

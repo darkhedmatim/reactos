@@ -27,7 +27,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -134,7 +138,7 @@ KiInitializeGdt(PKPCR Pcr)
 	   "movl %1, %%fs\n\t"
 	   "movl %0, %%gs\n\t"
 	   : /* no output */
-	   : "a" (KERNEL_DS), "d" (PCR_SELECTOR));
+	   : "a" (KERNEL_DS), "b" (PCR_SELECTOR));
   __asm__ ("pushl %0\n\t"
 	   "pushl $.l4\n\t"
 	   "lret\n\t"
@@ -146,10 +150,10 @@ KiInitializeGdt(PKPCR Pcr)
   {
     lgdt Descriptor;
     mov ax, KERNEL_DS;
-    mov dx, PCR_SELECTOR;
+    mov bx, PCR_SELECTOR;
     mov ds, ax;
     mov es, ax;
-    mov fs, dx;
+    mov fs, bx;
     mov gs, ax;
     push KERNEL_CS;
     push offset l4 ;
@@ -161,60 +165,18 @@ l4:
 #endif
 }
 
-
-/*
- * @unimplemented
- */
-NTSTATUS
-KeI386FlatToGdtSelector(
-	IN ULONG	Base,
-	IN USHORT	Length,
-	IN USHORT	Selector
-)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-KeI386ReleaseGdtSelectors(
-	OUT PULONG SelArray,
-	IN ULONG NumOfSelectors
-)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-KeI386AllocateGdtSelectors(
-	OUT PULONG SelArray,
-    IN ULONG NumOfSelectors
-)
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
 VOID 
 KeSetBaseGdtSelector(ULONG Entry,
 		     PVOID Base)
 {
    KIRQL oldIrql;
-   PUSHORT Gdt;
+   PUSHORT Gdt = KeGetCurrentKPCR()->GDT;
    
    DPRINT("KeSetBaseGdtSelector(Entry %x, Base %x)\n",
 	   Entry, Base);
    
    KeAcquireSpinLock(&GdtLock, &oldIrql);
    
-   Gdt = KeGetCurrentKPCR()->GDT;
    Entry = (Entry & (~0x3)) / 2;
    
    Gdt[Entry + 1] = (USHORT)(((ULONG)Base) & 0xffff);
@@ -242,14 +204,13 @@ KeSetGdtSelector(ULONG Entry,
                  ULONG Value2)
 {
    KIRQL oldIrql;
-   PULONG Gdt; 
+   PULONG Gdt = (PULONG) KeGetCurrentKPCR()->GDT;
    
    DPRINT("KeSetGdtSelector(Entry %x, Value1 %x, Value2 %x)\n",
 	   Entry, Value1, Value2);
    
    KeAcquireSpinLock(&GdtLock, &oldIrql);
    
-   Gdt = (PULONG) KeGetCurrentKPCR()->GDT;;
    Entry = (Entry & (~0x3)) / 4;
 
    Gdt[Entry] = Value1;

@@ -1,4 +1,4 @@
-/* $Id: errlog.c,v 1.20 2004/09/28 12:51:14 ekohl Exp $
+/* $Id: errlog.c,v 1.16 2003/12/30 18:52:04 fireball Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
+#include <internal/port.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -118,7 +121,11 @@ IopRestartLogWorker (VOID)
   KeInitializeTimer (&WorkerDpc->Timer);
 
   /* Restart after 30 seconds */
-  Timeout.QuadPart = (LONGLONG)-300000000;
+#if defined(__GNUC__)
+  Timeout.QuadPart = -300000000LL;
+#else
+  Timeout.QuadPart = -300000000;
+#endif
   KeSetTimer (&WorkerDpc->Timer,
 	      Timeout,
 	      &WorkerDpc->Dpc);
@@ -176,6 +183,7 @@ IopLogWorker (PVOID Parameter)
 
   /* Release the work item */
   ExFreePool (Parameter);
+
 
   /* Connect to the error log port */
   if (IopLogPortConnected == FALSE)
@@ -314,7 +322,7 @@ IopLogWorker (PVOID Parameter)
       KeAcquireSpinLock (&IopAllocationLock,
 			 &Irql);
 
-      IopTotalLogSize -= (LogEntry->PacketSize - sizeof(ERROR_LOG_ENTRY));
+      IopTotalLogSize -= LogEntry->PacketSize;
       ExFreePool (LogEntry);
 
       KeReleaseSpinLock (&IopAllocationLock,
@@ -338,7 +346,7 @@ IoAllocateErrorLogEntry (IN PVOID IoObject,
   ULONG LogEntrySize;
   KIRQL Irql;
 
-  DPRINT("IoAllocateErrorLogEntry() called\n");
+  DPRINT1 ("IoAllocateErrorLogEntry() called\n");
 
   if (IoObject == NULL)
     return NULL;
@@ -379,40 +387,13 @@ IoAllocateErrorLogEntry (IN PVOID IoObject,
  * @implemented
  */
 VOID STDCALL
-IoFreeErrorLogEntry(IN PVOID ElEntry)
-{
-  PERROR_LOG_ENTRY LogEntry;
-  KIRQL Irql;
-
-  DPRINT("IoFreeErrorLogEntry() called\n");
-
-  if (ElEntry == NULL)
-    return;
-
-  LogEntry = (PERROR_LOG_ENTRY)((ULONG_PTR)ElEntry - sizeof(ERROR_LOG_ENTRY));
-
-  KeAcquireSpinLock(&IopAllocationLock,
-		    &Irql);
-
-  IopTotalLogSize -= (LogEntry->PacketSize - sizeof(ERROR_LOG_ENTRY));
-  ExFreePool(LogEntry);
-
-  KeReleaseSpinLock(&IopAllocationLock,
-		    Irql);
-}
-
-
-/*
- * @implemented
- */
-VOID STDCALL
 IoWriteErrorLogEntry (IN PVOID ElEntry)
 {
   PWORK_QUEUE_ITEM LogWorkItem;
   PERROR_LOG_ENTRY LogEntry;
   KIRQL Irql;
 
-  DPRINT("IoWriteErrorLogEntry() called\n");
+  DPRINT ("IoWriteErrorLogEntry() called\n");
 
   LogEntry = (PERROR_LOG_ENTRY)((ULONG_PTR)ElEntry - sizeof(ERROR_LOG_ENTRY));
 
@@ -445,7 +426,7 @@ IoWriteErrorLogEntry (IN PVOID ElEntry)
   KeReleaseSpinLock (&IopLogListLock,
 		     Irql);
 
-  DPRINT("IoWriteErrorLogEntry() done\n");
+  DPRINT ("IoWriteErrorLogEntry() done\n");
 }
 
 /* EOF */

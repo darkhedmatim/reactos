@@ -29,8 +29,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -42,11 +40,43 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-static const IStreamVtbl stvt;
+static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVOID *ppvObj);
+static ULONG WINAPI IStream_fnAddRef(IStream *iface);
+static ULONG WINAPI IStream_fnRelease(IStream *iface);
+static HRESULT WINAPI IStream_fnRead (IStream * iface, void* pv, ULONG cb, ULONG* pcbRead);
+static HRESULT WINAPI IStream_fnWrite (IStream * iface, const void* pv, ULONG cb, ULONG* pcbWritten);
+static HRESULT WINAPI IStream_fnSeek (IStream * iface, LARGE_INTEGER dlibMove, DWORD dwOrigin, ULARGE_INTEGER* plibNewPosition);
+static HRESULT WINAPI IStream_fnSetSize (IStream * iface, ULARGE_INTEGER libNewSize);
+static HRESULT WINAPI IStream_fnCopyTo (IStream * iface, IStream* pstm, ULARGE_INTEGER cb, ULARGE_INTEGER* pcbRead, ULARGE_INTEGER* pcbWritten);
+static HRESULT WINAPI IStream_fnCommit (IStream * iface, DWORD grfCommitFlags);
+static HRESULT WINAPI IStream_fnRevert (IStream * iface);
+static HRESULT WINAPI IStream_fnLockRegion (IStream * iface, ULARGE_INTEGER libOffset, ULARGE_INTEGER cb, DWORD dwLockType);
+static HRESULT WINAPI IStream_fnUnlockRegion (IStream * iface, ULARGE_INTEGER libOffset, ULARGE_INTEGER cb, DWORD dwLockType);
+static HRESULT WINAPI IStream_fnStat (IStream * iface, STATSTG*   pstatstg, DWORD grfStatFlag);
+static HRESULT WINAPI IStream_fnClone (IStream * iface, IStream** ppstm);
+
+static ICOM_VTABLE(IStream) stvt =
+{
+	ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
+	IStream_fnQueryInterface,
+	IStream_fnAddRef,
+	IStream_fnRelease,
+	IStream_fnRead,
+	IStream_fnWrite,
+	IStream_fnSeek,
+	IStream_fnSetSize,
+	IStream_fnCopyTo,
+	IStream_fnCommit,
+	IStream_fnRevert,
+	IStream_fnLockRegion,
+	IStream_fnUnlockRegion,
+	IStream_fnStat,
+	IStream_fnClone
+
+};
 
 typedef struct
-{	
-	const IStreamVtbl	*lpvtst;
+{	ICOM_VTABLE(IStream)	*lpvtst;
 	DWORD		ref;
 	HANDLE		handle;
 } ISHFileStream;
@@ -77,14 +107,14 @@ HRESULT CreateStreamOnFile (LPCWSTR pszFilename, DWORD grfMode, IStream ** ppstm
 
 	TRACE("Opening %s\n", debugstr_w(pszFilename) );
 
-       handle = CreateFileW( pszFilename, access, FILE_SHARE_READ, NULL, creat, 0, NULL );
+	handle = CreateFileW( pszFilename, access, FILE_SHARE_READ, NULL, creat, 0, NULL );
 	if( handle == INVALID_HANDLE_VALUE )
-		return HRESULT_FROM_WIN32(GetLastError());
+		return E_FAIL;
 
 	fstr = (ISHFileStream*)HeapAlloc(GetProcessHeap(),
 		HEAP_ZERO_MEMORY,sizeof(ISHFileStream));
 	if( !fstr )
-		return E_OUTOFMEMORY;
+		return E_FAIL;
 	fstr->lpvtst=&stvt;
 	fstr->ref = 1;
 	fstr->handle = handle;
@@ -99,7 +129,7 @@ HRESULT CreateStreamOnFile (LPCWSTR pszFilename, DWORD grfMode, IStream ** ppstm
 */
 static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVOID *ppvObj)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvObj);
 
@@ -126,7 +156,7 @@ static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVO
 */
 static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)->(count=%lu)\n",This, This->ref);
 
@@ -138,7 +168,7 @@ static ULONG WINAPI IStream_fnAddRef(IStream *iface)
 */
 static ULONG WINAPI IStream_fnRelease(IStream *iface)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)->()\n",This);
 
@@ -153,7 +183,7 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
 
 static HRESULT WINAPI IStream_fnRead (IStream * iface, void* pv, ULONG cb, ULONG* pcbRead)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)->(%p,0x%08lx,%p)\n",This, pv, cb, pcbRead);
 
@@ -161,24 +191,24 @@ static HRESULT WINAPI IStream_fnRead (IStream * iface, void* pv, ULONG cb, ULONG
 		return STG_E_INVALIDPOINTER;
 
 	if ( ! ReadFile( This->handle, pv, cb, pcbRead, NULL ) )
-		return S_FALSE;
+		return E_FAIL;
 
 	return S_OK;
 }
 
 static HRESULT WINAPI IStream_fnWrite (IStream * iface, const void* pv, ULONG cb, ULONG* pcbWritten)
 {
-       DWORD dummy_count;
-	ISHFileStream *This = (ISHFileStream *)iface;
+	DWORD dummy_count;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
 	if( !pv )
 		return STG_E_INVALIDPOINTER;
 
-       /* WriteFile() doesn't allow to specify NULL as write count pointer */
-       if (!pcbWritten)
-               pcbWritten = &dummy_count;
+	/* WriteFile() doesn't allow to specify NULL as write count pointer. */
+	if (!pcbWritten)
+		pcbWritten = &dummy_count;
 
 	if( ! WriteFile( This->handle, pv, cb, pcbWritten, NULL ) )
 		return E_FAIL;
@@ -190,7 +220,7 @@ static HRESULT WINAPI IStream_fnSeek (IStream * iface, LARGE_INTEGER dlibMove, D
 {
 	DWORD pos, newposlo, newposhi;
 
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -207,7 +237,7 @@ static HRESULT WINAPI IStream_fnSeek (IStream * iface, LARGE_INTEGER dlibMove, D
 
 static HRESULT WINAPI IStream_fnSetSize (IStream * iface, ULARGE_INTEGER libNewSize)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -221,7 +251,7 @@ static HRESULT WINAPI IStream_fnSetSize (IStream * iface, ULARGE_INTEGER libNewS
 }
 static HRESULT WINAPI IStream_fnCopyTo (IStream * iface, IStream* pstm, ULARGE_INTEGER cb, ULARGE_INTEGER* pcbRead, ULARGE_INTEGER* pcbWritten)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -229,7 +259,7 @@ static HRESULT WINAPI IStream_fnCopyTo (IStream * iface, IStream* pstm, ULARGE_I
 }
 static HRESULT WINAPI IStream_fnCommit (IStream * iface, DWORD grfCommitFlags)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -237,7 +267,7 @@ static HRESULT WINAPI IStream_fnCommit (IStream * iface, DWORD grfCommitFlags)
 }
 static HRESULT WINAPI IStream_fnRevert (IStream * iface)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -245,7 +275,7 @@ static HRESULT WINAPI IStream_fnRevert (IStream * iface)
 }
 static HRESULT WINAPI IStream_fnLockRegion (IStream * iface, ULARGE_INTEGER libOffset, ULARGE_INTEGER cb, DWORD dwLockType)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -253,7 +283,7 @@ static HRESULT WINAPI IStream_fnLockRegion (IStream * iface, ULARGE_INTEGER libO
 }
 static HRESULT WINAPI IStream_fnUnlockRegion (IStream * iface, ULARGE_INTEGER libOffset, ULARGE_INTEGER cb, DWORD dwLockType)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -261,7 +291,7 @@ static HRESULT WINAPI IStream_fnUnlockRegion (IStream * iface, ULARGE_INTEGER li
 }
 static HRESULT WINAPI IStream_fnStat (IStream * iface, STATSTG*   pstatstg, DWORD grfStatFlag)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
@@ -269,28 +299,9 @@ static HRESULT WINAPI IStream_fnStat (IStream * iface, STATSTG*   pstatstg, DWOR
 }
 static HRESULT WINAPI IStream_fnClone (IStream * iface, IStream** ppstm)
 {
-	ISHFileStream *This = (ISHFileStream *)iface;
+	ICOM_THIS(ISHFileStream, iface);
 
 	TRACE("(%p)\n",This);
 
 	return E_NOTIMPL;
 }
-
-static const IStreamVtbl stvt =
-{
-	IStream_fnQueryInterface,
-	IStream_fnAddRef,
-	IStream_fnRelease,
-	IStream_fnRead,
-	IStream_fnWrite,
-	IStream_fnSeek,
-	IStream_fnSetSize,
-	IStream_fnCopyTo,
-	IStream_fnCommit,
-	IStream_fnRevert,
-	IStream_fnLockRegion,
-	IStream_fnUnlockRegion,
-	IStream_fnStat,
-	IStream_fnClone
-
-};

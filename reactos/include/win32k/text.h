@@ -6,16 +6,16 @@
 typedef struct
 {
    LOGFONTW   logfont;
-   FONTOBJ    *Font;
+   HFONT      GDIFontHandle;
 } TEXTOBJ, *PTEXTOBJ;
 
 /*  Internal interface  */
 
 #define  TEXTOBJ_AllocText() \
-  ((HFONT) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT)
+  ((HFONT) GDIOBJ_AllocObj (sizeof (TEXTOBJ), GDI_OBJECT_TYPE_FONT, NULL))
+#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT, GDIOBJFLAG_DEFAULT)
 #define  TEXTOBJ_LockText(hBMObj) ((PTEXTOBJ) GDIOBJ_LockObj ((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj)
+#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT)
 
 NTSTATUS FASTCALL TextIntRealizeFont(HFONT FontHandle);
 NTSTATUS FASTCALL TextIntCreateFontIndirect(CONST LPLOGFONTW lf, HFONT *NewFont);
@@ -52,6 +52,21 @@ NtGdiCreateScalableFontResource(DWORD  Hidden,
                                      LPCWSTR  FontRes,
                                      LPCWSTR  FontFile,
                                      LPCWSTR  CurrentPath);
+
+int
+STDCALL
+NtGdiEnumFontFamilies(HDC  hDC,
+                          LPCWSTR  Family,
+                          FONTENUMPROCW EnumFontFamProc,
+                          LPARAM  lParam);
+
+int
+STDCALL
+NtGdiEnumFontFamiliesEx(HDC  hDC,
+                            LPLOGFONTW  Logfont,
+                            FONTENUMEXPROCW  EnumFontFamExProc,
+                            LPARAM  lParam,
+                            DWORD  Flags);
 
 int
 STDCALL
@@ -98,6 +113,13 @@ NtGdiGetCharacterPlacement(HDC  hDC,
                                  int  MaxExtent,
                                  LPGCP_RESULTSW Results,
                                  DWORD  Flags);
+
+BOOL
+STDCALL
+NtGdiGetCharWidth(HDC  hDC,
+                       UINT  FirstChar,
+                       UINT  LastChar,
+                       LPINT  Buffer);
 
 BOOL
 STDCALL
@@ -227,6 +249,12 @@ NtGdiTextOut(HDC  hDC,
                   int  YStart,
                   LPCWSTR  String,
                   int  Count);
+
+UINT
+STDCALL
+NtGdiTranslateCharsetInfo(PDWORD  Src,
+                               LPCHARSETINFO  CSI,
+                               DWORD  Flags);
 
 #endif
 

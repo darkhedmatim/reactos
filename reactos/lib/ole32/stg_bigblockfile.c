@@ -38,10 +38,8 @@
 #include <string.h>
 #include <limits.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -224,27 +222,22 @@ static BOOL BIGBLOCKFILE_FileInit(LPBIGBLOCKFILE This, HANDLE hFile)
   if (This->hfile == INVALID_HANDLE_VALUE)
     return FALSE;
 
+  /* create the file mapping object
+   */
+  This->hfilemap = CreateFileMappingA(This->hfile,
+                                      NULL,
+                                      This->flProtect,
+                                      0, 0,
+                                      NULL);
+
+  if (!This->hfilemap)
+  {
+    CloseHandle(This->hfile);
+    return FALSE;
+  }
+
   This->filesize.u.LowPart = GetFileSize(This->hfile,
 					 &This->filesize.u.HighPart);
-
-  if( This->filesize.u.LowPart || This->filesize.u.HighPart )
-  {
-    /* create the file mapping object
-     */
-    This->hfilemap = CreateFileMappingA(This->hfile,
-                                        NULL,
-                                        This->flProtect,
-                                        0, 0,
-                                        NULL);
-
-    if (!This->hfilemap)
-    {
-      CloseHandle(This->hfile);
-      return FALSE;
-    }
-  }
-  else
-    This->hfilemap = NULL;
 
   This->maplist = NULL;
 
@@ -427,8 +420,7 @@ void BIGBLOCKFILE_SetSize(LPBIGBLOCKFILE This, ULARGE_INTEGER newSize)
     /*
      * close file-mapping object, must be done before call to SetEndFile
      */
-    if( This->hfilemap )
-      CloseHandle(This->hfilemap);
+    CloseHandle(This->hfilemap);
     This->hfilemap = 0;
 
     /*
@@ -669,9 +661,6 @@ static BOOL BIGBLOCKFILE_MapPage(LPBIGBLOCKFILE This, MappedPage *page)
     {
 	DWORD numBytesToMap;
 	DWORD desired_access;
-
-        if( !This->hfilemap )
-            return FALSE;
 
 	if (lowoffset + PAGE_SIZE > This->filesize.u.LowPart)
 	    numBytesToMap = This->filesize.u.LowPart - lowoffset;

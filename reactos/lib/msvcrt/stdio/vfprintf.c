@@ -219,16 +219,10 @@ static int numberf(FILE * f, double __n, char exp_sign,  int size, int precision
 	char ro = 0;
 	int result, done = 0;
 
-	union
-	{
-		double*  __n;
-		double_t*  n;
-	} n;
-	
-	n.__n = &__n;
+	double_t *n = (double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3ff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3ff);
 		exponent = ie/3.321928;
 	}
 
@@ -428,16 +422,10 @@ static int numberfl(FILE * f, long double __n, char exp_sign,  int size, int pre
 
 	int result, done = 0;
 
-	union
-	{
-	    long double*   __n;
-	    long_double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	long_double_t *n = (long_double_t *)&__n;
 
 	if ( exp_sign == 'g' || exp_sign == 'G' || exp_sign == 'e' || exp_sign == 'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3fff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3fff);
 		exponent = ie/3.321928;
 	}
 
@@ -691,20 +679,9 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 		}
 	for (i = 0; i < len; ++i)
 	{
-#define MB_CUR_MAX 1
-		char mb[MB_CUR_MAX];
-		int mbcount, j;
-		mbcount = wctomb(mb, *sw++);
-		if (mbcount <= 0)
-		{
-			break;
-		}
-		for (j = 0; j < mbcount; j++)
-		{
-			if (putc(mb[j], f) == EOF)
-				return -1;
-			done++;
-		}
+		if (putc((unsigned char)(*sw++), f) == EOF)
+			return -1;
+		done++;
 	}
 	while (len < field_width--)
 	{
@@ -723,7 +700,7 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 	long double _ldouble;
 	double _double;
 	const char *s;
-	const wchar_t *sw;
+	const short int* sw;
 	int result, done = 0;
 
 	int flags;		/* flags to number() */
@@ -1083,12 +1060,8 @@ int __vfprintf(FILE *f, const char *fmt, va_list args)
 
 		if (qualifier == 'I')
 			num = va_arg(args, ULONGLONG);
-		else if (qualifier == 'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);

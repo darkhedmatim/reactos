@@ -10,7 +10,7 @@ TARGET_NAME = winspool
 
 TARGET_EXTENSION = .drv
 
-TARGET_BASE = $(TARGET_BASE_LIB_WINSPOOL)
+TARGET_BASE = 0x77800000
 
 TARGET_CFLAGS = \
  -I./include \
@@ -27,7 +27,7 @@ TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = wine.a wine_unicode.a ntdll.a kernel32.a
+TARGET_SDKLIBS = libwine.a libwine_unicode.a ntdll.a kernel32.a
 
 TARGET_OBJECTS = info.o stubs.o
 

@@ -1,4 +1,4 @@
-/* $Id: volume.c,v 1.44 2004/11/21 10:39:11 weiden Exp $
+/* $Id: volume.c,v 1.35.2.1 2004/01/17 23:01:15 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -22,7 +22,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 #define MAX_DOS_DRIVES 26
@@ -87,7 +87,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
    DWORD drive, count;
    DWORD dwDriveMap;
 
-   dwDriveMap = GetLogicalDrives();
+   dwDriveMap = SharedUserData->DosDeviceMap;
 
    for (drive = count = 0; drive < MAX_DOS_DRIVES; drive++)
      {
@@ -124,7 +124,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
    DWORD drive, count;
    DWORD dwDriveMap;
 
-   dwDriveMap = GetLogicalDrives();
+   dwDriveMap = SharedUserData->DosDeviceMap;
 
    for (drive = count = 0; drive < MAX_DOS_DRIVES; drive++)
      {
@@ -155,31 +155,14 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 DWORD STDCALL
 GetLogicalDrives(VOID)
 {
-	NTSTATUS Status;
-	PROCESS_DEVICEMAP_INFORMATION ProcessDeviceMapInfo;
-
-	/* Get the Device Map for this Process */
-	Status = NtQueryInformationProcess(NtCurrentProcess(),
-					   ProcessDeviceMap,
-					   &ProcessDeviceMapInfo,
-					   sizeof(ProcessDeviceMapInfo),
-					   NULL);
-
-	/* Return the Drive Map */
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastErrorByStatus(Status);
-		return 0;
-	}
-
-        return ProcessDeviceMapInfo.Query.DriveMap;
+  return(SharedUserData->DosDeviceMap);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetDiskFreeSpaceA (
 	LPCSTR	lpRootPathName,
 	LPDWORD	lpSectorsPerCluster,
@@ -190,7 +173,7 @@ GetDiskFreeSpaceA (
 {
 	UNICODE_STRING RootPathNameU;
 	ANSI_STRING RootPathName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&RootPathName,
 	                   (LPSTR)lpRootPathName);
@@ -231,7 +214,7 @@ GetDiskFreeSpaceA (
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetDiskFreeSpaceW(
     LPCWSTR lpRootPathName,
     LPDWORD lpSectorsPerCluster,
@@ -253,8 +236,8 @@ GetDiskFreeSpaceW(
     else
     {
         GetCurrentDirectoryW (MAX_PATH, RootPathName);
+        RootPathName[3] = 0;
     }
-    RootPathName[3] = 0;
 
   hFile = InternalOpenDirW(RootPathName, FALSE);
   if (INVALID_HANDLE_VALUE == hFile)
@@ -280,7 +263,6 @@ GetDiskFreeSpaceW(
     *lpNumberOfFreeClusters = FileFsSize.AvailableAllocationUnits.u.LowPart;
     *lpTotalNumberOfClusters = FileFsSize.TotalAllocationUnits.u.LowPart;
     CloseHandle(hFile);
-
     return TRUE;
 }
 
@@ -288,7 +270,7 @@ GetDiskFreeSpaceW(
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetDiskFreeSpaceExA (
 	LPCSTR		lpDirectoryName,
 	PULARGE_INTEGER	lpFreeBytesAvailableToCaller,
@@ -298,7 +280,7 @@ GetDiskFreeSpaceExA (
 {
 	UNICODE_STRING DirectoryNameU;
 	ANSI_STRING DirectoryName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&DirectoryName,
 	                   (LPSTR)lpDirectoryName);
@@ -338,7 +320,7 @@ GetDiskFreeSpaceExA (
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetDiskFreeSpaceExW(
     LPCWSTR lpDirectoryName,
     PULARGE_INTEGER lpFreeBytesAvailableToCaller,
@@ -360,8 +342,8 @@ GetDiskFreeSpaceExW(
     else
     {
         GetCurrentDirectoryW (MAX_PATH, RootPathName);
+        RootPathName[3] = 0;
     }
-    RootPathName[3] = 0;
 
     hFile = InternalOpenDirW(RootPathName, FALSE);
     if (INVALID_HANDLE_VALUE == hFile)
@@ -397,7 +379,6 @@ GetDiskFreeSpaceExW(
             BytesPerCluster.QuadPart * FileFsSize.AvailableAllocationUnits.QuadPart;
 
     CloseHandle(hFile);
-
     return TRUE;
 }
 
@@ -465,35 +446,14 @@ GetDriveTypeW(LPCWSTR lpRootPathName)
 		return 0;	
 	}
 	CloseHandle(hFile);
-
-        switch (FileFsDevice.DeviceType)
-        {
-		case FILE_DEVICE_CD_ROM:
-		case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-			return DRIVE_CDROM;
-	        case FILE_DEVICE_VIRTUAL_DISK:
-	        	return DRIVE_RAMDISK;
-	        case FILE_DEVICE_NETWORK_FILE_SYSTEM:
-	        	return DRIVE_REMOTE;
-	        case FILE_DEVICE_DISK:
-	        case FILE_DEVICE_DISK_FILE_SYSTEM:
-			if (FileFsDevice.Characteristics & FILE_REMOTE_DEVICE)
-				return DRIVE_REMOTE;
-			if (FileFsDevice.Characteristics & FILE_REMOVABLE_MEDIA)
-				return DRIVE_REMOVABLE;
-			return DRIVE_FIXED;
-        }
-
-        DPRINT1("Returning DRIVE_UNKNOWN for device type %d\n", FileFsDevice.DeviceType);
-
-	return DRIVE_UNKNOWN;
+	return (UINT)FileFsDevice.DeviceType;
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetVolumeInformationA(
 	LPCSTR	lpRootPathName,
 	LPSTR	lpVolumeNameBuffer,
@@ -511,7 +471,7 @@ GetVolumeInformationA(
   ANSI_STRING RootPathName;
   ANSI_STRING VolumeName;
   ANSI_STRING FileSystemName;
-  BOOL Result;
+  WINBOOL Result;
 
   RtlInitAnsiString (&RootPathName,
 	             (LPSTR)lpRootPathName);
@@ -630,7 +590,7 @@ GetVolumeInformationA(
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetVolumeInformationW(
     LPCWSTR lpRootPathName,
     LPWSTR lpVolumeNameBuffer,
@@ -650,7 +610,7 @@ GetVolumeInformationW(
 
   HANDLE hFile;
   NTSTATUS errCode;
-
+ 
   FileFsVolume = (PFILE_FS_VOLUME_INFORMATION)Buffer;
   FileFsAttribute = (PFILE_FS_ATTRIBUTE_INFORMATION)Buffer;
 
@@ -660,12 +620,12 @@ GetVolumeInformationW(
   if (!lpRootPathName || !wcscmp(lpRootPathName, L""))
   {
       GetCurrentDirectoryW (MAX_PATH, RootPathName);
+      RootPathName[3] = 0;
   }
   else
   {
-      wcsncpy (RootPathName, lpRootPathName, 3);
+      wcsncpy (RootPathName, lpRootPathName, min(MAX_PATH, wcslen(lpRootPathName) + 1));
   }
-  RootPathName[3] = 0;
 
   hFile = InternalOpenDirW(RootPathName, FALSE);
   if (hFile == INVALID_HANDLE_VALUE)
@@ -746,7 +706,7 @@ GetVolumeInformationW(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetVolumeLabelA (
 	LPCSTR	lpRootPathName,
@@ -757,7 +717,7 @@ SetVolumeLabelA (
 	ANSI_STRING RootPathName;
 	UNICODE_STRING VolumeNameU;
 	ANSI_STRING VolumeName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&RootPathName,
 	                   (LPSTR)lpRootPathName);
@@ -801,7 +761,7 @@ SetVolumeLabelA (
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetVolumeLabelW(LPCWSTR lpRootPathName,
 		LPCWSTR lpVolumeName)
 {

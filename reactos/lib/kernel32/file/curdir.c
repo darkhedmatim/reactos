@@ -1,4 +1,4 @@
-/* $Id: curdir.c,v 1.45 2004/08/29 12:12:34 weiden Exp $
+/* $Id: curdir.c,v 1.39 2003/11/17 02:12:50 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBAL VARIABLES **********************************************************/
@@ -97,7 +97,7 @@ GetCurrentDirectoryW (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetCurrentDirectoryA (
 	LPCSTR	lpPathName
@@ -137,7 +137,7 @@ SetCurrentDirectoryA (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetCurrentDirectoryW (
 	LPCWSTR	lpPathName
@@ -270,10 +270,10 @@ GetSystemDirectoryA (
 	ULONG Length;
 	NTSTATUS Status;
 
-	Length = RtlUnicodeStringToAnsiSize (&SystemDirectory);	  //len of ansi str incl. nullchar
-
 	if (lpBuffer == NULL)
-		return Length;
+		return 0;
+
+	Length = RtlUnicodeStringToAnsiSize (&SystemDirectory);	  //len of ansi str incl. nullchar
 
 	if (uSize >= Length){
 		String.Length = 0;
@@ -312,11 +312,10 @@ GetSystemDirectoryW (
 {
 	ULONG Length;
 
-	Length = SystemDirectory.Length / sizeof (WCHAR);
-
 	if (lpBuffer == NULL)
-		return Length + 1;
+		return 0;
 
+	Length = SystemDirectory.Length / sizeof (WCHAR);
 	if (uSize > Length)	{
 		memmove (lpBuffer,
 		         SystemDirectory.Buffer,
@@ -343,11 +342,11 @@ GetWindowsDirectoryA (
 	ULONG Length;
 	NTSTATUS Status;
 
+	if (lpBuffer == NULL)
+		return 0;
+
 	Length = RtlUnicodeStringToAnsiSize (&WindowsDirectory); //len of ansi str incl. nullchar
 	
-	if (lpBuffer == NULL)
-		return Length;
-
 	if (uSize >= Length){
 
 		String.Length = 0;
@@ -386,11 +385,10 @@ GetWindowsDirectoryW (
 {
 	ULONG Length;
 
-	Length = WindowsDirectory.Length / sizeof (WCHAR);
-
 	if (lpBuffer == NULL)
-		return Length + 1;
+		return 0;
 
+	Length = WindowsDirectory.Length / sizeof (WCHAR);
 	if (uSize > Length)
 	{
 		memmove (lpBuffer,
@@ -405,7 +403,7 @@ GetWindowsDirectoryW (
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
@@ -414,11 +412,12 @@ GetSystemWindowsDirectoryA(
 	UINT	uSize
 	)
 {
+    DbgPrint("Fixme: GetSystemWindowsDirectoryA\n");
     return GetWindowsDirectoryA( lpBuffer, uSize );
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
@@ -427,6 +426,7 @@ GetSystemWindowsDirectoryW(
 	UINT	uSize
 	)
 {
+    DbgPrint("Fixme: GetSystemWindowsDirectoryW\n");
     return GetWindowsDirectoryW( lpBuffer, uSize );
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,10 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
 
-#include "../explorer_intres.h"
+#include "../explorer.h"
+#include "../globals.h"
 
 #include "quicklaunch.h"
 
@@ -56,7 +57,6 @@ QuickLaunchBar::QuickLaunchBar(HWND hwnd)
 	_dir = NULL;
 	_next_id = IDC_FIRST_QUICK_ID;
 	_btn_dist = 20;
-	_size = 0;
 
 	HWND hwndToolTip = (HWND) SendMessage(hwnd, TB_GETTOOLTIPS, 0, 0);
 
@@ -78,8 +78,7 @@ HWND QuickLaunchBar::Create(HWND hwndParent)
 	ClientRect clnt(hwndParent);
 
 	HWND hwnd = CreateToolbarEx(hwndParent,
-								WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|
-								CCS_TOP|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE|
+								WS_CHILD|WS_VISIBLE|CCS_NODIVIDER|CCS_NORESIZE|
 								TBSTYLE_TOOLTIPS|TBSTYLE_WRAPABLE|TBSTYLE_FLAT,
 								IDW_QUICKLAUNCHBAR, 0, 0, 0, NULL, 0, 0, 0, 16, 16, sizeof(TBBUTTON));
 
@@ -98,14 +97,14 @@ void QuickLaunchBar::AddShortcuts()
 	try {
 		TCHAR path[MAX_PATH];
 
-		SpecialFolderFSPath app_data(CSIDL_APPDATA, _hwnd);	///@todo perhaps also look into CSIDL_COMMON_APPDATA ?
+		SpecialFolderFSPath app_data(CSIDL_APPDATA, _hwnd);	// perhaps also look into CSIDL_COMMON_APPDATA ?
 
 		_stprintf(path, TEXT("%s\\")QUICKLAUNCH_FOLDER, (LPCTSTR)app_data);
 
 		RecursiveCreateDirectory(path);
-		_dir = new ShellDirectory(GetDesktopFolder(), path, _hwnd);
+		_dir = new ShellDirectory(Desktop(), path, _hwnd);
 
-		_dir->smart_scan(SORT_NAME, SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
+		_dir->smart_scan(SCAN_EXTRACT_ICONS|SCAN_FILESYSTEM);
 	} catch(COMException&) {
 		return;
 	}
@@ -117,39 +116,7 @@ void QuickLaunchBar::AddShortcuts()
 	COLORREF bk_color = GetSysColor(COLOR_BTNFACE);
 	HBRUSH bk_brush = GetSysColorBrush(COLOR_BTNFACE);
 
-	AddButton(ID_MINIMIZE_ALL, g_Globals._icon_cache.get_icon(ICID_LOGOFF/*@@*/).create_bitmap(bk_color, bk_brush, canvas), ResString(IDS_MINIMIZE_ALL), NULL);
-	AddButton(ID_EXPLORE, g_Globals._icon_cache.get_icon(ICID_EXPLORER).create_bitmap(bk_color, bk_brush, canvas), ResString(IDS_TITLE), NULL);
-
-	TBBUTTON sep = {0, -1, TBSTATE_ENABLED, BTNS_SEP, {0, 0}, 0, 0};
-	SendMessage(_hwnd, TB_INSERTBUTTON, INT_MAX, (LPARAM)&sep);
-
-	int cur_desktop = g_Globals._desktops._current_desktop;
-	ResString desktop_fmt(IDS_DESKTOP_NUM);
-
-	HDC hdc = CreateCompatibleDC(canvas);
-	DWORD size = SendMessage(_hwnd, TB_GETBUTTONSIZE, 0, 0);
-	int cx = LOWORD(size);
-	int cy = HIWORD(size);
-	RECT rect = {0, 0, cx, cy};
-	RECT textRect = {0, 0, cx-7, cy-7};
-
-	for(int i=0; i<DESKTOP_COUNT; ++i) {
-		HBITMAP hbmp = CreateCompatibleBitmap(canvas, cx, cy);
-		HBITMAP hbmp_old = SelectBitmap(hdc, hbmp);
-
-		FmtString num_txt(TEXT("%d"), i+1);
-		TextColor color(hdc, RGB(64,64,64));
-		BkMode mode(hdc, TRANSPARENT);
-		FillRect(hdc, &rect, GetSysColorBrush(COLOR_BTNFACE));
-		DrawText(hdc, num_txt, num_txt.length(), &textRect, DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-
-		SelectBitmap(hdc, hbmp_old);
-
-		AddButton(ID_SWITCH_DESKTOP_1+i, hbmp, FmtString(desktop_fmt, i+1), NULL, cur_desktop==i?TBSTATE_ENABLED|TBSTATE_CHECKED:TBSTATE_ENABLED);
-	}
-	DeleteDC(hdc);
-
-	SendMessage(_hwnd, TB_INSERTBUTTON, INT_MAX, (LPARAM)&sep);
+	TBBUTTON btn = {0, 0, TBSTATE_ENABLED, BTNS_BUTTON|BTNS_NOPREFIX, {0, 0}, 0, 0};
 
 	for(Entry*entry=_dir->_down; entry; entry=entry->_next) {
 		 // hide files like "desktop.ini"
@@ -160,44 +127,29 @@ void QuickLaunchBar::AddShortcuts()
 			if (!(entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
 				HBITMAP hbmp = g_Globals._icon_cache.get_icon(entry->_icon_id).create_bitmap(bk_color, bk_brush, canvas);
 
-				AddButton(_next_id++, hbmp, entry->_display_name, entry);	//entry->_etype==ET_SHELL? desktop_folder.get_name(static_cast<ShellEntry*>(entry)->_pidl): entry->_display_name);
+				TBADDBITMAP ab = {0, (UINT_PTR)hbmp};
+				int bmp_idx = SendMessage(_hwnd, TB_ADDBITMAP, 1, (LPARAM)&ab);
+
+				QuickLaunchEntry qle;
+
+				int id = ++_next_id;
+
+				qle._hbmp = hbmp;
+				qle._title = entry->_display_name;	//entry->_etype==ET_SHELL? desktop_folder.get_name(static_cast<ShellEntry*>(entry)->_pidl): entry->_display_name
+				qle._entry = entry;
+
+				_entries[id] = qle;
+
+				btn.idCommand = id;
+				btn.iBitmap = bmp_idx;
+				int idx = SendMessage(_hwnd, TB_BUTTONCOUNT, 0, 0);
+
+				SendMessage(_hwnd, TB_INSERTBUTTON, idx, (LPARAM)&btn);
 			}
 	}
 
 	_btn_dist = LOWORD(SendMessage(_hwnd, TB_GETBUTTONSIZE, 0, 0));
-	_size = _entries.size() * _btn_dist;
-
 	SendMessage(GetParent(_hwnd), PM_RESIZE_CHILDREN, 0, 0);
-}
-
-void QuickLaunchBar::AddButton(int id, HBITMAP hbmp, LPCTSTR name, Entry* entry, int flags)
-{
-	TBADDBITMAP ab = {0, (UINT_PTR)hbmp};
-	int bmp_idx = SendMessage(_hwnd, TB_ADDBITMAP, 1, (LPARAM)&ab);
-
-	QuickLaunchEntry qle;
-
-	qle._hbmp = hbmp;
-	qle._title = name;
-	qle._entry = entry;
-
-	_entries[id] = qle;
-
-	TBBUTTON btn = {0, 0, flags, BTNS_BUTTON|BTNS_NOPREFIX, {0, 0}, 0, 0};
-
-	btn.idCommand = id;
-	btn.iBitmap = bmp_idx;
-
-	SendMessage(_hwnd, TB_INSERTBUTTON, INT_MAX, (LPARAM)&btn);
-}
-
-void QuickLaunchBar::UpdateDesktopButtons(int desktop_idx)
-{
-	for(int i=0; i<DESKTOP_COUNT; ++i) {
-		TBBUTTONINFO tbi = {sizeof(TBBUTTONINFO), TBIF_STATE, 0, 0, desktop_idx==i? TBSTATE_ENABLED|TBSTATE_CHECKED: TBSTATE_ENABLED};
-
-		SendMessage(_hwnd, TB_SETBUTTONINFO, ID_SWITCH_DESKTOP_1+i, (LPARAM)&tbi);
-	}
 }
 
 LRESULT QuickLaunchBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
@@ -207,52 +159,10 @@ LRESULT QuickLaunchBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		AddShortcuts();
 		break;
 
-	  case PM_GET_WIDTH: {
-		 // take line wrapping into account 
-		int btns = SendMessage(_hwnd, TB_BUTTONCOUNT, 0, 0);
-		int rows = SendMessage(_hwnd, TB_GETROWS, 0, 0);
+	  case PM_GET_WIDTH:
+		return _entries.size()*_btn_dist;
 
-		if (rows<2 || rows==btns)
-			return _size;
-
-		RECT rect;
-		int max_cx = 0;
-
-		for(QuickLaunchMap::const_iterator it=_entries.begin(); it!=_entries.end(); ++it) {
-			SendMessage(_hwnd, TB_GETRECT, it->first, (LPARAM)&rect);
-
-			if (rect.right > max_cx)
-				max_cx = rect.right;
-		}
-
-		return max_cx;}
-
-	  case PM_UPDATE_DESKTOP:
-		UpdateDesktopButtons(wparam);
-		break;
-
-	  case WM_CONTEXTMENU: {
-		TBBUTTON btn;
-		QuickLaunchMap::iterator it;
-		Point screen_pt(lparam), clnt_pt=screen_pt;
-		ScreenToClient(_hwnd, &clnt_pt);
-
-		Entry* entry = NULL;
-		int idx = SendMessage(_hwnd, TB_HITTEST, 0, (LPARAM)&clnt_pt);
-
-		if (idx>=0 &&
-			SendMessage(_hwnd, TB_GETBUTTON, idx, (LPARAM)&btn)!=-1 &&
-			(it=_entries.find(btn.idCommand))!=_entries.end()) {
-			entry = it->second._entry;
-		}
-
-		if (entry)	// entry is NULL for desktop switch buttons
-			CHECKERROR(entry->do_context_menu(_hwnd, screen_pt));
-		else
-			goto def;
-		break;}
-
-	  default: def:
+	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
 
@@ -263,16 +173,9 @@ int QuickLaunchBar::Command(int id, int code)
 {
 	CONTEXT("QuickLaunchBar::Command()");
 
-	if ((id&~0xFF) == IDC_FIRST_QUICK_ID) {
-		QuickLaunchEntry& qle = _entries[id];
+	_entries[id]._entry->launch_entry(_hwnd);
 
-		if (qle._entry) {
-			qle._entry->launch_entry(_hwnd);
-			return 0;
-		}
-	}
-
-	return 0; // Don't return 1 to avoid recursion with DesktopBar::Command()
+	return 0;
 }
 
 int QuickLaunchBar::Notify(int id, NMHDR* pnmh)

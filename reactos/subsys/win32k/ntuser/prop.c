@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: prop.c,v 1.11 2004/05/10 17:07:18 weiden Exp $
+/* $Id: prop.c,v 1.6 2003/11/20 15:35:33 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,19 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <internal/safe.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/winpos.h>
+#include <include/callback.h>
+#include <include/msgqueue.h>
+#include <include/rect.h>
 
 //#define NDEBUG
 #include <debug.h>
@@ -87,7 +99,7 @@ NtUserBuildPropList(HWND hWnd,
     }
     
     /* copy list */
-    IntLockWindowProperties(WindowObject);
+    ExAcquireFastMutexUnsafe(&WindowObject->PropListLock);
     
     li = (PROPLISTITEM *)Buffer;
     ListEntry = WindowObject->PropListHead.Flink;
@@ -100,7 +112,7 @@ NtUserBuildPropList(HWND hWnd,
       Status = MmCopyToCaller(li, &listitem, sizeof(PROPLISTITEM));
       if(!NT_SUCCESS(Status))
       {
-        IntUnLockWindowProperties(WindowObject);
+        ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
         IntReleaseWindowObject(WindowObject);
         return Status;
       }
@@ -111,13 +123,13 @@ NtUserBuildPropList(HWND hWnd,
       ListEntry = ListEntry->Flink;
     }
     
-    IntUnLockWindowProperties(WindowObject);
+    ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
   }
   else
   {
-    IntLockWindowProperties(WindowObject);
+    ExAcquireFastMutexUnsafe(&WindowObject->PropListLock);
     Cnt = WindowObject->PropListItems * sizeof(PROPLISTITEM);
-    IntUnLockWindowProperties(WindowObject);
+    ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
   }
   
   IntReleaseWindowObject(WindowObject);
@@ -147,12 +159,12 @@ NtUserRemoveProp(HWND hWnd, ATOM Atom)
     return NULL;
   }
   
-  IntLockWindowProperties(WindowObject);
+  ExAcquireFastMutexUnsafe(&WindowObject->PropListLock);
   Prop = IntGetProp(WindowObject, Atom);
   
   if (Prop == NULL)
     {
-      IntUnLockWindowProperties(WindowObject);
+      ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
       IntReleaseWindowObject(WindowObject);
       return(NULL);
     }
@@ -160,7 +172,7 @@ NtUserRemoveProp(HWND hWnd, ATOM Atom)
   RemoveEntryList(&Prop->PropListEntry);
   ExFreePool(Prop);
   WindowObject->PropListItems--;
-  IntUnLockWindowProperties(WindowObject);
+  ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
   IntReleaseWindowObject(WindowObject);
   return(Data);
 }
@@ -172,20 +184,25 @@ NtUserGetProp(HWND hWnd, ATOM Atom)
   PPROPERTY Prop;
   HANDLE Data = NULL;
 
+  IntAcquireWinLockShared();
+
   if (!(WindowObject = IntGetWindowObject(hWnd)))
   {
+    IntReleaseWinLock();
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return FALSE;
   }
   
-  IntLockWindowProperties(WindowObject);
+  ExAcquireFastMutexUnsafe(&WindowObject->PropListLock);
   Prop = IntGetProp(WindowObject, Atom);
+  ExReleaseFastMutexUnsafe(&WindowObject->PropListLock);
   if (Prop != NULL)
   {
     Data = Prop->Data;
   }
-  IntUnLockWindowProperties(WindowObject);
-  IntReleaseWindowObject(WindowObject);
+  
+  IntReleaseWinLock();
+
   return(Data);
 }
 
@@ -198,7 +215,7 @@ IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
 
   if (Prop == NULL)
   {
-    Prop = ExAllocatePoolWithTag(PagedPool, sizeof(PROPERTY), TAG_WNDPROP);
+    Prop = ExAllocatePool(PagedPool, sizeof(PROPERTY));
     if (Prop == NULL)
     {
       return FALSE;
@@ -216,20 +233,23 @@ IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
 BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
-  PWINDOW_OBJECT WindowObject;
+  PWINDOW_OBJECT Wnd;
   BOOL ret;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
+  IntAcquireWinLockExclusive();
+
+  if (!(Wnd = IntGetWindowObject(hWnd)))
   {
+    IntReleaseWinLock();
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return FALSE;
   }
   
-  IntLockWindowProperties(WindowObject);
-  ret = IntSetProp(WindowObject, Atom, Data);
-  IntUnLockWindowProperties(WindowObject);
+  ExAcquireFastMutexUnsafe(&Wnd->PropListLock);
+  ret = IntSetProp(Wnd, Atom, Data);
+  ExReleaseFastMutexUnsafe(&Wnd->PropListLock);
   
-  IntReleaseWindowObject(WindowObject);
+  IntReleaseWinLock();
   return ret;
 }
 

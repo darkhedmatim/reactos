@@ -1,4 +1,4 @@
-/* $Id: receive.c,v 1.9 2004/08/15 16:39:06 chorns Exp $
+/* $Id: receive.c,v 1.8 2003/12/14 17:44:02 hbirr Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 

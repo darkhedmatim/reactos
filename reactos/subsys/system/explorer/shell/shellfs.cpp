@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,10 +26,14 @@
  //
 
 
-#include "precomp.h"
+#include "../utility/utility.h"
+#include "../utility/shellclasses.h"
 
-//#include "shellfs.h"
-//#include "winfs.h"
+#include "../globals.h"
+
+#include "entries.h"
+#include "shellfs.h"
+#include "winfs.h"
 
 #include <shlwapi.h>
 
@@ -152,13 +156,11 @@ bool ShellDirectory::get_path(PTSTR path) const
 
 	path[0] = TEXT('\0');
 
-	if (_folder.empty())
-		return false;
+	SFGAOF attribs = 0;
 
-	SFGAOF attribs = SFGAO_FILESYSTEM;
-
-	if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&_pidl, &attribs)))
-		return false;
+	if (!_folder.empty())
+		if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&_pidl, &attribs)))
+			return false;
 
 	if (!(attribs & SFGAO_FILESYSTEM))
 		return false;
@@ -188,9 +190,6 @@ BOOL ShellEntry::launch_entry(HWND hwnd, UINT nCmdShow)
 	ShellPath shell_path = create_absolute_pidl();
 	shexinfo.lpIDList = &*shell_path;
 
-	 // add PIDL to the recent file list
-	SHAddToRecentDocs(SHARD_PIDL, shexinfo.lpIDList);
-
 	BOOL ret = TRUE;
 
 	if (!ShellExecuteEx(&shexinfo)) {
@@ -199,17 +198,6 @@ BOOL ShellEntry::launch_entry(HWND hwnd, UINT nCmdShow)
 	}
 
 	return ret;
-}
-
-
-HRESULT ShellEntry::do_context_menu(HWND hwnd, LPPOINT pptScreen)
-{
-	ShellDirectory* dir = static_cast<ShellDirectory*>(_up);
-
-	ShellFolder folder = dir? dir->_folder: GetDesktopFolder();
-	LPCITEMIDLIST pidl = _pidl;
-
-	return ShellFolderContextMenu(folder, hwnd, 1, &pidl, pptScreen->x, pptScreen->y);
 }
 
 
@@ -236,7 +224,7 @@ void ShellDirectory::read_directory(int scan_flags)
 	TCHAR buffer[MAX_PATH];
 
 	if ((scan_flags&SCAN_FILESYSTEM) && get_path(buffer)) {
-		Entry* entry = NULL;	// eliminate useless GCC warning by initializing entry
+		Entry* entry;
 
 		LPTSTR p = buffer + _tcslen(buffer);
 
@@ -273,7 +261,11 @@ void ShellDirectory::read_directory(int scan_flags)
 
 				memcpy(&entry->_data, &w32fd, sizeof(WIN32_FIND_DATA));
 
+				entry->_down = NULL;
+				entry->_expanded = false;
+				entry->_scanned = false;
 				entry->_level = level;
+				entry->_bhfi_valid = false;
 
 				if (scan_flags & SCAN_DO_ACCESS) {
 					HANDLE hFile = CreateFile(buffer, GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
@@ -290,8 +282,14 @@ void ShellDirectory::read_directory(int scan_flags)
 					}
 				}
 
-				 // set file type name
-				LPCTSTR ext = g_Globals._ftype_mgr.set_type(entry);
+				LPCTSTR ext = _tcsrchr(entry->_data.cFileName, TEXT('.'));
+
+				if (ext && g_Globals._ftype_mgr[ext]._neverShowExt) {
+					int len = ext - entry->_data.cFileName;
+					entry->_display_name = (LPTSTR) malloc((len+1)*sizeof(TCHAR));
+					_tcsncpy(entry->_display_name, entry->_data.cFileName, len);
+					entry->_display_name[len] = TEXT('\0');
+				}
 
 				DWORD attribs = SFGAO_FILESYSTEM;
 
@@ -307,21 +305,15 @@ void ShellDirectory::read_directory(int scan_flags)
 				if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_COMPRESSED)
 					attribs |= SFGAO_COMPRESSED;
 
-				if (ext && !_tcsicmp(ext, _T(".lnk"))) {
+				if (ext && !_tcsicmp(ext, _T(".lnk")))
 					attribs |= SFGAO_LINK;
-					w32fd.dwFileAttributes |= ATTRIBUTE_SYMBOLIC_LINK;
-				}
 
 				entry->_shell_attribs = attribs;
 
 				if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 					entry->_icon_id = ICID_FOLDER;
 				else if (scan_flags & SCAN_EXTRACT_ICONS)
-					try {
-						entry->extract_icon();
-					} catch(COMException&) {
-						// ignore unexpected exceptions while extracting icons
-					}
+					entry->extract_icon();
 
 				last = entry;
 			} while(FindNextFile(hFind, &w32fd));
@@ -340,6 +332,7 @@ void ShellDirectory::read_directory(int scan_flags)
 #define FETCH_ITEM_COUNT	32
 			LPITEMIDLIST pidls[FETCH_ITEM_COUNT];
 			ULONG cnt = 0;
+			ULONG n;
 
 			memset(pidls, 0, sizeof(pidls));
 
@@ -352,7 +345,7 @@ void ShellDirectory::read_directory(int scan_flags)
 			if (hr_next == S_FALSE)
 				break;
 
-			for(ULONG n=0; n<cnt; ++n) {
+			for(n=0; n<cnt; ++n) {
 				WIN32_FIND_DATA w32fd;
 				BY_HANDLE_FILE_INFORMATION bhfi;
 				bool bhfi_valid = false;
@@ -384,7 +377,7 @@ void ShellDirectory::read_directory(int scan_flags)
 												 (scan_flags&SCAN_DO_ACCESS) && !removeable);
 
 				try {
-					Entry* entry = NULL;	// eliminate useless GCC warning by initializing entry
+					Entry* entry;
 
 					if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 						entry = new ShellDirectory(this, pidls[n], _hwnd);
@@ -409,25 +402,18 @@ void ShellDirectory::read_directory(int scan_flags)
 							entry->_display_name = _tcsdup(name);	// store display name separate from file name; sort display by file name
 					}
 
-					if (attribs & SFGAO_LINK)
-						w32fd.dwFileAttributes |= ATTRIBUTE_SYMBOLIC_LINK;
-
+					entry->_down = NULL;
+					entry->_expanded = false;
+					entry->_scanned = false;
 					entry->_level = level;
 					entry->_shell_attribs = attribs;
 					entry->_bhfi_valid = bhfi_valid;
-
-					 // set file type name
-					g_Globals._ftype_mgr.set_type(entry);
 
 					 // get icons for files and virtual objects
 					if (!(entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
 						!(attribs & SFGAO_FILESYSTEM)) {
 						if (scan_flags & SCAN_EXTRACT_ICONS)
-							try {
-								entry->extract_icon();
-							} catch(COMException&) {
-								// ignore unexpected exceptions while extracting icons
-							}
+							entry->extract_icon();
 					} else if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 						entry->_icon_id = ICID_FOLDER;
 					else
@@ -448,7 +434,7 @@ void ShellDirectory::read_directory(int scan_flags)
 	_scanned = true;
 }
 
-const void* ShellDirectory::get_next_path_component(const void* p) const
+const void* ShellDirectory::get_next_path_component(const void* p)
 {
 	LPITEMIDLIST pidl = (LPITEMIDLIST)p;
 
@@ -464,10 +450,6 @@ const void* ShellDirectory::get_next_path_component(const void* p) const
 Entry* ShellDirectory::find_entry(const void* p)
 {
 	LPITEMIDLIST pidl = (LPITEMIDLIST) p;
-
-	 // handle special case of empty trailing id list entry
-	if (!pidl->mkid.cb)
-		return this;
 
 	for(Entry*entry=_down; entry; entry=entry->_next)
 		if (entry->_etype == ET_SHELL) {

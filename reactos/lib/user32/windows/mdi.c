@@ -80,6 +80,10 @@
  *
  */
 
+#ifdef __REACTOS__
+#define __USE_W32API
+#endif
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -90,9 +94,20 @@
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"
+#ifndef __REACTOS__
+#include "wownt32.h"
+#endif
 #include "wine/unicode.h"
+#ifndef __REACTOS__
+#include "win.h"
+#include "nonclient.h"
+#include "controls.h"
+#include "user.h"
+#include "struct32.h"
+#else
 #include "user32/regcontrol.h"
 #include <winnls.h>
+#endif
 #include "wine/debug.h"
 #include "dlgs.h"
 
@@ -202,13 +217,23 @@ static void MDI_PostUpdate(HWND hwnd, MDICLIENTINFO* ci, WORD recalc)
  */
 const struct builtin_class_descr MDICLIENT_builtin_class =
 {
+#ifdef __REACTOS__
     L"MDIClient",            /* name */
-    0,                       /* style */
+    CS_GLOBALCLASS,          /* style */
     MDIClientWndProcW,       /* procW */
     MDIClientWndProcA,       /* procA */
     sizeof(MDICLIENTINFO *), /* extra */
     IDC_ARROW,               /* cursor */
     (HBRUSH)(COLOR_APPWORKSPACE+1)    /* brush */
+#else
+    "MDIClient",            /* name */
+    CS_GLOBALCLASS,         /* style */
+    MDIClientWndProcW,      /* procW */
+    MDIClientWndProcA,      /* procA */
+    sizeof(MDICLIENTINFO),  /* extra */
+    IDC_ARROW,              /* cursor */
+    (HBRUSH)(COLOR_APPWORKSPACE+1)    /* brush */
+#endif
 };
 
 
@@ -1070,7 +1095,7 @@ static BOOL MDI_AugmentFrameMenu( HWND frame, HWND hChild )
     WND*	child = WIN_FindWndPtr(hChild);
 #endif
     HMENU  	hSysPopup = 0;
-    HBITMAP hSysMenuBitmap = 0;
+  HBITMAP hSysMenuBitmap = 0;
 
     TRACE("frame %p,child %p\n",frame,hChild);
 
@@ -1099,9 +1124,10 @@ static BOOL MDI_AugmentFrameMenu( HWND frame, HWND hChild )
                    SC_RESTORE, (LPSTR)(DWORD)HBMMENU_MBAR_RESTORE );
 
   /* In Win 95 look, the system menu is replaced by the child icon */
+
+/* FIXME */
 #ifndef __REACTOS__
   if(TWEAK_WineLook > WIN31_LOOK)
-#endif
   {
     HICON hIcon = (HICON)GetClassLongA(hChild, GCL_HICONSM);
     if (!hIcon)
@@ -1132,13 +1158,11 @@ static BOOL MDI_AugmentFrameMenu( HWND frame, HWND hChild )
       }
     }
   }
-#ifndef __REACTOS__
   else
     hSysMenuBitmap = hBmpClose;
 #endif
 
-    if(  hSysMenuBitmap != NULL &&
-         !InsertMenuA(menu,0,MF_BYPOSITION | MF_BITMAP | MF_POPUP,
+    if( !InsertMenuA(menu,0,MF_BYPOSITION | MF_BITMAP | MF_POPUP,
                      (UINT_PTR)hSysPopup, (LPSTR)hSysMenuBitmap))
     {
         TRACE("not inserted\n");
@@ -1306,9 +1330,9 @@ static void MDI_UpdateFrameText( HWND frame, HWND hClient,
 static LRESULT MDIClientWndProc_common( HWND hwnd, UINT message,
                                         WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
-    MDICLIENTINFO *ci = NULL;
+    MDICLIENTINFO *ci;
 
-    if (WM_NCCREATE != message
+    if (WM_NCCREATE != message && WM_CREATE != message
         && NULL == (ci = get_client_info(hwnd)))
     {
         return 0;
@@ -1333,6 +1357,12 @@ static LRESULT MDIClientWndProc_common( HWND hwnd, UINT message,
 #ifndef __REACTOS__
           WND *wndPtr = WIN_GetPtr( hwnd );
 #endif
+	ci = HeapAlloc(GetProcessHeap(), 0, sizeof(MDICLIENTINFO));
+	if (NULL == ci)
+	{
+	    return -1;
+	}
+	SetWindowLongPtr(hwnd, 0, (LONG_PTR) ci);
 
 	/* Translation layer doesn't know what's in the cs->lpCreateParams
 	 * so we have to keep track of what environment we're in. */
@@ -2134,14 +2164,14 @@ void WINAPI CalcChildScroll( HWND hwnd, INT scroll )
 			info.nMin = childRect.left;
 			info.nMax = childRect.right - clientRect.right;
 			info.nPos = clientRect.left - childRect.left;
-			SetScrollInfo(hwnd, SB_HORZ, &info, TRUE);
+			SetScrollInfo(hwnd, scroll, &info, TRUE);
 			if (scroll == SB_HORZ) break;
 			/* fall through */
 	case SB_VERT:
 			info.nMin = childRect.top;
 			info.nMax = childRect.bottom - clientRect.bottom;
 			info.nPos = clientRect.top - childRect.top;
-			SetScrollInfo(hwnd, SB_VERT, &info, TRUE);
+			SetScrollInfo(hwnd, scroll, &info, TRUE);
 			break;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,17 +26,9 @@
  //
 
 
-#include "utility/xmlstorage.h"
-
-using namespace XMLStorage;
-
-#include "taskbar/favorites.h"
-
-
  /// management of file types
 struct FileTypeInfo {
 	String	_classname;
-	String	_displayname;
 	bool	_neverShowExt;
 };
 
@@ -45,10 +37,6 @@ struct FileTypeManager : public map<String, FileTypeInfo>
 	typedef map<String, FileTypeInfo> super;
 
 	const FileTypeInfo& operator[](String ext);
-
-	static bool is_exe_file(LPCTSTR ext);
-
-	LPCTSTR set_type(struct Entry* entry, bool dont_hide_ext=false);
 };
 
 
@@ -80,7 +68,6 @@ enum ICON_ID {
 	ICID_NETWORK,
 	ICID_COMPUTER,
 	ICID_LOGOFF,
-	ICID_BOOKMARK,
 
 	ICID_DYNAMIC
 };
@@ -95,7 +82,6 @@ struct Icon {
 
 	void	draw(HDC hdc, int x, int y, int cx, int cy, COLORREF bk_color, HBRUSH bk_brush) const;
 	HBITMAP	create_bitmap(COLORREF bk_color, HBRUSH hbrBkgnd, HDC hdc_wnd) const;
-	int		add_to_imagelist(HIMAGELIST himl, HDC hdc_wnd, COLORREF bk_color=GetSysColor(COLOR_WINDOW), HBRUSH bk_brush=GetSysColorBrush(COLOR_WINDOW)) const;
 
 	int		get_sysiml_idx() const {return _itype==IT_SYSCACHE? _sys_idx: -1;}
 
@@ -150,93 +136,13 @@ protected:
  /// create a bitmap from an icon
 extern HBITMAP create_bitmap_from_icon(HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd);
 
- /// add icon with alpha channel to imagelist using the specified background color
-extern int ImageList_AddAlphaIcon(HIMAGELIST himl, HICON hIcon, HBRUSH hbrush_bkgnd, HDC hdc_wnd);
-
- /// retrieve icon from window
-extern HICON get_window_icon_small(HWND hwnd);
-extern HICON get_window_icon_big(HWND hwnd, bool allow_from_class=true);
-
-
- /// desktop management
-#ifdef _USE_HDESK
-
-typedef auto_ptr<struct DesktopThread> DesktopThreadPtr;
-
-struct Desktop
-{
-	HDESK	_hdesktop;
-//	HWINSTA	_hwinsta;
-	DesktopThreadPtr _pThread;
-	WindowHandle _hwndDesktop;
-
-	Desktop(HDESK hdesktop=0/*, HWINSTA hwinsta=0*/);
-	~Desktop();
-};
-
-typedef auto_ptr<Desktop> DesktopPtr;
-typedef DesktopPtr DesktopRef;
-
- /// Thread class for additional desktops
-struct DesktopThread : public Thread
-{
-	DesktopThread(Desktop& desktop)
-	 :	_desktop(desktop)
-	{
-	}
-
-	int	Run();
-
-protected:
-	Desktop&	_desktop;
-};
-
-#else
-
-typedef pair<HWND, DWORD> MinimizeStruct;
-
-struct Desktop
-{
-	set<HWND> _windows;
-	WindowHandle _hwndForeground;
-	list<MinimizeStruct> _minimized;
-};
-typedef Desktop DesktopRef;
-
-#endif
-
-
-#define	DESKTOP_COUNT	4
-
-struct Desktops : public vector<DesktopRef>
-{
-	Desktops();
-	~Desktops();
-
-	void	init();
-	void	SwitchToDesktop(int idx);
-	void	ToggleMinimize();
-
-#ifdef _USE_HDESK
-	DesktopRef& get_current_Desktop() {return (*this)[_current_desktop];}
-#endif
-
-	int		_current_desktop;
-};
-
 
  /// structure containing global variables of Explorer
 extern struct ExplorerGlobals
 {
 	ExplorerGlobals();
 
-	void	init(HINSTANCE hInstance);
-
-	void	read_persistent();
-	void	write_persistent();
-
-	XMLPos	get_cfg();
-	XMLPos	get_cfg(const char* path);
+	void		init(HINSTANCE hInstance);
 
 	HINSTANCE	_hInstance;
 	ATOM		_hframeClass;
@@ -253,19 +159,6 @@ extern struct ExplorerGlobals
 
 	FileTypeManager	_ftype_mgr;
 	IconCache	_icon_cache;
-
-	HWND		_hwndDesktopBar;
-	HWND		_hwndShellView;
-	HWND		_hwndDesktop;
-
-	Desktops	_desktops;
-
-	XMLDoc		_cfg;
-	String		_cfg_dir;
-	String		_cfg_path;
-
-	Favorites	_favorites;
-	String		_favorites_path;
 } g_Globals;
 
 

@@ -86,9 +86,6 @@ DrvEnableSurface(
       case 32:
          BitmapType = BMF_32BPP;
          break;
-
-      default:
-         return FALSE;
    }
 
    ScreenSize.cx = ppdev->ScreenWidth;
@@ -133,15 +130,9 @@ DrvDisableSurface(
 {
    DWORD ulTemp;
    VIDEO_MEMORY VideoMemory;
-   PPDEV ppdev = (PPDEV)dhpdev;
 
-   EngDeleteSurface(ppdev->hSurfEng);
-   ppdev->hSurfEng = NULL;
-
-#ifdef EXPERIMENTAL_MOUSE_CURSOR_SUPPORT
-   /* Clear all mouse pointer surfaces. */
-   DrvSetPointerShape(NULL, NULL, NULL, NULL, 0, 0, 0, 0, NULL, 0);
-#endif
+   EngDeleteSurface(((PPDEV)dhpdev)->hSurfEng);
+   ((PPDEV)dhpdev)->hSurfEng = NULL;
 
    /*
     * Unmap the framebuffer.

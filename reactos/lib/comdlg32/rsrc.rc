@@ -62,8 +62,6 @@
 #include "cdlg_Si.rc"
 #include "cdlg_Sk.rc"
 #include "cdlg_Sv.rc"
-#include "cdlg_Th.rc"
-#include "cdlg_Uk.rc"
 #include "cdlg_Wa.rc"
 #include "cdlg_Ja.rc"
 #include "cdlg_Zh.rc"

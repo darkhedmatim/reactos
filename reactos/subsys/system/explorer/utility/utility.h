@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,11 +40,6 @@
 #include <windowsx.h>	// for SelectBrush(), ListBox_SetSel(), SubclassWindow(), ...
 #include <commctrl.h>
 
-#ifndef _MSC_VER
-#include <objbase.h>
-#endif
-#include <oleauto.h>	// for VARIANT
-
 #include <malloc.h>		// for alloca()
 #include <assert.h>
 #include <stdlib.h>		// for _MAX_DIR, ...
@@ -67,10 +62,8 @@ extern "C" {
 
 #define	for if (0) {} else for
 
-#define	COUNTOF(x)	(sizeof(x)/sizeof(x[0]))
 
-
-#define	BUFFER_LEN				2048
+#define	BUFFER_LEN				1024
 
 
 extern void _log_(LPCTSTR txt);
@@ -100,11 +93,6 @@ extern void _log_(LPCTSTR txt);
 #define	_stprintf sprintf
 #endif
 #endif
-
-#define	U2A(s, d, l) WideCharToMultiByte(CP_ACP, 0, s, -1, d, l, NULL, NULL)
-#define	U2nA(s, d, l) WideCharToMultiByte(CP_ACP, 0, s, l, d, l, NULL, NULL)
-#define	A2U(s, d, l) MultiByteToWideChar(CP_ACP, 0, s, -1, d, l)
-#define	A2nU(s, d, l) MultiByteToWideChar(CP_ACP, 0, s, l, d, l)
 
 
 #ifdef __WINE__
@@ -146,17 +134,19 @@ extern BOOL time_to_filetime(const time_t* t, FILETIME* ftime);
  // search for windows of a specific classname
 extern int find_window_class(LPCTSTR classname);
 
+ // launch a program or document file
+extern BOOL launch_file(HWND hwnd, LPCTSTR cmd, UINT nCmdShow);
+#ifdef UNICODE
+extern BOOL launch_fileA(HWND hwnd, LPSTR cmd, UINT nCmdShow);
+#else
+#define	launch_fileA launch_file
+#endif
+
+ // call an DLL export like rundll32
+BOOL RunDLL(HWND hwnd, LPCTSTR dllname, LPCSTR procname, LPCTSTR cmdline, UINT nCmdShow);
+
  // create a directory with all missing parent directories
 BOOL RecursiveCreateDirectory(LPCTSTR path_in);
-
- // read DWORD value from registry
-DWORD RegGetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD def);
-
- // write DWORD value to registry
-BOOL RegSetDWORDValue(HKEY root, LPCTSTR path, LPCTSTR valueName, DWORD value);
-
- // test for existing directory
-BOOL exists_path(LPCTSTR path);
 
 
 #ifdef __cplusplus
@@ -179,9 +169,6 @@ using namespace std;
 #include <map>
 #include <set>
 #include <list>
-#include <stack>
-#include <vector>
-
 
 #if _MSC_VER>=1300	// VS.Net
 #define _NO_COMUTIL	//@@
@@ -194,21 +181,6 @@ using namespace std;
 using namespace _com_util;
 
 #endif	// _MSC_VER && !_NO_COMUTIL
-
-
- // launch a program or document file
-extern BOOL launch_file(HWND hwnd, LPCTSTR cmd, UINT nCmdShow, LPCTSTR parameters=NULL);
-#ifdef UNICODE
-extern BOOL launch_fileA(HWND hwnd, LPSTR cmd, UINT nCmdShow, LPCSTR parameters=NULL);
-#else
-#define	launch_fileA launch_file
-#endif
-
- // call an DLL export like rundll32
-extern BOOL RunDLL(HWND hwnd, LPCTSTR dllname, LPCSTR procname, LPCTSTR cmdline, UINT nCmdShow);
-
- // launch control panel applet
-extern BOOL launch_cpanel(HWND hwnd, LPCTSTR applet);
 
 
  /// initialization of windows common controls
@@ -260,16 +232,14 @@ protected:
 struct HiddenWindow : public WindowHandle
 {
 	HiddenWindow(HWND hwnd)
-	 :	WindowHandle(IsWindowVisible(hwnd)? hwnd: 0)
+	 :	WindowHandle(hwnd)
 	{
-		if (_hwnd)
-			SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_HIDEWINDOW|SWP_NOREDRAW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
+		SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_HIDEWINDOW|SWP_NOREDRAW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
 	}
 
 	~HiddenWindow()
 	{
-		if (_hwnd)
-			SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
+		SetWindowPos(_hwnd, 0, 0, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER);
 	}
 };
 
@@ -615,123 +585,7 @@ protected:
 };
 
 
- /// Popup Menus
-struct PopupMenu
-{
-	PopupMenu()
-	 :	_hmenu(CreatePopupMenu())
-	{
-	}
-
-	PopupMenu(UINT nid);
-
-	operator HMENU() {return _hmenu;}
-
-	void Append(UINT id, LPCTSTR str, UINT flags=MF_STRING)
-	{
-		AppendMenu(_hmenu, flags, id, str);
-	}
-
-	int TrackPopupMenu(HWND hwnd, const POINT& pt, UINT flags=TPM_LEFTBUTTON|TPM_RIGHTBUTTON, LPTPMPARAMS tpm=NULL) {
-	 return TrackPopupMenuEx(_hmenu, flags, pt.x, pt.y, hwnd, tpm);
-	}
-
-	int PopupContextMenu(HWND hwnd, POINTS pos, UINT flags=TPM_LEFTBUTTON|TPM_RIGHTBUTTON) {
-	 POINT pt; POINTSTOPOINT(pt, pos);
-	 return TrackPopupMenuEx(_hmenu, flags, pt.x, pt.y, hwnd, NULL);
-	}
-
-	int TrackPopupMenu(HWND hwnd, POINTS pos, UINT flags=TPM_LEFTBUTTON|TPM_RIGHTBUTTON) {
-	 POINT pt; POINTSTOPOINT(pt, pos);
-	 ClientToScreen(hwnd, &pt);
-	 return TrackPopupMenuEx(_hmenu, flags, pt.x, pt.y, hwnd, NULL);
-	}
-
-	int TrackPopupMenuAtCursor(HWND hwnd, UINT flags=TPM_LEFTBUTTON) {
-	 POINT pt; GetCursorPos(&pt);
-	 return TrackPopupMenuEx(_hmenu, flags, pt.x, pt.y, hwnd, NULL);
-	}
-
-	int TrackPopupMenuAtPos(HWND hwnd, DWORD pos, UINT flags=TPM_LEFTBUTTON) {
-	 return TrackPopupMenuEx(_hmenu, flags, GET_X_LPARAM(pos), GET_Y_LPARAM(pos), hwnd, NULL);
-	}
-
-protected:
-	HMENU _hmenu;
-};
-
-
-struct Variant : public VARIANT
-{
-	Variant() {VariantInit(this);}
-	Variant(const VARIANT& var);
-	Variant(const VARIANT* var);
-	~Variant();
-
-	operator long() const;
-	operator bool() const;
-	operator VARIANT_BOOL() const;
-	operator IDispatch*() const;
-};
-
-
-struct BStr
-{
-	BStr()
-	{
-		_p = NULL;
-	}
-
-	BStr(const BSTR s)
-	{
-		_p = SysAllocString(s);
-	}
-
-	BStr(LPCSTR s)
-	{
-		WCHAR b[BUFFER_LEN];
-
-		if (s)
-			_p = SysAllocStringLen(b, MultiByteToWideChar(CP_ACP, 0, s, -1, b, BUFFER_LEN)-1);
-		else
-			_p = NULL;
-	}
-
-	BStr(LPCWSTR s)
-	{
-		_p = SysAllocString(s);
-	}
-
-	BStr(const VARIANT& var)
-	 :	_p(NULL)
-	{
-		assign(var);
-	}
-
-	~BStr()
-	{
-		SysFreeString(_p);
-	}
-
-	void assign(BSTR s);
-	void assign(const VARIANT& var);
-
-	operator BSTR() const
-	{
-		return _p? _p: (BSTR)L"";
-	}
-
-	int length() const
-	{
-		return _p? wcslen(_p): 0;
-	}
-
-protected:
-	BSTR	_p;
-};
-
-
- /// string class for TCHAR strings
+ /// string class for convenience
 struct String
 #ifdef UNICODE
  : public wstring
@@ -746,10 +600,8 @@ struct String
 #endif
 
 	String() {}
-
 	String(LPCTSTR s) {if (s) super::assign(s);}
 	String(LPCTSTR s, int l) : super(s, l) {}
-
 	String(const super& other) : super(other) {}
 	String(const String& other) : super(other) {}
 
@@ -758,20 +610,16 @@ struct String
 	String(LPCSTR s, int l) {assign(s, l);}
 	String(const string& other) {assign(other.c_str());}
 	String& operator=(LPCSTR s) {assign(s); return *this;}
-	void assign(LPCSTR s) {if (s) {TCHAR b[BUFFER_LEN]; super::assign(b, MultiByteToWideChar(CP_ACP, 0, s, -1, b, BUFFER_LEN)-1);} else erase();}
+	void assign(LPCSTR s) {if (s) {TCHAR b[BUFFER_LEN]; super::assign(b, MultiByteToWideChar(CP_ACP, 0, s, -1, b, BUFFER_LEN));} else erase();}
 	void assign(LPCSTR s, int l) {if (s) {TCHAR b[BUFFER_LEN]; super::assign(b, MultiByteToWideChar(CP_ACP, 0, s, l, b, BUFFER_LEN));} else erase();}
-	void assign(const BStr& s) {int l = s.length(); super::assign(s, l);}
 #else
 	String(LPCWSTR s) {assign(s);}
 	String(LPCWSTR s, int l) {assign(s, l);}
 	String(const wstring& other) {assign(other.c_str());}
 	String& operator=(LPCWSTR s) {assign(s); return *this;}
-	void assign(LPCWSTR s) {if (s) {char b[BUFFER_LEN]; super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, -1, b, BUFFER_LEN, 0, 0)-1);} else erase();}
+	void assign(LPCWSTR s) {if (s) {char b[BUFFER_LEN]; super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, -1, b, BUFFER_LEN, 0, 0));} else erase();}
 	void assign(LPCWSTR s, int l) {if (s) {char b[BUFFER_LEN]; super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, l, b, BUFFER_LEN, 0, 0));} else erase();}
-	void assign(const BStr& s) {int l = s.length(); if (l) {char b[BUFFER_LEN]; super::assign(b, WideCharToMultiByte(CP_ACP, 0, s, l, b, BUFFER_LEN, 0, 0));} else erase();}
 #endif
-	String(const BStr& s) {assign(s);}
-	String& operator=(const BStr& s) {assign(s); return *this;}
 
 	String& operator=(LPCTSTR s) {if (s) super::assign(s); else erase(); return *this;}
 	String& operator=(const super& s) {super::assign(s); return *this;}
@@ -779,12 +627,6 @@ struct String
 	void assign(LPCTSTR s, int l) {super::assign(s, l);}
 
 	operator LPCTSTR() const {return c_str();}
-
-#ifdef UNICODE
-	operator string() const {char b[BUFFER_LEN]; return string(b, WideCharToMultiByte(CP_ACP, 0, c_str(), -1, b, BUFFER_LEN, 0, 0)-1);}
-#else
-	operator wstring() const {WCHAR b[BUFFER_LEN]; return wstring(b, MultiByteToWideChar(CP_ACP, 0, c_str(), -1, b, BUFFER_LEN)-1);}
-#endif
 
 	String& printf(LPCTSTR fmt, ...)
 	{
@@ -828,8 +670,6 @@ struct String
 		return *this;
 	}
 };
-
-#define	_STRING_DEFINED
 
 
 struct FmtString : public String
@@ -898,10 +738,6 @@ protected:
 };
 
 #endif
-
-
- // determine windows version string
-String get_windows_version_str();
 
 
  /// link dynamicly to functions by using GetModuleHandle() and GetProcAddress()
@@ -1018,10 +854,7 @@ protected:
 #define	CONTEXT_OBJ __ctx__._obj
 #define	CONTEXT(c) Context __ctx__(c)
 #define	CURRENT_CONTEXT Context::current()
-#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o)
-
-
-extern bool SplitFileSysURL(LPCTSTR url, String& dir_out, String& fname_out);
+#define	OBJ_CONTEXT(c, o) Context __ctx__(c, o);
 
 
 #endif // __cplusplus

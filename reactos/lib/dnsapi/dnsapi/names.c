@@ -1,9 +1,7 @@
 #include <windows.h>
 #include <WinError.h>
-#include <windns.h>
+#include <WinDNS.h>
 #include <internal/windns.h>
-#define NTOS_MODE_USER
-#include <ntos.h>
 #include <wchar.h>
 #include <string.h>
 #include <ctype.h>
@@ -52,7 +50,7 @@ static BOOL DnsIntContainsUnderscore( LPCWSTR Name ) {
  *  If the name contains a non-ascii character.
  */
 
-DNS_STATUS WINAPI DnsValidateName_W
+DNS_STATUS DnsValidateName_W
 ( LPCWSTR Name,
   DNS_NAME_FORMAT Format )  {
   BOOL AllowDot = FALSE;
@@ -138,7 +136,7 @@ DNS_STATUS WINAPI DnsValidateName_W
   return ERROR_SUCCESS;
 }
 
-DNS_STATUS WINAPI DnsValidateName_UTF8
+DNS_STATUS DnsValidateName_UTF8
 ( LPCSTR Name,
   DNS_NAME_FORMAT Format ) {
   PWCHAR Buffer;
@@ -155,7 +153,7 @@ DNS_STATUS WINAPI DnsValidateName_UTF8
   return Status;
 }
 
-DNS_STATUS WINAPI DnsValidateName_A
+DNS_STATUS DnsValidateName_A
 ( LPCSTR Name,
   DNS_NAME_FORMAT Format ) {
   return DnsValidateName_UTF8( Name, Format );
@@ -194,8 +192,8 @@ BOOL WINAPI DnsNameCompare_UTF8
 }
 
 BOOL WINAPI DnsNameCompare_A
-( LPSTR Name1,
-  LPSTR Name2 ) {
+( LPCSTR Name1,
+  LPCSTR Name2 ) {
   return DnsNameCompare_UTF8( Name1, Name2 );
 }
 

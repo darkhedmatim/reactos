@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: polyfill.c,v 1.15 2004/07/03 13:55:37 navaraf Exp $
+/* $Id: polyfill.c,v 1.12 2003/08/19 21:29:20 royce Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -26,7 +26,19 @@
  * REVISION HISTORY:
  *                 21/2/2003: Created
  */
-#include <w32k.h>
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/fillshap.h>
+#include <win32k/dc.h>
+#include <win32k/pen.h>
+#include <include/inteng.h>
+#include <include/object.h>
+#include <include/paint.h>
+
+#undef NDEBUG
+#include <win32k/debug1.h>
 
 INT abs(INT nm);
 
@@ -158,7 +170,7 @@ POLYGONFILL_MakeEdge(POINT From, POINT To)
 
   rc->xmajor = rc->absdx > rc->absdy;
 
-  rc->ErrorMax = max(rc->absdx,rc->absdy);
+  rc->ErrorMax = MAX(rc->absdx,rc->absdy);
 
   rc->Error += rc->ErrorMax / 2;
 
@@ -322,8 +334,8 @@ POLYGONFILL_UpdateScanline(FILL_EDGE* pEdge, int Scanline)
       pEdge->x += steps * pEdge->XDirection;
       pEdge->Error += steps * pEdge->absdy;
       ASSERT ( pEdge->Error < pEdge->ErrorMax );
-      pEdge->XIntercept[0] = min(x1,pEdge->x);
-      pEdge->XIntercept[1] = max(x1,pEdge->x);
+      pEdge->XIntercept[0] = MIN(x1,pEdge->x);
+      pEdge->XIntercept[1] = MAX(x1,pEdge->x);
     }
     else
     {
@@ -396,8 +408,8 @@ POLYGONFILL_FillScanLineAlternate(
   PDC dc,
   int ScanLine,
   FILL_EDGE* ActiveHead,
-  BITMAPOBJ *BitmapObj,
-  BRUSHOBJ *BrushObj,
+  SURFOBJ *SurfObj,
+  PBRUSHOBJ BrushObj,
   MIX RopMode )
 {
   FILL_EDGE *pLeft, *pRight;
@@ -422,7 +434,7 @@ POLYGONFILL_FillScanLineAlternate(
       BoundRect.right = x2;
 
       //DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-      IntEngLineTo( BitmapObj,
+      IntEngLineTo( SurfObj,
 			  dc->CombinedClip,
 			  BrushObj,
 			  x1,
@@ -444,8 +456,8 @@ POLYGONFILL_FillScanLineWinding(
   PDC dc,
   int ScanLine,
   FILL_EDGE* ActiveHead,
-  BITMAPOBJ *BitmapObj,
-  BRUSHOBJ *BrushObj,
+  SURFOBJ *SurfObj,
+  PBRUSHOBJ BrushObj,
   MIX RopMode )
 {
   FILL_EDGE *pLeft, *pRight;
@@ -485,8 +497,8 @@ POLYGONFILL_FillScanLineWinding(
 	)
       {
 	// yup, just tack it on to our existing line
-	x1 = min(x1,newx1);
-	x2 = max(x2,newx2);
+	x1 = MIN(x1,newx1);
+	x2 = MAX(x2,newx2);
       }
       else
       {
@@ -495,7 +507,7 @@ POLYGONFILL_FillScanLineWinding(
 	BoundRect.right = x2;
 
 	//DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-	IntEngLineTo( BitmapObj,
+	IntEngLineTo( SurfObj,
 		      dc->CombinedClip,
 		      BrushObj,
 		      x1,
@@ -518,7 +530,7 @@ POLYGONFILL_FillScanLineWinding(
   BoundRect.right = x2;
 
   //DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-  IntEngLineTo( BitmapObj,
+  IntEngLineTo( SurfObj,
 		dc->CombinedClip,
 		BrushObj,
 		x1,
@@ -542,8 +554,8 @@ BOOL
 STDCALL
 FillPolygon(
   PDC dc,
-  BITMAPOBJ *BitmapObj,
-  BRUSHOBJ *BrushObj,
+  SURFOBJ *SurfObj,
+  PBRUSHOBJ BrushObj,
   MIX RopMode,
   CONST PPOINT Points,
   int Count,
@@ -559,8 +571,8 @@ FillPolygon(
     PDC dc,
     int ScanLine,
     FILL_EDGE* ActiveHead,
-    BITMAPOBJ *BitmapObj,
-    BRUSHOBJ *BrushObj,
+    SURFOBJ *SurfObj,
+    PBRUSHOBJ BrushObj,
     MIX RopMode );
 
   //DPRINT("FillPolygon\n");
@@ -583,7 +595,7 @@ FillPolygon(
   {
     POLYGONFILL_BuildActiveList(ScanLine, list, &ActiveHead);
     //DEBUG_PRINT_ACTIVE_EDGELIST(ActiveHead);
-    FillScanLine ( dc, ScanLine, ActiveHead, BitmapObj, BrushObj, RopMode );
+    FillScanLine ( dc, ScanLine, ActiveHead, SurfObj, BrushObj, RopMode );
   }
 
   /* Free Edge List. If any are left. */

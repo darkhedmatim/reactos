@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cdfs.c,v 1.12 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: cdfs.c,v 1.11 2003/11/17 02:12:49 hyperion Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -82,23 +82,23 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 
   /* Initialize driver data */
   DeviceObject->Flags = DO_DIRECT_IO;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = CdfsClose;
-  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = CdfsCleanup;
-  DriverObject->MajorFunction[IRP_MJ_CREATE] = CdfsCreate;
-  DriverObject->MajorFunction[IRP_MJ_READ] = CdfsRead;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = CdfsWrite;
+  DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)CdfsClose;
+  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = (PDRIVER_DISPATCH)CdfsCleanup;
+  DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)CdfsCreate;
+  DriverObject->MajorFunction[IRP_MJ_READ] = (PDRIVER_DISPATCH)CdfsRead;
+  DriverObject->MajorFunction[IRP_MJ_WRITE] = (PDRIVER_DISPATCH)CdfsWrite;
   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] =
-    CdfsFileSystemControl;
+    (PDRIVER_DISPATCH)CdfsFileSystemControl;
   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] =
-    CdfsDirectoryControl;
+    (PDRIVER_DISPATCH)CdfsDirectoryControl;
   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] =
-    CdfsQueryInformation;
+    (PDRIVER_DISPATCH)CdfsQueryInformation;
   DriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] = 
-    CdfsSetInformation;
+    (PDRIVER_DISPATCH)CdfsSetInformation;
   DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
-    CdfsQueryVolumeInformation;
+    (PDRIVER_DISPATCH)CdfsQueryVolumeInformation;
   DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
-    CdfsSetVolumeInformation;
+    (PDRIVER_DISPATCH)CdfsSetVolumeInformation;
 
   DriverObject->DriverUnload = NULL;
 

@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003, 2004 ReactOS Team
+ *  Copyright (C) 2002, 2003 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,7 @@
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
-
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 
 #include <ntos/minmax.h>
@@ -46,8 +45,6 @@
 #include "cabinet.h"
 #include "filesup.h"
 #include "drivesup.h"
-#include "genlist.h"
-#include "settings.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -57,17 +54,7 @@ typedef enum _PAGE_NUMBER
 {
   START_PAGE,
   INTRO_PAGE,
-  LICENSE_PAGE,
   INSTALL_INTRO_PAGE,
-
-//  SCSI_CONTROLLER_PAGE,
-
-  DEVICE_SETTINGS_PAGE,
-  COMPUTER_SETTINGS_PAGE,
-  DISPLAY_SETTINGS_PAGE,
-  KEYBOARD_SETTINGS_PAGE,
-  LAYOUT_SETTINGS_PAGE,
-  POINTER_SETTINGS_PAGE,
 
   SELECT_PARTITION_PAGE,
   CREATE_PARTITION_PAGE,
@@ -82,8 +69,6 @@ typedef enum _PAGE_NUMBER
   FILE_COPY_PAGE,
   REGISTRY_PAGE,
   BOOT_LOADER_PAGE,
-  BOOT_LOADER_FLOPPY_PAGE,
-  BOOT_LOADER_HARDDISK_PAGE,
 
   REPAIR_INTRO_PAGE,
 
@@ -99,7 +84,7 @@ typedef struct _COPYCONTEXT
 {
   ULONG TotalOperations;
   ULONG CompletedOperations;
-  PPROGRESSBAR ProgressBar;
+  PPROGRESS ProgressBar;
 } COPYCONTEXT, *PCOPYCONTEXT;
 
 
@@ -136,12 +121,6 @@ static HINF SetupInf;
 static HSPFILEQ SetupFileQueue = NULL;
 
 static BOOLEAN WarnLinuxPartitions = TRUE;
-
-static PGENERIC_LIST ComputerList = NULL;
-static PGENERIC_LIST DisplayList = NULL;
-static PGENERIC_LIST KeyboardList = NULL;
-static PGENERIC_LIST LayoutList = NULL;
-static PGENERIC_LIST PointerList = NULL;
 
 
 /* FUNCTIONS ****************************************************************/
@@ -412,12 +391,12 @@ ConfirmQuit(PINPUT_RECORD Ir)
 	}
     }
 
-  return Result;
+  return(Result);
 }
 
 
 VOID
-CheckUnattendedSetup(VOID)
+CheckUnattendedSetup()
 {
   WCHAR UnattendInfPath[MAX_PATH];
   UNICODE_STRING FileName;
@@ -441,7 +420,8 @@ CheckUnattendedSetup(VOID)
   RtlInitUnicodeString(&FileName,
 		       UnattendInfPath);
 
-  /* Load 'unattend.inf' from install media. */
+  /* Load txtsetup.sif from install media. */
+
   Status = InfOpenFile(&UnattendInf,
 		       &FileName,
 		       &ErrorLine);
@@ -512,7 +492,6 @@ CheckUnattendedSetup(VOID)
       InfCloseFile(UnattendInf);
       return;
     }
-
   /* Get pointer 'InstallationDirectory' key */
   if (!InfGetData(&Context, NULL, &Value))
     {
@@ -566,7 +545,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -581,7 +560,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -600,7 +579,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -632,7 +611,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -649,7 +628,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -667,7 +646,7 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -684,14 +663,14 @@ StartPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
 
   CheckUnattendedSetup();
 
-  return INTRO_PAGE;
+  return(INTRO_PAGE);
 }
 
 
@@ -709,19 +688,22 @@ IntroPage(PINPUT_RECORD Ir)
   SetTextXY(6, 12, "computer and prepares the second part of the setup.");
 
   SetTextXY(8, 15, "\x07  Press ENTER to install ReactOS.");
-  SetTextXY(8, 17, "\x07  Press L to view the licensing terms for ReactOS.");
-  SetTextXY(8, 19, "\x07  Press E to start the emergency console.");
-  SetTextXY(8, 21, "\x07  Press R to repair ReactOS.");
-  SetTextXY(8, 23, "\x07  Press F3 to quit without installing ReactOS.");
+
+  SetTextXY(8, 17, "\x07  Press E to start the emergency console.");
+
+  SetTextXY(8, 19, "\x07  Press R to repair ReactOS.");
+
+  SetTextXY(8, 21, "\x07  Press F3 to quit without installing ReactOS.");
+
 
   SetStatusText("   ENTER = Continue   F3 = Quit");
 
   if (IsUnattendedSetup)
     {
-      return INSTALL_INTRO_PAGE;
+      return(INSTALL_INTRO_PAGE);
     }
 
-  while (TRUE)
+  while(TRUE)
     {
       ConInKey(Ir);
 
@@ -729,76 +711,26 @@ IntroPage(PINPUT_RECORD Ir)
 	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
 	{
 	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
+	    return(QUIT_PAGE);
 	  break;
 	}
       else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return INSTALL_INTRO_PAGE;
-	}
-      else if (toupper(Ir->Event.KeyEvent.uChar.AsciiChar) == 'L') /* L */
-	{
-	  return LICENSE_PAGE;
+	  return(INSTALL_INTRO_PAGE);
 	}
       else if (toupper(Ir->Event.KeyEvent.uChar.AsciiChar) == 'E') /* E */
 	{
-	  return EMERGENCY_INTRO_PAGE;
+	  return(EMERGENCY_INTRO_PAGE);
 	}
       else if (toupper(Ir->Event.KeyEvent.uChar.AsciiChar) == 'R') /* R */
 	{
-	  return REPAIR_INTRO_PAGE;
+	  return(REPAIR_INTRO_PAGE);
 	}
     }
 
-  return INTRO_PAGE;
+  return(INTRO_PAGE);
 }
 
-/*
- * License Page
- * RETURNS
- *	Back to main setup page.
- */
-static PAGE_NUMBER
-LicensePage(PINPUT_RECORD Ir)
-{
-  SetHighlightedTextXY(6, 8, "Licensing:");
-
-  SetTextXY(8, 11, "The ReactOS System is licensed under the terms of the");
-  SetTextXY(8, 12, "GNU GPL with parts containing code from other compatible");
-  SetTextXY(8, 13, "licenses such as the X11 or BSD and GNU LGPL licenses.");
-  SetTextXY(8, 14, "All software that is part of the ReactOS system is");
-  SetTextXY(8, 15, "therefore released under the GNU GPL as well as maintaining");
-  SetTextXY(8, 16, "the original license.");
-
-  SetTextXY(8, 18, "This software comes with NO WARRANTY or restrictions on usage");
-  SetTextXY(8, 19, "save applicable local and international law. The licensing of");
-  SetTextXY(8, 20, "ReactOS only covers distribution to third parties.");
-
-  SetTextXY(8, 22, "If for some reason you did not receive a copy of the");
-  SetTextXY(8, 23, "GNU General Public License with ReactOS please visit");
-  SetHighlightedTextXY(8, 25, "http://www.gnu.org/licenses/licenses.html");
-  
-  SetStatusText("ENTER = Continue   F3 = Quit");
-
-  while (TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return INTRO_PAGE;
-	}
-    }
-
-  return LICENSE_PAGE;
-}
 
 static PAGE_NUMBER
 EmergencyIntroPage(PINPUT_RECORD Ir)
@@ -820,16 +752,16 @@ EmergencyIntroPage(PINPUT_RECORD Ir)
 
       if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return REBOOT_PAGE;
+	  return(REBOOT_PAGE);
 	}
       else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
 	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
 	{
-	  return INTRO_PAGE;
+	  return(INTRO_PAGE);
 	}
     }
 
-  return REPAIR_INTRO_PAGE;
+  return(REPAIR_INTRO_PAGE);
 }
 
 
@@ -853,16 +785,16 @@ RepairIntroPage(PINPUT_RECORD Ir)
 
       if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return REBOOT_PAGE;
+	  return(REBOOT_PAGE);
 	}
       else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
 	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
 	{
-	  return INTRO_PAGE;
+	  return(INTRO_PAGE);
 	}
     }
 
-  return REPAIR_INTRO_PAGE;
+  return(REPAIR_INTRO_PAGE);
 }
 
 
@@ -891,7 +823,7 @@ InstallIntroPage(PINPUT_RECORD Ir)
 
   if (IsUnattendedSetup)
     {
-      return SELECT_PARTITION_PAGE;
+      return(SELECT_PARTITION_PAGE);
     }
 
   while(TRUE)
@@ -902,522 +834,16 @@ InstallIntroPage(PINPUT_RECORD Ir)
 	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
 	{
 	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
+	    return(QUIT_PAGE);
 	  break;
 	}
       else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return DEVICE_SETTINGS_PAGE;
-//	  return SCSI_CONTROLLER_PAGE;
+	  return(SELECT_PARTITION_PAGE);
 	}
     }
 
-  return INSTALL_INTRO_PAGE;
-}
-
-
-#if 0
-static PAGE_NUMBER
-ScsiControllerPage(PINPUT_RECORD Ir)
-{
-  SetTextXY(6, 8, "Setup detected the following mass storage devices:");
-
-  /* FIXME: print loaded mass storage driver descriptions */
-#if 0
-  SetTextXY(8, 10, "TEST device");
-#endif
-
-
-  SetStatusText("   ENTER = Continue   F3 = Quit");
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return SCSI_CONTROLLER_PAGE;
-}
-#endif
-
-
-static PAGE_NUMBER
-DeviceSettingsPage(PINPUT_RECORD Ir)
-{
-  static ULONG Line = 17;
-
-  /* Initialize the computer settings list */
-  if (ComputerList == NULL)
-    {
-      ComputerList = CreateComputerTypeList(SetupInf);
-      if (ComputerList == NULL)
-	{
-	  /* FIXME: report error */
-	}
-    }
-
-  /* Initialize the display settings list */
-  if (DisplayList == NULL)
-    {
-      DisplayList = CreateDisplayDriverList(SetupInf);
-      if (DisplayList == NULL)
-	{
-	  /* FIXME: report error */
-	}
-    }
-
-  /* Initialize the keyboard settings list */
-  if (KeyboardList == NULL)
-    {
-      KeyboardList = CreateKeyboardDriverList(SetupInf);
-      if (KeyboardList == NULL)
-	{
-	  /* FIXME: report error */
-	}
-    }
-
-  /* Initialize the keyboard layout list */
-  if (LayoutList == NULL)
-    {
-      LayoutList = CreateKeyboardLayoutList(SetupInf);
-      if (LayoutList == NULL)
-	{
-	  /* FIXME: report error */
-	  PopupError("Setup failed to load the keyboard layout list.\n",
-		     "ENTER = Reboot computer");
-
-	  while (TRUE)
-	    {
-	      ConInKey(Ir);
-
-	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-		{
-		  return QUIT_PAGE;
-		}
-	    }
-	}
-    }
-
-  /* Initialize the pointer settings list */
-  if (PointerList == NULL)
-    {
-      PointerList = CreateMouseDriverList(SetupInf);
-      if (PointerList == NULL)
-	{
-	  /* FIXME: report error */
-	}
-    }
-
-  SetTextXY(6, 8, "The list below shows the current device settings.");
-
-  SetTextXY(8, 11, "       Computer:");
-  SetTextXY(8, 12, "        Display:");
-  SetTextXY(8, 13, "       Keyboard:");
-  SetTextXY(8, 14, "Keyboard layout:");
-  SetTextXY(8, 15, " Pointer device:");
-
-  SetTextXY(8, 17, "         Accept:");
-
-  SetTextXY(25, 11, GetGenericListEntry(ComputerList)->Text);
-  SetTextXY(25, 12, GetGenericListEntry(DisplayList)->Text);
-  SetTextXY(25, 13, GetGenericListEntry(KeyboardList)->Text);
-  SetTextXY(25, 14, GetGenericListEntry(LayoutList)->Text);
-  SetTextXY(25, 15, GetGenericListEntry(PointerList)->Text);
-
-  SetTextXY(25, 17, "Accept these device settings");
-  InvertTextXY (24, Line, 48, 1);
-
-
-  SetTextXY(6, 20, "You can change the hardware settings by pressing the UP or DOWN keys");
-  SetTextXY(6, 21, "to select an entry. Then press the ENTER key to select alternative");
-  SetTextXY(6, 22, "settings.");
-
-  SetTextXY(6, 24, "When all settings are correct, select \"Accept these device settings\"");
-  SetTextXY(6, 25, "and press ENTER.");
-
-  SetStatusText("   ENTER = Continue   F3 = Quit");
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  NormalTextXY (24, Line, 48, 1);
-	  if (Line == 15)
-	    Line = 17;
-	  else if (Line == 17)
-	    Line = 11;
-	  else
-	    Line++;
-	  InvertTextXY (24, Line, 48, 1);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  NormalTextXY (24, Line, 48, 1);
-	  if (Line == 11)
-	    Line = 17;
-	  else if (Line == 17)
-	    Line = 15;
-	  else
-	    Line--;
-	  InvertTextXY (24, Line, 48, 1);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  if (Line == 11)
-	    return COMPUTER_SETTINGS_PAGE;
-	  else if (Line == 12)
-	    return DISPLAY_SETTINGS_PAGE;
-	  else if (Line == 13)
-	    return KEYBOARD_SETTINGS_PAGE;
-	  else if (Line == 14)
-	    return LAYOUT_SETTINGS_PAGE;
-	  else if (Line == 15)
-	    return POINTER_SETTINGS_PAGE;
-	  else if (Line == 17)
-	    return SELECT_PARTITION_PAGE;
-	}
-    }
-
-  return DEVICE_SETTINGS_PAGE;
-}
-
-
-static PAGE_NUMBER
-ComputerSettingsPage(PINPUT_RECORD Ir)
-{
-  SHORT xScreen;
-  SHORT yScreen;
-
-  SetTextXY(6, 8, "You want to change the type of computer to be installed.");
-
-  SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired computer type.");
-  SetTextXY(8, 11, "   Then press ENTER.");
-
-  SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
-  SetTextXY(8, 14, "   the computer type.");
-
-  GetScreenSize(&xScreen, &yScreen);
-
-  DrawGenericList(ComputerList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
-
-  SaveGenericListState(ComputerList);
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList (ComputerList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList (ComputerList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
-	{
-	  RestoreGenericListState(ComputerList);
-	  return DEVICE_SETTINGS_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return COMPUTER_SETTINGS_PAGE;
-}
-
-
-static PAGE_NUMBER
-DisplaySettingsPage(PINPUT_RECORD Ir)
-{
-  SHORT xScreen;
-  SHORT yScreen;
-
-  SetTextXY(6, 8, "You want to change the type of display to be installed.");
-
-  SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired display type.");
-  SetTextXY(8, 11, "   Then press ENTER.");
-
-  SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
-  SetTextXY(8, 14, "   the display type.");
-
-  GetScreenSize(&xScreen, &yScreen);
-
-  DrawGenericList(DisplayList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
-
-  SaveGenericListState(DisplayList);
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList (DisplayList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList (DisplayList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    {
-	      return QUIT_PAGE;
-	    }
-	  break;
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
-	{
-	  RestoreGenericListState(DisplayList);
-	  return DEVICE_SETTINGS_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return DISPLAY_SETTINGS_PAGE;
-}
-
-
-static PAGE_NUMBER
-KeyboardSettingsPage(PINPUT_RECORD Ir)
-{
-  SHORT xScreen;
-  SHORT yScreen;
-
-  SetTextXY(6, 8, "You want to change the type of keyboard to be installed.");
-
-  SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired keyboard type.");
-  SetTextXY(8, 11, "   Then press ENTER.");
-
-  SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
-  SetTextXY(8, 14, "   the keyboard type.");
-
-  GetScreenSize(&xScreen, &yScreen);
-
-  DrawGenericList(KeyboardList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
-
-  SaveGenericListState(KeyboardList);
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList (KeyboardList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList (KeyboardList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
-	{
-	  RestoreGenericListState(KeyboardList);
-	  return DEVICE_SETTINGS_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return DISPLAY_SETTINGS_PAGE;
-}
-
-
-static PAGE_NUMBER
-LayoutSettingsPage(PINPUT_RECORD Ir)
-{
-  SHORT xScreen;
-  SHORT yScreen;
-
-  SetTextXY(6, 8, "You want to change the keyboard layout to be installed.");
-
-  SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired keyboard");
-  SetTextXY(8, 11, "    layout. Then press ENTER.");
-
-  SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
-  SetTextXY(8, 14, "   the keyboard layout.");
-
-  GetScreenSize(&xScreen, &yScreen);
-
-  DrawGenericList(LayoutList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
-
-  SaveGenericListState(LayoutList);
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList (LayoutList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList (LayoutList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
-	{
-	  RestoreGenericListState(LayoutList);
-	  return DEVICE_SETTINGS_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return DISPLAY_SETTINGS_PAGE;
-}
-
-
-static PAGE_NUMBER
-PointerSettingsPage(PINPUT_RECORD Ir)
-{
-  SHORT xScreen;
-  SHORT yScreen;
-
-  SetTextXY(6, 8, "You want to change the pointing device to be installed.");
-
-  SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired pointing");
-  SetTextXY(8, 11, "    device. Then press ENTER.");
-
-  SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
-  SetTextXY(8, 14, "   the pointing device.");
-
-  GetScreenSize(&xScreen, &yScreen);
-
-  DrawGenericList(PointerList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
-
-  SaveGenericListState(PointerList);
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList(PointerList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList(PointerList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE)) /* ESC */
-	{
-	  RestoreGenericListState(PointerList);
-	  return DEVICE_SETTINGS_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-	  return DEVICE_SETTINGS_PAGE;
-	}
-    }
-
-  return DISPLAY_SETTINGS_PAGE;
+  return(INSTALL_INTRO_PAGE);
 }
 
 
@@ -1448,7 +874,7 @@ SelectPartitionPage(PINPUT_RECORD Ir)
       if (PartitionList == NULL)
 	{
 	  /* FIXME: show an error dialog */
-	  return QUIT_PAGE;
+	  return(QUIT_PAGE);
 	}
     }
 
@@ -2504,8 +1930,8 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 		    wcscpy (PathBuffer, SourceRootPath.Buffer);
 		    wcscat (PathBuffer, L"\\loader\\fat32.bin");
 
-		    DPRINT ("Install FAT32 bootcode: %S ==> %S\n", PathBuffer,
-			    DestinationRootPath.Buffer);
+		    DPRINT1 ("Install FAT32 bootcode: %S ==> %S\n", PathBuffer,
+			     DestinationRootPath.Buffer);
 		    Status = InstallFat32BootCodeToDisk (PathBuffer,
 						         DestinationRootPath.Buffer);
 		    if (!NT_SUCCESS (Status))
@@ -2520,8 +1946,8 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 		    wcscpy (PathBuffer, SourceRootPath.Buffer);
 		    wcscat (PathBuffer, L"\\loader\\fat.bin");
 
-		    DPRINT ("Install FAT bootcode: %S ==> %S\n", PathBuffer,
-			    DestinationRootPath.Buffer);
+		    DPRINT1 ("Install FAT bootcode: %S ==> %S\n", PathBuffer,
+			     DestinationRootPath.Buffer);
 		    Status = InstallFat16BootCodeToDisk (PathBuffer,
 						         DestinationRootPath.Buffer);
 		    if (!NT_SUCCESS (Status))
@@ -2540,10 +1966,8 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 		return QUIT_PAGE;
 	    }
 
-#ifndef NDEBUG
 	  SetStatusText ("   Done.  Press any key ...");
 	  ConInKey(Ir);
-#endif
 
 	  return INSTALL_DIRECTORY_PAGE;
 	}
@@ -2732,7 +2156,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
 	}
       else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return (InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry));
+          return (InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry));
 	}
       else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x08) /* BACKSPACE */
 	{
@@ -2760,9 +2184,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
 
 
 static BOOLEAN
-PrepareCopyPageInfFile(HINF InfFile,
-		       PWCHAR SourceCabinet,
-		       PINPUT_RECORD Ir)
+PrepareCopyPageInfFile(HINF InfFile, PWCHAR SourceCabinet, PINPUT_RECORD Ir)
 {
   WCHAR PathBuffer[MAX_PATH];
   INFCONTEXT FilesContext;
@@ -2971,6 +2393,10 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 
   SetTextXY(6, 8, "Setup prepares your computer for copying the ReactOS files. ");
 
+
+  /*
+   * Build the file copy list
+   */
   SetStatusText("   Building the file copy list...");
 
   /* Create the file queue */
@@ -2991,16 +2417,31 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 	}
     }
 
+
   if (!PrepareCopyPageInfFile(SetupInf, NULL, Ir))
     {
-      return QUIT_PAGE;
+      return(QUIT_PAGE);
     }
+
 
   /* Search for the 'Cabinets' section */
   if (!InfFindFirstLine (SetupInf, L"Cabinets", NULL, &CabinetsContext))
     {
-      return FILE_COPY_PAGE;
+      PopupError("Setup failed to find the 'Cabinets' section\n"
+		 "in TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer");
+
+      while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	}
     }
+
 
   /*
    * Enumerate the directory values in the 'Cabinets'
@@ -3035,7 +2476,7 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 
 		  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 		    {
-		      return QUIT_PAGE;
+		      return(QUIT_PAGE);
 		    }
 		}
 	    }
@@ -3053,7 +2494,7 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 
 	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 		{
-		  return QUIT_PAGE;
+		  return(QUIT_PAGE);
 		}
 	    }
 	}
@@ -3073,7 +2514,7 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 
 	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 		{
-		  return QUIT_PAGE;
+		  return(QUIT_PAGE);
 		}
 	    }
 	}
@@ -3082,12 +2523,12 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 
       if (!PrepareCopyPageInfFile(InfHandle, KeyValue, Ir))
         {
-          return QUIT_PAGE;
+          return(QUIT_PAGE);
         }
     }
   while (InfFindNextLine (&CabinetsContext, &CabinetsContext));
 
-  return FILE_COPY_PAGE;
+  return(FILE_COPY_PAGE);
 }
 
 
@@ -3124,7 +2565,7 @@ FileCopyCallback(PVOID Context,
 	break;
     }
 
-  return 0;
+  return(0);
 }
 
 
@@ -3158,7 +2599,7 @@ FileCopyPage(PINPUT_RECORD Ir)
 
   DestroyProgressBar(CopyContext.ProgressBar);
 
-  return REGISTRY_PAGE;
+  return(REGISTRY_PAGE);
 }
 
 
@@ -3166,11 +2607,13 @@ static PAGE_NUMBER
 RegistryPage(PINPUT_RECORD Ir)
 {
   INFCONTEXT InfContext;
+  NTSTATUS Status;
+
   PWSTR Action;
   PWSTR File;
   PWSTR Section;
   BOOLEAN Delete;
-  NTSTATUS Status;
+
 
   SetTextXY(6, 8, "Setup is updating the system configuration");
 
@@ -3188,7 +2631,7 @@ RegistryPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -3207,7 +2650,7 @@ RegistryPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -3227,7 +2670,7 @@ RegistryPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
@@ -3238,7 +2681,7 @@ RegistryPage(PINPUT_RECORD Ir)
       InfGetDataField (&InfContext, 1, &File);
       InfGetDataField (&InfContext, 2, &Section);
 
-      DPRINT("Action: %S  File: %S  Section %S\n", Action, File, Section);
+      DPRINT1("Action: %S  File: %S  Section %S\n", Action, File, Section);
 
       if (!_wcsicmp (Action, L"AddReg"))
 	{
@@ -3257,7 +2700,7 @@ RegistryPage(PINPUT_RECORD Ir)
 
       if (!ImportRegistryFile(File, Section, Delete))
 	{
-	  DPRINT("Importing %S failed\n", File);
+	  DPRINT1("Importing %S failed\n", File);
 
 	  PopupError("Setup failed to import a hive file.",
 		     "ENTER = Reboot computer");
@@ -3268,294 +2711,34 @@ RegistryPage(PINPUT_RECORD Ir)
 
 	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 		{
-		  return QUIT_PAGE;
+		  return(QUIT_PAGE);
 		}
 	    }
 	}
     }
   while (InfFindNextLine (&InfContext, &InfContext));
 
-  /* Update display registry settings */
-  SetStatusText("   Updating display registry settings...");
-  if (!ProcessDisplayRegistry(SetupInf, DisplayList))
-    {
-      PopupError("Setup failed to update display registry settings.",
-		 "ENTER = Reboot computer");
-
-      while(TRUE)
-	{
-	  ConInKey(Ir);
-
-	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-	    {
-	      return QUIT_PAGE;
-	    }
-	}
-    }
-
-  /* Update keyboard layout settings */
-  SetStatusText("   Updating keyboard layout settings...");
-  if (!ProcessKeyboardLayoutRegistry(LayoutList))
-    {
-      PopupError("Setup failed to update keyboard layout settings.",
-		 "ENTER = Reboot computer");
-
-      while(TRUE)
-	{
-	  ConInKey(Ir);
-
-	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-	    {
-	      return QUIT_PAGE;
-	    }
-	}
-    }
-
-  /* Update mouse registry settings */
-  SetStatusText("   Updating mouse registry settings...");
-  if (!ProcessMouseRegistry(SetupInf, PointerList))
-    {
-      PopupError("Setup failed to update mouse registry settings.",
-		 "ENTER = Reboot computer");
-
-      while(TRUE)
-	{
-	  ConInKey(Ir);
-
-	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-	    {
-	      return QUIT_PAGE;
-	    }
-	}
-    }
-
   SetStatusText("   Done...");
 
-  return BOOT_LOADER_PAGE;
+  return(BOOT_LOADER_PAGE);
 }
 
 
 static PAGE_NUMBER
 BootLoaderPage(PINPUT_RECORD Ir)
 {
-  UCHAR PartitionType;
-  BOOLEAN InstallOnFloppy;
-  USHORT Line = 12;
+  WCHAR SrcPath[MAX_PATH];
+  WCHAR DstPath[MAX_PATH];
+  NTSTATUS Status;
+
+  SetTextXY(6, 8, "Installing the boot loader");
 
   SetStatusText("   Please wait...");
 
-  PartitionType = PartitionList->ActiveBootPartition->PartInfo[0].PartitionType;
-
-  if (PartitionType == PARTITION_ENTRY_UNUSED)
+  if (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_ENTRY_UNUSED)
     {
-      DPRINT("Error: active partition invalid (unused)\n");
-      InstallOnFloppy = TRUE;
-    }
-  else if (PartitionType == 0x0A)
-    {
-      /* OS/2 boot manager partition */
-      DPRINT("Found OS/2 boot manager partition\n");
-      InstallOnFloppy = TRUE;
-    }
-  else if (PartitionType == 0x83)
-    {
-      /* Linux ext2 partition */
-      DPRINT("Found Linux ext2 partition\n");
-      InstallOnFloppy = TRUE;
-    }
-  else if (PartitionType == PARTITION_IFS)
-    {
-      /* NTFS partition */
-      DPRINT("Found NTFS partition\n");
-      InstallOnFloppy = TRUE;
-    }
-  else if ((PartitionType == PARTITION_FAT_12) ||
-	   (PartitionType == PARTITION_FAT_16) ||
-	   (PartitionType == PARTITION_HUGE) ||
-	   (PartitionType == PARTITION_XINT13) ||
-	   (PartitionType == PARTITION_FAT32) ||
-	   (PartitionType == PARTITION_FAT32_XINT13))
-    {
-      DPRINT("Found FAT partition\n");
-      InstallOnFloppy = FALSE;
-    }
-  else
-    {
-      /* Unknown partition */
-      DPRINT("Unknown partition found\n");
-      InstallOnFloppy = TRUE;
-    }
-
-  if (InstallOnFloppy == TRUE)
-    {
-      return BOOT_LOADER_FLOPPY_PAGE;
-    }
-
-  SetTextXY(6, 8, "Setup is installing the boot loader");
-
-  SetTextXY(8, 12, "Install bootloader on the harddisk (MBR).");
-  SetTextXY(8, 13, "Install bootloader on a floppy disk.");
-  InvertTextXY (8, Line, 48, 1);
-
-  SetStatusText("   ENTER = Continue   F3 = Quit");
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  NormalTextXY (8, Line, 48, 1);
-	  if (Line == 12)
-	    Line = 13;
-	  else if (Line == 13)
-	    Line = 12;
-#if 0
-	  else
-	    Line++;
-#endif
-	  InvertTextXY (8, Line, 48, 1);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  NormalTextXY (8, Line, 48, 1);
-	  if (Line == 12)
-	    Line = 13;
-	  else if (Line == 13)
-	    Line = 12;
-#if 0
-	  else
-	    Line--;
-#endif
-	  InvertTextXY (8, Line, 48, 1);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-	{
-	  if (Line == 12)
-	    {
-	      return BOOT_LOADER_HARDDISK_PAGE;
-	    }
-	  else if (Line == 13)
-	    {
-	      return BOOT_LOADER_FLOPPY_PAGE;
-	    }
-
-	  return BOOT_LOADER_PAGE;
-	}
-
-    }
-
-  return BOOT_LOADER_PAGE;
-}
-
-
-static PAGE_NUMBER
-BootLoaderFloppyPage(PINPUT_RECORD Ir)
-{
-  NTSTATUS Status;
-
-  SetTextXY(6, 8, "Setup cannot install the bootloader on your computers");
-  SetTextXY(6, 9, "harddisk");
-
-  SetTextXY(6, 13, "Please insert a formatted floppy disk in drive A: and");
-  SetTextXY(6, 14, "press ENTER.");
-
-
-  SetStatusText("   ENTER = Continue   F3 = Quit");
-//  SetStatusText("   Please wait...");
-
-  while(TRUE)
-    {
-      ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	  break;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-	{
-	  if (DoesFileExist(L"\\Device\\Floppy0", L"\\") == FALSE)
-	    {
-	      PopupError("No disk in drive A:.",
-			 "ENTER = Continue");
-	      while(TRUE)
-		{
-		  ConInKey(Ir);
-
-		  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-		    break;
-		}
-
-	      return BOOT_LOADER_FLOPPY_PAGE;
-	    }
-
-	  Status = InstallFatBootcodeToFloppy(&SourceRootPath,
-					      &DestinationArcPath);
-	  if (!NT_SUCCESS(Status))
-	    {
-	      /* Print error message */
-	      return BOOT_LOADER_FLOPPY_PAGE;
-	    }
-
-	  return SUCCESS_PAGE;
-	}
-    }
-
-  return BOOT_LOADER_FLOPPY_PAGE;
-}
-
-
-static PAGE_NUMBER
-BootLoaderHarddiskPage(PINPUT_RECORD Ir)
-{
-  UCHAR PartitionType;
-  NTSTATUS Status;
-
-  PartitionType = PartitionList->ActiveBootPartition->PartInfo[0].PartitionType;
-  if ((PartitionType == PARTITION_FAT_12) ||
-      (PartitionType == PARTITION_FAT_16) ||
-      (PartitionType == PARTITION_HUGE) ||
-      (PartitionType == PARTITION_XINT13) ||
-      (PartitionType == PARTITION_FAT32) ||
-      (PartitionType == PARTITION_FAT32_XINT13))
-    {
-      Status = InstallFatBootcodeToPartition(&SystemRootPath,
-					     &SourceRootPath,
-					     &DestinationArcPath,
-					     PartitionType);
-      if (!NT_SUCCESS(Status))
-	{
-	  PopupError("Setup failed to install the FAT bootcode on the system partition.",
-		     "ENTER = Reboot computer");
-
-	  while(TRUE)
-	    {
-	      ConInKey(Ir);
-
-	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
-		{
-		  return QUIT_PAGE;
-		}
-	    }
-	}
-
-      return SUCCESS_PAGE;
-    }
-  else
-    {
-      PopupError("failed to install FAT bootcode on the system partition.",
+      DPRINT1("Error: active partition invalid (unused)\n");
+      PopupError("The active partition is unused (invalid).\n",
 		 "ENTER = Reboot computer");
 
       while(TRUE)
@@ -3564,13 +2747,592 @@ BootLoaderHarddiskPage(PINPUT_RECORD Ir)
 
 	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
 	    {
-	      return QUIT_PAGE;
+	      return(QUIT_PAGE);
 	    }
 	}
     }
 
-  return BOOT_LOADER_HARDDISK_PAGE;
+  if (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == 0x0A)
+    {
+      /* OS/2 boot manager partition */
+      DPRINT1("Found OS/2 boot manager partition\n");
+      PopupError("Setup found an OS/2 boot manager partiton.\n"
+		 "The OS/2 boot manager is not supported yet!",
+		 "ENTER = Reboot computer");
+
+      while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	}
+    }
+  else if (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == 0x83)
+    {
+      /* Linux ext2 partition */
+      DPRINT1("Found Linux ext2 partition\n");
+      PopupError("Setup found a Linux ext2 partiton.\n"
+		 "Linux ext2 partitions are not supported yet!",
+		 "ENTER = Reboot computer");
+
+      while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	}
+    }
+  else if (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_IFS)
+    {
+      /* NTFS partition */
+      DPRINT1("Found NTFS partition\n");
+      PopupError("Setup found an NTFS partiton.\n"
+		 "NTFS partitions are not supported yet!",
+		 "ENTER = Reboot computer");
+
+      while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	}
+    }
+  else if ((PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT_12) ||
+	   (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT_16) ||
+	   (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_HUGE) ||
+	   (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_XINT13) ||
+	   (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+	   (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
+  {
+    /* FAT or FAT32 partition */
+    DPRINT1("System path: '%wZ'\n", &SystemRootPath);
+
+    if (DoesFileExist(SystemRootPath.Buffer, L"ntldr") == TRUE ||
+	DoesFileExist(SystemRootPath.Buffer, L"boot.ini") == TRUE)
+    {
+      /* Search root directory for 'ntldr' and 'boot.ini'. */
+      DPRINT1("Found Microsoft Windows NT/2000/XP boot loader\n");
+
+      /* Copy FreeLoader to the boot partition */
+      wcscpy(SrcPath, SourceRootPath.Buffer);
+      wcscat(SrcPath, L"\\loader\\freeldr.sys");
+      wcscpy(DstPath, SystemRootPath.Buffer);
+      wcscat(DstPath, L"\\freeldr.sys");
+
+      DPRINT1("Copy: %S ==> %S\n", SrcPath, DstPath);
+      Status = SetupCopyFile(SrcPath, DstPath);
+      if (!NT_SUCCESS(Status))
+      {
+	DPRINT1("SetupCopyFile() failed (Status %lx)\n", Status);
+	PopupError("Setup failed to copy 'freeldr.sys'.",
+		   "ENTER = Reboot computer");
+
+	while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	  {
+	    return(QUIT_PAGE);
+	  }
+	}
+      }
+
+      /* Create or update freeldr.ini */
+      if (DoesFileExist(SystemRootPath.Buffer, L"freeldr.ini") == FALSE)
+      {
+	/* Create new 'freeldr.ini' */
+	DPRINT1("Create new 'freeldr.ini'\n");
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	Status = CreateFreeLoaderIniForReactos(DstPath,
+					       DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("CreateFreeLoaderIniForReactos() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to create 'freeldr.ini'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+
+	/* Install new bootcode */
+	if ((PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+	    (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
+	{
+	  /* Install FAT32 bootcode */
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat32.bin");
+	  wcscpy(DstPath, SystemRootPath.Buffer);
+	  wcscat(DstPath, L"\\bootsect.ros");
+
+	  DPRINT1("Install FAT32 bootcode: %S ==> %S\n", SrcPath, DstPath);
+	  Status = InstallFat32BootCodeToFile(SrcPath,
+					      DstPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat32BootCodeToFile() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT32 bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+	else
+	{
+	  /* Install FAT16 bootcode */
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat.bin");
+	  wcscpy(DstPath, SystemRootPath.Buffer);
+	  wcscat(DstPath, L"\\bootsect.ros");
+
+	  DPRINT1("Install FAT bootcode: %S ==> %S\n", SrcPath, DstPath);
+	  Status = InstallFat16BootCodeToFile(SrcPath,
+					      DstPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat16BootCodeToFile() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+
+	/* Update 'boot.ini' */
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\boot.ini");
+
+	DPRINT1("Update 'boot.ini': %S\n", DstPath);
+	Status = UpdateBootIni(DstPath,
+			       L"C:\\bootsect.ros",
+			       L"\"ReactOS\"");
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("UpdateBootIni() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to update \'boot.ini\'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+      }
+      else
+      {
+	/* Update existing 'freeldr.ini' */
+	DPRINT1("Update existing 'freeldr.ini'\n");
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	Status = UpdateFreeLoaderIni(DstPath,
+				     DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("UpdateFreeLoaderIni() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to update 'freeldr.ini'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+      }
+    }
+    else if (DoesFileExist(SystemRootPath.Buffer, L"io.sys") == TRUE ||
+	     DoesFileExist(SystemRootPath.Buffer, L"msdos.sys") == TRUE)
+    {
+      /* Search for root directory for 'io.sys' and 'msdos.sys'. */
+      DPRINT1("Found Microsoft DOS or Windows 9x boot loader\n");
+
+      /* Copy FreeLoader to the boot partition */
+      wcscpy(SrcPath, SourceRootPath.Buffer);
+      wcscat(SrcPath, L"\\loader\\freeldr.sys");
+      wcscpy(DstPath, SystemRootPath.Buffer);
+      wcscat(DstPath, L"\\freeldr.sys");
+
+      DPRINT("Copy: %S ==> %S\n", SrcPath, DstPath);
+      Status = SetupCopyFile(SrcPath, DstPath);
+      if (!NT_SUCCESS(Status))
+      {
+	DPRINT1("SetupCopyFile() failed (Status %lx)\n", Status);
+	PopupError("Setup failed to copy 'freeldr.sys'.",
+		   "ENTER = Reboot computer");
+
+	while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	  {
+	    return(QUIT_PAGE);
+	  }
+	}
+      }
+
+      /* Create or update 'freeldr.ini' */
+      if (DoesFileExist(SystemRootPath.Buffer, L"freeldr.ini") == FALSE)
+      {
+	/* Create new 'freeldr.ini' */
+	DPRINT1("Create new 'freeldr.ini'\n");
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	Status = CreateFreeLoaderIniForDos(DstPath,
+					   DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("CreateFreeLoaderIniForDos() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to create 'freeldr.ini'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+
+	/* Save current bootsector as 'BOOTSECT.DOS' */
+	wcscpy(SrcPath, SystemRootPath.Buffer);
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\bootsect.dos");
+
+	DPRINT1("Save bootsector: %S ==> %S\n", SrcPath, DstPath);
+	Status = SaveCurrentBootSector(SrcPath,
+				       DstPath);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("SaveCurrentBootSector() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to save the current bootsector.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+
+	/* Install new bootsector */
+	if ((PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+	    (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
+	{
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat32.bin");
+
+	  DPRINT1("Install FAT32 bootcode: %S ==> %S\n", SrcPath, SystemRootPath.Buffer);
+	  Status = InstallFat32BootCodeToDisk(SrcPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat32BootCodeToDisk() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT32 bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+	else
+	{
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat.bin");
+
+	  DPRINT1("Install FAT bootcode: %S ==> %S\n", SrcPath, SystemRootPath.Buffer);
+	  Status = InstallFat16BootCodeToDisk(SrcPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat16BootCodeToDisk() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+      }
+      else
+      {
+	/* Update existing 'freeldr.ini' */
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	Status = UpdateFreeLoaderIni(DstPath,
+				     DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("UpdateFreeLoaderIni() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to update 'freeldr.ini'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+      }
+    }
+    else
+    {
+      /* No or unknown boot loader */
+      DPRINT1("No or unknown boot loader found\n");
+
+      /* Copy FreeLoader to the boot partition */
+      wcscpy(SrcPath, SourceRootPath.Buffer);
+      wcscat(SrcPath, L"\\loader\\freeldr.sys");
+      wcscpy(DstPath, SystemRootPath.Buffer);
+      wcscat(DstPath, L"\\freeldr.sys");
+
+      DPRINT1("Copy: %S ==> %S\n", SrcPath, DstPath);
+      Status = SetupCopyFile(SrcPath, DstPath);
+      if (!NT_SUCCESS(Status))
+      {
+	DPRINT1("SetupCopyFile() failed (Status %lx)\n", Status);
+	PopupError("Setup failed to copy 'freeldr.sys'.",
+		   "ENTER = Reboot computer");
+
+	while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	  {
+	    return(QUIT_PAGE);
+	  }
+	}
+      }
+
+      /* Create or update 'freeldr.ini' */
+      if (DoesFileExist(SystemRootPath.Buffer, L"freeldr.ini") == FALSE)
+      {
+	/* Create new freeldr.ini */
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	DPRINT1("Copy: %S ==> %S\n", SrcPath, DstPath);
+	Status = CreateFreeLoaderIniForReactos(DstPath,
+					       DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("CreateFreeLoaderIniForReactos() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to create \'freeldr.ini\'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+
+	/* Save current bootsector as 'BOOTSECT.OLD' */
+	wcscpy(SrcPath, SystemRootPath.Buffer);
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\bootsect.old");
+
+	DPRINT1("Save bootsector: %S ==> %S\n", SrcPath, DstPath);
+	Status = SaveCurrentBootSector(SrcPath,
+				       DstPath);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("SaveCurrentBootSector() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed save the current bootsector.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+
+	/* Install new bootsector */
+	if ((PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+	    (PartitionList->ActiveBootPartition->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
+	{
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat32.bin");
+
+	  DPRINT1("Install FAT32 bootcode: %S ==> %S\n", SrcPath, SystemRootPath.Buffer);
+	  Status = InstallFat32BootCodeToDisk(SrcPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat32BootCodeToDisk() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT32 bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+	else
+	{
+	  wcscpy(SrcPath, SourceRootPath.Buffer);
+	  wcscat(SrcPath, L"\\loader\\fat.bin");
+
+	  DPRINT1("Install FAT bootcode: %S ==> %S\n", SrcPath, SystemRootPath.Buffer);
+	  Status = InstallFat16BootCodeToDisk(SrcPath,
+					      SystemRootPath.Buffer);
+	  if (!NT_SUCCESS(Status))
+	  {
+	    DPRINT1("InstallFat16BootCodeToDisk() failed (Status %lx)\n", Status);
+	    PopupError("Setup failed to install the FAT bootcode.",
+		       "ENTER = Reboot computer");
+
+	    while(TRUE)
+	    {
+	      ConInKey(Ir);
+
+	      if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	      {
+		return(QUIT_PAGE);
+	      }
+	    }
+	  }
+	}
+      }
+      else
+      {
+	/* Update existing 'freeldr.ini' */
+	wcscpy(DstPath, SystemRootPath.Buffer);
+	wcscat(DstPath, L"\\freeldr.ini");
+
+	Status = UpdateFreeLoaderIni(DstPath,
+				     DestinationArcPath.Buffer);
+	if (!NT_SUCCESS(Status))
+	{
+	  DPRINT1("UpdateFreeLoaderIni() failed (Status %lx)\n", Status);
+	  PopupError("Setup failed to update 'freeldr.ini'.",
+		     "ENTER = Reboot computer");
+
+	  while(TRUE)
+	  {
+	    ConInKey(Ir);
+
+	    if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	  }
+	}
+      }
+    }
+  }
+  else
+    {
+      /* Unknown partition */
+      DPRINT1("Unknown partition found\n");
+      PopupError("Setup found an unknown partiton type.\n"
+		 "This partition type is not supported!",
+		 "ENTER = Reboot computer");
+
+      while(TRUE)
+	{
+	  ConInKey(Ir);
+
+	  if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)	/* ENTER */
+	    {
+	      return(QUIT_PAGE);
+	    }
+	}
+    }
+
+  return(SUCCESS_PAGE);
 }
+
 
 
 static PAGE_NUMBER
@@ -3599,41 +3361,6 @@ QuitPage(PINPUT_RECORD Ir)
       FileSystemList = NULL;
     }
 
-  /* Destroy computer settings list */
-  if (ComputerList != NULL)
-    {
-      DestroyGenericList(ComputerList, TRUE);
-      ComputerList = NULL;
-    }
-
-  /* Destroy display settings list */
-  if (DisplayList != NULL)
-    {
-      DestroyGenericList(DisplayList, TRUE);
-      DisplayList = NULL;
-    }
-
-  /* Destroy keyboard settings list */
-  if (KeyboardList != NULL)
-    {
-      DestroyGenericList(KeyboardList, TRUE);
-      KeyboardList = NULL;
-    }
-
-  /* Destroy keyboard layout list */
-  if (LayoutList != NULL)
-    {
-      DestroyGenericList(LayoutList, TRUE);
-      LayoutList = NULL;
-    }
-
-  /* Destroy pointer device list */
-  if (PointerList != NULL)
-    {
-      DestroyGenericList(PointerList, TRUE);
-      PointerList = NULL;
-    }
-
   SetStatusText("   ENTER = Reboot computer");
 
   while(TRUE)
@@ -3642,7 +3369,7 @@ QuitPage(PINPUT_RECORD Ir)
 
       if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return FLUSH_PAGE;
+	  return(FLUSH_PAGE);
 	}
     }
 }
@@ -3662,7 +3389,7 @@ SuccessPage(PINPUT_RECORD Ir)
 
   if (IsUnattendedSetup)
     {
-      return FLUSH_PAGE;
+      return(FLUSH_PAGE);
     }
 
   while(TRUE)
@@ -3671,7 +3398,7 @@ SuccessPage(PINPUT_RECORD Ir)
 
       if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
-	  return FLUSH_PAGE;
+	  return(FLUSH_PAGE);
 	}
     }
 }
@@ -3687,7 +3414,7 @@ FlushPage(PINPUT_RECORD Ir)
 
   SetStatusText("   Flushing cache");
 
-  return REBOOT_PAGE;
+  return(REBOOT_PAGE);
 }
 
 
@@ -3722,8 +3449,6 @@ NtProcessStartup(PPEB Peb)
   RtlInitUnicodeString(&DestinationRootPath, NULL);
   RtlInitUnicodeString(&SystemRootPath, NULL);
 
-  /* Hide the cursor */
-  SetCursorType(TRUE, FALSE);
 
   Page = START_PAGE;
   while (Page != REBOOT_PAGE)
@@ -3739,11 +3464,6 @@ NtProcessStartup(PPEB Peb)
 	    Page = StartPage(&Ir);
 	    break;
 
-	  /* License page */
-	  case LICENSE_PAGE:
-	    Page = LicensePage(&Ir);
-	    break;
-
 	  /* Intro page */
 	  case INTRO_PAGE:
 	    Page = IntroPage(&Ir);
@@ -3755,40 +3475,14 @@ NtProcessStartup(PPEB Peb)
 	    break;
 
 #if 0
-	  case SCSI_CONTROLLER_PAGE:
-	    Page = ScsiControllerPage(&Ir);
-	    break;
-#endif
-
-#if 0
 	  case OEM_DRIVER_PAGE:
 	    Page = OemDriverPage(&Ir);
 	    break;
 #endif
 
+#if 0
 	  case DEVICE_SETTINGS_PAGE:
-	    Page = DeviceSettingsPage(&Ir);
-	    break;
-
-	  case COMPUTER_SETTINGS_PAGE:
-	    Page = ComputerSettingsPage(&Ir);
-	    break;
-
-	  case DISPLAY_SETTINGS_PAGE:
-	    Page = DisplaySettingsPage(&Ir);
-	    break;
-
-	  case KEYBOARD_SETTINGS_PAGE:
-	    Page = KeyboardSettingsPage(&Ir);
-	    break;
-
-	  case LAYOUT_SETTINGS_PAGE:
-	    Page = LayoutSettingsPage(&Ir);
-	    break;
-
-	  case POINTER_SETTINGS_PAGE:
-	    Page = PointerSettingsPage(&Ir);
-	    break;
+#endif
 
 	  case SELECT_PARTITION_PAGE:
 	    Page = SelectPartitionPage(&Ir);
@@ -3834,19 +3528,14 @@ NtProcessStartup(PPEB Peb)
 	    Page = BootLoaderPage(&Ir);
 	    break;
 
-	  case BOOT_LOADER_FLOPPY_PAGE:
-	    Page = BootLoaderFloppyPage(&Ir);
-	    break;
-
-	  case BOOT_LOADER_HARDDISK_PAGE:
-	    Page = BootLoaderHarddiskPage(&Ir);
-	    break;
-
 
 	  /* Repair pages */
 	  case REPAIR_INTRO_PAGE:
 	    Page = RepairIntroPage(&Ir);
 	    break;
+
+	  case REBOOT_PAGE:
+		break;
 
 
 	  /* Emergency pages */
@@ -3865,9 +3554,6 @@ NtProcessStartup(PPEB Peb)
 
 	  case QUIT_PAGE:
 	    Page = QuitPage(&Ir);
-	    break;
-
-	  case REBOOT_PAGE:
 	    break;
 	}
     }

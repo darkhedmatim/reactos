@@ -1,4 +1,4 @@
-/* $Id: res.c,v 1.22 2004/09/11 17:06:33 gvg Exp $
+/* $Id: res.c,v 1.17 2003/12/09 18:22:29 gvg Exp $
  *
  * COPYRIGHT: See COPYING in the top level directory
  * PROJECT  : ReactOS user mode libraries
@@ -10,7 +10,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /*
@@ -132,6 +132,9 @@ FindResourceExW (
 	ResourceInfo.Type = (ULONG)lpType;
 	ResourceInfo.Name = (ULONG)lpName;
 	ResourceInfo.Language = (ULONG)wLanguage;
+	if (ResourceInfo.Language == (ULONG) MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)) {
+		ResourceInfo.Language = (ULONG) GetUserDefaultLangID();
+	}
 
 	Status = LdrFindResource_U (hModule,
 				    &ResourceInfo,
@@ -143,7 +146,7 @@ FindResourceExW (
 		return NULL;
 	}
 
-	return (HRSRC)ResourceDataEntry;
+	return ResourceDataEntry;
 }
 
 
@@ -159,14 +162,13 @@ LoadResource (
 {
 	NTSTATUS Status;
 	PVOID Data;
-	PIMAGE_RESOURCE_DATA_ENTRY ResInfo = (PIMAGE_RESOURCE_DATA_ENTRY)hResInfo;
 
-	if (hModule == NULL)
-	{
-		hModule = (HINSTANCE)GetModuleHandleW(NULL);
-	}
+   if (hModule == NULL)
+   {
+     hModule = (HINSTANCE)GetModuleHandleW(NULL);
+   }
 
-	Status = LdrAccessResource (hModule, ResInfo, &Data, NULL);
+	Status = LdrAccessResource (hModule, hResInfo, &Data, NULL);
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
@@ -194,7 +196,7 @@ SizeofResource (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 FreeResource (
 	HGLOBAL	hResData
@@ -224,7 +226,7 @@ HANDLE
 STDCALL
 BeginUpdateResourceW (
 	LPCWSTR	pFileName,
-	BOOL	bDeleteExistingResources
+	WINBOOL	bDeleteExistingResources
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -239,7 +241,7 @@ HANDLE
 STDCALL
 BeginUpdateResourceA (
 	LPCSTR	pFileName,
-	BOOL	bDeleteExistingResources
+	WINBOOL	bDeleteExistingResources
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -250,11 +252,11 @@ BeginUpdateResourceA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EndUpdateResourceW (
 	HANDLE	hUpdate,
-	BOOL	fDiscard
+	WINBOOL	fDiscard
 	)
 {
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -265,11 +267,11 @@ EndUpdateResourceW (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EndUpdateResourceA (
 	HANDLE	hUpdate,
-	BOOL	fDiscard
+	WINBOOL	fDiscard
 	)
 {
 	return EndUpdateResourceW(
@@ -282,7 +284,7 @@ EndUpdateResourceA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceLanguagesW (
 	HINSTANCE		hModule,
@@ -297,7 +299,7 @@ EnumResourceLanguagesW (
 }
 
 
-BOOL
+WINBOOL
 STDCALL
 EnumResourceLanguagesA (
 	HINSTANCE		hModule,
@@ -315,7 +317,7 @@ EnumResourceLanguagesA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceNamesW (
 	HINSTANCE		hModule,
@@ -332,7 +334,7 @@ EnumResourceNamesW (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceNamesA (
 	HINSTANCE		hModule,
@@ -349,7 +351,7 @@ EnumResourceNamesA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceTypesW (
 	HINSTANCE		hModule,
@@ -365,7 +367,7 @@ EnumResourceTypesW (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 EnumResourceTypesA (
 	HINSTANCE		hModule,
@@ -381,7 +383,7 @@ EnumResourceTypesA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UpdateResourceA (
 	HANDLE	hUpdate,
@@ -400,7 +402,7 @@ UpdateResourceA (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 UpdateResourceW (
 	HANDLE	hUpdate,

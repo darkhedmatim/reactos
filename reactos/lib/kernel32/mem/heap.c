@@ -1,4 +1,4 @@
-/* $Id: heap.c,v 1.28 2004/12/16 15:10:00 gdalsnes Exp $
+/* $Id: heap.c,v 1.24 2003/07/10 18:50:51 chorns Exp $
  *
  * kernel/heap.c
  * Copyright (C) 1996, Onno Hovers, All rights reserved
@@ -30,7 +30,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /*********************************************************************
 *                     HeapCreate -- KERNEL32                         *
@@ -53,14 +53,7 @@ HANDLE STDCALL HeapCreate(DWORD flags, DWORD dwInitialSize, DWORD dwMaximumSize)
  */
 BOOL WINAPI HeapDestroy(HANDLE hheap)
 {
-   if (hheap == RtlGetProcessHeap())
-   {
-      return FALSE;
-   }
-
-   if (RtlDestroyHeap( hheap )==NULL) return TRUE;
-   SetLastError( ERROR_INVALID_HANDLE );
-   return FALSE;
+   return(RtlDestroyHeap(hheap));
 }
 
 /*********************************************************************
@@ -117,7 +110,7 @@ BOOL WINAPI HeapUnlock(HANDLE hheap)
 /*
  * @implemented
  */
-SIZE_T WINAPI HeapCompact(HANDLE hheap, DWORD flags)
+UINT WINAPI HeapCompact(HANDLE hheap, DWORD flags)
 {
    return RtlCompactHeap(hheap, flags);
 }
@@ -235,7 +228,7 @@ HeapUsage (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 HeapWalk (
 	HANDLE			hHeap,

@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.56 2004/10/24 15:26:14 weiden Exp $
+/* $Id: init.c,v 1.54 2004/01/06 16:10:11 ekohl Exp $
  *
  * init.c - Session Manager initialization
  * 
@@ -634,14 +634,6 @@ SmCreatePagingFiles(VOID)
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   NTSTATUS Status;
 
-  /*
-   * Disable paging file on MiniNT/Live CD.
-   */
-  if (RtlCheckRegistryKey(RTL_REGISTRY_CONTROL, L"MiniNT") == STATUS_SUCCESS)
-    {
-      return STATUS_SUCCESS;
-    }
-
   RtlZeroMemory(&QueryTable,
 		sizeof(QueryTable));
 
@@ -943,7 +935,7 @@ InitSessionManager(HANDLE Children[])
   Status = NtCreateEvent(&CsrssInitEvent,
 			 EVENT_ALL_ACCESS,
 			 &ObjectAttributes,
-			 NotificationEvent,
+			 TRUE,
 			 FALSE);
   if (!NT_SUCCESS(Status))
     {

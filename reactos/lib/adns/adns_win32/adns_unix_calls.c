@@ -29,20 +29,21 @@
 
 #include "adns.h"
 
-int adns_writev(SOCKET FileDescriptor, const struct iovec * iov, int iovCount)
+int adns_writev(int FileDescriptor, const struct iovec * iov, int iovCount)
 {
-	int total_len = 0;	
+	size_t total_len = 0;
+	int bytes_written = 0;
 	int i = 0, r = 0;
 	char *buf = NULL, *p = NULL;
 	
 	for(; i < iovCount; i++)
 		total_len += iov[i].iov_len;
 	
-	p = buf = (char *)alloca( (size_t) total_len);
+	p = buf = (char *)alloca(total_len);
 	
 	for(; i < iovCount; i++)
 	{
-		memcpy(p, iov[i].iov_base, (size_t) iov[i].iov_len);
+		memcpy(p, iov[i].iov_base, iov[i].iov_len);
 		p += iov[i].iov_len;
 	}
 	
@@ -67,12 +68,11 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 {
 	static __int64 Adjustment;
 	__int64 Now = 0;
-       
 	
 	if (!Adjustment)
-	{ 
-                         SYSTEMTIME st = {1970,1,3,0,0,0,0};       						 
-			 SystemTimeToFileTime(&st, ((LPFILETIME)(VOID *)&Adjustment));
+	{
+		SYSTEMTIME st = {1970,1,3,0,0,0,0};
+		SystemTimeToFileTime(&st, (LPFILETIME)&Adjustment);
 	}
 	
 	if (tz)
@@ -81,7 +81,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 		return -1;
 	}
 	
-	GetSystemTimeAsFileTime(((LPFILETIME)(VOID *)&Now));
+	GetSystemTimeAsFileTime((LPFILETIME)&Now);
 	Now -= Adjustment;
 	
 	tv->tv_sec = (long)(Now / 100000000);

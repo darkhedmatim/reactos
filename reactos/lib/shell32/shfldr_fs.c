@@ -28,10 +28,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -42,7 +40,6 @@
 #include "ole2.h"
 #include "shlguid.h"
 
-#include "enumidlist.h"
 #include "pidl.h"
 #include "undocshell.h"
 #include "shell32_main.h"
@@ -60,12 +57,12 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    IUnknownVtbl        *lpVtbl;
-    DWORD                ref;
-    IShellFolder2Vtbl   *lpvtblShellFolder;
-    IPersistFolder3Vtbl *lpvtblPersistFolder3;
-    IDropTargetVtbl     *lpvtblDropTarget;
-    ISFHelperVtbl       *lpvtblSFHelper;
+    ICOM_VFIELD (IUnknown);
+    DWORD ref;
+    ICOM_VTABLE (IShellFolder2) * lpvtblShellFolder;
+    ICOM_VTABLE (IPersistFolder3) * lpvtblPersistFolder3;
+    ICOM_VTABLE (IDropTarget) * lpvtblDropTarget;
+    ICOM_VTABLE (ISFHelper) * lpvtblSFHelper;
 
     IUnknown *pUnkOuter;	/* used for aggregation */
 
@@ -82,11 +79,11 @@ typedef struct {
     BOOL fAcceptFmt;		/* flag for pending Drop */
 } IGenericSFImpl;
 
-static struct IUnknownVtbl unkvt;
-static struct IShellFolder2Vtbl sfvt;
-static struct IPersistFolder3Vtbl vt_FSFldr_PersistFolder3;	/* IPersistFolder3 for a FS_Folder */
-static struct IDropTargetVtbl dtvt;
-static struct ISFHelperVtbl shvt;
+static struct ICOM_VTABLE (IUnknown) unkvt;
+static struct ICOM_VTABLE (IShellFolder2) sfvt;
+static struct ICOM_VTABLE (IPersistFolder3) vt_FSFldr_PersistFolder3;	/* IPersistFolder3 for a FS_Folder */
+static struct ICOM_VTABLE (IDropTarget) dtvt;
+static struct ICOM_VTABLE (ISFHelper) shvt;
 
 #define _IShellFolder2_Offset ((int)(&(((IGenericSFImpl*)0)->lpvtblShellFolder)))
 #define _ICOM_THIS_From_IShellFolder2(class, name) class* This = (class*)(((char*)name)-_IShellFolder2_Offset);
@@ -134,7 +131,7 @@ static void SF_RegisterClipFmt (IGenericSFImpl * This)
 */
 static HRESULT WINAPI IUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, LPVOID * ppvObj)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, shdebugstr_guid (riid), ppvObj);
 
@@ -172,7 +169,7 @@ static HRESULT WINAPI IUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, 
 
 static ULONG WINAPI IUnknown_fnAddRef (IUnknown * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -181,7 +178,7 @@ static ULONG WINAPI IUnknown_fnAddRef (IUnknown * iface)
 
 static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -198,9 +195,9 @@ static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
     return This->ref;
 }
 
-static IUnknownVtbl unkvt =
+static ICOM_VTABLE (IUnknown) unkvt =
 {
-      IUnknown_fnQueryInterface,
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE IUnknown_fnQueryInterface,
       IUnknown_fnAddRef,
       IUnknown_fnRelease,
 };
@@ -355,22 +352,22 @@ IShellFolder_fnParseDisplayName (IShellFolder2 * iface,
 	WideCharToMultiByte(CP_ACP, 0, szElement, -1, szPath + len, MAX_PATH - len, NULL, NULL);
 
 	/* get the pidl */
-	hr = _ILCreateFromPathA(szPath, &pidlTemp);
-
-	if (SUCCEEDED(hr)) {
+	pidlTemp = _ILCreateFromPathA(szPath);
+	if (pidlTemp) {
 	    if (szNext && *szNext) {
 		/* try to analyse the next element */
 		hr = SHELL32_ParseNextElement (iface, hwndOwner, pbc, &pidlTemp, (LPOLESTR) szNext, pchEaten, pdwAttributes);
 	    } else {
 		/* it's the last element */
 		if (pdwAttributes && *pdwAttributes) {
-		    hr = SHELL32_GetItemAttributes (_IShellFolder_ (This), pidlTemp, pdwAttributes);
+		    SHELL32_GetItemAttributes (_IShellFolder_ (This), pidlTemp, pdwAttributes);
 		}
+		hr = S_OK;
 	    }
 	}
     }
 
-    if (SUCCEEDED(hr))
+    if (!hr)
 	*ppidl = pidlTemp;
     else
 	*ppidl = NULL;
@@ -394,9 +391,7 @@ IShellFolder_fnEnumObjects (IShellFolder2 * iface, HWND hwndOwner, DWORD dwFlags
 
     TRACE ("(%p)->(HWND=%p flags=0x%08lx pplist=%p)\n", This, hwndOwner, dwFlags, ppEnumIDList);
 
-    *ppEnumIDList = IEnumIDList_Constructor();
-    if (*ppEnumIDList)
-        CreateFolderEnumList(*ppEnumIDList, This->sPathTarget, dwFlags);
+    *ppEnumIDList = IEnumIDList_Constructor (This->sPathTarget, dwFlags, EIDL_FILE);
 
     TRACE ("-- (%p)->(new ID List: %p)\n", This, *ppEnumIDList);
 
@@ -511,9 +506,6 @@ IShellFolder_fnGetAttributesOf (IShellFolder2 * iface, UINT cidl, LPCITEMIDLIST 
     if ((!cidl) || (!apidl) || (!rgfInOut))
 	return E_INVALIDARG;
 
-    if (*rgfInOut == 0)
-	*rgfInOut = ~0;
-
     while (cidl > 0 && *apidl) {
 	pdump (*apidl);
 	SHELL32_GetItemAttributes (_IShellFolder_ (This), *apidl, rgfInOut);
@@ -583,7 +575,7 @@ IShellFolder_fnGetUIObjectOf (IShellFolder2 * iface,
 	} else if (IsEqualIID (riid, &IID_IDropTarget) && (cidl >= 1)) {
 	    hr = IShellFolder_QueryInterface (iface, &IID_IDropTarget, (LPVOID *) & pObj);
 	} else if ((IsEqualIID(riid,&IID_IShellLinkW) || IsEqualIID(riid,&IID_IShellLinkA))
-				&& (cidl == 1)) {
+				&& (cidl >= 1)) {
 	    pidl = ILCombine (This->pidlRoot, apidl[0]);
 	    hr = IShellLink_ConstructFromFile(NULL, riid, pidl, (LPVOID*)&pObj);
 	    SHFree (pidl);
@@ -600,7 +592,7 @@ IShellFolder_fnGetUIObjectOf (IShellFolder2 * iface,
     return hr;
 }
 
-void SHELL_FS_ProcessDisplayFilename(LPSTR szPath, DWORD dwFlags)
+void _FS_ProcessDisplayFilename(LPSTR szPath, DWORD dwFlags)
 {
     /*FIXME: MSDN also mentions SHGDN_FOREDITING which is not yet handled. */
     if (!(dwFlags & SHGDN_FORPARSING) &&
@@ -664,7 +656,7 @@ IShellFolder_fnGetDisplayNameOf (IShellFolder2 * iface, LPCITEMIDLIST pidl, DWOR
     int len = 0;
     BOOL bSimplePidl;
 
-    *szPath = '\0';
+	*szPath = '\0';
 
     TRACE ("(%p)->(pidl=%p,0x%08lx,%p)\n", This, pidl, dwFlags, strRet);
     pdump (pidl);
@@ -690,7 +682,7 @@ IShellFolder_fnGetDisplayNameOf (IShellFolder2 * iface, LPCITEMIDLIST pidl, DWOR
 	_ILSimpleGetText (pidl, szPath + len, MAX_PATH - len);	/* append my own path */
 
 	if (!_ILIsFolder(pidl))
-	    SHELL_FS_ProcessDisplayFilename(szPath, dwFlags);
+	    _FS_ProcessDisplayFilename(szPath, dwFlags);
     }
 
     if ((dwFlags & SHGDN_FORPARSING) && !bSimplePidl) {	/* go deeper if needed */
@@ -750,16 +742,11 @@ static HRESULT WINAPI IShellFolder_fnSetNameOf (IShellFolder2 * iface, HWND hwnd
     szDest[MAX_PATH - 1] = 0;
     TRACE ("src=%s dest=%s\n", szSrc, szDest);
     if (MoveFileA (szSrc, szDest)) {
-	HRESULT hr = S_OK;
-
 	if (pPidlOut)
-	    hr = _ILCreateFromPathA(szDest, pPidlOut);
-
+	    *pPidlOut = _ILCreateFromPathA(szDest);
 	SHChangeNotify (bIsFolder ? SHCNE_RENAMEFOLDER : SHCNE_RENAMEITEM, SHCNF_PATHA, szSrc, szDest);
-
-	return hr;
+	return S_OK;
     }
-
     return E_FAIL;
 }
 
@@ -860,8 +847,9 @@ static HRESULT WINAPI IShellFolder_fnMapColumnToSCID (IShellFolder2 * iface, UIN
     return E_NOTIMPL;
 }
 
-static IShellFolder2Vtbl sfvt =
+static ICOM_VTABLE (IShellFolder2) sfvt =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IShellFolder_fnQueryInterface,
 	IShellFolder_fnAddRef,
 	IShellFolder_fnRelease,
@@ -983,11 +971,9 @@ static HRESULT WINAPI ISFHelper_fnAddFolder (ISFHelper * iface, HWND hwnd, LPCST
     bRes = CreateDirectoryA (lpstrNewDir, NULL);
     if (bRes) {
 	SHChangeNotify (SHCNE_MKDIR, SHCNF_PATHA, lpstrNewDir, NULL);
-
-	hres = S_OK;
-
 	if (ppidlOut)
-    	    hres = _ILCreateFromPathA(lpstrNewDir, ppidlOut);
+	    *ppidlOut = _ILCreateFromPathA(lpstrNewDir);
+	hres = S_OK;
     } else {
 	char lpstrText[128 + MAX_PATH];
 	char lpstrTempText[128];
@@ -1099,8 +1085,9 @@ ISFHelper_fnCopyItems (ISFHelper * iface, IShellFolder * pSFFrom, UINT cidl, LPC
     return S_OK;
 }
 
-static ISFHelperVtbl shvt =
+static ICOM_VTABLE (ISFHelper) shvt =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISFHelper_fnQueryInterface,
 	ISFHelper_fnAddRef,
 	ISFHelper_fnRelease,
@@ -1274,8 +1261,9 @@ IFSFldr_PersistFolder3_GetFolderTargetInfo (IPersistFolder3 * iface, PERSIST_FOL
     return E_NOTIMPL;
 }
 
-static IPersistFolder3Vtbl vt_FSFldr_PersistFolder3 =
+static ICOM_VTABLE (IPersistFolder3) vt_FSFldr_PersistFolder3 =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IFSFldr_PersistFolder3_QueryInterface,
 	IFSFldr_PersistFolder3_AddRef,
 	IFSFldr_PersistFolder3_Release,
@@ -1388,7 +1376,8 @@ ISFDropTarget_Drop (IDropTarget * iface, IDataObject * pDataObject, DWORD dwKeyS
     return E_NOTIMPL;
 }
 
-static struct IDropTargetVtbl dtvt = {
+static struct ICOM_VTABLE (IDropTarget) dtvt = {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISFDropTarget_QueryInterface,
 	ISFDropTarget_AddRef,
 	ISFDropTarget_Release,

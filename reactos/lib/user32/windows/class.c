@@ -1,4 +1,4 @@
-/* $Id: class.c,v 1.56 2004/12/26 23:56:16 navaraf Exp $
+/* $Id: class.c,v 1.42.2.1 2004/01/19 20:17:07 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -8,17 +8,17 @@
  * UPDATE HISTORY:
  *      09-05-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <string.h>
 #include <stdlib.h>
 #include <debug.h>
 #include <window.h>
 #include <strpool.h>
-#include <user32/regcontrol.h>
 
 
-static BOOL GetClassInfoExCommon(
+
+static WINBOOL GetClassInfoExCommon(
     HINSTANCE hInst,
     LPCWSTR lpszClass,
     LPWNDCLASSEXW lpwcx,
@@ -40,8 +40,6 @@ static BOOL GetClassInfoExCommon(
     str = (LPWSTR)lpszClass;
   else
   {
-    extern BOOL ControlsInitialized;
-
     if (unicode)
     {
         str = HEAP_strdupW ( lpszClass, wcslen(lpszClass) );
@@ -63,12 +61,6 @@ static BOOL GetClassInfoExCommon(
             return FALSE;
         }
     }
-
-    /* Register built-in controls if not already done */
-    if ( !ControlsInitialized )
-    {
-      ControlsInitialized = ControlsInit(str);
-    }
   }
 
   str2.Length = str3.Length = 0;
@@ -86,7 +78,6 @@ static BOOL GetClassInfoExCommon(
   if ( !str3.Buffer )
   {
     SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-    HEAP_free ( str2.Buffer );
     if ( !IS_ATOM(str) )
       HEAP_free ( str );
     return FALSE;
@@ -105,7 +96,7 @@ static BOOL GetClassInfoExCommon(
     if (unicode)
         lpwcx->lpszMenuName = heap_string_poolW ( str2.Buffer, str2.Length );
     else
-        ((LPWNDCLASSEXA) lpwcx)->lpszMenuName = heap_string_poolA ( str2.Buffer, str2.Length );
+        (LPWNDCLASSEXA) lpwcx->lpszMenuName = heap_string_poolA ( str2.Buffer, str2.Length );
   }
 
   if ( !IS_ATOM(w.lpszClassName) && w.lpszClassName )
@@ -113,7 +104,7 @@ static BOOL GetClassInfoExCommon(
     if (unicode)
         lpwcx->lpszClassName = heap_string_poolW ( str3.Buffer, str3.Length );
     else
-        ((LPWNDCLASSEXA) lpwcx)->lpszClassName = heap_string_poolA ( str3.Buffer, str3.Length );
+        (LPWNDCLASSEXA) lpwcx->lpszClassName = heap_string_poolA ( str3.Buffer, str3.Length );
   }
 
   HEAP_free ( str2.Buffer );
@@ -126,7 +117,7 @@ static BOOL GetClassInfoExCommon(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetClassInfoExA(
   HINSTANCE hinst,
@@ -140,7 +131,7 @@ GetClassInfoExA(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetClassInfoExW(
   HINSTANCE hinst,
@@ -148,13 +139,85 @@ GetClassInfoExW(
   LPWNDCLASSEXW lpwcx)
 {
     return GetClassInfoExCommon(hinst, lpszClass, lpwcx, TRUE);
+
+    // AG: I've kept this here (commented out) in case of bugs with my
+    // own "common" routine (see above):
+
+/*LPWSTR str;
+  UNICODE_STRING str2;
+=======
+  LPWSTR str;
+  UNICODE_STRING str2, str3;
+>>>>>>> 1.36
+  WNDCLASSEXW w;
+  WINBOOL retval;
+
+  if ( !lpszClass || !lpwcx )
+  {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return FALSE;
+  }
+
+  if(IS_ATOM(lpszClass))
+    str = (LPWSTR)lpszClass;
+  else
+  {
+    str = HEAP_strdupW ( lpszClass, wcslen(lpszClass) );
+    if ( !str )
+    {
+      SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
+      return FALSE;
+    }
+  }
+
+  str2.Length = str3.Length = 0;
+  str2.MaximumLength = str3.MaximumLength = 255;
+  str2.Buffer = (PWSTR)HEAP_alloc ( str2.MaximumLength * sizeof(WCHAR) );
+  if ( !str2.Buffer )
+  {
+    SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
+    if ( !IS_ATOM(str) )
+      HEAP_free ( str );
+    return FALSE;
+  }
+  
+  str3.Buffer = (PWSTR)HEAP_alloc ( str3.MaximumLength * sizeof(WCHAR) );
+  if ( !str3.Buffer )
+  {
+    SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
+    if ( !IS_ATOM(str) )
+      HEAP_free ( str );
+    HEAP_free ( str2.Buffer );
+    return FALSE;
+  }
+
+  w.lpszMenuName = (LPCWSTR)&str2;
+  w.lpszClassName = (LPCWSTR)&str3;
+  retval = (BOOL)NtUserGetClassInfo(hinst, str, &w, TRUE, 0);
+  if ( !IS_ATOM(str) )
+    HEAP_free(str);
+  RtlCopyMemory ( lpwcx, &w, sizeof(WNDCLASSEXW) );
+
+  if ( !IS_INTRESOURCE(w.lpszMenuName) && w.lpszMenuName )
+  {
+    lpwcx->lpszMenuName = heap_string_poolW ( str2.Buffer, str2.Length );
+  }
+  if ( !IS_ATOM(w.lpszClassName) && w.lpszClassName )
+  {
+    lpwcx->lpszClassName = heap_string_poolW ( str3.Buffer, str3.Length );
+  }
+
+  HEAP_free ( str2.Buffer );
+  HEAP_free ( str3.Buffer );
+
+  return retval;*/
 }
 
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetClassInfoA(
   HINSTANCE hInstance,
@@ -162,7 +225,7 @@ GetClassInfoA(
   LPWNDCLASSA lpWndClass)
 {
   WNDCLASSEXA w;
-  BOOL retval;
+  WINBOOL retval;
 
   if ( !lpClassName || !lpWndClass )
   {
@@ -171,17 +234,14 @@ GetClassInfoA(
   }
 
   retval = GetClassInfoExA(hInstance,lpClassName,&w);
-  if (retval)
-  {
-    RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
-  }
+  RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
   return retval;
 }
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 GetClassInfoW(
   HINSTANCE hInstance,
@@ -189,7 +249,7 @@ GetClassInfoW(
   LPWNDCLASSW lpWndClass)
 {
   WNDCLASSEXW w;
-  BOOL retval;
+  WINBOOL retval;
 
   if(!lpClassName || !lpWndClass)
   {
@@ -403,78 +463,77 @@ RealGetWindowClassA(
 /*
  * @implemented
  */
+ATOM
+STDCALL
+RegisterClassA(CONST WNDCLASSA *lpWndClass)
+{
+  WNDCLASSEXA Class;
+
+  if ( !lpWndClass )
+    return 0;
+
+  RtlCopyMemory ( &Class.style, lpWndClass, sizeof(WNDCLASSA) );
+
+  Class.cbSize = sizeof(WNDCLASSEXA);
+  Class.hIconSm = NULL;
+
+  return RegisterClassExA ( &Class );
+}
+
+/*
+ * @implemented
+ */
 ATOM STDCALL
 RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
 {
-   RTL_ATOM Atom;
-   WNDCLASSEXA WndClass;
-   UNICODE_STRING ClassName;
-   UNICODE_STRING MenuName;
+  RTL_ATOM Atom;
+  WNDCLASSEXW wndclass;
+  NTSTATUS Status;
+  LPWSTR ClassName = NULL;
+  LPWSTR MenuName = NULL;
 
-   if (lpwcx == NULL || lpwcx->cbSize != sizeof(WNDCLASSEXW) ||
-       lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0 ||
-       lpwcx->lpszClassName == NULL)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
+  if ( !lpwcx || (lpwcx->cbSize != sizeof(WNDCLASSEXA)) )
+    return 0;
+
+  if ( !lpwcx->lpszClassName )
+    return 0;
+
+  RtlCopyMemory ( &wndclass, lpwcx, sizeof(WNDCLASSEXW) );
+
+  if ( !IS_ATOM(lpwcx->lpszClassName) )
+  {
+    Status = HEAP_strdupAtoW ( &ClassName, (LPCSTR)lpwcx->lpszClassName, NULL );
+    if ( !NT_SUCCESS (Status) )
+    {
+      SetLastError (RtlNtStatusToDosError(Status));
       return 0;
-   }
+    }
+    wndclass.lpszClassName = ClassName;
+  }
 
-   /*
-    * On real Windows this looks more like:
-    *    if (lpwcx->hInstance == User32Instance &&
-    *        *(PULONG)((ULONG_PTR)NtCurrentTeb() + 0x6D4) & 0x400)
-    * But since I have no idea what the magic field in the
-    * TEB structure means, I rather decided to omit that.
-    * -- Filip Navara
-    */
-   if (lpwcx->hInstance == User32Instance)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
+  if ( !IS_INTRESOURCE(lpwcx->lpszMenuName) )
+  {
+    Status = HEAP_strdupAtoW ( &MenuName, (LPCSTR)lpwcx->lpszMenuName, NULL );
+    if ( !NT_SUCCESS (Status) )
+    {
+      if ( ClassName )
+	HEAP_free ( ClassName );
+      SetLastError (RtlNtStatusToDosError(Status));
       return 0;
-   }
+    }
+    wndclass.lpszMenuName = MenuName;
+  }
 
-   /* Yes, this is correct. We should modify the passed structure. */
-   if (lpwcx->hInstance == NULL)
-      ((WNDCLASSEXA*)lpwcx)->hInstance = GetModuleHandleW(NULL);
-  
-   RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
+  Atom = NtUserRegisterClassExWOW ( &wndclass, FALSE, (WNDPROC)0, 0, 0 );
 
-   if (IS_ATOM(lpwcx->lpszMenuName) || lpwcx->lpszMenuName == 0)
-   {
-      MenuName.Length =
-      MenuName.MaximumLength = 0;
-      MenuName.Buffer = (LPWSTR)lpwcx->lpszMenuName;
-   } else
-   {
-      RtlCreateUnicodeStringFromAsciiz(&MenuName, lpwcx->lpszMenuName);
-   }
+  /* free strings if neccessary */
+  if ( MenuName  ) HEAP_free ( MenuName );
+  if ( ClassName ) HEAP_free ( ClassName );
 
-   if (IS_ATOM(lpwcx->lpszClassName))
-   {
-      ClassName.Length =
-      ClassName.MaximumLength = 0;
-      ClassName.Buffer = (LPWSTR)lpwcx->lpszClassName;
-   } else
-   {
-      RtlCreateUnicodeStringFromAsciiz(&ClassName, lpwcx->lpszClassName);
-   }
-
-   Atom = NtUserRegisterClassExWOW(
-      (WNDCLASSEXW*)&WndClass,
-      &ClassName,
-      &ClassName,
-      &MenuName,
-      NULL,
-      REGISTERCLASS_ANSI,
-      0);
-
-   if (!IS_ATOM(lpwcx->lpszMenuName))
-      RtlFreeUnicodeString(&MenuName);
-   if (!IS_ATOM(lpwcx->lpszClassName))
-      RtlFreeUnicodeString(&ClassName);
-
-   return (ATOM)Atom;
+  return (ATOM)Atom;
 }
+
+
 
 /*
  * @implemented
@@ -482,84 +541,54 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
 ATOM STDCALL
 RegisterClassExW(CONST WNDCLASSEXW *lpwcx)
 {
-   WNDCLASSEXW WndClass;
-   UNICODE_STRING ClassName;
-   UNICODE_STRING MenuName;
+  RTL_ATOM Atom;
+  HANDLE hHeap;
+  WNDCLASSEXW wndclass;
+  LPWSTR ClassName = NULL;
+  LPWSTR MenuName = NULL;
 
-   if (lpwcx == NULL || lpwcx->cbSize != sizeof(WNDCLASSEXW) ||
-       lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0 ||
-       lpwcx->lpszClassName == NULL)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
+  if ( !lpwcx || (lpwcx->cbSize != sizeof(WNDCLASSEXA)) )
+    return 0;
+
+  if ( !lpwcx->lpszClassName )
+    return 0;
+
+  hHeap = RtlGetProcessHeap();
+  RtlCopyMemory ( &wndclass, lpwcx, sizeof(WNDCLASSEXW) );
+
+  /* copy strings if needed */
+
+  if ( !IS_ATOM(lpwcx->lpszClassName) )
+  {
+    ClassName = HEAP_strdupW ( lpwcx->lpszClassName, lstrlenW(lpwcx->lpszClassName) );
+    if ( !ClassName )
+    {
+      SetLastError(RtlNtStatusToDosError(STATUS_NO_MEMORY));
       return 0;
-   }
+    }
+    wndclass.lpszClassName = ClassName;
+  }
 
-   /*
-    * On real Windows this looks more like:
-    *    if (lpwcx->hInstance == User32Instance &&
-    *        *(PULONG)((ULONG_PTR)NtCurrentTeb() + 0x6D4) & 0x400)
-    * But since I have no idea what the magic field in the
-    * TEB structure means, I rather decided to omit that.
-    * -- Filip Navara
-    */
-   if (lpwcx->hInstance == User32Instance)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
+  if ( !IS_INTRESOURCE(lpwcx->lpszMenuName) )
+  {
+    MenuName = HEAP_strdupW ( lpwcx->lpszMenuName, lstrlenW(lpwcx->lpszMenuName) );
+    if ( !MenuName )
+    {
+      if ( ClassName )
+	HEAP_free ( MenuName );
+      SetLastError(RtlNtStatusToDosError(STATUS_NO_MEMORY));
       return 0;
-   }
+    }
+    wndclass.lpszMenuName = MenuName;
+  }
 
-   /* Yes, this is correct. We should modify the passed structure. */
-   if (lpwcx->hInstance == NULL)
-      ((WNDCLASSEXW*)lpwcx)->hInstance = GetModuleHandleW(NULL);
+  Atom = NtUserRegisterClassExWOW ( &wndclass, TRUE, (WNDPROC)0, 0, 0 );
 
-   RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
+  /* free strings if neccessary */
+  if ( MenuName  ) HEAP_free ( MenuName  );
+  if ( ClassName ) HEAP_free ( ClassName );
 
-   if (IS_ATOM(lpwcx->lpszMenuName))
-   {
-      MenuName.Length =
-      MenuName.MaximumLength = 0;
-      MenuName.Buffer = (LPWSTR)lpwcx->lpszMenuName;
-   } else
-   {
-      RtlInitUnicodeString(&MenuName, lpwcx->lpszMenuName);
-   }
-
-   if (IS_ATOM(lpwcx->lpszClassName))
-   {
-      ClassName.Length =
-      ClassName.MaximumLength = 0;
-      ClassName.Buffer = (LPWSTR)lpwcx->lpszClassName;
-   } else
-   {
-      RtlInitUnicodeString(&ClassName, lpwcx->lpszClassName);
-   }
-
-   return (ATOM)NtUserRegisterClassExWOW(
-      &WndClass,
-      &ClassName,
-      &ClassName,
-      &MenuName,
-      NULL,
-      0,
-      0);
-}
-
-/*
- * @implemented
- */
-ATOM STDCALL
-RegisterClassA(CONST WNDCLASSA *lpWndClass)
-{
-   WNDCLASSEXA Class;
-
-   if (lpWndClass == NULL)
-      return 0;
-
-   RtlCopyMemory(&Class.style, lpWndClass, sizeof(WNDCLASSA));
-   Class.cbSize = sizeof(WNDCLASSEXA);
-   Class.hIconSm = NULL;
-
-   return RegisterClassExA(&Class);
+  return (ATOM)Atom;
 }
 
 /*
@@ -568,16 +597,17 @@ RegisterClassA(CONST WNDCLASSA *lpWndClass)
 ATOM STDCALL
 RegisterClassW(CONST WNDCLASSW *lpWndClass)
 {
-   WNDCLASSEXW Class;
+  WNDCLASSEXW Class;
 
-   if (lpWndClass == NULL)
-      return 0;
+  if ( !lpWndClass )
+    return 0;
 
-   RtlCopyMemory(&Class.style, lpWndClass, sizeof(WNDCLASSW));
-   Class.cbSize = sizeof(WNDCLASSEXW);
-   Class.hIconSm = NULL;
+  RtlCopyMemory ( &Class.style, lpWndClass, sizeof(WNDCLASSW) );
 
-   return RegisterClassExW(&Class);
+  Class.cbSize = sizeof(WNDCLASSEXW);
+  Class.hIconSm = NULL;
+
+  return RegisterClassExW ( &Class );
 }
 
 /*
@@ -590,9 +620,8 @@ SetClassLongA (
   int nIndex,
   LONG dwNewLong)
 {
-  UNICODE_STRING str2buf;
   PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
+  PUNICODE_STRING str2;
 
   if ( nIndex != GCL_MENUNAME )
   {
@@ -604,7 +633,7 @@ SetClassLongA (
   }
   else
   {
-    RtlCreateUnicodeStringFromAsciiz ( &str2buf,(LPSTR)dwNewLong );
+    RtlCreateUnicodeString ( str2, (LPWSTR)dwNewLong );
   }
 
   str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);
@@ -634,9 +663,8 @@ SetClassLongW(
   int nIndex,
   LONG dwNewLong)
 {
-  UNICODE_STRING str2buf;
   PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
+  PUNICODE_STRING str2;
 
   if (nIndex != GCL_MENUNAME )
   {
@@ -648,7 +676,7 @@ SetClassLongW(
   }
   else
   {
-    RtlCreateUnicodeString ( &str2buf, (LPWSTR)dwNewLong );
+    RtlCreateUnicodeStringFromAsciiz ( str2,(LPSTR)dwNewLong );
   }
 
   str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);
@@ -719,7 +747,7 @@ SetWindowLongW(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnregisterClassA(
   LPCSTR lpClassName,
@@ -727,7 +755,7 @@ UnregisterClassA(
 {
   LPWSTR ClassName;
   NTSTATUS Status;
-  BOOL Result;
+  WINBOOL Result;
   
   if(!IS_ATOM(lpClassName))
   {
@@ -741,7 +769,7 @@ UnregisterClassA(
   else
     ClassName = (LPWSTR)lpClassName;
   
-  Result = (BOOL)NtUserUnregisterClass((LPCWSTR)ClassName, hInstance, 0);
+  Result = (WINBOOL)NtUserUnregisterClass((LPCWSTR)ClassName, hInstance, 0);
   
   if(ClassName && !IS_ATOM(lpClassName)) 
     HEAP_free(ClassName);
@@ -753,13 +781,13 @@ UnregisterClassA(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 UnregisterClassW(
   LPCWSTR lpClassName,
   HINSTANCE hInstance)
 {
-  return (BOOL)NtUserUnregisterClass(lpClassName, hInstance, 0);
+  return (WINBOOL)NtUserUnregisterClass(lpClassName, hInstance, 0);
 }
 
 /* EOF */

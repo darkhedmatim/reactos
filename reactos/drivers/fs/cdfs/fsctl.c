@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fsctl.c,v 1.20 2004/12/25 11:18:38 navaraf Exp $
+/* $Id: fsctl.c,v 1.17 2003/11/13 15:25:08 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -52,7 +52,7 @@ CdfsGetPVDData(PUCHAR Buffer,
 {
   PPVD Pvd;
   ULONG i;
-  PUCHAR pc;
+  PCHAR pc;
   PWCHAR pw;
 
   union
@@ -83,7 +83,7 @@ CdfsGetPVDData(PUCHAR Buffer,
       *pw++ = (WCHAR)*pc++;
     }
   *pw = 0;
-  CdInfo->VolumeLabelLength = i * sizeof(WCHAR);
+  CdInfo->VolumeLabelLength = i;
 
   CdInfo->VolumeSpaceSize = Pvd->VolumeSpaceSizeL;
   CdInfo->RootStart = Pvd->RootDirRecord.ExtentLocationL;
@@ -95,9 +95,6 @@ CdfsGetPVDData(PUCHAR Buffer,
   DPRINT("VolumeSize: %lu\n", Pvd->VolumeSpaceSizeL);
   DPRINT("RootStart: %lu\n", Pvd->RootDirRecord.ExtentLocationL);
   DPRINT("RootSize: %lu\n", Pvd->RootDirRecord.DataLengthL);
-  DPRINT("PathTableSize: %lu\n", Pvd->PathTableSizeL);
-  DPRINT("PathTablePos: %lu\n", Pvd->LPathTablePos);
-  DPRINT("OptPathTablePos: %lu\n", Pvd->LOptPathTablePos);
 
 #if 0
   DbgPrint("******** PVD **********\n");
@@ -153,17 +150,17 @@ CdfsGetSVDData(PUCHAR Buffer,
 
   DPRINT("EscapeSequences: '%.32s'\n", Svd->EscapeSequences);
 
-  if (strncmp((PCHAR)Svd->EscapeSequences, "%/@", 3) == 0)
+  if (strncmp(Svd->EscapeSequences, "%/@", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 1)\n");
       JolietLevel = 1;
     }
-  else if (strncmp((PCHAR)Svd->EscapeSequences, "%/C", 3) == 0)
+  else if (strncmp(Svd->EscapeSequences, "%/C", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 2)\n");
       JolietLevel = 2;
     }
-  else if (strncmp((PCHAR)Svd->EscapeSequences, "%/E", 3) == 0)
+  else if (strncmp(Svd->EscapeSequences, "%/E", 3) == 0)
     {
       DPRINT("Joliet extension found (UCS-2 Level 3)\n");
       JolietLevel = 3;
