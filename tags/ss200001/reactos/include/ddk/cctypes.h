@@ -1,0 +1,4 @@
+#ifndef __INCLUDE_DDK_CCTYPES_H
+#define __INCLUDE_DDK_CCTYPES_H
+
+#endif /* __INCLUDE_DDK_CCTYPES_H */
