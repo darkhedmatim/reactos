@@ -1,8 +1,0 @@
-LIBRARY WINMM.DLL
-EXPORTS
-; add more exports as needed
-midiOutReset=midiOutReset@4
-sndPlaySoundA=sndPlaySoundA@8
-sndPlaySoundW=sndPlaySoundW@8
-waveOutReset=waveOutReset@4
-waveOutWrite=waveOutWrite@12
