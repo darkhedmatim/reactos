@@ -1,23 +1,5 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: cancel.c,v 1.13 2004/08/15 16:39:03 chorns Exp $
- *
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/cancel.c
  * PURPOSE:         Cancel routine
@@ -28,7 +10,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <internal/kernel.h>
+#include <internal/linkage.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -38,19 +23,7 @@ static KSPIN_LOCK CancelSpinLock;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS STDCALL
-NtCancelIoFile (IN	HANDLE			FileHandle,
-		OUT	PIO_STATUS_BLOCK	IoStatusBlock)
-{
-  UNIMPLEMENTED;
-  return(STATUS_NOT_IMPLEMENTED);
-}
-
-/*
- * @implemented
- */
-BOOLEAN STDCALL 
-IoCancelIrp(PIRP Irp)
+BOOLEAN IoCancelIrp(PIRP Irp)
 {
    KIRQL oldlvl;
    
@@ -58,38 +31,32 @@ IoCancelIrp(PIRP Irp)
    
    IoAcquireCancelSpinLock(&oldlvl);
    Irp->Cancel = TRUE;
-   if (Irp->CancelRoutine == NULL)
-   {
-      IoReleaseCancelSpinLock(oldlvl);
-      return(FALSE);
-   }
-   Irp->CancelIrql = oldlvl;
-   Irp->CancelRoutine(IoGetCurrentIrpStackLocation(Irp)->DeviceObject, Irp);
+   if (Irp->CancelRoutine==NULL)
+     {
+	return(FALSE);
+     }
+   Irp->CancelRoutine(Irp->Stack[0].DeviceObject,Irp);
+   IoReleaseCancelSpinLock(&oldlvl);
    return(TRUE);
 }
 
-VOID INIT_FUNCTION
-IoInitCancelHandling(VOID)
+VOID IoInitCancelHandling(VOID)
 {
    KeInitializeSpinLock(&CancelSpinLock);
 }
 
-/*
- * @implemented
- */
-VOID STDCALL 
-IoAcquireCancelSpinLock(PKIRQL Irql)
+VOID IoAcquireCancelSpinLock(PKIRQL Irql)
 {
    KeAcquireSpinLock(&CancelSpinLock,Irql);
 }
 
-/*
- * @implemented
- */
-VOID STDCALL 
-IoReleaseCancelSpinLock(KIRQL Irql)
+VOID IoReleaseCancelSpinLock(KIRQL Irql)
 {
    KeReleaseSpinLock(&CancelSpinLock,Irql);
 }
 
-/* EOF */
+PDRIVER_CANCEL IoSetCancelRoutine(PIRP Irp, PDRIVER_CANCEL CancelRoutine)
+{
+   return((PDRIVER_CANCEL)InterlockedExchange((PULONG)&Irp->CancelRoutine,
+					      (ULONG)CancelRoutine));
+}

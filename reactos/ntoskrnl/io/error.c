@@ -1,26 +1,8 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: error.c,v 1.11 2004/08/15 16:39:03 chorns Exp $
- *
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/io/error.c
- * PURPOSE:         Handle media errors
+ * FILE:            kernel/base/bug.c
+ * PURPOSE:         Graceful system shutdown if a bug is detected
  * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
@@ -28,41 +10,48 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <internal/kernel.h>
+#include <internal/linkage.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-
-/*
- * @unimplemented
- */
-VOID STDCALL 
-IoRaiseHardError(PIRP Irp,
-		 PVPB Vpb,
-		 PDEVICE_OBJECT RealDeviceObject)
+BOOLEAN IoIsErrorUserInduced(NTSTATUS Status)
 {
-   UNIMPLEMENTED;
-}
-
-BOOLEAN 
-IoIsTotalDeviceFailure(NTSTATUS Status)
-{
-   UNIMPLEMENTED;
+   switch(Status)
+     {
+      case STATUS_DEVICE_NOT_READY:
+      case STATUS_IO_TIMEOUT:
+      case STATUS_MEDIA_WRITE_PROTECTED:
+      case STATUS_NO_MEDIA_IN_DRIVE:
+      case STATUS_VERIFY_REQUIRED:
+      case STATUS_UNRECOGNIZED_MEDIA:
+      case STATUS_WRONG_VOLUME:
+	return(TRUE);
+     }
    return(FALSE);
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN STDCALL 
-IoRaiseInformationalHardError(NTSTATUS ErrorStatus,
-			      PUNICODE_STRING String,
-			      PKTHREAD Thread)
+VOID IoSetHardErrorOrVerifyDevice(PIRP Irp, PDEVICE_OBJECT DeviceObject)
 {
    UNIMPLEMENTED;
-   return(FALSE);
 }
 
+VOID IoRaiseHardError(PIRP Irp, PVPB Vpb, PDEVICE_OBJECT RealDeviceObject)
+{
+   UNIMPLEMENTED;
+}
 
-/* EOF */
+BOOLEAN IoIsTotalDeviceFailure(NTSTATUS Status)
+{
+   UNIMPLEMENTED;
+}
+
+BOOLEAN IoRaiseInformationalHardError(NTSTATUS ErrorStatus,
+				      PUNICODE_STRING String,
+				      PKTHREAD Thread)
+{
+   UNIMPLEMENTED;
+}

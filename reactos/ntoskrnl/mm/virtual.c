@@ -1,764 +1,527 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: virtual.c,v 1.87 2004/12/30 18:30:44 ion Exp $
- *
+ * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel
  * FILE:        ntoskrnl/mm/virtual.c
- * PURPOSE:     Implementing operations on virtual memory.
+ * PURPOSE:     implementing the Virtualxxx section of the win32 api
  * PROGRAMMER:  David Welch
+ * UPDATE HISTORY:
+ *              09/4/98: Created
+ *              10/6/98: Corrections from Fatahi (i_fatahi@hotmail.com)
  */
-
+ 
 /* INCLUDE *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <pseh.h>
+#include <windows.h>
+
+#include <internal/hal/segment.h>
+#include <internal/mm.h>
+#include <internal/hal/page.h>
 
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
+/* TYPES *******************************************************************/
 
-NTSTATUS STDCALL
-NtFlushVirtualMemory(IN HANDLE ProcessHandle,
-                     IN PVOID BaseAddress,
-                     IN ULONG NumberOfBytesToFlush,
-                     OUT PULONG NumberOfBytesFlushed OPTIONAL)
+extern unsigned int etext;
+extern unsigned int end;
+
 /*
- * FUNCTION: Flushes virtual memory to file
+ * These two are statically declared because mm is initalized before the
+ * memory pool
+ */
+static memory_area kernel_text_desc;
+static memory_area kernel_data_desc;
+static memory_area kernel_param_desc;
+static memory_area kernel_pool_desc;
+
+/*
+ * Head of the list of system memory areas 
+ */
+memory_area* system_memory_area_list_head=&kernel_text_desc;
+
+/*
+ * Head of the list of user memory areas (this should be per process)
+ */
+memory_area* memory_area_list_head=NULL;
+
+/*
+ * The base address of the kmalloc region
+ */
+unsigned int kernel_pool_base = 0;
+
+
+/* FUNCTIONS ****************************************************************/
+
+void VirtualInit(boot_param* bp)
+/*
+ * FUNCTION: Intialize the memory areas list
  * ARGUMENTS:
- *        ProcessHandle = Points to the process that allocated the virtual
- *                        memory
- *        BaseAddress = Points to the memory address
- *        NumberOfBytesToFlush = Limits the range to flush,
- *        NumberOfBytesFlushed = Actual number of bytes flushed
- * RETURNS: Status
+ *           bp = Pointer to the boot parameters
+ *           kernel_len = Length of the kernel
  */
 {
-   UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
+   unsigned int kernel_len = bp->end_mem - bp->start_mem;
+   
+   DPRINT("VirtualInit() %x\n",bp);
+   
+   /*
+    * Setup the system area descriptor list
+    */
+   kernel_text_desc.base = KERNEL_BASE;
+   kernel_text_desc.length = ((ULONG)&etext) - KERNEL_BASE;
+   kernel_text_desc.previous = NULL;
+   kernel_text_desc.next = &kernel_data_desc;
+   kernel_text_desc.load_page=NULL;
+   kernel_text_desc.access = PAGE_EXECUTE_READ;
+   
+   kernel_data_desc.base = PAGE_ROUND_UP(((ULONG)&etext));
+   kernel_data_desc.length = ((ULONG)&end) - kernel_text_desc.base;
+   kernel_data_desc.previous = &kernel_text_desc;
+   kernel_data_desc.next = &kernel_param_desc;
+   kernel_data_desc.load_page=NULL;
+   kernel_data_desc.access = PAGE_READWRITE;
+   
+   kernel_param_desc.base = PAGE_ROUND_UP(((ULONG)&end));
+   kernel_param_desc.length =  kernel_len - (kernel_data_desc.length +
+					     kernel_text_desc.length);
+   kernel_param_desc.previous = &kernel_data_desc;
+   kernel_param_desc.next = &kernel_pool_desc;
+   kernel_param_desc.load_page=NULL;
+   
+   /*
+    * The kmalloc area starts one page after the kernel area
+    */
+   kernel_pool_desc.base = KERNEL_BASE+ PAGE_ROUND_UP(kernel_len) + PAGESIZE;
+   kernel_pool_desc.length = NONPAGED_POOL_SIZE;
+   kernel_pool_desc.previous = &kernel_param_desc;
+   kernel_pool_desc.next = NULL;
+   kernel_pool_desc.load_page=NULL;
+
+   kernel_pool_base = kernel_pool_desc.base;
+   DPRINT("kmalloc_region_base %x\n",kernel_pool_base);
 }
 
 
-NTSTATUS STDCALL
-MiLockVirtualMemory(HANDLE ProcessHandle,
-  PVOID BaseAddress,
-  ULONG NumberOfBytesToLock,
-  PULONG NumberOfBytesLocked,
-  PObReferenceObjectByHandle pObReferenceObjectByHandle,
-  PMmCreateMdl pMmCreateMdl,
-  PObDereferenceObject pObDereferenceObject,
-  PMmProbeAndLockPages pMmProbeAndLockPages,
-  PExFreePool pExFreePool)
-{
-  PEPROCESS Process;
-  NTSTATUS Status;
-  PMDL Mdl;
-
-  Status = pObReferenceObjectByHandle(ProcessHandle,
-    PROCESS_VM_WRITE,
-    NULL,
-    UserMode,
-    (PVOID*)(&Process),
-    NULL);
-  if (!NT_SUCCESS(Status))
-    return(Status);
-
-  Mdl = pMmCreateMdl(NULL,
-    BaseAddress,
-    NumberOfBytesToLock);
-  if (Mdl == NULL)
-    {
-      pObDereferenceObject(Process);
-      return(STATUS_NO_MEMORY);
-    }
-
-  pMmProbeAndLockPages(Mdl,
-    UserMode,
-    IoWriteAccess);
-
-  pExFreePool(Mdl);
-
-  pObDereferenceObject(Process);
-
-  *NumberOfBytesLocked = NumberOfBytesToLock;
-  return(STATUS_SUCCESS);
-}
-
-
-NTSTATUS STDCALL
-NtLockVirtualMemory(HANDLE ProcessHandle,
-  PVOID BaseAddress,
-  ULONG NumberOfBytesToLock,
-  PULONG NumberOfBytesLocked)
-{
-  DPRINT("NtLockVirtualMemory(ProcessHandle %x, BaseAddress %x, "
-    "NumberOfBytesToLock %d, NumberOfBytesLocked %x)\n",
-    ProcessHandle,
-    BaseAddress,
-    NumberOfBytesToLock,
-    NumberOfBytesLocked);
-
-  return MiLockVirtualMemory(ProcessHandle,
-    BaseAddress,
-    NumberOfBytesToLock,
-    NumberOfBytesLocked,
-    ObReferenceObjectByHandle,
-    MmCreateMdl,
-    ObfDereferenceObject,
-    MmProbeAndLockPages,
-    ExFreePool);
-}
-
-
-NTSTATUS FASTCALL
-MiQueryVirtualMemory (IN HANDLE ProcessHandle,
-                      IN PVOID Address,
-                      IN CINT VirtualMemoryInformationClass,
-                      OUT PVOID VirtualMemoryInformation,
-                      IN ULONG Length,
-                      OUT PULONG ResultLength)
-{
-   NTSTATUS Status;
-   PEPROCESS Process;
-   MEMORY_AREA* MemoryArea;
-   PMADDRESS_SPACE AddressSpace;
-
-   if (Address < (PVOID)KERNEL_BASE)
-   {
-      Status = ObReferenceObjectByHandle(ProcessHandle,
-                                         PROCESS_QUERY_INFORMATION,
-                                         NULL,
-                                         UserMode,
-                                         (PVOID*)(&Process),
-                                         NULL);
-
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT("NtQueryVirtualMemory() = %x\n",Status);
-         return(Status);
-      }
-      AddressSpace = &Process->AddressSpace;
-   }
-   else
-   {
-      AddressSpace = MmGetKernelAddressSpace();
-   }
-   MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
-                                          Address);
-   switch(VirtualMemoryInformationClass)
-   {
-      case MemoryBasicInformation:
-         {
-	    PMEMORY_BASIC_INFORMATION Info =
-		(PMEMORY_BASIC_INFORMATION)VirtualMemoryInformation;
-            if (Length != sizeof(MEMORY_BASIC_INFORMATION))
-            {
-               MmUnlockAddressSpace(AddressSpace);
-               ObDereferenceObject(Process);
-               return(STATUS_INFO_LENGTH_MISMATCH);
-            }
-
-            if (MemoryArea == NULL)
-            {
-	       Info->Type = 0;
-               Info->State = MEM_FREE;
-	       Info->Protect = PAGE_NOACCESS;
-	       Info->AllocationProtect = 0;
-               Info->BaseAddress = (PVOID)PAGE_ROUND_DOWN(Address);
-	       Info->AllocationBase = NULL;
-	       Info->RegionSize = MmFindGapAtAddress(AddressSpace, Info->BaseAddress);
-               Status = STATUS_SUCCESS;
-               *ResultLength = sizeof(MEMORY_BASIC_INFORMATION);
-	    }
-            else
-	    {
-	       switch(MemoryArea->Type)
-	       {
-		  case MEMORY_AREA_VIRTUAL_MEMORY:
-                     Status = MmQueryAnonMem(MemoryArea, Address, Info,
-                                             ResultLength);
-		     break;
-	          case MEMORY_AREA_SECTION_VIEW:
-                     Status = MmQuerySectionView(MemoryArea, Address, Info,
-                                                 ResultLength);
-                     break;
-		  case MEMORY_AREA_NO_ACCESS:
-	             Info->Type = 0;
-                     Info->State = MEM_FREE;
-	             Info->Protect = MemoryArea->Attributes;
-		     Info->AllocationProtect = MemoryArea->Attributes;
-                     Info->BaseAddress = MemoryArea->BaseAddress;
-	             Info->AllocationBase = MemoryArea->BaseAddress;
-	             Info->RegionSize = MemoryArea->Length;
-                     Status = STATUS_SUCCESS;
-                     *ResultLength = sizeof(MEMORY_BASIC_INFORMATION);
-	             break;
-		  case MEMORY_AREA_SHARED_DATA:
-	             Info->Type = 0;
-                     Info->State = MEM_COMMIT;
-	             Info->Protect = MemoryArea->Attributes;
-		     Info->AllocationProtect = MemoryArea->Attributes;
-                     Info->BaseAddress = MemoryArea->BaseAddress;
-	             Info->AllocationBase = MemoryArea->BaseAddress;
-	             Info->RegionSize = MemoryArea->Length;
-                     Status = STATUS_SUCCESS;
-                     *ResultLength = sizeof(MEMORY_BASIC_INFORMATION);
-		     break;
-		  case MEMORY_AREA_SYSTEM:
-		     {
-			static int warned = 0;
-			if ( !warned )
-			{
-			  DPRINT1("FIXME: MEMORY_AREA_SYSTEM case incomplete (or possibly wrong) for NtQueryVirtualMemory()\n");
-			  warned = 1;
-			}
-		     }
-		     /* FIXME - don't have a clue if this is right, but it's better than nothing */
-	             Info->Type = 0;
-                     Info->State = MEM_COMMIT;
-	             Info->Protect = MemoryArea->Attributes;
-		     Info->AllocationProtect = MemoryArea->Attributes;
-                     Info->BaseAddress = MemoryArea->BaseAddress;
-	             Info->AllocationBase = MemoryArea->BaseAddress;
-	             Info->RegionSize = MemoryArea->Length;
-                     Status = STATUS_SUCCESS;
-                     *ResultLength = sizeof(MEMORY_BASIC_INFORMATION);
-		     break;
-		  case MEMORY_AREA_KERNEL_STACK:
-		     {
-			static int warned = 0;
-			if ( !warned )
-			{
-			  DPRINT1("FIXME: MEMORY_AREA_KERNEL_STACK case incomplete (or possibly wrong) for NtQueryVirtualMemory()\n");
-			  warned = 1;
-			}
-		     }
-		     /* FIXME - don't have a clue if this is right, but it's better than nothing */
-	             Info->Type = 0;
-                     Info->State = MEM_COMMIT;
-	             Info->Protect = MemoryArea->Attributes;
-		     Info->AllocationProtect = MemoryArea->Attributes;
-                     Info->BaseAddress = MemoryArea->BaseAddress;
-	             Info->AllocationBase = MemoryArea->BaseAddress;
-	             Info->RegionSize = MemoryArea->Length;
-                     Status = STATUS_SUCCESS;
-                     *ResultLength = sizeof(MEMORY_BASIC_INFORMATION);
-		     break;
-		  default:
-		     DPRINT1("unhandled memory area type: 0x%x\n", MemoryArea->Type);
-	             Status = STATUS_UNSUCCESSFUL;
-                     *ResultLength = 0;
-	       }
-	    }
-            break;
-         }
-
-      default:
-         {
-            Status = STATUS_INVALID_INFO_CLASS;
-            *ResultLength = 0;
-            break;
-         }
-   }
-
-   MmUnlockAddressSpace(AddressSpace);
-   if (Address < (PVOID)KERNEL_BASE)
-   {
-      ObDereferenceObject(Process);
-   }
-
-   return Status;
-}
-
-/* (tMk 2004.II.4)
- * FUNCTION:
- * Called from VirtualQueryEx (lib\kernel32\mem\virtual.c)
- *
- */
-NTSTATUS STDCALL
-NtQueryVirtualMemory (IN HANDLE ProcessHandle,
-                      IN PVOID Address,
-                      IN CINT VirtualMemoryInformationClass,
-                      OUT PVOID VirtualMemoryInformation,
-                      IN ULONG Length,
-                      OUT PULONG UnsafeResultLength)
-{
-   NTSTATUS Status;
-   ULONG ResultLength = 0;
-   KPROCESSOR_MODE PrevMode;
-   union
-   {
-      MEMORY_BASIC_INFORMATION BasicInfo;
-   }
-   VirtualMemoryInfo;
-
-   DPRINT("NtQueryVirtualMemory(ProcessHandle %x, Address %x, "
-          "VirtualMemoryInformationClass %d, VirtualMemoryInformation %x, "
-          "Length %lu ResultLength %x)\n",ProcessHandle,Address,
-          VirtualMemoryInformationClass,VirtualMemoryInformation,
-          Length,ResultLength);
-
-   PrevMode =  ExGetPreviousMode();
-
-   if (PrevMode == UserMode && Address >= (PVOID)KERNEL_BASE)
-   {
-      DPRINT1("Invalid parameter\n");
-      return STATUS_INVALID_PARAMETER;
-   }
-
-   Status = MiQueryVirtualMemory ( ProcessHandle,
-       Address,
-       VirtualMemoryInformationClass,
-       &VirtualMemoryInfo,
-       Length,
-       &ResultLength );
-
-   if (NT_SUCCESS(Status) && ResultLength > 0)
-   {
-      Status = MmCopyToCaller(VirtualMemoryInformation, &VirtualMemoryInfo, ResultLength);
-      if (!NT_SUCCESS(Status))
-      {
-         ResultLength = 0;
-      }
-   }
-
-   if (UnsafeResultLength != NULL)
-   {
-      MmCopyToCaller(UnsafeResultLength, &ResultLength, sizeof(ULONG));
-   }
-   return(Status);
-}
-
-
-/* (tMk 2004.II.5)
- * FUNCTION:
- * Called from VirtualProtectEx (lib\kernel32\mem\virtual.c)
- *
- */
-NTSTATUS STDCALL
-NtProtectVirtualMemory(IN HANDLE ProcessHandle,
-                       IN PVOID *UnsafeBaseAddress,
-                       IN ULONG *UnsafeNumberOfBytesToProtect,
-                       IN ULONG NewAccessProtection,
-                       OUT PULONG UnsafeOldAccessProtection)
-{
-   PMEMORY_AREA MemoryArea;
-   PEPROCESS Process;
-   NTSTATUS Status;
-   PMADDRESS_SPACE AddressSpace;
-   ULONG OldAccessProtection;
-   PVOID BaseAddress;
-   ULONG NumberOfBytesToProtect;
-
-   Status = MmCopyFromCaller(&BaseAddress, UnsafeBaseAddress, sizeof(PVOID));
-   if (!NT_SUCCESS(Status))
-      return Status;
-   Status = MmCopyFromCaller(&NumberOfBytesToProtect, UnsafeNumberOfBytesToProtect, sizeof(ULONG));
-   if (!NT_SUCCESS(Status))
-      return Status;
-
-   // (tMk 2004.II.5) in Microsoft SDK I read:
-   // 'if this parameter is NULL or does not point to a valid variable, the function fails'
-   if(UnsafeOldAccessProtection == NULL)
-   {
-      return(STATUS_INVALID_PARAMETER);
-   }
-
-   NumberOfBytesToProtect =
-      PAGE_ROUND_UP(BaseAddress + NumberOfBytesToProtect) -
-      PAGE_ROUND_DOWN(BaseAddress);
-   BaseAddress = (PVOID)PAGE_ROUND_DOWN(BaseAddress);
-
-   Status = ObReferenceObjectByHandle(ProcessHandle,
-                                      PROCESS_VM_OPERATION,
-                                      PsProcessType,
-                                      UserMode,
-                                      (PVOID*)(&Process),
-                                      NULL);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("NtProtectVirtualMemory() = %x\n",Status);
-      return(Status);
-   }
-
-   AddressSpace = &Process->AddressSpace;
-
-   MmLockAddressSpace(AddressSpace);
-   MemoryArea = MmOpenMemoryAreaByAddress(AddressSpace,
-                                          BaseAddress);
-   if (MemoryArea == NULL)
-   {
-      MmUnlockAddressSpace(AddressSpace);
-      ObDereferenceObject(Process);
-      return(STATUS_UNSUCCESSFUL);
-   }
-
-   if (MemoryArea->Type == MEMORY_AREA_VIRTUAL_MEMORY)
-   {
-      Status = MmProtectAnonMem(AddressSpace, MemoryArea, BaseAddress,
-                                NumberOfBytesToProtect, NewAccessProtection,
-                                &OldAccessProtection);
-   }
-   else if (MemoryArea->Type == MEMORY_AREA_SECTION_VIEW)
-   {
-      Status = MmProtectSectionView(AddressSpace, MemoryArea, BaseAddress,
-                                    NumberOfBytesToProtect,
-                                    NewAccessProtection,
-                                    &OldAccessProtection);
-   }
-
-   MmUnlockAddressSpace(AddressSpace);
-   ObDereferenceObject(Process);
-
-   MmCopyToCaller(UnsafeOldAccessProtection, &OldAccessProtection, sizeof(ULONG));
-   MmCopyToCaller(UnsafeBaseAddress, &BaseAddress, sizeof(PVOID));
-   MmCopyToCaller(UnsafeNumberOfBytesToProtect, &NumberOfBytesToProtect, sizeof(ULONG));
-
-   return(Status);
-}
-
-
-/* (tMk 2004.II.05)
- * FUNCTION:
- * Called from ReadProcessMemory (lib\kernel32\mem\procmem.c) and KlInitPeb(lib\kernel32\process\create.c)
- *
- * NOTE: This function will be correct if MmProbeAndLockPages() would be fully IMPLEMENTED.
- */
-NTSTATUS STDCALL
-NtReadVirtualMemory(IN HANDLE ProcessHandle,
-                    IN PVOID BaseAddress,
-                    OUT PVOID Buffer,
-                    IN ULONG NumberOfBytesToRead,
-                    OUT PULONG NumberOfBytesRead OPTIONAL)
-{
-   NTSTATUS Status;
-   PMDL Mdl;
-   PVOID SystemAddress;
-   PEPROCESS Process, CurrentProcess;
-
-
-   DPRINT("NtReadVirtualMemory(ProcessHandle %x, BaseAddress %x, "
-          "Buffer %x, NumberOfBytesToRead %d)\n",ProcessHandle,BaseAddress,
-          Buffer,NumberOfBytesToRead);
-
-   Status = ObReferenceObjectByHandle(ProcessHandle,
-                                      PROCESS_VM_WRITE,
-                                      NULL,
-                                      UserMode,
-                                      (PVOID*)(&Process),
-                                      NULL);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   CurrentProcess = PsGetCurrentProcess();
-
-   if (Process == CurrentProcess)
-   {
-      memcpy(Buffer, BaseAddress, NumberOfBytesToRead);
-   }
-   else
-   {
-      Mdl = MmCreateMdl(NULL,
-                        Buffer,
-                        NumberOfBytesToRead);
-      if(Mdl == NULL)
-      {
-         ObDereferenceObject(Process);
-         return(STATUS_NO_MEMORY);
-      }
-      MmProbeAndLockPages(Mdl,
-                          UserMode,
-                          IoWriteAccess);
-
-      KeAttachProcess(&Process->Pcb);
-
-      SystemAddress = MmGetSystemAddressForMdl(Mdl);
-
-        Status = STATUS_SUCCESS;
-        _SEH_TRY {
-            ProbeForRead(BaseAddress, NumberOfBytesToRead, 1);
-            Status = STATUS_PARTIAL_COPY;
-            memcpy(SystemAddress, BaseAddress, NumberOfBytesToRead);
-            Status = STATUS_SUCCESS;
-        } _SEH_HANDLE {
-            if(Status != STATUS_PARTIAL_COPY)
-                Status = _SEH_GetExceptionCode();
-        } _SEH_END;
-
-      KeDetachProcess();
-
-      if (Mdl->MappedSystemVa != NULL)
-      {
-         MmUnmapLockedPages(Mdl->MappedSystemVa, Mdl);
-      }
-      MmUnlockPages(Mdl);
-      ExFreePool(Mdl);
-   }
-
-   ObDereferenceObject(Process);
-
-   if (NumberOfBytesRead)
-      *NumberOfBytesRead = NumberOfBytesToRead;
-   return(Status);
-}
-
-/* (tMk 2004.II.05)
- * FUNCTION:  THIS function doesn't make a sense...
- * Called from VirtualUnlock (lib\kernel32\mem\virtual.c)
- */
-NTSTATUS STDCALL
-NtUnlockVirtualMemory(HANDLE ProcessHandle,
-                      PVOID BaseAddress,
-                      ULONG NumberOfBytesToUnlock,
-                      PULONG NumberOfBytesUnlocked OPTIONAL)
-{
-   // AG [08-20-03] : I have *no* idea if this is correct, I just used the
-   // other functions as a template and made a few intelligent guesses...
-
-   NTSTATUS Status;
-   PMDL Mdl;
-   PEPROCESS Process;
-
-   DPRINT("NtUnlockVirtualMemory(ProcessHandle %x, BaseAddress %x, "
-          "NumberOfBytesToUnlock %d), NumberOfBytesUnlocked %x\n",ProcessHandle,BaseAddress,
-          NumberOfBytesToUnlock, NumberOfBytesUnlocked);
-
-   Status = ObReferenceObjectByHandle(ProcessHandle,
-                                      PROCESS_VM_WRITE,
-                                      NULL,
-                                      UserMode,
-                                      (PVOID*)(&Process),
-                                      NULL);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   Mdl = MmCreateMdl(NULL,
-                     BaseAddress,
-                     NumberOfBytesToUnlock);
-   if(Mdl == NULL)
-   {
-      ObDereferenceObject(Process);
-      return(STATUS_NO_MEMORY);
-   }
-
-   ObDereferenceObject(Process);
-
-   if (Mdl->MappedSystemVa != NULL)
-   {
-      MmUnmapLockedPages(Mdl->MappedSystemVa, Mdl);
-   }
-   MmUnlockPages(Mdl);
-   ExFreePool(Mdl);
-
-   *NumberOfBytesUnlocked = NumberOfBytesToUnlock;
-
-   return(STATUS_SUCCESS);
-}
-
-
-/* (tMk 2004.II.05)
- * FUNCTION:
- * Called from WriteProcessMemory (lib\kernel32\mem\procmem.c) and KlInitPeb(lib\kernel32\process\create.c)
- *
- * NOTE: This function will be correct if MmProbeAndLockPages() would be fully IMPLEMENTED.
- */
-NTSTATUS STDCALL
-NtWriteVirtualMemory(IN HANDLE ProcessHandle,
-                     IN PVOID BaseAddress,
-                     IN PVOID Buffer,
-                     IN ULONG NumberOfBytesToWrite,
-                     OUT PULONG NumberOfBytesWritten)
-{
-   NTSTATUS Status;
-   PMDL Mdl;
-   PVOID SystemAddress;
-   PEPROCESS Process;
-
-   DPRINT("NtWriteVirtualMemory(ProcessHandle %x, BaseAddress %x, "
-          "Buffer %x, NumberOfBytesToWrite %d)\n",ProcessHandle,BaseAddress,
-          Buffer,NumberOfBytesToWrite);
-
-   Status = ObReferenceObjectByHandle(ProcessHandle,
-                                      PROCESS_VM_WRITE,
-                                      NULL,
-                                      UserMode,
-                                      (PVOID*)(&Process),
-                                      NULL);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
-   if (Process == PsGetCurrentProcess())
-   {
-      memcpy(BaseAddress, Buffer, NumberOfBytesToWrite);
-   }
-   else
-   {
-      Mdl = MmCreateMdl(NULL,
-                        Buffer,
-                        NumberOfBytesToWrite);
-      MmProbeAndLockPages(Mdl,
-                          UserMode,
-                          IoReadAccess);
-      if(Mdl == NULL)
-      {
-         ObDereferenceObject(Process);
-         return(STATUS_NO_MEMORY);
-      }
-      KeAttachProcess(&Process->Pcb);
-
-      SystemAddress = MmGetSystemAddressForMdl(Mdl);
-      memcpy(BaseAddress, SystemAddress, NumberOfBytesToWrite);
-
-      KeDetachProcess();
-
-      if (Mdl->MappedSystemVa != NULL)
-      {
-         MmUnmapLockedPages(Mdl->MappedSystemVa, Mdl);
-      }
-      MmUnlockPages(Mdl);
-      ExFreePool(Mdl);
-   }
-
-   ObDereferenceObject(Process);
-
-   *NumberOfBytesWritten = NumberOfBytesToWrite;
-
-   return(STATUS_SUCCESS);
-}
-
+memory_area* find_first_marea(memory_area* list_head, unsigned int base, 
+			      unsigned int length)
 /*
- * @unimplemented
+ * FUNCTION: Returns the first memory area starting in the region or the last 
+ *           one before the start of the region
+ * ARGUMENTS:
+ *           list_head = Head of the list of memory areas to search
+ *           base = base address of the region
+ *           length = length of the region
+ * RETURNS: A pointer to the area found or
+ *          NULL if the region was before the first region on the list
  */
-
-PVOID
-STDCALL
-MmGetVirtualForPhysical (
-    IN PHYSICAL_ADDRESS PhysicalAddress
-    )
 {
-	UNIMPLEMENTED;
-	return 0;
+        memory_area* current=list_head;
+        for (;;)
+        {
+	   if (current==NULL)
+	     {
+//		printk("current is null\n");
+		return(NULL);
+	     }
+//	   printk("current %x current->base %x\n",current,current->base);
+	   if (current->base == base && length==0)
+	     {
+		return(current);
+	     }
+	   
+	   if (current->base >= base)
+	     {
+		if (current->base < (base+length))
+		  {
+		     return(current);
+		  }
+		else
+		  {
+		     return(current->previous);
+		  }
+	     }
+	   if (current->next==NULL)
+	     {
+		return(current);
+	     }
+	   current=current->next;
+        }
+        return(NULL);
 }
 
-/* FUNCTION:
- * Called from EngSecureMem (subsys\win32k\eng\mem.c)
- * @unimplemented
+asmlinkage int page_fault_handler(unsigned int edi,
+                                  unsigned int esi, unsigned int ebp,
+                                  unsigned int esp, unsigned int ebx,
+                                  unsigned int edx, unsigned int ecx,
+                                  unsigned int eax, 
+                                  unsigned int type,
+                                  unsigned int ds,
+                                  unsigned short int error_code,
+                                  unsigned int eip,
+                                  unsigned int cs, unsigned int eflags,
+                                  unsigned int esp0, unsigned int ss0)
+/*
+ * FUNCTION: Handle a page fault
  */
-PVOID STDCALL
-MmSecureVirtualMemory (PVOID  Address,
-                       SIZE_T Length,
-                       ULONG  Mode)
 {
-   /* Only works for user space */
-   if (MmHighestUserAddress < Address)
-   {
-      return NULL;
-   }
+   memory_area* marea=NULL;
 
-   UNIMPLEMENTED;
+   /*
+    * Get the address for the page fault
+    */
+   unsigned int cr2;
+   __asm__("movl %%cr2,%0\n\t" : "=d" (cr2));                
+   DPRINT("Page fault at address %x with eip %x\n",cr2,eip);
 
-   return 0;
+   cr2 = PAGE_ROUND_DOWN(cr2);
+   
+   /*
+    * Find the memory area for the faulting address
+    */
+   if (cr2>=KERNEL_BASE)
+     {
+	/*
+	 * Check permissions
+	 */
+	if (cs!=KERNEL_CS)
+	  {
+	     printk("%s:%d\n",__FILE__,__LINE__);
+	     return(0);
+	  }
+	marea=find_first_marea(system_memory_area_list_head,cr2,
+			       PAGESIZE);
+     }
+   else
+     {
+	marea=find_first_marea(memory_area_list_head,cr2,
+			       PAGESIZE);
+     }
+   
+   /*
+    * If the access was to an invalid area of memory raise an exception
+    */
+   if (marea==NULL || marea->load_page==NULL)
+     {
+	printk("%s:%d\n",__FILE__,__LINE__);
+	return(0);
+     }
+   
+   /*
+    * Check the access was within the area
+    */
+   if (cr2 > (marea->base + marea->length) || cr2 < marea->base)
+     {
+        DPRINT("base was %x length %x\n",marea->base,marea->length);
+	DPRINT("%s:%d\n",__FILE__,__LINE__);
+	return(0);
+     }
+   
+   /*
+    * Call the region specific page fault handler
+    */
+   return(marea->load_page(marea,cr2 - marea->base));
 }
 
 
-/* FUNCTION:
- * Called from EngUnsecureMem (subsys\win32k\eng\mem.c)
- * @unimplemented
- */
-VOID STDCALL
-MmUnsecureVirtualMemory(PVOID SecureMem)
-{
-   if (NULL == SecureMem)
-   {
-      return;
-   }
 
+static LPVOID allocate_marea(DWORD dwSize, DWORD flAllocationType,
+                             DWORD flProtect, memory_area** list_head,
+                             unsigned int last_addr,
+                             BOOL (*fn)(memory_area* marea,
+					unsigned int address))
+/*
+ * FUNCTION:
+ */
+{
+   memory_area* current=*list_head;
+   memory_area* previous;
+   memory_area* ndesc=NULL;
+   
+   previous=current;
+   while (current!=NULL)
+     {
+	last_addr = PAGE_ROUND_UP(current->base + current->length);
+	previous=current;
+	current=current->next;
+     }
+   ndesc = ExAllocatePool(NonPagedPool,sizeof(memory_area));
+   ndesc->access=flProtect;
+   ndesc->state=flAllocationType;
+   ndesc->lock=FALSE;
+   ndesc->base=last_addr+PAGESIZE;
+   ndesc->length=dwSize;
+   ndesc->previous=previous;
+   if (previous!=NULL)
+     {
+	ndesc->next=previous->next;
+        previous->next=ndesc;
+	if (previous->next!=NULL)
+	  {
+	     previous->next->previous=ndesc;
+	  }
+     }
+   else
+     {
+	*list_head=ndesc;
+	ndesc->next=NULL;
+	ndesc->previous=NULL;
+     }
+   ndesc->load_page=fn;
+   DPRINT("VirtualAlloc() returning %x\n",ndesc->base);
+   return((LPVOID)ndesc->base);
+}
+
+void commit_region_free(memory_area* marea)
+/*
+ * FUNCTION: Decommits the region
+ */
+{
+   int i;
+   for (i=0;i<marea->length;i=i+PAGESIZE)
+     {
+	if (is_page_present(marea->base+marea->length))
+	  {
+             free_page(MmGetPhysicalAddress(marea->base+marea->length),1);
+	  }
+     }
+}
+
+BOOL commit_region_load_page(memory_area* marea, unsigned int address)
+/*
+ * FUNCTION: Handles a page fault on a committed region of memory
+ * ARGUMENTS:
+ *          marea = memory area 
+ *          address = address of faulting access
+ * RETURNS: TRUE if the page was loaded
+ *          FALSE if an exception should be generated
+ */
+{
+   set_page(marea->base+address,0x7,get_free_page());   
+   return(TRUE);
+}
+
+asmlinkage LPVOID STDCALL VirtualAlloc(LPVOID lpAddress, DWORD dwSize,
+	     DWORD flAllocationType,
+             DWORD flProtect)
+{
+/*
+ * FUNCTION: Create a memory area
+ * ARGUMENTS:
+ *      lpAddress = the base address of the area or NULL if the system
+ *                  decides the base
+ *      dwSize = the size of the area
+ *      flAllocationType = the type of allocation
+ *              MEM_COMMIT = accessible
+ *              MEM_RESERVE = not accessible but can't be allocated
+ *      flProtect = what protection to give the area
+ * RETURNS: The base address of the block
+ */
+        DPRINT("VirtualAlloc() lpAddress %x dwSize %x flAllocationType %x ",
+               lpAddress,dwSize,flAllocationType);
+        DPRINT("flProtect %x\n",flProtect);
+
+        if (lpAddress==NULL)
+        {
+                /*
+                 * We decide the address                 
+                 */
+                if (flProtect & PAGE_SYSTEM)
+                {
+                        return(allocate_marea(dwSize,flAllocationType,
+                               flProtect,&system_memory_area_list_head,
+                               KERNEL_BASE,commit_region_load_page));
+                }
+                else
+                {
+                        return(allocate_marea(dwSize,flAllocationType,
+                               flProtect,&memory_area_list_head,PAGESIZE,
+                               commit_region_load_page));
+                }
+        }
+        else
+        {
+                memory_area* marea=NULL;
+                if (lpAddress < ((PVOID)KERNEL_BASE))
+                {
+                        marea=find_first_marea(memory_area_list_head,
+                                               (unsigned int)lpAddress,dwSize);
+                }
+                else
+                {
+                        marea=find_first_marea(system_memory_area_list_head,
+                                               (unsigned int)lpAddress,dwSize);
+                }
+
+                /*
+                 * Check someone hasn't already allocated that area
+                 */
+                if (marea!=NULL && marea->base <= (unsigned int)lpAddress &&
+                    (marea->base + marea->length) > (unsigned int)lpAddress)
+                {
+                        SetLastError(ERROR_INVALID_DATA);
+                        return(0);
+                }
+
+                /*
+                 * Grab the area
+                 */
+        }
+}
+
+BOOL WINAPI VirtualFreeEx(HANDLE hProcess, LPVOID lpAddress, DWORD dwSize, 
+			  DWORD dwFreeType)
+/*
+ * FUNCTION: Releases, decommits or both a region of memory within the
+ * virtual address of a specified process
+ * ARGUMENTS:
+ *        hProcess = Process to act on
+ *        lpAddress = starting virtual address to free 
+ *        dwSize = Size in bytes of the memory region to free
+ *        dwFreeType = Type of free operation
+ * RETURNS: On success non-zero
+ *          On failure zero
+ * NOTE: This tries to optimize for the most common case which is for
+ * regions to be decommitted in large chunks. If a process alternatedly 
+ * decommitted every other page in a region this function would be extremely 
+ * inefficent.
+ */
+{
+   memory_area* marea = NULL;
+   
+   /*
+    * Check our permissions for hProcess here
+    */
+   
+   /*
+    * Get the list of memory areas corresponding to hProcess here
+    */
+   
+   /*
+    * Do the business
+    */
+   if (dwFreeType==MEM_RELEASE)
+     {
+	if (dwSize!=0)
+	  {
+             SetLastError(ERROR_INVALID_BLOCK_LENGTH);
+	     return(0);
+	  }
+	
+	marea = find_first_marea(memory_area_list_head,(unsigned int)lpAddress,
+				 1);
+	
+        if (marea==NULL || marea->base!=((int)lpAddress))
+	  {
+             SetLastError(ERROR_INVALID_BLOCK);
+	     return(0);
+	  }
+	
+	/*
+	 * Ask the memory area to destroy itself
+	 */
+	marea->free(marea);
+	
+	/*
+	 * Change the area attributes
+	 */
+	marea->access=PAGE_NOACCESS;
+	marea->state=MEM_FREE;
+	marea->type=MEM_PRIVATE;
+     }
+   else
+     {
+     }
+}
+
+BOOL WINAPI VirtualProtectEx(HANDLE hProcess, LPVOID lpAddress,
+	DWORD dwSize, DWORD flNewProtect, PDWORD lpflOldProtect)
+/*
+ * FUNCTION: 
+ */
+{
+}
+
+DWORD WINAPI VirtualQueryEx(HANDLE hProcess, LPCVOID lpAddress,
+	PMEMORY_BASIC_INFORMATION lpBuffer, DWORD dwLength)
+/*
+ * FUNCTION: Provides information about a range of pages within the virtual
+ * address space of a specified process.
+ * ARGUMENTS:
+ *         hProcess = Handle of process
+ *         lpAddress = Address of region
+ *         lpBuffer = Buffer to store information
+ *         dwLength = length of region
+ * RETURNS: The number of bytes transferred into the buffer
+ */
+{
+   /*
+    * Find the memory area 
+    */
+   memory_area* marea = find_first_marea(memory_area_list_head,
+					 (unsigned int) lpAddress,
+                                         dwLength);
+
+   /*
+    * Check it exists
+    */
+   if (marea==NULL || marea->base!=((int)lpAddress))
+     {
+	SetLastError(0);
+	return(0);
+     }
+        
+   lpBuffer->BaseAddress = (void *)lpAddress;
+   lpBuffer->AllocationBase = (void *)marea->base;
+   lpBuffer->AllocationProtect = marea->initial_access;
+   lpBuffer->RegionSize = marea->length;
+   lpBuffer->State = marea->state;
+   lpBuffer->Protect = marea->access;
+   lpBuffer->Type = marea->type;
+   
+   return(sizeof(MEMORY_BASIC_INFORMATION));
+}
+
+BOOLEAN MmIsNonPagedSystemAddressValid(PVOID VirtualAddress)
+{
    UNIMPLEMENTED;
 }
 
-
+BOOLEAN MmIsAddressValid(PVOID VirtualAddress)
 /*
- * @implemented
+ * FUNCTION: Checks whether the given address is valid for a read or write
+ * ARGUMENTS:
+ *          VirtualAddress = address to check
+ * RETURNS: True if the access would be valid
+ *          False if the access would cause a page fault
+ * NOTES: This function checks whether a byte access to the page would
+ *        succeed. Is this realistic for RISC processors which don't
+ *        allow byte granular access?
  */
-VOID STDCALL
-ProbeForRead (IN PVOID Address,
-              IN ULONG Length,
-              IN ULONG Alignment)
 {
-   ASSERT(Alignment ==1 || Alignment == 2 || Alignment == 4 || Alignment == 8);
-
-   if (Length == 0)
-      return;
-
-   if (((ULONG_PTR)Address & (Alignment - 1)) != 0)
-   {
-      ExRaiseStatus (STATUS_DATATYPE_MISALIGNMENT);
-   }
-   else if ((ULONG_PTR)Address + Length < (ULONG_PTR)Address ||
-            (ULONG_PTR)Address + Length > (ULONG_PTR)MmUserProbeAddress)
-   {
-      ExRaiseStatus (STATUS_ACCESS_VIOLATION);
-   }
+   memory_area* marea;
+   
+   if (VirtualAddress >= (PVOID)KERNEL_BASE)
+     {
+	marea = find_first_marea(system_memory_area_list_head,
+				 (unsigned int)VirtualAddress,1);
+     }
+   else
+     {
+	marea = find_first_marea(memory_area_list_head,
+				 (unsigned int)VirtualAddress,1);
+     } 
+   
+   if (marea==NULL)
+     {
+	return(FALSE);
+     }
+   
+   if (marea->access == PAGE_NOACCESS || marea->access & PAGE_GUARD ||
+       marea->state == MEM_FREE || marea->state == MEM_RESERVE)
+     {
+	return(FALSE);
+     }
+   
+   return(TRUE);
 }
 
-
-/*
- * @implemented
- */
-VOID STDCALL
-ProbeForWrite (IN PVOID Address,
-               IN ULONG Length,
-               IN ULONG Alignment)
-{
-   PULONG Ptr;
-   ULONG x;
-   ULONG i;
-
-   ASSERT(Alignment ==1 || Alignment == 2 || Alignment == 4 || Alignment == 8);
-
-   if (Length == 0)
-      return;
-
-   if (((ULONG_PTR)Address & (Alignment - 1)) != 0)
-   {
-      ExRaiseStatus (STATUS_DATATYPE_MISALIGNMENT);
-   }
-   else if ((ULONG_PTR)Address + Length < (ULONG_PTR)Address ||
-            (ULONG_PTR)Address + Length > (ULONG_PTR)MmUserProbeAddress)
-   {
-      ExRaiseStatus (STATUS_ACCESS_VIOLATION);
-   }
-
-   /* Check for accessible pages */
-   for (i = 0; i < Length; i += PAGE_SIZE)
-   {
-      Ptr = (PULONG)(((ULONG_PTR)Address & ~(PAGE_SIZE - 1)) + i);
-      x = *Ptr;
-      *Ptr = x;
-   }
-}
-
-/* EOF */
