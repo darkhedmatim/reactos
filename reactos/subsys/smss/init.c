@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.56 2004/10/24 15:26:14 weiden Exp $
+/* $Id: init.c,v 1.50 2003/08/11 18:50:12 chorns Exp $
  *
  * init.c - Session Manager initialization
  * 
@@ -32,7 +32,7 @@
 #include <ntos.h>
 #include <ntdll/rtl.h>
 #include <ntdll/ldr.h>
-#include <rosrtl/string.h>
+#include <napi/lpc.h>
 
 #include "smss.h"
 
@@ -519,7 +519,7 @@ SmLoadKnownDlls(VOID)
 		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_DIRECTORY_FILE);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("NtOpenFile(%wZ) failed (Status %lx)\n", &DllNtPath, Status);
+      DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
       return Status;
     }
 
@@ -615,8 +615,8 @@ SmPagingFilesQueryRoutine(PWSTR ValueName,
       return (STATUS_SUCCESS);
     }
 
-  DPRINT("SMSS: Created paging file %wZ with size %dKB\n",
-	 &FileName, InitialSize.QuadPart / 1024);
+  DbgPrint("SMSS: Created paging file %wZ with size %dKB\n",
+	   &FileName, InitialSize.QuadPart / 1024);
   Status = NtCreatePagingFile(&FileName,
 			      &InitialSize,
 			      &MaximumSize,
@@ -633,14 +633,6 @@ SmCreatePagingFiles(VOID)
 {
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   NTSTATUS Status;
-
-  /*
-   * Disable paging file on MiniNT/Live CD.
-   */
-  if (RtlCheckRegistryKey(RTL_REGISTRY_CONTROL, L"MiniNT") == STATUS_SUCCESS)
-    {
-      return STATUS_SUCCESS;
-    }
 
   RtlZeroMemory(&QueryTable,
 		sizeof(QueryTable));
@@ -712,7 +704,7 @@ SmSetEnvironmentVariables(VOID)
 	 SharedUserData->NtSystemRoot);
 
   /* Set SystemRoot = "C:\reactos" */
-  RtlRosInitUnicodeStringFromLiteral(&EnvVariable,
+  RtlInitUnicodeStringFromLiteral(&EnvVariable,
 		       L"SystemRoot");
   RtlInitUnicodeString(&EnvValue,
 		       ValueBuffer);
@@ -724,7 +716,7 @@ SmSetEnvironmentVariables(VOID)
   ValueBuffer[2] = 0;
 
   /* Set SystemDrive = "C:" */
-  RtlRosInitUnicodeStringFromLiteral(&EnvVariable,
+  RtlInitUnicodeStringFromLiteral(&EnvVariable,
 		       L"SystemDrive");
   RtlInitUnicodeString(&EnvValue,
 		       ValueBuffer);
@@ -755,7 +747,7 @@ SmLoadSubsystems(VOID)
   NTSTATUS Status;
 
   /* Load kernel mode subsystem (aka win32k.sys) */
-  RtlRosInitUnicodeStringFromLiteral(&ImageInfo.ModuleName,
+  RtlInitUnicodeStringFromLiteral(&ImageInfo.ModuleName,
 		       L"\\SystemRoot\\system32\\win32k.sys");
 
   Status = NtSetSystemInformation(SystemLoadAndCallImage,
@@ -784,7 +776,7 @@ SignalInitEvent()
   UNICODE_STRING UnicodeString;
   HANDLE ReactOSInitEvent;
 
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString, L"\\ReactOSInitDone");
+  RtlInitUnicodeStringFromLiteral(&UnicodeString, L"\\ReactOSInitDone");
   InitializeObjectAttributes(&ObjectAttributes,
     &UnicodeString,
     EVENT_ALL_ACCESS,
@@ -819,6 +811,7 @@ InitSessionManager(HANDLE Children[])
   NTSTATUS Status;
   UNICODE_STRING UnicodeString;
   OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING CmdLineW;
   PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
   RTL_PROCESS_INFO ProcessInfo;
   HANDLE CsrssInitEvent;
@@ -933,7 +926,7 @@ InitSessionManager(HANDLE Children[])
   DPRINT("SM: initializing csrss\n");
 
   /* Run csrss.exe */
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+  RtlInitUnicodeStringFromLiteral(&UnicodeString,
 				  L"\\CsrssInitDone");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &UnicodeString,
@@ -943,7 +936,7 @@ InitSessionManager(HANDLE Children[])
   Status = NtCreateEvent(&CsrssInitEvent,
 			 EVENT_ALL_ACCESS,
 			 &ObjectAttributes,
-			 NotificationEvent,
+			 TRUE,
 			 FALSE);
   if (!NT_SUCCESS(Status))
     {
@@ -1044,7 +1037,7 @@ InitSessionManager(HANDLE Children[])
   Children[CHILD_WINLOGON] = ProcessInfo.ProcessHandle;
 
   /* Create the \DbgSsApiPort object (LPC) */
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+  RtlInitUnicodeStringFromLiteral(&UnicodeString,
 		       L"\\DbgSsApiPort");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &UnicodeString,
@@ -1067,7 +1060,7 @@ InitSessionManager(HANDLE Children[])
 #endif
 
   /* Create the \DbgUiApiPort object (LPC) */
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+  RtlInitUnicodeStringFromLiteral(&UnicodeString,
 		       L"\\DbgUiApiPort");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &UnicodeString,

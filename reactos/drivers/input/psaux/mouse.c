@@ -10,15 +10,8 @@
 #include "controller.h"
 #include "mouse.h"
 #include "psaux.h"
-
-#define NDEBUG
 #include <debug.h>
 
-
-int InitSynaptics(PDEVICE_EXTENSION DeviceExtension);
-void PS2PPProcessPacket(PDEVICE_EXTENSION DeviceExtension, PMOUSE_INPUT_DATA Input, int *wheel);
-void PS2PPSet800dpi(PDEVICE_EXTENSION DeviceExtension);
-int PS2PPDetectModel(PDEVICE_EXTENSION DeviceExtension, unsigned char *param);
 
 // Parse incoming packets
 BOOLEAN FASTCALL
@@ -135,6 +128,7 @@ MouseHandler(PKINTERRUPT Interrupt, PVOID ServiceContext)
   PMOUSE_INPUT_DATA Input;
   ULONG Queue;
   BOOLEAN ret;
+  int state_dx, state_dy;
   unsigned scancode;
   unsigned status = controller_read_status();
   scancode = controller_read_input();
@@ -183,7 +177,6 @@ MouseHandler(PKINTERRUPT Interrupt, PVOID ServiceContext)
     
     return ret;
   }
-  return TRUE;
 }
 
 
@@ -205,7 +198,7 @@ static int SendByte(PDEVICE_EXTENSION DeviceExtension, unsigned char byte)
   unsigned char status;
   LARGE_INTEGER Millisecond_Timeout;
 	
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 	
   DeviceExtension->ack = 0;
   DeviceExtension->acking = 1;
@@ -256,7 +249,7 @@ int SendCommand(PDEVICE_EXTENSION DeviceExtension, unsigned char *param, int com
   int receive = (command >> 8) & 0xf;
   int i;
 
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   DeviceExtension->RepliesExpected = receive;
   if (command == PSMOUSE_CMD_RESET_BAT)
@@ -574,9 +567,11 @@ BOOLEAN SetupMouse(PDEVICE_OBJECT DeviceObject, PUNICODE_STRING RegistryPath)
   ULONG MappedIrq;
   KIRQL Dirql;
   KAFFINITY Affinity;
+  unsigned scancode;
+  unsigned char status;
   LARGE_INTEGER Millisecond_Timeout;
   
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
 
   /* setup */
   DeviceExtension->NoExtensions = 0;
@@ -641,7 +636,7 @@ BOOLEAN DetectPS2Port(void)
   BOOLEAN return_value = FALSE;
   LARGE_INTEGER Millisecond_Timeout;
   
-  Millisecond_Timeout.QuadPart = -10000L;
+  Millisecond_Timeout.QuadPart = 1;
   
   //return TRUE; // The rest of this code fails under BOCHs
   

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: format.c,v 1.4 2004/08/15 22:29:50 chorns Exp $
+/* $Id: format.c,v 1.2 2003/08/18 17:39:26 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/format.c
@@ -26,106 +26,30 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
-#include <fslib/vfatlib.h>
-
-#include "usetup.h"
-#include "console.h"
-#include "progress.h"
-
 #define NDEBUG
 #include <debug.h>
-
-
-PPROGRESSBAR ProgressBar = NULL;
+#include <fslib/vfatlib.h>
 
 /* FUNCTIONS ****************************************************************/
 
-
-BOOLEAN STDCALL
-FormatCallback (CALLBACKCOMMAND Command,
-		ULONG Modifier,
-		PVOID Argument)
-{
-//  DPRINT1 ("FormatCallback() called\n");
-
-  switch (Command)
-    {
-      case PROGRESS:
-	{
-	  PULONG Percent;
-
-	  Percent = (PULONG)Argument;
-	  DPRINT ("%lu percent completed\n", *Percent);
-
-	  ProgressSetStep (ProgressBar, *Percent);
-	}
-	break;
-
-//      case OUTPUT:
-//	{
-//	  PTEXTOUTPUT Output;
-//		output = (PTEXTOUTPUT) Argument;
-//		fprintf(stdout, "%s", output->Output);
-//	}
-//	break;
-
-      case DONE:
-	{
-	  DPRINT ("Done\n");
-//	  PBOOLEAN Success;
-//		status = (PBOOLEAN) Argument;
-//		if ( *status == FALSE )
-//		{
-//			wprintf(L"FormatEx was unable to complete successfully.\n\n");
-//			Error = TRUE;
-//		}
-	}
-	break;
-
-      default:
-	DPRINT ("Unknown callback %lu\n", (ULONG)Command);
-	break;
-    }
-
-//  DPRINT1 ("FormatCallback() done\n");
-
-  return TRUE;
-}
-
-
 NTSTATUS
-FormatPartition (PUNICODE_STRING DriveRoot)
+FormatPartition(PUNICODE_STRING DriveRoot)
 {
   NTSTATUS Status;
-  SHORT xScreen;
-  SHORT yScreen;
 
-  GetScreenSize(&xScreen, &yScreen);
-
-  ProgressBar = CreateProgressBar (6,
-				   yScreen - 14,
-				   xScreen - 7,
-				   yScreen - 10);
-
-  ProgressSetStepCount (ProgressBar, 100);
-
-  VfatInitialize ();
+  VfatInitialize();
 
   Status = VfatFormat (DriveRoot,
-		       0,               /* MediaFlag */
-		       NULL,            /* Label */
-		       TRUE,            /* QuickFormat */
-		       0,               /* ClusterSize */
-		       (PFMIFSCALLBACK)FormatCallback); /* Callback */
+		       0,    // MediaFlag
+		       NULL, // Label
+		       TRUE, // QuickFormat
+		       0,    // ClusterSize
+		       NULL); // Callback
+  DPRINT1("VfatFormat() status 0x%.08x\n", Status);
 
-  VfatCleanup ();
-
-  DestroyProgressBar (ProgressBar);
-  ProgressBar = NULL;
-
-  DPRINT ("VfatFormat() status 0x%.08x\n", Status);
+  VfatCleanup();
 
   return Status;
 }

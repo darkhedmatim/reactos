@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: caret.c,v 1.8 2004/08/15 21:36:29 chorns Exp $
+/* $Id: caret.c,v 1.4 2003/10/17 20:50:59 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/caret.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -63,23 +64,23 @@ void DrawCaret(HWND hWnd, PTHRDCARETINFO CaretInfo)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 CreateCaret(HWND hWnd,
 	    HBITMAP hBitmap,
 	    int nWidth,
 	    int nHeight)
 {
-  return (BOOL)NtUserCreateCaret(hWnd, hBitmap, nWidth, nHeight);
+  return (WINBOOL)NtUserCreateCaret(hWnd, hBitmap, nWidth, nHeight);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 DestroyCaret(VOID)
 {
-  return (BOOL)NtUserCallNoParam(NOPARAM_ROUTINE_DESTROY_CARET);
+  return (WINBOOL)NtUserCallNoParam(NOPARAM_ROUTINE_DESTROY_CARET);
 }
 
 
@@ -96,51 +97,51 @@ GetCaretBlinkTime(VOID)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 GetCaretPos(LPPOINT lpPoint)
 {
-  return (BOOL)NtUserGetCaretPos(lpPoint);
+  return (WINBOOL)NtUserGetCaretPos(lpPoint);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 HideCaret(HWND hWnd)
 {
-  return (BOOL)NtUserHideCaret(hWnd);
+  return (WINBOOL)NtUserHideCaret(hWnd);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetCaretBlinkTime(UINT uMSeconds)
 {
-  return NtUserSetCaretBlinkTime(uMSeconds);
+  return (WINBOOL)NtUserCallOneParam(ONEPARAM_ROUTINE_SETCARETBLINKTIME, (DWORD)uMSeconds);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetCaretPos(int X,
 	    int Y)
 {
-  return NtUserSetCaretPos(X, Y);
+  return (WINBOOL)NtUserCallTwoParam((DWORD)X, (DWORD)Y, TWOPARAM_ROUTINE_SETCARETPOS);
 }
 
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 ShowCaret(HWND hWnd)
 {
-  return (BOOL)NtUserShowCaret(hWnd);
+  return (WINBOOL)NtUserShowCaret(hWnd);
 }
 
 /* EOF */

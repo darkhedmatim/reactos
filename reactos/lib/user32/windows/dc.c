@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dc.c,v 1.16 2004/08/15 21:36:29 chorns Exp $
+/* $Id: dc.c,v 1.14 2003/09/26 20:58:06 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -92,5 +93,5 @@ STDCALL
 WindowFromDC(
   HDC hDC)
 {
-  return NtUserWindowFromDC(hDC);
+  return (HWND)NtUserCallOneParam((DWORD)hDC, ONEPARAM_ROUTINE_WINDOWFROMDC);
 }

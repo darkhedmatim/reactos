@@ -1,4 +1,4 @@
-/* $Id: symlink.c,v 1.12 2004/10/25 14:22:21 blight Exp $
+/* $Id: symlink.c,v 1.6 2003/10/14 14:45:23 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -181,7 +185,7 @@ ObInitSymbolicLinkImplementation (VOID)
   ObSymbolicLinkType->Create = ObpCreateSymbolicLink;
   ObSymbolicLinkType->DuplicationNotify = NULL;
 
-  RtlRosInitUnicodeStringFromLiteral(&ObSymbolicLinkType->TypeName,
+  RtlInitUnicodeStringFromLiteral(&ObSymbolicLinkType->TypeName,
 				  L"SymbolicLink");
 
   ObpCreateTypeObject(ObSymbolicLinkType);
@@ -202,21 +206,21 @@ ObInitSymbolicLinkImplementation (VOID)
  *
  */
 NTSTATUS STDCALL
-NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
+NtCreateSymbolicLinkObject(OUT PHANDLE SymbolicLinkHandle,
 			   IN ACCESS_MASK DesiredAccess,
 			   IN POBJECT_ATTRIBUTES ObjectAttributes,
-			   IN PUNICODE_STRING LinkTarget)
+			   IN PUNICODE_STRING DeviceName)
 {
   PSYMLINK_OBJECT SymbolicLink;
   NTSTATUS Status;
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
-  DPRINT("NtCreateSymbolicLinkObject(LinkHandle %p, DesiredAccess %ul, ObjectAttributes %p, LinkTarget %wZ)\n",
-	 LinkHandle,
+  DPRINT("NtCreateSymbolicLinkObject(SymbolicLinkHandle %p, DesiredAccess %ul, ObjectAttributes %p, DeviceName %wZ)\n",
+	 SymbolicLinkHandle,
 	 DesiredAccess,
 	 ObjectAttributes,
-	 LinkTarget);
+	 DeviceName);
 
   Status = ObCreateObject(ExGetPreviousMode(),
 			  ObSymbolicLinkType,
@@ -237,7 +241,7 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
 			   DesiredAccess,
 			   0,
 			   NULL,
-			   LinkHandle);
+			   SymbolicLinkHandle);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject (SymbolicLink);
@@ -246,13 +250,13 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
 
   SymbolicLink->TargetName.Length = 0;
   SymbolicLink->TargetName.MaximumLength = 
-    ((wcslen(LinkTarget->Buffer) + 1) * sizeof(WCHAR));
+    ((wcslen(DeviceName->Buffer) + 1) * sizeof(WCHAR));
   SymbolicLink->TargetName.Buffer = 
     ExAllocatePoolWithTag(NonPagedPool,
 			  SymbolicLink->TargetName.MaximumLength,
 			  TAG_SYMLINK_TARGET);
   RtlCopyUnicodeString(&SymbolicLink->TargetName,
-		       LinkTarget);
+		       DeviceName);
 
   DPRINT("DeviceName %S\n", SymbolicLink->TargetName.Buffer);
 
@@ -289,7 +293,7 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
   return(ObOpenObjectByName(ObjectAttributes,
 			    ObSymbolicLinkType,
 			    NULL,
-			    (KPROCESSOR_MODE)KeGetPreviousMode(),
+			    KeGetPreviousMode(),
 			    DesiredAccess,
 			    NULL,
 			    LinkHandle));
@@ -311,8 +315,8 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
  */
 NTSTATUS STDCALL
 NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
-			  OUT PUNICODE_STRING LinkTarget,
-			  OUT PULONG ResultLength  OPTIONAL)
+			  IN OUT PUNICODE_STRING LinkTarget,
+			  OUT PULONG ReturnedLength OPTIONAL)
 {
   PSYMLINK_OBJECT SymlinkObject;
   NTSTATUS Status;
@@ -320,7 +324,7 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
   Status = ObReferenceObjectByHandle(LinkHandle,
 				     SYMBOLIC_LINK_QUERY,
 				     ObSymbolicLinkType,
-				     (KPROCESSOR_MODE)KeGetPreviousMode(),
+				     KeGetPreviousMode(),
 				     (PVOID *)&SymlinkObject,
 				     NULL);
   if (!NT_SUCCESS(Status))
@@ -328,9 +332,9 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
       return Status;
     }
 
-  if (ResultLength != NULL)
+  if (ReturnedLength != NULL)
     {
-      *ResultLength = (ULONG)SymlinkObject->TargetName.Length + sizeof(WCHAR);
+      *ReturnedLength = (ULONG)SymlinkObject->TargetName.Length + sizeof(WCHAR);
     }
 
   if (LinkTarget->MaximumLength >= SymlinkObject->TargetName.Length + sizeof(WCHAR))

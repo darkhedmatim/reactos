@@ -8,42 +8,65 @@
 #define NTOS_MODE_KERNEL
 #include <ntos.h>
 
-typedef enum
+/* one systemcursor for custom cursors */
+#define SYSCURSORCOUNT (14 + 1)
+
+typedef struct _CURSORCLIP_INFO
 {
-  wmCenter = 0,
-  wmTile,
-  wmStretch
-} WALLPAPER_MODE;
+  BOOL IsClipped;
+  UINT Left;
+  UINT Top;
+  UINT Right;
+  UINT Bottom;
+} CURSORCLIP_INFO, *PCURSORCLIP_INFO;
+
+typedef struct _SYSCURSOR
+{
+  HANDLE hCursor;
+  LONG cx, cy;
+  LONG hx, hy;
+  PVOID AndImage;
+  PVOID XorImage;
+} SYSCURSOR, *PSYSCURSOR;
+
+typedef struct _SYSTEM_CURSORINFO
+{
+  BOOL Enabled;
+  BOOL SwapButtons;
+  UINT CurrentCursor;
+  UINT ButtonsDown;
+  LONG x, y;
+  BOOL SafetySwitch, SafetySwitch2;
+  FAST_MUTEX CursorMutex;
+  CURSORCLIP_INFO CursorClipInfo;
+  SYSCURSOR SystemCursors[SYSCURSORCOUNT];
+  UINT DblClickSpeed;
+  UINT DblClickWidth;
+  UINT DblClickHeight;
+  DWORD LastBtnDown;
+  LONG LastBtnDownX;
+  LONG LastBtnDownY;
+  HANDLE LastClkWnd;
+} SYSTEM_CURSORINFO, *PSYSTEM_CURSORINFO;
 
 typedef struct _WINSTATION_OBJECT
-{
+{   
   CSHORT Type;
   CSHORT Size;
+
   KSPIN_LOCK Lock;
   UNICODE_STRING Name;
   LIST_ENTRY DesktopListHead;
   PRTL_ATOM_TABLE AtomTable;
   PVOID HandleTable;
   HANDLE SystemMenuTemplate;
-  PVOID SystemCursor;
-  UINT CaretBlinkRate;
-  HANDLE ShellWindow;
-  HANDLE ShellListView;
-
-  /* Wallpaper */
-  HANDLE hbmWallpaper;
-  ULONG cxWallpaper, cyWallpaper;
-  WALLPAPER_MODE WallpaperMode;
-
-  ULONG Flags;
+  SYSTEM_CURSORINFO SystemCursor;
   struct _DESKTOP_OBJECT* ActiveDesktop;
   /* FIXME: Clipboard */
-  LIST_ENTRY HotKeyListHead;
-  FAST_MUTEX HotKeyListLock;
 } WINSTATION_OBJECT, *PWINSTATION_OBJECT;
 
 typedef struct _DESKTOP_OBJECT
-{
+{   
   CSHORT Type;
   CSHORT Size;
   LIST_ENTRY ListEntry;
@@ -53,17 +76,10 @@ typedef struct _DESKTOP_OBJECT
   struct _WINSTATION_OBJECT *WindowStation;
   /* Pointer to the active queue. */
   PVOID ActiveMessageQueue;
-  /* Rectangle of the work area */
-#ifdef __WIN32K__
-  RECT WorkArea;
-#else
-  LONG WorkArea[4];
-#endif
   /* Handle of the desktop window. */
   HANDLE DesktopWindow;
   HANDLE PrevActiveWindow;
-  /* Thread blocking input */
-  PVOID BlockInputThread;
+  struct _WINDOW_OBJECT* CaptureWindow;
 } DESKTOP_OBJECT, *PDESKTOP_OBJECT;
 
 
@@ -75,10 +91,7 @@ typedef VOID (*PLOOKASIDE_MINMAX_ROUTINE)(
 
 /* GLOBAL VARIABLES *********************************************************/
 
-extern TIME_ZONE_INFORMATION ExpTimeZoneInfo;
-extern LARGE_INTEGER ExpTimeZoneBias;
-extern ULONG ExpTimeZoneId;
-
+TIME_ZONE_INFORMATION SystemTimeZoneInfo;
 extern POBJECT_TYPE ExEventPairObjectType;
 
 
@@ -87,58 +100,22 @@ extern POBJECT_TYPE ExEventPairObjectType;
 VOID
 ExpWin32kInit(VOID);
 
-VOID
-ExInit2(VOID);
-VOID
-ExInit3(VOID);
-VOID
-ExpInitTimeZoneInfo(VOID);
-VOID
+VOID 
+ExInit (VOID);
+VOID 
+ExInitTimeZoneInfo (VOID);
+VOID 
 ExInitializeWorkerThreads(VOID);
 VOID
 ExpInitLookasideLists(VOID);
-VOID
-ExpInitializeCallbacks(VOID);
-VOID
-ExpInitUuids(VOID);
 
 /* OTHER FUNCTIONS **********************************************************/
 
-#ifdef _ENABLE_THRDEVTPAIR
 VOID
 ExpSwapThreadEventPair(
 	IN struct _ETHREAD* Thread,
 	IN struct _KEVENT_PAIR* EventPair
 	);
-#endif /* _ENABLE_THRDEVTPAIR */
 
-LONGLONG 
-FASTCALL
-ExfpInterlockedExchange64(LONGLONG volatile * Destination,
-                          PLONGLONG Exchange);
-
-NTSTATUS
-ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation);
-
-#define InterlockedDecrementUL(Addend) \
-   (ULONG)InterlockedDecrement((PLONG)(Addend))
-
-#define InterlockedIncrementUL(Addend) \
-   (ULONG)InterlockedIncrement((PLONG)(Addend))
-
-#define InterlockedExchangeUL(Target, Value) \
-   (ULONG)InterlockedExchange((PLONG)(Target), (LONG)(Value))
-
-#define InterlockedExchangeAddUL(Addend, Value) \
-   (ULONG)InterlockedExchangeAdd((PLONG)(Addend), (LONG)(Value))
-
-#define InterlockedCompareExchangeUL(Destination, Exchange, Comperand) \
-   (ULONG)InterlockedCompareExchange((PLONG)(Destination), (LONG)(Exchange), (LONG)(Comperand))
-
-#define ExfInterlockedCompareExchange64UL(Destination, Exchange, Comperand) \
-   (ULONGLONG)ExfInterlockedCompareExchange64((PLONGLONG)(Destination), (PLONGLONG)(Exchange), (PLONGLONG)(Comperand))
-
-#define ExfpInterlockedExchange64UL(Target, Value) \
-   (ULONGLONG)ExfpInterlockedExchange64((PLONGLONG)(Target), (PLONGLONG)(Value))
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_EXECUTIVE_H */

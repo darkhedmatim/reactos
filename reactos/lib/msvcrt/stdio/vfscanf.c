@@ -16,8 +16,9 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include <msvcrt/stdarg.h>
-#include <msvcrt/crttypes.h>
+//#include <stdarg.h>
+#include <msvcrt/stdarg.h> // robd
+#include <msvcrt/crttypes.h> // robd
 
 #include <msvcrt/errno.h>
 #include <limits.h>
@@ -28,13 +29,8 @@
 #include <msvcrt/wchar.h>
 #include <msvcrt/malloc.h>
 #include <msvcrt/mbstring.h>
-#include <msvcrt/internal/stdio.h>
-
-#ifdef __USE_W32API
-int __set_errno(int err);
-#else
 #include <msvcrt/internal/file.h>
-#endif
+#include <msvcrt/internal/stdio.h>
 
 /* The internal entry points for `strtoX' take an extra flag argument
    saying whether or not to parse locale-dependent number grouping.  */

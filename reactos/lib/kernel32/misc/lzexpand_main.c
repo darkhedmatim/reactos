@@ -1,4 +1,4 @@
-/* $Id: lzexpand_main.c,v 1.4 2004/12/25 11:18:50 navaraf Exp $
+/* $Id: lzexpand_main.c,v 1.1 2003/08/28 19:34:10 gvg Exp $
  *
  * LZ Decompression functions
  *
@@ -25,9 +25,8 @@
 //#include "config.h"
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 #include <string.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <sys/types.h>
 #include <stdio.h>
@@ -460,7 +459,7 @@ LONG WINAPI LZCopy( HFILE src, HFILE dest )
  	struct	lzstate	*lzs;
 
 #define BUFLEN	1000
-	CHAR	buf[BUFLEN];
+	BYTE	buf[BUFLEN];
 	/* we need that weird typedef, for i can't seem to get function pointer
 	 * casts right. (Or they probably just do not like WINAPI in general)
 	 */

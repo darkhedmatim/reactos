@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: power.c,v 1.12 2004/10/24 20:37:26 weiden Exp $
+/* $Id: power.c,v 1.8 2003/10/12 17:05:50 hbirr Exp $
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/po/power.c
  * PURPOSE:         Power Manager
@@ -25,17 +25,18 @@
  *   20/08/1999 EA  Created
  *   16/04/2001 CSH Stubs added
  */
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/io.h>
+#include <internal/po.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
 
 PDEVICE_NODE PopSystemPowerDeviceNode = NULL;
 
-/*
- * @implemented
- */
+
 NTSTATUS
 STDCALL
 PoCallDriver(
@@ -215,38 +216,6 @@ PopSetSystemPowerState(
 VOID INIT_FUNCTION
 PoInit(VOID)
 {
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-NtInitiatePowerAction (
-	IN POWER_ACTION SystemAction,
-	IN SYSTEM_POWER_STATE MinSystemState,
- 	IN ULONG Flags,
-	IN BOOLEAN Asynchronous)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS 
-STDCALL 
-NtPowerInformation(
-	IN POWER_INFORMATION_LEVEL PowerInformationLevel,
-	IN PVOID InputBuffer  OPTIONAL,
-	IN ULONG InputBufferLength,
-	OUT PVOID OutputBuffer  OPTIONAL,
-	IN ULONG OutputBufferLength
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

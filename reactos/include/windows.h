@@ -165,10 +165,6 @@
 #define DUMMYSTRUCTNAME3
 #endif
 
-#ifndef DECLARE_STDCALL_P
-#define DECLARE_STDCALL_P( type ) __stdcall type
-#endif
-
 #ifndef NO_STRICT
 #ifndef STRICT
 #define STRICT 1

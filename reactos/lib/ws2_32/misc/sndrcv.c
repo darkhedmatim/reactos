@@ -7,9 +7,6 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
-
-#include <roscfg.h>
-#include <w32api.h>
 #include <ws2_32.h>
 #include <catalog.h>
 #include <handle.h>
@@ -26,7 +23,6 @@ recv(
   IN  INT len,
   IN  INT flags)
 {
-  DWORD Error;
   DWORD BytesReceived;
   WSABUF WSABuf;
 
@@ -36,9 +32,9 @@ recv(
   WSABuf.len = len;
   WSABuf.buf = (CHAR FAR*)buf;
 
-  Error = WSARecv(s, &WSABuf, 1, &BytesReceived, (LPDWORD)&flags, NULL, NULL);
+  WSARecv(s, &WSABuf, 1, &BytesReceived, (LPDWORD)&flags, NULL, NULL);
 
-  if( Error ) return -1; else return BytesReceived;
+  return BytesReceived;
 }
 
 
@@ -55,7 +51,6 @@ recvfrom(
   OUT     LPSOCKADDR from,
   IN OUT  INT FAR* fromlen)
 {
-  DWORD Error;
   DWORD BytesReceived;
   WSABUF WSABuf;
 
@@ -65,9 +60,9 @@ recvfrom(
   WSABuf.len = len;
   WSABuf.buf = (CHAR FAR*)buf;
 
-  Error = WSARecvFrom(s, &WSABuf, 1, &BytesReceived, (LPDWORD)&flags, from, fromlen, NULL, NULL);
+  WSARecvFrom(s, &WSABuf, 1, &BytesReceived, (LPDWORD)&flags, from, fromlen, NULL, NULL);
 
-  if( Error ) return -1; else return BytesReceived;
+  return BytesReceived;
 }
 
 
@@ -83,7 +78,6 @@ send(
   IN  INT flags)
 {
   DWORD BytesSent;
-  DWORD Error;
   WSABUF WSABuf;
 
   WS_DbgPrint(MAX_TRACE, ("s (0x%X)  buf (0x%X)  len (0x%X) flags (0x%X).\n",
@@ -92,15 +86,7 @@ send(
   WSABuf.len = len;
   WSABuf.buf = (CHAR FAR*)buf;
 
-  Error = WSASend(s, &WSABuf, 1, &BytesSent, flags, NULL, NULL);
-
-  if( Error ) {
-      WS_DbgPrint(MAX_TRACE,("Reporting error %d\n", Error));
-      return -1; 
-  } else {
-      WS_DbgPrint(MAX_TRACE,("Read %d bytes\n", BytesSent));
-      return BytesSent;
-  }
+  return WSASend(s, &WSABuf, 1, &BytesSent, flags, NULL, NULL);
 }
 
 
@@ -114,10 +100,9 @@ sendto(
   IN  CONST CHAR FAR* buf,
   IN  INT len,
   IN  INT flags,
-  IN  CONST struct sockaddr *to, 
+  IN  CONST LPSOCKADDR to, 
   IN  INT tolen)
 {
-  DWORD Error;
   DWORD BytesSent;
   WSABUF WSABuf;
 
@@ -127,9 +112,7 @@ sendto(
   WSABuf.len = len;
   WSABuf.buf = (CHAR FAR*)buf;
 
-  Error = WSASendTo(s, &WSABuf, 1, &BytesSent, flags, to, tolen, NULL, NULL);
-
-  if( Error ) return -1; else return BytesSent;
+  return WSASendTo(s, &WSABuf, 1, &BytesSent, flags, to, tolen, NULL, NULL);
 }
 
 
@@ -296,7 +279,7 @@ WSASendTo(
   IN  DWORD dwBufferCount,
   OUT LPDWORD lpNumberOfBytesSent,
   IN  DWORD dwFlags,
-  IN  CONST struct sockaddr *lpTo,
+  IN  CONST LPSOCKADDR lpTo,
   IN  INT iToLen,
   IN  LPWSAOVERLAPPED lpOverlapped,
   IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
@@ -314,15 +297,9 @@ WSASendTo(
 
   assert(Provider->ProcTable.lpWSPSendTo);
 
-#if (__W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5)
-  Code = Provider->ProcTable.lpWSPSendTo(s, lpBuffers, dwBufferCount,
-    lpNumberOfBytesSent, dwFlags, (CONST LPSOCKADDR) lpTo, iToLen, lpOverlapped,
-    lpCompletionRoutine, NULL /* lpThreadId */, &Errno);
-#else
   Code = Provider->ProcTable.lpWSPSendTo(s, lpBuffers, dwBufferCount,
     lpNumberOfBytesSent, dwFlags, lpTo, iToLen, lpOverlapped,
     lpCompletionRoutine, NULL /* lpThreadId */, &Errno);
-#endif /* __W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5 */
 
   DereferenceProviderByPointer(Provider);
 

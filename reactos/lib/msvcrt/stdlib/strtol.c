@@ -3,7 +3,6 @@
 #include <msvcrt/ctype.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
 
 
 /*

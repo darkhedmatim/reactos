@@ -8,7 +8,7 @@
 #define __LAN_H
 
 
-/* Media we support */
+/* Medias we support */
 #define MEDIA_ETH 0
 
 #define MAX_MEDIA 1
@@ -33,9 +33,6 @@ typedef struct ETH_HEADER {
 /* Offset of broadcast address */
 #define BCAST_ETH_OFFSET 0x00
 
-/* Max packets queued for a single adapter */
-#define IP_MAX_RECV_BACKLOG 0x20
-
 /* Per adapter information */
 typedef struct LAN_ADAPTER {
     LIST_ENTRY ListEntry;                   /* Entry on list */
@@ -59,6 +56,7 @@ typedef struct LAN_ADAPTER {
     UINT MacOptions;                        /* MAC options for NIC driver/adapter */
     UINT Speed;                             /* Link speed */
     UINT PacketFilter;                      /* Packet filter for this adapter */
+    PNDIS_PACKET TDPackets;                 /* Transfer Data packets */
 } LAN_ADAPTER, *PLAN_ADAPTER;
 
 /* LAN adapter state constants */
@@ -73,7 +71,7 @@ typedef struct LAN_ADAPTER {
 /* Ethernet types. We swap constants so we can compare values at runtime
    without swapping them there */
 #define ETYPE_IPv4 WH2N(0x0800)
-#define ETYPE_IPv6 WH2N(0x86DD)
+#define ETYPE_IPv6 WH2N(0x0000) /* FIXME */
 #define ETYPE_ARP  WH2N(0x0806)
 
 /* Protocols */
@@ -83,8 +81,7 @@ typedef struct LAN_ADAPTER {
 
 
 NDIS_STATUS LANRegisterAdapter(
-    PNDIS_STRING AdapterName,
-		PNDIS_STRING RegistryPath);
+    PNDIS_STRING AdapterName);
 
 NDIS_STATUS LANUnregisterAdapter(
     PLAN_ADAPTER Adapter);
@@ -94,16 +91,6 @@ NTSTATUS LANRegisterProtocol(
 
 VOID LANUnregisterProtocol(
     VOID);
-
-VOID LANStartup();
-VOID LANShutdown();
-
-NDIS_STATUS NDISCall(
-    PLAN_ADAPTER Adapter,
-    NDIS_REQUEST_TYPE Type,
-    NDIS_OID OID,
-    PVOID Buffer,
-    UINT Length);
 
 #endif /* __LAN_H */
 

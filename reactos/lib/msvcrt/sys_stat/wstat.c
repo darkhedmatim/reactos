@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/sys/types.h>
 #include <msvcrt/sys/stat.h>
 #include <msvcrt/fcntl.h>

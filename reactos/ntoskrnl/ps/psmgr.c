@@ -1,4 +1,4 @@
-/* $Id: psmgr.c,v 1.24 2004/11/11 22:23:52 ion Exp $
+/* $Id: psmgr.c,v 1.17 2003/10/12 17:05:50 hbirr Exp $
  *
  * COPYRIGHT:               See COPYING in the top level directory
  * PROJECT:                 ReactOS kernel
@@ -9,17 +9,19 @@
 
 /* INCLUDES **************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <reactos/version.h>
+
 #define NDEBUG
 #include <internal/debug.h>
-
-VOID INIT_FUNCTION PsInitClientIDManagment(VOID);
 
 /* FUNCTIONS ***************************************************************/
 
 VOID PiShutdownProcessManager(VOID)
 {
-   DPRINT("PiShutdownProcessManager()\n");
+   DPRINT("PiShutdownMemoryManager()\n");
    
    PiKillMostProcesses();
 }
@@ -27,11 +29,10 @@ VOID PiShutdownProcessManager(VOID)
 VOID INIT_FUNCTION
 PiInitProcessManager(VOID)
 {
-   PsInitClientIDManagment();
-   PsInitJobManagment();
    PsInitProcessManagment();
    PsInitThreadManagment();
    PsInitIdleThread();
+   PiInitApcManagement();
    PsInitialiseSuspendImplementation();
    PsInitialiseW32Call();
 }
@@ -78,13 +79,13 @@ PsGetVersion (
 	)
 {
 	if (MajorVersion)
-		*MajorVersion = 4;
+		*MajorVersion = KERNEL_VERSION_MAJOR;
 
 	if (MinorVersion)
-		*MinorVersion = 0;
+		*MinorVersion = KERNEL_VERSION_MINOR;
 
 	if (BuildNumber)
-		*BuildNumber = 1381;
+		*BuildNumber = NtBuildNumber;
 
 	if (CSDVersion)
 	{

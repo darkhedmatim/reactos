@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: perfcnt.c,v 1.4 2004/01/23 21:16:03 ekohl Exp $ */
+/* $Id: perfcnt.c,v 1.2 2003/07/10 18:50:51 chorns Exp $ */
 /*
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/misc/perfcnt.c
@@ -29,7 +29,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ****************************************************************/
@@ -37,7 +37,7 @@
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount)
 {
   LARGE_INTEGER Frequency;
@@ -64,7 +64,7 @@ QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount)
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency)
 {
   LARGE_INTEGER Count;

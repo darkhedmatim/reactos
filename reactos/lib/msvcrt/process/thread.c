@@ -1,9 +1,11 @@
-#include "precomp.h"
+/* $Id: thread.c,v 1.7 2003/07/16 02:45:24 royce Exp $
+ *
+ */
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/process.h>
-#include <msvcrt/internal/file.h>
 
-#if 0
+
 /*
  * @unimplemented
  */
@@ -15,7 +17,7 @@ unsigned long _beginthread(
     __set_errno ( ENOSYS );
     return (unsigned long)-1;
 }
-#endif
+
 /*
  * @unimplemented
  */

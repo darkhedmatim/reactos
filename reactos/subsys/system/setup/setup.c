@@ -26,23 +26,23 @@
 
 #include <windows.h>
 #include <tchar.h>
+
 #include <syssetup.h>
 
-#define NDEBUG
-#include <debug.h>
-
+#define DEBUG
 
 typedef DWORD STDCALL (*PINSTALL_REACTOS)(HINSTANCE hInstance);
 
 
 /* FUNCTIONS ****************************************************************/
 
+
 LPTSTR lstrchr(LPCTSTR s, TCHAR c)
 {
   while (*s)
     {
       if (*s == c)
-        return (LPTSTR)s;
+	return (LPTSTR)s;
       s++;
     }
 
@@ -62,16 +62,22 @@ RunNewSetup (HINSTANCE hInstance)
   hDll = LoadLibrary (TEXT("syssetup"));
   if (hDll == NULL)
     {
-      DPRINT("Failed to load 'syssetup'!\n");
+#ifdef DEBUG
+      OutputDebugString (TEXT("Failed to load 'syssetup'!\n"));
+#endif
       return;
     }
 
-  DPRINT("Loaded 'syssetup'!\n");
+#ifdef DEBUG
+  OutputDebugString (TEXT("Loaded 'syssetup'!\n"));
+#endif
 
   InstallReactOS = (PINSTALL_REACTOS)GetProcAddress (hDll, "InstallReactOS");
   if (InstallReactOS == NULL)
     {
-      DPRINT("Failed to get address for 'InstallReactOS()'!\n");
+#ifdef DEBUG
+      OutputDebugString (TEXT("Failed to get address for 'InstallReactOS()'!\n"));
+#endif
       FreeLibrary (hDll);
       return;
     }
@@ -93,7 +99,11 @@ WinMain (HINSTANCE hInstance,
 
   CmdLine = GetCommandLine ();
 
-  DPRINT("CmdLine: <%s>\n",CmdLine);
+#ifdef DEBUG
+  OutputDebugString (TEXT("CmdLine: <"));
+  OutputDebugString (CmdLine);
+  OutputDebugString (TEXT(">\n"));
+#endif
 
   p = lstrchr (CmdLine, TEXT('-'));
   if (p == NULL)

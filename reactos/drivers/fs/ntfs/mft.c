@@ -16,272 +16,341 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mft.c,v 1.5 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: mft.c,v 1.2 2003/09/15 16:01:16 ea Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             services/fs/ntfs/mft.c
  * PURPOSE:          NTFS filesystem driver
- * PROGRAMMER:       Eric Kohl
- *                   Updated by Valentin Verkhovsky  2003/09/12
+ * PROGRAMMER:       Eric Kohl 
+ * Updated	by       Valentin Verkhovsky  2003/09/12		 	
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ntos/minmax.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
 
 
-//#define __min(a,b)  (((a) < (b)) ? (a) : (b))
+#define __min(a,b)  (((a) < (b)) ? (a) : (b))
 
 
 /* FUNCTIONS ****************************************************************/
 
 
 NTSTATUS
-NtfsOpenMft (PDEVICE_EXTENSION Vcb)
+NtfsOpenMft(PDEVICE_OBJECT DeviceObject,
+	    PDEVICE_EXTENSION Vcb)
 {
-//  PVOID Bitmap;
+  PVOID Buffer;
+  PVOID Bitmap;
   PFILE_RECORD_HEADER MftRecord;
-  PFILE_RECORD_HEADER FileRecord;
-//  PATTRIBUTE Attribute;
-//  PATTRIBUTE AttrData;
-//  PRESIDENT_ATTRIBUTE ResAttr;
+  PFILE_RECORD_HEADER file;
+  PATTRIBUTE Attribute;
+  PATTRIBUTE AttrData;
+  PRESIDENT_ATTRIBUTE ResAttr;
 
   NTSTATUS Status;
-  ULONG BytesPerFileRecord;
-  ULONG n;
-  ULONG i;
-
+  ULONG BytesPerFileRecord;	
   DPRINT1("NtfsOpenMft() called\n");
+  ULONG n = 0;
 
-  BytesPerFileRecord = Vcb->NtfsInfo.BytesPerFileRecord;
-
-  MftRecord = ExAllocatePool(NonPagedPool,
-			     BytesPerFileRecord);
-  if (MftRecord == NULL)
+  BytesPerFileRecord = Vcb->NtfsInfo.ClustersPerFileRecord * 
+						Vcb->NtfsInfo.BytesPerCluster;
+  
+  Buffer = ExAllocatePool(NonPagedPool,
+			  BytesPerFileRecord);
+  if (Buffer == NULL)
     {
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-  Status = NtfsReadSectors(Vcb->StorageDevice,
-			   Vcb->NtfsInfo.MftStart.u.LowPart * Vcb->NtfsInfo.SectorsPerCluster,
-			   BytesPerFileRecord / Vcb->NtfsInfo.BytesPerSector,
-			   Vcb->NtfsInfo.BytesPerSector,
-			   (PVOID)MftRecord,
-			   FALSE);
-  if (!NT_SUCCESS(Status))
-    {
-      ExFreePool(MftRecord);
-      return Status;
-    }
-
-
-  FixupUpdateSequenceArray(MftRecord);
-
-//  Attribute = FindAttribute(MftRecord, AttributeBitmap, 0);
-
-  /* Get number of file records*/
-  n = AttributeDataLength (FindAttribute (MftRecord, AttributeData, 0))
-		  / BytesPerFileRecord;
-
-  FileRecord = ExAllocatePool(NonPagedPool, BytesPerFileRecord);
-  if (FileRecord == NULL)
-    {
-      ExFreePool(MftRecord);
       return(STATUS_INSUFFICIENT_RESOURCES);
     }
+  
+ 
+  Status = NtfsReadRawSectors(DeviceObject,
+			      Vcb->NtfsInfo.MftStart.u.LowPart * Vcb->NtfsInfo.SectorsPerCluster,
+			      BytesPerFileRecord / Vcb->NtfsInfo.BytesPerSector,
+			      Vcb->NtfsInfo.BytesPerSector,
+			      (PVOID)Buffer);
 
-  /* Enumerate MFT Records */
-  DPRINT("Enumerate MFT records\n");
-  for ( i=0; i < n; i++)
+
+    if (NT_SUCCESS(Status))
     {
-	  ReadFileRecord(Vcb, i, FileRecord, MftRecord);
+      
+      DbgPrint("Enumerate  MFT \n");
+      MftRecord = Buffer;
 
-	  if (FileRecord->Ntfs.Type == NRH_FILE_TYPE && (FileRecord->Flags & FRH_IN_USE))
-	    {
-	      DPRINT("\nFile  %lu\n\n", i);
+      FixupUpdateSequenceArray(MftRecord);
+    
+	  ULONG i;
+	  Attribute = FindAttribute(MftRecord, AttributeBitmap, 0);
+      	  	
+	
+      /* Get number of file records*/
+	  n = AttributeLength(FindAttribute(MftRecord, AttributeData,0))
+		  / BytesPerFileRecord;
+	  	 	  
+	  file = ExAllocatePool(NonPagedPool, BytesPerFileRecord);
+	 
+	  if (file == NULL)
+	  {
+		  return(STATUS_INSUFFICIENT_RESOURCES);
+	  }
+     
+      /* Enumerate MFT Records */ 
+	  
+	  for ( i=0; i < n; i++)
+	  {
+          
+		         
+		  ReadFileRecord(i, file, Vcb, MftRecord, DeviceObject);
+         		 
+		  if (file->Ntfs.Type == 'ELIF' && (file->Flags & 1) != 0)
+		  {
+			 
+			  DbgPrint("\n");
+			  DbgPrint("File  %lu\n", i);
+              DbgPrint("\n");
+			  /* Enumerate attributtes */
 
-	      /* Enumerate attributtes */
-	      NtfsDumpFileAttributes (FileRecord);
-	      DbgPrint("\n\n");
-	     }
-    }
+	          EnumerAttribute(file, Vcb, DeviceObject);
+			  DbgPrint("\n");
+              DbgPrint("\n");
+				 	
+		
+		  }
 
-  ExFreePool(FileRecord);
-  ExFreePool(MftRecord);
+	  }
 
-  return Status;
+
+  
+	}
+    
+	ExFreePool(Buffer);
+  
+	ExFreePool(file);
+
+
+  return(Status);
 }
 
+PATTRIBUTE FindAttribute(PFILE_RECORD_HEADER file,
 
-PATTRIBUTE
-FindAttribute (PFILE_RECORD_HEADER FileRecord,
-	       ATTRIBUTE_TYPE Type,
-	       PWSTR name)
+						 ATTRIBUTE_TYPE type, PWSTR name)
 {
-  PATTRIBUTE Attribute;
-
-  Attribute = (PATTRIBUTE)((ULONG_PTR)FileRecord + FileRecord->AttributeOffset);
-  while (Attribute < (PATTRIBUTE)((ULONG_PTR)FileRecord + FileRecord->BytesInUse) &&
-         Attribute->AttributeType != -1)
-    {
-      if (Attribute->AttributeType == Type)
+	PATTRIBUTE attr = (PATTRIBUTE)((PVOID)file + file->AttributeOffset);
+	
+	while (attr->AttributeType !=-1)
 	{
-	  return Attribute;
+		
+	 if(attr->AttributeType == type) {
+	     return attr;
+		}
+      attr = (PATTRIBUTE)((ULONG)attr + attr->Length);
 	}
 
-      Attribute = (PATTRIBUTE)((ULONG_PTR)Attribute + Attribute->Length);
-    }
-
-  return NULL;
+	return 0;
 }
 
 
-ULONG
-AttributeAllocatedLength (PATTRIBUTE Attribute)
+ULONG AttributeLengthAllocated(PATTRIBUTE attr)
 {
-  if (Attribute->Nonresident)
-    {
-      return ((PNONRESIDENT_ATTRIBUTE)Attribute)->AllocatedSize;
-    }
+	
+	PRESIDENT_ATTRIBUTE ResAttr;
+	PNONRESIDENT_ATTRIBUTE NresAttr;
+	 if(attr->Nonresident == FALSE)
+	 {
+		 ResAttr  = (PRESIDENT_ATTRIBUTE)attr;
+		 return ResAttr->ValueLength;
+	 }
 
-  return ((PRESIDENT_ATTRIBUTE)Attribute)->ValueLength;
+	else  
+	{
+		NresAttr = (PNONRESIDENT_ATTRIBUTE)attr;
+		
+		return NresAttr->AllocatedSize;
+	}
+	
+
 }
 
-
-ULONG
-AttributeDataLength (PATTRIBUTE Attribute)
+VOID ReadAttribute(PATTRIBUTE attr, PVOID buffer, PDEVICE_EXTENSION Vcb, 
+				    PDEVICE_OBJECT DeviceObject)
 {
-  if (Attribute->Nonresident)
-    {
-      return ((PNONRESIDENT_ATTRIBUTE)Attribute)->DataSize;
-    }
+	if(attr->Nonresident == FALSE)
+	{
+		PRESIDENT_ATTRIBUTE ResAttr = (PRESIDENT_ATTRIBUTE)attr;
+		memcpy(buffer, (PRESIDENT_ATTRIBUTE)((PVOID)ResAttr + ResAttr->ValueOffset),
+			ResAttr->ValueLength);
 
-  return ((PRESIDENT_ATTRIBUTE)Attribute)->ValueLength;
-}
+        
+	}
 
-
-VOID
-ReadAttribute (PATTRIBUTE attr,
-	       PVOID buffer,
-	       PDEVICE_EXTENSION Vcb,
-	       PDEVICE_OBJECT DeviceObject)
-{
-  if (attr->Nonresident == FALSE)
-    {
-	memcpy (buffer,
-		(PVOID)((ULONG_PTR)attr + ((PRESIDENT_ATTRIBUTE)attr)->ValueOffset),
-		((PRESIDENT_ATTRIBUTE)attr)->ValueLength);
-    }
-
-  PNONRESIDENT_ATTRIBUTE NresAttr = (PNONRESIDENT_ATTRIBUTE)attr;
-  ReadExternalAttribute(Vcb, NresAttr, 0, (ULONG)(NresAttr->LastVcn) + 1,
-		buffer);
-}
+	
+		PNONRESIDENT_ATTRIBUTE NresAttr = (PNONRESIDENT_ATTRIBUTE)attr;
+		ReadExternalAttribute(NresAttr, 0, (ULONG)(NresAttr->LastVcn) + 1,
+			buffer, Vcb, DeviceObject);
+    
 
 
 
-
-
-NTSTATUS
-ReadFileRecord (PDEVICE_EXTENSION Vcb,
-		ULONG index,
-		PFILE_RECORD_HEADER file,
-		PFILE_RECORD_HEADER Mft)
-{
-  PVOID p;
-  ULONG BytesPerFileRecord = Vcb->NtfsInfo.BytesPerFileRecord;
-  ULONG clusters = max(BytesPerFileRecord / Vcb->NtfsInfo.BytesPerCluster, 1);
-
-  p = ExAllocatePool(NonPagedPool, clusters * Vcb->NtfsInfo.BytesPerCluster);
-
-  ULONGLONG vcn = index * BytesPerFileRecord / Vcb->NtfsInfo.BytesPerCluster;
-
-  ReadVCN (Vcb, Mft, AttributeData, vcn, clusters, p);
-
-  LONG m = (Vcb->NtfsInfo.BytesPerCluster / BytesPerFileRecord) - 1;
-
-  ULONG n = m > 0 ? (index & m) : 0;
-
-  memcpy(file, p + n * BytesPerFileRecord, BytesPerFileRecord);
-
-  ExFreePool(p);
-
-  FixupUpdateSequenceArray(file);
-
-  return STATUS_SUCCESS;
 }
 
 
 
-VOID
-ReadExternalAttribute (PDEVICE_EXTENSION Vcb,
-		       PNONRESIDENT_ATTRIBUTE NresAttr,
-		       ULONGLONG vcn,
-		       ULONG count,
-		       PVOID buffer)
+ULONG AttributeLength(PATTRIBUTE  attr)
 {
-  ULONGLONG lcn;
-  ULONGLONG runcount;
-  ULONG readcount;
-  ULONG left;
+	PRESIDENT_ATTRIBUTE ResAttr;
+	PNONRESIDENT_ATTRIBUTE NresAttr;
+	
+	if(attr->Nonresident == FALSE)
+	{
+		ResAttr = (PRESIDENT_ATTRIBUTE)attr;
+		return ResAttr->ValueLength;
+	}
+
+	else
+	{
+		NresAttr = (PNONRESIDENT_ATTRIBUTE)attr;
+		return NresAttr->DataSize;
+	}
+
+}
+
+
+
+VOID ReadFileRecord(ULONG index, PFILE_RECORD_HEADER file,
+					  PDEVICE_EXTENSION Vcb, PFILE_RECORD_HEADER Mft,
+					   PDEVICE_OBJECT DeviceObject)
+
+{
+	
+	PVOID p;
+	ULONG clusters = Vcb->NtfsInfo.ClustersPerFileRecord;
+    ULONG BytesPerFileRecord = clusters * Vcb->NtfsInfo.BytesPerCluster;
+	
+
+	p =  ExAllocatePool(NonPagedPool, BytesPerFileRecord);
+
+	ULONGLONG vcn = index * BytesPerFileRecord / Vcb->NtfsInfo.BytesPerCluster;
+
+	ReadVCN(Mft, AttributeData, vcn, clusters, p, Vcb,DeviceObject);
+
+	LONG m = (Vcb->NtfsInfo.BytesPerCluster / BytesPerFileRecord) - 1; 
+		
+	ULONG n = m > 0 ? (index & m) : 0;
+
+	memcpy(file, p + n * BytesPerFileRecord, BytesPerFileRecord);
+
+	ExFreePool(p);
+	FixupUpdateSequenceArray(file);
+
+
+}
+
+
+
+VOID ReadExternalAttribute(PNONRESIDENT_ATTRIBUTE NresAttr,
+						   ULONGLONG vcn, ULONG count, PVOID buffer,
+						                       PDEVICE_EXTENSION Vcb,
+											   PDEVICE_OBJECT DeviceObject)
+{
+	
+
+	ULONGLONG lcn, runcount;
+	ULONG readcount, left;
 
     PUCHAR bytes = (PUCHAR)buffer;
 
-  for (left = count; left>0; left -=readcount)
-    {
+	for (left = count; left>0; left -=readcount) 
+	{
 		FindRun(NresAttr, vcn, &lcn, &runcount);
 
-//		readcount = (ULONG)(__min(runcount, left));
-		readcount = (ULONG)min (runcount, left);
+		readcount = (ULONG)(__min(runcount, left));
 
 		
 		ULONG n = readcount * Vcb->NtfsInfo.BytesPerCluster;
-
+    	
 		if (lcn == 0)
 			memset(bytes, 0, n);
 		else
-		  ReadLCN(Vcb, lcn, readcount, bytes);
+		  ReadLCN(lcn, readcount, bytes, Vcb, DeviceObject);
 
 		vcn += readcount;
 		bytes += n;
 
 	
-    }
+	}
+	
+
 }
 
 
-VOID
-ReadVCN (PDEVICE_EXTENSION Vcb,
-	 PFILE_RECORD_HEADER file,
-	 ATTRIBUTE_TYPE type,
-	 ULONGLONG vcn,
-	 ULONG count,
-	 PVOID buffer)
+BOOL FindRun(PNONRESIDENT_ATTRIBUTE NresAttr, ULONGLONG vcn,
+			 PULONGLONG lcn, PULONGLONG count)
 {
-  PNONRESIDENT_ATTRIBUTE NresAttr;
-  PATTRIBUTE attr;
+	PUCHAR run; 
 
-  attr = FindAttribute(file, type, 0);
+	ULONGLONG base = NresAttr->StartVcn;
 
-  NresAttr = (PNONRESIDENT_ATTRIBUTE) attr;
+ 
+	if (vcn < NresAttr->StartVcn || vcn > NresAttr->LastVcn)
+		return FALSE;
 
-  if (NresAttr == 0 || (vcn < NresAttr->StartVcn ||vcn > NresAttr->LastVcn))
-    {
-//      PATTRIBUTE attrList = FindAttribute(file,AttributeAttributeList,0);
-      DbgPrint("Exeption \n");
-//      KeDebugCheck(0);
-    }
+	*lcn = 0;
 
-  ReadExternalAttribute(Vcb, NresAttr, vcn, count, buffer);
+
+    for (run = (PUCHAR)((ULONG)NresAttr + NresAttr->RunArrayOffset);
+	*run != 0; run += RunLength(run))  {
+	
+		*lcn += RunLCN(run);
+		*count = RunCount(run);
+	    	
+		if(base <= vcn && vcn < base + *count)
+		{
+			*lcn = RunLCN(run) == 0 ? 0 : *lcn + vcn - base;
+			*count -= (ULONG)(vcn - base);
+    
+		
+			return TRUE;
+		}
+		else
+			base += *count;
+		
+				
+	}
+    
+	return FALSE;
 }
 
+
+
+VOID ReadVCN(PFILE_RECORD_HEADER file, ATTRIBUTE_TYPE type,
+			 ULONGLONG vcn, ULONG count, PVOID buffer,
+			 PDEVICE_EXTENSION Vcb, PDEVICE_OBJECT DeviceObject)
+{
+
+	PNONRESIDENT_ATTRIBUTE NresAttr;
+	PATTRIBUTE attr;
+	attr = FindAttribute(file, type,0);
+	
+	NresAttr = (PNONRESIDENT_ATTRIBUTE) attr;
+
+	if (NresAttr == 0 || (vcn < NresAttr->StartVcn ||vcn > NresAttr->LastVcn))
+	{
+		
+	  PATTRIBUTE attrList = FindAttribute(file,AttributeAttributeList,0);
+	  DbgPrint("Exeption \n");
+	  //KeDebugCheck(0);
+	}
+
+	ReadExternalAttribute(NresAttr, vcn, count, buffer, Vcb, DeviceObject);
+
+
+}
 
 BOOL bitset(PUCHAR bitmap, ULONG i)
 {
@@ -305,22 +374,52 @@ VOID FixupUpdateSequenceArray(PFILE_RECORD_HEADER file)
 }
 
 
-NTSTATUS
-ReadLCN (PDEVICE_EXTENSION Vcb,
-	 ULONGLONG lcn,
-	 ULONG count,
-	 PVOID buffer)
+VOID ReadLCN(ULONGLONG lcn, ULONG count, PVOID buffer, PDEVICE_EXTENSION Vcb,
+			 PDEVICE_OBJECT DeviceObject)
 {
-  LARGE_INTEGER DiskSector;
-
-  DiskSector.QuadPart = lcn;
-
-  return NtfsReadSectors (Vcb->StorageDevice,
-			  DiskSector.u.LowPart * Vcb->NtfsInfo.SectorsPerCluster,
-			  count * Vcb->NtfsInfo.SectorsPerCluster,
-			  Vcb->NtfsInfo.BytesPerSector,
-			  buffer,
-			  FALSE);
+	
+	LARGE_INTEGER DiskSector;
+	DiskSector.QuadPart = lcn;
+	
+	
+	NtfsReadRawSectors(DeviceObject, DiskSector.u.LowPart * Vcb->NtfsInfo.SectorsPerCluster, 
+	 count * Vcb->NtfsInfo.SectorsPerCluster, Vcb->NtfsInfo.BytesPerSector, buffer);
 }
 
-/* EOF */
+
+VOID EnumerAttribute(PFILE_RECORD_HEADER file, PDEVICE_EXTENSION Vcb,
+					 PDEVICE_OBJECT DeviceObject)
+						 
+{
+	
+	ULONGLONG lcn;
+	ULONGLONG runcount;
+	ULONG  size;
+	PATTRIBUTE attr = (PATTRIBUTE)((PVOID)file + file->AttributeOffset);
+	
+	while (attr->AttributeType !=-1)
+	{
+		
+	  if(NtfsDumpAttribute(attr))
+	  {
+
+		  PNONRESIDENT_ATTRIBUTE NresAttr = (PNONRESIDENT_ATTRIBUTE)attr;
+
+
+          FindRun(NresAttr,0,&lcn, &runcount);
+		  
+		  DbgPrint("  AllocatedSize %I64d  DataSize %I64d\n", NresAttr->AllocatedSize, NresAttr->DataSize);
+		  DbgPrint("  logical sectors:  %lu", lcn);
+		  DbgPrint("-%lu\n", lcn + runcount -1);  
+		  
+	  }
+          attr = (PATTRIBUTE)((ULONG)attr + attr->Length);
+	
+	}
+
+
+}
+
+
+
+	/* EOF */

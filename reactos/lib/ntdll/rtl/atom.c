@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.7 2004/10/30 14:02:04 navaraf Exp $
+/* $Id: atom.c,v 1.5 2003/07/11 13:50:23 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -285,7 +285,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	return STATUS_NO_MEMORY;
      }
 
-   InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
+   InsertTailList(&AtomTable->Slot[Hash], &Entry->List)
    RtlCreateUnicodeString (&Entry->Name,
 			   AtomName);
    Entry->RefCount = 1;
@@ -433,8 +433,6 @@ RtlLookupAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 
 	Current = Current->Flink;
      }
-
-   RtlpUnlockAtomTable(AtomTable);
 
    return STATUS_OBJECT_NAME_NOT_FOUND;
 }

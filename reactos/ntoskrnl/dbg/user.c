@@ -26,7 +26,11 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <internal/ntoskrnl.h>
+#include <napi/dbg.h>
+#include <internal/ps.h>
+#include <internal/dbg.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/

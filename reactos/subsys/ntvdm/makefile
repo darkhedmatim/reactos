@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.4 2003/11/16 21:47:20 sedwards Exp $
+# $Id: makefile,v 1.2 2003/08/07 04:03:24 royce Exp $
 
 PATH_TO_TOP = ../..
 
@@ -11,7 +11,7 @@ TARGET_NAME = ntvdm
 TARGET_INSTALLDIR = system32
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror -D__USE_W32API
+TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_SDKLIBS = ntdll.a kernel32.a user32.a gdi32.a advapi32.a
 

@@ -1,4 +1,4 @@
-/* $Id: cnotify.c,v 1.11 2004/10/08 21:29:40 weiden Exp $
+/* $Id: cnotify.c,v 1.8 2003/07/15 10:49:52 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,21 +12,15 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /*
  * @implemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 FindCloseChangeNotification (HANDLE hChangeHandle)
 {
-   NTSTATUS Status = NtClose(hChangeHandle);
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastErrorByStatus(Status);
-     return FALSE;
-   }
-   
+   NtClose(hChangeHandle);
    return TRUE;
 }
 
@@ -38,7 +32,7 @@ HANDLE
 STDCALL
 FindFirstChangeNotificationA (
 	LPCSTR	lpPathName,
-	BOOL	bWatchSubtree,
+	WINBOOL	bWatchSubtree,
 	DWORD	dwNotifyFilter
 	)
 {
@@ -80,7 +74,7 @@ HANDLE
 STDCALL
 FindFirstChangeNotificationW (
 	LPCWSTR	lpPathName,
-	BOOL	bWatchSubtree,
+	WINBOOL	bWatchSubtree,
 	DWORD	dwNotifyFilter
 	)
 {
@@ -147,7 +141,7 @@ FindFirstChangeNotificationW (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 FindNextChangeNotification (
 	HANDLE	hChangeHandle

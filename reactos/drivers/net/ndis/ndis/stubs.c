@@ -7,8 +7,7 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "ndissys.h"
+#include <ndissys.h>
 
 
 /*
@@ -38,7 +37,17 @@ NdisCompleteUnbindAdapter(
 }
 
 
-#undef NdisInterlockedAddUlong
+/*
+ * @implemented
+ */
+VOID
+EXPORT
+NdisInitializeListHead(
+    IN  PLIST_ENTRY ListHead)
+{
+	InitializeListHead(ListHead);
+}
+
 
 /*
  * @implemented
@@ -50,11 +59,9 @@ NdisInterlockedAddUlong (
     IN  ULONG           Increment,
     IN  PNDIS_SPIN_LOCK SpinLock)
 {
-   ExInterlockedAddUlong ( Addend, Increment, (PKSPIN_LOCK)SpinLock );
+  ExInterlockedAddUlong ( Addend, Increment, (PKSPIN_LOCK)SpinLock );
 }
 
-
-#undef NdisInterlockedInsertHeadList
 
 /*
  * @implemented
@@ -70,8 +77,6 @@ NdisInterlockedInsertHeadList(
 }
 
 
-#undef NdisInterlockedInsertTailList
-
 /*
  * @implemented
  */
@@ -85,8 +90,6 @@ NdisInterlockedInsertTailList(
   return ExInterlockedInsertTailList ( ListHead, ListEntry, (PKSPIN_LOCK)SpinLock );
 }
 
-
-#undef NdisInterlockedRemoveHeadList
 
 /*
  * @implemented
@@ -183,8 +186,6 @@ NdisIMDeInitializeDeviceInstance(
 }
 
 
-#undef NdisIMInitializeDeviceInstance
-
 /*
  * @unimplemented
  */
@@ -274,7 +275,7 @@ NdisOpenFile(
   NDIS_STRING FullFileName;
   OBJECT_ATTRIBUTES ObjectAttributes;
   PNDIS_HANDLE_OBJECT FileHandleObject = NULL;
-  IO_STATUS_BLOCK IoStatusBlock;
+  //IO_STATUS_BLOCK IoStatusBlock;
 
   ASSERT_IRQL(PASSIVE_LEVEL);
 
@@ -316,7 +317,7 @@ NdisOpenFile(
     &FileHandleObject->FileHandle,
     FILE_READ_DATA|SYNCHRONIZE,
     &ObjectAttributes,
-    &IoStatusBlock,
+    NULL, //&IoStatusBlock, // PIO_STATUS_BLOCK
     NULL, // PLARGE_INTEGER AllocationSize
     0, // ULONG FileAttributes
     FILE_SHARE_READ, // ULONG ShareAccess
@@ -541,8 +542,6 @@ NdisGetSystemUptime(
 }
 
 
-#undef NdisInterlockedDecrement
-
 /*
  * @implemented
  */
@@ -560,8 +559,6 @@ NdisInterlockedDecrement(
   return InterlockedDecrement ( Addend );
 }
 
-
-#undef NdisInterlockedIncrement
 
 /*
  * @implemented
@@ -830,6 +827,27 @@ NdisQueryAdapterInstanceName(
     UNIMPLEMENTED
 
     return NDIS_STATUS_FAILURE;
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisQueryBufferSafe(
+    IN  PNDIS_BUFFER    Buffer,
+    OUT PVOID           *VirtualAddress OPTIONAL,
+    OUT PUINT           Length,
+    IN  UINT            Priority)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
+ */
+{
+    UNIMPLEMENTED
 }
 
 

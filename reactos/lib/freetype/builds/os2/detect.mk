@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2003 by
+# Copyright 1996-2000 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -27,17 +27,18 @@ endif
 
 ifeq ($(PLATFORM),os2)
 
-  COPY   := copy
-  DELETE := del
-  SEP    := $(BACKSLASH)
+  COPY     := copy
+  DELETE   := del
 
   # gcc-emx by default
   CONFIG_FILE := os2-gcc.mk
+  SEP         := /
 
   # additionally, we provide hooks for various other compilers
   #
   ifneq ($(findstring visualage,$(MAKECMDGOALS)),)     # Visual Age C++
     CONFIG_FILE := os2-icc.mk
+    SEP         := $(BACKSLASH)
     CC          := icc
     visualage: setup
     .PHONY: visualage
@@ -45,6 +46,7 @@ ifeq ($(PLATFORM),os2)
 
   ifneq ($(findstring watcom,$(MAKECMDGOALS)),)        # Watcom C/C++
     CONFIG_FILE := os2-wat.mk
+    SEP         := $(BACKSLASH)
     CC          := wcc386
     watcom: setup
     .PHONY: watcom
@@ -52,6 +54,7 @@ ifeq ($(PLATFORM),os2)
 
   ifneq ($(findstring borlandc,$(MAKECMDGOALS)),)      # Borland C++ 32-bit
     CONFIG_FILE := os2-bcc.mk
+    SEP         := $(BACKSLASH)
     CC          := bcc32
     borlandc: setup
     .PHONY: borlandc
@@ -60,6 +63,7 @@ ifeq ($(PLATFORM),os2)
   ifneq ($(findstring devel,$(MAKECMDGOALS)),)         # development target
     CONFIG_FILE := os2-dev.mk
     CC          := gcc
+    SEP         := /
     devel: setup
     .PHONY: devel
   endif
@@ -67,6 +71,5 @@ ifeq ($(PLATFORM),os2)
   setup: dos_setup
 
 endif   # test PLATFORM os2
-
 
 # EOF

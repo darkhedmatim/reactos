@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.50 2004/12/24 19:02:32 greatlrd Exp $
+/* $Id: stubs.c,v 1.30 2003/10/15 20:48:19 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -8,7 +8,8 @@
  * REVISION HISTORY:
  *       04-06-2001  CSH  Created
  */
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -55,7 +56,43 @@ NtUserBitBltSysBmp(
 
 DWORD
 STDCALL
+NtUserBlockInput(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+
+DWORD
+STDCALL
+NtUserBuildNameList(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+
+DWORD
+STDCALL
 NtUserCallHwnd(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCallHwndOpt(
   DWORD Unknown0,
   DWORD Unknown1)
 {
@@ -99,6 +136,17 @@ NtUserCallMsgFilter(
   return 0;
 }
 
+DWORD
+STDCALL
+NtUserChangeClipboardChain(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
 LONG
 STDCALL
 NtUserChangeDisplaySettings(
@@ -108,9 +156,18 @@ NtUserChangeDisplaySettings(
   DWORD dwflags,
   LPVOID lParam)
 {
-  // UNIMPLEMENTED
-  DbgPrint("(%s:%i) WIN32K: %s UNIMPLEMENTED\n", __FILE__, __LINE__, __FUNCTION__ );
-  return DISP_CHANGE_BADMODE;
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCloseClipboard(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 DWORD
@@ -120,6 +177,39 @@ NtUserConvertMemHandle(
   DWORD Unknown1)
 {
   UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCopyAcceleratorTable(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCountClipboardFormats(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCreateAcceleratorTable(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+/*  UNIMPLEMENTED */
+  DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__);
 
   return 0;
 }
@@ -177,13 +267,34 @@ NtUserDdeSetQualityOfService(
 
 DWORD
 STDCALL
+NtUserDefSetText(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDestroyAcceleratorTable(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+
+DWORD
+STDCALL
 NtUserDragObject(
-	   HWND    hwnd1,
-	   HWND    hwnd2,
-	   UINT    u1,
-	   DWORD   dw1,
-	   HCURSOR hc1
-	   )
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4)
 {
   UNIMPLEMENTED
 
@@ -232,13 +343,68 @@ NtUserDrawCaptionTemp(
   return 0;
 }
 
-BOOL
+DWORD
+STDCALL
+NtUserDrawIconEx(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5,
+  DWORD Unknown6,
+  DWORD Unknown7,
+  DWORD Unknown8,
+  DWORD Unknown9,
+  DWORD Unknown10)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEmptyClipboard(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+WINBOOL
 STDCALL
 NtUserEnumDisplayDevices (
   PUNICODE_STRING lpDevice, /* device name */
   DWORD iDevNum, /* display device */
   PDISPLAY_DEVICE lpDisplayDevice, /* device information */
   DWORD dwFlags ) /* reserved */
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+WINBOOL
+STDCALL
+NtUserEnumDisplayMonitors(
+  HDC hdc,
+  LPCRECT lprcClip,
+  MONITORENUMPROC lpfnEnum,
+  LPARAM dwData)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+WINBOOL
+STDCALL
+NtUserEnumDisplaySettings(
+  PUNICODE_STRING lpszDeviceName,
+  DWORD iModeNum,
+  LPDEVMODEW lpDevMode, /* FIXME is this correct? */
+  DWORD dwFlags )
 {
   UNIMPLEMENTED
 
@@ -293,6 +459,56 @@ NtUserGetAsyncKeyState(
 
 DWORD
 STDCALL
+NtUserGetClipboardData(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardFormatName(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardOwner(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardSequenceNumber(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardViewer(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetComboBoxInfo(
   DWORD Unknown0,
   DWORD Unknown1)
@@ -333,6 +549,28 @@ NtUserGetCPD(
   DWORD Unknown0,
   DWORD Unknown1,
   DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetGuiResources(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetGUIThreadInfo(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 
@@ -399,9 +637,42 @@ NtUserGetMouseMovePointsEx(
 
 DWORD
 STDCALL
+NtUserGetPriorityClipboardFormat(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetThreadState(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetTitleBarInfo(
   DWORD Unknown0,
   DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetUpdateRect(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
 {
   UNIMPLEMENTED
 
@@ -454,6 +725,16 @@ NtUserInitTask(
 
 DWORD
 STDCALL
+NtUserIsClipboardFormatAvailable(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserLoadKeyboardLayoutEx(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -470,6 +751,18 @@ NtUserLoadKeyboardLayoutEx(
 DWORD
 STDCALL
 NtUserLockWorkStation(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserMinMaximize(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
 {
   UNIMPLEMENTED
 
@@ -534,6 +827,17 @@ NtUserNotifyWinEvent(
 
 DWORD
 STDCALL
+NtUserOpenClipboard(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserQueryUserCounters(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -546,6 +850,18 @@ NtUserQueryUserCounters(
   return 0;
 }
 
+DWORD
+STDCALL
+NtUserRegisterHotKey(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
 
 DWORD
 STDCALL
@@ -565,6 +881,40 @@ NtUserSBGetParms(
   DWORD Unknown1,
   DWORD Unknown2,
   DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSendInput(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetClipboardData(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetClipboardViewer(
+  DWORD Unknown0)
 {
   UNIMPLEMENTED
 
@@ -655,8 +1005,31 @@ NtUserTrackMouseEvent(
 
 DWORD
 STDCALL
+NtUserTranslateAccelerator(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserUnloadKeyboardLayout(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserUnregisterHotKey(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 
@@ -681,6 +1054,17 @@ NtUserUpdateInstance(
   DWORD Unknown0,
   DWORD Unknown1,
   DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserUpdatePerUserSystemParameters(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 

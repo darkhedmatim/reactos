@@ -27,7 +27,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/mm.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/pool.h>
+#include <limits.h>
+#include <internal/safe.h>
+
 #include <internal/debug.h>
 
 /* TYPES ********************************************************************/
@@ -142,12 +150,12 @@ KiAddProfileEventToProcess(PLIST_ENTRY ListHead, PVOID Eip)
 	  return;
 	}
 
-      if (current->Base <= Eip && ((char*)current->Base + current->Size) > (char*)Eip &&
+      if (current->Base <= Eip && (current->Base + current->Size) > Eip &&
 	  current->Started)
 	{
 	  ULONG Bucket;
 
-	  Bucket = ((ULONG)((char*)Eip - (char*)current->Base)) >> current->BucketShift;
+	  Bucket = ((ULONG)(Eip - current->Base)) >> current->BucketShift;
 
 	  if ((Bucket*4) < current->BufferSize)
 	    {
@@ -392,31 +400,31 @@ NtInitializeProfileImplementation(VOID)
 }
 
 NTSTATUS STDCALL 
-NtCreateProfile(OUT PHANDLE ProfileHandle,
-		IN HANDLE Process  OPTIONAL,
+NtCreateProfile(OUT PHANDLE UnsafeProfileHandle, 
+		IN HANDLE ProcessHandle,
 		IN PVOID ImageBase, 
 		IN ULONG ImageSize, 
-		IN ULONG BucketSize,
-		IN PVOID Buffer,
+		IN ULONG Granularity,
+		OUT PULONG Buffer, 
 		IN ULONG BufferSize,
-		IN KPROFILE_SOURCE ProfileSource,
-		IN KAFFINITY Affinity)
+		IN KPROFILE_SOURCE Source,
+		IN ULONG ProcessorMask)
 {
-  HANDLE SafeProfileHandle;
+  HANDLE ProfileHandle;
   NTSTATUS Status;
   PKPROFILE Profile;
-  PEPROCESS pProcess;
+  PEPROCESS Process;
 
   /*
    * Reference the associated process
    */
-  if (Process != NULL)
+  if (ProcessHandle != NULL)
     {
-      Status = ObReferenceObjectByHandle(Process,
+      Status = ObReferenceObjectByHandle(ProcessHandle,
 					 PROCESS_QUERY_INFORMATION,
 					 PsProcessType,
 					 UserMode,
-					 (PVOID*)&pProcess,
+					 (PVOID*)&Process,
 					 NULL);
       if (!NT_SUCCESS(Status))
 	{
@@ -425,27 +433,27 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     }
   else
     {
-      pProcess = NULL;
+      Process = NULL;
       /* FIXME: Check privilege. */
     }
 
   /*
    * Check the parameters
    */
-  if ((pProcess == NULL && ImageBase < (PVOID)KERNEL_BASE) ||
-      (pProcess != NULL && ImageBase >= (PVOID)KERNEL_BASE))
+  if ((Process == NULL && ImageBase < (PVOID)KERNEL_BASE) ||
+      (Process != NULL && ImageBase >= (PVOID)KERNEL_BASE))
     {
       return(STATUS_INVALID_PARAMETER_3);
     }
-  if (((ImageSize >> BucketSize) * 4) >= BufferSize)
+  if (((ImageSize >> Granularity) * 4) >= BufferSize)
     {
       return(STATUS_BUFFER_TOO_SMALL);
     }
-  if (ProfileSource != ProfileTime)
+  if (Source != ProfileTime)
     {
       return(STATUS_INVALID_PARAMETER_9);
     }
-  if (Affinity != 0)
+  if (ProcessorMask != 0)
     {
       return(STATUS_INVALID_PARAMETER_10);
     }
@@ -472,18 +480,14 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
    */
   Profile->Base = ImageBase;
   Profile->Size = ImageSize;
-  Profile->BucketShift = BucketSize;
+  Profile->BucketShift = Granularity;
   Profile->BufferMdl = MmCreateMdl(NULL, Buffer, BufferSize);
-  if(Profile->BufferMdl == NULL) {
-	DPRINT("MmCreateMdl: Out of memory!");
-	return(STATUS_NO_MEMORY);
-  }  
   MmProbeAndLockPages(Profile->BufferMdl, UserMode, IoWriteAccess);
   Profile->Buffer = MmGetSystemAddressForMdl(Profile->BufferMdl);
   Profile->BufferSize = BufferSize;
-  Profile->ProcessorMask = Affinity;
+  Profile->ProcessorMask = ProcessorMask;
   Profile->Started = FALSE;
-  Profile->Process = pProcess;
+  Profile->Process = Process;
 
   /*
    * Insert the profile into the profile list data structures
@@ -495,7 +499,7 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
 			   STANDARD_RIGHTS_ALL,
 			   0,
 			   NULL,
-			   &SafeProfileHandle);
+			   &ProfileHandle);
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject (Profile);
@@ -505,7 +509,7 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
   /*
    * Copy the created handle back to the caller
    */
-  Status = MmCopyToCaller(ProfileHandle, &SafeProfileHandle, sizeof(HANDLE));
+  Status = MmCopyToCaller(UnsafeProfileHandle, &ProfileHandle, sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
      {
        ObDereferenceObject(Profile);
@@ -519,18 +523,18 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
 }
 
 NTSTATUS STDCALL 
-NtQueryIntervalProfile(IN  KPROFILE_SOURCE ProfileSource,
-		       OUT PULONG Interval)
+NtQueryIntervalProfile(OUT PULONG UnsafeInterval,
+		       OUT KPROFILE_SOURCE Source)
 {
   NTSTATUS Status;
 
-  if (ProfileSource == ProfileTime)
+  if (Source == ProfileTime)
     {
-      ULONG SafeInterval;
+      ULONG Interval;
 
       /* FIXME: What units does this use, for now nanoseconds */
-      SafeInterval = 100;
-      Status = MmCopyToCaller(Interval, &SafeInterval, sizeof(ULONG));
+      Interval = 100;
+      Status = MmCopyToCaller(UnsafeInterval, &Interval, sizeof(ULONG));
       if (!NT_SUCCESS(Status))
 	{
 	  return(Status);

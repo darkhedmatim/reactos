@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: init.c,v 1.50 2004/12/05 15:42:42 weiden Exp $
+/* $Id: init.c,v 1.41 2003/10/12 17:05:45 hbirr Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ldr/init.c
@@ -37,7 +37,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/i386/segment.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+#include <napi/teb.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -55,14 +63,13 @@ LdrpMapProcessImage(PHANDLE SectionHandle,
 		    PUNICODE_STRING ImagePath)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
-  IO_STATUS_BLOCK IoStatusBlock;
   HANDLE FileHandle;
   NTSTATUS Status;
 
   /* Open image file */
   InitializeObjectAttributes(&ObjectAttributes,
 			     ImagePath,
-			     OBJ_CASE_INSENSITIVE,
+			     0,
 			     NULL,
 			     NULL);
 
@@ -70,9 +77,9 @@ LdrpMapProcessImage(PHANDLE SectionHandle,
   Status = NtOpenFile(&FileHandle,
 		      FILE_ALL_ACCESS,
 		      &ObjectAttributes,
-		      &IoStatusBlock,
+		      NULL,
 		      0,
-		      FILE_SYNCHRONOUS_IO_ALERT);
+		      0);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
@@ -146,7 +153,7 @@ LdrpCreateProcessEnvironment(HANDLE ProcessHandle,
   RtlCopyMemory(LocalPpb->ImagePathName.Buffer,
 		ImagePath->Buffer,
 		ImagePath->Length);
-  LocalPpb->ImagePathName.Buffer[ImagePath->Length / sizeof(WCHAR)] = L'\0';
+  LocalPpb->ImagePathName.Buffer[ImagePath->Length / sizeof(WCHAR)] = (WCHAR)0;
 
   /* Denormalize the process parameter block */
   DENORMALIZE(LocalPpb->ImagePathName.Buffer, LocalPpb);
@@ -195,6 +202,17 @@ LdrpCreateProcessEnvironment(HANDLE ProcessHandle,
 		      &RegionSize,
 		      MEM_RELEASE);
 
+  /* Set image file name */
+  Status = NtSetInformationProcess(ProcessHandle,
+				   ProcessImageFileName,
+				   "SMSS",
+				   5);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("NtSetInformationProcess() failed (Status %lx)\n", Status);
+      return(Status);
+    }
+
   /* Read image base address. */
   Offset = FIELD_OFFSET(PEB, ImageBaseAddress);
   NtReadVirtualMemory(ProcessHandle,
@@ -219,7 +237,7 @@ LdrpCreateProcessEnvironment(HANDLE ProcessHandle,
 static NTSTATUS LdrpCreateStack
 (
  HANDLE ProcessHandle,
- PINITIAL_TEB InitialTeb,
+ PUSER_STACK UserStack,
  PULONG_PTR StackReserve,
  PULONG_PTR StackCommit
 )
@@ -234,11 +252,11 @@ static NTSTATUS LdrpCreateStack
  /* FIXME: no SEH, no guard pages */
  *StackCommit = *StackReserve;
 
- InitialTeb->StackBase = NULL;
- InitialTeb->StackLimit =  NULL;
- InitialTeb->StackCommit = NULL;
- InitialTeb->StackCommitMax = NULL;
- InitialTeb->StackReserved = NULL;
+ UserStack->FixedStackBase = NULL;
+ UserStack->FixedStackLimit =  NULL;
+ UserStack->ExpandableStackBase = NULL;
+ UserStack->ExpandableStackLimit = NULL; 
+ UserStack->ExpandableStackBottom = NULL;
 
  /* FIXME: this code assumes a stack growing downwards */
  /* fixed stack */
@@ -246,13 +264,13 @@ static NTSTATUS LdrpCreateStack
  {
   DPRINT("Fixed stack\n");
 
-  InitialTeb->StackLimit = NULL;
+  UserStack->FixedStackLimit = NULL;
 
   /* allocate the stack */
   nErrCode = NtAllocateVirtualMemory
   (
    ProcessHandle,
-   &(InitialTeb->StackLimit),
+   &(UserStack->FixedStackLimit),
    0,
    StackReserve,
    MEM_RESERVE | MEM_COMMIT,
@@ -263,8 +281,8 @@ static NTSTATUS LdrpCreateStack
   if(!NT_SUCCESS(nErrCode)) return nErrCode;
 
   /* store the highest (first) address of the stack */
-  InitialTeb->StackBase =
-   (PUCHAR)(InitialTeb->StackLimit) + *StackReserve;
+  UserStack->FixedStackBase =
+   (PUCHAR)(UserStack->FixedStackLimit) + *StackReserve;
  }
  /* expandable stack */
  else
@@ -274,15 +292,15 @@ static NTSTATUS LdrpCreateStack
 
   DPRINT("Expandable stack\n");
 
-  InitialTeb->StackLimit = NULL;
-  InitialTeb->StackBase = NULL;
-  InitialTeb->StackReserved = NULL;
+  UserStack->FixedStackLimit = NULL;
+  UserStack->FixedStackBase = NULL;
+  UserStack->ExpandableStackBottom = NULL;
 
   /* reserve the stack */
   nErrCode = NtAllocateVirtualMemory
   (
    ProcessHandle,
-   &(InitialTeb->StackReserved),
+   &(UserStack->ExpandableStackBottom),
    0,
    StackReserve,
    MEM_RESERVE,
@@ -295,21 +313,21 @@ static NTSTATUS LdrpCreateStack
   DPRINT("Reserved %08X bytes\n", *StackReserve);
 
   /* expandable stack base - the highest address of the stack */
-  InitialTeb->StackCommit =
-   (PUCHAR)(InitialTeb->StackReserved) + *StackReserve;
+  UserStack->ExpandableStackBase =
+   (PUCHAR)(UserStack->ExpandableStackBottom) + *StackReserve;
 
   /* expandable stack limit - the lowest committed address of the stack */
-  InitialTeb->StackCommitMax =
-   (PUCHAR)(InitialTeb->StackCommit) - *StackCommit;
+  UserStack->ExpandableStackLimit =
+   (PUCHAR)(UserStack->ExpandableStackBase) - *StackCommit;
 
-  DPRINT("Stack commit     %p\n", InitialTeb->StackCommit);
-  DPRINT("Stack commit max %p\n", InitialTeb->StackCommitMax);
+  DPRINT("Stack base %p\n", UserStack->ExpandableStackBase);
+  DPRINT("Stack limit %p\n", UserStack->ExpandableStackLimit);
 
   /* commit as much stack as requested */
   nErrCode = NtAllocateVirtualMemory
   (
    ProcessHandle,
-   &(InitialTeb->StackCommitMax),
+   &(UserStack->ExpandableStackLimit),
    0,
    StackCommit,
    MEM_COMMIT,
@@ -319,11 +337,11 @@ static NTSTATUS LdrpCreateStack
   /* failure */
   if(!NT_SUCCESS(nErrCode)) goto l_Cleanup;
 
-  DPRINT("Stack commit max %p\n", InitialTeb->StackCommitMax);
+  DPRINT("Stack limit %p\n", UserStack->ExpandableStackLimit);
 
-  pGuardBase = (PUCHAR)(InitialTeb->StackCommitMax) - PAGE_SIZE;
+  pGuardBase = (PUCHAR)(UserStack->ExpandableStackLimit) - PAGE_SIZE;
 
-  DPRINT("Guard base %p\n", InitialTeb->StackCommit);
+  DPRINT("Guard base %p\n", UserStack->ExpandableStackBase);
 
   /* set up the guard page */
   nErrCode = NtAllocateVirtualMemory
@@ -339,17 +357,17 @@ static NTSTATUS LdrpCreateStack
   /* failure */
   if(!NT_SUCCESS(nErrCode)) goto l_Cleanup;
 
-  DPRINT("Guard base %p\n", InitialTeb->StackCommit);
+  DPRINT("Guard base %p\n", UserStack->ExpandableStackBase);
  }
 
  return STATUS_SUCCESS;
 
  /* cleanup in case of failure */
 l_Cleanup:
-  if(InitialTeb->StackLimit)
-  pStackLowest = InitialTeb->StackLimit;
- else if(InitialTeb->StackReserved)
-  pStackLowest = InitialTeb->StackReserved;
+  if(UserStack->FixedStackLimit)
+  pStackLowest = UserStack->FixedStackLimit;
+ else if(UserStack->ExpandableStackBottom)
+  pStackLowest = UserStack->ExpandableStackBottom;
 
  /* free the stack, if it was allocated */
  if(pStackLowest != NULL)
@@ -367,7 +385,7 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
   UNICODE_STRING ImagePath;
   HANDLE SectionHandle;
   CONTEXT Context;
-  INITIAL_TEB InitialTeb;
+  USER_STACK UserStack;
   ULONG_PTR nStackReserve = 0;
   ULONG_PTR nStackCommit = 0;
   PVOID pStackLowest;
@@ -375,11 +393,10 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
   ULONG ResultLength;
   PVOID ImageBaseAddress;
   ULONG InitialStack[5];
-  HANDLE SystemProcessHandle;
   NTSTATUS Status;
 
   /* Get the absolute path to smss.exe. */
-  RtlRosInitUnicodeStringFromLiteral(&ImagePath,
+  RtlInitUnicodeStringFromLiteral(&ImagePath,
 				  L"\\SystemRoot\\system32\\smss.exe");
 
   /* Map process image */
@@ -405,17 +422,6 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
       return(Status);
     }
 
-  Status = ObCreateHandle(PsGetCurrentProcess(),
-                          PsInitialSystemProcess,
-                          PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                          FALSE,
-                          &SystemProcessHandle);
-  if(!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to create a handle for the system process!\n");
-    return Status;
-  }
-
   DPRINT("Creating process\n");
   Status = NtCreateProcess(ProcessHandle,
 			   PROCESS_ALL_ACCESS,
@@ -426,7 +432,6 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
 			   NULL,
 			   NULL);
   NtClose(SectionHandle);
-  NtClose(SystemProcessHandle);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtCreateProcess() failed (Status %lx)\n", Status);
@@ -470,7 +475,7 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
   Status = LdrpCreateStack
   (
    *ProcessHandle,
-   &InitialTeb,
+   &UserStack,
    &nStackReserve,
    &nStackCommit
   );
@@ -482,15 +487,15 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
       return(Status);
     }
 
-  if(InitialTeb.StackBase && InitialTeb.StackLimit)
+  if(UserStack.FixedStackBase && UserStack.FixedStackLimit)
   {
-   pStackBase = InitialTeb.StackBase;
-   pStackLowest = InitialTeb.StackLimit;
+   pStackBase = UserStack.FixedStackBase;
+   pStackLowest = UserStack.FixedStackLimit;
   }
   else
   {
-   pStackBase = InitialTeb.StackCommit;
-   pStackLowest = InitialTeb.StackReserved;
+   pStackBase = UserStack.ExpandableStackBase;
+   pStackLowest = UserStack.ExpandableStackBottom;
   }
 
   DPRINT("pStackBase = %p\n", pStackBase);
@@ -506,7 +511,7 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
   Context.FloatSave.StatusWord = 0xffff0000;
   Context.FloatSave.TagWord = 0xffffffff;
   Context.FloatSave.DataSelector = 0xffff0000;
-  Context.Eip = (ULONG_PTR)((char*)ImageBaseAddress + (ULONG_PTR)Sii.EntryPoint);
+  Context.Eip = (ULONG_PTR)(ImageBaseAddress + (ULONG_PTR)Sii.EntryPoint);
   Context.SegCs = USER_CS;
   Context.SegDs = USER_DS;
   Context.SegEs = USER_DS;
@@ -551,7 +556,7 @@ LdrLoadInitialProcess(PHANDLE ProcessHandle,
 			  *ProcessHandle,
 			  NULL,
 			  &Context,
-			  &InitialTeb,
+			  &UserStack,
 			  FALSE);
   if (!NT_SUCCESS(Status))
     {

@@ -5,7 +5,7 @@
 /*    Routines used to load and analyze a given glyph before hinting       */
 /*    (body).                                                              */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2003, 2004 Catharon Productions Inc.        */
+/*  Copyright 2000-2001, 2002 Catharon Productions Inc.                    */
 /*  Author: David Turner                                                   */
 /*                                                                         */
 /*  This file is part of the Catharon Typography Project and shall only    */
@@ -120,8 +120,8 @@
                                : ( seg->dir == AH_DIR_RIGHT
                                      ? "right"
                                      : "none" ) ) ),
-                 seg->link ? ( seg->link - segments ) : -1,
-                 seg->serif ? ( seg->serif - segments ) : -1,
+                 seg->link ? (seg->link-segments) : -1,
+                 seg->serif ? (seg->serif-segments) : -1,
                  (int)seg->num_linked,
                  seg->first - points,
                  seg->last - points );
@@ -135,19 +135,17 @@
 #endif /* AH_DEBUG */
 
 
-  /* compute the direction value of a given vector */
+  /* compute the direction value of a given vector.. */
   static AH_Direction
   ah_compute_direction( FT_Pos  dx,
                         FT_Pos  dy )
   {
     AH_Direction  dir;
-    FT_Pos        ax = FT_ABS( dx );
-    FT_Pos        ay = FT_ABS( dy );
+    FT_Pos        ax = ABS( dx );
+    FT_Pos        ay = ABS( dy );
 
 
     dir = AH_DIR_NONE;
-
-    /* atan(1/12) == 4.7 degrees */
 
     /* test for vertical direction */
     if ( ax * 12 < ay )
@@ -165,10 +163,10 @@
 
 
   /* this function is used by ah_get_orientation (see below) to test */
-  /* the fill direction of given bbox extremum                       */
+  /* the fill direction of a given bbox extrema                      */
   static FT_Int
-  ah_test_extremum( FT_Outline*  outline,
-                    FT_Int       n )
+  ah_test_extrema( FT_Outline*  outline,
+                   FT_Int       n )
   {
     FT_Vector  *prev, *cur, *next;
     FT_Pos      product;
@@ -177,9 +175,7 @@
 
 
     /* we need to compute the `previous' and `next' point */
-    /* for this extremum; we check whether the extremum   */
-    /* is start or end of a contour and providing         */
-    /* appropriate values if so                           */
+    /* for these extrema                                  */
     cur  = outline->points + n;
     prev = cur - 1;
     next = cur + 1;
@@ -187,7 +183,7 @@
     first = 0;
     for ( c = 0; c < outline->n_contours; c++ )
     {
-      last = outline->contours[c];
+      last  = outline->contours[c];
 
       if ( n == first )
         prev = outline->points + last;
@@ -198,10 +194,6 @@
       first = last + 1;
     }
 
-    /* compute the vectorial product -- since we know that the angle */
-    /* is <= 180 degrees (otherwise it wouldn't be an extremum) we   */
-    /* can determine the filling orientation if the product is       */
-    /* either positive or negative                                   */
     product = FT_MulDiv( cur->x  - prev->x,  /* in.x  */
                          next->y - cur->y,   /* out.y */
                          0x40 )
@@ -226,7 +218,7 @@
   /* We do this by computing bounding box points, and computing their      */
   /* curvature.                                                            */
   /*                                                                       */
-  /* The function returns either 1 or 2.                                   */
+  /* The function returns either 1 or -1.                                  */
   /*                                                                       */
   static FT_Int
   ah_get_orientation( FT_Outline*  outline )
@@ -280,20 +272,20 @@
       }
     }
 
-    /* test orientation of the extrema */
-    n = ah_test_extremum( outline, indices_xMin );
+    /* test orientation of the xmin */
+    n = ah_test_extrema( outline, indices_xMin );
     if ( n )
       goto Exit;
 
-    n = ah_test_extremum( outline, indices_yMin );
+    n = ah_test_extrema( outline, indices_yMin );
     if ( n )
       goto Exit;
 
-    n = ah_test_extremum( outline, indices_xMax );
+    n = ah_test_extrema( outline, indices_xMax );
     if ( n )
       goto Exit;
 
-    n = ah_test_extremum( outline, indices_yMax );
+    n = ah_test_extrema( outline, indices_yMax );
     if ( !n )
       n = 1;
 
@@ -314,14 +306,14 @@
   ah_outline_new( FT_Memory    memory,
                   AH_Outline*  aoutline )
   {
-    FT_Error    error;
-    AH_Outline  outline;
+    FT_Error     error;
+    AH_Outline   outline;
 
 
     if ( !FT_NEW( outline ) )
     {
       outline->memory = memory;
-      *aoutline       = outline;
+      *aoutline = outline;
     }
 
     return error;
@@ -418,7 +410,7 @@
     /* first of all, reallocate the contours array if necessary */
     if ( num_contours > outline->max_contours )
     {
-      FT_Int  new_contours = FT_PAD_CEIL( num_contours, 4 );
+      FT_Int  new_contours = ( num_contours + 3 ) & -4;
 
 
       if ( FT_RENEW_ARRAY( outline->contours,
@@ -435,7 +427,7 @@
     /*                                                                   */
     if ( num_points + 2 > outline->max_points )
     {
-      FT_Int  news = FT_PAD_CEIL( num_points + 2, 8 );
+      FT_Int  news = ( num_points + 2 + 7 ) & -8;
       FT_Int  max  = outline->max_points;
 
 
@@ -460,7 +452,7 @@
 
     /* We can't rely on the value of `FT_Outline.flags' to know the fill  */
     /* direction used for a glyph, given that some fonts are broken (e.g. */
-    /* the Arphic ones).  We thus recompute it each time we need to.      */
+    /* the Arphic ones). We thus recompute it each time we need to.       */
     /*                                                                    */
     outline->vert_major_dir = AH_DIR_UP;
     outline->horz_major_dir = AH_DIR_LEFT;
@@ -487,7 +479,7 @@
 
       /* compute coordinates */
       {
-        FT_Vector*  vec = source->points;
+        FT_Vector*  vec     = source->points;
 
 
         for ( point = points; point < point_limit; vec++, point++ )
@@ -511,11 +503,9 @@
           switch ( FT_CURVE_TAG( *tag ) )
           {
           case FT_CURVE_TAG_CONIC:
-            point->flags = AH_FLAG_CONIC;
-            break;
+            point->flags = AH_FLAG_CONIC; break;
           case FT_CURVE_TAG_CUBIC:
-            point->flags = AH_FLAG_CUBIC;
-            break;
+            point->flags = AH_FLAG_CUBIC; break;
           default:
             ;
           }
@@ -595,7 +585,7 @@
           point->out_dir = ah_compute_direction( ovec.x, ovec.y );
 
 #ifndef AH_OPTION_NO_WEAK_INTERPOLATION
-          if ( point->flags & ( AH_FLAG_CONIC | AH_FLAG_CUBIC ) )
+          if ( point->flags & (AH_FLAG_CONIC | AH_FLAG_CUBIC) )
           {
           Is_Weak_Point:
             point->flags |= AH_FLAG_WEAK_INTERPOLATION;
@@ -641,70 +631,48 @@
     AH_Point  point_limit = point + outline->num_points;
 
 
-    switch ( source )
+    for ( ; point < point_limit; point++ )
     {
-    case AH_UV_FXY:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->fx;
-        point->v = point->fy;
-      }
-      break;
+      FT_Pos  u, v;
 
-    case AH_UV_FYX:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->fy;
-        point->v = point->fx;
-      }
-      break;
 
-    case AH_UV_OXY:
-      for ( ; point < point_limit; point++ )
+      switch ( source )
       {
-        point->u = point->ox;
-        point->v = point->oy;
+      case AH_UV_FXY:
+        u = point->fx;
+        v = point->fy;
+        break;
+      case AH_UV_FYX:
+        u = point->fy;
+        v = point->fx;
+        break;
+      case AH_UV_OXY:
+        u = point->ox;
+        v = point->oy;
+        break;
+      case AH_UV_OYX:
+        u = point->oy;
+        v = point->ox;
+        break;
+      case AH_UV_YX:
+        u = point->y;
+        v = point->x;
+        break;
+      case AH_UV_OX:
+        u = point->x;
+        v = point->ox;
+        break;
+      case AH_UV_OY:
+        u = point->y;
+        v = point->oy;
+        break;
+      default:
+        u = point->x;
+        v = point->y;
+        break;
       }
-      break;
-
-    case AH_UV_OYX:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->oy;
-        point->v = point->ox;
-      }
-      break;
-
-    case AH_UV_YX:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->y;
-        point->v = point->x;
-      }
-      break;
-
-    case AH_UV_OX:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->x;
-        point->v = point->ox;
-      }
-      break;
-
-    case AH_UV_OY:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->y;
-        point->v = point->oy;
-      }
-      break;
-
-    default:
-      for ( ; point < point_limit; point++ )
-      {
-        point->u = point->x;
-        point->v = point->y;
-      }
+      point->u = u;
+      point->v = v;
     }
   }
 
@@ -713,8 +681,8 @@
   static void
   ah_outline_compute_inflections( AH_Outline  outline )
   {
-    AH_Point*  contour       = outline->contours;
-    AH_Point*  contour_limit = contour + outline->num_contours;
+    AH_Point*  contour       =  outline->contours;
+    AH_Point*  contour_limit =  contour + outline->num_contours;
 
 
     /* load original coordinates in (u,v) */
@@ -724,10 +692,10 @@
     for ( ; contour < contour_limit; contour++ )
     {
       FT_Vector  vec;
-      AH_Point   point = contour[0];
-      AH_Point   first = point;
-      AH_Point   start = point;
-      AH_Point   end   = point;
+      AH_Point   point   = contour[0];
+      AH_Point   first   = point;
+      AH_Point   start   = point;
+      AH_Point   end     = point;
       AH_Point   before;
       AH_Point   after;
       AH_Angle   angle_in, angle_seg, angle_out;
@@ -801,6 +769,7 @@
         {
           /* diff_in and diff_out have different signs, we have */
           /* inflection points here...                          */
+
           do
           {
             start->flags |= AH_FLAG_INFLECTION;
@@ -860,10 +829,10 @@
       /* do each contour separately */
       for ( ; contour < contour_limit; contour++ )
       {
-        AH_Point  point   =  contour[0];
-        AH_Point  last    =  point->prev;
-        int       on_edge =  0;
-        FT_Pos    min_pos =  32000;  /* minimum segment pos != min_coord */
+        AH_Point  point   = contour[0];
+        AH_Point  last    = point->prev;
+        int       on_edge = 0;
+        FT_Pos    min_pos = +32000;  /* minimum segment pos != min_coord */
         FT_Pos    max_pos = -32000;  /* maximum segment pos != max_coord */
         FT_Bool   passed;
 
@@ -881,11 +850,11 @@
         }
 #endif
 
-        if ( point == last )  /* skip singletons -- just in case */
+        if ( point == last )  /* skip singletons -- just in case? */
           continue;
 
-        if ( FT_ABS( last->out_dir )  == major_dir &&
-             FT_ABS( point->out_dir ) == major_dir )
+        if ( ABS( last->out_dir )  == major_dir &&
+             ABS( point->out_dir ) == major_dir )
         {
           /* we are already on an edge, try to locate its start */
           last = point;
@@ -893,7 +862,7 @@
           for (;;)
           {
             point = point->prev;
-            if ( FT_ABS( point->out_dir ) != major_dir )
+            if ( ABS( point->out_dir ) != major_dir )
             {
               point = point->next;
               break;
@@ -958,7 +927,7 @@
             passed = 1;
           }
 
-          if ( !on_edge && FT_ABS( point->out_dir ) == major_dir )
+          if ( !on_edge && ABS( point->out_dir ) == major_dir )
           {
             /* this is the start of a new segment! */
             segment_dir = point->out_dir;
@@ -972,8 +941,6 @@
             segment->first    = point;
             segment->last     = point;
             segment->contour  = contour;
-            segment->score    = 32000;
-            segment->link     = NULL;
             on_edge           = 1;
 
 #ifdef AH_HINT_METRICS
@@ -996,11 +963,11 @@
       /* we do this by inserting fake segments when needed            */
       if ( dimension == 0 )
       {
-        AH_Point  point       = outline->points;
-        AH_Point  point_limit = point + outline->num_points;
+        AH_Point  point       =  outline->points;
+        AH_Point  point_limit =  point + outline->num_points;
 
-        FT_Pos    min_pos =  32000;
-        FT_Pos    max_pos = -32000;
+        FT_Pos    min_pos     =  32000;
+        FT_Pos    max_pos     = -32000;
 
 
         min_point = 0;
@@ -1035,8 +1002,6 @@
           segment->first = min_point;
           segment->last  = min_point;
           segment->pos   = min_pos;
-          segment->score = 32000;
-          segment->link  = NULL;
 
           num_segments++;
           segment++;
@@ -1053,8 +1018,6 @@
           segment->first = max_point;
           segment->last  = max_point;
           segment->pos   = max_pos;
-          segment->score = 32000;
-          segment->link  = NULL;
 
           num_segments++;
           segment++;
@@ -1067,7 +1030,6 @@
       segments       = outline->vert_segments;
       major_dir      = AH_DIR_UP;
       p_num_segments = &outline->num_vsegments;
-
       ah_setup_uv( outline, AH_UV_FXY );
     }
   }
@@ -1076,22 +1038,22 @@
   FT_LOCAL_DEF( void )
   ah_outline_link_segments( AH_Outline  outline )
   {
-    AH_Segment    segments;
-    AH_Segment    segment_limit;
-    AH_Direction  major_dir;
-    int           dimension;
+    AH_Segment  segments;
+    AH_Segment  segment_limit;
+    int         dimension;
 
+
+    ah_setup_uv( outline, AH_UV_FYX );
 
     segments      = outline->horz_segments;
     segment_limit = segments + outline->num_hsegments;
-    major_dir     = outline->horz_major_dir;
 
     for ( dimension = 1; dimension >= 0; dimension-- )
     {
       AH_Segment  seg1;
       AH_Segment  seg2;
 
-#if 0
+
       /* now compare each segment to the others */
       for ( seg1 = segments; seg1 < segment_limit; seg1++ )
       {
@@ -1108,7 +1070,7 @@
         if ( best_segment )
           best_score = seg1->score;
         else
-          best_score = +32000;
+          best_score = 32000;
 
         for ( seg2 = segments; seg2 < segment_limit; seg2++ )
           if ( seg1 != seg2 && seg1->dir + seg2->dir == 0 )
@@ -1163,86 +1125,28 @@
         {
           seg1->link  = best_segment;
           seg1->score = best_score;
+
           best_segment->num_linked++;
         }
-      }
-#endif /* 0 */
 
-#if 1
-      /* the following code does the same, but much faster! */
-
-      /* now compare each segment to the others */
-      for ( seg1 = segments; seg1 < segment_limit; seg1++ )
-      {
-        /* the fake segments are introduced to hint the metrics -- */
-        /* we must never link them to anything                     */
-        if ( seg1->first == seg1->last || seg1->dir != major_dir )
-          continue;
-
-        for ( seg2 = segments; seg2 < segment_limit; seg2++ )
-          if ( seg2 != seg1 && seg1->dir + seg2->dir == 0 )
-          {
-            FT_Pos  pos1 = seg1->pos;
-            FT_Pos  pos2 = seg2->pos;
-            FT_Pos  dist = pos2 - pos1;
-
-
-            if ( dist < 0 )
-              continue;
-
-            {
-              FT_Pos  min = seg1->min_coord;
-              FT_Pos  max = seg1->max_coord;
-              FT_Pos  len, score;
-
-
-              if ( min < seg2->min_coord )
-                min = seg2->min_coord;
-
-              if ( max > seg2->max_coord )
-                max = seg2->max_coord;
-
-              len = max - min;
-              if ( len >= 8 )
-              {
-                score = dist + 3000 / len;
-
-                if ( score < seg1->score )
-                {
-                  seg1->score = score;
-                  seg1->link  = seg2;
-                }
-
-                if ( score < seg2->score )
-                {
-                  seg2->score = score;
-                  seg2->link  = seg1;
-                }
-              }
-            }
-          }
-      }
-#endif /* 1 */
+      } /* edges 1 */
 
       /* now, compute the `serif' segments */
       for ( seg1 = segments; seg1 < segment_limit; seg1++ )
       {
         seg2 = seg1->link;
 
-        if ( seg2 )
+        if ( seg2 && seg2->link != seg1 )
         {
-          seg2->num_linked++;
-          if ( seg2->link != seg1 )
-          {
-            seg1->link  = 0;
-            seg1->serif = seg2->link;
-          }
+          seg1->link  = 0;
+          seg1->serif = seg2->link;
         }
       }
 
+      ah_setup_uv( outline, AH_UV_FXY );
+
       segments      = outline->vert_segments;
       segment_limit = segments + outline->num_vsegments;
-      major_dir     = outline->vert_major_dir;
     }
   }
 
@@ -1295,9 +1199,6 @@
       if ( edge_distance_threshold > 64 / 4 )
         edge_distance_threshold = 64 / 4;
 
-      edge_distance_threshold = FT_DivFix( edge_distance_threshold,
-                                           scale );
-
       edge_limit = edges;
       for ( seg = segments; seg < segment_limit; seg++ )
       {
@@ -1314,6 +1215,7 @@
           if ( dist < 0 )
             dist = -dist;
 
+          dist = FT_MulFix( dist, scale );
           if ( dist < edge_distance_threshold )
           {
             found = edge;
@@ -1351,6 +1253,7 @@
           edge->last            = seg;
         }
       }
+
       *p_num_edges = (FT_Int)( edge_limit - edges );
 
 
@@ -1361,19 +1264,13 @@
       /*                                                                   */
       /*  - edge's main direction                                          */
       /*  - stem edge, serif edge or both (which defaults to stem then)    */
-      /*  - rounded edge, straight or both (which defaults to straight)    */
+      /*  - rounded edge, straigth or both (which defaults to straight)    */
       /*  - link for edge                                                  */
       /*                                                                   */
       /*********************************************************************/
 
       /* first of all, set the `edge' field in each segment -- this is */
       /* required in order to compute edge links                       */
-
-      /* Note that I've tried to remove this loop, setting
-       * the "edge" field of each segment directly in the
-       * code above.  For some reason, it slows down execution
-       * speed -- on a Sun.
-       */
       for ( edge = edges; edge < edge_limit; edge++ )
       {
         seg = edge->first;
@@ -1461,12 +1358,12 @@
             }
             else
               edge->link  = edge2;
-#else /* !FT_CONFIG_CHESTER_SERIF */
+#else /* !CHESTER_SERIF */
             if ( is_serif )
               edge->serif = edge2;
             else
               edge->link  = edge2;
-#endif /* !FT_CONFIG_CHESTER_SERIF */
+#endif
           }
 
           seg = seg->edge_next;
@@ -1486,10 +1383,10 @@
           edge->dir = up_dir;
 
         else if ( ups < downs )
-          edge->dir = -up_dir;
+          edge->dir = - up_dir;
 
         else if ( ups == downs )
-          edge->dir = 0;  /* both up and down! */
+          edge->dir = 0;  /* both up and down !! */
 
         /* gets rid of serifs if link is set                */
         /* XXX: This gets rid of many unpleasant artefacts! */
@@ -1562,7 +1459,7 @@
 
         ref   = globals->blue_refs[blue];
         shoot = globals->blue_shoots[blue];
-        dist  = ref - shoot;
+        dist  = ref-shoot;
         if ( dist < 0 )
           dist = -dist;
 
@@ -1580,7 +1477,7 @@
         return;
     }
 
-    /* for each horizontal edge search the blue zone which is closest */
+    /* compute for each horizontal edge, which blue zone is closer */
     for ( ; edge < edge_limit; edge++ )
     {
       AH_Blue  blue;
@@ -1596,7 +1493,7 @@
         best_dist = 64 / 2;
 #else
       if ( best_dist > 64 / 4 )
-        best_dist = 64 / 4;
+         best_dist = 64 / 4;
 #endif
 
       for ( blue = AH_BLUE_CAPITAL_TOP; blue < AH_BLUE_MAX; blue++ )
@@ -1609,7 +1506,6 @@
                    FT_BOOL( AH_IS_TOP_BLUE( blue ) );
         FT_Bool  is_major_dir =
                    FT_BOOL( edge->dir == outline->horz_major_dir );
-
 
         if ( !blue_active[blue] )
           continue;
@@ -1673,7 +1569,7 @@
   /*    ah_outline_scale_blue_edges                                        */
   /*                                                                       */
   /* <Description>                                                         */
-  /*    This function must be called before hinting in order to re-adjust  */
+  /*    This functions must be called before hinting in order to re-adjust */
   /*    the contents of the detected edges (basically change the `blue     */
   /*    edge' pointer from `design units' to `scaled ones').               */
   /*                                                                       */

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: winhelp.c,v 1.7 2004/08/15 21:36:28 chorns Exp $
+/* $Id: winhelp.c,v 1.5 2003/08/07 04:03:24 royce Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/winhelp.c
@@ -28,8 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
 #include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* WinHelp internal structure */
@@ -49,7 +50,7 @@ typedef struct
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 WinHelpA(HWND hWnd, LPCSTR lpszHelp, UINT uCommand, DWORD dwData)
 {
@@ -133,7 +134,7 @@ WinHelpA(HWND hWnd, LPCSTR lpszHelp, UINT uCommand, DWORD dwData)
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 WinHelpW(HWND hWnd, LPCWSTR lpszHelp, UINT uCommand, DWORD dwData)
 {

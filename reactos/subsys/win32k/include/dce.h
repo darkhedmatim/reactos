@@ -1,5 +1,5 @@
-#ifndef _WIN32K_DCE_H
-#define _WIN32K_DCE_H
+#ifndef __WIN32K_DCE_H
+#define __WIN32K_DCE_H
 
 /* Ported from WINE by Jason Filby */
 
@@ -37,22 +37,21 @@ typedef struct tagDCE
 } DCE;  /* PDCE already declared at top of file */
 
 #define  DCEOBJ_AllocDCE()  \
-  ((HDCE) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_DCE))
-#define  DCEOBJ_FreeDCE(hDCE)  GDIOBJ_FreeObj((HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE)
+  ((HDCE) GDIOBJ_AllocObj (sizeof (DCE), GDI_OBJECT_TYPE_DCE, (GDICLEANUPPROC) DCE_InternalDelete))
+#define  DCEOBJ_FreeDCE(hDCE)  GDIOBJ_FreeObj((HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE, GDIOBJFLAG_DEFAULT)
 #define  DCEOBJ_LockDCE(hDCE) ((PDCE)GDIOBJ_LockObj((HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE))
-#define  DCEOBJ_UnlockDCE(hDCE) GDIOBJ_UnlockObj((HGDIOBJ)hDCE)
-BOOL INTERNAL_CALL DCE_Cleanup(PVOID ObjectBody);
+#define  DCEOBJ_UnlockDCE(hDCE) GDIOBJ_UnlockObj((HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE)
 
+PDCE FASTCALL DCE_AllocDCE(HWND hWnd, DCE_TYPE type); // ???
 PDCE FASTCALL DceAllocDCE(HWND hWnd, DCE_TYPE Type);
 PDCE FASTCALL DCE_FreeDCE(PDCE dce);
 VOID FASTCALL DCE_FreeWindowDCE(HWND);
 HRGN STDCALL  DceGetVisRgn(HWND hWnd, ULONG Flags, HWND hWndChild, ULONG CFlags);
 INT  FASTCALL DCE_ExcludeRgn(HDC, HWND, HRGN);
 BOOL FASTCALL DCE_InvalidateDCE(HWND, const PRECTL);
+BOOL FASTCALL DCE_InternalDelete(PDCE dce);
 HWND FASTCALL IntWindowFromDC(HDC hDc);
-PDCE FASTCALL DceFreeDCE(PDCE dce, BOOLEAN Force);
+PDCE FASTCALL DceFreeDCE(PDCE dce);
 void FASTCALL DceFreeWindowDCE(PWINDOW_OBJECT Window);
-void FASTCALL DceEmptyCache(void);
-VOID FASTCALL DceResetActiveDCEs(PWINDOW_OBJECT Window);
 
-#endif /* _WIN32K_DCE_H */
+#endif

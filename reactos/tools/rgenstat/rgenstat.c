@@ -18,7 +18,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <unistd.h>
 #endif
 #include <ctype.h>
 #ifndef WIN32
@@ -51,6 +50,7 @@ PAPI_INFO sort_linked_list(PAPI_INFO,
 
 static FILE *in;
 static FILE *out;
+static char *file;
 static FILE *file_handle = NULL;
 static char *file_buffer = NULL;
 static unsigned int file_size = 0;
@@ -665,6 +665,7 @@ generate_xml_for_component(char *component_name)
   PAPI_INFO api_info;
   char buf[200];
   int complete;
+  int total;
   int implemented_total;
   int unimplemented_total;
 
@@ -881,6 +882,7 @@ int main(int argc, char **argv)
 {
   char *input_file;
   char *output_file;
+  int i;
 
   if (argc < 2)
   {

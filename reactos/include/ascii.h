@@ -94,9 +94,9 @@ GetCurrentHwProfileA (
 WINBOOL
 STDCALL
 LogonUserA (
- LPSTR lpszUsername,
- LPSTR lpszDomain,
- LPSTR lpszPassword,
+ LPCSTR lpszUsername,
+ LPCSTR lpszDomain,
+ LPCSTR lpszPassword,
  DWORD dwLogonType,
  DWORD dwLogonProvider,
  PHANDLE phToken
@@ -1881,13 +1881,7 @@ GetDlgItemTextA(
     int nIDDlgItem,
     LPSTR lpString,
     int nMaxCount);
-
-WINBOOL
-STDCALL
-IsDialogMessageA(
-    HWND hDlg,
-    LPMSG lpMsg);
-
+ 
 LRESULT
 STDCALL
 SendDlgItemMessageA(

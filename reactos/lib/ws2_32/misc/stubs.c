@@ -144,10 +144,26 @@ getsockopt(
 
 
 /*
+ * @unimplemented
+ */
+INT
+EXPORT
+ioctlsocket(
+    IN      SOCKET s,
+    IN      LONG cmd,
+    IN OUT  ULONG FAR* argp)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
+/*
  * @implemented
  */
 INT
-EXPORT __stdcall
+EXPORT
 setsockopt(
     IN  SOCKET s,
     IN  INT level,
@@ -377,7 +393,7 @@ WSADuplicateSocketW(
   Error = Provider->ProcTable.lpWSPDuplicateSocket(s,
                                                    dwProcessId,
                                                    lpProtocolInfo,
-                                                   &Errno);
+                                                   &Error);
   DereferenceProviderByPointer(Provider);                                              
   
   if (Error == SOCKET_ERROR)
@@ -434,6 +450,7 @@ WSAGetOverlappedResult(
     OUT LPDWORD lpdwFlags)
 {
   INT Errno;
+  int Error;
   BOOL Success;
   PCATALOG_ENTRY Provider;
 
@@ -454,7 +471,7 @@ WSAGetOverlappedResult(
                                                         lpcbTransfer,
                                                         fWait,
                                                         lpdwFlags,
-                                                        &Errno);
+                                                        &Error);
   DereferenceProviderByPointer(Provider);                                              
   
   if (Success == FALSE)
@@ -517,6 +534,28 @@ WSAHtons(
 /*
  * @unimplemented
  */
+INT
+EXPORT
+WSAIoctl(
+    IN  SOCKET s,
+    IN  DWORD dwIoControlCode,
+    IN  LPVOID lpvInBuffer,
+    IN  DWORD cbInBuffer,
+    OUT LPVOID lpvOutBuffer,
+    IN  DWORD cbOutBuffer,
+    OUT LPDWORD lpcbBytesReturned,
+    IN  LPWSAOVERLAPPED lpOverlapped,
+    IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
 EXPORT
 WSAIsBlocking(VOID)
@@ -534,7 +573,7 @@ SOCKET
 EXPORT
 WSAJoinLeaf(
     IN  SOCKET s,
-    IN  CONST struct sockaddr *name,
+    IN  CONST LPSOCKADDR name,
     IN  INT namelen,
     IN  LPWSABUF lpCallerData,
     OUT LPWSABUF lpCalleeData,
@@ -635,6 +674,23 @@ WSACancelAsyncRequest(
 
     return 0;
 }
+
+/*
+ * @unimplemented
+ */
+INT
+#if 0
+PASCAL FAR
+#else
+EXPORT
+#endif
+__WSAFDIsSet(SOCKET s, LPFD_SET set)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
 
 /* WinSock Service Provider support functions */
 
@@ -818,7 +874,7 @@ WSANSPIoctl(
     LPWSACOMPLETION  lpCompletion
     )
 {
-    //UNIMPLEMENTED
+    UNIMPLEMENTED
 
     return 0;
 }
@@ -863,7 +919,7 @@ WSCWriteNameSpaceOrder (
 VOID
 EXPORT
 freeaddrinfo(
-    struct addrinfo *pAddrInfo
+    LPADDRINFO      pAddrInfo
     )
 {
     UNIMPLEMENTED

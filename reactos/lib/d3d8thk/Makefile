@@ -4,12 +4,12 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = d3d8thk
 
-TARGET_BASE = $(TARGET_BASE_LIB_D3D8THK)
+#TARGET_BASE = 0x76340000
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -Werror -Wall
+TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
-TARGET_SDKLIBS = ntdll.a
+TARGET_SDKLIBS = ntdll.a winedbgc.a
 
 TARGET_OBJECTS = win32k.o
 

@@ -1,4 +1,4 @@
-/* $Id: objdir.c,v 1.14 2004/08/05 12:11:49 ea Exp $
+/* $Id: objdir.c,v 1.12 2003/09/03 20:16:06 ekohl Exp $
  *
  * DESCRIPTION: Object Manager Simple Explorer
  * PROGRAMMER:  David Welch
@@ -79,8 +79,6 @@ StatusToName (NTSTATUS Status)
 			return "STATUS_PATH_SYNTAX_BAD";
 		case STATUS_NO_MORE_ENTRIES:
 			return "STATUS_NO_MORE_ENTRIES";
-		case STATUS_ACCESS_DENIED:
-			return "STATUS_ACCESS_DENIED";
 		case STATUS_UNSUCCESSFUL:
 			return "STATUS_UNSUCCESSFUL";
 	}
@@ -286,7 +284,7 @@ ListDirectory (
 		++ EntryCount;
 		++ pDirectoryEntry;
 	}
-	printf ("\n\t%lu object(s)\n", EntryCount);
+	printf ("\n\t%d object(s)\n", EntryCount);
 	/*
 	 * Free any resource.
 	 */

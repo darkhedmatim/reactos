@@ -16,100 +16,32 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: callback.c,v 1.26 2004/12/14 23:14:15 navaraf Exp $
+/* $Id: callback.c,v 1.14 2003/08/29 00:24:42 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window classes
  * FILE:             subsys/win32k/ntuser/wndproc.c
  * PROGRAMER:        Casper S. Hornstrup (chorns@users.sourceforge.net)
- *                   Thomas Weidenmueller (w3seek@users.sourceforge.net)
  * REVISION HISTORY:
  *       06-06-2001  CSH  Created
- * NOTES:            Please use the Callback Memory Management functions for
- *                   callbacks to make sure, the memory is freed on thread
- *                   termination!
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <win32k/userobj.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/window.h>
+#include <include/msgqueue.h>
+#include <user32/callback.h>
+#include <include/callback.h>
 
 #define NDEBUG
 #include <debug.h>
-
-/* CALLBACK MEMORY MANAGEMENT ************************************************/
-
-typedef struct _INT_CALLBACK_HEADER
-{
-  /* list entry in the W32THREAD structure */
-  LIST_ENTRY ListEntry;
-} INT_CALLBACK_HEADER, *PINT_CALLBACK_HEADER;
-
-PVOID FASTCALL
-IntCbAllocateMemory(ULONG Size)
-{
-  PINT_CALLBACK_HEADER Mem;
-  PW32THREAD W32Thread;
-  
-  if(!(Mem = ExAllocatePoolWithTag(PagedPool, Size + sizeof(INT_CALLBACK_HEADER),
-                                   TAG_CALLBACK)))
-  {
-    return NULL;
-  }
-  
-  W32Thread = PsGetWin32Thread();
-  ASSERT(W32Thread);
-  
-  /* insert the callback memory into the thread's callback list */
-  
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  InsertTailList(&W32Thread->W32CallbackListHead, &Mem->ListEntry);
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-  
-  return (Mem + 1);
-}
-
-VOID FASTCALL
-IntCbFreeMemory(PVOID Data)
-{
-  PINT_CALLBACK_HEADER Mem;
-  PW32THREAD W32Thread;
-  
-  ASSERT(Data);
-  
-  Mem = ((PINT_CALLBACK_HEADER)Data - 1);
-  
-  W32Thread = PsGetWin32Thread();
-  ASSERT(W32Thread);
-  
-  /* remove the memory block from the thread's callback list */
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  RemoveEntryList(&Mem->ListEntry);
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-  
-  /* free memory */
-  ExFreePool(Mem);
-}
-
-VOID FASTCALL
-IntCleanupThreadCallbacks(PW32THREAD W32Thread)
-{
-  PLIST_ENTRY CurrentEntry;
-  PINT_CALLBACK_HEADER Mem;
-  
-  ExAcquireFastMutex(&W32Thread->W32CallbackListLock);
-  while (!IsListEmpty(&W32Thread->W32CallbackListHead))
-  {
-    CurrentEntry = RemoveHeadList(&W32Thread->W32CallbackListHead);
-    Mem = CONTAINING_RECORD(CurrentEntry, INT_CALLBACK_HEADER, 
-                            ListEntry);
-    
-    /* free memory */
-    ExFreePool(Mem);
-  }
-  ExReleaseFastMutex(&W32Thread->W32CallbackListLock);
-}
 
 /* FUNCTIONS *****************************************************************/
 
@@ -141,72 +73,311 @@ IntCallSentMessageCallback(SENDASYNCPROC CompletionCallback,
 }
 
 LRESULT STDCALL
-IntCallWindowProc(WNDPROC Proc,
-                   BOOLEAN IsAnsiProc,
-		   HWND Wnd,
-		   UINT Message,
-		   WPARAM wParam,
-		   LPARAM lParam,
-                   INT lParamBufferSize)
+IntSendNCCALCSIZEMessage(HWND Wnd, BOOL Validate, PRECT Rect,
+			  NCCALCSIZE_PARAMS* Params)
 {
-  WINDOWPROC_CALLBACK_ARGUMENTS StackArguments;
-  PWINDOWPROC_CALLBACK_ARGUMENTS Arguments;
+  SENDNCCALCSIZEMESSAGE_CALLBACK_ARGUMENTS Arguments;
+  SENDNCCALCSIZEMESSAGE_CALLBACK_RESULT Result;
   NTSTATUS Status;
   PVOID ResultPointer;
   ULONG ResultLength;
-  ULONG ArgumentLength;
-  LRESULT Result;
 
-  if (0 < lParamBufferSize)
+  Arguments.Wnd = Wnd;
+  Arguments.Validate = Validate;
+  if (!Validate)
     {
-      ArgumentLength = sizeof(WINDOWPROC_CALLBACK_ARGUMENTS) + lParamBufferSize;
-      Arguments = IntCbAllocateMemory(ArgumentLength);
-      if (NULL == Arguments)
-        {
-          DPRINT1("Unable to allocate buffer for window proc callback\n");
-          return -1;
-        }
-      RtlMoveMemory((PVOID) ((char *) Arguments + sizeof(WINDOWPROC_CALLBACK_ARGUMENTS)),
-                    (PVOID) lParam, lParamBufferSize);
+      Arguments.Rect = *Rect;
     }
   else
     {
-      Arguments = &StackArguments;
-      ArgumentLength = sizeof(WINDOWPROC_CALLBACK_ARGUMENTS);
+      Arguments.Params = *Params;
     }
-  Arguments->Proc = Proc;
-  Arguments->IsAnsiProc = IsAnsiProc;
-  Arguments->Wnd = Wnd;
-  Arguments->Msg = Message;
-  Arguments->wParam = wParam;
-  Arguments->lParam = lParam;
-  Arguments->lParamBufferSize = lParamBufferSize;
-  ResultPointer = Arguments;
-  ResultLength = ArgumentLength;
-  Status = NtW32Call(USER32_CALLBACK_WINDOWPROC,
-		     Arguments,
-		     ArgumentLength,
+  ResultPointer = &Result;
+  ResultLength = sizeof(SENDNCCALCSIZEMESSAGE_CALLBACK_RESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDNCCALCSIZE,
+		     &Arguments,
+		     sizeof(SENDNCCALCSIZEMESSAGE_CALLBACK_ARGUMENTS),
 		     &ResultPointer,
 		     &ResultLength);
   if (!NT_SUCCESS(Status))
     {
-      if (0 < lParamBufferSize)
-        {
-          IntCbFreeMemory(Arguments);
-        }
-      return -1;
+      return(0);
     }
-  Result = Arguments->Result;
-
-  if (0 < lParamBufferSize)
+  if (!Validate)
     {
-      RtlMoveMemory((PVOID) lParam,
-                    (PVOID) ((char *) Arguments + sizeof(WINDOWPROC_CALLBACK_ARGUMENTS)),
-                    lParamBufferSize);
-      IntCbFreeMemory(Arguments);
-    }      
+      *Rect = Result.Rect;
+    }
+  else
+    {
+      *Params = Result.Params;
+    }
+  return(Result.Result);
+}
 
-  return Result;
+LRESULT STDCALL
+IntSendCREATEMessage(HWND Wnd, CREATESTRUCTW* CreateStruct)
+{
+  SENDCREATEMESSAGE_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.CreateStruct = *CreateStruct;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDCREATE,
+		     &Arguments,
+		     sizeof(SENDCREATEMESSAGE_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntSendNCCREATEMessage(HWND Wnd, CREATESTRUCTW* CreateStruct)
+{
+  SENDNCCREATEMESSAGE_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.CreateStruct = *CreateStruct;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDNCCREATE,
+		     &Arguments,
+		     sizeof(SENDNCCREATEMESSAGE_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntCallWindowProc(WNDPROC Proc,
+		   HWND Wnd,
+		   UINT Message,
+		   WPARAM wParam,
+		   LPARAM lParam)
+{
+  WINDOWPROC_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+  PWINDOW_OBJECT WindowObject = IntGetWindowObject(Wnd);
+
+  if (IntIsDesktopWindow(WindowObject))
+    {
+      IntReleaseWindowObject(WindowObject);
+      return(IntDesktopWindowProc(Wnd, Message, wParam, lParam));
+    }
+  IntReleaseWindowObject(WindowObject);
+
+  Arguments.Proc = Proc;
+  Arguments.Wnd = Wnd;
+  Arguments.Msg = Message;
+  Arguments.wParam = wParam;
+  Arguments.lParam = lParam;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_WINDOWPROC,
+		     &Arguments,
+		     sizeof(WINDOWPROC_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0xFFFFFFFF);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntSendGETMINMAXINFOMessage(HWND Wnd, MINMAXINFO* MinMaxInfo)
+{
+  SENDGETMINMAXINFO_CALLBACK_ARGUMENTS Arguments;
+  SENDGETMINMAXINFO_CALLBACK_RESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.MinMaxInfo = *MinMaxInfo;
+  ResultPointer = &Result;
+  ResultLength = sizeof(Result);
+  Status = NtW32Call(USER32_CALLBACK_SENDGETMINMAXINFO,
+		     &Arguments,
+		     sizeof(SENDGETMINMAXINFO_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result.Result);  
+}
+
+LRESULT STDCALL
+IntSendWINDOWPOSCHANGINGMessage(HWND Wnd, WINDOWPOS* WindowPos)
+{
+  SENDWINDOWPOSCHANGING_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.WindowPos = *WindowPos;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDWINDOWPOSCHANGING,
+		     &Arguments,
+		     sizeof(SENDWINDOWPOSCHANGING_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntSendWINDOWPOSCHANGEDMessage(HWND Wnd, WINDOWPOS* WindowPos)
+{
+  SENDWINDOWPOSCHANGED_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.WindowPos = *WindowPos;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDWINDOWPOSCHANGED,
+		     &Arguments,
+		     sizeof(SENDWINDOWPOSCHANGED_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntSendSTYLECHANGINGMessage(HWND Wnd, DWORD WhichStyle, STYLESTRUCT* Style)
+{
+  SENDSTYLECHANGING_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.Style = *Style;
+  Arguments.WhichStyle = WhichStyle;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDSTYLECHANGING,
+		     &Arguments,
+		     sizeof(SENDSTYLECHANGING_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  *Style = Arguments.Style;  
+  return(Result);
+}
+
+LRESULT STDCALL
+IntSendSTYLECHANGEDMessage(HWND Wnd, DWORD WhichStyle, STYLESTRUCT* Style)
+{
+  SENDSTYLECHANGED_CALLBACK_ARGUMENTS Arguments;
+  LRESULT Result;
+  NTSTATUS Status;
+  PVOID ResultPointer;
+  ULONG ResultLength;
+
+  Arguments.Wnd = Wnd;
+  Arguments.Style = *Style;
+  Arguments.WhichStyle = WhichStyle;
+  ResultPointer = &Result;
+  ResultLength = sizeof(LRESULT);
+  Status = NtW32Call(USER32_CALLBACK_SENDSTYLECHANGED,
+		     &Arguments,
+		     sizeof(SENDSTYLECHANGED_CALLBACK_ARGUMENTS),
+		     &ResultPointer,
+		     &ResultLength);
+  if (!NT_SUCCESS(Status))
+    {
+      return(0);
+    }
+  return(Result);
+}
+
+LRESULT STDCALL
+IntCallTrampolineWindowProc(WNDPROC Proc,
+			     HWND Wnd,
+			     UINT Message,
+			     WPARAM wParam,
+			     LPARAM lParam)
+{
+  switch (Message)
+    {
+    case WM_NCCREATE:
+      return IntSendNCCREATEMessage(Wnd, (CREATESTRUCTW*)lParam);
+     
+    case WM_CREATE:
+      return IntSendCREATEMessage(Wnd, (CREATESTRUCTW*)lParam);
+
+    case WM_GETMINMAXINFO:
+      return IntSendGETMINMAXINFOMessage(Wnd, (MINMAXINFO*)lParam);
+
+    case WM_NCCALCSIZE:
+      {
+	if (wParam)
+	  {
+	    return IntSendNCCALCSIZEMessage(Wnd, TRUE, NULL, 
+					     (NCCALCSIZE_PARAMS*)lParam);
+	  }
+	else
+	  {
+	    return IntSendNCCALCSIZEMessage(Wnd, FALSE, (RECT*)lParam, NULL);
+	  }
+      }
+
+    case WM_WINDOWPOSCHANGING:
+      return IntSendWINDOWPOSCHANGINGMessage(Wnd, (WINDOWPOS*) lParam);
+
+    case WM_WINDOWPOSCHANGED:
+      return IntSendWINDOWPOSCHANGEDMessage(Wnd, (WINDOWPOS*) lParam);
+
+    case WM_STYLECHANGING:
+      return IntSendSTYLECHANGINGMessage(Wnd, wParam, (STYLESTRUCT*) lParam);
+
+    case WM_STYLECHANGED:
+	  return IntSendSTYLECHANGEDMessage(Wnd, wParam, (STYLESTRUCT*) lParam);
+
+    default:
+      return(IntCallWindowProc(Proc, Wnd, Message, wParam, lParam));
+    }
 }
 
 HMENU STDCALL
@@ -232,141 +403,25 @@ IntLoadSysMenuTemplate()
 }
 
 BOOL STDCALL
-IntLoadDefaultCursors(VOID)
+IntLoadDefaultCursors()
 {
   LRESULT Result;
   NTSTATUS Status;
   PVOID ResultPointer;
   ULONG ResultLength;
-  BOOL DefaultCursor = TRUE;
 
   ResultPointer = &Result;
   ResultLength = sizeof(LRESULT);
   Status = NtW32Call(USER32_CALLBACK_LOADDEFAULTCURSORS,
-		     &DefaultCursor,
-		     sizeof(BOOL),
+		     NULL,
+		     0,
 		     &ResultPointer,
 		     &ResultLength);
   if (!NT_SUCCESS(Status))
     {
-      return FALSE;
+      return(0);
     }
-  return TRUE;
-}
-
-LRESULT STDCALL
-IntCallHookProc(INT HookId,
-                INT Code,
-                WPARAM wParam,
-                LPARAM lParam,
-                HOOKPROC Proc,
-                BOOLEAN Ansi,
-                PUNICODE_STRING ModuleName)
-{
-  ULONG ArgumentLength;
-  PVOID Argument;
-  LRESULT Result;
-  NTSTATUS Status;
-  PVOID ResultPointer;
-  ULONG ResultLength;
-  PHOOKPROC_CALLBACK_ARGUMENTS Common;
-  CBT_CREATEWNDW *CbtCreateWnd;
-  PCHAR Extra;
-  PHOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS CbtCreatewndExtra;
-  PUNICODE_STRING WindowName;
-  PUNICODE_STRING ClassName;
-
-  ArgumentLength = sizeof(HOOKPROC_CALLBACK_ARGUMENTS) - sizeof(WCHAR)
-                   + ModuleName->Length;
-  switch(HookId)
-    {
-    case WH_CBT:
-      switch(Code)
-        {
-        case HCBT_CREATEWND:
-          CbtCreateWnd = (CBT_CREATEWNDW *) lParam;
-          ArgumentLength += sizeof(HOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS);
-          WindowName = (PUNICODE_STRING) (CbtCreateWnd->lpcs->lpszName);
-          ArgumentLength += WindowName->Length + sizeof(WCHAR);
-          ClassName = (PUNICODE_STRING) (CbtCreateWnd->lpcs->lpszClass);
-          if (! IS_ATOM(ClassName->Buffer))
-            {
-              ArgumentLength += ClassName->Length + sizeof(WCHAR);
-            }
-          break;
-        default:
-          DPRINT1("Trying to call unsupported CBT hook %d\n", Code);
-          return 0;
-        }
-      break;
-    default:
-      DPRINT1("Trying to call unsupported window hook %d\n", HookId);
-      return 0;
-    }
-
-  Argument = IntCbAllocateMemory(ArgumentLength);
-  if (NULL == Argument)
-    {
-      DPRINT1("HookProc callback failed: out of memory\n");
-      return 0;
-    }
-  Common = (PHOOKPROC_CALLBACK_ARGUMENTS) Argument;
-  Common->HookId = HookId;
-  Common->Code = Code;
-  Common->wParam = wParam;
-  Common->lParam = lParam;
-  Common->Proc = Proc;
-  Common->Ansi = Ansi;
-  Common->ModuleNameLength = ModuleName->Length;
-  memcpy(Common->ModuleName, ModuleName->Buffer, ModuleName->Length);
-  Extra = (PCHAR) Common->ModuleName + Common->ModuleNameLength;
-
-  switch(HookId)
-    {
-    case WH_CBT:
-      switch(Code)
-        {
-        case HCBT_CREATEWND:
-          Common->lParam = (LPARAM) (Extra - (PCHAR) Common);
-          CbtCreatewndExtra = (PHOOKPROC_CBT_CREATEWND_EXTRA_ARGUMENTS) Extra;
-          CbtCreatewndExtra->Cs = *(CbtCreateWnd->lpcs);
-          CbtCreatewndExtra->WndInsertAfter = CbtCreateWnd->hwndInsertAfter;
-          Extra = (PCHAR) (CbtCreatewndExtra + 1);
-          RtlCopyMemory(Extra, WindowName->Buffer, WindowName->Length);
-          CbtCreatewndExtra->Cs.lpszName = (LPCWSTR) (Extra - (PCHAR) CbtCreatewndExtra);
-          CbtCreatewndExtra->Cs.lpszClass = ClassName->Buffer;
-          Extra += WindowName->Length;
-          *((WCHAR *) Extra) = L'\0';
-          Extra += sizeof(WCHAR);
-          if (! IS_ATOM(ClassName->Buffer))
-            {
-              RtlCopyMemory(Extra, ClassName->Buffer, ClassName->Length);
-              CbtCreatewndExtra->Cs.lpszClass =
-                (LPCWSTR) MAKELONG(Extra - (PCHAR) CbtCreatewndExtra, 1);
-              Extra += ClassName->Length;
-              *((WCHAR *) Extra) = L'\0';
-            }
-          break;
-        }
-      break;
-    }
-  
-  ResultPointer = &Result;
-  ResultLength = sizeof(LRESULT);
-  Status = NtW32Call(USER32_CALLBACK_HOOKPROC,
-		     Argument,
-		     ArgumentLength,
-		     &ResultPointer,
-		     &ResultLength);
-  
-  IntCbFreeMemory(Argument);
-  
-  if (!NT_SUCCESS(Status))
-    {
-      return 0;
-    }
-
-  return Result;
+  return (BOOL)Result;
 }
 
 /* EOF */

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: inicache.c,v 1.9 2004/08/15 22:29:50 chorns Exp $
+/* $Id: inicache.c,v 1.5 2003/07/24 13:52:27 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/inicache.c
@@ -27,12 +27,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include "usetup.h"
 #include "inicache.h"
 
-#define NDEBUG
-#include <debug.h>
 
 /* PRIVATE FUNCTIONS ********************************************************/
 
@@ -220,7 +218,7 @@ IniCacheAddKey(PINICACHESECTION Section,
   return(Key);
 }
 
-#if 0
+
 static PINICACHESECTION
 IniCacheFindSection(PINICACHE Cache,
 		    PWCHAR Name,
@@ -251,7 +249,7 @@ IniCacheFindSection(PINICACHE Cache,
 
   return(Section);
 }
-#endif
+
 
 static PINICACHESECTION
 IniCacheAddSection(PINICACHE Cache,
@@ -525,6 +523,7 @@ IniCacheLoad(PINICACHE *Cache,
   PCHAR Ptr;
   LARGE_INTEGER FileOffset;
 
+  ULONG i;
   PINICACHESECTION Section;
   PINICACHEKEY Key;
 
@@ -551,7 +550,7 @@ IniCacheLoad(PINICACHE *Cache,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,
-		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
+		      FILE_NON_DIRECTORY_FILE);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtOpenFile() failed (Status %lx)\n", Status);
@@ -566,7 +565,12 @@ IniCacheLoad(PINICACHE *Cache,
 				  &FileInfo,
 				  sizeof(FILE_STANDARD_INFORMATION),
 				  FileStandardInformation);
-   if (!NT_SUCCESS(Status))
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtQueryInformationFile() returns STATUS_PENDING\n");
+
+    }
+  else if (!NT_SUCCESS(Status))
     {
       DPRINT("NtQueryInformationFile() failed (Status %lx)\n", Status);
       NtClose(FileHandle);
@@ -599,6 +603,13 @@ IniCacheLoad(PINICACHE *Cache,
 		      FileLength,
 		      &FileOffset,
 		      NULL);
+
+  if (Status == STATUS_PENDING)
+    {
+      DPRINT("NtReadFile() returns STATUS_PENDING\n");
+
+      Status = IoStatusBlock.Status;
+    }
 
   /* Append string terminator */
   FileBuffer[FileLength] = 0;
@@ -867,6 +878,7 @@ IniCacheInsertKey(PINICACHESECTION Section,
 		  PWCHAR Data)
 {
   PINICACHEKEY Key;
+  ULONG i;
 
   Key = NULL;
 
@@ -1089,7 +1101,7 @@ IniCacheSave(PINICACHE Cache,
 			FILE_ATTRIBUTE_NORMAL,
 			0,
 			FILE_SUPERSEDE,
-			FILE_SYNCHRONOUS_IO_NONALERT | FILE_SEQUENTIAL_ONLY,
+			FILE_SYNCHRONOUS_IO_ALERT | FILE_SEQUENTIAL_ONLY,
 			NULL,
 			0);
   if (!NT_SUCCESS(Status))
@@ -1136,6 +1148,7 @@ IniCacheAppendSection(PINICACHE Cache,
 		      PWCHAR Name)
 {
   PINICACHESECTION Section = NULL;
+  ULONG i;
 
   if (Cache == NULL || Name == NULL || *Name == 0)
     {

@@ -1,14 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
-#ifdef _MSC_VER
-#include <direct.h>
-#else
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#endif
 
 #ifdef UNIX_PATHS
 #define DIR_SEPARATOR_CHAR '/'
@@ -25,9 +17,7 @@ char* convert_path(char* origpath)
    char* newpath;
    int i;
    
-   //newpath = strdup(origpath);
-	 newpath=malloc(strlen(origpath)+1);
-	 strcpy(newpath,origpath);
+   newpath = strdup(origpath);
    
    i = 0;
    while (newpath[i] != 0)
@@ -83,7 +73,10 @@ int mkdir_p(char* path)
 int main(int argc, char* argv[])
 {
    char* path1;
+   FILE* in;
+   FILE* out;
    char* csec;
+   int is_abs_path;
    char buf[256];
    
    if (argc != 2)

@@ -6,24 +6,23 @@
 typedef struct
 {
    LOGFONTW   logfont;
-   FONTOBJ    *Font;
+   HFONT      GDIFontHandle;
 } TEXTOBJ, *PTEXTOBJ;
 
 /*  Internal interface  */
 
 #define  TEXTOBJ_AllocText() \
-  ((HFONT) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT)
+  ((HFONT) GDIOBJ_AllocObj (sizeof (TEXTOBJ), GDI_OBJECT_TYPE_FONT, NULL))
+#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT, GDIOBJFLAG_DEFAULT)
 #define  TEXTOBJ_LockText(hBMObj) ((PTEXTOBJ) GDIOBJ_LockObj ((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj)
+#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT)
 
 NTSTATUS FASTCALL TextIntRealizeFont(HFONT FontHandle);
 NTSTATUS FASTCALL TextIntCreateFontIndirect(CONST LPLOGFONTW lf, HFONT *NewFont);
 
 int
 STDCALL
-NtGdiAddFontResource(PUNICODE_STRING Filename,
-					 DWORD fl);
+NtGdiAddFontResource(LPCWSTR  Filename);
 
 HFONT
 STDCALL
@@ -55,6 +54,21 @@ NtGdiCreateScalableFontResource(DWORD  Hidden,
 
 int
 STDCALL
+NtGdiEnumFontFamilies(HDC  hDC,
+                          LPCWSTR  Family,
+                          FONTENUMPROCW EnumFontFamProc,
+                          LPARAM  lParam);
+
+int
+STDCALL
+NtGdiEnumFontFamiliesEx(HDC  hDC,
+                            LPLOGFONTW  Logfont,
+                            FONTENUMEXPROCW  EnumFontFamExProc,
+                            LPARAM  lParam,
+                            DWORD  Flags);
+
+int
+STDCALL
 NtGdiEnumFonts(HDC  hDC,
                    LPCWSTR FaceName,
                    FONTENUMPROCW  FontFunc,
@@ -62,14 +76,14 @@ NtGdiEnumFonts(HDC  hDC,
 
 BOOL
 STDCALL
-NtGdiExtTextOut(HDC  hdc,
+NtGdiExtTextOut(HDC  hDC,
                      int  X,
                      int  Y,
-                     UINT  fuOptions,
-                     CONST RECT  *lprc,
-                     LPCWSTR  lpString,
-                     UINT  cbCount,
-                     CONST INT  *lpDx);
+                     UINT  Options,
+                     CONST LPRECT  rc,
+                     LPCWSTR  String,
+                     UINT  Count,
+                     CONST LPINT  Dx);
 
 BOOL
 STDCALL
@@ -98,6 +112,13 @@ NtGdiGetCharacterPlacement(HDC  hDC,
                                  int  MaxExtent,
                                  LPGCP_RESULTSW Results,
                                  DWORD  Flags);
+
+BOOL
+STDCALL
+NtGdiGetCharWidth(HDC  hDC,
+                       UINT  FirstChar,
+                       UINT  LastChar,
+                       LPINT  Buffer);
 
 BOOL
 STDCALL
@@ -227,6 +248,12 @@ NtGdiTextOut(HDC  hDC,
                   int  YStart,
                   LPCWSTR  String,
                   int  Count);
+
+UINT
+STDCALL
+NtGdiTranslateCharsetInfo(PDWORD  Src,
+                               LPCHARSETINFO  CSI,
+                               DWORD  Flags);
 
 #endif
 

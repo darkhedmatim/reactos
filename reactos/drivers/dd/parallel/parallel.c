@@ -1,4 +1,4 @@
-/* $Id: parallel.c,v 1.11 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: parallel.c,v 1.9 2003/09/20 20:12:43 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -13,7 +13,6 @@
 /* FUNCTIONS **************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #include "parallel.h"
 
@@ -128,7 +127,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Parallel");
+   UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Device\\Parallel");
    NTSTATUS Status;
    
    DPRINT("Parallel Port Driver 0.0.1\n");
@@ -146,9 +145,9 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
      }
 
    DeviceObject->Flags=0;
-   DriverObject->MajorFunction[IRP_MJ_CLOSE] = Dispatch;
-   DriverObject->MajorFunction[IRP_MJ_CREATE] = Dispatch;
-   DriverObject->MajorFunction[IRP_MJ_WRITE] = Dispatch;
+   DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)Dispatch;
+   DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)Dispatch;
+   DriverObject->MajorFunction[IRP_MJ_WRITE] = (PDRIVER_DISPATCH)Dispatch;
    DriverObject->DriverUnload = NULL;
    
    return(STATUS_SUCCESS);

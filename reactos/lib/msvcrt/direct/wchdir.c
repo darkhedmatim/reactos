@@ -1,17 +1,16 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/ctype.h>
 #include <msvcrt/direct.h>
-#include <msvcrt/internal/file.h>
-#include <msvcrt/internal/file.h>
+
 
 /*
  * @implemented
  */
 int _wchdir (const wchar_t *_path)
 {
-    if (!SetCurrentDirectoryW((wchar_t *)_path)) {
-    	_dosmaperr(GetLastError());
+    if (_path[1] == L':')
+        _chdrive(towlower(_path[0] - L'a')+1);
+    if (!SetCurrentDirectoryW((wchar_t *)_path))
         return -1;
-	}
     return 0;
 }

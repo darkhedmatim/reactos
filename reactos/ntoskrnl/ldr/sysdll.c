@@ -12,7 +12,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/module.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -74,10 +80,10 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
    OBJECT_ATTRIBUTES	FileObjectAttributes;
    HANDLE			FileHandle;
    HANDLE			NTDllSectionHandle;
-   UNICODE_STRING DllPathname = ROS_STRING_INITIALIZER(L"\\SystemRoot\\system32\\ntdll.dll");
+   UNICODE_STRING DllPathname = UNICODE_STRING_INITIALIZER(L"\\SystemRoot\\system32\\ntdll.dll");
    PIMAGE_DOS_HEADER	DosHeader;
    PIMAGE_NT_HEADERS	NTHeaders;
-   PEPROCESS Process, CurrentProcess;
+   PEPROCESS Process;
    ANSI_STRING ProcedureName;
    ULONG ViewSize;
    IO_STATUS_BLOCK Iosb;
@@ -95,7 +101,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
    Status = ZwOpenFile(&FileHandle,
 		       FILE_ALL_ACCESS,
 		       &FileObjectAttributes,
-		       &Iosb,
+		       NULL,
 		       FILE_SHARE_READ,
 		       FILE_SYNCHRONOUS_IO_NONALERT);
    if (!NT_SUCCESS(Status))
@@ -190,12 +196,8 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
 	return(Status);
      }
 
-   CurrentProcess = PsGetCurrentProcess();
-   if (Process != CurrentProcess)
-     {
-       DPRINT("Attaching to Process\n");
-       KeAttachProcess(&Process->Pcb);
-     }
+   DPRINT("Attaching to Process\n");
+   KeAttachProcess(Process);
 
    /*
     * retrieve ntdll's startup address
@@ -211,10 +213,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -236,10 +235,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -260,10 +256,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -284,10 +277,7 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
@@ -308,20 +298,14 @@ NTSTATUS LdrpMapSystemDll(HANDLE ProcessHandle,
        if (!NT_SUCCESS(Status))
 	 {
 	   DbgPrint ("LdrGetProcedureAddress failed (Status %x)\n", Status);
-	   if (Process != CurrentProcess)
-	     {
-	       KeDetachProcess();
-	     }
+	   KeDetachProcess();
 	   ObDereferenceObject(Process);
 	   ZwClose(NTDllSectionHandle);
 	   return (Status);
 	 }
      }
    
-   if (Process != CurrentProcess)
-     {
-       KeDetachProcess();
-     }
+   KeDetachProcess();
    ObDereferenceObject(Process);
 
    ZwClose(NTDllSectionHandle);

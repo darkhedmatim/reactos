@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 
 
 /*
@@ -11,5 +11,4 @@ int _XcptFilter (
 {
 	//fixme XcptFilter
 //	return UnhandledExceptionFilter(ExceptionInfo);
-        return 0;
 }

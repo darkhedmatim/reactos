@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: coord.c,v 1.26 2004/07/14 20:48:58 navaraf Exp $
+/* $Id: coord.c,v 1.19 2003/09/09 09:39:21 gvg Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -26,32 +26,17 @@
  */
 
 /* INCLUDES ******************************************************************/
-#include <w32k.h>
+
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <internal/safe.h>
+#include <win32k/coord.h>
+#include <win32k/dc.h>
+#include <include/error.h>
+#define NDEBUG
+#include <win32k/debug1.h>
 
 /* FUNCTIONS *****************************************************************/
-
-BOOL FASTCALL
-IntGdiCombineTransform(LPXFORM XFormResult,
-                       LPXFORM xform1,
-                       LPXFORM xform2)
-{
-  /* Check for illegal parameters */
-  if (!XFormResult || !xform1 || !xform2)
-  {
-    return  FALSE;
-  }
-  
-  /* Create the result in a temporary XFORM, since xformResult may be
-   * equal to xform1 or xform2 */
-  XFormResult->eM11 = xform1->eM11 * xform2->eM11 + xform1->eM12 * xform2->eM21;
-  XFormResult->eM12 = xform1->eM11 * xform2->eM12 + xform1->eM12 * xform2->eM22;
-  XFormResult->eM21 = xform1->eM21 * xform2->eM11 + xform1->eM22 * xform2->eM21;
-  XFormResult->eM22 = xform1->eM21 * xform2->eM12 + xform1->eM22 * xform2->eM22;
-  XFormResult->eDx  = xform1->eDx  * xform2->eM11 + xform1->eDy  * xform2->eM21 + xform2->eDx;
-  XFormResult->eDy  = xform1->eDx  * xform2->eM12 + xform1->eDy  * xform2->eM22 + xform2->eDy;
-  
-  return TRUE;
-}
 
 BOOL STDCALL NtGdiCombineTransform(LPXFORM  UnsafeXFormResult,
                            CONST LPXFORM  Unsafexform1,
@@ -59,37 +44,32 @@ BOOL STDCALL NtGdiCombineTransform(LPXFORM  UnsafeXFormResult,
 {
   XFORM  xformTemp;
   XFORM  xform1, xform2;
-  NTSTATUS Status;
-  BOOL Ret;
 
+  /* Check for illegal parameters */
+  if (!UnsafeXFormResult || !Unsafexform1 || !Unsafexform2)
+  {
+    return  FALSE;
+  }
 
-  Status = MmCopyFromCaller( &xform1, Unsafexform1, sizeof(XFORM) );
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
-    return FALSE;
-  }
-  Status = MmCopyFromCaller( &xform2, Unsafexform2, sizeof(XFORM) );
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
-    return FALSE;
-  }
-  
-  Ret = IntGdiCombineTransform(&xformTemp, &xform1, &xform2);
+  MmCopyFromCaller( &xform1, Unsafexform1, sizeof(XFORM) );
+  MmCopyFromCaller( &xform2, Unsafexform2, sizeof(XFORM) );
+
+  /* Create the result in a temporary XFORM, since xformResult may be
+   * equal to xform1 or xform2 */
+  xformTemp.eM11 = xform1.eM11 * xform2.eM11 + xform1.eM12 * xform2.eM21;
+  xformTemp.eM12 = xform1.eM11 * xform2.eM12 + xform1.eM12 * xform2.eM22;
+  xformTemp.eM21 = xform1.eM21 * xform2.eM11 + xform1.eM22 * xform2.eM21;
+  xformTemp.eM22 = xform1.eM21 * xform2.eM12 + xform1.eM22 * xform2.eM22;
+  xformTemp.eDx  = xform1.eDx  * xform2.eM11 + xform1.eDy  * xform2.eM21 + xform2.eDx;
+  xformTemp.eDy  = xform1.eDx  * xform2.eM12 + xform1.eDy  * xform2.eM22 + xform2.eDy;
 
   /* Copy the result to xformResult */
-  Status = MmCopyToCaller(  UnsafeXFormResult, &xformTemp, sizeof(XFORM) );
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
-    return FALSE;
-  }
+  MmCopyToCaller(  UnsafeXFormResult, &xformTemp, sizeof(XFORM) );
 
-  return Ret;
+  return  TRUE;
 }
 
-VOID FASTCALL
+VOID STATIC FASTCALL
 CoordDPtoLP(PDC Dc, LPPOINT Point)
 {
 FLOAT x, y;
@@ -99,18 +79,6 @@ FLOAT x, y;
     y * Dc->w.xformVport2World.eM21 + Dc->w.xformVport2World.eDx;
   Point->y = x * Dc->w.xformVport2World.eM12 +
     y * Dc->w.xformVport2World.eM22 + Dc->w.xformVport2World.eDy;
-}
-
-VOID
-FASTCALL
-IntDPtoLP ( PDC dc, LPPOINT Points, INT Count )
-{
-  INT i;
-
-  ASSERT ( Points );
-
-  for ( i = 0; i < Count; i++ )
-    CoordDPtoLP ( dc, &Points[i] );
 }
 
 /*!
@@ -126,58 +94,38 @@ NtGdiDPtoLP(HDC  hDC,
 	   LPPOINT  UnsafePoints,
 	   int  Count)
 {
-   PDC dc;
-   NTSTATUS Status;
-   LPPOINT Points;
-   ULONG Size;
+  PDC dc;
+  INT i;
+  LPPOINT Points = (LPPOINT) ExAllocatePool( PagedPool, Count*sizeof(POINT));
+  BOOL ret = FALSE; // default to failure
 
-   dc = DC_LockDc(hDC);
-   if (!dc)
-   {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
-   
-   if (!UnsafePoints || Count <= 0)
-   {
-     DC_UnlockDc(hDC);
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     return FALSE;
-   }
-   
-   Size = Count * sizeof(POINT);
-   
-   Points = (LPPOINT)ExAllocatePoolWithTag(PagedPool, Size, TAG_COORD);
-   if(!Points)
-   {
-     DC_UnlockDc(hDC);
-     SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-     return FALSE;
-   }
-   
-   Status = MmCopyFromCaller(Points, UnsafePoints, Size);
-   if(!NT_SUCCESS(Status))
-   {
-     DC_UnlockDc(hDC);
-     ExFreePool(Points);
-     SetLastNtError(Status);
-     return FALSE;
-   }
-   
-   IntDPtoLP(dc, Points, Count);
-   
-   Status = MmCopyToCaller(UnsafePoints, Points, Size);
-   if(!NT_SUCCESS(Status))
-   {
-     DC_UnlockDc(hDC);
-     ExFreePool(Points);
-     SetLastNtError(Status);
-     return FALSE;
-   }
-   
-   DC_UnlockDc(hDC);
-   ExFreePool(Points);
-   return TRUE;
+  ASSERT(Points);
+  if ( !Points )
+    return ret;
+
+  MmCopyFromCaller( Points, UnsafePoints, Count*sizeof(POINT) );
+
+  dc = DC_LockDc (hDC);
+  if ( dc )
+  {
+    ret = TRUE;
+    if ( dc->w.vport2WorldValid )
+    {
+      for (i = 0; i < Count; i++)
+	{
+	  CoordDPtoLP ( dc, &Points[i] );
+	}
+    }
+
+    DC_UnlockDc( hDC );
+
+    MmCopyToCaller(  UnsafePoints, Points, Count*sizeof(POINT) );
+
+  }
+
+  ExFreePool ( Points );
+
+  return(TRUE);
 }
 
 int
@@ -192,19 +140,15 @@ int
 STDCALL
 NtGdiGetGraphicsMode ( HDC hDC )
 {
-  PDC dc;
-  int GraphicsMode; // default to failure
-  
-  dc = DC_LockDc ( hDC );
-  if (!dc)
+  PDC dc = DC_LockDc ( hDC );
+  int GraphicsMode = 0; // default to failure
+
+  if ( dc )
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return 0;
+    GraphicsMode = dc->w.GraphicsMode;
+    DC_UnlockDc ( hDC );
   }
-  
-  GraphicsMode = dc->w.GraphicsMode;
-  
-  DC_UnlockDc ( hDC );
+
   return GraphicsMode;
 }
 
@@ -214,25 +158,19 @@ NtGdiGetWorldTransform(HDC  hDC,
                       LPXFORM  XForm)
 {
   PDC  dc;
-  NTSTATUS Status;
-  
-  dc = DC_LockDc ( hDC );
-  if (!dc)
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return FALSE;
-  }
+
   if (!XForm)
-  {
-    DC_UnlockDc ( hDC );
-    SetLastWin32Error(ERROR_INVALID_PARAMETER);
     return FALSE;
-  }
-  
-  Status = MmCopyToCaller(XForm, &dc->w.xformWorld2Wnd, sizeof(XFORM));
+
+  dc = DC_LockDc (hDC);
+  if (!dc)
+    return FALSE;
+
+  *XForm = dc->w.xformWorld2Wnd;
 
   DC_UnlockDc ( hDC );
-  return NT_SUCCESS(Status);
+
+  return  TRUE;
 }
 
 VOID
@@ -275,58 +213,32 @@ IntLPtoDP ( PDC dc, LPPOINT Points, INT Count )
 BOOL STDCALL
 NtGdiLPtoDP ( HDC hDC, LPPOINT UnsafePoints, INT Count )
 {
-   PDC dc;
-   NTSTATUS Status;
-   LPPOINT Points;
-   ULONG Size;
+  PDC dc;
+  LPPOINT Points = (LPPOINT)ExAllocatePool ( PagedPool, Count*sizeof(POINT) );
+  BOOL    ret = FALSE; // default to failure
 
-   dc = DC_LockDc(hDC);
-   if (!dc)
-   {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
-   
-   if (!UnsafePoints || Count <= 0)
-   {
-     DC_UnlockDc(hDC);
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     return FALSE;
-   }
-   
-   Size = Count * sizeof(POINT);
-   
-   Points = (LPPOINT)ExAllocatePoolWithTag(PagedPool, Size, TAG_COORD);
-   if(!Points)
-   {
-     DC_UnlockDc(hDC);
-     SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-     return FALSE;
-   }
-   
-   Status = MmCopyFromCaller(Points, UnsafePoints, Size);
-   if(!NT_SUCCESS(Status))
-   {
-     DC_UnlockDc(hDC);
-     ExFreePool(Points);
-     SetLastNtError(Status);
-     return FALSE;
-   }
-   
-   IntLPtoDP(dc, Points, Count);
-   
-   Status = MmCopyToCaller(UnsafePoints, Points, Size);
-   if(!NT_SUCCESS(Status))
-   {
-     DC_UnlockDc(hDC);
-     ExFreePool(Points);
-     SetLastNtError(Status);
-     return FALSE;
-   }
-   
-   DC_UnlockDc(hDC);
-   ExFreePool(Points);
-   return TRUE;
+  ASSERT(Points);
+  if ( !Points )
+    return FALSE;
+
+  dc = DC_LockDc ( hDC );
+
+  if ( dc )
+  {
+    ret = TRUE;
+
+    MmCopyFromCaller( Points, UnsafePoints, Count*sizeof(POINT) );
+
+    IntLPtoDP ( dc, Points, Count );
+
+    MmCopyToCaller ( UnsafePoints, Points, Count*sizeof(POINT) );
+
+    DC_UnlockDc ( hDC );
+  }
+
+  ExFreePool ( Points );
+
+  return ret;
 }
 
 BOOL
@@ -335,60 +247,53 @@ NtGdiModifyWorldTransform(HDC            hDC,
                           CONST LPXFORM  UnsafeXForm,
                           DWORD          Mode)
 {
-   PDC dc;
-   XFORM SafeXForm;
-   NTSTATUS Status;
-   
-   dc = DC_LockDc(hDC);
-   if (!dc)
-   {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-   }
-   
-   if (!UnsafeXForm)
-   {
-     DC_UnlockDc(hDC);
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     return FALSE;
-   }
-   
-   Status = MmCopyFromCaller(&SafeXForm, UnsafeXForm, sizeof(XFORM));
-   if(!NT_SUCCESS(Status))
-   {
-     DC_UnlockDc(hDC);
-     SetLastNtError(Status);
-     return FALSE;
-   }
-   
-   switch(Mode)
-   {
-     case MWT_IDENTITY:
-       dc->w.xformWorld2Wnd.eM11 = 1.0f;
-       dc->w.xformWorld2Wnd.eM12 = 0.0f;
-       dc->w.xformWorld2Wnd.eM21 = 0.0f;
-       dc->w.xformWorld2Wnd.eM22 = 1.0f;
-       dc->w.xformWorld2Wnd.eDx  = 0.0f;
-       dc->w.xformWorld2Wnd.eDy  = 0.0f;
-       break;
-     
-     case MWT_LEFTMULTIPLY:
-       IntGdiCombineTransform(&dc->w.xformWorld2Wnd, &SafeXForm, &dc->w.xformWorld2Wnd );
-       break;
-     
-     case MWT_RIGHTMULTIPLY:
-       IntGdiCombineTransform(&dc->w.xformWorld2Wnd, &dc->w.xformWorld2Wnd, &SafeXForm);
-       break;
-     
-     default:
-       DC_UnlockDc(hDC);
-       SetLastWin32Error(ERROR_INVALID_PARAMETER);
-       return FALSE;
+  PDC  dc;
+  LPXFORM XForm = (LPXFORM) ExAllocatePool( PagedPool, sizeof( XFORM ) );
+  BOOL ret = FALSE; // default to failure
+
+  ASSERT( XForm );
+  if (!XForm)
+    return FALSE;
+
+  MmCopyFromCaller( XForm, UnsafeXForm, sizeof( XFORM ) );
+
+  dc = DC_LockDc (hDC);
+  if ( dc )
+  {
+    /* Check that graphics mode is GM_ADVANCED */
+    if ( dc->w.GraphicsMode == GM_ADVANCED )
+    {
+      ret = TRUE; // switch to a default of success
+      switch (Mode)
+      {
+	case MWT_IDENTITY:
+	  dc->w.xformWorld2Wnd.eM11 = 1.0f;
+	  dc->w.xformWorld2Wnd.eM12 = 0.0f;
+	  dc->w.xformWorld2Wnd.eM21 = 0.0f;
+	  dc->w.xformWorld2Wnd.eM22 = 1.0f;
+	  dc->w.xformWorld2Wnd.eDx  = 0.0f;
+	  dc->w.xformWorld2Wnd.eDy  = 0.0f;
+	  break;
+
+	case MWT_LEFTMULTIPLY:
+	  NtGdiCombineTransform(&dc->w.xformWorld2Wnd, XForm, &dc->w.xformWorld2Wnd );
+	  break;
+
+	case MWT_RIGHTMULTIPLY:
+	  NtGdiCombineTransform(&dc->w.xformWorld2Wnd, &dc->w.xformWorld2Wnd, XForm);
+	  break;
+
+	default:
+	  ret = FALSE;
+	  break;
+      }
+      if ( ret )
+        DC_UpdateXforms ( dc );
+    }
+    DC_UnlockDc ( hDC );
   }
-  
-  DC_UpdateXforms(dc);
-  DC_UnlockDc(hDC);
-  return TRUE;
+  ExFreePool ( XForm );
+  return ret;
 }
 
 BOOL
@@ -401,32 +306,36 @@ NtGdiOffsetViewportOrgEx(HDC hDC,
   PDC      dc;
   POINT    Point;
   NTSTATUS Status;
+  BOOL     ret = FALSE; // default to failure
 
   dc = DC_LockDc ( hDC );
-  if(!dc)
+  if ( dc )
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return FALSE;
-  }
-  
-  if (UnsafePoint)
-    {
+    ret = TRUE;
+    if (NULL != UnsafePoint)
+      {
 	Point.x = dc->vportOrgX;
 	Point.y = dc->vportOrgY;
 	Status = MmCopyToCaller(UnsafePoint, &Point, sizeof(POINT));
 	if ( !NT_SUCCESS(Status) )
 	  {
 	    SetLastNtError(Status);
-	    DC_UnlockDc ( hDC );
-	    return FALSE;
+	    ret = FALSE;
 	  }
+      }
+
+    if ( ret )
+    {
+      dc->vportOrgX += XOffset;
+      dc->vportOrgY += YOffset;
+      DC_UpdateXforms(dc);
+
+      dc->w.DCOrgX += XOffset;
+      dc->w.DCOrgY += YOffset;
     }
 
-  dc->vportOrgX += XOffset;
-  dc->vportOrgY += YOffset;
-  DC_UpdateXforms(dc);
-  
-  DC_UnlockDc ( hDC );
+    DC_UnlockDc ( hDC );
+  }
   return TRUE;
 }
 
@@ -442,31 +351,18 @@ NtGdiOffsetWindowOrgEx(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
     {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
     }
 
   if (Point)
     {
-      POINT SafePoint;
-      NTSTATUS Status;
-      
-      SafePoint.x = dc->wndOrgX;
-      SafePoint.y = dc->wndOrgY;
-      
-      Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        DC_UnlockDc(hDC);
-        return FALSE;
-      }
+      Point->x = dc->wndOrgX;
+      Point->y = dc->wndOrgY;
     }
 
   dc->wndOrgX += XOffset;
   dc->wndOrgY += YOffset;
 
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -481,8 +377,7 @@ NtGdiScaleViewportExtEx(HDC  hDC,
                              int  Ydenom,
                              LPSIZE  Size)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
 BOOL
@@ -494,8 +389,7 @@ NtGdiScaleWindowExtEx(HDC  hDC,
                            int  Ydenom,
                            LPSIZE  Size)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
 int
@@ -509,7 +403,6 @@ NtGdiSetGraphicsMode(HDC  hDC,
   dc = DC_LockDc (hDC);
   if (!dc)
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return 0;
   }
 
@@ -522,7 +415,6 @@ NtGdiSetGraphicsMode(HDC  hDC,
   if ((Mode != GM_COMPATIBLE) && (Mode != GM_ADVANCED))
     {
       DC_UnlockDc( hDC );
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
       return 0;
     }
 
@@ -542,10 +434,7 @@ NtGdiSetMapMode(HDC  hDC,
 
   dc = DC_LockDc(hDC);
   if (!dc)
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return 0;
-  }
 
   PrevMapMode = dc->w.MapMode;
   dc->w.MapMode = MapMode;
@@ -566,10 +455,7 @@ NtGdiSetViewportExtEx(HDC  hDC,
 
   dc = DC_LockDc(hDC);
   if ( !dc )
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return FALSE;
-  }
 
   switch (dc->w.MapMode)
     {
@@ -590,25 +476,13 @@ NtGdiSetViewportExtEx(HDC  hDC,
 
   if (Size)
     {
-      SIZE SafeSize;
-      NTSTATUS Status;
-      
-      SafeSize.cx = dc->vportExtX;
-      SafeSize.cy = dc->vportExtY;
-      
-      Status = MmCopyToCaller(Size, &SafeSize, sizeof(SIZE));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        DC_UnlockDc(hDC);
-        return FALSE;
-      }
+      Size->cx = dc->vportExtX;
+      Size->cy = dc->vportExtY;
     }
 
   dc->vportExtX = XExtent;
   dc->vportExtY = YExtent;
 
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -626,31 +500,18 @@ NtGdiSetViewportOrgEx(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
     {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
     }
 
   if (Point)
     {
-      POINT SafePoint;
-      NTSTATUS Status;
-      
-      SafePoint.x = dc->vportOrgX;
-      SafePoint.y = dc->vportOrgY;
-      
-      Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        DC_UnlockDc(hDC);
-        return FALSE;
-      }
+      Point->x = dc->vportOrgX;
+      Point->y = dc->vportOrgY;
     }
 
   dc->vportOrgX = X;
   dc->vportOrgY = Y;
 
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -668,7 +529,6 @@ NtGdiSetWindowExtEx(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
     {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
     }
 
@@ -683,28 +543,16 @@ NtGdiSetWindowExtEx(HDC  hDC,
 	DC_UnlockDc(hDC);
 	return FALSE;
     }
-  
+
   if (Size)
     {
-      SIZE SafeSize;
-      NTSTATUS Status;
-      
-      SafeSize.cx = dc->wndExtX;
-      SafeSize.cy = dc->wndExtY;
-      
-      Status = MmCopyToCaller(Size, &SafeSize, sizeof(SIZE));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        DC_UnlockDc(hDC);
-        return FALSE;
-      }
+      Size->cx = dc->wndExtX;
+      Size->cy = dc->wndExtY;
     }
-  
+
   dc->wndExtX = XExtent;
   dc->wndExtY = YExtent;
-  
-  DC_UpdateXforms(dc);
+
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -722,31 +570,18 @@ NtGdiSetWindowOrgEx(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
     {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
     }
-  
+
   if (Point)
     {
-      POINT SafePoint;
-      NTSTATUS Status;
-      
-      SafePoint.x = dc->wndOrgX;
-      SafePoint.y = dc->wndOrgY;
-      
-      Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
-      if(!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        DC_UnlockDc(hDC);
-        return FALSE;
-      }
+      Point->x = dc->wndOrgX;
+      Point->y = dc->wndOrgY;
     }
-  
+
   dc->wndOrgX = X;
   dc->wndOrgY = Y;
-  
-  DC_UpdateXforms(dc);
+
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -758,36 +593,23 @@ NtGdiSetWorldTransform(HDC  hDC,
                       CONST LPXFORM  XForm)
 {
   PDC  dc;
-  NTSTATUS Status;
-  
+
+  if (!XForm)
+    return  FALSE;
+
   dc = DC_LockDc (hDC);
   if ( !dc )
   {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
     return  FALSE;
   }
-  
-  if (!XForm)
-  {
-    DC_UnlockDc( hDC );
-    /* Win doesn't set LastError */
-    return  FALSE;
-  }
-  
+
   /* Check that graphics mode is GM_ADVANCED */
   if ( dc->w.GraphicsMode != GM_ADVANCED )
   {
     DC_UnlockDc( hDC );
     return  FALSE;
   }
-  
-  Status = MmCopyFromCaller(&dc->w.xformWorld2Wnd, XForm, sizeof(XFORM));
-  if(!NT_SUCCESS(Status))
-  {
-    DC_UnlockDc( hDC );
-    return FALSE;
-  }
-  
+  dc->w.xformWorld2Wnd = *XForm;
   DC_UpdateXforms (dc);
   DC_UnlockDc( hDC );
   return  TRUE;

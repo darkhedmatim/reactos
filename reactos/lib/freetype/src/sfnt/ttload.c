@@ -5,7 +5,7 @@
 /*    Load the basic TrueType tables, i.e., tables that can be either in   */
 /*    TTF or OTF fonts (body).                                             */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -22,6 +22,7 @@
 #include FT_INTERNAL_STREAM_H
 #include FT_TRUETYPE_TAGS_H
 #include "ttload.h"
+#include "ttcmap.h"
 
 #include "sferrors.h"
 
@@ -178,8 +179,11 @@
     /* if 'num_tables' is 0, read the table count from the file */
     if ( num_tables == 0 )
     {
+      FT_ULong  format_tag;
+
+
       if ( FT_STREAM_SEEK( offset )     ||
-           FT_STREAM_SKIP( 4 )          ||
+           FT_READ_ULONG ( format_tag ) ||
            FT_READ_USHORT( num_tables ) ||
            FT_STREAM_SKIP( 6 )          )
         goto Bad_Format;
@@ -207,19 +211,15 @@
         FT_UInt32  magic;
 
 
-#ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
-      head_retry:
-#endif  /* TT_CONFIG_OPTION_EMBEDDED_BITMAPS */
-
         has_head = 1;
 
-        /* The table length should be 0x36, but certain font tools
-         * make it 0x38, so we will just check that it is greater.
-         *
-         * Note that according to the specification,
-         * the table must be padded to 32-bit lengths, but this doesn't
-         * apply to the value of its "Length" field!
-         */
+       /* the table length should be 0x36, but certain font tools
+        * make it 0x38, so we will just check that it is greater.
+        *
+        * note that according to the specification,
+        * the table must be padded to 32-bit lengths, but this doesn't
+        * apply to the value of its "Length" field !!
+        */
         if ( table.Length < 0x36                 ||
              FT_STREAM_SEEK( table.Offset + 12 ) ||
              FT_READ_ULONG( magic )              ||
@@ -229,10 +229,6 @@
         if ( FT_STREAM_SEEK( offset + 28 + 16*nn ) )
           goto Bad_Format;
       }
-#ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
-      else if ( table.Tag == TTAG_bhed )
-        goto head_retry;
-#endif  /* TT_CONFIG_OPTION_EMBEDDED_BITMAPS */      
     }
 
     if ( has_head == 0 )
@@ -242,7 +238,7 @@
     return  error;
 
   Bad_Format:
-    error = SFNT_Err_Unknown_File_Format;
+    error = FT_Err_Unknown_File_Format;
     goto Exit;
   }
 
@@ -261,7 +257,7 @@
   /*    stream     :: The input stream.                                    */
   /*                                                                       */
   /*    face_index :: If the font is a collection, the number of the font  */
-  /*                  in the collection.  Must be zero otherwise.          */
+  /*                  in the collection, ignored otherwise.                */
   /*                                                                       */
   /* <Output>                                                              */
   /*    sfnt       :: The SFNT header.                                     */
@@ -284,7 +280,7 @@
                             SFNT_Header  sfnt )
   {
     FT_Error   error;
-    FT_ULong   font_format_tag, format_tag, offset;
+    FT_ULong   format_tag, offset;
     FT_Memory  memory = stream->memory;
 
     static const FT_Frame_Field  sfnt_header_fields[] =
@@ -321,17 +317,16 @@
 
     face->num_tables = 0;
 
-    /* First of all, read the first 4 bytes.  If it is `ttcf', then the   */
-    /* file is a TrueType collection, otherwise it is a single-face font. */
-    /*                                                                    */
+    /* first of all, read the first 4 bytes.  If it is `ttcf', then the */
+    /* file is a TrueType collection, otherwise it can be any other     */
+    /* kind of font.                                                    */
+    /*                                                                  */
     offset = FT_STREAM_POS();
 
-    if ( FT_READ_ULONG( font_format_tag ) )
+    if ( FT_READ_ULONG( format_tag ) )
       goto Exit;
 
-    format_tag = font_format_tag;
-
-    if ( font_format_tag == TTAG_ttcf )
+    if ( format_tag == TTAG_ttcf )
     {
       FT_Int  n;
 
@@ -363,8 +358,8 @@
       /* seek to the appropriate TrueType file, then read tag */
       offset = face->ttc_header.offsets[face_index];
 
-      if ( FT_STREAM_SEEK( offset )   ||
-           FT_READ_LONG( format_tag ) )
+      if ( FT_STREAM_SEEK( offset ) ||
+           FT_READ_LONG( format_tag )                             )
         goto Exit;
     }
 
@@ -381,12 +376,7 @@
     {
       FT_TRACE2(( "tt_face_load_sfnt_header: file is not SFNT!\n" ));
       error = SFNT_Err_Unknown_File_Format;
-      goto Exit;
     }
-
-    /* disallow face index values > 0 for non-TTC files */
-    if ( font_format_tag != TTAG_ttcf && face_index > 0 )
-      error = SFNT_Err_Bad_Argument;
 
   Exit:
     return error;
@@ -433,7 +423,7 @@
 
     face->num_tables = sfnt->num_tables;
 
-    if ( FT_QNEW_ARRAY( face->dir_tables, face->num_tables ) )
+    if ( FT_NEW_ARRAY( face->dir_tables, face->num_tables ) )
       goto Exit;
 
     if ( FT_STREAM_SEEK( sfnt->offset + 12 )      ||
@@ -723,8 +713,6 @@
     if ( FT_STREAM_READ_FIELDS( maxp_fields, maxProfile ) )
       goto Exit;
 
-    face->root.num_glyphs = maxProfile->numGlyphs;
-
     maxProfile->maxPoints             = 0;
     maxProfile->maxContours           = 0;
     maxProfile->maxCompositePoints    = 0;
@@ -753,13 +741,15 @@
       if ( maxProfile->maxFunctionDefs == 0 )
         maxProfile->maxFunctionDefs = 64;
 
+      face->root.num_glyphs = maxProfile->numGlyphs;
+
       face->root.internal->max_points =
-        (FT_UShort)FT_MAX( maxProfile->maxCompositePoints,
-                           maxProfile->maxPoints );
+        (FT_UShort)MAX( maxProfile->maxCompositePoints,
+                        maxProfile->maxPoints );
 
       face->root.internal->max_contours =
-        (FT_Short)FT_MAX( maxProfile->maxCompositeContours,
-                          maxProfile->maxContours );
+        (FT_Short)MAX( maxProfile->maxCompositeContours,
+                       maxProfile->maxContours );
 
       face->max_components = (FT_ULong)maxProfile->maxComponentElements +
                              maxProfile->maxComponentDepth;
@@ -850,16 +840,16 @@
       {
 
 #ifdef FT_CONFIG_OPTION_INCREMENTAL
-        /* If this is an incrementally loaded font and there are */
-        /* overriding metrics tolerate a missing 'hmtx' table.   */
+      /* If this is an incrementally loaded font and there are    */
+      /* overriding metrics tolerate a missing 'hmtx' table.      */
         if ( face->root.internal->incremental_interface &&
              face->root.internal->incremental_interface->funcs->
-               get_glyph_metrics )
+                 get_glyph_metrics )
         {
           face->horizontal.number_Of_HMetrics = 0;
           error = SFNT_Err_Ok;
           goto Exit;
-        }
+	    }
 #endif
 
         FT_ERROR(( " no horizontal metrics in file!\n" ));
@@ -888,8 +878,8 @@
       goto Exit;
     }
 
-    if ( FT_QNEW_ARRAY( *longs,  num_longs  ) ||
-         FT_QNEW_ARRAY( *shorts, num_shorts ) )
+    if ( FT_NEW_ARRAY( *longs,  num_longs  ) ||
+         FT_NEW_ARRAY( *shorts, num_shorts ) )
       goto Exit;
 
     if ( FT_FRAME_ENTER( table_len ) )
@@ -910,8 +900,7 @@
     /* do we have an inconsistent number of metric values? */
     {
       TT_ShortMetrics*  cur   = *shorts;
-      TT_ShortMetrics*  limit = cur +
-                                FT_MIN( num_shorts, num_shorts_checked );
+      TT_ShortMetrics*  limit = cur + MIN( num_shorts, num_shorts_checked );
 
 
       for ( ; cur < limit; cur++ )
@@ -1206,17 +1195,14 @@
     FT_UInt       count  = table->numNameRecords;
 
 
-    if ( table->names )
+    for ( ; count > 0; count--, entry++ )
     {
-      for ( ; count > 0; count--, entry++ )
-      {
-        FT_FREE( entry->string );
-        entry->stringLength = 0;
-      }
-
-      /* free strings table */
-      FT_FREE( table->names );
+      FT_FREE( entry->string );
+      entry->stringLength = 0;
     }
+
+    /* free strings table */
+    FT_FREE( table->names );
 
     table->numNameRecords = 0;
     table->format         = 0;
@@ -1586,7 +1572,7 @@
     num_ranges = face->gasp.numRanges;
     FT_TRACE3(( "number of ranges = %d\n", num_ranges ));
 
-    if ( FT_QNEW_ARRAY( gaspranges, num_ranges ) ||
+    if ( FT_NEW_ARRAY( gaspranges, num_ranges ) ||
          FT_FRAME_ENTER( num_ranges * 4L )      )
       goto Exit;
 
@@ -1635,11 +1621,6 @@
   /* <Return>                                                              */
   /*    FreeType error code.  0 means success.                             */
   /*                                                                       */
-  
-#undef  TT_KERN_INDEX
-#define TT_KERN_INDEX( g1, g2 )  ( ( (FT_ULong)g1 << 16 ) | g2 )
-
-
   FT_LOCAL_DEF( FT_Error )
   tt_face_load_kern( TT_Face    face,
                      FT_Stream  stream )
@@ -1696,8 +1677,8 @@
         FT_FRAME_EXIT();
 
         /* allocate array of kerning pairs */
-        if ( FT_QNEW_ARRAY( face->kern_pairs, num_pairs ) ||
-             FT_FRAME_ENTER( 6L * num_pairs )             )
+        if ( FT_NEW_ARRAY( face->kern_pairs, num_pairs ) ||
+             FT_FRAME_ENTER( 6L * num_pairs )            )
           goto Exit;
 
         pair  = face->kern_pairs;
@@ -1716,35 +1697,12 @@
 
         /* ensure that the kerning pair table is sorted (yes, some */
         /* fonts have unsorted tables!)                            */
-
-#if 1
-        if ( num_pairs > 0 )     
         {
-          TT_Kern0_Pair  pair0 = face->kern_pairs;
-          FT_ULong       prev  = TT_KERN_INDEX( pair0->left, pair0->right );
-          
-
-          for ( pair0++; pair0 < limit; pair0++ )
-          {
-            FT_ULong  next = TT_KERN_INDEX( pair0->left, pair0->right );
-            
-
-            if ( next < prev )
-              goto SortIt;
-              
-            prev = next;
-          }
-          goto Exit;
-          
-        SortIt:
-          ft_qsort( (void*)face->kern_pairs, (int)num_pairs,
-                    sizeof ( TT_Kern0_PairRec ), tt_kern_pair_compare );
-        }
-#else        
-        {
-          TT_Kern0_Pair  pair0    = face->kern_pairs;
           FT_UInt        i;
-          
+          TT_Kern0_Pair  pair0;
+
+
+          pair0 = face->kern_pairs;
 
           for ( i = 1; i < num_pairs; i++, pair0++ )
           {
@@ -1756,7 +1714,6 @@
             }
           }
         }
-#endif
 
         goto Exit;
       }
@@ -1773,6 +1730,10 @@
   Exit:
     return error;
   }
+
+
+#undef  TT_KERN_INDEX
+#define TT_KERN_INDEX( g1, g2 )  ( ( (FT_ULong)g1 << 16 ) | g2 )
 
 
   FT_CALLBACK_DEF( int )
@@ -1792,7 +1753,6 @@
 
 
 #undef TT_KERN_INDEX
-  
 
 
   /*************************************************************************/
@@ -1819,7 +1779,6 @@
     FT_Memory  memory = stream->memory;
 
     TT_Hdmx    hdmx = &face->hdmx;
-    FT_Short   num_records;
     FT_Long    num_glyphs;
     FT_Long    record_size;
 
@@ -1837,7 +1796,7 @@
       goto Exit;
 
     hdmx->version     = FT_GET_USHORT();
-    num_records       = FT_GET_SHORT();
+    hdmx->num_records = FT_GET_SHORT();
     record_size       = FT_GET_LONG();
 
     FT_FRAME_EXIT();
@@ -1846,10 +1805,9 @@
     if ( hdmx->version != 0 )
       goto Exit;
 
-    if ( FT_QNEW_ARRAY( hdmx->records, num_records ) )
+    if ( FT_NEW_ARRAY( hdmx->records, hdmx->num_records ) )
       goto Exit;
 
-    hdmx->num_records = num_records;
     num_glyphs   = face->root.num_glyphs;
     record_size -= num_glyphs + 2;
 
@@ -1865,7 +1823,7 @@
              FT_READ_BYTE( cur->max_width ) )
           goto Exit;
 
-        if ( FT_QALLOC( cur->widths, num_glyphs )       ||
+        if ( FT_ALLOC( cur->widths, num_glyphs )       ||
              FT_STREAM_READ( cur->widths, num_glyphs ) )
           goto Exit;
 

@@ -266,7 +266,6 @@ ROSDATA VK_TO_WCHARS1 keypad_numbers[] = {
   { VK_NUMPAD7, 0, '7' },
   { VK_NUMPAD8, 0, '8' },
   { VK_NUMPAD9, 0, '9' },
-  { VK_DECIMAL, 0, '.' },
   { VK_BACK,    0, '\010' },
   { 0,0 }
 };
@@ -397,4 +396,3 @@ ROSDATA KBDTABLES keyboard_layout_table = {
 PKBDTABLES STDCALL KbdLayerDescriptor() {
   return &keyboard_layout_table;
 }
-

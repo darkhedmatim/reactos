@@ -17,21 +17,18 @@
 
 #define DEBUG_CHECK    0x00000100
 #define DEBUG_MEMORY   0x00000200
-#define DEBUG_PBUFFER  0x00000400
+#define DEBUG_BUFFER   0x00000400
 #define DEBUG_IRP      0x00000800
-#define DEBUG_TCPIF    0x00001000
+#define DEBUG_REFCOUNT 0x00001000
 #define DEBUG_ADDRFILE 0x00002000
 #define DEBUG_DATALINK 0x00004000
 #define DEBUG_ARP      0x00008000
 #define DEBUG_IP       0x00010000
-#define DEBUG_UDP      0x00020000
-#define DEBUG_TCP      0x00040000
-#define DEBUG_ICMP     0x00080000
-#define DEBUG_ROUTER   0x00100000
-#define DEBUG_RCACHE   0x00200000
-#define DEBUG_NCACHE   0x00400000
-#define DEBUG_CPOINT   0x00800000
-#define DEBUG_LOCK     0x01000000
+#define DEBUG_ICMP     0x00020000
+#define DEBUG_ROUTER   0x00040000
+#define DEBUG_RCACHE   0x00080000
+#define DEBUG_NCACHE   0x00100000
+#define DEBUG_CPOINT   0x00200000
 #define DEBUG_ULTRA    0xFFFFFFFF
 
 #ifdef DBG
@@ -58,11 +55,24 @@ extern DWORD DebugTraceLevel;
 
 #endif /* _MSC_VER */
 
+#ifdef ASSERT
+#undef ASSERT
+#endif
+
+#ifdef NASSERT
+#define ASSERT(x)
+#else /* NASSERT */
+#define ASSERT(x) if (!(x)) { TI_DbgPrint(MIN_TRACE, ("Assertion "#x" failed at %s:%d\n", __FILE__, __LINE__)); KeBugCheck(0); }
+#endif /* NASSERT */
+
 #define ASSERT_IRQL(x) ASSERT(KeGetCurrentIrql() <= (x))
 
 #else /* DBG */
 
 #define TI_DbgPrint(_t_, _x_)
+
+#define ASSERT_IRQL(x)
+#define ASSERT(x)
 
 #endif /* DBG */
 
@@ -90,12 +100,6 @@ extern DWORD DebugTraceLevel;
     do { TI_DbgPrint(DEBUG_CHECK, ("(%s:%d)\n", __FILE__, __LINE__)); } while(0);
 
 #define CP CHECKPOINT
-
-#include <memtrack.h>
-
-#define ASSERT_KM_POINTER(_x) \
-   ASSERT(((PVOID)_x) != (PVOID)0xcccccccc); \
-   ASSERT(((PVOID)_x) >= (PVOID)0x80000000);
 
 #endif /* __DEBUG_H */
 

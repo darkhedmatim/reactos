@@ -1,4 +1,4 @@
-/* $Id: critical.c,v 1.16 2004/01/29 23:41:36 navaraf Exp $
+/* $Id: critical.c,v 1.14 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS *****************************************************************/
@@ -31,26 +31,6 @@ InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
      {
 	RtlRaiseStatus(Status);
      }
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-InitializeCriticalSectionAndSpinCount(
-    LPCRITICAL_SECTION lpCriticalSection,
-    DWORD dwSpinCount
-    )
-{
-    NTSTATUS Status;
-    
-    Status = RtlInitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount);
-    if (Status)
-      {
-         RtlRaiseStatus(Status);
-      }
-    return NT_SUCCESS(Status);
 }
 
 /* EOF */

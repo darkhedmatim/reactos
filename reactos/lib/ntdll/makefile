@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.111 2004/11/07 18:45:52 hyperion Exp $
+# $Id: makefile,v 1.94 2003/09/12 17:51:47 vizzini Exp $
 
 PATH_TO_TOP = ../..
 
@@ -19,26 +19,19 @@ TARGET_LFLAGS = -Wl,--file-alignment,0x1000 \
   -Wl,--section-alignment,0x1000 \
   -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = rosrtl.a rtl.a string.a
+TARGET_SDKLIBS = string.a rosrtl.a
 
 TARGET_GCCLIBS = gcc
 
-TARGET_BASE = $(TARGET_BASE_LIB_NTDLL)
+TARGET_BASE = 0x77f60000
 
 TARGET_PATH = def
 
 TARGET_ENTRY = 0x0
 
-CSR_OBJECTS = \
-	csr/capture.o \
-	csr/lpc.o \
-	csr/probe.o \
-	csr/thread.o
+CSR_OBJECTS = csr/lpc.o csr/capture.o csr/probe.o csr/thread.o
 
-DBG_OBJECTS = \
-	dbg/brkpoint.o \
-	dbg/debug.o \
-	dbg/print.o
+DBG_OBJECTS = dbg/brkpoint.o dbg/debug.o dbg/print.o #dbg/winedbg.o
 
 LDR_OBJECTS = \
 	ldr/entry.o \
@@ -56,71 +49,36 @@ RTL_I386_OBJECTS = \
 	rtl/i386/aullrem.o \
 	rtl/i386/aullshr.o \
 	rtl/i386/chkstk.o \
+	rtl/i386/exception.o \
+	rtl/i386/except.o \
 	rtl/i386/float.o \
 	rtl/i386/ftol.o
 
-RTL_OBJECTS = \
-	rtl/access.o \
-	rtl/apc.o \
-	rtl/atom.o \
-	rtl/callback.o \
-	rtl/crc32.o \
-	rtl/critical.o \
-	rtl/dbgbuffer.o \
-	rtl/exception.o \
-	rtl/handle.o \
-	rtl/math.o \
-	rtl/message.o \
-	rtl/misc.o \
-	rtl/path.o \
-	rtl/ppb.o \
-	rtl/process.o \
-	rtl/propvar.o \
-	rtl/rangelist.o \
-	rtl/registry.o \
-	rtl/resource.o \
-	rtl/teb.o \
-	rtl/thread.o \
-	rtl/timerqueue.o \
-	rtl/libsupp.o
+RTL_OBJECTS = rtl/critical.o rtl/error.o rtl/heap.o rtl/largeint.o \
+              rtl/math.o rtl/mem.o rtl/nls.o rtl/process.o rtl/sd.o \
+              rtl/thread.o rtl/unicode.o rtl/env.o rtl/path.o rtl/ppb.o \
+              rtl/bitmap.o rtl/time.o rtl/acl.o rtl/sid.o rtl/image.o \
+              rtl/access.o rtl/apc.o rtl/callback.o rtl/luid.o rtl/misc.o \
+              rtl/registry.o rtl/exception.o rtl/intrlck.o rtl/resource.o \
+              rtl/handle.o rtl/atom.o rtl/message.o rtl/timezone.o \
+      	      rtl/propvar.o rtl/security.o rtl/dos8dot3.o rtl/compress.o \
+              rtl/encode.o rtl/random.o rtl/teb.o rtl/splaytree.o
 
+STDIO_OBJECTS = stdio/sprintf.o stdio/swprintf.o
 
-STDIO_OBJECTS = \
-	stdio/sprintf.o \
-	stdio/sscanf.o \
-	stdio/swprintf.o
+STDLIB_OBJECTS = stdlib/abs.o stdlib/atoi.o stdlib/atoi64.o stdlib/atol.o \
+                 stdlib/itoa.o stdlib/itow.o stdlib/labs.o stdlib/splitp.o \
+                 stdlib/strtol.o stdlib/strtoul.o stdlib/wcstol.o \
+                 stdlib/wcstoul.o stdlib/wtoi.o stdlib/wtoi64.o stdlib/wtol.o \
+                 stdlib/mbstowcs.o stdlib/wcstombs.o
 
-STDLIB_OBJECTS = \
-	stdlib/abs.o \
-	stdlib/atoi.o \
-	stdlib/atoi64.o \
-	stdlib/atol.o \
-	stdlib/bsearch.o \
-	stdlib/itoa.o \
-	stdlib/itow.o \
-	stdlib/labs.o \
-	stdlib/lfind.o \
-	stdlib/mbstowcs.o \
-	stdlib/splitp.o \
-	stdlib/strtol.o \
-	stdlib/strtoul.o \
-	stdlib/wcstol.o \
-	stdlib/wcstombs.o \
-	stdlib/wcstoul.o \
-	stdlib/wtoi.o \
-	stdlib/wtoi64.o \
-	stdlib/wtol.o
-
-STRING_OBJECTS = \
-	string/ctype.o \
-	string/memicmp.o \
-	string/stricmp.o \
-	string/strlwr.o \
-	string/strnicmp.o \
-	string/strpbrk.o \
-	string/strstr.o \
-	string/strupr.o \
-	string/wstring.o
+STRING_OBJECTS = string/ctype.o  \
+                 string/memicmp.o\
+                 string/stricmp.o \
+                 string/strlwr.o  \
+                 string/strnicmp.o \
+                 string/strpbrk.o  \
+                 string/strstr.o string/strupr.o string/wstring.o
 
 ARCH_OBJECTS = \
 	$(RTL_I386_OBJECTS)
@@ -134,7 +92,8 @@ TARGET_OBJECTS = \
 	$(RTL_OBJECTS) \
 	$(STDIO_OBJECTS) \
 	$(STDLIB_OBJECTS) \
-	$(STRING_OBJECTS)
+	$(STRING_OBJECTS) \
+	stubs/stubs.o
 
 DEP_OBJECTS = $(TARGET_OBJECTS)
 DEP_EXCLUDE_FILTER = napi.%
@@ -150,12 +109,3 @@ include $(TOOLS_PATH)/depend.mk
 
 etags: csr/TAGS dbg/TAGS ldr/TAGS main/TAGS rtl/TAGS stdio/TAGS stdlib/TAGS string/TAGS stubs/TAGS
 	etags -i csr/TAGS -i dbg/TAGS -i ldr/TAGS -i main/TAGS -i rtl/TAGS -i stdio/TAGS -i stdlib/TAGS -i string/TAGS -i stubs/TAGS
-
-
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu
-
-
-# EOF

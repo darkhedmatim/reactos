@@ -1,4 +1,4 @@
-/* $Id: isapnp.c,v 1.10 2004/07/03 17:40:20 navaraf Exp $
+/* $Id: isapnp.c,v 1.7 2003/09/20 20:31:57 weiden Exp $
  *
  * PROJECT:         ReactOS ISA PnP Bus driver
  * FILE:            isapnp.c
@@ -484,6 +484,7 @@ static NTSTATUS AddResourceList(
   PISAPNP_CONFIGURATION_LIST *NewList)
 {
   PISAPNP_CONFIGURATION_LIST List;
+  NTSTATUS Status;
 
   DPRINT("Adding resource list for logical device %d on card %d (Priority %d)\n",
         LogicalDevice->Number,
@@ -584,7 +585,7 @@ static NTSTATUS AddIrqResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[3];
-  ULONG irq, i, last = 0;
+  ULONG irq, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -639,7 +640,7 @@ static NTSTATUS AddDmaResource(
 {
   PISAPNP_DESCRIPTOR Descriptor;
 	UCHAR tmp[2];
-  ULONG dma, flags, i, last = 0;
+  ULONG dma, flags, i, last;
   BOOLEAN found;
   NTSTATUS Status;
 
@@ -961,8 +962,8 @@ static BOOLEAN CreateLogicalDevice(PISAPNP_DEVICE_EXTENSION DeviceExtension,
 		if (!ReadTag(&type, &Size, &Small))
 			return FALSE;
 
-                if (skip && !(Small && ((type == ISAPNP_SRIN_LDEVICE_ID)
-      || (type == ISAPNP_SRIN_END_TAG))))
+		if (skip && !(Small && (type == ISAPNP_SRIN_LDEVICE_ID)
+      || (type == ISAPNP_SRIN_END_TAG)))
 			goto skip;
 
     if (Small) {
@@ -1211,6 +1212,7 @@ static NTSTATUS BuildResourceList(PISAPNP_LOGICAL_DEVICE LogicalDevice,
   PLIST_ENTRY CurrentEntry, Entry;
   PISAPNP_CONFIGURATION_LIST List;
   PISAPNP_DESCRIPTOR Descriptor;
+  NTSTATUS Status;
   ULONG i;
 
   if (IsListEmpty(&LogicalDevice->Configuration))
@@ -1371,6 +1373,7 @@ static NTSTATUS BuildDeviceList(PISAPNP_DEVICE_EXTENSION DeviceExtension)
 	ULONG csn;
 	UCHAR header[9], checksum;
   PISAPNP_CARD Card;
+  NTSTATUS Status;
 
   DPRINT("Called\n");
 
@@ -1424,7 +1427,7 @@ ISAPNPQueryBusRelations(
   PISAPNP_LOGICAL_DEVICE LogicalDevice;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   ULONG Size;
   ULONG i;
 
@@ -1726,12 +1729,12 @@ DriverEntry(
 {
   DbgPrint("ISA Plug and Play Bus Driver\n");
 
-  DriverObject->MajorFunction[IRP_MJ_CREATE] = ISAPNPDispatchOpenClose;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = ISAPNPDispatchOpenClose;
-  DriverObject->MajorFunction[IRP_MJ_READ] = ISAPNPDispatchReadWrite;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = ISAPNPDispatchReadWrite;
-  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = ISAPNPDispatchDeviceControl;
-  DriverObject->MajorFunction[IRP_MJ_PNP] = ISAPNPControl;
+  DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)ISAPNPDispatchOpenClose;
+  DriverObject->MajorFunction[IRP_MJ_CLOSE] = (PDRIVER_DISPATCH)ISAPNPDispatchOpenClose;
+  DriverObject->MajorFunction[IRP_MJ_READ] = (PDRIVER_DISPATCH)ISAPNPDispatchReadWrite;
+  DriverObject->MajorFunction[IRP_MJ_WRITE] = (PDRIVER_DISPATCH)ISAPNPDispatchReadWrite;
+  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = (PDRIVER_DISPATCH)ISAPNPDispatchDeviceControl;
+  DriverObject->MajorFunction[IRP_MJ_PNP] = (PDRIVER_DISPATCH)ISAPNPControl;
   DriverObject->DriverExtension->AddDevice = ISAPNPAddDevice;
 
   return STATUS_SUCCESS;

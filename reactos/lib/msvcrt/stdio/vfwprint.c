@@ -1,9 +1,5 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#ifdef __USE_W32API
-#undef __USE_W32API
-#endif
-
 //#include <stdarg.h>
 #include <msvcrt/stdarg.h> // robd
 #include <msvcrt/crttypes.h> // robd
@@ -11,7 +7,6 @@
 #include <msvcrt/stdio.h>
 #include <msvcrt/malloc.h>
 #include <msvcrt/internal/file.h>
-
 
 int _isnanl(double x);
 int _isinfl(double x);
@@ -226,16 +221,10 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 	char ro = 0;
 	int result, done = 0;
 
-	union
-	{
-	    double*   __n;
-	    double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	double_t *n = (double_t *)&__n;
 
 	if ( exp_sign == L'g' || exp_sign == L'G' || exp_sign == L'e' || exp_sign == L'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3ff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3ff);
 		exponent = ie/3.321928;
 	}
 
@@ -435,16 +424,10 @@ static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int 
 
 	int result, done = 0;
 
-	union
-	{
-		long double*   __n;
-		long_double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	long_double_t *n = (long_double_t *)&__n;
 
 	if ( exp_sign == L'g' || exp_sign == L'G' || exp_sign == L'e' || exp_sign == L'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3fff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3fff);
 		exponent = ie/3.321928;
 	}
 
@@ -620,7 +603,7 @@ static int string(FILE *f, const char* s, int len, int field_width, int precisio
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -664,7 +647,7 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -697,9 +680,9 @@ static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int pre
 
 int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 {
-	int len = 0;
+	int len;
 	ULONGLONG num;
-	int base;
+	int i, base;
 	long double _ldouble;
 	double _double;
 	const char *s;
@@ -1060,12 +1043,8 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 
 		if (qualifier == L'I')
 			num = va_arg(args, ULONGLONG);
-		else if (qualifier == L'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+		else if (qualifier == L'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == L'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);

@@ -4,59 +4,88 @@
 #  Makefile
 #
 
-PATH_TO_TOP := ../../..
-TARGET_TYPE := program
-TARGET_APPTYPE := windows
-TARGET_NAME := explorer
-TARGET_INSTALLDIR := .
-TARGET_CFLAGS := \
-	-D__USE_W32API -DWIN32 -D_ROS_ \
-	-D_WIN32_IE=0x0600 -D_WIN32_WINNT=0x0501 -DWINVER=0x0500 \
-	-DUNICODE -fexceptions -Wall
-TARGET_CPPFLAGS := $(TARGET_CFLAGS)
-TARGET_RCFLAGS := -D__USE_W32API -DWIN32 -D_ROS_ -D__WINDRES__
-TARGET_SDKLIBS := \
-	gdi32.a comctl32.a ole32.a oleaut32.a shell32.a expat.a \
-	notifyhook.a ws2_32.a msimg32.a
-TARGET_GCCLIBS := stdc++ uuid
-TARGET_OBJECTS := \
+CC = gcc
+CXX = g++
+LINK = g++
+
+CFLAGS	= -DWIN32 -D_ROS_ -D_WIN32_IE=0x0501 -D_WIN32_WINNT=0x0501 -fexceptions -Wall
+RCFLAGS	= -DWIN32 -D_ROS_
+LFLAGS	= -Wl,--subsystem,windows
+
+ifdef DEBUG
+CFLAGS	+= -D_DEBUG -g
+RCFLAGS	+= -D_DEBUG
+LFLAGS	+= -g
+else
+CFLAGS	+= -DNDEBUG -Os
+RCFLAGS	+= -DNDEBUG
+LFLAGS	+= -s
+endif
+
+ifdef UNICODE
+CFLAGS	+= -DUNICODE
+# LFLAGS+= -Wl,--entry,_wWinMain@16
+endif
+
+CXXFLAGS = $(CFLAGS)
+
+EXEC_SUFFIX = .exe
+RES_SUFFIX = .coff
+
+VPATH = shell utility taskbar desktop dialogs
+
+PROGRAM = explorer
+
+TARGET = $(PROGRAM)$(EXEC_SUFFIX)
+
+OBJECTS = \
+	startup.o \
+	shellclasses.o \
+	utility.o \
+	window.o \
+	dragdropimpl.o \
+	shellbrowserimpl.o \
 	explorer.o \
-	i386-stub-win32.o \
-	desktop/desktop.o \
-	dialogs/searchprogram.o \
-	dialogs/settings.o \
-	shell/entries.o \
-	shell/fatfs.o \
-	shell/filechild.o \
-	shell/shellfs.o \
-	shell/mainframe.o \
-	shell/ntobjfs.o \
-	shell/pane.o \
-	shell/regfs.o \
-	shell/shellbrowser.o \
-	shell/startup.o \
-	shell/unixfs.o \
-	shell/webchild.o \
-	shell/winfs.o \
-	taskbar/desktopbar.o \
-	taskbar/taskbar.o \
-	taskbar/startmenu.o \
-	taskbar/traynotify.o \
-	taskbar/quicklaunch.o \
-	taskbar/favorites.o \
-	utility/shellclasses.o \
-	utility/utility.o \
-	utility/window.o \
-	utility/dragdropimpl.o \
-	utility/shellbrowserimpl.o \
-	utility/xmlstorage.o
-TARGET_CPPAPP := yes
-TARGET_PCH := precomp.h
-SUBDIRS := notifyhook
-DEP_OBJECTS := $(TARGET_OBJECTS)
+	entries.o \
+	winfs.o \
+	unixfs.o \
+	shellfs.o \
+	mainframe.o \
+	filechild.o \
+	pane.o \
+	shellbrowser.o \
+	desktop.o \
+	desktopbar.o \
+	taskbar.o \
+	startmenu.o \
+	traynotify.o \
+	quicklaunch.o \
+	searchprogram.o
 
-include $(PATH_TO_TOP)/rules.mak
+LIBS = gdi32 comctl32 ole32 uuid
 
-include $(TOOLS_PATH)/helper.mk
+all: buildno.h $(TARGET)
 
-include $(TOOLS_PATH)/depend.mk
+docu: doxy-footer.html
+	doxygen Doxyfile
+
+full-docu:
+	doxygen Doxyfile-all
+
+doxy-footer.html: ever
+	updatefooter
+
+ever:
+
+buildno.h: ../../../include/reactos/buildno.h
+	updatebuildno
+
+$(TARGET): $(OBJECTS) $(PROGRAM)$(RES_SUFFIX)
+	$(LINK) $(LFLAGS) -o $@ $^ $(addprefix -l,$(LIBS))
+
+explorer$(RES_SUFFIX): $(PROGRAM)_intres.rc
+	windres $(RCFLAGS) -o $@ $^
+
+clean:
+	rm -f $(TARGET) $(OBJECTS) $(PROGRAM)$(RES_SUFFIX)
+

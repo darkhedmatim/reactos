@@ -1,9 +1,12 @@
-#include "precomp.h"
+// heap.c
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
 #include <debug.h>
 
 // global variables in a dll are process-global
 HANDLE hProcessHeap = NULL;
-
 
 PVOID
 HEAP_alloc ( DWORD len )

@@ -48,7 +48,6 @@ extern HBRUSH  COMCTL32_hPattern55AABrush;
 #define IDC_NEXT_BUTTON  12324
 #define IDC_FINISH_BUTTON 12325
 #define IDC_SUNKEN_LINE   12326
-#define IDC_SUNKEN_LINEHEADER 12327
 
 #define IDS_CLOSE	  4160
 
@@ -103,19 +102,12 @@ extern HBRUSH  COMCTL32_hPattern55AABrush;
 #define IDC_DIVIDEROPEN                 107
 
 
-/* DragList resources */
-#define IDI_DRAGARROW                   501
-#define IDC_COPY                        502
+/* DragList icon */
+#define IDI_DRAGARROW                   150
 
-#define IDC_MOVEBUTTON                    1
 
 /* HOTKEY internal strings */
 #define HKY_NONE                        2048
-
-/* Tooltip icons */
-#define IDI_TT_INFO_SM                   22
-#define IDI_TT_WARN_SM                   25
-#define IDI_TT_ERROR_SM                  28
 
 typedef struct
 {
@@ -142,7 +134,6 @@ extern COMCTL32_SysColor  comctl32_color;
 /* Internal function */
 HWND COMCTL32_CreateToolTip (HWND);
 VOID COMCTL32_RefreshSysColors(void);
-void COMCTL32_DrawInsertMark(HDC hDC, const RECT *lpRect, COLORREF clrInsertMark, BOOL bHorizontal);
 INT  Str_GetPtrWtoA (LPCWSTR lpSrc, LPSTR lpDest, INT nMaxLen);
 BOOL Str_SetPtrAtoW (LPWSTR *lppDest, LPCSTR lpSrc);
 
@@ -151,19 +142,17 @@ BOOL Str_SetPtrAtoW (LPWSTR *lppDest, LPCSTR lpSrc);
 #define WINE_FILEVERSIONSTR "5.80"
 
 /* Our internal stack structure of the window procedures to subclass */
-typedef struct _SUBCLASSPROCS {
-    SUBCLASSPROC subproc;
-    UINT_PTR id;
-    DWORD_PTR ref;
-    struct _SUBCLASSPROCS *next;
-} SUBCLASSPROCS, *LPSUBCLASSPROCS;
-
 typedef struct
 {
-   SUBCLASSPROCS *SubclassProcs;
-   SUBCLASSPROCS *stackpos;
+   struct {
+      SUBCLASSPROC subproc;
+      UINT_PTR id;
+      DWORD_PTR ref;
+   } SubclassProcs[31];
+   int stackpos;
+   int stacknum;
+   int stacknew;
    WNDPROC origproc;
-   int running;
 } SUBCLASS_INFO, *LPSUBCLASS_INFO;
 
 /* undocumented functions */
@@ -188,7 +177,36 @@ BOOL WINAPI DPA_Merge (const HDPA, const HDPA, DWORD, PFNDPACOMPARE, PFNDPAMERGE
 
 #define DPA_GetPtrCount(hdpa)  (*(INT*)(hdpa))
 
-LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet);
-BOOL WINAPI MirrorIcon(HICON *phicon1, HICON *phicon2);
+/*
+ * The following is ReactOS specific, present in Wine's commctrl.h
+ */
+
+#ifdef __REACTOS__
+#define TBSTYLE_EX_UNDOC1 0x04
+
+/* Undocumented messages in Toolbar */
+#define TB_UNKWN45D	(WM_USER+93)
+#define TB_UNKWN45E	(WM_USER+94)
+#define TB_UNKWN460	(WM_USER+96)
+#define TB_UNKWN463	(WM_USER+99)
+#define TB_UNKWN464	(WM_USER+100)
+
+#define Header_GetItemA(w,i,d) (BOOL)SendMessageA((w),HDM_GETITEMA,(WPARAM)(i),(LPARAM)(HDITEMA*)(d))
+#define Header_GetItemW(w,i,d) (BOOL)SendMessageW((w),HDM_GETITEMW,(WPARAM)(i),(LPARAM)(HDITEMW*)(d))
+#define Header_SetItemA(w,i,d) (BOOL)SendMessageA((w),HDM_SETITEMA,(WPARAM)(i),(LPARAM)(const HDITEMA*)(d))
+#define Header_SetItemW(w,i,d) (BOOL)SendMessageW((w),HDM_SETITEMW,(WPARAM)(i),(LPARAM)(const HDITEMW*)(d))
+#define ListView_FindItemA(w,p,i) (INT)SendMessageA((w),LVM_FINDITEMA,(WPARAM)(p),(LPARAM)(LVFINDINFOA*)(i))
+#define ListView_FindItemW(w,p,i) (INT)SendMessageW((w),LVM_FINDITEMW,(WPARAM)(p),(LPARAM)(LVFINDINFOW*)(i))
+
+#define FLATSB_CLASSA "flatsb_class32"
+
+/* FIXME: Rebar definition hack, should be patched in Wine */
+#undef RB_GETBANDINFO
+#define RB_GETBANDINFO (WM_USER+5)   /* just for compatibility */
+
+/* Property sheet Wizard 97 styles */
+#define	PSH_WIZARD97_OLD 0x2000
+#define	PSH_WIZARD97_NEW 0x1000000
+#endif
 
 #endif  /* __WINE_COMCTL32_H */

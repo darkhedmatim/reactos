@@ -16,13 +16,13 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: logfile.c,v 1.3 2004/08/28 11:08:50 ekohl Exp $
+/* $Id: logfile.c,v 1.1 2003/05/02 18:07:55 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Log file functions
  * FILE:              lib/syssetup/logfile.c
- * PROGRAMER:         Eric Kohl
+ * PROGRAMER:         Eric Kohl (ekohl@rz-online.de)
  */
 
 /* INCLUDES *****************************************************************/
@@ -109,19 +109,19 @@ LogItem (DWORD dwSeverity,
   /* Get the severity code string */
   switch (dwSeverity)
     {
-      case SYSSETUP_SEVERITY_INFORMATION:
+      case SEVERITY_INFORMATION:
 	lpSeverityString = "Information : ";
 	break;
 
-      case SYSSETUP_SEVERITY_WARNING:
+      case SEVERITY_WARNING:
 	lpSeverityString = "Warning : ";
 	break;
 
-      case SYSSETUP_SEVERITY_ERROR:
+      case SEVERITY_ERROR:
 	lpSeverityString = "Error : ";
 	break;
 
-      case SYSSETUP_SEVERITY_FATAL_ERROR:
+      case SEVERITY_FATAL_ERROR:
 	lpSeverityString = "Fatal error : ";
 	break;
 

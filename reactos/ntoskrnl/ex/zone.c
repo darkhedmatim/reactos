@@ -1,4 +1,4 @@
-/* $Id: zone.c,v 1.8 2004/08/15 16:39:01 chorns Exp $
+/* $Id: zone.c,v 1.6 2003/07/17 16:57:38 silverblade Exp $
  *
  * COPYRIGHT:     See COPYING in the top level directory
  * PROJECT:       ReactOS kernel
@@ -9,7 +9,7 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 
 /* FUNCTIONS ***************************************************************/
 
@@ -42,12 +42,12 @@ ExExtendZone (
    
    PushEntryList(&Zone->SegmentList,&seg->SegmentList);
    
-   entry = (PZONE_SEGMENT_HEADER)( ((char*)seg) + sizeof(ZONE_SEGMENT_HEADER) );
+   entry = (PZONE_SEGMENT_HEADER)( ((PVOID)seg) + sizeof(ZONE_SEGMENT_HEADER) );
    
    for (i=0;i<(SegmentSize / Zone->BlockSize);i++)
      {
 	PushEntryList(&Zone->FreeList,&entry->SegmentList);
-	entry = (PZONE_SEGMENT_HEADER)(((char*)entry) + sizeof(PZONE_SEGMENT_HEADER) + 
+	entry = (PZONE_SEGMENT_HEADER)(((PVOID)entry) + sizeof(PZONE_SEGMENT_HEADER) + 
 			      Zone->BlockSize);
      }
    return(STATUS_SUCCESS);
@@ -111,12 +111,12 @@ ExInitializeZone (
    
    PushEntryList(&Zone->SegmentList,&seg->SegmentList);
    
-   entry = (PZONE_SEGMENT_HEADER)( ((char*)seg) + sizeof(ZONE_SEGMENT_HEADER) );
+   entry = (PZONE_SEGMENT_HEADER)( ((PVOID)seg) + sizeof(ZONE_SEGMENT_HEADER) );
    
    for (i=0;i<(InitialSegmentSize / BlockSize);i++)
      {
 	PushEntryList(&Zone->FreeList,&entry->SegmentList);
-	entry = (PZONE_SEGMENT_HEADER)(((char*)entry) + sizeof(PZONE_SEGMENT_HEADER) + BlockSize);
+	entry = (PZONE_SEGMENT_HEADER)(((PVOID)entry) + sizeof(PZONE_SEGMENT_HEADER) + BlockSize);
      }
 
    return(STATUS_SUCCESS);

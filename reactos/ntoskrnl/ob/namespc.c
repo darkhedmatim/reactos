@@ -1,4 +1,4 @@
-/* $Id: namespc.c,v 1.50 2004/11/21 10:59:10 weiden Exp $
+/* $Id: namespc.c,v 1.43 2003/10/19 17:33:54 ekohl Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,7 +11,13 @@
 
 /* INCLUDES ***************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+#include <internal/io.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -22,8 +28,6 @@ POBJECT_TYPE ObDirectoryType = NULL;
 POBJECT_TYPE ObTypeObjectType = NULL;
 
 PDIRECTORY_OBJECT NameSpaceRoot = NULL;
- /* FIXME: Move this somewhere else once devicemap support is in */
-PDEVICE_MAP ObSystemDeviceMap = NULL;
 
 static GENERIC_MAPPING ObpDirectoryMapping = {
 	STANDARD_RIGHTS_READ|DIRECTORY_QUERY|DIRECTORY_TRAVERSE,
@@ -79,7 +83,7 @@ CHECKPOINT;
 DPRINT("Object %p\n", Object);
 	*ObjectPtr = NULL;
 	RtlFreeUnicodeString (&RemainingPath);
-	return(STATUS_OBJECT_NAME_NOT_FOUND);
+	return(STATUS_UNSUCCESSFUL);
      }
    *ObjectPtr = Object;
    RtlFreeUnicodeString (&RemainingPath);
@@ -159,29 +163,7 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
    return Status;
 }
 
-VOID
-STDCALL
-ObQueryDeviceMapInformation(PEPROCESS Process,
-			    PPROCESS_DEVICEMAP_INFORMATION DeviceMapInfo)
-{
-	//KIRQL OldIrql ;
-	
-	/*
-	 * FIXME: This is an ugly hack for now, to always return the System Device Map
-	 * instead of returning the Process Device Map. Not important yet since we don't use it
-	 */
-	   
-	 /* FIXME: Acquire the DeviceMap Spinlock */
-	 // KeAcquireSpinLock(DeviceMap->Lock, &OldIrql);
-	 
-	 /* Make a copy */
-	 DeviceMapInfo->Query.DriveMap = ObSystemDeviceMap->DriveMap;
-	 RtlMoveMemory(DeviceMapInfo->Query.DriveType, ObSystemDeviceMap->DriveType, sizeof(ObSystemDeviceMap->DriveType));
-	 
-	 /* FIXME: Release the DeviceMap Spinlock */
-	 // KeReleasepinLock(DeviceMap->Lock, OldIrql);
-}	 
-	 
+
 VOID
 ObpAddEntryDirectory(PDIRECTORY_OBJECT Parent,
 		     POBJECT_HEADER Header,
@@ -365,10 +347,6 @@ ObInit(VOID)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING Name;
-  SECURITY_DESCRIPTOR SecurityDescriptor;
-
-  /* Initialize the security descriptor cache */
-  ObpInitSdCache();
 
   /* create 'directory' object type */
   ObDirectoryType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
@@ -391,8 +369,8 @@ ObInit(VOID)
   ObDirectoryType->OkayToClose = NULL;
   ObDirectoryType->Create = ObpCreateDirectory;
   ObDirectoryType->DuplicationNotify = NULL;
-
-  RtlRosInitUnicodeStringFromLiteral(&ObDirectoryType->TypeName,
+  
+  RtlInitUnicodeStringFromLiteral(&ObDirectoryType->TypeName,
 		       L"Directory");
 
   /* create 'type' object type*/
@@ -416,36 +394,14 @@ ObInit(VOID)
   ObTypeObjectType->OkayToClose = NULL;
   ObTypeObjectType->Create = NULL;
   ObTypeObjectType->DuplicationNotify = NULL;
-
-  RtlRosInitUnicodeStringFromLiteral(&ObTypeObjectType->TypeName,
+  
+  RtlInitUnicodeStringFromLiteral(&ObTypeObjectType->TypeName,
 		       L"ObjectType");
 
-  /* Create security descriptor */
-  RtlCreateSecurityDescriptor(&SecurityDescriptor,
-			      SECURITY_DESCRIPTOR_REVISION1);
-
-  RtlSetOwnerSecurityDescriptor(&SecurityDescriptor,
-				SeAliasAdminsSid,
-				FALSE);
-
-  RtlSetGroupSecurityDescriptor(&SecurityDescriptor,
-				SeLocalSystemSid,
-				FALSE);
-
-  RtlSetDaclSecurityDescriptor(&SecurityDescriptor,
-			       TRUE,
-			       SePublicDefaultDacl,
-			       FALSE);
-
-  /* Create root directory */
-  InitializeObjectAttributes(&ObjectAttributes,
-			     NULL,
-			     OBJ_PERMANENT,
-			     NULL,
-			     &SecurityDescriptor);
+  /* create root directory */
   ObCreateObject(KernelMode,
 		 ObDirectoryType,
-		 &ObjectAttributes,
+		 NULL,
 		 KernelMode,
 		 NULL,
 		 sizeof(DIRECTORY_OBJECT),
@@ -453,14 +409,14 @@ ObInit(VOID)
 		 0,
 		 (PVOID*)&NameSpaceRoot);
 
-  /* Create '\ObjectTypes' directory */
-  RtlRosInitUnicodeStringFromLiteral(&Name,
+  /* create '\ObjectTypes' directory */
+  RtlInitUnicodeStringFromLiteral(&Name,
 		       L"\\ObjectTypes");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &Name,
 			     OBJ_PERMANENT,
 			     NULL,
-			     &SecurityDescriptor);
+			     NULL);
   ObCreateObject(KernelMode,
 		 ObDirectoryType,
 		 &ObjectAttributes,
@@ -476,10 +432,6 @@ ObInit(VOID)
 
   /* Create 'symbolic link' object type */
   ObInitSymbolicLinkImplementation();
-  
-  /* FIXME: Hack Hack! */
-  ObSystemDeviceMap = ExAllocatePoolWithTag(NonPagedPool, sizeof(*ObSystemDeviceMap), TAG('O', 'b', 'D', 'm'));
-  RtlZeroMemory(ObSystemDeviceMap, sizeof(*ObSystemDeviceMap));
 }
 
 

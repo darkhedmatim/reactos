@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.51 2004/12/11 19:21:35 sedwards Exp $
+# $Id: Makefile,v 1.39 2003/08/07 04:03:23 royce Exp $
 
 PATH_TO_TOP = ../..
 
@@ -8,30 +8,18 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = msvcrt
 
-TARGET_PCH = precomp.h
+TARGET_BASE = 0x78000000
 
-TARGET_BASE = $(TARGET_BASE_LIB_MSVCRT)
+TARGET_LFLAGS = -nostartfiles
 
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
-
-TARGET_LFLAGS = -nostartfiles --enable-stdcall-fixup
-
-TARGET_SDKLIBS = wine.a string.a kernel32.a ntdll.a
+TARGET_SDKLIBS = string.a kernel32.a ntdll.a
 
 TARGET_GCCLIBS = gcc
 
-TARGET_CFLAGS = -D__USE_W32API -D_MSVCRT_LIB_ -Wall -Werror
+TARGET_CFLAGS = -D_MSVCRT_LIB_
 
 # require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += \
-	-D_DISABLE_TIDENTS \
-	-D__USE_W32API \
-	-D__REACTOS__ \
-	-D_WIN32_IE=0x600 \
-	-D_WIN32_WINNT=0x501 \
-	-DUSE_MSVCRT_PREFIX \
-	-D_MT
+TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_OBJECTS = $(TARGET_NAME).o
 
@@ -56,7 +44,6 @@ TARGET_CLEAN = \
 	string/*.o \
 	sys_stat/*.o \
 	time/*.o \
-	wine/*.o \
 	wstring/*.o
 
 
@@ -157,7 +144,6 @@ IO_OBJECTS = \
 	io/read.o \
 	io/setmode.o \
 	io/sopen.o \
-    io/stubs.o \
 	io/tell.o \
 	io/telli64.o \
 	io/umask.o \
@@ -268,13 +254,12 @@ MISC_OBJECTS = \
 	misc/amsg.o \
 	misc/assert.o \
 	misc/crtmain.o \
+	misc/cpp.o \
 	misc/dllmain.o \
 	misc/environ.o \
 	misc/getargs.o \
 	misc/initterm.o \
-	misc/lock.o \
 	misc/purecall.o \
-	misc/stubs.o \
 	misc/tls.o
 
 PROCESS_OBJECTS = \
@@ -456,11 +441,6 @@ TIME_OBJECTS = \
 	time/wstrdate.o \
 	time/wstrtime.o
 
-WINE_OBJECTS = \
-	wine/cpp.o \
-	wine/cppexcept.o \
-	wine/heap.o \
-	wine/thread.o
 
 WSTRING_OBJECTS = \
 	wstring/wcscoll.o \
@@ -499,7 +479,6 @@ OBJECTS = \
 	$(STRING_OBJECTS) \
 	$(SYS_STAT_OBJECTS) \
 	$(TIME_OBJECTS) \
-	$(WINE_OBJECTS) \
 	$(WSTRING_OBJECTS)
 
 $(TARGET_NAME).o: $(OBJECTS)

@@ -1,4 +1,4 @@
-/* $Id: lsa.c,v 1.10 2004/01/06 16:08:25 ekohl Exp $
+/* $Id: lsa.c,v 1.8 2003/09/08 09:56:57 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,7 @@
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
+#include <napi/lpc.h>
 #include <lsass/lsass.h>
 #include <string.h>
 
@@ -281,7 +281,7 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 			PHANDLE Handle,
 			PLSA_OPERATIONAL_MODE OperationalMode)
 {
-   UNICODE_STRING Portname = ROS_STRING_INITIALIZER(L"\\SeLsaCommandPort");
+   UNICODE_STRING Portname = UNICODE_STRING_INITIALIZER(L"\\SeLsaCommandPort");
    ULONG ConnectInfoLength;
    NTSTATUS Status;
    LSASS_REQUEST Request;

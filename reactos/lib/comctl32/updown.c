@@ -48,7 +48,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(updown);
 typedef struct
 {
     HWND      Self;            /* Handle to this up-down control */
-    HWND      Notify;          /* Handle to the parent window */
     UINT      AccelCount;      /* Number of elements in AccelVect */
     UDACCEL*  AccelVect;       /* Vector containing AccelCount elements */
     INT       AccelIndex;      /* Current accel index, -1 if not accel'ing */
@@ -92,12 +91,12 @@ typedef struct
 #define TIMER_ACCEL        2
 #define TIMER_AUTOPRESS    3
 
-#define UPDOWN_GetInfoPtr(hwnd) ((UPDOWN_INFO *)GetWindowLongPtrW (hwnd,0))
+#define BUDDY_UPDOWN_HWND        "buddyUpDownHWND"
+#define BUDDY_SUPERCLASS_WNDPROC "buddySupperClassWndProc"
+
+#define UPDOWN_GetInfoPtr(hwnd) ((UPDOWN_INFO *)GetWindowLongA (hwnd,0))
 #define COUNT_OF(a) (sizeof(a)/sizeof(a[0]))
 
-static const WCHAR BUDDY_UPDOWN_HWND[] = { 'b', 'u', 'd', 'd', 'y', 'U', 'p', 'D', 'o', 'w', 'n', 'H', 'W', 'N', 'D', 0 };
-static const WCHAR BUDDY_SUPERCLASS_WNDPROC[] = { 'b', 'u', 'd', 'd', 'y', 'S', 'u', 'p', 'p', 'e', 'r', 
-						   'C', 'l', 'a', 's', 's', 'W', 'n', 'd', 'P', 'r', 'o', 'c', 0 };
 static void UPDOWN_DoAction (UPDOWN_INFO *infoPtr, int delta, int action);
 
 /***********************************************************************
@@ -427,13 +426,12 @@ static LRESULT UPDOWN_KeyPressed(UPDOWN_INFO *infoPtr, int key)
 static LRESULT CALLBACK
 UPDOWN_Buddy_SubclassProc(HWND  hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    WNDPROC superClassWndProc = (WNDPROC)GetPropW(hwnd, BUDDY_SUPERCLASS_WNDPROC);
-
-    TRACE("hwnd=%p, wndProc=%p, uMsg=%04x, wParam=%08x, lParam=%08lx\n",
-          hwnd, superClassWndProc, uMsg, wParam, lParam);
+    WNDPROC superClassWndProc = (WNDPROC)GetPropA(hwnd, BUDDY_SUPERCLASS_WNDPROC);
+    TRACE("hwnd=%p, wndProc=%d, uMsg=%04x, wParam=%d, lParam=%d\n",
+	  hwnd, (INT)superClassWndProc, uMsg, wParam, (UINT)lParam);
 
     if (uMsg == WM_KEYDOWN) {
-        HWND upDownHwnd = GetPropW(hwnd, BUDDY_UPDOWN_HWND);
+        HWND upDownHwnd = GetPropA(hwnd, BUDDY_UPDOWN_HWND);
 
 	UPDOWN_KeyPressed(UPDOWN_GetInfoPtr(upDownHwnd), (int)wParam);
     }
@@ -443,112 +441,98 @@ UPDOWN_Buddy_SubclassProc(HWND  hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 /***********************************************************************
  *           UPDOWN_SetBuddy
- *
- * Sets bud as a new Buddy.
+ * Tests if 'bud' is a valid window handle. If not, returns FALSE.
+ * Else, sets it as a new Buddy.
  * Then, it should subclass the buddy
  * If window has the UDS_ARROWKEYS, it subcalsses the buddy window to
  * process the UP/DOWN arrow keys.
  * If window has the UDS_ALIGNLEFT or UDS_ALIGNRIGHT style
  * the size/pos of the buddy and the control are adjusted accordingly.
  */
-static HWND UPDOWN_SetBuddy (UPDOWN_INFO* infoPtr, HWND bud)
+static BOOL UPDOWN_SetBuddy (UPDOWN_INFO* infoPtr, HWND bud)
 {
-    static const WCHAR editW[] = { 'E', 'd', 'i', 't', 0 };
-    static const WCHAR listboxW[] = { 'L', 'i', 's', 't', 'b', 'o', 'x', 0 };
     DWORD dwStyle = GetWindowLongW (infoPtr->Self, GWL_STYLE);
     RECT  budRect;  /* new coord for the buddy */
     int   x, width;  /* new x position and width for the up-down */
     WNDPROC baseWndProc;
-    WCHAR buddyClass[40];
-    HWND ret;
+    CHAR buddyClass[40];
+
+    /* Is it a valid bud? */
+    if(!IsWindow(bud)) return FALSE;
 
     TRACE("(hwnd=%p, bud=%p)\n", infoPtr->Self, bud);
 
-    ret = infoPtr->Buddy;
-
     /* there is already a body assigned */
-    if (infoPtr->Buddy)  RemovePropW(infoPtr->Buddy, BUDDY_UPDOWN_HWND);
-
-    if(!IsWindow(bud))
-        bud = 0;
+    if (infoPtr->Buddy)  RemovePropA(infoPtr->Buddy, BUDDY_UPDOWN_HWND);
 
     /* Store buddy window handle */
     infoPtr->Buddy = bud;
 
-    if(bud) {
+    /* keep upDown ctrl hwnd in a buddy property */
+    SetPropA( bud, BUDDY_UPDOWN_HWND, infoPtr->Self);
 
-        /* keep upDown ctrl hwnd in a buddy property */
-        SetPropW( bud, BUDDY_UPDOWN_HWND, infoPtr->Self);
-
-        /* Store buddy window class type */
-        infoPtr->BuddyType = BUDDY_TYPE_UNKNOWN;
-        if (GetClassNameW(bud, buddyClass, COUNT_OF(buddyClass))) {
-            if (lstrcmpiW(buddyClass, editW) == 0)
-                infoPtr->BuddyType = BUDDY_TYPE_EDIT;
-            else if (lstrcmpiW(buddyClass, listboxW) == 0)
-                infoPtr->BuddyType = BUDDY_TYPE_LISTBOX;
-        }
-
-        if(dwStyle & UDS_ARROWKEYS){
-            /* Note that I don't clear the BUDDY_SUPERCLASS_WNDPROC property
-               when we reset the upDown ctrl buddy to another buddy because it is not
-               good to break the window proc chain. */
-            if (!GetPropW(bud, BUDDY_SUPERCLASS_WNDPROC)) {
-                baseWndProc = (WNDPROC)SetWindowLongPtrW(bud, GWLP_WNDPROC, (LPARAM)UPDOWN_Buddy_SubclassProc);
-                SetPropW(bud, BUDDY_SUPERCLASS_WNDPROC, (HANDLE)baseWndProc);
-            }
-        }
-
-        /* Get the rect of the buddy relative to its parent */
-        GetWindowRect(infoPtr->Buddy, &budRect);
-        MapWindowPoints(HWND_DESKTOP, GetParent(infoPtr->Buddy), (POINT *)(&budRect.left), 2);
-
-        /* now do the positioning */
-        if  (dwStyle & UDS_ALIGNLEFT) {
-            x  = budRect.left;
-            budRect.left += DEFAULT_WIDTH + DEFAULT_XSEP;
-        } else if (dwStyle & UDS_ALIGNRIGHT) {
-            budRect.right -= DEFAULT_WIDTH + DEFAULT_XSEP;
-            x  = budRect.right+DEFAULT_XSEP;
-        } else {
-            /* nothing to do */
-            return ret;
-        }
-
-        /* first adjust the buddy to accommodate the up/down */
-        SetWindowPos(infoPtr->Buddy, 0, budRect.left, budRect.top,
-                     budRect.right  - budRect.left, budRect.bottom - budRect.top,
-                     SWP_NOACTIVATE|SWP_NOZORDER);
-
-        /* now position the up/down */
-        /* Since the UDS_ALIGN* flags were used, */
-        /* we will pick the position and size of the window. */
-        width = DEFAULT_WIDTH;
-
-        /*
-         * If the updown has a buddy border, it has to overlap with the buddy
-         * to look as if it is integrated with the buddy control.
-         * We nudge the control or change its size to overlap.
-         */
-        if (UPDOWN_HasBuddyBorder(infoPtr)) {
-            if(dwStyle & UDS_ALIGNLEFT)
-                width += DEFAULT_BUDDYBORDER;
-            else
-                x -= DEFAULT_BUDDYBORDER;
-        }
-
-        SetWindowPos(infoPtr->Self, 0, x,
-                     budRect.top - DEFAULT_ADDTOP, width,
-                     budRect.bottom - budRect.top + DEFAULT_ADDTOP + DEFAULT_ADDBOT,
-                     SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOZORDER);
-    } else {
-        RECT rect;
-        GetWindowRect(infoPtr->Self, &rect);
-        MapWindowPoints(HWND_DESKTOP, GetParent(infoPtr->Self), (POINT *)&rect, 2);
-        SetWindowPos(infoPtr->Self, 0, rect.left, rect.top, DEFAULT_WIDTH, rect.bottom - rect.top,
-                     SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOZORDER);
+    /* Store buddy window class type */
+    infoPtr->BuddyType = BUDDY_TYPE_UNKNOWN;
+    if (GetClassNameA(bud, buddyClass, COUNT_OF(buddyClass))) {
+	if (lstrcmpiA(buddyClass, "Edit") == 0)
+	    infoPtr->BuddyType = BUDDY_TYPE_EDIT;
+	else if (lstrcmpiA(buddyClass, "Listbox") == 0)
+	    infoPtr->BuddyType = BUDDY_TYPE_LISTBOX;
     }
-    return ret;
+
+    if(dwStyle & UDS_ARROWKEYS){
+        /* Note that I don't clear the BUDDY_SUPERCLASS_WNDPROC property
+           when we reset the upDown ctrl buddy to another buddy because it is not
+           good to break the window proc chain. */
+	if (!GetPropA(bud, BUDDY_SUPERCLASS_WNDPROC)) {
+	    baseWndProc = (WNDPROC)SetWindowLongW(bud, GWL_WNDPROC, (LPARAM)UPDOWN_Buddy_SubclassProc);
+ 	    SetPropA(bud, BUDDY_SUPERCLASS_WNDPROC, (HANDLE)baseWndProc);
+	}
+    }
+
+    /* Get the rect of the buddy relative to its parent */
+    GetWindowRect(infoPtr->Buddy, &budRect);
+    MapWindowPoints(HWND_DESKTOP, GetParent(infoPtr->Buddy), (POINT *)(&budRect.left), 2);
+
+    /* now do the positioning */
+    if  (dwStyle & UDS_ALIGNLEFT) {
+        x  = budRect.left;
+        budRect.left += DEFAULT_WIDTH + DEFAULT_XSEP;
+    } else if (dwStyle & UDS_ALIGNRIGHT) {
+        budRect.right -= DEFAULT_WIDTH + DEFAULT_XSEP;
+        x  = budRect.right+DEFAULT_XSEP;
+    } else {
+        x  = budRect.right+DEFAULT_XSEP;
+    }
+
+    /* first adjust the buddy to accomodate the up/down */
+    SetWindowPos(infoPtr->Buddy, 0, budRect.left, budRect.top,
+	         budRect.right  - budRect.left, budRect.bottom - budRect.top,
+	         SWP_NOACTIVATE|SWP_NOZORDER);
+
+    /* now position the up/down */
+    /* Since the UDS_ALIGN* flags were used, */
+    /* we will pick the position and size of the window. */
+    width = DEFAULT_WIDTH;
+
+    /*
+     * If the updown has a buddy border, it has to overlap with the buddy
+     * to look as if it is integrated with the buddy control.
+     * We nudge the control or change it size to overlap.
+     */
+    if (UPDOWN_HasBuddyBorder(infoPtr)) {
+        if(dwStyle & UDS_ALIGNLEFT)
+            width += DEFAULT_BUDDYBORDER;
+        else
+            x -= DEFAULT_BUDDYBORDER;
+    }
+
+    SetWindowPos(infoPtr->Self, infoPtr->Buddy, x,
+		 budRect.top - DEFAULT_ADDTOP, width,
+		 budRect.bottom - budRect.top + DEFAULT_ADDTOP + DEFAULT_ADDBOT,
+		 SWP_NOACTIVATE);
+
+    return TRUE;
 }
 
 /***********************************************************************
@@ -572,29 +556,28 @@ static void UPDOWN_DoAction (UPDOWN_INFO *infoPtr, int delta, int action)
     delta *= (action & FLAG_INCR ? 1 : -1) * (infoPtr->MaxVal < infoPtr->MinVal ? -1 : 1);
     if ( (action & FLAG_INCR) && (action & FLAG_DECR) ) delta = 0;
 
-    TRACE("current %d, delta: %d\n", infoPtr->CurVal, delta);
-
     /* We must notify parent now to obtain permission */
     ni.iPos = infoPtr->CurVal;
     ni.iDelta = delta;
     ni.hdr.hwndFrom = infoPtr->Self;
-    ni.hdr.idFrom   = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+    ni.hdr.idFrom   = GetWindowLongW (infoPtr->Self, GWL_ID);
     ni.hdr.code = UDN_DELTAPOS;
-    if (!SendMessageW(infoPtr->Notify, WM_NOTIFY, (WPARAM)ni.hdr.idFrom, (LPARAM)&ni)) {
+    if (!SendMessageW(GetParent (infoPtr->Self), WM_NOTIFY,
+		   (WPARAM)ni.hdr.idFrom, (LPARAM)&ni)) {
         /* Parent said: OK to adjust */
 
         /* Now adjust value with (maybe new) delta */
         if (UPDOWN_OffsetVal (infoPtr, ni.iDelta)) {
-            TRACE("new %d, delta: %d\n", infoPtr->CurVal, ni.iDelta);
-
             /* Now take care about our buddy */
             if (dwStyle & UDS_SETBUDDYINT) UPDOWN_SetBuddyInt (infoPtr);
         }
     }
 
     /* Also, notify it. This message is sent in any case. */
-    SendMessageW( infoPtr->Notify, dwStyle & UDS_HORZ ? WM_HSCROLL : WM_VSCROLL,
-		  MAKELONG(SB_THUMBPOSITION, infoPtr->CurVal), (LPARAM)infoPtr->Self);
+    SendMessageW( GetParent(infoPtr->Self),
+		  dwStyle & UDS_HORZ ? WM_HSCROLL : WM_VSCROLL,
+		  MAKELONG(SB_THUMBPOSITION, infoPtr->CurVal),
+		  (LPARAM)infoPtr->Self);
 }
 
 /***********************************************************************
@@ -605,7 +588,7 @@ static void UPDOWN_DoAction (UPDOWN_INFO *infoPtr, int delta, int action)
  */
 static BOOL UPDOWN_IsEnabled (UPDOWN_INFO *infoPtr)
 {
-    if (!IsWindowEnabled(infoPtr->Self))
+    if(GetWindowLongW (infoPtr->Self, GWL_STYLE) & WS_DISABLED)
         return FALSE;
     if(infoPtr->Buddy)
         return IsWindowEnabled(infoPtr->Buddy);
@@ -631,9 +614,9 @@ static BOOL UPDOWN_CancelMode (UPDOWN_INFO *infoPtr)
     if (GetCapture() == infoPtr->Self) {
 	NMHDR hdr;
 	hdr.hwndFrom = infoPtr->Self;
-	hdr.idFrom   = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+	hdr.idFrom   = GetWindowLongW (infoPtr->Self, GWL_ID);
 	hdr.code = NM_RELEASEDCAPTURE;
-	SendMessageW(infoPtr->Notify, WM_NOTIFY, hdr.idFrom, (LPARAM)&hdr);
+	SendMessageW(GetParent (infoPtr->Self), WM_NOTIFY, hdr.idFrom, (LPARAM)&hdr);
 	ReleaseCapture();
     }
 
@@ -650,32 +633,23 @@ static BOOL UPDOWN_CancelMode (UPDOWN_INFO *infoPtr)
  * 'pt' is the location of the mouse event in client or
  * windows coordinates.
  */
-static void UPDOWN_HandleMouseEvent (UPDOWN_INFO *infoPtr, UINT msg, INT x, INT y)
+static void UPDOWN_HandleMouseEvent (UPDOWN_INFO *infoPtr, UINT msg, POINTS pts)
 {
     DWORD dwStyle = GetWindowLongW (infoPtr->Self, GWL_STYLE);
-    POINT pt = { x, y };
+    POINT pt = { pts.x, pts.y };
     RECT rect;
     int temp, arrow;
-
-    TRACE("msg %04x point %s\n", msg, wine_dbgstr_point(&pt));
 
     switch(msg)
     {
         case WM_LBUTTONDOWN:  /* Initialise mouse tracking */
+            /* If we are inside an arrow, then nothing to do */
+            if(!(infoPtr->Flags & FLAG_MOUSEIN)) return;
 
             /* If the buddy is an edit, will set focus to it */
 	    if (UPDOWN_IsBuddyEdit(infoPtr)) SetFocus(infoPtr->Buddy);
 
             /* Now see which one is the 'active' arrow */
-            arrow = UPDOWN_GetArrowFromPoint (infoPtr, &rect, pt);
-
-            /* Update the flags if we are in/out */
-            infoPtr->Flags &= ~(FLAG_MOUSEIN | FLAG_ARROW);
-            if (arrow)
-                infoPtr->Flags |= FLAG_MOUSEIN | arrow;
-            else
-                if (infoPtr->AccelIndex != -1) infoPtr->AccelIndex = 0;
-
 	    if (infoPtr->Flags & FLAG_ARROW) {
 
             	/* Update the CurVal if necessary */
@@ -688,8 +662,7 @@ static void UPDOWN_HandleMouseEvent (UPDOWN_INFO *infoPtr, UINT msg, INT x, INT 
 	    	InvalidateRect (infoPtr->Self, NULL, FALSE);
 
             	/* process the click */
-		temp = (infoPtr->AccelCount && infoPtr->AccelVect) ? infoPtr->AccelVect[0].nInc : 1;
-            	UPDOWN_DoAction (infoPtr, temp, infoPtr->Flags & FLAG_ARROW);
+            	UPDOWN_DoAction (infoPtr, 1, infoPtr->Flags & FLAG_ARROW);
 
             	/* now capture all mouse messages */
             	SetCapture (infoPtr->Self);
@@ -728,13 +701,12 @@ static void UPDOWN_HandleMouseEvent (UPDOWN_INFO *infoPtr, UINT msg, INT x, INT 
 /***********************************************************************
  *           UpDownWndProc
  */
-static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam,
+				LPARAM lParam)
 {
     UPDOWN_INFO *infoPtr = UPDOWN_GetInfoPtr (hwnd);
     DWORD dwStyle = GetWindowLongW (hwnd, GWL_STYLE);
     int temp;
-
-    TRACE("hwnd=%p msg=%04x wparam=%08x lparam=%08lx\n", hwnd, message, wParam, lParam);
 
     if (!infoPtr && (message != WM_CREATE))
         return DefWindowProcW (hwnd, message, wParam, lParam);
@@ -744,11 +716,10 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
         case WM_CREATE:
             SetWindowLongW (hwnd, GWL_STYLE, dwStyle & ~WS_BORDER);
             infoPtr = (UPDOWN_INFO*)Alloc (sizeof(UPDOWN_INFO));
-	    SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
+	    SetWindowLongW (hwnd, 0, (DWORD)infoPtr);
 
 	    /* initialize the info struct */
 	    infoPtr->Self = hwnd;
-	    infoPtr->Notify = ((LPCREATESTRUCTA)lParam)->hwndParent;
 	    infoPtr->AccelCount = 0;
 	    infoPtr->AccelVect = 0;
 	    infoPtr->AccelIndex = -1;
@@ -769,10 +740,10 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	case WM_DESTROY:
 	    if(infoPtr->AccelVect) Free (infoPtr->AccelVect);
 
-	    if(infoPtr->Buddy) RemovePropW(infoPtr->Buddy, BUDDY_UPDOWN_HWND);
+	    if(infoPtr->Buddy) RemovePropA(infoPtr->Buddy, BUDDY_UPDOWN_HWND);
 
 	    Free (infoPtr);
-	    SetWindowLongPtrW (hwnd, 0, 0);
+	    SetWindowLongW (hwnd, 0, 0);
 	    TRACE("UpDown Ctrl destruction, hwnd=%p\n", hwnd);
 	    break;
 
@@ -827,7 +798,7 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	    if ( (infoPtr->Flags & FLAG_MOUSEIN) &&
 		 (infoPtr->Flags & FLAG_ARROW) ) {
 
-	    	SendMessageW( infoPtr->Notify,
+	    	SendMessageW( GetParent(hwnd),
 			      dwStyle & UDS_HORZ ? WM_HSCROLL : WM_VSCROLL,
                   	      MAKELONG(SB_ENDSCROLL, infoPtr->CurVal),
 			      (LPARAM)hwnd);
@@ -840,7 +811,7 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	case WM_LBUTTONDOWN:
 	case WM_MOUSEMOVE:
 	    if(UPDOWN_IsEnabled(infoPtr))
-		UPDOWN_HandleMouseEvent (infoPtr, message, (SHORT)LOWORD(lParam), (SHORT)HIWORD(lParam));
+		UPDOWN_HandleMouseEvent (infoPtr, message, MAKEPOINTS(lParam));
 	    break;
 
 	case WM_KEYDOWN:
@@ -861,8 +832,7 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	    return 0;
 
 	case UDM_SETACCEL:
-	    TRACE("UDM_SETACCEL\n");
-
+	    TRACE("UpDown Ctrl new accel info, hwnd=%p\n", hwnd);
 	    if(infoPtr->AccelVect) {
 		Free (infoPtr->AccelVect);
 		infoPtr->AccelCount = 0;
@@ -872,11 +842,6 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	    infoPtr->AccelVect = Alloc (wParam*sizeof(UDACCEL));
 	    if(infoPtr->AccelVect == 0) return FALSE;
 	    memcpy(infoPtr->AccelVect, (void*)lParam, wParam*sizeof(UDACCEL));
-            infoPtr->AccelCount = wParam;
-
-            for (temp = 0; temp < wParam; temp++)
-                TRACE("%d: nSec %u nInc %u\n", temp, infoPtr->AccelVect[temp].nSec, infoPtr->AccelVect[temp].nInc);
-
     	    return TRUE;
 
 	case UDM_GETBASE:
@@ -895,7 +860,9 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 	    return (LRESULT)infoPtr->Buddy;
 
 	case UDM_SETBUDDY:
-	    return (LRESULT)UPDOWN_SetBuddy (infoPtr, (HWND)wParam);
+	    temp = (int)infoPtr->Buddy;
+	    UPDOWN_SetBuddy (infoPtr, (HWND)wParam);
+	    return temp;
 
 	case UDM_GETPOS:
 	    temp = UPDOWN_GetBuddyInt (infoPtr);
@@ -982,12 +949,12 @@ void UPDOWN_Register(void)
     WNDCLASSW wndClass;
 
     ZeroMemory( &wndClass, sizeof( WNDCLASSW ) );
-    wndClass.style         = CS_GLOBALCLASS | CS_VREDRAW | CS_HREDRAW;
-    wndClass.lpfnWndProc   = UpDownWindowProc;
+    wndClass.style         = CS_GLOBALCLASS | CS_VREDRAW;
+    wndClass.lpfnWndProc   = (WNDPROC)UpDownWindowProc;
     wndClass.cbClsExtra    = 0;
     wndClass.cbWndExtra    = sizeof(UPDOWN_INFO*);
     wndClass.hCursor       = LoadCursorW( 0, (LPWSTR)IDC_ARROW );
-    wndClass.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+    wndClass.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
     wndClass.lpszClassName = UPDOWN_CLASSW;
 
     RegisterClassW( &wndClass );

@@ -16,10 +16,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifdef __USE_W32API
-#include_next <ntsecapi.h>
-#else
-
 #ifndef __WINE_NTSECAPI_H
 #define __WINE_NTSECAPI_H
 
@@ -122,19 +118,18 @@ typedef PVOID LSA_HANDLE, *PLSA_HANDLE;
 
 typedef enum
 {
-  PolicyAuditLogInformation = 1,
-  PolicyAuditEventsInformation,
-  PolicyPrimaryDomainInformation,
-  PolicyPdAccountInformation,
-  PolicyAccountDomainInformation,
-  PolicyLsaServerRoleInformation,
-  PolicyReplicaSourceInformation,
-  PolicyDefaultQuotaInformation,
-  PolicyModificationInformation,
-  PolicyAuditFullSetInformation,
-  PolicyAuditFullQueryInformation,
-  PolicyDnsDomainInformation,
-  PolicyEfsInformation
+	PolicyAuditLogInformation = 1,
+	PolicyAuditEventsInformation,
+	PolicyPrimaryDomainInformation,
+	PolicyPdAccountInformation,
+	PolicyAccountDomainInformation,
+	PolicyLsaServerRoleInformation,
+	PolicyReplicaSourceInformation,
+	PolicyDefaultQuotaInformation,
+	PolicyModificationInformation,
+	PolicyAuditFullSetInformation,
+	PolicyAuditFullQueryInformation,
+	PolicyDnsDomainInformation
 } POLICY_INFORMATION_CLASS, *PPOLICY_INFORMATION_CLASS;
 
 typedef ULONG POLICY_AUDIT_EVENT_OPTIONS, *PPOLICY_AUDIT_EVENT_OPTIONS;
@@ -485,7 +480,7 @@ STDCALL
 LsaRemoveAccountRights(
     LSA_HANDLE PolicyHandle,
     PSID AccountSid,
-    BOOLEAN AllRights,
+    WINBOOL AllRights,
     PLSA_UNICODE_STRING UserRights,
     ULONG CountOfRights
     );
@@ -575,5 +570,3 @@ HANDLE NotificationEventHandle
 #endif /* defined(__cplusplus) */
 
 #endif /* !defined(__WINE_NTSECAPI_H) */
-
-#endif /* __USE_W32API */

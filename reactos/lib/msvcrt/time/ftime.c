@@ -8,7 +8,7 @@
  *              07/15/03 -- Created
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/sys/time.h>
 #include <msvcrt/sys/timeb.h>
 

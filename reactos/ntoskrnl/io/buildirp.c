@@ -1,4 +1,4 @@
-/* $Id: buildirp.c,v 1.45 2004/08/21 20:42:10 tamlin Exp $
+/* $Id: buildirp.c,v 1.35 2003/10/12 17:05:44 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -12,7 +12,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+#include <internal/io.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -53,10 +56,6 @@ NTSTATUS IoPrepareIrpBuffer(PIRP Irp,
 	DPRINT("Doing direct i/o\n");
 	
 	Irp->MdlAddress = MmCreateMdl(NULL,Buffer,Length);
-	if(Irp->MdlAddress == NULL) {
-		DPRINT("MmCreateMdl: Out of memory!");
-		return(STATUS_NO_MEMORY);
-	}	
 	if (MajorFunction == IRP_MJ_READ)
 	  {
 	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoWriteAccess);
@@ -98,12 +97,12 @@ IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
 {
    PIRP Irp;
    PIO_STACK_LOCATION StackPtr;
-
+   
    DPRINT("IoBuildAsynchronousFsdRequest(MajorFunction %x, DeviceObject %x, "
 	  "Buffer %x, Length %x, StartingOffset %x, "
 	  "IoStatusBlock %x\n",MajorFunction,DeviceObject,Buffer,Length,
 	  StartingOffset,IoStatusBlock);
-
+   
    Irp = IoAllocateIrp(DeviceObject->StackSize,TRUE);
    if (Irp==NULL)
      {
@@ -113,16 +112,16 @@ IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
    Irp->UserIosb = IoStatusBlock;
    DPRINT("Irp->UserIosb %x\n", Irp->UserIosb);
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-
+   
    StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = (UCHAR)MajorFunction;
+   StackPtr->MajorFunction = MajorFunction;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;
    StackPtr->Control = 0;
    StackPtr->DeviceObject = DeviceObject;
    StackPtr->FileObject = NULL;
    StackPtr->CompletionRoutine = NULL;
-
+   
    if (Buffer != NULL)
      {
 	IoPrepareIrpBuffer(Irp,
@@ -142,10 +141,10 @@ IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
 	else
 	  {
 	     StackPtr->Parameters.Read.ByteOffset.QuadPart = 0;
-	  }
+	  }     
      }
    else if (MajorFunction == IRP_MJ_WRITE)
-     {
+     {	
 	StackPtr->Parameters.Write.Length = Length;
 	if (StartingOffset!=NULL)
 	  {
@@ -153,10 +152,12 @@ IoBuildAsynchronousFsdRequest(ULONG MajorFunction,
 	  }
 	else
 	  {
-	    StackPtr->Parameters.Write.ByteOffset.QuadPart = 0;
-	  }
+             StackPtr->Parameters.Write.ByteOffset.QuadPart = 0;
+	  }     
      }
-
+   
+   Irp->UserIosb = IoStatusBlock;
+      
    return(Irp);
 }
 
@@ -258,13 +259,6 @@ IoBuildDeviceIoControlRequest(ULONG IoControlCode,
 	     RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
 			   InputBuffer,
 			   InputBufferLength);
-	     RtlZeroMemory((char*)Irp->AssociatedIrp.SystemBuffer + InputBufferLength,
-			   BufferLength - InputBufferLength);
-	  }
-	else
-	  {
-	     RtlZeroMemory(Irp->AssociatedIrp.SystemBuffer,
-			   BufferLength);
 	  }
 	Irp->UserBuffer = OutputBuffer;
 	break;
@@ -272,33 +266,31 @@ IoBuildDeviceIoControlRequest(ULONG IoControlCode,
       case METHOD_IN_DIRECT:
 	DPRINT("Using METHOD_IN_DIRECT!\n");
 	
-	/* build input buffer (control buffer) */
-	if (InputBuffer && InputBufferLength)
+	/* build output buffer (control buffer) */
+	if (OutputBuffer && OutputBufferLength)
 	  {
-            Irp->AssociatedIrp.SystemBuffer = (PVOID)
-               ExAllocatePoolWithTag(NonPagedPool,InputBufferLength, 
+	     Irp->AssociatedIrp.SystemBuffer = (PVOID)
+               ExAllocatePoolWithTag(NonPagedPool,OutputBufferLength, 
 				     TAG_SYS_BUF);
+
 	     
-	     if (Irp->AssociatedIrp.SystemBuffer==NULL)
+	     if (Irp->AssociatedIrp.SystemBuffer == NULL)
 	       {
 		  IoFreeIrp(Irp);
 		  return(NULL);
 	       }
-	     
-            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,
-			  InputBuffer,
-			  InputBufferLength);
+	     Irp->UserBuffer = OutputBuffer;
 	  }
 	
-	/* build output buffer (data transfer buffer) */
-         if (OutputBuffer && OutputBufferLength)
+         /* build input buffer (data transfer buffer) */
+	if (InputBuffer && InputBufferLength)
 	  {
-	     Irp->MdlAddress = IoAllocateMdl(OutputBuffer,
-					     OutputBufferLength,
+	     Irp->MdlAddress = IoAllocateMdl(InputBuffer,
+					     InputBufferLength,
 					     FALSE,
 					     FALSE,
-					    Irp);
-	     MmProbeAndLockPages(Irp->MdlAddress,UserMode,IoReadAccess);
+					     Irp);
+	     MmProbeAndLockPages (Irp->MdlAddress,UserMode,IoReadAccess);
 	  }
 	break;
 	
@@ -343,8 +335,6 @@ IoBuildDeviceIoControlRequest(ULONG IoControlCode,
 	break;
      }
 
-   /* synchronous irp's are queued to requestor thread's irp cancel/cleanup list */
-   IoQueueThreadIrp(Irp);
    return(Irp);
 }
 
@@ -396,8 +386,6 @@ IoBuildSynchronousFsdRequest(ULONG MajorFunction,
    
    Irp->UserEvent = Event;
 
-   /* synchronous irp's are queued to requestor thread's irp cancel/cleanup list */
-   IoQueueThreadIrp(Irp);
    return(Irp);
 }
 
@@ -455,7 +443,7 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
      }
    
    StackPtr = IoGetNextIrpStackLocation(Irp);
-   StackPtr->MajorFunction = (UCHAR)MajorFunction;
+   StackPtr->MajorFunction = MajorFunction;
    StackPtr->MinorFunction = 0;
    StackPtr->Flags = 0;
    StackPtr->Control = 0;
@@ -464,7 +452,7 @@ IoBuildSynchronousFsdRequestWithMdl(ULONG MajorFunction,
    StackPtr->CompletionRoutine = NULL;
    
    Irp->MdlAddress = Mdl;
-   Irp->UserBuffer = MmGetMdlVirtualAddress(Mdl);
+   Irp->UserBuffer = NULL;
    Irp->AssociatedIrp.SystemBuffer = NULL;
       
    if (MajorFunction == IRP_MJ_READ)

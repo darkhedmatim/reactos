@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: view.c,v 1.79 2004/10/22 20:11:12 ekohl Exp $
+/* $Id: view.c,v 1.69 2003/10/12 17:05:44 hbirr Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/view.c
@@ -51,7 +51,13 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
+#include <internal/mm.h>
+#include <internal/cc.h>
+#include <internal/pool.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -99,21 +105,14 @@ static HANDLE LazyCloseThreadHandle;
 static CLIENT_ID LazyCloseThreadId;
 static volatile BOOLEAN LazyCloseThreadShouldTerminate;
 
-#if defined(__GNUC__)
 void * alloca(size_t size);
-#elif defined(_MSC_VER)
-void* _alloca(size_t size);
-#else
-#error Unknown compiler for alloca intrinsic stack allocation "function"
-#endif
-
 
 NTSTATUS
 CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg);
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS
+NTSTATUS STATIC
 CcRosFlushCacheSegment(PCACHE_SEGMENT CacheSegment)
 {
   NTSTATUS Status;
@@ -185,7 +184,7 @@ CcRosFlushDirtyPages(ULONG Target, PULONG Count)
 	{
 	  continue;
 	}
-      ASSERT(current->Dirty);
+      assert(current->Dirty);
       if (current->ReferenceCount > 1)
 	{
 	  ExReleaseFastMutex(&current->Lock);
@@ -202,7 +201,7 @@ CcRosFlushDirtyPages(ULONG Target, PULONG Count)
       else
       {
          (*Count) += PagesPerSegment;
-         Target -= PagesPerSegment;
+         Target -= PagesPerSegment;     
       }
       ExAcquireFastMutex(&ViewLock);
       current_entry = DirtySegmentListHead.Flink;
@@ -264,20 +263,19 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
       }
       else
       {
-         if (last != current && current->MappedCount > 0 && !current->Dirty && !current->PageOut)
+         if (last != current && current->MappedCount > 0 && !current->Dirty)
 	   {
 	     ULONG i;
 	     NTSTATUS Status;
 	        
              current->ReferenceCount++;
 	     last = current;
-	     current->PageOut = TRUE;
              KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
 	     ExReleaseFastMutex(&ViewLock);
 	     for (i = 0; i < current->Bcb->CacheSegmentSize / PAGE_SIZE; i++)
 	       {
-	         PFN_TYPE Page;
-		 Page = MmGetPhysicalAddress((char*)current->BaseAddress + i * PAGE_SIZE).QuadPart >> PAGE_SHIFT;
+	         PHYSICAL_ADDRESS Page;
+		 Page = MmGetPhysicalAddress(current->BaseAddress + i * PAGE_SIZE);
                  Status = MmPageOutPhysicalAddress(Page);
 		 if (!NT_SUCCESS(Status))
 		   {
@@ -287,7 +285,6 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
              ExAcquireFastMutex(&ViewLock);
              KeAcquireSpinLock(&current->Bcb->BcbLock, &oldIrql);
 	     current->ReferenceCount--;
-	     current->PageOut = FALSE;
              KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
              current_entry = &current->CacheSegmentLRUListEntry;
 	     continue;
@@ -319,7 +316,7 @@ CcRosReleaseCacheSegment(PBCB Bcb,
   BOOLEAN WasDirty = CacheSeg->Dirty;
   KIRQL oldIrql;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcReleaseCacheSegment(Bcb %x, CacheSeg %x, Valid %d)\n",
 	 Bcb, CacheSeg, Valid);
@@ -364,7 +361,7 @@ CcRosLookupCacheSegment(PBCB Bcb, ULONG FileOffset)
   PCACHE_SEGMENT current;
   KIRQL oldIrql;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosLookupCacheSegment(Bcb %x, FileOffset %d)\n", Bcb, FileOffset);
 
@@ -394,14 +391,14 @@ CcRosMarkDirtyCacheSegment(PBCB Bcb, ULONG FileOffset)
   PCACHE_SEGMENT CacheSeg;
   KIRQL oldIrql;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosMarkDirtyCacheSegment(Bcb %x, FileOffset %d)\n", Bcb, FileOffset);
 
   CacheSeg = CcRosLookupCacheSegment(Bcb, FileOffset);
   if (CacheSeg == NULL)
     {
-      KEBUGCHECKCC;
+      KEBUGCHECK(0);
     }
   if (!CacheSeg->Dirty)
     {
@@ -431,7 +428,7 @@ CcRosUnmapCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty)
   BOOLEAN WasDirty;
   KIRQL oldIrql;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosUnmapCacheSegment(Bcb %x, FileOffset %d, NowDirty %d)\n",
           Bcb, FileOffset, NowDirty);
@@ -482,18 +479,14 @@ CcRosCreateCacheSegment(PBCB Bcb,
   PLIST_ENTRY current_entry;
   NTSTATUS Status;
   KIRQL oldIrql;
-  PPFN_TYPE Pfn;
 #ifdef CACHE_BITMAP
   ULONG StartingOffset;
-#else
 #endif
-  PHYSICAL_ADDRESS BoundaryAddressMultiple;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosCreateCacheSegment()\n");
 
-  BoundaryAddressMultiple.QuadPart = 0;
   if (FileOffset >= Bcb->FileSize.u.LowPart)
   {
      CacheSeg = NULL;
@@ -503,7 +496,6 @@ CcRosCreateCacheSegment(PBCB Bcb,
   current = ExAllocateFromNPagedLookasideList(&CacheSegLookasideList);
   current->Valid = FALSE;
   current->Dirty = FALSE;
-  current->PageOut = FALSE;
   current->FileOffset = ROUND_DOWN(FileOffset, Bcb->CacheSegmentSize);
   current->Bcb = Bcb;
   current->MappedCount = 0;
@@ -577,7 +569,7 @@ CcRosCreateCacheSegment(PBCB Bcb,
   if (StartingOffset == 0xffffffff)
   {
      DPRINT1("Out of CacheSeg mapping space\n");
-     KEBUGCHECKCC;
+     KEBUGCHECK(0);
   }
 
   current->BaseAddress = CiCacheSegMappingRegionBase + StartingOffset * PAGE_SIZE;
@@ -599,31 +591,32 @@ CcRosCreateCacheSegment(PBCB Bcb,
 			      PAGE_READWRITE,
 			      (PMEMORY_AREA*)&current->MemoryArea,
 			      FALSE,
-			      FALSE,
-			      BoundaryAddressMultiple);
+			      FALSE);
   MmUnlockAddressSpace(MmGetKernelAddressSpace());
   if (!NT_SUCCESS(Status))
   {
-     KEBUGCHECKCC;
+     KEBUGCHECK(0);
   }
 #endif
-  Pfn = alloca(sizeof(PFN_TYPE) * (Bcb->CacheSegmentSize / PAGE_SIZE));
   for (i = 0; i < (Bcb->CacheSegmentSize / PAGE_SIZE); i++)
   {
-     Status = MmRequestPageMemoryConsumer(MC_CACHE, TRUE, &Pfn[i]);
+     PHYSICAL_ADDRESS Page;
+      
+     Status = MmRequestPageMemoryConsumer(MC_CACHE, TRUE, &Page);
      if (!NT_SUCCESS(Status))
      {
-	KEBUGCHECKCC;
+	KEBUGCHECK(0);
      }
-  }
-  Status = MmCreateVirtualMapping(NULL,
-				  current->BaseAddress,
-				  PAGE_READWRITE,
-				  Pfn,
-				  Bcb->CacheSegmentSize / PAGE_SIZE);
-  if (!NT_SUCCESS(Status))
-  {
-    KEBUGCHECKCC;
+      
+     Status = MmCreateVirtualMapping(NULL,
+				     current->BaseAddress + (i * PAGE_SIZE),
+				     PAGE_READWRITE,
+				     Page,
+				     TRUE);
+     if (!NT_SUCCESS(Status))
+     {
+	KEBUGCHECK(0);
+     }
   }
   return(STATUS_SUCCESS);
 }
@@ -639,21 +632,14 @@ CcRosGetCacheSegmentChain(PBCB Bcb,
   PCACHE_SEGMENT* CacheSegList;
   PCACHE_SEGMENT Previous = NULL;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosGetCacheSegmentChain()\n");
 
   Length = ROUND_UP(Length, Bcb->CacheSegmentSize);
 
-#if defined(__GNUC__)
   CacheSegList = alloca(sizeof(PCACHE_SEGMENT) * 
 			(Length / Bcb->CacheSegmentSize));
-#elif defined(_MSC_VER)
-  CacheSegList = _alloca(sizeof(PCACHE_SEGMENT) * 
-			(Length / Bcb->CacheSegmentSize));
-#else
-#error Unknown compiler for alloca intrinsic stack allocation "function"
-#endif
 
   /*
    * Look for a cache segment already mapping the same data.
@@ -702,7 +688,7 @@ CcRosGetCacheSegment(PBCB Bcb,
    PCACHE_SEGMENT current;
    NTSTATUS Status;
 
-   ASSERT(Bcb);
+   assert(Bcb);
 
    DPRINT("CcRosGetCacheSegment()\n");
 
@@ -744,13 +730,13 @@ CcRosRequestCacheSegment(PBCB Bcb,
 {
   ULONG BaseOffset;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   if ((FileOffset % Bcb->CacheSegmentSize) != 0)
     {
       CPRINT("Bad fileoffset %x should be multiple of %x",
         FileOffset, Bcb->CacheSegmentSize);
-      KEBUGCHECKCC;
+      KEBUGCHECK(0);
     }
 
   return(CcRosGetCacheSegment(Bcb,
@@ -764,12 +750,12 @@ CcRosRequestCacheSegment(PBCB Bcb,
 #else
 STATIC VOID 
 CcFreeCachePage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address, 
-		PFN_TYPE Page, SWAPENTRY SwapEntry, BOOLEAN Dirty)
+		PHYSICAL_ADDRESS PhysAddr, SWAPENTRY SwapEntry, BOOLEAN Dirty)
 {
-  ASSERT(SwapEntry == 0);
-  if (Page != 0)
+  assert(SwapEntry == 0);
+  if (PhysAddr.QuadPart != 0)
     {
-      MmReleasePageMemoryConsumer(MC_CACHE, Page);
+      MmReleasePageMemoryConsumer(MC_CACHE, PhysAddr);
     }
 }
 #endif
@@ -783,7 +769,7 @@ CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg)
   ULONG i;
   ULONG RegionSize;
   ULONG Base;
-  PFN_TYPE Page;
+  PHYSICAL_ADDRESS PhysicalAddr;
   KIRQL oldIrql;
 #endif
   DPRINT("Freeing cache segment %x\n", CacheSeg);
@@ -797,8 +783,8 @@ CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg)
 			     CacheSeg->BaseAddress + (i * PAGE_SIZE),
 			     FALSE,
 			     NULL,
-			     &Page);
-      MmReleasePageMemoryConsumer(MC_CACHE, Page);
+			     &PhysicalAddr);
+      MmReleasePageMemoryConsumer(MC_CACHE, PhysicalAddr);
     }
 
   KeAcquireSpinLock(&CiCacheSegMappingRegionLock, &oldIrql);
@@ -829,7 +815,7 @@ CcRosFreeCacheSegment(PBCB Bcb, PCACHE_SEGMENT CacheSeg)
   NTSTATUS Status;
   KIRQL oldIrql;
 
-  ASSERT(Bcb);
+  assert(Bcb);
 
   DPRINT("CcRosFreeCacheSegment(Bcb %x, CacheSeg %x)\n",
          Bcb, CacheSeg);
@@ -873,14 +859,14 @@ CcFlushCache(IN PSECTION_OBJECT_POINTERS SectionObjectPointers,
    if (SectionObjectPointers && SectionObjectPointers->SharedCacheMap)
    {
       Bcb = (PBCB)SectionObjectPointers->SharedCacheMap;
-      ASSERT(Bcb);
+      assert(Bcb);
       if (FileOffset)
       {
 	 Offset = *FileOffset;
       }
       else 
       {
-	 Offset.QuadPart = (LONGLONG)0;
+	 Offset.QuadPart = 0LL;
 	 Length = Bcb->FileSize.u.LowPart;
       }
    
@@ -941,8 +927,8 @@ CcRosDeleteFileCache(PFILE_OBJECT FileObject, PBCB Bcb)
    LIST_ENTRY FreeList;
    KIRQL oldIrql;
 
-   ASSERT(Bcb);
-
+   assert(Bcb);
+   
    Bcb->RefCount++;
    ExReleaseFastMutex(&ViewLock);
 
@@ -1002,17 +988,17 @@ VOID CcRosReferenceCache(PFILE_OBJECT FileObject)
   PBCB Bcb;
   ExAcquireFastMutex(&ViewLock);
   Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
-  ASSERT(Bcb);
+  assert(Bcb);
   if (Bcb->RefCount == 0)
   {
-     ASSERT(Bcb->BcbRemoveListEntry.Flink != NULL);
+     assert(Bcb->BcbRemoveListEntry.Flink != NULL);
      RemoveEntryList(&Bcb->BcbRemoveListEntry);
      Bcb->BcbRemoveListEntry.Flink = NULL;
 
   }
   else
   {
-     ASSERT(Bcb->BcbRemoveListEntry.Flink == NULL);
+     assert(Bcb->BcbRemoveListEntry.Flink == NULL);
   }
   Bcb->RefCount++;
   ExReleaseFastMutex(&ViewLock);
@@ -1041,7 +1027,7 @@ VOID CcRosDereferenceCache(PFILE_OBJECT FileObject)
   PBCB Bcb;
   ExAcquireFastMutex(&ViewLock);
   Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
-  ASSERT(Bcb);
+  assert(Bcb);
   if (Bcb->RefCount > 0)
   {
     Bcb->RefCount--;
@@ -1084,7 +1070,6 @@ CcRosReleaseFileCache(PFILE_OBJECT FileObject)
          Bcb->RefCount--;
 	 if (Bcb->RefCount == 0)
 	 {
-            MmFreeSectionSegments(Bcb->FileObject);
 	    if (Bcb->RemoveOnClose)
 	    {
 	       CcRosDeleteFileCache(FileObject, Bcb);
@@ -1143,21 +1128,21 @@ CcRosInitializeFileCache(PFILE_OBJECT FileObject,
  */
 {
    PBCB Bcb;
-
-   Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
    DPRINT("CcRosInitializeFileCache(FileObject %x, *Bcb %x, CacheSegmentSize %d)\n",
            FileObject, Bcb, CacheSegmentSize);
 
    ExAcquireFastMutex(&ViewLock);
+
+   Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
    if (Bcb == NULL)
    {
-      Bcb = ExAllocateFromNPagedLookasideList(&BcbLookasideList);
+      Bcb = ExAllocateFromNPagedLookasideList(&BcbLookasideList);	
       if (Bcb == NULL)
       {
         ExReleaseFastMutex(&ViewLock);
 	return(STATUS_UNSUCCESSFUL);
       }
-      memset(Bcb, 0, sizeof(BCB));
+      memset(Bcb, 0, sizeof(BCB));      
       ObReferenceObjectByPointer(FileObject,
 			         FILE_ALL_ACCESS,
 			         NULL,
@@ -1200,7 +1185,7 @@ CcGetFileObjectFromSectionPtrs(IN PSECTION_OBJECT_POINTERS SectionObjectPointers
    if (SectionObjectPointers && SectionObjectPointers->SharedCacheMap)
    {
       Bcb = (PBCB)SectionObjectPointers->SharedCacheMap;
-      ASSERT(Bcb);
+      assert(Bcb);
       return Bcb->FileObject;
    }
    return NULL;
@@ -1219,7 +1204,7 @@ CmLazyCloseThreadMain(PVOID Ignored)
 
    while (1)
    {
-      Timeout.QuadPart += (LONGLONG)100000000; // 10sec
+      Timeout.QuadPart += 100000000LL; // 10sec
       Status = KeWaitForSingleObject(&LazyCloseThreadEvent,
 	                             0,
 				     KernelMode,
@@ -1231,7 +1216,7 @@ CmLazyCloseThreadMain(PVOID Ignored)
       if (!NT_SUCCESS(Status))
       {
 	  DbgPrint("LazyCloseThread: Wait failed\n");
-	  KEBUGCHECKCC;
+	  KEBUGCHECK(0);
 	  break;
       }
       if (LazyCloseThreadShouldTerminate)
@@ -1266,14 +1251,12 @@ CcInitView(VOID)
 #ifdef CACHE_BITMAP
   PMEMORY_AREA marea;
   PVOID Buffer;
-  PHYSICAL_ADDRESS BoundaryAddressMultiple;
 #endif
   NTSTATUS Status;
   KPRIORITY Priority;
-  
+
   DPRINT("CcInitView()\n");
 #ifdef CACHE_BITMAP
-  BoundaryAddressMultiple.QuadPart = 0;
   CiCacheSegMappingRegionHint = 0;
   CiCacheSegMappingRegionBase = NULL;
 
@@ -1287,12 +1270,11 @@ CcInitView(VOID)
 			      0,
 			      &marea,
 			      FALSE,
-			      FALSE,
-			      BoundaryAddressMultiple);
+			      FALSE);
   MmUnlockAddressSpace(MmGetKernelAddressSpace());
   if (!NT_SUCCESS(Status))
     {
-      KEBUGCHECKCC;
+      KEBUGCHECK(0);
     }
 
   Buffer = ExAllocatePool(NonPagedPool, CI_CACHESEG_MAPPING_REGION_SIZE / (PAGE_SIZE * 8));

@@ -13,28 +13,43 @@
 /* Forward Information Base Entry */
 typedef struct _FIB_ENTRY {
     LIST_ENTRY ListEntry;         /* Entry on list */
+    ULONG RefCount;               /* Reference count */
     OBJECT_FREE_ROUTINE Free;     /* Routine used to free resources for the object */
-    IP_ADDRESS NetworkAddress;    /* Address of network */
-    IP_ADDRESS Netmask;           /* Netmask of network */
+    PIP_ADDRESS NetworkAddress;   /* Address of network */
+    PIP_ADDRESS Netmask;          /* Netmask of network */
+    PNET_TABLE_ENTRY NTE;         /* Pointer to NTE to use */
     PNEIGHBOR_CACHE_ENTRY Router; /* Pointer to NCE of router to use */
     UINT Metric;                  /* Cost of this route */
 } FIB_ENTRY, *PFIB_ENTRY;
 
+
+PNET_TABLE_ENTRY RouterFindBestNTE(
+    PIP_INTERFACE Interface,
+    PIP_ADDRESS Destination);
+
+PIP_INTERFACE RouterFindOnLinkInterface(
+    PIP_ADDRESS Address,
+    PNET_TABLE_ENTRY NTE);
+
 PFIB_ENTRY RouterAddRoute(
     PIP_ADDRESS NetworkAddress,
     PIP_ADDRESS Netmask,
+    PNET_TABLE_ENTRY NTE,
     PNEIGHBOR_CACHE_ENTRY Router,
     UINT Metric);
 
-PNEIGHBOR_CACHE_ENTRY RouterGetRoute(PIP_ADDRESS Destination);
+PNEIGHBOR_CACHE_ENTRY RouterGetRoute(
+    PIP_ADDRESS Destination,
+    PNET_TABLE_ENTRY NTE);
 
-NTSTATUS RouterRemoveRoute(PIP_ADDRESS Target, PIP_ADDRESS Router);
+VOID RouterRemoveRoute(
+    PFIB_ENTRY FIBE);
 
-PFIB_ENTRY RouterCreateRoute(
-    PIP_ADDRESS NetworkAddress,
-    PIP_ADDRESS Netmask,
-    PIP_ADDRESS RouterAddress,
-    PIP_INTERFACE Interface,
+PFIB_ENTRY RouterCreateRouteIPv4(
+    IPv4_RAW_ADDRESS NetworkAddress,
+    IPv4_RAW_ADDRESS Netmask,
+    IPv4_RAW_ADDRESS RouterAddress,
+    PNET_TABLE_ENTRY NTE,
     UINT Metric);
 
 NTSTATUS RouterStartup(
@@ -42,10 +57,6 @@ NTSTATUS RouterStartup(
 
 NTSTATUS RouterShutdown(
     VOID);
-
-UINT CountFIBs();
-
-UINT CopyFIBs( PFIB_ENTRY Target );
 
 #endif /* __ROUTER_H */
 

@@ -1,4 +1,4 @@
-/* $Id: genw32k.c,v 1.10 2004/04/12 22:07:45 hyperion Exp $
+/* $Id: genw32k.c,v 1.5 2003/08/01 09:06:54 weiden Exp $
  *
  * COPYRIGHT:             See COPYING in the top level directory
  * PROJECT:               ReactOS version of ntdll
@@ -29,82 +29,14 @@
 
 /* FUNCTIONS ****************************************************************/
 
-void write_stub_header(FILE * out)
-{
- fputs
- (
-  "/* Machine generated, don't edit */\n"
-  "\n"
-  "#ifdef __cplusplus\n"
-  "#define EXTERN_C extern \"C\"\n"
-  "#else\n"
-  "#define EXTERN_C\n"
-  "#endif\n"
-  "\n"
-  "EXTERN_C static __inline__ __attribute__((regparm(2)))"
-  "void*ZwRosSystemServiceThunk(long n,void*a)"
-  "{"
-   "void*ret;"
-   "__asm__"
-   "("
-    "\"int $0x2E\":"
-    "\"=a\"(ret):"
-    "\"a\"(n),\"d\"(a)"
-   ");"
-   "return ret;"
-  "}\n",
-  out
- );
-}
-
-void write_syscall_stub_func(FILE* out, char* name, unsigned nr_args,
-                             unsigned int sys_call_idx)
-{
- unsigned i;
-
- fprintf(out, "EXTERN_C void*__stdcall %s(", name);
- 
- if(nr_args == 0)
-  fputs("void", out);
- else
-  for(i = 0; i < nr_args; ++ i)
-  {
-   if(i > 0)
-    fputs(",", out);
-
-   fprintf(out, "void*a%u", i);
-  }
- 
- fputs("){", out);
-
- if(nr_args > 1)
-  for(i = 1; i < nr_args; ++ i)
-   fprintf(out, "(void)a%u;", i);
-
- fprintf(out, "return ZwRosSystemServiceThunk(%u,", sys_call_idx);
- 
- if(nr_args == 0)
-  fputs("0", out);
- else
-  fputs("&a0", out);
- 
- fputs(");}\n", out);
-}
-
-void write_syscall_stub(FILE* out1, FILE* out2, char* name,
-			unsigned nr_args, unsigned int sys_call_idx)
-{
-  write_syscall_stub_func(out1, name, nr_args, sys_call_idx);
-  write_syscall_stub_func(out2, name, nr_args, sys_call_idx);
-}
-
 int makeSystemServiceTable(FILE *in, FILE *out)
 {
 char    line [INPUT_BUFFER_SIZE];
 char    *s;
 char    *name;
 int     sys_call_idx;
-char    *snr_args;
+char    *nr_args;
+char    *stmp;
 
 	/*
 	 * Main SSDT Header
@@ -135,7 +67,15 @@ char    *snr_args;
 		{
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
-
+			/* Extract the stack size */
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx | INDEX,name);
 #endif
@@ -148,7 +88,7 @@ char    *snr_args;
 			 * Now write the current system call's name
 			 * in the service table.
 			 */
-			fprintf(out,"\t\t(PVOID (NTAPI *)(VOID))%s",name);
+			fprintf(out,"\t\t{ (ULONG)%s }",name);
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -183,8 +123,14 @@ char    *snr_args;
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
 			/* Extract the stack size */
-			snr_args = (char *)strtok(NULL," \t");
-
+			nr_args = (char *)strtok(NULL," \t");
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx|INDEX,name);
 #endif
@@ -197,7 +143,7 @@ char    *snr_args;
 			 * Now write the current system call's ID
 			 * in the service table along with its Parameters Size.
 			 */
-			fprintf(out,"\t\t%lu * sizeof(void*)", strtoul(snr_args, NULL, 0));
+			fprintf(out,"\t\t{ %d }",atoi(nr_args) * sizeof(void*));
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -224,24 +170,35 @@ int
 process(
 	FILE	* in,
 	FILE	* out1,
-	FILE	* out2
+	FILE	* out2,
+	FILE    * out3
 	)
 {
 	char		line [INPUT_BUFFER_SIZE];
 	char		* s;
 	char		* name;		/* NtXXX name */
 	int		sys_call_idx;	/* NtXXX index number in the service table */
-	char		* snr_args;	/* stack_size / machine_word_size */
+	char		* nr_args;	/* stack_size / machine_word_size */
+	char		* stmp;
+	int		stacksize;
 
 	/*
 	 * GDI32 stubs file header
 	 */
-	write_stub_header(out1);
+	fprintf(out1,"// Machine generated, don't edit\n");
+	fprintf(out1,"\n\n");
 
 	/*
 	 * USER32 stubs file header
 	 */
-	write_stub_header(out2);
+	fprintf(out2,"// Machine generated, don't edit\n");
+	fprintf(out2,"\n\n");
+
+	/*
+	 * CSRSS stubs file header
+	 */
+	fprintf(out3,"// Machine generated, don't edit\n");
+	fprintf(out3,"\n\n");
 
 	/*
 	 * Scan the database. DB is a text file; each line
@@ -280,13 +237,63 @@ process(
 			/* Extract the NtXXX name */
 			name = (char *)strtok(s," \t");
 			/* Extract the stack size */
-			snr_args = (char *)strtok(NULL," \t");
-
+			nr_args = (char *)strtok(NULL," \t");
+			stacksize = atoi(nr_args)*sizeof(void*);
+			/*
+			 * Remove, if present, the trailing LF.
+			 */
+			if ((stmp = strchr(nr_args, '\n')) != NULL)
+			{
+				*stmp = '\0';
+			}
 #ifdef VERBOSE
 			printf("%3d \"%s\"\n",sys_call_idx | INDEX,name);
 #endif
 
-                        write_syscall_stub(out1, out2, name, strtoul(snr_args, NULL, 0), sys_call_idx | INDEX);
+			/*
+			 * Write the GDI32 stub for the current system call.
+			 */
+#ifdef PARAMETERIZED_LIBS
+			fprintf(out1,"__asm__(\"\\n\\t.global _%s@%d\\n\\t\"\n",name,stacksize);
+			fprintf(out1,"\"_%s@%d:\\n\\t\"\n",name,stacksize);
+#else
+			fprintf(out1,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+			fprintf(out1,"\"_%s:\\n\\t\"\n",name);
+#endif
+			fprintf(out1,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx | INDEX);
+			fprintf(out1,"\t\"lea\t4(%%esp),%%edx\\n\\t\"\n");
+			fprintf(out1,"\t\"int\t$0x2E\\n\\t\"\n");
+			fprintf(out1,"\t\"ret\t$%d\\n\\t\");\n\n",stacksize);
+
+			/*
+			 * Write the USER32 stub for the current system call
+			 */
+#ifdef PARAMETERIZED_LIBS
+			fprintf(out2,"__asm__(\"\\n\\t.global _%s@%d\\n\\t\"\n",name,stacksize);
+			fprintf(out2,"\"_%s@%d:\\n\\t\"\n",name,stacksize);
+#else
+			fprintf(out2,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+			fprintf(out2,"\"_%s:\\n\\t\"\n",name);
+#endif
+			fprintf(out2,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx | INDEX);
+			fprintf(out2,"\t\"lea\t4(%%esp),%%edx\\n\\t\"\n");
+			fprintf(out2,"\t\"int\t$0x2E\\n\\t\"\n");
+			fprintf(out2,"\t\"ret\t$%d\\n\\t\");\n\n",stacksize);
+
+			/*
+			 * Write the CSRSS stub for the current system call
+			 */
+#ifdef PARAMETERIZED_LIBS
+			fprintf(out3,"__asm__(\"\\n\\t.global _%s@%d\\n\\t\"\n",name,stacksize);
+			fprintf(out3,"\"_%s@%d:\\n\\t\"\n",name,stacksize);
+#else
+			fprintf(out3,"__asm__(\"\\n\\t.global _%s\\n\\t\"\n",name);
+			fprintf(out3,"\"_%s:\\n\\t\"\n",name);
+#endif
+			fprintf(out3,"\t\"mov\t$%d,%%eax\\n\\t\"\n",sys_call_idx | INDEX);
+			fprintf(out3,"\t\"lea\t4(%%esp),%%edx\\n\\t\"\n");
+			fprintf(out3,"\t\"int\t$0x2E\\n\\t\"\n");
+			fprintf(out3,"\t\"ret\t$%d\\n\\t\");\n\n",stacksize);
 
 			/* Next system call index */
 			sys_call_idx++;
@@ -314,9 +321,10 @@ int main(int argc, char* argv[])
 	FILE	* out1;	/* SERVICE_TABLE */
 	FILE	* out2;	/* GDI32 stubs */
 	FILE	* out3;	/* USER32 stubs */
+	FILE    * out4; /* CSRSS stubs */
 	int	ret;
 
-	if (argc != 5)
+	if (argc != 6)
 	{
 		usage(argv[0]);
 		return(1);
@@ -350,7 +358,14 @@ int main(int argc, char* argv[])
 		return(1);
 	}
 
-	ret = process(in,out2,out3);
+	out4 = fopen(argv[5],"wb");
+	if (out4 == NULL)
+	  {
+	    perror("Failed to open output file (CSRSS stubs)");
+	    return(1);
+	  }
+
+	ret = process(in,out2,out3,out4);
 	rewind(in);
 	ret = makeSystemServiceTable(in, out1);
 

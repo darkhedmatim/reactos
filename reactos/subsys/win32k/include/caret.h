@@ -1,10 +1,11 @@
-#ifndef _WIN32K_CARET_H
-#define _WIN32K_CARET_H
+#ifndef __WIN32K_CARET_H
+#define __WIN32K_CARET_H
 
-#include <windows.h>
-#include <internal/ps.h>
+#include <ddk/ntddk.h>
+#include <napi/win32.h>
 
 #define IDCARETTIMER (0xffff)
+#define ThrdCaretInfo(x) (PTHRDCARETINFO)((PW32THREAD)(x + 1))
 
 /* a copy of this structure is in lib/user32/include/user32.h */
 typedef struct _THRDCARETINFO
@@ -32,6 +33,6 @@ IntSwitchCaretShowing(PVOID Info);
 VOID FASTCALL
 IntDrawCaret(HWND hWnd);
 
-#endif /* _WIN32K_CARET_H */
+#endif /* __WIN32K_CARET_H */
 
 /* EOF */

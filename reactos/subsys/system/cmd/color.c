@@ -1,4 +1,4 @@
-/* $Id: color.c,v 1.6 2004/11/08 02:16:06 weiden Exp $
+/* $Id: color.c,v 1.3 2003/08/07 09:27:42 hbirr Exp $
  *
  *  COLOR.C - color internal command.
  *
@@ -18,10 +18,15 @@
  *        4nt's syntax implemented
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_COLOR
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
 
+#include "cmd.h"
 
 static VOID ColorHelp (VOID)
 {
@@ -63,26 +68,19 @@ VOID SetScreenColor (WORD wColor, BOOL bFill)
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	COORD coPos;
 
-	if ((wColor & 0xF) == (wColor &0xF0) >> 4)
+	if (bFill == TRUE)
 	{
-	  ConErrPuts (_T("Same colors error! (Background and foreground can't be the same color)")); 
-    }
-    else 
-    {
-	    if (bFill == TRUE)
-    	{
-    	     GetConsoleScreenBufferInfo (hConsole, &csbi);
+		GetConsoleScreenBufferInfo (hConsole, &csbi);
 
-    	     coPos.X = 0;
-    	     coPos.Y = 0;
-    	     FillConsoleOutputAttribute (hConsole,
+		coPos.X = 0;
+		coPos.Y = 0;
+		FillConsoleOutputAttribute (hConsole,
 		                            (WORD)(wColor & 0x00FF),
 		                            (csbi.dwSize.X)*(csbi.dwSize.Y),
 		                            coPos,
 		                            &dwWritten);
-        }
-        SetConsoleTextAttribute (hConsole, (WORD)(wColor & 0x00FF));
-    }
+	}
+	SetConsoleTextAttribute (hConsole, (WORD)(wColor & 0x00FF));
 }
 
 

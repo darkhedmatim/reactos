@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 
@@ -12,8 +12,6 @@ extern char**_environ;
 #undef __argc
 
 char**__argv = NULL;
-#undef __wargv
-wchar_t**__wargv = NULL;
 int __argc = 0;
 
 extern HANDLE hHeap;
@@ -23,7 +21,6 @@ char* strndup(char* name, int len)
     char *s = malloc(len + 1);
     if (s != NULL) {
         strncpy(s, name, len);
-        name[len] = 0;
     }
     return s;
 }
@@ -34,12 +31,14 @@ int add(char* name)
 {
     char** _new;
     if ((__argc % SIZE) == 0) {
-        if (__argv == NULL)
-            _new = malloc(sizeof(char*) * SIZE);
-        else
-            _new = realloc(__argv, sizeof(char*) * (__argc + SIZE));
-        if (_new == NULL)
+        _new = malloc(sizeof(char*) * (__argc + SIZE));
+        if (_new == NULL) {
             return -1;
+        }
+        if (__argv) {
+            memcpy(_new, __argv, sizeof(char*) * __argc);
+            free(__argv);
+        }
         __argv = _new;
     }
     __argv[__argc++] = name;
@@ -93,44 +92,45 @@ int expand(char* name, int flag)
  */
 int __getmainargs(int* argc, char*** argv, char*** env, int flag)
 {
-    int i, afterlastspace, ignorespace, len, doexpand;
+    int i, afterlastspace, ignorespace, len;
 
     /* missing threading init */
 
     i = 0;
     afterlastspace = 0;
     ignorespace = 0;
-    doexpand = flag;
-
     len = strlen(_acmdln);
 
     while (_acmdln[i]) {
 	if (_acmdln[i] == '"') {
-	    if(ignorespace) {
-		ignorespace = 0;
+	    if (_acmdln[i + 1] == '"') {
+		memmove(_acmdln + i, _acmdln + i + 1, len - i);
+		len--;
 	    } else {
-		ignorespace = 1;
-		doexpand = 0;
+		if(ignorespace) {
+		    ignorespace = 0;
+		} else {
+		    ignorespace = 1;
+		}
+		memmove(_acmdln + i, _acmdln + i + 1, len - i);
+		len--;
+		continue;
 	    }
-	    memmove(_acmdln + i, _acmdln + i + 1, len - i);
-	    len--;
-	    continue;
 	}
 
         if (_acmdln[i] == ' ' && !ignorespace) {
-            expand(strndup(_acmdln + afterlastspace, i - afterlastspace), doexpand);
+            expand(strndup(_acmdln + afterlastspace, i - afterlastspace), flag);
             i++;
             while (_acmdln[i]==' ')
                 i++;
             afterlastspace=i;
-	    doexpand = flag;
         } else {
             i++;
         }
     }
 
     if (_acmdln[afterlastspace] != 0) {
-        expand(strndup(_acmdln+afterlastspace, i - afterlastspace), doexpand);
+        expand(strndup(_acmdln+afterlastspace, i - afterlastspace), flag);
     }
     HeapValidate(hHeap, 0, NULL);
     *argc = __argc;
@@ -138,18 +138,6 @@ int __getmainargs(int* argc, char*** argv, char*** env, int flag)
     *env  = _environ;
     _pgmptr = strdup((char*)argv[0]);
     return 0;
-}
-
-/*
- * @unimplemented
- */
-void __wgetmainargs(int* argc, wchar_t*** wargv, wchar_t*** wenv,
-                    int expand_wildcards, int* new_mode)
-{
-    extern wchar_t **__winitenv;
-    *argc = 0;
-    *wargv = NULL;
-    *wenv = __winitenv;
 }
 
 /*

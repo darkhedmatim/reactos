@@ -26,7 +26,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ddk/ntddblue.h>
 
 #include "usetup.h"
@@ -108,7 +108,7 @@ AllocConsole(VOID)
 VOID
 FreeConsole(VOID)
 {
-  DPRINT("FreeConsole() called\n");
+  DPRINT1("FreeConsole() called\n");
 
   if (StdInput != INVALID_HANDLE_VALUE)
     NtClose(StdInput);
@@ -116,7 +116,7 @@ FreeConsole(VOID)
   if (StdOutput != INVALID_HANDLE_VALUE)
     NtClose(StdOutput);
 
-  DPRINT("FreeConsole() done\n");
+  DPRINT1("FreeConsole() done\n");
 }
 
 
@@ -129,6 +129,7 @@ WriteConsole(PCHAR Buffer,
 {
   IO_STATUS_BLOCK IoStatusBlock;
   NTSTATUS Status = STATUS_SUCCESS;
+  ULONG i;
 
   Status = NtWriteFile(StdOutput,
 		       NULL,
@@ -153,7 +154,7 @@ WriteConsole(PCHAR Buffer,
 /*--------------------------------------------------------------
  *	ReadConsoleA
  */
-BOOL
+WINBOOL
 STDCALL
 ReadConsoleA(HANDLE hConsoleInput,
 			     LPVOID lpBuffer,
@@ -217,6 +218,7 @@ ReadConsoleOutputCharacters(LPSTR lpCharacter,
 			    PULONG lpNumberOfCharsRead)
 {
   IO_STATUS_BLOCK IoStatusBlock;
+  ULONG dwBytesReturned;
   OUTPUT_CHARACTER Buffer;
   NTSTATUS Status;
 
@@ -249,6 +251,7 @@ ReadConsoleOutputAttributes(PUSHORT lpAttribute,
 			    PULONG lpNumberOfAttrsRead)
 {
   IO_STATUS_BLOCK IoStatusBlock;
+  ULONG dwBytesReturned;
   OUTPUT_ATTRIBUTE Buffer;
   NTSTATUS Status;
 
@@ -300,10 +303,10 @@ WriteConsoleOutputCharacters(LPCSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -344,10 +347,10 @@ WriteConsoleOutputCharactersW(LPCWSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -384,10 +387,10 @@ WriteConsoleOutputAttributes(CONST USHORT *lpAttribute,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_ATTRIBUTE,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength * sizeof(USHORT) + sizeof(COORD));
+				 nLength * sizeof(USHORT) + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -405,6 +408,7 @@ FillConsoleOutputAttribute(USHORT wAttribute,
 {
   IO_STATUS_BLOCK IoStatusBlock;
   OUTPUT_ATTRIBUTE Buffer;
+  ULONG dwBytesReturned;
   NTSTATUS Status;
 
   Buffer.wAttribute = wAttribute;
@@ -439,6 +443,7 @@ FillConsoleOutputCharacter(CHAR Character,
 {
   IO_STATUS_BLOCK IoStatusBlock;
   OUTPUT_CHARACTER Buffer;
+  ULONG dwBytesReturned;
   NTSTATUS Status;
 
   Buffer.cCharacter = Character;
@@ -649,6 +654,7 @@ SetConsoleTextAttribute(USHORT wAttributes)
 VOID
 ConInKey(PINPUT_RECORD Buffer)
 {
+  ULONG KeysRead;
 
   while (TRUE)
     {
@@ -818,42 +824,6 @@ SetStatusText(char* fmt, ...)
   WriteConsoleOutputCharacters(Buffer,
 			       strlen(Buffer),
 			       coPos);
-}
-
-
-VOID
-InvertTextXY(SHORT x, SHORT y, SHORT col, SHORT row)
-{
-  COORD coPos;
-  ULONG Written;
-
-  for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
-    {
-      coPos.X = x;
-
-      FillConsoleOutputAttribute(0x71,
-				 col,
-				 coPos,
-				 &Written);
-    }
-}
-
-
-VOID
-NormalTextXY(SHORT x, SHORT y, SHORT col, SHORT row)
-{
-  COORD coPos;
-  ULONG Written;
-
-  for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
-    {
-      coPos.X = x;
-
-      FillConsoleOutputAttribute(0x17,
-				 col,
-				 coPos,
-				 &Written);
-    }
 }
 
 

@@ -16,31 +16,31 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dialog.c,v 1.28 2004/11/22 10:59:01 gvg Exp $
+/* $Id: dialog.c,v 1.20 2003/10/31 16:25:08 navaraf Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/dialog.c
  * PURPOSE:         Input
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  *                  Thomas Weidenmueller (w3seek@users.sourceforge.net)
- *                  Steven Edwards (Steven_Ed4153@yahoo.com)
  * UPDATE HISTORY:
  *      07-26-2003  Code ported from wine
  *      09-05-2001  CSH  Created
  */
 
 /* INCLUDES ******************************************************************/
-
-#include "user32.h"
+#define __NTAPP__
+#include <windows.h>
 #include <string.h>
+#include <user32.h>
+#include <ntos/rtl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
-#include <limits.h>
 #include <debug.h>
 
 #include "user32/regcontrol.h"
 #include "../controls/controls.h"
+
 
 /* MACROS/DEFINITIONS ********************************************************/
 
@@ -116,14 +116,6 @@ typedef struct
     HWND       control;
 } GETDLGITEMINFO;
 
-/* CheckRadioButton structure */
-typedef struct
-{
-  UINT firstID;
-  UINT lastID;
-  UINT checkID;
-} RADIOGROUP;
-
 
 /*********************************************************************
  * dialog class descriptor
@@ -131,9 +123,8 @@ typedef struct
 const struct builtin_class_descr DIALOG_builtin_class =
 {
     DIALOG_CLASS_ATOMW, /* name */
-    CS_SAVEBITS | CS_DBLCLKS, /* style  */
+    CS_GLOBALCLASS | CS_SAVEBITS | CS_DBLCLKS, /* style  */
     (WNDPROC) DefDlgProcW,        /* procW */
-    (WNDPROC) DefDlgProcA,        /* procA */
     DWL_INIT + sizeof(LONG),  /* extra */
     (LPCWSTR) IDC_ARROW,           /* cursor */
     0                     /* brush */
@@ -816,14 +807,32 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
     
     if (DIALOG_CreateControls32( hwnd, dlgTemplate, &template, hInst, unicode ))
     {
+        HWND hwndPreInitFocus;
+
         /* Send initialisation messages and set focus */
 
-        if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ))
+       dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE );
+
+        hwndPreInitFocus = GetFocus();
+        if (SendMessageA( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ))
         {
-            /* By returning TRUE, app has requested a default focus assignment */
+            /* check where the focus is again,
+             * some controls status might have changed in WM_INITDIALOG */
             dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
             if( dlgInfo->hwndFocus )
                 SetFocus( dlgInfo->hwndFocus );
+        }
+        else
+        {
+            /* If the dlgproc has returned FALSE (indicating handling of keyboard focus)
+               but the focus has not changed, set the focus where we expect it. */
+            if ((GetFocus() == hwndPreInitFocus) &&
+                (GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
+            {
+                dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
+                if( dlgInfo->hwndFocus )
+                    SetFocus( dlgInfo->hwndFocus );
+            }
         }
 
         if (template.style & WS_VISIBLE && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
@@ -1138,183 +1147,6 @@ static HWND DIALOG_GetNextTabItem( HWND hwndMain, HWND hwndDlg, HWND hwndCtrl, B
             retWnd = DIALOG_GetNextTabItem(hwndMain,hwndMain,NULL,fPrevious );
     }
     return retWnd;
-}
-
-/**********************************************************************
- *	    DIALOG_DlgDirList
- *
- * Helper function for DlgDirList*
- */
-static INT DIALOG_DlgDirList( HWND hDlg, LPSTR spec, INT idLBox,
-                                INT idStatic, UINT attrib, BOOL combo )
-{
-    HWND hwnd;
-    LPSTR orig_spec = spec;
-    char any[] = "*.*";
-
-#define SENDMSG(msg,wparam,lparam) \
-    ((attrib & DDL_POSTMSGS) ? PostMessageA( hwnd, msg, wparam, lparam ) \
-                             : SendMessageA( hwnd, msg, wparam, lparam ))
-
-    DPRINT("%p '%s' %d %d %04x\n",
-          hDlg, spec ? spec : "NULL", idLBox, idStatic, attrib );
-
-    /* If the path exists and is a directory, chdir to it */
-    if (!spec || !spec[0] || SetCurrentDirectoryA( spec )) spec = any;
-    else
-    {
-        char *p, *p2;
-        p = spec;
-        if ((p2 = strrchr( p, '\\' ))) p = p2;
-        if ((p2 = strrchr( p, '/' ))) p = p2;
-        if (p != spec)
-        {
-            char sep = *p;
-            *p = 0;
-            if (!SetCurrentDirectoryA( spec ))
-            {
-                *p = sep;  /* Restore the original spec */
-                return FALSE;
-            }
-            spec = p + 1;
-        }
-    }
-
-    DPRINT( "mask=%s\n", spec );
-
-    if (idLBox && ((hwnd = GetDlgItem( hDlg, idLBox )) != 0))
-    {
-        SENDMSG( combo ? CB_RESETCONTENT : LB_RESETCONTENT, 0, 0 );
-        if (attrib & DDL_DIRECTORY)
-        {
-            if (!(attrib & DDL_EXCLUSIVE))
-            {
-                if (SENDMSG( combo ? CB_DIR : LB_DIR,
-                             attrib & ~(DDL_DIRECTORY | DDL_DRIVES),
-                             (LPARAM)spec ) == LB_ERR)
-                    return FALSE;
-            }
-            if (SENDMSG( combo ? CB_DIR : LB_DIR,
-                       (attrib & (DDL_DIRECTORY | DDL_DRIVES)) | DDL_EXCLUSIVE,
-                         (LPARAM)"*.*" ) == LB_ERR)
-                return FALSE;
-        }
-        else
-        {
-            if (SENDMSG( combo ? CB_DIR : LB_DIR, attrib,
-                         (LPARAM)spec ) == LB_ERR)
-                return FALSE;
-        }
-    }
-
-    if (idStatic && ((hwnd = GetDlgItem( hDlg, idStatic )) != 0))
-    {
-        char temp[MAX_PATH];
-        GetCurrentDirectoryA( sizeof(temp), temp );
-        CharLowerA( temp );
-        /* Can't use PostMessage() here, because the string is on the stack */
-        SetDlgItemTextA( hDlg, idStatic, temp );
-    }
-
-    if (orig_spec && (spec != orig_spec))
-    {
-        /* Update the original file spec */
-        char *p = spec;
-        while ((*orig_spec++ = *p++));
-    }
-
-    return TRUE;
-#undef SENDMSG
-}
-
-/* Hack - We dont define this anywhere and we shouldn't
- * Its only used to port buggy WINE code in to our buggy code.
- * Make it go away - sedwards
- */
-/* strdup macros */
-/* DO NOT USE IT!!  it will go away soon */
-inline static LPSTR HEAP_strdupWtoA( HANDLE heap, DWORD flags, LPCWSTR str )
-{
-    LPSTR ret;
-    INT len;
-
-    if (!str) return NULL;
-    len = WideCharToMultiByte( CP_ACP, 0, str, -1, NULL, 0, NULL, NULL );
-    ret = RtlAllocateHeap(GetProcessHeap(), flags, len );
-    if(ret) WideCharToMultiByte( CP_ACP, 0, str, -1, ret, len, NULL, NULL );
-    return ret;
-}
-
-/**********************************************************************
- *	    DIALOG_DlgDirListW
- *
- * Helper function for DlgDirList*W
- */
-static INT DIALOG_DlgDirListW( HWND hDlg, LPWSTR spec, INT idLBox,
-                                 INT idStatic, UINT attrib, BOOL combo )
-{
-    if (spec)
-    {
-        LPSTR specA = HEAP_strdupWtoA( GetProcessHeap(), 0, spec );
-        INT ret = DIALOG_DlgDirList( hDlg, specA, idLBox, idStatic,
-                                       attrib, combo );
-        MultiByteToWideChar( CP_ACP, 0, specA, -1, spec, 0x7fffffff );
-        HeapFree( GetProcessHeap(), 0, specA );
-        return ret;
-    }
-    return DIALOG_DlgDirList( hDlg, NULL, idLBox, idStatic, attrib, combo );
-}
-
-/**********************************************************************
- *           DIALOG_DlgDirSelect
- *
- * Helper function for DlgDirSelect*
- */
-static BOOL DIALOG_DlgDirSelect( HWND hwnd, LPSTR str, INT len,
-                                 INT id, BOOL unicode, BOOL combo )
-{
-    char *buffer, *ptr;
-    INT item, size;
-    BOOL ret;
-    HWND listbox = GetDlgItem( hwnd, id );
-
-    DPRINT("%p '%s' %d\n", hwnd, str, id );
-    if (!listbox) return FALSE;
-
-    item = SendMessageA(listbox, combo ? CB_GETCURSEL : LB_GETCURSEL, 0, 0 );
-    if (item == LB_ERR) return FALSE;
-    size = SendMessageA(listbox, combo ? CB_GETLBTEXTLEN : LB_GETTEXTLEN, 0, 0 );
-    if (size == LB_ERR) return FALSE;
-
-    if (!(buffer = HeapAlloc( GetProcessHeap(), 0, size+1 ))) return FALSE;
-
-    SendMessageA( listbox, combo ? CB_GETLBTEXT : LB_GETTEXT, item, (LPARAM)buffer );
-
-    if ((ret = (buffer[0] == '[')))  /* drive or directory */
-    {
-        if (buffer[1] == '-')  /* drive */
-        {
-            buffer[3] = ':';
-            buffer[4] = 0;
-            ptr = buffer + 2;
-        }
-        else
-        {
-            buffer[strlen(buffer)-1] = '\\';
-            ptr = buffer + 1;
-        }
-    }
-    else ptr = buffer;
-
-    if (unicode)
-    {
-        if (len > 0 && !MultiByteToWideChar( CP_ACP, 0, ptr, -1, (LPWSTR)str, len ))
-            ((LPWSTR)str)[len-1] = 0;
-    }
-    else lstrcpynA( str, ptr, len );
-    HeapFree( GetProcessHeap(), 0, buffer );
-    DPRINT("Returning %d '%s'\n", ret, str );
-    return ret;
 }
 
 /***********************************************************************
@@ -1659,7 +1491,7 @@ DialogBoxParamW(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
@@ -1670,7 +1502,8 @@ DlgDirListA(
   int nIDStaticPath,
   UINT uFileType)
 {
-    return DIALOG_DlgDirList( hDlg, lpPathSpec, nIDListBox, nIDStaticPath, uFileType, FALSE );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -1709,7 +1542,7 @@ DlgDirListComboBoxW(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
@@ -1720,14 +1553,15 @@ DlgDirListW(
   int nIDStaticPath,
   UINT uFileType)
 {
-    return DIALOG_DlgDirListW( hDlg, lpPathSpec, nIDListBox, nIDStaticPath, uFileType, FALSE );
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DlgDirSelectComboBoxExA(
   HWND hDlg,
@@ -1743,7 +1577,7 @@ DlgDirSelectComboBoxExA(
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DlgDirSelectComboBoxExW(
   HWND hDlg,
@@ -1757,9 +1591,9 @@ DlgDirSelectComboBoxExW(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DlgDirSelectExA(
   HWND hDlg,
@@ -1767,14 +1601,15 @@ DlgDirSelectExA(
   int nCount,
   int nIDListBox)
 {
-    return DIALOG_DlgDirSelect( hDlg, lpString, nCount, nIDListBox, FALSE, FALSE );
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 DlgDirSelectExW(
   HWND hDlg,
@@ -1782,14 +1617,15 @@ DlgDirSelectExW(
   int nCount,
   int nIDListBox)
 {
-    return DIALOG_DlgDirSelect( hDlg, (LPSTR)lpString, nCount, nIDListBox, TRUE, FALSE );
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 EndDialog(
   HWND hDlg,
@@ -1888,8 +1724,8 @@ STDCALL
 GetDlgItemInt(
   HWND hDlg,
   int nIDDlgItem,
-  BOOL *lpTranslated,
-  BOOL bSigned)
+  WINBOOL *lpTranslated,
+  WINBOOL bSigned)
 {
 	char str[30];
     char * endptr;
@@ -1958,7 +1794,7 @@ STDCALL
 GetNextDlgGroupItem(
   HWND hDlg,
   HWND hCtl,
-  BOOL bPrevious)
+  WINBOOL bPrevious)
 {
 	HWND hwnd, retvalue;
 
@@ -2020,13 +1856,13 @@ STDCALL
 GetNextDlgTabItem(
   HWND hDlg,
   HWND hCtl,
-  BOOL bPrevious)
+  WINBOOL bPrevious)
 {
 	return DIALOG_GetNextTabItem(hDlg, hDlg, hCtl, bPrevious);
 }
 
 #if 0
-BOOL
+WINBOOL
 STDCALL
 IsDialogMessage(
   HWND hDlg,
@@ -2040,7 +1876,7 @@ IsDialogMessage(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 IsDialogMessageA(
   HWND hDlg,
@@ -2132,7 +1968,7 @@ IsDialogMessageA(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 IsDialogMessageW(
   HWND hDlg,
@@ -2237,7 +2073,7 @@ IsDlgButtonChecked(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 MapDialogRect(
   HWND hDlg,
@@ -2292,13 +2128,13 @@ SendDlgItemMessageW(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetDlgItemInt(
   HWND hDlg,
   int nIDDlgItem,
   UINT uValue,
-  BOOL bSigned)
+  WINBOOL bSigned)
 {
 	char str[20];
 
@@ -2312,7 +2148,7 @@ SetDlgItemInt(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetDlgItemTextA(
   HWND hDlg,
@@ -2326,7 +2162,7 @@ SetDlgItemTextA(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 SetDlgItemTextW(
   HWND hDlg,
@@ -2340,7 +2176,7 @@ SetDlgItemTextW(
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 CheckDlgButton(
   HWND hDlg,
@@ -2350,45 +2186,3 @@ CheckDlgButton(
 	SendDlgItemMessageA( hDlg, nIDButton, BM_SETCHECK, uCheck, 0 );
 	return TRUE;
 }
-
-static BOOL CALLBACK CheckRB(HWND hwnd, LPARAM lParam)
-{
-  LONG lChildID = GetWindowLongW(hwnd, GWL_ID);
-  RADIOGROUP *lpRadioGroup = (RADIOGROUP *)lParam;
-  
-  if((lChildID >= lpRadioGroup->firstID) &&
-     (lChildID <= lpRadioGroup->lastID))
-  {
-    if (lChildID == lpRadioGroup->checkID)
-    {
-      SendMessageW(hwnd, BM_SETCHECK, BST_CHECKED, 0);
-    }
-    else
-    {
-      SendMessageW(hwnd, BM_SETCHECK, BST_UNCHECKED, 0);
-    }
-  }
-  
-   return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckRadioButton(
-  HWND hDlg,
-  int nIDFirstButton,
-  int nIDLastButton,
-  int nIDCheckButton)
-{
-  RADIOGROUP radioGroup;
-  
-  radioGroup.firstID = nIDFirstButton;
-  radioGroup.lastID = nIDLastButton;
-  radioGroup.checkID = nIDCheckButton;
-  
-  return EnumChildWindows(hDlg, CheckRB, (LPARAM)&radioGroup);
-}
-

@@ -13,12 +13,12 @@ HalBeginSystemInterrupt(ULONG Vector,
 
 BOOLEAN STDCALL
 HalDisableSystemInterrupt(ULONG Vector,
-  KIRQL Irql);
+  ULONG Unknown2);
 
 BOOLEAN STDCALL
 HalEnableSystemInterrupt(ULONG Vector,
-  KIRQL Irql,
-  KINTERRUPT_MODE InterruptMode);
+  ULONG Unknown2,
+  ULONG Unknown3);
 
 VOID STDCALL
 HalEndSystemInterrupt(KIRQL Irql,
@@ -48,9 +48,6 @@ KeRaiseIrqlToSynchLevel(VOID);
 
 VOID STDCALL
 HalReturnToFirmware(ULONG Action);
-
-VOID FASTCALL
-HalRequestSoftwareInterrupt(KIRQL SoftwareInterruptRequested);
 
 /* Non-standard functions */
 VOID STDCALL

@@ -26,16 +26,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
-#include <rosrtl/string.h>
 
 #include "usetup.h"
 #include "registry.h"
 #include "infcache.h"
 
-#define NDEBUG
-#include <debug.h>
 
 
 #define FLG_ADDREG_BINVALUETYPE           0x00000001
@@ -193,6 +190,7 @@ do_reg_operation(HANDLE KeyHandle,
   WCHAR EmptyStr = (WCHAR)0;
   ULONG Type;
   ULONG Size;
+  NTSTATUS Status;
 
   if (Flags & FLG_ADDREG_DELVAL)  /* deletion */
     {
@@ -437,7 +435,7 @@ CreateNestedKey (PHANDLE KeyHandle,
     {
       if (Length == FullNameLength)
 	{
-	  Status = STATUS_SUCCESS;
+	  Status == STATUS_SUCCESS;
 	  *KeyHandle = LocalKeyHandle;
 	  break;
 	}
@@ -617,7 +615,7 @@ SetInstallPathValue(PUNICODE_STRING InstallPath)
   NTSTATUS Status;
 
   /* Create the 'secret' InstallPath key */
-  RtlRosInitUnicodeStringFromLiteral (&KeyName,
+  RtlInitUnicodeStringFromLiteral (&KeyName,
 				   L"\\Registry\\Machine\\HARDWARE");
   InitializeObjectAttributes (&ObjectAttributes,
 			      &KeyName,
@@ -633,7 +631,7 @@ SetInstallPathValue(PUNICODE_STRING InstallPath)
       return FALSE;
     }
 
-  RtlRosInitUnicodeStringFromLiteral (&ValueName,
+  RtlInitUnicodeStringFromLiteral (&ValueName,
 				   L"InstallPath");
   Status = NtSetValueKey (KeyHandle,
 			  &ValueName,

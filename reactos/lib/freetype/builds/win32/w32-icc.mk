@@ -19,5 +19,4 @@ include $(TOP_DIR)/builds/compiler/visualage.mk
 # include linking instructions
 include $(TOP_DIR)/builds/link_dos.mk
 
-
 # EOF

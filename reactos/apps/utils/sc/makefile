@@ -9,11 +9,9 @@ TARGET_TYPE = program
 
 TARGET_APPTYPE = console
 
-TARGET_INSTALLDIR = system32
-
 TARGET_NAME = sc
 
-TARGET_CFLAGS = -DDBG -Werror -Wall
+TARGET_CFLAGS = -DDBG
 
 TARGET_SDKLIBS = kernel32.a ntdll.a advapi32.a
 

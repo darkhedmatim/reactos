@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,11 +27,9 @@
 
 
  /// information structure for creation of FileChildWindow
-struct FileChildWndInfo : public ChildWndInfo
+struct FileChildWndInfo
 {
-	typedef ChildWndInfo super;
-
-	FileChildWndInfo(HWND hmdiclient, LPCTSTR path, ENTRY_TYPE etype=ET_UNKNOWN);
+	FileChildWndInfo(LPCTSTR path);
 
 	ENTRY_TYPE	_etype;
 	LPCTSTR		_path;
@@ -40,47 +38,12 @@ struct FileChildWndInfo : public ChildWndInfo
 	int			_open_mode;	//OPEN_WINDOW_MODE
 };
 
- /// information structure for creation of MDIShellBrowserChild
 struct ShellChildWndInfo : public FileChildWndInfo
 {
-	typedef FileChildWndInfo super;
-
-	ShellChildWndInfo(HWND hmdiclient, LPCTSTR path, const ShellPath& root_shell_path);
+	ShellChildWndInfo(LPCTSTR path, const ShellPath& root_shell_path);
 
 	ShellPath	_shell_path;
 	ShellPath	_root_shell_path;
-};
-
- /// information structure for creation of FileChildWindow for NT object namespace
-struct NtObjChildWndInfo : public FileChildWndInfo
-{
-	typedef FileChildWndInfo super;
-
-	NtObjChildWndInfo(HWND hmdiclient, LPCTSTR path);
-};
-
- /// information structure for creation of FileChildWindow for the Registry
-struct RegistryChildWndInfo : public FileChildWndInfo
-{
-	typedef FileChildWndInfo super;
-
-	RegistryChildWndInfo(HWND hmdiclient, LPCTSTR path);
-};
-
- /// information structure for creation of FileChildWindow
-struct FATChildWndInfo : public FileChildWndInfo
-{
-	typedef FileChildWndInfo super;
-
-	FATChildWndInfo(HWND hmdiclient, LPCTSTR path);
-};
-
- /// information structure for creation of WebChildWindow
-struct WebChildWndInfo : public FileChildWndInfo
-{
-	typedef FileChildWndInfo super;
-
-	WebChildWndInfo(HWND hmdiclient, LPCTSTR url);
 };
 
 
@@ -90,8 +53,9 @@ struct FileChildWindow : public ChildWindow
 	typedef ChildWindow super;
 
 	FileChildWindow(HWND hwnd, const FileChildWndInfo& info);
+	~FileChildWindow();
 
-	static FileChildWindow* create(const FileChildWndInfo& info);
+	static FileChildWindow* create(HWND hmdiclient, const FileChildWndInfo& info);
 
 protected:
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
@@ -99,20 +63,20 @@ protected:
 	int		Notify(int id, NMHDR* pnmh);
 
 	virtual void resize_children(int cx, int cy);
-	virtual String jump_to_int(LPCTSTR url);
 
-	void	scan_entry(Entry* entry);
+	void	scan_entry(Entry* entry, HWND hwnd);
 
 	bool	expand_entry(Entry* dir);
 	static void collapse_entry(Pane* pane, Entry* dir);
 
-	void	set_curdir(Entry* entry);
-	void	activate_entry(Pane* pane);
+	void	set_curdir(Entry* entry, HWND hwnd);
+	void	activate_entry(Pane* pane, HWND hwnd);
 
 protected:
 	Root	_root;
 	Pane*	_left;
 	Pane*	_right;
+	SORT_ORDER _sortOrder;
 	TCHAR	_path[MAX_PATH];
 	bool	_header_wdths_ok;
 
@@ -127,10 +91,9 @@ public:
 };
 
 
- /// The "Execute..."-dialog lets the user enter a command line to launch.
-struct ExecuteDialog {	///@todo use class Dialog
+struct ExecuteDialog {	// TODO: integrate dialogs with Window class
 	TCHAR	cmd[MAX_PATH];
 	int		cmdshow;
 
-	static INT_PTR CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
+	static BOOL CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
 };

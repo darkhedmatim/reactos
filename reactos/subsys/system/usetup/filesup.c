@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: filesup.c,v 1.11 2004/08/15 22:29:50 chorns Exp $
+/* $Id: filesup.c,v 1.7 2003/08/24 10:36:06 chorns Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/filesup.c
@@ -27,15 +27,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 
 #include "usetup.h"
 #include "filesup.h"
 #include "cabinet.h"
 
-#define NDEBUG
-#include <debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
@@ -54,20 +52,6 @@ CreateDirectory(PWCHAR DirectoryName)
 
   RtlCreateUnicodeString(&PathName,
 			 DirectoryName);
-  if (PathName.Length > sizeof(WCHAR) &&
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 2] == L'\\' &&
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 1] == L'.')
-    {
-       PathName.Length -= sizeof(WCHAR);
-       PathName.Buffer[PathName.Length / sizeof(WCHAR)] = 0;
-    }
-      
-  if (PathName.Length > sizeof(WCHAR) && 
-      PathName.Buffer[PathName.Length / sizeof(WCHAR) - 1] == L'\\')
-    {
-      PathName.Length -= sizeof(WCHAR);
-      PathName.Buffer[PathName.Length / sizeof(WCHAR)] = 0;
-   }
 
   InitializeObjectAttributes(&ObjectAttributes,
 			     &PathName,
@@ -83,7 +67,7 @@ CreateDirectory(PWCHAR DirectoryName)
 			FILE_ATTRIBUTE_DIRECTORY,
 			0,
 			FILE_CREATE,
-			FILE_SYNCHRONOUS_IO_NONALERT | FILE_DIRECTORY_FILE,
+			FILE_DIRECTORY_FILE,
 			NULL,
 			0);
   if (NT_SUCCESS(Status))
@@ -129,7 +113,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,
-		      FILE_SYNCHRONOUS_IO_NONALERT | FILE_SEQUENTIAL_ONLY);
+		      FILE_SYNCHRONOUS_IO_ALERT | FILE_SEQUENTIAL_ONLY);
   if (!NT_SUCCESS(Status))
     {
       return(Status);
@@ -173,7 +157,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 			FILE_ATTRIBUTE_NORMAL,
 			0,
 			FILE_OVERWRITE_IF,
-			FILE_SYNCHRONOUS_IO_NONALERT | FILE_SEQUENTIAL_ONLY,
+			FILE_SYNCHRONOUS_IO_ALERT | FILE_SEQUENTIAL_ONLY,
 			NULL,
 			0);
   if (!NT_SUCCESS(Status))
@@ -323,7 +307,7 @@ SetupExtractFile(PWCHAR CabinetFileName,
           CabinetCleanup();
         }
 
-      wcscpy(CurrentCabinetName, CabinetFileName);
+      wcscpy(CurrentCabinetName, CabinetFileName); 
 
       CabinetInitialize();
       CabinetSetEventHandlers(NULL, NULL, NULL);
@@ -387,7 +371,7 @@ DoesFileExist(PWSTR PathName,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      0,
-		      FILE_SYNCHRONOUS_IO_NONALERT);
+		      FILE_SYNCHRONOUS_IO_ALERT);
   if (!NT_SUCCESS(Status))
     {
       return(FALSE);

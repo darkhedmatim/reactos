@@ -2,7 +2,7 @@
 /* Copyright (C) 1996 DJ Delorie, see COPYING.DJ for details */
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
@@ -10,7 +10,6 @@
 #include <msvcrt/process.h>
 #include <msvcrt/ctype.h>
 #include <msvcrt/io.h>
-#include <msvcrt/internal/file.h>
 
 
 #ifndef F_OK

@@ -5,7 +5,6 @@
 #include <napi/types.h>
 
 #ifdef __USE_W32API
-#include <w32api.h>
 #include <ddk/ntapi.h>
 #endif /* !__USE_W32API */
 
@@ -56,7 +55,7 @@ typedef struct _NT_TIB {
     union {
         PVOID FiberData;                                   /* 10h */
         ULONG Version;                                     /* 10h */
-    };
+    } Fib;
     PVOID ArbitraryUserPointer;                            /* 14h */
     struct _NT_TIB *Self;                                  /* 18h */
 } NT_TIB, *PNT_TIB;
@@ -98,7 +97,7 @@ typedef struct _PEB_LDR_DATA
    LIST_ENTRY InInitializationOrderModuleList;
 } PEB_LDR_DATA, *PPEB_LDR_DATA;
 
-typedef VOID (STDCALL *PPEBLOCKROUTINE)(PVOID);
+typedef VOID STDCALL_FUNC (*PPEBLOCKROUTINE)(PVOID);
 
 typedef struct _PEB
 {
@@ -183,7 +182,7 @@ typedef struct _TEB
    struct _W32THREAD* Win32ThreadInfo; /* 40h */
    ULONG Win32ClientInfo[0x1F];        /* 44h */
    PVOID WOW32Reserved;                /* C0h */
-   LCID CurrentLocale;                 /* C4h */
+   ULONG CurrentLocale;                /* C4h */
    ULONG FpSoftwareStatusRegister;     /* C8h */
    PVOID SystemReserved1[0x36];        /* CCh */
    PVOID Spare1;                       /* 1A4h */
@@ -233,8 +232,6 @@ typedef struct _TEB
    PVOID WineDebugInfo;                /* Needed for WINE DLL's  */
 } TEB, *PTEB;
 
-#if (!defined(__USE_W32API) || __W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5)
-
 /* FIXME: at least NtCurrentTeb should be defined in winnt.h */
 
 #ifndef NtCurrentTeb
@@ -245,7 +242,6 @@ static inline struct _TEB * NtCurrentTeb(void)
 {
  struct _TEB * pTeb;
 
-#if defined(__GNUC__)
  /* FIXME: instead of hardcoded offsets, use offsetof() - if possible */
  __asm__ __volatile__
  (
@@ -253,12 +249,6 @@ static inline struct _TEB * NtCurrentTeb(void)
   : "=r" (pTeb) /* can't have two memory operands */
   : /* no inputs */
  );
-#elif defined(_MSC_VER)
- __asm mov eax, fs:0x18
- __asm mov pTeb, eax
-#else
-#error Unknown compiler for inline assembler
-#endif
 
  return pTeb;
 }
@@ -291,15 +281,11 @@ unsigned __gregister_get(unsigned const regnum);
 
 #endif
 
-#endif /* !defined(__USE_W32API) || __W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5 */
-
 #ifdef _M_IX86
 
 static inline struct _PEB * NtCurrentPeb(void)
 {
  struct _PEB * pPeb;
-
-#if defined(__GNUC__)
 
  __asm__ __volatile__
  (
@@ -307,15 +293,6 @@ static inline struct _PEB * NtCurrentPeb(void)
   : "=r" (pPeb) /* can't have two memory operands */
   : /* no inputs */
  );
-
-#elif defined(_MSC_VER)
-
-	__asm mov eax, fs:0x30;
-	__asm mov pPeb, eax
-
-#else
-#error Unknown compiler for inline assembler
-#endif
 
  return pPeb;
 }

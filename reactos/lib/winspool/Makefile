@@ -1,6 +1,4 @@
-#
-# Fix this
-#
+# $Id: Makefile,v 1.2 2003/08/07 04:03:24 royce Exp $
 
 PATH_TO_TOP = ../..
 
@@ -10,26 +8,25 @@ TARGET_NAME = winspool
 
 TARGET_EXTENSION = .drv
 
-TARGET_BASE = $(TARGET_BASE_LIB_WINSPOOL)
+TARGET_BASE = 0x77800000
 
 TARGET_CFLAGS = \
  -I./include \
  -Wall \
  -Werror \
  -fno-builtin \
- -D__REACTOS__ \
- -D__USE_W32API \
  -DUNICODE \
- -DLE
+ -DLE \
+ -DDBG
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = wine.a wine_unicode.a ntdll.a kernel32.a
+TARGET_SDKLIBS = kernel32.a
 
-TARGET_OBJECTS = info.o stubs.o
+TARGET_OBJECTS = stubs.o
 
 TARGET_CLEAN = $(DEP_FILES)
 

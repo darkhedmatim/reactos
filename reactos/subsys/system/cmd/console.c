@@ -1,4 +1,4 @@
-/* $Id: console.c,v 1.10 2004/11/08 02:16:06 weiden Exp $
+/* $Id: console.c,v 1.4 2003/08/13 05:18:40 jimtabor Exp $
  *
  *  CONSOLE.C - console input/output functions.
  *
@@ -9,7 +9,15 @@
  *        started
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+#include "cmd.h"
 
 
 #define OUTPUT_BUFFER_SIZE  4096
@@ -47,7 +55,12 @@ VOID ConInDummy (VOID)
 	if (hInput == INVALID_HANDLE_VALUE)
 		DebugPrintf (_T("Invalid input handle!!!\n"));
 #endif /* _DEBUG */
+#ifdef __REACTOS__
+	/* ReadConsoleInputW isn't implwmented within ROS. */
+	ReadConsoleInputA (hInput, &dummy, 1, &dwRead);
+#else
 	ReadConsoleInput (hInput, &dummy, 1, &dwRead);
+#endif
 }
 
 VOID ConInFlush (VOID)
@@ -68,7 +81,12 @@ VOID ConInKey (PINPUT_RECORD lpBuffer)
 
 	do
 	{
+#ifdef __REACTOS__
+		/* ReadConsoleInputW isn't implwmented within ROS. */
+		ReadConsoleInputA (hInput, lpBuffer, 1, &dwRead);
+#else
 		ReadConsoleInput (hInput, lpBuffer, 1, &dwRead);
+#endif
 		if ((lpBuffer->EventType == KEY_EVENT) &&
 			(lpBuffer->Event.KeyEvent.bKeyDown == TRUE))
 			break;
@@ -88,8 +106,8 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 	DWORD  i;
 	PCHAR pBuf;
 
-#ifdef _UNICODE
-	pBuf = (PCHAR)malloc(dwLength);
+#ifdef UNICODE
+	pBuf = (PCHAR)alloca(dwLength);
 #else
 	pBuf = lpInput;
 #endif
@@ -113,10 +131,6 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 			break;
 		}
 	}
-
-#ifdef _UNICODE
-	free(pBuf);
-#endif
 
 	SetConsoleMode (hFile, dwOldMode);
 }
@@ -155,7 +169,7 @@ VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 
 	len = _tcslen(szText);
 #ifdef _UNICODE
-	pBuf = malloc(len + 1);
+	pBuf = alloca(len + 1);
 	len = WideCharToMultiByte(CP_ACP, 0, szText, len + 1, pBuf, len + 1, NULL, NULL) - 1;
 #else
 	pBuf = szText;
@@ -170,9 +184,6 @@ VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 	           1,
 	           &dwWritten,
 	           NULL);
-#ifdef UNICODE
-	free(pBuf);
-#endif
 }
 
 VOID ConOutPuts (LPTSTR szText)
@@ -190,7 +201,7 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 
 	len = _vstprintf (szOut, szFormat, arg_ptr);
 #ifdef _UNICODE
-	pBuf = malloc(len + 1);
+	pBuf = alloca(len + 1);
 	len = WideCharToMultiByte(CP_ACP, 0, szOut, len + 1, pBuf, len + 1, NULL, NULL) - 1;
 #else
 	pBuf = szOut;
@@ -200,37 +211,8 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 	           len,
 	           &dwWritten,
 	           NULL);
-#ifdef UNICODE
-	free(pBuf);
-#endif
 }
 
-VOID ConOutFormatMessage (DWORD MessageId, ...)
-{
-	DWORD ret;
-	LPTSTR text;
-	va_list arg_ptr;
-	
-	va_start (arg_ptr, MessageId);
-	ret = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-	       NULL,
-	       MessageId,
-	       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	       (LPTSTR) &text,
-	       0,
-	       &arg_ptr);
-	
-	va_end (arg_ptr);
-	if(ret > 0)
-	{
-		ConErrPuts (text);
-		LocalFree(text);
-	}
-	else
-	{
-		ConErrPrintf (_T("Unknown error: %d\n"), MessageId);
-	}
-}
 
 VOID ConOutPrintf (LPTSTR szFormat, ...)
 {

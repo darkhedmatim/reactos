@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.12 2004/10/30 14:02:04 navaraf Exp $
+/* $Id: atom.c,v 1.7 2003/10/28 17:43:42 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/handle.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -64,18 +67,18 @@ static PRTL_ATOM_TABLE GlobalAtomTable = NULL;
  * @implemented
  */
 NTSTATUS STDCALL
-NtAddAtom(
-   IN PWSTR AtomName,
-   IN ULONG AtomNameLength,
-   OUT PRTL_ATOM Atom)
+NtAddAtom(IN PWSTR AtomName,
+	  OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
 
    AtomTable = RtlpGetGlobalAtomTable();
    if (AtomTable == NULL)
-      return STATUS_ACCESS_DENIED;
+     return STATUS_ACCESS_DENIED;
 
-   return RtlAddAtomToAtomTable(AtomTable, AtomName, Atom);
+   return (RtlAddAtomToAtomTable(AtomTable,
+				 AtomName,
+				 Atom));
 }
 
 
@@ -101,7 +104,6 @@ NtDeleteAtom(IN RTL_ATOM Atom)
  */
 NTSTATUS STDCALL
 NtFindAtom(IN PWSTR AtomName,
-           IN ULONG AtomNameLength,
 	   OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
@@ -377,7 +379,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	return STATUS_NO_MEMORY;
      }
 
-   InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
+   InsertTailList(&AtomTable->Slot[Hash], &Entry->List)
    RtlCreateUnicodeString (&Entry->Name,
 			   AtomName);
    Entry->RefCount = 1;
@@ -576,7 +578,6 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 {
    ULONG Length;
    PRTL_ATOM_ENTRY AtomEntry;
-   WCHAR TempAtomName[12];
 
    if (Atom == 0)
      {
@@ -595,19 +596,10 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	     *PinCount = 1;
 	  }
 
-	Length = swprintf(TempAtomName, L"#%lu", (ULONG)Atom);	
-
-	if (NameLength != NULL)
+	if ((AtomName != NULL) && (NameLength != NULL) && (NameLength > 0))
 	  {
+	     Length = swprintf(AtomName, L"#%lu", (ULONG)Atom);
 	     *NameLength = Length * sizeof(WCHAR);
-	     if (AtomName != NULL && *NameLength >= Length)
-	       {
-	          wcscpy(AtomName, TempAtomName);
-	       }
-	     else
-	       {
-	          return STATUS_BUFFER_TOO_SMALL;
-	       }
 	  }
 
 	return STATUS_SUCCESS;
@@ -637,19 +629,17 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	*PinCount = (ULONG)AtomEntry->Locked;
      }
 
-   if (NameLength != NULL)
+   if ((AtomName != NULL) && (NameLength != NULL))
      {
-	if (AtomName != NULL && *NameLength >= AtomEntry->Name.Length)
+	if (*NameLength < AtomEntry->Name.Length)
 	  {
-	     *NameLength = AtomEntry->Name.Length;
-	     memcpy(AtomName, AtomEntry->Name.Buffer, AtomEntry->Name.Length);
-          }
-        else
-          {
 	     *NameLength = AtomEntry->Name.Length;
 	     RtlpUnlockAtomTable(AtomTable);
 	     return STATUS_BUFFER_TOO_SMALL;
 	  }
+
+	memcpy(AtomName, AtomEntry->Name.Buffer, AtomEntry->Name.Length);
+	*NameLength = AtomEntry->Name.Length;
      }
 
    RtlpUnlockAtomTable(AtomTable);

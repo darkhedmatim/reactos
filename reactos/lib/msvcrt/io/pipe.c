@@ -1,4 +1,4 @@
-/* $Id: pipe.c,v 1.8 2004/08/15 18:16:36 chorns Exp $
+/* $Id: pipe.c,v 1.6 2003/07/11 21:57:54 royce Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,8 +8,7 @@
  * UPDATE HISTORY:
  *              28/12/98: Appropriated for Reactos
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
@@ -26,10 +25,8 @@ int _pipe(int _fildes[2], unsigned int size, int mode )
   if (mode & O_NOINHERIT)
     sa.bInheritHandle = FALSE;
 
-  if (!CreatePipe(&hReadPipe,&hWritePipe,&sa,size)) {
-		_dosmaperr(GetLastError());
-		return -1;
-	}
+  if (!CreatePipe(&hReadPipe,&hWritePipe,&sa,size))
+    return -1;
 
   if ((_fildes[0] = __fileno_alloc(hReadPipe, mode)) < 0)
   {

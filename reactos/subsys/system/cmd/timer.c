@@ -7,9 +7,15 @@
  *     started - Paolo Pantaleo <paolopan@freemail.it>
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_TIMER
+#include "cmd.h"
+
+#include <ctype.h>
+#include <string.h>
+#include <tchar.h>
+#include <windows.h>
 
 
 #define NCS_NOT_SPECIFIED -1

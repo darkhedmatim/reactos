@@ -27,7 +27,19 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ke.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+#include <internal/module.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+#include <internal/trap.h>
+#include <ntdll/ldr.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -71,7 +83,7 @@ print_user_address(PVOID address)
 	  CONTAINING_RECORD(current_entry, LDR_MODULE, InLoadOrderModuleList);
 	
 	if (address >= (PVOID)current->BaseAddress &&
-	    address < (PVOID)((char*)current->BaseAddress + current->SizeOfImage))
+	    address < (PVOID)(current->BaseAddress + current->SizeOfImage))
 	  {
             RelativeAddress = 
 	      (ULONG_PTR) address - (ULONG_PTR)current->BaseAddress;

@@ -1,4 +1,4 @@
-/* $Id: evtpair.c,v 1.23 2004/09/28 15:02:29 weiden Exp $
+/* $Id: evtpair.c,v 1.19 2003/10/12 17:05:48 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -15,7 +15,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <ntos/synch.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <limits.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -65,7 +71,7 @@ NtInitializeEventPairImplementation(VOID)
    ExEventPairObjectType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
    
    RtlCreateUnicodeString(&ExEventPairObjectType->TypeName, L"EventPair");
-   ExEventPairObjectType->Tag = TAG('E', 'v', 'P', 'a');
+   
    ExEventPairObjectType->MaxObjects = ULONG_MAX;
    ExEventPairObjectType->MaxHandles = ULONG_MAX;
    ExEventPairObjectType->TotalObjects = 0;
@@ -330,16 +336,14 @@ NtWaitHighEventPair(IN HANDLE EventPairHandle)
    return(STATUS_SUCCESS);
 }
 
-#ifdef _ENABLE_THRDEVTPAIR
-
 /*
  * Author: Skywing (skywing@valhallalegends.com), 09/08/2003
  * Note that the eventpair spinlock must be acquired when setting the thread
  * eventpair via NtSetInformationThread.
  * @implemented
  */
-NTSTATUS
 NTSYSAPI
+NTSTATUS
 NTAPI
 NtSetLowWaitHighThread(
 	VOID
@@ -392,8 +396,8 @@ NtSetLowWaitHighThread(
  * eventpair via NtSetInformationThread.
  * @implemented
  */
-NTSTATUS
 NTSYSAPI
+NTSTATUS
 NTAPI
 NtSetHighWaitLowThread(
 	VOID
@@ -466,31 +470,5 @@ ExpSwapThreadEventPair(
 
 	KeReleaseSpinLock(&ExThreadEventPairSpinLock, Irql);
 }
-
-#else /* !_ENABLE_THRDEVTPAIR */
-
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetLowWaitHighThread(
-	VOID
-	)
-{
-        DPRINT1("NtSetLowWaitHighThread() not supported anymore (NT4 only)!\n");
-        return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS
-NTSYSAPI
-NTAPI
-NtSetHighWaitLowThread(
-	VOID
-	)
-{
-        DPRINT1("NtSetHighWaitLowThread() not supported anymore (NT4 only)!\n");
-        return STATUS_NOT_IMPLEMENTED;
-}
-
-#endif /* _ENABLE_THRDEVTPAIR */
 
 /* EOF */

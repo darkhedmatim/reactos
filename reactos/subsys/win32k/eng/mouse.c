@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mouse.c,v 1.79 2004/12/12 17:56:52 weiden Exp $
+/* $Id: mouse.c,v 1.43 2003/09/28 00:26:13 weiden Exp $
  *
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Mouse
@@ -26,36 +26,209 @@
  *       06-06-2001  CSH  Created
  */
 /* INCLUDES ******************************************************************/
-#include <w32k.h>
+
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntddmou.h>
+#include <win32k/win32k.h>
+#include <win32k/dc.h>
+#include "objects.h"
+#include "include/msgqueue.h"
+#include "include/object.h"
+#include "include/winsta.h"
+#include <include/mouse.h>
+
+#define NDEBUG
+#include <debug.h>
+
+
+#define GETSYSCURSOR(x) ((x) - OCR_NORMAL)
+
+/* GLOBALS *******************************************************************/
+
+static ULONG PointerStatus;
+
+static UCHAR DefaultCursor[256] = {
+  0x3F, 0xFF, 0xFF, 0xFF,
+  0x1F, 0xFF, 0xFF, 0xFF,
+  0x0F, 0xFF, 0xFF, 0xFF,
+  0x07, 0xFF, 0xFF, 0xFF,
+  0x03, 0xFF, 0xFF, 0xFF,
+  0x01, 0xFF, 0xFF, 0xFF,
+  0x00, 0xFF, 0xFF, 0xFF,
+  0x00, 0x7F, 0xFF, 0xFF,
+  0x00, 0x3F, 0xFF, 0xFF,
+  0x00, 0x1F, 0xFF, 0xFF,
+  0x00, 0x0F, 0xFF, 0xFF,
+  0x00, 0xFF, 0xFF, 0xFF,
+  0x00, 0xFF, 0xFF, 0xFF,
+  0x18, 0x7F, 0xFF, 0xFF,
+  0x38, 0x7F, 0xFF, 0xFF,
+  0x7C, 0x3F, 0xFF, 0xFF,
+  0xFC, 0x3F, 0xFF, 0xFF,
+  0xFE, 0x1F, 0xFF, 0xFF,
+  0xFE, 0x1F, 0xFF, 0xFF,
+  0xFF, 0x3F, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+  0xFF, 0xFF, 0xFF, 0xFF,
+
+  0x00, 0x00, 0x00, 0x00,
+  0x40, 0x00, 0x00, 0x00,
+  0x60, 0x00, 0x00, 0x00,
+  0x70, 0x00, 0x00, 0x00,
+  0x78, 0x00, 0x00, 0x00,
+  0x7C, 0x00, 0x00, 0x00,
+  0x7E, 0x00, 0x00, 0x00,
+  0x7F, 0x00, 0x00, 0x00,
+  0x7F, 0x80, 0x00, 0x00,
+  0x7F, 0xC0, 0x00, 0x00,
+  0x7E, 0x00, 0x00, 0x00,
+  0x76, 0x00, 0x00, 0x00,
+  0x76, 0x00, 0x00, 0x00,
+  0x43, 0x00, 0x00, 0x00,
+  0x03, 0x00, 0x00, 0x00,
+  0x01, 0x80, 0x00, 0x00,
+  0x01, 0x80, 0x00, 0x00,
+  0x00, 0xC0, 0x00, 0x00,
+  0x00, 0xC0, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00};
 
 /* FUNCTIONS *****************************************************************/
 
-INT INTERNAL_CALL
-MouseSafetyOnDrawStart(SURFOBJ *SurfObj, LONG HazardX1,
+BOOL FASTCALL
+IntCheckClipCursor(LONG *x, LONG *y, PSYSTEM_CURSORINFO CurInfo)
+{
+  if(CurInfo->CursorClipInfo.IsClipped)
+  {
+    if(*x > CurInfo->CursorClipInfo.Right)
+      *x = CurInfo->CursorClipInfo.Right;
+    if(*x < CurInfo->CursorClipInfo.Left)
+      *x = CurInfo->CursorClipInfo.Left;
+    if(*y > CurInfo->CursorClipInfo.Bottom)
+      *y = CurInfo->CursorClipInfo.Bottom;
+    if(*y < CurInfo->CursorClipInfo.Top)
+      *y = CurInfo->CursorClipInfo.Top;
+    return TRUE;
+  }
+  return TRUE;
+}
+
+BOOL FASTCALL
+IntDetectDblClick(PSYSTEM_CURSORINFO CurInfo, DWORD TickCount)
+{
+  LONG dX, dY;
+  BOOL res = ((TickCount - CurInfo->LastBtnDown) < CurInfo->DblClickSpeed);
+  if(res)
+  {
+    /* check if the second click is within the DblClickWidth and DblClickHeight values */
+    dX = CurInfo->LastBtnDownX - CurInfo->x;
+    dY = CurInfo->LastBtnDownY - CurInfo->y;
+    if(dX < 0) dX = -dX;
+    if(dY < 0) dY = -dY;
+    
+    res = (dX <= CurInfo->DblClickWidth) &&
+          (dY <= CurInfo->DblClickHeight);
+
+    if(res)
+    {
+      CurInfo->LastBtnDown = 0; /* prevent sending 2 or more DBLCLK messages */
+      CurInfo->LastBtnDownX = CurInfo->x;
+      CurInfo->LastBtnDownY = CurInfo->y;
+    }
+    else
+    {
+      CurInfo->LastBtnDown = TickCount;
+      CurInfo->LastBtnDownX = CurInfo->x;
+      CurInfo->LastBtnDownY = CurInfo->y;
+    }
+  }
+  else
+  {
+    CurInfo->LastBtnDown = TickCount;
+    CurInfo->LastBtnDownX = CurInfo->x;
+    CurInfo->LastBtnDownY = CurInfo->y;
+  }
+  return res;
+}
+
+BOOL FASTCALL
+IntSwapMouseButton(PWINSTATION_OBJECT WinStaObject, BOOL Swap)
+{
+  BOOL res = WinStaObject->SystemCursor.SwapButtons;
+  WinStaObject->SystemCursor.SwapButtons = Swap;
+  return res;
+}
+
+INT STDCALL
+MouseSafetyOnDrawStart(PSURFOBJ SurfObj, PSURFGDI SurfGDI, LONG HazardX1,
 		       LONG HazardY1, LONG HazardX2, LONG HazardY2)
 /*
  * FUNCTION: Notify the mouse driver that drawing is about to begin in
  * a rectangle on a particular surface.
  */
 {
+  RECTL MouseRect;
   LONG tmp;
-  GDIDEVICE *ppdev;
-  GDIPOINTER *pgp;
+  PSYSTEM_CURSORINFO CurInfo;
+  PSYSCURSOR SysCursor;
+  BOOL MouseEnabled = FALSE;
 
-  ASSERT(SurfObj != NULL);
 
-  ppdev = GDIDEV(SurfObj);
+  /* Mouse is not allowed to move if GDI is busy drawing */
+   
+  if(IntGetWindowStationObject(InputWindowStation))
+  {
+    CurInfo = &InputWindowStation->SystemCursor;
+    
+    SysCursor = &CurInfo->SystemCursors[CurInfo->CurrentCursor];
+    MouseEnabled = CurInfo->Enabled && SysCursor->hCursor;
+  }
+  else
+    return FALSE;
   
-  if(ppdev == NULL)
+  ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+  CurInfo->SafetySwitch2 = TRUE;
+  ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+    
+  if (SurfObj == NULL)
     {
+      ObDereferenceObject(InputWindowStation);
       return(FALSE);
     }
-  
-  pgp = &ppdev->Pointer;
 
-  if (SPS_ACCEPT_NOEXCLUDE == pgp->Status ||
-      pgp->Exclude.right == -1)
+
+  if (SurfObj->iType != STYPE_DEVICE || MouseEnabled == FALSE)
     {
+      ObDereferenceObject(InputWindowStation);
+      return(FALSE);
+    }
+
+  if (SPS_ACCEPT_NOEXCLUDE == PointerStatus)
+    {
+      /* Hardware cursor, no need to remove it */
+      ObDereferenceObject(InputWindowStation);
       return(FALSE);
     }
 
@@ -68,459 +241,484 @@ MouseSafetyOnDrawStart(SURFOBJ *SurfObj, LONG HazardX1,
       tmp = HazardY2; HazardY2 = HazardY1; HazardY1 = tmp;
     }
 
-  if (pgp->Exclude.right >= HazardX1
-      && pgp->Exclude.left <= HazardX2
-      && pgp->Exclude.bottom >= HazardY1
-      && pgp->Exclude.top <= HazardY2)
+  if (((CurInfo->x + SysCursor->cx) >= HazardX1)  && (CurInfo->x <= HazardX2) &&
+      ((CurInfo->y + SysCursor->cy) >= HazardY1) && (CurInfo->y <= HazardY2))
     {
-      if (0 != pgp->SafetyRemoveCount++)
-        {
-          return FALSE;
-        }
-      pgp->SafetySwitch = TRUE;
-      if (pgp->MovePointer)
-        pgp->MovePointer(SurfObj, -1, -1, NULL);
-      else
-        EngMovePointer(SurfObj, -1, -1, NULL);
+      /* Mouse is not allowed to move if GDI is busy drawing */
+      ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+      CurInfo->SafetySwitch = TRUE;
+      SurfGDI->MovePointer(SurfObj, -1, -1, &MouseRect);
+      ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
     }
-
+    
+  ObDereferenceObject(InputWindowStation);
   return(TRUE);
 }
 
-INT INTERNAL_CALL
-MouseSafetyOnDrawEnd(SURFOBJ *SurfObj)
+INT FASTCALL
+MouseSafetyOnDrawEnd(PSURFOBJ SurfObj, PSURFGDI SurfGDI)
 /*
  * FUNCTION: Notify the mouse driver that drawing has finished on a surface.
  */
 {
-  GDIDEVICE *ppdev;
-  GDIPOINTER *pgp;
-
-  ASSERT(SurfObj != NULL);
-
-  ppdev = GDIDEV(SurfObj);
+  RECTL MouseRect;
+  PSYSTEM_CURSORINFO CurInfo;
+  PSYSCURSOR SysCursor;
+  BOOL MouseEnabled = FALSE;
+    
+  if(IntGetWindowStationObject(InputWindowStation))
+  {
+    CurInfo = &InputWindowStation->SystemCursor;
+  }
+  else
+    return FALSE;
+    
+  if(SurfObj == NULL)
+  {
+    ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+    CurInfo->SafetySwitch2 = FALSE;
+    ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+    ObDereferenceObject(InputWindowStation);
+    return FALSE;
+  }
   
-  if(ppdev == NULL)
+  SysCursor = &CurInfo->SystemCursors[CurInfo->CurrentCursor];
+  MouseEnabled = CurInfo->Enabled && SysCursor->hCursor;
+
+  if (SurfObj->iType != STYPE_DEVICE || MouseEnabled == FALSE)
     {
+      ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+      CurInfo->SafetySwitch2 = FALSE;
+      ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+      ObDereferenceObject(InputWindowStation);
       return(FALSE);
     }
 
-  pgp = &ppdev->Pointer;
-
-  if(SPS_ACCEPT_NOEXCLUDE == pgp->Status ||
-     pgp->Exclude.right == -1)
-  {
-    return FALSE;
-  }
-
-  if (pgp->SafetySwitch)
+  if (SPS_ACCEPT_NOEXCLUDE == PointerStatus)
     {
-      if (1 < pgp->SafetyRemoveCount--)
-        {
-          /* Someone else removed it too, let them restore it */
-          return FALSE;
-        }
-      /* FIXME - this is wrong!!!!!! we must NOT access pgp->Pos from here, it's
-                 a private field for ENG/driver. This will paint the cursor to the
-                 wrong screen coordinates when a driver overrides DrvMovePointer()!
-                 We should store the coordinates before calling Drv/EngMovePointer()
-                 and Drv/EngSetPointerShape() separately in the GDIDEVICE structure
-                 or somewhere where ntuser can access it! */
-      if (pgp->MovePointer)
-        pgp->MovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-      else
-        EngMovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-     pgp->SafetySwitch = FALSE;
+      /* Hardware cursor, it wasn't removed so need to restore it */
+      ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+      CurInfo->SafetySwitch2 = FALSE;
+      ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+      ObDereferenceObject(InputWindowStation);
+      return(FALSE);
     }
-
+  
+  ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+  if (CurInfo->SafetySwitch)
+    {
+      SurfGDI->MovePointer(SurfObj, CurInfo->x, CurInfo->y, &MouseRect);
+      CurInfo->SafetySwitch = FALSE;
+      CurInfo->SafetySwitch2 = FALSE;
+    }
+  else
+    {
+      CurInfo->SafetySwitch2 = FALSE;      
+    }
+  ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+  ObDereferenceObject(InputWindowStation);
   return(TRUE);
 }
 
-/* SOFTWARE MOUSE POINTER IMPLEMENTATION **************************************/
-
-VOID INTERNAL_CALL
-IntHideMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
+BOOL FASTCALL
+MouseMoveCursor(LONG X, LONG Y)
 {
-   GDIPOINTER *pgp;
-   POINTL pt;
-
-   ASSERT(ppdev);
-   ASSERT(DestSurface);
-
-   pgp = &ppdev->Pointer;
-
-   if (!pgp->Enabled)
-   {
-      return;
-   }
-
-   pgp->Enabled = FALSE;
-   
-   pt.x = pgp->Pos.x - pgp->HotSpot.x;
-   pt.y = pgp->Pos.y - pgp->HotSpot.y;
-
-   if (pgp->SaveSurface != NULL)
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-      SURFOBJ *SaveSurface;
-      SURFOBJ *MaskSurface;
-
-      DestRect.left = max(pt.x, 0);
-      DestRect.top = max(pt.y, 0);
-      DestRect.right = min(
-         pt.x + pgp->Size.cx,
-         DestSurface->sizlBitmap.cx);
-      DestRect.bottom = min(
-         pt.y + pgp->Size.cy,
-         DestSurface->sizlBitmap.cy);
-
-      SrcPoint.x = max(-pt.x, 0);
-      SrcPoint.y = max(-pt.y, 0);
-
-      if((SaveSurface = EngLockSurface(pgp->SaveSurface)))
+  HDC hDC;
+  PDC dc;
+  RECTL MouseRect;
+  BOOL res = FALSE;
+  PSURFOBJ SurfObj;
+  PSURFGDI SurfGDI;
+  PSYSTEM_CURSORINFO CurInfo;
+  MSG Msg;
+  LARGE_INTEGER LargeTickCount;
+  ULONG TickCount;
+  
+  if(!InputWindowStation)
+    return FALSE;
+  
+  if(IntGetWindowStationObject(InputWindowStation))
+  {
+    CurInfo = &InputWindowStation->SystemCursor;
+    if(!CurInfo->Enabled)
+    {
+      ObDereferenceObject(InputWindowStation);
+      return FALSE;
+    }
+    hDC = IntGetScreenDC();
+    if(!hDC)
+    {
+      ObDereferenceObject(InputWindowStation);
+      return FALSE;
+    }
+    dc = DC_LockDc(hDC);
+    SurfObj = (PSURFOBJ)AccessUserObject((ULONG) dc->Surface);
+    SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) dc->Surface);
+    DC_UnlockDc( hDC );
+    IntCheckClipCursor(&X, &Y, CurInfo);
+    if((X != CurInfo->x) || (Y != CurInfo->y))
+    {
+      /* send MOUSEMOVE message */
+      KeQueryTickCount(&LargeTickCount);
+      TickCount = LargeTickCount.u.LowPart;
+      Msg.wParam = CurInfo->ButtonsDown;
+      Msg.lParam = MAKELPARAM(X, Y);
+      Msg.message = WM_MOUSEMOVE;
+      Msg.time = TickCount;
+      Msg.pt.x = X;
+      Msg.pt.y = Y;
+      MsqInsertSystemMessage(&Msg, TRUE);
+      /* move cursor */
+      CurInfo->x = X;
+      CurInfo->y = Y;
+      if(CurInfo->Enabled)
       {
-        if((MaskSurface = EngLockSurface(pgp->MaskSurface)))
-        {
-          EngBitBlt(DestSurface, SaveSurface, MaskSurface, NULL, NULL,
-                    &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, SRCCOPY);
-          EngUnlockSurface(MaskSurface);
-        }
-        EngUnlockSurface(SaveSurface);
+        ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+        SurfGDI->MovePointer(SurfObj, CurInfo->x, CurInfo->y, &MouseRect);
+        ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
       }
-   }
+      res = TRUE;
+    }
+        
+    ObDereferenceObject(InputWindowStation);
+    return res;
+  }
+  else
+    return FALSE;
 }
 
-VOID INTERNAL_CALL
-IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
+VOID /* STDCALL */
+MouseGDICallBack(PMOUSE_INPUT_DATA Data, ULONG InputCount)
+/*
+ * FUNCTION: Call by the mouse driver when input events occur.
+ */
 {
-   GDIPOINTER *pgp;
-   SURFOBJ *SaveSurface;
-   POINTL pt;
+  ULONG i;
+  PSYSTEM_CURSORINFO CurInfo;
+  PSYSCURSOR SysCursor;
+  BOOL MouseEnabled = FALSE;
+  BOOL MouseMoveAdded = FALSE;
+  BOOL Moved = FALSE;
+  LONG mouse_ox, mouse_oy;
+  LONG mouse_cx = 0, mouse_cy = 0;
+  LONG dScroll = 0;
+  HDC hDC;
+  PDC dc;
+  PSURFOBJ SurfObj;
+  PSURFGDI SurfGDI;
+  RECTL MouseRect;
+  WORD wp;
+  MSG Msg;
+  LARGE_INTEGER LargeTickCount;
+  ULONG TickCount;
+  
+  hDC = IntGetScreenDC();
+  
+  if(!hDC || !InputWindowStation)
+    return;
 
-   ASSERT(ppdev);
-   ASSERT(DestSurface);
-
-   pgp = &ppdev->Pointer;
-
-   if (pgp->Enabled)
-   {
+  if(IntGetWindowStationObject(InputWindowStation))
+  {
+    CurInfo = &InputWindowStation->SystemCursor;
+    SysCursor = &CurInfo->SystemCursors[CurInfo->CurrentCursor];
+    MouseEnabled = CurInfo->Enabled;
+    if(!MouseEnabled)
+    {
+      ObDereferenceObject(InputWindowStation);
       return;
-   }
+    }
+    mouse_ox = CurInfo->x;
+    mouse_oy = CurInfo->y;
+  }
+  else
+    return;
 
-   pgp->Enabled = TRUE;
-   
-   pt.x = pgp->Pos.x - pgp->HotSpot.x;
-   pt.y = pgp->Pos.y - pgp->HotSpot.y;
+  dc = DC_LockDc(hDC);
+  SurfObj = (PSURFOBJ)AccessUserObject((ULONG) dc->Surface);
+  SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) dc->Surface);
+  DC_UnlockDc( hDC );
 
-   /*
-    * Copy the pixels under the cursor to temporary surface.
-    */
+  /* Compile the total mouse movement change and dispatch button events. */
+  for (i = 0; i < InputCount; i++)
+  {
+    mouse_cx += Data[i].LastX;
+    mouse_cy += Data[i].LastY;
+    
+    CurInfo->x += Data[i].LastX;
+    CurInfo->y += Data[i].LastY;
+    
+    CurInfo->x = max(CurInfo->x, 0);
+    CurInfo->y = max(CurInfo->y, 0);
+    CurInfo->x = min(CurInfo->x, SurfObj->sizlBitmap.cx - 1);
+    CurInfo->y = min(CurInfo->y, SurfObj->sizlBitmap.cy - 1);
+    
+    IntCheckClipCursor(&CurInfo->x, &CurInfo->y, CurInfo);
+    
+    KeQueryTickCount(&LargeTickCount);
+    TickCount = LargeTickCount.u.LowPart;
 
-   if (pgp->SaveSurface != NULL &&
-       (SaveSurface = EngLockSurface(pgp->SaveSurface)))
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-
-      SrcPoint.x = max(pt.x, 0);
-      SrcPoint.y = max(pt.y, 0);
-
-      DestRect.left = SrcPoint.x - pt.x;
-      DestRect.top = SrcPoint.y - pt.y;
-      DestRect.right = min(
-         pgp->Size.cx,
-         DestSurface->sizlBitmap.cx - pt.x);
-      DestRect.bottom = min(
-         pgp->Size.cy,
-         DestSurface->sizlBitmap.cy - pt.y);
-
-      EngBitBlt(SaveSurface, DestSurface, NULL, NULL, NULL,
-                &DestRect, &SrcPoint, NULL, NULL, NULL, SRCCOPY);
-      EngUnlockSurface(SaveSurface);
-   }
-
-   /*
-    * Blit the cursor on the screen.
-    */
-
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-      SURFOBJ *ColorSurf;
-      SURFOBJ *MaskSurf;
-
-      DestRect.left = max(pt.x, 0);
-      DestRect.top = max(pt.y, 0);
-      DestRect.right = min(
-         pt.x + pgp->Size.cx,
-         DestSurface->sizlBitmap.cx);
-      DestRect.bottom = min(
-         pt.y + pgp->Size.cy,
-         DestSurface->sizlBitmap.cy);
-
-      SrcPoint.x = max(-pt.x, 0);
-      SrcPoint.y = max(-pt.y, 0);
-
-      MaskSurf = EngLockSurface(pgp->MaskSurface);
-      if (MaskSurf != NULL)
+    Msg.wParam = CurInfo->ButtonsDown;
+    Msg.lParam = MAKELPARAM(CurInfo->x, CurInfo->y);
+    Msg.message = WM_MOUSEMOVE;
+    Msg.time = TickCount;
+    Msg.pt.x = CurInfo->x;
+    Msg.pt.y = CurInfo->y;
+    
+    MouseMoveAdded = FALSE;
+    
+    //PrintInputData(i, Data[i]);
+    
+    if (Data[i].ButtonFlags != 0)
+    {
+      wp = 0;
+      if ((Data[i].ButtonFlags & MOUSE_LEFT_BUTTON_DOWN) > 0)
       {
-        if (pgp->ColorSurface != NULL)
+        /* insert WM_MOUSEMOVE messages before Button down messages */
+        if ((0 != Data[i].LastX) || (0 != Data[i].LastY))
         {
-           if((ColorSurf = EngLockSurface(pgp->ColorSurface)))
-           {
-             EngBitBlt(DestSurface, ColorSurf, MaskSurf, NULL, pgp->XlateObject,
-                       &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, 0xAACC);
-             EngUnlockSurface(ColorSurf);
-           }
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
         }
+      	CurInfo->ButtonsDown |= CurInfo->SwapButtons ? MK_RBUTTON : MK_LBUTTON;
+      	if(IntDetectDblClick(CurInfo, TickCount))
+          Msg.message = CurInfo->SwapButtons ? WM_RBUTTONDBLCLK : WM_LBUTTONDBLCLK;
         else
+          Msg.message = CurInfo->SwapButtons ? WM_RBUTTONDOWN : WM_LBUTTONDOWN;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_MIDDLE_BUTTON_DOWN) > 0)
+      {
+        /* insert WM_MOUSEMOVE messages before Button down messages */
+        if ((0 != Data[i].LastX) || (0 != Data[i].LastY))
         {
-           EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCAND);
-           SrcPoint.y += pgp->Size.cy;
-           EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCINVERT);
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
         }
-        EngUnlockSurface(MaskSurf);
+      	CurInfo->ButtonsDown |= MK_MBUTTON;
+      	if(IntDetectDblClick(CurInfo, TickCount))
+      	  Msg.message = WM_MBUTTONDBLCLK;
+      	else
+          Msg.message = WM_MBUTTONDOWN;
       }
-   }
+      if ((Data[i].ButtonFlags & MOUSE_RIGHT_BUTTON_DOWN) > 0)
+      {
+        /* insert WM_MOUSEMOVE messages before Button down messages */
+        if ((0 != Data[i].LastX) || (0 != Data[i].LastY))
+        {
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
+        }
+      	CurInfo->ButtonsDown |= CurInfo->SwapButtons ? MK_LBUTTON : MK_RBUTTON;
+      	if(IntDetectDblClick(CurInfo, TickCount))
+      	  Msg.message = CurInfo->SwapButtons ? WM_LBUTTONDBLCLK : WM_RBUTTONDBLCLK;
+      	else
+          Msg.message = CurInfo->SwapButtons ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+      }
+      
+      if ((Data[i].ButtonFlags & MOUSE_BUTTON_4_DOWN) > 0)
+      {
+        /* insert WM_MOUSEMOVE messages before Button down messages */
+        if ((0 != Data[i].LastX) || (0 != Data[i].LastY))
+        {
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
+        }
+      	CurInfo->ButtonsDown |= MK_XBUTTON1;
+      	if(IntDetectDblClick(CurInfo, TickCount))
+      	{
+      	  Msg.message = WM_XBUTTONDBLCLK;
+      	  wp = XBUTTON1;
+   	    }
+      	else
+          Msg.message = WM_XBUTTONDOWN;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_BUTTON_5_DOWN) > 0)
+      {
+        /* insert WM_MOUSEMOVE messages before Button down messages */
+        if ((0 != Data[i].LastX) || (0 != Data[i].LastY))
+        {
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
+        }
+      	CurInfo->ButtonsDown |= MK_XBUTTON2;
+      	if(IntDetectDblClick(CurInfo, TickCount))
+      	{
+      	  Msg.message = WM_XBUTTONDBLCLK;
+      	  wp = XBUTTON2;
+   	    }
+      	else
+          Msg.message = WM_XBUTTONDOWN;
+      }
+
+      if ((Data[i].ButtonFlags & MOUSE_LEFT_BUTTON_UP) > 0)
+      {
+      	CurInfo->ButtonsDown &= CurInfo->SwapButtons ? ~MK_RBUTTON : ~MK_LBUTTON;
+        Msg.message = CurInfo->SwapButtons ? WM_RBUTTONUP : WM_LBUTTONUP;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_MIDDLE_BUTTON_UP) > 0)
+      {
+      	CurInfo->ButtonsDown &= ~MK_MBUTTON;
+        Msg.message = WM_MBUTTONUP;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_RIGHT_BUTTON_UP) > 0)
+      {
+      	CurInfo->ButtonsDown &= CurInfo->SwapButtons ? ~MK_LBUTTON : ~MK_RBUTTON;
+        Msg.message = CurInfo->SwapButtons ? WM_LBUTTONUP : WM_RBUTTONUP;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_BUTTON_4_UP) > 0)
+      {
+      	CurInfo->ButtonsDown &= ~MK_XBUTTON1;
+        Msg.message = WM_XBUTTONUP;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_BUTTON_5_UP) > 0)
+      {
+      	CurInfo->ButtonsDown &= ~MK_XBUTTON2;
+        Msg.message = WM_XBUTTONUP;
+      }
+      if ((Data[i].ButtonFlags & MOUSE_WHEEL) > 0)
+      {
+        dScroll += (LONG)Data[i].ButtonData;
+      }
+      
+      if (Data[i].ButtonFlags != MOUSE_WHEEL)
+      {
+        Moved = (0 != mouse_cx) || (0 != mouse_cy);
+        if(Moved && MouseEnabled)
+        {
+          if (!CurInfo->SafetySwitch && !CurInfo->SafetySwitch2 &&
+              ((mouse_ox != CurInfo->x) || (mouse_oy != CurInfo->y)))
+          {
+            ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+            SurfGDI->MovePointer(SurfObj, CurInfo->x, CurInfo->y, &MouseRect);
+            ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+            mouse_cx = 0;
+            mouse_cy = 0;
+          }
+        }
+        
+        Msg.wParam = CurInfo->ButtonsDown;
+        MsqInsertSystemMessage(&Msg, FALSE);
+      
+        /* insert WM_MOUSEMOVE messages after Button up messages */
+        if(!MouseMoveAdded && Moved)
+        {
+          Msg.message = WM_MOUSEMOVE;
+          MsqInsertSystemMessage(&Msg, FALSE);
+          MouseMoveAdded = TRUE;
+        }
+      }
+    }
+  }
+  
+  KeQueryTickCount(&LargeTickCount);
+  TickCount = LargeTickCount.u.LowPart;
+
+  /* If the mouse moved then move the pointer. */
+  if ((mouse_cx != 0 || mouse_cy != 0) && MouseEnabled)
+  {
+
+    if(!MouseMoveAdded)
+    {
+      Msg.wParam = CurInfo->ButtonsDown;
+      Msg.message = WM_MOUSEMOVE;
+      Msg.pt.x = CurInfo->x;
+      Msg.pt.y = CurInfo->y;
+      Msg.time = TickCount;
+      Msg.lParam = MAKELPARAM(CurInfo->x, CurInfo->y);
+      MsqInsertSystemMessage(&Msg, TRUE);
+    }
+    
+    if (!CurInfo->SafetySwitch && !CurInfo->SafetySwitch2 &&
+        ((mouse_ox != CurInfo->x) || (mouse_oy != CurInfo->y)))
+    {
+      ExAcquireFastMutexUnsafe(&CurInfo->CursorMutex);
+      SurfGDI->MovePointer(SurfObj, CurInfo->x, CurInfo->y, &MouseRect);
+      ExReleaseFastMutexUnsafe(&CurInfo->CursorMutex);
+    }
+  }
+  
+  /* send WM_MOUSEWHEEL message */
+  if(dScroll && MouseEnabled)
+  {
+    Msg.message = WM_MOUSEWHEEL;
+    Msg.wParam = MAKEWPARAM(CurInfo->ButtonsDown, dScroll);
+    Msg.lParam = MAKELPARAM(CurInfo->x, CurInfo->y);
+    Msg.time = TickCount;
+    Msg.pt.x = CurInfo->x;
+    Msg.pt.y = CurInfo->y;
+    MsqInsertSystemMessage(&Msg, FALSE);
+  }
+
+  ObDereferenceObject(InputWindowStation);
 }
 
-/*
- * @implemented
- */
-
-ULONG STDCALL
-EngSetPointerShape(
-   IN SURFOBJ *pso,
-   IN SURFOBJ *psoMask,
-   IN SURFOBJ *psoColor,
-   IN XLATEOBJ *pxlo,
-   IN LONG xHot,
-   IN LONG yHot,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl,
-   IN FLONG fl)
+VOID FASTCALL
+EnableMouse(HDC hDisplayDC)
 {
-   GDIDEVICE *ppdev;
-   SURFOBJ *TempSurfObj;
-   GDIPOINTER *pgp;
+  PDC dc;
+  PSURFOBJ SurfObj;
+  PSURFGDI SurfGDI;
+  HBITMAP hMouseSurf;
+  PSURFOBJ MouseSurf;
+  SIZEL MouseSize;
+  RECTL MouseRect;
+  PSYSTEM_CURSORINFO CurInfo;
+  PSYSCURSOR SysCursor;
 
-   ASSERT(pso);
+  if( hDisplayDC && InputWindowStation)
+  {
+    if(!IntGetWindowStationObject(InputWindowStation))
+    {
+       InputWindowStation->SystemCursor.Enabled = FALSE;
+       return;
+    }
+    
+    CurInfo = &InputWindowStation->SystemCursor;
+    SysCursor = &CurInfo->SystemCursors[CurInfo->CurrentCursor];
+    
+    dc = DC_LockDc(hDisplayDC);
+    SurfObj = (PSURFOBJ)AccessUserObject((ULONG) dc->Surface);
+    SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) dc->Surface);
+    DC_UnlockDc( hDisplayDC );
+    
+    /* Tell the display driver to set the pointer shape. */
+    CurInfo->x = SurfObj->sizlBitmap.cx / 2;
+    CurInfo->y = SurfObj->sizlBitmap.cy / 2;
 
-   ppdev = GDIDEV(pso);
-   pgp = &ppdev->Pointer;
+    /* Create the default mouse cursor. */
+    MouseSize.cx = SysCursor->cx;
+    MouseSize.cy = SysCursor->cy * 2;
+    hMouseSurf = EngCreateBitmap(MouseSize, 4, BMF_1BPP, BMF_TOPDOWN, DefaultCursor);
+    MouseSurf = (PSURFOBJ)AccessUserObject((ULONG) hMouseSurf);
 
-   IntHideMousePointer(ppdev, pso);
+    DPRINT("Setting Cursor up at 0x%x, 0x%x\n", CurInfo->x, CurInfo->y);
+    IntCheckClipCursor(&CurInfo->x, 
+                       &CurInfo->y,
+                       CurInfo);
 
-   if (pgp->ColorSurface != NULL)
-   {
-      /* FIXME: Is this really needed? */
-      if((TempSurfObj = EngLockSurface(pgp->ColorSurface)))
-      {
-        EngFreeMem(TempSurfObj->pvBits);
-        TempSurfObj->pvBits = 0;
-        EngUnlockSurface(TempSurfObj);
-      }
+    PointerStatus = SurfGDI->SetPointerShape(SurfObj, MouseSurf, NULL, NULL,
+                                             SysCursor->hx,
+                                             SysCursor->hy, 
+                                             CurInfo->x, 
+                                             CurInfo->y, 
+                                             &MouseRect,
+                                             SPS_CHANGE);
 
-      EngDeleteSurface(pgp->ColorSurface);
-      pgp->MaskSurface = NULL;
-   }
+    InputWindowStation->SystemCursor.Enabled = (SPS_ACCEPT_EXCLUDE == PointerStatus ||
+                                                SPS_ACCEPT_NOEXCLUDE == PointerStatus);
 
-   if (pgp->MaskSurface != NULL)
-   {
-      /* FIXME: Is this really needed? */
-      if((TempSurfObj = EngLockSurface(pgp->MaskSurface)))
-      {
-        EngFreeMem(TempSurfObj->pvBits);
-        TempSurfObj->pvBits = 0;
-        EngUnlockSurface(TempSurfObj);
-      }
-
-      EngDeleteSurface(pgp->MaskSurface);
-      pgp->MaskSurface = NULL;
-   }
-
-   if (pgp->SaveSurface != NULL)
-   {
-      EngDeleteSurface(pgp->SaveSurface);
-      pgp->SaveSurface = NULL;
-   }
-
-   if (pgp->XlateObject != NULL)
-   {
-      EngDeleteXlate(pgp->XlateObject);
-      pgp->XlateObject = NULL;
-   }
-
-   /*
-    * See if we are being asked to hide the pointer.
-    */
-
-   if (psoMask == NULL)
-   {
-      return SPS_ACCEPT_NOEXCLUDE;
-   }
-
-   pgp->HotSpot.x = xHot;
-   pgp->HotSpot.y = yHot;
-
-   if (x != -1)
-   {
-     pgp->Pos.x = x;
-     pgp->Pos.y = y;
-   }
-   
-   pgp->Size.cx = abs(psoMask->lDelta) << 3;
-   pgp->Size.cy = (psoMask->cjBits / abs(psoMask->lDelta)) >> 1;
-
-   if (psoColor != NULL)
-   {
-      PBYTE Bits;
-
-      Bits = EngAllocMem(0, psoColor->cjBits, TAG_MOUSE);
-      memcpy(Bits, psoColor->pvBits, psoColor->cjBits);
-
-      pgp->ColorSurface = (HSURF)EngCreateBitmap(pgp->Size,
-         psoColor->lDelta, psoColor->iBitmapFormat,
-         psoColor->lDelta < 0 ? 0 : BMF_TOPDOWN, Bits);
-   }
-   else
-   {
-      pgp->ColorSurface = NULL;
-   }
-
-   {
-      SIZEL Size;
-      PBYTE Bits;
-
-      Size.cx = pgp->Size.cx;
-      Size.cy = pgp->Size.cy << 1;
-      Bits = EngAllocMem(0, psoMask->cjBits, TAG_MOUSE);
-      memcpy(Bits, psoMask->pvBits, psoMask->cjBits);
-
-      pgp->MaskSurface = (HSURF)EngCreateBitmap(Size,
-         psoMask->lDelta, psoMask->iBitmapFormat,
-         psoMask->lDelta < 0 ? 0 : BMF_TOPDOWN, Bits);
-   }
-
-   /*
-    * Create an XLATEOBJ that will be used for drawing masks.
-    * FIXME: We should get this in pxlo parameter!
-    */
-
-   if (pxlo == NULL)
-   {
-      HPALETTE BWPalette, DestPalette;
-      ULONG BWColors[] = {0, 0xFFFFFF};
-
-      BWPalette = EngCreatePalette(PAL_INDEXED, sizeof(BWColors) / sizeof(ULONG),
-         BWColors, 0, 0, 0);
-
-      DestPalette = ppdev->DevInfo.hpalDefault;
-      pgp->XlateObject = IntEngCreateXlate(0, PAL_INDEXED,
-         DestPalette, BWPalette);
-      EngDeletePalette(BWPalette);
-   }
-   else
-   {
-      pgp->XlateObject = pxlo;
-   }
-
-   /*
-    * Create surface for saving the pixels under the cursor.
-    */
-
-   {
-      LONG lDelta;
-
-      switch (pso->iBitmapFormat)
-      {
-         case BMF_1BPP:
-	   lDelta = pgp->Size.cx >> 3;
-	   break;
-         case BMF_4BPP:
-	   lDelta = pgp->Size.cx >> 1;
-	   break;
-         case BMF_8BPP:
-	   lDelta = pgp->Size.cx;
-	   break;
-         case BMF_16BPP:
-	   lDelta = pgp->Size.cx << 1;
-	   break;
-         case BMF_24BPP:
-	   lDelta = pgp->Size.cx * 3;
-	   break;
-         case BMF_32BPP:
-	   lDelta = pgp->Size.cx << 2;
-	   break;
-         default:
-	   lDelta = 0;
-	   break;
-      }
-
-      pgp->SaveSurface = (HSURF)EngCreateBitmap(
-         pgp->Size, lDelta, pso->iBitmapFormat, BMF_TOPDOWN | BMF_NOZEROINIT, NULL);
-   }
-
-   if(x != -1)
-   {
-     IntShowMousePointer(ppdev, pso);
-     
-     if (prcl != NULL)
-     {
-       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
-       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
-       prcl->right = prcl->left + pgp->Size.cx;
-       prcl->bottom = prcl->top + pgp->Size.cy;
-     }
-   }
-   
-   /* FIXME - touch prcl when x == -1? */
-
-   return SPS_ACCEPT_EXCLUDE;
+    EngDeleteSurface(hMouseSurf);
+    ObDereferenceObject(InputWindowStation);
+    
+  }
+  else
+  {
+    if(IntGetWindowStationObject(InputWindowStation))
+    {
+       InputWindowStation->SystemCursor.Enabled = FALSE;
+       InputWindowStation->SystemCursor.CursorClipInfo.IsClipped = FALSE;
+	   ObDereferenceObject(InputWindowStation);
+       return;
+    }
+  }
 }
-
-/*
- * @implemented
- */
-
-VOID STDCALL
-EngMovePointer(
-   IN SURFOBJ *pso,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl)
-{
-   GDIDEVICE *ppdev;
-   GDIPOINTER *pgp;
-
-   ASSERT(pso);
-
-   ppdev = GDIDEV(pso);
-
-   ASSERT(ppdev);
-   
-   pgp = &ppdev->Pointer;
-   
-   IntHideMousePointer(ppdev, pso);
-   if (x != -1)
-   {
-     pgp->Pos.x = x;
-     pgp->Pos.y = y;
-     IntShowMousePointer(ppdev, pso);
-     if (prcl != NULL)
-     {
-       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
-       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
-       prcl->right = prcl->left + pgp->Size.cx;
-       prcl->bottom = prcl->top + pgp->Size.cy;
-     }
-   }
-   
-   /* FIXME - touch prcl when x == -1? */
-}
-
 /* EOF */

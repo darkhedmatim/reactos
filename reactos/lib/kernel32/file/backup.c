@@ -1,4 +1,4 @@
-/* $Id: backup.c,v 1.7 2004/10/30 22:18:17 weiden Exp $
+/* $Id: backup.c,v 1.5 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,23 +12,20 @@
 
 #include <k32.h>
 
-#define NDEBUG
-#include "../include/debug.h"
-
 /* FUNCTIONS ****************************************************************/
 
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 BackupRead (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
 	DWORD	nNumberOfBytesToRead,
 	LPDWORD	lpNumberOfBytesRead,
-	BOOL	bAbort,
-	BOOL	bProcessSecurity,
+	WINBOOL	bAbort,
+	WINBOOL	bProcessSecurity,
 	LPVOID	* lpContext
 	)
 {
@@ -40,7 +37,7 @@ BackupRead (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 BackupSeek (
 	HANDLE	hFile,
@@ -59,15 +56,15 @@ BackupSeek (
 /*
  * @unimplemented
  */
-BOOL
+WINBOOL
 STDCALL
 BackupWrite (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
 	DWORD	nNumberOfBytesToWrite,
 	LPDWORD	lpNumberOfBytesWritten,
-	BOOL	bAbort,
-	BOOL	bProcessSecurity,
+	WINBOOL	bAbort,
+	WINBOOL	bProcessSecurity,
 	LPVOID	* lpContext
 	)
 {

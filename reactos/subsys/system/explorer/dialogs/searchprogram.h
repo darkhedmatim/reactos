@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,15 +20,17 @@
  //
  // Explorer clone
  //
- // dialogs/searchprogram.h
+ // searchprogram.h
  //
  // Explorer dialogs
  //
  // Martin Fuchs, 02.10.2003
  //
 
+#include <stack>
 
-typedef void (*COLLECT_CALLBACK)(Entry* entry, void* param);
+
+typedef void (*COLLECT_CALLBACK)(ShellFolder& folder, ShellEntry* shell_entry, void* param);
 typedef stack<ShellDirectory*> ShellDirectoryStack;
 
  /// Thread for collecting start menu entries
@@ -62,10 +64,9 @@ protected:
 };
 
 
- /// entry for the list in "find program" dialogs
 struct FPDEntry
 {
-	Entry*	_entry;
+	ShellEntry* _shell_entry;
 	int		_idxIcon;
 	String	_menu_path;
 	String	_path;
@@ -83,8 +84,11 @@ struct FindProgramDlg : public ResizeController<Dialog>
 	~FindProgramDlg();
 
 protected:
+	CommonControlInit _usingCmnCtrl;
 	HWND	_list_ctrl;
 	HACCEL	_haccel;
+	HIMAGELIST _himl;
+	int		_idxNoIcon;	// replacement icon
 	String	_lwr_filter;
 
 	CollectProgramsThread _thread;
@@ -94,15 +98,13 @@ protected:
 
 	ListSort _sort;
 
-	virtual LRESULT WndProc(UINT, WPARAM, LPARAM);
 	virtual int	Command(int id, int code);
 	virtual int	Notify(int id, NMHDR* pnmh);
 
 	void	Refresh(bool delete_cache=false);
 	void	add_entry(const FPDEntry& cache_entry);
 	void	LaunchSelected();
-	void	CheckEntries();
 
-	static void collect_programs_callback(Entry* entry, void* param);
+	static void collect_programs_callback(ShellFolder& folder, ShellEntry* entry, void* param);
 	static int CALLBACK CompareFunc(LPARAM lparam1, LPARAM lparam2, LPARAM lparamSort);
 };

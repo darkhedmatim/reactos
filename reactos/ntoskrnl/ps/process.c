@@ -1,4 +1,4 @@
-/* $Id: process.c,v 1.160 2004/12/24 17:07:00 navaraf Exp $
+/* $Id: process.c,v 1.119 2003/10/12 17:05:50 hbirr Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,21 +11,40 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+#include <internal/mm.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/se.h>
+#include <internal/id.h>
+#include <napi/teb.h>
+#include <internal/ldr.h>
+#include <internal/port.h>
+#include <napi/dbg.h>
+#include <internal/dbg.h>
+#include <internal/pool.h>
+#include <roscfg.h>
+#include <internal/se.h>
+#include <internal/kd.h>
+#include <internal/nls.h>
+
 #define NDEBUG
 #include <internal/debug.h>
+
 
 /* GLOBALS ******************************************************************/
 
 PEPROCESS EXPORTED PsInitialSystemProcess = NULL;
-PEPROCESS PsIdleProcess = NULL;
+HANDLE SystemProcessHandle = NULL;
 
 POBJECT_TYPE EXPORTED PsProcessType = NULL;
 
 LIST_ENTRY PsProcessListHead;
 static KSPIN_LOCK PsProcessListLock;
-static ULONG PiNextProcessUniqueId = 0; /* TODO */
-static LARGE_INTEGER ShortPsLockDelay, PsLockTimeout;
+static ULONG PiNextProcessUniqueId = 0;
 
 static GENERIC_MAPPING PiProcessMapping = {PROCESS_READ,
 					   PROCESS_WRITE,
@@ -33,13 +52,9 @@ static GENERIC_MAPPING PiProcessMapping = {PROCESS_READ,
 					   PROCESS_ALL_ACCESS};
 
 #define MAX_PROCESS_NOTIFY_ROUTINE_COUNT    8
-#define MAX_LOAD_IMAGE_NOTIFY_ROUTINE_COUNT  8
 
 static PCREATE_PROCESS_NOTIFY_ROUTINE
 PiProcessNotifyRoutine[MAX_PROCESS_NOTIFY_ROUTINE_COUNT];
-static PLOAD_IMAGE_NOTIFY_ROUTINE
-PiLoadImageNotifyRoutine[MAX_LOAD_IMAGE_NOTIFY_ROUTINE_COUNT];
-
 
 typedef struct
 {
@@ -50,16 +65,6 @@ typedef struct
 } DEL_CONTEXT, *PDEL_CONTEXT;
 
 /* FUNCTIONS *****************************************************************/
-
-VOID
-STDCALL
-PsExitSpecialApc(PKAPC Apc, 
-		 PKNORMAL_ROUTINE *NormalRoutine,
-		 PVOID *NormalContext,
-		 PVOID *SystemArgument1,
-		 PVOID *SystemArgument2)
-{
-}
 
 PEPROCESS
 PsGetNextProcess(PEPROCESS OldProcess)
@@ -124,18 +129,14 @@ PsGetNextProcess(PEPROCESS OldProcess)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL 
-NtOpenProcessToken(IN	HANDLE		ProcessHandle,
+_NtOpenProcessToken(IN	HANDLE		ProcessHandle,
 		   IN	ACCESS_MASK	DesiredAccess,
 		   OUT	PHANDLE		TokenHandle)
 {
    PACCESS_TOKEN Token;
-   HANDLE hToken;
    NTSTATUS Status;
-
+  
    Status = PsOpenTokenOfProcess(ProcessHandle,
 				 &Token);
    if (!NT_SUCCESS(Status))
@@ -146,31 +147,21 @@ NtOpenProcessToken(IN	HANDLE		ProcessHandle,
 			   Token,
 			   DesiredAccess,
 			   FALSE,
-			   &hToken);
+			   TokenHandle);
    ObDereferenceObject(Token);
-   
-   if(NT_SUCCESS(Status))
-     {
-        Status = MmCopyToCaller(TokenHandle, &hToken, sizeof(HANDLE));
-     }
    return(Status);
 }
 
 
 /*
- * @unimplemented
+ * @implemented
  */
-NTSTATUS
-STDCALL
-NtOpenProcessTokenEx(
-    IN HANDLE ProcessHandle,
-    IN ACCESS_MASK DesiredAccess,
-    IN ULONG HandleAttributes,
-    OUT PHANDLE TokenHandle
-    )
+NTSTATUS STDCALL 
+NtOpenProcessToken(IN	HANDLE		ProcessHandle,
+		   IN	ACCESS_MASK	DesiredAccess,
+		   OUT	PHANDLE		TokenHandle)
 {
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
+  return _NtOpenProcessToken(ProcessHandle, DesiredAccess, TokenHandle);
 }
 
 
@@ -245,8 +236,6 @@ PsInitProcessManagment(VOID)
    KIRQL oldIrql;
    NTSTATUS Status;
    
-   ShortPsLockDelay.QuadPart = -100LL;
-   PsLockTimeout.QuadPart = -10000000LL; /* one second */
    /*
     * Register the process object type
     */
@@ -272,15 +261,12 @@ PsInitProcessManagment(VOID)
    PsProcessType->Create = NULL;
    PsProcessType->DuplicationNotify = NULL;
    
-   RtlRosInitUnicodeStringFromLiteral(&PsProcessType->TypeName, L"Process");
+   RtlInitUnicodeStringFromLiteral(&PsProcessType->TypeName, L"Process");
    
    ObpCreateTypeObject(PsProcessType);
 
    InitializeListHead(&PsProcessListHead);
    KeInitializeSpinLock(&PsProcessListLock);
-
-   RtlZeroMemory(PiProcessNotifyRoutine, sizeof(PiProcessNotifyRoutine));
-   RtlZeroMemory(PiLoadImageNotifyRoutine, sizeof(PiLoadImageNotifyRoutine));
    
    /*
     * Initialize the system process
@@ -305,8 +291,6 @@ PsInitProcessManagment(VOID)
    PsInitialSystemProcess->Pcb.LdtDescriptor[0] = 0;
    PsInitialSystemProcess->Pcb.LdtDescriptor[1] = 0;
    PsInitialSystemProcess->Pcb.BasePriority = PROCESS_PRIO_NORMAL;
-   PsInitialSystemProcess->Pcb.ThreadQuantum = 6;
-   InitializeListHead(&PsInitialSystemProcess->Pcb.ThreadListHead);
    KeInitializeDispatcherHeader(&PsInitialSystemProcess->Pcb.DispatcherHeader,
 				InternalProcessType,
 				sizeof(EPROCESS),
@@ -316,25 +300,12 @@ PsInitProcessManagment(VOID)
    MmInitializeAddressSpace(PsInitialSystemProcess,
 			    &PsInitialSystemProcess->AddressSpace);
    ObCreateHandleTable(NULL,FALSE,PsInitialSystemProcess);
-   
-   KeInitializeEvent(&PsInitialSystemProcess->LockEvent, SynchronizationEvent, FALSE);
-   PsInitialSystemProcess->LockCount = 0;
-   PsInitialSystemProcess->LockOwner = NULL;
-
-#if defined(__GNUC__)
    KProcess->DirectoryTableBase = 
      (LARGE_INTEGER)(LONGLONG)(ULONG)MmGetPageDirectory();
-#else
-   {
-     LARGE_INTEGER dummy;
-     dummy.QuadPart = (LONGLONG)(ULONG)MmGetPageDirectory();
-     KProcess->DirectoryTableBase = dummy;
-   }
-#endif
-
    PsInitialSystemProcess->UniqueProcessId = 
-     InterlockedIncrementUL(&PiNextProcessUniqueId); /* TODO */
+     InterlockedIncrement((LONG *)&PiNextProcessUniqueId);
    PsInitialSystemProcess->Win32WindowStation = (HANDLE)0;
+   PsInitialSystemProcess->Win32Desktop = (HANDLE)0;
    
    KeAcquireSpinLock(&PsProcessListLock, &oldIrql);
    InsertHeadList(&PsProcessListHead, 
@@ -345,12 +316,21 @@ PsInitProcessManagment(VOID)
    strcpy(PsInitialSystemProcess->ImageFileName, "SYSTEM");
 
    SepCreateSystemProcessToken(PsInitialSystemProcess);
+
+   ObCreateHandle(PsInitialSystemProcess,
+		  PsInitialSystemProcess,
+		  PROCESS_ALL_ACCESS,
+		  FALSE,
+		  &SystemProcessHandle);
 }
 
 VOID STDCALL
 PiDeleteProcessWorker(PVOID pContext)
 {
   KIRQL oldIrql;
+  ULONG i;
+  PCREATE_PROCESS_NOTIFY_ROUTINE NotifyRoutine[MAX_PROCESS_NOTIFY_ROUTINE_COUNT];
+  ULONG NotifyRoutineCount;
   PDEL_CONTEXT Context;
   PEPROCESS CurrentProcess;
   PEPROCESS Process;
@@ -363,12 +343,31 @@ PiDeleteProcessWorker(PVOID pContext)
 
   if (CurrentProcess != Process)
     {
-      KeAttachProcess(&Process->Pcb);
+      KeAttachProcess(Process);
     }
 
+  /* Terminate Win32 Process */
+  PsTerminateWin32Process (Process);
+
   KeAcquireSpinLock(&PsProcessListLock, &oldIrql);
+  NotifyRoutineCount = 0;
+  for (i = 0; i < MAX_PROCESS_NOTIFY_ROUTINE_COUNT; i++)
+    {
+      if (PiProcessNotifyRoutine[i])
+	{
+	  NotifyRoutine[NotifyRoutineCount++] = PiProcessNotifyRoutine[i];
+	}
+    }
   RemoveEntryList(&Process->ProcessListEntry);
   KeReleaseSpinLock(&PsProcessListLock, oldIrql);
+
+  for (i = 0;i < NotifyRoutineCount; i++)
+    {
+      /* must be called below DISPATCH_LVL */
+      NotifyRoutine[i](Process->InheritedFromUniqueProcessId,
+		       (HANDLE)Process->UniqueProcessId,
+		       FALSE);
+    }
 
   /* KDB hook */
   KDB_DELETEPROCESS_HOOK(Process);
@@ -395,13 +394,7 @@ PiDeleteProcess(PVOID ObjectBody)
 
   Context.Process = (PEPROCESS)ObjectBody;
 
-  if (PsGetCurrentProcess() == Context.Process ||
-      PsGetCurrentThread()->ThreadsProcess == Context.Process)
-    {
-       KEBUGCHECK(0);
-    }
-
-  if (PsGetCurrentThread()->ThreadsProcess == PsGetCurrentProcess())
+  if (PsGetCurrentProcess() == Context.Process || PsGetCurrentThread()->OldProcess == NULL)
     {
       Context.IsWorkerQueue = FALSE;
       PiDeleteProcessWorker(&Context);
@@ -417,12 +410,6 @@ PiDeleteProcess(PVOID ObjectBody)
           KeWaitForSingleObject(&Context.Event, Executive, KernelMode, FALSE, NULL);
 	}
     }
-
-  if(((PEPROCESS)ObjectBody)->Win32Process != NULL)
-  {
-    /* delete the W32PROCESS structure if there's one associated */
-    ExFreePool (((PEPROCESS)ObjectBody)->Win32Process);
-  }
 }
 
 static NTSTATUS
@@ -430,7 +417,6 @@ PsCreatePeb(HANDLE ProcessHandle,
 	    PEPROCESS Process,
 	    PVOID ImageBase)
 {
-  ULONG AllocSize;
   ULONG PebSize;
   PPEB Peb;
   LARGE_INTEGER SectionOffset;
@@ -439,28 +425,13 @@ PsCreatePeb(HANDLE ProcessHandle,
   NTSTATUS Status;
 
   /* Allocate the Process Environment Block (PEB) */
-  Process->TebBlock = (PVOID) MM_ROUND_DOWN(PEB_BASE, MM_VIRTMEM_GRANULARITY);
-  AllocSize = MM_VIRTMEM_GRANULARITY;
-  Status = NtAllocateVirtualMemory(ProcessHandle,
-				   &Process->TebBlock,
-				   0,
-				   &AllocSize,
-				   MEM_RESERVE,
-				   PAGE_READWRITE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtAllocateVirtualMemory() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-  ASSERT((ULONG_PTR) Process->TebBlock <= PEB_BASE &&
-         PEB_BASE + PAGE_SIZE <= (ULONG_PTR) Process->TebBlock + AllocSize);
   Peb = (PPEB)PEB_BASE;
   PebSize = PAGE_SIZE;
   Status = NtAllocateVirtualMemory(ProcessHandle,
 				   (PVOID*)&Peb,
 				   0,
 				   &PebSize,
-				   MEM_COMMIT,
+				   MEM_RESERVE | MEM_COMMIT,
 				   PAGE_READWRITE);
   if (!NT_SUCCESS(Status))
     {
@@ -468,11 +439,9 @@ PsCreatePeb(HANDLE ProcessHandle,
       return(Status);
     }
   DPRINT("Peb %p  PebSize %lu\n", Peb, PebSize);
-  ASSERT((PPEB) PEB_BASE == Peb && PAGE_SIZE <= PebSize);
-  Process->TebLastAllocated = (PVOID) Peb;
 
   ViewSize = 0;
-  SectionOffset.QuadPart = (ULONGLONG)0;
+  SectionOffset.QuadPart = 0LL;
   TableBase = NULL;
   Status = MmMapViewOfSection(NlsSectionObject,
 			      Process,
@@ -491,7 +460,7 @@ PsCreatePeb(HANDLE ProcessHandle,
     }
   DPRINT("TableBase %p  ViewSize %lx\n", TableBase, ViewSize);
 
-  KeAttachProcess(&Process->Pcb);
+  KeAttachProcess(Process);
 
   /* Initialize the PEB */
   RtlZeroMemory(Peb, sizeof(PEB));
@@ -499,13 +468,12 @@ PsCreatePeb(HANDLE ProcessHandle,
 
   Peb->OSMajorVersion = 4;
   Peb->OSMinorVersion = 0;
-  Peb->OSBuildNumber = 1381;
+  Peb->OSBuildNumber = 0;
   Peb->OSPlatformId = 2; //VER_PLATFORM_WIN32_NT;
-  Peb->SPMajorVersion = 6;
 
-  Peb->AnsiCodePageData     = (char*)TableBase + NlsAnsiTableOffset;
-  Peb->OemCodePageData      = (char*)TableBase + NlsOemTableOffset;
-  Peb->UnicodeCaseTableData = (char*)TableBase + NlsUnicodeTableOffset;
+  Peb->AnsiCodePageData = TableBase + NlsAnsiTableOffset;
+  Peb->OemCodePageData = TableBase + NlsOemTableOffset;
+  Peb->UnicodeCaseTableData = TableBase + NlsUnicodeTableOffset;
 
   Process->Peb = Peb;
   KeDetachProcess();
@@ -539,18 +507,6 @@ PsGetCurrentProcessId(VOID)
 }
 
 /*
- * @unimplemented
- */
-ULONG
-STDCALL
-PsGetCurrentProcessSessionId (
-    	VOID
-	)
-{
-	return PsGetCurrentProcess()->SessionId;
-}
-
-/*
  * FUNCTION: Returns a pointer to the current process
  *
  * @implemented
@@ -559,13 +515,13 @@ PEPROCESS STDCALL
 IoGetCurrentProcess(VOID)
 {
    if (PsGetCurrentThread() == NULL || 
-       PsGetCurrentThread()->Tcb.ApcState.Process == NULL)
+       PsGetCurrentThread()->ThreadsProcess == NULL)
      {
 	return(PsInitialSystemProcess);
      }
    else
      {
-	return(PEPROCESS)(PsGetCurrentThread()->Tcb.ApcState.Process);
+	return(PsGetCurrentThread()->ThreadsProcess);
      }
 }
 
@@ -577,46 +533,25 @@ PsCreateSystemProcess(PHANDLE ProcessHandle,
 		      ACCESS_MASK DesiredAccess,
 		      POBJECT_ATTRIBUTES ObjectAttributes)
 {
-   HANDLE SystemProcessHandle;
-   NTSTATUS Status;
-   
-   /* FIXME - what about security? should there be any privilege checks or something
-              security related? */
-   
-   Status = ObCreateHandle(PsGetCurrentProcess(),
-                           PsInitialSystemProcess,
-                           PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                           FALSE,
-                           &SystemProcessHandle);
-   if(!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed to create a handle for the system process!\n");
-      return Status;
-   }
-   
-   Status = NtCreateProcess(ProcessHandle,
-			    DesiredAccess,
-			    ObjectAttributes,
-			    SystemProcessHandle,
-			    FALSE,
-			    NULL,
-			    NULL,
-			    NULL);
-
-   NtClose(SystemProcessHandle);
-   
-   return Status;
+   return NtCreateProcess(ProcessHandle,
+			  DesiredAccess,
+			  ObjectAttributes,
+			  SystemProcessHandle,
+			  FALSE,
+			  NULL,
+			  NULL,
+			  NULL);
 }
 
 NTSTATUS STDCALL
 NtCreateProcess(OUT PHANDLE ProcessHandle,
 		IN ACCESS_MASK DesiredAccess,
-		IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
-		IN HANDLE ParentProcess,
+		IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
+		IN HANDLE ParentProcessHandle,
 		IN BOOLEAN InheritObjectTable,
-		IN HANDLE SectionHandle  OPTIONAL,
-		IN HANDLE DebugPort  OPTIONAL,
-		IN HANDLE ExceptionPort  OPTIONAL)
+		IN HANDLE SectionHandle OPTIONAL,
+		IN HANDLE DebugPortHandle OPTIONAL,
+		IN HANDLE ExceptionPortHandle OPTIONAL)
 /*
  * FUNCTION: Creates a process.
  * ARGUMENTS:
@@ -640,27 +575,27 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
  */
 {
    PEPROCESS Process;
-   PEPROCESS pParentProcess;
+   PEPROCESS ParentProcess;
    PKPROCESS KProcess;
    NTSTATUS Status;
    KIRQL oldIrql;
    PVOID LdrStartupAddr;
    PVOID ImageBase;
-   PEPORT pDebugPort;
-   PEPORT pExceptionPort;
+   PEPORT DebugPort;
+   PEPORT ExceptionPort;
    PVOID BaseAddress;
    PMEMORY_AREA MemoryArea;
-   PHYSICAL_ADDRESS BoundaryAddressMultiple;
+   ULONG i;
+   PCREATE_PROCESS_NOTIFY_ROUTINE NotifyRoutine[MAX_PROCESS_NOTIFY_ROUTINE_COUNT];
+   ULONG NotifyRoutineCount;
 
    DPRINT("NtCreateProcess(ObjectAttributes %x)\n",ObjectAttributes);
 
-   BoundaryAddressMultiple.QuadPart = 0;
-   
-   Status = ObReferenceObjectByHandle(ParentProcess,
+   Status = ObReferenceObjectByHandle(ParentProcessHandle,
 				      PROCESS_CREATE_PROCESS,
 				      PsProcessType,
 				      ExGetPreviousMode(),
-				      (PVOID*)&pParentProcess,
+				      (PVOID*)&ParentProcess,
 				      NULL);
    if (!NT_SUCCESS(Status))
      {
@@ -679,7 +614,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 			   (PVOID*)&Process);
    if (!NT_SUCCESS(Status))
      {
-	ObDereferenceObject(pParentProcess);
+	ObDereferenceObject(ParentProcess);
 	DPRINT("ObCreateObject() = %x\n",Status);
 	return(Status);
      }
@@ -693,7 +628,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject (Process);
-      ObDereferenceObject (pParentProcess);
+      ObDereferenceObject (ParentProcess);
       DPRINT("ObInsertObject() = %x\n",Status);
       return Status;
     }
@@ -704,80 +639,126 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 				FALSE);
    KProcess = &Process->Pcb;
    /* Inherit parent process's affinity. */
-   KProcess->Affinity = pParentProcess->Pcb.Affinity;
+   KProcess->Affinity = ParentProcess->Pcb.Affinity;
    KProcess->BasePriority = PROCESS_PRIO_NORMAL;
    KProcess->IopmOffset = 0xffff;
    KProcess->LdtDescriptor[0] = 0;
    KProcess->LdtDescriptor[1] = 0;
-   InitializeListHead(&KProcess->ThreadListHead);
-   KProcess->ThreadQuantum = 6;
-   KProcess->AutoAlignment = 0;
    MmInitializeAddressSpace(Process,
 			    &Process->AddressSpace);
-   Process->UniqueProcessId = InterlockedIncrementUL(&PiNextProcessUniqueId); /* TODO */
+   Process->UniqueProcessId = InterlockedIncrement((LONG *)&PiNextProcessUniqueId);
    Process->InheritedFromUniqueProcessId = 
-     (HANDLE)pParentProcess->UniqueProcessId;
-   ObCreateHandleTable(pParentProcess,
+     (HANDLE)ParentProcess->UniqueProcessId;
+   ObCreateHandleTable(ParentProcess,
 		       InheritObjectTable,
 		       Process);
    MmCopyMmInfo(ParentProcess, Process);
-   
-   KeInitializeEvent(&Process->LockEvent, SynchronizationEvent, FALSE);
-   Process->LockCount = 0;
-   Process->LockOwner = NULL;
-   
-   Process->Win32WindowStation = (HANDLE)0;
+   if (ParentProcess->Win32WindowStation != (HANDLE)0)
+     {
+       /* Always duplicate the process window station. */
+       Process->Win32WindowStation = 0;
+       Status = ObDuplicateObject(ParentProcess,
+				  Process,
+				  ParentProcess->Win32WindowStation,
+				  &Process->Win32WindowStation,
+				  0,
+				  FALSE,
+				  DUPLICATE_SAME_ACCESS);
+       if (!NT_SUCCESS(Status))
+	 {
+	   KEBUGCHECK(0);
+	 }
+     }
+   else
+     {
+       Process->Win32WindowStation = (HANDLE)0;
+     }
+   if (ParentProcess->Win32Desktop != (HANDLE)0)
+     {
+       /* Always duplicate the process window station. */
+       Process->Win32Desktop = 0;
+       Status = ObDuplicateObject(ParentProcess,
+				  Process,
+				  ParentProcess->Win32Desktop,
+				  &Process->Win32Desktop,
+				  0,
+				  FALSE,
+				  DUPLICATE_SAME_ACCESS);
+       if (!NT_SUCCESS(Status))
+	 {
+	   KEBUGCHECK(0);
+	 }
+     }
+   else
+     {
+       Process->Win32Desktop = (HANDLE)0;
+     }
 
    KeAcquireSpinLock(&PsProcessListLock, &oldIrql);
+   NotifyRoutineCount = 0;
+   for (i = 0; i < MAX_PROCESS_NOTIFY_ROUTINE_COUNT; i++)
+   {
+      if (PiProcessNotifyRoutine[i])
+      {
+         NotifyRoutine[NotifyRoutineCount++] = PiProcessNotifyRoutine[i];   
+      }
+   }
    InsertHeadList(&PsProcessListHead, &Process->ProcessListEntry);
    InitializeListHead(&Process->ThreadListHead);
    KeReleaseSpinLock(&PsProcessListLock, oldIrql);
 
-   ExInitializeFastMutex(&Process->TebLock);
+   for (i = 0;i < NotifyRoutineCount; i++)
+   {
+      //must be called below DISPATCH_LVL
+      NotifyRoutine[i](Process->InheritedFromUniqueProcessId,
+                       (HANDLE)Process->UniqueProcessId,
+                       TRUE);
+   }
+
    Process->Pcb.State = PROCESS_STATE_ACTIVE;
    
    /*
     * Add the debug port
     */
-   if (DebugPort != NULL)
+   if (DebugPortHandle != NULL)
      {
-	Status = ObReferenceObjectByHandle(DebugPort,
+	Status = ObReferenceObjectByHandle(DebugPortHandle,
 					   PORT_ALL_ACCESS,
 					   ExPortType,
 					   UserMode,
-					   (PVOID*)&pDebugPort,
+					   (PVOID*)&DebugPort,
 					   NULL);   
 	if (!NT_SUCCESS(Status))
 	  {
 	     ObDereferenceObject(Process);
-	     ObDereferenceObject(pParentProcess);
+	     ObDereferenceObject(ParentProcess);
 	     ZwClose(*ProcessHandle);
 	     *ProcessHandle = NULL;
 	     return(Status);
 	  }
-	Process->DebugPort = pDebugPort;
+	Process->DebugPort = DebugPort;
      }
 	
    /*
     * Add the exception port
     */
-   if (ExceptionPort != NULL)
+   if (ExceptionPortHandle != NULL)
      {
-	Status = ObReferenceObjectByHandle(ExceptionPort,
+	Status = ObReferenceObjectByHandle(ExceptionPortHandle,
 					   PORT_ALL_ACCESS,
 					   ExPortType,
 					   UserMode,
-					   (PVOID*)&pExceptionPort,
+					   (PVOID*)&ExceptionPort,
 					   NULL);   
 	if (!NT_SUCCESS(Status))
 	  {
 	     ObDereferenceObject(Process);
-	     ObDereferenceObject(pParentProcess);
+	     ObDereferenceObject(ParentProcess);
 	     ZwClose(*ProcessHandle);
 	     *ProcessHandle = NULL;
 	     return(Status);
 	  }
-	Process->ExceptionPort = pExceptionPort;
+	Process->ExceptionPort = ExceptionPort;
      }
    
    /*
@@ -796,8 +777,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 			       PAGE_NOACCESS,
 			       &MemoryArea,
 			       FALSE,
-			       FALSE,
-			       BoundaryAddressMultiple);
+			       FALSE);
    if (!NT_SUCCESS(Status))
      {
 	MmUnlockAddressSpace(&Process->AddressSpace);
@@ -816,8 +796,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 			       PAGE_NOACCESS,
 			       &MemoryArea,
 			       FALSE,
-			       FALSE,
-			       BoundaryAddressMultiple);
+			       FALSE);
    if (!NT_SUCCESS(Status))
      {
 	MmUnlockAddressSpace(&Process->AddressSpace);
@@ -827,7 +806,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 #endif
 
    /* Protect the 60KB above the shared user page */
-   BaseAddress = (char*)USER_SHARED_DATA + PAGE_SIZE;
+   BaseAddress = (PVOID)USER_SHARED_DATA + PAGE_SIZE;
    Status = MmCreateMemoryArea(Process,
 			       &Process->AddressSpace,
 			       MEMORY_AREA_NO_ACCESS,
@@ -836,8 +815,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 			       PAGE_NOACCESS,
 			       &MemoryArea,
 			       FALSE,
-			       FALSE,
-			       BoundaryAddressMultiple);
+			       FALSE);
    if (!NT_SUCCESS(Status))
      {
 	MmUnlockAddressSpace(&Process->AddressSpace);
@@ -855,72 +833,12 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 			       PAGE_READONLY,
 			       &MemoryArea,
 			       FALSE,
-			       FALSE,
-			       BoundaryAddressMultiple);
+			       FALSE);
    MmUnlockAddressSpace(&Process->AddressSpace);
    if (!NT_SUCCESS(Status))
      {
 	DPRINT1("Failed to create shared data page\n");
 	KEBUGCHECK(0);
-     }
-
-   if (SectionHandle != NULL)
-     {
-        PSECTION_OBJECT SectionObject;
-        UNICODE_STRING FileName;
-        PWCHAR szSrc;
-        PCHAR szDest;
-        USHORT lnFName = 0;
-        
-        /*
-         * Determine the image file name and save it to the EPROCESS structure
-         */
-        Status = ObReferenceObjectByHandle(SectionHandle,
-                                           0,
-                                           MmSectionObjectType,
-                                           UserMode,
-                                           (PVOID*)&SectionObject,
-                                           NULL);
-	if (!NT_SUCCESS(Status))
-	  {
-	     DbgPrint("Failed to reference section object\n", Status);
-	     ObDereferenceObject(Process);
-	     ObDereferenceObject(pParentProcess);
-	     return(Status);
-	  }
-
-        FileName = SectionObject->FileObject->FileName;
-        szSrc = (PWCHAR)(FileName.Buffer + (FileName.Length / sizeof(WCHAR)) - 1);
-        while(szSrc >= FileName.Buffer)
-        {
-          if(*szSrc == L'\\')
-          {
-            szSrc++;
-            break;
-          }
-          else
-          {
-            szSrc--;
-            lnFName++;
-          }
-        }
-        
-        /* copy the image file name to the process and truncate it to 15 characters
-           if necessary */
-        szDest = Process->ImageFileName;
-        lnFName = min(lnFName, sizeof(Process->ImageFileName) - 1);
-        while(lnFName-- > 0)
-        {
-          *(szDest++) = (UCHAR)*(szSrc++);
-        }
-        *szDest = '\0';
-        
-
-        ObDereferenceObject(SectionObject);
-     }
-   else
-     {
-        Process->ImageFileName[0] = '\0';
      }
 
    /*
@@ -932,7 +850,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
      {
 	DbgPrint("LdrpMapSystemDll failed (Status %x)\n", Status);
 	ObDereferenceObject(Process);
-	ObDereferenceObject(pParentProcess);
+	ObDereferenceObject(ParentProcess);
 	return(Status);
      }
    
@@ -941,7 +859,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
     */
    if (SectionHandle != NULL)
      {
-        DPRINT("Mapping process image\n");
+	DPRINT("Mapping process image\n");
 	Status = LdrpMapImage(*ProcessHandle,
 			      SectionHandle,
 			      &ImageBase);
@@ -949,7 +867,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 	  {
 	     DbgPrint("LdrpMapImage failed (Status %x)\n", Status);
 	     ObDereferenceObject(Process);
-	     ObDereferenceObject(pParentProcess);
+	     ObDereferenceObject(ParentProcess);
 	     return(Status);
 	  }
      }
@@ -961,12 +879,12 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
   /*
    * Duplicate the token
    */
-  Status = SepInitializeNewProcess(Process, pParentProcess);
+  Status = SepInitializeNewProcess(Process, ParentProcess);
   if (!NT_SUCCESS(Status))
     {
        DbgPrint("SepInitializeNewProcess failed (Status %x)\n", Status);
        ObDereferenceObject(Process);
-       ObDereferenceObject(pParentProcess);
+       ObDereferenceObject(ParentProcess);
        return(Status);
     }
 
@@ -981,7 +899,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
      {
         DbgPrint("NtCreateProcess() Peb creation failed: Status %x\n",Status);
 	ObDereferenceObject(Process);
-	ObDereferenceObject(pParentProcess);
+	ObDereferenceObject(ParentProcess);
 	ZwClose(*ProcessHandle);
 	*ProcessHandle = NULL;
 	return(Status);
@@ -991,7 +909,7 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
     * Maybe send a message to the creator process's debugger
     */
 #if 0
-   if (pParentProcess->DebugPort != NULL)
+   if (ParentProcess->DebugPort != NULL)
      {
 	LPC_DBG_MESSAGE Message;
 	HANDLE FileHandle;
@@ -1010,15 +928,13 @@ NtCreateProcess(OUT PHANDLE ProcessHandle,
 	Message.Data.CreateProcess.Base = ImageBase;
 	Message.Data.CreateProcess.EntryPoint = NULL; //
 	
-	Status = LpcSendDebugMessagePort(pParentProcess->DebugPort,
+	Status = LpcSendDebugMessagePort(ParentProcess->DebugPort,
 					 &Message);
      }
 #endif
-
-   PspRunCreateProcessNotifyRoutines(Process, TRUE);
    
    ObDereferenceObject(Process);
-   ObDereferenceObject(pParentProcess);
+   ObDereferenceObject(ParentProcess);
    return(STATUS_SUCCESS);
 }
 
@@ -1124,10 +1040,10 @@ NtOpenProcess(OUT PHANDLE	    ProcessHandle,
  */
 NTSTATUS STDCALL
 NtQueryInformationProcess(IN  HANDLE ProcessHandle,
-			  IN  PROCESSINFOCLASS ProcessInformationClass,
+			  IN  CINT ProcessInformationClass,
 			  OUT PVOID ProcessInformation,
 			  IN  ULONG ProcessInformationLength,
-			  OUT PULONG ReturnLength  OPTIONAL)
+			  OUT PULONG ReturnLength OPTIONAL)
 {
    PEPROCESS Process;
    NTSTATUS Status;
@@ -1166,9 +1082,7 @@ NtQueryInformationProcess(IN  HANDLE ProcessHandle,
 	    Process->UniqueProcessId;
 	  ProcessBasicInformationP->InheritedFromUniqueProcessId =
 	    (ULONG)Process->InheritedFromUniqueProcessId;
-	  ProcessBasicInformationP->BasePriority =
-	    Process->Pcb.BasePriority;
-	  
+
 	  if (ReturnLength)
 	  {
 	    *ReturnLength = sizeof(PROCESS_BASIC_INFORMATION);
@@ -1178,54 +1092,12 @@ NtQueryInformationProcess(IN  HANDLE ProcessHandle,
 
       case ProcessQuotaLimits:
       case ProcessIoCounters:
-	Status = STATUS_NOT_IMPLEMENTED;
-	break;
-
       case ProcessTimes:
-	if (ProcessInformationLength != sizeof(KERNEL_USER_TIMES))
-	{
-	  Status = STATUS_INFO_LENGTH_MISMATCH;
-	}
-	else
-	{
-	   PKERNEL_USER_TIMES ProcessTimeP =
-	                     (PKERNEL_USER_TIMES)ProcessInformation;
-
-	   ProcessTimeP->CreateTime = (TIME) Process->CreateTime;
-           ProcessTimeP->UserTime.QuadPart = Process->Pcb.UserTime * 100000LL;
-           ProcessTimeP->KernelTime.QuadPart = Process->Pcb.KernelTime * 100000LL;
-	   ProcessTimeP->ExitTime = (TIME) Process->ExitTime;
-
-	  if (ReturnLength)
-	  {
-	    *ReturnLength = sizeof(KERNEL_USER_TIMES);
-	  }
-	}
-	break;
-
       case ProcessDebugPort:
       case ProcessLdtInformation:
       case ProcessWorkingSetWatch:
       case ProcessWx86Information:
-	Status = STATUS_NOT_IMPLEMENTED;
-	break;
-
       case ProcessHandleCount:
-      	if (ProcessInformationLength != sizeof(ULONG))
-	{
-	  Status = STATUS_INFO_LENGTH_MISMATCH;
-	}
-	else
-	{
-	  PULONG HandleCount = (PULONG)ProcessInformation;
-	  *HandleCount = ObpGetHandleCountByHandleTable(&Process->HandleTable);
-	  if (ReturnLength)
-	  {
-	    *ReturnLength = sizeof(ULONG);
-	  }
-	}
-	break;
-
       case ProcessSessionInformation:
       case ProcessWow64Information:
 	Status = STATUS_NOT_IMPLEMENTED;
@@ -1298,18 +1170,7 @@ NtQueryInformationProcess(IN  HANDLE ProcessHandle,
 	break;
 
       case ProcessDeviceMap:
-	if (ProcessInformationLength != sizeof(PROCESS_DEVICEMAP_INFORMATION))
-        {
-	  Status = STATUS_INFO_LENGTH_MISMATCH;
-	}
-        else
-        {
-	  ObQueryDeviceMapInformation(Process, (PPROCESS_DEVICEMAP_INFORMATION)ProcessInformation);
-	  if (ReturnLength)
-          {
-	    *ReturnLength = sizeof(PROCESS_DEVICEMAP_INFORMATION);
-	  }
-	}
+	Status = STATUS_NOT_IMPLEMENTED;
 	break;
 
       case ProcessPriorityClass:
@@ -1328,34 +1189,6 @@ NtQueryInformationProcess(IN  HANDLE ProcessHandle,
 	  }
 	}
 	break;
-
-      case ProcessImageFileName:
-      {
-        /*
-         * We DO NOT return the file name stored in the EPROCESS structure.
-         * Propably if we can't find a PEB or ProcessParameters structure for the
-         * process!
-         */
-        PRTL_USER_PROCESS_PARAMETERS ProcParams;
-        ASSERT(Process->Peb);
-        ASSERT(Process->Peb->ProcessParameters);
-        ProcParams = Process->Peb->ProcessParameters;
-        if(ProcessInformationLength < sizeof(UNICODE_STRING) + ProcParams->ImagePathName.Length + sizeof(WCHAR))
-        {
-          Status = STATUS_INFO_LENGTH_MISMATCH;
-        }
-        else
-        {
-          PUNICODE_STRING DstPath = (PUNICODE_STRING)ProcessInformation;
-          DstPath->Length = ProcParams->ImagePathName.Length;
-          DstPath->MaximumLength = DstPath->Length + sizeof(WCHAR);
-          DstPath->Buffer = (PWSTR)(DstPath + 1);
-          
-          RtlCopyMemory(DstPath->Buffer, ProcParams->ImagePathName.Buffer, ProcParams->ImagePathName.Length);
-          DstPath->Buffer[DstPath->Length / sizeof(WCHAR)] = L'\0';
-        }
-        break;
-      }
 
       /*
        * Note: The following 10 information classes are verified to not be
@@ -1411,7 +1244,7 @@ PspAssignPrimaryToken(PEPROCESS Process,
  */
 NTSTATUS STDCALL
 NtSetInformationProcess(IN HANDLE ProcessHandle,
-			IN PROCESSINFOCLASS ProcessInformationClass,
+			IN CINT ProcessInformationClass,
 			IN PVOID ProcessInformation,
 			IN ULONG ProcessInformationLength)
 {
@@ -1445,6 +1278,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
 	Status = PspAssignPrimaryToken(Process, *ProcessAccessTokenP);
 	break;
 	
+      case ProcessImageFileName:
+	memcpy(Process->ImageFileName, ProcessInformation, 8);
+	Status = STATUS_SUCCESS;
+	break;
+	
       case ProcessLdtInformation:
       case ProcessLdtSize:
       case ProcessDefaultHardErrorMode:
@@ -1466,6 +1304,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
       case ProcessWow64Information:
       default:
 	Status = STATUS_INVALID_INFO_CLASS;
+
+     case ProcessDesktop:
+       Process->Win32Desktop = *(PHANDLE)ProcessInformation;
+       Status = STATUS_SUCCESS;
+       break;
      }
    ObDereferenceObject(Process);
    return(Status);
@@ -1608,7 +1451,7 @@ PiQuerySystemProcessInformation(PVOID Buffer,
 			CurrentT = CONTAINING_RECORD(
 					CurrentEntryT,
 					KTHREAD, 
-					ThreadListEntry
+					Tcb.ThreadListEntry
 					);
 			/*
 			 * Write thread data.
@@ -1696,193 +1539,10 @@ PsGetProcessExitTime(VOID)
 /*
  * @implemented
  */
-LONGLONG
-STDCALL
-PsGetProcessCreateTimeQuadPart(
-    PEPROCESS	Process
-	)
+BOOLEAN STDCALL
+PsIsThreadTerminating(IN PETHREAD Thread)
 {
-	return Process->CreateTime.QuadPart;
-}
-
-/*
- * @implemented
- */
-PVOID
-STDCALL
-PsGetProcessDebugPort(
-    PEPROCESS	Process
-	)
-{
-	return Process->DebugPort;
-}
-
-/*
- * @implemented
- */
-BOOLEAN
-STDCALL
-PsGetProcessExitProcessCalled(
-    PEPROCESS	Process
-	)
-{
-	return Process->ExitProcessCalled;	
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
-PsGetProcessExitStatus(
-	PEPROCESS Process
-	)
-{
-	return Process->ExitStatus;
-}
-
-/*
- * @implemented
- */
-HANDLE
-STDCALL
-PsGetProcessId(
-   	PEPROCESS	Process
-	)
-{
-	return (HANDLE)Process->UniqueProcessId;
-}
-
-/*
- * @implemented
- */
-LPSTR
-STDCALL
-PsGetProcessImageFileName(
-    PEPROCESS	Process
-	)
-{
-	return (LPSTR)Process->ImageFileName;
-}
-
-/*
- * @implemented
- */
-HANDLE
-STDCALL
-PsGetProcessInheritedFromUniqueProcessId(
-    PEPROCESS	Process
-	)
-{
-	return Process->InheritedFromUniqueProcessId;
-}
-
-/*
- * @implemented
- */
-PEJOB
-STDCALL
-PsGetProcessJob(
-	PEPROCESS Process
-	)
-{
-	return Process->Job;
-}
-
-/*
- * @implemented
- */
-PPEB
-STDCALL
-PsGetProcessPeb(
-    PEPROCESS	Process
-	)
-{
-	return Process->Peb;	
-}
-
-/*
- * @implemented
- */
-ULONG
-STDCALL
-PsGetProcessPriorityClass(
-    PEPROCESS	Process
-	)
-{
-	return Process->PriorityClass;
-}
-
-/*
- * @implemented
- */
-PVOID
-STDCALL
-PsGetProcessSectionBaseAddress(
-    PEPROCESS	Process
-	)
-{
-	return Process->SectionBaseAddress;
-}
-
-/*
- * @implemented
- */
-PVOID
-STDCALL
-PsGetProcessSecurityPort(
-	PEPROCESS Process
-	)
-{
-	return Process->SecurityPort;
-}
-
-/*
- * @implemented
- */
-HANDLE
-STDCALL
-PsGetProcessSessionId(
-    PEPROCESS	Process
-	)
-{
-	return (HANDLE)Process->SessionId;
-}
-
-/*
- * @implemented
- */
-PVOID
-STDCALL
-PsGetProcessWin32Process(
-	PEPROCESS Process
-	)
-{
-	return Process->Win32Process;
-}
-
-/*
- * @implemented
- */
-PVOID
-STDCALL
-PsGetProcessWin32WindowStation(
-    PEPROCESS	Process
-	)
-{
-	return Process->Win32WindowStation;
-}
-
-/*
- * @implemented
- */
-BOOLEAN
-STDCALL
-PsIsProcessBeingDebugged(
-    PEPROCESS	Process
-	)
-{
-	return FALSE/*Process->IsProcessBeingDebugged*/;
+  return(Thread->DeadThread);
 }
 
 
@@ -1920,22 +1580,6 @@ PsLookupProcessByProcessId(IN PVOID ProcessId,
   return(STATUS_INVALID_PARAMETER);
 }
 
-VOID
-STDCALL
-PspRunCreateProcessNotifyRoutines
-(
- PEPROCESS CurrentProcess,
- BOOLEAN Create
-)
-{
- ULONG i;
- HANDLE ProcessId = (HANDLE)CurrentProcess->UniqueProcessId;
- HANDLE ParentId = CurrentProcess->InheritedFromUniqueProcessId;
- 
- for(i = 0; i < MAX_PROCESS_NOTIFY_ROUTINE_COUNT; ++ i)
-  if(PiProcessNotifyRoutine[i])
-   PiProcessNotifyRoutine[i](ParentId, ProcessId, Create);
-}
 
 /*
  * @implemented
@@ -1944,7 +1588,10 @@ NTSTATUS STDCALL
 PsSetCreateProcessNotifyRoutine(IN PCREATE_PROCESS_NOTIFY_ROUTINE NotifyRoutine,
 				IN BOOLEAN Remove)
 {
+  KIRQL oldIrql;
   ULONG i;
+
+  KeAcquireSpinLock(&PsProcessListLock, &oldIrql);
 
   if (Remove)
   {
@@ -1957,6 +1604,7 @@ PsSetCreateProcessNotifyRoutine(IN PCREATE_PROCESS_NOTIFY_ROUTINE NotifyRoutine,
         }
      }
 
+     KeReleaseSpinLock(&PsProcessListLock, oldIrql);
      return(STATUS_SUCCESS);
   }
 
@@ -1970,336 +1618,14 @@ PsSetCreateProcessNotifyRoutine(IN PCREATE_PROCESS_NOTIFY_ROUTINE NotifyRoutine,
      }
   }
 
+  KeReleaseSpinLock(&PsProcessListLock, oldIrql);
+
   if (i == MAX_PROCESS_NOTIFY_ROUTINE_COUNT)
   {
      return STATUS_INSUFFICIENT_RESOURCES;
   }
 
   return STATUS_SUCCESS;
-}
-
-VOID STDCALL
-PspRunLoadImageNotifyRoutines(
-   PUNICODE_STRING FullImageName,
-   HANDLE ProcessId,
-   PIMAGE_INFO ImageInfo)
-{
-   ULONG i;
- 
-   for (i = 0; i < MAX_PROCESS_NOTIFY_ROUTINE_COUNT; ++ i)
-      if (PiLoadImageNotifyRoutine[i])
-         PiLoadImageNotifyRoutine[i](FullImageName, ProcessId, ImageInfo);
-}
-
-/*
- * @unimplemented
- */                       
-NTSTATUS
-STDCALL
-PsRemoveLoadImageNotifyRoutine(
-    IN PLOAD_IMAGE_NOTIFY_ROUTINE NotifyRoutine
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;	
-}
-
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-PsSetLoadImageNotifyRoutine(IN PLOAD_IMAGE_NOTIFY_ROUTINE NotifyRoutine)
-{
-   ULONG i;
-
-   for (i = 0; i < MAX_LOAD_IMAGE_NOTIFY_ROUTINE_COUNT; i++)
-   {
-      if (PiLoadImageNotifyRoutine[i] == NULL)
-      {
-         PiLoadImageNotifyRoutine[i] = NotifyRoutine;
-         break;
-      }
-   }
-
-   if (i == MAX_PROCESS_NOTIFY_ROUTINE_COUNT)
-   {
-      return STATUS_INSUFFICIENT_RESOURCES;
-   }
-
-   return STATUS_SUCCESS;
-}
-
-/*
- * @implemented
- */                       
-VOID
-STDCALL
-PsSetProcessPriorityClass(
-    PEPROCESS	Process,
-    ULONG	PriorityClass	
-	)
-{
-	Process->PriorityClass = PriorityClass;
-}
-
-/*
- * @implemented
- */                       
-VOID
-STDCALL
-PsSetProcessSecurityPort(
-    PEPROCESS	Process,
-    PVOID	SecurityPort	
-	)
-{
-	Process->SecurityPort = SecurityPort;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-PsSetProcessWin32Process(
-    PEPROCESS	Process,
-    PVOID	Win32Process
-	)
-{
-	Process->Win32Process = Win32Process;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-PsSetProcessWin32WindowStation(
-    PEPROCESS	Process,
-    PVOID	WindowStation
-	)
-{
-	Process->Win32WindowStation = WindowStation;
-}
-
-/* Pool Quotas */
-/*
- * @implemented
- */
-VOID
-STDCALL
-PsChargePoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG_PTR Amount
-    )
-{
-    NTSTATUS Status;
-
-    /* Charge the usage */
-    Status = PsChargeProcessPoolQuota(Process, PoolType, Amount);
-
-    /* Raise Exception */
-    if (!NT_SUCCESS(Status)) {
-        ExRaiseStatus(Status);
-    }
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
-PsChargeProcessNonPagedPoolQuota (
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-    )
-{
-    /* Call the general function */
-    return PsChargeProcessPoolQuota(Process, NonPagedPool, Amount);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
-PsChargeProcessPagedPoolQuota (
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-    )
-{
-    /* Call the general function */
-    return PsChargeProcessPoolQuota(Process, PagedPool, Amount);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
-PsChargeProcessPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG_PTR Amount
-    )
-{
-    PEPROCESS_QUOTA_BLOCK QuotaBlock;
-    KIRQL OldValue;
-    ULONG NewUsageSize;
-    ULONG NewMaxQuota;
-
-    /* Get current Quota Block */
-    QuotaBlock = Process->QuotaBlock;
-
-    /* Quota Operations are not to be done on the SYSTEM Process */
-    if (Process == PsInitialSystemProcess) return STATUS_SUCCESS;
-
-    /* Acquire Spinlock */
-    KeAcquireSpinLock(&QuotaBlock->QuotaLock, &OldValue);
-
-    /* New Size in use */
-    NewUsageSize = QuotaBlock->QuotaPoolUsage[PoolType] + Amount;
-
-    /* Does this size respect the quota? */
-    if (NewUsageSize > QuotaBlock->QuotaPoolLimit[PoolType]) {
-
-        /* It doesn't, so keep raising the Quota */
-        while (MiRaisePoolQuota(PoolType, QuotaBlock->QuotaPoolLimit[PoolType], &NewMaxQuota)) {
-            /* Save new Maximum Quota */
-            QuotaBlock->QuotaPoolLimit[PoolType] = NewMaxQuota;
-
-            /* See if the new Maximum Quota fulfills our need */
-            if (NewUsageSize <= NewMaxQuota) goto QuotaChanged;
-        }
-
-        KeReleaseSpinLock(&QuotaBlock->QuotaLock, OldValue);
-        return STATUS_QUOTA_EXCEEDED;
-    }
-
-QuotaChanged:
-    /* Save new Usage */
-    QuotaBlock->QuotaPoolUsage[PoolType] = NewUsageSize;
-
-    /* Is this a new peak? */
-    if (NewUsageSize > QuotaBlock->QuotaPeakPoolUsage[PoolType]) {
-        QuotaBlock->QuotaPeakPoolUsage[PoolType] = NewUsageSize;
-    }
-
-    /* Release spinlock */
-    KeReleaseSpinLock(&QuotaBlock->QuotaLock, OldValue);
-
-    /* All went well */
-    return STATUS_SUCCESS;
-}
-
-/*
- * @unimplemented
- */                       
-VOID
-STDCALL
-PsReturnPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG_PTR Amount
-    )
-{
-	UNIMPLEMENTED;
-} 
-
-/*
- * @unimplemented
- */                       
-VOID
-STDCALL
-PsReturnProcessNonPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-    )
-{
-	UNIMPLEMENTED;
-} 
-
-/*
- * @unimplemented
- */                       
-VOID
-STDCALL
-PsReturnProcessPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-    )
-{
-	UNIMPLEMENTED;
-}
-
-NTSTATUS
-PsLockProcess(PEPROCESS Process, BOOL Timeout)
-{
-  ULONG Attempts = 0;
-  PKTHREAD PrevLockOwner;
-  NTSTATUS Status = STATUS_UNSUCCESSFUL;
-  PLARGE_INTEGER Delay = (Timeout ? &PsLockTimeout : NULL);
-  PKTHREAD CallingThread = KeGetCurrentThread();
-  
-  KeEnterCriticalRegion();
-  
-  for(;;)
-  {
-    if(Process->Pcb.State == PROCESS_STATE_TERMINATED)
-    {
-      KeLeaveCriticalRegion();
-      return STATUS_PROCESS_IS_TERMINATING;
-    }
-
-    PrevLockOwner = (PKTHREAD)InterlockedCompareExchangePointer(
-      &Process->LockOwner, CallingThread, NULL);
-    if(PrevLockOwner == NULL || PrevLockOwner == CallingThread)
-    {
-      /* we got the lock or already locked it */
-      if(InterlockedIncrementUL(&Process->LockCount) == 1)
-      {
-        KeClearEvent(&Process->LockEvent);
-      }
-
-      return STATUS_SUCCESS;
-    }
-    else
-    {
-      if(++Attempts > 2)
-      {
-        Status = KeWaitForSingleObject(&Process->LockEvent,
-                                       Executive,
-                                       KernelMode,
-                                       FALSE,
-                                       Delay);
-        if(Status == STATUS_TIMEOUT)
-        {
-          KeLeaveCriticalRegion();
-          break;
-        }
-      }
-      else
-      {
-        KeDelayExecutionThread(KernelMode, FALSE, &ShortPsLockDelay);
-      }
-    }
-  }
-  
-  return Status;
-}
-
-VOID
-PsUnlockProcess(PEPROCESS Process)
-{
-  ASSERT(Process->LockOwner == KeGetCurrentThread());
-  
-  if(InterlockedDecrementUL(&Process->LockCount) == 0)
-  {
-    InterlockedExchangePointer(&Process->LockOwner, NULL);
-    KeSetEvent(&Process->LockEvent, IO_NO_INCREMENT, FALSE);
-  }
-  
-  KeLeaveCriticalRegion();
 }
 
 /* EOF */

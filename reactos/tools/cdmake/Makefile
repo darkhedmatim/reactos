@@ -11,7 +11,7 @@ OBJECTS = cdmake.o llmosrt.o
 
 CLEAN_FILES = *.o cdmake$(EXE_POSTFIX)
 
-HOST_CFLAGS = -I. -Werror -Wall
+HOST_CFLAGS = -I.
 
 cdmake.o: cdmake.c
 	$(HOST_CC) $(HOST_CFLAGS) -c cdmake.c -o cdmake.o
@@ -29,8 +29,8 @@ clean:
 endif
 ifeq ($(HOST),mingw32-windows)
 clean:
-	-del *.o
-	-del cdmake$(EXE_POSTFIX)
+	del *.o
+	del cdmake$(EXE_POSTFIX)
 endif
 
 .phony: clean

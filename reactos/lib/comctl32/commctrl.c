@@ -23,7 +23,7 @@
  * This code was audited for completeness against the documented features
  * of Comctl32.dll version 6.0 on Oct. 21, 2002, by Christian Neumair.
  *
- * Unless otherwise noted, we believe this code to be complete, as per
+ * Unless otherwise noted, we belive this code to be complete, as per
  * the specification mentioned above.
  * If you discover missing features, or bugs, please note them below.
  *
@@ -41,7 +41,7 @@
  *   -- ICC_DATE_CLASSES
  *   -- ICC_HOTKEY_CLASS
  *   -- ICC_INTERNET_CLASSES
- *   -- ICC_LINK_CLASS
+ *   -- ICC_LINK_CLASS (not yet implemented)
  *   -- ICC_LISTVIEW_CLASSES
  *   -- ICC_NATIVEFNTCTL_CLASS
  *   -- ICC_PAGESCROLLER_CLASS
@@ -101,8 +101,6 @@ extern void REBAR_Register(void);
 extern void REBAR_Unregister(void);
 extern void STATUS_Register(void);
 extern void STATUS_Unregister(void);
-extern void SYSLINK_Register(void);
-extern void SYSLINK_Unregister(void);
 extern void TAB_Register(void);
 extern void TAB_Unregister(void);
 extern void TOOLBAR_Register(void);
@@ -116,8 +114,8 @@ extern void TREEVIEW_Unregister(void);
 extern void UPDOWN_Register(void);
 extern void UPDOWN_Unregister(void);
 
-LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+HANDLE COMCTL32_hHeap = NULL;
 LPSTR    COMCTL32_aSubclass = NULL;
 HMODULE COMCTL32_hModule = 0;
 LANGID  COMCTL32_uiLang = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
@@ -134,9 +132,7 @@ static const WORD wPattern55AA[] =
 
 
 /***********************************************************************
- * DllMain [Internal]
- *
- * Initializes the internal 'COMCTL32.DLL'.
+ * DllMain [Internal] Initializes the internal 'COMCTL32.DLL'.
  *
  * PARAMS
  *     hinstDLL    [I] handle to the 'dlls' instance
@@ -158,6 +154,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
             COMCTL32_hModule = (HMODULE)hinstDLL;
 
+            /* create private heap */
+            COMCTL32_hHeap = HeapCreate (0, 0x10000, 0);
+            TRACE("Heap created: %p\n", COMCTL32_hHeap);
+
             /* add global subclassing atom (used by 'tooltip' and 'updown') */
             COMCTL32_aSubclass = (LPSTR)(DWORD)GlobalAddAtomA ("CC32SubclassInfo");
             TRACE("Subclassing atom added: %p\n", COMCTL32_aSubclass);
@@ -177,7 +177,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             LISTVIEW_Register ();
             PROGRESS_Register ();
             STATUS_Register ();
-            SYSLINK_Register ();
             TAB_Register ();
             TOOLBAR_Register ();
             TOOLTIPS_Register ();
@@ -202,7 +201,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             PROGRESS_Unregister ();
             REBAR_Unregister ();
             STATUS_Unregister ();
-            SYSLINK_Unregister ();
             TAB_Unregister ();
             TOOLBAR_Unregister ();
             TOOLTIPS_Unregister ();
@@ -220,6 +218,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             GlobalDeleteAtom (LOWORD(COMCTL32_aSubclass));
             TRACE("Subclassing atom deleted: %p\n", COMCTL32_aSubclass);
             COMCTL32_aSubclass = NULL;
+
+            /* destroy private heap */
+            HeapDestroy (COMCTL32_hHeap);
+            TRACE("Heap destroyed: %p\n", COMCTL32_hHeap);
+            COMCTL32_hHeap = NULL;
             break;
     }
 
@@ -229,9 +232,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 /***********************************************************************
  * MenuHelp [COMCTL32.2]
- *
- * Handles the setting of status bar help messages when the user
- * selects menu items.
  *
  * PARAMS
  *     uMsg       [I] message (WM_MENUSELECT) (see NOTES)
@@ -388,8 +388,6 @@ ShowHideMenuCtl (HWND hwnd, UINT uFlags, LPINT lpInfo)
 /***********************************************************************
  * GetEffectiveClientRect [COMCTL32.4]
  *
- * Calculates the coordinates of a rectangle in the client area.
- *
  * PARAMS
  *     hwnd   [I] handle to the client window.
  *     lpRect [O] pointer to the rectangle of the client window
@@ -482,7 +480,7 @@ void WINAPI DrawStatusTextW (HDC hdc, LPRECT lprc, LPCWSTR text, UINT style)
         r.left += 3;
         if (style & SBT_RTLREADING)
 	    FIXME("Unsupported RTL style!\n");
-        DrawTextW (hdc, text, -1, &r, align|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+        DrawTextW (hdc, text, -1, &r, align|DT_VCENTER|DT_SINGLELINE);
 	SetBkMode(hdc, oldbkmode);
     }
 }
@@ -548,9 +546,7 @@ CreateStatusWindowA (LONG style, LPCSTR text, HWND parent, UINT wid)
 
 
 /***********************************************************************
- * CreateStatusWindowW [COMCTL32.@]
- *
- * Creates a status bar control
+ * CreateStatusWindowW [COMCTL32.@] Creates a status bar control
  *
  * PARAMS
  *     style  [I] window style
@@ -574,9 +570,7 @@ CreateStatusWindowW (LONG style, LPCWSTR text, HWND parent, UINT wid)
 
 
 /***********************************************************************
- * CreateUpDownControl [COMCTL32.16]
- *
- * Creates an up-down control
+ * CreateUpDownControl [COMCTL32.16] Creates an up-down control
  *
  * PARAMS
  *     style  [I] window styles
@@ -716,10 +710,6 @@ InitCommonControlsEx (LPINITCOMMONCONTROLSEX lpInitCtrls)
 		NATIVEFONT_Register ();
 		break;
 
-	    case ICC_LINK_CLASS:
-		SYSLINK_Register ();
-		break;
-
 	    default:
 		FIXME("Unknown class! dwICC=0x%lX\n", dwMask);
 		break;
@@ -731,9 +721,7 @@ InitCommonControlsEx (LPINITCOMMONCONTROLSEX lpInitCtrls)
 
 
 /***********************************************************************
- * CreateToolbarEx [COMCTL32.@]
- *
- * Creates a toolbar window.
+ * CreateToolbarEx [COMCTL32.@] Creates a tool bar window
  *
  * PARAMS
  *     hwnd
@@ -763,9 +751,14 @@ CreateToolbarEx (HWND hwnd, DWORD style, UINT wID, INT nBitmaps,
 {
     HWND hwndTB;
 
+    /* If not position is specified then put it at the top */
+    if ((style & CCS_BOTTOM) == 0) {
+      style|=CCS_TOP;
+    }
+
     hwndTB =
-        CreateWindowExA(0, TOOLBARCLASSNAMEA, NULL, style|WS_CHILD, 0,0,100,30,
-                        hwnd, (HMENU)wID, COMCTL32_hModule, NULL);
+        CreateWindowExA (0, TOOLBARCLASSNAMEA, "", style|WS_CHILD, 0, 0, 0, 0,
+			   hwnd, (HMENU)wID, 0, NULL);
     if(hwndTB) {
 	TBADDBITMAP tbab;
 
@@ -811,14 +804,12 @@ CreateToolbarEx (HWND hwnd, DWORD style, UINT wID, INT nBitmaps,
 /***********************************************************************
  * CreateMappedBitmap [COMCTL32.8]
  *
- * Loads a bitmap resource using a colour map.
- *
  * PARAMS
- *     hInstance  [I] Handle to the module containing the bitmap.
- *     idBitmap   [I] The bitmap resource ID.
- *     wFlags     [I] CMB_MASKED for using bitmap as a mask or 0 for normal.
- *     lpColorMap [I] Colour information needed for the bitmap or NULL (uses system colours).
- *     iNumMaps   [I] Number of COLORMAP's pointed to by lpColorMap.
+ *     hInstance  [I]
+ *     idBitmap   [I]
+ *     wFlags     [I]
+ *     lpColorMap [I]
+ *     iNumMaps   [I]
  *
  * RETURNS
  *     Success: handle to the new bitmap
@@ -832,9 +823,9 @@ CreateMappedBitmap (HINSTANCE hInstance, INT idBitmap, UINT wFlags,
     HGLOBAL hglb;
     HRSRC hRsrc;
     LPBITMAPINFOHEADER lpBitmap, lpBitmapInfo;
-    UINT nSize, nColorTableSize, iColor;
+    UINT nSize, nColorTableSize;
     RGBQUAD *pColorTable;
-    INT i, iMaps, nWidth, nHeight;
+    INT iColor, i, iMaps, nWidth, nHeight;
     HDC hdcScreen;
     HBITMAP hbm;
     LPCOLORMAP sysColorMap;
@@ -866,12 +857,7 @@ CreateMappedBitmap (HINSTANCE hInstance, INT idBitmap, UINT wFlags,
     if (lpBitmap == NULL)
 	return 0;
 
-    if (lpBitmap->biSize >= sizeof(BITMAPINFOHEADER) && lpBitmap->biClrUsed)
-        nColorTableSize = lpBitmap->biClrUsed;
-    else if (lpBitmap->biBitCount <= 8)	
-        nColorTableSize = (1 << lpBitmap->biBitCount);
-    else
-        nColorTableSize = 0;
+    nColorTableSize = (1 << lpBitmap->biBitCount);
     nSize = lpBitmap->biSize + nColorTableSize * sizeof(RGBQUAD);
     lpBitmapInfo = (LPBITMAPINFOHEADER)GlobalAlloc (GMEM_FIXED, nSize);
     if (lpBitmapInfo == NULL)
@@ -908,7 +894,7 @@ CreateMappedBitmap (HINSTANCE hInstance, INT idBitmap, UINT wFlags,
 	HDC hdcDst = CreateCompatibleDC (hdcScreen);
 	HBITMAP hbmOld = SelectObject (hdcDst, hbm);
 	LPBYTE lpBits = (LPBYTE)(lpBitmap + 1);
-	lpBits += nColorTableSize * sizeof(RGBQUAD);
+	lpBits += (1 << (lpBitmapInfo->biBitCount)) * sizeof(RGBQUAD);
 	StretchDIBits (hdcDst, 0, 0, nWidth, nHeight, 0, 0, nWidth, nHeight,
 		         lpBits, (LPBITMAPINFO)lpBitmapInfo, DIB_RGB_COLORS,
 		         SRCCOPY);
@@ -924,9 +910,7 @@ CreateMappedBitmap (HINSTANCE hInstance, INT idBitmap, UINT wFlags,
 
 
 /***********************************************************************
- * CreateToolbar [COMCTL32.7]
- *
- * Creates a toolbar control.
+ * CreateToolbar [COMCTL32.7] Creates a tool bar control
  *
  * PARAMS
  *     hwnd
@@ -995,12 +979,6 @@ COMCTL32_DllGetVersion (DLLVERSIONINFO *pdvi)
 
 /***********************************************************************
  *		DllInstall (COMCTL32.@)
- *
- * Installs the ComCtl32 DLL.
- *
- * RETURNS
- *     Success: S_OK
- *     Failure: A HRESULT error
  */
 HRESULT WINAPI COMCTL32_DllInstall(BOOL bInstall, LPCWSTR cmdline)
 {
@@ -1043,10 +1021,9 @@ _TrackMouseEvent (TRACKMOUSEEVENT *ptme)
 /*************************************************************************
  * GetMUILanguage [COMCTL32.@]
  *
- * Returns the user interface language in use by the current process.
+ * FIXME: "Returns the language currently in use by the common controls
+ * for a particular process." (MSDN)
  *
- * RETURNS
- *      Language ID in use by the current process.
  */
 LANGID WINAPI GetMUILanguage (VOID)
 {
@@ -1057,11 +1034,11 @@ LANGID WINAPI GetMUILanguage (VOID)
 /*************************************************************************
  * InitMUILanguage [COMCTL32.@]
  *
- * Sets the user interface language to be used by the current process.
+ * FIXME: "Enables an application to specify a language to be used with
+ * the common controls that is different than the system language." (MSDN)
  *
- * RETURNS
- *      Nothing.
  */
+
 VOID WINAPI InitMUILanguage (LANGID uiLang)
 {
    COMCTL32_uiLang = uiLang;
@@ -1093,7 +1070,7 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
                         UINT_PTR uIDSubclass, DWORD_PTR dwRef)
 {
    LPSUBCLASS_INFO stack;
-   LPSUBCLASSPROCS proc;
+   int newnum, n;
 
    TRACE ("(%p, %p, %x, %lx)\n", hWnd, pfnSubclass, uIDSubclass, dwRef);
 
@@ -1109,51 +1086,60 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
       stack = (LPSUBCLASS_INFO)HeapAlloc (GetProcessHeap(), HEAP_ZERO_MEMORY,
                                          sizeof(SUBCLASS_INFO));
       if (!stack) {
-         ERR ("Failed to allocate our Subclassing stack\n");
+         ERR ("Failed to allocate our Subclassing stack");
          return FALSE;
       }
       SetPropA (hWnd, COMCTL32_aSubclass, (HANDLE)stack);
 
       /* set window procedure to our own and save the current one */
       if (IsWindowUnicode (hWnd))
-         stack->origproc = (WNDPROC)SetWindowLongPtrW (hWnd, GWLP_WNDPROC,
-                                                   (DWORD_PTR)COMCTL32_SubclassProc);
+         stack->origproc = (WNDPROC)SetWindowLongW (hWnd, GWL_WNDPROC,
+                                                   (LONG)DefSubclassProc);
       else
-         stack->origproc = (WNDPROC)SetWindowLongPtrA (hWnd, GWLP_WNDPROC,
-                                                   (DWORD_PTR)COMCTL32_SubclassProc);
-   }
-   else {
-      /* Check to see if we have called this function with the same uIDSubClass
-       * and pfnSubclass */
-      proc = stack->SubclassProcs;
-      while (proc) {
-         if ((proc->id == uIDSubclass) &&
-            (proc->subproc == pfnSubclass)) {
-            proc->ref = dwRef;
-            return TRUE;
-         }
-         proc = proc->next;
+         stack->origproc = (WNDPROC)SetWindowLongA (hWnd, GWL_WNDPROC,
+                                                   (LONG)DefSubclassProc);
+   } else {
+      WNDPROC current;
+      if (IsWindowUnicode (hWnd))
+         current = (WNDPROC)GetWindowLongW (hWnd, GWL_WNDPROC);
+      else
+         current = (WNDPROC)GetWindowLongA (hWnd, GWL_WNDPROC);
+
+      if (current != DefSubclassProc) {
+         ERR ("Application has subclassed with our procedure, then manually, then with us again.  The current implementation can't handle this.\n");
+         return FALSE;
       }
    }
-   
-   proc = HeapAlloc(GetProcessHeap(), 0, sizeof(SUBCLASSPROCS));
-   if (!proc) {
-      ERR ("Failed to allocate subclass entry in stack\n");
-      if (IsWindowUnicode (hWnd))
-         SetWindowLongPtrW (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      else
-         SetWindowLongPtrA (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      HeapFree (GetProcessHeap (), 0, stack);
-      RemovePropA( hWnd, COMCTL32_aSubclass );
+
+   /* Check to see if we have called this function with the same uIDSubClass
+    * and pfnSubclass */
+   for (n = 0; n <= stack->stacknum + stack->stacknew - 1; n++)
+      if ((stack->SubclassProcs[n].id == uIDSubclass) && 
+         (stack->SubclassProcs[n].subproc == pfnSubclass)) {
+         stack->SubclassProcs[n].ref = dwRef;
+         return TRUE;
+      }
+
+   if ((stack->stacknum + stack->stacknew) >= 32) {
+      ERR ("We have a Subclass stack overflow, please increment size");
       return FALSE;
    }
-   
-   proc->subproc = pfnSubclass;
-   proc->ref = dwRef;
-   proc->id = uIDSubclass;
-   proc->next = stack->SubclassProcs;
-   stack->SubclassProcs = proc;
 
+   /* we can't simply increment both stackpos and stacknum because there might
+    * be a window procedure running lower in the stack, we can only get them
+    * up to date once the last window procedure has run */
+   if (stack->stacknum == stack->stackpos) {
+      stack->stacknum++;
+      stack->stackpos++;
+   } else
+      stack->stacknew++;
+
+   newnum = stack->stacknew + stack->stacknum - 1;
+
+   stack->SubclassProcs[newnum].subproc = pfnSubclass;
+   stack->SubclassProcs[newnum].ref = dwRef;
+   stack->SubclassProcs[newnum].id = uIDSubclass;
+   
    return TRUE;
 }
 
@@ -1178,7 +1164,7 @@ BOOL WINAPI GetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
                               UINT_PTR uID, DWORD_PTR *pdwRef)
 {
    LPSUBCLASS_INFO stack;
-   LPSUBCLASSPROCS proc;
+   int n;
 
    TRACE ("(%p, %p, %x, %p)\n", hWnd, pfnSubclass, uID, pdwRef);
 
@@ -1187,15 +1173,12 @@ BOOL WINAPI GetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
    if (!stack)
       return FALSE;
 
-   proc = stack->SubclassProcs;
-   while (proc) {
-      if ((proc->id == uID) &&
-         (proc->subproc == pfnSubclass)) {
-         *pdwRef = proc->ref;
+   for (n = 0; n <= stack->stacknum + stack->stacknew - 1; n++)
+      if ((stack->SubclassProcs[n].id == uID) &&
+         (stack->SubclassProcs[n].subproc == pfnSubclass)) {
+         *pdwRef = stack->SubclassProcs[n].ref;
          return TRUE;
       }
-      proc = proc->next;
-   }
 
    return FALSE;
 }
@@ -1219,9 +1202,7 @@ BOOL WINAPI GetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
 BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uID)
 {
    LPSUBCLASS_INFO stack;
-   LPSUBCLASSPROCS prevproc = NULL;
-   LPSUBCLASSPROCS proc;
-   BOOL ret = FALSE;
+   int n;
 
    TRACE ("(%p, %p, %x)\n", hWnd, pfnSubclass, uID);
 
@@ -1230,81 +1211,42 @@ BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR u
    if (!stack)
       return FALSE;
 
-   proc = stack->SubclassProcs;
-   while (proc) {
-      if ((proc->id == uID) &&
-         (proc->subproc == pfnSubclass)) {
-         
-         if (!prevproc)
-            stack->SubclassProcs = proc->next;
-         else
-            prevproc->next = proc->next;
-          
-         if (stack->stackpos == proc)
-            stack->stackpos = stack->stackpos->next;
-            
-         HeapFree (GetProcessHeap (), 0, proc);
-         ret = TRUE;
-         break;
+   if ((stack->stacknum == 1) && (stack->stackpos == 1) && !stack->stacknew) {
+      TRACE("Last Subclass removed, cleaning up\n");
+      /* clean up our heap and reset the origional window procedure */
+      if (IsWindowUnicode (hWnd))
+         SetWindowLongW (hWnd, GWL_WNDPROC, (LONG)stack->origproc);
+      else
+         SetWindowLongA (hWnd, GWL_WNDPROC, (LONG)stack->origproc);
+      HeapFree (GetProcessHeap (), 0, stack);
+      RemovePropA( hWnd, COMCTL32_aSubclass );
+      return TRUE;
+   }
+ 
+   for (n = stack->stacknum + stack->stacknew - 1; n >= 0; n--)
+      if ((stack->SubclassProcs[n].id == uID) &&
+         (stack->SubclassProcs[n].subproc == pfnSubclass)) {
+         if (n != (stack->stacknum + stack->stacknew))
+            /* Fill the hole in the stack */
+            memmove (&stack->SubclassProcs[n], &stack->SubclassProcs[n + 1],
+                    sizeof(stack->SubclassProcs[0]) * (stack->stacknew + stack->stacknum - n));
+         stack->SubclassProcs[n].subproc = NULL;
+         stack->SubclassProcs[n].ref = 0;
+         stack->SubclassProcs[n].id = 0;
+
+         /* If we are currently running a window procedure we have to manipulate
+          * the stack position pointers so that we don't corrupt the stack */
+         if ((n < stack->stackpos) || (stack->stackpos == stack->stacknum)) {
+            stack->stacknum--;
+            stack->stackpos--;
+         } else if (n >= stack->stackpos)
+            stack->stacknew--;
+         return TRUE;
       }
-      prevproc = proc;
-      proc = proc->next;
-   }
-   
-   if (!stack->SubclassProcs && !stack->running) {
-      TRACE("Last Subclass removed, cleaning up\n");
-      /* clean up our heap and reset the origional window procedure */
-      if (IsWindowUnicode (hWnd))
-         SetWindowLongPtrW (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      else
-         SetWindowLongPtrA (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      HeapFree (GetProcessHeap (), 0, stack);
-      RemovePropA( hWnd, COMCTL32_aSubclass );
-   }
-   
-   return ret;
+
+   return FALSE;
 }
 
-/***********************************************************************
- * COMCTL32_SubclassProc (internal)
- *
- * Window procedure for all subclassed windows. 
- * Saves the current subclassing stack position to support nested messages
- */
-LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-   LPSUBCLASS_INFO stack;
-   LPSUBCLASSPROCS proc;
-   LRESULT ret;
-    
-   TRACE ("(%p, 0x%08x, 0x%08x, 0x%08lx)\n", hWnd, uMsg, wParam, lParam);
-
-   stack = (LPSUBCLASS_INFO)GetPropA (hWnd, COMCTL32_aSubclass);
-   if (!stack) {
-      ERR ("Our sub classing stack got erased for %p!! Nothing we can do\n", hWnd);
-      return 0;
-   }
-    
-   /* Save our old stackpos to properly handle nested messages */
-   proc = stack->stackpos;
-   stack->stackpos = stack->SubclassProcs;
-   stack->running++;
-   ret = DefSubclassProc(hWnd, uMsg, wParam, lParam);
-   stack->running--;
-   stack->stackpos = proc;
-    
-   if (!stack->SubclassProcs && !stack->running) {
-      TRACE("Last Subclass removed, cleaning up\n");
-      /* clean up our heap and reset the origional window procedure */
-      if (IsWindowUnicode (hWnd))
-         SetWindowLongPtrW (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      else
-         SetWindowLongPtrA (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
-      HeapFree (GetProcessHeap (), 0, stack);
-      RemovePropA( hWnd, COMCTL32_aSubclass );
-   }
-   return ret;
-}
 
 /***********************************************************************
  * DefSubclassProc [COMCTL32.413]
@@ -1325,9 +1267,8 @@ LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 LRESULT WINAPI DefSubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
    LPSUBCLASS_INFO stack;
+   int stackpos;
    LRESULT ret;
-   
-   TRACE ("(%p, 0x%08x, 0x%08x, 0x%08lx)\n", hWnd, uMsg, wParam, lParam);
 
    /* retrieve our little stack from the Properties */
    stack = (LPSUBCLASS_INFO)GetPropA (hWnd, COMCTL32_aSubclass);
@@ -1336,19 +1277,38 @@ LRESULT WINAPI DefSubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       return 0;
    }
 
-   /* If we are at the end of stack then we have to call the original
-    * window procedure */
-   if (!stack->stackpos) {
+   /* If we are at pos 0 then we have to call the origional window procedure */
+   if (stack->stackpos == 0) {
       if (IsWindowUnicode (hWnd))
-         ret = CallWindowProcW (stack->origproc, hWnd, uMsg, wParam, lParam);
+         return CallWindowProcW (stack->origproc, hWnd, uMsg, wParam, lParam);
       else
-         ret = CallWindowProcA (stack->origproc, hWnd, uMsg, wParam, lParam);
-   } else {
-      LPSUBCLASSPROCS proc = stack->stackpos;
-      stack->stackpos = stack->stackpos->next; 
-      /* call the Subclass procedure from the stack */
-      ret = proc->subproc (hWnd, uMsg, wParam, lParam,
-            proc->id, proc->ref);
+         return CallWindowProcA (stack->origproc, hWnd, uMsg, wParam, lParam);
+   }
+
+   stackpos = --stack->stackpos;
+   /* call the Subclass procedure from the stack */
+   ret = stack->SubclassProcs[stackpos].subproc (hWnd, uMsg, wParam, lParam,
+         stack->SubclassProcs[stackpos].id, stack->SubclassProcs[stackpos].ref);
+   stack->stackpos++;
+
+   if ((stack->stackpos == stack->stacknum) && stack->stacknew) {
+      stack->stacknum += stack->stacknew;
+      stack->stackpos += stack->stacknew;
+      stack->stacknew = 0;
+   }
+
+   /* If we removed the last entry in our stack while a window procedure was
+    * running then we have to clean up */
+   if ((stack->stackpos == 0) && (stack->stacknum == 0)) {
+      TRACE("Last Subclass removed, cleaning up\n");
+      /* clean up our heap and reset the origional window procedure */
+      if (IsWindowUnicode (hWnd))
+         SetWindowLongW (hWnd, GWL_WNDPROC, (LONG)stack->origproc);
+      else
+         SetWindowLongA (hWnd, GWL_WNDPROC, (LONG)stack->origproc);
+      HeapFree (GetProcessHeap (), 0, stack);
+      RemovePropA( hWnd, COMCTL32_aSubclass );
+      return TRUE;
    }
 
    return ret;
@@ -1386,12 +1346,12 @@ COMCTL32_CreateToolTip(HWND hwndOwner)
         /* true owner can be different if hwndOwner is a child window */
         HWND hwndTrueOwner = GetWindow(hwndToolTip, GW_OWNER);
         nmttc.hdr.hwndFrom = hwndTrueOwner;
-        nmttc.hdr.idFrom = GetWindowLongPtrW(hwndTrueOwner, GWLP_ID);
+        nmttc.hdr.idFrom = GetWindowLongA(hwndTrueOwner, GWL_ID);
 	nmttc.hdr.code = NM_TOOLTIPSCREATED;
 	nmttc.hwndToolTips = hwndToolTip;
 
        SendMessageA(GetParent(hwndTrueOwner), WM_NOTIFY,
-                    (WPARAM)GetWindowLongPtrW(hwndTrueOwner, GWLP_ID),
+                    (WPARAM)GetWindowLongA(hwndTrueOwner, GWL_ID),
 		     (LPARAM)&nmttc);
     }
 
@@ -1431,121 +1391,4 @@ COMCTL32_RefreshSysColors(void)
     comctl32_color.clrActiveCaption = GetSysColor (COLOR_ACTIVECAPTION);
     comctl32_color.clrInfoBk = GetSysColor (COLOR_INFOBK);
     comctl32_color.clrInfoText = GetSysColor (COLOR_INFOTEXT);
-}
-
-/***********************************************************************
- * COMCTL32_DrawInsertMark [NOT AN API]
- *
- * Draws an insertion mark (which looks similar to an 'I').
- *
- * PARAMS
- *     hDC           [I] Device context to draw onto.
- *     lpRect        [I] Co-ordinates of insertion mark.
- *     clrInsertMark [I] Colour of the insertion mark.
- *     bHorizontal   [I] True if insert mark should be drawn horizontally,
- *                       vertical otherwise.
- *
- * RETURNS
- *     none
- *
- * NOTES
- *     Draws up to but not including the bottom co-ordinate when drawing
- *     vertically or the right co-ordinate when horizontal.
- */
-void COMCTL32_DrawInsertMark(HDC hDC, const RECT *lpRect, COLORREF clrInsertMark, BOOL bHorizontal)
-{
-    HPEN hPen = CreatePen(PS_SOLID, 1, clrInsertMark);
-    HPEN hOldPen;
-    static const DWORD adwPolyPoints[] = {4,4,4};
-    LONG lCentre = (bHorizontal ? 
-        lpRect->top + (lpRect->bottom - lpRect->top)/2 : 
-        lpRect->left + (lpRect->right - lpRect->left)/2);
-    LONG l1 = (bHorizontal ? lpRect->left : lpRect->top);
-    LONG l2 = (bHorizontal ? lpRect->right : lpRect->bottom);
-    const POINT aptInsertMark[] =
-    {
-        /* top (V) or left (H) arrow */
-        {lCentre    , l1 + 2},
-        {lCentre - 2, l1    },
-        {lCentre + 3, l1    },
-        {lCentre + 1, l1 + 2},
-        /* middle line */
-        {lCentre    , l2 - 2},
-        {lCentre    , l1 - 1},
-        {lCentre + 1, l1 - 1},
-        {lCentre + 1, l2 - 2},
-        /* bottom (V) or right (H) arrow */
-        {lCentre    , l2 - 3},
-        {lCentre - 2, l2 - 1},
-        {lCentre + 3, l2 - 1},
-        {lCentre + 1, l2 - 3},
-    };
-    hOldPen = SelectObject(hDC, hPen);
-    PolyPolyline(hDC, aptInsertMark, adwPolyPoints, sizeof(adwPolyPoints)/sizeof(adwPolyPoints[0]));
-    SelectObject(hDC, hOldPen);
-    DeleteObject(hPen);
-}
-
-/***********************************************************************
- * MirrorIcon [COMCTL32.414]
- *
- * Mirrors an icon so that it will appear correctly on a mirrored DC.
- *
- * PARAMS
- *     phicon1 [I/O] Icon.
- *     phicon2 [I/O] Icon.
- *
- * RETURNS
- *     Success: TRUE.
- *     Failure: FALSE.
- */
-BOOL WINAPI MirrorIcon(HICON *phicon1, HICON *phicon2)
-{
-    FIXME("(%p, %p): stub\n", phicon1, phicon2);
-    return FALSE;
-}
-
-static inline int IsDelimiter(WCHAR c)
-{
-    switch(c)
-    {
-	case '/':
-	case '\\':
-	case '.':
-	case ' ':
-	    return TRUE;
-    }
-    return FALSE;
-}
-
-static int CALLBACK PathWordBreakProc(LPWSTR lpch, int ichCurrent, int cch, int code)
-{
-    if (code == WB_ISDELIMITER)
-        return IsDelimiter(lpch[ichCurrent]);
-    else
-    {
-        int dir = (code == WB_LEFT) ? -1 : 1;
-        for(; 0 <= ichCurrent && ichCurrent < cch; ichCurrent += dir)
-            if (IsDelimiter(lpch[ichCurrent])) return ichCurrent;
-    }
-    return ichCurrent;
-}
-
-/***********************************************************************
- * SetPathWordBreakProc [COMCTL32.384]
- *
- * Sets the word break procedure for an edit control to one that understands
- * paths so that the user can jump over directories.
- *
- * PARAMS
- *     hwnd [I] Handle to edit control.
- *     bSet [I] If this is TRUE then the word break proc is set, otherwise it is removed.
- *
- * RETURNS
- *     Result from EM_SETWORDBREAKPROC message.
- */
-LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet)
-{
-    return SendMessageW(hwnd, EM_SETWORDBREAKPROC, 0,
-        (LPARAM)(bSet ? PathWordBreakProc : NULL));
 }

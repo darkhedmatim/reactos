@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: diskdump.c,v 1.4 2004/06/07 18:03:12 navaraf Exp $
+/* $Id: diskdump.c,v 1.2 2003/10/18 18:49:08 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -37,8 +37,6 @@
 #define NDEBUG
 #include <debug.h>
 
-/* It's already defined in scsiport_int.h */
-#undef VERSION
 #define VERSION  "0.0.1"
 
 /* PROTOTYPES ***************************************************************/
@@ -66,10 +64,10 @@ typedef VOID (*SCSIPORTNOTIFICATION)(IN SCSI_NOTIFICATION_TYPE NotificationType,
 
 MM_CORE_DUMP_FUNCTIONS DiskDumpFunctions =
   {
-    (PVOID)DiskDumpPrepare,
-    (PVOID)DiskDumpInit,
-    (PVOID)DiskDumpWrite,
-    (PVOID)DiskDumpFinish,
+    DiskDumpPrepare,
+    DiskDumpInit,
+    DiskDumpWrite,
+    DiskDumpFinish,
   };
 
 typedef struct

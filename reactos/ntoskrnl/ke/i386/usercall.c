@@ -1,4 +1,4 @@
-/* $Id: usercall.c,v 1.32 2004/11/21 18:42:58 gdalsnes Exp $
+/* $Id: usercall.c,v 1.25 2003/07/11 01:23:15 royce Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,14 +11,22 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
+#include <internal/ps.h>
+
 /* FUNCTIONS *****************************************************************/
 
-VOID
-KiSystemCallHook(ULONG Nr, ...)
+VOID KiSystemCallHook(ULONG Nr, ...)
 {
 #if 0
    va_list ap;
@@ -33,35 +41,26 @@ KiSystemCallHook(ULONG Nr, ...)
 	DbgPrint("%x, ", va_arg(ap, ULONG));
      }
    DbgPrint(")\n");
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   assert_irql(PASSIVE_LEVEL);
    va_end(ap);
 #endif
 }
 
-VOID
-KiAfterSystemCallHook(PKTRAP_FRAME TrapFrame)
+ULONG KiAfterSystemCallHook(ULONG NtStatus, PKTRAP_FRAME TrapFrame)
 {
-   KIRQL oldIrql;
-   
-   /* If we are returning to umode, deliver one pending umode apc.
-    * Note that kmode apcs are also delivered, even if deliverymode is UserMode.
-    * This is because we can't return to umode with pending kmode apcs!
-    * FIXME: Should we deliver pending kmode apcs when returning from a 
-    * kmode-to-kmode syscall (ZwXxx calls)?????
-    * -Gunnar
-    */
-   if (TrapFrame->Cs != KERNEL_CS)
-   {
-      KeRaiseIrql(APC_LEVEL, &oldIrql);
-      KiDeliverApc(UserMode, NULL, TrapFrame);
-      KeLowerIrql(oldIrql);
-   }
-
+  if (KeGetCurrentThread()->Alerted[1] != 0 && TrapFrame->Cs != KERNEL_CS)
+    {
+      KiDeliverNormalApc();
+    }
+  if (KeGetCurrentThread()->Alerted[0] != 0 && TrapFrame->Cs != KERNEL_CS)
+    {
+      KiDeliverUserApc(TrapFrame);
+    }
+  return(NtStatus);
 }
 
 
-VOID
-KiServiceCheck (ULONG Nr)
+VOID KiServiceCheck (ULONG Nr)
 {
   PETHREAD Thread;
 
@@ -123,36 +122,6 @@ KeAddSystemServiceTable (
     }
 
     return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-KeRemoveSystemServiceTable(
-    IN PUCHAR Number
-)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-KeUserModeCallback(
-    IN ULONG	FunctionID,
-    IN PVOID	InputBuffer,
-    IN ULONG	InputLength,
-    OUT PVOID	*OutputBuffer,
-    OUT PULONG	OutputLength
-)
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 /* EOF */

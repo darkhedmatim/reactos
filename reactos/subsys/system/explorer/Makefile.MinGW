@@ -8,8 +8,8 @@ CC = gcc
 CXX = g++
 LINK = g++
 
-CFLAGS	= -DWIN32 -D_WIN32_IE=0x0600 -D_WIN32_WINNT=0x0501 -DWINVER=0x0500 -fexceptions -Wall -I.
-RCFLAGS	= -DWIN32 -D__WINDRES__
+CFLAGS	= -DWIN32 -D_ROS_ -D_WIN32_IE=0x0501 -D_WIN32_WINNT=0x0501 -fexceptions -Wall
+RCFLAGS	= -DWIN32 -D_ROS_
 LFLAGS	= -Wl,--subsystem,windows
 
 ifdef DEBUG
@@ -22,14 +22,9 @@ RCFLAGS	+= -DNDEBUG
 LFLAGS	+= -s
 endif
 
-ifndef UNICODE
-UNICODE = 1
-endif
-
-ifeq ($(UNICODE),1)
+ifdef UNICODE
 CFLAGS	+= -DUNICODE
 # LFLAGS+= -Wl,--entry,_wWinMain@16
-RCFLAGS += -DUNICODE
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -55,10 +50,6 @@ OBJECTS = \
 	winfs.o \
 	unixfs.o \
 	shellfs.o \
-	ntobjfs.o \
-	regfs.o \
-	fatfs.o \
-	webchild.o \
 	mainframe.o \
 	filechild.o \
 	pane.o \
@@ -69,26 +60,18 @@ OBJECTS = \
 	startmenu.o \
 	traynotify.o \
 	quicklaunch.o \
-	favorites.o \
-	searchprogram.o \
-	settings.o \
-	i386-stub-win32.o \
-	xmlstorage.o
+	searchprogram.o
 
-LIBS = gdi32 comctl32 msimg32 ole32 uuid
-DELAYIMPORTS = oleaut32 wsock32
+LIBS = gdi32 comctl32 ole32 uuid
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(PROGRAM)$(RES_SUFFIX) notifyhook.dll libexpat.dll
-	$(LINK) $(LFLAGS) -o $@ $^ $(addprefix -l,$(LIBS)) $(addprefix -l,$(DELAYIMPORTS))
+$(TARGET): $(OBJECTS) $(PROGRAM)$(RES_SUFFIX)
+	$(LINK) $(LFLAGS) -o $@ $^ $(addprefix -l,$(LIBS))
 
-explorer$(RES_SUFFIX): $(PROGRAM)_intres.rc res/*.bmp res/*.ico
-	windres $(RCFLAGS) -o $@ $(PROGRAM)_intres.rc
-
-notifyhook.dll: notifyhook/notifyhook.c notifyhook/notifyhook.h
-	$(CC) -D_WIN32_IE=0x0600 -Wall -D_NOTIFYHOOK_IMPL -Os -s notifyhook/notifyhook.c -shared -o $@
+explorer$(RES_SUFFIX): $(PROGRAM)_intres.rc
+	windres $(RCFLAGS) -o $@ $^
 
 clean:
-	rm -f $(TARGET) $(OBJECTS) $(PROGRAM)$(RES_SUFFIX) \
-	desktop/*.o dialogs/*.o shell/*.o taskbar/*.o utility/*.o
+	rm -f $(TARGET) $(OBJECTS) $(PROGRAM)$(RES_SUFFIX)
+

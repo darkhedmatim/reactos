@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: prop.c,v 1.11 2004/05/10 17:07:18 weiden Exp $
+/* $Id: prop.c,v 1.5 2003/08/19 11:48:49 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,16 +28,21 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/winpos.h>
+#include <include/callback.h>
+#include <include/msgqueue.h>
+#include <include/rect.h>
 
 //#define NDEBUG
 #include <debug.h>
-
-typedef struct _PROPLISTITEM
-{
-  ATOM Atom;
-  HANDLE Data;
-} PROPLISTITEM, *PPROPLISTITEM;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -60,78 +65,15 @@ IntGetProp(PWINDOW_OBJECT WindowObject, ATOM Atom)
   return(NULL);
 }
 
-NTSTATUS STDCALL
-NtUserBuildPropList(HWND hWnd,
-		    LPVOID Buffer,
-		    DWORD BufferSize,
-		    DWORD *Count)
+DWORD STDCALL
+NtUserBuildPropList(DWORD Unknown0,
+		    DWORD Unknown1,
+		    DWORD Unknown2,
+		    DWORD Unknown3)
 {
-  PWINDOW_OBJECT WindowObject;
-  PPROPERTY Property;
-  PLIST_ENTRY ListEntry;
-  PROPLISTITEM listitem, *li;
-  NTSTATUS Status;
-  DWORD Cnt = 0;
-  
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
-  {
-    return STATUS_INVALID_HANDLE;
-  }
-  
-  if(Buffer)
-  {
-    if(!BufferSize || (BufferSize % sizeof(PROPLISTITEM) != 0))
-    {
-      IntReleaseWindowObject(WindowObject);
-      return STATUS_INVALID_PARAMETER;
-    }
-    
-    /* copy list */
-    IntLockWindowProperties(WindowObject);
-    
-    li = (PROPLISTITEM *)Buffer;
-    ListEntry = WindowObject->PropListHead.Flink;
-    while((BufferSize >= sizeof(PROPLISTITEM)) && (ListEntry != &WindowObject->PropListHead))
-    {
-      Property = CONTAINING_RECORD(ListEntry, PROPERTY, PropListEntry);
-      listitem.Atom = Property->Atom;
-      listitem.Data = Property->Data;
-      
-      Status = MmCopyToCaller(li, &listitem, sizeof(PROPLISTITEM));
-      if(!NT_SUCCESS(Status))
-      {
-        IntUnLockWindowProperties(WindowObject);
-        IntReleaseWindowObject(WindowObject);
-        return Status;
-      }
-      
-      BufferSize -= sizeof(PROPLISTITEM);
-      Cnt++;
-      li++;
-      ListEntry = ListEntry->Flink;
-    }
-    
-    IntUnLockWindowProperties(WindowObject);
-  }
-  else
-  {
-    IntLockWindowProperties(WindowObject);
-    Cnt = WindowObject->PropListItems * sizeof(PROPLISTITEM);
-    IntUnLockWindowProperties(WindowObject);
-  }
-  
-  IntReleaseWindowObject(WindowObject);
-  
-  if(Count)
-  {
-    Status = MmCopyToCaller(Count, &Cnt, sizeof(DWORD));
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-  
-  return STATUS_SUCCESS;
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 HANDLE STDCALL
@@ -146,21 +88,16 @@ NtUserRemoveProp(HWND hWnd, ATOM Atom)
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return NULL;
   }
-  
-  IntLockWindowProperties(WindowObject);
+
   Prop = IntGetProp(WindowObject, Atom);
-  
   if (Prop == NULL)
     {
-      IntUnLockWindowProperties(WindowObject);
       IntReleaseWindowObject(WindowObject);
       return(NULL);
     }
   Data = Prop->Data;
   RemoveEntryList(&Prop->PropListEntry);
   ExFreePool(Prop);
-  WindowObject->PropListItems--;
-  IntUnLockWindowProperties(WindowObject);
   IntReleaseWindowObject(WindowObject);
   return(Data);
 }
@@ -172,20 +109,23 @@ NtUserGetProp(HWND hWnd, ATOM Atom)
   PPROPERTY Prop;
   HANDLE Data = NULL;
 
+  IntAcquireWinLockShared();
+
   if (!(WindowObject = IntGetWindowObject(hWnd)))
   {
+    IntReleaseWinLock();
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return FALSE;
   }
-  
-  IntLockWindowProperties(WindowObject);
+
   Prop = IntGetProp(WindowObject, Atom);
   if (Prop != NULL)
   {
     Data = Prop->Data;
   }
-  IntUnLockWindowProperties(WindowObject);
-  IntReleaseWindowObject(WindowObject);
+  
+  IntReleaseWinLock();
+
   return(Data);
 }
 
@@ -198,14 +138,10 @@ IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
 
   if (Prop == NULL)
   {
-    Prop = ExAllocatePoolWithTag(PagedPool, sizeof(PROPERTY), TAG_WNDPROP);
-    if (Prop == NULL)
-    {
-      return FALSE;
-    }
+    Prop = ExAllocatePool(PagedPool, sizeof(PROPERTY));
+    if (Prop == NULL) return FALSE;
     Prop->Atom = Atom;
     InsertTailList(&Wnd->PropListHead, &Prop->PropListEntry);
-    Wnd->PropListItems++;
   }
 
   Prop->Data = Data;
@@ -216,20 +152,21 @@ IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
 BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
-  PWINDOW_OBJECT WindowObject;
+  PWINDOW_OBJECT Wnd;
   BOOL ret;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
+  IntAcquireWinLockExclusive();
+
+  if (!(Wnd = IntGetWindowObject(hWnd)))
   {
+    IntReleaseWinLock();
     SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
     return FALSE;
   }
-  
-  IntLockWindowProperties(WindowObject);
-  ret = IntSetProp(WindowObject, Atom, Data);
-  IntUnLockWindowProperties(WindowObject);
-  
-  IntReleaseWindowObject(WindowObject);
+
+  ret = IntSetProp(Wnd, Atom, Data);
+
+  IntReleaseWinLock();
   return ret;
 }
 

@@ -8,7 +8,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+#include <limits.h>
+#include <string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -23,7 +27,6 @@ RtlpGetRegistryHandle(ULONG RelativeTo,
 		      BOOLEAN Create,
 		      PHANDLE KeyHandle)
 {
-  UNICODE_STRING KeyPath;
   UNICODE_STRING KeyName;
   WCHAR KeyBuffer[MAX_PATH];
   OBJECT_ATTRIBUTES ObjectAttributes;
@@ -75,14 +78,9 @@ RtlpGetRegistryHandle(ULONG RelativeTo,
 	break;
 
       case RTL_REGISTRY_USER:
-	Status = RtlFormatCurrentUserKeyPath (&KeyPath);
+	Status = RtlFormatCurrentUserKeyPath(&KeyName);
 	if (!NT_SUCCESS(Status))
 	  return(Status);
-	RtlAppendUnicodeStringToString (&KeyName,
-					&KeyPath);
-	RtlFreeUnicodeString (&KeyPath);
-	RtlAppendUnicodeToString (&KeyName,
-				  L"\\");
 	break;
 
       /* ReactOS specific */
@@ -206,87 +204,16 @@ RtlDeleteRegistryValue(IN ULONG RelativeTo,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 NTSTATUS STDCALL
-RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
+RtlFormatCurrentUserKeyPath(IN OUT PUNICODE_STRING KeyPath)
 {
-  HANDLE TokenHandle;
-  UCHAR Buffer[256];
-  PSID_AND_ATTRIBUTES SidBuffer;
-  ULONG Length;
-  UNICODE_STRING SidString;
-  NTSTATUS Status;
+  /* FIXME: !!! */
+  RtlCreateUnicodeString(KeyPath,
+			 L"\\Registry\\User\\.Default");
 
-  DPRINT ("RtlFormatCurrentUserKeyPath() called\n");
-
-  Status = ZwOpenThreadToken (NtCurrentThread (),
-			      TOKEN_READ,
-			      TRUE,
-			      &TokenHandle);
-  if (!NT_SUCCESS (Status))
-    {
-      if (Status != STATUS_NO_TOKEN)
-	{
-	  DPRINT1 ("ZwOpenThreadToken() failed (Status %lx)\n", Status);
-	  return Status;
-	}
-
-      Status = ZwOpenProcessToken (NtCurrentProcess (),
-				   TOKEN_READ,
-				   &TokenHandle);
-      if (!NT_SUCCESS (Status))
-	{
-	  DPRINT1 ("ZwOpenProcessToken() failed (Status %lx)\n", Status);
-	  return Status;
-	}
-    }
-
-  SidBuffer = (PSID_AND_ATTRIBUTES)Buffer;
-  Status = ZwQueryInformationToken (TokenHandle,
-				    TokenUser,
-				    (PVOID)SidBuffer,
-				    256,
-				    &Length);
-  NtClose (TokenHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT ("ZwQueryInformationToken() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  Status = RtlConvertSidToUnicodeString (&SidString,
-					 SidBuffer[0].Sid,
-					 TRUE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("RtlConvertSidToUnicodeString() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  DPRINT ("SidString: '%wZ'\n", &SidString);
-
-  Length = SidString.Length + sizeof(L"\\Registry\\User\\");
-  DPRINT ("Length: %lu\n", Length);
-
-  KeyPath->Length = 0;
-  KeyPath->MaximumLength = Length;
-  KeyPath->Buffer = ExAllocatePool (NonPagedPool,
-				    KeyPath->MaximumLength);
-  if (KeyPath->Buffer == NULL)
-    {
-      DPRINT1 ("RtlAllocateHeap() failed\n");
-      RtlFreeUnicodeString (&SidString);
-      return STATUS_NO_TOKEN;
-    }
-
-  RtlAppendUnicodeToString (KeyPath,
-			    L"\\Registry\\User\\");
-  RtlAppendUnicodeStringToString (KeyPath,
-				  &SidString);
-  RtlFreeUnicodeString (&SidString);
-
-  return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -295,7 +222,7 @@ RtlOpenCurrentUser(IN ACCESS_MASK DesiredAccess,
 		   OUT PHANDLE KeyHandle)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
-  UNICODE_STRING KeyPath;
+  UNICODE_STRING KeyPath = UNICODE_STRING_INITIALIZER(L"\\Registry\\User\\.Default");
   NTSTATUS Status;
 
   Status = RtlFormatCurrentUserKeyPath(&KeyPath);
@@ -314,8 +241,6 @@ RtlOpenCurrentUser(IN ACCESS_MASK DesiredAccess,
 	return(STATUS_SUCCESS);
     }
 
-  RtlInitUnicodeString (&KeyPath,
-			L"\\Registry\\User\\.Default");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &KeyPath,
 			     OBJ_CASE_INSENSITIVE,
@@ -447,7 +372,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    }
 		  else
 		    {
-		      ValueString->Length = RtlRosMin(SourceString->Length,
+		      ValueString->Length = RtlMin(SourceString->Length,
 						   ValueString->MaximumLength - sizeof(WCHAR));
 		      memcpy(ValueString->Buffer,
 			     SourceString->Buffer,
@@ -483,7 +408,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 			break;
 		      ValueString->Buffer[0] = 0;
 		    }
-		  ValueString->Length = RtlRosMin(ValueInfo->DataLength,
+		  ValueString->Length = RtlMin(ValueInfo->DataLength,
 					       ValueString->MaximumLength) - sizeof(WCHAR);
 		  memcpy(ValueString->Buffer,
 			 ValueInfo->Data,
@@ -663,7 +588,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    {
 		      DPRINT("Expand REG_MULTI_SZ type\n");
 
-		      StringPtr = (PWSTR)((char*)FullValueInfo + FullValueInfo->DataOffset);
+		      StringPtr = (PWSTR)((PVOID)FullValueInfo + FullValueInfo->DataOffset);
 		      while (*StringPtr != 0)
 			{
 			  StringLen = (wcslen(StringPtr) + 1) * sizeof(WCHAR);
@@ -682,7 +607,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    {
 		      Status = QueryEntry->QueryRoutine(ValueName,
 							FullValueInfo->Type,
-							(char*)FullValueInfo + FullValueInfo->DataOffset,
+							(PVOID)FullValueInfo + FullValueInfo->DataOffset,
 							FullValueInfo->DataLength,
 							Context,
 							QueryEntry->EntryContext);

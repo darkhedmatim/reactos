@@ -13,20 +13,14 @@
 #include "mouse.h"
 #include "psaux.h"
 
-#define NDEBUG
-#include <debug.h>
-
-static PIRP  CurrentIrp;
-static ULONG MouseDataRead;
-static ULONG MouseDataRequired;
-static BOOLEAN AlreadyOpened = FALSE;
-
 BOOLEAN STDCALL
 MouseSynchronizeRoutine(PVOID Context)
 {
    PIRP Irp = (PIRP)Context;
+   PMOUSE_INPUT_DATA rec  = (PMOUSE_INPUT_DATA)Irp->AssociatedIrp.SystemBuffer;
    PIO_STACK_LOCATION stk = IoGetCurrentIrpStackLocation(Irp);
    ULONG NrToRead         = stk->Parameters.Read.Length/sizeof(MOUSE_INPUT_DATA);
+   int i;
 
    if ((stk->Parameters.Read.Length/sizeof(MOUSE_INPUT_DATA))==NrToRead)
    {
@@ -90,7 +84,7 @@ PS2MouseDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	break;
 
       default:
-        DPRINT1("NOT IMPLEMENTED\n");
+        DbgPrint("NOT IMPLEMENTED\n");
         Status = STATUS_NOT_IMPLEMENTED;
 	break;
      }
@@ -156,7 +150,7 @@ VOID PS2MouseIsrDpc(PKDPC Dpc, PDEVICE_OBJECT DeviceObject, PIRP Irp, PVOID Cont
    ULONG Queue;
 
    Queue = DeviceExtension->ActiveQueue % 2;
-   InterlockedIncrement((PLONG)&DeviceExtension->ActiveQueue);
+   InterlockedIncrement(&DeviceExtension->ActiveQueue);
    (*(PSERVICE_CALLBACK_ROUTINE)DeviceExtension->ClassInformation.CallBack)(
 			DeviceExtension->ClassInformation.DeviceObject,
 			DeviceExtension->MouseInputData[Queue],
@@ -204,7 +198,8 @@ AllocatePointerDevice(PDRIVER_OBJECT DriverObject)
 		Status = IoCreateDevice(DriverObject, sizeof(DEVICE_EXTENSION),
 			&DeviceName, FILE_DEVICE_SERIAL_MOUSE_PORT, 0, TRUE, &DeviceObject);
 		RtlUnicodeStringToAnsiString(&DebugString, &DeviceName, TRUE);
-		DPRINT("%s", DebugString.Buffer);
+		DbgPrint(DebugString.Buffer);
+		DbgPrint("\n");
 		RtlFreeAnsiString(&DebugString);
 		/* Device successfully created, leave the cyclus */
 		if (NT_SUCCESS(Status))
@@ -242,17 +237,20 @@ NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
    PDEVICE_OBJECT DeviceObject;
+   UNICODE_STRING DeviceName;
+   UNICODE_STRING SymlinkName;
+   PDEVICE_EXTENSION DeviceExtension;
 
    if (DetectPS2Port() == TRUE) {
-     DPRINT("PS2 Port Driver version 0.0.2\n");
+     DbgPrint("PS2 Port Driver version 0.0.2\n");
    } else {
-     DPRINT1("PS2 port not found.\n");
+     DbgPrint("PS2 port not found.\n");
      return STATUS_UNSUCCESSFUL;
    }
 
-   DriverObject->MajorFunction[IRP_MJ_CREATE] = PS2MouseDispatch;
-   DriverObject->MajorFunction[IRP_MJ_CLOSE]  = PS2MouseDispatch;
-   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = PS2MouseInternalDeviceControl;
+   DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)PS2MouseDispatch;
+   DriverObject->MajorFunction[IRP_MJ_CLOSE]  = (PDRIVER_DISPATCH)PS2MouseDispatch;
+   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = (PDRIVER_DISPATCH)PS2MouseInternalDeviceControl;
    DriverObject->DriverStartIo                = PS2MouseStartIo;
 
    DeviceObject = AllocatePointerDevice(DriverObject);

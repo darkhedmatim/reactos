@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,16 +29,14 @@
  /// shell file/directory entry
 struct ShellEntry : public Entry
 {
-	ShellEntry(Entry* parent, LPITEMIDLIST shell_path) : Entry(parent, ET_SHELL), _pidl(shell_path) {}
-	ShellEntry(Entry* parent, const ShellPath& shell_path) : Entry(parent, ET_SHELL), _pidl(shell_path) {}
+	ShellEntry(Entry* parent, LPITEMIDLIST shell_path) : Entry(parent), _pidl(shell_path) {}
+	ShellEntry(Entry* parent, const ShellPath& shell_path) : Entry(parent), _pidl(shell_path) {}
 
-	virtual bool		get_path(PTSTR path) const;
-	virtual ShellPath	create_absolute_pidl() const;
-	virtual HRESULT		GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut);
-	virtual BOOL		launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
-	virtual HRESULT		do_context_menu(HWND hwnd, LPPOINT pptScreen);
+	virtual void get_path(PTSTR path) const;
+	virtual BOOL launch_entry(HWND hwnd, UINT nCmdShow=SW_SHOWNORMAL);
 
-	IShellFolder*		get_parent_folder() const;
+	IShellFolder* get_parent_folder() const;
+	ShellPath create_absolute_pidl() const;
 
 	ShellPath	_pidl;	// parent relative PIDL
 
@@ -48,7 +46,6 @@ protected:
 };
 
 
- /// shell folder entry
 struct ShellDirectory : public ShellEntry, public Directory
 {
 	ShellDirectory(ShellFolder& root_folder, const ShellPath& shell_path, HWND hwnd)
@@ -56,9 +53,7 @@ struct ShellDirectory : public ShellEntry, public Directory
 		_folder(root_folder, shell_path),
 		_hwnd(hwnd)
 	{
-		CONTEXT("ShellDirectory::ShellDirectory()");
-
-		lstrcpy(_data.cFileName, root_folder.get_name(shell_path, SHGDN_FORPARSING));
+		lstrcpy(_data.cFileName, root_folder.get_name(shell_path));
 		_data.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
 		_shell_attribs = SFGAO_FOLDER;
 
@@ -99,13 +94,11 @@ struct ShellDirectory : public ShellEntry, public Directory
 		pFolder->Release();
 	}
 
-	virtual void read_directory(int scan_flags=SCAN_ALL);
-	virtual const void* get_next_path_component(const void*) const;
-	virtual Entry* find_entry(const void*);
+	virtual void read_directory();
+	virtual const void* get_next_path_component(const void*);
+	virtual Entry* find_entry(const void* p);
 
-	virtual bool get_path(PTSTR path) const;
-
-	int	extract_icons();
+	virtual void get_path(PTSTR path) const;
 
 	ShellFolder _folder;
 	HWND	_hwnd;
@@ -120,5 +113,5 @@ inline IShellFolder* ShellEntry::get_parent_folder() const
 	if (_up)
 		return static_cast<ShellDirectory*>(_up)->_folder;
 	else
-		return GetDesktopFolder();
+		return Desktop();
 }

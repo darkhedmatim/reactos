@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: setup.c,v 1.4 2004/07/12 20:09:35 gvg Exp $
+/* $Id: setup.c,v 1.1 2003/03/25 19:26:33 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS winlogon
  * FILE:            subsys/system/winlogon/setup.h
@@ -28,7 +28,7 @@
 
 #include <windows.h>
 #include <stdio.h>
-#include <ntsecapi.h>
+#include <lsass/ntsecapi.h>
 #include <wchar.h>
 
 #include "setup.h"
@@ -43,13 +43,13 @@ DWORD
 GetSetupType(VOID)
 {
   DWORD dwError;
-  HKEY hKey;
+  HANDLE hKey;
   DWORD dwType;
   DWORD dwSize;
   DWORD dwSetupType;
 
   dwError = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-			 L"SYSTEM\\Setup", //TEXT("SYSTEM\\Setup"),
+			 "SYSTEM\\Setup", //TEXT("SYSTEM\\Setup"),
 			 0,
 			 KEY_QUERY_VALUE,
 			 &hKey);
@@ -60,7 +60,7 @@ GetSetupType(VOID)
 
   dwSize = sizeof(DWORD);
   dwError = RegQueryValueEx (hKey,
-			     L"SetupType", //TEXT("SetupType"),
+			     "SetupType", //TEXT("SetupType"),
 			     NULL,
 			     &dwType,
 			     (LPBYTE)&dwSetupType,
@@ -79,10 +79,10 @@ BOOL
 SetSetupType (DWORD dwSetupType)
 {
   DWORD dwError;
-  HKEY hKey;
+  HANDLE hKey;
 
   dwError = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-			 L"SYSTEM\\Setup", //TEXT("SYSTEM\\Setup"),
+			 "SYSTEM\\Setup", //TEXT("SYSTEM\\Setup"),
 			 0,
 			 KEY_QUERY_VALUE,
 			 &hKey);
@@ -92,7 +92,7 @@ SetSetupType (DWORD dwSetupType)
     }
 
   dwError = RegSetValueEx (hKey,
-			   L"SetupType", //TEXT("SetupType"),
+			   "SetupType", //TEXT("SetupType"),
 			   0,
 			   REG_DWORD,
 			   (LPBYTE)&dwSetupType,
@@ -112,54 +112,40 @@ RunSetup (VOID)
 {
   PROCESS_INFORMATION ProcessInformation;
   STARTUPINFO StartupInfo;
-  WCHAR Shell[MAX_PATH];
-  WCHAR CommandLine[MAX_PATH];
+  CHAR CommandLine[MAX_PATH];
   BOOLEAN Result;
   DWORD dwError;
-  HKEY hKey;
+  HANDLE hKey;
   DWORD dwType;
   DWORD dwSize;
   DWORD dwExitCode;
 
   DPRINT ("RunSetup() called\n");
 
-  dwError = RegOpenKeyExW (HKEY_LOCAL_MACHINE,
-			   L"SYSTEM\\Setup",
-			   0,
-			   KEY_QUERY_VALUE,
-			   &hKey);
+  dwError = RegOpenKeyEx (HKEY_LOCAL_MACHINE,
+			  "SYSTEM\\Setup",
+			  0,
+			  KEY_QUERY_VALUE,
+			  &hKey);
   if (dwError != ERROR_SUCCESS)
     {
       return FALSE;
     }
 
   dwSize = MAX_PATH;
-  dwError = RegQueryValueExW (hKey,
-			      L"CmdLine",
-			      NULL,
-			      &dwType,
-			      (LPBYTE)Shell,
-			      &dwSize);
+  dwError = RegQueryValueEx (hKey,
+			     "CmdLine",
+			     NULL,
+			     &dwType,
+			     (LPBYTE)CommandLine,
+			     &dwSize);
   RegCloseKey (hKey);
-  if (dwError != ERROR_SUCCESS)
+  if (dwError != ERROR_SUCCESS || dwType != REG_SZ)
     {
       return FALSE;
     }
 
-  if (dwType == REG_EXPAND_SZ)
-    {
-      ExpandEnvironmentStringsW(Shell, CommandLine, MAX_PATH);
-    }
-  else if (dwType == REG_SZ)
-    {
-      wcscpy(CommandLine, Shell);
-    }
-  else
-    {
-      return FALSE;
-    }
-
-  DPRINT ("Winlogon: Should run '%S' now.\n", CommandLine);
+  DPRINT ("Winlogon: Should run '%s' now.\n", CommandLine);
 
   StartupInfo.cb = sizeof(StartupInfo);
   StartupInfo.lpReserved = NULL;
@@ -171,16 +157,16 @@ RunSetup (VOID)
 
   DPRINT ("Winlogon: Creating new setup process\n");
 
-  Result = CreateProcessW (NULL,
-			   CommandLine,
-			   NULL,
-			   NULL,
-			   FALSE,
-			   DETACHED_PROCESS,
-			   NULL,
-			   NULL,
-			   &StartupInfo,
-			   &ProcessInformation);
+  Result = CreateProcess (NULL,
+			  CommandLine,
+			  NULL,
+			  NULL,
+			  FALSE,
+			  DETACHED_PROCESS,
+			  NULL,
+			  NULL,
+			  &StartupInfo,
+			  &ProcessInformation);
   if (!Result)
     {
       DPRINT ("Winlogon: Failed to run setup process\n");

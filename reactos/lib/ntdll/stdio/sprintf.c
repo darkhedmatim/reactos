@@ -1,4 +1,4 @@
-/* $Id: sprintf.c,v 1.16 2004/07/03 17:40:23 navaraf Exp $
+/* $Id: sprintf.c,v 1.13 2003/09/12 17:51:48 vizzini Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -23,7 +23,6 @@
 #include <ddk/ntddk.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <string.h>
 #include <limits.h>
@@ -166,7 +165,7 @@ string(char* buf, char* end, const char* s, int len, int field_width, int precis
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
+			while (s[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -211,7 +210,7 @@ stringw(char* buf, char* end, const wchar_t* sw, int len, int field_width, int p
 		if (len == -1)
 		{
 			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
+			while (sw[len] && (unsigned int)len < (unsigned int)precision)
 				len++;
 		}
 		else
@@ -486,12 +485,8 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 
 		if (qualifier == 'I')
 			num = va_arg(args, unsigned long long);
-		else if (qualifier == 'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+		else if (qualifier == 'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == 'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);

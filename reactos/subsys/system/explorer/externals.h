@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 Martin Fuchs
+ * Copyright 2003 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -35,19 +35,14 @@ extern "C" {
 extern int startup(int argc, char *argv[]);
 
  // explorer main routine
-extern int explorer_main(HINSTANCE hinstance, LPTSTR lpCmdLine, int cmdshow);
+extern int explorer_main(HINSTANCE hinstance, HWND hwndDesktop, int cmdshow);
 
  // display explorer/file manager window
-extern void explorer_show_frame(int cmdshow, LPTSTR lpCmdLine=NULL);
-
- // display explorer "About" dialog
-extern void explorer_about(HWND hwndParent);
+extern void explorer_show_frame(HWND hwndDesktop, int cmdshow);
 
  // test for already running desktop instance
 extern BOOL IsAnyDesktopRunning();
 
- // show shutdown dialog
-extern void ShowExitWindowsDialog(HWND hwndOwner);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -21,45 +21,43 @@
 #define IOCTL_CONSOLE_READ_OUTPUT_CHARACTER     CTL_CODE(FILE_DEVICE_SCREEN, 0x821, METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
 #define IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER    CTL_CODE(FILE_DEVICE_SCREEN, 0x822, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
 
-#define IOCTL_CONSOLE_DRAW                      CTL_CODE(FILE_DEVICE_SCREEN, 0x830, METHOD_IN_DIRECT, FILE_WRITE_ACCESS)
+
+#define IOCTL_CONSOLE_DRAW                      CTL_CODE(FILE_DEVICE_SCREEN, 0x830, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
 
 
 /* TYPEDEFS **************************************************************/
 
 
-typedef struct tagCONSOLE_MODE
+typedef struct _CONSOLE_MODE
 {
-  DWORD dwMode;
+    DWORD dwMode;
 } CONSOLE_MODE, *PCONSOLE_MODE;
 
 
-typedef struct tagOUTPUT_ATTRIBUTE
+typedef struct _OUTPUT_ATTRIBUTE
 {
-  WORD  wAttribute;
-  DWORD nLength;
-  COORD dwCoord;
-  DWORD dwTransfered;
+    WORD  wAttribute;
+    DWORD nLength;
+    COORD dwCoord;
+    DWORD dwTransfered;
 } OUTPUT_ATTRIBUTE, *POUTPUT_ATTRIBUTE;
 
 
-typedef struct tagOUTPUT_CHARACTER
+typedef struct _OUTPUT_CHARACTER
 {
-  CHAR  cCharacter;
-  DWORD nLength;
-  COORD dwCoord;
-  DWORD dwTransfered;
+    CHAR  cCharacter;
+    DWORD nLength;
+    COORD dwCoord;
+    DWORD dwTransfered;
 } OUTPUT_CHARACTER, *POUTPUT_CHARACTER;
 
 
-typedef struct tagCONSOLE_DRAW
+typedef struct _CONSOLE_DRAW
 {
-  UINT X;       /* Origin */
-  UINT Y;
-  UINT SizeX;   /* Size of the screen buffer (chars) */
-  UINT SizeY;
-  UINT CursorX; /* New cursor position (screen-relative) */
-  UINT CursorY;
-  /* Followed by screen buffer in char/attrib format */
+	SHORT	X;		/* Origin */
+	SHORT	Y;
+	SHORT	SizeX;		/* Size of the screen buffer */
+	SHORT	SizeY;
 } CONSOLE_DRAW, *PCONSOLE_DRAW;
 
 

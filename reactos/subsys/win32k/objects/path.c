@@ -16,34 +16,38 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: path.c,v 1.24 2004/07/14 20:48:58 navaraf Exp $ */
-#include <w32k.h>
+/* $Id: path.c,v 1.16 2003/09/09 15:49:59 gvg Exp $ */
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/brush.h>
+#include <win32k/dc.h>
+#include <win32k/path.h>
+#include <win32k/math.h>
 #include <win32k/float.h>
+#include <win32k/coord.h>
+#include <win32k/line.h>
+#define _WIN32K_PATH_INTERNAL
+#include <include/object.h>
+#include <include/path.h>
+
+#include <math.h>
+#include <float.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 #define NUM_ENTRIES_INITIAL 16  /* Initial size of points / flags arrays  */
 #define GROW_FACTOR_NUMER    2  /* Numerator of grow factor for the array */
 #define GROW_FACTOR_DENOM    1  /* Denominator of grow factor             */
 
-BOOL FASTCALL PATH_AddEntry (GdiPath *pPath, const POINT *pPoint, BYTE flags);
-BOOL FASTCALL PATH_AddFlatBezier (GdiPath *pPath, POINT *pt, BOOL closed);
-BOOL FASTCALL PATH_DoArcPart (GdiPath *pPath, FLOAT_POINT corners[], double angleStart, double angleEnd, BOOL addMoveTo);
-BOOL FASTCALL PATH_FlattenPath (GdiPath *pPath);
-VOID FASTCALL PATH_GetPathFromDC (PDC dc, GdiPath **ppPath);
-VOID FASTCALL PATH_NormalizePoint (FLOAT_POINT corners[], const FLOAT_POINT *pPoint, double *pX, double *pY);
-BOOL FASTCALL PATH_PathToRegion(const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn);
-BOOL FASTCALL PATH_ReserveEntries (GdiPath *pPath, INT numEntries);
-VOID FASTCALL PATH_ScaleNormalizedPoint (FLOAT_POINT corners[], double x, double y, POINT *pPoint);
 
-
-INT FASTCALL
-IntGdiGetArcDirection(DC *dc);
 
 BOOL
 STDCALL
 NtGdiAbortPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -51,7 +55,6 @@ STDCALL
 NtGdiBeginPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -83,7 +86,6 @@ STDCALL
 NtGdiEndPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -91,7 +93,6 @@ STDCALL
 NtGdiFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -99,7 +100,6 @@ STDCALL
 NtGdiFlattenPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 
@@ -109,7 +109,6 @@ NtGdiGetMiterLimit(HDC  hDC,
                         PFLOAT  Limit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 INT
@@ -120,7 +119,6 @@ NtGdiGetPath(HDC  hDC,
                  INT  nSize)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HRGN
@@ -128,7 +126,6 @@ STDCALL
 NtGdiPathToRegion(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
@@ -138,7 +135,6 @@ NtGdiSetMiterLimit(HDC  hDC,
                         PFLOAT  OldLimit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -146,7 +142,6 @@ STDCALL
 NtGdiStrokeAndFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -154,7 +149,6 @@ STDCALL
 NtGdiStrokePath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -162,7 +156,6 @@ STDCALL
 NtGdiWidenPath(HDC  hDC)
 {
    UNIMPLEMENTED;
-   return FALSE;
 }
 
 /***********************************************************************
@@ -415,6 +408,7 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
    INT xStart, INT yStart, INT xEnd, INT yEnd)
 {
   GdiPath *pPath;
+  DC      *pDC;
   double  angleStart, angleEnd, angleStartQuadrant, angleEndQuadrant=0.0;
           /* Initialize angleEndQuadrant to silence gcc's warning */
   double  x, y;
@@ -428,7 +422,7 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
 
   ASSERT ( dc );
 
-  clockwise = ( IntGdiGetArcDirection(dc) == AD_CLOCKWISE );
+  clockwise = ( IntGetArcDirection(dc) == AD_CLOCKWISE );
 
   /* Get pointer to path */
   PATH_GetPathFromDC ( dc, &pPath );
@@ -453,10 +447,10 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
   pointStart.y=(FLOAT)yStart;
   pointEnd.x=(FLOAT)xEnd;
   pointEnd.y=(FLOAT)yEnd;
-  INTERNAL_LPTODP_FLOAT(dc, corners);
-  INTERNAL_LPTODP_FLOAT(dc, corners+1);
-  INTERNAL_LPTODP_FLOAT(dc, &pointStart);
-  INTERNAL_LPTODP_FLOAT(dc, &pointEnd);
+  INTERNAL_LPTODP_FLOAT(pDC, corners);
+  INTERNAL_LPTODP_FLOAT(pDC, corners+1);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointStart);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointEnd);
 
   /* Make sure first corner is top left and second corner is bottom right */
   if ( corners[0].x > corners[1].x )
@@ -863,7 +857,7 @@ PATH_PathToRegion ( const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn )
       numStrokes++;
 
   /* Allocate memory for number-of-points-in-stroke array */
-  pNumPointsInStroke=(int *)ExAllocatePoolWithTag(PagedPool, sizeof(int) * numStrokes, TAG_PATH);
+  pNumPointsInStroke=(int *)ExAllocatePool(NonPagedPool, sizeof(int) * numStrokes);
   if(!pNumPointsInStroke)
   {
 //    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
@@ -986,10 +980,10 @@ PATH_ReserveEntries ( GdiPath *pPath, INT numEntries )
        numEntriesToAllocate=numEntries;
 
     /* Allocate new arrays */
-    pPointsNew=(POINT *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(POINT), TAG_PATH);
+    pPointsNew=(POINT *)ExAllocatePool(NonPagedPool, numEntriesToAllocate * sizeof(POINT));
     if(!pPointsNew)
       return FALSE;
-    pFlagsNew=(BYTE *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(BYTE), TAG_PATH);
+    pFlagsNew=(BYTE *)ExAllocatePool(NonPagedPool, numEntriesToAllocate * sizeof(BYTE));
     if(!pFlagsNew)
     {
       ExFreePool(pPointsNew);

@@ -1,4 +1,4 @@
-/* $Id: delete.c,v 1.18 2004/11/29 17:31:21 gdalsnes Exp $
+/* $Id: delete.c,v 1.14 2003/07/10 18:50:51 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ****************************************************************/
@@ -22,7 +22,7 @@
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DeleteFileA (
 	LPCSTR	lpFileName
@@ -30,7 +30,7 @@ DeleteFileA (
 {
 	UNICODE_STRING FileNameU;
 	ANSI_STRING FileName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&FileName,
 	                   (LPSTR)lpFileName);
@@ -58,7 +58,7 @@ DeleteFileA (
 /*
  * @implemented
  */
-BOOL
+WINBOOL
 STDCALL
 DeleteFileW (
 	LPCWSTR	lpFileName
@@ -77,10 +77,7 @@ DeleteFileW (
 	                                   &NtPathU,
 	                                   NULL,
 	                                   NULL))
-   {
-      SetLastError(ERROR_PATH_NOT_FOUND);
 		return FALSE;
-   }
 
 	DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
@@ -112,7 +109,7 @@ DeleteFileW (
 		return FALSE;
 	}
 
-	FileDispInfo.DeleteFile = TRUE;
+	FileDispInfo.DoDeleteFile = TRUE;
 
 	Status = NtSetInformationFile (FileHandle,
 	                               &IoStatusBlock,

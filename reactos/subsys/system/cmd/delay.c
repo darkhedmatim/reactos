@@ -9,9 +9,15 @@
  *
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DELAY
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdlib.h>
+
+#include "cmd.h"
 
 
 INT CommandDelay (LPTSTR cmd, LPTSTR param)

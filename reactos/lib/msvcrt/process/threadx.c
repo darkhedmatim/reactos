@@ -1,7 +1,9 @@
-#include "precomp.h"
+/* $Id: threadx.c,v 1.4 2003/07/16 02:45:24 royce Exp $
+ *
+ */
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/process.h>
-#include <msvcrt/internal/file.h>
 
 
 /*
@@ -26,7 +28,8 @@ unsigned long _beginthreadex(
     arglist, initflag, (PULONG)thrdaddr );
   if (NULL == NewThread)
     {
-    _dosmaperr( GetLastError() );
+    /* FIXME map GetLastError() to errno */
+    __set_errno ( ENOSYS );
     }
 
   return (unsigned long) NewThread;

@@ -5,10 +5,10 @@
  */
 unsigned char * _mbstok(unsigned char *s, unsigned char *delim)
 {
-  const unsigned char *spanp;
+  const char *spanp;
   int c, sc;
-  unsigned char *tok;
-  static unsigned char *last;
+  char *tok;
+  static char *last;
 
 
   if (s == NULL && (s = last) == NULL)

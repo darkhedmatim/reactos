@@ -7,13 +7,13 @@ FILE _iob[5] =
 	// stdin
 {
  NULL, 0, NULL,
-  _IOREAD | _IO_LBF ,
+  _IOREAD | _IOLBF ,
   0, 0,0, NULL
 },
 	// stdout
 {
  NULL, 0, NULL,
-   _IOWRT | _IO_LBF |_IOSTRG,
+   _IOWRT | _IOLBF |_IOSTRG,
   1,0,0, NULL
 },
 	// stderr

@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <utime.h>
 #ifdef WIN32
 #include <io.h>
 #include <dos.h>
@@ -11,13 +10,11 @@
 #include <errno.h>
 #include <sys/types.h> 
 #include <dirent.h>
-#include <unistd.h>
-#include <string.h>
 #endif
+#ifndef WIN32
 #ifndef MAX_PATH
 #define MAX_PATH 260
 #endif
-#ifndef WIN32
 #define DIR_SEPARATOR_CHAR '/'
 #define DIR_SEPARATOR_STRING "/"
 #else
@@ -51,9 +48,7 @@ char* convert_path(char* origpath)
    char* newpath;
    int i;
    
-   //newpath = strdup(origpath);
-	 newpath = malloc(strlen(origpath)+1);
-	 strcpy(newpath, origpath);
+   newpath = strdup(origpath);
    
    i = 0;
    while (newpath[i] != 0)
@@ -86,8 +81,6 @@ copy_file(char* path1, char* path2)
    char* buf;
    int n_in;
    int n_out;
-   struct stat st_buffer;
-   struct utimbuf ut_buffer; 
 
    in = fopen(path1, "rb");
    if (in == NULL)
@@ -118,21 +111,6 @@ copy_file(char* path1, char* path2)
 	     exit(1);
 	  }
      }
-   free(buf);
-   fclose(in);
-   fclose(out);
-
-   if (stat(path2, &st_buffer) >= 0)
-   {
-      ut_buffer.actime = st_buffer.st_atime;
-   
-      if (stat(path1, &st_buffer) >= 0)
-      {
-         ut_buffer.modtime = st_buffer.st_mtime;
-	 utime(path2, &ut_buffer);
-      }
-   }
-   
 }
 
 #ifdef WIN32
@@ -188,37 +166,14 @@ copy_directory (char *path1, char *path2)
 }
 
 #else
+
 /* Linux version */
-
-static int
-is_reg (char *path, char *fn)
-{
-  char buf[MAX_PATH];
-  char buf2[MAX_PATH];
-  struct stat sbuf;
-
-  strcpy(buf, path);
-  if (buf[strlen(buf)-1] != '/')
-    strcat(buf, "/");
-  strcat(buf, fn);
-
-  make_absolute(buf2, buf);
-
-  if (stat(buf2, &sbuf) == -1)
-    return 0;
-  else {
-    if (S_ISREG(sbuf.st_mode))
-      return 1;
-    else
-      return 0;
-  }
-}
-
 static void
 copy_directory (char *path1, char *path2)
 {
   DIR *dirp;
   struct dirent *entry;
+  char *old_end_source;
   struct stat stbuf;
   char buf[MAX_PATH];
   char tobuf[MAX_PATH];
@@ -233,7 +188,7 @@ copy_directory (char *path1, char *path2)
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
           continue; // skip self and parent
 
-        if (entry->d_type == DT_REG || is_reg(path1, entry->d_name)) // normal file
+        if (entry->d_type == DT_REG) // normal file
 		    {
               // Convert to absolute path
               make_absolute(buf, path1);
@@ -285,6 +240,7 @@ is_directory(char *path)
 {
   struct stat stbuf;
   char buf[MAX_PATH];
+  char err[400];
 
   // Convert to absolute path
   make_absolute(buf, path);
