@@ -5,7 +5,7 @@
 /*    Auxiliary functions and data structures related to PostScript fonts  */
 /*    (specification).                                                     */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003 by                                     */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -478,17 +478,6 @@ FT_BEGIN_HEADER
   } T1_Builder_FuncsRec;
 
 
-  /* an enumeration type to handle charstring parsing states */
-  typedef enum  T1_ParseState_
-  {
-    T1_Parse_Start,
-    T1_Parse_Have_Width,
-    T1_Parse_Have_Moveto,
-    T1_Parse_Have_Path
-
-  } T1_ParseState;
-
-
   /*************************************************************************/
   /*                                                                       */
   /* <Structure>                                                           */
@@ -530,12 +519,14 @@ FT_BEGIN_HEADER
   /*                                                                       */
   /*    bbox         :: Unused.                                            */
   /*                                                                       */
-  /*    parse_state  :: An enumeration which controls the charstring       */
-  /*                    parsing state.                                     */
+  /*    path_begun   :: A flag which indicates that a new path has begun.  */
   /*                                                                       */
   /*    load_points  :: If this flag is not set, no points are loaded.     */
   /*                                                                       */
   /*    no_recurse   :: Set but not used.                                  */
+  /*                                                                       */
+  /*    error        :: An error code that is only used to report memory   */
+  /*                    allocation problems.                               */
   /*                                                                       */
   /*    metrics_only :: A boolean indicating that we only want to compute  */
   /*                    the metrics of a given glyph, not load all of its  */
@@ -564,11 +555,12 @@ FT_BEGIN_HEADER
     FT_Vector       advance;
 
     FT_BBox         bbox;          /* bounding box */
-    T1_ParseState   parse_state;
+    FT_Bool         path_begun;
     FT_Bool         load_points;
     FT_Bool         no_recurse;
     FT_Bool         shift;
 
+    FT_Error        error;         /* only used for memory errors */
     FT_Bool         metrics_only;
 
     void*           hints_funcs;    /* hinter-specific */

@@ -1,6 +1,9 @@
 // strpool.c
 
-#include "user32.h"
+#include <windows.h>
+#include <ddk/ntddk.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
 #include <strpool.h>
 #include <string.h>
 

@@ -1,6 +1,6 @@
 /*
  * Copyright 1998 Juergen Schmied
- * Copyright 2003-2004 Puoti
+ * Copyright 2003-2004 Ivan Leo Murray-Smith
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -77,7 +77,7 @@ BEGIN
 	POPUP ""
 	BEGIN
 	  MENUITEM "E&splora",		FCIDM_SHVIEW_EXPLORE
-	  MENUITEM "&Apri",		FCIDM_SHVIEW_OPEN
+	  MENUITEM "&Apri",		    FCIDM_SHVIEW_OPEN
 	  MENUITEM SEPARATOR
 	  MENUITEM "&Taglia",		FCIDM_SHVIEW_CUT
 	  MENUITEM "&Copia",		FCIDM_SHVIEW_COPY
@@ -93,7 +93,7 @@ END
 SHBRSFORFOLDER_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 188, 192
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_3DLOOK
 CAPTION "Sfoglia Cartella"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Helv"
 {
  DEFPUSHBUTTON "OK", 1, 80, 176, 50, 12, BS_DEFPUSHBUTTON | WS_GROUP | WS_TABSTOP
  PUSHBUTTON "Annulla", 2, 134, 176, 50, 12, WS_GROUP | WS_TABSTOP
@@ -108,25 +108,24 @@ FONT 8, "MS Shell Dlg"
 SHELL_ABOUT_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 210, 152
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Informazioni su %s"
-FONT 10, "MS Shell Dlg"
+FONT 10, "Helv"
 {
- DEFPUSHBUTTON "OK", IDOK, 153, 133, 50, 12, WS_TABSTOP
+ DEFPUSHBUTTON "OK", IDOK, 153, 130, 50, 12, WS_TABSTOP
  LISTBOX 99, 8, 65, 137, 82, LBS_NOTIFY | WS_VSCROLL | WS_BORDER
- ICON "", 1088, 10, 10, 14, 16
- LTEXT "", 100, 30, 10, 137, 10
- LTEXT "", 101, 30, 22, 137, 10
- LTEXT "ReactOS è disponibile grazie a:", 98, 8, 55, 137, 10
+ ICON "", 1088, 189, 10, 14, 16
+ LTEXT "", 100, 8, 10, 137, 33
+ LTEXT "Wine è disponibile grazie a:", 98, 8, 55, 137, 10
 }
 
 SHELL_RUN_DLG DIALOG LOADONCALL MOVEABLE DISCARDABLE 0, 0, 227, 95
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION ""
-FONT 8, "MS Shell Dlg"
+FONT 8, "Helv"
 {
  ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
- LTEXT "Digitare il nome del programma, della cartella, del documento o della risorsa internet, e ReactOS la aprirà.", 12289, 36, 11, 182, 18
+ LTEXT "Digitare il nome del programma, della cartella, del documento o della risorsa internet, e Wine la aprirà.", 12289, 36, 11, 182, 18
  LTEXT "&Apri:", 12305, 7, 39, 24, 10
- CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+ CONTROL "", 12298, "COMBOBOX", WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
  DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
  PUSHBUTTON "Annulla", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
  PUSHBUTTON "&Esplora...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -177,15 +176,5 @@ BEGIN
 	IDS_SHV_COLUMN6		"Dimensione"
 	IDS_SHV_COLUMN7		"Dimensione disponibile"
 	IDS_SHV_COLUMN8		"Nome"
-	IDS_SHV_COLUMN9		"Commenti"
+	IDS_SHV_COLUMN9		"Commentari"
 END
-
-
-/* message box strings */
-STRINGTABLE DISCARDABLE
-{
-       IDS_RESTART_TITLE       "Riavvia"
-       IDS_RESTART_PROMPT      "Vuoi simulare un riavvio do Windows?"
-       IDS_SHUTDOWN_TITLE      "Termina sessione"
-       IDS_SHUTDOWN_PROMPT     "Vuoi terminare la sessione di ReactOS?"
-}

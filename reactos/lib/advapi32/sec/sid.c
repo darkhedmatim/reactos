@@ -1,4 +1,4 @@
-/* $Id: sid.c,v 1.15 2004/08/23 21:16:26 gvg Exp $
+/* $Id: sid.c,v 1.12 2004/03/25 11:30:07 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -6,8 +6,10 @@
  * PURPOSE:         Security ID functions
  */
 
-#include "advapi32.h"
 #include <debug.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include <windows.h>
 
 
 /*
@@ -115,15 +117,11 @@ EqualSid (PSID pSid1,
 
 /*
  * @implemented
- *
- * RETURNS
- *  Docs says this function does NOT return a value
- *  even thou it's defined to return a PVOID...
  */
 PVOID STDCALL
 FreeSid (PSID pSid)
 {
-   return RtlFreeSid (pSid);
+  return RtlFreeSid (pSid);
 }
 
 
@@ -208,99 +206,6 @@ BOOL STDCALL
 IsValidSid (PSID pSid)
 {
   return (BOOL)RtlValidSid (pSid);
-}
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ConvertSidToStringSidW(PSID Sid, LPWSTR *StringSid)
-{
-  NTSTATUS Status;
-  UNICODE_STRING UnicodeString;
-  WCHAR FixedBuffer[64];
-
-  if (! RtlValidSid(Sid))
-    {
-      SetLastError(ERROR_INVALID_SID);
-      return FALSE;
-    }
-
-  UnicodeString.Length = 0;
-  UnicodeString.MaximumLength = sizeof(FixedBuffer);
-  UnicodeString.Buffer = FixedBuffer;
-  Status = RtlConvertSidToUnicodeString(&UnicodeString, Sid, FALSE);
-  if (STATUS_BUFFER_TOO_SMALL == Status)
-    {
-      Status = RtlConvertSidToUnicodeString(&UnicodeString, Sid, TRUE);
-    }
-  if (! NT_SUCCESS(Status))
-    {
-      SetLastError(RtlNtStatusToDosError(Status));
-      return FALSE;
-    }
-
-  *StringSid = LocalAlloc(LMEM_FIXED, UnicodeString.Length + sizeof(WCHAR));
-  if (NULL == *StringSid)
-    {
-      if (UnicodeString.Buffer != FixedBuffer)
-        {
-          RtlFreeUnicodeString(&UnicodeString);
-        }
-      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-      return FALSE;
-    }
-
-  MoveMemory(*StringSid, UnicodeString.Buffer, UnicodeString.Length);
-  ZeroMemory((PCHAR) *StringSid + UnicodeString.Length, sizeof(WCHAR));
-  if (UnicodeString.Buffer != FixedBuffer)
-    {
-      RtlFreeUnicodeString(&UnicodeString);
-    }
-
-  return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-ConvertSidToStringSidA(PSID Sid, LPSTR *StringSid)
-{
-  LPWSTR StringSidW;
-  int Len;
-
-  if (! ConvertSidToStringSidW(Sid, &StringSidW))
-    {
-      return FALSE;
-    }
-
-  Len = WideCharToMultiByte(CP_ACP, 0, StringSidW, -1, NULL, 0, NULL, NULL);
-  if (Len <= 0)
-    {
-      LocalFree(StringSidW);
-      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-      return FALSE;
-    }
-  *StringSid = LocalAlloc(LMEM_FIXED, Len);
-  if (NULL == *StringSid)
-    {
-      LocalFree(StringSidW);
-      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-      return FALSE;
-    }
-
-  if (! WideCharToMultiByte(CP_ACP, 0, StringSidW, -1, *StringSid, Len, NULL, NULL))
-    {
-      LocalFree(StringSid);
-      LocalFree(StringSidW);
-      return FALSE;
-    }
-
-  LocalFree(StringSidW);
-
-  return TRUE;
 }
 
 /* EOF */

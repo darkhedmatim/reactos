@@ -165,7 +165,7 @@ NtUserGetClipboardFormatName(UINT format, PUNICODE_STRING FormatName,
   }
 
   /* Allocate memory for the string */
-  Buf = ExAllocatePoolWithTag(PagedPool, cchMaxCount * sizeof(WCHAR), TAG_STRING);
+  Buf = ExAllocatePoolWithTag(NonPagedPool, cchMaxCount * sizeof(WCHAR), TAG_STRING);
   if(!Buf)
   {
     SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -222,7 +222,8 @@ NtUserGetClipboardFormatName(UINT format, PUNICODE_STRING FormatName,
 HWND STDCALL
 NtUserGetClipboardOwner(VOID)
 {
-   return ClipboardWindow;
+   UNIMPLEMENTED
+   return 0;
 }
 
 DWORD STDCALL

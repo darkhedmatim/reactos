@@ -565,7 +565,7 @@
     FT_ZERO( stream );
     stream->memory = memory;
 
-    if ( !FT_QNEW( zip ) )
+    if ( !FT_NEW( zip ) )
     {
       error = ft_gzip_file_init( zip, stream, source );
       if ( error )

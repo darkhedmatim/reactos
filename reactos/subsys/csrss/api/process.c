@@ -1,4 +1,4 @@
-/* $Id: process.c,v 1.39 2004/12/25 22:58:59 gvg Exp $
+/* $Id: process.c,v 1.33 2004/04/09 20:03:15 navaraf Exp $
  *
  * reactos/subsys/csrss/api/process.c
  *
@@ -204,7 +204,6 @@ CSR_API(CsrCreateProcess)
         Reply->Status = ApiReply.Status;
         if (! NT_SUCCESS(Reply->Status))
           {
-            CsrFreeProcessData(Request->Data.CreateProcessRequest.NewProcessId);
             return Reply->Status;
           }
         Reply->Data.CreateProcessReply.InputHandle = ApiReply.Data.AllocConsoleReply.InputHandle;
@@ -260,6 +259,8 @@ CSR_API(CsrCreateProcess)
 
 CSR_API(CsrTerminateProcess)
 {
+   NTSTATUS Status;
+
    Reply->Header.MessageSize = sizeof(CSRSS_API_REPLY) - LPC_MESSAGE_BASE_SIZE;
    Reply->Header.DataSize = sizeof(CSRSS_API_REPLY);
 
@@ -268,8 +269,10 @@ CSR_API(CsrTerminateProcess)
       return(Reply->Status = STATUS_INVALID_PARAMETER);
    }
 
-   Reply->Status = STATUS_SUCCESS;
-   return STATUS_SUCCESS;
+   Status = CsrFreeProcessData(ProcessData->ProcessId);
+
+   Reply->Status = Status;
+   return Status;
 }
 
 CSR_API(CsrConnectProcess)
@@ -419,25 +422,6 @@ CSR_API(CsrDuplicateHandle)
                                       &Reply->Data.DuplicateHandleReply.Handle,
                                       Object);
     }
-  return Reply->Status;
-}
-
-CSR_API(CsrGetInputWaitHandle)
-{
-  Reply->Header.MessageSize = sizeof(CSRSS_API_REPLY);
-  Reply->Header.DataSize = sizeof(CSRSS_API_REPLY) - LPC_MESSAGE_BASE_SIZE;
-
-  if (ProcessData == NULL)
-  {
-
-     Reply->Data.GetConsoleInputWaitHandle.InputWaitHandle = INVALID_HANDLE_VALUE;
-     Reply->Status = STATUS_INVALID_PARAMETER;
-  }
-  else
-  {
-     Reply->Data.GetConsoleInputWaitHandle.InputWaitHandle = ProcessData->ConsoleEvent;
-     Reply->Status = STATUS_SUCCESS;
-  }
   return Reply->Status;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: privilege.c,v 1.9 2004/08/15 17:03:15 chorns Exp $ 
+/* $Id: privilege.c,v 1.7 2004/03/25 11:30:07 ekohl Exp $ 
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,7 +9,8 @@
  *	20010317 ea	stubs
  */
 
-#include "advapi32.h"
+#include <windows.h>
+#include <ddk/ntddk.h>
 
 
 /**********************************************************************

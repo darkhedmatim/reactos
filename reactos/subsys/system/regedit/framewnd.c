@@ -207,48 +207,14 @@ TCHAR CustomFilterBuffer[MAX_CUSTOM_FILTER_SIZE];
 TCHAR FileNameBuffer[_MAX_PATH];
 TCHAR FileTitleBuffer[_MAX_PATH];
 
-typedef struct
-{
-  UINT DisplayID;
-  UINT FilterID;
-} FILTERPAIR, *PFILTERPAIR;
-
-void
-BuildFilterStrings(TCHAR *Filter, PFILTERPAIR Pairs, int PairCount)
-{
-  int i, c;
-  
-  c = 0;
-  for(i = 0; i < PairCount; i++)
-  {
-    c += LoadString(hInst, Pairs[i].DisplayID, &Filter[c], 255 * sizeof(TCHAR));
-    Filter[++c] = '\0';
-    c += LoadString(hInst, Pairs[i].FilterID, &Filter[c], 255 * sizeof(TCHAR));
-    Filter[++c] = '\0';
-  }
-  Filter[++c] = '\0';
-}
-
 static BOOL InitOpenFileName(HWND hWnd, OPENFILENAME* pofn)
 {
-    FILTERPAIR FilterPairs[3];
-    static TCHAR Filter[1024];
-    
     memset(pofn, 0, sizeof(OPENFILENAME));
     pofn->lStructSize = sizeof(OPENFILENAME);
     pofn->hwndOwner = hWnd;
     pofn->hInstance = hInst;
-    
-    /* create filter string */
-    FilterPairs[0].DisplayID = IDS_FLT_REGFILES;
-    FilterPairs[0].FilterID = IDS_FLT_REGFILES_FLT;
-    FilterPairs[1].DisplayID = IDS_FLT_REGEDIT4;
-    FilterPairs[1].FilterID = IDS_FLT_REGEDIT4_FLT;
-    FilterPairs[2].DisplayID = IDS_FLT_ALLFILES;
-    FilterPairs[2].FilterID = IDS_FLT_ALLFILES_FLT;
-    BuildFilterStrings(Filter, FilterPairs, sizeof(FilterPairs) / sizeof(FILTERPAIR));
-    
-    pofn->lpstrFilter = Filter;
+
+    pofn->lpstrFilter = _T("Registration Files\0*.reg\0Win9x/NT4 Registration Files (REGEDIT4)\0*.reg\0All Files (*.*)\0*.*\0\0");
     pofn->lpstrCustomFilter = CustomFilterBuffer;
     pofn->nMaxCustFilter = MAX_CUSTOM_FILTER_SIZE;
     pofn->nFilterIndex = 0;
@@ -274,15 +240,12 @@ static BOOL InitOpenFileName(HWND hWnd, OPENFILENAME* pofn)
 static BOOL ImportRegistryFile(HWND hWnd)
 {
     OPENFILENAME ofn;
-    TCHAR Caption[128];
 
     InitOpenFileName(hWnd, &ofn);
-    LoadString(hInst, IDS_IMPORT_REG_FILE, Caption, sizeof(Caption)/sizeof(TCHAR));
-    ofn.lpstrTitle = Caption;
+    ofn.lpstrTitle = _T("Import Registry File");
     /*    ofn.lCustData = ;*/
     if (GetOpenFileName(&ofn)) {
-        /* FIXME - convert to ascii */
-	if (!import_registry_file((LPSTR)ofn.lpstrFile)) {
+        if (!import_registry_file(ofn.lpstrFile)) {
             /*printf("Can't open file \"%s\"\n", ofn.lpstrFile);*/
             return FALSE;
         }
@@ -315,20 +278,17 @@ static BOOL ExportRegistryFile(HWND hWnd)
 {
     OPENFILENAME ofn;
     TCHAR ExportKeyPath[_MAX_PATH];
-    TCHAR Caption[128];
 
     ExportKeyPath[0] = _T('\0');
     InitOpenFileName(hWnd, &ofn);
-    LoadString(hInst, IDS_EXPORT_REG_FILE, Caption, sizeof(Caption)/sizeof(TCHAR));
-    ofn.lpstrTitle = Caption;
+    ofn.lpstrTitle = _T("Export Registry File");
     /*    ofn.lCustData = ;*/
     ofn.Flags = OFN_ENABLETEMPLATE + OFN_EXPLORER;
     ofn.lpfnHook = ImportRegistryFile_OFNHookProc;
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_DIALOG1);
     if (GetSaveFileName(&ofn)) {
-        BOOL result;   
-        /* FIXME - convert strings to ascii! */
-        result = export_registry_key((CHAR*)ofn.lpstrFile, (CHAR*)ExportKeyPath);
+        BOOL result;
+        result = export_registry_key(ofn.lpstrFile, ExportKeyPath);
         /*result = export_registry_key(ofn.lpstrFile, NULL);*/
         /*if (!export_registry_key(ofn.lpstrFile, NULL)) {*/
         if (!result) {
@@ -347,7 +307,7 @@ static BOOL ExportRegistryFile(HWND hWnd)
         if (s[0]) {
             TCHAR reg_key_name[KEY_MAX_LEN];
             get_file_name(&s, reg_key_name, KEY_MAX_LEN);
-            export_registry_key((CHAR)filename, reg_key_name);
+            export_registry_key(filename, reg_key_name);
         } else {
             export_registry_key(filename, NULL);
         }
@@ -527,14 +487,12 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     case ID_EDIT_RENAME:
     case ID_EDIT_MODIFY:
-    case ID_EDIT_MODIFY_BIN:
-    case ID_EDIT_DELETE:
         regsam |= KEY_WRITE; 
         break;
     }
 
     keyPath = GetItemPath(g_pChildWnd->hTreeWnd, 0, &hKeyRoot);
-    valueName = GetValueName(g_pChildWnd->hListWnd, -1);
+    valueName = GetValueName(g_pChildWnd->hListWnd);
     if (keyPath) {
         lRet = RegOpenKeyEx(hKeyRoot, keyPath, 0, regsam, &hKey);
         if (lRet != ERROR_SUCCESS) hKey = 0;
@@ -542,70 +500,21 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
      switch (LOWORD(wParam)) {
     case ID_EDIT_MODIFY:
-        if (valueName && ModifyValue(hWnd, hKey, valueName, FALSE))
-            RefreshListView(g_pChildWnd->hListWnd, hKeyRoot, keyPath);
-        break;
-    case ID_EDIT_MODIFY_BIN:
-        if (valueName && ModifyValue(hWnd, hKey, valueName, TRUE))
+        if (valueName && ModifyValue(hWnd, hKey, valueName))
             RefreshListView(g_pChildWnd->hListWnd, hKeyRoot, keyPath);
         break;
     case ID_EDIT_RENAME:
         if(ListView_GetSelectedCount(g_pChildWnd->hListWnd) == 1)
         {
-          item = ListView_GetNextItem(g_pChildWnd->hListWnd, -1, LVNI_SELECTED);
+          item = ListView_GetNextItem(g_pChildWnd->hListWnd, -1, LVNI_FOCUSED | LVNI_SELECTED);
           if(item > -1)
           {
             ListView_EditLabel(g_pChildWnd->hListWnd, item);
           }
         }
         break;
-    case ID_EDIT_DELETE:
-    {
-        UINT nSelected = ListView_GetSelectedCount(g_pChildWnd->hListWnd);
-        if(nSelected >= 1)
-        {
-          TCHAR msg[128], caption[128];
-          LoadString(hInst, IDS_QUERY_DELETE_CONFIRM, caption, sizeof(caption)/sizeof(TCHAR));
-          LoadString(hInst, (nSelected == 1 ? IDS_QUERY_DELETE_ONE : IDS_QUERY_DELETE_MORE), msg, sizeof(msg)/sizeof(TCHAR));
-          if(MessageBox(g_pChildWnd->hWnd, msg, caption, MB_ICONQUESTION | MB_YESNO) == IDYES)
-          {
-            int ni, errs;
-            
-	    item = -1;
-	    errs = 0;
-            while((ni = ListView_GetNextItem(g_pChildWnd->hListWnd, item, LVNI_SELECTED)) > -1)
-            {
-              valueName = GetValueName(g_pChildWnd->hListWnd, item);
-              if(RegDeleteValue(hKey, valueName) != ERROR_SUCCESS)
-              {
-                errs++;
-              }
-	      item = ni;
-            }
-            
-            RefreshListView(g_pChildWnd->hListWnd, hKeyRoot, keyPath);
-            if(errs > 0)
-            {
-              LoadString(hInst, IDS_ERR_DELVAL_CAPTION, caption, sizeof(caption)/sizeof(TCHAR));
-              LoadString(hInst, IDS_ERR_DELETEVALUE, msg, sizeof(msg)/sizeof(TCHAR));
-              MessageBox(g_pChildWnd->hWnd, msg, caption, MB_ICONSTOP);
-            }
-          }
-        }
-	break;
-    }
     case ID_EDIT_COPYKEYNAME:
         CopyKeyName(hWnd, _T(""));
-        break;
-    case ID_EDIT_PERMISSIONS:
-        if(keyPath != NULL && _tcslen(keyPath) > 0)
-        {
-          RegKeyEditPermissions(hWnd, hKey, NULL, keyPath);
-        }
-        else
-        {
-          MessageBeep(MB_ICONASTERISK);
-        }
         break;
     case ID_REGISTRY_PRINTERSETUP:
         /*PRINTDLG pd;*/
@@ -642,12 +551,11 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
  *
  */
 
-INT_PTR CALLBACK
-FrameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK FrameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
     case WM_CREATE:
-        CreateWindowEx(0, szChildClass, NULL, WS_CHILD | WS_VISIBLE,
+        CreateWindowEx(0, szChildClass, _T("regedit child window"), WS_CHILD | WS_VISIBLE,
                        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                        hWnd, (HMENU)0, hInst, 0);
         break;
@@ -668,10 +576,6 @@ FrameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_MENUSELECT:
         OnMenuSelect(hWnd, LOWORD(wParam), HIWORD(wParam), (HMENU)lParam);
-        break;
-    case WM_ACTIVATE:
-        if (LOWORD(hWnd))
-          SetFocus(g_pChildWnd->hWnd);
         break;
     case WM_DESTROY:
         WinHelp(hWnd, _T("regedit"), HELP_QUIT, 0);

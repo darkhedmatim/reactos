@@ -39,8 +39,6 @@
 #include <fcntl.h>	// for _O_RDONLY
 #endif
 
-#include "dialogs/settings.h"	// for MdiSdiDlg
-
 
 extern "C" int initialize_gdb_stub();	// start up GDB stub
 
@@ -113,21 +111,21 @@ void ExplorerGlobals::write_persistent()
 
 XMLPos ExplorerGlobals::get_cfg()
 {
-	XMLPos cfg_pos(&_cfg);
+	XMLPos pos(&_cfg);
 
-	cfg_pos.smart_create("explorer-cfg");
+	pos.smart_create("explorer-cfg");
 
-	return cfg_pos;
+	return pos;
 }
 
-XMLPos ExplorerGlobals::get_cfg(const char* path)
+XMLPos ExplorerGlobals::get_cfg(const String& name)
 {
-	XMLPos cfg_pos(&_cfg);
+	XMLPos pos(&_cfg);
 
-	cfg_pos.smart_create("explorer-cfg");
-	cfg_pos.create_relative(path);
+	pos.smart_create("explorer-cfg");
+	pos.smart_create(name);
 
-	return cfg_pos;
+	return pos;
 }
 
 
@@ -438,7 +436,7 @@ const Icon& IconCache::extract(IExtractIcon* pExtract, LPCTSTR path, int idx)
 
 	HRESULT hr = pExtract->Extract(path, idx, &hIconLarge, &hIcon, MAKELONG(0/*GetSystemMetrics(SM_CXICON)*/,GetSystemMetrics(SM_CXSMICON)));
 
-	if (hr == NOERROR) {	//@@ oder SUCCEEDED(hr) ?
+	if (hr == NOERROR) {
 		if (hIconLarge)
 			DestroyIcon(hIconLarge);
 
@@ -536,16 +534,8 @@ void explorer_show_frame(int cmdshow, LPTSTR lpCmdLine)
 
 	g_Globals._prescan_nodes = false;
 
-	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-	XS_String mdiStr = XMLString(explorer_options, "mdi");
-
-	if (mdiStr.empty())
-		Dialog::DoModal(IDD_MDI_SDI, WINDOW_CREATOR(MdiSdiDlg), g_Globals._hwndDesktop);
-
-	bool mdi = XMLBool(explorer_options, "mdi", true);
-
 	 // create main window
-	MainFrameBase::Create(lpCmdLine, mdi, cmdshow);
+	MainFrameBase::Create(lpCmdLine, true, cmdshow);
 }
 
 
@@ -577,13 +567,6 @@ struct ExplorerAboutDlg : public
 		new ColorStatic(hwnd, IDC_ROS_EXPLORER, RGB(32,32,128), 0, _hfont);
 
 		new HyperlinkCtrl(hwnd, IDC_WWW);
-
-		FmtString ver_txt(ResString(IDS_EXPLORER_VERSION_STR), (LPCTSTR)ResString(IDS_VERSION_STR));
-		SetWindowText(GetDlgItem(hwnd, IDC_VERSION_TXT), ver_txt);
-
-		HWND hwnd_winver = GetDlgItem(hwnd, IDC_WIN_VERSION);
-		SetWindowText(hwnd_winver, get_windows_version_str());
-		SetWindowFont(hwnd_winver, GetStockFont(DEFAULT_GUI_FONT), FALSE);
 
 		CenterWindow(hwnd);
 	}

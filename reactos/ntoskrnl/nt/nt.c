@@ -1,4 +1,4 @@
-/* $Id: nt.c,v 1.12 2004/08/15 16:39:09 chorns Exp $
+/* $Id: nt.c,v 1.11 2003/10/12 17:05:48 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/nt.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/

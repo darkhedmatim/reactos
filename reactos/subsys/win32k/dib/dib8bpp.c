@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dib8bpp.c,v 1.29 2004/07/14 20:48:56 navaraf Exp $ */
+/* $Id: dib8bpp.c,v 1.26 2004/05/14 22:56:17 gvg Exp $ */
 #include <w32k.h>
 
 VOID
@@ -65,30 +65,33 @@ DIB_8BPP_VLine(SURFOBJ *SurfObj, LONG x, LONG y1, LONG y2, ULONG c)
 }
 
 BOOLEAN
-DIB_8BPP_BitBltSrcCopy(PBLTINFO BltInfo)
+DIB_8BPP_BitBltSrcCopy(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
+		       SURFGDI *DestGDI,  SURFGDI *SourceGDI,
+		       PRECTL  DestRect,  POINTL  *SourcePoint,
+		       XLATEOBJ *ColorTranslation)
 {
   LONG     i, j, sx, sy, xColor, f1;
   PBYTE    SourceBits, DestBits, SourceLine, DestLine;
   PBYTE    SourceBits_4BPP, SourceLine_4BPP;
 
-  DestBits = BltInfo->DestSurface->pvScan0 + (BltInfo->DestRect.top * BltInfo->DestSurface->lDelta) + BltInfo->DestRect.left;
+  DestBits = DestSurf->pvScan0 + (DestRect->top * DestSurf->lDelta) + DestRect->left;
 
-  switch(BltInfo->SourceSurface->iBitmapFormat)
+  switch(SourceGDI->BitsPerPixel)
   {
-    case BMF_1BPP:
-      sx = BltInfo->SourcePoint.x;
-      sy = BltInfo->SourcePoint.y;
+    case 1:
+      sx = SourcePoint->x;
+      sy = SourcePoint->y;
 
-      for (j=BltInfo->DestRect.top; j<BltInfo->DestRect.bottom; j++)
+      for (j=DestRect->top; j<DestRect->bottom; j++)
       {
-        sx = BltInfo->SourcePoint.x;
-        for (i=BltInfo->DestRect.left; i<BltInfo->DestRect.right; i++)
+        sx = SourcePoint->x;
+        for (i=DestRect->left; i<DestRect->right; i++)
         {
-          if(DIB_1BPP_GetPixel(BltInfo->SourceSurface, sx, sy) == 0)
+          if(DIB_1BPP_GetPixel(SourceSurf, sx, sy) == 0)
           {
-            DIB_8BPP_PutPixel(BltInfo->DestSurface, i, j, XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, 0));
+            DIB_8BPP_PutPixel(DestSurf, i, j, XLATEOBJ_iXlate(ColorTranslation, 0));
           } else {
-            DIB_8BPP_PutPixel(BltInfo->DestSurface, i, j, XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, 1));
+            DIB_8BPP_PutPixel(DestSurf, i, j, XLATEOBJ_iXlate(ColorTranslation, 1));
           }
           sx++;
         }
@@ -96,160 +99,160 @@ DIB_8BPP_BitBltSrcCopy(PBLTINFO BltInfo)
       }
       break;
 
-    case BMF_4BPP:
-      SourceBits_4BPP = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + (BltInfo->SourcePoint.x >> 1);
+    case 4:
+      SourceBits_4BPP = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + (SourcePoint->x >> 1);
 
-      for (j=BltInfo->DestRect.top; j<BltInfo->DestRect.bottom; j++)
+      for (j=DestRect->top; j<DestRect->bottom; j++)
       {
         SourceLine_4BPP = SourceBits_4BPP;
-        sx = BltInfo->SourcePoint.x;
+        sx = SourcePoint->x;
         f1 = sx & 1;
 
-        for (i=BltInfo->DestRect.left; i<BltInfo->DestRect.right; i++)
+        for (i=DestRect->left; i<DestRect->right; i++)
         {
-          xColor = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest,
+          xColor = XLATEOBJ_iXlate(ColorTranslation,
               (*SourceLine_4BPP & altnotmask[f1]) >> (4 * (1 - f1)));
-          DIB_8BPP_PutPixel(BltInfo->DestSurface, i, j, xColor);
+          DIB_8BPP_PutPixel(DestSurf, i, j, xColor);
           if(f1 == 1) { SourceLine_4BPP++; f1 = 0; } else { f1 = 1; }
           sx++;
         }
 
-        SourceBits_4BPP += BltInfo->SourceSurface->lDelta;
+        SourceBits_4BPP += SourceSurf->lDelta;
       }
       break;
 
-    case BMF_8BPP:
-      if (NULL == BltInfo->XlateSourceToDest || 0 != (BltInfo->XlateSourceToDest->flXlate & XO_TRIVIAL))
+    case 8:
+      if (NULL == ColorTranslation || 0 != (ColorTranslation->flXlate & XO_TRIVIAL))
       {
-	if (BltInfo->DestRect.top < BltInfo->SourcePoint.y)
+	if (DestRect->top < SourcePoint->y)
 	  {
-	    SourceBits = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + BltInfo->SourcePoint.x;
-	    for (j = BltInfo->DestRect.top; j < BltInfo->DestRect.bottom; j++)
+	    SourceBits = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + SourcePoint->x;
+	    for (j = DestRect->top; j < DestRect->bottom; j++)
 	      {
-		RtlMoveMemory(DestBits, SourceBits, BltInfo->DestRect.right - BltInfo->DestRect.left);
-		SourceBits += BltInfo->SourceSurface->lDelta;
-		DestBits += BltInfo->DestSurface->lDelta;
+		RtlMoveMemory(DestBits, SourceBits, DestRect->right - DestRect->left);
+		SourceBits += SourceSurf->lDelta;
+		DestBits += DestSurf->lDelta;
 	      }
 	  }
 	else
 	  {
-	    SourceBits = BltInfo->SourceSurface->pvScan0 + ((BltInfo->SourcePoint.y + BltInfo->DestRect.bottom - BltInfo->DestRect.top - 1) * BltInfo->SourceSurface->lDelta) + BltInfo->SourcePoint.x;
-	    DestBits = BltInfo->DestSurface->pvScan0 + ((BltInfo->DestRect.bottom - 1) * BltInfo->DestSurface->lDelta) + BltInfo->DestRect.left;
-	    for (j = BltInfo->DestRect.bottom - 1; BltInfo->DestRect.top <= j; j--)
+	    SourceBits = SourceSurf->pvScan0 + ((SourcePoint->y + DestRect->bottom - DestRect->top - 1) * SourceSurf->lDelta) + SourcePoint->x;
+	    DestBits = DestSurf->pvScan0 + ((DestRect->bottom - 1) * DestSurf->lDelta) + DestRect->left;
+	    for (j = DestRect->bottom - 1; DestRect->top <= j; j--)
 	      {
-		RtlMoveMemory(DestBits, SourceBits, BltInfo->DestRect.right - BltInfo->DestRect.left);
-		SourceBits -= BltInfo->SourceSurface->lDelta;
-		DestBits -= BltInfo->DestSurface->lDelta;
+		RtlMoveMemory(DestBits, SourceBits, DestRect->right - DestRect->left);
+		SourceBits -= SourceSurf->lDelta;
+		DestBits -= DestSurf->lDelta;
 	      }
 	  }
       }
       else
       {
-	if (BltInfo->DestRect.top < BltInfo->SourcePoint.y)
+	if (DestRect->top < SourcePoint->y)
 	  {
-	    SourceLine = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + BltInfo->SourcePoint.x;
+	    SourceLine = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + SourcePoint->x;
 	    DestLine = DestBits;
-	    for (j = BltInfo->DestRect.top; j < BltInfo->DestRect.bottom; j++)
+	    for (j = DestRect->top; j < DestRect->bottom; j++)
 	      {
 		SourceBits = SourceLine;
 		DestBits = DestLine;
-		for (i=BltInfo->DestRect.left; i<BltInfo->DestRect.right; i++)
+		for (i=DestRect->left; i<DestRect->right; i++)
 		  {
-		    *DestBits++ = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, *SourceBits++);
+		    *DestBits++ = XLATEOBJ_iXlate(ColorTranslation, *SourceBits++);
 		  }
-		SourceLine += BltInfo->SourceSurface->lDelta;
-		DestLine += BltInfo->DestSurface->lDelta;
+		SourceLine += SourceSurf->lDelta;
+		DestLine += DestSurf->lDelta;
 	      }
 	  }
 	else
 	  {
-	    SourceLine = BltInfo->SourceSurface->pvScan0 + ((BltInfo->SourcePoint.y + BltInfo->DestRect.bottom - BltInfo->DestRect.top - 1) * BltInfo->SourceSurface->lDelta) + BltInfo->SourcePoint.x;
-	    DestLine = BltInfo->DestSurface->pvScan0 + ((BltInfo->DestRect.bottom - 1) * BltInfo->DestSurface->lDelta) + BltInfo->DestRect.left;
-	    for (j = BltInfo->DestRect.bottom - 1; BltInfo->DestRect.top <= j; j--)
+	    SourceLine = SourceSurf->pvScan0 + ((SourcePoint->y + DestRect->bottom - DestRect->top - 1) * SourceSurf->lDelta) + SourcePoint->x;
+	    DestLine = DestSurf->pvScan0 + ((DestRect->bottom - 1) * DestSurf->lDelta) + DestRect->left;
+	    for (j = DestRect->bottom - 1; DestRect->top <= j; j--)
 	      {
 		SourceBits = SourceLine;
 		DestBits = DestLine;
-		for (i=BltInfo->DestRect.left; i<BltInfo->DestRect.right; i++)
+		for (i=DestRect->left; i<DestRect->right; i++)
 		  {
-		    *DestBits++ = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, *SourceBits++);
+		    *DestBits++ = XLATEOBJ_iXlate(ColorTranslation, *SourceBits++);
 		  }
-		SourceLine -= BltInfo->SourceSurface->lDelta;
-		DestLine -= BltInfo->DestSurface->lDelta;
+		SourceLine -= SourceSurf->lDelta;
+		DestLine -= DestSurf->lDelta;
 	      }
 	  }
       }
       break;
 
-    case BMF_16BPP:
-      SourceLine = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + 2 * BltInfo->SourcePoint.x;
+    case 16:
+      SourceLine = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + 2 * SourcePoint->x;
       DestLine = DestBits;
 
-      for (j = BltInfo->DestRect.top; j < BltInfo->DestRect.bottom; j++)
+      for (j = DestRect->top; j < DestRect->bottom; j++)
       {
         SourceBits = SourceLine;
         DestBits = DestLine;
 
-        for (i = BltInfo->DestRect.left; i < BltInfo->DestRect.right; i++)
+        for (i = DestRect->left; i < DestRect->right; i++)
         {
           xColor = *((PWORD) SourceBits);
-          *DestBits = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, xColor);
+          *DestBits = XLATEOBJ_iXlate(ColorTranslation, xColor);
           SourceBits += 2;
 	  DestBits += 1;
         }
 
-        SourceLine += BltInfo->SourceSurface->lDelta;
-        DestLine += BltInfo->DestSurface->lDelta;
+        SourceLine += SourceSurf->lDelta;
+        DestLine += DestSurf->lDelta;
       }
       break;
 
-    case BMF_24BPP:
-      SourceLine = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + 3 * BltInfo->SourcePoint.x;
+    case 24:
+      SourceLine = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + 3 * SourcePoint->x;
       DestLine = DestBits;
 
-      for (j = BltInfo->DestRect.top; j < BltInfo->DestRect.bottom; j++)
+      for (j = DestRect->top; j < DestRect->bottom; j++)
       {
         SourceBits = SourceLine;
         DestBits = DestLine;
 
-        for (i = BltInfo->DestRect.left; i < BltInfo->DestRect.right; i++)
+        for (i = DestRect->left; i < DestRect->right; i++)
         {
           xColor = (*(SourceBits + 2) << 0x10) +
              (*(SourceBits + 1) << 0x08) +
              (*(SourceBits));
-          *DestBits = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, xColor);
+          *DestBits = XLATEOBJ_iXlate(ColorTranslation, xColor);
           SourceBits += 3;
 	  DestBits += 1;
         }
 
-        SourceLine += BltInfo->SourceSurface->lDelta;
-        DestLine += BltInfo->DestSurface->lDelta;
+        SourceLine += SourceSurf->lDelta;
+        DestLine += DestSurf->lDelta;
       }
       break;
 
-    case BMF_32BPP:
-      SourceLine = BltInfo->SourceSurface->pvScan0 + (BltInfo->SourcePoint.y * BltInfo->SourceSurface->lDelta) + 4 * BltInfo->SourcePoint.x;
+    case 32:
+      SourceLine = SourceSurf->pvScan0 + (SourcePoint->y * SourceSurf->lDelta) + 4 * SourcePoint->x;
       DestLine = DestBits;
 
-      for (j = BltInfo->DestRect.top; j < BltInfo->DestRect.bottom; j++)
+      for (j = DestRect->top; j < DestRect->bottom; j++)
       {
         SourceBits = SourceLine;
         DestBits = DestLine;
 
-        for (i = BltInfo->DestRect.left; i < BltInfo->DestRect.right; i++)
+        for (i = DestRect->left; i < DestRect->right; i++)
         {
           xColor = *((PDWORD) SourceBits);
-          *DestBits = XLATEOBJ_iXlate(BltInfo->XlateSourceToDest, xColor);
+          *DestBits = XLATEOBJ_iXlate(ColorTranslation, xColor);
           SourceBits += 4;
 	  DestBits += 1;
         }
 
-        SourceLine += BltInfo->SourceSurface->lDelta;
-        DestLine += BltInfo->DestSurface->lDelta;
+        SourceLine += SourceSurf->lDelta;
+        DestLine += DestSurf->lDelta;
       }
       break;
 
     default:
-      DPRINT1("DIB_8BPP_Bitblt: Unhandled Source BPP: %u\n", BitsPerFormat(BltInfo->SourceSurface->iBitmapFormat));
+      DPRINT1("DIB_8BPP_Bitblt: Unhandled Source BPP: %u\n", SourceGDI->BitsPerPixel);
       return FALSE;
   }
 
@@ -257,98 +260,127 @@ DIB_8BPP_BitBltSrcCopy(PBLTINFO BltInfo)
 }
 
 BOOLEAN
-DIB_8BPP_BitBlt(PBLTINFO BltInfo)
+DIB_8BPP_BitBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
+		 SURFGDI *DestGDI,  SURFGDI *SourceGDI,
+		 PRECTL  DestRect,  POINTL  *SourcePoint,
+		 BRUSHOBJ *Brush,   POINTL BrushOrigin,
+		 XLATEOBJ *ColorTranslation, ULONG Rop4)
 {
-   ULONG DestX, DestY;
-   ULONG SourceX, SourceY;
-   ULONG PatternY = 0;
-   ULONG Dest, Source = 0, Pattern = 0;
+   LONG i, j, k, sx, sy;
+   ULONG Dest, Source, Pattern = 0, PatternY;
+   PULONG DestBits;
    BOOL UsesSource;
    BOOL UsesPattern;
-   PULONG DestBits;
    LONG RoundedRight;
+   /* Pattern brushes */
+   PGDIBRUSHOBJ GdiBrush;
+   HBITMAP PatternSurface = NULL;
+   SURFOBJ *PatternObj;
+   ULONG PatternWidth, PatternHeight;
 
-   UsesSource = ROP_USES_SOURCE(BltInfo->Rop4);
-   UsesPattern = ROP_USES_PATTERN(BltInfo->Rop4);
+   if (Rop4 == SRCCOPY)
+   {
+      return DIB_8BPP_BitBltSrcCopy(
+         DestSurf,
+         SourceSurf,
+         DestGDI,
+         SourceGDI,
+         DestRect,
+         SourcePoint,
+         ColorTranslation);
+   }
 
-   SourceY = BltInfo->SourcePoint.y;
-   RoundedRight = BltInfo->DestRect.right -
-                  ((BltInfo->DestRect.right - BltInfo->DestRect.left) & 0x7);
+   UsesSource = ((Rop4 & 0xCC0000) >> 2) != (Rop4 & 0x330000);
+   UsesPattern = (((Rop4 & 0xF00000) >> 4) != (Rop4 & 0x0F0000)) && Brush;  
 
    if (UsesPattern)
    {
-      if (BltInfo->PatternSurface)
+      if (Brush->iSolidColor == 0xFFFFFFFF)
       {
-         PatternY = (BltInfo->DestRect.top + BltInfo->BrushOrigin.y) % 
-                    BltInfo->PatternSurface->sizlBitmap.cy;
+         PBITMAPOBJ PatternBitmap;
+
+         GdiBrush = CONTAINING_RECORD(
+            Brush,
+            GDIBRUSHOBJ,
+            BrushObject);
+
+         PatternBitmap = BITMAPOBJ_LockBitmap(GdiBrush->hbmPattern);
+         PatternSurface = BitmapToSurf(PatternBitmap, NULL);
+         BITMAPOBJ_UnlockBitmap(GdiBrush->hbmPattern);
+
+         PatternObj = (SURFOBJ*)AccessUserObject((ULONG)PatternSurface);
+         PatternWidth = PatternObj->sizlBitmap.cx;
+         PatternHeight = PatternObj->sizlBitmap.cy;
+         
+         UsesPattern = TRUE;
       }
       else
       {
-         Pattern = BltInfo->Brush->iSolidColor |
-                   (BltInfo->Brush->iSolidColor << 8) |
-                   (BltInfo->Brush->iSolidColor << 16) |
-                   (BltInfo->Brush->iSolidColor << 24);
+         UsesPattern = FALSE;
+         Pattern = (Brush->iSolidColor & 0xFF) |
+                    ((Brush->iSolidColor & 0xFF) << 8) |
+                    ((Brush->iSolidColor & 0xFF) << 16) |
+                    ((Brush->iSolidColor & 0xFF) << 24);
       }
    }
+   
+   RoundedRight = DestRect->right - ((DestRect->right - DestRect->left) & 0x3);
+   sy = SourcePoint->y;
 
-   for (DestY = BltInfo->DestRect.top; DestY < BltInfo->DestRect.bottom; DestY++)
+   for (j = DestRect->top; j < DestRect->bottom; j++)
    {
-      SourceX = BltInfo->SourcePoint.x;
-      DestBits = (PULONG)(
-         BltInfo->DestSurface->pvScan0 +
-         BltInfo->DestRect.left +
-         DestY * BltInfo->DestSurface->lDelta);
+      sx = SourcePoint->x;
+      DestBits = (PULONG)(DestSurf->pvScan0 + DestRect->left + j * DestSurf->lDelta);
 
-      for (DestX = BltInfo->DestRect.left; DestX < RoundedRight; DestX += 4, DestBits++)
+      if(UsesPattern)
+        PatternY = (j + BrushOrigin.y) % PatternHeight;
+
+      for (i = DestRect->left; i < RoundedRight; i += 4, DestBits++)
       {
          Dest = *DestBits;
 
          if (UsesSource)
          {
-            Source = DIB_GetSource(BltInfo->SourceSurface, SourceX + (DestX - BltInfo->DestRect.left), SourceY, BltInfo->XlateSourceToDest);
-            Source |= DIB_GetSource(BltInfo->SourceSurface, SourceX + (DestX - BltInfo->DestRect.left) + 1, SourceY, BltInfo->XlateSourceToDest) << 8;
-            Source |= DIB_GetSource(BltInfo->SourceSurface, SourceX + (DestX - BltInfo->DestRect.left) + 2, SourceY, BltInfo->XlateSourceToDest) << 16;
-            Source |= DIB_GetSource(BltInfo->SourceSurface, SourceX + (DestX - BltInfo->DestRect.left) + 3, SourceY, BltInfo->XlateSourceToDest) << 24;
+            Source = 0;
+            for (k = 0; k < 4; k++)
+               Source |= (DIB_GetSource(SourceSurf, SourceGDI, sx + (i - DestRect->left) + k, sy, ColorTranslation) << (k * 8));
          }
 
-         if (BltInfo->PatternSurface)
+         if (UsesPattern)
          {
-            Pattern = DIB_GetSource(BltInfo->PatternSurface, (DestX + BltInfo->BrushOrigin.x) % BltInfo->PatternSurface->sizlBitmap.cx, PatternY, BltInfo->XlatePatternToDest);
-            Pattern |= DIB_GetSource(BltInfo->PatternSurface, (DestX + BltInfo->BrushOrigin.x + 1) % BltInfo->PatternSurface->sizlBitmap.cx, PatternY, BltInfo->XlatePatternToDest) << 8;
-            Pattern |= DIB_GetSource(BltInfo->PatternSurface, (DestX + BltInfo->BrushOrigin.x + 2) % BltInfo->PatternSurface->sizlBitmap.cx, PatternY, BltInfo->XlatePatternToDest) << 16;
-            Pattern |= DIB_GetSource(BltInfo->PatternSurface, (DestX + BltInfo->BrushOrigin.x + 3) % BltInfo->PatternSurface->sizlBitmap.cx, PatternY, BltInfo->XlatePatternToDest) << 24;
+            Pattern = DIB_1BPP_GetPixel(PatternObj, (i + BrushOrigin.x) % PatternWidth, PatternY) ? GdiBrush->crFore : GdiBrush->crBack;
+            Pattern |= (DIB_1BPP_GetPixel(PatternObj, (i + BrushOrigin.x + 1) % PatternWidth, PatternY) ? GdiBrush->crFore : GdiBrush->crBack) << 8;
+            Pattern |= (DIB_1BPP_GetPixel(PatternObj, (i + BrushOrigin.x + 2) % PatternWidth, PatternY) ? GdiBrush->crFore : GdiBrush->crBack) << 16;
+            Pattern |= (DIB_1BPP_GetPixel(PatternObj, (i + BrushOrigin.x + 3) % PatternWidth, PatternY) ? GdiBrush->crFore : GdiBrush->crBack) << 24;
          }
-
-         *DestBits = DIB_DoRop(BltInfo->Rop4, Dest, Source, Pattern);	    
+         *DestBits = DIB_DoRop(Rop4, Dest, Source, Pattern);	    
       }
 
-      if (DestX < BltInfo->DestRect.right)
+      if (i < DestRect->right)
       {
-         for (; DestX < BltInfo->DestRect.right; DestX++)
+         for (; i < DestRect->right; i++)
          {
-            Dest = DIB_8BPP_GetPixel(BltInfo->DestSurface, DestX, DestY);
+            Dest = DIB_8BPP_GetPixel(DestSurf, i, j);
             
             if (UsesSource)
 	    {
-               Source = DIB_GetSource(BltInfo->SourceSurface, SourceX + (DestX - BltInfo->DestRect.left), SourceY, BltInfo->XlateSourceToDest);
+               Source = DIB_GetSource(SourceSurf, SourceGDI, sx + (i - DestRect->left), sy, ColorTranslation);
             }
 
-            if (BltInfo->PatternSurface)
+            if (UsesPattern)
             {
-               Pattern = DIB_GetSource(BltInfo->PatternSurface, (DestX + BltInfo->BrushOrigin.x) % BltInfo->PatternSurface->sizlBitmap.cx, PatternY, BltInfo->XlatePatternToDest);
+               Pattern = DIB_1BPP_GetPixel(PatternObj, (i + BrushOrigin.x) % PatternWidth,PatternY) ? GdiBrush->crFore : GdiBrush->crBack;
             }
 
-            DIB_8BPP_PutPixel(BltInfo->DestSurface, DestX, DestY, DIB_DoRop(BltInfo->Rop4, Dest, Source, Pattern) & 0xFFFF);
+            DIB_8BPP_PutPixel(DestSurf, i, j, DIB_DoRop(Rop4, Dest, Source, Pattern) & 0xFFFF);
          }
       }
 
-      SourceY++;
-      if (BltInfo->PatternSurface)
-      {
-         PatternY++;
-         PatternY %= BltInfo->PatternSurface->sizlBitmap.cy;
-      }
+      sy++;
    }
+
+   if (PatternSurface != NULL)
+      EngDeleteSurface((HSURF)PatternSurface);
 
    return TRUE;
 }
@@ -438,14 +470,14 @@ FinalCopy8(PIXEL *Target, PIXEL *Source, PSPAN ClipSpans, UINT ClipSpansCount, U
 }
 
 //NOTE: If you change something here, please do the same in other dibXXbpp.c files!
-BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
+BOOLEAN ScaleRectAvg8(SURFGDI *DestGDI, SURFGDI *SourceGDI,
                       RECTL* DestRect, RECTL *SourceRect,
                       POINTL* MaskOrigin, POINTL BrushOrigin,
                       CLIPOBJ *ClipRegion, XLATEOBJ *ColorTranslation,
                       ULONG Mode)
 {
   int NumPixels = DestRect->bottom - DestRect->top;
-  int IntPart = (((SourceRect->bottom - SourceRect->top) / (DestRect->bottom - DestRect->top)) * SourceSurf->lDelta); //((SourceRect->bottom - SourceRect->top) / (DestRect->bottom - DestRect->top)) * (SourceRect->right - SourceRect->left);
+  int IntPart = (((SourceRect->bottom - SourceRect->top) / (DestRect->bottom - DestRect->top)) * SourceGDI->SurfObj.lDelta); //((SourceRect->bottom - SourceRect->top) / (DestRect->bottom - DestRect->top)) * (SourceRect->right - SourceRect->left);
   int FractPart = (SourceRect->bottom - SourceRect->top) % (DestRect->bottom - DestRect->top);
   int Mid = (DestRect->bottom - DestRect->top) >> 1;
   int E = 0;
@@ -453,8 +485,8 @@ BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
   PIXEL *ScanLine, *ScanLineAhead;
   PIXEL *PrevSource = NULL;
   PIXEL *PrevSourceAhead = NULL;
-  PIXEL *Target = (PIXEL *) (DestSurf->pvScan0 + (DestRect->top * DestSurf->lDelta) + DestRect->left);
-  PIXEL *Source = (PIXEL *) (SourceSurf->pvScan0 + (SourceRect->top * SourceSurf->lDelta) + SourceRect->left);
+  PIXEL *Target = (PIXEL *) (DestGDI->SurfObj.pvScan0 + (DestRect->top * DestGDI->SurfObj.lDelta) + DestRect->left);
+  PIXEL *Source = (PIXEL *) (SourceGDI->SurfObj.pvScan0 + (SourceRect->top * SourceGDI->SurfObj.lDelta) + SourceRect->left);
   PSPAN ClipSpans;
   UINT ClipSpansCount;
   UINT SpanIndex;
@@ -494,12 +526,12 @@ BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
       PrevSource = Source;
     } /* if */
     
-    if (E >= Mid && PrevSourceAhead != (PIXEL *)((BYTE *)Source + SourceSurf->lDelta)) {
+    if (E >= Mid && PrevSourceAhead != (PIXEL *)((BYTE *)Source + SourceGDI->SurfObj.lDelta)) {
       int x;
-      ScaleLineAvg8(ScanLineAhead, (PIXEL *)((BYTE *)Source + SourceSurf->lDelta), SourceRect->right - SourceRect->left, DestRect->right - DestRect->left);
+      ScaleLineAvg8(ScanLineAhead, (PIXEL *)((BYTE *)Source + SourceGDI->SurfObj.lDelta), SourceRect->right - SourceRect->left, DestRect->right - DestRect->left);
       for (x = 0; x < DestRect->right - DestRect->left; x++)
         ScanLine[x] = average8(ScanLine[x], ScanLineAhead[x]);
-      PrevSourceAhead = (PIXEL *)((BYTE *)Source + SourceSurf->lDelta);
+      PrevSourceAhead = (PIXEL *)((BYTE *)Source + SourceGDI->SurfObj.lDelta);
     } /* if */
     
     if (! FinalCopy8(Target, ScanLine, ClipSpans, ClipSpansCount, &SpanIndex, DestY, DestRect))
@@ -511,12 +543,12 @@ BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
         return TRUE;
       }
     DestY++;
-    Target = (PIXEL *)((BYTE *)Target + DestSurf->lDelta);
+    Target = (PIXEL *)((BYTE *)Target + DestGDI->SurfObj.lDelta);
     Source += IntPart;
     E += FractPart;
     if (E >= DestRect->bottom - DestRect->top) {
       E -= DestRect->bottom - DestRect->top;
-      Source = (PIXEL *)((BYTE *)Source + SourceSurf->lDelta);
+      Source = (PIXEL *)((BYTE *)Source + SourceGDI->SurfObj.lDelta);
     } /* if */
   } /* while */
 
@@ -532,7 +564,7 @@ BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
         return TRUE;
       }
     DestY++;
-    Target = (PIXEL *)((BYTE *)Target + DestSurf->lDelta);
+    Target = (PIXEL *)((BYTE *)Target + DestGDI->SurfObj.lDelta);
   } /* while */
 
   ExFreePool(ClipSpans);
@@ -543,33 +575,45 @@ BOOLEAN ScaleRectAvg8(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
 }
 
 BOOLEAN DIB_8BPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
+                            SURFGDI *DestGDI, SURFGDI *SourceGDI,
                             RECTL* DestRect, RECTL *SourceRect,
                             POINTL* MaskOrigin, POINTL BrushOrigin,
                             CLIPOBJ *ClipRegion, XLATEOBJ *ColorTranslation,
                             ULONG Mode)
 {
   DPRINT("DIB_8BPP_StretchBlt: Source BPP: %u, srcRect: (%d,%d)-(%d,%d), dstRect: (%d,%d)-(%d,%d)\n",
-     BitsPerFormat(SourceSurf->iBitmapFormat), SourceRect->left, SourceRect->top, SourceRect->right, SourceRect->bottom,
+     SourceGDI->BitsPerPixel, SourceRect->left, SourceRect->top, SourceRect->right, SourceRect->bottom,
      DestRect->left, DestRect->top, DestRect->right, DestRect->bottom);
 
-    switch(SourceSurf->iBitmapFormat)
+    switch(SourceGDI->BitsPerPixel)
     {
-      case BMF_1BPP:
-      case BMF_4BPP:
-      case BMF_16BPP:
-      case BMF_24BPP:
-      case BMF_32BPP:
-         /* Not implemented yet. */
+      case 1:
          return FALSE;      
       break;
   
-      case BMF_8BPP:
-        return ScaleRectAvg8(DestSurf, SourceSurf, DestRect, SourceRect, MaskOrigin, BrushOrigin,
+      case 4:
+         return FALSE;
+      break;
+  
+      case 8:
+        return ScaleRectAvg8(DestGDI, SourceGDI, DestRect, SourceRect, MaskOrigin, BrushOrigin,
                              ClipRegion, ColorTranslation, Mode);
+      break;
+
+      case 16:
+         return FALSE;
+      break;
+    
+      case 24:
+         return FALSE;
+      break;
+      
+      case 32:
+         return FALSE;
       break;
       
       default:
-         DPRINT1("DIB_8BPP_StretchBlt: Unhandled Source BPP: %u\n", BitsPerFormat(SourceSurf->iBitmapFormat));
+         DPRINT1("DIB_8BPP_StretchBlt: Unhandled Source BPP: %u\n", SourceGDI->BitsPerPixel);
       return FALSE;
     }
     
@@ -578,6 +622,7 @@ BOOLEAN DIB_8BPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
 
 BOOLEAN 
 DIB_8BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
+                        PSURFGDI DestGDI,  PSURFGDI SourceGDI,
                         RECTL*  DestRect,  POINTL  *SourcePoint,
                         XLATEOBJ *ColorTranslation, ULONG iTransColor)
 {
@@ -599,28 +644,28 @@ DIB_8BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
     {
       Dest = *DestBits;
       
-      Source = DIB_GetSourceIndex(SourceSurf, SourceX++, SourceY);
+      Source = DIB_GetSourceIndex(SourceSurf, SourceGDI, SourceX++, SourceY);
       if(Source != iTransColor)
       {
         Dest &= 0xFFFFFF00;
         Dest |= (XLATEOBJ_iXlate(ColorTranslation, Source) & 0xFF);
       }
 
-      Source = DIB_GetSourceIndex(SourceSurf, SourceX++, SourceY);
+      Source = DIB_GetSourceIndex(SourceSurf, SourceGDI, SourceX++, SourceY);
       if(Source != iTransColor)
       {
         Dest &= 0xFFFF00FF;
         Dest |= ((XLATEOBJ_iXlate(ColorTranslation, Source) << 8) & 0xFF00);
       }
       
-      Source = DIB_GetSourceIndex(SourceSurf, SourceX++, SourceY);
+      Source = DIB_GetSourceIndex(SourceSurf, SourceGDI, SourceX++, SourceY);
       if(Source != iTransColor)
       {
         Dest &= 0xFF00FFFF;
         Dest |= ((XLATEOBJ_iXlate(ColorTranslation, Source) << 16) & 0xFF0000);
       }
       
-      Source = DIB_GetSourceIndex(SourceSurf, SourceX++, SourceY);
+      Source = DIB_GetSourceIndex(SourceSurf, SourceGDI, SourceX++, SourceY);
       if(Source != iTransColor)
       {
         Dest &= 0x00FFFFFF;
@@ -634,7 +679,7 @@ DIB_8BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
     {
       for (; X < DestRect->right; X++)
       {
-        Source = DIB_GetSourceIndex(SourceSurf, SourceX++, SourceY);
+        Source = DIB_GetSourceIndex(SourceSurf, SourceGDI, SourceX++, SourceY);
         if(Source != iTransColor)
         {
           *((BYTE*)DestBits) = (BYTE)(XLATEOBJ_iXlate(ColorTranslation, Source) & 0xFF);

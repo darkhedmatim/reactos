@@ -97,7 +97,14 @@
  *        Fixed problems when the screen was scrolled away.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 SHORT maxx;

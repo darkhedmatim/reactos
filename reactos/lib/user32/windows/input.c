@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.27 2004/12/28 08:58:35 gvg Exp $
+/* $Id: input.c,v 1.24 2004/04/29 20:26:35 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <wchar.h>
 
@@ -392,7 +393,7 @@ SwapMouseButton(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAscii(UINT uVirtKey,
@@ -401,12 +402,13 @@ ToAscii(UINT uVirtKey,
 	LPWORD lpChar,
 	UINT uFlags)
 {
-  return ToAsciiEx(uVirtKey, uScanCode, lpKeyState, lpChar, uFlags, 0);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToAsciiEx(UINT uVirtKey,
@@ -416,14 +418,8 @@ ToAsciiEx(UINT uVirtKey,
 	  UINT uFlags,
 	  HKL dwhkl)
 {
-  WCHAR UniChars[2];
-  int Ret, CharCount;
-
-  Ret = ToUnicodeEx(uVirtKey, uScanCode, lpKeyState, UniChars, 2, uFlags, dwhkl);
-  CharCount = (Ret < 0 ? 1 : Ret);
-  WideCharToMultiByte(CP_ACP, 0, UniChars, CharCount, (LPSTR) lpChar, 2, NULL, NULL);
-
-  return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -483,33 +479,25 @@ UnregisterHotKey(HWND hWnd,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanA(CHAR ch)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanW(wChar);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanExA(CHAR ch,
 	     HKL dwhkl)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanExW(wChar, dwhkl);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -521,17 +509,18 @@ VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
   UNIMPLEMENTED;
-  return -1;
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanW(WCHAR ch)
 {
-  return VkKeyScanExW(ch, GetKeyboardLayout(0));
+  UNIMPLEMENTED;
+  return 0;
 }
 
 

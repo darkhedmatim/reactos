@@ -15,9 +15,10 @@
  *       validation to assist in the effort to get third-party binaries
  *       working.  It is easiest to track bugs when things break quickly
  *       and badly.
+ *     - Nearly this entire file is PAGED_CODE (with the exception of the
+ *       MiniportTimerDpc() function)
  */
-
-#include "ndissys.h"
+#include <ndissys.h>
 
 
 VOID STDCALL
@@ -64,7 +65,7 @@ NdisCancelTimer(
  *     - call at IRQL <= DISPATCH_LEVEL
  */
 {
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(Timer);
 
   *TimerCancelled = KeCancelTimer (&Timer->Timer);
@@ -86,7 +87,7 @@ NdisGetCurrentSystemTime (
  *     - call at IRQL <= DISPATCH_LEVEL
  */
 {
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(pSystemTime);
 
   KeQuerySystemTime (pSystemTime);
@@ -139,7 +140,7 @@ NdisMCancelTimer(
  *     - call at IRQL <= DISPATCH_LEVEL
  */
 {
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(TimerCancelled);
   ASSERT(Timer);
 
@@ -196,12 +197,12 @@ NdisMSetPeriodicTimer(
  *     MillisecondsPeriod: period of the timer
  * NOTES:
  *     - Minimum predictible interval is ~10ms
- *     - Must be called at IRQL <= DISPATCH_LEVEL
+ *     - Must be called at IRQL <= DISPATCH_LEVEL)
  */
 {
   LARGE_INTEGER Timeout;
 
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(Timer);
 
   /* relative delays are negative, absolute are positive; resolution is 100ns */
@@ -226,12 +227,12 @@ NdisMSetTimer(
  *     MillisecondsToDelay: time to wait for the timer to expire
  * NOTES:
  *     - Minimum predictible interval is ~10ms
- *     - Must be called at IRQL <= DISPATCH_LEVEL
+ *     - Must be called at IRQL <= DISPATCH_LEVEL)
  */
 {
   LARGE_INTEGER Timeout;
 
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(Timer);
 
   /* relative delays are negative, absolute are positive; resolution is 100ns */
@@ -256,12 +257,12 @@ NdisSetTimer(
  *     MillisecondsToDelay: time to wait for the timer to expire
  * NOTES:
  *     - Minimum predictible interval is ~10ms
- *     - Must be called at IRQL <= DISPATCH_LEVEL
+ *     - Must be called at IRQL <= DISPATCH_LEVEL)
  */
 {
   LARGE_INTEGER Timeout;
 
-  ASSERT_IRQL(DISPATCH_LEVEL);
+  PAGED_CODE();
   ASSERT(Timer);
 
   /* relative delays are negative, absolute are positive; resolution is 100ns */

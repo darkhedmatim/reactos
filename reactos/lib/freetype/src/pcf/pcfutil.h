@@ -30,24 +30,20 @@ THE SOFTWARE.
 
 
 #include <ft2build.h>
-#include FT_CONFIG_CONFIG_H
 
 
-FT_BEGIN_HEADER
-
-  FT_LOCAL( void )
+  static void
   BitOrderInvert( unsigned char*  buf,
-                  int             nbytes );
+                  int             nbytes);
 
-  FT_LOCAL( void )
+  static void
   TwoByteSwap( unsigned char*  buf,
-               int             nbytes );
+               int             nbytes);
 
-  FT_LOCAL( void )
+  static void
   FourByteSwap( unsigned char*  buf,
-                int             nbytes );
+                int             nbytes);
 
-FT_END_HEADER
 
 #endif /* __PCFUTIL_H__ */
 

@@ -710,10 +710,10 @@ int WINAPI StrToIntW(LPCWSTR lpszStr)
  *
  * NOTES
  *  Leading whitespace, '-' and '+' are allowed before the number. If
- *  dwFlags includes STIF_SUPPORT_HEX, hexadecimal numbers are allowed, if
+ *  dwFlags includes STIF_SUPPORT_HEX, hexidecimal numbers are allowed, if
  *  preceeded by '0x'. If this flag is not set, or there is no '0x' prefix,
  *  the string is treated as a decimal string. A leading '-' is ignored for
- *  hexadecimal numbers.
+ *  hexidecimal numbers.
  */
 BOOL WINAPI StrToIntExA(LPCSTR lpszStr, DWORD dwFlags, LPINT lpiRet)
 {
@@ -2051,18 +2051,24 @@ INT WINAPI StrFromTimeIntervalW(LPWSTR lpszStr, UINT cchMax, DWORD dwMS,
 BOOL WINAPI StrIsIntlEqualA(BOOL bCase, LPCSTR lpszStr, LPCSTR lpszComp,
                             int iLen)
 {
-  DWORD dwFlags;
+  DWORD dwFlags = LOCALE_USE_CP_ACP;
+  int iRet;
 
   TRACE("(%d,%s,%s,%d)\n", bCase,
         debugstr_a(lpszStr), debugstr_a(lpszComp), iLen);
 
-  /* FIXME: This flag is undocumented and unknown by our CompareString.
-   *        We need a define for it.
+  /* FIXME: These flags are undocumented and unknown by our CompareString.
+   *        We need defines for them.
    */
-  dwFlags = 0x10000000;
-  if (!bCase) dwFlags |= NORM_IGNORECASE;
+  dwFlags |= bCase ? 0x10000000 : 0x10000001;
 
-  return (CompareStringA(GetThreadLocale(), dwFlags, lpszStr, iLen, lpszComp, iLen) == CSTR_EQUAL);
+  iRet = CompareStringA(GetThreadLocale(),
+                        dwFlags, lpszStr, iLen, lpszComp, iLen);
+
+  if (!iRet)
+    iRet = CompareStringA(2048, dwFlags, lpszStr, iLen, lpszComp, iLen);
+
+  return iRet == 2 ? TRUE : FALSE;
 }
 
 /*************************************************************************
@@ -2074,17 +2080,23 @@ BOOL WINAPI StrIsIntlEqualW(BOOL bCase, LPCWSTR lpszStr, LPCWSTR lpszComp,
                             int iLen)
 {
   DWORD dwFlags;
+  int iRet;
 
   TRACE("(%d,%s,%s,%d)\n", bCase,
         debugstr_w(lpszStr),debugstr_w(lpszComp), iLen);
 
-  /* FIXME: This flag is undocumented and unknown by our CompareString.
-   *        We need a define for it.
+  /* FIXME: These flags are undocumented and unknown by our CompareString.
+   *        We need defines for them.
    */
-  dwFlags = 0x10000000;
-  if (!bCase) dwFlags |= NORM_IGNORECASE;
+  dwFlags = bCase ? 0x10000000 : 0x10000001;
 
-  return (CompareStringW(GetThreadLocale(), dwFlags, lpszStr, iLen, lpszComp, iLen) == CSTR_EQUAL);
+  iRet = CompareStringW(GetThreadLocale(),
+                        dwFlags, lpszStr, iLen, lpszComp, iLen);
+
+  if (!iRet)
+    iRet = CompareStringW(2048, dwFlags, lpszStr, iLen, lpszComp, iLen);
+
+  return iRet == 2 ? TRUE : FALSE;
 }
 
 /*************************************************************************
@@ -2098,7 +2110,7 @@ BOOL WINAPI StrIsIntlEqualW(BOOL bCase, LPCWSTR lpszStr, LPCWSTR lpszComp,
  *  iLen     [I] Maximum number of chars to copy
  *
  * RETURNS
- *  Success: A pointer to the last character written to lpszDest..
+ *  Success: A pointer to the last character written.
  *  Failure: lpszDest, if any arguments are invalid.
  */
 LPSTR WINAPI StrCpyNXA(LPSTR lpszDest, LPCSTR lpszSrc, int iLen)
@@ -2620,48 +2632,6 @@ INT WINAPI SHUnicodeToAnsi(LPCWSTR lpSrcStr, LPSTR lpDstStr, INT iLen)
     INT myint = iLen;
 
     return SHUnicodeToAnsiCP(CP_ACP, lpSrcStr, lpDstStr, &myint);
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.345]
- *
- * Copy one string to another.
- *
- * PARAMS
- *  lpszSrc [I] Source string to copy
- *  lpszDst [O] Destination for copy
- *  iLen    [I] Length of lpszDst in characters
- *
- * RETURNS
- *  The length of the copied string, including the terminating NUL. lpszDst
- *  contains iLen characters of lpszSrc.
- */
-DWORD WINAPI SHAnsiToAnsi(LPCSTR lpszSrc, LPSTR lpszDst, int iLen)
-{
-    LPSTR lpszRet;
-
-    TRACE("(%s,%p,0x%08x)\n", debugstr_a(lpszSrc), lpszDst, iLen);
-
-    /* Our original version used lstrncpy/lstrlen, incorrectly filling up all
-     * of lpszDst with extra NULs. This version is correct, and faster too.
-     */
-    lpszRet = StrCpyNXA(lpszDst, lpszSrc, iLen);
-    return lpszRet - lpszDst + 1;
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.346]
- *
- * Unicode version of SSHAnsiToAnsi.
- */
-DWORD WINAPI SHUnicodeToUnicode(LPCWSTR lpszSrc, LPWSTR lpszDst, int iLen)
-{
-    LPWSTR lpszRet;
-
-    TRACE("(%s,%p,0x%08x)\n", debugstr_w(lpszSrc), lpszDst, iLen);
-
-    lpszRet = StrCpyNXW(lpszDst, lpszSrc, iLen);
-    return lpszRet - lpszDst + 1;
 }
 
 /*************************************************************************

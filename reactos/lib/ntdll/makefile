@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.111 2004/11/07 18:45:52 hyperion Exp $
+# $Id: makefile,v 1.102 2004/05/31 19:33:12 gdalsnes Exp $
 
 PATH_TO_TOP = ../..
 
@@ -19,7 +19,7 @@ TARGET_LFLAGS = -Wl,--file-alignment,0x1000 \
   -Wl,--section-alignment,0x1000 \
   -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = rosrtl.a rtl.a string.a
+TARGET_SDKLIBS = string.a rosrtl.a rtl.a
 
 TARGET_GCCLIBS = gcc
 
@@ -39,6 +39,7 @@ DBG_OBJECTS = \
 	dbg/brkpoint.o \
 	dbg/debug.o \
 	dbg/print.o
+#	dbg/winedbg.o
 
 LDR_OBJECTS = \
 	ldr/entry.o \
@@ -56,6 +57,8 @@ RTL_I386_OBJECTS = \
 	rtl/i386/aullrem.o \
 	rtl/i386/aullshr.o \
 	rtl/i386/chkstk.o \
+	rtl/i386/exception.o \
+	rtl/i386/except.o \
 	rtl/i386/float.o \
 	rtl/i386/ftol.o
 
@@ -63,12 +66,15 @@ RTL_OBJECTS = \
 	rtl/access.o \
 	rtl/apc.o \
 	rtl/atom.o \
+	rtl/bitmap.o \
 	rtl/callback.o \
 	rtl/crc32.o \
 	rtl/critical.o \
-	rtl/dbgbuffer.o \
+	rtl/encode.o \
 	rtl/exception.o \
 	rtl/handle.o \
+	rtl/image.o \
+	rtl/intrlck.o \
 	rtl/math.o \
 	rtl/message.o \
 	rtl/misc.o \
@@ -79,11 +85,10 @@ RTL_OBJECTS = \
 	rtl/rangelist.o \
 	rtl/registry.o \
 	rtl/resource.o \
+	rtl/splaytree.o \
 	rtl/teb.o \
 	rtl/thread.o \
-	rtl/timerqueue.o \
 	rtl/libsupp.o
-
 
 STDIO_OBJECTS = \
 	stdio/sprintf.o \

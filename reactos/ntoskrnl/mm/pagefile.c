@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: pagefile.c,v 1.52 2004/10/30 23:48:56 navaraf Exp $
+/* $Id: pagefile.c,v 1.47 2004/06/06 09:13:21 hbirr Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/pagefile.c
@@ -28,7 +28,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+#include <internal/mm.h>
+#include <napi/core.h>
+#include <internal/ps.h>
+#include <internal/ldr.h>
+#include <rosrtl/string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -184,7 +191,7 @@ MmGetOffsetPageFile(PGET_RETRIEVAL_DESCRIPTOR RetrievalPointers, LARGE_INTEGER O
 #endif
 }
 
-NTSTATUS MmWriteToSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
+NTSTATUS MmWriteToSwapPage(SWAPENTRY SwapEntry, PHYSICAL_ADDRESS* Page)
 {
    ULONG i, offset;
    LARGE_INTEGER file_offset;
@@ -218,7 +225,7 @@ NTSTATUS MmWriteToSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
    }
 
    MmInitializeMdl(Mdl, NULL, PAGE_SIZE);
-   MmBuildMdlFromPages(Mdl, &Page);
+   MmBuildMdlFromPages(Mdl, (PULONG)Page);
 
    file_offset.QuadPart = offset * PAGE_SIZE;
    file_offset = MmGetOffsetPageFile(PagingFileList[i]->RetrievalPointers, file_offset);
@@ -238,7 +245,7 @@ NTSTATUS MmWriteToSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
    return(Status);
 }
 
-NTSTATUS MmReadFromSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
+NTSTATUS MmReadFromSwapPage(SWAPENTRY SwapEntry, PHYSICAL_ADDRESS* Page)
 {
    ULONG i, offset;
    LARGE_INTEGER file_offset;
@@ -272,7 +279,7 @@ NTSTATUS MmReadFromSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
    }
 
    MmInitializeMdl(Mdl, NULL, PAGE_SIZE);
-   MmBuildMdlFromPages(Mdl, &Page);
+   MmBuildMdlFromPages(Mdl, (PULONG)Page);
 
    file_offset.QuadPart = offset * PAGE_SIZE;
    file_offset = MmGetOffsetPageFile(PagingFileList[i]->RetrievalPointers, file_offset);
@@ -314,7 +321,7 @@ MmInitPagingFile(VOID)
     */
    if (MmCoreDumpType != MM_CORE_DUMP_TYPE_NONE)
    {
-      MmCoreDumpPageFrame = MmAllocateSection(PAGE_SIZE, NULL);
+      MmCoreDumpPageFrame = MmAllocateSection(PAGE_SIZE);
       if (MmCoreDumpType == MM_CORE_DUMP_TYPE_FULL)
       {
          MmCoreDumpSize = MmStats.NrTotalPages * 4096 + 1024 * 1024;
@@ -369,13 +376,18 @@ MiAllocPageFromPagingFile(PPAGINGFILE PagingFile)
       {
          if (!(PagingFile->AllocMap[i] & (1 << j)))
          {
-            PagingFile->AllocMap[i] |= (1 << j);
-            PagingFile->UsedPages++;
-            PagingFile->FreePages--;
-            KeReleaseSpinLock(&PagingFile->AllocMapLock, oldIrql);
-            return((i * 32) + j);
+            break;
          }
       }
+      if (j == 32)
+      {
+         continue;
+      }
+      PagingFile->AllocMap[i] |= (1 << j);
+      PagingFile->UsedPages++;
+      PagingFile->FreePages--;
+      KeReleaseSpinLock(&PagingFile->AllocMapLock, oldIrql);
+      return((i * 32) + j);
    }
 
    KeReleaseSpinLock(&PagingFile->AllocMapLock, oldIrql);
@@ -391,12 +403,6 @@ MmFreeSwapPage(SWAPENTRY Entry)
 
    i = FILE_FROM_ENTRY(Entry);
    off = OFFSET_FROM_ENTRY(Entry);
-   
-   if (i >= MAX_PAGING_FILES)
-   {
-	DPRINT1("Bad swap entry 0x%.8X\n", Entry);
-	KEBUGCHECK(0);
-   }
 
    KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
    if (PagingFileList[i] == NULL)
@@ -404,9 +410,9 @@ MmFreeSwapPage(SWAPENTRY Entry)
       KEBUGCHECK(0);
    }
    KeAcquireSpinLockAtDpcLevel(&PagingFileList[i]->AllocMapLock);
-   
-   PagingFileList[i]->AllocMap[off >> 5] &= (~(1 << (off % 32)));
-   
+
+   PagingFileList[i]->AllocMap[off / 32] &= (~(1 << (off % 32)));
+
    PagingFileList[i]->FreePages++;
    PagingFileList[i]->UsedPages--;
 
@@ -494,7 +500,7 @@ MmDumpToPagingFile(ULONG BugCode,
    UCHAR MdlBase[sizeof(MDL) + sizeof(ULONG)];
    PMDL Mdl = (PMDL)MdlBase;
    PETHREAD Thread = PsGetCurrentThread();
-   ULONG_PTR StackSize;
+   ULONG StackSize;
    PULONG MdlMap;
    LONGLONG NextOffset = 0;
    ULONG i;
@@ -531,8 +537,8 @@ MmDumpToPagingFile(ULONG BugCode,
    Headers->BugCheckParameters[2] = BugCodeParameter3;
    Headers->BugCheckParameters[3] = BugCodeParameter4;
    Headers->FaultingStackBase = (PVOID)Thread->Tcb.StackLimit;
-   Headers->FaultingStackSize =
-   StackSize = (ULONG_PTR)(Thread->Tcb.StackBase - Thread->Tcb.StackLimit);
+   Headers->FaultingStackSize = StackSize =
+                                   (ULONG)((char*)Thread->Tcb.StackBase - Thread->Tcb.StackLimit);
    Headers->PhysicalMemorySize = MmStats.NrTotalPages * PAGE_SIZE;
 
    /* Initialize the dump device. */
@@ -584,11 +590,12 @@ MmDumpToPagingFile(ULONG BugCode,
    {
       for (i = 0; i < MmStats.NrTotalPages; i++)
       {
+         LARGE_INTEGER PhysicalAddress;
+         PhysicalAddress.QuadPart = i * PAGE_SIZE;
          MdlMap[0] = i;
          MmCreateVirtualMappingForKernel(MmCoreDumpPageFrame, 
 	                                 PAGE_READWRITE,
-                                         MdlMap,
-					 1);
+                                         PhysicalAddress);
 #if defined(__GNUC__)
 
          DiskOffset = MmGetOffsetPageFile(RetrievalPointers,
@@ -678,12 +685,6 @@ MmInitializeCrashDump(HANDLE PageFileHandle, ULONG PageFileNum)
                                        FALSE,
                                        &Event,
                                        &Iosb);
-   if(Irp == NULL) 
-   {
-      ObDereferenceObject(PageFile);
-      return(STATUS_NO_MEMORY);// tMk - is this correct return code ???
-   }
-
    StackPtr = IoGetNextIrpStackLocation(Irp);
    StackPtr->FileObject = PageFile;
    StackPtr->DeviceObject = PageFileDevice;

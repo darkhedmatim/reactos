@@ -26,8 +26,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -43,7 +41,6 @@
 #include "undocshell.h"
 #include "pidl.h"
 #include "shell32_main.h"
-#include "version.h"
 
 #include "wine/debug.h"
 #include "wine/unicode.h"
@@ -94,17 +91,11 @@ LPWSTR* WINAPI CommandLineToArgvW(LPCWSTR lpCmdline, int* numargs)
 
     if (*lpCmdline==0) {
         /* Return the path to the executable */
-        DWORD len, size=16;
+        DWORD size=16;
 
         hargv=GlobalAlloc(size, 0);
 	argv=GlobalLock(hargv);
-	for (;;) {
-            len = GetModuleFileNameW(0, (LPWSTR)(argv+1), size-sizeof(LPWSTR));
-            if (!len) {
-                GlobalFree(hargv);
-                return NULL;
-            }
-            if (len < size) break;
+	while (GetModuleFileNameW(0, (LPWSTR)(argv+1), size-sizeof(LPWSTR)) == 0) {
             size*=2;
             hargv=GlobalReAlloc(hargv, size, 0);
             argv=GlobalLock(hargv);
@@ -365,8 +356,8 @@ DWORD WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
 	/* get the type name */
 	if (SUCCEEDED(hr) && (flags & SHGFI_TYPENAME))
         {
-            static const WCHAR szFile[] = { 'F','i','l','e',0 };
-            static const WCHAR szDashFile[] = { '-','f','i','l','e',0 };
+            WCHAR szFile[] = { 'F','i','l','e',0 };
+            WCHAR szDashFile[] = { '-','f','i','l','e',0 };
             if (!(flags & SHGFI_USEFILEATTRIBUTES))
             {
                 char ftype[80];
@@ -437,7 +428,7 @@ DWORD WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
                psfi->iIcon = 2;
             else
             {
-               static const WCHAR p1W[] = {'%','1',0};
+               WCHAR p1W[] = {'%','1',0};
                psfi->iIcon = 0;
                szExt = (LPWSTR) PathFindExtensionW(sTemp);
                if ( szExt && HCR_MapTypeToValueW(szExt, sTemp, MAX_PATH, TRUE)
@@ -628,16 +619,16 @@ typedef struct
     LPCWSTR  szApp;
     LPCWSTR  szOtherStuff;
     HICON hIcon;
-    HFONT hFont;
 } ABOUT_INFO;
 
-#define		IDC_STATIC_TEXT1	100
-#define		IDC_STATIC_TEXT2	101
+#define		IDC_STATIC_TEXT		100
 #define		IDC_LISTBOX		99
 #define		IDC_WINE_TEXT		98
 
 #define		DROP_FIELD_TOP		(-15)
 #define		DROP_FIELD_HEIGHT	15
+
+static HFONT hIconTitleFont;
 
 static BOOL __get_dropline( HWND hWnd, LPRECT lprect )
 { HWND hWndCtl = GetDlgItem(hWnd, IDC_WINE_TEXT);
@@ -715,7 +706,7 @@ DWORD WINAPI SHHelpShortcuts_RunDLL (DWORD dwArg1, DWORD dwArg2, DWORD dwArg3, D
  * the shell process and release it immediately
  */
 
-HRESULT WINAPI SHLoadInProc (REFCLSID rclsid)
+DWORD WINAPI SHLoadInProc (REFCLSID rclsid)
 {
     void *ptr = NULL;
 
@@ -755,11 +746,16 @@ INT_PTR CALLBACK AboutDlgProc( HWND hWnd, UINT msg, WPARAM wParam,
                 GetWindowTextW( hWnd, Template, sizeof(Template)/sizeof(WCHAR) );
                 sprintfW( AppTitle, Template, info->szApp );
                 SetWindowTextW( hWnd, AppTitle );
-                SetWindowTextW( GetDlgItem(hWnd, IDC_STATIC_TEXT1), info->szApp );
-                SetWindowTextW( GetDlgItem(hWnd, IDC_STATIC_TEXT2), info->szOtherStuff );
+                SetWindowTextW( GetDlgItem(hWnd, IDC_STATIC_TEXT), info->szOtherStuff );
                 hWndCtl = GetDlgItem(hWnd, IDC_LISTBOX);
                 SendMessageW( hWndCtl, WM_SETREDRAW, 0, 0 );
-                SendMessageW( hWndCtl, WM_SETFONT, (WPARAM)info->hFont, 0 );
+                if (!hIconTitleFont)
+                {
+                    LOGFONTW logFont;
+                    SystemParametersInfoW( SPI_GETICONTITLELOGFONT, 0, &logFont, 0 );
+                    hIconTitleFont = CreateFontIndirectW( &logFont );
+                }
+                SendMessageW( hWndCtl, WM_SETFONT, (WPARAM)hIconTitleFont, 0 );
                 while (*pstr)
                 {
                     WCHAR name[64];
@@ -840,10 +836,8 @@ BOOL WINAPI ShellAboutW( HWND hWnd, LPCWSTR szApp, LPCWSTR szOtherStuff,
                              HICON hIcon )
 {
     ABOUT_INFO info;
-    LOGFONTW logFont;
     HRSRC hRes;
     LPVOID template;
-    BOOL bRet;
 
     TRACE("\n");
 
@@ -854,14 +848,8 @@ BOOL WINAPI ShellAboutW( HWND hWnd, LPCWSTR szApp, LPCWSTR szOtherStuff,
     info.szApp        = szApp;
     info.szOtherStuff = szOtherStuff;
     info.hIcon        = hIcon ? hIcon : LoadIconW( 0, (LPWSTR)IDI_WINLOGO );
-
-    SystemParametersInfoW( SPI_GETICONTITLELOGFONT, 0, &logFont, 0 );
-    info.hFont = CreateFontIndirectW( &logFont );
-
-    bRet = DialogBoxIndirectParamW((HINSTANCE)GetWindowLongPtrW( hWnd, GWLP_HINSTANCE ),
+    return DialogBoxIndirectParamW((HINSTANCE)GetWindowLongW( hWnd, GWL_HINSTANCE ),
                                    template, hWnd, AboutDlgProc, (LPARAM)&info );
-    DeleteObject(info.hFont);
-    return bRet;
 }
 
 /*************************************************************************
@@ -869,15 +857,6 @@ BOOL WINAPI ShellAboutW( HWND hWnd, LPCWSTR szApp, LPCWSTR szOtherStuff,
  */
 void WINAPI FreeIconList( DWORD dw )
 { FIXME("(%lx): stub\n",dw);
-}
-
-
-/*************************************************************************
- * ShellDDEInit (SHELL32.@)
- */
-void WINAPI ShellDDEInit(BOOL start)
-{
-    FIXME("stub: %d\n", start);
 }
 
 /***********************************************************************
@@ -898,34 +877,22 @@ void WINAPI ShellDDEInit(BOOL start)
 
 HRESULT WINAPI SHELL32_DllGetVersion (DLLVERSIONINFO *pdvi)
 {
-    /* FIXME: shouldn't these values come from the version resource? */
-    if (pdvi->cbSize == sizeof(DLLVERSIONINFO) ||
-     pdvi->cbSize == sizeof(DLLVERSIONINFO2))
-    {
-        pdvi->dwMajorVersion = WINE_FILEVERSION_MAJOR;
-        pdvi->dwMinorVersion = WINE_FILEVERSION_MINOR;
-        pdvi->dwBuildNumber = WINE_FILEVERSION_BUILD;
-        pdvi->dwPlatformID = WINE_FILEVERSION_PLATFORMID;
-        if (pdvi->cbSize == sizeof(DLLVERSIONINFO2))
-        {
-            DLLVERSIONINFO2 *pdvi2 = (DLLVERSIONINFO2 *)pdvi;
-
-            pdvi2->dwFlags = 0;
-            pdvi2->ullVersion = MAKEDLLVERULL(WINE_FILEVERSION_MAJOR,
-                                              WINE_FILEVERSION_MINOR,
-                                              WINE_FILEVERSION_BUILD,
-                                              WINE_FILEVERSION_PLATFORMID);
-        }
-        TRACE("%lu.%lu.%lu.%lu\n",
-           pdvi->dwMajorVersion, pdvi->dwMinorVersion,
-           pdvi->dwBuildNumber, pdvi->dwPlatformID);
-        return S_OK;
-    }
-    else
+	if (pdvi->cbSize != sizeof(DLLVERSIONINFO))
 	{
-        WARN("wrong DLLVERSIONINFO size from app\n");
-        return E_INVALIDARG;
-    }
+	  WARN("wrong DLLVERSIONINFO size from app\n");
+	  return E_INVALIDARG;
+	}
+
+	pdvi->dwMajorVersion = 4;
+	pdvi->dwMinorVersion = 72;
+	pdvi->dwBuildNumber = 3110;
+	pdvi->dwPlatformID = 1;
+
+	TRACE("%lu.%lu.%lu.%lu\n",
+	   pdvi->dwMajorVersion, pdvi->dwMinorVersion,
+	   pdvi->dwBuildNumber, pdvi->dwPlatformID);
+
+	return S_OK;
 }
 /*************************************************************************
  * global variables of the shell32.dll
@@ -956,11 +923,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
 
 	    /* get full path to this DLL for IExtractIconW_fnGetIconLocation() */
 	    GetModuleFileNameW(hinstDLL, swShell32Name, MAX_PATH);
-            swShell32Name[MAX_PATH - 1] = '\0';
 
 	    InitCommonControlsEx(NULL);
 
 	    SIC_Initialize();
+#ifndef __REACTOS__
+	    SYSTRAY_Init();
+#endif
 	    InitChangeNotifications();
 	    break;
 

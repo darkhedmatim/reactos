@@ -1,4 +1,28 @@
-#include "precomp.h"
+#ifdef UNICODE
+#undef UNICODE
+#endif
+
+#undef WIN32_LEAN_AND_MEAN
+#include <string.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/kapi.h>
+#include <internal/font.h>
+#include <rosrtl/logfont.h>
+
+
+/*
+ * @implemented
+ */
+UINT
+STDCALL
+SetTextAlign(
+        HDC     hdc,
+        UINT    fMode
+        )
+{
+  return NtGdiSetTextAlign(hdc, fMode);
+}
 
 
 /*
@@ -43,6 +67,16 @@ TextOutW(
 	int  cbString)
 {
   return NtGdiTextOut(hdc, nXStart, nYStart, lpString, cbString);
+}
+
+
+/*
+ * @implemented
+ */
+COLORREF  STDCALL 
+SetTextColor(HDC hdc, COLORREF crColor)
+{
+  return NtGdiSetTextColor(hdc, crColor);
 }
 
 
@@ -121,60 +155,6 @@ GetTextExtentPointW(
 	)
 {
   return NtGdiGetTextExtentPoint(hdc, lpString, cbString, lpSize);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-APIENTRY
-GetTextExtentExPointW(
-	HDC		hdc,
-	LPCWSTR		lpszStr,
-	int		cchString,
-	int		nMaxExtent,
-	LPINT		lpnFit,
-	LPINT		alpDx,
-	LPSIZE		lpSize
-	)
-{
-  return NtGdiGetTextExtentExPoint (
-    hdc, lpszStr, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-APIENTRY
-GetTextExtentExPointA(
-	HDC		hdc,
-	LPCSTR		lpszStr,
-	int		cchString,
-	int		nMaxExtent,
-	LPINT		lpnFit,
-	LPINT		alpDx,
-	LPSIZE		lpSize
-	)
-{
-  NTSTATUS Status;
-  LPWSTR lpszStrW;
-  BOOL rc = 0;
-
-  Status = HEAP_strdupA2W ( &lpszStrW, lpszStr );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-  {
-    rc = NtGdiGetTextExtentExPoint (
-      hdc, lpszStrW, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
-
-    HEAP_free ( lpszStrW );
-  }
-
-  return rc;
 }
 
 
@@ -275,37 +255,94 @@ ExtTextOutW(
 /*
  * @implemented
  */
-int
+HFONT
 STDCALL
-GetTextFaceW(
-	HDC	a0,
-	int	a1,
-	LPWSTR	a2
+CreateFontIndirectA(
+	CONST LOGFONTA		*lplf
 	)
 {
-	return NtGdiGetTextFace(a0, a1, a2);
+  LOGFONTW tlf;
+
+  RosRtlLogFontA2W(&tlf, lplf);
+
+  return NtGdiCreateFontIndirect(&tlf);
 }
 
 
 /*
  * @implemented
  */
-int
+HFONT
 STDCALL
-GetTextFaceA( HDC hdc, INT count, LPSTR name )
+CreateFontIndirectW(
+	CONST LOGFONTW		*lplf
+	)
 {
-    INT res = GetTextFaceW(hdc, 0, NULL);
-    LPWSTR nameW = HeapAlloc( GetProcessHeap(), 0, res * 2 );
-    GetTextFaceW( hdc, res, nameW );
-
-    if (name)
-    {
-        if (count && !WideCharToMultiByte( CP_ACP, 0, nameW, -1, name, count, NULL, NULL))
-            name[count-1] = 0;
-        res = strlen(name);
-    }
-    else
-        res = WideCharToMultiByte( CP_ACP, 0, nameW, -1, NULL, 0, NULL, NULL);
-    HeapFree( GetProcessHeap(), 0, nameW );
-    return res;
+	return NtGdiCreateFontIndirect((CONST LPLOGFONTW)lplf);
 }
+
+
+/*
+ * @implemented
+ */
+HFONT
+STDCALL
+CreateFontA(
+	int	nHeight,
+	int	nWidth,
+	int	nEscapement,
+	int	nOrientation,
+	int	fnWeight,
+	DWORD	fdwItalic,
+	DWORD	fdwUnderline,
+	DWORD	fdwStrikeOut,
+	DWORD	fdwCharSet,
+	DWORD	fdwOutputPrecision,
+	DWORD	fdwClipPrecision,
+	DWORD	fdwQuality,
+	DWORD	fdwPitchAndFamily,
+	LPCSTR	lpszFace
+	)
+{
+        ANSI_STRING StringA;
+        UNICODE_STRING StringU;
+	HFONT ret;
+
+	RtlInitAnsiString(&StringA, (LPSTR)lpszFace);
+	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
+
+        ret = CreateFontW(nHeight, nWidth, nEscapement, nOrientation, fnWeight, fdwItalic, fdwUnderline, fdwStrikeOut,
+                          fdwCharSet, fdwOutputPrecision, fdwClipPrecision, fdwQuality, fdwPitchAndFamily, StringU.Buffer);
+
+	RtlFreeUnicodeString(&StringU);
+
+	return ret;
+}
+
+
+/*
+ * @implemented
+ */
+HFONT
+STDCALL
+CreateFontW(
+	int	nHeight,
+	int	nWidth,
+	int	nEscapement,
+	int	nOrientation,
+	int	nWeight,
+	DWORD	fnItalic,
+	DWORD	fdwUnderline,
+	DWORD	fdwStrikeOut,
+	DWORD	fdwCharSet,
+	DWORD	fdwOutputPrecision,
+	DWORD	fdwClipPrecision,
+	DWORD	fdwQuality,
+	DWORD	fdwPitchAndFamily,
+	LPCWSTR	lpszFace
+	)
+{
+  return NtGdiCreateFont(nHeight, nWidth, nEscapement, nOrientation, nWeight, fnItalic, fdwUnderline, fdwStrikeOut,
+                         fdwCharSet, fdwOutputPrecision, fdwClipPrecision, fdwQuality, fdwPitchAndFamily, lpszFace);
+}
+

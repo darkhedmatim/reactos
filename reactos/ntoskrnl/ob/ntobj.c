@@ -1,4 +1,4 @@
-/* $Id: ntobj.c,v 1.24 2004/10/24 20:37:26 weiden Exp $
+/* $Id: ntobj.c,v 1.19 2003/12/30 18:52:05 fireball Exp $
  *
  * COPYRIGHT:     See COPYING in the top level directory
  * PROJECT:       ReactOS kernel
@@ -11,7 +11,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/id.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -68,7 +71,7 @@ NtSetInformationObject (IN HANDLE ObjectHandle,
 /**********************************************************************
  * NAME							EXPORTED
  *	NtQueryObject
- *
+ *	
  * DESCRIPTION
  *
  * ARGUMENTS
@@ -82,7 +85,7 @@ NtQueryObject (IN HANDLE ObjectHandle,
 	       IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
 	       OUT PVOID ObjectInformation,
 	       IN ULONG Length,
-	       OUT PULONG ResultLength  OPTIONAL)
+	       OUT PULONG ReturnLength OPTIONAL)
 {
   OBJECT_HANDLE_INFORMATION HandleInfo;
   POBJECT_HEADER ObjectHeader;
@@ -132,7 +135,11 @@ NtQueryObject (IN HANDLE ObjectHandle,
 	      }
 	    else
 	      {
-		BasicInfo->CreateTime.QuadPart = (ULONGLONG)0;
+#if defined(__GNUC__)
+		BasicInfo->CreateTime.QuadPart = 0ULL;
+#else
+		BasicInfo->CreateTime.QuadPart = 0;
+#endif
 	      }
 	    Status = STATUS_SUCCESS;
 	  }
@@ -199,8 +206,8 @@ NtQueryObject (IN HANDLE ObjectHandle,
 
   ObDereferenceObject (Object);
 
-  if (ResultLength != NULL)
-    *ResultLength = InfoLength;
+  if (ReturnLength != NULL)
+    *ReturnLength = InfoLength;
 
   return Status;
 }
@@ -209,7 +216,7 @@ NtQueryObject (IN HANDLE ObjectHandle,
 /**********************************************************************
  * NAME							EXPORTED
  *	ObMakeTemporaryObject
- *
+ *	
  * DESCRIPTION
  *
  * ARGUMENTS
@@ -221,7 +228,7 @@ NtQueryObject (IN HANDLE ObjectHandle,
  * @implemented
  */
 VOID STDCALL
-ObMakeTemporaryObject(IN PVOID ObjectBody)
+ObMakeTemporaryObject (IN PVOID ObjectBody)
 {
   POBJECT_HEADER ObjectHeader;
 
@@ -233,7 +240,7 @@ ObMakeTemporaryObject(IN PVOID ObjectBody)
 /**********************************************************************
  * NAME							EXPORTED
  *	NtMakeTemporaryObject
- *
+ *	
  * DESCRIPTION
  *
  * ARGUMENTS
@@ -243,17 +250,17 @@ ObMakeTemporaryObject(IN PVOID ObjectBody)
  * REVISIONS
  */
 NTSTATUS STDCALL
-NtMakeTemporaryObject(IN HANDLE ObjectHandle)
+NtMakeTemporaryObject (IN HANDLE Handle)
 {
   POBJECT_HEADER ObjectHeader;
   PVOID Object;
   NTSTATUS Status;
 
-  Status = ObReferenceObjectByHandle(ObjectHandle,
+  Status = ObReferenceObjectByHandle(Handle,
 				     0,
 				     NULL,
 				     (KPROCESSOR_MODE)KeGetPreviousMode(),
-				     &Object,
+				     & Object,
 				     NULL);
   if (Status != STATUS_SUCCESS)
     {
@@ -262,47 +269,6 @@ NtMakeTemporaryObject(IN HANDLE ObjectHandle)
 
   ObjectHeader = BODY_TO_HEADER(Object);
   ObjectHeader->Permanent = FALSE;
-
-  ObDereferenceObject(Object);
-
-  return STATUS_SUCCESS;
-}
-
-
-/**********************************************************************
- * NAME							EXPORTED
- *	NtMakePermanentObject
- *
- * DESCRIPTION
- *
- * ARGUMENTS
- *
- * RETURN VALUE
- *
- * REVISIONS
- *
- * @implemented
- */
-NTSTATUS STDCALL
-NtMakePermanentObject(IN HANDLE ObjectHandle)
-{
-  POBJECT_HEADER ObjectHeader;
-  PVOID Object;
-  NTSTATUS Status;
-
-  Status = ObReferenceObjectByHandle(ObjectHandle,
-				     0,
-				     NULL,
-				     (KPROCESSOR_MODE)KeGetPreviousMode(),
-				     &Object,
-				     NULL);
-  if (Status != STATUS_SUCCESS)
-    {
-      return Status;
-    }
-
-  ObjectHeader = BODY_TO_HEADER(Object);
-  ObjectHeader->Permanent = TRUE;
 
   ObDereferenceObject(Object);
 

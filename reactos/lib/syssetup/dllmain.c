@@ -16,20 +16,19 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dllmain.c,v 1.5 2004/11/02 15:42:09 ekohl Exp $
+/* $Id: dllmain.c,v 1.3 2004/04/16 13:37:18 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Main file
  * FILE:              lib/syssetup/dllmain.c
- * PROGRAMER:         Eric Kohl
+ * PROGRAMER:         Eric Kohl (ekohl@rz-online.de)
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <windows.h>
 #include <commctrl.h>
-#include <setupapi.h>
 
 #include "globals.h"
 
@@ -48,11 +47,7 @@ DllMain (HINSTANCE hInstance,
 {
   if (dwReason == DLL_PROCESS_ATTACH)
   {
-    INITCOMMONCONTROLSEX InitControls;
-
-    InitControls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    InitControls.dwICC = ICC_DATE_CLASSES | ICC_PROGRESS_CLASS | ICC_UPDOWN_CLASS;
-    InitCommonControlsEx(&InitControls);
+    InitCommonControls();
     hDllInstance = hInstance;
   }
 

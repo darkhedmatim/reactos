@@ -1,4 +1,4 @@
-/* $Id: kmap.c,v 1.35 2004/08/15 16:39:07 chorns Exp $
+/* $Id: kmap.c,v 1.32 2004/04/10 22:35:25 gdalsnes Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -9,7 +9,12 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ntoskrnl.h>
+#include <internal/pool.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -26,13 +31,16 @@ static RTL_BITMAP AllocMap;
 static KSPIN_LOCK AllocMapLock;
 static ULONG AllocMapHint = 0;
 
+extern PVOID MiKernelMapStart;
+extern ULONG MiKernelMapLength;
+
 /* FUNCTIONS ***************************************************************/
 
 VOID
 ExUnmapPage(PVOID Addr)
 {
    KIRQL oldIrql;
-   ULONG Base = ((char*)Addr - (char*)MM_KERNEL_MAP_BASE) / PAGE_SIZE;
+   ULONG Base = ((char*)Addr - (char*)MiKernelMapStart) / PAGE_SIZE;
 
    DPRINT("ExUnmapPage(Addr %x)\n",Addr);
 
@@ -46,24 +54,24 @@ ExUnmapPage(PVOID Addr)
 PVOID
 ExAllocatePage(VOID)
 {
-   PFN_TYPE Page;
+   PHYSICAL_ADDRESS PhysPage;
    NTSTATUS Status;
 
-   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, &Page);
+   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, &PhysPage);
    if (!NT_SUCCESS(Status))
    {
       return(NULL);
    }
 
-   return(ExAllocatePageWithPhysPage(Page));
+   return(ExAllocatePageWithPhysPage(PhysPage));
 }
 
 NTSTATUS
-MiZeroPage(PFN_TYPE Page)
+MiZeroPage(PHYSICAL_ADDRESS PhysPage)
 {
    PVOID TempAddress;
 
-   TempAddress = ExAllocatePageWithPhysPage(Page);
+   TempAddress = ExAllocatePageWithPhysPage(PhysPage);
    if (TempAddress == NULL)
    {
       return(STATUS_NO_MEMORY);
@@ -74,11 +82,11 @@ MiZeroPage(PFN_TYPE Page)
 }
 
 NTSTATUS
-MiCopyFromUserPage(PFN_TYPE DestPage, PVOID SourceAddress)
+MiCopyFromUserPage(PHYSICAL_ADDRESS DestPhysPage, PVOID SourceAddress)
 {
    PVOID TempAddress;
 
-   TempAddress = ExAllocatePageWithPhysPage(DestPage);
+   TempAddress = ExAllocatePageWithPhysPage(DestPhysPage);
    if (TempAddress == NULL)
    {
       return(STATUS_NO_MEMORY);
@@ -89,7 +97,7 @@ MiCopyFromUserPage(PFN_TYPE DestPage, PVOID SourceAddress)
 }
 
 PVOID
-ExAllocatePageWithPhysPage(PFN_TYPE Page)
+ExAllocatePageWithPhysPage(PHYSICAL_ADDRESS PhysPage)
 {
    KIRQL oldlvl;
    PVOID Addr;
@@ -102,12 +110,12 @@ ExAllocatePageWithPhysPage(PFN_TYPE Page)
    {
       AllocMapHint = Base + 1;
       KeReleaseSpinLock(&AllocMapLock, oldlvl);
-      Addr = (char*)MM_KERNEL_MAP_BASE + Base * PAGE_SIZE;
+      Addr = (char*)MiKernelMapStart + Base * PAGE_SIZE;
       Status = MmCreateVirtualMapping(NULL,
                                       Addr,
                                       PAGE_READWRITE | PAGE_SYSTEM,
-                                      &Page,
-                                      1);
+                                      PhysPage,
+                                      TRUE);
       if (!NT_SUCCESS(Status))
       {
          DbgPrint("Unable to create virtual mapping\n");
@@ -131,7 +139,7 @@ VOID
 MiFreeNonPagedPoolRegion(PVOID Addr, ULONG Count, BOOLEAN Free)
 {
    ULONG i;
-   ULONG Base = ((char*)Addr - (char*)MM_KERNEL_MAP_BASE) / PAGE_SIZE;
+   ULONG Base = ((char*)Addr - (char*)MiKernelMapStart) / PAGE_SIZE;
    KIRQL oldlvl;
 
    for (i = 0; i < Count; i++)
@@ -170,7 +178,7 @@ MiAllocNonPagedPoolRegion(ULONG nr_pages)
    }
    KeReleaseSpinLock(&AllocMapLock, oldlvl);
    //DPRINT("returning %x\n",NonPagedPoolBase + Base * PAGE_SIZE);
-   return (char*)MM_KERNEL_MAP_BASE + Base * PAGE_SIZE;
+   return (char*)MiKernelMapStart + Base * PAGE_SIZE;
 }
 
 

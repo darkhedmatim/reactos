@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: paint.c,v 1.21 2004/12/14 04:55:43 royce Exp $
+/* $Id: paint.c,v 1.19 2004/05/10 17:07:17 weiden Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -33,32 +33,28 @@ BOOL STDCALL FillSolid(SURFOBJ *Surface, PRECTL pRect, ULONG iColor)
 {
   LONG y;
   ULONG LineWidth;
+  SURFGDI *SurfaceGDI;
 
-  ASSERT ( Surface );
-  ASSERT ( pRect );
-  MouseSafetyOnDrawStart(Surface, pRect->left, pRect->top, pRect->right, pRect->bottom);
+  SurfaceGDI = (SURFGDI*)AccessInternalObjectFromUserObject(Surface);
+  MouseSafetyOnDrawStart(Surface, SurfaceGDI, pRect->left, pRect->top, pRect->right, pRect->bottom);
   LineWidth  = pRect->right - pRect->left;
   DPRINT(" LineWidth: %d, top: %d, bottom: %d\n", LineWidth, pRect->top, pRect->bottom);
   for (y = pRect->top; y < pRect->bottom; y++)
   {
-    DibFunctionsForBitmapFormat[Surface->iBitmapFormat].DIB_HLine(
-      Surface, pRect->left, pRect->right, y, iColor);
+    SurfaceGDI->DIB_HLine(Surface, pRect->left, pRect->right, y, iColor);
   }
-  MouseSafetyOnDrawEnd(Surface);
+  MouseSafetyOnDrawEnd(Surface, SurfaceGDI);
 
   return TRUE;
 }
 
 BOOL STDCALL
 EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
-            BRUSHOBJ *BrushObj, POINTL *BrushPoint)
+               BRUSHINST *BrushInst, POINTL *BrushPoint)
 {
   RECT_ENUM RectEnum;
   BOOL EnumMore;
   ULONG i;
-
-  ASSERT(Surface);
-  ASSERT(ClipRegion);
 
   DPRINT("ClipRegion->iMode:%d, ClipRegion->iDComplexity: %d\n Color: %d", ClipRegion->iMode, ClipRegion->iDComplexity, iColor);
   switch(ClipRegion->iMode) {
@@ -105,33 +101,36 @@ EngPaint(IN SURFOBJ *Surface,
   BOOLEAN ret;
 
   // FIXME: We only support a brush's solid color attribute
-  ret = EngPaintRgn(Surface, ClipRegion, Brush->iSolidColor, Mix, Brush, BrushOrigin);
+  ret = EngPaintRgn(Surface, ClipRegion, Brush->iSolidColor, Mix, NULL, BrushOrigin);
 
   return ret;
 }
 
 BOOL STDCALL
-IntEngPaint(IN BITMAPOBJ *BitmapObj,
-            IN CLIPOBJ *ClipRegion,
-            IN BRUSHOBJ *Brush,
-            IN POINTL *BrushOrigin,
-            IN MIX  Mix)
+IntEngPaint(IN SURFOBJ *Surface,
+	 IN CLIPOBJ *ClipRegion,
+	 IN BRUSHOBJ *Brush,
+	 IN POINTL *BrushOrigin,
+	 IN MIX  Mix)
 {
-  SURFOBJ *Surface = &BitmapObj->SurfObj;
+  SURFGDI *SurfGDI;
   BOOL ret;
 
-  DPRINT("SurfGDI type: %d\n", Surface->iType);
-  /* Is the surface's Paint function hooked? */
-  if((Surface->iType!=STYPE_BITMAP) && (BitmapObj->flHooks & HOOK_PAINT))
+  // Is the surface's Paint function hooked?
+  SurfGDI = (SURFGDI*)AccessInternalObjectFromUserObject(Surface);
+
+  DPRINT("SurfGDI type: %d, sgdi paint: %x\n", Surface->iType, SurfGDI->Paint);
+  if((Surface->iType!=STYPE_BITMAP) && (SurfGDI->Paint!=NULL))
   {
     // Call the driver's DrvPaint
-    MouseSafetyOnDrawStart(Surface, ClipRegion->rclBounds.left,
+    MouseSafetyOnDrawStart(Surface, SurfGDI, ClipRegion->rclBounds.left,
 	                         ClipRegion->rclBounds.top, ClipRegion->rclBounds.right,
 							 ClipRegion->rclBounds.bottom);
 
-    ret = GDIDEVFUNCS(Surface).Paint(
-      Surface, ClipRegion, Brush, BrushOrigin, Mix);
-    MouseSafetyOnDrawEnd(Surface);
+    IntLockGDIDriver(SurfGDI);
+    ret = SurfGDI->Paint(Surface, ClipRegion, Brush, BrushOrigin, Mix);
+    IntUnLockGDIDriver(SurfGDI);
+    MouseSafetyOnDrawEnd(Surface, SurfGDI);
     return ret;
   }
   return EngPaint( Surface, ClipRegion, Brush, BrushOrigin, Mix );

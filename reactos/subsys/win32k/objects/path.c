@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: path.c,v 1.24 2004/07/14 20:48:58 navaraf Exp $ */
+/* $Id: path.c,v 1.21 2004/05/10 17:07:20 weiden Exp $ */
 #include <w32k.h>
 #include <win32k/float.h>
 
@@ -43,7 +43,6 @@ STDCALL
 NtGdiAbortPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -51,7 +50,6 @@ STDCALL
 NtGdiBeginPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -83,7 +81,6 @@ STDCALL
 NtGdiEndPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -91,7 +88,6 @@ STDCALL
 NtGdiFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -99,7 +95,6 @@ STDCALL
 NtGdiFlattenPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 
@@ -109,7 +104,6 @@ NtGdiGetMiterLimit(HDC  hDC,
                         PFLOAT  Limit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 INT
@@ -120,7 +114,6 @@ NtGdiGetPath(HDC  hDC,
                  INT  nSize)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HRGN
@@ -128,7 +121,6 @@ STDCALL
 NtGdiPathToRegion(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
@@ -138,7 +130,6 @@ NtGdiSetMiterLimit(HDC  hDC,
                         PFLOAT  OldLimit)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -146,7 +137,6 @@ STDCALL
 NtGdiStrokeAndFillPath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -154,7 +144,6 @@ STDCALL
 NtGdiStrokePath(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -162,7 +151,6 @@ STDCALL
 NtGdiWidenPath(HDC  hDC)
 {
    UNIMPLEMENTED;
-   return FALSE;
 }
 
 /***********************************************************************
@@ -415,6 +403,7 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
    INT xStart, INT yStart, INT xEnd, INT yEnd)
 {
   GdiPath *pPath;
+  DC      *pDC;
   double  angleStart, angleEnd, angleStartQuadrant, angleEndQuadrant=0.0;
           /* Initialize angleEndQuadrant to silence gcc's warning */
   double  x, y;
@@ -453,10 +442,10 @@ PATH_Arc ( PDC dc, INT x1, INT y1, INT x2, INT y2,
   pointStart.y=(FLOAT)yStart;
   pointEnd.x=(FLOAT)xEnd;
   pointEnd.y=(FLOAT)yEnd;
-  INTERNAL_LPTODP_FLOAT(dc, corners);
-  INTERNAL_LPTODP_FLOAT(dc, corners+1);
-  INTERNAL_LPTODP_FLOAT(dc, &pointStart);
-  INTERNAL_LPTODP_FLOAT(dc, &pointEnd);
+  INTERNAL_LPTODP_FLOAT(pDC, corners);
+  INTERNAL_LPTODP_FLOAT(pDC, corners+1);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointStart);
+  INTERNAL_LPTODP_FLOAT(pDC, &pointEnd);
 
   /* Make sure first corner is top left and second corner is bottom right */
   if ( corners[0].x > corners[1].x )
@@ -863,7 +852,7 @@ PATH_PathToRegion ( const GdiPath *pPath, INT nPolyFillMode, HRGN *pHrgn )
       numStrokes++;
 
   /* Allocate memory for number-of-points-in-stroke array */
-  pNumPointsInStroke=(int *)ExAllocatePoolWithTag(PagedPool, sizeof(int) * numStrokes, TAG_PATH);
+  pNumPointsInStroke=(int *)ExAllocatePoolWithTag(NonPagedPool, sizeof(int) * numStrokes, TAG_PATH);
   if(!pNumPointsInStroke)
   {
 //    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
@@ -986,10 +975,10 @@ PATH_ReserveEntries ( GdiPath *pPath, INT numEntries )
        numEntriesToAllocate=numEntries;
 
     /* Allocate new arrays */
-    pPointsNew=(POINT *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(POINT), TAG_PATH);
+    pPointsNew=(POINT *)ExAllocatePoolWithTag(NonPagedPool, numEntriesToAllocate * sizeof(POINT), TAG_PATH);
     if(!pPointsNew)
       return FALSE;
-    pFlagsNew=(BYTE *)ExAllocatePoolWithTag(PagedPool, numEntriesToAllocate * sizeof(BYTE), TAG_PATH);
+    pFlagsNew=(BYTE *)ExAllocatePoolWithTag(NonPagedPool, numEntriesToAllocate * sizeof(BYTE), TAG_PATH);
     if(!pFlagsNew)
     {
       ExFreePool(pPointsNew);

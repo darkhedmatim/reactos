@@ -1,7 +1,7 @@
 #ifndef __DEVMGR_H
 #define __DEVMGR_H
 
-extern HINSTANCE hDllInstance;
+HINSTANCE hDllInstance;
 
 WINBOOL
 WINAPI

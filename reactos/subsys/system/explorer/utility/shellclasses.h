@@ -45,13 +45,6 @@ using namespace _com_util;
 #endif
 #endif
 
- // work around GCC's wide string constant bug when compiling inline functions
-#ifdef __GNUC__
-extern const LPCTSTR sCFSTR_SHELLIDLIST;
-#undef CFSTR_SHELLIDLIST
-#define	CFSTR_SHELLIDLIST sCFSTR_SHELLIDLIST
-#endif
-
 
  // Exception Handling
 
@@ -85,7 +78,7 @@ struct COMExceptionBase
 				LocalFree(pBuf);
 			 } else {
 				TCHAR buffer[128];
-				_stprintf(buffer, TEXT("unknown Exception: 0x%08lX"), _hr);
+				_stprintf(buffer, TEXT("unknown Exception: 0x%08X"), _hr);
 				_msg = buffer;
 			 }
 		}

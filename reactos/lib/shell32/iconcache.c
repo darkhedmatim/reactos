@@ -27,14 +27,14 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
+#include "wine/winuser16.h"
+#include "wine/winbase16.h"
+#include "heap.h"
 #include "wine/debug.h"
 
 #include "shellapi.h"
@@ -102,7 +102,7 @@ static INT SIC_IconAppend (LPCWSTR sSourceFile, INT dwSourceIndex, HICON hSmallI
 
 	lpsice = (LPSIC_ENTRY) SHAlloc (sizeof (SIC_ENTRY));
 
-       GetFullPathNameW(sSourceFile, MAX_PATH, path, NULL);
+	GetFullPathNameW(sSourceFile, MAX_PATH, path, NULL);
 	lpsice->sSourceFile = HeapAlloc( GetProcessHeap(), 0, (strlenW(path)+1)*sizeof(WCHAR) );
 	strcpyW( lpsice->sSourceFile, path );
 
@@ -211,6 +211,29 @@ INT SIC_GetIconIndex (LPCWSTR sSourceFile, INT dwSourceIndex )
 	LeaveCriticalSection(&SHELL32_SicCS);
 	return ret;
 }
+/****************************************************************************
+ * SIC_GetIcon				[internal]
+ *
+ * NOTES
+ *  retrieves the specified icon from the iconcache.
+ */
+static HICON WINE_UNUSED SIC_GetIcon (LPCWSTR sSourceFile, INT dwSourceIndex, BOOL bSmallIcon )
+{	INT index;
+
+	TRACE("%s %i\n", debugstr_w(sSourceFile), dwSourceIndex);
+
+	index = SIC_GetIconIndex(sSourceFile, dwSourceIndex);
+
+	if (INVALID_INDEX == index)
+	{
+	  return (HICON)INVALID_INDEX;
+	}
+
+	if (bSmallIcon)
+	  return ImageList_GetIcon(ShellSmallIconList, index, ILD_NORMAL);
+
+	return ImageList_GetIcon(ShellBigIconList, index, ILD_NORMAL);
+}
 /*****************************************************************************
  * SIC_Initialize			[internal]
  *
@@ -286,15 +309,10 @@ void SIC_Destroy(void)
 	if (sic_hdpa) DPA_DestroyCallback(sic_hdpa, sic_free, NULL );
 
 	sic_hdpa = NULL;
-	ImageList_Destroy(ShellSmallIconList);
-	ShellSmallIconList = 0;
-	ImageList_Destroy(ShellBigIconList);
-	ShellBigIconList = 0;
 
 	LeaveCriticalSection(&SHELL32_SicCS);
 	DeleteCriticalSection(&SHELL32_SicCS);
 }
-
 /*************************************************************************
  * Shell_GetImageList			[SHELL32.71]
  *
@@ -313,6 +331,7 @@ BOOL WINAPI Shell_GetImageList(HIMAGELIST * lpBigList, HIMAGELIST * lpSmallList)
 
 	return TRUE;
 }
+
 /*************************************************************************
  * PidlToSicIndex			[INTERNAL]
  *
@@ -353,7 +372,6 @@ BOOL PidlToSicIndex (
 	  *pIndex = 0;
 
 	return ret;
-
 }
 
 /*************************************************************************
@@ -431,7 +449,7 @@ UINT WINAPI ExtractIconExAW(LPCVOID lpszFile, INT nIconIndex, HICON * phiconLarg
 
 /*************************************************************************
  * ExtractIconExW			[SHELL32.@]
- * RETURNS
+ * RETURNS: 
  *  0 no icon found
  *  -1 file is not valid
  *  or number of icons extracted
@@ -510,12 +528,8 @@ HICON WINAPI ExtractAssociatedIconA(HINSTANCE hInst, LPSTR lpIconPath, LPWORD lp
 	  else
 	    *lpiIcon = 6;   /* generic icon - found nothing */
 
-	  if (GetModuleFileNameA(hInst, lpIconPath, 0x80))
-          {
-              /* terminate string (GetModuleFileName doesn't do if buffer is too small) */
-              lpIconPath[0x80 - 1] = '\0';
-              hIcon = LoadIconA( hInst, MAKEINTRESOURCEA(*lpiIcon));
-          }
+	  GetModuleFileNameA(hInst, lpIconPath, 0x80);
+	  hIcon = LoadIconA( hInst, MAKEINTRESOURCEA(*lpiIcon));
 	}
 	return hIcon;
 }

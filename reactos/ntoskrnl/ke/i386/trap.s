@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: trap.s,v 1.21 2004/11/20 23:46:36 blight Exp $
+/* $Id: trap.s,v 1.19 2004/03/13 18:21:57 dwelch Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/trap.s
@@ -98,6 +98,9 @@ _KiTrapProlog:
 	/* Save the old exception list */
 	movl    %fs:KPCR_EXCEPTION_LIST, %ebx
 	pushl	%ebx
+	
+	/* Put the exception handler chain terminator */
+	movl    $0xffffffff, %fs:KPCR_EXCEPTION_LIST
 	
 	/* Get a pointer to the current thread */
 	movl    %fs:KPCR_CURRENT_THREAD, %edi
@@ -353,33 +356,6 @@ _KiTrap16:
 	movl	$16, %esi
 	jmp	_KiTrapProlog
 	 
-.globl _KiTrap17
-_KiTrap17:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$17, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap18
-_KiTrap18:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$18, %esi
-	jmp	_KiTrapProlog
-
-.globl _KiTrap19
-_KiTrap19:
-	pushl	$0
-	pushl	%ebp
-	pushl	%ebx
-	pushl	%esi
-	movl	$19, %esi
-	jmp	_KiTrapProlog
-
 .globl _KiTrapUnknown
 _KiTrapUnknown:
         pushl	$0

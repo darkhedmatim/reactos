@@ -7,9 +7,17 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "precomp.h"
-
+#include <roscfg.h>
+#include <tcpip.h>
+#include <datagram.h>
+#include <address.h>
+#include <pool.h>
+#include <rawip.h>
+#include <tcp.h>
+#include <udp.h>
+#include <ip.h>
+#include <fileobjs.h>
+#include <oskittcp.h>
 
 /* List of all address file objects managed by this driver */
 LIST_ENTRY AddressFileListHead;
@@ -19,86 +27,6 @@ KSPIN_LOCK AddressFileListLock;
 LIST_ENTRY ConnectionEndpointListHead;
 KSPIN_LOCK ConnectionEndpointListLock;
 
-/*
- * FUNCTION: Searches through address file entries to find the first match
- * ARGUMENTS:
- *     Address       = IP address
- *     Port          = Port number
- *     Protocol      = Protocol number
- *     SearchContext = Pointer to search context
- * RETURNS:
- *     Pointer to address file, NULL if none was found
- */
-PADDRESS_FILE AddrSearchFirst(
-    PIP_ADDRESS Address,
-    USHORT Port,
-    USHORT Protocol,
-    PAF_SEARCH SearchContext)
-{
-    SearchContext->Address  = Address;
-    SearchContext->Port     = Port;
-    SearchContext->Next     = AddressFileListHead.Flink;
-    SearchContext->Protocol = Protocol;
-
-    return AddrSearchNext(SearchContext);
-}
-
-/*
- * FUNCTION: Searches through address file entries to find next match
- * ARGUMENTS:
- *     SearchContext = Pointer to search context
- * RETURNS:
- *     Pointer to address file, NULL if none was found
- */
-PADDRESS_FILE AddrSearchNext(
-    PAF_SEARCH SearchContext)
-{
-    PLIST_ENTRY CurrentEntry;
-    PIP_ADDRESS IPAddress;
-    KIRQL OldIrql;
-    PADDRESS_FILE Current = NULL;
-    BOOLEAN Found = FALSE;
-
-    if (IsListEmpty(SearchContext->Next))
-        return NULL;
-
-    CurrentEntry = SearchContext->Next;
-
-    TcpipAcquireSpinLock(&AddressFileListLock, &OldIrql);
-
-    while (CurrentEntry != &AddressFileListHead) {
-        Current = CONTAINING_RECORD(CurrentEntry, ADDRESS_FILE, ListEntry);
-
-        IPAddress = &Current->Address;
-
-        TI_DbgPrint(DEBUG_ADDRFILE, ("Comparing: ((%d, %d, %s), (%d, %d, %s)).\n",
-            WN2H(Current->Port),
-            Current->Protocol,
-            A2S(IPAddress),
-            WN2H(SearchContext->Port),
-            SearchContext->Protocol,
-            A2S(SearchContext->Address)));
-
-        /* See if this address matches the search criteria */
-        if (((Current->Port    == SearchContext->Port) &&
-            (Current->Protocol == SearchContext->Protocol) &&
-            (AddrIsEqual(IPAddress, SearchContext->Address))) ||
-            (AddrIsUnspecified(IPAddress))) {
-            /* We've found a match */
-            Found = TRUE;
-            break;
-        }
-        CurrentEntry = CurrentEntry->Flink;
-    }
-
-    TcpipReleaseSpinLock(&AddressFileListLock, OldIrql);
-
-    if (Found) {
-        SearchContext->Next = CurrentEntry->Flink;
-        return Current;
-    } else
-        return NULL;
-}
 
 VOID AddrFileFree(
     PVOID Object)
@@ -124,7 +52,8 @@ VOID ControlChannelFree(
 }
 
 
-VOID DeleteAddress(PADDRESS_FILE AddrFile)
+VOID DeleteAddress(
+  PADDRESS_FILE AddrFile)
 /*
  * FUNCTION: Deletes an address file object
  * ARGUMENTS:
@@ -140,11 +69,11 @@ VOID DeleteAddress(PADDRESS_FILE AddrFile)
   TI_DbgPrint(MID_TRACE, ("Called.\n"));
 
   /* Remove address file from the global list */
-  TcpipAcquireSpinLock(&AddressFileListLock, &OldIrql);
+  KeAcquireSpinLock(&AddressFileListLock, &OldIrql);
   RemoveEntryList(&AddrFile->ListEntry);
-  TcpipReleaseSpinLock(&AddressFileListLock, OldIrql);
+  KeReleaseSpinLock(&AddressFileListLock, OldIrql);
 
-  TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+  KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
 
   /* FIXME: Kill TCP connections on this address file object */
 
@@ -158,9 +87,10 @@ VOID DeleteAddress(PADDRESS_FILE AddrFile)
     NextEntry = CurrentEntry->Flink;
     ReceiveRequest = CONTAINING_RECORD(CurrentEntry, DATAGRAM_RECEIVE_REQUEST, ListEntry);
     /* Abort the request and free its resources */
-    TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
     (*ReceiveRequest->Complete)(ReceiveRequest->Context, STATUS_ADDRESS_CLOSED, 0);
-    TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+    ExFreePool(ReceiveRequest);
+    KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
     CurrentEntry = NextEntry;
   }
 
@@ -173,15 +103,30 @@ VOID DeleteAddress(PADDRESS_FILE AddrFile)
     SendRequest = CONTAINING_RECORD(CurrentEntry, 
 				    DATAGRAM_SEND_REQUEST, ListEntry);
     /* Abort the request and free its resources */
-    TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
     (*SendRequest->Complete)(SendRequest->Context, STATUS_ADDRESS_CLOSED, 0);
     ExFreePool(SendRequest);
-    TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+    KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
     CurrentEntry = NextEntry;
   }
 
-  TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+  KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
 
+  /* Dereference address entry */
+  DereferenceObject(AddrFile->ADE);
+
+  /* Dereference address cache */
+  if (AddrFile->AddrCache)
+    DereferenceObject(AddrFile->AddrCache);
+
+#ifdef DBG
+  /* Remove reference provided at creation time */
+  AddrFile->RefCount--;
+
+  if (AddrFile->RefCount != 0)
+    TI_DbgPrint(DEBUG_REFCOUNT, ("AddrFile->RefCount is (%d) (should be 0).\n", AddrFile->RefCount));
+#endif
+  
   (*AddrFile->Free)(AddrFile);
 
   TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
@@ -197,18 +142,117 @@ VOID DeleteConnectionEndpoint(
   PCONNECTION_ENDPOINT Connection)
 {
   KIRQL OldIrql;
+  PLIST_ENTRY CurrentEntry;
+  PLIST_ENTRY NextEntry;
 
   TI_DbgPrint(MID_TRACE, ("Called.\n"));
 
   /* Remove connection endpoint from the global list */
-  TcpipAcquireSpinLock(&ConnectionEndpointListLock, &OldIrql);
+  KeAcquireSpinLock(&ConnectionEndpointListLock, &OldIrql);
   RemoveEntryList(&Connection->ListEntry);
-  TcpipReleaseSpinLock(&ConnectionEndpointListLock, OldIrql);
+  KeReleaseSpinLock(&ConnectionEndpointListLock, OldIrql);
+
+  KeAcquireSpinLock(&Connection->Lock, &OldIrql);
+
+  /* Dereference and remove the address file if it exists */
+  if (Connection->AddressFile) {
+    DereferenceObject(Connection->AddressFile);
+  }
+
+  KeReleaseSpinLock(&Connection->Lock, OldIrql);
+
+#ifdef DBG
+  /* Remove reference provided at creation time */
+  Connection->RefCount--;
+
+  if (Connection->RefCount != 0)
+    TI_DbgPrint(DEBUG_REFCOUNT, ("Connection->RefCount is (%d) (should be 0).\n",
+      Connection->RefCount));
+#endif
 
   ExFreePool(Connection);
 
   TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
+
+
+VOID STDCALL RequestWorker(
+  PVOID Context)
+/*
+ * FUNCTION: Worker routine for processing address file object requests
+ * ARGUMENTS:
+ *     Context = Pointer to context information (ADDRESS_FILE)
+ */
+{
+  KIRQL OldIrql;
+  PLIST_ENTRY CurrentEntry;
+  PADDRESS_FILE AddrFile = Context;
+
+  TI_DbgPrint(MID_TRACE, ("Called.\n"));
+
+  KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+
+  /* Check it the address file should be deleted */
+  if (AF_IS_PENDING(AddrFile, AFF_DELETE)) {
+    DATAGRAM_COMPLETION_ROUTINE RtnComplete;
+    PVOID RtnContext;
+
+    RtnComplete = AddrFile->Complete;
+    RtnContext  = AddrFile->Context;
+
+    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+    DeleteAddress(AddrFile);
+
+    (*RtnComplete)(RtnContext, TDI_SUCCESS, 0);
+
+    TI_DbgPrint(MAX_TRACE, ("Leaving (delete).\n"));
+
+    return;
+  }
+
+  /* Check if there is a pending send request */
+  if (AF_IS_PENDING(AddrFile, AFF_SEND)) {
+    if (!IsListEmpty(&AddrFile->TransmitQueue)) {
+      PDATAGRAM_SEND_REQUEST SendRequest;
+
+      CurrentEntry = RemoveHeadList(&AddrFile->TransmitQueue);
+      SendRequest  = CONTAINING_RECORD(CurrentEntry, DATAGRAM_SEND_REQUEST, ListEntry);
+
+      AF_CLR_BUSY(AddrFile);
+
+      ReferenceObject(AddrFile);
+
+      KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+      /* The send routine processes the send requests in
+         the transmit queue on the address file. When the
+         queue is empty the pending send flag is cleared.
+         The routine may return with the pending send flag
+         set. This can happen if there was not enough free
+         resources available to complete all send requests */
+      DGSend(AddrFile, SendRequest);
+
+      KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+      DereferenceObject(AddrFile);
+      KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+      TI_DbgPrint(MAX_TRACE, ("Leaving (send request).\n"));
+
+      return;
+    } else
+      /* There was a pending send, but no send request.
+         Print a debug message and continue */
+      TI_DbgPrint(MIN_TRACE, ("Pending send, but no send request.\n"));
+  }
+
+  AF_CLR_BUSY(AddrFile);
+
+  KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+  TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
+}
+
 
 /*
  * FUNCTION: Open an address file object
@@ -226,11 +270,10 @@ NTSTATUS FileOpenAddress(
   USHORT Protocol,
   PVOID Options)
 {
-  IPv4_RAW_ADDRESS IPv4Address;
-  BOOLEAN Matched;
   PADDRESS_FILE AddrFile;
+  IPv4_RAW_ADDRESS IPv4Address;
 
-  TI_DbgPrint(MID_TRACE, ("Called (Proto %d).\n", Protocol));
+  TI_DbgPrint(MID_TRACE, ("Called.\n"));
 
   AddrFile = ExAllocatePool(NonPagedPool, sizeof(ADDRESS_FILE));
   if (!AddrFile) {
@@ -249,37 +292,34 @@ NTSTATUS FileOpenAddress(
   /* Locate address entry. If specified address is 0, a random address is chosen */
 
   /* FIXME: IPv4 only */
-  AddrFile->Family = Address->Address[0].AddressType;
   IPv4Address = Address->Address[0].Address[0].in_addr;
   if (IPv4Address == 0)
-      Matched = IPGetDefaultAddress(&AddrFile->Address);
+    AddrFile->ADE = IPGetDefaultADE(ADE_UNICAST);
   else
-      Matched = AddrLocateADEv4(IPv4Address, &AddrFile->Address);
+    AddrFile->ADE = AddrLocateADEv4(IPv4Address);
 
-  if (!Matched) {
+  if (!AddrFile->ADE) {
     ExFreePool(AddrFile);
     TI_DbgPrint(MIN_TRACE, ("Non-local address given (0x%X).\n", DN2H(IPv4Address)));
     return STATUS_INVALID_PARAMETER;
   }
 
-  TI_DbgPrint(MID_TRACE, ("Opening address %s for communication (P=%d U=%d).\n",
-    A2S(&AddrFile->Address), Protocol, IPPROTO_UDP));
+  TI_DbgPrint(MID_TRACE, ("Opening address %s for communication.\n",
+    A2S(AddrFile->ADE->Address)));
 
   /* Protocol specific handling */
   switch (Protocol) {
   case IPPROTO_TCP:
     /* FIXME: If specified port is 0, a port is chosen dynamically */
-    AddrFile->Port = TCPAllocatePort(Address->Address[0].Address[0].sin_port);
-    AddrFile->Send = NULL; /* TCPSendData */
+    AddrFile->Port = Address->Address[0].Address[0].sin_port;
+    AddrFile->Send = TCPSendData;
     break;
 
   case IPPROTO_UDP:
-      TI_DbgPrint(MID_TRACE,("Allocating udp port\n"));
-      AddrFile->Port = 
-	  UDPAllocatePort(Address->Address[0].Address[0].sin_port);
-      TI_DbgPrint(MID_TRACE,("Setting port %d\n", AddrFile->Port));
-      AddrFile->Send = UDPSendDatagram;
-      break;
+    /* FIXME: If specified port is 0, a port is chosen dynamically */
+    AddrFile->Port = Address->Address[0].Address[0].sin_port;
+    AddrFile->Send = UDPSendDatagram;
+    break;
 
   default:
     /* Use raw IP for all other protocols */
@@ -301,8 +341,14 @@ NTSTATUS FileOpenAddress(
   InitializeListHead(&AddrFile->ReceiveQueue);
   InitializeListHead(&AddrFile->TransmitQueue);
 
+  /* Initialize work queue item. We use this for pending requests */
+  ExInitializeWorkItem(&AddrFile->WorkItem, RequestWorker, AddrFile);
+
   /* Initialize spin lock that protects the address file object */
   KeInitializeSpinLock(&AddrFile->Lock);
+
+  /* Reference the object */
+  AddrFile->RefCount = 1;
 
   /* Set valid flag so the address can be used */
   AF_SET_VALID(AddrFile);
@@ -340,29 +386,42 @@ NTSTATUS FileCloseAddress(
 
   AddrFile = Request->Handle.AddressHandle;
 
-  TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+  KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
 
-  /* Set address file object exclusive to us */
-  AF_SET_BUSY(AddrFile);
-  AF_CLR_VALID(AddrFile);
-  
-  TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+  if ((!AF_IS_BUSY(AddrFile)) && (AddrFile->RefCount == 1)) {
+    /* Set address file object exclusive to us */
+    AF_SET_BUSY(AddrFile);
+    AF_CLR_VALID(AddrFile);
 
-  /* Protocol specific handling */
-  switch (AddrFile->Protocol) {
-  case IPPROTO_TCP:
-    TCPFreePort( AddrFile->Port );
-    if( AddrFile->Listener ) 
-	TCPClose( AddrFile->Listener );
-    break;
+    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
 
-  case IPPROTO_UDP:
-    UDPFreePort( AddrFile->Port );
-    break;
+    DeleteAddress(AddrFile);
+  } else {
+    if (!AF_IS_PENDING(AddrFile, AFF_DELETE)) {
+      AddrFile->Complete = Request->RequestNotifyObject;
+      AddrFile->Context  = Request->RequestContext;
+
+      /* Shedule address file for deletion */
+      AF_SET_PENDING(AddrFile, AFF_DELETE);
+      AF_CLR_VALID(AddrFile);
+
+      if (!AF_IS_BUSY(AddrFile)) {
+        /* Worker function is not running, so shedule it to run */
+        AF_SET_BUSY(AddrFile);
+        KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+        ExQueueWorkItem(&AddrFile->WorkItem, CriticalWorkQueue);
+      } else
+        KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+      TI_DbgPrint(MAX_TRACE, ("Leaving (pending).\n"));
+
+      return STATUS_PENDING;
+    } else
+      Status = STATUS_ADDRESS_CLOSED;
+
+    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
   }
-  
-  DeleteAddress(AddrFile);
-  
+
   TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 
   return Status;
@@ -383,14 +442,43 @@ NTSTATUS FileOpenConnection(
 {
   NTSTATUS Status;
   PCONNECTION_ENDPOINT Connection;
+  PADDRESS_FILE AddrFile;
 
   TI_DbgPrint(MID_TRACE, ("Called.\n"));
-  
-  Connection = TCPAllocateConnectionEndpoint( ClientContext );
-  
-  if( !Connection ) return STATUS_NO_MEMORY;
 
-  Status = TCPSocket( Connection, AF_INET, SOCK_STREAM, IPPROTO_TCP );
+  Connection = ExAllocatePool(NonPagedPool, sizeof(CONNECTION_ENDPOINT));
+  if (!Connection)
+    return STATUS_INSUFFICIENT_RESOURCES;
+
+  TI_DbgPrint(DEBUG_CPOINT, ("Connection point file object allocated at (0x%X).\n", Connection));
+
+  RtlZeroMemory(Connection, sizeof(CONNECTION_ENDPOINT));
+
+  /* Initialize spin lock that protects the connection endpoint file object */
+  KeInitializeSpinLock(&Connection->Lock);
+
+  /* Reference the object */
+  Connection->RefCount = 1;
+
+  /* Save client context pointer */
+  Connection->ClientContext = ClientContext;
+  Status = OskitTCPSocket( Connection,
+			   &Connection->SocketContext,
+			   AF_INET,
+			   SOCK_STREAM,
+			   IPPROTO_TCP );
+  DbgPrint("STATUS from OSKITTCP was %08x\n", Status);
+  
+  /* Initialize receive requests queue */
+  InitializeListHead(&Connection->ReceiveRequests);
+
+  /* Initialize received segments queue */
+  InitializeListHead(&Connection->ReceivedSegments);
+
+TI_DbgPrint(MIN_TRACE, ("X1 cur 0x%x\n", &Connection->ReceivedSegments));
+TI_DbgPrint(MIN_TRACE, ("X1 Flink 0x%x\n", Connection->ReceivedSegments.Flink));
+TI_DbgPrint(MIN_TRACE, ("X1 Blink 0x%x\n", Connection->ReceivedSegments.Blink));
+
 
   /* Return connection endpoint file object */
   Request->Handle.ConnectionContext = Connection;
@@ -408,36 +496,6 @@ NTSTATUS FileOpenConnection(
 
 
 /*
- * FUNCTION: Find a connection by examining the context field.  This
- * is needed in some situations where a FIN reply is needed after a 
- * socket is formally broken.
- * ARGUMENTS:
- *     Request = Pointer to TDI request structure for this request
- * RETURNS:
- *     Status of operation
- */
-PCONNECTION_ENDPOINT FileFindConnectionByContext( PVOID Context ) {
-    PLIST_ENTRY Entry;
-    KIRQL OldIrql;
-    PCONNECTION_ENDPOINT Connection = NULL;
-
-    TcpipAcquireSpinLock( &ConnectionEndpointListLock, &OldIrql );
-
-    for( Entry = ConnectionEndpointListHead.Flink; 
-	 Entry != &ConnectionEndpointListHead;
-	 Entry = Entry->Flink ) { 
-	Connection = 
-	    CONTAINING_RECORD( Entry, CONNECTION_ENDPOINT, ListEntry );
-	if( Connection->SocketContext == Context ) break;
-	else Connection = NULL;
-    }
-
-    TcpipReleaseSpinLock( &ConnectionEndpointListLock, OldIrql );
-
-    return Connection;
-}
-
-/*
  * FUNCTION: Closes an connection file object
  * ARGUMENTS:
  *     Request = Pointer to TDI request structure for this request
@@ -447,6 +505,7 @@ PCONNECTION_ENDPOINT FileFindConnectionByContext( PVOID Context ) {
 NTSTATUS FileCloseConnection(
   PTDI_REQUEST Request)
 {
+  KIRQL OldIrql;
   PCONNECTION_ENDPOINT Connection;
   NTSTATUS Status = STATUS_SUCCESS;
 
@@ -454,7 +513,7 @@ NTSTATUS FileCloseConnection(
 
   Connection = Request->Handle.ConnectionContext;
 
-  TCPClose(Connection);
+  TCPClose(Request);
   DeleteConnectionEndpoint(Connection);
 
   TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
@@ -495,6 +554,9 @@ NTSTATUS FileOpenControlChannel(
   /* Initialize spin lock that protects the address file object */
   KeInitializeSpinLock(&ControlChannel->Lock);
 
+  /* Reference the object */
+  ControlChannel->RefCount = 1;
+
   /* Return address file object */
   Request->Handle.ControlChannel = ControlChannel;
 
@@ -502,6 +564,7 @@ NTSTATUS FileOpenControlChannel(
 
   return STATUS_SUCCESS;
 }
+
 
 /*
  * FUNCTION: Closes a control channel file object
@@ -514,6 +577,7 @@ NTSTATUS FileCloseControlChannel(
   PTDI_REQUEST Request)
 {
   PCONTROL_CHANNEL ControlChannel = Request->Handle.ControlChannel;
+  KIRQL OldIrql;
   NTSTATUS Status = STATUS_SUCCESS;
 
   ExFreePool(ControlChannel);

@@ -1,4 +1,4 @@
-# $Id: makefile 8082 2004-02-07 18:53:59Z mf $
+# $Id: makefile,v 1.5 2004/02/07 18:53:58 mf Exp $
 
 PATH_TO_TOP = ../..
 

@@ -60,6 +60,11 @@ typedef struct _GUID {
 } GUID;
 #endif
 
+#ifndef _LPCGUID_DEFINED
+#define _LPCGUID_DEFINED
+typedef const GUID *LPCGUID;
+#endif
+
 typedef struct _SCSIWMIGUIDREGINFO {
   LPCGUID  Guid;
   ULONG  InstanceCount;

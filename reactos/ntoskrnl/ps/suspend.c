@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: suspend.c,v 1.16 2004/10/24 20:37:27 weiden Exp $
+/* $Id: suspend.c,v 1.14 2004/01/22 13:18:10 ekohl Exp $
  *
  * PROJECT:                ReactOS kernel
  * FILE:                   ntoskrnl/ps/suspend.c
@@ -26,7 +26,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -135,7 +140,7 @@ PsSuspendThread(PETHREAD Thread, PULONG PreviousSuspendCount)
 
 NTSTATUS STDCALL
 NtResumeThread(IN HANDLE ThreadHandle,
-	       IN PULONG SuspendCount  OPTIONAL)
+	       IN PULONG SuspendCount)
 /*
  * FUNCTION: Decrements a thread's resume count
  * ARGUMENTS: 
@@ -182,7 +187,7 @@ NtResumeThread(IN HANDLE ThreadHandle,
 
 NTSTATUS STDCALL
 NtSuspendThread(IN HANDLE ThreadHandle,
-		IN PULONG PreviousSuspendCount  OPTIONAL)
+		IN PULONG PreviousSuspendCount)
 /*
  * FUNCTION: Increments a thread's suspend count
  * ARGUMENTS: 

@@ -132,5 +132,5 @@ struct ExecuteDialog {	///@todo use class Dialog
 	TCHAR	cmd[MAX_PATH];
 	int		cmdshow;
 
-	static INT_PTR CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
+	static BOOL CALLBACK WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam);
 };

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rangelist.c,v 1.3 2004/10/22 16:30:58 navaraf Exp $
+/* $Id: rangelist.c,v 1.1 2004/05/24 12:05:54 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
@@ -26,7 +26,8 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -690,10 +691,8 @@ RtlIsRangeAvailable (IN PRTL_RANGE_LIST RangeList,
   while (Entry != &RangeList->ListHead)
     {
       Current = CONTAINING_RECORD (Entry, RTL_RANGE_ENTRY, Entry);
-      if (!((Current->Range.Start >= End && Current->Range.End > End) ||
-	    (Current->Range.Start <= Start && Current->Range.End < Start &&
-	     (!(Flags & RTL_RANGE_SHARED) ||
-	      !(Current->Range.Flags & RTL_RANGE_SHARED)))))
+      if (!((Current->Range.Start > End && Current->Range.End > End) ||
+	    (Current->Range.Start < Start && Current->Range.End < Start)))
 	{
 	  if (Callback != NULL)
 	    {

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: metric.c,v 1.23 2004/11/20 16:46:06 weiden Exp $
+/* $Id: metric.c,v 1.21 2004/05/14 23:57:32 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -68,13 +68,13 @@ NtUserGetSystemMetrics(ULONG Index)
     case SM_SWAPBUTTON:
     {
       PSYSTEM_CURSORINFO CurInfo;
-      Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+      Status = IntValidateWindowStationHandle(PROCESS_WINDOW_STATION(),
                                               KernelMode,
                                               0,
                                               &WinStaObject);
       if (!NT_SUCCESS(Status))
         return 0xFFFFFFFF;
-
+      
       CurInfo = IntGetSysCursorInfo(WinStaObject);
       switch(Index)
       {
@@ -88,11 +88,11 @@ NtUserGetSystemMetrics(ULONG Index)
           Result = (UINT)CurInfo->SwapButtons;
           break;
       }
-
+      
       ObDereferenceObject(WinStaObject);
       return Result;
     }
-
+    
     case SM_CXDRAG:
     case SM_CYDRAG:
       return(2);
@@ -125,8 +125,8 @@ NtUserGetSystemMetrics(ULONG Index)
                                                           the screen width */
     case SM_CYMAXIMIZED:
       return(NtUserGetSystemMetrics(SM_CYSCREEN) - 20); /* This seems to be 20
-                                                           pixels less than
-                                                           the screen height,
+                                                           pixels less than 
+                                                           the screen height, 
                                                            taskbar maybe? */
     case SM_CXMAXTRACK:
       return(NtUserGetSystemMetrics(SM_CYSCREEN) + 12);
@@ -192,21 +192,18 @@ NtUserGetSystemMetrics(ULONG Index)
       return(15);
     case SM_DBCSENABLED:
     case SM_DEBUG:
-    case SM_MENUDROPALIGNMENT:
+    case SM_MENUDROPALIGNMENT: 
     case SM_MIDEASTENABLED:
       return(0);
-    case SM_MOUSEPRESENT:
+    case SM_MOUSEPRESENT:      
       return(1);
-    case SM_NETWORK:
+    case SM_NETWORK:           
       return(3);
-    case SM_PENWINDOWS:
-    case SM_SECURE:
-    case SM_SHOWSOUNDS:
-    case SM_SLOWMACHINE:
+    case SM_PENWINDOWS:        
+    case SM_SECURE:            
+    case SM_SHOWSOUNDS:        
+    case SM_SLOWMACHINE:       
       return(0);
-    case SM_CMONITORS:
-      return(1);
-
     default:
       return(0xFFFFFFFF);
     }

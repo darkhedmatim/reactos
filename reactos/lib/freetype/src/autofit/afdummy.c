@@ -1,24 +1,22 @@
 #include "afdummy.h"
-#include "afhints.h"
 
 
   static FT_Error
   af_dummy_hints_init( AF_GlyphHints     hints,
+                       FT_Outline*       outline,
                        AF_ScriptMetrics  metrics )
   {
-    af_glyph_hints_rescale( hints,
-                            metrics );
-    return 0;
+    return af_glyph_hints_reset( hints,
+                                 &metrics->scaler,
+                                 metrics,
+                                 outline );
   }
 
   static FT_Error
   af_dummy_hints_apply( AF_GlyphHints  hints,
                         FT_Outline*    outline )
   {
-    FT_UNUSED( hints );
-    FT_UNUSED( outline );
-
-    return 0;
+    af_glyph_hints_save( hints, outline );
   }
 
 

@@ -147,7 +147,7 @@ getsockopt(
  * @implemented
  */
 INT
-EXPORT __stdcall
+EXPORT
 setsockopt(
     IN  SOCKET s,
     IN  INT level,
@@ -377,7 +377,7 @@ WSADuplicateSocketW(
   Error = Provider->ProcTable.lpWSPDuplicateSocket(s,
                                                    dwProcessId,
                                                    lpProtocolInfo,
-                                                   &Errno);
+                                                   &Error);
   DereferenceProviderByPointer(Provider);                                              
   
   if (Error == SOCKET_ERROR)
@@ -434,6 +434,7 @@ WSAGetOverlappedResult(
     OUT LPDWORD lpdwFlags)
 {
   INT Errno;
+  int Error;
   BOOL Success;
   PCATALOG_ENTRY Provider;
 
@@ -454,7 +455,7 @@ WSAGetOverlappedResult(
                                                         lpcbTransfer,
                                                         fWait,
                                                         lpdwFlags,
-                                                        &Errno);
+                                                        &Error);
   DereferenceProviderByPointer(Provider);                                              
   
   if (Success == FALSE)
@@ -635,6 +636,23 @@ WSACancelAsyncRequest(
 
     return 0;
 }
+
+/*
+ * @unimplemented
+ */
+INT
+#if 0
+PASCAL FAR
+#else
+EXPORT
+#endif
+__WSAFDIsSet(SOCKET s, LPFD_SET set)
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
 
 /* WinSock Service Provider support functions */
 

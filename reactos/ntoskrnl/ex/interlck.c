@@ -1,4 +1,4 @@
-/* $Id: interlck.c,v 1.17 2004/10/17 13:08:26 navaraf Exp $
+/* $Id: interlck.c,v 1.12 2004/06/01 01:00:25 sedwards Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,13 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
+#include <ddk/ntddk.h>
+
 
 /* FUNCTIONS *****************************************************************/
 
+#ifdef ExInterlockedDecrementLong
 #undef ExInterlockedDecrementLong
+#endif
 
 /*
  * @implemented
@@ -42,7 +43,10 @@ ExInterlockedDecrementLong (PLONG		Addend,
         return oldval;
 }
 
+
+#ifdef ExInterlockedExchangeUlong
 #undef ExInterlockedExchangeUlong
+#endif
 
 /*
  * @implemented
@@ -69,12 +73,14 @@ ExInterlockedExchangeUlong (PULONG		Target,
 }
 
 
+#ifdef ExInterlockedAddUlong
 #undef ExInterlockedAddUlong
+#endif
 
 /*
  * @implemented
  */
-ULONG STDCALL
+ULONG FASTCALL
 ExInterlockedAddUlong (PULONG		Addend,
 		       ULONG		Increment,
 		       PKSPIN_LOCK	Lock)
@@ -143,7 +149,9 @@ ExInterlockedAddLargeInteger (PLARGE_INTEGER Addend,
         return oldval;
 }
 
+#ifdef ExInterlockedIncrementLong
 #undef ExInterlockedIncrementLong
+#endif
 
 /*
  * @implemented

@@ -132,6 +132,7 @@ struct ShellBrowser : public IShellBrowserImpl
 	HRESULT OnDefaultCommand(LPIDA pida);
 
 	void	UpdateFolderView(IShellFolder* folder);
+	void	Tree_DoItemMenu(HWND hwndTreeView, HTREEITEM hItem, LPPOINT pptScreen);
 	HTREEITEM select_entry(HTREEITEM hitem, Entry* entry, bool expand=true);
 
 protected:

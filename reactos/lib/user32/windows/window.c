@@ -1,4 +1,4 @@
-/* $Id: window.c,v 1.123 2004/12/24 17:45:58 weiden Exp $
+/* $Id: window.c,v 1.119 2004/05/23 14:04:58 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -11,12 +11,16 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <window.h>
 #include <string.h>
 #include <strpool.h>
 #include <user32/callback.h>
 #include <user32/regcontrol.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -82,18 +86,13 @@ BeginDeferWindowPos(int nNumWindows)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 BringWindowToTop(HWND hWnd)
 {
-    return NtUserSetWindowPos( hWnd, 
-                               HWND_TOP, 
-                               0, 
-                               0, 
-                               0, 
-                               0,
-                               SWP_NOSIZE | SWP_NOMOVE );
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
@@ -113,12 +112,6 @@ CascadeWindows(HWND hwndParent,
 }
 */
 
-VOID
-STDCALL
-SwitchToThisWindow ( HWND hwnd, BOOL fUnknown )
-{
-  ShowWindow ( hwnd, SW_SHOW );
-}
 
 /*
  * @implemented

@@ -1,4 +1,4 @@
-/* $Id: extypes.h,v 1.25 2004/10/22 22:49:00 weiden Exp $ */
+/* $Id: extypes.h,v 1.21 2003/11/14 15:19:35 ekohl Exp $ */
 
 #ifndef __INCLUDE_DDK_EXTYPES_H
 #define __INCLUDE_DDK_EXTYPES_H
@@ -38,21 +38,6 @@ typedef struct _ERESOURCE
    KSPIN_LOCK SpinLock;
 } ERESOURCE, *PERESOURCE;
 
-#define EX_RUNDOWN_ACTIVE       0x1
-#define EX_RUNDOWN_COUNT_SHIFT 0x1
-#define EX_RUNDOWN_COUNT_INC   (0x1 << EX_RUNDOWN_COUNT_SHIFT)
-
-typedef struct _RUNDOWN_DESCRIPTOR {
-    ULONG_PTR References;
-    KEVENT RundownEvent;
-} RUNDOWN_DESCRIPTOR, *PRUNDOWN_DESCRIPTOR;
-
-typedef struct _EX_RUNDOWN_REF {
-    union {
-        ULONG_PTR Count;
-        PRUNDOWN_DESCRIPTOR Ptr;
-    };
-} EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
 typedef struct 
 {
@@ -152,60 +137,6 @@ typedef struct _PAGED_LOOKASIDE_LIST
    FAST_MUTEX Obsoleted;
 } PAGED_LOOKASIDE_LIST, *PPAGED_LOOKASIDE_LIST;
 
-typedef struct _PP_LOOKASIDE_LIST {
-   struct _GENERAL_LOOKASIDE *P;
-   struct _GENERAL_LOOKASIDE *L;
-} PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
-
-typedef enum _EX_POOL_PRIORITY {
-    LowPoolPriority,
-    LowPoolPrioritySpecialPoolOverrun = 8,
-    LowPoolPrioritySpecialPoolUnderrun = 9,
-    NormalPoolPriority = 16,
-    NormalPoolPrioritySpecialPoolOverrun = 24,
-    NormalPoolPrioritySpecialPoolUnderrun = 25,
-    HighPoolPriority = 32,
-    HighPoolPrioritySpecialPoolOverrun = 40,
-    HighPoolPrioritySpecialPoolUnderrun = 41
-
-    } EX_POOL_PRIORITY;
-
-typedef enum _SUITE_TYPE {
-    SmallBusiness,
-    Enterprise,
-    BackOffice,
-    CommunicationServer,
-    TerminalServer,
-    SmallBusinessRestricted,
-    EmbeddedNT,
-    DataCenter,
-    SingleUserTS,
-    Personal,
-    Blade,
-    MaxSuiteType
-} SUITE_TYPE;
-
-typedef enum _HARDERROR_RESPONSE_OPTION {
-	OptionAbortRetryIgnore,
-	OptionOk,
-	OptionOkCancel,
-	OptionRetryCancel,
-	OptionYesNo,
-	OptionYesNoCancel,
-	OptionShutdownSystem
-} HARDERROR_RESPONSE_OPTION, *PHARDERROR_RESPONSE_OPTION;
-
-typedef enum _HARDERROR_RESPONSE {
-	ResponseReturnToCaller,
-	ResponseNotHandled,
-	ResponseAbort,
-	ResponseCancel,
-	ResponseIgnore,
-	ResponseNo,
-	ResponseOk,
-	ResponseRetry,
-	ResponseYes
-} HARDERROR_RESPONSE, *PHARDERROR_RESPONSE;
 
 /* callback object (not functional in NT4)*/
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: gradient.c,v 1.15 2004/12/24 06:00:53 royce Exp $
+/* $Id: gradient.c,v 1.9 2004/05/10 17:07:17 weiden Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -73,6 +73,7 @@ IntEngGradientFillRect(
     IN BOOL Horizontal)
 {
   SURFOBJ *OutputObj;
+  SURFGDI *OutputGDI;
   TRIVERTEX *v1, *v2;
   RECTL rcGradient, rcSG;
   RECT_ENUM RectEnum;
@@ -105,6 +106,7 @@ IntEngGradientFillRect(
   {
     return FALSE;
   }
+  OutputGDI = AccessInternalObjectFromUserObject(OutputObj);
   
   if((v1->Red != v2->Red || v1->Green != v2->Green || v1->Blue != v2->Blue) && dy > 1)
   {
@@ -119,7 +121,7 @@ IntEngGradientFillRect(
         EnumMore = CLIPOBJ_bEnum(pco, (ULONG) sizeof(RectEnum), (PVOID) &RectEnum);
         for (i = 0; i < RectEnum.c && RectEnum.arcl[i].top <= rcSG.bottom; i++)
         {
-          if(IntGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
+          if(NtGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
           {
             HVINITCOL(Red, 0);
             HVINITCOL(Green, 1);
@@ -130,8 +132,7 @@ IntEngGradientFillRect(
               if(y >= FillRect.left)
               {
                 Color = XLATEOBJ_iXlate(pxlo, RGB(c[0], c[1], c[2]));
-                DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_VLine(
-                  OutputObj, y, FillRect.top, FillRect.bottom, Color);
+                OutputGDI->DIB_VLine(OutputObj, y, FillRect.top, FillRect.bottom, Color);
               }
               HVSTEPCOL(0);
               HVSTEPCOL(1);
@@ -147,7 +148,7 @@ IntEngGradientFillRect(
       EnumMore = CLIPOBJ_bEnum(pco, (ULONG) sizeof(RectEnum), (PVOID) &RectEnum);
       for (i = 0; i < RectEnum.c && RectEnum.arcl[i].top <= rcSG.bottom; i++)
       {
-        if(IntGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
+        if(NtGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
         {
           HVINITCOL(Red, 0);
           HVINITCOL(Green, 1);
@@ -158,8 +159,7 @@ IntEngGradientFillRect(
             if(y >= FillRect.top)
             {
               Color = XLATEOBJ_iXlate(pxlo, RGB(c[0], c[1], c[2]));
-              DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_HLine(
-                OutputObj, FillRect.left, FillRect.right, y, Color);
+              OutputGDI->DIB_HLine(OutputObj, FillRect.left, FillRect.right, y, Color);
             }
             HVSTEPCOL(0);
             HVSTEPCOL(1);
@@ -183,12 +183,11 @@ IntEngGradientFillRect(
     EnumMore = CLIPOBJ_bEnum(pco, (ULONG) sizeof(RectEnum), (PVOID) &RectEnum);
     for (i = 0; i < RectEnum.c && RectEnum.arcl[i].top <= rcSG.bottom; i++)
     {
-      if(IntGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
+      if(NtGdiIntersectRect(&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)&rcSG))
       {
         for(; FillRect.top < FillRect.bottom; FillRect.top++)
         {
-          DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_HLine(
-            OutputObj, FillRect.left, FillRect.right, FillRect.top, Color);
+          OutputGDI->DIB_HLine(OutputObj, FillRect.left, FillRect.right, FillRect.top, Color);
         }
       }
     }
@@ -200,9 +199,9 @@ IntEngGradientFillRect(
 /* Fill triangle with solid color */
 #define S_FILLLINE(linefrom,lineto) \
   if(sx[lineto] < sx[linefrom]) \
-    DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_HLine(OutputObj, max(sx[lineto], FillRect.left), min(sx[linefrom], FillRect.right), sy, Color); \
+    OutputGDI->DIB_HLine(OutputObj, max(sx[lineto], FillRect.left), min(sx[linefrom], FillRect.right), sy, Color); \
   else \
-    DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_HLine(OutputObj, max(sx[linefrom], FillRect.left), min(sx[lineto], FillRect.right), sy, Color);
+    OutputGDI->DIB_HLine(OutputObj, max(sx[linefrom], FillRect.left), min(sx[lineto], FillRect.right), sy, Color);
 #define S_DOLINE(a,b,line) \
   ex[line] += dx[line]; \
   while(ex[line] > 0 && x[line] != destx[line]) \
@@ -261,7 +260,7 @@ IntEngGradientFillRect(
     if(InY && g >= FillRect.left && g < FillRect.right) \
     { \
       Color = XLATEOBJ_iXlate(pxlo, RGB(gc[0], gc[1], gc[2])); \
-      DibFunctionsForBitmapFormat[OutputObj->iBitmapFormat].DIB_PutPixel(OutputObj, g, sy, Color); \
+      OutputGDI->DIB_PutPixel(OutputObj, g, sy, Color); \
     } \
     FDOCOL(linefrom, lineto, 0); \
     FDOCOL(linefrom, lineto, 1); \
@@ -313,6 +312,7 @@ IntEngGradientFillTriangle(
     IN POINTL  *pptlDitherOrg)
 {
   SURFOBJ *OutputObj;
+  SURFGDI *OutputGDI;
   PTRIVERTEX v1, v2, v3;
   RECT_ENUM RectEnum;
   BOOL EnumMore;
@@ -354,6 +354,7 @@ IntEngGradientFillTriangle(
   {
     return FALSE;
   }
+  OutputGDI = AccessInternalObjectFromUserObject(OutputObj);
   
   if(VCMPCLRS(v1, v2, v3))
   {
@@ -363,7 +364,7 @@ IntEngGradientFillTriangle(
       EnumMore = CLIPOBJ_bEnum(pco, (ULONG) sizeof(RectEnum), (PVOID) &RectEnum);
       for (i = 0; i < RectEnum.c && RectEnum.arcl[i].top <= prclExtents->bottom; i++)
       {
-        if(IntGdiIntersectRect((PRECT)&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)prclExtents))
+        if(NtGdiIntersectRect((PRECT)&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)prclExtents))
         {
           BOOL InY;
           
@@ -411,7 +412,7 @@ IntEngGradientFillTriangle(
     EnumMore = CLIPOBJ_bEnum(pco, (ULONG) sizeof(RectEnum), (PVOID) &RectEnum);
     for (i = 0; i < RectEnum.c && RectEnum.arcl[i].top <= prclExtents->bottom; i++)
     {
-      if(IntGdiIntersectRect((PRECT)&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)prclExtents))
+      if(NtGdiIntersectRect((PRECT)&FillRect, (PRECT)&RectEnum.arcl[i], (PRECT)prclExtents))
       {
         S_INITLINE(v1, v3, 0);
         S_INITLINE(v1, v2, 1);
@@ -516,7 +517,7 @@ EngGradientFill(
 
 BOOL STDCALL
 IntEngGradientFill(
-    IN BITMAPOBJ  *pboDest,
+    IN SURFOBJ  *psoDest,
     IN CLIPOBJ  *pco,
     IN XLATEOBJ  *pxlo,
     IN TRIVERTEX  *pVertex,
@@ -528,25 +529,18 @@ IntEngGradientFill(
     IN ULONG  ulMode)
 {
   BOOL Ret;
-  SURFOBJ *psoDest;
-  ASSERT(pboDest);
-  ASSERT(pco);
-
-  psoDest = &pboDest->SurfObj;
-  ASSERT(psoDest);
+  SURFGDI *SurfGDI;
   
-  MouseSafetyOnDrawStart(
-	  psoDest,
-	  pco->rclBounds.left,
-	  pco->rclBounds.top, 
-      pco->rclBounds.right,
-	  pco->rclBounds.bottom);
-  if((psoDest->iType != STYPE_BITMAP) && (pboDest->flHooks & HOOK_GRADIENTFILL))
+  SurfGDI = (SURFGDI*)AccessInternalObjectFromUserObject(psoDest);
+  MouseSafetyOnDrawStart(psoDest, SurfGDI, pco->rclBounds.left, pco->rclBounds.top, 
+                         pco->rclBounds.right, pco->rclBounds.bottom);
+  if((psoDest->iType != STYPE_BITMAP) && SurfGDI->GradientFill)
   {
-    Ret = GDIDEVFUNCS(psoDest).GradientFill(
-      psoDest, pco, pxlo, pVertex, nVertex, pMesh, nMesh, 
-      prclExtents, pptlDitherOrg, ulMode);
-    MouseSafetyOnDrawEnd(psoDest);
+    IntLockGDIDriver(SurfGDI);
+    Ret = SurfGDI->GradientFill(psoDest, pco, pxlo, pVertex, nVertex, pMesh, nMesh, 
+                                prclExtents, pptlDitherOrg, ulMode);
+    IntUnLockGDIDriver(SurfGDI);
+    MouseSafetyOnDrawEnd(psoDest, SurfGDI);
     return Ret;
   }
   Ret = EngGradientFill(psoDest, pco, pxlo, pVertex, nVertex, pMesh, nMesh, prclExtents, 
@@ -555,15 +549,18 @@ IntEngGradientFill(
   {
     /* Dummy BitBlt to let driver know that something has changed.
        0x00AA0029 is the Rop for D (no-op) */
-    if(pboDest->flHooks & HOOK_BITBLT)
+    if(SurfGDI->BitBlt)
     {
-      GDIDEVFUNCS(psoDest).BitBlt(
-                      psoDest, NULL, NULL, pco, pxlo,
+      IntLockGDIDriver(SurfGDI);
+      SurfGDI->BitBlt(psoDest, NULL, NULL, pco, pxlo,
                       prclExtents, pptlDitherOrg, NULL, NULL, NULL, ROP_NOOP);
-      MouseSafetyOnDrawEnd(psoDest);
+      IntUnLockGDIDriver(SurfGDI);
+      MouseSafetyOnDrawEnd(psoDest, SurfGDI);
       return TRUE;
     }
+    EngBitBlt(psoDest, NULL, NULL, pco, pxlo,
+              prclExtents, pptlDitherOrg, NULL, NULL, NULL, ROP_NOOP);
   }
-  MouseSafetyOnDrawEnd(psoDest);
+  MouseSafetyOnDrawEnd(psoDest, SurfGDI);
   return Ret;
 }

@@ -1,4 +1,4 @@
-/* $Id: global.c,v 1.28 2004/10/30 22:18:17 weiden Exp $
+/* $Id: global.c,v 1.25 2004/06/13 20:04:55 navaraf Exp $
  *
  * Win32 Global/Local heap functions (GlobalXXX, LocalXXX).
  * These functions included in Win32 for compatibility with 16 bit Windows
@@ -10,6 +10,7 @@
  */
 
 #include <k32.h>
+#include <time.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -490,6 +491,8 @@ GlobalReAlloc(HGLOBAL hMem,
 
     DPRINT("GlobalReAlloc( 0x%lX, 0x%lX, 0x%X )\n", (ULONG)hMem, dwBytes, uFlags);
 
+    hnew = 0;
+    
     if (uFlags & GMEM_ZEROINIT)
     {
         heap_flags = HEAP_ZERO_MEMORY;
@@ -543,6 +546,13 @@ GlobalReAlloc(HGLOBAL hMem,
         {
             /* reallocate a moveable block */
             phandle= HANDLE_TO_INTERN(hMem);
+#if 0
+            if(phandle->LockCount != 0)
+            {
+                SetLastError(ERROR_INVALID_HANDLE);
+            }
+            else
+#endif
             if (0 != dwBytes)
             {
                 hnew = hMem;
@@ -577,6 +587,7 @@ GlobalReAlloc(HGLOBAL hMem,
             }
             else
             {
+                hnew = hMem;
                 if(phandle->Pointer)
                 {
                     RtlFreeHeap(GetProcessHeap(), 0, phandle->Pointer - HANDLE_SIZE);
@@ -660,7 +671,7 @@ GlobalUnlock(HGLOBAL hMem)
 {
 
    PGLOBAL_HANDLE	phandle;
-   BOOL			    locked = FALSE;
+   BOOL			    locked;
 
    DPRINT("GlobalUnlock( 0x%lX )\n", (ULONG)hMem);
 
@@ -683,7 +694,7 @@ GlobalUnlock(HGLOBAL hMem)
       else if (GLOBAL_LOCK_MAX > phandle->LockCount)
       {
          phandle->LockCount--;
-         locked = (0 != phandle->LockCount) ? TRUE : FALSE;
+         locked = (0 == phandle->LockCount) ? TRUE : FALSE;
          SetLastError(NO_ERROR);
       }
    }
@@ -716,4 +727,12 @@ GlobalWire(HGLOBAL hMem)
    return GlobalLock(hMem);
 }
 
+/*
+ * @implemented
+ */
+//HGLOBAL STDCALL
+//GlobalDiscard(HGLOBAL hMem)
+//{
+//    return GlobalReAlloc(hMem, 0, GMEM_MOVEABLE);
+//}
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: class.c,v 1.56 2004/12/26 23:56:16 navaraf Exp $
+/* $Id: class.c,v 1.49 2004/05/17 16:38:57 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -8,14 +8,17 @@
  * UPDATE HISTORY:
  *      09-05-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <string.h>
 #include <stdlib.h>
 #include <debug.h>
 #include <window.h>
 #include <strpool.h>
 #include <user32/regcontrol.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
+
 
 
 static BOOL GetClassInfoExCommon(
@@ -86,7 +89,6 @@ static BOOL GetClassInfoExCommon(
   if ( !str3.Buffer )
   {
     SetLastError (RtlNtStatusToDosError(STATUS_NO_MEMORY));
-    HEAP_free ( str2.Buffer );
     if ( !IS_ATOM(str) )
       HEAP_free ( str );
     return FALSE;
@@ -171,10 +173,7 @@ GetClassInfoA(
   }
 
   retval = GetClassInfoExA(hInstance,lpClassName,&w);
-  if (retval)
-  {
-    RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
-  }
+  RtlCopyMemory ( lpWndClass, &w.style, sizeof(WNDCLASSA) );
   return retval;
 }
 
@@ -439,7 +438,7 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
   
    RtlCopyMemory(&WndClass, lpwcx, sizeof(WNDCLASSEXW));
 
-   if (IS_ATOM(lpwcx->lpszMenuName) || lpwcx->lpszMenuName == 0)
+   if (IS_ATOM(lpwcx->lpszMenuName))
    {
       MenuName.Length =
       MenuName.MaximumLength = 0;
@@ -468,10 +467,8 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
       REGISTERCLASS_ANSI,
       0);
 
-   if (!IS_ATOM(lpwcx->lpszMenuName))
-      RtlFreeUnicodeString(&MenuName);
-   if (!IS_ATOM(lpwcx->lpszClassName))
-      RtlFreeUnicodeString(&ClassName);
+   RtlFreeUnicodeString(&MenuName);
+   RtlFreeUnicodeString(&ClassName);
 
    return (ATOM)Atom;
 }
@@ -590,9 +587,8 @@ SetClassLongA (
   int nIndex,
   LONG dwNewLong)
 {
-  UNICODE_STRING str2buf;
   PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
+  PUNICODE_STRING str2;
 
   if ( nIndex != GCL_MENUNAME )
   {
@@ -604,7 +600,7 @@ SetClassLongA (
   }
   else
   {
-    RtlCreateUnicodeStringFromAsciiz ( &str2buf,(LPSTR)dwNewLong );
+    RtlCreateUnicodeString ( str2, (LPWSTR)dwNewLong );
   }
 
   str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);
@@ -634,9 +630,8 @@ SetClassLongW(
   int nIndex,
   LONG dwNewLong)
 {
-  UNICODE_STRING str2buf;
   PUNICODE_STRING str;
-  PUNICODE_STRING str2 = &str2buf;
+  PUNICODE_STRING str2;
 
   if (nIndex != GCL_MENUNAME )
   {
@@ -648,7 +643,7 @@ SetClassLongW(
   }
   else
   {
-    RtlCreateUnicodeString ( &str2buf, (LPWSTR)dwNewLong );
+    RtlCreateUnicodeStringFromAsciiz ( str2,(LPSTR)dwNewLong );
   }
 
   str = (PUNICODE_STRING)NtUserSetClassLong(hWnd, nIndex, (DWORD)str2, TRUE);

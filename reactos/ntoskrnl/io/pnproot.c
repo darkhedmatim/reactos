@@ -1,4 +1,4 @@
-/* $Id: pnproot.c,v 1.24 2004/10/24 09:13:18 navaraf Exp $
+/* $Id: pnproot.c,v 1.21 2004/06/11 09:33:42 ekohl Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
@@ -11,7 +11,11 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <reactos/bugcodes.h>
+#include <internal/io.h>
+#include <rosrtl/string.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -250,35 +254,12 @@ PdoQueryResources(
   PIO_STACK_LOCATION IrpSp)
 {
   PCM_RESOURCE_LIST ResourceList;
-  ULONG ResourceListSize = FIELD_OFFSET(CM_RESOURCE_LIST, List);
 
-  ResourceList = ExAllocatePool(PagedPool, ResourceListSize);
+  ResourceList = ExAllocatePool(PagedPool, sizeof(CM_RESOURCE_LIST));
   if (ResourceList == NULL)
     return STATUS_INSUFFICIENT_RESOURCES;
 
   ResourceList->Count = 0;
-
-  Irp->IoStatus.Information = (ULONG_PTR)ResourceList;
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-PdoQueryResourceRequirements(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp,
-  PIO_STACK_LOCATION IrpSp)
-{
-  PIO_RESOURCE_REQUIREMENTS_LIST ResourceList;
-  ULONG ResourceListSize = FIELD_OFFSET(IO_RESOURCE_REQUIREMENTS_LIST, List);
-
-  ResourceList = ExAllocatePool(PagedPool, ResourceListSize);
-  if (ResourceList == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  RtlZeroMemory(ResourceList, ResourceListSize);
-  ResourceList->ListSize = ResourceListSize;
 
   Irp->IoStatus.Information = (ULONG_PTR)ResourceList;
 
@@ -303,44 +284,75 @@ PnpRootPdoPnpControl(
   NTSTATUS Status;
 
   DPRINT("Called\n");
-       	
+
   Status = Irp->IoStatus.Status;
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
   switch (IrpSp->MinorFunction) {
 #if 0
+  case IRP_MN_CANCEL_REMOVE_DEVICE:
+    break;
+
+  case IRP_MN_CANCEL_STOP_DEVICE:
+    break;
+
+  case IRP_MN_DEVICE_USAGE_NOTIFICATION:
+    break;
+
+  case IRP_MN_EJECT:
+    break;
+
   case IRP_MN_QUERY_BUS_INFORMATION:
     break;
 
+  case IRP_MN_QUERY_CAPABILITIES:
+    break;
+
   case IRP_MN_QUERY_DEVICE_RELATIONS:
-    /* FIXME: Handle for TargetDeviceRelation */
+    /* FIXME: Possibly handle for RemovalRelations */
+    break;
+
+  case IRP_MN_QUERY_DEVICE_TEXT:
     break;
 #endif
-
   case IRP_MN_QUERY_ID:
     Status = PdoQueryId(DeviceObject, Irp, IrpSp);
     break;
+#if 0
+  case IRP_MN_QUERY_PNP_DEVICE_STATE:
+    break;
+
+  case IRP_MN_QUERY_REMOVE_DEVICE:
+    break;
 
   case IRP_MN_QUERY_RESOURCE_REQUIREMENTS:
-    Status = PdoQueryResourceRequirements(DeviceObject, Irp, IrpSp);
     break;
+#endif
 
   case IRP_MN_QUERY_RESOURCES:
     Status = PdoQueryResources(DeviceObject, Irp, IrpSp);
     break;
 
-  case IRP_MN_START_DEVICE:
+#if 0
   case IRP_MN_QUERY_STOP_DEVICE:
-  case IRP_MN_CANCEL_STOP_DEVICE:
-  case IRP_MN_STOP_DEVICE:
-  case IRP_MN_QUERY_REMOVE_DEVICE:
-  case IRP_MN_CANCEL_REMOVE_DEVICE:
-  case IRP_MN_REMOVE_DEVICE:
-  case IRP_MN_SURPRISE_REMOVAL:
-    Status = STATUS_SUCCESS;
     break;
 
+  case IRP_MN_REMOVE_DEVICE:
+    break;
+
+  case IRP_MN_SET_LOCK:
+    break;
+
+  case IRP_MN_START_DEVICE:
+    break;
+
+  case IRP_MN_STOP_DEVICE:
+    break;
+
+  case IRP_MN_SURPRISE_REMOVAL:
+    break;
+#endif
   default:
     DPRINT("Unknown IOCTL 0x%X\n", IrpSp->MinorFunction);
     break;
@@ -910,7 +922,8 @@ PnpRootAddDevice(
     TRUE,
     &PnpRootDeviceObject);
   if (!NT_SUCCESS(Status)) {
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    CPRINT("IoCreateDevice() failed with status 0x%X\n", Status);
+    KEBUGCHECK(PHASE1_INITIALIZATION_FAILED);
   }
 
   DeviceExtension = (PPNPROOT_FDO_DEVICE_EXTENSION)PnpRootDeviceObject->DeviceExtension;
@@ -927,12 +940,12 @@ PnpRootAddDevice(
 
   if (!PnpRootDeviceObject) {
     CPRINT("PnpRootDeviceObject 0x%X\n", PnpRootDeviceObject);
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    KEBUGCHECK(PHASE1_INITIALIZATION_FAILED);
   }
 
   if (!PhysicalDeviceObject) {
     CPRINT("PhysicalDeviceObject 0x%X\n", PhysicalDeviceObject);
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    KEBUGCHECK(PHASE1_INITIALIZATION_FAILED);
   }
 
   InitializeListHead(&DeviceExtension->DeviceListHead);

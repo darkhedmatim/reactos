@@ -23,7 +23,6 @@
 #include <windows.h>
 #include "loadlib.h"
 #include <string.h>
-#include <stdlib.h>
 #include <wchar.h>
 
 #define APP_VERSION 1

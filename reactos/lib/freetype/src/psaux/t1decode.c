@@ -340,7 +340,7 @@
     decoder->zone = decoder->zones;
     zone          = decoder->zones;
 
-    builder->parse_state = T1_Parse_Start;
+    builder->path_begun  = 0;
 
     hinter = (T1_Hints_Funcs)builder->hints_funcs;
 
@@ -556,7 +556,7 @@
           decoder->num_flex_vectors  = 0;
           if ( start_point( builder, x, y ) ||
                check_points( builder, 6 )   )
-            goto Fail;
+            goto Memory_Error;
           break;
 
         case 2:                     /* add flex vectors */
@@ -747,8 +747,6 @@
         case op_hsbw:
           FT_TRACE4(( " hsbw" ));
 
-          builder->parse_state = T1_Parse_Have_Width;
-
           builder->left_bearing.x += top[0];
           builder->advance.x       = top[1];
           builder->advance.y       = 0;
@@ -774,8 +772,6 @@
         case op_sbw:
           FT_TRACE4(( " sbw" ));
 
-          builder->parse_state = T1_Parse_Have_Width;
-
           builder->left_bearing.x += top[0];
           builder->left_bearing.y += top[1];
           builder->advance.x       = top[2];
@@ -796,16 +792,14 @@
           FT_TRACE4(( " closepath" ));
 
           close_contour( builder );
-          if ( builder->parse_state != T1_Parse_Have_Path )
-            goto Syntax_Error;
-          builder->parse_state = T1_Parse_Have_Width;
+          builder->path_begun = 0;
           break;
 
         case op_hlineto:
           FT_TRACE4(( " hlineto" ));
 
           if ( start_point( builder, x, y ) )
-            goto Fail;
+            goto Memory_Error;
 
           x += top[0];
           goto Add_Line;
@@ -815,11 +809,7 @@
 
           x += top[0];
           if ( !decoder->flex_state )
-          {
-            if ( builder->parse_state == T1_Parse_Start )
-              goto Syntax_Error;
-            builder->parse_state = T1_Parse_Have_Moveto;
-          }
+            builder->path_begun = 0;
           break;
 
         case op_hvcurveto:
@@ -827,7 +817,7 @@
 
           if ( start_point( builder, x, y ) ||
                check_points( builder, 3 )   )
-            goto Fail;
+            goto Memory_Error;
 
           x += top[0];
           add_point( builder, x, y, 0 );
@@ -842,14 +832,14 @@
           FT_TRACE4(( " rlineto" ));
 
           if ( start_point( builder, x, y ) )
-            goto Fail;
+            goto Memory_Error;
 
           x += top[0];
           y += top[1];
 
         Add_Line:
           if ( add_point1( builder, x, y ) )
-            goto Fail;
+            goto Memory_Error;
           break;
 
         case op_rmoveto:
@@ -858,11 +848,7 @@
           x += top[0];
           y += top[1];
           if ( !decoder->flex_state )
-          {
-            if ( builder->parse_state == T1_Parse_Start )
-              goto Syntax_Error;
-            builder->parse_state = T1_Parse_Have_Moveto;
-          }
+            builder->path_begun = 0;
           break;
 
         case op_rrcurveto:
@@ -870,7 +856,7 @@
 
           if ( start_point( builder, x, y ) ||
                check_points( builder, 3 )   )
-            goto Fail;
+            goto Memory_Error;
 
           x += top[0];
           y += top[1];
@@ -890,7 +876,7 @@
 
           if ( start_point( builder, x, y ) ||
                check_points( builder, 3 )   )
-            goto Fail;
+            goto Memory_Error;
 
           y += top[0];
           add_point( builder, x, y, 0 );
@@ -905,7 +891,7 @@
           FT_TRACE4(( " vlineto" ));
 
           if ( start_point( builder, x, y ) )
-            goto Fail;
+            goto Memory_Error;
 
           y += top[0];
           goto Add_Line;
@@ -915,11 +901,7 @@
 
           y += top[0];
           if ( !decoder->flex_state )
-          {
-            if ( builder->parse_state == T1_Parse_Start )
-              goto Syntax_Error;
-            builder->parse_state = T1_Parse_Have_Moveto;
-          }
+            builder->path_begun = 0;
           break;
 
         case op_div:
@@ -1090,7 +1072,6 @@
 
     FT_TRACE4(( "..end..\n\n" ));
 
-  Fail:
     return error;
 
   Syntax_Error:
@@ -1098,6 +1079,9 @@
 
   Stack_Underflow:
     return PSaux_Err_Stack_Underflow;
+
+  Memory_Error:
+    return builder->error;
   }
 
 

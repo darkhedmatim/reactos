@@ -3,12 +3,6 @@
 
 /* Brush functions */
 
-XLATEOBJ* FASTCALL
-IntGdiCreateBrushXlate(PDC Dc, GDIBRUSHOBJ *BrushObj, BOOLEAN *Failed);
-
-VOID FASTCALL
-IntGdiInitBrushInstance(GDIBRUSHINST *BrushInst, PGDIBRUSHOBJ BrushObj, XLATEOBJ *XlateObj);
-
 HBRUSH FASTCALL
 IntGdiCreateBrushIndirect(PLOGBRUSH lb);
 
@@ -144,53 +138,6 @@ BOOL FASTCALL
 IntGdiCombineTransform(LPXFORM XFormResult,
                        LPXFORM xform1,
                        LPXFORM xform2);
-
-/* RECT functions */
-
-VOID FASTCALL
-IntGdiSetRect(PRECT Rect, INT left, INT top, INT right, INT bottom);
-
-VOID FASTCALL
-IntGdiSetEmptyRect(PRECT Rect);
-
-BOOL FASTCALL
-IntGdiIsEmptyRect(const RECT* Rect);
-
-VOID FASTCALL
-IntGdiOffsetRect(LPRECT Rect, INT x, INT y);
-
-BOOL FASTCALL
-IntGdiUnionRect(PRECT Dest, const RECT* Src1, const RECT* Src2);
-
-BOOL FASTCALL
-IntGdiIntersectRect(PRECT Dest, const RECT* Src1, const RECT* Src2);
-
-/* Stock objects */
-
-BOOL FASTCALL
-IntSetSysColors(UINT nColors, INT *Elements, COLORREF *Colors);
-
-BOOL FASTCALL
-IntGetSysColorBrushes(HBRUSH *Brushes, UINT nBrushes);
-
-BOOL FASTCALL
-IntGetSysColorPens(HPEN *Pens, UINT nPens);
-
-BOOL FASTCALL
-IntGetSysColors(COLORREF *Colors, UINT nColors);
-
-/* Other Stuff */
-
-INT FASTCALL
-IntGdiGetDeviceCaps(PDC dc, INT Index);
-
-INT
-FASTCALL
-IntGdiEscape(PDC    dc,
-             INT    Escape,
-             INT    InSize,
-             LPCSTR InData,
-             LPVOID OutData);
 
 #endif /* _WIN32K_INTGDI_H */
 

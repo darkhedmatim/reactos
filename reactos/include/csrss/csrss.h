@@ -5,6 +5,11 @@
 #include <ddk/ntddblue.h>
 #include <ntos.h>
 
+#define CSR_PRIORITY_CLASS_NORMAL	(0x10)
+#define CSR_PRIORITY_CLASS_IDLE		(0x20)
+#define CSR_PRIORITY_CLASS_HIGH		(0x40)
+#define CSR_PRIORITY_CLASS_REALTIME	(0x80)
+
 #define CSR_CSRSS_SECTION_SIZE          (65536)
 
 typedef __declspec(noreturn) VOID CALLBACK(*PCONTROLDISPATCHER)(DWORD);
@@ -42,7 +47,6 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   BOOL Unicode;
    ULONG NrCharactersToWrite;
    BYTE Buffer[1];
 } CSRSS_WRITE_CONSOLE_REQUEST, *PCSRSS_WRITE_CONSOLE_REQUEST;
@@ -55,7 +59,6 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   BOOL Unicode;
    WORD NrCharactersToRead;
    WORD nCharsCanBeDeleted;     /* number of chars already in buffer that can be backspaced */
 } CSRSS_READ_CONSOLE_REQUEST, *PCSRSS_READ_CONSOLE_REQUEST;
@@ -110,19 +113,13 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   BOOL Unicode;
-   union
-   {
-     CHAR AsciiChar;
-     WCHAR UnicodeChar;
-   } Char;
+   CHAR Char;
    COORD Position;
    WORD Length;
 } CSRSS_FILL_OUTPUT_REQUEST, *PCSRSS_FILL_OUTPUT_REQUEST;
 
 typedef struct
 {
-   ULONG NrCharactersWritten;
 } CSRSS_FILL_OUTPUT_REPLY, *PCSRSS_FILL_OUTPUT_REPLY;
 
 typedef struct
@@ -140,7 +137,6 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   BOOL Unicode;
 } CSRSS_READ_INPUT_REQUEST, *PCSRSS_READ_INPUT_REQUEST;
 
 typedef struct
@@ -153,7 +149,6 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   BOOL Unicode;
    WORD Length;
    COORD Coord;
    CHAR String[1];
@@ -162,7 +157,6 @@ typedef struct
 typedef struct
 {
    COORD EndCoord;
-   ULONG NrCharactersWritten;
 } CSRSS_WRITE_CONSOLE_OUTPUT_CHAR_REPLY, *PCSRSS_WRITE_CONSOLE_OUTPUT_CHAR_REPLY;
 
 typedef struct
@@ -283,7 +277,6 @@ typedef struct
 typedef struct
 {
   HANDLE ConsoleHandle;
-  BOOL Unicode;
   COORD BufferSize;
   COORD BufferCoord;
   SMALL_RECT WriteRegion;
@@ -306,13 +299,12 @@ typedef struct
 
 typedef struct
 {
-  HANDLE ConsoleHandle;
-  BOOL Unicode;
+  HANDLE     ConsoleHandle;
   SMALL_RECT ScrollRectangle;
-  BOOLEAN UseClipRectangle;
+  BOOLEAN    UseClipRectangle;
   SMALL_RECT ClipRectangle;
-  COORD DestinationOrigin;
-  CHAR_INFO Fill;
+  COORD      DestinationOrigin;
+  CHAR_INFO  Fill;
 } CSRSS_SCROLL_CONSOLE_SCREEN_BUFFER_REQUEST, *PCSRSS_SCROLL_CONSOLE_SCREEN_BUFFER_REQUEST;
 
 typedef struct
@@ -322,7 +314,6 @@ typedef struct
 typedef struct
 {
   HANDLE ConsoleHandle;
-  BOOL Unicode;
   DWORD NumCharsToRead;
   COORD ReadCoord;
 }CSRSS_READ_CONSOLE_OUTPUT_CHAR_REQUEST, *PCSRSS_READ_CONSOLE_OUTPUT_CHAR_REQUEST;
@@ -330,7 +321,6 @@ typedef struct
 typedef struct
 {
   COORD EndCoord;
-  DWORD CharsRead;
   CHAR String[1];
 }CSRSS_READ_CONSOLE_OUTPUT_CHAR_REPLY, *PCSRSS_READ_CONSOLE_OUTPUT_CHAR_REPLY;
 
@@ -399,7 +389,6 @@ typedef struct
 typedef struct
 {
   HANDLE ConsoleHandle;
-  BOOL Unicode;
   DWORD Length;
   INPUT_RECORD* InputRecord;
 } CSRSS_PEEK_CONSOLE_INPUT_REQUEST, *PCSRSS_PEEK_CONSOLE_INPUT_REQUEST;
@@ -412,7 +401,6 @@ typedef struct
 typedef struct
 {
   HANDLE ConsoleHandle;
-  BOOL Unicode;
   COORD BufferSize;
   COORD BufferCoord;
   SMALL_RECT ReadRegion;
@@ -427,7 +415,6 @@ typedef struct
 typedef struct
 {
   HANDLE ConsoleHandle;
-  BOOL Unicode;
   DWORD Length;
   INPUT_RECORD* InputRecord;
 } CSRSS_WRITE_CONSOLE_INPUT_REQUEST, *PCSRSS_WRITE_CONSOLE_INPUT_REQUEST;
@@ -506,25 +493,19 @@ typedef struct
 
 typedef struct
 {
-} CSRSS_GET_CONSOLE_WINDOW_REQUEST, *PCSRSS_GET_CONSOLE_WINDOW_REQUEST;
-
-typedef struct
-{
+  HANDLE ConsoleHandle;
   HWND   WindowHandle;
-} CSRSS_GET_CONSOLE_WINDOW_REPLY, *PCSRSS_GET_CONSOLE_WINDOW_REPLY;
+} CSRSS_CONSOLE_WINDOW, *PCSRSS_CONSOLE_WINDOW;
 
 typedef struct
 {
+  HANDLE ConsoleHandle;
   HICON  WindowIcon;
-} CSRSS_SET_CONSOLE_ICON_REQUEST, *PCSRSS_SET_CONSOLE_ICON_REQUEST;
+} CSRSS_CONSOLE_SET_WINDOW_ICON, *PCSRSS_CONSOLE_SET_WINDOW_ICON;
 
 typedef struct
 {
-} CSRSS_SET_CONSOLE_ICON_REPLY, *PCSRSS_SET_CONSOLE_ICON_REPLY;
-
-typedef struct
-{
-  HDESK DesktopHandle;
+  WCHAR DesktopName[1];
 } CSRSS_CREATE_DESKTOP_REQUEST, *PCSRSS_CREATE_DESKTOP_REQUEST;
 
 typedef struct
@@ -550,70 +531,6 @@ typedef struct
 typedef struct
 {
 } CSRSS_HIDE_DESKTOP_REPLY, *PCSRSS_HIDE_DESKTOP_REPLY;
-
-typedef struct
-{
-  HWND LogonNotifyWindow;
-} CSRSS_SET_LOGON_NOTIFY_WINDOW_REQUEST, *PCSRSS_SET_LOGON_NOTIFY_WINDOW_REQUEST;
-
-typedef struct
-{
-} CSRSS_SET_LOGON_NOTIFY_WINDOW_REPLY, *PCSRSS_SET_LOGON_NOTIFY_WINDOW_REPLY;
-
-typedef struct
-{
-  DWORD ProcessId;
-  BOOL Register;
-} CSRSS_REGISTER_LOGON_PROCESS_REQUEST, *PCSRSS_REGISTER_LOGON_PROCESS_REQUEST;
-
-typedef struct
-{
-} CSRSS_REGISTER_LOGON_PROCESS_REPLY, *PCSRSS_REGISTER_LOGON_PROCESS_REPLY;
-
-typedef struct
-{
-} CSRSS_GET_CONSOLE_CP_REQUEST, *PCSRSS_GET_CONSOLE_CP_REQUEST;
-
-typedef struct
-{
-  UINT CodePage;
-} CSRSS_GET_CONSOLE_CP_REPLY, *PCSRSS_GET_CONSOLE_CP_REPLY;
-
-typedef struct
-{
-  UINT CodePage;
-} CSRSS_SET_CONSOLE_CP_REQUEST, *PCSRSS_SET_CONSOLE_CP_REQUEST;
-
-typedef struct
-{
-} CSRSS_SET_CONSOLE_CP_REPLY, *PCSRSS_SET_CONSOLE_CP_REPLY;
-
-typedef struct
-{
-} CSRSS_GET_CONSOLE_OUTPUT_CP_REQUEST, *PCSRSS_GET_CONSOLE_OUTPUT_CP_REQUEST;
-
-typedef struct
-{
-  UINT CodePage;
-} CSRSS_GET_CONSOLE_OUTPUT_CP_REPLY, *PCSRSS_GET_CONSOLE_OUTPUT_CP_REPLY;
-
-typedef struct
-{
-  UINT CodePage;
-} CSRSS_SET_CONSOLE_OUTPUT_CP_REQUEST, *PCSRSS_SET_CONSOLE_OUTPUT_CP_REQUEST;
-
-typedef struct
-{
-} CSRSS_SET_CONSOLE_OUTPUT_CP_REPLY, *PCSRSS_SET_CONSOLE_OUTPUT_CP_REPLY;
-
-typedef struct
-{
-} CSRSS_GET_INPUT_WAIT_HANDLE_REQUEST, *PCSRSS_GET_INPUT_WAIT_HANDLE_REQUEST;
-
-typedef struct
-{
-  HANDLE InputWaitHandle;
-} CSRSS_GET_INPUT_WAIT_HANDLE_REPLY, *PCSRSS_GET_INPUT_WAIT_HANDLE_REPLY;
 
 #define CSRSS_MAX_WRITE_CONSOLE_REQUEST       \
       (MAX_MESSAGE_DATA - sizeof(ULONG) - sizeof(CSRSS_WRITE_CONSOLE_REQUEST))
@@ -680,13 +597,6 @@ typedef struct
 #define CSRSS_SHOW_DESKTOP                  (0x2C)
 #define CSRSS_HIDE_DESKTOP                  (0x2D)
 #define CSRSS_SET_CONSOLE_ICON              (0x2E)
-#define CSRSS_SET_LOGON_NOTIFY_WINDOW       (0x2F)
-#define CSRSS_REGISTER_LOGON_PROCESS        (0x30)
-#define CSRSS_GET_CONSOLE_CP                (0x31)
-#define CSRSS_SET_CONSOLE_CP                (0x32)
-#define CSRSS_GET_CONSOLE_OUTPUT_CP         (0x33)
-#define CSRSS_SET_CONSOLE_OUTPUT_CP         (0x34)
-#define CSRSS_GET_INPUT_WAIT_HANDLE	    (0x35)
 
 /* Keep in sync with definition below. */
 #define CSRSS_REQUEST_HEADER_SIZE (LPC_MESSAGE_BASE_SIZE + sizeof(ULONG))
@@ -725,7 +635,8 @@ typedef struct
         CSRSS_GET_TITLE_REQUEST GetTitleRequest;
         CSRSS_WRITE_CONSOLE_OUTPUT_REQUEST WriteConsoleOutputRequest;
         CSRSS_FLUSH_INPUT_BUFFER_REQUEST FlushInputBufferRequest;
-        CSRSS_SCROLL_CONSOLE_SCREEN_BUFFER_REQUEST ScrollConsoleScreenBufferRequest;
+        CSRSS_SCROLL_CONSOLE_SCREEN_BUFFER_REQUEST 
+        ScrollConsoleScreenBufferRequest;
         CSRSS_READ_CONSOLE_OUTPUT_CHAR_REQUEST ReadConsoleOutputCharRequest;
         CSRSS_READ_CONSOLE_OUTPUT_ATTRIB_REQUEST ReadConsoleOutputAttribRequest;
         CSRSS_GET_NUM_INPUT_EVENTS_REQUEST GetNumInputEventsRequest;
@@ -740,18 +651,11 @@ typedef struct
         CSRSS_VERIFY_HANDLE_REQUEST VerifyHandleRequest;
         CSRSS_DUPLICATE_HANDLE_REQUEST DuplicateHandleRequest;
         CSRSS_SETGET_CONSOLE_HW_STATE_REQUEST ConsoleHardwareStateRequest;
-        CSRSS_GET_CONSOLE_WINDOW_REQUEST GetConsoleWindowRequest;
+        CSRSS_CONSOLE_WINDOW ConsoleWindowRequest;
         CSRSS_CREATE_DESKTOP_REQUEST CreateDesktopRequest;
         CSRSS_SHOW_DESKTOP_REQUEST ShowDesktopRequest;
         CSRSS_HIDE_DESKTOP_REQUEST HideDesktopRequest;
-        CSRSS_SET_CONSOLE_ICON_REQUEST SetConsoleIconRequest;
-        CSRSS_SET_LOGON_NOTIFY_WINDOW_REQUEST SetLogonNotifyWindowRequest;
-        CSRSS_REGISTER_LOGON_PROCESS_REQUEST RegisterLogonProcessRequest;
-        CSRSS_GET_CONSOLE_CP_REQUEST GetConsoleCodePage;
-        CSRSS_SET_CONSOLE_CP_REQUEST SetConsoleCodePage;
-        CSRSS_GET_CONSOLE_OUTPUT_CP_REQUEST GetConsoleOutputCodePage;
-        CSRSS_SET_CONSOLE_OUTPUT_CP_REQUEST SetConsoleOutputCodePage;
-	CSRSS_GET_INPUT_WAIT_HANDLE_REQUEST GetConsoleInputWaitHandle;
+        CSRSS_CONSOLE_SET_WINDOW_ICON ConsoleSetWindowIconRequest;
       } Data;
     };
   };
@@ -770,7 +674,6 @@ typedef struct
       {
         CSRSS_CREATE_PROCESS_REPLY CreateProcessReply;
         CSRSS_CONNECT_PROCESS_REPLY ConnectReply;
-        CSRSS_FILL_OUTPUT_REPLY FillOutputReply;
         CSRSS_WRITE_CONSOLE_REPLY WriteConsoleReply;
         CSRSS_READ_CONSOLE_REPLY ReadConsoleReply;
         CSRSS_ALLOC_CONSOLE_REPLY AllocConsoleReply;
@@ -795,18 +698,11 @@ typedef struct
         CSRSS_GET_OUTPUT_HANDLE_REPLY GetOutputHandleReply;
         CSRSS_DUPLICATE_HANDLE_REPLY DuplicateHandleReply;
         CSRSS_SETGET_CONSOLE_HW_STATE_REPLY ConsoleHardwareStateReply;
-        CSRSS_GET_CONSOLE_WINDOW_REPLY GetConsoleWindowReply;
+        CSRSS_CONSOLE_WINDOW ConsoleWindowReply;
         CSRSS_CREATE_DESKTOP_REPLY CreateDesktopReply;
         CSRSS_SHOW_DESKTOP_REPLY ShowDesktopReply;
         CSRSS_HIDE_DESKTOP_REPLY HideDesktopReply;
-        CSRSS_SET_CONSOLE_ICON_REPLY SetConsoleIconReply;
-        CSRSS_SET_LOGON_NOTIFY_WINDOW_REPLY SetLogonNotifyWindowReply;
-        CSRSS_REGISTER_LOGON_PROCESS_REPLY RegisterLogonProcessReply;
-        CSRSS_GET_CONSOLE_CP_REPLY GetConsoleCodePage;
-        CSRSS_SET_CONSOLE_CP_REPLY SetConsoleCodePage;
-        CSRSS_GET_CONSOLE_OUTPUT_CP_REPLY GetConsoleOutputCodePage;
-        CSRSS_SET_CONSOLE_OUTPUT_CP_REPLY SetConsoleOutputCodePage;
-	CSRSS_GET_INPUT_WAIT_HANDLE_REPLY GetConsoleInputWaitHandle;
+        CSRSS_CONSOLE_SET_WINDOW_ICON ConsoleSetWindowIconReply;
       } Data;
     };
   };

@@ -33,7 +33,7 @@
  *	@(#)tcp_output.c	8.3 (Berkeley) 12/30/93
  */
 
-#define TCPOUTFLAGS
+#define	TCPOUTFLAGS
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/malloc.h>
@@ -76,7 +76,7 @@ tcp_output(tp)
 {
 	register struct socket *so = tp->t_inpcb->inp_socket;
 	register long len, win;
-	int off, flags, error;
+	int off, flags, error = EINVAL;
 	register struct mbuf *m;
 	register struct tcpiphdr *ti;
 	u_char opt[TCP_MAXOLEN];
@@ -85,7 +85,7 @@ tcp_output(tp)
 	struct rmxp_tao *taop;
 	struct rmxp_tao tao_noncached;
 
-	OS_DbgPrint(OSK_MID_TRACE,("Called\n"));
+	OS_DbgPrint(OSK_MID_TRACE,("Start\n"));
 
 	/*
 	 * Determine length of data that should be transmitted,
@@ -101,8 +101,9 @@ tcp_output(tp)
 		 * slow start to get ack "clock" running again.
 		 */
 		tp->snd_cwnd = tp->t_maxseg;
+
 again:
-	OS_DbgPrint(OSK_MID_TRACE,("again:\n"));
+	OS_DbgPrint(OSK_MID_TRACE,("Again...\n"));
 	sendalot = 0;
 	off = tp->snd_nxt - tp->snd_una;
 	win = min(tp->snd_wnd, tp->snd_cwnd);
@@ -166,10 +167,8 @@ again:
 		flags &= ~TH_SYN;
 		off--, len++;
 		if (len > 0 && tp->t_state == TCPS_SYN_SENT &&
-		    taop->tao_ccsent == 0) {
-		    OS_DbgPrint(OSK_MID_TRACE,("leaving 0\n"));
-		    return 0;
-		}
+		    taop->tao_ccsent == 0)
+			return 0;
 	}
 
 	/*
@@ -311,11 +310,9 @@ again:
 	/*
 	 * No reason to send a segment, just return.
 	 */
-	OS_DbgPrint(OSK_MID_TRACE,("leaving 0\n"));
-	return (0);
+	/*return (0);*/
 
 send:
-	OS_DbgPrint(OSK_MID_TRACE,("send:\n"));
 	/*
 	 * Before ESTABLISHED, force sending of initial options
 	 * unless TCP set not to do any options.
@@ -463,88 +460,82 @@ send:
 		panic("tcphdr too big");
 /*#endif*/
 
+
 	/*
 	 * Grab a header mbuf, attaching a copy of data to
 	 * be transmitted, and initialize the header from
 	 * the template for sends on this connection.
 	 */
 	if (len) {
-		if (tp->t_force && len == 1)
-			tcpstat.tcps_sndprobe++;
-		else if (SEQ_LT(tp->snd_nxt, tp->snd_max)) {
-			tcpstat.tcps_sndrexmitpack++;
-			tcpstat.tcps_sndrexmitbyte += len;
-		} else {
-			tcpstat.tcps_sndpack++;
-			tcpstat.tcps_sndbyte += len;
-		}
+	    if (tp->t_force && len == 1)
+		tcpstat.tcps_sndprobe++;
+	    else if (SEQ_LT(tp->snd_nxt, tp->snd_max)) {
+		tcpstat.tcps_sndrexmitpack++;
+		tcpstat.tcps_sndrexmitbyte += len;
+	    } else {
+		tcpstat.tcps_sndpack++;
+		tcpstat.tcps_sndbyte += len;
+	    }
 #ifdef notyet
-		if ((m = m_copypack(so->so_snd.sb_mb, off,
-		    (int)len, max_linkhdr + hdrlen)) == 0) {
-			error = ENOBUFS;
-			goto out;
-		}
-		/*
-		 * m_copypack left space for our hdr; use it.
-		 */
-		m->m_len += hdrlen;
-		m->m_data -= hdrlen;
+	    if ((m = m_copypack(so->so_snd.sb_mb, off,
+				(int)len, max_linkhdr + hdrlen)) == 0) {
+		error = ENOBUFS;
+		goto out;
+	    }
+	    /*
+	     * m_copypack left space for our hdr; use it.
+	     */
+	    m->m_len += hdrlen;
+	    m->m_data -= hdrlen;
 #else
-		MGETHDR(m, M_DONTWAIT, MT_HEADER);
-		if (m == NULL) {
-			error = ENOBUFS;
-			goto out;
+	    MGETHDR(m, M_DONTWAIT, MT_HEADER);
+	    if (m == NULL) {
+		error = ENOBUFS;
+		goto out;
+	    }
+	    m->m_data += max_linkhdr;
+	    m->m_len = hdrlen;
+	    if (len <= MHLEN - hdrlen - max_linkhdr) {
+		m_copydata(so->so_snd.sb_mb, off, (int) len,
+			   mtod(m, caddr_t) + hdrlen);
+		m->m_len += len;
+	    } else {
+		m->m_next = m_copy(so->so_snd.sb_mb, off, (int) len);
+		if (m->m_next == 0) {
+		    (void) m_free(m);
+		    error = ENOBUFS;
+		    goto out;
 		}
-		m->m_data += max_linkhdr;
-		m->m_len = hdrlen;
-		/* m is not initialized here ... see below up to line
-		 * in_cksum to see how it gets there */
-		if (len <= MHLEN - hdrlen - max_linkhdr) {
-		    m_copydata(so->so_snd.sb_mb, off, (int) len,
-			       mtod(m, caddr_t) + hdrlen);
-		    m->m_len += len;
-		} else {
-		    m->m_next = m_copy(so->so_snd.sb_mb, off, (int) len);
-		    // the buffer is allocated, but not filled with the tcp
-		    // header yet, so dumping it here yields garbage...
-		    //OskitDumpBuffer(mtod(m, caddr_t), len);
-		    if (m->m_next == 0) {
-			(void) m_free(m);
-			error = ENOBUFS;
-			goto out;
-		    }
-		}
+	    }
 #endif
-		/*
-		 * If we're sending everything we've got, set PUSH.
-		 * (This will keep happy those implementations which only
-		 * give data to the user when a buffer fills or
-		 * a PUSH comes in.)
-		 */
-		if (off + len == so->so_snd.sb_cc)
-			flags |= TH_PUSH;
+	    /*
+	     * If we're sending everything we've got, set PUSH.
+	     * (This will keep happy those implementations which only
+	     * give data to the user when a buffer fills or
+	     * a PUSH comes in.)
+	     */
+	    if (off + len == so->so_snd.sb_cc)
+		flags |= TH_PUSH;
 	} else {
-		if (tp->t_flags & TF_ACKNOW)
-			tcpstat.tcps_sndacks++;
-		else if (flags & (TH_SYN|TH_FIN|TH_RST))
-			tcpstat.tcps_sndctrl++;
-		else if (SEQ_GT(tp->snd_up, tp->snd_una))
-			tcpstat.tcps_sndurg++;
-		else
-			tcpstat.tcps_sndwinup++;
-
-		MGETHDR(m, M_DONTWAIT, MT_HEADER);
-		if (m == NULL) {
-			error = ENOBUFS;
-			goto out;
-		}
-		m->m_data += max_linkhdr;
-		m->m_len = hdrlen;
+	    if (tp->t_flags & TF_ACKNOW)
+		tcpstat.tcps_sndacks++;
+	    else if (flags & (TH_SYN|TH_FIN|TH_RST))
+		tcpstat.tcps_sndctrl++;
+	    else if (SEQ_GT(tp->snd_up, tp->snd_una))
+		tcpstat.tcps_sndurg++;
+	    else
+		tcpstat.tcps_sndwinup++;
+	    
+	    MGETHDR(m, M_DONTWAIT, MT_HEADER);
+	    if (m == NULL) {
+		error = ENOBUFS;
+		goto out;
+	    }
+	    m->m_data += max_linkhdr;
+	    m->m_len = hdrlen;
 	}
+	
 	m->m_pkthdr.rcvif = (struct ifnet *)0;
-
-	/* This pulls the data ptr from m and start initting it...
-	 * before this point, m is empty. */
 	ti = mtod(m, struct tcpiphdr *);
 	if (tp->t_template == 0)
 		panic("tcp_output");
@@ -555,9 +546,11 @@ send:
 	 * window for use in delaying messages about window sizes.
 	 * If resending a FIN, be sure not to use a new sequence number.
 	 */
+
 	if (flags & TH_FIN && tp->t_flags & TF_SENTFIN &&
 	    tp->snd_nxt == tp->snd_max)
 		tp->snd_nxt--;
+
 	/*
 	 * If we are doing retransmissions, then snd_nxt will
 	 * not reflect the first unsent octet.  For ACK only
@@ -575,27 +568,33 @@ send:
 		ti->ti_seq = htonl(tp->snd_nxt);
 	else
 		ti->ti_seq = htonl(tp->snd_max);
+
 	ti->ti_ack = htonl(tp->rcv_nxt);
 
 	if (optlen) {
 		(void)memcpy(ti + 1, opt, optlen);
 		ti->ti_off = (sizeof (struct tcphdr) + optlen) >> 2;
 	}
+
 	ti->ti_flags = flags;
+
 	/*
 	 * Calculate receive window.  Don't shrink window,
 	 * but avoid silly window syndrome.
 	 */
 	if (win < (long)(so->so_rcv.sb_hiwat / 4) && win < (long)tp->t_maxseg)
 		win = 0;
+
 	if (win > (long)TCP_MAXWIN << tp->rcv_scale)
 		win = (long)TCP_MAXWIN << tp->rcv_scale;
+
 	if (win < (long)(tp->rcv_adv - tp->rcv_nxt))
 		win = (long)(tp->rcv_adv - tp->rcv_nxt);
+
 	ti->ti_win = htons((u_short) (win>>tp->rcv_scale));
 	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
-		ti->ti_urp = htons((u_short)(tp->snd_up - tp->snd_nxt));
-		ti->ti_flags |= TH_URG;
+	    ti->ti_urp = htons((u_short)(tp->snd_up - tp->snd_nxt));
+	    ti->ti_flags |= TH_URG;
 	} else
 		/*
 		 * If no urgent pointer to send, then we pull
@@ -609,9 +608,15 @@ send:
 	 * Put TCP length in extended header, and then
 	 * checksum extended header and data.
 	 */
-	if (len + optlen)
-		ti->ti_len = htons((u_short)(sizeof (struct tcphdr) +
-		    optlen + len));
+
+	if (len + optlen) {
+	    ti->ti_src.s_addr = tp->t_inpcb->inp_laddr.s_addr;
+	    ti->ti_dst.s_addr = tp->t_inpcb->inp_faddr.s_addr;
+	    ti->ti_pr  = 6;
+	    ti->ti_len = htons((u_short)(sizeof (struct tcphdr) +
+					 optlen + len));
+	}
+
 	ti->ti_sum = in_cksum(m, (int)(hdrlen + len));
 
 	/*
@@ -701,39 +706,21 @@ send:
 	 *	2) the MTU is not locked (if it is, then discovery has been
 	 *	   disabled)
 	 */
-	if ((rt = tp->t_inpcb->inp_route.ro_rt)
+	if ((rt = &tp->t_inpcb->inp_route.ro_rt)
 	    && rt->rt_flags & RTF_UP
 	    && !(rt->rt_rmx.rmx_locks & RTV_MTU)) {
 		((struct ip *)ti)->ip_off |= IP_DF;
 	}
 #endif
-        /*
-         * XXX: It seems that osktittcp expects that packets are
-         * synchronously processed. The current implementation feeds
-         * oskittcp with the packets asynchronously. That's not a
-         * problem normally when the packets are transfered over
-         * network, but it starts to be a problem when it comes to
-         * loopback packets.
-         * The ACK bits are set in tcp_input which calls tcp_output and
-         * expects them to be cleared before further processing.
-         * Instead tcp_output calls ip_output which produces a packet
-         * and ends up in tcp_input and we're stuck in infinite loop.
-         * Normally the flags are masked out at the end of this function
-         * and the incomming packets are processed then, but since 
-         * currently the loopback packet is delivered during the 
-         * ip_output call, the function end is never reached...
-         */
-#ifdef __REACTOS__
-	tp->t_flags &= ~(TF_ACKNOW|TF_DELACK);
-#endif
-	error = ip_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
+
+	OS_DbgPrint(OSK_MID_TRACE,("Calling ip_output\n"));
+	error = ip_output(so, m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 			  so->so_options & SO_DONTROUTE, 0);
     }
 	if (error) {
 out:
 		if (error == ENOBUFS) {
 			tcp_quench(tp->t_inpcb, 0);
-			OS_DbgPrint(OSK_MID_TRACE,("quench 0\n"));
 			return (0);
 		}
 #if 1
@@ -745,17 +732,14 @@ out:
 			 * not do so here.
 			 */
 			tcp_mtudisc(tp->t_inpcb, 0);
-			OS_DbgPrint(OSK_MID_TRACE,("mtudisc 0\n"));
 			return 0;
 		}
 #endif
 		if ((error == EHOSTUNREACH || error == ENETDOWN)
 		    && TCPS_HAVERCVDSYN(tp->t_state)) {
 			tp->t_softerror = error;
-			OS_DbgPrint(OSK_MID_TRACE,("softerror %d\n", error));
 			return (0);
 		}
-		OS_DbgPrint(OSK_MID_TRACE,("error %d\n", error));
 		return (error);
 	}
 	tcpstat.tcps_sndtotal++;
@@ -770,9 +754,10 @@ out:
 		tp->rcv_adv = tp->rcv_nxt + win;
 	tp->last_ack_sent = tp->rcv_nxt;
 	tp->t_flags &= ~(TF_ACKNOW|TF_DELACK);
+	OS_DbgPrint(OSK_MID_TRACE,("sendalot: %d (flags %x)\n", 
+				   sendalot, tp->t_flags));
 	if (sendalot)
 		goto again;
-	OS_DbgPrint(OSK_MID_TRACE,("leaving 0\n"));
 	return (0);
 }
 

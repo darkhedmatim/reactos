@@ -1,4 +1,4 @@
-/* $Id: cont.c,v 1.35 2004/10/22 20:38:22 ekohl Exp $
+/* $Id: cont.c,v 1.31 2004/04/10 22:35:25 gdalsnes Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,19 +21,16 @@
 
 VOID STATIC
 MmFreeContinuousPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
-                     PFN_TYPE Page, SWAPENTRY SwapEntry,
+                     PHYSICAL_ADDRESS PhysAddr, SWAPENTRY SwapEntry,
                      BOOLEAN Dirty)
 {
-   ASSERT(SwapEntry == 0);
-   if (Page != 0)
+   assert(SwapEntry == 0);
+   if (PhysAddr.QuadPart != 0)
    {
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Page);
+      MmReleasePageMemoryConsumer(MC_NPPOOL, PhysAddr);
    }
 }
 
-/*
- * @implemented
- */
 PVOID STDCALL
 MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
                                   IN PHYSICAL_ADDRESS LowestAcceptableAddress OPTIONAL,
@@ -43,7 +42,7 @@ MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
    PMEMORY_AREA MArea;
    NTSTATUS Status;
    PVOID BaseAddress = 0;
-   PFN_TYPE PBase;
+   PHYSICAL_ADDRESS PBase;
    ULONG Attributes;
    ULONG i;
 
@@ -79,7 +78,14 @@ MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
                                 LowestAcceptableAddress,
                                 HighestAcceptableAddress,
                                 Alignment);
-   if (PBase == 0)
+#if defined(__GNUC__)
+
+   if (PBase.QuadPart == 0LL)
+#else
+
+   if (PBase.QuadPart == 0)
+#endif
+
    {
       MmLockAddressSpace(MmGetKernelAddressSpace());
       MmFreeMemoryArea(MmGetKernelAddressSpace(),
@@ -90,13 +96,22 @@ MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
       MmUnlockAddressSpace(MmGetKernelAddressSpace());
       return(NULL);
    }
-   for (i = 0; i < (PAGE_ROUND_UP(NumberOfBytes) / PAGE_SIZE); i++, PBase++)
+   for (i = 0; i < (PAGE_ROUND_UP(NumberOfBytes) / 4096); i++)
    {
+#if !defined(__GNUC__)
+      LARGE_INTEGER dummyJunkNeeded;
+      dummyJunkNeeded.QuadPart = PBase.QuadPart + (i * 4096);
+#endif
+
       MmCreateVirtualMapping(NULL,
                              (char*)BaseAddress + (i * 4096),
                              Attributes,
-                             &PBase,
-			     1);
+#if defined(__GNUC__)
+                             (LARGE_INTEGER)(PBase.QuadPart + (i * 4096)),
+#else
+                             dummyJunkNeeded,
+#endif
+                             TRUE);
    }
    return(BaseAddress);
 }

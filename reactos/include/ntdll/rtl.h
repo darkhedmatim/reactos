@@ -1,4 +1,4 @@
-/* $Id: rtl.h,v 1.53 2004/11/29 00:05:31 gdalsnes Exp $
+/* $Id: rtl.h,v 1.43 2004/02/03 14:19:56 ekohl Exp $
  *
  */
 
@@ -37,59 +37,6 @@ typedef struct _DEBUG_BUFFER
   PVOID Reserved[8];
 } DEBUG_BUFFER, *PDEBUG_BUFFER;
 
-/* DEBUG_MODULE_INFORMATION.Flags constants */
-#define LDRP_STATIC_LINK                  0x00000002
-#define LDRP_IMAGE_DLL                    0x00000004
-#define LDRP_LOAD_IN_PROGRESS             0x00001000
-#define LDRP_UNLOAD_IN_PROGRESS           0x00002000
-#define LDRP_ENTRY_PROCESSED              0x00004000
-#define LDRP_ENTRY_INSERTED               0x00008000
-#define LDRP_CURRENT_LOAD                 0x00010000
-#define LDRP_FAILED_BUILTIN_LOAD          0x00020000
-#define LDRP_DONT_CALL_FOR_THREADS        0x00040000
-#define LDRP_PROCESS_ATTACH_CALLED        0x00080000
-#define LDRP_DEBUG_SYMBOLS_LOADED         0x00100000
-#define LDRP_IMAGE_NOT_AT_BASE            0x00200000
-#define LDRP_WX86_IGNORE_MACHINETYPE      0x00400000
-
-typedef struct _DEBUG_MODULE_INFORMATION {
-	ULONG  Reserved[2];
-	PVOID  Base;
-	ULONG  Size;
-	ULONG  Flags;
-	USHORT  Index;
-	USHORT  Unknown;
-	USHORT  LoadCount;
-	USHORT  ModuleNameOffset;
-	CHAR  ImageName[256];
-} DEBUG_MODULE_INFORMATION, *PDEBUG_MODULE_INFORMATION;
-
-typedef struct _DEBUG_HEAP_INFORMATION {
-	PVOID  Base;
-	ULONG  Flags;
-	USHORT  Granularity;
-	USHORT  Unknown;
-	ULONG  Allocated;
-	ULONG  Committed;
-	ULONG  TagCount;
-	ULONG  BlockCount;
-	ULONG  Reserved[7];
-	PVOID  Tags;
-	PVOID  Blocks;
-} DEBUG_HEAP_INFORMATION, *PDEBUG_HEAP_INFORMATION;
-
-typedef struct _DEBUG_LOCK_INFORMATION {
-	PVOID  Address;
-	USHORT  Type;
-	USHORT  CreatorBackTraceIndex;
-	ULONG  OwnerThreadId;
-	ULONG  ActiveCount;
-	ULONG  ContentionCount;
-	ULONG  EntryCount;
-	ULONG  RecursionCount;
-	ULONG  NumberOfSharedWaiters;
-	ULONG  NumberOfExclusiveWaiters;
-} DEBUG_LOCK_INFORMATION, *PDEBUG_LOCK_INFORMATION;
 
 typedef struct _CRITICAL_SECTION_DEBUG
 {
@@ -119,6 +66,7 @@ typedef PCRITICAL_SECTION PRTL_CRITICAL_SECTION;
 typedef LPCRITICAL_SECTION LPRTL_CRITICAL_SECTION;
 
 #endif /* !__USE_W32API */
+
 
 typedef struct _RTL_PROCESS_INFO
 {
@@ -158,6 +106,8 @@ typedef struct _RTL_HANDLE_TABLE
 } RTL_HANDLE_TABLE, *PRTL_HANDLE_TABLE;
 
 
+#define HEAP_BASE (0xa0000000)
+
 /* RtlQueryProcessDebugInformation */
 #define PDI_MODULES     0x01	/* The loaded modules of the process */
 #define PDI_BACKTRACE   0x02	/* The heap stack back traces */
@@ -180,15 +130,6 @@ RtlAddAccessDeniedAceEx (IN OUT PACL Acl,
 			 IN ULONG Flags,
 			 IN ACCESS_MASK AccessMask,
 			 IN PSID Sid);
-
-NTSTATUS STDCALL
-RtlAddAuditAccessAceEx(IN OUT PACL Acl,
-		       IN ULONG Revision,
-                       IN ULONG Flags,
-                       IN ACCESS_MASK AccessMask,
-                       IN PSID Sid,
-                       IN BOOLEAN Success,
-                       IN BOOLEAN Failure);
 
 VOID STDCALL
 RtlDeleteCriticalSection (PCRITICAL_SECTION CriticalSection);
@@ -263,22 +204,10 @@ RtlLargeIntegerToChar (
 
 /* Path functions */
 
-typedef enum
-{
-    INVALID_PATH = 0,
-    UNC_PATH,              /* "//foo" */
-    ABSOLUTE_DRIVE_PATH,   /* "c:/foo" */
-    RELATIVE_DRIVE_PATH,   /* "c:foo" */
-    ABSOLUTE_PATH,         /* "/foo" */
-    RELATIVE_PATH,         /* "foo" */
-    DEVICE_PATH,           /* "//./foo" */
-    UNC_DOT_PATH           /* "//." */
-} DOS_PATHNAME_TYPE;
-
 ULONG
 STDCALL
 RtlDetermineDosPathNameType_U (
-   PCWSTR Path
+	PWSTR Path
 	);
 
 BOOLEAN
@@ -686,39 +615,6 @@ RtlRunDecodeUnicodeString (IN UCHAR Hash,
 VOID STDCALL
 RtlRunEncodeUnicodeString (IN OUT PUCHAR Hash,
 			   IN OUT PUNICODE_STRING String);
-
-/* Timer Queue functions */
-
-#ifdef __USE_W32API
-#include <winnt.h>
-#else /* __USE_W32API */
-typedef VOID (CALLBACK *WAITORTIMERCALLBACKFUNC) (PVOID, BOOLEAN );
-#endif /* __USE_W32API */
-
-NTSTATUS
-STDCALL
-RtlCreateTimer(HANDLE TimerQueue,PHANDLE phNewTimer, WAITORTIMERCALLBACKFUNC Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
-
-NTSTATUS
-STDCALL
-RtlCreateTimerQueue(PHANDLE TimerQueue);
-
-NTSTATUS
-STDCALL
-RtlDeleteTimer(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);
-
-NTSTATUS
-STDCALL
-RtlUpdateTimer(HANDLE TimerQueue,HANDLE Timer,ULONG DueTime,ULONG Period);
-
-NTSTATUS
-STDCALL
-RtlDeleteTimerQueueEx(HANDLE TimerQueue,HANDLE CompletionEvent);
-
-NTSTATUS
-STDCALL
-RtlDeleteTimerQueue(HANDLE TimerQueue);
-
 
 #ifndef __NTDRIVER__
 

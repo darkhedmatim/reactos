@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.50 2004/12/24 19:02:32 greatlrd Exp $
+/* $Id: stubs.c,v 1.45 2004/04/29 20:26:35 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -8,7 +8,8 @@
  * REVISION HISTORY:
  *       04-06-2001  CSH  Created
  */
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <windows.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -108,9 +109,9 @@ NtUserChangeDisplaySettings(
   DWORD dwflags,
   LPVOID lParam)
 {
-  // UNIMPLEMENTED
-  DbgPrint("(%s:%i) WIN32K: %s UNIMPLEMENTED\n", __FILE__, __LINE__, __FUNCTION__ );
-  return DISP_CHANGE_BADMODE;
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 DWORD
@@ -239,6 +240,32 @@ NtUserEnumDisplayDevices (
   DWORD iDevNum, /* display device */
   PDISPLAY_DEVICE lpDisplayDevice, /* device information */
   DWORD dwFlags ) /* reserved */
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+BOOL
+STDCALL
+NtUserEnumDisplayMonitors(
+  HDC hdc,
+  LPCRECT lprcClip,
+  MONITORENUMPROC lpfnEnum,
+  LPARAM dwData)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+BOOL
+STDCALL
+NtUserEnumDisplaySettings(
+  PUNICODE_STRING lpszDeviceName,
+  DWORD iModeNum,
+  LPDEVMODEW lpDevMode, /* FIXME is this correct? */
+  DWORD dwFlags )
 {
   UNIMPLEMENTED
 
@@ -681,6 +708,17 @@ NtUserUpdateInstance(
   DWORD Unknown0,
   DWORD Unknown1,
   DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserUpdatePerUserSystemParameters(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.41 2004/12/28 08:49:06 gvg Exp $
+/* $Id: input.c,v 1.34 2004/05/25 15:52:45 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -34,9 +34,13 @@
 
 /* GLOBALS *******************************************************************/
 
+#define ENABLEMOUSEGDICALLBACK 1
+
 static HANDLE MouseDeviceHandle;
+#if !ENABLEMOUSEGDICALLBACK
 static HANDLE MouseThreadHandle;
 static CLIENT_ID MouseThreadId;
+#endif
 static HANDLE KeyboardThreadHandle;
 static CLIENT_ID KeyboardThreadId;
 static HANDLE KeyboardDeviceHandle;
@@ -46,104 +50,8 @@ PUSER_MESSAGE_QUEUE pmPrimitiveMessageQueue = 0;
 
 /* FUNCTIONS *****************************************************************/
 
-#define ClearMouseInput(mi) \
-  mi.dx = 0; \
-  mi.dy = 0; \
-  mi.mouseData = 0; \
-  mi.dwFlags = 0;
-
-#define SendMouseEvent(mi) \
-  if(mi.dx != 0 || mi.dy != 0) \
-    mi.dwFlags |= MOUSEEVENTF_MOVE; \
-  if(mi.dwFlags) \
-    IntMouseInput(&mi); \
-  ClearMouseInput(mi);
-
-VOID FASTCALL
-ProcessMouseInputData(PMOUSE_INPUT_DATA Data, ULONG InputCount)
-{
-  PMOUSE_INPUT_DATA mid;
-  MOUSEINPUT mi;
-  ULONG i;
-
-  ClearMouseInput(mi);
-  mi.time = 0;
-  mi.dwExtraInfo = 0;
-  for(i = 0; i < InputCount; i++)
-  {
-    mid = (Data + i);
-    mi.dx += mid->LastX;
-    mi.dy += mid->LastY;
-
-    if(mid->ButtonFlags)
-    {
-      if(mid->ButtonFlags & MOUSE_LEFT_BUTTON_DOWN)
-      {
-        mi.dwFlags |= MOUSEEVENTF_LEFTDOWN;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_LEFT_BUTTON_UP)
-      {
-        mi.dwFlags |= MOUSEEVENTF_LEFTUP;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_MIDDLE_BUTTON_DOWN)
-      {
-        mi.dwFlags |= MOUSEEVENTF_MIDDLEDOWN;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_MIDDLE_BUTTON_UP)
-      {
-        mi.dwFlags |= MOUSEEVENTF_MIDDLEUP;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_RIGHT_BUTTON_DOWN)
-      {
-        mi.dwFlags |= MOUSEEVENTF_RIGHTDOWN;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_RIGHT_BUTTON_UP)
-      {
-        mi.dwFlags |= MOUSEEVENTF_RIGHTUP;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_BUTTON_4_DOWN)
-      {
-        mi.mouseData |= XBUTTON1;
-        mi.dwFlags |= MOUSEEVENTF_XDOWN;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_BUTTON_4_UP)
-      {
-        mi.mouseData |= XBUTTON1;
-        mi.dwFlags |= MOUSEEVENTF_XUP;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_BUTTON_5_DOWN)
-      {
-        mi.mouseData |= XBUTTON2;
-        mi.dwFlags |= MOUSEEVENTF_XDOWN;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_BUTTON_5_UP)
-      {
-        mi.mouseData |= XBUTTON2;
-        mi.dwFlags |= MOUSEEVENTF_XUP;
-        SendMouseEvent(mi);
-      }
-      if(mid->ButtonFlags & MOUSE_WHEEL)
-      {
-        mi.mouseData = mid->ButtonData;
-        mi.dwFlags |= MOUSEEVENTF_WHEEL;
-        SendMouseEvent(mi);
-      }
-    }
-  }
-
-  SendMouseEvent(mi);
-}
-
-VOID STDCALL
+#if !ENABLEMOUSEGDICALLBACK
+VOID STDCALL_FUNC STATIC
 MouseThreadMain(PVOID StartContext)
 {
   UNICODE_STRING MouseDeviceName;
@@ -213,11 +121,12 @@ MouseThreadMain(PVOID StartContext)
       }
       DPRINT("MouseEvent\n");
       
-      ProcessMouseInputData(&MouseInput, Iosb.Information / sizeof(MOUSE_INPUT_DATA));
+      MouseGDICallBack(&MouseInput, sizeof(MOUSE_INPUT_DATA));
     }
     DPRINT("Mouse Input Thread Stopped...\n");
   }
 }
+#endif
 
 STATIC VOID STDCALL
 KeyboardThreadMain(PVOID StartContext)
@@ -324,12 +233,6 @@ KeyboardThreadMain(PVOID StartContext)
 	      /* Context mode. 1 if ALT if pressed while the key is pressed */
 	      lParam |= (1 << 29);
 	    }
-
-	  if (! KeyEvent.bKeyDown)
-	    {
-	      /* Transition state. 1 for KEY_UP etc, 0 for KEY_DOWN */
-	      lParam |= (1 << 31);
-	    }
 	  
 	  if (GetHotKey(InputWindowStation,
 			fsModifiers,
@@ -377,11 +280,11 @@ KeyboardThreadMain(PVOID StartContext)
 
 	  FocusThread = FocusQueue->Thread;
 
-	  if (FocusThread && FocusThread->Tcb.Win32Thread &&
-	      FocusThread->Tcb.Win32Thread->KeyboardLayout)
+	  if (FocusThread && FocusThread->Win32Thread && 
+	      FocusThread->Win32Thread->KeyboardLayout) 
 	    {
 	      W32kKeyProcessMessage(&msg,
-				    FocusThread->Tcb.Win32Thread->KeyboardLayout);
+				    FocusThread->Win32Thread->KeyboardLayout);
 	    } 
 	  else
 	    continue;
@@ -420,6 +323,16 @@ NTSTATUS FASTCALL
 InitInputImpl(VOID)
 {
   NTSTATUS Status;
+#if ENABLEMOUSEGDICALLBACK
+  UNICODE_STRING MouseDeviceName;
+  OBJECT_ATTRIBUTES MouseObjectAttributes;
+  IO_STATUS_BLOCK Iosb;
+  PIRP Irp;
+  PFILE_OBJECT FileObject;
+  GDI_INFORMATION GdiInfo;
+  KEVENT IoEvent;
+  PIO_STACK_LOCATION StackPtr;
+#endif
 
   KeInitializeEvent(&InputThreadsStart, NotificationEvent, FALSE);
 
@@ -438,7 +351,78 @@ InitInputImpl(VOID)
   /* Initialize the default keyboard layout */
   (VOID)W32kGetDefaultKeyLayout();
   
+#if ENABLEMOUSEGDICALLBACK
+  /*
+   * Connect to the mouse class driver.
+   * Failures here don't result in a failure return, the system must be
+   * able to operate without mouse
+   */  
+  RtlRosInitUnicodeStringFromLiteral(&MouseDeviceName, L"\\??\\MouseClass");
+  InitializeObjectAttributes(&MouseObjectAttributes,
+			     &MouseDeviceName,
+			     0,
+			     NULL,
+			     NULL);
+  Status = ZwOpenFile(&MouseDeviceHandle,
+		      FILE_ALL_ACCESS,
+		      &MouseObjectAttributes,
+		      &Iosb,
+		      0,
+		      FILE_SYNCHRONOUS_IO_ALERT);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("Win32K: Failed to open mouse.\n");
+      return STATUS_SUCCESS;
+    }
+  Status = ObReferenceObjectByHandle(MouseDeviceHandle,
+				     FILE_READ_DATA | FILE_WRITE_DATA,
+				     IoFileObjectType,
+				     KernelMode,
+				     (PVOID *) &FileObject,
+				     NULL);
+   
+   if (!NT_SUCCESS(Status))
+     {
+       DPRINT1("Win32K: Failed to reference mouse file object. (0x%X)\n", Status);
+       ZwClose(MouseDeviceHandle);
+       return STATUS_SUCCESS;
+     }
+   KeInitializeEvent(&IoEvent, FALSE, NotificationEvent);
+   GdiInfo.CallBack = MouseGDICallBack;
+   Irp = IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_MOUSE_CONNECT,
+				       FileObject->DeviceObject,
+				       &GdiInfo,
+				       sizeof(GdiInfo),
+				       NULL,
+				       0,
+				       TRUE,
+				       &FileObject->Event,
+				       &Iosb);
 
+   //trigger FileObject/Event dereferencing
+   Irp->Tail.Overlay.OriginalFileObject = FileObject;
+
+   StackPtr = IoGetNextIrpStackLocation(Irp);
+   StackPtr->FileObject = FileObject;
+   StackPtr->DeviceObject = FileObject->DeviceObject;
+   StackPtr->Parameters.DeviceIoControl.InputBufferLength = sizeof(GdiInfo);
+   StackPtr->Parameters.DeviceIoControl.OutputBufferLength = 0;
+
+   Status = IoCallDriver(FileObject->DeviceObject, Irp);
+   if (Status == STATUS_PENDING)
+     {
+       KeWaitForSingleObject(&FileObject->Event, Executive, KernelMode, FALSE,
+			     NULL);
+       Status = Iosb.Status;
+     }
+   if (!NT_SUCCESS(Status))
+     {
+       DPRINT1("Win32K: Failed to connect to mouse driver.\n");
+       ObDereferenceObject(&FileObject);
+       NtClose(MouseDeviceHandle);
+       return STATUS_SUCCESS;
+     }
+#else
   Status = PsCreateSystemThread(&MouseThreadHandle,
 				THREAD_ALL_ACCESS,
 				NULL,
@@ -450,6 +434,7 @@ InitInputImpl(VOID)
   {
     DPRINT1("Win32K: Failed to create mouse thread.\n");
   }
+#endif
   
   return STATUS_SUCCESS;
 }
@@ -545,12 +530,10 @@ IntMouseInput(MOUSEINPUT *mi)
   PWINSTATION_OBJECT WinSta;
   BOOL DoMove, SwapButtons;
   MSG Msg;
-  HBITMAP hBitmap;
-  BITMAPOBJ *BitmapObj;
   SURFOBJ *SurfObj;
+  PSURFGDI SurfGDI;
   PDC dc;
-  PWINDOW_OBJECT DesktopWindow;
-  NTSTATUS Status;
+  RECTL PointerRect;
   
 #if 1
   HDC hDC;
@@ -575,6 +558,13 @@ IntMouseInput(MOUSEINPUT *mi)
   
   CurInfo = IntGetSysCursorInfo(WinSta);
   
+  dc = DC_LockDc(hDC);
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG) dc->Surface);
+  SurfGDI = (PSURFGDI)AccessInternalObject((ULONG) dc->Surface);
+  DC_UnlockDc(hDC);
+  ASSERT(SurfObj);
+  ASSERT(SurfGDI);
+  
   if(!mi->time)
   {
     LARGE_INTEGER LargeTickCount;
@@ -584,7 +574,6 @@ IntMouseInput(MOUSEINPUT *mi)
   
   SwapButtons = CurInfo->SwapButtons;
   DoMove = FALSE;
-
   ExAcquireFastMutex(&CurInfo->CursorMutex);
   MousePos.x = CurInfo->x;
   MousePos.y = CurInfo->y;
@@ -601,21 +590,14 @@ IntMouseInput(MOUSEINPUT *mi)
       MousePos.y += mi->dy;
     }
     
-    Status = ObmReferenceObjectByHandle(WinSta->HandleTable,
-      WinSta->ActiveDesktop->DesktopWindow, otWindow, (PVOID*)&DesktopWindow);
-    if (NT_SUCCESS(Status))
-    {
-      if(MousePos.x >= DesktopWindow->ClientRect.right)
-        MousePos.x = DesktopWindow->ClientRect.right - 1;
-      if(MousePos.y >= DesktopWindow->ClientRect.bottom)
-        MousePos.y = DesktopWindow->ClientRect.bottom - 1;
-    }
-    ObmDereferenceObject(DesktopWindow);
-
     if(MousePos.x < 0)
       MousePos.x = 0;
     if(MousePos.y < 0)
       MousePos.y = 0;
+    if(MousePos.x >= SurfObj->sizlBitmap.cx)
+      MousePos.x = SurfObj->sizlBitmap.cx - 1;
+    if(MousePos.y >= SurfObj->sizlBitmap.cy)
+      MousePos.y = SurfObj->sizlBitmap.cy - 1;
     
     if(CurInfo->CursorClipInfo.IsClipped)
     {
@@ -631,44 +613,28 @@ IntMouseInput(MOUSEINPUT *mi)
         MousePos.y = (LONG)CurInfo->CursorClipInfo.Top;
     }
     
-    DoMove = (MousePos.x != CurInfo->x || MousePos.y != CurInfo->y);
-    if(DoMove)
+    if((DoMove = (MousePos.x != CurInfo->x || MousePos.y != CurInfo->y)))
     {
       CurInfo->x = MousePos.x;
       CurInfo->y = MousePos.y;
+      if(SurfGDI->MovePointer)
+      {
+        IntLockGDIDriver(SurfGDI);
+        SurfGDI->MovePointer(SurfObj, CurInfo->x, CurInfo->y, &PointerRect);
+        IntUnLockGDIDriver(SurfGDI);
+      }
+      else
+      {
+        IntLockGDIDriver(SurfGDI);
+        EngMovePointer(SurfObj, CurInfo->x, CurInfo->y, &PointerRect);
+        IntUnLockGDIDriver(SurfGDI);
+      }
+      SetPointerRect(CurInfo, &PointerRect);
     }
   }
 
   ExReleaseFastMutex(&CurInfo->CursorMutex);
   
-  if (DoMove)
-  {
-    dc = DC_LockDc(hDC);
-    if (dc)
-    {
-      hBitmap = dc->w.hBitmap;
-      DC_UnlockDc(hDC);
-
-      BitmapObj = BITMAPOBJ_LockBitmap(hBitmap);
-      if (BitmapObj)
-      {
-        SurfObj = &BitmapObj->SurfObj;
-
-        if (GDIDEV(SurfObj)->Pointer.MovePointer)
-        {
-          GDIDEV(SurfObj)->Pointer.MovePointer(SurfObj, MousePos.x, MousePos.y, &(GDIDEV(SurfObj)->Pointer.Exclude));
-        }
-        /* FIXME - That's a bad thing! We should't access private gdi pointer fields
-                   from here. However it is required so MouseSafetyOnDrawEnd() can
-                   properly paint the mouse cursor to the screen again. See the
-                   comment in MouseSafetyOnDrawEnd() to fix this problem! */
-        GDIDEV(SurfObj)->Pointer.Pos = MousePos;
-
-        BITMAPOBJ_UnlockBitmap(hBitmap);
-      }
-    }
-  }
-
   /*
    * Insert the messages into the system queue
    */

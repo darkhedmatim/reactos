@@ -112,11 +112,6 @@ extern HBRUSH  COMCTL32_hPattern55AABrush;
 /* HOTKEY internal strings */
 #define HKY_NONE                        2048
 
-/* Tooltip icons */
-#define IDI_TT_INFO_SM                   22
-#define IDI_TT_WARN_SM                   25
-#define IDI_TT_ERROR_SM                  28
-
 typedef struct
 {
     COLORREF clrBtnHighlight;       /* COLOR_BTNHIGHLIGHT                  */
@@ -142,7 +137,6 @@ extern COMCTL32_SysColor  comctl32_color;
 /* Internal function */
 HWND COMCTL32_CreateToolTip (HWND);
 VOID COMCTL32_RefreshSysColors(void);
-void COMCTL32_DrawInsertMark(HDC hDC, const RECT *lpRect, COLORREF clrInsertMark, BOOL bHorizontal);
 INT  Str_GetPtrWtoA (LPCWSTR lpSrc, LPSTR lpDest, INT nMaxLen);
 BOOL Str_SetPtrAtoW (LPWSTR *lppDest, LPCSTR lpSrc);
 
@@ -151,19 +145,17 @@ BOOL Str_SetPtrAtoW (LPWSTR *lppDest, LPCSTR lpSrc);
 #define WINE_FILEVERSIONSTR "5.80"
 
 /* Our internal stack structure of the window procedures to subclass */
-typedef struct _SUBCLASSPROCS {
-    SUBCLASSPROC subproc;
-    UINT_PTR id;
-    DWORD_PTR ref;
-    struct _SUBCLASSPROCS *next;
-} SUBCLASSPROCS, *LPSUBCLASSPROCS;
-
 typedef struct
 {
-   SUBCLASSPROCS *SubclassProcs;
-   SUBCLASSPROCS *stackpos;
+   struct {
+      SUBCLASSPROC subproc;
+      UINT_PTR id;
+      DWORD_PTR ref;
+   } SubclassProcs[31];
+   int stackpos;
+   int stacknum;
+   int wndprocrecursion;
    WNDPROC origproc;
-   int running;
 } SUBCLASS_INFO, *LPSUBCLASS_INFO;
 
 /* undocumented functions */
@@ -187,8 +179,5 @@ typedef PVOID (CALLBACK *PFNDPAMERGE)(DWORD,PVOID,PVOID,LPARAM);
 BOOL WINAPI DPA_Merge (const HDPA, const HDPA, DWORD, PFNDPACOMPARE, PFNDPAMERGE, LPARAM);
 
 #define DPA_GetPtrCount(hdpa)  (*(INT*)(hdpa))
-
-LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet);
-BOOL WINAPI MirrorIcon(HICON *phicon1, HICON *phicon2);
 
 #endif  /* __WINE_COMCTL32_H */

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: wingl.c,v 1.9 2004/07/14 20:48:58 navaraf Exp $ */
+/* $Id: wingl.c,v 1.8 2004/05/10 17:07:20 weiden Exp $ */
 #include <w32k.h>
 
 INT
@@ -25,7 +25,6 @@ NtGdiChoosePixelFormat(HDC  hDC,
                            CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 
@@ -37,7 +36,6 @@ NtGdiDescribePixelFormat(HDC  hDC,
                              LPPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
@@ -47,7 +45,6 @@ NtGdiGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
                                     CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
@@ -55,7 +52,6 @@ STDCALL
 NtGdiGetPixelFormat(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
@@ -65,7 +61,6 @@ NtGdiSetPixelFormat(HDC  hDC,
                          CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
@@ -73,7 +68,6 @@ STDCALL
 NtGdiSwapBuffers(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: desktop.c,v 1.36 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: desktop.c,v 1.31 2004/03/07 11:59:43 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -8,10 +8,9 @@
  * UPDATE HISTORY:
  *      06-06-2001  CSH  Created
  */
-
-#include "user32.h"
-#include "winsta.h"
 #include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <rosrtl/devmode.h>
 #include <rosrtl/logfont.h>
@@ -33,7 +32,7 @@ GetSystemMetrics(int nIndex)
  */
 BOOL STDCALL SetDeskWallpaper(LPCSTR filename)
 {
-	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,TRUE);
+	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,1);
 }
 /*
  * @implemented
@@ -46,21 +45,9 @@ SystemParametersInfoA(UINT uiAction,
 {
   switch (uiAction)
     {
-      case SPI_SETDOUBLECLKWIDTH:
-      case SPI_SETDOUBLECLKHEIGHT:
-      case SPI_SETDOUBLECLICKTIME:
-      case SPI_SETGRADIENTCAPTIONS:
-      case SPI_SETFONTSMOOTHING:
-      case SPI_SETFOCUSBORDERHEIGHT:
-      case SPI_SETFOCUSBORDERWIDTH:
-      case SPI_SETWORKAREA:
       case SPI_GETWORKAREA:
-      case SPI_GETFONTSMOOTHING:
-      case SPI_GETGRADIENTCAPTIONS:
-      case SPI_GETFOCUSBORDERHEIGHT:
-      case SPI_GETFOCUSBORDERWIDTH:
         {
-           return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
+           return SystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
         }
       case SPI_GETNONCLIENTMETRICS:
         {
@@ -96,91 +83,6 @@ SystemParametersInfoA(UINT uiAction,
            RosRtlLogFontW2A(pvParam, &lfw);
            return TRUE;
         }
-      case SPI_GETDESKWALLPAPER:
-      {
-        HKEY hKey;
-        BOOL Ret = FALSE;
-
-#if 0
-        /* Get the desktop bitmap handle, this does NOT return the file name! */
-        if(!NtUserSystemParametersInfo(SPI_GETDESKWALLPAPER, 0, &hbmWallpaper, 0))
-        {
-          /* Return an empty string, no wallpapaper is set */
-          *(CHAR*)pvParam = '\0';
-          return TRUE;
-        }
-#endif
-        
-        /* FIXME - Read the registry key for now, but what happens if the wallpaper was
-                   changed without SPIF_UPDATEINIFILE?! */
-        if(RegOpenKeyExW(HKEY_CURRENT_USER,
-                         L"Control Panel\\Desktop",
-                         0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
-        {
-          DWORD Type, Size;
-          Size = uiParam;
-          if(RegQueryValueExA(hKey,
-                              "Wallpaper",
-                              NULL,
-                              &Type,
-                              (LPBYTE)pvParam,
-                              &Size) == ERROR_SUCCESS
-             && Type == REG_SZ)
-          {
-            Ret = TRUE;
-          }
-          RegCloseKey(hKey);
-        }
-        return Ret;
-      }
-      case SPI_SETDESKWALLPAPER:
-      {
-        HBITMAP hNewWallpaper;
-        BOOL Ret;
-        LPSTR lpWallpaper = (LPSTR)pvParam;
-        
-        if(lpWallpaper != NULL && *lpWallpaper != '\0')
-        {
-          hNewWallpaper = LoadImageA(0, lpWallpaper, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-          if(hNewWallpaper == NULL)
-          {
-            return FALSE;
-          }
-        }
-        else
-        {
-          hNewWallpaper = NULL;
-          lpWallpaper = NULL;
-        }
-        
-        /* Set the wallpaper bitmap */
-        if(!NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, 0, &hNewWallpaper, fWinIni & SPIF_SENDCHANGE))
-        {
-          if(hNewWallpaper != NULL)
-            DeleteObject(hNewWallpaper);
-          return FALSE;
-        }
-        /* Do not use the bitmap handle anymore, it doesn't belong to our process anymore! */
-        
-        Ret = TRUE;
-        if(fWinIni & SPIF_UPDATEINIFILE)
-        {
-          /* Save the path to the file in the registry */
-          HKEY hKey;
-          if(RegOpenKeyExW(HKEY_CURRENT_USER,
-                           L"Control Panel\\Desktop",
-                           0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
-          {
-            Ret = RegSetValueExA(hKey, "Wallpaper", 0, REG_SZ, (LPBYTE)(lpWallpaper != NULL ? lpWallpaper : ""),
-                                 (lpWallpaper != NULL ? (lstrlenA(lpWallpaper) + 1) * sizeof(CHAR) : sizeof(CHAR)) == ERROR_SUCCESS);
-            RegCloseKey(hKey);
-          }
-        }
-
-        RedrawWindow(GetDesktopWindow(), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
-
-        return Ret;
-      }
     }
 
   return FALSE;
@@ -196,95 +98,6 @@ SystemParametersInfoW(UINT uiAction,
 		      PVOID pvParam,
 		      UINT fWinIni)
 {
-  switch(uiAction)
-  {
-    case SPI_GETDESKWALLPAPER:
-    {
-      HKEY hKey;
-      BOOL Ret = FALSE;
-
-#if 0
-      /* Get the desktop bitmap handle, this does NOT return the file name! */
-      if(!NtUserSystemParametersInfo(SPI_GETDESKWALLPAPER, 0, &hbmWallpaper, 0))
-      {
-        /* Return an empty string, no wallpapaper is set */
-        *(WCHAR*)pvParam = L'\0';
-        return TRUE;
-      }
-#endif
-
-      /* FIXME - Read the registry key for now, but what happens if the wallpaper was
-                 changed without SPIF_UPDATEINIFILE?! */
-      if(RegOpenKeyExW(HKEY_CURRENT_USER,
-                       L"Control Panel\\Desktop",
-                       0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
-      {
-        DWORD Type, Size;
-        Size = uiParam * sizeof(WCHAR);
-        if(RegQueryValueExW(hKey,
-                            L"Wallpaper",
-                            NULL,
-                            &Type,
-                            (LPBYTE)pvParam,
-                            &Size) == ERROR_SUCCESS
-           && Type == REG_SZ)
-        {
-          Ret = TRUE;
-        }
-        RegCloseKey(hKey);
-      }
-      return Ret;
-    }
-    case SPI_SETDESKWALLPAPER:
-    {
-      HBITMAP hNewWallpaper;
-      BOOL Ret;
-      LPWSTR lpWallpaper = (LPWSTR)pvParam;
-
-      if(lpWallpaper != NULL && *lpWallpaper != L'\0')
-      {
-        hNewWallpaper = LoadImageW(0, lpWallpaper, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-
-        if(hNewWallpaper == NULL)
-        {
-          return FALSE;
-        }
-      }
-      else
-      {
-        hNewWallpaper = NULL;
-        lpWallpaper = NULL;
-      }
-
-      /* Set the wallpaper bitmap */
-      if(!NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, 0, &hNewWallpaper, fWinIni & SPIF_SENDCHANGE))
-      {
-        if(hNewWallpaper != NULL)
-          DeleteObject(hNewWallpaper);
-        return FALSE;
-      }
-      /* Do not use the bitmap handle anymore, it doesn't belong to our process anymore! */
-      Ret = TRUE;
-      if(fWinIni & SPIF_UPDATEINIFILE)
-      {
-        /* Save the path to the file in the registry */
-        HKEY hKey;
-
-        if(RegOpenKeyExW(HKEY_CURRENT_USER,
-                         L"Control Panel\\Desktop",
-                         0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
-        {
-          Ret = RegSetValueExW(hKey, L"Wallpaper", 0, REG_SZ, (lpWallpaper != NULL ? (LPBYTE)lpWallpaper : (LPBYTE)L""),
-                               (lpWallpaper != NULL ? (lstrlenW(lpWallpaper) + 1) * sizeof(WCHAR) : sizeof(WCHAR)) == ERROR_SUCCESS);
-          RegCloseKey(hKey);
-        }
-      }
-
-      RedrawWindow(GetDesktopWindow(), NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
-
-      return Ret;
-    }
-  }
   return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 
@@ -371,30 +184,32 @@ CreateDesktopW(LPCWSTR lpszDesktop,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
 EnumDesktopsA(
-  HWINSTA WindowStation,
-  DESKTOPENUMPROCA EnumFunc,
-  LPARAM Context)
+  HWINSTA hwinsta,
+  DESKTOPENUMPROCA lpEnumFunc,
+  LPARAM lParam)
 {
-   return EnumNamesA(WindowStation, EnumFunc, Context, TRUE);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
 EnumDesktopsW(
-  HWINSTA WindowStation,
-  DESKTOPENUMPROCW EnumFunc,
-  LPARAM Context)
+  HWINSTA hwinsta,
+  DESKTOPENUMPROCW lpEnumFunc,
+  LPARAM lParam)
 {
-   return EnumNamesW(WindowStation, EnumFunc, Context, TRUE);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 

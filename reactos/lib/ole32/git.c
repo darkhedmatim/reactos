@@ -26,15 +26,13 @@
 
 #include "config.h"
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-#define COBJMACROS
-#define NONAMELESSUNION
-#define NONAMELESSSTRUCT
 
 #include "windef.h"
 #include "winbase.h"
@@ -72,7 +70,7 @@ typedef struct StdGITEntry
 /* Class data */
 typedef struct StdGlobalInterfaceTableImpl
 {
-  IGlobalInterfaceTableVtbl *lpVtbl;
+  ICOM_VFIELD(IGlobalInterfaceTable);
 
   ULONG ref;
   struct StdGITEntry* firstEntry;
@@ -94,8 +92,9 @@ static HRESULT WINAPI StdGlobalInterfaceTable_RevokeInterfaceFromGlobal(IGlobalI
 static HRESULT WINAPI StdGlobalInterfaceTable_GetInterfaceFromGlobal(IGlobalInterfaceTable* iface, DWORD dwCookie, REFIID riid, void **ppv);
 
 /* Virtual function table */
-static IGlobalInterfaceTableVtbl StdGlobalInterfaceTableImpl_Vtbl =
+static ICOM_VTABLE(IGlobalInterfaceTable) StdGlobalInterfaceTableImpl_Vtbl =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   StdGlobalInterfaceTable_QueryInterface,
   StdGlobalInterfaceTable_AddRef,
   StdGlobalInterfaceTable_Release,
@@ -350,14 +349,15 @@ static HRESULT WINAPI GITCF_LockServer(LPCLASSFACTORY iface, BOOL fLock) {
     return S_OK;
 }
 
-static IClassFactoryVtbl GITClassFactoryVtbl = {
+static ICOM_VTABLE(IClassFactory) GITClassFactoryVtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     GITCF_QueryInterface,
     GITCF_AddRef,
     GITCF_Release,
     GITCF_CreateInstance,
     GITCF_LockServer
 };
-static IClassFactoryVtbl *PGITClassFactoryVtbl = &GITClassFactoryVtbl;
+static ICOM_VTABLE(IClassFactory) *PGITClassFactoryVtbl = &GITClassFactoryVtbl;
 
 HRESULT StdGlobalInterfaceTable_GetFactory(LPVOID *ppv) {
   *ppv = &PGITClassFactoryVtbl;

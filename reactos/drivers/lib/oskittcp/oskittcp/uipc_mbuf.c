@@ -79,11 +79,9 @@ mbinit()
 #else
 #define NCL_INIT	1
 #endif
-	printf("Here1\n");
 	s = splimp();
 	if (m_clalloc(NCL_INIT, M_DONTWAIT) == 0)
 		goto bad;
-	printf("Here2\n");
 	splx(s);
 	return;
 bad:
@@ -115,14 +113,8 @@ m_clalloc(ncl, nowait)
 		return (0);
 
 	npg = ncl * CLSIZE;
-
-	printf("kmem_malloc(%d)\n", npg);
-	
 	p = (caddr_t)kmem_malloc(mb_map, ctob(npg),
 				 nowait ? M_NOWAIT : M_WAITOK);
-	
-	printf("kmem_malloc done\n");
-
 	/*
 	 * Either the map is now full, or this is nowait and there
 	 * are no pages left.
@@ -133,13 +125,11 @@ m_clalloc(ncl, nowait)
 	ncl = ncl * CLBYTES / MCLBYTES;
 	for (i = 0; i < ncl; i++) {
 		((union mcluster *)p)->mcl_next = mclfree;
-		printf( "Freeing %x onto the free list\n", p);
 		mclfree = (union mcluster *)p;
 		p += MCLBYTES;
 		mbstat.m_clfree++;
 	}
 	mbstat.m_clusters += ncl;
-	printf( "done with m_clalloc\n");
 	return (1);
 }
 #endif /* !OSKIT */
@@ -159,11 +149,7 @@ m_retry(i, t)
  * I'm getting rid of the utterly ugly redefinition of m_retry
  * - same for m_retryhdr below
  */
-#ifndef OSKIT
-	MGET(m,i,t);
-#else
 	MGET_DONT_RECURSE(m, i, t);
-#endif
 	if (m != NULL)
 		mbstat.m_wait++;
 	else
@@ -181,11 +167,7 @@ m_retryhdr(i, t)
 	register struct mbuf *m;
 
 	m_reclaim();
-#ifndef OSKIT
-	MGETHDR(m, i, t);
-#else
 	MGETHDR_DONT_RECURSE(m, i, t);
-#endif
 	if (m != NULL)
 		mbstat.m_wait++;
 	else
@@ -268,7 +250,7 @@ m_freem(m)
 	if (m == NULL)
 		return;
 	do {
-	    MFREE(m, n);
+		MFREE(m, n);
 		m = n;
 	} while (m);
 }
@@ -325,12 +307,12 @@ m_copym(m, off0, len, wait)
 	int copyhdr = 0;
 
 	if (off < 0 || len < 0)
-		panic("m_copym: off %d, len %d", off, len);
+		panic("m_copym");
 	if (off == 0 && m->m_flags & M_PKTHDR)
 		copyhdr = 1;
 	while (off > 0) {
 		if (m == 0)
-			panic("m_copym: %d", off);
+			panic("m_copym");
 		if (off < m->m_len)
 			break;
 		off -= m->m_len;
@@ -363,11 +345,7 @@ m_copym(m, off0, len, wait)
 #ifdef OSKIT
 			oskit_bufio_addref(m->m_ext.ext_bufio);
 #else
-#ifdef __REACTOS__
-			m->m_data = malloc(m->m_len);
-#else
 			mclrefcnt[mtocl(m->m_ext.ext_buf)]++;
-#endif
 #endif /* OSKIT */
 			n->m_ext = m->m_ext;
 			n->m_flags |= M_EXT;
@@ -690,11 +668,7 @@ m_devget(buf, totlen, off0, ifp, copy)
 	MGETHDR(m, M_DONTWAIT, MT_DATA);
 	if (m == 0)
 		return (0);
-#ifndef __REACTOS__
 	m->m_pkthdr.rcvif = ifp;
-#else
-	m->m_pkthdr.rcvif = 0;
-#endif
 	m->m_pkthdr.len = totlen;
 	m->m_len = MHLEN;
 
@@ -728,11 +702,7 @@ m_devget(buf, totlen, off0, ifp, copy)
 		if (copy)
 			copy(cp, mtod(m, caddr_t), (unsigned)len);
 		else
-#ifdef __REACTOS__
-		    memcpy(mtod(m, caddr_t), cp, len);
-#else
 			bcopy(cp, mtod(m, caddr_t), (unsigned)len);
-#endif
 		cp += len;
 		*mp = m;
 		mp = &m->m_next;

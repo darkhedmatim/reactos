@@ -73,7 +73,6 @@ BOOLEAN CreateDMA(PDEVICE_OBJECT DeviceObject)
     NTSTATUS Status;
     PDEVICE_EXTENSION Device = DeviceObject->DeviceExtension;
     KEVENT DMAEvent;
-    KIRQL OldIrql;
 
     // Buffersize should already be set but it isn't yet !
     Device->BufferSize = SB_BUFSIZE;
@@ -139,9 +138,7 @@ BOOLEAN CreateDMA(PDEVICE_OBJECT DeviceObject)
                                                 &Device->Buffer, FALSE);
 
     // For some reason BufferSize == 0 here?!
-//    DPRINT("Buffer == 0x%x Bufsize == %u\n", Device->Buffer, Device->BufferSize);
-    DPRINT("Bufsize == %u,", Device->BufferSize);
-    DPRINT("Buffer == 0x%x\n", Device->Buffer);
+    DPRINT("Buffer == 0x%x Bufsize == %u\n", Device->Buffer, Device->BufferSize);
 
     if (! Device->VirtualBuffer)
     {
@@ -150,16 +147,14 @@ BOOLEAN CreateDMA(PDEVICE_OBJECT DeviceObject)
         return FALSE;
     }
 
-//    DPRINT("Buffer == 0x%x Bufsize == %u\n", Device->Buffer, Device->BufferSize);
-    DPRINT("Bufsize == %u,", Device->BufferSize);
-    DPRINT("Buffer == 0x%x\n", Device->Buffer);
+    DPRINT("Buffer == 0x%x Bufsize == %u\n", Device->Buffer, Device->BufferSize);
 
     DPRINT("Calling IoAllocateMdl()\n");
     Device->Mdl = IoAllocateMdl(Device->VirtualBuffer, Device->BufferSize, FALSE, FALSE, NULL);
     DPRINT("Bufsize == %u\n", Device->BufferSize);
 
     // IS THIS RIGHT:
-    if (! Device->Mdl)
+    if (! Device->VirtualBuffer)
     {
         DPRINT("IoAllocateMdl() FAILED\n");
         // Free the HAL buffer
@@ -176,13 +171,11 @@ BOOLEAN CreateDMA(PDEVICE_OBJECT DeviceObject)
     // part II:
     KeInitializeEvent(&DMAEvent, SynchronizationEvent, FALSE);
     // Raise IRQL
-    KeRaiseIrql(DISPATCH_LEVEL,&OldIrql);
     IoAllocateAdapterChannel(Device->Adapter, DeviceObject,
                             BYTES_TO_PAGES(Device->BufferSize),
                             SoundProgramDMA, &DMAEvent);
-    // Lower IRQL
-    KeLowerIrql(OldIrql);
     DPRINT("VBuffer == 0x%x Bufsize == %u\n", Device->VirtualBuffer, Device->BufferSize);
+    // Lower IRQL
     KeWaitForSingleObject(&DMAEvent, Executive, KernelMode, FALSE, NULL);
 
 

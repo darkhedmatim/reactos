@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mm.c,v 1.80 2004/11/13 13:09:07 weiden Exp $
+/* $Id: mm.c,v 1.74 2004/06/01 10:16:26 gdalsnes Exp $
  *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
@@ -29,20 +29,23 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/i386/segment.h>
+#include <internal/mm.h>
+#include <internal/ntoskrnl.h>
+#include <internal/io.h>
+#include <internal/ps.h>
+#include <reactos/bugcodes.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *****************************************************************/
 
-extern MODULE_OBJECT NtoskrnlModuleObject;
-extern MODULE_OBJECT HalModuleObject;
-
 PVOID EXPORTED MmUserProbeAddress = NULL;
 PVOID EXPORTED MmHighestUserAddress = NULL;
-PBOOLEAN EXPORTED Mm64BitPhysicalAddress = FALSE;
-PVOID EXPORTED MmSystemRangeStart = NULL;
 
+PVOID MmSystemRangeStart = NULL;
 MM_STATS MmStats;
 
 /* FUNCTIONS ****************************************************************/
@@ -106,7 +109,7 @@ NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
    {
       case MEMORY_AREA_SECTION_VIEW:
          Status = MmUnmapViewOfSection(Process, Marea->BaseAddress);
-         ASSERT(Status == STATUS_SUCCESS);
+         assert(Status == STATUS_SUCCESS);
          return(STATUS_SUCCESS);
 
       case MEMORY_AREA_VIRTUAL_MEMORY:
@@ -308,7 +311,7 @@ NTSTATUS MmAccessFault(KPROCESSOR_MODE Mode,
 NTSTATUS MmCommitPagedPoolAddress(PVOID Address, BOOLEAN Locked)
 {
    NTSTATUS Status;
-   PFN_TYPE AllocatedPage;
+   PHYSICAL_ADDRESS AllocatedPage;
    Status = MmRequestPageMemoryConsumer(MC_PPOOL, FALSE, &AllocatedPage);
    if (!NT_SUCCESS(Status))
    {
@@ -320,8 +323,19 @@ NTSTATUS MmCommitPagedPoolAddress(PVOID Address, BOOLEAN Locked)
       MmCreateVirtualMapping(NULL,
                              (PVOID)PAGE_ROUND_DOWN(Address),
                              PAGE_READWRITE,
-                             &AllocatedPage,
-                             1);
+                             AllocatedPage,
+                             FALSE);
+   if (!NT_SUCCESS(Status))
+   {
+      MmUnlockAddressSpace(MmGetKernelAddressSpace());
+      Status =
+         MmCreateVirtualMapping(NULL,
+                                (PVOID)PAGE_ROUND_DOWN(Address),
+                                PAGE_READWRITE,
+                                AllocatedPage,
+                                FALSE);
+      MmLockAddressSpace(MmGetKernelAddressSpace());
+   }
    if (Locked)
    {
       MmLockPage(AllocatedPage);
@@ -337,7 +351,6 @@ NTSTATUS MmNotPresentFault(KPROCESSOR_MODE Mode,
    MEMORY_AREA* MemoryArea;
    NTSTATUS Status;
    BOOLEAN Locked = FromMdl;
-   PFN_TYPE Pfn;
 
    DPRINT("MmNotPresentFault(Mode %d, Address %x)\n", Mode, Address);
 
@@ -419,13 +432,23 @@ NTSTATUS MmNotPresentFault(KPROCESSOR_MODE Mode,
             break;
 
          case MEMORY_AREA_SHARED_DATA:
-	    Pfn = MmSharedDataPagePhysicalAddress.QuadPart >> PAGE_SHIFT;
             Status =
                MmCreateVirtualMapping(PsGetCurrentProcess(),
                                       (PVOID)PAGE_ROUND_DOWN(Address),
                                       PAGE_READONLY,
-                                      &Pfn,
-                                      1);
+                                      MmSharedDataPagePhysicalAddress,
+                                      FALSE);
+            if (!NT_SUCCESS(Status))
+            {
+               MmUnlockAddressSpace(&PsGetCurrentProcess()->AddressSpace);
+               Status =
+                  MmCreateVirtualMapping(PsGetCurrentProcess(),
+                                         (PVOID)PAGE_ROUND_DOWN(Address),
+                                         PAGE_READONLY,
+                                         MmSharedDataPagePhysicalAddress,
+                                         TRUE);
+               MmLockAddressSpace(&PsGetCurrentProcess()->AddressSpace);
+            }
             break;
 
          default:
@@ -496,44 +519,6 @@ MmSetAddressRangeModified (
 {
    UNIMPLEMENTED;
    return (FALSE);
-}
-
-/*
- * @implemented
- */
-PVOID
-NTKERNELAPI
-MmGetSystemRoutineAddress (
-    IN PUNICODE_STRING SystemRoutineName
-    )
-{
-  PVOID ProcAddress;
-  ANSI_STRING AnsiRoutineName;
-  NTSTATUS Status;
-  
-  if(!NT_SUCCESS(RtlUnicodeStringToAnsiString(&AnsiRoutineName,
-                                              SystemRoutineName,
-                                              TRUE)))
-  {
-    return NULL;
-  }
-  
-  Status = LdrGetProcedureAddress(NtoskrnlModuleObject.Base,
-                                  &AnsiRoutineName,
-                                  0,
-                                  &ProcAddress);
-  
-  if(!NT_SUCCESS(Status))
-  {
-    Status = LdrGetProcedureAddress(HalModuleObject.Base,
-                                    &AnsiRoutineName,
-                                    0,
-                                    &ProcAddress);
-  }
-  
-  RtlFreeAnsiString(&AnsiRoutineName);
-  
-  return (NT_SUCCESS(Status) ? ProcAddress : NULL);
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: _system.c,v 1.11 2004/08/27 03:08:23 navaraf Exp $
+/* $Id: _system.c,v 1.9 2003/12/03 17:17:03 navaraf Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -8,8 +8,7 @@
  * UPDATE HISTORY:
  *              04/03/99: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 #include <msvcrt/process.h>
@@ -39,7 +38,10 @@ int system(const char *command)
       if (szComSpec == NULL)
 	return 0;
       else
+      {
+	free(szComSpec);
 	return -1;
+      }
     }
 
 // should return 127 or 0 ( MS ) if the shell is not found

@@ -85,7 +85,7 @@ const char *wine_dbgstr_an(const char *src, int n)
 {
     char *dst, *res;
 
-    if (!HIWORD(src))
+    if (!((WORD)(DWORD)(src) >> 16))
     {
         if (!src) return "(null)";
         res = gimme1(6);
@@ -137,7 +137,7 @@ const char *wine_dbgstr_wn(const WCHAR *src, int n)
 {
     char *dst, *res;
 
-    if (!HIWORD(src))
+    if (!((WORD)(DWORD)(src) >> 16))
     {
         if (!src) return "(null)";
         res = gimme1(6);
@@ -190,7 +190,7 @@ const char *wine_dbgstr_guid(const GUID *id)
     char *str;
 
     if (!id) return "(null)";
-    if (!HIWORD(id)) {
+    if (!((WORD)(DWORD)(id) >> 16)) {
         str = gimme1(12);
         sprintf(str, "<guid-0x%04x>", (WORD)(DWORD)(id));
     } else {

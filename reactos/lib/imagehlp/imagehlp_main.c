@@ -138,17 +138,12 @@ BOOL WINAPI SearchTreeForFile(
 /***********************************************************************
  *           TouchFileTimes (IMAGEHLP.@)
  */
-BOOL WINAPI TouchFileTimes(HANDLE FileHandle, LPSYSTEMTIME lpSystemTime)
+BOOL WINAPI TouchFileTimes(
+  HANDLE FileHandle, LPSYSTEMTIME lpSystemTime)
 {
-  FILETIME FileTime;
-  SYSTEMTIME SystemTime;
-  
-  if(lpSystemTime == NULL)
-  {
-    GetSystemTime(&SystemTime);
-    lpSystemTime = &SystemTime;
-  }
-
-  return (SystemTimeToFileTime(lpSystemTime, &FileTime) &&
-          SetFileTime(FileHandle, NULL, NULL, &FileTime));
+  FIXME("(%p, %p): stub\n",
+    FileHandle, lpSystemTime
+  );
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return FALSE;
 }

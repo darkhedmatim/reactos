@@ -1,4 +1,4 @@
-/* $Id: virtual.c,v 1.15 2004/10/30 22:18:17 weiden Exp $
+/* $Id: virtual.c,v 1.13 2004/06/13 10:35:52 navaraf Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -10,9 +10,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -201,7 +198,7 @@ VirtualQueryEx(HANDLE hProcess,
   if (!NT_SUCCESS(Status))
     {
       SetLastErrorByStatus(Status);
-      return 0;
+      return(ResultLength);
     }
   return(ResultLength);
 }

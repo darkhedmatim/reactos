@@ -93,7 +93,7 @@ WebChildWndInfo::WebChildWndInfo(HWND hmdiclient, LPCTSTR url)
 }
 
 
-INT_PTR CALLBACK ExecuteDialog::WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam)
+BOOL CALLBACK ExecuteDialog::WndProc(HWND hwnd, UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	static struct ExecuteDialog* dlg;
 
@@ -496,7 +496,6 @@ LRESULT FileChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			HWND hpanel = (HWND) wparam;
 			POINTS& pos = MAKEPOINTS(lparam);
 			POINT pt; POINTSTOPOINT(pt, pos);
-			POINT pt_screen = pt;
 			ScreenToClient(hpanel, &pt);
 			SendMessage(hpanel, WM_LBUTTONDOWN, 0, MAKELONG(pt.x, pt.y));
 			SendMessage(hpanel, WM_LBUTTONUP, 0, MAKELONG(pt.x, pt.y));
@@ -507,7 +506,28 @@ LRESULT FileChildWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			if (idx != -1) {
 				Entry* entry = (Entry*) ListBox_GetItemData(*pane, idx);
 
-				CHECKERROR(entry->do_context_menu(_hwnd, pt_screen));
+				ShellPath shell_path = entry->create_absolute_pidl();
+				LPCITEMIDLIST pidl_abs = shell_path;
+
+				if (pidl_abs) {
+					IShellFolder* parentFolder;
+					LPCITEMIDLIST pidlLast;
+
+					static DynamicFct<HRESULT(WINAPI*)(LPCITEMIDLIST, REFIID, LPVOID*, LPCITEMIDLIST*)> SHBindToParent(TEXT("SHELL32"), "SHBindToParent");
+
+					if (SHBindToParent) {
+						 // get and use the parent folder to display correct context menu in all cases -> correct "Properties" dialog for directories, ...
+						if (SUCCEEDED((*SHBindToParent)(pidl_abs, IID_IShellFolder, (LPVOID*)&parentFolder, &pidlLast))) {
+							HRESULT hr = ShellFolderContextMenu(parentFolder, _hwnd, 1, &pidlLast, pos.x, pos.y);
+
+							parentFolder->Release();
+
+							CHECKERROR(hr);
+						}
+					} else {
+						CHECKERROR(ShellFolderContextMenu(GetDesktopFolder(), _hwnd, 1, &pidl_abs, pos.x, pos.y));
+					}
+				}
 			}
 			break;}
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: iospace.c,v 1.30 2004/08/15 16:39:07 chorns Exp $
+/* $Id: iospace.c,v 1.28 2004/05/20 08:37:20 hbirr Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/iospace.c
@@ -28,7 +28,10 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -74,7 +77,6 @@ MmMapIoSpace (IN PHYSICAL_ADDRESS PhysicalAddress,
    ULONG i;
    ULONG Attributes;
    PHYSICAL_ADDRESS BoundaryAddressMultiple;
-   PFN_TYPE Pfn;
 
    DPRINT("MmMapIoSpace(%lx, %d, %d)\n", PhysicalAddress, NumberOfBytes, CacheEnable);
 
@@ -114,13 +116,11 @@ MmMapIoSpace (IN PHYSICAL_ADDRESS PhysicalAddress,
    {
       Attributes |= (PAGE_NOCACHE | PAGE_WRITETHROUGH);
    }
-   Pfn = PhysicalAddress.QuadPart >> PAGE_SHIFT;
-   for (i = 0; i < PAGE_ROUND_UP(NumberOfBytes); i += PAGE_SIZE, Pfn++)
+   for (i = 0; i < PAGE_ROUND_UP(NumberOfBytes); i += PAGE_SIZE, PhysicalAddress.QuadPart += PAGE_SIZE)
    {
       Status = MmCreateVirtualMappingForKernel((char*)Result + i,
                                                Attributes,
-                                               &Pfn,
-					       1);
+                                               PhysicalAddress);
       if (!NT_SUCCESS(Status))
       {
          DbgPrint("Unable to create virtual mapping\n");

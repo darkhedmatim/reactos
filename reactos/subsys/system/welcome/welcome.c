@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: welcome.c,v 1.7 2004/10/11 21:08:05 weiden Exp $
+/* $Id: welcome.c,v 1.5 2003/12/21 16:24:19 weiden Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS welcome/autorun application
@@ -89,7 +89,7 @@ RECT rcRightPanel;
 WNDPROC fnOldBtn;
 
 
-INT_PTR CALLBACK
+LRESULT CALLBACK
 MainWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
@@ -211,7 +211,7 @@ WinMain(HINSTANCE hInst,
 }
 
 
-INT_PTR CALLBACK
+LRESULT CALLBACK
 ButtonSubclassWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   LONG i;
@@ -278,7 +278,7 @@ RunApplication(int nTopic)
 static VOID
 SubclassButton(HWND hWnd)
 {
-  fnOldBtn = (WNDPROC)SetWindowLongPtr(hWnd, GWL_WNDPROC, (DWORD_PTR)ButtonSubclassWndProc);
+  fnOldBtn = (WNDPROC)SetWindowLong(hWnd, GWL_WNDPROC, (LPARAM)ButtonSubclassWndProc);
 }
 
 
@@ -783,7 +783,7 @@ OnDestroy(HWND hWnd, WPARAM wParam, LPARAM lParam)
 }
 
 
-INT_PTR CALLBACK
+LRESULT CALLBACK
 MainWndProc(HWND hWnd,
 	    UINT uMsg,
 	    WPARAM wParam,

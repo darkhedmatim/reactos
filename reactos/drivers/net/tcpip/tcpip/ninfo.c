@@ -7,16 +7,19 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "precomp.h"
-
-#define IP_ROUTE_TYPE_ADD 3
-#define IP_ROUTE_TYPE_DEL 2
+#include <roscfg.h>
+#include <tcpip.h>
+#include <address.h>
+#include <info.h>
+#include <pool.h>
+#include <prefix.h>
+#include <ip.h>
+#include <route.h>
 
 TDI_STATUS InfoTdiQueryGetAddrTable( PNDIS_BUFFER Buffer, 
 				     PUINT BufferSize ) {
-    
-    IF_LIST_ITER(CurrentIF);
+    PIP_INTERFACE CurrentIF;
+    PLIST_ENTRY CurrentIFEntry;
     TDI_STATUS Status = TDI_INVALID_REQUEST;
     KIRQL OldIrql;
     UINT Count = 1; /* Start adapter indices at 1 */
@@ -27,9 +30,13 @@ TDI_STATUS InfoTdiQueryGetAddrTable( PNDIS_BUFFER Buffer,
 
     TI_DbgPrint(MAX_TRACE, ("Called.\n"));
     
-    TcpipAcquireSpinLock(&InterfaceListLock, &OldIrql);
+    KeAcquireSpinLock(&InterfaceListLock, &OldIrql);
     
-    ForEachInterface(CurrentIF) {
+    CurrentIFEntry = InterfaceListHead.Flink;
+    while (CurrentIFEntry != &InterfaceListHead)
+    {
+	CurrentIF = CONTAINING_RECORD(CurrentIFEntry, IP_INTERFACE, ListEntry);
+
 	IpCurrent->Index     = Count;
 	IpCurrent->Addr      = 0;
 	IpCurrent->BcastAddr = 0;
@@ -40,18 +47,19 @@ TDI_STATUS InfoTdiQueryGetAddrTable( PNDIS_BUFFER Buffer,
 				 ADE_UNICAST,
 				 &IpAddress->Addr );
 	GetInterfaceIPv4Address( CurrentIF,
-				 ADE_BROADCAST,
+				 ADE_MULTICAST,
 				 &IpAddress->BcastAddr );
 	GetInterfaceIPv4Address( CurrentIF,
 				 ADE_ADDRMASK,
 				 &IpAddress->Mask );
 	IpCurrent++;
+	CurrentIFEntry = CurrentIFEntry->Flink;
 	Count++;
-    } EndFor(CurrentIF);
+    }
     
-    TcpipReleaseSpinLock(&InterfaceListLock, OldIrql);
+    KeReleaseSpinLock(&InterfaceListLock, OldIrql);
 
-    Status = InfoCopyOut( (PCHAR)IpAddress, sizeof(*IpAddress) * Count,
+    Status = InfoCopyOut( IpAddress, sizeof(*IpAddress) * Count,
 			  Buffer, BufferSize );
     
     ExFreePool( IpAddress );
@@ -63,6 +71,8 @@ TDI_STATUS InfoTdiQueryGetAddrTable( PNDIS_BUFFER Buffer,
 
 /* Get IPRouteEntry s for each of the routes in the system */
 TDI_STATUS InfoTdiQueryGetRouteTable( PNDIS_BUFFER Buffer, PUINT BufferSize ) {
+    PIP_INTERFACE CurrentIF;
+    PLIST_ENTRY CurrentIFEntry;
     TDI_STATUS Status;
     KIRQL OldIrql;
     UINT RtCount = CountFIBs(),
@@ -88,46 +98,51 @@ TDI_STATUS InfoTdiQueryGetRouteTable( PNDIS_BUFFER Buffer, PUINT BufferSize ) {
     
     while( RtCurrent < RouteEntries + RtCount ) {
 	/* Copy Desitnation */
-	RtlCopyMemory( &RtCurrent->Dest, 
-		       &RCacheCur->NetworkAddress.Address,
-		       sizeof(RtCurrent->Dest) );
-	RtlCopyMemory( &RtCurrent->Mask,
-		       &RCacheCur->Netmask.Address,
-		       sizeof(RtCurrent->Mask) );
-
-	if( RCacheCur->Router )
+	if( RCacheCur->NetworkAddress && RCacheCur->Netmask && 
+	    RCacheCur->Router && RCacheCur->Router->Address ) {
+	    TI_DbgPrint(MAX_TRACE, ("%d: NA %08x NM %08x GW %08x MT %d\n",
+				    RtCurrent - RouteEntries,
+				    RCacheCur->NetworkAddress->Address,
+				    RCacheCur->Netmask->Address,
+				    RCacheCur->Router->Address->Address,
+				    RCacheCur->Metric));
+	    
+	    RtlCopyMemory( &RtCurrent->Dest, 
+			   &RCacheCur->NetworkAddress->Address,
+			   sizeof(RtCurrent->Dest) );
+	    RtlCopyMemory( &RtCurrent->Mask,
+			   &RCacheCur->Netmask->Address,
+			   sizeof(RtCurrent->Mask) );
+	    /* Currently, this address is stuffed into the pointer.
+	     * That probably is not intended. */
 	    RtlCopyMemory( &RtCurrent->Gw,
-			   &RCacheCur->Router->Address.Address,
+			   &RCacheCur->Router->Address->Address,
 			   sizeof(RtCurrent->Gw) );
-	else
-	    RtlZeroMemory( &RtCurrent->Gw, sizeof(RtCurrent->Gw) );
-			   
-	RtCurrent->Metric1 = RCacheCur->Metric;
-	RtCurrent->Type = TDI_ADDRESS_TYPE_IP;
-	
-	TI_DbgPrint
-	    (MAX_TRACE, 
-	     ("%d: NA %08x NM %08x GW %08x MT %x\n",
-	      RtCurrent - RouteEntries,
-	      RtCurrent->Dest, 
-	      RtCurrent->Mask,
-	      RtCurrent->Gw,
-	      RtCurrent->Metric1 ));
-	     
-	TcpipAcquireSpinLock(&EntityListLock, &OldIrql);
-	for( RtCurrent->Index = EntityCount; 
-	     RtCurrent->Index > 0 &&
-		 RCacheCur->Router->Interface != 
-		 EntityList[RtCurrent->Index - 1].context;
-	     RtCurrent->Index-- );
-	
-	RtCurrent->Index = EntityList[RtCurrent->Index].tei_instance;
-	TcpipReleaseSpinLock(&EntityListLock, OldIrql);
-	
+	    RtCurrent->Metric1 = RCacheCur->Metric;
+	    RtCurrent->Type = 2 /* PF_INET */;
+	    
+	    KeAcquireSpinLock(&EntityListLock, &OldIrql);
+	    for( RtCurrent->Index = EntityCount - 1; 
+		 RtCurrent->Index >= 0 &&
+		     RCacheCur->Router->Interface != 
+		     EntityList[RtCurrent->Index].context;
+		 RtCurrent->Index-- );
+	    RtCurrent->Index = EntityList[RtCurrent->Index].tei_instance;
+	    KeReleaseSpinLock(&EntityListLock, OldIrql);
+	} else {
+	    TI_DbgPrint(MAX_TRACE, ("%d: BAD: NA %08x NM %08x GW %08x MT %d\n",
+				    RtCurrent - RouteEntries,
+				    RCacheCur->NetworkAddress,
+				    RCacheCur->Netmask,
+				    RCacheCur->Router,
+				    RCacheCur->Router ? 
+				    RCacheCur->Router->Address : 0,
+				    RCacheCur->Metric));
+	}
 	RtCurrent++; RCacheCur++;
     }
 
-    Status = InfoCopyOut( (PCHAR)RouteEntries, Size, Buffer, BufferSize );
+    Status = InfoCopyOut( RouteEntries, Size, Buffer, BufferSize );
 
     ExFreePool( RouteEntries );
     ExFreePool( RCache );
@@ -139,20 +154,38 @@ TDI_STATUS InfoTdiQueryGetRouteTable( PNDIS_BUFFER Buffer, PUINT BufferSize ) {
 		
 TDI_STATUS InfoTdiQueryGetIPSnmpInfo( PNDIS_BUFFER Buffer,
 				      PUINT BufferSize ) {
+    KIRQL OldIrql;
+    PIP_INTERFACE CurrentIF;
+    PLIST_ENTRY CurrentIFEntry;
     IPSNMP_INFO SnmpInfo;
     UINT IfCount = CountInterfaces();
-    UINT RouteCount = CountFIBs( NULL );
+    UINT AddrCount = 0;
+    UINT RouteCount = CountRouteNodes( NULL );
     TDI_STATUS Status = TDI_INVALID_REQUEST;
 
     TI_DbgPrint(MAX_TRACE, ("Called.\n"));
 
     RtlZeroMemory(&SnmpInfo, sizeof(IPSNMP_INFO));
-
+    
+    /* Count number of addresses */
+    AddrCount = 0;
+    KeAcquireSpinLock(&InterfaceListLock, &OldIrql);
+    
+    CurrentIFEntry = InterfaceListHead.Flink;
+    while (CurrentIFEntry != &InterfaceListHead)
+    {
+	CurrentIF = CONTAINING_RECORD(CurrentIFEntry, IP_INTERFACE, ListEntry);
+	AddrCount += CountInterfaceAddresses( CurrentIF );
+	CurrentIFEntry = CurrentIFEntry->Flink;
+    }
+    
+    KeReleaseSpinLock(&InterfaceListLock, OldIrql);
+    
     SnmpInfo.NumIf = IfCount;
-    SnmpInfo.NumAddr = 1;
+    SnmpInfo.NumAddr = AddrCount;
     SnmpInfo.NumRoutes = RouteCount;
 
-    Status = InfoCopyOut( (PCHAR)&SnmpInfo, sizeof(SnmpInfo), 
+    Status = InfoCopyOut( &SnmpInfo, sizeof(SnmpInfo), 
 			  Buffer, BufferSize );
 
     TI_DbgPrint(MAX_TRACE, ("Returning %08x\n", Status));
@@ -175,7 +208,7 @@ TDI_STATUS InfoNetworkLayerTdiQueryEx( UINT InfoClass,
     case INFO_CLASS_GENERIC:
 	if( InfoType == INFO_TYPE_PROVIDER && InfoId == ENTITY_TYPE_ID ) {
 	    ULONG Return = CL_NL_IP;
-	    Status = InfoCopyOut( (PCHAR)&Return, sizeof(Return), 
+	    Status = InfoCopyOut( &Return, sizeof(Return), 
 				  Buffer, BufferSize );
 	}
 	break;
@@ -212,43 +245,4 @@ TDI_STATUS InfoNetworkLayerTdiSetEx( UINT InfoClass,
 				     TDIEntityID *id,
 				     PCHAR Buffer,
 				     UINT BufferSize ) {
-    NTSTATUS Status = TDI_INVALID_REQUEST;
-    IP_ADDRESS Address;
-    IP_ADDRESS Netmask;
-    IP_ADDRESS Router;
-    PNEIGHBOR_CACHE_ENTRY NCE;
-
-    TI_DbgPrint(MID_TRACE,("Called\n"));
-
-    OskitDumpBuffer( (OSK_PCHAR)Buffer, BufferSize );
-
-    if( InfoClass == INFO_CLASS_PROTOCOL &&
-	InfoType == INFO_TYPE_PROVIDER &&
-	InfoId == IP_MIB_ROUTETABLE_ENTRY_ID &&
-	id->tei_entity == CL_NL_ENTITY ) { /* Add or delete a route */
-	PIPROUTE_ENTRY Route = (PIPROUTE_ENTRY)Buffer;
-	AddrInitIPv4( &Address, Route->Dest );
-	AddrInitIPv4( &Netmask, Route->Mask );
-	AddrInitIPv4( &Router,  Route->Gw );
-
-	if( Route->Type == IP_ROUTE_TYPE_ADD ) { /* Add the route */
-	    TI_DbgPrint(MID_TRACE,("Adding route (%s)\n", A2S(&Address)));
-	    /* Find the existing route this belongs to */
-	    NCE = RouterGetRoute( &Router );
-	    /* Really add the route */
-	    if( NCE && 
-		RouterCreateRoute( &Address, &Netmask, &Router, 
-				   NCE->Interface, Route->Metric1 ) ) 
-		Status = STATUS_SUCCESS;
-	    else
-		Status = STATUS_UNSUCCESSFUL;
-	} else if( Route->Type == IP_ROUTE_TYPE_DEL ) {
-	    TI_DbgPrint(MID_TRACE,("Removing route (%s)\n", A2S(&Address)));
-	    Status = RouterRemoveRoute( &Address, &Router );
-	} else Status = TDI_INVALID_REQUEST;
-    }
-
-    TI_DbgPrint(MID_TRACE,("Returning %x\n", Status));    
-
-    return Status;
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: coord.c,v 1.26 2004/07/14 20:48:58 navaraf Exp $
+/* $Id: coord.c,v 1.24 2004/06/14 20:58:51 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -426,6 +426,9 @@ NtGdiOffsetViewportOrgEx(HDC hDC,
   dc->vportOrgY += YOffset;
   DC_UpdateXforms(dc);
   
+  dc->w.DCOrgX += XOffset;
+  dc->w.DCOrgY += YOffset;
+  
   DC_UnlockDc ( hDC );
   return TRUE;
 }
@@ -466,7 +469,6 @@ NtGdiOffsetWindowOrgEx(HDC  hDC,
   dc->wndOrgX += XOffset;
   dc->wndOrgY += YOffset;
 
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -481,8 +483,7 @@ NtGdiScaleViewportExtEx(HDC  hDC,
                              int  Ydenom,
                              LPSIZE  Size)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
 BOOL
@@ -494,8 +495,7 @@ NtGdiScaleWindowExtEx(HDC  hDC,
                            int  Ydenom,
                            LPSIZE  Size)
 {
-   UNIMPLEMENTED;
-   return FALSE;
+  UNIMPLEMENTED;
 }
 
 int
@@ -608,7 +608,6 @@ NtGdiSetViewportExtEx(HDC  hDC,
   dc->vportExtX = XExtent;
   dc->vportExtY = YExtent;
 
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -704,7 +703,6 @@ NtGdiSetWindowExtEx(HDC  hDC,
   dc->wndExtX = XExtent;
   dc->wndExtY = YExtent;
   
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;
@@ -746,7 +744,6 @@ NtGdiSetWindowOrgEx(HDC  hDC,
   dc->wndOrgX = X;
   dc->wndOrgY = Y;
   
-  DC_UpdateXforms(dc);
   DC_UnlockDc(hDC);
 
   return TRUE;

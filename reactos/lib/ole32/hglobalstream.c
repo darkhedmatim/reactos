@@ -29,10 +29,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -54,7 +52,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(storage);
  */
 struct HGLOBALStreamImpl
 {
-  IStreamVtbl *lpVtbl;   /* Needs to be the first item in the stuct
+  ICOM_VFIELD(IStream);  /* Needs to be the first item in the stuct
 			  * since we want to cast this in a IStream pointer */
 
   /*
@@ -171,8 +169,9 @@ HRESULT WINAPI HGLOBALStreamImpl_Clone(
 /*
  * Virtual function table for the HGLOBALStreamImpl class.
  */
-static IStreamVtbl HGLOBALStreamImpl_Vtbl =
+static ICOM_VTABLE(IStream) HGLOBALStreamImpl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     HGLOBALStreamImpl_QueryInterface,
     HGLOBALStreamImpl_AddRef,
     HGLOBALStreamImpl_Release,
@@ -380,7 +379,10 @@ ULONG WINAPI HGLOBALStreamImpl_AddRef(
 		IStream* iface)
 {
   HGLOBALStreamImpl* const This=(HGLOBALStreamImpl*)iface;
-  return InterlockedIncrement(&This->ref);
+
+  This->ref++;
+
+  return This->ref;
 }
 
 /***
@@ -391,9 +393,12 @@ ULONG WINAPI HGLOBALStreamImpl_Release(
 		IStream* iface)
 {
   HGLOBALStreamImpl* const This=(HGLOBALStreamImpl*)iface;
+
   ULONG newRef;
 
-  newRef = InterlockedDecrement(&This->ref);
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.

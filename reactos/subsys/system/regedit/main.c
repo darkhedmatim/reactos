@@ -28,7 +28,6 @@
 #include <fcntl.h>
 
 #include "main.h"
-#include "hexedit.h"
 
 
 BOOL ProcessCmdLine(LPSTR lpCmdLine);
@@ -68,8 +67,6 @@ TCHAR szChildClass[MAX_LOADSTRING];
 
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-    BOOL AclUiAvailable;
-    
     WNDCLASSEX wcFrame = {
                              sizeof(WNDCLASSEX),
                              CS_HREDRAW | CS_VREDRAW/*style*/,
@@ -105,29 +102,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
                          };
     ATOM hChildWndClass = RegisterClassEx(&wcChild); /* register child windows class */
     hChildWndClass = hChildWndClass; /* warning eater */
-    
-    RegisterHexEditorClass(hInstance);
 
     hMenuFrame = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_REGEDIT_MENU));
     hPopupMenus = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_POPUP_MENUS));
 
     /* Initialize the Windows Common Controls DLL */
     InitCommonControls();
-    
-    AclUiAvailable = InitializeAclUiDll();
-    if(!AclUiAvailable)
-    {
-      HMENU hEditMenu;
-      int mePos;
-      /* hide the Edit/Permissions... menu entry */
-      hEditMenu = GetSubMenu(hMenuFrame, 1);
-      if(hEditMenu != NULL)
-      {
-        RemoveMenu(hEditMenu, ID_EDIT_PERMISSIONS, MF_BYCOMMAND);
-        /* remove the separator after the menu item */
-        RemoveMenu(hEditMenu, 4, MF_BYPOSITION);
-      }
-    }
 
     nClipboardFormat = RegisterClipboardFormat(strClipboardFormat);
     /* if (nClipboardFormat == 0) {
@@ -158,20 +138,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 /******************************************************************************/
 
-void ExitInstance(HINSTANCE hInstance)
+void ExitInstance(void)
 {
-    UnregisterHexEditorClass(hInstance);
     DestroyMenu(hMenuFrame);
-    UnloadAclUiDll();
-}
-
-BOOL TranslateChildTabMessage(MSG *msg)
-{
-  if (msg->message != WM_KEYDOWN) return FALSE;
-  if (msg->wParam != VK_TAB) return FALSE;
-  if (GetParent(msg->hwnd) != g_pChildWnd->hWnd) return FALSE;
-  PostMessage(g_pChildWnd->hWnd, WM_COMMAND, ID_SWITCH_PANELS, 0);
-  return TRUE;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance,
@@ -216,12 +185,12 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 
     /* Main message loop */
     while (GetMessage(&msg, (HWND)NULL, 0, 0)) {
-        if (!TranslateAccelerator(msg.hwnd, hAccel, &msg) 
-            && !TranslateChildTabMessage(&msg)) {
+        if (!TranslateAccelerator(msg.hwnd, hAccel, &msg) && 
+            !IsDialogMessage(hFrameWnd, &msg)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }
-    ExitInstance(hInstance);
+    ExitInstance();
     return msg.wParam;
 }

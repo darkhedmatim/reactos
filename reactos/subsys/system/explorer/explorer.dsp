@@ -361,14 +361,6 @@ SOURCE=.\res\arrow.ico
 # End Source File
 # Begin Source File
 
-SOURCE=.\res\arrow_dwn.ico
-# End Source File
-# Begin Source File
-
-SOURCE=.\res\arrow_up.ico
-# End Source File
-# Begin Source File
-
 SOURCE=.\res\arrowsel.ico
 # End Source File
 # Begin Source File
@@ -474,6 +466,10 @@ SOURCE=.\res\icoalig9.bmp
 # End Source File
 # Begin Source File
 
+SOURCE=.\res\icon.ico
+# End Source File
+# Begin Source File
+
 SOURCE=.\res\images.bmp
 # End Source File
 # Begin Source File
@@ -502,11 +498,15 @@ SOURCE=.\res\network.ico
 # End Source File
 # Begin Source File
 
-SOURCE=.\res\notify_l.ico
+SOURCE=.\res\notify.ico
 # End Source File
 # Begin Source File
 
-SOURCE=.\res\notify_r.ico
+SOURCE=.\res\notify_h.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\res\notify_t.ico
 # End Source File
 # Begin Source File
 
@@ -754,6 +754,10 @@ SOURCE=.\dialogs\settings.h
 # Begin Group "main"
 
 # PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\buildno.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\explorer.cpp

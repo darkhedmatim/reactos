@@ -30,16 +30,14 @@ extern char* strcpy(char *dest, const char *src);
 extern unsigned int strlen(const char *s);
 extern int sprintf(char *str, const char *format, ...);
 extern int vsprintf(char *buf, const char *format, va_list ap);
-extern void* memcpy(void *dest, const void *src, unsigned int length);
+void* memcpy(void *dest, const void *src, unsigned int length);
 extern void DbgPrint(const char *format, ...);
 #define sprintf_vma(BUF, VMA) sprintf(BUF, "0x%X", VMA)
 #define _setjmp setjmp
-extern unsigned int KdbSymPrintAddress(void* address);
+unsigned int
+KdbPrintAddress(void* address);
+
 struct disassemble_info;
-
-#define KdbpSafeReadMemory(dst, src, size) MmSafeCopyFromUser(dst, src, size)
-extern long MmSafeCopyFromUser(void *Dest, void *Src, unsigned long NumberOfBytes);
-
 
 int
 print_insn_i386_att (bfd_vma pc, struct disassemble_info *info);
@@ -68,7 +66,8 @@ int static
 KdbReadMemory(unsigned int Addr, unsigned char* Data, unsigned int Length, 
 	      struct disassemble_info * Ignored)
 {
-  return KdbpSafeReadMemory(Data, (void *)Addr, Length); /* 0 means no error */
+  memcpy(Data, (unsigned char*)Addr, Length);
+  return(0);
 }
 
 void static
@@ -80,7 +79,7 @@ KdbMemoryError(int Status, unsigned int Addr,
 void static
 KdbPrintAddressInCode(unsigned int Addr, struct disassemble_info * Ignored)
 {
-  if (!KdbSymPrintAddress((void*)Addr))
+  if (!KdbPrintAddress((void*)Addr))
     {
       DbgPrint("<0x%X>", Addr);
     }

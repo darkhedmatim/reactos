@@ -74,54 +74,30 @@ struct inpcbinfo tcbinfo;
 
 #endif /* TUBA_INCLUDE */
 
-/*
- * Insert segment ti into reassembly queue of tcp with
- * control block tp.  Return TH_FIN if reassembly now includes
- * a segment with FIN.  The macro form does the common case inline
- * (segment is the next to be received on an established connection,
- * and the queue is empty), avoiding linkage into and removal
- * from the queue and repetition of various conversions.
- * Set DELACK for segments received in order, but ack immediately
- * when segments are out of order (so fast retransmit can work).
- */
-#ifdef TCP_ACK_HACK
-#define	TCP_REASS(tp, ti, m, so, flags) { \
-	if ((ti)->ti_seq == (tp)->rcv_nxt && \
-	    (tp)->seg_next == (struct tcpiphdr *)(tp) && \
-	    (tp)->t_state == TCPS_ESTABLISHED) { \
-		if (ti->ti_flags & TH_PUSH) \
-			tp->t_flags |= TF_ACKNOW; \
-		else \
-			tp->t_flags |= TF_DELACK; \
-		(tp)->rcv_nxt += (ti)->ti_len; \
-		flags = (ti)->ti_flags & TH_FIN; \
-		tcpstat.tcps_rcvpack++;\
-		tcpstat.tcps_rcvbyte += (ti)->ti_len;\
-		sbappend(&(so)->so_rcv, (m)); \
-		sorwakeup(so); \
-	} else { \
-		(flags) = tcp_reass((tp), (ti), (m)); \
-		tp->t_flags |= TF_ACKNOW; \
-	} \
-}
-#else
 #define	TCP_REASS(tp, ti, m, so, flags) { \
 	if ((ti)->ti_seq == (tp)->rcv_nxt && \
 	    (tp)->seg_next == (struct tcpiphdr *)(tp) && \
 	    (tp)->t_state == TCPS_ESTABLISHED) { \
 		tp->t_flags |= TF_DELACK; \
-		(tp)->rcv_nxt += (ti)->ti_len; \
+                if (!(ti)->ti_flags & TH_FIN && \
+		    !(ti)->ti_flags & TH_RST) { \
+		    (tp)->rcv_nxt += (ti)->ti_len - sizeof(struct ip); \
+                    OS_DbgPrint(OSK_MID_TRACE,("(REASS2) Added %d to rcv_nxt\n", \
+                                               (ti)->ti_len - sizeof(struct ip))); \
+                } else { \
+                    so->so_rcv.sb_sel.si_flags |= SEL_FIN; \
+		} \
 		flags = (ti)->ti_flags & TH_FIN; \
-		tcpstat.tcps_rcvpack++;\
-		tcpstat.tcps_rcvbyte += (ti)->ti_len;\
-		sbappend(&(so)->so_rcv, (m)); \
+		tcpstat.tcps_rcvpack++; \
+		tcpstat.tcps_rcvbyte += (ti)->ti_len; \
+                sbappend(so, &so->so_rcv, (m)); \
 		sorwakeup(so); \
 	} else { \
 		(flags) = tcp_reass((tp), (ti), (m)); \
 		tp->t_flags |= TF_ACKNOW; \
 	} \
 }
-#endif
+
 #ifndef TUBA_INCLUDE
 
 int
@@ -219,19 +195,36 @@ present:
 		return (0);
 	do {
 		tp->rcv_nxt += ti->ti_len;
-		OS_DbgPrint(OSK_MID_TRACE,("Added %d to rcv_nxt (result %d)\n",
-					   ti->ti_len, tp->rcv_nxt));
+		OS_DbgPrint(OSK_MID_TRACE,("Added %d to rcv_nxt\n",
+					   ti->ti_len));
 		flags = ti->ti_flags & TH_FIN;
 		remque(ti);
 		m = REASS_MBUF(ti);
 		ti = (struct tcpiphdr *)ti->ti_next;
 		if (so->so_state & SS_CANTRCVMORE)
-			m_freem(m);
-		else
-			sbappend(&so->so_rcv, m);
+		    m_freem(m);
+		else {
+		    sbappend(so, &so->so_rcv, (m));
+		}
 	} while (ti != (struct tcpiphdr *)tp && ti->ti_seq == tp->rcv_nxt);
 	sorwakeup(so);
 	return (flags);
+}
+
+void rip_input_mini(so, ti, m)
+    struct socket *so;
+    struct tcpiphdr *ti;
+    struct mbuf *m;
+{
+	register struct ip *ip = mtod(m, struct ip *);
+	register struct inpcb *inp;
+	struct	sockaddr_in ripsrc = { sizeof(ripsrc), AF_INET };
+
+	ripsrc.sin_addr = ti->ti_src;
+	
+	sbappendaddr(&so->so_rcv,
+		     (struct sockaddr *)&ripsrc, m,
+		     (struct mbuf *)0);
 }
 
 /*
@@ -245,6 +238,8 @@ tcp_input(m, iphlen)
 {
 	register struct tcpiphdr *ti;
 	register struct inpcb *inp;
+	struct sockaddr_in addr = { 0 };
+        struct mbuf mhdr = { 0 }, mpayload = { 0 };
 	caddr_t optp = NULL;
 	int optlen = 0;
 	int len, tlen, off;
@@ -262,8 +257,9 @@ tcp_input(m, iphlen)
 #ifdef TCPDEBUG
 	short ostate = 0;
 #endif
+
 	bzero((char *)&to, sizeof(to));
-	
+
 	tcpstat.tcps_rcvtotal++;
 	/*
 	 * Get IP and TCP header together in first mbuf.
@@ -271,32 +267,32 @@ tcp_input(m, iphlen)
 	 */
 	ti = mtod(m, struct tcpiphdr *);
 	if (iphlen > sizeof (struct ip))
-	    ip_stripoptions(m, (struct mbuf *)0);
+		ip_stripoptions(m, (struct mbuf *)0);
 	if (m->m_len < sizeof (struct tcpiphdr)) {
-	    if ((m = m_pullup(m, sizeof (struct tcpiphdr))) == 0) {
-		tcpstat.tcps_rcvshort++;
-		return;
-	    }
-	    ti = mtod(m, struct tcpiphdr *);
+		if ((m = m_pullup(m, sizeof (struct tcpiphdr))) == 0) {
+			tcpstat.tcps_rcvshort++;
+			return;
+		}
+		ti = mtod(m, struct tcpiphdr *);
 	}
-	
+
 	/*
 	 * Checksum extended TCP header and data.
 	 */
-	tlen = ((struct ip *)ti)->ip_len;
-	len = sizeof (struct ip) + tlen;
+	tlen = ntohs(((struct ip *)ti)->ip_len);
+	len = sizeof (struct ip);
+	OS_DbgPrint(OSK_MID_TRACE,("tlen = %x, len = %x, m_len = %d\n", tlen, len, m->m_len));
+	OS_DbgPrint(OSK_MID_TRACE,("ti->ti_len = %x\n", htons(ti->ti_len)));
+	ti->ti_sum = in_cksum(m, len);
+	OskitDumpBuffer(m->m_data, len);
 	ti->ti_next = ti->ti_prev = 0;
 	ti->ti_x1 = 0;
-	ti->ti_len = (u_short)tlen;
-	HTONS(ti->ti_len);
-#ifndef __REACTOS__ /* Checksum already done in IPReceive */
-	ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
-	    printf("TCP: Bad Checksum\n");
-	    tcpstat.tcps_rcvbadsum++;
-	    goto drop;
+		tcpstat.tcps_rcvbadsum++;
+		OS_DbgPrint(OSK_MID_TRACE,("Dropping packet due to bad csum (%x)\n", ti->ti_sum));
+		goto drop;
 	}
-#endif
+	ti->ti_len = htons((u_short)tlen);
 #endif /* TUBA_INCLUDE */
 
 	/*
@@ -337,6 +333,8 @@ tcp_input(m, iphlen)
 	m->m_data += sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 	m->m_len  -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 
+	OskitDumpBuffer(m->m_data, m->m_len);
+
 	/*
 	 * Locate pcb for segment.
 	 */
@@ -375,6 +373,22 @@ findpcb:
 		tiwin = ti->ti_win;
 
 	so = inp->inp_socket;
+
+#if 0
+	mhdr.m_type = MT_HEADER;
+	memcpy(mhdr.m_pktdat, ti, sizeof(ti));
+	mhdr.m_data = mhdr.m_pktdat;
+	mhdr.m_len = 0;
+	mhdr.m_flags = M_PKTHDR | M_EOR;
+	mhdr.m_next = &mpayload;
+	mpayload.m_type = MT_DATA;
+	mpayload.m_data = m->m_data + sizeof(*ti);
+	mpayload.m_len = m->m_len - sizeof(*ti);
+	mpayload.m_flags = M_EOR;
+
+	rip_input_mini(so, ti, &mhdr);
+#endif
+
 	if (so->so_options & (SO_DEBUG|SO_ACCEPTCONN)) {
 #ifdef TCPDEBUG
 		if (so->so_options & SO_DEBUG) {
@@ -584,13 +598,17 @@ findpcb:
 			 */
 			++tcpstat.tcps_preddat;
 			tp->rcv_nxt += ti->ti_len;
-			OS_DbgPrint(OSK_MID_TRACE,("Added %d to rcv_nxt\n", ti->ti_len - sizeof(struct ip)));
 			tcpstat.tcps_rcvpack++;
 			tcpstat.tcps_rcvbyte += ti->ti_len;
 			/*
 			 * Add data to socket buffer.
 			 */
-			sbappend(&so->so_rcv, m);
+			OS_DbgPrint
+			    (OSK_MID_TRACE,("Adding %d to socket buffer\n",
+					    m->m_len));
+
+			sbappend(so, &so->so_rcv, (m));
+			so->so_rcv.sb_cc += m->m_len;
 			sorwakeup(so);
 #ifdef TCP_ACK_HACK
 			/*
@@ -664,7 +682,7 @@ findpcb:
 		am->m_len = sizeof (struct sockaddr_in);
 		sin = mtod(am, struct sockaddr_in *);
 		sin->sin_family = AF_INET;
-		sin->sin_len = sizeof(*sin);
+		/*sin->sin_len = sizeof(*sin); */
 		sin->sin_addr = ti->ti_src;
 		sin->sin_port = ti->ti_sport;
 		bzero((caddr_t)sin->sin_zero, sizeof(sin->sin_zero));
@@ -673,10 +691,10 @@ findpcb:
 			inp->inp_laddr = ti->ti_dst;
 		if (in_pcbconnect(inp, am)) {
 			inp->inp_laddr = laddr;
-			(void) m_free(am);
+			/*(void) m_free(am);*/
 			goto drop;
 		}
-		(void) m_free(am);
+		/*(void) m_free(am);*/
 		tp->t_template = tcp_template(tp);
 		if (tp->t_template == 0) {
 			tp = tcp_drop(tp, ENOBUFS);
@@ -867,8 +885,13 @@ findpcb:
 				tp->t_flags &= ~TF_NEEDFIN;
 				tiflags &= ~TH_SYN;
 			} else {
-				tp->t_state = TCPS_ESTABLISHED;
-				tp->t_timer[TCPT_KEEP] = tcp_keepidle;
+			    OS_DbgPrint
+				(OSK_MID_TRACE,
+				 ("Socket %x entered ESTABLISHED state\n",
+				  so));
+			    tp->t_state = TCPS_ESTABLISHED;
+			    tp->t_timer[TCPT_KEEP] = tcp_keepidle;
+			    socwakeup(so);
 			}
 		} else {
 		/*
@@ -1163,8 +1186,9 @@ trimthenstep6:
 	 * error and we send an RST and drop the connection.
 	 */
 	if (tiflags & TH_SYN) {
-		tp = tcp_drop(tp, ECONNRESET);
-		goto dropwithreset;
+	    OS_DbgPrint(OSK_MID_TRACE,("SYN In window\n"));
+	    tp = tcp_drop(tp, ECONNRESET);
+	    goto dropwithreset;
 	}
 
 	/*
@@ -1405,7 +1429,7 @@ process_ACK:
 			ourfinisacked = 0;
 		}
 		if (so->so_snd.sb_flags & SB_NOTIFY)
-			sowwakeup(so);
+		    sowwakeup(so);
 		tp->snd_una = ti->ti_ack;
 		if (SEQ_LT(tp->snd_nxt, tp->snd_una))
 			tp->snd_nxt = tp->snd_una;
@@ -1512,6 +1536,9 @@ step6:
 		 * actually wanting to send this much urgent data.
 		 */
 		if (ti->ti_urp + so->so_rcv.sb_cc > sb_max) {
+		    OS_DbgPrint(OSK_MID_TRACE,
+				("%x: Urgent pointer out of range: %x\n",
+				 ti->ti_urp));
 			ti->ti_urp = 0;			/* XXX */
 			tiflags &= ~TH_URG;		/* XXX */
 			goto dodata;			/* XXX */
@@ -1569,9 +1596,12 @@ dodata:							/* XXX */
 	 * case PRU_RCVD).  If a FIN has already been received on this
 	 * connection then we just ignore the text.
 	 */
+	
+	OS_DbgPrint(OSK_MID_TRACE,("TIFlags: %x\n", tiflags));
+
 	if ((ti->ti_len || (tiflags&TH_FIN)) &&
 	    TCPS_HAVERCVDFIN(tp->t_state) == 0) {
-		TCP_REASS(tp, ti, m, so, tiflags);
+	    TCP_REASS(tp, ti, m, so, tiflags);
 		/*
 		 * Note the amount of data that peer has sent into
 		 * our window, in order to estimate the sender's
@@ -1579,8 +1609,8 @@ dodata:							/* XXX */
 		 */
 		len = so->so_rcv.sb_hiwat - (tp->rcv_adv - tp->rcv_nxt);
 	} else {
-		m_freem(m);
-		tiflags &= ~TH_FIN;
+	    /*m_freem(m);*/
+	    tiflags &= ~TH_FIN;
 	}
 
 	/*
@@ -1659,6 +1689,10 @@ dodata:							/* XXX */
 	/*
 	 * Return any desired output.
 	 */
+	OS_DbgPrint(OSK_MID_TRACE,
+		    ("needoutput: %d, tp->t_flags & TF_ACKNOW: %d\n",
+		     needoutput, tp->t_flags & TF_ACKNOW));
+
 	if (needoutput || (tp->t_flags & TF_ACKNOW))
 		(void) tcp_output(tp);
 	return;
@@ -1713,7 +1747,6 @@ drop:
 	if (tp == 0 || (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
 		tcp_trace(TA_DROP, ostate, tp, &tcp_saveti, 0);
 #endif
-	m_freem(m);
 	/* destroy temporarily created socket */
 	if (dropsocket)
 		(void) soabort(so);
@@ -1987,9 +2020,6 @@ tcp_mss(tp, offer)
 		tp->t_maxopd = tp->t_maxseg = tcp_mssdflt;
 		return;
 	}
-#ifndef __REACTOS__
-	ifp = rt->rt_ifp;
-#endif
 	so = inp->inp_socket;
 
 	taop = rmx_taop(rt->rt_rmx);
@@ -2049,7 +2079,7 @@ tcp_mss(tp, offer)
 		mss = rt->rt_rmx.rmx_mtu - sizeof(struct tcpiphdr);
 	else
 	{
-		mss = ifp->if_mtu - sizeof(struct tcpiphdr);
+		mss = rt->rt_mtu - sizeof(struct tcpiphdr);
 		if (!in_localaddr(inp->inp_faddr))
 			mss = min(mss, tcp_mssdflt);
 	}
@@ -2144,10 +2174,7 @@ tcp_mssopt(tp)
 	rt = tcp_rtlookup(tp->t_inpcb);
 	if (rt == NULL)
 		return tcp_mssdflt;
-#ifndef __REACTOS__
-	return rt->rt_ifp->if_mtu - sizeof(struct tcpiphdr);
-#else
-	return tcp_mssdflt;
-#endif
+
+	return rt->rt_mtu - sizeof(struct tcpiphdr);
 }
 #endif /* TUBA_INCLUDE */

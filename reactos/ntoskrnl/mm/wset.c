@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: wset.c,v 1.21 2004/08/15 16:39:08 chorns Exp $
+/* $Id: wset.c,v 1.18 2004/04/10 22:35:26 gdalsnes Exp $
  * 
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/wset.c
@@ -28,7 +28,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -37,18 +41,18 @@
 NTSTATUS
 MmTrimUserMemory(ULONG Target, ULONG Priority, PULONG NrFreedPages)
 {
-   PFN_TYPE CurrentPage;
-   PFN_TYPE NextPage;
+   PHYSICAL_ADDRESS CurrentPhysicalAddress;
+   PHYSICAL_ADDRESS NextPhysicalAddress;
    NTSTATUS Status;
 
    (*NrFreedPages) = 0;
 
-   CurrentPage = MmGetLRUFirstUserPage();
-   while (CurrentPage != 0 && Target > 0)
+   CurrentPhysicalAddress = MmGetLRUFirstUserPage();
+   while (CurrentPhysicalAddress.QuadPart != 0 && Target > 0)
    {
-      NextPage = MmGetLRUNextUserPage(CurrentPage);
+      NextPhysicalAddress = MmGetLRUNextUserPage(CurrentPhysicalAddress);
 
-      Status = MmPageOutPhysicalAddress(CurrentPage);
+      Status = MmPageOutPhysicalAddress(CurrentPhysicalAddress);
       if (NT_SUCCESS(Status))
       {
          DPRINT("Succeeded\n");
@@ -57,23 +61,10 @@ MmTrimUserMemory(ULONG Target, ULONG Priority, PULONG NrFreedPages)
       }
       else if (Status == STATUS_PAGEFILE_QUOTA)
       {
-         MmSetLRULastPage(CurrentPage);
+         MmSetLRULastPage(CurrentPhysicalAddress);
       }
 
-      CurrentPage = NextPage;
+      CurrentPhysicalAddress = NextPhysicalAddress;
    }
    return(STATUS_SUCCESS);
-}
-
-/*
- * @unimplemented
- */
-ULONG
-STDCALL
-MmTrimAllSystemPagableMemory (
-	IN ULONG PurgeTransitionList
-	)
-{
-	UNIMPLEMENTED;
-	return 0;
 }

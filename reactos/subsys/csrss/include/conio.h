@@ -1,4 +1,4 @@
-/* $Id: conio.h,v 1.5 2004/09/10 22:14:52 gvg Exp $
+/* $Id: conio.h,v 1.3 2004/03/14 17:53:27 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -84,8 +84,6 @@ typedef struct tagCSRSS_CONSOLE
   HICON hWindowIcon;
   COORD Size;
   PVOID PrivateData;
-  UINT CodePage;
-  UINT OutputCodePage;
   PCSRSS_CONSOLE_VTBL Vtbl;
   LIST_ENTRY ProcessList;
 } CSRSS_CONSOLE;
@@ -99,7 +97,6 @@ void FASTCALL ConioPhysicalToLogical(PCSRSS_SCREEN_BUFFER Buff,
                                      LONG *LogicalX,
                                      LONG *LogicalY);
 VOID FASTCALL ConioDrawConsole(PCSRSS_CONSOLE Console);
-VOID FASTCALL ConioConsoleCtrlEvent(DWORD Event, PCSRSS_PROCESS_DATA ProcessData);
 
 /* api/conio.c */
 CSR_API(CsrWriteConsole);
@@ -135,10 +132,6 @@ CSR_API(CsrWriteConsoleInput);
 CSR_API(CsrHardwareStateProperty);
 CSR_API(CsrGetConsoleWindow);
 CSR_API(CsrSetConsoleIcon);
-CSR_API(CsrGetConsoleCodePage);
-CSR_API(CsrSetConsoleCodePage);
-CSR_API(CsrGetConsoleOutputCodePage);
-CSR_API(CsrSetConsoleOutputCodePage);
 
 #define ConioInitScreenBuffer(Console, Buff) (Console)->Vtbl->InitScreenBuffer((Console), (Buff))
 #define ConioDrawRegion(Console, Region) (Console)->Vtbl->DrawRegion((Console), (Region))

@@ -23,8 +23,6 @@
 
 #include <stdarg.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -43,7 +41,7 @@ struct StublessThunk;
 /* I don't know what MS's std proxy structure looks like,
    so this probably doesn't match, but that shouldn't matter */
 typedef struct {
-  IRpcProxyBufferVtbl *lpVtbl;
+  ICOM_VTABLE(IRpcProxyBuffer) *lpVtbl;
   LPVOID *PVtbl;
   DWORD RefCount;
   const MIDL_STUBLESS_PROXY_INFO *stubless;
@@ -55,9 +53,7 @@ typedef struct {
   struct StublessThunk *thunks;
 } StdProxyImpl;
 
-static IRpcProxyBufferVtbl StdProxy_Vtbl;
-
-#define ICOM_THIS_MULTI(impl,field,iface) impl* const This=(impl*)((char*)(iface) - offsetof(impl,field))
+static ICOM_VTABLE(IRpcProxyBuffer) StdProxy_Vtbl;
 
 /* How the Windows stubless proxy thunks work is explained at
  * http://msdn.microsoft.com/library/en-us/dnmsj99/html/com0199.asp,
@@ -101,7 +97,7 @@ static HRESULT WINAPI ObjectStubless(DWORD index)
   ICOM_THIS_MULTI(StdProxyImpl,PVtbl,iface);
 
   PFORMAT_STRING fs = This->stubless->ProcFormatString + This->stubless->FormatStringOffset[index];
-  unsigned bytes = *(const WORD*)(fs+8) - STACK_ADJUST;
+  unsigned bytes = *(WORD*)(fs+8) - STACK_ADJUST;
   TRACE("(%p)->(%ld)([%d bytes]) ret=%08lx\n", iface, index, bytes, *(DWORD*)(args+bytes));
 
   return RPCRT4_NdrClientCall2(This->stubless->pStubDesc, fs, args);
@@ -161,7 +157,7 @@ HRESULT WINAPI StdProxy_Construct(REFIID riid,
       struct StublessThunk *thunk = &This->thunks[i];
       if (vtbl->Vtbl[i] == (LPVOID)-1) {
         PFORMAT_STRING fs = stubless->ProcFormatString + stubless->FormatStringOffset[i];
-        unsigned bytes = *(const WORD*)(fs+8) - STACK_ADJUST;
+        unsigned bytes = *(WORD*)(fs+8) - STACK_ADJUST;
         TRACE("method %d: stacksize=%d\n", i, bytes);
         FILL_STUBLESS(thunk, i, bytes)
         This->PVtbl[i] = thunk;
@@ -269,8 +265,9 @@ static VOID WINAPI StdProxy_Disconnect(LPRPCPROXYBUFFER iface)
   This->pChannel = NULL;
 }
 
-static IRpcProxyBufferVtbl StdProxy_Vtbl =
+static ICOM_VTABLE(IRpcProxyBuffer) StdProxy_Vtbl =
 {
+  ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
   StdProxy_QueryInterface,
   StdProxy_AddRef,
   StdProxy_Release,
@@ -331,12 +328,4 @@ ULONG WINAPI IUnknown_Release_Proxy(LPUNKNOWN iface)
 #else /* object refcounting */
   return IUnknown_Release(This->pUnkOuter);
 #endif
-}
-
-HRESULT WINAPI
-CreateProxyFromTypeInfo( LPTYPEINFO pTypeInfo, LPUNKNOWN pUnkOuter, REFIID riid,
-                         LPRPCPROXYBUFFER *ppProxy, LPVOID *ppv )
-{
-    FIXME("%p %p %s %p %p\n", pTypeInfo, pUnkOuter, debugstr_guid(riid), ppProxy, ppv);
-    return E_NOTIMPL;
 }

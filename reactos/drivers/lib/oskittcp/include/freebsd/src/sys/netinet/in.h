@@ -76,11 +76,9 @@
 /*
  * Internet address (a structure for historical reasons)
  */
-#ifndef _WINSOCKAPI_
 struct in_addr {
 	u_long s_addr;
 };
-#endif//_WINSOCKAPI_
 
 /*
  * Definitions of bits in internet address integers.
@@ -128,9 +126,6 @@ struct in_addr {
 /*
  * Socket address, internet style.
  */
-#ifdef _WINSOCKAPI_
-#define sockaddr_in bsd_sockaddr_in
-#endif
 struct sockaddr_in {
 	u_char	sin_len;
 	u_char	sin_family;
@@ -260,9 +255,7 @@ int	 in_cksum __P((struct mbuf *, int));
 int	 in_localaddr __P((struct in_addr));
 u_long	 in_netof __P((struct in_addr));
 void	 in_socktrim __P((struct sockaddr_in *));
-#ifndef _WINSOCKAPI_
 char 	*inet_ntoa __P((struct in_addr)); /* in libkern */
-#endif//_WINSOCKAPI_
 #endif
 
 #endif

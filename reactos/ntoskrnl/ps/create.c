@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.89 2004/12/18 15:52:51 hbirr Exp $
+/* $Id: create.c,v 1.73 2004/03/24 22:00:39 ea Exp $
  *
  * COPYRIGHT:              See COPYING in the top level directory
  * PROJECT:                ReactOS kernel
@@ -21,11 +21,29 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <limits.h>
+
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ke.h>
+#include <internal/ob.h>
+#include <internal/ps.h>
+#include <internal/se.h>
+#include <internal/id.h>
+#include <internal/dbg.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBAL *******************************************************************/
+
+static ULONG PiNextThreadUniqueId = 0;
+
+extern KSPIN_LOCK PiThreadListLock;
+extern ULONG PiNrThreads;
+
+extern LIST_ENTRY PiThreadListHead;
 
 #define MAX_THREAD_NOTIFY_ROUTINE_COUNT    8
 
@@ -35,9 +53,6 @@ PiThreadNotifyRoutine[MAX_THREAD_NOTIFY_ROUTINE_COUNT];
 
 /* FUNCTIONS ***************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 PsAssignImpersonationToken(PETHREAD Thread,
 			   HANDLE TokenHandle)
@@ -49,9 +64,9 @@ PsAssignImpersonationToken(PETHREAD Thread,
    if (TokenHandle != NULL)
      {
 	Status = ObReferenceObjectByHandle(TokenHandle,
-					   TOKEN_IMPERSONATE,
+					   0,
 					   SepTokenObjectType,
-					   KeGetPreviousMode(),
+					   UserMode,
 					   (PVOID*)&Token,
 					   NULL);
 	if (!NT_SUCCESS(Status))
@@ -68,14 +83,13 @@ PsAssignImpersonationToken(PETHREAD Thread,
 
    PsImpersonateClient(Thread,
 		       Token,
-		       FALSE,
-		       FALSE,
+		       0,
+		       0,
 		       ImpersonationLevel);
    if (Token != NULL)
      {
 	ObDereferenceObject(Token);
      }
-
    return(STATUS_SUCCESS);
 }
 
@@ -86,24 +100,17 @@ PsAssignImpersonationToken(PETHREAD Thread,
 VOID STDCALL
 PsRevertToSelf (VOID)
 {
-    PsRevertThreadToSelf(PsGetCurrentThread());
-}
+  PETHREAD Thread;
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-PsRevertThreadToSelf(
-	IN PETHREAD Thread
-	)
-{
+  Thread = PsGetCurrentThread ();
+
   if (Thread->ActiveImpersonationInfo == TRUE)
     {
       ObDereferenceObject (Thread->ImpersonationInfo->Token);
       Thread->ActiveImpersonationInfo = FALSE;
     }
 }
+
 
 /*
  * @implemented
@@ -131,7 +138,7 @@ PsImpersonateClient (IN PETHREAD Thread,
   if (Thread->ImpersonationInfo == NULL)
     {
       Thread->ImpersonationInfo = ExAllocatePool (NonPagedPool,
-						  sizeof(PS_IMPERSONATION_INFORMATION));
+						  sizeof(PS_IMPERSONATION_INFO));
     }
 
   Thread->ImpersonationInfo->Level = ImpersonationLevel;
@@ -230,6 +237,61 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
   return STATUS_SUCCESS;
 }
 
+
+NTSTATUS STDCALL
+NtOpenThreadToken (IN HANDLE ThreadHandle,
+		   IN ACCESS_MASK DesiredAccess,
+		   IN BOOLEAN OpenAsSelf,
+		   OUT PHANDLE TokenHandle)
+{
+  PACCESS_TOKEN Token;
+  PETHREAD Thread;
+  NTSTATUS Status;
+
+  Status = ObReferenceObjectByHandle (ThreadHandle,
+				      0,
+				      PsThreadType,
+				      UserMode,
+				      (PVOID*)&Thread,
+				      NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+
+  if (OpenAsSelf)
+    {
+      if (Thread->ActiveImpersonationInfo == FALSE)
+	{
+	  ObDereferenceObject (Thread);
+	  return STATUS_NO_TOKEN;
+	}
+
+      Token = Thread->ImpersonationInfo->Token;
+    }
+  else
+    {
+      Token = Thread->ThreadsProcess->Token;
+    }
+
+  if (Token == NULL)
+    {
+      ObDereferenceObject (Thread);
+      return STATUS_NO_TOKEN;
+    }
+
+  Status = ObCreateHandle (PsGetCurrentProcess(),
+			   Token,
+			   DesiredAccess,
+			   FALSE,
+			   TokenHandle);
+
+  ObDereferenceObject (Thread);
+
+  return Status;
+}
+
+
 /*
  * @implemented
  */
@@ -255,80 +317,6 @@ PsReferenceImpersonationToken(IN PETHREAD Thread,
   return Thread->ImpersonationInfo->Token;
 }
 
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-PsDereferenceImpersonationToken(
-    IN PACCESS_TOKEN ImpersonationToken
-    )
-{
-	UNIMPLEMENTED;	
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-PsDereferencePrimaryToken(
-    IN PACCESS_TOKEN PrimaryToken
-    )
-{
-	UNIMPLEMENTED;	
-}
-
-/*
- * @implemented
- */
-BOOLEAN
-STDCALL
-PsDisableImpersonation(
-    IN PETHREAD Thread,
-    IN PSE_IMPERSONATION_STATE ImpersonationState
-    )
-{
-   if (Thread->ActiveImpersonationInfo == FALSE)
-   {
-      ImpersonationState->Token = NULL;
-      ImpersonationState->CopyOnOpen = FALSE;
-      ImpersonationState->EffectiveOnly = FALSE;
-      ImpersonationState->Level = 0;
-      return TRUE;
-   }
-
-/* FIXME */
-/*   ExfAcquirePushLockExclusive(&Thread->ThreadLock); */
-
-   Thread->ActiveImpersonationInfo = FALSE;
-   ImpersonationState->Token = Thread->ImpersonationInfo->Token;
-   ImpersonationState->CopyOnOpen = Thread->ImpersonationInfo->CopyOnOpen;
-   ImpersonationState->EffectiveOnly = Thread->ImpersonationInfo->EffectiveOnly;
-   ImpersonationState->Level = Thread->ImpersonationInfo->Level;
-
-/* FIXME */
-/*   ExfReleasePushLock(&Thread->ThreadLock); */
-
-   return TRUE;
-}
-
-/*
- * @implemented
- */                       
-VOID
-STDCALL
-PsRestoreImpersonation(
-	IN PETHREAD   	 Thread,
-	IN PSE_IMPERSONATION_STATE  	ImpersonationState
-     	)
-{
-   PsImpersonateClient(Thread, ImpersonationState->Token,
-                       ImpersonationState->CopyOnOpen,
-                       ImpersonationState->EffectiveOnly,
-                       ImpersonationState->Level);
-   ObfDereferenceObject(ImpersonationState->Token);
-}
 
 VOID
 PiBeforeBeginThread(CONTEXT c)
@@ -340,34 +328,28 @@ PiBeforeBeginThread(CONTEXT c)
 VOID STDCALL
 PiDeleteThread(PVOID ObjectBody)
 {
+  KIRQL oldIrql;
   PETHREAD Thread;
-  PEPROCESS Process;
 
   Thread = (PETHREAD)ObjectBody;
 
   DPRINT("PiDeleteThread(ObjectBody %x)\n",ObjectBody);
 
-  Process = Thread->ThreadsProcess;
+  ObDereferenceObject(Thread->ThreadsProcess);
   Thread->ThreadsProcess = NULL;
 
-  PsDeleteCidHandle(Thread->Cid.UniqueThread, PsThreadType);
-  
-  if(Thread->Tcb.Win32Thread != NULL)
-  {
-    /* Free the W32THREAD structure if present */
-    ExFreePool (Thread->Tcb.Win32Thread);
-  }
+  KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+  PiNrThreads--;
+  RemoveEntryList(&Thread->Tcb.ThreadListEntry);
+  KeReleaseSpinLock(&PiThreadListLock, oldIrql);
 
-  KeReleaseThread(ETHREAD_TO_KTHREAD(Thread));
-  
-  ObDereferenceObject(Process);
-  
+  KeReleaseThread(Thread);
   DPRINT("PiDeleteThread() finished\n");
 }
 
 
 NTSTATUS
-PsInitializeThread(PEPROCESS Process,
+PsInitializeThread(HANDLE ProcessHandle,
 		   PETHREAD* ThreadPtr,
 		   PHANDLE ThreadHandle,
 		   ACCESS_MASK	DesiredAccess,
@@ -377,19 +359,34 @@ PsInitializeThread(PEPROCESS Process,
    PETHREAD Thread;
    NTSTATUS Status;
    KIRQL oldIrql;
-
-   if (Process == NULL)
-     {
-	Process = PsInitialSystemProcess;
-     }
+   PEPROCESS Process;
 
    /*
     * Reference process
     */
-   ObReferenceObjectByPointer(Process,
-                              PROCESS_CREATE_THREAD,
-                              PsProcessType,
-                              KernelMode);
+   if (ProcessHandle != NULL)
+     {
+	Status = ObReferenceObjectByHandle(ProcessHandle,
+					   PROCESS_CREATE_THREAD,
+					   PsProcessType,
+					   UserMode,
+					   (PVOID*)&Process,
+					   NULL);
+	if (Status != STATUS_SUCCESS)
+	  {
+	     DPRINT("Failed at %s:%d\n",__FILE__,__LINE__);
+	     return(Status);
+	  }
+	DPRINT( "Creating thread in process %x\n", Process );
+     }
+   else
+     {
+	Process = PsInitialSystemProcess;
+	ObReferenceObjectByPointer(Process,
+				   PROCESS_CREATE_THREAD,
+				   PsProcessType,
+				   UserMode);
+     }
    
    /*
     * Create and initialize thread
@@ -405,21 +402,9 @@ PsInitializeThread(PEPROCESS Process,
 			   (PVOID*)&Thread);
    if (!NT_SUCCESS(Status))
      {
-        ObDereferenceObject (Process);
-        return(Status);
+	return(Status);
      }
 
-  /* create a client id handle */
-  Status = PsCreateCidHandle(Thread, PsThreadType, &Thread->Cid.UniqueThread);
-  if (!NT_SUCCESS(Status))
-    {
-      ObDereferenceObject (Thread);
-      ObDereferenceObject (Process);
-      return Status;
-    }
-  Thread->ThreadsProcess = Process;
-  Thread->Cid.UniqueProcess = (HANDLE)Thread->ThreadsProcess->UniqueProcessId;
-  
   Status = ObInsertObject ((PVOID)Thread,
 			   NULL,
 			   DesiredAccess,
@@ -429,23 +414,37 @@ PsInitializeThread(PEPROCESS Process,
   if (!NT_SUCCESS(Status))
     {
       ObDereferenceObject (Thread);
-      ObDereferenceObject (Process);
       return Status;
     }
 
    DPRINT("Thread = %x\n",Thread);
-
+   
+   PiNrThreads++;
+   
    KeInitializeThread(&Process->Pcb, &Thread->Tcb, First);
+   Thread->ThreadsProcess = Process;
+   /*
+    * FIXME: What lock protects this?
+    */
+   InsertTailList(&Thread->ThreadsProcess->ThreadListHead, 
+		  &Thread->Tcb.ProcessThreadListEntry);
    InitializeListHead(&Thread->TerminationPortList);
    KeInitializeSpinLock(&Thread->ActiveTimerListLock);
    InitializeListHead(&Thread->IrpList);
-   Thread->DeadThread = FALSE;
-   Thread->HasTerminated = FALSE;
-   Thread->Tcb.Win32Thread = NULL;
+   Thread->Cid.UniqueThread = (HANDLE)InterlockedIncrement(
+					      (LONG *)&PiNextThreadUniqueId);
+   Thread->Cid.UniqueProcess = (HANDLE)Thread->ThreadsProcess->UniqueProcessId;
+   Thread->DeadThread = 0;
+   Thread->Win32Thread = 0;
    DPRINT("Thread->Cid.UniqueThread %d\n",Thread->Cid.UniqueThread);
    
+   *ThreadPtr = Thread;
+   
+   KeAcquireSpinLock(&PiThreadListLock, &oldIrql);
+   InsertTailList(&PiThreadListHead, &Thread->Tcb.ThreadListEntry);
+   KeReleaseSpinLock(&PiThreadListLock, oldIrql);
 
-   Thread->Tcb.BasePriority = (CHAR)Process->Pcb.BasePriority;
+   Thread->Tcb.BasePriority = (CHAR)Thread->ThreadsProcess->Pcb.BasePriority;
    Thread->Tcb.Priority = Thread->Tcb.BasePriority;
 
    /*
@@ -458,13 +457,6 @@ PsInitializeThread(PEPROCESS Process,
    Thread->LpcExitThreadCalled = FALSE;
    Thread->LpcReceivedMsgIdValid = FALSE;
 
-   oldIrql = KeAcquireDispatcherDatabaseLock();
-   InsertTailList(&Process->ThreadListHead,
-		  &Thread->ThreadListEntry);
-   KeReleaseDispatcherDatabaseLock(oldIrql);
-
-   *ThreadPtr = Thread;
-
    return(STATUS_SUCCESS);
 }
 
@@ -473,78 +465,53 @@ static NTSTATUS
 PsCreateTeb(HANDLE ProcessHandle,
 	    PTEB *TebPtr,
 	    PETHREAD Thread,
-	    PINITIAL_TEB InitialTeb)
+	    PUSER_STACK UserStack)
 {
-   PEPROCESS Process;
+   MEMORY_BASIC_INFORMATION Info;
    NTSTATUS Status;
    ULONG ByteCount;
    ULONG RegionSize;
    ULONG TebSize;
    PVOID TebBase;
    TEB Teb;
+   ULONG ResultLength;
 
+   TebBase = (PVOID)0x7FFDE000;
    TebSize = PAGE_SIZE;
 
-   if (NULL == Thread->ThreadsProcess)
+   while (TRUE)
      {
-       /* We'll be allocating a 64k block here and only use 4k of it, but this
-          path should almost never be taken. Actually, I never saw it was taken,
-          so maybe we should just ASSERT(NULL != Thread->ThreadsProcess) and
-          move on */
-       TebBase = NULL;
-       Status = ZwAllocateVirtualMemory(ProcessHandle,
-                                        &TebBase,
-                                        0,
-                                        &TebSize,
-                                        MEM_RESERVE | MEM_COMMIT | MEM_TOP_DOWN,
-                                        PAGE_READWRITE);
-       if (! NT_SUCCESS(Status))
-         {
-           DPRINT1("Failed to allocate virtual memory for TEB\n");
-           return Status;
-         }
-     }
-   else
-     {
-       Process = Thread->ThreadsProcess;
-       ExAcquireFastMutex(&Process->TebLock);
-       if (NULL == Process->TebBlock ||
-           Process->TebBlock == Process->TebLastAllocated)
-         {
-           Process->TebBlock = NULL;
-           RegionSize = MM_VIRTMEM_GRANULARITY;
-           Status = ZwAllocateVirtualMemory(ProcessHandle,
-                                            &Process->TebBlock,
-                                            0,
-                                            &RegionSize,
-                                            MEM_RESERVE | MEM_TOP_DOWN,
-                                            PAGE_READWRITE);
-           if (! NT_SUCCESS(Status))
-             {
-               ExReleaseFastMutex(&Process->TebLock);
-               DPRINT1("Failed to reserve virtual memory for TEB\n");
-               return Status;
-             }
-           Process->TebLastAllocated = (PVOID) ((char *) Process->TebBlock + RegionSize);
-         }
-       TebBase = (PVOID) ((char *) Process->TebLastAllocated - PAGE_SIZE);
-       Status = ZwAllocateVirtualMemory(ProcessHandle,
-                                        &TebBase,
-                                        0,
-                                        &TebSize,
-                                        MEM_COMMIT,
-                                        PAGE_READWRITE);
-       if (! NT_SUCCESS(Status))
-         {
-           DPRINT1("Failed to commit virtual memory for TEB\n");
-           return Status;
-         }
-       Process->TebLastAllocated = TebBase;
-       ExReleaseFastMutex(&Process->TebLock);
+	Status = NtQueryVirtualMemory(ProcessHandle,
+				      TebBase,
+				      MemoryBasicInformation,
+				      &Info,
+				      sizeof(Info),
+				      &ResultLength);
+	if (!NT_SUCCESS(Status))
+	  {
+	     CPRINT("NtQueryVirtualMemory (Status %x)\n", Status);
+	     KEBUGCHECK(0);
+	  }
+	/* FIXME: Race between this and the above check */
+	if (Info.State == MEM_FREE)
+	  {
+	     /* The TEB must reside in user space */
+	     Status = NtAllocateVirtualMemory(ProcessHandle,
+					      &TebBase,
+					      0,
+					      &TebSize,
+					      MEM_RESERVE | MEM_COMMIT,
+					      PAGE_READWRITE);
+	     if (NT_SUCCESS(Status))
+	       {
+		  break;
+	       }
+	  }
+	     
+	TebBase = (char*)TebBase - TebSize;
      }
 
    DPRINT ("TebBase %p TebSize %lu\n", TebBase, TebSize);
-   ASSERT(NULL != TebBase && PAGE_SIZE <= TebSize);
 
    RtlZeroMemory(&Teb, sizeof(TEB));
    /* set all pointers to and from the TEB */
@@ -555,22 +522,22 @@ PsCreateTeb(HANDLE ProcessHandle,
      }
    DPRINT("Teb.Peb %x\n", Teb.Peb);
    
-   /* store stack information from InitialTeb */
-   if(InitialTeb != NULL)
+   /* store stack information from UserStack */
+   if(UserStack != NULL)
    {
     /* fixed-size stack */
-    if(InitialTeb->StackBase && InitialTeb->StackLimit)
+    if(UserStack->FixedStackBase && UserStack->FixedStackLimit)
     {
-     Teb.Tib.StackBase = InitialTeb->StackBase;
-     Teb.Tib.StackLimit = InitialTeb->StackLimit;
-     Teb.DeallocationStack = InitialTeb->StackLimit;
+     Teb.Tib.StackBase = UserStack->FixedStackBase;
+     Teb.Tib.StackLimit = UserStack->FixedStackLimit;
+     Teb.DeallocationStack = UserStack->FixedStackLimit;
     }
     /* expandable stack */
     else
     {
-     Teb.Tib.StackBase = InitialTeb->StackCommit;
-     Teb.Tib.StackLimit = InitialTeb->StackCommitMax;
-     Teb.DeallocationStack = InitialTeb->StackReserved;
+     Teb.Tib.StackBase = UserStack->ExpandableStackBase;
+     Teb.Tib.StackLimit = UserStack->ExpandableStackLimit;
+     Teb.DeallocationStack = UserStack->ExpandableStackBottom;
     }
    }
 
@@ -635,45 +602,29 @@ LdrInitApcKernelRoutine(PKAPC Apc,
 
 
 NTSTATUS STDCALL
-NtCreateThread(OUT PHANDLE ThreadHandle,
-	       IN ACCESS_MASK DesiredAccess,
-	       IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
-	       IN HANDLE ProcessHandle,
-	       OUT PCLIENT_ID Client,
-	       IN PCONTEXT ThreadContext,
-	       IN PINITIAL_TEB InitialTeb,
-	       IN BOOLEAN CreateSuspended)
+NtCreateThread(PHANDLE ThreadHandle,
+	       ACCESS_MASK DesiredAccess,
+	       POBJECT_ATTRIBUTES ObjectAttributes,
+	       HANDLE ProcessHandle,
+	       PCLIENT_ID Client,
+	       PCONTEXT ThreadContext,
+	       PUSER_STACK UserStack,
+	       BOOLEAN CreateSuspended)
 {
-  PEPROCESS Process;
   PETHREAD Thread;
   PTEB TebBase;
   NTSTATUS Status;
   PKAPC LdrInitApc;
-  KIRQL oldIrql;
 
   DPRINT("NtCreateThread(ThreadHandle %x, PCONTEXT %x)\n",
 	 ThreadHandle,ThreadContext);
 
-  Status = ObReferenceObjectByHandle(ProcessHandle,
-                                     PROCESS_CREATE_THREAD,
-                                     PsProcessType,
-                                     UserMode,
-                                     (PVOID*)&Process,
-                                     NULL);
-  if(!NT_SUCCESS(Status))
-  {
-    return(Status);
-  }
-
-  Status = PsInitializeThread(Process,
+  Status = PsInitializeThread(ProcessHandle,
 			      &Thread,
 			      ThreadHandle,
 			      DesiredAccess,
 			      ObjectAttributes,
 			      FALSE);
-
-  ObDereferenceObject(Process);
-
   if (!NT_SUCCESS(Status))
     {
       return(Status);
@@ -688,7 +639,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
   Status = PsCreateTeb(ProcessHandle,
 		       &TebBase,
 		       Thread,
-		       InitialTeb);
+		       UserStack);
   if (!NT_SUCCESS(Status))
     {
       return(Status);
@@ -730,19 +681,14 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
 		  LdrInitApcRundownRoutine, LdrpGetSystemDllEntryPoint(), 
 		  UserMode, NULL);
   KeInsertQueueApc(LdrInitApc, NULL, NULL, IO_NO_INCREMENT);
-  
-  /* 
-   * The thread is non-alertable, so the APC we added did not set UserApcPending to TRUE. 
-   * We must do this manually. Do NOT attempt to set the Thread to Alertable before the call,
-   * doing so is a blatant and erronous hack.
+
+  /*
+   * Start the thread running and force it to execute the APC(s) we just
+   * queued before it runs anything else in user-mode.
    */
-  Thread->Tcb.ApcState.UserApcPending = TRUE;
-  Thread->Tcb.Alerted[KernelMode] = TRUE;
-
-  oldIrql = KeAcquireDispatcherDatabaseLock ();
+  Thread->Tcb.Alertable = TRUE;
+  Thread->Tcb.Alerted[0] = 1;
   PsUnblockThread(Thread, NULL);
-  KeReleaseDispatcherDatabaseLock(oldIrql);
-
 
   return(STATUS_SUCCESS);
 }
@@ -778,12 +724,11 @@ PsCreateSystemThread(PHANDLE ThreadHandle,
 {
    PETHREAD Thread;
    NTSTATUS Status;
-   KIRQL oldIrql;
    
    DPRINT("PsCreateSystemThread(ThreadHandle %x, ProcessHandle %x)\n",
 	    ThreadHandle,ProcessHandle);
    
-   Status = PsInitializeThread(NULL,
+   Status = PsInitializeThread(ProcessHandle,
 			       &Thread,
 			       ThreadHandle,
 			       DesiredAccess,
@@ -806,9 +751,7 @@ PsCreateSystemThread(PHANDLE ThreadHandle,
 	*ClientId=Thread->Cid;
      }
 
-  oldIrql = KeAcquireDispatcherDatabaseLock ();
-  PsUnblockThread(Thread, NULL);
-  KeReleaseDispatcherDatabaseLock(oldIrql);
+   PsUnblockThread(Thread, NULL);
    
    return(STATUS_SUCCESS);
 }

@@ -7,9 +7,7 @@
  * REVISIONS:
  *   CSH 27/08-2000 Created
  */
-#include <roscfg.h>
 #include <ne2000.h>
-#include <debug.h>
 
 /* Null-terminated array of ports to probe. This is "semi-risky" (Don Becker).  */
 ULONG ProbeAddressList[] = { 0x280, 0x300, 0x320, 0x340, 0x360, 0x380, 0 };
@@ -641,7 +639,7 @@ VOID NICUpdateCounters(
 VOID NICReadDataAlign(
     PNIC_ADAPTER Adapter,
     PUSHORT Target,
-    ULONG_PTR Source,
+    ULONG Source,
     USHORT Length)
 /*
  * FUNCTION: Copies data from a NIC's RAM into a buffer
@@ -697,7 +695,7 @@ VOID NICReadDataAlign(
 
 VOID NICWriteDataAlign(
     PNIC_ADAPTER Adapter,
-    ULONG_PTR Target,
+    ULONG Target,
     PUSHORT Source,
     USHORT Length)
 /*
@@ -790,7 +788,7 @@ VOID NICWriteDataAlign(
 VOID NICReadData(
     PNIC_ADAPTER Adapter,
     PUCHAR Target,
-    ULONG_PTR Source,
+    ULONG Source,
     USHORT Length)
 /*
  * FUNCTION: Copies data from a NIC's RAM into a buffer
@@ -831,7 +829,7 @@ VOID NICReadData(
 
 VOID NICWriteData(
     PNIC_ADAPTER Adapter,
-    ULONG_PTR Target,
+    ULONG Target,
     PUCHAR Source,
     USHORT Length)
 /*
@@ -858,7 +856,7 @@ VOID NICWriteData(
 
         /* Update pointers */
         Source = (PUCHAR) ((ULONG_PTR) Source + 1);
-        Target += 1;
+        (ULONG_PTR)Target += 1;
         Length--;
     }
 
@@ -866,8 +864,8 @@ VOID NICWriteData(
         /* Transfer as many words as we can without exceeding the transfer length */
         Tmp = Length & 0xFFFE;
         NICWriteDataAlign(Adapter, Target, (PUSHORT)Source, Tmp);
-        Source += Tmp;
-        Target += Tmp;
+        Source            += Tmp;
+        (ULONG_PTR)Target += Tmp;
 
         /* Read one word */
         NICReadDataAlign(Adapter, &Tmp, Target, 0x02);
@@ -923,8 +921,6 @@ VOID NICIndicatePacket(
 #endif
 
     if (IndicateLength >= DRIVER_HEADER_SIZE) {
-	NDIS_DbgPrint(MAX_TRACE,("Adapter->MiniportAdapterHandle: %x\n",
-				 Adapter->MiniportAdapterHandle));
         NdisMEthIndicateReceive(Adapter->MiniportAdapterHandle,
                                 NULL,
                                 (PVOID)&Adapter->Lookahead,
@@ -978,8 +974,6 @@ VOID NICReadPacket(
         /* Skip packet */
         Adapter->NextPacket = Adapter->CurrentPage;
     } else {
-	NDIS_DbgPrint(MAX_TRACE,("Adapter->MiniportAdapterHandle: %x\n",
-				 Adapter->MiniportAdapterHandle));
         NICIndicatePacket(Adapter);
 
         /* Go to the next free buffer in receive ring */
@@ -1227,8 +1221,6 @@ VOID HandleReceive(
         } else {
             NDIS_DbgPrint(MID_TRACE, ("Got a packet in the receive ring.\n"));
 
-	    NDIS_DbgPrint(MAX_TRACE,("Adapter->MiniportAdapterHandle: %x\n",
-				     Adapter->MiniportAdapterHandle));
             /* Read packet from receive buffer ring */
             NICReadPacket(Adapter);
 
@@ -1342,12 +1334,7 @@ VOID STDCALL MiniportHandleInterrupt(
             /* Overflow. Handled almost the same way as a receive interrupt */
             Adapter->BufferOverflow = TRUE;
 
-	    NDIS_DbgPrint(MAX_TRACE,("Adapter->MiniportAdapterHandle: %x\n",
-				     Adapter->MiniportAdapterHandle));
-	    if(Adapter->MiniportAdapterHandle)
-		HandleReceive(Adapter);
-	    else
-		NDIS_DbgPrint(MAX_TRACE,("No miniport adapter yet\n"));
+            HandleReceive(Adapter);
 
             Adapter->InterruptStatus &= ~ISR_OVW;
             break;
@@ -1361,13 +1348,8 @@ VOID STDCALL MiniportHandleInterrupt(
         case ISR_PRX:
             NDIS_DbgPrint(MID_TRACE, ("Receive interrupt.\n"));
 
-	    NDIS_DbgPrint(MAX_TRACE,("Adapter->MiniportAdapterHandle: %x\n",
-				     Adapter->MiniportAdapterHandle));
-	    if(Adapter->MiniportAdapterHandle)
-		HandleReceive(Adapter);
-	    else
-		NDIS_DbgPrint(MAX_TRACE,("No miniport adapter yet\n"));
-	    
+            HandleReceive(Adapter);
+
             Adapter->InterruptStatus &= ~(ISR_PRX | ISR_RXE);
             break;  
 

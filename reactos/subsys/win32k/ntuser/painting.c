@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: painting.c,v 1.88 2004/12/04 22:07:24 navaraf Exp $
+ *  $Id: painting.c,v 1.83 2004/05/15 08:01:56 gvg Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -111,15 +111,7 @@ IntPaintWindows(PWINDOW_OBJECT Window, ULONG Flags)
         {
           if (Window->UpdateRegion)
             {
-              /*
-               * This surely wrong! Why we would want to validate the parent?
-               * It breaks quite a few things including dummy WM_ERASEBKGND
-               * implementations that return only TRUE and have corresponding
-               * WM_PAINT that doesn't paint the whole client area.
-               * I left the code here so that no one will readd it again!
-               * - Filip
-               */
-              /* IntValidateParent(Window, Window->UpdateRegion); */
+              IntValidateParent(Window, Window->UpdateRegion);
               hDC = NtUserGetDCEx(hWnd, 0, DCX_CACHE | DCX_USESTYLE |
                                            DCX_INTERSECTUPDATE);
               if (hDC != NULL)
@@ -640,11 +632,6 @@ IntGetPaintMessage(HWND hWnd, UINT MsgFilterMin, UINT MsgFilterMax,
          Message->lParam = 0;
          if (Remove)
          {
-            if ((HANDLE) 1 != Window->NCUpdateRegion &&
-                NULL != Window->NCUpdateRegion)
-              {
-                GDIOBJ_SetOwnership(Window->NCUpdateRegion, PsGetCurrentProcess());
-              }
             IntValidateParent(Window, Window->NCUpdateRegion);
             Window->NCUpdateRegion = NULL;
             Window->Flags &= ~WINDOWOBJECT_NEED_NCPAINT;
@@ -681,7 +668,7 @@ IntFixCaret(HWND hWnd, LPRECT lprc, UINT flags)
    PTHRDCARETINFO CaretInfo;
    HWND hWndCaret;
 
-   Desktop = PsGetCurrentThread()->Tcb.Win32Thread->Desktop;
+   Desktop = PsGetCurrentThread()->Win32Thread->Desktop;
    CaretInfo = ((PUSER_MESSAGE_QUEUE)Desktop->ActiveMessageQueue)->CaretInfo;
    hWndCaret = CaretInfo->hWnd;
    if (hWndCaret == hWnd ||
@@ -700,7 +687,7 @@ IntFixCaret(HWND hWnd, LPRECT lprc, UINT flags)
       rcCaret.top = pt.y;
       rcCaret.right = pt.x + CaretInfo->Size.cx;
       rcCaret.bottom = pt.y + CaretInfo->Size.cy;
-      if (IntGdiIntersectRect(lprc, lprc, &rcCaret))
+      if (NtGdiIntersectRect(lprc, lprc, &rcCaret))
       {
          NtUserHideCaret(0);
          lprc->left = pt.x;
@@ -722,12 +709,9 @@ IntFixCaret(HWND hWnd, LPRECT lprc, UINT flags)
  */
 
 HDC STDCALL
-NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* UnsafePs)
+NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* lPs)
 {
    PWINDOW_OBJECT Window;
-   PAINTSTRUCT Ps;
-   PROSRGNDATA Rgn;
-   NTSTATUS Status;
 
    if (!(Window = IntGetWindowObject(hWnd)))
    {
@@ -737,11 +721,10 @@ NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* UnsafePs)
 
    NtUserHideCaret(hWnd);
 
-   RtlZeroMemory(&Ps, sizeof(PAINTSTRUCT));
-   Ps.hdc = NtUserGetDCEx(hWnd, 0, DCX_INTERSECTUPDATE | DCX_WINDOWPAINT |
+   lPs->hdc = NtUserGetDCEx(hWnd, 0, DCX_INTERSECTUPDATE | DCX_WINDOWPAINT |
       DCX_USESTYLE);
 
-   if (!Ps.hdc)
+   if (!lPs->hdc)
    {
       IntReleaseWindowObject(Window);
       return NULL;
@@ -752,49 +735,33 @@ NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* UnsafePs)
    {
       MsqDecPaintCountQueue(Window->MessageQueue);
       IntValidateParent(Window, Window->UpdateRegion);
-      Rgn = RGNDATA_LockRgn(Window->UpdateRegion);
-      if (NULL != Rgn)
-        {
-          UnsafeIntGetRgnBox(Rgn, &Ps.rcPaint);
-          RGNDATA_UnlockRgn(Window->UpdateRegion);
-          IntGdiOffsetRect(&Ps.rcPaint,
-                           Window->WindowRect.left - Window->ClientRect.left,
-                           Window->WindowRect.top - Window->ClientRect.top);
-        }
-      else
-        {
-          IntGetClientRect(Window, &Ps.rcPaint);
-        }
+      NtGdiGetRgnBox(Window->UpdateRegion, &lPs->rcPaint);
+      NtGdiOffsetRect(&lPs->rcPaint,
+         Window->WindowRect.left - Window->ClientRect.left,
+         Window->WindowRect.top - Window->ClientRect.top);
       GDIOBJ_SetOwnership(Window->UpdateRegion, PsGetCurrentProcess());
       NtGdiDeleteObject(Window->UpdateRegion);
       Window->UpdateRegion = NULL;
    }
    else
    {
-      IntGetClientRect(Window, &Ps.rcPaint);
+      NtUserGetClientRect(Window->Self, &lPs->rcPaint);
    }
    IntUnLockWindowUpdate(Window);
 
    if (Window->Flags & WINDOWOBJECT_NEED_ERASEBKGND)
    {
       Window->Flags &= ~WINDOWOBJECT_NEED_ERASEBKGND;
-      Ps.fErase = !IntSendMessage(hWnd, WM_ERASEBKGND, (WPARAM)Ps.hdc, 0);
+      lPs->fErase = !IntSendMessage(hWnd, WM_ERASEBKGND, (WPARAM)lPs->hdc, 0);
    }
    else
    {
-      Ps.fErase = FALSE;
+      lPs->fErase = FALSE;
    }
 
    IntReleaseWindowObject(Window);
 
-   Status = MmCopyToCaller(UnsafePs, &Ps, sizeof(PAINTSTRUCT));
-   if (! NT_SUCCESS(Status))
-   {
-      SetLastNtError(Status);
-      return NULL;
-   }
-
-   return Ps.hdc;
+   return lPs->hdc;
 }
 
 /*
@@ -947,14 +914,11 @@ NtUserGetUpdateRect(HWND Wnd, LPRECT UnsafeRect, BOOL Erase)
   RGNDATA_UnlockRgn(Rgn);
   NtGdiDeleteObject(Rgn);
 
-  if (UnsafeRect != NULL)
+  Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
+  if (! NT_SUCCESS(Status))
     {
-      Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
-      if (! NT_SUCCESS(Status))
-        {
-          SetLastWin32Error(ERROR_INVALID_PARAMETER);
-          return FALSE;
-        }
+      SetLastWin32Error(ERROR_INVALID_PARAMETER);
+      return FALSE;
     }
 
   return Rect.left < Rect.right && Rect.top < Rect.bottom;
@@ -1044,13 +1008,13 @@ NtUserScrollDC(HDC hDC, INT dx, INT dy, const RECT *lprcScroll,
       IntGdiGetClipBox(hDC, &rClip);
    IntLPtoDP(DC, (LPPOINT)&rClip, 2);
 
-   IntGdiIntersectRect(&rClipped_src, &rSrc, &rClip);
+   NtGdiIntersectRect(&rClipped_src, &rSrc, &rClip);
 
    rDst = rClipped_src;
-   IntGdiSetRect(&offset, 0, 0, dx, dy);
+   NtGdiSetRect(&offset, 0, 0, dx, dy);
    IntLPtoDP(DC, (LPPOINT)&offset, 2);
-   IntGdiOffsetRect(&rDst, offset.right - offset.left,  offset.bottom - offset.top);
-   IntGdiIntersectRect(&rDst, &rDst, &rClip);
+   NtGdiOffsetRect(&rDst, offset.right - offset.left,  offset.bottom - offset.top);
+   NtGdiIntersectRect(&rDst, &rDst, &rClip);
 
    /*
     * Copy bits, if possible.
@@ -1060,7 +1024,7 @@ NtUserScrollDC(HDC hDC, INT dx, INT dy, const RECT *lprcScroll,
    {
       RECT rDst_lp = rDst, rSrc_lp = rDst;
 
-      IntGdiOffsetRect(&rSrc_lp, offset.left - offset.right, offset.top - offset.bottom);
+      NtGdiOffsetRect(&rSrc_lp, offset.left - offset.right, offset.top - offset.bottom);
       IntDPtoLP(DC, (LPPOINT)&rDst_lp, 2);
       IntDPtoLP(DC, (LPPOINT)&rSrc_lp, 2);
       DC_UnlockDc(hDC);
@@ -1122,10 +1086,10 @@ NtUserScrollDC(HDC hDC, INT dx, INT dy, const RECT *lprcScroll,
  */
 
 DWORD STDCALL
-NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *UnsafeRect,
-   const RECT *UnsafeClipRect, HRGN hrgnUpdate, LPRECT rcUpdate, UINT flags)
+NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *rect,
+   const RECT *clipRect, HRGN hrgnUpdate, LPRECT rcUpdate, UINT flags)
 {
-   RECT rc, cliprc, caretrc, rect, clipRect;
+   RECT rc, cliprc, caretrc;
    INT Result;
    PWINDOW_OBJECT Window;
    HDC hDC;
@@ -1133,7 +1097,6 @@ NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *UnsafeRect,
    HWND hwndCaret;
    BOOL bUpdate = (rcUpdate || hrgnUpdate || flags & (SW_INVALIDATE | SW_ERASE));
    BOOL bOwnRgn = TRUE;
-   NTSTATUS Status;
 
    Window = IntGetWindowObject(hWnd);
    if (!Window || !IntIsWindowDrawable(Window))
@@ -1143,27 +1106,11 @@ NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *UnsafeRect,
    }
 
    IntGetClientRect(Window, &rc);
-   if (NULL != UnsafeRect)
-   {
-      Status = MmCopyFromCaller(&rect, UnsafeRect, sizeof(RECT));  
-      if (! NT_SUCCESS(Status))
-      {
-         SetLastNtError(Status);
-         return ERROR;
-      }
-      IntGdiIntersectRect(&rc, &rc, &rect);
-   }
+   if (rect)
+      NtGdiIntersectRect(&rc, &rc, rect);
 
-   if (NULL != UnsafeClipRect)
-   {
-      Status = MmCopyFromCaller(&clipRect, UnsafeClipRect, sizeof(RECT));  
-      if (! NT_SUCCESS(Status))
-      {
-         SetLastNtError(Status);
-         return ERROR;
-      }
-      IntGdiIntersectRect(&cliprc, &rc, &clipRect);
-   }
+   if (clipRect)
+      NtGdiIntersectRect(&cliprc, &rc, clipRect);
    else
       cliprc = rc;
 
@@ -1222,7 +1169,7 @@ NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *UnsafeRect,
             r.top -= ClientOrigin.y;
             r.right -= ClientOrigin.x;
             r.bottom -= ClientOrigin.y;
-            if (! UnsafeRect || IntGdiIntersectRect(&dummy, &r, &rc))
+            if (!rect || NtGdiIntersectRect(&dummy, &r, &rc))
                WinPosSetWindowPos(List[i], 0, r.left + dx, r.top + dy, 0, 0,
                                   SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE |
                                   SWP_NOREDRAW);

@@ -1,4 +1,4 @@
-/* $Id: console.c,v 1.10 2004/11/08 02:16:06 weiden Exp $
+/* $Id: console.c,v 1.5 2004/04/30 16:52:41 navaraf Exp $
  *
  *  CONSOLE.C - console input/output functions.
  *
@@ -9,7 +9,15 @@
  *        started
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+#include "cmd.h"
 
 
 #define OUTPUT_BUFFER_SIZE  4096
@@ -47,7 +55,12 @@ VOID ConInDummy (VOID)
 	if (hInput == INVALID_HANDLE_VALUE)
 		DebugPrintf (_T("Invalid input handle!!!\n"));
 #endif /* _DEBUG */
+#ifdef __REACTOS__
+	/* ReadConsoleInputW isn't implwmented within ROS. */
+	ReadConsoleInputA (hInput, &dummy, 1, &dwRead);
+#else
 	ReadConsoleInput (hInput, &dummy, 1, &dwRead);
+#endif
 }
 
 VOID ConInFlush (VOID)
@@ -68,7 +81,12 @@ VOID ConInKey (PINPUT_RECORD lpBuffer)
 
 	do
 	{
+#ifdef __REACTOS__
+		/* ReadConsoleInputW isn't implwmented within ROS. */
+		ReadConsoleInputA (hInput, lpBuffer, 1, &dwRead);
+#else
 		ReadConsoleInput (hInput, lpBuffer, 1, &dwRead);
+#endif
 		if ((lpBuffer->EventType == KEY_EVENT) &&
 			(lpBuffer->Event.KeyEvent.bKeyDown == TRUE))
 			break;
@@ -205,32 +223,6 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 #endif
 }
 
-VOID ConOutFormatMessage (DWORD MessageId, ...)
-{
-	DWORD ret;
-	LPTSTR text;
-	va_list arg_ptr;
-	
-	va_start (arg_ptr, MessageId);
-	ret = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-	       NULL,
-	       MessageId,
-	       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	       (LPTSTR) &text,
-	       0,
-	       &arg_ptr);
-	
-	va_end (arg_ptr);
-	if(ret > 0)
-	{
-		ConErrPuts (text);
-		LocalFree(text);
-	}
-	else
-	{
-		ConErrPrintf (_T("Unknown error: %d\n"), MessageId);
-	}
-}
 
 VOID ConOutPrintf (LPTSTR szFormat, ...)
 {

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.51 2004/12/11 19:21:35 sedwards Exp $
+# $Id: Makefile,v 1.44 2004/05/29 21:24:44 hbirr Exp $
 
 PATH_TO_TOP = ../..
 
@@ -8,20 +8,15 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = msvcrt
 
-TARGET_PCH = precomp.h
-
 TARGET_BASE = $(TARGET_BASE_LIB_MSVCRT)
-
-# don't remove @nn from exported symbols - needed so dlltool doesn't mess up mangled c++ exports
-RM_AT_FROM_SYMBOLS = no
 
 TARGET_LFLAGS = -nostartfiles --enable-stdcall-fixup
 
-TARGET_SDKLIBS = wine.a string.a kernel32.a ntdll.a
+TARGET_SDKLIBS = libwine.a string.a kernel32.a ntdll.a
 
 TARGET_GCCLIBS = gcc
 
-TARGET_CFLAGS = -D__USE_W32API -D_MSVCRT_LIB_ -Wall -Werror
+TARGET_CFLAGS = -D__USE_W32API -D_MSVCRT_LIB_ -Wall
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += \
@@ -272,9 +267,7 @@ MISC_OBJECTS = \
 	misc/environ.o \
 	misc/getargs.o \
 	misc/initterm.o \
-	misc/lock.o \
 	misc/purecall.o \
-	misc/stubs.o \
 	misc/tls.o
 
 PROCESS_OBJECTS = \
@@ -459,7 +452,10 @@ TIME_OBJECTS = \
 WINE_OBJECTS = \
 	wine/cpp.o \
 	wine/cppexcept.o \
+	wine/data.o \
 	wine/heap.o \
+	wine/lock.o \
+	wine/main.o \
 	wine/thread.o
 
 WSTRING_OBJECTS = \

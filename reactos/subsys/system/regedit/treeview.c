@@ -111,7 +111,7 @@ static HTREEITEM AddEntryToTree(HWND hwndTV, HTREEITEM hParent, LPTSTR label, HK
 
     tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_CHILDREN | TVIF_PARAM;
     tvi.pszText = label;
-    tvi.cchTextMax = _tcslen(tvi.pszText);
+    tvi.cchTextMax = lstrlen(tvi.pszText);
     tvi.iImage = Image_Closed;
     tvi.iSelectedImage = Image_Open;
     tvi.cChildren = dwChildren;
@@ -132,7 +132,7 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
     tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_CHILDREN | TVIF_PARAM;
     /* Set the text of the item.  */
     tvi.pszText = pHostName;
-    tvi.cchTextMax = _tcslen(tvi.pszText);
+    tvi.cchTextMax = lstrlen(tvi.pszText);
     /* Assume the item is not a parent item, so give it an image.  */
     tvi.iImage = Image_Root;
     tvi.iSelectedImage = Image_Root;
@@ -203,7 +203,6 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
     LPCTSTR keyPath;
     LPTSTR Name;
     LONG errCode;
-    HCURSOR hcursorOld;
 
     static int expanding;
     if (expanding) return FALSE;
@@ -211,8 +210,6 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
         return TRUE;
     }
     expanding = TRUE;
-    hcursorOld = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    SendMessage(hwndTV, WM_SETREDRAW, FALSE, 0);
 
     keyPath = GetItemPath(hwndTV, pnmtv->itemNew.hItem, &hRoot);
     if (!keyPath) goto done;
@@ -252,8 +249,6 @@ BOOL OnTreeExpanding(HWND hwndTV, NMTREEVIEW* pnmtv)
     HeapFree(GetProcessHeap(), 0, Name);
 
 done:
-    SendMessage(hwndTV, WM_SETREDRAW, TRUE, 0);
-    SetCursor(hcursorOld);
     expanding = FALSE;
 
     return TRUE;
@@ -272,7 +267,7 @@ HWND CreateTreeView(HWND hwndParent, LPTSTR pHostName, int id)
 
     /* Get the dimensions of the parent window's client area, and create the tree view control.  */
     GetClientRect(hwndParent, &rcClient);
-    hwndTV = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL,
+    hwndTV = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, _T("Tree View"),
                             WS_VISIBLE | WS_CHILD | WS_TABSTOP | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT,
                             0, 0, rcClient.right, rcClient.bottom,
                             hwndParent, (HMENU)id, hInst, NULL);

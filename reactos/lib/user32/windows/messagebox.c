@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: messagebox.c,v 1.30 2004/12/12 20:40:06 weiden Exp $
+/* $Id: messagebox.c,v 1.25 2004/04/09 20:03:15 navaraf Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/messagebox.c
@@ -31,14 +31,18 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
 #include <messages.h>
+#include <user32.h>
 #include <string.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <debug.h>
 #include "resource.h"
 
+//typedef UINT *LPUINT;
 #include <mmsystem.h>
 
 /* DEFINES *******************************************************************/
@@ -201,9 +205,10 @@ static INT_PTR CALLBACK MessageBoxProc( HWND hwnd, UINT message,
   return 0;
 }
 
+#define SAFETY_MARGIN 32 /* Extra number of bytes to allocate in case we counted wrong */
 static int
 MessageBoxTimeoutIndirectW(
-  CONST MSGBOXPARAMSW *lpMsgBoxParams, UINT Timeout)
+  CONST MSGBOXPARAMS *lpMsgBoxParams, UINT Timeout)
 {
     DLGTEMPLATE *tpl;
     DLGITEMTEMPLATE *iico, *itxt;
@@ -212,7 +217,7 @@ MessageBoxTimeoutIndirectW(
     HMODULE hUser32;
     LPVOID buf;
     BYTE *dest;
-    LPCWSTR caption, text;
+    LPWSTR caption, text;
     HFONT hFont;
     HICON Icon;
     HDC hDC;
@@ -236,10 +241,10 @@ MessageBoxTimeoutIndirectW(
     else
       caption = (LPWSTR)lpMsgBoxParams->lpszCaption;
       
-    if(!lpMsgBoxParams->lpszText || !HIWORD(lpMsgBoxParams->lpszText))
+    if(!lpMsgBoxParams->lpszText || !HIWORD((LPWSTR)lpMsgBoxParams->lpszText))
       text = L"";
     else
-      text = lpMsgBoxParams->lpszText;
+      text = (LPWSTR)lpMsgBoxParams->lpszText;
     
     caplen = strlenW(caption);
     textlen = strlenW(text);
@@ -310,7 +315,7 @@ MessageBoxTimeoutIndirectW(
         MessageBeep(MB_ICONHAND);
         break;
       case MB_USERICON:
-        Icon = LoadIconW(lpMsgBoxParams->hInstance, lpMsgBoxParams->lpszIcon);
+        Icon = LoadIconW(lpMsgBoxParams->hInstance, (LPCWSTR)lpMsgBoxParams->lpszIcon);
         MessageBeep(MB_OK);
         break;
       default:
@@ -389,7 +394,8 @@ MessageBoxTimeoutIndirectW(
                  (wcslen(ButtonText[i]) + 1) * sizeof(WCHAR);
     }
     
-    buf = RtlAllocateHeap(GetProcessHeap(), 0, bufsize);
+    buf = RtlAllocateHeap(GetProcessHeap(), 0, bufsize + SAFETY_MARGIN);
+        /* Just to be safe.... */
     if(!buf)
     {
       return 0;
@@ -412,7 +418,7 @@ MessageBoxTimeoutIndirectW(
       tpl->dwExtendedStyle |= WS_EX_RIGHT;
     tpl->x = 100;
     tpl->y = 100;
-    tpl->cdit = nButtons + ((Icon != (HICON)0) ? 1 : 0) + 1;
+    tpl->cdit = nButtons + (Icon != (HICON)0) + 1;
     
     dest = (BYTE *)(tpl + 1);
     
@@ -503,6 +509,11 @@ MessageBoxTimeoutIndirectW(
       DrawTextW(hDC, ButtonText[i], btnlen, &btnrect, DT_LEFT | DT_SINGLELINE | DT_CALCRECT);
       btnsize.cx = max(btnsize.cx, btnrect.right);
       btnsize.cy = max(btnsize.cy, btnrect.bottom);
+    }
+
+    if ((ULONG_PTR) dest != ((ULONG_PTR) buf + (ULONG_PTR) bufsize))
+    {
+      DbgPrint("Tell GvG he can't count: bufsize is %lu, but should be %lu\n", bufsize, (ULONG_PTR) dest - (ULONG_PTR) buf);
     }
     
     /* make first button the default button if no other is */
@@ -722,7 +733,7 @@ MessageBoxIndirectA(
          * UNICODE_STRING objects are always allocated with an extra byte so you
          * can null-term if you want
          */
-        textW.Buffer[textW.Length / sizeof(WCHAR)] = L'\0';
+        textW.Buffer[textW.Length] = L'\0';
     }
     else
         textW.Buffer = (LPWSTR)lpMsgBoxParams->lpszText;
@@ -734,27 +745,22 @@ MessageBoxIndirectA(
          * UNICODE_STRING objects are always allocated with an extra byte so you
          * can null-term if you want
          */
-        captionW.Buffer[captionW.Length / sizeof(WCHAR)] = L'\0';
+        captionW.Buffer[captionW.Length] = L'\0';
     }
     else
         captionW.Buffer = (LPWSTR)lpMsgBoxParams->lpszCaption;
 
-    if(lpMsgBoxParams->dwStyle & MB_USERICON)
+    if (HIWORD((UINT)lpMsgBoxParams->lpszIcon))
     {
-        if (HIWORD((UINT)lpMsgBoxParams->lpszIcon))
-        {
-            RtlCreateUnicodeStringFromAsciiz(&iconW, (PCSZ)lpMsgBoxParams->lpszIcon);
-            /*
-             * UNICODE_STRING objects are always allocated with an extra byte so you
-             * can null-term if you want
-             */
-            iconW.Buffer[iconW.Length / sizeof(WCHAR)] = L'\0';
-        }
-        else
-            iconW.Buffer = (LPWSTR)lpMsgBoxParams->lpszIcon;
+        RtlCreateUnicodeStringFromAsciiz(&iconW, (PCSZ)lpMsgBoxParams->lpszIcon);
+        /*
+         * UNICODE_STRING objects are always allocated with an extra byte so you
+         * can null-term if you want
+         */
+        iconW.Buffer[iconW.Length] = L'\0';
     }
     else
-        iconW.Buffer = NULL;
+        iconW.Buffer = (LPWSTR)lpMsgBoxParams->lpszIcon;
 
     msgboxW.cbSize = sizeof(msgboxW);
     msgboxW.hwndOwner = lpMsgBoxParams->hwndOwner;
@@ -775,7 +781,7 @@ MessageBoxIndirectA(
     if (HIWORD((UINT)lpMsgBoxParams->lpszCaption))
         RtlFreeUnicodeString(&captionW);
 
-    if ((lpMsgBoxParams->dwStyle & MB_USERICON) && HIWORD((UINT)iconW.Buffer))
+    if (HIWORD((UINT)lpMsgBoxParams->lpszIcon))
         RtlFreeUnicodeString(&iconW);
 
     return ret;

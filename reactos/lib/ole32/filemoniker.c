@@ -22,10 +22,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -46,12 +44,12 @@ const CLSID CLSID_FileMoniker = {
 /* filemoniker data structure */
 typedef struct FileMonikerImpl{
 
-    IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
+    ICOM_VTABLE(IMoniker)*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
 
     /* The ROT (RunningObjectTable implementation) uses the IROTData interface to test whether
      * two monikers are equal. That's whay IROTData interface is implemented by monikers.
      */
-    IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
+    ICOM_VTABLE(IROTData)*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
 
     ULONG ref; /* reference counter for this object */
 
@@ -113,8 +111,9 @@ int     WINAPI FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** tabStr);
 /********************************************************************************/
 /* Virtual function table for the FileMonikerImpl class which  include IPersist,*/
 /* IPersistStream and IMoniker functions.                                       */
-static IMonikerVtbl VT_FileMonikerImpl =
+static ICOM_VTABLE(IMoniker) VT_FileMonikerImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     FileMonikerImpl_QueryInterface,
     FileMonikerImpl_AddRef,
     FileMonikerImpl_Release,
@@ -142,8 +141,9 @@ static IMonikerVtbl VT_FileMonikerImpl =
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class.                               */
-static IROTDataVtbl VT_ROTDataImpl =
+static ICOM_VTABLE(IROTData) VT_ROTDataImpl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     FileMonikerROTDataImpl_QueryInterface,
     FileMonikerROTDataImpl_AddRef,
     FileMonikerROTDataImpl_Release,
@@ -155,7 +155,7 @@ static IROTDataVtbl VT_ROTDataImpl =
  *******************************************************************************/
 HRESULT WINAPI FileMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
   TRACE("(%p,%p,%p)\n",This,riid,ppvObject);
 
@@ -192,11 +192,11 @@ HRESULT WINAPI FileMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void**
  ******************************************************************************/
 ULONG WINAPI FileMonikerImpl_AddRef(IMoniker* iface)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     TRACE("(%p)\n",iface);
 
-    return InterlockedIncrement(&This->ref);
+    return ++(This->ref);
 }
 
 /******************************************************************************
@@ -204,17 +204,20 @@ ULONG WINAPI FileMonikerImpl_AddRef(IMoniker* iface)
  ******************************************************************************/
 ULONG WINAPI FileMonikerImpl_Release(IMoniker* iface)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
-    ULONG ref;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     TRACE("(%p)\n",iface);
 
-    ref = InterlockedDecrement(&This->ref);
+    This->ref--;
 
     /* destroy the object if there's no more reference on it */
-    if (ref == 0) FileMonikerImpl_Destroy(This);
+    if (This->ref==0){
 
-    return ref;
+        FileMonikerImpl_Destroy(This);
+
+        return 0;
+    }
+    return This->ref;
 }
 
 /******************************************************************************
@@ -259,7 +262,7 @@ HRESULT WINAPI FileMonikerImpl_Load(IMoniker* iface,IStream* pStm)
     WORD  wbuffer;
     DWORD dwbuffer,length,i,doubleLenHex,doubleLenDec;
 
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     TRACE("(%p,%p)\n",iface,pStm);
 
@@ -359,7 +362,7 @@ HRESULT WINAPI FileMonikerImpl_Save(IMoniker* iface,
      *    if the length(filePath) > 8 or length(filePath) == 8 stop at step 5)
      */
 
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     HRESULT res;
     LPOLESTR filePathW=This->filePathName;
@@ -431,7 +434,7 @@ HRESULT WINAPI FileMonikerImpl_Save(IMoniker* iface,
 HRESULT WINAPI FileMonikerImpl_GetSizeMax(IMoniker* iface,
                                           ULARGE_INTEGER* pcbSize)/* Pointer to size of stream needed to save object */
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
     DWORD len=lstrlenW(This->filePathName);
     DWORD sizeMAx;
 
@@ -565,7 +568,7 @@ HRESULT WINAPI FileMonikerImpl_BindToObject(IMoniker* iface,
     IClassFactory *pcf=0;
     IClassActivator *pca=0;
 
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     *ppvResult=0;
 
@@ -859,7 +862,7 @@ HRESULT WINAPI FileMonikerImpl_Enum(IMoniker* iface,BOOL fForward, IEnumMoniker*
  ******************************************************************************/
 HRESULT WINAPI FileMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
     CLSID clsid;
     LPOLESTR filePath;
     IBindCtx* bind;
@@ -892,7 +895,7 @@ HRESULT WINAPI FileMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker
  ******************************************************************************/
 HRESULT WINAPI FileMonikerImpl_Hash(IMoniker* iface,DWORD* pdwHash)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     int  h = 0,i,skip,len;
     int  off = 0;
@@ -960,7 +963,7 @@ HRESULT WINAPI FileMonikerImpl_GetTimeOfLastChange(IMoniker* iface,
                                                    IMoniker* pmkToLeft,
                                                    FILETIME* pFileTime)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
     IRunningObjectTable* rot;
     HRESULT res;
     WIN32_FILE_ATTRIBUTE_DATA info;
@@ -980,7 +983,7 @@ HRESULT WINAPI FileMonikerImpl_GetTimeOfLastChange(IMoniker* iface,
 
     res= IRunningObjectTable_GetTimeOfLastChange(rot,iface,pFileTime);
 
-    if (FAILED(res)){ /* the moniker is not registered */
+    if (FAILED(res)){ /* the moniker is not registred */
 
         if (!GetFileAttributesExW(This->filePathName,GetFileExInfoStandard,&info))
             return MK_E_NOOBJECT;
@@ -1228,7 +1231,7 @@ HRESULT WINAPI FileMonikerImpl_GetDisplayName(IMoniker* iface,
                                               IMoniker* pmkToLeft,
                                               LPOLESTR *ppszDisplayName)
 {
-    FileMonikerImpl *This = (FileMonikerImpl *)iface;
+    ICOM_THIS(FileMonikerImpl,iface);
 
     int len=lstrlenW(This->filePathName);
 

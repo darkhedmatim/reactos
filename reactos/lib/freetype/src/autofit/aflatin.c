@@ -25,8 +25,8 @@
       FT_Error      error;
       FT_UInt       glyph_index;
       AF_Dimension  dim;
-      AF_ScriptMetricsRec  dummy[1];
-      AF_Scaler            scaler = &dummy->scaler;
+      AF_ScalerRec  scaler[1];
+
 
       glyph_index = FT_Get_Char_Index( face, 'o' );
       if ( glyph_index == 0 )
@@ -36,17 +36,15 @@
       if ( error || face->glyph->outline.n_points <= 0 )
         goto Exit;
 
-      FT_ZERO( dummy );
-
       scaler->x_scale     = scaler->y_scale = 0x10000L;
       scaler->x_delta     = scaler->y_delta = 0;
       scaler->face        = face;
       scaler->render_mode = 0;
       scaler->flags       = 0;
 
-      af_glyph_hints_rescale( hints, dummy );
-
-      error = af_glyph_hints_reload( hints, &face->glyph->outline );
+      error = af_glyph_hints_reset( hints, scaler,
+                                    (AF_ScriptMetrics) metrics,
+                                    &face->glyph->outline );
       if ( error )
         goto Exit;
 
@@ -326,13 +324,6 @@
       if ( AF_LATIN_IS_TOP_BLUE(bb) )
         blue->flags |= AF_LATIN_BLUE_TOP;
 
-     /* the following flags is used later to adjust the y and x scales
-      * in order to optimize the pixel grid alignment of the top of small
-      * letters.
-      */
-      if ( bb == AF_LATIN_BLUE_SMALL_TOP )
-        blue->flags |= AF_LATIN_BLUE_ADJUSTMENT;
-
       AF_LOG(( "-- ref = %ld, shoot = %ld\n", *blue_ref, *blue_shoot ));
     }
 
@@ -391,44 +382,8 @@
     axis->org_scale = scale;
     axis->org_delta = delta;
 
-   /* correct X and Y scale to optimize the alignment of the top of small
-    * letters to the pixel grid
+   /* XXX: TODO: Correct Y and X scale according to Chester rules
     */
-    {
-      AF_LatinAxis  axis  = &metrics->axis[ AF_DIMENSION_VERT ];
-      AF_LatinBlue  blue  = NULL;
-      FT_UInt       nn;
-
-      for ( nn = 0; nn < axis->blue_count; nn++ )
-      {
-        if ( axis->blues[nn].flags & AF_LATIN_BLUE_ADJUSTMENT )
-        {
-          blue = &axis->blues[nn];
-          break;
-        }
-      }
-
-      if ( blue )
-      {
-        FT_Pos  scaled = FT_MulFix( blue->shoot.org, scaler->y_scale );
-        FT_Pos  fitted = FT_PIX_ROUND( scaled );
-
-
-        if ( scaled != fitted )
-        {
-          if ( dim == AF_DIMENSION_HORZ )
-          {
-            if ( fitted < scaled )
-              scale -= scale/50;  /* x_scale = x_scale*0.98 */
-          }
-          else
-          {
-            scale = FT_MulDiv( scale, fitted, scaled );
-          }
-        }
-      }
-    }
-
     axis->scale = scale;
     axis->delta = delta;
 
@@ -462,41 +417,17 @@
         AF_LatinBlue  blue  = & axis->blues[nn];
         FT_Pos        dist;
 
-        blue->ref.cur   = FT_MulFix( blue->ref.org, scale ) + delta;
-        blue->ref.fit   = blue->ref.cur;
+        blue->ref.cur = FT_MulFix( blue->ref.org, scale ) + delta;
+        blue->ref.fit = blue->ref.cur;
+
         blue->shoot.cur = FT_MulFix( blue->shoot.org, scale ) + delta;
         blue->shoot.fit = blue->shoot.cur;
-        blue->flags    &= ~AF_LATIN_BLUE_ACTIVE;
 
        /* a blue zone is only active when it is less than 3/4 pixels tall
         */
         dist = FT_MulFix( blue->ref.org - blue->shoot.org, scale );
-        if ( dist <= 48 && dist >= -48 )
-        {
-          FT_Pos  delta, delta2;
-
-          delta  = blue->shoot.org - blue->ref.org;
-          delta2 = delta;
-          if ( delta < 0 )
-            delta2 = -delta2;
-
-          delta2 = FT_MulFix( delta2, scale );
-
-          if ( delta2 < 32 )
-            delta2 = 0;
-          else if ( delta2 < 64 )
-            delta2 = 32 + ( ( ( delta2 - 32 ) + 16 ) & ~31 );
-          else
-            delta2 = FT_PIX_ROUND( delta2 );
-
-          if ( delta < 0 )
-            delta2 = -delta2;
-
-          blue->ref.fit   = FT_PIX_ROUND( blue->ref.cur );
-          blue->shoot.fit = blue->ref.fit + delta2;
-
-          blue->flags |= AF_LATIN_BLUE_ACTIVE;
-        }
+        if ( dist >= 48 || dist <= -48 )
+          blue->flags |= ~AF_LATIN_BLUE_ACTIVE;
       }
     }
   }
@@ -506,9 +437,6 @@
   af_latin_metrics_scale( AF_LatinMetrics  metrics,
                           AF_Scaler        scaler )
   {
-    if ( AF_SCALER_EQUAL_SCALES( scaler, &metrics->root.scaler ) )
-      return;
-
     af_latin_metrics_scale_dim( metrics, scaler, AF_DIMENSION_HORZ );
     af_latin_metrics_scale_dim( metrics, scaler, AF_DIMENSION_VERT );
   }
@@ -863,7 +791,6 @@
                                 AF_Dimension   dim )
   {
     AF_AxisHints  axis = &hints->axis[dim];
-    AF_LatinAxis  laxis = &((AF_LatinMetrics)hints->metrics)->axis[dim];
     AF_Edge       edges = axis->edges;
     AF_Edge       edge, edge_limit;
 
@@ -898,7 +825,7 @@
     /*                                                                   */
     /*********************************************************************/
 
-    edge_distance_threshold = FT_MulFix( laxis->edge_distance_threshold,
+    edge_distance_threshold = FT_MulFix( hints->edge_distance_threshold,
                                          scale );
     if ( edge_distance_threshold > 64 / 4 )
       edge_distance_threshold = 64 / 4;
@@ -1211,19 +1138,18 @@
 
   static FT_Error
   af_latin_hints_init( AF_GlyphHints    hints,
+                       FT_Outline*      outline,
                        AF_LatinMetrics  metrics )
   {
+    FT_Error        error;
     FT_Render_Mode  mode;
 
-    af_glyph_hints_rescale( hints, (AF_ScriptMetrics)metrics );
+    error = af_glyph_hints_reset( hints, &metrics->root.scaler,
+                                  (AF_ScriptMetrics) metrics,
+                                  outline );
+    if (error)
+      goto Exit;
 
-   /* correct x_scale and y_scale when needed, since they may have
-    * been modified af_latin_scale_dim above
-    */
-    hints->x_scale = metrics->axis[ AF_DIMENSION_HORZ ].scale;
-    hints->x_delta = metrics->axis[ AF_DIMENSION_HORZ ].delta;
-    hints->y_scale = metrics->axis[ AF_DIMENSION_VERT ].scale;
-    hints->y_delta = metrics->axis[ AF_DIMENSION_VERT ].delta;
 
    /* compute flags depending on render mode, etc...
     */
@@ -1250,10 +1176,20 @@
     if ( mode == FT_RENDER_MODE_MONO )
       hints->other_flags |= AF_LATIN_HINTS_MONO;
 
-    return 0;
+   /* analyze glyph outline
+    */
+    if ( AF_HINTS_DO_HORIZONTAL(hints) )
+      af_latin_hints_detect_features( hints, AF_DIMENSION_HORZ );
+
+    if ( AF_HINTS_DO_VERTICAL(hints) )
+    {
+      af_latin_hints_detect_features( hints, AF_DIMENSION_VERT );
+      af_latin_hints_compute_blue_edges( hints, metrics );
+    }
+
+ Exit:
+   return error;
   }
-
-
 
  /***************************************************************************/
  /***************************************************************************/
@@ -1802,26 +1738,10 @@
                         FT_Outline*      outline,
                         AF_LatinMetrics  metrics )
   {
-    FT_Error      error;
     AF_Dimension  dim;
 
-    error = af_glyph_hints_reload( hints, outline );
-    if ( error )
-      goto Exit;
+    FT_UNUSED( metrics );
 
-   /* analyze glyph outline
-    */
-    if ( AF_HINTS_DO_HORIZONTAL(hints) )
-      af_latin_hints_detect_features( hints, AF_DIMENSION_HORZ );
-
-    if ( AF_HINTS_DO_VERTICAL(hints) )
-    {
-      af_latin_hints_detect_features( hints, AF_DIMENSION_VERT );
-      af_latin_hints_compute_blue_edges( hints, metrics );
-    }
-
-   /* grid-fit the outline
-    */
     for ( dim = 0; dim < AF_DIMENSION_MAX; dim++ )
     {
       if ( (dim == AF_DIMENSION_HORZ && AF_HINTS_DO_HORIZONTAL(hints)) ||
@@ -1835,8 +1755,7 @@
     }
     af_glyph_hints_save( hints, outline );
 
-  Exit:
-    return error;
+    return 0;
   }
 
  /***************************************************************************/
@@ -1849,11 +1768,10 @@
 
   static const AF_Script_UniRangeRec  af_latin_uniranges[] =
   {
-    { 32,  127 },    /* XXX: TODO: Add new Unicode ranges here !! */
+    { 32, 127 },    /* XXX: TODO: Add new Unicode ranges here !! */
     { 160, 255 },
-    { 0,   0 }
+    { 0, 0 }
   };
-
 
   FT_LOCAL_DEF( const AF_ScriptClassRec )  af_latin_script_class =
   {

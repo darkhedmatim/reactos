@@ -21,13 +21,4 @@
 #include "winbase.h"
 #include "mprres.h"
 
-#include "version.rc"
-
-#include "mpr_Cs.rc"
-#include "mpr_De.rc"
 #include "mpr_En.rc"
-#include "mpr_Nl.rc"
-#include "mpr_Es.rc"
-#include "mpr_It.rc"
-#include "mpr_Ja.rc"
-#include "mpr_Pt.rc"

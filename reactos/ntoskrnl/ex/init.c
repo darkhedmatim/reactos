@@ -26,7 +26,9 @@
  *                  Created 11/09/99
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -43,9 +45,9 @@ ExInit2(VOID)
 VOID INIT_FUNCTION
 ExInit3 (VOID)
 {
+  ExInitTimeZoneInfo();
   ExInitializeWorkerThreads();
   ExpWin32kInit();
-  ExpInitUuids();
 }
 
 

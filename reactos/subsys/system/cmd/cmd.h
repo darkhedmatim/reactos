@@ -1,4 +1,4 @@
-/* $Id: cmd.h,v 1.5 2004/06/21 18:57:22 weiden Exp $
+/* $Id: cmd.h,v 1.4 2003/12/26 09:52:37 navaraf Exp $
  *
  *  CMD.H - header file for the modules in CMD.EXE
  *
@@ -170,7 +170,6 @@ VOID ConOutPrintf (LPTSTR, ...);
 VOID ConErrChar (TCHAR);
 VOID ConErrPuts (LPTSTR);
 VOID ConErrPrintf (LPTSTR, ...);
-VOID ConOutFormatMessage (DWORD MessageId, ...);	
 
 SHORT GetCursorX  (VOID);
 SHORT GetCursorY  (VOID);

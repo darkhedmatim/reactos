@@ -10,18 +10,21 @@
  *   20 Aug 2003 Vizzini - NDIS4/5 revisions
  *   3  Oct 2003 Vizzini - formatting and minor bugfixing
  */
-
-#include <roscfg.h>
-#include "ndissys.h"
+#include <ndissys.h>
+#include <protocol.h>
+#include <miniport.h>
 
 
 #ifdef DBG
 
 /* See debug.h for debug/trace constants */
 DWORD DebugTraceLevel = MIN_TRACE;
-//DWORD DebugTraceLevel = DEBUG_ULTRA;
 
 #endif /* DBG */
+
+/* see miniport.c */
+extern KSPIN_LOCK OrphanAdapterListLock;
+extern LIST_ENTRY OrphanAdapterListHead;
 
 
 VOID STDCALL MainUnload(
@@ -61,7 +64,17 @@ DriverEntry(
   InitializeListHead(&AdapterListHead);
   KeInitializeSpinLock(&AdapterListLock);
 
+  InitializeListHead(&OrphanAdapterListHead);
+  KeInitializeSpinLock(&OrphanAdapterListLock);
+
   DriverObject->DriverUnload = MainUnload;
+
+  /* 
+   * until we have PNP support, query the enum key and NdisFindDevice() each one
+   * NOTE- this will load and start other services before this one returns STATUS_SUCCESS.
+   * I hope there aren't code reentrancy problems. :) 
+   */
+  //NdisStartDevices();
 
   return STATUS_SUCCESS;
 }
@@ -91,7 +104,7 @@ NdisWriteErrorLogEntry(
  */
 {
   NDIS_DbgPrint(MIN_TRACE, ("ERROR: ErrorCode 0x%x\n", ErrorCode));
-  /* ASSERT(0); */
+  ASSERT(0);
 }
 
 

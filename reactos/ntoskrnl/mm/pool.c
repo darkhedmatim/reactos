@@ -1,4 +1,4 @@
-/* $Id: pool.c,v 1.36 2004/12/11 00:13:37 royce Exp $
+/* $Id: pool.c,v 1.28 2004/04/10 22:35:25 gdalsnes Exp $
  * 
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -9,23 +9,17 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
-#include <pseh.h>
+#include <ddk/ntddk.h>
+#include <reactos/bugcodes.h>
+#include <internal/ntoskrnl.h>
+#include <internal/pool.h>
 
 #define NDEBUG
 #include <internal/debug.h>
 
-extern ULONG MiNonPagedPoolLength;
-extern ULONG MmTotalPagedPoolQuota;
-extern ULONG MmTotalNonPagedPoolQuota;
-extern MM_STATS MmStats;
-
 /* GLOBALS *****************************************************************/
 
 #define TAG_NONE (ULONG)(('N'<<0) + ('o'<<8) + ('n'<<16) + ('e'<<24))
-
-ULONG STDCALL
-ExRosQueryPagedPoolTag ( PVOID Block );
 
 /* FUNCTIONS ***************************************************************/
 
@@ -96,7 +90,6 @@ ExAllocatePool (POOL_TYPE PoolType, ULONG NumberOfBytes)
  */
 {
    PVOID Block;
-
 #if defined(__GNUC__)
 
    Block = EiAllocatePool(PoolType,
@@ -124,7 +117,6 @@ PVOID STDCALL
 ExAllocatePoolWithTag (ULONG PoolType, ULONG NumberOfBytes, ULONG Tag)
 {
    PVOID Block;
-
 #if defined(__GNUC__)
 
    Block = EiAllocatePool(PoolType,
@@ -154,81 +146,27 @@ ExAllocatePoolWithQuota (POOL_TYPE PoolType, ULONG NumberOfBytes)
    return(ExAllocatePoolWithQuotaTag(PoolType, NumberOfBytes, TAG_NONE));
 }
 
-/*
- * @implemented
- */
-PVOID
-STDCALL
-ExAllocatePoolWithTagPriority(
-    IN POOL_TYPE PoolType,
-    IN SIZE_T NumberOfBytes,
-    IN ULONG Tag,
-    IN EX_POOL_PRIORITY Priority
-    )
-{
-    /* Check if this is one of the "Special" Flags, used by the Verifier */
-    if (Priority & 8) {
-        /* Check if this is a xxSpecialUnderrun */
-        if (Priority & 1) {
-            return MiAllocateSpecialPool(PoolType, NumberOfBytes, Tag, 1);
-        } else { /* xxSpecialOverrun */
-            return MiAllocateSpecialPool(PoolType, NumberOfBytes, Tag, 0);
-        }
-    }
-
-    /* FIXME: Do Ressource Checking Based on Priority and fail if resources too low*/
-
-    /* Do the allocation */
-    return ExAllocatePoolWithTag(PoolType, NumberOfBytes, Tag);
-}
 
 /*
- * @implemented
+ * @unimplemented
  */
 PVOID STDCALL
 ExAllocatePoolWithQuotaTag (IN POOL_TYPE PoolType,
                             IN ULONG  NumberOfBytes,
                             IN ULONG  Tag)
 {
-    PVOID Block;
-    PEPROCESS Process;
+#if 0
+   PVOID Block;
+   Block = EiAllocatePool(PoolType,
+                          NumberOfBytes,
+                          Tag,
+                          (PVOID)__builtin_return_address(0));
+   return(Block);
+#else
 
-    /* Allocate the Pool First */
-    Block = EiAllocatePool(PoolType,
-                            NumberOfBytes,
-                            Tag,
-                            &ExAllocatePoolWithQuotaTag);
-
-    /* "Quota is not charged to the thread for allocations >= PAGE_SIZE" - OSR Docs */
-    if (!(NumberOfBytes >= PAGE_SIZE)) {
-
-        /* Get the Current Process */
-        Process = PsGetCurrentProcess();
-
-        /* PsChargePoolQuota returns an exception, so this needs SEH */
-#if defined(__GNUC__)
-        _SEH_FILTER(FreeAndGoOn) {
-            /* Couldn't charge, so free the pool and let the caller SEH manage */
-            ExFreePool(Block);
-            return EXCEPTION_CONTINUE_SEARCH;
-        } _SEH_TRY_FILTER(FreeAndGoOn) {
-            //* FIXME: Is there a way to get the actual Pool size allocated from the pool header? */
-            PsChargePoolQuota(Process, PoolType, NumberOfBytes);
-        } _SEH_HANDLE {
-            /* Quota Exceeded and the caller had no SEH! */
-            KeBugCheck(STATUS_QUOTA_EXCEEDED);
-        } _SEH_END;
-#else /* assuming all other Win32 compilers understand SEH */
-        __try {
-            PsChargePoolQuota(Process, PoolType, NumberOfBytes);
-        }
-        __except (ExFreePool(Block), EXCEPTION_CONTINUE_SEARCH) {
-            KeBugCheck(STATUS_QUOTA_EXCEEDED);
-        }
+   UNIMPLEMENTED;
+   return(NULL);
 #endif
-    }
-
-    return Block;
 }
 
 /*
@@ -237,8 +175,6 @@ ExAllocatePoolWithQuotaTag (IN POOL_TYPE PoolType,
 VOID STDCALL
 ExFreePool(IN PVOID Block)
 {
-   ASSERT_IRQL(DISPATCH_LEVEL);
-
    if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
    {
       ExFreePagedPool(Block);
@@ -259,100 +195,8 @@ ExFreePoolWithTag(IN PVOID Block, IN ULONG Tag)
    ExFreePool(Block);
 }
 
-/*
- * @unimplemented
- */
-SIZE_T
-STDCALL
-ExQueryPoolBlockSize (                          
-    IN PVOID PoolBlock,                         
-    OUT PBOOLEAN QuotaCharged                   
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-PVOID
-STDCALL
-MmAllocateMappingAddress (
-     IN SIZE_T NumberOfBytes,
-     IN ULONG PoolTag
-     )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-MmFreeMappingAddress (
-     IN PVOID BaseAddress,
-     IN ULONG PoolTag
-     )
-{
-	UNIMPLEMENTED;
-}
-
-BOOLEAN
-STDCALL
-MiRaisePoolQuota(
-    IN POOL_TYPE PoolType,
-    IN ULONG CurrentMaxQuota,
-    OUT PULONG NewMaxQuota
-    )
-{
-    /* Different quota raises depending on the type (64K vs 512K) */
-    if (PoolType == PagedPool) {
-
-        /* Make sure that 4MB is still left */
-        if ((MM_PAGED_POOL_SIZE >> 12) < ((MmPagedPoolSize + 4194304) >> 12)) {
-            return FALSE;
-        }
-
-        /* Increase Paged Pool Quota by 512K */
-        MmTotalPagedPoolQuota += 524288;
-        *NewMaxQuota = CurrentMaxQuota + 524288;
-        return TRUE;
-
-    } else { /* Nonpaged Pool */
-
-        /* Check if we still have 200 pages free*/
-        if (MmStats.NrFreePages < 200) return FALSE;
-
-        /* Check that 4MB is still left */
-        if ((MM_NONPAGED_POOL_SIZE >> 12) < ((MiNonPagedPoolLength + 4194304) >> 12)) {
-            return FALSE;
-        }
-
-        /* Increase Non Paged Pool Quota by 64K */
-        MmTotalNonPagedPoolQuota += 65536;
-        *NewMaxQuota = CurrentMaxQuota + 65536;
-        return TRUE;
-    }
-}
-
-ULONG STDCALL
-ExRosQueryPoolTag ( PVOID Block )
-{
-   ASSERT_IRQL(DISPATCH_LEVEL);
-
-   if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
-   {
-      return ExRosQueryPagedPoolTag(Block);
-   }
-   else
-   {
-      UNIMPLEMENTED;
-      return 0;
-   }
-}
-
 /* EOF */
+
+
+
+

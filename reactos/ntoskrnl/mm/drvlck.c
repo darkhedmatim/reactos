@@ -1,4 +1,4 @@
-/* $Id: drvlck.c,v 1.6 2004/08/15 16:39:06 chorns Exp $
+/* $Id: drvlck.c,v 1.5 2004/04/10 22:35:25 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/

@@ -1,4 +1,4 @@
-; $Id: ntdll.def,v 1.135 2004/12/05 21:16:01 navaraf Exp $
+; $Id: ntdll.def,v 1.121 2004/06/13 10:35:52 navaraf Exp $
 ;
 ; ReactOS Operating System
 ;
@@ -17,6 +17,7 @@ CsrClientCallServer@16
 CsrClientConnectToServer@0
 CsrFreeCaptureBuffer@4
 CsrIdentifyAlertableThread@0
+CsrIsCsrss@0
 CsrNewThread@0
 CsrProbeForRead@12
 CsrProbeForWrite@12
@@ -32,10 +33,14 @@ DbgUiIssueRemoteBreakin@4
 DbgUiRemoteBreakin@0
 DbgUiWaitStateChange@8
 DbgUserBreakPoint@0
-KiRaiseUserExceptionDispatcher@0
-KiUserApcDispatcher@20
-KiUserCallbackDispatcher@12
-KiUserExceptionDispatcher@8
+InterlockedIncrement@4
+InterlockedDecrement@4
+InterlockedExchange@8
+InterlockedCompareExchange@12
+KiRaiseUserExceptionDispatcher
+KiUserApcDispatcher
+KiUserCallbackDispatcher
+KiUserExceptionDispatcher
 LdrAccessResource@16
 LdrDisableThreadCalloutsForDll@4
 ;LdrEnumResources@20
@@ -46,7 +51,7 @@ LdrGetDllHandle@16
 LdrGetProcedureAddress@16
 LdrInitializeThunk@16
 LdrLoadDll@16
-LdrProcessRelocationBlock@16
+;LdrProcessRelocationBlock@16
 LdrQueryImageFileExecutionOptions@24
 LdrQueryProcessModuleInformation@12
 LdrShutdownProcess@0
@@ -65,9 +70,8 @@ NtAdjustPrivilegesToken@24
 NtAlertResumeThread@8
 NtAlertThread@4
 NtAllocateLocallyUniqueId@4
-NtAllocateUuids@16
+NtAllocateUuids@12
 NtAllocateVirtualMemory@24
-NtAssignProcessToJobObject@8
 NtCallbackReturn@12
 NtCancelIoFile@8
 NtCancelTimer@8
@@ -83,7 +87,6 @@ NtCreateEvent@20
 NtCreateEventPair@12
 NtCreateFile@44
 NtCreateIoCompletion@16
-NtCreateJobObject@12
 NtCreateKey@28
 NtCreateMailslotFile@32
 NtCreateMutant@16
@@ -99,7 +102,7 @@ NtCreateThread@32
 NtCreateTimer@16
 NtCreateToken@52
 NtCreateWaitablePort@20
-NtCurrentTeb=_NtCurrentTeb@0
+_NtCurrentTeb@0
 NtDelayExecution@8
 NtDeleteAtom@4
 NtDeleteFile@4
@@ -127,7 +130,6 @@ NtGetTickCount@0
 NtImpersonateClientOfPort@8
 NtImpersonateThread@12
 NtInitializeRegistry@4
-NtIsProcessInJob@8
 NtListenChannel@8
 NtListenPort@8
 NtLoadDriver@4
@@ -145,7 +147,6 @@ NtOpenEvent@12
 NtOpenEventPair@12
 NtOpenFile@24
 NtOpenIoCompletion@12
-NtOpenJobObject@12
 NtOpenKey@12
 NtOpenMutant@12
 NtOpenObjectAuditAlarm@48
@@ -163,24 +164,21 @@ NtPrivilegedServiceAuditAlarm@20
 NtPrivilegeObjectAuditAlarm@24
 NtProtectVirtualMemory@20
 NtPulseEvent@8
-NtQueryAttributesFile@8
-NtQueryDefaultLocale@8
-NtQueryDefaultUILanguage@4
-NtQueryDirectoryFile@44
+NtQueryAttributesFile@8	
+NtQueryDefaultLocale@8	
+NtQueryDirectoryFile@44	
 NtQueryDirectoryObject@28
 NtQueryEaFile@36
 NtQueryEvent@20
 NtQueryFullAttributesFile@8
 NtQueryInformationAtom@20
 NtQueryInformationFile@20
-NtQueryInformationJobObject@20
 NtQueryInformationPort@20
 NtQueryInformationProcess@20
 NtQueryInformationThread@20
 NtQueryInformationToken@20
-NtQueryInstallUILanguage@4
-NtQueryIntervalProfile@8
 NtQueryIoCompletion@20
+NtQueryIntervalProfile@8
 NtQueryKey@20
 NtQueryMultipleValueKey@24
 NtQueryMutant@20
@@ -226,14 +224,12 @@ NtSetContextChannel@4
 NtSetContextThread@8
 NtSetDefaultHardErrorPort@4
 NtSetDefaultLocale@8
-NtSetDefaultUILanguage@4
 NtSetEaFile@16
 NtSetEvent@8
 NtSetHighEventPair@4
 NtSetHighWaitLowEventPair@4
 NtSetHighWaitLowThread@0
 NtSetInformationFile@20
-NtSetInformationJobObject@16
 NtSetInformationKey@16
 NtSetInformationObject@16
 NtSetInformationProcess@16
@@ -252,7 +248,6 @@ NtSetSystemPowerState@12
 NtSetSystemTime@8
 NtSetTimer@28
 NtSetTimerResolution@12
-NtSetUuidSeed@4
 NtSetValueKey@24
 NtSetVolumeInformationFile@20
 NtShutdownSystem@4
@@ -261,7 +256,6 @@ NtStartProfile@4
 NtStopProfile@4
 NtSuspendThread@8
 NtSystemDebugControl@24
-NtTerminateJobObject@8
 NtTerminateProcess@8
 NtTerminateThread@8
 NtTestAlert@0
@@ -301,7 +295,6 @@ RtlAddAce@20
 RtlAddAtomToAtomTable@12
 ;RtlAddAttributeActionToRXact
 RtlAddAuditAccessAce@24
-RtlAddAuditAccessAceEx@28
 ;RtlAddCompoundAce
 RtlAddRange@36
 RtlAdjustPrivilege@16
@@ -358,12 +351,10 @@ RtlCreateEnvironment@8
 RtlCreateHeap@24
 RtlCreateProcessParameters@40
 ;RtlCreatePropertySet
-RtlCreateQueryDebugBuffer@8
+;RtlCreateQueryDebugBuffer
 RtlCreateRegistryKey@8
 RtlCreateSecurityDescriptor@8
 ;RtlCreateTagHeap
-RtlCreateTimer@28
-RtlCreateTimerQueue@4
 RtlCreateUnicodeString@8
 RtlCreateUnicodeStringFromAsciiz@8
 RtlCreateUserProcess@40
@@ -387,15 +378,12 @@ RtlDeleteRange@24
 RtlDeleteRegistryValue@12
 RtlDeleteResource@4
 ;RtlDeleteSecurityObject
-RtlDeleteTimer@12
-RtlDeleteTimerQueue@4
-RtlDeleteTimerQueueEx@8
 RtlDestroyAtomTable@4
 RtlDestroyEnvironment@4
 RtlDestroyHandleTable@4
 RtlDestroyHeap@4
 RtlDestroyProcessParameters@4
-RtlDestroyQueryDebugBuffer@4
+;RtlDestroyQueryDebugBuffer
 RtlDetermineDosPathNameType_U@4
 RtlDoesFileExists_U@4
 RtlDosPathNameToNtPathName_U@16
@@ -444,7 +432,7 @@ RtlFindSetBitsAndClear@12
 RtlFirstFreeAce@8
 ;RtlFlushPropertySet
 RtlFormatCurrentUserKeyPath@4
-RtlFormatMessage@32
+;RtlFormatMessage@36
 RtlFreeAnsiString@4
 RtlFreeHandle@8
 RtlFreeHeap@12
@@ -487,7 +475,6 @@ RtlInitCodePageTable@8
 RtlInitNlsTables@16
 RtlInitString@8
 RtlInitUnicodeString@8
-RtlInitUnicodeStringEx@8
 ;RtlInitializeAtomPackage
 RtlInitializeBitMap@12
 RtlInitializeContext@20
@@ -500,26 +487,9 @@ RtlInitializeResource@4
 ;RtlInitializeRXact
 RtlInitializeSid@12
 ;RtlInsertElementGenericTable
-RtlInt64ToUnicodeString@16
 RtlIntegerToChar@16
 RtlIntegerToUnicodeString@12
 RtlInvertRangeList@8
-RtlIpv4AddressToStringA@8
-RtlIpv4AddressToStringExA@16
-RtlIpv4AddressToStringExW@16
-RtlIpv4AddressToStringW@8
-RtlIpv4StringToAddressA@16
-RtlIpv4StringToAddressExA@16
-RtlIpv4StringToAddressExW@16
-RtlIpv4StringToAddressW@16
-RtlIpv6AddressToStringA@8
-RtlIpv6AddressToStringExA@16
-RtlIpv6AddressToStringExW@16
-RtlIpv6AddressToStringW@8
-RtlIpv6StringToAddressA@16
-RtlIpv6StringToAddressExA@16
-RtlIpv6StringToAddressExW@16
-RtlIpv6StringToAddressW@16
 RtlIsDosDeviceName_U@4
 RtlIsGenericTableEmpty@4
 RtlIsNameLegalDOS8Dot3@12
@@ -572,7 +542,7 @@ RtlQueryAtomInAtomTable@24
 RtlQueryEnvironmentVariable_U@12
 RtlQueryInformationAcl@16
 ;RtlQueryProcessBackTraceInformation
-RtlQueryProcessDebugInformation@12
+;RtlQueryProcessDebugInformation
 ;RtlQueryProcessHeapInformation
 ;RtlQueryProcessLockInformation
 ;RtlQueryProperties
@@ -585,7 +555,6 @@ RtlQueryTimeZoneInformation@4
 RtlRaiseException@4
 RtlRaiseStatus@4
 RtlRandom@4
-RtlRandomEx=RtlRandom@4
 RtlReAllocateHeap@16
 ;RtlRealPredecessor
 ;RtlRealSuccessor
@@ -655,7 +624,6 @@ RtlUpcaseUnicodeStringToOemString@12
 RtlUpcaseUnicodeToCustomCPN@24
 RtlUpcaseUnicodeToMultiByteN@20
 RtlUpcaseUnicodeToOemN@20
-RtlUpdateTimer@16
 RtlUpperChar@4
 RtlUpperString@8
 ;RtlUsageHeap
@@ -683,7 +651,6 @@ RtlxOemStringToUnicodeSize@4
 RtlxUnicodeStringToAnsiSize@4
 RtlxUnicodeStringToOemSize@4
 ;SaveEm87Context
-VerSetConditionMask@16
 ZwAcceptConnectPort@24
 ZwAccessCheck@32
 ZwAccessCheckAndAuditAlarm@44
@@ -693,7 +660,7 @@ ZwAdjustPrivilegesToken@24
 ZwAlertResumeThread@8
 ZwAlertThread@4
 ZwAllocateLocallyUniqueId@4
-ZwAllocateUuids@16
+ZwAllocateUuids@12
 ZwAllocateVirtualMemory@24
 ZwCallbackReturn@12
 ZwCancelIoFile@8
@@ -789,7 +756,6 @@ ZwQueueApcThread@20
 ZwQueryInformationAtom@20
 ZwQueryAttributesFile@8
 ZwQueryDefaultLocale@8
-ZwQueryDefaultUILanguage@4
 ZwQueryDirectoryFile@44
 ZwQueryDirectoryObject@28
 ZwQueryEaFile@36
@@ -800,7 +766,6 @@ ZwQueryInformationPort@20
 ZwQueryInformationProcess@20
 ZwQueryInformationThread@20
 ZwQueryInformationToken@20
-ZwQueryInstallUILanguage@4
 ZwQueryIntervalProfile@8
 ZwQueryIoCompletion@20
 ZwQueryKey@20
@@ -847,7 +812,6 @@ ZwSetContextChannel@4
 ZwSetContextThread@8
 ZwSetDefaultHardErrorPort@4
 ZwSetDefaultLocale@8
-ZwSetDefaultUILanguage@4
 ZwSetEaFile@16
 ZwSetEvent@8
 ZwSetHighEventPair@4
@@ -872,7 +836,6 @@ ZwSetSystemPowerState@12
 ZwSetSystemTime@8
 ZwSetTimer@28
 ZwSetTimerResolution@12
-ZwSetUuidSeed@4
 ZwSetValueKey@24
 ZwSetVolumeInformationFile@20
 ZwShutdownSystem@4

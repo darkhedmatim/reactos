@@ -36,22 +36,20 @@ typedef struct
    COLORREF crBack;
    COLORREF crFore;
    ULONG ulPalTime;
+#if 0
    ULONG ulSurfTime;
    PVOID ulRealization;
    ULONG Unknown4C[3];
+#else
+   BRUSHOBJ BrushObject;
+   ULONG Unknown50[2];
+#endif
    POINT ptPenWidth;
    ULONG ulPenStyle;
    DWORD *pStyle;
    ULONG dwStyleCount;
    ULONG Unknown6C;
 } GDIBRUSHOBJ, *PGDIBRUSHOBJ;
-
-typedef struct
-{
-   BRUSHOBJ BrushObject;
-   PGDIBRUSHOBJ GdiBrushObject;
-   XLATEOBJ *XlateObject;
-} GDIBRUSHINST, *PGDIBRUSHINST;
 
 /* GDI Brush Attributes */
 
@@ -68,11 +66,10 @@ typedef struct
 #define GDIBRUSH_IS_MASKING		0x8000 /* Pattern bitmap is used as transparent mask (?) */
 #define GDIBRUSH_CACHED_IS_SOLID	0x80000000 
 
-#define  BRUSHOBJ_AllocBrush() ((HBRUSH) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_BRUSH))
-#define  BRUSHOBJ_FreeBrush(hBrush) GDIOBJ_FreeObj((HGDIOBJ)hBrush, GDI_OBJECT_TYPE_BRUSH)
+#define  BRUSHOBJ_AllocBrush() ((HBRUSH) GDIOBJ_AllocObj (sizeof(GDIBRUSHOBJ), GDI_OBJECT_TYPE_BRUSH, (GDICLEANUPPROC) Brush_InternalDelete))
+#define  BRUSHOBJ_FreeBrush(hBrush) GDIOBJ_FreeObj((HGDIOBJ)hBrush, GDI_OBJECT_TYPE_BRUSH, GDIOBJFLAG_DEFAULT)
 #define  BRUSHOBJ_LockBrush(hBrush) ((PGDIBRUSHOBJ)GDIOBJ_LockObj((HGDIOBJ)hBrush, GDI_OBJECT_TYPE_BRUSH))
-#define  BRUSHOBJ_UnlockBrush(hBrush) GDIOBJ_UnlockObj((HGDIOBJ)hBrush)
-BOOL INTERNAL_CALL BRUSH_Cleanup(PVOID ObjectBody);
+#define  BRUSHOBJ_UnlockBrush(hBrush) GDIOBJ_UnlockObj((HGDIOBJ)hBrush, GDI_OBJECT_TYPE_BRUSH)
 
 #ifdef __USE_W32API
 typedef struct _PATRECT {

@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.28 2004/12/30 16:15:10 ekohl Exp $
+/* $Id: create.c,v 1.21 2004/05/10 19:58:10 navaraf Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
@@ -18,187 +18,158 @@
 
 /* FUNCTIONS *****************************************************************/
 
-static PNPFS_PIPE
-NpfsFindPipe(PNPFS_DEVICE_EXTENSION DeviceExt,
-	     PUNICODE_STRING PipeName)
-{
-  PLIST_ENTRY CurrentEntry;
-  PNPFS_PIPE Pipe;
-
-  CurrentEntry = DeviceExt->PipeListHead.Flink;
-  while (CurrentEntry != &DeviceExt->PipeListHead)
-    {
-      Pipe = CONTAINING_RECORD(CurrentEntry, NPFS_PIPE, PipeListEntry);
-      if (RtlCompareUnicodeString(PipeName,
-				  &Pipe->PipeName,
-				  TRUE) == 0)
-	{
-	  DPRINT("<%wZ> = <%wZ>\n", PipeName, &Pipe->PipeName);
-	  return Pipe;
-	}
-
-       CurrentEntry = CurrentEntry->Flink;
-     }
-
-  return NULL;
-}
-
-
-static PNPFS_FCB
-NpfsFindListeningServerInstance(PNPFS_PIPE Pipe)
-{
-  PLIST_ENTRY CurrentEntry;
-  PNPFS_FCB ServerFcb;
-
-  CurrentEntry = Pipe->ServerFcbListHead.Flink;
-  while (CurrentEntry != &Pipe->ServerFcbListHead)
-    {
-      ServerFcb = CONTAINING_RECORD(CurrentEntry, NPFS_FCB, FcbListEntry);
-      if (ServerFcb->PipeState == FILE_PIPE_LISTENING_STATE)
-	{
-	  DPRINT("Server found! Fcb %p\n", ServerFcb);
-	  return ServerFcb;
-	}
-      CurrentEntry = CurrentEntry->Flink;
-    }
-
-  return NULL;
-}
-
-
 NTSTATUS STDCALL
-NpfsCreate(PDEVICE_OBJECT DeviceObject,
-	   PIRP Irp)
+NpfsCreate(
+   PDEVICE_OBJECT DeviceObject,
+   PIRP Irp)
 {
-  PIO_STACK_LOCATION IoStack;
-  PFILE_OBJECT FileObject;
-  PNPFS_PIPE Pipe;
-  PNPFS_FCB ClientFcb;
-  PNPFS_FCB ServerFcb = NULL;
-  PNPFS_DEVICE_EXTENSION DeviceExt;
-  BOOLEAN SpecialAccess;
+   PLIST_ENTRY CurrentEntry;
+   PNPFS_PIPE Current;
+   PIO_STACK_LOCATION IoStack;
+   PFILE_OBJECT FileObject;
+   PNPFS_PIPE Pipe;
+   PNPFS_FCB ClientFcb;
+   PNPFS_FCB ServerFcb;
+   PNPFS_DEVICE_EXTENSION DeviceExt;
+   ULONG Disposition;
+   
+   DPRINT("NpfsCreate(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
+   
+   DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
+   IoStack = IoGetCurrentIrpStackLocation(Irp);
+   FileObject = IoStack->FileObject;
+   Disposition = ((IoStack->Parameters.Create.Options >> 24) & 0xff);
+   DPRINT("FileObject %p\n", FileObject);
+   DPRINT("FileName %wZ\n", &FileObject->FileName);
 
-  DPRINT("NpfsCreate(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
+   Irp->IoStatus.Information = 0;
+    
+   /*
+    * Step 1. Find the pipe we're trying to open.
+    */
 
-  DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  IoStack = IoGetCurrentIrpStackLocation(Irp);
-  FileObject = IoStack->FileObject;
-  DPRINT("FileObject %p\n", FileObject);
-  DPRINT("FileName %wZ\n", &FileObject->FileName);
+   KeLockMutex(&DeviceExt->PipeListLock);
+   CurrentEntry = DeviceExt->PipeListHead.Flink;
+   while (CurrentEntry != &DeviceExt->PipeListHead)
+   {
+      Current = CONTAINING_RECORD(CurrentEntry, NPFS_PIPE, PipeListEntry);
+      if (RtlCompareUnicodeString(
+             &FileObject->FileName,
+             &Current->PipeName,
+             TRUE) == 0)
+      {
+         break;
+      }
+      CurrentEntry = CurrentEntry->Flink;
+   }
 
-  Irp->IoStatus.Information = 0;
-
-  SpecialAccess = ((IoStack->Parameters.Create.ShareAccess & 3) == 3);
-  if (SpecialAccess)
-    {
-      DPRINT("NpfsCreate() open client end for special use!\n");
-    }
-
-  /*
-   * Step 1. Find the pipe we're trying to open.
-   */
-  KeLockMutex(&DeviceExt->PipeListLock);
-  Pipe = NpfsFindPipe(DeviceExt,
-		      &FileObject->FileName);
-  if (Pipe == NULL)
-    {
-      /* Not found, bail out with error. */
+   /* Not found, bail out with error. */
+   if (CurrentEntry == &DeviceExt->PipeListHead)
+   {
       DPRINT("No pipe found!\n");
       KeUnlockMutex(&DeviceExt->PipeListLock);
       Irp->IoStatus.Status = STATUS_OBJECT_NAME_NOT_FOUND;
       IoCompleteRequest(Irp, IO_NO_INCREMENT);
       return STATUS_OBJECT_NAME_NOT_FOUND;
-    }
+   }
 
-  KeUnlockMutex(&DeviceExt->PipeListLock);
+   KeUnlockMutex(&DeviceExt->PipeListLock);
 
-  /*
-   * Step 2. Search for listening server FCB.
-   */
+   /* Save the pipe we found for later use. */
+   Pipe = Current;
 
-  /*
-   * Acquire the lock for FCB lists. From now on no modifications to the
-   * FCB lists are allowed, because it can cause various misconsistencies.
-   */
-  KeLockMutex(&Pipe->FcbListLock);
+   /*
+    * Step 2. Search for listening server FCB.
+    */
 
-  if (!SpecialAccess)
-    {
-      ServerFcb = NpfsFindListeningServerInstance(Pipe);
-      if (ServerFcb == NULL)
-        {
-          /* Not found, bail out with error for FILE_OPEN requests. */
-          DPRINT("No listening server fcb found!\n");
-          KeUnlockMutex(&Pipe->FcbListLock);
-          Irp->IoStatus.Status = STATUS_PIPE_BUSY;
-          IoCompleteRequest(Irp, IO_NO_INCREMENT);
-          return STATUS_PIPE_BUSY;
-        }
-    }
-  else if (IsListEmpty(&Pipe->ServerFcbListHead))
-    {
+   /*
+    * Acquire the lock for FCB lists. From now on no modifications to the
+    * FCB lists are allowed, because it can cause various misconsistencies.
+    */
+   KeLockMutex(&Pipe->FcbListLock);
+
+   CurrentEntry = Pipe->ServerFcbListHead.Flink;
+   while (CurrentEntry != &Pipe->ServerFcbListHead)
+   {
+      ServerFcb = CONTAINING_RECORD(CurrentEntry, NPFS_FCB, FcbListEntry);
+      if (ServerFcb->PipeState == FILE_PIPE_LISTENING_STATE)
+      {
+         DPRINT("Server found! Fcb %p\n", ServerFcb);
+         break;
+      }
+      CurrentEntry = CurrentEntry->Flink;
+   }
+
+   /* Not found, bail out with error for FILE_OPEN requests. */
+   if (CurrentEntry == &Pipe->ServerFcbListHead)
+   {
       DPRINT("No server fcb found!\n");
-      KeUnlockMutex(&Pipe->FcbListLock);
-      Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-      IoCompleteRequest(Irp, IO_NO_INCREMENT);
-      return STATUS_UNSUCCESSFUL;
-    }
+      if (Disposition == FILE_OPEN)
+      {
+         KeUnlockMutex(&Pipe->FcbListLock);
+         Irp->IoStatus.Status = STATUS_PIPE_BUSY;
+         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         return STATUS_PIPE_BUSY;
+      }
+      ServerFcb = NULL;
+   }
 
-  /*
-   * Step 3. Create the client FCB.
-   */
-  ClientFcb = ExAllocatePool(NonPagedPool, sizeof(NPFS_FCB));
-  if (ClientFcb == NULL)
-    {
+   /*
+    * Step 3. Create the client FCB.
+    */
+   
+   ClientFcb = ExAllocatePool(NonPagedPool, sizeof(NPFS_FCB));
+   if (ClientFcb == NULL)
+   {
       DPRINT("No memory!\n");
       KeUnlockMutex(&Pipe->FcbListLock);
       Irp->IoStatus.Status = STATUS_NO_MEMORY;
       IoCompleteRequest(Irp, IO_NO_INCREMENT);
       return STATUS_NO_MEMORY;
-    }
-
-  ClientFcb->Pipe = Pipe;
-  ClientFcb->PipeEnd = FILE_PIPE_CLIENT_END;
-  ClientFcb->OtherSide = NULL;
-  ClientFcb->PipeState = SpecialAccess ? 0 : FILE_PIPE_DISCONNECTED_STATE;
-
-  /* Initialize data list. */
-  if (Pipe->InboundQuota)
-    {
+   }
+   
+   ClientFcb->Pipe = Pipe;
+   ClientFcb->PipeEnd = FILE_PIPE_CLIENT_END;
+   ClientFcb->OtherSide = NULL;
+   ClientFcb->PipeState = FILE_PIPE_DISCONNECTED_STATE;
+   
+   /* Initialize data list. */
+   if (Pipe->InboundQuota)
+   {
       ClientFcb->Data = ExAllocatePool(NonPagedPool, Pipe->InboundQuota);
       if (ClientFcb->Data == NULL)
-        {
-          DPRINT("No memory!\n");
-          ExFreePool(ClientFcb);
-          KeUnlockMutex(&Pipe->FcbListLock);
-          Irp->IoStatus.Status = STATUS_NO_MEMORY;
-          IoCompleteRequest(Irp, IO_NO_INCREMENT);
-          return STATUS_NO_MEMORY;
-        }
-    }
-  else
-    {
+      {
+         DPRINT("No memory!\n");
+         ExFreePool(ClientFcb);
+         KeUnlockMutex(&Pipe->FcbListLock);
+         Irp->IoStatus.Status = STATUS_NO_MEMORY;
+         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         return STATUS_NO_MEMORY;
+      }
+   }
+   else
+   {
       ClientFcb->Data = NULL;
-    }
+   }
 
-  ClientFcb->ReadPtr = ClientFcb->Data;
-  ClientFcb->WritePtr = ClientFcb->Data;
-  ClientFcb->ReadDataAvailable = 0;
-  ClientFcb->WriteQuotaAvailable = Pipe->InboundQuota;
-  ClientFcb->MaxDataLength = Pipe->InboundQuota;
-  KeInitializeSpinLock(&ClientFcb->DataListLock);
-  KeInitializeEvent(&ClientFcb->ConnectEvent, SynchronizationEvent, FALSE);
-  KeInitializeEvent(&ClientFcb->Event, SynchronizationEvent, FALSE);
+   ClientFcb->ReadPtr = ClientFcb->Data;
+   ClientFcb->WritePtr = ClientFcb->Data;
+   ClientFcb->ReadDataAvailable = 0;
+   ClientFcb->WriteQuotaAvailable = Pipe->InboundQuota;
+   ClientFcb->MaxDataLength = Pipe->InboundQuota;
+   KeInitializeSpinLock(&ClientFcb->DataListLock);
+   KeInitializeEvent(&ClientFcb->ConnectEvent, SynchronizationEvent, FALSE);
+   KeInitializeEvent(&ClientFcb->Event, SynchronizationEvent, FALSE);
 
-  /*
-   * Step 4. Add the client FCB to a list and connect it if necessary.
-   */
+   /*
+    * Step 4. Add the client FCB to a list and connect it if necessary.
+    */
 
-  /* Add the client FCB to the pipe FCB list. */
-  InsertTailList(&Pipe->ClientFcbListHead, &ClientFcb->FcbListEntry);
+   /* Add the client FCB to the pipe FCB list. */
+   InsertTailList(&Pipe->ClientFcbListHead, &ClientFcb->FcbListEntry);
 
-  if (ServerFcb)
-    {
+   if (ServerFcb)
+   {
       ClientFcb->OtherSide = ServerFcb;
       ServerFcb->OtherSide = ClientFcb;
       ClientFcb->PipeState = FILE_PIPE_CONNECTED_STATE;
@@ -207,18 +178,18 @@ NpfsCreate(PDEVICE_OBJECT DeviceObject,
       /* Wake server thread */
       DPRINT("Setting the ConnectEvent for %x\n", ServerFcb);
       KeSetEvent(&ServerFcb->ConnectEvent, 0, FALSE);
-    }
+   }
 
-  KeUnlockMutex(&Pipe->FcbListLock);
+   KeUnlockMutex(&Pipe->FcbListLock);
 
-  FileObject->FsContext = ClientFcb;
+   FileObject->FsContext = ClientFcb;
 
-  Irp->IoStatus.Status = STATUS_SUCCESS;
-  IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   Irp->IoStatus.Status = STATUS_SUCCESS;
+   IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-  DPRINT("Success!\n");
-
-  return STATUS_SUCCESS;
+   DPRINT("Success!\n");
+   
+   return STATUS_SUCCESS;
 }
 
 
@@ -231,19 +202,20 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
    PNPFS_DEVICE_EXTENSION DeviceExt;
    PNPFS_PIPE Pipe;
    PNPFS_FCB Fcb;
-   PNAMED_PIPE_CREATE_PARAMETERS Buffer;
-   BOOLEAN NewPipe = FALSE;
-
+   PLIST_ENTRY current_entry;
+   PNPFS_PIPE current;
+   PIO_PIPE_CREATE_BUFFER Buffer;
+   
    DPRINT("NpfsCreateNamedPipe(DeviceObject %p Irp %p)\n", DeviceObject, Irp);
-
+   
    DeviceExt = (PNPFS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
    IoStack = IoGetCurrentIrpStackLocation(Irp);
    FileObject = IoStack->FileObject;
    DPRINT("FileObject %p\n", FileObject);
    DPRINT("Pipe name %wZ\n", &FileObject->FileName);
-
-   Buffer = IoStack->Parameters.CreatePipe.Parameters;
-
+   
+   Buffer = (PIO_PIPE_CREATE_BUFFER)Irp->Tail.Overlay.AuxiliaryBuffer;
+   
    Irp->IoStatus.Information = 0;
 
    Fcb = ExAllocatePool(NonPagedPool, sizeof(NPFS_FCB));
@@ -253,20 +225,36 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return STATUS_NO_MEMORY;
      }
-
+   
    KeLockMutex(&DeviceExt->PipeListLock);
 
    /*
     * First search for existing Pipe with the same name.
     */
-   Pipe = NpfsFindPipe(DeviceExt,
-		       &FileObject->FileName);
-   if (Pipe != NULL)
+   
+   current_entry = DeviceExt->PipeListHead.Flink;
+   while (current_entry != &DeviceExt->PipeListHead)
+     {
+	current = CONTAINING_RECORD(current_entry,
+				    NPFS_PIPE,
+				    PipeListEntry);
+	
+	if (RtlCompareUnicodeString(&FileObject->FileName, &current->PipeName, TRUE) == 0)
+	  {
+	     break;
+	  }
+	
+	current_entry = current_entry->Flink;
+     }
+
+   if (current_entry != &DeviceExt->PipeListHead)
      {
        /*
         * Found Pipe with the same name. Check if we are 
         * allowed to use it.
         */
+	
+       Pipe = current;
        KeUnlockMutex(&DeviceExt->PipeListLock);
 
        if (Pipe->CurrentInstances >= Pipe->MaximumInstances)
@@ -279,8 +267,8 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
          }
 
        /* FIXME: Check pipe modes also! */
-       if (Pipe->MaximumInstances != Buffer->MaximumInstances ||
-           Pipe->TimeOut.QuadPart != Buffer->DefaultTimeout.QuadPart)
+       if (Pipe->MaximumInstances != Buffer->MaxInstances ||
+           Pipe->TimeOut.QuadPart != Buffer->TimeOut.QuadPart)
          {
            DPRINT("Asked for invalid pipe mode.\n");
            ExFreePool(Fcb);
@@ -291,7 +279,6 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
      }
    else
      {
-       NewPipe = TRUE;
        Pipe = ExAllocatePool(NonPagedPool, sizeof(NPFS_PIPE));
        if (Pipe == NULL)
          {
@@ -301,8 +288,8 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
            IoCompleteRequest(Irp, IO_NO_INCREMENT);
            return STATUS_NO_MEMORY;
          }
-
-       if (RtlCreateUnicodeString(&Pipe->PipeName, FileObject->FileName.Buffer) == FALSE)
+       
+       if (RtlCreateUnicodeString(&Pipe->PipeName, FileObject->FileName.Buffer) == 0)
          {
            KeUnlockMutex(&DeviceExt->PipeListLock);
            ExFreePool(Pipe);
@@ -310,31 +297,31 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
            Irp->IoStatus.Status = STATUS_NO_MEMORY;
            Irp->IoStatus.Information = 0;
            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-           return STATUS_NO_MEMORY;
+           return(STATUS_NO_MEMORY);
          }
-
+   
        InitializeListHead(&Pipe->ServerFcbListHead);
        InitializeListHead(&Pipe->ClientFcbListHead);
        KeInitializeMutex(&Pipe->FcbListLock, 0);
 
-       Pipe->PipeType = Buffer->NamedPipeType ? FILE_PIPE_MESSAGE_TYPE : FILE_PIPE_BYTE_STREAM_TYPE;
-       Pipe->PipeWriteMode = Buffer->NamedPipeType ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
-       Pipe->PipeReadMode = Buffer->ReadMode ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
-       Pipe->PipeBlockMode = Buffer->CompletionMode;
+       Pipe->PipeType = Buffer->WriteModeMessage ? FILE_PIPE_MESSAGE_TYPE : FILE_PIPE_BYTE_STREAM_TYPE;
+       Pipe->PipeWriteMode = Buffer->WriteModeMessage ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
+       Pipe->PipeReadMode = Buffer->ReadModeMessage ? FILE_PIPE_MESSAGE_MODE : FILE_PIPE_BYTE_STREAM_MODE;
+       Pipe->PipeBlockMode = Buffer->NonBlocking;
        Pipe->PipeConfiguration = IoStack->Parameters.Create.Options & 0x3;
-       Pipe->MaximumInstances = Buffer->MaximumInstances;
+       Pipe->MaximumInstances = Buffer->MaxInstances;
        Pipe->CurrentInstances = 0;
-       Pipe->TimeOut = Buffer->DefaultTimeout;
+       Pipe->TimeOut = Buffer->TimeOut;
        if (!(IoStack->Parameters.Create.Options & FILE_PIPE_OUTBOUND) || 
            IoStack->Parameters.Create.Options & FILE_PIPE_FULL_DUPLEX)
          {
-           if (Buffer->InboundQuota == 0)
+           if (Buffer->InBufferSize == 0)
              {
                Pipe->InboundQuota = DeviceExt->DefaultQuota;
              }
            else
              {
-               Pipe->InboundQuota = PAGE_ROUND_UP(Buffer->InboundQuota);
+               Pipe->InboundQuota = PAGE_ROUND_UP(Buffer->InBufferSize);
                if (Pipe->InboundQuota < DeviceExt->MinQuota)
                  {
                    Pipe->InboundQuota = DeviceExt->MinQuota;
@@ -349,16 +336,15 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
          {
            Pipe->InboundQuota = 0;
          }
-
        if (IoStack->Parameters.Create.Options & (FILE_PIPE_FULL_DUPLEX|FILE_PIPE_OUTBOUND))
          {
-           if (Buffer->OutboundQuota == 0)
+           if (Buffer->OutBufferSize == 0)
              {
                Pipe->OutboundQuota = DeviceExt->DefaultQuota;
              }
            else
              {
-               Pipe->OutboundQuota = PAGE_ROUND_UP(Buffer->OutboundQuota);
+               Pipe->OutboundQuota = PAGE_ROUND_UP(Buffer->OutBufferSize);
                if (Pipe->OutboundQuota < DeviceExt->MinQuota)
                  {
                    Pipe->OutboundQuota = DeviceExt->MinQuota;
@@ -385,7 +371,7 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
          {
            ExFreePool(Fcb);
 
-           if (NewPipe)
+           if (Pipe != current)
              {
                RtlFreeUnicodeString(&Pipe->PipeName);
                ExFreePool(Pipe);
@@ -394,7 +380,7 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
            Irp->IoStatus.Status = STATUS_NO_MEMORY;
            IoCompleteRequest(Irp, IO_NO_INCREMENT);
            return STATUS_NO_MEMORY;
-         }
+	 }
      }
    else
      {
@@ -409,11 +395,11 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
    KeInitializeSpinLock(&Fcb->DataListLock);
 
    Pipe->CurrentInstances++;
-
+   
    KeLockMutex(&Pipe->FcbListLock);
    InsertTailList(&Pipe->ServerFcbListHead, &Fcb->FcbListEntry);
    KeUnlockMutex(&Pipe->FcbListLock);
-
+   
    Fcb->Pipe = Pipe;
    Fcb->PipeEnd = FILE_PIPE_SERVER_END;
    Fcb->PipeState = FILE_PIPE_LISTENING_STATE;
@@ -422,17 +408,17 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
    KeInitializeEvent(&Fcb->ConnectEvent,
 		     SynchronizationEvent,
 		     FALSE);
-
+   
    KeInitializeEvent(&Fcb->Event,
 		     SynchronizationEvent,
 		     FALSE);
-
+   
    FileObject->FsContext = Fcb;
-
+   
    Irp->IoStatus.Status = STATUS_SUCCESS;
    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-   return STATUS_SUCCESS;
+   
+   return(STATUS_SUCCESS);
 }
 
 
@@ -477,12 +463,11 @@ NpfsClose(
       /* FIXME: Clean up existing connections here ?? */
       DPRINT("Server\n");
       Pipe->CurrentInstances--;
-   }
-   else
+   } else
    {
       DPRINT("Client\n");
    }
-
+  
    if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
    {
       if (Fcb->OtherSide)
@@ -493,11 +478,10 @@ NpfsClose(
 #endif
          /*
           * Signaling the write event. If is possible that an other
-          * thread waits for an empty buffer.
+          * thread waits of an empty buffer.
           */
          KeSetEvent(&Fcb->OtherSide->Event, IO_NO_INCREMENT, FALSE);
       }
-
 #ifndef FIN_WORKAROUND_READCLOSE
       Fcb->PipeState = 0;
 #endif
@@ -523,11 +507,9 @@ NpfsClose(
             ExFreePool(Fcb->OtherSide->Data);
 	 ExFreePool(Fcb->OtherSide);
       }
-
       RemoveEntryList(&Fcb->FcbListEntry);
       if (Fcb->Data)
          ExFreePool(Fcb->Data);
-
       ExFreePool(Fcb);
    }
 #endif

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: slab.c,v 1.14 2004/08/15 16:39:08 chorns Exp $
+/* $Id: slab.c,v 1.12 2004/04/10 22:35:26 gdalsnes Exp $
  *
  * COPYRIGHT:   See COPYING in the top directory
  * PROJECT:     ReactOS kernel 
@@ -29,7 +29,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -105,23 +107,23 @@ PSLAB_CACHE_PAGE
 ExGrowSlabCache(PSLAB_CACHE Slab)
 {
    PSLAB_CACHE_PAGE SlabPage;
-   PFN_TYPE Pfn;
+   PHYSICAL_ADDRESS PhysicalPage;
    PVOID Page;
    NTSTATUS Status;
    ULONG i;
    PSLAB_CACHE_BUFCTL BufCtl;
    PVOID Object;
 
-   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Pfn);
+   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &PhysicalPage);
    if (!NT_SUCCESS(Status))
    {
       return(NULL);
    }
 
-   Page = ExAllocatePageWithPhysPage(Pfn);
+   Page = ExAllocatePageWithPhysPage(PhysicalPage);
    if (Page == NULL)
    {
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Pfn);
+      MmReleasePageMemoryConsumer(MC_NPPOOL, PhysicalPage);
       return(NULL);
    }
 
@@ -301,7 +303,7 @@ ExDestroySlabCache(PSLAB_CACHE Slab)
    while (current_entry != &Slab->PageListHead)
    {
       PVOID Base;
-      PFN_TYPE Page;
+      PHYSICAL_ADDRESS PhysicalPage;
 
       current = CONTAINING_RECORD(current_entry,
                                   SLAB_CACHE_PAGE,
@@ -316,9 +318,9 @@ ExDestroySlabCache(PSLAB_CACHE Slab)
             Slab->Destructor(Object, Slab->BaseSize);
          }
       }
-      Page = MmGetPfnForProcess(NULL, Base);
+      PhysicalPage = MmGetPhysicalAddressForProcess(NULL, Base);
       ExUnmapPage(Base);
-      MmReleasePageMemoryConsumer(MC_NPPOOL, Page);
+      MmReleasePageMemoryConsumer(MC_NPPOOL, PhysicalPage);
    }
    ExFreePool(Slab);
 }

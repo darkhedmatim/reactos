@@ -18,6 +18,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+cpu 486
 segment .text use32
 
 ; Note: the undecorated names are for Borland C++ (and possibly other compilers

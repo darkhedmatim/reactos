@@ -550,7 +550,7 @@ typedef struct _KAPC_STATE {
     BOOLEAN     KernelApcInProgress;
     BOOLEAN     KernelApcPending;
     BOOLEAN     UserApcPending;
-} KAPC_STATE, *PKAPC_STATE, *__restrict PRKAPC_STATE;
+} KAPC_STATE, *PKAPC_STATE;
 
 typedef struct _KGDTENTRY {
     USHORT LimitLow;
@@ -750,6 +750,102 @@ typedef struct _EPROCESS_QUOTA_BLOCK {
     ULONG                   ProcessCount;
 } EPROCESS_QUOTA_BLOCK, *PEPROCESS_QUOTA_BLOCK;
 
+/*
+ * When needing these parameters cast your PIO_STACK_LOCATION to
+ * PEXTENDED_IO_STACK_LOCATION
+ */
+#if !defined(_ALPHA_)
+#include <pshpack4.h>
+#endif
+typedef struct _EXTENDED_IO_STACK_LOCATION {
+
+    /* Included for padding */
+    UCHAR MajorFunction;
+    UCHAR MinorFunction;
+    UCHAR Flags;
+    UCHAR Control;
+
+    union {
+
+       struct {
+          PIO_SECURITY_CONTEXT              SecurityContext;
+          ULONG                             Options;
+          USHORT                            Reserved;
+          USHORT                            ShareAccess;
+          PMAILSLOT_CREATE_PARAMETERS       Parameters;
+       } CreateMailslot;
+
+        struct {
+            PIO_SECURITY_CONTEXT            SecurityContext;
+            ULONG                           Options;
+            USHORT                          Reserved;
+            USHORT                          ShareAccess;
+            PNAMED_PIPE_CREATE_PARAMETERS   Parameters;
+        } CreatePipe;
+
+        struct {
+            ULONG                           OutputBufferLength;
+            ULONG                           InputBufferLength;
+            ULONG                           FsControlCode;
+            PVOID                           Type3InputBuffer;
+        } FileSystemControl;
+
+        struct {
+            PLARGE_INTEGER                  Length;
+            ULONG                           Key;
+            LARGE_INTEGER                   ByteOffset;
+        } LockControl;
+
+        struct {
+            ULONG                           Length;
+            ULONG                           CompletionFilter;
+        } NotifyDirectory;
+
+        struct {
+            ULONG                           Length;
+            PUNICODE_STRING                 FileName;
+            FILE_INFORMATION_CLASS          FileInformationClass;
+            ULONG                           FileIndex;
+        } QueryDirectory;
+
+        struct {
+            ULONG                           Length;
+            PVOID                           EaList;
+            ULONG                           EaListLength;
+            ULONG                           EaIndex;
+        } QueryEa;
+
+        struct {
+            ULONG                           Length;
+            PSID                            StartSid;
+            PFILE_GET_QUOTA_INFORMATION     SidList;
+            ULONG                           SidListLength;
+        } QueryQuota;
+
+        struct {
+            ULONG                           Length;
+        } SetEa;
+
+        struct {
+            ULONG                           Length;
+        } SetQuota;
+
+        struct {
+            ULONG                           Length;
+            FS_INFORMATION_CLASS            FsInformationClass;
+        } SetVolume;
+
+    } Parameters;
+    PDEVICE_OBJECT  DeviceObject;
+    PFILE_OBJECT  FileObject;
+    PIO_COMPLETION_ROUTINE  CompletionRoutine;
+    PVOID  Context;
+
+} EXTENDED_IO_STACK_LOCATION, *PEXTENDED_IO_STACK_LOCATION;
+#if !defined(_ALPHA_)
+#include <poppack.h>
+#endif
+
 typedef struct _FILE_ACCESS_INFORMATION {
     ACCESS_MASK AccessFlags;
 } FILE_ACCESS_INFORMATION, *PFILE_ACCESS_INFORMATION;
@@ -777,7 +873,7 @@ typedef struct _FILE_BOTH_DIR_INFORMATION {
 
 typedef struct _FILE_COMPLETION_INFORMATION {
     HANDLE  Port;
-    PVOID   Key;
+    ULONG   Key;
 } FILE_COMPLETION_INFORMATION, *PFILE_COMPLETION_INFORMATION;
 
 typedef struct _FILE_COMPRESSION_INFORMATION {
@@ -811,35 +907,35 @@ typedef struct _FILE_DIRECTORY_INFORMATION {
 } FILE_DIRECTORY_INFORMATION, *PFILE_DIRECTORY_INFORMATION;
 
 typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
-    ULONG           NextEntryOffset;
-    ULONG           FileIndex;
-    LARGE_INTEGER   CreationTime;
-    LARGE_INTEGER   LastAccessTime;
-    LARGE_INTEGER   LastWriteTime;
-    LARGE_INTEGER   ChangeTime;
-    LARGE_INTEGER   EndOfFile;
-    LARGE_INTEGER   AllocationSize;
-    ULONG           FileAttributes;
-    ULONG           FileNameLength;
-    ULONG           EaSize;
-    WCHAR           FileName[0];
+		ULONG	          NextEntryOffset;
+		ULONG	          FileIndex;
+		LARGE_INTEGER   CreationTime;
+		LARGE_INTEGER   LastAccessTime;
+		LARGE_INTEGER   LastWriteTime;
+		LARGE_INTEGER   ChangeTime;
+		LARGE_INTEGER   EndOfFile;
+		LARGE_INTEGER   AllocationSize;
+		ULONG           FileAttributes;
+		ULONG           FileNameLength;
+		ULONG           EaSize;
+		WCHAR           FileName[0];
 } FILE_FULL_DIRECTORY_INFORMATION, *PFILE_FULL_DIRECTORY_INFORMATION;
 
 typedef struct _FILE_BOTH_DIRECTORY_INFORMATION {
-    ULONG         NextEntryOffset;
-    ULONG         FileIndex;
-    LARGE_INTEGER CreationTime;
-    LARGE_INTEGER LastAccessTime;
-    LARGE_INTEGER LastWriteTime;
-    LARGE_INTEGER ChangeTime;
-    LARGE_INTEGER EndOfFile;
-    LARGE_INTEGER AllocationSize;
-    ULONG         FileAttributes;
-    ULONG         FileNameLength;
-    ULONG         EaSize;
-    CHAR          ShortNameLength;
-    WCHAR         ShortName[12];
-    WCHAR         FileName[0];
+		ULONG         NextEntryOffset;
+		ULONG	        FileIndex;
+		LARGE_INTEGER CreationTime;
+		LARGE_INTEGER LastAccessTime;
+		LARGE_INTEGER LastWriteTime;
+		LARGE_INTEGER ChangeTime;
+		LARGE_INTEGER EndOfFile;
+		LARGE_INTEGER AllocationSize;
+		ULONG         FileAttributes;
+		ULONG         FileNameLength;
+		ULONG         EaSize;
+		CHAR          ShortNameLength;
+		WCHAR         ShortName[12];
+		WCHAR         FileName[0];
 } FILE_BOTH_DIRECTORY_INFORMATION, *PFILE_BOTH_DIRECTORY_INFORMATION;
 
 typedef struct _FILE_EA_INFORMATION {
@@ -1178,18 +1274,6 @@ typedef struct _FILE_TRACKING_INFORMATION {
     CHAR    ObjectInformation[1];
 } FILE_TRACKING_INFORMATION, *PFILE_TRACKING_INFORMATION;
 
-#if (VER_PRODUCTBUILD >= 2195)
-typedef struct _FILE_ZERO_DATA_INFORMATION {
-    LARGE_INTEGER FileOffset;
-    LARGE_INTEGER BeyondFinalZero;
-} FILE_ZERO_DATA_INFORMATION, *PFILE_ZERO_DATA_INFORMATION;
-
-typedef struct FILE_ALLOCATED_RANGE_BUFFER {
-    LARGE_INTEGER FileOffset;
-    LARGE_INTEGER Length;
-} FILE_ALLOCATED_RANGE_BUFFER, *PFILE_ALLOCATED_RANGE_BUFFER;
-#endif /* (VER_PRODUCTBUILD >= 2195) */
-
 typedef struct _FSRTL_COMMON_FCB_HEADER {
     CSHORT          NodeTypeCode;
     CSHORT          NodeByteSize;
@@ -1486,19 +1570,19 @@ typedef struct _SECTION_BASIC_INFORMATION {
 } SECTION_BASIC_INFORMATION, *PSECTION_BASIC_INFORMATION;
 
 typedef struct _SECTION_IMAGE_INFORMATION {
-    ULONG     EntryPoint;
-    ULONG     Unknown1;
-    ULONG_PTR StackReserve;
-    ULONG_PTR StackCommit;
-    ULONG     Subsystem;
-    USHORT    MinorSubsystemVersion;
-    USHORT    MajorSubsystemVersion;
-    ULONG     Unknown2;
-    ULONG     Characteristics;
-    USHORT    ImageNumber;
-    BOOLEAN   Executable;
-    UCHAR     Unknown3;
-    ULONG     Unknown4[3];
+    PVOID   EntryPoint;
+    ULONG   Unknown1;
+    ULONG   StackReserve;
+    ULONG   StackCommit;
+    ULONG   Subsystem;
+    USHORT  MinorSubsystemVersion;
+    USHORT  MajorSubsystemVersion;
+    ULONG   Unknown2;
+    ULONG   Characteristics;
+    USHORT  ImageNumber;
+    BOOLEAN Executable;
+    UCHAR   Unknown3;
+    ULONG   Unknown4[3];
 } SECTION_IMAGE_INFORMATION, *PSECTION_IMAGE_INFORMATION;
 
 #if (VER_PRODUCTBUILD >= 2600)
@@ -2255,31 +2339,6 @@ VOID
 NTAPI
 FsRtlDeregisterUncProvider (
     IN HANDLE Handle
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-FsRtlDissectDbcs (
-    IN ANSI_STRING Name,
-    OUT PANSI_STRING FirstPart,
-    OUT PANSI_STRING RemainingPart
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-FsRtlDissectName (
-    IN UNICODE_STRING Name,
-    OUT PUNICODE_STRING FirstPart,
-    OUT PUNICODE_STRING RemainingPart
-);
-
-NTKERNELAPI
-BOOLEAN
-NTAPI
-FsRtlDoesDbcsContainWildCards (
-    IN PANSI_STRING Name
 );
 
 NTKERNELAPI
@@ -4297,7 +4356,7 @@ NTSTATUS
 NTAPI
 ZwPulseEvent (
     IN HANDLE   EventHandle,
-    OUT PLONG   PreviousState OPTIONAL
+    OUT PULONG  PreviousState OPTIONAL
 );
 
 NTSYSAPI
@@ -4447,7 +4506,7 @@ NTSTATUS
 NTAPI
 ZwResetEvent (
     IN HANDLE   EventHandle,
-    OUT PLONG   PreviousState OPTIONAL
+    OUT PULONG  PreviousState OPTIONAL
 );
 
 #if (VER_PRODUCTBUILD >= 2195)
@@ -4505,7 +4564,7 @@ NTSTATUS
 NTAPI
 ZwSetEvent (
     IN HANDLE   EventHandle,
-    OUT PLONG   PreviousState OPTIONAL
+    OUT PULONG  PreviousState OPTIONAL
 );
 
 NTSYSAPI

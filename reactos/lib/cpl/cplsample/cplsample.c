@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cplsample.c,v 1.5 2004/10/30 19:14:22 ekohl Exp $
+/* $Id: cplsample.c,v 1.2 2004/03/08 14:20:14 weiden Exp $
  *
  * PROJECT:         ReactOS Sample Control Panel
  * FILE:            lib/cpl/cplsample/cplsample.c
@@ -26,15 +26,13 @@
  *      05-01-2004  Created
  */
 #include <windows.h>
-#include <commctrl.h>
-#include <cpl.h>
-
+#include <stdlib.h>
 #include "resource.h"
 #include "cplsample.h"
 
 #define NUM_APPLETS	(1)
 
-LONG APIENTRY Applet1(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam);
+LONG CALLBACK Applet1(VOID);
 HINSTANCE hApplet = 0;
 
 /* Applets */
@@ -50,12 +48,12 @@ InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
   psp->dwSize = sizeof(PROPSHEETPAGE);
   psp->dwFlags = PSP_DEFAULT;
   psp->hInstance = hApplet;
-  psp->pszTemplate = MAKEINTRESOURCE(idDlg);
+  psp->u1.pszTemplate = MAKEINTRESOURCE(idDlg);
   psp->pfnDlgProc = DlgProc;
 }
 
 /* Property page dialog callback */
-INT_PTR CALLBACK
+BOOL CALLBACK
 Page1Proc(
   HWND hwndDlg,
   UINT uMsg,
@@ -72,7 +70,7 @@ Page1Proc(
 }
 
 /* Property page dialog callback */
-INT_PTR CALLBACK
+BOOL CALLBACK
 Page2Proc(
   HWND hwndDlg,
   UINT uMsg,
@@ -89,7 +87,7 @@ Page2Proc(
 }
 
 /* Property page dialog callback */
-INT_PTR CALLBACK
+BOOL CALLBACK
 Page3Proc(
   HWND hwndDlg,
   UINT uMsg,
@@ -139,8 +137,8 @@ PropSheetProc(
 
 /* First Applet */
 
-LONG APIENTRY
-Applet1(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam)
+LONG CALLBACK
+Applet1(VOID)
 {
   PROPSHEETPAGE psp[3];
   PROPSHEETHEADER psh;
@@ -153,11 +151,11 @@ Applet1(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam)
   psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_PROPTITLE;
   psh.hwndParent = NULL;
   psh.hInstance = hApplet;
-  psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON_1));
+  psh.u1.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON_1));
   psh.pszCaption = Caption;
-  psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
-  psh.nStartPage = 0;
-  psh.ppsp = psp;
+  psh.nPages = sizeof(psp) / sizeof(PROPSHEETHEADER);
+  psh.u2.nStartPage = 0;
+  psh.u3.ppsp = psp;
   psh.pfnCallback = PropSheetProc;
   
   InitPropSheetPage(&psp[0], IDD_PROPPAGE1, Page1Proc);
@@ -198,7 +196,7 @@ CPlApplet(
     }
     case CPL_DBLCLK:
     {
-      Applets[i].AppletProc(hwndCPl, uMsg, lParam1, lParam2);
+      Applets[i].AppletProc();
       break;
     }
   }

@@ -74,9 +74,6 @@ extern "C" {
 #define WC_COMBOBOXW	L"ComboBox"
 #define WC_SCROLLBARA	"ScrollBar"
 #define WC_SCROLLBARW	L"ScrollBar"
-#if (_WIN32_WINNT >= 0x0501)
-#define WC_LINK		L"SysLink"
-#endif
 
 #ifdef UNICODE
 #define HOTKEY_CLASS HOTKEY_CLASSW
@@ -247,24 +244,6 @@ extern "C" {
 #define ILD_PRESERVEALPHA 0x1000
 #define ILD_SCALE 0x2000
 #define ILD_DPISCALE 0x4000
-#if (_WIN32_WINNT >= 0x0501)
-#define LWS_TRANSPARENT 1
-#define LWS_IGNORERETURN 2
-#define LIF_ITEMINDEX 1
-#define LIF_STATE 2
-#define LIF_ITEMID 4
-#define LIF_URL 8
-#define LIS_FOCUSED 1
-#define LIS_ENABLED 2
-#define LIS_VISITED 4
-#define LM_HITTEST (WM_USER+768)
-#define LM_GETIDEALHEIGHT (WM_USER+769)
-#define LM_SETITEM (WM_USER+770)
-#define LM_GETITEM (WM_USER+771)
-#define INVALID_LINK_INDEX (-1)
-#define MAX_LINKID_TEXT 48
-#define L_MAX_URL_LENGTH 2083
-#endif
 #define HDS_HORZ	0
 #define HDS_BUTTONS	2
 #define HDS_HIDDEN	8
@@ -757,10 +736,6 @@ extern "C" {
 #define TTN_NEEDTEXTW	TTN_GETDISPINFOW
 #define TTN_SHOW	(TTN_FIRST-1)
 #define TTN_POP	(TTN_FIRST-2)
-#define TTI_NONE	0
-#define TTI_INFO	1
-#define TTI_WARNING	2
-#define TTI_ERROR	3
 #define UD_MAXVAL	0x7fff
 #define UD_MINVAL	(-UD_MAXVAL)
 #define UDN_DELTAPOS (UDN_FIRST-1)
@@ -921,10 +896,6 @@ extern "C" {
 #define PBM_SETBKCOLOR	CCM_SETBKCOLOR
 #define PBS_SMOOTH	1
 #define PBS_VERTICAL	4
-#if (_WIN32_WINNT >= 0x0501)
-#define PBS_MARQUEE	8
-#define PBM_SETMARQUEE	(WM_USER+10)
-#endif
 #define LVS_ICON	0
 #define LVS_REPORT	1
 #define LVS_SMALLICON	2
@@ -1475,9 +1446,6 @@ extern "C" {
 #define NM_SETCURSOR (NM_FIRST-17)
 #define NM_CHAR (NM_FIRST-18)
 #define NM_TOOLTIPSCREATED (NM_FIRST-19)
-#define NM_LDOWN (NM_FIRST-20)
-#define NM_RDOWN (NM_FIRST-21)
-#define NM_THEMECHANGED (NM_FIRST-22)
 #define SBARS_SIZEGRIP 256
 #define CCM_FIRST 0x2000
 #define CCM_LAST (CCM_FIRST+0x200)
@@ -1992,17 +1960,6 @@ typedef struct _TBBUTTON {
 	int iString;
 } TBBUTTON,*PTBBUTTON,*LPTBBUTTON;
 typedef const TBBUTTON *LPCTBBUTTON;
-typedef struct tagNMTBRESTORE
-{
-	NMHDR hdr;
-	DWORD* pData;
-	DWORD* pCurrent;
-	UINT cbData;
-	int iItem;
-	int cButtons;
-	int cbBytesPerRecord;
-	TBBUTTON tbButton;
-} NMTBRESTORE, *LPNMTBRESTORE;
 #if _WIN32_IE >= 0x400
 typedef struct {
 	UINT cbSize;
@@ -2056,6 +2013,11 @@ typedef struct {
 	int cchText;
 	LPTSTR pszText;
 } TBNOTIFY,*LPTBNOTIFY;
+typedef struct {
+	HKEY hkr;
+	LPCTSTR pszSubKey;
+	LPCTSTR pszValueName;
+} TBSAVEPARAMS;
 typedef struct _IMAGEINFO {
 	HBITMAP hbmImage;
 	HBITMAP hbmMask;
@@ -2252,12 +2214,12 @@ typedef struct tagTBSAVEPARAMSA {
 	HKEY hkr;
 	LPCSTR pszSubKey;
 	LPCSTR pszValueName;
-} TBSAVEPARAMSA, *LPTBSAVEPARAMSA;
+} TBSAVEPARAMSA;
 typedef struct tagTBSAVEPARAMSW {
 	HKEY hkr;
 	LPCWSTR pszSubKey;
 	LPCWSTR pszValueName;
-} TBSAVEPARAMSW, *LPTBSAVEPARAMSW, *LPTBSAVEPARAMW;
+} TBSAVEPARAMSW;
 typedef struct {
 	HINSTANCE hInstOld;
 	UINT nIDOld;
@@ -2368,27 +2330,6 @@ typedef struct _NM_UPDOWN {
 	int iPos;
 	int iDelta;
 } NMUPDOWN,*LPNMUPDOWN;
-#if (_WIN32_WINNT >= 0x0501)
-typedef struct tagLITEM
-{
-    UINT mask;
-    int iLink;
-    UINT state;
-    UINT stateMask;
-    WCHAR szID[MAX_LINKID_TEXT];
-    WCHAR szUrl[L_MAX_URL_LENGTH];
-} LITEM, *PLITEM;
-typedef struct tagLHITTESTINFO
-{
-	POINT pt;
-	LITEM item;
-} LHITTESTINFO, *PLHITTESTINFO ;
-typedef struct tagNMLINK
-{
-	NMHDR hdr;
-	LITEM item;
-} NMLINK, *PNMLINK;
-#endif
 /* for backward compatability */
 #define NM_UPDOWN NMUPDOWN 
 #define LPNM_UPDOWN LPNMUPDOWN 

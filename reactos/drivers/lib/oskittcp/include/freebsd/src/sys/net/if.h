@@ -88,6 +88,16 @@ struct	ether_header;
  * (Would like to call this struct ``if'', but C isn't PL/1.)
  */
 
+struct ifnet {
+	char	*if_name;		/* name, e.g. ``en'' or ``lo'' */
+	struct	ifnet *if_next;		/* all struct ifnets are chained */
+	struct	ifaddr *if_addrlist;	/* linked list of addresses per if */
+        int	if_pcount;		/* number of promiscuous listeners */
+	caddr_t	if_bpf;			/* packet filter structure */
+	u_short	if_index;		/* numeric abbreviation for this if  */
+	short	if_unit;		/* sub-unit for lower level driver */
+	short	if_timer;		/* time 'til if_watchdog called */
+	short	if_flags;		/* up/down, broadcast, etc. */
 	struct	if_data {
 /* generic interface information */
 		u_char	ifi_type;	/* ethernet, tokenring, etc */
@@ -110,20 +120,7 @@ struct	ether_header;
 		u_long	ifi_iqdrops;	/* dropped on input, this interface */
 		u_long	ifi_noproto;	/* destined for unsupported protocol */
 		struct	timeval ifi_lastchange;/* time of last administrative change */
-	};
-
-
-struct ifnet {
-	char	*if_name;		/* name, e.g. ``en'' or ``lo'' */
-	struct	ifnet *if_next;		/* all struct ifnets are chained */
-	struct	ifaddr *if_addrlist;	/* linked list of addresses per if */
-        int	if_pcount;		/* number of promiscuous listeners */
-	caddr_t	if_bpf;			/* packet filter structure */
-	u_short	if_index;		/* numeric abbreviation for this if  */
-	short	if_unit;		/* sub-unit for lower level driver */
-	short	if_timer;		/* time 'til if_watchdog called */
-	short	if_flags;		/* up/down, broadcast, etc. */
-	struct if_data if_data;
+	}	if_data;
 /* procedure handles */
 	void	(*if_init)		/* init routine */
 		__P((int));
@@ -170,7 +167,6 @@ struct ifnet {
 #define if_rawoutput(if, m, sa) if_output(if, m, sa, (struct rtentry *)0)
 
 #define	IFF_UP		0x1		/* interface is up */
-#define IFF_UNICAST     0x1             /* for our interface to reactos */
 #define	IFF_BROADCAST	0x2		/* broadcast address valid */
 #define	IFF_DEBUG	0x4		/* turn on debugging */
 #define	IFF_LOOPBACK	0x8		/* is a loopback net */
@@ -240,13 +236,13 @@ struct ifnet {
 #define	IFQ_MAXLEN	50
 #define	IFNET_SLOWHZ	1		/* granularity is 1 second */
 
+#ifndef __REACTOS__
 /*
  * The ifaddr structure contains information about one address
  * of an interface.  They are maintained by the different address families,
  * are allocated and attached when an address is set, and are linked
  * together so all addresses for an interface can be located.
  */
-#ifndef __REACTOS__
 struct ifaddr {
 	struct	sockaddr *ifa_addr;	/* address of interface */
 	struct	sockaddr *ifa_dstaddr;	/* other end of p-to-p link */
@@ -263,8 +259,8 @@ struct ifaddr {
 	struct	rtentry *ifa_rt;	/* XXXX for ROUTETOIF ????? */
 #endif
 };
-#endif
 #define	IFA_ROUTE	RTF_UP		/* route installed */
+#endif
 
 /*
  * Message format for use in obtaining information about interfaces
@@ -378,10 +374,10 @@ int	ifioctl __P((struct socket *, int, caddr_t, struct proc *));
 int	ifpromisc __P((struct ifnet *, int));
 struct	ifnet *ifunit __P((char *));
 
-struct	ifaddr *ifa_ifwithaddr __P((struct sockaddr *));
+int ifa_ifwithaddr __P((struct sockaddr *, struct ifaddr *));
 struct	ifaddr *ifa_ifwithaf __P((int));
-struct	ifaddr *ifa_ifwithdstaddr __P((struct sockaddr *));
-struct	ifaddr *ifa_ifwithnet __P((struct sockaddr *));
+struct	ifaddr *ifa_ifwithdstaddr __P((struct sockaddr *, struct ifaddr *));
+int ifa_ifwithnet __P((struct sockaddr *, struct ifaddr *));
 struct	ifaddr *ifa_ifwithroute __P((int, struct sockaddr *,
 					struct sockaddr *));
 struct	ifaddr *ifaof_ifpforaddr __P((struct sockaddr *, struct ifnet *));

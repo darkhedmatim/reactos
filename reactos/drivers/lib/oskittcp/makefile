@@ -1,6 +1,6 @@
 
 
-# $Id: makefile,v 1.5 2004/09/23 03:02:29 royce Exp $
+# $Id: makefile,v 1.1 2004/05/29 00:15:44 sedwards Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -10,8 +10,7 @@ TARGET_TYPE = library
 
 TARGET_NAME = oskittcp
 
-#-DMEMTRACK
-TARGET_CFLAGS = -g -D__REACTOS__=1 -D__NTDRIVER__ -DKERNEL -Iinclude/freebsd -Iinclude/freebsd/sys/include -Iinclude/freebsd/src/sys -Iinclude/freebsd/dev/include -Iinclude/freebsd/net/include -Iinclude -I$(PATH_TO_TOP)/w32api/include -I$(PATH_TO_TOP)/include
+TARGET_CFLAGS = -g -D__REACTOS__=1 -DKERNEL -Iinclude/freebsd -Iinclude/freebsd/sys/include -Iinclude/freebsd/src/sys -Iinclude/freebsd/dev/include -Iinclude/freebsd/net/include -Iinclude -I$(PATH_TO_TOP)/w32api/include -I$(PATH_TO_TOP)/include -DMEMTRACK
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
@@ -41,13 +40,10 @@ REACTOS_OBJECTS = \
 	oskittcp/ip_output.o \
 	oskittcp/kern_clock.o \
 	oskittcp/kern_subr.o \
+	oskittcp/malloc.o \
 	oskittcp/param.o \
 	oskittcp/radix.o \
 	oskittcp/random.o \
-	oskittcp/raw_cb.o \
-	oskittcp/raw_ip.o \
-	oskittcp/raw_usrreq.o \
-	oskittcp/route.o \
 	oskittcp/rtsock.o \
 	oskittcp/scanc.o \
 	oskittcp/sleep.o \

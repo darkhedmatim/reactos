@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: mkhive.c,v 1.6 2004/12/30 16:02:12 royce Exp $
+/* $Id: mkhive.c,v 1.4 2004/05/29 21:15:58 navaraf Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/mkhive.c
@@ -32,11 +32,6 @@
 #include "registry.h"
 #include "reginf.h"
 #include "binhive.h"
-
-#ifdef _MSC_VER
-#include <stdlib.h>
-#define PATH_MAX _MAX_PATH
-#endif//_MSC_VER
 
 #ifndef WIN32
 #ifndef PATH_MAX
@@ -131,42 +126,27 @@ int main (int argc, char *argv[])
   convert_path (FileName, argv[2]);
   strcat (FileName, DIR_SEPARATOR_STRING);
   strcat (FileName, "system");
-  if (!ExportBinaryHive (FileName, "\\Registry\\Machine\\SYSTEM"))
-  {
-     return 1;
-  }
+  ExportBinaryHive (FileName, "\\Registry\\Machine\\SYSTEM");
 
   convert_path (FileName, argv[2]);
   strcat (FileName, DIR_SEPARATOR_STRING);
   strcat (FileName, "software");
-  if (!ExportBinaryHive (FileName, "\\Registry\\Machine\\SOFTWARE"))
-  {
-     return 1;
-  }
+  ExportBinaryHive (FileName, "\\Registry\\Machine\\SOFTWARE");
 
   convert_path (FileName, argv[2]);
   strcat (FileName, DIR_SEPARATOR_STRING);
   strcat (FileName, "sam");
-  if (!ExportBinaryHive (FileName, "\\Registry\\Machine\\SAM"))
-  {
-     return 1;
-  }
+  ExportBinaryHive (FileName, "\\Registry\\Machine\\SAM");
 
   convert_path (FileName, argv[2]);
   strcat (FileName, DIR_SEPARATOR_STRING);
   strcat (FileName, "security");
-  if (!ExportBinaryHive (FileName, "\\Registry\\Machine\\SECURITY"))
-  {
-     return 1;
-  }
+  ExportBinaryHive (FileName, "\\Registry\\Machine\\SECURITY");
 
   convert_path (FileName, argv[2]);
   strcat (FileName, DIR_SEPARATOR_STRING);
   strcat (FileName, "default");
-  if (!ExportBinaryHive (FileName, "\\Registry\\User\\.DEFAULT"))
-  {
-     return 1;
-  }
+  ExportBinaryHive (FileName, "\\Registry\\User\\.DEFAULT");
 
 //  RegShutdownRegistry ();
 

@@ -8,14 +8,18 @@
 typedef struct _ROSRGNDATA {
   RGNDATAHEADER rdh;
   PRECT         Buffer;
+  RECT          BuiltInRect;   /* Testing shows that > 95% of all regions have only 1 rect.
+                                  Including that here saves us from having to do another
+                                  allocation */
 } ROSRGNDATA, *PROSRGNDATA, *LPROSRGNDATA;
 
 
-#define  RGNDATA_FreeRgn(hRgn)  GDIOBJ_FreeObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION)
+#define  RGNDATA_FreeRgn(hRgn)  GDIOBJ_FreeObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION, GDIOBJFLAG_DEFAULT)
 #define  RGNDATA_LockRgn(hRgn) ((PROSRGNDATA)GDIOBJ_LockObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION))
-#define  RGNDATA_UnlockRgn(hRgn) GDIOBJ_UnlockObj((HGDIOBJ)hRgn)
+#define  RGNDATA_UnlockRgn(hRgn) GDIOBJ_UnlockObj((HGDIOBJ)hRgn, GDI_OBJECT_TYPE_REGION)
 HRGN FASTCALL RGNDATA_AllocRgn(INT n);
-BOOL INTERNAL_CALL RGNDATA_Cleanup(PVOID ObjectBody);
+
+BOOL FASTCALL RGNDATA_InternalDelete( PROSRGNDATA Obj );
 
 /*  User entry points */
 HRGN STDCALL

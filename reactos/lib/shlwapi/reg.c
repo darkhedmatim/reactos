@@ -1204,8 +1204,8 @@ DWORD WINAPI SHQueryValueExA( HKEY hKey, LPCSTR lpszValue,
     }
     else
     {
-      nBytesToAlloc = (lstrlenA(pvData)+1) * sizeof (CHAR);
-      szData = (LPSTR) LocalAlloc(GMEM_ZEROINIT, nBytesToAlloc );
+      nBytesToAlloc = lstrlenA(pvData) * sizeof (CHAR);
+      szData = (LPSTR) LocalAlloc(GMEM_ZEROINIT, nBytesToAlloc + 1);
       lstrcpyA(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsA(szData, pvData, *pcbData / sizeof(CHAR));
       if (dwExpDataLen > *pcbData) dwRet = ERROR_MORE_DATA;
@@ -1265,8 +1265,8 @@ DWORD WINAPI SHQueryValueExW(HKEY hKey, LPCWSTR lpszValue,
     }
     else
     {
-      nBytesToAlloc = (lstrlenW(pvData) + 1) * sizeof(WCHAR);
-      szData = (LPWSTR) LocalAlloc(GMEM_ZEROINIT, nBytesToAlloc );
+      nBytesToAlloc = lstrlenW(pvData) * sizeof(WCHAR);
+      szData = (LPWSTR) LocalAlloc(GMEM_ZEROINIT, nBytesToAlloc + 1);
       lstrcpyW(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, pvData, *pcbData/sizeof(WCHAR) );
       if (dwExpDataLen > *pcbData) dwRet = ERROR_MORE_DATA;
@@ -1298,7 +1298,7 @@ DWORD WINAPI SHQueryValueExW(HKEY hKey, LPCWSTR lpszValue,
  */
 DWORD WINAPI SHDeleteKeyA(HKEY hKey, LPCSTR lpszSubKey)
 {
-  DWORD dwRet, dwMaxSubkeyLen = 0, dwSize;
+  DWORD dwRet, dwKeyCount = 0, dwMaxSubkeyLen = 0, dwSize, i;
   CHAR szNameBuf[MAX_PATH], *lpszName = szNameBuf;
   HKEY hSubKey = 0;
 
@@ -1307,8 +1307,8 @@ DWORD WINAPI SHDeleteKeyA(HKEY hKey, LPCSTR lpszSubKey)
   dwRet = RegOpenKeyExA(hKey, lpszSubKey, 0, KEY_READ, &hSubKey);
   if(!dwRet)
   {
-    /* Find the maximum subkey length so that we can allocate a buffer */
-    dwRet = RegQueryInfoKeyA(hSubKey, NULL, NULL, NULL, NULL,
+    /* Find how many subkeys there are */
+    dwRet = RegQueryInfoKeyA(hSubKey, NULL, NULL, NULL, &dwKeyCount,
                              &dwMaxSubkeyLen, NULL, NULL, NULL, NULL, NULL, NULL);
     if(!dwRet)
     {
@@ -1321,15 +1321,14 @@ DWORD WINAPI SHDeleteKeyA(HKEY hKey, LPCSTR lpszSubKey)
         dwRet = ERROR_NOT_ENOUGH_MEMORY;
       else
       {
-        while (dwRet == ERROR_SUCCESS)
+        /* Recursively delete all the subkeys */
+        for(i = 0; i < dwKeyCount && !dwRet; i++)
         {
           dwSize = dwMaxSubkeyLen;
-          dwRet = RegEnumKeyExA(hSubKey, 0, lpszName, &dwSize, NULL, NULL, NULL, NULL);
-          if (dwRet == ERROR_SUCCESS || dwRet == ERROR_MORE_DATA)
+          dwRet = RegEnumKeyExA(hSubKey, i, lpszName, &dwSize, NULL, NULL, NULL, NULL);
+          if(!dwRet)
             dwRet = SHDeleteKeyA(hSubKey, lpszName);
         }
-        if (dwRet == ERROR_NO_MORE_ITEMS)
-          dwRet = ERROR_SUCCESS;
         if (lpszName != szNameBuf)
           HeapFree(GetProcessHeap(), 0, lpszName); /* Free buffer if allocated */
       }
@@ -1831,77 +1830,6 @@ BOOL WINAPI GetMIMETypeSubKeyW(LPCWSTR lpszType, LPWSTR lpszBuffer, DWORD dwLen)
     }
   }
   return FALSE;
-}
-
-/*************************************************************************
- * @   [SHLWAPI.330]
- *
- * Get the file extension for a given Mime type.
- *
- * PARAMS
- *  lpszType [I] Mime type to get the file extension for
- *  lpExt    [O] Destination for the resulting extension
- *  iLen     [I] Length of lpExt in characters
- *
- * RETURNS
- *  Success: TRUE. lpExt contains the file extension.
- *  Failure: FALSE, if any parameter is invalid or the extension cannot be
- *           retrieved. If iLen > 0, lpExt is set to an empty string.
- *
- * NOTES
- *  - The extension returned in lpExt always has a leading '.' character, even
- *  if the registry Mime database entry does not.
- *  - iLen must be long enough for the file extension for this function to succeed.
- */
-BOOL WINAPI MIME_GetExtensionA(LPCSTR lpszType, LPSTR lpExt, INT iLen)
-{
-  char szSubKey[MAX_PATH];
-  DWORD dwlen = iLen - 1, dwType;
-  BOOL bRet = FALSE;
-
-  if (iLen > 0 && lpExt)
-    *lpExt = '\0';
-
-  if (lpszType && lpExt && iLen > 2 &&
-      GetMIMETypeSubKeyA(lpszType, szSubKey, MAX_PATH) &&
-      !SHGetValueA(HKEY_CLASSES_ROOT, szSubKey, szExtensionA, &dwType, lpExt + 1, &dwlen) &&
-      lpExt[1])
-  {
-    if (lpExt[1] == '.')
-      memmove(lpExt, lpExt + 1, strlen(lpExt + 1) + 1);
-    else
-      *lpExt = '.'; /* Supply a '.' */
-    bRet = TRUE;
-  }
-  return bRet;
-}
-
-/*************************************************************************
- * @   [SHLWAPI.331]
- *
- * Unicode version of MIME_GetExtensionA.
- */
-BOOL WINAPI MIME_GetExtensionW(LPCWSTR lpszType, LPWSTR lpExt, INT iLen)
-{
-  WCHAR szSubKey[MAX_PATH];
-  DWORD dwlen = iLen - 1, dwType;
-  BOOL bRet = FALSE;
-
-  if (iLen > 0 && lpExt)
-    *lpExt = '\0';
-
-  if (lpszType && lpExt && iLen > 2 &&
-      GetMIMETypeSubKeyW(lpszType, szSubKey, MAX_PATH) &&
-      !SHGetValueW(HKEY_CLASSES_ROOT, szSubKey, szExtensionW, &dwType, lpExt + 1, &dwlen) &&
-      lpExt[1])
-  {
-    if (lpExt[1] == '.')
-      memmove(lpExt, lpExt + 1, (strlenW(lpExt + 1) + 1) * sizeof(WCHAR));
-    else
-      *lpExt = '.'; /* Supply a '.' */
-    bRet = TRUE;
-  }
-  return bRet;
 }
 
 /*************************************************************************

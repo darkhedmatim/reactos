@@ -5,8 +5,14 @@
 #include <include/winsta.h>
 //#include <ddk/ntddmou.h>
 
-INT  INTERNAL_CALL MouseSafetyOnDrawStart(SURFOBJ *SurfObj, LONG HazardX1, LONG HazardY1, LONG HazardX2, LONG HazardY2);
-INT  INTERNAL_CALL MouseSafetyOnDrawEnd(SURFOBJ *SurfObj);
+BOOL FASTCALL IntCheckClipCursor(LONG *x, LONG *y, PSYSTEM_CURSORINFO CurInfo);
+BOOL FASTCALL IntSwapMouseButton(PWINSTATION_OBJECT WinStaObject, BOOL Swap);
+INT  FASTCALL MouseSafetyOnDrawStart(SURFOBJ *SurfObj, SURFGDI *SurfGDI, LONG HazardX1, LONG HazardY1, LONG HazardX2, LONG HazardY2);
+INT  FASTCALL MouseSafetyOnDrawEnd(SURFOBJ *SurfObj, SURFGDI *SurfGDI);
+BOOL FASTCALL MouseMoveCursor(LONG X, LONG Y);
+VOID FASTCALL EnableMouse(HDC hDisplayDC);
+VOID          MouseGDICallBack(PMOUSE_INPUT_DATA Data, ULONG InputCount);
+VOID FASTCALL SetPointerRect(PSYSTEM_CURSORINFO CurInfo, PRECTL PointerRect);
 
 #ifndef XBUTTON1
 #define XBUTTON1	(0x01)

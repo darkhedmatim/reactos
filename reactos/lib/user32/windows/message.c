@@ -1,4 +1,4 @@
-/* $Id: message.c,v 1.49 2004/12/30 02:32:26 navaraf Exp $
+/* $Id: message.c,v 1.41 2004/06/16 06:18:14 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -8,12 +8,14 @@
  * UPDATE HISTORY:
  *      06-06-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <string.h>
 #include <debug.h>
 #include <user32/callback.h>
 #include <message.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
 
 /* DDE message exchange
  * 
@@ -190,7 +192,6 @@ MsgiUMToKMMessage(PMSG UMMsg, PMSG KMMsg, BOOL Posted)
           KMMsg->lParam = (LPARAM) DdeLparam;
         }
         break;
-
       case WM_DDE_EXECUTE:
         {
           SIZE_T Size;
@@ -218,31 +219,6 @@ MsgiUMToKMMessage(PMSG UMMsg, PMSG KMMsg, BOOL Posted)
           GlobalUnlock((HGLOBAL) UMMsg->lParam);
         }
         break;
-
-      case WM_COPYDATA:
-        {
-          PCOPYDATASTRUCT pUMCopyData = (PCOPYDATASTRUCT)UMMsg->lParam;
-          PCOPYDATASTRUCT pKMCopyData;
-
-          pKMCopyData = HeapAlloc(GetProcessHeap(), 0,
-                                  sizeof(COPYDATASTRUCT) + pUMCopyData->cbData);
-          if (pKMCopyData == NULL)
-            {
-              SetLastError(ERROR_OUTOFMEMORY);
-              return FALSE;
-            }
-
-          pKMCopyData->dwData = pUMCopyData->dwData;
-          pKMCopyData->cbData = pUMCopyData->cbData;
-          pKMCopyData->lpData = pKMCopyData + 1;
-
-          RtlCopyMemory(pKMCopyData + 1, pUMCopyData->lpData, 
-                        pUMCopyData->cbData);
-
-          KMMsg->lParam = (LPARAM)pKMCopyData;
-        }
-        break;
-
       default:
         break;
     }
@@ -257,7 +233,6 @@ MsgiUMToKMCleanup(PMSG UMMsg, PMSG KMMsg)
     {
       case WM_DDE_ACK:
       case WM_DDE_EXECUTE:
-      case WM_COPYDATA:
         HeapFree(GetProcessHeap(), 0, (LPVOID) KMMsg->lParam);
         break;
       default:
@@ -346,13 +321,6 @@ MsgiKMToUMMessage(PMSG KMMsg, PMSG UMMsg)
             }
           UMMsg->wParam = (WPARAM) KMDdeExecuteData->Sender;
           UMMsg->lParam = (LPARAM) GlobalData;
-        }
-        break;
-
-      case WM_COPYDATA:
-        {
-          PCOPYDATASTRUCT pKMCopyData = (PCOPYDATASTRUCT)KMMsg->lParam;
-          pKMCopyData->lpData = pKMCopyData + 1;
         }
         break;
 
@@ -575,6 +543,15 @@ MsgiAnsiToUnicodeReply(LPMSG UnicodeMsg, LPMSG AnsiMsg, LRESULT *Result)
           }
         break;
       }
+
+    case WM_GETTEXTLENGTH:
+    case CB_GETLBTEXTLEN:
+    case LB_GETTEXTLEN:
+      {
+        /* FIXME: There may be one DBCS char for each Unicode char */
+        *Result *= 2;
+        break;
+      }
     }
 
   MsgiAnsiToUnicodeCleanup(UnicodeMsg, AnsiMsg);
@@ -628,18 +605,7 @@ MsgiUnicodeToAnsiMessage(LPMSG AnsiMsg, LPMSG UnicodeMsg)
                 }
               CsA->lpszClass = AString.Buffer;
             }
-          AnsiMsg->lParam = (LPARAM)CsA;
-          break;
-        }
-      case WM_GETTEXT:
-        {
-          /* Ansi string might contain MBCS chars so we need 2 * the number of chars */
-          AnsiMsg->wParam = UnicodeMsg->wParam * 2;
-          AnsiMsg->lParam = (LPARAM) RtlAllocateHeap(GetProcessHeap(), 0, AnsiMsg->wParam);
-          if (NULL == (PVOID) AnsiMsg->lParam)
-            {
-              return FALSE;
-            }
+          UnicodeMsg->lParam = (LPARAM)CsA;
           break;
         }
       case WM_SETTEXT:
@@ -668,10 +634,6 @@ MsgiUnicodeToAnsiCleanup(LPMSG AnsiMsg, LPMSG UnicodeMsg)
   switch(UnicodeMsg->message)
     {
       case WM_GETTEXT:
-        {
-          RtlFreeHeap(GetProcessHeap(), 0, (PVOID) AnsiMsg->lParam);
-          break;
-        }
       case WM_SETTEXT:
         {
           ANSI_STRING AString;
@@ -715,13 +677,22 @@ MsgiUnicodeToAnsiReply(LPMSG AnsiMsg, LPMSG UnicodeMsg, LRESULT *Result)
         if (0 < AnsiMsg->wParam &&
             ! MultiByteToWideChar(CP_ACP, 0, Buffer, -1, UBuffer, UnicodeMsg->wParam))
           {
-            UBuffer[UnicodeMsg->wParam - 1] = L'\0';
+            UBuffer[AnsiMsg->wParam - 1] = L'\0';
           }
+        break;
+      }
+
+    case WM_GETTEXTLENGTH:
+    case CB_GETLBTEXTLEN:
+    case LB_GETTEXTLEN:
+      {
+        /* FIXME: There may be one DBCS char for each Unicode char */
+        *Result /= sizeof(WCHAR);
         break;
       }
     }
 
-  MsgiUnicodeToAnsiCleanup(AnsiMsg, UnicodeMsg);
+  MsgiUnicodeToAnsiCleanup(UnicodeMsg, AnsiMsg);
 
   return TRUE;
 }
@@ -882,13 +853,8 @@ BOOL
 STDCALL
 InSendMessage(VOID)
 {
-  static DWORD ShowNotImplemented = TRUE;
-  if (ShowNotImplemented)
-    {
-      DbgPrint("InSendMessage is unimplemented\n");
-      ShowNotImplemented = FALSE;
-    }
   /* return(NtUserGetThreadState(THREADSTATE_INSENDMESSAGE) != ISMEX_NOSEND); */
+  UNIMPLEMENTED;
   return FALSE;
 }
 
@@ -1924,8 +1890,6 @@ BOOL WINAPI IsInsideMessagePumpHook()
 	if(!gfMessagePumpHook)
 		return FALSE;
 	
-    /* This code checks if we're inside SendMessage. */
-#if 0
 	/* Since our TEB doesnt match that of real windows, testing this value is useless until we know what it does
 	PUCHAR NtTeb = (PUCHAR)NtCurrentTeb();
 
@@ -1934,7 +1898,6 @@ BOOL WINAPI IsInsideMessagePumpHook()
 
 	if(**(PLONG*)&NtTeb[0x708] <= 0)
 		return FALSE;*/
-#endif
 
 	return TRUE;
 }
@@ -1976,7 +1939,7 @@ BOOL WINAPI RegisterMessagePumpHook(MESSAGEPUMPHOOKPROC Hook)
 		return FALSE;
 	}
 	if (!gcLoadMPH++) {
-		InterlockedExchange((PLONG)&gfMessagePumpHook, 1);
+		InterlockedExchange(&gfMessagePumpHook, 1);
 	}
 	LeaveCriticalSection(&gcsMPH);
 	return TRUE;
@@ -1989,7 +1952,7 @@ BOOL WINAPI UnregisterMessagePumpHook(VOID)
 		if(NtUserCallNoParam(NOPARAM_ROUTINE_UNINIT_MESSAGE_PUMP)) {
 			gcLoadMPH--;
 			if(!gcLoadMPH) {
-				InterlockedExchange((PLONG)&gfMessagePumpHook, 0);
+				InterlockedExchange(&gfMessagePumpHook, 0);
 				gpfnInitMPH(TRUE, NULL);
 				ResetMessagePumpHook(&gmph);
 				gpfnInitMPH = 0;
@@ -2007,108 +1970,10 @@ DWORD WINAPI GetQueueStatus(UINT flags)
 	return IsInsideMessagePumpHook() ? gmph.RealGetQueueStatus(flags) : RealGetQueueStatus(flags);
 }
 
-/**
- * @name RealMsgWaitForMultipleObjectsEx
- *
- * Wait either for either message arrival or for one of the passed events
- * to be signalled.
- *
- * @param nCount
- *        Number of handles in the pHandles array.
- * @param pHandles
- *        Handles of events to wait for.
- * @param dwMilliseconds
- *        Timeout interval.
- * @param dwWakeMask
- *        Mask specifying on which message events we should wakeup.
- * @param dwFlags
- *        Wait type (see MWMO_* constants).
- *
- * @implemented
- */
-
-DWORD STDCALL
-RealMsgWaitForMultipleObjectsEx(
-   DWORD nCount,
-   const HANDLE *pHandles,
-   DWORD dwMilliseconds,
-   DWORD dwWakeMask,
-   DWORD dwFlags)
+DWORD WINAPI MsgWaitForMultipleObjectsEx(DWORD nCount, CONST HANDLE *lpHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags)
 {
-   LPHANDLE RealHandles;
-   HANDLE MessageQueueHandle;
-   DWORD Result;
-   
-   if (dwFlags & ~(MWMO_WAITALL | MWMO_ALERTABLE | MWMO_INPUTAVAILABLE))
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return WAIT_FAILED;
-   }
-
-/*
-   if (dwFlags & MWMO_INPUTAVAILABLE)
-   {
-      RealGetQueueStatus(dwWakeMask);
-   }
-   */
-
-   MessageQueueHandle = NtUserMsqSetWakeMask(dwWakeMask);
-   if (MessageQueueHandle == NULL)
-   {
-      SetLastError(0); /* ? */
-      return WAIT_FAILED;
-   }
-
-   RealHandles = HeapAlloc(GetProcessHeap(), 0, (nCount + 1) * sizeof(HANDLE));
-   if (RealHandles == NULL)
-   {
-      NtUserMsqClearWakeMask();
-      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-      return WAIT_FAILED;
-   }
-
-   RtlCopyMemory(RealHandles, pHandles, nCount);
-   RealHandles[nCount] = MessageQueueHandle;
-
-   Result = WaitForMultipleObjectsEx(nCount + 1, RealHandles,
-                                     dwFlags & MWMO_WAITALL,
-                                     dwMilliseconds, dwFlags & MWMO_ALERTABLE);
-
-   HeapFree(GetProcessHeap(), 0, RealHandles);
-   NtUserMsqClearWakeMask();
-
-   return Result;
+	return IsInsideMessagePumpHook() ? gmph.RealMsgWaitForMultipleObjectsEx(nCount, lpHandles, dwMilliseconds, dwWakeMask, dwFlags) : RealMsgWaitForMultipleObjectsEx(nCount, lpHandles,dwMilliseconds, dwWakeMask, dwFlags);
 }
-
-/*
- * @implemented
- */
-DWORD WINAPI
-MsgWaitForMultipleObjectsEx(
-   DWORD nCount,
-   CONST HANDLE *lpHandles,
-   DWORD dwMilliseconds,
-   DWORD dwWakeMask,
-   DWORD dwFlags)
-{
-   return IsInsideMessagePumpHook() ? gmph.RealMsgWaitForMultipleObjectsEx(nCount, lpHandles, dwMilliseconds, dwWakeMask, dwFlags) : RealMsgWaitForMultipleObjectsEx(nCount, lpHandles,dwMilliseconds, dwWakeMask, dwFlags);
-}
-
-/*
- * @implemented
- */
-DWORD STDCALL
-MsgWaitForMultipleObjects(
-   DWORD nCount,
-   CONST HANDLE *lpHandles,
-   BOOL fWaitAll,
-   DWORD dwMilliseconds,
-   DWORD dwWakeMask)
-{
-   return MsgWaitForMultipleObjectsEx(nCount, lpHandles, dwMilliseconds,
-                                      dwWakeMask, fWaitAll ? MWMO_WAITALL : 0);
-}
-
 
 BOOL FASTCALL MessageInit()
 {

@@ -159,10 +159,8 @@ TaskbarSettingsDlg::TaskbarSettingsDlg(HWND hwnd)
  :	super(hwnd),
 	_cfg_org(g_Globals._cfg)
 {
-	XMLPos options = g_Globals.get_cfg("desktopbar/options");
-
- 	CheckDlgButton(hwnd, ID_SHOW_CLOCK, XMLBool(options, "show-clock", true)? BST_CHECKED: BST_UNCHECKED);
-	CheckDlgButton(hwnd, ID_HIDE_INACTIVE_ICONS, XMLBool(options, "hide-inactive", true)? BST_CHECKED: BST_UNCHECKED);
+	CheckDlgButton(hwnd, ID_SHOW_CLOCK, XMLBool(g_Globals.get_cfg("desktopbar"), "options", "show-clock", true)? BST_CHECKED: BST_UNCHECKED);
+	CheckDlgButton(hwnd, ID_HIDE_INACTIVE_ICONS, XMLBool(g_Globals.get_cfg("notify-icons"), "options", "hide-inactive", true)? BST_CHECKED: BST_UNCHECKED);
 }
 
 int TaskbarSettingsDlg::Notify(int id, NMHDR* pnmh)
@@ -191,19 +189,17 @@ int	TaskbarSettingsDlg::Command(int id, int code)
 		Dialog::DoModal(IDD_NOTIFYAREA, WINDOW_CREATOR(TrayNotifyDlg), _hwnd);
 		break;
 
-	  case ID_SHOW_CLOCK: {
-		XMLBoolRef boolRef1(XMLPos(g_Globals.get_cfg("desktopbar/options")), "show-clock", true);
-		boolRef1.toggle();
+	  case ID_SHOW_CLOCK:
+		XMLBoolRef(g_Globals.get_cfg("desktopbar"), "options", "show-clock", true).toggle();
 		SendMessage(g_Globals._hwndDesktopBar, PM_REFRESH_CONFIG, 0, 0);
 		PropSheet_Changed(GetParent(_hwnd), _hwnd);
-		break;}
+		break;
 
-	  case ID_HIDE_INACTIVE_ICONS: {
-		XMLBoolRef boolRef2(XMLPos(g_Globals.get_cfg("notify-icons/options")), "hide-inactive", true);
-        boolRef2.toggle();
+	  case ID_HIDE_INACTIVE_ICONS:
+		XMLBoolRef(g_Globals.get_cfg("notify-icons"), "options", "hide-inactive", true).toggle();
 		SendMessage(g_Globals._hwndDesktopBar, PM_REFRESH_CONFIG, 0, 0);
 		PropSheet_Changed(GetParent(_hwnd), _hwnd);
-		break;}
+		break;
 
 	  default:
 		return 1;
@@ -227,40 +223,5 @@ int	StartmenuSettingsDlg::Command(int id, int code)
 		return 0;
 	}
 */
-	return 1;
-}
-
-
-MdiSdiDlg::MdiSdiDlg(HWND hwnd)
- :	super(hwnd)
-{
-	CenterWindow(hwnd);
-
-	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-	bool mdi = XMLBool(explorer_options, "mdi", true);
-
-	int id = mdi? IDC_MDI: IDC_SDI;
-	CheckDlgButton(hwnd, id, BST_CHECKED);
-	SetFocus(GetDlgItem(hwnd, id));
-}
-
-int	MdiSdiDlg::Command(int id, int code)
-{	
-	if (code == BN_CLICKED) {
-		switch(id) {
-		  case IDOK: {
-			bool mdi = IsDlgButtonChecked(_hwnd, IDC_MDI)==BST_CHECKED;
-			XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
-			XMLBoolRef(explorer_options, "mdi") = mdi;
-		  } // fall through
-
-		  case IDCANCEL:
-			EndDialog(_hwnd, id);
-			break;
-		}
-
-		return 0;
-	}
-
 	return 1;
 }

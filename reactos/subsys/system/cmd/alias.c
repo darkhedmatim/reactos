@@ -27,9 +27,18 @@
  */
 
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef FEATURE_ALIASES
+
+#include <windows.h>
+#include <tchar.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
+
 
 typedef struct tagALIAS
 {

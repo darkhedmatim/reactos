@@ -20,7 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
     
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN    /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -29,6 +30,7 @@
 #include <stdio.h>
 #include <winnt.h>
     
+#include "taskmgr.h"
 #include "trayicon.h"
 #include "perfdata.h"
 #include "shellapi.h"
@@ -154,7 +156,7 @@ BOOL TrayIcon_ShellAddTrayIcon(void)
     nid.hWnd = hMainWnd;
     nid.uID = 0;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    nid.uCallbackMessage = WM_ONTRAYICON;
+    /* nid.uCallbackMessage = ??; */
     nid.hIcon = hIcon;
     wsprintf(nid.szTip, _T("CPU Usage: %d%%"), PerfDataGetProcessorUsage());
 
@@ -177,7 +179,7 @@ BOOL TrayIcon_ShellRemoveTrayIcon(void)
     nid.hWnd = hMainWnd;
     nid.uID = 0;
     nid.uFlags = 0;
-    nid.uCallbackMessage = WM_ONTRAYICON;
+    /* nid.uCallbackMessage = ??; */
     
     bRetVal = Shell_NotifyIcon(NIM_DELETE, &nid);
     
@@ -198,7 +200,7 @@ BOOL TrayIcon_ShellUpdateTrayIcon(void)
     nid.hWnd = hMainWnd;
     nid.uID = 0;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    nid.uCallbackMessage = WM_ONTRAYICON;
+    /* nid.uCallbackMessage = ??; */
     nid.hIcon = hIcon;
     wsprintf(nid.szTip, _T("CPU Usage: %d%%"), PerfDataGetProcessorUsage());
     

@@ -1,4 +1,4 @@
-/* $Id: tuiconsole.c,v 1.3 2004/12/25 11:22:37 navaraf Exp $
+/* $Id: tuiconsole.c,v 1.1 2004/01/11 17:31:16 gvg Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -61,7 +61,7 @@ static void FASTCALL
 TuiCopyRect(char *Dest, PCSRSS_SCREEN_BUFFER Buff, RECT *Region)
 {
   UINT SrcDelta, DestDelta, i;
-  PBYTE Src, SrcEnd;
+  char *Src, *SrcEnd;
 
   Src = Buff->Buffer + (((Region->top + Buff->ShowY) % Buff->MaxY) * Buff->MaxX
                         + Region->left + Buff->ShowX) * 2;
@@ -113,7 +113,7 @@ TuiDrawRegion(PCSRSS_CONSOLE Console, RECT *Region)
   TuiCopyRect((char *) (ConsoleDraw + 1), Buff, Region);
   
   if (! DeviceIoControl(ConsoleDeviceHandle, IOCTL_CONSOLE_DRAW,
-                        NULL, 0, ConsoleDraw, ConsoleDrawSize, &BytesReturned, NULL))
+                        ConsoleDraw, ConsoleDrawSize, NULL, 0, &BytesReturned, NULL))
     {
       DPRINT1("Failed to draw console\n");
       HeapFree(Win32CsrApiHeap, 0, ConsoleDraw);
@@ -307,7 +307,7 @@ TuiSwapConsole(int Next)
       /* redraw the console to clear off old title */
       ConioDrawConsole(ActiveConsole);
       if (! DeviceIoControl(ConsoleDeviceHandle, IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-                            NULL, 0, Buffer, sizeof(COORD) + Title.Length,
+                            Buffer, sizeof(COORD) + Title.Length, NULL, 0,
                             &BytesReturned, NULL))
         {
           DPRINT1( "Error writing to console\n" );

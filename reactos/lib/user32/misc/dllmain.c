@@ -23,6 +23,9 @@ extern CRITICAL_SECTION gcsMPH;
 static ULONG User32TlsIndex;
 HINSTANCE User32Instance;
 
+/* To make the linker happy */
+VOID STDCALL KeBugCheck (ULONG	BugCheckCode) {}
+
 HWINSTA ProcessWindowStation;
 
 PUSER32_THREAD_DATA
@@ -51,9 +54,11 @@ CleanupThread(VOID)
   TlsSetValue(User32TlsIndex, 0);
 }
 
-VOID
+DWORD
 Init(VOID)
 {
+  DWORD Status;
+
   /* Set up the kernel callbacks. */
   NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
     (PVOID)User32CallWindowProcFromKernel;
@@ -76,15 +81,20 @@ Init(VOID)
   InitializeCriticalSection(&gcsMPH);
 
   GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
-  InitStockObjects();
+
+  return(Status);
 }
 
-VOID
+DWORD
 Cleanup(VOID)
 {
+  DWORD Status;
+
   GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
 
   TlsFree(User32TlsIndex);
+
+  return(Status);
 }
 
 

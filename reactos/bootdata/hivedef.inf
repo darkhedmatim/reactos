@@ -5,19 +5,12 @@ Signature="$ReactOS$
 
 HKCU,"Control Panel",,0x00000012
 HKCU,"Control Panel\Appearance",,0x00000012
-HKCU,"Control Panel\Desktop","AutoEndTasks",0x00000002,"0"
 HKCU,"Control Panel\Desktop","CursorBlinkRate",0x00000002,"530"
 HKCU,"Control Panel\Desktop","DragFullWindows",0x00000002,"0"
-HKCU,"Control Panel\Desktop","PaintDesktopVersion",0x00010001,"0"
-HKCU,"Control Panel\Desktop","HungAppTimeout",0x00000002,"5000"
-HKCU,"Control Panel\Desktop","WaitToKillAppTimeout",0x00000002,"20000"
-HKCU,"Control Panel\Desktop","Wallpaper",0x00000000,""
 HKCU,"Control Panel\International",,0x00000012
 HKCU,"Control Panel\International","Locale",0x00000000,"0409"
 
 HKCU,"Environment",,0x00000012
-HKCU,"Environment","TEMP",0x00020000,"%USERPROFILE%\Local Settings\Temp"
-HKCU,"Environment","TMP",0x00020000,"%USERPROFILE%\Local Settings\Temp"
 
 HKCU,"SOFTWARE",,0x00000012
 HKCU,"SOFTWARE\Microsoft",,0x00000012
@@ -27,7 +20,26 @@ HKCU,"SOFTWARE\Microsoft\Windows",,0x00000012
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion",,0x00000012
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer",,0x00000012
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders",,0x00000012
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Desktop",0x00020000,"%USERPROFILE%\Desktop"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","AppData",0x00020000,"%USERPROFILE%\Application Data"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Programs",0x00020000,"%USERPROFILE%\Start Menu\Programs"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Start Menu",0x00020000,"%USERPROFILE%\Start Menu"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Favorites",0x00020000,"%USERPROFILE%\Favorites"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Startup",0x00020000,"%USERPROFILE%\Programs\Startup"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Templates",0x00020000,"%USERPROFILE%\Templates"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Personal",0x00020000,"%USERPROFILE%\My Documents"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","SendTo",0x00020000,"%USERPROFILE%\SendTo"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","Recent",0x00020000,"%USERPROFILE%\Recent"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders","NetHood",0x00020000,"%USERPROFILE%\NetHood"
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",,0x00000012
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Common Desktop",0x00020000,"%ALLUSERSPROFILE%\Desktop"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Common Programs",0x00020000,"%ALLUSERSPROFILE%\Start Menu\Programs"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Common Start Menu",0x00020000,"%ALLUSERSPROFILE%\Start Menu"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Desktop",0x00020000,"%USERPROFILE%\Desktop"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Favorites",0x00020000,"%USERPROFILE%\Favorites"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Personal",0x00020000,"%USERPROFILE%\My Documents"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Programs",0x00020000,"%USERPROFILE%\Start Menu\Programs"
+HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders","Start Menu",0x00020000,"%USERPROFILE%\Start Menu"
 
 
 HKCU,"SOFTWARE\Microsoft\Windows NT",,0x00000012

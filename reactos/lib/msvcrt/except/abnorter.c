@@ -1,6 +1,5 @@
-#include "precomp.h"
+#include <windows.h>
 #include <stdio.h>
-
 
 #ifdef __GNUC__
 

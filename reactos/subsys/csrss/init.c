@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.30 2004/11/14 18:47:10 hbirr Exp $
+/* $Id: init.c,v 1.27 2004/05/28 21:33:41 gvg Exp $
  * 
  * reactos/subsys/csrss/init.c
  *
@@ -207,6 +207,7 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     CSRSS_DEFINE_API(CSRSS_TERMINATE_PROCESS,            CsrTerminateProcess),
     CSRSS_DEFINE_API(CSRSS_CONNECT_PROCESS,              CsrConnectProcess),
     CSRSS_DEFINE_API(CSRSS_REGISTER_SERVICES_PROCESS,    CsrRegisterServicesProcess),
+    CSRSS_DEFINE_API(CSRSS_EXIT_REACTOS,                 CsrExitReactos),
     CSRSS_DEFINE_API(CSRSS_GET_SHUTDOWN_PARAMETERS,      CsrGetShutdownParameters),
     CSRSS_DEFINE_API(CSRSS_SET_SHUTDOWN_PARAMETERS,      CsrSetShutdownParameters),
     CSRSS_DEFINE_API(CSRSS_GET_INPUT_HANDLE,             CsrGetInputHandle),
@@ -214,7 +215,6 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     CSRSS_DEFINE_API(CSRSS_CLOSE_HANDLE,                 CsrCloseHandle),
     CSRSS_DEFINE_API(CSRSS_VERIFY_HANDLE,                CsrVerifyHandle),
     CSRSS_DEFINE_API(CSRSS_DUPLICATE_HANDLE,             CsrDuplicateHandle),
-    CSRSS_DEFINE_API(CSRSS_GET_INPUT_WAIT_HANDLE,        CsrGetInputWaitHandle),
     { 0, 0, 0, NULL }
   };
 
@@ -249,6 +249,7 @@ CsrServerInitialization (
       return FALSE;
     }
 
+  CsrIsCsrss( );
   CsrInitVideo();
 
   CsrssApiHeap = RtlCreateHeap(HEAP_GROWABLE,
@@ -267,6 +268,13 @@ CsrServerInitialization (
   if (! NT_SUCCESS(Status))
     {
       return Status;
+    }
+
+  Status = InitWin32Csr();
+  if (! NT_SUCCESS(Status))
+    {
+      DPRINT1("CSR: Unable to load usermode dll (Status %x)\n", Status);
+      return FALSE;
     }
 
   /* NEW NAMED PORT: \ApiPort */
@@ -292,7 +300,7 @@ CsrServerInitialization (
                                0,
                                NULL,
                                NULL,
-                               (PTHREAD_START_ROUTINE)ServerApiPortThead,
+                               (PTHREAD_START_ROUTINE)Thread_Api,
                                ApiPortHandle,
                                NULL,
                                NULL);
@@ -300,18 +308,6 @@ CsrServerInitialization (
     {
       DPRINT1("CSR: Unable to create server thread\n");
       NtClose(ApiPortHandle);
-      return FALSE;
-    }
-  Status = CsrClientConnectToServer();
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("CsrClientConnectToServer() failed (Status %x)\n", Status);
-      return FALSE;
-    }
-  Status = InitWin32Csr();
-  if (! NT_SUCCESS(Status))
-    {
-      DPRINT1("CSR: Unable to load usermode dll (Status %x)\n", Status);
       return FALSE;
     }
 

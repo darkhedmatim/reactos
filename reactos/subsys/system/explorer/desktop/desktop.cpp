@@ -278,8 +278,6 @@ LRESULT BackgroundWindow::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			DWORD reset_mask = LOWORD(lparam);
 			DWORD xor_mask = HIWORD(lparam);
 			_display_version = ((_display_version&~reset_mask) | or_mask) ^ xor_mask;
-			RegSetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), _display_version);
-			///@todo Changing the PaintDesktopVersion-Flag needs a restart of the shell -> display a message box
 			InvalidateRect(_hwnd, NULL, TRUE);
 		}
 		return _display_version;
@@ -300,6 +298,27 @@ void BackgroundWindow::DrawDesktopBkgnd(HDC hdc)
 	FillRect(hdc, &rect, bkgndBrush);
 	DeleteBrush(bkgndBrush);
 */
+	if (_display_version) {
+		ClientRect rect(_hwnd);
+
+		rect.left = rect.right - 280;
+		rect.top = rect.bottom - 56 - DESKTOPBARBAR_HEIGHT;
+		rect.right = rect.left + 250;
+		rect.bottom = rect.top + 40;
+
+	#include "../buildno.h"
+		static const LPCTSTR BkgndText = TEXT("ReactOS ")TEXT(KERNEL_VERSION_STR)TEXT(" Explorer\nby Martin Fuchs");
+
+		BkMode bkMode(hdc, TRANSPARENT);
+
+		TextColor textColor(hdc, RGB(128,128,192));
+		DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
+
+		SetTextColor(hdc, RGB(255,255,255));
+		--rect.right;
+		++rect.top;
+		DrawText(hdc, BkgndText, -1, &rect, DT_RIGHT);
+	}
 }
 
 

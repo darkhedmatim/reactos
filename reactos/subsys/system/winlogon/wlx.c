@@ -1,4 +1,4 @@
-/* $Id: wlx.c,v 1.6 2004/10/11 21:08:05 weiden Exp $
+/* $Id: wlx.c,v 1.4 2004/03/28 12:21:41 weiden Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include <WinWlx.h>
 #include <wchar.h>
-#include <reactos/winlogon.h>
 
 #include "setup.h"
 #include "winlogon.h"
@@ -494,7 +493,7 @@ static void
 GetMsGinaPath(WCHAR *path)
 {
   DWORD Status, Type, Size;
-  HKEY hKey;
+  HANDLE hKey;
   
   Status = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                         L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
@@ -521,7 +520,8 @@ GetMsGinaPath(WCHAR *path)
   RegCloseKey(hKey);
 }
 
-INT_PTR CALLBACK
+BOOL 
+CALLBACK 
 GinaLoadFailedProc(
   HWND hwndDlg,
   UINT uMsg,
@@ -652,7 +652,7 @@ MsGinaInit(void)
   WLSession->MsGina.Version = GinaDllVersion;
   WLSession->SuppressStatus = FALSE;
   
-  if(!WLSession->MsGina.Functions.WlxInitialize(WLSession->InteractiveWindowStationName,
+  if(!WLSession->MsGina.Functions.WlxInitialize(WLSession->InteractiveWindowStation,
                                                (HANDLE)WLSession,
                                                NULL,
                                                (PVOID)&FunctionTable,
@@ -670,9 +670,7 @@ WlxCreateWindowStationAndDesktops(PWLSESSION Session)
   /*
    * Create the interactive window station
    */
-  Session->InteractiveWindowStationName = L"WinSta0";
-  Session->InteractiveWindowStation = CreateWindowStation(Session->InteractiveWindowStationName,
-                                                          0, GENERIC_ALL, NULL);
+  Session->InteractiveWindowStation = CreateWindowStation(L"WinSta0", 0, GENERIC_ALL, NULL);
   if(!Session->InteractiveWindowStation)
   {
     DbgPrint("WL: Failed to create window station (0x%X)\n", GetLastError());
@@ -698,7 +696,7 @@ WlxCreateWindowStationAndDesktops(PWLSESSION Session)
   /*
    * Create the winlogon desktop
    */
-  Session->WinlogonDesktop = CreateDesktop(WINLOGON_DESKTOP,
+  Session->WinlogonDesktop = CreateDesktop(L"Winlogon",
                                            NULL,
                                            NULL,
                                            0,      /* FIXME: Set some flags */

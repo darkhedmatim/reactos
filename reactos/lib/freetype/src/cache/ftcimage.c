@@ -26,11 +26,10 @@
 
 
   /* finalize a given glyph image node */
-  FT_LOCAL_DEF( void )
-  ftc_inode_free( FTC_Node   ftcinode,
+  FT_EXPORT_DEF( void )
+  FTC_INode_Free( FTC_INode  inode,
                   FTC_Cache  cache )
   {
-    FTC_INode  inode = (FTC_INode)ftcinode;
     FT_Memory  memory = cache->memory;
 
 
@@ -45,11 +44,11 @@
   }
 
 
-  FT_EXPORT_DEF( void )
-  FTC_INode_Free( FTC_INode  inode,
+  FT_LOCAL_DEF( void )
+  ftc_inode_free( FTC_INode  inode,
                   FTC_Cache  cache )
   {
-    ftc_inode_free( FTC_NODE( inode ), cache );
+    FTC_INode_Free( inode, cache );
   }
 
 
@@ -86,27 +85,19 @@
 
 
   FT_LOCAL_DEF( FT_Error )
-  ftc_inode_new( FTC_Node   *ftcpinode,
-                 FT_Pointer  ftcgquery,
-                 FTC_Cache   cache )
+  ftc_inode_new( FTC_INode   *pinode,
+                 FTC_GQuery   gquery,
+                 FTC_Cache    cache )
   {
-    FTC_INode  *pinode = (FTC_INode*)ftcpinode;
-    FTC_GQuery  gquery = (FTC_GQuery)ftcgquery;
-
-
     return FTC_INode_New( pinode, gquery, cache );
   }
 
 
-  FT_LOCAL_DEF( FT_ULong )
-  ftc_inode_weight( FTC_Node   ftcinode,
-                    FTC_Cache  ftccache )
+  FT_EXPORT_DEF( FT_ULong )
+  FTC_INode_Weight( FTC_INode  inode )
   {
-    FTC_INode  inode = (FTC_INode)ftcinode;
-    FT_ULong   size  = 0;
-    FT_Glyph   glyph = inode->glyph;
-
-    FT_UNUSED( ftccache );
+    FT_ULong  size  = 0;
+    FT_Glyph  glyph = inode->glyph;
 
 
     switch ( glyph->format )
@@ -144,10 +135,10 @@
   }
 
 
-  FT_EXPORT_DEF( FT_ULong )
-  FTC_INode_Weight( FTC_INode  inode )
+  FT_LOCAL_DEF( FT_ULong )
+  ftc_inode_weight( FTC_INode  inode )
   {
-    return ftc_inode_weight( FTC_NODE( inode ), NULL );
+    return FTC_INode_Weight( inode );
   }
 
 

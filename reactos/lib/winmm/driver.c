@@ -29,14 +29,11 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winnls.h"
-#include "winreg.h"
 #include "mmddk.h"
 #include "winemm.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(driver);
-
-#define HKLM_BASE "Software\\Microsoft\\Windows NT\\CurrentVersion"
 
 static LPWINE_DRIVER   lpDrvItemList  /* = NULL */;
 
@@ -209,21 +206,7 @@ static	BOOL	DRIVER_AddToList(LPWINE_DRIVER lpNewDrv, LPARAM lParam1, LPARAM lPar
  */
 BOOL	DRIVER_GetLibName(LPCSTR keyName, LPCSTR sectName, LPSTR buf, int sz)
 {
-    HKEY	hKey, hSecKey;
-    DWORD	bufLen, lRet;
-
-    lRet = RegOpenKeyExA(HKEY_LOCAL_MACHINE, HKLM_BASE, 0, KEY_QUERY_VALUE, &hKey);
-    if (lRet == ERROR_SUCCESS) {
-	lRet = RegOpenKeyExA(hKey, sectName, 0, KEY_QUERY_VALUE, &hSecKey);
-	if (lRet == ERROR_SUCCESS) {
-	    lRet = RegQueryValueExA(hSecKey, keyName, 0, 0, buf, &bufLen);
-	    RegCloseKey( hSecKey );
-	}
-        RegCloseKey( hKey );
-    }
-    if (lRet == ERROR_SUCCESS) return TRUE;
-    /* default to system.ini if we can't find it in the registry,
-     * to support native installations where system.ini is still used */
+    /* should also do some registry diving */
     return GetPrivateProfileStringA(sectName, keyName, "", buf, sz, "SYSTEM.INI");
 }
 
@@ -468,7 +451,7 @@ HMODULE WINAPI GetDriverModuleHandle(HDRVR hDrvr)
  * 				DefDriverProc			  [WINMM.@]
  * 				DrvDefDriverProc		  [WINMM.@]
  */
-LRESULT WINAPI DefDriverProc(DWORD_PTR dwDriverIdentifier, HDRVR hDrv,
+LRESULT WINAPI DefDriverProc(DWORD dwDriverIdentifier, HDRVR hDrv,
 			     UINT Msg, LPARAM lParam1, LPARAM lParam2)
 {
     switch (Msg) {

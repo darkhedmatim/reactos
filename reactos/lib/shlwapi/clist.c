@@ -20,8 +20,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define COBJMACROS
-
 #include "windef.h"
 #include "winbase.h"
 #include "objbase.h"
@@ -51,7 +49,7 @@ HRESULT WINAPI SHAddDataBlock(LPSHLWAPI_CLIST*,LPCSHLWAPI_CLIST);
  */
 inline static LPSHLWAPI_CLIST NextItem(LPCSHLWAPI_CLIST lpList)
 {
-  const char* address = (const char*)lpList;
+  const char* address = (char*)lpList;
   address += lpList->ulSize;
   return (LPSHLWAPI_CLIST)address;
 }

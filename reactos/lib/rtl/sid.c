@@ -1,4 +1,4 @@
-/* $Id: sid.c,v 1.4 2004/07/12 19:39:29 ekohl Exp $
+/* $Id: sid.c,v 1.1 2004/05/31 19:29:02 gdalsnes Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -24,13 +24,15 @@
 BOOLEAN STDCALL
 RtlValidSid(IN PSID Sid)
 {
-  if ((Sid->Revision != SID_REVISION) ||
-      (Sid->SubAuthorityCount > SID_MAX_SUB_AUTHORITIES))
-    {
-      return FALSE;
-    }
-
-   return TRUE;
+   if ((Sid->Revision & 0xf) != 1)
+   {
+      return(FALSE);
+   }
+   if (Sid->SubAuthorityCount > 15)
+   {
+      return(FALSE);
+   }
+   return(TRUE);
 }
 
 
@@ -40,7 +42,7 @@ RtlValidSid(IN PSID Sid)
 ULONG STDCALL
 RtlLengthRequiredSid(IN UCHAR SubAuthorityCount)
 {
-  return (sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG));
+   return(sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG));
 }
 
 
@@ -52,13 +54,12 @@ RtlInitializeSid(IN PSID Sid,
                  IN PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
                  IN UCHAR SubAuthorityCount)
 {
-  Sid->Revision = SID_REVISION;
-  Sid->SubAuthorityCount = SubAuthorityCount;
-  memcpy(&Sid->IdentifierAuthority,
-         IdentifierAuthority,
-         sizeof(SID_IDENTIFIER_AUTHORITY));
-
-  return STATUS_SUCCESS;
+   Sid->Revision = 1;
+   Sid->SubAuthorityCount = SubAuthorityCount;
+   memcpy(&Sid->IdentifierAuthority,
+          IdentifierAuthority,
+          sizeof(SID_IDENTIFIER_AUTHORITY));
+   return(STATUS_SUCCESS);
 }
 
 
@@ -69,7 +70,7 @@ PULONG STDCALL
 RtlSubAuthoritySid(IN PSID Sid,
                    IN ULONG SubAuthority)
 {
-  return &Sid->SubAuthority[SubAuthority];
+   return(&Sid->SubAuthority[SubAuthority]);
 }
 
 
@@ -79,7 +80,7 @@ RtlSubAuthoritySid(IN PSID Sid,
 PUCHAR STDCALL
 RtlSubAuthorityCountSid(IN PSID Sid)
 {
-  return &Sid->SubAuthorityCount;
+   return(&Sid->SubAuthorityCount);
 }
 
 
@@ -90,7 +91,7 @@ BOOLEAN STDCALL
 RtlEqualSid(IN PSID Sid1,
             IN PSID Sid2)
 {
-  if (Sid1->Revision != Sid2->Revision)
+   if (Sid1->Revision != Sid2->Revision)
    {
       return(FALSE);
    }
@@ -98,7 +99,7 @@ RtlEqualSid(IN PSID Sid1,
    {
       return(FALSE);
    }
-   if (RtlCompareMemory(Sid1, Sid2, RtlLengthSid(Sid1)) != RtlLengthSid(Sid1))
+   if (RtlCompareMemory(Sid1, Sid2, RtlLengthSid(Sid1)) != 0)
    {
       return(FALSE);
    }
@@ -112,7 +113,7 @@ RtlEqualSid(IN PSID Sid1,
 ULONG STDCALL
 RtlLengthSid(IN PSID Sid)
 {
-  return (sizeof(SID) + (Sid->SubAuthorityCount-1) * sizeof(ULONG));
+   return(sizeof(SID) + (Sid->SubAuthorityCount-1)*4);
 }
 
 
@@ -124,16 +125,14 @@ RtlCopySid(ULONG BufferLength,
            PSID Dest,
            PSID Src)
 {
-  if (BufferLength < RtlLengthSid(Src))
-    {
-      return STATUS_UNSUCCESSFUL;
-    }
-
-  memmove(Dest,
-          Src,
-          RtlLengthSid(Src));
-
-  return STATUS_SUCCESS;
+   if (BufferLength < RtlLengthSid(Src))
+   {
+      return(STATUS_UNSUCCESSFUL);
+   }
+   memmove(Dest,
+           Src,
+           RtlLengthSid(Src));
+   return(STATUS_SUCCESS);
 }
 
 
@@ -182,47 +181,51 @@ RtlCopySidAndAttributesArray(ULONG Count,
 PSID_IDENTIFIER_AUTHORITY STDCALL
 RtlIdentifierAuthoritySid(IN PSID Sid)
 {
-  return &Sid->IdentifierAuthority;
+   return(&Sid->IdentifierAuthority);
 }
 
 
 /*
  * @implemented
  */
-NTSTATUS STDCALL
-RtlAllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
-			    UCHAR SubAuthorityCount,
-			    ULONG SubAuthority0,
-			    ULONG SubAuthority1,
-			    ULONG SubAuthority2,
-			    ULONG SubAuthority3,
-			    ULONG SubAuthority4,
-			    ULONG SubAuthority5,
-			    ULONG SubAuthority6,
-			    ULONG SubAuthority7,
-			    PSID *Sid)
+NTSTATUS
+STDCALL
+RtlAllocateAndInitializeSid (
+   PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
+   UCHAR    SubAuthorityCount,
+   ULONG    SubAuthority0,
+   ULONG    SubAuthority1,
+   ULONG    SubAuthority2,
+   ULONG    SubAuthority3,
+   ULONG    SubAuthority4,
+   ULONG    SubAuthority5,
+   ULONG    SubAuthority6,
+   ULONG    SubAuthority7,
+   PSID    *Sid
+)
 {
-  PSID pSid;
+   PSID pSid;
 
-  if (SubAuthorityCount > 8)
-    return STATUS_INVALID_SID;
+   if (SubAuthorityCount > 8)
+      return STATUS_INVALID_SID;
 
-  if (Sid == NULL)
-    return STATUS_INVALID_PARAMETER;
+   if (Sid == NULL)
+      return STATUS_INVALID_PARAMETER;
 
-  pSid = (PSID)ExAllocatePool(PagedPool,
-			      sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG));
-  if (pSid == NULL)
-    return STATUS_NO_MEMORY;
+   pSid = (PSID)RtlAllocateHeap (RtlGetProcessHeap (),
+                                 0,
+                                 SubAuthorityCount * sizeof(DWORD) + 8);
+   if (pSid == NULL)
+      return STATUS_NO_MEMORY;
 
-  pSid->Revision = SID_REVISION;
-  pSid->SubAuthorityCount = SubAuthorityCount;
-  memcpy(&pSid->IdentifierAuthority,
-         IdentifierAuthority,
-         sizeof(SID_IDENTIFIER_AUTHORITY));
+   pSid->Revision = 1;
+   pSid->SubAuthorityCount = SubAuthorityCount;
+   memcpy (&pSid->IdentifierAuthority,
+           IdentifierAuthority,
+           sizeof(SID_IDENTIFIER_AUTHORITY));
 
-  switch (SubAuthorityCount)
-    {
+   switch (SubAuthorityCount)
+   {
       case 8:
          pSid->SubAuthority[7] = SubAuthority7;
       case 7:
@@ -240,26 +243,24 @@ RtlAllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
       case 1:
          pSid->SubAuthority[0] = SubAuthority0;
          break;
-    }
+   }
 
-  *Sid = pSid;
+   *Sid = pSid;
 
-  return STATUS_SUCCESS;
+   return STATUS_SUCCESS;
 }
 
 
 /*
  * @implemented
- *
- * RETURNS
- *  Docs says FreeSid does NOT return a value
- *  even thou it's defined to return a PVOID...
  */
-PVOID STDCALL
+PSID STDCALL
 RtlFreeSid(IN PSID Sid)
 {
-   ExFreePool(Sid);
-   return NULL;
+   RtlFreeHeap(RtlGetProcessHeap(),
+               0,
+               Sid);
+   return(Sid);
 }
 
 
@@ -326,7 +327,9 @@ RtlConvertSidToUnicodeString(PUNICODE_STRING String,
    Length = (wcs - Buffer) * sizeof(WCHAR);
    if (AllocateBuffer)
    {
-      String->Buffer = ExAllocatePool(PagedPool,Length + sizeof(WCHAR));
+      String->Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
+                                        0,
+                                        Length + sizeof(WCHAR));
       if (String->Buffer == NULL)
          return STATUS_NO_MEMORY;
       String->MaximumLength = Length + sizeof(WCHAR);

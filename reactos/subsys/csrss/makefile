@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.31 2004/09/10 23:29:28 sedwards Exp $
+# $Id: makefile,v 1.29 2004/05/28 21:33:41 gvg Exp $
 
 PATH_TO_TOP = ../..
 
@@ -9,11 +9,11 @@ TARGET_APPTYPE = native
 
 TARGET_NAME = csrss
 
-TARGET_SDKLIBS = rosrtl.a ntdll.a 
+TARGET_SDKLIBS = rosrtl.a ntdll.a
 
 TARGET_INSTALLDIR = system32
 
-TARGET_CFLAGS = -D__NTAPP__ -D__USE_W32API -Wall -Werror -Iinclude
+TARGET_CFLAGS = -D__NTAPP__ -Wall -Werror -Iinclude
 
 TARGET_LFLAGS = -nostdlib
 

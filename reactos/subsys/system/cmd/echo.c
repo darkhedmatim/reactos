@@ -1,4 +1,4 @@
-/* $Id: echo.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: echo.c,v 1.3 2004/04/30 16:52:41 navaraf Exp $
  *
  *  ECHO.C - internal echo commands.
  *
@@ -24,7 +24,14 @@
  *        Implemented 'echo.' and 'echoerr.'.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 INT CommandEcho (LPTSTR cmd, LPTSTR param)

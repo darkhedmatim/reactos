@@ -30,7 +30,8 @@
 
 /* INCLUDES *******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <draw.h>
 #include <stdlib.h>
@@ -341,9 +342,6 @@ IntDrawScrollBar(HWND Wnd, HDC DC, INT Bar)
       case SB_CTL:
         Vertical = (GetWindowLongW(Wnd, GWL_STYLE) & SBS_VERT) != 0;
         break;
-
-      default:
-        return;
     }
   if (! IntGetScrollBarInfo(Wnd, Bar, &Info))
     {

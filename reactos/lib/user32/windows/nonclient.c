@@ -147,38 +147,52 @@ UserHasMenu(HWND hWnd, ULONG Style)
 HICON 
 UserGetWindowIcon(HWND hwnd)
 {
-   HICON hIcon = 0;
-
-   SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
-
-   if (!hIcon)
-      hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
-
-   if (!hIcon)
-      hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
-
-   return hIcon;
+  HICON Ret;
+  
+  if(SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&Ret) && Ret)
+  {
+    return Ret;
+  }
+  if(SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&Ret) && Ret)
+  {
+    return Ret;
+  }
+  if(SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&Ret) && Ret)
+  {
+    return Ret;
+  }
+  if((Ret = (HICON)GetClassLongW(hwnd, GCL_HICONSM)))
+  {
+    return Ret;
+  }
+  if((Ret = (HICON)GetClassLongW(hwnd, GCL_HICON)))
+  {
+    return Ret;
+  }
+  if(SendMessageTimeoutW(hwnd, WM_QUERYDRAGICON, 0, 0, 0, 1000, (LPDWORD)&Ret) && Ret)
+  {
+    return Ret;
+  }
+  if((Ret = LoadIconW(0, IDI_APPLICATION)))
+  {
+    return Ret;
+  }
+  
+  return NULL;
 }
 
 BOOL
 UserDrawSysMenuButton(HWND hWnd, HDC hDC, LPRECT Rect, BOOL Down)
 {
-   HICON WindowIcon;
+  HICON WindowIcon;
   
-   if ((WindowIcon = UserGetWindowIcon(hWnd)))
-   {
-      return DrawIconEx(hDC, Rect->left + 2, Rect->top + 2, WindowIcon,
-                        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
-                        0, NULL, DI_NORMAL);
-   }
-
-   return FALSE;
+  if((WindowIcon = UserGetWindowIcon(hWnd)))
+  {
+    return DrawIconEx(hDC, Rect->left + 2, Rect->top + 2, WindowIcon,
+                      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+                      0, NULL, DI_NORMAL);
+  }
+  return FALSE;
 }
 
 /*
@@ -886,7 +900,7 @@ DefWndDoButton(HWND hWnd, WPARAM wParam)
   BOOL InBtn, HasBtn = FALSE;
   ULONG Btn, Style;
   WPARAM SCMsg, CurBtn = wParam, OrigBtn = wParam;
-  HDC WindowDC = NULL;
+  HDC WindowDC;
   
   Style = GetWindowLongW(hWnd, GWL_STYLE);
   switch(wParam)
@@ -1031,7 +1045,7 @@ DefWndNCLButtonDblClk(HWND hWnd, WPARAM wParam, LPARAM lParam)
     case HTCAPTION:
     {
       /* Maximize/Restore the window */
-      if((Style & WS_CAPTION) == WS_CAPTION && (Style & WS_MAXIMIZEBOX))
+      if((Style & WS_CAPTION) && (Style & WS_MAXIMIZEBOX))
       {
         SendMessageW(hWnd, WM_SYSCOMMAND, ((Style & (WS_MINIMIZE | WS_MAXIMIZE)) ? SC_RESTORE : SC_MAXIMIZE), 0);
       }
@@ -1209,11 +1223,11 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
             xx = GetSystemMetrics(SM_CXSIZE) + Padding;
             /* draw icon background */
             PatBlt(MemDC, 0, 0, xx, lprc->bottom - lprc->top, PATCOPY);
-            /* For some reason the icon isn't centered correctly... */
+            // For some reason the icon isn't centered correctly...
             r.top --;
-            if (UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE))
-              r.left += xx;
+            UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE);
             r.top ++;
+            r.left += xx;
           }
           
           vert[0].x = r.left;
@@ -1255,10 +1269,9 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
     
     if ((uFlags & DC_ICON) && !(uFlags & DC_GRADIENT) && (Style & WS_SYSMENU) && !(uFlags & DC_SMALLCAP))
     {
-        /* For some reason the icon isn't centered correctly... */
+        // For some reason the icon isn't centered correctly...
         r.top --;
-        if (UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE))
-          r.left += GetSystemMetrics(SM_CXSIZE) + Padding;
+        UserDrawSysMenuButton(hWnd, MemDC, &r, FALSE);
         r.top ++;
     }
     r.top ++;
@@ -1270,6 +1283,9 @@ DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
   {
     if(!(uFlags & DC_GRADIENT))
     {
+    if (!(uFlags & DC_SMALLCAP) && ((uFlags & DC_ICON) || (uFlags & DC_INBUTTON)))
+        r.left += GetSystemMetrics(SM_CXSIZE) + Padding;
+
     r.right = (lprc->right - lprc->left);
     if (uFlags & DC_SMALLCAP)
       ButtonWidth = GetSystemMetrics(SM_CXSMSIZE) - 2;

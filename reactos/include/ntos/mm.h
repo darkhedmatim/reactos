@@ -17,7 +17,6 @@
 
 #define SEC_BASED       (0x00200000)
 #define SEC_NO_CHANGE   (0x00400000)
-#define SEC_FILE        (0x00800000)
 #define SEC_IMAGE       (0x01000000)
 #define SEC_VLM         (0x02000000)
 #define SEC_RESERVE     (0x04000000)
@@ -55,7 +54,6 @@
 #define FILE_MAP_READ	(4)
 #define FILE_MAP_WRITE	(2)
 #define FILE_MAP_COPY	(1)
-
 #else /* __USE_W32API */
 
 #include <ddk/ntifs.h>

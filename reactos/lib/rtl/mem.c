@@ -1,5 +1,5 @@
 
-/* $Id: mem.c,v 1.3 2004/11/25 19:25:06 ekohl Exp $
+/* $Id: mem.c,v 1.1 2004/05/31 19:29:02 gdalsnes Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -39,13 +39,14 @@
  *
  * @implemented
  */
-ULONG STDCALL
-RtlCompareMemory(IN const VOID *Source1,
-                 IN const VOID *Source2,
-                 IN SIZE_T Length)
+ULONG
+STDCALL
+RtlCompareMemory(PVOID Source1,
+                 PVOID Source2,
+                 ULONG Length)
 {
    SIZE_T i;
-   for(i=0; (i<Length) && (((PUCHAR)Source1)[i]==((PUCHAR)Source2)[i]); i++)
+   for(i=0; (i<Length) && (((LPBYTE)Source1)[i]==((LPBYTE)Source2)[i]); i++)
       ;
    return i;
 }
@@ -143,18 +144,6 @@ RtlMoveMemory (
    );
 }
 
-/*
-* @unimplemented
-*/
-VOID
-FASTCALL
-RtlPrefetchMemoryNonTemporal(
-	IN PVOID Source,
-	IN SIZE_T Length
-	)
-{
-	UNIMPLEMENTED;
-}
 
 /*
  * @implemented

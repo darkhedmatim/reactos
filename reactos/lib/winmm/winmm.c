@@ -28,17 +28,6 @@
  *      99/9	added support for loadable low level drivers
  */
 
-/* TODO
- *      + it seems that some programs check what's installed in
- *        registry against the value returned by drivers. Wine is
- *        currently broken regarding this point.
- *      + check thread-safeness for MMSYSTEM and WINMM entry points
- *      + unicode entry points are badly supported (would require
- *        moving 32 bit drivers as Unicode as they are supposed to be)
- *      + allow joystick and timer external calls as we do for wave,
- *        midi, mixer and aux
- */
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -94,9 +83,7 @@ static	BOOL	WINMM_CreateIData(HINSTANCE hInstDLL)
 	return FALSE;
     WINMM_IData->hWinMM32Instance = hInstDLL;
     InitializeCriticalSection(&WINMM_IData->cs);
-/* FIXME crashes in ReactOS
-    WINMM_IData->cs.DebugInfo->Spare[1] = (DWORD)"WINMM_IData";
-*/
+    WINMM_IData->cs.DebugInfo = (void*)__FILE__ ": WinMM";
     WINMM_IData->psStopEvent = CreateEventA(NULL, TRUE, FALSE, NULL);
     WINMM_IData->psLastEvent = CreateEventA(NULL, TRUE, FALSE, NULL);
     TRACE("Created IData (%p)\n", WINMM_IData);
@@ -116,7 +103,7 @@ static	void WINMM_DeleteIData(void)
         CloseHandle(WINMM_IData->psStopEvent);
         CloseHandle(WINMM_IData->psLastEvent);
         DeleteCriticalSection(&WINMM_IData->cs);
-        HeapFree(GetProcessHeap(), 0, WINMM_IData);
+	HeapFree(GetProcessHeap(), 0, WINMM_IData);
         WINMM_IData = NULL;
     }
 }
@@ -171,15 +158,6 @@ const char* WINMM_ErrorToString(MMRESULT error)
     ERR_TO_STR(MMSYSERR_BADERRNUM);
     ERR_TO_STR(MMSYSERR_INVALFLAG);
     ERR_TO_STR(MMSYSERR_INVALPARAM);
-    ERR_TO_STR(MMSYSERR_HANDLEBUSY);
-    ERR_TO_STR(MMSYSERR_INVALIDALIAS);
-    ERR_TO_STR(MMSYSERR_BADDB);
-    ERR_TO_STR(MMSYSERR_KEYNOTFOUND);
-    ERR_TO_STR(MMSYSERR_READERROR);
-    ERR_TO_STR(MMSYSERR_WRITEERROR);
-    ERR_TO_STR(MMSYSERR_DELETEERROR);
-    ERR_TO_STR(MMSYSERR_VALNOTFOUND);
-    ERR_TO_STR(MMSYSERR_NODRIVERCB);
     ERR_TO_STR(WAVERR_BADFORMAT);
     ERR_TO_STR(WAVERR_STILLPLAYING);
     ERR_TO_STR(WAVERR_UNPREPARED);
@@ -206,7 +184,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID fImpLoad)
 
 	if (!WINMM_CreateIData(hInstDLL))
 	    return FALSE;
-        if (!MMDRV_Init()) {
+        if (!MCI_Init() || !MMDRV_Init()) {
             WINMM_DeleteIData();
             return FALSE;
 	}
@@ -231,10 +209,9 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID fImpLoad)
 /**************************************************************************
  * find out the real mixer ID depending on hmix (depends on dwFlags)
  */
-static UINT MIXER_GetDev(HMIXEROBJ hmix, DWORD dwFlags, LPWINE_MIXER * lplpwm)
+static LPWINE_MIXER MIXER_GetDev(HMIXEROBJ hmix, DWORD dwFlags)
 {
     LPWINE_MIXER	lpwm = NULL;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     switch (dwFlags & 0xF0000000ul) {
     case MIXER_OBJECTF_MIXER:
@@ -271,15 +248,10 @@ static UINT MIXER_GetDev(HMIXEROBJ hmix, DWORD dwFlags, LPWINE_MIXER * lplpwm)
 	lpwm = (LPWINE_MIXER)MMDRV_GetRelated(hmix, MMDRV_AUX,     TRUE,  MMDRV_MIXER);
 	break;
     default:
-	WARN("Unsupported flag (%08lx)\n", dwFlags & 0xF0000000ul);
-        lpwm = 0;
-        uRet = MMSYSERR_INVALFLAG;
+	FIXME("Unsupported flag (%08lx)\n", dwFlags & 0xF0000000ul);
 	break;
     }
-    *lplpwm = lpwm;
-    if (lpwm == 0 && uRet == MMSYSERR_NOERROR)
-        uRet = MMSYSERR_INVALPARAM;
-    return uRet;
+    return lpwm;
 }
 
 /**************************************************************************
@@ -311,11 +283,8 @@ UINT WINAPI mixerGetDevCapsA(UINT_PTR uDeviceID, LPMIXERCAPSA lpCaps, UINT uSize
 UINT WINAPI mixerGetDevCapsW(UINT_PTR uDeviceID, LPMIXERCAPSW lpCaps, UINT uSize)
 {
     MIXERCAPSA	micA;
-    UINT	ret;
+    UINT	ret = mixerGetDevCapsA(uDeviceID, &micA, sizeof(micA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = mixerGetDevCapsA(uDeviceID, &micA, sizeof(micA));
     if (ret == MMSYSERR_NOERROR) {
 	MIXERCAPSW micW;
 	micW.wMid           = micA.wMid;
@@ -394,17 +363,17 @@ UINT WINAPI mixerClose(HMIXER hMix)
 UINT WINAPI mixerGetID(HMIXEROBJ hmix, LPUINT lpid, DWORD fdwID)
 {
     LPWINE_MIXER	lpwm;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     TRACE("(%p %p %08lx)\n", hmix, lpid, fdwID);
 
-    if ((uRet = MIXER_GetDev(hmix, fdwID, &lpwm)) != MMSYSERR_NOERROR)
-	return uRet;
+    if ((lpwm = MIXER_GetDev(hmix, fdwID)) == NULL) {
+	return MMSYSERR_INVALHANDLE;
+    }
 
     if (lpid)
       *lpid = lpwm->mld.uDeviceID;
 
-    return uRet;
+    return MMSYSERR_NOERROR;
 }
 
 /**************************************************************************
@@ -414,12 +383,11 @@ UINT WINAPI mixerGetControlDetailsA(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcdA
 				    DWORD fdwDetails)
 {
     LPWINE_MIXER	lpwm;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmcdA, fdwDetails);
 
-    if ((uRet = MIXER_GetDev(hmix, fdwDetails, &lpwm)) != MMSYSERR_NOERROR)
-	return uRet;
+    if ((lpwm = MIXER_GetDev(hmix, fdwDetails)) == NULL)
+	return MMSYSERR_INVALHANDLE;
 
     if (lpmcdA == NULL || lpmcdA->cbStruct != sizeof(*lpmcdA))
 	return MMSYSERR_INVALPARAM;
@@ -450,7 +418,7 @@ UINT WINAPI mixerGetControlDetailsW(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcd,
 	    MIXERCONTROLDETAILS_LISTTEXTW *pDetailsW = (MIXERCONTROLDETAILS_LISTTEXTW *)lpmcd->paDetails;
             MIXERCONTROLDETAILS_LISTTEXTA *pDetailsA;
 	    int size = max(1, lpmcd->cChannels) * sizeof(MIXERCONTROLDETAILS_LISTTEXTA);
-            unsigned int i;
+            int i;
 
 	    if (lpmcd->u.cMultipleItems != 0) {
 		size *= lpmcd->u.cMultipleItems;
@@ -493,12 +461,11 @@ UINT WINAPI mixerGetLineControlsA(HMIXEROBJ hmix, LPMIXERLINECONTROLSA lpmlcA,
 				  DWORD fdwControls)
 {
     LPWINE_MIXER	lpwm;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmlcA, fdwControls);
 
-    if ((uRet = MIXER_GetDev(hmix, fdwControls, &lpwm)) != MMSYSERR_NOERROR)
-	return uRet;
+    if ((lpwm = MIXER_GetDev(hmix, fdwControls)) == NULL)
+	return MMSYSERR_INVALHANDLE;
 
     if (lpmlcA == NULL || lpmlcA->cbStruct != sizeof(*lpmlcA))
 	return MMSYSERR_INVALPARAM;
@@ -515,7 +482,7 @@ UINT WINAPI mixerGetLineControlsW(HMIXEROBJ hmix, LPMIXERLINECONTROLSW lpmlcW,
 {
     MIXERLINECONTROLSA	mlcA;
     DWORD		ret;
-    unsigned int	i;
+    int			i;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmlcW, fdwControls);
 
@@ -574,12 +541,11 @@ UINT WINAPI mixerGetLineControlsW(HMIXEROBJ hmix, LPMIXERLINECONTROLSW lpmlcW,
 UINT WINAPI mixerGetLineInfoA(HMIXEROBJ hmix, LPMIXERLINEA lpmliW, DWORD fdwInfo)
 {
     LPWINE_MIXER	lpwm;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmliW, fdwInfo);
 
-    if ((uRet = MIXER_GetDev(hmix, fdwInfo, &lpwm)) != MMSYSERR_NOERROR)
-	return uRet;
+    if ((lpwm = MIXER_GetDev(hmix, fdwInfo)) == NULL)
+	return MMSYSERR_INVALHANDLE;
 
     return MMDRV_Message(&lpwm->mld, MXDM_GETLINEINFO, (DWORD_PTR)lpmliW,
 			 fdwInfo, TRUE);
@@ -622,8 +588,7 @@ UINT WINAPI mixerGetLineInfoW(HMIXEROBJ hmix, LPMIXERLINEW lpmliW,
         WideCharToMultiByte( CP_ACP, 0, lpmliW->Target.szPname, -1, mliA.Target.szPname, sizeof(mliA.Target.szPname), NULL, NULL);
 	break;
     default:
-	WARN("Unsupported fdwControls=0x%08lx\n", fdwInfo);
-        return MMSYSERR_INVALFLAG;
+	FIXME("Unsupported fdwControls=0x%08lx\n", fdwInfo);
     }
 
     ret = mixerGetLineInfoA(hmix, &mliA, fdwInfo);
@@ -659,12 +624,11 @@ UINT WINAPI mixerSetControlDetails(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcdA,
 				   DWORD fdwDetails)
 {
     LPWINE_MIXER	lpwm;
-    UINT		uRet = MMSYSERR_NOERROR;
 
     TRACE("(%p, %p, %08lx)\n", hmix, lpmcdA, fdwDetails);
 
-    if ((uRet = MIXER_GetDev(hmix, fdwDetails, &lpwm)) != MMSYSERR_NOERROR)
-	return uRet;
+    if ((lpwm = MIXER_GetDev(hmix, fdwDetails)) == NULL)
+	return MMSYSERR_INVALHANDLE;
 
     return MMDRV_Message(&lpwm->mld, MXDM_SETCONTROLDETAILS, (DWORD_PTR)lpmcdA,
 			 fdwDetails, TRUE);
@@ -673,7 +637,7 @@ UINT WINAPI mixerSetControlDetails(HMIXEROBJ hmix, LPMIXERCONTROLDETAILS lpmcdA,
 /**************************************************************************
  * 				mixerMessage		[WINMM.@]
  */
-DWORD WINAPI mixerMessage(HMIXER hmix, UINT uMsg, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+UINT WINAPI mixerMessage(HMIXER hmix, UINT uMsg, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
     LPWINE_MLD		wmld;
 
@@ -700,11 +664,8 @@ UINT WINAPI auxGetNumDevs(void)
 UINT WINAPI auxGetDevCapsW(UINT_PTR uDeviceID, LPAUXCAPSW lpCaps, UINT uSize)
 {
     AUXCAPSA	acA;
-    UINT	ret;
+    UINT	ret = auxGetDevCapsA(uDeviceID, &acA, sizeof(acA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = auxGetDevCapsA(uDeviceID, &acA, sizeof(acA));
     if (ret == MMSYSERR_NOERROR) {
 	AUXCAPSW acW;
 	acW.wMid           = acA.wMid;
@@ -1255,11 +1216,8 @@ UINT WINAPI midiOutGetDevCapsW(UINT_PTR uDeviceID, LPMIDIOUTCAPSW lpCaps,
 			       UINT uSize)
 {
     MIDIOUTCAPSA	mocA;
-    UINT		ret;
+    UINT		ret = midiOutGetDevCapsA(uDeviceID, &mocA, sizeof(mocA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = midiOutGetDevCapsA(uDeviceID, &mocA, sizeof(mocA));
     if (ret == MMSYSERR_NOERROR) {
 	MIDIOUTCAPSW mocW;
 	mocW.wMid		= mocA.wMid;
@@ -1635,11 +1593,8 @@ UINT WINAPI midiInGetNumDevs(void)
 UINT WINAPI midiInGetDevCapsW(UINT_PTR uDeviceID, LPMIDIINCAPSW lpCaps, UINT uSize)
 {
     MIDIINCAPSA		micA;
-    UINT		ret;
+    UINT		ret = midiInGetDevCapsA(uDeviceID, &micA, sizeof(micA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = midiInGetDevCapsA(uDeviceID, &micA, sizeof(micA));
     if (ret == MMSYSERR_NOERROR) {
 	MIDIINCAPSW micW;
 	micW.wMid           = micA.wMid;
@@ -1691,8 +1646,8 @@ UINT WINAPI midiInGetErrorTextA(UINT uError, LPSTR lpText, UINT uSize)
     return MIDI_GetErrorText(uError, lpText, uSize);
 }
 
-UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD_PTR dwCallback,
-                 DWORD_PTR dwInstance, DWORD dwFlags, BOOL bFrom32)
+UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD dwCallback,
+                 DWORD dwInstance, DWORD dwFlags, BOOL bFrom32)
 {
     HANDLE		hMidiIn;
     LPWINE_MIDI		lpwm;
@@ -1730,7 +1685,7 @@ UINT MIDI_InOpen(HMIDIIN* lphMidiIn, UINT uDeviceID, DWORD_PTR dwCallback,
  * 				midiInOpen		[WINMM.@]
  */
 UINT WINAPI midiInOpen(HMIDIIN* lphMidiIn, UINT uDeviceID,
-		       DWORD_PTR dwCallback, DWORD_PTR dwInstance, DWORD dwFlags)
+		       DWORD dwCallback, DWORD dwInstance, DWORD dwFlags)
 {
     return MIDI_InOpen(lphMidiIn, uDeviceID, dwCallback, dwInstance, dwFlags, TRUE);
 }
@@ -2239,7 +2194,7 @@ MMRESULT WINAPI midiStreamClose(HMIDISTRM hMidiStrm)
  * 				MMSYSTEM_MidiStream_Open	[internal]
  */
 MMRESULT MIDI_StreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID, DWORD cMidi,
-                         DWORD_PTR dwCallback, DWORD_PTR dwInstance, DWORD fdwOpen, 
+                         DWORD dwCallback, DWORD dwInstance, DWORD fdwOpen, 
                          BOOL bFrom32)
 {
     WINE_MIDIStream*	lpMidiStrm;
@@ -2306,8 +2261,8 @@ MMRESULT MIDI_StreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID, DWORD cMidi
  * 				midiStreamOpen			[WINMM.@]
  */
 MMRESULT WINAPI midiStreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID,
-			       DWORD cMidi, DWORD_PTR dwCallback,
-			       DWORD_PTR dwInstance, DWORD fdwOpen)
+			       DWORD cMidi, DWORD dwCallback,
+			       DWORD dwInstance, DWORD fdwOpen)
 {
     return MIDI_StreamOpen(lphMidiStrm, lpuDeviceID, cMidi, dwCallback,
                            dwInstance, fdwOpen, TRUE);
@@ -2491,8 +2446,8 @@ MMRESULT WINAPI midiStreamStop(HMIDISTRM hMidiStrm)
 }
 
 UINT WAVE_Open(HANDLE* lphndl, UINT uDeviceID, UINT uType, 
-               const LPWAVEFORMATEX lpFormat, DWORD_PTR dwCallback, 
-               DWORD_PTR dwInstance, DWORD dwFlags, BOOL bFrom32)
+               const LPWAVEFORMATEX lpFormat, DWORD dwCallback, 
+               DWORD dwInstance, DWORD dwFlags, BOOL bFrom32)
 {
     HANDLE		handle;
     LPWINE_MLD		wmld;
@@ -2603,11 +2558,8 @@ UINT WINAPI waveOutGetDevCapsW(UINT_PTR uDeviceID, LPWAVEOUTCAPSW lpCaps,
 			       UINT uSize)
 {
     WAVEOUTCAPSA	wocA;
-    UINT 		ret;
+    UINT 		ret = waveOutGetDevCapsA(uDeviceID, &wocA, sizeof(wocA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = waveOutGetDevCapsA(uDeviceID, &wocA, sizeof(wocA));
     if (ret == MMSYSERR_NOERROR) {
 	WAVEOUTCAPSW wocW;
 	wocW.wMid           = wocA.wMid;
@@ -2673,8 +2625,8 @@ UINT WINAPI waveOutGetErrorTextW(UINT uError, LPWSTR lpText, UINT uSize)
  *			waveOutOpen			[WINMM.@]
  * All the args/structs have the same layout as the win16 equivalents
  */
-MMRESULT WINAPI waveOutOpen(LPHWAVEOUT lphWaveOut, UINT uDeviceID,
-                       LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
+UINT WINAPI waveOutOpen(LPHWAVEOUT lphWaveOut, UINT uDeviceID,
+                       const LPWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
                        DWORD_PTR dwInstance, DWORD dwFlags)
 {
     return WAVE_Open((HANDLE*)lphWaveOut, uDeviceID, MMDRV_WAVEOUT, lpFormat,
@@ -2708,7 +2660,6 @@ UINT WINAPI waveOutPrepareHeader(HWAVEOUT hWaveOut,
 				 WAVEHDR* lpWaveOutHdr, UINT uSize)
 {
     LPWINE_MLD		wmld;
-    UINT		result;
 
     TRACE("(%p, %p, %u);\n", hWaveOut, lpWaveOutHdr, uSize);
 
@@ -2718,17 +2669,7 @@ UINT WINAPI waveOutPrepareHeader(HWAVEOUT hWaveOut,
     if ((wmld = MMDRV_Get(hWaveOut, MMDRV_WAVEOUT, FALSE)) == NULL)
 	return MMSYSERR_INVALHANDLE;
 
-    if ((result = MMDRV_Message(wmld, WODM_PREPARE, (DWORD_PTR)lpWaveOutHdr,
-                                uSize, TRUE)) != MMSYSERR_NOTSUPPORTED)
-        return result;
-
-    if (lpWaveOutHdr->dwFlags & WHDR_INQUEUE)
-	return WAVERR_STILLPLAYING;
-
-    lpWaveOutHdr->dwFlags |= WHDR_PREPARED;
-    lpWaveOutHdr->dwFlags &= ~WHDR_DONE;
-
-    return MMSYSERR_NOERROR;
+    return MMDRV_Message(wmld, WODM_PREPARE, (DWORD_PTR)lpWaveOutHdr, uSize, TRUE);
 }
 
 /**************************************************************************
@@ -2738,7 +2679,6 @@ UINT WINAPI waveOutUnprepareHeader(HWAVEOUT hWaveOut,
 				   LPWAVEHDR lpWaveOutHdr, UINT uSize)
 {
     LPWINE_MLD		wmld;
-    UINT		result;
 
     TRACE("(%p, %p, %u);\n", hWaveOut, lpWaveOutHdr, uSize);
 
@@ -2752,17 +2692,7 @@ UINT WINAPI waveOutUnprepareHeader(HWAVEOUT hWaveOut,
     if ((wmld = MMDRV_Get(hWaveOut, MMDRV_WAVEOUT, FALSE)) == NULL)
 	return MMSYSERR_INVALHANDLE;
 
-    if ((result = MMDRV_Message(wmld, WODM_UNPREPARE, (DWORD_PTR)lpWaveOutHdr,
-                                uSize, TRUE)) != MMSYSERR_NOTSUPPORTED)
-        return result;
-
-    if (lpWaveOutHdr->dwFlags & WHDR_INQUEUE)
-	return WAVERR_STILLPLAYING;
-
-    lpWaveOutHdr->dwFlags &= ~WHDR_PREPARED;
-    lpWaveOutHdr->dwFlags |= WHDR_DONE;
-
-    return MMSYSERR_NOERROR;
+    return MMDRV_Message(wmld, WODM_UNPREPARE, (DWORD_PTR)lpWaveOutHdr, uSize, TRUE);
 }
 
 /**************************************************************************
@@ -2998,11 +2928,8 @@ UINT WINAPI waveInGetNumDevs(void)
 UINT WINAPI waveInGetDevCapsW(UINT_PTR uDeviceID, LPWAVEINCAPSW lpCaps, UINT uSize)
 {
     WAVEINCAPSA		wicA;
-    UINT		ret;
+    UINT		ret = waveInGetDevCapsA(uDeviceID, &wicA, sizeof(wicA));
 
-    if (lpCaps == NULL) return MMSYSERR_INVALPARAM;
-
-    ret = waveInGetDevCapsA(uDeviceID, &wicA, sizeof(wicA));
     if (ret == MMSYSERR_NOERROR) {
 	WAVEINCAPSW wicW;
 	wicW.wMid           = wicA.wMid;
@@ -3058,9 +2985,9 @@ UINT WINAPI waveInGetErrorTextW(UINT uError, LPWSTR lpText, UINT uSize)
 /**************************************************************************
  * 				waveInOpen			[WINMM.@]
  */
-MMRESULT WINAPI waveInOpen(HWAVEIN* lphWaveIn, UINT uDeviceID,
-		       LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
-		       DWORD_PTR dwInstance, DWORD dwFlags)
+UINT WINAPI waveInOpen(HWAVEIN* lphWaveIn, UINT uDeviceID,
+		       const LPWAVEFORMATEX lpFormat, DWORD dwCallback,
+		       DWORD dwInstance, DWORD dwFlags)
 {
     return WAVE_Open((HANDLE*)lphWaveIn, uDeviceID, MMDRV_WAVEIN, lpFormat,
                      dwCallback, dwInstance, dwFlags, TRUE);
@@ -3248,85 +3175,4 @@ UINT WINAPI waveInMessage(HWAVEIN hWaveIn, UINT uMessage,
 
 
     return MMDRV_Message(wmld, uMessage, dwParam1, dwParam2, TRUE);
-}
-
-struct mm_starter
-{
-    LPTASKCALLBACK      cb;
-    DWORD               client;
-    HANDLE              event;
-};
-
-static DWORD WINAPI mmTaskRun(void* pmt)
-{
-    struct mm_starter mms;
-
-    memcpy(&mms, pmt, sizeof(struct mm_starter));
-    HeapFree(GetProcessHeap(), 0, pmt);
-    mms.cb(mms.client);
-    if (mms.event) SetEvent(mms.event);
-    return 0;
-}
-
-/******************************************************************
- *		mmTaskCreate (WINMM.@)
- */
-MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK cb, HANDLE* ph, DWORD client)
-{
-    HANDLE               hThread;
-    HANDLE               hEvent = 0;
-    struct mm_starter   *mms;
-
-    mms = HeapAlloc(GetProcessHeap(), 0, sizeof(struct mm_starter));
-    if (mms == NULL) return TASKERR_OUTOFMEMORY;
-
-    mms->cb = cb;
-    mms->client = client;
-    if (ph) hEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    mms->event = hEvent;
-
-    hThread = CreateThread(0, 0, mmTaskRun, mms, 0, NULL);
-    if (!hThread) {
-        HeapFree(GetProcessHeap(), 0, mms);
-        if (hEvent) CloseHandle(hEvent);
-        return TASKERR_OUTOFMEMORY;
-    }
-    if (ph) *ph = hEvent;
-    CloseHandle(hThread);
-    return 0;
-}
-
-/******************************************************************
- *		mmTaskBlock (WINMM.@)
- */
-void     WINAPI mmTaskBlock(HANDLE tid)
-{
-    MSG		msg;
-
-    do
-    {
-	GetMessageA(&msg, 0, 0, 0);
-	if (msg.hwnd) DispatchMessageA(&msg);
-    } while (msg.message != WM_USER);
-}
-
-/******************************************************************
- *		mmTaskSignal (WINMM.@)
- */
-BOOL     WINAPI mmTaskSignal(HANDLE tid)
-{
-    return PostThreadMessageW((DWORD)tid, WM_USER, 0, 0);
-}
-
-/******************************************************************
- *		mmTaskYield (WINMM.@)
- */
-void     WINAPI mmTaskYield(void) {}
-
-/******************************************************************
- *		mmGetCurrentTask (WINMM.@)
- */
-HANDLE   WINAPI mmGetCurrentTask(void)
-{
-    return (HANDLE)GetCurrentThreadId();
 }

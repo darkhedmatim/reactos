@@ -40,222 +40,16 @@
 #include "precomp.h"
 
 
- // work around GCC's wide string constant bug
-#ifdef __GNUC__
-const LPCXSSTR XMLStorage::XS_TRUE = XS_TEXT("true");
-const LPCXSSTR XMLStorage::XS_FALSE = XS_TEXT("false");
-const LPCXSSTR XMLStorage::XS_NUMBERFMT = XS_TEXT("%d");
-#endif
-
-
 namespace XMLStorage {
 
 
-static std::string unescape(const char* s, char b='"', char e='"')
-{
-	const char* end = s + strlen(s);
-
-//	if (*s == b)
-//		++s;
-//
-//	if (end>s && end[-1]==e)
-//		--end;
-
-	if (*s == b)
-		if (end>s && end[-1]==e)
-			++s, --end;
-
-	return std::string(s, end-s);
-}
-
-static std::string unescape(const char* s, int l, char b='"', char e='"')
-{
-	const char* end = s + l;
-
-//	if (*s == b)
-//		++s;
-//
-//	if (end>s && end[-1]==e)
-//		--end;
-
-	if (*s == b)
-		if (end>s && end[-1]==e)
-			++s, --end;
-
-	return std::string(s, end-s);
-}
-
-
- /// move XPath like to position in XML tree
+ /// move X-Path like to position in XML tree
 bool XMLPos::go(const char* path)
 {
-	XMLNode* node = _cur;
 
-	 // Is this an absolute path?
-	if (*path == '/') {
-		node = _root;
-		++path;
-	}
+	///@todo
 
-	node = node->find_relative(path);
-
-	if (node) {
-		go_to(node);
-		return true;
-	} else
-		return false;
-}
-
- /// move XPath like to position in XML tree
-bool const_XMLPos::go(const char* path)
-{
-	const XMLNode* node = _cur;
-
-	 // Is this an absolute path?
-	if (*path == '/') {
-		node = _root;
-		++path;
-	}
-
-	node = node->find_relative(path);
-
-	if (node) {
-		go_to(node);
-		return true;
-	} else
-		return false;
-}
-
-
-const XMLNode* XMLNode::find_relative(const char* path) const
-{
-	const XMLNode* node = this;
-
-	 // parse relative path
-	while(*path) {
-		const char* slash = strchr(path, '/');
-		if (slash == path)
-			return NULL;
-
-		int l = slash? slash-path: strlen(path);
-		std::string comp(path, l);
-		path += l;
-
-		 // look for [n] and [@attr_name="attr_value"] expressions in path components
-		const char* bracket = strchr(comp.c_str(), '[');
-		l = bracket? bracket-comp.c_str(): comp.length();
-		std::string child_name(comp.c_str(), l);
-		std::string attr_name, attr_value;
-
-		int n = 0;
-		if (bracket) {
-			std::string expr = unescape(bracket, '[', ']');
-			const char* p = expr.c_str();
-
-			n = atoi(p);	// read index number
-
-			if (n)
-				n = n - 1;	// convert into zero based index
-
-			const char* at = strchr(p, '@');
-
-			if (at) {
-				p = at + 1;
-				const char* equal = strchr(p, '=');
-
-				 // read attribute name and value
-				if (equal) {
-					attr_name = unescape(p, equal-p);
-					attr_value = unescape(equal+1);
-				}
-			}
-		}
-
-		if (attr_name.empty())
-			 // search n.th child node with specified name
-			node = node->find(child_name, n);
-		else
-			 // search n.th child node with specified name and matching attribute value
-			node = node->find(child_name, attr_name, attr_value, n);
-
-		if (!node)
-			return NULL;
-
-		if (*path == '/')
-			++path;
-	}
-
-	return node;
-}
-
-XMLNode* XMLNode::create_relative(const char* path)
-{
-	XMLNode* node = this;
-
-	 // parse relative path
-	while(*path) {
-		const char* slash = strchr(path, '/');
-		if (slash == path)
-			return NULL;
-
-		int l = slash? slash-path: strlen(path);
-		std::string comp(path, l);
-		path += l;
-
-		 // look for [n] and [@attr_name="attr_value"] expressions in path components
-		const char* bracket = strchr(comp.c_str(), '[');
-		l = bracket? bracket-comp.c_str(): comp.length();
-		std::string child_name(comp.c_str(), l);
-		std::string attr_name, attr_value;
-
-		int n = 0;
-		if (bracket) {
-			std::string expr = unescape(bracket, '[', ']');
-			const char* p = expr.c_str();
-
-			n = atoi(p);	// read index number
-
-			if (n)
-				n = n - 1;	// convert into zero based index
-
-			const char* at = strchr(p, '@');
-
-			if (at) {
-				p = at + 1;
-				const char* equal = strchr(p, '=');
-
-				 // read attribute name and value
-				if (equal) {
-					attr_name = unescape(p, equal-p);
-					attr_value = unescape(equal+1);
-				}
-			}
-		}
-
-		XMLNode* child;
-
-		if (attr_name.empty())
-			 // search n.th child node with specified name
-			child = node->find(child_name, n);
-		else
-			 // search n.th child node with specified name and matching attribute value
-			child = node->find(child_name, attr_name, attr_value, n);
-
-		if (!child) {
-			child = new XMLNode(child_name);
-			node->add_child(child);
-
-			if (!attr_name.empty())
-				(*node)[attr_name] = attr_value;
-		}
-
-		node = child;
-
-		if (*path == '/')
-			++path;
-	}
-
-	return node;
+	return false;
 }
 
 
@@ -293,11 +87,10 @@ void XMLCALL XMLReaderBase::XML_XmlDeclHandler(void* userData, const XML_Char* v
 {
 	XMLReaderBase* pReader = (XMLReaderBase*) userData;
 
-	if (version)
+	if (version) {
 		pReader->_xml_version = version;
-
-	if (encoding)
 		pReader->_encoding = encoding;
+	}
 }
 
  /// notifications about XML start tag
@@ -424,14 +217,11 @@ std::string XMLReaderBase::get_error_string() const
 	  case XML_ERROR_FEATURE_REQUIRES_XML_DTD:			return "XML_ERROR_FEATURE_REQUIRES_XML_DTD";
 	  case XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING:	return "XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING";
 	  case XML_ERROR_UNBOUND_PREFIX:					return "XML_ERROR_UNBOUND_PREFIX";
- // EXPAT version >= 1.95.8
-#if XML_MAJOR_VERSION>1 || (XML_MAJOR_VERSION==1 && XML_MINOR_VERSION>95) || (XML_MAJOR_VERSION==1 && XML_MINOR_VERSION==95 && XML_MICRO_VERSION>7)
 	  case XML_ERROR_SUSPENDED:							return "XML_ERROR_SUSPENDED";
 	  case XML_ERROR_NOT_SUSPENDED:						return "XML_ERROR_NOT_SUSPENDED";
 	  case XML_ERROR_ABORTED:							return "XML_ERROR_ABORTED";
 	  case XML_ERROR_FINISHED:							return "XML_ERROR_FINISHED";
 	  case XML_ERROR_SUSPEND_PE:						return "XML_ERROR_SUSPEND_PE";
-#endif
 	}
 
 	std::ostringstream out;
@@ -442,13 +232,12 @@ std::string XMLReaderBase::get_error_string() const
 }
 
 
-std::string EncodeXMLString(const XS_String& str)
+std::string EncodeXMLString(LPCTSTR s)
 {
-	LPCXSSTR s = str.c_str();
-	LPXSSTR buffer = (LPXSSTR)alloca(5*sizeof(XS_CHAR)*XS_len(s));	// worst case. "&amp;"
-	LPXSSTR o = buffer;
+	TCHAR buffer[BUFFER_LEN];
+	LPTSTR o = buffer;
 
-	for(LPCXSSTR p=s; *p; ++p)
+	for(LPCTSTR p=s; *p; ++p)
 		switch(*p) {
 		  case '&':
 			*o++ = '&';	*o++ = 'a';	*o++ = 'm';	*o++ = 'p';	*o++ = ';';
@@ -462,54 +251,35 @@ std::string EncodeXMLString(const XS_String& str)
 			*o++ = '&';	*o++ = 'g'; *o++ = 't';	*o++ = ';';
 			break;
 
-		  case '"':
-			*o++ = '&';	*o++ = 'q'; *o++ = 'u'; *o++ = 'o'; *o++ = 't';	*o++ = ';';
-			break;
-
-		  case '\'':
-			*o++ = '&';	*o++ = 'a'; *o++ = 'p'; *o++ = 'o'; *o++ = 's';	*o++ = ';';
-			break;
-
 		  default:
 			*o++ = *p;
 		}
 
-#ifdef XS_STRING_UTF8
-	return XS_String(buffer, o-buffer);
-#else
 	return get_utf8(buffer, o-buffer);
-#endif
 }
 
-XS_String DecodeXMLString(const XS_String& str)
+String DecodeXMLString(LPCTSTR s)
 {
-	LPCXSSTR s = str.c_str();
-	LPXSSTR buffer = (LPXSSTR)alloca(sizeof(XS_CHAR)*XS_len(s));
-	LPXSSTR o = buffer;
+	TCHAR buffer[BUFFER_LEN];
+	LPTSTR o = buffer;
 
-	for(LPCXSSTR p=s; *p; ++p)
+	for(LPCTSTR p=s; *p; ++p)
 		if (*p == '&') {
-			if (!XS_nicmp(p+1, XS_TEXT("lt;"), 3)) {
-				*o++ = '<';
-				p += 3;
-			} else if (!XS_nicmp(p+1, XS_TEXT("gt;"), 3)) {
-				*o++ = '>';
-				p += 3;
-			} else if (!XS_nicmp(p+1, XS_TEXT("amp;"), 4)) {
+			if (!_tcsnicmp(p+1, TEXT("amp;"), 4)) {
 				*o++ = '&';
 				p += 4;
-			} else if (!XS_nicmp(p+1, XS_TEXT("quot;"), 5)) {
-				*o++ = '"';
-				p += 5;
-			} else if (!XS_nicmp(p+1, XS_TEXT("apos;"), 5)) {
-				*o++ = '\'';
-				p += 5;
+			} else if (!_tcsnicmp(p+1, TEXT("lt;"), 3)) {
+				*o++ = '<';
+				p += 3;
+			} else if (!_tcsnicmp(p+1, TEXT("gt;"), 3)) {
+				*o++ = '>';
+				p += 3;
 			} else
 				*o++ = *p;
 		} else
 			*o++ = *p;
 
-	return XS_String(buffer, o-buffer);
+	return String(buffer, o-buffer);
 }
 
 

@@ -20,9 +20,7 @@ struct _EPROCESS;
 struct _KPROCESS;
 struct _ETHREAD;
 struct _KTHREAD;
-struct _EJOB;
 
-typedef struct _EJOB *PEJOB;
 typedef struct _KTHREAD *PKTHREAD, *PRKTHREAD;
 
 typedef struct _IMAGE_INFO {
@@ -74,7 +72,6 @@ typedef struct _STACK_INFORMATION
 } STACK_INFORMATION, *PSTACK_INFORMATION;
 
 typedef ULONG THREADINFOCLASS;
-typedef ULONG PROCESSINFOCLASS;
 
 struct _KPROCESS;
 

@@ -34,9 +34,19 @@
  *        Added prompt ("/P"), yes ("/Y") and wipe("/W") option.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DEL
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <math.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 enum

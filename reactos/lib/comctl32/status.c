@@ -79,7 +79,7 @@ typedef struct
     BOOL              NtfUnicode;	/* notify format */
     STATUSWINDOWPART  part0;		/* simple window */
     STATUSWINDOWPART* parts;
-} STATUS_INFO;
+} STATUSWINDOWINFO;
 
 /*
  * Run tests using Waite Group Windows95 API Bible Vol. 1&2
@@ -91,9 +91,11 @@ typedef struct
 #define VERT_BORDER 2
 #define HORZ_GAP    2
 
+#define STATUSBAR_GetInfoPtr(hwnd) ((STATUSWINDOWINFO *)GetWindowLongW (hwnd, 0))
+
 /* prototype */
 static void
-STATUSBAR_SetPartBounds (STATUS_INFO *infoPtr);
+STATUSBAR_SetPartBounds (STATUSWINDOWINFO *infoPtr);
 
 static inline LPCSTR debugstr_t(LPCWSTR text, BOOL isW)
 {
@@ -146,7 +148,7 @@ STATUSBAR_DrawSizeGrip (HDC hdc, LPRECT lpRect)
 
 
 static void
-STATUSBAR_DrawPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, int itemID)
+STATUSBAR_DrawPart (HDC hdc, const STATUSWINDOWPART *part, const STATUSWINDOWINFO *infoPtr, int itemID)
 {
     RECT r = part->bound;
     UINT border = BDR_SUNKENOUTER;
@@ -163,7 +165,7 @@ STATUSBAR_DrawPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, int i
 	{
 	    DRAWITEMSTRUCT dis;
 
-	    dis.CtlID = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+	    dis.CtlID = GetWindowLongW (infoPtr->Self, GWL_ID);
 	    dis.itemID = itemID;
 	    dis.hwndItem = infoPtr->Self;
 	    dis.hDC = hdc;
@@ -187,7 +189,7 @@ STATUSBAR_DrawPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, int i
 
 
 static void
-STATUSBAR_RefreshPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, int itemID)
+STATUSBAR_RefreshPart (const STATUSWINDOWINFO *infoPtr, const STATUSWINDOWPART *part, HDC hdc, int itemID)
 {
     HBRUSH hbrBk;
     HFONT  hOldFont;
@@ -206,7 +208,7 @@ STATUSBAR_RefreshPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, in
 
     hOldFont = SelectObject (hdc, infoPtr->hFont ? infoPtr->hFont : infoPtr->hDefaultFont);
 
-	STATUSBAR_DrawPart (infoPtr, hdc, part, itemID);
+	STATUSBAR_DrawPart (hdc, part, infoPtr, itemID);
 
     SelectObject (hdc, hOldFont);
 
@@ -224,7 +226,7 @@ STATUSBAR_RefreshPart (STATUS_INFO *infoPtr, HDC hdc, STATUSWINDOWPART *part, in
 
 
 static LRESULT
-STATUSBAR_Refresh (STATUS_INFO *infoPtr, HDC hdc)
+STATUSBAR_Refresh (STATUSWINDOWINFO *infoPtr, HDC hdc)
 {
     int      i;
     RECT   rect;
@@ -248,10 +250,10 @@ STATUSBAR_Refresh (STATUS_INFO *infoPtr, HDC hdc)
     hOldFont = SelectObject (hdc, infoPtr->hFont ? infoPtr->hFont : infoPtr->hDefaultFont);
 
     if (infoPtr->simple) {
-	    STATUSBAR_RefreshPart (infoPtr, hdc, &infoPtr->part0, 0);
+	    STATUSBAR_RefreshPart (infoPtr, &infoPtr->part0, hdc, 0);
     } else {
 	    for (i = 0; i < infoPtr->numParts; i++) {
-		    STATUSBAR_RefreshPart (infoPtr, hdc, &infoPtr->parts[i], i);
+		    STATUSBAR_RefreshPart (infoPtr, &infoPtr->parts[i], hdc, i);
 	    }
     }
 
@@ -268,7 +270,7 @@ STATUSBAR_Refresh (STATUS_INFO *infoPtr, HDC hdc)
 
 
 static void
-STATUSBAR_SetPartBounds (STATUS_INFO *infoPtr)
+STATUSBAR_SetPartBounds (STATUSWINDOWINFO *infoPtr)
 {
     STATUSWINDOWPART *part;
     RECT rect, *r;
@@ -313,7 +315,7 @@ STATUSBAR_SetPartBounds (STATUS_INFO *infoPtr)
 
 
 static LRESULT
-STATUSBAR_Relay2Tip (STATUS_INFO *infoPtr, UINT uMsg,
+STATUSBAR_Relay2Tip (STATUSWINDOWINFO *infoPtr, UINT uMsg,
 		     WPARAM wParam, LPARAM lParam)
 {
     MSG msg;
@@ -343,7 +345,7 @@ STATUSBAR_GetBorders (INT out[])
 
 
 static HICON
-STATUSBAR_GetIcon (STATUS_INFO *infoPtr, INT nPart)
+STATUSBAR_GetIcon (STATUSWINDOWINFO *infoPtr, INT nPart)
 {
     TRACE("%d\n", nPart);
     /* MSDN says: "simple parts are indexed with -1" */
@@ -358,7 +360,7 @@ STATUSBAR_GetIcon (STATUS_INFO *infoPtr, INT nPart)
 
 
 static INT
-STATUSBAR_GetParts (STATUS_INFO *infoPtr, INT num_parts, INT parts[])
+STATUSBAR_GetParts (STATUSWINDOWINFO *infoPtr, INT num_parts, INT parts[])
 {
     INT   i;
 
@@ -373,7 +375,7 @@ STATUSBAR_GetParts (STATUS_INFO *infoPtr, INT num_parts, INT parts[])
 
 
 static BOOL
-STATUSBAR_GetRect (STATUS_INFO *infoPtr, INT nPart, LPRECT rect)
+STATUSBAR_GetRect (STATUSWINDOWINFO *infoPtr, INT nPart, LPRECT rect)
 {
     TRACE("part %d\n", nPart);
     if (infoPtr->simple)
@@ -385,7 +387,7 @@ STATUSBAR_GetRect (STATUS_INFO *infoPtr, INT nPart, LPRECT rect)
 
 
 static LRESULT
-STATUSBAR_GetTextA (STATUS_INFO *infoPtr, INT nPart, LPSTR buf)
+STATUSBAR_GetTextA (STATUSWINDOWINFO *infoPtr, INT nPart, LPSTR buf)
 {
     STATUSWINDOWPART *part;
     LRESULT result;
@@ -414,7 +416,7 @@ STATUSBAR_GetTextA (STATUS_INFO *infoPtr, INT nPart, LPSTR buf)
 
 
 static LRESULT
-STATUSBAR_GetTextW (STATUS_INFO *infoPtr, INT nPart, LPWSTR buf)
+STATUSBAR_GetTextW (STATUSWINDOWINFO *infoPtr, INT nPart, LPWSTR buf)
 {
     STATUSWINDOWPART *part;
     LRESULT result;
@@ -440,7 +442,7 @@ STATUSBAR_GetTextW (STATUS_INFO *infoPtr, INT nPart, LPWSTR buf)
 
 
 static LRESULT
-STATUSBAR_GetTextLength (STATUS_INFO *infoPtr, INT nPart)
+STATUSBAR_GetTextLength (STATUSWINDOWINFO *infoPtr, INT nPart)
 {
     STATUSWINDOWPART *part;
     DWORD result;
@@ -465,7 +467,7 @@ STATUSBAR_GetTextLength (STATUS_INFO *infoPtr, INT nPart)
 }
 
 static LRESULT
-STATUSBAR_GetTipTextA (STATUS_INFO *infoPtr, INT id, LPSTR tip, INT size)
+STATUSBAR_GetTipTextA (STATUSWINDOWINFO *infoPtr, INT id, LPSTR tip, INT size)
 {
     TRACE("\n");
     if (tip) {
@@ -487,7 +489,7 @@ STATUSBAR_GetTipTextA (STATUS_INFO *infoPtr, INT id, LPSTR tip, INT size)
 
 
 static LRESULT
-STATUSBAR_GetTipTextW (STATUS_INFO *infoPtr, INT id, LPWSTR tip, INT size)
+STATUSBAR_GetTipTextW (STATUSWINDOWINFO *infoPtr, INT id, LPWSTR tip, INT size)
 {
     TRACE("\n");
     if (tip) {
@@ -510,7 +512,7 @@ STATUSBAR_GetTipTextW (STATUS_INFO *infoPtr, INT id, LPWSTR tip, INT size)
 
 
 static COLORREF
-STATUSBAR_SetBkColor (STATUS_INFO *infoPtr, COLORREF color)
+STATUSBAR_SetBkColor (STATUSWINDOWINFO *infoPtr, COLORREF color)
 {
     COLORREF oldBkColor;
 
@@ -524,7 +526,7 @@ STATUSBAR_SetBkColor (STATUS_INFO *infoPtr, COLORREF color)
 
 
 static BOOL
-STATUSBAR_SetIcon (STATUS_INFO *infoPtr, INT nPart, HICON hIcon)
+STATUSBAR_SetIcon (STATUSWINDOWINFO *infoPtr, INT nPart, HICON hIcon)
 {
     if ((nPart < -1) || (nPart >= infoPtr->numParts))
 	return FALSE;
@@ -551,7 +553,7 @@ STATUSBAR_SetIcon (STATUS_INFO *infoPtr, INT nPart, HICON hIcon)
 
 
 static BOOL
-STATUSBAR_SetMinHeight (STATUS_INFO *infoPtr, INT height)
+STATUSBAR_SetMinHeight (STATUSWINDOWINFO *infoPtr, INT height)
 {
 
     TRACE("(height=%d)\n", height);
@@ -575,7 +577,7 @@ STATUSBAR_SetMinHeight (STATUS_INFO *infoPtr, INT height)
 
 
 static BOOL
-STATUSBAR_SetParts (STATUS_INFO *infoPtr, INT count, LPINT parts)
+STATUSBAR_SetParts (STATUSWINDOWINFO *infoPtr, INT count, LPINT parts)
 {
     STATUSWINDOWPART *tmp;
     int	i, oldNumParts;
@@ -645,12 +647,11 @@ STATUSBAR_SetParts (STATUS_INFO *infoPtr, INT count, LPINT parts)
 
 
 static BOOL
-STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
+STATUSBAR_SetTextT (STATUSWINDOWINFO *infoPtr, INT nPart, WORD style,
 		    LPCWSTR text, BOOL isW)
 {
     STATUSWINDOWPART *part=NULL;
     BOOL changed = FALSE;
-    WORD oldStyle;
 
     if (style & SBT_OWNERDRAW) {
          TRACE("part %d, text %p\n",nPart,text);
@@ -672,7 +673,6 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
     if (part->style != style)
 	changed = TRUE;
 
-    oldStyle = part->style;
     part->style = style;
     if (style & SBT_OWNERDRAW) {
 	if (part->text == text)
@@ -696,7 +696,7 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
 	/* check if text is unchanged -> no need to redraw */
 	if (text) {
 	    if (!changed && part->text && !lstrcmpW(ntext, part->text)) {
-		Free(ntext);
+		if (!isW) Free(ntext);
 		return TRUE;
 	    }
 	} else {
@@ -704,7 +704,7 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
 		return TRUE;
 	}
 
-	if (part->text && !(oldStyle & SBT_OWNERDRAW))
+	if (part->text)
 	    Free (part->text);
 	part->text = ntext;
     }
@@ -715,7 +715,7 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
 
 
 static LRESULT
-STATUSBAR_SetTipTextA (STATUS_INFO *infoPtr, INT id, LPSTR text)
+STATUSBAR_SetTipTextA (STATUSWINDOWINFO *infoPtr, INT id, LPSTR text)
 {
     TRACE("part %d: \"%s\"\n", id, text);
     if (infoPtr->hwndToolTip) {
@@ -734,7 +734,7 @@ STATUSBAR_SetTipTextA (STATUS_INFO *infoPtr, INT id, LPSTR text)
 
 
 static LRESULT
-STATUSBAR_SetTipTextW (STATUS_INFO *infoPtr, INT id, LPWSTR text)
+STATUSBAR_SetTipTextW (STATUSWINDOWINFO *infoPtr, INT id, LPWSTR text)
 {
     TRACE("part %d: \"%s\"\n", id, debugstr_w(text));
     if (infoPtr->hwndToolTip) {
@@ -753,7 +753,7 @@ STATUSBAR_SetTipTextW (STATUS_INFO *infoPtr, INT id, LPWSTR text)
 
 
 inline static LRESULT
-STATUSBAR_SetUnicodeFormat (STATUS_INFO *infoPtr, BOOL bUnicode)
+STATUSBAR_SetUnicodeFormat (STATUSWINDOWINFO *infoPtr, BOOL bUnicode)
 {
     BOOL bOld = infoPtr->bUnicode;
 
@@ -765,7 +765,7 @@ STATUSBAR_SetUnicodeFormat (STATUS_INFO *infoPtr, BOOL bUnicode)
 
 
 static BOOL
-STATUSBAR_Simple (STATUS_INFO *infoPtr, BOOL simple)
+STATUSBAR_Simple (STATUSWINDOWINFO *infoPtr, BOOL simple)
 {
     NMHDR  nmhdr;
 
@@ -777,7 +777,7 @@ STATUSBAR_Simple (STATUS_INFO *infoPtr, BOOL simple)
 
     /* send notification */
     nmhdr.hwndFrom = infoPtr->Self;
-    nmhdr.idFrom = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+    nmhdr.idFrom = GetWindowLongW (infoPtr->Self, GWL_ID);
     nmhdr.code = SBN_SIMPLEMODECHANGE;
     SendMessageW (infoPtr->Notify, WM_NOTIFY, 0, (LPARAM)&nmhdr);
     InvalidateRect(infoPtr->Self, NULL, FALSE);
@@ -786,7 +786,7 @@ STATUSBAR_Simple (STATUS_INFO *infoPtr, BOOL simple)
 
 
 static LRESULT
-STATUSBAR_WMDestroy (STATUS_INFO *infoPtr)
+STATUSBAR_WMDestroy (STATUSWINDOWINFO *infoPtr)
 {
     int	i;
 
@@ -807,7 +807,7 @@ STATUSBAR_WMDestroy (STATUS_INFO *infoPtr)
     if (infoPtr->hwndToolTip)
 	DestroyWindow (infoPtr->hwndToolTip);
 
-    SetWindowLongPtrW(infoPtr->Self, 0, 0);
+    SetWindowLongW(infoPtr->Self, 0, 0);
     Free (infoPtr);
     return 0;
 }
@@ -816,7 +816,7 @@ STATUSBAR_WMDestroy (STATUS_INFO *infoPtr)
 static LRESULT
 STATUSBAR_WMCreate (HWND hwnd, LPCREATESTRUCTA lpCreate)
 {
-    STATUS_INFO *infoPtr;
+    STATUSWINDOWINFO *infoPtr;
     NONCLIENTMETRICSW nclm;
     DWORD dwStyle;
     RECT rect;
@@ -824,9 +824,9 @@ STATUSBAR_WMCreate (HWND hwnd, LPCREATESTRUCTA lpCreate)
     HDC	hdc;
 
     TRACE("\n");
-    infoPtr = (STATUS_INFO*)Alloc (sizeof(STATUS_INFO));
+    infoPtr = (STATUSWINDOWINFO*)Alloc (sizeof(STATUSWINDOWINFO));
     if (!infoPtr) goto create_fail;
-    SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
+    SetWindowLongW (hwnd, 0, (DWORD)infoPtr);
 
     infoPtr->Self = hwnd;
     infoPtr->Notify = lpCreate->hwndParent;
@@ -908,13 +908,13 @@ STATUSBAR_WMCreate (HWND hwnd, LPCREATESTRUCTA lpCreate)
 	    CreateWindowExW (0, TOOLTIPS_CLASSW, NULL, 0,
 			     CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 			     CW_USEDEFAULT, hwnd, 0,
-			     (HINSTANCE)GetWindowLongPtrW(hwnd, GWLP_HINSTANCE), NULL);
+			     (HINSTANCE)GetWindowLongW(hwnd, GWL_HINSTANCE), NULL);
 
 	if (infoPtr->hwndToolTip) {
 	    NMTOOLTIPSCREATED nmttc;
 
 	    nmttc.hdr.hwndFrom = hwnd;
-	    nmttc.hdr.idFrom = GetWindowLongPtrW (hwnd, GWLP_ID);
+	    nmttc.hdr.idFrom = GetWindowLongW (hwnd, GWL_ID);
 	    nmttc.hdr.code = NM_TOOLTIPSCREATED;
 	    nmttc.hwndToolTips = infoPtr->hwndToolTip;
 
@@ -944,7 +944,7 @@ create_fail:
 /* in contrast to SB_GETTEXT*, WM_GETTEXT handles the text
  * of the first part only (usual behaviour) */
 static INT
-STATUSBAR_WMGetText (STATUS_INFO *infoPtr, INT size, LPWSTR buf)
+STATUSBAR_WMGetText (STATUSWINDOWINFO *infoPtr, INT size, LPWSTR buf)
 {
     INT len;
 
@@ -970,7 +970,7 @@ STATUSBAR_WMGetText (STATUS_INFO *infoPtr, INT size, LPWSTR buf)
 
 
 static BOOL
-STATUSBAR_WMNCHitTest (STATUS_INFO *infoPtr, INT x, INT y)
+STATUSBAR_WMNCHitTest (STATUSWINDOWINFO *infoPtr, INT x, INT y)
 {
     if (GetWindowLongW (infoPtr->Self, GWL_STYLE) & SBARS_SIZEGRIP) {
 	RECT  rect;
@@ -994,7 +994,7 @@ STATUSBAR_WMNCHitTest (STATUS_INFO *infoPtr, INT x, INT y)
 
 
 static LRESULT
-STATUSBAR_WMPaint (STATUS_INFO *infoPtr, HDC hdc)
+STATUSBAR_WMPaint (STATUSWINDOWINFO *infoPtr, HDC hdc)
 {
     PAINTSTRUCT ps;
 
@@ -1009,7 +1009,7 @@ STATUSBAR_WMPaint (STATUS_INFO *infoPtr, HDC hdc)
 
 
 static LRESULT
-STATUSBAR_WMSetFont (STATUS_INFO *infoPtr, HFONT font, BOOL redraw)
+STATUSBAR_WMSetFont (STATUSWINDOWINFO *infoPtr, HFONT font, BOOL redraw)
 {
     infoPtr->hFont = font;
     TRACE("%p\n", infoPtr->hFont);
@@ -1021,7 +1021,7 @@ STATUSBAR_WMSetFont (STATUS_INFO *infoPtr, HFONT font, BOOL redraw)
 
 
 static BOOL
-STATUSBAR_WMSetText (STATUS_INFO *infoPtr, LPCSTR text)
+STATUSBAR_WMSetText (STATUSWINDOWINFO *infoPtr, LPCSTR text)
 {
     STATUSWINDOWPART *part;
     int len;
@@ -1058,7 +1058,7 @@ STATUSBAR_WMSetText (STATUS_INFO *infoPtr, LPCSTR text)
 
 
 static BOOL
-STATUSBAR_WMSize (STATUS_INFO *infoPtr, WORD flags)
+STATUSBAR_WMSize (STATUSWINDOWINFO *infoPtr, WORD flags)
 {
     INT  width, x, y;
     RECT parent_rect;
@@ -1088,7 +1088,7 @@ STATUSBAR_WMSize (STATUS_INFO *infoPtr, WORD flags)
 
 
 static LRESULT
-STATUSBAR_NotifyFormat (STATUS_INFO *infoPtr, HWND from, INT cmd)
+STATUSBAR_NotifyFormat (STATUSWINDOWINFO *infoPtr, HWND from, INT cmd)
 {
     if (cmd == NF_REQUERY) {
 	INT i = SendMessageW(from, WM_NOTIFYFORMAT, (WPARAM)infoPtr->Self, NF_QUERY);
@@ -1099,13 +1099,14 @@ STATUSBAR_NotifyFormat (STATUS_INFO *infoPtr, HWND from, INT cmd)
 
 
 static LRESULT
-STATUSBAR_SendNotify (STATUS_INFO *infoPtr, UINT code)
+STATUSBAR_SendNotify (HWND hwnd, UINT code)
 {
+    STATUSWINDOWINFO *infoPtr = STATUSBAR_GetInfoPtr(hwnd);
     NMHDR  nmhdr;
 
     TRACE("code %04x\n", code);
-    nmhdr.hwndFrom = infoPtr->Self;
-    nmhdr.idFrom = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+    nmhdr.hwndFrom = hwnd;
+    nmhdr.idFrom = GetWindowLongW (hwnd, GWL_ID);
     nmhdr.code = code;
     SendMessageW (infoPtr->Notify, WM_NOTIFY, 0, (LPARAM)&nmhdr);
     return 0;
@@ -1116,7 +1117,7 @@ STATUSBAR_SendNotify (STATUS_INFO *infoPtr, UINT code)
 static LRESULT WINAPI
 StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    STATUS_INFO *infoPtr = (STATUS_INFO *)GetWindowLongPtrW (hwnd, 0);
+    STATUSWINDOWINFO *infoPtr = STATUSBAR_GetInfoPtr(hwnd);
     INT nPart = ((INT) wParam) & 0x00ff;
     LRESULT res;
 
@@ -1205,10 +1206,10 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	    return STATUSBAR_GetTextLength (infoPtr, 0);
 
 	case WM_LBUTTONDBLCLK:
-            return STATUSBAR_SendNotify (infoPtr, NM_DBLCLK);
+            return STATUSBAR_SendNotify (hwnd, NM_DBLCLK);
 
 	case WM_LBUTTONUP:
-	    return STATUSBAR_SendNotify (infoPtr, NM_CLICK);
+	    return STATUSBAR_SendNotify (hwnd, NM_CLICK);
 
 	case WM_MOUSEMOVE:
 	    return STATUSBAR_Relay2Tip (infoPtr, msg, wParam, lParam);
@@ -1231,10 +1232,10 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	    return STATUSBAR_WMPaint (infoPtr, (HDC)wParam);
 
 	case WM_RBUTTONDBLCLK:
-	    return STATUSBAR_SendNotify (infoPtr, NM_RDBLCLK);
+	    return STATUSBAR_SendNotify (hwnd, NM_RDBLCLK);
 
 	case WM_RBUTTONUP:
-	    return STATUSBAR_SendNotify (infoPtr, NM_RCLICK);
+	    return STATUSBAR_SendNotify (hwnd, NM_RCLICK);
 
 	case WM_SETFONT:
 	    return STATUSBAR_WMSetFont (infoPtr, (HFONT)wParam, LOWORD(lParam));
@@ -1269,11 +1270,11 @@ STATUS_Register (void)
 
     ZeroMemory (&wndClass, sizeof(WNDCLASSW));
     wndClass.style         = CS_GLOBALCLASS | CS_DBLCLKS | CS_VREDRAW;
-    wndClass.lpfnWndProc   = StatusWindowProc;
+    wndClass.lpfnWndProc   = (WNDPROC)StatusWindowProc;
     wndClass.cbClsExtra    = 0;
-    wndClass.cbWndExtra    = sizeof(STATUS_INFO *);
+    wndClass.cbWndExtra    = sizeof(STATUSWINDOWINFO *);
     wndClass.hCursor       = LoadCursorW (0, (LPWSTR)IDC_ARROW);
-    wndClass.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+    wndClass.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
     wndClass.lpszClassName = STATUSCLASSNAMEW;
 
     RegisterClassW (&wndClass);

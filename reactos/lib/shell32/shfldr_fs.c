@@ -28,10 +28,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "winerror.h"
 #include "windef.h"
 #include "winbase.h"
@@ -60,12 +58,12 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    IUnknownVtbl        *lpVtbl;
-    DWORD                ref;
-    IShellFolder2Vtbl   *lpvtblShellFolder;
-    IPersistFolder3Vtbl *lpvtblPersistFolder3;
-    IDropTargetVtbl     *lpvtblDropTarget;
-    ISFHelperVtbl       *lpvtblSFHelper;
+    ICOM_VFIELD (IUnknown);
+    DWORD ref;
+    ICOM_VTABLE (IShellFolder2) * lpvtblShellFolder;
+    ICOM_VTABLE (IPersistFolder3) * lpvtblPersistFolder3;
+    ICOM_VTABLE (IDropTarget) * lpvtblDropTarget;
+    ICOM_VTABLE (ISFHelper) * lpvtblSFHelper;
 
     IUnknown *pUnkOuter;	/* used for aggregation */
 
@@ -82,11 +80,11 @@ typedef struct {
     BOOL fAcceptFmt;		/* flag for pending Drop */
 } IGenericSFImpl;
 
-static struct IUnknownVtbl unkvt;
-static struct IShellFolder2Vtbl sfvt;
-static struct IPersistFolder3Vtbl vt_FSFldr_PersistFolder3;	/* IPersistFolder3 for a FS_Folder */
-static struct IDropTargetVtbl dtvt;
-static struct ISFHelperVtbl shvt;
+static struct ICOM_VTABLE (IUnknown) unkvt;
+static struct ICOM_VTABLE (IShellFolder2) sfvt;
+static struct ICOM_VTABLE (IPersistFolder3) vt_FSFldr_PersistFolder3;	/* IPersistFolder3 for a FS_Folder */
+static struct ICOM_VTABLE (IDropTarget) dtvt;
+static struct ICOM_VTABLE (ISFHelper) shvt;
 
 #define _IShellFolder2_Offset ((int)(&(((IGenericSFImpl*)0)->lpvtblShellFolder)))
 #define _ICOM_THIS_From_IShellFolder2(class, name) class* This = (class*)(((char*)name)-_IShellFolder2_Offset);
@@ -134,7 +132,7 @@ static void SF_RegisterClipFmt (IGenericSFImpl * This)
 */
 static HRESULT WINAPI IUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, LPVOID * ppvObj)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, shdebugstr_guid (riid), ppvObj);
 
@@ -172,7 +170,7 @@ static HRESULT WINAPI IUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, 
 
 static ULONG WINAPI IUnknown_fnAddRef (IUnknown * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -181,7 +179,7 @@ static ULONG WINAPI IUnknown_fnAddRef (IUnknown * iface)
 
 static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
 {
-    IGenericSFImpl *This = (IGenericSFImpl *)iface;
+    ICOM_THIS (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -198,9 +196,9 @@ static ULONG WINAPI IUnknown_fnRelease (IUnknown * iface)
     return This->ref;
 }
 
-static IUnknownVtbl unkvt =
+static ICOM_VTABLE (IUnknown) unkvt =
 {
-      IUnknown_fnQueryInterface,
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE IUnknown_fnQueryInterface,
       IUnknown_fnAddRef,
       IUnknown_fnRelease,
 };
@@ -355,22 +353,24 @@ IShellFolder_fnParseDisplayName (IShellFolder2 * iface,
 	WideCharToMultiByte(CP_ACP, 0, szElement, -1, szPath + len, MAX_PATH - len, NULL, NULL);
 
 	/* get the pidl */
-	hr = _ILCreateFromPathA(szPath, &pidlTemp);
-
-	if (SUCCEEDED(hr)) {
+	pidlTemp = _ILCreateFromPathA(szPath);
+	if (!pidlTemp)
+	    hr = 0x80070002L;   /* file not found */
+	else {
 	    if (szNext && *szNext) {
 		/* try to analyse the next element */
 		hr = SHELL32_ParseNextElement (iface, hwndOwner, pbc, &pidlTemp, (LPOLESTR) szNext, pchEaten, pdwAttributes);
 	    } else {
 		/* it's the last element */
 		if (pdwAttributes && *pdwAttributes) {
-		    hr = SHELL32_GetItemAttributes (_IShellFolder_ (This), pidlTemp, pdwAttributes);
+		    SHELL32_GetItemAttributes (_IShellFolder_ (This), pidlTemp, pdwAttributes);
 		}
+		hr = S_OK;
 	    }
 	}
     }
 
-    if (SUCCEEDED(hr))
+    if (!hr)
 	*ppidl = pidlTemp;
     else
 	*ppidl = NULL;
@@ -750,16 +750,14 @@ static HRESULT WINAPI IShellFolder_fnSetNameOf (IShellFolder2 * iface, HWND hwnd
     szDest[MAX_PATH - 1] = 0;
     TRACE ("src=%s dest=%s\n", szSrc, szDest);
     if (MoveFileA (szSrc, szDest)) {
-	HRESULT hr = S_OK;
-
-	if (pPidlOut)
-	    hr = _ILCreateFromPathA(szDest, pPidlOut);
-
+	if (pPidlOut) {
+	    *pPidlOut = _ILCreateFromPathA(szDest);
+	    if (!*pPidlOut)
+	        return 0x80070002L;   /* file not found */
+	}
 	SHChangeNotify (bIsFolder ? SHCNE_RENAMEFOLDER : SHCNE_RENAMEITEM, SHCNF_PATHA, szSrc, szDest);
-
-	return hr;
+	return S_OK;
     }
-
     return E_FAIL;
 }
 
@@ -860,8 +858,9 @@ static HRESULT WINAPI IShellFolder_fnMapColumnToSCID (IShellFolder2 * iface, UIN
     return E_NOTIMPL;
 }
 
-static IShellFolder2Vtbl sfvt =
+static ICOM_VTABLE (IShellFolder2) sfvt =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IShellFolder_fnQueryInterface,
 	IShellFolder_fnAddRef,
 	IShellFolder_fnRelease,
@@ -986,8 +985,12 @@ static HRESULT WINAPI ISFHelper_fnAddFolder (ISFHelper * iface, HWND hwnd, LPCST
 
 	hres = S_OK;
 
-	if (ppidlOut)
-    	    hres = _ILCreateFromPathA(lpstrNewDir, ppidlOut);
+	if (ppidlOut) {
+    	    *ppidlOut = _ILCreateFromPathA(lpstrNewDir);
+
+	    if (!*ppidlOut)
+		hres = 0x80070002L;   /* file not found */
+	}
     } else {
 	char lpstrText[128 + MAX_PATH];
 	char lpstrTempText[128];
@@ -1099,8 +1102,9 @@ ISFHelper_fnCopyItems (ISFHelper * iface, IShellFolder * pSFFrom, UINT cidl, LPC
     return S_OK;
 }
 
-static ISFHelperVtbl shvt =
+static ICOM_VTABLE (ISFHelper) shvt =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISFHelper_fnQueryInterface,
 	ISFHelper_fnAddRef,
 	ISFHelper_fnRelease,
@@ -1274,8 +1278,9 @@ IFSFldr_PersistFolder3_GetFolderTargetInfo (IPersistFolder3 * iface, PERSIST_FOL
     return E_NOTIMPL;
 }
 
-static IPersistFolder3Vtbl vt_FSFldr_PersistFolder3 =
+static ICOM_VTABLE (IPersistFolder3) vt_FSFldr_PersistFolder3 =
 {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	IFSFldr_PersistFolder3_QueryInterface,
 	IFSFldr_PersistFolder3_AddRef,
 	IFSFldr_PersistFolder3_Release,
@@ -1388,7 +1393,8 @@ ISFDropTarget_Drop (IDropTarget * iface, IDataObject * pDataObject, DWORD dwKeyS
     return E_NOTIMPL;
 }
 
-static struct IDropTargetVtbl dtvt = {
+static struct ICOM_VTABLE (IDropTarget) dtvt = {
+        ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
 	ISFDropTarget_QueryInterface,
 	ISFDropTarget_AddRef,
 	ISFDropTarget_Release,

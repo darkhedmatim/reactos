@@ -1,22 +1,4 @@
-/*
- *  ReactOS kernel
- *  Copyright (C) 2004 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: misc.c,v 1.7 2004/09/30 20:23:00 ekohl Exp $
+/* $Id: misc.c,v 1.2 2004/03/13 20:49:07 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -25,7 +7,11 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#include "precomp.h"
+#include <ntos.h>
+#include <windows.h>
+#include <string.h>
+
+#include "internal.h"
 
 
 /* FUNCTIONS ***************************************************************/
@@ -103,72 +89,6 @@ GetUserSidFromToken (HANDLE hToken,
   DPRINT ("SidString: '%wZ'\n", SidString);
 
   return TRUE;
-}
-
-/* Dynamic DLL loading interface **********************************************/
-
-/* OLE32.DLL import table */
-DYN_MODULE DynOle32 = 
-{
-  L"ole32.dll",
-  {
-    "CoInitialize",
-    "CoCreateInstance",
-    "CoUninitialize",
-    NULL
-  }
-};
-
-
-/*
- * Use this function to load functions from other modules. We cannot statically
- * link to e.g. ole32.dll because those dlls would get loaded on startup with
- * winlogon and they may try to register classes etc when not even a window station
- * has been created!
- */
-BOOL
-LoadDynamicImports(PDYN_MODULE Module, PDYN_FUNCS DynFuncs)
-{
-  LPSTR *fname;
-  PVOID *fn;
-
-  ZeroMemory(DynFuncs, sizeof(DYN_FUNCS));
-
-  DynFuncs->hModule = LoadLibraryW(Module->Library);
-  if (!DynFuncs->hModule)
-    {
-      return FALSE;
-    }
-
-  fn = &DynFuncs->fn.foo;
-
-  /* load the imports */
-  for (fname = Module->Functions; *fname != NULL; fname++)
-    {
-      *fn = GetProcAddress(DynFuncs->hModule, *fname);
-      if (*fn == NULL)
-        {
-          FreeLibrary(DynFuncs->hModule);
-          DynFuncs->hModule = (HMODULE)0;
-
-          return FALSE;
-        }
-
-      fn++;
-    }
-
-  return TRUE;
-}
-
-
-VOID
-UnloadDynamicImports(PDYN_FUNCS DynFuncs)
-{
-  if (DynFuncs->hModule)
-    {
-      FreeLibrary(DynFuncs->hModule);
-      DynFuncs->hModule = (HMODULE)0;
-    }
 }
 
 /* EOF */

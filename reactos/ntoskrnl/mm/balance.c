@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: balance.c,v 1.34 2004/12/24 17:06:59 navaraf Exp $
+/* $Id: balance.c,v 1.29 2004/04/22 01:57:49 jimtabor Exp $
  *
  * PROJECT:     ReactOS kernel 
  * FILE:        ntoskrnl/mm/balance.c
@@ -28,14 +28,17 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* TYPES ********************************************************************/
 typedef struct _MM_ALLOCATION_REQUEST
 {
-   PFN_TYPE Page;
+   PHYSICAL_ADDRESS Page;
    LIST_ENTRY ListEntry;
    KEVENT Event;
 }
@@ -45,6 +48,7 @@ MM_ALLOCATION_REQUEST, *PMM_ALLOCATION_REQUEST;
 
 MM_MEMORY_CONSUMER MiMemoryConsumers[MC_MAXIMUM];
 static ULONG MiMinimumAvailablePages;
+ULONG MiNrAvailablePages;
 static ULONG MiNrTotalPages;
 static LIST_ENTRY AllocationListHead;
 static KSPIN_LOCK AllocationListLock;
@@ -61,10 +65,10 @@ static LONG MiBalancerWork = 0;
 
 VOID MmPrintMemoryStatistic(VOID)
 {
-   DbgPrint("MC_CACHE %d, MC_USER %d, MC_PPOOL %d, MC_NPPOOL %d, MmStats.NrFreePages %d\n",
+   DbgPrint("MC_CACHE %d, MC_USER %d, MC_PPOOL %d, MC_NPPOOL %d, MiNrAvailablePages %d\n",
             MiMemoryConsumers[MC_CACHE].PagesUsed, MiMemoryConsumers[MC_USER].PagesUsed,
             MiMemoryConsumers[MC_PPOOL].PagesUsed, MiMemoryConsumers[MC_NPPOOL].PagesUsed,
-            MmStats.NrFreePages);
+            MiNrAvailablePages);
 }
 
 VOID INIT_FUNCTION
@@ -74,7 +78,7 @@ MmInitializeBalancer(ULONG NrAvailablePages, ULONG NrSystemPages)
    InitializeListHead(&AllocationListHead);
    KeInitializeSpinLock(&AllocationListLock);
 
-   MiNrTotalPages = NrAvailablePages;
+   MiNrAvailablePages = MiNrTotalPages = NrAvailablePages;
 
    /* Set up targets. */
    MiMinimumAvailablePages = 64;
@@ -95,13 +99,21 @@ MmInitializeMemoryConsumer(ULONG Consumer,
 }
 
 NTSTATUS
-MmReleasePageMemoryConsumer(ULONG Consumer, PFN_TYPE Page)
+MmReleasePageMemoryConsumer(ULONG Consumer, PHYSICAL_ADDRESS Page)
 {
    PMM_ALLOCATION_REQUEST Request;
    PLIST_ENTRY Entry;
    KIRQL oldIrql;
+   ULONG OldAvailable;
 
-   if (Page == 0)
+#if defined(__GNUC__)
+
+   if (Page.QuadPart == 0LL)
+#else
+
+   if (Page.QuadPart == 0)
+#endif
+
    {
       DPRINT1("Tried to release page zero.\n");
       KEBUGCHECK(0);
@@ -110,8 +122,9 @@ MmReleasePageMemoryConsumer(ULONG Consumer, PFN_TYPE Page)
    KeAcquireSpinLock(&AllocationListLock, &oldIrql);
    if (MmGetReferenceCountPage(Page) == 1)
    {
-      InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
-      if (IsListEmpty(&AllocationListHead) || MmStats.NrFreePages < MiMinimumAvailablePages)
+      InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
+      OldAvailable = InterlockedIncrement((LONG *)&MiNrAvailablePages);
+      if (IsListEmpty(&AllocationListHead) || OldAvailable + 1 < MiMinimumAvailablePages)
       {
          KeReleaseSpinLock(&AllocationListLock, oldIrql);
          MmDereferencePage(Page);
@@ -161,7 +174,7 @@ MmRebalanceMemoryConsumers(VOID)
    ULONG NrFreedPages;
    NTSTATUS Status;
 
-   Target = (MiMinimumAvailablePages - MmStats.NrFreePages) + MiPagesRequired;
+   Target = (MiMinimumAvailablePages - MiNrAvailablePages) + MiPagesRequired;
    Target = max(Target, (LONG) MiMinimumPagesPerRun);
 
    for (i = 0; i < MC_MAXIMUM && Target > 0; i++)
@@ -187,39 +200,48 @@ MiIsBalancerThread(VOID)
 
 NTSTATUS
 MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
-                            PPFN_TYPE AllocatedPage)
+                            PHYSICAL_ADDRESS* AllocatedPage)
 {
    ULONG OldUsed;
-   PFN_TYPE Page;
+   ULONG OldAvailable;
+   PHYSICAL_ADDRESS Page;
    KIRQL oldIrql;
 
    /*
     * Make sure we don't exceed our individual target.
     */
-   OldUsed = InterlockedIncrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+   OldUsed = InterlockedIncrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
    if (OldUsed >= (MiMemoryConsumers[Consumer].PagesTarget - 1) &&
          !MiIsBalancerThread())
    {
       if (!CanWait)
       {
-         InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+         InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
          return(STATUS_NO_MEMORY);
       }
       MiTrimMemoryConsumer(Consumer);
    }
 
+   OldAvailable = InterlockedDecrement((LONG *)&MiNrAvailablePages);
    /*
     * Allocate always memory for the non paged pool and for the pager thread. 
     */
    if (Consumer == MC_NPPOOL || MiIsBalancerThread())
    {
       Page = MmAllocPage(Consumer, 0);
-      if (Page == 0)
+#if defined(__GNUC__)
+
+      if (Page.QuadPart == 0LL)
+#else
+
+      if (Page.QuadPart == 0)
+#endif
+
       {
-         KEBUGCHECK(NO_PAGES_AVAILABLE);
+         KEBUGCHECK(0);
       }
       *AllocatedPage = Page;
-      if (MmStats.NrFreePages <= MiMinimumAvailablePages &&
+      if (OldAvailable < MiMinimumAvailablePages &&
             MiBalancerThreadHandle != NULL)
       {
          KeSetEvent(&MiBalancerEvent, IO_NO_INCREMENT, FALSE);
@@ -230,21 +252,27 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
    /*
     * Make sure we don't exceed global targets.
     */
-   if (MmStats.NrFreePages <= MiMinimumAvailablePages)
+   if (OldAvailable < MiMinimumAvailablePages)
    {
       MM_ALLOCATION_REQUEST Request;
 
       if (!CanWait)
       {
-         InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+         InterlockedIncrement((LONG *)&MiNrAvailablePages);
+         InterlockedDecrement((LONG *)&MiMemoryConsumers[Consumer].PagesUsed);
          return(STATUS_NO_MEMORY);
       }
 
       /* Insert an allocation request. */
-      Request.Page = 0;
+#if defined(__GNUC__)
+      Request.Page.QuadPart = 0LL;
+#else
+
+      Request.Page.QuadPart = 0;
+#endif
 
       KeInitializeEvent(&Request.Event, NotificationEvent, FALSE);
-      InterlockedIncrementUL(&MiPagesRequired);
+      InterlockedIncrement((LONG *)&MiPagesRequired);
 
       KeAcquireSpinLock(&AllocationListLock, &oldIrql);
 
@@ -262,13 +290,20 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
                             NULL);
 
       Page = Request.Page;
-      if (Page == 0)
+#if defined(__GNUC__)
+
+      if (Page.QuadPart == 0LL)
+#else
+
+      if (Page.QuadPart == 0)
+#endif
+
       {
-         KEBUGCHECK(NO_PAGES_AVAILABLE);
+         KEBUGCHECK(0);
       }
       MmTransferOwnershipPage(Page, Consumer);
       *AllocatedPage = Page;
-      InterlockedDecrementUL(&MiPagesRequired);
+      InterlockedDecrement((LONG *)&MiPagesRequired);
       return(STATUS_SUCCESS);
    }
 
@@ -276,9 +311,16 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
     * Actually allocate the page.
     */
    Page = MmAllocPage(Consumer, 0);
-   if (Page == 0)
+#if defined(__GNUC__)
+
+   if (Page.QuadPart == 0LL)
+#else
+
+   if (Page.QuadPart == 0)
+#endif
+
    {
-      KEBUGCHECK(NO_PAGES_AVAILABLE);
+      KEBUGCHECK(0);
    }
    *AllocatedPage = Page;
 
@@ -315,7 +357,7 @@ MiBalancerThread(PVOID Unused)
       {
          /* MiBalancerEvent */
          CHECKPOINT;
-         while (MmStats.NrFreePages < MiMinimumAvailablePages + 5)
+         while (MiNrAvailablePages < MiMinimumAvailablePages + 5)
          {
             for (i = 0; i < MC_MAXIMUM; i++)
             {
@@ -336,7 +378,7 @@ MiBalancerThread(PVOID Unused)
       else if (Status == STATUS_SUCCESS + 1)
       {
          /* MiBalancerTimer */
-         ShouldRun = MmStats.NrFreePages < MiMinimumAvailablePages + 5 ? TRUE : FALSE;
+         ShouldRun = MiNrAvailablePages < MiMinimumAvailablePages + 5 ? TRUE : FALSE;
          for (i = 0; i < MC_MAXIMUM; i++)
          {
             if (MiMemoryConsumers[i].Trim != NULL)
@@ -365,7 +407,7 @@ MiBalancerThread(PVOID Unused)
       }
       else
       {
-         DPRINT1("KeWaitForMultipleObjects failed, status = %x\n", Status);
+         DPRINT1("KeWaitForMultipleObjects failt, status = %x\n", Status);
          KEBUGCHECK(0);
       }
    }

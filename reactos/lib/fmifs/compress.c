@@ -1,4 +1,4 @@
-/* $Id: compress.c,v 1.3 2004/09/15 13:32:26 weiden Exp $
+/* $Id: compress.c,v 1.2 2004/02/23 11:55:12 ekohl Exp $
  *
  * COPYING:	See the top level directory
  * PROJECT:	ReactOS 
@@ -12,42 +12,14 @@
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
-#include <winioctl.h>
 #include <fmifs.h>
 
 
-/*
- * @implemented
- */
-BOOL STDCALL
+/* FMIFS.4 */
+BOOLEAN STDCALL
 EnableVolumeCompression (PWCHAR DriveRoot,
-			 USHORT Compression)
+			 BOOLEAN Enable)
 {
-  HANDLE hFile = CreateFileW(DriveRoot,
-                             FILE_READ_DATA | FILE_WRITE_DATA,
-                             FILE_SHARE_READ | FILE_SHARE_WRITE,
-                             NULL,
-                             OPEN_EXISTING,
-                             FILE_FLAG_BACKUP_SEMANTICS,
-                             NULL);
-  
-  if(hFile != INVALID_HANDLE_VALUE)
-  {
-    DWORD RetBytes;
-    BOOL Ret = DeviceIoControl(hFile,
-                               FSCTL_SET_COMPRESSION,
-                               &Compression,
-                               sizeof(USHORT),
-                               NULL,
-                               0,
-                               &RetBytes,
-                               NULL);
-
-    CloseHandle(hFile);
-
-    return (Ret != 0);
-  }
-  
   return FALSE;
 }
 

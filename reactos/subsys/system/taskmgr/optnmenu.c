@@ -26,7 +26,8 @@
  * Menu item handlers for the options menu.
  */
 
-#include "precomp.h"
+#define WIN32_LEAN_AND_MEAN    /* Exclude rarely-used stuff from Windows headers */
+#include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -34,8 +35,11 @@
 #include <tchar.h>
 #include <stdio.h>
     
+#include "taskmgr.h"
 #include "optnmenu.h"
 #include "procpage.h"
+
+#define OPTIONS_MENU_INDEX    1
 
 void TaskManager_OnOptionsAlwaysOnTop(void)
 {
@@ -49,7 +53,7 @@ void TaskManager_OnOptionsAlwaysOnTop(void)
      * Check or uncheck the always on top menu item
      * and update main window.
      */
-    if ((GetWindowLong(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0)
+    if (GetMenuState(hOptionsMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND) & MF_CHECKED)
     {
         CheckMenuItem(hOptionsMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND|MF_UNCHECKED);
         TaskManagerSettings.AlwaysOnTop = FALSE;

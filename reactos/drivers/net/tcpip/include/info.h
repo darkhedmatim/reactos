@@ -123,8 +123,6 @@ typedef union TDI_INFO {
     TDI_PROVIDER_STATISTICS ProviderStats;
 } TDI_INFO, *PTDI_INFO;
 
-TDI_STATUS InfoCopyOut( PCHAR DataOut, UINT SizeOut,
-			PNDIS_BUFFER ClientBuf, PUINT ClientBufSize );
 
 TDI_STATUS InfoTdiQueryInformationEx(
     PTDI_REQUEST Request,

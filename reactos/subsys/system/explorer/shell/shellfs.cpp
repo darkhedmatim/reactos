@@ -202,17 +202,6 @@ BOOL ShellEntry::launch_entry(HWND hwnd, UINT nCmdShow)
 }
 
 
-HRESULT ShellEntry::do_context_menu(HWND hwnd, LPPOINT pptScreen)
-{
-	ShellDirectory* dir = static_cast<ShellDirectory*>(_up);
-
-	ShellFolder folder = dir? dir->_folder: GetDesktopFolder();
-	LPCITEMIDLIST pidl = _pidl;
-
-	return ShellFolderContextMenu(folder, hwnd, 1, &pidl, pptScreen->x, pptScreen->y);
-}
-
-
 HRESULT ShellEntry::GetUIObjectOf(HWND hWnd, REFIID riid, LPVOID* ppvOut)
 {
 	LPCITEMIDLIST pidl = _pidl;
@@ -236,7 +225,7 @@ void ShellDirectory::read_directory(int scan_flags)
 	TCHAR buffer[MAX_PATH];
 
 	if ((scan_flags&SCAN_FILESYSTEM) && get_path(buffer)) {
-		Entry* entry = NULL;	// eliminate useless GCC warning by initializing entry
+		Entry* entry;
 
 		LPTSTR p = buffer + _tcslen(buffer);
 
@@ -317,11 +306,7 @@ void ShellDirectory::read_directory(int scan_flags)
 				if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 					entry->_icon_id = ICID_FOLDER;
 				else if (scan_flags & SCAN_EXTRACT_ICONS)
-					try {
-						entry->extract_icon();
-					} catch(COMException&) {
-						// ignore unexpected exceptions while extracting icons
-					}
+					entry->extract_icon();
 
 				last = entry;
 			} while(FindNextFile(hFind, &w32fd));
@@ -384,7 +369,7 @@ void ShellDirectory::read_directory(int scan_flags)
 												 (scan_flags&SCAN_DO_ACCESS) && !removeable);
 
 				try {
-					Entry* entry = NULL;	// eliminate useless GCC warning by initializing entry
+					Entry* entry;
 
 					if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 						entry = new ShellDirectory(this, pidls[n], _hwnd);
@@ -423,11 +408,7 @@ void ShellDirectory::read_directory(int scan_flags)
 					if (!(entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
 						!(attribs & SFGAO_FILESYSTEM)) {
 						if (scan_flags & SCAN_EXTRACT_ICONS)
-							try {
-								entry->extract_icon();
-							} catch(COMException&) {
-								// ignore unexpected exceptions while extracting icons
-							}
+							entry->extract_icon();
 					} else if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 						entry->_icon_id = ICID_FOLDER;
 					else

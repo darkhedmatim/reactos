@@ -54,9 +54,7 @@
 
 #include "windef.h"
 
-#ifndef FAR
 #define FAR
-#endif
 #define huge
 //#define WIN32
 //#define _WIN32

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: advanced.c,v 1.4 2004/10/11 21:08:04 weiden Exp $
+/* $Id: advanced.c,v 1.1 2004/03/08 14:24:47 weiden Exp $
  *
  * PROJECT:         ReactOS System Control Panel
  * FILE:            lib/cpl/system/advanced.c
@@ -27,36 +27,22 @@
  */
 #include <windows.h>
 #include <stdlib.h>
-#include <tchar.h>
-
 #include "resource.h"
 #include "sysdm.h"
 
 /* Property page dialog callback */
-INT_PTR CALLBACK
+BOOL CALLBACK
 AdvancedPageProc(
   HWND hwndDlg,
   UINT uMsg,
   WPARAM wParam,
-  LPARAM lParam)
+  LPARAM lParam
+)
 {
-  switch (uMsg)
+  switch(uMsg)
   {
     case WM_INITDIALOG:
       break;
-
-    case WM_COMMAND:
-      switch(LOWORD(wParam))
-      {
-        case IDC_ENVVAR:
-          DialogBox(hApplet,
-                    MAKEINTRESOURCE(IDD_ENVIRONMENT_VARIABLES),
-                    hwndDlg,
-                    EnvironmentDlgProc);
-          break;
-      }
-      break;
-
   }
   return FALSE;
 }

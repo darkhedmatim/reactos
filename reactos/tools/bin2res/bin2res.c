@@ -21,21 +21,16 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <limits.h>
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
 #endif
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-
-extern int mkstemps(char *template, int suffix_len);
 
 static const char* help =
         "Usage: bin2res [OPTIONS] <rsrc.rc>\n"
@@ -187,18 +182,8 @@ int process_resources(const char* input_file_name, const char* specific_file_nam
     if (inserting)
     {
 	fclose(ftmp);
-	if (c == EOF)
-        {
-            if (rename(tmp_file_name, input_file_name) < 0)
-            {
-                /* try unlinking first, Windows rename is brain-damaged */
-                if (unlink(input_file_name) < 0 || rename(tmp_file_name, input_file_name) < 0)
-                {
-                    unlink(tmp_file_name);
-                    return 0;
-                }
-            }
-        }
+	if (c == EOF && rename(tmp_file_name, input_file_name) < 0)
+	    c = '.'; /* force an error */
 	else unlink(tmp_file_name);
     }
 
@@ -212,7 +197,7 @@ int main(int argc, char **argv)
     const char* input_file_name = 0;
     const char* specific_file_name = 0;
 
-    while((optc = getopt(argc, argv, "axi:o:fhv")) != EOF)
+    while((optc = getopt(argc, argv, "axi:o:fh")) != EOF)
     {
 	switch(optc)
 	{

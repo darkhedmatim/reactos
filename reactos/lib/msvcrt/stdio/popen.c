@@ -1,4 +1,5 @@
-#include "precomp.h"
+/* $Id: popen.c,v 1.5 2003/07/11 21:58:09 royce Exp $ */
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/stdio.h>
@@ -30,9 +31,12 @@ FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
     return NULL;
 
   szComSpec = getenv("COMSPEC");
+
   if (szComSpec == NULL)
   {
-    szComSpec = "cmd.exe";
+    szComSpec = strdup("cmd.exe");
+    if (szComSpec == NULL)
+      return NULL;
   }
 
   s = max(strrchr(szComSpec, '\\'), strrchr(szComSpec, '/'));
@@ -44,6 +48,7 @@ FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
   szCmdLine = malloc(strlen(s) + 4 + strlen(cm) + 1);
   if (szCmdLine == NULL)
   {
+    free (szComSpec);
     return NULL;
   }
   
@@ -56,6 +61,7 @@ FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
 
   if ( !CreatePipe(&hReadPipe,&hWritePipe,&sa,1024))
   {
+    free (szComSpec);
     free (szCmdLine);
     return NULL;
   }
@@ -82,6 +88,7 @@ FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
 			  NULL,
 			  &StartupInfo,
 			  &ProcessInformation);
+  free (szComSpec);
   free (szCmdLine);
 
   if (result == FALSE)
@@ -146,7 +153,9 @@ FILE *_wpopen (const wchar_t *cm, const wchar_t *md) /* program name, pipe mode 
 
   if (szComSpec == NULL)
   {
-    szComSpec = L"cmd.exe";
+    szComSpec = _wcsdup(L"cmd.exe");
+    if (szComSpec == NULL)
+      return NULL;
   }
 
   s = max(wcsrchr(szComSpec, L'\\'), wcsrchr(szComSpec, L'/'));
@@ -158,6 +167,7 @@ FILE *_wpopen (const wchar_t *cm, const wchar_t *md) /* program name, pipe mode 
   szCmdLine = malloc((wcslen(s) + 4 + wcslen(cm) + 1) * sizeof(wchar_t));
   if (szCmdLine == NULL)
   {
+    free (szComSpec);
     return NULL;
   }
   
@@ -170,6 +180,7 @@ FILE *_wpopen (const wchar_t *cm, const wchar_t *md) /* program name, pipe mode 
 
   if ( !CreatePipe(&hReadPipe,&hWritePipe,&sa,1024))
   {
+    free (szComSpec);
     free (szCmdLine);
     return NULL;
   }
@@ -196,6 +207,7 @@ FILE *_wpopen (const wchar_t *cm, const wchar_t *md) /* program name, pipe mode 
 			  NULL,
 			  &StartupInfo,
 			  &ProcessInformation);
+  free (szComSpec);
   free (szCmdLine);
 
   if (result == FALSE)

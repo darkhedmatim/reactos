@@ -1,4 +1,4 @@
-/* $Id: sec.c,v 1.22 2004/08/15 17:03:15 chorns Exp $
+/* $Id: sec.c,v 1.20 2004/03/25 11:30:07 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -11,7 +11,10 @@
  *                  Created 01/11/98
  */
 
-#include "advapi32.h"
+#define NTOS_MODE_USER
+#include <windows.h>
+#include <ntos.h>
+
 #include <debug.h>
 
 /*
@@ -355,7 +358,7 @@ SetSecurityDescriptorOwner (
 {
 	NTSTATUS Status;
 
-	Status = RtlSetOwnerSecurityDescriptor (pSecurityDescriptor,
+	Status = RtlSetGroupSecurityDescriptor (pSecurityDescriptor,
 	                                        pOwner,
 	                                        bOwnerDefaulted);
 	if (!NT_SUCCESS(Status))

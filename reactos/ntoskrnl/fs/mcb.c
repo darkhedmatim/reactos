@@ -1,10 +1,11 @@
-/* $Id: mcb.c,v 1.17 2004/12/30 18:30:05 ion Exp $
+/* $Id: mcb.c,v 1.11 2003/12/30 18:52:03 fireball Exp $
  *
  * reactos/ntoskrnl/fs/mcb.c
  *
  */
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
 #include <internal/debug.h>
 
 /**********************************************************************
@@ -63,7 +64,7 @@ FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN STDCALL
 FsRtlGetNextMcbEntry (IN PMCB     Mcb,
@@ -72,25 +73,19 @@ FsRtlGetNextMcbEntry (IN PMCB     Mcb,
 		      OUT PLBN    Lbn,
 		      OUT PULONG  SectorCount)
 {
-  BOOLEAN Return = FALSE;
+  BOOLEAN  rc=FALSE;
   LONGLONG llVbn;
   LONGLONG llLbn;
   LONGLONG llSectorCount;
 
-  /* Call the Large version */
-  Return = FsRtlGetNextLargeMcbEntry(&Mcb->LargeMcb,
-                                     RunIndex,
-                                     &llVbn,
-                                     &llLbn,
-                                     &llSectorCount);
-  
-  /* Return everything typecasted */
-  *Vbn = (ULONG)llVbn;
-  *Lbn = (ULONG)llLbn;
-  *SectorCount = (ULONG)llSectorCount;
-  
-  /* And return the original value */
-  return(Return);
+  // FIXME: how should conversion be done
+  // FIXME: between 32 and 64 bits?
+  rc=FsRtlGetNextLargeMcbEntry (& Mcb->LargeMcb,
+				RunIndex,
+				& llVbn,
+				& llLbn,
+				& llSectorCount);
+  return(rc);
 }
 
 
@@ -133,51 +128,6 @@ FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
   return(FALSE);
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-FsRtlLookupLastLargeMcbEntryAndIndex (
-    IN PLARGE_MCB OpaqueMcb,
-    OUT PLONGLONG LargeVbn,
-    OUT PLONGLONG LargeLbn,
-    OUT PULONG Index
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-PFSRTL_PER_STREAM_CONTEXT
-STDCALL
-FsRtlLookupPerStreamContextInternal (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
-
-/*
- * @unimplemented
- */
-PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-STDCALL
-FsRtlLookupPerFileObjectContext (
-    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-    IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL
-    )
-{
-  UNIMPLEMENTED;
-  return(FALSE);
-}
 
 /*
  * @unimplemented
@@ -193,60 +143,30 @@ FsRtlLookupLastLargeMcbEntry(IN PLARGE_MCB Mcb,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN STDCALL
-FsRtlLookupLastMcbEntry(IN PMCB Mcb,
-                        OUT PVBN Vbn,
-                        OUT PLBN Lbn)
+FsRtlLookupLastMcbEntry (IN PMCB     Mcb,
+			 OUT PVBN    Vbn,
+			 OUT PLBN    Lbn)
 {
-  BOOLEAN Return = FALSE;
-  LONGLONG llVbn;
-  LONGLONG llLbn;
-
-  /* Call the Large version */
-  Return = FsRtlLookupLastLargeMcbEntry(&Mcb->LargeMcb,
-                                        &llVbn,
-                                        &llLbn);
-  
-  /* Return everything typecasted */
-  *Vbn = (ULONG)llVbn;
-  *Lbn = (ULONG)llLbn;
-  
-  /* And return the original value */
-  return(Return);
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN STDCALL
-FsRtlLookupMcbEntry(IN PMCB Mcb,
-                    IN VBN Vbn,
-                    OUT PLBN Lbn,
-                    OUT PULONG SectorCount OPTIONAL,
-                    OUT PULONG Index)
+FsRtlLookupMcbEntry (IN PMCB     Mcb,
+		     IN VBN      Vbn,
+		     OUT PLBN    Lbn,
+		     OUT PULONG  SectorCount OPTIONAL,
+		     OUT PULONG  Index)
 {
-  BOOLEAN Return = FALSE;
-  LONGLONG llLbn;
-  LONGLONG llSectorCount;
-
-  /* Call the Large version */
-  Return = FsRtlLookupLargeMcbEntry(&Mcb->LargeMcb,
-                                    (LONGLONG)Vbn,
-                                    &llLbn,
-                                    &llSectorCount,
-                                    NULL,
-                                    NULL,
-                                    Index);
-  
-  /* Return everything typecasted */
-  *Lbn = (ULONG)llLbn;
-  if (SectorCount) *SectorCount = (ULONG)llSectorCount;
-  
-  /* And return the original value */
-  return(Return);
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 
@@ -289,32 +209,16 @@ FsRtlRemoveLargeMcbEntry(IN PLARGE_MCB Mcb,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID STDCALL
 FsRtlRemoveMcbEntry (IN PMCB     Mcb,
 		     IN VBN      Vbn,
 		     IN ULONG    SectorCount)
 {
-    /* Call the large function */
-      return FsRtlRemoveLargeMcbEntry(&Mcb->LargeMcb,
-                                      (LONGLONG)Vbn,
-                                      (LONGLONG)SectorCount);
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlResetLargeMcb (
-    IN PLARGE_MCB Mcb,
-    IN BOOLEAN SelfSynchronized
-    )
-{
   UNIMPLEMENTED;
 }
+
 
 /*
  * @unimplemented

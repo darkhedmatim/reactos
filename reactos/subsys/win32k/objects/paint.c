@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: paint.c,v 1.12 2004/07/14 20:48:58 navaraf Exp $ */
+/* $Id: paint.c,v 1.11 2004/05/10 17:07:20 weiden Exp $ */
 #include <w32k.h>
 
 BOOL
@@ -24,7 +24,6 @@ STDCALL
 NtGdiGdiFlush(VOID)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 DWORD
@@ -32,7 +31,6 @@ STDCALL
 NtGdiGdiGetBatchLimit(VOID)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 DWORD
@@ -40,7 +38,6 @@ STDCALL
 NtGdiGdiSetBatchLimit(DWORD  Limit)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT

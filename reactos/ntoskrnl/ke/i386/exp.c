@@ -29,8 +29,21 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <pseh.h>
+#include <roscfg.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <internal/ke.h>
+#include <internal/i386/segment.h>
+#include <internal/i386/mm.h>
+#include <internal/module.h>
+#include <internal/mm.h>
+#include <internal/ps.h>
+#include <internal/trap.h>
+#include <ntdll/ldr.h>
+#include <internal/safe.h>
+#include <internal/kd.h>
+#include <internal/ldr.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -40,10 +53,6 @@
 
 #define _STR(x) #x
 #define STR(x) _STR(x)
-
-#ifndef ARRAY_SIZE
-# define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
-#endif
 
 extern void interrupt_handler2e(void);
 extern void interrupt_handler2d(void);
@@ -65,17 +74,12 @@ extern VOID KiTrap13(VOID);
 extern VOID KiTrap14(VOID);
 extern VOID KiTrap15(VOID);
 extern VOID KiTrap16(VOID);
-extern VOID KiTrap17(VOID);
-extern VOID KiTrap18(VOID);
-extern VOID KiTrap19(VOID);
 extern VOID KiTrapUnknown(VOID);
 
 extern ULONG init_stack;
 extern ULONG init_stack_top;
 
-extern BOOLEAN Ke386NoExecute;
-
-static char *ExceptionTypeStrings[] =
+static char *ExceptionTypeStrings[] = 
   {
     "Divide Error",
     "Debug Trap",
@@ -92,14 +96,12 @@ static char *ExceptionTypeStrings[] =
     "Stack Segment Fault",
     "General Protection",
     "Page Fault",
-    "Reserved(15)",
     "Math Fault",
     "Alignment Check",
-    "Machine Check",
-    "SIMD Fault"
+    "Machine Check"
   };
 
-static NTSTATUS ExceptionToNtStatus[] =
+static NTSTATUS ExceptionToNtStatus[] = 
   {
     STATUS_INTEGER_DIVIDE_BY_ZERO,
     STATUS_SINGLE_STEP,
@@ -116,20 +118,19 @@ static NTSTATUS ExceptionToNtStatus[] =
     STATUS_STACK_OVERFLOW,
     STATUS_ACCESS_VIOLATION,
     STATUS_ACCESS_VIOLATION,
-    STATUS_ACCESS_VIOLATION, /* RESERVED */
     STATUS_ACCESS_VIOLATION, /* STATUS_FLT_INVALID_OPERATION */
     STATUS_DATATYPE_MISALIGNMENT,
-    STATUS_ACCESS_VIOLATION,
-    STATUS_ACCESS_VIOLATION  /* STATUS_FLT_MULTIPLE_TRAPS? */
+    STATUS_ACCESS_VIOLATION
   };
 
 /* FUNCTIONS ****************************************************************/
 
-#if defined(DBG) || defined(KDBG)
+#ifdef KDBG
 BOOLEAN STDCALL
 KeRosPrintAddress(PVOID address)
 {
-  return KdbSymPrintAddress(address);
+  KdbPrintAddress(address);
+  return TRUE;
 }
 #else /* KDBG */
 BOOLEAN STDCALL
@@ -141,11 +142,11 @@ KeRosPrintAddress(PVOID address)
    ULONG_PTR RelativeAddress;
 
    current_entry = ModuleTextListHead.Flink;
-
+   
    while (current_entry != &ModuleTextListHead &&
 	  current_entry != NULL)
      {
-	current =
+	current = 
 	  CONTAINING_RECORD(current_entry, MODULE_TEXT_SECTION, ListEntry);
 
 	if (address >= (PVOID)current->Base &&
@@ -179,7 +180,7 @@ KiKernelTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
     }
   else
     {
-      if (ExceptionNr < ARRAY_SIZE(ExceptionToNtStatus))
+      if (ExceptionNr < 16)
 	{
 	  Er.ExceptionCode = ExceptionToNtStatus[ExceptionNr];
 	}
@@ -202,7 +203,7 @@ KiKernelTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
 ULONG
 KiDoubleFaultHandler(VOID)
 {
-  unsigned int cr2;
+  unsigned int cr2_;
   ULONG StackLimit;
   ULONG StackBase;
   ULONG Esp0;
@@ -218,12 +219,20 @@ KiDoubleFaultHandler(VOID)
   ULONG TraceLength;
   BOOLEAN FoundRepeat;
 #endif
-
+  
   OldTss = KeGetCurrentKPCR()->TSS;
   Esp0 = OldTss->Esp;
 
   /* Get CR2 */
-  cr2 = Ke386GetCr2();
+#if defined(__GNUC__)
+  __asm__("movl %%cr2,%0\n\t" : "=d" (cr2_));
+#elif defined(_MSC_VER)
+  __asm mov eax, cr2;
+  __asm mov cr2_, eax;
+#else
+#error Unknown compiler for inline assembler
+#endif
+
   if (PsGetCurrentThread() != NULL &&
       PsGetCurrentThread()->ThreadsProcess != NULL)
     {
@@ -234,7 +243,7 @@ KiDoubleFaultHandler(VOID)
     {
       OldCr3 = 0xBEADF0AL;
     }
-
+   
    /*
     * Check for stack underflow
     */
@@ -245,11 +254,11 @@ KiDoubleFaultHandler(VOID)
 		 Esp0, (ULONG)PsGetCurrentThread()->Tcb.StackLimit);
 	ExceptionNr = 12;
      }
-
+   
    /*
     * Print out the CPU registers
     */
-   if (ExceptionNr < ARRAY_SIZE(ExceptionTypeStrings))
+   if (ExceptionNr < 19)
      {
        DbgPrint("%s Exception: %d(%x)\n", ExceptionTypeStrings[ExceptionNr],
 		ExceptionNr, 0);
@@ -261,7 +270,7 @@ KiDoubleFaultHandler(VOID)
    DbgPrint("CS:EIP %x:%x ", OldTss->Cs, OldTss->Eip);
    KeRosPrintAddress((PVOID)OldTss->Eip);
    DbgPrint("\n");
-   DbgPrint("cr2 %x cr3 %x ", cr2, OldCr3);
+   DbgPrint("cr2 %x cr3 %x ", cr2_, OldCr3);
    DbgPrint("Proc: %x ",PsGetCurrentProcess());
    if (PsGetCurrentProcess() != NULL)
      {
@@ -277,9 +286,9 @@ KiDoubleFaultHandler(VOID)
    DbgPrint("\n");
    DbgPrint("DS %x ES %x FS %x GS %x\n", OldTss->Ds, OldTss->Es,
 	    OldTss->Fs, OldTss->Gs);
-   DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", OldTss->Eax, OldTss->Ebx,
+   DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", OldTss->Eax, OldTss->Ebx, 
 	    OldTss->Ecx);
-   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x\n   ESP: %.8x", OldTss->Edx,
+   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x\n   ESP: %.8x", OldTss->Edx, 
 	    OldTss->Ebp, OldTss->Esi, Esp0);
    DbgPrint("EDI: %.8x   EFLAGS: %.8x ", OldTss->Edi, OldTss->Eflags);
    if (OldTss->Cs == KERNEL_CS)
@@ -289,7 +298,7 @@ KiDoubleFaultHandler(VOID)
 	  {
 	     DbgPrint("kernel stack base %x\n",
 		      PsGetCurrentThread()->Tcb.StackLimit);
-
+		      	     
 	  }
      }
    else
@@ -309,10 +318,10 @@ KiDoubleFaultHandler(VOID)
 	  StackBase = (ULONG)&init_stack;
 	}
 
-      /*
+      /* 
 	 Change to an #if 0 to reduce the amount of information printed on
-	 a recursive stack trace.
-      */
+	 a recursive stack trace. 
+      */      
 #if 1
       DbgPrint("Frames: ");
       Frame = (PULONG)OldTss->Ebp;
@@ -342,7 +351,7 @@ KiDoubleFaultHandler(VOID)
 	  FoundRepeat = FALSE;
 	  while ((j - i) <= (TraceLength - j) && FoundRepeat == FALSE)
 	    {
-	      if (memcmp(&StackTrace[i], &StackTrace[j],
+	      if (memcmp(&StackTrace[i], &StackTrace[j], 
 			 (j - i) * sizeof(PVOID)) == 0)
 		{
 		  StackRepeatCount[i] = 2;
@@ -360,10 +369,10 @@ KiDoubleFaultHandler(VOID)
 	      continue;
 	    }
 	  j = j + StackRepeatLength[i];
-	  while ((TraceLength - j) >= StackRepeatLength[i] &&
+	  while ((TraceLength - j) >= StackRepeatLength[i] && 
 		 FoundRepeat == TRUE)
 	    {
-	      if (memcmp(&StackTrace[i], &StackTrace[j],
+	      if (memcmp(&StackTrace[i], &StackTrace[j], 
 			 StackRepeatLength[i] * sizeof(PVOID)) == 0)
 		{
 		  StackRepeatCount[i]++;
@@ -402,7 +411,7 @@ KiDoubleFaultHandler(VOID)
 	}
 #endif
     }
-
+   
    DbgPrint("\n");
    for(;;);
    return 0;
@@ -420,11 +429,11 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
   ULONG cr2 = (ULONG)Tf->DebugPointer;
 
   Esp0 = (ULONG)Tf;
-
+  
    /*
     * Print out the CPU registers
     */
-   if (ExceptionNr < ARRAY_SIZE(ExceptionTypeStrings))
+   if (ExceptionNr < 19)
      {
 	DbgPrint("%s Exception: %d(%x)\n", ExceptionTypeStrings[ExceptionNr],
 		 ExceptionNr, Tf->ErrorCode&0xffff);
@@ -455,7 +464,7 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
    DbgPrint("DS %x ES %x FS %x GS %x\n", Tf->Ds&0xffff, Tf->Es&0xffff,
 	    Tf->Fs&0xffff, Tf->Gs&0xfff);
    DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", Tf->Eax, Tf->Ebx, Tf->Ecx);
-   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x   ESP: %.8x\n", Tf->Edx,
+   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x   ESP: %.8x\n", Tf->Edx, 
 	    Tf->Ebp, Tf->Esi, Esp0);
    DbgPrint("EDI: %.8x   EFLAGS: %.8x ", Tf->Edi, Tf->Eflags);
    if ((Tf->Cs&0xffff) == KERNEL_CS)
@@ -465,7 +474,7 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
 	  {
 	     DbgPrint("kernel stack base %x\n",
 		      PsGetCurrentThread()->Tcb.StackLimit);
-
+		      	     
 	  }
      }
 
@@ -477,7 +486,7 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
      {
        StackLimit = (ULONG)&init_stack_top;
      }
-
+   
    /*
     * Dump the stack frames
     */
@@ -499,6 +508,7 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
        if (!KeRosPrintAddress(Eip))
 	 {
 	   DbgPrint("<%X>", Eip);
+	   break;
 	 }
        Status = MmSafeCopyFromUser(&Frame, Frame, sizeof(Frame));
        if (!NT_SUCCESS(Status))
@@ -526,13 +536,13 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
 ULONG
 KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
 /*
- * FUNCTION: Called by the lowlevel execption handlers to print an amusing
+ * FUNCTION: Called by the lowlevel execption handlers to print an amusing 
  * message and halt the computer
  * ARGUMENTS:
  *        Complete CPU context
  */
 {
-   unsigned int cr2;
+   unsigned int cr2_;
    NTSTATUS Status;
    ULONG Esp0;
 
@@ -541,22 +551,24 @@ KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
 
    /* Use the address of the trap frame as approximation to the ring0 esp */
    Esp0 = (ULONG)&Tf->Eip;
-
+  
    /* Get CR2 */
-   cr2 = Ke386GetCr2();
-   Tf->DebugPointer = (PVOID)cr2;
-
-   if (ExceptionNr == 14 && Tf->Eflags & FLAG_IF)
-   {
-     Ke386EnableInterrupts();
-   }
-
+#if defined(__GNUC__)
+   __asm__("movl %%cr2,%0\n\t" : "=d" (cr2_));
+#elif defined(_MSC_VER)
+  __asm mov eax, cr2;
+  __asm mov cr2_, eax;
+#else
+#error Unknown compiler for inline assembler
+#endif
+   Tf->DebugPointer = (PVOID)cr2_;
+   
    /*
     * If this was a V86 mode exception then handle it specially
     */
    if (Tf->Eflags & (1 << 17))
      {
-       return(KeV86Exception(ExceptionNr, Tf, cr2));
+       return(KeV86Exception(ExceptionNr, Tf, cr2_));
      }
 
    /*
@@ -575,14 +587,14 @@ KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
     */
    if (ExceptionNr == 14)
      {
-        if (Ke386NoExecute && Tf->ErrorCode & 0x10 && cr2 >= KERNEL_BASE)
+        if (Tf->Eflags & FLAG_IF)
 	{
-           KEBUGCHECKWITHTF(ATTEMPTED_EXECUTE_OF_NOEXECUTE_MEMORY, 0, 0, 0, 0, Tf);
+	  Ke386EnableInterrupts();
 	}
 	Status = MmPageFault(Tf->Cs&0xffff,
 			     &Tf->Eip,
 			     &Tf->Eax,
-			     cr2,
+			     cr2_,
 			     Tf->ErrorCode);
 	if (NT_SUCCESS(Status))
 	  {
@@ -595,7 +607,7 @@ KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
     */
    if (ExceptionNr == 3 && Tf->Eip == ((ULONG)DbgBreakPointNoBugCheck) + 1)
      {
-       /*
+       /* 
 	  EIP is already adjusted by the processor to point to the instruction
 	  after the breakpoint.
        */
@@ -603,182 +615,61 @@ KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
      }
 
    /*
-    * Try to handle device-not-present, math-fault and xmm-fault exceptions.
-    */
-   if (ExceptionNr == 7 || ExceptionNr == 16 || ExceptionNr == 19)
-     {
-       Status = KiHandleFpuFault(Tf, ExceptionNr);
-       if (NT_SUCCESS(Status))
-         {
-           return(0);
-         }
-     }
-
-   /*
     * Handle user exceptions differently
     */
    if ((Tf->Cs & 0xFFFF) == USER_CS)
      {
-       return(KiUserTrapHandler(Tf, ExceptionNr, (PVOID)cr2));
+       return(KiUserTrapHandler(Tf, ExceptionNr, (PVOID)cr2_));
      }
    else
     {
-      return(KiKernelTrapHandler(Tf, ExceptionNr, (PVOID)cr2));
+      return(KiKernelTrapHandler(Tf, ExceptionNr, (PVOID)cr2_));
     }
 }
 
-VOID
+VOID 
 KeDumpStackFrames(PULONG Frame)
 {
-	PULONG StackBase, StackEnd;
-	MEMORY_BASIC_INFORMATION mbi;
-	ULONG ResultLength = sizeof(mbi);
-	NTSTATUS Status;
+	ULONG i;
 
 	DbgPrint("Frames: ");
-	_SEH_TRY
+	i = 1;
+	while ( MmIsAddressValid(Frame) )
 	{
-		Status = MiQueryVirtualMemory (
-			(HANDLE)-1,
-			Frame,
-			MemoryBasicInformation,
-			&mbi,
-			sizeof(mbi),
-			&ResultLength );
-		if ( !NT_SUCCESS(Status) )
+		if (!KeRosPrintAddress((PVOID)Frame[1]))
 		{
-			DPRINT1("Can't dump stack frames: NtQueryVirtualMemory() failed: %x\n", Status );
-			return;
+			DbgPrint("<%X>", (PVOID)Frame[1]);
 		}
-
-		StackBase = Frame;
-		StackEnd = mbi.BaseAddress + mbi.RegionSize;
-
-		while ( Frame >= StackBase && Frame < StackEnd )
-		{
-			ULONG Addr = Frame[1];
-			if (!KeRosPrintAddress((PVOID)Addr))
-				DbgPrint("<%X>", Addr);
-			if ( Addr == 0 || Addr == 0xDEADBEEF )
-				break;
-			StackBase = Frame;
-			Frame = (PULONG)Frame[0];
-			DbgPrint(" ");
-		}
+		Frame = (PULONG)Frame[0];
+		i++;
+		DbgPrint(" ");
 	}
-	_SEH_HANDLE
-	{
-	}
-	_SEH_END;
-	DbgPrint("\n");
 }
 
 VOID STDCALL
 KeRosDumpStackFrames ( PULONG Frame, ULONG FrameCount )
 {
-	ULONG i=0;
-	PULONG StackBase, StackEnd;
-	MEMORY_BASIC_INFORMATION mbi;
-	ULONG ResultLength = sizeof(mbi);
-	NTSTATUS Status;
+	ULONG i;
 
 	DbgPrint("Frames: ");
-	_SEH_TRY
+	if ( !Frame )
 	{
-		if ( !Frame )
-		{
-#if defined __GNUC__
-			__asm__("mov %%ebp, %%ebx" : "=b" (Frame) : );
-#elif defined(_MSC_VER)
-			__asm mov [Frame], ebp
-#endif
-			//Frame = (PULONG)Frame[0]; // step out of KeRosDumpStackFrames
-		}
-
-		Status = MiQueryVirtualMemory (
-			(HANDLE)-1,
-			Frame,
-			MemoryBasicInformation,
-			&mbi,
-			sizeof(mbi),
-			&ResultLength );
-		if ( !NT_SUCCESS(Status) )
-		{
-			DPRINT1("Can't dump stack frames: NtQueryVirtualMemory() failed: %x\n", Status );
-			return;
-		}
-
-		StackBase = Frame;
-		StackEnd = mbi.BaseAddress + mbi.RegionSize;
-
-		while ( Frame >= StackBase && Frame < StackEnd && i++ < FrameCount )
-		{
-			ULONG Addr = Frame[1];
-			if (!KeRosPrintAddress((PVOID)Addr))
-				DbgPrint("<%X>", Addr);
-			if ( Addr == 0 || Addr == 0xDEADBEEF )
-				break;
-			StackBase = Frame;
-			Frame = (PULONG)Frame[0];
-			DbgPrint(" ");
-		}
-	}
-	_SEH_HANDLE
-	{
-	}
-	_SEH_END;
-	DbgPrint("\n");
-}
-
-ULONG STDCALL
-KeRosGetStackFrames ( PULONG Frames, ULONG FrameCount )
-{
-	ULONG Count = 0;
-	PULONG StackBase, StackEnd, Frame;
-	MEMORY_BASIC_INFORMATION mbi;
-	ULONG ResultLength = sizeof(mbi);
-	NTSTATUS Status;
-
-	_SEH_TRY
-	{
-#if defined __GNUC__
 		__asm__("mov %%ebp, %%ebx" : "=b" (Frame) : );
-#elif defined(_MSC_VER)
-		__asm mov [Frame], ebp
-#endif
-
-		Status = MiQueryVirtualMemory (
-			(HANDLE)-1,
-			Frame,
-			MemoryBasicInformation,
-			&mbi,
-			sizeof(mbi),
-			&ResultLength );
-		if ( !NT_SUCCESS(Status) )
-		{
-			DPRINT1("Can't get stack frames: NtQueryVirtualMemory() failed: %x\n", Status );
-			return 0;
-		}
-
-		StackBase = Frame;
-		StackEnd = mbi.BaseAddress + mbi.RegionSize;
-
-		while ( Count < FrameCount && Frame >= StackBase && Frame < StackEnd )
-		{
-			Frames[Count++] = Frame[1];
-			StackBase = Frame;
-			Frame = (PULONG)Frame[0];
-		}
+		Frame = (PULONG)Frame[0]; // step out of KeRosDumpStackFrames
 	}
-	_SEH_HANDLE
+	i = 1;
+	while ( MmIsAddressValid(Frame) && i++ < FrameCount )
 	{
+		if (!KeRosPrintAddress((PVOID)Frame[1]))
+		{
+			DbgPrint("<%X>", (PVOID)Frame[1]);
+		}
+		Frame = (PULONG)Frame[0];
+		DbgPrint(" ");
 	}
-	_SEH_END;
-	return Count;
 }
 
-static void
-set_system_call_gate(unsigned int sel, unsigned int func)
+static void set_system_call_gate(unsigned int sel, unsigned int func)
 {
    DPRINT("sel %x %d\n",sel,sel);
    KiIdt[sel].a = (((int)func)&0xffff) +
@@ -792,16 +683,16 @@ static void set_interrupt_gate(unsigned int sel, unsigned int func)
    DPRINT("set_interrupt_gate(sel %d, func %x)\n",sel,func);
    KiIdt[sel].a = (((int)func)&0xffff) +
      (KERNEL_CS << 16);
-   KiIdt[sel].b = 0x8e00 + (((int)func)&0xffff0000);
+   KiIdt[sel].b = 0x8e00 + (((int)func)&0xffff0000);         
 }
 
 static void set_trap_gate(unsigned int sel, unsigned int func, unsigned int dpl)
 {
    DPRINT("set_trap_gate(sel %d, func %x, dpl %d)\n",sel, func, dpl);
-   ASSERT(dpl <= 3);
+   assert(dpl <= 3);
    KiIdt[sel].a = (((int)func)&0xffff) +
      (KERNEL_CS << 16);
-   KiIdt[sel].b = 0x8f00 + (dpl << 13) + (((int)func)&0xffff0000);
+   KiIdt[sel].b = 0x8f00 + (dpl << 13) + (((int)func)&0xffff0000);         
 }
 
 static void
@@ -841,15 +732,12 @@ KeInitExceptions(VOID)
    set_interrupt_gate(14, (ULONG)KiTrap14);
    set_trap_gate(15, (ULONG)KiTrap15, 0);
    set_trap_gate(16, (ULONG)KiTrap16, 0);
-   set_trap_gate(17, (ULONG)KiTrap17, 0);
-   set_trap_gate(18, (ULONG)KiTrap18, 0);
-   set_trap_gate(19, (ULONG)KiTrap19, 0);
-
-   for (i = 20; i < 256; i++)
-     {
-        set_trap_gate(i,(int)KiTrapUnknown, 0);
-     }
-
+   
+   for (i=17;i<256;i++)
+        {
+	   set_trap_gate(i,(int)KiTrapUnknown, 0);
+        }
+   
    set_system_call_gate(0x2d,(int)interrupt_handler2d);
    set_system_call_gate(0x2e,(int)interrupt_handler2e);
 }
@@ -858,44 +746,14 @@ KeInitExceptions(VOID)
  * @implemented
  */
 
-NTSTATUS STDCALL
+VOID STDCALL
 KeRaiseUserException(IN NTSTATUS ExceptionCode)
 {
    /* FIXME: This needs SEH */
-   ULONG OldEip;
+
    PKTHREAD Thread = KeGetCurrentThread();
 
    ProbeForWrite(&Thread->Teb->ExceptionCode, sizeof(NTSTATUS), sizeof(NTSTATUS)); /* NT doesn't check this -- bad? */
-   OldEip = Thread->TrapFrame->Eip;
    Thread->TrapFrame->Eip = (ULONG_PTR)LdrpGetSystemDllRaiseExceptionDispatcher();
    Thread->Teb->ExceptionCode = ExceptionCode;
-   return((NTSTATUS)OldEip);
-}
-
-VOID
-FASTCALL
-KeRosTrapReturn ( PKTRAP_FRAME TrapFrame, PKTRAP_FRAME PrevTrapFrame );
-
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-NtRaiseException (
-	IN PEXCEPTION_RECORD ExceptionRecord,
-	IN PCONTEXT Context,
-	IN BOOLEAN SearchFrames)
-{
-	PKTRAP_FRAME TrapFrame = KeGetCurrentThread()->TrapFrame;
-	PKTRAP_FRAME PrevTrapFrame = (PKTRAP_FRAME)TrapFrame->Edx;
-
-	KeGetCurrentKPCR()->Tib.ExceptionList = TrapFrame->ExceptionList;
-
-	KiDispatchException(ExceptionRecord,
-		Context,
-		PsGetCurrentThread()->Tcb.TrapFrame,
-		(KPROCESSOR_MODE)ExGetPreviousMode(),
-		SearchFrames);
-
-	KeRosTrapReturn ( TrapFrame, PrevTrapFrame );
-	return(STATUS_SUCCESS);
 }

@@ -1,4 +1,4 @@
-/* $Id: sysinfo.c,v 1.62 2004/12/16 22:36:09 gvg Exp $
+/* $Id: sysinfo.c,v 1.36 2004/06/13 10:35:52 navaraf Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -14,7 +14,16 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <ddk/halfuncs.h>
+#include <internal/ex.h>
+#include <internal/io.h>
+#include <internal/ldr.h>
+#include <internal/safe.h>
+#include <internal/ps.h>
+#include <internal/mm.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -23,71 +32,10 @@ ULONGLONG STDCALL KeQueryInterruptTime(VOID);
 
 VOID MmPrintMemoryStatistic(VOID);
 
+extern ULONG Ke386CpuidFlags;
+extern ULONG Ke386Cpuid;
+
 /* FUNCTIONS *****************************************************************/
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-ExEnumHandleTable (
-	PULONG	HandleTable,
-	PVOID	Callback,
-	PVOID	Param,
-	PHANDLE	Handle OPTIONAL
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-ExGetCurrentProcessorCpuUsage (
-	PULONG	CpuUsage
-	)
-{
-	PKPCR Pcr;
-	ULONG TotalTime;
-	ULONG PercentTime = 0;
-	ULONGLONG ScaledIdle;
-
-	Pcr = KeGetCurrentKPCR();
-
-	ScaledIdle = Pcr->PrcbData.IdleThread->KernelTime * 100;
-	TotalTime = Pcr->PrcbData.KernelTime + Pcr->PrcbData.UserTime;
-	if (TotalTime) PercentTime = 100 - (ScaledIdle / TotalTime);
-	CpuUsage = &PercentTime;
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-ExGetCurrentProcessorCounts (
-	PULONG	ThreadKernelTime,
-	PULONG	TotalCpuTime,
-	PULONG	ProcessorNumber
-	)
-{
-	PKPCR Pcr;
-	ULONG TotalTime;
-	ULONG ThreadTime;
-	ULONG ProcNumber;
-
-	Pcr = KeGetCurrentKPCR();
-
-	TotalTime = Pcr->PrcbData.KernelTime + Pcr->PrcbData.UserTime;
-	ThreadTime = Pcr->PrcbData.CurrentThread->KernelTime;
-	ProcNumber = Pcr->ProcessorNumber;
-
-	ThreadKernelTime = &ThreadTime;
-	TotalCpuTime = &TotalTime;
-	ProcessorNumber = &ProcNumber;
-}
 
 NTSTATUS STDCALL
 NtQuerySystemEnvironmentValue (IN	PUNICODE_STRING	UnsafeName,
@@ -354,15 +302,15 @@ QSI_DEF(SystemBasicInformation)
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 	Sbi->Unknown = 0;
-	Sbi->MaximumIncrement = KeMaximumIncrement;
-	Sbi->PhysicalPageSize = PAGE_SIZE;
+	Sbi->MaximumIncrement = 100000; /* FIXME */
+	Sbi->PhysicalPageSize = PAGE_SIZE; /* FIXME: it should be PAGE_SIZE */
 	Sbi->NumberOfPhysicalPages = MmStats.NrTotalPages;
 	Sbi->LowestPhysicalPage = 0; /* FIXME */ 
 	Sbi->HighestPhysicalPage = MmStats.NrTotalPages; /* FIXME */
-	Sbi->AllocationGranularity = MM_VIRTMEM_GRANULARITY; /* hard coded on Intel? */
+	Sbi->AllocationGranularity = 65536; /* hard coded on Intel? */
 	Sbi->LowestUserAddress = 0x10000; /* Top of 64k */
-	Sbi->HighestUserAddress = (ULONG_PTR)MmHighestUserAddress;
-	Sbi->ActiveProcessors = KeActiveProcessors;
+	Sbi->HighestUserAddress = 0x7ffeffff; /* From mm/mminit.c */
+	Sbi->ActiveProcessors = 0x00000001; /* FIXME */
 	Sbi->NumberProcessors = KeNumberProcessors;
 	return (STATUS_SUCCESS);
 }
@@ -372,7 +320,7 @@ QSI_DEF(SystemProcessorInformation)
 {
 	PSYSTEM_PROCESSOR_INFORMATION Spi 
 		= (PSYSTEM_PROCESSOR_INFORMATION) Buffer;
-	PKPCR Pcr;
+
 	*ReqSize = sizeof (SYSTEM_PROCESSOR_INFORMATION);
 	/*
 	 * Check user buffer's size 
@@ -380,13 +328,12 @@ QSI_DEF(SystemProcessorInformation)
 	if (Size < sizeof (SYSTEM_PROCESSOR_INFORMATION))
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
-	}
-	Pcr = KeGetCurrentKPCR();
+	}	
 	Spi->ProcessorArchitecture = 0; /* Intel Processor */
-	Spi->ProcessorLevel	   = Pcr->PrcbData.CpuType;
-	Spi->ProcessorRevision	   = Pcr->PrcbData.CpuStep;
+	Spi->ProcessorLevel	   = ((Ke386Cpuid >> 8) & 0xf);
+	Spi->ProcessorRevision	   = (Ke386Cpuid & 0xf) | ((Ke386Cpuid << 4) & 0xf00);
 	Spi->Unknown 		   = 0;
-	Spi->FeatureBits	   = Pcr->PrcbData.FeatureBits;
+	Spi->FeatureBits	   = Ke386CpuidFlags;
 
 	DPRINT("Arch %d Level %d Rev 0x%x\n", Spi->ProcessorArchitecture,
 		Spi->ProcessorLevel, Spi->ProcessorRevision);
@@ -413,7 +360,7 @@ QSI_DEF(SystemPerformanceInformation)
 	
 	PsLookupProcessByProcessId((PVOID) 1, &TheIdleProcess);
 	
-	Spi->IdleTime.QuadPart = TheIdleProcess->Pcb.KernelTime * 100000LL;
+	Spi->IdleTime.QuadPart = TheIdleProcess->Pcb.KernelTime * 100000;
 
 	Spi->ReadTransferCount.QuadPart = IoReadTransferCount;
 	Spi->WriteTransferCount.QuadPart = IoWriteTransferCount;
@@ -422,23 +369,9 @@ QSI_DEF(SystemPerformanceInformation)
 	Spi->WriteOperationCount = IoWriteOperationCount;
 	Spi->OtherOperationCount = IoOtherOperationCount;
 
-	Spi->AvailablePages = MmStats.NrFreePages;
-/*
-        Add up all the used "Commitied" memory + pagefile.
-        Not sure this is right. 8^\
- */
-	Spi->TotalCommittedPages = MiMemoryConsumers[MC_PPOOL].PagesUsed +
-				   MiMemoryConsumers[MC_NPPOOL].PagesUsed+
-                                   MiMemoryConsumers[MC_CACHE].PagesUsed+
-		                   MiMemoryConsumers[MC_USER].PagesUsed+
-			           MiUsedSwapPages;
-/*
-	Add up the full system total + pagefile.
-	All this make Taskmgr happy but not sure it is the right numbers.
-	This too, fixes some of GlobalMemoryStatusEx numbers.
-*/
-        Spi->TotalCommitLimit = MmStats.NrTotalPages + MiFreeSwapPages +
-                                MiUsedSwapPages;
+	Spi->AvailablePages = MiNrAvailablePages;
+	Spi->TotalCommittedPages = MiUsedSwapPages;
+	Spi->TotalCommitLimit = MiFreeSwapPages + MiUsedSwapPages; /* FIXME */
 
 	Spi->PeakCommitment = 0; /* FIXME */
 	Spi->PageFaults = 0; /* FIXME */
@@ -523,46 +456,47 @@ QSI_DEF(SystemPerformanceInformation)
 /* Class 3 - Time Of Day Information */
 QSI_DEF(SystemTimeOfDayInformation)
 {
-  PSYSTEM_TIMEOFDAY_INFORMATION Sti;
-  LARGE_INTEGER CurrentTime;
+	LARGE_INTEGER CurrentTime;
+ 
+	PSYSTEM_TIMEOFDAY_INFORMATION Sti
+		= (PSYSTEM_TIMEOFDAY_INFORMATION) Buffer;
 
-  Sti = (PSYSTEM_TIMEOFDAY_INFORMATION)Buffer;
-  *ReqSize = sizeof (SYSTEM_TIMEOFDAY_INFORMATION);
+	*ReqSize = sizeof (SYSTEM_TIMEOFDAY_INFORMATION);
+	/*
+	 * Check user buffer's size 
+	 */
+	if (Size < sizeof (SYSTEM_TIMEOFDAY_INFORMATION))
+	{
+		return (STATUS_INFO_LENGTH_MISMATCH);
+	}
 
-  /* Check user buffer's size */
-  if (Size < sizeof (SYSTEM_TIMEOFDAY_INFORMATION))
-    {
-      return STATUS_INFO_LENGTH_MISMATCH;
-    }
+	KeQuerySystemTime(&CurrentTime);
 
-  KeQuerySystemTime(&CurrentTime);
+	Sti->BootTime= SystemBootTime;
+	Sti->CurrentTime = CurrentTime;
+	Sti->TimeZoneBias.QuadPart = _SystemTimeZoneInfo.Bias;
+	Sti->TimeZoneId = 0;		/* FIXME */
+	Sti->Reserved = 0;		/* FIXME */
 
-  Sti->BootTime= SystemBootTime;
-  Sti->CurrentTime = CurrentTime;
-  Sti->TimeZoneBias.QuadPart = ExpTimeZoneBias.QuadPart;
-  Sti->TimeZoneId = ExpTimeZoneId;
-  Sti->Reserved = 0;
-
-  return STATUS_SUCCESS;
+	return (STATUS_SUCCESS);
 }
 
 /* Class 4 - Path Information */
 QSI_DEF(SystemPathInformation)
 {
 	/* FIXME: QSI returns STATUS_BREAKPOINT. Why? */
-	DPRINT1("NtQuerySystemInformation - SystemPathInformation not implemented\n");
-
 	return (STATUS_BREAKPOINT);
 }
 
 /* Class 5 - Process Information */
 QSI_DEF(SystemProcessInformation)
 {
-	ULONG ovlSize=0, nThreads;
+	ULONG ovlSize=0, nThreads=1;
 	PEPROCESS pr, syspr;
 	unsigned char *pCur;
 
 	/* scan the process list */
+	// TODO: Add thread information
 
 	PSYSTEM_PROCESSES Spi
 		= (PSYSTEM_PROCESSES) Buffer;
@@ -581,15 +515,14 @@ QSI_DEF(SystemProcessInformation)
 	do
 	{
 		PSYSTEM_PROCESSES SpiCur;
-		int curSize, i = 0;
+		int curSize;
 		ANSI_STRING	imgName;
 		int inLen=32; // image name len in bytes
-		PLIST_ENTRY current_entry;
-		PETHREAD current;
+		
 
 		SpiCur = (PSYSTEM_PROCESSES)pCur;
 
-		nThreads = PsEnumThreadsByProcess(pr);
+		nThreads = 1; // FIXME
 		
 		// size of the structure for every process
 		curSize = sizeof(SYSTEM_PROCESSES)-sizeof(SYSTEM_THREADS)+sizeof(SYSTEM_THREADS)*nThreads;
@@ -607,8 +540,8 @@ QSI_DEF(SystemProcessInformation)
 		SpiCur->NextEntryDelta = curSize+inLen; // relative offset to the beginnnig of the next structure
 		SpiCur->ThreadCount = nThreads;
 		SpiCur->CreateTime = pr->CreateTime;
-		SpiCur->UserTime.QuadPart = pr->Pcb.UserTime * 100000LL; 
-		SpiCur->KernelTime.QuadPart = pr->Pcb.KernelTime * 100000LL;
+		SpiCur->UserTime.QuadPart = pr->Pcb.UserTime * 100000; 
+		SpiCur->KernelTime.QuadPart = pr->Pcb.KernelTime * 100000;
 		SpiCur->ProcessName.Length = strlen(pr->ImageFileName) * sizeof(WCHAR);
 		SpiCur->ProcessName.MaximumLength = inLen;
 		SpiCur->ProcessName.Buffer = (void*)(pCur+curSize);
@@ -620,46 +553,25 @@ QSI_DEF(SystemProcessInformation)
 		SpiCur->BasePriority = pr->Pcb.BasePriority;
 		SpiCur->ProcessId = pr->UniqueProcessId;
 		SpiCur->InheritedFromProcessId = (DWORD)(pr->InheritedFromUniqueProcessId);
-		SpiCur->HandleCount = ObpGetHandleCountByHandleTable(&pr->HandleTable);
+		SpiCur->HandleCount = ObpGetHandleCountbyHandleTable(&pr->HandleTable);
 		SpiCur->VmCounters.PeakVirtualSize = pr->PeakVirtualSize;
 		SpiCur->VmCounters.VirtualSize = pr->VirtualSize.QuadPart;
 		SpiCur->VmCounters.PageFaultCount = pr->LastFaultCount;
 		SpiCur->VmCounters.PeakWorkingSetSize = pr->Vm.PeakWorkingSetSize; // Is this right using ->Vm. here ?
 		SpiCur->VmCounters.WorkingSetSize = pr->Vm.WorkingSetSize; // Is this right using ->Vm. here ?
 		SpiCur->VmCounters.QuotaPeakPagedPoolUsage =
-					pr->QuotaPeakPoolUsage[0];
+ 					pr->QuotaPeakPoolUsage[0];
 		SpiCur->VmCounters.QuotaPagedPoolUsage =
-					pr->QuotaPoolUsage[0];
+					pr->QuotaPoolUsage[0]; 
 		SpiCur->VmCounters.QuotaPeakNonPagedPoolUsage =
-					pr->QuotaPeakPoolUsage[1];
-		SpiCur->VmCounters.QuotaNonPagedPoolUsage =
-					pr->QuotaPoolUsage[1];
+					pr->QuotaPeakPoolUsage[1]; 
+		SpiCur->VmCounters.QuotaNonPagedPoolUsage = 
+					pr->QuotaPoolUsage[1]; 
 		SpiCur->VmCounters.PagefileUsage = pr->PagefileUsage; // FIXME
 		SpiCur->VmCounters.PeakPagefileUsage = pr->PeakPagefileUsage;
-		// KJK::Hyperion: I don't know what does this mean. VM_COUNTERS
-		// doesn't seem to contain any equivalent field
+                // KJK::Hyperion: I don't know what does this mean. VM_COUNTERS
+                // doesn't seem to contain any equivalent field
 		//SpiCur->TotalPrivateBytes = pr->NumberOfPrivatePages; //FIXME: bytes != pages
-
-          current_entry = pr->ThreadListHead.Flink;
-          while (current_entry != &pr->ThreadListHead)
-               {
-                 current = CONTAINING_RECORD(current_entry, ETHREAD,
-                                             ThreadListEntry);
-
-                 SpiCur->Threads[i].KernelTime.QuadPart = current->Tcb.KernelTime * 100000LL;
-                 SpiCur->Threads[i].UserTime.QuadPart = current->Tcb.UserTime * 100000LL;
-//                 SpiCur->Threads[i].CreateTime = current->CreateTime;
-                 SpiCur->Threads[i].WaitTime = current->Tcb.WaitTime;
-                 SpiCur->Threads[i].StartAddress = (PVOID) current->StartAddress;
-                 SpiCur->Threads[i].ClientId = current->Cid;
-                 SpiCur->Threads[i].Priority = current->Tcb.Priority;
-                 SpiCur->Threads[i].BasePriority = current->Tcb.BasePriority;
-                 SpiCur->Threads[i].ContextSwitchCount = current->Tcb.ContextSwitches;
-                 SpiCur->Threads[i].State = current->Tcb.State;
-                 SpiCur->Threads[i].WaitReason = current->Tcb.WaitReason;
-                 i++;
-                 current_entry = current_entry->Flink;
-               }
 
 		pr = PsGetNextProcess(pr);
 
@@ -675,7 +587,7 @@ QSI_DEF(SystemProcessInformation)
 	*ReqSize = ovlSize;
 	if (pr != NULL)
 	  {
-	    ObDereferenceObject(pr);
+            ObDereferenceObject(pr);
 	  }
 	return (STATUS_SUCCESS);
 }
@@ -684,7 +596,6 @@ QSI_DEF(SystemProcessInformation)
 QSI_DEF(SystemCallCountInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemCallCountInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -722,35 +633,32 @@ QSI_DEF(SystemProcessorPerformanceInformation)
 	PSYSTEM_PROCESSORTIME_INFO Spi
 		= (PSYSTEM_PROCESSORTIME_INFO) Buffer;
 
-        ULONG i;
+        PEPROCESS TheIdleProcess;
 	TIME CurrentTime;
-	PKPCR Pcr;
 
-	*ReqSize = KeNumberProcessors * sizeof (SYSTEM_PROCESSORTIME_INFO);
+	*ReqSize = sizeof (SYSTEM_PROCESSORTIME_INFO);
 	/*
 	 * Check user buffer's size 
 	 */
-	if (Size < KeNumberProcessors * sizeof(SYSTEM_PROCESSORTIME_INFO))
+	if (Size < sizeof (SYSTEM_PROCESSORTIME_INFO))
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 
-	CurrentTime.QuadPart = KeQueryInterruptTime();
-	Pcr = (PKPCR)KPCR_BASE;   
-	for (i = 0; i < KeNumberProcessors; i++)
-	{
+        PsLookupProcessByProcessId((PVOID) 1, &TheIdleProcess);
 
-	   Spi->TotalProcessorRunTime.QuadPart = (Pcr->PrcbData.IdleThread->KernelTime + Pcr->PrcbData.IdleThread->UserTime) * 100000LL; // IdleTime
-           Spi->TotalProcessorTime.QuadPart =  Pcr->PrcbData.KernelTime * 100000LL; // KernelTime
-           Spi->TotalProcessorUserTime.QuadPart = Pcr->PrcbData.UserTime * 100000LL;
-           Spi->TotalDPCTime.QuadPart = Pcr->PrcbData.DpcTime * 100000LL;
-           Spi->TotalInterruptTime.QuadPart = Pcr->PrcbData.InterruptTime * 100000LL;
-           Spi->TotalInterrupts = Pcr->PrcbData.InterruptCount; // Interrupt Count
-	   Spi++;
-//	   Pcr++;
-	   Pcr = (PKPCR)((ULONG_PTR)Pcr + PAGE_SIZE);
-	}
-     
+	CurrentTime.QuadPart = KeQueryInterruptTime();
+
+        Spi->TotalProcessorRunTime.QuadPart = 
+		TheIdleProcess->Pcb.KernelTime * 100000; // IdleTime
+        Spi->TotalProcessorTime.QuadPart =  KiKernelTime * 100000; // KernelTime
+        Spi->TotalProcessorUserTime.QuadPart = KiUserTime * 100000;
+        Spi->TotalDPCTime.QuadPart = KiDpcTime * 100000;
+        Spi->TotalInterruptTime = CurrentTime;
+        Spi->TotalInterrupts = CurrentTime.QuadPart / 100000; // Interrupt Count
+
+	ObDereferenceObject(TheIdleProcess);
+        
 	return (STATUS_SUCCESS);
 }
 
@@ -780,7 +688,6 @@ SSI_DEF(SystemFlagsInformation)
 QSI_DEF(SystemCallTimeInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemCallTimeInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -794,7 +701,6 @@ QSI_DEF(SystemModuleInformation)
 QSI_DEF(SystemLocksInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemLocksInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -802,7 +708,6 @@ QSI_DEF(SystemLocksInformation)
 QSI_DEF(SystemStackTraceInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemStackTraceInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -810,7 +715,6 @@ QSI_DEF(SystemStackTraceInformation)
 QSI_DEF(SystemPagedPoolInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemPagedPoolInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -818,7 +722,6 @@ QSI_DEF(SystemPagedPoolInformation)
 QSI_DEF(SystemNonPagedPoolInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemNonPagedPoolInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -826,7 +729,6 @@ QSI_DEF(SystemNonPagedPoolInformation)
 QSI_DEF(SystemHandleInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemHandleInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -834,38 +736,20 @@ QSI_DEF(SystemHandleInformation)
 QSI_DEF(SystemObjectInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemObjectInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* Class 18 -  Information */
 QSI_DEF(SystemPageFileInformation)
 {
-	SYSTEM_PAGEFILE_INFORMATION *Spfi = (SYSTEM_PAGEFILE_INFORMATION *) Buffer;
-
-	if (Size < sizeof (SYSTEM_PAGEFILE_INFORMATION))
-	{
-		* ReqSize = sizeof (SYSTEM_PAGEFILE_INFORMATION);
-		return (STATUS_INFO_LENGTH_MISMATCH);
-	}
-
-	UNICODE_STRING FileName; /* FIXME */
-
 	/* FIXME */
-	Spfi->NextEntryOffset = 0;
-
-	Spfi->TotalSize = MiFreeSwapPages + MiUsedSwapPages;
-	Spfi->TotalInUse = MiUsedSwapPages;
-	Spfi->PeakUsage = MiUsedSwapPages; /* FIXME */
-	Spfi->PageFileName = FileName;
-	return (STATUS_SUCCESS);
+	return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* Class 19 - Vdm Instemul Information */
 QSI_DEF(SystemVdmInstemulInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemVdmInstemulInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -873,7 +757,6 @@ QSI_DEF(SystemVdmInstemulInformation)
 QSI_DEF(SystemVdmBopInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemVdmBopInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -887,12 +770,9 @@ QSI_DEF(SystemFileCacheInformation)
 		* ReqSize = sizeof (SYSTEM_CACHE_INFORMATION);
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
-	/* Return the Byte size not the page size. */
-	Sci->CurrentSize = 
-		MiMemoryConsumers[MC_CACHE].PagesUsed * PAGE_SIZE;
-	Sci->PeakSize = 
-	        MiMemoryConsumers[MC_CACHE].PagesUsed * PAGE_SIZE; /* FIXME */
 
+	Sci->CurrentSize = 0; /* FIXME */
+	Sci->PeakSize = 0; /* FIXME */
 	Sci->PageFaultCount = 0; /* FIXME */
 	Sci->MinimumWorkingSet = 0; /* FIXME */
 	Sci->MaximumWorkingSet = 0; /* FIXME */
@@ -909,7 +789,6 @@ SSI_DEF(SystemFileCacheInformation)
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemFileCacheInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -917,7 +796,6 @@ SSI_DEF(SystemFileCacheInformation)
 QSI_DEF(SystemPoolTagInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemPoolTagInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -925,7 +803,6 @@ QSI_DEF(SystemPoolTagInformation)
 QSI_DEF(SystemInterruptInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemInterruptInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -933,14 +810,12 @@ QSI_DEF(SystemInterruptInformation)
 QSI_DEF(SystemDpcBehaviourInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemDpcBehaviourInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
 SSI_DEF(SystemDpcBehaviourInformation)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemDpcBehaviourInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -957,19 +832,17 @@ QSI_DEF(SystemFullMemoryInformation)
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
-	DPRINT("SystemFullMemoryInformation\n");
+	DPRINT1("SystemFullMemoryInformation\n");
 
 	PsLookupProcessByProcessId((PVOID) 1, &TheIdleProcess);
 
-        DPRINT("PID: %d, KernelTime: %u PFFree: %d PFUsed: %d\n",
-               TheIdleProcess->UniqueProcessId,
-               TheIdleProcess->Pcb.KernelTime,
-               MiFreeSwapPages,
-               MiUsedSwapPages);
+        DbgPrint("PID: %d, KernelTime: %u PFFree: %d PFUsed: %d\n",
+                 TheIdleProcess->UniqueProcessId,
+                 TheIdleProcess->Pcb.KernelTime,
+                 MiFreeSwapPages,
+                 MiUsedSwapPages);
 
-#ifndef NDEBUG
 	MmPrintMemoryStatistic();
-#endif
 	
 	*Spi = MiMemoryConsumers[MC_USER].PagesUsed;
 
@@ -1017,7 +890,6 @@ QSI_DEF(SystemTimeAdjustmentInformation)
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 	/* FIXME: */
-	DPRINT1("NtQuerySystemInformation - SystemTimeAdjustmentInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1028,7 +900,6 @@ SSI_DEF(SystemTimeAdjustmentInformation)
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 	/* FIXME: */
-	DPRINT1("NtSetSystemInformation - SystemTimeAdjustmentInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1036,7 +907,6 @@ SSI_DEF(SystemTimeAdjustmentInformation)
 QSI_DEF(SystemSummaryMemoryInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemSummaryMemoryInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1044,7 +914,6 @@ QSI_DEF(SystemSummaryMemoryInformation)
 QSI_DEF(SystemNextEventIdInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemNextEventIdInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1052,15 +921,13 @@ QSI_DEF(SystemNextEventIdInformation)
 QSI_DEF(SystemEventIdsInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemEventIdsInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
-/* Class 32 - Crash Dump Information */
+/* Class 32 - Crach Dump Information */
 QSI_DEF(SystemCrashDumpInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemCrashDumpInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1068,15 +935,13 @@ QSI_DEF(SystemCrashDumpInformation)
 QSI_DEF(SystemExceptionInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemExceptionInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
-/* Class 34 - Crash Dump State Information */
+/* Class 34 - Crach Dump State Information */
 QSI_DEF(SystemCrashDumpStateInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemCrashDumpStateInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1084,7 +949,6 @@ QSI_DEF(SystemCrashDumpStateInformation)
 QSI_DEF(SystemKernelDebuggerInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemKernelDebuggerInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1092,33 +956,19 @@ QSI_DEF(SystemKernelDebuggerInformation)
 QSI_DEF(SystemContextSwitchInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemContextSwitchInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* Class 37 - Registry Quota Information */
 QSI_DEF(SystemRegistryQuotaInformation)
 {
-  PSYSTEM_REGISTRY_QUOTA_INFORMATION srqi = (PSYSTEM_REGISTRY_QUOTA_INFORMATION) Buffer;
-
-  *ReqSize = sizeof(SYSTEM_REGISTRY_QUOTA_INFORMATION);
-  if (Size < sizeof(SYSTEM_REGISTRY_QUOTA_INFORMATION))
-    {
-      return STATUS_INFO_LENGTH_MISMATCH;
-    }
-
-  DPRINT1("Faking max registry size of 32 MB\n");
-  srqi->RegistryQuotaAllowed = 0x2000000;
-  srqi->RegistryQuotaUsed = 0x200000;
-  srqi->Reserved1 = (void*)0x200000;
-
-  return STATUS_SUCCESS;
+	/* FIXME */
+	return (STATUS_NOT_IMPLEMENTED);
 }
 
 SSI_DEF(SystemRegistryQuotaInformation)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemRegistryQuotaInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1135,11 +985,10 @@ SSI_DEF(SystemLoadAndCallImage)
   return(LdrpLoadAndCallImage(&Slci->ModuleName));
 }
 
-/* Class 39 - Priority Separation */
+/* Class 39 - Priority Seperation */
 SSI_DEF(SystemPrioritySeperation)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemPrioritySeperation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1147,7 +996,6 @@ SSI_DEF(SystemPrioritySeperation)
 QSI_DEF(SystemPlugPlayBusInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemPlugPlayBusInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1155,7 +1003,6 @@ QSI_DEF(SystemPlugPlayBusInformation)
 QSI_DEF(SystemDockInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemDockInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1163,7 +1010,6 @@ QSI_DEF(SystemDockInformation)
 QSI_DEF(SystemPowerInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemPowerInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1171,38 +1017,45 @@ QSI_DEF(SystemPowerInformation)
 QSI_DEF(SystemProcessorSpeedInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemProcessorSpeedInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* Class 44 - Current Time Zone Information */
 QSI_DEF(SystemCurrentTimeZoneInformation)
 {
-  * ReqSize = sizeof (TIME_ZONE_INFORMATION);
+	* ReqSize = sizeof (TIME_ZONE_INFORMATION);
 
-  if (sizeof (TIME_ZONE_INFORMATION) != Size)
-    {
-      return STATUS_INFO_LENGTH_MISMATCH;
-    }
+	if (sizeof (TIME_ZONE_INFORMATION) != Size)
+	{
+		return (STATUS_INFO_LENGTH_MISMATCH);
+	}
+	/* Copy the time zone information struct */
+        memcpy (
+		Buffer,
+                & _SystemTimeZoneInfo,
+                sizeof (TIME_ZONE_INFORMATION)
+		);
 
-  /* Copy the time zone information struct */
-  memcpy(Buffer,
-         &ExpTimeZoneInfo,
-         sizeof(TIME_ZONE_INFORMATION));
-
-  return STATUS_SUCCESS;
+	return (STATUS_SUCCESS);
 }
 
 
 SSI_DEF(SystemCurrentTimeZoneInformation)
 {
-  /* Check user buffer's size */
-  if (Size < sizeof (TIME_ZONE_INFORMATION))
-    {
-      return STATUS_INFO_LENGTH_MISMATCH;
-    }
-
-  return ExpSetTimeZoneInformation((PTIME_ZONE_INFORMATION)Buffer);
+	/*
+	 * Check user buffer's size 
+	 */
+	if (Size < sizeof (TIME_ZONE_INFORMATION))
+	{
+		return (STATUS_INFO_LENGTH_MISMATCH);
+	}
+	/* Copy the time zone information struct */
+	memcpy (
+		& _SystemTimeZoneInfo,
+		(TIME_ZONE_INFORMATION *) Buffer,
+		sizeof (TIME_ZONE_INFORMATION)
+		);
+	return (STATUS_SUCCESS);
 }
 
 
@@ -1210,7 +1063,6 @@ SSI_DEF(SystemCurrentTimeZoneInformation)
 QSI_DEF(SystemLookasideInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemLookasideInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1219,7 +1071,6 @@ QSI_DEF(SystemLookasideInformation)
 SSI_DEF(SystemSetTimeSlipEvent)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemSetTimSlipEvent not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1228,7 +1079,6 @@ SSI_DEF(SystemSetTimeSlipEvent)
 SSI_DEF(SystemCreateSession)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemCreateSession not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1237,7 +1087,6 @@ SSI_DEF(SystemCreateSession)
 SSI_DEF(SystemDeleteSession)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemDeleteSession not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1246,7 +1095,6 @@ SSI_DEF(SystemDeleteSession)
 QSI_DEF(SystemInvalidInfoClass4)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemInvalidInfoClass4 not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1255,7 +1103,6 @@ QSI_DEF(SystemInvalidInfoClass4)
 QSI_DEF(SystemRangeStartInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemRangeStartInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1264,7 +1111,6 @@ QSI_DEF(SystemRangeStartInformation)
 QSI_DEF(SystemVerifierInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemVerifierInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1272,7 +1118,6 @@ QSI_DEF(SystemVerifierInformation)
 SSI_DEF(SystemVerifierInformation)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemVerifierInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1281,7 +1126,6 @@ SSI_DEF(SystemVerifierInformation)
 SSI_DEF(SystemAddVerifier)
 {
 	/* FIXME */
-	DPRINT1("NtSetSystemInformation - SystemAddVerifier not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1290,7 +1134,6 @@ SSI_DEF(SystemAddVerifier)
 QSI_DEF(SystemSessionProcessesInformation)
 {
 	/* FIXME */
-	DPRINT1("NtQuerySystemInformation - SystemSessionProcessInformation not implemented\n");
 	return (STATUS_NOT_IMPLEMENTED);
 }
 
@@ -1306,7 +1149,7 @@ struct _QSSI_CALLS
 
 // QS	Query & Set
 // QX	Query
-// XS	Set
+// XQ	Set
 // XX	unknown behaviour
 //
 #define SI_QS(n) {QSI_USE(n),SSI_USE(n)}
@@ -1513,8 +1356,8 @@ NtFlushInstructionCache (
 	IN	UINT	NumberOfBytesToFlush
 	)
 {
-	__asm__("wbinvd\n");
-	return STATUS_SUCCESS;
+	UNIMPLEMENTED;
+	return(STATUS_NOT_IMPLEMENTED);
 }
 
 

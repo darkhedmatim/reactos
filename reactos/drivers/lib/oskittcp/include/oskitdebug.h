@@ -33,9 +33,7 @@
 #define OSK_DEBUG_CPOINT    0x00800000
 #define OSK_DEBUG_ULTRA     0xFFFFFFFF
 
-#ifndef _MSC_VER
 #include <roscfg.h>
-#endif/*_MSC_VER*/
 #include <oskittypes.h>
 
 #ifdef DBG
@@ -87,9 +85,8 @@ extern OSK_UINT OskitDebugTraceLevel;
 
 #endif /* DBG */
 
-#ifndef _MSC_VER
+
 #define assert(x) ASSERT(x)
-#endif//_MSC_VER
 #define assert_irql(x) ASSERT_IRQL(x)
 
 #endif /* __OSKITDEBUG_H */

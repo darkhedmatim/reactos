@@ -1,20 +1,3 @@
-/***************************************************************************
- *
- *  FreeType auto-fitter
- *
- *  (c) 2004 David Turner
- *
- *  The auto-fitter is a complete rewrite of the old auto-hinter.
- *  its main feature is the ability to differentiate between different
- *  scripts in order to apply language-specific rules.
- *
- *  the code has also been compartimentized into several entities that
- *  should make algorithmic experimentation easier than with the old
- *  code.
- *
- *  finally, we get rid of the Catharon license, since this code is
- *  released under the FreeType one.
- */
 #ifndef __AFTYPES_H__
 #define __AFTYPES_H__
 
@@ -90,7 +73,7 @@ FT_BEGIN_HEADER
 
   typedef FT_Int    AF_Angle;
 
-#define  AF_ANGLE_PI     256
+#define  AF_ANGLE_PI     128
 #define  AF_ANGLE_2PI    (AF_ANGLE_PI*2)
 #define  AF_ANGLE_PI2    (AF_ANGLE_PI/2)
 #define  AF_ANGLE_PI4    (AF_ANGLE_PI/4)
@@ -181,12 +164,6 @@ FT_BEGIN_HEADER
   } AF_ScalerRec, *AF_Scaler;
 
 
-#define  AF_SCALER_EQUAL_SCALES(a,b)    \
-   ( (a)->x_scale == (b)->x_scale &&    \
-     (a)->y_scale == (b)->y_scale &&    \
-     (a)->x_delta == (b)->x_delta &&    \
-     (a)->y_delta == (b)->y_delta )
-
 
  /**************************************************************************/
  /**************************************************************************/
@@ -251,6 +228,7 @@ FT_BEGIN_HEADER
 
 
   typedef FT_Error  (*AF_Script_InitHintsFunc)( AF_GlyphHints     hints,
+                                                FT_Outline*       outline,
                                                 AF_ScriptMetrics  metrics );
 
   typedef void      (*AF_Script_ApplyHintsFunc)( AF_GlyphHints     hints,

@@ -86,9 +86,6 @@ DrvEnableSurface(
       case 32:
          BitmapType = BMF_32BPP;
          break;
-
-      default:
-         return FALSE;
    }
 
    ScreenSize.cx = ppdev->ScreenWidth;

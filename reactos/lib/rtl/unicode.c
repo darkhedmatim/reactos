@@ -27,7 +27,6 @@
 #include <ntdll/rtl.h>
 
 #include <ntos/minmax.h>
-#define __NO_CTYPE_INLINES
 #include <ctype.h>
 
 #define NDEBUG
@@ -46,9 +45,7 @@ extern BOOLEAN NlsMbOemCodePageTag;
 /* FUNCTIONS *****************************************************************/
 
 
-/*
-* @implemented
-*/
+
 WCHAR STDCALL
 RtlAnsiCharToUnicodeChar (IN CHAR AnsiChar)
 {
@@ -224,7 +221,7 @@ RtlCompareString(
       {
          if (CaseInsensitive)
          {
-            for(;;)
+            while (1)
             {
                c1 = len1-- ? RtlUpperChar (*s1++) : 0;
                c2 = len2-- ? RtlUpperChar (*s2++) : 0;
@@ -234,7 +231,7 @@ RtlCompareString(
          }
          else
          {
-            for(;;)
+            while (1)
             {
                c1 = len1-- ? *s1++ : 0;
                c2 = len2-- ? *s2++ : 0;
@@ -395,18 +392,6 @@ RtlFreeUnicodeString(IN PUNICODE_STRING UnicodeString)
    UnicodeString->MaximumLength = 0;
 }
 
-/*
-* @unimplemented
-*/
-BOOLEAN
-STDCALL
-RtlIsValidOemCharacter (
-	IN PWCHAR Char
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
 
 /*
  * @implemented
@@ -497,34 +482,7 @@ RtlInitUnicodeString(IN OUT PUNICODE_STRING DestinationString,
    DestinationString->Buffer = (PWSTR)SourceString;
 }
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-RtlInitUnicodeStringEx(OUT PUNICODE_STRING DestinationString,
-                       IN PCWSTR SourceString)
-{
-   ULONG Length;
 
-   if (SourceString != NULL)
-   {
-      Length = wcslen(SourceString) * sizeof(WCHAR);
-      if (Length > 0xFFFC)
-         return STATUS_NAME_TOO_LONG;
-
-      DestinationString->Length = Length;
-      DestinationString->MaximumLength = Length + sizeof(WCHAR);
-      DestinationString->Buffer = (PWSTR)SourceString;
-   }
-   else
-   {
-      DestinationString->Length = 0;
-      DestinationString->MaximumLength = 0;
-      DestinationString->Buffer = NULL;
-   }
-
-   return STATUS_SUCCESS;
-}
 
 /*
  * @implemented
@@ -554,10 +512,8 @@ RtlIntegerToChar(
       Radix = 10;
 
    if ((Radix != 2) && (Radix != 8) &&
-       (Radix != 10) && (Radix != 16))
-   {
+         (Radix != 10) && (Radix != 16))
       return STATUS_INVALID_PARAMETER;
-   }
 
    tp = temp;
    while (v || tp == temp)
@@ -572,64 +528,7 @@ RtlIntegerToChar(
    }
 
    if (tp - temp >= Length)
-   {
       return STATUS_BUFFER_TOO_SMALL;
-   }
-
-   sp = String;
-   while (tp > temp)
-      *sp++ = *--tp;
-   *sp = 0;
-
-   return STATUS_SUCCESS;
-}
-
-
-/*
- * @implemented
- */
-NTSTATUS
-STDCALL
-RtlIntegerToUnicode(
-    IN ULONG Value,
-    IN ULONG Base  OPTIONAL,
-    IN ULONG Length OPTIONAL,
-    IN OUT LPWSTR String
-    )
-{
-   ULONG Radix;
-   WCHAR  temp[33];
-   ULONG v = Value;
-   ULONG i;
-   PWCHAR tp;
-   PWCHAR sp;
-
-   Radix = Base;
-   if (Radix == 0)
-      Radix = 10;
-
-   if ((Radix != 2) && (Radix != 8) &&
-       (Radix != 10) && (Radix != 16))
-   {
-      return STATUS_INVALID_PARAMETER;
-   }
-
-   tp = temp;
-   while (v || tp == temp)
-   {
-      i = v % Radix;
-      v = v / Radix;
-      if (i < 10)
-         *tp = i + L'0';
-      else
-         *tp = i + L'a' - 10;
-      tp++;
-   }
-
-   if (tp - temp >= Length)
-   {
-      return STATUS_BUFFER_TOO_SMALL;
-   }
 
    sp = String;
    while (tp > temp)
@@ -657,51 +556,14 @@ RtlIntegerToUnicodeString(
 
    Status = RtlIntegerToChar (Value,
                               Base,
-                              sizeof(Buffer),
+                              33,
                               Buffer);
    if (!NT_SUCCESS(Status))
       return Status;
 
    AnsiString.Buffer = Buffer;
    AnsiString.Length = strlen (Buffer);
-   AnsiString.MaximumLength = sizeof(Buffer);
-
-   Status = RtlAnsiStringToUnicodeString (String,
-                                          &AnsiString,
-                                          FALSE);
-
-   return Status;
-}
-
-
-/*
-* @implemented
-*/
-NTSTATUS
-STDCALL
-RtlInt64ToUnicodeString (
-	IN ULONGLONG Value,
-	IN ULONG Base OPTIONAL,
-	IN OUT PUNICODE_STRING String
-	)
-{
-   LARGE_INTEGER LargeInt;
-   ANSI_STRING AnsiString;
-   CHAR Buffer[33];
-   NTSTATUS Status;
-   
-   LargeInt.QuadPart = Value;
-
-   Status = RtlLargeIntegerToChar (&LargeInt,
-                                   Base,
-                                   sizeof(Buffer),
-                                   Buffer);
-   if (!NT_SUCCESS(Status))
-      return Status;
-
-   AnsiString.Buffer = Buffer;
-   AnsiString.Length = strlen (Buffer);
-   AnsiString.MaximumLength = sizeof(Buffer);
+   AnsiString.MaximumLength = 33;
 
    Status = RtlAnsiStringToUnicodeString (String,
                                           &AnsiString,
@@ -811,13 +673,6 @@ RtlPrefixUnicodeString(
 
 /*
  * @implemented
- *
- * Note that regardless of success or failure status, we should leave the
- * partial value in Value.  An error is never returned based on the chars
- * in the string.
- *
- * This function does check the base.  Only 2, 8, 10, 16 are permitted,
- * else STATUS_INVALID_PARAMETER is returned.
  */
 NTSTATUS
 STDCALL
@@ -831,13 +686,9 @@ RtlUnicodeStringToInteger(
    ULONG i;
    ULONG Val;
    BOOLEAN addneg = FALSE;
-   NTSTATUS Status = STATUS_SUCCESS;
 
    *Value = 0;
    Str = String->Buffer;
-
-   if( Base && Base != 2 && Base != 8 && Base != 10 && Base != 16 )
-       return STATUS_INVALID_PARAMETER;
 
    for (i = 0; i < String->Length / sizeof(WCHAR); i++)
    {
@@ -872,21 +723,21 @@ RtlUnicodeStringToInteger(
       }
       else if ((*Str > L'1') && (Base == 2))
       {
-	  break;
+         return STATUS_INVALID_PARAMETER;
       }
       else if (((*Str > L'7') || (*Str < L'0')) && (Base == 8))
       {
-	  break;
+         return STATUS_INVALID_PARAMETER;
       }
       else if (((*Str > L'9') || (*Str < L'0')) && (Base == 10))
       {
-	  break;
+         return STATUS_INVALID_PARAMETER;
       }
       else if (  ((*Str > L'9') || (*Str < L'0')) &&
                  ((towupper (*Str) > L'F') || (towupper (*Str) < L'A')) &&
                  (Base == 16))
       {
-	  break;
+         return STATUS_INVALID_PARAMETER;
       }
       Str++;
    }
@@ -897,10 +748,8 @@ RtlUnicodeStringToInteger(
       Base = 10;
 
    while (iswxdigit (*Str) &&
-          (Val = 
-	   iswdigit (*Str) ? 
-	   *Str - L'0' : 
-	   (towupper (*Str) - L'A' + 10)) < Base)
+          (Val = iswdigit (*Str) ? *Str - L'0' : (iswlower (*Str)
+                                                  ? towupper (*Str) : *Str) - L'A' + 10) < Base)
    {
       *Value = *Value * Base + Val;
       Str++;
@@ -909,7 +758,7 @@ RtlUnicodeStringToInteger(
    if (addneg == TRUE)
       *Value *= -1;
 
-   return Status;
+   return STATUS_SUCCESS;
 }
 
 
@@ -1274,6 +1123,7 @@ RtlOemStringToCountedUnicodeString(
 /*
  * private
  *
+ 
  * NOTES
  *  Same as RtlOemStringToUnicodeString but doesn't write terminating null
  *  A partial copy is NOT performed if the dest buffer is too small!
@@ -1328,11 +1178,12 @@ RtlpOemStringToCountedUnicodeString(
 }
 
 
+//FIXME: sjekk returnverdi og returtype. Wine koflikter mht. returtype for EqualString og EqualComputer---
 /*
  * @implemented
  *
  * RETURNS
- *  TRUE if the names are equal, FALSE if not
+ *  0 if the names are equal, non-zero otherwise.
  *
  * NOTES
  *  The comparison is case insensitive.
@@ -1351,7 +1202,7 @@ RtlEqualComputerName(
    {
       if (NT_SUCCESS(RtlUpcaseUnicodeStringToOemString( &OemString2, ComputerName2, TRUE )))
       {
-         Result = RtlEqualString( &OemString1, &OemString2, TRUE );
+         Result = RtlEqualString( &OemString1, &OemString2, FALSE );
          RtlFreeOemString( &OemString2 );
       }
       RtlFreeOemString( &OemString1 );
@@ -1360,11 +1211,12 @@ RtlEqualComputerName(
    return Result;
 }
 
+//FIXME: sjekk returnverdi og returtype. Wine koflikter mht. returtype for EqualString og EqualComputer---
 /*
  * @implemented
  *
  * RETURNS
- *  TRUE if the names are equal, FALSE if not
+ *  0 if the names are equal, non-zero otherwise.
  *
  * NOTES
  *  The comparison is case insensitive.
@@ -1543,6 +1395,19 @@ RtlGUIDFromString(
    return STATUS_SUCCESS;
 }
 
+
+/*
+ * @unimplemented
+ */
+NTSTATUS STDCALL
+RtlInt64ToUnicodeString (IN ULONGLONG Value,
+                         IN ULONG Base,
+                         OUT PUNICODE_STRING String)
+{
+   return STATUS_NOT_IMPLEMENTED;
+}
+
+
 /*
  * @implemented
  */
@@ -1564,21 +1429,7 @@ RtlEraseUnicodeString(
    String->Length = 0;
 }
 
-/*
-* @unimplemented
-*/
-NTSTATUS
-STDCALL
-RtlHashUnicodeString(
-	IN const UNICODE_STRING *String,
-	IN BOOLEAN CaseInSensitive,
-	IN ULONG HashAlgorithm,
-	OUT PULONG HashValue
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
+
 
 /*
  * @implemented
@@ -2605,33 +2456,12 @@ RtlxUnicodeStringToOemSize(IN PUNICODE_STRING UnicodeString)
 
 /*
  * @implemented
- *
- * NOTES
- *  See RtlpDuplicateUnicodeString
  */
 NTSTATUS STDCALL
 RtlDuplicateUnicodeString(
    INT AddNull,
    IN PUNICODE_STRING SourceString,
    PUNICODE_STRING DestinationString)
-{
-   return RtlpDuplicateUnicodeString(
-            AddNull,
-            SourceString,
-            DestinationString,
-            NonPagedPool);
-}
-   
-   
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-RtlpDuplicateUnicodeString(
-   INT AddNull,
-   IN PUNICODE_STRING SourceString,
-   PUNICODE_STRING DestinationString,
-   POOL_TYPE PoolType)
 {
    if (SourceString == NULL || DestinationString == NULL)
       return STATUS_INVALID_PARAMETER;
@@ -2650,7 +2480,7 @@ RtlpDuplicateUnicodeString(
       if (AddNull)
          DestMaxLength += sizeof(UNICODE_NULL);
 
-      DestinationString->Buffer = ExAllocatePool(PoolType, DestMaxLength);
+      DestinationString->Buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, DestMaxLength);
       if (DestinationString->Buffer == NULL)
          return STATUS_NO_MEMORY;
 

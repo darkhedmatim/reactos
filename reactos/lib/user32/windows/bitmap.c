@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bitmap.c,v 1.34 2004/12/19 05:00:22 royce Exp $
+/* $Id: bitmap.c,v 1.29 2004/04/13 00:06:50 weiden Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,16 +28,20 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
 #include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 #include <stdlib.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
 
 /*forward declerations... actualy in user32\windows\icon.c but usful here****/
 HICON ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 HICON ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 CURSORICONDIRENTRY *CURSORICON_FindBestIcon( CURSORICONDIR *dir, int width, int height, int colors);
 CURSORICONDIRENTRY *CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, int height, int colors);
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -180,8 +184,7 @@ LoadCursorImage(HINSTANCE hinst, LPCWSTR lpszName, UINT fuLoad)
 
       IconDIR = MapViewOfFile(hSection, FILE_MAP_READ, 0, 0, 0);
       CloseHandle(hSection);
-      if (IconDIR == NULL || 0 != IconDIR->idReserved
-          || (IMAGE_ICON != IconDIR->idType && IMAGE_CURSOR != IconDIR->idType))
+      if (IconDIR == NULL)
       {
          return NULL;
       }
@@ -335,14 +338,6 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
   }
   else
   {
-      /*
-       * FIXME: This code is incorrect and is likely to crash in many cases. 
-       * In the file the cursor/icon directory records are stored like
-       * CURSORICONFILEDIR, but we treat them like CURSORICONDIR. In Wine
-       * this is solved by creating a fake cursor/icon directory in memory
-       * and passing that to CURSORICON_FindBestIcon.
-       */
-
       if (fuLoad & LR_SHARED)
       {
         DbgPrint("FIXME: need LR_SHARED support for loading icon images from files\n");
@@ -378,8 +373,7 @@ LoadIconImage(HINSTANCE hinst, LPCWSTR lpszName, INT width, INT height, UINT fuL
 				 0,
 				 0);
 
-      if (IconDIR == NULL || 0 != IconDIR->idReserved
-          || (IMAGE_ICON != IconDIR->idType && IMAGE_CURSOR != IconDIR->idType))
+      if (IconDIR == NULL)
 	  {
 	    CloseHandle(hFile);
 	    CloseHandle(hSection);
@@ -582,7 +576,7 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
     }
 
   RtlFreeHeap(GetProcessHeap(), 0, PrivateInfo);
-  DeleteDC(hScreenDc);
+  /*DeleteDC(hScreenDc);*/
   if (fuLoad & LR_LOADFROMFILE)
     {
       UnmapViewOfFile(BitmapInfo);
@@ -667,53 +661,39 @@ LoadBitmapW(HINSTANCE hInstance, LPCWSTR lpBitmapName)
 
 
 /*
- * @unimplemented
+ * @implemented
  */
 HANDLE WINAPI
 CopyImage(HANDLE hnd, UINT type, INT desiredx, INT desiredy, UINT flags)
 {
-	switch (type)
-	{
-        case IMAGE_BITMAP:
-			{
-				DbgPrint("WARNING:  Incomplete implementation of CopyImage!\n");
-        		/* FIXME:  support flags LR_COPYDELETEORG, LR_COPYFROMRESOURCE,
-     	   							 LR_COPYRETURNORG, LR_CREATEDIBSECTION,
-     	   							 and LR_MONOCHROME; */
-				HBITMAP res;
-				BITMAP bm;
+   switch (type)
+   {
+      case IMAGE_BITMAP:
+         {
+         	DbgPrint("WARNING:  Incomplete implementation of CopyImage!\n");
+         	/* FIXME:  support flags LR_COPYDELETEORG, LR_COPYFROMRESOURCE,
+         	   						 LR_COPYRETURNORG, LR_CREATEDIBSECTION,
+         	   						 and LR_MONOCHROME; */
+            HBITMAP res;
+            BITMAP bm;
 
-				if (!GetObjectW(hnd, sizeof(bm), &bm)) return 0;
-				bm.bmBits = NULL;
-				if ((res = CreateBitmapIndirect(&bm)))
-				{
-                    char *buf = HeapAlloc(GetProcessHeap(), 0, bm.bmWidthBytes * bm.bmHeight);
-					GetBitmapBits(hnd, bm.bmWidthBytes * bm.bmHeight, buf);
-					SetBitmapBits(res, bm.bmWidthBytes * bm.bmHeight, buf);
-					HeapFree(GetProcessHeap(), 0, buf);
-				}
-                return res;
-			}
-		case IMAGE_ICON: 
-			{
-				static BOOL IconMsgDisplayed = FALSE;
-				/* FIXME: support loading the image as shared from an instance */
-				if (!IconMsgDisplayed) {
-					DbgPrint("FIXME: CopyImage doesn't support IMAGE_ICON correctly!\n");
-					IconMsgDisplayed = TRUE;
-				}
-		        return CopyIcon(hnd);
-			}
-		case IMAGE_CURSOR: 
-			{
-				static BOOL IconMsgDisplayed = FALSE;
-				/* FIXME: support loading the image as shared from an instance */
-				if (!IconMsgDisplayed) {
-					DbgPrint("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
-					IconMsgDisplayed = TRUE;
-				}
-				return CopyCursor(hnd);
-			}
-	}
-	return 0;
+            if (!GetObjectW(hnd, sizeof(bm), &bm)) return 0;
+            bm.bmBits = NULL;
+            if ((res = CreateBitmapIndirect(&bm)))
+            {
+               char *buf = HeapAlloc(GetProcessHeap(), 0, bm.bmWidthBytes * bm.bmHeight);
+               GetBitmapBits(hnd, bm.bmWidthBytes * bm.bmHeight, buf);
+               SetBitmapBits(res, bm.bmWidthBytes * bm.bmHeight, buf);
+               HeapFree(GetProcessHeap(), 0, buf);
+            }
+            return res;
+        }
+     case IMAGE_ICON:
+        DbgPrint("FIXME: CopyImage doesn't support IMAGE_ICON correctly!\n");
+        return CopyIcon(hnd);
+     case IMAGE_CURSOR:
+        DbgPrint("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
+        return CopyCursor(hnd);
+    }
+    return 0;
 }

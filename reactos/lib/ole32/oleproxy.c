@@ -20,17 +20,14 @@
 
 /* Documentation on MSDN:
  *
- * (Top level COM documentation)
- * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dnanchor/html/componentdevelopmentank.asp
- *
  * (COM Proxy)
- * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/com/htm/comext_1q0p.asp
+ * http://msdn.microsoft.com/library/en-us/com/comext_1q0p.asp
  *
  * (COM Stub)
- * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/com/htm/comext_1lia.asp
+ * http://msdn.microsoft.com/library/en-us/com/comext_1lia.asp
  *
  * (Marshal)
- * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/com/htm/comext_1gfn.asp
+ * http://msdn.microsoft.com/library/en-us/com/comext_1gfn.asp
  *
  */
 
@@ -42,10 +39,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -86,7 +81,7 @@ const CLSID CLSID_PSFactoryBuffer = { 0x00000320, 0, 0, {0xc0, 0, 0, 0, 0, 0, 0,
  * COM will load the appropriate interface stubs and proxies as needed.
  */
 typedef struct _CFStub {
-    IRpcStubBufferVtbl	*lpvtbl;
+    ICOM_VTABLE(IRpcStubBuffer)	*lpvtbl;
     DWORD			ref;
 
     LPUNKNOWN			pUnkServer;
@@ -105,23 +100,26 @@ CFStub_QueryInterface(LPRPCSTUBBUFFER iface, REFIID riid, LPVOID *ppv) {
 
 static ULONG WINAPI
 CFStub_AddRef(LPRPCSTUBBUFFER iface) {
-    CFStub *This = (CFStub *)iface;
-    return InterlockedIncrement(&This->ref);
+    ICOM_THIS(CFStub,iface);
+
+    This->ref++;
+    return This->ref;
 }
 
 static ULONG WINAPI
 CFStub_Release(LPRPCSTUBBUFFER iface) {
-    CFStub *This = (CFStub *)iface;
-    ULONG ref;
+    ICOM_THIS(CFStub,iface);
 
-    ref = InterlockedDecrement(&This->ref);
-    if (!ref) HeapFree(GetProcessHeap(),0,This);
-    return ref;
+    This->ref--;
+    if (This->ref)
+	return This->ref;
+    HeapFree(GetProcessHeap(),0,This);
+    return 0;
 }
 
 static HRESULT WINAPI
 CFStub_Connect(LPRPCSTUBBUFFER iface, IUnknown *pUnkServer) {
-    CFStub *This = (CFStub *)iface;
+    ICOM_THIS(CFStub,iface);
 
     This->pUnkServer = pUnkServer;
     IUnknown_AddRef(pUnkServer);
@@ -130,7 +128,7 @@ CFStub_Connect(LPRPCSTUBBUFFER iface, IUnknown *pUnkServer) {
 
 static void WINAPI
 CFStub_Disconnect(LPRPCSTUBBUFFER iface) {
-    CFStub *This = (CFStub *)iface;
+    ICOM_THIS(CFStub,iface);
 
     IUnknown_Release(This->pUnkServer);
     This->pUnkServer = NULL;
@@ -139,7 +137,7 @@ static HRESULT WINAPI
 CFStub_Invoke(
     LPRPCSTUBBUFFER iface,RPCOLEMESSAGE* msg,IRpcChannelBuffer* chanbuf
 ) {
-    CFStub *This = (CFStub *)iface;
+    ICOM_THIS(CFStub,iface);
     HRESULT hres;
 
     if (msg->iMethod == 3) { /* CreateInstance */
@@ -236,7 +234,8 @@ CFStub_DebugServerRelease(LPRPCSTUBBUFFER iface,void *pv) {
     FIXME("(%p), stub!\n",pv);
 }
 
-static IRpcStubBufferVtbl cfstubvt = {
+static ICOM_VTABLE(IRpcStubBuffer) cfstubvt = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     CFStub_QueryInterface,
     CFStub_AddRef,
     CFStub_Release,
@@ -266,8 +265,8 @@ CFStub_Construct(LPRPCSTUBBUFFER *ppv) {
  * the refcount.
  */
 typedef struct _CFProxy {
-    IClassFactoryVtbl		*lpvtbl_cf;
-    IRpcProxyBufferVtbl	*lpvtbl_proxy;
+    ICOM_VTABLE(IClassFactory)		*lpvtbl_cf;
+    ICOM_VTABLE(IRpcProxyBuffer)	*lpvtbl_proxy;
     DWORD				ref;
 
     IRpcChannelBuffer			*chanbuf;
@@ -286,18 +285,18 @@ static HRESULT WINAPI IRpcProxyBufferImpl_QueryInterface(LPRPCPROXYBUFFER iface,
 
 static ULONG WINAPI IRpcProxyBufferImpl_AddRef(LPRPCPROXYBUFFER iface) {
     ICOM_THIS_MULTI(CFProxy,lpvtbl_proxy,iface);
-    return InterlockedIncrement(&This->ref);
+    return ++(This->ref);
 }
 
 static ULONG WINAPI IRpcProxyBufferImpl_Release(LPRPCPROXYBUFFER iface) {
     ICOM_THIS_MULTI(CFProxy,lpvtbl_proxy,iface);
-    ULONG ref = InterlockedDecrement(&This->ref);
 
-    if (!ref) {
+    if (!--(This->ref)) {
 	IRpcChannelBuffer_Release(This->chanbuf);This->chanbuf = NULL;
 	HeapFree(GetProcessHeap(),0,This);
+	return 0;
     }
-    return ref;
+    return This->ref;
 }
 
 static HRESULT WINAPI IRpcProxyBufferImpl_Connect(LPRPCPROXYBUFFER iface,IRpcChannelBuffer* pRpcChannelBuffer) {
@@ -331,16 +330,17 @@ CFProxy_QueryInterface(LPCLASSFACTORY iface,REFIID riid, LPVOID *ppv) {
 
 static ULONG   WINAPI CFProxy_AddRef(LPCLASSFACTORY iface) {
     ICOM_THIS_MULTI(CFProxy,lpvtbl_cf,iface);
-    return InterlockedIncrement(&This->ref);
+    This->ref++;
+    return This->ref;
 }
 
 static ULONG   WINAPI CFProxy_Release(LPCLASSFACTORY iface) {
-    ULONG ref;
     ICOM_THIS_MULTI(CFProxy,lpvtbl_cf,iface);
-    
-    ref = InterlockedDecrement(&This->ref);
-    if (!ref) HeapFree(GetProcessHeap(),0,This);
-    return ref;
+    This->ref--;
+    if (This->ref)
+	return This->ref;
+    HeapFree(GetProcessHeap(),0,This);
+    return 0;
 }
 
 static HRESULT WINAPI CFProxy_CreateInstance(
@@ -409,14 +409,16 @@ static HRESULT WINAPI CFProxy_LockServer(LPCLASSFACTORY iface,BOOL fLock) {
     return S_OK;
 }
 
-static IRpcProxyBufferVtbl pspbvtbl = {
+static ICOM_VTABLE(IRpcProxyBuffer) pspbvtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     IRpcProxyBufferImpl_QueryInterface,
     IRpcProxyBufferImpl_AddRef,
     IRpcProxyBufferImpl_Release,
     IRpcProxyBufferImpl_Connect,
     IRpcProxyBufferImpl_Disconnect
 };
-static IClassFactoryVtbl cfproxyvt = {
+static ICOM_VTABLE(IClassFactory) cfproxyvt = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     CFProxy_QueryInterface,
     CFProxy_AddRef,
     CFProxy_Release,
@@ -491,7 +493,8 @@ PSFacBuf_CreateStub(
     return E_FAIL;
 }
 
-static IPSFactoryBufferVtbl psfacbufvtbl = {
+static ICOM_VTABLE(IPSFactoryBuffer) psfacbufvtbl = {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     PSFacBuf_QueryInterface,
     PSFacBuf_AddRef,
     PSFacBuf_Release,
@@ -500,7 +503,7 @@ static IPSFactoryBufferVtbl psfacbufvtbl = {
 };
 
 /* This is the whole PSFactoryBuffer object, just the vtableptr */
-static IPSFactoryBufferVtbl *lppsfac = &psfacbufvtbl;
+static ICOM_VTABLE(IPSFactoryBuffer) *lppsfac = &psfacbufvtbl;
 
 /***********************************************************************
  *           DllGetClassObject [OLE32.@]
@@ -510,6 +513,10 @@ HRESULT WINAPI OLE32_DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv)
     *ppv = NULL;
     if (IsEqualIID(rclsid,&CLSID_PSFactoryBuffer)) {
 	*ppv = &lppsfac;
+	/* If we create a ps factory, we might need a stub manager later
+	 * anyway
+	 */
+	STUBMGR_Start();
 	return S_OK;
     }
     if (IsEqualIID(rclsid,&CLSID_DfMarshal)&&(

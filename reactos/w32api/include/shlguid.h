@@ -9,15 +9,8 @@ extern "C" {
 #endif
 #define DEFINE_SHLGUID(n,l,w1,w2) DEFINE_GUID(n,l,w1,w2,0xC0,0,0,0,0,0,0,0x46)
 #define SID_SShellBrowser IID_IShellBrowser
-extern const GUID CLSID_MyComputer;
 extern const GUID CLSID_ShellDesktop;
 extern const GUID CLSID_ShellLink;
-extern const GUID CLSID_ControlPanel;
-extern const GUID CLSID_Internet;
-extern const GUID CLSID_NetworkPlaces;
-extern const GUID CLSID_RecycleBin;
-extern const GUID CLSID_ShellFSFolder;
-extern const GUID CLSID_Printers;
 extern const GUID FMTID_Intshcut;
 extern const GUID FMTID_InternetSite;
 extern const GUID CGID_Explorer;
@@ -72,7 +65,6 @@ extern const GUID IID_IDropTargetHelper;
 extern const GUID IID_IDragSourceHelper;
 #if (_WIN32_IE >= 0x400 || _WIN32_WINNT >= 0x500)
 extern const GUID IID_IPersistFolder2;
-extern const GUID CLSID_AutoComplete;
 #endif
 #if (_WIN32_WINNT >= 0x500)
 extern const GUID IID_IPersistFolder3;

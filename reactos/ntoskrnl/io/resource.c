@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: resource.c,v 1.20 2004/10/08 21:20:35 navaraf Exp $
+/* $Id: resource.c,v 1.15 2004/05/30 18:30:03 navaraf Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/resource.c
@@ -29,7 +29,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <rosrtl/string.h>
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -124,14 +125,14 @@ IopQueryDeviceDescription(
    ULONG Bus,
    PKEY_VALUE_FULL_INFORMATION *BusInformation) 
 {
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
 
    /* Controller Stuff */
    UNICODE_STRING ControllerString;
    UNICODE_STRING ControllerRootRegName = RootKey;
    UNICODE_STRING ControllerRegName;
    HANDLE ControllerKeyHandle;
-   PKEY_FULL_INFORMATION ControllerFullInformation = NULL;
+   PKEY_FULL_INFORMATION ControllerFullInformation;
    PKEY_VALUE_FULL_INFORMATION ControllerInformation[3] = {NULL, NULL, NULL};
    ULONG ControllerNumber;
    ULONG ControllerLoop;
@@ -251,10 +252,7 @@ IopQueryDeviceDescription(
             RtlInitUnicodeString(&ControllerString, Strings[ControllerLoop]);
 
             /* How much buffer space */
-            Status = ZwQueryValueKey(ControllerKeyHandle, &ControllerString, KeyValueFullInformation, NULL, 0, &LenKeyFullInformation);
-
-	    if(!NT_SUCCESS(Status) && Status != STATUS_BUFFER_TOO_SMALL && Status != STATUS_BUFFER_OVERFLOW)
-	      continue;
+            ZwQueryValueKey(ControllerKeyHandle, &ControllerString, KeyValueFullInformation, NULL, 0, &LenKeyFullInformation);
 
             /* Allocate it */
             ControllerInformation[ControllerLoop] = ExAllocatePoolWithTag(PagedPool, LenKeyFullInformation, TAG_IO_RESOURCE);
@@ -380,13 +378,7 @@ IopQueryDeviceDescription(
                RtlInitUnicodeString(&PeripheralString, Strings[PeripheralLoop]);
 
                /* How much buffer space */
-               Status = ZwQueryValueKey(PeripheralKeyHandle, &PeripheralString, KeyValueFullInformation, NULL, 0, &LenKeyFullInformation);
-
-	       if(!NT_SUCCESS(Status) && Status != STATUS_BUFFER_TOO_SMALL && Status != STATUS_BUFFER_OVERFLOW)
-	       {
-	         PeripheralInformation[PeripheralLoop] = NULL;
-		 continue;
-	       }
+               ZwQueryValueKey(PeripheralKeyHandle, &PeripheralString, KeyValueFullInformation, NULL, 0, &LenKeyFullInformation);
 
                /* Allocate it */
                PeripheralInformation[PeripheralLoop] = ExAllocatePoolWithTag(PagedPool, LenKeyFullInformation, TAG_IO_RESOURCE);
@@ -402,6 +394,7 @@ IopQueryDeviceDescription(
             /* We now have everything the caller could possibly want */
             if (NT_SUCCESS(Status))
             {
+#if 0
                Status = Query->CalloutRoutine(
                   Query->Context,
                   &ControllerRootRegName,
@@ -414,6 +407,9 @@ IopQueryDeviceDescription(
                   *Query->PeripheralType,
                   PeripheralNumber,
                   PeripheralInformation);
+#else
+               Status = STATUS_SUCCESS;
+#endif
             }
 
             /* Free the allocated memory */
@@ -483,27 +479,24 @@ IopQueryBusDescription(
    UNICODE_STRING SubRootRegName;
    UNICODE_STRING BusString;
    UNICODE_STRING SubBusString;
-   ULONG LenBasicInformation = 0;
+   ULONG LenBasicInformation;
    ULONG LenFullInformation;
    ULONG LenKeyFullInformation;
    ULONG LenKey;
    HANDLE SubRootKeyHandle;
    PKEY_FULL_INFORMATION FullInformation;
-   PKEY_BASIC_INFORMATION BasicInformation = NULL;
+   PKEY_BASIC_INFORMATION BasicInformation;
    OBJECT_ATTRIBUTES ObjectAttributes;
    PKEY_VALUE_FULL_INFORMATION BusInformation[3] = {NULL, NULL, NULL};
 
    /* How much buffer space */
    Status = ZwQueryKey(RootKeyHandle, KeyFullInformation, NULL, 0, &LenFullInformation);
 
-   if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_TOO_SMALL && Status != STATUS_BUFFER_OVERFLOW)
+   if (!NT_SUCCESS(Status))
       return Status;
 
    /* Allocate it */
    FullInformation = ExAllocatePoolWithTag(PagedPool, LenFullInformation, TAG_IO_RESOURCE);
-
-   if(!FullInformation)
-     return STATUS_NO_MEMORY;
 
    /* Get the Information */
    Status = ZwQueryKey(RootKeyHandle, KeyFullInformation, FullInformation, LenFullInformation, &LenFullInformation);
@@ -718,9 +711,8 @@ IoReportResourceUsage(PUNICODE_STRING DriverClassName,
       *       a conflict is detected with another driver.
       */
 {
-   DPRINT1("IoReportResourceUsage is unimplemented\n");
-   *ConflictDetected = FALSE;
-   return STATUS_SUCCESS;
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
 /*
@@ -772,7 +764,7 @@ IoQueryDeviceDescription(PINTERFACE_TYPE BusType,
    OBJECT_ATTRIBUTES ObjectAttributes;
    UNICODE_STRING RootRegKey;
    HANDLE RootRegHandle;
-   WCHAR RootRegString[] = L"\\REGISTRY\\MACHINE\\HARDWARE\\DESCRIPTION\\SYSTEM";
+   WCHAR RootRegString[] = L"\\REGISTRY\\MACHINE\\HARDWARE\\DESCRIPTION\\SYSTEM\\";
    IO_QUERY Query;
 
    /* Set up the String */

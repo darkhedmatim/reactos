@@ -10,33 +10,29 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stdlib.h>
-#include <string.h>
 #include "teb.h"
-#define OPENGL32_GL_FUNC_PROTOTYPES
 #include "opengl32.h"
 
 #ifdef __cplusplus
 extern "C" {
-#endif /* __cplusplus */
+#endif//__cplusplus
 
-#if !defined(UNIMPLEMENTED)
-# define UNIMPLEMENTED DBGPRINT( "UNIMPLEMENTED" )
-#endif
+#ifdef _MSC_VER
+#define UNIMPLEMENTED DBGPRINT( "UNIMPLEMENTED" )
+#endif//_MSC_VER
 
 
-#define EXT_GET_DRIVERINFO		0x1101 /*!< ExtEscape code to get driver info */
+#define EXT_GET_DRIVERINFO		0x1101 /* ExtEscape code to get driver info */
 typedef struct tagEXTDRIVERINFO
 {
-	DWORD version;          /*!< Driver interface version */
-	DWORD driver_version;	/*!< Driver version */
-	WCHAR driver_name[256]; /*!< Driver name */
+	DWORD version;          /* driver interface version */
+	DWORD driver_version;	/* driver version */
+	WCHAR driver_name[256]; /* driver name */
 } EXTDRIVERINFO;
 
 
-/*! \brief Append OpenGL Rendering Context (GLRC) to list
- *
- * \param glrc [IN] Pointer to GLRC to append to list
+/* FUNCTION: Append OpenGL Rendering Context (GLRC) to list
+ * ARGUMENTS: [IN] glrc: GLRC to append to list
  */
 static
 void
@@ -66,9 +62,8 @@ ROSGL_AppendContext( GLRC *glrc )
 }
 
 
-/*! \brief Remove OpenGL Rendering Context (GLRC) from list
- *
- * \param glrc [IN] Pointer to GLRC to remove from list
+/* FUNCTION: Remove OpenGL Rendering Context (GLRC) from list
+ * ARGUMENTS: [IN] glrc: GLRC to remove from list
  */
 static
 void
@@ -105,10 +100,8 @@ ROSGL_RemoveContext( GLRC *glrc )
 }
 
 
-/*! \brief Create a new GL Context (GLRC) and append it to the list
- *
- * \return Pointer to new GLRC on success
- * \retval NULL Returned on failure (i.e. Out of memory)
+/* FUNCTION: Create a new GL Context (GLRC) and append it to the list
+ * RETURNS: Pointer to new GLRC on success; NULL on failure
  */
 static
 GLRC *
@@ -127,12 +120,9 @@ ROSGL_NewContext()
 }
 
 
-/*! \brief Delete a GL Context (GLRC) and remove it from the list
- *
- * \param glrc [IN] Pointer to GLRC to delete
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: Delete a GL Context (GLRC) and remove it from the list
+ * ARGUMENTS: [IN] glrc  GLRC to delete
+ * RETURNS: TRUE if there were no error; FALSE otherwise
  */
 static
 BOOL
@@ -152,12 +142,8 @@ ROSGL_DeleteContext( GLRC *glrc )
 }
 
 
-/*! \brief Check wether a GLRC is in the list
- *
- * \param glrc [IN] Pointer to GLRC to look for in the list
- *
- * \retval TRUE  GLRC was found
- * \retval FALSE GLRC was not found
+/* FUNCTION: Check wether a GLRC is in the list
+ * ARGUMENTS: [IN] glrc: GLRC to remove from list
  */
 static
 BOOL
@@ -189,15 +175,10 @@ ROSGL_ContainsContext( GLRC *glrc )
 }
 
 
-/*! \brief Get GL private DC data.
- *
- * This function adds an empty GLDCDATA to the list if there is no data for the
- * given DC yet.
- *
- * \param hdc [IN] Handle to a Device Context for which to get the data
- *
- * \return Pointer to GLDCDATA on success
- * \retval NULL on failure
+/* FUNCTION: Get GL private DC data. Adds an empty GLDCDATA to the list if
+ *           there is no data for the given DC and returns it.
+ * ARGUMENTS: [IN] hdc  Device Context for which to get the data
+ * RETURNS: Pointer to GLDCDATA on success; NULL on failure
  */
 static
 GLDCDATA *
@@ -257,15 +238,9 @@ ROSGL_GetPrivateDCData( HDC hdc )
 }
 
 
-/*! \brief Get ICD from HDC.
- *
- * This function asks the display driver which OpenGL ICD to load for the given
- * HDC, loads it and returns a pointer to a GLDRIVERDATA struct on success.
- *
- * \param hdc [IN] Handle for DC for which to load/get the ICD
- *
- * \return Pointer to GLDRIVERDATA
- * \retval NULL Failure.
+/* FUNCTION: Get ICD from HDC
+ * RETURNS:  GLDRIVERDATA pointer on success, NULL otherwise.
+ * NOTES: Make sure the handle you pass in is one for a DC!
  */
 static
 GLDRIVERDATA *
@@ -278,81 +253,43 @@ ROSGL_ICDForHDC( HDC hdc )
 		return NULL;
 
 	if (dcdata->icd == NULL)
+#if 1
 	{
-		LPCWSTR driverName;
+		DWORD dwInput = 0;
+		LONG ret;
 		EXTDRIVERINFO info;
 
-		driverName = _wgetenv( L"OPENGL32_DRIVER" );
-		if (driverName == NULL)
+		/* get driver name */
+		ret = ExtEscape( hdc, EXT_GET_DRIVERINFO, sizeof (dwInput), (LPCSTR)&dwInput,
+						 sizeof (EXTDRIVERINFO), (LPSTR)&info );
+		if (ret < 0)
 		{
-			DWORD dwInput = 0;
-			LONG ret;
-
-			/* get driver name */
-			ret = ExtEscape( hdc, EXT_GET_DRIVERINFO, sizeof (dwInput), (LPCSTR)&dwInput,
-			                 sizeof (EXTDRIVERINFO), (LPSTR)&info );
-			if (ret <= 0)
-			{
-				HKEY hKey;
-				DWORD type, size;
-
-				if (ret < 0)
-				{
-					DBGPRINT( "Warning: ExtEscape to get the drivername failed!!! (%d)", GetLastError() );
-					if (MessageBox( WindowFromDC( hdc ), L"Couldn't get installable client driver name!\nUsing default driver.",
-					                L"OPENGL32.dll: Warning", MB_OKCANCEL | MB_ICONWARNING ) == IDCANCEL)
-					{
-						SetLastError( 0 );
-						return NULL;
-					}
-				}
-
-				/* open registry key */
-				ret = RegOpenKeyExW( HKEY_LOCAL_MACHINE, OPENGL_DRIVERS_SUBKEY, 0, KEY_READ, &hKey );
-				if (ret != ERROR_SUCCESS)
-				{
-					DBGPRINT( "Error: Couldn't open registry key '%ws'", OPENGL_DRIVERS_SUBKEY );
-					SetLastError( ret );
-					return NULL;
-				}
-
-				/* query value */
-				size = sizeof (info.driver_name);
-				ret = RegQueryValueExW( hKey, L"DefaultDriver", 0, &type, (LPBYTE)info.driver_name, &size );
-				RegCloseKey( hKey );
-				if (ret != ERROR_SUCCESS || type != REG_SZ)
-				{
-					DBGPRINT( "Error: Couldn't query DefaultDriver value or not a string" );
-					SetLastError( ret );
-					return NULL;
-				}
-			}
+			DBGPRINT( "Warning: ExtEscape to get the drivername failed!!! (%d)", GetLastError() );
+			return 0;
 		}
-		else
-		{
-			wcsncpy( info.driver_name, driverName, sizeof (info.driver_name) / sizeof (info.driver_name[0]) );
-		}
+
 		/* load driver (or get a reference) */
 		dcdata->icd = OPENGL32_LoadICD( info.driver_name );
 	}
+#else
+		dcdata->icd = OPENGL32_LoadICD( L"OGLICD" );
+#endif
 
 	return dcdata->icd;
 }
 
 
-/*! \brief SetContextCallBack passed to DrvSetContext.
- *
- * This function gets called by the OpenGL driver whenever the current GL
- * context (dispatch table) is to be changed.
- *
- * \param table [IN] Function pointer table (first DWORD is number of functions)
- *
- * \return unkown (maybe void? ERROR_SUCCESS at the moment)
+/* FUNCTION: SetContextCallBack passed to DrvSetContext. Gets called whenever
+ *           the current GL context (dispatch table) is to be changed.
+ * ARGUMENTS: [IN] table  Function pointer table (first DWORD is number of
+ *                        functions)
+ * RETURNS: unkown (maybe void?)
  */
 DWORD
 CALLBACK
 ROSGL_SetContextCallBack( const ICDTable *table )
 {
+/*	UINT i;*/
 	TEB *teb;
 	PROC *tebTable, *tebDispatchTable;
 	INT size;
@@ -360,8 +297,6 @@ ROSGL_SetContextCallBack( const ICDTable *table )
 	teb = NtCurrentTeb();
 	tebTable = (PROC *)teb->glTable;
 	tebDispatchTable = (PROC *)teb->glDispatchTable;
-
-	DBGTRACE( "Called!" );
 
 	if (table != NULL)
 	{
@@ -378,6 +313,18 @@ ROSGL_SetContextCallBack( const ICDTable *table )
 		DBGPRINT( "Unsetting current context" );
 		memset( tebTable, 0, sizeof (table->dispatch_table) );
 	}
+
+	/* FIXME: pull in software fallbacks -- need mesa */
+#if 0 /* unused atm */
+	for (i = 0; i < (sizeof (table->dispatch_table) / sizeof (PROC)); i++)
+	{
+		if (tebTable[i] == NULL)
+		{
+			/* FIXME: fallback */
+			DBGPRINT( "Warning: GL proc #%d is NULL!", i );
+		}
+	}
+#endif
 
 	/* put in empty functions as long as we dont have a fallback */
 	#define X(func, ret, typeargs, args, icdidx, tebidx, stack)            \
@@ -397,27 +344,13 @@ ROSGL_SetContextCallBack( const ICDTable *table )
 	GLFUNCS_MACRO
 	#undef X
 
-	DBGPRINT( "Done." );
-/*	DBGBREAK();*/
-
 	return ERROR_SUCCESS;
 }
 
 
-/*! \brief Attempts to find the best matching pixel format for HDC
- *
- * This function is comparing each available format with the preferred one
- * and returns the one which is closest to it.
- * If PFD_DOUBLEBUFFER, PFD_STEREO or one of PFD_DRAW_TO_WINDOW,
- * PFD_DRAW_TO_BITMAP, PFD_SUPPORT_GDI and PDF_SUPPORT_OPENGL is given then
- * only formats which also support those will be enumerated (unless
- * PFD_DOUBLEBUFFER_DONTCARE or PFD_STEREO_DONTCARE is also set)
- *
- * \param hdc [IN] Handle to DC for which to get a pixel format index
- * \param pfd [IN] PFD describing what kind of format you want
- *
- * \return Pixel format index
- * \retval 0 Failed to find a suitable format
+/* FUNCTION: Attempts to find the best matching pixel format for HDC
+ * ARGUMENTS: [IN] pdf  PFD describing what kind of format you want
+ * RETURNS: one-based positive format index on success, 0 on failure
  */
 #define BUFFERDEPTH_SCORE(want, have) \
 	((want == 0) ? (0) : ((want < have) ? (1) : ((want > have) ? (3) : (0))))
@@ -449,6 +382,7 @@ rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
 	}
 
 	/* get number of formats */
+//	__asm__( "int $3" );
 	icdNumFormats = icd->DrvDescribePixelFormat( hdc, 1,
 	                                 sizeof (PIXELFORMATDESCRIPTOR), &icdPfd );
 	if (icdNumFormats == 0)
@@ -467,11 +401,6 @@ rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
 			DBGPRINT( "Warning: DrvDescribePixelFormat failed (%d)",
 			          GetLastError() );
 			break;
-		}
-
-		if ((pfd->dwFlags & PFD_GENERIC_ACCELERATED) != 0) /* we do not support such kind of drivers */
-		{
-			continue;
 		}
 
 		/* compare flags */
@@ -515,14 +444,11 @@ rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
 }
 
 
-/*! \brief Copy data specified by mask from one GLRC to another.
- *
- * \param src  [IN] Source GLRC
- * \param src  [OUT] Destination GLRC
- * \param mask [IN] Bitfield like given to glPushAttrib()
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: Copy data specified by mask from one GLRC to another.
+ * ARGUMENTS: [IN]  src  Source GLRC
+ *            [OUT] dst  Destination GLRC
+ *            [IN]  mask Bitfield like given to glPushAttrib()
+ * RETURN: TRUE on success, FALSE on failure
  */
 BOOL
 APIENTRY
@@ -555,15 +481,11 @@ rosglCopyContext( HGLRC hsrc, HGLRC hdst, UINT mask )
 }
 
 
-/*! \brief Create a new GL Rendering Context.
- *
- * This function can create over- or underlay surfaces.
- *
- * \param hdc [IN] Handle for DC for which to create context
- * \param layer [IN] Layer number to bind (draw?) to
- *
- * \return Handle for the created GLRC
- * \retval NULL Failure
+/* FUNCTION: Create a new GL Rendering Context for the given plane on
+ *           the given DC.
+ * ARGUMENTS: [IN] hdc   Handle for DC for which to create context
+ *            [IN] layer Layer number to bind (draw?) to
+ * RETURNS: NULL on failure, new GLRC on success
  */
 HGLRC
 APIENTRY
@@ -572,8 +494,6 @@ rosglCreateLayerContext( HDC hdc, int layer )
 	GLDRIVERDATA *icd = NULL;
 	GLRC *glrc;
 	HGLRC drvHglrc = NULL;
-
-	DBGTRACE( "Called!" );
 
 /*	if (GetObjectType( hdc ) != OBJ_DC)
 	{
@@ -622,12 +542,9 @@ rosglCreateLayerContext( HDC hdc, int layer )
 }
 
 
-/*! \brief Create a new GL Rendering Context.
- *
- * \param hdc [IN] Handle for DC for which to create context
- *
- * \return Handle for the created GLRC
- * \retval NULL Failure
+/* FUNCTION: Create a new GL Rendering Context for the given DC.
+ * ARGUMENTS: [IN] hdc  Handle for DC for which to create context
+ * RETURNS: NULL on failure, new GLRC on success
  */
 HGLRC
 APIENTRY
@@ -637,12 +554,9 @@ rosglCreateContext( HDC hdc )
 }
 
 
-/*! \brief Delete an OpenGL context
- *
- * \param hglrc [IN] Handle to GLRC to delete; must not be a threads current RC!
- *
- * \retval TRUE  Success
- * \retval FALSE Failure (i.e. GLRC is current for a thread)
+/* FUNCTION: Delete an OpenGL context
+ * ARGUMENTS: [IN] hglrc  Handle to GLRC to delete; must not be a threads RC!
+ * RETURNS: TRUE on success, FALSE otherwise
  */
 BOOL
 APIENTRY
@@ -689,15 +603,13 @@ rosglDescribeLayerPlane( HDC hdc, int iPixelFormat, int iLayerPlane,
 }
 
 
-/*! \brief Gets information about a pixelformat.
- *
- * \param hdc     [IN]  Handle to DC
- * \param iFormat [IN]  Pixelformat index
- * \param nBytes  [IN]  sizeof (pfd) - at most nBytes are copied into pfd
- * \param pfd     [OUT] Pointer to a PIXELFORMATDESCRIPTOR
- *
- * \return Maximum pixelformat index/number of formats
- * \retval 0 Failure
+/* FUNCTION: Gets information about the pixelformat specified by iFormat and
+ *           puts it into pfd.
+ * ARGUMENTS: [IN] hdc      Handle to DC
+ *            [IN] iFormat  Pixelformat index
+ *            [IN] nBytes   sizeof (pfd) - at most nBytes are copied into pfd
+ *            [OUT] pfd     Pointer to a PIXELFORMATDESCRIPTOR
+ * RETURNS: Maximum pixelformat index/number of formats on success; 0 on failure
  */
 int
 APIENTRY
@@ -714,14 +626,13 @@ rosglDescribePixelFormat( HDC hdc, int iFormat, UINT nBytes,
 			DBGPRINT( "Error: DrvDescribePixelFormat(format=%d) failed (%d)", iFormat, GetLastError() );
 	}
 
+	/* FIXME: implement own functionality? */
 	return ret;
 }
 
 
-/*! \brief Return the thread's current GLRC
- *
- * \return Handle for thread's current GLRC
- * \retval NULL No current GLRC set
+/* FUNCTION: Return the current GLRC
+ * RETURNS: Current GLRC (NULL if none was set current)
  */
 HGLRC
 APIENTRY
@@ -731,10 +642,8 @@ rosglGetCurrentContext()
 }
 
 
-/*! \brief Return the thread's current DC
- *
- * \return Handle for thread's current DC
- * \retval NULL No current DC/GLRC set
+/* FUNCTION: Return the current DC
+ * RETURNS: NULL on failure, current DC otherwise
  */
 HDC
 APIENTRY
@@ -758,12 +667,9 @@ rosglGetLayerPaletteEntries( HDC hdc, int iLayerPlane, int iStart,
 }
 
 
-/*! \brief Returns the current pixelformat.
- *
- * \param hdc [IN] Handle to DC to get the pixelformat from
- *
- * \return Pixelformat index
- * \retval 0 Failure
+/* FUNCTION: Returns the current pixelformat for the given hdc.
+ * ARGUMENTS: [IN] hdc  Handle to DC of which to get the pixelformat
+ * RETURNS: Pixelformat index on success; 0 on failure
  */
 int
 WINAPI
@@ -784,15 +690,9 @@ rosglGetPixelFormat( HDC hdc )
 }
 
 
-/*! \brief Get the address for an OpenGL extension function.
- *
- * The addresses this function returns are only valid within the same thread
- * which it was called from.
- *
- * \param proc [IN] Name of the function to look for
- *
- * \return The address of the proc
- * \retval NULL Failure
+/* FUNCTION: Get the address for an OpenGL extension function from the current ICD.
+ * ARGUMENTS: [IN] proc:  Name of the function to look for
+ * RETURNS: The address of the proc or NULL on failure.
  */
 PROC
 APIENTRY
@@ -804,7 +704,7 @@ rosglGetProcAddress( LPCSTR proc )
 		return NULL;
 	}
 
-	if (proc[0] == 'g' && proc[1] == 'l' && proc[2] != 'u') /* glXXX */
+	if (proc[0] == 'g' && proc[1] == 'l') /* glXXX */
 	{
 		PROC glXXX = NULL;
 		GLDRIVERDATA *icd = OPENGL32_threaddata->glrc->icd;
@@ -833,13 +733,10 @@ rosglGetProcAddress( LPCSTR proc )
 }
 
 
-/*! \brief Make the given GLRC the threads current GLRC for hdc
- *
- * \param hdc   [IN] Handle for a DC to be drawn on
- * \param hglrc [IN] Handle for a GLRC to make current
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: make the given GLRC the threads current GLRC for hdc
+ * ARGUMENTS: [IN] hdc   Handle for a DC to be drawn on
+ *            [IN] hglrc Handle for a GLRC to make current
+ * RETURNS: TRUE on success, FALSE otherwise
  */
 BOOL
 APIENTRY
@@ -847,8 +744,6 @@ rosglMakeCurrent( HDC hdc, HGLRC hglrc )
 {
 	GLRC *glrc = (GLRC *)hglrc;
 	ICDTable *icdTable = NULL;
-
-	DBGTRACE( "Called!" );
 
 	/* flush current context */
 	if (OPENGL32_threaddata->glrc != NULL)
@@ -861,9 +756,7 @@ rosglMakeCurrent( HDC hdc, HGLRC hglrc )
 	{
 		if (OPENGL32_threaddata->glrc != NULL)
 		{
-			glrc = OPENGL32_threaddata->glrc;
-			glrc->icd->DrvReleaseContext( glrc->hglrc );
-			glrc->is_current = FALSE;
+			OPENGL32_threaddata->glrc->is_current = FALSE;
 			OPENGL32_threaddata->glrc = NULL;
 		}
 	}
@@ -893,10 +786,8 @@ rosglMakeCurrent( HDC hdc, HGLRC hglrc )
 		/* call the ICD */
 		if (glrc->hglrc != NULL)
 		{
-			DBGPRINT( "Info: Calling DrvSetContext!" );
-			DBGBREAK();
 			icdTable = glrc->icd->DrvSetContext( hdc, glrc->hglrc,
-			                                     ROSGL_SetContextCallBack );
+												 ROSGL_SetContextCallBack );
 			if (icdTable == NULL)
 			{
 				DBGPRINT( "Error: DrvSetContext failed (%d)\n", GetLastError() );
@@ -914,7 +805,7 @@ rosglMakeCurrent( HDC hdc, HGLRC hglrc )
 		OPENGL32_threaddata->glrc = glrc;
 	}
 
-	if (ROSGL_SetContextCallBack( icdTable ) != ERROR_SUCCESS && icdTable == NULL)
+	if (ROSGL_SetContextCallBack( icdTable ) != ERROR_SUCCESS)
 	{
 		DBGPRINT( "Warning: ROSGL_SetContextCallBack failed!" );
 	}
@@ -942,14 +833,11 @@ rosglSetLayerPaletteEntries( HDC hdc, int iLayerPlane, int iStart,
 }
 
 
-/*! \brief Set a DCs pixelformat
- *
- * \param hdc     [IN] Handle to DC for which to set the format
- * \param iFormat [IN] Index of the pixelformat to set
- * \param pfd     [IN] Not sure what this is for
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: Set pixelformat of given DC
+ * ARGUMENTS: [IN] hdc      Handle to DC for which to set the format
+ *            [IN] iFormat  Index of the pixelformat to set
+ *            [IN] pfd      Not sure what this is for
+ * RETURNS: TRUE on success, FALSE on failure
  */
 BOOL
 WINAPI
@@ -969,7 +857,7 @@ rosglSetPixelFormat( HDC hdc, int iFormat, CONST PIXELFORMATDESCRIPTOR *pfd )
 	}
 
 	/* call ICD */
-	if (!icd->DrvSetPixelFormat( hdc, iFormat/*, pfd*/ ))
+	if (!icd->DrvSetPixelFormat( hdc, iFormat, pfd ))
 	{
 		DBGPRINT( "Warning: DrvSetPixelFormat(format=%d) failed (%d)",
 		          iFormat, GetLastError() );
@@ -989,15 +877,10 @@ rosglSetPixelFormat( HDC hdc, int iFormat, CONST PIXELFORMATDESCRIPTOR *pfd )
 }
 
 
-/*! \brief Enable display-list sharing between multiple GLRCs
- *
- * This will only work if both GLRCs are from the same driver.
- *
- * \param hglrc1 [IN] GLRC number 1
- * \param hglrc2 [IN] GLRC number 2
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: Enable display-list sharing between multiple GLRCs
+ * ARGUMENTS: [IN] hglrc1 GLRC number 1
+ *            [IN] hglrc2 GLRC number 2
+ * RETURNS: TRUE on success, FALSE on failure
  */
 BOOL
 APIENTRY
@@ -1030,22 +913,17 @@ rosglShareLists( HGLRC hglrc1, HGLRC hglrc2 )
 }
 
 
-/*! \brief Flushes GL and swaps front/back buffer if appropriate
- *
- * \param hdc [IN] Handle to device context to swap buffers for
- *
- * \retval TRUE  Success
- * \retval FALSE Failure
+/* FUNCTION: Flushes GL and swaps front/back buffer if appropriate
+ * ARGUMENTS: [IN] hdc  Handle to device context to swap buffers for
+ * RETURNS: TRUE on success, FALSE on failure
  */
 BOOL
 APIENTRY
 rosglSwapBuffers( HDC hdc )
 {
 	GLDRIVERDATA *icd = ROSGL_ICDForHDC( hdc );
-	DBGTRACE( "Called!" );
 	if (icd != NULL)
 	{
-		DBGPRINT( "Swapping buffers!" );
 		if (!icd->DrvSwapBuffers( hdc ))
 		{
 			DBGPRINT( "Error: DrvSwapBuffers failed (%d)", GetLastError() );
@@ -1108,7 +986,7 @@ rosglUseFontOutlinesW( HDC hdc, DWORD first, DWORD count, DWORD listBase,
 }
 
 #ifdef __cplusplus
-}; /* extern "C" */
-#endif /* __cplusplus */
+}; // extern "C"
+#endif//__cplusplus
 
 /* EOF */

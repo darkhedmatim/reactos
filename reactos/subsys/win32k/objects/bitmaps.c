@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: bitmaps.c,v 1.85 2004/12/30 02:32:19 navaraf Exp $ */
+/* $Id: bitmaps.c,v 1.73 2004/05/14 16:50:44 navaraf Exp $ */
 #include <w32k.h>
 
 #define IN_RECT(r,x,y) \
@@ -41,16 +41,19 @@ NtGdiBitBlt(
 {
 	PDC DCDest = NULL;
 	PDC DCSrc  = NULL;
-	BITMAPOBJ *BitmapDest, *BitmapSrc;
+	SURFOBJ *SurfDest, *SurfSrc;
+	PSURFGDI SurfGDIDest, SurfGDISrc;
 	RECTL DestRect;
 	POINTL SourcePoint, BrushOrigin;
 	BOOL Status;
+	PPALGDI PalDestGDI, PalSourceGDI;
 	XLATEOBJ *XlateObj = NULL;
-	HPALETTE SourcePalette = 0, DestPalette = 0;
+	HPALETTE SourcePalette, DestPalette;
+	ULONG SourceMode, DestMode;
 	PGDIBRUSHOBJ BrushObj;
-	GDIBRUSHINST BrushInst;
-	BOOL UsesSource = ROP_USES_SOURCE(ROP);
-	BOOL UsesPattern = ROP_USES_PATTERN(ROP);
+	BOOL UsesSource = ((ROP & 0xCC0000) >> 2) != (ROP & 0x330000);
+	BOOL UsesPattern = TRUE;//((ROP & 0xF00000) >> 4) != (ROP & 0x0F0000);
+	HPALETTE Mono = NULL;
 
 	DCDest = DC_LockDc(hDCDest);
 	if (NULL == DCDest)
@@ -104,17 +107,17 @@ NtGdiBitBlt(
 	BrushOrigin.y = 0;
 
 	/* Determine surfaces to be used in the bitblt */
-	BitmapDest = BITMAPOBJ_LockBitmap(DCDest->w.hBitmap);
+	SurfDest = (SURFOBJ*)AccessUserObject((ULONG)DCDest->Surface);
+	SurfGDIDest = (PSURFGDI)AccessInternalObjectFromUserObject(SurfDest);
 	if (UsesSource)
 	{
-	        if (DCSrc->w.hBitmap == DCDest->w.hBitmap)
-			BitmapSrc = BitmapDest;
-		else
-			BitmapSrc = BITMAPOBJ_LockBitmap(DCSrc->w.hBitmap);
+		SurfSrc  = (SURFOBJ*)AccessUserObject((ULONG)DCSrc->Surface);
+		SurfGDISrc  = (PSURFGDI)AccessInternalObjectFromUserObject(SurfSrc);
 	}
 	else
 	{
-		BitmapSrc = NULL;
+		SurfSrc  = NULL;
+		SurfGDISrc  = NULL;
 	}
 
 	if (UsesPattern)
@@ -126,95 +129,109 @@ NtGdiBitBlt(
 			{
 				DC_UnlockDc(hDCSrc);
 			}
-			if(BitmapDest != NULL)
-			{
-                                BITMAPOBJ_UnlockBitmap(DCDest->w.hBitmap);
-			}
-			if(BitmapSrc != NULL && BitmapSrc != BitmapDest)
-			{
-                                BITMAPOBJ_UnlockBitmap(DCSrc->w.hBitmap);
-			}
 			DC_UnlockDc(hDCDest);
 			SetLastWin32Error(ERROR_INVALID_HANDLE);
 			return FALSE;
 		}
 		BrushOrigin = BrushObj->ptOrigin;
-		IntGdiInitBrushInstance(&BrushInst, BrushObj, DCDest->XlateBrush);
 	}
 	else
 	{
 		BrushObj = NULL;
 	}
 
-	/* Create the XLATEOBJ. */
-	if (UsesSource)
+	if (DCDest->w.hPalette != 0)
+		DestPalette = DCDest->w.hPalette;
+
+	if (UsesSource && DCSrc->w.hPalette != 0)
+		SourcePalette = DCSrc->w.hPalette;
+
+	PalSourceGDI = PALETTE_LockPalette(SourcePalette);
+	if (NULL == PalSourceGDI)
 	{
-		if (DCDest->w.hPalette != 0)
-			DestPalette = DCDest->w.hPalette;
-
-		if (DCSrc->w.hPalette != 0)
-			SourcePalette = DCSrc->w.hPalette;
-
-		/* KB41464 details how to convert between mono and color */
-		if (DCDest->w.bitsPerPixel == 1 && DCSrc->w.bitsPerPixel == 1)
+		if (UsesSource && hDCSrc != hDCDest)
 		{
-			XlateObj = NULL;
+			DC_UnlockDc(hDCSrc);
+		}
+		DC_UnlockDc(hDCDest);
+		SetLastWin32Error(ERROR_INVALID_HANDLE);
+		return FALSE;
+	}
+	SourceMode = PalSourceGDI->Mode;
+	PALETTE_UnlockPalette(SourcePalette);
+
+	if (DestPalette == SourcePalette)
+	{
+		DestMode = SourceMode;
+	}
+	else
+	{
+		PalDestGDI = PALETTE_LockPalette(DestPalette);
+		if (NULL == PalDestGDI)
+		{
+			if (UsesSource && hDCSrc != hDCDest)
+			{
+				DC_UnlockDc(hDCSrc);
+			}
+			DC_UnlockDc(hDCDest);
+			SetLastWin32Error(ERROR_INVALID_HANDLE);
+			return FALSE;
+		}
+		DestMode = PalDestGDI->Mode;
+		PALETTE_UnlockPalette(DestPalette);
+	}
+
+	/* KB41464 details how to convert between mono and color */
+	if (DCDest->w.bitsPerPixel == 1)
+	{
+		XlateObj = (XLATEOBJ*)IntEngCreateMonoXlate(SourceMode, DestPalette,
+			SourcePalette, DCSrc->w.backgroundColor);
+	}
+	else if (UsesSource && 1 == DCSrc->w.bitsPerPixel)
+	{
+		ULONG Colors[2];
+
+		Colors[0] = DCSrc->w.textColor;
+		Colors[1] = DCSrc->w.backgroundColor;
+		Mono = EngCreatePalette(PAL_INDEXED, 2, Colors, 0, 0, 0);
+		if (NULL != Mono)
+		{
+			XlateObj = (XLATEOBJ*)IntEngCreateXlate(DestMode, PAL_INDEXED, DestPalette, Mono);
 		}
 		else
 		{
-			if (DCDest->w.bitsPerPixel == 1)
-			{
-				XlateObj = IntEngCreateMonoXlate(0, DestPalette, SourcePalette, DCSrc->w.backgroundColor);
-			}
-			else if (DCSrc->w.bitsPerPixel == 1)
-			{
-				XlateObj = IntEngCreateSrcMonoXlate(DestPalette, DCSrc->w.backgroundColor, DCSrc->w.textColor);
-			}
-			else
-			{
-				XlateObj = IntEngCreateXlate(0, 0, DestPalette, SourcePalette);
-			}
-			if (NULL == XlateObj)
-			{
-				if (UsesSource && hDCSrc != hDCDest)
-				{
-					DC_UnlockDc(hDCSrc);
-				}
-				DC_UnlockDc(hDCDest);
-				if(BitmapDest != NULL)
-				{
-                                	BITMAPOBJ_UnlockBitmap(DCDest->w.hBitmap);
-				}
-				if(BitmapSrc != NULL && BitmapSrc != BitmapDest)
-				{
-                                	BITMAPOBJ_UnlockBitmap(DCSrc->w.hBitmap);
-				}
-				if(BrushObj != NULL)
-				{
-                                        BRUSHOBJ_UnlockBrush(DCDest->w.hBrush);
-				}
-				SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
-				return FALSE;
-			}
+			XlateObj = NULL;
 		}
+	}
+	else
+	{
+		XlateObj = (XLATEOBJ*)IntEngCreateXlate(DestMode, SourceMode, DestPalette, SourcePalette);
+	}
+	if (NULL == XlateObj)
+	{
+		if (NULL != Mono)
+		{
+			EngDeletePalette(Mono);
+		}
+		if (UsesSource && hDCSrc != hDCDest)
+		{
+			DC_UnlockDc(hDCSrc);
+		}
+		DC_UnlockDc(hDCDest);
+		SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+		return FALSE;
 	}
 
 	/* Perform the bitblt operation */
-	Status = IntEngBitBlt(BitmapDest, BitmapSrc, NULL, DCDest->CombinedClip, XlateObj,
-		&DestRect, &SourcePoint, NULL, BrushObj ? &BrushInst.BrushObject : NULL, &BrushOrigin, ROP);
+	Status = IntEngBitBlt(SurfDest, SurfSrc, NULL, DCDest->CombinedClip, XlateObj,
+		&DestRect, &SourcePoint, NULL, &BrushObj->BrushObject, &BrushOrigin, ROP);
 
-	if (UsesSource && XlateObj != NULL)
-		EngDeleteXlate(XlateObj);
-		
-        if(BitmapDest != NULL)
-        {
-                BITMAPOBJ_UnlockBitmap(DCDest->w.hBitmap);
-        }
-	if (UsesSource && BitmapSrc != BitmapDest)
+	EngDeleteXlate(XlateObj);
+	if (NULL != Mono)
 	{
-		BITMAPOBJ_UnlockBitmap(DCSrc->w.hBitmap);
+		EngDeletePalette(Mono);
 	}
-	if (BrushObj != NULL)
+	if (UsesPattern)
 	{
 		BRUSHOBJ_UnlockBrush(DCDest->w.hBrush);
 	}
@@ -243,13 +260,13 @@ NtGdiTransparentBlt(
 {
   PDC DCDest, DCSrc;
   RECTL rcDest, rcSrc;
-  BITMAPOBJ *BitmapDest, *BitmapSrc;
+  SURFOBJ *SurfDest, *SurfSrc;
   XLATEOBJ *XlateObj;
-  HPALETTE SourcePalette = 0, DestPalette = 0;
+  HPALETTE SourcePalette, DestPalette;
   PPALGDI PalDestGDI, PalSourceGDI;
   USHORT PalDestMode, PalSrcMode;
-  ULONG TransparentColor = 0;
-  BOOL Ret = FALSE;
+  ULONG TransparentColor;
+  BOOL Ret;
   
   if(!(DCDest = DC_LockDc(hdcDst)))
   {
@@ -319,12 +336,10 @@ NtGdiTransparentBlt(
   /* Create the XLATE object to convert colors between source and destination */
   XlateObj = (XLATEOBJ*)IntEngCreateXlate(PalDestMode, PalSrcMode, DestPalette, SourcePalette);
   
-  BitmapDest = BITMAPOBJ_LockBitmap(DCDest->w.hBitmap);
-  /* FIXME - BitmapDest can be NULL!!!! Don't assert here! */
-  ASSERT(BitmapDest);
-  BitmapSrc = BITMAPOBJ_LockBitmap(DCSrc->w.hBitmap);
-  /* FIXME - BitmapSrc can be NULL!!!! Don't assert here! */
-  ASSERT(BitmapSrc);
+  SurfDest = (SURFOBJ*)AccessUserObject((ULONG)DCDest->Surface);
+  ASSERT(SurfDest);
+  SurfSrc = (SURFOBJ*)AccessUserObject((ULONG)DCSrc->Surface);
+  ASSERT(SurfSrc);
   
   rcDest.left = xDst;
   rcDest.top = yDst;
@@ -341,12 +356,10 @@ NtGdiTransparentBlt(
     goto done;
   }
   
-  Ret = IntEngTransparentBlt(BitmapDest, BitmapSrc, DCDest->CombinedClip, XlateObj, &rcDest, &rcSrc, 
+  Ret = IntEngTransparentBlt(SurfDest, SurfSrc, DCDest->CombinedClip, XlateObj, &rcDest, &rcSrc, 
                              TransparentColor, 0);
   
 done:
-  BITMAPOBJ_UnlockBitmap(DCDest->w.hBitmap);
-  BITMAPOBJ_UnlockBitmap(DCSrc->w.hBitmap);
   DC_UnlockDc(hdcSrc);
   if(hdcDst != hdcSrc)
   {
@@ -367,71 +380,97 @@ NtGdiCreateBitmap(
 	UINT  BitsPerPel,
 	CONST VOID *Bits)
 {
-   PBITMAPOBJ bmp;
-   HBITMAP hBitmap;
-   SIZEL Size;
+	PBITMAPOBJ  bmp;
+	HBITMAP  hBitmap;
 
-   /* NOTE: Windows also doesn't store nr. of planes separately! */
-   BitsPerPel = (BYTE)BitsPerPel * (BYTE)Planes;
+	Planes = (BYTE) Planes;
+	BitsPerPel = (BYTE) BitsPerPel;
 
-   /* Check parameters */
-   if (!Height || !Width)
-   {
-      Size.cx = Size.cy = 1;
-   }
-   else
-   {
-      Size.cx = abs(Width);
-      Size.cy = abs(Height);
-   }
+	/* Check parameters */
+	if (!Height || !Width)
+	{
+		Width = 1;
+		Height = 1;
+	}
+	if (Planes != 1)
+	{
+		DPRINT("NtGdiCreateBitmap - UNIMPLEMENTED\n");
+		return  0;
+	}
+	if (Height < 0)
+	{
+		Height = -Height;
+	}
+	if (Width < 0)
+	{
+		Width = -Width;
+	}
 
-   /* Create the bitmap object. */
-   hBitmap = IntCreateBitmap(Size, BITMAPOBJ_GetWidthBytes(Width, BitsPerPel),
-                             BitmapFormat(BitsPerPel, BI_RGB),
-                             (Height < 0 ? BMF_TOPDOWN : 0) |
-                             (Bits == NULL ? 0 : BMF_NOZEROINIT), NULL);
-   if (!hBitmap)
-   {
-      DPRINT("NtGdiCreateBitmap: IntCreateBitmap returned 0\n");
-      return 0;
-   }
+	/* Create the BITMAPOBJ */
+	hBitmap = BITMAPOBJ_AllocBitmap ();
+	if (!hBitmap)
+	{
+		DPRINT("NtGdiCreateBitmap: BITMAPOBJ_AllocBitmap returned 0\n");
+		return 0;
+	}
 
-   DPRINT("NtGdiCreateBitmap:%dx%d, %d BPP colors returning %08x\n",
-          Size.cx, Size.cy, BitsPerPel, hBitmap);
+	bmp = BITMAPOBJ_LockBitmap( hBitmap );
 
-   bmp = BITMAPOBJ_LockBitmap( hBitmap );
-   /* FIXME - bmp can be NULL!!!!!! */
-   bmp->flFlags = BITMAPOBJ_IS_APIBITMAP;
-   BITMAPOBJ_UnlockBitmap( hBitmap );
+	DPRINT("NtGdiCreateBitmap:%dx%d, %d (%d BPP) colors returning %08x\n", Width, Height,
+		1 << (Planes * BitsPerPel), BitsPerPel, bmp);
 
-   /*
-    * NOTE: It's ugly practice, but we are using the object even
-    * after unlocking. Since the handle is currently known only
-    * to us it should be safe.
-    */
+	bmp->dimension.cx = 0;
+	bmp->dimension.cy = 0;
+	bmp->bitmap.bmType = 0;
+	bmp->bitmap.bmWidth = Width;
+	bmp->bitmap.bmHeight = Height;
+	bmp->bitmap.bmPlanes = Planes;
+	bmp->bitmap.bmBitsPixel = BitsPerPel;
+	bmp->bitmap.bmWidthBytes = BITMAPOBJ_GetWidthBytes (Width, BitsPerPel);
+	bmp->bitmap.bmBits = NULL;
+	bmp->DDBitmap = NULL;
+	bmp->dib = NULL;
 
-   if (Bits != NULL)
-   {
-      NtGdiSetBitmapBits(hBitmap, bmp->SurfObj.cjBits, Bits);
-   }
+	// Allocate memory for bitmap bits
+	bmp->bitmap.bmBits = ExAllocatePoolWithTag(PagedPool, bmp->bitmap.bmWidthBytes * bmp->bitmap.bmHeight, TAG_BITMAP);
 
-   return hBitmap;
+	BITMAPOBJ_UnlockBitmap( hBitmap );
+
+	if (Bits) /* Set bitmap bits */
+	{
+		NtGdiSetBitmapBits(hBitmap, Height * bmp->bitmap.bmWidthBytes, Bits);
+	}
+	else
+	{
+		// Initialize the bitmap (fixes bug 244?)
+		RtlZeroMemory(bmp->bitmap.bmBits, Height * bmp->bitmap.bmWidthBytes);
+	}
+
+	return  hBitmap;
 }
 
-BOOL INTERNAL_CALL
-BITMAP_Cleanup(PVOID ObjectBody)
+BOOL FASTCALL
+Bitmap_InternalDelete( PBITMAPOBJ pBmp )
 {
-        PBITMAPOBJ pBmp = (PBITMAPOBJ)ObjectBody;
-	if (pBmp->SurfObj.pvBits != NULL &&
-	    (pBmp->flFlags & BITMAPOBJ_IS_APIBITMAP))
+	ASSERT( pBmp );
+
+	if (NULL != pBmp->bitmap.bmBits)
 	{
-		if (pBmp->dib == NULL)
+		if (NULL != pBmp->dib)
 		{
-			ExFreePool(pBmp->SurfObj.pvBits);
+			if (NULL == pBmp->dib->dshSection)
+			{
+				EngFreeUserMem(pBmp->bitmap.bmBits);
+			}
+			else
+			{
+				/* This is a file-mapped section */
+				UNIMPLEMENTED;
+			}
 		}
 		else
 		{
-			EngFreeUserMem(pBmp->SurfObj.pvBits);
+			ExFreePool(pBmp->bitmap.bmBits);
 		}
 	}
 
@@ -523,7 +562,6 @@ NtGdiExtFloodFill(
 	UINT  FillType)
 {
 	UNIMPLEMENTED;
-	return FALSE;
 }
 
 BOOL STDCALL
@@ -562,9 +600,11 @@ NtGdiGetPixel(HDC hDC, INT XPos, INT YPos)
 	PDC dc = NULL;
 	COLORREF Result = (COLORREF)CLR_INVALID; // default to failure
 	BOOL bInRect = FALSE;
-	BITMAPOBJ *BitmapObject;
+	PSURFGDI Surface;
 	SURFOBJ *SurfaceObject;
-	HPALETTE Pal = 0;
+	HPALETTE Pal;
+	PPALGDI PalGDI;
+	USHORT PalMode;
 	XLATEOBJ *XlateObj;
 
 	dc = DC_LockDc (hDC);
@@ -574,31 +614,34 @@ NtGdiGetPixel(HDC hDC, INT XPos, INT YPos)
 		SetLastWin32Error(ERROR_INVALID_HANDLE);
 		return Result;
 	}
-	XPos += dc->w.DCOrgX;
-	YPos += dc->w.DCOrgY;
 	if ( IN_RECT(dc->CombinedClip->rclBounds,XPos,YPos) )
 	{
 		bInRect = TRUE;
-		BitmapObject = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-		SurfaceObject = &BitmapObject->SurfObj;
-		if ( BitmapObject )
+		SurfaceObject = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
+		ASSERT(SurfaceObject);
+		Surface = (PSURFGDI)AccessInternalObjectFromUserObject(SurfaceObject);
+		if ( Surface )
 		{
 			if ( dc->w.hPalette != 0 )
 				Pal = dc->w.hPalette;
-			/* FIXME: Verify if it shouldn't be PAL_BGR! */
-			XlateObj = (XLATEOBJ*)IntEngCreateXlate ( PAL_RGB, 0, NULL, Pal );
-			if ( XlateObj )
+			PalGDI = PALETTE_LockPalette(Pal);
+			if ( PalGDI )
 			{
-				// check if this DC has a DIB behind it...
-				if ( SurfaceObject->pvScan0 ) // STYPE_BITMAP == SurfaceObject->iType
+				PalMode = PalGDI->Mode;
+				PALETTE_UnlockPalette(Pal);
+
+				XlateObj = (XLATEOBJ*)IntEngCreateXlate ( PAL_RGB, PalMode, NULL, Pal );
+				if ( XlateObj )
 				{
-					ASSERT ( SurfaceObject->lDelta );
-					Result = XLATEOBJ_iXlate(XlateObj,
-						DibFunctionsForBitmapFormat[SurfaceObject->iBitmapFormat].DIB_GetPixel ( SurfaceObject, XPos, YPos ) );
+					// check if this DC has a DIB behind it...
+					if ( SurfaceObject->pvScan0 ) // STYPE_BITMAP == SurfaceObject->iType
+					{
+						ASSERT ( SurfaceObject->lDelta && Surface->DIB_GetPixel );
+						Result = XLATEOBJ_iXlate(XlateObj, Surface->DIB_GetPixel ( SurfaceObject, XPos, YPos ) );
+					}
+					EngDeleteXlate(XlateObj);
 				}
-				EngDeleteXlate(XlateObj);
 			}
-			BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
 		}
 	}
 	DC_UnlockDc(hDC);
@@ -629,7 +672,7 @@ NtGdiGetPixel(HDC hDC, INT XPos, INT YPos)
 					bmpobj = BITMAPOBJ_LockBitmap ( hBmpTmp );
 					if ( bmpobj )
 					{
-						Result = *(COLORREF*)bmpobj->SurfObj.pvScan0;
+						Result = *(COLORREF*)bmpobj->bitmap.bmBits;
 						BITMAPOBJ_UnlockBitmap ( hBmpTmp );
 					}
 				}
@@ -867,7 +910,6 @@ NtGdiPlgBlt(
 	INT  yMask)
 {
 	UNIMPLEMENTED;
-	return FALSE;
 }
 
 LONG STDCALL
@@ -892,19 +934,19 @@ NtGdiSetBitmapBits(
 	}
 
 	/* Only get entire lines */
-	height = Bytes / abs(bmp->SurfObj.lDelta);
-	if (height > bmp->SurfObj.sizlBitmap.cy)
+	height = Bytes / bmp->bitmap.bmWidthBytes;
+	if (height > bmp->bitmap.bmHeight)
 	{
-		height = bmp->SurfObj.sizlBitmap.cy;
+		height = bmp->bitmap.bmHeight;
 	}
-	Bytes = height * abs(bmp->SurfObj.lDelta);
+	Bytes = height * bmp->bitmap.bmWidthBytes;
 	DPRINT ("(%08x, bytes:%ld, bits:%p) %dx%d %d colors fetched height: %ld\n",
 		hBitmap,
 		Bytes,
 		Bits,
-		bmp->SurfObj.sizlBitmap.cx,
-		bmp->SurfObj.sizlBitmap.cy,
-		1 << BitsPerFormat(bmp->SurfObj.iBitmapFormat),
+		bmp->bitmap.bmWidth,
+		bmp->bitmap.bmHeight,
+		1 << bmp->bitmap.bmBitsPixel,
 		height);
 
 #if 0
@@ -925,8 +967,21 @@ NtGdiSetBitmapBits(
 	else
 #endif
 	{
-		memcpy(bmp->SurfObj.pvBits, Bits, Bytes);
-		ret = Bytes;
+		/* FIXME: Alloc enough for entire bitmap */
+		if (bmp->bitmap.bmBits == NULL)
+		{
+			bmp->bitmap.bmBits = ExAllocatePoolWithTag(PagedPool, Bytes, TAG_BITMAP);
+		}
+		if(!bmp->bitmap.bmBits)
+		{
+			DPRINT ("Unable to allocate bit buffer\n");
+			ret = 0;
+		}
+		else
+		{
+			memcpy(bmp->bitmap.bmBits, Bits, Bytes);
+			ret = Bytes;
+		}
 	}
 
 	BITMAPOBJ_UnlockBitmap(hBitmap);
@@ -1016,12 +1071,15 @@ NtGdiStretchBlt(
 {
 	PDC DCDest = NULL;
 	PDC DCSrc  = NULL;
-	BITMAPOBJ *BitmapDest, *BitmapSrc;
+	SURFOBJ *SurfDest, *SurfSrc;
+	PSURFGDI SurfGDIDest, SurfGDISrc;
 	RECTL DestRect;
 	RECTL SourceRect;
 	BOOL Status;
+	PPALGDI PalDestGDI, PalSourceGDI;
 	XLATEOBJ *XlateObj = NULL;
-	HPALETTE SourcePalette = 0, DestPalette = 0;
+	HPALETTE SourcePalette, DestPalette;
+	ULONG SourceMode, DestMode;
 	PGDIBRUSHOBJ BrushObj;
 	BOOL UsesSource = ((ROP & 0xCC0000) >> 2) != (ROP & 0x330000);
 	BOOL UsesPattern = ((ROP & 0xF00000) >> 4) != (ROP & 0x0F0000);
@@ -1082,71 +1140,17 @@ NtGdiStretchBlt(
 	SourceRect.bottom = YOriginSrc+HeightSrc;
 
 	/* Determine surfaces to be used in the bitblt */
-	BitmapDest = BITMAPOBJ_LockBitmap(DCDest->w.hBitmap);
+	SurfDest = (SURFOBJ*)AccessUserObject((ULONG)DCDest->Surface);
+	SurfGDIDest = (PSURFGDI)AccessInternalObjectFromUserObject(SurfDest);
 	if (UsesSource)
 	{
-		if (DCSrc->w.hBitmap == DCDest->w.hBitmap)
-			BitmapSrc = BitmapDest;
-		else
-			BitmapSrc = BITMAPOBJ_LockBitmap(DCSrc->w.hBitmap);
+		SurfSrc  = (SURFOBJ*)AccessUserObject((ULONG)DCSrc->Surface);
+		SurfGDISrc  = (PSURFGDI)AccessInternalObjectFromUserObject(SurfSrc);
 	}
 	else
 	{
-		BitmapSrc = NULL;
-	}
-
-	if ( UsesSource )
-	{
-		int sw = BitmapSrc->SurfObj.sizlBitmap.cx;
-		int sh = BitmapSrc->SurfObj.sizlBitmap.cy;
-		if ( SourceRect.left < 0 )
-		{
-			DestRect.left = DestRect.right - (DestRect.right-DestRect.left) * (SourceRect.right)/abs(SourceRect.right-SourceRect.left);
-			SourceRect.left = 0;
-		}
-		if ( SourceRect.top < 0 )
-		{
-			DestRect.top = DestRect.bottom - (DestRect.bottom-DestRect.top) * (SourceRect.bottom)/abs(SourceRect.bottom-SourceRect.top);
-			SourceRect.top = 0;
-		}
-		if ( SourceRect.right < -1 )
-		{
-			DestRect.right = DestRect.left + (DestRect.right-DestRect.left) * (-1-SourceRect.left)/abs(SourceRect.right-SourceRect.left);
-			SourceRect.right = -1;
-		}
-		if ( SourceRect.bottom < -1 )
-		{
-			DestRect.bottom = DestRect.top + (DestRect.bottom-DestRect.top) * (-1-SourceRect.top)/abs(SourceRect.bottom-SourceRect.top);
-			SourceRect.bottom = -1;
-		}
-		if ( SourceRect.right > sw )
-		{
-			DestRect.right = DestRect.left + (DestRect.right-DestRect.left) * abs(sw-SourceRect.left) / abs(SourceRect.right-SourceRect.left);
-			SourceRect.right = sw;
-		}
-		if ( SourceRect.bottom > sh )
-		{
-			DestRect.bottom = DestRect.top + (DestRect.bottom-DestRect.top) * abs(sh-SourceRect.top) / abs(SourceRect.bottom-SourceRect.top);
-			SourceRect.bottom = sh;
-		}
-		sw--;
-		sh--;
-		if ( SourceRect.left > sw )
-		{
-			DestRect.left = DestRect.right - (DestRect.right-DestRect.left) * (SourceRect.right-sw) / abs(SourceRect.right-SourceRect.left);
-			SourceRect.left = 0;
-		}
-		if ( SourceRect.top > sh )
-		{
-			DestRect.top = DestRect.bottom - (DestRect.bottom-DestRect.top) * (SourceRect.bottom-sh) / abs(SourceRect.bottom-SourceRect.top);
-			SourceRect.top = 0;
-		}
-		if (0 == (DestRect.right-DestRect.left) || 0 == (DestRect.bottom-DestRect.top) || 0 == (SourceRect.right-SourceRect.left) || 0 == (SourceRect.bottom-SourceRect.top))
-		{
-			SetLastWin32Error(ERROR_INVALID_PARAMETER);
-			Status = FALSE;
-			goto failed;
-		}
+		SurfSrc  = NULL;
+		SurfGDISrc  = NULL;
 	}
 
 	if (UsesPattern)
@@ -1168,45 +1172,68 @@ NtGdiStretchBlt(
 		BrushObj = NULL;
 	}
 
-	/* Create the XLATEOBJ. */
-	if (UsesSource)
+	if (DCDest->w.hPalette != 0)
+		DestPalette = DCDest->w.hPalette;
+
+	if (UsesSource && DCSrc->w.hPalette != 0)
+		SourcePalette = DCSrc->w.hPalette;
+
+	PalSourceGDI = PALETTE_LockPalette(SourcePalette);
+	if (NULL == PalSourceGDI)
 	{
-		if (DCDest->w.hPalette != 0)
-			DestPalette = DCDest->w.hPalette;
+		if (UsesSource && hDCSrc != hDCDest)
+		{
+			DC_UnlockDc(hDCSrc);
+		}
+		DC_UnlockDc(hDCDest);
+		SetLastWin32Error(ERROR_INVALID_HANDLE);
+		return FALSE;
+	}
+	SourceMode = PalSourceGDI->Mode;
+	PALETTE_UnlockPalette(SourcePalette);
 
-		if (DCSrc->w.hPalette != 0)
-			SourcePalette = DCSrc->w.hPalette;
-
-		/* FIXME: Use the same logic for create XLATEOBJ as in NtGdiBitBlt. */
-		XlateObj = (XLATEOBJ*)IntEngCreateXlate(0, 0, DestPalette, SourcePalette);
-		if (NULL == XlateObj)
+	if (DestPalette == SourcePalette)
+	{
+		DestMode = SourceMode;
+	}
+	else
+	{
+		PalDestGDI = PALETTE_LockPalette(DestPalette);
+		if (NULL == PalDestGDI)
 		{
 			if (UsesSource && hDCSrc != hDCDest)
 			{
 				DC_UnlockDc(hDCSrc);
 			}
 			DC_UnlockDc(hDCDest);
-			SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+			SetLastWin32Error(ERROR_INVALID_HANDLE);
 			return FALSE;
 		}
+		DestMode = PalDestGDI->Mode;
+		PALETTE_UnlockPalette(DestPalette);
+	}
+
+	XlateObj = (XLATEOBJ*)IntEngCreateXlate(DestMode, SourceMode, DestPalette, SourcePalette);
+	if (NULL == XlateObj)
+	{
+		if (UsesSource && hDCSrc != hDCDest)
+		{
+			DC_UnlockDc(hDCSrc);
+		}
+		DC_UnlockDc(hDCDest);
+		SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+		return FALSE;
 	}
 
 	/* Perform the bitblt operation */
-	Status = IntEngStretchBlt(BitmapDest, BitmapSrc, NULL, DCDest->CombinedClip,
+	Status = IntEngStretchBlt(SurfDest, SurfSrc, NULL, DCDest->CombinedClip,
 		XlateObj, &DestRect, &SourceRect, NULL, NULL, NULL, COLORONCOLOR);
 
-	if (UsesSource)
-		EngDeleteXlate(XlateObj);
+	EngDeleteXlate(XlateObj);
 	if (UsesPattern)
 	{
 		BRUSHOBJ_UnlockBrush(DCDest->w.hBrush);
 	}
-failed:
-	if (UsesSource && DCSrc->w.hBitmap != DCDest->w.hBitmap)
-	{
-		BITMAPOBJ_UnlockBitmap(DCSrc->w.hBitmap);
-	}
-	BITMAPOBJ_UnlockBitmap(DCDest->w.hBitmap);
 	if (UsesSource && hDCSrc != hDCDest)
 	{
 		DC_UnlockDc(hDCSrc);
@@ -1255,34 +1282,30 @@ BITMAPOBJ_GetWidthBytes (INT bmWidth, INT bpp)
 HBITMAP FASTCALL
 BITMAPOBJ_CopyBitmap(HBITMAP  hBitmap)
 {
+	PBITMAPOBJ  bmp;
 	HBITMAP  res;
 	BITMAP  bm;
-	BITMAPOBJ *Bitmap;
 
-        if (hBitmap == NULL)
+	bmp = BITMAPOBJ_LockBitmap(hBitmap);
+	if (bmp == NULL)
+	{
 		return 0;
+	}
+	res = 0;
 
-	Bitmap = GDIOBJ_LockObj(hBitmap, GDI_OBJECT_TYPE_BITMAP);
-        if (Bitmap == NULL)
-		return 0;
-
-	BITMAP_GetObject(Bitmap, sizeof(BITMAP), &bm);
+	bm = bmp->bitmap;
 	bm.bmBits = NULL;
-	if (Bitmap->SurfObj.lDelta >= 0)
-		bm.bmHeight = -bm.bmHeight;
-
+	BITMAPOBJ_UnlockBitmap(hBitmap);
 	res = NtGdiCreateBitmapIndirect(&bm);
 	if(res)
 	{
 		char *buf;
 
-		buf = ExAllocatePoolWithTag (PagedPool, bm.bmWidthBytes * abs(bm.bmHeight), TAG_BITMAP);
-		NtGdiGetBitmapBits (hBitmap, bm.bmWidthBytes * abs(bm.bmHeight), buf);
-		NtGdiSetBitmapBits (res, bm.bmWidthBytes * abs(bm.bmHeight), buf);
+		buf = ExAllocatePoolWithTag (NonPagedPool, bm.bmWidthBytes * bm.bmHeight, TAG_BITMAP);
+		NtGdiGetBitmapBits (hBitmap, bm.bmWidthBytes * bm.bmHeight, buf);
+		NtGdiSetBitmapBits (res, bm.bmWidthBytes * bm.bmHeight, buf);
 		ExFreePool (buf);
 	}
-
-	GDIOBJ_UnlockObj(hBitmap);
 
 	return  res;
 }
@@ -1305,16 +1328,8 @@ BITMAP_GetObject(BITMAPOBJ * bmp, INT count, LPVOID buffer)
 	}
 	else
 	{
-		BITMAP Bitmap;
 		if (count > (INT) sizeof(BITMAP)) count = sizeof(BITMAP);
-		Bitmap.bmType = 0;
-		Bitmap.bmWidth = bmp->SurfObj.sizlBitmap.cx; 
-		Bitmap.bmHeight = bmp->SurfObj.sizlBitmap.cy; 
-		Bitmap.bmWidthBytes = abs(bmp->SurfObj.lDelta);
-		Bitmap.bmPlanes = 1; 
-		Bitmap.bmBitsPixel = BitsPerFormat(bmp->SurfObj.iBitmapFormat);
-		Bitmap.bmBits = bmp->SurfObj.pvBits; 
-		memcpy(buffer, &Bitmap, count);
+		memcpy(buffer, &bmp->bitmap, count);
 		return count;
 	}
 }

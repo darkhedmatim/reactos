@@ -7,9 +7,7 @@
  * REVISIONS:
  *   CSH 27/08-2000 Created
  */
-#include <roscfg.h>
 #include <ne2000.h>
-#include <debug.h>
 
 
 #ifdef DBG
@@ -165,7 +163,7 @@ NDIS_STATUS STDCALL MiniportInitialize(
     NDIS_STATUS Status;
     PNIC_ADAPTER Adapter;
 
-    NDIS_DbgPrint(MAX_TRACE, ("Called (Adapter %X).\n", MiniportAdapterHandle));
+    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
     /* Search for 802.3 media which is the only one we support */
     for (i = 0; i < MediumArraySize; i++) {
@@ -764,16 +762,14 @@ NDIS_STATUS STDCALL MiniportTransferData(
     NdisQueryPacket(Packet, NULL, NULL, &DstBuffer, NULL);
     NdisQueryBuffer(DstBuffer, (PVOID)&DstData, &DstSize);
 
-    SrcData = Adapter->PacketOffset + sizeof(DISCARD_HEADER) + ByteOffset;
-    if (ByteOffset + sizeof(DISCARD_HEADER) + BytesToTransfer > 
-	Adapter->PacketHeader.PacketLength)
-        BytesToTransfer = Adapter->PacketHeader.PacketLength - 
-	    sizeof(DISCARD_HEADER) - ByteOffset;
+    SrcData = Adapter->PacketOffset + sizeof(PACKET_HEADER) + ByteOffset;
+    if (ByteOffset + sizeof(PACKET_HEADER) + BytesToTransfer > Adapter->PacketHeader.PacketLength)
+        BytesToTransfer = Adapter->PacketHeader.PacketLength- sizeof(PACKET_HEADER) - ByteOffset;
 
     /* Start copying the data */
     BytesCopied = 0;
     for (;;) {
-        BytesToCopy = (DstSize < BytesToTransfer) ? DstSize : BytesToTransfer;
+        BytesToCopy = (DstSize < BytesToTransfer)? DstSize : BytesToTransfer;
         if (SrcData + BytesToCopy > RecvStop)
             BytesToCopy = (RecvStop - SrcData);
 

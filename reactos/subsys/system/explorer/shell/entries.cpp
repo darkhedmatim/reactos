@@ -168,16 +168,10 @@ Root::~Root()
  // directories first...
 static int compareType(const WIN32_FIND_DATA* fd1, const WIN32_FIND_DATA* fd2)
 {
-	int order1 = fd1->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-	int order2 = fd2->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+	int dir1 = fd1->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+	int dir2 = fd2->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
 
-	/* Handle "." and ".." as special case and move them at the very first beginning. */
-	if (order1 && order2) {
-		order1 = fd1->cFileName[0]!='.'? 1: fd1->cFileName[1]=='.'? 2: fd1->cFileName[1]=='\0'? 3: 1;
-		order2 = fd2->cFileName[0]!='.'? 1: fd2->cFileName[1]=='.'? 2: fd2->cFileName[1]=='\0'? 3: 1;
-	}
-
-	return order2==order1? 0: order2<order1? -1: 1;
+	return dir2==dir1? 0: dir2<dir1? -1: 1;
 }
 
 
@@ -398,52 +392,6 @@ BOOL Entry::launch_entry(HWND hwnd, UINT nCmdShow)
 
 	  // start program, open document...
 	return launch_file(hwnd, cmd, nCmdShow);
-}
-
-
-HRESULT Entry::do_context_menu(HWND hwnd, const POINT& pos)
-{
-	ShellPath shell_path = create_absolute_pidl();
-	LPCITEMIDLIST pidl_abs = shell_path;
-
-	if (!pidl_abs)
-		return S_FALSE;	// no action for registry entries, etc.
-
-	static DynamicFct<HRESULT(WINAPI*)(LPCITEMIDLIST, REFIID, LPVOID*, LPCITEMIDLIST*)> SHBindToParent(TEXT("SHELL32"), "SHBindToParent");
-
-	if (SHBindToParent) {
-		IShellFolder* parentFolder;
-		LPCITEMIDLIST pidlLast;
-
-		 // get and use the parent folder to display correct context menu in all cases -> correct "Properties" dialog for directories, ...
-		HRESULT hr = (*SHBindToParent)(pidl_abs, IID_IShellFolder, (LPVOID*)&parentFolder, &pidlLast);
-
-		if (SUCCEEDED(hr)) {
-			hr = ShellFolderContextMenu(parentFolder, hwnd, 1, &pidlLast, pos.x, pos.y);
-
-			parentFolder->Release();
-		}
-
-		return hr;
-	} else {
-		/**@todo use parent folder instead of desktop folder
-		Entry* dir = _up;
-
-		ShellPath parent_path;
-
-		if (dir)
-			parent_path = dir->create_absolute_pidl();
-		else
-			parent_path = DesktopFolderPath();
-
-		ShellPath shell_path = create_relative_pidl(parent_path);
-		LPCITEMIDLIST pidl = shell_path;
-
-		ShellFolder parent_folder = parent_path;
-		return ShellFolderContextMenu(parent_folder, hwnd, 1, &pidl, pos.x, pos.y);
-		*/
-		return ShellFolderContextMenu(GetDesktopFolder(), hwnd, 1, &pidl_abs, pos.x, pos.y);
-	}
 }
 
 

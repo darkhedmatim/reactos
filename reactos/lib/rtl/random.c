@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: random.c,v 1.4 2004/12/30 08:05:11 hyperion Exp $
+/* $Id: random.c,v 1.1 2004/05/31 19:29:02 gdalsnes Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -26,10 +26,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ddk/ntddk.h>
+#define NTOS_MODE_USER
+#include <ntos.h>
 
-#define NDEBUG
-#include <debug.h>
+//#include <ddk/ntddk.h>
+
 
 static ULONG SavedValue[128] =
    {
@@ -79,9 +80,6 @@ static ULONG SavedValue[128] =
  * RETURNS
  *  It returns a random number distributed over [0..MAXLONG-1].
  */
-/*
-* @implemented
-*/
 ULONG STDCALL
 RtlRandom (IN OUT PULONG Seed)
 {
@@ -96,19 +94,6 @@ RtlRandom (IN OUT PULONG Seed)
    SavedValue[Pos] = Rand;
 
    return Result;
-}
-
-/*
-* @unimplemented
-*/
-ULONG
-STDCALL
-RtlRandomEx(
-	PULONG Seed
-	)
-{
-	UNIMPLEMENTED;
-	return 0;
 }
 
 

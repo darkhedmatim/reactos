@@ -1,4 +1,4 @@
-/* $Id: regcontrol.c,v 1.22 2004/12/24 17:45:58 weiden Exp $
+/* $Id: regcontrol.c,v 1.19 2004/05/16 19:31:06 navaraf Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
@@ -9,8 +9,9 @@
  * NOTES:            Adapted from Wine
  */
 
-#include "user32.h"
+#include <windows.h>
 #include <wchar.h>
+#include <user32.h>
 #include "user32/regcontrol.h"
 #include "win32k/ntuser.h"
 

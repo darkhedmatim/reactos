@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2001-2004 ReactOS Team
+ *  Copyright (C) 2001 David Welch <welch@cwcom.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: kdb.c,v 1.37 2004/12/24 17:06:58 navaraf Exp $
+/* $Id: kdb.c,v 1.22 2004/05/04 21:16:51 navaraf Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/dbg/kdb.c
@@ -28,9 +28,17 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <internal/ctype.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/ps.h>
+#include <limits.h>
+#include <internal/kd.h>
+#include <internal/mm.h>
+#include <internal/i386/mm.h>
 #include "kdb.h"
 #include "kjs.h"
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -58,8 +66,6 @@ static ULONG KdbBreakPointCount = 0;
 static KDB_ACTIVE_BREAKPOINT 
  KdbActiveBreakPoints[KDB_MAXIMUM_BREAKPOINT_COUNT];
 
-static BOOLEAN KdbHandleUmode = FALSE;
-static BOOLEAN KdbHandleHandled = FALSE;
 static BOOLEAN KdbIgnoreNextSingleStep = FALSE;
 
 static ULONG KdbLastSingleStepFrom = 0xFFFFFFFF;
@@ -72,8 +78,6 @@ VOID
 PsDumpThreads(BOOLEAN System);
 ULONG 
 DbgContCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf);
-ULONG 
-DbgStopCondition(ULONG Aargc, PCH Argv[], PKTRAP_FRAME Tf);
 ULONG
 DbgEchoToggle(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf);
 ULONG 
@@ -128,8 +132,6 @@ struct
 } DebuggerCommands[] = {
   {"cont", "cont", "Exit the debugger", DbgContCommand},
   {"echo", "echo", "Toggle serial echo", DbgEchoToggle},
-  {"condition", "condition [all|umode|kmode]", "Kdbg enter condition", DbgStopCondition},
-   
   {"regs", "regs", "Display general purpose registers", DbgRegsCommand},
   {"dregs", "dregs", "Display debug registers", DbgDRegsCommand},
   {"cregs", "cregs", "Display control registers", DbgCRegsCommand},
@@ -159,34 +161,11 @@ struct
   {NULL, NULL, NULL}
 };
 
-static const char *ExceptionTypeStrings[] =
-  {
-    "Divide Error",
-    "Debug Trap",
-    "NMI",
-    "Breakpoint",
-    "Overflow",
-    "BOUND range exceeded",
-    "Invalid Opcode",
-    "No Math Coprocessor",
-    "Double Fault",
-    "Unknown(9)",
-    "Invalid TSS",
-    "Segment Not Present",
-    "Stack Segment Fault",
-    "General Protection",
-    "Page Fault",
-    "Reserved(15)",
-    "Math Fault",
-    "Alignment Check",
-    "Machine Check",
-    "SIMD Fault"
-  };
-
 volatile DWORD x_dr0 = 0, x_dr1 = 0, x_dr2 = 0, x_dr3 = 0, x_dr7 = 0;
 
 extern LONG KdbDisassemble(ULONG Address);
 extern LONG KdbGetInstLength(ULONG Address);
+extern NTSTATUS MmGetPageEntry2(PVOID PAddress, PULONG* Pte, BOOLEAN MayWait);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -276,56 +255,13 @@ strpbrk(const char* s, const char* accept)
   return(NULL);
 }
 
-
-#if 0
-NTSTATUS
-KdbpSafeReadMemory(PVOID dst, PVOID src, INT size)
-{
-  INT page, page_end;
-  
-  /* check source */
-  page_end = (((ULONG_PTR)src + size) / PAGE_SIZE);
-  for (page = ((ULONG_PTR)src / PAGE_SIZE); page <= page_end; page++)
-  {
-    if (!MmIsPagePresent(NULL, (PVOID)(page * PAGE_SIZE)))
-      return STATUS_UNSUCCESSFUL;
-  }
-
-  /* copy memory */
-  RtlCopyMemory(dst, src, size);
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-KdbpSafeWriteMemory(PVOID dst, PVOID src, INT size)
-{
-  return KdbpSafeWriteMemory(dst, src, size);
-  INT page, page_end;
-
-  /* check destination */
-  page_end = (((ULONG_PTR)dst + size) / PAGE_SIZE);
-  for (page = ((ULONG_PTR)dst / PAGE_SIZE); page <= page_end; page++)
-  {
-    if (!MmIsPagePresent(NULL, (PVOID)(page * PAGE_SIZE)))
-      return STATUS_UNSUCCESSFUL;
-  }
-
-  /* copy memory */
-  RtlCopyMemory(dst, src, size);
-  return STATUS_SUCCESS;
-}
-#endif /* unused */
-
-
 VOID
 KdbGetCommand(PCH Buffer)
 {
   CHAR Key;
   PCH Orig = Buffer;
-  static CHAR LastCommand[256] = "";
+  static UCHAR LastCommand[256] = "";
   ULONG ScanCode = 0;
-  static CHAR LastKey = '\0';
   
   KbdEchoOn = !((KdDebugState & KD_DEBUG_KDNOECHO) != 0);
   
@@ -336,11 +272,7 @@ KdbGetCommand(PCH Buffer)
       else
 	while ((Key = KdbTryGetCharKeyboard(&ScanCode)) == -1);
 
-      if (Key == '\n' && LastKey == '\r')
-        {
-          /* Ignore this key... */
-        }
-      else if (Key == '\r' || Key == '\n')
+      if (Key == '\r' || Key == '\n')
 	{
 	  DbgPrint("\n");
 	  /*
@@ -356,7 +288,6 @@ KdbGetCommand(PCH Buffer)
 	      *Buffer = 0;
 	      strcpy(LastCommand, Orig);
 	    }
-	  LastKey = Key;
 	  return;
 	}
       else if (Key == BS || Key == DEL)
@@ -399,12 +330,11 @@ KdbGetCommand(PCH Buffer)
           *Buffer = Key;
           Buffer++;
         }
-      LastKey = Key;
     }
 }
 
 BOOLEAN STATIC
-KdbDecodeAddress(PCHAR Buffer, PULONG Address)
+KdbDecodeAddress(PUCHAR Buffer, PULONG Address)
 {
   while (isspace(*Buffer))
     {
@@ -412,11 +342,11 @@ KdbDecodeAddress(PCHAR Buffer, PULONG Address)
     }
   if (Buffer[0] == '<')
     {
-      PCHAR ModuleName = Buffer + 1;
-      PCHAR AddressString = strpbrk(Buffer, ":");
+      PUCHAR ModuleName = Buffer + 1;
+      PUCHAR AddressString = strpbrk(Buffer, ":");
       extern LIST_ENTRY ModuleTextListHead;
       PLIST_ENTRY current_entry;
-      MODULE_TEXT_SECTION* current = NULL;
+      MODULE_TEXT_SECTION* current;
       static WCHAR ModuleNameW[256];
       ULONG i;
 
@@ -471,40 +401,50 @@ KdbDecodeAddress(PCHAR Buffer, PULONG Address)
 NTSTATUS STATIC
 KdbOverwriteInst(ULONG Address, PUCHAR PreviousInst, UCHAR NewInst)
 {
+  PULONG BreakPtePtr;
+  ULONG SavedPte;
   NTSTATUS Status;
-  ULONG Protect;
-  /* Get the protection for the address. */
-  Protect = MmGetPageProtect(PsGetCurrentProcess(), (PVOID)PAGE_ROUND_DOWN(Address));
+  /* Get the pte for the page containing the address. */
+  Status =
+    MmGetPageEntry2((PVOID)PAGE_ROUND_DOWN(Address), &BreakPtePtr, FALSE);
   /* Return if that page isn't present. */
-  if (Protect & PAGE_NOACCESS)
+  if (!NT_SUCCESS(Status))
+    {
+      return(Status);
+    }
+  if (!((*BreakPtePtr) & (1 << 0)))
     {
       return(STATUS_MEMORY_NOT_ALLOCATED);
     }
-  if (Protect & (PAGE_READONLY|PAGE_EXECUTE|PAGE_EXECUTE_READ))
-    {
-      MmSetPageProtect(PsGetCurrentProcess(), (PVOID)PAGE_ROUND_DOWN(Address), 
-	               (Protect & ~(PAGE_READONLY|PAGE_EXECUTE|PAGE_EXECUTE_READ)) | PAGE_READWRITE);
-    }
+  /* Saved the old pte and enable write permissions. */
+  SavedPte = *BreakPtePtr;
+  (*BreakPtePtr) |= (1 << 1);
+  /* Flush the TLB. */
+  __asm__ __volatile__ ("movl %%cr3, %%eax\n\t"
+			"movl %%eax, %%cr3\n\t" 
+			: : : "memory", "eax");
   /* Copy the old instruction back to the caller. */
   if (PreviousInst != NULL)
     {
-      Status = KdbpSafeReadMemory(PreviousInst, (PUCHAR)Address, 1);
+      Status = MmSafeCopyFromUser(PreviousInst, (PUCHAR)Address, 1);
       if (!NT_SUCCESS(Status))
-	    {
-          if (Protect & (PAGE_READONLY|PAGE_EXECUTE|PAGE_EXECUTE_READ))
-            {
-              MmSetPageProtect(PsGetCurrentProcess(), (PVOID)PAGE_ROUND_DOWN(Address), Protect);
-            }
-	      return(Status);
-	    }
+	{
+	  return(Status);
+	}
     }
   /* Copy the new instruction in its place. */
-  Status = KdbpSafeWriteMemory((PUCHAR)Address, &NewInst, 1);
-  if (Protect & (PAGE_READONLY|PAGE_EXECUTE|PAGE_EXECUTE_READ))
+  Status = MmSafeCopyToUser((PUCHAR)Address, &NewInst, 1);
+  if (!NT_SUCCESS(Status))
     {
-      MmSetPageProtect(PsGetCurrentProcess(), (PVOID)PAGE_ROUND_DOWN(Address), Protect);
+      return(Status);
     }
-  return Status;
+  /* Restore the old pte. */
+  *BreakPtePtr = SavedPte;
+  /* And flush the tlb again. */
+  __asm__ __volatile__ ("movl %%cr3, %%eax\n\t"
+			"movl %%eax, %%cr3\n\t" 
+			: : : "memory", "eax");
+  return(STATUS_SUCCESS);
 }
 
 
@@ -626,7 +566,7 @@ DbgSetMemoryBreakPoint(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
   ULONG DebugRegNr;
   UCHAR BreakType;
   ULONG Length, Address;
-  ULONG Rw = 0;
+  ULONG Rw;
   ULONG i;
   if (Argc != 2 && Argc < 5)
     {
@@ -727,17 +667,8 @@ DbgStep(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 ULONG
 DbgStepOver(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 {
-  PUCHAR Eip;
-  UCHAR Mem[3];
-
-  if (!NT_SUCCESS(KdbpSafeReadMemory(Mem, (PVOID)Tf->Eip, sizeof (Mem))))
-    {
-      DbgPrint("Couldn't access memory at 0x%x\n", (UINT)Tf->Eip);
-      return(1);
-    }
-  Eip = Mem;
-
-  /* Check if the current instruction is a call. */
+  PUCHAR Eip = (PUCHAR)Tf->Eip;
+   /* Check if the current instruction is a call. */
   while (Eip[0] == 0x66 || Eip[0] == 0x67)
     {
       Eip++;
@@ -775,7 +706,7 @@ DbgFinish(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
     }
 
   /* Get the address of the caller. */
-  Status = KdbpSafeReadMemory(&ReturnAddress, Ebp + 1, sizeof(ULONG));
+  Status = MmSafeCopyFromUser(&ReturnAddress, Ebp + 1, sizeof(ULONG));
   if (!NT_SUCCESS(Status))
     {
       DbgPrint("Memory access error (%X) while getting return address.\n",
@@ -822,7 +753,7 @@ DbgDisassemble(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
     }
   for (i = 0; i < 10; i++)
     {
-      if (!KdbSymPrintAddress((PVOID)Address))
+      if (!KdbPrintAddress((PVOID)Address))
 	{
 	  DbgPrint("<%x>", Address);
 	}
@@ -905,26 +836,23 @@ DbgProcessListCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 }
 
 VOID
-DbgPrintBackTrace(PULONG Frame, ULONG_PTR StackBase, ULONG_PTR StackLimit)
+DbgPrintBackTrace(PULONG Frame, ULONG StackBase, ULONG StackLimit)
 {
-  PVOID Address;
+  ULONG i = 1;
 
   DbgPrint("Frames:  ");
-  while (Frame != NULL && (ULONG_PTR)Frame >= StackLimit && 
-	 (ULONG_PTR)Frame < StackBase) /* FIXME: why limit this to StackBase/StackLimit? */
+  while (Frame != NULL && (ULONG)Frame >= StackLimit && 
+	 (ULONG)Frame < StackBase)
     {
-      if (!NT_SUCCESS(KdbpSafeReadMemory(&Address, Frame + 1, sizeof (Address))))
-        {
-          DbgPrint("\nCouldn't access memory at 0x%x!\n", (UINT)(Frame + 1));
-          break;
-        }
-      KdbSymPrintAddress(Address);
+      KdbPrintAddress((PVOID)Frame[1]);
       DbgPrint("\n");
-      if (!NT_SUCCESS(KdbpSafeReadMemory(&Frame, Frame, sizeof (Frame))))
-        {
-          DbgPrint("\nCouldn't access memory at 0x%x!\n", (UINT)Frame);
-          break;
-        }
+      Frame = (PULONG)Frame[0];
+      i++;
+    }
+
+  if ((i % 10) != 0)
+    {
+      DbgPrint("\n");
     }
 }
 
@@ -936,7 +864,7 @@ DbgAddrCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME tf)
   if (Argc == 2)
     {
       Addr = (PVOID)strtoul(Argv[1], NULL, 0);
-      KdbSymPrintAddress(Addr);
+      KdbPrintAddress(Addr);
     }
 
   return(1);
@@ -945,33 +873,24 @@ DbgAddrCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME tf)
 ULONG
 DbgXCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME tf)
 {
-  PDWORD Addr = NULL;
+  PDWORD Addr = 0;
   DWORD Items = 1;
   DWORD i = 0;
-  DWORD Item;
 
   if (Argc >= 2)
     Addr = (PDWORD)strtoul(Argv[1], NULL, 0);
   if (Argc >= 3)
     Items = (DWORD)strtoul(Argv[2], NULL, 0);
 
-  if (Addr == NULL)
-    return(1);
+  if( !Addr ) return(1);
 
-  for (i = 0; i < Items; i++)
+  for( i = 0; i < Items; i++ ) 
     {
-      if( (i % 4) == 0 )
-        {
-	  if (i != 0)
-            DbgPrint("\n");
-	  DbgPrint("%08x:", (int)(&Addr[i]));
-        }
-      if (!NT_SUCCESS(KdbpSafeReadMemory(&Item, Addr + i, sizeof (Item))))
-        {
-          DbgPrint("\nCouldn't access memory at 0x%x!\n", (UINT)(Addr + i));
-          break;
-        }
-      DbgPrint("%08x ", Item);
+      if( (i % 4) == 0 ) {
+	if( i ) DbgPrint("\n");
+	DbgPrint("%08x:", (int)(&Addr[i]));
+      }
+      DbgPrint( "%08x ", Addr[i] );
     }
 
   return(1);
@@ -1063,7 +982,7 @@ static int KjsGetNthModule( void *context,
   PKJS kjs = (PKJS)context_list[0];
   JSVirtualMachine *vm = kjs->vm;
   PLIST_ENTRY current_entry;
-  MODULE_TEXT_SECTION *current = NULL;
+  MODULE_TEXT_SECTION *current;
   extern LIST_ENTRY ModuleTextListHead;
   int n = 0;
   
@@ -1189,7 +1108,7 @@ DbgScriptCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME tf)
 ULONG
 DbgBackTraceCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 {
-  ULONG_PTR StackBase, StackLimit;
+  ULONG StackBase, StackLimit;
   extern unsigned int init_stack, init_stack_top;
 
   /* Without an argument we print the current stack. */
@@ -1197,13 +1116,13 @@ DbgBackTraceCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
     {
       if (PsGetCurrentThread() != NULL)
 	{
-	  StackBase = (ULONG_PTR)PsGetCurrentThread()->Tcb.StackBase;
+	  StackBase = (ULONG)PsGetCurrentThread()->Tcb.StackBase;
 	  StackLimit = PsGetCurrentThread()->Tcb.StackLimit;
 	}
       else
 	{
-	  StackBase = (ULONG_PTR)&init_stack_top;
-	  StackLimit = (ULONG_PTR)&init_stack;
+	  StackBase = (ULONG)&init_stack_top;
+	  StackLimit = (ULONG)&init_stack;
 	}
       DbgPrintBackTrace((PULONG)&Tf->DebugEbp, StackBase, StackLimit);
     }
@@ -1332,24 +1251,6 @@ DbgContCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 {
   /* Not too difficult. */
   return(0);
-}
-
-ULONG
-DbgStopCondition(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
-{
-    if( Argc == 1 ) {
-	if( KdbHandleHandled ) DbgPrint("all\n");
-	else if( KdbHandleUmode ) DbgPrint("umode\n");
-	else DbgPrint("kmode\n");
-    } 
-    else if( !strcmp(Argv[1],"all") ) 
-    { KdbHandleHandled = TRUE; KdbHandleUmode = TRUE; }
-    else if( !strcmp(Argv[1],"umode") )
-    { KdbHandleHandled = FALSE; KdbHandleUmode = TRUE; }
-    else if( !strcmp(Argv[1],"kmode") )
-    { KdbHandleHandled = FALSE; KdbHandleUmode = FALSE; }
-
-    return(TRUE);
 }
 
 ULONG
@@ -1516,7 +1417,7 @@ DbgRegsCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 ULONG
 DbgBugCheckCommand(ULONG Argc, PCH Argv[], PKTRAP_FRAME Tf)
 {
-  KEBUGCHECK(0xDEADDEAD);
+  KEBUGCHECK(1);
   return(1);
 }
 
@@ -1610,7 +1511,7 @@ KdbMainLoop(PKTRAP_FRAME Tf)
     }
   else
     {
-      if (!KdbSymPrintAddress((PVOID)Tf->Eip))
+      if (!KdbPrintAddress((PVOID)Tf->Eip))
 	{
 	  DbgPrint("<%x>", Tf->Eip);
 	}
@@ -1637,10 +1538,7 @@ KdbInternalEnter(PKTRAP_FRAME Tf)
 {  
   __asm__ __volatile__ ("cli\n\t");
   KbdDisableMouse();
-  if (KdDebugState & KD_DEBUG_SCREEN)
-    {
-      HalReleaseDisplayOwnership();
-    }
+  HalReleaseDisplayOwnership();
   (VOID)KdbMainLoop(Tf);
   KbdEnableMouse();
   __asm__ __volatile__("sti\n\t");
@@ -1648,32 +1546,11 @@ KdbInternalEnter(PKTRAP_FRAME Tf)
 
 KD_CONTINUE_TYPE
 KdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
-			  KPROCESSOR_MODE PreviousMode,
 			  PCONTEXT Context,
-			  PKTRAP_FRAME TrapFrame,
-			  BOOLEAN AlwaysHandle)
+			  PKTRAP_FRAME TrapFrame)
 {
   LONG BreakPointNr;
   ULONG ExpNr = (ULONG)TrapFrame->DebugArgMark;
-
-  if (ExpNr != 1 && ExpNr != 3)
-    {
-      DbgPrint(":KDBG:Entered:%s:%s\n",
-               PreviousMode==KernelMode ? "kmode" : "umode",
-               AlwaysHandle ? "always" : "if-unhandled");
-    }
-  
-  /* If we aren't handling umode exceptions then return */
-  if (PreviousMode == UserMode && !KdbHandleUmode && !AlwaysHandle)
-    {
-      return kdContinue;
-    }
-
-  /* If the exception would be unhandled (and we care) then handle it */
-  if (PreviousMode == KernelMode && !KdbHandleHandled && !AlwaysHandle)
-    {
-      return kdContinue;
-    }
 
   /* Exception inside the debugger? Game over. */
   if (KdbEntryCount > 0)
@@ -1748,11 +1625,7 @@ KdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
     }
   else
     {
-      const char *ExceptionString =
-         (ExpNr < (sizeof (ExceptionTypeStrings) / sizeof (ExceptionTypeStrings[0]))) ?
-         (ExceptionTypeStrings[ExpNr]) :
-         ("Unknown/User defined exception");
-      DbgPrint("Entered debugger on exception number %d (%s)\n", ExpNr, ExceptionString);
+      DbgPrint("Entered debugger on exception number %d.\n", ExpNr);
     }
   KdbInternalEnter(TrapFrame);
   KdbEntryCount--;

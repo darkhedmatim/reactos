@@ -1,4 +1,4 @@
-/* $Id: putc.c,v 1.11 2004/08/20 00:57:44 navaraf Exp $
+/* $Id: putc.c,v 1.9 2003/07/11 22:17:09 royce Exp $
  *
  *  ReactOS msvcrt library
  *
@@ -24,7 +24,7 @@
  */
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 #include <msvcrt/errno.h>
@@ -86,7 +86,7 @@ int putwc(wint_t c, FILE* fp)
             fp->_cnt -= sizeof(wchar_t);
             //*((wchar_t*)(fp->_ptr))++ = c;
             *((wchar_t*)(fp->_ptr)) = c;
-            fp->_ptr += sizeof(wchar_t);
+            ++((wchar_t*)(fp->_ptr));
             return (wint_t)c;
         } else {
 #if 1

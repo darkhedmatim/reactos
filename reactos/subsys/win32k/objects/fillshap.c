@@ -16,26 +16,26 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fillshap.c,v 1.53 2004/12/12 01:40:38 weiden Exp $ */
+/* $Id: fillshap.c,v 1.49 2004/05/14 16:55:18 navaraf Exp $ */
 #include <w32k.h>
 
 /*
  * a couple macros to fill a single pixel or a line
  */
-#define PUTPIXEL(x,y,BrushInst)        \
-  ret = ret && IntEngLineTo(BitmapObj, \
-       dc->CombinedClip,               \
-       &BrushInst.BrushObject,         \
-       x, y, (x)+1, y,                 \
-       &RectBounds,                    \
+#define PUTPIXEL(x,y,brushObj)      \
+  ret = ret && IntEngLineTo(SurfObj,  \
+       dc->CombinedClip,              \
+       &brushObj->BrushObject,        \
+       x, y, (x)+1, y,                \
+       &RectBounds,                   \
        dc->w.ROPmode);
 
-#define PUTLINE(x1,y1,x2,y2,BrushInst) \
-  ret = ret && IntEngLineTo(BitmapObj, \
-       dc->CombinedClip,               \
-       &BrushInst.BrushObject,         \
-       x1, y1, x2, y2,                 \
-       &RectBounds,                    \
+#define PUTLINE(x1,y1,x2,y2,brushObj)  \
+  ret = ret && IntEngLineTo(SurfObj,  \
+       dc->CombinedClip,              \
+       &brushObj->BrushObject,        \
+       x1, y1, x2, y2,                \
+       &RectBounds,                   \
        dc->w.ROPmode);
 
 BOOL FASTCALL
@@ -43,9 +43,8 @@ IntGdiPolygon(PDC    dc,
               PPOINT UnsafePoints,
               int    Count)
 {
-  BITMAPOBJ *BitmapObj;
+  SURFOBJ *SurfObj;
   PGDIBRUSHOBJ PenBrushObj, FillBrushObj;
-  GDIBRUSHINST PenBrushInst, FillBrushInst;
   BOOL ret = FALSE; // default to failure
   RECTL DestRect;
   int CurrentPoint;
@@ -58,9 +57,8 @@ IntGdiPolygon(PDC    dc,
       return FALSE;
     }
 
-  BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!!! don't assert but handle this case gracefully! */
-  ASSERT(BitmapObj);
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
+  ASSERT(SurfObj);
 
       /* Convert to screen coordinates */
       for (CurrentPoint = 0; CurrentPoint < Count; CurrentPoint++)
@@ -86,21 +84,17 @@ IntGdiPolygon(PDC    dc,
 	  DestRect.bottom   = max(DestRect.bottom, UnsafePoints[CurrentPoint].y);
 	}
 
+#if 1
 	/* Now fill the polygon with the current brush. */
 	FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-	/* FIXME - FillBrushObj can be NULL!!!!!!!! Don't Assert! */
 	ASSERT(FillBrushObj);
 	if (!(FillBrushObj->flAttrs & GDIBRUSH_IS_NULL))
-	{
-          IntGdiInitBrushInstance(&FillBrushInst, FillBrushObj, dc->XlateBrush);
-	  ret = FillPolygon ( dc, BitmapObj, &FillBrushInst.BrushObject, dc->w.ROPmode, UnsafePoints, Count, DestRect );
-	}
+	  ret = FillPolygon ( dc, SurfObj, &FillBrushObj->BrushObject, dc->w.ROPmode, UnsafePoints, Count, DestRect );
 	BRUSHOBJ_UnlockBrush(dc->w.hBrush);
+#endif
 
 	/* get BRUSHOBJ from current pen. */
 	PenBrushObj = PENOBJ_LockPen(dc->w.hPen);
-	/* FIXME - handle PenBrushObj == NULL !!!!! */
-        IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
 
 	// Draw the Polygon Edges with the current pen ( if not a NULL pen )
 	if (!(PenBrushObj->flAttrs & GDIBRUSH_IS_NULL))
@@ -120,9 +114,9 @@ IntGdiPolygon(PDC    dc,
 	      To = UnsafePoints[CurrentPoint + 1];
 
 	    //DPRINT("Polygon Making line from (%d,%d) to (%d,%d)\n", From.x, From.y, To.x, To.y );
-	    ret = IntEngLineTo(BitmapObj,
+	    ret = IntEngLineTo(SurfObj,
 			       dc->CombinedClip,
-			       &PenBrushInst.BrushObject,
+			       &PenBrushObj->BrushObject,
 			       From.x,
 			       From.y,
 			       To.x,
@@ -131,10 +125,17 @@ IntGdiPolygon(PDC    dc,
 			       dc->w.ROPmode); /* MIX */
 	  }
 	}
-	PENOBJ_UnlockPen( dc->w.hPen );
+#if 0
+	/* Now fill the polygon with the current brush. */
+	FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
+	ASSERT(FillBrushObj);
+	if ( FillBrushObj->logbrush.lbStyle != BS_NULL )
+	  ret = FillPolygon ( dc, SurfObj, FillBrushObj, dc->w.ROPmode, UnsafePoints, Count, DestRect );
+	BRUSHOBJ_UnlockBrush(dc->w.hBrush);
+#endif
       }
 
-      BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
+      PENOBJ_UnlockPen( dc->w.hPen );
   
   return ret;
 }
@@ -181,7 +182,6 @@ NtGdiChord(HDC  hDC,
                 int  YRadial2)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 /*
@@ -215,8 +215,7 @@ NtGdiEllipse(
    int RadiusX, RadiusY;
    int Temp;
    PGDIBRUSHOBJ FillBrush, PenBrush;
-   GDIBRUSHINST FillBrushInst, PenBrushInst;
-   BITMAPOBJ *BitmapObj;
+   SURFOBJ *SurfObj;
    RECTL RectBounds;
    PDC dc;
    BOOL ret = TRUE, Cond1, Cond2;
@@ -253,18 +252,13 @@ NtGdiEllipse(
    PenBrush = PENOBJ_LockPen(dc->w.hPen);
    if (NULL == PenBrush)
    {
-      BRUSHOBJ_UnlockBrush(dc->w.hBrush);
+      PENOBJ_UnlockPen(dc->w.hPen);
       DC_UnlockDc(hDC);
       SetLastWin32Error(ERROR_INTERNAL_ERROR);
       return FALSE;
    }
 
-   BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-   /* FIXME - BitmapObj can be NULL!!!! Don't assert but handle this case gracefully! */
-   ASSERT(BitmapObj);
-
-   IntGdiInitBrushInstance(&FillBrushInst, FillBrush, dc->XlateBrush);
-   IntGdiInitBrushInstance(&PenBrushInst, PenBrush, dc->XlatePen);
+   SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
 
    nLeftRect += dc->w.DCOrgX;
    nRightRect += dc->w.DCOrgX - 1;
@@ -333,10 +327,10 @@ NtGdiEllipse(
       
       if ((A > da) && (A < db))
       {
-         PUTLINE(CenterX - D, CenterY + A, CenterX + D, CenterY + A, FillBrushInst);
+         PUTLINE(CenterX - D, CenterY + A, CenterX + D, CenterY + A, FillBrush);
          if (A)
          {
-            PUTLINE(CenterX - D, CenterY - A, CenterX + D, CenterY - A, FillBrushInst);
+            PUTLINE(CenterX - D, CenterY - A, CenterX + D, CenterY - A, FillBrush);
          }
          da = A;
       }
@@ -347,8 +341,8 @@ NtGdiEllipse(
       
       if ((B < db) && (B > da))
       { 
-         PUTLINE(CenterX - C, CenterY + B, CenterX + C, CenterY + B, FillBrushInst);
-         PUTLINE(CenterX - C, CenterY - B, CenterX + C, CenterY - B, FillBrushInst);
+         PUTLINE(CenterX - C, CenterY + B, CenterX + C, CenterY + B, FillBrush);
+         PUTLINE(CenterX - C, CenterY - B, CenterX + C, CenterY - B, FillBrush);
          db = B;
       }
 
@@ -358,32 +352,31 @@ NtGdiEllipse(
 
       if (Cond1)
       {
-         PUTPIXEL(CenterX + C, CenterY + B, PenBrushInst);
+         PUTPIXEL(CenterX + C, CenterY + B, PenBrush);
          if (C)
-            PUTPIXEL(CenterX - C, CenterY + B, PenBrushInst);
+            PUTPIXEL(CenterX - C, CenterY + B, PenBrush);
          if (B)
          {
-            PUTPIXEL(CenterX + C, CenterY - B, PenBrushInst);
+            PUTPIXEL(CenterX + C, CenterY - B, PenBrush);
             if (C)
-               PUTPIXEL(CenterX - C, CenterY - B, PenBrushInst);
+               PUTPIXEL(CenterX - C, CenterY - B, PenBrush);
          }
       }
 
       if (Cond2)
       {
-         PUTPIXEL(CenterX + D, CenterY + A, PenBrushInst);
+         PUTPIXEL(CenterX + D, CenterY + A, PenBrush);
          if (D)
-            PUTPIXEL(CenterX - D, CenterY + A, PenBrushInst);
+            PUTPIXEL(CenterX - D, CenterY + A, PenBrush);
          if (A)
          {
-            PUTPIXEL(CenterX + D, CenterY - A, PenBrushInst);
+            PUTPIXEL(CenterX + D, CenterY - A, PenBrush);
             if (D)
-               PUTPIXEL(CenterX - D, CenterY - A, PenBrushInst);
+               PUTPIXEL(CenterX - D, CenterY - A, PenBrush);
          }
       }
    } while (B > A);
 
-   BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
    BRUSHOBJ_UnlockBrush(dc->w.hBrush);
    PENOBJ_UnlockPen(dc->w.hPen);
    DC_UnlockDc(hDC);
@@ -842,7 +835,7 @@ NtGdiPolygon(HDC          hDC,
     SetLastWin32Error(ERROR_INVALID_HANDLE);
   else
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_SHAPE);
+    Safept = ExAllocatePoolWithTag(NonPagedPool, sizeof(POINT) * Count, TAG_SHAPE);
     if(!Safept)
       SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
     else
@@ -884,7 +877,7 @@ NtGdiPolyPolygon(HDC           hDC,
   
   if(Count > 0)
   {
-    Safept = ExAllocatePoolWithTag(PagedPool, (sizeof(POINT) + sizeof(INT)) * Count, TAG_SHAPE);
+    Safept = ExAllocatePoolWithTag(NonPagedPool, (sizeof(POINT) + sizeof(INT)) * Count, TAG_SHAPE);
     if(!Safept)
     {
       DC_UnlockDc(hDC);
@@ -934,15 +927,12 @@ IntRectangle(PDC dc,
 	     int RightRect,
 	     int BottomRect)
 {
-  BITMAPOBJ *BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
+  SURFOBJ   *SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
   PGDIBRUSHOBJ PenBrushObj, FillBrushObj;
-  GDIBRUSHINST PenBrushInst, FillBrushInst;
   BOOL       ret = FALSE; // default to failure
   RECTL      DestRect;
 
   ASSERT ( dc ); // caller's responsibility to set this up
-  /* FIXME - BitmapObj can be NULL!!! Don't assert but handle this case gracefully! */
-  ASSERT ( BitmapObj );
 
   if ( PATH_IsPathOpen(dc->w.path) )
   {
@@ -961,14 +951,12 @@ IntRectangle(PDC dc,
     DestRect.bottom = BottomRect;
 
     FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-    /* FIXME - Handle FillBrushObj == NULL !!!! */
-    IntGdiInitBrushInstance(&FillBrushInst, FillBrushObj, dc->XlateBrush);
 
     if ( FillBrushObj )
     {
       if (!(FillBrushObj->flAttrs & GDIBRUSH_IS_NULL))
       {
-	ret = IntEngBitBlt(BitmapObj,
+	ret = IntEngBitBlt(SurfObj,
                            NULL,
                            NULL,
                            dc->CombinedClip,
@@ -976,7 +964,7 @@ IntRectangle(PDC dc,
                            &DestRect,
                            NULL,
                            NULL,
-                           &FillBrushInst.BrushObject,
+                           &FillBrushObj->BrushObject,
                            NULL,
                            PATCOPY);
       }
@@ -989,11 +977,8 @@ IntRectangle(PDC dc,
     if (PenBrushObj == NULL)
     {
       SetLastWin32Error(ERROR_INVALID_HANDLE);
-      BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
       return FALSE;
     }
-
-    IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
 
     // Draw the rectangle with the current pen
 
@@ -1001,30 +986,30 @@ IntRectangle(PDC dc,
 
     if (!(PenBrushObj->flAttrs & GDIBRUSH_IS_NULL))
     {
-      ret = ret && IntEngLineTo(BitmapObj,
+      ret = ret && IntEngLineTo(SurfObj,
 			 dc->CombinedClip,
-			 &PenBrushInst.BrushObject,
+			 &PenBrushObj->BrushObject,
 			 LeftRect, TopRect, RightRect, TopRect,
 			 &DestRect, // Bounding rectangle
 			 dc->w.ROPmode); // MIX
 
-      ret = ret && IntEngLineTo(BitmapObj,
+      ret = ret && IntEngLineTo(SurfObj,
 			 dc->CombinedClip,
-			 &PenBrushInst.BrushObject,
+			 &PenBrushObj->BrushObject,
 			 RightRect, TopRect, RightRect, BottomRect,
 			 &DestRect, // Bounding rectangle
 			 dc->w.ROPmode); // MIX
 
-      ret = ret && IntEngLineTo(BitmapObj,
+      ret = ret && IntEngLineTo(SurfObj,
 			 dc->CombinedClip,
-			 &PenBrushInst.BrushObject,
+			 &PenBrushObj->BrushObject,
 			 RightRect, BottomRect, LeftRect, BottomRect,
 			 &DestRect, // Bounding rectangle
 			 dc->w.ROPmode); // MIX
 
-      ret = ret && IntEngLineTo(BitmapObj,
+      ret = ret && IntEngLineTo(SurfObj,
 			 dc->CombinedClip,
-			 &PenBrushInst.BrushObject,
+			 &PenBrushObj->BrushObject,
 			 LeftRect, BottomRect, LeftRect, TopRect,
 			 &DestRect, // Bounding rectangle
 			 dc->w.ROPmode); // MIX */
@@ -1032,8 +1017,6 @@ IntRectangle(PDC dc,
 
     PENOBJ_UnlockPen(dc->w.hPen);
   }
-
-  BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
 
   /* Move current position in DC?
      MSDN: The current position is neither used nor updated by Rectangle. */
@@ -1077,9 +1060,8 @@ IntRoundRect(
 	int  xCurveDiameter,
 	int  yCurveDiameter)
 {
-  BITMAPOBJ   *BitmapObj;
+  SURFOBJ   *SurfObj;
   PGDIBRUSHOBJ   PenBrushObj, FillBrushObj;
-  GDIBRUSHINST FillBrushInst, PenBrushInst;
   RECTL      RectBounds;
   int i, col, row, width, height, x1, x1start, x2, x2start, y1, y2;
   int xradius, yradius;
@@ -1110,12 +1092,9 @@ IntRoundRect(
   RectBounds.top = top;
   RectBounds.bottom = bottom;
 
-  BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!!! Handle this case gracefully instead of ASSERT! */
-  ASSERT(BitmapObj);
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
 
   FillBrushObj = BRUSHOBJ_LockBrush(dc->w.hBrush);
-  /* FIXME - Don't assert if FillBrushObj == NULL, handle this case !!!! */
   ASSERT(FillBrushObj);
   if (FillBrushObj->flAttrs & GDIBRUSH_IS_NULL)
   {
@@ -1124,16 +1103,12 @@ IntRoundRect(
   }
 
   PenBrushObj = PENOBJ_LockPen(dc->w.hPen);
-  /* FIXME - PenBrushObject can be NULL!!! Don't assert!!!! */
   ASSERT(PenBrushObj);
   if (PenBrushObj->flAttrs & GDIBRUSH_IS_NULL)
   {
     PENOBJ_UnlockPen(dc->w.hPen);
     PenBrushObj = NULL;
   }
-
-  IntGdiInitBrushInstance(&FillBrushInst, FillBrushObj, dc->XlateBrush);
-  IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
 
   right--;
   bottom--;
@@ -1175,20 +1150,20 @@ IntRoundRect(
     if ( d >= 0 )
     {
       if ( FillBrushObj )
-        PUTLINE ( x1, y1, x2, y1, FillBrushInst );
+        PUTLINE ( x1, y1, x2, y1, FillBrushObj );
       if ( first )
       {
 	if ( PenBrushObj )
 	{
 	  if ( x1start > x1 )
 	  {
-	    PUTLINE ( x1, y1, x1start, y1, PenBrushInst );
-	    PUTLINE ( x2start+1, y2, x2+1, y2, PenBrushInst );
+	    PUTLINE ( x1, y1, x1start, y1, PenBrushObj );
+	    PUTLINE ( x2start+1, y2, x2+1, y2, PenBrushObj );
 	  }
 	  else
 	  {
-	    PUTPIXEL ( x1, y1, PenBrushInst );
-	    PUTPIXEL ( x2, y2, PenBrushInst );
+	    PUTPIXEL ( x1, y1, PenBrushObj );
+	    PUTPIXEL ( x2, y2, PenBrushObj );
 	  }
 	}
 	first = FALSE;
@@ -1196,18 +1171,18 @@ IntRoundRect(
       else
       {
 	if ( FillBrushObj )
-	  PUTLINE ( x1, y2, x2, y2, FillBrushInst );
+	  PUTLINE ( x1, y2, x2, y2, FillBrushObj );
 	if ( PenBrushObj )
 	{
 	  if ( x1start >= x1 )
 	  {
-	    PUTLINE ( x1, y1, x1start+1, y1, PenBrushInst );
-	    PUTLINE ( x2start, y2, x2+1, y2, PenBrushInst );
+	    PUTLINE ( x1, y1, x1start+1, y1, PenBrushObj );
+	    PUTLINE ( x2start, y2, x2+1, y2, PenBrushObj );
 	  }
 	  else
 	  {
-	    PUTPIXEL ( x1, y1, PenBrushInst );
-	    PUTPIXEL ( x2, y2, PenBrushInst );
+	    PUTPIXEL ( x1, y1, PenBrushObj );
+	    PUTPIXEL ( x2, y2, PenBrushObj );
 	  }
 	}
       }
@@ -1215,13 +1190,13 @@ IntRoundRect(
       {
 	if ( x1start > x1 )
 	{
-	  PUTLINE ( x1, y2, x1start+1, y2, PenBrushInst );
-	  PUTLINE ( x2start, y1, x2+1, y1, PenBrushInst );
+	  PUTLINE ( x1, y2, x1start+1, y2, PenBrushObj );
+	  PUTLINE ( x2start, y1, x2+1, y1, PenBrushObj );
 	}
 	else
 	{
-	  PUTPIXEL ( x1, y2, PenBrushInst );
-	  PUTPIXEL ( x2, y1, PenBrushInst );
+	  PUTPIXEL ( x1, y2, PenBrushObj );
+	  PUTPIXEL ( x2, y1, PenBrushObj );
 	}
       }
       x1start = x1-1;
@@ -1251,15 +1226,15 @@ IntRoundRect(
   {
     if ( FillBrushObj )
     {
-      PUTLINE ( x1, y1, x2, y1, FillBrushInst );
-      PUTLINE ( x1, y2, x2, y2, FillBrushInst );
+      PUTLINE ( x1, y1, x2, y1, FillBrushObj );
+      PUTLINE ( x1, y2, x2, y2, FillBrushObj );
     }
     if ( PenBrushObj )
     {
-      PUTPIXEL ( x2, y1, PenBrushInst );
-      PUTPIXEL ( x1, y2, PenBrushInst );
-      PUTPIXEL ( x2, y2, PenBrushInst );
-      PUTPIXEL ( x1, y1, PenBrushInst );
+      PUTPIXEL ( x2, y1, PenBrushObj );
+      PUTPIXEL ( x1, y2, PenBrushObj );
+      PUTPIXEL ( x2, y2, PenBrushObj );
+      PUTPIXEL ( x1, y1, PenBrushObj );
     }
 
     if ( d <= 0 )
@@ -1274,22 +1249,22 @@ IntRoundRect(
 
   if ( FillBrushObj )
   {
-    PUTLINE ( left, y1, right, y1, FillBrushInst );
-    PUTLINE ( left, y2, right, y2, FillBrushInst );
+    PUTLINE ( left, y1, right, y1, FillBrushObj );
+    PUTLINE ( left, y2, right, y2, FillBrushObj );
   }
   if ( PenBrushObj )
   {
     if ( x1 > (left+1) )
     {
-      PUTLINE ( left, y1, x1, y1, PenBrushInst );
-      PUTLINE ( x2+1, y1, right, y1, PenBrushInst );
-      PUTLINE ( left+1, y2, x1, y2, PenBrushInst );
-      PUTLINE ( x2+1, y2, right+1, y2, PenBrushInst );
+      PUTLINE ( left, y1, x1, y1, PenBrushObj );
+      PUTLINE ( x2+1, y1, right, y1, PenBrushObj );
+      PUTLINE ( left+1, y2, x1, y2, PenBrushObj );
+      PUTLINE ( x2+1, y2, right+1, y2, PenBrushObj );
     }
     else
     {
-      PUTPIXEL ( left, y1, PenBrushInst );
-      PUTPIXEL ( right, y2, PenBrushInst );
+      PUTPIXEL ( left, y1, PenBrushObj );
+      PUTPIXEL ( right, y2, PenBrushObj );
     }
   }
 
@@ -1301,20 +1276,18 @@ IntRoundRect(
   if ( FillBrushObj )
   {
     for ( i = y1+1; i < y2; i++ )
-      PUTLINE ( left, i, right, i, FillBrushInst );
+      PUTLINE ( left, i, right, i, FillBrushObj );
   }
 
   if ( PenBrushObj )
   {
-    PUTLINE ( x1,    top,    x2,    top,    PenBrushInst );
-    PUTLINE ( right, y1,     right, y2,     PenBrushInst );
-    PUTLINE ( x2,    bottom, x1,    bottom, PenBrushInst );
-    PUTLINE ( left,  y2,     left,  y1,     PenBrushInst );
+    PUTLINE ( x1,    top,    x2,    top,    PenBrushObj );
+    PUTLINE ( right, y1,     right, y2,     PenBrushObj );
+    PUTLINE ( x2,    bottom, x1,    bottom, PenBrushObj );
+    PUTLINE ( left,  y2,     left,  y1,     PenBrushObj );
   }
 
-  BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
-  if(PenBrushObj != NULL)
-    PENOBJ_UnlockPen(dc->w.hPen);
+  PENOBJ_UnlockPen(dc->w.hPen);
   BRUSHOBJ_UnlockBrush(dc->w.hBrush);
 
   return ret;
@@ -1358,7 +1331,7 @@ IntGdiGradientFill(
   ULONG uMesh,
   ULONG ulMode)
 {
-  BITMAPOBJ *BitmapObj;
+  SURFOBJ *SurfObj;
   PPALGDI PalDestGDI;
   XLATEOBJ *XlateObj;
   RECTL Extent;
@@ -1419,12 +1392,10 @@ IntGdiGradientFill(
   Extent.top += DitherOrg.y;
   Extent.bottom += DitherOrg.y;
   
-  BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
-  /* FIXME - BitmapObj can be NULL!!! Don't assert but handle this case gracefully! */
-  ASSERT(BitmapObj);
+  SurfObj = (SURFOBJ*)AccessUserObject((ULONG)dc->Surface);
+  ASSERT(SurfObj);
   
   PalDestGDI = PALETTE_LockPalette(dc->w.hPalette);
-  /* FIXME - PalDestGDI can be NULL!!! Don't assert but handle this case gracefully! */
   ASSERT(PalDestGDI);
   Mode = PalDestGDI->Mode;
   PALETTE_UnlockPalette(dc->w.hPalette);
@@ -1432,7 +1403,7 @@ IntGdiGradientFill(
   XlateObj = (XLATEOBJ*)IntEngCreateXlate(Mode, PAL_RGB, dc->w.hPalette, NULL);
   ASSERT(XlateObj);
   
-  Ret = IntEngGradientFill(BitmapObj,
+  Ret = IntEngGradientFill(SurfObj,
                            dc->CombinedClip,
                            XlateObj,
                            pVertex,
@@ -1443,7 +1414,6 @@ IntGdiGradientFill(
                            &DitherOrg,
                            ulMode);
   
-  BITMAPOBJ_UnlockBitmap(dc->w.hBitmap);
   EngDeleteXlate(XlateObj);
   
   return Ret;

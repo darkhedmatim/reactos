@@ -26,7 +26,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ddk/ntddblue.h>
 
 #include "usetup.h"
@@ -300,10 +300,10 @@ WriteConsoleOutputCharacters(LPCSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -344,10 +344,10 @@ WriteConsoleOutputCharactersW(LPCWSTR lpCharacter,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_CHARACTER,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength + sizeof(COORD));
+				 nLength + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -384,10 +384,10 @@ WriteConsoleOutputAttributes(CONST USHORT *lpAttribute,
 				 NULL,
 				 &IoStatusBlock,
 				 IOCTL_CONSOLE_WRITE_OUTPUT_ATTRIBUTE,
-				 NULL,
-				 0,
 				 Buffer,
-				 nLength * sizeof(USHORT) + sizeof(COORD));
+				 nLength * sizeof(USHORT) + sizeof(COORD),
+				 NULL,
+				 0);
 
   RtlFreeHeap(ProcessHeap,
 	      0,

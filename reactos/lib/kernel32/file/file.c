@@ -1,4 +1,4 @@
-/* $Id: file.c,v 1.61 2004/12/06 14:45:47 gdalsnes Exp $
+/* $Id: file.c,v 1.55 2004/05/28 13:17:32 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -13,6 +13,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
+#include <ddk/ntifs.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -81,28 +82,6 @@ OpenFile(LPCSTR lpFileName,
 		return FALSE;
 	}
 
-	if ((uStyle & OF_CREATE) == OF_CREATE)
-	{
-		DWORD Sharing;
-		switch (uStyle & 0x70)
-		{
-			case OF_SHARE_EXCLUSIVE: Sharing = 0; break;
-			case OF_SHARE_DENY_WRITE: Sharing = FILE_SHARE_READ; break;
-			case OF_SHARE_DENY_READ: Sharing = FILE_SHARE_WRITE; break;
-			case OF_SHARE_DENY_NONE:
-			case OF_SHARE_COMPAT:
-			default:
-				Sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
-		}
-		return (HFILE) CreateFileA (lpFileName,
-		                            GENERIC_READ | GENERIC_WRITE,
-		                            Sharing,
-		                            NULL,
-		                            CREATE_ALWAYS,
-		                            FILE_ATTRIBUTE_NORMAL,
-		                            0);
-	}
-
 	RtlInitAnsiString (&FileName, (LPSTR)lpFileName);
 
 	/* convert ansi (or oem) string to unicode */
@@ -111,18 +90,21 @@ OpenFile(LPCSTR lpFileName,
 	else
 		RtlOemStringToUnicodeString (&FileNameU, &FileName, TRUE);
 		        
-	Len = SearchPathW (NULL,
-	                   FileNameU.Buffer,
-        	           NULL,
-	                   OFS_MAXPATHNAME,
-	                   PathNameW,
-        	           &FilePart);
-
-	RtlFreeUnicodeString(&FileNameU);
-
-	if (Len == 0 || Len > OFS_MAXPATHNAME)
+	if ((uStyle & OF_CREATE) == 0)
 	{
-		return (HFILE)INVALID_HANDLE_VALUE;
+		Len = SearchPathW (NULL,
+		                   FileNameU.Buffer,
+	        	           NULL,
+		                   OFS_MAXPATHNAME,
+		                   PathNameW,
+	        	           &FilePart);
+
+		RtlFreeUnicodeString(&FileNameU);
+
+		if (Len == 0 || Len > OFS_MAXPATHNAME)
+		{
+			return (HFILE)INVALID_HANDLE_VALUE;
+		}
 	}
 
 	FileName.Buffer = lpReOpenBuff->szPathName;
@@ -152,6 +134,28 @@ OpenFile(LPCSTR lpFileName,
 	{
 		RtlFreeUnicodeString(&FileNameString);
 		return (HFILE)NULL;
+	}
+
+	if ((uStyle & OF_CREATE) == OF_CREATE)
+	{
+		DWORD Sharing;
+		switch (uStyle & 0x70)
+		{
+			case OF_SHARE_EXCLUSIVE: Sharing = 0; break;
+			case OF_SHARE_DENY_WRITE: Sharing = FILE_SHARE_READ; break;
+			case OF_SHARE_DENY_READ: Sharing = FILE_SHARE_WRITE; break;
+			case OF_SHARE_DENY_NONE:
+			case OF_SHARE_COMPAT:
+			default:
+				Sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
+		}
+		return (HFILE) CreateFileA (lpFileName,
+		                            GENERIC_READ | GENERIC_WRITE,
+		                            Sharing,
+		                            NULL,
+		                            CREATE_ALWAYS,
+		                            FILE_ATTRIBUTE_NORMAL,
+		                            0);
 	}
 
 	ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
@@ -622,15 +626,9 @@ GetFileInformationByHandle(HANDLE hFile,
      }
 
    lpFileInformation->dwFileAttributes = (DWORD)FileBasic.FileAttributes;
-   
-   lpFileInformation->ftCreationTime.dwHighDateTime = FileBasic.CreationTime.u.HighPart;
-   lpFileInformation->ftCreationTime.dwLowDateTime = FileBasic.CreationTime.u.LowPart;
-
-   lpFileInformation->ftLastAccessTime.dwHighDateTime = FileBasic.LastAccessTime.u.HighPart;
-   lpFileInformation->ftLastAccessTime.dwLowDateTime = FileBasic.LastAccessTime.u.LowPart;
-   
-   lpFileInformation->ftLastWriteTime.dwHighDateTime = FileBasic.LastWriteTime.u.HighPart;
-   lpFileInformation->ftLastWriteTime.dwLowDateTime = FileBasic.LastWriteTime.u.LowPart;
+   memcpy(&lpFileInformation->ftCreationTime,&FileBasic.CreationTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastAccessTime,&FileBasic.LastAccessTime,sizeof(LARGE_INTEGER));
+   memcpy(&lpFileInformation->ftLastWriteTime, &FileBasic.LastWriteTime,sizeof(LARGE_INTEGER));
 
    errCode = NtQueryInformationFile(hFile,
 				    &IoStatusBlock,
@@ -993,7 +991,7 @@ GetTempFileNameA(LPCSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1041,7 +1039,7 @@ GetTempFileNameW(LPCWSTR lpPathName,
 			       CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
 			       0)) == INVALID_HANDLE_VALUE)
    {
-      if (GetLastError() != ERROR_FILE_EXISTS)
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
       {
          return 0;
       }
@@ -1357,101 +1355,6 @@ SetFileShortNameA(
   
   RtlFreeUnicodeString(&ShortName);
   return Ret;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3W(
-    LPCWSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitUnicodeString(&Name, lpName);
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-CheckNameLegalDOS8Dot3A(
-    LPCSTR lpName,
-    LPSTR lpOemName OPTIONAL,
-    DWORD OemNameSize OPTIONAL,
-    PBOOL pbNameContainsSpaces OPTIONAL,
-    PBOOL pbNameLegal
-    )
-{
-    UNICODE_STRING Name;
-    ANSI_STRING AnsiName, AnsiInputName;
-    NTSTATUS Status;
-
-    if(lpName == NULL ||
-       (lpOemName == NULL && OemNameSize != 0) ||
-       pbNameLegal == NULL)
-    {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return FALSE;
-    }
-
-    if(lpOemName != NULL)
-    {
-      AnsiName.Buffer = lpOemName;
-      AnsiName.MaximumLength = OemNameSize * sizeof(CHAR);
-      AnsiName.Length = 0;
-    }
-
-    RtlInitAnsiString(&AnsiInputName, (LPSTR)lpName);
-    if(bIsFileApiAnsi)
-      Status = RtlAnsiStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-    else
-      Status = RtlOemStringToUnicodeString(&Name, &AnsiInputName, TRUE);
-
-    if(!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return FALSE;
-    }
-
-    *pbNameLegal = RtlIsNameLegalDOS8Dot3(&Name,
-                                          (lpOemName ? &AnsiName : NULL),
-                                          (BOOLEAN*)pbNameContainsSpaces);
-
-    RtlFreeUnicodeString(&Name);
-
-    return TRUE;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: send.c,v 1.20 2004/11/13 22:27:16 hbirr Exp $
+/* $Id: send.c,v 1.15 2004/05/31 11:47:05 gvg Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/safe.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -218,7 +224,7 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 			PLPC_MESSAGE UnsafeLpcReply)
 {
    PETHREAD CurrentThread;
-   struct _KPROCESS *AttachedProcess;
+   struct _EPROCESS *AttachedProcess;
    NTSTATUS Status;
    PEPORT Port;
    PQUEUEDMESSAGE Message;
@@ -240,24 +246,18 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 	return(Status);
      }
 
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
-     }
-
    /* win32k sometimes needs to KeAttach() the CSRSS process in order to make
       the PortHandle valid. Now that we've got the EPORT structure from the
       handle we can undo this, so everything is normal again. Need to
       re-KeAttach() before returning though */
    CurrentThread = PsGetCurrentThread();
-   if (&CurrentThread->ThreadsProcess->Pcb == CurrentThread->Tcb.ApcState.Process)
+   if (NULL == CurrentThread->OldProcess)
      {
        AttachedProcess = NULL;
      }
    else
      {
-       AttachedProcess = CurrentThread->Tcb.ApcState.Process;
+       AttachedProcess = CurrentThread->ThreadsProcess;
        KeDetachProcess();
      }
 

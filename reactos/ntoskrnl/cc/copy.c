@@ -1,4 +1,4 @@
-/* $Id: copy.c,v 1.32 2004/12/30 18:30:05 ion Exp $
+/* $Id: copy.c,v 1.23 2004/06/06 08:36:30 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,14 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <ddk/ntifs.h>
+#include <internal/mm.h>
+#include <internal/cc.h>
+#include <internal/pool.h>
+#include <internal/io.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,10 +26,14 @@
 
 #define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
 
-static PFN_TYPE CcZeroPage = 0;
+#if defined(__GNUC__)
+static PHYSICAL_ADDRESS CcZeroPage = (PHYSICAL_ADDRESS)0LL;
+#else
+static PHYSICAL_ADDRESS CcZeroPage = { 0 };
+#endif
 
 #define MAX_ZERO_LENGTH	(256 * 1024)
-#define MAX_RW_LENGTH	(256 * 1024)
+#define MAX_RW_LENGTH	(64 * 1024)
 
 #if defined(__GNUC__)
 void * alloca(size_t size);
@@ -32,13 +43,6 @@ void* _alloca(size_t size);
 #error Unknown compiler for alloca intrinsic stack allocation "function"
 #endif
 
-ULONG EXPORTED CcFastMdlReadWait;
-ULONG EXPORTED CcFastReadNotPossible;
-ULONG EXPORTED CcFastReadWait;
-ULONG CcFastReadNoWait;
-ULONG CcFastReadResourceMiss;
-
-
 /* FUNCTIONS *****************************************************************/
 
 VOID 
@@ -46,17 +50,17 @@ CcInitCacheZeroPage(VOID)
 {
    NTSTATUS Status;
 
-   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &CcZeroPage);
+   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, &CcZeroPage);
    if (!NT_SUCCESS(Status))
    {
        DbgPrint("Can't allocate CcZeroPage.\n");
-       KEBUGCHECKCC;
+       KEBUGCHECK(0);
    }
    Status = MiZeroPage(CcZeroPage);
    if (!NT_SUCCESS(Status))
    {
        DbgPrint("Can't zero out CcZeroPage.\n");
-       KEBUGCHECKCC;
+       KEBUGCHECK(0);
    }
 }
 
@@ -114,7 +118,7 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
 	  PCACHE_SEGMENT current2;
 	  ULONG current_size;
 	  ULONG i;
-	  PPFN_TYPE MdlPages;
+	  ULONG offset;
 
 	  /*
 	   * Count the maximum number of bytes we could read starting
@@ -122,7 +126,7 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
 	   */
 	  current2 = current;
 	  current_size = 0;
-	  while (current2 != NULL && !current2->Valid && current_size < MAX_RW_LENGTH)
+	  while (current2 != NULL && !current2->Valid)
 	    {
 	      current2 = current2->NextInChain;
 	      current_size += Bcb->CacheSegmentSize;
@@ -134,17 +138,19 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
           MmInitializeMdl(Mdl, NULL, current_size);
 	  Mdl->MdlFlags |= (MDL_PAGES_LOCKED | MDL_IO_PAGE_READ);
 	  current2 = current;
-	  current_size = 0;
-	  MdlPages = (PPFN_TYPE)(Mdl + 1);
-	  while (current2 != NULL && !current2->Valid && current_size < MAX_RW_LENGTH)
+	  offset = 0;
+	  while (current2 != NULL && !current2->Valid)
 	    {
-	      PVOID address = current2->BaseAddress;
-	      for (i = 0; i < (Bcb->CacheSegmentSize / PAGE_SIZE); i++, address += PAGE_SIZE)
+	      for (i = 0; i < (Bcb->CacheSegmentSize / PAGE_SIZE); i++)
 		{
-		  *MdlPages++ = MmGetPfnForProcess(NULL, address);
+		  PVOID address;
+		  PHYSICAL_ADDRESS page;
+		  address = (char*)current2->BaseAddress + (i * PAGE_SIZE);
+		  page = MmGetPhysicalAddressForProcess(NULL, address);
+		  ((PULONG)(Mdl + 1))[offset] = page.QuadPart >> PAGE_SHIFT;
+		  offset++;
 		}
 	      current2 = current2->NextInChain;
-	      current_size += Bcb->CacheSegmentSize;
 	    }
 
 	  /*
@@ -162,10 +168,7 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
 	     KeWaitForSingleObject(&Event, Executive, KernelMode, FALSE, NULL);
 	     Status = Iosb.Status;
 	  }
-          if (Mdl->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA)
-          {
-	     MmUnmapLockedPages(Mdl->MappedSystemVa, Mdl);
-	  }
+          MmUnmapLockedPages(Mdl->MappedSystemVa, Mdl);            
 	  if (!NT_SUCCESS(Status) && Status != STATUS_END_OF_FILE)
 	    {
 	      while (current != NULL)
@@ -176,8 +179,7 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
 		}
 	      return(Status);
 	    }
-	  current_size = 0;
-	  while (current != NULL && !current->Valid && current_size < MAX_RW_LENGTH)
+	  while (current != NULL && !current->Valid)
 	    {
 	      previous = current;
 	      current = current->NextInChain;
@@ -194,7 +196,6 @@ ReadCacheSegmentChain(PBCB Bcb, ULONG ReadOffset, ULONG Length,
 #endif
 	      Length = Length - TempLength; 
 	      CcRosReleaseCacheSegment(Bcb, previous, TRUE, FALSE, FALSE);
-	      current_size += Bcb->CacheSegmentSize;
 	    }
 	}
     }
@@ -278,22 +279,6 @@ WriteCacheSegment(PCACHE_SEGMENT CacheSeg)
     }
   return(STATUS_SUCCESS);
 }
-
-
-/*
- * @unimplemented
- */
-BOOLEAN STDCALL
-CcCanIWrite (
-			IN	PFILE_OBJECT	FileObject,
-			IN	ULONG			BytesToWrite,
-			IN	BOOLEAN			Wait,
-			IN	BOOLEAN			Retrying)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
 
 /*
  * @implemented
@@ -537,69 +522,6 @@ CcCopyWrite (IN PFILE_OBJECT FileObject,
 }
 
 /*
- * @unimplemented
- */
-VOID
-STDCALL
-CcDeferWrite (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PCC_POST_DEFERRED_WRITE	PostRoutine,
-	IN	PVOID			Context1,
-	IN	PVOID			Context2,
-	IN	ULONG			BytesToWrite,
-	IN	BOOLEAN			Retrying
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-CcFastCopyRead (
-	IN	PFILE_OBJECT		FileObject,
-	IN	ULONG			FileOffset,
-	IN	ULONG			Length,
-	IN	ULONG			PageCount,
-	OUT	PVOID			Buffer,
-	OUT	PIO_STATUS_BLOCK	IoStatus
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-CcFastCopyWrite (
-	IN	PFILE_OBJECT		FileObject,
-	IN	PLARGE_INTEGER		FileOffset,
-	IN	ULONG			Length,
-	IN	PVOID			Buffer
-	)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-CcWaitForCurrentLazyWriterActivity (
-    VOID
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
  * @implemented
  */
 BOOLEAN STDCALL
@@ -644,7 +566,7 @@ CcZeroData (IN PFILE_OBJECT     FileObject,
 	  Mdl->MdlFlags |= (MDL_PAGES_LOCKED | MDL_IO_PAGE_READ);
 	  for (i = 0; i < ((Mdl->Size - sizeof(MDL)) / sizeof(ULONG)); i++)
 	    {
-	      ((PPFN_TYPE)(Mdl + 1))[i] = CcZeroPage;
+	      ((PULONG)(Mdl + 1))[i] = CcZeroPage.QuadPart >> PAGE_SHIFT;
 	    }
           KeInitializeEvent(&Event, NotificationEvent, FALSE);
 	  Status = IoPageWrite(FileObject, Mdl, &WriteOffset, &Event, &Iosb);
@@ -760,3 +682,4 @@ CcZeroData (IN PFILE_OBJECT     FileObject,
     }
   return(TRUE);
 }
+

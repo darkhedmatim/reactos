@@ -1,4 +1,4 @@
-/* $Id: heap.c,v 1.28 2004/12/16 15:10:00 gdalsnes Exp $
+/* $Id: heap.c,v 1.27 2004/06/13 20:04:55 navaraf Exp $
  *
  * kernel/heap.c
  * Copyright (C) 1996, Onno Hovers, All rights reserved
@@ -53,14 +53,7 @@ HANDLE STDCALL HeapCreate(DWORD flags, DWORD dwInitialSize, DWORD dwMaximumSize)
  */
 BOOL WINAPI HeapDestroy(HANDLE hheap)
 {
-   if (hheap == RtlGetProcessHeap())
-   {
-      return FALSE;
-   }
-
-   if (RtlDestroyHeap( hheap )==NULL) return TRUE;
-   SetLastError( ERROR_INVALID_HANDLE );
-   return FALSE;
+   return(RtlDestroyHeap(hheap));
 }
 
 /*********************************************************************

@@ -23,10 +23,5 @@
 #include "winuser.h"
 #include "resource.h"
 
-#include "shlwapi_De.rc"
 #include "shlwapi_En.rc"
 #include "shlwapi_Es.rc"
-#include "shlwapi_Nl.rc"
-#include "shlwapi_It.rc"
-#include "shlwapi_Ja.rc"
-#include "shlwapi_Pt.rc"

@@ -7,8 +7,13 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "precomp.h"
+#include <roscfg.h>
+#include <tcpip.h>
+#include <lan.h>
+#include <address.h>
+#include <info.h>
+#include <pool.h>
+#include <ip.h>
 
 TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
 				       PIP_INTERFACE Interface,
@@ -18,6 +23,7 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
     PIFENTRY OutData;
     PLAN_ADAPTER IF = (PLAN_ADAPTER)Interface->Context;
     PCHAR IFDescr;
+    KIRQL OldIrql;
     ULONG Size;
     UINT DescrLenMax = MAX_IFDESCR_LEN - 1;
 
@@ -35,7 +41,7 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
 
     OutData->Index = ID->tei_instance + 1; 
     /* viz: tcpip keeps those indices */
-    OutData->Type = Interface == Loopback ? IFENT_SOFTWARE_LOOPBACK : 0;
+    OutData->Type = IF ? 1 : 0; /* XXX other -- for now ... */
     OutData->Mtu = Interface->MTU;
     TI_DbgPrint(MAX_TRACE, 
 		("Getting interface speed\n"));
@@ -46,7 +52,7 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
     IFDescr = (PCHAR)&OutData[1];
 
     if( IF ) {
-	GetInterfaceSpeed( Interface, (PUINT)&OutData->Speed );
+	GetInterfaceSpeed( Interface, &OutData->Speed );
 	TI_DbgPrint(MAX_TRACE,
 		    ("IF Speed = %d * 100bps\n", OutData->Speed));
 	memcpy(OutData->PhysAddr,Interface->Address,Interface->AddressLength);
@@ -65,7 +71,7 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
     TI_DbgPrint(MAX_TRACE, ("Finished IFEntry MIB (%04x:%d) size %d\n",
 			    ID->tei_entity, ID->tei_instance, Size));
 
-    Status = InfoCopyOut( (PCHAR)OutData, Size, Buffer, BufferSize );
+    Status = InfoCopyOut( OutData, Size, Buffer, BufferSize );
     ExFreePool( OutData );
 
     return Status;
@@ -82,7 +88,7 @@ TDI_STATUS InfoInterfaceTdiQueryEx( UINT InfoClass,
 	InfoType == INFO_TYPE_PROVIDER &&
 	InfoId == ENTITY_TYPE_ID ) {
 	ULONG Temp = IF_MIB;
-	return InfoCopyOut( (PCHAR)&Temp, sizeof(Temp), Buffer, BufferSize );
+	return InfoCopyOut( &Temp, sizeof(Temp), Buffer, BufferSize );
     } else if( InfoClass == INFO_CLASS_PROTOCOL && 
 	       InfoType == INFO_TYPE_PROVIDER &&
 	       InfoId == IF_MIB_STATS_ID ) {

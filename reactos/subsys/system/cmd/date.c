@@ -28,9 +28,16 @@
  *        Fixed date input bug.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DATE
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 static WORD awMonths[2][13] =

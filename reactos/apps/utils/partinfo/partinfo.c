@@ -142,6 +142,7 @@ int main (int argc, char *argv[])
       CloseHandle(hDisk);
       printf("DeviceIoControl failed! Error: %lu\n",
 	     GetLastError());
+      free(Buffer);
       return 0;
     }
 

@@ -6,18 +6,18 @@ int GetLongestChildKeyName( HANDLE RegHandle ) {
   LONG Status;
   DWORD MaxAdapterName;
 
-  Status = RegQueryInfoKeyW(RegHandle, 
-			    NULL, 
-			    NULL, 
-			    NULL, 
-			    NULL, 
-			    &MaxAdapterName, 
-			    NULL, 
-			    NULL, 
-			    NULL, 
-			    NULL, 
-			    NULL, 
-			    NULL);
+  Status = RegQueryInfoKeyA(RegHandle, 
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            &MaxAdapterName, 
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            NULL, 
+                            NULL);
   if (Status == ERROR_SUCCESS) 
     return MaxAdapterName + 1;
   else
@@ -25,23 +25,23 @@ int GetLongestChildKeyName( HANDLE RegHandle ) {
 }
 
 LONG OpenChildKeyRead( HANDLE RegHandle, 
-		       PWCHAR ChildKeyName, 
-		       PHKEY ReturnHandle ) {
-  return RegOpenKeyExW( RegHandle, 
-			ChildKeyName, 
-			0,
-			KEY_READ,
-			ReturnHandle );
+                       PCHAR ChildKeyName, 
+                       PHKEY ReturnHandle ) {
+  return RegOpenKeyExA( RegHandle, 
+                        ChildKeyName, 
+                        0,
+                        KEY_READ,
+                        ReturnHandle );
 }
 
 /*
  * Yields a malloced value that must be freed.
  */
 
-PWCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n ) {
+PCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n ) {
   LONG Status;
   int MaxAdapterName = GetLongestChildKeyName( RegHandle );
-  PWCHAR Value;
+  PCHAR Value;
   DWORD ValueLen;
 
   if (MaxAdapterName == -1) {
@@ -50,9 +50,9 @@ PWCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n ) {
   }
 
   ValueLen = MaxAdapterName;
-  Value = (PWCHAR)HeapAlloc( GetProcessHeap(), 0, MaxAdapterName );
-  Status = RegEnumKeyExW( RegHandle, n, Value, &ValueLen, 
-			  NULL, NULL, NULL, NULL );
+  Value = (PCHAR)HeapAlloc( GetProcessHeap(), 0, MaxAdapterName );
+  Status = RegEnumKeyExA( RegHandle, n, Value, &ValueLen, 
+                          NULL, NULL, NULL, NULL );
   if (Status != ERROR_SUCCESS)
     return 0;
   else {
@@ -61,26 +61,27 @@ PWCHAR GetNthChildKeyName( HANDLE RegHandle, DWORD n ) {
   }
 }
 
-void ConsumeChildKeyName( PWCHAR Name ) {
+void ConsumeChildKeyName( PCHAR Name ) {
   if (Name) HeapFree( GetProcessHeap(), 0, Name );
 }
 
-PWCHAR QueryRegistryValueString( HANDLE RegHandle, PWCHAR ValueName ) {
-  PWCHAR Name;
+PCHAR QueryRegistryValueString( HANDLE RegHandle, PCHAR ValueName ) {
+  PCHAR Name;
   DWORD ReturnedSize = 0;
   
-  if (RegQueryValueExW( RegHandle, ValueName, NULL, NULL, NULL, 
-			&ReturnedSize ) != 0) {
+  if (RegQueryValueExA( RegHandle, ValueName, NULL, NULL, NULL, 
+                        &ReturnedSize ) != 0) 
     return 0;
-  } else {
-    Name = malloc( ReturnedSize );
-    RegQueryValueExW( RegHandle, ValueName, NULL, NULL, (PVOID)Name, 
-		      &ReturnedSize );
+  else {
+    Name = malloc( (ReturnedSize + 1) * sizeof(WCHAR) );
+    RegQueryValueExA( RegHandle, ValueName, NULL, NULL, (PVOID)Name, 
+                      &ReturnedSize );
+    Name[ReturnedSize] = 0;
     return Name;
   }
 }
 
-void ConsumeRegValueString( PWCHAR Value ) {
+void ConsumeRegValueString( PCHAR Value ) {
   if (Value) free(Value);
 }
 

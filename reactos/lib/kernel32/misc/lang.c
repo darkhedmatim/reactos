@@ -1,4 +1,4 @@
-/* $Id: lang.c,v 1.25 2004/12/04 13:59:14 ekohl Exp $
+/* $Id: lang.c,v 1.19 2004/06/13 20:04:56 navaraf Exp $
  *
  * COPYRIGHT: See COPYING in the top level directory
  * PROJECT  : ReactOS user mode libraries
@@ -21,54 +21,67 @@
 #define LOCALE_USE_CP_ACP 0x40000000
 #define LOCALE_LOCALEINFOFLAGSMASK (LOCALE_NOUSEROVERRIDE|LOCALE_USE_CP_ACP|LOCALE_RETURN_NUMBER)
 
-//static LCID SystemLocale = MAKELCID(LANG_ENGLISH, SORT_DEFAULT);
+static LCID SystemLocale = MAKELCID(LANG_ENGLISH, SORT_DEFAULT);
 
+//#define _OLE2NLS_IN_BUILD_
 
-/******************************************************************************
+/*
  * @implemented
- * RIPPED FROM WINE's dlls\kernel\locale.c rev 1.42
- *
- *    ConvertDefaultLocale (KERNEL32.@)
- *
- * Convert a default locale identifier into a real identifier.
- *
- * PARAMS
- *  lcid [I] LCID identifier of the locale to convert
- *
- * RETURNS
- *  lcid unchanged, if not a default locale or its sublanguage is
- *   not SUBLANG_NEUTRAL.
- *  GetSystemDefaultLCID(), if lcid == LOCALE_SYSTEM_DEFAULT.
- *  GetUserDefaultLCID(), if lcid == LOCALE_USER_DEFAULT or LOCALE_NEUTRAL.
- *  Otherwise, lcid with sublanguage changed to SUBLANG_DEFAULT.
  */
-LCID WINAPI
-ConvertDefaultLocale(LCID lcid)
+LCID
+STDCALL
+ConvertDefaultLocale (
+    LCID    Locale
+    )
 {
-  LANGID langid;
-
-  switch (lcid)
+  switch(Locale)
   {
     case LOCALE_SYSTEM_DEFAULT:
-      lcid = GetSystemDefaultLCID();
-      break;
-
+      return GetSystemDefaultLCID();
+    
     case LOCALE_USER_DEFAULT:
-    case LOCALE_NEUTRAL:
-      lcid = GetUserDefaultLCID();
-      break;
-
-    default:
-      /* Replace SUBLANG_NEUTRAL with SUBLANG_DEFAULT */
-      langid = LANGIDFROMLCID(lcid);
-      if (SUBLANGID(langid) == SUBLANG_NEUTRAL)
-      {
-        langid = MAKELANGID(PRIMARYLANGID(langid), SUBLANG_DEFAULT);
-        lcid = MAKELCID(langid, SORTIDFROMLCID(lcid));
-      }
+      return GetUserDefaultLCID();
+    
+    /*case LOCALE_NEUTRAL:
+      return MAKELCID(LANG_NEUTRAL, SUBLANG_NEUTRAL);*/
   }
+  
+  /* ported from wine, is that right? */
+  return MAKELANGID(PRIMARYLANGID(Locale), SUBLANG_NEUTRAL);
+}
 
-  return lcid;
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumCalendarInfoW (
+    CALINFO_ENUMPROCW lpCalInfoEnumProc,
+    LCID              Locale,
+    CALID             Calendar,
+    CALTYPE           CalType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumCalendarInfoA (
+    CALINFO_ENUMPROCA lpCalInfoEnumProc,
+    LCID              Locale,
+    CALID             Calendar,
+    CALTYPE           CalType
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 
@@ -104,6 +117,36 @@ EnumCalendarInfoExW(
 }
 
 
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumDateFormatsW (
+    DATEFMT_ENUMPROCW  lpDateFmtEnumProc,
+    LCID               Locale,
+    DWORD              dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumDateFormatsA (
+    DATEFMT_ENUMPROCA  lpDateFmtEnumProc,
+    LCID               Locale,
+    DWORD              dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
 
 
 /*
@@ -241,7 +284,7 @@ EnumSystemGeoID(
 BOOL
 STDCALL
 EnumSystemLanguageGroupsA(
-    LANGUAGEGROUP_ENUMPROCA pLangGroupEnumProc,
+    LANGUAGEGROUP_ENUMPROCA lpLanguageGroupEnumProc,
     DWORD                   dwFlags,
     LONG_PTR                lParam)
 {
@@ -250,18 +293,20 @@ EnumSystemLanguageGroupsA(
 }
 
 
+#ifndef _OLE2NLS_IN_BUILD_
+
 /*
  * @unimplemented
  */
 BOOL
 STDCALL
-EnumSystemLanguageGroupsW(
-    LANGUAGEGROUP_ENUMPROCW pLangGroupEnumProc,
-    DWORD                   dwFlags,
-    LONG_PTR                lParam)
+EnumSystemLocalesW (
+    LOCALE_ENUMPROCW lpLocaleEnumProc,
+    DWORD            dwFlags
+    )
 {
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return 0;
+    return FALSE;
 }
 
 
@@ -279,15 +324,34 @@ EnumSystemLocalesA (
     return FALSE;
 }
 
+#endif
+
 
 /*
  * @unimplemented
  */
 BOOL
 STDCALL
-EnumSystemLocalesW (
-    LOCALE_ENUMPROCW lpLocaleEnumProc,
-    DWORD            dwFlags
+EnumTimeFormatsW (
+    TIMEFMT_ENUMPROCW    lpTimeFmtEnumProc,
+    LCID            Locale,
+    DWORD           dwFlags
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+EnumTimeFormatsA (
+    TIMEFMT_ENUMPROCA  lpTimeFmtEnumProc,
+    LCID               Locale,
+    DWORD              dwFlags
     )
 {
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -323,6 +387,23 @@ EnumUILanguagesW(
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
+
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetACP (VOID)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 1252;
+}
+
+#endif
+
 
 /*
  * @unimplemented
@@ -360,6 +441,8 @@ GetCalendarInfoW(
 }
 
 
+#ifndef _OLE2NLS_IN_BUILD_
+
 /*
  * @unimplemented
  */
@@ -387,6 +470,8 @@ GetCPInfo (
 
     return TRUE;
 }
+
+#endif
 
 
 /*
@@ -417,6 +502,86 @@ GetCPInfoExA(
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return 0;
 }
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetCurrencyFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    LPCWSTR         lpValue,
+    CONST CURRENCYFMTW   * lpFormat,
+    LPWSTR          lpCurrencyStr,
+    int         cchCurrency
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetCurrencyFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    LPCSTR          lpValue,
+    CONST CURRENCYFMTA   * lpFormat,
+    LPSTR           lpCurrencyStr,
+    int         cchCurrency
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetDateFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpDate,
+    LPCWSTR         lpFormat,
+    LPWSTR          lpDateStr,
+    int         cchDate
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetDateFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME    * lpDate,
+    LPCSTR          lpFormat,
+    LPSTR           lpDateStr,
+    int         cchDate
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+#endif
 
 
 /*
@@ -696,130 +861,6 @@ inline static UINT get_lcid_codepage( LCID lcid )
 }
 
 
-/*
- * @implemented
- */
-int
-STDCALL
-CompareStringA (
-    LCID    Locale,
-    DWORD   dwCmpFlags,
-    LPCSTR  lpString1,
-    int cchCount1,
-    LPCSTR  lpString2,
-    int cchCount2
-    )
-{
-    WCHAR *buf1W = NtCurrentTeb()->StaticUnicodeBuffer;
-    WCHAR *buf2W = buf1W + 130;
-    LPWSTR str1W, str2W;
-    INT len1W, len2W, ret;
-    UINT locale_cp;
-
-    if (!lpString1 || !lpString2)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-    if (cchCount1 < 0) cchCount1 = strlen(lpString1);
-    if (cchCount2 < 0) cchCount2 = strlen(lpString2);
-
-    locale_cp = get_lcid_codepage(Locale);
-
-    len1W = MultiByteToWideChar(locale_cp, 0, lpString1, cchCount1, buf1W, 130);
-    if (len1W)
-        str1W = buf1W;
-    else
-    {
-        len1W = MultiByteToWideChar(locale_cp, 0, lpString1, cchCount1, NULL, 0);
-        str1W = HeapAlloc(GetProcessHeap(), 0, len1W * sizeof(WCHAR));
-        if (!str1W)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return 0;
-        }
-        MultiByteToWideChar(locale_cp, 0, lpString1, cchCount1, str1W, len1W);
-    }
-    len2W = MultiByteToWideChar(locale_cp, 0, lpString2, cchCount2, buf2W, 130);
-    if (len2W)
-        str2W = buf2W;
-    else
-    {
-        len2W = MultiByteToWideChar(locale_cp, 0, lpString2, cchCount2, NULL, 0);
-        str2W = HeapAlloc(GetProcessHeap(), 0, len2W * sizeof(WCHAR));
-        if (!str2W)
-        {
-            if (str1W != buf1W) HeapFree(GetProcessHeap(), 0, str1W);
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return 0;
-        }
-        MultiByteToWideChar(locale_cp, 0, lpString2, cchCount2, str2W, len2W);
-    }
-
-    ret = CompareStringW(Locale, dwCmpFlags, str1W, len1W, str2W, len2W);
-
-    if (str1W != buf1W) HeapFree(GetProcessHeap(), 0, str1W);
-    if (str2W != buf2W) HeapFree(GetProcessHeap(), 0, str2W);
-    return ret;
-}
-
-
-/*
- * @unimplemented
- */
-int
-STDCALL
-CompareStringW (
-    LCID    Locale,
-    DWORD   dwCmpFlags,
-    LPCWSTR lpString1,
-    int cchCount1,
-    LPCWSTR lpString2,
-    int cchCount2
-    )
-{
-    INT Result;
-    UNICODE_STRING String1, String2;
-
-    if (!lpString1 || !lpString2)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
-    if (dwCmpFlags & ~(NORM_IGNORECASE | NORM_IGNORENONSPACE |
-        NORM_IGNORESYMBOLS | SORT_STRINGSORT | NORM_IGNOREKANATYPE |
-        NORM_IGNOREWIDTH | 0x10000000))
-    {
-        SetLastError(ERROR_INVALID_FLAGS);
-        return 0;
-    }
-
-    if (dwCmpFlags & ~NORM_IGNORECASE)
-    {
-        DPRINT1("CompareString: STUB flags - 0x%x\n",
-           dwCmpFlags & ~NORM_IGNORECASE);
-    }
-
-    if (cchCount1 < 0) cchCount1 = lstrlenW(lpString1);
-    if (cchCount2 < 0) cchCount2 = lstrlenW(lpString2);
-
-    String1.Length = String1.MaximumLength = cchCount1 * sizeof(WCHAR);
-    String1.Buffer = (LPWSTR)lpString1;
-    String2.Length = String2.MaximumLength = cchCount2 * sizeof(WCHAR);
-    String2.Buffer = (LPWSTR)lpString2;
-
-    Result = RtlCompareUnicodeString(
-       &String1, &String2, dwCmpFlags & NORM_IGNORECASE);
-
-    if (Result) /* need to translate result */
-        return (Result < 0) ? CSTR_LESS_THAN : CSTR_GREATER_THAN;
-
-    return CSTR_EQUAL;
-}
-
-
-
 
 /*
  * @implemented
@@ -891,106 +932,415 @@ INT STDCALL GetLocaleInfoA( LCID lcid, LCTYPE lctype, LPSTR buffer, INT len )
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-LANGID STDCALL
-GetSystemDefaultLangID(VOID)
+int
+STDCALL
+GetNumberFormatW (
+    LCID        Locale,
+    DWORD       dwFlags,
+    LPCWSTR     lpValue,
+    CONST NUMBERFMTW * lpFormat,
+    LPWSTR      lpNumberStr,
+    int     cchNumber
+    )
 {
-  return LANGIDFROMLCID(GetSystemDefaultLCID());
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetNumberFormatA (
+    LCID        Locale,
+    DWORD       dwFlags,
+    LPCSTR      lpValue,
+    CONST NUMBERFMTA * lpFormat,
+    LPSTR       lpNumberStr,
+    int     cchNumber
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetOEMCP (VOID)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 437; /* FIXME: call csrss.exe */
+}
+
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+/*
+ * @unimplemented
+ */
+LANGID
+STDCALL
+GetSystemDefaultLangID (VOID)
+{
+     /* FIXME: ??? */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return MAKELANGID(
+        LANG_ENGLISH,
+        SUBLANG_ENGLISH_US
+        );
 }
 
 
 /*
  * @implemented
  */
-LCID STDCALL
-GetSystemDefaultLCID(VOID)
+LCID
+STDCALL
+GetSystemDefaultLCID (VOID)
 {
-  LCID lcid;
-
-  NtQueryDefaultLocale(FALSE, &lcid);
-
-  return lcid;
+  return SystemLocale;
 }
+
+#endif
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-LANGID STDCALL
+LANGID
+STDCALL
 GetSystemDefaultUILanguage(VOID)
 {
-  LANGID LanguageId;
-  NTSTATUS Status;
-
-  Status = NtQueryInstallUILanguage(&LanguageId);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return 0;
-    }
-
-  return LanguageId;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
+
+#ifndef _OLE2NLS_IN_BUILD_
 
 /*
  * @implemented
  */
-LCID STDCALL
-GetThreadLocale(VOID)
+LCID
+STDCALL
+GetThreadLocale (VOID)
 {
   return NtCurrentTeb()->CurrentLocale;
 }
 
+#endif
 
-/*
- * @implemented
- */
-LANGID STDCALL
-GetUserDefaultLangID(VOID)
+INT RosGetTimeFormat(LCID Locale, DWORD dwFlags, CONST SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpTimeStr, int cchTime)
 {
-  return LANGIDFROMLCID(GetUserDefaultLCID());
+	INT nPos = 0, nLastFormatPos = 0;
+	BOOL bDrop = FALSE;
+
+	while( *lpFormat )
+	{
+		if (*lpFormat == L'\'')
+		{
+			lpFormat++;
+
+			while(*lpFormat)
+			{
+				if (*lpFormat == L'\'')
+				{
+					lpFormat++;
+					if(*lpFormat != L'\'')
+						break;
+				}
+				if (!cchTime)
+					nPos++;
+				else if(nPos > cchTime)
+				{
+					SetLastError(ERROR_INSUFFICIENT_BUFFER);
+					return 0;
+				}
+				else
+				{
+					if(!bDrop)
+					{
+						lpTimeStr[nPos] = *lpFormat;
+						nPos++;
+					}
+				}
+				*lpFormat++;
+			}
+		}
+		else if(*lpFormat==L'H' || *lpFormat==L'h' || *lpFormat==L'm' || *lpFormat==L's' || *lpFormat==L't' )
+		{
+			int nCount, nBufLen;
+			WCHAR nType = *lpFormat;
+			WCHAR Buffer[40];
+
+			bDrop = FALSE;
+
+			Buffer[0] = 0;
+
+			for(nCount = 1; *lpFormat == nType; lpFormat++)
+				nCount++;
+
+			switch(nType)
+			{
+			case L'h':
+				{
+					if(!(dwFlags & TIME_FORCE24HOURFORMAT))
+					{
+						swprintf( Buffer, L"%.*d", nCount > 2 ? 2 : nCount,
+							lpTime->wHour == 0 ? 12 : (lpTime->wHour - 1) % 12 + 1);
+						break;
+					}
+				}
+			case L'H':
+				{
+					swprintf( Buffer, L"%.*d", nCount > 2 ? 2 : nCount, lpTime->wHour );
+					break;
+				}
+			case L'm':
+				{
+					if(!(dwFlags & TIME_NOMINUTESORSECONDS))
+					{
+						swprintf( Buffer, L"%.*d", nCount > 2 ? 2 : nCount, lpTime->wMinute );
+					}
+					else
+						nPos = nLastFormatPos;
+
+					break;
+				}
+			case L's':
+				{
+					if(!(dwFlags & (TIME_NOSECONDS|TIME_NOMINUTESORSECONDS)))
+					{
+					    swprintf( Buffer, L"%.*d", nCount > 2 ? 2 : nCount, lpTime->wSecond );				
+					}
+					else
+						nPos = nLastFormatPos;
+
+					break;
+				}
+			case L't':
+				{
+					if(!(dwFlags & TIME_NOTIMEMARKER))
+					{
+						GetLocaleInfoW(Locale, (lpTime->wHour < 12) ? LOCALE_S1159 : LOCALE_S2359, Buffer, sizeof(Buffer) );
+						if(nCount == 1)
+							Buffer[1] = 0;
+					}
+					else
+					{
+						nPos = nLastFormatPos;
+						bDrop = TRUE;
+					}
+					break;
+				}
+			}
+			nBufLen = wcslen(Buffer);
+
+			if(!cchTime)
+			{
+				/* wine does nothing here?!? */
+			}
+			else if(nPos + nBufLen < cchTime)
+				wcscpy( lpTimeStr + nPos, Buffer );
+			else
+			{
+				lstrcpynW( lpTimeStr + nPos, Buffer, cchTime - nPos );
+				
+				SetLastError(ERROR_INSUFFICIENT_BUFFER);
+				return 0;
+			}
+			nPos += nBufLen;
+			nLastFormatPos = nPos;
+		}
+		else
+		{
+			if(!cchTime)
+				nPos++;
+			else if(nPos > cchTime)
+			{
+				SetLastError(ERROR_INSUFFICIENT_BUFFER);
+				return 0;
+			}
+			else
+			{
+				if(!bDrop)
+				{
+					lpTimeStr[nPos] = *lpFormat;
+					nPos++;
+				}
+			}
+		lpFormat++;
+		}
+	}
+
+	/* Are we not only counting? */
+	if (cchTime)
+	{
+		if (nPos >= cchTime)
+		{
+			SetLastError(ERROR_INSUFFICIENT_BUFFER);
+			return 0;
+		}
+		else
+			lpTimeStr[nPos] = L'\0';
+	}
+
+	nPos++;
+	return nPos;
 }
 
-
 /*
  * @implemented
  */
-LCID STDCALL
-GetUserDefaultLCID(VOID)
+INT
+STDCALL
+GetTimeFormatW (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME* lpTime,
+    LPCWSTR         lpFormat,
+    LPWSTR          lpTimeStr,
+    int             cchTime
+    )
 {
-  LCID lcid;
-  NTSTATUS Status;
+	WCHAR Buffer[40];
+	SYSTEMTIME t;
 
-  Status = NtQueryDefaultLocale(TRUE, &lcid);
-  if (!NT_SUCCESS(Status))
+    if (!Locale)
+		Locale = LOCALE_SYSTEM_DEFAULT;
+        
+	Locale = ConvertDefaultLocale( Locale );
+
+	if (lpFormat == NULL)
+	{
+	  if (dwFlags & LOCALE_NOUSEROVERRIDE)
+		  Locale = GetSystemDefaultLCID();
+
+	  if (!GetLocaleInfoW(Locale, LOCALE_STIMEFORMAT, Buffer, 40))
+		return 0;
+
+	  lpFormat = Buffer;
+	}
+	if (dwFlags & LOCALE_NOUSEROVERRIDE)
     {
-      SetLastErrorByStatus(Status);
-      return 0;
+		SetLastError(ERROR_INVALID_FLAGS);
+	    return 0;
     }
-
-  return lcid;
+	if (lpTime == NULL)
+	{
+		GetLocalTime(&t);
+		lpTime = &t;
+	}
+	if((lpTime->wHour > 24) || (lpTime->wMinute >= 60) || (lpTime->wSecond >= 60))
+    {
+		SetLastError(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+	return RosGetTimeFormat(Locale, dwFlags, lpTime, lpFormat, lpTimeStr, cchTime);
 }
 
 
 /*
  * @implemented
  */
-LANGID STDCALL
+int
+STDCALL
+GetTimeFormatA (
+    LCID            Locale,
+    DWORD           dwFlags,
+    CONST SYSTEMTIME* lpTime,
+    LPCSTR          lpFormat,
+    LPSTR           lpTimeStr,
+    int             cchTime
+    )
+{
+	LPWSTR lpFormatU = NULL;
+	LPWSTR lpTimeStrU;
+	int numCharsU;
+	int retVal = 0;
+
+	if (lpFormat != NULL) {
+		/* First just determine the number of necessary bytes 
+		for the unicode string */
+		int numBytes = MultiByteToWideChar(CP_ACP, 0, lpFormat, -1, NULL, 0);
+
+		if (numBytes > 0) {
+			lpFormatU = HeapAlloc(GetProcessHeap(), 0, numBytes);
+
+			if (lpFormatU != NULL) 
+				MultiByteToWideChar(CP_ACP, 0, lpFormat, -1, lpFormatU, numBytes);
+		}
+	}
+
+	/* Just get the number of characters needed to store the 
+	   Unicode output */
+	numCharsU = GetTimeFormatW(Locale, dwFlags, lpTime, lpFormatU, NULL, 0);
+
+	if (numCharsU != 0) {
+		lpTimeStrU = HeapAlloc(GetProcessHeap(), 0, numCharsU*sizeof(WCHAR));
+
+		if (lpTimeStrU != NULL) {
+			if (GetTimeFormatW(Locale, dwFlags, lpTime, lpFormatU, lpTimeStrU, numCharsU))
+				/* Convert the output string to ANSI */
+				retVal = WideCharToMultiByte(CP_ACP, 0, lpTimeStrU, numCharsU, lpTimeStr, cchTime, NULL, NULL);
+
+			HeapFree(GetProcessHeap(), 0, lpTimeStrU);
+		}
+	}
+
+	if (lpFormatU != NULL)
+		HeapFree(GetProcessHeap(), 0, lpFormatU);
+
+	return retVal;
+}
+
+
+
+#ifndef _OLE2NLS_IN_BUILD_
+
+/*
+ * @implemented
+ */
+LANGID
+STDCALL
+GetUserDefaultLangID (VOID)
+{
+    return LANGIDFROMLCID(GetUserDefaultLCID());
+}
+
+
+/*
+ * @implemented
+ */
+LCID
+STDCALL
+GetUserDefaultLCID (VOID)
+{
+    LCID lcid;
+    NtQueryDefaultLocale(TRUE, &lcid);
+    return lcid;
+}
+
+#endif
+
+
+/*
+ * @unimplemented
+ */
+LANGID
+STDCALL
 GetUserDefaultUILanguage(VOID)
 {
-  LANGID LangId;
-  NTSTATUS Status;
-
-  Status = NtQueryDefaultUILanguage(&LangId);
-  if (!NT_SUCCESS(Status))
-    {
-      SetLastErrorByStatus(Status);
-      return 0;
-    }
-
-  return LangId;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 
@@ -1012,6 +1362,20 @@ GetUserGeoID(
  */
 BOOL
 STDCALL
+IsValidCodePage (
+    UINT    CodePage
+    )
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 IsValidLanguageGroup(
     LGRPID  LanguageGroup,
     DWORD   dwFlags)
@@ -1021,126 +1385,22 @@ IsValidLanguageGroup(
 }
 
 
-/******************************************************************************
- *           IsValidLocale
- *
- * Determine if a locale is valid.
- *
- * PARAMS
- *  Locale  [I] LCID of the locale to check
- *  dwFlags [I] LCID_SUPPORTED = Valid
- *              LCID_INSTALLED = Valid and installed on the system
- *
- * RETURN
- *  TRUE,  if Locale is valid,
- *  FALSE, otherwise.
- *
- * @implemented
+/*
+ * @unimplemented
  */
-BOOL STDCALL
-IsValidLocale(LCID Locale,
-	      DWORD dwFlags)
+BOOL
+STDCALL
+IsValidLocale (
+    LCID    Locale,
+    DWORD   dwFlags
+    )
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  PKEY_VALUE_PARTIAL_INFORMATION KeyInfo;
-  WCHAR ValueNameBuffer[9];
-  UNICODE_STRING KeyName;
-  UNICODE_STRING ValueName;
-  ULONG KeyInfoSize;
-  ULONG ReturnedSize;
-  HANDLE KeyHandle;
-  PWSTR ValueData;
-  NTSTATUS Status;
-
-  DPRINT("IsValidLocale() called\n");
-
-  if ((dwFlags & ~(LCID_SUPPORTED | LCID_INSTALLED)) ||
-      (dwFlags == (LCID_SUPPORTED | LCID_INSTALLED)))
-    {
-      DPRINT("Invalid flags: %lx\n", dwFlags);
-      return FALSE;
-    }
-
-  if (Locale & 0xFFFF0000)
-    {
-      RtlInitUnicodeString(&KeyName,
-			   L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Nls\\Locale\\Alternate Sorts");
-    }
-  else
-    {
-      RtlInitUnicodeString(&KeyName,
-			   L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Nls\\Locale");
-    }
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE,
-			     NULL,
-			     NULL);
-
-  Status = NtOpenKey(&KeyHandle,
-		     KEY_QUERY_VALUE,
-		     &ObjectAttributes);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-      return FALSE;
-    }
-
-  swprintf(ValueNameBuffer, L"%08lx", (ULONG)Locale);
-  RtlInitUnicodeString(&ValueName, ValueNameBuffer);
-
-  KeyInfoSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 4 * sizeof(WCHAR);
-  KeyInfo = RtlAllocateHeap(RtlGetProcessHeap(),
-			    HEAP_ZERO_MEMORY,
-			    KeyInfoSize);
-  if (KeyInfo == NULL)
-    {
-      DPRINT("RtlAllocateHeap() failed (Status %lx)\n", Status);
-      NtClose(KeyHandle);
-      return FALSE;
-    }
-
-  Status = NtQueryValueKey(KeyHandle,
-			   &ValueName,
-			   KeyValuePartialInformation,
-			   KeyInfo,
-			   KeyInfoSize,
-			   &ReturnedSize);
-  NtClose(KeyHandle);
-
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT("NtQueryValueKey() failed (Status %lx)\n", Status);
-      RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-      return FALSE;
-    }
-
-  if (dwFlags & LCID_SUPPORTED)
-    {
-      DPRINT("Locale is supported\n");
-      RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-      return TRUE;
-    }
-
-  ValueData = (PWSTR)&KeyInfo->Data[0];
-  if ((dwFlags & LCID_INSTALLED) &&
-      (KeyInfo->Type == REG_SZ) &&
-      (KeyInfo->DataLength == 2 * sizeof(WCHAR)) &&
-      (ValueData[0] == L'1'))
-    {
-      DPRINT("Locale is supported and installed\n");
-      RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-      return TRUE;
-    }
-
-  RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-
-  DPRINT("IsValidLocale() called\n");
-
-  return FALSE;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
+
+#ifndef _OLE2NLS_IN_BUILD_
 
 /*
  * @unimplemented
@@ -1179,6 +1439,8 @@ LCMapStringW (
     return 0;
 }
 
+#endif
+
 
 /*
  * @unimplemented
@@ -1210,6 +1472,8 @@ SetCalendarInfoW(
     return 0;
 }
 
+
+#ifndef _OLE2NLS_IN_BUILD_
 
 /*
  * @unimplemented
@@ -1243,49 +1507,22 @@ SetLocaleInfoW (
 }
 
 
-/**********************************************************************
+/*
  * @implemented
- * RIPPED FROM WINE's dlls\kernel\locale.c rev 1.42
- *
- *           SetThreadLocale    (KERNEL32.@)
- *  
- * Set the current threads locale.
- *
- * PARAMS
- *  lcid [I] LCID of the locale to set
- *
- * RETURNS
- *  Success: TRUE. The threads locale is set to lcid.
- *  Failure: FALSE. Use GetLastError() to determine the cause.
- *
  */
-BOOL WINAPI SetThreadLocale( LCID lcid )
+BOOL
+STDCALL
+SetThreadLocale (
+    LCID    Locale
+    )
 {
-    DPRINT("SetThreadLocale(0x%04lX)\n", lcid);
-
-    lcid = ConvertDefaultLocale(lcid);
-
-    if (lcid != GetThreadLocale())
-    {
-        if (!IsValidLocale(lcid, LCID_SUPPORTED))
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return FALSE;
-        }
-
-        NtCurrentTeb()->CurrentLocale = lcid;
-        /* FIXME: NtCurrentTeb()->code_page = get_lcid_codepage( lcid );
-         * Wine save the acp for easy/fast access, but ROS has no such Teb member.
-         * Maybe add this member to ros as well?
-         */
-         
-        /*
-        Lag test app for å se om locale etc, endres i en app. etter at prosessen er
-        startet, eller om bare nye prosesser blir berørt.
-        */
-    }
-    return TRUE;
+  /* FIXME - Check if locale is valid */
+  
+  NtCurrentTeb()->CurrentLocale = Locale;
+  return TRUE;
 }
+
+#endif
 
 
 /*

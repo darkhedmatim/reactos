@@ -18,6 +18,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+cpu 486
 segment .text use32
 
 global __SEHCleanHandlerEnvironment
@@ -53,10 +54,10 @@ __SEHUnwind:
  push ebx
 
  xor eax, eax
- push eax ; ReturnValue
- push eax ; ExceptionRecord
- push eax ; TargetIp
- push ecx ; TargetFrame
+ push eax
+ push eax
+ push eax
+ push ecx
  call [__SEHRtlUnwind]
 
  pop ebx

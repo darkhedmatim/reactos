@@ -22,7 +22,6 @@
 #define TAG_TIMERTD	TAG('T', 'I', 'M', 'T') /* timer thread dereference list */
 #define TAG_TIMERBMP	TAG('T', 'I', 'M', 'B') /* timers bitmap */
 #define TAG_CALLBACK	TAG('C', 'B', 'C', 'K') /* callback memory */
-#define TAG_WINSTA	TAG('W', 'S', 'T', 'A') /* window station */
 
 /* objects */
 #define TAG_BEZIER	TAG('B', 'E', 'Z', 'R') /* bezier */
@@ -42,15 +41,9 @@
 #define TAG_PRINT	TAG('P', 'R', 'N', 'T') /* print */
 #define TAG_REGION	TAG('R', 'G', 'N', 'O') /* region */
 #define TAG_GDITEXT	TAG('T', 'X', 'T', 'O') /* text */
-
-/* Eng objects */
-#define TAG_CLIPOBJ	TAG('C', 'L', 'P', 'O') /* clip object */
-#define TAG_XLATEOBJ	TAG('X', 'L', 'A', 'O') /* xlate object */
-#define TAG_FONT	TAG('F', 'N', 'T', 'E') /* font entry */
-#define TAG_FONTOBJ	TAG('F', 'N', 'T', 'O') /* font object */
+#define TAG_FONT	TAG('F', 'N', 'T', 'O') /* font entry */
 
 /* misc */
-#define TAG_DRIVER	TAG('G', 'D', 'R', 'V') /* video drivers */
-#define TAG_FNTFILE	TAG('F', 'N', 'T', 'F') /* font file */
+#define TAG_DRIVER  TAG('G', 'D', 'R', 'V') /* video drivers */
 
 #endif /* _WIN32K_TAGS_H */

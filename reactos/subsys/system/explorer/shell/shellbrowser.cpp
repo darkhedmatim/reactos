@@ -72,7 +72,7 @@ LRESULT ShellBrowser::Init(HWND hWndFrame)
 	const String& root_name = GetDesktopFolder().get_name(_create_info._root_shell_path, SHGDN_FORPARSING);
 
 	_root._drive_type = DRIVE_UNKNOWN;
-	lstrcpy(_root._volname, root_name);
+	lstrcpy(_root._volname, root_name);	// most of the time "Desktop"
 	_root._fs_flags = 0;
 	lstrcpy(_root._fs, TEXT("Desktop"));
 
@@ -198,13 +198,32 @@ void ShellBrowser::OnTreeItemRClick(int idCtrl, LPNMHDR pnmh)
 	TreeView_HitTest(_left_hwnd, &tvhti);
 
 	if (TVHT_ONITEM & tvhti.flags) {
-		LPARAM itemData = TreeView_GetItemData(_left_hwnd, tvhti.hItem);
+		ClientToScreen(_left_hwnd, &tvhti.pt);
+		Tree_DoItemMenu(_left_hwnd, tvhti.hItem, &tvhti.pt);
+	}
+}
 
-		if (itemData) {
-			Entry* entry = (Entry*)itemData;
-			ClientToScreen(_left_hwnd, &tvhti.pt);
+void ShellBrowser::Tree_DoItemMenu(HWND hwndTreeView, HTREEITEM hItem, LPPOINT pptScreen)
+{
+	CONTEXT("ShellBrowser::Tree_DoItemMenu()");
 
-			CHECKERROR(entry->do_context_menu(_hwnd, tvhti.pt));
+	LPARAM itemData = TreeView_GetItemData(hwndTreeView, hItem);
+
+	if (itemData) {
+		Entry* entry = (Entry*)itemData;
+
+		if (entry->_etype == ET_SHELL) {
+			ShellDirectory* dir = static_cast<ShellDirectory*>(entry->_up);
+			ShellFolder folder = dir? dir->_folder: GetDesktopFolder();
+			LPCITEMIDLIST pidl = static_cast<ShellEntry*>(entry)->_pidl;
+
+			CHECKERROR(ShellFolderContextMenu(folder, ::GetParent(hwndTreeView), 1, &pidl, pptScreen->x, pptScreen->y));
+		} else {
+			ShellPath shell_path = entry->create_absolute_pidl();
+			LPCITEMIDLIST pidl = shell_path;
+
+			///@todo use parent folder instead of desktop
+			CHECKERROR(ShellFolderContextMenu(GetDesktopFolder(), _hwnd, 1, &pidl, pptScreen->x, pptScreen->y));
 		}
 	}
 }

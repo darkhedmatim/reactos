@@ -1,4 +1,4 @@
-/* $Id: cmd.c,v 1.20 2004/11/08 02:16:06 weiden Exp $
+/* $Id: cmd.c,v 1.15 2004/06/06 17:33:13 hbirr Exp $
  *
  *  CMD.C - command-line interface.
  *
@@ -37,7 +37,7 @@
  *        message!
  *
  *        changed the format to call internal commands (again) so that if
- *        they want to split their commands, they can do it themselves
+ *        they want to split their commands, they can do it themselves 
  *        (none of the internal functions so far need that much power, anyway)
  *
  *    27 Aug 1996 (Tim Norman)
@@ -124,18 +124,27 @@
  *       Make MakeSureDirectoryPathExistsEx unicode safe.
  *
  *    28-Mai-2004 (Hartmut Birr)
- *       Removed MakeSureDirectoryPathExistsEx.
+ *       Removed MakeSureDirectoryPathExistsEx. 
  *       Use the current directory if GetTempPath fails.
- *
- *    12-Jul-2004 (Jens Collin <jens.collin@lakhei.com>)
- *       Added ShellExecute call when all else fails to be able to "launch" any file.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <winnt.h>
+#include <winternl.h>
 
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(StatCode)  ((NTSTATUS)(StatCode) >= 0)
 #endif
+
+#include "cmd.h"
+#include "batch.h"
 
 typedef NTSTATUS (STDCALL *NtQueryInformationProcessProc)(HANDLE, PROCESSINFOCLASS,
                                                           PVOID, ULONG, PULONG);
@@ -232,68 +241,6 @@ static BOOL IsConsoleProcess(HANDLE Process)
 }
 
 
-
-#ifdef _UNICODE
-#define SHELLEXECUTETEXT   	"ShellExecuteW"
-#else
-#define SHELLEXECUTETEXT   	"ShellExecuteA"
-#endif
-
-typedef HINSTANCE (WINAPI *MYEX)(
-    HWND hwnd,
-    LPCTSTR lpOperation,
-    LPCTSTR lpFile,
-    LPCTSTR lpParameters,
-    LPCTSTR lpDirectory,
-    INT nShowCmd
-);
-
-
-
-static BOOL RunFile(LPTSTR filename)
-{
-	HMODULE 	hShell32;
-	MYEX		hShExt;
-	HINSTANCE	ret;
-
-#ifdef _DEBUG
-		DebugPrintf (_T("RunFile(%s)\n"), filename);
-#endif
-	hShell32 = LoadLibrary(_T("SHELL32.DLL"));
-	if (!hShell32)
-	{
-#ifdef _DEBUG
-		DebugPrintf (_T("RunFile: couldn't load SHELL32.DLL!\n"));
-#endif
-		return FALSE;
-	}
-
-	hShExt = (MYEX)(FARPROC)GetProcAddress(hShell32, SHELLEXECUTETEXT);
-	if (!hShExt)
-	{
-#ifdef _DEBUG
-		DebugPrintf (_T("RunFile: couldn't find ShellExecuteA/W in SHELL32.DLL!\n"));
-#endif
-		FreeLibrary(hShell32);
-		return FALSE;
-	}
-
-#ifdef _DEBUG
-	DebugPrintf (_T("RunFile: ShellExecuteA/W is at %x\n"), hShExt);
-#endif
-
-	ret = (hShExt)(NULL, _T("open"), filename, NULL, NULL, SW_SHOWNORMAL);
-
-#ifdef _DEBUG
-	DebugPrintf (_T("RunFile: ShellExecuteA/W returned %d\n"), (DWORD)ret);
-#endif
-
-	FreeLibrary(hShell32);
-	return (((DWORD)ret) > 32);
-}
-
-
-
 /*
  * This command (in first) was not found in the command table
  *
@@ -316,7 +263,7 @@ Execute (LPTSTR full, LPTSTR first, LPTSTR rest)
 
 	/* check for a drive change */
 	if ((_istalpha (first[0])) && (!_tcscmp (first + 1, _T(":"))))
-	{
+	{	
 		BOOL working = TRUE;
 		if (!SetCurrentDirectory(first))
 		/* Guess they changed disc or something, handle that gracefully and get to root */
@@ -406,17 +353,8 @@ Execute (LPTSTR full, LPTSTR first, LPTSTR rest)
 		}
 		else
 		{
-#ifdef _DEBUG
-			DebugPrintf (_T("[ShellExecute: %s]\n"), full);
-#endif
-			// See if we can run this with ShellExecute() ie myfile.xls
-			if (!RunFile(full))
-			{
-#ifdef _DEBUG
-				DebugPrintf (_T("[ShellExecute failed!: %s]\n"), full);
-#endif
-				error_bad_command ();
-			}
+			ErrorMessage (GetLastError (),
+			              _T("Error executing CreateProcess()!!\n"));
 		}
 		// restore console mode
 		SetConsoleMode( GetStdHandle( STD_INPUT_HANDLE ),
@@ -482,7 +420,7 @@ DoCommand (LPTSTR line)
 
 		/* Terminate first word */
 		*cp = _T('\0');
-
+		
 		/* commands are limited to MAX_PATH */
 		if(_tcslen(com) > MAX_PATH)
 		{
@@ -653,16 +591,16 @@ VOID ParseCommandLine (LPTSTR cmd)
 
 		/* Create unique temporary file name */
 		GetTempFileName (szTempPath, _T("CMD"), 0, szFileName[1]);
-
+      
 		/* Set current stdout to temporary file */
 		hFile[1] = CreateFile (szFileName[1], GENERIC_WRITE, 0, &sa,
 				       TRUNCATE_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
-
+                   
       if (hFile[1] == INVALID_HANDLE_VALUE){
          ConErrPrintf (_T("Error creating temporary file for pipe data\n"));
          return;
       }
-
+                   
 		SetStdHandle (STD_OUTPUT_HANDLE, hFile[1]);
 
 		DoCommand (s);
@@ -809,7 +747,7 @@ VOID ParseCommandLine (LPTSTR cmd)
 	/* close old stdin file */
 #if 0  /* buggy implementation */
 	SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
-	if ((hFile[0] != INVALID_HANDLE_VALUE) &&
+	if ((hFile[0] != INVALID_HANDLE_VALUE) && 
 		(hFile[0] != hOldConIn))
 	{
 		/* delete old stdin file, if it is a real file */
@@ -897,7 +835,7 @@ VOID ParseCommandLine (LPTSTR cmd)
  *
  */
 
-static INT
+static INT 
 ProcessInput (BOOL bFlag)
 {
 	TCHAR commandline[CMDLINE_LENGTH];
@@ -1310,7 +1248,7 @@ static VOID Cleanup (int argc, TCHAR *argv[])
 	FreeLastPath ();
 #endif
 
-#ifdef FEATURE_HISTORY
+#ifdef FEATURE_HISTORY	
 	CleanHistory();
 #endif
 
@@ -1391,12 +1329,12 @@ int main (int argc, char *argv[])
 
   SetFileApisToOEM();
 
-  hConsole = CreateFile(_T("CONOUT$"), GENERIC_READ|GENERIC_WRITE,
-                        FILE_SHARE_READ|FILE_SHARE_WRITE, NULL,
+  hConsole = CreateFile(_T("CONOUT$"), GENERIC_READ|GENERIC_WRITE, 
+                        FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, 
 			OPEN_EXISTING, 0, NULL);
   if (GetConsoleScreenBufferInfo(hConsole, &Info) == FALSE)
     {
-      ConOutFormatMessage(GetLastError());
+      ConErrPrintf (_T("GetConsoleScreenBufferInfo: Error: %ld\n"), GetLastError());
       return(1);
     }
   wColor = Info.wAttributes;

@@ -136,9 +136,8 @@ in_cksum(m, len)
 		} else if (mlen == -1)
 			s_util.c[0] = *(char *)w;
 	}
-	if (len) {
-	    panic("cksum: out of data: need %d bytes\n", len);
-	}
+	if (len)
+		printf("cksum: out of data\n");
 	if (mlen == -1) {
 		/* The last mbuf has odd # of bytes. Follow the
 		   standard (the odd byte may be shifted left by 8 bits

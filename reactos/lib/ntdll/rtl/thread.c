@@ -73,22 +73,23 @@ NTSTATUS STDCALL RtlCreateUserThread
 /*
  @implemented
 */
-NTSTATUS STDCALL
-RtlInitializeContext(
-  IN HANDLE ProcessHandle,
-  OUT PCONTEXT ThreadContext,
-  IN PVOID ThreadStartParam  OPTIONAL,
-  IN PTHREAD_START_ROUTINE ThreadStartAddress,
-  IN PINITIAL_TEB InitialTeb)
+NTSTATUS STDCALL RtlInitializeContext
+(
+ HANDLE ProcessHandle,
+ PCONTEXT Context,
+ PVOID Parameter,
+ PTHREAD_START_ROUTINE StartAddress,
+ PUSER_STACK UserStack
+)
 {
  return RtlRosInitializeContext
  (
   ProcessHandle,
-  ThreadContext,
-  ThreadStartAddress,
-  InitialTeb,
+  Context,
+  StartAddress,
+  UserStack,
   1,
-  (ULONG_PTR *)&ThreadStartParam
+  (ULONG_PTR *)&Parameter
  );
 }
 

@@ -280,7 +280,7 @@ char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
          base = FDI_getoffset(hfdi, hf),
          maxlen = cabsize - base;
   BOOL ok = FALSE;
-  unsigned int i;
+  int i;
   cab_UBYTE *buf = NULL;
 
   TRACE("(hfdi == ^%p, hf == %d)\n", hfdi, hf);
@@ -650,8 +650,7 @@ void QTMfdi_initmodel(struct QTMmodel *m, struct QTMmodelsym *sym, int n, int s)
  * QTMfdi_init (internal)
  */
 int QTMfdi_init(int window, int level, fdi_decomp_state *decomp_state) {
-  unsigned int wndsize = 1 << window;
-  int msz = window * 2, i;
+  int wndsize = 1 << window, msz = window * 2, i;
   cab_ULONG j;
 
   /* QTM supports window sizes of 2^10 (1Kb) through 2^21 (2Mb) */
@@ -2280,8 +2279,8 @@ BOOL __cdecl FDICopy(
 { 
   FDICABINETINFO    fdici;
   FDINOTIFICATION   fdin;
-  int               cabhf, filehf, idx;
-  unsigned int      i;
+  int               cabhf, filehf;
+  int               i, idx;
   char              fullpath[MAX_PATH];
   size_t            pathlen, filenamelen;
   char              emptystring = '\0';
@@ -2696,19 +2695,13 @@ BOOL __cdecl FDICopy(
   }
 
   /* free decompression temps */
-  switch (fol->comp_type & cffoldCOMPTYPE_MASK) {
-  case cffoldCOMPTYPE_LZX:
-    if (LZX(window)) {
-      PFDI_FREE(hfdi, LZX(window));
-      LZX(window) = NULL;
-    }
-    break;
-  case cffoldCOMPTYPE_QUANTUM:
-    if (QTM(window)) {
-      PFDI_FREE(hfdi, QTM(window));
-      QTM(window) = NULL;
-    }
-    break;
+  if (LZX(window)) {
+    PFDI_FREE(hfdi, LZX(window));
+    LZX(window) = NULL;
+  }
+  if (QTM(window)) {
+    PFDI_FREE(hfdi, QTM(window));
+    QTM(window) = NULL;
   }
 
   while (decomp_state) {
@@ -2744,19 +2737,13 @@ BOOL __cdecl FDICopy(
   bail_and_fail: /* here we free ram before error returns */
 
   /* free decompression temps */
-  switch (fol->comp_type & cffoldCOMPTYPE_MASK) {
-  case cffoldCOMPTYPE_LZX:
-    if (LZX(window)) {
-      PFDI_FREE(hfdi, LZX(window));
-      LZX(window) = NULL;
-    }
-    break;
-  case cffoldCOMPTYPE_QUANTUM:
-    if (QTM(window)) {
-      PFDI_FREE(hfdi, QTM(window));
-      QTM(window) = NULL;
-    }
-    break;
+  if (LZX(window)) {
+    PFDI_FREE(hfdi, LZX(window));
+    LZX(window) = NULL;
+  }
+  if (QTM(window)) {
+    PFDI_FREE(hfdi, QTM(window));
+    QTM(window) = NULL;
   }
 
   while (decomp_state) {

@@ -13,17 +13,17 @@ UINT Random(VOID);
 UINT CopyBufferToBufferChain(
     PNDIS_BUFFER DstBuffer,
     UINT DstOffset,
-    PCHAR SrcData,
+    PUCHAR SrcData,
     UINT Length);
 
 UINT CopyBufferChainToBuffer(
-    PCHAR DstData,
+    PUCHAR DstData,
     PNDIS_BUFFER SrcBuffer,
     UINT SrcOffset,
     UINT Length);
 
 UINT CopyPacketToBuffer(
-    PCHAR DstData,
+    PUCHAR DstData,
     PNDIS_PACKET SrcPacket,
     UINT SrcOffset,
     UINT Length);
@@ -48,15 +48,6 @@ PVOID AdjustPacket(
 UINT ResizePacket(
     PNDIS_PACKET Packet,
     UINT Size);
-
-NDIS_STATUS AllocatePacketWithBufferX( PNDIS_PACKET *NdisPacket,
-				       PCHAR Data, UINT Len,
-				       PCHAR File, UINT Line );
-
-void GetDataPtr( PNDIS_PACKET Packet,
-		 UINT Offset, 
-		 PCHAR *DataOut,
-		 PUINT Size );
 
 #ifdef DBG
 VOID DisplayIPPacket(

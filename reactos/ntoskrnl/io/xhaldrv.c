@@ -1,4 +1,4 @@
-/* $Id: xhaldrv.c,v 1.50 2004/11/21 06:51:18 ion Exp $
+/* $Id: xhaldrv.c,v 1.45 2004/06/05 20:05:06 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -12,7 +12,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/xhal.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -59,6 +61,7 @@ typedef enum _DISK_MANAGER
   OntrackDiskManager,
   EZ_Drive
 } DISK_MANAGER;
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -184,8 +187,8 @@ xHalpReadSector (IN PDEVICE_OBJECT DeviceObject,
 
   DPRINT("xHalpReadSector() called\n");
 
-  ASSERT(DeviceObject);
-  ASSERT(Sector);
+  assert(DeviceObject);
+  assert(Sector);
 
   KeInitializeEvent(&Event,
 		    NotificationEvent,
@@ -353,7 +356,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
   if ((DriveNumber != AUTO_DRIVE) && (DriveNumber < 24))
     {
       /* Force assignment */
-      if ((ObSystemDeviceMap->DriveMap & (1 << DriveNumber)) != 0)
+      if ((SharedUserData->DosDeviceMap & (1 << DriveNumber)) != 0)
 	{
 	  DbgPrint("Drive letter already used!\n");
 	  return;
@@ -366,7 +369,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
       for (i = 2; i < 24; i++)
 	{
-	  if ((ObSystemDeviceMap->DriveMap & (1 << i)) == 0)
+	  if ((SharedUserData->DosDeviceMap & (1 << i)) == 0)
 	    {
 	      DriveNumber = i;
 	      break;
@@ -382,9 +385,9 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
   DPRINT("DriveNumber %d\n", DriveNumber);
 
-  /* Update the System Device Map */
-  ObSystemDeviceMap->DriveMap |= (1 << DriveNumber);
-  ObSystemDeviceMap->DriveType[DriveNumber] = DriveType;
+  /* Update the shared user page */
+  SharedUserData->DosDeviceMap |= (1 << DriveNumber);
+  SharedUserData->DosDeviceDriveType[DriveNumber] = DriveType;
 
   /* Build drive name */
   swprintf(DriveNameBuffer,
@@ -529,26 +532,23 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning bootable primary partition on first harddisk:\n");
   if (ConfigInfo->DiskCount > 0)
     {
-      if (LayoutArray[0])
-        {
-          /* Search for bootable partition */
-          for (j = 0; j < LayoutArray[0]->PartitionCount; j++)
+      /* Search for bootable partition */
+      for (j = 0; j < LayoutArray[0]->PartitionCount; j++)
+	{
+	  if ((LayoutArray[0]->PartitionEntry[j].BootIndicator == TRUE) &&
+	      IsRecognizedPartition(LayoutArray[0]->PartitionEntry[j].PartitionType))
 	    {
-	      if ((LayoutArray[0]->PartitionEntry[j].BootIndicator == TRUE) &&
-	          IsRecognizedPartition(LayoutArray[0]->PartitionEntry[j].PartitionType))
-	        {
-	          swprintf(Buffer2,
-		           L"\\Device\\Harddisk0\\Partition%d",
-		           LayoutArray[0]->PartitionEntry[j].PartitionNumber);
-	          RtlInitUnicodeString(&UnicodeString2,
-				       Buffer2);
+	      swprintf(Buffer2,
+		       L"\\Device\\Harddisk0\\Partition%d",
+		       LayoutArray[0]->PartitionEntry[j].PartitionNumber);
+	      RtlInitUnicodeString(&UnicodeString2,
+				   Buffer2);
 
-	          /* Assign drive */
-	          DPRINT("  %wZ\n", &UnicodeString2);
-	          HalpAssignDrive(&UnicodeString2,
-			          AUTO_DRIVE,
-			          DOSDEVICE_DRIVE_FIXED);
-		}
+	      /* Assign drive */
+	      DPRINT("  %wZ\n", &UnicodeString2);
+	      HalpAssignDrive(&UnicodeString2,
+			      AUTO_DRIVE,
+			      DOSDEVICE_DRIVE_FIXED);
 	    }
 	}
     }
@@ -557,30 +557,27 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning remaining primary partitions:\n");
   for (i = 0; i < ConfigInfo->DiskCount; i++)
     {
-      if (LayoutArray[i])
-        {
-          /* Search for primary partitions */
-          for (j = 0; (j < PARTITION_TBL_SIZE) && (j < LayoutArray[i]->PartitionCount); j++)
+      /* Search for primary partitions */
+      for (j = 0; (j < PARTITION_TBL_SIZE) && (j < LayoutArray[i]->PartitionCount); j++)
+	{
+	  if ((i == 0) && (LayoutArray[i]->PartitionEntry[j].BootIndicator == TRUE))
+	    continue;
+
+	  if (IsRecognizedPartition(LayoutArray[i]->PartitionEntry[j].PartitionType))
 	    {
-	      if ((i == 0) && (LayoutArray[i]->PartitionEntry[j].BootIndicator == TRUE))
-	        continue;
+	      swprintf(Buffer2,
+		       L"\\Device\\Harddisk%d\\Partition%d",
+		       i,
+		       LayoutArray[i]->PartitionEntry[j].PartitionNumber);
+	      RtlInitUnicodeString(&UnicodeString2,
+				   Buffer2);
 
-	      if (IsRecognizedPartition(LayoutArray[i]->PartitionEntry[j].PartitionType))
-	        {
-	          swprintf(Buffer2,
-		           L"\\Device\\Harddisk%d\\Partition%d",
-		           i,
-		           LayoutArray[i]->PartitionEntry[j].PartitionNumber);
-	          RtlInitUnicodeString(&UnicodeString2,
-				       Buffer2);
-
-	          /* Assign drive */
-	          DPRINT("  %wZ\n",
-		         &UnicodeString2);
-	                 HalpAssignDrive(&UnicodeString2,
-			 AUTO_DRIVE,
-			 DOSDEVICE_DRIVE_FIXED);
-		}
+	      /* Assign drive */
+	      DPRINT("  %wZ\n",
+		     &UnicodeString2);
+	      HalpAssignDrive(&UnicodeString2,
+			      AUTO_DRIVE,
+			      DOSDEVICE_DRIVE_FIXED);
 	    }
 	}
     }
@@ -619,25 +616,22 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning removable disk drives:\n");
   for (i = 0; i < ConfigInfo->DiskCount; i++)
     {
-      if (LayoutArray[i])
-        {
-          /* Search for virtual partitions */
-          if (LayoutArray[i]->PartitionCount == 1 &&
-	      LayoutArray[i]->PartitionEntry[0].PartitionType == 0)
-	    {
-	      swprintf(Buffer2,
-		       L"\\Device\\Harddisk%d\\Partition1",
-		       i);
-	      RtlInitUnicodeString(&UnicodeString2,
-			           Buffer2);
+      /* Search for virtual partitions */
+      if (LayoutArray[i]->PartitionCount == 1 &&
+	  LayoutArray[i]->PartitionEntry[0].PartitionType == 0)
+	{
+	  swprintf(Buffer2,
+		   L"\\Device\\Harddisk%d\\Partition1",
+		   i);
+	  RtlInitUnicodeString(&UnicodeString2,
+			       Buffer2);
 
-	      /* Assign drive */
-	      DPRINT("  %wZ\n",
-		     &UnicodeString2);
-	      HalpAssignDrive(&UnicodeString2,
-			      AUTO_DRIVE,
-			      DOSDEVICE_DRIVE_REMOVABLE);
-	    }
+	  /* Assign drive */
+	  DPRINT("  %wZ\n",
+		 &UnicodeString2);
+	  HalpAssignDrive(&UnicodeString2,
+			  AUTO_DRIVE,
+			  DOSDEVICE_DRIVE_REMOVABLE);
 	}
     }
 
@@ -924,14 +918,13 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 		IsRecognizedPartition (PartitionSector->Partition[i].PartitionType);
 	      LayoutBuffer->PartitionEntry[Count].RewritePartition = FALSE;
 
-	      DPRINT(" %ld: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x rec: %d\n",
+	      DPRINT(" %ld: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
 		     Count,
 		     LayoutBuffer->PartitionEntry[Count].PartitionNumber,
 		     LayoutBuffer->PartitionEntry[Count].BootIndicator,
 		     LayoutBuffer->PartitionEntry[Count].PartitionType,
 		     LayoutBuffer->PartitionEntry[Count].StartingOffset.QuadPart,
-		     LayoutBuffer->PartitionEntry[Count].PartitionLength.QuadPart,
-		     LayoutBuffer->PartitionEntry[Count].RecognizedPartition);
+		     LayoutBuffer->PartitionEntry[Count].PartitionLength.QuadPart);
 
 	      LayoutBuffer->PartitionCount++;
 	    }
@@ -985,7 +978,7 @@ xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
   xHalExamineMBR (DeviceObject,
 		  SectorSize,
 		  0x54,
-		  (PVOID*)(PVOID)&PartitionSector);
+		  (PVOID*) &PartitionSector);
   if (PartitionSector != NULL)
     {
       DPRINT ("Found 'Ontrack Disk Manager'\n");
@@ -997,7 +990,7 @@ xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
   xHalExamineMBR (DeviceObject,
 		  SectorSize,
 		  0x55,
-		  (PVOID*)(PVOID)&PartitionSector);
+		  (PVOID*) &PartitionSector);
   if (PartitionSector != NULL)
     {
       DPRINT ("Found 'EZ-Drive'\n");
@@ -1182,8 +1175,8 @@ xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
 	  NumberOfHeads,
 	  PartitionBuffer);
 
-  ASSERT(DeviceObject);
-  ASSERT(PartitionBuffer);
+  assert(DeviceObject);
+  assert(PartitionBuffer);
 
   DiskManager = NoDiskManager;
 
@@ -1197,7 +1190,7 @@ xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
   xHalExamineMBR (DeviceObject,
 		  SectorSize,
 		  0x54,
-		  (PVOID*)(PVOID)&PartitionSector);
+		  (PVOID *) &PartitionSector);
   if (PartitionSector != NULL)
     {
       DPRINT ("Found 'Ontrack Disk Manager'\n");
@@ -1209,7 +1202,7 @@ xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
   xHalExamineMBR (DeviceObject,
 		  SectorSize,
 		  0x55,
-		  (PVOID*)(PVOID)&PartitionSector);
+		  (PVOID *) &PartitionSector);
   if (PartitionSector != NULL)
     {
       DPRINT ("Found 'EZ-Drive'\n");

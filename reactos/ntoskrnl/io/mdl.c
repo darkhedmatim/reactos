@@ -1,4 +1,4 @@
-/* $Id: mdl.c,v 1.19 2004/10/22 20:25:54 ekohl Exp $
+/* $Id: mdl.c,v 1.15 2004/05/15 22:51:38 hbirr Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -54,7 +56,7 @@ IoAllocateMdl(PVOID VirtualAddress,
    {
       if (SecondaryBuffer)
       {
-         ASSERT(Irp->MdlAddress);
+         assert(Irp->MdlAddress);
          
          /* FIXME: add to end of list maybe?? */
          Mdl->Next = Irp->MdlAddress->Next;
@@ -89,8 +91,8 @@ IoBuildPartialMdl(PMDL SourceMdl,
 		       PVOID VirtualAddress,
 		       ULONG Length)
 {
-   PPFN_TYPE TargetPages = (PPFN_TYPE)(TargetMdl + 1);
-   PPFN_TYPE SourcePages = (PPFN_TYPE)(SourceMdl + 1);
+   PULONG TargetPages = (PULONG)(TargetMdl + 1);
+   PULONG SourcePages = (PULONG)(SourceMdl + 1);
    ULONG Count;
    ULONG Delta;
 
@@ -102,7 +104,7 @@ IoBuildPartialMdl(PMDL SourceMdl,
    TargetMdl->ByteCount = Length;
    TargetMdl->Process = SourceMdl->Process;
    Delta = (ULONG_PTR)VirtualAddress - ((ULONG_PTR)SourceMdl->StartVa + SourceMdl->ByteOffset);
-   TargetMdl->MappedSystemVa = (char*)SourceMdl->MappedSystemVa + Delta;
+   TargetMdl->MappedSystemVa = SourceMdl->MappedSystemVa + Delta;
 
    TargetMdl->MdlFlags = SourceMdl->MdlFlags & (MDL_IO_PAGE_READ|MDL_SOURCE_IS_NONPAGED_POOL|MDL_MAPPED_TO_SYSTEM_VA);
    TargetMdl->MdlFlags |= MDL_PARTIAL;
@@ -114,7 +116,7 @@ IoBuildPartialMdl(PMDL SourceMdl,
 
    DPRINT("Delta %d, Count %d\n", Delta, Count);
 
-   memcpy(TargetPages, SourcePages, Count * sizeof(PFN_TYPE));
+   memcpy(TargetPages, SourcePages, Count * sizeof(ULONG));
 
 }
 

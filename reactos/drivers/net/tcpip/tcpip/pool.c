@@ -7,8 +7,9 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "precomp.h"
+#include <roscfg.h>
+#include <tcpip.h>
+#include <pool.h>
 
 
 PVOID PoolAllocateBuffer(
@@ -45,15 +46,6 @@ VOID PoolFreeBuffer(
     TI_DbgPrint(DEBUG_MEMORY, ("Freeing buffer at (0x%X).\n", Buffer));
 
     ExFreePool(Buffer);
-}
-
-PVOID TcpipAllocateFromNPagedLookasideList( PNPAGED_LOOKASIDE_LIST List ) {
-    return ExAllocateFromNPagedLookasideList( List );
-}
-
-VOID TcpipFreeToNPagedLookasideList( PNPAGED_LOOKASIDE_LIST List, 
-				     PVOID Thing ) {
-    ExFreeToNPagedLookasideList( List, Thing );
 }
 
 /* EOF */

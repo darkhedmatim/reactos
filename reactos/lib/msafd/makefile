@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.16 2004/09/23 20:05:32 chorns Exp $
+# $Id: makefile,v 1.14 2004/06/09 18:11:39 arty Exp $
 
 PATH_TO_TOP = ../..
 
@@ -8,7 +8,7 @@ TARGET_NAME = msafd
 
 TARGET_BASE = $(TARGET_BASE_LIB_MSAFD)
 
-TARGET_SDKLIBS = ntdll.a kernel32.a advapi32.a
+TARGET_SDKLIBS = ntdll.a kernel32.a
 
 TARGET_CFLAGS = \
  -I./include \
@@ -16,6 +16,7 @@ TARGET_CFLAGS = \
  -Werror \
  -fno-builtin \
  -DUNICODE \
+ -DDBG \
  -D__USE_W32API
 
 TARGET_LFLAGS = -nostartfiles -nostdlib

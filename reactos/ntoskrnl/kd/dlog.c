@@ -1,4 +1,4 @@
-/* $Id: dlog.c,v 1.16 2004/09/01 00:15:08 navaraf Exp $
+/* $Id: dlog.c,v 1.13 2004/03/11 21:50:23 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ntoskrnl.h>
+#include <roscfg.h>
+#include <internal/kd.h>
+#include <ntos/minmax.h>
+#include <rosrtl/string.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -37,11 +42,11 @@ DebugLogDumpMessages(VOID)
   ULONG Offset;
   ULONG Length;
 
-  if (!(KdDebugState & KD_DEBUG_BOOTLOG))
+  if (!(KdDebugState & KD_DEBUG_FILELOG))
     {
       return;
     }
-  KdDebugState &= ~KD_DEBUG_BOOTLOG;
+  KdDebugState &= ~KD_DEBUG_FILELOG;
  
   Offset = (DebugLogEnd + 1) % DEBUGLOG_SIZE;
   do
@@ -158,7 +163,7 @@ DebugLogInit2(VOID)
 			&Iosb,
 			NULL,
 			FILE_ATTRIBUTE_NORMAL,
-			FILE_SHARE_READ,
+			0,
 			FILE_SUPERSEDE,
 			FILE_WRITE_THROUGH | FILE_SYNCHRONOUS_IO_NONALERT,
 			NULL,

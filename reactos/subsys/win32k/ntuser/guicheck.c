@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: guicheck.c,v 1.22 2004/12/24 17:45:58 weiden Exp $
+/* $Id: guicheck.c,v 1.19 2004/05/21 10:09:31 weiden Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -40,8 +40,7 @@
 
 /* GLOBALS *******************************************************************/
 
-static LONG NrGuiAppsRunning = 0;
-static FAST_MUTEX GuiSwitchLock;
+static ULONG NrGuiApplicationsRunning = 0;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -49,21 +48,16 @@ static BOOL FASTCALL
 AddGuiApp(PW32PROCESS W32Data)
 {
   W32Data->Flags |= W32PF_CREATEDWINORDC;
-  if (InterlockedIncrement(&NrGuiAppsRunning) == 1)
+  if (0 == NrGuiApplicationsRunning++)
     {
-      BOOL Initialized;
-      
-      ExAcquireFastMutex(&GuiSwitchLock);
-      Initialized = IntInitializeDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
-      
-      if (!Initialized)
+      if (! IntInitializeDesktopGraphics())
         {
           W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-          InterlockedDecrement(&NrGuiAppsRunning);
+          NrGuiApplicationsRunning--;
           return FALSE;
         }
     }
+
   return TRUE;
 }
 
@@ -71,11 +65,13 @@ static void FASTCALL
 RemoveGuiApp(PW32PROCESS W32Data)
 {
   W32Data->Flags &= ~W32PF_CREATEDWINORDC;
-  if (InterlockedDecrement(&NrGuiAppsRunning) == 0)
+  if (0 < NrGuiApplicationsRunning)
     {
-      ExAcquireFastMutex(&GuiSwitchLock);
+      NrGuiApplicationsRunning--;
+    }
+  if (0 == NrGuiApplicationsRunning)
+    {
       IntEndDesktopGraphics();
-      ExReleaseFastMutex(&GuiSwitchLock);
     }
 }
 
@@ -127,13 +123,6 @@ NtUserManualGuiCheck(LONG Check)
           RemoveGuiApp(W32Data);
         }
     }
-}
-
-NTSTATUS FASTCALL
-InitGuiCheckImpl (VOID)
-{
-  ExInitializeFastMutex(&GuiSwitchLock);
-  return STATUS_SUCCESS;
 }
 
 /* EOF */

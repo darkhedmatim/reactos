@@ -33,7 +33,7 @@ typedef struct _MENU_ITEM
 
 typedef struct _MENU_OBJECT
 {
-  PEPROCESS Process;
+  PW32PROCESS W32Process;
   LIST_ENTRY ListEntry;
   FAST_MUTEX MenuItemsLock;
   PMENU_ITEM MenuItemList;

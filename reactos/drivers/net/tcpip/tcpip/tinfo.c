@@ -7,8 +7,11 @@
  * REVISIONS:
  *   CSH 01/08-2000 Created
  */
-
-#include "precomp.h"
+#include <roscfg.h>
+#include <tcpip.h>
+#include <address.h>
+#include <pool.h>
+#include <ip.h>
 
 TDI_STATUS InfoTransportLayerTdiQueryEx( UINT InfoClass,
 					 UINT InfoType,
@@ -21,7 +24,7 @@ TDI_STATUS InfoTransportLayerTdiQueryEx( UINT InfoClass,
 	InfoType == INFO_TYPE_PROVIDER &&
 	InfoId == ENTITY_TYPE_ID ) {
 	ULONG Temp = CL_TL_UDP;
-	return InfoCopyOut( (PCHAR)&Temp, sizeof(Temp), Buffer, BufferSize );
+	return InfoCopyOut( &Temp, sizeof(Temp), Buffer, BufferSize );
     }
     
     return TDI_INVALID_REQUEST;
@@ -34,5 +37,4 @@ TDI_STATUS InfoTransportLayerTdiSetEx( UINT InfoClass,
 				       TDIEntityID *id,
 				       PCHAR Buffer,
 				       UINT BufferSize ) {
-    return TDI_INVALID_REQUEST;
 }

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: misc.c,v 1.14 2004/12/24 17:45:58 weiden Exp $
+/* $Id: misc.c,v 1.5 2004/05/28 21:33:41 gvg Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/misc.c
@@ -28,9 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
-#include <ntdll/csr.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -59,59 +59,17 @@ PrivateCsrssManualGuiCheck(LONG Check)
 
 VOID
 STDCALL
-PrivateCsrssInitialized(VOID)
+PrivateCsrssInitialized()
 {
   NtUserCallNoParam(NOPARAM_ROUTINE_CSRSS_INITIALIZED);
 }
 
-
 /*
  * @implemented
  */
 BOOL
 STDCALL
-RegisterLogonProcess(DWORD dwProcessId, BOOL bRegister)
+RegisterLogonProcess ( HANDLE hprocess, BOOL x )
 {
-  return NtUserCallTwoParam(dwProcessId,
-			    (DWORD)bRegister,
-			    TWOPARAM_ROUTINE_REGISTERLOGONPROC);
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetLogonNotifyWindow (HWND Wnd, HWINSTA WinSta)
-{
-  /* Maybe we should call NtUserSetLogonNotifyWindow and let that one inform CSRSS??? */
-  CSRSS_API_REQUEST Request;
-  CSRSS_API_REPLY Reply;
-  NTSTATUS Status;
-
-  Request.Type = CSRSS_SET_LOGON_NOTIFY_WINDOW;
-  Request.Data.SetLogonNotifyWindowRequest.LogonNotifyWindow = Wnd;
-
-  Status = CsrClientCallServer(&Request,
-			       &Reply,
-			       sizeof(CSRSS_API_REQUEST),
-			       sizeof(CSRSS_API_REPLY));
-  if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Reply.Status))
-    {
-      SetLastError(RtlNtStatusToDosError(Status));
-      return(FALSE);
-    }
-
-  return(TRUE);
-}
-
-/*
- * @implemented
- */
-BOOL WINAPI
-UpdatePerUserSystemParameters(
-   DWORD dwReserved,
-   BOOL bEnable)
-{
-   return NtUserUpdatePerUserSystemParameters(dwReserved, bEnable);
+  return NtUserRegisterLogonProcess(hprocess, x);
 }

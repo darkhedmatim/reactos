@@ -1,4 +1,4 @@
-/* $Id: security.c,v 1.3 2004/12/14 00:41:24 gdalsnes Exp $
+/* $Id: security.c,v 1.1 2004/05/31 19:29:02 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -24,45 +24,38 @@
 NTSTATUS STDCALL
 RtlImpersonateSelf(IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel)
 {
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   SECURITY_QUALITY_OF_SERVICE SecQos;
    HANDLE ProcessToken;
    HANDLE ImpersonationToken;
    NTSTATUS Status;
-   OBJECT_ATTRIBUTES ObjAttr;
-   SECURITY_QUALITY_OF_SERVICE Sqos;   
-   
+
    Status = NtOpenProcessToken(NtCurrentProcess(),
                                TOKEN_DUPLICATE,
                                &ProcessToken);
    if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("NtOpenProcessToken() failed (Status %lx)\n", Status);
       return(Status);
-   }
-  
-   Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-   Sqos.ImpersonationLevel = ImpersonationLevel;
-   Sqos.ContextTrackingMode = 0;
-   Sqos.EffectiveOnly = FALSE;
-   
-   InitializeObjectAttributes(
-      &ObjAttr,
-      NULL,
-      0,
-      NULL,
-      NULL
-      );
-   
-   ObjAttr.SecurityQualityOfService = &Sqos;
-   
+
+   SecQos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
+   SecQos.ImpersonationLevel = ImpersonationLevel;
+   SecQos.ContextTrackingMode = SECURITY_DYNAMIC_TRACKING;
+   SecQos.EffectiveOnly = FALSE;
+
+   ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+   ObjectAttributes.RootDirectory = 0;
+   ObjectAttributes.ObjectName = NULL;
+   ObjectAttributes.Attributes = 0;
+   ObjectAttributes.SecurityDescriptor = NULL;
+   ObjectAttributes.SecurityQualityOfService = &SecQos;
+
    Status = NtDuplicateToken(ProcessToken,
                              TOKEN_IMPERSONATE,
-                             &ObjAttr,
-                             Sqos.EffectiveOnly, /* why both here _and_ in Sqos? */
+                             &ObjectAttributes,
+                             0,
                              TokenImpersonation,
                              &ImpersonationToken);
    if (!NT_SUCCESS(Status))
    {
-      DPRINT1("NtDuplicateToken() failed (Status %lx)\n", Status);
       NtClose(ProcessToken);
       return(Status);
    }
@@ -71,11 +64,6 @@ RtlImpersonateSelf(IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel)
                                    ThreadImpersonationToken,
                                    &ImpersonationToken,
                                    sizeof(HANDLE));
-   if (!NT_SUCCESS(Status))
-   {
-     DPRINT1("NtSetInformationThread() failed (Status %lx)\n", Status);
-   }
-
    NtClose(ImpersonationToken);
    NtClose(ProcessToken);
 

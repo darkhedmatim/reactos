@@ -10,7 +10,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ke.h>
+#include <internal/i386/segment.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -38,7 +43,7 @@ NTSTATUS MmPageFault(ULONG Cs,
    NTSTATUS Status;
 
    DPRINT("MmPageFault(Eip %x, Cr2 %x, ErrorCode %x)\n",
-          *Eip, Cr2, ErrorCode);
+          Eip, Cr2, ErrorCode);
 
    if (ErrorCode & 0x4)
    {
@@ -65,14 +70,10 @@ NTSTATUS MmPageFault(ULONG Cs,
    }
 
    if (KeGetCurrentThread() != NULL &&
-      KeGetCurrentThread()->Alerted[UserMode] != 0 &&
-      Cs != KERNEL_CS)
+         KeGetCurrentThread()->Alerted[1] != 0 &&
+         Cs != KERNEL_CS)
    {
-      KIRQL oldIrql;
-      
-      KeRaiseIrql(APC_LEVEL, &oldIrql);
-      KiDeliverApc(KernelMode, NULL, NULL);
-      KeLowerIrql(oldIrql);
+      KiDeliverNormalApc();
    }
    if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
          ((*Eip) >= (ULONG)MmSafeCopyFromUserUnsafeStart) &&

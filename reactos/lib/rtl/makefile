@@ -7,46 +7,34 @@ TARGET_NAME = rtl
 
 include $(PATH_TO_TOP)/config
 
-TARGET_CFLAGS = -Wall -Werror -ffreestanding
+TARGET_CFLAGS = -Wall -Werror
 
 # require os code to explicitly request A/W version of structs/functions
 TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_OBJECTS = \
 	acl.o \
-	bit.o \
-	bitmap.o \
-	bootdata.o \
 	compress.o \
 	dos8dot3.o \
-	encode.o \
 	env.o \
 	error.o \
-	exception.o \
-	generictable.o \
 	heap.o \
-	image.o \
 	largeint.o \
 	luid.o \
 	mem.o \
-	network.o \
 	nls.o \
 	random.o \
 	sd.o \
 	security.o \
 	sid.o \
-	splaytree.o \
 	time.o \
 	timezone.o \
 	unicode.o \
-	unicodeprefix.o \
-	version.o \
-	i386/exception.o \
-	i386/except.o
+	version.o
 
 #	atom
 #	registry
-
+ 
 
 include $(PATH_TO_TOP)/rules.mak
 

@@ -1,4 +1,4 @@
-/* $Id: wait.c,v 1.32 2004/12/04 19:31:26 navaraf Exp $
+/* $Id: wait.c,v 1.28 2004/03/07 18:06:29 arty Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -19,8 +19,38 @@
 
 /* FUNCTIONS ****************************************************************/
 
-DWORD STDCALL
-GetConsoleInputWaitHandle (VOID);
+/*
+ * Thread that waits for a console handle.  Console handles only fire when
+ * they're readable.
+ */
+
+DWORD STDCALL WaitForConsoleHandleThread( PVOID ConHandle ) {
+    DWORD AmtRead = 0;
+    INPUT_RECORD Buffer[1];
+    do {
+	PeekConsoleInputA( ConHandle, Buffer, 1, &AmtRead );
+	if( !AmtRead ) Sleep( 100 );
+    } while( AmtRead == 0 );
+
+    return 0;
+}
+
+/*
+ * Return a waitable object given a console handle
+ */
+DWORD GetWaiterForConsoleHandle( HANDLE ConHandle, PHANDLE Waitable ) {
+    DWORD ThreadId;
+    HANDLE WaitableHandle = CreateThread( 0, 
+					  0, 
+					  WaitForConsoleHandleThread,
+					  ConHandle,
+					  0,
+					  &ThreadId );
+
+    *Waitable = WaitableHandle;
+
+    return WaitableHandle ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL;
+}
 
 /*
  * @implemented
@@ -46,6 +76,7 @@ WaitForSingleObjectEx(HANDLE hHandle,
   PLARGE_INTEGER TimePtr;
   LARGE_INTEGER Time;
   NTSTATUS Status;
+  BOOL CloseWaitHandle = FALSE;
 
   /* Get real handle */
   switch ((ULONG)hHandle)
@@ -66,18 +97,14 @@ WaitForSingleObjectEx(HANDLE hHandle,
   /* Check for console handle */
   if (IsConsoleHandle(hHandle))
     {
-      if (!VerifyConsoleIoHandle(hHandle))
+      if (VerifyConsoleIoHandle(hHandle))
 	{
-	  SetLastError (ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
-        }
-	  
-      hHandle = (HANDLE)GetConsoleInputWaitHandle();
-      if (hHandle == NULL || hHandle == INVALID_HANDLE_VALUE)
-        {
-	  SetLastError (ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
-
+	  Status = GetWaiterForConsoleHandle( hHandle, &hHandle );
+	  if (!NT_SUCCESS(Status))
+	    {
+	      SetLastErrorByStatus (Status);
+	      return FALSE;
+	    }
 	}
     }
 
@@ -95,13 +122,22 @@ WaitForSingleObjectEx(HANDLE hHandle,
 				 (BOOLEAN) bAlertable,
 				 TimePtr);
 
-  if (HIWORD(Status))
+  if (CloseWaitHandle)
+    NtClose(hHandle);
+
+  if (Status == STATUS_TIMEOUT)
     {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
+      return WAIT_TIMEOUT;
+    }
+  else if ((Status == WAIT_OBJECT_0) ||
+	   (Status == WAIT_ABANDONED_0))
+    {
+      return Status;
     }
 
-  return Status;
+  SetLastErrorByStatus (Status);
+
+  return WAIT_FAILED;
 }
 
 
@@ -135,27 +171,24 @@ WaitForMultipleObjectsEx(DWORD nCount,
   PLARGE_INTEGER TimePtr;
   LARGE_INTEGER Time;
   PHANDLE HandleBuffer;
-  HANDLE Handle[3];
-  DWORD i;
+  DWORD i,j;
   NTSTATUS Status;
+  PBOOL FreeThisHandle;
 
   DPRINT("nCount %lu\n", nCount);
 
-  if (nCount > 3)
+  HandleBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, nCount * (sizeof(HANDLE) + sizeof(BOOL)) );
+  FreeThisHandle = (PBOOL)(&HandleBuffer[nCount]);
+
+  if (HandleBuffer == NULL)
     {
-      HandleBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, nCount * sizeof(HANDLE));
-      if (HandleBuffer == NULL)
-        {
-          SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-          return WAIT_FAILED;
-        }
+      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+      return WAIT_FAILED;
     }
-  else
-    {
-      HandleBuffer = Handle;
-    }
+
   for (i = 0; i < nCount; i++)
     {
+      FreeThisHandle[i] = FALSE;
       switch ((DWORD)lpHandles[i])
 	{
 	  case STD_INPUT_HANDLE:
@@ -178,24 +211,24 @@ WaitForMultipleObjectsEx(DWORD nCount,
       /* Check for console handle */
       if (IsConsoleHandle(HandleBuffer[i]))
 	{
-	  if (!VerifyConsoleIoHandle(HandleBuffer[i]))
-	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
-	    }
-	  HandleBuffer[i] = (HANDLE)GetConsoleInputWaitHandle();
-	  if (HandleBuffer[i] == NULL || HandleBuffer[i] == INVALID_HANDLE_VALUE)
-	    {
-	      if (HandleBuffer != Handle)
-	        {
-	          RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
-	        }
-	      SetLastError (ERROR_INVALID_HANDLE);
-	      return WAIT_FAILED;
+	  if (VerifyConsoleIoHandle(HandleBuffer[i]))
+	    { 
+	      Status = GetWaiterForConsoleHandle( HandleBuffer[i], 
+						  &HandleBuffer[i] );
+	      if (!NT_SUCCESS(Status))
+		{
+		  /* We'll leak some handles unless we close the already
+		     created handles */
+		  for (j = 0; j < i; j++)
+		    if (FreeThisHandle[j])
+		      NtClose(HandleBuffer[j]);
+
+		  SetLastErrorByStatus (Status);
+		  RtlFreeHeap(GetProcessHeap(),0,HandleBuffer);
+		  return FALSE;
+		}
+	      
+	      FreeThisHandle[i] = TRUE;
 	    }
 	}
     }
@@ -215,18 +248,29 @@ WaitForMultipleObjectsEx(DWORD nCount,
 				     bWaitAll  ? WaitAll : WaitAny,
 				     (BOOLEAN)bAlertable,
 				     TimePtr);
-  if (HandleBuffer != Handle)
+
+  for (i = 0; i < nCount; i++)
+    if (FreeThisHandle[i])
+      NtClose(HandleBuffer[i]);
+
+  RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
+
+  if (Status == STATUS_TIMEOUT)
     {
-      RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
+      return WAIT_TIMEOUT;
+    }
+  else if (((Status >= WAIT_OBJECT_0) &&
+	    (Status <= WAIT_OBJECT_0 + nCount - 1)) ||
+	   ((Status >= WAIT_ABANDONED_0) &&
+	    (Status <= WAIT_ABANDONED_0 + nCount - 1)))
+    {
+      return Status;
     }
 
-  if (HIWORD(Status))
-    {
-      SetLastErrorByStatus (Status);
-      return WAIT_FAILED;
-    }
+  DPRINT("Status %lx\n", Status);
+  SetLastErrorByStatus (Status);
 
-  return Status;
+  return WAIT_FAILED;
 }
 
 

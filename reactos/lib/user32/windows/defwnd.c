@@ -1,4 +1,4 @@
-/* $Id: defwnd.c,v 1.149 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: defwnd.c,v 1.140 2004/05/26 18:59:21 weiden Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -11,8 +11,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
 #include <windowsx.h>
+#include <user32.h>
 #include <window.h>
 #include <user32/wininternal.h>
 #include <string.h>
@@ -41,32 +42,60 @@ void FASTCALL MenuInitSysMenuPopup(HMENU Menu, DWORD Style, DWORD ClsStyle, LONG
 
 /* GLOBALS *******************************************************************/
 
-COLORREF SysColors[NUM_SYSCOLORS] = {0};
-HPEN SysPens[NUM_SYSCOLORS] = {0};
-HBRUSH SysBrushes[NUM_SYSCOLORS] = {0};
+/* TODO:  widgets will be cached here.
+static HBITMAP hbClose;
+static HBITMAP hbCloseD;
+static HBITMAP hbMinimize;
+static HBITMAP hbMinimizeD;
+static HBITMAP hbRestore;
+static HBITMAP hbRestoreD;
+static HBITMAP hbMaximize;
+static HBITMAP hbScrUp;
+static HBITMAP hbScrDwn;
+static HBITMAP hbScrLeft;
+static HBITMAP hbScrRight;
+*/
+
+
+static COLORREF SysColors[] =
+  {
+    RGB(192, 192, 192) /* COLOR_SCROLLBAR */,
+    RGB(58, 110, 165) /* COLOR_BACKGROUND */,
+    RGB(10, 36, 106) /* COLOR_ACTIVECAPTION */,
+    RGB(128, 128, 128) /* COLOR_INACTIVECAPTION */,
+    RGB(192, 192, 192) /* COLOR_MENU */,
+    RGB(255, 255, 255) /* COLOR_WINDOW */,
+    RGB(0, 0, 0) /* COLOR_WINDOWFRAME */,
+    RGB(0, 0, 0) /* COLOR_MENUTEXT */,
+    RGB(0, 0, 0) /* COLOR_WINDOWTEXT */,
+    RGB(255, 255, 255) /* COLOR_CAPTIONTEXT */,
+    RGB(192, 192, 192) /* COLOR_ACTIVEBORDER */,
+    RGB(192, 192, 192) /* COLOR_INACTIVEBORDER */,
+    RGB(128, 128, 128) /* COLOR_APPWORKSPACE */,
+    RGB(0, 0, 128) /* COLOR_HILIGHT */,
+    RGB(255, 255, 255) /* COLOR_HILIGHTTEXT */,
+    RGB(192, 192, 192) /* COLOR_BTNFACE */,
+    RGB(128, 128, 128) /* COLOR_BTNSHADOW */,
+    RGB(128, 128, 128) /* COLOR_GRAYTEXT */,
+    RGB(0, 0, 0) /* COLOR_BTNTEXT */,
+    RGB(192, 192, 192) /* COLOR_INACTIVECAPTIONTEXT */,
+    RGB(255, 255, 255) /* COLOR_BTNHILIGHT */,
+    RGB(32, 32, 32) /* COLOR_3DDKSHADOW */,
+    RGB(192, 192, 192) /* COLOR_3DLIGHT */,
+    RGB(0, 0, 0) /* COLOR_INFOTEXT */,
+    RGB(255, 255, 192) /* COLOR_INFOBK */,
+    RGB(180, 180, 180) /* COLOR_ALTERNATEBTNFACE */,
+    RGB(0, 0, 255) /* COLOR_HOTLIGHT */,
+    RGB(166, 202, 240) /* COLOR_GRADIENTACTIVECAPTION */,
+    RGB(192, 192, 192) /* COLOR_GRADIENTINACTIVECAPTION */,
+  };
+
+#define NUM_SYSCOLORS (sizeof(SysColors) / sizeof(SysColors[0]))
 
 /* Bits in the dwKeyData */
 #define KEYDATA_ALT   0x2000
 
 /* FUNCTIONS *****************************************************************/
-
-void
-InitStockObjects(void)
-{
-  /* FIXME - Instead of copying the stuff to usermode we should map the tables to
-             userland. The current implementation has one big flaw: the system color
-             table doesn't get updated when another process changes them. That's why
-             we should rather map the table into usermode. But it only affects the
-             SysColors table - the pens, brushes and stock objects are not affected
-             as their handles never change. But it'd be faster to map them, too. */
-  if(SysBrushes[0] == NULL)
-  {
-    /* only initialize once */
-    NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
-    NtUserGetSysColorPens(SysPens, NUM_SYSCOLORS);
-    NtUserGetSysColorBrushes(SysBrushes, NUM_SYSCOLORS);
-  }
-}
 
 /*
  * @implemented
@@ -74,13 +103,7 @@ InitStockObjects(void)
 DWORD STDCALL
 GetSysColor(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
     return SysColors[nIndex];
-  }
-  
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return 0;
 }
 
 /*
@@ -89,13 +112,22 @@ GetSysColor(int nIndex)
 HPEN STDCALL
 GetSysColorPen(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysPens[nIndex];
-  }
+  static HPEN SysPens[NUM_SYSCOLORS];
 
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  if (nIndex < 0 || NUM_SYSCOLORS < nIndex)
+    {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return NULL;
+    }
+
+  /* FIXME should register this object with DeleteObject() so it
+     can't be deleted */
+  if (NULL == SysPens[nIndex])
+    {
+      SysPens[nIndex] = CreatePen(PS_SOLID, 1, SysColors[nIndex]);
+    }
+
+  return SysPens[nIndex];
 }
 
 /*
@@ -104,51 +136,89 @@ GetSysColorPen(int nIndex)
 HBRUSH STDCALL
 GetSysColorBrush(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysBrushes[nIndex];
-  }
+  static HBRUSH SysBrushes[NUM_SYSCOLORS];
 
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  if (nIndex < 0 || NUM_SYSCOLORS < nIndex)
+    {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return NULL;
+    }
+
+  /* FIXME should register this object with DeleteObject() so it
+     can't be deleted */
+  if (NULL == SysBrushes[nIndex])
+    {
+      SysBrushes[nIndex] = (HBRUSH) ((DWORD) CreateSolidBrush(SysColors[nIndex]) | 0x00800000);
+    }
+
+  return SysBrushes[nIndex];
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL
-STDCALL
-SetSysColors(
-  int cElements,
-  CONST INT *lpaElements,
-  CONST COLORREF *lpaRgbValues)
+/*
+LRESULT STDCALL
+DefFrameProcA( HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam )
 {
-  BOOL Ret;
-  struct
-  {
-    INT *Elements;
-    COLORREF *Colors;
-  } ChangeSysColors;
+    UNIMPLEMENTED;
+    return ((LRESULT)0);
+}
+*/
 
-  ChangeSysColors.Elements = (INT*)lpaElements;
-  ChangeSysColors.Colors = (COLORREF*)lpaRgbValues;
-  
-  if(cElements > 0)
-  {
-    Ret = NtUserSetSysColors(&ChangeSysColors, cElements);
-    if(Ret)
-    {
-      /* FIXME - just change it in the usermode structure, too, instead of asking win32k again */
-      NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
-    }
-  }
-  else
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    Ret = FALSE;
-  }
-  
-  return Ret;
+/*
+ * @unimplemented
+ */
+/*
+LRESULT STDCALL
+DefFrameProcW(HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam)
+{
+    UNIMPLEMENTED;
+    return ((LRESULT)0);
+}
+*/
+
+ULONG
+UserHasAnyFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & (WS_THICKFRAME | WS_DLGFRAME | WS_BORDER)) ||
+            (ExStyle & WS_EX_DLGMODALFRAME) ||
+            (!(Style & (WS_CHILD | WS_POPUP))));
+}
+
+ULONG
+UserHasDlgFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((ExStyle & WS_EX_DLGMODALFRAME) ||
+            ((Style & WS_DLGFRAME) && (!(Style & WS_THICKFRAME))));
+}
+
+ULONG
+UserHasThickFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & WS_THICKFRAME) &&
+            (!((Style & (WS_DLGFRAME | WS_BORDER)) == WS_DLGFRAME)));
+}
+
+ULONG
+UserHasThinFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & WS_BORDER) || (!(Style & (WS_CHILD | WS_POPUP))));
+}
+
+ULONG
+UserHasBigFrameStyle(ULONG Style, ULONG ExStyle)
+{
+    return ((Style & (WS_THICKFRAME | WS_DLGFRAME)) ||
+            (ExStyle & WS_EX_DLGMODALFRAME));
 }
 
 void
@@ -201,11 +271,6 @@ UserGetInsideRectNC(HWND hWnd, RECT *rect)
 VOID
 DefWndSetRedraw(HWND hWnd, WPARAM wParam)
 {
-  if ((BOOL) wParam && 0 == (GetWindowLong(hWnd, GWL_STYLE) & WS_VISIBLE))
-    {
-      ShowWindow(hWnd, SW_NORMAL);
-    }
-
   UNIMPLEMENTED;
 }
 
@@ -219,7 +284,7 @@ DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
       return(0);
     }
 
-  switch((INT_PTR) LOWORD(lParam))
+  switch(LOWORD(lParam))
     {
     case HTERROR:
       {
@@ -431,7 +496,7 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
   BOOL moved = FALSE;
   DWORD dwPoint = GetMessagePos();
   BOOL DragFullWindows = FALSE;
-  HWND hWndParent = NULL;
+  HWND hWndParent;
 
   SystemParametersInfoA(SPI_GETDRAGFULLWINDOWS, 0, &DragFullWindows, 0);
   

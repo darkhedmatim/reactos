@@ -29,10 +29,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COBJMACROS
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -48,8 +46,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(storage);
 /*
  * Virtual function table for the StgStreamImpl class.
  */
-static IStreamVtbl StgStreamImpl_Vtbl =
+static ICOM_VTABLE(IStream) StgStreamImpl_Vtbl =
 {
+    ICOM_MSVTABLE_COMPAT_DummyRTTIVALUE
     StgStreamImpl_QueryInterface,
     StgStreamImpl_AddRef,
     StgStreamImpl_Release,
@@ -223,7 +222,10 @@ ULONG WINAPI StgStreamImpl_AddRef(
 		IStream* iface)
 {
   StgStreamImpl* const This=(StgStreamImpl*)iface;
-  return InterlockedIncrement(&This->ref);
+
+  This->ref++;
+
+  return This->ref;
 }
 
 /***
@@ -235,19 +237,21 @@ ULONG WINAPI StgStreamImpl_Release(
 {
   StgStreamImpl* const This=(StgStreamImpl*)iface;
 
-  ULONG ref;
+  ULONG newRef;
 
-  ref = InterlockedDecrement(&This->ref);
+  This->ref--;
+
+  newRef = This->ref;
 
   /*
    * If the reference count goes down to 0, perform suicide.
    */
-  if (ref==0)
+  if (newRef==0)
   {
     StgStreamImpl_Destroy(This);
   }
 
-  return ref;
+  return newRef;
 }
 
 /***

@@ -2,7 +2,6 @@
 <explorer-cfg>
   <general>
     <look-and-feel name="classic"/>
-	<explorer mdi="true"/>
 	<language name="EN"/>
   </general>
 
@@ -11,7 +10,7 @@
   </desktop>
 
   <desktopbar>
-    <options show-clock="true"/>
+    <options show-clock="TRUE"/>
     <positions>
 	  <bar name="quicklaunch" left="10" top="2" width="250" height="22"/>
 	  <bar name="taskbar" left="300" top="2" width="400" height="22"/>
@@ -22,7 +21,7 @@
   </taskbar>
 
   <notify-icons>
-    <options hide-inactive="true" show-button="true" show-hidden="false"/>
+    <options hide-inactive="TRUE" show-hidden="FALSE"/>
     <icon name="Volume Control" text="Volume" show="show"/>
   </notify-icons>
 

@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.14 2004/11/08 00:34:45 weiden Exp $
+# $Id: makefile,v 1.10 2004/05/29 21:24:46 hbirr Exp $
 
 PATH_TO_TOP = ../..
 
@@ -16,8 +16,6 @@ TARGET_CFLAGS += -D_DISABLE_TIDENTS
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
 TARGET_BASE = $(TARGET_BASE_LIB_PSAPI)
-
-TARGET_PCH = precomp.h
 
 TARGET_OBJECTS = \
 	misc/dllmain.o \

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: winsta.c,v 1.70 2004/12/24 17:45:58 weiden Exp $
+ *  $Id: winsta.c,v 1.63 2004/05/22 21:12:15 weiden Exp $
  *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
@@ -85,7 +85,7 @@ CleanupWindowStationImpl(VOID)
 /*
  * IntGetFullWindowStationName
  *
- * Get a full window station object name from a name specified in
+ * Get a full desktop object name from a name specified in 
  * NtUserCreateWindowStation, NtUserOpenWindowStation, NtUserCreateDesktop
  * or NtUserOpenDesktop.
  *
@@ -106,7 +106,7 @@ IntGetFullWindowStationName(
       FullName->Length += WinStaName->Length + sizeof(WCHAR);
    if (DesktopName != NULL)
       FullName->Length += DesktopName->Length + sizeof(WCHAR);
-   FullName->Buffer = ExAllocatePoolWithTag(PagedPool, FullName->Length, TAG_STRING);
+   FullName->Buffer = ExAllocatePoolWithTag(NonPagedPool, FullName->Length, TAG_STRING);
    if (FullName->Buffer == NULL)
    {
       return FALSE;
@@ -197,6 +197,8 @@ IntInitializeDesktopGraphics(VOID)
     }
   DC_SetOwnership(ScreenDeviceContext, NULL);
   
+  EnableMouse(ScreenDeviceContext);
+  
   NtUserAcquireOrReleaseInputOwnership(FALSE);
 
   return TRUE;
@@ -206,6 +208,7 @@ VOID FASTCALL
 IntEndDesktopGraphics(VOID)
 {
   NtUserAcquireOrReleaseInputOwnership(TRUE);
+  EnableMouse(FALSE);
   if (NULL != ScreenDeviceContext)
     {
       DC_SetOwnership(ScreenDeviceContext, PsGetCurrentProcess());
@@ -398,6 +401,8 @@ NtUserCreateWindowStation(
   
    /* FIXME: Obtain the following information from the registry */
    CurInfo->SwapButtons = FALSE;
+   CurInfo->SafetySwitch = FALSE;
+   CurInfo->SafetyRemoveCount = 0;
    CurInfo->DblClickSpeed = 500;
    CurInfo->DblClickWidth = 4;
    CurInfo->DblClickHeight = 4;
@@ -473,7 +478,7 @@ NtUserOpenWindowStation(
 
    Status = ObOpenObjectByName(
       &ObjectAttributes,
-      ExWindowStationObjectType,
+      ExDesktopObjectType,
       NULL,
       UserMode,
       dwDesiredAccess,
@@ -778,48 +783,7 @@ NtUserSetObjectInformation(
 HWINSTA STDCALL
 NtUserGetProcessWindowStation(VOID)
 {
-   if(PsGetCurrentProcess() != CsrProcess)
-   {
-     return PsGetCurrentProcess()->Win32WindowStation;
-   }
-   else
-   {
-     /* FIXME - get the pointer to the window station by querying the parent of
-                the desktop of the calling thread (which is a window station),
-                then use ObFindHandleForObject() to find a suitable handle */
-     DPRINT1("CSRSS called NtUserGetProcessWindowStation()!!! returned NULL!\n");
-     return NULL;
-   }
-}
-
-PWINSTATION_OBJECT FASTCALL
-IntGetWinStaObj(VOID)
-{
-  PWINSTATION_OBJECT WinStaObj;
-  
-  /*
-   * just a temporary hack, this will be gone soon
-   */
-  
-  if(PsGetWin32Thread() != NULL && PsGetWin32Thread()->Desktop != NULL)
-  {
-    WinStaObj = PsGetWin32Thread()->Desktop->WindowStation;
-    ObReferenceObjectByPointer(WinStaObj, KernelMode, ExWindowStationObjectType, 0);
-  }
-  else if(PsGetCurrentProcess() != CsrProcess)
-  {
-    NTSTATUS Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
-                                                     KernelMode,
-                                                     0,
-                                                     &WinStaObj);
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastNtError(Status);
-     return NULL;
-   }
-  }
-  
-  return WinStaObj;
+   return PROCESS_WINDOW_STATION();
 }
 
 /*
@@ -841,43 +805,42 @@ IntGetWinStaObj(VOID)
 BOOL STDCALL
 NtUserSetProcessWindowStation(HWINSTA hWindowStation)
 {
-   HANDLE hOld;
-   PWINSTATION_OBJECT NewWinSta;
+   PWINSTATION_OBJECT Object;
+   PW32PROCESS Win32Process;
    NTSTATUS Status;
 
-   DPRINT("About to set process window station with handle (0x%X)\n",
+   DPRINT("About to set process window station with handle (0x%X)\n", 
       hWindowStation);
-
-   if(PsGetCurrentProcess() == CsrProcess)
-   {
-     DPRINT1("CSRSS is not allowed to change it's window station!!!\n");
-     SetLastWin32Error(ERROR_ACCESS_DENIED);
-     return FALSE;
-   }
 
    Status = IntValidateWindowStationHandle(
       hWindowStation,
       KernelMode,
       0,
-      &NewWinSta);
+      &Object);
 
    if (!NT_SUCCESS(Status)) 
    {
       DPRINT("Validation of window station handle (0x%X) failed\n", 
          hWindowStation);
-      SetLastNtError(Status);
       return FALSE;
    }
-   
-   /*
-    * FIXME - don't allow changing the window station if there are threads that are attached to desktops and own gui objects
-    */
 
-   /* FIXME - dereference the old window station, etc... */
-   hOld = InterlockedExchangePointer(&PsGetCurrentProcess()->Win32WindowStation, hWindowStation);
+   Win32Process = PsGetWin32Process();
+   if (Win32Process == NULL)
+   {
+      ObDereferenceObject(Object);
+   }
+   else
+   {
+      if (Win32Process->WindowStation != NULL)
+         ObDereferenceObject(Win32Process->WindowStation);
+      Win32Process->WindowStation = Object;
+   }
 
-   DPRINT("PsGetCurrentProcess()->Win32WindowStation 0x%X\n",
-      PsGetCurrentProcess()->Win32WindowStation);
+   SET_PROCESS_WINDOW_STATION(hWindowStation);
+  
+   DPRINT("IoGetCurrentProcess()->Win32WindowStation 0x%X\n",
+      IoGetCurrentProcess()->Win32WindowStation);
 
    return TRUE;
 }
@@ -991,295 +954,6 @@ NtUserSetWindowStationUser(
    return 0;
 }
 
-static NTSTATUS FASTCALL
-BuildWindowStationNameList(
-   ULONG dwSize,
-   PVOID lpBuffer,
-   PULONG pRequiredSize)
-{
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   NTSTATUS Status;
-   HANDLE DirectoryHandle;
-   UNICODE_STRING DirectoryName;
-   char InitialBuffer[256], *Buffer;
-   ULONG Context, ReturnLength, BufferSize;
-   DWORD EntryCount;
-   PDIRECTORY_BASIC_INFORMATION DirEntry;
-   WCHAR NullWchar;
-	
-   /*
-    * Generate name of window station directory
-    */
-   if (!IntGetFullWindowStationName(&DirectoryName, NULL, NULL))
-   {
-      return STATUS_INSUFFICIENT_RESOURCES;
-   }
-
-   /*
-    * Try to open the directory.
-    */
-   InitializeObjectAttributes(
-      &ObjectAttributes,
-      &DirectoryName,
-      OBJ_CASE_INSENSITIVE,
-      NULL,
-      NULL);
-
-   Status = ZwOpenDirectoryObject(
-      &DirectoryHandle,
-      DIRECTORY_QUERY,
-      &ObjectAttributes);
-
-   ExFreePool(DirectoryName.Buffer);
-
-   if (!NT_SUCCESS(Status))
-   {
-      return Status;
-   }
-
-   /* First try to query the directory using a fixed-size buffer */
-   Context = 0;
-   Buffer = NULL;
-   Status = ZwQueryDirectoryObject(DirectoryHandle, InitialBuffer, sizeof(InitialBuffer),
-                                   FALSE, TRUE, &Context, &ReturnLength);
-   if (NT_SUCCESS(Status))
-   {
-      if (STATUS_NO_MORE_ENTRIES == ZwQueryDirectoryObject(DirectoryHandle, NULL, 0, FALSE,
-                                                           FALSE, &Context, NULL))
-      {
-         /* Our fixed-size buffer is large enough */
-         Buffer = InitialBuffer;
-      }
-   }
-
-   if (NULL == Buffer)
-   {
-      /* Need a larger buffer, check how large exactly */
-      Status = ZwQueryDirectoryObject(DirectoryHandle, NULL, 0, FALSE, TRUE, &Context,
-                                      &ReturnLength);
-      if (STATUS_BUFFER_TOO_SMALL == Status)
-      {
-         BufferSize = ReturnLength;
-         Buffer = ExAllocatePoolWithTag(PagedPool, BufferSize, TAG_WINSTA);
-         if (NULL == Buffer)
-         {
-            ObDereferenceObject(DirectoryHandle);
-            return STATUS_NO_MEMORY;
-         }
-
-         /* We should have a sufficiently large buffer now */
-         Context = 0;
-         Status = ZwQueryDirectoryObject(DirectoryHandle, Buffer, BufferSize,
-                                         FALSE, TRUE, &Context, &ReturnLength);
-         if (! NT_SUCCESS(Status) || 
-             STATUS_NO_MORE_ENTRIES != ZwQueryDirectoryObject(DirectoryHandle, NULL, 0, FALSE,
-                                                              FALSE, &Context, NULL))
-         {
-            /* Something went wrong, maybe someone added a directory entry? Just give up. */
-            ExFreePool(Buffer);
-            ObDereferenceObject(DirectoryHandle);
-            return NT_SUCCESS(Status) ? STATUS_INTERNAL_ERROR : Status;
-         }
-      }
-   }
-
-   ZwClose(DirectoryHandle);
-
-   /*
-    * Count the required size of buffer.
-    */
-   ReturnLength = sizeof(DWORD);
-   EntryCount = 0;
-   for (DirEntry = (PDIRECTORY_BASIC_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
-        DirEntry++)
-   {
-      ReturnLength += DirEntry->ObjectName.Length + sizeof(WCHAR);
-      EntryCount++;
-   }
-   DPRINT("Required size: %d Entry count: %d\n", ReturnLength, EntryCount);
-   if (NULL != pRequiredSize)
-   {
-      Status = MmCopyToCaller(pRequiredSize, &ReturnLength, sizeof(ULONG));
-      if (! NT_SUCCESS(Status))
-      {
-         if (Buffer != InitialBuffer)
-         {
-            ExFreePool(Buffer);
-         }
-         return STATUS_BUFFER_TOO_SMALL;
-      }
-   }
-
-   /*
-    * Check if the supplied buffer is large enough.
-    */
-   if (dwSize < ReturnLength)
-   {
-      if (Buffer != InitialBuffer)
-      {
-         ExFreePool(Buffer);
-      }
-      return STATUS_BUFFER_TOO_SMALL;
-   }
-
-   /*
-    * Generate the resulting buffer contents.
-    */
-   Status = MmCopyToCaller(lpBuffer, &EntryCount, sizeof(DWORD));
-   if (! NT_SUCCESS(Status))
-   {
-      if (Buffer != InitialBuffer)
-      {
-         ExFreePool(Buffer);
-      }
-      return Status;
-   }
-   lpBuffer = (PVOID) ((PCHAR) lpBuffer + sizeof(DWORD));
-
-   NullWchar = L'\0';
-   for (DirEntry = (PDIRECTORY_BASIC_INFORMATION) Buffer; 0 != DirEntry->ObjectName.Length;
-        DirEntry++)
-   {
-      Status = MmCopyToCaller(lpBuffer, DirEntry->ObjectName.Buffer, DirEntry->ObjectName.Length);
-      if (! NT_SUCCESS(Status))
-      {
-         if (Buffer != InitialBuffer)
-         {
-            ExFreePool(Buffer);
-         }
-         return Status;
-      }
-      lpBuffer = (PVOID) ((PCHAR) lpBuffer + DirEntry->ObjectName.Length);
-      Status = MmCopyToCaller(lpBuffer, &NullWchar, sizeof(WCHAR));
-      if (! NT_SUCCESS(Status))
-      {
-         if (Buffer != InitialBuffer)
-         {
-            ExFreePool(Buffer);
-         }
-         return Status;
-      }
-      lpBuffer = (PVOID) ((PCHAR) lpBuffer + sizeof(WCHAR));
-   }
-
-   /*
-    * Clean up
-    */
-   if (NULL != Buffer && Buffer != InitialBuffer)
-   {
-      ExFreePool(Buffer);
-   }
-
-   return STATUS_SUCCESS;
-}
-
-static NTSTATUS FASTCALL
-BuildDesktopNameList(
-   HWINSTA hWindowStation,
-   ULONG dwSize,
-   PVOID lpBuffer,
-   PULONG pRequiredSize)
-{
-   NTSTATUS Status;
-   PWINSTATION_OBJECT WindowStation;
-   KIRQL OldLevel;
-   PLIST_ENTRY DesktopEntry;
-   PDESKTOP_OBJECT DesktopObject;
-   DWORD EntryCount;
-   ULONG ReturnLength;
-   WCHAR NullWchar;
-	
-   Status = IntValidateWindowStationHandle(hWindowStation,
-                                           KernelMode,
-                                           0,
-                                           &WindowStation);
-   if (! NT_SUCCESS(Status))
-   {
-      return Status;
-   }
-
-   KeAcquireSpinLock(&WindowStation->Lock, &OldLevel);
-
-   /*
-    * Count the required size of buffer.
-    */
-   ReturnLength = sizeof(DWORD);
-   EntryCount = 0;
-   for (DesktopEntry = WindowStation->DesktopListHead.Flink;
-        DesktopEntry != &WindowStation->DesktopListHead;
-        DesktopEntry = DesktopEntry->Flink)
-   {
-      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP_OBJECT, ListEntry);
-      ReturnLength += DesktopObject->Name.Length + sizeof(WCHAR);
-      EntryCount++;
-   }
-   DPRINT("Required size: %d Entry count: %d\n", ReturnLength, EntryCount);
-   if (NULL != pRequiredSize)
-   {
-      Status = MmCopyToCaller(pRequiredSize, &ReturnLength, sizeof(ULONG));
-      if (! NT_SUCCESS(Status))
-      {
-         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-         ObDereferenceObject(WindowStation);
-         return STATUS_BUFFER_TOO_SMALL;
-      }
-   }
-
-   /*
-    * Check if the supplied buffer is large enough.
-    */
-   if (dwSize < ReturnLength)
-   {
-      KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-      ObDereferenceObject(WindowStation);
-      return STATUS_BUFFER_TOO_SMALL;
-   }
-
-   /*
-    * Generate the resulting buffer contents.
-    */
-   Status = MmCopyToCaller(lpBuffer, &EntryCount, sizeof(DWORD));
-   if (! NT_SUCCESS(Status))
-   {
-      KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-      ObDereferenceObject(WindowStation);
-      return Status;
-   }
-   lpBuffer = (PVOID) ((PCHAR) lpBuffer + sizeof(DWORD));
-
-   NullWchar = L'\0';
-   for (DesktopEntry = WindowStation->DesktopListHead.Flink;
-        DesktopEntry != &WindowStation->DesktopListHead;
-        DesktopEntry = DesktopEntry->Flink)
-   {
-      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP_OBJECT, ListEntry);
-      Status = MmCopyToCaller(lpBuffer, DesktopObject->Name.Buffer, DesktopObject->Name.Length);
-      if (! NT_SUCCESS(Status))
-      {
-         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-         ObDereferenceObject(WindowStation);
-         return Status;
-      }
-      lpBuffer = (PVOID) ((PCHAR) lpBuffer + DesktopObject->Name.Length);
-      Status = MmCopyToCaller(lpBuffer, &NullWchar, sizeof(WCHAR));
-      if (! NT_SUCCESS(Status))
-      {
-         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-         ObDereferenceObject(WindowStation);
-         return Status;
-      }
-      lpBuffer = (PVOID) ((PCHAR) lpBuffer + sizeof(WCHAR));
-   }
-
-   /*
-    * Clean up
-    */
-   KeReleaseSpinLock(&WindowStation->Lock, OldLevel);   
-   ObDereferenceObject(WindowStation);
-
-   return STATUS_SUCCESS;
-}
-
 /*
  * NtUserBuildNameList
  *
@@ -1303,20 +977,103 @@ BuildDesktopNameList(
  *       Otherwise it's size of buffer needed for function to succeed.
  *
  * Status
- *    @implemented
+ *    @unimplemented
  */
 
 NTSTATUS STDCALL
 NtUserBuildNameList(
-   HWINSTA hWindowStation,
+   HWINSTA hWinSta,
    ULONG dwSize,
    PVOID lpBuffer,
    PULONG pRequiredSize)
 {
-   /* The WindowStation name list and desktop name list are build in completely
-      different ways. Call the appropriate function */
-   return NULL == hWindowStation ? BuildWindowStationNameList(dwSize, lpBuffer, pRequiredSize) :
-                                   BuildDesktopNameList(hWindowStation, dwSize, lpBuffer, pRequiredSize);
+#if 0
+   NTSTATUS Status;
+   HANDLE DirectoryHandle;
+   ULONG EntryCount = 0;
+   UNICODE_STRING DirectoryNameW;
+   PWCHAR BufferChar;
+   PDIRECTORY_OBJECT DirObj = NULL;
+   PLIST_ENTRY CurrentEntry = NULL;
+   POBJECT_HEADER CurrentObject = NULL;
+	
+   /*
+    * Generate full window station name
+    */
+
+   /* FIXME: Correct this for desktop */
+   if (!IntGetFullWindowStationName(&DirectoryNameW, NULL, NULL))
+   {
+      SetLastNtError(STATUS_INSUFFICIENT_RESOURCES);
+      return 0;
+   }
+
+   /*
+    * Try to open the directory.
+    */
+
+   Status = ObReferenceObjectByName(&DirectoryNameW, 0, NULL, DIRECTORY_QUERY,
+      ObDirectoryType, UserMode, (PVOID*)&DirObj, NULL);
+   if (!NT_SUCCESS(Status))
+   {
+      ExFreePool(DirectoryNameW.Buffer);
+      return Status;
+   }
+
+   /*
+    * Count the required size of buffer.
+    */
+
+   *pRequiredSize = sizeof(DWORD);
+   for (CurrentEntry = DirObj->head.Flink; CurrentEntry != &DirObj->head;
+        CurrentEntry = CurrentEntry->Flink)
+   {
+      CurrentObject = CONTAINING_RECORD(CurrentEntry, OBJECT_HEADER, Entry);
+      *pRequiredSize += CurrentObject->Name.Length + sizeof(UNICODE_NULL);
+      ++EntryCount;
+   }
+
+   DPRINT1("Required size: %d Entry count: %d\n", *pRequiredSize, EntryCount);
+
+   /*
+    * Check if the supplied buffer is large enought.
+    */
+
+   if (*pRequiredSize > dwSize)
+   {
+      ExFreePool(DirectoryNameW.Buffer);
+      ObDereferenceObject(DirectoryHandle);
+      return STATUS_BUFFER_TOO_SMALL;
+   }
+
+   /*
+    * Generate the resulting buffer contents.
+    */
+
+   *((DWORD *)lpBuffer) = EntryCount;
+   BufferChar = (PWCHAR)((INT_PTR)lpBuffer + 4);
+   for (CurrentEntry = DirObj->head.Flink; CurrentEntry != &DirObj->head;
+        CurrentEntry = CurrentEntry->Flink)
+   {
+      CurrentObject = CONTAINING_RECORD(CurrentEntry, OBJECT_HEADER, Entry);
+      wcscpy(BufferChar, CurrentObject->Name.Buffer);
+      DPRINT1("Name: %s\n", BufferChar);
+      BufferChar += (CurrentObject->Name.Length / sizeof(WCHAR)) + 1;
+   }
+
+   /*
+    * Free any resource.
+    */
+
+   ExFreePool(DirectoryNameW.Buffer);
+   ObDereferenceObject(DirectoryHandle);
+
+   return STATUS_SUCCESS;
+#else
+   UNIMPLEMENTED
+
+   return STATUS_NOT_IMPLEMENTED;
+#endif
 }
 
 /* EOF */
