@@ -1,0 +1,6 @@
+vgaddi.coff
+*.sym
+*.o
+*.dll
+*.map
+*.tmp
