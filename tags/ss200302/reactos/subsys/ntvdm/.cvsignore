@@ -1,6 +1,0 @@
-ntvdm.coff
-ntvdm.exe
-ntvdm.nostrip.exe
-*.d
-*.o
-*.sym
