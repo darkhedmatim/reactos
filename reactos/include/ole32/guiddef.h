@@ -32,9 +32,6 @@ Cambridge, MA 02139, USA.
 
 #include <string.h>
 
-#ifdef __USE_W32API
-#include <basetyps.h>
-#endif /* __USE_W32API */
 
 #ifndef EXTERN_C
 	#ifdef __cplusplus
@@ -44,9 +41,8 @@ Cambridge, MA 02139, USA.
 	#endif
 #endif
 
-#ifndef __USE_W32API
 
-/*	guid definition */
+//	guid definition
 #ifndef GUID_DEFINED
 	#define GUID_DEFINED
 	typedef struct _GUID {
@@ -59,10 +55,8 @@ Cambridge, MA 02139, USA.
 	typedef const GUID*	LPCGUID;
 #endif
 
-#endif /* __USE_W32API */
 
-
-/*	guid definition macro */
+//	guid definition macro
 #ifdef DEFINE_GUID
 	#undef DEFINE_GUID
 #endif
@@ -74,41 +68,27 @@ Cambridge, MA 02139, USA.
 	#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
 		const GUID name
 #endif
-
-#ifndef DEFINE_OLEGUID
 #define DEFINE_OLEGUID(name, l, w1, w2) DEFINE_GUID(name, l, w1, w2, 0xC0,0,0,0,0,0,0,0x46)
-#endif
 
 
-
-/*	IID section */
-#ifndef __USE_W32API
+//	IID section
 typedef	GUID		IID;
 typedef	IID*		LPIID;
-#endif /* __USE_W32API */
-#ifndef IsEqualIID
 #define IsEqualIID(riid1, riid2) IsEqualGUID(riid1, riid2)
-#endif
 
 
-/*	CLSID section */
-#ifndef __USE_W32API
+//	CLSID section
 typedef GUID		CLSID;
 typedef CLSID*		LPCLSID;
-#endif /* __USE_W32API */
-#ifndef IsEqualCLSID
 #define IsEqualCLSID(rclsid1, rclsid2) IsEqualGUID(rclsid1, rclsid2)
-#endif
 
-/*	FMTID */
-#ifndef __USE_W32API
+//	FMTID
 typedef	GUID		FMTID;
 typedef	FMTID*		LPFMTID;
-#endif /* __USE_W32API */
 #define	IsEqualFMTID(rfmtid1, rfmtid2) IsEqualGUID(rfmtid1, rfmtid2)
 
 
-/*	REFGUID section */
+//	REFGUID section
 #ifndef _REFGUID_DEFINED
 	#define _REFGUID_DEFINED
 	#ifdef __cplusplus
@@ -118,10 +98,9 @@ typedef	FMTID*		LPFMTID;
 	#endif
 #endif
 
-/*	REFIID section */
-#if !defined(_REFIID_DEFINED) && !defined(_REFGIID_DEFINED)
+//	REFIID section
+#ifndef _REFIID_DEFINED
 	#define _REFIID_DEFINED
-	#define _REFGIID_DEFINED
 	#ifdef __cplusplus
 		#define REFIID const IID &
 	#else
@@ -129,7 +108,7 @@ typedef	FMTID*		LPFMTID;
 	#endif
 #endif
 
-/*	REFCLSID section */
+//	REFCLSID section
 #ifndef _REFCLSID_DEFINED
 	#define _REFCLSID_DEFINED
 	#ifdef __cplusplus
@@ -139,7 +118,7 @@ typedef	FMTID*		LPFMTID;
 	#endif
 #endif
 
-/*	REFFMTID section */
+//	REFFMTID section
 #ifndef _REFFMTID_DEFINED
 	#define _REFFMTID_DEFINED
 	#ifdef __cplusplus
@@ -150,9 +129,9 @@ typedef	FMTID*		LPFMTID;
 #endif
 
 
-/*	compare functions for GUID */
+//	compare functions for GUID
 #ifdef __cplusplus
-	/*	cpp versions */
+	//	cpp versions
 	__inline int InlineIsEqualGUID(REFGUID rguid1, REFGUID rguid2)
 	{
 		return(((unsigned long *) &rguid1)[0] == ((unsigned long *) &rguid2)[0] &&
@@ -165,7 +144,7 @@ typedef	FMTID*		LPFMTID;
 		return !memcmp(&rguid1, &rguid2, sizeof(GUID));
 	}
 #else
-	/*	c versions */
+	//	c versions
 	#define InlineIsEqualGUID(rguid1, rguid2)									\
 		(((unsigned long *) rguid1)[0] == ((unsigned long *) rguid2)[0] &&		\
 		((unsigned long *) rguid1)[1] == ((unsigned long *) rguid2)[1] &&		\
@@ -175,21 +154,17 @@ typedef	FMTID*		LPFMTID;
 	#define IsEqualGUID(rguid1, rguid2) (!memcmp(rguid1, rguid2, sizeof(GUID)))
 #endif
 
-/*	use the inline version??? */
+//	use the inline version???
 #ifdef __INLINE_ISEQUAL_GUID
 	#define IsEqualGUID(rguid1, rguid2)	InlineIsEqualGUID(rguid1, rguid2)
 #endif
 
 
-/*	compare functions for IID CLSID */
-#ifndef IsEqualIID
+//	compare functions for IID CLSID
 #define IsEqualIID(riid1, riid2) IsEqualGUID(riid1, riid2)
-#endif
-#ifndef IsEqualCLSID
 #define IsEqualCLSID(rclsid1, rclsid2) IsEqualGUID(rclsid1, rclsid2)
-#endif
 
-/*	c++ helper functions */
+//	c++ helper functions
 #if !defined _SYS_GUID_OPERATOR_EQ_ && !defined _NO_SYS_GUID_OPERATOR_EQ_
 	#define _SYS_GUID_OPERATOR_EQ_
 	#ifdef __cplusplus

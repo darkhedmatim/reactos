@@ -1,28 +1,26 @@
-#include "precomp.h"
-#include <msvcrt/io.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/stdio.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/string.h>
-#include <msvcrt/internal/file.h>
 
+#include <windows.h>
+#include <crtdll/io.h>
+#include <crtdll/errno.h>
+#include <crtdll/stdio.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/string.h>
+#include <crtdll/internal/file.h>
 
-/*
- * @unimplemented
- */
-FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
+FILE *
+_popen (const char *cm, const char *md) /* program name, pipe mode */
 {
   FILE *pf;
   HANDLE hReadPipe, hWritePipe;
-  STARTUPINFOA StartupInfo;
+  STARTUPINFO StartupInfo;
   PROCESS_INFORMATION ProcessInformation;
 
   // fixme CreatePipe
 
-  if ( !CreatePipe(&hReadPipe,&hWritePipe,NULL,1024))
-		return NULL;	
+//  if ( !CreatePipe(&hReadPipe,&hWritePipe,NULL,1024))
+//		return NULL;	
 
-  StartupInfo.cb = sizeof(StartupInfo);
+  StartupInfo.cb = sizeof(STARTUPINFO);
   if ( md == "r" ) {
 	StartupInfo.hStdOutput = hWritePipe;
   }
@@ -52,9 +50,6 @@ FILE *_popen (const char *cm, const char *md) /* program name, pipe mode */
 }
 
 
-/*
- * @unimplemented
- */
 int
 _pclose (FILE *pp)
 {

@@ -24,8 +24,9 @@
  * UPDATE HISTORY:
  *      15-03-2002  CSH  Created
  */
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -264,7 +265,7 @@ VOID
 ExpRemoveAboveExternalBinaryTreeNode(PBINARY_TREE Tree,
   PBINARY_TREE_NODE Node)
 {
-  ASSERTMSG(ExpBinaryTreeIsExternalNode(Node), ("Node is not external"));
+  assertmsg(ExpBinaryTreeIsExternalNode(Node), ("Node is not external"));
 
   if (Node == ExpBinaryTreeRootNode(Tree))
 		{

@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/iskana.c
+ * FILE:        lib/crtdll/mbstring/hanzen.c
  * PURPOSE:     Checks for kana character
  * PROGRAMER:   Boudewijn Dekker, Taiji Yamada
  * UPDATE HISTORY:
@@ -11,9 +11,6 @@
 #include <msvcrt/mbstring.h>
 #include <msvcrt/mbctype.h>
 
-/*
- * @implemented
- */
 int _ismbbkana(unsigned char c)
 {
   return ((_jctype+1)[(unsigned char)(c)] & (_KNJ_M|_KNJ_P));

@@ -1,4 +1,4 @@
-/* $Id: spinlock.c,v 1.25 2004/12/24 17:06:58 navaraf Exp $
+/* $Id: spinlock.c,v 1.11 2001/08/30 20:38:19 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -16,14 +16,13 @@
 
 /* INCLUDES ****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <roscfg.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS ***************************************************************/
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 KeSynchronizeExecution (PKINTERRUPT		Interrupt,
 			PKSYNCHRONIZE_ROUTINE	SynchronizeRoutine,
@@ -42,33 +41,17 @@ KeSynchronizeExecution (PKINTERRUPT		Interrupt,
    KIRQL oldlvl;
    BOOLEAN ret;
    
-   KeRaiseIrql(Interrupt->SynchLevel, &oldlvl);
-   KiAcquireSpinLock(Interrupt->IrqLock);
+   KeRaiseIrql(Interrupt->SynchLevel,&oldlvl);
+   KeAcquireSpinLockAtDpcLevel(Interrupt->IrqLock);
    
    ret = SynchronizeRoutine(SynchronizeContext);
    
-   KiReleaseSpinLock(Interrupt->IrqLock);
+   KeReleaseSpinLockFromDpcLevel(Interrupt->IrqLock);
    KeLowerIrql(oldlvl);
    
    return(ret);
 }
 
-/*
- * @unimplemented
- */
-KIRQL
-STDCALL
-KeAcquireInterruptSpinLock(
-    IN PKINTERRUPT Interrupt
-    )
-{
-	UNIMPLEMENTED;
-	return 0;
-}
-
-/*
- * @implemented
- */
 VOID STDCALL
 KeInitializeSpinLock (PKSPIN_LOCK	SpinLock)
 /*
@@ -77,26 +60,9 @@ KeInitializeSpinLock (PKSPIN_LOCK	SpinLock)
  *           SpinLock = Caller supplied storage for the spinlock
  */
 {
-   *SpinLock = 0;
+   SpinLock->Lock = 0;
 }
 
-#undef KefAcquireSpinLockAtDpcLevel
-
-/*
- * @implemented
- */
-VOID FASTCALL
-KefAcquireSpinLockAtDpcLevel(PKSPIN_LOCK SpinLock)
-{
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-  KiAcquireSpinLock(SpinLock);
-}
-
-#undef KeAcquireSpinLockAtDpcLevel
-
-/*
- * @implemented
- */
 VOID STDCALL
 KeAcquireSpinLockAtDpcLevel (PKSPIN_LOCK	SpinLock)
 /*
@@ -106,41 +72,29 @@ KeAcquireSpinLockAtDpcLevel (PKSPIN_LOCK	SpinLock)
  *        SpinLock = Spinlock to acquire
  */
 {
-  KefAcquireSpinLockAtDpcLevel(SpinLock);
+   ULONG i;
+
+   /*
+    * FIXME: This depends on gcc assembling this test to a single load from
+    * the spinlock's value.
+    */
+   if ((ULONG)SpinLock->Lock >= 2)
+     {
+	DbgPrint("Lock %x has bad value %x\n", SpinLock, SpinLock->Lock);
+	KeBugCheck(0);
+     }
+   
+   while ((i = InterlockedExchange(&SpinLock->Lock, 1)) == 1)
+     {
+#ifndef MP
+       DbgPrint("Spinning on spinlock %x current value %x\n", SpinLock, i);
+       KeBugCheck(0);
+#else /* not MP */
+       /* Avoid reading the value again too fast */
+#endif /* MP */
+     }
 }
 
-
-/*
- * @unimplemented
- */
-VOID
-FASTCALL
-KeAcquireInStackQueuedSpinLockAtDpcLevel(
-    IN PKSPIN_LOCK SpinLock,
-    IN PKLOCK_QUEUE_HANDLE LockHandle
-    )
-{
-	UNIMPLEMENTED;
-}
-
-
-#undef KefReleaseSpinLockFromDpcLevel
-
-/*
- * @implemented
- */
-VOID FASTCALL
-KefReleaseSpinLockFromDpcLevel(PKSPIN_LOCK SpinLock)
-{
-  ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-  KiReleaseSpinLock(SpinLock);  
-}
-
-#undef KeReleaseSpinLockFromDpcLevel
-
-/*
- * @implemented
- */
 VOID STDCALL
 KeReleaseSpinLockFromDpcLevel (PKSPIN_LOCK	SpinLock)
 /*
@@ -150,75 +104,12 @@ KeReleaseSpinLockFromDpcLevel (PKSPIN_LOCK	SpinLock)
  *         SpinLock = Spinlock to release
  */
 {
-  KefReleaseSpinLockFromDpcLevel(SpinLock);
-}
-
-/*
- * @unimplemented
- */
-VOID
-FASTCALL
-KeReleaseInStackQueuedSpinLockFromDpcLevel(
-    IN PKLOCK_QUEUE_HANDLE LockHandle
-    )
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @implemented
- */
-VOID FASTCALL
-KiAcquireSpinLock(PKSPIN_LOCK SpinLock)
-{
-  ULONG i;
-
-  /*
-   * FIXME: This depends on gcc assembling this test to a single load from
-   * the spinlock's value.
-   */
-  if (*SpinLock >= 2)
-  {
-    DbgPrint("Lock %x has bad value %x\n", SpinLock, *SpinLock);
-    KEBUGCHECK(0);
-  }
-   
-  while ((i = InterlockedExchangeUL(SpinLock, 1)) == 1)
-  {
-#ifndef MP
-    DbgPrint("Spinning on spinlock %x current value %x\n", SpinLock, i);
-    KEBUGCHECK(0);
-#else /* not MP */
-       /* Avoid reading the value again too fast */
-#endif /* MP */
-  }
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-KeReleaseInterruptSpinLock(
-	IN PKINTERRUPT Interrupt,
-	IN KIRQL OldIrql
-	)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @implemented
- */
-VOID FASTCALL
-KiReleaseSpinLock(PKSPIN_LOCK SpinLock)
-{
-  if (*SpinLock != 1)
-  {
-    DbgPrint("Releasing unacquired spinlock %x\n", SpinLock);
-    KEBUGCHECK(0);
-  }
-  (void)InterlockedExchangeUL(SpinLock, 0);
+   if (SpinLock->Lock != 1)
+     {
+	DbgPrint("Releasing unacquired spinlock %x\n", SpinLock);
+	KeBugCheck(0);
+     }
+   (void)InterlockedExchange(&SpinLock->Lock, 0);
 }
 
 /* EOF */

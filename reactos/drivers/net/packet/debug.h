@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1999, 2000
- *  Politecnico di Torino.  All rights reserved.
+ *	Politecnico di Torino.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that: (1) source code distributions
@@ -19,8 +19,6 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __DEBUG_INCLUDE
-#define __DEBUG_INCLUDE
 
 
 #if DBG
@@ -48,5 +46,3 @@ extern ULONG PacketDebugFlag;
 #define IF_INIT_LOUD(A)
 
 #endif
-
-#endif /*#define __DEBUG_INCLUDE*/

@@ -27,8 +27,9 @@
  * UPDATE HISTORY:
  *      15-03-2002  CSH  Created
  */
+#include <ddk/ntddk.h>
+#include <internal/ex.h>
 
-#include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -470,7 +471,7 @@ ExpSearchSplayTreeWeight(PSPLAY_TREE Tree,
   PSPLAY_TREE_NODE Node,
   PSPLAY_TREE_NODE * ReturnNode)
 {
-  PSPLAY_TREE_NODE x = NULL;
+  PSPLAY_TREE_NODE x;
   LONG Equality;
 #ifdef WEIGHT
   LONG tweight;

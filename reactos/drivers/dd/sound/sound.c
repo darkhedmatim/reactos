@@ -4,7 +4,7 @@
  * FILE:             mkernel/modules/sound/sound.c
  * PURPOSE:          SoundBlaster 16 Driver
  * PROGRAMMER:       Snatched from David Welch (welch@mcmail.com)
- *		     Modified for Soundblaster by Robert Bergkvist (fragdance@hotmail.com)
+ *									 Modified for Soundblaster by Robert Bergkvist (fragdance@hotmail.com)
  * UPDATE HISTORY: 
  *              ??/??/??: Created
  *              
@@ -12,21 +12,25 @@
 
 /* FUNCTIONS **************************************************************/
 
+#include <internal/halio.h>
 #include <ddk/ntddk.h>
+#include <internal/hal/ddk.h>
+#include <internal/dma.h>
+#include <internal/mm.h>
 #include <string.h>
+#include <internal/string.h>
 #include <devices.h>
 #include "sb16.h"
 #include "dsp.h"
 #include "mixer.h"
+#include "in.h"
 #include "wave.h"
 
-#define NDEBUG
-#include <debug.h>
 
 SB16 sb16;
 sb_status sb16_getenvironment(void);
 
-NTSTATUS STDCALL Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:
@@ -41,7 +45,7 @@ NTSTATUS STDCALL Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    switch (Stack->MajorFunction)
      {
       case IRP_MJ_CREATE:
-      	DPRINT1("(SoundBlaster 16 Driver WaveOut) Creating\n");
+      	printk("(SoundBlaster 16 Driver WaveOut) Creating\n");
  	reset_dsp(sb16.base);
        	status = STATUS_SUCCESS;
 	break;
@@ -51,7 +55,7 @@ NTSTATUS STDCALL Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	break;
 	
       case IRP_MJ_WRITE:
-        DPRINT1("(SoundBlaster 16 Driver) Writing %d bytes\n",Stack->Parameters.Write.Length);
+        printk("(SoundBlaster 16 Driver) Writing %d bytes\n",Stack->Parameters.Write.Length);
         sb16_play((WAVE_HDR*)Irp->UserBuffer);
 	status = STATUS_SUCCESS;
 	break;
@@ -80,10 +84,10 @@ NTSTATUS ModuleEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 	PDEVICE_OBJECT DeviceObject;
 	NTSTATUS ret;
    
-	DPRINT1("SoundBlaster 16 Driver 0.0.1\n");
+	printk("SoundBlaster 16 Driver 0.0.1\n");
   	if(sb16_getenvironment()!=SB_TRUE)
   	{
-  		DPRINT1("Soundblaster 16 not found\n");
+  		printk("Soundblaster 16 not found\n");
 	  	return 0;
 	}
 	ret = IoCreateDevice(DriverObject,0,"\\Device\\WaveOut",FILE_DEVICE_WAVE_OUT,0,FALSE,&DeviceObject);
@@ -104,14 +108,17 @@ sb_status sb16_getenvironment(void)
 {
 	if(detect_dsp(&sb16)!=SB_TRUE)
 	{
-		DPRINT1("Detect DSP failed!!!\n");
+		printk("Detect DSP failed!!!\n");
 		return SB_FALSE;
 	}
-	DPRINT1("DSP base address 0x%x\n",sb16.base);
+	printk("DSP base address 0x%x\n",sb16.base);
 	get_irq(&sb16);
-	DPRINT1("IRQ: %d\n",sb16.irq);
+	printk("IRQ: %d\n",sb16.irq);
 	get_dma(&sb16);
-	DPRINT1("DMA8: 0x%x DMA16: 0x%x\n",sb16.dma8,sb16.dma16);
+	printk("DMA8: 0x%x DMA16: 0x%x\n",sb16.dma8,sb16.dma16);
 	return SB_TRUE;
 }
 
+#include "dsp.c"
+#include "mixer.c"
+#include "wave.c"

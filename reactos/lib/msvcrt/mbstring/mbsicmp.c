@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/mbsicmp.c
+ * FILE:        lib/crtdll/mbstring/mbsicmp.c
  * PURPOSE:     Duplicates a multi byte string
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -11,9 +11,6 @@
 #include <msvcrt/mbctype.h>
 #include <msvcrt/ctype.h>
 
-/*
- * @implemented
- */
 int _mbsicmp(const unsigned char *str1, const unsigned char *str2)
 {
 	unsigned char *s1 = (unsigned char *)str1;

@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/stdio/fsopen.c
+ * FILE:        lib/crtdll/conio/kbhit.c
  * PURPOSE:     Checks for keyboard hits
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -20,9 +20,6 @@
 FILE *	__alloc_file(void);
 
 
-/*
- * @implemented
- */
 FILE* _fsopen(const char *file, const char *mode, int shflag)
 {
   FILE *f;
@@ -82,7 +79,7 @@ FILE* _fsopen(const char *file, const char *mode, int shflag)
   if (fd < 0)
     return NULL;
 
-// msvcrt ensures that writes will end up at the end of file in append mode
+// ms crtdll ensures that writes will end up at the end of file in append mode
 // we just move the file pointer to the end of file initially
   if (*mode == 'a')
     lseek(fd, 0, SEEK_END);
@@ -101,9 +98,6 @@ FILE* _fsopen(const char *file, const char *mode, int shflag)
   return f;
 }
 
-/*
- * @implemented
- */
 FILE* _wfsopen(const wchar_t *file, const wchar_t *mode, int shflag)
 {
   FILE *f;
@@ -163,7 +157,7 @@ FILE* _wfsopen(const wchar_t *file, const wchar_t *mode, int shflag)
   if (fd < 0)
     return NULL;
 
-// msvcrt ensures that writes will end up at the end of file in append mode
+// ms crtdll ensures that writes will end up at the end of file in append mode
 // we just move the file pointer to the end of file initially
   if (*mode == L'a')
     lseek(fd, 0, SEEK_END);

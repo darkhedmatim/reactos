@@ -1,12 +1,11 @@
-/* $Id: notify.c,v 1.13 2004/08/21 20:38:53 tamlin Exp $
+/* $Id: notify.c,v 1.3 2002/01/13 22:02:31 ea Exp $
  *
  * reactos/ntoskrnl/fs/notify.c
  *
  */
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -18,7 +17,6 @@
  *
  * RETURN VALUE
  *
- * @implemented
  */
 VOID
 STDCALL
@@ -47,7 +45,6 @@ FsRtlNotifyChangeDirectory (
 }
 
 
-
 /**********************************************************************
  * NAME							EXPORTED
  *	FsRtlNotifyCleanup@12
@@ -58,7 +55,6 @@ FsRtlNotifyChangeDirectory (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -68,50 +64,6 @@ FsRtlNotifyCleanup (
 	IN	PVOID		FsContext
 	)
 {
-}
-
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlNotifyFilterChangeDirectory (
-    IN PNOTIFY_SYNC NotifySync,
-    IN PLIST_ENTRY NotifyList,
-    IN PVOID FsContext,
-    IN PSTRING FullDirectoryName,
-    IN BOOLEAN WatchTree,
-    IN BOOLEAN IgnoreBuffer,
-    IN ULONG CompletionFilter,
-    IN PIRP NotifyIrp,
-    IN PCHECK_FOR_TRAVERSE_ACCESS TraverseCallback OPTIONAL,
-    IN PSECURITY_SUBJECT_CONTEXT SubjectContext OPTIONAL,
-    IN PFILTER_REPORT_CHANGE FilterCallback OPTIONAL
-    )
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-FsRtlNotifyFilterReportChange (
-    IN PNOTIFY_SYNC NotifySync,
-    IN PLIST_ENTRY NotifyList,
-    IN PSTRING FullTargetName,
-    IN USHORT TargetNameOffset,
-    IN PSTRING StreamName OPTIONAL,
-    IN PSTRING NormalizedParentName OPTIONAL,
-    IN ULONG FilterMatch,
-    IN ULONG Action,
-    IN PVOID TargetContext,
-    IN PVOID FilterContext
-    )
-{
-	UNIMPLEMENTED;
 }
 
 
@@ -125,7 +77,6 @@ FsRtlNotifyFilterReportChange (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -142,11 +93,7 @@ FsRtlNotifyFullChangeDirectory (
 	IN	PSECURITY_SUBJECT_CONTEXT	SubjectContext		OPTIONAL
 	)
 {
-#if defined(__GNUC__) || (defined(_MSC_VER) && _MSC_VER >= 1300)
 	DbgPrint("%s()\n", __FUNCTION__);
-#else
-	DbgPrint("FsRtlNotifyFullChangeDirectory()\n");
-#endif
 }
 
 
@@ -160,7 +107,6 @@ FsRtlNotifyFullChangeDirectory (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 VOID
 STDCALL
@@ -189,29 +135,27 @@ FsRtlNotifyFullReportChange (
  *
  * RETURN VALUE
  *
- * @implemented
  */
 VOID
 STDCALL
 FsRtlNotifyInitializeSync (
-    IN  PNOTIFY_SYNC NotifySync
+	IN	PNOTIFY_SYNC	* NotifySync
 	)
 {
-#if 0
-    *NotifySync = NULL;
-    *NotifySync = ExAllocatePoolWithTag (
+	*NotifySync = NULL;
+	*NotifySync = ExAllocatePoolWithTag (
 			0x10,			// PoolType???
 			sizeof (NOTIFY_SYNC),	// NumberOfBytes = 0x28
 			FSRTL_TAG
 			);
-
-    *NotifySync->Unknown0 = 1;
-    *NotifySync->Unknown2 = 0;
-    *NotifySync->Unknown3 = 1;
-    *NotifySync->Unknown4 = 4;
-    *NotifySync->Unknown5 = 0;
-    *NotifySync->Unknown9 = 0;
-    *NotifySync->Unknown10 = 0;
+#if 0
+	*NotifySync->Unknown0 = 1;
+	*NotifySync->Unknown2 = 0;
+	*NotifySync->Unknown3 = 1;
+	*NotifySync->Unknown4 = 4;
+	*NotifySync->Unknown5 = 0;
+	*NotifySync->Unknown9 = 0;
+	*NotifySync->Unknown10 = 0;
 #endif
 }
 
@@ -226,7 +170,6 @@ FsRtlNotifyInitializeSync (
  *
  * RETURN VALUE
  *
- * @implemented
  */
 VOID
 STDCALL
@@ -266,22 +209,18 @@ FsRtlNotifyReportChange (
  *
  * RETURN VALUE
  *	None.
- *
- * @implemented
  */
 VOID
 STDCALL
 FsRtlNotifyUninitializeSync (
-    IN OUT PNOTIFY_SYNC NotifySync
+	IN OUT	PNOTIFY_SYNC	* NotifySync
 	)
 {
-#if 0
-    if (NULL != *NotifySync) 
+	if (NULL != *NotifySync) 
 	{
-        ExFreePool (*NotifySync);
-        *NotifySync = NULL;
+		ExFreePool (*NotifySync);
+		*NotifySync = NULL;
 	}
-#endif
 }
 
 /**********************************************************************
@@ -295,7 +234,6 @@ FsRtlNotifyUninitializeSync (
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
 NTSTATUS
 STDCALL
@@ -307,18 +245,4 @@ FsRtlNotifyVolumeEvent (
 	return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
- *
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-FsRtlRegisterFileSystemFilterCallbacks (
-    IN PVOID		Unknown1,
-    IN PVOID		Unknown2
-    )
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
 /* EOF */

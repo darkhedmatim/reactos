@@ -1,23 +1,19 @@
-/* $Id: pipe.c,v 1.8 2004/08/15 18:16:36 chorns Exp $
+/* $Id: pipe.c,v 1.2 2002/05/07 22:31:25 hbirr Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/io/pipe.c
+ * FILE:        lib/crtdll/io/pipe.c
  * PURPOSE:     Creates a pipe
  * PROGRAMER:   DJ Delorie
  * UPDATE HISTORY:
  *              28/12/98: Appropriated for Reactos
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 int _pipe(int _fildes[2], unsigned int size, int mode )
 {
   HANDLE hReadPipe, hWritePipe;
@@ -26,10 +22,8 @@ int _pipe(int _fildes[2], unsigned int size, int mode )
   if (mode & O_NOINHERIT)
     sa.bInheritHandle = FALSE;
 
-  if (!CreatePipe(&hReadPipe,&hWritePipe,&sa,size)) {
-		_dosmaperr(GetLastError());
-		return -1;
-	}
+  if (!CreatePipe(&hReadPipe,&hWritePipe,&sa,size))
+    return -1;
 
   if ((_fildes[0] = __fileno_alloc(hReadPipe, mode)) < 0)
   {

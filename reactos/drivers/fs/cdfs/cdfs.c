@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002, 2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,20 +16,19 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cdfs.c,v 1.12 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: cdfs.c,v 1.5 2002/05/15 18:01:30 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/cdfs/cdfs.c
+ * FILE:             services/fs/cdfs/cdfs.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
- *                   Eric Kohl
+ * UPDATE HISTORY: 
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -57,10 +56,12 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_OBJECT DeviceObject;
   NTSTATUS Status;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Cdfs");
+  UNICODE_STRING DeviceName;
 
-  DPRINT("CDFS 0.0.3\n");
+  DPRINT("CDFS 0.0.2\n");
 
+  RtlInitUnicodeString(&DeviceName,
+		       L"\\Cdfs");
   Status = IoCreateDevice(DriverObject,
 			  sizeof(CDFS_GLOBAL_DATA),
 			  &DeviceName,
@@ -83,7 +84,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
   /* Initialize driver data */
   DeviceObject->Flags = DO_DIRECT_IO;
   DriverObject->MajorFunction[IRP_MJ_CLOSE] = CdfsClose;
-  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = CdfsCleanup;
   DriverObject->MajorFunction[IRP_MJ_CREATE] = CdfsCreate;
   DriverObject->MajorFunction[IRP_MJ_READ] = CdfsRead;
   DriverObject->MajorFunction[IRP_MJ_WRITE] = CdfsWrite;
@@ -93,8 +93,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
     CdfsDirectoryControl;
   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] =
     CdfsQueryInformation;
-  DriverObject->MajorFunction[IRP_MJ_SET_INFORMATION] = 
-    CdfsSetInformation;
   DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
     CdfsQueryVolumeInformation;
   DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =

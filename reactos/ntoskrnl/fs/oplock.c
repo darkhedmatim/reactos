@@ -1,10 +1,10 @@
-/* $Id: oplock.c,v 1.8 2004/08/15 16:39:02 chorns Exp $
+/* $Id: oplock.c,v 1.2 2000/03/11 00:51:36 ea Exp $
  *
  * reactos/ntoskrnl/fs/oplock.c
  *
  */
-
-#include <ntoskrnl.h>
+#include <ntos.h>
+#include <ddk/ntifs.h>
 
 
 /**********************************************************************
@@ -17,16 +17,18 @@
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-NTSTATUS STDCALL
-FsRtlCheckOplock(IN POPLOCK Oplock,
-		 IN PIRP Irp,
-		 IN PVOID Context,
-		 IN POPLOCK_WAIT_COMPLETE_ROUTINE CompletionRoutine OPTIONAL,
-		 IN POPLOCK_FS_PREPOST_IRP PostIrpRoutine OPTIONAL)
+DWORD
+STDCALL
+FsRtlCheckOplock (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4
+	)
 {
-  return(STATUS_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -40,12 +42,14 @@ FsRtlCheckOplock(IN POPLOCK Oplock,
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-BOOLEAN STDCALL
-FsRtlCurrentBatchOplock(IN POPLOCK Oplock)
+BOOLEAN
+STDCALL
+FsRtlCurrentBatchOplock (
+	DWORD	Unknown0
+	)
 {
-  return(FALSE);
+	return FALSE;
 }
 
 
@@ -61,11 +65,12 @@ FsRtlCurrentBatchOplock(IN POPLOCK Oplock)
  *
  * NOTE
  *	Obsolete function.
- *
- * @implemented
  */
-VOID STDCALL
-FsRtlInitializeOplock(IN OUT POPLOCK Oplock)
+VOID
+STDCALL
+FsRtlInitializeOplock (
+	DWORD	Unknown0
+	)
 {
 }
 
@@ -80,14 +85,16 @@ FsRtlInitializeOplock(IN OUT POPLOCK Oplock)
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-NTSTATUS STDCALL
-FsRtlOplockFsctrl(IN POPLOCK Oplock,
-		  IN PIRP Irp,
-		  IN ULONG OpenCount)
+NTSTATUS
+STDCALL
+FsRtlOplockFsctrl (
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2
+	)
 {
-  return(STATUS_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -101,12 +108,14 @@ FsRtlOplockFsctrl(IN POPLOCK Oplock,
  *
  * RETURN VALUE
  *
- * @unimplemented
  */
-BOOLEAN STDCALL
-FsRtlOplockIsFastIoPossible(IN POPLOCK Oplock)
+BOOLEAN
+STDCALL
+FsRtlOplockIsFastIoPossible (
+	DWORD	Unknown0
+	)
 {
-  return(FALSE);
+	return FALSE;
 }
 
 
@@ -120,11 +129,15 @@ FsRtlOplockIsFastIoPossible(IN POPLOCK Oplock)
  *
  * RETURN VALUE
  *
- * @implemented
  */
-VOID STDCALL
-FsRtlUninitializeOplock(IN POPLOCK Oplock)
+DWORD
+STDCALL
+FsRtlUninitializeOplock (
+	DWORD	Unknown0
+	)
 {
+	return 0;
 }
+
 
 /* EOF */

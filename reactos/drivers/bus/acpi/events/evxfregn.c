@@ -2,7 +2,7 @@
  *
  * Module Name: evxfregn - External Interfaces, ACPI Operation Regions and
  *                         Address Spaces.
- *              $Revision: 1.2 $
+ *              $Revision: 1.1 $
  *
  *****************************************************************************/
 
@@ -71,7 +71,8 @@ acpi_install_address_space_handler (
 	/* Parameter validation */
 
 	if ((!device)   ||
-		((!handler)  && (handler != ACPI_DEFAULT_HANDLER))) {
+		((!handler)  && (handler != ACPI_DEFAULT_HANDLER)) ||
+		(space_id > ACPI_MAX_ADDRESS_SPACE)) {
 		return (AE_BAD_PARAMETER);
 	}
 
@@ -278,7 +279,8 @@ acpi_remove_address_space_handler (
 	/* Parameter validation */
 
 	if ((!device)   ||
-		((!handler)  && (handler != ACPI_DEFAULT_HANDLER))) {
+		((!handler)  && (handler != ACPI_DEFAULT_HANDLER)) ||
+		(space_id > ACPI_MAX_ADDRESS_SPACE)) {
 		return (AE_BAD_PARAMETER);
 	}
 

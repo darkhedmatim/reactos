@@ -1,7 +1,6 @@
 #include <ntddk.h>
 #include "ramdrv.h"
 #include <debug.h>
-#include <rosrtl/string.h>
 #include "../../lib/bzip2/bzlib.h"
 
 NTSTATUS STDCALL RamdrvDispatchDeviceControl(PDEVICE_OBJECT DeviceObject,
@@ -84,7 +83,7 @@ NTSTATUS STDCALL RamdrvDispatchOpenClose(PDEVICE_OBJECT DeviceObject,
 NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
 			     IN PUNICODE_STRING RegistryPath)
 {
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Ramdisk");
+  UNICODE_STRING DeviceName;
   NTSTATUS Status;
   PDEVICE_OBJECT DeviceObject;
   PRAMDRV_DEVICE_EXTENSION devext;
@@ -110,6 +109,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
   
   
   // create device and symbolic link
+  RtlInitUnicodeString( &DeviceName, L"\\Device\\Ramdisk" );
   Status = IoCreateDevice( DriverObject,
 			   sizeof( RAMDRV_DEVICE_EXTENSION ),
 			   &DeviceName,
@@ -128,10 +128,10 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
       Status = STATUS_INSUFFICIENT_RESOURCES;
       goto cleandevice;
     }
-  RtlRosInitUnicodeStringFromLiteral( &LinkName, L"\\??\\Z:" );
+  RtlInitUnicodeString( &LinkName, L"\\??\\Z:" );
   IoCreateSymbolicLink( &LinkName, &DeviceName );
 
-  RtlRosInitUnicodeStringFromLiteral( &LinkName, L"\\Device\\Floppy0\\ramdisk.bz2" );
+  RtlInitUnicodeString( &LinkName, L"\\Device\\Floppy0\\ramdisk.bz2" );
   InitializeObjectAttributes( &objattr,
 			      &LinkName,
 			      0,
@@ -160,7 +160,7 @@ NTSTATUS STDCALL DriverEntry(IN PDRIVER_OBJECT DriverObject,
   Status = NtCreateEvent( &event,
 			  0,
 			  &objattr,
-			  NotificationEvent,
+			  TRUE,
 			  FALSE );
   if( !NT_SUCCESS( Status ) )
     {

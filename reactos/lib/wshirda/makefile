@@ -6,18 +6,14 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = wshirda
 
-TARGET_BASE = $(TARGET_BASE_LIB_WSHIRDA)
+TARGET_BASE = 0x777c0000
 
-TARGET_CFLAGS = -DUNICODE -D__USE_W32API -Werror -Wall
+TARGET_CFLAGS = -DUNICODE
 
 TARGET_SDKLIBS = ntdll.a kernel32.a
 
 TARGET_OBJECTS = $(TARGET_NAME).o
 
-DEP_OBJECTS = $(TARGET_OBJECTS)
-
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk

@@ -1,273 +1,236 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: metafile.c,v 1.11 2004/07/14 20:48:58 navaraf Exp $ */
-#include <w32k.h>
+
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/metafile.h>
+
+// #define NDEBUG
+#include <win32k/debug1.h>
 
 HENHMETAFILE
 STDCALL
-NtGdiCloseEnhMetaFile(HDC  hDC)
+W32kCloseEnhMetaFile(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HMETAFILE
 STDCALL
-NtGdiCloseMetaFile(HDC  hDC)
+W32kCloseMetaFile(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HENHMETAFILE
 STDCALL
-NtGdiCopyEnhMetaFile(HENHMETAFILE  Src,
+W32kCopyEnhMetaFile(HENHMETAFILE  Src,
                                   LPCWSTR  File)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HMETAFILE
 STDCALL
-NtGdiCopyMetaFile(HMETAFILE  Src,
+W32kCopyMetaFile(HMETAFILE  Src,
                             LPCWSTR  File)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HDC
 STDCALL
-NtGdiCreateEnhMetaFile(HDC  hDCRef,
+W32kCreateEnhMetaFile(HDC  hDCRef,
                            LPCWSTR  File,
                            CONST LPRECT  Rect,
                            LPCWSTR  Description)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HDC
 STDCALL
-NtGdiCreateMetaFile(LPCWSTR  File)
+W32kCreateMetaFile(LPCWSTR  File)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
 STDCALL
-NtGdiDeleteEnhMetaFile(HENHMETAFILE  emf)
+W32kDeleteEnhMetaFile(HENHMETAFILE  emf)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiDeleteMetaFile(HMETAFILE  mf)
+W32kDeleteMetaFile(HMETAFILE  mf)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiEnumEnhMetaFile(HDC  hDC,
+W32kEnumEnhMetaFile(HDC  hDC,
                           HENHMETAFILE  emf,
                           ENHMFENUMPROC  EnhMetaFunc,
                           LPVOID  Data,
                           CONST LPRECT  Rect)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiEnumMetaFile(HDC  hDC,
+W32kEnumMetaFile(HDC  hDC,
                        HMETAFILE  mf,
                        MFENUMPROC  MetaFunc,
                        LPARAM  lParam)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiGdiComment(HDC  hDC,
+W32kGdiComment(HDC  hDC,
                      UINT  Size,
                      CONST LPBYTE  Data)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 HENHMETAFILE
 STDCALL
-NtGdiGetEnhMetaFile(LPCWSTR  MetaFile)
+W32kGetEnhMetaFile(LPCWSTR  MetaFile)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetEnhMetaFileBits(HENHMETAFILE  hemf,
+W32kGetEnhMetaFileBits(HENHMETAFILE  hemf,
                              UINT  BufSize,
                              LPBYTE  Buffer)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetEnhMetaFileDescription(HENHMETAFILE  hemf,
+W32kGetEnhMetaFileDescription(HENHMETAFILE  hemf,
                                     UINT  BufSize,
                                     LPWSTR  Description)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetEnhMetaFileHeader(HENHMETAFILE  hemf,
+W32kGetEnhMetaFileHeader(HENHMETAFILE  hemf,
                                UINT  BufSize,
                                LPENHMETAHEADER  emh)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetEnhMetaFilePaletteEntries(HENHMETAFILE  hemf,
+W32kGetEnhMetaFilePaletteEntries(HENHMETAFILE  hemf,
                                        UINT  Entries,
                                        LPPALETTEENTRY  pe)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HMETAFILE
 STDCALL
-NtGdiGetMetaFile(LPCWSTR  MetaFile)
+W32kGetMetaFile(LPCWSTR  MetaFile)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetMetaFileBitsEx(HMETAFILE  hmf,
+W32kGetMetaFileBitsEx(HMETAFILE  hmf,
                             UINT  Size,
                             LPVOID  Data)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetWinMetaFileBits(HENHMETAFILE  hemf,
+W32kGetWinMetaFileBits(HENHMETAFILE  hemf,
                              UINT  BufSize,
                              LPBYTE  Buffer,
                              INT  MapMode,
                              HDC  Ref)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
 STDCALL
-NtGdiPlayEnhMetaFile(HDC  hDC,
+W32kPlayEnhMetaFile(HDC  hDC,
                           HENHMETAFILE  hemf,
                           CONST PRECT  Rect)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiPlayEnhMetaFileRecord(HDC  hDC,
+W32kPlayEnhMetaFileRecord(HDC  hDC,
                                 LPHANDLETABLE  Handletable,
                                 CONST ENHMETARECORD *EnhMetaRecord,
                                 UINT  Handles)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiPlayMetaFile(HDC  hDC,
+W32kPlayMetaFile(HDC  hDC,
                        HMETAFILE  hmf)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiPlayMetaFileRecord(HDC  hDC,
+W32kPlayMetaFileRecord(HDC  hDC,
                              LPHANDLETABLE  Handletable,
                              LPMETARECORD  MetaRecord,
                              UINT  Handles)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 HENHMETAFILE
 STDCALL
-NtGdiSetEnhMetaFileBits(UINT  BufSize,
+W32kSetEnhMetaFileBits(UINT  BufSize,
                                      CONST PBYTE  Data)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HMETAFILE
 STDCALL
-NtGdiSetMetaFileBitsEx(UINT  Size,
+W32kSetMetaFileBitsEx(UINT  Size,
                                  CONST PBYTE  Data)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 HENHMETAFILE
 STDCALL
-NtGdiSetWinMetaFileBits(UINT  BufSize,
+W32kSetWinMetaFileBits(UINT  BufSize,
                                      CONST PBYTE  Buffer,
                                      HDC  Ref,
 //                                     CONST METAFILEPICT *mfp)
 				     PVOID mfp)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
-/* EOF */
+

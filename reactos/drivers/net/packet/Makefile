@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.4 2003/02/21 16:30:05 robd Exp $
+# $Id: Makefile,v 1.1 2002/06/19 15:43:15 robd Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -7,29 +7,23 @@ TARGET_TYPE = driver
 
 TARGET_NAME = packet
 
-#TARGET_CFLAGS = -DDBG -DWIN_NT_DRIVER -DKQPC_TS -I$(PATH_TO_TOP)/ntoskrnl/include
+TARGET_CFLAGS = -DNDIS50
+# -disable-stdcall-fixup
 
-TARGET_CFLAGS = -DDBG -DWIN_NT_DRIVER -DKQPC_TS -DUSE_KLOCKS -I$(PATH_TO_TOP)/ntoskrnl/include
+TARGET_OBJECTS = \
+  packet.o \
+  read.o \
+  openclos.o \
+  write.o \
+  win_bpf_filter.o
 
 TARGET_DDKLIBS = ndis.a
 
-TARGET_OBJECTS = \
-	packet.o    \
-	openclos.o  \
-	read.o      \
-	write.o     \
-	dump.o      \
-	jitter.o      \
-	win_bpf_filter.o \
-	tme.o \
-	count_packets.o \
-	win_bpf_filter_init.o \
-	tcp_session.o \
-	memory_t.o \
-	time_calls.o \
-	functions.o \
-	bucket_lookup.o \
-	normal_lookup.o
+TARGET_CLEAN = \
+  *.o \
+  *.coff
+
+TARGET_PATH = .
 
 include $(PATH_TO_TOP)/rules.mak
 

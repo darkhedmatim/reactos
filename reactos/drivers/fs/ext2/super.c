@@ -10,7 +10,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 //#define NDEBUG
 #include <debug.h>
@@ -118,7 +117,7 @@ NTSTATUS Ext2Mount(PDEVICE_OBJECT DeviceToMount)
    DeviceExt->superblock = superblock;
    CcRosInitializeFileCache(DeviceExt->FileObject,
 			    &DeviceExt->Bcb,
-			    PAGE_SIZE * 3);
+			    PAGESIZE * 3);
    
    DPRINT("Ext2Mount() = STATUS_SUCCESS\n");
    
@@ -155,12 +154,14 @@ DriverEntry(PDRIVER_OBJECT _DriverObject,
 {
    PDEVICE_OBJECT DeviceObject;
    NTSTATUS ret;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Ext2Fsd");
+   UNICODE_STRING DeviceName;
    
    DbgPrint("Ext2 FSD 0.0.1\n");
    
    DriverObject = _DriverObject;
    
+   RtlInitUnicodeString(&DeviceName,
+			L"\\Device\\Ext2Fsd");
    ret = IoCreateDevice(DriverObject,
 			0,
 			&DeviceName,

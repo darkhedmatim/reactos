@@ -8,14 +8,11 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-#include <msvcrt/stdio.h>
+#include <crtdll/stdio.h>
 
 #undef putc
 #undef putchar
 
-/*
- * @implemented
- */
 int putchar(int c)
 {
   int r = putc(c, stdout);

@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002,2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: fat.c,v 1.9 2004/05/02 20:12:38 hbirr Exp $
+/* $Id: fat.c,v 1.3 2002/06/12 23:35:55 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/fs_rec/vfat.c
+ * FILE:             services/fs/fs_rec/vfat.c
  * PURPOSE:          Filesystem recognizer driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -41,143 +40,56 @@
 static NTSTATUS
 FsRecIsFatVolume(IN PDEVICE_OBJECT DeviceObject)
 {
-   NTSTATUS Status;
-   PARTITION_INFORMATION PartitionInfo;
-   DISK_GEOMETRY DiskGeometry;
-   ULONG Size;
-   struct _BootSector* Boot;
-   BOOL RecognizedFS = FALSE;
-   Size = sizeof(DISK_GEOMETRY);
+  DISK_GEOMETRY DiskGeometry;
+  PUCHAR Buffer;
+  ULONG Size;
+  NTSTATUS Status;
 
-   Status = FsRecDeviceIoControl(DeviceObject,
-				 IOCTL_DISK_GET_DRIVE_GEOMETRY,
-				 NULL,
-				 0,
-				 &DiskGeometry,
-				 &Size);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("FsRecDeviceIoControl faild (%x)\n", Status);
-      return Status;
-   }
-   if (DiskGeometry.MediaType == FixedMedia || DiskGeometry.MediaType == RemovableMedia)
-   {
-      // We have found a hard disk
-      Size = sizeof(PARTITION_INFORMATION);
-      Status = FsRecDeviceIoControl(DeviceObject,
-				    IOCTL_DISK_GET_PARTITION_INFO,
-				    NULL,
-				    0,
-				    &PartitionInfo,
-				    &Size);
-      if (!NT_SUCCESS(Status))
-      {
-         DPRINT("FsRecDeviceIoControl faild (%x)\n", Status);
-         return Status;
-      }
-      
-      if (PartitionInfo.PartitionType)
-      {
-         if (PartitionInfo.PartitionType == PARTITION_FAT_12       ||
-             PartitionInfo.PartitionType == PARTITION_FAT_16       ||
-             PartitionInfo.PartitionType == PARTITION_HUGE         ||
-             PartitionInfo.PartitionType == PARTITION_FAT32        ||
-             PartitionInfo.PartitionType == PARTITION_FAT32_XINT13 ||
-             PartitionInfo.PartitionType == PARTITION_XINT13)
-         {
-            RecognizedFS = TRUE;
-         }
-      }
-      else if (DiskGeometry.MediaType == RemovableMedia &&
-               PartitionInfo.PartitionNumber > 0 &&
-               PartitionInfo.StartingOffset.QuadPart == 0LL &&
-               PartitionInfo.PartitionLength.QuadPart > 0LL)
-      {
-         /* This is possible a removable media formated as super floppy */
-         RecognizedFS = TRUE;
-      }
-   }
-   if (DiskGeometry.MediaType > Unknown && DiskGeometry.MediaType < RemovableMedia )
-   {
-      RecognizedFS = TRUE;
-   }
-   if (RecognizedFS == FALSE)
-   {
-      return STATUS_UNRECOGNIZED_VOLUME;
-   }
+  Size = sizeof(DISK_GEOMETRY);
+  Status = FsRecDeviceIoControl(DeviceObject,
+				IOCTL_DISK_GET_DRIVE_GEOMETRY,
+				NULL,
+				0,
+				&DiskGeometry,
+				&Size);
+  DPRINT("FsRecDeviceIoControl() Status %lx\n", Status);
+  if (!NT_SUCCESS(Status))
+    {
+      return(Status);
+    }
 
-   Boot = ExAllocatePool(NonPagedPool, DiskGeometry.BytesPerSector);
-   if (Boot == NULL)
-   {
-      return STATUS_INSUFFICIENT_RESOURCES;
-   }
+  DPRINT("BytesPerSector: %lu\n", DiskGeometry.BytesPerSector);
+  Buffer = ExAllocatePool(NonPagedPool,
+			  DiskGeometry.BytesPerSector);
+  if (Buffer == NULL)
+    {
+      return(STATUS_INSUFFICIENT_RESOURCES);
+    }
 
-   Status = FsRecReadSectors(DeviceObject, 
-                             0, 
-                             1,
-                             DiskGeometry.BytesPerSector, 
-                             (PUCHAR) Boot);
-   if (!NT_SUCCESS(Status))
-   {
-      return Status;
-   }
-   
-   if (Boot->Signatur1 != 0xaa55)
-   {
-      RecognizedFS=FALSE;
-   }
-   if (RecognizedFS &&
-       Boot->BytesPerSector != 512 &&
-       Boot->BytesPerSector != 1024 &&
-       Boot->BytesPerSector != 2048 && 
-       Boot->BytesPerSector == 4096)
-   {
-      RecognizedFS=FALSE;
-   }
+  Status = FsRecReadSectors(DeviceObject,
+			    0, /* Partition boot sector */
+			    1,
+			    DiskGeometry.BytesPerSector,
+			    Buffer);
+  if (!NT_SUCCESS(Status))
+    {
+      return(Status);
+    }
 
-   if (RecognizedFS &&
-       Boot->FATCount != 1 && 
-       Boot->FATCount != 2)
-   {
-      RecognizedFS=FALSE;
-   }
+  if ((strncmp(&Buffer[0x36], "FAT12", 5) == 0) ||
+      (strncmp(&Buffer[0x36], "FAT16", 5) == 0) ||
+      (strncmp(&Buffer[0x52], "FAT32", 5) == 0))
+    {
+      Status = STATUS_SUCCESS;
+    }
+  else
+    {
+      Status = STATUS_UNRECOGNIZED_VOLUME;
+    }
 
-   if (RecognizedFS &&
-       Boot->Media != 0xf0 && 
-       Boot->Media != 0xf8 &&
-       Boot->Media != 0xf9 &&
-       Boot->Media != 0xfa && 
-       Boot->Media != 0xfb &&
-       Boot->Media != 0xfc &&
-       Boot->Media != 0xfd &&
-       Boot->Media != 0xfe && 
-       Boot->Media != 0xff)
-   {
-      RecognizedFS=FALSE;
-   }
+  ExFreePool(Buffer);
 
-   if (RecognizedFS &&
-       Boot->SectorsPerCluster != 1 &&
-       Boot->SectorsPerCluster != 2 &&
-       Boot->SectorsPerCluster != 4 && 
-       Boot->SectorsPerCluster != 8 &&
-       Boot->SectorsPerCluster != 16 &&
-       Boot->SectorsPerCluster != 32 && 
-       Boot->SectorsPerCluster != 64 &&
-       Boot->SectorsPerCluster != 128)
-   {
-      RecognizedFS=FALSE;
-   }
-
-   if (RecognizedFS &&
-       Boot->BytesPerSector * Boot->SectorsPerCluster > 32 * 1024)
-   {
-      RecognizedFS=FALSE;
-   }
-
-
-   ExFreePool(Boot);
-   return RecognizedFS ? STATUS_SUCCESS : STATUS_UNRECOGNIZED_VOLUME;
+  return(Status);
 }
 
 
@@ -205,7 +117,7 @@ FsRecVfatFsControl(IN PDEVICE_OBJECT DeviceObject,
 
       case IRP_MN_LOAD_FILE_SYSTEM:
 	DPRINT("FAT: IRP_MN_LOAD_FILE_SYSTEM\n");
-	RtlRosInitUnicodeStringFromLiteral(&RegistryPath,
+	RtlInitUnicodeString(&RegistryPath,
 			     L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\Vfatfs");
 	Status = ZwLoadDriver(&RegistryPath);
 	if (!NT_SUCCESS(Status))

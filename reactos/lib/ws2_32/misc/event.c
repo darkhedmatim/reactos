@@ -11,9 +11,6 @@
 #include <handle.h>
 
 
-/*
- * @implemented
- */
 BOOL
 EXPORT
 WSACloseEvent(
@@ -35,9 +32,6 @@ WSACloseEvent(
 }
 
 
-/*
- * @implemented
- */
 WSAEVENT
 EXPORT
 WSACreateEvent(VOID)
@@ -49,18 +43,15 @@ WSACreateEvent(VOID)
     return FALSE;
   }
 
-  Event = CreateEventW(NULL, TRUE, FALSE, NULL);
+  Event = CreateEvent(NULL, TRUE, FALSE, NULL);
 
   if (Event == INVALID_HANDLE_VALUE)
     WSASetLastError(WSA_INVALID_HANDLE);
-
+  
   return (WSAEVENT)Event;
 }
 
 
-/*
- * @implemented
- */
 BOOL
 EXPORT
 WSAResetEvent(
@@ -82,9 +73,6 @@ WSAResetEvent(
 }
 
 
-/*
- * @implemented
- */
 BOOL
 EXPORT
 WSASetEvent(
@@ -106,9 +94,6 @@ WSASetEvent(
 }
 
 
-/*
- * @implemented
- */
 DWORD
 EXPORT
 WSAWaitForMultipleEvents(
@@ -143,9 +128,6 @@ WSAWaitForMultipleEvents(
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSAEnumNetworkEvents(
@@ -156,10 +138,6 @@ WSAEnumNetworkEvents(
   PCATALOG_ENTRY Provider;
   INT Status;
   INT Errno;
-
-  WS_DbgPrint(MID_TRACE,("Called (Socket %x, hEventObject %x, "
-			 "lpNetworkEvents %x)\n",
-			 s, hEventObject, lpNetworkEvents));
 
   if (!lpNetworkEvents) {
     WSASetLastError(WSAEINVAL);
@@ -184,15 +162,10 @@ WSAEnumNetworkEvents(
   if (Status == SOCKET_ERROR)
     WSASetLastError(Errno);
 
-  WS_DbgPrint(MID_TRACE,("Leaving %x\n", Status));
-
   return Status;
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSAEventSelect(
@@ -203,6 +176,7 @@ WSAEventSelect(
   PCATALOG_ENTRY Provider;
   INT Status;
   INT Errno;
+  LONG i;
 
   if (!WSAINITIALIZED) {
     WSASetLastError(WSANOTINITIALISED);

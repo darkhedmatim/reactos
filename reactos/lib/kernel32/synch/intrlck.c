@@ -14,8 +14,6 @@
  * Copyright 1997 Onno Hovers
  */
 
-#include <k32.h>
-
 
 /************************************************************************
 *           InterlockedIncrement			                *
@@ -28,10 +26,10 @@
 * The returned number need not be equal to the result!!!!		*
 * note:									*
 *									*
-*
-* @implemented
-*
 ************************************************************************/
+
+#include <windows.h>
+
 LONG 
 STDCALL 
 InterlockedIncrement(PLONG Addend)
@@ -61,11 +59,8 @@ InterlockedIncrement(PLONG Addend)
 *  -  a positive number if the result > 0				*
 *									*
 * The returned number need not be equal to the result!!!!		*
-*
-*
-* @implemented
-*
 ************************************************************************/
+
 LONG 
 STDCALL
 InterlockedDecrement(LPLONG lpAddend)
@@ -95,9 +90,8 @@ InterlockedDecrement(LPLONG lpAddend)
  *
  * RETURNS
  *	Prior value of value pointed to by Target
- *
- * @implemented
  */
+ 
 LONG 
 STDCALL 
 InterlockedExchange(LPLONG target, LONG value )
@@ -120,17 +114,15 @@ InterlockedExchange(LPLONG target, LONG value )
  *
  * RETURNS
  *	Prior value of value pointed to by Destination
- *
- * @implemented
  */
-LONG 
+PVOID 
 STDCALL 
 InterlockedCompareExchange(
-	    PLONG Destination, 
-	    LONG Exchange,     
-            LONG Comperand     ) 
+	    PVOID *Destination, 
+	    PVOID Exchange,     
+            PVOID Comperand     ) 
 {	
-	LONG ret;
+	PVOID ret;
 	__asm__ ( /* lock for SMP systems */
                   "lock\n\t"
                   "cmpxchgl %2,(%1)"
@@ -138,6 +130,7 @@ InterlockedCompareExchange(
                   :"r" (Destination),"r" (Exchange), "0" (Comperand)
                   :"memory" );
 	return ret;
+
 }
 
 /************************************************************************
@@ -148,8 +141,6 @@ InterlockedCompareExchange(
  *
  * RETURNS
  *	Prior value of value pointed to by Addend
- *
- * @implemented
  */
 LONG 
 STDCALL 
@@ -167,4 +158,5 @@ InterlockedExchangeAdd(
                   :"r" (Addend), "0" (Increment)
                   :"memory" );
 	return ret;
+
 }

@@ -10,7 +10,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -18,15 +19,12 @@
 
 IDT_DESCRIPTOR KiIdt[256];
 
-#include <pshpack1.h>
-
 struct
 {
   USHORT Length;
   ULONG Base;
-} KiIdtDescriptor = {256 * 8, (ULONG)KiIdt};
+} __attribute__((packed)) KiIdtDescriptor = {256 * 8, (ULONG)KiIdt};
 
-#include <poppack.h>
 
 /* FUNCTIONS *****************************************************************/
 

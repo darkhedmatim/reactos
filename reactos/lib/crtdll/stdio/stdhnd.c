@@ -1,6 +1,9 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/internal/file.h>
+//#include <crtdll/stdiohk.h>
+
+
 
 FILE _iob[5] =
 {

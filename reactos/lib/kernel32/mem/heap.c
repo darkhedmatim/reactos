@@ -1,4 +1,4 @@
-/* $Id: heap.c,v 1.28 2004/12/16 15:10:00 gdalsnes Exp $
+/* $Id: heap.c,v 1.19 2001/05/03 06:12:50 ekohl Exp $
  *
  * kernel/heap.c
  * Copyright (C) 1996, Onno Hovers, All rights reserved
@@ -27,48 +27,33 @@
  * Put the type definitions of the heap in a seperate header. Boudewijn Dekker
  */
 
-#include <k32.h>
+#include <ddk/ntddk.h>
+#include <ntdll/rtl.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /*********************************************************************
 *                     HeapCreate -- KERNEL32                         *
 *********************************************************************/
-/*
- * @implemented
- */
-HANDLE STDCALL HeapCreate(DWORD flags, DWORD dwInitialSize, DWORD dwMaximumSize)
+HANDLE STDCALL HeapCreate(DWORD flags, DWORD minsize, DWORD maxsize)
 {
 
-   DPRINT("HeapCreate( 0x%lX, 0x%lX, 0x%lX )\n", flags, dwInitialSize, dwMaximumSize);
-   return(RtlCreateHeap(flags, NULL, dwMaximumSize, dwInitialSize, NULL, NULL));
+   DPRINT("HeapCreate( 0x%lX, 0x%lX, 0x%lX )\n", flags, minsize, maxsize);
+   return(RtlCreateHeap(flags, NULL, maxsize, minsize, NULL, NULL));
 }
 
 /*********************************************************************
 *                     HeapDestroy -- KERNEL32                        *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapDestroy(HANDLE hheap)
 {
-   if (hheap == RtlGetProcessHeap())
-   {
-      return FALSE;
-   }
-
-   if (RtlDestroyHeap( hheap )==NULL) return TRUE;
-   SetLastError( ERROR_INVALID_HANDLE );
-   return FALSE;
+   return(RtlDestroyHeap(hheap));
 }
 
 /*********************************************************************
 *                   GetProcessHeap  --  KERNEL32                     *
 *********************************************************************/
-/*
- * @implemented
- */
 HANDLE WINAPI GetProcessHeap(VOID)
 {
    DPRINT("GetProcessHeap()\n");
@@ -78,10 +63,7 @@ HANDLE WINAPI GetProcessHeap(VOID)
 /********************************************************************
 *                   GetProcessHeaps  --  KERNEL32                   *
 ********************************************************************/
-/*
- * @implemented
- */
-DWORD WINAPI GetProcessHeaps(DWORD maxheaps, PHANDLE phandles)
+DWORD WINAPI GetProcessHeaps(DWORD maxheaps, PHANDLE phandles )
 {
    return(RtlGetProcessHeaps(maxheaps, phandles));
 }
@@ -89,9 +71,6 @@ DWORD WINAPI GetProcessHeaps(DWORD maxheaps, PHANDLE phandles)
 /*********************************************************************
 *                    HeapLock  --  KERNEL32                          *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapLock(HANDLE hheap)
 {
    return(RtlLockHeap(hheap));
@@ -100,9 +79,6 @@ BOOL WINAPI HeapLock(HANDLE hheap)
 /*********************************************************************
 *                    HeapUnlock  --  KERNEL32                        *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapUnlock(HANDLE hheap)
 {
    return(RtlUnlockHeap(hheap));
@@ -114,10 +90,7 @@ BOOL WINAPI HeapUnlock(HANDLE hheap)
 * NT uses this function to compact moveable blocks and other things  *
 * Here it does not compact, but it finds the largest free region     *
 *********************************************************************/
-/*
- * @implemented
- */
-SIZE_T WINAPI HeapCompact(HANDLE hheap, DWORD flags)
+UINT WINAPI HeapCompact(HANDLE hheap, DWORD flags)
 {
    return RtlCompactHeap(hheap, flags);
 }
@@ -125,18 +98,12 @@ SIZE_T WINAPI HeapCompact(HANDLE hheap, DWORD flags)
 /*********************************************************************
 *                    HeapValidate  --  KERNEL32                      *
 *********************************************************************/
-/*
- * @implemented
- */
 BOOL WINAPI HeapValidate(HANDLE hheap, DWORD flags, LPCVOID pmem)
 {
    return(RtlValidateHeap(hheap, flags, (PVOID)pmem));
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 HeapCreateTagsW (
@@ -151,9 +118,6 @@ HeapCreateTagsW (
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 HeapExtend (
@@ -180,9 +144,6 @@ HeapExtend (
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 HeapQueryTagW (
@@ -198,9 +159,6 @@ HeapQueryTagW (
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 HeapSummary (
@@ -214,9 +172,6 @@ HeapSummary (
 }
 
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 HeapUsage (
@@ -232,10 +187,7 @@ HeapUsage (
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 HeapWalk (
 	HANDLE			hHeap,

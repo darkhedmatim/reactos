@@ -41,7 +41,6 @@ Copyright notice:
 
 #include <ddk/ntddkbd.h>
 #include <ddk/ntdd8042.h>
-#include <rosrtl/string.h>
 
 ////////////////////////////////////////////////////
 // GLOBALS
@@ -193,13 +192,14 @@ NTSTATUS PiceSendIoctl(PDEVICE_OBJECT Target, ULONG Ioctl,
 BOOLEAN PatchKeyboardDriver(void)
 {
 	PINTERNAL_I8042_HOOK_KEYBOARD phkData;
-	//When we have i8042 driver this should be changed!!!!!!!
-    UNICODE_STRING DevName = ROS_STRING_INITIALIZER(L"\\Device\\Keyboard");
+    UNICODE_STRING DevName;
 	PDEVICE_OBJECT kbdDevice = NULL;
 	PFILE_OBJECT FO = NULL;
 	NTSTATUS status;
 
 	ENTER_FUNC();
+	//When we have i8042 driver this should be changed!!!!!!!
+	RtlInitUnicodeString(&DevName, L"\\Device\\Keyboard");
 
 	//Get pointer to keyboard device
     if( !NT_SUCCESS( status = IoGetDeviceObjectPointer( &DevName, FILE_READ_ACCESS, &FO, &kbdDevice ) ) )

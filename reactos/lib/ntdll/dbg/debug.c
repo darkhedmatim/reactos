@@ -1,4 +1,4 @@
-/* $Id: debug.c,v 1.14 2004/01/06 16:08:02 ekohl Exp $
+/* $Id: debug.c,v 1.3 2001/08/03 17:17:16 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -13,9 +13,8 @@
 
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
-#include <rosrtl/string.h>
-#include <rosrtl/thread.h>
 #include <ntdll/dbg.h>
+#include <napi/lpc.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -25,7 +24,7 @@ static HANDLE DbgSsReplyPort = NULL;
 
 typedef struct _LPC_DBGSS_MESSAGE
 {
-	LPC_MESSAGE Header;
+	LPC_MESSAGE_HEADER Header;
 	ULONG Unknown1;
 	ULONG Unknown2;
 	ULONG Unknown3;
@@ -63,9 +62,6 @@ DbgSsServerThread(PVOID Unused)
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgSsHandleKmApiMsg(ULONG Unknown1,
 		    HANDLE EventHandle)
@@ -74,9 +70,6 @@ DbgSsHandleKmApiMsg(ULONG Unknown1,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 DbgSsInitialize(HANDLE ReplyPort,
 		ULONG Unknown1,
@@ -84,8 +77,11 @@ DbgSsInitialize(HANDLE ReplyPort,
 		ULONG Unknown3)
 {
 	SECURITY_QUALITY_OF_SERVICE Qos;
-	UNICODE_STRING PortName = ROS_STRING_INITIALIZER(L"\\DbgSsApiPort");
+	UNICODE_STRING PortName;
 	NTSTATUS Status;
+
+	RtlInitUnicodeString (&PortName,
+	                      L"\\DbgSsApiPort");
 
 	Qos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
 	Qos.ImpersonationLevel = SecurityIdentification;
@@ -123,19 +119,19 @@ DbgSsInitialize(HANDLE ReplyPort,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 DbgUiConnectToDbg(VOID)
 {
 	SECURITY_QUALITY_OF_SERVICE Qos;
-	UNICODE_STRING PortName = ROS_STRING_INITIALIZER(L"\\DbgUiApiPort");
+	UNICODE_STRING PortName;
 	NTSTATUS Status;
 	PTEB Teb;
 	ULONG InfoSize;
 
 	Teb = NtCurrentTeb ();
+
+	RtlInitUnicodeString (&PortName,
+	                      L"\\DbgUiApiPort");
 
 	Qos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
 	Qos.ImpersonationLevel = SecurityIdentification;
@@ -164,9 +160,6 @@ DbgUiConnectToDbg(VOID)
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgUiContinue(PCLIENT_ID ClientId,
 	      ULONG ContinueStatus)
@@ -175,52 +168,11 @@ DbgUiContinue(PCLIENT_ID ClientId,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgUiWaitStateChange(ULONG Unknown1,
 		     ULONG Unknown2)
 {
   return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS STDCALL DbgUiRemoteBreakin(VOID)
-{
- DbgBreakPoint();
-
- RtlRosExitUserThread(0);
-
- DbgBreakPoint();
- return STATUS_SUCCESS;
-}
-
-NTSTATUS STDCALL DbgUiIssueRemoteBreakin(HANDLE Process)
-{
- HANDLE hThread;
- CLIENT_ID cidClientId;
- NTSTATUS nErrCode;
- ULONG nStackSize = PAGE_SIZE;
-
- nErrCode = RtlCreateUserThread
- (
-  Process,
-  NULL,
-  FALSE,
-  0,
-  &nStackSize,
-  &nStackSize,
-  (PTHREAD_START_ROUTINE)DbgUiRemoteBreakin,
-  NULL,
-  &hThread,
-  &cidClientId
- );
-
- if(!NT_SUCCESS(nErrCode)) return nErrCode;
-
- NtClose(hThread);
-
- return STATUS_SUCCESS;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: smapi.c,v 1.11 2004/01/06 16:10:11 ekohl Exp $
+/* $Id: smapi.c,v 1.6 2002/05/24 07:49:41 ekohl Exp $
  *
  * Reactos Session Manager
  *
@@ -7,7 +7,7 @@
 
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
-#include <rosrtl/string.h>
+#include <napi/lpc.h>
 
 #include "smss.h"
 
@@ -78,7 +78,7 @@ SmCreateApiPort(VOID)
   UNICODE_STRING UnicodeString;
   NTSTATUS Status;
 
-  RtlRosInitUnicodeStringFromLiteral(&UnicodeString,
+  RtlInitUnicodeString(&UnicodeString,
 		       L"\\SmApiPort");
   InitializeObjectAttributes(&ObjectAttributes,
 			     &UnicodeString,

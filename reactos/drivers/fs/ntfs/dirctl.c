@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002,2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dirctl.c,v 1.9 2004/12/23 12:38:41 ekohl Exp $
+/* $Id: dirctl.c,v 1.1 2002/06/25 22:23:05 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/ntfs/dirctl.c
+ * FILE:             services/fs/ntfs/dirctl.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -29,7 +29,7 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -492,7 +492,7 @@ NtfsQueryDirectory(PDEVICE_OBJECT DeviceObject,
   PFILE_NAMES_INFORMATION Buffer0 = NULL;
   PFCB Fcb;
   PCCB Ccb;
-//  FCB TempFcb;
+  FCB TempFcb;
   BOOLEAN First = FALSE;
   PIO_STACK_LOCATION Stack;
   PFILE_OBJECT FileObject;
@@ -505,7 +505,7 @@ NtfsQueryDirectory(PDEVICE_OBJECT DeviceObject,
   FileObject = Stack->FileObject;
 
   Ccb = (PCCB)FileObject->FsContext2;
-  Fcb = (PFCB)FileObject->FsContext;
+  Fcb = Ccb->Fcb;
 
   /* Obtain the callers parameters */
   BufferLength = Stack->Parameters.QueryDirectory.Length;
@@ -664,8 +664,7 @@ NtfsQueryDirectory(PDEVICE_OBJECT DeviceObject,
       Status = STATUS_SUCCESS;
     }
 
-//  return(Status);
-  return(STATUS_NO_MORE_FILES);
+  return(Status);
 }
 
 

@@ -1,4 +1,4 @@
-/* $Id: lsass.h,v 1.6 2004/01/06 16:04:18 ekohl Exp $
+/* $Id: lsass.h,v 1.1 2000/08/12 19:33:18 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,8 @@
 #define __INCLUDE_LSASS_LSASS_H
 
 #include <ntos.h>
-#include <ntsecapi.h>
+#include <lsass/ntsecapi.h>
+#include <napi/lpc.h>
 
 #define LSASS_REQUEST_REGISTER_LOGON_PROCESS               (1)
 #define LSASS_REQUEST_CALL_AUTHENTICATION_PACKAGE          (2)
@@ -97,7 +98,7 @@ typedef struct _LSASS_REGISTER_LOGON_PROCESS_REPLY
 
 typedef struct _LSASS_REQUEST
 {
-   LPC_MESSAGE Header;
+   LPC_MESSAGE_HEADER Header;
    ULONG Type;
    union
      {
@@ -113,7 +114,7 @@ typedef struct _LSASS_REQUEST
 
 typedef struct _LSASS_REPLY
 {
-   LPC_MESSAGE Header;
+   LPC_MESSAGE_HEADER Header;
    NTSTATUS Status;
    union
      {

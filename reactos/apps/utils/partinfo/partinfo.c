@@ -4,7 +4,6 @@
 
 #include <windows.h>
 //#include <winioctl.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -84,7 +83,7 @@ int main (int argc, char *argv[])
   ulDrive = strtoul(argv[1], NULL, 10);
   if (errno != 0)
     {
-      printf("Error: Malformed drive number\n");
+      printf("Error: Malformed drive number\n", errno);
       return(0);
     }
 
@@ -140,8 +139,9 @@ int main (int argc, char *argv[])
 		       NULL))
     {
       CloseHandle(hDisk);
-      printf("DeviceIoControl failed! Error: %lu\n",
+      printf("DeviceIoControl failed! Error: %u\n",
 	     GetLastError());
+      free(Buffer);
       return 0;
     }
 
@@ -149,7 +149,7 @@ int main (int argc, char *argv[])
   HexDump((char*)&DiskGeometry, dwRead);
 #endif
   printf("Drive number: %lu\n", ulDrive);
-  printf("Cylinders: %I64u\nMediaType: %x\nTracksPerCylinder: %lu\n"
+  printf("Cylinders: %I64u\nMediaType: %lx\nTracksPerCylinder: %lu\n"
 	 "SectorsPerTrack: %lu\nBytesPerSector: %lu\n\n",
 	 DiskGeometry.Cylinders.QuadPart,
 	 DiskGeometry.MediaType,
@@ -177,7 +177,7 @@ int main (int argc, char *argv[])
 		       NULL))
     {
       CloseHandle(hDisk);
-      printf("DeviceIoControl(IOCTL_DISK_GET_DRIVE_LAYOUT) failed! Error: %lu\n",
+      printf("DeviceIoControl(IOCTL_DISK_GET_DRIVE_LAYOUT) failed! Error: %u\n",
 	     GetLastError());
       free(Buffer);
       return 0;
@@ -191,13 +191,13 @@ int main (int argc, char *argv[])
 
   LayoutBuffer = (DRIVE_LAYOUT_INFORMATION*)Buffer;
 
-  printf("Partitions %lu  Signature %lx\n",
+  printf("Partitions %u  Signature %x\n",
 	 LayoutBuffer->PartitionCount,
 	 LayoutBuffer->Signature);
 
   for (i = 0; i < LayoutBuffer->PartitionCount; i++)
     {
-      printf(" %ld: nr: %ld boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
+      printf(" %d: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
 	     i,
 	     LayoutBuffer->PartitionEntry[i].PartitionNumber,
 	     LayoutBuffer->PartitionEntry[i].BootIndicator,

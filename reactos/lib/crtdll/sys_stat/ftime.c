@@ -16,35 +16,32 @@ License along with the GNU C Library; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
-#include <msvcrt/sys/timeb.h>
-#include <msvcrt/time.h>
-#include <msvcrt/errno.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
-
-
-/*
- * crtdll has void return type instead of int
- *
- * @implemented
- */
-void _ftime(struct timeb* timebuf)
+#include <crtdll/sys/timeb.h>
+#include <crtdll/time.h>
+#include <crtdll/errno.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/file.h>
+// crtdll has void return type instead of int
+void
+_ftime (timebuf)
+     struct timeb *timebuf;
 {
-    int save = errno;
-    struct tm* tp;
+  int save = errno;
+  struct tm *tp;
 
-    __set_errno (0);
-    if (time (&timebuf->time) == (time_t) -1 && errno != 0)
-        return;
-    timebuf->millitm = 0;
-    tp = localtime(&timebuf->time);
-    if (tp == NULL)
-        return;
-
-    timebuf->_timezone = tp->tm_gmtoff / 60;
-    timebuf->dstflag = tp->tm_isdst;
-
-    free(tp);
-    __set_errno(save);
+  __set_errno (0);
+  if (time (&timebuf->time) == (time_t) -1 && errno != 0)
     return;
+  timebuf->millitm = 0;
+  tp = localtime(&timebuf->time);
+  if (tp == NULL)
+    return;
+
+  timebuf->_timezone = tp->tm_gmtoff / 60;
+  timebuf->dstflag = tp->tm_isdst;
+
+  free(tp);
+  __set_errno (save);
+  return;
 }
+

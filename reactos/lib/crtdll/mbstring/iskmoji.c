@@ -1,6 +1,6 @@
-#include <msvcrt/mbctype.h>
+#include <crtdll/mbctype.h>
 
 int _ismbbkalpha(unsigned char c)
 {
-	return (0xA7 <= c && c <= 0xDF);
+	return (0xA7 <= c <= 0xDF);
 }

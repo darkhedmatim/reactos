@@ -1,4 +1,4 @@
-/* $Id: objdir.c,v 1.14 2004/08/05 12:11:49 ea Exp $
+/* $Id: objdir.c,v 1.8 2001/08/03 21:49:14 ea Exp $
  *
  * DESCRIPTION: Object Manager Simple Explorer
  * PROGRAMMER:  David Welch
@@ -75,12 +75,10 @@ StatusToName (NTSTATUS Status)
 			return "STATUS_OBJECT_NAME_INVALID";
 		case STATUS_OBJECT_NAME_NOT_FOUND:
 			return "STATUS_OBJECT_NAME_NOT_FOUND";
-		case STATUS_OBJECT_PATH_SYNTAX_BAD:
+		case STATUS_PATH_SYNTAX_BAD:
 			return "STATUS_PATH_SYNTAX_BAD";
 		case STATUS_NO_MORE_ENTRIES:
 			return "STATUS_NO_MORE_ENTRIES";
-		case STATUS_ACCESS_DENIED:
-			return "STATUS_ACCESS_DENIED";
 		case STATUS_UNSUCCESSFUL:
 			return "STATUS_UNSUCCESSFUL";
 	}
@@ -173,8 +171,8 @@ ListDirectory (
 	OBJECT_ATTRIBUTES	ObjectAttributes;
 	NTSTATUS		Status;
 	HANDLE			DirectoryHandle;
-	BYTE			DirectoryEntry [MAX_DIR_ENTRY * sizeof(DIRECTORY_BASIC_INFORMATION)];
-	PDIRECTORY_BASIC_INFORMATION pDirectoryEntry = (PDIRECTORY_BASIC_INFORMATION) DirectoryEntry;
+	BYTE			DirectoryEntry [MAX_DIR_ENTRY * sizeof(OBJDIR_INFORMATION)];
+	POBJDIR_INFORMATION	pDirectoryEntry = (POBJDIR_INFORMATION) DirectoryEntry;
 	ULONG			Context = 0;
 	ULONG			ReturnLength = 0;
 	ULONG			EntryCount = 0;
@@ -286,7 +284,7 @@ ListDirectory (
 		++ EntryCount;
 		++ pDirectoryEntry;
 	}
-	printf ("\n\t%lu object(s)\n", EntryCount);
+	printf ("\n\t%d object(s)\n", EntryCount);
 	/*
 	 * Free any resource.
 	 */
@@ -296,7 +294,7 @@ ListDirectory (
 	 */
 	if (FALSE != Recurse)
 	{
-		pDirectoryEntry = (PDIRECTORY_BASIC_INFORMATION) DirectoryEntry;
+		pDirectoryEntry = (POBJDIR_INFORMATION) DirectoryEntry;
 		while (0 != pDirectoryEntry->ObjectTypeName.Length)
 		{
 			if (0 == wcscmp (L"Directory", pDirectoryEntry->ObjectTypeName.Buffer))

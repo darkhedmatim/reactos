@@ -7,8 +7,6 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
-#include <roscfg.h>
-#include <w32api.h>
 #include <ws2_32.h>
 #include <catalog.h>
 #include <handle.h>
@@ -18,7 +16,6 @@
 
 /* See debug.h for debug/trace constants */
 DWORD DebugTraceLevel = MIN_TRACE;
-//DWORD DebugTraceLevel = MAX_TRACE;
 //DWORD DebugTraceLevel = DEBUG_ULTRA;
 
 #endif /* DBG */
@@ -28,19 +25,14 @@ VOID STDCALL KeBugCheck (ULONG	BugCheckCode) {}
 
 
 HANDLE GlobalHeap;
-BOOL Initialized = FALSE;	/* TRUE if WSAStartup() has been successfully called */
 WSPUPCALLTABLE UpcallTable;
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSAGetLastError(VOID)
 {
-  
-PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
+  PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
 
   if (p) {
     return p->LastErrorValue;
@@ -51,9 +43,6 @@ PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
 }
 
 
-/*
- * @implemented
- */
 VOID
 EXPORT
 WSASetLastError(
@@ -66,9 +55,6 @@ WSASetLastError(
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSAStartup(
@@ -91,9 +77,6 @@ WSAStartup(
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSACleanup(VOID)
@@ -109,9 +92,6 @@ WSACleanup(VOID)
 }
 
 
-/*
- * @implemented
- */
 SOCKET
 EXPORT
 socket(
@@ -123,9 +103,6 @@ socket(
 }
 
 
-/*
- * @implemented
- */
 SOCKET
 EXPORT
 WSASocketA(
@@ -169,9 +146,6 @@ WSASocketA(
 }
 
 
-/*
- * @implemented
- */
 SOCKET
 EXPORT
 WSASocketW(
@@ -203,8 +177,6 @@ WSASocketW(
       af, type, protocol));
 
   if (!WSAINITIALIZED) {
-      WS_DbgPrint(MAX_TRACE, ("af (%d)  type (%d)  protocol (%d) = WSANOTINITIALISED.\n",
-          af, type, protocol));
       WSASetLastError(WSANOTINITIALISED);
       return INVALID_SOCKET;
   }
@@ -220,16 +192,12 @@ WSASocketW(
 
   Provider = LocateProvider(lpProtocolInfo);
   if (!Provider) {
-    WS_DbgPrint(MAX_TRACE, ("af (%d)  type (%d)  protocol (%d) = WSAEAFNOSUPPORT.\n",
-      af, type, protocol));
     WSASetLastError(WSAEAFNOSUPPORT);
     return INVALID_SOCKET;
   }
 
   Status = LoadProvider(Provider, lpProtocolInfo);
   if (Status != NO_ERROR) {
-    WS_DbgPrint(MAX_TRACE, ("af (%d)  type (%d)  protocol (%d) = %d.\n",
-      af, type, protocol, Status));
     WSASetLastError(Status);
     return INVALID_SOCKET;
   }
@@ -239,33 +207,23 @@ WSASocketW(
 
   assert(Provider->ProcTable.lpWSPSocket);
 
-  WS_DbgPrint(MAX_TRACE,("About to call provider socket fn\n"));
-
   Socket = Provider->ProcTable.lpWSPSocket(
-      af,
-      type,
-      protocol,
-      lpProtocolInfo,
-      g,
-      dwFlags,
-      &Status);
-
-  WS_DbgPrint(MAX_TRACE,("Socket: %x, Status: %x\n", Socket, Status));
-
-  if (Status != NO_ERROR) {
-      WSASetLastError(Status);
-      return INVALID_SOCKET;
+    af,
+    type,
+    protocol,
+    lpProtocolInfo,
+    g,
+    dwFlags,
+    &Status);
+	if (Status != NO_ERROR) {
+    WSASetLastError(Status);
+    return INVALID_SOCKET;
   }
-  
-  WS_DbgPrint(MAX_TRACE,("Status: %x\n", Status));
 
   return Socket;
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 closesocket(
@@ -296,28 +254,16 @@ closesocket(
 
   CloseProviderHandle((HANDLE)s);
 
-  WS_DbgPrint(MAX_TRACE,("DereferenceProviderByHandle\n"));
-
   DereferenceProviderByPointer(Provider);
 
-  WS_DbgPrint(MAX_TRACE,("DereferenceProviderByHandle Done\n"));
-
   Status = Provider->ProcTable.lpWSPCloseSocket(s, &Errno);
-
-  WS_DbgPrint(MAX_TRACE,("Provider Close Done\n"));
-
   if (Status == SOCKET_ERROR)
     WSASetLastError(Errno);
-
-  WS_DbgPrint(MAX_TRACE,("Returning success\n"));
 
   return 0;
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 select(
@@ -325,7 +271,7 @@ select(
     IN OUT  LPFD_SET readfds, 
     IN OUT  LPFD_SET writefds, 
     IN OUT  LPFD_SET exceptfds, 
-    IN      CONST struct timeval *timeout)
+    IN      CONST LPTIMEVAL timeout)
 /*
  * FUNCTION: Returns status of one or more sockets
  * ARGUMENTS:
@@ -342,13 +288,13 @@ select(
   PCATALOG_ENTRY Provider;
   INT Count;
   INT Errno;
+  ULONG i;
 
   WS_DbgPrint(MAX_TRACE, ("readfds (0x%X)  writefds (0x%X)  exceptfds (0x%X).\n",
     readfds, writefds, exceptfds));
 
   if (!WSAINITIALIZED) {
     WSASetLastError(WSANOTINITIALISED);
-    WS_DbgPrint(MID_TRACE,("Not initialized\n"));
     return SOCKET_ERROR;
   }
 
@@ -358,62 +304,44 @@ select(
   if ((readfds != NULL) && (readfds->fd_count > 0)) {
     if (!ReferenceProviderByHandle((HANDLE)readfds->fd_array[0], &Provider)) {
       WSASetLastError(WSAENOTSOCK);
-      WS_DbgPrint(MID_TRACE,("No provider (read)\n"));
       return SOCKET_ERROR;
     }
   } else if ((writefds != NULL) && (writefds->fd_count > 0)) {
     if (!ReferenceProviderByHandle((HANDLE)writefds->fd_array[0], &Provider)) {
       WSASetLastError(WSAENOTSOCK);
-      WS_DbgPrint(MID_TRACE,("No provider (write)\n"));
       return SOCKET_ERROR;
     }
   } else if ((exceptfds != NULL) && (exceptfds->fd_count > 0)) {
     if (!ReferenceProviderByHandle((HANDLE)exceptfds->fd_array[0], &Provider)) {
       WSASetLastError(WSAENOTSOCK);
-      WS_DbgPrint(MID_TRACE,("No provider (err)\n"));
       return SOCKET_ERROR;
     }
-#if 0 /* XXX empty select is not an error */
   } else {
     WSASetLastError(WSAEINVAL);
     return SOCKET_ERROR;
-#endif
   }
 
-  if( !Provider ) {
-      if( timeout ) {
-	  WS_DbgPrint(MID_TRACE,("Select: used as timer\n"));
-	  Sleep( timeout->tv_sec * 1000 + (timeout->tv_usec / 1000) );
-      }
-      return 0;
-  } else {
-      WS_DbgPrint(MID_TRACE,("Calling WSPSelect\n"));
-      Count = Provider->ProcTable.lpWSPSelect(
-	  nfds, readfds, writefds, exceptfds, (LPTIMEVAL)timeout, &Errno);
-      
-      WS_DbgPrint(MAX_TRACE, ("[%x] Select: Count %d Errno %x\n", 
-			      Provider, Count, Errno));
-      
-      DereferenceProviderByPointer(Provider);
-      
-      if (Errno != NO_ERROR) {
-	  WSASetLastError(Errno);
-	  return SOCKET_ERROR;
-      }
+  Count = Provider->ProcTable.lpWSPSelect(
+    nfds, readfds, writefds, exceptfds, timeout, &Errno);
+
+  WS_DbgPrint(MAX_TRACE, ("Provider (0x%X).\n", Provider));
+
+  DereferenceProviderByPointer(Provider);
+
+  if (Errno != NO_ERROR) {
+    WSASetLastError(Errno);
+    return SOCKET_ERROR;
   }
 
   return Count;
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 bind(
   IN  SOCKET s,
-  IN  CONST struct sockaddr *name,
+  IN  CONST LPSOCKADDR name,
   IN  INT namelen)
 {
   PCATALOG_ENTRY Provider;
@@ -430,13 +358,8 @@ bind(
     return SOCKET_ERROR;
   }
 
-#if (__W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5)
-  Status = Provider->ProcTable.lpWSPBind(
-    s, (CONST LPSOCKADDR) name, namelen, &Errno);
-#else
   Status = Provider->ProcTable.lpWSPBind(
     s, name, namelen, &Errno);
-#endif /* __W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5 */
 
   DereferenceProviderByPointer(Provider);
 
@@ -448,9 +371,6 @@ bind(
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 listen(
@@ -484,9 +404,6 @@ listen(
 }
 
 
-/*
- * @implemented
- */
 SOCKET
 EXPORT
 accept(
@@ -498,23 +415,6 @@ accept(
 }
 
 
-/*
- * @implemented
- */
-INT
-EXPORT
-ioctlsocket(
-    IN      SOCKET s,
-    IN      LONG cmd,
-    IN OUT  ULONG FAR* argp)
-{
-  return WSAIoctl(s, cmd, argp, sizeof(ULONG), argp, sizeof(ULONG), argp, 0, 0);
-}
-
-
-/*
- * @implemented
- */
 SOCKET
 EXPORT
 WSAAccept(
@@ -538,13 +438,8 @@ WSAAccept(
     return SOCKET_ERROR;
   }
 
-  WS_DbgPrint(MAX_TRACE,("Calling provider accept\n"));
-
   Socket = Provider->ProcTable.lpWSPAccept(
     s, addr, addrlen, lpfnCondition, dwCallbackData, &Errno);
-
-  WS_DbgPrint(MAX_TRACE,("Calling provider accept -> Socket %x, Errno %x\n",
-			 Socket, Errno));
 
   DereferenceProviderByPointer(Provider);
 
@@ -556,28 +451,22 @@ WSAAccept(
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 connect(
   IN  SOCKET s,
-  IN  CONST struct sockaddr *name,
+  IN  CONST LPSOCKADDR name,
   IN  INT namelen)
 {
   return WSAConnect(s, name, namelen, NULL, NULL, NULL, NULL);
 }
 
 
-/*
- * @implemented
- */
 INT
 EXPORT
 WSAConnect(
   IN  SOCKET s,
-  IN  CONST struct sockaddr *name,
+  IN  CONST LPSOCKADDR name,
   IN  INT namelen,
   IN  LPWSABUF lpCallerData,
   OUT LPWSABUF lpCalleeData,
@@ -598,13 +487,8 @@ WSAConnect(
     return SOCKET_ERROR;
   }
 
-#if (__W32API_MAJOR_VERSION < 2 || __W32API_MINOR_VERSION < 5)
-  Status = Provider->ProcTable.lpWSPConnect(
-    s, (CONST LPSOCKADDR) name, namelen, lpCallerData, lpCalleeData, lpSQOS, lpGQOS, &Errno);
-#else
   Status = Provider->ProcTable.lpWSPConnect(
     s, name, namelen, lpCallerData, lpCalleeData, lpSQOS, lpGQOS, &Errno);
-#endif
 
   DereferenceProviderByPointer(Provider);
 
@@ -615,75 +499,6 @@ WSAConnect(
   return Status;
 }
 
-
-/*
- * @implemented
- */
-INT
-EXPORT
-WSAIoctl(
-    IN  SOCKET s,
-    IN  DWORD dwIoControlCode,
-    IN  LPVOID lpvInBuffer,
-    IN  DWORD cbInBuffer,
-    OUT LPVOID lpvOutBuffer,
-    IN  DWORD cbOutBuffer,
-    OUT LPDWORD lpcbBytesReturned,
-    IN  LPWSAOVERLAPPED lpOverlapped,
-    IN  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine)
-{
-  PCATALOG_ENTRY Provider;
-  INT Status;
-  INT Errno;
-
-  if (!WSAINITIALIZED) {
-    WSASetLastError(WSANOTINITIALISED);
-    return SOCKET_ERROR;
-  }
-
-  if (!ReferenceProviderByHandle((HANDLE)s, &Provider)) {
-    WSASetLastError(WSAENOTSOCK);
-    return SOCKET_ERROR;
-  }
-
-  Status = Provider->ProcTable.lpWSPIoctl(
-    s, dwIoControlCode, lpvInBuffer, cbInBuffer, lpvOutBuffer,
-    cbOutBuffer, lpcbBytesReturned, lpOverlapped, lpCompletionRoutine,
-    NULL /* lpThreadId */, &Errno);
-
-  DereferenceProviderByPointer(Provider);
-
-  if (Status == SOCKET_ERROR) {
-    WSASetLastError(Errno);
-  }
-
-  return Status;
-}
-
-/*
- * @implemented
- */
-INT
-EXPORT
-__WSAFDIsSet(SOCKET s, LPFD_SET set)
-{
-    int i;
-
-    for( i = 0; i < set->fd_count; i++ )
-	if( set->fd_array[i] == s ) return TRUE;
-
-    return FALSE;
-}
-
-void free_winsock_thread_block(PWINSOCK_THREAD_BLOCK p) {
-  if(p) {
-    if(p->Hostent) { free_hostent(p->Hostent); p->Hostent = 0; }
-    if(p->Getservbyname){}
-    if(p->Getservbyport) {}
-
-
-  }
-}
 
 BOOL
 STDCALL
@@ -710,7 +525,7 @@ DllMain(HANDLE hInstDll,
     UpcallTable.lpWPUFDIsSet            = WPUFDIsSet;
     UpcallTable.lpWPUGetProviderPath    = WPUGetProviderPath;
     UpcallTable.lpWPUModifyIFSHandle    = WPUModifyIFSHandle;
-    UpcallTable.lpWPUPostMessage        = PostMessageW;
+    UpcallTable.lpWPUPostMessage        = WPUPostMessage;
     UpcallTable.lpWPUQueryBlockingCallback    = WPUQueryBlockingCallback;
     UpcallTable.lpWPUQuerySocketHandleContext = WPUQuerySocketHandleContext;
     UpcallTable.lpWPUQueueApc           = WPUQueueApc;
@@ -730,10 +545,8 @@ DllMain(HANDLE hInstDll,
       return FALSE;
     }
 
-    p->Hostent = NULL;
     p->LastErrorValue = NO_ERROR;
-    p->Getservbyname  = NULL;
-    p->Getservbyport  = NULL;
+    p->Initialized    = FALSE;
 
     NtCurrentTeb()->WinSockData = p;
     break;

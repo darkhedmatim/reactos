@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/mbscoll.c
+ * FILE:        lib/crtdll/mbstring/mbscoll.c
  * PURPOSE:     
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -12,9 +12,6 @@
 
 int colldif(unsigned short c1, unsigned short c2);
 
-/*
- * @implemented
- */
 int _mbscoll(const unsigned char *str1, const unsigned char *str2)
 {
 	unsigned char *s1 = (unsigned char *)str1;

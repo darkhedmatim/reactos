@@ -12,84 +12,77 @@
 */
 
 #include <ddk/ntddk.h>
-#include <ddk/ntddmou.h>
-#include <rosrtl/string.h>
+#include "../include/mouse.h"
 #include "mouclass.h"
 
-#define NDEBUG
-#include <debug.h>
+BOOLEAN AlreadyOpened = FALSE;
 
-BOOLEAN MouseClassCallBack(
-   PDEVICE_OBJECT ClassDeviceObject, PMOUSE_INPUT_DATA MouseDataStart,
-   PMOUSE_INPUT_DATA MouseDataEnd, PULONG InputCount)
+BOOLEAN MouseClassCallBack(PDEVICE_OBJECT ClassDeviceObject, PMOUSE_INPUT_DATA MouseDataStart,
+			PMOUSE_INPUT_DATA MouseDataEnd, PULONG InputCount)
 {
    PDEVICE_EXTENSION ClassDeviceExtension = ClassDeviceObject->DeviceExtension;
    PIRP Irp;
-   KIRQL OldIrql;
-   PIO_STACK_LOCATION Stack;
-   ULONG SafeInputCount = *InputCount;
    ULONG ReadSize;
+   PIO_STACK_LOCATION Stack;
 
-   DPRINT("Entering MouseClassCallBack\n");
-   if (ClassDeviceExtension->ReadIsPending == TRUE)
+   // In classical NT, you would take the input data and pipe it through the IO system, for the GDI to read.
+   // In ReactOS, however, we use a GDI callback for increased mouse responsiveness. The reason we don't
+   // simply call from the port driver is so that our mouse class driver can support NT mouse port drivers.
+
+/*   if(ClassDeviceExtension->ReadIsPending == TRUE)
    {
       Irp = ClassDeviceObject->CurrentIrp;
       ClassDeviceObject->CurrentIrp = NULL;
       Stack = IoGetCurrentIrpStackLocation(Irp);
 
-      /* A read request is waiting for input, so go straight to it */
-      RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer, MouseDataStart,
-                    sizeof(MOUSE_INPUT_DATA));
+      ReadSize = sizeof(MOUSE_INPUT_DATA) * (*InputCount);
 
-      /* Go to next packet and complete this request with STATUS_SUCCESS */
+      // A read request is waiting for input, so go straight to it
+      RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer, (PCHAR)MouseDataStart, ReadSize);
+
+      // Go to next packet and complete this request with STATUS_SUCCESS
       Irp->IoStatus.Status = STATUS_SUCCESS;
-      Irp->IoStatus.Information = sizeof(MOUSE_INPUT_DATA);
-      Stack->Parameters.Read.Length = sizeof(MOUSE_INPUT_DATA);
+      Irp->IoStatus.Information = ReadSize;
+      Stack->Parameters.Read.Length = ReadSize;
 
       IoStartNextPacket(ClassDeviceObject, FALSE);
       IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);      
       ClassDeviceExtension->ReadIsPending = FALSE;
+   } */
 
-      /* Skip the packet we just sent away */
-      MouseDataStart++;
-      SafeInputCount--;
-   }
+  // If we have data from the port driver and a higher service to send the data to
+  if((*InputCount>0) && (*(PGDI_SERVICE_CALLBACK_ROUTINE)ClassDeviceExtension->GDIInformation.CallBack != NULL))
+  {
+    if(ClassDeviceExtension->InputCount + *InputCount > MOUSE_BUFFER_SIZE)
+    {
+       ReadSize = MOUSE_BUFFER_SIZE - ClassDeviceExtension->InputCount;
+    } else {
+       ReadSize = *InputCount;
+    }
 
-   /* If we have data from the port driver and a higher service to send the data to */
-   if (SafeInputCount != 0)
-   {
-      KeAcquireSpinLock(&ClassDeviceExtension->SpinLock, &OldIrql);
+    // FIXME: If we exceed the buffer, mouse data gets thrown away.. better solution?
 
-      if (ClassDeviceExtension->InputCount + SafeInputCount > MOUSE_BUFFER_SIZE)
-      {
-         ReadSize = MOUSE_BUFFER_SIZE - ClassDeviceExtension->InputCount;
-      } else {
-         ReadSize = SafeInputCount;
-      }
 
-      /*
-       * FIXME: If we exceed the buffer, mouse data gets thrown away.. better
-       * solution?
-       */
+    // Move the mouse input data from the port data queue to our class data queue
+    RtlMoveMemory(ClassDeviceExtension->PortData, (PCHAR)MouseDataStart,
+                  sizeof(MOUSE_INPUT_DATA) * ReadSize);
 
-      /*
-       * Move the mouse input data from the port data queue to our class data
-       * queue.
-       */
-      RtlMoveMemory(ClassDeviceExtension->PortData, (PCHAR)MouseDataStart,
-                    sizeof(MOUSE_INPUT_DATA) * ReadSize);
+    // Move the pointer and counter up
+    ClassDeviceExtension->PortData += ReadSize;
+    ClassDeviceExtension->InputCount += ReadSize;
 
-      /* Move the pointer and counter up */
-      ClassDeviceExtension->PortData += ReadSize;
-      ClassDeviceExtension->InputCount += ReadSize;
+    // Throw data up to GDI callback
+    if(*(PGDI_SERVICE_CALLBACK_ROUTINE)ClassDeviceExtension->GDIInformation.CallBack != NULL) {
+      (*(PGDI_SERVICE_CALLBACK_ROUTINE)ClassDeviceExtension->GDIInformation.CallBack)
+        (ClassDeviceExtension->PortData - ReadSize, ReadSize);
+    }
 
-      KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
-   } else {
-      DPRINT("MouseClassCallBack() entered, InputCount = %d - DOING NOTHING\n", *InputCount);
-   }
+    ClassDeviceExtension->PortData -= ReadSize;
+    ClassDeviceExtension->InputCount -= ReadSize;
+    ClassDeviceExtension->ReadIsPending = FALSE;
+  }
 
-   DPRINT("Leaving MouseClassCallBack\n");
-   return TRUE;
+  return TRUE;
 }
 
 NTSTATUS ConnectMousePortDriver(PDEVICE_OBJECT ClassDeviceObject)
@@ -97,22 +90,24 @@ NTSTATUS ConnectMousePortDriver(PDEVICE_OBJECT ClassDeviceObject)
    PDEVICE_OBJECT PortDeviceObject = NULL;
    PFILE_OBJECT FileObject = NULL;
    NTSTATUS status;
-   UNICODE_STRING PortName = ROS_STRING_INITIALIZER(L"\\Device\\PointerClass0");
+   UNICODE_STRING PortName;
    IO_STATUS_BLOCK ioStatus;
    KEVENT event;
    PIRP irp;
    CLASS_INFORMATION ClassInformation;
    PDEVICE_EXTENSION DeviceExtension = ClassDeviceObject->DeviceExtension;
 
+   DeviceExtension->GDIInformation.CallBack = NULL;
+
    // Get the port driver's DeviceObject
    // FIXME: The name might change.. find a way to be more dynamic?
 
+   RtlInitUnicodeString(&PortName, L"\\Device\\Mouse");
    status = IoGetDeviceObjectPointer(&PortName, FILE_READ_ATTRIBUTES, &FileObject, &PortDeviceObject);
 
    if(status != STATUS_SUCCESS)
    {
-      DPRINT("MOUCLASS: Could not connect to mouse port driver\n");
-      DPRINT("Status: %x\n", status);
+      DbgPrint("MOUCLASS: Could not connect to mouse port driver\n");
       return status;
    }
 
@@ -120,9 +115,6 @@ NTSTATUS ConnectMousePortDriver(PDEVICE_OBJECT ClassDeviceObject)
    DeviceExtension->PortData = ExAllocatePool(NonPagedPool, MOUSE_BUFFER_SIZE * sizeof(MOUSE_INPUT_DATA));
    DeviceExtension->InputCount = 0;
    DeviceExtension->ReadIsPending = FALSE;
-   DeviceExtension->WorkItem = NULL;
-   KeInitializeSpinLock(&(DeviceExtension->SpinLock));
-   DeviceExtension->PassiveCallbackQueued = FALSE;
 
    // Connect our callback to the port driver
 
@@ -151,119 +143,147 @@ NTSTATUS STDCALL MouseClassDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    NTSTATUS Status;
 
    switch (Stack->MajorFunction)
-   {
+     {
       case IRP_MJ_CREATE:
-         Status = STATUS_SUCCESS;
-         break;
+	if (AlreadyOpened == TRUE)
+	  {
+	     Status = STATUS_SUCCESS;
+	  }
+	else
+	  {
+	     Status = STATUS_SUCCESS;
+	     AlreadyOpened = TRUE;
+	  }
+	break;
 	
       case IRP_MJ_CLOSE:
-         Status = STATUS_SUCCESS;
-         break;
+        Status = STATUS_SUCCESS;
+	break;
 
       case IRP_MJ_READ:
-         if (Stack->Parameters.Read.Length < sizeof(MOUSE_INPUT_DATA))
-         {
-            Status = STATUS_BUFFER_TOO_SMALL;
-            break;
-         }
-         IoMarkIrpPending(Irp);
-         IoStartPacket(DeviceObject, Irp, NULL, NULL);
-	 return STATUS_PENDING;
+
+       if (Stack->Parameters.Read.Length == 0) {
+           Status = STATUS_SUCCESS;
+        } else {
+	   Status = STATUS_PENDING;
+        }
+	break;
 
       default:
-         DPRINT1("NOT IMPLEMENTED\n");
-         Status = STATUS_NOT_IMPLEMENTED;
-         break;
-   }
+        DbgPrint("NOT IMPLEMENTED\n");
+        Status = STATUS_NOT_IMPLEMENTED;
+	break;
+     }
 
    Irp->IoStatus.Status = Status;
    Irp->IoStatus.Information = 0;
-   IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-   return Status;
+   if (Status==STATUS_PENDING)
+   {
+      IoMarkIrpPending(Irp);
+      IoStartPacket(DeviceObject, Irp, NULL, NULL);
+   } else {
+      IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   }
+   return(Status);
 }
 
-VOID STDCALL
-MouseClassStartIo(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+VOID MouseClassStartIo(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
    PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
    PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
+   ULONG ReadSize;
 
-   if (DeviceExtension->InputCount > 0)
+   if(DeviceExtension->InputCount>0)
    {
-      KIRQL oldIrql;
+      // FIXME: We should not send too much input data.. depends on the max buffer size of the win32k
+      ReadSize = DeviceExtension->InputCount * sizeof(MOUSE_INPUT_DATA);
 
-      KeAcquireSpinLock(&DeviceExtension->SpinLock, &oldIrql);
-
-      RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer,
-                    DeviceExtension->PortData - DeviceExtension->InputCount,
-                    sizeof(MOUSE_INPUT_DATA));
-
-      if (DeviceExtension->InputCount > 1)
-      {
-         RtlMoveMemory(
-            DeviceExtension->PortData - DeviceExtension->InputCount,
-            DeviceExtension->PortData - DeviceExtension->InputCount + 1,
-            (DeviceExtension->InputCount - 1) * sizeof(MOUSE_INPUT_DATA));
-      }
-      DeviceExtension->PortData--;
-      DeviceExtension->InputCount--;
+      // Bring the PortData back to base so that it can be copied
+      DeviceExtension->PortData -= DeviceExtension->InputCount;
+      DeviceExtension->InputCount = 0;
       DeviceExtension->ReadIsPending = FALSE;
 
-      /* Go to next packet and complete this request with STATUS_SUCCESS */
+      RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer, (PCHAR)DeviceExtension->PortData, ReadSize);
+
+      // Go to next packet and complete this request with STATUS_SUCCESS
       Irp->IoStatus.Status = STATUS_SUCCESS;
-      Irp->IoStatus.Information = sizeof(MOUSE_INPUT_DATA);
-      Stack->Parameters.Read.Length = sizeof(MOUSE_INPUT_DATA);
-      IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
+
+      Irp->IoStatus.Information = ReadSize;
+      Stack->Parameters.Read.Length = ReadSize;
 
       IoStartNextPacket(DeviceObject, FALSE);
-      KeReleaseSpinLock(&DeviceExtension->SpinLock, oldIrql);
+      IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
    } else {
       DeviceExtension->ReadIsPending = TRUE;
    }
+}
+
+NTSTATUS STDCALL MouseClassInternalDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
+{
+   // Retrieve GDI's callback
+
+   PDEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
+   PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
+   NTSTATUS status;
+
+   switch(Stack->Parameters.DeviceIoControl.IoControlCode)
+   {
+      case IOCTL_INTERNAL_MOUSE_CONNECT:
+
+         DeviceExtension->GDIInformation =
+            *((PGDI_INFORMATION)Stack->Parameters.DeviceIoControl.Type3InputBuffer);
+
+         status = STATUS_SUCCESS;
+         break;
+
+      case IOCTL_INTERNAL_MOUSE_DISCONNECT:
+
+         DeviceExtension->GDIInformation.CallBack = NULL;
+
+         status = STATUS_SUCCESS;
+         break;
+
+      default:
+         status = STATUS_INVALID_DEVICE_REQUEST;
+         break;
+   }
+
+   Irp->IoStatus.Status = status;
+   if (status == STATUS_PENDING) {
+      IoMarkIrpPending(Irp);
+      IoStartPacket(DeviceObject, Irp, NULL, NULL);
+   } else {
+      IoCompleteRequest(Irp, IO_NO_INCREMENT);
+   }
+
+   return status;
 }
 
 NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Mouse");
-   UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\Mouse");
-   NTSTATUS Status;
+   UNICODE_STRING DeviceName;
+   UNICODE_STRING SymlinkName;
 
    DriverObject->MajorFunction[IRP_MJ_CREATE] = MouseClassDispatch;
-   DriverObject->MajorFunction[IRP_MJ_CLOSE]  = MouseClassDispatch;
-   DriverObject->MajorFunction[IRP_MJ_READ]   = MouseClassDispatch;
-   DriverObject->DriverStartIo                = MouseClassStartIo;
+//   DriverObject->MajorFunction[IRP_MJ_CLOSE]  = MouseClassDispatch;
+//   DriverObject->MajorFunction[IRP_MJ_READ]   = MouseClassDispatch;
+   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = MouseClassInternalDeviceControl; // to get GDI callback
+//   DriverObject->DriverStartIo                = MouseClassStartIo;
 
-   Status = IoCreateDevice(DriverObject,
-			   sizeof(DEVICE_EXTENSION),
-			   &DeviceName,
-			   FILE_DEVICE_MOUSE,
-			   0,
-			   TRUE,
-			   &DeviceObject);
-   if (!NT_SUCCESS(Status))
-   {
-      return(Status);
-   }
-
+   RtlInitUnicodeString(&DeviceName, L"\\Device\\MouseClass");
+   IoCreateDevice(DriverObject,
+		  sizeof(DEVICE_EXTENSION),
+		  &DeviceName,
+		  FILE_DEVICE_MOUSE,
+		  0,
+		  TRUE,
+		  &DeviceObject);
    DeviceObject->Flags = DeviceObject->Flags | DO_BUFFERED_IO;
 
-   Status = IoCreateSymbolicLink(&SymlinkName, &DeviceName);
-   if (!NT_SUCCESS(Status))
-   {
-      IoDeleteDevice(DeviceObject);
-      return Status;
-   }
+   RtlInitUnicodeString(&SymlinkName, L"\\??\\MouseClass");
+   IoCreateSymbolicLink(&SymlinkName, &DeviceName);
 
-   Status = ConnectMousePortDriver(DeviceObject);
-   if (!NT_SUCCESS(Status))
-   {
-      IoDeleteSymbolicLink(&SymlinkName);
-      IoDeleteDevice(DeviceObject);
-      return Status;
-   }
-
-   return STATUS_SUCCESS;
+   return ConnectMousePortDriver(DeviceObject);
 }

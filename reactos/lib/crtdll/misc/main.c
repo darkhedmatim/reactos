@@ -20,26 +20,27 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.4 $
- * $Author: chorns $
- * $Date: 2004/08/15 17:34:27 $
+ * $Revision: 1.2 $
+ * $Author: ariadne $
+ * $Date: 1999/04/02 21:43:56 $
  *
  */
 
-#include "precomp.h"
-#include <msvcrt/stdlib.h>
-#include <msvcrt/process.h>
-
+#include <crtdll/stdlib.h>
+#include <crtdll/process.h>
+#include <windows.h>
 
 #define ISSPACE(a)	(a == ' ' || a == '\t')
 
-extern int PASCAL WinMain (HANDLE hInst, HANDLE hPrevInst, LPSTR szCmdLine, int nShow);
+extern int PASCAL WinMain (HANDLE hInst, HANDLE hPrevInst, LPSTR szCmdLine,
+			   int nShow);
 
-int main(int argc, char* argv[], char* environ[])
+int
+main (int argc, char* argv[], char* environ[])
 {
-	char* szCmd;
+	char*		szCmd;
 	STARTUPINFO	startinfo;
-	int nRet;
+	int		nRet;
 
 	/* Get the command line passed to the process. */
 	szCmd = GetCommandLineA();
@@ -91,3 +92,4 @@ int main(int argc, char* argv[], char* environ[])
 
 	return nRet;
 }
+

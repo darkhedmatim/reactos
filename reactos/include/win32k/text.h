@@ -5,29 +5,30 @@
 /* GDI logical font object */
 typedef struct
 {
-   LOGFONTW   logfont;
-   FONTOBJ    *Font;
+   LOGFONT    logfont;
 } TEXTOBJ, *PTEXTOBJ;
 
 /*  Internal interface  */
 
 #define  TEXTOBJ_AllocText() \
-  ((HFONT) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT)
-#define  TEXTOBJ_LockText(hBMObj) ((PTEXTOBJ) GDIOBJ_LockObj ((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_FONT))
-#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj)
-
-NTSTATUS FASTCALL TextIntRealizeFont(HFONT FontHandle);
-NTSTATUS FASTCALL TextIntCreateFontIndirect(CONST LPLOGFONTW lf, HFONT *NewFont);
+  ((HFONT) GDIOBJ_AllocObj (sizeof (TEXTOBJ), GO_FONT_MAGIC))
+#define  TEXTOBJ_FreeText(hBMObj)  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GO_FONT_MAGIC)
+/*
+#define  TEXTOBJ_HandleToPtr(hBMObj)  \
+  ((PTEXTOBJ) GDIOBJ_HandleToPtr ((HGDIOBJ) hBMObj, GO_FONT_MAGIC))
+#define  TEXTOBJ_PtrToHandle(hBMObj)  \
+  ((HFONT) GDIOBJ_PtrToHandle ((PGDIOBJ) hBMObj, GO_FONT_MAGIC))
+*/
+#define  TEXTOBJ_LockText(hBMObj) ((PTEXTOBJ) GDIOBJ_LockObj ((HGDIOBJ) hBMObj, GO_FONT_MAGIC))
+#define  TEXTOBJ_UnlockText(hBMObj) GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj, GO_FONT_MAGIC)
 
 int
 STDCALL
-NtGdiAddFontResource(PUNICODE_STRING Filename,
-					 DWORD fl);
+W32kAddFontResource(LPCWSTR  Filename);
 
 HFONT
 STDCALL
-NtGdiCreateFont(int  Height,
+W32kCreateFont(int  Height,
                       int  Width,
                       int  Escapement,
                       int  Orientation,
@@ -44,82 +45,104 @@ NtGdiCreateFont(int  Height,
 
 HFONT
 STDCALL
-NtGdiCreateFontIndirect(CONST LPLOGFONTW lf);
+W32kCreateFontIndirect(CONST LPLOGFONT lf);
 
 BOOL
 STDCALL
-NtGdiCreateScalableFontResource(DWORD  Hidden,
+W32kCreateScalableFontResource(DWORD  Hidden,
                                      LPCWSTR  FontRes,
                                      LPCWSTR  FontFile,
                                      LPCWSTR  CurrentPath);
 
 int
 STDCALL
-NtGdiEnumFonts(HDC  hDC,
+W32kEnumFontFamilies(HDC  hDC,
+                          LPCWSTR  Family,
+                          FONTENUMPROC  EnumFontFamProc,
+                          LPARAM  lParam);
+
+int
+STDCALL
+W32kEnumFontFamiliesEx(HDC  hDC,
+                            LPLOGFONT  Logfont,
+                            FONTENUMPROC  EnumFontFamExProc,
+                            LPARAM  lParam,
+                            DWORD  Flags);
+
+int
+STDCALL
+W32kEnumFonts(HDC  hDC,
                    LPCWSTR FaceName,
-                   FONTENUMPROCW  FontFunc,
+                   FONTENUMPROC  FontFunc,
                    LPARAM  lParam);
 
 BOOL
 STDCALL
-NtGdiExtTextOut(HDC  hdc,
+W32kExtTextOut(HDC  hDC,
                      int  X,
                      int  Y,
-                     UINT  fuOptions,
-                     CONST RECT  *lprc,
-                     LPCWSTR  lpString,
-                     UINT  cbCount,
-                     CONST INT  *lpDx);
+                     UINT  Options,
+                     CONST LPRECT  rc,
+                     LPCWSTR  String,
+                     UINT  Count,
+                     CONST LPINT  Dx);
 
 BOOL
 STDCALL
-NtGdiGetAspectRatioFilterEx(HDC  hDC,
+W32kGetAspectRatioFilterEx(HDC  hDC,
                                  LPSIZE  AspectRatio);
 
 BOOL
 STDCALL
-NtGdiGetCharABCWidths(HDC  hDC,
+W32kGetCharABCWidths(HDC  hDC,
                            UINT  FirstChar,
                            UINT  LastChar,
                            LPABC  abc);
 
 BOOL
 STDCALL
-NtGdiGetCharABCWidthsFloat(HDC  hDC,
+W32kGetCharABCWidthsFloat(HDC  hDC,
                                 UINT  FirstChar,
                                 UINT  LastChar,
                                 LPABCFLOAT  abcF);
 
 DWORD
 STDCALL
-NtGdiGetCharacterPlacement(HDC  hDC,
+W32kGetCharacterPlacement(HDC  hDC,
                                  LPCWSTR  String,
                                  int  Count,
                                  int  MaxExtent,
-                                 LPGCP_RESULTSW Results,
+                                 LPGCP_RESULTS  Results,
                                  DWORD  Flags);
 
 BOOL
 STDCALL
-NtGdiGetCharWidth32(HDC  hDC,
+W32kGetCharWidth(HDC  hDC,
+                       UINT  FirstChar,
+                       UINT  LastChar,
+                       LPINT  Buffer);
+
+BOOL
+STDCALL
+W32kGetCharWidth32(HDC  hDC,
                          UINT  FirstChar,
                          UINT  LastChar,
                          LPINT  Buffer);
 
 BOOL
 STDCALL
-NtGdiGetCharWidthFloat(HDC  hDC,
+W32kGetCharWidthFloat(HDC  hDC,
                             UINT  FirstChar,
                             UINT  LastChar,
                             PFLOAT  Buffer);
 
 DWORD
 STDCALL
-NtGdiGetFontLanguageInfo(HDC  hDC);
+W32kGetFontLanguageInfo(HDC  hDC);
 
 DWORD
 STDCALL
-NtGdiGetGlyphOutline(HDC  hDC,
+W32kGetGlyphOutline(HDC  hDC,
                            UINT  Char,
                            UINT  Format,
                            LPGLYPHMETRICS  gm,
@@ -129,34 +152,34 @@ NtGdiGetGlyphOutline(HDC  hDC,
 
 DWORD
 STDCALL
-NtGdiGetKerningPairs(HDC  hDC,
+W32kGetKerningPairs(HDC  hDC,
                            DWORD  NumPairs,
                            LPKERNINGPAIR  krnpair);
 
 UINT
 STDCALL
-NtGdiGetOutlineTextMetrics(HDC  hDC,
+W32kGetOutlineTextMetrics(HDC  hDC,
                                 UINT  Data,
-                                LPOUTLINETEXTMETRICW otm);
+                                LPOUTLINETEXTMETRIC  otm);
 
 BOOL
 STDCALL
-NtGdiGetRasterizerCaps(LPRASTERIZER_STATUS  rs,
+W32kGetRasterizerCaps(LPRASTERIZER_STATUS  rs,
                             UINT  Size);
 
 UINT
 STDCALL
-NtGdiGetTextCharset(HDC  hDC);
+W32kGetTextCharset(HDC  hDC);
 
 UINT
 STDCALL
-NtGdiGetTextCharsetInfo(HDC  hDC,
+W32kGetTextCharsetInfo(HDC  hDC,
                              LPFONTSIGNATURE  Sig,
                              DWORD  Flags);
 
 BOOL
 STDCALL
-NtGdiGetTextExtentExPoint(HDC  hDC,
+W32kGetTextExtentExPoint(HDC  hDC,
                                LPCWSTR String,
                                int  Count,
                                int  MaxExtent,
@@ -166,67 +189,73 @@ NtGdiGetTextExtentExPoint(HDC  hDC,
 
 BOOL
 STDCALL
-NtGdiGetTextExtentPoint(HDC  hDC,
+W32kGetTextExtentPoint(HDC  hDC,
                              LPCWSTR  String,
                              int  Count,
                              LPSIZE  Size);
 
 BOOL
 STDCALL
-NtGdiGetTextExtentPoint32(HDC  hDC,
+W32kGetTextExtentPoint32(HDC  hDC,
                                LPCWSTR  String,
                                int  Count,
                                LPSIZE  Size);
 
 int
 STDCALL
-NtGdiGetTextFace(HDC  hDC,
+W32kGetTextFace(HDC  hDC,
                      int  Count,
                      LPWSTR  FaceName);
 
 BOOL
 STDCALL
-NtGdiGetTextMetrics(HDC  hDC,
-                         LPTEXTMETRICW  tm);
+W32kGetTextMetrics(HDC  hDC,
+                         LPTEXTMETRIC  tm);
 
 BOOL
 STDCALL
-NtGdiPolyTextOut(HDC  hDC,
-                      CONST LPPOLYTEXTW txt,
+W32kPolyTextOut(HDC  hDC,
+                      CONST LPPOLYTEXT  txt,
                       int  Count);
 
 BOOL
 STDCALL
-NtGdiRemoveFontResource(LPCWSTR  FileName);
+W32kRemoveFontResource(LPCWSTR  FileName);
 
 DWORD
 STDCALL
-NtGdiSetMapperFlags(HDC  hDC,
+W32kSetMapperFlags(HDC  hDC,
                           DWORD  Flag);
 
 UINT
 STDCALL
-NtGdiSetTextAlign(HDC  hDC,
+W32kSetTextAlign(HDC  hDC,
                        UINT  Mode);
 
 COLORREF
 STDCALL
-NtGdiSetTextColor(HDC  hDC,
+W32kSetTextColor(HDC  hDC,
                            COLORREF  Color);
 
 BOOL
 STDCALL
-NtGdiSetTextJustification(HDC  hDC,
+W32kSetTextJustification(HDC  hDC,
                                int  BreakExtra,
                                int  BreakCount);
 
 BOOL
 STDCALL
-NtGdiTextOut(HDC  hDC,
+W32kTextOut(HDC  hDC,
                   int  XStart,
                   int  YStart,
                   LPCWSTR  String,
                   int  Count);
+
+UINT
+STDCALL
+W32kTranslateCharsetInfo(PDWORD  Src,
+                               LPCHARSETINFO  CSI,
+                               DWORD  Flags);
 
 #endif
 

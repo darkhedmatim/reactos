@@ -1,14 +1,8 @@
-/* $Id: lsa.c,v 1.6 2004/08/15 16:39:11 chorns Exp $
+/* $Id: lsa.c,v 1.1 2001/09/03 20:42:44 ea Exp $
  */
-
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <internal/debug.h>
+#include <ddk/ntddk.h>
 
 /* LsaCallAuthenticationPackage@28 */
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL LsaCallAuthenticationPackage (
     DWORD Unknown0,
     DWORD Unknown1,
@@ -23,9 +17,6 @@ NTSTATUS STDCALL LsaCallAuthenticationPackage (
 }
 
 /* LsaDeregisterLogonProcess@8 */
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL LsaDeregisterLogonProcess (
     DWORD Unknown0,
     DWORD Unknown1
@@ -35,9 +26,6 @@ NTSTATUS STDCALL LsaDeregisterLogonProcess (
 }
 
 /* LsaFreeReturnBuffer@4 */
-/*
- * @implemented
- */
 NTSTATUS STDCALL LsaFreeReturnBuffer (PVOID Buffer)
 {
     ULONG Size = 0; /* required by MEM_RELEASE */
@@ -51,9 +39,6 @@ NTSTATUS STDCALL LsaFreeReturnBuffer (PVOID Buffer)
 }
 
 /* LsaLogonUser@56 */
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL LsaLogonUser (
     DWORD Unknown0,
     DWORD Unknown1,
@@ -75,9 +60,6 @@ NTSTATUS STDCALL LsaLogonUser (
 }
 
 /* LsaLookupAuthenticationPackage@12 */
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL LsaLookupAuthenticationPackage (
     DWORD	Unknown0,
     DWORD	Unknown1,
@@ -88,9 +70,6 @@ NTSTATUS STDCALL LsaLookupAuthenticationPackage (
 }
 
 /* LsaRegisterLogonProcess@12 */
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL LsaRegisterLogonProcess (
     DWORD	Unknown0,
     DWORD	Unknown1,
@@ -98,45 +77,6 @@ NTSTATUS STDCALL LsaRegisterLogonProcess (
     )
 {
     return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-SeMarkLogonSessionForTerminationNotification(
-	IN PLUID LogonId
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-SeRegisterLogonSessionTerminatedRoutine(
-	IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-SeUnregisterLogonSessionTerminatedRoutine(
-	IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 

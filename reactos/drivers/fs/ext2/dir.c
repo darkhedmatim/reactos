@@ -241,7 +241,7 @@ BOOL Ext2ScanDir(PDEVICE_EXTENSION DeviceExt,
 	       }
 	     
 	     offset = offset + current->rec_len;
-	     ASSERT(current->rec_len != 0);
+	     assert(current->rec_len != 0);
 	     DPRINT("offset %d\n",offset);
 	  }
 	DPRINT("Onto next block\n");
@@ -311,7 +311,7 @@ NTSTATUS Ext2OpenFile(PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject,
    DPRINT("Found file\n");
    
    Fcb->inode = current_inode;
-   CcRosInitializeFileCache(FileObject, &Fcb->Bcb, PAGE_SIZE*3);
+   CcRosInitializeFileCache(FileObject, &Fcb->Bcb, PAGESIZE*3);
    FileObject->FsContext = Fcb;
    
    return(STATUS_SUCCESS);

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: timer.c,v 1.12 2004/08/15 21:36:28 chorns Exp $
+/* $Id: timer.c,v 1.1 2002/06/13 20:36:40 dwelch Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/dde.c
@@ -28,64 +28,27 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-KillSystemTimer(
-  HWND hWnd,
-  UINT_PTR IDEvent)
-{
-  return NtUserKillSystemTimer(hWnd, IDEvent); 
-}
-
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 KillTimer(
   HWND hWnd,
-  UINT_PTR IDEvent)
+  UINT_PTR uIDEvent)
 {
-  return NtUserKillTimer(hWnd, IDEvent); 
+  return FALSE;
 }
-
-
-/*
- * @implemented
- */
-UINT_PTR
-STDCALL
-SetSystemTimer(
-  HWND hWnd,
-  UINT_PTR IDEvent,
-  UINT Period,
-  TIMERPROC TimerFunc)
-{
-  return NtUserSetSystemTimer(hWnd, IDEvent, Period, TimerFunc);
-}
-
-
-/*
- * @implemented
- */
 UINT_PTR
 STDCALL
 SetTimer(
   HWND hWnd,
-  UINT_PTR IDEvent,
-  UINT Period,
-  TIMERPROC TimerFunc)
+  UINT_PTR nIDEvent,
+  UINT uElapse,
+  TIMERPROC lpTimerFunc)
 {
-  return NtUserSetTimer(hWnd, IDEvent, Period, TimerFunc);
+  return (UINT_PTR)0;
 }
-

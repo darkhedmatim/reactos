@@ -7,13 +7,10 @@
  * UPDATE HISTORY:
  *              12/04/99: Created
  */
-#include <msvcrt/mbstring.h>
-#include <msvcrt/mbctype.h>
-#include <msvcrt/ctype.h>
+#include <crtdll/mbstring.h>
+#include <crtdll/mbctype.h>
+#include <crtdll/ctype.h>
 
-/*
- * @implemented
- */
 int _mbsicmp(const unsigned char *str1, const unsigned char *str2)
 {
 	unsigned char *s1 = (unsigned char *)str1;

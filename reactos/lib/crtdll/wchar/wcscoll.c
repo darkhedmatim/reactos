@@ -1,9 +1,7 @@
 
-#include <msvcrt/string.h>
 
-/*
- * @unimplemented
- */
+#include <crtdll/wchar.h>
+
 int wcscoll(const wchar_t *a1,const wchar_t *a2)
 {
 	/* FIXME: handle collates */
@@ -11,9 +9,6 @@ int wcscoll(const wchar_t *a1,const wchar_t *a2)
 }
 
 
-/*
- * @unimplemented
- */
 int _wcsicoll(const wchar_t *a1,const wchar_t *a2)
 {
 	/* FIXME: handle collates */

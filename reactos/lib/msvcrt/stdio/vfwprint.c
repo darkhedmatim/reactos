@@ -1,17 +1,8 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
-
-#ifdef __USE_W32API
-#undef __USE_W32API
-#endif
-
-//#include <stdarg.h>
-#include <msvcrt/stdarg.h> // robd
-#include <msvcrt/crttypes.h> // robd
-
+#include <stdarg.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/malloc.h>
 #include <msvcrt/internal/file.h>
-
 
 int _isnanl(double x);
 int _isinfl(double x);
@@ -23,18 +14,12 @@ int
 __vfwprintf(FILE *fp, const wchar_t *fmt0, va_list argp);
 
 
-/*
- * @implemented
- */
 int
 vfwprintf(FILE *f, const wchar_t *fmt, va_list ap)
 {
 	int len;
 	wchar_t localbuf[BUFSIZ];
 
-#if 0
-	__fileno_lock(fileno(f));
-#endif
 	if (f->_flag & _IONBF) {
 		f->_flag &= ~_IONBF;
 		f->_ptr = f->_base = (char *)localbuf;
@@ -47,9 +32,7 @@ vfwprintf(FILE *f, const wchar_t *fmt, va_list ap)
 		f->_cnt = 0;
 	} else
 		len = __vfwprintf(f,fmt,ap);
-#if 0
-	__fileno_unlock(fileno(f));
-#endif
+
 	return (ferror(f) ? EOF : len);
 }
 
@@ -100,26 +83,26 @@ static int skip_wtoi(const wchar_t **s)
 }
 
 
-static int do_div(LONGLONG *n,int base)
+static int do_div(long long *n,int base)
 {
-	int __res = ((ULONGLONG) *n) % (unsigned) base;
-	*n = ((ULONGLONG) *n) / (unsigned) base;
+	int __res = ((unsigned long long) *n) % (unsigned) base;
+	*n = ((unsigned long long) *n) / (unsigned) base;
 	return __res;
 }
 
 
-static int number(FILE * f, LONGLONG num, int base, int size, int precision ,int type)
+static void number(FILE * f, long long num, int base, int size, int precision ,int type)
 {
 	wchar_t c,sign,tmp[66];
 	const wchar_t *digits=L"0123456789abcdefghijklmnopqrstuvwxyz";
-	int i, done = 0;
+	int i;
 
 	if (type & LARGE)
 		digits = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	if (type & LEFT)
 		type &= ~ZEROPAD;
 	if (base < 2 || base > 36)
-		return done;
+		return;
 	c = (type & ZEROPAD) ? L'0' : L' ';
 	sign = 0;
 	if (type & SIGN) {
@@ -151,63 +134,32 @@ static int number(FILE * f, LONGLONG num, int base, int size, int precision ,int
 	size -= precision;
 	if (!(type&(ZEROPAD+LEFT)))
 		while(size-->0)
-		{
-			if (putwc(L' ',f) == WEOF)
-				return -1;
-			done++;
-		}
-
+			putwc(L' ',f);
 	if (sign)
-	{
-		if (putwc(sign,f) == WEOF)
-			return -1;
-		done++;
-	}
+		putwc(sign,f);
 	if (type & SPECIAL) {
 		if (base==8) {
-			if (putwc(L'0',f) == WEOF)
-				return -1;
-			done++;
+			putwc(L'0',f);
 		}
 		else if (base==16) {
-		    	if (putwc(L'0', f) == WEOF)
-				return -1;
-			done++;
-			if (putwc(digits[33],f) == WEOF)
-				return -1;
-			done++;
+			putwc(L'0', f);
+			putwc(digits[33],f);
 		}
 	}
 	if (!(type & LEFT))
 		while (size-- > 0)
-		{
-			if (putwc(c,f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc(c,f);
 	while (i < precision--)
-	{
-		if (putwc(L'0', f) == WEOF)
-			return -1;
-		done++;
-	}
+		putwc(L'0', f);
 	while (i-- > 0)
-	{
-		if (putwc(tmp[i],f) == WEOF)
-			return -1;
-		done++;
-	}
+		putwc(tmp[i],f);
 	while (size-- > 0)
-	{
-		if (putwc(L' ', f) == WEOF)
-			return -1;
-		done++;
-	}
-	return done;
+		putwc(L' ', f);
+	return;
 }
 
 
-static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precision, int type)
+static void numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precision, int type)
 {
 	double exponent = 0.0;
 	double e;
@@ -224,18 +176,11 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 	wchar_t sign;
 	wchar_t c;
 	char ro = 0;
-	int result, done = 0;
 
-	union
-	{
-	    double*   __n;
-	    double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	double_t *n = (double_t *)&__n;
 
 	if ( exp_sign == L'g' || exp_sign == L'G' || exp_sign == L'e' || exp_sign == L'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3ff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3ff);
 		exponent = ie/3.321928;
 	}
 
@@ -252,24 +197,16 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 		else if ( frac < -0.5 )
 			e--;
 
-		result = numberf(f,__n/pow(10.0L,e),L'f',size-4, precision, type);
-		if (result < 0)
-			return -1;
-		done += result;
-		if (putwc( exp_sign,f) == WEOF)
-			return -1;
-		done++;
+		numberf(f,__n/pow(10.0L,e),L'f',size-4, precision, type);
+		putwc( exp_sign,f);
 		size--;
 		ie = (long)e;
 		type = LEFT | PLUS;
 		if ( ie < 0 )
 			type |= SIGN;
 
-		result = number(f,ie, 10,2, 2,type );
-		if (result < 0)
-			return -1;
-		done += result;
-		return done;
+		number(f,ie, 10,2, 2,type );
+		return;
 	}
 
 	if ( exp_sign == 'f' ) {
@@ -327,11 +264,10 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 		}
 		else {
 			while ( intr > 0.0 ) {
-				p = intr;
-                                intr/=10.0L;
-				modf(intr, &intr);
+				intr/=10.0L;
+				p = modf(intr, &intr);
 
-				p -= 10.0*intr;
+				p *=10;
 
 				buf[i++] = (int)p + L'0';
 				size--;
@@ -357,35 +293,19 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 		size -= precision;
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putwc(L' ',f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(L' ',f);
 		if (sign)
-		{
-			if (putwc( sign,f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc( sign,f);
 
 		if (!(type&(ZEROPAD+LEFT)))
 			while(size-->0)
-			{
-				if (putwc(L' ',f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(L' ',f);
 		if (type & SPECIAL) {
 		}
 
 		if (!(type & LEFT))
 			while (size-- > 0)
-			{
-				if (putwc(c,f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(c,f);
 
 		tmp = buf;
 		if ( type & ZEROTRUNC && ((type & SPECIAL) != SPECIAL) ) {
@@ -399,23 +319,14 @@ static int numberf(FILE * f, double __n, wchar_t exp_sign,  int size, int precis
 //			while (i < precision--)
 //				putwc(L'0', f);
 		while (i-- > 0)
-		{
-			if (putwc(tmp[i],f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc(tmp[i],f);
 		while (size-- > 0)
-		{
-			if (putwc(L' ', f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc(L' ', f);
 	}
-	return done;
 }
 
 
-static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int precision, int type)
+static void numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int precision, int type)
 {
 	long double exponent = 0.0;
 	long double e;
@@ -433,18 +344,10 @@ static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int 
 	wchar_t c;
 	char ro = 0;
 
-	int result, done = 0;
-
-	union
-	{
-		long double*   __n;
-		long_double_t*   n;
-	} n;
-
-	n.__n = &__n;
+	long_double_t *n = (long_double_t *)&__n;
 
 	if ( exp_sign == L'g' || exp_sign == L'G' || exp_sign == L'e' || exp_sign == L'E' ) {
-		ie = ((unsigned int)n.n->exponent - (unsigned int)0x3fff);
+		ie = ((unsigned int)n->exponent - (unsigned int)0x3fff);
 		exponent = ie/3.321928;
 	}
 
@@ -461,24 +364,16 @@ static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int 
 		else if ( frac < -0.5 )
 			e--;
 
-		result = numberf(f,__n/powl(10.0L,e),L'f',size-4, precision, type);
-		if (result < 0)
-			return -1;
-		done += result; 
-		if (putwc( exp_sign,f) == WEOF)
-			return -1;
-		done++;
+		numberf(f,__n/powl(10.0L,e),L'f',size-4, precision, type);
+		putwc( exp_sign,f);
 		size--;
 		ie = (long)e;
 		type = LEFT | PLUS;
 		if ( ie < 0 )
 			type |= SIGN;
 
-		result = number(f,ie, 10,2, 2,type );
-		if (result < 0)
-			return -1;
-		done += result;
-		return done;
+		number(f,ie, 10,2, 2,type );
+		return;
 	}
 
 	if ( exp_sign == L'f' ) {
@@ -536,11 +431,10 @@ static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int 
 		}
 		else {
 			while ( intr > 0.0 ) {
-				p = intr;
 				intr/=10.0L;
-				modfl(intr, &intr);
+				p = modfl(intr, &intr);
 
-				p -=10.0*intr;
+				p *=10;
 
 				buf[i++] = (int)p + L'0';
 				size--;
@@ -592,119 +486,22 @@ static int numberfl(FILE * f, long double __n, wchar_t exp_sign,  int size, int 
 //			while (i < precision--)
 //				    putc( '0', f);
 		while (i-- > 0)
-		{
-			if (putwc(tmp[i],f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc(tmp[i],f);
 		while (size-- > 0)
-		{
-			if (putwc(L' ', f) == WEOF)
-				return -1;
-			done++;
-		}
+			putwc(L' ', f);
 	}
-	return done;
 }
 
-static int string(FILE *f, const char* s, int len, int field_width, int precision, int flags)
-{
-	int i, done = 0;
-	if (s == NULL)
-	{
-		s = "<NULL>";
-		len = 6;
-	}
-	else
-	{
-		if (len == -1)
-		{
-			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && s[len])
-				len++;
-		}
-		else
-		{
-			if ((unsigned int)len > (unsigned int)precision)
-				len = precision;
-		}
-	}
-	if (!(flags & LEFT))
-		while (len < field_width--)
-		{
-			if (putwc(L' ', f) == WEOF)
-				return -1;
-			done++;
-		}
-	for (i = 0; i < len; ++i)
-	{
-		if (putwc(*s++, f) == WEOF)
-			return -1;
-		done++;
-	}
-	while (len < field_width--)
-	{
-		if (putwc(L' ', f) == WEOF)
-			return -1;
-		done++;
-	}
-	return done;
-}
-
-static int stringw(FILE *f, const wchar_t* sw, int len, int field_width, int precision, int flags)
-{
-	int i, done = 0;
-	if (sw == NULL)
-	{
-		sw = L"<NULL>";
-		len = 6;
-	}
-	else
-	{
-		if (len == -1)
-		{
-			len = 0;
-			while ((unsigned int)len < (unsigned int)precision && sw[len])
-				len++;
-		}
-		else
-		{
-			if ((unsigned int)len > (unsigned int)precision)
-				len = precision;
-		}
-	}
-	if (!(flags & LEFT))
-		while (len < field_width--)
-		{
-			if (putwc(L' ', f) == WEOF)
-				return -1;
-			done++;
-		}
-	for (i = 0; i < len; ++i)
-	{
-		if (putwc(*sw++, f) == WEOF)
-			return -1;
-		done++;
-	}
-	while (len < field_width--)
-	{
-		if (putwc(L' ', f) == WEOF)
-			return -1;
-		done++;
-	}
-	return done;
-}
 
 int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 {
-	int len = 0;
-	ULONGLONG num;
-	int base;
+	int len;
+	unsigned long long num;
+	int i, base;
 	long double _ldouble;
 	double _double;
 	const char *s;
 	const wchar_t* sw;
-	int result, done = 0;
 
 	int flags;		/* flags to number() */
 
@@ -715,9 +512,7 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 
 	for (; *fmt ; ++fmt) {
 		if (*fmt != L'%') {
-			if (putwc(*fmt,f) == WEOF)
-				return -1;
-			done++;
+			putwc(*fmt,f);
 			continue;
 		}
 
@@ -801,114 +596,130 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 		case L'c': /* finished */
 			if (!(flags & LEFT))
 				while (--field_width > 0)
-				{
-					if (putwc(L' ', f) == WEOF)
-						return -1;
-					done++;
-				}
+					putwc(L' ', f);
 			if (qualifier == L'h')
-			{
-				if (putwc((wchar_t) va_arg(args, int), f) == WEOF)
-					return -1;
-			}
+				putwc((wchar_t) va_arg(args, int), f);
 			else
-			{
-				if (putwc((wchar_t) va_arg(args, int), f) == WEOF)
-					return -1;
-			}
-			done++;
+				putwc((wchar_t) va_arg(args, int), f);
 			while (--field_width > 0)
-			{
-				if (putwc(L' ', f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(L' ', f);
 			continue;
 
 		case L'C': /* finished */
 			if (!(flags & LEFT))
 				while (--field_width > 0)
-				{
-					if (putwc(L' ', f) == WEOF)
-						return -1;
-					done++;
-				}
+					putwc(L' ', f);
 			if (qualifier == L'l' || qualifier == L'w')
-			{
-				if (putwc((unsigned char) va_arg(args, int), f) == WEOF)
-					return -1;
-			}
+				putwc((unsigned char) va_arg(args, int), f);
 			else
-			{
-				if (putwc((unsigned char) va_arg(args, int), f) == WEOF)
-					return -1;
-			}
-			done++;
+				putwc((unsigned char) va_arg(args, int), f);
 			while (--field_width > 0)
-			{
-				if (putwc(L' ', f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(L' ', f);
 			continue;
 
 		case L's': /* finished */
 			if (qualifier == L'h') {
 				/* print ascii string */
 				s = va_arg(args, char *);
-				result = string(f, s, -1, field_width, precision, flags);
+				if (s == NULL)
+					s = "<NULL>";
+
+				len = strlen (s);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putwc(L' ', f);
+				for (i = 0; i < len; ++i)
+					putwc((wchar_t)(*s++), f);
+				while (len < field_width--)
+					putwc(L' ', f);
 			} else {
 				/* print unicode string */
 				sw = va_arg(args, wchar_t *);
-				result = stringw(f, sw, -1, field_width, precision, flags);
+				if (sw == NULL)
+					sw = L"<NULL>";
+
+				len = wcslen (sw);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putwc(L' ', f);
+				for (i = 0; i < len; ++i)
+					putwc(*sw++, f);
+				while (len < field_width--)
+					putwc(L' ', f);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
 
 		case L'S':
 			if (qualifier == L'l' || qualifier == L'w') {
 				/* print unicode string */
 				sw = va_arg(args, wchar_t *);
-				result = stringw(f, sw, -1, field_width, precision, flags);
+				if (sw == NULL)
+					sw = L"<NULL>";
+
+				len = wcslen (sw);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putwc(L' ', f);
+				for (i = 0; i < len; ++i)
+					putwc(*sw++, f);
+				while (len < field_width--)
+					putwc(L' ', f);
 			} else {
 				/* print ascii string */
 				s = va_arg(args, char *);
-				result = string(f, s, -1, field_width, precision, flags);
+				if (s == NULL)
+					s = "<NULL>";
+
+				len = strlen (s);
+				if ((unsigned int)len > (unsigned int)precision)
+					len = precision;
+
+				if (!(flags & LEFT))
+					while (len < field_width--)
+						putwc(L' ', f);
+				for (i = 0; i < len; ++i)
+					putwc((wchar_t)(*s++), f);
+				while (len < field_width--)
+					putwc(L' ', f);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
 
+#if 0
 		case L'Z': /* finished */
 			if (qualifier == L'w') {
 				/* print counted unicode string */
 				PUNICODE_STRING pus = va_arg(args, PUNICODE_STRING);
 				if ((pus == NULL) || (pus->Buffer)) {
-					sw = NULL;
-					len = -1;
+					sw = L"<NULL>";
+					while ((*sw) != 0)
+						putwc(*sw++, f);
 				} else {
-					sw = pus->Buffer;
+					for (i = 0; pus->Buffer[i] && i < pus->Length; i++)
+						putwc(pus->Buffer[i], f);
 				}
-				result = stringw(f, sw, len, field_width, precision, flags);
 			} else {
 				/* print counted ascii string */
 				PANSI_STRING pus = va_arg(args, PANSI_STRING);
 				if ((pus == NULL) || (pus->Buffer)) {
-					s = NULL;
-					len = -1;
+					sw = L"<NULL>";
+					while ((*sw) != 0)
+						putwc(*sw++, f);
 				} else {
-					s = pus->Buffer;
-					len = pus->Length;
+					for (i = 0; pus->Buffer[i] && i < pus->Length; i++)
+						putwc((wchar_t)pus->Buffer[i], f);
 				}
-				result = string(f, s, len, field_width, precision, flags);
 			}
-			if (result < 0)
-				return -1;
-			done += result;
 			continue;
+#endif
 
 		case L'e': /* finished */
 		case L'E':
@@ -922,9 +733,7 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 					sw = L"Nan";
 					len = 3;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				}
@@ -932,9 +741,7 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 					sw = L"-Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				}
@@ -942,18 +749,13 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 					sw = L"+Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				} else {
 					if ( precision == -1 )
 						precision = 6;
-					result = numberfl(f,_ldouble,*fmt,field_width,precision,flags);
-					if (result < 0)
-						return -1;
-					done += result;
+					numberfl(f,_ldouble,*fmt,field_width,precision,flags);
 				}
 			} else {
 				_double = (double)va_arg(args, double);
@@ -962,36 +764,27 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 					sw = L"Nan";
 					len = 3;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				} else if ( _isinf(_double) < 0 ) {
 					sw = L"-Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				} else if ( _isinf(_double) > 0 ) {
 					sw = L"+Inf";
 					len = 4;
 					while ( len > 0 ) {
-						if (putwc(*sw++,f) == WEOF)
-							return -1;
-						done++;
+						putwc(*sw++,f);
 						len --;
 					}
 				} else {
 					if ( precision == -1 )
 						precision = 6;
-					result = numberf(f,_double,*fmt,field_width,precision,flags);
-					if (result < 0)
-						return -1;
-					done += result;
+					numberf(f,_double,*fmt,field_width,precision,flags);
 				}
 			}
 			continue;
@@ -1001,12 +794,9 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 				field_width = 2*sizeof(void *);
 				flags |= ZEROPAD;
 			}
-			result = number(f,
-				        (unsigned long) va_arg(args, void *), 16,
-					field_width, precision, flags);
-			if (result < 0)
-				return -1;
-			done += result;
+			number(f,
+				(unsigned long) va_arg(args, void *), 16,
+				field_width, precision, flags);
 			continue;
 
 		case L'n':
@@ -1042,30 +832,18 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 
 		default:
 			if (*fmt != L'%')
-			{
-				if (putwc(L'%', f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(L'%', f);
 			if (*fmt)
-			{
-				if (putwc(*fmt, f) == WEOF)
-					return -1;
-				done++;
-			}
+				putwc(*fmt, f);
 			else
 				--fmt;
 			continue;
 		}
 
 		if (qualifier == L'I')
-			num = va_arg(args, ULONGLONG);
-		else if (qualifier == L'l') {
-			if (flags & SIGN)
-				num = va_arg(args, long);
-			else
-				num = va_arg(args, unsigned long);
-		}
+			num = va_arg(args, unsigned long long);
+		else if (qualifier == L'l')
+			num = va_arg(args, unsigned long);
 		else if (qualifier == L'h') {
 			if (flags & SIGN)
 				num = va_arg(args, int);
@@ -1076,13 +854,10 @@ int __vfwprintf(FILE *f, const wchar_t *fmt, va_list args)
 			num = va_arg(args, int);
 		else
 			num = va_arg(args, unsigned int);
-		result = number(f, num, base, field_width, precision, flags);
-		if (result < 0)
-			return -1;
-		done += result;
+		number(f, num, base, field_width, precision, flags);
 	}
 	//putwc(L'\0',f);
-	return done;
+	return 0;
 }
 
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: format.c,v 1.5 2004/09/15 13:32:27 weiden Exp $
+/* $Id: format.c,v 1.1 1999/05/11 21:19:41 ea Exp $
  *
  * COPYING:	See the top level directory
  * PROJECT:	ReactOS 
@@ -12,59 +12,38 @@
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
-#include <ntddk.h>
 #include <fmifs.h>
-#include <fslib/vfatlib.h>
-#include <string.h>
-
-#define NDEBUG
-#include <debug.h>
-
 
 /* FMIFS.6 */
-VOID STDCALL
-Format (VOID)
+VOID
+__stdcall
+Format(VOID)
 {
 }
 
 
 /* FMIFS.7 */
-VOID STDCALL
-FormatEx (PWCHAR DriveRoot,
-	  ULONG MediaFlag,
-	  PWCHAR Format,
-	  PWCHAR Label,
-	  BOOLEAN QuickFormat,
-	  ULONG ClusterSize,
-	  PFMIFSCALLBACK Callback)
+VOID
+__stdcall
+FormatEx(
+	PWCHAR		DriveRoot,
+	DWORD		MediaFlag,
+	PWCHAR		Format,
+	PWCHAR		Label,
+	BOOL		QuickFormat,
+	DWORD		ClusterSize,
+	PFMIFSCALLBACK	Callback
+	)
 {
-  UNICODE_STRING usDriveRoot;
-  UNICODE_STRING usLabel;
-  BOOLEAN Argument = FALSE;
+	BOOL	Argument = FALSE;
 
-  RtlInitUnicodeString(&usDriveRoot, DriveRoot);
-  RtlInitUnicodeString(&usLabel, Label);
-
-  if (_wcsnicmp(Format, L"FAT", 3) == 0)
-    {
-      DPRINT1("FormatEx - FAT\n");
-
-      VfatInitialize ();
-      VfatFormat (&usDriveRoot,
-		  MediaFlag,
-		  &usLabel,
-		  QuickFormat,
-		  ClusterSize,
-		  Callback);
-      VfatCleanup ();
-    }
-  else
-    {
-      /* Unknown file system */
-      Callback (DONE,        /* Command */
-		0,           /* DWORD Modifier */
-		&Argument);  /* Argument */
-    }
+	/* FAIL immediately */
+	Callback(
+		DONE,		/* Command */
+		0,		/* DWORD Modifier */
+		& Argument	/* Argument */
+		);
 }
+
 
 /* EOF */

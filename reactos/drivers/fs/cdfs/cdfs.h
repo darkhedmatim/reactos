@@ -41,11 +41,7 @@ struct _DIR_RECORD
 
 typedef struct _DIR_RECORD DIR_RECORD, *PDIR_RECORD;
 
-/* DIR_RECORD.FileFlags */
-#define FILE_FLAG_HIDDEN    0x01
-#define FILE_FLAG_DIRECTORY 0x02
-#define FILE_FLAG_SYSTEM    0x04
-#define FILE_FLAG_READONLY  0x10
+
 
 
 /* Volume Descriptor header*/
@@ -132,27 +128,23 @@ typedef struct _SVD SVD, *PSVD;
 
 typedef struct _CDINFO
 {
-  ULONG VolumeOffset;
   ULONG VolumeSpaceSize;
   ULONG JolietLevel;
   ULONG RootStart;
   ULONG RootSize;
-  WCHAR VolumeLabel[MAXIMUM_VOLUME_LABEL_LENGTH];
-  ULONG VolumeLabelLength;
-  ULONG SerialNumber;
+
 } CDINFO, *PCDINFO;
 
 
 typedef struct
 {
-  ERESOURCE VcbResource;
   ERESOURCE DirResource;
+//  ERESOURCE FatResource;
 
   KSPIN_LOCK FcbListLock;
   LIST_ENTRY FcbListHead;
 
   PVPB Vpb;
-  PDEVICE_OBJECT VolumeDevice;
   PDEVICE_OBJECT StorageDevice;
   PFILE_OBJECT StreamFileObject;
 
@@ -168,18 +160,18 @@ typedef struct
 
 typedef struct _FCB
 {
-  FSRTL_COMMON_FCB_HEADER RFCB;
+  REACTOS_COMMON_FCB_HEADER RFCB;
   SECTION_OBJECT_POINTERS SectionObjectPointers;
 
   PFILE_OBJECT FileObject;
   PDEVICE_EXTENSION DevExt;
 
-  UNICODE_STRING ShortNameU;
-
   WCHAR *ObjectName;		/* point on filename (250 chars max) in PathName */
   WCHAR PathName[MAX_PATH];	/* path+filename 260 max */
-  WCHAR ShortNameBuffer[13];
+  WCHAR ShortName[13];
+  USHORT ShortNameLength;
 
+//  ERESOURCE PagingIoResource;
   ERESOURCE MainResource;
 
   LIST_ENTRY FcbListEntry;
@@ -187,26 +179,25 @@ typedef struct _FCB
 
   ULONG DirIndex;
 
-  LARGE_INTEGER IndexNumber;	/* HighPart: Parent directory start sector */
-				/* LowPart: Directory record offset in the parent directory file */
-
   LONG RefCount;
   ULONG Flags;
 
   DIR_RECORD Entry;
+
+
 } FCB, *PFCB;
 
 
 typedef struct _CCB
 {
+  PFCB           Fcb;
   LIST_ENTRY     NextCCB;
   PFILE_OBJECT   PtrFileObject;
   LARGE_INTEGER  CurrentByteOffset;
   /* for DirectoryControl */
   ULONG Entry;
-  ULONG Offset;
   /* for DirectoryControl */
-  UNICODE_STRING DirectorySearchPattern;
+  PWCHAR DirectorySearchPattern;
   ULONG LastCluster;
   ULONG LastOffset;
 } CCB, *PCCB;
@@ -227,11 +218,15 @@ typedef struct
 extern PCDFS_GLOBAL_DATA CdfsGlobalData;
 
 
-/* cleanup.c */
+NTSTATUS
+CdfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
+		IN ULONG DiskSector,
+		IN ULONG SectorCount,
+		IN OUT PUCHAR Buffer);
 
-NTSTATUS STDCALL
-CdfsCleanup(PDEVICE_OBJECT DeviceObject,
-	    PIRP Irp);
+int CdfsStrcmpi( wchar_t *str1, wchar_t *str2 );
+void CdfsWstrcpy( wchar_t *str1, wchar_t *str2, int max );
+
 
 
 /* close.c */
@@ -240,29 +235,19 @@ NTSTATUS STDCALL
 CdfsClose(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
 
-NTSTATUS
-CdfsCloseFile(PDEVICE_EXTENSION DeviceExt,
-	      PFILE_OBJECT FileObject);
-
-
 /* common.c */
 
 NTSTATUS
 CdfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
 		IN ULONG DiskSector,
 		IN ULONG SectorCount,
-		IN OUT PUCHAR Buffer,
-		IN BOOLEAN Override);
+		IN OUT PUCHAR Buffer);
 
 NTSTATUS
-CdfsDeviceIoControl (IN PDEVICE_OBJECT DeviceObject,
-		     IN ULONG CtlCode,
-		     IN PVOID InputBuffer,
-		     IN ULONG InputBufferSize,
-		     IN OUT PVOID OutputBuffer,
-		     IN OUT PULONG pOutputBufferSize,
-		     IN BOOLEAN Override);
-
+CdfsReadRawSectors(IN PDEVICE_OBJECT DeviceObject,
+		   IN ULONG DiskSector,
+		   IN ULONG SectorCount,
+		   IN OUT PUCHAR Buffer);
 
 /* create.c */
 
@@ -306,7 +291,7 @@ CdfsAddFCBToTable(PDEVICE_EXTENSION Vcb,
 
 PFCB
 CdfsGrabFCBFromTable(PDEVICE_EXTENSION Vcb,
-		     PUNICODE_STRING FileName);
+		     PWSTR FileName);
 
 NTSTATUS
 CdfsFCBInitializeCache(PVCB Vcb,
@@ -318,32 +303,21 @@ CdfsMakeRootFCB(PDEVICE_EXTENSION Vcb);
 PFCB
 CdfsOpenRootFCB(PDEVICE_EXTENSION Vcb);
 
-NTSTATUS
-CdfsMakeFCBFromDirEntry(PVCB Vcb,
-			PFCB DirectoryFCB,
-			PWSTR LongName,
-			PWSTR ShortName,
-			PDIR_RECORD Record,
-			ULONG DirectorySector,
-			ULONG DirectoryOffset,
-			PFCB * fileFCB);
+
 
 NTSTATUS
 CdfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
 			  PFCB Fcb,
 			  PFILE_OBJECT FileObject);
 
-NTSTATUS
-CdfsDirFindFile(PDEVICE_EXTENSION DeviceExt,
-		PFCB DirectoryFcb,
-		PUNICODE_STRING FileToFind,
-		PFCB *FoundFCB);
+
+
 
 NTSTATUS
 CdfsGetFCBForFile(PDEVICE_EXTENSION Vcb,
 		  PFCB *pParentFCB,
 		  PFCB *pFCB,
-		  PUNICODE_STRING FileName);
+		  const PWSTR pFileName);
 
 
 /* finfo.c */
@@ -352,19 +326,16 @@ NTSTATUS STDCALL
 CdfsQueryInformation(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
 
-NTSTATUS STDCALL
-CdfsSetInformation(PDEVICE_OBJECT DeviceObject,
-		   PIRP Irp);
-
-
 /* fsctl.c */
 
 NTSTATUS STDCALL
 CdfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp);
 
-
 /* misc.c */
+
+BOOLEAN
+wstrcmpjoki(PWSTR s1, PWSTR s2);
 
 VOID
 CdfsSwapString(PWCHAR Out,
@@ -372,13 +343,12 @@ CdfsSwapString(PWCHAR Out,
 	       ULONG Count);
 
 VOID
-CdfsDateTimeToSystemTime(PFCB Fcb,
-			 PLARGE_INTEGER SystemTime);
+CdfsDateTimeToFileTime(PFCB Fcb,
+		       TIME *FileTime);
 
 VOID
 CdfsFileFlagsToAttributes(PFCB Fcb,
 			  PULONG FileAttributes);
-
 
 /* rw.c */
 

@@ -1,8 +1,8 @@
 /* Copyright (C) 1995 DJ Delorie, see COPYING.DJ for details */
-#include <msvcrt/stdio.h>
-#include <msvcrt/string.h>
-#include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
+#include <crtdll/stdio.h>
+#include <crtdll/string.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/internal/file.h>
 
 
 FILE *	__alloc_file(void);
@@ -67,9 +67,6 @@ FILE *__alloc_file(void)
 }
 
 
-/*
- * @implemented
- */
 int _fcloseall( void )
 {
    __file_rec *fr = __file_rec_list;

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: rpcss.c,v 1.4 2003/11/14 17:13:32 weiden Exp $
+/* $Id: rpcss.c,v 1.1 2002/06/25 21:11:11 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -32,8 +32,6 @@
 #define NTOS_MODE_USER
 #include <ntos.h>
 #include <windows.h>
-#include <stdio.h>
-#include "rpcss.h"
 
 //#include "services.h"
 
@@ -85,6 +83,7 @@ int main(int argc, char *argv[])
 #endif
 
   HANDLE hEvent;
+  NTSTATUS Status;
 
   PrintString("RpcSs service\n");
 

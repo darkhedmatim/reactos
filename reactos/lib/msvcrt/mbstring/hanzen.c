@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/mbstring/hanzen.c
+ * FILE:        lib/crtdll/mbstring/hanzen.c
  * PURPOSE:     Multibyte conversion routines formerly called hantozen and zentohan
  * PROGRAMER:   Boudewijn Dekker, Taiji Yamada
  * UPDATE HISTORY:
@@ -61,9 +61,6 @@ static unsigned char zen_to_han_symbol_table_2[ZTOH_SYMBOLS] = {
 #define JTOKANA(c) ((c) <= 0x82dd ? (c) + 0xa1 : (c) + 0xa2)
 
  
-/*
- * @implemented
- */
 unsigned short _mbbtombc(unsigned short c)
 {
   if (c >= 0x20 && c <= 0x7e) {
@@ -75,9 +72,6 @@ unsigned short _mbbtombc(unsigned short c)
 }
 
 
-/*
- * @implemented
- */
 unsigned short _mbctombb(unsigned short c)
 {
   int i;

@@ -16,11 +16,11 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include <msvcrt/stdlib.h>
-#include <msvcrt/wchar.h>
+#include <crtdll/stdlib.h>
+#include <crtdll/wchar.h>
 
-#include <msvcrt/errno.h>
-#include <msvcrt/wchar.h>
+#include <crtdll/errno.h>
+#include <crtdll/wchar.h>
 
 #ifndef EILSEQ
 #define EILSEQ EINVAL
@@ -39,27 +39,22 @@ static const unsigned char encoding_byte[] =
 
 /* We don't need the state really because we don't have shift states
    to maintain between calls to this function.  */
-typedef int mbstate_t;
-static mbstate_t mbstate_internal;
+static mbstate_t internal;
 
 
-mbstate_t __no_r_state;  /* Now defined in wcstombs.c.  */
-//extern mbstate_t __no_r_state;  /* Defined in mbtowc.c.  */
+extern mbstate_t __no_r_state;  /* Defined in mbtowc.c.  */
 
 size_t
 __wcsrtombs (char *dst, const wchar_t **src, size_t len, mbstate_t *ps);
 
 /* Convert the `wchar_t' string in PWCS to a multibyte character string
- * in S, writing no more than N characters.  Return the number of bytes
- * written, or (size_t) -1 if an invalid `wchar_t' was found.
- *
- * Attention: this function should NEVER be intentionally used.
- * The interface is completely stupid.  The state is shared between
- * all conversion functions.  You should use instead the restartable
- * version `wcsrtombs'.
- *
- * @implemented
- */
+   in S, writing no more than N characters.  Return the number of bytes
+   written, or (size_t) -1 if an invalid `wchar_t' was found.
+
+   Attention: this function should NEVER be intentionally used.
+   The interface is completely stupid.  The state is shared between
+   all conversion functions.  You should use instead the restartable
+   version `wcsrtombs'.  */
 size_t
 wcstombs (char *s, const wchar_t *pwcs, size_t n)
 {
@@ -82,7 +77,7 @@ __wcsrtombs (char *dst, const wchar_t **src, size_t len, mbstate_t *ps)
   const wchar_t *run = *src;
 
   if (ps == NULL)
-    ps = &mbstate_internal;
+    ps = &internal;
 
   if (dst == NULL)
     /* The LEN parameter has to be ignored if we don't actually write

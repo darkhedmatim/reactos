@@ -1,22 +1,18 @@
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 char * _strrev(char *s)
 {
-	char a, *b, *e;
-	b=e=s;
+	char  *e;
+	char   a;
+	e=s;
 	while (*e)
 		e++;
-	e--; /* start at last char, not NULL char */
-	while ( b < e )
-	{
-		a=*b;
-		*b=*e;
+	while (s<e) {
+		a=*s;
+		*s=*e;
 		*e=a;
-		b++;
+		s++;
 		e--;
 	}
-	return s; /* return ptr to beginning of string */
+	return s;
 }

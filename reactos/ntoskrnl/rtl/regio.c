@@ -1,4 +1,4 @@
-/* $Id: regio.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
+/* $Id: regio.c,v 1.3 2001/02/10 22:51:11 dwelch Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -9,7 +9,7 @@
  *                       29/12/1999 Created
  */
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
 
 
 /* FUNCTIONS ***************************************************************/
@@ -23,9 +23,6 @@ READ_REGISTER_UCHAR (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 USHORT
 STDCALL
 READ_REGISTER_USHORT (
@@ -35,9 +32,6 @@ READ_REGISTER_USHORT (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 ULONG
 STDCALL
 READ_REGISTER_ULONG (
@@ -47,9 +41,6 @@ READ_REGISTER_ULONG (
 	return *Register;
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 READ_REGISTER_BUFFER_UCHAR (
@@ -64,9 +55,6 @@ READ_REGISTER_BUFFER_UCHAR (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 READ_REGISTER_BUFFER_USHORT (
@@ -81,9 +69,6 @@ READ_REGISTER_BUFFER_USHORT (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 READ_REGISTER_BUFFER_ULONG (
@@ -98,9 +83,6 @@ READ_REGISTER_BUFFER_ULONG (
 	}
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_UCHAR (
@@ -111,9 +93,6 @@ WRITE_REGISTER_UCHAR (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_USHORT (
@@ -124,9 +103,6 @@ WRITE_REGISTER_USHORT (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_ULONG (
@@ -137,9 +113,6 @@ WRITE_REGISTER_ULONG (
 	*Register = Value;
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_BUFFER_UCHAR (
@@ -150,13 +123,10 @@ WRITE_REGISTER_BUFFER_UCHAR (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_BUFFER_USHORT (
@@ -167,13 +137,10 @@ WRITE_REGISTER_BUFFER_USHORT (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 
-/*
- * @implemented
- */
 VOID
 STDCALL
 WRITE_REGISTER_BUFFER_ULONG (
@@ -184,7 +151,7 @@ WRITE_REGISTER_BUFFER_ULONG (
 {
 	while (Count--)
 	{
-		*Register++  = *Buffer++;
+		*Buffer++  = *Register++;
 	}
 }
 

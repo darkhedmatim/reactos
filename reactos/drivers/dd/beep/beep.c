@@ -1,4 +1,4 @@
-/* $Id: beep.c,v 1.18 2004/02/10 16:22:55 navaraf Exp $
+/* $Id: beep.c,v 1.11 2002/07/18 00:29:19 ekohl Exp $
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
@@ -14,10 +14,10 @@
 
 #include <ddk/ntddk.h>
 #include <ddk/ntddbeep.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
+
 
 /* TYEPEDEFS ***************************************************************/
 
@@ -46,16 +46,15 @@ BeepDPC(PKDPC Dpc,
   DeviceExtension->BeepOn = FALSE;
   KeSetEvent(&DeviceExtension->Event,
 	     0,
-	     FALSE);
+	     TRUE);
 
   DPRINT("BeepDPC() finished!\n");
 }
 
 
 static NTSTATUS STDCALL
-BeepCreate(
-   PDEVICE_OBJECT DeviceObject,
-	 PIRP Irp)
+BeepCreate(PDEVICE_OBJECT DeviceObject,
+	   PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:
@@ -220,10 +219,11 @@ BeepDeviceControl(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID STDCALL
+static NTSTATUS STDCALL
 BeepUnload(PDRIVER_OBJECT DriverObject)
 {
   DPRINT("BeepUnload() called!\n");
+  return(STATUS_SUCCESS);
 }
 
 
@@ -240,8 +240,8 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_EXTENSION DeviceExtension;
   PDEVICE_OBJECT DeviceObject;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Device\\Beep");
-  UNICODE_STRING SymlinkName = ROS_STRING_INITIALIZER(L"\\??\\Beep");
+  UNICODE_STRING DeviceName;
+  UNICODE_STRING SymlinkName;
   NTSTATUS Status;
 
   DPRINT("Beep Device Driver 0.0.3\n");
@@ -253,6 +253,8 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = BeepDeviceControl;
   DriverObject->DriverUnload = BeepUnload;
 
+  RtlInitUnicodeString(&DeviceName,
+		       L"\\Device\\Beep");
   Status = IoCreateDevice(DriverObject,
 			  sizeof(DEVICE_EXTENSION),
 			  &DeviceName,
@@ -276,6 +278,8 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 		    FALSE);
 
   /* Create the dos device link */
+  RtlInitUnicodeString(&SymlinkName,
+		       L"\\??\\Beep");
   IoCreateSymbolicLink(&SymlinkName,
 		       &DeviceName);
 

@@ -1,4 +1,4 @@
-/* $Id: dllmain.c,v 1.5 2004/01/24 08:21:11 ekohl Exp $
+/* $Id: dllmain.c,v 1.1 2000/08/12 19:33:19 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -19,12 +19,12 @@ HANDLE Secur32Heap;
 
 /* FUNCTIONS *****************************************************************/
 
-BOOL STDCALL DllMain(HINSTANCE hInstance, ULONG Reason, PVOID Reserved)
+WINBOOL STDCALL DllMain(HINSTANCE hInstance, ULONG Reason, PVOID Reserved)
 {
    switch (Reason)
      {
       case DLL_PROCESS_ATTACH:
-	Secur32Heap = RtlCreateHeap(0, NULL, 0, 4096, NULL, NULL);
+	Secur32Heap = RtlCreateHeap(0, NULL, 4096, 0, NULL, NULL);
 	if (Secur32Heap == 0)
 	  {
 	     return(FALSE);

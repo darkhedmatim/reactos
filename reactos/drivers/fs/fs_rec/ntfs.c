@@ -1,6 +1,6 @@
 /*
  *  ReactOS kernel
- *  Copyright (C) 2002,2003 ReactOS Team
+ *  Copyright (C) 2002 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: ntfs.c,v 1.8 2004/12/25 11:18:38 navaraf Exp $
+/* $Id: ntfs.c,v 1.4 2002/06/12 23:35:55 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/fs_rec/ntfs.c
+ * FILE:             services/fs/fs_rec/ntfs.c
  * PURPOSE:          Filesystem recognizer driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -74,12 +74,11 @@ FsRecIsNtfsVolume(IN PDEVICE_OBJECT DeviceObject)
   if (!NT_SUCCESS(Status))
     {
       DPRINT("FsRecReadSectors() failed (Status %lx)\n", Status);
-      ExFreePool(Buffer);
       return(Status);
     }
 
   DPRINT("NTFS-identifier: [%.8s]\n", &Buffer[3]);
-  if (RtlCompareMemory(&Buffer[3], "NTFS    ", 8) == 8)
+  if (strncmp(&Buffer[3], "NTFS    ", 8) == 0)
     {
       Status = STATUS_SUCCESS;
     }

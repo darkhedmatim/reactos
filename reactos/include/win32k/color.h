@@ -1,16 +1,14 @@
 #ifndef __WIN32K_COLOR_H
 #define __WIN32K_COLOR_H
 
-#ifndef CLR_INVALID
 #define CLR_INVALID         0xffffffff
-#endif
-#define PC_SYS_USED     0x80		/* palentry is used (both system and logical) */
-#define PC_SYS_RESERVED 0x40		/* system palentry is not to be mapped to */
-#define PC_SYS_MAPPED   0x10		/* logical palentry is a direct alias for system palentry */
+#define PC_SYS_USED     0x80		// palentry is used (both system and logical)
+#define PC_SYS_RESERVED 0x40		// system palentry is not to be mapped to
+#define PC_SYS_MAPPED   0x10		// logical palentry is a direct alias for system palentry
 
 BOOL
 STDCALL
-NtGdiAnimatePalette (
+W32kAnimatePalette (
 	HPALETTE		hpal,
 	UINT			StartIndex,
 	UINT			Entries,
@@ -18,35 +16,35 @@ NtGdiAnimatePalette (
 	);
 HPALETTE
 STDCALL
-NtGdiCreateHalftonePalette (
+W32kCreateHalftonePalette (
 	HDC	hDC
 	);
 HPALETTE
 STDCALL
-NtGdiCreatePalette (
+W32kCreatePalette (
 	CONST PLOGPALETTE	lgpl
 	);
 BOOL
 STDCALL
-NtGdiGetColorAdjustment (
+W32kGetColorAdjustment (
 	HDC			hDC,
 	LPCOLORADJUSTMENT	ca
 	);
 COLORREF
 STDCALL
-NtGdiGetNearestColor (
+W32kGetNearestColor (
 	HDC		hDC,
 	COLORREF	Color
 	);
 UINT
 STDCALL
-NtGdiGetNearestPaletteIndex (
+W32kGetNearestPaletteIndex (
 	HPALETTE	hpal,
 	COLORREF	Color
 	);
 UINT
 STDCALL
-NtGdiGetPaletteEntries (
+W32kGetPaletteEntries (
 	HPALETTE	hpal,
 	UINT		StartIndex,
 	UINT		Entries,
@@ -54,7 +52,7 @@ NtGdiGetPaletteEntries (
 	);
 UINT
 STDCALL
-NtGdiGetSystemPaletteEntries (
+W32kGetSystemPaletteEntries (
 	HDC		hDC,
 	UINT		StartIndex,
 	UINT		Entries,
@@ -62,36 +60,36 @@ NtGdiGetSystemPaletteEntries (
 	);
 UINT
 STDCALL
-NtGdiGetSystemPaletteUse (
+W32kGetSystemPaletteUse (
 	HDC	hDC
 	);
 UINT
 STDCALL
-NtGdiRealizePalette (
+W32kRealizePalette (
 	HDC	hDC
 	);
 BOOL
 STDCALL
-NtGdiResizePalette (
+W32kResizePalette (
 	HPALETTE	hpal,
 	UINT		Entries
 	);
 HPALETTE
 STDCALL
-NtGdiSelectPalette (
+W32kSelectPalette (
 	HDC		hDC,
 	HPALETTE	hpal,
 	BOOL		ForceBackground
 	);
 BOOL
 STDCALL
-NtGdiSetColorAdjustment (
+W32kSetColorAdjustment (
 	HDC			hDC,
 	CONST LPCOLORADJUSTMENT	ca
 	);
 UINT
 STDCALL
-NtGdiSetPaletteEntries (
+W32kSetPaletteEntries (
 	HPALETTE		hpal,
 	UINT			Start,
 	UINT			Entries,
@@ -99,18 +97,18 @@ NtGdiSetPaletteEntries (
 	);
 UINT
 STDCALL
-NtGdiSetSystemPaletteUse (
+W32kSetSystemPaletteUse (
 	HDC	hDC,
 	UINT	Usage
 	);
 BOOL
 STDCALL
-NtGdiUnrealizeObject (
+W32kUnrealizeObject (
 	HGDIOBJ	hgdiobj
 	);
 BOOL
 STDCALL
-NtGdiUpdateColors (
+W32kUpdateColors (
 	HDC	hDC
 	);
 #endif

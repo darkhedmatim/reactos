@@ -1,18 +1,12 @@
 #include <msvcrt/math.h>
 
-
-/*
- * @unimplemented
- */
-double _j0(double x) 
+double _j0(double x)
 {
-	return x;
+  return x;
 }
 
-/*
- * @unimplemented
- */
-double _y0(double x) 
+double _y0(double x)
 {
-	return x;
+  return x;
 }
+

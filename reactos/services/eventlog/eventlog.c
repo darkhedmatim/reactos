@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: eventlog.c,v 1.7 2003/11/20 11:09:49 ekohl Exp $
+/* $Id: eventlog.c,v 1.2 2002/07/20 13:32:26 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -32,7 +32,6 @@
 #define NTOS_MODE_USER
 #include <ntos.h>
 #include <windows.h>
-#include <stdio.h>
 
 #include "eventlog.h"
 
@@ -48,50 +47,66 @@
 
 /* FUNCTIONS *****************************************************************/
 
+void
+PrintString(char* fmt,...)
+{
+  char buffer[512];
+  va_list ap;
+
+  va_start(ap, fmt);
+  vsprintf(buffer, fmt, ap);
+  va_end(ap);
+
+  OutputDebugStringA(buffer);
+}
+
 
 VOID CALLBACK
 ServiceMain(DWORD argc, LPTSTR *argv)
 {
-  DPRINT1("ServiceMain() called\n");
+
+  PrintString("ServiceMain() called\n");
 
 
-  DPRINT1("ServiceMain() done\n");
+  PrintString("ServiceMain() done\n");
+
 }
 
 
 int
 main(int argc, char *argv[])
 {
-  SERVICE_TABLE_ENTRY ServiceTable[2] = {{L"EventLog", (LPSERVICE_MAIN_FUNCTION)ServiceMain},
+  SERVICE_TABLE_ENTRY ServiceTable[2] = {{L"EventLog", ServiceMain},
 					 {NULL, NULL}};
 
   HANDLE hEvent;
 //  NTSTATUS Status;
 
-  DPRINT("EventLog started\n");
+  PrintString("EventLog started\n");
 
 
 
 
 
   StartServiceCtrlDispatcher(ServiceTable);
+  PrintString("StartServiceCtrlDispatcher() done\n");
 
-  DPRINT("StartServiceCtrlDispatcher() done\n");
-
+#if 0
   if (StartPortThread() == FALSE)
     {
-      DPRINT1("StartPortThread() failed\n");
+      PrintString("StartPortThread() failed\n");
     }
+#endif
 
-  DPRINT("EventLog waiting\n");
 
+
+  PrintString("EventLog waiting\n");
   hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
   WaitForSingleObject(hEvent, INFINITE);
 
-  DPRINT("EventLog done\n");
+  PrintString("EventLog done\n");
 
   ExitThread(0);
-
   return(0);
 }
 

@@ -8,7 +8,7 @@
 #define __TICONSTS_H
 
 /* NDIS version this driver supports */
-#define NDIS_VERSION_MAJOR 4
+#define NDIS_VERSION_MAJOR 3
 #define NDIS_VERSION_MINOR 0
 
 #ifdef _NTTEST_
@@ -19,7 +19,7 @@
 #define DD_RAWIP_DEVICE_NAME    L"\\Device\\NTRawIp"
 
 /* For NDIS protocol registration */
-#define IP_DEVICE_NAME          L"\\Device\\NTIp"
+#define IP_DEVICE_NAME          "\\Device\\NTIp"
 #else
 #define DD_TCP_DEVICE_NAME      L"\\Device\\Tcp"
 #define DD_UDP_DEVICE_NAME      L"\\Device\\Udp"
@@ -27,9 +27,7 @@
 #define DD_RAWIP_DEVICE_NAME    L"\\Device\\RawIp"
 
 /* For NDIS protocol registration */
-/* The DDK says you have to register with the name that's regstered with SCM, e.g. tcpip */
-#define IP_DEVICE_NAME          L"\\Device\\Ip"
-#define TCPIP_PROTOCOL_NAME     L"Tcpip"
+#define IP_DEVICE_NAME          "\\Device\\Ip"
 #endif /* _NTTEST_ */
 
 /* TCP/UDP/RawIP IOCTL code definitions */

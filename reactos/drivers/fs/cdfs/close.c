@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: close.c,v 1.8 2004/09/14 21:46:39 ekohl Exp $
+/* $Id: close.c,v 1.3 2002/05/15 09:39:54 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -38,7 +38,7 @@
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS
+static NTSTATUS
 CdfsCloseFile(PDEVICE_EXTENSION DeviceExt,
 	      PFILE_OBJECT FileObject)
 /*
@@ -46,7 +46,7 @@ CdfsCloseFile(PDEVICE_EXTENSION DeviceExt,
  */
 {
   PCCB Ccb;
-  
+
   DPRINT("CdfsCloseFile(DeviceExt %x, FileObject %x)\n",
 	 DeviceExt,
 	 FileObject);
@@ -66,10 +66,10 @@ CdfsCloseFile(PDEVICE_EXTENSION DeviceExt,
       // This a FO, that was created outside from FSD.
       // Some FO's are created with IoCreateStreamFileObject() insid from FSD.
       // This FO's don't have a FileName.
-      CdfsReleaseFCB(DeviceExt, FileObject->FsContext);
+      CdfsReleaseFCB(DeviceExt,
+		     Ccb->Fcb);
     }
 
-  RtlFreeUnicodeString(&Ccb->DirectorySearchPattern);
   ExFreePool(Ccb);
 
   return(STATUS_SUCCESS);
@@ -109,4 +109,3 @@ ByeBye:
 }
 
 /* EOF */
-

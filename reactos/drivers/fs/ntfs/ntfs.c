@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: ntfs.c,v 1.6 2004/06/05 08:28:37 navaraf Exp $
+/* $Id: ntfs.c,v 1.1 2002/06/25 22:23:06 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -56,10 +55,12 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 {
   PDEVICE_OBJECT DeviceObject;
   NTSTATUS Status;
-  UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Ntfs");
+  UNICODE_STRING DeviceName;
 
   DPRINT("NTFS 0.0.1\n");
 
+  RtlInitUnicodeString(&DeviceName,
+		       L"\\Ntfs");
   Status = IoCreateDevice(DriverObject,
 			  sizeof(NTFS_GLOBAL_DATA),
 			  &DeviceName,
@@ -81,20 +82,20 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
 
   /* Initialize driver data */
   DeviceObject->Flags = DO_DIRECT_IO;
-  DriverObject->MajorFunction[IRP_MJ_CLOSE] = NtfsClose;
+//  DriverObject->MajorFunction[IRP_MJ_CLOSE] = NtfsClose;
   DriverObject->MajorFunction[IRP_MJ_CREATE] = NtfsCreate;
-  DriverObject->MajorFunction[IRP_MJ_READ] = NtfsRead;
-  DriverObject->MajorFunction[IRP_MJ_WRITE] = NtfsWrite;
+//  DriverObject->MajorFunction[IRP_MJ_READ] = NtfsRead;
+//  DriverObject->MajorFunction[IRP_MJ_WRITE] = NtfsWrite;
   DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] =
     NtfsFileSystemControl;
   DriverObject->MajorFunction[IRP_MJ_DIRECTORY_CONTROL] =
     NtfsDirectoryControl;
   DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] =
     NtfsQueryInformation;
-  DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
-    NtfsQueryVolumeInformation;
-  DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
-    NtfsSetVolumeInformation;
+//  DriverObject->MajorFunction[IRP_MJ_QUERY_VOLUME_INFORMATION] =
+//    NtfsQueryVolumeInformation;
+//  DriverObject->MajorFunction[IRP_MJ_SET_VOLUME_INFORMATION] =
+//    NtfsSetVolumeInformation;
 
   DriverObject->DriverUnload = NULL;
 

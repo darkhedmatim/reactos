@@ -1968,7 +1968,8 @@ COMMAND_PROTOTYPE(ShowVirtualMemory)
 					  MEMORY_AREA,
 					  Entry);
 				// find the filename
-	      if(((current->Type == MEMORY_AREA_SECTION_VIEW) ) &&
+	      if(((current->Type == MEMORY_AREA_SECTION_VIEW_COMMIT) ||
+		  (current->Type == MEMORY_AREA_SECTION_VIEW_RESERVE) )&&
 		 current->Data.SectionData.Section->FileObject)
                 {
 		  if(IsAddressValid((ULONG)current->Data.SectionData.Section->FileObject->FileName.Buffer) )
@@ -3092,8 +3093,6 @@ COMMAND_PROTOTYPE(ShowPCI)
                             if(WaitForKey()==FALSE)goto CommonShowPCIExit;
                         }
                         ppciConfig = &pciConfig;
-						#if 0
-							// sedwards
                         SHOW_FIELD_WORD(ppciConfig,Status,TRUE);
                         SHOW_FIELD_WORD(ppciConfig,Command,TRUE);
                         SHOW_FIELD_BYTE(ppciConfig,RevisionID,TRUE);
@@ -3102,7 +3101,6 @@ COMMAND_PROTOTYPE(ShowPCI)
                         SHOW_FIELD_BYTE(ppciConfig,SubClass,TRUE);
                         SHOW_FIELD_BYTE(ppciConfig,CacheLineSize,TRUE);
                         SHOW_FIELD_BYTE(ppciConfig,LatencyTimer,TRUE);
-						#endif
                     }
                 }
             }

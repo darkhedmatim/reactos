@@ -5,48 +5,53 @@
 #include <win32k/dc.h>
 #include <win32k/gdiobj.h>
 
+typedef struct _DDBITMAP
+{
+  const PDRIVER_FUNCTIONS  pDriverFunctions;
+//  DHPDEV  PDev;
+//  HSURF  Surface;
+} DDBITMAP;
+
 /* GDI logical bitmap object */
 typedef struct _BITMAPOBJ
 {
-  SURFOBJ     SurfObj;
-  FLONG	      flHooks;
-  FLONG       flFlags;
-  SIZE        dimension;   /* For SetBitmapDimension(), do NOT use
-                              to get width/height of bitmap, use
-                              bitmap.bmWidth/bitmap.bmHeight for
-                              that */
+  BITMAP      bitmap;
+  SIZE        size;   /* For SetBitmapDimension() */
+
+  DDBITMAP   *DDBitmap;
 
   /* For device-independent bitmaps: */
   DIBSECTION *dib;
-  RGBQUAD *ColorMap;
 } BITMAPOBJ, *PBITMAPOBJ;
-
-#define BITMAPOBJ_IS_APIBITMAP		0x1
 
 /*  Internal interface  */
 
 #define  BITMAPOBJ_AllocBitmap()  \
-  ((HBITMAP) GDIOBJ_AllocObj (GDI_OBJECT_TYPE_BITMAP))
+  ((HBITMAP) GDIOBJ_AllocObj (sizeof (BITMAPOBJ), GO_BITMAP_MAGIC))
 #define  BITMAPOBJ_FreeBitmap(hBMObj)  \
-  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP)
-#define  BITMAPOBJ_LockBitmap(hBMObj) GDIOBJ_LockObj((HGDIOBJ) hBMObj, GDI_OBJECT_TYPE_BITMAP)
-#define  BITMAPOBJ_UnlockBitmap(hBMObj) GDIOBJ_UnlockObj((HGDIOBJ) hBMObj)
-BOOL INTERNAL_CALL BITMAP_Cleanup(PVOID ObjectBody);
+  GDIOBJ_FreeObj((HGDIOBJ) hBMObj, GO_BITMAP_MAGIC)
+#define  BITMAPOBJ_HandleToPtr(hBMObj)  \
+  ((PBITMAPOBJ) GDIOBJ_LockObj ((HGDIOBJ) hBMObj, GO_BITMAP_MAGIC))
+#define  BITMAPOBJ_ReleasePtr(hBMObj)  \
+  GDIOBJ_UnlockObj ((HGDIOBJ) hBMObj, GO_BITMAP_MAGIC)
 
-INT     FASTCALL BITMAPOBJ_GetWidthBytes (INT bmWidth, INT bpp);
-HBITMAP FASTCALL BITMAPOBJ_CopyBitmap (HBITMAP  hBitmap);
-INT     FASTCALL DIB_GetDIBWidthBytes (INT  width, INT  depth);
-int     STDCALL  DIB_GetDIBImageBytes (INT  width, INT  height, INT  depth);
-INT     FASTCALL DIB_BitmapInfoSize (const BITMAPINFO * info, WORD coloruse);
-INT     STDCALL  BITMAP_GetObject(BITMAPOBJ * bmp, INT count, LPVOID buffer);
-HBITMAP FASTCALL BitmapToSurf(PBITMAPOBJ BitmapObj, HDEV GDIDevice);
+/*#define  BITMAPOBJ_PtrToHandle(hBMObj)  \
+  ((HBITMAP) GDIOBJ_PtrToHandle ((PGDIOBJ) hBMObj, GO_BITMAP_MAGIC))*/
+#define  BITMAPOBJ_LockBitmap(hBMObj) GDIOBJ_LockObject ((HGDIOBJ) hBMObj)
+#define  BITMAPOBJ_UnlockBitmap(hBMObj) GDIOBJ_UnlockObject ((HGDIOBJ) hBMObj)
 
-HBITMAP FASTCALL IntCreateCompatibleBitmap(PDC Dc, INT Width, INT Height);
+INT  BITMAPOBJ_GetWidthBytes (INT bmWidth, INT bpp);
+HBITMAP  BITMAPOBJ_CopyBitmap (HBITMAP  hBitmap);
+int DIB_GetDIBWidthBytes (int  width, int  depth);
+int DIB_GetDIBImageBytes (int  width, int  height, int  depth);
+int DIB_BitmapInfoSize (const BITMAPINFO * info, WORD coloruse);
+INT BITMAP_GetObject(BITMAPOBJ * bmp, INT count, LPVOID buffer);
+BOOL Bitmap_InternalDelete( PBITMAPOBJ pBmp );
 
 /*  User Entry Points  */
 BOOL
 STDCALL
-NtGdiBitBlt (
+W32kBitBlt (
 	HDC	hDCDest,
 	INT	XDest,
 	INT	YDest,
@@ -59,7 +64,7 @@ NtGdiBitBlt (
 	);
 HBITMAP
 STDCALL
-NtGdiCreateBitmap (
+W32kCreateBitmap (
 	INT		Width,
 	INT		Height,
 	UINT		Planes,
@@ -68,19 +73,19 @@ NtGdiCreateBitmap (
 	);
 HBITMAP
 STDCALL
-NtGdiCreateCompatibleBitmap (
+W32kCreateCompatibleBitmap (
 	HDC	hDC,
 	INT	Width,
 	INT	Height
 	);
 HBITMAP
 STDCALL
-NtGdiCreateBitmapIndirect (
+W32kCreateBitmapIndirect (
 	CONST BITMAP	* BM
 	);
 HBITMAP
 STDCALL
-NtGdiCreateDIBitmap (
+W32kCreateDIBitmap (
 	HDC			hDC,
 	CONST BITMAPINFOHEADER	* bmih,
 	DWORD			Init,
@@ -90,7 +95,7 @@ NtGdiCreateDIBitmap (
 	);
 HBITMAP
 STDCALL
-NtGdiCreateDIBSection (
+W32kCreateDIBSection (
 	HDC			hDC,
 	CONST BITMAPINFO	* bmi,
 	UINT			Usage,
@@ -100,14 +105,14 @@ NtGdiCreateDIBSection (
 	);
 HBITMAP
 STDCALL
-NtGdiCreateDiscardableBitmap (
+W32kCreateDiscardableBitmap (
 	HDC	hDC,
 	INT	Width,
 	INT	Height
 	);
 BOOL
 STDCALL
-NtGdiExtFloodFill (
+W32kExtFloodFill (
 	HDC		hDC,
 	INT		XStart,
 	INT		YStart,
@@ -116,7 +121,7 @@ NtGdiExtFloodFill (
 	);
 BOOL
 STDCALL
-NtGdiFloodFill (
+W32kFloodFill (
 	HDC		hDC,
 	INT		XStart,
 	INT		YStart,
@@ -124,20 +129,20 @@ NtGdiFloodFill (
 	);
 LONG
 STDCALL
-NtGdiGetBitmapBits (
+W32kGetBitmapBits (
 	HBITMAP	hBitmap,
 	LONG	Buffer,
 	LPVOID	Bits
 	);
 BOOL
 STDCALL
-NtGdiGetBitmapDimensionEx (
+W32kGetBitmapDimensionEx (
 	HBITMAP	hBitmap,
 	LPSIZE	Dimension
 	);
 UINT
 STDCALL
-NtGdiGetDIBColorTable (
+W32kGetDIBColorTable (
 	HDC	hDC,
 	UINT	StartIndex,
 	UINT	Entries,
@@ -145,7 +150,7 @@ NtGdiGetDIBColorTable (
 	);
 INT
 STDCALL
-NtGdiGetDIBits (
+W32kGetDIBits (
 	HDC		hDC,
 	HBITMAP		hBitmap,
 	UINT		StartScan,
@@ -156,24 +161,14 @@ NtGdiGetDIBits (
 	);
 COLORREF
 STDCALL
-NtGdiGetPixel (
+W32kGetPixel (
 	HDC	hDC,
 	INT	XPos,
 	INT	YPos
 	);
 BOOL
 STDCALL
-NtGdiGradientFill (
-	HDC hdc,
-	PTRIVERTEX pVertex,
-	ULONG uVertex,
-	PVOID pMesh,
-	ULONG uMesh,
-	ULONG ulMode
-	);
-BOOL
-STDCALL
-NtGdiMaskBlt (
+W32kMaskBlt (
 	HDC	hDCDest,
 	INT	XDest,
 	INT	YDest,
@@ -189,7 +184,7 @@ NtGdiMaskBlt (
 	);
 BOOL
 STDCALL
-NtGdiPlgBlt (
+W32kPlgBlt (
 	HDC		hDCDest,
 	CONST POINT	* Point,
 	HDC		hDCSrc,
@@ -203,14 +198,14 @@ NtGdiPlgBlt (
 	);
 LONG
 STDCALL
-NtGdiSetBitmapBits (
+W32kSetBitmapBits (
 	HBITMAP		hBitmap,
 	DWORD		Bytes,
 	CONST VOID	* Bits
 	);
 BOOL
 STDCALL
-NtGdiSetBitmapDimensionEx (
+W32kSetBitmapDimensionEx (
 	HBITMAP	hBitmap,
 	INT	Width,
 	INT	Height,
@@ -218,7 +213,7 @@ NtGdiSetBitmapDimensionEx (
 	);
 UINT
 STDCALL
-NtGdiSetDIBColorTable (
+W32kSetDIBColorTable (
 	HDC		hDC,
 	UINT		StartIndex,
 	UINT		Entries,
@@ -226,7 +221,7 @@ NtGdiSetDIBColorTable (
 	);
 INT
 STDCALL
-NtGdiSetDIBits (
+W32kSetDIBits (
 	HDC			hDC,
 	HBITMAP			hBitmap,
 	UINT			StartScan,
@@ -237,7 +232,7 @@ NtGdiSetDIBits (
 	);
 INT
 STDCALL
-NtGdiSetDIBitsToDevice (
+W32kSetDIBitsToDevice (
 	HDC			hDC,
 	INT			XDest,
 	INT			YDest,
@@ -253,7 +248,7 @@ NtGdiSetDIBitsToDevice (
 	);
 COLORREF
 STDCALL
-NtGdiSetPixel (
+W32kSetPixel (
 	HDC		hDC,
 	INT		X,
 	INT		Y,
@@ -261,7 +256,7 @@ NtGdiSetPixel (
 	);
 BOOL
 STDCALL
-NtGdiSetPixelV (
+W32kSetPixelV (
 	HDC		hDC,
 	INT		X,
 	INT		Y,
@@ -269,7 +264,7 @@ NtGdiSetPixelV (
 	);
 BOOL
 STDCALL
-NtGdiStretchBlt (
+W32kStretchBlt (
 	HDC	hDCDest,
 	INT	XOriginDest,
 	INT	YOriginDest,
@@ -284,7 +279,7 @@ NtGdiStretchBlt (
 	);
 INT
 STDCALL
-NtGdiStretchDIBits (
+W32kStretchDIBits (
 	HDC			hDC,
 	INT			XDest,
 	INT			YDest,
@@ -299,22 +294,5 @@ NtGdiStretchDIBits (
 	UINT			Usage,
 	DWORD			ROP
 	);
-
-BOOL
-STDCALL
-NtGdiTransparentBlt(
-	HDC			hdcDst,
-	INT			xDst,
-	INT			yDst,
-	INT			cxDst,
-	INT			cyDst,
-	HDC			hdcSrc,
-	INT			xSrc,
-	INT			ySrc,
-	INT			cxSrc,
-	INT			cySrc,
-	COLORREF	TransColor
-	);
-
 #endif
 

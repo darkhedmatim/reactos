@@ -1,4 +1,4 @@
-/* $Id: registry.c,v 1.28 2004/03/20 15:56:00 ekohl Exp $
+/* $Id: registry.c,v 1.15 2002/06/17 15:42:30 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -13,12 +13,15 @@
  * TODO:
  *   - finish RtlQueryRegistryValues()
  *	- support RTL_QUERY_REGISTRY_DELETE
+ *
+ *   - finish RtlFormatCurrentUserKeyPath()
  */
 
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
+#include <ntdll/registry.h>
 #include <ntos/minmax.h>
 
 #define NDEBUG
@@ -27,129 +30,6 @@
 
 /* FUNCTIONS ***************************************************************/
 
-static NTSTATUS
-RtlpGetRegistryHandle(ULONG RelativeTo,
-		      PWSTR Path,
-		      BOOLEAN Create,
-		      PHANDLE KeyHandle)
-{
-  UNICODE_STRING KeyPath;
-  UNICODE_STRING KeyName;
-  WCHAR KeyBuffer[MAX_PATH];
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  NTSTATUS Status;
-
-  DPRINT("RtlpGetRegistryHandle()\n");
-
-  if (RelativeTo & RTL_REGISTRY_HANDLE)
-    {
-      Status = NtDuplicateObject(NtCurrentProcess(),
-				 (HANDLE)Path,
-				 NtCurrentProcess(),
-				 KeyHandle,
-				 0,
-				 FALSE,
-				 DUPLICATE_SAME_ACCESS);
-      return(Status);
-    }
-
-  if (RelativeTo & RTL_REGISTRY_OPTIONAL)
-    RelativeTo &= ~RTL_REGISTRY_OPTIONAL;
-
-  if (RelativeTo >= RTL_REGISTRY_MAXIMUM)
-    return(STATUS_INVALID_PARAMETER);
-
-  KeyName.Length = 0;
-  KeyName.MaximumLength = MAX_PATH;
-  KeyName.Buffer = KeyBuffer;
-  KeyBuffer[0] = 0;
-
-  switch (RelativeTo)
-    {
-      case RTL_REGISTRY_ABSOLUTE:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\");
-	break;
-
-      case RTL_REGISTRY_SERVICES:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\");
-	break;
-
-      case RTL_REGISTRY_CONTROL:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control\\");
-	break;
-
-      case RTL_REGISTRY_WINDOWS_NT:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\");
-	break;
-
-      case RTL_REGISTRY_DEVICEMAP:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\Registry\\Machine\\Hardware\\DeviceMap\\");
-	break;
-
-      case RTL_REGISTRY_USER:
-	Status = RtlFormatCurrentUserKeyPath (&KeyPath);
-	if (!NT_SUCCESS(Status))
-	  return(Status);
-	RtlAppendUnicodeStringToString (&KeyName,
-					&KeyPath);
-	RtlFreeUnicodeString (&KeyPath);
-	RtlAppendUnicodeToString (&KeyName,
-				  L"\\");
-	break;
-
-      /* ReactOS specific */
-      case RTL_REGISTRY_ENUM:
-	RtlAppendUnicodeToString(&KeyName,
-				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
-	break;
-    }
-
-  DPRINT("KeyName %wZ\n", &KeyName);
-
-  if (Path[0] == L'\\' && RelativeTo != RTL_REGISTRY_ABSOLUTE)
-    {
-      Path++;
-    }
-  RtlAppendUnicodeToString(&KeyName,
-			   Path);
-
-  DPRINT("KeyName %wZ\n", &KeyName);
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     &KeyName,
-			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
-			     NULL,
-			     NULL);
-
-  if (Create == TRUE)
-    {
-      Status = NtCreateKey(KeyHandle,
-			   KEY_ALL_ACCESS,
-			   &ObjectAttributes,
-			   0,
-			   NULL,
-			   0,
-			   NULL);
-    }
-  else
-    {
-      Status = NtOpenKey(KeyHandle,
-			 KEY_ALL_ACCESS,
-			 &ObjectAttributes);
-    }
-
-  return(Status);
-}
-
-
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCheckRegistryKey(IN ULONG RelativeTo,
 		    IN PWSTR Path)
@@ -170,9 +50,6 @@ RtlCheckRegistryKey(IN ULONG RelativeTo,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCreateRegistryKey(IN ULONG RelativeTo,
 		     IN PWSTR Path)
@@ -193,20 +70,17 @@ RtlCreateRegistryKey(IN ULONG RelativeTo,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDeleteRegistryValue(IN ULONG RelativeTo,
-		       IN PCWSTR Path,
-		       IN PCWSTR ValueName)
+		       IN PWSTR Path,
+		       IN PWSTR ValueName)
 {
   HANDLE KeyHandle;
   NTSTATUS Status;
   UNICODE_STRING Name;
 
   Status = RtlpGetRegistryHandle(RelativeTo,
-				 (PWSTR)Path,
+				 Path,
 				 FALSE,
 				 &KeyHandle);
   if (!NT_SUCCESS(Status))
@@ -224,95 +98,16 @@ RtlDeleteRegistryValue(IN ULONG RelativeTo,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
-RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
+RtlFormatCurrentUserKeyPath(PUNICODE_STRING KeyPath)
 {
-  HANDLE TokenHandle;
-  UCHAR Buffer[256];
-  PSID_AND_ATTRIBUTES SidBuffer;
-  ULONG Length;
-  UNICODE_STRING SidString;
-  NTSTATUS Status;
-
-  DPRINT ("RtlFormatCurrentUserKeyPath() called\n");
-
-  Status = NtOpenThreadToken (NtCurrentThread (),
-			      TOKEN_READ,
-			      TRUE,
-			      &TokenHandle);
-  if (!NT_SUCCESS (Status))
-    {
-      if (Status != STATUS_NO_TOKEN)
-	{
-	  DPRINT1 ("NtOpenThreadToken() failed (Status %lx)\n", Status);
-	  return Status;
-	}
-
-      Status = NtOpenProcessToken (NtCurrentProcess (),
-				   TOKEN_READ,
-				   &TokenHandle);
-      if (!NT_SUCCESS (Status))
-	{
-	  DPRINT1 ("NtOpenProcessToken() failed (Status %lx)\n", Status);
-	  return Status;
-	}
-    }
-
-  SidBuffer = (PSID_AND_ATTRIBUTES)Buffer;
-  Status = NtQueryInformationToken (TokenHandle,
-				    TokenUser,
-				    (PVOID)SidBuffer,
-				    256,
-				    &Length);
-  NtClose (TokenHandle);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("NtQueryInformationToken() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  Status = RtlConvertSidToUnicodeString (&SidString,
-					 SidBuffer[0].Sid,
-					 TRUE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1 ("RtlConvertSidToUnicodeString() failed (Status %lx)\n", Status);
-      return Status;
-    }
-
-  DPRINT ("SidString: '%wZ'\n", &SidString);
-
-  Length = SidString.Length + sizeof(L"\\Registry\\User\\");
-  DPRINT ("Length: %lu\n", Length);
-
-  KeyPath->Length = 0;
-  KeyPath->MaximumLength = Length;
-  KeyPath->Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
-				     0,
-				     KeyPath->MaximumLength);
-  if (KeyPath->Buffer == NULL)
-    {
-      DPRINT1 ("RtlAllocateHeap() failed\n");
-      RtlFreeUnicodeString (&SidString);
-      return STATUS_NO_TOKEN;
-    }
-
-  RtlAppendUnicodeToString (KeyPath,
-			    L"\\Registry\\User\\");
-  RtlAppendUnicodeStringToString (KeyPath,
-				  &SidString);
-  RtlFreeUnicodeString (&SidString);
-
-  return STATUS_SUCCESS;
+  /* FIXME: !!! */
+  RtlCreateUnicodeString(KeyPath,
+			 L"\\Registry\\User\\.Default");
+  return(STATUS_SUCCESS);
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlOpenCurrentUser(IN ACCESS_MASK DesiredAccess,
 		   OUT PHANDLE KeyHandle)
@@ -334,13 +129,12 @@ RtlOpenCurrentUser(IN ACCESS_MASK DesiredAccess,
 			 &ObjectAttributes);
       RtlFreeUnicodeString(&KeyPath);
       if (NT_SUCCESS(Status))
-	{
-	  return STATUS_SUCCESS;
-	}
+	return(STATUS_SUCCESS);
     }
 
-  RtlInitUnicodeString (&KeyPath,
-			L"\\Registry\\User\\.Default");
+  RtlInitUnicodeString(&KeyPath,
+		       L"\\Registry\\User\\.Default");
+
   InitializeObjectAttributes(&ObjectAttributes,
 			     &KeyPath,
 			     OBJ_CASE_INSENSITIVE,
@@ -349,17 +143,13 @@ RtlOpenCurrentUser(IN ACCESS_MASK DesiredAccess,
   Status = NtOpenKey(KeyHandle,
 		     DesiredAccess,
 		     &ObjectAttributes);
-
-  return Status;
+  return(Status);
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 RtlQueryRegistryValues(IN ULONG RelativeTo,
-		       IN PCWSTR Path,
+		       IN PWSTR Path,
 		       IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
 		       IN PVOID Context,
 		       IN PVOID Environment)
@@ -376,17 +166,15 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
   ULONG ResultSize;
   ULONG Index;
   ULONG StringLen;
-  ULONG ValueNameSize;
   PWSTR StringPtr;
   PWSTR ExpandBuffer;
-  PWSTR ValueName;
   UNICODE_STRING EnvValue;
   UNICODE_STRING EnvExpandedValue;
 
   DPRINT("RtlQueryRegistryValues() called\n");
 
   Status = RtlpGetRegistryHandle(RelativeTo,
-				 (PWSTR)Path,
+				 Path,
 				 FALSE,
 				 &BaseKeyHandle);
   if (!NT_SUCCESS(Status))
@@ -400,6 +188,15 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
   while ((QueryEntry->QueryRoutine != NULL) ||
 	 (QueryEntry->Name != NULL))
     {
+      if ((QueryEntry->QueryRoutine == NULL) &&
+	  ((QueryEntry->Flags & RTL_QUERY_REGISTRY_SUBKEY) != 0))
+	{
+	  Status = STATUS_INVALID_PARAMETER;
+	  break;
+	}
+
+      DPRINT("Name: %S\n", QueryEntry->Name);
+
       if (((QueryEntry->Flags & (RTL_QUERY_REGISTRY_SUBKEY | RTL_QUERY_REGISTRY_TOPKEY)) != 0) &&
 	  (BaseKeyHandle != CurrentKeyHandle))
 	{
@@ -463,7 +260,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 
 		  SourceString = (PUNICODE_STRING)QueryEntry->DefaultData;
 		  ValueString = (PUNICODE_STRING)QueryEntry->EntryContext;
-		  if (ValueString->Buffer == NULL)
+		  if (ValueString->Buffer == 0)
 		    {
 		      ValueString->Length = SourceString->Length;
 		      ValueString->MaximumLength = SourceString->MaximumLength;
@@ -506,7 +303,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  ValueString = (PUNICODE_STRING)QueryEntry->EntryContext;
 		  if (ValueString->Buffer == NULL)
 		    {
-		      ValueString->MaximumLength = ValueInfo->DataLength;
+		      ValueString->MaximumLength = ValueInfo->DataLength + sizeof(WCHAR);
 		      ValueString->Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
 							    0,
 							    ValueString->MaximumLength);
@@ -518,7 +315,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		      ValueString->Buffer[0] = 0;
 		     }
 		  ValueString->Length = min(ValueInfo->DataLength,
-					    ValueString->MaximumLength) - sizeof(WCHAR);
+					    ValueString->MaximumLength - sizeof(WCHAR));
 		  memcpy(ValueString->Buffer,
 			 ValueInfo->Data,
 			 ValueString->Length);
@@ -544,7 +341,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  RtlInitUnicodeString(&EnvValue,
 				       (PWSTR)ValueInfo->Data);
 		  EnvExpandedValue.Length = 0;
-		  EnvExpandedValue.MaximumLength = ValueInfo->DataLength * 2;
+		  EnvExpandedValue.MaximumLength = ValueInfo->DataLength * 2 * sizeof(WCHAR);
 		  EnvExpandedValue.Buffer = ExpandBuffer;
 		  *ExpandBuffer = 0;
 
@@ -625,15 +422,12 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 				       &ResultSize);
 	      if (!NT_SUCCESS(Status))
 		{
-		  if (!(QueryEntry->Flags & RTL_QUERY_REGISTRY_REQUIRED))
-		    {
-		      Status = QueryEntry->QueryRoutine(QueryEntry->Name,
-							QueryEntry->DefaultType,
-							QueryEntry->DefaultData,
-							QueryEntry->DefaultLength,
-							Context,
-							QueryEntry->EntryContext);
-		    }
+		  Status = QueryEntry->QueryRoutine(QueryEntry->Name,
+						    QueryEntry->DefaultType,
+						    QueryEntry->DefaultData,
+						    QueryEntry->DefaultLength,
+						    Context,
+						    QueryEntry->EntryContext);
 		}
 	      else if ((ValueInfo->Type == REG_MULTI_SZ) &&
 		       !(QueryEntry->Flags & RTL_QUERY_REGISTRY_NOEXPAND))
@@ -681,7 +475,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 						&StringLen);
 
 		  StringLen = (wcslen(ExpandBuffer) + 1) * sizeof(WCHAR);
-		  Status = QueryEntry->QueryRoutine(QueryEntry->Name,
+		  Status = QueryEntry->QueryRoutine(FullValueInfo->Name,
 						    REG_SZ,
 						    (PVOID)ExpandBuffer,
 						    StringLen,
@@ -739,15 +533,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  Status = STATUS_NO_MEMORY;
 		  break;
 		}
-	      ValueNameSize = 256 * sizeof(WCHAR);
-	      ValueName = RtlAllocateHeap(RtlGetProcessHeap(),
-					  0,
-					  ValueNameSize);
-	      if (ValueName == NULL)
-	        {
-		  Status = STATUS_NO_MEMORY;
-		  break;
-		}
+
 	      Index = 0;
 	      while (TRUE)
 		{
@@ -772,28 +558,6 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		      break;
 		    }
 
-		  if (FullValueInfo->NameLength > ValueNameSize - sizeof(WCHAR))
-		    {
-		      /* Should not happen, because the name length is limited to 255 characters */
-		      RtlFreeHeap(RtlGetProcessHeap(),
-			          0,
-				  ValueName);
-		      ValueNameSize = FullValueInfo->NameLength + sizeof(WCHAR);
-		      ValueName = RtlAllocateHeap(RtlGetProcessHeap(),
-						  0,
-						  ValueNameSize);
-		      if (ValueName == NULL)
-		        {
-		          Status = STATUS_NO_MEMORY;
-		          break;
-		        }
-		    }
-
-		  memcpy(ValueName,
-			 FullValueInfo->Name,
-			 FullValueInfo->NameLength);
-		  ValueName[FullValueInfo->NameLength / sizeof(WCHAR)] = 0;
-
 		  DPRINT("FullValueInfo->Type: %lu\n", FullValueInfo->Type);
 		  if ((FullValueInfo->Type == REG_MULTI_SZ) &&
 		      !(QueryEntry->Flags & RTL_QUERY_REGISTRY_NOEXPAND))
@@ -803,7 +567,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		      while (*StringPtr != 0)
 			{
 			  StringLen = (wcslen(StringPtr) + 1) * sizeof(WCHAR);
-			  Status = QueryEntry->QueryRoutine(ValueName,
+			  Status = QueryEntry->QueryRoutine(QueryEntry->Name,
 							    REG_SZ,
 							    (PVOID)StringPtr,
 							    StringLen,
@@ -832,7 +596,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		      RtlInitUnicodeString(&EnvValue,
 					   StringPtr);
 		      EnvExpandedValue.Length = 0;
-		      EnvExpandedValue.MaximumLength = FullValueInfo->DataLength * 2;
+		      EnvExpandedValue.MaximumLength = FullValueInfo->DataLength * 2 * sizeof(WCHAR);
 		      EnvExpandedValue.Buffer = ExpandBuffer;
 		      *ExpandBuffer = 0;
 
@@ -842,7 +606,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 						    &StringLen);
 
 		      StringLen = (wcslen(ExpandBuffer) + 1) * sizeof(WCHAR);
-		      Status = QueryEntry->QueryRoutine(ValueName,
+		      Status = QueryEntry->QueryRoutine(FullValueInfo->Name,
 							REG_SZ,
 							(PVOID)ExpandBuffer,
 							StringLen,
@@ -855,7 +619,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    }
 		  else
 		    {
-		      Status = QueryEntry->QueryRoutine(ValueName,
+		      Status = QueryEntry->QueryRoutine(FullValueInfo->Name,
 							FullValueInfo->Type,
 							(PVOID)FullValueInfo + FullValueInfo->DataOffset,
 							FullValueInfo->DataLength,
@@ -874,9 +638,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 	      RtlFreeHeap(RtlGetProcessHeap(),
 			  0,
 			  FullValueInfo);
-	      RtlFreeHeap(RtlGetProcessHeap(),
-		          0,
-			  ValueName);
+
 	      if (!NT_SUCCESS(Status))
 		break;
 	    }
@@ -894,13 +656,10 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlWriteRegistryValue(IN ULONG RelativeTo,
-		      IN PCWSTR Path,
-		      IN PCWSTR ValueName,
+		      IN PWSTR Path,
+		      IN PWSTR ValueName,
 		      IN ULONG ValueType,
 		      IN PVOID ValueData,
 		      IN ULONG ValueLength)
@@ -910,7 +669,7 @@ RtlWriteRegistryValue(IN ULONG RelativeTo,
   UNICODE_STRING Name;
 
   Status = RtlpGetRegistryHandle(RelativeTo,
-				 (PWSTR)Path,
+				 Path,
 				 TRUE,
 				 &KeyHandle);
   if (!NT_SUCCESS(Status))
@@ -932,9 +691,6 @@ RtlWriteRegistryValue(IN ULONG RelativeTo,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtCreateKey(OUT HANDLE KeyHandle,
 		IN ACCESS_MASK DesiredAccess,
@@ -956,9 +712,6 @@ RtlpNtCreateKey(OUT HANDLE KeyHandle,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtEnumerateSubKey(IN HANDLE KeyHandle,
 		      OUT PUNICODE_STRING SubKeyName,
@@ -1014,9 +767,6 @@ RtlpNtEnumerateSubKey(IN HANDLE KeyHandle,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtMakeTemporaryKey(IN HANDLE KeyHandle)
 {
@@ -1024,9 +774,6 @@ RtlpNtMakeTemporaryKey(IN HANDLE KeyHandle)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtOpenKey(OUT HANDLE KeyHandle,
 	      IN ACCESS_MASK DesiredAccess,
@@ -1042,9 +789,6 @@ RtlpNtOpenKey(OUT HANDLE KeyHandle,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtQueryValueKey(IN HANDLE KeyHandle,
 		    OUT PULONG Type OPTIONAL,
@@ -1101,9 +845,6 @@ RtlpNtQueryValueKey(IN HANDLE KeyHandle,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlpNtSetValueKey(IN HANDLE KeyHandle,
 		  IN ULONG Type,
@@ -1120,6 +861,122 @@ RtlpNtSetValueKey(IN HANDLE KeyHandle,
 		       Type,
 		       Data,
 		       DataLength));
+}
+
+
+/* INTERNAL FUNCTIONS ******************************************************/
+
+NTSTATUS
+RtlpGetRegistryHandle(ULONG RelativeTo,
+		      PWSTR Path,
+		      BOOLEAN Create,
+		      PHANDLE KeyHandle)
+{
+  UNICODE_STRING KeyName;
+  WCHAR KeyBuffer[MAX_PATH];
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  NTSTATUS Status;
+
+  DPRINT("RtlpGetRegistryHandle()\n");
+
+  if (RelativeTo & RTL_REGISTRY_HANDLE)
+    {
+      Status = NtDuplicateObject(NtCurrentProcess(),
+				 (HANDLE)Path,
+				 NtCurrentProcess(),
+				 KeyHandle,
+				 0,
+				 FALSE,
+				 DUPLICATE_SAME_ACCESS);
+      return(Status);
+    }
+
+  if (RelativeTo & RTL_REGISTRY_OPTIONAL)
+    RelativeTo &= ~RTL_REGISTRY_OPTIONAL;
+
+  if (RelativeTo >= RTL_REGISTRY_MAXIMUM)
+    return(STATUS_INVALID_PARAMETER);
+
+  KeyName.Length = 0;
+  KeyName.MaximumLength = MAX_PATH;
+  KeyName.Buffer = KeyBuffer;
+  KeyBuffer[0] = 0;
+
+  switch (RelativeTo)
+    {
+      case RTL_REGISTRY_ABSOLUTE:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\");
+	break;
+
+      case RTL_REGISTRY_SERVICES:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\");
+	break;
+
+      case RTL_REGISTRY_CONTROL:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Control\\");
+	break;
+
+      case RTL_REGISTRY_WINDOWS_NT:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\");
+	break;
+
+      case RTL_REGISTRY_DEVICEMAP:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\Registry\\Machine\\Hardware\\DeviceMap\\");
+	break;
+
+      case RTL_REGISTRY_USER:
+	Status = RtlFormatCurrentUserKeyPath(&KeyName);
+	if (!NT_SUCCESS(Status))
+	  return(Status);
+	break;
+
+      /* ReactOS specific */
+      case RTL_REGISTRY_ENUM:
+	RtlAppendUnicodeToString(&KeyName,
+				 L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
+	break;
+    }
+
+  DPRINT("KeyName %wZ\n", &KeyName);
+
+  if (Path[0] == L'\\' && RelativeTo != RTL_REGISTRY_ABSOLUTE)
+    {
+      Path++;
+    }
+  RtlAppendUnicodeToString(&KeyName,
+			   Path);
+
+  DPRINT("KeyName %wZ\n", &KeyName);
+
+  InitializeObjectAttributes(&ObjectAttributes,
+			     &KeyName,
+			     OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
+			     NULL,
+			     NULL);
+
+  if (Create == TRUE)
+    {
+      Status = NtCreateKey(KeyHandle,
+			   KEY_ALL_ACCESS,
+			   &ObjectAttributes,
+			   0,
+			   NULL,
+			   0,
+			   NULL);
+    }
+  else
+    {
+      Status = NtOpenKey(KeyHandle,
+			 KEY_ALL_ACCESS,
+			 &ObjectAttributes);
+    }
+
+  return(Status);
 }
 
 /* EOF */

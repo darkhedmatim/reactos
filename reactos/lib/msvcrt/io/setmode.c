@@ -1,8 +1,8 @@
-/* $Id: setmode.c,v 1.9 2003/07/11 21:57:54 royce Exp $
+/* $Id: setmode.c,v 1.4 2002/05/07 22:31:25 hbirr Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/msvcrt/io/setmode.c
+ * FILE:        lib/crtdll/io/setmode.c
  * PURPOSE:     Sets the file translation mode
  * PROGRAMER:   Boudewijn Dekker
  * UPDATE HISTORY:
@@ -17,11 +17,8 @@
 #include <msvcrt/msvcrtdbg.h>
 
 
-/*
- * @implemented
- */
 int _setmode(int _fd, int _newmode)
 {
-    DPRINT("_setmod(fd %d, newmode %x)\n", _fd, _newmode);
-    return __fileno_setmode(_fd, _newmode);
+  DPRINT("_setmod(fd %d, newmode %x)\n", _fd, _newmode);
+  return __fileno_setmode(_fd, _newmode);
 }

@@ -30,8 +30,7 @@ _MmSafeCopyFromUserUnsafeStart:
 	/*
 	 * This is really a synthetic instruction since if we incur a
 	 * pagefault then eax will be set to an appropiate STATUS code
-	 */
-	cld 
+	 */ 
 	rep movsb
 
 _MmSafeCopyFromUserRestart:
@@ -70,8 +69,7 @@ _MmSafeCopyToUserUnsafeStart:
 	/*
 	 * This is really a synthetic instruction since if we incur a
 	 * pagefault then eax will be set to an appropiate STATUS code
-	 */
-	cld 
+	 */ 
 	rep movsb
 
 _MmSafeCopyToUserRestart:

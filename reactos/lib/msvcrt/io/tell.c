@@ -3,10 +3,12 @@
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 off_t _tell(int _file)
 {
-    return _lseek(_file, 0, SEEK_CUR);
+  return _lseek(_file, 0, SEEK_CUR);
+}
+
+__int64 _telli64(int _file)
+{
+  return _lseeki64(_file, 0, SEEK_CUR);
 }

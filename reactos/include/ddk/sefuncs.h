@@ -1,14 +1,6 @@
 #ifndef _INCLUDE_DDK_SEFUNCS_H
 #define _INCLUDE_DDK_SEFUNCS_H
-/* $Id: sefuncs.h,v 1.21 2004/08/03 19:20:38 ion Exp $ */
-
-#ifdef __NTOSKRNL__
-extern PACL EXPORTED SePublicDefaultDacl;
-extern PACL EXPORTED SeSystemDefaultDacl;
-#else
-extern PACL IMPORTED SePublicDefaultDacl;
-extern PACL IMPORTED SeSystemDefaultDacl;
-#endif
+/* $Id: sefuncs.h,v 1.17 2002/02/22 17:57:17 ekohl Exp $ */
 
 BOOLEAN STDCALL
 SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
@@ -35,112 +27,29 @@ SeAssignSecurity(IN PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
 		 IN PGENERIC_MAPPING GenericMapping,
 		 IN POOL_TYPE PoolType);
 
-NTSTATUS
-STDCALL
-SeAssignSecurityEx(
-	IN PSECURITY_DESCRIPTOR ParentDescriptor OPTIONAL,
-	IN PSECURITY_DESCRIPTOR ExplicitDescriptor OPTIONAL,
-	OUT PSECURITY_DESCRIPTOR *NewDescriptor,
-	IN GUID *ObjectType OPTIONAL,
-	IN BOOLEAN IsDirectoryObject,
-	IN ULONG AutoInheritFlags,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-	IN PGENERIC_MAPPING GenericMapping,
-	IN POOL_TYPE PoolType
-	);
+BOOLEAN STDCALL
+SeAuditingFileEvents(IN BOOLEAN AccessGranted,
+		     IN PSECURITY_DESCRIPTOR SecurityDescriptor);
 
-
-VOID
-STDCALL
-SeAuditHardLinkCreation(
-	IN PUNICODE_STRING FileName,
-	IN PUNICODE_STRING LinkName,
-	IN BOOLEAN bSuccess
-	);
-
-BOOLEAN
-STDCALL
-SeAuditingFileEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor
-	);
-
-BOOLEAN
-STDCALL
-SeAuditingFileEventsWithContext(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
-	);
-
-BOOLEAN
-STDCALL
-SeAuditingHardLinkEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor
-	);
-
-BOOLEAN
-STDCALL
-SeAuditingHardLinkEventsWithContext(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
-	);
-
-BOOLEAN
-STDCALL
-SeAuditingFileOrGlobalEvents(
-	IN BOOLEAN AccessGranted,
-	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext
-	);
-
-NTSTATUS
-STDCALL
-SeCaptureSecurityDescriptor(
-	IN PSECURITY_DESCRIPTOR OriginalSecurityDescriptor,
-	IN KPROCESSOR_MODE CurrentMode,
-	IN POOL_TYPE PoolType,
-	IN BOOLEAN CaptureIfKernel,
-	OUT PSECURITY_DESCRIPTOR *CapturedSecurityDescriptor
-	);
-
+BOOLEAN STDCALL
+SeAuditingFileOrGlobalEvents(IN BOOLEAN AccessGranted,
+			     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+			     IN PSECURITY_SUBJECT_CONTEXT SubjectContext);
 
 VOID STDCALL
 SeCaptureSubjectContext(OUT PSECURITY_SUBJECT_CONTEXT SubjectContext);
 
-VOID
-STDCALL
-SeCloseObjectAuditAlarm(
-	IN PVOID Object,
-	IN HANDLE Handle,
-	IN BOOLEAN PerformAction
-	);
-
-NTSTATUS
-STDCALL
-SeCreateAccessState(
-	PACCESS_STATE AccessState,
-	PVOID AuxData,
-	ACCESS_MASK Access,
-	PGENERIC_MAPPING GenericMapping
-	);
+NTSTATUS STDCALL
+SeCreateAccessState(OUT PACCESS_STATE AccessState,
+		    IN PVOID AuxData,
+		    IN ACCESS_MASK AccessMask,
+		    IN PGENERIC_MAPPING Mapping);
 
 NTSTATUS STDCALL
 SeCreateClientSecurity(IN struct _ETHREAD *Thread,
 		       IN PSECURITY_QUALITY_OF_SERVICE Qos,
 		       IN BOOLEAN RemoteClient,
 		       OUT PSECURITY_CLIENT_CONTEXT ClientContext);
-
-NTSTATUS
-STDCALL
-SeCreateClientSecurityFromSubjectContext(
-	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-	IN PSECURITY_QUALITY_OF_SERVICE ClientSecurityQos,
-	IN BOOLEAN ServerIsRemote,
-	OUT PSECURITY_CLIENT_CONTEXT ClientContext
-	);
 
 NTSTATUS STDCALL
 SeDeassignSecurity(IN OUT PSECURITY_DESCRIPTOR* SecurityDescriptor);
@@ -152,17 +61,6 @@ VOID STDCALL
 SeDeleteObjectAuditAlarm(IN PVOID Object,
 			 IN HANDLE Handle);
 
-NTSTATUS
-STDCALL
-SeFilterToken(
-	IN PACCESS_TOKEN ExistingToken,
-	IN ULONG Flags,
-	IN PTOKEN_GROUPS SidsToDisable OPTIONAL,
-	IN PTOKEN_PRIVILEGES PrivilegesToDelete OPTIONAL,
-	IN PTOKEN_GROUPS RestrictedSids OPTIONAL,
-	OUT PACCESS_TOKEN * FilteredToken
-	);
-
 VOID STDCALL
 SeFreePrivileges(IN PPRIVILEGE_SET Privileges);
 
@@ -170,19 +68,11 @@ VOID STDCALL
 SeImpersonateClient(IN PSECURITY_CLIENT_CONTEXT ClientContext,
 		    IN struct _ETHREAD *ServerThread OPTIONAL);
 
-NTSTATUS
-STDCALL
-SeImpersonateClientEx(
-	IN PSECURITY_CLIENT_CONTEXT ClientContext,
-	IN struct _ETHREAD *ServerThread OPTIONAL
-	);
-
 VOID STDCALL
 SeLockSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext);
 
 NTSTATUS STDCALL
 SeMarkLogonSessionForTerminationNotification(IN PLUID LogonId);
-
 
 VOID STDCALL
 SeOpenObjectAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
@@ -211,28 +101,9 @@ SePrivilegeCheck(IN OUT PPRIVILEGE_SET RequiredPrivileges,
 		 IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
 		 IN KPROCESSOR_MODE AccessMode);
 
-VOID
-STDCALL
-SePrivilegeObjectAuditAlarm(
-	IN HANDLE Handle,
-	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-	IN ACCESS_MASK DesiredAccess,
-	IN PPRIVILEGE_SET Privileges,
-	IN BOOLEAN AccessGranted,
-	IN KPROCESSOR_MODE CurrentMode
-	);
-
 NTSTATUS STDCALL
 SeQueryAuthenticationIdToken(IN PACCESS_TOKEN Token,
 			     OUT PLUID LogonId);
-
-NTSTATUS
-STDCALL
-SeQueryInformationToken(
-	IN PACCESS_TOKEN Token,
-	IN TOKEN_INFORMATION_CLASS TokenInformationClass,
-	OUT PVOID *TokenInformation
-	);
 
 NTSTATUS STDCALL
 SeQuerySecurityDescriptorInfo(IN PSECURITY_INFORMATION SecurityInformation,
@@ -240,24 +111,8 @@ SeQuerySecurityDescriptorInfo(IN PSECURITY_INFORMATION SecurityInformation,
 			      IN OUT PULONG Length,
 			      IN PSECURITY_DESCRIPTOR *ObjectsSecurityDescriptor);
 
-NTSTATUS
-STDCALL
-SeQuerySessionIdToken(
-	IN PACCESS_TOKEN,
-	IN PULONG pSessionId
-	);
-
-
 NTSTATUS STDCALL
 SeRegisterLogonSessionTerminatedRoutine(IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine);
-
-NTSTATUS
-STDCALL
-SeReleaseSecurityDescriptor(
-	IN PSECURITY_DESCRIPTOR CapturedSecurityDescriptor,
-	IN KPROCESSOR_MODE CurrentMode,
-	IN BOOLEAN CaptureIfKernelMode
-	);
 
 VOID STDCALL
 SeReleaseSubjectContext(IN PSECURITY_SUBJECT_CONTEXT SubjectContext);
@@ -274,42 +129,12 @@ SeSetSecurityDescriptorInfo(IN PVOID Object OPTIONAL,
 			    IN POOL_TYPE PoolType,
 			    IN PGENERIC_MAPPING GenericMapping);
 
-NTSTATUS
-STDCALL
-SeSetSecurityDescriptorInfoEx(
-	IN PVOID Object OPTIONAL,
-	IN PSECURITY_INFORMATION SecurityInformation,
-	IN PSECURITY_DESCRIPTOR ModificationDescriptor,
-	IN OUT PSECURITY_DESCRIPTOR *ObjectsSecurityDescriptor,
-	IN ULONG AutoInheritFlags,
-	IN POOL_TYPE PoolType,
-	IN PGENERIC_MAPPING GenericMapping
-	);
-
 BOOLEAN STDCALL
 SeSinglePrivilegeCheck(IN LUID PrivilegeValue,
 		       IN KPROCESSOR_MODE PreviousMode);
 
 SECURITY_IMPERSONATION_LEVEL STDCALL
 SeTokenImpersonationLevel(IN PACCESS_TOKEN Token);
-
-BOOLEAN
-STDCALL
-SeTokenIsAdmin(
-	IN PACCESS_TOKEN Token
-	);
-
-BOOLEAN
-STDCALL
-SeTokenIsRestricted(
-	IN PACCESS_TOKEN Token
-	);
-
-BOOLEAN
-STDCALL
-SeTokenIsWriteRestricted(
-	IN PACCESS_TOKEN Token
-	);
 
 TOKEN_TYPE STDCALL
 SeTokenType(IN PACCESS_TOKEN Token);

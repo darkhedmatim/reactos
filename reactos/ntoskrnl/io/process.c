@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: process.c,v 1.19 2004/08/21 20:55:41 tamlin Exp $
+/* $Id: process.c,v 1.12 2002/07/24 17:49:31 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -29,14 +29,13 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ps.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 PVOID STDCALL
 IoGetInitialStack(VOID)
 {
@@ -44,9 +43,6 @@ IoGetInitialStack(VOID)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoGetStackLimits(OUT PULONG LowLimit,
 		 OUT PULONG HighLimit)
@@ -55,22 +51,7 @@ IoGetStackLimits(OUT PULONG LowLimit,
   *HighLimit = (ULONG)NtCurrentTeb()->Tib.StackBase;
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-STDCALL
-IoIsSystemThread(
-    IN PETHREAD Thread
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
 
-/*
- * @implemented
- */
 PEPROCESS STDCALL
 IoThreadToProcess(IN PETHREAD Thread)
 {
@@ -78,9 +59,6 @@ IoThreadToProcess(IN PETHREAD Thread)
 }
 
 
-/*
- * @implemented
- */
 PEPROCESS STDCALL
 IoGetRequestorProcess(IN PIRP Irp)
 {
@@ -100,13 +78,11 @@ IoGetRequestorProcess(IN PIRP Irp)
  * RETURN VALUE
  * 	Previous value for the current thread's hard errors
  * 	processing policy.
- *
- * @implemented
  */
-BOOLEAN STDCALL
+BOOLEAN STDCALL EXPORTED
 IoSetThreadHardErrorMode(IN BOOLEAN HardErrorEnabled)
 {
-  BOOLEAN PreviousHEM = (BOOLEAN)(NtCurrentTeb()->HardErrorDisabled);
+  BOOLEAN PreviousHEM = NtCurrentTeb()->HardErrorDisabled;
 
   NtCurrentTeb()->HardErrorDisabled = ((TRUE == HardErrorEnabled) ? FALSE : TRUE);
 

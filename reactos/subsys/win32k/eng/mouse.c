@@ -1,526 +1,193 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: mouse.c,v 1.79 2004/12/12 17:56:52 weiden Exp $
- *
- * PROJECT:          ReactOS kernel
- * PURPOSE:          Mouse
- * FILE:             subsys/win32k/eng/mouse.c
- * PROGRAMER:        Casper S. Hornstrup (chorns@users.sourceforge.net)
- * REVISION HISTORY:
- *       06-06-2001  CSH  Created
- */
-/* INCLUDES ******************************************************************/
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/dc.h>
+#include "../../drivers/input/include/mouse.h"
+#include "objects.h"
 
-/* FUNCTIONS *****************************************************************/
+BOOLEAN SafetySwitch = FALSE, SafetySwitch2 = FALSE, MouseEnabled = FALSE;
+LONG mouse_x, mouse_y;
+UINT mouse_width = 0, mouse_height = 0;
 
-INT INTERNAL_CALL
-MouseSafetyOnDrawStart(SURFOBJ *SurfObj, LONG HazardX1,
-		       LONG HazardY1, LONG HazardX2, LONG HazardY2)
-/*
- * FUNCTION: Notify the mouse driver that drawing is about to begin in
- * a rectangle on a particular surface.
- */
+INT MouseSafetyOnDrawStart(PSURFOBJ SurfObj, PSURFGDI SurfGDI, LONG HazardX1, LONG HazardY1, LONG HazardX2, LONG HazardY2)
 {
+  RECTL MouseRect;
   LONG tmp;
-  GDIDEVICE *ppdev;
-  GDIPOINTER *pgp;
 
-  ASSERT(SurfObj != NULL);
+  if(SurfObj == NULL) return 0;
 
-  ppdev = GDIDEV(SurfObj);
-  
-  if(ppdev == NULL)
-    {
-      return(FALSE);
-    }
-  
-  pgp = &ppdev->Pointer;
+  if((SurfObj->iType != STYPE_DEVICE) || (MouseEnabled == FALSE)) return 0;
 
-  if (SPS_ACCEPT_NOEXCLUDE == pgp->Status ||
-      pgp->Exclude.right == -1)
-    {
-      return(FALSE);
-    }
+  if(HazardX1 > HazardX2) { tmp = HazardX2; HazardX2 = HazardX1; HazardX1 = tmp; }
+  if(HazardY1 > HazardY2) { tmp = HazardY2; HazardY2 = HazardY1; HazardY1 = tmp; }
 
-  if (HazardX1 > HazardX2)
-    {
-      tmp = HazardX2; HazardX2 = HazardX1; HazardX1 = tmp;
-    }
-  if (HazardY1 > HazardY2)
-    {
-      tmp = HazardY2; HazardY2 = HazardY1; HazardY1 = tmp;
-    }
-
-  if (pgp->Exclude.right >= HazardX1
-      && pgp->Exclude.left <= HazardX2
-      && pgp->Exclude.bottom >= HazardY1
-      && pgp->Exclude.top <= HazardY2)
-    {
-      if (0 != pgp->SafetyRemoveCount++)
-        {
-          return FALSE;
-        }
-      pgp->SafetySwitch = TRUE;
-      if (pgp->MovePointer)
-        pgp->MovePointer(SurfObj, -1, -1, NULL);
-      else
-        EngMovePointer(SurfObj, -1, -1, NULL);
-    }
-
-  return(TRUE);
-}
-
-INT INTERNAL_CALL
-MouseSafetyOnDrawEnd(SURFOBJ *SurfObj)
-/*
- * FUNCTION: Notify the mouse driver that drawing has finished on a surface.
- */
-{
-  GDIDEVICE *ppdev;
-  GDIPOINTER *pgp;
-
-  ASSERT(SurfObj != NULL);
-
-  ppdev = GDIDEV(SurfObj);
-  
-  if(ppdev == NULL)
-    {
-      return(FALSE);
-    }
-
-  pgp = &ppdev->Pointer;
-
-  if(SPS_ACCEPT_NOEXCLUDE == pgp->Status ||
-     pgp->Exclude.right == -1)
+  if( (mouse_x + mouse_width >= HazardX1)  && (mouse_x <= HazardX2) &&
+      (mouse_y + mouse_height >= HazardY1) && (mouse_y <= HazardY2) )
   {
-    return FALSE;
+    SurfGDI->MovePointer(SurfObj, -1, -1, &MouseRect);
+    SafetySwitch = TRUE;
   }
 
-  if (pgp->SafetySwitch)
-    {
-      if (1 < pgp->SafetyRemoveCount--)
-        {
-          /* Someone else removed it too, let them restore it */
-          return FALSE;
-        }
-      /* FIXME - this is wrong!!!!!! we must NOT access pgp->Pos from here, it's
-                 a private field for ENG/driver. This will paint the cursor to the
-                 wrong screen coordinates when a driver overrides DrvMovePointer()!
-                 We should store the coordinates before calling Drv/EngMovePointer()
-                 and Drv/EngSetPointerShape() separately in the GDIDEVICE structure
-                 or somewhere where ntuser can access it! */
-      if (pgp->MovePointer)
-        pgp->MovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-      else
-        EngMovePointer(SurfObj, pgp->Pos.x, pgp->Pos.y, &pgp->Exclude);
-     pgp->SafetySwitch = FALSE;
-    }
+  // Mouse is not allowed to move if GDI is busy drawing
+  SafetySwitch2 = TRUE;
 
-  return(TRUE);
+  return 1;
 }
 
-/* SOFTWARE MOUSE POINTER IMPLEMENTATION **************************************/
-
-VOID INTERNAL_CALL
-IntHideMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
+INT MouseSafetyOnDrawEnd(PSURFOBJ SurfObj, PSURFGDI SurfGDI)
 {
-   GDIPOINTER *pgp;
-   POINTL pt;
+  RECTL MouseRect;
 
-   ASSERT(ppdev);
-   ASSERT(DestSurface);
+  if(SurfObj == NULL) return 0;
 
-   pgp = &ppdev->Pointer;
+  if((SurfObj->iType != STYPE_DEVICE) || (MouseEnabled == FALSE)) return 0;
 
-   if (!pgp->Enabled)
-   {
-      return;
-   }
+  if(SafetySwitch == TRUE)
+  {
+    SurfGDI->MovePointer(SurfObj, mouse_x, mouse_y, &MouseRect);
+    SafetySwitch = FALSE;
+  }
 
-   pgp->Enabled = FALSE;
-   
-   pt.x = pgp->Pos.x - pgp->HotSpot.x;
-   pt.y = pgp->Pos.y - pgp->HotSpot.y;
+  SafetySwitch2 = FALSE;
 
-   if (pgp->SaveSurface != NULL)
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-      SURFOBJ *SaveSurface;
-      SURFOBJ *MaskSurface;
-
-      DestRect.left = max(pt.x, 0);
-      DestRect.top = max(pt.y, 0);
-      DestRect.right = min(
-         pt.x + pgp->Size.cx,
-         DestSurface->sizlBitmap.cx);
-      DestRect.bottom = min(
-         pt.y + pgp->Size.cy,
-         DestSurface->sizlBitmap.cy);
-
-      SrcPoint.x = max(-pt.x, 0);
-      SrcPoint.y = max(-pt.y, 0);
-
-      if((SaveSurface = EngLockSurface(pgp->SaveSurface)))
-      {
-        if((MaskSurface = EngLockSurface(pgp->MaskSurface)))
-        {
-          EngBitBlt(DestSurface, SaveSurface, MaskSurface, NULL, NULL,
-                    &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, SRCCOPY);
-          EngUnlockSurface(MaskSurface);
-        }
-        EngUnlockSurface(SaveSurface);
-      }
-   }
+  return 1;
 }
 
-VOID INTERNAL_CALL
-IntShowMousePointer(GDIDEVICE *ppdev, SURFOBJ *DestSurface)
+VOID MouseGDICallBack(PMOUSE_INPUT_DATA Data, ULONG InputCount)
 {
-   GDIPOINTER *pgp;
-   SURFOBJ *SaveSurface;
-   POINTL pt;
+  ULONG i;
+  LONG mouse_cx = 0, mouse_cy = 0;
+/*  HDC hDC = RetrieveDisplayHDC();
+  PDC dc = DC_HandleToPtr(hDC);
+  PSURFOBJ SurfObj = (PSURFOBJ)AccessUserObject(dc->Surface);
+  PSURFGDI SurfGDI = (PSURFGDI)AccessInternalObject(dc->Surface);
+  RECTL MouseRect; */
 
-   ASSERT(ppdev);
-   ASSERT(DestSurface);
+  PDEVICE_OBJECT ClassDeviceObject = NULL;
+  PFILE_OBJECT FileObject = NULL;
+  NTSTATUS status;
+  UNICODE_STRING ClassName;
+  IO_STATUS_BLOCK ioStatus;
+  KEVENT event;
+  PIRP irp;
 
-   pgp = &ppdev->Pointer;
+  // Compile the total mouse movement change
+  for (i=0; i<InputCount; i++)
+  {
+    mouse_cx += Data[i].LastX;
+    mouse_cy += Data[i].LastY;
+  }
 
-   if (pgp->Enabled)
-   {
-      return;
-   }
+  if((mouse_cx != 0) || (mouse_cy != 0))
+  {
+    mouse_x += mouse_cx;
+    mouse_y += mouse_cy;
 
-   pgp->Enabled = TRUE;
-   
-   pt.x = pgp->Pos.x - pgp->HotSpot.x;
-   pt.y = pgp->Pos.y - pgp->HotSpot.y;
+    if(mouse_x < 0) mouse_x = 0;
+    if(mouse_y < 0) mouse_y = 0;
+    if(mouse_x > 620) mouse_x = 620;
+    if(mouse_y > 460) mouse_y = 460;
 
-   /*
-    * Copy the pixels under the cursor to temporary surface.
-    */
-
-   if (pgp->SaveSurface != NULL &&
-       (SaveSurface = EngLockSurface(pgp->SaveSurface)))
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-
-      SrcPoint.x = max(pt.x, 0);
-      SrcPoint.y = max(pt.y, 0);
-
-      DestRect.left = SrcPoint.x - pt.x;
-      DestRect.top = SrcPoint.y - pt.y;
-      DestRect.right = min(
-         pgp->Size.cx,
-         DestSurface->sizlBitmap.cx - pt.x);
-      DestRect.bottom = min(
-         pgp->Size.cy,
-         DestSurface->sizlBitmap.cy - pt.y);
-
-      EngBitBlt(SaveSurface, DestSurface, NULL, NULL, NULL,
-                &DestRect, &SrcPoint, NULL, NULL, NULL, SRCCOPY);
-      EngUnlockSurface(SaveSurface);
-   }
-
-   /*
-    * Blit the cursor on the screen.
-    */
-
-   {
-      RECTL DestRect;
-      POINTL SrcPoint;
-      SURFOBJ *ColorSurf;
-      SURFOBJ *MaskSurf;
-
-      DestRect.left = max(pt.x, 0);
-      DestRect.top = max(pt.y, 0);
-      DestRect.right = min(
-         pt.x + pgp->Size.cx,
-         DestSurface->sizlBitmap.cx);
-      DestRect.bottom = min(
-         pt.y + pgp->Size.cy,
-         DestSurface->sizlBitmap.cy);
-
-      SrcPoint.x = max(-pt.x, 0);
-      SrcPoint.y = max(-pt.y, 0);
-
-      MaskSurf = EngLockSurface(pgp->MaskSurface);
-      if (MaskSurf != NULL)
-      {
-        if (pgp->ColorSurface != NULL)
-        {
-           if((ColorSurf = EngLockSurface(pgp->ColorSurface)))
-           {
-             EngBitBlt(DestSurface, ColorSurf, MaskSurf, NULL, pgp->XlateObject,
-                       &DestRect, &SrcPoint, &SrcPoint, NULL, NULL, 0xAACC);
-             EngUnlockSurface(ColorSurf);
-           }
-        }
-        else
-        {
-           EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCAND);
-           SrcPoint.y += pgp->Size.cy;
-           EngBitBlt(DestSurface, MaskSurf, NULL, NULL, pgp->XlateObject,
-                     &DestRect, &SrcPoint, NULL, NULL, NULL, SRCINVERT);
-        }
-        EngUnlockSurface(MaskSurf);
-      }
-   }
+    if((SafetySwitch == FALSE) && (SafetySwitch2 == FALSE)) ;
+/*      SurfGDI->MovePointer(SurfObj, mouse_x, mouse_y, &MouseRect); */
+  }
 }
 
+NTSTATUS ConnectMouseClassDriver()
+{
+   PDEVICE_OBJECT ClassDeviceObject = NULL;
+   PFILE_OBJECT FileObject = NULL;
+   NTSTATUS status;
+   UNICODE_STRING ClassName;
+   IO_STATUS_BLOCK ioStatus;
+   KEVENT event;
+   PIRP irp;
+   GDI_INFORMATION GDIInformation;
+
+   RtlInitUnicodeString(&ClassName, L"\\Device\\MouseClass");
+
+   status = IoGetDeviceObjectPointer(&ClassName, FILE_READ_ATTRIBUTES, &FileObject, &ClassDeviceObject);
+
+   if(status != STATUS_SUCCESS)
+   {
+      DbgPrint("Win32k: Could not connect to mouse class driver\n");
+      return status;
+   }
+
+   // Connect our callback to the class driver
+
+   KeInitializeEvent(&event, NotificationEvent, FALSE);
+
+   GDIInformation.CallBack = MouseGDICallBack;
+
+   irp = IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_MOUSE_CONNECT,
+      ClassDeviceObject, &GDIInformation, sizeof(CLASS_INFORMATION), NULL, 0, TRUE, &event, &ioStatus);
+
+   status = IoCallDriver(ClassDeviceObject, irp);
+
+   if (status == STATUS_PENDING) {
+      KeWaitForSingleObject(&event, Suspended, KernelMode, FALSE, NULL);
+   } else {
+      ioStatus.Status = status;
+   }
+
+   return ioStatus.Status;
+}
 /*
- * @implemented
- */
-
-ULONG STDCALL
-EngSetPointerShape(
-   IN SURFOBJ *pso,
-   IN SURFOBJ *psoMask,
-   IN SURFOBJ *psoColor,
-   IN XLATEOBJ *pxlo,
-   IN LONG xHot,
-   IN LONG yHot,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl,
-   IN FLONG fl)
+void TestMouse()
 {
-   GDIDEVICE *ppdev;
-   SURFOBJ *TempSurfObj;
-   GDIPOINTER *pgp;
+  HDC hDC = RetrieveDisplayHDC();
+  PDC dc = DC_HandleToPtr(hDC);
+  PSURFOBJ SurfObj = (PSURFOBJ)AccessUserObject(dc->Surface);
+  PSURFGDI SurfGDI = (PSURFGDI)AccessInternalObject(dc->Surface);
+  BOOL txt;
+  int i;
 
-   ASSERT(pso);
+  BRUSHOBJ Brush;
+  HBITMAP hMouseSurf;
+  PSURFOBJ MouseSurf;
+  SIZEL MouseSize;
+  POINTL ZeroPoint;
+  RECTL MouseRect;
 
-   ppdev = GDIDEV(pso);
-   pgp = &ppdev->Pointer;
+  // Draw a test mouse cursor
+  mouse_width  = 16;
+  mouse_height = 16;
 
-   IntHideMousePointer(ppdev, pso);
+  // Draw transparent colored rectangle
+  Brush.iSolidColor = 5;
+  for (i = 0; i < 17; i++)
+    EngLineTo(SurfObj, NULL, &Brush, 0, i, 17, i, NULL, 0);
 
-   if (pgp->ColorSurface != NULL)
-   {
-      /* FIXME: Is this really needed? */
-      if((TempSurfObj = EngLockSurface(pgp->ColorSurface)))
-      {
-        EngFreeMem(TempSurfObj->pvBits);
-        TempSurfObj->pvBits = 0;
-        EngUnlockSurface(TempSurfObj);
-      }
+  // Draw white interior
+  Brush.iSolidColor = 15;
+  for (i = 1; i < 16; i++)
+    EngLineTo(SurfObj, NULL, &Brush, 0, i-1, 16-i, i-1, NULL, 0);
 
-      EngDeleteSurface(pgp->ColorSurface);
-      pgp->MaskSurface = NULL;
-   }
+  // Draw black outline
+  Brush.iSolidColor = 0;
+  EngLineTo(SurfObj, NULL, &Brush, 0, 0, 15, 0, NULL, 0);
+  EngLineTo(SurfObj, NULL, &Brush, 0, 16, 15, 0, NULL, 0);
+  EngLineTo(SurfObj, NULL, &Brush, 0, 15, 0, 0, NULL, 0);
 
-   if (pgp->MaskSurface != NULL)
-   {
-      /* FIXME: Is this really needed? */
-      if((TempSurfObj = EngLockSurface(pgp->MaskSurface)))
-      {
-        EngFreeMem(TempSurfObj->pvBits);
-        TempSurfObj->pvBits = 0;
-        EngUnlockSurface(TempSurfObj);
-      }
+  // Create the bitmap for the mouse cursor data
+  MouseSize.cx = 16;
+  MouseSize.cy = 16;
+  hMouseSurf = EngCreateBitmap(MouseSize, 16, BMF_4BPP, 0, NULL);
+  MouseSurf = (PSURFOBJ)AccessUserObject(hMouseSurf);
 
-      EngDeleteSurface(pgp->MaskSurface);
-      pgp->MaskSurface = NULL;
-   }
+  // Capture the cursor we drew in the mouse cursor buffer
+  ZeroPoint.x = 0;
+  ZeroPoint.y = 0;
+  MouseRect.top = 0;
+  MouseRect.left = 0;
+  MouseRect.bottom = 16;
+  MouseRect.right = 16;
+  EngBitBlt(MouseSurf, SurfObj, NULL, NULL, NULL, &MouseRect, &ZeroPoint, NULL, NULL, NULL, 0);
+  SurfGDI->SetPointerShape(SurfObj, MouseSurf, NULL, NULL, 0, 0, 50, 50, &MouseRect, 0);
 
-   if (pgp->SaveSurface != NULL)
-   {
-      EngDeleteSurface(pgp->SaveSurface);
-      pgp->SaveSurface = NULL;
-   }
-
-   if (pgp->XlateObject != NULL)
-   {
-      EngDeleteXlate(pgp->XlateObject);
-      pgp->XlateObject = NULL;
-   }
-
-   /*
-    * See if we are being asked to hide the pointer.
-    */
-
-   if (psoMask == NULL)
-   {
-      return SPS_ACCEPT_NOEXCLUDE;
-   }
-
-   pgp->HotSpot.x = xHot;
-   pgp->HotSpot.y = yHot;
-
-   if (x != -1)
-   {
-     pgp->Pos.x = x;
-     pgp->Pos.y = y;
-   }
-   
-   pgp->Size.cx = abs(psoMask->lDelta) << 3;
-   pgp->Size.cy = (psoMask->cjBits / abs(psoMask->lDelta)) >> 1;
-
-   if (psoColor != NULL)
-   {
-      PBYTE Bits;
-
-      Bits = EngAllocMem(0, psoColor->cjBits, TAG_MOUSE);
-      memcpy(Bits, psoColor->pvBits, psoColor->cjBits);
-
-      pgp->ColorSurface = (HSURF)EngCreateBitmap(pgp->Size,
-         psoColor->lDelta, psoColor->iBitmapFormat,
-         psoColor->lDelta < 0 ? 0 : BMF_TOPDOWN, Bits);
-   }
-   else
-   {
-      pgp->ColorSurface = NULL;
-   }
-
-   {
-      SIZEL Size;
-      PBYTE Bits;
-
-      Size.cx = pgp->Size.cx;
-      Size.cy = pgp->Size.cy << 1;
-      Bits = EngAllocMem(0, psoMask->cjBits, TAG_MOUSE);
-      memcpy(Bits, psoMask->pvBits, psoMask->cjBits);
-
-      pgp->MaskSurface = (HSURF)EngCreateBitmap(Size,
-         psoMask->lDelta, psoMask->iBitmapFormat,
-         psoMask->lDelta < 0 ? 0 : BMF_TOPDOWN, Bits);
-   }
-
-   /*
-    * Create an XLATEOBJ that will be used for drawing masks.
-    * FIXME: We should get this in pxlo parameter!
-    */
-
-   if (pxlo == NULL)
-   {
-      HPALETTE BWPalette, DestPalette;
-      ULONG BWColors[] = {0, 0xFFFFFF};
-
-      BWPalette = EngCreatePalette(PAL_INDEXED, sizeof(BWColors) / sizeof(ULONG),
-         BWColors, 0, 0, 0);
-
-      DestPalette = ppdev->DevInfo.hpalDefault;
-      pgp->XlateObject = IntEngCreateXlate(0, PAL_INDEXED,
-         DestPalette, BWPalette);
-      EngDeletePalette(BWPalette);
-   }
-   else
-   {
-      pgp->XlateObject = pxlo;
-   }
-
-   /*
-    * Create surface for saving the pixels under the cursor.
-    */
-
-   {
-      LONG lDelta;
-
-      switch (pso->iBitmapFormat)
-      {
-         case BMF_1BPP:
-	   lDelta = pgp->Size.cx >> 3;
-	   break;
-         case BMF_4BPP:
-	   lDelta = pgp->Size.cx >> 1;
-	   break;
-         case BMF_8BPP:
-	   lDelta = pgp->Size.cx;
-	   break;
-         case BMF_16BPP:
-	   lDelta = pgp->Size.cx << 1;
-	   break;
-         case BMF_24BPP:
-	   lDelta = pgp->Size.cx * 3;
-	   break;
-         case BMF_32BPP:
-	   lDelta = pgp->Size.cx << 2;
-	   break;
-         default:
-	   lDelta = 0;
-	   break;
-      }
-
-      pgp->SaveSurface = (HSURF)EngCreateBitmap(
-         pgp->Size, lDelta, pso->iBitmapFormat, BMF_TOPDOWN | BMF_NOZEROINIT, NULL);
-   }
-
-   if(x != -1)
-   {
-     IntShowMousePointer(ppdev, pso);
-     
-     if (prcl != NULL)
-     {
-       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
-       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
-       prcl->right = prcl->left + pgp->Size.cx;
-       prcl->bottom = prcl->top + pgp->Size.cy;
-     }
-   }
-   
-   /* FIXME - touch prcl when x == -1? */
-
-   return SPS_ACCEPT_EXCLUDE;
+  // Connect the mouse class driver to the GDI
+  mouse_x = 50;
+  mouse_y = 50;
+  ConnectMouseClassDriver();
+  MouseEnabled = TRUE;
 }
-
-/*
- * @implemented
- */
-
-VOID STDCALL
-EngMovePointer(
-   IN SURFOBJ *pso,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl)
-{
-   GDIDEVICE *ppdev;
-   GDIPOINTER *pgp;
-
-   ASSERT(pso);
-
-   ppdev = GDIDEV(pso);
-
-   ASSERT(ppdev);
-   
-   pgp = &ppdev->Pointer;
-   
-   IntHideMousePointer(ppdev, pso);
-   if (x != -1)
-   {
-     pgp->Pos.x = x;
-     pgp->Pos.y = y;
-     IntShowMousePointer(ppdev, pso);
-     if (prcl != NULL)
-     {
-       prcl->left = pgp->Pos.x - pgp->HotSpot.x;
-       prcl->top = pgp->Pos.y - pgp->HotSpot.x;
-       prcl->right = prcl->left + pgp->Size.cx;
-       prcl->bottom = prcl->top + pgp->Size.cy;
-     }
-   }
-   
-   /* FIXME - touch prcl when x == -1? */
-}
-
-/* EOF */
+*/

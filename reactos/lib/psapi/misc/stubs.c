@@ -1,37 +1,191 @@
-/* $Id: stubs.c,v 1.11 2004/11/06 11:45:47 weiden Exp $ */
-#include "precomp.h"
+/* $Id: stubs.c,v 1.2 2002/06/18 22:15:58 hyperion Exp $ */
+#include <windows.h>
+#include <psapi.h>
 
-#define NDEBUG
-#include <debug.h>
-
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetProcessMemoryInfo(HANDLE Process,
-                     PPROCESS_MEMORY_COUNTERS ppsmemCounters,
-                     DWORD cb)
+#if 0
+BOOL STDCALL EnumPageFiles(
+  PENUM_PAGE_CALLBACKW pCallbackRoutine,
+  LPVOID lpContext
+)
 {
-  DPRINT1("PSAPI: GetProcessMemoryInfo is UNIMPLEMENTED!\n");
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return FALSE;
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+#endif
+BOOL STDCALL EnumProcessModules(
+  HANDLE hProcess,      // handle to process
+  HMODULE *lphModule,   // array of module handles
+  DWORD cb,             // size of array
+  LPDWORD lpcbNeeded    // number of bytes required
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-QueryWorkingSet(HANDLE hProcess,
-                PVOID pv,
-                DWORD cb)
+DWORD STDCALL GetDeviceDriverBaseNameA(
+  LPVOID ImageBase,  // driver load address
+  LPSTR lpBaseName,  // driver base name buffer
+  DWORD nSize        // size of buffer
+)
 {
-  DPRINT1("PSAPI: QueryWorkingSet is UNIMPLEMENTED!\n");
-  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-  return FALSE;
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetDeviceDriverBaseNameW(
+  LPVOID ImageBase,  // driver load address
+  LPWSTR lpBaseName, // driver base name buffer
+  DWORD nSize        // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetDeviceDriverFileNameA(
+  LPVOID ImageBase,  // driver load address
+  LPSTR lpFilename,  // path buffer
+  DWORD nSize        // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetDeviceDriverFileNameW(
+  LPVOID ImageBase,  // driver load address
+  LPWSTR lpFilename, // path buffer
+  DWORD nSize        // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetMappedFileNameA(
+  HANDLE hProcess,    // handle to process
+  LPVOID lpv,         // address to verify
+  LPSTR lpFilename,   // file name buffer
+  DWORD nSize         // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetMappedFileNameW(
+  HANDLE hProcess,    // handle to process
+  LPVOID lpv,         // address to verify
+  LPWSTR lpFilename,  // file name buffer
+  DWORD nSize         // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetModuleBaseNameA(
+  HANDLE hProcess,    // handle to process
+  HMODULE hModule,    // handle to module
+  LPSTR lpBaseName,   // base name buffer
+  DWORD nSize         // maximum characters to retrieve
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetModuleBaseNameW(
+  HANDLE hProcess,    // handle to process
+  HMODULE hModule,    // handle to module
+  LPWSTR lpBaseName,  // base name buffer
+  DWORD nSize         // maximum characters to retrieve
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetModuleFileNameExA(
+  HANDLE hProcess,    // handle to process
+  HMODULE hModule,    // handle to module
+  LPSTR lpFilename,   // path buffer
+  DWORD nSize         // maximum characters to retrieve
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+DWORD STDCALL GetModuleFileNameExW(
+  HANDLE hProcess,    // handle to process
+  HMODULE hModule,    // handle to module
+  LPWSTR lpFilename,  // path buffer
+  DWORD nSize         // maximum characters to retrieve
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL GetModuleInformation(
+  HANDLE hProcess,         // handle to process
+  HMODULE hModule,         // handle to module
+  LPMODULEINFO lpmodinfo,  // information buffer
+  DWORD cb                 // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+#if 0
+BOOL STDCALL GetPerformanceInfo(
+  PPERFORMANCE_INFORMATION pPerformanceInformation, 
+  DWORD cb 
+
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+#endif
+BOOL STDCALL GetProcessMemoryInfo(
+  HANDLE Process,                          // handle to process
+  PPROCESS_MEMORY_COUNTERS ppsmemCounters, // buffer
+  DWORD cb                                 // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL GetWsChanges(
+  HANDLE hProcess,                         // handle to process
+  PPSAPI_WS_WATCH_INFORMATION lpWatchInfo, // buffer
+  DWORD cb                                 // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL InitializeProcessForWsWatch(
+  HANDLE hProcess  // handle to process
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
+}
+
+BOOL STDCALL QueryWorkingSet(
+  HANDLE hProcess,  // handle to process
+  PVOID pv,         // information buffer
+  DWORD cb          // size of buffer
+)
+{
+ SetLastError(ERROR_INVALID_FUNCTION);
+ return FALSE;
 }
 
 /* EOF */

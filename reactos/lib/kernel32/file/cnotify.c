@@ -1,4 +1,4 @@
-/* $Id: cnotify.c,v 1.11 2004/10/08 21:29:40 weiden Exp $
+/* $Id: cnotify.c,v 1.3 2001/03/31 01:17:29 dwelch Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -9,170 +9,74 @@
  *                  Created 01/11/98
  */
 
-#include <k32.h>
+#include <windows.h>
 
-#define NDEBUG
-#include "../include/debug.h"
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 FindCloseChangeNotification (HANDLE hChangeHandle)
 {
-   NTSTATUS Status = NtClose(hChangeHandle);
-   if(!NT_SUCCESS(Status))
-   {
-     SetLastErrorByStatus(Status);
-     return FALSE;
-   }
-   
-   return TRUE;
+  return FALSE;
 }
 
 
-/*
- * @implemented
- */
 HANDLE
 STDCALL
 FindFirstChangeNotificationA (
 	LPCSTR	lpPathName,
-	BOOL	bWatchSubtree,
+	WINBOOL	bWatchSubtree,
 	DWORD	dwNotifyFilter
 	)
 {
+#if 0
 	UNICODE_STRING PathNameU;
 	ANSI_STRING PathName;
-	HANDLE hNotify;
+	HANDLE Result;
 
 	RtlInitAnsiString (&PathName,
 	                   (LPSTR)lpPathName);
 
 	/* convert ansi (or oem) string to unicode */
 	if (bIsFileApiAnsi)
-   {
 		RtlAnsiStringToUnicodeString (&PathNameU,
 		                              &PathName,
 		                              TRUE);
-   }
 	else
-   {
 		RtlOemStringToUnicodeString (&PathNameU,
 		                             &PathName,
 		                             TRUE);
-   }
 
-   hNotify = FindFirstChangeNotificationW (PathNameU.Buffer,
-	                                        bWatchSubtree,
-	                                        dwNotifyFilter);
+	Result = FindFirstChangeNotificationW (PathNameU.Buffer,
+	                                       bWatchSubtree,
+	                                       dwNotifyFilter);
 
-   RtlFreeUnicodeString(&PathNameU);
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             RootPathNameU.Buffer);
 
-   return hNotify;
+	return Result;
+#endif
 }
 
 
-/*
- * @implemented
- */
 HANDLE
 STDCALL
 FindFirstChangeNotificationW (
 	LPCWSTR	lpPathName,
-	BOOL	bWatchSubtree,
+	WINBOOL	bWatchSubtree,
 	DWORD	dwNotifyFilter
 	)
 {
-   NTSTATUS Status;
-   UNICODE_STRING NtPathU;
-   IO_STATUS_BLOCK IoStatus;
-   OBJECT_ATTRIBUTES ObjectAttributes;
-   HANDLE hDir;
-
-   /*
-   RtlDosPathNameToNtPathName takes a fully qualified file name "C:\Projects\LoadLibrary\Debug\TestDll.dll" 
-   and returns something like "\??\C:\Projects\LoadLibrary\Debug\TestDll.dll."
-   If the file name cannot be interpreted, then the routine returns STATUS_OBJECT_PATH_SYNTAX_BAD and 
-   ends execution.
-   */
-
-   if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpPathName,
-                                          &NtPathU,
-                                          NULL,
-                                          NULL))
-   {
-      SetLastErrorByStatus(STATUS_OBJECT_PATH_SYNTAX_BAD);
-      return INVALID_HANDLE_VALUE;
-   }
-
-   InitializeObjectAttributes (&ObjectAttributes,
-                               &NtPathU,
-                               0,
-                               NULL,
-                               NULL);
-
-   Status = NtOpenFile (&hDir,
-                        SYNCHRONIZE|FILE_LIST_DIRECTORY,
-                        &ObjectAttributes,
-                        &IoStatus,
-                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-                        FILE_DIRECTORY_FILE);
-
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastErrorByStatus(Status);
-      return INVALID_HANDLE_VALUE;
-   }
-
-   Status = NtNotifyChangeDirectoryFile(hDir,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        &IoStatus,
-                                        NULL,//Buffer,
-                                        0,//BufferLength,
-                                        dwNotifyFilter,
-                                        bWatchSubtree);
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastErrorByStatus(Status);
-      return INVALID_HANDLE_VALUE;
-   }
-
-   return hDir;
+	return NULL;
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 FindNextChangeNotification (
 	HANDLE	hChangeHandle
 	)
 {
-   IO_STATUS_BLOCK IoStatus;
-   NTSTATUS Status;
-
-   Status = NtNotifyChangeDirectoryFile(hChangeHandle,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        &IoStatus,
-                                        NULL,//Buffer,
-                                        0,//BufferLength,
-                                        FILE_NOTIFY_CHANGE_SECURITY,//meaningless for subsequent calls, but must contain a valid flag(s)
-                                        0//meaningless for subsequent calls 
-                                        );
-   if (!NT_SUCCESS(Status))
-   {
-      SetLastErrorByStatus(Status);
-      return FALSE;
-   }
-
-   return TRUE;
+	return FALSE;
 }
 
 /* EOF */

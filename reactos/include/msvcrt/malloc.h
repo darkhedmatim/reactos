@@ -18,31 +18,31 @@
  *
  *  This code is distributed in the hope that it will be useful but
  *  WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
- *  DISCLAIMED. This includes but is not limited to warranties of
+ *  DISCLAMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.4 $
- * $Author: robd $
- * $Date: 2002/11/24 18:06:00 $
+ * $Revision: 1.1 $
+ * $Author: ekohl $
+ * $Date: 2001/07/03 12:55:00 $
  *
  */
 
-#ifndef __STRICT_ANSI__
+#ifndef	__STRICT_ANSI__
 
 #ifndef _MALLOC_H_
 #define _MALLOC_H_
 
 #include <msvcrt/alloc.h>
 
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 extern "C" {
 #endif
 
-int _heapchk(void);    /* Verify heap integrety. */
-int _heapmin(void);    /* Return unused heap to the OS. */
-int _heapset(unsigned int);
-size_t _msize(void*);
-void* _expand(void*, size_t);
+void *	_expand( void *memblock, size_t size );
+int	_heapchk (void);	/* Verify heap integrety. */
+int	_heapmin (void);	/* Return unused heap to the OS. */
+int	_heapset (unsigned int unFill);
+size_t	_msize (void* pBlock);
 
 #ifdef __cplusplus
 }

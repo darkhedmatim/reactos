@@ -1,24 +1,5 @@
-/*
- *  ReactOS W32 Subsystem
- *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/* $Id: bezier.c,v 1.9 2004/06/20 00:45:37 navaraf Exp $ */
-
-#include <w32k.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
 
 /******************************************************************
  * 
@@ -60,9 +41,9 @@
  * */
 
 #define BEZIERMIDDLE(Mid, P1, P2) \
-  (Mid).x=((P1).x+(P2).x + 1) >> 1;\
-  (Mid).y=((P1).y+(P2).y + 1) >> 1;
-
+  (Mid).x=((P1).x+(P2).x + 1)/2;\
+  (Mid).y=((P1).y+(P2).y + 1)/2;
+    
 /**********************************************************
 * BezierCheck helper function to check
 * that recursion can be terminated
@@ -71,67 +52,46 @@
 *       level is the recursion depth
 *       returns true if the recusion can be terminated
 */
-static BOOL FASTCALL BezierCheck( int level, POINT *Points)
+static BOOL BezierCheck( int level, POINT *Points)
 { 
   INT dx, dy;
 
   dx=Points[3].x-Points[0].x;
   dy=Points[3].y-Points[0].y;
-  if ( abs(dy) <= abs(dx) ) /* shallow line */
-  {
+  if(abs(dy)<=abs(dx)) {/* shallow line */
     /* check that control points are between begin and end */
-    if ( Points[1].x < Points[0].x )
-    {
-      if ( Points[1].x < Points[3].x )
-	return FALSE;
-    }
-    else if ( Points[1].x > Points[3].x )
-      return FALSE;
-    if ( Points[2].x < Points[0].x)
-    {
-      if ( Points[2].x < Points[3].x )
-	return FALSE;
-    }
-    else if ( Points[2].x > Points[3].x )
-      return FALSE;
-    dx = BEZIERSHIFTDOWN(dx);
-    if ( !dx )
-      return TRUE;
-    if ( abs(Points[1].y-Points[0].y-(dy/dx)*
-	BEZIERSHIFTDOWN(Points[1].x-Points[0].x)) > BEZIERPIXEL ||
-	abs(Points[2].y-Points[0].y-(dy/dx)*
-	BEZIERSHIFTDOWN(Points[2].x-Points[0].x)) > BEZIERPIXEL
-	)
-	return FALSE;
+    if(Points[1].x < Points[0].x){
+      if(Points[1].x < Points[3].x) return FALSE;
+    }else
+    if(Points[1].x > Points[3].x) return FALSE;
+    if(Points[2].x < Points[0].x) {
+      if(Points[2].x < Points[3].x) return FALSE;
+    } else
+      if(Points[2].x > Points[3].x) return FALSE;
+      dx=BEZIERSHIFTDOWN(dx);
+      if(!dx) return TRUE;
+      if(abs(Points[1].y-Points[0].y-(dy/dx)*
+        BEZIERSHIFTDOWN(Points[1].x-Points[0].x)) > BEZIERPIXEL ||
+        abs(Points[2].y-Points[0].y-(dy/dx)*
+        BEZIERSHIFTDOWN(Points[2].x-Points[0].x)) > BEZIERPIXEL) return FALSE;
       else
         return TRUE;
-  }
-  else
-  { /* steep line */
+    } else{ /* steep line */
       /* check that control points are between begin and end */
-      if(Points[1].y < Points[0].y)
-      {
-        if(Points[1].y < Points[3].y)
-	  return FALSE;
-      }
-      else if(Points[1].y > Points[3].y)
-	return FALSE;
-      if ( Points[2].y < Points[0].y )
-      {
-        if ( Points[2].y < Points[3].y )
-	  return FALSE;
-      }
-      else if ( Points[2].y > Points[3].y )
-	return FALSE;
-      dy = BEZIERSHIFTDOWN(dy);
-      if ( !dy )
-	return TRUE;
-      if ( abs(Points[1].x-Points[0].x-(dx/dy)*
+      if(Points[1].y < Points[0].y){
+        if(Points[1].y < Points[3].y) return FALSE;
+      } else
+        if(Points[1].y > Points[3].y) return FALSE;
+      if(Points[2].y < Points[0].y){
+        if(Points[2].y < Points[3].y) return FALSE;
+      } else
+        if(Points[2].y > Points[3].y) return FALSE;
+      dy=BEZIERSHIFTDOWN(dy);
+      if(!dy) return TRUE;
+      if(abs(Points[1].x-Points[0].x-(dx/dy)*
         BEZIERSHIFTDOWN(Points[1].y-Points[0].y)) > BEZIERPIXEL ||
         abs(Points[2].x-Points[0].x-(dx/dy)*
-        BEZIERSHIFTDOWN(Points[2].y-Points[0].y)) > BEZIERPIXEL
-	)
-	return FALSE;
+        BEZIERSHIFTDOWN(Points[2].y-Points[0].y)) > BEZIERPIXEL ) return FALSE;
       else
         return TRUE;
     }
@@ -140,12 +100,12 @@ static BOOL FASTCALL BezierCheck( int level, POINT *Points)
 /* Helper for GDI_Bezier.
  * Just handles one Bezier, so Points should point to four POINTs
  */
-static void STDCALL GDI_InternalBezier( POINT *Points, POINT **PtsOut, INT *dwOut,
+static void GDI_InternalBezier( POINT *Points, POINT **PtsOut, INT *dwOut,
 				INT *nPtsOut, INT level )
 {
   if(*nPtsOut == *dwOut) {
     *dwOut *= 2;
-    *PtsOut = ExAllocatePoolWithTag(PagedPool, *dwOut * sizeof(POINT), TAG_BEZIER);
+    *PtsOut = ExAllocatePool(NonPagedPool, *dwOut * sizeof(POINT));
   }
 
   if(!level || BezierCheck(level, Points)) {
@@ -200,7 +160,7 @@ static void STDCALL GDI_InternalBezier( POINT *Points, POINT **PtsOut, INT *dwOu
  *  alternative would be to call the function twice, once to determine the size
  *  and a second time to do the work - I decided this was too much of a pain].
  */
-POINT * FASTCALL GDI_Bezier( const POINT *Points, INT count, INT *nPtsOut )
+POINT *GDI_Bezier( const POINT *Points, INT count, INT *nPtsOut )
 {
   POINT *out;
   INT Bezier, dwOut = BEZIER_INITBUFSIZE, i;
@@ -209,7 +169,7 @@ POINT * FASTCALL GDI_Bezier( const POINT *Points, INT count, INT *nPtsOut )
     return NULL;
   }
   *nPtsOut = 0;
-  out = ExAllocatePoolWithTag(PagedPool, dwOut * sizeof(POINT), TAG_BEZIER);
+  out = ExAllocatePool(NonPagedPool, dwOut * sizeof(POINT));
   for(Bezier = 0; Bezier < (count-1)/3; Bezier++) {
     POINT ptBuf[4];
     memcpy(ptBuf, Points + Bezier * 3, sizeof(POINT) * 4);
@@ -222,4 +182,3 @@ POINT * FASTCALL GDI_Bezier( const POINT *Points, INT count, INT *nPtsOut )
 
   return out;
 }
-/* EOF */

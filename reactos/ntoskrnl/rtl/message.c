@@ -1,4 +1,4 @@
-/* $Id: message.c,v 1.8 2004/08/15 16:39:11 chorns Exp $
+/* $Id: message.c,v 1.2 2002/01/10 00:55:23 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,16 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlFindMessage(PVOID BaseAddress,
 	       ULONG Type,
@@ -32,7 +30,7 @@ RtlFindMessage(PVOID BaseAddress,
    PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry;
    PRTL_MESSAGE_RESOURCE_DATA MessageTable;
    NTSTATUS Status;
-   ULONG EntryOffset = 0, IdOffset = 0;
+   ULONG EntryOffset, IdOffset;
    PRTL_MESSAGE_RESOURCE_ENTRY MessageEntry;
 
    ULONG i;
