@@ -1,5 +1,4 @@
-/* $Id: ntddk.h,v 1.38 2003/12/30 17:39:38 fireball Exp $
- *
+/*
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
  * FILE:           include/ddk/ntddk.h
@@ -9,89 +8,68 @@
  *                 15/05/98: Created
  */
 
-#ifdef __USE_W32API
-
-#include_next <ddk/ntddk.h>
-
-#else /* __USE_W32API */
-
 #ifndef __NTDDK_H
 #define __NTDDK_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* INCLUDES ***************************************************************/
 
-#if defined(__GNUC__)
-#define FASTCALL  __attribute__((fastcall))
-#else
-#define FASTCALL __fastcall
-#endif
+#include <windows.h>
 
-#define STATIC static
+#define NT_SUCCESS(StatCode)  ((NTSTATUS)(StatCode) >= 0)
+#define NTKERNELAPI
 
-#ifndef _GNU_H_WINDOWS_H
-/* NASTY HACK! Our msvcrt are messed up, causing msvcrt.dll to crash when
- * the headers are mixed with MinGW msvcrt headers. Not including stdlib.h
- * seems to correct this.
- */
-#include <stdlib.h>
-#include <string.h>
-#endif
-#include <ntos/types.h>
-#include <ntos/time.h>
-#include <ntos/cdrom.h>
-#include <ntos/disk.h>
-#include <ntos/registry.h>
-#include <ntos/port.h>
-#include <ntos/synch.h>
-#include <napi/types.h>
+   #define CTL_CODE(Dev, Func, Meth, Acc) ( ((Dev)<<16) | ((Acc)<<14) | ((Func)<<2) | (Meth))
 
-#include <pe.h>
+//  IOCTL Parameter buffering methods
+#define METHOD_BUFFERED    0
+#define METHOD_IN_DIRECT   1
+#define METHOD_OUT_DIRECT  2
+#define METHOD_NEITHER     3
 
-#include <ddk/status.h>
-#include <ddk/ntdef.h>
+//  IOCTL File access type
+#define FILE_ANY_ACCESS    0
+#define FILE_READ_ACCESS   1
+#define FILE_WRITE_ACCESS  2
+
+#define QUAD_PART(LI)  (*(LONGLONG *)(&LI))
+
+enum {
+  STATUS_NOT_SUPPORTED = 9999,
+  STATUS_DISK_OPERATION_FAILED
+};
+
+#define  IO_DISK_INCREMENT  4
+
+#define  FILE_WORD_ALIGNMENT  0x0001
+
+#define  FILE_OPENED          0x0001
+   
 #include <ddk/defines.h>
 #include <ddk/types.h>
-#include <ddk/cmtypes.h>
-#include <ddk/ketypes.h>
-#include <ntos/security.h>
+#include <ddk/structs.h>
 #include <ddk/setypes.h>
-#include <ddk/mmtypes.h>
-#include <ddk/potypes.h>
-#include <ddk/pnptypes.h>
-#include <ddk/iotypes.h>
-#include <ddk/extypes.h>
-#include <ddk/pstypes.h>
-#include <ntos/ldrtypes.h>
-#include <ntos/zwtypes.h>
-#include <ddk/ioctrl.h>
-#include <ntos/rtltypes.h>
-#include <napi/shared_data.h>
-
-#include <ntos/zw.h>
-#include <ntos/rtl.h>
-#include <ddk/dbgfuncs.h>
-#include <ddk/ldrfuncs.h>
-#if defined(__NTOSKRNL__) || defined(__NTDRIVER__) || defined(__NTHAL__)
+   
+#include <internal/hal/ddk.h>
+   
+#include <ddk/rtl.h>
+#include <ddk/zw.h>
 #include <ddk/exfuncs.h>
-#include <ddk/halfuncs.h>
 #include <ddk/mmfuncs.h>
 #include <ddk/kefuncs.h>
-#include <ddk/pofuncs.h>
-#include <ddk/pnpfuncs.h>
-#include <ddk/iofuncs.h>
+#include <ddk/iofuncs.h> 
 #include <ddk/psfuncs.h>
 #include <ddk/obfuncs.h>
-#include <ddk/sefuncs.h>
-#endif /*__NTOSKRNL__ || __NTDRIVER__ || __NTHAL__ */
-
+   
+ULONG DbgPrint(PCH Format,...);   
+   
 #ifdef __cplusplus
-}
+};
 #endif
 
 #endif /* __NTDDK_H */
 
-#endif /* __USE_W32API */

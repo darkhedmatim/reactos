@@ -3,105 +3,99 @@
 #ifndef __INCLUDE_DDK_KETYPES_H
 #define __INCLUDE_DDK_KETYPES_H
 
-/* include ntos/ketypes.h here? */
-
-struct _KMUTANT;
-
 typedef LONG KPRIORITY;
-
-typedef LONG FLONG;
-
-typedef VOID STDCALL_FUNC
-(*PKBUGCHECK_CALLBACK_ROUTINE)(PVOID Buffer, ULONG Length);
-
-typedef BOOLEAN STDCALL_FUNC
-(*PKSYNCHRONIZE_ROUTINE)(PVOID SynchronizeContext);
+   
+typedef VOID (*PKBUGCHECK_CALLBACK_ROUTINE)(PVOID Buffer, ULONG Length);
+typedef BOOLEAN (*PKSYNCHRONIZE_ROUTINE)(PVOID SynchronizeContext);
 
 struct _KAPC;
 
-typedef VOID STDCALL_FUNC
-(*PKNORMAL_ROUTINE)(PVOID NormalContext,
-		    PVOID SystemArgument1,
-		    PVOID SystemArgument2);
+typedef VOID (*PKNORMAL_ROUTINE)(PVOID NormalContext,
+				 PVOID SystemArgument1,
+				 PVOID SystemArgument2);
+typedef VOID (*PKKERNEL_ROUTINE)(struct _KAPC* Apc,
+				PKNORMAL_ROUTINE* NormalRoutine,
+				PVOID* NormalContext,
+				PVOID* SystemArgument1,
+				PVOID* SystemArgument2);
+	      
+typedef VOID (*PKRUNDOWN_ROUTINE)(struct _KAPC* Apc);	      
 
-typedef VOID STDCALL_FUNC
-(*PKKERNEL_ROUTINE)(struct _KAPC* Apc,
-		    PKNORMAL_ROUTINE* NormalRoutine,
-		    PVOID* NormalContext,
-		    PVOID* SystemArgument1,
-		    PVOID* SystemArgument2);
+typedef struct
+/*
+ * PURPOSE: Object describing the wait a thread is currently performing
+ */
+{
+   LIST_ENTRY WaitListEntry;
+   struct _KTHREAD* Thread;
+   PVOID Object;
+   struct _KWAIT_BLOCK* NextWaitBlock;
+   USHORT WaitKey;
+   USHORT WaitType;
+} KWAIT_BLOCK, *PKWAIT_BLOCK;
 
-typedef VOID STDCALL_FUNC
-(*PKRUNDOWN_ROUTINE)(struct _KAPC* Apc);
 
-struct _DISPATCHER_HEADER;
 
-typedef enum _KERNEL_OBJECTS {
-	KNotificationEvent = 0,
-	KSynchronizationEvent = 1,
-	KMutant = 2,
-	KProcess = 3,
-	KQueue = 4,
-	KSemaphore = 5,
-	KThread = 6,
-	KNotificationTimer = 8,
-	KSynchronizationTimer = 9,
-	KApc = 18,
-	KDpc = 19,
-	KDeviceQueue = 20,
-	KEventPair = 21,
-	KInterrupt = 22,
-	KProfile = 23
-} KERNEL_OBJECTS;
-
-#include <pshpack1.h>
-
+typedef struct _ETHREAD
+/*
+ * PURPOSE: Describes a thread of execution
+ */
+{
+   CSHORT Type;
+   CSHORT Size;
+ 
+   /*
+    * PURPOSE: Head of the queue of apcs
+    */
+   LIST_ENTRY apc_queue_head;
+   
+   /*
+    * PURPOSE: Entry in the linked list of threads
+    */
+   LIST_ENTRY Entry;
+   
+   /*
+    * PURPOSE: Current state of the thread
+    */
+   ULONG State;
+   
+   /*
+    * PURPOSE: Priority modifier of the thread
+    */
+   ULONG Priority;
+   
+   /*
+    * PURPOSE: Pointer to our process
+    */
+   struct _EPROCESS* Process;
+   
+   /*
+    * PURPOSE: Handle of our process
+    */
+   HANDLE ProcessHandle;
+   
+   /*
+    * PURPOSE: Thread affinity mask
+    */
+   ULONG AffinityMask;
+   
+   /*
+    * PURPOSE: Saved thread context
+    */
+   hal_thread_state context;
+   
+} KTHREAD, *PKTHREAD, *PETHREAD;
+	      	      
 typedef struct _DISPATCHER_HEADER
 {
-   UCHAR      Type;
-   UCHAR      Absolute;
-   UCHAR      Size;
-   UCHAR      Inserted;
-   LONG       SignalState;
+   UCHAR Type;
+   UCHAR Absolute;
+   UCHAR Size;
+   UCHAR Inserted;
+   LONG SignalState;
    LIST_ENTRY WaitListHead;
-} DISPATCHER_HEADER, *PDISPATCHER_HEADER;
-
-#include <poppack.h>
-
-typedef struct _KQUEUE
-{
-   DISPATCHER_HEADER Header;
-   LIST_ENTRY        EntryListHead;
-   ULONG             CurrentCount;
-   ULONG             MaximumCount;
-   LIST_ENTRY        ThreadListHead;
-} KQUEUE, *PKQUEUE;
-
-struct _KDPC;
-
-typedef struct _KTIMER
- {
-    DISPATCHER_HEADER Header;
-    ULARGE_INTEGER DueTime;
-    LIST_ENTRY TimerListEntry;
-    struct _KDPC* Dpc;
-    LONG Period;
-} KTIMER, *PKTIMER;
-
-typedef ULONG_PTR KSPIN_LOCK, *PKSPIN_LOCK;
-
-typedef struct _KDEVICE_QUEUE
-{
-  CSHORT Type;
-  CSHORT Size;
-  LIST_ENTRY DeviceListHead;
-  KSPIN_LOCK Lock;
-  BOOLEAN Busy;
-} KDEVICE_QUEUE, *PKDEVICE_QUEUE;
-
-
-#include <pshpack2.h>
-
+} DISPATCHER_HEADER;
+	      
 typedef struct _KAPC
 {
    CSHORT Type;
@@ -120,27 +114,7 @@ typedef struct _KAPC
    BOOLEAN Inserted;
 } KAPC, *PKAPC;
 
-#include <poppack.h>
-
-#ifndef __USE_W32API
-
-#include <pshpack1.h>
-
-typedef struct _KAPC_STATE
-{
-   LIST_ENTRY ApcListHead[2];
-   struct _KPROCESS* Process;
-   UCHAR KernelApcInProgress;
-   UCHAR KernelApcPending;
-   UCHAR UserApcPending;
-   UCHAR Reserved;
-} KAPC_STATE, *PKAPC_STATE, *__restrict PRKAPC_STATE;
-
-#include <poppack.h>
-
-#endif /* __USE_W32API */
-
-typedef struct _KBUGCHECK_CALLBACK_RECORD
+typedef struct
 {
    LIST_ENTRY Entry;
    PKBUGCHECK_CALLBACK_ROUTINE CallbackRoutine;
@@ -150,64 +124,42 @@ typedef struct _KBUGCHECK_CALLBACK_RECORD
    ULONG Checksum;
    UCHAR State;
 } KBUGCHECK_CALLBACK_RECORD, *PKBUGCHECK_CALLBACK_RECORD;
-
-typedef struct _KMUTEX
+   
+typedef struct
 {
    DISPATCHER_HEADER Header;
    LIST_ENTRY MutantListEntry;
    struct _KTHREAD* OwnerThread;
    BOOLEAN Abandoned;
    UCHAR ApcDisable;
-} KMUTEX, *PKMUTEX, KMUTANT, *PKMUTANT;
-
-#include <pshpack1.h>
-
-typedef struct _KSEMAPHORE
+} KMUTEX, *PKMUTEX;
+   
+typedef struct
 {
    DISPATCHER_HEADER Header;
    LONG Limit;
-} KSEMAPHORE, *PKSEMAPHORE;
-
-#include <poppack.h>
+} KSEMAPHORE, *PKSEMAPHORE; 
 
 typedef struct _KEVENT
+/*
+ * PURPOSE: Describes an event
+ */
 {
+   /*
+    * PURPOSE: So we can use the general wait routine
+    */
    DISPATCHER_HEADER Header;
 } KEVENT, *PKEVENT;
 
-typedef struct _KEVENT_PAIR
-{
-   CSHORT Type;
-   CSHORT Size;
-   KEVENT LowEvent;
-   KEVENT HighEvent;
-} KEVENT_PAIR, *PKEVENT_PAIR;
 
+typedef struct _KSPIN_LOCK
+{
+   KIRQL irql;
+} KSPIN_LOCK, *PKSPIN_LOCK;
+
+typedef VOID (*PDRIVER_ADD_DEVICE)(VOID);
 
 struct _KDPC;
-
-typedef struct _KSPIN_LOCK_QUEUE {
-    struct _KSPIN_LOCK_QUEUE * volatile Next;
-    PKSPIN_LOCK volatile Lock;
-} KSPIN_LOCK_QUEUE, *PKSPIN_LOCK_QUEUE;
-
-typedef struct _KLOCK_QUEUE_HANDLE {
-    KSPIN_LOCK_QUEUE LockQueue;
-    KIRQL OldIrql;
-} KLOCK_QUEUE_HANDLE, *PKLOCK_QUEUE_HANDLE;
-
-typedef struct _KWAIT_BLOCK
-/*
- * PURPOSE: Object describing the wait a thread is currently performing
- */
-{
-   LIST_ENTRY WaitListEntry;
-   struct _KTHREAD* Thread;
-   struct _DISPATCHER_HEADER *Object;
-   struct _KWAIT_BLOCK* NextWaitBlock;
-   USHORT WaitKey;
-   USHORT WaitType;
-} KWAIT_BLOCK, *PKWAIT_BLOCK;
 
 /*
  * PURPOSE: Defines a delayed procedure call routine
@@ -217,162 +169,116 @@ typedef struct _KWAIT_BLOCK
  *      SystemArgument[1-2] = Undocumented. 
  * 
  */
-typedef VOID STDCALL_FUNC
-(*PKDEFERRED_ROUTINE)(struct _KDPC* Dpc,
-		      PVOID DeferredContext,
-		      PVOID SystemArgument1,
-		      PVOID SystemArgument2);
+typedef VOID (*PKDEFERRED_ROUTINE)(struct _KDPC* Dpc, PVOID DeferredContext, 
+			   PVOID SystemArgument1, PVOID SystemArgument2);
 
+typedef struct _KDPC
 /*
  * PURPOSE: Defines a delayed procedure call object
  */
-#include <pshpack1.h>
-
-typedef struct _KDPC
 {
+   /*
+    * PURPOSE: Magic value to check this is the current object type
+    */
    SHORT Type;
+   
+   /*
+    * PURPOSE: Target processor or zero if untargetted
+    */
    UCHAR Number;
+   
+   /*
+    * PURPOSE: Indication of desired latency before exection
+    */
    UCHAR Importance;
-   LIST_ENTRY DpcListEntry;
+   
+   LIST_ENTRY DpcListEntry; 
    PKDEFERRED_ROUTINE DeferredRoutine;
    PVOID DeferredContext;
    PVOID SystemArgument1;
    PVOID SystemArgument2;
-   PVOID DpcData;
+   
+   /*
+    * PURPOSE: If non-zero then already in queue
+    */
+   PULONG Lock;
+   
 } KDPC, *PKDPC;
 
-#include <poppack.h>
 
-typedef struct _KDPC_DATA {
-  LIST_ENTRY  DpcListHead;
-  ULONG  DpcLock;
-  ULONG  DpcQueueDepth;
-  ULONG  DpcCount;
-} KDPC_DATA, *PKDPC_DATA;
+typedef struct _KDEVICE_QUEUE
+{
+   LIST_ENTRY ListHead;
+   BOOLEAN Busy;
+   KSPIN_LOCK Lock;
+} KDEVICE_QUEUE, *PKDEVICE_QUEUE;
 
 typedef struct _KDEVICE_QUEUE_ENTRY
 {
-   LIST_ENTRY DeviceListEntry;
-   ULONG SortKey;
-   BOOLEAN Inserted;
+   LIST_ENTRY Entry;
+   ULONG Key;
 } KDEVICE_QUEUE_ENTRY, *PKDEVICE_QUEUE_ENTRY;
 
 typedef struct _WAIT_CONTEXT_BLOCK
 {
-  KDEVICE_QUEUE_ENTRY WaitQueueEntry;
-  /*
-   * XXX THIS IS WRONG XXX
-   *
-   * Our headers have enough circular dependancies that
-   * I can't figure out, given 5 minutes of testing, what
-   * order to include them in to get PDRIVER_CONTROL to be
-   * defined here.  The proper definition of the next item
-   * is:
-   *
-   * PDRIVER_CONTROL DeviceRoutine;
-   *
-   * but instead we use PVOID until headers are fixed.
-   */
-  PVOID DeviceRoutine;
-  PVOID DeviceContext;
-  ULONG NumberOfMapRegisters;
-  PVOID DeviceObject;
-  PVOID CurrentIrp;
-  PKDPC BufferChainingDpc;
 } WAIT_CONTEXT_BLOCK, *PWAIT_CONTEXT_BLOCK;
 
-typedef enum _KBUGCHECK_CALLBACK_REASON {
-    KbCallbackInvalid,
-    KbCallbackReserved1,
-    KbCallbackSecondaryDumpData,
-    KbCallbackDumpIo,
-} KBUGCHECK_CALLBACK_REASON;
 
-typedef
-VOID
-(*PKBUGCHECK_REASON_CALLBACK_ROUTINE) (
-    IN KBUGCHECK_CALLBACK_REASON Reason,
-    IN PVOID Record, // This should be struct _KBUGCHECK_REASON_CALLBACK_RECORD* but minggw doesn't want to allow that...
-    IN OUT PVOID ReasonSpecificData,
-    IN ULONG ReasonSpecificDataLength
-    );
+typedef struct _KTIMER
+{
+   /*
+    * Pointers to maintain the linked list of activated timers
+    */
+   LIST_ENTRY entry;
+   
+   /*
+    * Absolute expiration time in system time units
+    */
+   unsigned long long expire_time;
 
-typedef struct _KBUGCHECK_REASON_CALLBACK_RECORD {
-    LIST_ENTRY Entry;
-    PKBUGCHECK_REASON_CALLBACK_ROUTINE CallbackRoutine;
-    PUCHAR Component;
-    ULONG_PTR Checksum;
-    KBUGCHECK_CALLBACK_REASON Reason;
-    UCHAR State;
-} KBUGCHECK_REASON_CALLBACK_RECORD, *PKBUGCHECK_REASON_CALLBACK_RECORD;
+   /*
+    * Optional dpc associated with the timer 
+    */
+   PKDPC dpc;
+   
+   /*
+    * True if the timer is signaled
+    */
+   BOOLEAN signaled;
+   
+   /*
+    * True if the timer is in the system timer queue
+    */
+   BOOLEAN running;
+   
+   /*
+    * Type of the timer either Notification or Synchronization
+    */
+   TIMER_TYPE type;
+   
+   /*
+    * Period of the timer in milliseconds (zero if once-only)
+    */
+   ULONG period;
+   
+} KTIMER, *PKTIMER;
 
 struct _KINTERRUPT;
 
-typedef BOOLEAN STDCALL_FUNC
-(*PKSERVICE_ROUTINE)(struct _KINTERRUPT* Interrupt,
-		     PVOID ServiceContext);
-typedef struct _EPROCESS EPROCESS, *PEPROCESS;
+typedef BOOLEAN (*PKSERVICE_ROUTINE)(struct _KINTERRUPT* Interrupt, 
+			     PVOID ServiceContext);
 
-typedef HANDLE HSEMAPHORE;
-
-typedef HANDLE HDRVOBJ;
-
-typedef LONG FLOAT_LONG, *PFLOAT_LONG;
-
-typedef LONG FLOATL;
-
-typedef LONG FIX; /* fixed-point number */
-
-typedef struct _M128 {
-    ULONGLONG Low;
-    LONGLONG High;
-} M128, *PM128;
-
-typedef struct _KEXCEPTION_FRAME {
-    ULONG64 P1Home;
-    ULONG64 P2Home;
-    ULONG64 P3Home;
-    ULONG64 P4Home;
-    ULONG64 P5;
-    ULONG64 InitialStack;
-    M128 Xmm6;
-    M128 Xmm7;
-    M128 Xmm8;
-    M128 Xmm9;
-    M128 Xmm10;
-    M128 Xmm11;
-    M128 Xmm12;
-    M128 Xmm13;
-    M128 Xmm14;
-    M128 Xmm15;
-    ULONG64 TrapFrame;
-    ULONG64 CallbackStack;
-    ULONG64 OutputBuffer;
-    ULONG64 OutputLength;
-    UCHAR ExceptionRecord[64];
-    ULONG64 Fill1;
-    ULONG64 Rbp;
-    ULONG64 Rbx;
-    ULONG64 Rdi;
-    ULONG64 Rsi;
-    ULONG64 R12;
-    ULONG64 R13;
-    ULONG64 R14;
-    ULONG64 R15;
-    ULONG64 Return;
-} KEXCEPTION_FRAME, *PKEXCEPTION_FRAME;
-
-/* copied from W32API */
-typedef struct _KFLOATING_SAVE
+typedef struct _KINTERRUPT
 {
-  ULONG  ControlWord;
-  ULONG  StatusWord;
-  ULONG  ErrorOffset;
-  ULONG  ErrorSelector;
-  ULONG  DataOffset;
-  ULONG  DataSelector;
-  ULONG  Cr0NpxState;
-  ULONG  Spare1;
-} KFLOATING_SAVE, *PKFLOATING_SAVE;
+   ULONG Vector;
+   KAFFINITY ProcessorEnableMask;
+   PKSPIN_LOCK IrqLock;
+   BOOLEAN Shareable;
+   BOOLEAN FloatingSave;
+   PKSERVICE_ROUTINE ServiceRoutine;
+   PVOID ServiceContext;
+   LIST_ENTRY Entry;
+   KIRQL SynchLevel;
+} KINTERRUPT, *PKINTERRUPT;
 
 #endif /* __INCLUDE_DDK_KETYPES_H */
